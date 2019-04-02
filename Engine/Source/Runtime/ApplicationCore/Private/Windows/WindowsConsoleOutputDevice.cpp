@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Windows/WindowsConsoleOutputDevice.h"
 #include "Logging/LogMacros.h"
@@ -82,6 +82,10 @@ void FWindowsConsoleOutputDevice::Show( bool ShowWindow )
 			{
 				bIsAttached = true;
 			}
+			else
+			{
+				FWindowsPlatformMisc::SetGracefulTerminationHandler();
+			}
 			ConsoleHandle = GetStdHandle(OutputDeviceConstants::WIN_STD_OUTPUT_HANDLE);
 
 			if( ConsoleHandle != INVALID_HANDLE_VALUE )
@@ -150,9 +154,6 @@ void FWindowsConsoleOutputDevice::Show( bool ShowWindow )
 				ConsolePosY = FMath::Min(FMath::Max(ConsolePosY, DisplayMetrics.VirtualDisplayRect.Top), DisplayMetrics.VirtualDisplayRect.Bottom - BottomPadding);
 
 				::SetWindowPos( GetConsoleWindow(), HWND_TOP, ConsolePosX, ConsolePosY, 0, 0, SWP_NOSIZE | SWP_NOSENDCHANGING | SWP_NOZORDER );
-				
-				// set the control-c, etc handler
-				FPlatformMisc::SetGracefulTerminationHandler();
 			}
 		}
 	}
@@ -203,6 +204,9 @@ void FWindowsConsoleOutputDevice::Serialize( const TCHAR* Data, ELogVerbosity::T
 				}
 				TCHAR OutputString[MAX_SPRINTF]=TEXT(""); //@warning: this is safe as FCString::Sprintf only use 1024 characters max
 				FCString::Sprintf(OutputString,TEXT("%s%s"),*FOutputDeviceHelper::FormatLogLine(Verbosity, Category, Data, GPrintLogTimes,RealTime),LINE_TERMINATOR);
+
+				// WriteConsole blocks when user interacting with console window (text is selected, scrollbar held, etc..)
+				FSlowHeartBeatScope SuspendHeartBeat;
 				uint32 Written;
 				WriteConsole( ConsoleHandle, OutputString, FCString::Strlen(OutputString), (::DWORD*)&Written, NULL );
 

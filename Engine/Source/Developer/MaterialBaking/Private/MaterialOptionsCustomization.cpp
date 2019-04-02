@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MaterialOptionsCustomization.h"
 #include "MaterialOptions.h"
@@ -73,7 +73,7 @@ void FPropertyEntryCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> 
 void FPropertyEntryCustomization::UpdateRestrictions(const int32 EntryIndex)
 {	
 	PropertyRestriction->RemoveAll();
-	const UEnum* PropertyEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EMaterialProperty"));
+	const UEnum* PropertyEnum = StaticEnum<EMaterialProperty>();
 	if (CurrentOptions)
 	{	
 		// Add all previously set material properties to be disabled

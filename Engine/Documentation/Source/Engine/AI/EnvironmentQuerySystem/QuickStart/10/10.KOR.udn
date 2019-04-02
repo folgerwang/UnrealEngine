@@ -8,7 +8,7 @@ version: 4.9
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 단계](Engine/AI/EnvironmentQuerySystem/QuickStart/9 "%Engine/AI/EnvironmentQuerySystem/QuickStart/9:title%")
+		[이전 단계](Engine/AI/EnvironmentQuerySystem/QuickStart/9 "%Engine/AI/EnvironmentQuerySystem/QuickStart/9:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -23,7 +23,7 @@ version: 4.9
 
 
 
-인바이런먼트 쿼리는 구하는 액터 유형에 따라 다수의 아이템 생성이 가능하지만, Context (컨텍스트, 맥락)에 대해서는 생성해 주지 않습니다. 그래서 플레이어의 폰을 컨텍스트로 둘 필요가 있는데, 이 때 **EnvQueryContext_BlueprintBase** 가 쓰입니다.
+인바이런먼트 쿼리는 구하는 액터 유형에 따라 다수의 아이템 생성이 가능하지만, Context (컨텍스트)에 대해서는 생성해 주지 않습니다. 그래서 플레이어의 폰을 컨텍스트로 둘 필요가 있는데, 이 때 **EnvQueryContext_BlueprintBase** 가 쓰입니다.
 
 
 ## 단계

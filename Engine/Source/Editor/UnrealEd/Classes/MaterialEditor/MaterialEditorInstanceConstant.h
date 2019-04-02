@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /**
  * MaterialEditorInstanceConstant.h: This class is used by the material instance editor to hold a set of inherited parameters which are then pushed to a material instance.
@@ -299,6 +299,8 @@ class UNREALED_API UMaterialEditorInstanceConstant : public UObject
 	 */
 	void SetSourceInstance(UMaterialInstanceConstant* MaterialInterface);
 
+	void CopyBasePropertiesFromParent();
+
 	void SetSourceFunction(UMaterialFunctionInstance* MaterialFunction);
 
 	/** 
@@ -331,5 +333,10 @@ class UNREALED_API UMaterialEditorInstanceConstant : public UObject
 	UPROPERTY()
 	TArray<class UMaterialInstanceConstant*> StoredBlendPreviews;
 #endif
+
+	/** Whether or not we should show only overridden properties*/
+	bool bShowOnlyOverrides;
 };
+
+
 

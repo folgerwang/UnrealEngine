@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Misc/Guid.h"
@@ -94,13 +94,15 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStructSerializerTest, "System.Core.Serializati
 
 bool FStructSerializerTest::RunTest( const FString& Parameters )
 {
+	const EStructSerializerBackendFlags TestFlags = EStructSerializerBackendFlags::Default;
+
 	// json
 	{
 		TArray<uint8> Buffer;
 		FMemoryReader Reader(Buffer);
 		FMemoryWriter Writer(Buffer);
 
-		FJsonStructSerializerBackend SerializerBackend(Writer);
+		FJsonStructSerializerBackend SerializerBackend(Writer, TestFlags);
 		FJsonStructDeserializerBackend DeserializerBackend(Reader);
 
 		StructSerializerTest::TestSerialization(*this, SerializerBackend, DeserializerBackend);
@@ -114,7 +116,7 @@ bool FStructSerializerTest::RunTest( const FString& Parameters )
 		FMemoryReader Reader(Buffer);
 		FMemoryWriter Writer(Buffer);
 
-		FCborStructSerializerBackend SerializerBackend(Writer);
+		FCborStructSerializerBackend SerializerBackend(Writer, TestFlags);
 		FCborStructDeserializerBackend DeserializerBackend(Reader);
 
 		StructSerializerTest::TestSerialization(*this, SerializerBackend, DeserializerBackend);

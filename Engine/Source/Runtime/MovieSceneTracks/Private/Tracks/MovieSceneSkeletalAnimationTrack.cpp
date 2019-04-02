@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieSceneSkeletalAnimationTrack.h"
 #include "Evaluation/MovieSceneEvaluationCustomVersion.h"
@@ -87,6 +87,10 @@ bool UMovieSceneSkeletalAnimationTrack::SupportsMultipleRows() const
 	return true;
 }
 
+bool UMovieSceneSkeletalAnimationTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneSkeletalAnimationSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneSkeletalAnimationTrack::CreateNewSection()
 {

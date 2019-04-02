@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Evaluation/MovieScene3DTransformTemplate.h"
 #include "Tracks/MovieScene3DTransformTrack.h"
@@ -10,6 +10,7 @@
 #include "Channels/MovieSceneChannelProxy.h"
 #include "Evaluation/Blending/BlendableTokenStack.h"
 #include "Evaluation/Blending/MovieSceneBlendingActuatorID.h"
+#include "IMovieScenePlaybackClient.h"
 #include "Tracks/IMovieSceneTransformOrigin.h"
 
 DECLARE_CYCLE_STAT(TEXT("Transform Track Evaluate"), MovieSceneEval_TransformTrack_Evaluate, STATGROUP_MovieSceneEval);
@@ -91,7 +92,7 @@ struct FComponentTransformActuator : TMovieSceneBlendingActuator<F3DTransformTra
 
 	virtual void Actuate(FMovieSceneInterrogationData& InterrogationData, const F3DTransformTrackToken& InValue, const TBlendableTokenStack<F3DTransformTrackToken>& OriginalStack, const FMovieSceneContext& Context) const override
 	{
-		InterrogationData.Add(FTransform(InValue.Rotation.Quaternion(), InValue.Translation, InValue.Scale), UMovieScene3DTransformTrack::GetInterrogationKey());
+		InterrogationData.Add(FTransform(InValue.Rotation.Quaternion(), InValue.Translation, InValue.Scale), UMovieScene3DTransformSection::GetInterrogationKey());
 	}
 };
 
@@ -108,8 +109,10 @@ struct FComponentTransformPersistentData : IPersistentEvaluationData
 void FMovieSceneComponentTransformSectionTemplate::Initialize(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) const
 {
 	// If the global instance data implements a transform origin interface, use its transform as an origin for this transform
-	const UObject* InstanceData = Player.GetInstanceData();
-	const IMovieSceneTransformOrigin* RawInterface = Cast<IMovieSceneTransformOrigin>(InstanceData);
+	IMovieScenePlaybackClient*        PlaybackClient = Player.GetPlaybackClient();
+	UObject*                          InstanceData   = PlaybackClient ? PlaybackClient->GetInstanceData() : nullptr;
+	const IMovieSceneTransformOrigin* RawInterface   = Cast<IMovieSceneTransformOrigin>(InstanceData);
+
 	const bool bHasInterface = RawInterface || (InstanceData && InstanceData->GetClass()->ImplementsInterface(UMovieSceneTransformOrigin::StaticClass()));
 
 	if (bHasInterface && TemplateData.BlendType == EMovieSceneBlendType::Absolute)
@@ -227,11 +230,41 @@ FMovieScene3DTransformTemplateData::FMovieScene3DTransformTemplateData(const UMo
 	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::RotationY))		RotationCurve[1]	= *FloatChannels[4];
 	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::RotationZ))		RotationCurve[2]	= *FloatChannels[5];
 
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleX))			ScaleCurve[0]		= *FloatChannels[6];
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleY))			ScaleCurve[1]		= *FloatChannels[7];
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleZ))			ScaleCurve[2]		= *FloatChannels[8];
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleX))
+	{
+		ScaleCurve[0] = *FloatChannels[6];
+	}
+	else
+	{
+		ScaleCurve[0].SetDefault(1.0f);
+	}
 
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::Weight))			ManualWeight		= *FloatChannels[9];
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleY))
+	{
+		ScaleCurve[1] = *FloatChannels[7];
+	}
+	else
+	{
+		ScaleCurve[1].SetDefault(1.0f);
+	}
+
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleZ))
+	{
+		ScaleCurve[2] = *FloatChannels[8];
+	}
+	else
+	{
+		ScaleCurve[2].SetDefault(1.0f);
+	}
+
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::Weight))
+	{
+		ManualWeight = *FloatChannels[9];
+	}
+	else
+	{
+		ManualWeight.SetDefault(1.0f);
+	}
 }
 
 MovieScene::TMultiChannelValue<float, 9> FMovieScene3DTransformTemplateData::Evaluate(FFrameTime Time) const

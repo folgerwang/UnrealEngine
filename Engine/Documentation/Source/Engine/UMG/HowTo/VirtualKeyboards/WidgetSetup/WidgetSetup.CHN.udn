@@ -1,86 +1,101 @@
-﻿INTSourceChangelist:3102822
-Availability:Public
+﻿INTSourceChangelist:3782314
+Availability: Public
 Title:2.控件蓝图设置
 Crumbs: %ROOT%, Engine, Engine/UMG, Engine/UMG/HowTo
-Description:我们将在此处创建出现在关卡中的小键盘和小键盘显示控件。 
-Version:4.13
-SkillLevel:Advanced
+Description:在本文中，我们创建将在关卡中显示的键盘和键盘显示控件。 
+SkillLevel: Advanced
+tags:UMG UI Designer
+Order: 2
 
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[Previous Step](Engine\UMG\HowTo\VirtualKeyboards\CharacterSetup "%Engine\UMG\HowTo\VirtualKeyboards\CharacterSetup:title%")
+		[先前步骤](Engine\UMG\HowTo\VirtualKeyboards\CharacterSetup "%Engine\UMG\HowTo\VirtualKeyboards\CharacterSetup:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
 	[PARAM:home]
-		[Creating Virtual Keyboards](Engine\UMG\HowTo\VirtualKeyboards)
+		[创建虚拟键盘](Engine\UMG\HowTo\VirtualKeyboards)
 	[/PARAM]
 	[PARAM:next]
-		[Next Step](Engine\UMG\HowTo\VirtualKeyboards\ActorSetup "%Engine\UMG\HowTo\VirtualKeyboards\ActorSetup:title%")
+		[后续步骤](Engine\UMG\HowTo\VirtualKeyboards\ActorSetup "%Engine\UMG\HowTo\VirtualKeyboards\ActorSetup:title%")
 	[/PARAM]
 [/OBJECT]
 [/VAR]
 
 
 
-在此步中我们将创建互动式 UI 控件的布局，并对按键点击发生的情况编辑脚本。 
+在这一步，我们创建互动UI控件的布局和单击按钮时将运行的脚本。 
 
 
+(#steps)
 ## 步骤
 
-1.	打开 **KeypadDisplayWB**，用 **缩放框（Size Box）** 包裹的 **文本框（Text Box）** 替代层级中的 **Canvas Panel**。 
+1.	打开 **KeypadDisplayWB**，将层级中的 **画布面板（Canvas Panel）** 替换为 **文本框**，且在其外面包围 **缩放框**。 
 
 	![](Keypad04a.png)
 
-1.	将 **缩放框** 设为 **Desired on Screen** 并用 **100x50** 覆盖 **宽度** 和 **高度**。 
+1.	对于该 **缩放框**，设置为 **屏幕上需要（Desired on Screen）**，并将 **宽度（Width）** 和 **高度（Height）** 重设为 **100x50**。 
 
 	![](Keypad04.png)
 
-1.	将 **文本框** 的 **Hint Text** 设为 **1212** 并将 **Font Size** 调为 **28**。例如玩家必须使用小键盘输入文本 1212 才能完成成功输入，可根据需要使用任意数值。 
+1.	对于 **文本框**，将 **提示文本（Hint Text）** 设置为 **1212**，并将 **字体大小（Font Size）** 调整为 **28**。 
 
 	![](Keypad05.png)
 
-1.	打开 **KeypadWB** 并对 **层级** 进行设置，如下图所示创建 3 个按钮（按钮上的文本为 **0**、**1** 和 **2**）。还需要在层级中的每个按钮上按下 **F2** 修改按钮命名，以便辨认。 
+	在这个例子中，玩家必须使用键盘输入文本1212才能发出输入成功的信号，不过你可以使用你需要的任何值。 
+
+1.	打开 **KeypadWB**，将 **层级（Hierarchy）** 设置为创建3个按钮，分别带有文本 **0**、**1** 和 **2**，如下图所示。  
 
 	![](Keypad06.png)
+
+	你可能还需要在层级中的每个按钮上按 **F2**，将其名称更改为反映它们所代表的按钮。 
 	
-1.	添加第二个 **水平框**，内含两个带文本的 **按钮**，一个设为 **Del**，另一个设为 **Ent**。小键盘只拥有 3 个数字按钮，其他两个用于删除（**Del**）或提交（**Ent**）条目。 
+1.	添加第二个 **水平框**，其包含两个带文本的 **按钮**，一个设置为 **Del**，另一个设置为 **Ent**。 
 
 	![](Keypad07.png)
 
-1.	长按 **Ctrl** 选中每个按钮，然后将每个按钮的 **Is Focusable** 选项设为 **False**。为保证设置正常工作，需确保进行交互的其他控件不会从 Keypad Display 控件处移开焦点。如这些选项设为 true，点击按钮时焦点将从 Keypad Display 移开，转移到阻止按键和数值传递到 Keypad Display 的按钮上。 
+	我们的键盘上只有三个数字键，以及两个用来删除（**Del**）或提交（**Ent**）输入内容的键。 
+
+1.	按住 **Ctrl** 并选择你的每个按钮，然后将每个按钮的 **可聚焦（Is Focusable）** 选项设置为 **False**。 
 
 	![](Keypad08.png)
 
-1.	在 **Graph** 上为每个按钮添加 **OnClicked** 事件。 
+	为了让我们的设置生效，我们需要确保与我们互动的其他任何控件都不会将焦点从Keypad Display控件上移开。如果我们将这些选项设置为true，那么当我们单击某个按钮时，焦点就会从Keypad Display控件转移到该按钮上，使我们无法将按键和值传递给Keypad Display控件。 
+
+1.	在 **图（Graph）** 上，为每个按钮添加 **OnClicked** 事件。 
 
 	![](Keypad09.png)
 
-1.	创建两个 **变量**，一个名为 **CharToSend** 的 **字符串** 类，一个名为 **WidgetInteraction** 的 **控件交互组件**。 
+1.	创建两个 **变量**，一个是 **字符串** 类型，名为 **CharToSend**，另一个是 **控件交互组件** 类型，名为 **WidgetInteraction**。 
 
 	![](Keypad10.png)
 
-1.	按住 **Alt** 拖入 **CharToSend**，再连接到 **OnClicked** 事件，然后对变量值进行如下设置。 
+1.	按住 **Alt** 将 **CharToSend** 拖入，连接到 **OnClicked** 事件，然后将变量值设置为Shown。 
 
 	![](Keypad11.png)
 
-1.	按住 **Ctrl** 拖入 **WidgetInteraction**，然后在其后执行 **WidgetInteraction**，并连接 **CharToSend** 和 **OnClicked** 事件。此处我们使用 **Send Key Char** 函数，因为 Slate 中的文本框未获取直接发送的键（例如它们无法识别 A 键已按下并发送 A）。它们将从 Send Char 获取信息，因此底层系统操作代码可执行此类操作，如确定 A 键按下时 Shift 是否为按下状态，或 A 键按下时 Caps Lock 是否为开启状态。 
+1.	按住 **Ctrl** 将 **WidgetInteraction** 拖入，然后从其拉出 **发送键字符（Send Key Char）**，连接 **CharToSend** 和 **OnClicked** 事件。 
 
 	![](Keypad12.png)
 
-1.	在 **Del** OnClicked 事件后，使用来自 **WidgetInteraction** 变量、设为 **Backspace** 的 **Press and Release Key**。 
+	我们在此处使用 **发送键字符（Send Key Char）** 功能作为Slate中的文本框，这使得键不会被直接发送给它们，例如他们不会识别出A键被按下并发送A。实际上它们只会侦听发送字符，而下级系统运算代码可以进行其他操作，例如确定Shift键是否在A键被按下的同时也被按下，或者按下A键时大写锁定是否被打开。 
+
+1.	从 **Del** OnClicked事件，使用 **按下并松开按键（Press and Release Key）** 设置为来自 **WidgetInteraction** 变量的 **Backspace**。 
 
 	![](Keypad13.png)
 
-1.	创建一个名为 **EnterPressed** 的 **事件调度器** 并从 **OnClicked(Ent)** 将其调用。 
+1.	创建一个名为 **EnterPressed** 的 **事件调度器**，并从 **OnClicked(Ent)** 调用它。 
 
 	![](Keypad14.png)
 
 
+(#endresult)
 ## 最终结果
 
-控件蓝图已设为显示小键盘和小键盘显示，下一步我们将把它们作为控件组件添加到 Actor 蓝图，使它们出现在关卡中。下一步完成后即可对系统进行测试，并在游戏进程中与两个元素进行交互。 
+我们的控件蓝图已设置为显示我们的键盘，接下来我们将把它们作为控件组件添加到Actor蓝图，这样就能让它们出现在我们的关卡中。 
+在下一步结束时，我们应该就能测试我们的系统，在游戏过程中与两个元素进行交互。 
+
 
 
 

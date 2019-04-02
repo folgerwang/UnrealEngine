@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -94,6 +94,8 @@ public:
 			OutValue = Value;
 		}
 	}
+
+	virtual void SerializeIntPacked(uint32& Value) override;
 
 	FORCEINLINE_DEBUGGABLE uint32 ReadInt(uint32 Max)
 	{
@@ -200,6 +202,9 @@ public:
 	void AppendDataFromChecked( FBitReader& Src );
 	void AppendDataFromChecked( uint8* Src, uint32 NumBits );
 	void AppendTo( TArray<uint8> &Buffer );
+
+	/** Counts the in-memory bytes used by this object */
+	virtual void CountMemory(FArchive& Ar) const;
 
 protected:
 

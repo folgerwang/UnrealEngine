@@ -1,17 +1,15 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3532405
 Availability: Docs
 Crumbs: %ROOT%
-Title: Brand Glossary
-Description: A glossary of key terms, which are used to describe the systems, features, and tools that belong to Unreal Engine 4 (UE4).
+Title: 品牌术语表
+Description: 用于描述虚幻引擎4（UE4）系统、功能及功能的重要术语表。
 Type: Reference
-Version: 4.17
+Version: 4.16
 Parent:BrandGlossary
 Order:8
 Tags:Brand Glossary
 
-Welcome to the Unreal Engine 4 (UE4) **Brand Glossary**. If you want to create user-facing resources for the UE4 community, this guide 
-helps you gain a better understanding of the terms being used to describe systems, features, and tools belonging to UE4. After reading 
-through this glossary, you'll also know how to properly spell and capitalize the terms we use to describe Unreal Engine.  
+欢迎了解虚幻引擎4(UE4) **品牌术语表**。若您希望为UE4社区创建面向用户的资源，本指南可帮助您更深入了解用于描述UE4系统、功能及工具的术语。在通读本术语表后，您还将了解如何正确拼写和大写用于描述虚幻引擎的术语。  
 
 <hr>
   
@@ -44,4 +42,4 @@ through this glossary, you'll also know how to properly spell and capitalize the
 
 ##HUD
 
-A HUD is a “heads-up display”, or the 2D on-screen display that is common in many games (for example, health bar, ammunition indicator, gun reticle, etc.) Each PlayerController typically has one of these.
+HUD是指“抬头显视”或二维屏幕显示，在许多游戏中较为常用（例如显示血条、弹药指示器、枪准星等）。每个玩家控制器通常都配有其中一种显示。

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Cascade.h"
 #include "Widgets/Text/STextBlock.h"
@@ -1665,6 +1665,14 @@ void FCascade::Tick(float DeltaTime)
 				bIsPendingReset = true;
 				ResetTime = TotalTime + ResetInterval;
 			}
+		}
+	}
+
+	if (CurveEditor.IsValid())
+	{
+		if (CurveEditor->GetNeedsRedraw())
+		{
+			CurveEditor->DrawViewport();
 		}
 	}
 

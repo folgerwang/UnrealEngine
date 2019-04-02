@@ -1,0 +1,46 @@
+Availability: Public
+Crumbs: 
+Title: Exporting Datasmith Content from 3ds Max
+Description: Describes how to export a 3ds Max scene to a Datasmith file that you can import into Unreal Engine.
+Type:how-to
+Version: 4.20
+Parent: Enterprise/Datasmith/SoftwareInteropGuides/3dsMax
+Order: 3
+SkillLevel:Beginner
+Tags: Enterprise
+Tags: 3DS Max
+Tags: how to
+Tags: Datasmith
+
+
+![](datasmith-setup-export-max.png)
+
+Once you've installed the Datasmith Exporter plugin for 3ds Max, you'll have a new *.UDATASMITH* file type available to you when you export a scene from 3ds Max.
+
+Follow the steps below in 3ds Max to export your scene using this new file type.
+
+1.  From the 3ds Max **File** menu, or the **MAX** menu at the far left of the main menu bar, choose **Export**.  
+    ![Select File to Export](3DS_Export_1.png "Select File to Export")
+1.  Set the following:  
+    ![Set folder, type and file name](3DS_Export_2.png "Set folder, type and file name")
+
+	1.  **Save in:** Choose a location for the new Datasmith file.
+	1.  **File Name:** Give your file a name.
+	1.  **Save as type:** Select **Unreal Datasmith (*.UDATASMITH)**
+
+1.  Click **Save**.
+1.  In the **Datasmith Export Options** window, choose **Visible objects** to include everything in your scene in the Datasmith file, or **Selection** to include only the objects you currently have selected.  
+    ![Export visible objects or selection](3DS_Export_3.png "Export visible objects or selection")
+1.  Click **OK**.
+
+After the export is completed, the exporter shows a report of any issues it found with your content — typically, these are notifications of things that the exporter couldn't translate perfectly, or that may not show up in the Unreal Engine in exactly the way they do in 3ds Max.
+
+![3ds Max conversion notes and warnings](3DS_Export_4a.png "3ds Max conversion notes and warnings")
+
+### End Result
+
+You should now be ready to try importing your new *.udatasmith* file into the Unreal Editor. See [Importing Datasmith Content into Unreal Engine 4](Enterprise/Datasmith/HowTo/ImportingContent).
+
+[REGION:note]
+Along with your new *.udatasmith* file, you'll see a folder that has the same name but with the suffix *_Assets*. If you move your *.udatasmith* file to a new location, make sure that you also move this folder to the same location.
+[/REGION]

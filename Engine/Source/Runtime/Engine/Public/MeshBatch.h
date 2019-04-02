@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -11,22 +11,58 @@
 
 class FLightCacheInterface;
 
+enum EPrimitiveIdMode
+{
+	/** 
+	 * PrimitiveId will be taken from the FPrimitiveSceneInfo corresponding to the FMeshBatch. 
+	 * Primitive data will then be fetched by supporting VF's from the GPUScene persistent PrimitiveBuffer.
+	 */
+	PrimID_FromPrimitiveSceneInfo		= 0,
+
+	/** 
+     * The renderer will upload Primitive data from the FMeshBatchElement's PrimitiveUniformBufferResource to the end of the GPUScene PrimitiveBuffer, and assign the offset to DynamicPrimitiveShaderDataIndex.
+	 * PrimitiveId for drawing will be computed as Scene->NumPrimitives + FMeshBatchElement's DynamicPrimitiveShaderDataIndex. 
+	 */
+	PrimID_DynamicPrimitiveShaderData	= 1,
+
+	/** 
+	 * PrimitiveId will always be 0.  Instancing not supported.  
+	 * View.PrimitiveSceneDataOverrideSRV must be set in this configuration to control what the shader fetches at PrimitiveId == 0.
+	 */
+	PrimID_ForceZero					= 2,
+
+	PrimID_Num							= 4,
+	PrimID_NumBits						= 2,
+};
+
 /**
  * A batch mesh element definition.
  */
 struct FMeshBatchElement
 {
-	/** Primitive uniform buffer to use for rendering. */
+	/** 
+	 * Primitive uniform buffer RHI
+	 * Must be null for vertex factories that manually fetch primitive data from scene data, in which case FPrimitiveSceneProxy::UniformBuffer will be used.
+	 */
+	FUniformBufferRHIParamRef PrimitiveUniformBuffer;
+
+	/** 
+	 * Primitive uniform buffer to use for rendering, used when PrimitiveUniformBuffer is null. 
+	 * This interface allows a FMeshBatchElement to be setup for a uniform buffer that has not been initialized yet, (TUniformBuffer* is known but not the FUniformBufferRHIParamRef)
+	 */
 	const TUniformBuffer<FPrimitiveUniformShaderParameters>* PrimitiveUniformBufferResource;
 
-	/** Used for lifetime management of a temporary uniform buffer, can be NULL. */
-	TUniformBufferRef<FPrimitiveUniformShaderParameters> PrimitiveUniformBuffer;
+	/** Assigned by renderer */
+	EPrimitiveIdMode PrimitiveIdMode : PrimID_NumBits + 1;
+
+	/** Assigned by renderer */
+	uint32 DynamicPrimitiveShaderDataIndex : 24;
 
 	const FIndexBuffer* IndexBuffer;
 
 	union 
 	{
-		/** If bIsSplineProxy, Instance runs, where number of runs is specified by NumInstances.  Run structure is [StartInstanceIndex, EndInstanceIndex]. */
+		/** If !bIsSplineProxy, Instance runs, where number of runs is specified by NumInstances.  Run structure is [StartInstanceIndex, EndInstanceIndex]. */
 		uint32* InstanceRuns;
 		/** If bIsSplineProxy, a pointer back to the proxy */
 		class FSplineMeshSceneProxy* SplineMeshSceneProxy;
@@ -34,6 +70,7 @@ struct FMeshBatchElement
 	const void* UserData;
 
 	uint32 FirstIndex;
+	/** When 0, IndirectArgsBuffer will be used. */
 	uint32 NumPrimitives;
 
 	/** Number of instances to draw.  If InstanceRuns is valid, this is actually the number of runs in InstanceRuns. */
@@ -61,7 +98,10 @@ struct FMeshBatchElement
 	FVertexBufferRHIParamRef IndirectArgsBuffer;
 
 	FMeshBatchElement()
-	:	PrimitiveUniformBufferResource(nullptr)
+	:	PrimitiveUniformBuffer(nullptr)
+	,	PrimitiveUniformBufferResource(nullptr)
+	,	PrimitiveIdMode(PrimID_FromPrimitiveSceneInfo)
+	,	DynamicPrimitiveShaderDataIndex(0)
 	,	IndexBuffer(nullptr)
 	,	InstanceRuns(nullptr)
 	,	UserData(nullptr)
@@ -92,8 +132,12 @@ struct FMeshBatch
 {
 	TArray<FMeshBatchElement,TInlineAllocator<1> > Elements;
 
+	/* Mesh Id in a primitive. Used for stable sorting of draws belonging to the same primitive. **/
+	uint16 MeshIdInPrimitive;
+
 	/** LOD index of the mesh, used for fading LOD transitions. */
 	int8 LODIndex;
+	uint8 SegmentIndex;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	/** Conceptual LOD index used for the LOD Coloration visualization. */
@@ -105,10 +149,19 @@ struct FMeshBatch
 
 	uint32 ReverseCulling : 1;
 	uint32 bDisableBackfaceCulling : 1;
-	uint32 CastShadow : 1;				// Wheter it can be used in shadow renderpasses.
-	uint32 bUseForMaterial : 1;	// Whether it can be used in renderpasses requiring material outputs.
-	uint32 bUseAsOccluder : 1;			// Whether it can be used in renderpasses only depending on the raw geometry (i.e. Depth Prepass).
-	uint32 bWireframe : 1;
+
+	/** 
+	 * Pass feature relevance flags.  Allows a proxy to submit fast representations for passes which can take advantage of it, 
+	 * for example separate index buffer for depth-only rendering since vertices can be merged based on position and ignore UV differences.
+	 */
+#if RHI_RAYTRACING
+	uint32 CastRayTracedShadow : 1;	// Whether it casts ray traced shadow.
+#endif
+	uint32 CastShadow		: 1;	// Whether it can be used in shadow renderpasses.
+	uint32 bUseForMaterial	: 1;	// Whether it can be used in renderpasses requiring material outputs.
+	uint32 bUseForDepthPass : 1;	// Whether it can be used in depth pass.
+	uint32 bUseAsOccluder	: 1;	// Hint whether this mesh is a good occluder.
+	uint32 bWireframe		: 1;
 	// e.g. PT_TriangleList(default), PT_LineList, ..
 	uint32 Type : PT_NumBits;
 	// e.g. SDPG_World (default), SDPG_Foreground
@@ -139,9 +192,6 @@ struct FMeshBatch
 	/** Whether the mesh batch should apply dithered LOD. */
 	uint32 bDitheredLODTransition : 1;
 
-	/** If bDitheredLODTransition and this is a dynamic mesh element, then this is the alpha for dither fade (static draw lists need to derive this later as it is changes every frame) */
-	float DitheredLODTransitionAlpha;
-
 	// can be NULL
 	const FLightCacheInterface* LCI;
 
@@ -170,6 +220,12 @@ struct FMeshBatch
 		const FMaterial* Mat = MaterialRenderProxy->GetMaterial(InFeatureLevel);
 
 		return Mat->IsDeferredDecal();
+	}
+
+	FORCEINLINE bool CastsDeepShadow(/*ERHIFeatureLevel::Type InFeatureLevel*/) const
+	{
+		const FMaterial* Mat = MaterialRenderProxy->GetMaterial(ERHIFeatureLevel::SM5);
+		return Mat->GetShadingModel() == EMaterialShadingModel::MSM_Hair;
 	}
 
 	FORCEINLINE bool IsMasked(ERHIFeatureLevel::Type InFeatureLevel) const
@@ -205,27 +261,25 @@ struct FMeshBatch
 		return Count;
 	}
 
-#if DO_CHECK
-	FORCEINLINE void CheckUniformBuffers() const
-	{
-		for( int32 ElementIdx=0;ElementIdx<Elements.Num();ElementIdx++ )
-		{
-			check(IsValidRef(Elements[ElementIdx].PrimitiveUniformBuffer) || Elements[ElementIdx].PrimitiveUniformBufferResource != NULL);
-		}
-	}
-#endif	
+	ENGINE_API void PreparePrimitiveUniformBuffer(const FPrimitiveSceneProxy* PrimitiveSceneProxy, ERHIFeatureLevel::Type FeatureLevel);
 
 	/** Default constructor. */
 	FMeshBatch()
-	:	LODIndex(INDEX_NONE)
+	:	MeshIdInPrimitive(0)
+	,	LODIndex(INDEX_NONE)
+	,	SegmentIndex(0xFF)
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	,	VisualizeLODIndex(INDEX_NONE)
 #endif
 	,	VisualizeHLODIndex(INDEX_NONE)
 	,	ReverseCulling(false)
 	,	bDisableBackfaceCulling(false)
+#if RHI_RAYTRACING
+	,	CastRayTracedShadow(true)
+#endif
 	,	CastShadow(true)
 	,   bUseForMaterial(true)
+	,	bUseForDepthPass(true)
 	,	bUseAsOccluder(true)
 	,	bWireframe(false)
 	,	Type(PT_TriangleList)
@@ -236,7 +290,6 @@ struct FMeshBatch
 	,	bSelectable(true)
 	,	bRequiresPerElementVisibility(false)
 	,	bDitheredLODTransition(false)
-	,   DitheredLODTransitionAlpha(0.0f)
 	,	LCI(NULL)
 	,	VertexFactory(NULL)
 	,	MaterialRenderProxy(NULL)
@@ -246,3 +299,13 @@ struct FMeshBatch
 		new(Elements) FMeshBatchElement;
 	}
 };
+
+struct FUniformBufferValue
+{
+	const FShaderParametersMetadata* Type = nullptr;
+	FUniformBufferRHIParamRef UniformBuffer;
+};
+
+
+
+

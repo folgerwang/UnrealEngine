@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,13 +7,22 @@
 #include "Modules/ModuleManager.h"
 #include "Templates/SubclassOf.h"
 
+class AActor;
+
+DECLARE_MULTICAST_DELEGATE(FOnVREditingModeEnter);
+DECLARE_MULTICAST_DELEGATE(FOnVREditingModeExit);
+
 /**
  * The public interface to this module
  */
 class IVREditorModule : public IModuleInterface
 {
-
 public:
+	/** @return a multicast delegate which is executed when VR mode starts. */
+	virtual FOnVREditingModeEnter& OnVREditingModeEnter() = 0;
+
+	/** @return a multicast delegate which is executed when VR mode stops. */
+	virtual FOnVREditingModeExit& OnVREditingModeExit() = 0;
 
 	/**
 	 * Singleton-like access to this module's interface.  This is just for convenience!
@@ -86,7 +95,7 @@ public:
 	*
 	* @param The new actor preview widget
 	*/
-	virtual void UpdateActorPreview(TSharedRef<class SWidget> InWidget, int32 Index) = 0;
+	virtual void UpdateActorPreview(TSharedRef<class SWidget> InWidget, int32 Index, AActor *Actor = nullptr) = 0;
 
 
 	/**
@@ -95,7 +104,7 @@ public:
 	* @param The new widget
 	* @param The label to use for the UI
 	*/
-	virtual void UpdateExternalUMGUI(TSubclassOf<class UUserWidget> InUMGClass, FName Name) = 0;
+	virtual void UpdateExternalUMGUI(TSubclassOf<class UUserWidget> InUMGClass, FName Name, FVector2D InSize = FVector2D::ZeroVector) = 0;
 
 	/**
 	* Update any external Slate UI spawned from the radial menu
@@ -103,7 +112,7 @@ public:
 	* @param The new widget
 	* @param The label to use for the UI
 	*/
-	virtual void UpdateExternalSlateUI(TSharedRef<SWidget> InSlateWidget, FName Name) = 0;
+	virtual void UpdateExternalSlateUI(TSharedRef<SWidget> InSlateWidget, FName Name, FVector2D InSize = FVector2D::ZeroVector) = 0;
 
 	/** Gets the radial menu extender.  This can be used to add your own menu items to the VR radial menu */
 	virtual TSharedPtr<class FExtender> GetRadialMenuExtender() = 0;

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -86,6 +86,7 @@ private:
 	TSharedRef<ITableRow> OnGenerateWidgetForList(FPolyMeshDataPtr InItem, const TSharedRef<STableViewBase>& OwnerTable);
 	bool CanImport() const;
 
+	void OnToggleAllItems(ECheckBoxState CheckType);
 	void OnItemDoubleClicked(FPolyMeshDataPtr ClickedItem);
 private:
 	UAbcImportSettings*	ImportSettings;

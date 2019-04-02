@@ -1,10 +1,12 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Engine/Scene.h"
 #include "BlendableManager.h"
+
+struct FImagePixelPipe;
 
 class UMaterialInstanceDynamic;
 class UMaterialInterface;
@@ -175,6 +177,12 @@ public:
 	// Current buffer visualization dumping settings
 	bool bBufferVisualizationDumpRequired;
 	FString BufferVisualizationDumpBaseFilename;
+
+	/**
+	 * A map of buffer visualization material names to visualization pipes onto which each intermediate render target will be pushed, if set.
+	 * Will always be used if set, regardless of r.BufferVisualizationDumpFrames
+	 */
+	TMap<FName, TSharedPtr<FImagePixelPipe, ESPMode::ThreadSafe>> BufferVisualizationPipes;
 
 	// Maintains a container with IBlendableInterface objects and their data
 	FBlendableManager BlendableManager;

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,20 +8,21 @@
 #include "DisplayClusterOperationMode.h"
 
 
-struct IDisplayClusterRenderManager;
-struct IDisplayClusterClusterManager;
-struct IDisplayClusterInputManager;
-struct IDisplayClusterConfigManager;
-struct IDisplayClusterGameManager;
+class IDisplayClusterRenderManager;
+class IDisplayClusterClusterManager;
+class IDisplayClusterInputManager;
+class IDisplayClusterConfigManager;
+class IDisplayClusterGameManager;
 
 
 /**
  * Public module interface
  */
-struct IDisplayCluster
+class IDisplayCluster
 	: public IModuleInterface
 {
-	static constexpr auto ModuleName = "DisplayCluster";
+public:
+	static constexpr auto ModuleName = TEXT("DisplayCluster");
 
 	virtual ~IDisplayCluster() = 0
 	{ }
@@ -96,4 +97,21 @@ struct IDisplayCluster
 	* @return Current game manager or nullptr
 	*/
 	virtual IDisplayClusterGameManager* GetGameMgr() const = 0;
+
+
+	/** Called before session start **/
+	DECLARE_EVENT(IDisplayCluster, FDisplayClusterBeforeStartSessionEvent);
+	virtual FDisplayClusterBeforeStartSessionEvent& OnDisplayClusterBeforeStartSession() = 0;
+
+	/** Called on session start **/
+	DECLARE_EVENT(IDisplayCluster, FDisplayClusterStartSessionEvent);
+	virtual FDisplayClusterStartSessionEvent& OnDisplayClusterStartSession() = 0;
+
+	/** Called on session end **/
+	DECLARE_EVENT(IDisplayCluster, FDisplayClusterEndSessionEvent);
+	virtual FDisplayClusterEndSessionEvent& OnDisplayClusterEndSession() = 0;
+
+	/** Called on DisplayCluster PreTick **/
+	DECLARE_EVENT(IDisplayCluster, FDisplayClusterPreTickEvent);
+	virtual FDisplayClusterPreTickEvent& OnDisplayClusterPreTick() = 0;
 };

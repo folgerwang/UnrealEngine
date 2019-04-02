@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ShaderCompilerCommon.h"
 #include "hlslcc.h"
@@ -17,43 +17,57 @@
 
 extern int _mesa_hlsl_debug;
 
-#if defined(_MSC_VER)
-	#define WIN32_LEAN_AND_MEAN 1
-	#include <Windows.h>
+static char* DebugBuffer = 0;
+#if WIN32
+#include <Windows.h>
+void dprintf(const char* Format, ...)
+{
+	const int BufSize = (1 << 20);
+	va_list Args;
+	int Count;
 
-	/** Debug output. */
-	void dprintf(const char* Format, ...)
+	if (DebugBuffer == nullptr)
 	{
-		const int BufSize = (1 << 20);
-		static char* Buf = 0;
-		va_list Args;
-		int Count;
-
-		if (Buf == 0)
-		{
-			Buf = (char*)malloc(BufSize);
-		}
-
-		va_start(Args, Format);
-		Count = vsnprintf_s(Buf, BufSize, _TRUNCATE, Format, Args);
-		va_end(Args);
-
-		if (Count < -1)
-		{
-			// Overflow, add a line feed and null terminate the string.
-			Buf[BufSize - 2] = '\n';
-			Buf[BufSize - 1] = 0;
-		}
-		else
-		{
-			// Make sure the string is null terminated.
-			Buf[Count] = 0;
-		}
-
-		OutputDebugString(Buf);
+		DebugBuffer = (char*)malloc(BufSize);
 	}
-#endif // #if defined(_MSC_VER)
 
+	va_start(Args, Format);
+#if WIN32
+	Count = vsnprintf_s(DebugBuffer, BufSize, _TRUNCATE, Format, Args);
+#else
+	Count = vsnprintf(DebugBuffer, BufSize, Format, Args);
+#endif
+	va_end(Args);
+
+	if (Count < -1)
+	{
+		// Overflow, add a line feed and null terminate the string.
+		DebugBuffer[BufSize - 2] = '\n';
+		DebugBuffer[BufSize - 1] = 0;
+	}
+	else
+	{
+		// Make sure the string is null terminated.
+		DebugBuffer[Count] = 0;
+	}
+
+//#if WIN32
+	OutputDebugStringA(DebugBuffer);
+//#elif __APPLE__
+//	syslog(LOG_DEBUG, "%s", DebugBuffer);
+//#endif
+	fprintf(stdout, "%s", DebugBuffer);
+}
+#endif
+
+void dprintf_free()
+{
+	if (DebugBuffer)
+	{
+		free(DebugBuffer);
+		DebugBuffer = nullptr;
+	}
+}
 
 static const _mesa_glsl_parser_targets FrequencyTable[] =
 {
@@ -329,6 +343,8 @@ bool FHlslCrossCompilerContext::RunBackend(
 		return false;
 	}
 
+	ParseState->bInBackEnd = true;
+
 	if (!InShaderBackEnd->GenerateMain(ShaderFrequency, InEntryPoint, ir, ParseState))
 	{
 		return false;
@@ -336,9 +352,19 @@ bool FHlslCrossCompilerContext::RunBackend(
 	//TIMER(gen_main);
 
 	//IRDump(ir);
-	if (!InShaderBackEnd->OptimizeAndValidate(ir, ParseState))
+	if (Flags & HLSLCC_DisableBackendOptimizations)
 	{
-		return false;
+		if (!InShaderBackEnd->Validate(ir, ParseState))
+		{
+			return false;
+		}
+	}
+	else
+	{
+		if (!InShaderBackEnd->OptimizeAndValidate(ir, ParseState))
+		{
+			return false;
+		}
 	}
 
 	// Fix the case where a variable is used with an atomic and also w/o an atomic access
@@ -356,9 +382,19 @@ bool FHlslCrossCompilerContext::RunBackend(
 			return false;
 		}
 
-		if (!InShaderBackEnd->OptimizeAndValidate(ir, ParseState))
+		if (Flags & HLSLCC_DisableBackendOptimizations)
 		{
-			return false;
+			if (!InShaderBackEnd->Validate(ir, ParseState))
+			{
+				return false;
+			}
+		}
+		else
+		{
+			if (!InShaderBackEnd->OptimizeAndValidate(ir, ParseState))
+			{
+				return false;
+			}
 		}
 	}
 
@@ -392,20 +428,26 @@ bool FHlslCrossCompilerContext::RunBackend(
 			return false;
 		}
 
-		if (!InShaderBackEnd->OptimizeAndValidate(ir, ParseState))
+		if (Flags & HLSLCC_DisableBackendOptimizations)
 		{
-			return false;
+			if (!InShaderBackEnd->Validate(ir, ParseState))
+			{
+				return false;
+			}
+		}
+		else
+		{
+			if (!InShaderBackEnd->OptimizeAndValidate(ir, ParseState))
+			{
+				return false;
+			}
 		}
 	}
 
-	const bool bGroupFlattenedUBs = ((Flags & HLSLCC_GroupFlattenedUniformBuffers) == HLSLCC_GroupFlattenedUniformBuffers);
 	if (bPackUniforms)
 	{
-		const bool bPackGlobalArraysIntoUniformBuffers = ((Flags & HLSLCC_PackUniformsIntoUniformBuffers) == HLSLCC_PackUniformsIntoUniformBuffers);
-		const bool PackUniformsIntoUniformBufferWithNames = ((Flags & HLSLCC_PackUniformsIntoUniformBufferWithNames) == HLSLCC_PackUniformsIntoUniformBufferWithNames);
-		const bool bKeepNames = (Flags & HLSLCC_KeepSamplerAndImageNames) == HLSLCC_KeepSamplerAndImageNames;
 		TVarVarMap UniformMap;
-		PackUniforms(ir, ParseState, bFlattenUBStructures, bGroupFlattenedUBs, bPackGlobalArraysIntoUniformBuffers, PackUniformsIntoUniformBufferWithNames, bKeepNames, UniformMap);
+		PackUniforms(Flags, ir, ParseState, UniformMap);
 		//TIMER(pack_uniforms);
 
 		RemovePackedUniformBufferReferences(ir, ParseState, UniformMap);

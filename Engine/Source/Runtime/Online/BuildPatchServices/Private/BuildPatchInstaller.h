@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BuildPatchInstaller.h: Declares the FBuildPatchInstaller class which
@@ -29,7 +29,6 @@ namespace BuildPatchServices
 	class IInstallerError;
 	class IFileOperationTracker;
 	class IMemoryChunkStoreStatistics;
-	class IMemoryChunkStoreAggregateStatistics;
 	class IDiskChunkStoreStatistics;
 	class ISpeedRecorder;
 	class IChunkDataSizeProvider;
@@ -41,6 +40,7 @@ namespace BuildPatchServices
 	class IVerifierStatistics;
 	class IInstallerAnalytics;
 	class IDownloadService;
+	class IOptimisedDelta;
 	class IMessagePump;
 
 	/**
@@ -66,6 +66,9 @@ namespace BuildPatchServices
 
 		// The manifest for the build we want to install.
 		FBuildPatchAppManifestRef NewBuildManifest;
+
+		// If available, the chunk delta optimised manifest, otherwise the manifest we should be using as destination.
+		FBuildPatchAppManifestPtr DestinationManifest;
 
 		// The directory created in staging, to store local patch data.
 		FString DataStagingDir;
@@ -153,7 +156,7 @@ namespace BuildPatchServices
 
 		// Installer statistics tracking.
 		TUniquePtr<IFileOperationTracker> FileOperationTracker;
-		TUniquePtr<IMemoryChunkStoreAggregateStatistics> MemoryChunkStoreAggregateStatistics;
+		TUniquePtr<IMemoryChunkStoreStatistics> MemoryChunkStoreStatistics;
 		TUniquePtr<IDiskChunkStoreStatistics> DiskChunkStoreStatistics;
 		TUniquePtr<ISpeedRecorder> DownloadSpeedRecorder;
 		TUniquePtr<ISpeedRecorder> DiskReadSpeedRecorder;
@@ -169,6 +172,9 @@ namespace BuildPatchServices
 
 		// Download service.
 		TUniquePtr<IDownloadService> DownloadService;
+
+		// Optimised delta support.
+		TUniquePtr<IOptimisedDelta> OptimisedDelta;
 
 		// The message pump controller.
 		TUniquePtr<IMessagePump> MessagePump;
@@ -321,14 +327,9 @@ namespace BuildPatchServices
 		const IVerifierStatistics* GetVerifierStatistics() const;
 
 		/**
-		 * @return the cloud memory chunk store statistics interface.
+		 * @return the memory chunk store statistics interface.
 		 */
-		const IMemoryChunkStoreStatistics* GetCloudMemoryChunkStoreStatistics() const;
-
-		/**
-		 * @return the install memory chunk store statistics interface.
-		 */
-		const IMemoryChunkStoreStatistics* GetInstallMemoryChunkStoreStatistics() const;
+		const IMemoryChunkStoreStatistics* GetMemoryChunkStoreStatistics() const;
 
 		/**
 		 * @return the disk chunk store statistics interface.

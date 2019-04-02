@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GoogleVRSplash.h"
 #include "PipelineStateCache.h"
@@ -110,13 +110,14 @@ void FGoogleVRSplash::Show()
 	//SplashScreenRenderingOrientation = FRotator(GVRHMD->CachedFinalHeadRotation);
 
 	RenderThreadTicker = MakeShareable(new FGoogleVRSplashTicker(this));
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(RegisterAsyncTick,
-	FTickableObjectRenderThread*, RenderThreadTicker, RenderThreadTicker.Get(),
-	FGoogleVRSplash*, pGVRSplash, this,
-	{
-		pGVRSplash->AllocateSplashScreenRenderTarget();
-		RenderThreadTicker->Register();
-	});
+	FTickableObjectRenderThread* RenderThreadTickerLocal = RenderThreadTicker.Get();
+	FGoogleVRSplash* pGVRSplash = this;
+	ENQUEUE_RENDER_COMMAND(RegisterAsyncTick)(
+		[RenderThreadTickerLocal, pGVRSplash](FRHICommandListImmediate& RHICmdList)
+		{
+			pGVRSplash->AllocateSplashScreenRenderTarget();
+			RenderThreadTickerLocal->Register();
+		});
 
 	bIsShown = true;
 }
@@ -130,15 +131,16 @@ void FGoogleVRSplash::Hide()
 		return;
 	}
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(UnregisterAsyncTick,
-	TSharedPtr<FGoogleVRSplashTicker>&, RenderThreadTicker, RenderThreadTicker,
-	FGoogleVRSplash*, pGVRSplash, this,
-	{
-		pGVRSplash->SubmitBlackFrame();
+	auto* RenderThreadTickerPtr = &RenderThreadTicker;
+	FGoogleVRSplash* pGVRSplash = this;
+	ENQUEUE_RENDER_COMMAND(UnregisterAsyncTick)(
+		[RenderThreadTickerPtr, pGVRSplash](FRHICommandListImmediate& RHICmdList)
+		{
+			pGVRSplash->SubmitBlackFrame();
 
-		RenderThreadTicker->Unregister();
-		RenderThreadTicker = nullptr;
-	});
+			(*RenderThreadTickerPtr)->Unregister();
+			(*RenderThreadTickerPtr) = nullptr;
+		});
 	FlushRenderingCommands();
 
 	if (!SplashTexturePath.IsEmpty())
@@ -205,81 +207,85 @@ void FGoogleVRSplash::RenderStereoSplashScreen(FRHICommandListImmediate& RHICmdL
 
 	const auto FeatureLevel = GMaxRHIFeatureLevel;
 	// Should really be SetRT and Clear
-	SetRenderTarget(RHICmdList, DstTexture, FTextureRHIRef());
-	DrawClearQuad(RHICmdList, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
-
-	// If the texture is not avaliable, we just clear the DstTexture with black.
-	if (SplashTexture && SplashTexture->IsValidLowLevel())
+	FRHIRenderPassInfo RPInfo(DstTexture, ERenderTargetActions::DontLoad_Store);
+	RHICmdList.BeginRenderPass(RPInfo, TEXT("RenderStereoSplashScreen"));
 	{
-		RHICmdList.SetViewport(DstRect.Min.X, DstRect.Min.Y, 0, DstRect.Max.X, DstRect.Max.Y, 1.0f);
+		DrawClearQuad(RHICmdList, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
 
-		auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
-
-		TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
-		TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
-
-		FGraphicsPipelineStateInitializer GraphicsPSOInit;
-		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-
-		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule->GetFilterVertexDeclaration().VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-
-		PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Bilinear>::GetRHI(), SplashTexture->Resource->TextureRHI);
-
-		// Modify the v to flip the texture. Somehow it renders flipped if not.
-		float U = SplashTextureUVOffset.X;
-		float V = SplashTextureUVOffset.Y + SplashTextureUVSize.Y;
-		float USize = SplashTextureUVSize.X;
-		float VSize = -SplashTextureUVSize.Y;
-
-		float ViewportWidthPerEye = ViewportWidth * 0.5f;
-
-		float RenderOffsetX = SplashScreenEyeOffset.X * ViewportWidthPerEye + (1.0f - RenderScale) * ViewportWidthPerEye * 0.5f;
-		float RenderOffsetY = SplashScreenEyeOffset.Y * ViewportHeight + (1.0f - RenderScale) * ViewportHeight * 0.5f;;
-		float RenderSizeX = ViewportWidthPerEye * RenderScale;
-		float RenderSizeY = ViewportHeight * RenderScale;
-
-		// Render left eye texture
-		RendererModule->DrawRectangle(
-			RHICmdList,
-			RenderOffsetX , RenderOffsetY,
-			RenderSizeX, RenderSizeY,
-			U, V,
-			USize, VSize,
-			FIntPoint(ViewportWidth, ViewportHeight),
-			FIntPoint(1, 1),
-			*VertexShader,
-			EDRF_Default);
-
-		RenderOffsetX = -SplashScreenEyeOffset.X * ViewportWidthPerEye + (1.0f - RenderScale) * ViewportWidthPerEye * 0.5f;
-
-		// In case the right eye offset is excceed the borader
-		if (RenderOffsetX < 0)
+		// If the texture is not avaliable, we just clear the DstTexture with black.
+		if (SplashTexture && SplashTexture->IsValidLowLevel())
 		{
-			U = U - RenderOffsetX / RenderSizeX;
-			RenderOffsetX = 0;
-		}
+			RHICmdList.SetViewport(DstRect.Min.X, DstRect.Min.Y, 0, DstRect.Max.X, DstRect.Max.Y, 1.0f);
 
-		// Render right eye texture
-		RendererModule->DrawRectangle(
-			RHICmdList,
-			ViewportWidthPerEye + RenderOffsetX, RenderOffsetY,
-			RenderSizeX, RenderSizeY,
-			U, V,
-			USize, VSize,
-			FIntPoint(ViewportWidth, ViewportHeight),
-			FIntPoint(1, 1),
-			*VertexShader,
-			EDRF_Default);
+			auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
+
+			TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
+			TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
+
+			FGraphicsPipelineStateInitializer GraphicsPSOInit;
+			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+
+			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+
+			PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Bilinear>::GetRHI(), SplashTexture->Resource->TextureRHI);
+
+			// Modify the v to flip the texture. Somehow it renders flipped if not.
+			float U = SplashTextureUVOffset.X;
+			float V = SplashTextureUVOffset.Y + SplashTextureUVSize.Y;
+			float USize = SplashTextureUVSize.X;
+			float VSize = -SplashTextureUVSize.Y;
+
+			float ViewportWidthPerEye = ViewportWidth * 0.5f;
+
+			float RenderOffsetX = SplashScreenEyeOffset.X * ViewportWidthPerEye + (1.0f - RenderScale) * ViewportWidthPerEye * 0.5f;
+			float RenderOffsetY = SplashScreenEyeOffset.Y * ViewportHeight + (1.0f - RenderScale) * ViewportHeight * 0.5f;;
+			float RenderSizeX = ViewportWidthPerEye * RenderScale;
+			float RenderSizeY = ViewportHeight * RenderScale;
+
+			// Render left eye texture
+			RendererModule->DrawRectangle(
+				RHICmdList,
+				RenderOffsetX, RenderOffsetY,
+				RenderSizeX, RenderSizeY,
+				U, V,
+				USize, VSize,
+				FIntPoint(ViewportWidth, ViewportHeight),
+				FIntPoint(1, 1),
+				*VertexShader,
+				EDRF_Default);
+
+			RenderOffsetX = -SplashScreenEyeOffset.X * ViewportWidthPerEye + (1.0f - RenderScale) * ViewportWidthPerEye * 0.5f;
+
+			// In case the right eye offset is excceed the borader
+			if (RenderOffsetX < 0)
+			{
+				U = U - RenderOffsetX / RenderSizeX;
+				RenderOffsetX = 0;
+			}
+
+			// Render right eye texture
+			RendererModule->DrawRectangle(
+				RHICmdList,
+				ViewportWidthPerEye + RenderOffsetX, RenderOffsetY,
+				RenderSizeX, RenderSizeY,
+				U, V,
+				USize, VSize,
+				FIntPoint(ViewportWidth, ViewportHeight),
+				FIntPoint(1, 1),
+				*VertexShader,
+				EDRF_Default);
+		}
 	}
+	RHICmdList.EndRenderPass();
 
 	// Submit frame to async reprojection
 	GVRCustomPresent->FinishRendering();
@@ -299,8 +305,12 @@ void FGoogleVRSplash::SubmitBlackFrame()
 
 	GVRCustomPresent->BeginRendering(GVRHMD->CachedHeadPose);
 
-	SetRenderTarget(RHICmdList, DstTexture, FTextureRHIRef());
-	DrawClearQuad(RHICmdList, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
+	FRHIRenderPassInfo RPInfo(DstTexture, ERenderTargetActions::DontLoad_Store);
+	RHICmdList.BeginRenderPass(RPInfo, TEXT("SubmitBlackFrame"));
+	{
+		DrawClearQuad(RHICmdList, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
+	}
+	RHICmdList.EndRenderPass();
 
 	GVRCustomPresent->FinishRendering();
 }

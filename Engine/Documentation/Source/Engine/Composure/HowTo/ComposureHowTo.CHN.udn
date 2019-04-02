@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
-Availability: Docs
+﻿INTSourceChangelist:3810467
+Availability:Docs
 Crumbs: %ROOT%
-Title:Composure How - To
-Description: How To Guides for using the various aspect of Composure
+Title:Composure使用指南
+Description: Composure各项功能的使用指南
 Type: how-to
 Version: 4.17
 Parent: Engine\Composure
@@ -10,28 +10,26 @@ Order: 1
 Tags: Composure
 
 
-ADD Overview Text
+添加概述文本
 [REGION:note]
-The Overview text should describe the system, features, or concepts being covered in the How-Tos.
+概述文本应介绍系统、功能或操作指南中涵盖的概念。
 [/REGION]
 
-[](FANCY:Engine\Composure\HowTo\FakeAo "%Engine\Composure\HowTo\FakeAo:description%")
-
-ADD Beginner Topic List
+添加新手主题列表
 [REGION:note]
-The Beginner Topic List should link to all beginner How-To guides using fancy links.
-[/REGION]
-
-
-ADD Intermediate Topic List
-[REGION:note]
-The Intermediate Topic List should link to all intermediate How-To guides using fancy links.
+应使用精心设计的链接将新手主题列表链接到所有初学者操作指南。
 [/REGION]
 
 
-ADD Advanced Topic List
+添加中级主题列表
 [REGION:note]
-The Advanced Topic List should link to all advanced How-To guides using fancy links.
+应使用精心设计的链接将中级主题列表链接到所有中级操作指南。
+[/REGION]
+
+
+添加高级主题列表
+[REGION:note]
+应使用精心设计的链接将高级主题列表链接到所有高级操作指南。
 [/REGION]
 
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LandscapeFileFormatRaw.h"
 #include "HAL/FileManager.h"
@@ -133,7 +133,7 @@ FLandscapeWeightmapInfo FLandscapeWeightmapFileFormat_Raw::Validate(const TCHAR*
 	}
 	else
 	{
-		Result.PossibleResolutions = CalculatePossibleRawResolutions(ImportFileSize / 2);
+		Result.PossibleResolutions = CalculatePossibleRawResolutions(ImportFileSize);
 
 		if (Result.PossibleResolutions.Num() == 0)
 		{

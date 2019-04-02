@@ -1,45 +1,65 @@
-﻿INTSourceChangelist:2690274
-Availability:Public
+﻿INTSourceChangelist:4300247
+Availability: Public
+Crumbs: %ROOT%
 Title:矢量表达式
-Crumbs:%ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/ExpressionReference
-Description:用于输出矢量值（例如位置或法线）的表达式。
-Version:4.9
+Description:输出位置、法线等矢量值的表达式。
+Type: Reference
+Version:4.16
+Parent:Engine/Rendering/Materials/ExpressionReference
+reference-image:PreSkinnedTriPlanar.gif
+reference-image:TriPlanarMaterial.gif
+reference-image:PS_LocalPositionMaterial.gif
+reference-image:PS_DefaultMaterial.gif
+Order:
+Tags:Materials
+topic-image:VectorExpression_Topic.png
+
+
 
 [EXCERPT:TOC]
 [TOC(start:2)]
 [/EXCERPT:TOC]
 
-[EXCERPT:ActorPositionWS]
-(#ActorPositionWS)
-## ActorPositionWS（Actor 全局空间位置）
 
-**ActorPositionWS（Actor 全局空间位置）**输出 Vector3 (RGB) 数据，该数据代表使用此材质的对象在全局空间中的位置。 
+在此页面中，您将找到可用的矢量表达式，这些表达式可输出映射至RGBA的矢量。这些表达式可用于大量不同的效果，用于为操作创建材质，例如，获取对象在世界场景空间中的位置 
+以便材质可以做出响应，或者当进入特定区域时变换字符的颜色。此外，还有许多其他表达式 
+允许您控制空间局部风格材质效果，您可以查看下面的示例了解更多信息。 
+
+
+[EXCERPT:ActorPositionWS]
+(#actorpositionws)
+
+## ActorPositionWS
+
+ **ActorPositionWS** 输出矢量3(RGB)数据，该数据表示对象在世界场景空间中的位置以及其上的材质。 
 
 ![](ActorPositionColors.png)(w:434) ![](ActorPositionNetwork.png)(w:490)
 
-在此示例中，您可以看到 ActorPositionWS（Actor 全局空间位置）直接输送到材质的“底色”（Base Color）。因此，此材质所应用于的每个球体在 3D 空间中移动到不同位置时将显示不同的颜色。请注意，ActorPositionWS（Actor 全局空间位置）节点的结果将除以 1600 以创建美观的混合颜色，而不是让颜色突变。
+在此示例中，您可以看到ActorPositionWS被直接输入到材质的底色（Base Color）中。因此，当每个球体被移至三维空间中的不同位置时，每个球体以及应用于它们的材质将显示不同的颜色。请注意，ActorPositionWS节点的结果将除以1600，以创建一个漂亮的混合颜色，而不是流行颜色。
 
 [/EXCERPT:ActorPositionWS]
 
 
 [EXCERPT:CameraPositionWS]
-(#CameraPositionWS)
-## CameraPositionWS（摄像机全局空间位置）
+(#camerapositionws)
+## CameraPositionWS
 
 
-**CameraWorldPosition（摄像机全局空间位置）**表达式输出三通道矢量值，该值代表摄像机在全局空间中的位置。
+ **CameraWorldPosition** 表达式输出三信道矢量值，该值表示摄像机在世界场景空间中的位置。
 
-当摄像机旋转时，预览球体的颜色将发生变化。
+当摄像机旋转时，预览球体会改变颜色。
 
 ![CameraPositionWSExample.png](CameraPositionWSExample.png)(w:450) ![](CameraPositionWSNetwork.png)(h:333)
 [/EXCERPT:CameraPositionWS]
 
-(#CameraVectorWS)
-## CameraVectorWS（摄像机全局空间矢量）
 
-**CameraVector（摄像机矢量）**表达式输出一个三通道矢量值，该值代表摄像机相对于表面的方向，即从像素到摄像机的方向。
+(#cameravectorws)
 
-**用法示例：**CameraVector（摄像机矢量）经常用来模拟环境贴图，方法如下：将 CameraVector（摄像机矢量）连接到 ComponentMask（分量蒙版），并使用 CameraVector（摄像机矢量）的 X 和 Y 通道作为纹理坐标。
+## CameraVectorWS
+
+ **CameraVector** 表达式输出一个三信道矢量值，该值表示摄像机相对于表面的方向，即像素到摄像机的方向。
+
+ **使用示例：** CameraVector通常通过将CameraVector连接到ComponentMask并使用CameraVector的x和y信道作为纹理坐标，来用于虚设环境贴图。
 
 [REGION:fullwidth]
 ![CameraVectorWSExample.png](CameraVectorWSExample.png)
@@ -54,52 +74,42 @@ Version:4.9
 
 [INCLUDE:Engine/Rendering/Materials/ExpressionReference/Constant#Constant4Vector]
 
-(#LightVector)
-## LightVector（光线矢量）
+
+(#lightvector)
+
+## LightVector
 [REGION:warning]
-**在虚幻引擎 4 中，建议您不要使用此表达式，因为照明计算现在延迟进行。**
+该表达式在虚幻引擎4中已被弃用，因为照明计算现已被推迟。
 [/REGION:warning]
-[COMMENT:none]
 
-LightVector（光线矢量）表达式是三通道矢量值，代表光线相对于表面的方向。
+(#objectbounds)
 
-**用法示例：**LightVector（光线矢量）可用来计算定制照明算法，例如简单的朗伯（Lambert）照明模型。
+## 对象边界（Object Bounds）
 
-![LightVectorExample.jpg](LightVectorExample.jpg)
-
-[REGION:note]
-	对自发光输出进行评估时，LightVector（光线矢量）表达式无效，此表达式只能用于 LightFunction（光线功能）或 DeferredDecal（延迟贴花）材质。
-[/REGION]
-
-[/COMMENT]
-
-
-(#ObjectBounds)
-## ObjectBounds（对象界限）
-
-**ObjectBounds（对象界限）**表达式输出对象在每个轴上的大小。如果用作颜色，那么 X、Y 和 Z 轴分别对应于 R、G 和 B。 
+ **对象边界（Object Bounds）** 表达式输出对象在每个轴中的大小。如果用颜色表示，X轴、Y轴、Z轴分别对应于R、G、B。 
 
 ![](ObjectBoundsScene.png)(w:411) ![](ObjectBoundsNetwork.png)
 
-在以上示例中，您可以看到对象颜色对应于对象的最长轴。
+在上面的示例中，您可以看到对象的颜色对应于对象的最长轴。
 
 [EXCERPT:ObjectOrientation]
-(#ObjectOrientation)
-## ObjectOrientation（对象方向）
+(#objectorientation)
+
+## ObjectOrientation
 
 
-**ObjectOrientation（对象方向）**表达式输出对象的全局空间向上矢量。即，对象的局部正向 Z 轴指向此方向。
+ **ObjectOrientation** 表达式输出对象的世界场景向上矢量。换言之，对象的局部正z轴正指向此方向。
 
 ![ObjectOrientationExample.png](ObjectOrientationExample.png)
 [/EXCERPT:ObjectOrientation]
 
 
 [EXCERPT:ObjectPositionWS]
-(#ObjectPositionWS)
-## ObjectPositionWS（对象全局空间位置）
+(#objectPositionws)
+## ObjectPositionWS
 
 
-**ObjectPositionWS（对象全局空间位置）**表达式输出对象界限的全局空间中心位置。例如，在为植物创建球面照明时，此表达式很有用。
+ **ObjectPositionWS** 表达式输出对象边界的世界场景空间中心位置。例如，这对于为植物创建球形照明很有用。
 
 
 ![](WorldPositionWSScene.png)(w:450) ![](WorldPositionNetwork.png)(h:349)
@@ -111,41 +121,214 @@ LightVector（光线矢量）表达式是三通道矢量值，代表光线相对
 
 
 [EXCERPT:PixelNormalWS]
-(#PixelNormalWS)
-## PixelNormalWS（像素全局空间法线）
+(#pixelnormalws)
 
-**PixelNormalWS（像素全局空间法线）**表达式输出矢量数据，该数据代表像素所面对的方向（基于当前法线）。
+## PixelNormalWS
+
+ **PixelNormalWS** 表达式根据当前法线输出矢量数据，该数据表示像素所面对的方向。
 
 ![PixelNormalWSExample.png](PixelNormalWSExample.png)
 
-在此示例中，PixelNormalWS（像素全局空间法线）输送到“底色”（Base Color）。请注意，使用了法线贴图按像素产生结果。 
+在此示例中，PixelNormalWS被输入到底色（Base Color）中。请注意，法线贴图用于给出逐像素结果。 
 
 [/EXCERPT:PixelNormalWS]
 
-(#ReflectionVectorWS)
-## ReflectionVectorWS（反射全局空间矢量）
 
-**ReflectionVectorWS（反射全局空间矢量）**表达式类似于 [CameraVectorWS（摄像机全局空间矢量）](#CameraVectorWS)，但是它输出三通道矢量值，该值代表反射在表面法线上的摄像机方向。
 
-**用法示例：**ReflectionVector（反射矢量）通常用于环境贴图，其中，反射矢量的 X/Y 分量用作立方体贴图纹理的 UV。
+
+(#pre-skinnedlocalnormal)
+
+## 预蒙皮局部法线（Pre-Skinned Local Normal） 
+
+ **预蒙皮局部法线（Pre-Skinned Local Normal）** 矢量表达式输出一个三信道矢量值，该值表示骨架网格体和静态网格体的局部表面法线。这让您能够实现局部对齐的三平面
+材质以及在材质中实现网格体对齐效果。 
+
+在此示例中，材质使用与网格体局部表面法线对齐的三平面纹理。 
+
+[REGION:lightbox]
+[![](PreSkinnedTriPlanarSetup.png)(w:700)](PreSkinnedTriPlanarSetup.png)
+[/REGION]
+[REGION:caption]
+_单击图片以查看更大尺寸。_
+[/REGION]
+
+[REGION:imagetable]
+| [INCLUDE:#LocalNormal1] | [INCLUDE:#LocalNormal2] |  
+| --- | --- |
+| 三平面预蒙皮局部法线（Tri-Planar Pre-Skinned Local Normal）矢量表达式 | 三平面材质 |
+[/REGION]
+
+[COMMENT:none]
+-
+[EXCERPT:LocalNormal1]
+[REGION:asyncgif]
+![](PreSkinnedTriPlanar.gif)(w:250)
+[/REGION]
+[/EXCERPT]
+
+[EXCERPT:LocalNormal2]
+[REGION:asyncgif]
+![](TriPlanarMaterial.gif)(w:250)
+[/REGION]
+[/EXCERPT]
+-
+[/COMMENT]
+
+(#pre-skinnedlocalposition)
+
+## 预蒙皮局部位置（Pre-Skinned Local Position）
+
+ **预蒙皮局部位置（Pre-Skinned Local Position）** 矢量表达式输出一个三信道矢量值，该值允许访问骨架网格体的默认姿势位置以便在每个顶点
+输出中使用。这使您能够在动画角色上获得局部化效果。该矢量表达式也可用于静态网格体，它将返回
+标准局部位置。 
+
+[REGION:lightbox]
+[![](PreSkinnedLocalPos.png)(w:500)](PreSkinnedLocalPos.png)
+[/REGION]
+[REGION:caption]
+_单击图片以查看更大尺寸。_
+[/REGION]
+
+在此示例中，骨架网格体的默认姿势用于对比贴图与右侧的默认UV贴图。
+
+[REGION:imagetable]
+| [INCLUDE:#LocalPos1] | [INCLUDE:#LocalPos2] |  
+| --- | --- |
+| 预蒙皮局部位置（Pre-Skinned Local Position）矢量表达式 | 骨架网格体的默认UV布局 |
+[/REGION]
+
+[COMMENT:none]
+-
+[EXCERPT:LocalPos1]
+[REGION:asyncgif]
+![](PS_LocalPositionMaterial.gif)(w:250)
+[/REGION]
+[/EXCERPT]
+
+[EXCERPT:LocalPos2]
+[REGION:asyncgif]
+![](PS_DefaultMaterial.gif)(w:250)
+[/REGION]
+[/EXCERPT]
+-
+[/COMMENT]
+
+
+(#reflectionvectorws)
+
+## ReflectionVectorWS
+
+ **ReflectionVectorWS** 表达式在本质上类似于[CameraVectorWS](#CameraVectorWS)，但它输出一个三信道矢量值，该值表示通过表面法线反射的摄像机方向。
+
+ **使用示例：**ReflectionVector通常用于环境贴图，其中反射矢量的x/y分量被用作UV输入立方体贴图纹理。
 
 [REGION:fullwidth]
 ![ReflectionVectorWSExample.png](ReflectionVectorWSExample.png)
 [/REGION]
 
 [EXCERPT:VertexNormalWS]
-(#VertexNormalWS)
-## VertexNormalWS（顶点全局空间法线）
+(#vertexnormalws)
+
+## VertexNormalWS
 
 
-**VertexNormalWS（顶点全局空间法线）**表达式输出全局空间顶点法线。它只能在顶点着色器（例如 WorldPositionOffset（全局位置偏移））中执行的材质输入中使用。此表达式对于使网格伸缩而言非常有用。请注意，使位置沿法线偏移将导致几何体沿 UV 缝合分裂。
+ **VertexNormalWS** 表达式输出世界场景空间顶点法线。它只能用于在顶点着色器中执行的材质输入，例如WorldPositionOffset。该表达式对于设置网格体增大或缩小很有用。请注意，沿法线偏移位置会导致几何图形沿UV缝隙拆分。
 
 [REGION:fullwidth]
 ![VertexNormalWSExample.png](VertexNormalWSExample.png)
 [/REGION]
 
-在以上示例中，预览球体随正弦运动而放大和缩小，这是因为每个顶点都在它们自已的法线方向上移动。
+在上面的示例中，由于每个顶点在各自的法线方向上移动，预览球体似乎会随着正弦运动按比例放大和缩小。
 
 [/EXCERPT:VertexNormalWS]
 
 
+(#vectornoise)
+
+## 矢量噪点（Vector Noise） 
+
+[EXCERPT:VectorNoiseTest]
+![](Vector_Noise_Example.png)
+
+矢量噪点材质（Vector Noise Material）表达式添加了更多的三维或四维矢量噪点结果以在材质中使用。由于这些函数会产生运行时间开销，建议在使用它们开发外观之后，使用虚幻引擎4.13及其后续版本中引入的[绘制材料以渲染目标蓝图](Engine\Rendering\RenderTargets\BlueprintRenderTargets)功能将所有或部分计算烘焙到纹理中。这些材质表达式允许在最终资源的引擎中开发程序外观，从而提供了一种使用外部工具创建程序生成的纹理以应用于UE4中的资源的替代方法。在矢量噪点材质表达式（Vector Noise Material Expression）中，您将看到以下矢量噪点类型。
+
+|图像|选项|说明|
+|-----|--------|---------------|
+|![](Cellnoise.png)(w:128)|**单元格噪点（Cellnoise）** | 为三维网格中的每个对象返回随机颜色（即从应用于节点输入的数学下限运算）。对于给定位置，结果始终保持一致，因此可以提供一种可靠的方法来将随机性添加到材质中。该矢量噪点（Vector Noise）函数的计算非常便宜，因此没有必要为了性能而将它烘焙到纹理中。|
+|![](VectorNoise.png)(w:128)|**Perlin三维噪点（Perlin 3D Noise）** | 为三维网格中的每个对象返回随机颜色（即从应用于节点输入的数学下限运算）。对于给定位置，结果始终保持一致，因此可以提供一种可靠的方法来将随机性添加到材质中。该矢量噪点（Vector Noise）函数的计算非常便宜，因此没有必要为了性能而将它烘焙到纹理中。|
+|![](GradientNoise.png)(w:128)|**Perlin梯度（Perlin Gradient）** | 计算标量Perlin Simplex噪点的分析三维梯度。输出为四个信道，其中前三个(RGB)为梯度噪点，第四个(A)为标量噪点。该噪点类型对于表面上的凹凸或者流动贴图很有用。
+|![](CurlNoise.png)(w:128)|**Perlin梯度（Perlin Gradient）** | 计算矢量Perlin Simplex噪点（又名旋度噪点）的分析三维旋度。输出为一个三维有向旋度矢量，它对流体或粒子流动很有用。|
+|![](VoronoiNoise.png)(w:128)|**Voronoi** | 计算与标量噪点材质节点相同的Voronoi噪点。标量Voronoi噪点在三维空间中散射种子点，并返回与相隔最近的一个种子点的距离。矢量噪点（Vector Noise）变体返回RGB中最近的种子点的位置，以及在A中与它相隔的距离。特别是与单元格噪点（Cellnoise）结合使用时，这可以允许每个Voronoi单元格执行一些随机行为。|
+
+下面是一个简单的石床材质，使用矢量噪点（Vector Noise）/Voronoi的距离分量，并结合矢量噪点（Vector Noise）/单元格噪点（Cellnoise），来调整一些表面凹凸并在缝隙和种子位置中混合苔藓，以更改每块岩石的颜色和凹凸高度。
+
+![](Stone_Example.png)
+
+正如普通的Perlin噪点一样，基于导数的Perlin旋度和Perlin梯度运算也可以按倍频添加在一起。对于更复杂表达式的导数，有必要计算表达式结果的梯度。为了帮助实现这一点，可以将要计算的表达式放入一个材质函数中，并将其与以下辅助节点一起使用。
+ 
+|选项|说明|
+|-----|-----------|
+| **Prepare3DDeriv** | 利用四面体图形中的位置偏移计算三维导数。在该函数产生的每个偏移位置计算同一个三维函数，然后将结果值输入Compute3DDeriv。|
+| **Compute3DDeriv** | 利用四面体图形中的位置偏移计算三维导数。与Prepare3DDeriv一起使用。|
+| **GradFrom3DDeriv** | 根据Prepare3DDeriv/Compute3DDeriv的结果计算三维梯度矢量。|
+| **CurlFrom3DDeriv** | 根据Prepare3DDeriv/Compute3DDeriv的结果计算三维矢量场的旋度。|
+
+[region:note]
+这些辅助材质函数使用四面体图形中间隔的基本表达式的四个求值来近似计算这些基于导数的运算。
+[/region]
+
+您将在下面看到各种噪点函数的相关说明，这些函数可以在矢量噪点材质表达式（Vector Noise Material Expression）中找到。
+
+| 项目 | 说明 |
+| -------- | ----------- |
+| [REGION:tablesection]属性[/REGION] ||
+| **函数** | [INCLUDE:#VectorNoiseFunctions] |
+| **质量（Quality）** | 外观/性能设置。值越小，速度越快，但可能外观越差；值越大，速度越慢，但可能外观越好。|
+| **平铺（Tiling）** | 对于支持它的噪点函数，它允许平铺噪点。此函数使用成本较高，但在将噪点烘焙到无缝缠绕纹理时很有用。|
+| **平铺大小（Tile Size）** | 平铺时噪点应多久重复一次。对于Perlin噪点变体，平铺大小（Tile Size）必须是三的倍数。|
+|| [REGION:tablesection]Inputs[/REGION] ||
+| **位置（Position）** | 允许通过三维矢量来调整纹理大小。|
+
+* **单元格噪点（Cell Noise）** 材质示例：
+	[REGION:lightbox]
+	[![](Engine\Rendering\Materials\ExpressionReference\Utility\Cellnoise.png)(w:504)](Engine\Rendering\Materials\ExpressionReference\Utility\Cellnoise.png)
+	[/REGION]
+
+	[REGION:caption]
+	单击显示全图。
+	[/REGION]
+
+* **Perlin梯度（Perlin Gradient）**  材质示例：
+	[REGION:lightbox]
+	[![](Engine\Rendering\Materials\ExpressionReference\Utility\PerlinGradient.png)(w:504)](Engine\Rendering\Materials\ExpressionReference\Utility\PerlinGradient.png)
+	[/REGION]
+
+	[REGION:caption]
+	单击显示全图。
+	[/REGION]
+
+* **Voronoi**  材质示例：
+	[REGION:lightbox]
+	[![](Engine\Rendering\Materials\ExpressionReference\Utility\Voronoi.png)(w:504)](Engine\Rendering\Materials\ExpressionReference\Utility\Voronoi.png)
+	[/REGION]
+
+	[REGION:caption]
+	单击显示全图。
+	[/REGION]
+		
+[/EXCERPT:VectorNoiseTest]
+
+[COMMENT:none]
+
+[EXCERPT:VectorNoiseFunctions]
+
+|函数|说明|
+|---------|-----------|
+| **单元格噪点（Cellnoise）** | 为三维空间中的每个整数网格单元格提供随机颜色。大约有10条指令。|
+| **Perlin三维噪点（Perlin 3D Noise）** | 计算性Perlin噪点，带三维输出，每个信道输出的范围为-1到1。如果只使用红色信道，则有大约83条指令；如果使用所有三个信道，则有125条指令。
+| **Perlin梯度（Perlin Gradient）** | 计算Perlin噪点函数的梯度。RGB输出包含梯度矢量，A为标量噪点。大约有106条指令。|
+| **Perlin旋度（Perlin Curl）** | 计算三维旋度噪点。输出为Perlin三维噪点的数学旋度。大约有162条指令。|
+| **Voronoi** | 与 *噪点（Noise）* 表达式中的Voronoi函数的算法和指令数相同，但RGB为每个Voronoi单元格中最近的种子点的位置，A为与该种子点相隔的距离。|
+[/EXCERPT]
+
+[/COMMENT]

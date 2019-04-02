@@ -1,58 +1,86 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Curves/KeyHandle.h"
 
+
+FKeyHandle::FKeyHandle()
+{
+	static uint32 LastKeyHandleIndex = 1;
+	Index = ++LastKeyHandleIndex;
+
+	check(LastKeyHandleIndex != 0); // check in the unlikely event that this overflows
+}
+
+FKeyHandle::FKeyHandle(uint32 SpecificIndex)
+	: Index(SpecificIndex)
+{}
+
+FKeyHandle FKeyHandle::Invalid()
+{
+	return FKeyHandle(0);
+}
 
 /* FKeyHandleMap interface
  *****************************************************************************/
 
 void FKeyHandleMap::Add( const FKeyHandle& InHandle, int32 InIndex )
 {
-	KeyHandlesToIndices.Add( InHandle, InIndex );
+	for (auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
+	{
+		int32& KeyIndex = It.Value();
+		if (KeyIndex >= InIndex) { ++KeyIndex; }
+	}
+
+	if (InIndex > KeyHandles.Num())
+	{
+		KeyHandles.Reserve(InIndex+1);
+		for(int32 NewIndex = KeyHandles.Num(); NewIndex < InIndex; ++NewIndex)
+		{
+			KeyHandles.AddDefaulted();
+			KeyHandlesToIndices.Add(KeyHandles.Last(), NewIndex);
+		}
+		KeyHandles.Add(InHandle);
+	}
+	else
+	{
+		KeyHandles.Insert(InHandle, InIndex);
+	}
+
+	KeyHandlesToIndices.Add(InHandle, InIndex);
 }
 
 
 void FKeyHandleMap::Empty()
 {
 	KeyHandlesToIndices.Empty();
+	KeyHandles.Empty();
 }
 
 
 void FKeyHandleMap::Remove( const FKeyHandle& InHandle )
 {
-	KeyHandlesToIndices.Remove( InHandle );
+	int32 Index = INDEX_NONE;
+	if (KeyHandlesToIndices.RemoveAndCopyValue(InHandle, Index))
+	{
+		// update key indices
+		for (auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
+		{
+			int32& KeyIndex = It.Value();
+			if (KeyIndex >= Index) { --KeyIndex; }
+		}
+
+		KeyHandles.RemoveAt(Index);
+	}
 }
-
-
-const int32* FKeyHandleMap::Find( const FKeyHandle& InHandle ) const
-{
-	return KeyHandlesToIndices.Find( InHandle );
-}
-
 
 const FKeyHandle* FKeyHandleMap::FindKey( int32 KeyIndex ) const
 {
-	return KeyHandlesToIndices.FindKey( KeyIndex );
+	if (KeyIndex >= 0 && KeyIndex < KeyHandles.Num())
+	{
+		return &KeyHandles[KeyIndex];
+	}
+	return nullptr;
 }
-
-
-int32 FKeyHandleMap::Num() const
-{
-	return KeyHandlesToIndices.Num();
-}
-
-
-TMap<FKeyHandle, int32>::TConstIterator FKeyHandleMap::CreateConstIterator() const
-{
-	return KeyHandlesToIndices.CreateConstIterator();
-}
-
-
-TMap<FKeyHandle, int32>::TIterator FKeyHandleMap::CreateIterator() 
-{
-	return KeyHandlesToIndices.CreateIterator();
-}
-
 
 bool FKeyHandleMap::Serialize(FArchive& Ar)
 {
@@ -60,67 +88,40 @@ bool FKeyHandleMap::Serialize(FArchive& Ar)
 	if( Ar.IsTransacting() )
 	{
 		Ar << KeyHandlesToIndices;
+		Ar << KeyHandles;
 	}
 
 	return true;
-}
-
-
-bool FKeyHandleMap::operator==(const FKeyHandleMap& Other) const
-{
-	if (KeyHandlesToIndices.Num() != Other.KeyHandlesToIndices.Num())
-	{
-		return false;
-	}
-
-	for (TMap<FKeyHandle, int32>::TConstIterator It(KeyHandlesToIndices); It; ++It)
-	{
-		int32 const* OtherVal = Other.KeyHandlesToIndices.Find(It.Key());
-		if (!OtherVal || *OtherVal != It.Value() )
-		{
-			return false;
-		}
-	}
-
-	return true;
-}
-
-
-bool FKeyHandleMap::operator!=(const FKeyHandleMap& Other) const
-{
-	return !(*this==Other);
 }
 
 void FKeyHandleMap::EnsureAllIndicesHaveHandles(int32 NumIndices)
 {
-	TArray<FKeyHandle, TInlineAllocator<16>> HandlesToRemove;
-
-	for (const TPair<FKeyHandle, int32>& Pair: KeyHandlesToIndices)
+	if (KeyHandles.Num() > NumIndices)
 	{
-		if (Pair.Value >= NumIndices)
+		for (int32 Index = NumIndices; Index < KeyHandles.Num(); ++Index)
 		{
-			HandlesToRemove.Add(Pair.Key);
+			KeyHandlesToIndices.Remove(KeyHandles[Index]);
 		}
-	}
 
-	for (const FKeyHandle& Handle : HandlesToRemove)
-	{
-		KeyHandlesToIndices.Remove(Handle);
+		KeyHandles.SetNum(NumIndices);
 	}
-
-	for (int32 i = 0; i < NumIndices; ++i)
+	else if (KeyHandles.Num() < NumIndices)
 	{
-		EnsureIndexHasAHandle(i);
+		KeyHandles.Reserve(NumIndices);
+		for (int32 NewIndex = KeyHandles.Num(); NewIndex < NumIndices; ++NewIndex)
+		{
+			KeyHandles.AddDefaulted();
+			KeyHandlesToIndices.Add(KeyHandles.Last(), NewIndex);
+		}
 	}
 }
 
 void FKeyHandleMap::EnsureIndexHasAHandle(int32 KeyIndex)
 {
-	const FKeyHandle* KeyHandle = KeyHandlesToIndices.FindKey(KeyIndex);
+	const FKeyHandle* KeyHandle = FindKey(KeyIndex);
 	if (!KeyHandle)
 	{
-		FKeyHandle OutKeyHandle = FKeyHandle();
-		KeyHandlesToIndices.Add(OutKeyHandle, KeyIndex);
+		Add(FKeyHandle(), KeyIndex);
 	}
 }
 

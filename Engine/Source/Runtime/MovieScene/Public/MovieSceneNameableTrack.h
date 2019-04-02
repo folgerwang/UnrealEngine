@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -25,7 +25,7 @@ public:
 	 *
 	 * @param NewName The name to set.
 	 */
-	MOVIESCENE_API void SetDisplayName(const FText& NewDisplayName);
+	MOVIESCENE_API virtual void SetDisplayName(const FText& NewDisplayName);
 
 	/**
 	 * Can rename this track.

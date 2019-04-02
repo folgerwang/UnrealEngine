@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,23 +6,8 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/Class.h"
 #include "Curves/KeyHandle.h"
-#include "Curves/IndexedCurve.h"
+#include "Curves/RealCurve.h"
 #include "RichCurve.generated.h"
-
-/** Method of interpolation between this key and the next. */
-UENUM(BlueprintType)
-enum ERichCurveInterpMode
-{
-	/** Use linear interpolation between values. */
-	RCIM_Linear UMETA(DisplayName="Linear"),
-	/** Use a constant value. Represents stepped values. */
-	RCIM_Constant UMETA(DisplayName="Constant"),
-	/** Cubic interpolation. See TangentMode for different cubic interpolation options. */
-	RCIM_Cubic UMETA(DisplayName="Cubic"),
-	/** No interpolation. */
-	RCIM_None UMETA(Hidden)
-};
-
 
 /** If using RCIM_Cubic, this enum describes how the tangents should be controlled in editor. */
 UENUM(BlueprintType)
@@ -53,25 +38,36 @@ enum ERichCurveTangentWeightMode
 	RCTWM_WeightedBoth UMETA(DisplayName="Both")
 };
 
-
-/** Enumerates extrapolation options. */
-UENUM(BlueprintType)
-enum ERichCurveExtrapolation
+/** Enumerates curve compression options. */
+UENUM()
+enum ERichCurveCompressionFormat
 {
-	/** Repeat the curve without an offset. */
-	RCCE_Cycle UMETA(DisplayName = "Cycle"),
-	/** Repeat the curve with an offset relative to the first or last key's value. */
-	RCCE_CycleWithOffset UMETA(DisplayName="CycleWithOffset"),
-	/** Sinusoidally extrapolate. */
-	RCCE_Oscillate UMETA(DisplayName = "Oscillate"),
-	/** Use a linearly increasing value for extrapolation.*/
-	RCCE_Linear UMETA(DisplayName = "Linear"),
-	/** Use a constant value for extrapolation */
-	RCCE_Constant UMETA(DisplayName = "Constant"),
-	/** No Extrapolation */
-	RCCE_None UMETA(DisplayName="None")
+	/** No keys are present */
+	RCCF_Empty UMETA(DisplayName = "Empty"),
+
+	/** All keys use constant interpolation */
+	RCCF_Constant UMETA(DisplayName = "Constant"),
+
+	/** All keys use linear interpolation */
+	RCCF_Linear UMETA(DisplayName = "Linear"),
+
+	/** All keys use cubic interpolation */
+	RCCF_Cubic UMETA(DisplayName = "Cubic"),
+
+	/** Keys use mixed interpolation modes */
+	RCCF_Mixed UMETA(DisplayName = "Mixed"),
 };
 
+/** Enumerates key time compression options. */
+UENUM()
+enum ERichCurveKeyTimeCompressionFormat
+{
+	/** Key time is quantized to 16 bits */
+	RCKTCF_uint16 UMETA(DisplayName = "uint16"),
+
+	/** Key time uses full precision */
+	RCKTCF_float32 UMETA(DisplayName = "float32"),
+};
 
 /** One key in a rich, editable float curve */
 USTRUCT()
@@ -191,29 +187,11 @@ struct TStructOpsTypeTraits<FRichCurveKey>
 /** A rich, editable float curve */
 USTRUCT()
 struct ENGINE_API FRichCurve
-	: public FIndexedCurve
+	: public FRealCurve
 {
 	GENERATED_USTRUCT_BODY()
 
-	FRichCurve() 
-		: FIndexedCurve()
-		, PreInfinityExtrap(RCCE_Constant)
-		, PostInfinityExtrap(RCCE_Constant)
-		, DefaultValue(MAX_flt)
-	{ }
-
-	/** Virtual destructor. */
-	virtual ~FRichCurve() { }
-
 public:
-
-	/**
-	 * Check whether this curve has any data or not
-	 */
-	bool HasAnyData() const
-	{
-		return DefaultValue != MAX_flt || Keys.Num();
-	}
 
 	/** Gets a copy of the keys, so indices and handles can't be meddled with */
 	TArray<FRichCurveKey> GetCopyOfKeys() const;
@@ -235,17 +213,13 @@ public:
 	/** Get the first key that matches any of the given key handles. */
 	FRichCurveKey* GetFirstMatchingKey(const TArray<FKeyHandle>& KeyHandles);
 
-	/** Get the next or previous key given the key handle */
-	FKeyHandle GetNextKey(FKeyHandle KeyHandle) const;
-	FKeyHandle GetPreviousKey(FKeyHandle KeyHandle) const;
-
 	/**
 	  * Add a new key to the curve with the supplied Time and Value. Returns the handle of the new key.
 	  * 
 	  * @param	bUnwindRotation		When true, the value will be treated like a rotation value in degrees, and will automatically be unwound to prevent flipping 360 degrees from the previous key 
 	  * @param  KeyHandle			Optionally can specify what handle this new key should have, otherwise, it'll make a new one
 	  */
-	FKeyHandle AddKey(float InTime, float InValue, const bool bUnwindRotation = false, FKeyHandle KeyHandle = FKeyHandle());
+	virtual FKeyHandle AddKey(float InTime, float InValue, const bool bUnwindRotation = false, FKeyHandle KeyHandle = FKeyHandle()) final override;
 
 	/**
 	 * Sets the keys with the keys.
@@ -262,45 +236,34 @@ public:
 	 * @param KeyHandle The handle of the key to remove.
 	 * @see AddKey, SetKeys
 	 */
-	void DeleteKey(FKeyHandle KeyHandle);
+	void DeleteKey(FKeyHandle KeyHandle) final override;
 
 	/** Finds the key at InTime, and updates its value. If it can't find the key within the KeyTimeTolerance, it adds one at that time */
-	FKeyHandle UpdateOrAddKey(float InTime, float InValue, const bool bUnwindRotation = false, float KeyTimeTolerance = KINDA_SMALL_NUMBER);
+	virtual FKeyHandle UpdateOrAddKey(float InTime, float InValue, const bool bUnwindRotation = false, float KeyTimeTolerance = KINDA_SMALL_NUMBER) final override;
 
-	/** Move a key to a new time. This may change the index of the key, so the new key index is returned. */
-	FKeyHandle SetKeyTime(FKeyHandle KeyHandle, float NewTime);
+	/** Move a key to a new time. */
+	virtual void SetKeyTime(FKeyHandle KeyHandle, float NewTime) final override;
 
 	/** Get the time for the Key with the specified index. */
-	float GetKeyTime(FKeyHandle KeyHandle) const;
-
-	/** Finds a key a the specified time */
-	FKeyHandle FindKey(float KeyTime, float KeyTimeTolerance = KINDA_SMALL_NUMBER) const;
+	virtual float GetKeyTime(FKeyHandle KeyHandle) const final override;
 
 	/** Set the value of the specified key */
-	void SetKeyValue(FKeyHandle KeyHandle, float NewValue, bool bAutoSetTangents=true);
+	virtual void SetKeyValue(FKeyHandle KeyHandle, float NewValue, bool bAutoSetTangents = true) final override;
 
 	/** Returns the value of the specified key */
-	float GetKeyValue(FKeyHandle KeyHandle) const;
+	virtual float GetKeyValue(FKeyHandle KeyHandle) const final override;
 
-	/** Set the default value of the curve */
-	void SetDefaultValue(float InDefaultValue) { DefaultValue = InDefaultValue; }
+	/** Returns a <Time, Value> pair for the specified key */
+	virtual TPair<float, float> GetKeyTimeValuePair(FKeyHandle KeyHandle) const final override;
 
-	/** Get the default value for the curve */
-	float GetDefaultValue() const { return DefaultValue; }
+	/** Returns whether the curve is constant or not */
+	bool IsConstant(float Tolerance = SMALL_NUMBER) const;
 
-	/** Removes the default value for this curve. */
-	void ClearDefaultValue() { DefaultValue = MAX_flt; }
-
-	/** Shifts all keys forwards or backwards in time by an even amount, preserving order */
-	void ShiftCurve(float DeltaTime);
-	void ShiftCurve(float DeltaTime, TSet<FKeyHandle>& KeyHandles);
-	
-	/** Scales all keys about an origin, preserving order */
-	void ScaleCurve(float ScaleOrigin, float ScaleFactor);
-	void ScaleCurve(float ScaleOrigin, float ScaleFactor, TSet<FKeyHandle>& KeyHandles);
+	/** Returns whether the curve is empty or not */
+	bool IsEmpty() const { return Keys.Num() == 0; }
 
 	/** Set the interp mode of the specified key */
-	void SetKeyInterpMode(FKeyHandle KeyHandle, ERichCurveInterpMode NewInterpMode);
+	virtual void SetKeyInterpMode(FKeyHandle KeyHandle, ERichCurveInterpMode NewInterpMode) final override;
 
 	/** Set the tangent mode of the specified key */
 	void SetKeyTangentMode(FKeyHandle KeyHandle, ERichCurveTangentMode NewTangentMode);
@@ -309,72 +272,145 @@ public:
 	void SetKeyTangentWeightMode(FKeyHandle KeyHandle, ERichCurveTangentWeightMode NewTangentWeightMode);
 
 	/** Get the interp mode of the specified key */
-	ERichCurveInterpMode GetKeyInterpMode(FKeyHandle KeyHandle) const;
+	virtual ERichCurveInterpMode GetKeyInterpMode(FKeyHandle KeyHandle) const final override;
 
 	/** Get the tangent mode of the specified key */
 	ERichCurveTangentMode GetKeyTangentMode(FKeyHandle KeyHandle) const;
 
 	/** Get range of input time values. Outside this region curve continues constantly the start/end values. */
-	void GetTimeRange(float& MinTime, float& MaxTime) const;
+	virtual void GetTimeRange(float& MinTime, float& MaxTime) const final override;
 
 	/** Get range of output values. */
-	void GetValueRange(float& MinValue, float& MaxValue) const;
+	virtual void GetValueRange(float& MinValue, float& MaxValue) const final override;
 
 	/** Clear all keys. */
-	void Reset();
+	virtual void Reset() final override;
 
 	/** Remap InTime based on pre and post infinity extrapolation values */
-	void RemapTimeValue(float& InTime, float& CycleValueOffset) const;
+	virtual void RemapTimeValue(float& InTime, float& CycleValueOffset) const final override;
 
 	/** Evaluate this rich curve at the specified time */
-	float Eval(float InTime, float InDefaultValue = 0.0f) const;
+	virtual float Eval(float InTime, float InDefaultValue = 0.0f) const final override;
 
 	/** Auto set tangents for any 'auto' keys in curve */
 	void AutoSetTangents(float Tension = 0.f);
 
 	/** Resize curve length to the [MinTimeRange, MaxTimeRange] */
-	void ReadjustTimeRange(float NewMinTimeRange, float NewMaxTimeRange, bool bInsert/* whether insert or remove*/, float OldStartTime, float OldEndTime);
+	virtual void ReadjustTimeRange(float NewMinTimeRange, float NewMaxTimeRange, bool bInsert/* whether insert or remove*/, float OldStartTime, float OldEndTime) final override;
 
 	/** Determine if two RichCurves are the same */
 	bool operator == (const FRichCurve& Curve) const;
 
 	/** Bake curve given the sample rate */
-	void BakeCurve(float SampleRate);
-	void BakeCurve(float SampleRate, float FirstKeyTime, float LastKeyTime);
+	virtual void BakeCurve(float SampleRate) final override;
+	virtual void BakeCurve(float SampleRate, float FirstKeyTime, float LastKeyTime) final override;
 
 	/** Remove redundant keys, comparing against Tolerance */
-	void RemoveRedundantKeys(float Tolerance);
-	void RemoveRedundantKeys(float Tolerance, float FirstKeyTime, float LastKeyTime);
+	virtual void RemoveRedundantKeys(float Tolerance) final override;
+	virtual void RemoveRedundantKeys(float Tolerance, float FirstKeyTime, float LastKeyTime) final override;
+
+	/** Compresses a rich curve for efficient runtime storage and evaluation */
+	void CompressCurve(struct FCompressedRichCurve& OutCurve, float ErrorThreshold = 0.0001f, float SampleRate = 120.0f) const;
+
+	/** Allocates a duplicate of the curve */
+	virtual FIndexedCurve* Duplicate() const final { return new FRichCurve(*this); }
 
 private:
 	void RemoveRedundantKeysInternal(float Tolerance, int32 InStartKeepKey, int32 InEndKeepKey);
+	virtual int32 GetKeyIndex(float KeyTime, float KeyTimeTolerance) const override final;
 
 public:
 
 	// FIndexedCurve interface
 
-	virtual int32 GetNumKeys() const override;
-	virtual bool IsKeyHandleValid(FKeyHandle KeyHandle) const override;
+	virtual int32 GetNumKeys() const final override { return Keys.Num(); }
 
 public:
-
-	/** Pre-infinity extrapolation state */
-	UPROPERTY()
-	TEnumAsByte<ERichCurveExtrapolation> PreInfinityExtrap;
-
-	/** Post-infinity extrapolation state */
-	UPROPERTY()
-	TEnumAsByte<ERichCurveExtrapolation> PostInfinityExtrap;
-
-	/** Default value */
-	UPROPERTY(EditAnywhere, Category="Curve")
-	float DefaultValue;
 
 	/** Sorted array of keys */
 	UPROPERTY(EditAnywhere, EditFixedSize, Category="Curve", meta=(EditFixedOrder))
 	TArray<FRichCurveKey> Keys;
 };
 
+/**
+ * A runtime optimized representation of a FRichCurve. It consumes less memory and evaluates faster.
+ */
+USTRUCT()
+struct ENGINE_API FCompressedRichCurve
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** Compression format used by CompressedKeys */
+	TEnumAsByte<ERichCurveCompressionFormat> CompressionFormat;
+
+	/** Compression format used to pack the key time */
+	TEnumAsByte<ERichCurveKeyTimeCompressionFormat> KeyTimeCompressionFormat;
+
+	/** Pre-infinity extrapolation state */
+	TEnumAsByte<ERichCurveExtrapolation> PreInfinityExtrap;
+
+	/** Post-infinity extrapolation state */
+	TEnumAsByte<ERichCurveExtrapolation> PostInfinityExtrap;
+
+	union TConstantValueNumKeys
+	{
+		float ConstantValue;
+		int32 NumKeys;
+
+		TConstantValueNumKeys() : NumKeys(0) {}
+	};
+
+	/**
+	* If the compression format is constant, this is the value returned
+	* Inline here to reduce the likelihood of accessing the compressed keys data for the common case of constant/zero/empty curves
+	* When a curve is linear/cubic/mixed, the constant float value isn't used and instead we use the number of keys
+	*/
+	TConstantValueNumKeys ConstantValueNumKeys;
+
+	/** Compressed keys, used only outside of the editor */
+	TArray<uint8> CompressedKeys;
+
+	FCompressedRichCurve()
+		: CompressionFormat(RCCF_Empty)
+		, KeyTimeCompressionFormat(RCKTCF_float32)
+		, PreInfinityExtrap(RCCE_None)
+		, PostInfinityExtrap(RCCE_None)
+		, ConstantValueNumKeys()
+		, CompressedKeys()
+	{}
+
+	/** Evaluate this rich curve at the specified time */
+	float Eval(float InTime, float InDefaultValue = 0.0f) const;
+
+	/** Evaluate this rich curve at the specified time */
+	static float StaticEval(ERichCurveCompressionFormat CompressionFormat, ERichCurveKeyTimeCompressionFormat KeyTimeCompressionFormat, ERichCurveExtrapolation PreInfinityExtrap, ERichCurveExtrapolation PostInfinityExtrap, TConstantValueNumKeys ConstantValueNumKeys, const uint8* CompressedKeys, float InTime, float InDefaultValue = 0.0f);
+
+	/** ICPPStructOps interface */
+	bool Serialize(FArchive& Ar);
+	bool operator==(const FCompressedRichCurve& Other) const;
+	bool operator!=(const FCompressedRichCurve& Other) const { return !(*this == Other); }
+
+	friend FArchive& operator<<(FArchive& Ar, FCompressedRichCurve& Curve)
+	{
+		Curve.Serialize(Ar);
+		return Ar;
+	}
+};
+
+/*
+ * Override serialization for compressed rich curves to handle the union
+ */
+template<>
+struct TStructOpsTypeTraits<FCompressedRichCurve>
+	: public TStructOpsTypeTraitsBase2<FCompressedRichCurve>
+{
+	enum
+	{
+		WithSerializer = true,
+		WithCopy = false,
+		WithIdenticalViaEquality = true,
+	};
+};
 
 /**
  * Info about a curve to be edited.
@@ -421,6 +457,6 @@ inline uint32 GetTypeHash(const FRichCurveEditInfoTemplate<T>& RichCurveEditInfo
 	return RichCurveEditInfo.GetTypeHash();
 }
 
-
-typedef FRichCurveEditInfoTemplate<FRichCurve*>			FRichCurveEditInfo;
-typedef FRichCurveEditInfoTemplate<const FRichCurve*>	FRichCurveEditInfoConst;
+// Rename and deprecate
+typedef FRichCurveEditInfoTemplate<FRealCurve*>			FRichCurveEditInfo;
+typedef FRichCurveEditInfoTemplate<const FRealCurve*>	FRichCurveEditInfoConst;

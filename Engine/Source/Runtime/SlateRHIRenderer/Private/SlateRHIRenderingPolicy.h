@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -21,16 +21,22 @@ class FSlatePostProcessor;
 class ILayoutCache;
 class UDeviceProfile;
 
-struct FSlateRenderingOptions
+struct FSlateRenderingParams
 {
 	FMatrix ViewProjectionMatrix;
 	FVector2D ViewOffset;
+	float CurrentWorldTime;
+	float DeltaTimeSeconds;
+	float CurrentRealTime;
 	bool bAllowSwitchVerticalAxis;
 	bool bWireFrame;
 
-	FSlateRenderingOptions(const FMatrix& InViewProjectionMatrix)
+	FSlateRenderingParams(const FMatrix& InViewProjectionMatrix, float InCurrentWorldTime, float InDeltaTimeSeconds, float InCurrentRealTime)
 		: ViewProjectionMatrix(InViewProjectionMatrix)
 		, ViewOffset(0, 0)
+		, CurrentWorldTime(InCurrentWorldTime)
+		, DeltaTimeSeconds(InDeltaTimeSeconds)
+		, CurrentRealTime(InCurrentRealTime)
 		, bAllowSwitchVerticalAxis(true)
 		, bWireFrame(false)
 	{
@@ -47,7 +53,7 @@ public:
 
 	void ReleaseCachingResourcesFor(FRHICommandListImmediate& RHICmdList, const ILayoutCache* Cacher);
 
-	void DrawElements(FRHICommandListImmediate& RHICmdList, class FSlateBackBuffer& BackBuffer, FTexture2DRHIRef& ColorTarget, FTexture2DRHIRef& DepthStencilTarget, const TArray<FSlateRenderBatch>& RenderBatches, const FSlateRenderingOptions& Options);
+	void DrawElements(FRHICommandListImmediate& RHICmdList, class FSlateBackBuffer& BackBuffer, FTexture2DRHIRef& ColorTarget, FTexture2DRHIRef& DepthStencilTarget, const TArray<FSlateRenderBatch>& RenderBatches, const FSlateRenderingParams& Params);
 
 	virtual TSharedRef<FSlateShaderResourceManager> GetResourceManager() const override { return ResourceManager; }
 	virtual bool IsVertexColorInLinearSpace() const override { return false; }
@@ -89,6 +95,8 @@ private:
 	/** Buffers used for rendering */
 	TSlateElementVertexBuffer<FSlateVertex> VertexBuffers;
 	FSlateElementIndexBuffer IndexBuffers;
+
+	FSlateStencilClipVertexBuffer StencilVertexBuffer;
 
 	/** Handles post process effects for slate */
 	TSharedRef<FSlatePostProcessor> PostProcessor;

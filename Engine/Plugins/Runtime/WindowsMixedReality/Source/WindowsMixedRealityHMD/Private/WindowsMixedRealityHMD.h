@@ -16,7 +16,11 @@
 #include "XRRenderTargetManager.h"
 #include "RendererInterface.h"
 
+#if WITH_WINDOWS_MIXED_REALITY
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include "MixedRealityInterop.h"
+#include "Windows/HideWindowsPlatformTypes.h"
+#endif
 
 namespace WindowsMixedReality
 {
@@ -73,6 +77,10 @@ namespace WindowsMixedReality
 		/** FXRTrackingSystemBase protected interface */
 		virtual float GetWorldToMetersScale() const override;
 
+	private:
+		int gameWindowWidth = 1920;
+		int gameWindowHeight = 1080;
+
 	public:
 		/** IHeadMountedDisplay interface */
 		virtual bool IsHMDConnected() override;
@@ -120,7 +128,9 @@ namespace WindowsMixedReality
 		void CreateHMDDepthTexture(FRHICommandListImmediate& RHICmdList);
 
 	public:
-		FWindowsMixedRealityHMD(const FAutoRegister&);
+#if WITH_WINDOWS_MIXED_REALITY
+		FWindowsMixedRealityHMD(const FAutoRegister&, MixedRealityInterop* InHMD);
+#endif
 		virtual ~FWindowsMixedRealityHMD();
 		bool IsInitialized() const;
 
@@ -133,6 +143,9 @@ namespace WindowsMixedReality
 		void StartCustomPresent();
 
 		TRefCountPtr<ID3D11Device> InternalGetD3D11Device();
+#if WITH_WINDOWS_MIXED_REALITY
+		MixedRealityInterop* HMD = nullptr;
+#endif
 
 		bool bIsStereoEnabled = false;
 		bool bIsStereoDesired = true;
@@ -218,13 +231,16 @@ namespace WindowsMixedReality
 
 		EHMDWornState::Type currentWornState = EHMDWornState::Type::Unknown;
 		bool mouseLockedToCenter = true;
+
 	public:
 		// Spatial input
 		bool IsAvailable();
 		bool SupportsSpatialInput();
-		static MixedRealityInterop::HMDTrackingStatus GetControllerTrackingStatus(MixedRealityInterop::HMDHand hand);
+#if WITH_WINDOWS_MIXED_REALITY
+		MixedRealityInterop::HMDTrackingStatus GetControllerTrackingStatus(MixedRealityInterop::HMDHand hand);
 		bool GetControllerOrientationAndPosition(MixedRealityInterop::HMDHand hand, FRotator & OutOrientation, FVector & OutPosition);
-		void PollInput();
+		bool PollInput();
+
 		MixedRealityInterop::HMDInputPressState GetPressState(
 			MixedRealityInterop::HMDHand hand,
 			MixedRealityInterop::HMDInputControllerButtons button);
@@ -234,10 +250,16 @@ namespace WindowsMixedReality
 		void SubmitHapticValue(
 			MixedRealityInterop::HMDHand hand,
 			float value);
+#endif
 		void LockMouseToCenter(bool locked)
 		{
 			mouseLockedToCenter = locked;
 		}
+
+	public:
+		// Remoting
+		void ConnectToRemoteHoloLens(const wchar_t* ip, unsigned int bitrate);
+		void DisconnectFromRemoteHoloLens();
 	};
 }
 

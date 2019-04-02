@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -25,7 +25,7 @@ private:
 	UMediaSource* DynamicProxy;
 
 	/** Media source proxy. */
-	UPROPERTY(EditAnywhere, Category="Source")
+	UPROPERTY(EditAnywhere, Category="Media Proxy")
 	UMediaSource* Proxy;
 
 public:
@@ -43,6 +43,14 @@ public:
 	 * @return The media source, or nullptr if not set.
 	 */
 	UMediaSource* GetLeafMediaSource() const;
+
+	/**
+	 * Is the media proxy has a valid proxy.
+	 *
+	 * @return true if the proxy is valid.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Media Proxy")
+	bool IsProxyValid() const;
 
 	/**
 	 * Set the dynamic media source proxy.

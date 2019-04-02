@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AbcImporter.h"
 
@@ -192,7 +192,7 @@ UStaticMesh* FAbcImporter::CreateStaticMeshFromSample(UObject* InParent, const F
 		// Add the first LOD, we only support one
 		int32 LODIndex = 0;
 		StaticMesh->AddSourceModel();
-		FMeshDescription* MeshDescription = StaticMesh->CreateOriginalMeshDescription(LODIndex);
+		FMeshDescription* MeshDescription = StaticMesh->CreateMeshDescription(LODIndex);
 		StaticMesh->RegisterMeshAttributes(*MeshDescription);
 		// Generate a new lighting GUID (so its unique)
 		StaticMesh->LightingGuid = FGuid::NewGuid();
@@ -242,7 +242,7 @@ UStaticMesh* FAbcImporter::CreateStaticMeshFromSample(UObject* InParent, const F
 		SrcModel.BuildSettings.DstLightmapIndex = 1;
 
 		// Store the mesh description
-		StaticMesh->CommitOriginalMeshDescription(LODIndex);
+		StaticMesh->CommitMeshDescription(LODIndex);
 
 		//Set the Imported version before calling the build
 		StaticMesh->ImportVersion = EImportStaticMeshVersion::LastVersion;
@@ -646,7 +646,8 @@ TArray<UObject*> FAbcImporter::ImportAsSkeletalMesh(UObject* InParent, EObjectFl
 		FSkeletalMeshModel* ImportedModel = SkeletalMesh->GetImportedModel();
 		check(ImportedModel->LODModels.Num() == 0);
 		ImportedModel->LODModels.Empty();
-		new(ImportedModel->LODModels)FSkeletalMeshLODModel();
+		ImportedModel->EmptyOriginalReductionSourceMeshData();
+		ImportedModel->LODModels.Add(new FSkeletalMeshLODModel());
 		SkeletalMesh->ResetLODInfo();
 		SkeletalMesh->AddLODInfo();
 		FSkeletalMeshLODModel& LODModel = ImportedModel->LODModels[0];
@@ -1307,7 +1308,8 @@ void FAbcImporter::GenerateMeshDescriptionFromSample(const FAbcMeshSample* Sampl
 	uint32 TriangleCount = Sample->Indices.Num() / 3;
 	for (uint32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
 	{
-		FVertexInstanceID CornerVertexInstanceIDs[3];
+		TArray<FVertexInstanceID> CornerVertexInstanceIDs;
+		CornerVertexInstanceIDs.SetNum(3);
 		FVertexID CornerVertexIDs[3];
 		for (int32 Corner = 0; Corner < 3; ++Corner)
 		{
@@ -1342,34 +1344,9 @@ void FAbcImporter::GenerateMeshDescriptionFromSample(const FAbcMeshSample* Sampl
 			CornerVertexIDs[Corner] = VertexID;
 		}
 
-		TArray<FMeshDescription::FContourPoint> Contours;
-		for (int32 Corner = 0; Corner < 3; ++Corner)
-		{
-			int32 ContourPointIndex = Contours.AddDefaulted();
-			FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
-			//Find the matching edge ID
-			uint32 CornerIndices[2];
-			CornerIndices[0] = (Corner + 0) % 3;
-			CornerIndices[1] = (Corner + 1) % 3;
-
-			FVertexID EdgeVertexIDs[2];
-			EdgeVertexIDs[0] = CornerVertexIDs[CornerIndices[0]];
-			EdgeVertexIDs[1] = CornerVertexIDs[CornerIndices[1]];
-
-			FEdgeID MatchEdgeId = MeshDescription->GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-			if (MatchEdgeId == FEdgeID::Invalid)
-			{
-				MatchEdgeId = MeshDescription->CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-				//Conversion from smooth group to hard edges will be done at the end
-				EdgeHardnesses[MatchEdgeId] = false;
-				EdgeCreaseSharpnesses[MatchEdgeId] = 0.0f;
-			}
-			ContourPoint.EdgeID = MatchEdgeId;
-			ContourPoint.VertexInstanceID = CornerVertexInstanceIDs[CornerIndices[0]];
-		}
 		const FPolygonGroupID PolygonGroupID(Sample->MaterialIndices[TriangleIndex]);
 		// Insert a polygon into the mesh
-		const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(PolygonGroupID, Contours);
+		const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(PolygonGroupID, CornerVertexInstanceIDs);
 		//Triangulate the polygon
 		FMeshPolygon& Polygon = MeshDescription->GetPolygon(NewPolygonID);
 		MeshDescription->ComputePolygonTriangulation(NewPolygonID, Polygon.Triangles);

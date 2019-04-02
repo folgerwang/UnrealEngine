@@ -1,0 +1,63 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: 언리얼 프로젝트가 데이터스미스를 사용하도록 설정
+Description: 데이터스미스를 사용하여 언리얼 에디터로 콘텐츠를 가져오려면 프로젝트가 언리얼 스튜디오 관련 특수 플러그인과 콘텐츠를 사용하도록 설정해야 합니다.
+Type:how-to
+SkillLevel:Beginner
+Version: 4.20
+Parent: Enterprise/Datasmith/HowTo
+Order: 2
+Tags: Enterprise
+Tags: how to
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: beginner
+
+
+![](datasmith-setup-create-project.png)
+
+데이터스미스는 특수한 콘텐츠와 플러그인 세트에 액세스할 수 있는 프로젝트에만 콘텐츠를 임포트할 수 있습니다. 그러한 프로젝트를 **언리얼 스튜디오 프로젝트** 라 하는데, 그 콘텐츠와 플러그인 세트의 액세스 권한은 언리얼 스튜디오 자격으로 부여되기 때문입니다.
+
+여기서는 언리얼 스튜디오 프로젝트에 데이터스미스를 사용하도록 만드는 두 가지 방법을 설명합니다.
+
+*   언리얼 엔진과 함께 제공되는 템플릿에서 새로운 템플릿을 생성하거나 
+*   언리얼 스튜디오 이외 템플릿에서 이미 만든 기존 프로젝트를 변환합니다.
+
+## 새 언리얼 스튜디오 프로젝트 생성
+
+에픽게임즈 런처에서 언리얼 엔진을 실행할 때, 계정에 언리얼 스튜디오 자격이 활성 상태라면, 에디터에서 만드는 **모든** 프로젝트는 언리얼 스튜디오 프로젝트로 자동 설정됩니다. 
+
+1.  런처 왼편의 **실행** 버튼을 클릭하여 설치한 엔진 최신 버전을 시작합니다. 데이터스미스를 사용한다면 항상 언리얼 엔진 4 최신 릴리즈 버전을 유지할 것을 권장합니다.  
+    ![엔진 버전 실행](CreateProject_LaunchEngineVersion.png "Launch an Engine version")(w:500)  
+    언리얼 에디터를 이미 열어둔 상태라면, 메인 메뉴 **파일 > 새 프로젝트...** 를 통해 아래 3 단계를 건너뛸 수 있습니다.
+2.  잠시 후 [언리얼 프로젝트 브라우저](Engine/Basics/Projects/Browser/) 가 보입니다. 이미 열려있지 않으면 **새 프로젝트** 탭을 클릭합니다.  
+    ![새 프로젝트 탭](CreateProject_SelectNewProjectTab-1.png "New Project tab")(w:500)
+3.  다음, 템플릿을 선택하고 기본 정보를 설정합니다.  
+    ![템플릿 선택](CreateProject_SetProjectProperties-1.png "Choose a Template")(w:500)
+    1.  시작할 템플릿을 선택합니다.  
+        에픽게임즈 런처에서 언리얼 엔진을 시작했다면, 어떤 탭의 어떤 프로젝트를 선택해도 새 프로젝트는 언리얼 스튜디오 프로젝트로 자동 설정됩니다.  
+        염두에 둔 템플릿이 없다면, 언리얼 스튜디오 탭의 **Blank** (기본) 템플릿을 사용하는 것이 좋습니다.  
+        사용할 수 있는 템플릿과 그 각각에 대한 자세한 정보는 [](Enterprise/UnrealStudioProjectTemplates) 문서를 참고하세요.
+    2.  컴퓨터에서 프로젝트를 저장할 **폴더** 위치를 입력합니다.
+    3.  프로젝트에 **이름** 을 입력합니다.
+4.  **프로젝트 생성** 을 클릭합니다.  
+    ![프로젝트 생성](CreateProject_CreateProjectButton.png "Create Project")(w:500)
+
+이제 프로젝트에 데이터스미스 파일과 CAD 파일을 임포트할 수 있습니다. [](Enterprise/Datasmith/HowTo/ImportingContent) 문서를 참고하세요.
+
+## 기존 프로젝트를 언리얼 스튜디오 프로젝트로 변환
+
+기존 프로젝트를 언리얼 스튜디오 프로젝트로 변환하는 방법은 다음과 같습니다.
+
+1.  언리얼 에디터 최신 버전에서 프로젝트를 엽니다.
+2.  프로젝트가 열리면 메인 메뉴 **편집 > 플러그인** 으로 **플러그인** 창을 엽니다.  
+    ![편집 | 플러그인](Convert_EditPluginsMenu.png "Edit | Plugins")
+3.  **플러그인** 창 왼쪽 패널에서 **Unreal Studio** (언리얼 스튜디오)를 선택합니다.  
+    ![Unreal Studio 섹션](Convert_PluginBrowserUnrealStudio.png "Unreal Studio section")  
+    [REGION:note]
+    Datasmith CAD Importer 및 Datasmith Importer 둘 다 회색으로 표시된 것이 보입니다. 아직 언리얼 스튜디오 프로젝트가 아니라 이 프로젝트에 비활성화된 것입니다.
+    [/REGION]
+4.  **플러그인** 창 하단 **Convert Project & Restart** (프로젝트 변환 & 재시작) 버튼을 클릭하여 프로젝트를 언리얼 스튜디오 프로젝트로 변환합니다. ![프로젝트 변환 및 재시작](Convert_ConverProjectButton.png "Convert Project and Restart")
+
+이제 프로젝트에 데이터스미스를 사용하여 데이터스미스 파일과 CAD 파일을 임포트할 수 있습니다. [](Enterprise/Datasmith/HowTo/ImportingContent) 문서를 참고하세요.

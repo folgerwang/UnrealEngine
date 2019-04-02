@@ -1,0 +1,60 @@
+﻿INTSourceChangelist:4400482
+Availability: Public
+Crumbs: 
+Title: 월드 원점 표시 방법
+Description: 증강 현실에서 월드 원점을 표시하는 방법입니다.
+Type: 
+Version: 4.19
+Parent: Platforms/AR/HandheldAR
+Order: 
+Tags: mobile
+Tags: iOS
+Tags: Android
+Tags: AR
+
+
+전제 조건  
+이 글은 다음 주제에 대해 알고 있는 분들을 대상으로 합니다. 계속하기 전 확인해 주세요.
+
+*   [](Platforms/AR/HandheldAR/ARKitPrerequisites)
+*   [](Platforms/AR/HandheldAR/ARCorePrerequisites)
+*   [](Platforms/AR/HandheldAR/ARQuickStart)
+
+![](AR_WorldOriginGraphic.png)
+[REGION:note]
+여기서는 **Handheld AR** 템플릿을 사용합니다.
+[/REGION]
+
+여기서는 **Handheld AR** 템플릿으로 만든 예제 프로젝트를 살펴보며 월드 원점을 그리는 법을 알아봅니다. 증강 현실 (ARKit/ARCore) 시스템의 월드 원점 위치는 문제 해결에 유용한 정보가 될 수 있습니다. 디바이스는 종종 예측할 수 없는 요인에 따라 World Location 0,0,0 (World Origin, 월드 원점)을 결정하므로 위치 관련 디버깅, 또는 트래킹 지오메트리 트랜스폼 정보 레퍼런스가 없는 콘텐츠의 이동 또는 스폰이 어려울 수 있습니다. 구운 라이팅으로 작업하는 환경에서는 문제가 커지는데, 스태틱 콘텐츠는 월드 원점이 고정된 위치에 있기를 기대하기 때문입니다.
+
+## 단계
+
+### AR 프로젝트 열기
+
+1.  **언리얼 프로젝트 브라우저** 를 열고 **Handheld AR** (휴대형 증강 현실) 블루프린트 프로젝트를 새로 생성하거나, 기존 증강 현실 프로젝트를 엽니다.  
+    증강 현실 프로젝트를 새로 생성하는 방법은 [](Platforms/AR/HandheldAR/ARQuickStart) 문서를 참고하세요.   
+    ![](AR_NewProjectScreen_HandheldARandProjectSettingsSelected.png)
+2.  **Find in Blueprints** (블루프린트에서 찾기) 메뉴 항목을 엽니다.  
+    ![](AR_FindInBlueprintsMenu.png)
+3.  **Debug Draw World Origin** 를 검색합니다. 결과에서 **Debug Draw World Origin** 함수를 더블클릭합니다.  
+    ![](AR_BluePrintSearch_DebugDrawWorldOrigin.png)
+
+### 월드 원점 표시
+
+예제 프로젝트는 월드 원점을 그리는 단순한 방법을 보여줍니다. 월드 원점을 그리는 것은 증강 현실 시스템이 인식하는 월드 원점을 알아내는 데 도움이 되는 유용한 디버깅 습관입니다.  
+아래 보이듯 월드 원점은 항상 **0.0, 0.0, 0.0** 에서 시작합니다. 
+
+**Debug Draw World Origin***    **Draw Debug String** - 이 함수는 월드 원점 (0.0, 0.0, 0.0) 위치에 "WORLD ORIGIN" 텍스트 스트링을 배치합니다. 
+*    **Draw Debug Arrow(s)** - 이 함수는 (0.0, 0,0, 0,0) 월드 원점부터 각각 X, Y, Z 축으로 짧은 화살표를 그립니다.
+
+[REGION:lightbox]
+![](AR_DebugDrawWorldOriginFunction.png)
+[/REGION]
+
+### 다른 AR 함수 탐구
+
+**Handheld AR** 블루프린트 템플릿 기반 프로젝트를 탐구해 보면 여러 증강 현실 함수를 실제 상황에서 사용한 예제를 확인할 수 있습니다. 새로운 증강 현실 함수는 여러가지 있으니, 시간을 내서 프로젝트의 자세한 구현 내용을 살펴보시기 바랍니다.  
+
+[REGION:tip]
+프로젝트와 새 증강 현실 기능 탐구를 시작하기 좋은 곳은 **콘텐츠 브라우저** 에서 **Content\HandheldARBP\Blueprints\UI** 의 **BP_DebugMenu** 애셋을 **블루프린트 에디터** 로 열어보면 됩니다.
+[/REGION]

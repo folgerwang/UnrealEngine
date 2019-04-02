@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Blueprint/SlateBlueprintLibrary.h"
 #include "EngineGlobals.h"
@@ -125,6 +125,26 @@ void USlateBlueprintLibrary::ScreenToViewport(UObject* WorldContextObject, FVect
 	USlateBlueprintLibrary::ScreenToWidgetAbsolute(WorldContextObject, ScreenPosition, AbsolutePosition);
 	FVector2D PixelPosition;
 	USlateBlueprintLibrary::AbsoluteToViewport(WorldContextObject, AbsolutePosition, PixelPosition, ViewportPosition);
+}
+
+float USlateBlueprintLibrary::TransformScalarAbsoluteToLocal(const FGeometry& Geometry, float AbsoluteScalar)
+{
+	return Geometry.GetAccumulatedRenderTransform().TransformVector(FVector2D(AbsoluteScalar, 0)).Size();
+}
+
+float USlateBlueprintLibrary::TransformScalarLocalToAbsolute(const FGeometry& Geometry, float LocalScalar)
+{
+	return Inverse(Geometry.GetAccumulatedRenderTransform()).TransformVector(FVector2D(LocalScalar, 0)).Size();
+}
+
+FVector2D USlateBlueprintLibrary::TransformVectorAbsoluteToLocal(const FGeometry& Geometry, FVector2D AbsoluteVector)
+{
+	return Geometry.GetAccumulatedRenderTransform().TransformVector(AbsoluteVector);
+}
+
+FVector2D USlateBlueprintLibrary::TransformVectorLocalToAbsolute(const FGeometry& Geometry, FVector2D LocalVector)
+{
+	return Inverse(Geometry.GetAccumulatedRenderTransform()).TransformVector(LocalVector);
 }
 
 #undef LOCTEXT_NAMESPACE

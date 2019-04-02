@@ -1,0 +1,115 @@
+INTSourceChangelist:4684343
+Availability: Public
+Crumbs: 
+Title: 물리적 라이팅 단위
+Description: 물리 기반 라이팅 단위에 대한 설명입니다.
+Type: 
+Version: 4.21
+Parent: Engine/Rendering/LightingandShadows
+Order: 
+Tags: Lighting
+
+
+언리얼 엔진 4 (UE4)의 라이트는 물리 기반 라이팅 단위를 사용해서 정의하므로, 알려진 측정 가능 값을 입력하여 완전 사실적인 라이팅을 내는 것이 가능합니다. 라이트 유형마다 각기 다른 라이팅 단위를 지원하는 것에 추가로, [시각 순응 (또는 자동 노출)](Engine/Rendering/PostProcessEffects/AutomaticExposure) 포스트 프로세스도 값의 확장 범위를 지원하며, EV100 (ISO 100) 으로 표현됩니다. 라이팅과 자동 노출의 물리 기반 단위 사이에서 "마법"의 숫자나 아티스트가 여러 값을 "눈대중"으로 어림 짐작하지 않고도 사실적인 라이팅을 훨씬 쉽게 얻을 수 있습니다. 
+
+## 라이트 강도의 라이팅 단위
+
+각 라이트 유형을 선택하면 디테일 패널에 **Intensity** (강도) 옆에 물리 기반 라이팅 단위 값이 표시됩니다. 
+
+[REGION:lightbox]
+[![](LightTypeUnits.png "LightTypeUnits.png")](LightTypeUnits.png)
+[/REGION]
+[REGION:caption]
+이미지를 클릭하면 원본을 확인합니다.
+[/REGION]
+
+이 라이트 유형에 대해 표시되는 강도는 다음과 같습니다.
+
+*   **디렉셔널 라이트** 는 **Direct Normal Illuminance** (직사 법선 조도)를 사용하며, 제곱 미터당 루멘에 해당하는 **Lux** 로 표현합니다.
+*   **스카이 라이트** 및 **스태틱 라이트와 같은 이미시브 머티리얼** 은 Luminance (휘도)를 사용하며, **제곱 미터 당 칸델라** (cd/m2) 로 표현합니다.
+*   **포인트**, **스포트**, **렉트 라이트** 는 다음 라이팅 단위 중에서 선택할 수 있습니다.
+    *   **Candela** (cd, 칸델라)는 1 스테라디언(sr) 입체각에 걸쳐 균일하게 방출되는 광도를 측정한 것입니다. 예를 들어 1000 cd 로 설정된 라이트는 1 미터에 1000 lux 로 측정됩니다.
+    *   **Lumen** (lm, 루멘)은 1 스테라디언 각도로 방출되는 광속을 측정한 것입니다. 광도 측정법에서 광속( 또는 광도)은 감지된 빛의 세기를 측정한 것입니다. (얼마나 넓게 혹은 좁게) 분포되었는지와 상관 없이 방출되는 에너지 총량은 같습니다.
+    *   **Unitless** (단위없음)은 엔진 전용 라이트 강도 값이며 언리얼 엔진 4.19 이전 버전과의 호환성을 위해 유지합니다.
+
+### 디렉셔널 라이트
+
+**디렉셔널 라이트** 는 **Direct Normal Illuminance** (직사 법선 조도) 또는 **룩스** (lx) 단위로 나타내며, 태양광에 수직인 (법선) 지구 표면에서 [직달 태양 복사](https://www.new-learn.info/packages/tareb/glossary/doc/direct.html) 의 [가시 광선](https://www.new-learn.info/packages/tareb/glossary/doc/visible.html) 이 나타내는 [조도](https://www.new-learn.info/packages/tareb/glossary/doc/evsn.html) 를 나타냅니다. 표면에 닿는 빛의 총량을 나타냅니다.
+
+### 이미시브 표면
+
+이미시브 표면은 **제곱 미터당 칸델라** (cd/m2) 단위로 표현하며, 라이팅을 더하기 전 픽셀의 휘도를 나타냅니다.
+
+#### 스카이 라이트
+
+**스카이 라이트** 는 픽셀 강도에 라이트 강도를 곱해서 HDR 의 cd/m2 단위로 표현되는 총 휘도를 나타냅니다. 예를 들어 HDR 픽셀을 필터로 간주하고 스카이 라이트의 강도를 1000 cd/m2 로 설정한 상태에서 그 픽셀 값 범위가 0 에서 1.0 이라면, 결과 휘도는 1.0 * 1000 cd/m2 입니다.
+
+#### 스태틱 라이트와 같은 이미시브 머티리얼
+
+[스태틱 메시에 적용된 이미시브 머티리얼](Engine/Rendering/Materials/HowTo/EmissiveGlow#월드의이미시브영향력켜고끄기) 중 액터별 세팅 **Use Emissive for Static Lighting** (스태틱 라이팅에 이미시브 사용) 옵션을 활성화한 경우, 라이팅을 씬에 구울 때 그 표면의 휘도를 사용합니다. 
+
+### 포인트, 스포트, 렉트 라이트
+
+**포인트**, **스포트**, **렉트 라이트** 의 경우, **Inverse Squared Falloff** (역제곱 감쇠)가 활성화된 라이트 단위 유형을 지정할 수 있습니다. 라이트의 디테일 패널에서 **Intensity Units** (강도 단위)를 **Candela** (칸델라),**Lumen** (루멘), **Unitless** (단위없음)으로 설정할 수 있습니다.
+[REGION:note]
+**Inverse Squared Falloff** (역제곱 감쇠)는 물리 기반 거리 감쇠 모델로, 감쇠 반경이 세 라이트 단위 유형 모두에 지원되는 라이트 공헌 범위만 제한합니다. 비활성화되면 **Unitless** (단위없음)만 사용할 수 있습니다. 역제곱 감쇠가 비활성화된 라이트는 라이트 주변 밝은 지점이 필요 없는 채우기용 저강도 라이트를 배치할 때 좋습니다.
+[/REGION]
+
+![](Settings_LightUnitType.png "Settings_LightUnitType.png")
+
+[REGION:tip]
+포인트, 스포트, 렉트 라이트의 기본 단위 유형은 **프로젝트 세팅 > 렌더링 > 기본 세팅** 에서 설정할 수 있습니다.
+[/REGION]
+
+각 단위 사이 관계 정의는 다음과 같습니다.
+
+*   1 cd = 625 unitless
+*   1 cd = 1 lm/sr
+
+[REGION:note]
+참고로 라이트 강도가 **칸델라** 로 정의된 경우, 원뿔 각도에 영향받지 않습니다. 그 외 라이트 강도가 **루멘** 으로 정의된 경우, 그 휘도 세기는 라이트에 영향받은 **스테라디안** (sr) 단위 입체각에만 적용됩니다.
+[/REGION]
+
+**포인트 라이트** 의 경우 라이트에 영향받은 입체각은 4π sr 입니다.
+
+*   Illuminance (1 lm) ≈ 49.7 * Illuminance (1 unitless)
+*   Illuminance (1 cd) ≈ 12.6 * Illuminance (1 lm)
+
+**스포트 라이트** 의 경우 입체각은 2π * (1 - cos(θ)) 로 정의되며, θ 는 라이트 원뿔의 절반 각도입니다.
+
+*   Illuminance (1 lm) ≈ 99.5 / (1 - cos(θ)) * Illuminance (1 unitless)
+
+기본 원뿔의 경우 θ = 44° 이며 입체각은 약 1.76 sr 입니다.
+
+*   기본 스포트 라이트의 경우 Illuminance (1 lm) ≈ 354 * Illuminance (1 unitless)
+*   기본 스포트 라이트의 경우 Illuminance (1 cd) ≈ 1.76 * Illuminance (1 lm)
+
+원뿔 각도가 작을 수록 라이트 강도를 루멘 단위로 표현했을 때 라이트에서 표면에 비치는 조명이 강해집니다.
+
+**렉트 라이트** 의 경우, 입체각은 2π sr 로 정의됩니다.
+
+*   Illuminance (1 lm) ≈ 199 * Illuminance (1 unitless)
+*   Illuminance (1 cd) ≈ 3.14 * Illuminance (1 lm)
+
+## 팁과 제안
+
+물리 기반 라이팅 워크플로를 최대한 활용하기 위한 제안 사항 몇 가지는 아래와 같습니다. 
+
+*   라이트를 배치한 이후 이미지가 하얗게 변하면, 자동 노출 범위가 너무 제한되었기 때문일 수 있습니다. **Auto Exposure Max EV100** (및 **Histogram Max EV100**) 옵션을 높여보세요.
+*   반사성 표면에 검정 패치와 같은 부작용이 있는 경우, SceneColor 버퍼 오버플로 때문일 수 있습니다. 고치려면 프로젝트 세팅의 **Apply Pre-Exposure before writing to the scene color** 옵션을 활성화하거나, 씬의 라이트 밝기를 낮추세요.
+*   씬에 이미 기본 적용된 포스트 프로세스 세팅이 (포스트 프로세스 볼륨이 없어도) 몇 가지 있다는 것 잊지 마세요. 이 기본 세팅은 예상치 못한 방식으로 카메라 세팅에 영향을 줄 수 있습니다. 씬에 포스트 프로세스 볼륨을 배치할 때 필요에 따라 세팅을 변경할 수 있도록 하는 것이 좋습니다. 
+*   프로젝트 세팅이 확장된 기본 휘도 범위를 사용하도록 변경하면, 기존 노출 구성이 깨집니다. 그런 애셋의 경우 세팅을 수동으로 이주 / 재구성해야 하므로, 프로세스 초기에 하는 것이 안전합니다. 
+*   씬의 작은 변화로 노출 값이 약간 달라지게 만드는 자동 노출 히스토그램 관련 안정성 문제가 생길 수 있습니다. 이런 문제를 우회하려면 **Histogram Min** 및 **Max** 범위를 씬의 실제 사용 범위로 줄이세요. 사용된 것을 확인하려면 **Visualize HDR** (HDR 시각화) 표시 플래그를 활성화하세요.
+
+## 일반 고려 사항
+
+애셋과 인스턴스 사이 기본값 전파 문제를 피하려면 몇 가지 특별한 주의를 기울여야 합니다. 다른 라이트에서 (블루프린트가 디폴트 오브젝트를 통해) 인스턴싱한 라이트는 부모와 같은 라이트 단위를 유지하는 것이 좋습니다. 단위를 다르게 설정한 경우, 이미 사용 중인 라이트는 단위가 바뀌지 않습니다. 단위를 같게 유지해야 기본값을 바꿔도 예상대로 작동하며 인스턴스에 제대로 전파되고, 기존 인스턴스가 깨지는 것을 방지할 수 있습니다.
+
+포인트, 스포트, 렉트 라이트의 기본 프로젝트 **Light Units** (라이트 단위)는 **프로젝트 세팅 > 렌더링 > 기본 세팅** 에서 설정할 수 있습니다. 
+
+[REGION:lightbox]
+[![](PS_Default_LightingUnits.png "PS_Default_LightingUnits.png")](PS_Default_LightingUnits.png)
+[/REGION]
+[REGION:caption]
+이미지를 클릭하면 원본을 확인합니다.
+[/REGION]

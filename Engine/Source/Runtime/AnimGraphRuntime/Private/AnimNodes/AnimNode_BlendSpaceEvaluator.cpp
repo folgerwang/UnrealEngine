@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimNodes/AnimNode_BlendSpaceEvaluator.h"
 #include "Animation/BlendSpaceBase.h"
@@ -14,7 +14,7 @@ FAnimNode_BlendSpaceEvaluator::FAnimNode_BlendSpaceEvaluator()
 
 void FAnimNode_BlendSpaceEvaluator::UpdateAssetPlayer(const FAnimationUpdateContext& Context)
 {
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 	InternalTimeAccumulator = FMath::Clamp(NormalizedTime, 0.f, 1.f);
 	PlayRate = 0.f;
 

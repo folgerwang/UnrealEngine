@@ -1,0 +1,194 @@
+Availability: Public
+Crumbs: 
+Title: Using Datasmith with SketchUp Pro
+Description: Describes special considerations that apply only when you use Datasmith to bring scenes from Trimble SketchUp Pro into the Unreal Editor.
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/SoftwareInteropGuides
+Order: 3
+Tags: Enterprise
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: overview
+Tags: SketchUp
+Tags: interop
+topic-image:sketchup_datasmith_topic.png
+
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![SketchUp](sketchup_datasmith_compare_skp.png) 
+	[/PARAM]
+	[PARAM:after]
+	![UE4](sketchup_datasmith_compare_unreal.png) 
+	[/PARAM]
+[/OBJECT]
+
+If you plan to use Datasmith to bring scenes into Unreal Editor from Trimble SketchUp Pro, you'll need to know a few extra things about how Datasmith treats your scene, in addition to the basics that you'll find described in the [Datasmith Overview](Enterprise/Datasmith/Overview) and [About the Datasmith Import Process](Enterprise/Datasmith/Overview/ImportProcess).
+
+## SketchUp Workflow
+
+Datasmith uses an **Export Plugin** workflow for SketchUp. That means that to get your SketchUp content into Unreal using Datasmith, you need to:
+
+1.  Install a plugin for SketchUp. See [Installing the Datasmith Exporter Plugin for Sketchup Pro](Enterprise/Datasmith/SoftwareInteropGuides/SketchUp/InstallingExporterPlugin).
+2.  Export your SketchUp content to a *.udatasmith* file. See [Exporting Datasmith Content from Sketchup Pro](Enterprise/Datasmith/SoftwareInteropGuides/SketchUp/ExportingDatasmithContentfromSketchUp).
+3.  Use the Datasmith importer to bring your exported *.udatasmith* file into the Unreal Editor. See [Importing Datasmith Content into Unreal Engine 4](Enterprise/Datasmith/HowTo/ImportingContent).
+
+## Converting Geometry into Static Meshes
+
+Datasmith divides your SketchUp geometry into Static Mesh assets by combining all connected polygon faces that are in the same component or group, into a single Static Mesh. Knowing this strategy can help you influence the Static Meshes it creates.
+
+If your Static Meshes in Unreal are very large, you may have trouble achieving good results when baking static or stationary lights for your scene. Large meshes require correspondingly large lightmap textures in order to make sure that each part of the model has an adequate amount of texture space to record its light and shadow. You can try increasing the lightmap resolution on the large Static Meshes, but this also increases your baking time and runtime memory requirements. Depending on the way your lightmap UVs are laid out, you may not be able to generate good results at all. If this happens, you can try splitting your large geometries across multiple components or layers in SketchUp to make the Static Meshes easier to deal with in Unreal.
+
+### Instancing
+
+When Datasmith detects multiple copies of the same component in your SketchUp scene, it only creates one set of Static Mesh assets for that component, and places multiple instances of those Static Meshes into the scene. This is typically better for the runtime memory requirements and performance of your Project, as well as making it easier to manage the number of Static Mesh assets in your Content Browser.
+
+Wherever possible, we recommend taking advantage of this by making any repeating elements in your scene (such as windows, doors, or chairs) into reusable components in SketchUp.
+
+### Billboards
+
+If you have rotating billboards in your SketchUp scene, Datasmith exports them as Static Meshes and places them into the scene based on the viewpoint of the camera at the time you export from SketchUp.
+
+### Triangle facing direction
+
+SketchUp is very permissive about the facing direction of your geometry. You can create "single-sided" geometry — that is, geometry with no thickness — and see it from both sides; you can even apply different materials to the different faces of each plane.
+
+The Unreal Engine uses a different approach: it assumes that all geometry is modeled with a thickness. Any triangles that face away from the camera represent the back side of a surface, and can be assumed to be hidden from view by the front side of that surface. In order to achieve the best possible performance at runtime, it always *culls* those back-facing triangles to avoid spending GPU cycles rendering triangles that aren't actually visible.
+
+We recommend always modeling your 3D objects with a thickness, so that they work as expected in Unreal. However, if you do use single-sided geometry in SketchUp, Datasmith does its best to respect your intent in the way it assigns materials and facing directions to the triangles in your Static Meshes:
+
+*   If only one side of your surface in SketchUp has a material assigned, that surface is chosen for the facing direction of the triangle in Unreal.
+*   Otherwise, Datasmith chooses the front side of the surface in SketchUp as the facing direction in Unreal.
+*   If you have a material assigned to *both* sides, Datasmith imports only the material from the front side.
+
+By default, this means that triangles in single-sided geometry won't appear in your Unreal scene when you look at them from the back side. In addition, the back-facing side does not cast shadows.
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![SketchUp](sketchup_datasmith_single_side_skp.png) 
+	[/PARAM]
+	[PARAM:after]
+	![Unreal](sketchup_datasmith_single_side_unreal.png) 
+	[/PARAM]
+[/OBJECT]
+
+In the example above, the sides and bottom of each box face outward. On the left, each side has a single material assigned to its out-facing side. In the center, each has two materials assigned, one to each side. On the right, the red material are assigned to the whole group, and one individual side of the box has a different material assigned specifically to it. The colors on the outward facing sides all translate to Unreal, but the sides facing away are only visible when you look at the boxes from the other side.
+
+The best way to deal with this is to fix it in SketchUp, by giving your objects a thickness. However, if you want to fix the problem in Unreal, there are other options. For a complete discussion, see [About the Datasmith Import Process](Enterprise/Datasmith/Overview/ImportProcess#trianglefacingdirection).
+
+## SketchUp Materials
+
+For each different type of surface in your SketchUp scene, Datasmith creates a new Material asset in Unreal, and places it in the Materials folder next to your Datasmith Scene asset. The goal of these Materials is to respect the way you've set up the surfaces look in SketchUp, while exposing some additional properties that help you take advantage of Unreal's physically based renderer.
+
+[REGION:lightbox]
+[![Editing a SketchUp material ](sketchup_datasmith_material_editing.png "Editing a SketchUp material ")](sketchup_datasmith_material_editing.png)
+
+*Click for full image.*
+[/REGION]
+
+To modify a Material:
+
+1.  Double-click it in the Content Browser. Or, select an Actor in your Level that uses the Material you want to modify, and double-click the Material in the **Details** panel.
+2.  You'll open the Material Editor shown above, where you can modify these parameters in the **Parameter Groups** section at the top of the **Details** panel. You can also modify other built-in parameters exposed by the Unreal renderer.
+3.  To override the default value for any property, first check the box to the left of its name to activate the property in your Material. Then, set the value you want the property to use.
+
+### Colors and Texture Images
+
+By default, imported Materials keep the textures or colors that they have in SketchUp. You can override this to make your Material use either a solid color or a texture.
+
+*   Activate either the **Color** option or the **Use Texture Image** option. (If you don't see a **Color** option at all, de-activate the **Use Texture Image** option first.)
+*   To use a solid color, set the **RGB** color values to produce the color you want.   
+    ![](datasmith-sketchup-material-color.png "datasmith-sketchup-material-color.png")  
+    Note that the A channel is not used: alpha blending is controlled by a separate Opacity option (see below).
+*   If you choose to use a texture image, you'll see a **Texture** property, which you can set to refer to the Texture Asset you want to use. (If you want to use a texture that isn't already in your Unreal Project, drag and drop it into your Content Browser to import it into your Project.)  
+    ![](datasmith-sketchup-material-usetexture.png "datasmith-sketchup-material-usetexture.png")  
+    You can also use the **Texture Scale** control if you need to change the way the texture is tiled across the surface. The **R** value controls horizontal scaling (the U axis in UV space), and the **G** value controls vertical scaling (the V axis in UV space). The **B** and **A** values are not used.
+
+
+[INCLUDE:#datasmith-sketchup-texture-scale-sequenceslider]
+
+[COMMENT:none]
+[EXCERPT:datasmith-sketchup-texture-scale-sequenceSlider]
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:max]
+	3
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	datasmith-sketchup-texture-scale-sequence
+	[/PARAMLITERAL]
+    [PARAM:caption]
+    The effect of different texture scale settings.
+    [/PARAM]
+    [PARAM:image_list]
+    ![](datasmith-sketchup-material-scale-1.png)
+	![](datasmith-sketchup-material-scale-2.png)
+	![](datasmith-sketchup-material-scale-3.png)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:datasmith-sketchup-texture-scale-sequenceSlider]
+[/COMMENT]
+
+### Opacity and Blend Modes
+
+Whether you use a solid color or a texture map for your Material's base color, you can use the **Opacity** control to determine how much of the background you can see through the Static Mesh.
+
+By default, if your material in SketchUp has an opacity value below 100%, that value should come through correctly to your Material in Unreal.
+
+If you want to give an Opacity setting to a previously *non-transparent* Material in Unreal, you have to change the Material's blending mode. In the **General** section, expand the **Material Property Overrides** group, check the **Blend Mode** option, and set its value to **Translucent**.
+
+[REGION:lightbox]
+[![SketchUp material opacity](sketchup_datasmith_material_opacity.png "SketchUp material opacity")](sketchup_datasmith_material_opacity.png)
+
+*Click for full image.*
+[/REGION]
+
+### UE Extended Properties
+
+By default, all imported materials are set as non-metallic, with a balanced Roughness value of 0.5. However, you will likely find that tweaking these values for different Materials is an easy way to increase the realism of your scene's rendering in Unreal. You'll find these values under the **UE Extended** group pf properties:
+
+![](datasmith-sketchup-material-ueextended.png "datasmith-sketchup-material-ueextended.png")
+
+*   For any object that is made of metal, select the **Metallic** option. This makes a subtle difference in the way the base color or texture affects the incoming light that hits the surface.
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Default](sketchup_datasmith_material_metallic_off.png) 
+	[/PARAM]
+	[PARAM:after]
+	![Metallic On](sketchup_datasmith_material_metallic_on.png) 
+	[/PARAM]
+[/OBJECT]
+
+*   If the surface of your object is particularly matte or glossy, check the **Roughness** option and raise or lower the value.
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Default Roughness 0.5](sketchup_datasmith_material_roughness_default.png) 
+	[/PARAM]
+	[PARAM:after]
+	![Roughness 0.05](sketchup_datasmith_material_roughness_zero.png) 
+	[/PARAM]
+[/OBJECT]
+
+*   If different parts of your object need to have different glossiness, you could instead opt to use a Roughness Map: a greyscale texture image in which you color the parts that you want to be matte in white, and the parts that you want to be glossy in black.
+*   For more about how the Roughness and Metallic values interact to create shiny surfaces, see also [Creating Shiny Materials](Engine/Rendering/Materials/HowTo/ShinyMaterials).
+*   In addition, you can set up Normal Maps for your imported Materials. These give the renderer hints about the small-scale surface details of your geometry:
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![No normal map](sketchup_datasmith_material_normal_off.png) 
+	[/PARAM]
+	[PARAM:after]
+	![With normal map](sketchup_datasmith_material_normal_on.png) 
+	[/PARAM]
+[/OBJECT]
+
+You can generate Normal Maps and Roughness Maps in 2D image creation software like Adobe Photoshop. In some cases, as with the texture shown above, you may be able to base those Normal Maps and Roughness Maps on your Material's Base Color Textures.
+
+## SketchUp Pro Only
+
+The Datasmith exporter plugin currently only works with SketchUp Pro. It does not support SketchUp Free, or the discontinued SketchUp Make.

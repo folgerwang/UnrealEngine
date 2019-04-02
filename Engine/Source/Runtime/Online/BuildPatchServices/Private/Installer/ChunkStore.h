@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -44,12 +44,10 @@ namespace BuildPatchServices
 		virtual TUniquePtr<IChunkDataAccess> Remove(const FGuid& DataId) = 0;
 
 		/**
-		 * Gets the slack space for the store. If the store is configured with a max size, this represents how much space is available.
-		 * The value can be negative, indicating an eviction policy which allowed the store to grow.
-		 * For unsized stores, it is expected to return max int32 value.
-		 * @return the slack space for the store.
+		 * Get the number of chunks this store can hold. For unsized stores, it is expected to return max int32 value.
+		 * @return the store size.
 		 */
-		virtual int32 GetSlack() const = 0;
+		virtual int32 GetSize() const = 0;
 
 		/**
 		 * Sets a callback to be used when chunks which have been Put, are lost.

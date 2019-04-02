@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RenderingCompositionGraph.h: Scene pass order and dependency system.
@@ -17,6 +17,8 @@
 
 class FSceneViewState;
 class FViewInfo;
+struct FImagePixelData;
+struct FImagePixelPipe;
 struct FRenderingCompositeOutput;
 struct FRenderingCompositeOutputRef;
 struct FRenderingCompositePass;
@@ -65,8 +67,14 @@ private:
 	/** could be implemented without recursion */
 	void RecursivelyProcess(const FRenderingCompositeOutputRef& InOutputRef, FRenderingCompositePassContext& Context) const;
 
+	/** Get the contents of the specified output in CPU memory */
+	TUniquePtr<FImagePixelData> GetDumpOutput(FRenderingCompositePassContext& Context, FIntRect SourceRect, FRenderingCompositeOutput* Output) const;
+
 	/** Write the contents of the specified output to a file */
 	TFuture<bool> DumpOutputToFile(FRenderingCompositePassContext& Context, const FString& Filename, FRenderingCompositeOutput* Output) const;
+
+	/** Write the contents of the specified output to a pipe */
+	void DumpOutputToPipe(FRenderingCompositePassContext& Context, FImagePixelPipe* OutputPipe, FRenderingCompositeOutput* Output) const;
 
 	/**
 	 * for debugging purpose O(n)
@@ -290,6 +298,20 @@ struct FRenderingCompositePass
 	 * @param Filename - Output dump filename, needs to have extension, gets modified if we have an HDR image e.g. ".png"
 	 */
 	virtual void SetOutputDumpFilename(EPassOutputId OutputId, const TCHAR* Filename) = 0;
+
+	/**
+	 * Access the output pipe for the specifieid output ID, or nullptr if one is not assigned
+	 * @param Index - Output index
+	 * @return A pipe to push the output of the pass onto, or nullptr if one is not currently assigned to this pass
+	 */
+	virtual FImagePixelPipe* GetOutputDumpPipe(EPassOutputId OutputId) = 0;
+
+	/**
+	 * Assign an output pipe for the specified pass, allowing custom handling of the pass output on the CPU
+	 * @param Index - Output index
+	 * @param OutputPipe - The pipe to receive the pass output once complete
+	 */
+	virtual void SetOutputDumpPipe(EPassOutputId OutputId, TSharedPtr<FImagePixelPipe, ESPMode::ThreadSafe> OutputPipe) = 0;
 
 	/**
 	 * Allows access to an optional TArray of colors in which to capture the pass output
@@ -575,6 +597,18 @@ struct TRenderingCompositePassBase :public FRenderingCompositePass
 		PassOutputDumpFilenames[OutputId] = Filename;
 	}
 
+	virtual FImagePixelPipe* GetOutputDumpPipe(EPassOutputId OutputId) override
+	{
+		check (OutputId < OutputCount);
+		return PassOutputPipes[OutputId].Get();
+	}
+
+	virtual void SetOutputDumpPipe(EPassOutputId OutputId, TSharedPtr<FImagePixelPipe, ESPMode::ThreadSafe> OutputPipe) override
+	{
+		check (OutputId < OutputCount);
+		PassOutputPipes[OutputId] = OutputPipe;
+	}
+
 	virtual TArray<FColor>* GetOutputColorArray(EPassOutputId OutputId) const
 	{
 		check (OutputId < OutputCount);
@@ -595,6 +629,8 @@ protected:
 	FRenderingCompositeOutput PassOutputs[OutputCount];
 	/** Filenames that the outputs can be written to after being processed */
 	FString PassOutputDumpFilenames[OutputCount];
+	/** Pipes that each pass can be pushed onto after being processed */
+	TSharedPtr<FImagePixelPipe, ESPMode::ThreadSafe> PassOutputPipes[OutputCount];
 	/** Color arrays for saving off a copy of the pixel data from this pass output */
 	TArray<FColor>* PassOutputColorArrays[OutputCount];
 	/** All dependencies: PassInputs and all objects in this container */

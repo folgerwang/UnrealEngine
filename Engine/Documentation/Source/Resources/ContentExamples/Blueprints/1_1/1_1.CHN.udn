@@ -1,7 +1,8 @@
-﻿Availability: Public
-Title:1.1 - Hello World
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:1.1——Hello World
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Blueprints
-Description:蓝图示例关卡概述，示例1.1： Hello World
+Description:蓝图关卡实例1.1概览：Hello World
 Related: Engine/Blueprints/Overview 
 Related: Engine/Blueprints/UserGuide/Variables
 Related: Engine/Blueprints/UserGuide/BlueprintComms
@@ -9,6 +10,23 @@ Related: Engine/Blueprints/UserGuide/Types/MacroLibrary
 Related: Engine/Animation/AnimBlueprints/EventGraph
 Related: Engine/Blueprints/UserGuide/UserConstructionScript
 Related: Gameplay/HowTo/SetUpInput/Blueprints
+Version: 4.9
+
+[VAR:Steps]
+[OBJECT:Navigation]
+	[PARAM:previous]
+	[/PARAM]
+	[PARAM:current]
+	[/PARAM]
+	[PARAM:home]
+		[Blueprint Content Examples Home](Resources/ContentExamples/Blueprints)
+	[/PARAM]
+	[PARAM:next]
+		[Next Example](Resources/ContentExamples/Blueprints/1_2 "%Resources/ContentExamples/Blueprints/1_2:title%")
+	[/PARAM]
+[/OBJECT]
+[/VAR]
+
 
 
 [VAR:TopicCompact]
@@ -34,30 +52,34 @@ Related: Gameplay/HowTo/SetUpInput/Blueprints
 [/REGION]
 
 [REGION:tip]
-该示例的最佳展示处是Play In Editor（在编辑器中播放）或Simulation（模拟）。如需模拟，请点击编辑器工具栏顶部的 **Simulate** （模拟）按钮，或按下 **Alt-S** 快捷键。如需在编辑器中播放，请点击 **Play** 按钮，它也位于工具栏中，或按下  **Alt-P** 快捷键。
+在PIE或模拟中查看此例最佳。点击编辑器工具栏中屏幕上方的 **模拟* 按钮或按下 **Alt-S** 即可进行模拟。点击工具栏中的 **运行** 按钮或按下 **Alt-P** 即可在在编辑器中运行。
 
-![Simulate](button_Simulate.png)(h:60) ![Play In Editor](button_PlayIn.png)(h:60)
+![Simulate](button_Simulate.png)(h:150) ![Play In Editor](button_PlayIn.png)(h:150)
 [/REGION]
 
 
 
-## 概述
+此范例简单展示了如果使用经典的程序员入门项目“Hello World”对使用事件图表的组件属性进行更新。对象的蓝图脚本在游戏开始时将把Text Render组件的Text属性设为“Hello World”。在游戏开始之前（例如使用编辑器时），Text属性将为空，因此不会出现文本。这是展示事件图表和蓝图设置的最简单、最基础的方法之一。
 
-本示例展示了如何使用Event Graph（事件图表）来对组件属性进行更新，用的是传统的程序员入门项目"Hello World"。简单来说，在游戏一开始时，目标的蓝图脚本就会把Text Render（文本渲染器）组件的 Text （文本）属性设置为"Hello World"。在游戏前，比如在使用编辑器时， Text（文本）属性将为空白，所以不会出现文本。这是展示事件图表和蓝图设置的最简单和最基础的方法之一。
+正如此关卡中的所有范例一样，显示的对象是一个蓝图Actor，意味着其是以作为父项的Actor类创建的一个蓝图。 
 
-在本关卡的所有示例中，显示的对象均为蓝图Actor，这表示这个蓝图是以Actor类为父类进行创建的。
+(#components)
 
-##  组件
-本设置中仅有两种组件：
+## 组件
+此设置中只有两个组件：
 
-* **广告牌组件** ,这个组件用来放置物体以及做简单的选择。我们把它命名为 **Billboard1** ，这是默认的名称。我们不需要在蓝图中对它进行引用。
-*  **文本渲染器组件** , 这个组件在游戏一开始就会更新其 _Text_ （文本）属性。该组件被命名为 **HelloWorld**, 我们会在事件图表中对其进行引用以变更文本。
+* **公告板组件**，用于放置和轻松选择。这默认被命名为 **Billboard1**。不需要在蓝图中参考此项。
+* **Text Render组件**，其将在游戏开始时更新其Text属性。这被命名为 **HelloWorld**，将在事件图表中参考它来修改文本。
 
-## 构建脚本
-在本示例中，我们不使用构建脚本。这是因为在关卡编辑（构建）时，我们不需要任何事件。
+(#constructionscript)
+
+## 构造脚本
+在此例中不使用构造脚本。这是因为不需要在关卡编辑（构造）中发生任何情况。 
+
+(#eventgraph)
 
 ## 事件图表
-事件图表开始于 **Begin Play** （开始播放）事件。随后我们会制作对HelloWorld文本渲染器的引用，在该引用处，我们创建 **Set Text** （设置文本）节点，这个节点使得我们可以变更 Text （文本）属性为我们想要的任意值。
+事件图表以一个 **Begin Play** 事件作为开始。然后将制作一个对HelloWorld Text Render的引用，再从此处创建 **Set Text** 节点，用于将Text属性修改为任意内容。
 
 
 [REGION:fullwidth]

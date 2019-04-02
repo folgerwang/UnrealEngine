@@ -1,43 +1,10 @@
-﻿INTSourceChangelist:3020428
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Two Bone IK
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
 Description:说明 Two Bone IK 控制器如何将 IK 应用到拥有 3 个关节的骨骼链条。 
 version:4.12
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Animation\NodeReference\SkeletalControls\TwoBoneIK:title%](Engine\Animation\NodeReference\SkeletalControls\TwoBoneIK\node_twobone.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\NodeReference\SkeletalControls\TwoBoneIK:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\NodeReference\SkeletalControls\TwoBoneIK]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\NodeReference\SkeletalControls\TwoBoneIK:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Animation\NodeReference\SkeletalControls\TwoBoneIK:title%](Engine\Animation\NodeReference\SkeletalControls\TwoBoneIK\node_twobone.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\NodeReference\SkeletalControls\TwoBoneIK:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\NodeReference\SkeletalControls\TwoBoneIK]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\NodeReference\SkeletalControls\TwoBoneIK:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:node_twobone.png
 
 
 
@@ -83,6 +50,10 @@ JxzEo3wUSWw
 | [REGION:tablesection]**输入引脚**[/REGION] ||
 | **Effector Location** | 一个矢量值，用于指定执行器位置空间中的位置执行器。|
 | **Joint Target Location** | 一个矢量值，用于指定关节目标位置空间中的位置关节目标。|
+
+**Two Bone IK** 节点还会受到4.11版本中加入的 **LOD Threshold** 系统影响。您可以在 **Two Bone IK** 节点的 **细节面板** 上找到其设置。
+
+[INCLUDE:Engine/Animation/NodeReference/SkeletalControls#lodthresh]
 
 [COMMENT:none]
 

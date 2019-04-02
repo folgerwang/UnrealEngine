@@ -1,17 +1,27 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreTypes.h"
 #include "CoreFwd.h"
+#include "Templates/Atomic.h"
+
+#ifndef USE_ATOMIC_PLATFORM_FILE
+	#define USE_ATOMIC_PLATFORM_FILE (WITH_EDITOR)
+#endif
 
 /**
 * Platform File chain manager.
 **/
 class CORE_API FPlatformFileManager
 {
+#if USE_ATOMIC_PLATFORM_FILE
+	/** Currently used platform file. */
+	TAtomic<class IPlatformFile*> TopmostPlatformFile;
+#else
 	/** Currently used platform file. */
 	class IPlatformFile* TopmostPlatformFile;
+#endif
 
 public:
 
@@ -54,7 +64,7 @@ public:
 	void TickActivePlatformFile();
 
 	/**
-	* Permorms additional initialization when the new async IO is enabled.
+	* Performs additional initialization when the new async IO is enabled.
 	*/
 	void InitializeNewAsyncIO();
 
@@ -62,8 +72,6 @@ public:
 	 * Gets FPlatformFileManager Singleton.
 	 */
 	static FPlatformFileManager& Get( );
-
-private:
 
 	/**
 	* Removes the specified file wrapper from the platform file wrapper chain.

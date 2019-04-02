@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraScriptToolkit.h"
 #include "NiagaraEditorModule.h"
@@ -51,7 +51,7 @@ DECLARE_CYCLE_STAT(TEXT("Niagara - ScriptToolkit - OnApply"), STAT_NiagaraEditor
 
 static TAutoConsoleVariable<int32> CVarDevDetails(
 	TEXT("fx.DevDetailsPanels"),
-	0,
+	1,
 	TEXT("Whether to enable the development details panels inside Niagara."));
 
 

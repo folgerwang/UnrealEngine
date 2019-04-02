@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GenericPlatformFile.cpp: Generic implementations of platform file I/O functions
@@ -32,7 +32,7 @@ IPlatformFile& FPlatformFileManager::GetPlatformFile()
 void FPlatformFileManager::SetPlatformFile(IPlatformFile& NewTopmostPlatformFile)
 {
 	TopmostPlatformFile = &NewTopmostPlatformFile;
-	TopmostPlatformFile->InitializeAfterSetActive();
+	NewTopmostPlatformFile.InitializeAfterSetActive();
 }
 
 IPlatformFile* FPlatformFileManager::FindPlatformFile(const TCHAR* Name)

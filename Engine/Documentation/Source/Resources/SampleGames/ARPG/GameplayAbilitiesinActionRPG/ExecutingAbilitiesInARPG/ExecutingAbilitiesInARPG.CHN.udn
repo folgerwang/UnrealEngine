@@ -1,0 +1,24 @@
+﻿INTSourceChangelist:4381199
+Availability: Public
+Crumbs: 
+Title: 在ARPG中执行技能
+Description: 本章概述了如何执行已经创建好的技能。
+Type: 
+Version: 4.20
+Parent: Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG
+Order: 4
+Tags: 
+
+
+在创建好所有技能之后，最后一步就是执行它们。对于每个游戏来说，这部分工作可能大大不同，动作RPG（ARPG）实现只是对如何实现进行说明的一个示例。ARPG使用 **标记** 和 **物品槽** 两种方法。可通过标记来激活 **技能**，具体来说就是使用通用引擎函数 **ActivateAbilitiesWithTags**。这个方法之所以奏效，是因为每个技能都具有 **Ability.Skill**（在 **AbilityTags** 中）。装备技能项时，它最终会调用 **AddSlottedGameplayAbilities**，将该技能的能力添加给 **AbilitySystemComponent**。调用 **ActivateAbilitiesWithTags** 时，它查找具有 **Ability.Skill** 标记的技能并执行它。  
+
+武器和药剂技能可使用特定于ARPG的函数 **ActivateAbilitiesWithItemSlot** 来执行。在 **AddSlottedGameplayAbilities** 中添加技能时，它会将它们的 **FGameplayAbilitySpecHandle** 存储到通过物品槽建立索引的映射中。对于敌人和玩家，技能通过两种不同的方式添加到物品槽中：对于敌人来说，它们从 **DefaultSlottedAbilities** 数组中添加，对于玩家来说，它们从玩家的实际物品栏中填充。**ARPGCharacterBase** 中用于处理物品栏或角色关卡更改之后添加/删除相应技能的逻辑虽然较为复杂，但却相当合理。但是，通过赋予敌人“假物品栏”，可以将大部分技能逻辑放在敌人和玩家角色共享的基类中。通过使用 **IRPGInventoryInterface** 本地接口，可使该基类从任何源获取其槽信息，这样，如果我们想要退回并为NPC赋予“真正的物品栏”，就完全无需更改 **ARPGCharacterBase** 代码。
+
+执行技能的剩余部分工作就是与余下的运动和Gameplay系统交互。对于ARPG来说，这通常是通过一系列函数来处理的，例如 **CanUseAnyAbility**（位于 **BP_Character** 蓝图上）。这些函数会检查全局状态或当前激活的技能，并将阻止玩家或AI执行新技能或在它们本应处于忙碌状态或被锁定时做其他事情。每个游戏都需要实现其自己的规则，以确定是否允许技能执行，而在技能上添加 **ActivationRequiredTags** 和 **ActivationBlockedTags** 通常对此有益。最后，UI将需要查询技能系统来获取执行信息。以下是一个来自 **WB_OnSCreenControls** 的示例，其中，它使用 **GetCooldownRemainingForTag** 以在使用一个技能之后显示冷却计时器：
+
+[REGION:lightbox]
+[![](ExecutingAbilitiesIn20ARPG_01.png)(w:900px)](ExecutingAbilitiesIn20ARPG_01.png)
+[/REGION]
+[REGION:caption]
+单击查看大图
+[/REGION]

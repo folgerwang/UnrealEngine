@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections;
@@ -47,8 +47,24 @@ namespace UnrealBuildTool
 			get { return "XGE"; }
 		}
 
-		public static bool IsAvailable()
+		public static bool TryGetXgConsoleExecutable(out string OutXgConsoleExe)
 		{
+			// Try to get the path from the registry
+			if(BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+			{
+				string XgConsoleExe;
+				if(TryGetXgConsoleExecutableFromRegistry(RegistryView.Registry32, out XgConsoleExe))
+				{
+					OutXgConsoleExe = XgConsoleExe;
+					return true;
+				}
+				if(TryGetXgConsoleExecutableFromRegistry(RegistryView.Registry64, out XgConsoleExe))
+				{
+					OutXgConsoleExe = XgConsoleExe;
+					return true;
+				}
+			}
+
 			// Get the name of the XgConsole executable.
 			string XgConsole = "xgConsole";
 			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
@@ -69,6 +85,7 @@ namespace UnrealBuildTool
 					string PotentialPath = Path.Combine(SearchPath, XgConsole);
 					if(File.Exists(PotentialPath))
 					{
+						OutXgConsoleExe = PotentialPath;
 						return true;
 					}
 				}
@@ -77,7 +94,48 @@ namespace UnrealBuildTool
 					// PATH variable may contain illegal characters; just ignore them.
 				}
 			}
+
+			OutXgConsoleExe = null;
 			return false;
+		}
+
+		private static bool TryGetXgConsoleExecutableFromRegistry(RegistryView View, out string OutXgConsoleExe)
+		{
+			try
+			{
+				using(RegistryKey BaseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, View))
+				{
+					using (RegistryKey Key = BaseKey.OpenSubKey("SOFTWARE\\Xoreax\\IncrediBuild\\Builder", false))
+					{
+						if(Key != null)
+						{
+							string Folder = Key.GetValue("Folder", null) as string;
+							if(!String.IsNullOrEmpty(Folder))
+							{
+								string FileName = Path.Combine(Folder, "xgConsole.exe");
+								if(File.Exists(FileName))
+								{
+									OutXgConsoleExe = FileName;
+									return true;
+								}
+							}
+						}
+					}
+				}
+			}
+			catch(Exception Ex)
+			{
+				Log.WriteException(Ex, null);
+			}
+
+			OutXgConsoleExe = null;
+			return false;
+		}
+
+		public static bool IsAvailable()
+		{
+			string XgConsoleExe;
+			return TryGetXgConsoleExecutable(out XgConsoleExe);
 		}
 
 		// precompile the Regex needed to parse the XGE output (the ones we want are of the form "File (Duration at +time)"
@@ -160,11 +218,11 @@ namespace UnrealBuildTool
 				for (int ActionIndex = 0; ActionIndex < InActions.Count; ActionIndex++)
 				{
 					Action Action = InActions[ActionIndex];
-					foreach (FileItem Item in Action.PrerequisiteItems)
+					foreach (Action PrerequisiteAction in Action.PrerequisiteActions)
 					{
-						if (Item.ProducingAction != null && InActions.Contains(Item.ProducingAction))
+						if (InActions.Contains(PrerequisiteAction))
 						{
-							int DepIndex = InActions.IndexOf(Item.ProducingAction);
+							int DepIndex = InActions.IndexOf(PrerequisiteAction);
 							if (DepIndex > ActionIndex)
 							{
 								NumSortErrors++;
@@ -183,16 +241,16 @@ namespace UnrealBuildTool
 							continue;
 						}
 						Action Action = InActions[ActionIndex];
-						foreach (FileItem Item in Action.PrerequisiteItems)
+						foreach(Action PrerequisiteAction in Action.PrerequisiteActions)
 						{
-							if (Item.ProducingAction != null && InActions.Contains(Item.ProducingAction))
+							if (InActions.Contains(PrerequisiteAction))
 							{
-								int DepIndex = InActions.IndexOf(Item.ProducingAction);
+								int DepIndex = InActions.IndexOf(PrerequisiteAction);
 								if (UsedActions.Contains(DepIndex))
 								{
 									continue;
 								}
-								Actions.Add(Item.ProducingAction);
+								Actions.Add(PrerequisiteAction);
 								UsedActions.Add(DepIndex);
 							}
 						}
@@ -202,14 +260,14 @@ namespace UnrealBuildTool
 					for (int ActionIndex = 0; ActionIndex < Actions.Count; ActionIndex++)
 					{
 						Action Action = Actions[ActionIndex];
-						foreach (FileItem Item in Action.PrerequisiteItems)
+						foreach(Action PrerequisiteAction in Action.PrerequisiteActions)
 						{
-							if (Item.ProducingAction != null && Actions.Contains(Item.ProducingAction))
+							if (Actions.Contains(PrerequisiteAction))
 							{
-								int DepIndex = Actions.IndexOf(Item.ProducingAction);
+								int DepIndex = Actions.IndexOf(PrerequisiteAction);
 								if (DepIndex > ActionIndex)
 								{
-									throw new BuildException("Action is not topologically sorted.\n  {0} {1}\nDependency\n  {2} {3}", Action.CommandPath, Action.CommandArguments, Item.ProducingAction.CommandPath, Item.ProducingAction.CommandArguments);
+									throw new BuildException("Action is not topologically sorted.\n  {0} {1}\nDependency\n  {2} {3}", Action.CommandPath, Action.CommandArguments, PrerequisiteAction.CommandPath, PrerequisiteAction.CommandArguments);
 								}
 							}
 						}
@@ -281,34 +339,13 @@ namespace UnrealBuildTool
 				{
 					ToolElement.SetAttribute("OutputPrefix", OutputPrefix);
 				}
-
-				// When running on Windows, differentiate between .exe and batch files.
-				// Those (.bat, .cmd) need to be run via cmd /c or shellexecute, 
-				// the latter which we can't use because we want to redirect input/output
-
-				bool bLaunchViaCmdExe = (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64) && (!Path.GetExtension(Action.CommandPath).ToLower().EndsWith(".exe"));
-
-				string CommandPath = "";
-				string CommandArguments = "";
-
-				if (bLaunchViaCmdExe)
+				if(Action.GroupNames.Count > 0)
 				{
-					CommandPath = "cmd.exe";
-					CommandArguments = string.Format
-					(
-						"/c \"\"{0}\" {1}\"",
-						(Action.CommandPath),
-						(Action.CommandArguments)
-					);
-				}
-				else
-				{
-					CommandPath = Action.CommandPath;
-					CommandArguments = Action.CommandArguments;
+					ToolElement.SetAttribute("GroupPrefix", String.Format("** For {0} **", String.Join(" + ", Action.GroupNames)));
 				}
 
-				ToolElement.SetAttribute("Params", CommandArguments);
-				ToolElement.SetAttribute("Path", CommandPath);
+				ToolElement.SetAttribute("Params", Action.CommandArguments);
+				ToolElement.SetAttribute("Path", Action.CommandPath.FullName);
 				ToolElement.SetAttribute("SkipIfProjectFailed", "true");
 				if (Action.bIsGCCCompiler)
 				{
@@ -354,16 +391,16 @@ namespace UnrealBuildTool
 				}
 				TaskElement.SetAttribute("Name", string.Format("Action{0}", ActionIndex));
 				TaskElement.SetAttribute("Tool", string.Format("Tool{0}", ActionIndex));
-				TaskElement.SetAttribute("WorkingDir", Action.WorkingDirectory);
+				TaskElement.SetAttribute("WorkingDir", Action.WorkingDirectory.FullName);
 				TaskElement.SetAttribute("SkipIfProjectFailed", "true");
 
 				// Create a semi-colon separated list of the other tasks this task depends on the results of.
 				List<string> DependencyNames = new List<string>();
-				foreach (FileItem Item in Action.PrerequisiteItems)
+				foreach(Action PrerequisiteAction in Action.PrerequisiteActions)
 				{
-					if (Item.ProducingAction != null && Actions.Contains(Item.ProducingAction))
+					if (Actions.Contains(PrerequisiteAction))
 					{
-						DependencyNames.Add(string.Format("Action{0}", Actions.IndexOf(Item.ProducingAction)));
+						DependencyNames.Add(string.Format("Action{0}", Actions.IndexOf(PrerequisiteAction)));
 					}
 				}
 
@@ -470,8 +507,9 @@ namespace UnrealBuildTool
 				XGEProcess.WaitForExit();
 				return XGEProcess.ExitCode == 0;
 			}
-			catch (Exception)
+			catch (Exception Ex)
 			{
+				Log.WriteException(Ex, null);
 				return false;
 			}
 		}

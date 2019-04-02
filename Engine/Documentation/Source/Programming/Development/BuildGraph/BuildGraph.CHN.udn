@@ -1,12 +1,15 @@
-﻿INTSourceChangelist:3126630
+﻿INTSourceChangelist:3356804
 Availability:Public
 Title:BuildGraph
 Crumbs: %ROOT%, Programming, Programming/Development
-Description:使用 BuildGraph 脚本编写系统自定义安装的版本。
-Version:4.13
+Description:使用 BuildGraph 脚本编写系统自定义版本。
+Version: 4.13
 type:landing
 parent:Programming/Development
+tags:Programming
 tags:BuildGraph
+topic-image:buildgraph_topic.png
+related:Programming/UnrealBuildSystem
 
 **BuildGraph** 是一个基于脚本的构建自动化系统，其特点是拥有虚幻引擎 4（UE4）项目中常见的构建块图表。BuildGraph 整合了 UnrealBuildTool、AutomationTool，以及编辑器。可根据项目进行延展和自定义。
 
@@ -19,6 +22,7 @@ Epic 使用 BuildGraph 准备 UE4 二进制版本、市场中的样本包，并�
 
 通过 Visual Studio 打开脚本后，将使用存在于 `[UE4Root]Engine/Build/Graph/Schema.xsd` 的模式在编辑时提供丰富的工具提示、验证和智能感知功能。
 
+(#WritingBuildGraphScripts)
 ## 编写 BuildGraph 脚本
 
 如希望学习如何自行编写 **BuildGraph** 脚本，它有助于了解构成图表的多个部分。图表通过以下单元创建：
@@ -39,10 +43,12 @@ BuildGraph 一般用于打包的游戏，因此原生支持过滤和文件处理
 
 用于定义 BuildGraph 架构的单元列于以下部分中。
 
+(#BuildGraphScriptingReference)
 ## BuildGraph 脚本编写参考
 
 [DIR(output:"listbutton" parent:"Programming/Development/BuildGraph" org:"flat" type:"reference")]
 
+(#UsingBuildGraph)
 ## 使用 BuildGraph
 
 [REGION:topics third]

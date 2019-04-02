@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -82,7 +82,7 @@ private:
  * that must be performed against the GC for UObjects, and looking up references for assets through
  * the asset registry.
  */
-class FAssetDeleteModel
+class UNREALED_API FAssetDeleteModel
 {
 public:
 	/** States used to manage the async deletion process. */

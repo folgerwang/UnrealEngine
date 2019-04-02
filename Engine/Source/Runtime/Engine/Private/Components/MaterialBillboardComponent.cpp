@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Components/MaterialBillboardComponent.h"
 #include "EngineGlobals.h"
@@ -209,7 +209,7 @@ public:
 							FMeshBatch& Mesh = Collector.AllocateMesh();
 
 							Mesh.VertexFactory = &VertexFactory;
-							Mesh.MaterialRenderProxy = Element.Material->GetRenderProxy((View->Family->EngineShowFlags.Selection) && IsSelected(), IsHovered());
+							Mesh.MaterialRenderProxy = Element.Material->GetRenderProxy();
 							Mesh.LCI = NULL;
 							Mesh.ReverseCulling = IsLocalToWorldDeterminantNegative() ? true : false;
 							Mesh.CastShadow = false;
@@ -223,7 +223,6 @@ public:
 							BatchElement.FirstIndex = 0;
 							BatchElement.MinVertexIndex = 0;
 							BatchElement.MaxVertexIndex = 3;
-							BatchElement.PrimitiveUniformBuffer = GetUniformBuffer();
 							BatchElement.NumPrimitives = 2;
 							BatchElement.BaseVertexIndex = WriteOffset;
 

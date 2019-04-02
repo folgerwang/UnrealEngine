@@ -1,90 +1,79 @@
-﻿INTSourceChangelist:3741452
-Availability: Docs
-Crumbs: %ROOT%, 
-Title:创建粒子光照
-Description:描述如何在粒子系统中创建光照。
-Type: how-to
+﻿INTSourceChangelist:4703316
+Availability: Public
+Crumbs: 
+Title: 创建粒子光源
+Description: 描述如何在粒子系统中创建光源。
+Type:how-to 
 SkillLevel:Beginner
-Version: 4.17
-parent:Engine/Niagara/HowTo
-order:5
-tags:Niagara
-topic-image:
+Version: 4.21
+Parent: Engine/Niagara/HowTo
+Order: 4
+Tags: Niagara
+Tags: Early Access
 
-让粒子能够照亮周围场景，可以为任何项目视觉效果额外增加一层真实感。在以下操作指南中，我们将介绍如何设置Niagara发射器，以便同时产生粒子和照明。
+先决条件主题
 
-![](PL_Hero_Image.png)
+本页假定您已对以下主题有一定的了解。请先阅读这些主题，然后继续进行操作。
+
+*   [启用Niagara插件](Engine/Niagara/HowTo/EnableNiagara "描述如何启用Niagara插件。")
+    
+让粒子能够照亮它们周围的世界，可以为您项目的任何视觉效果添加额外的真实感图层。在接下来的教程中，我们将学习如何设置Niagara发射器，使粒子和光源可以同时产生。
+
+![](Light_Banner_01.png "Light_Banner_01.png")
+
+(#steps)
 
 ## 步骤
 
-1. 首先，我们需要在 **内容浏览器（Content Browser）** 中单击右键，从显示的菜单中，转至 **FX**，然后单击 **Niagara 发射器（Niagara Emitter）**，以创建 **Niagara 发射器（Niagara Emitter）**。 
-
-    ![](Engine\Niagara\HowTo\SpriteEffect\SE_01.png)
-
-2. 将新创建的Niagara发射器命名为 **FX_Light**，然后双击以将其打开。
-
+1. 首先，在 **内容浏览器（Content Browser）** 中右键单击，创建一个 **Niagara发射器（Niagara Emitter）**，并在显示的菜单中选择 **FX > Niagara发射器（FX > Niagara Emitter）**。将显示Niagara发射器（Niagara Emitter）向导。  
+    ![](SE_01.png)(w:400)
+2. 单击 **从发射器模板创建新发射器（Create a new emitter from an emitter template）** 旁边的单选按钮。选择 **喷泉（Fountain）** 模板。然后单击 **确定（OK）** 以在内容浏览器（Content Browser）中创建新发射器。  
+    ![](NiagaraEmitter_FountainTemplate.png)(w:400)
+3. 将新建的Niagara发射器命名为 **FX_Light**，然后双击打开。  
     ![](PL_01.png)
+4. 现在Niagara编辑器（Niagara Editor）已打开，转到 **选定发射器（Selected Emitter）** 面板并找到 **渲染（Render）** 部分。
+5. 单击 **渲染（Render）** 旁的 **加号** 图标 (**+**)，从显示的列表中选择 **Niagara光源渲染器属性（Niagara Light Renderer Properties）** 选项。  
+    ![](CreateParticleLight_Steps_Step4-AddLightRenderer.png)
+6. 在渲染模块底部找到新的 **Niagara光源渲染器属性（NiagaraLightRendererProperties）** 部分。将以下属性设置为以下值。  
+    ![ParticleLights/CreateParticleLight_Steps_Step5-RadiusScaleColorAdd.png](CreateParticleLight_Steps_Step5-RadiusScaleColorAdd.png)
 
-3. 接下来，在FX_Light Niagara发射器的 **渲染（Render）** 部分中，按 **加号（Plus）** 图标，并从显示的列表中，选择 **Niagara照明渲染器属性（Niagara Light Renderer Properties）** 选项。
+   | **属性名称** | **值** |
+   | --- | --- |
+   | **半径比例** | 1 |
+   | **颜色添加X** | X: 10 Y:0 Z:0 |
 
-    ![](PL_02.png)
-
-4. 在“Niagara照明渲染器属性”（Niagara Light Renderer Properties）中，将 **半径比例（Radius Scale）** 和 **颜色增加（Color Add）** 设置为值 **10**。
-
-    ![](PL_03.png)
-
-5. 然后，按 **编译（Compile）**、**应用（Apply）** 和 **保存（Save）** 按钮，以应用和保存更改，而后关闭 **FX_Mesh** 发射器。
-
-    ![](Engine\Niagara\HowTo\MeshEffect\ME_09.png)
-
-6. 现在移到 **内容浏览器（Content Browser）**，单击右键并从显示的列表中，转至 **FX**，然后选择 **Niagara系统（Niagara System）** 选项，将其命名为 **ParticleLight**。
-
-    ![](Engine\Niagara\HowTo\SpriteEffect\SE_16.png)
-
-7. 双击ParticleLight Niagara系统以将其打开，然后将 **FX_Light** Niagara发射器拖到 ParticleLight Niagara 系统的 **时间轴（Timeline）**。
-
+7. 单击 **编译（Compile）**、**应用（Apply）** 和 **保存（Save）** 按钮以编译并保存您的作业。然后关闭 **FX_Light** Niagara发射器。  
+    ![](ME_09.png)
+8. 现在在 **内容浏览器（Content Browser）** 中右键单击，并选择 **FX > Niagara系统（FX > Niagara System）**。将显示Niagara系统（Niagara System）向导。  
+    ![](SE_16.png)(w:500)
+9. 单击 **创建一个不带发射器的空系统（Create an empty system with no emitters）** 旁边的单选按钮。然后单击 **确定（OK）** 以在内容浏览器（Content Browser）中创建新Niagara系统。  
+    ![](NiagaraSystem_EmptySystem.png)(w:400)
+10. 将新的Niagara系统命名为 **ParticleLight**。  
+    ![](NiagaraSystem_ParticleLightIcon.png)(w:100)
+11. 双击该 **ParticleLight** **Niagara** 系统打开它，然后将 **FX_Light** Niagara发射器拖动到粒子光源Niagara系统的 **时间轴（Timeline）**。  
     [REGION:lightbox]
     [![](PL_04.png)(w:317)](PL_04.png)
     [/REGION]
-
     [REGION:caption]
-    单击查看大图。
+    *单击显示全图。*
     [/REGION]
+12. 单击 **编译（Compile）** 和 **保存（Save）** 按钮以编译并保存您的作业，然后关闭粒子光源 **Niagara 系统**。在 **内容浏览器（Content Browser）** 中，将 **网格体Niagara系统（Mesh Niagara System）** 拖动到关卡视口中。  
+    ![](CreateParticleLight_Steps_Step9_AddToLevel.png)
 
-8. 按 **编译（Compile）** 和 **保存（Save）** 按钮，然后关闭 ParticleLight Niagara 系统，移至“内容浏览器”（Content Browser），将 Mesh Niagara 系统拖到关卡视口。
-
-    [REGION:lightbox]
-    [![](PL_05.png)(w:779)](PL_05.png)
-    [/REGION]
-
-    [REGION:caption]
-    单击查看大图。
-    [/REGION]
+(#endresult)
 
 ## 最终结果
 
-完成后，您将拥有一个在产生粒子时向场景投射光线的VFX。
+当这些步骤完成后，您就获得了一种视觉效果，当粒子生成时，这种效果会将光线投射到关卡。可以观看下面视频中的例子。
 
 [OBJECT:EmbeddedVideo]
-    [PARAMLITERAL:videoid]
-    7D0edbLt2oE
-    [/PARAMLITERAL]
-    [PARAMLITERAL:width]
-    100
-    [/PARAMLITERAL]
-    [PARAMLITERAL:height]
-    56.25
-    [/PARAMLITERAL]
-    [PARAMLITERAL:units]
-    %
-    [/PARAMLITERAL]
-    [PARAMLITERAL:type]
-    simple
-    [/PARAMLITERAL]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ cRcjPhPHmSM
+ [/PARAMLITERAL]
 [/OBJECT]
-
-
-
-
-
-

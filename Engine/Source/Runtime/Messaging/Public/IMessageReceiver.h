@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -93,5 +93,5 @@ public:
 };
 
 
-DEPRECATED(4.15, "IReceiveMessages has been renamed to IMessageReceiver")
+UE_DEPRECATED(4.15, "IReceiveMessages has been renamed to IMessageReceiver")
 typedef IMessageReceiver IReceiveMessages;

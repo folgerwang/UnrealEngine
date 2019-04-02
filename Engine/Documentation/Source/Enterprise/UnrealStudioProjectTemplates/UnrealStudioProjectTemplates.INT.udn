@@ -1,0 +1,26 @@
+Availability: Public
+Crumbs: 
+Title: Unreal Studio Project Templates
+Description: Describes the template Projects available exclusively to Unreal Studio users.
+Type:landing
+Version: 4.20
+Parent: Enterprise
+Order: 1
+Tags: Getting Started
+Tags: Unreal Studio
+topic-image:studio-product-viewer-template-topic.png
+
+
+When you sign up for Unreal Studio, you also get access to Project Templates that you can use as starting points for your own Projects. You'll find these templates on the **Unreal Studio** tab of the **New Project** window and the **Unreal Project Browser**:
+
+![Unreal Studio Templates](unreal-studio-templates.png "Unreal Studio Templates")
+
+## Unreal Studio Templates
+
+%Enterprise/UnrealStudioProjectTemplates/StudioProductViewer:topic%
+
+*   You can also use the **Blank** template on the Unreal Studio tab if you want to build your Project from the ground up. This is a completely empty starting scene, with no navigation or interactions. This template is essentially the same as the **Blank** Blueprint template, except that it is set up as an Unreal Studio Project.
+
+[REGION:tip]
+As of the 4.20 release, every template can be an Unreal Studio Project! As long as you start the Unreal Editor from the Epic Games Launcher, and you have your Unreal Studio entitlement in place, any template you start your Project from will automatically be considered an Unreal Studio Project. You'll be able to use it right away to import content through Datasmith.
+[/REGION]

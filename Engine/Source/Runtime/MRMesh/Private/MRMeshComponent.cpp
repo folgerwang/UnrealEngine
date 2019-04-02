@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MRMeshComponent.h"
 #include "PrimitiveSceneProxy.h"
@@ -20,6 +20,10 @@
 #include "PhysXCookHelper.h"
 #include "Misc/RuntimeErrors.h"
 #include "Engine/Engine.h"
+#include "UObject/UObjectThreadContext.h"
+#include "Stats/Stats.h"
+
+DECLARE_CYCLE_STAT(TEXT("MrMesh SetCollisionProfileName"), STAT_MrMesh_SetCollisionProfileName, STATGROUP_Physics);
 
 class FMRMeshVertexResourceArray : public FResourceArrayInterface
 {
@@ -304,7 +308,7 @@ private:
 			if (Section != nullptr)
 			{
 				const bool bIsSelected = false;
-				FMaterialRenderProxy* MaterialProxy = MaterialToUse->GetRenderProxy(bIsSelected);
+				FMaterialRenderProxy* MaterialProxy = MaterialToUse->GetRenderProxy();
 
 				// For each view..
 				for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
@@ -319,7 +323,11 @@ private:
 						Mesh.bWireframe = false;
 						Mesh.VertexFactory = &Section->VertexFactory;
 						Mesh.MaterialRenderProxy = MaterialProxy;
-						BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate(GetLocalToWorld(), InfiniteBounds, InfiniteBounds, true, UseEditorDepthTest());
+
+						FDynamicPrimitiveUniformBuffer& DynamicPrimitiveUniformBuffer = Collector.AllocateOneFrameResource<FDynamicPrimitiveUniformBuffer>();
+						DynamicPrimitiveUniformBuffer.Set(GetLocalToWorld(), GetLocalToWorld(), InfiniteBounds, InfiniteBounds, true, false, UseEditorDepthTest());
+						BatchElement.PrimitiveUniformBufferResource = &DynamicPrimitiveUniformBuffer.UniformBuffer;
+
 						BatchElement.FirstIndex = 0;
 						BatchElement.NumPrimitives = Section->IndexBuffer.NumIndices / 3;
 						BatchElement.MinVertexIndex = 0;
@@ -376,6 +384,140 @@ void UMRMeshComponent::BeginPlay()
 	SetCustomNavigableGeometry(bCanEverAffectNavigation ? EHasCustomNavigableGeometry::Yes : EHasCustomNavigableGeometry::No);
 }
 
+void UMRMeshComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	ClearAllBrickData();
+
+	Super::EndPlay(EndPlayReason);
+}
+
+void UMRMeshComponent::OnActorEnableCollisionChanged()
+{
+	for (auto& BodyInstanceElement : BodyInstances)
+	{
+		BodyInstanceElement->UpdatePhysicsFilterData();
+	}
+
+	Super::OnActorEnableCollisionChanged();
+}
+
+bool UMRMeshComponent::ShouldCreatePhysicsState() const
+{
+	// This component does not use the default physics state creation.  It creates in response to meshing data delivered via SendBrickData.
+	return false;
+}
+
+void UMRMeshComponent::SetCollisionEnabled(ECollisionEnabled::Type NewType)
+{
+	if (BodyInstance.GetCollisionEnabled() != NewType)
+	{
+		for (auto& BodyInstanceElement : BodyInstances)
+		{
+			BodyInstanceElement->SetCollisionEnabled(NewType);
+		}
+
+		if (IsRegistered() && BodyInstance.bSimulatePhysics && !IsWelded())
+		{
+			for (auto& BodyInstanceElement : BodyInstances)
+			{
+				BodyInstanceElement->ApplyWeldOnChildren();
+			}
+		}
+	}
+
+	Super::SetCollisionEnabled(NewType);
+}
+
+void UMRMeshComponent::SetCollisionProfileName(FName InCollisionProfileName)
+{
+	SCOPE_CYCLE_COUNTER(STAT_MrMesh_SetCollisionProfileName);
+
+	FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
+	if (ThreadContext.ConstructedObject == this)
+	{
+		// If we are in our constructor, defer setup until PostInitProperties as derived classes
+		for (auto& BodyInstanceElement : BodyInstances)
+		{
+			BodyInstanceElement->SetCollisionProfileNameDeferred(InCollisionProfileName);
+		}
+	}
+	else
+	{
+		for (auto& BodyInstanceElement : BodyInstances)
+		{
+			BodyInstanceElement->SetCollisionProfileName(InCollisionProfileName);
+		}
+	}
+
+	Super::SetCollisionProfileName(InCollisionProfileName);
+}
+
+void UMRMeshComponent::SetCollisionObjectType(ECollisionChannel Channel)
+{
+	for (auto& BodyInstanceElement : BodyInstances)
+	{
+		BodyInstanceElement->SetObjectType(Channel);
+	}
+
+	Super::SetCollisionObjectType(Channel);
+}
+
+void UMRMeshComponent::SetCollisionResponseToChannel(ECollisionChannel Channel, ECollisionResponse NewResponse)
+{
+	for (auto& BodyInstanceElement : BodyInstances)
+	{
+		BodyInstanceElement->SetResponseToChannel(Channel, NewResponse);
+	}
+
+	Super::SetCollisionResponseToChannel(Channel, NewResponse);
+}
+
+void UMRMeshComponent::SetCollisionResponseToAllChannels(enum ECollisionResponse NewResponse)
+{
+	for (auto& BodyInstanceElement : BodyInstances)
+	{
+		BodyInstanceElement->SetResponseToAllChannels(NewResponse);
+	}
+
+	Super::SetCollisionResponseToAllChannels(NewResponse);
+}
+
+void UMRMeshComponent::SetCollisionResponseToChannels(const FCollisionResponseContainer& NewResponses)
+{
+	for (auto& BodyInstanceElement : BodyInstances)
+	{
+		BodyInstanceElement->SetResponseToChannels(NewResponses);
+	}
+
+	Super::SetCollisionResponseToChannels(NewResponses);
+}
+
+void UMRMeshComponent::UpdatePhysicsToRBChannels()
+{
+	for (auto& BodyInstanceElement : BodyInstances)
+	{
+		if (BodyInstanceElement->IsValidBodyInstance())
+		{
+			BodyInstanceElement->UpdatePhysicsFilterData();
+		}
+	}
+
+	Super::UpdatePhysicsToRBChannels();
+}
+
+void UMRMeshComponent::SetWalkableSlopeOverride(const FWalkableSlopeOverride& NewOverride)
+{
+	for (auto& BodyInstanceElement : BodyInstances)
+	{
+		if (BodyInstanceElement->IsValidBodyInstance())
+		{
+			BodyInstanceElement->SetWalkableSlopeOverride(NewOverride);
+		}
+	}
+
+	Super::SetWalkableSlopeOverride(NewOverride);
+}
+
 FPrimitiveSceneProxy* UMRMeshComponent::CreateSceneProxy()
 {
 	// The render thread owns the memory, so if this function is
@@ -418,14 +560,39 @@ void UMRMeshComponent::ClearAllBrickData()
 	FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(ClearBrickDataTask, GET_STATID(STAT_UMRMeshComponent_ClearAllBrickData), nullptr, ENamedThreads::GameThread);
 }
 
-UBodySetup* CreateBodySetupHelper(UMRMeshComponent* Outer)
+void UMRMeshComponent::CacheBodySetupHelper()
+{
+	CachedBodySetup = NewObject<UBodySetup>(this, NAME_None);
+	CachedBodySetup->BodySetupGuid = FGuid::NewGuid();
+	CachedBodySetup->bGenerateMirroredCollision = false;
+	CachedBodySetup->bHasCookedCollisionData = true;
+}
+
+UBodySetup* UMRMeshComponent::CreateBodySetupHelper()
 {
 	// The body setup in a template needs to be public since the property is Instanced and thus is the archetype of the instance meaning there is a direct reference
-	UBodySetup* NewBS = NewObject<UBodySetup>(Outer, NAME_None);
+	UBodySetup* NewBS = NewObject<UBodySetup>(this, NAME_None);
 	NewBS->BodySetupGuid = FGuid::NewGuid();
 	NewBS->bGenerateMirroredCollision = false;
 	NewBS->bHasCookedCollisionData = true;
+
+	// Copy the cached body setup (unless we are creating it)
+	if (CachedBodySetup == nullptr)
+	{
+		CacheBodySetupHelper();
+	}
+	NewBS->CopyBodyPropertiesFrom(CachedBodySetup);
+
 	return NewBS;
+}
+
+UBodySetup* UMRMeshComponent::GetBodySetup()
+{
+	if (CachedBodySetup == nullptr)
+	{
+		CacheBodySetupHelper();
+	}
+	return CachedBodySetup;
 }
 
 void UMRMeshComponent::SendBrickData_Internal(IMRMesh::FSendBrickDataArgs Args)
@@ -435,7 +602,7 @@ void UMRMeshComponent::SendBrickData_Internal(IMRMesh::FSendBrickDataArgs Args)
 
 	UE_LOG(LogMrMesh, Log, TEXT("SendBrickData_Internal() processing brick %llu with %i triangles"), Args.BrickId, Args.Indices.Num() / 3);
 
-	if (!IsPendingKill() && this->GetCollisionEnabled())
+	if (!IsPendingKill() && !bNeverCreateCollisionMesh)
 	{
 		// Physics update
 		UWorld* MyWorld = GetWorld();
@@ -445,10 +612,12 @@ void UMRMeshComponent::SendBrickData_Internal(IMRMesh::FSendBrickDataArgs Args)
 
 			if (const bool bBrickHasData = Args.Indices.Num() > 0)
 			{
+				bPhysicsStateCreated = true;
+
 				if (BodyIndex == INDEX_NONE)
 				{
 					BodyIds.Add(Args.BrickId);
-					BodySetups.Add(CreateBodySetupHelper(this));
+					BodySetups.Add(CreateBodySetupHelper());
 					BodyInstances.Add(new FBodyInstance());
 					BodyIndex = BodyIds.Num() - 1;
 				}
@@ -456,6 +625,8 @@ void UMRMeshComponent::SendBrickData_Internal(IMRMesh::FSendBrickDataArgs Args)
 				UBodySetup* MyBS = BodySetups[BodyIndex];
 				MyBS->bHasCookedCollisionData = true;
 				MyBS->CollisionTraceFlag = CTF_UseComplexAsSimple;
+				MyBS->ClearPhysicsMeshes();
+				MyBS->InvalidatePhysicsData();
 
 				FCookBodySetupInfo CookInfo;
 				// Disable mesh cleaning by passing in EPhysXMeshCookFlags::DeformableMesh
@@ -479,12 +650,12 @@ void UMRMeshComponent::SendBrickData_Internal(IMRMesh::FSendBrickDataArgs Args)
 				CookHelper.CookInfo = CookInfo;
 				CookHelper.CreatePhysicsMeshes_Concurrent();
 
-				MyBS->InvalidatePhysicsData();
 				MyBS->FinishCreatingPhysicsMeshes(CookHelper.OutNonMirroredConvexMeshes, CookHelper.OutMirroredConvexMeshes, CookHelper.OutTriangleMeshes);
 
 				FBodyInstance* MyBI = BodyInstances[BodyIndex];
 				MyBI->TermBody();
 				MyBI->InitBody(MyBS, GetComponentTransform(), this, MyWorld->GetPhysicsScene());
+				MyBI->CopyRuntimeBodyInstancePropertiesFrom(&BodyInstance);
 			}
 			else
 			{
@@ -513,10 +684,9 @@ void UMRMeshComponent::SendBrickData_Internal(IMRMesh::FSendBrickDataArgs Args)
 			check(SceneProxy != nullptr);
 
 			// Graphics update
-			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-				FSendBrickDataLambda,
-				UMRMeshComponent*, This, this,
-				IMRMesh::FSendBrickDataArgs, Args, Args,
+			UMRMeshComponent* This = this;
+			ENQUEUE_RENDER_COMMAND(FSendBrickDataLambda)(
+				[This, Args](FRHICommandListImmediate& RHICmdList)
 				{
 					FMRMeshProxy* MRMeshProxy = static_cast<FMRMeshProxy*>(This->SceneProxy);
 					if (MRMeshProxy)
@@ -536,11 +706,11 @@ void UMRMeshComponent::SendBrickData_Internal(IMRMesh::FSendBrickDataArgs Args)
 
 void UMRMeshComponent::RemoveBodyInstance(int32 BodyIndex)
 {
-	BodyIds.RemoveAtSwap(BodyIndex);
-	BodySetups.RemoveAtSwap(BodyIndex);
 	BodyInstances[BodyIndex]->TermBody();
 	delete BodyInstances[BodyIndex];
 	BodyInstances.RemoveAtSwap(BodyIndex);
+	BodySetups.RemoveAtSwap(BodyIndex);
+	BodyIds.RemoveAtSwap(BodyIndex);
 }
 
 void UMRMeshComponent::OnUpdateTransform(EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport)
@@ -564,9 +734,9 @@ void UMRMeshComponent::ClearAllBrickData_Internal()
 	}
 
 	// Graphics update
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		FClearAllBricksLambda,
-		UMRMeshComponent*, This, this,
+	UMRMeshComponent* This = this;
+	ENQUEUE_RENDER_COMMAND(FClearAllBricksLambda)(
+		[This](FRHICommandListImmediate& RHICmdList)
 		{
 			FMRMeshProxy* MRMeshProxy = static_cast<FMRMeshProxy*>(This->SceneProxy);
 			if (MRMeshProxy)
@@ -593,15 +763,15 @@ void UMRMeshComponent::SendRenderDynamicData_Concurrent()
 	if (SceneProxy)
 	{
 		// Enqueue command to send to render thread
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			FSetMaterialLambda,
-			UMRMeshComponent*, This, this,
-			UMaterialInterface*, Material, Material,
+		UMRMeshComponent* This = this;
+		UMaterialInterface* InMaterial = Material;
+		ENQUEUE_RENDER_COMMAND(FSetMaterialLambda)(
+			[This, InMaterial](FRHICommandListImmediate& RHICmdList)
 			{
 				FMRMeshProxy* MRMeshProxy = static_cast<FMRMeshProxy*>(This->SceneProxy);
 				if (MRMeshProxy)
 				{
-					MRMeshProxy->RenderThread_SetMaterial(Material);
+					MRMeshProxy->RenderThread_SetMaterial(InMaterial);
 				}
 			});
 	}

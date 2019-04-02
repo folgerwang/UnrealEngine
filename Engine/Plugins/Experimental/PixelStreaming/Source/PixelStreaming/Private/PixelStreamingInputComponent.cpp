@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PixelStreamingInputComponent.h"
 #include "Engine/Engine.h"
@@ -98,7 +98,7 @@ void UPixelStreamingInputComponent::AddJsonStringValue(const FString& Descriptor
 	if (!Descriptor.IsEmpty())
 	{
 		TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(Descriptor);
-		if (!FJsonSerializer::Deserialize(JsonReader, JsonObject) && JsonObject.IsValid())
+		if (!FJsonSerializer::Deserialize(JsonReader, JsonObject) || !JsonObject.IsValid())
 		{
 			Success = false;
 			return;

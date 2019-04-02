@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -106,7 +106,7 @@ public class CEF3 : ModuleRules
 					var LocaleFolders = Directory.GetFileSystemEntries(LibraryPath + "/locale", "*.lproj");
 					foreach (var FolderName in LocaleFolders)
 					{
-						AdditionalBundleResources.Add(new UEBuildBundleResource(FolderName, bInShouldLog:false));
+						AdditionalBundleResources.Add(new BundleResource(FolderName, bShouldLog: false));
 					}
 				}
 
@@ -122,15 +122,7 @@ public class CEF3 : ModuleRules
 				string RuntimeLibCEFPath = Path.Combine(RuntimePath, "libcef.so");
 				PublicAdditionalLibraries.Add(RuntimeLibCEFPath);
 
-				string Configuration;
-				if (Target.Configuration == UnrealTargetConfiguration.Debug && Target.bDebugBuildsActuallyUseDebugCRT)
-				{
-					Configuration = "build_debug";
-				}
-				else
-				{
-					Configuration = "build_release";
-				}
+				string Configuration = "build_release";
 				string WrapperLibraryPath =  Path.Combine(PlatformPath, Configuration, "libcef_dll");
 
 				PublicAdditionalLibraries.Add(Path.Combine(WrapperLibraryPath, "libcef_dll_wrapper.a"));

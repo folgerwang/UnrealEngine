@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -104,7 +104,7 @@ namespace AutomationTool.Tasks
 				{
 					if(!FileReference.Exists(FileList))
 					{
-						throw new BuildException("Specified file list '{0}' does not exist", FileList);
+						throw new AutomationException("Specified file list '{0}' does not exist", FileList);
 					}
 
 					string[] Lines = FileReference.ReadAllLines(FileList);

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -63,5 +63,25 @@ struct FRigUnit_Divide_VectorVector : public FRigUnit_BinaryVectorOp
 	virtual void Execute(const FRigUnitContext& InContext) override
 	{
 		Result = FRigMathLibrary::Divide(Argument0, Argument1);
+	}
+};
+
+USTRUCT(meta = (DisplayName = "Distance", Category = "Math|Vector"))
+struct FRigUnit_Distance_VectorVector : public FRigUnit
+{
+	GENERATED_BODY()
+
+	UPROPERTY(meta=(Input))
+	FVector Argument0;
+
+	UPROPERTY(meta=(Input))
+	FVector Argument1;
+
+	UPROPERTY(meta=(Output))
+	float Result;
+
+	virtual void Execute(const FRigUnitContext& InContext) override
+	{
+		Result = (Argument0 - Argument1).Size();
 	}
 };

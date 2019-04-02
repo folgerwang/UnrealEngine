@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -141,6 +141,7 @@ private:
 	bool HasExactlyOneNodeSelected() const;
 	bool HasExactlyOnePackageNodeSelected() const;
 	bool HasAtLeastOnePackageNodeSelected() const;
+	bool HasAtLeastOneRealNodeSelected() const;
 
 	void OnInitialAssetRegistrySearchComplete();
 	EActiveTimerReturnType TriggerZoomToFit(double InCurrentTime, float InDeltaTime);

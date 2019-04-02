@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.Collections.Generic;
@@ -14,18 +14,14 @@ public class SymbolDebuggerTarget : TargetRules
 		LaunchModuleName = "SymbolDebugger";
         ExtraModuleNames.Add("EditorStyle");
 
-		GlobalDefinitions.Add("WITH_DATABASE_SUPPORT=1");
-
-		bCompileLeanAndMeanUE = true;
-
-		// Don't need editor
-		bBuildEditor = false;
+		bBuildDeveloperTools = false;
 
 		// SymbolDebugger doesn't ever compile with the engine linked in
 		bCompileAgainstEngine = false;
 		bCompileAgainstCoreUObject = true;
 
-		bIncludeADO = true;
+		// Need to disable the bundled version of dbghelp so that CrashDebugHelper can load dbgeng.dll.
+		WindowsPlatform.bUseBundledDbgHelp = false;
 
 		// SymbolDebugger.exe has no exports, so no need to verify that a .lib and .exp file was emitted by
 		// the linker.

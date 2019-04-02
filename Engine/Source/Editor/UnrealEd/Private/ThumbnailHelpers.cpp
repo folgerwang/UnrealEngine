@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ThumbnailHelpers.h"
 #include "FinalPostProcessSettings.h"
@@ -497,6 +497,10 @@ void FStaticMeshThumbnailScene::SetStaticMesh(UStaticMesh* StaticMesh)
 		FTransform MeshTransform = FTransform::Identity;
 
 		PreviewActor->SetActorLocation(FVector(0,0,0), false);
+		
+		//Force LOD 0
+		PreviewActor->GetStaticMeshComponent()->ForcedLodModel = 1;
+
 		PreviewActor->GetStaticMeshComponent()->UpdateBounds();
 
 		// Center the mesh at the world origin then offset to put it on top of the plane
@@ -1040,7 +1044,7 @@ void FClassActorThumbnailScene::SpawnPreviewActor(UClass* InClass)
 		PreviewActor->Destroy();
 		PreviewActor = nullptr;
 	}
-	if (InClass)
+	if (InClass && !InClass->HasAnyClassFlags(CLASS_Deprecated | CLASS_Abstract))
 	{
 		// Create preview actor
 		FActorSpawnParameters SpawnInfo;

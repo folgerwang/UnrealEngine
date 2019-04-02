@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreTypes.h"
@@ -58,9 +58,11 @@ class FCulture::FLegacyCultureImplementation
 
 	const FDecimalNumberFormattingRules& GetCurrencyFormattingRules(const FString& InCurrencyCode);
 
-	ETextPluralForm GetPluralForm(int32 Val, const ETextPluralType PluralType);
+	ETextPluralForm GetPluralForm(int32 Val, const ETextPluralType PluralType) const;
 
-	ETextPluralForm GetPluralForm(double Val, const ETextPluralType PluralType);
+	ETextPluralForm GetPluralForm(double Val, const ETextPluralType PluralType) const;
+
+	const TArray<ETextPluralForm>& GetValidPluralForms(const ETextPluralType PluralType) const;
 
 	// Full localized culture name
 	const FText DisplayName;

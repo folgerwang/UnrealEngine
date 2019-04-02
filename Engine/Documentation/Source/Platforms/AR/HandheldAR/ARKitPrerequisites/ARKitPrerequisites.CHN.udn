@@ -1,0 +1,37 @@
+﻿INTSourceChangelist:4400408
+Availability: Public
+Crumbs: 
+Title: ARKit先决条件 
+Description: 使用苹果ARKit进行增强现实开发的先决条件与步骤。
+Type: 
+Version: 
+Parent: Platforms/AR/HandheldAR
+Order: 3
+Tags: mobile
+Tags: iOS
+Tags: AR
+
+
+虚幻引擎本就支持iOS设备。如果您已经在使用虚幻引擎和iOS设备，您不需要任何额外配置就可以开始使用增强现实和虚幻引擎。
+
+## 常规先决条件
+
+虚幻引擎和iOS设备的基本配置详见虚幻引擎文档的[iOS游戏开发](Platforms/iOS)部分。
+
+**ARKit 1.5先决条件**
+
+*   一个符合我们的[推荐规格](GettingStarted/RecommendedSpecifications)的开发工具。
+*   已安装虚幻引擎4.20或更高版本。
+*   已安装Xcode 9或更高版本。
+*   一台受支持、已配置并已连接的手持式iOS设备。
+
+**ARKit 2.0先决条件**
+
+*   一个符合我们的[推荐规格](GettingStarted/RecommendedSpecifications)的开发工具。
+*   已安装虚幻引擎4.20或更高版本。
+*   已安装Xcode 10或更高版本。
+*   一台受支持、已配置并已连接的手持式iOS设备。
+
+[REGION:note]
+**支持：** 使用[支持设备](https://developer.apple.com/library/content/documentation/DeviceInformation/Reference/iOSDeviceCompatibility/DeviceCompatibilityMatrix/DeviceCompatibilityMatrix.html)链接确定当前支持ARKit的iOS设备清单（需要iOS 12测试版）。
+[/REGION]

@@ -2,7 +2,7 @@
 Availability: Public
 Title: UE4 용 Qt Creator 구성 방법
 Crumbs:%ROOT%
-Description:리눅스에서 UE4 를 빌드하여 실행할 수 있도록 IDE 를 구성하는 방법을 배워봅니다.
+Description:Linux에서 UE4 를 빌드하여 실행할 수 있도록 IDE 를 구성하는 방법을 배워봅니다.
 Platform:Linux
 Version: 4.14
 type:how to

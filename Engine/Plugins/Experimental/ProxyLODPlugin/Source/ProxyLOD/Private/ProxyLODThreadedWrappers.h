@@ -1,13 +1,16 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+THIRD_PARTY_INCLUDES_START
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 #include <tbb/blocked_range.h>
 #include <tbb/blocked_range2d.h>
 #include <tbb/concurrent_vector.h>
 #include <tbb/parallel_for.h>
 #include <tbb/parallel_reduce.h>
 #include <tbb/task_group.h>
-
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+THIRD_PARTY_INCLUDES_END
 
 /**
 * Wrappers for the tbb calls to allow for easier single threaded testing.

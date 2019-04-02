@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*================================================================================
 	IOSPlatform.h: Setup for the iOS platform
@@ -62,6 +62,17 @@ typedef FIOSPlatformTypes FPlatformTypes;
 #define PLATFORM_UI_HAS_MOBILE_SCROLLBARS				1
 #define PLATFORM_UI_NEEDS_TOOLTIPS						0
 #define PLATFORM_UI_NEEDS_FOCUS_OUTLINES				0
+
+#if WITH_SIMULATOR
+	#define PLATFORM_BREAK()							__asm__("int $3")
+#elif PLATFORM_64BITS
+	#define PLATFORM_BREAK()							__asm__("svc 0")
+#else
+	#define PLATFORM_BREAK()							__asm__("trap")
+#endif
+
+#define PLATFORM_CODE_SECTION(Name)						__attribute__((section("__TEXT,__" Name ",regular,pure_instructions"))) \
+														__attribute__((aligned(4)))
 
 #if __has_feature(cxx_decltype_auto)
 	#define PLATFORM_COMPILER_HAS_DECLTYPE_AUTO 1

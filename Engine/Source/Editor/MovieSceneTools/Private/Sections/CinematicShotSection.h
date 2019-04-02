@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -35,17 +35,20 @@ public:
 	virtual int32 OnPaintSection( FSequencerSectionPainter& Painter ) const override;
 	virtual void BuildSectionContextMenu(FMenuBuilder& MenuBuilder, const FGuid& ObjectBinding) override;
 	virtual FReply OnSectionDoubleClicked(const FGeometry& SectionGeometry, const FPointerEvent& MouseEvent) override;
+	virtual FText GetSectionTitle() const override;
 	virtual float GetSectionHeight() const override;
 	virtual FMargin GetContentPadding() const override;
 	virtual void BeginResizeSection() override;
 	virtual void ResizeSection(ESequencerSectionResizeMode ResizeMode, FFrameNumber ResizeTime) override;
 	virtual void BeginSlipSection() override;
-	virtual void SlipSection(double SlipTime) override;
+	virtual void SlipSection(FFrameNumber SlipTime) override;
+	virtual bool IsReadOnly() const override;
 
 	// FThumbnail interface
 	virtual void SetSingleTime(double GlobalTime) override;
 	virtual FText HandleThumbnailTextBlockText() const override;
 	virtual void HandleThumbnailTextBlockTextCommitted(const FText& NewThumbnailName, ETextCommit::Type CommitType) override;
+	virtual UCameraComponent* GetViewCamera() override;
 
 private:
 
@@ -57,14 +60,11 @@ private:
 	/** The section we are visualizing */
 	UMovieSceneCinematicShotSection& SectionObject;
 
-	/** Sequencer interface */
-	TWeakPtr<ISequencer> Sequencer;
-
 	/** The cinematic shot track editor that contains this section */
 	TWeakPtr<FCinematicShotTrackEditor> CinematicShotTrackEditor;
 
 	/** Cached start offset value valid only during resize */
-	int32 InitialStartOffsetDuringResize;
+	FFrameNumber InitialStartOffsetDuringResize;
 
 	/** Cached start time valid only during resize */
 	FFrameNumber InitialStartTimeDuringResize;
@@ -79,7 +79,7 @@ private:
 		}
 
 		FFrameRate   InnerFrameRate;
-		int32        InnerFrameOffset;
+		FFrameNumber InnerFrameOffset;
 		FFrameNumber SectionStartFrame;
 		float        TimeScale;
 	};

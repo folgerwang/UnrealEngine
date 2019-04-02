@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 LandscapeEdit.cpp: Landscape editing
@@ -40,7 +40,11 @@ LandscapeEdit.cpp: Landscape editing
 #include "LandscapeSplinesComponent.h"
 #include "Serialization/MemoryWriter.h"
 #if WITH_EDITOR
-#include "RawMesh.h"
+#include "MeshDescription.h"
+#include "MeshAttributes.h"
+#include "MeshAttributeArray.h"
+#include "MeshUtilitiesCommon.h"
+
 #include "EngineUtils.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
@@ -51,6 +55,7 @@ LandscapeEdit.cpp: Landscape editing
 #include "Engine/TextureRenderTarget2D.h"
 #include "ScopedTransaction.h"
 #include "Editor.h"
+#include "Settings/EditorExperimentalSettings.h"
 #endif
 #include "Algo/Count.h"
 #include "Serialization/MemoryWriter.h"
@@ -203,7 +208,7 @@ FString ULandscapeComponent::GetLayerAllocationKey(const TArray<FWeightmapLayerA
 	return Result;
 }
 
-UMaterialInstanceConstant* ULandscapeComponent::GetCombinationMaterial(const TArray<FWeightmapLayerAllocationInfo>& Allocations, int8 InLODIndex, bool bMobile /*= false*/) const
+UMaterialInstanceConstant* ULandscapeComponent::GetCombinationMaterial(FMaterialUpdateContext* InMaterialUpdateContext, const TArray<FWeightmapLayerAllocationInfo>& Allocations, int8 InLODIndex, bool bMobile /*= false*/) const
 {
 	check(GIsEditor);
 
@@ -267,7 +272,7 @@ UMaterialInstanceConstant* ULandscapeComponent::GetCombinationMaterial(const TAr
 					StaticParameters.TerrainLayerWeightParameters.Add(FStaticTerrainLayerWeightParameter(LayerParameter, Allocation.WeightmapTextureIndex, true, FGuid(), !Allocation.LayerInfo->bNoWeightBlend));
 				}
 			}
-			CombinationMaterialInstance->UpdateStaticPermutation(StaticParameters);
+			CombinationMaterialInstance->UpdateStaticPermutation(StaticParameters, InMaterialUpdateContext);
 
 			CombinationMaterialInstance->PostEditChange();
 		}
@@ -326,7 +331,7 @@ void ULandscapeComponent::UpdateMaterialInstances_Internal(FMaterialUpdateContex
 		const int8 MaterialLOD = It.Value();
 
 		// Find or set a matching MIC in the Landscape's map.
-		UMaterialInstanceConstant* CombinationMaterialInstance = GetCombinationMaterial(WeightmapLayerAllocations, MaterialLOD, false);
+		UMaterialInstanceConstant* CombinationMaterialInstance = GetCombinationMaterial(&Context, WeightmapLayerAllocations, MaterialLOD, false);
 
 		if (CombinationMaterialInstance != nullptr)
 		{
@@ -407,7 +412,10 @@ void ULandscapeComponent::UpdateMaterialInstances_Internal(FMaterialUpdateContex
 		{
 			const int8 MaterialLOD = It.Value();
 
-			MobileCombinationMaterialInstances[MobileMaterialIndex] = GetCombinationMaterial(MobileWeightmapLayerAllocations, MaterialLOD, true);
+			UMaterialInstanceConstant* MobileCombinationMaterialInstance = GetCombinationMaterial(&Context, MobileWeightmapLayerAllocations, MaterialLOD, true);
+			MobileCombinationMaterialInstances[MobileMaterialIndex] = MobileCombinationMaterialInstance;
+			Context.AddMaterialInstance(MobileCombinationMaterialInstance);
+						
 			++MobileMaterialIndex;
 		}
 	}
@@ -832,8 +840,8 @@ void ULandscapeComponent::UpdateCollisionHeightData(const FColor* const Heightma
 		}
 	}
 
-	const int32 HeightmapSizeU = HeightmapTexture->Source.GetSizeX();
-	const int32 HeightmapSizeV = HeightmapTexture->Source.GetSizeY();
+	const int32 HeightmapSizeU = GetHeightmap()->Source.GetSizeX();
+	const int32 HeightmapSizeV = GetHeightmap()->Source.GetSizeY();
 	const int32 MipSizeU = HeightmapSizeU >> CollisionMipLevel;
 	const int32 MipSizeV = HeightmapSizeV >> CollisionMipLevel;
 
@@ -1083,10 +1091,10 @@ void ULandscapeComponent::UpdateCollisionData(bool bRebuild)
 	TArray<uint8> SimpleCollisionMipData;
 	TArray<uint8> XYOffsetMipData;
 
-	HeightmapTexture->Source.GetMipData(CollisionMipData, CollisionMipLevel);
+	GetHeightmap()->Source.GetMipData(CollisionMipData, CollisionMipLevel);
 	if (SimpleCollisionMipLevel > CollisionMipLevel)
 	{
-		HeightmapTexture->Source.GetMipData(SimpleCollisionMipData, SimpleCollisionMipLevel);
+		GetHeightmap()->Source.GetMipData(SimpleCollisionMipData, SimpleCollisionMipLevel);
 	}
 	if (XYOffsetmapTexture)
 	{
@@ -1414,8 +1422,8 @@ void ULandscapeComponent::GenerateHeightmapMips(TArray<FColor*>& HeightmapTextur
 		ComponentY2 = ComponentSizeQuads;
 	}
 
-	int32 HeightmapSizeU = HeightmapTexture->Source.GetSizeX();
-	int32 HeightmapSizeV = HeightmapTexture->Source.GetSizeY();
+	int32 HeightmapSizeU = GetHeightmap()->Source.GetSizeX();
+	int32 HeightmapSizeV = GetHeightmap()->Source.GetSizeY();
 
 	int32 HeightmapOffsetX = FMath::RoundToInt(HeightmapScaleBias.Z * (float)HeightmapSizeU);
 	int32 HeightmapOffsetY = FMath::RoundToInt(HeightmapScaleBias.W * (float)HeightmapSizeV);
@@ -2194,6 +2202,7 @@ LANDSCAPE_API void ALandscapeProxy::Import(
 #define MAX_HEIGHTMAP_TEXTURE_SIZE 512
 	const int32 ComponentSizeVerts = NumSubsections * (SubsectionSizeQuads + 1);
 	const int32 ComponentsPerHeightmap = FMath::Min(MAX_HEIGHTMAP_TEXTURE_SIZE / ComponentSizeVerts, 1 << (UTexture2D::GetMinTextureResidentMipCount() - 2));
+	check(ComponentsPerHeightmap > 0);
 
 	// Count how many heightmaps we need and the X dimension of the final heightmap
 	int32 NumHeightmapsX = 1;
@@ -2444,7 +2453,7 @@ LANDSCAPE_API void ALandscapeProxy::Import(
 			const int32 HeightmapOffsetX = (ComponentX - ComponentsPerHeightmap*HmX) * NumSubsections * (SubsectionSizeQuads + 1);
 
 			LandscapeComponent->HeightmapScaleBias = FVector4(1.0f / (float)HeightmapInfo.HeightmapSizeU, 1.0f / (float)HeightmapInfo.HeightmapSizeV, (float)((HeightmapOffsetX)) / (float)HeightmapInfo.HeightmapSizeU, ((float)(HeightmapOffsetY)) / (float)HeightmapInfo.HeightmapSizeV);
-			LandscapeComponent->HeightmapTexture = HeightmapInfo.HeightmapTexture;
+			LandscapeComponent->SetHeightmap(HeightmapInfo.HeightmapTexture);
 
 			// Weightmap is sized the same as the component
 			const int32 WeightmapSize = (SubsectionSizeQuads + 1) * NumSubsections;
@@ -2615,6 +2624,8 @@ LANDSCAPE_API void ALandscapeProxy::Import(
 		}
 	}
 
+	TArray<UTexture2D*> PendingTexturePlatformDataCreation;
+
 	// Unlock the weightmaps' base mips
 	for (int32 AllocationIndex = 0; AllocationIndex < TextureAllocations.Num(); AllocationIndex++)
 	{
@@ -2625,7 +2636,10 @@ LANDSCAPE_API void ALandscapeProxy::Import(
 		ULandscapeComponent::GenerateWeightmapMips(NumSubsections, SubsectionSizeQuads, WeightmapTexture, BaseMipData);
 
 		WeightmapTexture->Source.UnlockMip(0);
-		WeightmapTexture->PostEditChange();
+
+		WeightmapTexture->BeginCachePlatformData();
+		WeightmapTexture->ClearAllCachedCookedPlatformData();
+		PendingTexturePlatformDataCreation.Add(WeightmapTexture);
 	}
 
 	// Generate mipmaps for the components, and create the collision components
@@ -2687,11 +2701,28 @@ LANDSCAPE_API void ALandscapeProxy::Import(
 		{
 			HeightmapInfo.HeightmapTexture->Source.UnlockMip(i);
 		}
-		HeightmapInfo.HeightmapTexture->PostEditChange();
+
+		HeightmapInfo.HeightmapTexture->BeginCachePlatformData();
+		HeightmapInfo.HeightmapTexture->ClearAllCachedCookedPlatformData();
+		PendingTexturePlatformDataCreation.Add(HeightmapInfo.HeightmapTexture);
+	}
+
+	for (UTexture2D* Texture : PendingTexturePlatformDataCreation)
+	{
+		Texture->FinishCachePlatformData();
+		Texture->PostEditChange();
 	}
 
 	// Update MaterialInstances (must be done after textures are fully initialized)
 	UpdateAllComponentMaterialInstances();
+
+	if (GetMutableDefault<UEditorExperimentalSettings>()->bProceduralLandscape)
+	{
+		SetupProceduralLayers(NumComponentsX, NumComponentsY);
+		
+		FEditorDelegates::PreSaveWorld.AddUObject(GetLandscapeActor(), &ALandscape::OnPreSaveWorld);
+		FEditorDelegates::PostSaveWorld.AddUObject(GetLandscapeActor(), &ALandscape::OnPostSaveWorld);
+	}
 
 	if (GetLevel()->bIsVisible)
 	{
@@ -2708,143 +2739,34 @@ LANDSCAPE_API void ALandscapeProxy::Import(
 	GWarn->EndSlowTask();
 }
 
-bool ALandscapeProxy::ExportToRawMesh(int32 InExportLOD, FRawMesh& OutRawMesh) const
+bool ALandscapeProxy::ExportToRawMesh(int32 InExportLOD, FMeshDescription& OutRawMesh) const
 {
-	TInlineComponentArray<ULandscapeComponent*> RegisteredLandscapeComponents;
-	GetComponents<ULandscapeComponent>(RegisteredLandscapeComponents);
-
-	const FIntRect LandscapeSectionRect = GetBoundingRect();
-	const FVector2D LandscapeUVScale = FVector2D(1.0f, 1.0f) / FVector2D(LandscapeSectionRect.Size());
-
-	// User specified LOD to export
-	int32 LandscapeLODToExport = ExportLOD;
-	if (InExportLOD != INDEX_NONE)
-	{
-		LandscapeLODToExport = FMath::Clamp<int32>(InExportLOD, 0, FMath::CeilLogTwo(SubsectionSizeQuads + 1) - 1);
-	}
-
-	// Export data for each component
-	for (auto It = RegisteredLandscapeComponents.CreateConstIterator(); It; ++It)
-	{
-		ULandscapeComponent* Component = (*It);
-		FLandscapeComponentDataInterface CDI(Component, LandscapeLODToExport);
-		const int32 ComponentSizeQuadsLOD = ((Component->ComponentSizeQuads + 1) >> LandscapeLODToExport) - 1;
-		const int32 SubsectionSizeQuadsLOD = ((Component->SubsectionSizeQuads + 1) >> LandscapeLODToExport) - 1;
-		const FIntPoint ComponentOffsetQuads = Component->GetSectionBase() - LandscapeSectionOffset - LandscapeSectionRect.Min;
-		const FVector2D ComponentUVOffsetLOD = FVector2D(ComponentOffsetQuads)*((float)ComponentSizeQuadsLOD / ComponentSizeQuads);
-		const FVector2D ComponentUVScaleLOD = LandscapeUVScale*((float)ComponentSizeQuads / ComponentSizeQuadsLOD);
-
-		const int32 NumFaces = FMath::Square(ComponentSizeQuadsLOD) * 2;
-		const int32 NumVertices = NumFaces * 3;
-		const int32 VerticesOffset = OutRawMesh.VertexPositions.Num();
-		const int32 IndicesOffset = OutRawMesh.WedgeIndices.Num();
-
-		//
-		OutRawMesh.FaceMaterialIndices.AddZeroed(NumFaces);
-		OutRawMesh.FaceSmoothingMasks.AddZeroed(NumFaces);
-
-		OutRawMesh.VertexPositions.AddZeroed(NumVertices);
-		OutRawMesh.WedgeIndices.AddZeroed(NumVertices);
-		OutRawMesh.WedgeTangentX.AddZeroed(NumVertices);
-		OutRawMesh.WedgeTangentY.AddZeroed(NumVertices);
-		OutRawMesh.WedgeTangentZ.AddZeroed(NumVertices);
-		OutRawMesh.WedgeTexCoords[0].AddZeroed(NumVertices);
-
-
-		// Check if there are any holes
-		TArray<uint8> VisDataMap;
-
-		for (int32 AllocIdx = 0; AllocIdx < Component->WeightmapLayerAllocations.Num(); AllocIdx++)
-		{
-			FWeightmapLayerAllocationInfo& AllocInfo = Component->WeightmapLayerAllocations[AllocIdx];
-			if (AllocInfo.LayerInfo == ALandscapeProxy::VisibilityLayer)
-			{
-				CDI.GetWeightmapTextureData(AllocInfo.LayerInfo, VisDataMap);
-			}
-		}
-
-		const FIntPoint QuadPattern[6] =
-		{
-			//face 1
-			FIntPoint(0, 0),
-			FIntPoint(0, 1),
-			FIntPoint(1, 1),
-			//face 2
-			FIntPoint(0, 0),
-			FIntPoint(1, 1),
-			FIntPoint(1, 0),
-		};
-
-		const int32 VisThreshold = 170;
-		const int32 WeightMapSize = (SubsectionSizeQuadsLOD + 1) * Component->NumSubsections;
-		uint32* Faces = OutRawMesh.WedgeIndices.GetData() + IndicesOffset;
-
-		// Export verts
-		int32 VertexIdx = VerticesOffset;
-		for (int32 y = 0; y < ComponentSizeQuadsLOD; y++)
-		{
-			for (int32 x = 0; x < ComponentSizeQuadsLOD; x++)
-			{
-				// Fill indices
-				{
-
-					// Whether this vertex is in hole
-					bool bInvisible = false;
-					if (VisDataMap.Num())
-					{
-						int32 TexelX, TexelY;
-						CDI.VertexXYToTexelXY(x, y, TexelX, TexelY);
-						bInvisible = (VisDataMap[CDI.TexelXYToIndex(TexelX, TexelY)] >= VisThreshold);
-					}
-
-					// triangulation matches FLandscapeIndexBuffer constructor
-					Faces[0] = VertexIdx;
-					Faces[1] = bInvisible ? Faces[0] : VertexIdx + 1;
-					Faces[2] = bInvisible ? Faces[0] : VertexIdx + 2;
-					Faces += 3;
-
-					Faces[0] = VertexIdx + 3;
-					Faces[1] = bInvisible ? Faces[0] : VertexIdx + 4;
-					Faces[2] = bInvisible ? Faces[0] : VertexIdx + 5;
-					Faces += 3;
-				}
-
-				// Fill vertices
-				for (int32 i = 0; i < ARRAY_COUNT(QuadPattern); i++)
-				{
-					int32 VertexX = x + QuadPattern[i].X;
-					int32 VertexY = y + QuadPattern[i].Y;
-					FVector LocalVertexPos = CDI.GetWorldVertex(VertexX, VertexY);
-
-					FVector LocalTangentX, LocalTangentY, LocalTangentZ;
-					CDI.GetLocalTangentVectors(VertexX, VertexY, LocalTangentX, LocalTangentY, LocalTangentZ);
-
-					OutRawMesh.VertexPositions[VertexIdx] = LocalVertexPos;
-					OutRawMesh.WedgeTangentX[VertexIdx] = LocalTangentX;
-					OutRawMesh.WedgeTangentY[VertexIdx] = LocalTangentY;
-					OutRawMesh.WedgeTangentZ[VertexIdx] = LocalTangentZ;
-
-					OutRawMesh.WedgeTexCoords[0][VertexIdx] = (ComponentUVOffsetLOD + FVector2D(VertexX, VertexY))*ComponentUVScaleLOD;
-
-					VertexIdx++;
-				}
-			}
-		}
-	}
-
-	// Add lightmap UVs
-	OutRawMesh.WedgeTexCoords[1].Append(OutRawMesh.WedgeTexCoords[0]);
-
-	return true;
+	FBoxSphereBounds GarbageBounds;
+	return ExportToRawMesh(InExportLOD, OutRawMesh, GarbageBounds, true);
 }
 
-bool ALandscapeProxy::ExportToRawMesh(int32 InExportLOD, FRawMesh& OutRawMesh, const FBoxSphereBounds& InBounds) const
+bool ALandscapeProxy::ExportToRawMesh(int32 InExportLOD, FMeshDescription& OutRawMesh, const FBoxSphereBounds& InBounds, bool bIgnoreBounds /*= false*/) const
 {
 	TInlineComponentArray<ULandscapeComponent*> RegisteredLandscapeComponents;
 	GetComponents<ULandscapeComponent>(RegisteredLandscapeComponents);
 
 	const FIntRect LandscapeSectionRect = GetBoundingRect();
 	const FVector2D LandscapeUVScale = FVector2D(1.0f, 1.0f) / FVector2D(LandscapeSectionRect.Size());
+
+	TVertexAttributesRef<FVector> VertexPositions = OutRawMesh.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+	TEdgeAttributesRef<bool> EdgeHardnesses = OutRawMesh.EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
+	TEdgeAttributesRef<float> EdgeCreaseSharpnesses = OutRawMesh.EdgeAttributes().GetAttributesRef<float>(MeshAttribute::Edge::CreaseSharpness);
+	TPolygonGroupAttributesRef<FName> PolygonGroupImportedMaterialSlotNames = OutRawMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+	TVertexInstanceAttributesRef<FVector> VertexInstanceNormals = OutRawMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+	TVertexInstanceAttributesRef<FVector> VertexInstanceTangents = OutRawMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+	TVertexInstanceAttributesRef<float> VertexInstanceBinormalSigns = OutRawMesh.VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
+	TVertexInstanceAttributesRef<FVector4> VertexInstanceColors = OutRawMesh.VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+	TVertexInstanceAttributesRef<FVector2D> VertexInstanceUVs = OutRawMesh.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+
+	if (VertexInstanceUVs.GetNumIndices() < 2)
+	{
+		VertexInstanceUVs.SetNumIndices(2);
+	}
 
 	// User specified LOD to export
 	int32 LandscapeLODToExport = ExportLOD;
@@ -2859,7 +2781,7 @@ bool ALandscapeProxy::ExportToRawMesh(int32 InExportLOD, FRawMesh& OutRawMesh, c
 		ULandscapeComponent* Component = (*It);
 
 		// Early out if the Landscape bounds and given bounds do not overlap at all
-		if (!FBoxSphereBounds::SpheresIntersect(Component->Bounds, InBounds))
+		if (!bIgnoreBounds && !FBoxSphereBounds::SpheresIntersect(Component->Bounds, InBounds))
 		{
 			continue;
 		}
@@ -2872,21 +2794,23 @@ bool ALandscapeProxy::ExportToRawMesh(int32 InExportLOD, FRawMesh& OutRawMesh, c
 		const FVector2D ComponentUVScaleLOD = LandscapeUVScale*((float)ComponentSizeQuads / ComponentSizeQuadsLOD);
 
 		const int32 NumFaces = FMath::Square(ComponentSizeQuadsLOD) * 2;
-		const int32 TotalCurrentFaces = OutRawMesh.FaceSmoothingMasks.Num() + NumFaces;
 		const int32 NumVertices = NumFaces * 3;
-		const int32 TotalCurrentVertices = TotalCurrentFaces * 3;
-		const int32 VerticesOffset = OutRawMesh.VertexPositions.Num();
-		const int32 IndicesOffset = OutRawMesh.WedgeIndices.Num();
 
-		OutRawMesh.FaceMaterialIndices.Reserve(TotalCurrentFaces);
-		OutRawMesh.FaceSmoothingMasks.Reserve(TotalCurrentFaces);
+		OutRawMesh.ReserveNewVertices(NumVertices);
+		OutRawMesh.ReserveNewPolygons(NumFaces);
+		OutRawMesh.ReserveNewVertexInstances(NumVertices);
+		OutRawMesh.ReserveNewEdges(NumVertices);
 
-		OutRawMesh.VertexPositions.Reserve(TotalCurrentVertices);
-		OutRawMesh.WedgeIndices.Reserve(TotalCurrentVertices);
-		OutRawMesh.WedgeTangentX.Reserve(TotalCurrentVertices);
-		OutRawMesh.WedgeTangentY.Reserve(TotalCurrentVertices);
-		OutRawMesh.WedgeTangentZ.Reserve(TotalCurrentVertices);
-		OutRawMesh.WedgeTexCoords[0].Reserve(TotalCurrentVertices);
+		FPolygonGroupID PolygonGroupID = FPolygonGroupID::Invalid;
+		if (OutRawMesh.PolygonGroups().Num() < 1)
+		{
+			PolygonGroupID = OutRawMesh.CreatePolygonGroup();
+			PolygonGroupImportedMaterialSlotNames[PolygonGroupID] = FName(TEXT("LandscapeMat_0"));
+		}
+		else
+		{
+			PolygonGroupID = OutRawMesh.PolygonGroups().GetFirstValidID();
+		}
 
 		// Check if there are any holes
 		const int32 VisThreshold = 170;
@@ -2912,19 +2836,72 @@ bool ALandscapeProxy::ExportToRawMesh(int32 InExportLOD, FRawMesh& OutRawMesh, c
 			FIntPoint(1, 1),
 			FIntPoint(1, 0),
 		};
-				
+
 		const int32 WeightMapSize = (SubsectionSizeQuadsLOD + 1) * Component->NumSubsections;
 
 		const float SquaredSphereRadius = FMath::Square(InBounds.SphereRadius);
 
-		// Export verts
-		int32 VertexIdx = VerticesOffset;
+		//We need to not duplicate the vertex position, so we use the FIndexAndZ to achieve fast result
+		TArray<FIndexAndZ> VertIndexAndZ;
+		VertIndexAndZ.Reserve(ComponentSizeQuadsLOD*ComponentSizeQuadsLOD*ARRAY_COUNT(QuadPattern));
+		int32 CurrentIndex = 0;
+		TMap<int32, FVector> IndexToPosition;
+		IndexToPosition.Reserve(ComponentSizeQuadsLOD*ComponentSizeQuadsLOD*ARRAY_COUNT(QuadPattern));
+		for (int32 y = 0; y < ComponentSizeQuadsLOD; y++)
+		{
+			for (int32 x = 0; x < ComponentSizeQuadsLOD; x++)
+			{
+				for (int32 i = 0; i < ARRAY_COUNT(QuadPattern); i++)
+				{
+					int32 VertexX = x + QuadPattern[i].X;
+					int32 VertexY = y + QuadPattern[i].Y;
+					FVector Position = CDI.GetWorldVertex(VertexX, VertexY);
+
+					// If at least one vertex is within the given bounds we should process the quad  
+					new(VertIndexAndZ)FIndexAndZ(CurrentIndex, Position);
+					IndexToPosition.Add(CurrentIndex, Position);
+					CurrentIndex++;
+				}
+			}
+		}
+		// Sort the vertices by z value
+		VertIndexAndZ.Sort(FCompareIndexAndZ());
+
+		auto FindPreviousIndex = [&VertIndexAndZ, &IndexToPosition](int32 Index)->int32
+		{
+			const FVector& PositionA = IndexToPosition[Index];
+			FIndexAndZ CompressPosition(0, PositionA);
+			// Search for lowest index duplicates
+			int32 BestIndex = MAX_int32;
+			for (int32 i = 0; i < IndexToPosition.Num(); i++)
+			{
+				if (CompressPosition.Z > (VertIndexAndZ[i].Z + SMALL_NUMBER))
+				{
+					//We will not find anything there is no point searching more
+					break;
+				}
+				const FVector& PositionB = IndexToPosition[VertIndexAndZ[i].Index];
+				if (PointsEqual(PositionA, PositionB, SMALL_NUMBER))
+				{
+					if (VertIndexAndZ[i].Index < BestIndex)
+					{
+						BestIndex = VertIndexAndZ[i].Index;
+					}
+				}
+			}
+			return BestIndex < MAX_int32 ? BestIndex : Index;
+		};
+
+		// Export to MeshDescription
+		TMap<int32, FVertexID> IndexToVertexID;
+		IndexToVertexID.Reserve(CurrentIndex);
+		CurrentIndex = 0;
 		for (int32 y = 0; y < ComponentSizeQuadsLOD; y++)
 		{
 			for (int32 x = 0; x < ComponentSizeQuadsLOD; x++)
 			{
 				FVector Positions[ARRAY_COUNT(QuadPattern)];
-				bool bProcess = false;
+				bool bProcess = bIgnoreBounds;
 
 				// Fill positions
 				for (int32 i = 0; i < ARRAY_COUNT(QuadPattern); i++)
@@ -2942,7 +2919,31 @@ bool ALandscapeProxy::ExportToRawMesh(int32 InExportLOD, FRawMesh& OutRawMesh, c
 
 				if (bProcess)
 				{
-					// Fill indices
+					//Fill the vertexID we need
+					TArray<FVertexID> VertexIDs;
+					VertexIDs.Reserve(ARRAY_COUNT(QuadPattern));
+					TArray<FVertexInstanceID> VertexInstanceIDs;
+					VertexInstanceIDs.Reserve(ARRAY_COUNT(QuadPattern));
+					// Fill positions
+					for (int32 i = 0; i < ARRAY_COUNT(QuadPattern); i++)
+					{
+						int32 DuplicateLowestIndex = FindPreviousIndex(CurrentIndex);
+						FVertexID VertexID;
+						if (DuplicateLowestIndex < CurrentIndex)
+						{
+							VertexID = IndexToVertexID[DuplicateLowestIndex];
+						}
+						else
+						{
+							VertexID = OutRawMesh.CreateVertex();
+							VertexPositions[VertexID] = Positions[i];
+						}
+						IndexToVertexID.Add(CurrentIndex, VertexID);
+						VertexIDs.Add(VertexID);
+						CurrentIndex++;
+					}
+
+					// Create triangle
 					{
 						// Whether this vertex is in hole
 						bool bInvisible = false;
@@ -2952,47 +2953,73 @@ bool ALandscapeProxy::ExportToRawMesh(int32 InExportLOD, FRawMesh& OutRawMesh, c
 							CDI.VertexXYToTexelXY(x, y, TexelX, TexelY);
 							bInvisible = (VisDataMap[CDI.TexelXYToIndex(TexelX, TexelY)] >= VisThreshold);
 						}
+						//Add vertexInstance and polygon only if we are visible
+						if (!bInvisible)
+						{
+							VertexInstanceIDs.Add(OutRawMesh.CreateVertexInstance(VertexIDs[0]));
+							VertexInstanceIDs.Add(OutRawMesh.CreateVertexInstance(VertexIDs[1]));
+							VertexInstanceIDs.Add(OutRawMesh.CreateVertexInstance(VertexIDs[2]));
 
-						// triangulation matches FLandscapeIndexBuffer constructor
-						OutRawMesh.WedgeIndices.Add(VertexIdx);
-						OutRawMesh.WedgeIndices.Add(bInvisible ? VertexIdx : VertexIdx + 1);
-						OutRawMesh.WedgeIndices.Add(bInvisible ? VertexIdx : VertexIdx + 2);
-						
-						OutRawMesh.WedgeIndices.Add(VertexIdx + 3);
-						OutRawMesh.WedgeIndices.Add(bInvisible ? VertexIdx : VertexIdx + 4);
-						OutRawMesh.WedgeIndices.Add(bInvisible ? VertexIdx : VertexIdx + 5);
+							VertexInstanceIDs.Add(OutRawMesh.CreateVertexInstance(VertexIDs[3]));
+							VertexInstanceIDs.Add(OutRawMesh.CreateVertexInstance(VertexIDs[4]));
+							VertexInstanceIDs.Add(OutRawMesh.CreateVertexInstance(VertexIDs[5]));
 
-						OutRawMesh.FaceMaterialIndices.AddZeroed(2);
-						OutRawMesh.FaceSmoothingMasks.AddZeroed(2);
+							// Fill other vertex data
+							for (int32 i = 0; i < ARRAY_COUNT(QuadPattern); i++)
+							{
+								int32 VertexX = x + QuadPattern[i].X;
+								int32 VertexY = y + QuadPattern[i].Y;
+
+								FVector LocalTangentX, LocalTangentY, LocalTangentZ;
+								CDI.GetLocalTangentVectors(VertexX, VertexY, LocalTangentX, LocalTangentY, LocalTangentZ);
+
+								VertexInstanceTangents[VertexInstanceIDs[i]] = LocalTangentX;
+								VertexInstanceBinormalSigns[VertexInstanceIDs[i]] = GetBasisDeterminantSign(LocalTangentX, LocalTangentY, LocalTangentZ);
+								VertexInstanceNormals[VertexInstanceIDs[i]] = LocalTangentZ;
+
+								FVector2D UV = (ComponentUVOffsetLOD + FVector2D(VertexX, VertexY))*ComponentUVScaleLOD;
+								VertexInstanceUVs.Set(VertexInstanceIDs[i], 0, UV);
+								// Add lightmap UVs
+								VertexInstanceUVs.Set(VertexInstanceIDs[i], 1, UV);
+							}
+							auto AddTriangle = [&OutRawMesh, &EdgeHardnesses, &EdgeCreaseSharpnesses, &PolygonGroupID, &VertexIDs, &VertexInstanceIDs](int32 BaseIndex)
+							{
+								//Create a polygon from this triangle
+								TArray<FVertexInstanceID> PerimeterVertexInstances;
+								PerimeterVertexInstances.SetNum(3);
+								for (int32 Corner = 0; Corner < 3; ++Corner)
+								{
+									PerimeterVertexInstances[Corner] = VertexInstanceIDs[BaseIndex + Corner];
+								}
+								// Insert a polygon into the mesh
+								TArray<FEdgeID> NewEdgeIDs;
+								const FPolygonID NewPolygonID = OutRawMesh.CreatePolygon(PolygonGroupID, PerimeterVertexInstances, &NewEdgeIDs);
+								for (const FEdgeID NewEdgeID : NewEdgeIDs)
+								{
+									EdgeHardnesses[NewEdgeID] = false;
+									EdgeCreaseSharpnesses[NewEdgeID] = 0.0f;
+								}
+								//Triangulate the polygon
+								FMeshPolygon& Polygon = OutRawMesh.GetPolygon(NewPolygonID);
+								OutRawMesh.ComputePolygonTriangulation(NewPolygonID, Polygon.Triangles);
+							};
+							AddTriangle(0);
+							AddTriangle(3);
+						}
 					}
-
-					// Fill other vertex data
-					for (int32 i = 0; i < ARRAY_COUNT(QuadPattern); i++)
-					{
-						int32 VertexX = x + QuadPattern[i].X;
-						int32 VertexY = y + QuadPattern[i].Y;
-
-						FVector LocalTangentX, LocalTangentY, LocalTangentZ;
-						CDI.GetLocalTangentVectors(VertexX, VertexY, LocalTangentX, LocalTangentY, LocalTangentZ);
-
-						OutRawMesh.VertexPositions.Add(Positions[i]);
-						OutRawMesh.WedgeTangentX.Add(LocalTangentX);
-						OutRawMesh.WedgeTangentY.Add(LocalTangentY);
-						OutRawMesh.WedgeTangentZ.Add(LocalTangentZ);
-
-						OutRawMesh.WedgeTexCoords[0].Add((ComponentUVOffsetLOD + FVector2D(VertexX, VertexY))*ComponentUVScaleLOD);
-
-						VertexIdx++;
-					}
+				}
+				else
+				{
+					CurrentIndex += ARRAY_COUNT(QuadPattern);
 				}
 			}
 		}
 	}
 
-	// Add lightmap UVs
-	OutRawMesh.WedgeTexCoords[1].Append(OutRawMesh.WedgeTexCoords[0]);
-
-	return OutRawMesh.VertexPositions.Num() != 0;
+	//Compact the MeshDescription, if there was visibility mask or some bounding box clip, it need to be compacted so the sparse array are from 0 to n with no invalid data in between. 
+	FElementIDRemappings ElementIDRemappings;
+	OutRawMesh.Compact(ElementIDRemappings);
+	return OutRawMesh.Polygons().Num() > 0;
 }
 
 
@@ -4727,7 +4754,7 @@ void ULandscapeComponent::InitHeightmapData(TArray<FColor>& Heights, bool bUpdat
 	int32 HeightmapSizeV = (1 << FMath::CeilLogTwo(ComponentSizeVerts));
 
 	// Height map construction
-	HeightmapTexture = GetLandscapeProxy()->CreateLandscapeTexture(HeightmapSizeU, HeightmapSizeV, TEXTUREGROUP_Terrain_Heightmap, TSF_BGRA8);
+	SetHeightmap(GetLandscapeProxy()->CreateLandscapeTexture(HeightmapSizeU, HeightmapSizeV, TEXTUREGROUP_Terrain_Heightmap, TSF_BGRA8));
 
 	int32 MipSubsectionSizeQuads = SubsectionSizeQuads;
 	int32 MipSizeU = HeightmapSizeU;
@@ -4738,7 +4765,7 @@ void ULandscapeComponent::InitHeightmapData(TArray<FColor>& Heights, bool bUpdat
 	int32 Mip = 0;
 	while (MipSizeU > 1 && MipSizeV > 1 && MipSubsectionSizeQuads >= 1)
 	{
-		FColor* HeightmapTextureData = (FColor*)HeightmapTexture->Source.LockMip(Mip);
+		FColor* HeightmapTextureData = (FColor*)GetHeightmap()->Source.LockMip(Mip);
 		if (Mip == 0)
 		{
 			FMemory::Memcpy(HeightmapTextureData, Heights.GetData(), MipSizeU*MipSizeV*sizeof(FColor));
@@ -4766,9 +4793,9 @@ void ULandscapeComponent::InitHeightmapData(TArray<FColor>& Heights, bool bUpdat
 
 	for (int32 i = 0; i < HeightmapTextureMipData.Num(); i++)
 	{
-		HeightmapTexture->Source.UnlockMip(i);
+		GetHeightmap()->Source.UnlockMip(i);
 	}
-	HeightmapTexture->PostEditChange();
+	GetHeightmap()->PostEditChange();
 }
 
 void ULandscapeComponent::InitWeightmapData(TArray<ULandscapeLayerInfoObject*>& LayerInfos, TArray<TArray<uint8> >& WeightmapData)
@@ -5317,7 +5344,7 @@ void ULandscapeComponent::GeneratePlatformPixelData()
 			const int8 MaterialLOD = It.Value();
 
 			// Find or set a matching MIC in the Landscape's map.
-			MobileCombinationMaterialInstances[MaterialIndex] = GetCombinationMaterial(MobileWeightmapLayerAllocations, MaterialLOD, true);
+			MobileCombinationMaterialInstances[MaterialIndex] = GetCombinationMaterial(nullptr, MobileWeightmapLayerAllocations, MaterialLOD, true);
 			check(MobileCombinationMaterialInstances[MaterialIndex] != nullptr);
 
 			UMaterialInstanceConstant* NewMobileMaterialInstance = NewObject<ULandscapeMaterialInstanceConstant>(GetOutermost());
@@ -5356,8 +5383,8 @@ void ULandscapeComponent::GeneratePlatformVertexData(const ITargetPlatform* Targ
 	{
 		return;
 	}
-	check(HeightmapTexture);
-	check(HeightmapTexture->Source.GetFormat() == TSF_BGRA8);
+	check(GetHeightmap());
+	check(GetHeightmap()->Source.GetFormat() == TSF_BGRA8);
 
 	TArray<uint8> NewPlatformData;
 	FMemoryWriter PlatformAr(NewPlatformData);
@@ -5365,19 +5392,19 @@ void ULandscapeComponent::GeneratePlatformVertexData(const ITargetPlatform* Targ
 	int32 SubsectionSizeVerts = SubsectionSizeQuads + 1;
 	int32 MaxLOD = FMath::CeilLogTwo(SubsectionSizeVerts) - 1;
 
-	float HeightmapSubsectionOffsetU = (float)(SubsectionSizeVerts) / (float)HeightmapTexture->Source.GetSizeX();
-	float HeightmapSubsectionOffsetV = (float)(SubsectionSizeVerts) / (float)HeightmapTexture->Source.GetSizeY();
+	float HeightmapSubsectionOffsetU = (float)(SubsectionSizeVerts) / (float)GetHeightmap()->Source.GetSizeX();
+	float HeightmapSubsectionOffsetV = (float)(SubsectionSizeVerts) / (float)GetHeightmap()->Source.GetSizeY();
 	
 	// Get the required mip data
 	TArray<TArray<uint8>> HeightmapMipRawData;
 	TArray<FColor*> HeightmapMipData;
-	for (int32 MipIdx = 0; MipIdx < FMath::Min(LANDSCAPE_MAX_ES_LOD, HeightmapTexture->Source.GetNumMips()); MipIdx++)
+	for (int32 MipIdx = 0; MipIdx < FMath::Min(LANDSCAPE_MAX_ES_LOD, GetHeightmap()->Source.GetNumMips()); MipIdx++)
 	{
 		int32 MipSubsectionSizeVerts = (SubsectionSizeVerts) >> MipIdx;
 		if (MipSubsectionSizeVerts > 1)
 		{
 			new(HeightmapMipRawData) TArray<uint8>();
-			HeightmapTexture->Source.GetMipData(HeightmapMipRawData.Last(), MipIdx);
+			GetHeightmap()->Source.GetMipData(HeightmapMipRawData.Last(), MipIdx);
 			HeightmapMipData.Add((FColor*)HeightmapMipRawData.Last().GetData());
 		}
 	}
@@ -5439,7 +5466,12 @@ void ULandscapeComponent::GeneratePlatformVertexData(const ITargetPlatform* Targ
 			}
 		}
 	}
-	check(VertexOrder.Num() == FMath::Square(SubsectionSizeVerts) * FMath::Square(NumSubsections));
+
+	if (VertexOrder.Num() != FMath::Square(SubsectionSizeVerts) * FMath::Square(NumSubsections)) 
+	{
+		UE_LOG(LogLandscape, Warning, TEXT("VertexOrder count of %d did not match expected size of %d"), 
+			VertexOrder.Num(), FMath::Square(SubsectionSizeVerts) * FMath::Square(NumSubsections));
+	}
 
 	int32 NumMobileVerices = FMath::Square(SubsectionSizeVerts * NumSubsections);
 	TArray<FLandscapeMobileVertex> MobileVertices;
@@ -5456,8 +5488,8 @@ void ULandscapeComponent::GeneratePlatformVertexData(const ITargetPlatform* Targ
 
 		float HeightmapScaleBiasZ = HeightmapScaleBias.Z + HeightmapSubsectionOffsetU * (float)SubX;
 		float HeightmapScaleBiasW = HeightmapScaleBias.W + HeightmapSubsectionOffsetV * (float)SubY;
-		int32 BaseMipOfsX = FMath::RoundToInt(HeightmapScaleBiasZ * (float)HeightmapTexture->Source.GetSizeX());
-		int32 BaseMipOfsY = FMath::RoundToInt(HeightmapScaleBiasW * (float)HeightmapTexture->Source.GetSizeY());
+		int32 BaseMipOfsX = FMath::RoundToInt(HeightmapScaleBiasZ * (float)GetHeightmap()->Source.GetSizeX());
+		int32 BaseMipOfsY = FMath::RoundToInt(HeightmapScaleBiasW * (float)GetHeightmap()->Source.GetSizeY());
 
 		DstVert->Position[0] = X;
 		DstVert->Position[1] = Y;
@@ -5471,7 +5503,7 @@ void ULandscapeComponent::GeneratePlatformVertexData(const ITargetPlatform* Targ
 
 		for (int32 Mip = 0; Mip < HeightmapMipData.Num(); ++Mip)
 		{
-			int32 MipSizeX = HeightmapTexture->Source.GetSizeX() >> Mip;
+			int32 MipSizeX = GetHeightmap()->Source.GetSizeX() >> Mip;
 
 			int32 CurrentMipOfsX = BaseMipOfsX >> Mip;
 			int32 CurrentMipOfsY = BaseMipOfsY >> Mip;
@@ -5525,14 +5557,14 @@ void ULandscapeComponent::GeneratePlatformVertexData(const ITargetPlatform* Targ
 			{
 				float HeightmapScaleBiasZ = HeightmapScaleBias.Z + HeightmapSubsectionOffsetU * (float)SubX;
 				float HeightmapScaleBiasW = HeightmapScaleBias.W + HeightmapSubsectionOffsetV * (float)SubY;
-				int32 BaseMipOfsX = FMath::RoundToInt(HeightmapScaleBiasZ * (float)HeightmapTexture->Source.GetSizeX());
-				int32 BaseMipOfsY = FMath::RoundToInt(HeightmapScaleBiasW * (float)HeightmapTexture->Source.GetSizeY());
+				int32 BaseMipOfsX = FMath::RoundToInt(HeightmapScaleBiasZ * (float)GetHeightmap()->Source.GetSizeX());
+				int32 BaseMipOfsY = FMath::RoundToInt(HeightmapScaleBiasW * (float)GetHeightmap()->Source.GetSizeY());
 
 				for (int32 y = 0; y <= LodSubsectionSizeQuads; y++)
 				{
 					for (int32 x = 0; x <= LodSubsectionSizeQuads; x++)
 					{
-						int32 MipSizeX = HeightmapTexture->Source.GetSizeX() >> OcclusionMeshMip;
+						int32 MipSizeX = GetHeightmap()->Source.GetSizeX() >> OcclusionMeshMip;
 
 						int32 CurrentMipOfsX = BaseMipOfsX >> OcclusionMeshMip;
 						int32 CurrentMipOfsY = BaseMipOfsY >> OcclusionMeshMip;
@@ -5786,19 +5818,19 @@ bool ALandscapeProxy::LandscapeExportHeightmapToRenderTarget(UTextureRenderTarge
 
 	for (const ULandscapeComponent* Component : LandscapeComponentsToExport)
 	{
-		FTrianglePerMID* TrianglesPerMID = TrianglesPerHeightmap.Find(Component->HeightmapTexture);
+		FTrianglePerMID* TrianglesPerMID = TrianglesPerHeightmap.Find(Component->GetHeightmap());
 
 		if (TrianglesPerMID == nullptr)
 		{
 			FTrianglePerMID Data;
 			Data.HeightmapMID = UMaterialInstanceDynamic::Create(HeightmapRenderMaterial, this);
-			Data.HeightmapMID->SetTextureParameterValue(TEXT("Heightmap"), Component->HeightmapTexture);
+			Data.HeightmapMID->SetTextureParameterValue(TEXT("Heightmap"), Component->GetHeightmap());
 			Data.HeightmapMID->SetScalarParameterValue(TEXT("ExportHeightIntoRGChannel"), InExportHeightIntoRGChannel);
-			TrianglesPerMID = &TrianglesPerHeightmap.Add(Component->HeightmapTexture, Data);
+			TrianglesPerMID = &TrianglesPerHeightmap.Add(Component->GetHeightmap(), Data);
 		}
 
 		FIntPoint ComponentSectionBase = Component->GetSectionBase();
-		FIntPoint ComponentHeightmapTextureSize(Component->HeightmapTexture->Source.GetSizeX(), Component->HeightmapTexture->Source.GetSizeY());
+		FIntPoint ComponentHeightmapTextureSize(Component->GetHeightmap()->Source.GetSizeX(), Component->GetHeightmap()->Source.GetSizeY());
 		int32 SubsectionSizeVerts = Component->SubsectionSizeQuads + 1;
 		float HeightmapSubsectionOffsetU = (float)(SubsectionSizeVerts) / (float)ComponentHeightmapTextureSize.X;
 		float HeightmapSubsectionOffsetV = (float)(SubsectionSizeVerts) / (float)ComponentHeightmapTextureSize.Y;
@@ -5842,7 +5874,7 @@ bool ALandscapeProxy::LandscapeExportHeightmapToRenderTarget(UTextureRenderTarge
 	for (auto& TriangleList : TrianglesPerHeightmap)
 	{
 		FCanvasTriangleItem TriItemList(MoveTemp(TriangleList.Value.TriangleList), nullptr);
-		TriItemList.MaterialRenderProxy = TriangleList.Value.HeightmapMID->GetRenderProxy(false);
+		TriItemList.MaterialRenderProxy = TriangleList.Value.HeightmapMID->GetRenderProxy();
 		TriItemList.BlendMode = SE_BLEND_Opaque;
 		TriItemList.SetColor(FLinearColor::White);
 
@@ -5854,9 +5886,8 @@ bool ALandscapeProxy::LandscapeExportHeightmapToRenderTarget(UTextureRenderTarge
 	// Tell the rendering thread to draw any remaining batched elements
 	Canvas.Flush_GameThread(true);
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		DrawHeightmapRTCommand,
-		FTextureRenderTargetResource*, RenderTargetResource, RenderTargetResource,
+	ENQUEUE_RENDER_COMMAND(DrawHeightmapRTCommand)(
+		[RenderTargetResource](FRHICommandListImmediate& RHICmdList)
 		{
 			// Copy (resolve) the rendered image from the frame buffer to its render target texture
 			RHICmdList.CopyToResolveTarget(

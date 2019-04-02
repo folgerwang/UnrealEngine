@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -216,7 +216,7 @@ struct CORE_API FGenericPlatformProcess
 	static const TCHAR* ShaderDir();
 	static void SetShaderDir(const TCHAR*Where);
 	static void SetCurrentWorkingDirectoryToBaseDir();
-	
+
 	/** Get the current working directory (only really makes sense on desktop platforms) */
 	static FString GetCurrentWorkingDirectory();
 
@@ -241,6 +241,13 @@ struct CORE_API FGenericPlatformProcess
 
 	/**	Clean the shader working directory. */
 	static void CleanShaderWorkingDir();
+
+	/**
+	 * Return the path to the currently running executable
+	 *
+	 * @return 	Path of the currently running executable
+	 */
+	static const TCHAR* ExecutablePath();
 
 	/**
 	 * Return the name of the currently running executable
@@ -403,8 +410,9 @@ struct CORE_API FGenericPlatformProcess
 	 * @param OutReturnCode may be 0
 	 * @param OutStdOut may be 0
 	 * @param OutStdErr may be 0
+	 * @OptionalWorkingDirectory may be 0
 	 */
-	static bool ExecProcess( const TCHAR* URL, const TCHAR* Params, int32* OutReturnCode, FString* OutStdOut, FString* OutStdErr );
+	static bool ExecProcess(const TCHAR* URL, const TCHAR* Params, int32* OutReturnCode, FString* OutStdOut, FString* OutStdErr, const TCHAR* OptionalWorkingDirectory = NULL);
 
 	/**
 	 * Executes a process as administrator, requesting elevation as necessary. This
@@ -457,7 +465,7 @@ struct CORE_API FGenericPlatformProcess
 	 * @see GetSynchEventFromPool, ReturnSynchEventToPool
 	 */
 	// Message to others in the future, don't try to delete this function as it isn't exactly deprecated, but it should only ever be called from FEventPool::GetEventFromPool()
-	DEPRECATED(4.8, "Please use GetSynchEventFromPool to create a new event, and ReturnSynchEventToPool to release the event.")
+	UE_DEPRECATED(4.8, "Please use GetSynchEventFromPool to create a new event, and ReturnSynchEventToPool to release the event.")
 	static class FEvent* CreateSynchEvent(bool bIsManualReset = false);
 
 	/**

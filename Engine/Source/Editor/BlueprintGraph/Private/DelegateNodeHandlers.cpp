@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "DelegateNodeHandlers.h"
 #include "EdGraphSchema_K2.h"
@@ -81,7 +81,8 @@ struct FKCHandlerDelegateHelper
 	{
 		check(SelfPin && NetPin && BoundProperty && DelegateNode);
 
-		FBPTerminal* Term = new(Context.VariableReferences) FBPTerminal();
+		FBPTerminal* Term = new FBPTerminal();
+		Context.VariableReferences.Add(Term);
 		Term->CopyFromPin(SelfPin, BoundProperty->GetName());
 		Term->AssociatedVarProperty = BoundProperty;
 

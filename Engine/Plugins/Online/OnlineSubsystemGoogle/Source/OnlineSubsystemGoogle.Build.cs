@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System.IO;
 using UnrealBuildTool;
@@ -40,7 +40,7 @@ public class OnlineSubsystemGoogle : ModuleRules
 			});
 
 			PublicAdditionalFrameworks.Add(
-			new UEBuildFramework(
+			new Framework(
 				"GoogleSignIn",
 				"ThirdParty/IOS/GoogleSignInSDK/GoogleSignIn.embeddedframework.zip",
 				"GoogleSignIn.bundle"
@@ -48,7 +48,7 @@ public class OnlineSubsystemGoogle : ModuleRules
 			);
 
 			PublicAdditionalFrameworks.Add(
-			new UEBuildFramework(
+			new Framework(
 				"GoogleSignInDependencies",
 				"ThirdParty/IOS/GoogleSignInSDK/GoogleSignInDependencies.embeddedframework.zip"
 			)

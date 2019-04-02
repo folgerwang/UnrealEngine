@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Layout/Clipping.h"
 #include "Misc/AssertionMacros.h"
@@ -77,11 +77,26 @@ FSlateClippingZone::FSlateClippingZone(const FVector2D& InTopLeft, const FVector
 
 void FSlateClippingZone::InitializeFromArbitraryPoints(const FVector2D& InTopLeft, const FVector2D& InTopRight, const FVector2D& InBottomLeft, const FVector2D& InBottomRight)
 {
-	bIsAxisAligned =
-		FMath::RoundToInt(InTopLeft.X) == FMath::RoundToInt(InBottomLeft.X) &&
-		FMath::RoundToInt(InTopRight.X) == FMath::RoundToInt(InBottomRight.X) &&
-		FMath::RoundToInt(InTopLeft.Y) == FMath::RoundToInt(InTopRight.Y) &&
-		FMath::RoundToInt(InBottomLeft.Y) == FMath::RoundToInt(InBottomRight.Y);
+	bIsAxisAligned = false;
+
+	// Clipping is in pixel space, accept a very high tolerance
+	const float Tolerance = .1;
+
+	// Since this is a rectangle check to edges.  If their points are equal they are aligned to the same axis and thus the whole rect is aligned
+	if (FMath::IsNearlyEqual(InTopLeft.X, InBottomLeft.X, Tolerance))
+	{
+		if (FMath::IsNearlyEqual(InBottomLeft.Y, InBottomLeft.Y, Tolerance))
+		{
+			bIsAxisAligned = true;
+		}
+	}
+	else if (FMath::IsNearlyEqual(InTopLeft.Y, InBottomLeft.Y, Tolerance))
+	{
+		if (FMath::IsNearlyEqual(InBottomLeft.X, InBottomRight.X, Tolerance))
+		{
+			bIsAxisAligned = true;
+		}
+	}
 
 	if ( bIsAxisAligned )
 	{

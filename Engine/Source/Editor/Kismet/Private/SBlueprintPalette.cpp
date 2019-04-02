@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SBlueprintPalette.h"
 #include "Widgets/IToolTip.h"
@@ -317,10 +317,6 @@ static void GetPaletteItemIcon(TSharedPtr<FEdGraphSchemaAction> ActionIn, UBluep
 		if (!NodeToolTipText.IsEmpty())
 		{
 			ToolTipOut = NodeToolTipText;
-		}
-		else
-		{
-			ToolTipOut = ToolTipOut;
 		}
 
 		// Ask node for a palette icon

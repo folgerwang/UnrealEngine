@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneGeometryCacheSection.h"
 #include "MovieSceneGeometryCacheTemplate.h"
@@ -9,19 +9,24 @@
 
 #define LOCTEXT_NAMESPACE "MovieSceneGeometryCacheSection"
 
+namespace
+{
+	float GeometryCacheDeprecatedMagicNumber = TNumericLimits<float>::Lowest();
+}
 
 FMovieSceneGeometryCacheParams::FMovieSceneGeometryCacheParams()
 {
-	StartOffset = 0.f;
-	EndOffset = 0.f;
+	GeometryCacheAsset = nullptr;
+	GeometryCache_DEPRECATED = nullptr;
+	StartOffset_DEPRECATED = GeometryCacheDeprecatedMagicNumber;
+	EndOffset_DEPRECATED = GeometryCacheDeprecatedMagicNumber;
 	PlayRate = 1.f;
 	bReverse = false;
 }
 
-UMovieSceneGeometryCacheSection::UMovieSceneGeometryCacheSection( const FObjectInitializer& ObjectInitializer )
-	: Super( ObjectInitializer )
+UMovieSceneGeometryCacheSection::UMovieSceneGeometryCacheSection(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
-
 	BlendType = EMovieSceneBlendType::Absolute;
 	EvalOptions.EnableAndSetCompletionMode(EMovieSceneCompletionMode::ProjectDefault);
 
@@ -34,7 +39,38 @@ UMovieSceneGeometryCacheSection::UMovieSceneGeometryCacheSection( const FObjectI
 
 TOptional<FFrameTime> UMovieSceneGeometryCacheSection::GetOffsetTime() const
 {
-	return TOptional<FFrameTime>(Params.StartOffset * GetTypedOuter<UMovieScene>()->GetTickResolution());
+	return TOptional<FFrameTime>(Params.StartFrameOffset);
+}
+
+void UMovieSceneGeometryCacheSection::PostLoad()
+{
+	Super::PostLoad();
+
+	FFrameRate LegacyFrameRate = GetLegacyConversionFrameRate();
+
+	if (Params.StartOffset_DEPRECATED != GeometryCacheDeprecatedMagicNumber)
+	{
+		Params.StartFrameOffset = UpgradeLegacyMovieSceneTime(this, LegacyFrameRate, Params.StartOffset_DEPRECATED).Value;
+
+		Params.StartOffset_DEPRECATED = GeometryCacheDeprecatedMagicNumber;
+	}
+
+	if (Params.EndOffset_DEPRECATED != GeometryCacheDeprecatedMagicNumber)
+	{
+		Params.EndFrameOffset = UpgradeLegacyMovieSceneTime(this, LegacyFrameRate, Params.EndOffset_DEPRECATED).Value;
+
+		Params.EndOffset_DEPRECATED = GeometryCacheDeprecatedMagicNumber;
+	}
+
+	if (Params.GeometryCache_DEPRECATED.ResolveObject() != nullptr
+		&& Params.GeometryCacheAsset == nullptr)
+	{
+		UGeometryCacheComponent *Comp = Cast<UGeometryCacheComponent>(Params.GeometryCache_DEPRECATED.ResolveObject());
+		if (Comp)
+		{
+			Params.GeometryCacheAsset = (Comp->GetGeometryCache());
+		}
+	}
 }
 
 void UMovieSceneGeometryCacheSection::Serialize(FArchive& Ar)
@@ -49,14 +85,14 @@ FMovieSceneEvalTemplatePtr UMovieSceneGeometryCacheSection::GenerateTemplate() c
 	return FMovieSceneGeometryCacheSectionTemplate(*this);
 }
 
-float GetStartOffsetAtTrimTime(FQualifiedFrameTime TrimTime, const FMovieSceneGeometryCacheParams& Params, FFrameNumber StartFrame)
+FFrameNumber GetStartOffsetAtTrimTime(FQualifiedFrameTime TrimTime, const FMovieSceneGeometryCacheParams& Params, FFrameNumber StartFrame, FFrameRate FrameRate)
 {
 	float AnimPlayRate = FMath::IsNearlyZero(Params.PlayRate) ? 1.0f : Params.PlayRate;
 	float AnimPosition = (TrimTime.Time - StartFrame) / TrimTime.Rate * AnimPlayRate;
-	float SeqLength = Params.GetSequenceLength() - (Params.StartOffset + Params.EndOffset);
+	float SeqLength = Params.GetSequenceLength() - FrameRate.AsSeconds(Params.StartFrameOffset + Params.EndFrameOffset) / AnimPlayRate;
 
-	float NewOffset = FMath::Fmod(AnimPosition, SeqLength);
-	NewOffset += Params.StartOffset;
+	FFrameNumber NewOffset = FrameRate.AsFrameNumber(FMath::Fmod(AnimPosition, SeqLength));
+	NewOffset += Params.StartFrameOffset;
 
 	return NewOffset;
 }
@@ -65,10 +101,10 @@ float GetStartOffsetAtTrimTime(FQualifiedFrameTime TrimTime, const FMovieSceneGe
 TOptional<TRange<FFrameNumber> > UMovieSceneGeometryCacheSection::GetAutoSizeRange() const
 {
 	FFrameRate FrameRate = GetTypedOuter<UMovieScene>()->GetTickResolution();
-
 	FFrameTime AnimationLength = Params.GetSequenceLength() * FrameRate;
+	int32 IFrameNumber = AnimationLength.FrameNumber.Value + (int)(AnimationLength.GetSubFrame() + 0.5f);
 
-	return TRange<FFrameNumber>(GetInclusiveStartFrame(), GetInclusiveStartFrame() + AnimationLength.FrameNumber);
+	return TRange<FFrameNumber>(GetInclusiveStartFrame(), GetInclusiveStartFrame() + IFrameNumber + 1);
 }
 
 
@@ -80,7 +116,9 @@ void UMovieSceneGeometryCacheSection::TrimSection(FQualifiedFrameTime TrimTime, 
 	{
 		if (bTrimLeft)
 		{
-			Params.StartOffset = HasStartFrame() ? GetStartOffsetAtTrimTime(TrimTime, Params, GetInclusiveStartFrame()) : 0;
+			FFrameRate FrameRate = GetTypedOuter<UMovieScene>()->GetTickResolution();
+
+			Params.StartFrameOffset = HasStartFrame() ? GetStartOffsetAtTrimTime(TrimTime, Params, GetInclusiveStartFrame(), FrameRate) : 0;
 		}
 
 		Super::TrimSection(TrimTime, bTrimLeft);
@@ -89,13 +127,15 @@ void UMovieSceneGeometryCacheSection::TrimSection(FQualifiedFrameTime TrimTime, 
 
 UMovieSceneSection* UMovieSceneGeometryCacheSection::SplitSection(FQualifiedFrameTime SplitTime)
 {
-	const float NewOffset = HasStartFrame() ? GetStartOffsetAtTrimTime(SplitTime, Params, GetInclusiveStartFrame()) : 0;
+	FFrameRate FrameRate = GetTypedOuter<UMovieScene>()->GetTickResolution();
+
+	const FFrameNumber NewOffset = HasStartFrame() ? GetStartOffsetAtTrimTime(SplitTime, Params, GetInclusiveStartFrame(), FrameRate) : 0;
 
 	UMovieSceneSection* NewSection = Super::SplitSection(SplitTime);
 	if (NewSection != nullptr)
 	{
 		UMovieSceneGeometryCacheSection* NewGeometrySection = Cast<UMovieSceneGeometryCacheSection>(NewSection);
-		NewGeometrySection->Params.StartOffset = NewOffset;
+		NewGeometrySection->Params.StartFrameOffset = NewOffset;
 	}
 	return NewSection;
 }
@@ -105,12 +145,12 @@ void UMovieSceneGeometryCacheSection::GetSnapTimes(TArray<FFrameNumber>& OutSnap
 {
 	Super::GetSnapTimes(OutSnapTimes, bGetSectionBorders);
 
-	const FFrameRate   FrameRate  = GetTypedOuter<UMovieScene>()->GetTickResolution();
+	const FFrameRate   FrameRate = GetTypedOuter<UMovieScene>()->GetTickResolution();
 	const FFrameNumber StartFrame = GetInclusiveStartFrame();
-	const FFrameNumber EndFrame   = GetExclusiveEndFrame() - 1; // -1 because we don't need to add the end frame twice
+	const FFrameNumber EndFrame = GetExclusiveEndFrame() - 1; // -1 because we don't need to add the end frame twice
 
-	const float AnimPlayRate     = FMath::IsNearlyZero(Params.PlayRate) ? 1.0f : Params.PlayRate;
-	const float SeqLengthSeconds = (Params.GetSequenceLength() - (Params.StartOffset + Params.EndOffset)) / AnimPlayRate;
+	const float AnimPlayRate = FMath::IsNearlyZero(Params.PlayRate) ? 1.0f : Params.PlayRate;
+	const float SeqLengthSeconds = Params.GetSequenceLength() - FrameRate.AsSeconds(Params.StartFrameOffset + Params.EndFrameOffset) / AnimPlayRate;
 
 	FFrameTime SequenceFrameLength = SeqLengthSeconds * FrameRate;
 	if (SequenceFrameLength.FrameNumber > 1)
@@ -125,10 +165,10 @@ void UMovieSceneGeometryCacheSection::GetSnapTimes(TArray<FFrameNumber>& OutSnap
 	}
 }
 
-float UMovieSceneGeometryCacheSection::MapTimeToAnimation(FFrameTime InPosition, FFrameRate InFrameRate) const
+float UMovieSceneGeometryCacheSection::MapTimeToAnimation(float ComponentDuration, FFrameTime InPosition, FFrameRate InFrameRate) const
 {
 	FMovieSceneGeometryCacheSectionTemplateParameters TemplateParams(Params, GetInclusiveStartFrame(), GetExclusiveEndFrame());
-	return TemplateParams.MapTimeToAnimation(InPosition, InFrameRate);
+	return TemplateParams.MapTimeToAnimation(ComponentDuration, InPosition, InFrameRate);
 }
 
 
@@ -153,14 +193,19 @@ void UMovieSceneGeometryCacheSection::PostEditChangeProperty(FPropertyChangedEve
 		{
 			float CurrentDuration = MovieScene::DiscreteSize(GetRange());
 			float NewDuration = CurrentDuration * (PreviousPlayRate / NewPlayRate);
-			SetEndFrame( GetInclusiveStartFrame() + FMath::FloorToInt(NewDuration) );
+			SetEndFrame(GetInclusiveStartFrame() + FMath::FloorToInt(NewDuration));
 
 			PreviousPlayRate = NewPlayRate;
 		}
 	}
-
+	
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 #endif
+
+float FMovieSceneGeometryCacheParams::GetSequenceLength() const
+{
+	return GeometryCacheAsset != nullptr ? GeometryCacheAsset->CalculateDuration() : 0.f;
+}
 
 #undef LOCTEXT_NAMESPACE 

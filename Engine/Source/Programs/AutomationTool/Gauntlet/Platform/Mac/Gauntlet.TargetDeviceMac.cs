@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -186,9 +186,7 @@ namespace Gauntlet
 					Log.Info("Skipping install of {0} (-skipdeploy)", BuildPath);
 				}
 
-				// write a token, used to detect and old gauntlet-installedbuilds periodically
-				string TokenPath = Path.Combine(DestPath, "gauntlet.token");
-				File.WriteAllText(TokenPath, "Created by Gauntlet");
+				Utils.SystemHelpers.MarkDirectoryForCleanup(DestPath);
 
 				BuildPath = DestPath;
 			}

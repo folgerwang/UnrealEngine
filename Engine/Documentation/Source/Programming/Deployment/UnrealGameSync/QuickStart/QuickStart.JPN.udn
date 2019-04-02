@@ -1,0 +1,109 @@
+﻿INTSourceChangelist:4527129
+Availability: Public
+Crumbs: 
+Title: UGS クイック スタート
+Description: UnrealGameSync の使用を開始する方法を学習します。
+Type: 
+Version: 4.19
+Parent: Programming/Deployment/UnrealGameSync
+Order: 1
+Tags: 
+
+
+![](UGSQS_Step1_EndResult-2.png "UGSQS_Step1_EndResult-2.png")
+
+本ガイドは、 **UnrealGameSync (UGS)** を使用して **Unreal プロジェクト** (.uproject) を同期するための主要なワークフローを説明することを目的としています。本チュートリアルを終了すると、UGS で Unreal プロジェクトを開いて、アプリケーションのメイン メニューにある **[Project Overview Area (プロジェクト概要領域)]** および **[Changelist Area (チェンジリスト領域)]** を使用して同期を行う方法を習得できます。
+
+[REGION:note]
+**必要な設定：** 以下のステップでは、チームによって既に UGS が配布され、お使いのマシンに設定されていることを前提としています。
+[/REGION]
+
+## 1\.ローカル ファイルを開く
+
+以下のステップでは、UGS でローカル Unreal プロジェクト ファイルを開く方法を示します。
+
+1. ローカル ドライブにある ***.uproject** を開くには、 **[Open project… (プロジェクトを開く...)]** リンクをクリックします。
+    ![](UGSQS_Step1_1.png)
+2. **[Open Project (プロジェクトを開く)]** ウィンドウが開きます。UGS によってデフォルトで **[Local File (ローカル ファイル)]** ラジオ ボタンが有効になっています。ローカル ファイルを選択するには **[Browse... (参照...)]** ボタンをクリックします。
+    ![](UGSQS_Step1_2-1.png "UGSQS_Step1_2-1.png")
+3. 目的の ***.uproject** ファイルに移動して選択し、 **[Open (開く)]** をクリックします。
+    ![](UGSQS_Step1_3.png)
+    [REGION:note]
+    **注意**：ここでは、Unreal プロジェクトの例として [「First Person Shooter Tutorial」](Programming/Tutorials/FirstPersonShooter) を使用しています。
+    [/REGION]
+4. UGS で Unreal プロジェクトを開くには **[Ok]** ボタンをクリックします。
+    ![](UGSQS_Step1_4.png "UGSQS_Step1_4.png")
+
+
+## 2\.ワークスペース ファイルを開く
+
+以下のステップでは、UGS でワークスペース Unreal プロジェクト ファイルを開く方法を示します。
+
+1. ローカル ドライブにある ***.uproject** ファイルを開くには、 **[Open project… (プロジェクトを開く...)]** リンクをクリックします。
+    ![](UGSQS_Step1_1.png)
+2. **[Open Project (プロジェクトを開く)]** ウィンドウが開きます。UGS によってデフォルトで **[Local File (ローカル ファイル)]** ラジオ ボタンが選択されています。 **[Workspace (ワークスペース)] **ラジオ ボタンを選択します。
+    ![](UGSQS_Step2b_1.png)
+3. まず、ワークスペースの名前を最初のフィールドに入力する必要があります。UGS で参照するワークスペースが既に存在する場合は、 **[Name: (名前：)]** フィールドの横にある** [Browse... (参照...)]** ボタンをクリックします。
+    ![](UGSQS_Step2b_2.png)  
+    **注意**：新しいワークスペースを作成する必要がある場合は、 **[New... (新規...)]** ボタンをクリックして新しいワークスペースを設定します。
+    ![](UGSQS_Step2b_NewWSNote.png)
+4. **[Select Workspace (ワークスペースの選択)]** メニューが開いて、選択可能なワークスペースのリストが表示されます。**ワークスペース** を選択し (1)、 **[Ok]** ボタンをクリックします (2)。
+    ![](UGSQS_Step2b_3.png "UGSQS_Step2b_3.png")
+5. **[Path: (パス：)]** フィールドの横にある **[Browse... (参照...)]** ボタンをクリックします。
+    ![](UGSQS_Step2b_4.png "UGSQS_Step2b_4.png")
+6. **[Select Project (プロジェクトの選択)]** メニューが開いたら、ワークスペース ツリーを展開して ***.uproject** ファイルを選択し (1)、 **[Ok]** ボタンをクリックします (2)。
+    ![](UGSQS_Step2b_5.png "UGSQS_Step2b_5.png")
+    [REGION:note]
+    **注意**：ここでは、Unreal プロジェクトの例として [「First Person Shooter Tutorial」](Programming/Tutorials/FirstPersonShooter) を使用しています。
+    [/REGION]
+7. ここまでで **ワークスペースの ****名前** と **パス**の指定が完了し、 **[Ok]** ボタンをクリックして UGS で Unreal プロジェクトを開く準備ができました。
+    ![](UGSQS_Step2b_6.png "UGSQS_Step2b_6.png")
+
+
+## 3\.[Changelist Area (チェンジリスト領域)] から同期する
+
+UGS でプロジェクトが開いた状態で、次に UGS での一般的なタスクである **[Changelist Area (チェンジリスト領域)]** からの同期を実行します。
+[REGION:note]
+以下のステップに進む前に、 **Perforce** にログインしていることを確認してください。
+[/REGION]
+
+1. UGS でプロジェクトが開いた状態で、 **メイン メニュー**にある **[Changelist Area (チェンジリスト領域)]** の場所を確認します。
+    ![](UGSQS_Step3_1-1.png "UGSQS_Step3_1-1.png")
+2. 使用している変更を見つけます。変更の横には **矢印アイコン** が表示されます。
+    ![](UGSQS_Step3_2-1.png "UGSQS_Step3_2-1.png")
+3. プロジェクトのストリームにコミット済みの別の変更にアップデートするには、 **[Changelist Area (チェンジリスト領域)]** 内で目的の変更をダブルクリックします。
+    ![](UGSQS_Step3_3-1.png "UGSQS_Step3_3-1.png")
+
+同期が完了すると、UGS により **Output Log (出力ログ)(3)**、 **Changelist Area (チェンジリスト領域) (2)**、 **Project Overview Area (プロジェクトの概要領域) (1)** がアップデートされます。次のステップでは、ここでプロジェクトを同期します。
+
+![](UGSQS_Step3_4-1.png "UGSQS_Step3_4-1.png")
+
+
+## 4\.[Project Overview Area (プロジェクト概要領域)] から同期する
+
+ここまでで、UGS でプロジェクトを開き、 **[Changelist Area (チェンジリスト領域)]** から同期を実行しました。次は、UGS でのもう一つの一般的なタスクである **[Project Overview Area (プロジェクト概要領域)]** からの同期を実行します。
+
+1. まず、 **メイン メニュー**にある **[Project Overview Area (プロジェクト概要領域)]** の場所を確認します。
+    ![](UGSQS_Step4_1.png "UGSQS_Step4_1.png")
+2. **[Sync Now - To… (今すぐ同期 - 同期先...)]** ボタン リンクの横にある **下向き矢印** ボタンをクリックして、ショートカット メニューを開きます。
+    ![](UGSQS_Step4_2.png "UGSQS_Step4_2.png")
+3. **[Latest Change (最新の変更)]** オプションを選択します。
+    ![](UGSQS_Step4_3.png "UGSQS_Step4_3.png")
+    [REGION:note]
+    UGS に組み込まれているインターフェース、オプションおよびメニューの詳細については、 [](Programming/Deployment/UnrealGameSync/Reference) ガイドを参照してください。
+    [/REGION]
+
+同期の完了時に、UGS により最新の **変更** に適切にアップデートされたことが通知されます。   
+
+![](UGSQS_Step4_5.png "UGSQS_Step4_5.png")
+
+本ガイドでのステップはこれで終了です。ここまでで、プロジェクトを開くいてユーザー インターフェースの **[Changelist Area (チェンジリスト領域)]** および **[Project Overview Area (プロジェクト概要領域)]** から同期する方法を学習しました。プロジェクトのバイナリ バージョンをデプロイする方法や、インターフェースをナビゲートしてすべてのメニューおよびオプションを確認する方法など、UGS についてさらに独習を続ける場合は、本ガイドの次のセクションを参照してください。
+
+
+## 5\.次の作業
+
+ここまでで、プロジェクトを開いて 2 通りの一般的な同期方法を実行しました。次は、以下の操作を試してみてください。
+
+*   UGS のメイン メニュー下部にある **[Build (構築)]** および **[Run (実行)]** チェックボックスをオンにして、Unreal プロジェクトを同期、構築、実行します。
+    ![](UGSQS_Step4_OYO1.png "UGSQS_Step4_OYO1.png")
+*   プリコンパイル済みのバイナリの機能をソースからのコンパイルを必要としない制作スタッフが使用できるようにしたいと考えているデベロッパーの方は、 [](Programming/Deployment/UnrealGameSync/Reference) ガイドを参照して、エディタ バイナリを含む zip ファイルを Perforce に定期的にサブミットするようビルド システムを設定し、そのファイルを UGS で創作スタッフのワークスペースに抽出できるようにする方法の詳細を確認してください。

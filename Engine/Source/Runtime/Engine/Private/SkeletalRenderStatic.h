@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SkeletalRenderStatic.h: Skinned mesh object rendered as static
@@ -26,7 +26,7 @@ public:
 	//~ Begin FSkeletalMeshObject Interface
 	virtual void InitResources(USkinnedMeshComponent* InMeshComponent) override;
 	virtual void ReleaseResources() override;
-	virtual void Update(int32 LODIndex,USkinnedMeshComponent* InMeshComponent,const TArray<FActiveMorphTarget>& ActiveMorphTargets, const TArray<float>& MorphTargetWeights, bool bUpdatePreviousBoneTransform) override {};
+	virtual void Update(int32 LODIndex,USkinnedMeshComponent* InMeshComponent,const TArray<FActiveMorphTarget>& ActiveMorphTargets, const TArray<float>& MorphTargetWeights, EPreviousBoneTransformUpdateMode PreviousBoneTransformUpdateMode) override {};
 	//virtual void UpdateRecomputeTangent(int32 MaterialIndex, int32 LODIndex, bool bRecomputeTangent) override {};
 	virtual void EnableOverlayRendering(bool bEnabled, const TArray<int32>* InBonesOfInterest, const TArray<UMorphTarget*>* InMorphTargetOfInterest) override {};
 	virtual void CacheVertices(int32 LODIndex, bool bForce) const override {};
@@ -34,6 +34,7 @@ public:
 	virtual const FVertexFactory* GetSkinVertexFactory(const FSceneView* View, int32 LODIndex, int32 ChunkIdx) const override;
 	virtual TArray<FTransform>* GetComponentSpaceTransforms() const override;
 	virtual const TArray<FMatrix>& GetReferenceToLocalMatrices() const override;
+
 	virtual int32 GetLOD() const override
 	{
 		return WorkingMinDesiredLODLevel;
@@ -69,6 +70,11 @@ private:
 		/** Color buffer to user, could be from asset or component override */
 		FColorVertexBuffer* ColorVertexBuffer;
 
+#if RHI_RAYTRACING
+		/** Geometry for ray tracing. */
+		FRayTracingGeometry RayTracingGeometry;
+#endif // RHI_RAYTRACING
+
 		/** true if resources for this LOD have already been initialized. */
 		bool bResourcesInitialized;
 
@@ -94,6 +100,11 @@ private:
  		{
 			CumulativeResourceSize.AddDedicatedSystemMemoryBytes(sizeof(*this));
  		}
+
+#if RHI_RAYTRACING
+		/** Builds ray tracing acceleration structures per LOD. */
+		void BuildRayTracingAccelerationStructure();
+#endif // RHI_RAYTRACING
 	};
 
 	/** Render data for each LOD */

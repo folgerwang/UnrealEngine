@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PyWrapperTypeRegistry.h"
 #include "PyWrapperOwnerContext.h"
@@ -370,7 +370,8 @@ void FPyWrapperTypeReinstancer::ProcessPending()
 	{
 		for (const auto& ClassToReinstancePair : ClassesToReinstance)
 		{
-			FCoreUObjectDelegates::RegisterClassForHotReloadReinstancingDelegate.Broadcast(ClassToReinstancePair.Key, ClassToReinstancePair.Value);
+			// Assume the classes have changed
+			FCoreUObjectDelegates::RegisterClassForHotReloadReinstancingDelegate.Broadcast(ClassToReinstancePair.Key, ClassToReinstancePair.Value, EHotReloadedClassFlags::Changed);
 		}
 		FCoreUObjectDelegates::ReinstanceHotReloadedClassesDelegate.Broadcast();
 
@@ -2093,14 +2094,12 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedTypes(const EPyOnlineDocs
 	// which module it came from and where that module exists on disk.
 	auto ProcessWrappedDataArray = [this, &PythonScript, InDocGenFlags](const TMap<FName, PyTypeObject*>& WrappedData, const TSharedPtr<FPyOnlineDocsSection>& OnlineDocsSection)
 	{
-		if (InDocGenFlags == EPyOnlineDocsFilterFlags::IncludeNone)
+		if (OnlineDocsSection.IsValid())
 		{
-			return;
+			UE_LOG(LogPython, Display, TEXT("  ...generating Python API: %s"), *OnlineDocsSection->GetName());
+			PythonScript.WriteLine(FString::Printf(TEXT("##### %s #####"), *OnlineDocsSection->GetName()));
+			PythonScript.WriteNewLine();
 		}
-
-		UE_LOG(LogPython, Display, TEXT("  ...generating Python API: %s"), *OnlineDocsSection->GetName());
-		PythonScript.WriteLine(FString::Printf(TEXT("##### %s #####"), *OnlineDocsSection->GetName()));
-		PythonScript.WriteNewLine();
 		
 		FString ProjectTopDir;
 		if (FPaths::IsProjectFilePathSet())
@@ -2112,7 +2111,7 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedTypes(const EPyOnlineDocs
 		{
 			TSharedPtr<PyGenUtil::FGeneratedWrappedType> GeneratedWrappedType = GeneratedWrappedTypes.FindRef(WrappedDataPair.Key);
 
-			if ((InDocGenFlags != EPyOnlineDocsFilterFlags::IncludeAll) && GeneratedWrappedType.IsValid())
+			if ((InDocGenFlags != EPyOnlineDocsFilterFlags::IncludeAll) && GeneratedWrappedType.IsValid() && OnlineDocsSection.IsValid())
 			{
 				const UField* MetaType = GeneratedWrappedType->MetaData->GetMetaType();
 
@@ -2249,26 +2248,34 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType
 		}
 	};
 
-	auto ExportConstantValue = [&OutPythonScript](const TCHAR* InConstantName, const TCHAR* InConstantDocString, const TCHAR* InConstantValue)
+	auto ExportConstantValue = [&OutPythonScript, &PyTypeName](const TCHAR* InConstantName, const TCHAR* InConstantDocString, const FString& InConstantValue)
 	{
+		FString ConstantValue(InConstantValue);
+
+		// Ensure that constant type is not same type as host type
+		if (ConstantValue.StartsWith(PyTypeName, ESearchCase::CaseSensitive) && (ConstantValue[PyTypeName.Len()] == TEXT('(')))
+		{
+			ConstantValue = TEXT("None");
+		}
+
 		if (*InConstantDocString == 0)
 		{
 			// No docstring
-			OutPythonScript.WriteLine(FString::Printf(TEXT("%s = %s"), InConstantName, InConstantValue));
+			OutPythonScript.WriteLine(FString::Printf(TEXT("%s = %s"), InConstantName, *ConstantValue));
 		}
 		else
 		{
 			if (FCString::Strchr(InConstantDocString, TEXT('\n')))
 			{
 				// Multi-line docstring
-				OutPythonScript.WriteLine(FString::Printf(TEXT("%s = %s"), InConstantName, InConstantValue));
+				OutPythonScript.WriteLine(FString::Printf(TEXT("%s = %s"), InConstantName, *ConstantValue));
 				OutPythonScript.WriteDocString(InConstantDocString);
 				OutPythonScript.WriteNewLine();
 			}
 			else
 			{
 				// Single-line docstring
-				OutPythonScript.WriteLine(FString::Printf(TEXT("%s = %s  #: %s"), InConstantName, InConstantValue, InConstantDocString));
+				OutPythonScript.WriteLine(FString::Printf(TEXT("%s = %s  #: %s"), InConstantName, *ConstantValue, InConstantDocString));
 			}
 		}
 	};
@@ -2354,7 +2361,7 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType
 		{
 			ConstantValueStr = TEXT("None");
 		}
-		ExportConstantValue(UTF8_TO_TCHAR(InTypeConstant.ConstantName.GetData()), UTF8_TO_TCHAR(InTypeConstant.ConstantDoc.GetData()), *ConstantValueStr);
+		ExportConstantValue(UTF8_TO_TCHAR(InTypeConstant.ConstantName.GetData()), UTF8_TO_TCHAR(InTypeConstant.ConstantDoc.GetData()), ConstantValueStr);
 	};
 
 	auto ExportGeneratedGetSet = [&ExportGetSet](const PyGenUtil::FGeneratedWrappedGetSet& InGetSet)
@@ -2701,7 +2708,7 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType
 						EntryDoc.InsertAt(0, *FString::Printf(TEXT("%s: "), *EntryValue));
 					}
 
-					ExportConstantValue(*EntryName, *EntryDoc, *FString::Printf(TEXT("_EnumEntry(\"%s\", \"%s\", %s)"), *PyTypeName, *EntryName, *EntryValue));
+					ExportConstantValue(*EntryName, *EntryDoc, FString::Printf(TEXT("_EnumEntry(\"%s\", \"%s\", %s)"), *PyTypeName, *EntryName, *EntryValue));
 				}
 			}
 		}

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerTimeSliderController.h"
 #include "Fonts/SlateFontInfo.h"
@@ -20,6 +20,15 @@
 #include "CommonFrameRates.h"
 #include "Sequencer.h"
 #include "SequencerDisplayNode.h"
+#include "Modules/ModuleManager.h"
+#include "MovieSceneSequence.h"
+#include "MovieScene.h"
+
+#include "IDetailsView.h"
+#include "PropertyEditorModule.h"
+#include "ISinglePropertyView.h"
+#include "IStructureDetailsView.h"
+#include "FrameNumberDetailsCustomization.h"
 
 #define LOCTEXT_NAMESPACE "TimeSlider"
 
@@ -275,17 +284,23 @@ void FSequencerTimeSliderController::DrawTicks( FSlateWindowElementList& OutDraw
 	}
 }
 
-int32 FSequencerTimeSliderController::DrawMarkedFrames( const FGeometry& AllottedGeometry, const FScrubRangeToScreen& RangeToScreen, FSlateWindowElementList& OutDrawElements, int32 LayerId, const ESlateDrawEffect& DrawEffects ) const
+int32 FSequencerTimeSliderController::DrawMarkedFrames( const FGeometry& AllottedGeometry, const FScrubRangeToScreen& RangeToScreen, FSlateWindowElementList& OutDrawElements, int32 LayerId, const ESlateDrawEffect& DrawEffects, bool bDrawLabels ) const
 {
-	TSet<FFrameNumber> MarkedFrames = TimeSliderArgs.MarkedFrames.Get();
+	const TArray<FMovieSceneMarkedFrame> & MarkedFrames = TimeSliderArgs.MarkedFrames.Get();
 	if (MarkedFrames.Num() < 1)
 	{
 		return LayerId;
 	}
 
-	for (FFrameNumber TickFrame : MarkedFrames)
+	const TSharedRef< FSlateFontMeasure > FontMeasureService = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
+	FSlateFontInfo SmallLayoutFont = FCoreStyle::GetDefaultFontStyle("Regular", 10);
+
+	FQualifiedFrameTime ScrubPosition = FQualifiedFrameTime(TimeSliderArgs.ScrubPosition.Get(), GetTickResolution());
+	FScrubberMetrics    ScrubMetrics = GetScrubPixelMetrics(ScrubPosition, RangeToScreen);
+
+	for (const FMovieSceneMarkedFrame& MarkedFrame : MarkedFrames)
 	{
-		double Seconds = TickFrame / GetTickResolution();
+		double Seconds = MarkedFrame.FrameNumber / GetTickResolution();
 
 		const float  LinePos = RangeToScreen.InputToLocalX( Seconds );
 		TArray<FVector2D> LinePoints;
@@ -299,9 +314,63 @@ int32 FSequencerTimeSliderController::DrawMarkedFrames( const FGeometry& Allotte
 			AllottedGeometry.ToPaintGeometry(),
 			LinePoints,
 			DrawEffects,
-			FLinearColor(0.f, 1.f, 1.f, 0.4f),
+			MarkedFrame.Color,
 			false
+		);
+
+		FString LabelString = MarkedFrame.Label;
+		if (bDrawLabels && !LabelString.IsEmpty())
+		{
+			// Draw the label next to the marked frame line
+			FVector2D TextSize = FontMeasureService->Measure(LabelString, SmallLayoutFont);
+
+			// Flip the text position if getting near the end of the view range
+			static const float TextOffsetPx = 2.f;
+			bool  bDrawLeft = (AllottedGeometry.Size.X - LinePos) < (TextSize.X + 14.f) - TextOffsetPx;
+			float TextPosition = bDrawLeft ? LinePos - TextSize.X - TextOffsetPx : LinePos + TextOffsetPx;
+
+			FSlateDrawElement::MakeText(
+				OutDrawElements,
+				LayerId + 1,
+				AllottedGeometry.ToPaintGeometry(FVector2D(TextPosition, 0.f), TextSize),
+				LabelString,
+				SmallLayoutFont,
+				DrawEffects,
+				MarkedFrame.Color
 			);
+		}
+	}
+
+	return LayerId + 1;
+}
+
+int32 FSequencerTimeSliderController::DrawVerticalFrames(const FGeometry& AllottedGeometry, const FScrubRangeToScreen& RangeToScreen, FSlateWindowElementList& OutDrawElements, int32 LayerId, const ESlateDrawEffect& DrawEffects) const
+{
+	TSet<FFrameNumber> VerticalFrames = TimeSliderArgs.VerticalFrames.Get();
+	if (VerticalFrames.Num() < 1)
+	{
+		return LayerId;
+	}
+
+	for (FFrameNumber TickFrame : VerticalFrames)
+	{
+		double Seconds = TickFrame / GetTickResolution();
+
+		const float  LinePos = RangeToScreen.InputToLocalX(Seconds);
+		TArray<FVector2D> LinePoints;
+		LinePoints.AddUninitialized(2);
+		LinePoints[0] = FVector2D(LinePos, 0.0f);
+		LinePoints[1] = FVector2D(LinePos, FMath::FloorToFloat(AllottedGeometry.Size.Y));
+
+		FSlateDrawElement::MakeLines(
+			OutDrawElements,
+			LayerId + 1,
+			AllottedGeometry.ToPaintGeometry(),
+			LinePoints,
+			DrawEffects,
+			FLinearColor(0.7f, 0.7f, 0.f, 0.4f),
+			false
+		);
 	}
 
 	return LayerId + 1;
@@ -388,7 +457,7 @@ int32 FSequencerTimeSliderController::OnPaintTimeSlider( bool bMirrorLabels, con
 			ScrubColor
 		);
 
-		LayerId = DrawMarkedFrames(AllottedGeometry, RangeToScreen, OutDrawElements, LayerId, DrawEffects);
+		LayerId = DrawMarkedFrames(AllottedGeometry, RangeToScreen, OutDrawElements, LayerId, DrawEffects, true);
 
 		{
 			// Draw the current time next to the scrub handle
@@ -1044,10 +1113,12 @@ int32 FSequencerTimeSliderController::OnPaintSectionView( const FGeometry& Allot
 		DrawTicks( OutDrawElements, LocalViewRange, RangeToScreen, DrawTickArgs );
 	}
 
-	if ( Args.bDisplayMarkedFrames )
+	if (Args.bDisplayMarkedFrames)
 	{
-		LayerId = DrawMarkedFrames(AllottedGeometry, RangeToScreen, OutDrawElements, LayerId, DrawEffects);
+		LayerId = DrawMarkedFrames(AllottedGeometry, RangeToScreen, OutDrawElements, LayerId, DrawEffects, false);
 	}
+
+	LayerId = DrawVerticalFrames(AllottedGeometry, RangeToScreen, OutDrawElements, LayerId, DrawEffects);
 
 	if( Args.bDisplayScrubPosition )
 	{
@@ -1178,9 +1249,34 @@ TSharedRef<SWidget> FSequencerTimeSliderController::OpenSetPlaybackRangeMenu(FFr
 	{
 		FFrameNumber DisplayFrameNumber = GetDisplayRate().AsFrameNumber(FrameNumber / GetTickResolution());
 
-		const TSet<FFrameNumber>& MarkedFrames = TimeSliderArgs.MarkedFrames.Get();
-		bool HasMarkAtFrame = MarkedFrames.Contains(FrameNumber);
-		if (!HasMarkAtFrame)
+		UMovieScene* MovieScene = WeakSequencer.Pin()->GetFocusedMovieSceneSequence()->GetMovieScene();
+		int32 MarkedIndex = MovieScene->FindMarkedFrameByFrameNumber(FrameNumber);
+		bool bHasMarks = MovieScene->GetMarkedFrames().Num() > 0;
+
+		if (MarkedIndex != INDEX_NONE)
+		{
+			FPropertyEditorModule& PropertyEditorModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
+			FDetailsViewArgs DetailsViewArgs;
+			DetailsViewArgs.bAllowSearch = false;
+			DetailsViewArgs.bShowScrollBar = false;
+			DetailsViewArgs.NameAreaSettings = FDetailsViewArgs::HideNameArea;
+
+			FStructureDetailsViewArgs StructureDetailsViewArgs;
+			StructureDetailsViewArgs.bShowObjects = true;
+			StructureDetailsViewArgs.bShowAssets = true;
+			StructureDetailsViewArgs.bShowClasses = true;
+			StructureDetailsViewArgs.bShowInterfaces = true;
+			
+			TSharedPtr<FStructOnScope> StructOnScope = MakeShared<FStructOnScope>(FMovieSceneMarkedFrame::StaticStruct(), (uint8 *)&MovieScene->GetMarkedFrames()[MarkedIndex]);
+
+			TSharedRef<IStructureDetailsView> DetailsView = PropertyEditorModule.CreateStructureDetailView(DetailsViewArgs, StructureDetailsViewArgs, nullptr);
+			DetailsView->GetDetailsView()->RegisterInstancedCustomPropertyTypeLayout("FrameNumber", FOnGetPropertyTypeCustomizationInstance::CreateSP(this, &FSequencerTimeSliderController::CreateFrameNumberCustomization));
+			DetailsView->SetStructureData(StructOnScope);
+
+			MenuBuilder.AddWidget(DetailsView->GetWidget().ToSharedRef(), FText::GetEmpty(), false);
+		}
+
+		if (MarkedIndex == INDEX_NONE)
 		{
 			MenuBuilder.AddMenuEntry( 
 				LOCTEXT("AddMark", "Add Mark"),
@@ -1203,10 +1299,9 @@ TSharedRef<SWidget> FSequencerTimeSliderController::OpenSetPlaybackRangeMenu(FFr
 			LOCTEXT("Clear All Marks", "Clear All Marks"),
 			FText(),
 			FSlateIcon(),
-
 			FUIAction(
 				FExecuteAction::CreateLambda([=]{ ClearAllMarks(); }),
-				FCanExecuteAction::CreateLambda([=]{ return (MarkedFrames.Num() > 0); })
+				FCanExecuteAction::CreateLambda([=]{ return bHasMarks; })
 			)
 		);
 	}
@@ -1237,6 +1332,13 @@ void FSequencerTimeSliderController::ClampViewRange(double& NewRangeMin, double&
 		SetClampRange(NewClampRangeMin, NewClampRangeMax);
 	}
 }
+
+TSharedRef<IPropertyTypeCustomization> FSequencerTimeSliderController::CreateFrameNumberCustomization()
+{
+	TSharedPtr<ISequencer> SequencerPtr = WeakSequencer.Pin();
+	return MakeShared<FFrameNumberDetailsCustomization>(SequencerPtr->GetNumericTypeInterface());
+}
+
 
 void FSequencerTimeSliderController::SetViewRange( double NewRangeMin, double NewRangeMax, EViewRangeInterpolation Interpolation )
 {

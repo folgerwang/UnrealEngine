@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3473466
+INTSourceChangelist:3473466
 Availability:Public
 Title:Spline IK
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
@@ -15,7 +15,7 @@ tags:Animation
 tags:Skeletal Controls
 tags:Animation Graph
 
-**Spline IK** 컨트롤 노드는 애니메이션 블루프린트 내 스플라인에 지정된 본 체인을 Control Point (컨트롤 포인트)로 제약(컨스트레인)시키는 노드입니다.
+**Spline IK** (스플라인 IK) 컨트롤 노드는 애니메이션 블루프린트 내 스플라인에 지정된 본 체인을 Control Point (컨트롤 포인트)로 제약(컨스트레인)시키는 노드입니다.
 
 ![](SplineIKnode.png)
 

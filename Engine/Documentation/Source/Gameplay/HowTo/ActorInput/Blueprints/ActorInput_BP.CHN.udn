@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2699852
+﻿INTSourceChangelist:3429254
 Availability: Public
 Title:在蓝图中设置Actor的输入
 Crumbs: %ROOT%, Gameplay, Gameplay\HowTo\ActorInput
 Description:如何在蓝图中设置Actor的输入的操作指南 
 Version: 4.9
+type:how-to
 SkillLevel: Intermediate
 
 [TOC (start:2 end:2)]
@@ -13,6 +14,7 @@ SkillLevel: Intermediate
 启用/禁用输入用法部分还包括一种启用/禁用输入的方法，用Trigger Volume来确定玩家是否接近该等级的Actor。如果你想让玩家仅在接近或在Actor的范围内时才影响Actor，以便在真实场景中令人信服地影响它，这就很有用。 
  
 
+(#EnablingActorInput)
 ## 启用Actor输入
 
  在本例中，我们将使用**Blueprint First Person Template with Starter Content**。
@@ -40,6 +42,7 @@ SkillLevel: Intermediate
 在上例中，**Event Begin Play**节点指出，当游戏开始时（假如在该等级中存在Actor），为指定的**Player Controller****Enable Input**。默认玩家控制器为单人游戏使用**Player Index 0**，如果要有多人场景，你可以通过**Player Index**值指定玩家。 
 
 
+(#DisablingActorInput)
 ## 禁用Actor输入
 
 正如你可以启用Actor的输入一样，你也可以用**Disable Input**节点禁用Actor的输入。 
@@ -51,6 +54,7 @@ SkillLevel: Intermediate
 如同**Enable Input**节点一样，**Disable Input**节点需要指定**Target**和**Player Controller**。 
 
 
+(#Enable/DisableInputUsage)
 ## 启用/禁用输入用法
 
 虽然上面提到的方法适用于启用/禁用输入，但你通常会希望有一些规则来管理何时允许Actor接收来自玩家的输入。如果我们要用上面的方法启用 Event Begin Play 的输入，并有一个开灯或关灯的按键（例如），玩家将能从全世界任何地方打开/关闭那盏灯。 
@@ -107,6 +111,7 @@ SkillLevel: Intermediate
 
 播放时，如果你在远离灯时按**E**，什么都不应该发生。当你靠近灯（在触发器内）并按**E**时，文本**Hello**应出现在窗口的左上角。在本例中，我们连接了一个**Print String**节点，但在按下按键且玩家位于触发球内时，你可以切换光的颜色、强度，或其它设置。 
 
+(#InputDetails)
 ### 输入详情
 
 替换上例中的**E**键事件，并尝试使用**Space Bar**键事件。当你在编辑器中播放时，留意发生了什么。你可以在位于灯的触发器外时按**Space Bar**来跳转，但当你进入触发器并按**Space Bar**时，你不再跳转，而是调用**Print String**和文本**Hello**；这是由于**Input Priority**。 

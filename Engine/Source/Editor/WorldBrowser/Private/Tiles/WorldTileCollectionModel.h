@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -204,8 +204,8 @@ private:
 	void FillWeightmapsSubMenu(FMenuBuilder& InMenuBuilder) const;
 	
 private:
-	/** Creates a new empty Level; prompts for level save location */
-	void CreateEmptyLevel_Executed();
+	/** Creates a new level; prompts for level save location */
+	void CreateNewLevel_Executed();
 
 	/** Moves world origin to selected level position */
 	void MoveWorldOrigin_Executed();

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PersonaToolkit.h"
 #include "Modules/ModuleManager.h"
@@ -119,6 +119,10 @@ void FPersonaToolkit::CreatePreviewScene(const FPersonaToolkitArgs& PersonaToolk
 
 			// Create the preview component
 			UDebugSkelMeshComponent* SkeletalMeshComponent = NewObject<UDebugSkelMeshComponent>(Actor);
+			if (GEditor->PreviewFeatureLevel <= ERHIFeatureLevel::ES3_1)
+			{
+				SkeletalMeshComponent->SetMobility(EComponentMobility::Static);
+			}
 			PreviewScene->AddComponent(SkeletalMeshComponent, FTransform::Identity);
 			PreviewScene->SetPreviewMeshComponent(SkeletalMeshComponent);
 
@@ -129,18 +133,21 @@ void FPersonaToolkit::CreatePreviewScene(const FPersonaToolkitArgs& PersonaToolk
 		// allow external systems to add components or otherwise manipulate the scene
 		FPersonaModule& PersonaModule = FModuleManager::GetModuleChecked<FPersonaModule>(TEXT("Persona"));
 		PersonaModule.OnPreviewSceneCreated().Broadcast(PreviewScene.ToSharedRef());
-
+		
+		// if not mesh editor, we allow it to override mesh
+		const bool bAllowOverrideMesh = GetContext() != USkeletalMesh::StaticClass()->GetFName();
 		// Force validation of preview attached assets (catch case of never doing it if we dont have a valid preview mesh)
 		PreviewScene->ValidatePreviewAttachedAssets(nullptr);
-		PreviewScene->RefreshAdditionalMeshes();
+		PreviewScene->RefreshAdditionalMeshes(false);
+		PreviewScene->SetAllowAdditionalMeshes(bAllowOverrideMesh);
 
 		bool bSetMesh = false;
-
 		// Set the mesh
 		if (Mesh)
 		{
-			PreviewScene->SetPreviewMesh(Mesh);
+			PreviewScene->SetPreviewMesh(Mesh, bAllowOverrideMesh);
 			bSetMesh = true;
+			
 		}
 
 		if (!bSetMesh && Skeleton.IsValid())
@@ -316,8 +323,9 @@ void FPersonaToolkit::SetPreviewMesh(class USkeletalMesh* InSkeletalMesh, bool b
 			FAssetEditorManager::Get().OpenEditorForAsset(AssetToReopen);
 			return;
 		}
-		
-		GetPreviewScene()->SetPreviewMesh(InSkeletalMesh);
+
+		// if it's here, it allows to replace 
+		GetPreviewScene()->SetPreviewMesh(InSkeletalMesh, false);
 	}
 }
 

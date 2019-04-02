@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SkeletalRenderGPUSkin.cpp: GPU skinned skeletal mesh rendering code.
@@ -168,6 +168,10 @@ void FSkeletalMeshObjectGPUSkin::InitResources(USkinnedMeshComponent* InMeshComp
 			SkelLOD.InitResources(MeshLODInfo, CompLODInfo, FeatureLevel);
 		}
 	}
+
+#if RHI_RAYTRACING
+	BeginInitResource(&RayTracingGeometry);
+#endif
 }
 
 void FSkeletalMeshObjectGPUSkin::ReleaseResources()
@@ -197,6 +201,10 @@ void FSkeletalMeshObjectGPUSkin::ReleaseResources()
 			*PtrSkinCacheEntry = nullptr;
 		}
 	);
+
+#if RHI_RAYTRACING
+	BeginReleaseResource(&RayTracingGeometry);
+#endif
 }
 
 void FSkeletalMeshObjectGPUSkin::InitMorphResources(bool bInUsePerBoneMotionBlur, const TArray<float>& MorphTargetWeights)
@@ -238,7 +246,7 @@ void FSkeletalMeshObjectGPUSkin::ReleaseMorphResources()
 	bMorphResourcesInitialized = false;
 }
 
-void FSkeletalMeshObjectGPUSkin::Update(int32 LODIndex,USkinnedMeshComponent* InMeshComponent,const TArray<FActiveMorphTarget>& ActiveMorphTargets, const TArray<float>& MorphTargetWeights, bool bUpdatePreviousBoneTransform)
+void FSkeletalMeshObjectGPUSkin::Update(int32 LODIndex,USkinnedMeshComponent* InMeshComponent,const TArray<FActiveMorphTarget>& ActiveMorphTargets, const TArray<float>& MorphTargetWeights, EPreviousBoneTransformUpdateMode PreviousBoneTransformUpdateMode)
 {
 	// make sure morph data has been initialized for each LOD
 	if(InMeshComponent && !bMorphResourcesInitialized && ActiveMorphTargets.Num() > 0 )
@@ -250,7 +258,7 @@ void FSkeletalMeshObjectGPUSkin::Update(int32 LODIndex,USkinnedMeshComponent* In
 	// create the new dynamic data for use by the rendering thread
 	// this data is only deleted when another update is sent
 	FDynamicSkelMeshObjectDataGPUSkin* NewDynamicData = FDynamicSkelMeshObjectDataGPUSkin::AllocDynamicSkelMeshObjectDataGPUSkin();		
-	NewDynamicData->InitDynamicSkelMeshObjectDataGPUSkin(InMeshComponent,SkeletalMeshRenderData,LODIndex,ActiveMorphTargets, MorphTargetWeights, bUpdatePreviousBoneTransform);
+	NewDynamicData->InitDynamicSkelMeshObjectDataGPUSkin(InMeshComponent,SkeletalMeshRenderData,LODIndex,ActiveMorphTargets, MorphTargetWeights, PreviousBoneTransformUpdateMode);
 
 	// We prepare the next frame but still have the value from the last one
 	uint32 FrameNumberToPrepare = GFrameNumber + 1;
@@ -284,7 +292,8 @@ static TAutoConsoleVariable<int32> CVarDeferSkeletalDynamicDataUpdateUntilGDME(
 void FSkeletalMeshObjectGPUSkin::UpdateDynamicData_RenderThread(FGPUSkinCache* GPUSkinCache, FRHICommandListImmediate& RHICmdList, FDynamicSkelMeshObjectDataGPUSkin* InDynamicData, FSceneInterface* Scene, uint32 FrameNumberToPrepare, uint32 RevisionNumber)
 {
 	SCOPE_CYCLE_COUNTER(STAT_GPUSkinUpdateRTTime);
-	check(InDynamicData);
+	check(InDynamicData != nullptr);
+	CA_ASSUME(InDynamicData != nullptr);
 	bool bMorphNeedsUpdate=false;
 	// figure out if the morphing vertex buffer needs to be updated. compare old vs new active morphs
 	bMorphNeedsUpdate = 
@@ -292,6 +301,11 @@ void FSkeletalMeshObjectGPUSkin::UpdateDynamicData_RenderThread(FGPUSkinCache* G
 		(DynamicData ? (DynamicData->LODIndex != InDynamicData->LODIndex ||
 		!DynamicData->ActiveMorphTargetsEqual(InDynamicData->ActiveMorphTargets, InDynamicData->MorphTargetWeights))
 		: true);
+
+#if RHI_RAYTRACING
+	bRequireRecreatingRayTracingGeometry = (DynamicData == nullptr || // Newly created
+		(DynamicData != nullptr && DynamicData->LODIndex != InDynamicData->LODIndex)); // LOD level changed
+#endif
 
 	WaitForRHIThreadFenceForDynamicData();
 	if (DynamicData)
@@ -311,6 +325,68 @@ void FSkeletalMeshObjectGPUSkin::UpdateDynamicData_RenderThread(FGPUSkinCache* G
 	{
 		ProcessUpdatedDynamicData(GPUSkinCache, RHICmdList, FrameNumberToPrepare, RevisionNumber, bMorphNeedsUpdate);
 	}
+
+#if RHI_RAYTRACING
+	if (IsRayTracingEnabled())
+	{
+		if (GEnableGPUSkinCache && SkinCacheEntry)
+		{
+			if (bRequireRecreatingRayTracingGeometry)
+			{
+				// #dxr: Warning: this path invalidates all the instances referencing RayTracingGeometry
+				// which is expected to be detected inside USkinnedMeshComponent::SendRenderDynamicData_Concurrent()
+				// and instance updates are sent there
+
+				FSkeletalMeshLODRenderData& LODModel = this->SkeletalMeshRenderData->LODRenderData[DynamicData->LODIndex];
+				FIndexBufferRHIRef IndexBufferRHI = LODModel.MultiSizeIndexContainer.GetIndexBuffer()->IndexBufferRHI;
+				uint32 VertexBufferStride = LODModel.StaticVertexBuffers.PositionVertexBuffer.GetStride();
+
+				//#dxr_todo: do we need support for separate sections in FRayTracingGeometryData?
+				uint32 TrianglesCount = 0;
+				for (int32 SectionIndex = 0; SectionIndex < LODModel.RenderSections.Num(); SectionIndex++)
+				{
+					const FSkelMeshRenderSection& Section = LODModel.RenderSections[SectionIndex];
+					TrianglesCount += Section.NumTriangles;
+				}
+
+				FRayTracingGeometryInitializer Initializer;
+
+				FRHIResourceCreateInfo CreateInfo;
+				Initializer.PositionVertexBuffer = RHICreateVertexBuffer(LODModel.GetNumVertices() * sizeof(FVector), BUF_ShaderResource, CreateInfo);
+				FGPUSkinCache::CreateMergedPositionVertexBuffer(RHICmdList, SkinCacheEntry, Initializer.PositionVertexBuffer);
+				Initializer.IndexBuffer = IndexBufferRHI;
+				Initializer.BaseVertexIndex = 0;
+				Initializer.VertexBufferStride = VertexBufferStride;
+				Initializer.VertexBufferByteOffset = 0;
+				Initializer.TotalPrimitiveCount = TrianglesCount;
+				Initializer.VertexBufferElementType = VET_Float3;
+				Initializer.PrimitiveType = PT_TriangleList;
+				Initializer.bFastBuild = true;
+				Initializer.bAllowUpdate = true;
+
+				TArray<FRayTracingGeometrySegment> GeometrySections;
+				GeometrySections.Reserve(LODModel.RenderSections.Num());
+				for (const FSkelMeshRenderSection& Section : LODModel.RenderSections)
+				{
+					FRayTracingGeometrySegment Segment;
+					Segment.FirstPrimitive = Section.BaseIndex / 3;
+					Segment.NumPrimitives = Section.NumTriangles;
+					GeometrySections.Add(Segment);
+				}
+				Initializer.Segments = GeometrySections;
+
+				RayTracingGeometry.SetInitializer(Initializer);
+				RayTracingGeometry.UpdateRHI();
+			}
+			else
+			{
+				// Refit BLAS with new vertex buffer data
+				FGPUSkinCache::CreateMergedPositionVertexBuffer(RHICmdList, SkinCacheEntry, RayTracingGeometry.Initializer.PositionVertexBuffer);
+				GPUSkinCache->AddRayTracingGeometryToUpdate(&RayTracingGeometry);
+			}
+		}
+	}
+#endif
 }
 
 void FSkeletalMeshObjectGPUSkin::PreGDMECallback(FGPUSkinCache* GPUSkinCache, uint32 FrameNumber)
@@ -353,10 +429,11 @@ void FSkeletalMeshObjectGPUSkin::ProcessUpdatedDynamicData(FGPUSkinCache* GPUSki
 
 	bool bDataPresent = false;
 
-	bool bGPUSkinCacheEnabled = GEnableGPUSkinCache && (FeatureLevel >= ERHIFeatureLevel::SM5);
+	bool bGPUSkinCacheEnabled = GPUSkinCache && GEnableGPUSkinCache && (FeatureLevel >= ERHIFeatureLevel::SM5);
 
 	if (LOD.MorphVertexBuffer.bNeedsInitialClear && !(bMorph && bMorphNeedsUpdate))
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FSkeletalMeshObjectGPUSkin_ProcessUpdatedDynamicData_ClearMorphBuffer);
 		if (IsValidRef(LOD.MorphVertexBuffer.GetUAV()))
 		{
 			ClearUAV(RHICmdList, LOD.MorphVertexBuffer.GetUAV(), LOD.MorphVertexBuffer.GetUAVSize(), 0);
@@ -372,6 +449,7 @@ void FSkeletalMeshObjectGPUSkin::ProcessUpdatedDynamicData(FGPUSkinCache* GPUSki
 		// only update if the morph data changed and there are weighted morph targets
 		if(bMorphNeedsUpdate)
 		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_FSkeletalMeshObjectGPUSkin_ProcessUpdatedDynamicData_UpdateMorphBuffer);
 			if (GUseGPUMorphTargets && RHISupportsComputeShaders(GMaxRHIShaderPlatform))
 			{
 				// update the morph data for the lod (before SkinCache)
@@ -1113,6 +1191,16 @@ static VertexFactoryType* CreateVertexFactory(TArray<TUniquePtr<VertexFactoryTyp
 	return VertexFactory;
 }
 
+void FGPUSkinPassthroughVertexFactory::SetData(const FDataType& InData)
+{
+	FLocalVertexFactory::SetData(InData);
+	const int32 DefaultBaseVertexIndex = 0;
+	if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
+	{
+		UniformBuffer = CreateLocalVFUniformBuffer(this, Data.LODLightmapDataIndex, nullptr, DefaultBaseVertexIndex);
+	}
+}
+
 template<typename VertexFactoryType>
 static void CreatePassthroughVertexFactory(ERHIFeatureLevel::Type InFeatureLevel, TArray<TUniquePtr<FGPUSkinPassthroughVertexFactory>>& PassthroughVertexFactories,
 	VertexFactoryType* SourceVertexFactory)
@@ -1444,7 +1532,6 @@ const TArray<FMatrix>& FSkeletalMeshObjectGPUSkin::GetReferenceToLocalMatrices()
 	return DynamicData->ReferenceToLocal;
 }
 
-
 /*-----------------------------------------------------------------------------
 FDynamicSkelMeshObjectDataGPUSkin
 -----------------------------------------------------------------------------*/
@@ -1552,7 +1639,7 @@ void FDynamicSkelMeshObjectDataGPUSkin::InitDynamicSkelMeshObjectDataGPUSkin(
 	int32 InLODIndex,
 	const TArray<FActiveMorphTarget>& InActiveMorphTargets,
 	const TArray<float>& InMorphTargetWeights, 
-	bool bUpdatePreviousBoneTransform
+	EPreviousBoneTransformUpdateMode PreviousBoneTransformUpdateMode
 	)
 {
 	LODIndex = InLODIndex;
@@ -1569,15 +1656,20 @@ void FDynamicSkelMeshObjectDataGPUSkin::InitDynamicSkelMeshObjectDataGPUSkin(
 
 	// update ReferenceToLocal
 	UpdateRefToLocalMatrices( ReferenceToLocal, InMeshComponent, InSkeletalMeshRenderData, LODIndex, ExtraRequiredBoneIndices );
-	if (bUpdatePreviousBoneTransform)
+	switch(PreviousBoneTransformUpdateMode)
 	{
-		UpdatePreviousRefToLocalMatrices(PreviousReferenceToLocal, InMeshComponent, InSkeletalMeshRenderData, LODIndex, ExtraRequiredBoneIndices);
-	}
-	else
-	{
+	case EPreviousBoneTransformUpdateMode::None:
 		// otherwise, clear it, it will use previous buffer
 		PreviousReferenceToLocal.Reset();
+		break;
+	case EPreviousBoneTransformUpdateMode::UpdatePrevious:
+		UpdatePreviousRefToLocalMatrices(PreviousReferenceToLocal, InMeshComponent, InSkeletalMeshRenderData, LODIndex, ExtraRequiredBoneIndices);
+		break;
+	case EPreviousBoneTransformUpdateMode::DuplicateCurrentToPrevious:
+		UpdateRefToLocalMatrices(PreviousReferenceToLocal, InMeshComponent, InSkeletalMeshRenderData, LODIndex, ExtraRequiredBoneIndices);
+		break;
 	}
+
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	check(!MeshComponentSpaceTransforms.Num());
 	// append instead of equals to avoid alloc

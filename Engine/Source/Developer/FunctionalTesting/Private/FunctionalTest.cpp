@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "FunctionalTest.h"
 #include "FunctionalTestingModule.h"
@@ -57,7 +57,7 @@ namespace
 
 	FString GetComparisonAsString(EComparisonMethod comparison)
 	{
-		UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EComparisonMethod"), true);
+		UEnum* Enum = StaticEnum<EComparisonMethod>();
 		return Enum->GetNameStringByValue((uint8)comparison).ToLower().Replace(TEXT("_"), TEXT(" "));
 	}
 
@@ -302,7 +302,7 @@ bool AFunctionalTest::IsReady_Implementation()
 
 void AFunctionalTest::FinishTest(EFunctionalTestResult TestResult, const FString& Message)
 {
-	const static UEnum* FTestResultTypeEnum = FindObject<UEnum>( nullptr, TEXT("FunctionalTesting.EFunctionalTestResult") );
+	const static UEnum* FTestResultTypeEnum = StaticEnum<EFunctionalTestResult>();
 	
 	if (bIsRunning == false)
 	{
@@ -332,10 +332,15 @@ void AFunctionalTest::FinishTest(EFunctionalTestResult TestResult, const FString
 	}
 
 	const FText ResultText = FTestResultTypeEnum->GetDisplayNameTextByValue( (int64)TestResult );
-	const FString OutMessage = FString::Printf(TEXT("%s %s: \"%s\"")
+
+	//Output map and test name along with results
+	UWorld* World = GetWorld();
+	FString WorldName = (World ? UWorld::RemovePIEPrefix(World->GetMapName()) : "");
+	const FString OutMessage = FString::Printf(TEXT("%s %s %s: \"%s\"")
+		, *WorldName
 		, *GetName()
 		, *ResultText.ToString()
-		, Message.IsEmpty() == false ? *Message : TEXT("Test finished") );
+		, Message.IsEmpty() == false ? *Message : TEXT("Test finished"));
 
 	AutoDestroyActors.Reset();
 		

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D12Residency.h: D3D memory residency functions.
@@ -19,12 +19,20 @@ namespace D3DX12Residency
 #else
 #include "D3D12Util.h"
 #include "Windows/AllowWindowsPlatformTypes.h"
+
+THIRD_PARTY_INCLUDES_START
 #include "dxgi1_6.h"
 #pragma warning(push)
-#pragma warning(disable : 6031)
+#pragma warning(disable: 6031)
 	#include <D3DX12Residency.h>
 #pragma warning(pop)
+THIRD_PARTY_INCLUDES_END
+
 #include "Windows/HideWindowsPlatformTypes.h"
+#endif
+
+#if ENABLE_RESIDENCY_MANAGEMENT
+extern bool GEnableResidencyManagement;
 #endif
 
 namespace D3DX12Residency
@@ -32,14 +40,17 @@ namespace D3DX12Residency
 	inline void Initialize(ManagedObject& Object, ID3D12Pageable* pResource, uint64 ObjectSize)
 	{
 #if ENABLE_RESIDENCY_MANAGEMENT
-		Object.Initialize(pResource, ObjectSize);
+		if (GEnableResidencyManagement)
+		{
+			Object.Initialize(pResource, ObjectSize);
+		}
 #endif
 	}
 
 	inline bool IsInitialized(ManagedObject& Object)
 	{
 #if ENABLE_RESIDENCY_MANAGEMENT
-		return Object.IsInitialized();
+		return GEnableResidencyManagement && Object.IsInitialized();
 #else
 		return false;
 #endif
@@ -48,7 +59,7 @@ namespace D3DX12Residency
 	inline bool IsInitialized(ManagedObject* pObject)
 	{
 #if ENABLE_RESIDENCY_MANAGEMENT
-		return pObject && IsInitialized(*pObject);
+		return GEnableResidencyManagement && pObject && IsInitialized(*pObject);
 #else
 		return false;
 #endif
@@ -57,35 +68,47 @@ namespace D3DX12Residency
 	inline void BeginTrackingObject(ResidencyManager& ResidencyManager, ManagedObject& Object)
 	{
 #if ENABLE_RESIDENCY_MANAGEMENT
-		ResidencyManager.BeginTrackingObject(&Object);
+		if (GEnableResidencyManagement)
+		{
+			ResidencyManager.BeginTrackingObject(&Object);
+		}
 #endif
 	}
 
 	inline void EndTrackingObject(ResidencyManager& ResidencyManager, ManagedObject& Object)
 	{
 #if ENABLE_RESIDENCY_MANAGEMENT
-		ResidencyManager.EndTrackingObject(&Object);
+		if (GEnableResidencyManagement)
+		{
+			ResidencyManager.EndTrackingObject(&Object);
+		}
 #endif
 	}
 
 	inline void InitializeResidencyManager(ResidencyManager& ResidencyManager, ID3D12Device* Device, uint32 GPUIndex, IDXGIAdapter3* Adapter, uint32 MaxLatency)
 	{
 #if ENABLE_RESIDENCY_MANAGEMENT
-		VERIFYD3D12RESULT(ResidencyManager.Initialize(Device, GPUIndex, Adapter, MaxLatency));
+		if (GEnableResidencyManagement)
+		{
+			VERIFYD3D12RESULT(ResidencyManager.Initialize(Device, GPUIndex, Adapter, MaxLatency));
+		}
 #endif
 	}
 
 	inline void DestroyResidencyManager(ResidencyManager& ResidencyManager)
 	{
 #if ENABLE_RESIDENCY_MANAGEMENT
-		ResidencyManager.Destroy();
+		if (GEnableResidencyManagement)
+		{
+			ResidencyManager.Destroy();
+		}
 #endif
 	}
 
 	inline ResidencySet* CreateResidencySet(ResidencyManager& ResidencyManager)
 	{
 #if ENABLE_RESIDENCY_MANAGEMENT
-		return ResidencyManager.CreateResidencySet();
+		return GEnableResidencyManagement ? ResidencyManager.CreateResidencySet() : nullptr;
 #else
 		return nullptr;
 #endif
@@ -94,7 +117,7 @@ namespace D3DX12Residency
 	inline void DestroyResidencySet(ResidencyManager& ResidencyManager, ResidencySet* pSet)
 	{
 #if ENABLE_RESIDENCY_MANAGEMENT
-		if (pSet)
+		if (GEnableResidencyManagement && pSet)
 		{
 			ResidencyManager.DestroyResidencySet(pSet);
 		}
@@ -104,7 +127,7 @@ namespace D3DX12Residency
 	inline void Open(ResidencySet* pSet)
 	{
 #if ENABLE_RESIDENCY_MANAGEMENT
-		if (pSet)
+		if (GEnableResidencyManagement && pSet)
 		{
 			VERIFYD3D12RESULT(pSet->Open());
 		}
@@ -114,7 +137,7 @@ namespace D3DX12Residency
 	inline void Close(ResidencySet* pSet)
 	{
 #if ENABLE_RESIDENCY_MANAGEMENT
-		if (pSet)
+		if (GEnableResidencyManagement && pSet)
 		{
 			VERIFYD3D12RESULT(pSet->Close());
 		}
@@ -124,16 +147,22 @@ namespace D3DX12Residency
 	inline void Insert(ResidencySet& Set, ManagedObject& Object)
 	{
 #if ENABLE_RESIDENCY_MANAGEMENT
-		check(Object.IsInitialized());
-		Set.Insert(&Object);
+		if (GEnableResidencyManagement)
+		{
+			check(Object.IsInitialized());
+			Set.Insert(&Object);
+		}
 #endif
 	}
 
 	inline void Insert(ResidencySet& Set, ManagedObject* pObject)
 	{
 #if ENABLE_RESIDENCY_MANAGEMENT
-		check(pObject && pObject->IsInitialized());
-		Set.Insert(pObject);
+		if (GEnableResidencyManagement)
+		{
+			check(pObject && pObject->IsInitialized());
+			Set.Insert(pObject);
+		}
 #endif
 	}
 }

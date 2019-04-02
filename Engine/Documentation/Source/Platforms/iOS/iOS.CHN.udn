@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2417327
+﻿INTSourceChangelist:3782314
 Availability: Public
 Title: iOS游戏开发
 Crumbs:%ROOT%, Platforms
@@ -10,27 +10,19 @@ type:landing
 parent:Platforms/Mobile
 tags:Mobile
 tags:iOS
+topic-image:iOSGameDevelopment_topic.png
 
-## Starting Out
+(#StartingOut)
+## 开始
 
-[REGION:buttonlist]
+[DIR(output:"topiccompact" parent:"Platforms/iOS" type:"quick start")]
 
-		[DIR(output:"topiccompact" parent:"Platforms/iOS" type:"quickstart")]
-	
-[/REGION]
-
+(#iOSHow-Tos)
 ## iOS 开发指南
 
-[REGION:buttonlist]
+[DIR(end:"1" output:"listbutton" type:"how-to" parent:"Platforms/iOS")]
 
-		[DIR(end:"1" output:"listbutton" type:"howto" parent:"Platforms/iOS")]
-	
-[/REGION]
-
+(#GeneraliOSDevelopment)
 ## 通用 iOS 开发
 
-[REGION:buttonlist]
-
-		[DIR(end:"1" output:"listbutton" type:"overview" parent:"Platforms/iOS")]
-	
-[/REGION]
+[DIR(end:"1" output:"listbutton" type:"overview" parent:"Platforms/iOS")]

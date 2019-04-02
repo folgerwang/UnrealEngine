@@ -1,0 +1,72 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================================
+DirectionalLight.usf: Light sampling functions for Directional light implementation
+===============================================================================================*/
+
+#pragma once
+
+#include "PathTracingLightCommon.ush"
+
+void DirectionalLight_GenerateLightRay(
+	RayDesc Ray,
+	int LightId,
+	float3 LightUV,
+	out RayDesc OutLightRay
+)
+{
+	OutLightRay.Origin = Ray.Origin;
+	OutLightRay.TMin = 0.001;
+	OutLightRay.Direction = normalize(LightUV);
+	OutLightRay.TMax = 1e6;
+}
+
+void DirectionalLight_PdfLight(
+	RayDesc Ray,
+	int LightId,
+	float3 LightUV,
+	out float OutPdf
+)
+{
+	OutPdf = 0.0;
+}
+
+void DirectionalLight_EvalLight(
+	int LightId,
+	float3 LightUV,
+	RayDesc Ray,
+	out float3 OutRadiance
+)
+{
+	float3 Color = GetColor(LightId);
+	OutRadiance = Color;
+}
+
+void DirectionalLight_EstimateLight(
+	int LightId,
+	RayDesc Ray,
+	FMaterialClosestHitPayload Payload,
+	out float OutIrradiance
+)
+{
+	float3 LightDirection = GetNormal(LightId);
+	float3 SurfaceNormal = Payload.WorldNormal;
+	float NoL = saturate(dot(SurfaceNormal, LightDirection));
+
+	float LightPower = Luminance(GetColor(LightId));
+	OutIrradiance = LightPower * NoL;
+}
+
+void DirectionalLight_SampleLight(
+	RayDesc Ray,
+	FMaterialClosestHitPayload Payload,
+	float4 RandSample,
+	int LightId,
+	out float3 OutLightUV,
+	out float OutPdf
+)
+{
+	float3 Direction = GetNormal(LightId);
+	OutLightUV = Direction;
+	OutPdf = 1.0;
+}

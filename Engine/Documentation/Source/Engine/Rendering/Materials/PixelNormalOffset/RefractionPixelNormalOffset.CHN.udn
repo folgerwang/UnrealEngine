@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3378497
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:折射模式：像素法线偏移
 Crumbs:
@@ -17,6 +17,7 @@ topic-image:PNO_Topic.png
 
 在虚幻引擎 4 的当前版本中，我们使用了折射的非物理模型 **像素法线偏移（Pixel Normal Offset）**。内嵌代码使用 **Index of Refraction** 的折射物理模型，以光线在媒介之间的折射方式为基础，可能导致大量穿帮（因为场景颜色在屏幕外读取）。可用于玻璃罐之类的小型物体（效果不甚明显），但在平面上存在问题。**像素法线偏移（Pixel Normal Offset）** 可为水面之类的大型平面启用折射，此处常量偏移不会从远离屏幕之外之处进行读取。它以顶点法线作为参考，然后通过逐像素法线和顶点法线之间的差别计算折射偏移，使这些平面不会移位。
 
+(#PhysicalvsNon-PhysicalModelofRefraction)
 ## 折射的物理和非物理模型
 
 在下方的对比中，**Index of Refraction** 物理模型的折射模式和 **Pixel Normal Offset** 的非物理模型展示了材质中
@@ -46,6 +47,7 @@ topic-image:PNO_Topic.png
 添加法线贴图到材质时，大于 1 的折射值插入 Refraction 输入；使用 **Pixel Normal Offset** 后法线将沿表面平移。
 然而您会注意到使用 **Index of Refraction** 后仍然会从屏幕外读取偏移，对使用折射的平面而言并非理想效果。
 
+(#FinalResults)
 ## 最终结果
 
 在此例中，折射量在值 1.0（完全无折射）到 2.0 之间调整，使用 **Pixel Normal Offset** 时沿表面形成一些折射而不使图像发生移位。 

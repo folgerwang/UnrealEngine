@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealSourceFile.h"
 #include "UnrealHeaderTool.h"
@@ -46,7 +46,7 @@ FString FUnrealSourceFile::GetFileId() const
 		}
 	}
 
-	return Out;
+	return MoveTemp(Out);
 }
 
 FString FUnrealSourceFile::GetStrippedFilename() const

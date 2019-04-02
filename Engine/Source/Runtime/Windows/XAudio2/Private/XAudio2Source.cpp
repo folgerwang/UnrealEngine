@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	XeAudioDevice.cpp: Unreal XAudio2 Audio interface object.
@@ -177,19 +177,24 @@ void FXAudio2SoundSource::SubmitPCMBuffers( void )
 bool FXAudio2SoundSource::ReadMorePCMData( const int32 BufferIndex, EDataReadMode DataReadMode )
 {
 	USoundWave* WaveData = WaveInstance->WaveData;
+
+	const int32 BufferBytes = MONO_PCM_BUFFER_SIZE * Buffer->NumChannels;
+	XAudio2Buffers[BufferIndex].pAudioData = GetRealtimeBufferData(BufferIndex, BufferBytes);
+	XAudio2Buffers[BufferIndex].AudioBytes = BufferBytes;
+
 	if( WaveData && WaveData->bProcedural )
 	{
-		const int32 MaxSamples = ( MONO_PCM_BUFFER_SIZE * Buffer->NumChannels ) / sizeof( int16 );
+		const int32 BufferSamples = MONO_PCM_BUFFER_SAMPLES * Buffer->NumChannels;
 
 		if (DataReadMode == EDataReadMode::Synchronous || WaveData->bCanProcessAsync == false)
 		{
-			const int32 BytesWritten = WaveData->GeneratePCMData( (uint8*)XAudio2Buffers[BufferIndex].pAudioData, MaxSamples );
+			const int32 BytesWritten = WaveData->GeneratePCMData( (uint8*)XAudio2Buffers[BufferIndex].pAudioData, BufferSamples);
 			XAudio2Buffers[BufferIndex].AudioBytes = BytesWritten;
 		}
 		else
 		{
 			check(!RealtimeAsyncTask);
-			RealtimeAsyncTask = new FAsyncRealtimeAudioTask(WaveData, (uint8*)XAudio2Buffers[BufferIndex].pAudioData, MaxSamples);
+			RealtimeAsyncTask = new FAsyncRealtimeAudioTask(WaveData, (uint8*)XAudio2Buffers[BufferIndex].pAudioData, BufferSamples);
 			RealtimeAsyncTask->StartBackgroundTask();
 		}
 
@@ -200,12 +205,11 @@ bool FXAudio2SoundSource::ReadMorePCMData( const int32 BufferIndex, EDataReadMod
 	{
 		if (DataReadMode == EDataReadMode::Synchronous)
 		{
-			return XAudio2Buffer->ReadCompressedData( ( uint8* )XAudio2Buffers[BufferIndex].pAudioData, WaveInstance->LoopingMode != LOOP_Never );
+			return XAudio2Buffer->ReadCompressedData( ( uint8* )XAudio2Buffers[BufferIndex].pAudioData, MONO_PCM_BUFFER_SAMPLES, WaveInstance->LoopingMode != LOOP_Never );
 		}
 		else
 		{
-			check(!RealtimeAsyncTask);
-			RealtimeAsyncTask = new FAsyncRealtimeAudioTask(XAudio2Buffer, (uint8*)XAudio2Buffers[BufferIndex].pAudioData, WaveInstance->LoopingMode != LOOP_Never, DataReadMode == EDataReadMode::AsynchronousSkipFirstFrame);
+			RealtimeAsyncTask = new FAsyncRealtimeAudioTask(XAudio2Buffer, (uint8*)XAudio2Buffers[BufferIndex].pAudioData, WaveInstance->WaveData->NumPrecacheFrames, WaveInstance->LoopingMode != LOOP_Never, DataReadMode == EDataReadMode::AsynchronousSkipFirstFrame);
 			RealtimeAsyncTask->StartBackgroundTask();
 			return false;
 		}
@@ -233,13 +237,8 @@ void FXAudio2SoundSource::SubmitPCMRTBuffers( void )
 	// Set the buffer to be in real time mode
 	CurrentBuffer = 0;
 
-	const uint32 BufferSize = MONO_PCM_BUFFER_SIZE * Buffer->NumChannels;
-
-	// Set up buffer areas to decompress to
 	for (int32 i = 0; i < 3; ++i)
 	{
-		XAudio2Buffers[i].pAudioData = GetRealtimeBufferData(i, BufferSize);
-		XAudio2Buffers[i].AudioBytes = BufferSize;
 		XAudio2Buffers[i].pContext = this;
 	}
 
@@ -249,8 +248,17 @@ void FXAudio2SoundSource::SubmitPCMRTBuffers( void )
 	if (WaveInstance->WaveData && WaveInstance->WaveData->CachedRealtimeFirstBuffer && !bIsSeeking)
 	{
 		bPlayedCachedBuffer = true;
-		FMemory::Memcpy((uint8*)XAudio2Buffers[0].pAudioData, WaveInstance->WaveData->CachedRealtimeFirstBuffer, BufferSize);
-		FMemory::Memcpy((uint8*)XAudio2Buffers[1].pAudioData, WaveInstance->WaveData->CachedRealtimeFirstBuffer + BufferSize, BufferSize);
+		const uint32 PrecacheBufferSize = WaveInstance->WaveData->NumPrecacheFrames * sizeof(int16) * Buffer->NumChannels;
+
+		for (int32 i = 0; i < 2; ++i)
+		{
+			XAudio2Buffers[i].pAudioData = GetRealtimeBufferData(i, PrecacheBufferSize);
+			XAudio2Buffers[i].AudioBytes = PrecacheBufferSize;
+			XAudio2Buffers[i].pContext = this;
+		}
+
+		FMemory::Memcpy((uint8*)XAudio2Buffers[0].pAudioData, WaveInstance->WaveData->CachedRealtimeFirstBuffer, PrecacheBufferSize);
+		FMemory::Memcpy((uint8*)XAudio2Buffers[1].pAudioData, WaveInstance->WaveData->CachedRealtimeFirstBuffer + PrecacheBufferSize, PrecacheBufferSize);
 	}
 	else
 	{

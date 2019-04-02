@@ -1,17 +1,21 @@
-﻿INTSourceChangelist:2760896
+﻿INTSourceChangelist:3467293
 Availability:Public
 Title:获取截图
 Crumbs:%ROOT%, Engine
 Description:关于获取游戏场景和游戏进程截图的指南。
 version:4.9
+Parent:Engine
+type:overview
+order:28
+topic-image:TakingScreenshots_Topic.png
+
 [TOC (start:2 end:3)]
-
-
 
 在虚幻引擎 4（UE4）中，可以多种不同方式获取项目的游戏截图。 
 本文档将说明用于 UE4 截图的工具及其使用方法。 
 
 
+(#DefaultSaveLocation)
 ## 默认保存路径
 截图画面会被默认保存到项目文件夹的以下路径中。
 
@@ -23,11 +27,13 @@ version:4.9
 
 点击该消息可直接打开截图所在的目录。 
 
+(#StandardScreenShot)
 ## 标准截图
 
 标准截图功能通过控制台命令 **Shot**（默认按键绑定为 **F9**）来执行。 
 将根据屏幕分辨率大小（如游戏在窗口模式下运行则根据窗口分辨率）生成屏幕截图。
 
+(#HighResolutionShot)
 ## 高分辨率截图
 
 高分辨率截图是一个强大的跨平台功能，可获取分辨率极高的截图。 
@@ -40,6 +46,7 @@ version:4.9
     HighResShot
 
 
+(#Parameters)
 ### 参数
 
 HighResShot 控制台命令接受可选参数，可为当前游戏分辨率乘数的整数，或显式设置高宽分辨率的“WxH”值。
@@ -52,12 +59,14 @@ HighResShot 控制台命令接受可选参数，可为当前游戏分辨率乘�
 
     HighResShot 3840x2160
     
+(#HighResolutionScreenshotTool)
 ## 高分辨率截图工具
 
 ![](HRSS_The_Tool.png)
 
 通过高分辨率截图工具（HRSST）可指定视口特殊区域进行截图。还可通过它调整所获取截图的尺寸，并输出 GBuffer 的结果。 
 
+(#AccessingtheHighResolutionScreenshotTool)
 ### 访问高分辨率截图工具 
 先点击 **View Port Options**，然后选择 **High Resolution Screenshot** 选项即可访问 HRSST。 
 
@@ -88,6 +97,7 @@ HighResShot 控制台命令接受可选参数，可为当前游戏分辨率乘�
 [/region]
 
 
+(#UsingtheHighResolutionScreenshot)
 ### 使用高分辨率截图 
 
 通过以下几个步骤即可使用 HRSST 工具。 
@@ -132,6 +142,7 @@ HighResShot 控制台命令接受可选参数，可为当前游戏分辨率乘�
 	[/OBJECT]
 
 
+(#BufferVisualizations)
 ### 缓冲可视
 高分辨率截图工具（HRSST）支持对 G-Buffer 每个缓冲的渲染。点击抓取按钮后，HRSST 将写出下列缓冲。
 
@@ -162,6 +173,7 @@ HighResShot 控制台命令接受可选参数，可为当前游戏分辨率乘�
 	[/PARAMLITERAL]
 [/OBJECT]
 
+(#OpenEXRImageSupport)
 ### OpenEXR 图像支持
 
 高分辨率截图工具（HRSST）现支持将图像以 OpenEXR 格式导出。 
@@ -196,6 +208,7 @@ HighResShot 控制台命令接受可选参数，可为当前游戏分辨率乘�
 	[/PARAMLITERAL]
 [/OBJECT]
 
+(#CustomDepthMask)
 ### 自定义深度遮罩
 在开发过程中，您可能需要抓取游戏世界中的特定物体制作宣传材料。 
 执行此操作时，您会发现需要手动从背景中剔除物体，耗时且伤神。 

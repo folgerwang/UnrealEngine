@@ -1,18 +1,22 @@
-﻿INTSourceChangelist:3317466
+﻿INTSourceChangelist:4649792
 Availability:Public
 Title:追踪指南
-Crumbs: %ROOT%
-Description:与追踪相关指南的着陆页面
-version:4.14
+Crumbs:
+Description:与虚幻引擎4中追踪（光线投射）相关的指南。
+version: 4.14
 Parent:Engine/Physics/Tracing
 type:landing
 tags:Physics
 tags:Tracing
 tags:Raycast
+tags:Gameplay
 order:1
 topic-image:Engine/Physics/Tracing/trace_topic.png
+related:Engine/Physics/Tracing/Overview
 
-这是虚幻引擎 4 中追踪（光线投射）指南的着陆页面。
+以下指南为您展示了如何在虚幻引擎4中使用追踪（光线投射）。
+
+(#Intermediate)
+##中级 
 
 [DIR(output:"fancy" parent:"Engine/Physics/Tracing/HowTo" org:"hierarchy" end:"1")]
-

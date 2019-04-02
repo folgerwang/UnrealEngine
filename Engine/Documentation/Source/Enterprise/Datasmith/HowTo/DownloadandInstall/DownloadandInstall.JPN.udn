@@ -1,0 +1,85 @@
+﻿INTSourceChangelist:4501284
+Availability: Public
+Crumbs: 
+Title: Unreal Engine 4 のダウンロードと Datasmith のインストール
+Description: Epic アカウントを取得して、Unreal Engine および Datasmith をコンピュータにインストールして、使用する準備を整えます。
+Type:how-to
+Version: 4.20
+Parent: Enterprise/Datasmith/HowTo
+Order: 1
+SkillLevel:Beginner
+Tags: Enterprise
+Tags: Getting Started
+Tags: how to
+Tags: Datasmith
+Tags: Manufacturing
+Tags: overview
+Tags: beginner
+topic-image:datasmith-download-install-topic.png
+
+![](datasmith-setup-install-engine.png)
+
+[TOC]
+
+[REGION:note]
+これらの手順の一部をすでに完了している場合は、以下の該当するセクションにスキップすることができます。
+[/REGION]
+
+## Unreal Engine 4 のインストール
+
+1.  Unreal Engine 4 のインストールを開始するには、[Unreal Engine 4 のインストール](GettingStarted/Installation)の操作ガイドに従って作業を開始します。 このガイドは、次の操作方法について紹介します。
+
+	1.  Epic Games アカウントを作成する (まだアカウントがない場合)
+	1.  インストーラーをダウンロードして実行する (Epic Games Launcher セットアップ プログラム)
+	1.  Epic Games Launcher にサインインする
+
+1.  Unreal Engine 4 をインストールする準備ができたら、Epic Games Launcher の **[Library (ライブラリ)]** タブに移動します。  
+    ![](datasmith-launcher-learn-tab.png)
+1.  **[Engine Versions (エンジン バージョン)]** の見出しの横にある [**+**] ボタンをクリックします。  
+    ![](datasmith-add-engine-version.png)
+1.  **[Engine Versions (エンジン バージョン)]** の見出しの下に、最新のメジャー リリース版の Unreal Engine 4 と一緒に新しいバージョン スロットが表示されます。  
+    ![](datasmith-new-version-slot.png)  
+    [REGION:tip]
+    Datasmith のベータ版は、必ずしも Unreal Engine 4 の最新のメジャー リリースだけに限らず、Unreal Engine の**プレビュー** リリースを使用する場合があります。 エンジンのバージョン番号の横にある矢印をクリックして、最新のプレビュー リリースを選択すると、これらをインストールすることができます。  
+    ![](datasmith-choose-version.png)
+    [/REGION]
+1.  **[Install (インストール)]** をクリックし、インストール先を選択します。  
+    ![](datasmith-install-version.png)  
+    [REGION:tip]
+    ストレージの容量が問題になる場合は、インストール先を選択するときに **[Options (オプション)]** を選択し、エンジンの不要な部分の選択を解除できます。 たとえば、開発予定のないターゲット プラットフォームがある場合は、**[Target Platforms (ターゲット プラットフォーム)]** の下のコンテンツを個別に無効にすると、容量を節約できます。
+    [REGION:lightbox]
+    [![](Install_OptionalTargetPlatforms.png)(w:300)](Install_OptionalTargetPlatforms.png)  
+    *クリックしてフルサイズで表示*
+    [/REGION]
+    [/REGION]
+
+## Datasmith の利用資格が有効になっていることを確認する
+
+Unreal Engine バージョン 4.19 のリリースより、Datasmith プラグインの配信プロセスが変更されました。 [Active (有効)] な Unreal Studio の利用資格 (以下参照) がある場合、Datasmith がエンジンと一緒に自動的にインストールされます。
+
+Epic Games Launcher の左側のパネルに Unreal Studio のサブスクリプション ステータスがリストされているのを確認できます。
+
+[REGION:lightbox]
+[![](UnrealStudioSubscriptionStatus.png)(w:100)](UnrealStudioSubscriptionStatus.png)   
+*クリックしてフルサイズで表示*
+[/REGION]
+
+ハイライトされたエリアがリストされていない場合は、このアカウントで利用資格が有効になっていない可能性があります。必ず Unreal Studio が有効になっているアカウントでログインしてください。Datasmith の利用資格に関する追加情報が必要な場合は、「[Unreal Studio のナレッジ ベース](https://unrealstudiohelp.epicgames.com/s/article/What-are-Datasmith-Entitlements)」を参照してください。
+
+## Datasmith がインストールされていることを確認する
+
+1.  Unreal Engine 4 がインストールされたら、エンジンのバージョンの下にある **[Installed Plugins (インストール済みのプラグイン)]** をクリックすると、Unreal Datasmith プラグインがインストールされていることを確認できます。  
+    ![](datasmith-verify-installed-plugin.png)
+
+## Datasmith プラグインを手動でインストールする
+
+Unreal Studio の利用資格がある場合、Datasmith プラグインはUnreal Engine 4 の新規インストールに伴い自動的にインストールされます。 ただし、自分のバージョンのエンジンがインストール済みである場合や UE4 のバージョンの **[Installed Plugins (インストール済みのプラグイン)]** の下にプラグインがリストされていない場合は、次の手順で Epic Games Launcher の **[Library (ライブラリ)]** からプラグインを手動でインストールします。
+
+1.  選択されていない場合は、Epic Games Launcher の **[Library (ライブラリ)]** タブを選択します。  
+    ![](datasmith-launcher-library-tab.png)
+2.  このページの [**Unreal Studio Beta**] セクションで、[**Unreal Datasmith**] プラグインを探します。 **[Install to Engine (エンジンをインストール)]** をクリックします。  
+    ![](datasmith-launcher-unrealdatasmith.png)
+3.  プラグインをインストールするエンジンのバージョンを選択してから、**[Install (インストール)]** をクリックします。  
+    ![](datasmith-install-plugin-version.png)
+4.  インストールが完了したら、エンジンのバージョンの下にある **[Installed Plugins (インストール済みのプラグイン)]** リンクをクリックすると、プラグインが正しくインストールされていることを確認できます。  
+    ![](datasmith-verify-installed-plugin.png)

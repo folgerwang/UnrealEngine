@@ -1,10 +1,13 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LayoutUV.h"
 #include "DisjointSet.h"
 #include "OverlappingCorners.h"
 #include "Algo/IntroSort.h"
 #include "HAL/PlatformTime.h"
+#include "Modules/ModuleManager.h"
+
+IMPLEMENT_MODULE(FDefaultModuleImpl, MeshUtilitiesCommon)
 
 DEFINE_LOG_CATEGORY_STATIC(LogLayoutUV, Warning, All);
 
@@ -14,19 +17,85 @@ DEFINE_LOG_CATEGORY_STATIC(LogLayoutUV, Warning, All);
 #define LEGACY_UVS_ARE_SAME (1.0f / 1024.0f)
 #define UVLAYOUT_THRESH_UVS_ARE_SAME (GetUVEqualityThreshold())
 
-FLayoutUV::FLayoutUV( IMeshView& InMeshView, uint32 InTextureResolution )
+FLayoutUV::FLayoutUV( IMeshView& InMeshView )
 	: MeshView( InMeshView )
-	, TextureResolution( InTextureResolution )
-	, TotalUVArea( 0.0f )
+	, LayoutVersion( ELightmapUVVersion::Latest )
+	, PackedTextureResolution(0)
+{}
+
+
+/** FIRST PASS: Given a Mesh, build the associated set of charts */
+struct FLayoutUV::FChartFinder
+{
+	FChartFinder(IMeshView& InMeshView, ELightmapUVVersion InLayoutVersion);
+
+	int32 FindCharts( const FOverlappingCorners& OverlappingCorners, TArray< FVector2D >& TexCoords, TArray< uint32 >& SortedTris, TArray< FMeshChart >& Charts );
+
+private:
+	bool PositionsMatch( uint32 a, uint32 b ) const;
+	bool NormalsMatch( uint32 a, uint32 b ) const;
+	bool UVsMatch( uint32 a, uint32 b ) const;
+	bool VertsMatch( uint32 a, uint32 b ) const;
+	float TriangleUVArea( uint32 Tri ) const;
+	void DisconnectChart( TArray< FMeshChart >& Charts, FMeshChart& Chart, uint32 Side );
+	float GetUVEqualityThreshold() const;
+
+private:
+	IMeshView& MeshView;
+	ELightmapUVVersion LayoutVersion;
+
+	int32 NextMeshChartId;
+};
+
+
+/** SECOND PASS: Given a set of charts, pack them in the UV space */
+struct FLayoutUV::FChartPacker
+{
+	FChartPacker(IMeshView& InMeshView, ELightmapUVVersion InLayoutVersion, uint32 TextureResolution);
+
+	bool FindBestPacking(const TArray< FVector2D >& TexCoords, const TArray< uint32 >& SortedTris, TArray< FMeshChart >& AllCharts);
+
+private:
+	void ScaleCharts( TArray< FMeshChart >& Charts, float UVScale );
+	bool PackCharts(TArray< FMeshChart >& Charts, const TArray< FVector2D >& TexCoords, const TArray< uint32 >& SortedTris);
+	void OrientChart( FMeshChart& Chart, int32 Orientation );
+	void RasterizeChart( const FMeshChart& Chart, const TArray< FVector2D >& TexCoords, const TArray< uint32 >& SortedTris, uint32 RectW, uint32 RectH );
+
+private:
+	IMeshView& MeshView;
+	ELightmapUVVersion LayoutVersion;
+
+	uint32 TextureResolution;
+	FAllocator2D LayoutRaster;
+	FAllocator2D ChartRaster;
+	FAllocator2D BestChartRaster;
+	float TotalUVArea;
+};
+
+FLayoutUV::FChartPacker::FChartPacker(IMeshView& InMeshView, ELightmapUVVersion InLayoutVersion, uint32 TextureResolution)
+	: MeshView(InMeshView)
+	, LayoutVersion(InLayoutVersion)
+	, TextureResolution(TextureResolution)
 	, LayoutRaster( TextureResolution, TextureResolution )
 	, ChartRaster( TextureResolution, TextureResolution )
 	, BestChartRaster( TextureResolution, TextureResolution )
-	, ChartShader( &ChartRaster )
-	, LayoutVersion( ELightmapUVVersion::Latest )
+	, TotalUVArea(0.0f)
+{
+}
+
+int32 FLayoutUV::FindCharts(const FOverlappingCorners& OverlappingCorners)
+{
+	FChartFinder Finder(MeshView, LayoutVersion);
+	return Finder.FindCharts(OverlappingCorners, MeshTexCoords, MeshSortedTris, MeshCharts);
+}
+
+FLayoutUV::FChartFinder::FChartFinder(IMeshView& InMeshView, ELightmapUVVersion InLayoutVersion)
+	: MeshView(InMeshView)
+	, LayoutVersion(InLayoutVersion)
 	, NextMeshChartId( 0 )
 {}
 
-int32 FLayoutUV::FindCharts( const FOverlappingCorners& OverlappingCorners )
+int32 FLayoutUV::FChartFinder::FindCharts( const FOverlappingCorners& OverlappingCorners, TArray< FVector2D >& TexCoords, TArray< uint32 >& SortedTris, TArray< FMeshChart >& Charts )
 {
 	double Begin = FPlatformTime::Seconds();
 
@@ -228,8 +297,6 @@ int32 FLayoutUV::FindCharts( const FOverlappingCorners& OverlappingCorners )
 				Chart.WorldScale = FVector2D::ZeroVector;
 			}
 		}		
-
-		TotalUVArea += Chart.UVArea * Chart.WorldScale.X * Chart.WorldScale.Y;
 #endif
 	}
 
@@ -501,8 +568,8 @@ int32 FLayoutUV::FindCharts( const FOverlappingCorners& OverlappingCorners )
 					ChartB.LastTri = 0;
 					ChartB.UVArea = 0.0f;
 
-					DisconnectChart( ChartB, Side ^ 2 );
-					DisconnectChart( ChartB, Side ^ 3 );
+					DisconnectChart( Charts, ChartB, Side ^ 2 );
+					DisconnectChart( Charts, ChartB, Side ^ 3 );
 				}
 
 				ChartA.FirstTri = FirstTri;
@@ -552,8 +619,6 @@ int32 FLayoutUV::FindCharts( const FOverlappingCorners& OverlappingCorners )
 				Chart.WorldScale = FVector2D::ZeroVector;
 			}
 		}
-
-		TotalUVArea += Chart.UVArea * Chart.WorldScale.X * Chart.WorldScale.Y;
 	}
 #endif
 
@@ -564,14 +629,24 @@ int32 FLayoutUV::FindCharts( const FOverlappingCorners& OverlappingCorners )
 	return Charts.Num();
 }
 
-bool FLayoutUV::FindBestPacking()
+bool FLayoutUV::FChartPacker::FindBestPacking(const TArray< FVector2D >& TexCoords, const TArray< uint32 >& SortedTris, TArray< FMeshChart >& Charts)
 {
-	if( (uint32)Charts.Num() > TextureResolution * TextureResolution || TotalUVArea == 0.f )
+	if( (uint32)Charts.Num() > TextureResolution * TextureResolution )
 	{
 		// More charts than texels
 		return false;
 	}
 	
+	TotalUVArea = 0.0f;
+	for (const FMeshChart& Chart : Charts)
+	{
+		TotalUVArea += Chart.UVArea * Chart.WorldScale.X * Chart.WorldScale.Y;
+	}
+	if( TotalUVArea <= 0.0f )
+	{
+		return false;
+	}
+
 	const float LinearSearchStart = 0.5f;
 	const float LinearSearchStep = 0.5f;
 	const int32 BinarySearchSteps = 6;
@@ -582,9 +657,9 @@ bool FLayoutUV::FindBestPacking()
 	// Linear search for first fit
 	while(1)
 	{
-		ScaleCharts( UVScalePass );
+		ScaleCharts( Charts, UVScalePass );
 
-		bool bFit = PackCharts();
+		bool bFit = PackCharts(Charts, TexCoords, SortedTris);
 		if( bFit )
 		{
 			break;
@@ -598,9 +673,9 @@ bool FLayoutUV::FindBestPacking()
 	for( int32 i = 0; i < BinarySearchSteps; i++ )
 	{
 		float UVScale = 0.5f * ( UVScaleFail + UVScalePass );
-		ScaleCharts( UVScale );
+		ScaleCharts( Charts, UVScale );
 
-		bool bFit = PackCharts();
+		bool bFit = PackCharts(Charts, TexCoords, SortedTris);
 		if( bFit )
 		{
 			UVScalePass = UVScale;
@@ -612,13 +687,13 @@ bool FLayoutUV::FindBestPacking()
 	}
 
 	// TODO store packing scale/bias separate so this isn't necessary
-	ScaleCharts( UVScalePass );
-	PackCharts();
+	ScaleCharts( Charts, UVScalePass );
+	PackCharts(Charts, TexCoords, SortedTris);
 
 	return true;
 }
 
-void FLayoutUV::ScaleCharts( float UVScale )
+void FLayoutUV::FChartPacker::ScaleCharts( TArray< FMeshChart >& Charts, float UVScale )
 {
 	for( int32 i = 0; i < Charts.Num(); i++ )
 	{
@@ -763,7 +838,7 @@ void FLayoutUV::ScaleCharts( float UVScale )
 	Algo::IntroSort( Charts, FCompareCharts() );
 }
 
-bool FLayoutUV::PackCharts()
+bool FLayoutUV::FChartPacker::PackCharts(TArray< FMeshChart >& Charts, const TArray< FVector2D >& TexCoords, const TArray< uint32 >& SortedTris)
 {
 	uint32 RasterizeCycles = 0;
 	uint32 FindCycles = 0;
@@ -831,7 +906,7 @@ bool FLayoutUV::PackCharts()
 				else
 				{
 					int32 BeginRasterize = FPlatformTime::Cycles();
-					RasterizeChart( Chart, Rect.W, Rect.H );
+					RasterizeChart( Chart, TexCoords, SortedTris, Rect.W , Rect.H );
 					RasterizeCycles += FPlatformTime::Cycles() - BeginRasterize;
 				}
 
@@ -898,7 +973,7 @@ bool FLayoutUV::PackCharts()
 	return true;
 }
 
-void FLayoutUV::OrientChart( FMeshChart& Chart, int32 Orientation )
+void FLayoutUV::FChartPacker::OrientChart( FMeshChart& Chart, int32 Orientation )
 {
 	switch( Orientation )
 	{
@@ -956,8 +1031,8 @@ void FLayoutUV::OrientChart( FMeshChart& Chart, int32 Orientation )
 // Max of 2048x2048 due to precision
 // Dilate in 28.4 fixed point. Half pixel dilation is conservative rasterization.
 // Dilation same as Minkowski sum of triangle and square.
-template< typename TShader, int32 Dilate >
-void RasterizeTriangle( TShader& Shader, const FVector2D Points[3], int32 ScissorWidth, int32 ScissorHeight )
+template< int32 Dilate >
+void RasterizeTriangle( FAllocator2D& Shader, const FVector2D Points[3], int32 ScissorWidth, int32 ScissorHeight )
 {
 	const FVector2D HalfPixel( 0.5f, 0.5f );
 	FVector2D p0 = Points[0] - HalfPixel;
@@ -1028,13 +1103,13 @@ void RasterizeTriangle( TShader& Shader, const FVector2D Points[3], int32 Scisso
 
 			if( IsInside >= 0 )
 			{
-				Shader.Process( x, y );
+				Shader.SetBit( x, y );
 			}
 		}
 	}
 }
 
-void FLayoutUV::RasterizeChart( const FMeshChart& Chart, uint32 RectW, uint32 RectH )
+void FLayoutUV::FChartPacker::RasterizeChart( const FMeshChart& Chart, const TArray< FVector2D >& TexCoords, const TArray< uint32 >& SortedTris, uint32 RectW, uint32 RectH )
 {
 	// Bilinear footprint is -1 to 1 pixels. If packed geometrically, only a half pixel dilation
 	// would be needed to guarantee all charts were at least 1 pixel away, safe for bilinear filtering.
@@ -1046,13 +1121,13 @@ void FLayoutUV::RasterizeChart( const FMeshChart& Chart, uint32 RectW, uint32 Re
 	for( uint32 Tri = Chart.FirstTri; Tri < Chart.LastTri; Tri++ )
 	{
 		FVector2D Points[3];
-		for( int k = 0; k < 3; k++ )
+		for ( int k = 0; k < 3; k++ )
 		{
 			const FVector2D& UV = TexCoords[ 3 * SortedTris[ Tri ] + k ];
 			Points[k] = UV.X * Chart.PackingScaleU + UV.Y * Chart.PackingScaleV + Chart.PackingBias;
 		}
 
-		RasterizeTriangle< FAllocator2DShader, 16 >( ChartShader, Points, RectW, RectH );
+		RasterizeTriangle< 16 >( ChartRaster, Points, RectW, RectH );
 	}
 
 	if ( LayoutVersion >= ELightmapUVVersion::Segments )
@@ -1061,26 +1136,39 @@ void FLayoutUV::RasterizeChart( const FMeshChart& Chart, uint32 RectW, uint32 Re
 	}
 }
 
+bool FLayoutUV::FindBestPacking(uint32 InTextureResolution)
+{
+	FChartPacker Packer(MeshView, LayoutVersion, InTextureResolution);
+	bool bPackingFound = Packer.FindBestPacking(MeshTexCoords, MeshSortedTris, MeshCharts);
+	PackedTextureResolution = bPackingFound ? InTextureResolution : 0;
+	return bPackingFound;
+}
+
 void FLayoutUV::CommitPackedUVs()
 {
+	if (PackedTextureResolution == 0)
+	{
+		return;
+	}
+
 	// Alloc new UV channel
-	MeshView.InitOutputTexcoords(TexCoords.Num());
+	MeshView.InitOutputTexcoords(MeshTexCoords.Num());
 
 	// Commit chart UVs
-	for( int32 i = 0; i < Charts.Num(); i++ )
+	for( int32 i = 0; i < MeshCharts.Num(); i++ )
 	{
-		FMeshChart& Chart = Charts[i];
+		FMeshChart& Chart = MeshCharts[i];
 
-		Chart.PackingScaleU /= TextureResolution;
-		Chart.PackingScaleV /= TextureResolution;
-		Chart.PackingBias /= TextureResolution;
+		Chart.PackingScaleU /= PackedTextureResolution;
+		Chart.PackingScaleV /= PackedTextureResolution;
+		Chart.PackingBias /= PackedTextureResolution;
 
 		for( uint32 Tri = Chart.FirstTri; Tri < Chart.LastTri; Tri++ )
 		{
 			for( int k = 0; k < 3; k++ )
 			{
-				uint32 Index = 3 * SortedTris[ Tri ] + k;
-				const FVector2D& UV = TexCoords[ Index ];
+				uint32 Index = 3 * MeshSortedTris[ Tri ] + k;
+				const FVector2D& UV = MeshTexCoords[ Index ];
 				FVector2D TransformedUV = UV.X * Chart.PackingScaleU + UV.Y * Chart.PackingScaleV + Chart.PackingBias;
 				MeshView.SetOutputTexcoord(Index, TransformedUV);
 			}
@@ -1088,28 +1176,28 @@ void FLayoutUV::CommitPackedUVs()
 	}
 }
 
-inline bool FLayoutUV::PositionsMatch( uint32 a, uint32 b ) const
+inline bool FLayoutUV::FChartFinder::PositionsMatch( uint32 a, uint32 b ) const
 {
 	return ( MeshView.GetPosition(a) - MeshView.GetPosition(b) ).IsNearlyZero( THRESH_POINTS_ARE_SAME );
 }
 
-inline bool FLayoutUV::NormalsMatch( uint32 a, uint32 b ) const
+inline bool FLayoutUV::FChartFinder::NormalsMatch( uint32 a, uint32 b ) const
 {
 	return ( MeshView.GetNormal(a) - MeshView.GetNormal(b) ).IsNearlyZero( THRESH_NORMALS_ARE_SAME );
 }
 
-inline bool FLayoutUV::UVsMatch( uint32 a, uint32 b ) const
+inline bool FLayoutUV::FChartFinder::UVsMatch( uint32 a, uint32 b ) const
 {
 	return ( MeshView.GetInputTexcoord(a) - MeshView.GetInputTexcoord(b) ).IsNearlyZero(UVLAYOUT_THRESH_UVS_ARE_SAME);
 }
 
-inline bool FLayoutUV::VertsMatch( uint32 a, uint32 b ) const
+inline bool FLayoutUV::FChartFinder::VertsMatch( uint32 a, uint32 b ) const
 {
 	return PositionsMatch( a, b ) && UVsMatch( a, b );
 }
 
 // Signed UV area
-inline float FLayoutUV::TriangleUVArea( uint32 Tri ) const
+inline float FLayoutUV::FChartFinder::TriangleUVArea( uint32 Tri ) const
 {
 	FVector2D UVs[3];
 	for( int k = 0; k < 3; k++ )
@@ -1122,7 +1210,7 @@ inline float FLayoutUV::TriangleUVArea( uint32 Tri ) const
 	return 0.5f * ( EdgeUV1.X * EdgeUV2.Y - EdgeUV1.Y * EdgeUV2.X );
 }
 
-inline void FLayoutUV::DisconnectChart( FMeshChart& Chart, uint32 Side )
+inline void FLayoutUV::FChartFinder::DisconnectChart( TArray< FMeshChart >& Charts, FMeshChart& Chart, uint32 Side )
 {
 	if( Chart.Join[ Side ] != -1 )
 	{
@@ -1131,7 +1219,7 @@ inline void FLayoutUV::DisconnectChart( FMeshChart& Chart, uint32 Side )
 	}
 }
 
-inline float FLayoutUV::GetUVEqualityThreshold() const
+inline float FLayoutUV::FChartFinder::GetUVEqualityThreshold() const
 {
 	return LayoutVersion >= ELightmapUVVersion::SmallChartPacking ? NEW_UVS_ARE_SAME : LEGACY_UVS_ARE_SAME;
 }

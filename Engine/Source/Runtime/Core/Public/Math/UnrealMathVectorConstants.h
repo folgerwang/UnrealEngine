@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -64,6 +64,9 @@ namespace GlobalVectorConstants
 	static const VectorRegister FloatNeg127 = MakeVectorRegister(-127.0f, -127.0f, -127.0f, -127.0f);
 	static const VectorRegister Float360 = MakeVectorRegister(360.f, 360.f, 360.f, 360.f);
 	static const VectorRegister Float180 = MakeVectorRegister(180.f, 180.f, 180.f, 180.f);
+
+	// All float numbers greater than or equal to this have no fractional value.
+	static const VectorRegister FloatNonFractional = MakeVectorRegister(8388608.f, 8388608.f, 8388608.f, 8388608.f);
 
 	static const VectorRegister FloatTwo = MakeVectorRegister(2.0f, 2.0f, 2.0f, 2.0f);
 	static const uint32 AlmostTwoBits = 0x3fffffff;

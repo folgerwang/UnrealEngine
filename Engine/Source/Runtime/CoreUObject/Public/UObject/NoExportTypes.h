@@ -1,13 +1,8 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-
-
-//=============================================================================
-// Unreal base structures.
-
-// Temporary mirrors of C++ structs, used mainly as forward declarations for the core object module
-// to avoid including the full engine source. In most cases the full class definition is in another
-// file and is noted as such. More complete documentation will generally be found in those files.
+// Reflection mirrors of C++ structs defined in Core or CoreUObject, those modules are not parsed by the Unreal Header Tool.
+// The documentation comments here are only for use in the editor tooltips, and is ignored for the API docs.
+// More complete documentation will be found in the files that have the full class definition, listed below.
 
 #pragma once
 
@@ -17,6 +12,7 @@
 
 #include "PixelFormat.h"
 
+#include "Misc/FallbackStruct.h"
 #include "Misc/Guid.h"
 #include "Misc/DateTime.h"
 #include "Misc/Timespan.h"
@@ -53,7 +49,12 @@
 
 #if !CPP      //noexport class
 
-/** String search case used in UnrealString.h */
+/// @cond DOXYGEN_IGNORE
+
+/**
+ * Determines case sensitivity options for string comparisons. 
+ * @note Mirrored from Engine\Source\Runtime\Core\Public\Containers\UnrealString.h
+ */
 UENUM()
 namespace ESearchCase
 {
@@ -64,7 +65,10 @@ namespace ESearchCase
 	};
 }
 
-/** String search dir used in UnrealString.h */
+/**
+ * Determines search direction for string operations.
+ * @note Mirrored from Engine\Source\Runtime\Core\Public\Containers\UnrealString.h
+ */
 UENUM()
 namespace ESearchDir
 {
@@ -76,7 +80,8 @@ namespace ESearchDir
 }
 
 /**
- * Enum that defines how the log times are to be displayed (mirrored from OutputDevice.h).
+ * Enum that defines how the log times are to be displayed.
+ * @note Mirrored from Engine\Source\Runtime\Core\Public\Misc\OutputDevice.h
  */
 UENUM()
 namespace ELogTimes
@@ -110,22 +115,37 @@ namespace EAxis
 	};
 }
 
-// Interpolation data types.
+/** Describes shape of an interpolation curve (mirrored from InterpCurvePoint.h). */
 UENUM()
 enum EInterpCurveMode
 {
+	/** A straight line between two keypoint values. */
 	CIM_Linear UMETA(DisplayName="Linear"),
+	
+	/** A cubic-hermite curve between two keypoints, using Arrive/Leave tangents. These tangents will be automatically
+		updated when points are moved, etc.  Tangents are unclamped and will plateau at curve start and end points. */
 	CIM_CurveAuto UMETA(DisplayName="Curve Auto"),
+	
+	/** The out value is held constant until the next key, then will jump to that value. */
 	CIM_Constant UMETA(DisplayName="Constant"),
+	
+	/** A smooth curve just like CIM_Curve, but tangents are not automatically updated so you can have manual control over them (eg. in Curve Editor). */
 	CIM_CurveUser UMETA(DisplayName="Curve User"),
+	
+	/** A curve like CIM_Curve, but the arrive and leave tangents are not forced to be the same, so you can create a 'corner' at this key. */
 	CIM_CurveBreak UMETA(DisplayName="Curve Break"),
+	
+	/** A cubic-hermite curve between two keypoints, using Arrive/Leave tangents. These tangents will be automatically
+	    updated when points are moved, etc.  Tangents are clamped and will plateau at curve start and end points. */
 	CIM_CurveAutoClamped UMETA(DisplayName="Curve Auto Clamped"),
 };
 
-// @warning:	When you update this, you must add an entry to GPixelFormats(see RenderUtils.cpp)
-// @warning:	When you update this, you must add an entries to PixelFormat.h, usually just copy the generated section on the header into EPixelFormat
-// @warning:	The *Tools DLLs will also need to be recompiled if the ordering is changed, but should not need code changes.
-
+/**
+ * Describes the format of a each pixel in a graphics buffer.
+ * @warning: When you update this, you must add an entry to GPixelFormats(see RenderUtils.cpp)
+ * @warning: When you update this, you must add an entries to PixelFormat.h, usually just copy the generated section on the header into EPixelFormat
+ * @warning: The *Tools DLLs will also need to be recompiled if the ordering is changed, but should not need code changes.
+ */
 UENUM()
 enum EPixelFormat
 {
@@ -214,9 +234,14 @@ enum EPixelFormat
 	PF_R8G8B8A8_SNORM,
 	PF_R16G16B16A16_UNORM,
 	PF_R16G16B16A16_SNORM,
+	PF_PLATFORM_HDR_0,
+	PF_PLATFORM_HDR_1,
+	PF_PLATFORM_HDR_2,
+	PF_NV12,
 	PF_MAX,
 };
 
+/** Mouse cursor types (mirrored from ICursor.h) */
 UENUM()
 namespace EMouseCursor
 {
@@ -305,15 +330,13 @@ enum class EUnit : uint8
 
 
 	/** Percentage */
-	
 	Percentage,
 
 	/** Symbolic entry, not specifiable on meta data. */
-	
 	Unspecified
 };
 
-/** A globally unique identifier. */
+/** A globally unique identifier (mirrored from Guid.h) */
 USTRUCT(immutable, noexport, BlueprintType)
 struct FGuid
 {
@@ -332,7 +355,7 @@ struct FGuid
 
 /**
  * A point or direction FVector in 3d space.
- * The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Vector.h
+ * @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Vector.h
  */
 USTRUCT(immutable, noexport, BlueprintType, meta=(HasNativeMake="Engine.KismetMathLibrary.MakeVector", HasNativeBreak="Engine.KismetMathLibrary.BreakVector"))
 struct FVector
@@ -349,7 +372,7 @@ struct FVector
 
 /**
 * A 4-D homogeneous vector.
-* The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Vector4.h
+* @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Vector4.h
 */
 USTRUCT(immutable, noexport, BlueprintType)
 struct FVector4
@@ -369,9 +392,9 @@ struct FVector4
 };
 
 /**
-* A point or direction FVector in 2d space.
-* The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Vector2D.h
-*/
+ * A vector in 2-D space composed of components (X, Y) with floating point precision.
+ * @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Vector2D.h
+ */
 USTRUCT(immutable, noexport, BlueprintType, meta=(HasNativeMake="Engine.KismetMathLibrary.MakeVector2D", HasNativeBreak="Engine.KismetMathLibrary.BreakVector2D"))
 struct FVector2D
 {
@@ -383,8 +406,7 @@ struct FVector2D
 
 };
 
-
-
+/** A pair of 3D vectors (mirrored from TwoVectors.h). */
 USTRUCT(immutable, BlueprintType, noexport)
 struct FTwoVectors
 {
@@ -393,26 +415,22 @@ struct FTwoVectors
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=TwoVectors, SaveGame)
 	FVector v2;
-
 };
-
 
 /**
  * A plane definition in 3D space.
- * The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Plane.h
+ * @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Plane.h
  */
 USTRUCT(immutable, noexport, BlueprintType)
 struct FPlane : public FVector
 {
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Plane, SaveGame)
 	float W;
-
 };
-
 
 /**
  * An orthogonal rotation in 3d space.
- * The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Rotator.h
+ * @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Rotator.h
  */
 USTRUCT(immutable, noexport, BlueprintType, meta=(HasNativeMake="Engine.KismetMathLibrary.MakeRotator", HasNativeBreak="Engine.KismetMathLibrary.BreakRotator"))
 struct FRotator
@@ -431,10 +449,9 @@ struct FRotator
 
 };
 
-
 /**
  * Quaternion.
- * The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Quat.h
+ * @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Quat.h
  */
 USTRUCT(immutable, noexport, BlueprintType)
 struct FQuat
@@ -453,10 +470,9 @@ struct FQuat
 
 };
 
-
 /**
  * A packed normal.
- * The full C++ class is located here: Engine\Source\Runtime\RenderCore\Public\PackedNormal.h
+ * @note The full C++ class is located here: Engine\Source\Runtime\RenderCore\Public\PackedNormal.h
  */
 USTRUCT(immutable, noexport)
 struct FPackedNormal
@@ -476,9 +492,9 @@ struct FPackedNormal
 };
 
 /**
-* A packed basis vector.
-* The full C++ class is located here: Engine\Source\Runtime\RenderCore\Public\PackedNormal.h
-*/
+ * A packed basis vector.
+ * @note The full C++ class is located here: Engine\Source\Runtime\RenderCore\Public\PackedNormal.h
+ */
 USTRUCT(immutable, noexport)
 struct FPackedRGB10A2N
 {
@@ -487,9 +503,9 @@ struct FPackedRGB10A2N
 };
 
 /**
-* A packed vector.
-* The full C++ class is located here: Engine\Source\Runtime\RenderCore\Public\PackedNormal.h
-*/
+ * A packed vector.
+ * @note The full C++ class is located here: Engine\Source\Runtime\RenderCore\Public\PackedNormal.h
+ */
 USTRUCT(immutable, noexport)
 struct FPackedRGBA16N
 {
@@ -502,7 +518,7 @@ struct FPackedRGBA16N
 
 /**
  * Screen coordinates.
- * The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\IntPoint.h
+ * @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\IntPoint.h
  */
 USTRUCT(immutable, noexport, BlueprintType)
 struct FIntPoint
@@ -517,7 +533,7 @@ struct FIntPoint
 
 /**
  * An integer vector in 3D space.
- * The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\IntVector.h
+ * @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\IntVector.h
  */
 USTRUCT(immutable, noexport, BlueprintType)
 struct FIntVector
@@ -532,10 +548,9 @@ struct FIntVector
 	int32 Z;
 };
 
-
 /**
- * A Color (BGRA).
- * The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Color.h
+ * Stores a color with 8 bits of precision per channel. (BGRA).
+ * @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Color.h
  */
 USTRUCT(immutable, noexport, BlueprintType)
 struct FColor
@@ -554,10 +569,9 @@ struct FColor
 
 };
 
-
 /**
- * A linear color.
- * The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Color.h
+ * A linear, 32-bit/component floating point RGBA color.
+ * @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Color.h
  */
 USTRUCT(immutable, noexport, BlueprintType)
 struct FLinearColor
@@ -576,10 +590,9 @@ struct FLinearColor
 
 };
 
-
 /**
  * A bounding box.
- * The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Box.h
+ * @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Box.h
  */
 USTRUCT(immutable, noexport, BlueprintType, meta=(HasNativeMake="Engine.KismetMathLibrary.MakeBox"))
 struct FBox
@@ -597,7 +610,7 @@ struct FBox
 
 /**
  * A rectangular 2D Box.
- * The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Box2D.h
+ * @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Box2D.h
  */
 USTRUCT(immutable, noexport, BlueprintType, meta=(HasNativeMake="Engine.KismetMathLibrary.MakeBox2D"))
 struct FBox2D
@@ -613,20 +626,22 @@ struct FBox2D
 
 };
 
-
 /**
  * A bounding box and bounding sphere with the same origin.
- * The full C++ class is located here : Engine\Source\Runtime\Core\Public\Math\BoxSphereBounds.h
+ * @note The full C++ class is located here : Engine\Source\Runtime\Core\Public\Math\BoxSphereBounds.h
  */
 USTRUCT(noexport, BlueprintType)
 struct FBoxSphereBounds
 {
+	/** Holds the origin of the bounding box and sphere. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=BoxSphereBounds, SaveGame)
 	FVector Origin;
 
+	/** Holds the extent of the bounding box, which is half the size of the box in 3D space */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=BoxSphereBounds, SaveGame)
 	FVector BoxExtent;
 
+	/** Holds the radius of the bounding sphere. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=BoxSphereBounds, SaveGame)
 	float SphereRadius;
 
@@ -634,36 +649,43 @@ struct FBoxSphereBounds
 
 /**
  * Structure for arbitrarily oriented boxes (i.e. not necessarily axis-aligned).
- * The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\OrientedBox.h
+ * @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\OrientedBox.h
  */
 USTRUCT(immutable, noexport)
 struct FOrientedBox
 {
+	/** Holds the center of the box. */
 	UPROPERTY(EditAnywhere, Category=OrientedBox, SaveGame)
 	FVector Center;
 
+	/** Holds the x-axis vector of the box. Must be a unit vector. */
 	UPROPERTY(EditAnywhere, Category=OrientedBox, SaveGame)
 	FVector AxisX;
 	
+	/** Holds the y-axis vector of the box. Must be a unit vector. */
 	UPROPERTY(EditAnywhere, Category=OrientedBox, SaveGame)
 	FVector AxisY;
 	
+	/** Holds the z-axis vector of the box. Must be a unit vector. */
 	UPROPERTY(EditAnywhere, Category=OrientedBox, SaveGame)
 	FVector AxisZ;
 
+	/** Holds the extent of the box along its x-axis. */
 	UPROPERTY(EditAnywhere, Category=OrientedBox, SaveGame)
 	float ExtentX;
 	
+	/** Holds the extent of the box along its y-axis. */
 	UPROPERTY(EditAnywhere, Category=OrientedBox, SaveGame)
 	float ExtentY;
 
+	/** Holds the extent of the box along its z-axis. */
 	UPROPERTY(EditAnywhere, Category=OrientedBox, SaveGame)
 	float ExtentZ;
 };
 
-/*
+/**
  * A 4x4 matrix.
- * The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Matrix.h
+ * @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Matrix.h
  */
 USTRUCT(immutable, noexport, BlueprintType)
 struct FMatrix
@@ -682,273 +704,346 @@ struct FMatrix
 
 };
 
-
-
+/** 
+ * Describes one specific point on an interpolation curve.
+ * @note This is a mirror of TInterpCurvePoint<float>, defined in InterpCurvePoint.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FInterpCurvePointFloat
 {
+	/** Float input value that corresponds to this key (eg. time). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointFloat)
 	float InVal;
 
+	/** Float output value type when input is equal to InVal. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointFloat)
 	float OutVal;
 
+	/** Tangent of curve arriving at this point. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointFloat)
 	float ArriveTangent;
 
+	/** Tangent of curve leaving this point. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointFloat)
 	float LeaveTangent;
 
+	/** Interpolation mode between this point and the next one. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointFloat)
 	TEnumAsByte<enum EInterpCurveMode> InterpMode;
 
 };
 
-
-
+/** 
+ * Describes an entire curve that is used to compute a float output value from a float input.
+ * @note This is a mirror of TInterpCurve<float>, defined in InterpCurve.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FInterpCurveFloat
 {
+	/** Holds the collection of interpolation points. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurveFloat)
 	TArray<FInterpCurvePointFloat> Points;
 
+	/** Specify whether the curve is looped or not */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurveFloat)
 	bool bIsLooped;
 
+	/** Specify the offset from the last point's input key corresponding to the loop point */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurveFloat)
 	float LoopKeyOffset;
 };
 
-
-
+/** 
+ * Describes one specific point on an interpolation curve.
+ * @note This is a mirror of TInterpCurvePoint<FVector2D>, defined in InterpCurvePoint.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FInterpCurvePointVector2D
 {
+	/** Float input value that corresponds to this key (eg. time). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointVector2D)
 	float InVal;
 
+	/** 2D vector output value of when input is equal to InVal. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointVector2D)
 	FVector2D OutVal;
 
+	/** Tangent of curve arriving at this point. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointVector2D)
 	FVector2D ArriveTangent;
 
+	/** Tangent of curve leaving this point. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointVector2D)
 	FVector2D LeaveTangent;
 
+	/** Interpolation mode between this point and the next one. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointVector2D)
 	TEnumAsByte<enum EInterpCurveMode> InterpMode;
-
 };
 
-
-
+/** 
+ * Describes an entire curve that is used to compute a 2D vector output value from a float input.
+ * @note This is a mirror of TInterpCurve<FVector2D>, defined in InterpCurve.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FInterpCurveVector2D
 {
+	/** Holds the collection of interpolation points. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurveVector2D)
 	TArray<FInterpCurvePointVector2D> Points;
 
+	/** Specify whether the curve is looped or not */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurveVector2D)
 	bool bIsLooped;
 
+	/** Specify the offset from the last point's input key corresponding to the loop point */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurveVector2D)
 	float LoopKeyOffset;
 };
 
-
-
+/** 
+ * Describes one specific point on an interpolation curve.
+ * @note This is a mirror of TInterpCurvePoint<FVector>, defined in InterpCurvePoint.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FInterpCurvePointVector
 {
+	/** Float input value that corresponds to this key (eg. time). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointVector)
 	float InVal;
 
+	/** 3D vector output value of when input is equal to InVal. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointVector)
 	FVector OutVal;
 
+	/** Tangent of curve arriving at this point. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointVector)
 	FVector ArriveTangent;
 
+	/** Tangent of curve leaving this point. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointVector)
 	FVector LeaveTangent;
 
+	/** Interpolation mode between this point and the next one. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointVector)
 	TEnumAsByte<enum EInterpCurveMode> InterpMode;
-
 };
 
-
-
+/** 
+ * Describes an entire curve that is used to compute a 3D vector output value from a float input.
+ * @note This is a mirror of TInterpCurve<FVector>, defined in InterpCurve.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FInterpCurveVector
 {
+	/** Holds the collection of interpolation points. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurveVector)
 	TArray<FInterpCurvePointVector> Points;
 
+	/** Specify whether the curve is looped or not */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurveVector)
 	bool bIsLooped;
 
+	/** Specify the offset from the last point's input key corresponding to the loop point */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurveVector)
 	float LoopKeyOffset;
 };
 
-
-
+/**
+ * Describes one specific point on an interpolation curve.
+ * @note This is a mirror of TInterpCurvePoint<FQuat>, defined in InterpCurvePoint.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FInterpCurvePointQuat
 {
+	/** Float input value that corresponds to this key (eg. time). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointQuat)
 	float InVal;
 
+	/** Quaternion output value of when input is equal to InVal. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointQuat)
 	FQuat OutVal;
 
+	/** Tangent of curve arriving at this point. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointQuat)
 	FQuat ArriveTangent;
 
+	/** Tangent of curve leaving this point. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointQuat)
 	FQuat LeaveTangent;
 
+	/** Interpolation mode between this point and the next one. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointQuat)
 	TEnumAsByte<enum EInterpCurveMode> InterpMode;
-
 };
 
-
-
+/**
+ * Describes an entire curve that is used to compute a quaternion output value from a float input.
+ * @note This is a mirror of TInterpCurve<FQuat>, defined in InterpCurve.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FInterpCurveQuat
 {
+	/** Holds the collection of interpolation points. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurveQuat)
 	TArray<FInterpCurvePointQuat> Points;
 
+	/** Specify whether the curve is looped or not */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurveQuat)
 	bool bIsLooped;
 
+	/** Specify the offset from the last point's input key corresponding to the loop point */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurveQuat)
 	float LoopKeyOffset;
 };
 
-
-
+/**
+ * Describes one specific point on an interpolation curve.
+ * @note This is a mirror of TInterpCurvePoint<FTwoVectors>, defined in InterpCurvePoint.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FInterpCurvePointTwoVectors
 {
+	/** Float input value that corresponds to this key (eg. time). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointTwoVectors)
 	float InVal;
 
+	/** Two 3D vectors output value of when input is equal to InVal. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointTwoVectors)
 	FTwoVectors OutVal;
 
+	/** Tangent of curve arriving at this point. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointTwoVectors)
 	FTwoVectors ArriveTangent;
 
+	/** Tangent of curve leaving this point. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointTwoVectors)
 	FTwoVectors LeaveTangent;
 
+	/** Interpolation mode between this point and the next one. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointTwoVectors)
 	TEnumAsByte<enum EInterpCurveMode> InterpMode;
-
 };
 
-
-
+/**
+ * Describes an entire curve that is used to compute two 3D vector values from a float input.
+ * @note This is a mirror of TInterpCurve<FTwoVectors>, defined in InterpCurve.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FInterpCurveTwoVectors
 {
+	/** Holds the collection of interpolation points. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurveTwoVectors)
 	TArray<FInterpCurvePointTwoVectors> Points;
 
+	/** Specify whether the curve is looped or not */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurveTwoVectors)
 	bool bIsLooped;
 
+	/** Specify the offset from the last point's input key corresponding to the loop point */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurveTwoVectors)
 	float LoopKeyOffset;
 };
 
-
-
+/**
+ * Describes one specific point on an interpolation curve.
+ * @note This is a mirror of TInterpCurvePoint<FLinearColor>, defined in InterpCurvePoint.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FInterpCurvePointLinearColor
 {
+	/** Float input value that corresponds to this key (eg. time). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointLinearColor)
 	float InVal;
 
+	/** Color output value of when input is equal to InVal. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointLinearColor)
 	FLinearColor OutVal;
 
+	/** Tangent of curve arriving at this point. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointLinearColor)
 	FLinearColor ArriveTangent;
 
+	/** Tangent of curve leaving this point. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointLinearColor)
 	FLinearColor LeaveTangent;
 
+	/** Interpolation mode between this point and the next one. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurvePointLinearColor)
 	TEnumAsByte<enum EInterpCurveMode> InterpMode;
-
 };
 
-
-
+/**
+ * Describes an entire curve that is used to compute a color output value from a float input.
+ * @note This is a mirror of TInterpCurve<FLinearColor>, defined in InterpCurve.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FInterpCurveLinearColor
 {
+	/** Holds the collection of interpolation points. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurveLinearColor)
 	TArray<FInterpCurvePointLinearColor> Points;
 
+	/** Specify whether the curve is looped or not */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurveLinearColor)
 	bool bIsLooped;
 
+	/** Specify the offset from the last point's input key corresponding to the loop point */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=InterpCurveLinearColor)
 	float LoopKeyOffset;
 };
 
-
 /**
  * Transform composed of Quat/Translation/Scale.
- * The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Transform.h
+ * @note This is implemented in either TransformVectorized.h or TransformNonVectorized.h depending on the platform.
  */
 USTRUCT(noexport, BlueprintType, meta=(HasNativeMake="Engine.KismetMathLibrary.MakeTransform", HasNativeBreak="Engine.KismetMathLibrary.BreakTransform"))
 struct FTransform
 {
+	/** Rotation of this transformation, as a quaternion. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Transform, SaveGame)
 	FQuat Rotation;
 
+	/** Translation of this transformation, as a vector. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Transform, SaveGame)
 	FVector Translation;
 
+	/** 3D scale (always applied in local space) as a vector. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Transform, SaveGame, meta=(MakeStructureDefaultValue = "1,1,1"))
 	FVector Scale3D;
-
 };
 
-
 /**
- * Thread-safe RNG.
- * The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\RandomStream.h
+ * Thread-safe random number generator that can be manually seeded.
+ * @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\RandomStream.h
  */
 USTRUCT(noexport, BlueprintType, meta = (HasNativeMake = "Engine.KismetMathLibrary.MakeRandomStream", HasNativeBreak = "Engine.KismetMathLibrary.BreakRandomStream"))
 struct FRandomStream
 {
 public:
+	/** Holds the initial seed. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=RandomStream, SaveGame)
 	int32 InitialSeed;
 	
+	/** Holds the current seed. */
 	UPROPERTY()
 	int32 Seed;
 };
 
-/** A date/time value. */
-
+/** 
+ * A value representing a specific point date and time over a wide range of years.
+ * @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Misc\DateTime.h
+ */
 USTRUCT(immutable, noexport, BlueprintType, meta=(HasNativeMake="Engine.KismetMathLibrary.MakeDateTime", HasNativeBreak="Engine.KismetMathLibrary.BreakDateTime"))
 struct FDateTime
 {
 	int64 Ticks;
 };
 
-/** A frame number value. */
-
+/** 
+ * A frame number value, representing discrete frames since the start of timing.
+ * @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Misc\FrameNumber.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FFrameNumber
 {
@@ -956,8 +1051,10 @@ struct FFrameNumber
 	int32 Value;
 };
 
-/** A frame rate represented as a fraction comprising 2 integers: a numerator (number of frames), and a denominator (per second). */
-
+/** 
+ * A frame rate represented as a fraction comprising 2 integers: a numerator (number of frames), and a denominator (per second).
+ * @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Misc\FrameRate.h
+ */
 USTRUCT(noexport, BlueprintType, meta=(HasNativeMake="Engine.KismetMathLibrary.MakeFrameRate", HasNativeBreak="Engine.KismetMathLibrary.BreakFrameRate"))
 struct FFrameRate
 {
@@ -970,32 +1067,42 @@ struct FFrameRate
 	int32 Denominator;
 };
 
-/** Represents a time by a context-free frame number, plus a sub frame value in the range [0:1). */
-
+/** 
+ * Represents a time by a context-free frame number, plus a sub frame value in the range [0:1). 
+ * @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Misc\FrameTime.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FFrameTime
 {
+	/** Count of frames from start of timing */
 	UPROPERTY(BlueprintReadWrite, Category=FrameTime)
 	FFrameNumber FrameNumber;
 
+	/** Time within a frame, always between >= 0 and < 1 */
 	UPROPERTY(BlueprintReadWrite, Category=FrameTime)
 	float SubFrame;
 };
 
-/** A frame time qualified by a frame rate context. */
-
+/** 
+ * A frame time qualified by a frame rate context.
+ * @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Misc\QualifiedFrameTime.h
+ */
 USTRUCT(noexport, BlueprintType, meta=(ScriptName="QualifiedTime", HasNativeMake="Engine.KismetMathLibrary.MakeQualifiedFrameTime", HasNativeBreak="Engine.KismetMathLibrary.BreakQualifiedFrameTime"))
 struct FQualifiedFrameTime
 {
+	/** The frame time */
 	UPROPERTY(BlueprintReadWrite, Category=QualifiedFrameTime)
 	FFrameTime Time;
 
+	/** The rate that this frame time is in */
 	UPROPERTY(BlueprintReadWrite, Category=QualifiedFrameTime)
 	FFrameRate Rate;
 };
 
-/** A timecode that stores time in HH:MM:SS format with the remainder of time represented by an integer frame count. */
-
+/** 
+ * A timecode that stores time in HH:MM:SS format with the remainder of time represented by an integer frame count. 
+ * @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Misc\TimeCode.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FTimecode
 {
@@ -1016,15 +1123,20 @@ struct FTimecode
 	bool bDropFrameFormat;
 };
 
-/** A time span value. */
-
+/** 
+ * A time span value, which is the difference between two dates and times.
+ * @note The full C++ class is located here: Engine\Source\Runtime\Core\Public\Misc\Timespan.h
+ */
 USTRUCT(immutable, noexport, BlueprintType, meta=(HasNativeMake="Engine.KismetMathLibrary.MakeTimespan", HasNativeBreak="Engine.KismetMathLibrary.BreakTimespan"))
 struct FTimespan
 {
 	int64 Ticks;
 };
 
-/** An object path, this is saved as a name/string pair */
+/** 
+ * A struct that contains a string reference to an object, either a top level asset or a subobject.
+ * @note The full C++ class is located here: Engine\Source\Runtime\CoreUObject\Public\UObject\SoftObjectPath.h
+ */
 USTRUCT(noexport, BlueprintType, meta=(HasNativeMake="Engine.KismetSystemLibrary.MakeSoftObjectPath", HasNativeBreak="Engine.KismetSystemLibrary.BreakSoftObjectPath"))
 struct FSoftObjectPath
 {
@@ -1037,47 +1149,53 @@ struct FSoftObjectPath
 	FString SubPathString;
 };
 
-/** Subclass of FSoftObjectPath that is only valid to use with UClass* */
+/** 
+ * A struct that contains a string reference to a class, can be used to make soft references to classes.
+ * @note The full C++ class is located here: Engine\Source\Runtime\CoreUObject\Public\UObject\SoftObjectPath.h
+ */
 USTRUCT(noexport, BlueprintType, meta=(HasNativeMake="Engine.KismetSystemLibrary.MakeSoftClassPath", HasNativeBreak="Engine.KismetSystemLibrary.BreakSoftClassPath"))
 struct FSoftClassPath : public FSoftObjectPath
 {
 };
 
-/** A type of primary asset, this is a wrapper around FName and can be cast back and forth */
+/** 
+ * A type of primary asset, used by the Asset Manager system.
+ * @note The full C++ class is located here: Engine\Source\Runtime\CoreUObject\Public\UObject\PrimaryAssetId.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FPrimaryAssetType
 {
-	/** The Type of this object, by default it's base class's name */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PrimaryAssetType)
+	/** The Type of this object, by default its base class's name */
+	UPROPERTY(EditAnywhere, SaveGame, BlueprintReadWrite, Category = PrimaryAssetType)
 	FName Name;
 };
 
-/** This identifies an object as a "primary" asset that can be searched for by the AssetManager and used in various tools */
+/** 
+ * This identifies an object as a "primary" asset that can be searched for by the AssetManager and used in various tools
+ * @note The full C++ class is located here: Engine\Source\Runtime\CoreUObject\Public\UObject\PrimaryAssetId.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FPrimaryAssetId
 {
-	/** The Type of this object, by default it's base class's name */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PrimaryAssetId)
+	/** The Type of this object, by default its base class's name */
+	UPROPERTY(EditAnywhere, SaveGame, BlueprintReadWrite, Category = PrimaryAssetId)
 	FPrimaryAssetType PrimaryAssetType;
 
-	/** The Name of this object, by default it's short name */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PrimaryAssetId)
+	/** The Name of this object, by default its short name */
+	UPROPERTY(EditAnywhere, SaveGame, BlueprintReadWrite, Category = PrimaryAssetId)
 	FName PrimaryAssetName;
 };
 
-// A struct used as stub for deleted ones.
-
+/** A struct used as stub for deleted ones. */
 USTRUCT(noexport)
 struct FFallbackStruct  
 {
 };
 
+/** Enumerates the valid types of range bounds (mirrored from RangeBound.h) */
 UENUM(BlueprintType)
 namespace ERangeBoundTypes
 {
-	/**
-	* Enumerates the valid types of range bounds.
-	*/
 	enum Type
 	{
 		/**
@@ -1097,80 +1215,103 @@ namespace ERangeBoundTypes
 	};
 }
 
-// A float range bound
-
+/**
+ * Defines a single bound for a range of values.
+ * @note This is a mirror of TRangeBound<float>, defined in RangeBound.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FFloatRangeBound
 {
+	/** Holds the type of the bound. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Range)
 	TEnumAsByte<ERangeBoundTypes::Type> Type;
 
+	/** Holds the bound's value. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Range)
 	float Value;
 };
 
-// A float range
-
+/**
+ * A contiguous set of floats described by lower and upper bound values.
+ * @note This is a mirror of TRange<float>, defined in Range.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FFloatRange
 {
+	/** Holds the range's lower bound. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Range)
 	FFloatRangeBound LowerBound;
 
+	/** Holds the range's upper bound. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Range)
 	FFloatRangeBound UpperBound;
 };
 
-// An int32 range bound
-
+/**
+ * Defines a single bound for a range of values.
+ * @note This is a mirror of TRangeBound<int32>, defined in RangeBound.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FInt32RangeBound
 {
+	/** Holds the type of the bound. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Range)
 	TEnumAsByte<ERangeBoundTypes::Type> Type;
 
+	/** Holds the bound's value. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Range)
 	int32 Value;
 };
 
-// An int32 range
-
+/**
+ * A contiguous set of floats described by lower and upper bound values.
+ * @note This is a mirror of TRange<int32>, defined in Range.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FInt32Range
 {
+	/** Holds the range's lower bound. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Range)
 	FInt32RangeBound LowerBound;
 
+	/** Holds the range's upper bound. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Range)
 	FInt32RangeBound UpperBound;
 };
 
-// A float interval
-
+/**
+ * An interval of floats, defined by inclusive min and max values
+ * @note This is a mirror of TInterval<float>, defined in Interval.h
+ */
 USTRUCT(noexport)
 struct FFloatInterval
 {
+	/** Values must be >= Min */
 	UPROPERTY(EditAnywhere, Category=Interval)
 	float Min;
 
+	/** Values must be <= Max */
 	UPROPERTY(EditAnywhere, Category=Interval)
 	float Max;
 };
 
-// An int32 interval
-
+/**
+ * An interval of integers, defined by inclusive min and max values
+ * @note This is a mirror of TInterval<int32>, defined in Interval.h
+ */
 USTRUCT(noexport)
 struct FInt32Interval
 {
+	/** Values must be >= Min */
 	UPROPERTY(EditAnywhere, Category=Interval)
 	int32 Min;
 
+	/** Values must be <= Max */
 	UPROPERTY(EditAnywhere, Category=Interval)
 	int32 Max;
 };
 
-// Localization
-
+/** Categories of localized text (mirrored in LocalizedTextSourceTypes.h */
 UENUM(BlueprintType)
 enum class ELocalizedTextSourceCategory : uint8
 {
@@ -1179,33 +1320,70 @@ enum class ELocalizedTextSourceCategory : uint8
 	Editor,
 };
 
+/**
+ * Polyglot data that may be registered to the text localization manager at runtime.
+ * @note This struct is mirrored in PolyglotTextData.h
+ */
 USTRUCT(noexport, BlueprintType)
 struct FPolyglotTextData
 {
+	/**
+	 * The category of this polyglot data.
+	 * @note This affects when and how the data is loaded into the text localization manager.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PolyglotData)
 	ELocalizedTextSourceCategory Category;
 
+	/**
+	 * The native culture of this polyglot data.
+	 * @note This may be empty, and if empty, will be inferred from the native culture of the text category.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PolyglotData)
 	FString NativeCulture;
 
+	/**
+	 * The namespace of the text created from this polyglot data.
+	 * @note This may be empty.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PolyglotData)
 	FString Namespace;
 
+	/**
+	 * The key of the text created from this polyglot data.
+	 * @note This must not be empty.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PolyglotData)
 	FString Key;
 
+	/**
+	 * The native string for this polyglot data.
+	 * @note This must not be empty (it should be the same as the originally authored text you are trying to replace).
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PolyglotData)
 	FString NativeString;
 
+	/**
+	 * Mapping between a culture code and its localized string.
+	 * @note The native culture may also have a translation in this map.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PolyglotData)
 	TMap<FString, FString> LocalizedStrings;
 
+	/**
+	 * True if this polyglot data is a minimal patch, and that missing translations should be
+	 * ignored (falling back to any LocRes data) rather than falling back to the native string.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PolyglotData)
+	bool bIsMinimalPatch;
+
+	/**
+	 * Transient cached text instance from registering this polyglot data with the text localization manager.
+	 */
 	UPROPERTY(Transient)
 	FText CachedText;
 };
 
-// Automation
-
+/** Report level of automation events (mirrored in AutomationEvent.h). */
 UENUM()
 enum class EAutomationEventType : uint8
 {
@@ -1214,6 +1392,7 @@ enum class EAutomationEventType : uint8
 	Error
 };
 
+/** Event emitted by automation system (mirrored in AutomationEvent.h). */
 USTRUCT(noexport)
 struct FAutomationEvent
 {
@@ -1230,6 +1409,7 @@ struct FAutomationEvent
 	FGuid Artifact;
 };
 
+/** Information about the execution of an automation task (mirrored in AutomationEvent.h). */
 USTRUCT(noexport)
 struct FAutomationExecutionEntry
 {
@@ -1246,29 +1426,18 @@ struct FAutomationExecutionEntry
 	FDateTime Timestamp;
 };
 
-//=============================================================================
 /**
- * Object: The base class all objects.
- * This is a built-in Unreal class and it shouldn't be modified by mod authors.
- * The full C++ class is located here: Engine\Source\Runtime\CoreUObject\Public\UObject\UObject.h
+ * Direct base class for all UE4 objects
+ * @note The full C++ class is located here: Engine\Source\Runtime\CoreUObject\Public\UObject\Object.h
  */
-//=============================================================================
-
 UCLASS(abstract, noexport)
 class UObject
 {
 	GENERATED_BODY()
 public:
 
-	/**
-	 * Default UObject constructor.
-	 */
 	UObject(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
-	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
 	UObject(FVTableHelper& Helper);
-
-	//=============================================================================
-	// K2 support functions.
 	
 	/**
 	 * Executes some portion of the ubergraph.
@@ -1278,6 +1447,8 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, meta=(BlueprintInternalUseOnly = "true"))
 	void ExecuteUbergraph(int32 EntryPoint);
 };
+
+/// @endcond
 
 #endif
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,7 +7,7 @@
 #include "LightMap.h"
 
 class UMaterialInterface;
-struct FRawMesh;
+struct FMeshDescription;
 
 /** Structure containing information about the material which is being baked out */
 struct FMaterialData
@@ -28,11 +28,11 @@ struct FMaterialData
 struct FMeshData
 {
 	FMeshData()
-		: RawMesh(nullptr), Mesh(nullptr), bMirrored(false), VertexColorHash(0), TextureCoordinateIndex(0), LightMapIndex(0), LightMap(nullptr)
+		: RawMeshDescription(nullptr), Mesh(nullptr), bMirrored(false), VertexColorHash(0), TextureCoordinateIndex(0), LightMapIndex(0), LightMap(nullptr), LightmapResourceCluster(nullptr)
 	{}
 
 	/** Ptr to raw mesh data to use for baking out the material data, if nullptr a standard quad is used */
-	FRawMesh* RawMesh;
+	FMeshDescription* RawMeshDescription;
 
 	/** Ptr to original static mesh this mesh data came from */
 	UStaticMesh* Mesh;
@@ -60,6 +60,9 @@ struct FMeshData
 
 	/** Reference to the lightmap texture part of the level in the currently being baked out mesh instance data is resident */
 	FLightMapRef LightMap;
+
+	/** Pointer to the LightmapResourceCluster to be passed on the the LightCacheInterface when baking */
+	const FLightmapResourceCluster* LightmapResourceCluster;
 };
 
 /** Structure containing data being processed while baking out materials*/

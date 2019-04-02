@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "WmfMediaUtils.h"
 
@@ -94,17 +94,17 @@ namespace WmfMedia
 //		&MFVideoFormat_A2R10G10B10,
 //		&MFVideoFormat_A16B16G16R16F,
 //		&MFVideoFormat_ARGB32
-		&MFVideoFormat_RGB32,
-		&MFVideoFormat_RGB24,
+//		&MFVideoFormat_RGB32,
+//		&MFVideoFormat_RGB24,
 //		&MFVideoFormat_RGB555,
 //		&MFVideoFormat_RGB565,
 //		&MFVideoFormat_RGB8,
 
 		// 8-bit YUV (packed)
-		&MFVideoFormat_AYUV,
-		&MFVideoFormat_UYVY,
-		&MFVideoFormat_YUY2,
-		&MFVideoFormat_YVYU,
+//		&MFVideoFormat_AYUV,
+//		&MFVideoFormat_UYVY,
+//		&MFVideoFormat_YUY2,
+//		&MFVideoFormat_YVYU,
 
 		// 8-bit YUV (planar)
 //		&MFVideoFormat_I420,

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -576,7 +576,7 @@ protected:
 		FScope*							Scope,
 		FPropertyBase&                  VarProperty,
 		EPropertyFlags                  Disallow,
-		FToken*                         OuterPropertyType,
+		const FToken*                   OuterPropertyType,
 		EPropertyDeclarationStyle::Type PropertyDeclarationStyle,
 		EVariableCategory::Type         VariableCategory,
 		FIndexRange*                    ParsedVarIndexRange = nullptr);
@@ -702,7 +702,7 @@ protected:
 	 */
 	EFindName GetFindFlagForPropertyName(const TCHAR* PropertyName);
 
-	static void ValidatePropertyIsDeprecatedIfNecessary(FPropertyBase& VarProperty, FToken* OuterPropertyType);
+	static void ValidatePropertyIsDeprecatedIfNecessary(FPropertyBase& VarProperty, const FToken* OuterPropertyType);
 
 private:
 	// Source file currently parsed by UHT.
@@ -725,7 +725,6 @@ private:
 	 * @returns True if matched. False otherwise.
 	 */
 	bool TryToMatchConstructorParameterList(FToken Token);
-	void SkipDeprecatedMacroIfNecessary();
 
 	// Parses possible version declaration in generated code, e.g. GENERATED_BODY(<some_version>).
 	void CompileVersionDeclaration(UStruct* Struct);

@@ -1,0 +1,195 @@
+INTSourceChangelist:4531380
+Availability: Public
+Crumbs: 
+Title: 데이터스미스에 SketchUp Pro 사용
+Description: 데이터스미스를 사용하여 Trimble SketchUp Pro 씬을 언리얼 에디터로 가져올 때만 적용되는 특수 사항을 설명합니다.
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/SoftwareInteropGuides
+Order: 3
+Tags: Enterprise
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: overview
+Tags: SketchUp
+Tags: interop
+topic-image:sketchup_datasmith_topic.png
+
+
+[OBJECT:ComparisonSlider]
+[PARAM:before]
+![SketchUp](sketchup_datasmith_compare_skp.png) 
+[/PARAM]
+[PARAM:after]
+![UE4](sketchup_datasmith_compare_unreal.png) 
+[/PARAM]
+[/OBJECT]
+
+데이터스미스를 사용하여 Trimble SketchUp Pro 에서 언리얼 에디터로 씬을 가져오려는 경우, 데이터스미스가 씬을 처리하는 방식에 대해 [](Enterprise/Datasmith/Overview), [](Enterprise/Datasmith/Overview/ImportProcess) 의 기본적인 부분 이외에도 몇 가지 알아야 할 것이 있습니다.
+
+## SketchUp 워크플로
+
+데이터스미스는 SketchUp 에 **Export Plugin** (익스포트 플러그인) 워크플로를 사용합니다. 즉 데이터스미스를 사용하여 언리얼에 SketchUp 콘텐츠를 가져오는 방법은 다음과 같습니다.
+
+1.  SketchUp 용 플러그인을 설치합니다. [](Enterprise/Datasmith/SoftwareInteropGuides/SketchUp/InstallingExporterPlugin) 문서를 참고하세요.
+2.  SketchUp 콘텐츠를 *.udatasmith* 파일로 익스포트합니다. [](Enterprise/Datasmith/SoftwareInteropGuides/SketchUp/ExportingDatasmithContentfromSketchUp) 문서를 참고하세요.
+3.  데이터스미스 임포터를 사용하여 그 *.udatasmith* 파일을 언리얼 에디터로 가져옵니다. [](Enterprise/Datasmith/HowTo/ImportingContent) 문서를 참고하세요.
+
+## 지오메트리를 스태틱 메시로 변환
+
+데이터스미스는 SketchUp 지오메트리를 스태틱 메시 애셋으로 나누며, 같은 컴포넌트 또는 그룹에 있는 모든 연결 폴리곤 면은 하나의 스태틱 메시로 합칩니다. 이 전략을 알고 있으면 생성되는 스태틱 메시 작업에 도움이 됩니다.
+
+언리얼의 스태틱 메시가 매우 크다면, 씬의 스태틱 또는 스테이셔너리 라이트를 구울 때 좋은 결과를 얻기가 힘들 수 있습니다. 메시가 크면 라이트맵 텍스처도 그만큼 커야 모델 각 부분의 빛과 그림자 정보를 기록하기 충분할 만큼의 텍스처 공간을 확보할 수 있습니다. 큰 스태틱 메시에 라이트맵 해상도를 높여볼 수는 있지만, 그러면 굽는 시간과 런타임 메모리 요구량도 늘어납니다. 라이트맵 UV 레이아웃 방식에 따라 결과가 전혀 좋게 나오지 않을 수도 있습니다. 이 경우 SketchUp 에서 다수의 컴포넌트나 레이어에 걸쳐있는 큰 지오메트리를 분할하면 언리얼에서 처리하기 쉬운 스태틱 메시를 만들 수 있습니다.
+
+### 인스턴싱
+
+데이터스미스가 SketchUp 씬에서 같은 컴포넌트의 사본을 다수 발견한 경우, 그 컴포넌트에 대한 스태틱 메시 애셋 세트는 하나만 만들고, 씬에 그 스태틱 메시의 인스턴스를 다수 배치합니다. 보통 프로젝트의 런타임 메모리 요구량과 퍼포먼스 측면에서 더 좋을 뿐만 아니라, 콘텐츠 브라우저의 스태틱 메시 애셋 수를 관리하기도 쉬워집니다.
+
+가능하면 씬의 (창문, 문, 체인같은) 반복 요소를 SketchUp 에서 재사용 가능 컴포넌트로 만들어 이 기능을 활용하는 것이 좋습니다.
+
+### 빌보드
+
+SketchUp 씬에 회전하는 Billboard (빌보드)가 있는 경우, 데이터스미스는 스태틱 메시로 익스포트한 뒤 SketchUp 에서 익스포트할 때 카메라 시점에 따라 씬에 배치합니다.
+
+### 트라이앵글이 향하는 방향
+
+SketchUp 은 지오메트리가 향하는 방향에 대해 매우 관대합니다. "단면", 즉 두께가 없는 지오메트리를 만들어 양쪽에서 볼 수도 있고, 심지어 각 평면의 각기 다른 면에 각기 다른 머티리얼을 적용할 수도 있습니다.
+
+언리얼 엔진에서는 다른 접근법을 사용합니다. 모든 지오메트리에 두께가 있다 가정하고 모델링합니다. 카메라 반대쪽을 향하는 트라이앵글은 표면의 뒷면을 나타내며, 그 표면의 정면에서 봤을 때 숨길 수 있을 것으로 가정합니다. 런타임에 최고의 퍼포먼스를 이끌어내기 위해, 항상 그 뒷면을 향하는 트라이앵글을 **컬링** 하여 실제 보이지 않는 트라이앵글을 렌더링하느라 GPU 사이클을 낭비하지 않도록 합니다.
+
+항상 두께를 주고 3D 오브젝트를 모델링할 것을 권장합니다. 그래야 언리얼에서 예상대로 작동합니다. 하지만 SketchUp 에서 단면 지오메트리를 사용한다면, 데이터스미스는 최선을 다해 의도를 파악해서 스태틱 메시의 트라이앵글이 향하는 방향과 머티리얼을 설정합니다.
+
+*   SketchUp 의 표면 한 쪽에만 머티리얼이 할당된 경우, 그 표면을 언리얼에서 트라이앵글이 향하는 방향으로 선택합니다.
+*   그렇지 않으면, 데이터스미스는 SketchUp 의 표면 정면을 언리얼에서 향하는 방향으로 선택합니다.
+*   **양쪽** 면 모두 머티리얼이 할당된 경우, 데이터스미스는 정면의 머티리얼만 임포트합니다.
+
+기본적으로 단면 지오메트리의 트라이앵글은 언리얼 씬에서 뒷면에서 보면 나타나지 않는다는 뜻입니다. 게다가 그 뒤쪽을 향하는 면은 그림자를 드리우지도 않습니다.
+
+[OBJECT:ComparisonSlider]
+[PARAM:before]
+![SketchUp](sketchup_datasmith_single_side_skp.png) 
+[/PARAM]
+[PARAM:after]
+![언리얼](sketchup_datasmith_single_side_unreal.png) 
+[/PARAM]
+[/OBJECT]
+
+위 예제에서 각 박스의 측면과 하단은 바깥쪽을 향합니다. 왼쪽의 경우, 바깥을 향하는 쪽에는 단일 머티리얼이 할당되어 있습니다. 가운데의 경우, 양쪽에 하나씩 두 개의 머티리얼이 할당되어 있습니다. 오른쪽의 경우, 전체 그룹에 빨강 머티리얼이 할당되어 있고, 박스의 한 쪽에만 다른 머티리얼이 할당되어 있습니다. 바깥을 향하는 쪽의 색은 전부 언리얼로 변환되지만, 반대를 향하는 쪽의 색은 박스를 반대편에서 봤을 떄만 보입니다.
+
+이를 처리하는 가장 좋은 방법은 SketchUp 에서 오브젝트에 두께를 주어 수정하는 것입니다. 하지만 언리얼에서 고치려면, 다른 옵션이 있습니다. 자세한 내용은 [](Enterprise/Datasmith/Overview/ImportProcess) 문서를 참고하세요.
+
+## SketchUp 머티리얼
+
+SketchUp 씬의 다양한 표면 유형 각각에 대해, 데이터스미스는 언리얼에서 새 머티리얼 애셋을 생성하고, 데이터스미스 씬 애셋 옆 Materials 폴더에 저장합니다. 이 머티리얼의 목표는 SketchUp 에서 표면 외양을 구성한 방식을 최대한 따르면서, 언리얼의 물리 기반 렌더러를 최대한 활용할 수 있도록 부가 프로퍼티를 몇 가지 노출하는 것입니다.
+
+[REGION:lightbox]
+[![Editing a SketchUp material ](sketchup_datasmith_material_editing.png "Editing a SketchUp material ")](sketchup_datasmith_material_editing.png)
+
+*클릭하면 이미지 원본을 확인합니다.*
+[/REGION]1
+
+머티리얼 수정 방법입니다.
+
+1.  콘텐츠 브라우저에서 더블클릭합니다. 또는 수정하려는 머티리얼을 사용하는 레벨의 액터를 선택한 다음, **디테일** 패널에서 머티리얼을 더블클릭합니다.
+2.  위에 표시된 머티리얼 에디터를 열면 **디테일** 패널 상단의 **Parameter Groups** 섹션에서 이 파라미터를 수정할 수 있습니다. 언리얼 렌더러에 노출된 다른 내장 파라미터를 수정할 수도 있습니다.
+3.  프로퍼티 기본값을 덮어쓰려면, 먼저 머티리얼의 프로퍼티 이름 왼쪽 박스를 체크하여 활성화합니다. 그런 다음 프로퍼티에 사용하려는 값을 설정합니다.
+
+### 컬러 및 텍스처 이미지
+
+기본적으로 임포트한 머티리얼은 SketchUp 에 있던 텍스처 또는 컬러를 유지합니다. 이 값을 덮어쓰면 머티리얼이 단색 또는 텍스처를 사용하도록 할 수 있습니다.
+
+*   **Color** (컬러) 옵션 아니면 **Use Texture Image** (텍스처 이미지 사용) 옵션을 활성화합니다. (**Color** 옵션이 아예 안보이면, **Use Texture Image** 옵션을 먼저 비활성화하세요).
+*   단색을 사용하려면, **RGB** 색 값을 설정하여 원하는 색을 만듭니다.   
+    ![](datasmith-sketchup-material-color.png "datasmith-sketchup-material-color.png")  
+    참고로 A 채널은 사용하지 않습니다. 알파 블렌딩은 별도의 Opacity (오파시티) 옵션으로 제어합니다 (아래 참고).
+*   텍스처 이미지를 사용하기로 했다면, **Texture** 프로퍼티가 보입니다. 여기에 사용하고자 하는 텍스처 애셋을 지정할 수 있습니다. (이미 언리얼 프로젝트에 있지 않은 텍스처는 먼저 콘텐츠 브라우저에 끌어 놓아 프로젝트에 임포트해야 합니다.)  
+    ![](datasmith-sketchup-material-usetexture.png "datasmith-sketchup-material-usetexture.png")  
+    **Texture Scale** (텍스처 스케일) 컨트롤을 통해 표면의 텍스처 타일링 방식도 바꿀 수 있습니다. **R** 값은 가로 스케일 (UV 공간의 U 축), **G** 값은 세로 스케일 (UV 공간의 V 축)을 제어합니다. **B** 와 **A** 값은 사용하지 않습니다.
+
+
+[INCLUDE:#datasmith-sketchup-texture-scale-sequenceslider]
+
+[COMMENT:none]
+[EXCERPT:datasmith-sketchup-texture-scale-sequenceSlider]
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:max]
+	3
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	datasmith-sketchup-texture-scale-sequence
+	[/PARAMLITERAL]
+    [PARAM:caption]
+    다양한 텍스처 스케일 세팅의 효과입니다.
+    [/PARAM]
+    [PARAM:image_list]
+    ![](datasmith-sketchup-material-scale-1.png)
+	![](datasmith-sketchup-material-scale-2.png)
+	![](datasmith-sketchup-material-scale-3.png)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:datasmith-sketchup-texture-scale-sequenceSlider]
+[/COMMENT]
+
+### 오파시티 및 블렌드 모드
+
+머티리얼의 베이스 컬러에 단색을 사용하든 텍스처 맵을 사용하든, **Opacity** (불투명도, 오파시티) 컨트롤을 통해 스태틱 메시 뒤로 배경이 보이는 정도를 결정할 수 있습니다.
+
+기본적으로 SketchUp 의 머티리얼에 오파시티 값이 100% 미만인 경우, 언리얼의 머티리얼에 그 값을 제대로 가져옵니다.
+
+오파시티 세팅을 기존의 **투명** 머티리얼 이외의 것으로 설정하려면, 머티리얼의 블렌딩 모드를 변경해야 합니다. **General** (일반) 섹션에서 **Material Property Overrides** (머티리얼 프로퍼티 오버라이드) 그룹을 펼치고, **Blend Mode** (블렌드 모드) 옵션을 체크한 뒤 값을 **Translucent** (반투명)으로 설정합니다.
+
+[REGION:lightbox]
+[![SketchUp material opacity](sketchup_datasmith_material_opacity.png "SketchUp material opacity")](sketchup_datasmith_material_opacity.png)
+
+*클릭하면 이미지 원본을 확인합니다.*
+[/REGION]1
+
+### UE 확장 프로퍼티
+
+기본적으로 임포트한 모든 머티리얼은 메탈릭이 아닌 것으로, 러프니스 값은 중간인 0.5 로 설정합니다. 하지만 언리얼에서 씬 렌더링의 사실감을 높이려면 다양한 머티리얼에 이 값을 조정하는 것이 쉽습니다. 이 값은 프로퍼티의 **UE Extended** (UE 확장) 그룹에서 찾을 수 있습니다.
+
+![](datasmith-sketchup-material-ueextended.png "datasmith-sketchup-material-ueextended.png")
+
+*   금속으로 이루어진 오브젝트의 경우, **Metallic** (메탈릭) 옵션을 사용합니다. 베이스 컬러나 텍스처가 표면에 닿는 입사광에 영향을 주는 방식에 미묘한 차이가 생깁니다.
+
+[OBJECT:ComparisonSlider]
+[PARAM:before]
+![기본](sketchup_datasmith_material_metallic_off.png) 
+[/PARAM]
+[PARAM:after]
+![메탈릭 켬](sketchup_datasmith_material_metallic_on.png) 
+[/PARAM]
+[/OBJECT]
+
+*   오브젝트 표면이 특히 무광 또는 유광인 경우, **Roughness** (러프니스) 옵션을 체크하고 값을 높이거나 낮춥니다.
+
+[OBJECT:ComparisonSlider]
+[PARAM:before]
+![기본 러프니스 0.5](sketchup_datasmith_material_roughness_default.png) 
+[/PARAM]
+[PARAM:after]
+![러프니스 0.05](sketchup_datasmith_material_roughness_zero.png) 
+[/PARAM]
+[/OBJECT]
+
+*   오브젝트의 여러 부분에 광택이 다른 경우, Roughness Map (러프니스 맵을) 대신 사용할 수 있습니다. 러프니스 맵이란 무광 부분은 하양, 유광 부분은 검정으로 나타내는 회색조 텍스처 이미지입니다.
+*   러프니스 및 메탈릭 값과 광택 표면의 상관 관계에 대한 상세 정보는 [](Engine/Rendering/Materials/HowTo/ShinyMaterials) 문서를 참고하세요.
+*   추가로 임포트한 머티리얼에 노멀 맵을 구성할 수 있습니다. 그러면 렌더러에 지오메트리의 작은 스케일 표면 디테일 관련 힌트를 줄 수 있습니다.
+
+[OBJECT:ComparisonSlider]
+[PARAM:before]
+![노멀 맵 없음](sketchup_datasmith_material_normal_off.png) 
+[/PARAM]
+[PARAM:after]
+![노멀 맵 있음](sketchup_datasmith_material_normal_on.png) 
+[/PARAM]
+[/OBJECT]
+
+Adobe Photoshop 같은 2D 이미지 소프트웨어에서 노멀 맵과 러프니스 맵을 만들 수 있습니다. 위 텍스처와 마찬가지로 경우에 따라 머티리얼의 베이스 컬러 텍스처를 바탕으로 노멀 맵과 러프니스 맵을 사용할 수도 있습니다.
+
+## SketchUp Pro 전용
+
+데이터스미스 익스포터 플러그인은 현재 SketchUp Pro 에서만 작동합니다. SketchUp Free 또는 중단된 SketchUp Make 는 지원하지 않습니다.

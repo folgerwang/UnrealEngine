@@ -220,26 +220,26 @@ void parser_free(parser_t *parser)
     xmpp_free(parser->ctx, parser);
 }
 
-parser_t* GMallocParser = NULL;
+const xmpp_mem_t* GXmppMem = NULL;
 void* malloc_fcn(size_t size)
 {
-	return xmpp_alloc(GMallocParser->ctx, size);
+	return GXmppMem->alloc(size, GXmppMem->userdata);
 }
 
 void* realloc_fcn(void *ptr, size_t size)
 {
-	return xmpp_realloc(GMallocParser->ctx, ptr, size);
+	return GXmppMem->realloc(ptr, size, GXmppMem->userdata);
 }
 
 void free_fcn(void *ptr)
 {
-	xmpp_free(GMallocParser->ctx, ptr);
+	GXmppMem->free(ptr, GXmppMem->userdata);
 }
 
 /* shuts down and restarts XML parser.  true on success */
 int parser_reset(parser_t *parser, int depth)
 {
-	GMallocParser = parser;
+	GXmppMem = parser->ctx->mem;
 
     if (parser->expat)
         XML_ParserReset(parser->expat, NULL);

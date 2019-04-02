@@ -1,0 +1,236 @@
+﻿INTSourceChangelist:4401262
+Availability: Public
+Crumbs: 
+Title: Live Link插件
+Description: 描述如何启用并使用Live Link插件及虚幻引擎4的动画系统中的功能。 
+Type:landing
+Version: 4.19
+Parent: Engine/Animation
+Order: 1
+Tags: Animation, Animation Tools, Live Link
+
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    NRfZXRmHKtU
+    [/PARAMLITERAL]
+[/OBJECT]
+
+Live Link的目的是提供一个公共接口，以将来自外部源（例如，DDC工具或Mocap服务器）的动画数据流送至虚幻引擎4（UE4）并使用。它被设计成可以通过虚幻插件进行扩展，允许第三方开发新的特性，并有可能无需更改引擎和维持该更改。
+
+利用Maya或Motionbuilder等DDC工具，Live Link提供了一种在外部编辑动画时实时在UE4内部查看工作预览的方法。动作捕捉系统（Motion Capture System）也可使用Live Link将数据流送至引擎内，并实时预览该数据。
+
+## Live Link客户端
+
+![](LiveLinkGraph-3.png)
+
+Live Link的核心是 **Live Link客户端**。该客户端是在项目内部启用Live Link插件时创建的，负责两大主要事宜：  
+
+1.  **管理源**：这些是动画数据源，主要表示与其他应用程序（在同一台机器上或跨网络）的连接，并提供动画数据至Live Link。
+2.  **管理主题**：主题是客户端内的各个单独数据流。例如，一个动画角色就是一个主题。  
+      
+    一个主题由以下数据构成：
+    1.  名称
+    2.  参考骨架（骨骼的名称和层次结构）
+    3.  曲线键（按序排列的曲线名称）
+    4.  一个或多个“帧”
+        1.  每个帧包含骨骼变形列表（与参考骨架顺序匹配）和曲线的浮点值列表（与曲线键匹配）。
+    
+
+客户端还负责构建引擎要使用的下一个数据帧。这可能是最新收到数据的直接副本，或是通过缓冲传入数据并用用户可定义的延迟播放该数据而创建的插值帧。  
+
+ **源**  
+
+源是指数据进入Live Link客户端的方式。可在插件中定义源，使第三方无需更改引擎代码便可构建自己的源。源负责管理其接收动画数据的方式（例如通过网络协议，或从连接到机器本身的设备的 API 中读取）。每个源都收到一个客户端参考，允许源传递数据到该客户端。
+
+在Live Link插件中，我们定义了我们自己的源（称为 **消息总线源（Message Bus Source）**），该源从虚幻消息总线（Unreal Message Bus）连接中读取数据。我们已使用该源构建Maya和Motionbuilder的Live Link插件。
+
+## 启用Live Link
+
+可使用以下方式启用Live Link插件：打开插件（Plugins）窗口（**编辑（Edit）> 插件（Plugins）**），选择 **动画（Animation）** 类别，并在Live Link插件上选择 **已启用（Enabled）**。
+
+![](Step_02-1.png)
+
+一旦启用，即可从 **窗口（Window）** 菜单访问Live Link客户端。
+
+![](EnableLink_1-1.png)
+
+Live Link窗口将打开，您可在其中添加源类型（Source Types）和主题（Subjects）。
+
+![](LiveLinkWindow.png)
+
+上文中我们可以看到Live Link客户端，该客户端有一个开放连接，与正在运行我们插件的Maya实例相连（左上方部分）。该实例正在发送两个主题到编辑器“EditorActiveCamera”，其中一个主题名为“Maya”（左下方部分）。
+
+ **插值设置（Interpolation Settings）**
+
+添加源类型时，可 **使用插值（Use Interpolation）** 从 **细节（Details）** 面板应用已定义的 **插值偏移（Interpolation Offset）**。
+
+![](LiveLinkConnected-1.png)
+
+启用使用插值（Use Interpolation）设置，设置连接使用指定的插值偏移值。内插时，此值确定系统读取缓存的时间距离当前时间有多远（单位为秒）。
+
+## 编辑器集成
+
+目前，动画编辑器内置集成了Live Link。可在 **预览控制器（Preview Controller）** 属性下方的 **预览场景设置（Preview Scene Settings）** 选项卡中访问该插件。
+
+![](PreviewSceneSettings-3.png)
+
+启用Live Link插件后，可将预览控制器（Preview Controller）选项更改为 **Live Link预览控制器（Live Link Preview Controller）**。一旦选定，即可设置以下选项：
+
+*   **主题名称（Subject Name）**- Live Link中您想要应用到预览网格（Preview Mesh）的主题名称。
+*   **启用摄像机同步（Enable Camera Sync）**- 启用虚幻编辑器摄像机与外部编辑器的同步。此同步内部针对名为 **EditorActiveCamera** 的主题的Live Link。我们内部开发的Maya和Motionbuilder插件都支持此设置。
+*   **重定向资源（Retarget Asset）**- 此设置指定重定向资源以应用到Live Link数据，而Live Link数据将被应用到预览网格（Preview Mesh）。
+
+下文中，我们使用Maya Live Link插件在UE4和Maya之间建立了一个连接。
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    RHJpSyS_EIw
+    [/PARAMLITERAL]
+[/OBJECT]
+
+## Live Link重定向
+
+Live Link重定向目前由重定向资源（基类ULiveLinkRetargetAsset）执行。Live Link姿势节点有一个引脚，用于指定要使用的重定向资源。我们提供一个非常简单的重映射资源 (ULiveLinkRemapAsset)，以允许从Live Link将变形映射到USkeleton。以下是一个如何实施重定向资源的示例。
+
+Live Link重定向资源有一个需要覆盖的函数：
+
+    BuildPoseForSubject(const FLiveLinkSubjectFrame& InFrame, TSharedPtr<FLiveLinkRetargetContext> InOutContext, FCompactPose& OutPose, FBlendedCurve& OutCurve)
+
+此函数使用：
+
+*   LiveLinkSubjectFrame - Live Link所看到的变形或骨架，可选择进行缓冲和内插。
+*   FLiveLinkRetargetContext - 允许重定向实例数据，因为ULiveLinkRetargetAsset不会每次使用时都会实例化（可通过覆盖CreateRetargetContext以定制）。
+*   FCompactPose - 这是重定向中的输出姿势，FCompactPose是我们在动画评估期间使用的格式。
+*   FBlendedCurve - 这是输出曲线数据。ULiveLinkRetargetAsset有一个帮助函数BuildCurveData，此帮助函数会从提供的Live Link数据中填充该曲线数据。
+
+重定向资源也是可蓝图化的，允许用户在编辑器中指定逻辑（在合适的情况下）。此功能由重映射资源（Remap Asset）用于在编辑器中变换骨骼名称。
+
+ **Live Link重映射资源（Live Link Remap Asset）**
+
+  
+有关新建重定向资源所需条件的示例可在编辑器中找到，方法是在/Engine/Plugins/Animation/LiveLink/Source/LiveLink中查找以下类别：
+
+*   ULiveLinkRetargetAsset
+*   ULiveLinkRemapAsset  
+    
+
+在编辑器中，可使用 **LiveLinkRemapAsset** 类别类型创建重映射资源。  
+  
+
+![](RemapBlueprint-3.png)
+
+ 在重映射资源内，您可以覆盖函数 **Get Remapped Bone Name**。
+
+  
+
+![](RemapBlueprint2.png)
+
+ 这使您能够在编辑器中变换骨骼名称（Bone Name）。
+
+  
+
+![](GetRemappedBone.png)
+
+ 在上述示例中，我们从Maya的骨架网格中获取骨骼名称（Bone Name）信息。然后，该数据将在UE4中被修改并映射至骨骼名称命名惯例。
+
+例如，Maya中所用的命名惯例将我们的骨骼名称称为 *CharacterName:BoneName*。在UE4中，骨架资源仅使用 *BoneName* 部分。为了让Maya将数据流送至UE4骨架，我们使用重映射资源，通过在冒号处拆分字符串并仅使用冒号后的字符串信息（这样就是 *BoneName*，而不是 *CharacterName:BoneName*）来覆盖函数 **获取重新映射的骨骼名称（Get Remapped Bone Name）**。
+
+
+然后在 **预览场景设置（Preview Scene Settings）** 窗口中，指定使用重定位资源。  
+  
+
+![](RemapBlueprint3.png)
+
+## 其他Live Link用法
+
+除了从外部源预览，Live Link数据还有以下使用方式：
+
+### 动画蓝图  
+
+Live Link中的数据可以直接应用到动画蓝图内：  
+  
+
+![](AnimBPLiveLink.png)
+
+要达成此目的，可在动画蓝图的AnimGraph中创建一个 **Live Link姿势（Live Link Pose）** 节点。该节点有2个属性：
+
+*   **主题名称（Subject Name）**- 要从中流送数据的Live Link中的主题名称
+*   **重定位资源（Retarget Asset）**- 用于将Live Link中的数据应用到动画蓝图所用骨架的重定位资源。
+
+类似于动画蓝图中的任何其他姿势节点，Live Link姿势（Live Link Pose）节点的输出是一个法线姿势，因此可以像其他姿势那样操纵（例如馈送到Modifier或Blend节点中）。
+
+### 运动控制器
+
+Live Link可与运动控制器配合使用。运动控制器的运动源属性可设置为Live Link内的主题。  
+  
+
+![](MotionController.png)
+
+以这种方式设置时，运动控制器组件的位置由主题的首次变换所控制。
+
+  
+运动控制器集成还可访问Live Link主题上的自定义参数。这些参数由Live Link主题中内置的曲线支持传递。要访问这些值，必须从MotionControllerComponent派生新蓝图，并覆盖OnMotionControllerUpdated函数。在OnMotionControllerUpdated函数执行期间，可以在运动控制器上调用GetParameterValue
+
+以下是从Live Link中的某个强度（Intensity）参数中驱除一个光源组件强度的可能方式的示例：  
+  
+
+![](LiveLinkAnimMotionControllers.png)
+
+## 插件开发
+
+Live Link中有两种集成方式：   
+
+*   构建一个虚幻引擎插件并将一个新源公开到Live Link。
+
+如果已有自己的流协议，建议使用此方法。
+
+*   将一个消息总线（Message Bus）端点集成到第三方软件中，允许其作为内置消息总线源的数据发送器。
+
+针对我们的Maya和Motionbuilder插件，我们采用了此方法。
+
+[REGION:note]
+更多信息请参见 [](Engine/Animation/LiveLinkPlugin/LiveLinkPluginDevelopment) 页面。
+[/REGION]
+
+## Maya Live Link插件
+
+引擎随附的Maya Live Link插件的预制二进制文件可在引擎的安装文件夹中找到，地址为 **Engine\Extras\MayaLiveLink\LiveLinkMaya.zip**。Zip文件内有Windows版的Maya 2016/2017和2018 二进制文件。如需其他版本的二进制文件，可在（**Engine\Source\Programs\MayaLiveLinkPlugin**）中找到该插件的源代码。这可用于构建二进制文件。 
+
+[REGION:warning]
+部署4.19后，Maya Live Link插件未包括在Engine\Extras\MayaLiveLink文件夹内（应包含在内）。在部署热修复补丁以解决此问题之前，您可以使用 [此链接](https://epicgames.app.box.com/s/awdz97dguh6k61opwy66ovfhn3gpk1hg) 下载该内容。
+[/REGION]
+
+Maya插件采用Maya模块格式。要安装此插件，将zip文件内正确版本的文件夹内容复制到您的Maya模块文件夹。
+
+[REGION:note]
+请参见Maya文档获取模块说明。
+[/REGION]
+
+一旦Live Link插件被安装到Maya中并启用，它将在虚幻引擎中自动显示为一个连接。可在Maya中打开一个窗口，以访问流设置。这是由MEL命令MayaLiveLinkUI生成的，可绑定到工具栏按钮。
+
+![](MayaLiveLinkUI.png)  
+
+右上角屏幕显示此Maya实例是否连接到一个虚幻客户端。虚幻引擎Live Link下方是当前流送的所有主题的列表（上图中仅流送一个主题），更下方的窗口中提供用于向/从流中添加/移除主题的功能按钮。要添加工作，选择一个要从Maya场景流送的项目，将该主题的名称键入文本框，并单击 **添加主题（Add Subject）**。
+
+如需有关如何设置Maya Live Link插件的详细指南，请参见 [](Engine/Animation/LiveLinkPlugin/ConnectingUnrealEngine4toMayawithLiveLink) 方法指南。
+
+## Motionbuilder Live Link插件
+
+Motionbuilder插件提供与Maya插件相同的功能，并以类似方式在编辑器中显示为一个连接。它还有一个用于管理流的自定义UI：
+
+![](MotionBuilderLiveLinkPlugin.png)
+
+可从当前场景中选择对象，然后添加到流列表（如上图所示）。之后，可在 **主题名称（Subject Name）** 列中设置其名称，并可设置它们的 **流类型（Stream Type）**（摄像机、骨架等）。也可在此处启用和禁用主题上的流。

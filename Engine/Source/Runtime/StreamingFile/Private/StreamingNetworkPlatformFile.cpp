@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "StreamingNetworkPlatformFile.h"
 #include "Templates/ScopedPointer.h"
@@ -275,6 +275,16 @@ public:
 		}
 
 		return Result;
+	}
+
+	virtual bool Flush(const bool bFullFlush = false) override
+	{
+		return false;
+	}
+
+	virtual bool Truncate(int64 NewSize) override
+	{
+		return false;
 	}
 };
 

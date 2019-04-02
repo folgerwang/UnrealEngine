@@ -1,7 +1,8 @@
-﻿Availability: Public
-Title:1.1 - 基础贴花
-Crumbs:%ROOT%, Resources, Resources/ContentExamples/Decals
-Description:贴花示例关卡概述，示例1.1： 基础贴花
+INTSourceChangelist:3782314
+Availability: Public
+Title:1.1 - 基本贴花
+Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Decals
+Description:贴花示例关卡概述，示例1.1：基本贴花
 Related: Engine/Actors/DecalActor
 Related: Engine/Rendering/Materials/PhysicallyBased
 Related: Engine/Rendering/Materials
@@ -10,70 +11,33 @@ Related: Engine/Rendering/Materials/ExpressionReference
 Related: Engine/Rendering/Materials/MaterialInputs
 Related: Engine/Rendering/Materials/LayeredMaterials
 Related: Engine/Rendering/Materials/MaterialInstances
+Version: 4.9
+topic-image:Resources\ContentExamples\Decals\Decals_1.png
 
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/Decals/1_1:title%](Resources\ContentExamples\Decals\Decals_1.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Decals/1_1:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Decals/1_1:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/Decals/1_1]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/Decals/1_1:title%](Resources\ContentExamples\Decals\Decals_1.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Decals/1_1:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Decals/1_1:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/Decals/1_1]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [REGION:fullwidth]
 
 ![%Resources/ContentExamples/Decals/1_1:title%](Resources\ContentExamples\Decals\Decals_1.png)
 
-## 概述
-
-贴花是关卡中投射到网格物体的材质，包括Static Meshes（静态网格物体）和Skeletal Meshes（骨架网格物体）。这些网格物体的 **Mobility** （可移动性）可能设置为Static（静态）或Movable （可移动），但贴花将仍会投射在它们上。许多贴花可以被同时渲染而不会导致较大的性能下降。随着屏幕空白尺寸加大和着色器指令数量变多，性能表现将会下降。
+[/REGION]
 
 
-您可以直接从类浏览器中添加贴花Actor。您需要在之后制作新的材质，并将其 **Material Domain** （材质域）属性更改为 _Deferred Decal_ （延迟贴花）。您可以在随后应用Material（材质）到Decal（贴花）Actor。
+**贴花** 是投射到关卡中网格体（包括静态网格体和骨架网格体）上的材质。无论这些网格体的“移动性（Mobility）”设置为“静态（Static）”还是“可移动（Movable）”，贴花都可以投射到它们上面。可以同时渲染许多贴花，而且这不会造成性能大幅下降。但是，如果屏幕空间较大而且着色器指令数较大，性能将会下降。
+
+
+你可以直接从 **模式（Modes）** 面板的 **所有类（All Classes）** 选项卡添加 “延迟贴花（Deferred Decal）”Actor。然后，你需要创建新材质并在该材质的 **细节（Details）** 面板中将 **材质域（Material Domain）** 属性更改为 **延迟贴花（Deferred Decal）**。然后，你就可以将该材质应用给此贴花Actor。
 
 ![](DecalActorList.png)
 
-Decal（贴花）Actor显示为线框盒体。在中心位置将总有一个箭头指向贴花投射的方向。
+此贴花Actor将显示为线框。其中央始终有一个箭头，它指向贴花投射的方向。
 
 ![](Decal_arrow.png)
 
-贴花的投射距离由贴花平面粒子的周边盒体的X轴范围所决定。当表面接近该盒体的范围，将会出现贴花淡出的混合区域。
+贴花投射距离是由围绕贴花Sprite的盒体的X-轴标度决定的。当表面靠近此盒体的范围时，两者将会混合，而且贴花将逐渐消失。
 
 ![](DecalFadeaway.png)
+
 [REGION:caption]
-上图中，您可以看到后面墙体上的贴花投射随表面因远离Decal（贴花）Actor而开始混出。
+在上图中你可以看到，当表面距离此贴花Actor过远时，背墙上的贴花投射将开始淡出。
 [/REGION]
 
-
-[/REGION]

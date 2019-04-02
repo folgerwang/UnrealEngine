@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2654644
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:13.Play in Editor 和测试
 Crumbs:%ROOT%, Engine, Gameplay/AI, Engine/AI/EnvironmentQuerySystem, Engine/AI/EnvironmentQuerySystem/QuickStart
@@ -26,6 +26,7 @@ version:4.9
 之前已设好 [行为树](Engine/AI/EnvironmentQuerySystem/QuickStart/9)，并指令 [AI 控制器](Engine/AI/EnvironmentQuerySystem/QuickStart/7) 开始运行，即可进行测试！
 
 
+(#Steps)
 ## 步骤
 
 * 点击 **Play in Editor** 按钮，观看 AI 逃离玩家的追踪。

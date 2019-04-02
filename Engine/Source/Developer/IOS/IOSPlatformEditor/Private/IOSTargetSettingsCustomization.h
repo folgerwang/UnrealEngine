@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -227,6 +227,9 @@ private:
 
 	//
 	FText GetIOSTeamIDText(TSharedRef<IPropertyHandle> InPropertyHandle) const;
+
+	/** Module callback for when the iOS settings tab is selected */
+	void OnSelect();
 
 	TSharedPtr< SEditableTextBox > BundleIdTextBox;
 

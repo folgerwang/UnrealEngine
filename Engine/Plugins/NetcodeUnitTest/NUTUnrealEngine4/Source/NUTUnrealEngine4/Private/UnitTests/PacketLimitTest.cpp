@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "UnitTests/PacketLimitTest.h"
 
@@ -178,7 +178,7 @@ void UUnitTestNetConnection::ValidateSendBuffer()
 				IpConn->FlushNet();
 
 
-				FOutBunch* TestBunch = MinClient->CreateChannelBunch(CHTYPE_Control, 0);
+				FOutBunch* TestBunch = MinClient->CreateChannelBunchByName(NAME_Control, 0);
 
 				if (TestBunch != nullptr)
 				{

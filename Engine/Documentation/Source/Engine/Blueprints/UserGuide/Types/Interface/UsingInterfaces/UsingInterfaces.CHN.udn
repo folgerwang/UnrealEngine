@@ -1,119 +1,152 @@
-﻿Availability:Public
-Title:实现蓝图接口
+﻿INTSourceChangelist:3782314
+Availability:Public
+Title:实施蓝图接口
 Crumbs: %ROOT%, Engine/Blueprints, Engine/Blueprints/UserGuide/Types/Interface
-Description: 蓝图接口允许蓝图调用不同类型的目标中的函数，前提是这些目标蓝图中实现了该接口。
-
+Description:蓝图接口允许蓝图调用不同目标类型的函数（如果它们也实现了该接口）。
+Version: 4.9
+tags:Blueprints
+topic-image:Engine/Blueprints/UserGuide/using_interface_topic.png
 
 [TOC (start:2)]
 
+(#usinginterfacesinblueprints)
 ## 在蓝图中使用接口
 
-使用 _蓝图接口_ ，允许您通过一种通用方法，来和具有某些特定功能的多种不同类型的对象 
-进行交互。这意味着您可以具有属于完全不同类型但又共有一些特性的对象，比如一辆汽车和一棵树， 
-它们都可以受到武器的射击，并且都会受到伤害。通过创建一个包含  `OnTakeWeaponFire`  
-函数的 _蓝图接口_ ，并让汽车和树都实现那个 _蓝图接口_ ， 
-当汽车或树两者中任何一个被射中时，您可以把它们看成相同的类型，仅需简单地调用 `OnTakeWeaponFire` 函数即可。
+[EXCERPT:intro]
+使用 **蓝图接口（Blueprint Interfaces）** 提供了一种实现与多个不同类型的对象交互的通用方法， 
+这些对象都共享某些特定的功能。这意味着您可以拥有完全不同类型的对象，比如一辆车和一棵树，它们有一个共同的特点， 
+那就是它们都可以被武器射击并受到伤害。通过创建包含“OnTakeWeaponFire”函数的蓝图接口，并让车和树都实施该蓝图接口， 
+您可以将车和树视为同一类型， 
+在它们被击中时只需调用“OnTakeWeaponFire”函数。
+[/EXCERPT:intro]
 
+
+(#addinginterfaces)
 
 ### 添加接口
 
-在原生代码(C++)中定义的 _蓝图接口_ 及 _接口_ ，都可以添加到除了 _关卡蓝图_ 之外的任何类型的 _蓝图_ 中。
+蓝图接口以及在本地代码(C++)中定义的接口都可以添加到任何类型的[蓝图](Engine/Blueprints)。
 
-1. 点击[工具条](Engine/Blueprints/Editor/UIComponents/Toolbar)上的![](BlueprintProps.png)按钮。
+1. 从主关卡编辑器（Main Level Editor）窗口中，打开您项目中的 **关卡蓝图（Level Blueprint）**。 
 
-1. 在 _详细信息_ 选卡中，滚动到 **Interfaces（接口）** 类目处。点击 ![](button_AddInterface.png) 按钮来查看可用的接口列表。点击您想使用的接口来添加它。
+	![](OpenLevelBP.png)(w:640)
+
+1. 单击顶部[工具栏](Engine/Blueprints/Editor/UIComponents/Toolbar)中的 **类设置（Class Settings）** 按钮。
+
+	![](ClassSettings.png)
+
+1. 在右侧的 **细节（Details）** 面板上，找到 **接口（Interfaces）** 类别。 
+
+1. 单击 **添加接口（Add Interface）** 按钮以查看可用接口的列表，然后选择要使用的接口。 
 
 	![](InterfacesCategory.png)
 
 	![](InterfacesListPopulated.png)
 
 [REGION:tip]
-	通过点击 _Implemented Interfaces（已实现的接口）_ 列表中每个接口旁边的  ![](button_X_Remove.png) 按钮，可以删除接口。您也可以将蓝图接口迁移为正常的蓝图函数。关于更多信息，请参照 [](Engine/Blueprints\UserGuide\BlueprintComms\InterfaceMigration)。
+	可单击 **已实施的接口（Implemented Interfaces）** 列表上各个接口旁的![](button_X_Remove.png)按钮以移除该接口。您还可以从蓝图接口（Blueprint Interfaces）迁移到普通的蓝图函数。有关更多信息，请参阅[](Engine/Blueprints/UserGuide/BlueprintComms/InterfaceMigration)。
 [/REGION]
 
 [REGION:note]
-	接口类目中的 _Inherited Interfaces（继承的接口）_ 部分自动地填充了该对象所继承的任何接口(也就是，在当前蓝图继承的蓝图中实现的接口)。
+	接口类别中的 **已继承的接口（Inherited Interfaces）** 部分自动填充此对象继承的任何接口（即在派生当前蓝图的蓝图中实施）。
 [/REGION]
 
 
 
-###实现接口成员
+(#implementinginterfacemembers)
 
-当把一个 _接口_ 添加到一个 _蓝图_ 中时，那个 _蓝图_ 必须 **实现** 该 _接口_ 的函数，才能 
-在调用函数时执行动作。这可以通过在 **事件图表** 中为 _接口_ 函数放置一个 _Event(事件)_ 节点来完成。
-连接到该 _Event(事件)_ 上的节点定义了函数的功能或实现。
+### 实施接口成员
 
-1. 右击该 _蓝图_ 的 **事件图表** ，并选择 **Add Event >Event Example Function**  （把你正在实现的 _接口_ 中的函数名称替换为 **Example Function**  
-)。_Event（事件）_ 节点将显示在 **图表** 选卡中。
+当您将一个接口添加到蓝图中后，该蓝图必须实施该接口的各项功能，以便在调用时 
+使它们执行任何操作。通过在 **EventGraph** 中为接口函数放置 **事件（Event）** 节点来可满足此要求。 
+连接到事件（Event）的节点定义函数的功能或实施。
+
+1. 在蓝图的 **EventGraph** 中 **右键单击**，并选择 **添加事件（Add Event）> 事件...（Event...）** 
 
 	![Implement Interface - Add Event](k2_interface_event_menu.png) ![Implement Interface - Event Node](k2_interface_event_graph.png)
 
-1. 创建连接到该 _事件_ 的执行引脚的节点网络，来为其设置功能。
+	选择要添加的事件类型，该事件随即将添加到图表中。 
+
+1. 创建连接到该事件的可执行引脚的节点网络，以向其提供功能。
 
 	![Implement Interface - Event Implementation](k2_interface_event_implementation.png)
 
 	
+(#callinginterfacefunctions)
+
 ### 调用接口函数
 
-_接口_ 的函数通过使用 **Interface Message（接口消息）** 节点来执行，这些节点除了在目标没有实现该 _接口_ 时会执行失败且没有征兆提示外，   
-其外观和行为和正常的[](Engine/Blueprints/UserGuide/Functions/FunctionCalls) 
-一样。
+接口的函数通过使用 **接口消息（Interface Message）** 节点来执行，这些函数的外观和行为都与普通 
+[](Engine/Blueprints/UserGuide/Functions/FunctionCalls)类似，而不同之处仅在于，如果目标没有实施该接口， 
+它们可能会失败但不发出任何通知。
 
 ![Implement Interface - Call Function](k2_interface_event_call.png)
 
 
-### 在其他蓝图上调用接口函数
+(#callinginterfacefunctionsonotherblueprints)
 
-接口在不同蓝图间进行通信方面是非常有用的。您可以在其他蓝图上调用一个接口中的函数。当满足以下两个条件时就可以这样做：
+### 调用其他蓝图上的接口函数
 
-* 两个蓝图实现了具有所需函数的同一个接口。
-* 调用接口的蓝图知道另一个蓝图在游戏中的实例的名称。
+接口可用于允许不同蓝图之间的通信。您可以在其他蓝图上调用来自单个接口的函数。这可以在满足2个条件时完成：
+
+* 这两个蓝图均实施了具有所需函数的相同接口。
+* 调用方蓝图知道另一个蓝图的游戏内实例的名称。
 
 
-当在事件图表中创建一个Interface Function(接口函数)节点时，您通常看到关联菜单中列出了该函数的两个版本。
+在事件图表中创建接口函数节点时，您经常会看到上下文菜单中列出的两个版本的函数。 
 
 ![](MyFunctionInMenu.png)
 
-值得注意的是列在 **Call Function(调用函数)** 下面的版本是本地版本，旨在仅从这个蓝图中调用该函数。
+需要注意的是，**调用函数（Call Function）** 下列出的版本是一个本地版本，其仅用于在此蓝图中调用。 
 
-在  **Interface Messages（接口消息）** 下面列出的版本的设计目的是：在其他实现了同样接口的蓝图中上通过该接口调用该函数。
+ **接口消息（Interface Messages）** 下列出的版本旨在通过实施相同接口的其他蓝图上的接口调用函数。
 
-在节点标题的下面有些标签，以帮助您进行区分：
+节点标题下面有一些标签，以帮助进行区分：
 
 [REGION:imagetable]
 | ![](Local_MyFunction.png)| ![](Interface_MyFunction.png) |
 | ------ | ------ |
-| 本地版本 | 接口消息版本 |
+| 本地版本。| 接口消息（Interface Message）版本。|
 [/REGION]
 
-调用一个 Interface Message Function(接口消息函数)，需要您提供您在其上面调用该函数的适当蓝图的实例。
+调用接口消息函数（Interface Message Function）需要您提供调用该函数时所在的相应蓝图的实例。
 
-注意，在这个图片中，我们正在发送另一个蓝图作为Target（目标）输入。这将会在提供的蓝图上调用该函数。如果那个蓝图没有实现该接口，那么将不会发生任何事情。
+注意，在此图像中，我们将发送另一个蓝图作为目标输入。这将调用所提供的蓝图上的函数。如果该蓝图未实施接口，则什么都不会发生。
 
 ![](InterfaceMessageFunctionCalled.png)
 
 [REGION:tip]
-	要想指定一个关卡中存在的蓝图，最好创建一个 'Actor' 类型的公有变量，并使用关卡编辑器的详细信息选卡在那个变量的值处赋予适当的蓝图。
+	若要指定存在于关卡内的蓝图，最好是创建一个类型为“Actor”的公共变量，并使用关卡编辑器的 **细节（Details）** 选项卡在该变量的值中指定适当的蓝图。
 [/REGION]
 
-### 重写接口函数
+(#callinginterfacefunctionsonlevelblueprints)
 
-接口函数的其中一个最重要的方面是：因为它们没有自己的实现，所以每个实现该接口的蓝图可以独立地定义功能。
+### 调用关卡蓝图上的接口函数
 
-一旦蓝图实现了一个接口后，该接口的函数就会显示在 ** 我的蓝图** 面板中。
+接口还可允许子关卡之间使用 **获取流送关卡（Get Streaming Level）** 节点进行通信。如果关卡已加载且有效，则 **接口消息（Interface Message）** 将调用以该关卡的蓝图脚本为目标的函数。
+
+![](InterfaceGetLevelStreaming.png)
+
+(#overridinganinterfacefunction)
+
+### 覆盖接口函数
+
+接口函数最重要的方面之一是，由于它们没有自己的实施，因此可以为实施接口的每个蓝图独立定义它们的功能。
+
+一旦蓝图实施了某个接口，则该接口的函数将出现在 **我的蓝图（My Blueprint）** 面板中。
 
 ![](iFunctionInExplorer.png)
 
-如果你双击那个函数，将会在蓝图编辑器中打开它。这显示了该函数的本地实现。这里所定义的任何功能对于这个蓝图都是唯一的。通过这种方式，您可以为实现该接口的每个蓝图定义定制的功能。
+如果您 **双击** 该函数，它将在蓝图编辑器中打开。这显示了该函数的本地实施。这里定义的任何功能对于这个蓝图都是唯一的。通过这种方式，您可以为实施该接口的每个蓝图定义自定义功能。
 
-比如，在这个图片中，我们看到一个在蓝图中打开的基本接口函数。目前，函数没有任何功能。
+例如，在此图像中，我们看到一个在蓝图中打开的基本接口函数。现在，这个函数没有执行任何操作。
 
 ![](DefaultFunction.png)(w:600)
 
-我们可以创建一个简单的节点网络，来进行数值比较、输出值等类似这样的处理。
+我们可以创建一个简单的网络来进行数字比较，然后输出值，正如下图所示。
 
 ![](ComparisonFunction.png)(w:600)
 
-现在，当从本地调用函数时，函数将取入一个浮点值，将其和数值10进行比较，然后向屏幕输出布尔型结果。
+现在，当您在本地调用该函数时，它将采用一个浮点数，并将其与数字10进行比较，然后将布尔结果输出到屏幕上。
 
 ![](FunctionLogging.png)

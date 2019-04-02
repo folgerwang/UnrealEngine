@@ -1,7 +1,9 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ScriptCodeGeneratorBase.h"
 #include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "UObject/Class.h"
 #include "ScriptGeneratorLog.h"
 
 FScriptCodeGeneratorBase::FScriptCodeGeneratorBase(const FString& InRootLocalPath, const FString& InRootBuildPath, const FString& InOutputDirectory, const FString& InIncludeBase)

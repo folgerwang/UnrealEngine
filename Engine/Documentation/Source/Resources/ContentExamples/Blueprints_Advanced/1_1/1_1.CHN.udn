@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:2712780
+﻿INTSourceChangelist:3782314
 Availability: Public
-Title:1.1 - 随机网格物体
+Title:1.1——随机网格体
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Blueprints
-Description:高级蓝图示例关卡概述，示例1.1： 随机散射网格物体
+Description:高级蓝图关卡实例1.1概览：随机分布的网格体
 Related: Engine/Blueprints/Overview 
 Related: Engine/Blueprints/UserGuide/Components
 Related: Engine/Blueprints/UserGuide/Variables
@@ -57,29 +57,29 @@ AdvBP_1_1_ConstructionScript.png
 ![](blueprint_advanced_1_1.png)
 
 
-## 概述
 
-**BP_Random_Meshes** _蓝图_ 使用构建脚本在一定半径内对静态网格物体进行随机散射，使用变量让用户自定义静态网格物体的缩放，旋转和间距。所有的静态网格物体实际上都是在 **BP_Random_Meshes** _蓝图_ 内的组件。
 
-[INCLUDE:Resources\ContentExamples\Blueprints#BlueprintsCEInstructions] 
+**BP_Random_Meshes** 蓝图使用构造脚本在一个半径中随机分布静态网格体，使用公开的变量让用户能够自定义静态网格体的缩放、旋转和间距。所有静态网格体实际上都是BP_Random_Meshes蓝图中的组件。
 
-## 构建脚本
+
+
+(#constructionscript)
+
+## 构造脚本
 
 [REGION:lightbox]
 [![](AdvBP_1_1_ConstructionScript.png)](AdvBP_1_1_ConstructionScript.png)
 [/REGION]
 [REGION:caption]
-点击以查看完整尺寸图片或右键点击并另存。
+点击查看全图或 **点击右键** 并选择“另存为”。
 [/REGION]
 
 
 
-*	**ForLoop** 节点被用来对脚本的一个部分进行指定数量的重复。本例中， **Number of meshes** （网格物体数量）变量同时是 **ForLoop** 将要重复的数量，每次都会添加新的 _StaticMeshComponent_ （静态网格物体组件）。
-*	**RandomFloatInRange** 节点被用来对 _StaticMeshComponents_ 以及被使用的 _StaticMesh_ 资源的位置，范围，以及旋转进行随机化处理。
-*	用户可使用数组来定义将在蓝图中对 _StaticMeshComponents_ 进行设置的一系列的可能 _StaticMeshes_ （静态网格物体）。在添加完 _StaticMeshComponent_ 后，使用随机索引号从数组中挑选 _StaticMesh_ 资源并将它们指派到最新添加的 _StaticMeshComponent_ 中。
+*	**ForLoop** 节点用于将脚本的一个片段以特定次数重复。在此情况下，网格体变量的数量也是ForLoop重复的次数，每次添加一个新的StaticMeshComponent。
+*	**RandomFloatInRange** 用于随机生成StaticMeshComponents的位置、缩放和旋转，以及正在使用的StaticMesh资源。
+*	数组可允许用户指定一个可用StaticMesh的列表，它们可设为蓝图中的StaticMeshComponents。添加每个StaticMeshComponent后，将使用一个随机索引数从排列中选取一个StaticMesh资源，并指定到新添加的StaticMeshComponent。
 
 [/REGION]
 
-
-<!----
 

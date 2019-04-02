@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /**
  *
@@ -488,6 +488,11 @@ static int32 RenderCounterHeadings( class FCanvas* Canvas, const int32 X, const 
 
 	// Draw the max column label.
 	RightJustify(Canvas, CurrX, Y, TEXT("Max"), Globals.HeadingColor);
+	CurrX += Globals.InterColumnOffset;
+
+	// Draw the max column label.
+	RightJustify(Canvas, CurrX, Y, TEXT("Min"), Globals.HeadingColor);
+
 	return Globals.GetFontHeight() + (Globals.GetFontHeight() / 3);
 }
 
@@ -628,6 +633,22 @@ static int32 RenderCounter( const FGameThreadStatsData& ViewData, const FComplex
 		const FString ValueFormatted = FormatStatValueInt64( All.GetValue_int64( EComplexStatField::IncMax ) );
 		RightJustify(Canvas, CurrX, Y, *ValueFormatted, Globals.StatColor);
 	}
+
+	CurrX += Globals.InterColumnOffset;
+
+	// Append the minimum.
+	if (All.NameAndInfo.GetField<EStatDataType>() == EStatDataType::ST_double)
+	{
+		const FString ValueFormatted = FormatStatValueFloat(All.GetValue_double(EComplexStatField::IncMin));
+		RightJustify(Canvas, CurrX, Y, *ValueFormatted, Globals.StatColor);
+	}
+	else if (All.NameAndInfo.GetField<EStatDataType>() == EStatDataType::ST_int64)
+	{
+		const FString ValueFormatted = FormatStatValueInt64(All.GetValue_int64(EComplexStatField::IncMin));
+		RightJustify(Canvas, CurrX, Y, *ValueFormatted, Globals.StatColor);
+	}
+
+
 	return Globals.GetFontHeight();
 }
 
@@ -720,6 +741,12 @@ void RenderArrayOfStats( FCanvas* Canvas, const int32 X, int32& Y, const TArray<
 		}
 
 		Y += FunctionToCall( ViewData, ComplexStat, Canvas, X, Y, TotalGroupBudget, bIsBudgetIgnored );
+
+		// Stop drawing after we have gone off the bottom of the screen, if in budget mode continue to gather avg/max stats
+		if (!bBudget && Y > (Globals.SizeXY.Y + Globals.GetFontHeight()))
+		{
+			break;
+		}
 	}
 
 	if (MaxStatsPerGroup < Aggregates.Num())

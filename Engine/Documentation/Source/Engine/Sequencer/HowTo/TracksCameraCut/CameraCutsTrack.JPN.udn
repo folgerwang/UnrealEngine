@@ -1,122 +1,118 @@
-﻿INTSourceChangelist:3683933
+﻿INTSourceChangelist:4377326
 Availability:Public
-Title:カメラ カットの作業
+Title:カメラ カットで作業する
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
-Description:Camera Cuts トラックで複数のカメラを使用する方法を説明します。 
-Version:4.12
-SkillLevel:Intermediate
+Description:カメラ カット トラックで複数のカメラを使用する方法を説明します。
+Version: 4.20
+SkillLevel: Intermediate
 parent:Engine/Sequencer/HowTo
 order:1
-checkpoint: editorqs
+checkpoint:editorqs
 Related:Engine/Sequencer/Overview
-Related:Engine\Sequencer\ReferenceEditor\
 tags:Sequencer
 type:how-to
 
-シネマティックスでコンテンツの用意ができたら、異なるカメラ視点からそのコンテンツを撮影することがあります。 
-シーケンサーでこれを行うには、 **Camera Cuts トラック** を使用し、シーン内の任意の時間にどのカメラを使用するかを選択します。 
+シネマティックスでコンテンツの用意ができたら、異なるカメラ視点からそのコンテンツを撮影したい場合があります。
+シーケンサーでこれを行うには、 **カメラ カット トラック** を使用して、シーン内の任意の時間にどのカメラを使用するかを選択します。
 
-このサンプルでは、Camera Cuts トラックを使用してカメラ間で切り替えて、2 人のキャラクターが互いに話をしているかのようにします。 
+この例では、カメラ カット トラックを使用してカメラ間で切り替えて、2 人のキャラクターが互いに話をしているかのようにします。
 
 ## ステップ
 
 [REGION:note]
-ここでは **Starter Content Enabled (スターター コンテンツを有効にした状態)** で **Blueprint Third Person Template** プロジェクトを使います。 
+ここでは、 **Starter Content を有効にした状態** で **Blueprint Third Person Template** プロジェクトを使用します。
 [/REGION]
 
-1.	ビューポートでは **ThirdPersonCharacter** を選択し、レベルから **Delete** します。 
+1.	ビューポートで **[ThirdPersonCharacter]** を選択して、 **[Delete]** でレベルから削除します。
 
 	![](cameras01.png)
+	
+	ゲームをプレイする場合は操作するキャラクターになりますが、この例では不要です。
 
-	このサンプルでは不要ですが、ゲームをプレイする場合にプレイ可能なキャラクターです。 
+1.	**コンテンツ ブラウザ** で **[Content] > [Mannequin] > [Character] > [Mesh]** に移動し、 **SK_Mannequin** をレベルにドラッグします。
 
-1.	**コンテンツ ブラウザ** の **Content/Mannequin/Character/Mesh** で **SK_Mannequin** をレベルにドラッグします。
+	![](CameraCuts_02.png)
 
-	![](cameras02.png)
+1.	2 つ目の **SK_Mannequin** をレベルに追加して、最初のマネキンと向かい合うように回転します。
 
-1.	**Alt** を押しながら、**SK_Mannequin** のコピーをドラッグします。 
+	![](SecondCharacter.png)
 
-	![](cameras03.png)
+	こうした 2 体のマネキン間でサンプル シーンを撮影し、各マネキンからのカメラ視点を交互に切り替えます。
 
-1.	 **E** キーを押して 2 つめの SK_Mannequin を回転させて 1 つめの SK_Mannequin と向き合うようにします。 
+1.	メイン ツールバーから **[Cinematics]** ドロップダウン メニューをクリックして、**[Add Level Sequence]** を選択します。
 
-	![](cameras04.png)
+	![](CameraCuts_03.png)
 
-	こうした 2 体のマネキン間でサンプル シーンを撮影し、各マネキンからのカメラ視点を交互に切り替えます。 
+1.	**Ctrl** キーを押した状態で両方のマネキンを選択し、シーケンサーの **[+ Track]** をクリックして **[Add Current Selection]** を選択します。
 
-1.	メイン ツールバーから、**[Cinematics]** ドロップダウン メニューをクリックします。次に、**[Add Level Sequence]** を選択します。 
+	![](CameraCuts_04.png)
 
-	![](cameras05.png)
+	これで両方のスケルタル メッシュ アクタがシーケンサーに追加され、アニメートできるようになります。
 
-1.	**Ctrl** キーを押した状態で、両方のマネキンを選択し、シーケンサーで **[Add]** をクリックし、**[Add Current Selection (現在の選択を追加)]** を選択します。 
+1.	各アニメーション トラックの **[+ Animation]** ボタンをクリックして、それぞれに **ThirdPersonIdle** を追加します。
 
-	![](cameras06.png)
+	![](CameraCuts_05.png)
 
-	これで両方の Skeletal Mesh アクタがシーケンサーに追加され、アニメートすることができます。 
+	オプションとして、アイドル アニメーションをシーンの長さ分ストレッチして、アイドル状態を続けるようにすることができます。
 
-1.	各 Animation トラックの **+ Animation** をクリックして、それぞれに **ThirdPersonIdle** を追加します。  
+	![](CameraCuts_06.png)
+	
+1.	**[Modes]** パネルの **[Cinematic]** で、 **Cine Camera アクタ** をレベルにドラッグします。
 
-	![](cameras07.png)
+	![](CameraCuts_07.png)
 
-	オプションでアイドル アニメーションをシーンの長さ分ストレッチして、アイドル状態を続けるようにすることができます。 
+1.	**Ctrl + Shift + P** キーを押し、カメラを **Pilot** 操作して 1 体のマネキンの肩に載せます。
 
-	![](cameras18.png)
+	![](CameraCuts_08.png)
 
-1.	**[Modes]** パネルの **[Cinematic]** から **Cine Camera アクタ** をレベルにドラッグします。 
+	**右のマウス ボタン** を押した状態で **WASD** キーを押すと、レベル内を飛び回ってカメラ視点で見ることができます。どのように見えるかがわかりやすいため、これで希望通りのショットを簡単に構成することができます。
 
-	![](cameras08.png)
+	[REGION:note]
+	**Pilot** モードを終了するには **[Eject]** ボタンをクリックします。
 
-1.	**Ctrl+Shift+P** キーを押して、カメラを **Pilot** 操作し、一体のマネキンの肩に載せます。 
+	![](CameraCuts_09.png)
+	[/REGION]
 
-	![](cameras10.png)
+1.	2 つ目の **Cine Camera アクタ** を追加して、もう 1 体のマネキンの肩に載せます。
 
-	**右マウス ボタン** を押した状態で、**WASD** キーを押すと、レベル内を飛び回ってカメラ視点で見ることができます。どのように見えるかがわかりやすいため、これでお望みのようにショットを簡単に作ることができます。 
+	![](CameraCuts_10.png)
 
-	**[Pilot]** モードを終了するには、**[Eject]** ボタンをクリックします。 
+1.	**Ctrl** キーを押したまま両方のカメラを選択し、シーケンサーに追加します。
 
-	![](cameras11.png)
+	![](CameraCuts_11.png)
 
-1.	もう 1 つのカメラを選択し、もう一体のマネキンの肩に Pilot 操作で移動します。 
+	カメラをシーケンサーに追加すると、**カメラ カット** トラックが自動的に追加されて、最初に追加したカメラがデフォルトで使用するカメラとして割り当てられます。
 
-	![](cameras12.png)
+	![](CameraCuts_12.png)
 
-1.	**Ctrl** キーを押したまま、両方のカメラを選択してシーケンサーに追加します。 
+	カメラ カット トラックは、**[+ Track]** オプション メニューから手動で追加することもできます。
 
-	![](cameras13.png)
+	![](CameraCuts_13.png)
 
-1.	**[Add]** ボタンをクリックし、**Camera Cut トラック** を選択します。 
+	上の図では [Camera Cuts Track] がグレイ アウトされています。これは、シーケンスに割り当てることができるのは 1 つのカメラ カット トラックのみであるためです。
 
-	![](cameras14.png)
+1.	タイムライン マーカーをフレーム **50** に移動し、 **[+ Camera]** ボタンをクリックして別のカメラを追加します。
 
-1.	**[+ Camera]** ボタンをクリックして、どちらかのカメラを選択します。 
+	![](CameraCuts_14.png)
 
-	![](cameras15.png)
+1.	タイムライン マーカーをフレーム **100** に移動し、 **[+ Camera]** ボタンをクリックして最初のカメラを追加します。
 
-	カメラの名前は上の画面のものとは異なる場合があります。 
+	![](CameraCuts_15.png)
 
-1.	タイムライン マーカーをフレーム **50** に移動し、**+ Camera** ボタンをクリックし、もうひとつのカメラを追加します。 
+	これで、最初のカメラで始まり、2 つ目のカメラに切り替わって、再び最初のカメラに戻るシーケンスが作成されました。
 
-	![](cameras16.png)
+1.	**カメラ カット トラック** の **[Lock Viewport to Camera Cuts]** ボタンをクリックします。
 
-1.	タイムライン マーカーをフレーム **100** に移動し、**+ Camera** ボタンをクリックし、ステップ 13 で使用したカメラを追加します。
+	![](CameraCuts_16b.png)
 
-	![](cameras17.png)
+	これで、シネマティックスに対して、このトラックとカメラを使用してシーンを表示するよう設定したことになります。
 
-1.	**[Viewport Type]** を **[Cinematic Viewport]** に変更します。 
-
-	![](cameras20.png)
-
-1.	**Camera Cuts トラック** で、**[Lock Viewport to Camera Cuts (ビューポートをカメラカットにロック)]** ボタンをクリックします。 
-
-	![](cameras19.png)
-
-	これでシネマティックスに対して、このトラックとカメラを使用してシーンを表示するように指示します。
-
-1.	ビューポートで **[Play]** ボタンをクリックし、シーンをプレビューします。 
+1.	ビューポートで **[Preview Play]** ボタンをクリックし、シーンをプレビューします。
+	
 
 ## 最終結果
 
-再生中に、カメラ視点が Camera Cuts トラックで使用される 2 つのカメラに変わるのがわかります。 
+再生してみると、カメラ視点がカメラ カット トラックで使用している 2 つのカメラで切り替わるのがわかります。
 
 [OBJECT:EmbeddedVideo]
 [PARAMLITERAL:width]
@@ -130,14 +126,13 @@ HrtO-_tpBJM
 [/PARAMLITERAL]
 [/OBJECT]
 
-上の画像では、**Game View** (ビューポートの **G** キー) も入力し、再生中にカメラを非表示にしました。 
+上の動画では、**Game View** (ビューポートの **G** キー) も入力し、再生中にカメラを非表示にしました。
 
-**Add Camera** ショートカットを使うと、クリック一回で Camera Cuts トラックにカメラを割り当てることができます。 
+また、 **[Add Camera]** ショートカットを使うと、クリック 1 回で、カメラを追加してカメラ カット トラックに割り当てることができます。
 
-![](cameras23.png)
+![](CameraCuts_17.png)
 
-また、追加したカメラは自動的に Pilot モードに入ります。 
-
+追加したカメラは自動的に Pilot モードに入ります。
 
 
 

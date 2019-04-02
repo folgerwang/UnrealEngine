@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -535,7 +535,7 @@ public:
 	virtual void LocalTravel(const FString& URL);
 
 	/** Return the client to the main menu gracefully */
-	DEPRECATED(4.19, "As an FString, the ReturnReason parameter is not easily localized. Please use ClientReturnToMainMenuWithTextReason instead.")
+	UE_DEPRECATED(4.19, "As an FString, the ReturnReason parameter is not easily localized. Please use ClientReturnToMainMenuWithTextReason instead.")
 	UFUNCTION(Reliable, Client)
 	virtual void ClientReturnToMainMenu(const FString& ReturnReason);
 
@@ -1031,16 +1031,37 @@ public:
 	 * @param	ForceFeedbackEffect		The force feedback pattern to play
 	 * @param	bLooping				Whether the pattern should be played repeatedly or be a single one shot
 	 * @param	bIgnoreTimeDilation		Whether the pattern should ignore time dilation
+	 * @param	bPlayWhilePaused		Whether the pattern should continue to play while the game is paused
 	 * @param	Tag						A tag that allows stopping of an effect.  If another effect with this Tag is playing, it will be stopped and replaced
 	 */
-	UFUNCTION(unreliable, client, BlueprintCallable, Category="Game|Feedback")
+	UFUNCTION(BlueprintCallable, Category="Game|Feedback", meta=(DisplayName="Client Play Force Feedback", AdvancedDisplay="bIgnoreTimeDilation,bPlayWhilePaused"))
+	void K2_ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, FName Tag, bool bLooping, bool bIgnoreTimeDilation, bool bPlayWhilePaused);
+
+private:
+	/** 
+	 * Internal replicated version of client play force feedback event. 
+	 * Cannot be named ClientPlayForceFeedback as redirector for blueprint function version to K2_... does not work in that case
+	 */
+	UFUNCTION(unreliable, client)
+	void ClientPlayForceFeedback_Internal(class UForceFeedbackEffect* ForceFeedbackEffect, FForceFeedbackParameters Params = FForceFeedbackParameters());
+
+public:
+
+	/** 
+	 * Play a force feedback pattern on the player's controller
+	 * @param	ForceFeedbackEffect		The force feedback pattern to play
+	 * @param	Params					Parameter struct to customize playback behavior of the feedback effect
+	 */
+	void ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, FForceFeedbackParameters Params = FForceFeedbackParameters())
+	{
+		ClientPlayForceFeedback_Internal(ForceFeedbackEffect, Params);
+	}
+
+	UE_DEPRECATED(4.22, "Use version that specifies parameters using a struct instead of a list of parameters")
 	void ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, bool bLooping, bool bIgnoreTimeDilation, FName Tag);
 
-	DEPRECATED(4.18, "Use version that specifies whether to ignore time dilation or not")
-	void ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, bool bLooping, FName Tag)
-	{
-		ClientPlayForceFeedback(ForceFeedbackEffect, bLooping, false, Tag);
-	}
+	UE_DEPRECATED(4.18, "Use version that specifies parameters using a struct instead of a list of parameters")
+	void ClientPlayForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, bool bLooping, FName Tag);
 
 	/** 
 	 * Stops a playing force feedback pattern
@@ -1126,6 +1147,12 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Game|Feedback")
 	void SetControllerLightColor(FColor Color);
+	
+	/**
+	 * Resets the light color of the player's controller to default
+	 */
+	UFUNCTION(BlueprintCallable, Category="Game|Feedback")
+	void ResetControllerLightColor();
 
 	/**
 	 * Travel to a different map or IP address. Calls the PreClientTravel event before doing anything.
@@ -1438,10 +1465,10 @@ private:
 
 public:
 	/** Adds an inputcomponent to the top of the input stack. */
-	void PushInputComponent(UInputComponent* Input);
+	virtual void PushInputComponent(UInputComponent* Input);
 
 	/** Removes given inputcomponent from the input stack (regardless of if it's the top, actually). */
-	bool PopInputComponent(UInputComponent* Input);
+	virtual bool PopInputComponent(UInputComponent* Input);
 
 	/** Flushes the current key state. */
 	virtual void FlushPressedKeys();
@@ -1452,7 +1479,7 @@ public:
 	/** Handles a touch screen action */
 	virtual bool InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, float Force, FDateTime DeviceTimestamp, uint32 TouchpadIndex);
 
-	DEPRECATED(4.20, "InputTouch now takes a Force")
+	UE_DEPRECATED(4.20, "InputTouch now takes a Force")
 	bool InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, FDateTime DeviceTimestamp, uint32 TouchpadIndex)
 	{
 		return InputTouch(Handle, Type, TouchLocation, 1.0f, DeviceTimestamp, TouchpadIndex);
@@ -1497,8 +1524,10 @@ public:
 	virtual bool IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const override;
 	virtual void FellOutOfWorld(const class UDamageType& dmgType) override;
 	virtual void Reset() override;
-	virtual void Possess(APawn* aPawn) override;
-	virtual void UnPossess() override;
+protected:
+	virtual void OnPossess(APawn* aPawn) override;
+	virtual void OnUnPossess() override;
+public:
 	virtual void CleanupPlayerState() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void Destroyed() override;
@@ -1670,7 +1699,7 @@ public:
 	/** Gives the PlayerController an opportunity to cleanup any changes it applied to the game viewport, primarily for the touch interface */
 	virtual void CleanupGameViewport();
 
-	/** @Returns true if input should be frozen (whether UnFreeze timer is active) */
+	/** Returns true if input should be frozen (whether UnFreeze timer is active) */
 	virtual void AcknowledgePossession(class APawn* P);
 
 	/** Clean up when a Pawn's player is leaving a game. Base implementation destroys the pawn. */
@@ -1691,7 +1720,7 @@ public:
 	 */
 	virtual void ViewAPlayer(int32 dir);
 
-	/** @return true if this controller thinks it's able to restart. Called from GameModeBase::PlayerCanRestart */
+	/** Returns true if this controller thinks it's able to restart. Called from GameModeBase::PlayerCanRestart */
 	UFUNCTION(BlueprintCallable, Category = "Game")
 	virtual bool CanRestartPlayer();
 
@@ -1758,12 +1787,12 @@ public:
 	 */
 	virtual bool DefaultCanUnpause();
 
-	/** @return true if game is currently paused. */
+	/** Returns true if game is currently paused. */
 	bool IsPaused() const;
 
 	bool InputEnabled() const { return bInputEnabled; }
 
-	/** @return true if we fully tick when paused (and if our tick function is enabled when paused).	 */
+	/** Returns true if we fully tick when paused (and if our tick function is enabled when paused).	 */
 	bool ShouldPerformFullTickWhenPaused() const;
 
 	/** returns whether the client has completely loaded the server's current world (valid on server only) */
@@ -1868,7 +1897,7 @@ public:
 	 */
 	virtual void InitInputSystem();
 
-	/** @returns true if input should be frozen (whether UnFreeze timer is active) */
+	/** Returns true if input should be frozen (whether UnFreeze timer is active) */
 	virtual bool IsFrozen();
 
 	/**

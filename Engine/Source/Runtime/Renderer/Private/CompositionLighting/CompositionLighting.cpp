@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	CompositionLighting.cpp: The center for all deferred lighting activities.
@@ -16,6 +16,8 @@
 #include "PostProcess/PostProcessSubsurface.h"
 #include "LightPropagationVolumeSettings.h"
 #include "DecalRenderingShared.h"
+#include "VisualizeTexture.h"
+#include "RayTracing/RaytracingOptions.h"
 
 /** The global center for all deferred lighting activities. */
 FCompositionLighting GCompositionLighting;
@@ -121,7 +123,9 @@ bool ShouldRenderScreenSpaceAmbientOcclusion(const FViewInfo& View)
 			&& (FSSAOHelper::IsBasePassAmbientOcclusionRequired(View) || IsAmbientCubemapPassRequired(View) || IsReflectionEnvironmentActive(View) || IsSkylightActive(View) || View.Family->EngineShowFlags.VisualizeBuffer)
 			&& !IsSimpleForwardShadingEnabled(View.GetShaderPlatform());
 	}
-
+#if RHI_RAYTRACING
+	bEnabled &= !ShouldRenderRayTracingAmbientOcclusion();
+#endif
 	return bEnabled;
 }
 
@@ -274,14 +278,14 @@ void FCompositionLighting::ProcessAfterBasePass(FRHICommandListImmediate& RHICmd
 	SceneContext.GetSceneColor()->SetDebugName(TEXT("SceneColor"));
 	// to be able to observe results with VisualizeTexture
 
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GetSceneColor());
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferA);
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferB);
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferC);
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferD);
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferE);
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferVelocity);
-	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.ScreenSpaceAO);
+	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GetSceneColor());
+	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferA);
+	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferB);
+	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferC);
+	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferD);
+	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.GBufferE);
+	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.SceneVelocity);
+	GVisualizeTexture.SetCheckPoint(RHICmdList, SceneContext.ScreenSpaceAO);
 	
 	// so that the passes can register themselves to the graph
 	{
@@ -325,7 +329,12 @@ void FCompositionLighting::ProcessAfterBasePass(FRHICommandListImmediate& RHICmd
 		if (!IsForwardShadingEnabled(View.GetShaderPlatform()))
 		{
 			FRenderingCompositeOutputRef AmbientOcclusion;
-
+#if RHI_RAYTRACING
+			if (ShouldRenderRayTracingAmbientOcclusion() && SceneContext.bScreenSpaceAOIsValid)
+			{
+				AmbientOcclusion = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessInput(SceneContext.ScreenSpaceAO));
+			}
+#endif
 			uint32 SSAOLevels = FSSAOHelper::ComputeAmbientOcclusionPassCount(Context.View);
 			if (SSAOLevels)
 			{
@@ -348,13 +357,14 @@ void FCompositionLighting::ProcessAfterBasePass(FRHICommandListImmediate& RHICmd
 						TEXT("Ambient occlusion decals are not supported with Async compute SSAO."));
 				}
 
-				if (FSSAOHelper::IsBasePassAmbientOcclusionRequired(Context.View))
-				{
-					FRenderingCompositePass* Pass = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessBasePassAO());
-					Pass->AddDependency(Context.FinalOutput);
+			}
 
-					Context.FinalOutput = FRenderingCompositeOutputRef(Pass);
-				}
+			if (SceneContext.bScreenSpaceAOIsValid && FSSAOHelper::IsBasePassAmbientOcclusionRequired(Context.View))
+			{
+				FRenderingCompositePass* Pass = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessBasePassAO());
+				Pass->AddDependency(Context.FinalOutput);
+
+				Context.FinalOutput = FRenderingCompositeOutputRef(Pass);
 			}
 
 			if (IsAmbientCubemapPassRequired(Context.View))

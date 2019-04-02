@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -66,6 +66,7 @@ public:
 	virtual IOnlineAchievementsPtr GetAchievementsInterface() const override;
 	virtual IOnlinePresencePtr GetPresenceInterface() const override { return nullptr; }
 	virtual IOnlineChatPtr GetChatInterface() const override { return nullptr; }
+	virtual IOnlineStatsPtr GetStatsInterface() const override { return nullptr; }
 	virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const override { return nullptr; }
 	virtual IOnlineTournamentPtr GetTournamentInterface() const override { return nullptr; }
 

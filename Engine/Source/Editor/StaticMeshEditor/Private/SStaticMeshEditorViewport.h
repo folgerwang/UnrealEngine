@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -127,6 +127,7 @@ protected:
 	virtual void BindCommands() override;
 	virtual void OnFocusViewportToSelection() override;
 	virtual TSharedPtr<SWidget> MakeViewportToolbar() override;
+	virtual void PopulateViewportOverlays(TSharedRef<SOverlay> Overlay) override;
 
 private:
 	/** Determines the visibility of the viewport. */
@@ -149,6 +150,9 @@ private:
 
 	/** Callback for updating preview socket meshes if the static mesh or socket has been modified. */
 	void OnObjectPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent);
+
+	/** Override for preview component selection to inform the editor we consider it selected. */
+	bool PreviewComponentSelectionOverride(const UPrimitiveComponent* InComponent) const;
 private:
 	
 	/** The parent tab where this viewport resides */
@@ -174,4 +178,7 @@ private:
 
 	/** Current LOD Selection where 0 is Auto */
 	int32 LODSelection;
+
+	/** Handle to the registered OnPreviewFeatureLevelChanged delegate. */
+	FDelegateHandle PreviewFeatureLevelChangedHandle;
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PerforceSourceControlOperations.h"
 #include "PerforceSourceControlPrivate.h"
@@ -341,6 +341,8 @@ bool FPerforceCheckInWorker::Execute(FPerforceSourceControlCommand& InCommand)
 			// Batch reopen into multiple commands, to avoid command line limits
 			const int32 BatchedCount = 100;
 			InCommand.bCommandSuccessful = true;
+			TArray<FString> ReopenedFiles;
+			ReopenedFiles.Reserve(InCommand.Files.Num());
 			for (int32 StartingIndex = 0; StartingIndex < InCommand.Files.Num() && InCommand.bCommandSuccessful; StartingIndex += BatchedCount)
 			{
 				FP4RecordSet Records;
@@ -351,12 +353,20 @@ bool FPerforceCheckInWorker::Execute(FPerforceSourceControlCommand& InCommand)
 				ReopenParams.Insert(FString::Printf(TEXT("%d"), ChangeList), 1);
 				int32 NextIndex = FMath::Min(StartingIndex + BatchedCount, InCommand.Files.Num());
 
+				int32 FileParamsStartIdx = ReopenParams.Num();
 				for (int32 FileIndex = StartingIndex; FileIndex < NextIndex; FileIndex++)
 				{
 					ReopenParams.Add(InCommand.Files[FileIndex]);
 				}
 
 				InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("reopen"), ReopenParams, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+				if (InCommand.bCommandSuccessful)
+				{
+					for (int32 ParamIdx = FileParamsStartIdx; ParamIdx < ReopenParams.Num(); ++ParamIdx)
+					{
+						ReopenedFiles.Add(ReopenParams[ParamIdx]);
+					}
+				}
 			}
 
 			if (InCommand.bCommandSuccessful)
@@ -397,6 +407,43 @@ bool FPerforceCheckInWorker::Execute(FPerforceSourceControlCommand& InCommand)
 					{
 						OutResults.Add(*Iter, EPerforceState::ReadOnly);
 					}
+				}
+			}
+
+			// If the submit failed, clean up the changelist created above
+			if (!InCommand.bCommandSuccessful)
+			{
+				// Reopen the assets to the default changelist to remove them from the changelist we created above
+				if (ReopenedFiles.Num() > 0)
+				{
+					bool bReopenSuccessful = true;
+					for (int32 StartingIndex = 0; StartingIndex < ReopenedFiles.Num() && bReopenSuccessful; StartingIndex += BatchedCount)
+					{
+						FP4RecordSet Records;
+						TArray< FString > ReopenParams;
+
+						//Add changelist information to params
+						ReopenParams.Insert(TEXT("-c"), 0);
+						ReopenParams.Insert(TEXT("default"), 1);
+						int32 NextIndex = FMath::Min(StartingIndex + BatchedCount, ReopenedFiles.Num());
+
+						int32 FileParamsStartIdx = ReopenParams.Num();
+						for (int32 FileIndex = StartingIndex; FileIndex < NextIndex; FileIndex++)
+						{
+							ReopenParams.Add(ReopenedFiles[FileIndex]);
+						}
+
+						bReopenSuccessful = Connection.RunCommand(TEXT("reopen"), ReopenParams, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+					}
+				}
+
+				// Delete the changelist we created above
+				{
+					FP4RecordSet Records;
+					TArray<FString> ChangeParams;
+					ChangeParams.Add(TEXT("-d"));
+					ChangeParams.Add(FString::Printf(TEXT("%d"), ChangeList));
+					Connection.RunCommand(TEXT("change"), ChangeParams, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 				}
 			}
 		}
@@ -707,7 +754,10 @@ static void ParseUpdateStatusResults(const FP4RecordSet& InRecords, const TArray
 				const FString OtherOpenRecordKey = FString::Printf(TEXT("otherOpen%d"), OpenIdx);
 				const FString OtherOpenRecordValue = ClientRecord(OtherOpenRecordKey);
 
-				BranchModification.OtherUserCheckedOut += OtherOpenRecordValue;
+				int32 AtIndex = OtherOpenRecordValue.Find(TEXT("@"));
+				FString OtherOpenUser = AtIndex == INDEX_NONE ? FString(TEXT("")) : OtherOpenRecordValue.Left(AtIndex);
+				BranchModification.OtherUserCheckedOut += OtherOpenUser + TEXT(" @ ") + Branch;
+
 				if (OpenIdx < OtherOpenNum - 1)
 				{
 					BranchModification.OtherUserCheckedOut += TEXT(", ");
@@ -745,6 +795,15 @@ static void ParseUpdateStatusResults(const FP4RecordSet& InRecords, const TArray
 		FPerforceSourceControlState& State = OutStates.Last();
 		State.DepotFilename = DepotFileName;
 
+		FString Branch;
+		FString BranchFile;
+		if (DepotFileName.Split(ContentRoot, &Branch, &BranchFile))
+		{
+			// Sanitize
+			Branch.RemoveFromEnd(FString(TEXT("/")));
+			BranchFile.RemoveFromStart(FString(TEXT("/")));
+		}
+
 		State.State = EPerforceState::ReadOnly;
 		if (Action.Len() > 0 && Action == TEXT("add"))
 		{
@@ -774,7 +833,10 @@ static void ParseUpdateStatusResults(const FP4RecordSet& InRecords, const TArray
 				const FString OtherOpenRecordKey = FString::Printf(TEXT("otherOpen%d"), OpenIdx);
 				const FString OtherOpenRecordValue = ClientRecord(OtherOpenRecordKey);
 
-				State.OtherUserCheckedOut += OtherOpenRecordValue;
+				int32 AtIndex = OtherOpenRecordValue.Find(TEXT("@"));
+				FString OtherOpenUser = AtIndex == INDEX_NONE ? FString(TEXT("")) : OtherOpenRecordValue.Left(AtIndex);
+				State.OtherUserCheckedOut += OtherOpenUser + TEXT(" @ ") + Branch;
+
 				if(OpenIdx < OtherOpenNum - 1)
 				{
 					State.OtherUserCheckedOut += TEXT(", ");
@@ -791,11 +853,6 @@ static void ParseUpdateStatusResults(const FP4RecordSet& InRecords, const TArray
 		{
 			State.State = EPerforceState::NotInDepot;
 		}
-
-		// If checked out or modified in another branch, setup state
-		FString BranchFile;
-		FileName.Replace(TEXT("\\"), TEXT("/")).Split(ContentRoot, nullptr, &BranchFile);
-		BranchFile.RemoveFromStart(TEXT("/"));
 
 		State.HeadBranch = TEXT("*CurrentBranch");
 		State.HeadAction = HeadAction;
@@ -1161,7 +1218,7 @@ bool FPerforceUpdateStatusWorker::Execute(FPerforceSourceControlCommand& InComma
 					}
 				}
 
-				Parameters.Add(File);
+				Parameters.Add(MoveTemp(File));
 			}
 
 			// Initially successful
@@ -1240,7 +1297,16 @@ bool FPerforceUpdateStatusWorker::Execute(FPerforceSourceControlCommand& InComma
 			FP4RecordSet Records;
 			// Query for open files different than the versions stored in Perforce
 			Parameters.Add(TEXT("-sa"));
-			Parameters.Append(InCommand.Files);
+			for (FString File : InCommand.Files)
+			{
+				if (IFileManager::Get().DirectoryExists(*File))
+				{
+					// If the file is a directory, do a recursive diff on the contents
+					File /= TEXT("...");
+				}
+
+				Parameters.Add(MoveTemp(File));
+			}
 			InCommand.bCommandSuccessful &= Connection.RunCommand(TEXT("diff"), Parameters, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 
 			// Parse the results and store them in the command

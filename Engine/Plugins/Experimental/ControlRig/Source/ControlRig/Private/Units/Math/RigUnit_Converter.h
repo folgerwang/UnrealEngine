@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "CoreMinimal.h"
@@ -41,7 +41,7 @@ struct FRigUnit_ConvertEulerTransform : public FRigUnit
 };
 
 USTRUCT(meta = (DisplayName = "ConvertToQuaternion", Category = "Math|Convert"))
-struct FRigUnit_ConvertVectorRotation : public FRigUnit
+struct FRigUnit_ConvertRotation : public FRigUnit
 {
 	GENERATED_BODY()
 

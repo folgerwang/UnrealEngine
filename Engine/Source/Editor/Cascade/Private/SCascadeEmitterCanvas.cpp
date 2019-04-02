@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SCascadeEmitterCanvas.h"
 #include "Widgets/SBoxPanel.h"
@@ -77,7 +77,6 @@ void SCascadeEmitterCanvas::Construct(const FArguments& InArgs)
 void SCascadeEmitterCanvas::RefreshViewport()
 {
 	Viewport->Invalidate();
-	Viewport->InvalidateDisplay();
 }
 
 bool SCascadeEmitterCanvas::IsVisible() const

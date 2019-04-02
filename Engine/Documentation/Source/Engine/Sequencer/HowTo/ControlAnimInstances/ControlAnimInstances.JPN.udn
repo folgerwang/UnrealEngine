@@ -1,0 +1,103 @@
+﻿INTSourceChangelist:4322984
+Availability: Public
+Title: シーケンサで Anim インスタンスを制御する
+Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
+Description: Possessable (所有可能なもの) を通して anim インスタンスの変数をアニメートする方法を示します
+Version: 4.20
+SkillLevel: Advanced
+parent: Engine/Sequencer/HowTo
+order: 1
+tags: Sequencer
+type: how-to
+
+シーケンサ内ではPossessable (所有可能なもの) を通じて Anim インスタンスの変数をアニメートすることが可能で、Anim Blueprint 変数、関数およびその他のコンテンツを直接制御することができます。Skeletal Mesh コンポーネント トラックを加えることで Anim Instance Track へのアクセスを得ることができます。ここではシネマティックスに公開されたすべての変数が表示され、キーフレーム化することが可能です。
+
+この操作ガイドでは、Animation Blueprint で定義されている複数のアニメーション ポーズをシーケンサ内でキーフレーム化することで、これらの変更をブレンドします。
+
+[REGION:banner]
+![image alt text](image_0.png)
+[/REGION]
+
+## ステップ
+
+このガイドでは、新しい ** Blueprint Third Person ** テンプレート プロジェクトを使用します。 
+
+1. ** Content/Mannequin/Character/Mesh ** フォルダで ** SK_Mannequin ** を右クリックし、 ** Create ** の ** Anim Blueprint ** を選択して名前を付けます。
+
+	![image alt text](image_1.png)(w:624 convert:false)
+
+1. コンテンツ ブラウザで右クリックし、 ** Blueprints ** で ** Enumeration ** を選択して「MoveType」と名前を付けます。
+
+	![image alt text](image_2.png)(w:540 convert:false)
+
+1. ** [New] ** ボタンをクリックして、 ** Idle 、 Walk ** および ** Run ** という名前の 3 つのエミュレータを作成します。
+
+	![image alt text](image_3.png)(w:624 convert:false)
+
+1. ステップ 1 で作成した ** Animation Blueprint ** を開き、「 MoveType 」という名前の ** MoveType ** タイプの変数を作成し、 ** Expose to Cinematics ** を有効にします。
+
+	![image alt text](image_4.png)(w:434 convert:false)
+
+1. ** Anim Graph ** で、 ** ThirdPersonIdle 、 ThirdPersonWalk ** および ** ThirdPersonRun ** アニメーション、さらに ** Blend Poses by Move Type ** ノードを追加します。
+
+	![image alt text](image_5.png)(w:624 convert:false)
+
+1. ** Blend Poses ** ノードを右クリックして、 ** Idle 、 Walk ** および ** Run ** のピンを追加します。
+
+	![image alt text](image_6.png)(w:317 convert:false)
+
+1. ** Move Type ** 変数をグラフに追加し、以下のように、各ノードを ** Final Animation Pose ** に接続します。
+
+	![image alt text](image_7.png)(w:624 convert:false)
+
+1. ** Animation Blueprint ** をレベルにドラッグして新しい ** Level Sequence ** (任意の名前を付ける) を作成し、その Anim Blueprint をシーケンスに追加します。
+
+	![image alt text](image_8.png)(w:624 convert:false)
+
+1. Anim Blueprint の ** [+ Track] ** ボタンをクリックして、 ** SkeletalMeshComponent0 ** トラックを追加します。
+
+	![image alt text](image_9.png)(w:624 convert:false)
+
+1. SkeletalMeshComponent の ** [+ Track] ** ボタンをクリックして、 ** Anim Instance ** トラックを追加します。
+
+	![image alt text](image_10.png)(w:624 convert:false)
+
+1. Anim Instance の ** [+ Track] ** ボタンをクリックして、 ** Move Type ** プロパティを追加します。
+
+	![image alt text](image_11.png)(w:624 convert:false)
+
+1. タイムラインをフレーム ** 45 ** にスクラブし、 ** [Move Type] ** ドロップダウンを ** [Walk] ** に変更してキーを追加します。
+
+	![image alt text](image_12.png)(w:624 convert:false)
+
+1. タイムラインをフレーム ** 90 ** にスクラブし、 ** [Move Type] ** ドロップダウンを ** [Run] ** に変更して別のキーを追加します。
+
+	![image alt text](image_13.png)(w:624 convert:false)
+
+1. ** [Walk] ** に設定されているフレーム ** 120 ** の ** Move Type ** のキーを追加し、さらに ** Idle ** に設定されているフレーム ** 150 ** に別のキーを追加します。**
+
+	![image alt text](image_14.png)(w:624 convert:false)
+
+1. ** [詳細] ** パネルでレベル シーケンスを ** [Auto Play] ** に設定し、 ** [再生] ** または ** [シミュレーション] ** ボタンをクリックしてエディタ内で再生またはシミュレーションします。
+
+## 最終結果
+
+再生またはシミュレーションした際には、シーケンスで定義されている、キーフレーム化されたプロパティ ** Move Type ** に基づいてレベル シーケンスで再生が行われ、キャラクターの状態が変わります。変数プロパティのアニメートは、アニメーション ロジックを推進する Animation Blueprints を含むキャラクターについて、各キャラクターが入るアニメーションをシーケンスを通して制御する場合に便利です。
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    7l9vk4o-diE
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    78
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]

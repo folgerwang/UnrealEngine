@@ -1,6 +1,9 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreTypes.h"
+#include "CoreFwd.h"
 
 struct ssl_ctx_st;
 typedef struct ssl_ctx_st SSL_CTX;
@@ -29,6 +32,16 @@ public:
 	 * Clear all pinned keys
 	 */
 	virtual void ClearAllPinnedPublicKeys() = 0;
+
+	/**
+	 * Check if keys have been pinned yet
+	 */
+	virtual bool HasPinnedPublicKeys() const = 0;
+
+	/**
+	 * Check if the domain is currently pinned
+	 */
+	virtual bool IsDomainPinned(const FString& Domain) = 0;
 
 	/**
 	* Set digests for pinned certificate public key for a domain

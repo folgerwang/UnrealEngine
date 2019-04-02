@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -185,7 +185,6 @@
 	//-V:UE_CLOG(:501,560
 	//-V:UE_LOG(:501, 560
 	//-V:UGL_REQUIRED_VOID:501
-	//-V:ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER:601
 	//-V:AnimScriptInstance:595
 	//-V:Driver:595
 	//-V:PSceneAsync->lockWrite:595

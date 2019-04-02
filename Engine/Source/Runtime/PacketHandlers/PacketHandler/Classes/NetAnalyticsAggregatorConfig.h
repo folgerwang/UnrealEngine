@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -26,7 +26,6 @@ struct FNetAnalyticsDataConfig
 	bool bEnabled;
 };
 
-
 /**
  * Configuration for FNetAnalyticsAggregator - loaded PerObjectConfig, for each NetDriverName
  */
@@ -34,6 +33,9 @@ UCLASS(config=Engine, PerObjectConfig)
 class UNetAnalyticsAggregatorConfig : public UObject
 {
 	GENERATED_UCLASS_BODY()
+
+protected:
+	void OverridePerObjectConfigSection(FString& SectionName) override;
 
 public:
 	/** Registers FNetAnalyticsData data holders, by DataName - and specifies whether they are enabled or disabled */

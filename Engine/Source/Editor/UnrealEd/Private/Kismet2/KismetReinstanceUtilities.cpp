@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Kismet2/KismetReinstanceUtilities.h"
 #include "BlueprintCompilationManager.h"
@@ -882,7 +882,7 @@ void FBlueprintCompileReinstancer::ReinstanceObjects(bool bForceAlwaysReinstance
 				for (int I = 0; I != OrderedBytecodeRecompile.Num(); ++I)
 				{
 					UBlueprint* BP = OrderedBytecodeRecompile[I];
-					FKismetEditorUtilities::RecompileBlueprintBytecode(BP, nullptr, EBlueprintBytecodeRecompileOptions::BatchCompile);
+					FKismetEditorUtilities::RecompileBlueprintBytecode(BP, EBlueprintBytecodeRecompileOptions::BatchCompile);
 					ensure(0 == DependentBlueprintsToRecompile.Num());
 					CompiledBlueprints.Add(BP);
 
@@ -1678,18 +1678,6 @@ static void ReplaceObjectHelper(UObject*& OldObject, UClass* OldClass, UObject*&
 	UEditorEngine::CopyPropertiesForUnrelatedObjects(OldObject, NewUObject);
 	InstancedPropertyUtils::FArchiveInsertInstancedSubObjects InstancedSubObjSpawner(NewUObject, InstancedPropertyMap);
 
-	if (UAnimInstance* AnimTree = Cast<UAnimInstance>(NewUObject))
-	{
-		// Initialising the anim instance isn't enough to correctly set up the skeletal mesh again in a
-		// paused world, need to initialise the skeletal mesh component that contains the anim instance.
-		if (USkeletalMeshComponent* SkelComponent = Cast<USkeletalMeshComponent>(AnimTree->GetOuter()))
-		{
-			SkelComponent->InitAnim(true);
-			// compile change ignores motion vector, so ignore this. 
-			SkelComponent->ClearMotionVector();
-		}
-	}
-
 	UWorld* RegisteredWorld = nullptr;
 	bool bWasRegistered = false;
 	if (bIsComponent)
@@ -1795,6 +1783,8 @@ static void ReplaceActorHelper(UObject* OldObject, UClass* OldClass, UObject*& N
 
 	FActorSpawnParameters SpawnInfo;
 	SpawnInfo.OverrideLevel = ActorLevel;
+	SpawnInfo.Owner = OldActor->GetOwner();
+	SpawnInfo.Instigator = OldActor->GetInstigator();
 	SpawnInfo.Template = NewArchetype;
 	SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	SpawnInfo.bDeferConstruction = true;
@@ -2068,12 +2058,7 @@ void FBlueprintCompileReinstancer::ReplaceInstancesOfClass_Inner(TMap<UClass*, U
 
 	// Now replace any pointers to the old archetypes/instances with pointers to the new one
 	TArray<UObject*> SourceObjects;
-	TArray<UObject*> DstObjects;
-
 	OldToNewInstanceMap.GenerateKeyArray(SourceObjects);
-	OldToNewInstanceMap.GenerateValueArray(DstObjects); // Also look for references in new spawned objects.
-
-	SourceObjects.Append(DstObjects);
 	
 	if (InOriginalCDO)
 	{
@@ -2126,6 +2111,27 @@ void FBlueprintCompileReinstancer::ReplaceInstancesOfClass_Inner(TMap<UClass*, U
 	}
 
 	FReplaceReferenceHelper::FindAndReplaceReferences(SourceObjects, ObjectsThatShouldUseOldStuff, ObjectsReplaced, OldToNewInstanceMap, ReinstancedObjectsWeakReferenceMap);
+	
+	for (UObject* Obj : ObjectsReplaced)
+	{
+		UObject** NewObject = OldToNewInstanceMap.Find(Obj);
+		if (NewObject && *NewObject)
+		{
+			if (UAnimInstance* AnimTree = Cast<UAnimInstance>(*NewObject))
+			{
+				// Initialising the anim instance isn't enough to correctly set up the skeletal mesh again in a
+				// paused world, need to initialise the skeletal mesh component that contains the anim instance.
+				if (USkeletalMeshComponent* SkelComponent = Cast<USkeletalMeshComponent>(AnimTree->GetOuter()))
+				{
+					SkelComponent->ClearAnimScriptInstance();
+					SkelComponent->InitAnim(true);
+					// compile change ignores motion vector, so ignore this. 
+					SkelComponent->ClearMotionVector();
+				}
+			}
+		}
+	}
+
 
 	if(SelectedActors)
 	{

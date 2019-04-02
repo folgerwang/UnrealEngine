@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================================
 	UnixPlatformFile.h: Unix platform File functions
@@ -22,6 +22,10 @@ protected:
 	virtual FString NormalizeFilename(const TCHAR* Filename, bool bIsForWriting);
 	virtual FString NormalizeDirectory(const TCHAR* Directory, bool bIsForWriting);
 public:
+	//~ For visibility of overloads we don't override
+	using IPhysicalPlatformFile::IterateDirectory;
+	using IPhysicalPlatformFile::IterateDirectoryStat;
+
 	virtual bool FileExists(const TCHAR* Filename) override;
 	virtual int64 FileSize(const TCHAR* Filename) override;
 	virtual bool DeleteFile(const TCHAR* Filename) override;

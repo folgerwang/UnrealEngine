@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -24,11 +24,11 @@ public class WorldBrowser : ModuleRules
      
         PrivateDependencyModuleNames.AddRange(
             new string[] {
+				"ApplicationCore",
                 "AppFramework",
                 "Core", 
                 "CoreUObject",
                 "RenderCore",
-                "ShaderCore",
                 "InputCore",
                 "Engine",
 				"Landscape",
@@ -43,8 +43,9 @@ public class WorldBrowser : ModuleRules
                 "MainFrame",
                 "SourceControl",
 				"SourceControlWindows",
-                "RawMesh",
-                "LandscapeEditor",
+                "MeshDescription",
+				"NewLevelDialog",
+				"LandscapeEditor",
                 "FoliageEdit",
                 "ImageWrapper",
                 "Foliage",

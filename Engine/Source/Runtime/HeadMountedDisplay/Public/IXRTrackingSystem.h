@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -104,7 +104,7 @@ public:
 	 * Refresh poses. Tells the system to update the poses for its tracked devices.
 	 * May be called both from the game and the render thread.
 	 */
-	DEPRECATED(4.19, "This functionality is no longer supported.")
+	UE_DEPRECATED(4.19, "This functionality is no longer supported.")
 	virtual void RefreshPoses() {}
 
 	/** 
@@ -161,6 +161,13 @@ public:
 	 * Useful for translating poses from GetCurrentPose() into unreal world space.
 	 */
 	virtual FTransform GetTrackingToWorldTransform() const = 0;
+
+	/**
+	 * This method should return the world to meters scale for the current frame.
+	 * Should be callable on both the render and the game threads.
+	 * @return the current world to meter scale.
+	 */
+	virtual float GetWorldToMetersScale() const = 0;
 
 	/** 
 	 * Computes a transform to convert from 'Floor' origin space to 'Eye' origin space.
@@ -299,13 +306,27 @@ public:
 	 */
 	virtual IXRInput* GetXRInput() { return nullptr; }
 
-	/*** XR System related methods moved from IHeadMontedDisplay ***/
+	/*** XR System related methods moved from IHeadMountedDisplay ***/
 
 	/**
 	* Returns true, if head tracking is allowed. Most common case: it returns true when GEngine->IsStereoscopic3D() is true,
 	* but some overrides are possible.
 	*/
 	virtual bool IsHeadTrackingAllowed() const = 0;
+
+	/** 
+	* Can be used to enforce tracking even when stereo rendering is disabled. 
+	* The default implementation does not allow enforcing tracking and always returns false.
+	* This method is called both from the game and render threads.
+	*/
+	virtual bool IsHeadTrackingEnforced() const { return false; }
+
+	/**
+	* Can be used to enforce tracking even when stereo rendering is disabled.
+	* The default implementation does not allow enforcing tracking and ignores the argument.
+	*/
+	virtual void SetHeadTrackingEnforced(bool bEnabled) {};
+
 
 	/**
 	* This method is called when playing begins. Useful to reset all runtime values stored in the plugin.

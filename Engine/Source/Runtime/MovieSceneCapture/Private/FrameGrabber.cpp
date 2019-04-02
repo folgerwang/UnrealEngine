@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "FrameGrabber.h"
 #include "Misc/ScopeLock.h"
@@ -15,6 +15,7 @@
 #include "GlobalShader.h"
 #include "ScreenRendering.h"
 #include "PipelineStateCache.h"
+#include "CommonRenderResources.h"
 
 int32 GFrameGrabberFrameLatency = 0;
 static FAutoConsoleVariableRef CVarFrameGrabberFrameLatency(
@@ -52,24 +53,22 @@ void FViewportSurfaceReader::Resize(uint32 Width, uint32 Height)
 {
 	ReadbackTexture.SafeRelease();
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-		CreateCaptureFrameTexture,
-		int32, InWidth, Width,
-		int32, InHeight, Height,
-		FViewportSurfaceReader*, This, this,
-	{
-		FRHIResourceCreateInfo CreateInfo;
+	FViewportSurfaceReader* This = this;
+	ENQUEUE_RENDER_COMMAND(CreateCaptureFrameTexture)(
+		[Width, Height, This](FRHICommandListImmediate& RHICmdList)
+		{
+			FRHIResourceCreateInfo CreateInfo;
 
-		This->ReadbackTexture = RHICreateTexture2D(
-			InWidth,
-			InHeight,
-			This->PixelFormat,
-			1,
-			1,
-			TexCreate_CPUReadback,
-			CreateInfo
-			);
-	});
+			This->ReadbackTexture = RHICreateTexture2D(
+				Width,
+				Height,
+				This->PixelFormat,
+				1,
+				1,
+				TexCreate_CPUReadback,
+				CreateInfo
+				);
+		});
 }
 
 void FViewportSurfaceReader::BlockUntilAvailable()
@@ -93,7 +92,7 @@ void FViewportSurfaceReader::Reset()
 	bQueuedForCapture = false;
 }
 
-void FViewportSurfaceReader::ResolveRenderTarget(FViewportSurfaceReader* RenderToReadback, const FViewportRHIRef& ViewportRHI, TFunction<void(FColor*, int32, int32)> Callback)
+void FViewportSurfaceReader::ResolveRenderTarget(FViewportSurfaceReader* RenderToReadback, const FTexture2DRHIRef& SourceBackBuffer, TFunction<void(FColor*, int32, int32)> Callback)
 {
 	static const FName RendererModuleName( "Renderer" );
 	// @todo: JIRA UE-41879 and UE-43829 - added defensive guards against memory trampling on this render command to try and ascertain why it occasionally crashes
@@ -106,20 +105,9 @@ void FViewportSurfaceReader::ResolveRenderTarget(FViewportSurfaceReader* RenderT
 	IRendererModule* RendererModuleDebug = RendererModule;
 
 	bQueuedForCapture = true;
-	auto RenderCommand = [=](FRHICommandListImmediate& RHICmdList, FViewportSurfaceReader* InRenderToReadback){
 
-		// @todo: JIRA UE-41879 and UE-43829. If any of these ensures go off, something has overwritten the memory for this render command (buffer underflow/overflow?)
-		bool bMemoryTrample = !ensureMsgf(RendererModule, TEXT("RendererModule has become null. This indicates a memory trample.")) ||
-			!ensureMsgf(RendererModule == RendererModuleDebug, TEXT("RendererModule and RendererModuleDebug are not equal (0x%016x != 0x%016x). This indicates a memory trample."), (void*)RendererModule, (void*)RendererModuleDebug) ||
-			!ensureMsgf(MemoryGuard1 == 0xaffec7ed, TEXT("Memory guard 1 is now 0x%08x, expected 0xaffec7ed."), MemoryGuard1) || //-V547
-			!ensureMsgf(MemoryGuard2 == 0xaffec7ed, TEXT("Memory guard 2 is now 0x%08x, expected 0xaffec7ed."), MemoryGuard2); //-V547
-
-		if (bMemoryTrample)
-		{
-			// In the hope that 'this' is still ok, triggering the event will prevent a deadlock. If it's not ok, this may crash, but it was going to crash anyway
-			InRenderToReadback->AvailableEvent->Trigger();
-			return;
-		}
+	{
+		FRHICommandListImmediate& RHICmdList = GetImmediateCommandList_ForRenderCommand();
 
 		const FIntPoint TargetSize(ReadbackTexture->GetSizeX(), ReadbackTexture->GetSizeY());
 
@@ -131,116 +119,91 @@ void FViewportSurfaceReader::ResolveRenderTarget(FViewportSurfaceReader* RenderT
 			TexCreate_RenderTargetable,
 			false);
 
-		// @todo: JIRA UE-41879 and UE-43829. If any of these ensures go off, something has overwritten the memory for this render command (buffer underflow/overflow?)
-		bMemoryTrample = !ensureMsgf(RendererModule, TEXT("RendererModule has become null. This indicates a memory trample.")) ||
-			!ensureMsgf(RendererModule == RendererModuleDebug, TEXT("RendererModule and RendererModuleDebug are not equal (0x%16x != 0x%16x). This indicates a memory trample."), (void*)RendererModule, (void*)RendererModuleDebug) ||
-			!ensureMsgf(MemoryGuard1 == 0xaffec7ed, TEXT("Memory guard 1 is now 0x%08x, expected 0xaffec7ed."), MemoryGuard1) ||
-			!ensureMsgf(MemoryGuard2 == 0xaffec7ed, TEXT("Memory guard 2 is now 0x%08x, expected 0xaffec7ed."), MemoryGuard2);
-
-		if (bMemoryTrample)
-		{
-			// In the hope that 'this' is still ok, triggering the event will prevent a deadlock. If it's not ok, this may crash, but it was going to crash anyway
-			RenderToReadback->AvailableEvent->Trigger();
-			return;
-		}
-
 		TRefCountPtr<IPooledRenderTarget> ResampleTexturePooledRenderTarget;
 		RendererModule->RenderTargetPoolFindFreeElement(RHICmdList, OutputDesc, ResampleTexturePooledRenderTarget, TEXT("ResampleTexture"));
 		check(ResampleTexturePooledRenderTarget);
 
 		const FSceneRenderTargetItem& DestRenderTarget = ResampleTexturePooledRenderTarget->GetRenderTargetItem();
 
-		SetRenderTarget(RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-		RHICmdList.SetViewport(0, 0, 0.0f, TargetSize.X, TargetSize.Y, 1.0f);
-
-		FGraphicsPipelineStateInitializer GraphicsPSOInit;
-		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false,CF_Always>::GetRHI();
-
-		const ERHIFeatureLevel::Type FeatureLevel = GMaxRHIFeatureLevel;
-		
-		TShaderMap<FGlobalShaderType>* ShaderMap = GetGlobalShaderMap(FeatureLevel);
-		TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
-		TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
-
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule->GetFilterVertexDeclaration().VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-
-		FTexture2DRHIRef SourceBackBuffer = RHICmdList.GetViewportBackBuffer(ViewportRHI);
-
-		const bool bIsSourceBackBufferSameAsWindowSize = SourceBackBuffer->GetSizeX() == WindowSize.X && SourceBackBuffer->GetSizeY() == WindowSize.Y;
-		const bool bIsSourceBackBufferSameAsTargetSize = TargetSize.X == SourceBackBuffer->GetSizeX() && TargetSize.Y == SourceBackBuffer->GetSizeY();
-
-		if (bIsSourceBackBufferSameAsWindowSize || bIsSourceBackBufferSameAsTargetSize)
+		FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store, ReadbackTexture);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("FrameGrabberResolveRenderTarget"));
 		{
-			PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Point>::GetRHI(), SourceBackBuffer);
+			RHICmdList.SetViewport(0, 0, 0.0f, TargetSize.X, TargetSize.Y, 1.0f);
+
+			FGraphicsPipelineStateInitializer GraphicsPSOInit;
+			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+
+			const ERHIFeatureLevel::Type FeatureLevel = GMaxRHIFeatureLevel;
+
+			TShaderMap<FGlobalShaderType>* ShaderMap = GetGlobalShaderMap(FeatureLevel);
+			TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
+			TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
+
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+
+			const bool bIsSourceBackBufferSameAsWindowSize = SourceBackBuffer->GetSizeX() == WindowSize.X && SourceBackBuffer->GetSizeY() == WindowSize.Y;
+			const bool bIsSourceBackBufferSameAsTargetSize = TargetSize.X == SourceBackBuffer->GetSizeX() && TargetSize.Y == SourceBackBuffer->GetSizeY();
+
+			if (bIsSourceBackBufferSameAsWindowSize || bIsSourceBackBufferSameAsTargetSize)
+			{
+				PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Point>::GetRHI(), SourceBackBuffer);
+			}
+			else
+			{
+				PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Bilinear>::GetRHI(), SourceBackBuffer);
+			}
+
+			float U = float(CaptureRect.Min.X) / float(SourceBackBuffer->GetSizeX());
+			float V = float(CaptureRect.Min.Y) / float(SourceBackBuffer->GetSizeY());
+			float SizeU = float(CaptureRect.Max.X) / float(SourceBackBuffer->GetSizeX()) - U;
+			float SizeV = float(CaptureRect.Max.Y) / float(SourceBackBuffer->GetSizeY()) - V;
+
+			RendererModule->DrawRectangle(
+				RHICmdList,
+				0, 0,									// Dest X, Y
+				TargetSize.X,							// Dest Width
+				TargetSize.Y,							// Dest Height
+				U, V,									// Source U, V
+				SizeU, SizeV,							// Source USize, VSize
+				CaptureRect.Max - CaptureRect.Min,		// Target buffer size
+				FIntPoint(1, 1),						// Source texture size
+				*VertexShader,
+				EDRF_Default);
 		}
-		else
-		{
-			PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Bilinear>::GetRHI(), SourceBackBuffer);
-		}
+		RHICmdList.EndRenderPass();
 
-		float U = float(CaptureRect.Min.X) / float(SourceBackBuffer->GetSizeX());
-		float V = float(CaptureRect.Min.Y) / float(SourceBackBuffer->GetSizeY());
-		float SizeU = float(CaptureRect.Max.X) / float(SourceBackBuffer->GetSizeX()) - U;
-		float SizeV = float(CaptureRect.Max.Y) / float(SourceBackBuffer->GetSizeY()) - V;
-
-		RendererModule->DrawRectangle(
-			RHICmdList,
-			0, 0,									// Dest X, Y
-			TargetSize.X,							// Dest Width
-			TargetSize.Y,							// Dest Height
-			U, V,									// Source U, V
-			SizeU, SizeV,							// Source USize, VSize
-			CaptureRect.Max - CaptureRect.Min,		// Target buffer size
-			FIntPoint(1, 1),						// Source texture size
-			*VertexShader,
-			EDRF_Default);
-
-		// Asynchronously copy render target from GPU to CPU
-		RHICmdList.CopyToResolveTarget(
-			DestRenderTarget.TargetableTexture,
-			ReadbackTexture,
-			FResolveParams());
-
-
-		if (InRenderToReadback)
+		if (RenderToReadback)
 		{
 			void* ColorDataBuffer = nullptr;
 
 			int32 Width = 0, Height = 0;
-			RHICmdList.MapStagingSurface(InRenderToReadback->ReadbackTexture, ColorDataBuffer, Width, Height);
+			RHICmdList.MapStagingSurface(RenderToReadback->ReadbackTexture, ColorDataBuffer, Width, Height);
 
 			Callback((FColor*)ColorDataBuffer, Width, Height);
 
-			RHICmdList.UnmapStagingSurface(InRenderToReadback->ReadbackTexture);
-			InRenderToReadback->AvailableEvent->Trigger();
+			RHICmdList.UnmapStagingSurface(RenderToReadback->ReadbackTexture);
+			RenderToReadback->AvailableEvent->Trigger();
 		}
 	};
-
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		ResolveCaptureFrameTexture,
-		TFunction<void(FRHICommandListImmediate&, FViewportSurfaceReader* InRenderToReadback)>, InRenderCommand, RenderCommand,
-		FViewportSurfaceReader*, InRenderToReadback, RenderToReadback,
-		{
-			InRenderCommand(RHICmdList, InRenderToReadback);
-		}
-	);
 }
 
 FFrameGrabber::FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint DesiredBufferSize, EPixelFormat InPixelFormat, uint32 NumSurfaces)
 {
 	State = EFrameGrabberState::Inactive;
+	bIsFirstCaptureFrame = false;
 
 	TargetSize = DesiredBufferSize;
 
 	CurrentFrameIndex = 0;
+	TargetWindowPtr = nullptr;
 
 	check(NumSurfaces != 0);
 
@@ -254,7 +217,7 @@ FFrameGrabber::FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint Desi
 		TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(ViewportWidget.ToSharedRef());
 		if (Window.IsValid())
 		{
-			CaptureWindow = Window;
+			TargetWindowPtr = Window.Get();
 			FGeometry InnerWindowGeometry = Window->GetWindowGeometryInWindow();
 			
 			// Find the widget path relative to the window
@@ -299,9 +262,9 @@ FFrameGrabber::FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint Desi
 
 FFrameGrabber::~FFrameGrabber()
 {
-	if (OnWindowRendered.IsValid() && FSlateApplication::IsInitialized())
+	if (OnBackBufferReadyToPresent.IsValid() && FSlateApplication::IsInitialized())
 	{
-		FSlateApplication::Get().GetRenderer()->OnSlateWindowRendered().Remove(OnWindowRendered);
+		FSlateApplication::Get().GetRenderer()->OnBackBufferReadyToPresent().Remove(OnBackBufferReadyToPresent);
 	}
 }
 
@@ -313,7 +276,9 @@ void FFrameGrabber::StartCapturingFrames()
 	}
 
 	State = EFrameGrabberState::Active;
-	OnWindowRendered = FSlateApplication::Get().GetRenderer()->OnSlateWindowRendered().AddRaw(this, &FFrameGrabber::OnSlateWindowRendered);
+	bIsFirstCaptureFrame = true;
+
+	OnBackBufferReadyToPresent = FSlateApplication::Get().GetRenderer()->OnBackBufferReadyToPresent().AddRaw(this, &FFrameGrabber::OnBackBufferReadyToPresentCallback);
 }
 
 bool FFrameGrabber::IsCapturingFrames() const
@@ -326,6 +291,15 @@ void FFrameGrabber::CaptureThisFrame(FFramePayloadPtr Payload)
 	if (!ensure(State == EFrameGrabberState::Active))
 	{
 		return;
+	}
+
+	// Callbacks to OnBackBufferReadyToPresentCallback() are coming from the RenderThread, which may still be running when we get here, so we need to wait
+	// until it is done before we increment OutstandingFrameCount here and start capturing frames, otherwise we may end up capturing a frame too early.
+	if (bIsFirstCaptureFrame)
+	{
+		bIsFirstCaptureFrame = false;
+
+		FlushRenderingCommands();
 	}
 
 	OutstandingFrameCount.Increment();
@@ -342,6 +316,8 @@ void FFrameGrabber::StopCapturingFrames()
 	}
 
 	State = EFrameGrabberState::PendingShutdown;
+
+	bIsFirstCaptureFrame = false;
 }
 
 void FFrameGrabber::Shutdown()
@@ -355,9 +331,9 @@ void FFrameGrabber::Shutdown()
 
 	if (FSlateApplication::IsInitialized())
 	{
-		FSlateApplication::Get().GetRenderer()->OnSlateWindowRendered().Remove(OnWindowRendered);
+		FSlateApplication::Get().GetRenderer()->OnBackBufferReadyToPresent().Remove(OnBackBufferReadyToPresent);
 	}
-	OnWindowRendered = FDelegateHandle();
+	OnBackBufferReadyToPresent = FDelegateHandle();
 }
 
 bool FFrameGrabber::HasOutstandingFrames() const
@@ -393,11 +369,10 @@ TArray<FCapturedFrameData> FFrameGrabber::GetCapturedFrames()
 	return ReturnFrames;
 }
 
-void FFrameGrabber::OnSlateWindowRendered( SWindow& SlateWindow, void* ViewportRHIPtr )
+void FFrameGrabber::OnBackBufferReadyToPresentCallback(SWindow& SlateWindow, const FTexture2DRHIRef& BackBuffer)
 {
 	// We only care about our own Slate window
-	TSharedPtr<SWindow> Window = CaptureWindow.Pin();
-	if (Window.Get() != &SlateWindow)
+	if (&SlateWindow != TargetWindowPtr)
 	{
 		return;
 	}
@@ -444,9 +419,7 @@ void FFrameGrabber::OnSlateWindowRendered( SWindow& SlateWindow, void* ViewportR
 		PrevFrameTarget = nullptr;
 	}
 
-	const FViewportRHIRef* RHIViewport = (const FViewportRHIRef*)ViewportRHIPtr;
-
-	Surfaces[ThisCaptureIndex].Surface.ResolveRenderTarget(PrevFrameTarget, *RHIViewport, [=](FColor* ColorBuffer, int32 Width, int32 Height){
+	Surfaces[ThisCaptureIndex].Surface.ResolveRenderTarget(PrevFrameTarget, BackBuffer, [=](FColor* ColorBuffer, int32 Width, int32 Height){
 		// Handle the frame
 		OnFrameReady(ThisCaptureIndex, ColorBuffer, Width, Height);
 	});

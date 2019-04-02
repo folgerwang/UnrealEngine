@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,7 +22,7 @@ class FLevelSequenceSpawnRegister;
 class FViewportClient;
 class UCameraComponent;
 
-struct DEPRECATED(4.15, "Please use FMovieSceneSequencePlaybackSettings.") FLevelSequencePlaybackSettings
+struct UE_DEPRECATED(4.15, "Please use FMovieSceneSequencePlaybackSettings.") FLevelSequencePlaybackSettings
 	: public FMovieSceneSequencePlaybackSettings
 {};
 
@@ -82,8 +82,11 @@ struct FLevelSequencePlayerSnapshot
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="General")
 	UCameraComponent* CameraComponent;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="General")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "General")
 	FLevelSequenceSnapshotSettings Settings;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "General")
+	ULevelSequence* ActiveShot;
 
 	UPROPERTY()
 	FMovieSceneSequenceID ShotID;
@@ -108,10 +111,10 @@ public:
 	 * Initialize the player.
 	 *
 	 * @param InLevelSequence The level sequence to play.
-	 * @param InWorld The world that the animation is played in.
+	 * @param InLevel The level that the animation is played in.
 	 * @param Settings The desired playback settings
 	 */
-	void Initialize(ULevelSequence* InLevelSequence, UWorld* InWorld, const FMovieSceneSequencePlaybackSettings& Settings);
+	void Initialize(ULevelSequence* InLevelSequence, ULevel* InLevel, const FMovieSceneSequencePlaybackSettings& Settings);
 
 public:
 
@@ -133,13 +136,17 @@ public:
 	UPROPERTY(BlueprintAssignable, Category="Game|Cinematic")
 	FOnLevelSequencePlayerCameraCutEvent OnCameraCut;
 
+	/** Get the active camera cut camera */
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
+	UCameraComponent* GetActiveCameraComponent() const { return CachedCameraComponent.Get(); }
+
 public:
 
 	/**
 	 * Access the level sequence this player is playing
 	 * @return the level sequence currently assigned to this player
 	 */
-	DEPRECATED(4.15, "Please use GetSequence instead.")
+	UE_DEPRECATED(4.15, "Please use GetSequence instead.")
 	ULevelSequence* GetLevelSequence() const { return Cast<ULevelSequence>(Sequence); }
 
 	// IMovieScenePlayer interface
@@ -151,23 +158,18 @@ protected:
 	// IMovieScenePlayer interface
 	virtual void UpdateCameraCut(UObject* CameraObject, UObject* UnlockIfCameraObject, bool bJumpCut) override;
 	virtual void NotifyBindingUpdate(const FGuid& InGuid, FMovieSceneSequenceIDRef InSequenceID, TArrayView<TWeakObjectPtr<>> Objects) override;
+	virtual void ResolveBoundObjects(const FGuid& InBindingId, FMovieSceneSequenceID SequenceID, UMovieSceneSequence& InSequence, UObject* ResolutionContext, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const override;
 
 	//~ UMovieSceneSequencePlayer interface
 	virtual bool CanPlay() const override;
 	virtual void OnStartedPlaying() override;
 	virtual void OnStopped() override;
+	virtual void UpdateMovieSceneInstance(FMovieSceneEvaluationRange InRange, EMovieScenePlayerStatus::Type PlayerStatus, bool bHasJumped = false) override;
 
 public:
 
 	/** Populate the specified array with any given event contexts for the specified world */
 	static void GetEventContexts(UWorld& InWorld, TArray<UObject*>& OutContexts);
-
-	/**
-	 * Set an array of additional actors that will receive events triggerd from this sequence player
-	 *
-	 * @param AdditionalReceivers An array of actors to receive events
-	 */
-	void SetEventReceivers(TArray<UObject*>&& AdditionalReceivers) { AdditionalEventReceivers = MoveTemp(AdditionalReceivers); }
 
 	/** Take a snapshot of the current state of this player */
 	void TakeFrameSnapshot(FLevelSequencePlayerSnapshot& OutSnapshot) const;
@@ -184,6 +186,12 @@ private:
 	/** The world this player will spawn actors in, if needed */
 	TWeakObjectPtr<UWorld> World;
 
+	/** The world this player will spawn actors in, if needed */
+	TWeakObjectPtr<ULevel> Level;
+
+	/** The full asset path (/Game/Folder/MapName.MapName) of the streaming level this player resides within. Bindings to actors with the same FSoftObjectPath::GetAssetPathName are resolved within the cached level, rather than globally.. */
+	FName StreamedLevelAssetPath;
+
 	/** The last view target to reset to when updating camera cuts to null */
 	TWeakObjectPtr<AActor> LastViewTarget;
 
@@ -199,10 +207,10 @@ protected:
 
 	TWeakObjectPtr<UCameraComponent> CachedCameraComponent;
 
-	/** Array of additional event receivers */
-	UPROPERTY(transient)
-	TArray<UObject*> AdditionalEventReceivers;
-
 	/** Set of actors that have been added as tick prerequisites to the parent actor */
 	TSet<FObjectKey> PrerequisiteActors;
+
+private:
+
+	TOptional<FLevelSequencePlayerSnapshot> PreviousSnapshot;
 };

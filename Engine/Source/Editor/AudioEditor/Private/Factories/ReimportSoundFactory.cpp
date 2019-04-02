@@ -1,18 +1,28 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Factories/ReimportSoundFactory.h"
 #include "Sound/SoundWave.h"
 #include "EditorFramework/AssetImportData.h"
+#include "Misc/MessageDialog.h"
 #include "Misc/Paths.h"
 #include "AudioEditorModule.h"
 #include "HAL/FileManager.h"
+
 
 UReimportSoundFactory::UReimportSoundFactory(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 
 	SupportedClass = USoundWave::StaticClass();
-	Formats.Add(TEXT("wav;Sound"));
+	Formats.Add(TEXT("wav;Wave audio file"));
+
+#if WITH_SNDFILE_IO
+	Formats.Add(TEXT("aif;Audio Interchange File"));
+	Formats.Add(TEXT("ogg;OGG Vorbis bitstream format"));
+	Formats.Add(TEXT("flac;Free Lossless Audio Codec"));
+#endif // WITH_SNDFILE_IO
+
+	OverwriteOtherAssetTypes = -1;
 
 	bCreateNew = false;
 	bAutoCreateCue = false;
@@ -28,6 +38,22 @@ bool UReimportSoundFactory::CanReimport(UObject* Obj, TArray<FString>& OutFilena
 	if (SoundWave && SoundWave->NumChannels < 3)
 	{
 		SoundWave->AssetImportData->ExtractFilenames(OutFilenames);
+
+		if (OutFilenames.Num() > 0 && !PreferredReimportPath.IsEmpty() && FPaths::GetExtension(PreferredReimportPath) != FPaths::GetExtension(*OutFilenames[0]))
+		{
+			if (OverwriteOtherAssetTypes < 0)
+			{
+				EAppReturnType::Type ReturnValue = FMessageDialog::Open(EAppMsgType::YesNo, FText::Format(
+					NSLOCTEXT("ReimportSoundFactory", "ReImportOverwriteWarning",
+						"You are attempting to re-import over existing sound(s) that was/were previously imported "
+						"from a different source extension(s)/format(s).  Would you like to use the new extension(s)/format(s) instead?"),
+					FText::FromName(*SoundWave->GetName())));
+
+				OverwriteOtherAssetTypes = ReturnValue == EAppReturnType::Yes ? 1 : 0;
+			}
+			return OverwriteOtherAssetTypes != 0;
+		}
+
 		return true;
 	}
 	return false;
@@ -51,16 +77,26 @@ EReimportResult::Type UReimportSoundFactory::Reimport(UObject* Obj)
 	}
 
 	USoundWave* SoundWave = Cast<USoundWave>(Obj);
+	check(SoundWave);
 
 	const FString Filename = SoundWave->AssetImportData->GetFirstFilename();
 	const FString FileExtension = FPaths::GetExtension(Filename);
-	const bool bIsWav = (FCString::Stricmp(*FileExtension, TEXT("WAV")) == 0);
 
-	// Only handle WAV files
-	if (!bIsWav)
+#if WITH_SNDFILE_IO
+	const bool bIsSupportedExtension = FCString::Stricmp(*FileExtension, TEXT("WAV")) == 0
+		|| FCString::Stricmp(*FileExtension, TEXT("AIF")) == 0
+		|| FCString::Stricmp(*FileExtension, TEXT("FLAC")) == 0
+		|| FCString::Stricmp(*FileExtension, TEXT("OGG")) == 0;
+#else
+	const bool bIsSupportedExtension = FCString::Stricmp(*FileExtension, TEXT("WAV")) == 0;
+#endif //WITH_SNDFILE_IO
+
+	// Only handle supported extensions
+	if (!bIsSupportedExtension)
 	{
 		return EReimportResult::Failed;
 	}
+
 	// If there is no file path provided, can't reimport from source
 	if (!Filename.Len())
 	{
@@ -82,22 +118,26 @@ EReimportResult::Type UReimportSoundFactory::Reimport(UObject* Obj)
 	USoundFactory::SuppressImportOverwriteDialog();
 
 	bool OutCanceled = false;
-	if (ImportObject(SoundWave->GetClass(), SoundWave->GetOuter(), *SoundWave->GetName(), RF_Public | RF_Standalone, Filename, nullptr, OutCanceled) != nullptr)
+	if (!ImportObject(SoundWave->GetClass(), SoundWave->GetOuter(), *SoundWave->GetName(), RF_Public | RF_Standalone, Filename, nullptr, OutCanceled))
 	{
-		UE_LOG(LogAudioEditor, Log, TEXT("-- imported successfully"));
+		if (OutCanceled)
+		{
+			UE_LOG(LogAudioEditor, Warning, TEXT("-- import canceled"));
+			return EReimportResult::Cancelled;
+		}
 
-		SoundWave->AssetImportData->Update(Filename);
-		SoundWave->MarkPackageDirty();
-		SoundWave->bNeedsThumbnailGeneration = true;
-	}
-	else if (OutCanceled)
-	{
-		UE_LOG(LogAudioEditor, Warning, TEXT("-- import canceled"));
-	}
-	else
-	{
 		UE_LOG(LogAudioEditor, Warning, TEXT("-- import failed"));
+		return EReimportResult::Failed;
 	}
+
+	UE_LOG(LogAudioEditor, Log, TEXT("-- imported successfully"));
+
+	SoundWave->AssetImportData->Update(Filename);
+	SoundWave->InvalidateCompressedData();
+	SoundWave->FreeResources();
+	SoundWave->UpdatePlatformData();
+	SoundWave->MarkPackageDirty();
+	SoundWave->bNeedsThumbnailGeneration = true;
 
 	return EReimportResult::Succeeded;
 }
@@ -105,4 +145,9 @@ EReimportResult::Type UReimportSoundFactory::Reimport(UObject* Obj)
 int32 UReimportSoundFactory::GetPriority() const
 {
 	return ImportPriority;
+}
+
+void UReimportSoundFactory::CleanUp()
+{
+	OverwriteOtherAssetTypes = -1;
 }

@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2750555
+﻿INTSourceChangelist:3243860
 Availability:Public
 Title:粒子模块类
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
 Description:所有模块继承级联类的属性参考。所有模块将包含本类中的属性。
 Version:4.9
+tags:Particles
 
 **ParticleModule** 是所有模块的基础类。这意味着所有模块将包含这些属性。本类包含下列公共属性：
 

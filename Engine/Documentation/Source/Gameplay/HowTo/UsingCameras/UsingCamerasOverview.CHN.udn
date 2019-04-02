@@ -1,12 +1,13 @@
-﻿INTSourceChangelist:2735882
+﻿INTSourceChangelist:3429254
 Availability: Public
 Title:使用摄像机
 Crumbs: %ROOT%, Gameplay
 Description:关于如何通过虚幻引擎 4 在场景中查找 Actor 的操作指南。
 version: 4.9
 Parent:Gameplay
-type:how-to
-order:12 
+skilllevel:Beginner
+type:overview
+order:12
 
 这份“操作指南”系列介绍了如何在虚幻引擎 4 中使用并放置 **Cameras**。摄像机可以单独使用并直接放置到关卡，也可以充当蓝图的一部分（例如，在玩家驾驶飞机、车辆或控制某个人物时提供专门视角）。 
 
@@ -61,16 +62,10 @@ order:12
 现在，您已经了解了如何在关卡中放置摄像机 Actor，以及用于改变其外观的一些设置，而下面的示例则介绍了一些摄像机的使用方法，包括如何使用摄像机作为玩家视点，如何将摄像机组件用作蓝图的一部分，如何将弹簧臂组件（Spring Arm Component）与摄像机组件一起使用（通常用于创建第三人称视角），以及如何在游戏过程中切换不同的摄像机。 
 
 
-## 使用示例
+(#ImplementationGuides)
+## 实现指南
 
-请参考下面的每个链接，了解相应的使用案例（含步骤讲解）。 
-
-[REGION:buttonlist]
-* [](Gameplay\HowTo\UsingCameras\Blueprints)
-* [](Gameplay\HowTo\UsingCameras\SwitchingCameras)
-* [](Gameplay\HowTo\UsingCameras\CameraComponents)
-* [](Gameplay\HowTo\UsingCameras\SpringArmComponents)
-[/REGION]
+[DIR(output:"role" parent:"Gameplay/HowTo/UsingCameras" org:"hierarchy" end:"1")]
 
 
 

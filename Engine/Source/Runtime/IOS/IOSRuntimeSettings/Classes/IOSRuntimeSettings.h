@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -56,16 +56,10 @@ UENUM()
 UENUM()
 enum class EIOSMetalShaderStandard : uint8
 {
-    /** Metal Shaders Compatible With iOS 8.0/tvOS 9.0 or later (std=ios-metal1.0) */
-    IOSMetalSLStandard_1_0 = 0 UMETA(DisplayName="Metal v1.0 (iOS 8.0/tvOS 9.0)"),
-    
-    /** Metal Shaders Compatible With iOS 9.0/tvOS 9.0 or later (std=ios-metal1.1) */
-    IOSMetalSLStandard_1_1 = 1 UMETA(DisplayName="Metal v1.1 (iOS 9.0/tvOS 9.0)"),
-    
-    /** Metal Shaders Compatible With iOS 10.0/tvOS 10.0 or later (std=ios-metal1.2) */
+	/** Metal Shaders Compatible With iOS 10.0/tvOS 10.0 or later (std=ios-metal1.2) */
 	IOSMetalSLStandard_1_2 = 2 UMETA(DisplayName="Metal v1.2 (iOS 10.0/tvOS 10.0)"),
 	
-	/** Metal Shaders Compatible With iOS 11.0/tvOS 11.0 or later (std=ios-metal2.0) */
+    /** Metal Shaders Compatible With iOS 11.0/tvOS 11.0 or later (std=ios-metal2.0) */
 	IOSMetalSLStandard_2_0 = 3 UMETA(DisplayName="Metal v2.0 (iOS 11.0/tvOS 11.0)"),
     
     /** Metal Shaders Compatible With iOS 12.0/tvOS 12.0 or later (std=ios-metal2.1) */
@@ -80,6 +74,19 @@ enum class EIOSLandscapeOrientation : uint8
 
 	/** Landscape Right */
 	LandscapeRight = 1 UMETA(DisplayName = "Landscape (right home button)"),
+};
+
+UENUM()
+enum class EIOSCloudKitSyncStrategy : uint8
+{
+	/** Only at game start */
+	None  = 0 UMETA(DisplayName = "Never (do not use iCloud for Load/Save Game)"),
+
+	/** Only at game start */
+	OnlyAtGameStart = 1 UMETA(DisplayName = "At game start only (iOS)"),
+
+	/** Always */
+	Always = 2 UMETA(DisplayName = "Always (whenever LoadGame is called)"),
 };
 
 /**
@@ -205,6 +212,10 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Online)
 	uint32 bEnableCloudKitSupport : 1;
 
+	// iCloud Read stategy
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Online, meta = (DisplayName = "iCloud save files sync strategy"), meta = (EditCondition = "bEnableCloudKitSupport"))
+	EIOSCloudKitSyncStrategy IOSCloudKitSyncStrategy;
+
     // Should push/remote notifications support (iOS Online Subsystem) be enabled?
     UPROPERTY(GlobalConfig, EditAnywhere, Category = Online)
     uint32 bEnableRemoteNotificationsSupport : 1;
@@ -217,8 +228,8 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Rendering, meta = (DisplayName = "Metal Mobile Renderer"))
 	bool bSupportsMetal;
 
-	// Whether or not to compile iOS Metal shaders for the desktop Forward renderer (requires iOS 10+ and an A10 processor)
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = Rendering, meta = (DisplayName = "Metal Desktop-Forward Renderer"))
+	// Whether or not to compile iOS Metal shaders for the desktop renderer (requires iOS 10+ and an A10 processor)
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Rendering, meta = (DisplayName = "Metal Desktop Renderer"))
 	bool bSupportsMetalMRT;
 	
 	// Whether or not to add support for PVRTC textures
@@ -280,6 +291,10 @@ public:
 	// Enable bitcode compiling?
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build, meta = (DisplayName = "Support bitcode in Shipping"))
 	bool bShipForBitcode;
+
+	// Enable Advertising Identified
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build, meta = (DisplayName = "Enable Advertising Identified (IDFA)"))
+	bool bEnableAdvertisingIdentifier;
 	
 	// Any additional linker flags to pass to the linker in non-shipping builds
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build, meta = (DisplayName = "Additional Non-Shipping Linker Flags", ConfigHierarchyEditable))
@@ -349,6 +364,9 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = DeviceOrientations)
 	uint32 bSupportsLandscapeRightOrientation : 1;
 
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = FileSystem)
+	uint32 bSupportsITunesFileSharing : 1;
+	
 	// The Preferred Orientation will be used as the initial orientation at launch when both Landscape Left and Landscape Right orientations are to be supported.
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = DeviceOrientations, meta = (DisplayName = "Preferred Landscape Orientation"))
 	EIOSLandscapeOrientation PreferredLandscapeOrientation;
@@ -411,7 +429,7 @@ public:
 
 	// The team ID of the apple developer account to be used to autmatically sign IOS builds
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build, meta = (ConfigHierarchyEditable))
-		FString IOSTeamID;
+	FString IOSTeamID;
 
 	// Whether the app supports HTTPS
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Online, meta = (DisplayName = "Allow web connections to non-HTTPS websites"))
@@ -431,6 +449,14 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, config, Category=Rendering, meta = (DisplayName = "Use Fast-Math intrinsics", ConfigRestartRequired = true))
 	bool UseFastIntrinsics;
+	
+	/**
+	 * Whether to force Metal shaders to use 32bit floating point precision even when the shader uses half floats.
+	 * Half floats are much more efficient when they are availble but have less accuracy over large ranges,
+	 * as such some projects may need to use 32bit floats to ensure correct rendering.
+	 */
+	UPROPERTY(EditAnywhere, config, Category=Rendering, meta = (DisplayName = "Force 32bit Floating Point Precision", ConfigRestartRequired = true))
+	bool ForceFloats;
 	
 	/**
 	 * Whether to use of Metal shader-compiler's -ffast-math optimisations.
@@ -506,14 +532,17 @@ public:
 	UPROPERTY(config, EditAnywhere, Category = "Audio|CookOverrides")
 	float CompressionQualityModifier;
 
+	// When set to anything beyond 0, this will ensure any SoundWaves longer than this value, in seconds, to stream directly off of the disk.
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Audio|CookOverrides", meta = (DisplayName = "Stream All Soundwaves Longer Than: "))
+	float AutoStreamingThreshold;
+
+	virtual void PostReloadConfig(class UProperty* PropertyThatWasLoaded) override;
+
 #if WITH_EDITOR
 	// UObject interface
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostInitProperties() override;
 	// End of UObject interface
 #endif
-
-private:
-	virtual void EnsureOrientationInProjectDefaultEngine();
 
 };

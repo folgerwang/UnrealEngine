@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Commandlets/ParticleSystemAuditCommandlet.h"
 #include "HAL/FileManager.h"
@@ -20,6 +20,7 @@
 #include "ICollectionManager.h"
 #include "CollectionManagerModule.h"
 #include "Particles/ParticleLODLevel.h"
+#include "Particles/Location/ParticleModuleLocationBoneSocket.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogParticleSystemAuditCommandlet, Log, All);
 
@@ -87,7 +88,7 @@ bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 		const FString PSysName = AssetIt.ObjectPath.ToString();
 		const FString PackageName = AssetIt.PackageName.ToString();
 
-		if ( PackageName.StartsWith(DevelopersFolder) )
+		if (PackageName.StartsWith(DevelopersFolder))
 		{
 			// Skip developer folders
 			continue;
@@ -121,6 +122,7 @@ bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 			bool bHasRibbonTrailOrBeam = false;
 			bool bHasOnlyBeamsOrHasNoEmitters = true;
 			bool bHasSpawnPerUnit = false;
+			bool bMismatchedLODBoneModules = false;
 			for (int32 EmitterIdx = 0; EmitterIdx < PSys->Emitters.Num(); EmitterIdx++)
 			{
 				UParticleEmitter* Emitter = PSys->Emitters[EmitterIdx];
@@ -135,6 +137,7 @@ bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 						bSingleLOD = true;
 					}
 					bFoundEmitter = true;
+					int32 BoneLocationArraySize = -1;
 					for (int32 LODIdx = 0; LODIdx < Emitter->LODLevels.Num(); LODIdx++)
 					{
 						UParticleLODLevel* LODLevel = Emitter->LODLevels[LODIdx];
@@ -166,19 +169,19 @@ bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 
 								if (UParticleModuleSpawn* SpawnModule = Cast<UParticleModuleSpawn>(Module))
 								{
-									if ( !bHasHighSpawnRateOrBurst )
+									if (!bHasHighSpawnRateOrBurst)
 									{
-										if ( UDistributionFloatConstant* ConstantDistribution = Cast<UDistributionFloatConstant>(SpawnModule->Rate.Distribution) )
+										if (UDistributionFloatConstant* ConstantDistribution = Cast<UDistributionFloatConstant>(SpawnModule->Rate.Distribution))
 										{
-											if ( ConstantDistribution->Constant > HighSpawnRateOrBurstThreshold )
+											if (ConstantDistribution->Constant > HighSpawnRateOrBurstThreshold)
 											{
 												bHasHighSpawnRateOrBurst = true;
 											}
 										}
 
-										for ( const FParticleBurst& Burst : SpawnModule->BurstList )
+										for (const FParticleBurst& Burst : SpawnModule->BurstList)
 										{
-											if ( Burst.Count > HighSpawnRateOrBurstThreshold )
+											if (Burst.Count > HighSpawnRateOrBurstThreshold)
 											{
 												bHasHighSpawnRateOrBurst = true;
 											}
@@ -189,6 +192,20 @@ bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 								{
 									bHasSpawnPerUnit = true;
 								}
+								else if (UParticleModuleLocationBoneSocket* BoneModule = Cast<UParticleModuleLocationBoneSocket>(Module))
+								{
+									int32 SourceArraySize = BoneModule->SourceLocations.Num();
+									if (BoneLocationArraySize >= 0 && BoneLocationArraySize != SourceArraySize)
+									{
+										// we assume that there is not more than one bone location module per emitter,
+										// so the mismatch has to come from the LOD levels
+										bMismatchedLODBoneModules = true;
+									}
+									else
+									{
+										BoneLocationArraySize = SourceArraySize;
+									}
+								}
 							}
 						}
 					}
@@ -196,14 +213,14 @@ bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 			}
 
 			// Note all PSystems w/ a high constant spawn rate or burst count...
-			if ( bHasHighSpawnRateOrBurst )
+			if (bHasHighSpawnRateOrBurst)
 			{
 				ParticleSystemsWithHighSpawnRateOrBurst.Add(PSys->GetPathName());
 			}
 
 			// Note all PSystems w/ a far LOD distance...
 			bool bAtLeastOneLODUnderFarDistanceThresholdOrEmpty = (PSys->LODDistances.Num() == 0);
-			for ( float LODDistance : PSys->LODDistances )
+			for (float LODDistance : PSys->LODDistances)
 			{
 				if (LODDistance <= FarLODDistanceTheshold)
 				{
@@ -250,6 +267,12 @@ bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 			if (PSys->bOrientZAxisTowardCamera == true)
 			{
 				ParticleSystemsWithOrientZAxisTowardCamera.Add(PSys->GetPathName());
+			}
+
+			// Note all systems with problematic bone location source arrays
+			if (bMismatchedLODBoneModules)
+			{
+				ParticleSystemsWithBoneLocationMismatches.Add(PSys->GetPathName());
 			}
 
 			if ((PSys->LODMethod == PARTICLESYSTEMLODMETHOD_Automatic) &&
@@ -308,6 +331,7 @@ void UParticleSystemAuditCommandlet::DumpResults()
 	DumpSimplePSysSet(ParticleSystemsWithOrientZAxisTowardCamera, TEXT("PSysOrientZTowardsCamera"));
 	DumpSimplePSysSet(ParticleSystemsWithHighSpawnRateOrBurst, TEXT("PSysHighSpawnRateOrBurst"));
 	DumpSimplePSysSet(ParticleSystemsWithFarLODDistance, TEXT("PSysFarLODDistance"));
+	DumpSimplePSysSet(ParticleSystemsWithBoneLocationMismatches, TEXT("PSysBoneLocationLODMismatches"));
 }
 
 /**

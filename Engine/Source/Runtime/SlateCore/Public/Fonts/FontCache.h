@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -651,7 +651,7 @@ public:
 	 * @param InTextureSize The size of the atlas texture
 	 * @param InFontAlas	Platform specific font atlas resource
 	 */
-	FSlateFontCache( TSharedRef<ISlateFontAtlasFactory> InFontAtlasFactory );
+	FSlateFontCache( TSharedRef<ISlateFontAtlasFactory> InFontAtlasFactory, ESlateTextureAtlasThreadId InOwningThread);
 	virtual ~FSlateFontCache();
 
 	/** ISlateAtlasProvider */
@@ -803,6 +803,16 @@ public:
 	void GetUnderlineMetrics( const FSlateFontInfo& InFontInfo, const float FontScale, int16& OutUnderlinePos, int16& OutUnderlineThickness ) const;
 
 	/**
+	 * Get the strike metrics for the specified font.
+	 *
+	 * @param InFontInfo			A descriptor of the font to get character size for
+	 * @param FontScale				The scale to apply to the font
+	 * @param OutStrikeLinePos		The offset from the baseline to the center of the strike bar
+	 * @param OutStrikeLineThickness The thickness of the strike bar
+	 */
+	void GetStrikeMetrics( const FSlateFontInfo& InFontInfo, const float FontScale, int16& OutStrikeLinePos, int16& OutStrikeLineThickness ) const;
+
+	/**
 	 * Calculates the kerning amount for a pair of characters
 	 *
 	 * @param InFontData	The font that used to draw the string with the first and second characters
@@ -850,6 +860,10 @@ public:
 	 */
 	void FlushData();
 
+	/**
+	 * Gets the allocated font face data for a font data asset
+	 */
+	uint32 GetFontDataAssetResidentMemory(const UObject* FontDataAsset) const;
 private:
 	// Non-copyable
 	FSlateFontCache(const FSlateFontCache&);
@@ -892,7 +906,7 @@ private:
 	TUniquePtr<FSlateTextShaper> TextShaper;
 
 	/** Mapping Font keys to cached data */
-	TMap<FSlateFontKey, TSharedRef< class FCharacterList > > FontToCharacterListCache;
+	TMap<FSlateFontKey, TSharedRef<class FCharacterList>, FDefaultSetAllocator, FSlateFontKeyFuncs<TSharedRef<class FCharacterList>>> FontToCharacterListCache;
 
 	/** Mapping shaped glyphs to their cached atlas data */
 	TMap<FShapedGlyphEntryKey, TSharedRef<FShapedGlyphFontAtlasData>> ShapedGlyphToAtlasData;
@@ -926,4 +940,6 @@ private:
 
 	/** Array of UFont objects that the font cache has been requested to flush. Since GC can happen while the loading screen is running, the request may be deferred until the next call to ConditionalFlushCache */
 	TArray<const UObject*> FontObjectsToFlush;
+
+	ESlateTextureAtlasThreadId OwningThread;
 };

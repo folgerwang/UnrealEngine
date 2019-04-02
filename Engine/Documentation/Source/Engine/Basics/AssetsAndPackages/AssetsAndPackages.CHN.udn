@@ -1,80 +1,99 @@
-﻿INTSourceChangelist:2714483
+INTSourceChangelist:3782314
 Availability:Public
-Title: 资源和包
-Crumbs: %ROOT%, Engine
-Description: 概述了虚幻引擎 4 中使用的资源及包的系统。
-version: 4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Basics/AssetsAndPackages:title%](Engine/Content/content_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/content_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Basics/AssetsAndPackages:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Basics/AssetsAndPackages:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Basics/AssetsAndPackages]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+Crumbs: %ROOT%
+Title:资源和包
+Description:虚幻引擎4中使用的资源和包系统概述。
+Type: Overview
+SkillLevel: Beginner
+Version: 4.17
+Parent:Engine
+order:22
+tags: Assets
+topic-image:Engine/Content/content_topic.png
+Related: Resources/SampleGames/ShooterGame
+Related: Engine/Basics/AssetsAndPackages/AssetManagement
+Related: Engine/Basics/AssetsAndPackages/AssetManagement/CookingAndChunking
 
 [TOC (start:2 end:3)]
 
+**资源** 是用于 **虚幻引擎** 项目的内容项，可将其看作序列化到文件中的 `UObject`。你可以在 **内容浏览器** 中的 **资源树** 中找到资源列表。可通过单击其按钮（![“资源树（Asset Tree）”按钮](AssetTree_button.png)）来展开或折叠此列表。
 
-当一个处理流程中包含很多包文件且每个包文件中都包含多个资源时，版本控制就会成为问题。然而，如果处理流程支持并鼓励创建多个单独的资源文件，那么则意味着可以独立地迁出每个资源。这减少了该处理流程中版本控制问题及各种瓶颈问题。
-
-另外，内容管理系统中的同步更新时间在处理单独资源文件时要比处理包含很多资源的包文件要快，因为对一个单独资源的修改仅需要一个较小的文件更新。
-
-在虚幻编辑器中，资源存储在 .uasset 文件中，每个文件一般仅包含一个单独的资源。每个资源引用包含一个目录式的路径，该路径唯一表示了游戏中的任何资源。
-
-您可以在 **内容浏览器** 中创建资源或者将资源导入到 **内容浏览器** 中。关于创建资源的更多信息，请参照 [](Engine/Content/AssetCreation)。关于应用 **内容浏览器** 的更多信息，请参照 [](Engine/Content/Browser)。
-
-## 应用资源
-
-在 **内容浏览器** 中的 **资源树** 内，您可以找到一系列的资源。您可以通过在内容浏览器中点击它的按钮  (![Asset Tree button](AssetTree_button.png))来展开或合并 **Asset Tree（资源树）** 。
-
-*  **Asset Tree(资源树)** 显示了 .uasset 文件所在的内容目录内一系列文件夹列表。
-* 在 **Asset Tree（资源树）** 中点击一个文件夹，将会显示那个文件夹中找到的所有资源及子文件夹。
-* **右击** 一个文件夹，将会显示您可以对该文件夹、该文件夹中的资源或者其子文件夹可以执行的一系列操作。您可以通过这个关联菜单将新文件夹添加到 **Asset Tree（资源树）** 中。
+* **资源树** 显示.uasset文件所在的内容目录中的文件夹列表。
+* 单击 **资源树** 中的文件夹将显示该文件夹及其子文件夹中包含的所有资源。
+* **右键单击** 文件夹将显示你可以对该文件夹及该文件夹或其子文件夹中的资源执行的一系列操作。你可以通过此情境菜单向 **资源树** 中添加新文件夹。
 
 [REGION:note]
-您不能再在虚幻编辑器外部的文件夹间自由地移动资源，需要保持引用的完整性。现在，您必须在 **内容浏览器** 内移动资源。这是因为到这些资源的引用包含了到该资源的完整路径。如果您移动一个资源，它的路径就会改变。
+在虚幻编辑器外部，你不能再在文件夹之间随意移动资源文件，因为这会破坏引用关系。相反，必须在 **内容浏览器** 中移动资源。这是因为对资源的引用包含资源的完整目录路径。如果移动资源，其路径将更改。 
 
-关卡 (.umap) 文件不受这个限制的影响。
+关卡（.umap）文件不受此限制影响。
 [/REGION]
 
-关于使用 **内容浏览器** 移动、重命名、添加及删除资源的更多信息，请参照 [](Engine/Content/Browser\UserGuide\BrowserAssetCreation)。
+有关使用 **内容浏览器** 移动、重命名、添加以及删除资源的更多信息，请参阅[](Engine/Content/Browser\UserGuide\BrowserAssetCreation)。
 
-### 资源命名
+(#assetnaming)
+## 资源命名
 
-目前，您在创建或导入资源时对其进行命名。您的资源路径通过您创建或导入该资源的文件夹自动设置，该路径和该资源在磁盘上的位置直接关联。比如，路径为 `Content/Characters/MyCharacter` ，则保存到 `/UE4/MyProject/Content/Characters/MyCharacter.MyCharacter.uasset` 中。
+用户可在导入或创建资源时对资源进行命名。资源路径将依据用户创建或导入资源时指定的文件夹自动设置，它与资源在磁盘上的位置直接关联。例如，路径Content/Characters/MyCharacter将保存至/UE4/MyProject/Content/Characters/MyCharacter.MyCharacter.uasset。
 
-到资源的引用会将该路径包含在引用内，比如， `Blueprint'/MyProject/Content/Characters/MyCharacter.MyCharacter'` 。
+(#renamingandmovingassets)
+### 重命名和移动资源
 
-### 复制资源到其他项目
+可在编辑器中对资源进行重命名，方法是在 **内容浏览器** 中选中它，然后左键单击其名称或按F2键。可通过在 **内容浏览器** 中选中并拖动资源的方式将它们移动或复制到不同的文件夹。通过这种方式重命名或移动资源之后，引用你重命名或移动的资源的其他资源将进行相应更新，而且在原始资源所在位置将会留下不可见的 **重定向器**。可通过在 **内容浏览器** 中右键单击并选择“整理文件夹中的重定向器（Fix Up Redirectors in Folder）”选项来清除重定向器。此操作将先使引用重定向器的所有资源指向位于新位置的资源，然后删除重定向器。请注意，需要重新保存资源。另外，可通过两种方式在 **内容浏览器** 中删除资源，一种是使用右键单击资源之后显示的情境菜单，还有一种是选中资源并按Delete键。如果资源被其他资源引用，将会显示询问应使用哪个现有资源（如有）替代删除的资源的菜单。
 
-您可以使用 **内容浏览器** 中的 Migrate Tool（移植工具）来创建一个资源副本(及任何依赖资源)，以在其他项目中使用。
+![](FixupRedirectors.png)
 
-关于移植工具的更多信息，请参照 [](Engine/Content/Browser\UserGuide\Migrate)。
+[REGION:caption]
+可通过右键单击文件夹或在 **内容浏览器** 的 **源面板** 中的任意位置右键单击访问“整理文件夹中的重定向器（Fix Up Redirectors in Folder）”选项。
+[/REGION]
 
+[REGION:note]
+应在 **内容浏览器** 中移动或重命名资源。如果在编辑器外部重命名、移动或删除了资源文件（例如，通过操作系统的文件资源管理器），引用受影响资源的任何资源都将无法找到它，即使它在项目中仍然存在。
+[/REGION]
+
+对资源的引用包含路径，例如：Blueprint'/MyProject/Content/Characters/MyCharacter.MyCharacter'。
+
+(#assetmanagement)
+## 资源管理
+
+资源通常由虚幻引擎自动加载或卸载。但是，在某些情况下，直接控制该过程可以显著提升性能，例如，可以减少甚至消除冗余加载时间，消除游戏进程中的卡顿。有关管理资源加载和卸载的详细信息，请参阅[](Engine/Basics/AssetsAndPackages/AssetManagement)页面。部署项目时，资源将被“转化”（依据资源类型和目标平台转换为最终二进制格式）并可分到多个.pak文件中，以用于分发。有关这些过程的信息，请参阅 [](Engine/Basics/AssetsAndPackages/AssetManagement/CookingAndChunking)。
+
+(#minimizingsourcecontrolcontention)
+## 减少源控制冲突
+
+当工作流包含多个包文件，且每个包文件都包含多个资源时，可能会发生源控制冲突问题。然而，如果工作流支持并鼓励创建多个单独的资源文件，那么就可分别检出每个资源。这可以减少工作流中的源控制冲突和瓶颈。
+
+另外，采用单个资源文件时，内容管理系统中的同步时间要短于采用包含多个资源的包，因为如果更新了单个资源，只需更新一个文件即可。
+
+在虚幻编辑器中，资源以.uasset文件格式存储，每个.uasset文件通常仅包含单个资源。每个资源引用都包含目录式的路径，每个路径都可唯一地标识游戏中的任何资源。
+
+资源创建或资源导入需在 **内容浏览器** 中进行。有关创建资源的信息，请参阅[](Engine/Content/AssetCreation)。有关使用 **内容浏览器** 的信息，请参阅[](Engine/Content/Browser)。
+
+(#copyingassetstootherprojects)
+### 将资源复制到其他项目
+
+你可以使用 **内容浏览器** 中的“迁移工具”来创建资源的副本（以及依赖性资源），以在其他项目中使用。
+
+有关迁移工具的更多信息，请参阅[](Engine/Content/Browser\UserGuide\Migrate)。
+
+(#assetpacks)
 ### 资源包
 
-如果您已经通过 Launcher(启动器) 下载了资源包，那么您将可以整个资源包的内容添加到您的项目中，不需要打开它或移植特定的资源。
+如果你已通过启动程序下载了资源包，可以将整个包的内容添加到项目中，无需打开它或迁移特定资源。
 
-要想添加一个资源包到您的项目中：
+要向项目中添加资源包：
 
-1. 在您的 Vault 中找到该资源包。
+1. 在 **Vault** 中找到资源包（Vault位于 **学习（Learn）** 选项卡底部）。
+	
 	![](Vault.png)
-1. 点击 **Add to Project（添加到项目）**
-1. 在出现的列表中选择您的项目。
-	![](SelectedProject.png)
-1. 点击 **Add to Project（添加到项目）** 。
 
-当您下次再打开项目时，所有就内容就会出现在以该资源包命名的文件夹内。
+1. 单击 **添加到项目（Add to project）**。
+
+1. 在显示的列表中选择项目。
+	
+	[REGION:raw]
+	![](SelectedProject.png)
+	[/REGION]
+
+1. 单击 **添加到项目（Add to project）**。
+
+当你下一次打开项目时，所有的内容都将包含在项目中，它们位于用你添加的资源包的名称命名的文件夹中。

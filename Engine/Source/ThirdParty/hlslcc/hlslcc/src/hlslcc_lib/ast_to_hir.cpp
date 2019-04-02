@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 // This code is modified from that in the Mesa3D Graphics library available at
 // http://mesa3d.org/
@@ -1572,9 +1572,31 @@ ir_rvalue* ast_expression::hir(exec_list *instructions, struct _mesa_glsl_parse_
 				result = new(ctx)ir_dereference_variable(tmp[0]);
 			}
 		}
+		else if(type->is_float())
+		{
+			int dim = type->vector_elements;
+			ir_variable* tmp;
+			tmp = new(ctx)ir_variable(type, NULL, ir_var_temporary);
+			instructions->push_tail(tmp);
+			for (int i = 0; i < dim; ++i)
+			{
+				ir_constant* const array_index = new (ctx) ir_constant(i);
+				ir_dereference_array* array_bool = new(ctx)ir_dereference_array(op[0]->clone(ctx, nullptr), array_index);
+				ir_dereference_array* array_out = new(ctx)ir_dereference_array(tmp, array_index);
+				ir_dereference_array* array_1 = new(ctx)ir_dereference_array(op[1]->clone(ctx, nullptr), array_index);
+				ir_dereference_array* array_2 = new(ctx)ir_dereference_array(op[2]->clone(ctx, nullptr), array_index);
+
+				ir_if *const stmt = new(ctx)ir_if(array_bool);
+				stmt->then_instructions.push_tail(new(ctx)ir_assignment(new(ctx)ir_dereference_array(tmp, array_index), array_1));
+				stmt->else_instructions.push_tail(new(ctx)ir_assignment(new(ctx)ir_dereference_array(tmp, array_index), array_2));
+				instructions->push_tail(stmt);
+			}
+			result = new(ctx)ir_dereference_variable(tmp);
+		}
 		else if (apply_type_conversion(type, op[0], instructions, state, false, &loc))
 		{
-			ir_variable* tmp[3] = {0};
+
+			ir_variable* tmp[3] = { 0 };
 			for (unsigned i = 0; i < 3; i++)
 			{
 				tmp[i] = new(ctx)ir_variable(type, NULL, ir_var_temporary);
@@ -1584,17 +1606,10 @@ ir_rvalue* ast_expression::hir(exec_list *instructions, struct _mesa_glsl_parse_
 					op[i]));
 			}
 
-			if (type->is_float())
+
+			if (type->is_integer())
 			{
-				result = new(ctx)ir_expression(ir_ternop_lerp, type,
-					new(ctx)ir_dereference_variable(tmp[2]),
-					new(ctx)ir_dereference_variable(tmp[1]),
-					new(ctx)ir_dereference_variable(tmp[0]),
-					NULL);
-			}
-			else if (type->is_integer())
-			{
-				ir_constant_data one_data = {0};
+				ir_constant_data one_data = { 0 };
 				for (unsigned i = 0; i < 16; ++i)
 				{
 					one_data.u[i] = 1;
@@ -1605,8 +1620,8 @@ ir_rvalue* ast_expression::hir(exec_list *instructions, struct _mesa_glsl_parse_
 					new(ctx)ir_dereference_variable(tmp[1]));
 				ir_expression* expr_b = new(ctx)ir_expression(ir_binop_mul,
 					new(ctx)ir_expression(ir_binop_sub,
-					new(ctx)ir_constant(type, &one_data),
-					new(ctx)ir_dereference_variable(tmp[0])),
+						new(ctx)ir_constant(type, &one_data),
+						new(ctx)ir_dereference_variable(tmp[0])),
 					new(ctx)ir_dereference_variable(tmp[2]));
 				result = new(ctx)ir_expression(ir_binop_add, type, expr_a, expr_b);
 			}
@@ -3364,7 +3379,7 @@ ir_rvalue* ast_declarator_list::hir(exec_list *instructions, struct _mesa_glsl_p
 		ir_variable *earlier = get_variable_being_redeclared(var, decl, state);
 
 		// Make static non-const variables initialized to zero as FXC does
-		if (this->type->qualifier.flags.q.is_static && !decl->initializer)
+		if (this->type->qualifier.flags.q.is_static && !this->type->qualifier.flags.q.constant && !this->type->specifier->structure && !decl->initializer)
 		{
 			ast_expression* Zero = new(ctx)ast_expression(ast_int_constant, NULL, NULL, NULL);
 			Zero->set_location(decl->get_location());

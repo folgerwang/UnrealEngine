@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -24,6 +24,8 @@ public:
 	SLATE_END_ARGS();
 
 	void Construct(const FArguments& InArgs, UNiagaraStackFunctionInput* InFunctionInput);
+
+	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 
 private:
 
@@ -58,6 +60,7 @@ private:
 	FText GetInvalidValueToolTipText() const;
 
 	FReply DynamicInputTextDoubleClicked();
+	FReply OnLinkedInputDoubleClicked();
 
 	class SNiagaraFunctionInputActionMenuExpander: public SExpanderArrow
 	{
@@ -129,6 +132,8 @@ private:
 	FReply OnFunctionInputDrop(TSharedPtr<FDragDropOperation> DragDropOperation);
 
 	bool OnFunctionInputAllowDrop(TSharedPtr<FDragDropOperation> DragDropOperation);
+
+	void ShowReassignDynamicInputScriptMenu();
 
 private:
 	UNiagaraStackFunctionInput* FunctionInput;

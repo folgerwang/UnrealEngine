@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2730489
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:设置电梯
 Crumbs: %ROOT%, Engine, Engine/Matinee, Engine/Matinee/HowTo
@@ -11,7 +11,8 @@ SkillLevel:Intermediate
 
 [INCLUDE:Engine/Matinee/HowTo/MHT_1#projectstart]
 
-创建电梯
+(#CreatingtheLifts)
+## 创建电梯
 
 在该步骤中，我们将利用基础形态创建电梯和平台。 
 
@@ -52,7 +53,8 @@ SkillLevel:Intermediate
 	![](MHT2_LastCubeAdded.png)
 
 
-添加 Matinee 并移动第一个电梯
+(#AddingtheMatineeandMovingtheFirstLift)
+## 添加 Matinee 并移动第一个电梯
 
 在这步中，我们将添加 **Matinee** 并为第一个电梯创建一个 **Movement Track**。 
 
@@ -145,7 +147,8 @@ SkillLevel:Intermediate
 	[/OBJECT]
 
 
-使用弧线编辑器移动第二个电梯
+(#MovingtheSecondLiftUsingtheCurveEditor)
+## 使用弧线编辑器移动第二个电梯
 
 在这步中，我们移动 **弧线编辑器（Curve Editor）** 中的关键帧，实现第二个电梯的移动。 
 

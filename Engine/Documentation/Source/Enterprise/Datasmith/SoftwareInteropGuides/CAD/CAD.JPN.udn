@@ -1,0 +1,196 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: Datasmith で CAD ファイル形式を使用する
+Description: Datasmith を使用して CAD ファイル 形式からコンテンツをインポートする際に特に考慮すべき事項を解説します。
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/SoftwareInteropGuides
+Order: 4
+Tags: Enterprise
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: overview
+Tags: interop
+Tags: CAD
+topic-image:datasmith-cad-topic.png
+
+
+![CAD ファイル形式に Datasmith を使用する](datasmith-cad-banner.png "CAD ファイル形式に Datasmith を使用する")
+
+Datasmith を使用して、サポートされている CAD ファイル形式から Unreal Editor にシーンを取り込むにあたり、Datasmith によるシーンの処理方法について、 [](Enterprise/Datasmith/Overview) および [](Enterprise/Datasmith/Overview/ImportProcess) で説明されている基本事項以外にも何点か追加で知っておくべきことがあります。
+
+## CAD のワークフロー
+
+Datasmith は、ほとんどの CAD ファイル形式において **直接的な** ワークフローを使用します。つまり、Datasmith を使用してコンテンツを Unreal に取り込むには、CAD シーンを [サポートされているファイル タイプ](Enterprise/) のうちのどれか 1 つとして保存して、Datasmith CAD インポータでそのファイルを Unreal Editor に取り込みます。[](Enterprise/Datasmith/HowTo/ImportingContent) を参照してください。
+
+## テッセレーション
+
+CAD 形式では、ほとんどの場合は曲線や数学関数を使用してサーフェスやソリッドを定義します。これらのサーフェスの精度と滑らかさは製造プロセスに適しています。しかし、近年の GPU は、三角ポリゴン メッシュで構成されているサーフェスのレンダリングに高度に最適化されています。Unreal のようなリアルタイム レンダラとゲーム エンジンでは、秒単位であっと言わせるようなフォトリアル品質の映像を大量に出力するために、GPU の能力を限界まで引き出す必要がありますが、通常は三角ポリゴン メッシュで構成されるジオメトリでの作業に限られています。
+
+Datasmith は、まだメッシュ表現の無い CAD ファイルに含まれる曲線サーフェスを近似する三角ポリゴン メッシュを自動計算することで、このギャップを埋めます。この処理は *テッセレーション* と呼ばれ、CAD データをリアルタイムで使用する準備として不可欠なステップです。
+
+例えば、左の画像はネイティブの CAD ビューアでレンダリングしたサーフェスです。右の画像は、このサーフェスのために生成された三角ポリゴン メッシュのワイヤーフレームです。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![パラメトリック サーフェス](cad-tessellation-example-surface.png) 
+	[/PARAM]
+	[PARAM:after]
+	![三角ポリゴン メッシュ](cad-tessellation-example-wireframe.png) 
+	[/PARAM]
+[/OBJECT]
+
+リアルタイム レンダリングのためのサーフェスのテッセレーションにおいては、サーフェスの精度とレンダリング速度の間に潜在的なトレードオフが存在します。
+
+性質上、三角ポリゴン メッシュは、その派生元である数学的に正確なサーフェスと完全に同一になることはありません。テッセレーションとは常に、オリジナルのサーフェスをある詳細度でサンプリングして、GPU にジオメトリをより高速にレンダリングさせるための近似を生成することを意味しています。一般的に、メッシュがオリジナルのサーフェスに近似するほど複雑になります。つまり三角ポリゴンの個数が増えて、三角ポリゴンのサイズがより細かくなります。レンダリングされた時にその見栄えは良くなりますが、GPU での処理要求が増えます。テッセレーションしたメッシュの精度を落として、三角ポリゴンの個数を減らしてそれぞれのサイズを大きくすれば、GPU のレンダリング速度を上げることができますが、ガタガタ、ギザギザになったりと、期待していた忠実度の描画にならない可能性があります。
+
+したがって、テッセレーション処理の目指す所としては、メッシュの三角ポリゴンの個数を最小に抑えつつ、ソースに対するビジュアル忠実度を最大限に高めることにあります。つまり、滑らかで平らなサーフェスには比較的少数の三角ポリゴンを配置して、より複雑で起伏のあるサーフェスには比較的多くの三角ポリゴンを配置することになります。
+
+以降のセクションで説明しますが、Datasmith には CAD シーンのインポート時に調整可能な 3 つのパラメータがあります。これらの値を調整することで、カーブしたサーフェスに対して Datasmith が生成するスタティック メッシュ ジオメトリの複雑さと忠実度を制御できます。
+
+[REGION:tip]
+スタティック メッシュ アセットを再インポートする際にも、同じオプションが設定可能です。これにより、シーン全体に特定のテッセレーション値を設定した後に、より高いまたは低い詳細度を必要とする個々のオブジェクトの設定をオーバーライドできます。[](Enterprise/Datasmith/Overview/ReimportWorkflow) も参照してください。
+[/REGION]
+
+### コード公差
+
+コード公差はコード エラーまたはサグ エラーとも呼ばれ、テッセレーションしたサーフェスと対応する元のサーフェスとの最大距離を定義します。
+
+![コード公差の例](datasmith-cad-chordtolerance-whatis.png "コード公差の例")
+
+このパラメータの値を小さくすると、テッセレーションするサーフェスが元のサーフェスに近似します。この場合、三角ポリゴンの数が増えて個々のサイズが小さくなります。
+
+この設定の効果は、曲率が大きい部分で最も顕著に現れます。公差の値が大きくなるほど、生成される三角ポリゴンが大きくなるので、サーフェスの滑らかさは低くなります。
+
+[REGION:imagetable]
+| -- | -- | -- |
+| [INCLUDE:#chordtolimage1] | [INCLUDE:#chordtolimage2] | [INCLUDE:#chordtolimage3] |
+| [INCLUDE:#chordtolimage1data] | [INCLUDE:#chordtolimage2data] | [INCLUDE:#chordtolimage3data] |
+[/REGION]
+[COMMENT:none]
+[EXCERPT:chordtolimage1]
+[REGION:lightbox]
+[![](chordtolerance-1-1.png)(w:320)](chordtolerance-1-1.png)
+[/REGION]
+[/EXCERPT:chordtolimage1]
+
+[EXCERPT:chordtolimage1data]
+0.1mm：三角ポリゴンの数：134 000
+[/EXCERPT:chordtolimage1data]
+
+[EXCERPT:chordtolimage2]
+[REGION:lightbox]
+[![](chordtolerance-2-1.png)(w:320)](chordtolerance-2-1.png)
+[/REGION]
+[/EXCERPT:chordtolimage2]
+
+[EXCERPT:chordtolimage2data]
+0.5mm：三角ポリゴンの数：37 500
+[/EXCERPT:chordtolimage2data]
+
+[EXCERPT:chordtolimage3]
+[REGION:lightbox]
+[![](chordtolerance-3-1.png)(w:320)](chordtolerance-3-1.png)
+[/REGION]
+[/EXCERPT:chordtolimage3]
+
+[EXCERPT:chordtolimage3data]
+10mm：三角ポリゴンの数：13 500
+[/EXCERPT:chordtolimage3data]
+[/COMMENT]
+
+### 最大辺長
+
+テッセレーションしたメッシュの三角ポリゴンの 1 辺の最大長を設定します。 
+
+![最大辺長の例](datasmith-cad-maxedgelength-whatis.png "最大辺長の例")
+
+設定の効果が最も顕著に現れるのは、モデルの平らな部分です。この値を低くしすぎると、平らな部分に必要以上に多くの小さな三角ポリゴンが配置されてしまいます。その一方で、この値を大きくしすぎるか制限無しにすると、極端に長くて薄い不自然な形の三角ポリゴンになってしまうことがあります。これも避けた方が良いです。
+
+この値を 0 にすると、Datasmith は生成する三角ポリゴンの辺長を制限しません。
+
+[REGION:imagetable]
+| -- | -- | -- |
+| [INCLUDE:#image1] | [INCLUDE:#image2] | [INCLUDE:#image3] |
+| [INCLUDE:#image1data] | [INCLUDE:#image2data] | [INCLUDE:#image3data] |
+[/REGION]
+
+[COMMENT:none]
+[EXCERPT:image1]
+[REGION:lightbox]
+[![](maxedgelength-1.png)(w:320)](maxedgelength-1.png)
+[/REGION]
+[/EXCERPT:image1]
+
+[EXCERPT:image1data]
+10mm：三角ポリゴンの数：128 000
+[/EXCERPT:image1data]
+
+[EXCERPT:image2]
+[REGION:lightbox]
+[![](maxedgelength-2.png)(w:320)](maxedgelength-2.png)
+[/REGION]
+[/EXCERPT:image2]
+
+[EXCERPT:image2data]
+20mm：三角ポリゴンの数：43 700
+[/EXCERPT:image2data]
+
+[EXCERPT:image3]
+[REGION:lightbox]
+[![](maxedgelength-3.png)(w:320)](maxedgelength-3.png)
+[/REGION]
+[/EXCERPT:image3]
+
+[EXCERPT:image3data]
+40mm：三角ポリゴンの数：21 000
+[/EXCERPT:image3data]
+[/COMMENT]
+
+
+### 法線公差
+
+この設定は、テッセレーションしたメッシュの 2 つの隣接する三角ポリゴンの最大角度を定義します。
+
+![法線公差の例](datasmith-cad-normaltolerance-whatis.png "法線公差の例")
+
+コード公差と同様に、法線公差はテッセレーションしたメッシュを元のサーフェスにどれだけ近似させるかを左右しますが、曲率が大きな部分の詳細度を維持する際にとりわけ有効である一方で、サーフェスの平らな部分に生成された三角ポリゴンにはほとんど影響を与えません。
+
+[REGION:imagetable]
+| -- | -- | -- |
+| [INCLUDE:#normtolimage1] | [INCLUDE:#normtolimage2] | [INCLUDE:#normtolimage3] |
+| [INCLUDE:#normtolimage1data] | [INCLUDE:#normtolimage2data] | [INCLUDE:#normtolimage3data] |
+[/REGION]
+
+[COMMENT:none]
+[EXCERPT:normtolimage1]
+[REGION:lightbox]
+[![](normaltolerance-1.png)(w:320)](normaltolerance-1.png)
+[/REGION]
+[/EXCERPT:normtolimage1]
+
+[EXCERPT:normtolimage1data]
+5°:三角ポリゴンの数：295 000
+[/EXCERPT:normtolimage1data]
+
+[EXCERPT:normtolimage2]
+[REGION:lightbox]
+[![](normaltolerance-2.png)(w:320)](normaltolerance-2.png)
+[/REGION]
+[/EXCERPT:normtolimage2]
+
+[EXCERPT:normtolimage2data]
+10°:三角ポリゴンの数：100 000
+[/EXCERPT:normtolimage2data]
+
+[EXCERPT:normtolimage3]
+[REGION:lightbox]
+[![](normaltolerance-3.png)(w:320)](normaltolerance-3.png)
+[/REGION]
+[/EXCERPT:normtolimage3]
+
+[EXCERPT:normtolimage3data]
+40°:三角ポリゴンの数：21 500
+[/EXCERPT:normtolimage3data]
+[/COMMENT]

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DeferredLightingCommon.usf: Common definitions for deferred lighting.
@@ -18,14 +18,19 @@
  * Putting the light data in this struct allows the same lighting code to be used between standard deferred, 
  * Where many light properties are known at compile time, and tiled deferred, where all light properties have to be fetched from a buffer.
  */
+// TODO: inherit or compose FLightShaderParameters
 struct FDeferredLightData
 {
-	float4 LightPositionAndInvRadius;
-	float4 LightColorAndFalloffExponent;
-	float3 LightDirection;
-	float3 LightTangent;
+	float3 Position;
+	float  InvRadius;
+	float3 Color;
+	float  FalloffExponent;
+	float3 Direction;
+	float3 Tangent;
     float SoftSourceRadius;
-	float4 SpotAnglesAndSourceRadius;
+	float2 SpotAngles;
+	float SourceRadius;
+	float SourceLength;
 	float SpecularScale;
 	float ContactShadowLength;
 	float2 DistanceFadeMAD;
@@ -41,13 +46,17 @@ struct FDeferredLightData
 	bool bRectLight;
 	/** Whether the light should apply shadowing. */
 	uint ShadowedBits;
+	float RectLightBarnCosAngle;
+	float RectLightBarnLength;
 };
 
 /** Data about a single light to be shaded with the simple shading model, designed for speed and limited feature set. */
 struct FSimpleDeferredLightData
 {
-	float4 LightPositionAndInvRadius;
-	float4 LightColorAndFalloffExponent;
+	float3 Position;
+	float  InvRadius;
+	float3 Color;
+	float  FalloffExponent;
 	/** Whether to use inverse squared falloff. */
 	bool bInverseSquared;
 };
@@ -84,7 +93,7 @@ float ShadowRayCast(
 
 	const float Step = 1.0 / NumSteps;
 
-	// *2 to get less morie pattern in extreme cases, larger values make object appear not grounded in reflections
+	// *2 to get less moire pattern in extreme cases, larger values make object appear not grounded in reflections
 	const float CompareTolerance = abs( RayDepthScreen.z - RayStartScreen.z ) * Step * 2;
 
 	float SampleTime = StepOffset * Step + Step;
@@ -205,7 +214,7 @@ float GetLocalLightAttenuation(
 	inout float3 ToLight, 
 	inout float3 L)
 {
-	ToLight = LightData.LightPositionAndInvRadius.xyz - WorldPosition;
+	ToLight = LightData.Position - WorldPosition;
 		
 	float DistanceSqr = dot( ToLight, ToLight );
 	L = ToLight * rsqrt( DistanceSqr );
@@ -213,62 +222,68 @@ float GetLocalLightAttenuation(
 	float LightMask;
 	if (LightData.bInverseSquared)
 	{
-		LightMask = Square( saturate( 1 - Square( DistanceSqr * Square(LightData.LightPositionAndInvRadius.w) ) ) );
+		LightMask = Square( saturate( 1 - Square( DistanceSqr * Square(LightData.InvRadius) ) ) );
 	}
 	else
 	{
-		LightMask = RadialAttenuation(ToLight * LightData.LightPositionAndInvRadius.w, LightData.LightColorAndFalloffExponent.w);
+		LightMask = RadialAttenuation(ToLight * LightData.InvRadius, LightData.FalloffExponent);
 	}
 
 	if (LightData.bSpotLight)
 	{
-		LightMask *= SpotAttenuation(L, -LightData.LightDirection, LightData.SpotAnglesAndSourceRadius.xy);
+		LightMask *= SpotAttenuation(L, -LightData.Direction, LightData.SpotAngles);
 	}
 
 	if( LightData.bRectLight )
 	{
 		// Rect normal points away from point
-		LightMask = dot( LightData.LightDirection, L ) < 0 ? 0 : LightMask;
+		LightMask = dot( LightData.Direction, L ) < 0 ? 0 : LightMask;
 	}
 
 	return LightMask;
 }
 
-FRect GetRect( float3 ToLight, FDeferredLightData LightData )
+#define RECLIGHT_BARNDOOR 1
+// Wrapper for FDeferredLightData for computing visible rect light (i.e., unoccluded by barn doors)
+FRect GetRect(float3 ToLight, FDeferredLightData LightData)
 {
-	FRect Rect;
-	Rect.Origin = ToLight;
-	Rect.Axis[1] = LightData.LightTangent;
-	Rect.Axis[2] = LightData.LightDirection;
-	Rect.Axis[0] = cross( Rect.Axis[1], Rect.Axis[2] );
-	Rect.Extent = float2(
-		LightData.SpotAnglesAndSourceRadius.z,
-		LightData.SpotAnglesAndSourceRadius.w
-	);
-	return Rect;
+	return GetRect(
+		ToLight, 
+		LightData.Direction, 
+		LightData.Tangent, 
+		LightData.SourceRadius, 
+		LightData.SourceLength, 
+		LightData.RectLightBarnCosAngle, 
+		LightData.RectLightBarnLength,
+		RECLIGHT_BARNDOOR);
 }
 
 FCapsuleLight GetCapsule( float3 ToLight, FDeferredLightData LightData )
 {
 	FCapsuleLight Capsule;
-	Capsule.Length = LightData.SpotAnglesAndSourceRadius.w;
-	Capsule.Radius = LightData.SpotAnglesAndSourceRadius.z;
+	Capsule.Length = LightData.SourceLength;
+	Capsule.Radius = LightData.SourceRadius;
 	Capsule.SoftRadius = LightData.SoftSourceRadius;
 	Capsule.DistBiasSqr = 1;
-	Capsule.LightPos[0] = ToLight - 0.5 * Capsule.Length * LightData.LightTangent;
-	Capsule.LightPos[1] = ToLight + 0.5 * Capsule.Length * LightData.LightTangent;
+	Capsule.LightPos[0] = ToLight - 0.5 * Capsule.Length * LightData.Tangent;
+	Capsule.LightPos[1] = ToLight + 0.5 * Capsule.Length * LightData.Tangent;
 	return Capsule;
 }
 
-
 /** Calculates lighting for a given position, normal, etc with a fully featured lighting model designed for quality. */
-float4 GetDynamicLighting(float3 WorldPosition, float3 CameraVector, FGBufferData GBuffer, float AmbientOcclusion, uint ShadingModelID, FDeferredLightData LightData, float4 LightAttenuation, float Dither, uint2 SVPos)
+float4 GetDynamicLighting(float3 WorldPosition, float3 CameraVector, FGBufferData GBuffer, float AmbientOcclusion, uint ShadingModelID, FDeferredLightData LightData, float4 LightAttenuation, float Dither, uint2 SVPos, FRectTexture SourceTexture)
 {
 	FLightAccumulator LightAccumulator = (FLightAccumulator)0;
 
 	float3 V = -CameraVector;
 	float3 N = GBuffer.WorldNormal;
-	float3 L = LightData.LightDirection;	// Already normalized
+	BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT && CLEAR_COAT_BOTTOM_NORMAL)
+	{
+		const float2 oct1 = ((float2(GBuffer.CustomData.a, GBuffer.CustomData.z) * 2) - (256.0/255.0)) + UnitVectorToOctahedron(GBuffer.WorldNormal);
+		N = OctahedronToUnitVector(oct1);			
+	}
+	
+	float3 L = LightData.Direction;	// Already normalized
 	float3 ToLight = L;
 	
 	float LightMask = 1;
@@ -294,7 +309,7 @@ float4 GetDynamicLighting(float3 WorldPosition, float3 CameraVector, FGBufferDat
 		if( Shadow.SurfaceShadow + Shadow.TransmissionShadow > 0 )
 		{
 			const bool bNeedsSeparateSubsurfaceLightAccumulation = UseSubsurfaceProfile(GBuffer.ShadingModelID);
-			float3 LightColor = LightData.LightColorAndFalloffExponent.rgb;
+			float3 LightColor = LightData.Color;
 
 		#if NON_DIRECTIONAL_DIRECT_LIGHTING
 			float Lighting;
@@ -303,7 +318,7 @@ float4 GetDynamicLighting(float3 WorldPosition, float3 CameraVector, FGBufferDat
 			{
 				FRect Rect = GetRect( ToLight, LightData );
 
-				Lighting = IntegrateLight( Rect );
+				Lighting = IntegrateLight( Rect, SourceTexture);
 			}
 			else
 			{
@@ -317,14 +332,14 @@ float4 GetDynamicLighting(float3 WorldPosition, float3 CameraVector, FGBufferDat
 		#else
 			FDirectLighting Lighting;
 
-			if( LightData.bRectLight )
+			if (LightData.bRectLight)
 			{
 				FRect Rect = GetRect( ToLight, LightData );
 
 				#if REFERENCE_QUALITY
-					Lighting = IntegrateBxDF( GBuffer, N, V, Rect, Shadow, SVPos );
+					Lighting = IntegrateBxDF( GBuffer, N, V, Rect, Shadow, SourceTexture, SVPos );
 				#else
-					Lighting = IntegrateBxDF( GBuffer, N, V, Rect, Shadow );
+					Lighting = IntegrateBxDF( GBuffer, N, V, Rect, Shadow, SourceTexture);
 				#endif
 			}
 			else
@@ -360,7 +375,7 @@ float3 GetSimpleDynamicLighting(float3 WorldPosition, float3 CameraVector, float
 {
 	float3 V = -CameraVector;
 	float3 N = WorldNormal;
-	float3 ToLight = LightData.LightPositionAndInvRadius.xyz - WorldPosition;
+	float3 ToLight = LightData.Position - WorldPosition;
 	float DistanceAttenuation = 1;
 	
 	float DistanceSqr = dot( ToLight, ToLight );
@@ -372,12 +387,12 @@ float3 GetSimpleDynamicLighting(float3 WorldPosition, float3 CameraVector, float
 		// Sphere falloff (technically just 1/d2 but this avoids inf)
 		DistanceAttenuation = 1 / ( DistanceSqr + 1 );
 	
-		float LightRadiusMask = Square( saturate( 1 - Square( DistanceSqr * Square(LightData.LightPositionAndInvRadius.w) ) ) );
+		float LightRadiusMask = Square( saturate( 1 - Square( DistanceSqr * Square(LightData.InvRadius) ) ) );
 		DistanceAttenuation *= LightRadiusMask;
 	}
 	else
 	{
-		DistanceAttenuation = RadialAttenuation(ToLight * LightData.LightPositionAndInvRadius.w, LightData.LightColorAndFalloffExponent.w);
+		DistanceAttenuation = RadialAttenuation(ToLight * LightData.InvRadius, LightData.FalloffExponent);
 	}
 
 	float3 OutLighting = 0;
@@ -385,7 +400,7 @@ float3 GetSimpleDynamicLighting(float3 WorldPosition, float3 CameraVector, float
 	BRANCH
 	if (DistanceAttenuation > 0)
 	{
-		const float3 LightColor = LightData.LightColorAndFalloffExponent.rgb;
+		const float3 LightColor = LightData.Color;
 
 		// Apply SSAO to the direct lighting since we're not going to have any other shadowing
 		float Attenuation = DistanceAttenuation * AmbientOcclusion;

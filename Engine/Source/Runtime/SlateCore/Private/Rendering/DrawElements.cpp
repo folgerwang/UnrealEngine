@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Rendering/DrawElements.h"
 #include "Application/SlateApplicationBase.h"
@@ -30,7 +30,7 @@ static bool IsResourceObjectValid(UObject*& InObject)
 	return true;
 }
 
-FSlateWindowElementList::FSlateWindowElementList(TSharedPtr<SWindow> InPaintWindow)
+FSlateWindowElementList::FSlateWindowElementList(const TSharedPtr<SWindow>& InPaintWindow)
 	: WeakPaintWindow(InPaintWindow)
 	, RawPaintWindow(InPaintWindow.Get())
 	, RenderTargetWindow(nullptr)

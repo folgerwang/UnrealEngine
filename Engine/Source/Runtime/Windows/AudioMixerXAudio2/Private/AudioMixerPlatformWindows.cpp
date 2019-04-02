@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /**
 	Concrete implementation of FAudioDevice for XAudio2
@@ -243,7 +243,10 @@ namespace Audio
 
 	void FMixerPlatformXAudio2::UnregisterDeviceChangedListener() 
 	{
-		WindowsNotificationClient->UnRegisterDeviceDeviceChangedListener(this);
+		if (WindowsNotificationClient.IsValid())
+		{
+			WindowsNotificationClient->UnRegisterDeviceDeviceChangedListener(this);
+		}
 	}
 
 	void FMixerPlatformXAudio2::OnDefaultCaptureDeviceChanged(const EAudioDeviceRole InAudioDeviceRole, const FString& DeviceId)

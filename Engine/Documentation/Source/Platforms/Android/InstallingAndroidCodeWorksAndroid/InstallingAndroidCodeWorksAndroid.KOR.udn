@@ -1,0 +1,252 @@
+﻿INTSourceChangelist:4674424
+Availability: Public
+Crumbs: 
+Title: CodeWorks for Android 1R6u1 설치
+Description: Android Code Works for Android 1R6u1 설치 안내입니다.
+Type: 
+Version: 4.19
+Parent: Platforms/Mobile/Android
+Order: 
+Tags: mobile
+Tags: Android
+Tags: StartingOut
+Tags: PreRec
+
+
+언리얼 엔진 4 (UE4) 는 Android Software Development Kit (SDK) 특수 버전 CodeWorks for Android 1R6u1 를 사용합니다. CodeWorks for Android 이 버전은 UE4 로 Android 프로젝트를 개발하는 데 필요한 SDK 및 Native Development Kit (NDK) 를 가장 쉽게 설치할 수 있습니다. 현재 1R6u1 버전을 사용하긴 하지만, 앞으로 출시되는 CodeWorks 버전을 사용할 계획입니다. Android SDK 다른 버전( 또는 CodeWorks for Android 구버전)이 설치된 경우, 설치 해제한 뒤 UE4 와 같이 배포되는 CodeWorks for Android 인스톨러를 통해 CodeWorks for Android 를 재설치할 것을 권장합니다. 다음 섹션에서는 개발 PC 에 CodeWorks for Android 1R6u1 을 설치하는 법을 설명합니다.
+
+## 단계
+
+[REGION:note]
+CodeWorks for Android 1R6u1 버전이 이미 설치되었지만 환경 변수만 손실된 경우, 이 단계를 전부 생략하고 에디터의 **편집** \> **프로젝트 세팅** \> **Android SDK** 프로퍼티에서 설치 위치를 지정해 주면 됩니다.
+[/REGION]
+[REGION:warning]
+문제 방지를 위해 에디터와 런처 둘 다 닫힌 상태에서 CodeWorks for Android 1R6u1 을 설치할 것을 권장합니다.
+[/REGION]
+
+1.  CodeWorks for Android 1R6u1 을 설치하려면, **Engine** \> **Extras** \> **Android** 폴더로 이동합니다.
+    
+    [REGION:note]
+    CodeWorks for Android 1R6u1 인스톨러는 Visual Studio 가 설치되어 있어야 정상 완료됩니다. 지원 버전은 2013, 2015, 2017 입니다.
+    [/REGION]
+    
+    | 설치 유형 | 위치 |
+    | --- | --- |
+    | 바이너리 | \[EngineInstallLocation\]\\Unreal Engine\[EngineVersion\]\\Engine\\Extras\\Android |
+    | GitHub | \[EngineSyncLocation\\UE4\\Engine\\Extras\\Android |
+    
+    [REGION:note]
+    언리얼 엔진 4 를 **Github** 에서 다운로드한 경우, 다음 단계를 수행한 뒤 CodeWorks for Android 1R6u1 인스톨러를 실행해야 합니다. 참고로 이는 GitHub 에서 언리얼 엔진 4 소스 코드를 다운로드한 Windows 와 Mac 기반 PC 둘 다에 적용됩니다. 런처에서 다운로드한 바이너리 빌드를 사용하는 경우, 이 부분은 건너 뛰고 CodeWorks for Android 1R6u1 설치를 바로 시작해도 됩니다.
+    
+    1.  언리얼 엔진 4 를 GitHub 에서 다운로드하고 압축을 푼 뒤, **Setup.bat** 파일을 실행하여 필수 파일과 함께 **CodeWorks for Android 1R6u1** 인스톨러를 다운로드합니다.
+        
+    2.  **Setup.bat** 실행이 끝나면 CodeWorks for Android 1R6u1 인스톨러를 찾아 실행하고, 아래 안내를 따릅니다.
+    [/REGION]
+2.  **CodeWorksforAndroid-1R6u1-windows.exe** 파일을 더블클릭하여 설치 프로세스를 시작합니다.
+    
+    ![](AndroidWorks_11.png)
+    
+3.  첫 창의 **Next** 버튼을 클릭하여 설치 프로세스를 시작합니다.
+    
+    ![](AndroidWorks_00.png)
+    
+4.  **Next** 버튼을 클릭하여 계속합니다.
+    
+    ![](AndroidWorks_01.png)
+    
+5.  CodeWorks for Android 1R6u1 를 다운로드하고 설치할 위치를 설정한 뒤 **Next** 버튼을 클릭합니다.
+    
+    ![](AndroidWorks_02.png)
+    
+    [REGION:note]
+    기본 설정 위치로 놔둬도 완전 괜찮습니다.
+    [/REGION]
+6.  **CodeWorks for Android 1R6u1** 버전을 설치 중인지 확인한 뒤 **Next** 버튼을 클릭합니다.
+    
+    ![](AndroidWorks_03.png)
+    
+7.  **Accept All** 박스를 체크하여 라이선스 조항에 동의한 뒤 **Accept** 버튼을 클릭합니다.
+    
+    ![](AndroidWorks_04.png)
+    
+8.  새 창에 필수 CodeWorks for Android 1R6u1 툴의 다운로드 및 설치 진행 상태가 표시됩니다.
+    
+    [REGION:note]
+    이 부분을 완료하려면 인터넷 연결이 필요합니다. 인터넷 연결 속도에 따라 몇 분에서 몇 시간까지 걸릴 수도 있습니다.
+    [/REGION]
+    
+    ![](AndroidWorks_06.png)
+    
+9.  **Next** 버튼을 클릭하여 CodeWorks for Android 1R6u1 설치를 계속합니다.
+    
+    ![](AndroidWorks_09.png)
+    
+10. **Finish** 버튼을 클릭하여 설치를 종료합니다.
+    
+    ![](AndroidWorks_10.png)
+    
+11. 마지막으로 **Yes** 버튼을 눌러 PC 를 재시작합니다.
+    
+    ![](AndroidWorks_12.png)
+    
+    [REGION:note]
+    Github 에서 언리얼 엔진 4 를 다운로드한 경우, CodeWorks for Android 1R6u1 설치가 끝나면 PC 또는 Mac 을 재시작하여 환경 변수를 설정한 뒤 **Setup.bat** 파일을 한 번 더 실행하면 필수 Android 개발 파일을 다운로드합니다.
+    [/REGION]
+
+[REGION:note]
+CodeWorks for Android 1R6u1 버전이 이미 설치되었지만 환경 변수만 손실된 경우, 이 단계를 전부 생략하고 에디터의 **편집** \> **프로젝트 세팅** \> **Android SDK** 프로퍼티에서 설치 위치를 지정해 주면 됩니다.
+[/REGION]
+[REGION:warning]
+문제 방지를 위해 에디터와 런처 둘 다 닫힌 상태에서 CodeWorks for Android 1R6u1 을 설치할 것을 권장합니다.
+[/REGION]
+
+Mac 에 CodeWorks for Android 1R6u1 를 설치하기 전 Java 8 이 설치되었는지 확인해야 합니다. 아래 제공된 링크로 Java 8 을 다운로드하고 설치하세요.
+
+*   Java 8 다운로드 [링크](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html).
+    
+
+1.  CodeWorks for Android 1R6u1 을 설치하려면 **Engine** \> **Extras** \> **Android** 폴더로 이동합니다.
+    
+    | 설치 유형 | 위치 |
+    | --- | --- |
+    | 바이너리 | \[EngineInstallLocation\]\\Unreal Engine\[EngineVersion\]\\Engine\\Extras\\AndroidWorks\\Mac |
+    | GitHub | \[EngineSyncLocation\\UE4\\Engine\\Extras\\AndroidWorks\\Mac |
+    
+    [REGION:note]
+    언리얼 엔진 4 를 **Github** 에서 다운로드한 경우, 다음 단계를 수행한 뒤 CodeWorks for Android 1R6u1 인스톨러를 실행해야 합니다. 참고로 이는 GitHub 에서 언리얼 엔진 4 소스 코드를 다운로드한 Windows 와 Mac 기반 PC 둘 다에 적용됩니다. 런처에서 다운로드한 바이너리 빌드를 사용하는 경우, 이 부분은 건너 뛰고 CodeWorks for Android 1R6u1 설치를 바로 시작해도 됩니다.
+    
+    1.  언리얼 엔진 4 를 GitHub 에서 다운로드하고 압축을 푼 뒤, **Setup.command** 파일을 실행하여 필수 파일과 함께 **CodeWorks for Android 1R6u1** 인스톨러를 다운로드합니다.
+        
+    2.  **Setup.command** 실행이 끝나면 CodeWorks for Android 1R6u1 인스톨러를 찾아 실행하고, 아래 안내를 따릅니다.
+    [/REGION]
+2.  **CodeWorks for Android 1R6u1-osx.dmg** 를 더블클릭하여 CodeWorks for Android 1R6u1 인스톨러를 로드합니다.
+    
+    ![](AndroidWorks_Mac_00.png)
+    
+3.  CodeWorks for Android 1R6u1 인스톨러 아이콘을 더블클릭하여 설치 프로세스를 시작합니다.
+    
+    ![](AndroidWorks_Mac_01.png)
+    
+4.  **Next** 를 클릭합니다.
+    
+    ![](AndroidWorks_Mac_02.png)
+    
+5.  **Next** 를 클릭합니다.
+    
+    ![](AndroidWorks_Mac_03.png)
+    
+6.  CodeWorks for Android 1R6u1 설치 위치를 지정한 뒤 **Next** 버튼을 클릭합니다.
+    
+    [REGION:note]
+    기본 설정 위치로 놔둬도 완전 괜찮습니다.
+    [/REGION]
+    
+    ![](AndroidWorks_Mac_04.png)
+    
+7.  CodeWorks for Android 1R6u1 Component Manager 가 표시되면 **Next** 버튼을 클릭하여 다운로드와 설치 프로세스를 시작합니다.
+    
+    ![](AndroidWorks_Mac_05.png)
+    
+8.  **Accept All** 박스를 체크하여 라이선스 조항에 동의한 뒤 **Accept** 버튼을 클릭합니다.
+    
+    ![](AndroidWorks_Mac_06.png)
+    
+9.  CodeWorks for Android 1R6u1 Component Manager 가 필수 툴 다운로드와 설치를 시작합니다.
+    
+    [REGION:note]
+    이 부분을 완료하려면 인터넷 연결이 필요합니다. 인터넷 연결 속도에 따라 몇 분에서 몇 시간까지 걸릴 수도 있습니다.
+    [/REGION]
+10. 모두 설치가 끝나면 다음과 같은 창이 뜹니다. **Next** 버튼을 클릭하여 계속합니다.
+    
+    ![](AndroidWorks_Mac_08.png)
+    
+11. **Finish** 버튼을 클릭하여 CodeWorks for Android 1R6u1 설치를 완료합니다.
+    
+    ![](AndroidWorks_Mac_09.png)
+    
+    [REGION:note]
+    Github 에서 언리얼 엔진 4 를 다운로드한 경우, CodeWorks for Android 1R6u1 설치가 끝나면 PC 또는 Mac 을 재시작하여 환경 변수를 설정한 뒤 **Setup.command** 파일을 한 번 더 실행하면 필수 Android 개발 파일을 다운로드합니다.
+    [/REGION]
+
+CodeWorks for Android 1R6u1 설치가 끝나면 다음과 같이 Bash 파일을 편집해야 합니다.
+
+1.  Mac Terminal 을 엽니다.
+    
+    ![](JH_01.png)
+    
+2.  Terminal 에 **nano ~/.bash_profile** 이라 입력합니다.
+    
+    ![](JH_02.png)
+    
+3.  파일 끝으로 화면을 내려 **export JAVA\_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0\_121.jdk/Contents/Home** 줄을 추가합니다.
+    
+    ![](JH_03.png)
+    
+    [REGION:note]
+    위는 기본 경로이므로 다른 곳에 설치한 경우 **jdk1.8.0_121.jdk/Contents/Home** 에 맞는 경로로 수정하세요.
+    [/REGION]
+4.  **CTRL + X** 키를 눌러 bash 를 빠져나간 뒤, **Y** 키를 눌러 변경사항을 저장하고, **ENTER** 키를 눌러 확인한 다음 Mac 을 재시작합니다.
+    
+5.  Mac 재시작 후 Terminal 을 열고 **Monitor** 라 입력한 뒤 **ENTER** 키를 칩니다. 모두 올바르게 설정되었다면 Android Device Monitor 스플래시 화면이 보일 것입니다.
+    
+    ![](JH_04.png)
+    
+
+Linux 에서 Android 개발 시작 방법을 선보이기 위해, CodeWorks for Android 1R6u1 버전에 언리얼 엔진 4.14 를 사용합니다. CodeWorks for Android 1R6u1 설치 전 엔진을 닫아야 합니다. 또 Java Development Kit 8 (JDK 8) 가 설치되어 있고, `JAVA_HOME` 환경 변수가 올바른 Java Development Kit (JDK) 버전으로 설정되어 있어야 합니다. `JAVA_HOME` 이 제대로 설정되었는지 확인하려면 terminal 에 `echo $JAVA_HOME` 이라 입력합니다. JDK 버전이 다르다면 [JDK 8 다운로드](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html) 후 Linux 컴퓨터에 설치합니다. `JAVA_HOME` 환경 변수가 새로 설치된 JDK 로 설정되었는지 확인합니다.
+
+[REGION:warning]
+현재 Android Vulkan on Linux 는 지원하지 않습니다.
+[/REGION]
+
+1.  Terminal 을 열고 컴파일된 엔진이 들어있는 `[UE4Root]` 폴더로 이동합니다 (`cd` 명령을 사용하여 셸 작업 디렉터리를 변경합니다). 
+    ![](LinuxAndroid_Step0.png)(w:900)
+2.  `[UE4Root]` 폴더 안에서 CodeWorks for Android 1R6u1 바이너리 파일을 (**CodeWorksforAndroid-1R6u1-linux-x64.run**) 찾습니다. terminal 에 다음과 같이 입력합니다: `cd Engine/Extras/AndroidWorks/Linux`. 
+    ![](LinuxAndroid_Step1.png)(w:900)
+3.  이제 terminal 에 `ls -l` 이라 입력하면, 디렉터리의 내용이 길게 표시됩니다. 파일 권한 설정을 보면 **CodeWorksforAndroid-1R6u1-linux-x64.run** 은 실행할 수 없습니다. CodeWorks for Android 1R6u1 바이너리를 실행하기 전, 파일을 "실행"할 수 있도록 권한을 변경해야 합니다.
+    
+![](LinuxAndroid_Step2.png)(w:900)
+
+4.  `CodeWorksforAndroid-1R6u1-linux-x64.run` 파일 권한 설정을 변경하여 일반 실행파일처럼 실행되도록 하려면, terminal 에 `chmod +x CodeWorksforAndroid-1R6u1-linux-x64.run` 라 입력합니다. 
+    ![](LinuxAndroid_Step3.png)(w:900)
+    [REGION:tip]
+    `chmod` 명령 관련 자세한 내용은 terminal 에 `man chmod` 라 입력하면 `chmod` 작동법 매뉴얼을 확인할 수 있습니다.
+    [/REGION]
+5.  이제 terminal 에 `ls -l` 라 입력합니다. 이미지에 강조된 파일의 권한 설정을 보면 CodeWorks for Android 1R6u1 바이너리 파일을 실행할 준비가 되었습니다.
+    
+![](LinuxAndroid_Step4.png)(w:900)
+
+6.  CodeWorks for Android binary, enter `./CodeWorksforAndroid-1R6u1-linux-x64.run` into the terminal. 
+    ![](LinuxAndroid_Step5.png)(w:900)
+    [REGION:warning]
+    다음 단계를 진행하기 전 컴퓨터가 인터넷에 연결되어 있는지 확인하세요.
+    [/REGION]
+7.  CodeWorks for Android 1R6u1 바이너리가 **NVIDIA CodeWorks for Android** 인스톨러 압축을 푼 뒤, **Installer Welcome** 창이 뜹니다. **Next** 또는 **Cancel** 을 선택할 수 있습니다. 
+    
+![](LinuxAndroid_Step6.png)(w:900)
+8.  **Installer Welcome** 창에서 **Next** 버튼을 눌러 설치 프로세스를 시작합니다. 
+    ![](LinuxAndroid_Step7.png)(w:900)
+9.  이제 **Android Developer's Welcome Window** 창에서 **Next** 버튼을 클릭하여 설치 프로세스를 계속합니다. 
+    ![](LinuxAndroid_Step8.png)(w:900)
+10.  CodeWorks for Android 1R6u1 를 설치 및 다운로드할 디렉터리를 지정하세요. 
+    ![](LinuxAndroid_Step9.png)(w:900)
+11.  **Next** 버튼을 클릭하면 NVIDIA 에서 CodeWorks for Android 1R6u1 를 다운로드하고, 컴퓨터에 CodeWorks 를 설치합니다. 
+    ![](LinuxAndroid_Step10.png)(w:900)
+12.  이제 **CodeWorks for Android 1R6u1** 가 설치되는지 확인한 뒤 **Android Component Manager** 창에서 **Next** 를 클릭합니다. 
+    ![](LinuxAndroid_Step11.png)(w:900)
+13.  **Terms and Conditions** 창이 뜨면 시간을 내서 조항을 살펴본 뒤 **Accept All** 박스를 체크합니다. 
+    ![](LinuxAndroid_Step12.png)(w:900)
+14.  **Accept** 버튼을 클릭하면 설치 프로세스가 시작됩니다. 
+    ![](LinuxAndroid_Step13.png)(w:900)
+15.  인스톨러가 설치 프로세스를 완료하면, **Next >** 버튼을 눌러 계속합니다. 
+    ![](LinuxAndroid_Step14.png)(w:900)
+16.  **Installation Complete** 창이 열린 이후 **Finish** 버튼을 클릭하여 설치를 완료합니다. 
+    ![](LinuxAndroid_Step15.png)(w:900)
+17.  컴퓨터를 리부팅한 뒤 다음 단계를 진행하세요. 
+    ![](LinuxAndroid_Note16.png)(w:900)
+    [REGION:tip]
+    Ubuntu 의 GUI 를 사용하지 않으려면, terminal 에 `sudo reboot` 라 입력하여 컴퓨터를 재시작할 수 있습니다.
+    [/REGION]
+
+## 최종 결과
+
+완료되면 필수 Android SDK 가 전부 설치되어 Android 디바이스에서 작동되는 언리얼 엔진 4 프로젝트 제작에 사용할 수 있습니다.

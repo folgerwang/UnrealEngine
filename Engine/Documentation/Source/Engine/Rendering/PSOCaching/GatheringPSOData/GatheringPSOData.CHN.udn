@@ -1,0 +1,133 @@
+﻿INTSourceChangelist:4677192
+Availability: Public
+Crumbs: 
+Title: 收集PSO数据
+Description: 了解如何从一个已编译的UE4项目中收集PSO数据。
+Type: 
+Version: 4.21
+Parent: Engine/Rendering/PSOCaching
+Order:
+Topic-image:GatheringPSOData_Topic_Image.png
+Tags: : 
+
+
+项目在其中一个目标设备上运行时，必须生成用于 **管线状态对象（Pipeline State Object）**（PSO）缓存的数据部分。以下指南将讲述如何使用[设备描述](Platforms/DeviceProfiles)和[项目Launcher](Engine/Deployment/ProjectLauncher)来创建并部署虚幻引擎4项目的一个版本，这将生成并采集PSO数据。
+
+(#steps)
+## 步骤
+
+1.  在 **主工具栏** 中点击 **运行（Launch）** 旁的白色箭头图标，然后选择 **项目Launcher**。  
+    [REGION:lightbox]
+    [![](Open_UE4_Project_Launcher.png)(w:400px)](Open_UE4_Project_Launcher.png)
+    [/REGION]
+    [REGION:caption]
+    点击查看全图。
+    [/REGION]
+2.  在项目Launcher中找到 **自定义启动描述（Custom Launch Profiles）** 部分，按下 **加号图标**新添加一个**自定义启动描述（Custom Launch Profiles）**。   
+    [REGION:lightbox]
+    [![](Create_New_Custom_Launch_Profile.png)(w:800px)](Create_New_Custom_Launch_Profile.png)
+    [/REGION]
+    [REGION:caption]
+    点击查看全图。
+    [/REGION]
+    [REGION:note]
+    双击现有描述命名并在框中输入所需的命名，即可对此描述进行自定义。
+    [/REGION]
+3.  在 **项目（Project）** 部分点击 **项目（Project）** 下拉菜单，并选择此描述文件相关联的项目。因为使用的是 **ActionRPG** 来展示此工作流，所以 **项目** 被设为 **ActionRPG**。
+    [REGION:lightbox]
+    [![](Project_Launcher_Used_Project.png)(w:800px)](Project_Launcher_Used_Project.png)
+    [/REGION]
+    [REGION:caption]
+    点击查看全图。
+    [/REGION]
+4.  在“烘焙”部分中将 **如何烘焙内容（How would you like to cook the content）** 选项设为 **常规（By the Book）**。  
+    [REGION:lightbox]
+    [![](Project_Launcher_Cook_Type.png)(w:800px)](Project_Launcher_Cook_Type.png)
+    [/REGION]
+    [REGION:caption]
+    点击查看全图。
+    [/REGION]
+    [REGION:note]
+    为了解诸多烘焙选项执行操作的更多信息，请参阅[编译操作：烘焙、打包、部署和运行](Engine/Deployment/BuildOperations)文档页面。
+    [/REGION]
+5.  在 **烘焙平台（Cooked Platforms）** 部分中可选择此描述应使用的平台和纹理格式。因为使用的是 **ActionRPG** 来展示此工作流，索引必须勾选 **Android** 和 **Android_ETC1**。
+    [REGION:lightbox]
+    [![](Project_Launcher_Cooked_Platforms.png)(w:800px)](Project_Launcher_Cooked_Platforms.png)
+    [/REGION]
+    [REGION:caption]
+    点击查看全图。
+    [/REGION]
+6.  在 **已烘焙地图（Cooked Maps）** 部分中将 **显示所有（Show All）** 选中，然后选择此描述文件关联的所有地图。因为使用的是 **ActionRPG** 来展示此工作流，请确认所有地图旁边均有勾选标。
+    [REGION:lightbox]
+    [![](Project_Launcher_Cooked_Maps.png)(w:800px)](Project_Launcher_Cooked_Maps.png)
+    [/REGION]
+    [REGION:caption]
+    点击查看全图。
+    [/REGION]
+7.  在 **启动（Launch）** 部分将 **初始地图（Initial Map）** 设为项目加载时使用的关卡。我们使用 **ActionRPG** 来展示此工作流，因此初始地图被设为 **ActionRPG_Main**，此关卡含有初始UI画面。
+    [REGION:lightbox]
+    [![](Project_Launcher_Go_Back.png)(w:800px)](Project_Launcher_Go_Back.png)
+    [/REGION]
+    [REGION:caption]
+    点击查看全图。
+    [/REGION]
+8.  然后在 **额外命令行参数（Additional Command Line Parameters）** 下输入 **-logPSO**，确保项目运行时PSO日志记录已启用。
+    [REGION:note]
+    如果尝试收集PSO数据时项目不断崩溃，将 **-NoVerifyGC** 添加到命令行即可禁用垃圾回收。
+    [/REGION]
+    [REGION:lightbox]
+    [![](Project_Launcher_AdditionalCommandLineParams.png)(w:800px)](Project_Launcher_AdditionalCommandLineParams.png)
+    [/REGION]
+    [REGION:caption]
+    点击查看全图。
+    [/REGION]
+9.  点击项目Launcher右上角的 **返回** 按钮返回 **自定义启动描述（Custom Launch Profiles）** 菜单。  
+    [REGION:lightbox]
+    [![](Project_Launcher_Go_Back.png)(w:800px)](Project_Launcher_Go_Back.png)
+    [/REGION]
+    [REGION:caption]
+    点击查看全图。
+    [/REGION]
+10. 在 **自定义启动描述（Custom Launch Profiles）** 部分点击 **启动此描述（Launch this Profile）** 按钮开始烘焙和部署进程。  
+    [REGION:lightbox]
+    [![](Project_Launcher_Start_Cook_And_Deploy.png)(w:800px)](Project_Launcher_Start_Cook_And_Deploy.png)
+    [/REGION]
+    [REGION:caption]
+    点击查看全图。
+    [/REGION]
+    [REGION:note]
+    点击 **启动此描述** 按钮之前，必须完成目标设备的设置并连接到开发PC。此进程不仅会编译并烘焙项目，还会将其部署并启动。
+    [/REGION]
+11. 烘焙和部署进程开始后将显示以下窗口，显示编译进程和出现的错误。  
+    [REGION:lightbox]
+    [![](Project_Launcher_Completed.png)(w:800px)](Project_Launcher_Completed.png)
+    [/REGION]
+    [REGION:caption]
+    点击查看全图。
+    [/REGION]
+    [REGION:note]
+    **输出日志** 中出现 **BUILD SUCCESSFUL** 字样时便代表进程成功完成。
+    [/REGION]
+12. 编译完成并部署到目标设备后，使用者需要在项目所有可用关卡中进行游戏。进行此操作的目的是尝试加载游戏中使用的每个内容，以便材质使用的着色器被采集。  
+    [REGION:note]
+    需要将此流程重复几次，确保使用的所有内容均已实际加载。
+    [/REGION]
+13. 在项目中完整游戏数次后将获得 **rec.upipelinecache** 文件。前往目标设备上的以下位置即可找到此文件：**UE4Game\\NameOfProject\\NameOfProject\\Saved\\CollectedPSOs**
+    [REGION:lightbox]
+    [![](PSO_FIle_On_Device.png)(w:800px)](PSO_FIle_On_Device.png)
+    [/REGION]
+    [REGION:caption]
+    点击查看全图。
+    [/REGION]  
+    [REGION:note]
+    如未出现 **Saved** 或 **CollectedPSOs** 文件夹，则需要在目标设备上手动创建，然后通过项目中的内容重新运行，生成正确的文件。
+    [/REGION]
+
+(#endresults)
+## 最终结果
+
+所需的PSO数据生成后，接下来需要将生成的所有rec.upipelinecache文件组合到一个单一PSO缓存中，其可在UE4项目被编译时使用。
+
+[REGION:note]
+如需执行此操作方法的更多信息，请参见[编译PSO缓存指南](Engine/Rendering/PSOCaching/BuildingPSOCache)。
+[/REGION]

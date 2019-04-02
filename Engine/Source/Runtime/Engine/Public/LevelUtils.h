@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -92,7 +92,7 @@ public:
 #if WITH_EDITORONLY_DATA
 	static bool IsStreamingLevelVisibleInEditor(const ULevelStreaming* StreamingLevel);
 
-	DEPRECATED(4.20, "Use IsStreamingLevelVisibleInEditor instead.")
+	UE_DEPRECATED(4.20, "Use IsStreamingLevelVisibleInEditor instead.")
 	static bool IsLevelVisible(const ULevelStreaming* StreamingLevel) { return IsStreamingLevelVisibleInEditor(StreamingLevel); }
 #endif
 

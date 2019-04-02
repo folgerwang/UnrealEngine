@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Linux/DirectoryWatchRequestLinux.h"
 #include "HAL/FileManager.h"
@@ -7,7 +7,6 @@
 FDirectoryWatchRequestLinux::FDirectoryWatchRequestLinux()
 :	bRunning(false)
 ,	bEndWatchRequestInvoked(false)
-,	bIncludeDirectoryChanges(false)
 ,	bWatchSubtree(false)
 {
 	NotifyFilter = IN_CREATE | IN_MOVE | IN_MODIFY | IN_DELETE;
@@ -35,7 +34,6 @@ bool FDirectoryWatchRequestLinux::Init(const FString& InDirectory, uint32 Flags)
 	}
 
 	Directory = InDirectory;
-	bIncludeDirectoryChanges = (Flags & IDirectoryWatcher::WatchOptions::IncludeDirectoryChanges) != 0;
 	bWatchSubtree = (Flags & IDirectoryWatcher::WatchOptions::IgnoreChangesInSubtree) == 0;
 
 	if (bRunning)
@@ -53,8 +51,17 @@ bool FDirectoryWatchRequestLinux::Init(const FString& InDirectory, uint32 Flags)
 
 	if (FileDescriptor == -1)
 	{
-		// Failed to init inotify
-		UE_LOG(LogDirectoryWatcher, Error, TEXT("Failed to init inotify"));
+		// Failed to init inotify. The number of inotify instances on the default Linux is vastly
+		// insufficient, so do not make this an error which can break cooking
+		int ErrNo = errno;
+		if (ErrNo == EMFILE)
+		{
+			UE_LOG(LogDirectoryWatcher, Warning, TEXT("Failed to init inotify (ran out of inotify instances, consider increasing system limits)"));
+		}
+		else
+		{
+			UE_LOG(LogDirectoryWatcher, Error, TEXT("Failed to init inotify (errno=%d, %s)"), ErrNo, UTF8_TO_TCHAR(strerror(ErrNo)));
+		}
 		return false;
 	}
 
@@ -66,16 +73,16 @@ bool FDirectoryWatchRequestLinux::Init(const FString& InDirectory, uint32 Flags)
 	return true;
 }
 
-FDelegateHandle FDirectoryWatchRequestLinux::AddDelegate(const IDirectoryWatcher::FDirectoryChanged& InDelegate)
+FDelegateHandle FDirectoryWatchRequestLinux::AddDelegate(const IDirectoryWatcher::FDirectoryChanged& InDelegate, uint32 Flags)
 {
-	Delegates.Add(InDelegate);
-	return Delegates.Last().GetHandle();
+	Delegates.Emplace(InDelegate, Flags);
+	return Delegates.Last().Key.GetHandle();
 }
 
 bool FDirectoryWatchRequestLinux::RemoveDelegate(FDelegateHandle InHandle)
 {
-	return Delegates.RemoveAll([=](const IDirectoryWatcher::FDirectoryChanged& Delegate) {
-		return Delegate.GetHandle() == InHandle;
+	return Delegates.RemoveAll([=](const FWatchDelegate& Delegate) {
+		return Delegate.Key.GetHandle() == InHandle;
 	}) != 0;
 }
 
@@ -97,9 +104,28 @@ void FDirectoryWatchRequestLinux::ProcessPendingNotifications()
 	// Trigger all listening delegates with the files that have changed
 	if (FileChanges.Num() > 0)
 	{
-		for (int32 DelegateIdx = 0; DelegateIdx < Delegates.Num(); ++DelegateIdx)
+		TMap<uint32, TArray<FFileChangeData>> FileChangeCache;
+		for (const FWatchDelegate& Delegate : Delegates)
 		{
-			Delegates[DelegateIdx].Execute(FileChanges);
+			// Filter list of all file changes down to ones that just match this delegate's flags
+			TArray<FFileChangeData>* CachedChanges = FileChangeCache.Find(Delegate.Value);
+			if (CachedChanges)
+			{
+				Delegate.Key.Execute(*CachedChanges);
+			}
+			else
+			{
+				const bool bIncludeDirs = (Delegate.Value & IDirectoryWatcher::WatchOptions::IncludeDirectoryChanges) != 0;
+				TArray<FFileChangeData>& Changes = FileChangeCache.Add(Delegate.Value);
+				for (const TPair<FFileChangeData, bool>& FileChangeData : FileChanges)
+				{
+					if (!FileChangeData.Value || bIncludeDirs)
+					{
+						Changes.Add(FileChangeData.Key);
+					}
+				}
+				Delegate.Key.Execute(Changes);
+			}
 		}
 
 		FileChanges.Empty();
@@ -216,9 +242,6 @@ void FDirectoryWatchRequestLinux::ProcessChanges()
 		{
 			Event = reinterpret_cast<const struct inotify_event *>(Ptr);
 
-			// some events can be ignored to match other implementations and tests
-			bool bIgnoreEvent = false;
-
 			// skip if overflowed
 			if (Event->wd != -1 && (Event->mask & IN_Q_OVERFLOW) == 0)
 			{
@@ -240,8 +263,6 @@ void FDirectoryWatchRequestLinux::ProcessChanges()
 						if (Event->mask & IN_ISDIR)
 						{
 							WatchDirectoryTree(AffectedFile);
-							// to be in sync with Windows implementation, ignore events about creating directories unless told so
-							bIgnoreEvent = !bIncludeDirectoryChanges;
 						}
 
 						Action = FFileChangeData::FCA_Added;
@@ -259,8 +280,6 @@ void FDirectoryWatchRequestLinux::ProcessChanges()
 						if (Event->mask & IN_ISDIR)
 						{
 							UnwatchDirectoryTree(EventPath);
-							// to be in sync with Windows implementation, ignore events about deleting directories unless told so
-							bIgnoreEvent = !bIncludeDirectoryChanges;
 						}
 						else
 						{
@@ -279,16 +298,14 @@ void FDirectoryWatchRequestLinux::ProcessChanges()
 						if (Event->mask & IN_ISDIR)
 						{
 							UnwatchDirectoryTree(AffectedFile);
-							// to be in sync with Windows implementation, ignore events about deleting directories unless told so
-							bIgnoreEvent = !bIncludeDirectoryChanges;
 						}
 
 						Action = FFileChangeData::FCA_Removed;
 					}
 
-					if (!bIgnoreEvent && Event->len)
+					if (Event->len)
 					{
-						new (FileChanges) FFileChangeData(AffectedFile, Action);
+						FileChanges.Emplace(FFileChangeData(AffectedFile, Action), (Event->mask & IN_ISDIR) != 0);
 					}
 				}
 			}

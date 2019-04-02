@@ -1,79 +1,65 @@
-﻿INTSourceChangelist:1949300
+﻿INTSourceChangelist:3782314
 Availability:Public
-Title:视图选项
-Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor, Engine/UI/LevelEditor/Viewports
-Description:关于视口中可用的各种选项的概述。
+Title:在视口中锁定Actor
+Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor/Viewports
+Description:介绍如何将Actor锁定到视口摄像机以进行直观的放置。
+Version: 4.9
+topic-image:ActorLocking_Topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](ActorLocking_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		Actor 锁定
-	[/PARAM]
-	[PARAM:description]
-		如何将Actor锁定到视口相机来进行直观的放置。
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UI/LevelEditor/Viewports/ActorLocking]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](ActorLocking_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		Actor锁定
-	[/PARAM]
-	[PARAM:description]
-		如何将Actor锁定到视口相机来进行直观的放置。
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UI/UserGuide/LevelEditor/Viewports/ActorLocking]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+[TOC(start:2)]
 
 
 
-## 概述
-
-Actor锁定允许将透视口相机作为在您的关卡中放置Actor的一种机制。只需简单地锁定到特定的actor，调整视图到您想放置那个actor的地方，然后锁定actor即可。将通过相机的位置和旋转度来放置特定的actor。
-
-## 锁定到Actor
-
-要想锁定视图到一个actor，仅需点击‘视口选项’菜单中的Actor锁定选项，该选项位于视口的左上角。
-
-![](ActorLocking.png)
-
-锁定Actor操作对于相机Actor和光源特别有用。因此，所有的相机和光源都将会立即出现在Actor Locking（Actor锁定）的子菜单中。然而，这个锁定操作也可以用于其他任何选中的actor。只要选中一个Actor，您就会在Actor 锁定子菜单中看到该Actor。
-
-当激活了锁定操作时，您将会在视口左上角看到一个挂锁图标。这意味着您已经把某个actor附加到了该视图上。
-
-![](LockIcon.png)
-
-一旦锁定某个特定对象后，您可以向下查看该对象的X-轴。然后，您可以正常地移动视图，Actor将会自动地跟着一起移动。
+Actor锁定使你能够将视角视口摄像机用作Actor在关卡中的放置机制。只需锁定到给定Actor，将视图固定在需要将Actor放置到的位置，然后解锁即可。摄像机的位置和朝向将用于放置给定Actor。
 
 
-![](SpotlightLocked.png)
+(#pilotinganactorintheviewport)
+## 在视口中锁定Actor
+
+要在视口中锁定Actor，右键单击Actor并从情境菜单中选择用于 **锁定（Pilot）** 的选项。 
+
+![](PilotActorViewport.png)(w:700)
+
+锁定对于摄像机Actor和光源特别有用。 
+
+当锁定处于激活状态时，你将在视口的左上角看到锁定文本和图标。这表明你将某些Actor连接到了视图。
+
+![](PilotViewportOptions.png)
+
+锁定后，你将沿着给定对象的X-轴向下看。然后，你就可以正常移动视图，并且Actor将自动跟随视图移动。 
+
+![](PilotActive.png)(w:700)
+
 [REGION:caption]
-在这张图片中，我们将一个聚光源Actor锁定到视图中。现在，无论我们将视图移动到哪里，光源都会跟随着移动，就像附加到了视口相机上一样。
+在此图像中，我们将聚光源Actor锁定到了视图。现在，无论你将视图移动到哪个位置，光线都将跟随，就像连接到视口摄像机一样。
 [/REGION]
 
-一旦您通过这种视图方式完成了Actor放置后，您可以在Actor锁定子菜单中选择Unlock（解锁）选项来解锁该actor。
+(#cameraactors)
+### 摄像机Actor
 
-![](Unlocking.png)
+使用摄像机Actor时，还具有一项额外功能，使用这项功能，你可以精确地看到摄像机看到的一切。你可以在 **锁定（Pilot）** 模式处于激活状态时打开或关闭这项功能。
 
-现在，您可以继续工作，且该Actor将会保持先前通过视图设置的位置。
+| 摄像机视图 | 按钮 | 说明 |
+|:---:|:---:|:---:|
+| **启用** | ![](CameraViewEnabled.png) | 此模式使用摄像机Actor特定的任何设置。|
+| **禁用** | ![](CameraViewDisabled.png) | 禁用时，仅使用视口的基本视图。|
 
-![](LockComplete.png)
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![启用摄像机视图时](CameraPilotingViewEnabled.png)(w:400)
+	[/PARAM]
+	[PARAM:after]
+	![禁用摄像机视图时](CameraPilotingViewDisabled.png)(w:400)
+	[/PARAM]
+[/OBJECT]
+
+
+借助视图放置好Actor之后，你就可以通过选择视口左上角的选项来停止锁定它：
+
+![](StopPiloting.png)
+
+现在你可以继续工作，而Actor将保留在之前通过视图设置的位置上。
+
+![](PilotComplete.png)(w:500)

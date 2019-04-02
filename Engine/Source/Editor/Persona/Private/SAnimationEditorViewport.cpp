@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SAnimationEditorViewport.h"
@@ -65,6 +65,51 @@ void SAnimationEditorViewport::Construct(const FArguments& InArgs, const FAnimat
 		);
 
 	Client->VisibilityDelegate.BindSP(this, &SAnimationEditorViewport::IsVisible);
+
+	// restore last used feature level
+	auto ScenePtr = PreviewScenePtr.Pin();
+	if (ScenePtr.IsValid())
+	{
+		UWorld* World = ScenePtr->GetWorld();
+		if (World != nullptr)
+		{
+			World->ChangeFeatureLevel(GWorld->FeatureLevel);
+		}
+	}
+
+	UEditorEngine* Editor = (UEditorEngine*)GEngine;
+	PreviewFeatureLevelChangedHandle = Editor->OnPreviewFeatureLevelChanged().AddLambda([this](ERHIFeatureLevel::Type NewFeatureLevel)
+		{
+			auto ScenePtr = PreviewScenePtr.Pin();
+			if (ScenePtr.IsValid())
+			{
+				UWorld* World = ScenePtr->GetWorld();
+				if (World != nullptr)
+				{
+					World->ChangeFeatureLevel(NewFeatureLevel);
+				}
+			}
+		});
+}
+
+SAnimationEditorViewport::~SAnimationEditorViewport()
+{
+	UEditorEngine* Editor = (UEditorEngine*)GEngine;
+	Editor->OnPreviewFeatureLevelChanged().Remove(PreviewFeatureLevelChangedHandle);
+}
+
+void SAnimationEditorViewport::PopulateViewportOverlays(TSharedRef<SOverlay> Overlay)
+{
+	SEditorViewport::PopulateViewportOverlays(Overlay);
+
+	// add the feature level display widget
+	Overlay->AddSlot()
+		.VAlign(VAlign_Bottom)
+		.HAlign(HAlign_Right)
+		.Padding(5.0f)
+		[
+			BuildFeatureLevelWidget()
+		];
 }
 
 TSharedRef<FEditorViewportClient> SAnimationEditorViewport::MakeEditorViewportClient()
@@ -165,7 +210,7 @@ bool SAnimationEditorViewportTabBody::CanUseGizmos() const
 	return false;
 }
 
-static FText ConcatenateLine(const FText& InText, const FText& InNewLine)
+FText ConcatenateLine(const FText& InText, const FText& InNewLine)
 {
 	if(InText.IsEmpty())
 	{
@@ -692,13 +737,7 @@ void SAnimationEditorViewportTabBody::BindCommands()
 		FExecuteAction::CreateSP(this, &SAnimationEditorViewportTabBody::OnShowOverlayMorphTargetVert),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SAnimationEditorViewportTabBody::IsShowingOverlayMorphTargetVerts));
-
-	CommandList.MapAction(
-		ViewportShowMenuCommands.ShowVertexColors,
-		FExecuteAction::CreateSP(this, &SAnimationEditorViewportTabBody::OnShowVertexColorsChanged),
-		FCanExecuteAction(),
-		FIsActionChecked::CreateSP(this, &SAnimationEditorViewportTabBody::IsShowingVertexColors));
-
+	
 	CommandList.EndGroup();
 
 	// Show sockets
@@ -1525,20 +1564,23 @@ int32 SAnimationEditorViewportTabBody::GetLODSelection() const
 
 	if (PreviewComponent)
 	{
-		return PreviewComponent->ForcedLodModel;
+		// If we are forcing a LOD level, report the actual LOD level we are displaying
+		// as the mesh can potentially change LOD count under the viewport.
+		if(PreviewComponent->ForcedLodModel > 0)
+		{
+			return PreviewComponent->PredictedLODLevel + 1;
+		}
+		else
+		{
+			return PreviewComponent->ForcedLodModel;
+		}
 	}
 	return 0;
 }
 
 bool SAnimationEditorViewportTabBody::IsLODModelSelected(int32 LODSelectionType) const
 {
-	UDebugSkelMeshComponent* PreviewComponent = GetPreviewScene()->GetPreviewMeshComponent();
-
-	if (PreviewComponent)
-	{
-		return (PreviewComponent->ForcedLodModel == LODSelectionType) ? true : false;
-	}
-	return false;
+	return GetLODSelection() == LODSelectionType;
 }
 
 void SAnimationEditorViewportTabBody::OnSetLODModel(int32 LODSelectionType)
@@ -1668,38 +1710,6 @@ bool SAnimationEditorViewportTabBody::IsPreviewingRootMotion() const
 		return PreviewComponent->GetPreviewRootMotion();
 	}
 	return false;
-}
-
-bool SAnimationEditorViewportTabBody::IsShowingVertexColors() const
-{
-	return GetAnimationViewportClient()->EngineShowFlags.VertexColors;
-}
-
-void SAnimationEditorViewportTabBody::OnShowVertexColorsChanged()
-{
-	FEngineShowFlags& ShowFlags = GetAnimationViewportClient()->EngineShowFlags;
-
-	if(UDebugSkelMeshComponent* PreviewComponent = GetPreviewScene()->GetPreviewMeshComponent())
-	{
-		if(!ShowFlags.VertexColors)
-		{
-			ShowFlags.SetVertexColors(true);
-			ShowFlags.SetLighting(false);
-			ShowFlags.SetIndirectLightingCache(false);
-			PreviewComponent->bDisplayVertexColors = true;
-		}
-		else
-		{
-			ShowFlags.SetVertexColors(false);
-			ShowFlags.SetLighting(true);
-			ShowFlags.SetIndirectLightingCache(true);
-			PreviewComponent->bDisplayVertexColors = false;
-		}
-
-		PreviewComponent->RecreateRenderState_Concurrent();
-	}
-
-	RefreshViewport();
 }
 
 #if WITH_APEX_CLOTHING

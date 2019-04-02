@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -46,7 +46,8 @@ namespace PyGenUtil
 	extern const FName BlueprintSpawnableComponentMetaDataKey;
 	extern const FName BlueprintGetterMetaDataKey;
 	extern const FName BlueprintSetterMetaDataKey;
-	extern const FName CustomStructureParamMetaDataKey;
+	extern const FName BlueprintInternalUseOnlyMetaDataKey;
+	extern const FName CustomThunkMetaDataKey;
 	extern const FName HasNativeMakeMetaDataKey;
 	extern const FName HasNativeBreakMetaDataKey;
 	extern const FName NativeBreakFuncMetaDataKey;
@@ -75,7 +76,7 @@ namespace PyGenUtil
 		}
 		static FORCEINLINE uint32 GetKeyHash(const FString& Key)
 		{
-			return FLocKey::ProduceHash(Key);
+			return FCrc::StrCrc32<TCHAR>(*Key);
 		}
 	};
 
@@ -314,6 +315,7 @@ namespace PyGenUtil
 		InlineRightShift,	// >>=
 		LeftShift,			// <<
 		InlineLeftShift,	// <<=
+		Negated,			// -obj prefix operator
 		Num,
 	};
 

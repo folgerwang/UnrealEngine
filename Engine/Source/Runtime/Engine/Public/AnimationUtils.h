@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AnimationUtils.h: Skeletal mesh animation utilities.
@@ -276,4 +276,16 @@ public:
 	 */
 	ENGINE_API static UAnimCompress* GetDefaultAnimationCompressionAlgorithm();
 
+	/** Returns the default animation curve compression settings, can never by null. */
+	ENGINE_API static UAnimCurveCompressionSettings* GetDefaultAnimationCurveCompressionSettings();
+
+#if WITH_EDITOR
+	/**
+	 * Compresses the animation curves within a sequence with the chosen settings.
+	 * Note: This modifies the sequence.
+	 *
+	 * @return		Returns true on success, false it we fail to compress
+	 */
+	ENGINE_API static bool CompressAnimCurves(UAnimSequence& AnimSeq);
+#endif
 };

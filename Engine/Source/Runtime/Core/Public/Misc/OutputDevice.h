@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -133,10 +133,10 @@ public:
 	virtual ~FOutputDevice() = default;
 
 	// static helpers
-	DEPRECATED(4.12, "Please use FOutputDeviceHelper::VerbosityToString.")
+	UE_DEPRECATED(4.12, "Please use FOutputDeviceHelper::VerbosityToString.")
 	static const TCHAR* VerbosityToString(ELogVerbosity::Type Verbosity);
 
-	DEPRECATED(4.12, "Please use FOutputDeviceHelper::FormatLogLine.")
+	UE_DEPRECATED(4.12, "Please use FOutputDeviceHelper::FormatLogLine.")
 	static FString FormatLogLine(ELogVerbosity::Type Verbosity, const FName& Category, const TCHAR* Message = nullptr, ELogTimes::Type LogTime = ELogTimes::None, const double Time = -1.0);
 
 
@@ -218,6 +218,13 @@ private:
 	void VARARGS CategorizedLogfImpl(const FName& Category, ELogVerbosity::Type Verbosity, const TCHAR* Fmt, ...);
 
 public:
+	template <typename FmtType>
+	void Logf(const FmtType& Fmt)
+	{
+		static_assert(TIsArrayOrRefOfType<FmtType, TCHAR>::Value, "Formatting string must be a TCHAR array.");
+		return Log(Fmt);
+	}
+
 	template <typename FmtType, typename... Types>
 	FORCEINLINE void Logf(const FmtType& Fmt, Types... Args)
 	{

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "StereoLayerManager.h"
@@ -27,6 +27,12 @@ public:
 	virtual bool IsActiveThisFrame(class FViewport* InViewport) const override;
 
 	void GetAllocatedTexture(uint32 LayerId, FTextureRHIRef &Texture, FTextureRHIRef &LeftTexture);
+
+	virtual bool ShouldCopyDebugLayersToSpectatorScreen() const override
+	{
+		// Emulated layer support means that the debug layer will be in the 3d scene render that the spectator screen displays.
+		return false;
+	}
 
 protected:
 	

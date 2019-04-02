@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -874,8 +874,8 @@ protected:
 	/** The total distance that the mouse has been dragged while down */
 	float TotalMouseDelta;
 
-	/** The Y component of mouse drag (used when zooming) */
-	float TotalMouseDeltaY;
+	/** The additive X and Y components of mouse drag (used when zooming) */
+	float TotalMouseDeltaXY;
 
 	/** Offset in the panel the user started the LMB+RMB zoom from */
 	FVector2D ZoomStartOffset;

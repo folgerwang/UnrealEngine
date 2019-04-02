@@ -1,0 +1,109 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================================
+PathTracingMaterialSampling.usf: Material sampling functions
+===============================================================================================*/
+
+#pragma once
+
+#include "PathTracingMaterialCommon.ush"
+#include "PathTracingFresnel.ush"
+#include "PathTracingLambert.ush"
+#include "PathTracingGlossy.ush"
+#include "PathTracingSpecularReflection.ush"
+#include "PathTracingSpecularTransmission.ush"
+
+
+void SampleMaterialAsWorldNormal(
+	float3 RayDirection,
+	FMaterialClosestHitPayload Payload,
+	float4 RandSample,
+	out float3 OutDirection,
+	out float3 OutThroughput,
+	out float OutPdf)
+{
+	float3 N_World = GetWorldNormal(Payload);
+	OutDirection = -RayDirection;
+	OutThroughput = (N_World / 2.0) + 0.5;
+	OutPdf = 1.0;
+}
+
+
+void SampleMaterial(
+	float3 RayDirection,
+	FMaterialClosestHitPayload Payload,
+	float4 RandSample,
+	out float3 OutDirection,
+	out float3 OutThroughput,
+	out float OutPdf,
+	out float OutPositionBiasSign)
+{
+	OutPositionBiasSign = 1;
+	if (IsPureSpecularReflection(Payload))
+	{
+		SpecularReflection_SampleMaterial(RayDirection, Payload, OutDirection, OutThroughput, OutPdf);
+	}
+	else if (IsPureSpecularTransmission(Payload))
+	{
+		SpecularRefraction_SampleMaterial(RayDirection, Payload, RandSample, OutDirection, OutThroughput, OutPdf, OutPositionBiasSign);
+	}
+	else if(IsLambert(Payload))
+	{
+		Lambert_SampleMaterial(Payload, RandSample, OutDirection, OutThroughput, OutPdf);
+	}
+	else 
+	{
+		Glossy_SampleMaterial(RayDirection, Payload, RandSample, OutDirection, OutThroughput, OutPdf);
+	}
+}
+
+void PdfMaterial(
+	float3 IncomingDirection,
+	float3 OutgoingDirection,
+	FMaterialClosestHitPayload Payload,
+	out float OutPdf
+)
+{
+	if (IsPureSpecularReflection(Payload))
+	{
+		OutPdf = SpecularReflection_Pdf();
+	}
+	else if (IsPureSpecularTransmission(Payload))
+	{
+		OutPdf = SpecularTransmission_Pdf();
+	}
+	else if (IsLambert(Payload))
+	{
+		OutPdf = Lambert_Pdf(OutgoingDirection, Payload);
+	}
+	else
+	{
+		OutPdf = Glossy_Pdf(IncomingDirection, OutgoingDirection, Payload);
+	}
+}
+
+void EvalMaterial(
+	float3 IncomingDirection,
+	float3 OutgoingDirection,
+	FMaterialClosestHitPayload Payload,
+	out float3 OutThroughput,
+	out float OutPdf
+)
+{
+	if (IsPureSpecularReflection(Payload))
+	{
+		SpecularReflection_EvalMaterial(OutThroughput, OutPdf);
+	}
+	else if (IsPureSpecularTransmission(Payload))
+	{
+		SpecularTransmission_EvalMaterial(OutThroughput, OutPdf);
+	}
+	else if (IsLambert(Payload))
+	{
+		Lambert_EvalMaterial(OutgoingDirection, Payload, OutThroughput, OutPdf);
+	}
+	else
+	{
+		Glossy_EvalMaterial(IncomingDirection, OutgoingDirection, Payload, OutThroughput, OutPdf);
+	}
+}

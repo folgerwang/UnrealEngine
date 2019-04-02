@@ -1,0 +1,317 @@
+﻿INTSourceChangelist:4476116
+Availability: Public
+Crumbs: 
+Title: Python を使用したエディタのスクリプティング
+Description: Unreal Editor で Python を使用して、コンテンツ制作タスクをスクリプティングする方法を説明します。
+Type: 
+Version: 4.20
+Parent: Engine/Editor/ScriptingAndAutomation
+Order: 4
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: overview
+Tags: landing
+Tags: Python
+Tags: Experimental
+Tags: scripting
+Tags: editor
+Tags: Landing Page
+topic-image:Python_Topic.png
+
+
+このページでは、Unreal Editor で Python の使用を開始する方法を説明します。
+
+## Python を使用する理由
+
+近年、Python は、特にメディアおよびエンターテイメント業界において、制作パイプラインや 3D アプリケーション間の相互運用における事実上の標準言語となりました。さまざまなアプリケーションでサポートされるようになったことが主な理由です。制作パイプラインがより複雑になり、かかわるアプリケーション数も増加の一途をたどる中、共通のスクリプティング言語を持つことで、大規模なアセット管理システムの構築と維持が容易になります。
+
+こうした外部事情や他のアプリケーションとの作業の必要性を考慮しない場合でも、Unreal Editor 内でのワークフローの自動化を計画しているならば Python は優れた選択肢と言えます。プログラミングの経験がなくても Python は比較的習得しやすく、PySide などのモジュールを通じて、全機能を提供する複雑なユーザー インターフェースを作成することができます。さらに、コミュニティ向けにその他多くの有用なモジュールが無料で提供されており、ユーザーの作業負担を軽減できます。
+
+Unreal Editor では、Python を使用して次のような作業を行うことができます。
+
+*   大規模なアセット管理パイプラインの構築や、組織で使用している他の 3D アプリケーションと Unreal Editor を結び付けるためのワークフローの作成。
+*   スタティック メッシュの LOD を生成するなど、時間のかかるアセット管理タスクの Unreal Editor での自動化。
+*   レベルでコンテンツをプロシージャルにレイアウト。
+*   Python で自分自身が作成した UI から Unreal Editor を制御。
+
+## Python を使用するようプロジェクトを設定
+
+Unreal Editor での Python に対するサポートは Python Editor Script Plugin により提供されます。Unreal Editor で Python スクリプトを実行する前に、現在のプロジェクトにおいてこのプラグインを有効にする必要があります。
+
+[REGION:note]
+現時点では、プロジェクトごとにこのプラグインを有効にする必要があります。
+[/REGION]
+
+プラグインを有効にするには
+
+1. プロジェクトを開いて、メイン メニューから **[Edit] > [Plugins]** を選択します。
+2. **[Plugins]** ウィンドウの **[Scripting]** セクションに移動します。
+    右側のパネルで **[Python Editor Script Plugin]** を確認し、その **[Enabled]** ボックスをオンにします。
+    ![Python Editor Script Plugin を有効にする](install-python-plugin.png "Python Editor Script Plugin を有効にする")  
+    多くの共通するエディタ タスクに対する単純化された API を提供する **Editor Scripting Utilities** プラグインも有効にすることを推奨します。詳細については、「[Scripting and Automating the Editor](https://docs.unrealengine.com/en-us/Editor/Scripting-and-Automating-the-Editor)」を参照してください。
+3. エディタを再起動します。
+
+### Python 2.7
+
+Python Editor Script Plugin には埋め込みバージョンの Python 2.7 が含まれています。
+
+Python をコンピュータに別途インストールする必要はありません。
+
+[REGION:tip]
+Python 2.7 は現行の [VFX Reference Platform](https://www.vfxplatform.com/) の重要な一環を担っているため、Unrealではこれをデフォルトで使用します。リファレンス プラットフォームがバージョン 3.x に変わる際は、それに従う予定です。
+現時点では、異なるバージョンの Python (3.x バージョンを含む) を使用する必要がある場合は、埋め込むインストール位置を指すように `UE_PYTHON_DIR` 環境変数を設定し、ソースから Unreal Engine を再ビルドします。
+[/REGION]
+
+## Python コードを Unreal Editor で実行する方法
+
+Unreal Editor では、Python スクリプトをいくつかの異なる方法で実行することができます。それぞれの方法は、多少異なる使用状況を想定してデザインされています。ユーザー自身のニーズに合わせて最適な方法を選択してください。
+
+[REGION:note]
+ブループリントとは異なり、Python 環境は **Unreal Editor内**でのみ利用可能です。Play In Editor、スタンドアロン ゲーム、クック済みの実行可能ファイルなどを含むモードでプロジェクトを Unreal Editor で実行している際には利用できません。つまり、Unreal Editor のスクリプティングおよび自動化や、アセット制作パイプラインの構築においては Python を自由に使用できますが、ゲームプレイのスクリプティング言語としては使用できないことを意味しています。
+[/REGION]
+
+### 出力ログ内の Python コンソール
+
+Unreal コンソール コマンドの代わりに Python コードを受け入れるよう、Unreal Editor のコンソール入力バーを変更できます。
+
+![Python コンソール](python-console-input.png "Python コンソール")
+
+この設定は、上で示されているように **[Output Log]** パネルで行うか、`~` キーを押してコンソール入力バーを表示して行うことができます。
+
+コンソールが Python モードの場合は次の操作を実行できます。
+
+*   コンソールに一連の Python コードを入力して、コマンド ウィンドウでインタラクティブな Python コンソールを使用する場合と同様に、すぐにエディタで各ラインを実行する。これは Python コードをラインごとに実行する唯一の方法です。以下に紹介するその他すべての方法では、指定したスクリプト ファイルを実行します。
+*   **Shift + Enter** キーを押して各ラインを分けるか、複数のラインを含む 1 つのブロックをテキスト エディタからコピーして貼り付けることで、複数のラインにわたるコードを同時に実行する。
+*   ファイル名をコンソールに入力することで、Python スクリプト ファイルを実行する。Python スクリプトで追加のコマンドライン引数が必要な場合は、これらをスクリプト名の後に含めます。
+
+[REGION:tip]
+ビルトインの Python `print` 関数からの出力値も **[Output Log]** パネルにリダイレクトされます。
+[/REGION]
+
+### py コンソール コマンド
+
+通常のコンソールでは、`py` コマンドを使用することで、上記のように Python コンソールに入力した場合と同様に、残りのラインを Python コードとして実行できます。
+
+例えば、このコードでは指定したスクリプト ファイルが実行されます。
+
+![py コンソール コマンド](python-py-command.png "py コンソール コマンド")
+
+[REGION:note]
+エディタの起動時にこのコマンドを `ExecCmd` コマンドライン パラメータの値で実行することは推奨できません。これを行うと、エディタの環境の準備が整う前に (例えば、スタートアップのレベルが完全にロードされる前に) スクリプトが実行されます。より適切なオプションについて、以下のセクションを参照してください。
+[/REGION]
+
+### [File] メニュー
+
+Unreal Editor のメイン ウィンドウにある **[File]** メニューには、Python スクリプト ファイルの実行に使用できる新しいオプションがいくつか用意されています。
+
+*   コンピュータにある、まだ実行したことのない新しいスクリプト ファイルを参照する場合は、**[Execute Python Script]** を使用します。
+*   以前に実行したことのあるスクリプトを再実行する場合は、**[Recent Python scripts]** リストを使用します。当該のファイルがディスクから再び読み取られるため、以前に実行した後にスクリプトを変更した場合は、新しい内容が実行されます。
+
+![[File] メニューから Python を実行する](python-file-menu-options.png "[File] メニューから Python を実行する")
+
+### コマンドライン
+
+Unreal Editor をコマンドラインまたはスクリプトから起動する場合は、Python スクリプト ファイルをコマンドライン引数で指定します。Python スクリプトで追加のコマンドライン引数が必要な場合は、これらをスクリプト名の後に含めます。
+
+コマンドラインから Python スクリプトを実行するには 2 つの方法があります。いずれの方法でも、エディタは Python スクリプトの実行直後に終了します。
+
+**オプション 1：フル エディタ**
+
+この方法では、フルの Unreal Editor が起動し、指定したプロジェクトを開いてデフォルトのスタートアップ レベルをロードします。すべてのものがロードされて準備ができると、Python スクリプトが実行されます。プロジェクト内、またはロードに時間がかかるレベル内のコンテンツとスクリプトをインタラクションさせる必要がある場合は、この方法が適しています。
+
+コマンドラインに `ExecutePythonScript` 引数を追加して、実行する Python スクリプトにその値を設定します。例：
+
+    > UE4Editor-Cmd.exe MyProject.uproject -ExecutePythonScript="c:\my_script.py"
+
+[REGION:note]
+上記の方法では、プロジェクトに対して Editor Scripting Utilities プラグインを有効にしておく必要があります。
+[/REGION]
+
+**オプション 2：コマンドレット**
+
+この方法では、UI またはレンダリングなしの最小限の環境でエディタが起動します。この方法では迅速に実行されますが、スクリプトとインタラクションを要するレベルおよびその他のアセットのロードについてはより注意が必要になります。
+
+コマンドラインに次の引数を追加します。`-run=pythonscript -script=<script_file>`
+
+例：
+
+    > UE4Editor-Cmd.exe -run=pythonscript -script="c:\\my_script.py"
+
+### 「init_unreal.py」ファイル
+
+エディタによって「`init_unreal.py`」と呼ばれるスクリプト ファイルが使用するように設定されている (下記の「Unreal Editorの Python パス」を参照) パス内で検出された場合、エディタは自動的にそのスクリプトをすぐに実行します。
+
+これは、プロジェクトまたはプラグインで作業をしており、そのコンテンツで作業している全員がエディタの起動時に同じ初期化コードを実行する必要があることがわかっている場合に適した方法です。初期化コードをこの名前でスクリプト内部に含めて、それを当該のプロジェクトまたはプラグイン内にある **「Content/Python」**フォルダに保存できます。
+
+### スタートアップ スクリプト
+
+[Project Settings] では、そのプロジェクトを開く際に常に実行する Python スクリプトを指定できます。これらのスクリプトは、デフォルトのスタートアップ レベルが完全にロードされた後にエディタによって実行されます。
+
+**[Edit] > [Project Settings...]** を選択します。**[Plugins]** リストで **[Python]** を選択します。次に、スクリプトを **[Startup scripts]** 設定に追加します。
+
+![Python スタートアップ スクリプト](python-startup-scripts.png "Python スタートアップ スクリプト")
+
+完了したらUnreal Editorを再起動します。次にエディタがプロジェクトをロードする際に、新しく追加したスタートアップ スクリプトが実行されます。
+
+##Unreal Editorの Python パス
+
+上記のメソッドで相対パスを使用して Python スクリプトを実行する場合、またはスクリプト内で `import` コマンドを使用して別のスクリプト モジュールをインポートする場合は、実行またはインポートするスクリプトを Python 環境の `sys.path` 変数に含まれているいずれかのパスに含めることができます。
+
+Unreal Editor では、以下のパスをこの `sys.path` リストに自動的に追加します。
+
+*   プロジェクト フォルダ以下にある **「Content/Python」** サブフォルダ。
+*   Unreal Engineのメイン インストール フォルダ以下にある **「Content/Python」**サブフォルダ。
+*   有効な各プラグインのフォルダ以下にある **「Content/Python」**サブフォルダ。
+*   ユーザー ディレクトリ内にある **「Documents/UnrealEngine/Python」** フォルダ。例えば、Windows 10 では「`C:/Users/Username/Documents/UnrealEngine/Python`」となります。
+
+このリストには、以下のいずれかの方法で独自のパスを追加することもできます。
+
+*   [Project Settings] で、**[Edit] > [Project Settings...]** を選択します。**[Plugins]** リストで **[Python]** を選択します。次に、パスを **[Additional Paths]** 設定に追加します。完了したらUnreal Editorを再起動します。
+    ![追加の Python パス](python-additional-paths.png "追加の Python パス")
+*   パスを `PYTHONPATH` 環境変数の値に追加して、Unreal Editorを再起動します。
+*   パスを Python スクリプト内の `sys.path` リストまたは Python コンソールに直接追加します。
+
+##Unreal Editorの Python API について
+
+Python Editor Script Plugin では、Unreal Editor、プロジェクトに含まれるアセットおよびレベル内のコンテンツとのインタラクションに使用可能な数多くのクラスおよび関数が公開されます。この API はすべて `unreal` モジュールに含まれています。この API にアクセスするには、エディタの Python 環境内で実行する Python スクリプトの冒頭にこのモジュールをインポートします。
+
+
+    import unreal
+
+
+`unreal` モジュールでは、エディタ環境内で C++ からブループリントに公開されるもののほぼすべてが公開されます。このモジュールは事前には生成されず、エディタのブループリントで使用可能なものすべてを自動的に反映します。Unreal Editor で新たにプラグインを有効にすると、このプラグインでブループリントに対して公開されるものはすべて Python でも使用できるようになります。プロジェクトで作成してブループリントに公開する C++ コードについても同様です。
+
+Python API では、Unreal のネイティブ API の公開について、Python 開発者の作業を可能な限り簡易化するための配慮がなされています。例：
+
+*   必要に応じて、Python とネイティブ タイプ間の単純なデータ タイプの変換は透過的に行われます。
+    Python のリスト (list)、集合 (set) または辞書 (dict) を渡すと、 Unreal の配列 (array)、集合 (set) またはマップ (map) に自動的に変換されます。API 関数によって返されたリスト、集合または辞書を取得する際は、実際には Unreal クラスのインスタンスを取得しますが、その API はベースとなる Python のリスト、集合または辞書タイプと完全に一致します。
+*   Python クラスでは、それが表すネイティブ タイプと同じ継承階層が維持されます。これはつまり、例えばビルトインの Python 関数 `isinstance()` および `type()` を使用して、オブジェクトがクラスから派生したものか、クラスに一致するものかをテストできることを意味します。
+*   この API は、C++ およびブループリントに対して適用されるUnreal の命名規則と Python の命名規則の間で、良好なバランスを取るよう設計されています。Python API のクラスおよびオブジェクトは、ブループリントでも同じ名前を維持します。通常、これはプレフィックス (`U` または `T` など) を除外したネイティブ タイプと同じ名前です。関数およびプロパティの名前は、小文字の `snake_case` として自動的に公開されます。例えば、通常 `unreal.StaticMeshActor.get_actor_transform()` などの関数を呼び出します。列挙型の値の名前は、大文字の `SNAKE_CASE` として自動的に公開されます。
+*   公開されたすべての関数では、順序付けされたパラメータまたは名前付けされたパラメータ (順序は問わず) を受け入れることができます。例えば、次の 2 つの関数呼び出しは同じことを表しています。
+    
+    ~~~
+    unreal.EditorLevelLibrary.join_static_mesh_actors(list_of_actors, my_options)
+    unreal.EditorLevelLibrary.join_static_mesh_actors(join_options=my_options, actors_to_join=list_of_actors)
+    ~~~
+    
+
+### API リファレンス
+
+Unreal Python API によって公開されるすべてのクラスおよび関数の詳細については、この API リファレンスで参照できます。
+
+[**Unreal Editorの Python API リファレンス**](https://api.unrealengine.com/INT/PythonAPI/)
+
+[REGION:note]
+この API リファレンスは、プラグインによって Python に公開されているクラスおよび関数の完全なリストではありません。API リファレンスに記載されていない追加のプラグインをインストールし、そのスクリプティング機能がどのように Python に公開されるかを調べる必要がある場合は、必要なプラグインのドキュメントを含む、独自のローカル版 API リファレンスを作成してください。手順については、Unreal Engineのインストール フォルダ内の *「Engine\Plugins\Experimental\PythonScriptPlugin\SphinxDocs」* にある「readme」ファイルを参照してください。
+[/REGION]
+
+## Python API を使用する際のベスト プラクティス
+
+このセクションでは、Python API を使用する際に留意すべき重要事項をいくつか紹介します。
+
+### アセットで作業する
+
+プロジェクトでアセットに対して作業を行う必要がある場合は、必ず Unreal Python API の関数を使用してください。ディスク上のアセット ファイルに対して、Python にビルトインされているファイル管理モジュールは絶対に直接使用しないでください。例えば、アセットを異なるフォルダに移動する場合、`os.rename` または `shutil.move` などの Python 関数は使用しないでください。Unreal のプロジェクトおよびアセットには内部コンテンツの参照が含まれており、このルールに準拠しないとこれらが破損する可能性があります。
+
+代わりに、Editor Scripting Utilities プラグインで提供される `unreal.EditorAssetLibrary` API、または Unreal Python API にビルトインされている `unreal.AssetTools` クラスを使用することを推奨します。
+
+### エディタのプロパティを変更する
+
+Python を使用して、プロジェクトのオブジェクトにアクセスしたり、これらのオブジェクトの多くの設定プロパティをプログラム的に設定したりできます。例えば、Python スクリプトでは現在のレベルでスタティック メッシュ アクタにアクセスして、アクタがダメージを受けるかどうかや、ゲーム内でアクタを非表示にするかどうかなどのプロパティを設定できます。また、スタティック メッシュ コンポーネントを取得して、そのライトマス設定やリンク先のスタティック メッシュ アセットなど、コンポーネント上でプロパティを設定することができます。
+
+これらのプロパティは 2 つの異なる方法で Python に公開することができます。
+
+*   BlueprintReadOnly または BlueprintReadWrite フラグを含むアイテムは、オブジェクトの単純なプロパティとして公開されます。
+    これらのプロパティには、Python オブジェクトのプロパティにアクセスするのと同じように読み込んで変更を加えることができます。
+*   ViewAnywhere または EditAnywhere フラグを含むアイテムは、「エディタ プロパティ」として公開されます。
+    これらの値を読み書きするには、すべてのオブジェクトで公開されている `set_editor_property()` および `get_editor_property()` 関数の特殊なペアを使用します。
+
+各クラスの API リファレンスには、クラスの説明のすぐ後に**「エディタ プロパティ」**のリストが記載されています。これらはすべて、`set_editor_property()` および `get_editor_property()` 関数を使用して設定および取得可能な値です。オブジェクトで設定プロパティを設定または取得する必要がある場合は、このリストに目的のプロパティが記載されているかどうかをまず確認してください。
+
+*   オブジェクト プロパティおよびエディタ プロパティの両方として公開されている値を読み取る必要があり、そのプロパティに直接アクセスした場合、通常は `get_editor_property()` 関数を呼び出した場合と同じ結果となります。ただし、`get_editor_property()` 関数は、Python オブジェクトで直接公開されていないプロパティにもアクセスできる場合があります。
+*   オブジェクト プロパティおよびエディタ プロパティの両方として公開されている値を設定する必要があるほとんどの場合において、オブジェクトで値を直接設定するのではなく、`set_editor_property()` 関数を使用して値を設定してください。UI でプロパティを調整すると、多くの場合エディタによってバックグラウンドで追加の処理 (編集前および編集後の変更) が行われます。通常、これらの処理はユーザーの選択に基づいたものであり、エディタの UI とゲーム内でのオブジェクトの状態の同期を維持します。Python オブジェクトでこれらのプロパティを直接変更すると、このエディタ コードは自動的には実行されなくなります。一方で、`set_editor_property()` を呼び出してプロパティの状態を設定すると、エディタの **[Details]** パネルで設定を変更した場合と同様に、この編集前および編集後のコードがトリガーされます。
+
+例えば、Media Player オブジェクトには **[Play on Open]** 設定が含まれています。
+
+![詳細](Details.png "詳細")
+
+これは `play_on_open` クラス メンバの `unreal.MediaPlayer` クラスで公開されます。
+
+    import unreal
+    obj = unreal.MediaPlayer()
+    # プロパティを直接変更すると、エディタの UI で設定を変更した
+    # 場合とは異なる結果が出ることがあります。
+    # 通常は、次のように、これらの値を直接変更することは避けるべきです。
+    obj.play_on_open = True
+    # この方法でプロパティにアクセスすると、その結果はエディタの UI で
+    # 設定を変更した場合と同じ結果となります。
+    obj.set_editor_property("play_on_open", True)
+    # 値の読み取りについてはいずれの方法も同等の結果となります。
+    # クラスによりプロパティが両方の方法で公開されている場合は、次のいずれかを使用できます。
+    play_value = obj.play_on_open
+    play_value = obj.get_editor_property("play_on_open")
+
+### 可能な場合は Unreal 型を使用する
+
+演算操作や 3D 座標の操作のためのクラスなど、Unreal Python API で利用可能なユーティリティが必要な場合は、ユーザー独自の実装ではなく、Unreal ユーティリティを使用することを推奨します。Unreal のバージョンは、エンジン環境において最高のパフォーマンスを発揮するよう最適化されています。
+
+例えば、3D 空間の座標を操作する必要がある場合は、`unreal.Vector` クラスを使用してください。
+
+    import unreal
+    v1 = unreal.Vector()
+    v1.x = 10
+    v2 = unreal.Vector(10, 20, 30)
+    v3 = (v1 + v2) * 2
+    print v3
+
+### ログおよびフィードバック
+
+`unreal` オブジェクトでは、エンジンおよびエディタのすべてのサブシステムで使用されているのと同じメッセージング システムを通じて、ログ、警告およびエラー メッセージの送信のためにコード内で使用できる関数が公開されています。スクリプトを使ってユーザーにメッセージを送信する必要がある場合は、この標準化されたログ フレームワークを使用することを推奨します。
+
+*   情報に関するメッセージの場合は `unreal.log()` を使用。利便性を図るため、Python `print()` 関数は内部で `unreal.log()` をパススルーするよう実装されています。
+*   潜在的な問題に関する警告をユーザーに送信する場合は `unreal.log_warning()` を使用。
+*   期待されたスクリプトの実行を妨げる深刻な問題の場合は `unreal.log_error()` を使用。
+
+メッセージは、他のサブシステムによって送信されたメッセージと共に **[Output Log]** パネルに表示されます。
+
+![Python ログ メッセージ](python-log-feedback.png "Python ログ メッセージ")
+
+### 元に戻す操作およびやり直す操作のサポート
+
+スクリプトでは、Unreal Editorにビルトインされている Undo (元に戻す) / Redo (やり直す) システムをフル活用することができます。
+
+定義する各トランザクションには、任意の数の Python 操作を含めることができます。これらのトランザクションを使用することで、大規模な操作や多数の異なるオブジェクトの操作を Undo / Redo 履歴に 1 つのエントリとしてまとめて記録することができます。複数のオブジェクトに対して特定の変更を加えることを意図したスクリプトの場合、通常は、各変更を異なるエントリとして Undo / Redo 履歴に記録するのではなく、すべてのオブジェクトに対するすべての変更を元に戻す 1 つのエントリとして記録することを推奨します。
+
+トランザクションを定義するには `unreal.ScopedEditorTransaction` スコープを使用します。例えば、次のコードを実行した場合、
+
+    import unreal
+    obj = unreal.MediaPlayer()
+    with unreal.ScopedEditorTransaction("My Transaction Test") as trans:
+        obj.set_editor_property(“play_on_open”, True)
+        obj.set_editor_property(“vertical_field_of_view”, 60)
+
+エディタの **[Undo History]** パネルにはトランザクションが名前順に一覧表示されます。
+
+![Undo 履歴](undoHistory.png "Undo 履歴")
+
+一般的なルールとして、スコープ済みのトランザクションには、エディタの UI でも元に戻すことが可能な操作を含めることができます。ただし、エディタの操作すべてを元に戻せるわけではありません。例えば、エディタの UI ではモデルのインポートを元に戻すことはできないため、`unreal.ScopedEditorTransaction` の内部でモデルのインポートを試みても予期通りには実行されないことがあります。
+
+### 遅い操作に対する進捗ダイアログ
+
+1つの操作として多数のアセットまたはアクタに対して作業を行う必要のあるスクリプトの場合、処理に時間がかかることがあります。Python スクリプトがUnreal Editorで実行されている間、その他のユーザー インタラクションに対してエディタの UI がブロックされます。大規模なタスクの進捗情報をユーザーに提供し、エディタがフリーズまたは停止しているような誤解を避けるために、`unreal.ScopedSlowTask` スコープを使用することができます。
+
+例：
+
+    import unreal
+    total_frames = 100
+    text_label = "Working!"
+    with unreal.ScopedSlowTask(total_frames, text_label) as slow_task:
+        slow_task.make_dialog(True)               # まだダイアログが表示されていない場合は表示します
+        for i in range(total_frames):
+            if slow_task.should_cancel():# ユーザーが UI の [Cancel] を押した場合は True
+                break
+            slow_task.enter_progress_frame(1)# 1 フレーム次に進めます。
+                                                # 希望する場合は、この呼び出しでダイアログのテキストを更新することもできます。
+            ...                                  # ここで、現在のフレームで作業できるようになりました！
+
+![スコープされた遅いタスクの進捗バー](python-scoped-slow-task.png "スコープされた遅いタスクの進捗バー")

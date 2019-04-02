@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,18 +6,22 @@
 #include "Windows/WindowsHWrapper.h"
 #include "RHI.h"
 
-#define VK_USE_PLATFORM_WIN32_KHR				1
-#define VK_USE_PLATFORM_WIN32_KHX				1
+#define VK_USE_PLATFORM_WIN32_KHR					1
+#define VK_USE_PLATFORM_WIN32_KHX					1
 
-#define	VULKAN_SHOULD_ENABLE_DRAW_MARKERS		(UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT)
-#define VULKAN_HAS_PHYSICAL_DEVICE_PROPERTIES2	1
-#define VULKAN_USE_CREATE_WIN32_SURFACE			1
-#define VULKAN_DYNAMICALLYLOADED				1
-#define VULKAN_ENABLE_DESKTOP_HMD_SUPPORT		1
-#define VULKAN_SIGNAL_UNIMPLEMENTED()			checkf(false, TEXT("Unimplemented vulkan functionality: %s"), TEXT(__FUNCTION__))
-#define	VULKAN_SUPPORTS_DEDICATED_ALLOCATION	0
+#define	VULKAN_SHOULD_ENABLE_DRAW_MARKERS			(UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT)
+#define VULKAN_HAS_PHYSICAL_DEVICE_PROPERTIES2		1
+#define VULKAN_USE_CREATE_WIN32_SURFACE				1
+#define VULKAN_DYNAMICALLYLOADED					1
+#define VULKAN_ENABLE_DESKTOP_HMD_SUPPORT			1
+#define VULKAN_SIGNAL_UNIMPLEMENTED()				checkf(false, TEXT("Unimplemented vulkan functionality: %s"), TEXT(__FUNCTION__))
+#define VULKAN_SUPPORTS_COLOR_CONVERSIONS			1
+#define	VULKAN_SUPPORTS_DEDICATED_ALLOCATION		0
 #define VULKAN_SUPPORTS_AMD_BUFFER_MARKER			1
 #define VULKAN_SUPPORTS_NV_DIAGNOSTIC_CHECKPOINT	1
+
+#define	UE_VK_API_VERSION							VK_API_VERSION_1_1
+
 
 // 32-bit windows has warnings on custom mem mgr callbacks
 #define VULKAN_SHOULD_USE_LLM					(UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT) && !PLATFORM_32BITS
@@ -33,7 +37,9 @@
 	EnumMacro(PFN_vkGetQueueCheckpointDataNV, vkGetQueueCheckpointDataNV) \
 	EnumMacro(PFN_vkGetBufferMemoryRequirements2KHR , vkGetBufferMemoryRequirements2KHR)
 
-#define ENUM_VK_ENTRYPOINTS_OPTIONAL_PLATFORM_INSTANCE(EnumMacro)
+#define ENUM_VK_ENTRYPOINTS_OPTIONAL_PLATFORM_INSTANCE(EnumMacro) \
+	EnumMacro(PFN_vkCreateSamplerYcbcrConversionKHR, vkCreateSamplerYcbcrConversionKHR) \
+	EnumMacro(PFN_vkDestroySamplerYcbcrConversionKHR, vkDestroySamplerYcbcrConversionKHR)
 
 #include "../VulkanLoader.h"
 
@@ -43,6 +49,8 @@
 class FVulkanWindowsPlatform : public FVulkanGenericPlatform
 {
 public:
+	static void CheckDeviceDriver(uint32 DeviceIndex, const VkPhysicalDeviceProperties& Props);
+
 	static bool LoadVulkanLibrary();
 	static bool LoadVulkanInstanceFunctions(VkInstance inInstance);
 	static void FreeVulkanLibrary();
@@ -59,12 +67,8 @@ public:
 	// Some platforms only support real or non-real UBs, so this function can optimize it out
 	static bool UseRealUBsOptimization(bool bCodeHeaderUseRealUBs)
 	{
-#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
 		static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
 		return (CVar && CVar->GetValueOnAnyThread() == 0) ? false : bCodeHeaderUseRealUBs;
-#else
-		return GMaxRHIFeatureLevel >= ERHIFeatureLevel::ES3_1 ? bCodeHeaderUseRealUBs : false;
-#endif
 	}
 };
 

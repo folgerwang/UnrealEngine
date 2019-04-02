@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -55,14 +55,25 @@ FORCEINLINE int32 DefaultCalculateSlackShrink(int32 NumElements, int32 NumAlloca
 
 FORCEINLINE int32 DefaultCalculateSlackGrow(int32 NumElements, int32 NumAllocatedElements, SIZE_T BytesPerElement, bool bAllowQuantize, uint32 Alignment = DEFAULT_ALIGNMENT)
 {
+#if !defined(AGGRESSIVE_MEMORY_SAVING)
+	#error "AGGRESSIVE_MEMORY_SAVING must be defined"
+#endif
+#if AGGRESSIVE_MEMORY_SAVING
+	const SIZE_T FirstGrow = 1;
+	const SIZE_T ConstantGrow = 0;
+#else
+	const SIZE_T FirstGrow = 4;
+	const SIZE_T ConstantGrow = 16;
+#endif
+
 	int32 Retval;
 	checkSlow(NumElements > NumAllocatedElements && NumElements > 0);
 
-	SIZE_T Grow = 4; // this is the amount for the first alloc
+	SIZE_T Grow = FirstGrow; // this is the amount for the first alloc
 	if (NumAllocatedElements || SIZE_T(NumElements) > Grow)
 	{
 		// Allocate slack for the array proportional to its size.
-		Grow = SIZE_T(NumElements) + 3 * SIZE_T(NumElements) / 8 + 16;
+		Grow = SIZE_T(NumElements) + 3 * SIZE_T(NumElements) / 8 + ConstantGrow;
 	}
 	if (bAllowQuantize)
 	{
@@ -534,7 +545,11 @@ public:
 
 		SIZE_T GetAllocatedSize(int32 NumAllocatedElements, SIZE_T NumBytesPerElement) const
 		{
-			return SecondaryData.GetAllocatedSize(NumAllocatedElements, NumBytesPerElement);
+			if (NumAllocatedElements > NumInlineElements)
+			{
+				return SecondaryData.GetAllocatedSize(NumAllocatedElements, NumBytesPerElement);
+			}
+			return 0;
 		}
 
 		bool HasAllocation()
@@ -658,19 +673,19 @@ public:
 		FORCEINLINE int32 CalculateSlackReserve(int32 NumElements, SIZE_T NumBytesPerElement) const
 		{
 			// If the elements use less space than the inline allocation, only use the inline allocation as slack.
-			return HasAllocation() ? DefaultCalculateSlackReserve(NumElements, NumBytesPerElement, true) : NumInlineElements;
+			return (NumElements <= NumInlineElements) ? NumInlineElements : DefaultCalculateSlackReserve(NumElements, NumBytesPerElement, true);
 		}
 
 		FORCEINLINE int32 CalculateSlackShrink(int32 NumElements, int32 NumAllocatedElements, int32 NumBytesPerElement) const
 		{
 			// If the elements use less space than the inline allocation, only use the inline allocation as slack.
-			return HasAllocation() ? DefaultCalculateSlackShrink(NumElements, NumAllocatedElements, NumBytesPerElement, true) : NumInlineElements;
+			return (NumElements <= NumInlineElements) ? NumInlineElements : DefaultCalculateSlackShrink(NumElements, NumAllocatedElements, NumBytesPerElement, true);
 		}
 
 		FORCEINLINE int32 CalculateSlackGrow(int32 NumElements, int32 NumAllocatedElements, int32 NumBytesPerElement) const
 		{
 			// If the elements use less space than the inline allocation, only use the inline allocation as slack.
-			return HasAllocation() ? DefaultCalculateSlackGrow(NumElements, NumAllocatedElements, NumBytesPerElement, true) : NumInlineElements;
+			return (NumElements <= NumInlineElements) ? NumInlineElements : DefaultCalculateSlackGrow(NumElements, NumAllocatedElements, NumBytesPerElement, true);
 		}
 
 		SIZE_T GetAllocatedSize(int32 NumAllocatedElements, SIZE_T NumBytesPerElement) const

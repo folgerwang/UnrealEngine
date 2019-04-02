@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -71,6 +71,9 @@ public:
 
 	/** true if the item is enabled in the list */
 	bool IsEnabled() const { return !Item->IsConflicted() && Item->IsCurrent(); }
+
+	/** true if the item is source controlled and not marked for add nor for delete */
+	bool CanDiff() const { return Item->IsSourceControlled() && !Item->IsAdded() && !Item->IsDeleted(); }
 
 private:
 	/** Shared pointer to the source control state object itself */
@@ -184,6 +187,12 @@ private:
 	 */
 	void SortTree();
 
+	TSharedPtr<SWidget> OnCreateContextMenu();
+
+	bool CanDiffAgainstDepot() const;
+	void OnDiffAgainstDepot();
+	void OnDiffAgainstDepotSelected(TSharedPtr<FSubmitItem> InSelectedItem);
+	
 private:
 	ESubmitResults::Type DialogResult;
 

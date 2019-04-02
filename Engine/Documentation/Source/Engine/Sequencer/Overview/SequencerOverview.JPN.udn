@@ -1,60 +1,60 @@
-﻿INTSourceChangelist:3753512
+﻿INTSourceChangelist:4666777
 Availability:Public
-Crumbs: %ROOT%
-Title:シーケンサーの概要
-Description:シーケンサーは UE4 のマルチトラック エディタです。シネマティックス シーケンスを作成し、リアルタイムでプレビューするために使用します。 
-Type:Overview
-SkillLevel:Beginner
-Version:4.17
-Parent:Engine/Sequencer
-Order:1
-Tags:Sequencer
-topic-image:Engine/Physics/physics_topic.png
+Crumbs: 
+Title: シーケンサーの概要
+Description: シーケンサーは Unreal Engine 4 のマルチトラック エディタです。シネマティックス シーケンスを作成し、リアルタイムでプレビューするために使用します。
+Type: 
+Version: 4.20
+Parent: Engine/Sequencer
+Order: 
+Tags: Sequencer
 
-[TOC(start:2 end:2)]
 
-**Sequencer (シーケンサー)** エディタには、 [マチネ](Engine\Matinee\) に似た特殊なマルチ トラック エディタを通してインゲームのシネマティックスを作成する機能があります。**レベル シーケンス** を作成し **トラック** を追加することで、各トラックの構成を定義し、それによりシーンの内容を決めることができます。トラックには、アニメーション (キャラクターをアニメートするため)、トランスフォーム (シーン内で動かす) 、オーディオ (音楽やサウンド エフェクトを含むため) など他に数種類があります。
+**Sequencer (シーケンサー)** エディタには、 [Matinee (マチネ)](Engine/Matinee) に似た特殊なマルチ トラック エディタを通してインゲームのシネマティックスを作成する機能があります。**レベル シーケンス** を作成し **トラック** を追加することで、各トラックの構成を定義し、それによりシーンの内容を決めることができます。トラックには、アニメーション (キャラクターをアニメートするため)、トランスフォーム (シーン内で動かす) 、オーディオ (音楽やサウンド エフェクトを含むため) など他に数種類があります。
+
+[REGION:note]
+エンジン バージョン 4.20 では、シーケンサーが時間の表現方法について、いくつかリファクタリングされています。フレームの正確性が非常に重要である映画的なパイプラインおよびコンテキストのサポート向上のためです。詳細については、 [](Engine/Sequencer/Workflow/TimeRefactorNotes) 技術メモを参照してください。
+[/REGION]
 
 ## レベル シーケンスを作成する
 
-**レベル シーケンス** はシネマティックス シーン用の「コンテナ」であり、シーケンス エディタ内で作業を開始するために作成しなければならないものです。レベル シーケンスをレベルで直接作成するには、**ツールバー** の **シネマティックス** から行います (以下参照)。
+**レベル シーケンス** はシネマティックス シーン用の「コンテナ」であり、シーケンス エディタ内で作業を開始するために作成しなければならないものです。**[Cinematics (シネマティックス)]** の下にある **[Toolbar (ツールバー)]** から、ユーザーのレベルに直接レベル シーケンスを作成することができます (下記参照)。
 
-![](LevelSequence.png)
+![LevelSequence.png](LevelSequence.png)
 
-これでレベル シーケンスがレベルに追加され、選択可能になり、プロパティを **[Details]** パネルで操作できるようになります (**Matinee アクタ** と同様に)。[Details] パネル (以下) で、レベル シーケンスがレベル開始時に自動的に再生するか、シーケンスがループするか、シーケンスのプレイ速度などの設定を定義することができます。
+これでレベル シーケンスがレベルに追加され、選択可能になり、プロパティを **[Details (詳細)]** パネルで操作できるようになります (**Matinee アクタ** と同様)。[Details (詳細)] パネル (以下) で、レベル シーケンスがレベル開始時に自動的に再生するか、シーケンスがループするか、シーケンスのプレイ速度などの設定を定義することができます。
 
-![](DetailsPanel.png)
+![DetailsPanel.png](DetailsPanel.png)
 
-マチネとは異なり、レベル シーケンスは自己完結型のアセットであり、あるレベル シーケンスを別のレベル シーケンスに埋め込むことができます。例えば、アニメートしたキャラクターとカメラを持つレベル シーケンスを、大きなシネマティックス シーケンスの一部のシーンとして作成することができます。
+マチネとは異なり、レベル シーケンスは自己完結型のアセットであり、あるレベル シーケンスを別のレベル シーケンスに埋め込むことができます。例えば、アニメートしたキャラクターとカメラを持つレベル シーケンスを、大きなシネマティック シーケンスの一部のシーンとして作成することができます。
 
-レベル シーケンスを作成する別の方法として、**コンテンツ ブラウザ** で **[Add New]** ボタンをクリックして、**[Animation]** メニューから **[Level Sequence]** を選択します。これを行うと、レベルに配置する前に Level Sequence アセットを作成します。
+レベル シーケンスを作成する別の方法として、 **コンテンツ ブラウザ** で **[Add New]** ボタンをクリックして、**[Animation]** メニューから **[Level Sequence]** を選択します。これを行うと、レベルに配置する前に Level Sequence アセットを作成します。
 
-![](LevelSequence_B.png)
+![LevelSequence_B.png](LevelSequence_B.png)
 
 ## シーケンサーにトラックを追加する
 
-レベル シーケンスを作成し、それをダブルクリックして **シーケンス エディタ** を開き、シネマティックスの作成を開始することができます。 
+レベル シーケンスを作成し、それをダブルクリックして **シーケンス エディタ** を開き、シネマティックスの作成を開始することができます。
 
-![](BlankScene.png)
+![BlankScene.png](BlankScene.png)
 
 [REGION:caption]
 上の画面では、新規作成した空のレベル シーケンスがあります。
 [/REGION]
 
-最初に、**Track** の種類を追加する必要があります。これは、**[Track]** ボタンのドロップダウン メニューから行うことができます。 
+最初に、**Track** の種類を追加する必要があります。これは、**[Track]** ボタンのドロップダウン メニューから行うことができます。
 
-![](AddToSequencer.png)
+![AddToSequencer.png](AddToSequencer.png)
 
-ドロップダウン メニューに選択対象のトラック数種類と、**アクタをシーケンサー** に追加する機能が表示されます。この [Actor To Sequencer] オプションではレベルで選択したアクタをシーケンサーに追加して、シーン中に操作できます。
+ドロップダウン メニューに選択対象のトラック数種類と、 **アクタをシーケンサー** に追加する機能が表示されます。この [Actor To Sequencer] オプションではレベルで選択したアクタをシーケンサーに追加して、シーン中に操作できます。
 
-通常、アニメートし、動くキャラクター、動物、クリーチャーなどを持つシネマティックスを作成している場合、 [スケルタルメッシュ](Engine/Content/Types/SkeletalMeshes) を持ちますが、これをシーケンサーに追加する必要があります。
-例えば、以下ではレベルに配置したクマのスケルタルメッシュがあります。クマを選択した状態で、次にシーケンサーの **[Track]** ボタンをクリックし、**[Actor To Sequencer]** を選択し、それを追加し、シーケンサー エディタで制御できるようにします。
+通常、アニメートし、動くキャラクター、動物、クリーチャーなどを持つシネマティックスを作成している場合、 [スケルタルメッシュ](Engine/Content/Types/SkeletalMeshes)を持ちますが、これをシーケンサーに追加する必要があります。例えば、以下ではレベルに配置したクマのスケルタルメッシュがあります。クマを選択した状態で、次にシーケンサーの **[Track]** ボタンをクリックし、**[Actor To Sequencer]** を選択し、それを追加し、シーケンサー エディタで制御できるようにします。
 
-![](AddBear.png)(w:640)
+![AddBear.png](AddBear.png)(w:640)
 
 スケルタルメッシュを追加したら、次に **サブトラック** を追加してスケルタルメッシュに影響を与えることができます。
 
-![](SkeletalMeshTracks.png)
+![SkeletalMeshTracks.png](SkeletalMeshTracks.png)
 
 [REGION:caption]
 作成するトラックの種類に応じて、サブトラックを追加可能であり、サブトラック追加機能が利用できます。
@@ -63,60 +63,79 @@ topic-image:Engine/Physics/physics_topic.png
 以下では、アニメーションのサブトラックを選択し、スケルタルメッシュのクマが再生するアニメーションを割り当てます。
 
 [OBJECT:EmbeddedVideo]
-	[PARAMLITERAL:videoid]
-	RTAbKVuwgHM
-	[/PARAMLITERAL]
-	[PARAMLITERAL:width]
-	100
-	[/PARAMLITERAL]
-	[PARAMLITERAL:height]
-	56.25
-	[/PARAMLITERAL]
-	[PARAMLITERAL:units]
-	%
-	[/PARAMLITERAL]
-	[PARAMLITERAL:type]
-	simple
-	[/PARAMLITERAL]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ RTAbKVuwgHM
+ [/PARAMLITERAL]
 [/OBJECT]
 
-###シーケンサーとワールド アウトライナーの統合
+レベル シーケンス内のトラックの整理には、 **フォルダ**を使用します。それにより、必要に応じて分類および整列することができます。フォルダが選択され、新しいトラックを追加すると、そのトラックは自動的に選択したフォルダ内に配置されます。 
 
-アクタをレベル シーケンスに追加すると、 [ワールド アウトライナー](Engine/UI/LevelEditor/SceneOutliner/Interface) が更新されてアクタがどのレベル シーケンスにバインドされているかが表示されます。
+![](FolderTracks.png "FolderTracks.png")
 
-[REGION:raw]
+*上記では、Audio フォルダが選択されています。新しいトラックを追加すると、そのトラックは自動的に Audio フォルダに配置されます。*
+
+また、トラックリスト内でトラックをドラッグ＆ドロップすることで、トラックの配置や並べ替えを行うこともできます。 
+
+![](MoveTracks.png "MoveTracks.png")
+
+上記では、Audio フォルダをトラックリストの最後に移動させています。下の画像がその結果です。 
+
+![](MovedTrack.png "MovedTrack.png")
+
+  
+
+### トラックのコピー、ペースト、複製
+
+右クリックのコンテキストメニューから、シーケンサー内のトラックや、それらのすべての子トラックをコピー、ペースト、複製することもできます。このショートカットを使用することで、アクタをコピー / ペースト / 複製し、必要に応じて新しいアクタのプロパティを変更することができます。そのため、シーケンス内で類似したアクタを使用している場合に時間を節約できます。 
+
+以下では、シーンでクマを複製し、もう一方のクマと向き合うように回転させています。 
+
+[OBJECT:EmbeddedVideo]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ MEggBFGEm_0
+ [/PARAMLITERAL]
+[/OBJECT]
+
+コンテキスト メニューからオブジェクトをコピーする場合、同じレベル シーケンスもしくは全く新しいレベル シーケンスにコピーすることができます。スポーン可能なオブジェクトは新しいレベル シーケンス内で作成される一方、所有可能なものはコピーされたデータのみを持ちます。また、UMG でアニメーション トラックを複製 / コピーすることもできます。 
+
+### シーケンサーとワールド アウトライナーの統合
+
+アクタをレベル シーケンスに追加すると、 [World Outliner (ワールド アウトライナー)](Engine/UI/LevelEditor/SceneOutliner/Interface) が更新されてアクタがどのレベル シーケンスにバインドされているかが表示されます。
+
 ![](Outliner.png)
-[/REGION]
 
-ワールド アウトライナーでは、どのアクタがシーケンサーによってスポーンされたかがオレンジ色の稲妻アイコンでわかります。  
+ワールド アウトライナーでは、どのアクタがシーケンサーによってスポーンされたかがオレンジ色の稲妻アイコンでわかります。
 
 ![](SpawnableWorldOutliner.png)
 
-
 ## シーンのキーフレーム設定
 
-一般的なアニメーション ツールを使い慣れている場合、**キーフレーム** を使ってコンテンツを操作する考え方は馴染みがあるものでしょう。 
-シーケンサーでは、タイムラインに沿った必要なポイントにプロパティを定義した **キー** を追加して(キーフレーム設定) コンテンツを操作することができます。 
-タイムラインでこうしたキーに到達すると、各キーフレームで定義したプロパティが、入力した値を反映するように更新されます。
+一般的なアニメーション ツールを使い慣れている場合、 **キーフレーム** を使ってコンテンツを操作する考え方は馴染みがあるものでしょう。シーケンサーでは、タイムラインに沿った必要なポイントにプロパティを定義した **キー** を追加して (キーフレーム設定) コンテンツを操作することができます。タイムラインでこうしたキーに到達すると、各キーフレームで定義したプロパティが更新され、ユーザーの入力した値を反映します。
 
-以下のサンプル シーンでは Skeletal Mesh アクタの様々なトランスフォームにキーフレームを作成して動きを追加するプロセスを示しています。 
+以下のサンプル シーンでは Skeletal Mesh アクタの様々なトランスフォームにキーフレームを作成して動きを追加するプロセスを示しています。
 
 [OBJECT:EmbeddedVideo]
-	[PARAMLITERAL:videoid]
-	1sve4WgQgK0
-	[/PARAMLITERAL]
-	[PARAMLITERAL:width]
-	100
-	[/PARAMLITERAL]
-	[PARAMLITERAL:height]
-	56.25
-	[/PARAMLITERAL]
-	[PARAMLITERAL:units]
-	%
-	[/PARAMLITERAL]
-	[PARAMLITERAL:type]
-	simple
-	[/PARAMLITERAL]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ 1sve4WgQgK0
+ [/PARAMLITERAL]
 [/OBJECT]
 
 [REGION:caption]
@@ -134,15 +153,17 @@ topic-image:Engine/Physics/physics_topic.png
 [REGION:caption]
 上の画面では Cine Camera アクタの [Current Focal Length] と [Current Aperture] の設定にキーフレーム ボタンが表示されています。
 [/REGION]
-
 [REGION:note]
-シーケンサーでは、**[Auto-Key] ** オプションを有効にした状態でプロパティの自動キーもサポートしています。詳細は [](Engine\Sequencer\HowTo\UsingAutoKey) のページをご覧ください。 
+シーケンサーでは、 **[Auto-Key] ** オプションを有効にした状態でプロパティの自動キーもサポートしています。詳細については、 [](Engine/Sequencer/HowTo/UsingAutoKey) を参照してください。
 [/REGION]
 
+プロパティ エディタには、 **[Show Only Keyable Properties (キー設定可能なプロパティのみを表示)]** というフィルタ (レベル シーケンスにキーすることができるプロパティのみ)、または **[Show Only Animated Properties (アニメーション プロパティのみを表示)]** というフィルタ (キーで既にアニメートされたトラック) もあります。 
+
+![](DetailsFiltered-1.png "DetailsFiltered-1.png")
 
 ### 複数キーの再配置と再スケーリング
 
-キー (または複数のキーやセクション) を選択した状態で、**[Transform Keys/Sections]** ツールを使って選択したものを再配置したり、再スケーリングすることができます。
+キー (または複数のキーやセクション) を選択した状態で、 **[Transform Keys/Sections]** ツールを使って選択したものを再配置したり、再スケーリングすることができます。
 
 ![](SelectionOption.png)
 
@@ -151,55 +172,47 @@ topic-image:Engine/Physics/physics_topic.png
 これにより、キー / 選択したものを指定した量でオフセット、または指定した時間でキー / セクションをスケーリングする量をオフセットすることができます。
 
 [OBJECT:EmbeddedVideo]
-	[PARAMLITERAL:videoid]
-	T27ngPC83Iw
-	[/PARAMLITERAL]
-	[PARAMLITERAL:width]
-	100
-	[/PARAMLITERAL]
-	[PARAMLITERAL:height]
-	56.25
-	[/PARAMLITERAL]
-	[PARAMLITERAL:units]
-	%
-	[/PARAMLITERAL]
-	[PARAMLITERAL:type]
-	simple
-	[/PARAMLITERAL]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ T27ngPC83Iw
+ [/PARAMLITERAL]
 [/OBJECT]
 
 ### シーケンサーの編集オプション
 
-レベル シーケンスが開いているときに使用可能な 3 つの編集オプションがありす。これを使ってシーケンサー エディタによるプロパティ値の処理方法を定義することができます。
+レベル シーケンスが開いているときに使用可能な以下の 3 つの編集オプションがあります。これを使ってシーケンサー エディタによるプロパティ値の処理方法を定義することができます。
 
 ![](SequenceEdits.png)
 
-* **Allow Any Edits** - どのような編集も可能です。その一部は、トラック / キーを作成したり、デフォルトのプロパティを変更します。
-* **Allow Sequencer Edits Only** - プロパティを何か編集した時に存在しない場合はトラックおよび / またはキーフレームが自動作成されます。
-	* これらの変更は作業中の特定のショットだけに限定され、他のショットに及ぶことはありません。
-* **Allow Level Edits Only** - このオプションを使用すると、デフォルトのプロパティ オブジェクトを直接編集することができます。
-	* シーケンサーに既にトラックがあるプロパティは、グローバルな変更ですべてのショットに反映させる時に、詳細パネルで無効になります。
+*   **Allow Any Edits** \- どのような編集も可能です。その一部は、トラック / キーを作成したり、デフォルトのプロパティを変更します。
+    
+*   **Allow Sequencer Edits Only** \- プロパティを何か編集した時に存在しない場合はトラックおよび/またはキーフレームが自動作成されます。
+    
+    *   これらの変更は作業中の特定のショットだけに限定され、他のショットに及ぶことはありません。
+        
+*   **Allow Level Edits Only** \- デフォルトのプロパティ オブジェクトを直接編集することができます。
+    
+    *   シーケンサーに既にトラックがあるプロパティは、グローバルな変更ですべてのショットに反映させる時に、 [Details (詳細)] パネルで無効になります。
+        
 
 以下は各設定の動作例です。
 
 [OBJECT:EmbeddedVideo]
-	[PARAMLITERAL:videoid]
-	RL94KEjiddE
-	[/PARAMLITERAL]
-	[PARAMLITERAL:width]
-	100
-	[/PARAMLITERAL]
-	[PARAMLITERAL:height]
-	56.25
-	[/PARAMLITERAL]
-	[PARAMLITERAL:units]
-	%
-	[/PARAMLITERAL]
-	[PARAMLITERAL:type]
-	simple
-	[/PARAMLITERAL]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ RL94KEjiddE
+ [/PARAMLITERAL]
 [/OBJECT]
-
 
 ## 再生範囲
 
@@ -211,15 +224,15 @@ topic-image:Engine/Physics/physics_topic.png
 上の画面ではコンテンツにフレーム 600 で終わる 2 つのショットがありますが、シーケンスはフレーム 1000 まであり、デッドスペースになっています。
 [/REGION]
 
-**Start Playback (再生開始)** および **Stop Playback (再生終了)** のマーカーをドラッグして、コンテンツがうまく入るようにするか、コンテンツをこうした範囲内に入るように保つオプションがあります。このオプションは **シーケンサー オプション** のドロップダウン メニューにあります。**[Keep Playback Range In Section Bounds (再生範囲をセクションの境界内に保持する)]** を有効にします。
+**Start Playback (再生開始)** および **Stop Playback (再生終了)** のマーカーをドラッグして、コンテンツがうまく入るようにするか、コンテンツをこうした範囲内に入るように保つオプションがあります。このオプションは **Sequencer Options (シーケンサー オプション)** のドロップダウン メニューにあります。 **[Keep Playback Range In Section Bounds (再生範囲をセクションの境界内に保持する)]** を有効にします。
 
 ![](KeepInRange.png)
 
-[ショット トラック](Engine\Sequencer\HowTo\TracksShot) を使った作業とマスター レベル (およびショット レベル) からシーケンスを見る場合、シーケンス全体をその相対時間で評価します。以下の画像では、再生範囲の終了時に赤いマーカーが 2 つあります。ひとつめは、ショットの終わりを (Shot レベルから)、2 つめはマスター シーケンスの終わりを示しています。この例では、`Shot0020_001` は 50 フレームを使用するように設定していますが、マスター レベルでは 100 フレームを使用するように設定しています。
+マスターレベル(ショット レベルと同様に)から [Shot Tracks](Engine/Sequencer/HowTo/TracksShot) が実行され、シーケンスが表示されている場合、シーケンス全体を相対時間で評価します。以下の画像では、再生範囲の終了時に赤いマーカーが 2 つあります。ひとつめは、ショットの終わりを (Shot レベルから)、2 つめはマスター シーケンスの終わりを示しています。この例では、`Shot0020_001` は 50 フレームを使用するように設定していますが、マスター レベルでは 100 フレームを使用するように設定しています。
 
 ![](Evaluation_1.png)
 
-Shot をよく見ると、ひとつめの赤いマーカーはフレーム 50 でショットの終わりを表しています。一方、ふたつめの赤いマーカーはマスター レベルでのショットの終わりを示しています。 
+Shot をよく見ると、ひとつめの赤いマーカーはフレーム 50 でショットの終わりを表しています。一方、ふたつめの赤いマーカーはマスター レベルでのショットの終わりを示しています。
 
 ![](Evaluation_2.png)
 
@@ -227,68 +240,76 @@ Shot をよく見ると、ひとつめの赤いマーカーはフレーム 50 �
 
 ## 階層バイアス
 
-デフォルトでレベル シーケンスの階層で低レベルのトラックが優先されます。これにより、映像制作者は、ショット レベルでの調整がそれが含まれるシーケンスをオーバーライドする使い慣れたパイプラインを構築することができます。例えば、以下の動画は 3 つのカメラカットとアクタをポイントし、ハイライトするライトがあるサンプルシーンです。マスターレベルで、ライトが白に設定されています。しかし、2 つめのショットにライトを追加すると、マスター レベルでの設定をオーバーライドして変更することができます。
+デフォルトでは、レベル シーケンスの階層で低レベルのトラックが優先されます。これにより、映像制作者は、使い慣れたパイプラインを構築することができます。ショット レベルでの調整がそれが含まれるシーケンスをオーバーライドします。例えば、以下の動画のサンプル シーンでは、カメラカットが 3 つあり、アクタをポイントしハイライトするライトが 1 つあります。マスターレベルで、ライトが白に設定されています。しかし、2 つめのショットにライトを追加すると、マスター レベルでの設定をオーバーライドして変更することができます。
 
 [OBJECT:EmbeddedVideo]
-	[PARAMLITERAL:videoid]
-	294aoFPGPIs
-	[/PARAMLITERAL]
-	[PARAMLITERAL:width]
-	100
-	[/PARAMLITERAL]
-	[PARAMLITERAL:height]
-	56.25
-	[/PARAMLITERAL]
-	[PARAMLITERAL:units]
-	%
-	[/PARAMLITERAL]
-	[PARAMLITERAL:type]
-	simple
-	[/PARAMLITERAL]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ 294aoFPGPIs
+ [/PARAMLITERAL]
 [/OBJECT]
 
-与える影響量を設定するには、ショット上で右クリックして、次に、 **Properties** で **Hierarchical Bias (階層バイアス)** 値 (値が高い方が優先されます) を増やします。
+与える影響量を設定するには、ショット上で右クリックして、次に、 **[Properties]** で **[Hierarchical Bias (階層バイアス)]** 値 (値が高い方が優先されます) を増やします。
 
 ![](HierarchicalBias.png)
 
 ## 特殊なビューポート
 
-シーケンサーでは特殊なビューポートを使って編集プロセスをやりやすくすることができます。
+シーケンサーでは特殊なビューポートを使って編集プロセスをしやすくできます。
 
 ![](SpecialViewports.png)
 
-こうした [シネマティクス ビューポート](Engine\Sequencer\HowTo\ViewportOptions) では、最終的なシーンがどのようになるかが把握しやすくなります。これは、**ビューポート** のオプションから有効にすることができます。
+こうした[シネマティクス ビューポート](Engine/Sequencer/HowTo/ViewportOptions)では、最終的なシーンがどのようになるかが把握しやすくなります。これは、**ビューポート** のオプションから有効にすることができます。
 
-##Cinematic アクタ
+## Cinematic アクタ
 
 **[Modes]** パネルの **[Cinematic]** のメニューには、シネマティックスを作成するための 3 種類の Cinematic アクタがあります。
 
 ![](CineTools.png)
 
-こうした Cinematic アクタをレベルにドラッグしてシーケンサーに追加したり、シーケンサーにドラッグしてスポーン可能なものにすることができます。 
+こうした Cinematic アクタをレベルにドラッグしてシーケンサーに追加したり、シーケンサーにドラッグしてスポーン可能なものにすることができます。
 
 ### Camera Rig Crane
 
-**Camera Rig Crane** アクタを使うと、通常の映画撮影で使われるクレーンのようなカメラの動きをシミュレーションできます。 
+**Camera Rig Crane** アクタを使うと、通常の映画撮影で使われるクレーンのようなカメラの動きをシミュレーションできます。
 
 ![](Crane.png)(w:480)
 
-カメラを Camera Rig Crane アクタにアタッチすることで、クレーンの動きを **[Details]** パネルと **[Crane Controls]** の値で操作することができます。こうした値は、クレーンのピッチ、ヨー、アームの長さに影響を与えます。こうしたすべての値をシーケンサー内でキーフレーム化することができます。これにより、シネマティックス中に必要に応じて調整することができます。
+カメラを Camera Rig Crane アクタにアタッチすることで、クレーンの動きを **[Details (詳細)]** パネルと **[Crane Controls]** の値で操作することができます。こうした値は、クレーンのピッチ (上下動)、ヨー (左右回転)、アームの長さに影響を与えます。こうしたすべての値をシーケンサー内でキーフレーム化することが可能であり、シネマティックス中に必要に応じて調整することができます。
 
 [REGION:note]
-詳細は [**CameraRigCrane から撮影する**](Engine\Sequencer\HowTo\CameraRigCrane) をご覧ください。
+詳細は、[](Engine/Sequencer/HowTo/CameraRigCrane) を参照してください。
 [/REGION]
 
 ### Camera Rig Rail
 
-**Camera Rig Rail** アクタはスプライン ベースのツールであり、カメラをアタッチ可能です。これにより、移動の経路を与えます。
+**Camera Rig Rail** アクタはスプライン ベースのツールであり、カメラのアタッチが可能です。これにより、移動の経路を与えます。
 
 ![](Rail.png)(w:480)
 
-スプラインの各ポイントを選択して、タンジェントを変更してカメラが追う経路を作ります。レールにアタッチしたカメラを独立して回転させたり、レール上のカメラの位置を **[Details]** パネルの **[Current Position on Rail (レール上の現在位置)]** プロパティで調整することができます。この値をキーフレーム化することもできます。
+スプラインの各ポイントを選択して、タンジェントを変更してカメラが追う経路を作ります。レールにアタッチしたカメラを独立して回転させたり、レール上のカメラの位置を **[Details (詳細)]** パネルの **[Current Position on Rail (レール上の現在位置)]** プロパティで調整 (もしくはキーフレーム化) することができます。 
+
+**[Lock Orientation to Rail] ** プロパティを有効にすることで、マウントの向きがレールの方向にあるかどうかを判断することもできます。このオプションを有効にすると、定義したスプライン パスの曲率に合わせてカメラの向きをロックできます。 
+
+[OBJECT:EmbeddedVideo]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ EBDi-I9gVN4
+ [/PARAMLITERAL]
+[/OBJECT]
 
 [REGION:note]
-詳細は [**CameraRigRail から撮影する**](Engine\Sequencer\HowTo\CameraRigRail) をご覧ください。
+詳細は、 [Shooting from a Camera Rig Rail](Engine/Sequencer/HowTo/CameraRigRail) を参照してください。
 [/REGION]
 
 ### Cine Camera アクタ
@@ -296,89 +317,82 @@ Shot をよく見ると、ひとつめの赤いマーカーはフレーム 50 �
 **Cine Camera アクタ** はデフォルトの Camera アクタです。ただし、追加のカメラ設定を利用できます。
 
 ![](CineCamera.png)(w:480)
-
 [REGION:caption]
 上の画面には、Cine Camera アクタ (黒いカメラ) とデフォルトの Camera アクタ (青いカメラ) があります。
 [/REGION]
 
 Cine Camera アクタには、Look at トラッキング (Actor に追随)、Filmback 設定(16:9 DSLR、 Super 8mm、 35mm VistaVision など)、Lens とFocus の設定、および Current Aperture と Current Focus Distances の設定があります。通常の Camera アクタを使っても問題はありませんが、一段とシネマティックスな雰囲気にし、より多くのカメラ設定を使えるようにするには、Cine Camera アクタを使ってシーンを撮影することをお勧めします。
 
-どのタイプのカメラをシネマティックスの撮影に使うかを決めて、それをレベル シーケンスに追加したら、**カメラカット トラック** を使ってどのカメラからシーケンスを撮影するかを示す必要があります。カメラをひとつだけ使って撮影し、シーン中にカメラを切り替える計画がなくても、カメラカット トラックを使って、撮影に使う予定のひとつのカメラをポイントするようにします。
+どのタイプのカメラをシネマティックスの撮影に使うかを決めて、それをレベル シーケンスに追加したら、 **カメラカット トラック** を使ってどのカメラからシーケンスを撮影するかを示す必要があります。カメラをひとつだけ使って撮影し、シーン中にカメラを切り替える計画がなくても、カメラカット トラックを使って、撮影に使う予定のひとつのカメラをポイントするようにします。
 
 [REGION:note]
-詳細は [CineCamera アクタを使用する](Engine\Sequencer\HowTo\CineCameraActors) と [](Engine/Sequencer/HowTo/TracksCameraCut) をご覧ください。 
+詳細については、 [](Engine/Sequencer/HowTo/CineCameraActors) と [](Engine/Sequencer/HowTo/TracksCameraCut) を参照してください。
 [/REGION]
 
 ## シーケンスの記録
 
-コンテンツ作成時間を短縮できるひとつの方法として、**シーケンス レコーダー** を使って、新しい Level Sequence アセットを生成するためにゲームプレイ (またはレベル シーケンス) を記録するやり方があります。
+コンテンツ作成時間を短縮できるひとつの方法として、 **シーケンス レコーダー** を使って、新しい Level Sequence アセットを生成するためにゲームプレイ (またはレベル シーケンス) を記録するやり方があります。
 
 [OBJECT:EmbeddedVideo]
-	[PARAMLITERAL:videoid]
-	mvCPXslVb8Y
-	[/PARAMLITERAL]
-	[PARAMLITERAL:width]
-	100
-	[/PARAMLITERAL]
-	[PARAMLITERAL:height]
-	56.25
-	[/PARAMLITERAL]
-	[PARAMLITERAL:units]
-	%
-	[/PARAMLITERAL]
-	[PARAMLITERAL:type]
-	simple
-	[/PARAMLITERAL]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ mvCPXslVb8Y
+ [/PARAMLITERAL]
 [/OBJECT]
 
-新しい記録を追加するために、記録対象のアクタを選んで、**Record** をクリックしてキャプチャを開始します。記録を停止すると新しい Level Sequence アセットが作成されます。これを既存のシネマティックスに組み込んだり、記録したレベル シーケンスの一部を使って新しいシーケンスを作成することができます。記録したシーケンスに合わせて外部のマイクロフォンからオーディオを記録することもできます。これにより、シーケンスにナレーションを付けることができます (またはレベル エディタのアクションを記録しながら指示をすることもできます)。
+新しい記録を追加するために、記録対象のアクタを選んで、 **[Record]** をクリックしてキャプチャを開始します。記録を停止すると新しい Level Sequence (レベル シーケンス) アセットが作成されます。これを既存の シネマティックスに組み込んだり、記録したレベル シーケンスの一部を使って新しいシーケンスを作成することができます。記録したシーケンスに合わせて外部のマイクロフォンからオーディオを記録することも可能であり、シーケンスにナレーションを付けることができます (またはレベル エディタのアクションを記録しながら指示をすることもできます)。
 
 [REGION:note]
-詳細は [**ゲームプレイを記録する**](Engine/Sequencer/HowTo/SequenceRecorder) をご覧ください。
+詳細については、 [](Engine/Sequencer/HowTo/SequenceRecorder) を参照してください。
 [/REGION]
 
-##ムービー出力の設定
+## ムービー出力の設定
 
 シーケンサー内で **[Render Movie Settings (ムービー出力の設定)]** オプションからシネマティックスを Video または Image Sequence にムービー出力することができます。
 
-![](RenderMovie.png)
+![](RenderMovieButton.png "RenderMovieButton.png")
 
-**[Render Movie Settings]** ウィンドウが表示されます。これを使ってシーンをどのように出力するかを定義できます。
+[Render Movie] ボタンを選択すると、 **[Render Movie Settings]** ウィンドウが表示されます。これを使ってシーンをどのように出力するかを定義できます。
 
-![](CaptureMovie.png)
+![](RenderMovieDialogueWindow-1.png "RenderMovieDialogueWindow-1.png")
 
-シーンの録画のキャプチャ プロセスを開始するには、**[Capture Movie]** ボタンをクリックします。
+シーンの録画のキャプチャ プロセスを開始するには、 **[Capture Movie]** ボタンをクリックします。
 
 [REGION:note]
-操作ガイドについては、 [](Engine\Sequencer\HowTo\ActorSequence) をご覧ください。 
+手順ガイドについては、 [](Engine/Sequencer/Workflow/RenderMovieSettings) か [](Engine/Sequencer/HowTo/RenderMovies) を参照してください。
 [/REGION]
 
-### Custom
+### Custom Burn-ins
 
-[INCLUDE:Engine/Sequencer/HowTo/BurnIns#intro]
+シネマティックス ムービーを作成し、出力する場合、ショット名、日付、時刻、フレーム情報などの表示しているシーンに関する情報を持ったオーバーレイを含めることができます。こうしたオーバーレイは、 **Burn In (バーンイン、焼き付け)** と呼ばれます。出力時にムービーに焼き付けられるからです。多くの場合、現実の映画製作でも、監督、映像編集者やシーンを見ている人に対してその内容に関する情報を示すプロセスがあります (中には版権情報の透かしが入るものもあります)。
 
 [REGION:note]
-burn-ins の使用についての手順を示したガイドについては、[](Engine/Sequencer/HowTo/BurnIns) をご覧ください。
+burn-ins の使用についての手順を示したガイドについては、 [](Engine/Sequencer/HowTo/BurnIns) をご覧ください。
 [/REGION]
 
 ### Import/Export EDLs
 
-[INCLUDE:Engine/Sequencer/HowTo/ImportExportEDLs#intro]
+Unreal Engine 4 (UE4) のシーケンサーは、シネマティックス全体をレンダリングしたり、エクスポートできるだけでなく、シネマティックスを各ショットに分けて、 **Edit Decision List** (**EDL**) と合わせてエクスポートすることもできます。これは、Premiere、 Avid、 Final Cut などのようなほとんどの映像編集アプリケーションで使用可能なファイルです。
 
 EDL のエクスポートの一部として、各ショットに自動的に **Frame Handles** を追加して、追加するフレーム数を指定することができます。
 
- ![](RenderMovieSequence.png)
- 
+![](RenderMovieSequence.png)
+
 [REGION:note]
-EDLs の使用についての手順を示したガイドについては、[](Engine/Sequencer/HowTo/ImportExportEDLs) をご覧ください。
+EDLs の使用についての手順を示したガイドについては、 [](Engine/Sequencer/HowTo/ImportExportEDLs) をご覧ください。
 [/REGION]
 
 ### カスタム レンダー パス
 
-異なるレンダー パスでシネマティックスのエクスポートをするには、**[Render Movie Settings]** ウィンドウから行うことができます。こうした設定を使って、シーケンスをエクスポートする場合に使うレンダー パスを指定することができます。HDR (High Dynamic-Range) データを `.exr` ファイルとしてエクスポートして、圧縮と色域の設定を定義することができます。
+シネマティックスの異なるレンダー パスへのエクスポートは、 **[Render Movie Settings]** ウィンドウから行うことができます。こうした設定を使って、シーケンスをエクスポートする場合に使うレンダー パスを指定することができます。HDR (High Dynamic-Range) データを `.exr` ファイルとしてエクスポートして、圧縮と色域の設定を定義することができます。
 
 [REGION:note]
-詳細は、 [](Engine\Sequencer\Workflow\CustomRenderPass) をご覧ください。
+詳しい情報については [](Engine/Sequencer/Workflow/CustomRenderPass) を参照してください。
 [/REGION]
 
 ## ブループリントの埋め込みシーケンス
@@ -387,32 +401,25 @@ EDLs の使用についての手順を示したガイドについては、[](Eng
 これは現在、開発進行中の実験的な機能です。一部の機能は期待どおりに機能しなかったり、将来のリビジョンで変更される可能性があります。
 [/REGION]
 
-アンリアル エンジン 4.15 時点では、**Actor Sequence Plugin** を有効にして、**Actor Sequence コンポーネント** を **ブループリント** に追加することができます。この機能により、シーケンスを直接 Actor ブループリントに埋め込んで、シーケンスを再利用できるようにします。これは、アニメーションをブループリント インスタンスに結合して、自動的にトリガーするか、ブループリントの **イベントグラフ** でトリガーして行います。
+Unreal Engine 4.15 時点では、 **Actor Sequence Plugin** を有効にして、**Actor Sequence コンポーネント** を **ブループリント** に追加することができます。この機能により、シーケンスを直接 Actor ブループリントに埋め込んで、シーケンスを再利用できるようにします。これは、アニメーションをブループリント インスタンスに結合して、自動的にトリガーするか、ブループリントの **イベントグラフ** でトリガーして行います。
 
 以下は、スポットライトと Actor Sequence コンポーネントを使って作成したライトの色をアニメートし変更するブループリントの例です。
 
 [OBJECT:EmbeddedVideo]
-	[PARAMLITERAL:videoid]
-	bohLiPXTyMs
-	[/PARAMLITERAL]
-	[PARAMLITERAL:width]
-	100
-	[/PARAMLITERAL]
-	[PARAMLITERAL:height]
-	56.25
-	[/PARAMLITERAL]
-	[PARAMLITERAL:units]
-	%
-	[/PARAMLITERAL]
-	[PARAMLITERAL:type]
-	simple
-	[/PARAMLITERAL]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ bohLiPXTyMs
+ [/PARAMLITERAL]
 [/OBJECT]
 
 [REGION:note]
-操作ガイドについては、 [](Engine\Sequencer\HowTo\ActorSequence) をご覧ください。
+手順ガイドについては、 [](Engine/Sequencer/HowTo/ActorSequence) を参照してください。
 [/REGION]
-
 
 ## 所有可能なものとスポーン可能なもの
 
@@ -421,14 +428,13 @@ EDLs の使用についての手順を示したガイドについては、[](Eng
 シーケンサーには、"spawnables (スポーン可能なもの)" という別の操作形態もあります。つまり、所有しているオブジェクトがまだ存在せず、シーケンサーによってスポーンされます。この場合、シーケンサーはスポーンしたアクタに対して権限を持ち、ライフサイクルを決めることができます。オブジェクトがスポーンされるため、特定のレベルに制約されません。スポーン可能 ("spawnable") としてマークされているものはどのレベルでも使用可能です。そのため、シーンを作成し、任意の環境でスポーン可能にし、再作成する必要なく新しいレベルでそのシーンを再利用できます。
 
 [REGION:note]
-詳細は [スポーン可能なものを作成する](Engine\Sequencer\HowTo\Spawnables\) をご覧ください。
+詳細については、 [](Engine/Sequencer/HowTo/Spawnables) を参照してください。
 [/REGION]
-
 
 ## ワークフロー上の考慮事項
 
 シーケンサー エディタの基本的仕組みを理解したら、その使用方法を考えます (コンテンツをオーサリングする方法は多数あります)。ひとつのレベル シーケンス内ですべてのコンテンツを作成するか、シーケンスを相互に埋め込んで、マスター シーケンスを使ってすべてを制御するか、 Master Sequence アセットを使って開始することができます。シーケンサーではシネマティックスを作成する方法が複数あります。
 
 [REGION:note]
-詳細は、 [**ワークフロー上の考慮事項**](Engine\Sequencer\Workflow\ToolUsage) をご覧ください。 
+詳細については、 [](Engine/Sequencer/Workflow/ToolUsage) を参照してください。
 [/REGION]

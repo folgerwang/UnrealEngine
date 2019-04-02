@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -20,18 +20,18 @@ struct FClusterNode_DEPRECATED
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		FVector BoundMin;
 	UPROPERTY()
-		int32 FirstChild;
+	FVector BoundMin;
 	UPROPERTY()
-		FVector BoundMax;
+	int32 FirstChild;
 	UPROPERTY()
-		int32 LastChild;
+	FVector BoundMax;
 	UPROPERTY()
-		int32 FirstInstance;
+	int32 LastChild;
 	UPROPERTY()
-		int32 LastInstance;
+	int32 FirstInstance;
+	UPROPERTY()
+	int32 LastInstance;
 
 	FClusterNode_DEPRECATED()
 		: BoundMin(MAX_flt, MAX_flt, MAX_flt)
@@ -191,6 +191,8 @@ class ENGINE_API UHierarchicalInstancedStaticMeshComponent : public UInstancedSt
 	// Apply the results of the async build
 	void ApplyBuildTreeAsync(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent, TSharedRef<FClusterBuilder, ESPMode::ThreadSafe> Builder, double StartTime);
 
+	virtual void OnComponentCreated() override;
+
 public:
 
 	//Begin UObject Interface
@@ -235,7 +237,7 @@ public:
 	/** Heuristic for the number of leaves in the tree **/
 	int32 DesiredInstancesPerLeaf();
 
-	virtual void ApplyComponentInstanceData(class FInstancedStaticMeshComponentInstanceData* InstancedMeshData) override;
+	virtual void ApplyComponentInstanceData(struct FInstancedStaticMeshComponentInstanceData* InstancedMeshData) override;
 	
 	// Number of instances in the render-side instance buffer
 	virtual int32 GetNumRenderInstances() const { return SortedInstances.Num(); }
@@ -264,6 +266,7 @@ protected:
 
 	virtual void GetNavigationPerInstanceTransforms(const FBox& AreaBox, TArray<FTransform>& InstanceData) const override;
 	virtual void PartialNavigationUpdate(int32 InstanceIdx) override;
+	virtual FBox GetNavigationBounds() const override;
 	void FlushAccumulatedNavigationUpdates();
 	mutable FBox AccumulatedNavigationDirtyArea;
 

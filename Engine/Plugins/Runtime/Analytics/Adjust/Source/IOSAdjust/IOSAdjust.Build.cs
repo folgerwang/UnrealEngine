@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System.IO;
 
@@ -28,7 +28,7 @@ namespace UnrealBuildTool.Rules
 
 			// Add the Adjust framework
 			PublicAdditionalFrameworks.Add( 
-				new UEBuildFramework( 
+				new Framework( 
 					"AdjustSdk",													// Framework name
 					"../../ThirdPartyFrameworks/AdjustSdk.embeddedframework.zip"	// Zip name
 				)

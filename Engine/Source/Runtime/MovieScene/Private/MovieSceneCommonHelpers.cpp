@@ -1,15 +1,19 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneCommonHelpers.h"
 #include "Components/SceneComponent.h"
 #include "GameFramework/Actor.h"
 #include "Camera/CameraComponent.h"
 #include "KeyParams.h"
+#include "MovieScene.h"
 #include "MovieSceneSection.h"
+#include "MovieSceneSequence.h"
+#include "Sections/MovieSceneSubSection.h"
 #include "Algo/Sort.h"
 #include "Sound/SoundWave.h"
 #include "Sound/SoundCue.h"
 #include "Sound/SoundNodeWavePlayer.h"
+#include "MovieSceneTrack.h"
 
 UMovieSceneSection* MovieSceneHelpers::FindSectionAtTime( const TArray<UMovieSceneSection*>& Sections, FFrameNumber Time )
 {
@@ -26,7 +30,6 @@ UMovieSceneSection* MovieSceneHelpers::FindSectionAtTime( const TArray<UMovieSce
 
 	return nullptr;
 }
-
 
 UMovieSceneSection* MovieSceneHelpers::FindNearestSectionAtTime( const TArray<UMovieSceneSection*>& Sections, FFrameNumber Time )
 {
@@ -122,6 +125,30 @@ void MovieSceneHelpers::FixupConsecutiveSections(TArray<UMovieSceneSection*>& Se
 	SortConsecutiveSections(Sections);
 }
 
+
+void MovieSceneHelpers::GetDescendantMovieScenes(UMovieSceneSequence* InSequence, TArray<UMovieScene*> & InMovieScenes)
+{
+	UMovieScene* InMovieScene = InSequence->GetMovieScene();
+	if (InMovieScene == nullptr || InMovieScenes.Contains(InMovieScene))
+	{
+		return;
+	}
+
+	InMovieScenes.Add(InMovieScene);
+
+	for (auto Section : InMovieScene->GetAllSections())
+	{
+		UMovieSceneSubSection* SubSection = Cast<UMovieSceneSubSection>(Section);
+		if (SubSection != nullptr)
+		{
+			UMovieSceneSequence* SubSequence = SubSection->GetSequence();
+			if (SubSequence != nullptr)
+			{
+				GetDescendantMovieScenes(SubSequence, InMovieScenes);
+			}
+		}
+	}
+}
 
 
 USceneComponent* MovieSceneHelpers::SceneComponentFromRuntimeObject(UObject* Object)
@@ -229,6 +256,50 @@ float MovieSceneHelpers::GetSoundDuration(USoundBase* Sound)
 
 	const float Duration = (SoundWave ? SoundWave->GetDuration() : 0.f);
 	return Duration == INDEFINITELY_LOOPING_DURATION ? SoundWave->Duration : Duration;
+}
+
+
+float MovieSceneHelpers::CalculateWeightForBlending(UMovieSceneSection* SectionToKey, FFrameNumber Time)
+{
+	float Weight = 1.0f;
+	UMovieSceneTrack* Track = SectionToKey->GetTypedOuter<UMovieSceneTrack>();
+	FOptionalMovieSceneBlendType BlendType = SectionToKey->GetBlendType();
+	if (Track && BlendType.IsValid() && (BlendType.Get() == EMovieSceneBlendType::Additive || BlendType.Get() == EMovieSceneBlendType::Absolute))
+	{
+		//if additive weight is just the inverse of any weight on it
+		if (BlendType.Get() == EMovieSceneBlendType::Additive)
+		{
+			float TotalWeightValue = SectionToKey->GetTotalWeightValue(Time);
+			Weight = !FMath::IsNearlyZero(TotalWeightValue) ? 1.0f / TotalWeightValue : 0.0f;
+		}
+		else
+		{
+
+			const TArray<UMovieSceneSection*>& Sections = Track->GetAllSections();
+			TArray<UMovieSceneSection*, TInlineAllocator<4>> OverlappingSections;
+			for (UMovieSceneSection* Section : Sections)
+			{
+				if (Section->GetRange().Contains(Time))
+				{
+					OverlappingSections.Add(Section);
+				}
+			}
+			//if absolute need to calculate weight based upon other sections weights (+ implicit absolute weights)
+			int TotalNumOfAbsoluteSections = 1;
+			for (UMovieSceneSection* Section : OverlappingSections)
+			{
+				FOptionalMovieSceneBlendType NewBlendType = Section->GetBlendType();
+
+				if (Section != SectionToKey && NewBlendType.IsValid() && NewBlendType.Get() == EMovieSceneBlendType::Absolute)
+				{
+					++TotalNumOfAbsoluteSections;
+				}
+			}
+			float TotalWeightValue = SectionToKey->GetTotalWeightValue(Time);
+			Weight = !FMath::IsNearlyZero(TotalWeightValue) ? float(TotalNumOfAbsoluteSections) / TotalWeightValue : 0.0f;
+		}
+	}
+	return Weight;
 }
 
 FTrackInstancePropertyBindings::FTrackInstancePropertyBindings( FName InPropertyName, const FString& InPropertyPath, const FName& InFunctionName, const FName& InNotifyFunctionName )
@@ -365,10 +436,9 @@ FTrackInstancePropertyBindings::FPropertyAddress FTrackInstancePropertyBindings:
 void FTrackInstancePropertyBindings::CallFunctionForEnum( UObject& InRuntimeObject, int64 PropertyValue )
 {
 	FPropertyAndFunction PropAndFunction = FindOrAdd(InRuntimeObject);
-	if (UFunction* Setter = PropAndFunction.SetterFunction.Get())
+	if (UFunction* SetterFunction = PropAndFunction.SetterFunction.Get())
 	{
-		// ProcessEvent should really be taking const void*
-		InRuntimeObject.ProcessEvent(Setter, (void*)&PropertyValue);
+		InvokeSetterFunction(&InRuntimeObject, SetterFunction, PropertyValue);
 	}
 	else if (UProperty* Property = PropAndFunction.PropertyAddress.GetProperty())
 	{
@@ -397,11 +467,18 @@ void FTrackInstancePropertyBindings::CacheBinding(const UObject& Object)
 {
 	FPropertyAndFunction PropAndFunction;
 	{
-		PropAndFunction.SetterFunction = Object.FindFunction(FunctionName);
 		PropAndFunction.PropertyAddress = FindProperty(Object, PropertyPath);
-		if (NotifyFunctionName != NAME_None)
+
+		UFunction* SetterFunction = Object.FindFunction(FunctionName);
+		if (SetterFunction && SetterFunction->NumParms >= 1)
 		{
-			PropAndFunction.NotifyFunction = Object.FindFunction(NotifyFunctionName);
+			PropAndFunction.SetterFunction = SetterFunction;
+		}
+		
+		UFunction* NotifyFunction = NotifyFunctionName != NAME_None ? Object.FindFunction(NotifyFunctionName) : nullptr;
+		if (NotifyFunction && NotifyFunction->NumParms == 0 && NotifyFunction->ReturnValueOffset == MAX_uint16)
+		{
+			PropAndFunction.NotifyFunction = NotifyFunction;
 		}
 	}
 
@@ -449,8 +526,7 @@ template<> void FTrackInstancePropertyBindings::CallFunction<bool>(UObject& InRu
 	FPropertyAndFunction PropAndFunction = FindOrAdd(InRuntimeObject);
 	if (UFunction* SetterFunction = PropAndFunction.SetterFunction.Get())
 	{
-		// ProcessEvent should really be taking const void*
-		InRuntimeObject.ProcessEvent(SetterFunction, (void*)&PropertyValue);
+		InvokeSetterFunction(&InRuntimeObject, SetterFunction, PropertyValue);
 	}
 	else if (UProperty* Property = PropAndFunction.PropertyAddress.GetProperty())
 	{
@@ -511,5 +587,52 @@ template<> void FTrackInstancePropertyBindings::SetCurrentValue<bool>(UObject& O
 	if (UFunction* NotifyFunction = PropAndFunction.NotifyFunction.Get())
 	{
 		Object.ProcessEvent(NotifyFunction, nullptr);
+	}
+}
+
+
+template<> void FTrackInstancePropertyBindings::CallFunction<UObject*>(UObject& InRuntimeObject, UObject* PropertyValue)
+{
+	FPropertyAndFunction PropAndFunction = FindOrAdd(InRuntimeObject);
+	if (UFunction* SetterFunction = PropAndFunction.SetterFunction.Get())
+	{
+		InvokeSetterFunction(&InRuntimeObject, SetterFunction, PropertyValue);
+	}
+	else if (UObjectPropertyBase* ObjectProperty = Cast<UObjectPropertyBase>(PropAndFunction.PropertyAddress.GetProperty()))
+	{
+		uint8* ValuePtr = ObjectProperty->ContainerPtrToValuePtr<uint8>(PropAndFunction.PropertyAddress.Address);
+		ObjectProperty->SetObjectPropertyValue(ValuePtr, PropertyValue);
+	}
+
+	if (UFunction* NotifyFunction = PropAndFunction.NotifyFunction.Get())
+	{
+		InRuntimeObject.ProcessEvent(NotifyFunction, nullptr);
+	}
+}
+
+template<> UObject* FTrackInstancePropertyBindings::GetCurrentValue<UObject*>(const UObject& InRuntimeObject)
+{
+	FPropertyAndFunction PropAndFunction = FindOrAdd(InRuntimeObject);
+	if (UObjectPropertyBase* ObjectProperty = Cast<UObjectPropertyBase>(PropAndFunction.PropertyAddress.GetProperty()))
+	{
+		const uint8* ValuePtr = ObjectProperty->ContainerPtrToValuePtr<uint8>(PropAndFunction.PropertyAddress.Address);
+		return ObjectProperty->GetObjectPropertyValue(ValuePtr);
+	}
+
+	return nullptr;
+}
+
+template<> void FTrackInstancePropertyBindings::SetCurrentValue<UObject*>(UObject& InRuntimeObject, UObject* InValue)
+{
+	FPropertyAndFunction PropAndFunction = FindOrAdd(InRuntimeObject);
+	if (UObjectPropertyBase* ObjectProperty = Cast<UObjectPropertyBase>(PropAndFunction.PropertyAddress.GetProperty()))
+	{
+		uint8* ValuePtr = ObjectProperty->ContainerPtrToValuePtr<uint8>(PropAndFunction.PropertyAddress.Address);
+		ObjectProperty->SetObjectPropertyValue(ValuePtr, InValue);
+	}
+
+	if (UFunction* NotifyFunction = PropAndFunction.NotifyFunction.Get())
+	{
+		InRuntimeObject.ProcessEvent(NotifyFunction, nullptr);
 	}
 }

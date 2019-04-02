@@ -1,229 +1,230 @@
-﻿INTSourceChangelist:0
-Title: 2013年8月份版本信息
+﻿INTSourceChangelist:3367470
+Title: 2013年8月版本说明
 Crumbs:%ROOT%, Support/Builds
 Description:
 Availability:Licensee
-Template:ReleaseNotes.html
+Parent:Support/Builds
+Order:-6
 
 [TOC(start:2 end:2)]
 
-## Build Info
+## 版本信息
 
 
 [REGION:simpletable]
-| Item | Info |
-| ---- | ---- |
-| **Label** | QA_APPROVED_UE4_BUILD_2013_08 |
-| **Changelist #** | 1781093 |
-| **VISUAL STUDIO VERSION** | Microsoft Visual Studio 2010 version 10.0.40219.1 SP1 Rel |
-| **DIRECTX** | June 2010 |
+| 项目| 信息|
+| ----| ----|
+| **标签**| QA_APPROVED_UE4_BUILD_2013_08|
+| **变更列表编号**| 1781093|
+| **VISUAL STUDIO 版本**| Microsoft Visual Studio 2010 版 10.0.40219.1 SP1 Rel|
+| **DIRECTX**| 2010 年 6 月|
 [/REGION]
 
-## Important information
+## 重要信息
 
- * Current Engine Development Roadmaps: [UE4 Roadmaps](https://udn.unrealengine.com/questions/topics/roadmap.html)
- * Fixed Bugs: [UE4 Fixed Bugs August 2013](UE4_Fixed_2013_August.xlsx)
- * Known Issues: [UE4 Outstanding Bugs August 2013](UE4_Bugs_2013_August.xlsx)
+ * 当前引擎开发路线图：[UE4 路线图](https://udn.unrealengine.com/questions/topics/roadmap.html)
+ * 已修复的错误：[2013 年 8 月 UE4 已修复的错误](UE4_Fixed_2013_August.xlsx)
+ * 已知问题：[2013 年 8 月 UE4 突出问题](UE4_Bugs_2013_August.xlsx)
  
 
-## Major New Features
+## 主要新功能
 
-####Editor Tools
-* **Make Simulation Changes Permanent**
-	* Users now have the ability to make changes which happen while simulating permanent.	
+####编辑器工具
+* **永久保留模拟更改**
+	* 用户现在可以永久保留模拟时执行的更改。	
 	![](Simulation.png)
-	* With the Actors selected in the Scene Outliner, you can:
-		* Modify actor properties and transforms while the game is running and keep those changes
-		* Toss around rigid bodies and save their final positions back into the level
-		* Use Blueprints or gameplay code to modify actors in the simulation, then save back those changes
-		* Also works in Play mode!
+	* 使用在场景大纲视图中选择的 Actor 可以：
+		* 在游戏运行时修改 Actor 属性和变换，并保留更改
+		* 翻转刚体并将其最终位置保存到关卡
+		* 使用蓝图或 Gameplay 代码修改模拟中的 Actor，然后保存更改
+		* 在游戏模式下也适用！
 
-* **Toolbar Customization Is Now An EpicLabs Preference**
-	* Toolbar customization can now be turned on in EpicLabs!
+* **工具栏自定义现在位于 EpicLabs 偏好设置中**
+	* 现在可在 EpicLabs 中启用工具栏自定义！  
 	![](CustomTools_Final.png)
-	* After selecting **Edit > Edit Toolbars**, you can drag commands from the **Keyboard Shortcuts** window to any compatible toolbar.
+	* 选择 **编辑（Edit）> 编辑工具栏（Edit Toolbars）** 后，您可以从 **键盘快捷键（Keyboard Shortcuts）** 窗口将命令拖到任何兼容工具栏中。
 
-* **Normal Map Detection During Texture Import**
-	* The Engine now attempts to heuristically examine textures on import to determine if a texture map is a normal map!	
+* **导入纹理时检测法线贴图**
+	* 引擎现在会在导入时自发检查纹理，以确定纹理贴图是否为法线贴图！	
 		![](NormMapDet1.png)
-		* LOD, Compression, and other defaults will be set automatically on import.
+		* 导入时自动设置 LOD、压缩和其他默认设置。  
 		![](NormMapDet2.png)
-		* The user even has the option to revert the changes after import for 'standard' texture defaults.
+		* 用户甚至可以在导入后使用选项恢复至“标准”纹理默认设置。
 
-* **HideUI, Safe Frames And Aspect Ratios In Editor UI**
-	* HideUI : This allows users to remove the Slate overlay from the viewport.		
+* **编辑器用户界面中的 隐藏用户界面（HideUI）、安全框（Safe Frames）和宽高比（Aspect Ratios）**
+	* 隐藏用户界面（HideUI）:允许用户从视口中移除 Slate 覆层。		
 	![](safe1.png)(w:420)
-	* Normal selection still works with LMB, and click the RMB to bring the UI right back. 
+	* 法线选择在 LMB 中仍然有效，单击 RMB 可返回用户界面。  
 	![](safe2.png)(w:420)  ![](safe3.png)(w:420)
-		* You can even combine the HideUI function with Game View to completely clear the viewport, as seen above
-	* Safe Frames: If a camera actor is selected and the following criteria are met, the editor viewports now render safe frames based on the camera's aspect ratio setting:
-		* Game View must be off.
-		* The Safe Frames Show flag is on (**Show > Advanced**).
-		* The selected camera actor has _Constrain Aspect Ratio_ set to _True_ in _Camera Settings_.
+		* 您甚至可以同时运用 隐藏用户界面（HideUI）功能与游戏视图（Game View），以完全清除视口（如上所示）
+	* 安全框（Safe Frames）：如果已选中 Camera Actor 且符合以下条件，编辑器视口现在会根据摄像机宽高比设置来渲染安全框：
+		* 必须关闭游戏视图（Game View）。
+		* 打开安全框显示标记（**显示（Show）> 高级（Advanced）**）。
+		* 在 _摄像机设置（Camera Settings）_ 中，所选 Camera Actor 的 _限制宽高比（Constrain Aspect Ratio）_ 设置为 _真（True）_。
 	![](safe4.png)(w:420)
-	* Aspect Ratios: The aspect ratio property can now be edited in the following ways:
-		* As a floating point value in the spinbox (as before).
-		* By clicking the pull-down arrow and choosing from a list of preset ratios.
-		* By entering a resolution or ratio as text in the format _width x height_ or _width:height_.
+	* 宽高比（Aspect Ratios）：现在可通过以下方式编辑宽高比属性。
+		* 设置成微调框中的浮点值（和以前一样）
+		* 单击下拉箭头并从预设比例列表中选择一个值。
+		* 以“ _宽 x 高_ ”或“ _宽:高_ ”格式的文本输入分辨率或比例。  
 	![](cam1.png)
 
-* **Source Control**
-	* The source control status indicator has moved to the top-right corner of the editor, rather than under a submenu:
+* **源码控制**
+	* 源码控制状态指示器已移至编辑器右上角，不再位于子菜单中。  
 	![](SourceControl02.png)
-	* Users are also able to access (and enable) source control from various parts of the editor:
-		* From the File menu
-		* In the context menus of the Content Browser
-		* And in the level browser
-	* Newly created (and saved) items will prompt users to login to source control if one hasn't already done so. 
-	* Users can also login to source control in the Check Out dialog if they happen to need to check out files but source control was disconnected.
+	* 用户还可以从编辑器的不同位置访问（和启用）源码控制。
+		* 从文件（File）菜单
+		* 内容浏览器的上下文菜单中
+		* 关卡浏览器中
+	* 新建（和保存）项目时，如果用户没有登录过源码控制，则会提示用户登录。
+	* 如果用户需要签出文件，但未连接源码控制，则也可以在签出对话框中登录源码控制。
 
-* **Project Browser** 
-	* A Project Browser has been added that opens on launching the editor.
+* **项目浏览器**
+	* 添加了项目浏览器，启动编辑器时会将其打开。  
 	![](Project-Browser.png)
-	* Lists all known projects organized in categories determined automatically based on project location, but can be overridden to any existing or new category.
-	* The thumbnail for a project is loaded from a `.png` file in the project's folder.
-	* If users do not supply a thumbnail for a project, a screenshot is automatically taken upon exiting the editor for that project. This screenshot is only used on the machine it was taken.
-	* Select the _New Project_ item at the top of the list to open the **New Project** wizard.
+	* 项目浏览器根据项目位置按确定类别自动列出所有已知项目，但可以被现有类别或新建类别所覆盖。
+	* 项目缩略图从项目文件夹中的 `.png` 文件加载。
+	* 如果用户没有提供项目的缩略图，则在退出编辑器时自动截取该项目的屏幕截图。该屏幕截图只能在截图机器上使用。
+	* 在列表顶部选择 _新建项目（New Project）_ ，打开 **新建项目（New Project）** 向导。
 
 
-####Rendering
-* **Material Parameter Collections**
-	* Material Parameter Collections offer a powerful new way to drive a large number of materials parameters simultaneously!
+####渲染
+* **材质参数集**
+	* 材质参数集提供了一种强大的全新方式，可同时驱动大量材质参数！  
 	![](GlobalParams1.png)(w:420)
 	![](GlobalParams2.png)(w:420)
-	* In the example above, the following are all being driven by parameters in Material Parameter Collections:
-		* flower morph states
-		* wind speed and strength
-		* player position (used by foliage animation)
-		* sun angle and color (used by water crests)
-	* Users can create collections of Material Parameters in the Content Browser, add new parameters, and give them names.
-	* You can reference individual parameters in any and all materials, and even drive them efficiently through Blueprints!
+	* 在上述示例中，以下属性均由材质参数集中的参数驱动：
+		* 花卉变形状态
+		* 风速和风力强度
+		* 玩家位置（由植被动画使用）
+		* 太阳角度和颜色（由水波使用）
+	* 用户可以在内容浏览器中创建材质参数集，添加新参数并指定其名称。
+	* 在任何及所有材质中都可以参考单个参数，甚至可以通过蓝图有效驱动这些参数！
 
-* **Support For Static Meshes With >64k Vertices**
-	* Support has been added for importing and rendering static meshes with more than 64k vertices!
+* **支持超过 64K 个顶点的静态网格体**
+	* 添加了对导入和渲染超过 64K 个顶点的静态网格体的支持！
 	![](dragon.png)
 
 
-##New Additions
+##新增内容
 
-####Editor Tools
-* **Keep Simulation Changes!**
-	* After changing actor properties in Simulate mode, you can now selectively make those changes permanent! 
-	* Right click on actors in Simulate mode, and select Keep Simulation Changes (or press the 'K' key) 
-* Added heuristic to identify normal maps on import and assign various settings appropriately.
-* Added Save button to the Level Editor Toolbar
-* **Toolbar Customization** - Epic Labs feature
-	* Add commands to any compatible toolbar by dragging from the keyboard shortcuts menu
-	* Remove commands by clicking the red 'X' button
-	* Enable in the Epic Labs section of the preferences, then invoke via **Edit > Edit Toolbars**
-* **Project Browser**
-	* Allows you to see existing content and initiate creation of new projects
-	* If a `.png` file matching the game name is in the game folder, it will be used in the browser, otherwise an automatic screenshot is taken every time you exit the editor
-* **New Asset** menu in the Content Browser updated with categories, thumbnails, and descriptive tooltips
-* Safe Frames - editor viewports now show the aspect ratio and safe frame area for selected camera actors
-	* Activated by a Show Flag in the Advanced category that defaults to off
-	* Safe frames are hidden by Game View mode like other non-scene viewport info
-* Hide UI option in level editor viewports hides Slate UI overlay
-	* Hide UI mode can be cancelled by click the right mouse button in the viewport
-	* Safe frames are only shown when the selected camera has Constrain Aspect Ratio set to true
-
-
-####Blueprints
-* **Blueprint Delegates** - first version
-	* Multicast-delegates can be added like variables
-	* Delegates can be bound and unbound to and from events
-	* Multicast delegates can be broadcast
-* **Blueprint Simulation**
-	* Can now toggle simulation of Blueprints in Component mode
-	* When enabled, the graphs for the Blueprint and physics will run
-* Added display of parent class information to the Blueprint editor, situated at the right hand side of the menu bar
-* Can toggle floor preview geometry on and off in components mode for Blueprints
-* SetPaused, SetTimeDilation, GetMousePosition, GetInputMotionState Blueprint functions added
-* DestructibleMesh can now be set via the DestructibleComponent properties in the Blueprint editor
+####编辑器工具
+* **保留模拟更改！**
+	* 在模拟模式下更改 Actor 属性后，您现在可以选择是否永久保留更改！
+	* 在模拟模式下右击 Actor，选择保留模拟更改（Keep Simulation Changes）（或按“K”键）
+* 添加了启发法，可在导入时识别法线贴图并相应地指定各种设置。
+* 在关卡编辑器工具栏中添加了保存（Save）按钮。
+* **工具栏自定义** - Epic Labs 功能
+	* 可从键盘快捷键菜单中将命令拖放到任何兼容工具栏上
+	* 单击红色“X”按钮可删除命令
+	* 在偏好设置的 Epic Labs 部分启用，然后通过 **编辑（Edit）> 编辑工具栏（Edit Toolbars）** 调用
+* **项目浏览器**
+	* 可让您查看现有内容和开始创建新项目
+	* 如果游戏文件夹中有匹配游戏名称的 `.png` 文件，则会在浏览器中使用该文件，否则会在每次退出编辑器时自动截取屏幕截图。
+* 更新了内容浏览器中 **新资源（New Asset）** 菜单的类别、缩略图和描述性工具提示
+* 安全框 - 编辑器视口现在会显示所选 Camera Actor 的宽高比和安全框区域
+	* 通过高级（Advanced）类别中的显示标记（Show Flag）启用，默认为关闭
+	* 与其他非场景视口信息一样，游戏视图模式会隐藏安全框
+* 关卡编辑器视口中的隐藏用户界面（Hide UI）选项可隐藏Slate用户界面覆层
+	* 在视口中单击鼠标右键按钮可取消隐藏用户界面模式
+	* 只有将所选摄像机的限制宽高比（Constrain Aspect Ratio）设置为真（True）时，才会显示安全框
 
 
-####Gameplay and Framework
-* **Camera System**
-	* Standardized on the camera information flow to pass the same struct everywhere, so every participant can set any property (parameters, post process overrides, etc...)
-	* Refactored `ACameraActor` to use a `UCameraComponent`
-	* Actors now search for an attached camera component when being viewed thru (controlled by `bFindCameraComponentWhenViewTarget`), allowing easy camera customization per pawn in Blueprints
-	* Added limited support for orthographic gameplay cameras (WIP)
-	* Camera components can now optionally inherit controller rotation
-	* Added a simple camera boom component that does traces to avoid penetrating walls (`USpringArmComponent`)
-	* Several template projects have been updated to demonstrate the use of camera components
-	* The Aspect Ratio property of camera actors can now be edited in actor details using an editable text box or presets list
-		* Existing floating point representation still available
-		* Can be edited as text by entering a resolution or ratio as in the format _width x height_ or _width:height_
-		* Can be edited by clicking the pull-down arrow and choosing from a list of preset ratios
-	* By default player camera does not apply modifiers (such as shakes) if view target is not a `CameraActor`; added a flag to modify this behavior
-	* New camera-relative movement modes have been made easier to implement. See the ThirdPersonTemplate for an example
-* **Navigation and AI**
-	* Faster navigation mesh (navmesh) rebuilding by splitting build process into two stages: processing static geometry (tile cache) and creating navigation mesh data with dynamic modifiers
-	* Dynamic navigation mesh modifiers are defined using `INavRelevantActorInterface`, static meshes can be marked in assets' `NavCollision` property
-	* Navigation meshes can now load only a few tiles close to players (`UseActiveTileSet` flag in `RecastNavMesh` actor)
-	* Access to basic path finding and following for any Controller (both AI and player) with `SimpleMoveToActor` and `SimpleMoveToLocation` functions
-	* Added new stats for navigation, to get information about costs of navigation mesh operations per frame (to calculate global navigation mesh costs on dedicated servers)
-* **Input**
-	* Added property to input bindings indicating whether it should execute while game is paused
-	* Input Axis can now be bound as events, not just as Get Value nodes
-* **Physics**
-	* Support for Apex clothing LODs
-	* Made it easier to set up game where player controls physics driven vehicle
-		* Created `Vehicle` base class (essentially a `Pawn` with SkeletalMesh and `VehicleMovementComponent`)
-		* Vehicle movement component now behaves similarly to character movement in terms of capturing input - waits for events from pawn instead of polling it 
-		* Vehicle wheel now automatically uses engine cylinder to generate collision on wheels (default behavior, can be changed in wheel's Blueprint)
-		* Wheel's Blueprint also allows to specify whether handbrake affects it or not (should affect only rear wheels)
-* Cleaned up `BaseEngine.ini` collision profile definitions, so they're more readable and manageable
-* Added possibility to execute functional tests on dedicated server. From now we can execute them on servers, to get some stats, logs or just test it
-* Generalized socket support in `USceneComponent`, allowing socket/attachment UI to work with other classes besides `USkeletalMeshComponent`/`UStaticMeshComponent`
-* Ported UE3 command line parameters for setting various window sizes (ResX/ResY for game window resolution, WinX/WinY for game window position, ConsoleX/ConsoleY for console window position)
+####蓝图
+* **蓝图委托** - 第一个版本
+	* 可像变量一样添加组播委托
+	* 可将委托绑定到事件，也可从事件取消绑定委托
+	* 可广播组播委托
+* **蓝图模拟**
+	* 现在可在组件模式下切换蓝图模拟
+	* 如果已启用，则会运行蓝图的图表和物理
+* 将父类信息显示添加到了蓝图编辑器中，位置在菜单栏右侧
+* 在组件模式下可打开和关闭蓝图的地面预览几何体
+* 添加了蓝图函数 SetPaused、SetTimeDilation、GetMousePosition 和 GetInputMotionState
+* 通过蓝图编辑器中的 DestructibleComponent 属性可设置 DestructibleMesh
 
 
-####Rendering
-* Texture sampler limit tracking is now done accurately by actually looking at the compiled output.
-* WorldPosition material expressions can now be used in post process materials. The result will be the world-space position as viewed through that pixel of the post process pass.
-* WorldPosition material expressions can now select whether the position is absolute world position, or camera-relative.
-* Static meshes with more than 65536 vertices may now be imported and rendered.
-* Stationary light in Blueprint fixes
-	* Still several unresolved issues that cause static lighting to be un-built when either the mesh or the light is created in a Blueprint
+####Gameplay 和框架
+* **摄像机系统**
+	* 标准化了摄像机信息流，以便传递传递任意位置的相同结构体，所以任何参与者均可设置任何属性（参数、后期处理覆盖等）
+	* 已重构 `ACameraActor`，以便使用 `UCameraComponent`
+	* 现在查看时，Actor 会搜索附加的摄像机组件（由 `bFindCameraComponentWhenViewTarget` 控制），从而便于在蓝图中按 pawn 自定义摄像机
+	* 添加了对正交 Gameplay 摄像机的有限支持 (WIP)
+	* 摄像机组件现在可以选择集成控制器旋转
+	* 添加了一个简单的摄像机支架组件，通过跟踪来避免穿透墙壁 (`USpringArmComponent`)
+	* 更新了多个模板项目，以便演示摄像机组件的使用方法
+	* 现在在 Actor 详细信息中使用可编辑文本框或预设列表可编辑 Camera Actor 的宽高比属性
+		* 现有浮点表示法仍可用
+		* 以“ _宽 x 高_ ”或“ _宽:高_ ”的格式输入分辨率或比例可将宽高比作为文本编辑
+		* 单击下拉箭头并从预设比例列表中选择可编辑宽高比
+	* 默认情况下，如果查看目标不是 `CameraActor`，玩家摄像机不会应用修改器（如抖动）；添加了一个标记来修改此行为
+	* 新摄像机相对移动模式更容易实现。有关示例，请参阅 ThirdPersonTemplate
+* **导航和 AI**
+	* 通过将构建流程分割为两个阶段，加快了导航网格物体（寻路网格体）重建：使用动态修改器处理静态几何体（平铺缓存）和创建导航网格体数据
+	* 使用 `INavRelevantActorInterface` 定义动态导航网格体修改器，可在资源 `NavCollision` 的属性中修改静态网格体
+	* 导航网格体现在可仅加载玩家附近的平铺（`RecastNavMesh` Actor 中的 `UseActiveTileSet` 标记）
+	* 使用 `SimpleMoveToActor` 和 `SimpleMoveToLocation` 函数访问基本路径查找并跟踪任何控制器（AI 和玩家）
+	* 添加了新的导航统计数据，以便获得每帧导航网格体操作的成本（为了计算专属服务器上的全局导航网格体成本）
+* **输入**
+	* 添加了输入绑定的属性，以便指示在游戏暂停时是否执行输入绑定
+	* 输入轴现在可以绑定为事件，而不是只能绑定为获取值节点
+* **物理**
+	* 支持 Apex 布料 LOD
+	* 简化了玩家控制物理驱动载具时的游戏设置
+		* 创建了 `Vehicle` 基类（本质上是具有骨架网格体和 `VehicleMovementComponent` 的 `Pawn`）
+		* 在获取输入方面，载具移动属性现在与角色移动相似 - 等待 Pawn 的事件，而不是轮询
+		* 车轮现在可自动使用引擎汽缸生成车轮碰撞（默认行为，可在车轮蓝图中更改）
+		* 车轮蓝图还允许指定手刹是否可以产生影响（应仅影响后轮）
+* 清理了 `BaseEngine.ini` 碰撞描述定义，现在更容易阅读和管理
+* 添加了在专属服务器上执行功能测试的能力。从现在开始，我们可以在服务器上执行功能测试，以便获得某些统计数据、日志，或者仅进行测试
+* 在 `USceneComponent` 中实现了广泛的插槽支持，从而允许插槽/附件用户界面可使用除 `USkeletalMeshComponent`/`UStaticMeshComponent` 外的其他类
+* 移植了设置各种窗口大小的 UE3 命令行参数（对于游戏窗口分辨率，为 ResX/ResY；对于游戏窗口位置，为 WinX/WinY；对于控制台窗口位置，为 ConsoleX/ConsoleY）
 
 
-####Animation/Persona
-* PhAT now has a Persona style animation picker.
-* PhAT body context menu now allows a body type to be set to default, as well as fixed/unfixed. Menu has been re-arranged into more sensible grouping, and shows the current type for a body.
-* You can now select bones in Persona by clicking on them in the viewport (if bone rendering is on). A click in blank space will deselect.
-* Added Wind Direction on Persona 
+####渲染
+* 纹理取样限制跟踪现在可通过实际查看编译输出准确完成。
+* 世界位置材质表达式现在可在材质后期处理中使用。通过后期处理传递的像素查看时，结果会是场景空间位置。
+* 现在可选择世界位置材质表达式的位置是绝对世界位置，或摄像机相对世界位置。
+* 现在可导入和渲染顶点超过 65536 个的静态网格体。
+* 修复了蓝图中的静态光源
+	* 在蓝图中创建网格体或光源时，仍有几个未解决的问题会导致无法构建静态光源
 
 
-####Sound
-* There is no longer a root sound class.  Multiple independent sound class hierarchies can exist and be used in parallel.
-* Can now specify whether to prevent new, stop oldest, or stop furthest when the max concurrent sound limit is reached.
+####动画/角色编辑器
+* PhAT 现在拥有角色风格动画选择器。
+* 现在可在 PhAT 形体上下文菜单中将形体类型设置为默认值，以及固定/非固定。重新整理了菜单，分组更合理，并且会显示形体的最新类型。
+* 通过在视口中单击骨骼，现在可以在角色中选择骨骼（如果启用了骨骼渲染）单击空白区可取消选择。
+* 在角色中添加了风向
 
 
-####Online
-* OnlineSubsystemNull added to provide a subset of online functionality when not using any real online backend. Only sessions (advertised over LAN) are supported so far.
+####声音
+* 弃用了根声音类。可存在多个独立声音类层级，并且可并行使用。
+* 如果达到最大并发声音限制，现在可指定是否阻止新建，停止最旧或停止最远的声音。
 
 
-####Core
-* It's now possible to register a function to be called on console variable changes (RegisterConsoleVariableSink)
-* Client and cook server now swap game and engine directories to allow their layouts to differ 
-* New level stats system
-* Added Visual Studio Profiler support 
-	* Wrap slow code blocks using SCOPE_PROFILE_INCLUDER, then start the external profiler in a PAUSED state 
-* **Profiler**
-	* Added function details to the event graph
+####在线
+* 添加了 OnlineSubsystemNull，从而在未使用任何实际在线后端时，提供在线功能的子集。目前仅支持会话（通过 LAN 传播）。
 
 
-####Platform
-* Added a high level save game system: `GenericSaveGameSystem`
-	* Uses `GFileManager` to save to `GameSaveDir()`
-	* Added `IPlatformFeaturesModule`, which can return a save game class (and will be used for other things) 
-	* Added a SaveGame automation test to the Game set
-* Android builds with NDK r9 and Clang 3.3
-* Update `PhysX-3.2_EPIC` source from NVIDIAs depot
+####核心
+* 现在可注册在控制台变量更改时调用的函数 (RegisterConsoleVariableSink)
+* 客户端和烘焙服务器现在可交换游戏和引擎目录，允许其布局不同
+* 新关卡统计数据系统
+* 添加了 Visual Studio 分析器支持
+	* 使用 SCOPE_PROFILE_INCLUDER 封装慢速代码块，然后启动“暂停”状态的外部分析器
+* **分析器**
+	* 在事件图表中添加了函数细节
 
 
-##Upgrade Notes
+####平台
+* 添加了高关卡保存游戏系统：`GenericSaveGameSystem`
+	* 使用 `GFileManager` 保存到 `GameSaveDir()`
+	* 添加了 `IPlatformFeaturesModule`，可返回保存游戏类（还将用于其他目的）
+	* 在游戏设置中添加了保存游戏自动测试
+* 使用 NDK r9 和 Clang 3.3 构建 Android
+* 从 NVIDIA 库更新 `PhysX-3.2_EPIC` 源码
+
+
+##Upgrade Notes （以下内容仅供参考，不作翻译）
 
 ####Editor and Tools
 * Removed `GenerateProjectFiles.bat` for uproject files (the `GenerateProjectFiles.bat` in the UE4 root remains and is not generated).

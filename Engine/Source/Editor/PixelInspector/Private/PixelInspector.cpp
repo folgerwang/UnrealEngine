@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PixelInspector.h"
 #include "Modules/ModuleManager.h"
@@ -171,7 +171,7 @@ namespace PixelInspector
 	{
 		//Set the LastViewportId to point on the active viewport
 		FViewport *ActiveViewport = GEditor->GetActiveViewport();
-		for (FEditorViewportClient *EditorViewport : GEditor->AllViewportClients)
+		for (FEditorViewportClient *EditorViewport : GEditor->GetAllViewportClients())
 		{
 			if (ActiveViewport == EditorViewport->Viewport && EditorViewport->ViewState.GetReference() != nullptr)
 			{
@@ -417,7 +417,7 @@ namespace PixelInspector
 	void SPixelInspector::SetCurrentViewportInRealtime()
 	{
 		//Force viewport refresh
-		for (FEditorViewportClient *EditorViewport : GEditor->AllViewportClients)
+		for (FEditorViewportClient *EditorViewport : GEditor->GetAllViewportClients())
 		{
 			if (EditorViewport->ViewState.GetReference() != nullptr)
 			{

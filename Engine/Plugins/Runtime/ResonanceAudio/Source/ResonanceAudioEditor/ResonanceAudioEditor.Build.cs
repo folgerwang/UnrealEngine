@@ -31,7 +31,6 @@ namespace UnrealBuildTool.Rules
                     "LevelEditor",
                     "EditorStyle",
                     "RenderCore",
-                    "ShaderCore",
                     "RHI",
                     "AudioEditor",
                     "AudioMixer",

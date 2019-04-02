@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -26,8 +26,8 @@ namespace AutomationTool.DeviceReservation
 		private static readonly TimeSpan ReserveTime = TimeSpan.FromMinutes(10);
 		private static readonly TimeSpan RenewTime = TimeSpan.FromMinutes(5);
 
-		// Max times to attempt reservation renewal, in case reservation service is being restarted, etc
-		private static readonly int RenewRetryMax = 4;
+		// Max times to attempt reservation renewal, in case device starvation, reservation service being restarted, etc
+		private static readonly int RenewRetryMax = 14;
 		private static readonly TimeSpan RenewRetryTime = TimeSpan.FromMinutes(1);
 		
 		private Thread RenewThread;
@@ -237,6 +237,8 @@ namespace AutomationTool.DeviceReservation
 				catch (WebException WebEx)
 				{
 
+					Console.WriteLine(String.Format("WebException on reservation request: {0} : {1}", WebEx.Message, WebEx.Status));
+
 					if (RetryCount == RetryMax)
 					{
 						Console.WriteLine("Device reservation unsuccessful");
@@ -305,7 +307,27 @@ namespace AutomationTool.DeviceReservation
 			{
 				Console.WriteLine("Failed to delete device reservation: {0}", ex.Message);
 			}
-		}	
+		}
+
+		static public void ReportDeviceError(string InBaseUri, string DeviceName, string Error)
+		{
+			if (String.IsNullOrEmpty(InBaseUri) || String.IsNullOrEmpty(DeviceName))
+			{
+				return;
+			}
+
+			try
+			{
+				Uri BaseUri = new Uri(InBaseUri);
+				Utils.InvokeAPI(BaseUri.AppendPath("api/v1/deviceerror/" + DeviceName), "PUT");
+				Console.WriteLine("Reported device problem: {0} : {1}", DeviceName, Error);
+			}
+			catch (Exception Ex)
+			{
+				Console.WriteLine("Failed to report device: {0} : {1}", DeviceName, Ex.Message);
+			}
+		}
+
 	}
 
 	public sealed class Device

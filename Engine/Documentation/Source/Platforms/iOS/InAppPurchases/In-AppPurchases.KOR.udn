@@ -13,7 +13,7 @@ Related:
 1. iTunes Connect 에서 앱 내 구매 구성법:
 
     [REGION:note]
-	Google Play 의 id 는 모두 소문자여야 하며, 블루프린트 구성 편의를 위해 iOS 와 안드로이드 양쪽의 ID 가 일치되도록 하는 것이 좋습니다.
+	Google Play 의 id 는 모두 소문자여야 하며, 블루프린트 구성 편의를 위해 iOS 와 Android 양쪽의 ID 가 일치되도록 하는 것이 좋습니다.
 	[/REGION]
 
 	![image alt text](image_1.png)

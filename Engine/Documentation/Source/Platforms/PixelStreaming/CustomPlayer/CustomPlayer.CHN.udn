@@ -1,0 +1,293 @@
+﻿INTSourceChangelist:4684214
+Availability: Public
+Crumbs: 
+Title: 自定义播放器网页
+Description: 如何自定义播放流送视频和音频的网页，以及如何在页面与UE4程序间交换事件。
+Type: 
+Version: 4.21
+Parent: Platforms/PixelStreaming
+Order: 
+topic-image:pixelstreaming-custom-topic.png
+Tags: Guide
+Tags: Early Access
+Tags: Pixel Streaming
+
+像素流送信号和网络服务器提供样本播放器页面（已设置在虚幻引擎程序的媒体中进行流送），同时将鼠标、键盘和触摸事件发回程序。（查阅[像素流送入门](Platforms/PixelStreaming/PixelStreamingIntro)，了解详细指南。）如该默认播放器页面满足要求，可直接进行使用，无需更改设置。 
+
+在拥有些许创造力与部分网络技术（如JavaScript和HTML）知识的情况下，用户可完全控制播放器页面，创建属于自己的自定义UI，以便与虚幻引擎进行远程交互。同时还可以触发gameplay事件并与之响应、发出控制台命令来控制虚幻引擎行为等。
+
+推荐使用将默认播放器页面作为起始点，创建自定义播放器页面。在虚幻引擎安装目录的 `Engine/Source/Programs/PixelStreaming/WebServers/SignallingWebServer/player.htm` 中可找到该页面。然后使用该页面中的信息学习如何扩展页面并将其与项目的gameplay逻辑进行绑定。  
+
+[REGION:lightbox]
+[![](pixelstreaming-customplayer-example-template.png)](pixelstreaming-customplayer-example-template.png)
+[/REGION]
+
+默认播放器页面
+
+[REGION:lightbox]
+[![](pixelstreaming-customplayer-example-mclaren.png)](pixelstreaming-customplayer-example-mclaren.png)
+[/REGION]
+
+带HTML5 UI的自定义播放器
+
+(#htmlpagerequirements)
+
+## HTML页面要求
+
+自定义HTML播放器页面必须满足部分最低要求。
+
+*   必须包括 `/scripts/webRtcPlayer.js` 文件。该文件处理浏览器和WebRTC代理服务器间的通信，接受并显示来自服务器的媒体流。在非必要的情况下，请勿修改此JavaScript文件。  
+
+        <script type="text/javascript" src="scripts/webRtcPlayer.js"></script>
+
+*   强烈推荐将 */scripts/app.js* 文件也包含在内。此文件将设置处理键盘、鼠标和触摸事件的事件监听器。其还包含数个可在播放器页面使用的函数和钩，将在本页的以下部分进行说明。如了解部分JavaScript知识，敬请研究此文件的代码，修改其默认行为以满足需要。举例而言，如要禁用键盘输入但保持鼠标和触摸事件的正常运行，需寻找处理键盘事件的代码并对其进行注解，以自定义该文件。  
+
+        <script type="text/javascript" src="scripts/app.js"></script>
+
+*   页面必须含有一个ID为 `player` 的 `div` 元素。该元素可被流送自WebRTC代理服务器的视频帧所替换。
+
+        <div id="player"></div>
+
+*   页面加载时必须调用 `app.js` 文件提供的 `load` 函数。举例而言，通过向 `<body>` 标签添加一项 `onload` 处理器，即可进行此操作：
+
+        <body onload="load()">
+
+(#playerfilelocationandurl)
+
+## 播放器文件位置和URL
+
+可以选择放置自定义HTML播放器页面的位置，以及客户端浏览器访问它的方法。
+
+*   可在信号和网络服务器的根目录中创建一个命名为 `custom_html` 的文件夹，然后将自定义HTML播放器页面放入该文件夹。将其文件名附加至运行信号和网络服务器的电脑IP地址或主机名，便可对其进行访问。  
+    举例而言，命名为 `custom_html/myplayerpage.html` 的文件在 `http://127.0.0.1/myplayerpage.html` 处可进行访问。
+*   可自定义信号和网络服务器的 `HomepageFile` 参数，并将路径设置为与信号和网络服务器根目录相关的自定义HTML播放器的文件名。访问运行信号和网络服务器的电脑IP地址或主机名时，便可对其进行访问。  
+    举例而言，如将文件保存至 `Engine/Source/Programs/PixelStreaming/WebServers/SignallingWebServer/myfolder/myplayerpage.html`，并将 `HomepageFile` 参数设置为 `myfolder/myplayerpage.html`，无需在URL: `http://127.0.0.1/`中提供文件名便可访问页面。
+*   同时可使用信号和网络服务器的 **AdditionalRoutes** 参数来自定义URL路径和电脑本地文件夹间的映射。
+
+参阅[像素流送参考](Platforms/PixelStreaming/PixelStreamingReference)，了解此类参数的更多详情。
+
+(#customizingplayerinputoptions)
+
+## 自定义播放器输入选项
+
+`app.js` 文件提供部分JavaScript配置参数（可在自定义播放器页面覆盖此类参数），以控制播放器控件对用户交互响应的方式。`inputOptions` 对象会公开以下属性：
+
+| 属性 | 默认值 | 描述 |
+| --- | --- | --- |
+| controlScheme | `ControlSchemeType.LockedMouse` | [INCLUDE:#excerpt_5] |
+| suppressBrowserKeys | true | [INCLUDE:#excerpt_8] |
+| fakeMouseWithTouches | false | 启用此选项时，如用户正使用触摸屏（如智能手机或平板电脑）查看设备上的流送，此设置将使虚幻引擎程序将单指触摸事件解译为鼠标单击和拖动事件。启用此设置后，移动设备的用户便能对虚幻引擎程序进行部分控制，即使应用程序的输入控制器未专门处理触摸输入事件时也同样如此。|
+
+[COMMENT:none]
+[EXCERPT:excerpt_5]
+决定播放器与控件交互时播放器控件是否捕捉并锁定鼠标。接受以下数值：
+
+*   `ControlSchemeType.LockedMouse` - 启用此控制模式时，单击播放器控件将使其捕捉并锁定鼠标光标。鼠标的任何移动都会立即传递到虚幻引擎程序中的输入控制器。利用此操作，用户拖动鼠标即可移动和旋转相机。按下 **Esc** 键即可使光标脱离播放器控件的控制。
+*   `ControlSchemeType.HoveringMouse` - 启动此控制模式时，鼠标光标将悬停在播放器控件之上而不与其交互。要将鼠标移动发送到虚幻引擎程序的输入控制器，用户需要按住鼠标左键。
+
+[/EXCERPT:excerpt_5]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_8]
+启用此设置后，播放器控件将拦截函数键（**F1** 到 **F12**）和 **Tab** 键，并将这些按键事件传递到虚幻引擎程序，而不允许浏览器对其进行正常处理。  
+也就是说，启用该设置后，按 **F5** 键将不会刷新浏览器中的播放器页面。相反，该事件会被传递到虚幻引擎程序，其拥有的是切换视图显示着色器复杂度的常规功能。
+[/EXCERPT:excerpt_8]
+[/COMMENT]
+
+将如下代码块包含在内后即可在播放器页面中设置此类数值。将 `app.js` 文件加载到页面中后需要运行此代码，但应在调用其 `load` 函数前进行此操作。
+
+    <script>
+    inputOptions.controlScheme = ControlSchemeType.HoveringMouse;
+    inputOptions.fakeMouseWithTouches = true; 
+    </script>
+
+(#disablinguserinput)
+
+### 禁用用户输入
+
+要完全禁用一种或多种类型输入设备的用户输入，可以在JavaScript环境中使用空白实现覆盖播放器页面的以下函数：
+
+*   **registerHoveringMouseEvents** - 把inputOptions.controlScheme设为ControlSchemeType.HoveringMouse时，将禁用所有输入鼠标事件。
+*   **registerLockedMouseEvents** - 把inputOptions.controlScheme设为ControlSchemeType.LockedMouse时，将禁用所有输入鼠标事件。
+*   **registerTouchEvents** - 禁用移动设备和平板电脑上的触摸事件。
+*   **registerKeyboardEvents** - 禁用所有键盘事件。
+
+举例而言，可在播放器HTML页面中包含此JavaScript组以禁用所有输入。如上所述，加载 `app.js` 文件后，需要运行此代码，但应在调用其 `load` 函数前进行此操作。
+
+    <script>
+    registerHoveringMouseEvents = function() {}
+    registerLockedMouseEvents = function() {}
+    registerTouchEvents = function() {}
+    registerKeyboardEvents = function() {} 
+    </script>
+
+要将一个或多个输入类型保持为启用，则将要保持的输入类型所对应的行进行注解，或将该行删除。
+
+(#customizingtheplayerwidgetstyle)
+
+## 自定义播放器控件风格
+
+在自定义HTML播放器页面中，应定义像素流送播放器控件为：a `<div>` element with `id="player"`。可使用标准的HTML和CSS方法来为该控件添加风格。
+
+有时可能需要重新初始化控件的大小。此情况通常发生在重新设置浏览器大小时（如将控件设为自动填充可用空间），或是输入视频流送的分辨率更新时。出现此类情况时，播放器元素的 `style` 属性将被新值覆盖，可能会覆盖用户在自己的HTML或JavaScript中设置的值。
+
+为避免出现此类情况，可在名为 `styleAdditional` 的特殊全局变量中设置自定义CSS值。每当 `app.js` 调整播放器大小并清除其样式时，它会将 `styleAdditional` 变量中设置的值附加到它分配给播放器元素的新样式属性的末尾。举例而言，用户将鼠标悬停在播放器控件上时，以下数值会将鼠标光标变为一只手：
+
+    styleAdditional = 'cursor: grab; cursor: -moz-grab; cursor: -webkit-grab';
+
+(#accessingthepixelstreamingblueprintapi)
+
+## 访问像素流送蓝图API
+
+在虚幻引擎中运行的像素流送插件会公开一个蓝图API，可在gameplay逻辑中使用该API处理播放器HTML页面发送的自定义UI事件，并将事件从虚幻引擎发送到播放器页面。
+
+访问此蓝图API的步骤：
+
+1.  启动时，像素流送插件会固定向当前播放器控制器添加一个组件。可使用 **Actor > Get Component by Class** 节点从播放器控制器中获取该组件。点击 **Component Class** 输入，并在列表中查找 **PixelStreamingInputComponent**：  
+    ![PixelStreamingInputComponent](pixelstreaming-getcomponentbyclass.png "PixelStreamingInputComponent")  
+    [REGION:tip]
+    如需要当前播放器控制器的引用，使用以上图中所示的 **Game > Get Player Controller**节点。
+    [/REGION]
+2.  从 **Get Component by Class** 节点的输出端口处向右拖拽，查找 **像素流送（Pixel Streaming）** 类目。  
+    [REGION:lightbox]
+    [![Pixel Streaming Blueprint API](pixelstreaming-bpapi.png "Pixel Streaming Blueprint API")](pixelstreaming-bpapi.png)
+    [/REGION]
+    [REGION:caption]    
+    *点击查看全图。*
+    [/REGION]
+
+(#communicatingfromtheplayerpagetoue4)
+
+## 从播放器页面到UE4的通信
+
+`app.js` 文件提供两个可在HTML播放器页面进行调用的JavaScript函数，以便用户从浏览器向虚幻引擎程序发送事件和命令：
+
+*   `emitCommand` 可向游戏发送命令的预设列表、更改分辨率、执行控制台命令，或是降低编码器的码率。请查阅[使用以下emitCommand函数](#usingtheemitcommandfunction)。
+*   `emitUIInteraction` 可向游戏发送任意字符串或JavaScript对象。使用此功能将自定义命令从播放器UI处发射，用户可在gameplay逻辑中响应此类命令以在程序中产生所需效果。请查阅[使用以下emitUIInteraction函数](#usingtheemituiinteractionfunction)。
+
+(#usingtheemitcommandfunction)
+
+### 使用emitCommand函数
+
+调用 `emitCommand` 函数时，必须将一个JavaScript对象传递给它。此对象须包含与以下字符串之一匹配的键：
+
+*   `ConsoleCommand` \- 使用此键可在远程虚幻引擎程序上执行控制台命令。此键的值应为字符串，其中包含要运行的命令及其所需的参数。例如：
+
+    let descriptor = {
+        ConsoleCommand: 'stat fps'
+    }
+    emitCommand(descriptor);
+
+*   `Resolution` \- 使用此键重置虚幻引擎程序的渲染分辨率。此键的值应为包含 `Width` 和 `Height` 属性的对象。例如：
+
+    let descriptor = {
+        Resolution: {
+            Width: 1024,
+            Height: 768
+        }
+    }
+    emitCommand(descriptor);
+
+*   `Encoder` \-  使用此键向编码器发送命令以控制媒体流的质量。此操作当前仅支持一条命令：`BitrateReduction`。此值将指定应分配给视频编码器码率的已测量可用带宽的比例。如此值设置过高，可能会导致网络拥堵和数据包丢失，从而增加客户端出现延迟和视频瑕疵。此值默认为50%。如部署中出现延迟和视频瑕疵，可进一步降低该值。例如：
+
+    let descriptor = {
+        Encoder: {
+            BitrateReduction: 20
+        }
+    }
+    emitCommand(descriptor);
+
+[REGION:note]
+由于虚幻引擎控制台命令十分强大，`emitCommand` 函数可能会带来安全风险。为保证该函数正常工作，在启动虚幻引擎程序或使用Standalone选项从虚幻编辑器启动它时，需在命令行中输入 `-AllowPixelStreamingCommands` 参数。
+[/REGION]
+
+(#usingtheemitUIInteractionfunction)
+
+### 使用emitUIInteraction函数
+
+调用 `emitUIInteraction` 函数时可向其传递单个字符串或JavaScript对象。例如：
+
+    emitUIInteraction("MyCustomCommand");
+
+或
+
+    let descriptor = {
+        LoadLevel: "/Game/Maps/Level_2"
+        PlayerCharacter: {
+            Name: "Shinbi"
+            Skin: "Dynasty"
+        }
+    }
+    emitUIInteraction(descriptor);
+
+如传递JavaScript对象，`emitUIInteraction` 函数会在内部将其转换为JSON字符串。之后其会将生成的字符串传回虚幻引擎程序中的像素流送插件，从而在输入控制器上触发事件。在程序的gameplay逻辑中，使用 **Bind Event to OnPixelStreamingInputEvent** 节点绑定自定义事件来处理此类输入。例如：
+
+[REGION:lightbox]
+[![Bind Event to OnPixelStreamingInputEvent](pixelstreaming-uiinteractionrespond.png "Bind Event to OnPixelStreamingInputEvent")](pixelstreaming-uiinteractionrespond.png) 
+
+*点击查看全图。*
+[/REGION]
+
+用户通常只需在游戏开始时绑定此事件一次。每当连接到虚幻引擎程序实例的播放器HTML页面调用 `emitUIInteraction` 函数时，将无视传递到 `emitUIInteraction` 的输入，而自动调用自定义事件。  
+
+用户分配的自定义事件（例如上图中的 **UI Interaction** 节点）有一个名为 **Descriptor** 的输出，可使用其来获取 `emitUIInteraction` 函数发送给虚幻引擎程序的字符串。可使用该值来决定调用 `emitUIInteraction` 时gameplay代码的响应方式。
+
+举例而言，以下蓝图测试的目的是查看给定到 `emitUIInteraction` 的输入是否包含字符串 "MyCustomCommand”，以及是否调用自定义函数来处理事件：
+
+[REGION:lightbox]
+[![Search for substring](pixelstreaming-respond-searchsubstring.png "Search for substring")](pixelstreaming-respond-searchsubstring.png) 
+
+*点击查看全图。*
+[/REGION]
+
+如原本将JavaScript对象传递到 `emitUIInteraction`，可使用 **Pixel Streaming > Get Json String Value** 节点获取该JSON对象的任意键值。举例而言，以下蓝图测试用于名为LoadLevel的键。如该键存在，其将调用自定义函数来处理事件：
+
+[REGION:lightbox]
+[![Get a JSON field value](pixelstreaming-respond-json.png "Get a JSON field value")](pixelstreaming-respond-json.png)
+
+*点击查看全图。*
+[/REGION]
+[REGION:tip]
+如需要获取一个嵌套的键，在JavaScript中使用点记法来获取该键。例如 `PlayerCharacter.Name` 或 `PlayerCharacter.Skin`。
+[/REGION]
+
+(#communicatingfromue4totheplayerpage)
+
+## 从虚幻引擎到播放器页面的通信
+
+虚幻引擎程序可向所有连接的播放器HTML页面发射自定义事件，用户可在播放器的JavaScript环境中响应此类事件。利用此操作，可根据gameplay事件更改网络页面UI。
+
+进行设置的步骤：
+
+1.  在虚幻引擎程序中，要将事件发射到播放器页面时可使用 **Pixel Streaming > Send Pixel Streaming Response** 节点。将自定义字符串参数指定到节点，向播放器页面说明发生的事件内容。  
+    [REGION:lightbox]
+    [![](pixelstreaming-send-game-event.png "pixelstreaming-send-game-event.png")](pixelstreaming-send-game-event.png) 
+    
+    *Click for full image.*
+    [/REGION]
+2.  在播放器页面的JavaScript中编写自定义事件处理器函数，每当页面从虚幻引擎程序接收到响应事件时将调用该函数。原本由 **Send Pixel Streaming Response** 节点发送的字符串参数将被传到该函数。例如：
+
+    function myHandleResponseFunction(data) {
+        console.warn("Response received!");
+        switch (data) {
+            case "MyCustomEvent":
+                ... // handle one type of event
+            case "AnotherEvent":
+                ... // handle another event
+        }
+    }
+
+3.  调用 `app.js` 提供的 `addResponseEventListener` 函数来注册监听器函数。为事件监听器和函数向此函数传递一个独特命名。例如：
+
+    addResponseEventListener("handle_responses", myHandleResponseFunction);
+
+4.  如需移除事件监听器，可调用 `removeResponseEventListener` 并传递相同命名。例如：
+
+    removeResponseEventListener("handle_responses");
+
+[REGION:tip]
+如要传递更复杂的数据，可将传递给 **Send Pixel Streaming Response** 节点的字符串格式化为JSON。例如：  
+![Send Pixel Streaming response using JSON](pixelstreaming-send-game-event-json.png "Send Pixel Streaming response using JSON")  
+之后在JavaScript事件处理器函数中使用 `JSON.parse(data)` 将字符串解码回JavaScript对象。
+[/REGION]

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 PostProcessVisualizeComplexity.cpp: Contains definitions for complexity viewmode.
@@ -37,6 +37,7 @@ void FRCPassPostProcessStreamingAccuracyLegend::DrawCheckerBoard(FCanvas& Canvas
 
 void FRCPassPostProcessStreamingAccuracyLegend::DrawCustom(FRenderingCompositePassContext& Context)
 {
+	check(Context.RHICmdList.IsOutsideRenderPass());
 	if (Colors.Num() != NumStreamingAccuracyColors) return;
 
 	SCOPED_DRAW_EVENT(Context.RHICmdList, PostProcessStreamingAccuracyLegend);

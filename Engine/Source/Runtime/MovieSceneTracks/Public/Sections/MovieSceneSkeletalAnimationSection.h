@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -9,7 +9,7 @@
 #include "Channels/MovieSceneFloatChannel.h"
 #include "MovieSceneSkeletalAnimationSection.generated.h"
 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FMovieSceneSkeletalAnimationParams
 {
 	GENERATED_BODY()
@@ -23,37 +23,46 @@ struct FMovieSceneSkeletalAnimationParams
 	float GetSequenceLength() const { return Animation != nullptr ? Animation->SequenceLength : 0.f; }
 
 	/** The animation this section plays */
-	UPROPERTY(EditAnywhere, Category="Animation", meta=(AllowedClasses = "AnimSequence, AnimComposite"))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Animation", meta=(AllowedClasses = "AnimSequence, AnimComposite"))
 	UAnimSequenceBase* Animation;
 
 	/** The offset into the beginning of the animation clip */
-	UPROPERTY(EditAnywhere, Category="Animation")
-	float StartOffset;
-	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Animation")
+	FFrameNumber StartFrameOffset;
+
 	/** The offset into the end of the animation clip */
-	UPROPERTY(EditAnywhere, Category="Animation")
-	float EndOffset;
-	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Animation")
+	FFrameNumber EndFrameOffset;
+
 	/** The playback rate of the animation clip */
-	UPROPERTY(EditAnywhere, Category="Animation")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Animation")
 	float PlayRate;
 
 	/** Reverse the playback of the animation clip */
-	UPROPERTY(EditAnywhere, Category="Animation")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Animation")
 	uint32 bReverse:1;
 
 	/** The slot name to use for the animation */
-	UPROPERTY( EditAnywhere, Category = "Animation" )
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Animation" )
 	FName SlotName;
 
 	/** The weight curve for this animation section */
-	UPROPERTY( )
+	UPROPERTY()
 	FMovieSceneFloatChannel Weight;
 
 	/** If on will skip sending animation notifies */
-	UPROPERTY(EditAnywhere, Category = "Animation")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Animation")
 	bool bSkipAnimNotifiers;
 
+	/** If on animation sequence will always play when active even if the animation is controlled by a Blueprint or Anim Instance Class*/
+	UPROPERTY(EditAnywhere, Category = "Animation")
+	bool bForceCustomMode;
+
+	UPROPERTY()
+	float StartOffset_DEPRECATED;
+
+	UPROPERTY()
+	float EndOffset_DEPRECATED;
 };
 
 /**
@@ -67,7 +76,7 @@ class UMovieSceneSkeletalAnimationSection
 
 public:
 
-	UPROPERTY(EditAnywhere, Category = "Animation", meta=(ShowOnlyInnerProperties))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Animation", meta=(ShowOnlyInnerProperties))
 	FMovieSceneSkeletalAnimationParams Params;
 
 	/** Get Frame Time as Animation Time*/
@@ -82,7 +91,7 @@ protected:
 	virtual void GetSnapTimes(TArray<FFrameNumber>& OutSnapTimes, bool bGetSectionBorders) const override;
 	virtual TOptional<FFrameTime> GetOffsetTime() const override;
 	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
-
+	virtual float GetTotalWeightValue(FFrameTime InTime) const override;
 	/** ~UObject interface */
 	virtual void PostLoad() override;
 	virtual void Serialize(FArchive& Ar) override;

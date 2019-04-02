@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ProxyConnection.h"
 
@@ -16,10 +16,10 @@
 FProxyConnection::FProxyConnection(const FString& IP, uint16 Port, FStreamer& Streamer) :
 	Streamer(Streamer),
 	InputDevice(FModuleManager::Get().GetModuleChecked<FPixelStreamingPlugin>("PixelStreaming").GetInputDevicePtr()),
-	Thread(TEXT("WebRTC Proxy Connection"), [this, IP, Port]() { Run(IP, Port); }),
 	Socket(nullptr),
 	Listener(nullptr),
-	ExitRequested(false)
+	ExitRequested(false),
+	Thread(TEXT("WebRTC Proxy Connection"), [this, IP, Port]() { Run(IP, Port); })
 {}
 
 FProxyConnection::~FProxyConnection()

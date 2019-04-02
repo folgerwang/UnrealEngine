@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3719888
 Availability: Public
-Title: 6 - Creating a CPP Project with Qt Creator
+Title: 6 - 使用Qt Creator创建CPP项目
 Crumbs:%ROOT%
-Description:Learn how to create and configure a CPP project form your IDE.
+Description:学习如何从您的集成开发环境（IDE）创建和配置CPP项目。
 Version: 4.14
 type:how to
 parent:Platforms/Linux/BeginnerLinuxDeveloper/SettingUpQtCreator
@@ -17,127 +17,125 @@ Related: Support/Builds
 
 [NAV]
 
-By now, you've learned how to configure your IDE to run UE4 in a Linux environment. Also, you've learned how to create a new Blueprint project using a Project template. In this section, we'll show you 
-how to create a new CPP project from UE4. For the purposes of this demonstration, let's suppose that you want to create a new CPP game with a driving mechanic.
+到目前为止，您已经学习了如何配置IDE以在Linux环境中运行UE4。另外，您也学习了如何使用项目模板创建新的蓝图项目。在本节中，我们将介绍如何在UE4中创建新的CPP项目。对于本演示而言，我们假设您要创建具有驾驶装置的新CPP游戏。
 
-1.	While in the **New Project** menu, make sure that the **C++** menu is open.
+1. 	确保 **新项目（New Project）** 菜单中的 **C++** 菜单处于打开状态。
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step24.png)(w:720)](SetupIDE_Step24.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		单击查看大图。
 	[/REGION]
 
-1.	Select the **Vehicle** CPP project template and name the project `DrivingCPP_Prj`.
+1. 	选择 **载具（Vehicle）** CPP项目模板并将项目命名为`DrivingCPP_Prj`。
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step25.png)(w:720)](SetupIDE_Step25.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		单击查看大图。
 	[/REGION]
 
-1.	Finally, click the **Create Project** button to create your new CPP project using the Vehicle CPP project template.
+1. 	最后，单击 **创建项目（Create Project）** 按钮来使用“载具（Vehicle）”CPP项目模板创建新的CPP项目。
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step26.png)(w:720)](SetupIDE_Step26.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		单击查看大图。
 	[/REGION]
 
 	[REGION:note]
-	Depending on your system specifications, it may take a couple of minutes for UE4 to create your new CPP project. 
-	After UE4 creates your new CPP project, an instance of Qt Creator for your new CPP project will be launched, closing UE4Editor in the process.
+	根据系统配置，UE4可能需要花费几分钟来创建新的CPP项目。 
+	在UE4创建好您的新CPP项目之后，您的新CPP项目的Qt Creator实例将会启动，在此过程中，UE4Editor将关闭。
 	[/REGION]
 
-1.	At this point, you should see Qt Creator's **Configure Project** menu in the newly launched instance of Qt Creator. Use what you've learned thus far to configure your new CPP project to have the following Build Settings for Debug Mode;
+1. 	此时，您应该会在新启动的Qt Creator实例中看到Qt Creator的 **配置项目（Configure Project）** 菜单。使用您到目前为止所掌握的知识来配置您的新CPP项目，使其在调试模式下具有以下“构建设置（Build Settings）”；
 
 	![](SetupIDE_Step27a.png)
 
-	And Release Mode:
+	在发布模式下具有以下“构建设置（Build Settings）”：
 
 	![](SetupIDE_Step27.png)
 
 	[REGION:note]
-	At this time, project settings aren't inherited from the original UE4 Editor project settings. So, when you create a new UE4 CPP project using Qt Creator, you'll need to configure 
-	the project settings using the same steps that you learned earlier in this guide.
+	此时，没有从原始UE4编辑器项目设置继承项目设置。因此，使用Qt Creator创建新的UE4 CPP项目时，需要使用您在本指南的前面小节中学习的相同步骤来配置项目设置。
 	[/REGION]
 
-1.	Now, configure your new CPP project to have the following Run Settings:
+1. 	现在，配置您的新CPP项目，使其具有以下“运行（Run）”设置：
 
 	![](SetupIDE_Step28.png)
 
-1.	Switch to **Edit** mode in your IDE by clicking on the **Edit** button in the left panel of your IDE. Alternatively, you can press the **Ctrl+2** keyboard combination to open Qt Creator's **Edit Mode**.
+1. 	在IDE的左侧面板中单击 **编辑（Edit）** 按钮，切换到IDE的 **编辑（Edit）** 模式。或者，按 **Ctrl+2** 组合键来打开Qt Creator的 **编辑模式**。
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step29.png)(w:720)](SetupIDE_Step29.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		单击查看大图。
 	[/REGION]
 
-1.	Now, click the **Run** button. Alternatively, you can press the **Ctrl+R** keyboard combination to run UE4 from the IDE.
+1. 	现在，单击 **运行（Run）** 按钮。或者，可以按 **Ctrl+R** 组合键来从IDE运行UE4。
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step30.png)(w:720)](SetupIDE_Step30.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		单击查看大图。
 	[/REGION]
 	
-1.	After the **Missing DriveCPP_Prj Modules** dialogue box appears, click the **Yes** button.
+1. 	在 **Missing DriveCPP_Prj Modules** 对话框出现后，单击 **是（Yes）** 按钮。
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step31.png)(w:720)](SetupIDE_Step31.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		单击查看大图。
 	[/REGION]
 
-1.	Depending on your system specifications, it may take several minutes for the IDE to build and launch your new CPP project.
+1. 	根据系统配置，IDE可能需要花费几分钟来构建并启动您的新CPP项目。
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step32.png)(w:720)](SetupIDE_Step32.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		单击查看大图。
 	[/REGION]
 
-## End Result
+## 最终结果
 
 [REGION:lightbox]
 	[![](SetupIDE_Step33.png)(w:720)](SetupIDE_Step33.png)
 [/REGION]
 
 [REGION:caption]
-	Click for full image.
+	单击查看大图。
 [/REGION]
 
-Congratulations! You should now see your new CPP project running from inside of Qt Creator. 
-Now that you've created and launched your new CPP project, you've learned everything you need to work on UE4 projects from an IDE in your Linux environment. 
-As you worked your way through this tutorial, you learned:
+恭喜！现在您应该看到您的新CPP项目在Qt Creator中运行。 
+既然您已创建并启动了您的新CPP项目，您就掌握了在Linux环境中从IDE处理UE4项目所需的全部知识。 
+学习完本教程之后，您掌握了：
 
-&#x2713; How to configure your IDE to build UE4 in debug and release mode.  
-&#x2713; How to configure your IDE to run UE4 in debug and release mode.  
-&#x2713; How to build UE4 from your IDE.  
-&#x2713; How to run UE4 from your IDE.  
-&#x2713; How to create and configure a new Blueprint project with UE4 from your IDE.  
-&#x2713; How to create and configure a new CPP project with UE4 from your IDE.  
+&#x2713; 如何配置IDE以在调试和发布模式下构建UE4。  
+&#x2713; 如何配置IDE以在调试和发布模式下运行UE4。  
+&#x2713; 如何从IDE构建UE4。  
+&#x2713; 如何从IDE运行UE4。  
+&#x2713; 如何从IDE使用UE4创建和配置新的蓝图项目。  
+&#x2713; 如何从IDE使用UE4创建和配置新的CPP项目。  
 
-## Getting Started with Unreal Engine
+## 开始虚幻引擎之旅
 
-Learn how to use Unreal Engine by referring to our [](GettingStarted) documentation!
+要了解如何使用虚幻引擎，请参阅我们的[](GettingStarted)文档！
 
-If you're looking to quickly get started with UE4, refer to the following tutorials:
+如果希望快速上手使用UE4，请参阅以下教程：
 
 *	[](Engine/Content/QuickStart)
 *	[](Programming/QuickStart)

@@ -48,7 +48,7 @@ Related: Engine\MediaFramework\MediaEditorReference
 
 	여기서는 **Content/Movies** 안에 **UE4_Images** 라는 폴더를 새로 만들고, 그 안에 PNG 이미지를 넣었습니다.
 	**lowres** 라는 폴더도 하나 만들어 시퀀스 이미지 저해상도 버전을 넣었습니다.
-	미디어 프레임워크 툴은 (전형적으로) 개발 도중 미디어 소스 프록시를 통해 저해상도 버전의 이미지로 작업을 할 수 있는 방편을 제공하고 있습니다.
+	미디어 프레임워크 툴은 (전형적으로) 개발 도중 미디어 소스 프락시를 통해 저해상도 버전의 이미지로 작업을 할 수 있는 방편을 제공하고 있습니다.
 	이렇게 하면 보다 효율적이라 파일 크기와 이미지 시퀀스가 커다란 경우 작업할 때의 퍼포먼스 이슈를 최소화시키는 데 도움이 됩니다.
 	
 1.	**에디터** 로 돌아와 언리얼 에디터 4 프로젝트 내 **자동 임포트** 대화창의 **Don't Import** (임포트 않음) 버튼을 클릭합니다.
@@ -65,7 +65,7 @@ Related: Engine\MediaFramework\MediaEditorReference
 
 	![](IMGSequence_05.png)
 
-1.	**Advanced Options** (고급 옵션) 펼침 버튼을 눌러 **Sequence** (시퀀스) 옵션 중 **Proxy Override** (프록시 오버라이드) 아래 **lowres** 라 입력합니다.
+1.	**Advanced Options** (고급 옵션) 펼침 버튼을 눌러 **Sequence** (시퀀스) 옵션 중 **Proxy Override** (프락시 오버라이드) 아래 **lowres** 라 입력합니다.
 
 	![](IMGSequence_06.png)
 
@@ -105,7 +105,7 @@ Related: Engine\MediaFramework\MediaEditorReference
 	이미지 시퀀스가 미디어 에디터 안에서 재생되기 시작하며, **Info** (정보) 탭을 클릭하면 재생중인 이미지 시퀀스 관련 정보를 확인할 수 있습니다.
 	우리 예제에서 이미지 시퀀스의 **Dimension** (치수)가 **640 x 360** 인 것이 보이는데, 현재 **lowres** 이미지를 사용하도록 설정했기 때문입니다.
 
-1.	**콘텐츠 브라우저** 에서 **MyImageSequence** 애셋을 열고 **Proxy Override** (프록시 오버라이드) 부분을 지웁니다.
+1.	**콘텐츠 브라우저** 에서 **MyImageSequence** 애셋을 열고 **Proxy Override** (프락시 오버라이드) 부분을 지웁니다.
 
 	![](IMGSequence_11.png)
 

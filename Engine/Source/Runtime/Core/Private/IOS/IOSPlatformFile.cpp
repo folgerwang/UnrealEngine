@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "IOSPlatformFile.h"
 #include "HAL/PlatformTLS.h"
@@ -10,6 +10,9 @@
 #include "Misc/CoreMisc.h"
 #include "Misc/CommandLine.h"
 #include "Misc/App.h"
+
+#include "Async/MappedFileHandle.h"
+#include <sys/mman.h>
 
 //#if PLATFORM_IOS
 //#include "IPlatformFileSandboxWrapper.h"
@@ -214,6 +217,37 @@ public:
         }
 	}
 
+	virtual bool Flush(const bool bFullFlush = false) override
+	{
+#if MANAGE_FILE_HANDLES_IOS
+		if (IsManaged())
+		{
+			return false;
+		}
+#endif
+		if (bFullFlush)
+		{
+			// iOS needs fcntl with F_FULLFSYNC to guarantee a full flush,
+			// but still fallback to fsync if fcntl fails
+			if (fcntl(FileHandle, F_FULLFSYNC) == 0)
+			{
+				return true;
+			}
+		}
+		return fsync(FileHandle) == 0;
+	}
+
+	virtual bool Truncate(int64 NewSize) override
+	{
+#if MANAGE_FILE_HANDLES_IOS
+		if (IsManaged())
+		{
+			return false;
+		}
+#endif
+		return ftruncate(FileHandle, NewSize) == 0;
+	}
+
 	virtual int64 Size( ) override
 	{
 #if MANAGE_FILE_HANDLES_IOS
@@ -361,6 +395,119 @@ int32 FIOSFileHandle::ManagedFilesTlsSlot = FPlatformTLS::AllocTlsSlot();
 #endif
 
 
+class FIOSMappedFileRegion final : public IMappedFileRegion
+{
+public:
+	class FIOSMappedFileHandle* Parent;
+	const uint8* AlignedPtr;
+	uint64 AlignedSize;
+	
+	FIOSMappedFileRegion(const uint8* InMappedPtr, const uint8* InAlignedPtr, size_t InMappedSize, uint64 InAlignedSize, const FString& InDebugFilename, size_t InDebugOffsetIntoFile, class FIOSMappedFileHandle* InParent)
+		: IMappedFileRegion(InMappedPtr, InMappedSize, InDebugFilename, InDebugOffsetIntoFile)
+		, Parent(InParent)
+		, AlignedPtr(InAlignedPtr)
+		, AlignedSize(InAlignedSize)
+	{
+	}
+	
+	~FIOSMappedFileRegion();
+	
+	virtual void PreloadHint(int64 PreloadOffset = 0, int64 BytesToPreload = MAX_int64) override
+	{
+		int64 Size = GetMappedSize();
+		const uint8* Ptr = GetMappedPtr();
+		int32 FoolTheOptimizer = 0;
+		while (Size > 0)
+		{
+			FoolTheOptimizer += Ptr[0];
+			Size -= 4096;
+			Ptr += 4096;
+		}
+		if (FoolTheOptimizer == 0xbadf00d)
+		{
+			FPlatformProcess::Sleep(0.0f); // this will more or less never happen, but we can't let the optimizer strip these reads
+		}
+	}
+	
+};
+
+class FIOSMappedFileHandle final : public IMappedFileHandle
+{
+	const uint8* MappedPtr;
+	FString Filename;
+	int32 NumOutstandingRegions;
+	int32 Alignment;
+	int FileHandle;
+	
+public:
+	
+	FIOSMappedFileHandle(int InFileHandle, int64 FileSize, const FString& InFilename)
+		: IMappedFileHandle(FileSize)
+		, MappedPtr(nullptr)
+#if !UE_BUILD_SHIPPING
+		, Filename(InFilename)
+#endif
+		, NumOutstandingRegions(0)
+		, FileHandle(InFileHandle)
+	{
+		Alignment = sysconf(_SC_PAGE_SIZE);
+	}
+
+	~FIOSMappedFileHandle()
+	{
+		check(!NumOutstandingRegions); // can't delete the file before you delete all outstanding regions
+		close(FileHandle);
+	}
+	
+	virtual IMappedFileRegion* MapRegion(int64 Offset = 0, int64 BytesToMap = MAX_int64, bool bPreloadHint = false) override
+	{
+		check(Offset < GetFileSize()); // don't map zero bytes and don't map off the end of the file
+		BytesToMap = FMath::Min<int64>(BytesToMap, GetFileSize() - Offset);
+		check(BytesToMap > 0); // don't map zero bytes
+
+		
+		// const uint8* MapPtr = (const uint8 *)mmap(NULL, BytesToMap, PROT_READ, MAP_PRIVATE | (bPreloadHint ? MAP_POPULATE : 0), FileHandle, Offset);
+		// const uint8* MapPtr = (const uint8 *)mmap(NULL, BytesToMap, PROT_READ, MAP_PRIVATE, FileHandle, Offset);
+		//		const uint8* MapPtr = (const uint8 *)mmap(NULL, BytesToMap, PROT_READ, MAP_SHARED, FileHandle, Offset);
+		
+		int64 AlignedOffset = AlignDown(Offset, Alignment);
+		int64 AlignedSize = Align(BytesToMap + Offset - AlignedOffset, Alignment);
+		
+		// if we are about to go off the end, let's not
+		if (AlignedOffset + AlignedSize > GetFileSize())
+		{
+			UE_LOG(LogIOS, Warning, TEXT("Mapping fell off the end, did we need to actually abort? [%lld + %lld > %lld]"), AlignedOffset, AlignedSize, GetFileSize());
+			return nullptr;
+		}
+		
+		const uint8* AlignedMapPtr = (const uint8 *)mmap(NULL, AlignedSize, PROT_READ, MAP_PRIVATE, FileHandle, AlignedOffset);
+		if (AlignedMapPtr == (const uint8*)-1 || AlignedMapPtr == nullptr)
+		{
+			UE_LOG(LogIOS, Warning, TEXT("Failed to map memory %s, error is %d"), *Filename, errno);
+			return nullptr;
+		}
+
+		// create a mapping for this range
+		const uint8* MapPtr = AlignedMapPtr + Offset - AlignedOffset;
+		FIOSMappedFileRegion* Result = new FIOSMappedFileRegion(MapPtr, AlignedMapPtr, BytesToMap, AlignedSize, Filename, Offset, this);
+		NumOutstandingRegions++;
+		return Result;
+	}
+	
+	void UnMap(FIOSMappedFileRegion* Region)
+	{
+		check(NumOutstandingRegions > 0);
+		NumOutstandingRegions--;
+		
+		int Res = munmap((void*)Region->AlignedPtr, Region->AlignedSize);
+		checkf(Res == 0, TEXT("Failed to unmap, error is %d, errno is %d [params: %x, %d]"), Res, errno, MappedPtr, GetFileSize());
+	}
+};
+
+FIOSMappedFileRegion::~FIOSMappedFileRegion()
+{
+	Parent->UnMap(this);
+}
 
 
 
@@ -395,20 +542,28 @@ FString FIOSPlatformFile::ConvertToAbsolutePathForExternalAppForRead( const TCHA
 {
     struct stat FileInfo;
     FString NormalizedFilename = NormalizeFilename(Filename);
-    if (stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, false)), &FileInfo) == -1)
+    if (stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, false, false)), &FileInfo) == -1)
     {
         return ConvertToAbsolutePathForExternalAppForWrite(Filename);
     }
     else
     {
-        return ConvertToIOSPath(NormalizedFilename, false);
+        return ConvertToIOSPath(NormalizedFilename, false, false);
     }
 }
 
 FString FIOSPlatformFile::ConvertToAbsolutePathForExternalAppForWrite( const TCHAR* Filename )
 {
+	struct stat FileInfo;
     FString NormalizedFilename = NormalizeFilename(Filename);
-    return ConvertToIOSPath(NormalizedFilename, true);
+	if (bCreatePublicFiles)
+	{
+		return ConvertToIOSPath(NormalizedFilename, true, true);
+	}
+	else
+	{
+		return ConvertToIOSPath(NormalizedFilename, true, false);
+	}
 }
 
 bool FIOSPlatformFile::FileExists(const TCHAR* Filename)
@@ -416,12 +571,16 @@ bool FIOSPlatformFile::FileExists(const TCHAR* Filename)
 	struct stat FileInfo;
 	FString NormalizedFilename = NormalizeFilename(Filename);
 	// check the read path
-	if (stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, false)), &FileInfo) == -1)
+	if (stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, false, false)), &FileInfo) == -1)
 	{
-		// if not in read path, check the write path
-		if (stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, true)), &FileInfo) == -1)
+		// if not in read path, check the private write path
+		if (stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, true, false)), &FileInfo) == -1)
 		{
-			return false;
+			// if not in the private write path, check the public write path
+			if (stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, true, true)), &FileInfo) == -1)
+			{
+				return false;
+			}
 		}
 	}
 
@@ -434,10 +593,14 @@ int64 FIOSPlatformFile::FileSize(const TCHAR* Filename)
 	FileInfo.st_size = -1;
 	FString NormalizedFilename = NormalizeFilename(Filename);
 	// check the read path
-	if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, false)), &FileInfo) == -1)
+	if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, false, false)), &FileInfo) == -1)
 	{
-		// if not in read path, check the write path
-		stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, true)), &FileInfo);
+		// if not in read path, check the private write path
+		if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, true, false)), &FileInfo) == -1)
+		{
+			// if not in the private write path, check the public write path
+			stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, true, true)), &FileInfo);
+		}
 	}
 
 	// make sure to return -1 for directories
@@ -451,22 +614,38 @@ int64 FIOSPlatformFile::FileSize(const TCHAR* Filename)
 bool FIOSPlatformFile::DeleteFile(const TCHAR* Filename)
 {
 	// only delete from write path
-	FString IOSFilename = ConvertToIOSPath(NormalizeFilename(Filename), true);
-	return unlink(TCHAR_TO_UTF8(*IOSFilename)) == 0;
+
+	struct stat FileInfo;
+	FileInfo.st_size = -1;
+	FString NormalizedFilename = NormalizeFilename(Filename);
+	FString IOSPrivateWriteFilename = ConvertToIOSPath(NormalizedFilename, true, false);
+	FString IOSPublicWriteFilename = ConvertToIOSPath(NormalizedFilename, true, true);
+
+	// Try to delete the file from both the public and private write paths
+	bool bDeletedPrivate = unlink(TCHAR_TO_UTF8(*IOSPrivateWriteFilename)) == 0;
+	bool bDeletedPublic = unlink(TCHAR_TO_UTF8(*IOSPublicWriteFilename)) == 0;
+	
+	return bDeletedPrivate || bDeletedPublic;
 }
 
 bool FIOSPlatformFile::IsReadOnly(const TCHAR* Filename)
 {
 	FString NormalizedFilename = NormalizeFilename(Filename);
-	FString Filepath = ConvertToIOSPath(NormalizedFilename, false);
+	FString Filepath = ConvertToIOSPath(NormalizedFilename, false, false);
 	// check read path
 	if (access(TCHAR_TO_UTF8(*Filepath), F_OK) == -1)
 	{
-		// if not in read path, check write path
-		Filepath = ConvertToIOSPath(NormalizedFilename, true);
+		// if not in read path, check private write path
+		Filepath = ConvertToIOSPath(NormalizedFilename, true, false);
 		if (access(TCHAR_TO_UTF8(*Filepath), F_OK) == -1)
 		{
-			return false; // file doesn't exist
+			// if not in private write path, check public write path
+			Filepath = ConvertToIOSPath(NormalizedFilename, true, true);
+
+			if (access(TCHAR_TO_UTF8(*Filepath), F_OK) == -1)
+			{
+				return false; // file doesn't exist
+			}
 		}
 	}
 
@@ -480,11 +659,19 @@ bool FIOSPlatformFile::IsReadOnly(const TCHAR* Filename)
 bool FIOSPlatformFile::MoveFile(const TCHAR* To, const TCHAR* From)
 {
 	// move to the write path
-	FString ToIOSFilename = ConvertToIOSPath(NormalizeFilename(To), true);
-	FString FromIOSFilename = ConvertToIOSPath(NormalizeFilename(From), false);
+	FString ToIOSFilename = ConvertToIOSPath(NormalizeFilename(To), true, bCreatePublicFiles);
+	// move from the read path if the file exists there
+	FString FromIOSFilename = ConvertToIOSPath(NormalizeFilename(From), false, false);
 	if (!FileExists(*FromIOSFilename))
 	{
-		FromIOSFilename = ConvertToIOSPath(NormalizeFilename(From), true);
+		// otherwise try the private write path
+		FromIOSFilename = ConvertToIOSPath(NormalizeFilename(From), true, false);
+
+		if (!FileExists(*FromIOSFilename))
+		{
+			// and finally try the public write path
+			FromIOSFilename = ConvertToIOSPath(NormalizeFilename(From), true, true);
+		}
 	}
 	return rename(TCHAR_TO_UTF8(*FromIOSFilename), TCHAR_TO_UTF8(*ToIOSFilename)) != -1;
 }
@@ -492,7 +679,7 @@ bool FIOSPlatformFile::MoveFile(const TCHAR* To, const TCHAR* From)
 bool FIOSPlatformFile::SetReadOnly(const TCHAR* Filename, bool bNewReadOnlyValue)
 {
 	struct stat FileInfo;
-	FString IOSFilename = ConvertToIOSPath(NormalizeFilename(Filename), false);
+	FString IOSFilename = ConvertToIOSPath(NormalizeFilename(Filename), false, false);
 	if (stat(TCHAR_TO_UTF8(*IOSFilename), &FileInfo) != -1)
 	{
 		if (bNewReadOnlyValue)
@@ -515,12 +702,16 @@ FDateTime FIOSPlatformFile::GetTimeStamp(const TCHAR* Filename)
 	struct stat FileInfo;
 	FString NormalizedFilename = NormalizeFilename(Filename);
 	// check the read path
-	if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, false)), &FileInfo) == -1)
+	if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, false, false)), &FileInfo) == -1)
 	{
-		// if not in the read path, check the write path
-		if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, true)), &FileInfo) == -1)
+		// if not in the read path, check the private write path
+		if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, true, false)), &FileInfo) == -1)
 		{
-			return FDateTime::MinValue();
+			// if not in the private write path, check the public write path
+			if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, true, true)), &FileInfo) == -1)
+			{
+				return FDateTime::MinValue();
+			}
 		}
 	}
 
@@ -534,10 +725,14 @@ void FIOSPlatformFile::SetTimeStamp(const TCHAR* Filename, const FDateTime DateT
 {
 	// get file times
 	struct stat FileInfo;
-	FString IOSFilename = ConvertToIOSPath(NormalizeFilename(Filename), true);
+	FString IOSFilename = ConvertToIOSPath(NormalizeFilename(Filename), true, false);
 	if(stat(TCHAR_TO_UTF8(*IOSFilename), &FileInfo) == -1)
 	{
-		return;
+		IOSFilename = ConvertToIOSPath(NormalizeFilename(Filename), true, true);
+		if(stat(TCHAR_TO_UTF8(*IOSFilename), &FileInfo) == -1)
+		{
+			return;
+		}
 	}
 
 	// change the modification time only
@@ -553,12 +748,16 @@ FDateTime FIOSPlatformFile::GetAccessTimeStamp(const TCHAR* Filename)
 	struct stat FileInfo;
 	FString NormalizedFilename = NormalizeFilename(Filename);
 	// check the read path
-	if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, false)), &FileInfo) == -1)
+	if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, false, false)), &FileInfo) == -1)
 	{
-		// if not in the read path, check the write path
-		if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, true)), &FileInfo) == -1)
+		// if not in the read path, check the private write path
+		if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, true, false)), &FileInfo) == -1)
 		{
-			return FDateTime::MinValue();
+			// if not in the private write path, check the public write path
+			if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, true, true)), &FileInfo) == -1)
+			{
+				return FDateTime::MinValue();
+			}
 		}
 	}
 
@@ -578,12 +777,16 @@ FFileStatData FIOSPlatformFile::GetStatData(const TCHAR* FilenameOrDirectory)
 	FString NormalizedFilename = NormalizeFilename(FilenameOrDirectory);
 
 	// check the read path
-	if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, false)), &FileInfo) == -1)
+	if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, false, false)), &FileInfo) == -1)
 	{
-		// if not in the read path, check the write path
-		if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, true)), &FileInfo) == -1)
+		// if not in the read path, check the private write path
+		if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, true, false)), &FileInfo) == -1)
 		{
-			return FFileStatData();
+			// if not in the private write path, check the public write path
+			if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedFilename, true, true)), &FileInfo) == -1)
+			{
+				return FFileStatData();
+			}
 		}
 	}
 
@@ -595,13 +798,20 @@ IFileHandle* FIOSPlatformFile::OpenRead(const TCHAR* Filename, bool bAllowWrite)
 	FString NormalizedFilename = NormalizeFilename(Filename);
 
 	// check the read path
-	FString FinalPath = ConvertToIOSPath(NormalizedFilename, false);
+	FString FinalPath = ConvertToIOSPath(NormalizedFilename, false, false);
 	int32 Handle = open(TCHAR_TO_UTF8(*FinalPath), O_RDONLY);
 	if(Handle == -1)
 	{
-		// if not in the read path, check the write path
-		FinalPath = ConvertToIOSPath(NormalizedFilename, true);
+		// if not in the read path, check the private write path
+		FinalPath = ConvertToIOSPath(NormalizedFilename, true, false);
 		Handle = open(TCHAR_TO_UTF8(*FinalPath), O_RDONLY);
+		
+		if(Handle == -1)
+		{
+			// if not in the private write path, check the public write path
+			FinalPath = ConvertToIOSPath(NormalizedFilename, true, true);
+			Handle = open(TCHAR_TO_UTF8(*FinalPath), O_RDONLY);
+		}
 	}
 
 	if (Handle != -1)
@@ -626,7 +836,7 @@ IFileHandle* FIOSPlatformFile::OpenWrite(const TCHAR* Filename, bool bAppend, bo
 	{
 		Flags |= O_WRONLY;
 	}
-	FString IOSFilename = ConvertToIOSPath(NormalizeFilename(Filename), true);
+	FString IOSFilename = ConvertToIOSPath(NormalizeFilename(Filename), true, bCreatePublicFiles);
 	int32 Handle = open(TCHAR_TO_UTF8(*IOSFilename), Flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 	if (Handle != -1)
 	{
@@ -640,15 +850,54 @@ IFileHandle* FIOSPlatformFile::OpenWrite(const TCHAR* Filename, bool bAppend, bo
 	return NULL;
 }
 
+IMappedFileHandle* FIOSPlatformFile::OpenMapped(const TCHAR* Filename)
+{
+	FString NormalizedFilename = NormalizeFilename(Filename);
+	
+	// check the read path
+	FString FinalPath = ConvertToIOSPath(NormalizedFilename, false, false);
+	FILE* FP;
+	FP = fopen(TCHAR_TO_UTF8(*FinalPath), "r");
+//	if(Handle == -1)
+//	{
+//		// if not in the read path, check the private write path
+//		FinalPath = ConvertToIOSPath(NormalizedFilename, true, false);
+//		Handle = open(TCHAR_TO_UTF8(*FinalPath), O_RDONLY);
+//
+//		if(Handle == -1)
+//		{
+//			// if not in the private write path, check the public write path
+//			FinalPath = ConvertToIOSPath(NormalizedFilename, true, true);
+//			Handle = open(TCHAR_TO_UTF8(*FinalPath), O_RDONLY);
+//		}
+//	}
+	int32 Handle = fileno(FP);
+	
+	if (Handle != -1)
+	{
+		struct stat FileInfo;
+		FileInfo.st_size = -1;
+		// check the read path
+		fstat(Handle, &FileInfo);
+		uint64 FileSize = FileInfo.st_size;
+
+		return new FIOSMappedFileHandle(Handle, FileSize, FinalPath);
+	}
+	return NULL;
+}
+
 bool FIOSPlatformFile::DirectoryExists(const TCHAR* Directory)
 {
 	struct stat FileInfo;
 	FString NormalizedDirectory = NormalizeFilename(Directory);
-	if (stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedDirectory, false)), &FileInfo)== -1)
+	if (stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedDirectory, false, false)), &FileInfo)== -1)
 	{
-		if (stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedDirectory, true)), &FileInfo)== -1)
+		if (stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedDirectory, true, false)), &FileInfo)== -1)
 		{
-			return false;
+			if (stat(TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedDirectory, true, true)), &FileInfo)== -1)
+			{
+				return false;
+			}
 		}
 	}
 	return S_ISDIR(FileInfo.st_mode);
@@ -656,7 +905,7 @@ bool FIOSPlatformFile::DirectoryExists(const TCHAR* Directory)
 
 bool FIOSPlatformFile::CreateDirectory(const TCHAR* Directory)
 {
-	FString IOSDirectory = ConvertToIOSPath(NormalizeFilename(Directory), true);
+	FString IOSDirectory = ConvertToIOSPath(NormalizeFilename(Directory), true, bCreatePublicFiles);
 	CFStringRef CFDirectory = FPlatformString::TCHARToCFString(*IOSDirectory);
 	bool Result = [[NSFileManager defaultManager] createDirectoryAtPath:(NSString*)CFDirectory withIntermediateDirectories:true attributes:nil error:nil];
 	CFRelease(CFDirectory);
@@ -665,8 +914,14 @@ bool FIOSPlatformFile::CreateDirectory(const TCHAR* Directory)
 
 bool FIOSPlatformFile::DeleteDirectory(const TCHAR* Directory)
 {
-	FString IOSDirectory = ConvertToIOSPath(NormalizeFilename(Directory), true);
-	return rmdir(TCHAR_TO_UTF8(*IOSDirectory));
+	FString IOSPrivateWriteDirectory = ConvertToIOSPath(NormalizeFilename(Directory), true, false);
+	FString IOSPublicWriteDirectory = ConvertToIOSPath(NormalizeFilename(Directory), true, true);
+	
+	// Try to delete the directory in both the private and public write paths
+	bool bDeletedPrivate = rmdir(TCHAR_TO_UTF8(*IOSPrivateWriteDirectory));
+	bool bDeletedPublic = rmdir(TCHAR_TO_UTF8(*IOSPublicWriteDirectory));
+	
+	return bDeletedPrivate || bDeletedPublic;
 }
 
 bool FIOSPlatformFile::IterateDirectory(const TCHAR* Directory, FDirectoryVisitor& Visitor)
@@ -697,17 +952,40 @@ bool FIOSPlatformFile::IterateDirectoryStat(const TCHAR* Directory, FDirectorySt
 		struct stat FileInfo;
 
 		// check the read path
-		if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(FullNormalizedPath, false)), &FileInfo) == -1)
+		if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(FullNormalizedPath, false, false)), &FileInfo) == -1)
 		{
-			// if not in the read path, check the write path
-			if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(FullNormalizedPath, true)), &FileInfo) == -1)
+			// if not in the read path, check the private write path
+			if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(FullNormalizedPath, true, false)), &FileInfo) == -1)
 			{
-				return true;
+				// if not in the private write path, check the public write path
+				if(stat(TCHAR_TO_UTF8(*ConvertToIOSPath(FullNormalizedPath, true, true)), &FileInfo) == -1)
+				{
+					return true;
+				}
 			}
 		}
 
 		return Visitor.Visit(*FullPath, IOSStatToUEFileData(FileInfo));
 	});
+}
+
+bool FIOSPlatformFile::DoesCreatePublicFiles()
+{
+	return bCreatePublicFiles;
+}
+
+void FIOSPlatformFile::SetCreatePublicFiles(bool bCreatePublicFilesIn)
+{
+	bCreatePublicFiles = bCreatePublicFilesIn;
+}
+
+FIOSPlatformFile::FIOSPlatformFile()
+{
+#if FILESHARING_ENABLED
+	bCreatePublicFiles = false;
+#else
+	bCreatePublicFiles = true;
+#endif
 }
 
 bool FIOSPlatformFile::IterateDirectoryCommon(const TCHAR* Directory, const TFunctionRef<bool(struct dirent*)>& Visitor)
@@ -728,11 +1006,17 @@ bool FIOSPlatformFile::IterateDirectoryCommon(const TCHAR* Directory, const TFun
 
 	FString NormalizedDirectory = NormalizeFilename(Directory);
 	// If Directory is an empty string, assume that we want to iterate Binaries/Mac (current dir), but because we're an app bundle, iterate bundle's Contents/Frameworks instead
-	DIR* Handle = opendir(Directory[0] ? TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedDirectory, false)) : FrameworksPath);
+	DIR* Handle = opendir(Directory[0] ? TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedDirectory, false, false)) : FrameworksPath);
 	if(!Handle)
 	{
-		// look in the write file path if it's not in the read file path
-		Handle = opendir(Directory[0] ? TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedDirectory, true)) : FrameworksPath);
+		// look in the private write file path if it's not in the read file path
+		Handle = opendir(Directory[0] ? TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedDirectory, true, false)) : FrameworksPath);
+		
+		if(!Handle)
+		{
+			// look in the public write file path if it's not in the private write file path
+			Handle = opendir(Directory[0] ? TCHAR_TO_UTF8(*ConvertToIOSPath(NormalizedDirectory, true, true)) : FrameworksPath);
+		}
 	}
 	if (Handle)
 	{
@@ -750,7 +1034,7 @@ bool FIOSPlatformFile::IterateDirectoryCommon(const TCHAR* Directory, const TFun
 	return Result;
 }
 
-FString FIOSPlatformFile::ConvertToIOSPath(const FString& Filename, bool bForWrite)
+FString FIOSPlatformFile::ConvertToIOSPath(const FString& Filename, bool bForWrite, bool bIsPublicWrite)
 {
 	FString Result = Filename;
 	if (Result.Contains(TEXT("/OnDemandResources/")) || Result.StartsWith(TEXT("/var/")))
@@ -769,17 +1053,19 @@ FString FIOSPlatformFile::ConvertToIOSPath(const FString& Filename, bool bForWri
 		if (Result.StartsWith(AdditionalRootDirectory))
 		{
 			static FString ReadPathBase = FString([NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0]) + TEXT("/");
-
+			
 			Result = ReadPathBase + Result.Mid(0,AdditionalRootDirectory.Len()) + TEXT("/") + Result.Mid(AdditionalRootDirectory.Len()+1).ToLower();
-            
-            return Result;
+			
+			return Result;
         }
 	}
 
 	if(bForWrite)
 	{
-		static FString WritePathBase = FString([NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0]) + TEXT("/");
-		return WritePathBase + Result;
+		static FString PublicWritePathBase = FString([NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0]) + TEXT("/");
+		static FString PrivateWritePathBase = FString([NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES) objectAtIndex:0]) + TEXT("/");
+		
+		return (bIsPublicWrite ? PublicWritePathBase : PrivateWritePathBase) + Result;
 	}
 	else
 	{

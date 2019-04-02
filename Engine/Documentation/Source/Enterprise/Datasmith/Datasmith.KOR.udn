@@ -1,0 +1,49 @@
+INTSourceChangelist:4476116
+Availability: Public
+Crumbs: 
+Title: 언리얼 데이터스미스
+Description: Datasmith, 데이터스미스로 디자인 데이터를 언리얼로 빠르고 쉽게 가져올 수 있습니다.
+Type: 
+Version: 4.19
+Parent: Enterprise
+Order: 1
+Tags: Enterprise
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: Manufacturing
+Tags: landing
+topic-image:Datasmith_HFB_Topic-1.png
+
+
+**Datasmith for Unreal Engine 4** (언리얼 엔진 4 용 데이터스미스)는 3DS Autodesk 및 CAD 소프트웨어같은 오프라인 렌더링 프로그램에서 만든 씬과 애셋을 실시간 엔진으로 임포트하도록 설계된 툴 및 플러그인 모음입니다.
+
+언리얼 엔진 4 에 데이터스미스를 처음 사용하는 분들을 위한 도움말입니다. 데이터스미스로 프로젝트의 잠재력을 최대로 이끌어낼 수 있는 여러가지 기능에 대한 개요서는 물론 추가 참고 자료도 제공해 드립니다.
+
+## 시작하기
+
+![](datasmith-setup.png)
+
+%Enterprise/Datasmith/Overview:topic%
+%Enterprise/Datasmith/HowTo/DownloadandInstall:topic%
+%Enterprise/Datasmith/HowTo/ImportingContent:topic%
+
+## 안내서
+
+%Enterprise/Datasmith/Overview/ImportProcess:topic%
+%Enterprise/Datasmith/Overview/ReimportWorkflow:topic%
+%Enterprise/Datasmith/HowTo:topic%
+%Enterprise/Datasmith/Overview/CustomizingImportProcess:topic%
+%Enterprise/Datasmith/Overview/UsingDatasmithMetadata:topic%
+
+## 소프트웨어 상호운용 안내서
+
+%Enterprise/Datasmith/SoftwareInteropGuides/3dsMax:topic%
+%Enterprise/Datasmith/SoftwareInteropGuides/SketchUp:topic%
+%Enterprise/Datasmith/SoftwareInteropGuides/CAD:topic%
+
+Studio/Datasmith/SoftwareInteropGuides/Rhino
+
+## 참고서
+
+%Enterprise/Datasmith/SupportedSoftwareAndFileTypes:topic%
+%Enterprise/Datasmith/ImportOptions:topic%

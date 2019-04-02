@@ -1,49 +1,11 @@
-﻿INTSourceChangelist:2685246
+﻿INTSourceChangelist:3782314
 Availability: Public
 Title: 投射阴影
 Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows
 Description: 阴影概述。
 Related: Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing
 Version: 4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/Shadows:title%](LO_Shadows_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/Shadows:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/Shadows:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/Shadows]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/Shadows:title%](LO_Shadows_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/Shadows:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/Shadows:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/Shadows]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:LO_Shadows_Topic.png
 
 [REGION:fullwidth raw]
 ![](Engine/Rendering/LightingAndShadows/lighting_overview_banner_001.png)(convert:false)
@@ -54,6 +16,7 @@ Version: 4.9
 
 阴影让您的世界产生对比，使得世界中的物体感觉更加真实，并营造一种氛围。静态阴影无论怎么渲染，实际上都几乎没有任何性能消耗，但是动态阴影是造成较大性能消耗的原因之一。本文介绍了虚幻引擎 4 中具有的四种类型的阴影投射。
 
+(#StaticLights)
 ## 静态光源
 
 [EXCERPT:StaticLightShadows]
@@ -64,20 +27,24 @@ Version: 4.9
 
 _左侧的铜人站在一个静态光源的光照中, 光源对该角色没有任何影响（没有光照也没有阴影）；而右侧的角色位于一个固定光源的光照中。_
 
-## 方向光源级联式阴影贴图（全场景阴影）
+(#DirectionalLightCascadingShadowMaps_Whole Scene Shadows_)
+## 定向光源级联式阴影贴图（全场景阴影）
 
 [INCLUDE:Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights#CascadedShadowMaps]
 
+(#StationaryLightShadows)
 ## 固定光源阴影
 
 [INCLUDE:Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights#StationaryShadows]
 
+(#DynamicShadows)
 ## 动态阴影
 
 可移动光源在任何物体上都投射完全动态的阴影(和光照)。它的光照数据不会烘焙到光照贴图中，它可以自由地在任何物体上投射动态阴影。静态网格体、骨骼网格体、粒子特效等，都将会从可移动光源投射或接收阴影。
 
 通常来说，投射可移动动态阴影的光源是性能消耗最大的。
 
+(#PreviewShadows)
 ## 阴影预览
 
 在编辑一个固定光源或者静态光源时，光照信息会变成未构建状态，**预览阴影** 能够为您提供一个在光照构建后阴影的大致样子。
@@ -100,6 +67,7 @@ _左侧的铜人站在一个静态光源的光照中, 光源对该角色没有�
 如果希望调整这个文本的光照函数材质，可以在这里找到：_Engine/EditorMaterials/PreviewShadowIndicator_
 [/REGION]
 
+(#AllTogether)
 ## 所有阴影类型同时存在
 
 当把所有阴影类型放在一起时，每种类型的阴影都会利用其优势来弥补另一种类型阴影的劣势，从而可以快速地渲染出令人印象深刻的栩栩如生的视觉效果。

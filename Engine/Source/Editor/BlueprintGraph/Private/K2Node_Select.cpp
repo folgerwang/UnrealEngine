@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "K2Node_Select.h"
 #include "Misc/CoreMisc.h"
@@ -59,7 +59,8 @@ public:
 		}
 
 		{
-			FBPTerminal* Term = new (Context.InlineGeneratedValues) FBPTerminal();
+			FBPTerminal* Term = new FBPTerminal();
+			Context.InlineGeneratedValues.Add(Term);
 			Term->CopyFromPin(ReturnPin, Context.NetNameMap->MakeValidName(ReturnPin));
 			Context.NetMap.Add(ReturnPin, Term);
 		}

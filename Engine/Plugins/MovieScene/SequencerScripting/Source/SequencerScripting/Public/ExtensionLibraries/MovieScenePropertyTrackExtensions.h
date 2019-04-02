@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -20,6 +20,16 @@ class UMovieScenePropertyTrackExtensions : public UBlueprintFunctionLibrary
 	GENERATED_BODY()
 
 public:
+
+	/**
+	 * Set this track's property name and path
+	 *
+	 * @param Track        The track to use
+	 * @param InPropertyName The property name
+	 * @param InPropertyPath The property path
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Track", meta = (ScriptMethod))
+	static void SetPropertyNameAndPath(UMovieScenePropertyTrack* Track, const FName& InPropertyName, const FString& InPropertyPath);
 
 	/**
 	 * Get this track's property name

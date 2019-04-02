@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3454749
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:胶囊体阴影快速入门
 Crumbs:
@@ -30,20 +30,11 @@ SkillLevel:Intermediate
 * 如何在关卡中为角色启用胶囊体阴影。
 
 
-[OBJECT:TopicList]
-	[PARAM:icon]
-		![](%ROOT%/build_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		步骤
-	[/PARAM]
-	[PARAM:description]
-	[/PARAM]
-	[PARAM:links]
-	[DIR(output:"checkpoint" parent:"Engine/Rendering/LightingAndShadows/CapsuleShadows/QuickStart" org:"hierarchy")]
-	[/PARAM]
-[/OBJECT]
+(#Steps）
+## 步骤
+
+[DIR(output:"checkpoint" parent:"Engine/Rendering/LightingAndShadows/CapsuleShadows/QuickStart" org:"hierarchy")]
 
 [REGION:call_to_action]
-	[Click to Start](Engine/Rendering/LightingAndShadows/CapsuleShadows/QuickStart/1 "%Engine/Rendering/LightingAndShadows/CapsuleShadows/QuickStart/1:title%")
+	[点击开始](Engine/Rendering/LightingAndShadows/CapsuleShadows/QuickStart/1 "%Engine/Rendering/LightingAndShadows/CapsuleShadows/QuickStart/1:title%")
 [/REGION]

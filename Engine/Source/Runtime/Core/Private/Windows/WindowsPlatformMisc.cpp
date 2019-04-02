@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Windows/WindowsPlatformMisc.h"
 #include "Misc/DateTime.h"
@@ -20,8 +20,6 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
 #include "Internationalization/Text.h"
-#include "Internationalization/Culture.h"
-#include "Internationalization/Internationalization.h"
 #include "Math/Color.h"
 #include "Misc/OutputDeviceRedirector.h"
 #include "Misc/OutputDeviceFile.h"
@@ -251,6 +249,17 @@ int32 FWindowsOSVersionHelper::GetOSVersions( FString& out_OSVersionLabel, FStri
 				{
 					out_OSVersionLabel = TEXT("Windows Server Technical Preview");
 				}
+
+				// For Windows 10, get the release number and append that to the string too (eg. 1709 = Fall Creators Update). There doesn't seem to be any good way to get
+				// this other than grabbing an entry from the registry.
+				{
+					FString ReleaseId;
+					if(FWindowsPlatformMisc::QueryRegKey(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion"), TEXT("ReleaseId"), ReleaseId))
+					{
+						out_OSVersionLabel += FString::Printf(TEXT(" (Release %s)"), *ReleaseId);
+					}
+				}
+
 				break;
 			default:
 				ErrorCode |= (int32)ERROR_UNKNOWNVERSION;
@@ -520,6 +529,13 @@ void FWindowsPlatformMisc::PlatformPreInit()
 
 	FGenericPlatformMisc::PlatformPreInit();
 
+	// Load the bundled version of dbghelp.dll if necessary
+#if USE_BUNDLED_DBGHELP
+	// Try to load a bundled copy of dbghelp.dll. A bug with Windows 10 version 1709 
+	FString DbgHlpPath = FPaths::EngineDir() / TEXT("Binaries/ThirdParty/DbgHelp/dbghelp.dll");
+	FPlatformProcess::GetDllHandle(*DbgHlpPath);
+#endif
+
 	// Use our own handler for pure virtuals being called.
 	DefaultPureCallHandler = _set_purecall_handler( PureCallHandler );
 
@@ -566,15 +582,30 @@ void FWindowsPlatformMisc::PlatformInit()
  *
  * @param Type Ctrl-C, Ctrl-Break, Close Console Log Window, Logoff, or Shutdown
  */
-static BOOL WINAPI ConsoleCtrlHandler( ::DWORD /*Type*/ )
+static BOOL WINAPI ConsoleCtrlHandler(DWORD CtrlType)
 {
-	// Once this function is called, Windows gives us about 5 seconds to clean up and exit.
-	// There's no way to cancel. Since console is shutting down, logging might not be reliable.
+	// Broadcast the termination the first time through.
+	bool IsRequestingExit = GIsRequestingExit;
+	static bool AppTermDelegateBroadcast = false;
+	if (!AppTermDelegateBroadcast)
+	{
+		GIsRequestingExit = true;
+		FCoreDelegates::ApplicationWillTerminateDelegate.Broadcast();
+		AppTermDelegateBroadcast = true;
+	}
 
-	GIsRequestingExit = true;
+	// Only "two-step Ctrl-C" if the termination event is Ctrl-C and the process
+	// is considered interactive. Hard-terminate on all other cases.
+	if (CtrlType != CTRL_C_EVENT || FApp::IsUnattended())
+	{
+		IsRequestingExit = true;
+	}
 
-	// Notify anyone listening that we're about to terminate
-	FCoreDelegates::ApplicationWillTerminateDelegate.Broadcast();
+	if (!IsRequestingExit)
+	{
+		UE_LOG(LogCore, Warning, TEXT("*** INTERRUPTED *** : SHUTTING DOWN"));
+		UE_LOG(LogCore, Warning, TEXT("*** INTERRUPTED *** : CTRL-C TO FORCE QUIT"));
+	}
 
 	// make sure as much data is written to disk as possible
 	if (GLog)
@@ -590,14 +621,67 @@ static BOOL WINAPI ConsoleCtrlHandler( ::DWORD /*Type*/ )
 		GError->Flush();
 	}
 
-	// Windows will now terminate this process with ExitCode = 0xC000013A
-	return true;
+	if (!IsRequestingExit)
+	{
+		// We'll two-step Ctrl-C events to give processes like servers time to
+		// correctly terminate. Note the GIsRequestingExit is true now.
+		return true;
+	}
+
+	// There's no guarantee that the process is paying attention to GIsRequestingExit
+	// (e.g. some long-running commandlets). Using that for shutdown is therefore not
+	// reliable. Deferring to the default CtrlHandler is also no good as that calls
+	// ExitProcess() which will terminate all threads and detach all DLLS. This can
+	// result in deadlocks and/or asserts as each DLL's atexit() is processed. So
+	// let's hard terminate the process. 0xc000013a is what Windows' default handler
+	// would normally pass to ExitProcess() and how ExitProc() terminates threads.
+	TerminateProcess(GetCurrentProcess(), 0xc000013au);
+	return false;
 }
 
 void FWindowsPlatformMisc::SetGracefulTerminationHandler()
 {
+	if (GetConsoleWindow() == nullptr)
+	{
+		return;
+	}
+
 	// Set console control handler so we can exit if requested.
 	SetConsoleCtrlHandler(ConsoleCtrlHandler, true);
+
+#if !UE_BUILD_SHIPPING && PLATFORM_CPU_X86_FAMILY
+	// There are many places that can register a Ctrl-C handler, some of which
+	// we are not in control of (third party Perforce libraries for example). This
+	// can result in Ctrl-C doing nothing, or an abrupt call to ExitProcess() which
+	// will cause asserts and/or deadlocks. So we're going to apply a patch so no
+	// one else can register a handler.
+	auto* SetCtrlCProc = (uint8*)SetConsoleCtrlHandler;
+	if (SetCtrlCProc[0] == 0xff && SetCtrlCProc[1] == 0x25)
+	{
+#if PLATFORM_64BITS
+		// Follow a possible "jmp [eip] + disp32" instruction to get to the actual
+		// implementation of the SetConsoleCtrlHandler function.
+		SetCtrlCProc = *(uint8**)(SetCtrlCProc + 6 + *(uint32*)(SetCtrlCProc + 2));
+#else
+		// Follow "jmp [disp32]"
+		uintptr_t Disp32 = *(uintptr_t*)(SetCtrlCProc + 2);
+		SetCtrlCProc = *(uint8**)(Disp32);
+#endif
+	}
+
+	// Patch the start of the SetConsoleCtrlHandler function.
+	uint8 Patch[] = {
+		0xb8, 0x01, 0x00, 0x00, 0x00,	// mov eax, 1
+		0xc3							// ret
+	};
+	DWORD PrevProtection;
+	if (VirtualProtect(SetCtrlCProc, sizeof(Patch), PAGE_EXECUTE_READWRITE, &PrevProtection))
+	{
+		memcpy(SetCtrlCProc, Patch, sizeof(Patch));
+		VirtualProtect(SetCtrlCProc, sizeof(Patch), PrevProtection, &PrevProtection);
+		FlushInstructionCache(GetCurrentProcess(), nullptr, 0);
+	}
+#endif // !UE_BUILD_SHIPPING && PLATFORM_CPU_X86_FAMILY
 }
 
 int32 FWindowsPlatformMisc::GetMaxPathLength()
@@ -722,171 +806,7 @@ void FWindowsPlatformMisc::SubmitErrorReport( const TCHAR* InErrorHist, EErrorRe
 {
 	if ((!FPlatformMisc::IsDebuggerPresent() || GAlwaysReportCrash) && !FParse::Param(FCommandLine::Get(), TEXT("CrashForUAT")))
 	{
-		if (GUseCrashReportClient)
-		{
-			HardKillIfAutomatedTesting();
-			return;
-		}
-
-		const uint32 MAX_STRING_LEN = 256;
-
-		TCHAR ReportDumpVersion[] = TEXT("3");
-
-		FString ReportDumpPath;
-		{
-			const TCHAR ReportDumpFilename[] = TEXT("UnrealAutoReportDump");
-			ReportDumpPath = FPaths::CreateTempFilename( *FPaths::ProjectLogDir(), ReportDumpFilename, TEXT( ".txt" ) );
-		}
-
-		FArchive * AutoReportFile = IFileManager::Get().CreateFileWriter(*ReportDumpPath, FILEWRITE_EvenIfReadOnly);
-		if (AutoReportFile != NULL)
-		{
-			TCHAR CompName[MAX_STRING_LEN];
-			FCString::Strncpy(CompName, FPlatformProcess::ComputerName(), MAX_STRING_LEN);
-			TCHAR UserName[MAX_STRING_LEN];
-			FCString::Strncpy(UserName, FPlatformProcess::UserName(), MAX_STRING_LEN);
-			TCHAR GameName[MAX_STRING_LEN];
-			FCString::Strncpy(GameName, *FString::Printf(TEXT("%s %s"), *FApp::GetBranchName(), FApp::GetProjectName()), MAX_STRING_LEN);
-			TCHAR PlatformName[MAX_STRING_LEN];
-#if PLATFORM_64BITS
-			FCString::Strncpy(PlatformName, TEXT("PC 64-bit"), MAX_STRING_LEN);
-#else	//PLATFORM_64BITS
-			FCString::Strncpy(PlatformName, TEXT("PC 32-bit"), MAX_STRING_LEN);
-#endif	//PLATFORM_64BITS
-			TCHAR CultureName[MAX_STRING_LEN];
-			FCString::Strncpy(CultureName, *FInternationalization::Get().GetDefaultCulture()->GetName(), MAX_STRING_LEN);
-			TCHAR SystemTime[MAX_STRING_LEN];
-			FCString::Strncpy(SystemTime, *FDateTime::Now().ToString(), MAX_STRING_LEN);
-			TCHAR EngineVersionStr[MAX_STRING_LEN];
-			FCString::Strncpy(EngineVersionStr, *FEngineVersion::Current().ToString(), 256 );
-
-			TCHAR ChangelistVersionStr[MAX_STRING_LEN];
-			int32 ChangelistFromCommandLine = 0;
-			const bool bFoundAutomatedBenchMarkingChangelist = FParse::Value( FCommandLine::Get(), TEXT("-gABC="), ChangelistFromCommandLine );
-			if( bFoundAutomatedBenchMarkingChangelist == true )
-			{
-				FCString::Strncpy(ChangelistVersionStr, *FString::FromInt(ChangelistFromCommandLine), MAX_STRING_LEN);
-			}
-			// we are not passing in the changelist to use so use the one that was stored in the ObjectVersion
-			else
-			{
-				FCString::Strncpy(ChangelistVersionStr, *FString::FromInt(FEngineVersion::Current().GetChangelist()), MAX_STRING_LEN);
-			}
-
-			TCHAR CmdLine[2048];
-			FCString::Strncpy(CmdLine, FCommandLine::Get(),ARRAY_COUNT(CmdLine));
-			TCHAR BaseDir[260];
-			FCString::Strncpy(BaseDir, FPlatformProcess::BaseDir(), ARRAY_COUNT(BaseDir));
-			TCHAR separator = 0;
-
-			TCHAR EngineMode[MAX_STRING_LEN];
-			if( IsRunningCommandlet() )
-			{
-				FCString::Strncpy(EngineMode, TEXT("Commandlet"), MAX_STRING_LEN);
-			}
-			else if( GIsEditor )
-			{
-				FCString::Strncpy(EngineMode, TEXT("Editor"), MAX_STRING_LEN);
-			}
-			else if( IsRunningDedicatedServer() )
-			{
-				FCString::Strncpy(EngineMode, TEXT("Server"), MAX_STRING_LEN);
-			}
-			else
-			{
-				FCString::Strncpy(EngineMode, TEXT("Game"), MAX_STRING_LEN);
-			}
-
-			//build the report dump file
-			AutoReportFile->Serialize(ReportDumpVersion, FCString::Strlen(ReportDumpVersion) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(CompName, FCString::Strlen(CompName) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(UserName, FCString::Strlen(UserName) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(GameName, FCString::Strlen(GameName) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(PlatformName, FCString::Strlen(PlatformName) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(CultureName, FCString::Strlen(CultureName) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(SystemTime, FCString::Strlen(SystemTime) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(EngineVersionStr, FCString::Strlen(EngineVersionStr) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(ChangelistVersionStr, FCString::Strlen(ChangelistVersionStr) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(CmdLine, FCString::Strlen(CmdLine) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(BaseDir, FCString::Strlen(BaseDir) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-
-			TCHAR* NonConstErrorHist = const_cast< TCHAR* >( InErrorHist );
-			AutoReportFile->Serialize(NonConstErrorHist, FCString::Strlen(NonConstErrorHist) * sizeof(TCHAR));
-
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Serialize(EngineMode, FCString::Strlen(EngineMode) * sizeof(TCHAR));
-			AutoReportFile->Serialize(&separator, sizeof(TCHAR));
-			AutoReportFile->Close();
-			
-			if ( !GIsBuildMachine )
-			{
-				TCHAR AutoReportExe[] = TEXT("../../../Engine/Binaries/DotNET/AutoReporter.exe");
-
-				FString IniDumpPath;
-				if (!FApp::IsProjectNameEmpty())
-				{
-					const TCHAR IniDumpFilename[] = TEXT("UnrealAutoReportIniDump");
-					IniDumpPath = FPaths::CreateTempFilename(*FPaths::ProjectLogDir(), IniDumpFilename, TEXT(".txt"));
-					//build the ini dump
-					FOutputDeviceFile AutoReportIniFile(*IniDumpPath);
-					GConfig->Dump(AutoReportIniFile);
-					AutoReportIniFile.Flush();
-					AutoReportIniFile.TearDown();
-				}
-
-				FString CrashVideoPath = FPaths::ProjectLogDir() + TEXT("CrashVideo.avi");
-
-				//get the paths that the files will actually have been saved to
-				FString UserIniDumpPath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*IniDumpPath);
-				FString LogDirectory = FPlatformOutputDevices::GetAbsoluteLogFilename();
-				TCHAR CommandlineLogFile[MAX_SPRINTF]=TEXT("");
-				
-				FString UserLogFile = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*LogDirectory);
-				FString UserReportDumpPath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*ReportDumpPath);
-				FString UserCrashVideoPath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*CrashVideoPath);
-
-				//start up the auto reporting app, passing the report dump file path, the games' log file,
-				// the ini dump path, the minidump path, and the crashvideo path
-				//protect against spaces in paths breaking them up on the commandline
-				FString CallingCommandLine = FString::Printf(TEXT("%d \"%s\" \"%s\" \"%s\" \"%s\" \"%s\""),
-					(uint32)(GetCurrentProcessId()), *UserReportDumpPath, *UserLogFile, *UserIniDumpPath, 
-					MiniDumpFilenameW, *UserCrashVideoPath);
-
-				switch( InMode )
-				{
-				case EErrorReportMode::Unattended:
-					CallingCommandLine += TEXT( " -unattended" );
-					break;
-
-				case EErrorReportMode::Balloon:
-					CallingCommandLine += TEXT( " -balloon" );
-					break;
-
-				case EErrorReportMode::Interactive:
-					break;
-				}
-
-				if (!FPlatformProcess::CreateProc(AutoReportExe, *CallingCommandLine, true, false, false, NULL, 0, NULL, NULL).IsValid())
-				{
-					UE_LOG(LogWindows, Warning, TEXT("Couldn't start up the Auto Reporting process!"));
-					FPlatformMemory::DumpStats(*GWarn);
-					FMessageDialog::Open( EAppMsgType::Ok, FText::FromString( InErrorHist ) );
-				}
-			}
-
-			HardKillIfAutomatedTesting();
-		}
+		HardKillIfAutomatedTesting();
 	}
 }
 
@@ -894,6 +814,18 @@ void FWindowsPlatformMisc::SubmitErrorReport( const TCHAR* InErrorHist, EErrorRe
 bool FWindowsPlatformMisc::IsDebuggerPresent()
 {
 	return !GIgnoreDebugger && !!::IsDebuggerPresent();
+}
+#endif //!UE_BUILD_SHIPPING
+
+#if STATS || ENABLE_STATNAMEDEVENTS
+void FWindowsPlatformMisc::CustomNamedStat(const TCHAR* Text, float Value, const TCHAR* Graph, const TCHAR* Unit)
+{
+	FRAMEPRO_DYNAMIC_CUSTOM_STAT(TCHAR_TO_WCHAR(Text), Value, TCHAR_TO_WCHAR(Graph), TCHAR_TO_WCHAR(Unit));
+}
+
+void FWindowsPlatformMisc::CustomNamedStat(const ANSICHAR* Text, float Value, const ANSICHAR* Graph, const ANSICHAR* Unit)
+{
+	FRAMEPRO_DYNAMIC_CUSTOM_STAT(Text, Value, Graph, Unit);
 }
 
 void FWindowsPlatformMisc::BeginNamedEventFrame()
@@ -947,7 +879,7 @@ void FWindowsPlatformMisc::EndNamedEvent()
 	}
 #endif
 }
-#endif // UE_BUILD_SHIPPING
+#endif // STATS || ENABLE_STATNAMEDEVENTS
 
 bool FWindowsPlatformMisc::IsRemoteSession()
 {
@@ -1762,7 +1694,7 @@ int32 FWindowsPlatformMisc::NumberOfWorkerThreadsToSpawn()
 
 	int32 MaxWorkerThreadsWanted = IsRunningDedicatedServer() ? MaxServerWorkerThreads : MaxWorkerThreads;
 	// need to spawn at least one worker thread (see FTaskGraphImplementation)
-	return FMath::Max(FMath::Min(NumberOfThreads, MaxWorkerThreadsWanted), 1);
+	return FMath::Max(FMath::Min(NumberOfThreads, MaxWorkerThreadsWanted), 2);
 }
 
 bool FWindowsPlatformMisc::OsExecute(const TCHAR* CommandType, const TCHAR* Command, const TCHAR* CommandLine)
@@ -2476,7 +2408,7 @@ FGPUDriverInfo FWindowsPlatformMisc::GetGPUDriverInfo(const FString& DeviceDescr
 		}
 	}
 
-	// FoundDriverCount can be != 1, we take the primary adapater (can be from upgrading a machine to a new OS or old drivers) which also might be wrong
+	// FoundDriverCount can be != 1, we take the primary adapter (can be from upgrading a machine to a new OS or old drivers) which also might be wrong
 	// see: http://win7settings.blogspot.com/2014/10/how-to-extract-installed-drivers-from.html
 	// https://support.microsoft.com/en-us/kb/200435
 	// http://www.experts-exchange.com/questions/10198207/Windows-NT-Display-adapter-information.html

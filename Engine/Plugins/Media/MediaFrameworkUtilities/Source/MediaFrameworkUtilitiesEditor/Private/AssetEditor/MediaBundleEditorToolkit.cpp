@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AssetEditor/MediaBundleEditorToolkit.h"
 
@@ -34,7 +34,7 @@ TSharedRef<FMediaBundleEditorToolkit> FMediaBundleEditorToolkit::CreateEditor(co
 
 void FMediaBundleEditorToolkit::InitMediaBundleEditor(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UMediaBundle* InMediaBundle)
 {
-	FEditorDelegates::OnAssetPostImport.AddRaw(this, &FMediaBundleEditorToolkit::HandleAssetPostImport);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetPostImport.AddRaw(this, &FMediaBundleEditorToolkit::HandleAssetPostImport);
 
 	const bool bIsUpdatable = false;
 	const bool bAllowFavorites = true;
@@ -103,7 +103,7 @@ void FMediaBundleEditorToolkit::InitMediaBundleEditor(const EToolkitMode::Type M
 
 FMediaBundleEditorToolkit::~FMediaBundleEditorToolkit()
 {
-	FEditorDelegates::OnAssetPostImport.RemoveAll(this);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetPostImport.RemoveAll(this);
 }
 
 FName FMediaBundleEditorToolkit::GetToolkitFName() const

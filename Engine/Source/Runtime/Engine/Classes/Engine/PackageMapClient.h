@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 /**
@@ -24,6 +24,7 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/UObjectGlobals.h"
 #include "Misc/NetworkGuid.h"
+#include "Misc/NetworkVersion.h"
 #include "UObject/CoreNet.h"
 #include "Net/DataBunch.h"
 #include "PackageMapClient.generated.h"
@@ -31,6 +32,7 @@
 class UNetConnection;
 class UNetDriver;
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS	// 4.22, Name, Type
 class ENGINE_API FNetFieldExport
 {
 public:
@@ -38,12 +40,23 @@ public:
 	{
 	}
 
+	UE_DEPRECATED(4.22, "Type is no longer required, please use other constructor.")
 	FNetFieldExport( const uint32 InHandle, const uint32 InCompatibleChecksum, const FString InName, FString InType ) :
 		bExported( false ),
 		Handle( InHandle ),
 		CompatibleChecksum( InCompatibleChecksum ),
+		ExportName( *InName ),
 		Name( InName ),
 		Type( InType ),
+		bIncompatible( false )
+	{
+	}
+
+	FNetFieldExport( const uint32 InHandle, const uint32 InCompatibleChecksum, const FName& InName ) :
+		bExported( false ),
+		Handle( InHandle ),
+		CompatibleChecksum( InCompatibleChecksum ),
+		ExportName( InName ),
 		bIncompatible( false )
 	{
 	}
@@ -56,27 +69,57 @@ public:
 
 		if ( Ar.IsLoading() )
 		{
-			C.bExported = Flags == 1 ? true : false;
+			C.bExported = (Flags == 1);
 		}
 
 		if ( C.bExported )
 		{
 			Ar.SerializeIntPacked( C.Handle );
-			Ar << C.CompatibleChecksum << C.Name << C.Type;
+			Ar << C.CompatibleChecksum;
+
+			if (Ar.IsLoading() && Ar.EngineNetVer() < HISTORY_NETEXPORT_SERIALIZATION)
+			{
+				Ar << C.Name;
+				Ar << C.Type;
+
+				C.ExportName = FName(*C.Name);
+			}
+			else
+			{
+				if (Ar.IsLoading() && Ar.EngineNetVer() < HISTORY_NETEXPORT_SERIALIZE_FIX)
+				{
+					Ar << C.ExportName;
+				}
+				else
+				{
+					UPackageMap::StaticSerializeName(Ar, C.ExportName);
+				}
+
+				if (Ar.IsLoading())
+				{
+					C.Name = C.ExportName.ToString();
+				}
+			}
 		}
 
 		return Ar;
 	}
 
+	void CountBytes(FArchive& Ar) const;
+
 	bool			bExported;
 	uint32			Handle;
 	uint32			CompatibleChecksum;
+	FName			ExportName;
+	UE_DEPRECATED(4.22, "Name is deprecated.")
 	FString			Name;
+	UE_DEPRECATED(4.22, "Type is deprecated.")
 	FString			Type;
 
 	// Transient properties
 	mutable bool	bIncompatible;		// If true, we've already determined that this property isn't compatible. We use this to curb warning spam.
 };
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 class ENGINE_API FNetFieldExportGroup
 {
@@ -121,6 +164,8 @@ public:
 
 		return -1;
 	}
+
+	void CountBytes(FArchive& Ar) const;
 };
 
 /** Stores an object with path associated with FNetworkGUID */
@@ -188,7 +233,6 @@ public:
 	bool			IsGUIDPending( const FNetworkGUID& NetGUID ) const;
 	FString			FullNetGUIDPath( const FNetworkGUID& NetGUID ) const;
 	void			GenerateFullNetGUIDPath_r( const FNetworkGUID& NetGUID, FString& FullPath ) const;
-	bool			ShouldIgnorePackageMismatch() const;
 	uint32			GetClassNetworkChecksum( UClass* Class );
 	uint32			GetNetworkChecksum( UObject* Obj );
 	void			SetNetworkChecksumMode( const ENetworkChecksumMode NewMode );
@@ -197,7 +241,11 @@ public:
 	bool			CanClientLoadObject( const UObject* Object, const FNetworkGUID& NetGUID ) const;
 
 	void			AsyncPackageCallback(const FName& PackageName, UPackage * Package, EAsyncLoadingResult::Type Result);
-	
+
+	void			ResetCacheForDemo();
+
+	void			CountBytes(FArchive& Ar) const;
+
 	TMap< FNetworkGUID, FNetGuidCacheObject >		ObjectLookup;
 	TMap< TWeakObjectPtr< UObject >, FNetworkGUID >	NetGUIDLookup;
 	int32											UniqueNetIDs[2];
@@ -214,21 +262,27 @@ public:
 	ENetworkChecksumMode							NetworkChecksumMode;
 	EAsyncLoadMode									AsyncLoadMode;
 
+private:
+
+	friend class UPackageMapClient;
+
 	/** Maps net field export group name to the respective FNetFieldExportGroup */
 	TMap < FString, TSharedPtr< FNetFieldExportGroup > >	NetFieldExportGroupMap;
 
 	/** Maps field export group path to assigned index */
 	TMap < FString, uint32 >								NetFieldExportGroupPathToIndex;
 
-	/** Maps assigned net field export group index to assigned path */
-	TMap < uint32, FString >								NetFieldExportGroupIndexToPath;
+	/** Maps assigned net field export group index to pointer to group, lifetime of the referenced FNetFieldExportGroups are managed by NetFieldExportGroupMap **/
+	TMap < uint32, FNetFieldExportGroup* >					NetFieldExportGroupIndexToGroup;
 
 	/** Current index used when filling in NetFieldExportGroupPathToIndex/NetFieldExportGroupIndexToPath */
 	int32													UniqueNetFieldExportGroupPathIndex;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+public:
 	// History for debugging entries in the guid cache
 	TMap<FNetworkGUID, FString>						History;
+private:
 #endif
 };
 
@@ -236,8 +290,8 @@ class ENGINE_API FPackageMapAckState
 {
 public:
 	TMap< FNetworkGUID, int32 >	NetGUIDAckStatus;				// Map that represents the ack state of each net guid for this connection
-	TMap< uint32, bool >		NetFieldExportGroupPathAcked;	// Map that represents whether or not a net field export group has been ack'd by the client
-	TMap< uint64, bool >		NetFieldExportAcked;			// Map that represents whether or not a net field export has been ack'd by the client
+	TSet< uint32 >				NetFieldExportGroupPathAcked;	// Map that represents whether or not a net field export group has been ack'd by the client
+	TSet< uint64 >				NetFieldExportAcked;			// Map that represents whether or not a net field export has been ack'd by the client
 
 	void Reset()
 	{
@@ -245,6 +299,8 @@ public:
 		NetFieldExportGroupPathAcked.Empty();
 		NetFieldExportAcked.Empty();
 	}
+
+	void CountBytes(FArchive& Ar) const;
 };
 
 UCLASS(transient)
@@ -332,23 +388,25 @@ public:
 	TSharedPtr< FNetFieldExportGroup >	GetNetFieldExportGroupChecked( const FString& PathName ) const;
 	void								SerializeNetFieldExportGroupMap( FArchive& Ar, bool bClearPendingExports=true );
 
+	TUniquePtr<TGuardValue<bool>> ScopedIgnoreReceivedExportGUIDs()
+	{
+		return MakeUnique<TGuardValue<bool>>(bIgnoreReceivedExportGUIDs, true);
+	}
+
+	virtual void Serialize(FArchive& Ar) override;
+
 protected:
 
 	/** Functions to help with exporting/importing net field export info */
-	DEPRECATED(4.20, "This method is deprecated. Please use AppendNetFieldExports(FArchive*) instead.")
-	void								AppendNetFieldExports( TArray<FOutBunch *>& OutgoingBunches );
-	void								AppendNetFieldExports( FArchive& Archive );
+	void AppendNetFieldExports( FArchive& Archive );
+	void ReceiveNetFieldExports( FArchive& Archive );
 
-	DEPRECATED(4.20, "This method is deprecated. Please use ReceiveNetFieldExports(FArchive*) instead.")
-	void								ReceiveNetFieldExports( FInBunch &InBunch );
-	void								ReceiveNetFieldExports( FArchive& Archive );
+	void AppendNetExportGUIDs( FArchive& Archive );
+	void ReceiveNetExportGUIDs( FArchive& Archive );
 
-	void AppendNetExportGUIDs(FArchive& Archive);
-	void ReceiveNetExportGUIDs(FArchive& Archive);
-
-	bool	ExportNetGUIDForReplay( FNetworkGUID&, UObject* Object, FString& PathName, UObject* ObjOuter );
-	bool	ExportNetGUID( FNetworkGUID NetGUID, UObject* Object, FString PathName, UObject* ObjOuter );
-	void	ExportNetGUIDHeader();
+	bool ExportNetGUIDForReplay( FNetworkGUID&, UObject* Object, FString& PathName, UObject* ObjOuter );
+	bool ExportNetGUID( FNetworkGUID NetGUID, UObject* Object, FString PathName, UObject* ObjOuter );
+	void ExportNetGUIDHeader();
 
 	void			InternalWriteObject( FArchive& Ar, FNetworkGUID NetGUID, UObject* Object, FString ObjectPathName, UObject* ObjectOuter );	
 	FNetworkGUID	InternalLoadObject( FArchive & Ar, UObject *& Object, int InternalLoadObjectRecursionCount );
@@ -384,4 +442,9 @@ protected:
 
 	/** List of net field exports that need to go out on next bunch */
 	TSet< uint64 >						NetFieldExports;
+
+private:
+	void ReceiveNetFieldExportsCompat(FInBunch& InBunch);
+
+	bool bIgnoreReceivedExportGUIDs;
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "VREditorActions.h"
 #include "VREditorModule.h"
@@ -26,7 +26,7 @@
 #include "EditorModes.h"
 #include "EdMode.h"
 #include "Engine/Selection.h"
-#include "VREditorMotionControllerInteractor.h"
+#include "VREditorInteractor.h"
 #include "LevelEditorActions.h"
 #include "UObject/UObjectIterator.h"
 #include "Factories/Factory.h"
@@ -534,7 +534,7 @@ void FVREditorActionCallbacks::SetSelectionRangeEnd(UVREditorMode* InVRMode)
 	}
 }
 
-void FVREditorActionCallbacks::ToggleSequencerScrubbing(UVREditorMode* InVRMode, UVREditorMotionControllerInteractor* InController)
+void FVREditorActionCallbacks::ToggleSequencerScrubbing(UVREditorMode* InVRMode, UVREditorInteractor* InController)
 {
 	InController->ToggleSequencerScrubbingMode();
 	if (!InController->IsScrubbingSequencer())
@@ -543,7 +543,7 @@ void FVREditorActionCallbacks::ToggleSequencerScrubbing(UVREditorMode* InVRMode,
 	}
 }
 
-ECheckBoxState FVREditorActionCallbacks::GetSequencerScrubState(UVREditorMotionControllerInteractor* InController)
+ECheckBoxState FVREditorActionCallbacks::GetSequencerScrubState(UVREditorInteractor* InController)
 {
 	return InController->IsScrubbingSequencer() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 }

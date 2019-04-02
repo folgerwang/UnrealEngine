@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2735630
+﻿INTSourceChangelist:3494733
 Availability:Public
 title:杂项
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
 Description:未归入现有类别的杂项函数。
 Version:4.9
+tags:Materials
 
 [TOC (start:2 end:3)]
 
@@ -11,10 +12,12 @@ Version:4.9
 
 杂项函数包括各种不容易归入任何其他现有类别的一次性函数。将这些函数放在这里是为了避免产生太多只有一个函数的类别。
 
+(#MiscFunctions)
 ## 杂项函数
 
 以下是“杂项”类别下所有函数的列表。
 
+(#TimeWithSpeedVariable)
 ### TimeWithSpeedVariable（具有速度变量的时间）
 
 **TimeWithSpeedVariable（具有速度变量的时间）**函数与 Time（时间）节点相似，但具有可选的乘数输入。这个函数可以输出相乘结果，或使用可选的“小数时间”（Frac Time）输出从而仅输出乘法运算结果的小数位。
@@ -33,6 +36,7 @@ Version:4.9
 默认情况下，“输出结果”（Output Result）将预览该节点。在本例中，该节点将闪烁。
 [/REGION]
 
+(#OffsetAndScaleTo1)
 ### OffsetAndScaleTo1（偏移并调整比例到 1）
 
 **OffsetAndScaleTo1（偏移并调整比例到 1）**函数接收一个值，使其按给定的偏移量进行偏移，然后将结果比例重新调整到 0-1 范围。
@@ -46,10 +50,12 @@ Version:4.9
 
 ![偏移并调整比例到 1](OffsetAndScaleTo1_Demo.png)
 
+(#PassThrough)
 ### PassThrough（直接传递）
 
 正如其名称所指，此节点的作用只是直接传递。无论将什么内容传递到此节点，都会通过输出毫无变化地返回该内容。此节点比所有其他节点更适合于组织用途，因为它允许您在比另一节点更接近的位置通过“说明”（Desc）属性对节点进行标注，这在所需节点位于图中较远的位置时特别有用。
 
+(#SplitComponents)
 ### SplitComponents（拆分分量）
 
 **SplitComponents（拆分分量）**函数用于拆分传入颜色或图像的分量，从而使您能够单独访问红色、绿色或蓝色通道。
@@ -67,6 +73,7 @@ Version:4.9
 
 ![拆分分量](SplitComponents_Demo.png)
 
+(#Flipbook)
 ### Flipbook（图像序列）
 
 **Flipbook（图像序列）**函数接收一个“2D 纹理”，例如精灵帧网格，并输出它们按顺序回放的动画。

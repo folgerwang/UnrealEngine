@@ -1,10 +1,14 @@
-﻿INTSourceChangelist:2691797
+﻿INTSourceChangelist:3304580
 Availability:Public
 Title:基本材质概念
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials
 Description:有关 UE4 材质及其工作方式的介绍文档。
-Version:4.9
-SkillLevel:Beginner
+Version: 4.9
+SkillLevel: Beginner
+topic-image:Engine/Rendering/Materials/EssentialImage.png
+order:1
+type:overview
+tags:Materials
 
 
 [REGION:fullwidth]
@@ -19,6 +23,7 @@ SkillLevel:Beginner
 如果您已经从前面的虚幻引擎使用过程中熟悉材质创建，那么您可能会对《快速入门指南》感兴趣，该指南会指出为了充分利用我们基于物理的材质系统而需了解的关键属性。
 
 
+(#MaterialExpressionNodesandNetworks)
 ## 材质表达式节点与网络
 
 关于材质，您需要知道的第一件也是最重要的事情就是，它们并非通过代码，而是通过材质编辑器中的可视脚本节点（称为材质表达式）所组成的网络来构建。每一个节点都包含 [HLSL 代码](http://en.wikipedia.org/wiki/High_Level_Shader_Language) 片段，并用于执行特定的任务。这意味着当您构建材质时，您是在通过可视化脚本编程来创建 HLSL 代码。
@@ -31,6 +36,7 @@ SkillLevel:Beginner
 
 您可以在 [](Engine/Rendering/Materials/ExpressionReference) 中找到有关所有可用材质表达式的文档。
 
+(#WorkingwithColorsandNumbers)
 ## 使用颜色和数字
 
 正如您所知，颜色在数字成像方面，由 4 个主通道构成。它们是：
@@ -74,6 +80,7 @@ SkillLevel:Beginner
 
 
 
+(#Textures)
 ## 纹理
 
 对于材质，纹理只是用于提供某种基于像素的数据的图像。这些数据可能是对象的颜色、光泽度、透明度以及各种其他方面。有一种过时的想法，认为“添加纹理”是给游戏模型上色的过程。虽然创建纹理的过程仍然很关键，但我们应该将纹理看作材质的“元件”，而不是将它们本身视为最终成品，这一点很重要。
@@ -84,6 +91,7 @@ SkillLevel:Beginner
 
 有关纹理和创建纹理的更多信息，请参阅 [纹理文档](Engine/Content/Types/Textures)。
 
+(#PropertiesandInputs)
 ## 属性与输入
 
 您可以对材质执行的许多操作是由您对材质本身设置的各种属性，以及您建立并连接定义材质的材质表达式节点网络的方式来驱动的。为了能够全面运用虚幻引擎材质系统的强大功能，检视可用的属性和输入十分有益。您可以在下列位置找到它们：
@@ -91,10 +99,12 @@ SkillLevel:Beginner
 [](Engine/Rendering/Materials/MaterialProperties)
 [](Engine/Rendering/Materials/MaterialInputs)
 
+(#ApplyingMaterialstoSurfaces)
 ## 将材质应用于表面
 
 应用材质的方式随表面类型不同而有少许变化。
 
+(#Meshes)
 ### 网格体
 
 对网格网格体（静态、动态或骨骼）应用材质有许多种不同方法。您可以直接使用网格属性中的材质元素槽。在关卡中选中网格时，您可以在 **细节（Details）**面板中找到这些槽，也可以通过 **右键单击** 网格并从快捷菜单中选择“属性”（Properties）找到这些槽。您也可以在各种编辑器（例如静态网格编辑器或者人物骨骼网格编辑器）中找到这些槽。
@@ -117,6 +127,7 @@ SkillLevel:Beginner
 	请记住，如果您在资产编辑器或 **内容浏览器** 中更改材质，那么该更改会影响资产本身。如果您使用已放入场景的网格的细节来更改材质，那么将只影响这个网格副本。
 [/REGION]
 
+(#BrushSurfaces)
 ### 刷表面
 
 将材质应用于刷表面的过程非常简单：

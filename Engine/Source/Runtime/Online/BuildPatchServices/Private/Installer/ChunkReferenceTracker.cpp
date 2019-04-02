@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Installer/ChunkReferenceTracker.h"
 #include "Templates/Greater.h"
@@ -23,6 +23,7 @@ namespace BuildPatchServices
 		virtual int32 GetReferenceCount(const FGuid& ChunkId) const override;
 		virtual void SortByUseOrder(TArray<FGuid>& ChunkList, ESortDirection Direction) const override;
 		virtual TArray<FGuid> GetNextReferences(int32 Count, const TFunction<bool(const FGuid&)>& SelectPredicate) const override;
+		virtual TArray<FGuid> SelectFromNextReferences(int32 Count, const TFunction<bool(const FGuid&)>& SelectPredicate) const override;
 		virtual bool PopReference(const FGuid& ChunkId) override;
 		// IChunkReferenceTracker interface end.
 
@@ -139,6 +140,28 @@ namespace BuildPatchServices
 			{
 				AddedIds.Add(UseId);
 				NextReferences.Add(UseId);
+			}
+		}
+		return NextReferences;
+	}
+
+	TArray<FGuid> FChunkReferenceTracker::SelectFromNextReferences(int32 Count, const TFunction<bool(const FGuid&)>& SelectPredicate) const
+	{
+		// Thread lock to protect access to UseStack.
+		FScopeLock ThreadLock(&UseStackCs);
+		TSet<FGuid> AddedIds;
+		TArray<FGuid> NextReferences;
+		for (int32 UseStackIdx = UseStack.Num() - 1; UseStackIdx >= 0 && Count > 0; --UseStackIdx)
+		{
+			const FGuid& UseId = UseStack[UseStackIdx];
+			if (AddedIds.Contains(UseId) == false)
+			{
+				--Count;
+				if (SelectPredicate(UseId))
+				{
+					AddedIds.Add(UseId);
+					NextReferences.Add(UseId);
+				}
 			}
 		}
 		return NextReferences;

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -59,12 +59,19 @@ struct GAMEPLAYTAGS_API FGameplayTag
 	 * Gets the FGameplayTag that corresponds to the TagName
 	 *
 	 * @param TagName The Name of the tag to search for
-	 * 
 	 * @param ErrorIfNotfound: ensure() that tag exists.
-	 * 
 	 * @return Will return the corresponding FGameplayTag or an empty one if not found.
 	 */
 	static FGameplayTag RequestGameplayTag(FName TagName, bool ErrorIfNotFound=true);
+
+	/** 
+	 * Returns true if this is a valid gameplay tag string (foo.bar.baz). If false, it will fill 
+	 * @param TagString String to check for validity
+	 * @param OutError If non-null and string invalid, will fill in with an error message
+	 * @param OutFixedString If non-null and string invalid, will attempt to fix. Will be empty if no fix is possible
+	 * @return True if this can be added to the tag dictionary, false if there's a syntax error
+	 */
+	static bool IsValidGameplayTagString(const FString& TagString, FText* OutError = nullptr, FString* OutFixedString = nullptr);
 
 	/** Operators */
 	FORCEINLINE bool operator==(FGameplayTag const& Other) const
@@ -206,7 +213,7 @@ PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	 * 
 	 * @return True if there is a match according to the specified match types; false if not
 	 */
-	DEPRECATED(4.15, "Deprecated in favor of MatchesTag")
+	UE_DEPRECATED(4.15, "Deprecated in favor of MatchesTag")
 	FORCEINLINE_DEBUGGABLE bool Matches(TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeOne, const FGameplayTag& Other, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeTwo) const
 	{
 		bool bResult = false;
@@ -229,7 +236,7 @@ PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	 * 
 	 * @return True if there is a match according to the specified match types; false if not
 	 */
-	DEPRECATED(4.15, "Deprecated in favor of MatchesTag")
+	UE_DEPRECATED(4.15, "Deprecated in favor of MatchesTag")
 	bool ComplexMatches(TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeOne, const FGameplayTag& Other, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeTwo) const;
 
 PRAGMA_ENABLE_DEPRECATION_WARNINGS
@@ -616,13 +623,13 @@ struct GAMEPLAYTAGS_API FGameplayTagContainer
 
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
 
-	DEPRECATED(4.15, "Deprecated in favor of Reset")
+	UE_DEPRECATED(4.15, "Deprecated in favor of Reset")
 		void RemoveAllTags(int32 Slack = 0)
 	{
 		Reset(Slack);
 	}
 
-	DEPRECATED(4.15, "Deprecated in favor of Reset")
+	UE_DEPRECATED(4.15, "Deprecated in favor of Reset")
 		void RemoveAllTagsKeepSlack()
 	{
 		Reset();
@@ -636,7 +643,7 @@ PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	 * 
 	 * @return True if the tag is in the container, false if it is not
 	 */
-	DEPRECATED(4.15, "Deprecated in favor of HasTagExact")
+	UE_DEPRECATED(4.15, "Deprecated in favor of HasTagExact")
 	FORCEINLINE_DEBUGGABLE bool HasTagExplicit(FGameplayTag const& TagToCheck) const
 	{
 		return HasTag(TagToCheck, EGameplayTagMatchType::Explicit, EGameplayTagMatchType::Explicit);
@@ -651,7 +658,7 @@ PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	 * 
 	 * @return True if the tag is in the container, false if it is not
 	 */
-	DEPRECATED(4.15, "Deprecated in favor of HasTag with no parameters")
+	UE_DEPRECATED(4.15, "Deprecated in favor of HasTag with no parameters")
 	FORCEINLINE_DEBUGGABLE bool HasTag(FGameplayTag const& TagToCheck, TEnumAsByte<EGameplayTagMatchType::Type> TagMatchType, TEnumAsByte<EGameplayTagMatchType::Type> TagToCheckMatchType) const
 	{
 		SCOPE_CYCLE_COUNTER(STAT_FGameplayTagContainer_HasTag);
@@ -705,7 +712,7 @@ PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	 *
 	 * @return True if this container has ANY the tags of the passed in container
 	 */
-	DEPRECATED(4.15, "Deprecated in favor of HasAny")
+	UE_DEPRECATED(4.15, "Deprecated in favor of HasAny")
 	FORCEINLINE_DEBUGGABLE bool MatchesAny(const FGameplayTagContainer& Other, bool bCountEmptyAsMatch) const
 	{
 		if (Other.IsEmpty())
@@ -724,7 +731,7 @@ PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	 * 
 	 * @return True if this container has ALL the tags of the passed in container
 	 */
-	DEPRECATED(4.15, "Deprecated in favor of HasAll")
+	UE_DEPRECATED(4.15, "Deprecated in favor of HasAll")
 	FORCEINLINE_DEBUGGABLE bool MatchesAll(const FGameplayTagContainer& Other, bool bCountEmptyAsMatch) const
 	{
 		if (Other.IsEmpty())
@@ -786,7 +793,7 @@ PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	 *
 	 * @return A FGameplayTagContainer containing the filtered tags
 	 */
-	DEPRECATED(4.15, "Deprecated in favor of HasAll")
+	UE_DEPRECATED(4.15, "Deprecated in favor of HasAll")
 	FGameplayTagContainer Filter(const FGameplayTagContainer& OtherContainer, TEnumAsByte<EGameplayTagMatchType::Type> TagMatchType, TEnumAsByte<EGameplayTagMatchType::Type> OtherTagMatchType) const;
 
 PRAGMA_ENABLE_DEPRECATION_WARNINGS

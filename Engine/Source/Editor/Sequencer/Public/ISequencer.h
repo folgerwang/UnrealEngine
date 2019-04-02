@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -188,8 +188,8 @@ public:
 	virtual FMovieSceneSequenceIDRef GetRootTemplateID() const = 0;
 	virtual FMovieSceneSequenceIDRef GetFocusedTemplateID() const = 0;
 
-	/** @return If the currently focused sequence is active in the sequence hierarchy. */
-	virtual bool GetFocusedSequenceIsActive() const = 0;
+	/** Attempt to locate the sub section that relates to the specified sequence ID. */
+	virtual UMovieSceneSubSection* FindSubSection(FMovieSceneSequenceID SequenceID) const = 0;
 
 	TArrayView<TWeakObjectPtr<>> FindObjectsInCurrentSequence(const FGuid& InObjectBinding)
 	{
@@ -224,17 +224,19 @@ public:
 	 *
 	 * @param	Object	The asset, class, or actor to add a spawnable for
 	 * @param	ActorFactory	Optional actor factory to use to create spawnable type
+	 * @param   bSetupDefaults Setup default tracks for this spawnable
 	 * @return	The spawnable guid for the spawnable, or an invalid Guid if we were not able to create a spawnable
 	 */
-	virtual FGuid MakeNewSpawnable(UObject& SourceObject, UActorFactory* ActorFactory = nullptr) = 0;
+	virtual FGuid MakeNewSpawnable(UObject& SourceObject, UActorFactory* ActorFactory = nullptr, bool bSetupDefaults = true) = 0;
 
 	/**
 	 * Add actors as possessable objects to sequencer.
 	 * 
 	 * @param InActors The actors to add to sequencer.
+	 * @param bSelectActors Select the newly added possessable objects in sequencer.
 	 * @return The posssessable guids for the newly added actors.
 	 */
-	virtual TArray<FGuid> AddActors(const TArray<TWeakObjectPtr<AActor> >& InActors) = 0;
+	virtual TArray<FGuid> AddActors(const TArray<TWeakObjectPtr<AActor> >& InActors, bool bSelectActors = true) = 0;
 
 	/**
 	 * Calling this function will add the specified track to the currently selected folder
@@ -293,7 +295,15 @@ public:
 	virtual bool GetAutoSetTrackDefaults() const = 0;
 
 	/** @return Returns whether sequencer will respond to changes and possibly create a key or track */
-	virtual bool IsAllowedToChange() const { return GetAllowEditsMode() != EAllowEditsMode::AllowLevelEditsOnly || GetAutoChangeMode() != EAutoChangeMode::None; }
+	virtual bool IsAllowedToChange() const 
+	{
+		if (GetAllowEditsMode() == EAllowEditsMode::AllowLevelEditsOnly)
+		{
+			return false;
+		}
+
+		return GetAllowEditsMode() != EAllowEditsMode::AllowLevelEditsOnly || GetAutoChangeMode() != EAutoChangeMode::None;
+	}
 
 	/**
 	 * Gets the current time of the time slider relative to the currently focused movie scene
@@ -324,6 +334,9 @@ public:
 
 	/** Forcefully reevaluate the sequence */
 	virtual void ForceEvaluate() = 0;
+
+	/** Reset the timing manager to the clock source specified by the root movie scene */
+	virtual void ResetTimeController() = 0;
 
 	/** @return The current view range */
 	virtual FAnimatedRange GetViewRange() const
@@ -414,9 +427,10 @@ public:
 	 * 
 	 * @param Object The object to get a handle for.
 	 * @param bCreateHandleIfMissing Create a handle if it doesn't exist.
+	 * @param CreatedFolderName - The name of the folder to place the created objects in (if bCreateHandleIfMissing is true).
 	 * @return The handle to the object.
 	 */
-	virtual FGuid GetHandleToObject(UObject* Object, bool bCreateHandleIfMissing = true) = 0;
+	virtual FGuid GetHandleToObject(UObject* Object, bool bCreateHandleIfMissing = true, const FName& CreatedFolderName = NAME_None) = 0;
 
 	/**
 	 * @return Returns the object change listener for sequencer instance
@@ -522,6 +536,9 @@ public:
 
 	/** Getter for sequencer settings */
 	virtual USequencerSettings* GetSequencerSettings() = 0;
+
+	/** Setter for sequencer settings */
+	virtual void SetSequencerSettings(USequencerSettings*) = 0;
 
 	/** Attempt to find a spawned object in the currently focused movie scene, or the template object for the specified binding ID, if possible */
 	virtual UObject* FindSpawnedObjectOrTemplate(const FGuid& BindingId) = 0;

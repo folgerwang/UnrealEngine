@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -54,3 +54,4 @@ inline long long GetTimeInMiliseconds()
 #endif	// WIN32
 #endif	// ENABLE_TIMING
 
+extern void dprintf_free();

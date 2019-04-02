@@ -1,11 +1,13 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "ProxyLODMeshTypes.h"
 #include "ProxyLODThreadedWrappers.h"
 
+THIRD_PARTY_INCLUDES_START
 #include <openvdb/openvdb.h>
+THIRD_PARTY_INCLUDES_END
 
 namespace ProxyLOD
 {
@@ -19,7 +21,7 @@ namespace ProxyLOD
 	* @param  SrcPolyField  The closest poly field derived from the high poly src mesh
 	* @param  InOutMesh     The target raw mesh.  Only the wedge colors on this target are updated.
 	*/
-	void TransferVertexColors(const FClosestPolyField& SrcPolyField, FRawMesh& InOutMesh);
+	void TransferVertexColors(const FClosestPolyField& SrcPolyField, FMeshDescription& InOutMesh);
 
 	
 	/**
@@ -59,7 +61,7 @@ namespace ProxyLOD
 	* @param  SrcPolyField  The closest poly field derived from the high poly src mesh
 	* @param  InOutMesh     The target low poly mesh.  Only the position is updated.
 	*/
-	void ProjectVertexWithSnapToNearest( const FClosestPolyField& SrcPolyField, FRawMesh& InOutMesh );
+	void ProjectVertexWithSnapToNearest( const FClosestPolyField& SrcPolyField, FMeshDescription& InOutMesh );
 	void ProjectVertexWithSnapToNearest( const FClosestPolyField& SrcPolyField, FAOSMesh& InOutMesh );
 	void ProjectVertexWithSnapToNearest( const FClosestPolyField& SrcPolyField, FVertexDataMesh& InOutMesh);
 
@@ -75,7 +77,7 @@ namespace ProxyLOD
 	* @param  SrcPolyField  The closest poly field derived from the high poly src mesh
 	* @param  InOutMesh     The target low poly mesh.  Only the position is updated.
 	*/
-	void ProjectVertexOntoSrcSurface( const FClosestPolyField& SrcPolyField, FRawMesh& InOutMesh );
+	void ProjectVertexOntoSrcSurface( const FClosestPolyField& SrcPolyField, FMeshDescription& InOutMesh );
 	void ProjectVertexOntoSrcSurface( const FClosestPolyField& SrcPolyField, FAOSMesh& InOutMesh );
 	void ProjectVertexOntoSrcSurface( const FClosestPolyField& SrcPolyField, FVertexDataMesh& InOutMesh );
 
@@ -92,7 +94,7 @@ namespace ProxyLOD
 	* @param  SrcPolyField  The closest poly field derived from the high poly src mesh
 	* @param  InOutMesh     The target low poly mesh.
 	*/
-	void TransferMeshAttributes(const FClosestPolyField& SrcPolyField, FRawMesh& InOutMesh);
+	void TransferMeshAttributes(const FClosestPolyField& SrcPolyField, FMeshDescription& InOutMesh);
 
 }
 

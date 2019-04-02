@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SourceCodeNavigation.h"
@@ -35,10 +35,12 @@
 	#include <psapi.h>
 #include "Windows/HideWindowsPlatformTypes.h"
 #elif PLATFORM_MAC
+#include "Apple/PreAppleSystemHeaders.h"
 #include <mach-o/dyld.h>
 #include <mach-o/nlist.h>
 #include <mach-o/stab.h>
 #include <cxxabi.h>
+#include "Apple/PostAppleSystemHeaders.h"
 #include "Apple/ApplePlatformSymbolication.h"
 #endif
 #include "Framework/Notifications/NotificationManager.h"
@@ -498,7 +500,7 @@ void FSourceCodeNavigationImpl::NavigateToFunctionSource( const FString& Functio
 				SourceLineNumber = FileAndLineInfo.LineNumber;
 			}
 
-			UE_LOG(LogSelectionDetails, Warning, TEXT( "NavigateToFunctionSource:  Found symbols for [%s] - File [%s], Line [%i], Column [%i]" ),
+			UE_LOG(LogSelectionDetails, Verbose, TEXT( "NavigateToFunctionSource:  Found symbols for [%s] - File [%s], Line [%i], Column [%i]" ),
 				*FunctionSymbolName,
 				*SourceFileName,
 				(uint32)FileAndLineInfo.LineNumber,
@@ -1724,7 +1726,7 @@ void FSourceCodeNavigation::RefreshCompilerAvailability()
 	ISourceCodeAccessModule& SourceCodeAccessModule = FModuleManager::LoadModuleChecked<ISourceCodeAccessModule>("SourceCodeAccess");
 	SourceCodeAccessModule.GetAccessor().RefreshAvailability();
 
-	bCachedIsCompilerAvailable = SourceCodeAccessModule.GetAccessor().CanAccessSourceCode();
+	bCachedIsCompilerAvailable = SourceCodeAccessModule.CanCompileSourceCode();
 }
 
 bool FSourceCodeNavigation::OpenSourceFile( const FString& AbsoluteSourcePath, int32 LineNumber, int32 ColumnNumber )

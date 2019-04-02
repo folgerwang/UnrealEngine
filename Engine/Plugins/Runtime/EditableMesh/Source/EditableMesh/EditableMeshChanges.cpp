@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "EditableMeshChanges.h"
 #include "EditableMesh.h"
@@ -163,6 +163,22 @@ FString FDeletePolygonsChange::ToString() const
 		*LogHelpers::BoolToString( Input.bDeleteEmptySections ) );
 }
 
+TUniquePtr<FChange> FFlipPolygonsChange::Execute( UObject* Object )
+{
+	UEditableMesh* EditableMesh = CastChecked<UEditableMesh>( Object );
+	verify( !EditableMesh->AnyChangesToUndo() );
+
+	EditableMesh->FlipPolygons( Input.PolygonIDsToFlip );
+	return EditableMesh->MakeUndo();
+}
+
+
+FString FFlipPolygonsChange::ToString() const
+{
+	return FString::Printf(
+		TEXT( "Flip Polygons [PolygonIDsToFlip:%s]" ),
+		*LogHelpers::ArrayToString( Input.PolygonIDsToFlip ) );
+}
 
 TUniquePtr<FChange> FSetVerticesAttributesChange::Execute( UObject* Object )
 {

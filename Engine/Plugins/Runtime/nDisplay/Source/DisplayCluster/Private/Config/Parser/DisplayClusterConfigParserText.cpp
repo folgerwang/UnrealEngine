@@ -1,6 +1,6 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "DisplayClusterConfigParserText.h"
+#include "Config/Parser/DisplayClusterConfigParserText.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Misc/DisplayClusterLog.h"
@@ -47,9 +47,17 @@ void FDisplayClusterConfigParserText::ParseLine(const FString& line)
 	{
 		// Skip this line
 	}
+	else if (line.StartsWith(FString(DisplayClusterStrings::cfg::data::info::Header)))
+	{
+		AddInfo(impl_parse<FDisplayClusterConfigInfo>(line));
+	}
 	else if (line.StartsWith(FString(DisplayClusterStrings::cfg::data::cluster::Header)))
 	{
 		AddClusterNode(impl_parse<FDisplayClusterConfigClusterNode>(line));
+	}
+	else if (line.StartsWith(FString(DisplayClusterStrings::cfg::data::window::Header)))
+	{
+		AddWindow(impl_parse<FDisplayClusterConfigWindow>(line));
 	}
 	else if (line.StartsWith(FString(DisplayClusterStrings::cfg::data::screen::Header)))
 	{
@@ -79,6 +87,10 @@ void FDisplayClusterConfigParserText::ParseLine(const FString& line)
 	{
 		AddStereo(impl_parse<FDisplayClusterConfigStereo>(line));
 	}
+	else if (line.StartsWith(FString(DisplayClusterStrings::cfg::data::network::Header)))
+	{
+		AddNetwork(impl_parse<FDisplayClusterConfigNetwork>(line));
+	}
 	else if (line.StartsWith(FString(DisplayClusterStrings::cfg::data::debug::Header)))
 	{
 		AddDebug(impl_parse<FDisplayClusterConfigDebug>(line));
@@ -86,6 +98,10 @@ void FDisplayClusterConfigParserText::ParseLine(const FString& line)
 	else if (line.StartsWith(FString(DisplayClusterStrings::cfg::data::input::Header)))
 	{
 		AddInput(impl_parse<FDisplayClusterConfigInput>(line));
+	}
+	else if (line.StartsWith(FString(DisplayClusterStrings::cfg::data::inputsetup::Header)))
+	{
+		AddInputSetup(impl_parse<FDisplayClusterConfigInputSetup>(line));
 	}
 	else if (line.StartsWith(FString(DisplayClusterStrings::cfg::data::custom::Header)))
 	{

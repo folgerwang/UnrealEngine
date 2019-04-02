@@ -1,7 +1,8 @@
-﻿Availability: Public
-Title:3.2 - 光源函数
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:3.2 - 光源函数（3.2 - Light Functions）
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Lighting
-Description:光照示例关卡的概述,示例3.2: 光源函数
+Description:光照示例关卡概述，示例3.2：光源函数（Light Functions）
 Related: Engine/Rendering/LightingAndShadows/LightFunctions
 Related: Engine/Rendering/LightingAndShadows/Basics
 Related: Engine/Rendering/LightingAndShadows/LightTypes/Point
@@ -12,6 +13,23 @@ Related: Engine/Rendering/LightingAndShadows/Lightmass
 Related: Engine/Rendering/LightingAndShadows/Shadows
 Related: Engine/Rendering/LightingAndShadows/IndirectLightingCache
 Related: Engine/Rendering/LightingAndShadows/LightMobility
+Version: 4.9
+
+[VAR:Steps]
+[OBJECT:Navigation]
+	[PARAM:previous]
+		[上一个示例](Resources/ContentExamples/Lighting/3_1 "%Resources/ContentExamples/Lighting/3_1:title%")
+	[/PARAM]
+	[PARAM:current]
+	[/PARAM]
+	[PARAM:home]
+		[光照主页](Resources/ContentExamples/Lighting)
+	[/PARAM]
+	[PARAM:next]
+	[/PARAM]
+[/OBJECT]
+[/VAR]
+
 
 
 [VAR:Topic]
@@ -41,7 +59,7 @@ Related: Engine/Rendering/LightingAndShadows/LightMobility
 
 [INCLUDE:Engine/Rendering/LightingAndShadows/LightFunctions#LightFunctions]
 
-由于您主要使用光源函数来变更光源的总体形状，您有可能会将其与我们在[示例 3.1](Resources\ContentExamples\Lighting\3_1)中谈到的IES参数相混淆。相比较来说，IES参数计算时需要的系统性能要少得多，因此在有可能的情况下，应尽量使用它而非光源函数。
+由于你主要使用光源函数更改光线的总体形态，有可能会把它们与[示例3.1](Resources\ContentExamples\Lighting\3_1)中展示的IES描述文件混淆。但是，计算IES描述文件的系统开销明显更低，因此应尽量使用它们而非光源函数。
 
 
 

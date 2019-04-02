@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Internationalization/PolyglotTextData.h"
 #include "Internationalization/TextLocalizationManager.h"
@@ -155,6 +155,16 @@ bool FPolyglotTextData::GetLocalizedString(const FString& InCulture, FString& Ou
 void FPolyglotTextData::ClearLocalizedStrings()
 {
 	LocalizedStrings.Reset();
+}
+
+void FPolyglotTextData::IsMinimalPatch(const bool InIsMinimalPatch)
+{
+	bIsMinimalPatch = InIsMinimalPatch;
+}
+
+bool FPolyglotTextData::IsMinimalPatch() const
+{
+	return bIsMinimalPatch;
 }
 
 FText FPolyglotTextData::GetText() const

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.Collections.Generic;
@@ -11,12 +11,11 @@ public class UnrealPakTarget : TargetRules
 		LinkType = TargetLinkType.Modular;
 		LaunchModuleName = "UnrealPak";
 
-		bCompileLeanAndMeanUE = true;
+		bBuildDeveloperTools = false;
 		bUseMallocProfiler = false;
 		bCompileWithPluginSupport = true;
+		bIncludePluginsForTargetPlatforms = true;
 
-		// No editor needed
-		bBuildEditor = false;
 		// Editor-only data, however, is needed
 		bBuildWithEditorOnlyData = true;
 

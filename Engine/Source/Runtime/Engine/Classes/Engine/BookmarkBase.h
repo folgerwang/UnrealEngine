@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -28,4 +28,12 @@ class ENGINE_API UBookmarkBase : public UObject
 
 public:
 
+	/**
+	 * Called when a bookmark is cleared.
+	 */
+	virtual void OnCleared()
+	{
+		Modify();
+		MarkPendingKill();
+	}
 };

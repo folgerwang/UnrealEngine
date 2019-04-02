@@ -1,0 +1,102 @@
+Availability: Public
+Crumbs: 
+Title: Balancing Blueprint and C++
+Description: Describe how to make a combination Blueprint/C++ game, and decisions you might make along the way.
+Version: 4.20
+Parent: Resources/SampleGames/ARPG
+Order: 2
+Tags:
+topic-image:BalancingBlueprintandC++TopicImage_01.png
+Prereq: Programming/Tutorials/FirstPersonShooter
+Prereq: Programming/Introduction  
+
+When creating the overall technical design for a game, one of the primary questions is going to be what should be implemented in Blueprints, and what should be implemented in C++? The goal of this document is to discuss how you go about answering these types of questions and to give you advice on building robust data-driven gameplay systems. This document is designed for programmers or technical designers who have read basic programming documentation and are interested in learning more. There is no single “right way” to architect a game, but this document is designed to help you ask the right questions. 
+
+## Gameplay Logic and Data
+
+Broadly speaking, things in a game can be divided into **Logic** and **Data**. The gameplay logic are the **instructions** and **structure** followed by parts of your game, while gameplay data is used by the logic and describes what the game does. Sometimes this split is apparent, where the C++ code to draw a character on screen is clearly logic-based while the character’s physical appearance is clearly data-based. But, in practice, these categories blend together which can introduce complexity to your project and it’s important to understand the distinction and what your options are.
+
+Inside Unreal Engine 4 (UE4) you have a few options for implementing gameplay logic:  
+
+*   **C++ Classes:** Variables and functions are defined in C++ and implement the base gameplay logic.
+*   **Blueprint Classes:** Logic can be implemented in the [Event Graph](Engine/Animation/AnimBlueprints/EventGraph) of **Blueprints**, or in **Functions** called from those graphs. Additional variables can also be added.  
+    
+*   **Custom Systems:** Many systems and games have small “micro languages” that describe some aspect of gameplay logic. The UE4 [Materials Editor](Engine/Rendering/Materials/Editor), [Sequencer Tracks](Engine/Sequencer), and [AI Behavior Trees](Gameplay/AI) are all examples of custom systems for storing gameplay logic.  
+    
+
+For Data you have more options:
+
+*   **C++ Classes:** Native class constructors set default values and support data inheritance. Data can also be hard-coded into function local variables, but this is hard to track.
+*   **Config Files:** Ini files and [Console Variables](Programming/Development/Tools/ConsoleManager) support overriding data declared in C++ constructors or can be queried directly.  
+    
+*   **Blueprint Classes:** Blueprint class defaults work similarly to C++ class constructors and support data inheritance. Data can also be safely set in function local variables or pin literal values.  
+    
+*   **Data Assets:** For objects that cannot be instanced and do not need data inheritance, standalone Data Assets are more straightforward to use than Blueprint Defaults.  
+    
+*   **Tables:** Data can be imported as [Data Tables](Gameplay/DataDriven), Curve Tables, or read as runtime.
+*   **Placed Instances:** Data can be stored in instances of Blueprint or C++ classes set inside levels or other assets and will override the class defaults.
+*   **Custom Systems:** As with logic, there are many custom ways of storing data.  
+    **Save Games:** Runtime save game files can be used to override or modify the data types above.
+    
+
+In general, the derived options farther down these lists will override and extend the base level options above them. Because of this, it is hard for base level systems to access and use things defined by the extended systems. For instance, accessing a variable added by a Blueprint Class from a C++ Class is very difficult and should be discouraged. To avoid problems like this, you should define functions and variables at the most base level where it will be commonly accessed. For Logic, it may make sense to implement it entirely at the base level, or you can leave a stub function at the base level and override it at a more derived level.
+
+The rules for Data are more complicated and system-specific because there are more possibilities and deeper inheritance is more common. You need to provide default values for variables at the level they were defined, and any of the more derived levels can override those. It is also common to write logic to copy data from one object into another object, depending on custom rules. Some of the more common issues with Data architecture are described below.  
+
+## C++ vs Blueprints
+
+From the lists above you’ll note that either C++ or Blueprint classes can be used to store Logic and Data. Due to this flexibility, most gameplay systems will be implemented in one or the other (or in some combination). Because every game and development team is unique, there is no “right choice” when deciding what to use, but here are some general guidelines to help you decide whether to use C++ or Blueprint:
+
+**C++ Class Advantages**  
+
+*   **Faster runtime performance**: Generally C++ logic is significantly quicker than Blueprint logic, for reasons described below.
+*   **Explicit Design**: When exposing variables or functions from C++ you have more control over exposing precisely what you want, so you can protect specific functions/variables and build a formal “API” for your class. This allows you to avoid creating overly large and hard to follow Blueprints.
+*   **Broader Access**: Functions and variables defined in C++ (and exposed correctly) can be accessed from all other systems, making it perfect for passing information between different systems. Also, C++  has more engine functionality exposed to it than Blueprints.
+*   **More Data Control**: C++ has access to more specific functionality when it comes to loading and saving data. This allows you to handle version changes and serialization in a very custom way.
+*   **Network Replication**: Replication support in Blueprints is straightforward and is designed to be used in smaller games or for unique one-off Actors. If you need tight control over replication bandwidth or timing you will need to use C++.
+*   **Better For Math**: Doing complicated math can be difficult and somewhat slow in Blueprints, so consider C++ for math-heavy operations.
+*   **Easier to Diff/Merge**: C++ code and data (as well as config and possibly custom solutions) is stored as text, which makes working in multiple branches simultaneously easier.
+
+**Blueprint Class Advantages**
+
+*   **Faster Creation**: For most people creating a new Blueprint class and adding variables and functions is quicker than doing something similar in C++, so prototyping brand new systems is often faster in Blueprint.
+*   **Faster Iteration**: It is much quicker to modify Blueprint logic and preview inside the editor than it is to recompile the game, although hot reload can help. This is true for both mature and new systems so all “tweakable” values should be stored in assets if possible.
+*   **Better For Flow**: It can be complicated to visualize “game flow” in C++, so it is often better to implement that in Blueprints (or in custom systems like Behavior Trees that are designed for this). Delay and async nodes make it much easier to follow flow than using C++ delegates.
+*   **Flexible Editing**: Designers and artists without specific technical training can create and edit Blueprints, which makes Blueprints ideal for assets that need to be modified by more than just engineers.
+*   **Easier Data Usage**: Because storing data inside Blueprint classes is much simpler and safer than inside C++ classes; Blueprints are suitable for classes that closely mix Data and Logic.
+
+## Converting From Blueprints to C++
+
+Since Blueprints are easier to create and iterate on, it is common to build prototypes in Blueprint and then move some or all of that functionality into C++. You generally want to do this when you’re at a “refactor point” where you’ve proven out the base functionality of a system and want to “solidify” it so other people can use it without breaking. At this point, you will want to decide which classes, functions, and variables should move to C++ and which should stay in Blueprint. Before making that decision, it’s good to understand the process that you need to go through to refactor things into C++.
+
+Generally, the first step is to create a set of “Base” C++ classes that your Blueprint classes will inherit from. Once you have created the base native classes for your game, you will need to reparent any prototype Blueprints to your new native classes. Once you have done this, you can start moving variables and functions from your Blueprint classes into native C++. If a variable or function in your native class is the same type and name as the Blueprint variable, references to it should automatically convert when loading the Blueprint. However, you may want to change external references to the Blueprints to instead point to the native base classes. As an example, while working on the ActionRPG sample, we added this block to the **DefaultEngine.ini** file:  
+
+~~~
+[CoreRedirects]
++ClassRedirects=(OldName="BP_Item_C", NewName="/Script/ActionRPG.RPGItem", OverrideClassName="/Script/CoreUObject.Class")
++ClassRedirects=(OldName="BP_Item_Potion_C", NewName="/Script/ActionRPG.RPGPotionItem", OverrideClassName="/Script/CoreUObject.Class")
++ClassRedirects=(OldName="BP_Item_Skill_C", NewName="/Script/ActionRPG.RPGSkillItem", OverrideClassName="/Script/CoreUObject.Class")
++ClassRedirects=(OldName="BP_Item_Weapon_C", NewName="/Script/ActionRPG.RPGWeaponItem", OverrideClassName="/Script/CoreUObject.Class")
+~~~
+
+The above code block uses the [Core Redirects](Programming/Assets/CoreRedirects) system to convert all references to the **Blueprint BP Item C** to instead reference the new native class RPGItem. The **OverrideClassName** option is required because it needs to know that it is now a **UClass** instead of a **UBlueprintGeneratedClass**. After the initial reparenting and fixups you will need to fix any lingering Blueprint compile issues and resave all Blueprints in the game. The goal is to complete a refactor with **zero** Blueprint warnings, so it is easier to track when new issues are added.Once things are fully working, you can then remove any **CoreRedirects** added during the fix-up process and clean up the ini files.
+
+## Performance Concerns
+
+One of the primary reasons to use C++ over Blueprints is performance. However, in many cases, Blueprint performance is not a problem in practice. Broadly, the main difference is that executing each individual node in a Blueprint is slower than executing a line of C++ code, but once execution is inside a node, it’s just as fast as if it had been called from C++. For example, if your Blueprint class has a few cheap top-level nodes and then calls an expensive Physics Trace function, converting that class to C++ will not improve performance significantly. But, if your Blueprint class has a lot of tight for loops or lots of nested macros that expand into hundreds of nodes, then you should think about moving that code to C++. One of the most critical performance problems will be Tick functions. Executing a Blueprint tick can be much slower than a native tick, and you should avoid tick entirely for any class that has many instances. Instead, you should use timers or delegates to have your Blueprint class only do work when it needs to.
+
+The best way to find out if your Blueprint classes are causing performance problems is to use the [Profiler Tool](Engine/Performance/Profiler). To see where performance is going in your project, first create a situation where your Blueprint classes are heavily stressing performance (such as spawning a bunch of enemies), then capture a profile using the Profiler tool. Using the Profiler tool, you can dive into the **Game Thread Tick **and expand the tree until you find individual Blueprint classes (it may group all instances of the same class together, so keep that in mind). Inside the Blueprint classes, you can see the Blueprint function that is taking time, and expand that. If most of the time is in **Self**, then you are losing performance due to Blueprint overhead. But, if most of the time is in other native events nested inside the function, then your Blueprint overhead is not a problem.  
+
+[Blueprint Nativization](Engine/Blueprints/TechnicalGuide/NativizingBlueprints) can be used to mitigate many of these concerns, but it does have some drawbacks. First, it changes your cook workflow which can slow down iteration on cooked games. Also, the runtime logic for nativized Blueprints is different than for normal Blueprints so you may see different bugs or behavior depending on the specifics of your game. Most Blueprint features are fully supported in nativization, but some obscure ones may not be. Finally, the performance improvement will not necessarily be as significant as if you had converted it to C++ yourself. Nativization may not solve all of your performance issues, but it should be investigated as a potential solution to performance issues.
+
+## Architecture Notes
+
+When building a game that combines Blueprints and C++, you will run into challenges as your game becomes more extensive and more complicated. Here are some things to keep in mind as a project starts to grow:
+
+*   **Avoid Casting to Expensive Blueprints**: Whenever you cast to a Blueprint class **BP_A** (or declare it as a variable type on a function or other Blueprint) from **BP_B** it creates a load dependency on that Blueprint. Then if **BP_A** references four large Static Meshes and 20 sounds, every time you load **BP_B** it will have to load four large Static Meshes and 20 sounds, even if the cast would fail. This is one of the primary reasons it’s essential to have either native base classes or minimal Blueprint base classes that define the important functions and variables. Then, you should make your expensive Blueprints as child classes.
+*   **Avoid Cyclical Blueprint References**: Cyclical references (where a class references another class, which references the first class) are not a problem in C++ because of header files. But, excessive cyclical Blueprint references can make editor load and compile time worse. Similar to the above point, this can be improved by casting to C++ classes or cheaper Base Blueprint classes instead of doing casts (or having variable references) to expensive child Blueprints.
+*   **Avoid Referencing Assets from C++ classes**: It is possible to reference assets from C++ constructors using **FObjectFinder** and **FClassFinder**, but it should be avoided when possible. Assets referenced this way are loaded at project startup, so they will cause load time and memory issues if the references are not actually needed. Also, assets referenced from constructors cannot be easily deleted or renamed. Generally, it’s a good idea to create some “**Game** **Data**” assets or Blueprint types and load them using the asset manager or config file instead of referencing specific Static Meshes from C++.
+*   **Avoid Referencing Assets by String**: To avoid issues with loading assets from C++ classes it is possible to use functions like **LoadObject** from C++ functions to manually load a specific asset on disk. However these references are completely untracked by the cooker so could can cause problems in packaged games. Instead, you should use **FSoftObjectPath** or **TSoftObjectPtr** types in your C++ classes, set them from ini or Blueprint classes, and then load them on demand or via async loading.
+*   **Be careful with user Structs and Enums**: Enums and structs that are defined in C++ can be used both by C++ and Blueprints, but user structs/enums cannot be used in C++ and also cannot be manually fixed up as described in the save game section. Because you may want to move more of your gameplay logic to C++ over time we recommend implementing critical enums and structs in C++. Basically, if more than one or two Blueprints use something, it should probably be implemented in native C++.
+*   **Think about Network Architecture**: The specific network architecture of your game will have a substantial effect on the way you architect your classes. Generally, prototypes are not built with networking in mind, so when you start refactoring things to be “real” you need to think about what Actors are going to be replicating what data. You may need to make decisions that make things harder to iterate on in order to create a good flow for replicated data.
+*   **Think about Async Loading:** As your game grows larger you will want to load assets on demand instead of loading everything up front when the game loads. Once you reach this point, you will need to start converting things to use **Soft references** or **PrimaryAssetIds** instead of **Hard references.** The **AssetManager** provides several functions to make it easier to async load assets and also exposes a **StreamableManager** that offers lower level functions.

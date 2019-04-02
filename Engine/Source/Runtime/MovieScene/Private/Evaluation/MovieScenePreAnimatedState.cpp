@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Evaluation/MovieScenePreAnimatedState.h"
 
@@ -250,6 +250,24 @@ bool TMovieSceneSavedTokens<TokenType>::RestoreEntity(IMovieScenePlayer& Player,
 }
 
 template<typename TokenType>
+void TMovieSceneSavedTokens<TokenType>::DiscardEntityTokens()
+{
+	// Order does not matter here since we are not actually applying any state change to the playback context
+	for (TPreAnimatedToken<TokenType>& Token : PreAnimatedTokens)
+	{
+		// If Token.OptionalEntityToken exists, we throw it away since this relates to entity pre-animated state specifically
+		// If Token.OptionalEntityToken does not exist, then Token.Token relates to both entity and global state, so we just reset
+		// the ref count such that the token becomes global state only
+
+		// Discard the entity token without restoring its value
+		Token.OptionalEntityToken.Reset();
+
+		// Reset the entity count on the token
+		Token.EntityRefCount = 0;
+	}
+}
+
+template<typename TokenType>
 void TMovieSceneSavedTokens<TokenType>::Reset()
 {
 	AnimatedEntities.Reset();
@@ -320,6 +338,16 @@ void FMovieScenePreAnimatedState::RestorePreAnimatedStateImpl(IMovieScenePlayer&
 	{
 		EntityToAnimatedObjects.Remove(Key);
 	}
+}
+
+void FMovieScenePreAnimatedState::DiscardEntityTokens()
+{
+	for (auto& Pair : ObjectTokens)
+	{
+		Pair.Value.DiscardEntityTokens();
+	}
+
+	MasterTokens.DiscardEntityTokens();
 }
 
 /** Explicit, exported template instantiations */

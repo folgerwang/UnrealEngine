@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "WmfMediaTracks.h"
 #include "WmfMediaPrivate.h"
@@ -17,12 +17,17 @@
 	#include "Engine/Engine.h"
 #endif
 
+#include "Player/WmfMediaTextureSample.h"
+
 #include "WmfMediaAudioSample.h"
 #include "WmfMediaBinarySample.h"
+#include "WmfMediaHardwareVideoDecodingTextureSample.h"
 #include "WmfMediaOverlaySample.h"
 #include "WmfMediaSampler.h"
 #include "WmfMediaSettings.h"
-#include "WmfMediaTextureSample.h"
+#include "WmfMediaSink.h"
+#include "WmfMediaStreamSink.h"
+#include "WmfMediaTopologyLoader.h"
 #include "WmfMediaUtils.h"
 
 #include "Windows/AllowWindowsPlatformTypes.h"
@@ -43,8 +48,9 @@ FWmfMediaTracks::FWmfMediaTracks()
 	, SelectedMetadataTrack(INDEX_NONE)
 	, SelectedVideoTrack(INDEX_NONE)
 	, SelectionChanged(false)
-	, VideoSamplePool(new FWmfMediaTextureSamplePool)
-{ }
+	, VideoSamplePool(nullptr)
+	, VideoHardwareVideoDecodingSamplePool(nullptr)
+{}
 
 
 FWmfMediaTracks::~FWmfMediaTracks()
@@ -56,6 +62,10 @@ FWmfMediaTracks::~FWmfMediaTracks()
 
 	delete VideoSamplePool;
 	VideoSamplePool = nullptr;
+
+	delete VideoHardwareVideoDecodingSamplePool;
+	VideoHardwareVideoDecodingSamplePool = nullptr;
+
 }
 
 
@@ -168,6 +178,14 @@ TComPtr<IMFTopology> FWmfMediaTracks::CreateTopology()
 	}
 
 	UE_LOG(LogWmfMedia, Verbose, TEXT("Tracks %p: Created playback topology %p (media source %p)"), this, Topology.Get(), MediaSource.Get());
+
+	if (GetDefault<UWmfMediaSettings>()->HardwareAcceleratedVideoDecoding)
+	{
+		WmfMediaTopologyLoader MediaTopologyLoader;
+		bool bHardwareAccelerated = MediaTopologyLoader.IsHardwareAccelerated(Topology);
+		UE_LOG(LogWmfMedia, Verbose, TEXT("Tracks %p: Video (media source %p) will be decoded on %s"), this, MediaSource.Get(), bHardwareAccelerated ? "GPU" : "CPU");
+		Info += FString::Printf(TEXT("Video decoded on %s\n"), bHardwareAccelerated ? TEXT("GPU") : TEXT("CPU"));
+	}
 
 	return Topology;
 }
@@ -304,7 +322,14 @@ void FWmfMediaTracks::Shutdown()
 	FScopeLock Lock(&CriticalSection);
 
 	AudioSamplePool->Reset();
-	VideoSamplePool->Reset();
+	if (VideoSamplePool)
+	{
+		VideoSamplePool->Reset();
+	}
+	if (VideoHardwareVideoDecodingSamplePool)
+	{
+		VideoHardwareVideoDecodingSamplePool->Reset();
+	}
 
 	SelectedAudioTrack = INDEX_NONE;
 	SelectedCaptionTrack = INDEX_NONE;
@@ -907,7 +932,7 @@ bool FWmfMediaTracks::SetVideoTrackFrameRate(int32 TrackIndex, int32 FormatIndex
 /* FWmfMediaTracks implementation
  *****************************************************************************/
 
-bool FWmfMediaTracks::AddTrackToTopology(const FTrack& Track, IMFTopology& Topology) const
+bool FWmfMediaTracks::AddTrackToTopology(const FTrack& Track, IMFTopology& Topology)
 {
 	// skip if no format selected
 	if (!Track.Formats.IsValidIndex(Track.SelectedFormat))
@@ -1044,14 +1069,49 @@ bool FWmfMediaTracks::AddTrackToTopology(const FTrack& Track, IMFTopology& Topol
 	// set up output node
 	TComPtr<IMFTopologyNode> OutputNode;
 
-	if (FAILED(::MFCreateTopologyNode(MF_TOPOLOGY_OUTPUT_NODE, &OutputNode)) ||
-		FAILED(OutputNode->SetObject(OutputActivator)) ||
-		FAILED(OutputNode->SetUINT32(MF_TOPONODE_STREAMID, 0)) ||
-		FAILED(OutputNode->SetUINT32(MF_TOPONODE_NOSHUTDOWN_ON_REMOVE, FALSE)) ||
-		FAILED(Topology.AddNode(OutputNode)))
+	// Hardware Acccelerated Stream Sink
+	TComPtr<FWmfMediaStreamSink> MediaStreamSink;
+
+	if ((GEngine != nullptr) && 
+		GetDefault<UWmfMediaSettings>()->HardwareAcceleratedVideoDecoding &&
+		MajorType == MFMediaType_Video &&
+		FWmfMediaStreamSink::Create(MFMediaType_Video, MediaStreamSink))
 	{
-		UE_LOG(LogWmfMedia, Verbose, TEXT("Tracks %p: Failed to configure output node for stream %i"), this, Track.StreamIndex);
-		return false;
+		if (VideoHardwareVideoDecodingSamplePool)
+		{
+			delete VideoHardwareVideoDecodingSamplePool;
+		}
+
+		VideoHardwareVideoDecodingSamplePool = new FWmfMediaHardwareVideoDecodingTextureSamplePool();
+
+		MediaStreamSink->SetMediaSamplePoolAndQueue(VideoHardwareVideoDecodingSamplePool, &VideoSampleQueue);
+
+		if (FAILED(::MFCreateTopologyNode(MF_TOPOLOGY_OUTPUT_NODE, &OutputNode)) ||
+			FAILED(OutputNode->SetObject((IMFStreamSink*)MediaStreamSink)) ||
+			FAILED(OutputNode->SetUINT32(MF_TOPONODE_STREAMID, 0)) ||
+			FAILED(OutputNode->SetUINT32(MF_TOPONODE_NOSHUTDOWN_ON_REMOVE, FALSE)) ||
+			FAILED(Topology.AddNode(OutputNode)))
+		{
+			UE_LOG(LogWmfMedia, Verbose, TEXT("Tracks %p: Failed to configure output node for stream %i"), this, Track.StreamIndex);
+			return false;
+		}
+	}
+	else
+	{
+		if (VideoSamplePool)
+		{
+			delete VideoSamplePool;
+		}
+		VideoSamplePool = new FWmfMediaTextureSamplePool();
+
+		if (FAILED(::MFCreateTopologyNode(MF_TOPOLOGY_OUTPUT_NODE, &OutputNode)) ||
+			FAILED(OutputNode->SetObject(OutputActivator)) ||
+			FAILED(OutputNode->SetUINT32(MF_TOPONODE_STREAMID, 0)) ||
+			FAILED(Topology.AddNode(OutputNode)))
+		{
+			UE_LOG(LogWmfMedia, Verbose, TEXT("Tracks %p: Failed to configure output node for stream %i"), this, Track.StreamIndex);
+			return false;
+		}
 	}
 
 	// set up source node

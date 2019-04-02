@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -27,6 +27,8 @@ public:
 
 	virtual FString GetMovieName() override;
 	virtual bool IsLastMovieInPlaylist() override;
+	virtual void Suspend() override;
+	virtual void Resume() override;
 
 	FOnCurrentMovieClipFinished OnCurrentMovieClipFinishedDelegate;
 	virtual FOnCurrentMovieClipFinished& OnCurrentMovieClipFinished() override { return OnCurrentMovieClipFinishedDelegate; }
@@ -47,7 +49,6 @@ private:
 	/** Texture and viewport data for displaying to Slate */
 	TSharedPtr<FMovieViewport> MovieViewport;
 
-    TSharedPtr<FSlateTextureData, ESPMode::ThreadSafe> TextureData;
     TSharedPtr<FSlateTexture2DRHIRef, ESPMode::ThreadSafe> Texture;
 
     // The list of pending movies
@@ -61,6 +62,8 @@ private:
     AVAssetTrack*               AVVideoTrack;
     CMSampleBufferRef           LatestSamples;
 
+	FString MovieName;
+
     // AV Synchronization
     float                       VideoRate;
     int                         SyncStatus;
@@ -69,6 +72,9 @@ private:
 
     bool                        bVideoTracksLoaded;
     bool                        bWasActive;
+
+	bool						bIsMovieInterrupted;
+	CMTime						ResumeTime;
 
 	FCriticalSection			VideoTracksLoadingLock;
 
@@ -85,4 +91,7 @@ private:
 
     bool CheckForNextFrameAndCopy();
 
+	void ReleaseMovie();
+
+	bool LoadMovieAsync(FString MovieName);
 };

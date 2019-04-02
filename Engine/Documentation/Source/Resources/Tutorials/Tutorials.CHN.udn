@@ -1,18 +1,18 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3108692
 Availability: NoPublish
-Title:Tutorials
+Title:教程
 Crumbs:%ROOT%, Resources
-Description:Collection of tutorials for developers working with Unreal Engine.
+Description:关于开发者如何使用虚幻引擎工作的教程集锦。
 
 [EXCERPT:Tutorials] 
 [REGION:fullwidth]
 [![](FPS_Tutorial_banner.png)](Resources/Tutorials)
 [/REGION]
 
-**Tutorials** are step-by-step walkthroughs with images and text aimed at guiding you through following along with your own project. 
-Current tutorials include Blueprint tutorials where you can create gameplay elements like doors, lifts, and power-ups, as well as 
-an intensive C++ tutorial where you start with a completely blank project and code the beginnings of a first-person shooter game.    
+ **教程（Tutorials）** 是使用图像和文本进行的分步演练，旨在指导您完成自己的项目。 
+目前的教程包括多个蓝图教程，您可以在其中创建游戏元素，例如门、电梯和电源，以及 
+一个精读 C++ 教程，您可在其中从一个完全空白的项目开始，并编码第一人称射击游戏的开头部分。    
 [/EXCERPT:Tutorials]
 
-Visit the [Unreal Engine Tutorials](http://wiki.unrealengine.com/Category:Tutorials) page on the wiki to find a large collection 
-of tutorials created by both Epic and the Unreal Engine community.
+请访问wiki上的[虚幻引擎教程](http://wiki.unrealengine.com/Category:Tutorials)，以查找 
+Epic和虚幻引擎社区创建的大量教程。

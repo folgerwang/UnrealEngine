@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -116,10 +116,10 @@ public:
 		return UsedMalloc->GetDescriptiveName(); 
 	}
 
-	virtual void Trim() override
+	virtual void Trim(bool bTrimThreadCaches) override
 	{
 		FScopeLock ScopeLock(&SynchronizationObject);
 		check(UsedMalloc);
-		UsedMalloc->Trim();
+		UsedMalloc->Trim(bTrimThreadCaches);
 	}
 };

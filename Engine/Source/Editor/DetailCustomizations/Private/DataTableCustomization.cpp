@@ -1,7 +1,10 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "DataTableCustomization.h"
+#include "DataTableRowUtlis.h"
+#include "Editor.h"
 #include "Framework/Application/SlateApplication.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Widgets/Input/SSearchBox.h"
 
 #define LOCTEXT_NAMESPACE "FDataTableCustomizationLayout"
@@ -55,11 +58,16 @@ void FDataTableCustomizationLayout::CustomizeHeader(TSharedRef<class IPropertyHa
 		RowTypeFilter = FName(*RowType);
 	}
 
+	FSimpleDelegate OnDataTableChangedDelegate = FSimpleDelegate::CreateSP(this, &FDataTableCustomizationLayout::OnDataTableChanged);
+	StructPropertyHandle->SetOnPropertyValueChanged(OnDataTableChangedDelegate);
+	
 	HeaderRow
 	.NameContent()
 	[
 		InStructPropertyHandle->CreatePropertyNameWidget(FText::GetEmpty(), FText::GetEmpty(), false)
 	];
+
+	FDataTableRowUtils::AddSearchForReferencesContextMenu(HeaderRow, FExecuteAction::CreateSP(this, &FDataTableCustomizationLayout::OnSearchForReferences));
 }
 
 void FDataTableCustomizationLayout::CustomizeChildren(TSharedRef<class IPropertyHandle> InStructPropertyHandle, class IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils)
@@ -124,6 +132,21 @@ void FDataTableCustomizationLayout::HandleMenuOpen()
 	FSlateApplication::Get().SetKeyboardFocus(SearchBox);
 }
 
+void FDataTableCustomizationLayout::OnSearchForReferences()
+{
+	if (CurrentSelectedItem.IsValid() && !CurrentSelectedItem->IsEmpty() && DataTablePropertyHandle.IsValid() && DataTablePropertyHandle->IsValidHandle())
+	{
+		UObject* SourceDataTable;
+		DataTablePropertyHandle->GetValue(SourceDataTable);
+		FName RowName(**CurrentSelectedItem);
+		
+		TArray<FAssetIdentifier> AssetIdentifiers;
+		AssetIdentifiers.Add(FAssetIdentifier(SourceDataTable, RowName));
+
+		FEditorDelegates::OnOpenReferenceViewer.Broadcast(AssetIdentifiers);
+	}
+}
+
 TSharedRef<SWidget> FDataTableCustomizationLayout::GetListContent()
 {
 	SAssignNew(RowNameComboListView, SListView<TSharedPtr<FString> >)
@@ -182,20 +205,18 @@ FText FDataTableCustomizationLayout::GetRowNameComboBoxContentText() const
 {
 	FString RowNameValue;
 	const FPropertyAccess::Result RowResult = RowNamePropertyHandle->GetValue(RowNameValue);
-	if (RowResult != FPropertyAccess::MultipleValues)
+	if (RowResult == FPropertyAccess::Success)
 	{
-		TSharedPtr<FString> SelectedRowName = CurrentSelectedItem;
-		if (SelectedRowName.IsValid())
-		{
-			return FText::FromString(*SelectedRowName);
-		}
-		else
-		{
-			return LOCTEXT("DataTable_None", "None");
-		}
+		return FText::FromString(*RowNameValue);
 	}
-
-	return LOCTEXT("MultipleValues", "Multiple Values");
+	else if (RowResult == FPropertyAccess::Fail)
+	{
+		return LOCTEXT("DataTable_None", "None");
+	}
+	else
+	{
+		return LOCTEXT("MultipleValues", "Multiple Values");
+	}
 }
 
 void FDataTableCustomizationLayout::OnSelectionChanged(TSharedPtr<FString> SelectedItem, ESelectInfo::Type SelectInfo)

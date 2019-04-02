@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SRowEditor.h"
 #include "Modules/ModuleManager.h"
@@ -339,18 +339,32 @@ void SRowEditor::OnRowRenamed(const FText& Text, ETextCommit::Type CommitType)
 	{
 		if (Text.IsEmptyOrWhitespace() || !FName::IsValidXName(Text.ToString(), INVALID_NAME_CHARACTERS))
 		{
+			// Only pop up the error dialog if the rename was caused by the user's action
+			if ((CommitType == ETextCommit::OnEnter) || (CommitType == ETextCommit::OnUserMovedFocus ))
+			{
+				// popup an error dialog here
+				const FText Message = FText::Format(LOCTEXT("InvalidRowName", "'{0}' is not a valid row name"), Text);
+				FMessageDialog::Open(EAppMsgType::Ok, Message);
+			}
+			return;
+		}
+		const FName NewName = DataTableUtils::MakeValidName(Text.ToString());
+		if (NewName == NAME_None)
+		{
 			// popup an error dialog here
 			const FText Message = FText::Format(LOCTEXT("InvalidRowName", "'{0}' is not a valid row name"), Text);
 			FMessageDialog::Open(EAppMsgType::Ok, Message);
 
 			return;
 		}
-		const FName NewName = DataTableUtils::MakeValidName(Text.ToString());
 		for (auto Name : CachedRowNames)
 		{
 			if (Name.IsValid() && (*Name == NewName))
 			{
-				 //the name already exists
+				//the name already exists
+				// popup an error dialog here
+				const FText Message = FText::Format(LOCTEXT("DuplicateRowName", "'{0}' is already used as a row name in this table"), Text);
+				FMessageDialog::Open(EAppMsgType::Ok, Message);
 				return;
 			}
 		}

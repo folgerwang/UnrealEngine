@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3477699
-Availability: Docs
+﻿INTSourceChangelist:4326187
+Availability: Public
 Crumbs: %ROOT%
 Title: 블렌드 스페이스
 Description:Blend Space, 블렌드 스페이스는 여러 입력값에 따라 몇 개의 애니메이션도 서로 블렌딩할 수 있게 만들어 주는 애셋입니다.

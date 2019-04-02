@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "HTML5NetworkingPrivate.h"
 
@@ -69,7 +69,6 @@ void UWebSocketConnection::InitRemoteConnection(UNetDriver* InDriver, class FSoc
 void UWebSocketConnection::LowLevelSend(void* Data, int32 CountBits, FOutPacketTraits& Traits)
 {
 	const uint8* DataToSend = reinterpret_cast<uint8*>(Data);
-	uint32 CountBytes = 0;
 
 	// Process any packet modifiers
 	if (Handler.IsValid() && !Handler->GetRawSend())
@@ -80,13 +79,14 @@ void UWebSocketConnection::LowLevelSend(void* Data, int32 CountBits, FOutPacketT
 		{
 			DataToSend = ProcessedData.Data;
 			CountBits = ProcessedData.CountBits;
-			CountBytes = FMath::DivideAndRoundUp(ProcessedData.CountBits, 8);
 		}
 		else
 		{
 			CountBits = 0;
 		}
 	}
+
+	uint32 CountBytes = FMath::DivideAndRoundUp(CountBits, 8);
 
 	if (CountBits > (MaxPacket * 8))
 	{
@@ -96,6 +96,8 @@ void UWebSocketConnection::LowLevelSend(void* Data, int32 CountBits, FOutPacketT
 	bool bBlockSend = false;
 
 #if !UE_BUILD_SHIPPING
+	UE_LOG(LogNetTraffic, VeryVerbose, TEXT("UWebSocketConnection::LowLevelSend: Address: %s, CountBytes: %i"), *LowLevelGetRemoteAddress(true), CountBytes);
+
 	LowLevelSendDel.ExecuteIfBound((void*)DataToSend, CountBytes, bBlockSend);
 #endif
 
@@ -143,13 +145,22 @@ void UWebSocketConnection::Tick()
 void UWebSocketConnection::FinishDestroy()
 {
 	Super::FinishDestroy();
-	delete WebSocket; 
-	WebSocket = NULL;
-
+	if (WebSocket)
+	{
+#if USE_LIBWEBSOCKET
+		WebSocket->Context = NULL; // UE-68340
+#endif
+		delete WebSocket; 
+		WebSocket = NULL;
+	}
 }
 
 void UWebSocketConnection::ReceivedRawPacket(void* Data,int32 Count)
 {
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogNetTraffic, VeryVerbose, TEXT("UWebSocketConnection::ReceivedRawPacket: Address: %s, Count: %i"), *LowLevelGetRemoteAddress(true), Count);
+#endif
+
 	if (Count == 0 ||   // nothing to process
 		Driver == NULL) // connection closing
 	{
@@ -167,7 +178,10 @@ void UWebSocketConnection::ReceivedRawPacket(void* Data,int32 Count)
 	
 			TSharedPtr<StatelessConnectHandlerComponent> StatelessConnect = Driver->StatelessConnectComponent.Pin();
 
-			if (!UnProcessedPacket.bError && StatelessConnect->HasPassedChallenge(LowLevelGetRemoteAddress(true)))
+			bool bRestartedHandshake = false;
+
+			if (!UnProcessedPacket.bError && StatelessConnect->HasPassedChallenge(LowLevelGetRemoteAddress(true), bRestartedHandshake) &&
+					!bRestartedHandshake)
 			{
 				UE_LOG(LogNet, Log, TEXT("Server accepting post-challenge connection from: %s"), *LowLevelGetRemoteAddress(true));
 				// Set the initial packet sequence from the handshake data

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimNodes/AnimNode_LayeredBoneBlend.h"
 #include "AnimationRuntime.h"
@@ -138,7 +138,7 @@ void FAnimNode_LayeredBoneBlend::Update_AnyThread(const FAnimationUpdateContext&
 
 	if (IsLODEnabled(Context.AnimInstanceProxy))
 	{
-		EvaluateGraphExposedInputs.Execute(Context);
+		GetEvaluateGraphExposedInputs().Execute(Context);
 
 		for (int32 ChildIndex = 0; ChildIndex < BlendPoses.Num(); ++ChildIndex)
 		{
@@ -230,8 +230,8 @@ void FAnimNode_LayeredBoneBlend::Evaluate_AnyThread(FPoseContext& Output)
 				FPoseContext CurrentPoseContext(Output);
 				BlendPoses[ChildIndex].Evaluate(CurrentPoseContext);
 
-				TargetBlendPoses[ChildIndex].CopyBonesFrom(CurrentPoseContext.Pose);
-				TargetBlendCurves[ChildIndex].CopyFrom(CurrentPoseContext.Curve);
+				TargetBlendPoses[ChildIndex].MoveBonesFrom(CurrentPoseContext.Pose);
+				TargetBlendCurves[ChildIndex].MoveFrom(CurrentPoseContext.Curve);
 			}
 			else
 			{

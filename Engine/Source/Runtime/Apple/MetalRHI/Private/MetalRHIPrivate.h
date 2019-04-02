@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MetalRHIPrivate.h: Private Metal RHI definitions.
@@ -123,9 +123,11 @@ extern bool GMetalSupportsTileShaders;
 #endif
 
 #if METAL_STATISTICS
-#define METAL_STATISTIC(Code) Code
+#define METAL_STATISTIC(Code) if (GIsMetalInitialized) { Code; }
+#define METAL_STATISTICS_ONLY(Code) Code
 #else
 #define METAL_STATISTIC(Code)
+#define METAL_STATISTICS_ONLY(Code)
 #endif
 
 #define UNREAL_TO_METAL_BUFFER_INDEX(Index) ((MaxMetalStreams - 1) - Index)
@@ -146,7 +148,10 @@ void SafeReleaseMetalTexture(FMetalTexture& Object);
 void SafeReleaseMetalBuffer(FMetalBuffer& Buffer);
 
 // Safely release a fence, correctly handling cases where fences aren't supported or the debug implementation is used.
-void SafeReleaseMetalFence(id Object);
+void SafeReleaseMetalFence(class FMetalFence* Object);
+
+// Safely release a render pass descriptor so that it may be reused.
+void SafeReleaseMetalRenderPassDescriptor(mtlpp::RenderPassDescriptor& Desc);
 
 // Access the underlying surface object from any kind of texture
 FMetalSurface* GetMetalSurfaceFromRHITexture(FRHITexture* Texture);

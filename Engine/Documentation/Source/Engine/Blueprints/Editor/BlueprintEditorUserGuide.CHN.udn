@@ -1,51 +1,12 @@
-﻿INTSourceChangelist:2735872
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:蓝图编辑器参考
 Crumbs: %ROOT%, Engine, Engine/Blueprints
 Description:本页包含蓝图编辑器的界面元素和基础使用说明。 
 version:4.9
 parent:Engine/Blueprints
-order:4
-type:reference
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints/Editor:title%](Engine/Blueprints/editor_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/Editor:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/Editor:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/Editor]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints/Editor:title%](Engine/Blueprints/editor_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/Editor:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/Editor:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/Editor]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+tags:Blueprints
+topic-image:Engine/Blueprints/UserGuide/Types/macro_blueprint.png
 
 [REGION:fullwidth]
 ![](blueprint_editor_example.png)
@@ -69,6 +30,7 @@ type:reference
 在深入了解蓝图编辑器之前，应先对蓝图本身有良好理解。如需了解详细内容，请查阅 [蓝图入门](Engine/Blueprints/GettingStarted) 和 [蓝图总览](Engine/Blueprints/Overview).
 
 
+(#InterfaceBreakdown)
 ## 界面详解 
 
 蓝图编辑器的位置和可用工具将随当前编辑的蓝图类型出现细微变化。该文档将助您确定是否需要查看蓝图编辑器特殊形态的 UI 详解，或只需要看到可用功能的顺序列表。 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:4674424
 Availability: Public
 Crumbs: %ROOT%
 Title: Google VR 개발
@@ -27,7 +27,7 @@ Google 에서는 Daydream 을 최대한 활용하기 위해 알아야하는 것�
 
 [DIR(end:"1" output:"topic" type:"quick start" parent:"Platforms/GoogleVR")]
 
-## 삼성 기어 VR 개발
+## 삼성 Gear VR 개발
 
 [DIR(end:"1" output:"topic" type:"reference,overview" parent:"Platforms/GoogleVR")]
 

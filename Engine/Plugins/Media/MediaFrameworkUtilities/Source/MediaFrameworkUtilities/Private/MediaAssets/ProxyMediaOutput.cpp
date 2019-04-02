@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaAssets/ProxyMediaOutput.h"
 #include "MediaFrameworkUtilitiesModule.h"
@@ -73,6 +73,21 @@ EPixelFormat UProxyMediaOutput::GetRequestedPixelFormat() const
 }
 
 
+EMediaCaptureConversionOperation UProxyMediaOutput::GetConversionOperation(EMediaCaptureSourceType InSourceType) const
+{
+	// Guard against reentrant calls.
+	if (bRequestedPixelFormatGuard)
+	{
+		UE_LOG(LogMediaFrameworkUtilities, Warning, TEXT("UProxyMediaOutput::GetConversionOperation - Reentrant calls are not supported. Asset: %s"), *GetPathName());
+		return EMediaCaptureConversionOperation::NONE;
+	}
+	TGuardValue<bool> GettingUrlGuard(bRequestedPixelFormatGuard, true);
+
+	UMediaOutput* CurrentProxy = GetMediaOutput();
+	return (CurrentProxy != nullptr) ? CurrentProxy->GetConversionOperation(InSourceType) : EMediaCaptureConversionOperation::NONE;
+}
+
+
 UMediaCapture* UProxyMediaOutput::CreateMediaCaptureImpl()
 {
 	// Guard against reentrant calls.
@@ -113,6 +128,12 @@ UMediaOutput* UProxyMediaOutput::GetLeafMediaOutput() const
 		MediaOutput = ProxyMediaOutput->GetLeafMediaOutput();
 	}
 	return MediaOutput;
+}
+
+
+bool UProxyMediaOutput::IsProxyValid() const
+{
+	return GetLeafMediaOutput() != nullptr;
 }
 
 

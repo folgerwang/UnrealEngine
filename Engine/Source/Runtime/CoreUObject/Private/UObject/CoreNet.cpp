@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnCoreNet.cpp: Core networking support.
@@ -6,6 +6,7 @@
 
 #include "UObject/CoreNet.h"
 #include "UObject/UnrealType.h"
+#include "Misc/NetworkVersion.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogCoreNet, Log, All);
 
@@ -244,6 +245,26 @@ void FClassNetCacheMgr::ClearClassNetCache()
 	ClassFieldIndices.Empty();
 }
 
+void FClassNetCacheMgr::CountBytes(FArchive& Ar) const
+{
+	ClassFieldIndices.CountBytes(Ar);
+	for (const auto& ClassFieldPair : ClassFieldIndices)
+	{
+		if (ClassFieldPair.Value != nullptr)
+		{
+			Ar.CountBytes(sizeof(FClassNetCache), sizeof(FClassNetCache));
+			ClassFieldPair.Value->CountBytes(Ar);
+		}
+	}
+}
+
+void FClassNetCache::CountBytes(FArchive& Ar) const
+{
+	Fields.CountBytes(Ar);
+	FieldMap.CountBytes(Ar);
+	FieldChecksumMap.CountBytes(Ar);
+}
+
 /*-----------------------------------------------------------------------------
 	UPackageMap implementation.
 -----------------------------------------------------------------------------*/
@@ -263,9 +284,24 @@ bool UPackageMap::StaticSerializeName(FArchive& Ar, FName& InName)
 		{
 			// replicated by hardcoded index
 			uint32 NameIndex;
-			Ar.SerializeInt(NameIndex, MAX_NETWORKED_HARDCODED_NAME + 1);
-			InName = EName(NameIndex);
-			// hardcoded names never have a Number
+			if (Ar.EngineNetVer() < HISTORY_CHANNEL_NAMES)
+			{
+				Ar.SerializeInt(NameIndex, MAX_NETWORKED_HARDCODED_NAME + 1);
+			}
+			else
+			{
+				Ar.SerializeIntPacked(NameIndex);
+			}
+
+			if (NameIndex < NAME_MaxHardcodedNameIndex)
+			{
+				InName = EName(NameIndex);
+				// hardcoded names never have a Number
+			}
+			else
+			{
+				Ar.SetError();
+			}
 		}
 		else
 		{
@@ -285,7 +321,7 @@ bool UPackageMap::StaticSerializeName(FArchive& Ar, FName& InName)
 			// send by hardcoded index
 			checkSlow(InName.GetNumber() <= 0); // hardcoded names should never have a Number
 			uint32 NameIndex = uint32(InName.GetComparisonIndex());
-			Ar.SerializeInt(NameIndex, MAX_NETWORKED_HARDCODED_NAME + 1);
+			Ar.SerializeIntPacked(NameIndex);
 		}
 		else
 		{
@@ -302,6 +338,18 @@ IMPLEMENT_CORE_INTRINSIC_CLASS(UPackageMap, UObject,
 	{
 	}
 );
+
+void UPackageMap::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if (Ar.IsCountingMemory())
+	{
+		TrackedUnmappedNetGuids.CountBytes(Ar);
+		TrackedMappedDynamicNetGuids.CountBytes(Ar);
+		Ar << DebugContextString;
+	}
+}
 
 // ----------------------------------------------------------------
 
@@ -367,21 +415,28 @@ FArchive& FNetBitWriter::operator<<( UObject*& Object )
 
 FArchive& FNetBitWriter::operator<<(FSoftObjectPath& Value)
 {
+	// It's more efficient to serialize as a string then name+string
 	FString Path = Value.ToString();
-
 	*this << Path;
 
-	if (IsLoading())
-	{
-		Value.SetPath(MoveTemp(Path));
-	}
-
 	return *this;
+}
+
+FArchive& FNetBitWriter::operator<<(FSoftObjectPtr& Value)
+{
+	return FArchiveUObject::SerializeSoftObjectPtr(*this, Value);
 }
 
 FArchive& FNetBitWriter::operator<<(struct FWeakObjectPtr& WeakObjectPtr)
 {
 	return FArchiveUObject::SerializeWeakObjectPtr(*this, WeakObjectPtr);
+}
+
+void FNetBitWriter::CountMemory(FArchive& Ar) const
+{
+	FBitWriter::CountMemory(Ar);
+	const SIZE_T MemberSize = sizeof(*this) - sizeof(FBitWriter);
+	Ar.CountBytes(MemberSize, MemberSize);
 }
 
 // ----------------------------------------------------------------
@@ -415,22 +470,30 @@ FArchive& FNetBitReader::operator<<( class FName& N )
 
 FArchive& FNetBitReader::operator<<(FSoftObjectPath& Value)
 {
-	FString Path = Value.ToString();
-
+	FString Path;
 	*this << Path;
 
-	if (IsLoading())
-	{
-		Value.SetPath(MoveTemp(Path));
-	}
+	Value.SetPath(MoveTemp(Path));
 
 	return *this;
+}
+
+FArchive& FNetBitReader::operator<<(FSoftObjectPtr& Value)
+{
+	return FArchiveUObject::SerializeSoftObjectPtr(*this, Value);
 }
 
 FArchive& FNetBitReader::operator<<(struct FWeakObjectPtr& WeakObjectPtr)
 {
 	return FArchiveUObject::SerializeWeakObjectPtr(*this, WeakObjectPtr);
 	return *this;
+}
+
+void FNetBitReader::CountMemory(FArchive& Ar) const
+{
+	FBitReader::CountMemory(Ar);
+	const SIZE_T MemberSize = sizeof(*this) - sizeof(FBitReader);
+	Ar.CountBytes(MemberSize, MemberSize);
 }
 
 static const TCHAR* GLastRPCFailedReason = NULL;
@@ -447,4 +510,23 @@ void RPC_ValidateFailed( const TCHAR* Reason )
 const TCHAR* RPC_GetLastFailedReason()
 {
 	return GLastRPCFailedReason;
+}
+
+const TCHAR* LexToString(const EChannelCloseReason Value)
+{
+	switch (Value)
+	{
+	case EChannelCloseReason::Destroyed:
+		return TEXT("Destroyed");
+	case EChannelCloseReason::Dormancy:
+		return TEXT("Dormancy");
+	case EChannelCloseReason::LevelUnloaded:
+		return TEXT("LevelUnloaded");
+	case EChannelCloseReason::Relevancy:
+		return TEXT("Relevancy");
+	case EChannelCloseReason::TearOff:
+		return TEXT("TearOff");
+	}
+
+	return TEXT("Unknown");
 }

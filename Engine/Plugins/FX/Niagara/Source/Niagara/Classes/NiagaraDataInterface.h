@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "Niagara/Public/NiagaraCommon.h"
@@ -268,7 +268,7 @@ public:
 	
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(EditAnywhere, Transient, Category = "Curve")
-		bool ShowInCurveEditor;
+	bool ShowInCurveEditor;
 #endif
 
 	enum

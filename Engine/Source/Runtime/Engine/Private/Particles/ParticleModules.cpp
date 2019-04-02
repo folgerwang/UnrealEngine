@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleModules.cpp: Particle module implementation.
@@ -83,6 +83,7 @@
 #include "Particles/TypeData/ParticleModuleTypeDataMesh.h"
 #include "Particles/ParticleLODLevel.h"
 #include "Particles/ParticleModuleRequired.h"
+#include "Particles/FXSystemPrivate.h"
 #include "Distributions/DistributionFloatUniformCurve.h"
 #include "Engine/InterpCurveEdSetup.h"
 #include "Engine/RendererSettings.h"
@@ -981,6 +982,11 @@ void UParticleModuleSourceMovement::FinalUpdate(FParticleEmitterInstance* Owner,
 		}
 		END_UPDATE_LOOP;
 	}
+}
+
+bool UParticleModuleSourceMovement::CanTickInAnyThread()
+{
+	return SourceMovementScale.OkForParallel();
 }
 
 /*-----------------------------------------------------------------------------

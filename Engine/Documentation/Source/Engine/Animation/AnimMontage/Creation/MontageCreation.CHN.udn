@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
-Availability: Docs
+﻿INTSourceChangelist:4326187
+Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine\Animation\AnimMontage
-Title: Creating an Animation Montage
-Description:Overview of creating an Animation Montage for use within Blueprints and Animation Blueprints. 
+Title: 创建动画蒙太奇
+Description:概述如何创建用于蓝图和动画蓝图的动画蒙太奇。 
 Type: how-to
 SkillLevel: Beginner
 Version: 4.16
@@ -18,38 +18,38 @@ Related: Engine/Animation/Persona/Modes/Animation
 Related: Engine/Animation/StateMachines
 Related: Engine/Animation/AnimBlueprints
 
-This page covers the different ways in which you can create an **Animation Montage** using animation assets. 
+本页面将介绍使用动画资源创建 **动画蒙太奇** 的不同方式。 
 
-## Steps
+## 步骤
 
-1. In the **Content Browser** of your project, click the **Add New** button (or right-click in the **Content Browser**) and choose **Animation** > **Animation Montage**.
+1. 在项目的 **内容浏览器** 中，单击 **新建（Add New）** 按钮（或在 **内容浏览器** 中右键单击）并选择 **动画（Animation）** > **动画蒙太奇（Animation Montage）**。
 
 	![](AddNewButton.png)
 
-1. Select the **Skeleton** asset that you will want to use for the **Animation Montage**. 
+1. 选择要用于 **动画蒙太奇** 的 **骨架** 资源。 
 
 	![](PickSkeleton.png)
 
-1. Enter a name for your newly created **Animation Montage**. 
+1. 为新建的 **动画蒙太奇** 输入名称。 
 
 	![](NamedMontage.png)
 
-1. Double-click to open your new Animation Montage to begin editing. 	
+1. 双击打开新建的动画蒙太奇并开始编辑。 	
 	
-		
-## End Result
 
-After creating your Animation Montage, you can open it and it will appear empty (below). 
+## 最终结果
+
+在创建动画蒙太奇之后打开它时它将显示为空（如下图所示）。 
 
 ![](NewMontageOpened.png)
 
-From here you can begin [editing your Animation Montage](Engine\Animation\AnimMontage\Editor) asset to reach your desired effect. 
+在这里你可以开始[编辑动画蒙太奇](Engine\Animation\AnimMontage\Editor)资源，使其达到想要的效果。 
 
-You can also right-click any **Animation Sequence** asset and create an Animation Montage from the asset. 
+也可以右键单击任何 **动画序列** 资源并从该资源创建动画蒙太奇。 
 
 ![](RightClickExample.png)
 
-When opening a Montage you have created from the right-click method, the animation will automatically be added to the Montage. 
+打开使用右键单击的方法创建的蒙太奇时，动画将自动添加到该蒙太奇中。 
 
 ![](RightClickExampleOpen.png)
 

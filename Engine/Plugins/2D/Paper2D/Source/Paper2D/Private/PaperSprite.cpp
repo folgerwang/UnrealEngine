@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PaperSprite.h"
 #include "UObject/ConstructorHelpers.h"
@@ -479,7 +479,7 @@ protected:
 			FlushRenderingCommands();
 		}
 
-		new (ComponentContexts) FComponentReregisterContext(Component);
+		ComponentContexts.Add(new FComponentReregisterContext(Component));
 	}
 
 private:

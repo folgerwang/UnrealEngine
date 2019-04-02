@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 LightGridInjection.cpp
@@ -136,7 +136,7 @@ FForwardLightingViewResources* GetMinimalDummyForwardLightingResources()
 	return &GMinimalDummyForwardLightingResources->ForwardLightingResources;
 }
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FForwardLightData, TEXT("ForwardLightData"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FForwardLightData, "ForwardLightData");
 
 FForwardLightData::FForwardLightData()
 {
@@ -439,8 +439,8 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 			bAnyViewUsesForwardLighting |= View.bTranslucentSurfaceLighting || ShouldRenderVolumetricFog();
 		}
 
-		const bool bCullLightsToGrid = GLightCullingQuality && ((IsForwardShadingEnabled(ShaderPlatform) || bAnyViewUsesForwardLighting) && ViewFamily.EngineShowFlags.DirectLighting);
-
+		const bool bCullLightsToGrid = GLightCullingQuality && (ViewFamily.EngineShowFlags.DirectLighting && (IsForwardShadingEnabled(ShaderPlatform) || bAnyViewUsesForwardLighting || IsRayTracingEnabled()));
+			   
 		FSimpleLightArray SimpleLights;
 
 		if (bCullLightsToGrid)
@@ -473,21 +473,18 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 						// Reflection override skips direct specular because it tends to be blindingly bright with a perfectly smooth surface
 						&& !ViewFamily.EngineShowFlags.ReflectionOverride)
 					{
-						FLightParameters LightParameters;
-
-						LightProxy->GetParameters(LightParameters);
+						FLightShaderParameters LightParameters;
+						LightProxy->GetLightShaderParameters(LightParameters);
 
 						if (LightProxy->IsInverseSquared())
 						{
-							LightParameters.LightColorAndFalloffExponent.W = 0;
+							LightParameters.FalloffExponent = 0;
 						}
 
 						// When rendering reflection captures, the direct lighting of the light is actually the indirect specular from the main view
 						if (View.bIsReflectionCapture)
 						{
-							LightParameters.LightColorAndFalloffExponent.X *= LightProxy->GetIndirectLightingScale();
-							LightParameters.LightColorAndFalloffExponent.Y *= LightProxy->GetIndirectLightingScale();
-							LightParameters.LightColorAndFalloffExponent.Z *= LightProxy->GetIndirectLightingScale();
+							LightParameters.Color *= LightProxy->GetIndirectLightingScale();
 						}
 
 						int32 ShadowMapChannel = LightProxy->GetShadowMapChannel();
@@ -519,17 +516,15 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 							FForwardLocalLightData& LightData = ForwardLocalLightData.Last();
 
 							const float LightFade = GetLightFadeFactor(View, LightProxy);
-							LightParameters.LightColorAndFalloffExponent.X *= LightFade;
-							LightParameters.LightColorAndFalloffExponent.Y *= LightFade;
-							LightParameters.LightColorAndFalloffExponent.Z *= LightFade;
+							LightParameters.Color *= LightFade;
 
-							LightData.LightPositionAndInvRadius = LightParameters.LightPositionAndInvRadius;
-							LightData.LightColorAndFalloffExponent = LightParameters.LightColorAndFalloffExponent;
-							LightData.LightDirectionAndShadowMapChannelMask = FVector4(LightParameters.NormalizedLightDirection, *((float*)&ShadowMapChannelMaskPacked));
+							LightData.LightPositionAndInvRadius = FVector4(LightParameters.Position, LightParameters.InvRadius);
+							LightData.LightColorAndFalloffExponent = FVector4(LightParameters.Color, LightParameters.FalloffExponent);
+							LightData.LightDirectionAndShadowMapChannelMask = FVector4(LightParameters.Direction, *((float*)&ShadowMapChannelMaskPacked));
 
-							LightData.SpotAnglesAndSourceRadiusPacked = FVector4(LightParameters.SpotAngles.X, LightParameters.SpotAngles.Y, LightParameters.LightSourceRadius, 0);
+							LightData.SpotAnglesAndSourceRadiusPacked = FVector4(LightParameters.SpotAngles.X, LightParameters.SpotAngles.Y, LightParameters.SourceRadius, 0);
 
-							LightData.LightTangentAndSoftSourceRadius = FVector4(LightParameters.NormalizedLightTangent, LightParameters.LightSoftSourceRadius);
+							LightData.LightTangentAndSoftSourceRadius = FVector4(LightParameters.Tangent, LightParameters.SoftSourceRadius);
 
 							float VolumetricScatteringIntensity = LightProxy->GetVolumetricScatteringIntensity();
 
@@ -540,7 +535,7 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 							}
 
 							// Pack both values into a single float to keep float4 alignment
-							const FFloat16 SourceLength16f = FFloat16(LightParameters.LightSourceLength);
+							const FFloat16 SourceLength16f = FFloat16(LightParameters.SourceLength);
 							const FFloat16 VolumetricScatteringIntensity16f = FFloat16(VolumetricScatteringIntensity);
 							const uint32 PackedWInt = ((uint32)SourceLength16f.Encoded) | ((uint32)VolumetricScatteringIntensity16f.Encoded << 16);
 							LightData.SpotAnglesAndSourceRadiusPacked.W = *(float*)&PackedWInt;
@@ -552,9 +547,9 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 						else if (LightSceneInfoCompact.LightType == LightType_Directional && ViewFamily.EngineShowFlags.DirectionalLights)
 						{
 							ForwardLightData.HasDirectionalLight = 1;
-							ForwardLightData.DirectionalLightColor = LightParameters.LightColorAndFalloffExponent;
+							ForwardLightData.DirectionalLightColor = LightParameters.Color;
 							ForwardLightData.DirectionalLightVolumetricScatteringIntensity = LightProxy->GetVolumetricScatteringIntensity();
-							ForwardLightData.DirectionalLightDirection = LightParameters.NormalizedLightDirection;
+							ForwardLightData.DirectionalLightDirection = LightParameters.Direction;
 							ForwardLightData.DirectionalLightShadowMapChannelMask = ShadowMapChannelMaskPacked;
 
 							const FVector2D FadeParams = LightProxy->GetDirectionalLightDistanceFadeParameters(View.GetFeatureLevel(), LightSceneInfo->IsPrecomputedLightingValid(), View.MaxShadowCascades);
@@ -810,6 +805,8 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 
 void FDeferredShadingSceneRenderer::RenderForwardShadingShadowProjections(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& ForwardScreenSpaceShadowMask)
 {
+	check(RHICmdList.IsOutsideRenderPass());
+
 	bool bScreenShadowMaskNeeded = false;
 
 	for (TSparseArray<FLightSceneInfoCompact>::TConstIterator LightIt(Scene->Lights); LightIt; ++LightIt)
@@ -818,7 +815,7 @@ void FDeferredShadingSceneRenderer::RenderForwardShadingShadowProjections(FRHICo
 		const FLightSceneInfo* const LightSceneInfo = LightSceneInfoCompact.LightSceneInfo;
 		const FVisibleLightInfo& VisibleLightInfo = VisibleLightInfos[LightSceneInfo->Id];
 
-		bScreenShadowMaskNeeded = bScreenShadowMaskNeeded || VisibleLightInfo.ShadowsToProject.Num() > 0 || VisibleLightInfo.CapsuleShadowsToProject.Num() > 0;
+		bScreenShadowMaskNeeded |= VisibleLightInfo.ShadowsToProject.Num() > 0 || VisibleLightInfo.CapsuleShadowsToProject.Num() > 0 || LightSceneInfo->Proxy->GetLightFunctionMaterial() != nullptr;
 	}
 
 	if (bScreenShadowMaskNeeded)
@@ -830,34 +827,39 @@ void FDeferredShadingSceneRenderer::RenderForwardShadingShadowProjections(FRHICo
 		SCOPED_GPU_STAT(RHICmdList, ShadowProjection);
 
 		// All shadows render with min blending
-		bool bClearToWhite = true;
-		SetRenderTarget(RHICmdList, ForwardScreenSpaceShadowMask->GetRenderTargetItem().TargetableTexture, SceneRenderTargets.GetSceneDepthSurface(), bClearToWhite ? ESimpleRenderTargetMode::EClearColorExistingDepth : ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite, true);
+		FRHIRenderPassInfo RPInfo(ForwardScreenSpaceShadowMask->GetRenderTargetItem().TargetableTexture, ERenderTargetActions::Clear_Store);
+		TransitionRenderPassTargets(RHICmdList, RPInfo);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("RenderForwardShadingShadowProjectionsClear"));
+		RHICmdList.EndRenderPass();
 
-		for (TSparseArray<FLightSceneInfoCompact>::TConstIterator LightIt(Scene->Lights); LightIt; ++LightIt)
+		// Note: all calls here will set up renderpasses internally.
+		// #todo-renderpasses might be worth refactoring all this and splitting into lists of draws for each renderpass
 		{
-			const FLightSceneInfoCompact& LightSceneInfoCompact = *LightIt;
-			const FLightSceneInfo* const LightSceneInfo = LightSceneInfoCompact.LightSceneInfo;
-			FVisibleLightInfo& VisibleLightInfo = VisibleLightInfos[LightSceneInfo->Id];
-
-			const bool bIssueLightDrawEvent = VisibleLightInfo.ShadowsToProject.Num() > 0 || VisibleLightInfo.CapsuleShadowsToProject.Num() > 0;
-
-			FString LightNameWithLevel;
-			GetLightNameForDrawEvent(LightSceneInfo->Proxy, LightNameWithLevel);
-			SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, EventLightPass, bIssueLightDrawEvent, *LightNameWithLevel);
-
-			if (VisibleLightInfo.ShadowsToProject.Num() > 0)
+			for (TSparseArray<FLightSceneInfoCompact>::TConstIterator LightIt(Scene->Lights); LightIt; ++LightIt)
 			{
-				FSceneRenderer::RenderShadowProjections(RHICmdList, LightSceneInfo, ForwardScreenSpaceShadowMask, true, false);
-			}
+				const FLightSceneInfoCompact& LightSceneInfoCompact = *LightIt;
+				const FLightSceneInfo* const LightSceneInfo = LightSceneInfoCompact.LightSceneInfo;
+				FVisibleLightInfo& VisibleLightInfo = VisibleLightInfos[LightSceneInfo->Id];
 
-			RenderCapsuleDirectShadows(RHICmdList, *LightSceneInfo, ForwardScreenSpaceShadowMask, VisibleLightInfo.CapsuleShadowsToProject, true);
+				const bool bIssueLightDrawEvent = VisibleLightInfo.ShadowsToProject.Num() > 0 || VisibleLightInfo.CapsuleShadowsToProject.Num() > 0;
 
-			if (LightSceneInfo->GetDynamicShadowMapChannel() >= 0 && LightSceneInfo->GetDynamicShadowMapChannel() < 4)
-			{
-				RenderLightFunction(RHICmdList, LightSceneInfo, ForwardScreenSpaceShadowMask, true, true);
+				FString LightNameWithLevel;
+				GetLightNameForDrawEvent(LightSceneInfo->Proxy, LightNameWithLevel);
+				SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, EventLightPass, bIssueLightDrawEvent, *LightNameWithLevel);
+
+				if (VisibleLightInfo.ShadowsToProject.Num() > 0)
+				{
+					FSceneRenderer::RenderShadowProjections(RHICmdList, LightSceneInfo, ForwardScreenSpaceShadowMask, true, false);
+				}
+
+				RenderCapsuleDirectShadows(RHICmdList, *LightSceneInfo, ForwardScreenSpaceShadowMask, VisibleLightInfo.CapsuleShadowsToProject, true);
+
+				if (LightSceneInfo->GetDynamicShadowMapChannel() >= 0 && LightSceneInfo->GetDynamicShadowMapChannel() < 4)
+				{
+					RenderLightFunction(RHICmdList, LightSceneInfo, ForwardScreenSpaceShadowMask, true, true);
+				}
 			}
 		}
-
 		RHICmdList.CopyToResolveTarget(ForwardScreenSpaceShadowMask->GetRenderTargetItem().TargetableTexture, ForwardScreenSpaceShadowMask->GetRenderTargetItem().ShaderResourceTexture, FResolveParams(FResolveRect()));
 	}
 }

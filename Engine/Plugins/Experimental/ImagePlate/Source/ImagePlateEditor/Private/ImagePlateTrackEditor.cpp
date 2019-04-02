@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ImagePlateTrackEditor.h"
 #include "ImagePlateFileSequence.h"
@@ -35,14 +35,13 @@
 #define LOCTEXT_NAMESPACE "ImagePlateTrackEditor"
 
 
-class FImagePlateSection : public FThumbnailSection, public ICustomThumbnailClient, FGCObject
+class FImagePlateSection : public FThumbnailSection, public ICustomThumbnailClient
 {
 public:
 
 	FImagePlateSection(UMovieSceneImagePlateSection& InSection, TSharedPtr<FTrackEditorThumbnailPool> InThumbnailPool, TSharedPtr<ISequencer> InSequencer)
 		: FThumbnailSection(InSequencer, InThumbnailPool, this, InSection)
 	{
-		RenderTexture = nullptr;
 		TimeSpace = ETimeSpace::Local;
 	}
 	
@@ -76,11 +75,6 @@ public:
 	// 		];
 	// }
 
-	virtual void AddReferencedObjects( FReferenceCollector& Collector )
-	{
-		Collector.AddReferencedObject(RenderTexture);
-	}
-
 	virtual float GetSectionHeight() const override
 	{
 		// Make space for the film border
@@ -103,7 +97,7 @@ public:
 			}
 			else
 			{
-////				ThumbnailCache.SetSingleReferenceFrame(TOptional<float>());
+				ThumbnailCache.SetSingleReferenceFrame(TOptional<double>());
 			}
 		}
 
@@ -145,12 +139,9 @@ public:
 		if (ImagePlateSection->FileSequence)
 		{
 			ThumbnailLoader = ImagePlateSection->FileSequence->GetAsyncCache();
-			RenderTexture = NewObject<UTexture2DDynamic>(GetTransientPackage(), FName(), RF_Transient);
-			RenderTexture->Init(256, 256, PF_R8G8B8A8);
 		}
 		else
 		{
-			RenderTexture = nullptr;
 			ThumbnailLoader.Reset();
 		}
 	}
@@ -178,27 +169,18 @@ public:
 
 		if (FrameData.IsValid())
 		{
-			// Wait for the texture to render
-			FrameData.CopyTo(RenderTexture).Get();
+			TrackEditorThumbnail.AssignFrom(FrameData.AsSlateTexture());
 
-			FTexture2DRHIRef Texture2DRHI = RenderTexture && RenderTexture->Resource && RenderTexture->Resource->TextureRHI.IsValid() ? RenderTexture->Resource->TextureRHI->GetTexture2D() : nullptr;
-			if (Texture2DRHI.IsValid())
+			TSharedPtr<ISequencer> Sequencer = SequencerPtr.Pin();
+			if (Sequencer.IsValid())
 			{
-				// Resolve the media player texture to the track editor thumbnail
-				TrackEditorThumbnail.CopyTextureIn(Texture2DRHI);
-
-				TSharedPtr<ISequencer> Sequencer = SequencerPtr.Pin();
-				if (Sequencer.IsValid())
-				{
-					TrackEditorThumbnail.SetupFade(Sequencer->GetSequencerWidget());
-				}
+				TrackEditorThumbnail.SetupFade(Sequencer->GetSequencerWidget());
 			}
 		}
 	}
 
 private:
 
-	UTexture2DDynamic* RenderTexture;
 	TOptional<FImagePlateAsyncCache> ThumbnailLoader;
 	TWeakObjectPtr<UImagePlateFileSequence> FileSequence;
 };
@@ -397,7 +379,7 @@ TSharedPtr<SWidget> FImagePlateTrackEditor::BuildOutlinerEditWidget(const FGuid&
 		return Picker;
 	};
 
-	return FSequencerUtilities::MakeAddButton(LOCTEXT("AddImagePlateSection_Text", "Image Sequence"), FOnGetContent::CreateLambda(CreatePicker), Params.NodeIsHovered);
+	return FSequencerUtilities::MakeAddButton(LOCTEXT("AddImagePlateSection_Text", "Image Sequence"), FOnGetContent::CreateLambda(CreatePicker), Params.NodeIsHovered, GetSequencer());
 }
 
 void FImagePlateTrackEditor::AddNewSection(const FAssetData& AssetData, UMovieSceneImagePlateTrack* Track)

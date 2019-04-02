@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "StatsPages/PrimitiveStatsPage.h"
 #include "Engine/Level.h"
@@ -352,11 +352,12 @@ struct PrimitiveStatsGenerator
 						NewStatsEntry->Sections += FMath::Square(CurrentComponent->NumSubsections);
 
 						// count resource usage of landscape
+						//TODO: take into consideration all the editing RT/heightmap, etc.
 						bool bNotUnique = false;
-						UniqueTextures.Add(CurrentComponent->HeightmapTexture, &bNotUnique);
+						UniqueTextures.Add(CurrentComponent->GetHeightmap(), &bNotUnique);
 						if (!bNotUnique)
 						{
-							const SIZE_T HeightmapResourceSize = CurrentComponent->HeightmapTexture->GetResourceSizeBytes(EResourceSizeMode::EstimatedTotal);
+							const SIZE_T HeightmapResourceSize = CurrentComponent->GetHeightmap()->GetResourceSizeBytes(EResourceSizeMode::EstimatedTotal);
 							NewStatsEntry->ResourceSize += (float)HeightmapResourceSize / 1024.0f;
 						}
 						if (CurrentComponent->XYOffsetmapTexture)

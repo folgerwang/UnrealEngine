@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SLandscapeEditor.h"
 #include "Framework/MultiBox/MultiBoxDefs.h"
@@ -102,6 +102,7 @@ void FLandscapeToolKit::Init(const TSharedPtr<IToolkitHost>& InitToolkitHost)
 	MAP_TOOL("Noise");
 	MAP_TOOL("Retopologize");
 	MAP_TOOL("Visibility");
+	MAP_TOOL("BPCustom");
 
 	MAP_TOOL("Select");
 	MAP_TOOL("AddComponent");
@@ -499,6 +500,15 @@ bool SLandscapeEditor::GetIsPropertyVisible(const FPropertyAndParent& PropertyAn
 			const ELandscapeToolTargetType::Type CurrentTargetType = LandscapeEdMode->CurrentToolTarget.TargetType;
 			if (CurrentTargetType == ELandscapeToolTargetType::Invalid ||
 				ShowForTargetTypes.FindByKey(TargetTypeNames[CurrentTargetType]) == nullptr)
+			{
+				return false;
+			}
+		}
+		if (Property.HasMetaData("ShowForBPCustomTool"))
+		{
+			const FName CurrentToolName = LandscapeEdMode->CurrentTool->GetToolName();
+
+			if (CurrentToolName != TEXT("BPCustom"))
 			{
 				return false;
 			}

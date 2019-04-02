@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "DisplayClusterGameMode.h"
 
@@ -17,7 +17,6 @@
 #include "DisplayClusterPlayerController.h"
 #include "DisplayClusterHUD.h"
 #include "DisplayClusterGlobals.h"
-#include "IPDisplayCluster.h"
 
 
 #if WITH_EDITOR

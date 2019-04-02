@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Misc/App.h"
 #include "HAL/FileManager.h"
@@ -24,6 +24,7 @@ FGuid FApp::InstanceId = FGuid::NewGuid();
 FGuid FApp::SessionId = FGuid::NewGuid();
 FString FApp::SessionName = FString();
 FString FApp::SessionOwner = FString();
+FString FApp::GraphicsRHI = FString();
 TArray<FString> FApp::SessionUsers = TArray<FString>();
 bool FApp::Standalone = true;
 bool FApp::bIsBenchmarking = false;
@@ -95,9 +96,18 @@ void FApp::SetDebugGame(bool bInIsDebugGame)
 
 FString FApp::GetBuildDate()
 {
-	return FString(ANSI_TO_TCHAR(__DATE__));
+	return FString(BuildSettings::GetBuildDate());
 }
 
+FString FApp::GetGraphicsRHI()
+{
+	return GraphicsRHI;
+}
+
+void FApp::SetGraphicsRHI(FString RHIString)
+{
+	GraphicsRHI = RHIString;
+}
 
 void FApp::InitializeSession()
 {

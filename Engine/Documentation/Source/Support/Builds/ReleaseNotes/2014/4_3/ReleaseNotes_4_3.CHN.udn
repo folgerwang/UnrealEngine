@@ -1,333 +1,361 @@
-﻿INTSourceChangelist:1
-Title: 虚幻引擎 4.3 版本信息
+﻿INTSourceChangelist:3108692
+Title:虚幻引擎4.3版本说明
 Crumbs:%ROOT%, Support/Builds
 Description:
 Availability:Public
 version: 4.3
 order:3
 
-
 [TOC(start:2 end:2)]
 
-## 4.3 Release Notes 
-Unreal Engine 4.3 includes greatly improved mobile support, awesome new rendering features, improved Blueprint workflows, and strides toward an excellent experience on Mac and laptops. Be sure to check out the new World Composition tools, spline features, and the preview of Paper2D, our 2D toolset! Today we're also shipping SpeedTree 7 support, our work on Metal API for iOS 8 to date, and new Oculus Rift features such as time warping.
+(#4.3releasenotes)
+## 4.3版本说明 
+虚幻引擎4.3极大地改善了对移动平台的支持，加入了全新的渲染功能、改良的蓝图工作流，并在Mac和笔记本电脑上实现了优秀的用户体验。新加入的场景合成工具、样条功能、2D工具集Paper 2D的预览全都不容错过！此更新还包含对SpeedTree 7的支持，最新iOS 8 Metal API的功能，以及时间扭曲等全新Oculus Rift功能。
 
-We'd like to extend our gratitude to all of the amazing developers who contributed code to the upcoming 4.3 release. 
+在此，我们谨对向此版本作出代码贡献的所有开发者们表达感谢与敬意。 
 
-3dluvr, abergmeier, alixSilkin, Allegorithmic, bigzer, Chris-Bond, CoherentUE4, EverNewJoy, Ixiguis, mpolaczyk, pzurita, raziel2001au, robert-wallis, RushPL, solid-angle, stephenwhittle, thk123, timdonkssbc100, vakathil, Xaklse, Zoubi
+3dluvr、abergmeier、alixSilkin、Allegorithmic、bigzer、Chris-Bond、CoherentUE4、EverNewJoy、Ixiguis、mpolaczyk、pzurita、raziel2001au、robert-wallis、RushPL、solid-angle、stephenwhittle、thk123、timdonkssbc100、vakathil、Xaklse、Zoubi
 
-## Major New Features
+(#majornewfeatures)
+## 主要新功能
 
-### Rendering 
+(#rendering)
+### 渲染 
 
-##### New: Movable Skylight
-Skylights can now support the Movable mobility setting!
-* This type of light supports dynamic scene changes.
-* It gets shadowing from SSAO and a new feature called Distance Field AO. 
+(#new:movableskylight)
+##### 新增内容：可移动天空光照
+新版本现支持移动性设置“可移动”！
+* 此类光照支持动态场景修改。
+* 它从SSAO和一个名为距离场AO的全新功能中获取阴影。 
 
-##### New: Distance Field Ambient Occlusion
-This feature computes AO from Signed Distance Fields which are used to represent the static meshes in the scene. The static meshes can be moved at runtime and the AO will update.
+(#new:distancefieldambientocclusion)
+##### 新增内容：距离场环境光遮蔽
+此功能计算来自有向距离场（用于代表场景中的静态网格体）的AO。静态网格体可在运行时移动，AO将更新。
 
-*Original:*
+*原始：*
 
 ![](DistanceFieldAO_01.png)
 
-*With Distance Field AO:*
+*带距离场AO：*
 
 ![](DistanceFieldAO_02.png)
 
-##### NEW: Skylight Global Illumination
-Lightmass now computes global illumination for Stationary and Static skylights!
+(#new:skylightglobalillumination)
+##### 新增内容：天空光照全局光照
+新版本中，Lightmass将计算静止和静态天空光照的全局光照！
 
-*Original:*	
+*原始：*	
 
 ![](SkylightGI01.png)
 
-*With Global Illumination:*
+*带全局光照：*
 
 ![](SkylightGI02.png)
 
-* You can use **Indirect Lighting Intensity** on the sky light to control how bright the bounce lighting is.
-* Just like all Stationary lights, if you change the color or intensity at runtime, it only applies to the direct lighting, since the bounce lighting is baked into the lightmap.
+* 可使用天空光照上的 **间接光照强度** 来控制反射光照的亮度。
+* 和所有静态光照一样，如果在运行时修改颜色或强度，其只会应用到直接光照，因为反射光照已被烘焙到光照贴图中。
 
 
 
-##### New: Translucency Shadowing from Stationary Lights
-Stationary lights now properly shadow translucent materials!
+(#new:translucencyshadowingfromstationarylights)
+##### 新增内容：来自静止光照的半透明阴影
+新版本中静止光照能对半透明材质进行良好投影！
 
-*Original:* 
+*原始：* 
 
 ![](TranslucencyShadowing01.png)
 
-*Static Shadowing for Translucency:*
+*半透明的静态阴影投射：*
 
 ![](TranslucencyShadowing02.png)
 
-* This is achieved by computing a shadow depth map in Lightmass covering the light's influence.
+* 其工作原理是在Lightmass中计算一个阴影深度图，覆盖光照影响。
  
 
-### 2D Game Tools Preview
-The **Paper2D** plugin is now enabled by default in the engine, so it will be usable in content-only games in 4.3 
+(#2dgametoolspreview)
+### 2D游戏工具预览
+新版本中，**Paper2D** 插件在引擎中默认启用，可在纯内容的游戏中使用 
 
-A 2D side scroller game template has been added as well ! (BP and C++ variations)
+同时还添加了一个2D横卷轴游戏模板！（蓝图和C++变体）
 
 ![](Paper2D03.png)
 
-Editor and documentation now work to properly message the state of Paper2D in 4.3
-* Sprites and Flipbooks are 'Early access'
-* 2D collision/physics, terrain splines, atlasing groups, and tile maps are 'Experimental' (hidden behind enable flags where possible)
+新版本中，编辑器和文档将正确显示Paper2D的状态的消息
+* Sprite和图像序列视图尚处于“早期体验”阶段
+* 2D碰撞/物理、地貌样条、图谱分组、图块贴图尚处于“实验性”阶段（隐藏在可用之处的启用标签后）
 
 ![](Paper2D01.png)
 ![](Paper2D02.png)
 
-Addition Updates:
-* Productization /usability polish pass on Sprite and Flipbook Editors
-* Flipbook component improvements (play/pause, looping control, reverse, etc...)
+更多更新：
+* 对Sprite和图像序列视图编辑器进行产品化/使用性优化
+* 图像序列视图组件改良（播放/暂停、循环控制、反向播放等）
 
 
-### AI Tools: Behavior Tree
+(#aitools:behaviortree)
+### AI工具：行为树
 
-##### Blackboard Editing & Debugging in the Behavior Tree Editor
-You can now edit and debug Blackboard entries inside the Behavior Tree Editor. You can access the Blackboard Editor by switching to the new 'Blackboard' mode:
+(#blackboardediting&debugginginthebehaviortreeeditor)
+##### 行为树编辑器中的黑板编辑与调试
+新版本中，使用者可在行为树编辑器中编辑并调试黑板条目。切换至全新的“黑板”模式即可访问黑板编辑器：
 
 ![](BehaviorTree01.png)
 
-You can then edit the blackboard in a similar way to Blueprint variables by adding keys:
+然后即可添加键，以与蓝图变量相似的方式对黑板进行编辑：
 
 ![](BehaviorTree02.png)
 
-You can also remove and rename keys with hotkeys & the **right-click** context menu.
+可使用热键和 **右键** 快捷菜单来移除并重命名键。
 
-When debugging, blackboard values are displayed for inspection. As before you can still switch between current and saved (previous) debugging contexts:
+进行调试时，将显示黑板值以便观察。和旧版本一样，使用者依然可以在当前和保存的（之前的）调试情景之间进行切换：
 
 ![](BehaviorTree03.png)
 
-The blackboard is also displayed for quick reference in the behaviour tree mode:
+同时也将显示黑板，以便在行为树模式中进行快速参考：
 
 ![](BehaviorTree04.png)
 
-##### New: "New Node" Shortcuts
-The Behavior Tree Editor has had some new buttons added to its toolbar, allowing users to quickly create new Blueprint node types for tasks, decorators and services:
+(#new:”newnode”shortcuts)
+##### 新增内容：“新建节点”快捷方式
+行为树编辑器已将一些新按钮添加至其工具栏，使用户可为任务、装饰器和服务迅速新建蓝图节点类型：
 
 ![](BehaviorTree05.png)
 
-* Blueprints for these new nodes are created in the location of the currently edited behavior tree. If there is more than one potential class to create a node type from, then the button will appear with a dropdown to allow class selection.
+* 这些新节点的蓝图被创建在当前被编辑的行为树的路径中。如存在多个可创建节点类型的潜在类，按钮将含下拉菜单，以便对类进行选择。
 
-### Large World Support
+(#largeworldsupport)
+### 大型场景支持
 
-##### New: World Composition 
-You can create sub-levels and position them anywhere on this map. They will be loaded automatically in the game.
+(#new:worldcomposition)
+##### 新增内容： 
+使用者可创建子关卡并将其放置在此地图上的任意处。其将在游戏中自动加载。
 
 ![](LevelsComposition01.png)
 
-* Turn on **Enable World Composition** in your level's **World Settings** to activate this (the level must be saved to enable this feature).
-* You can use the Minimap button on the **Level Browser** toolbar to access a world map.
+* 在关卡的 **场景设置** 中开启 **启用场景合成** 后即可激活此项（关卡保存后才能使此功能生效）。
+* 可使用 **关卡浏览器** 工具条上的小地图按钮来访问场景地图。
 
 ![](LevelsComposition02.png)
 
-* New documentation and Sample Games will be coming later.
-* This feature replaces the experimental **World Browser** feature in earlier builds.
+* 之后将提供新文档和游戏样本。
+* 此功能替代旧版本中的实验性功能 **场景浏览器**。
 
-##### Level Browser Redesign
-The **Level Browser** (accessed through the Window menu) has seen a significant update in 4.3.
+(#levelbrowserredesign)
+##### 重新设计关卡浏览器
+在4.3版本中，**关卡浏览器**（通过“窗口”菜单访问）得到了大幅更新。
 
 ![](LevelBrowserRedesign.png)
 
-* All the file operations (create new, save, save as, add, merge, etc) were moved from context menu into the toolbar button **Levels**.
-* Status bar has new view options: **Display actor count for each level** and **Display full package names**.
-* Less used operations like level transformations, Streaming Volumes management, and others can be done though **Level Details** panel which can be summoned by clicking a **Details** button on the **Levels** panel's toolbar. **Level Details** is independent from the regular **Details** panel, that means it will show only selected level details. It also supports multi-selection.
-* In **PIE** the **Levels** panel will show simulation status of each level, hidden levels will have their visibility "eye" closed and unloaded levels will have their name color in gray.
-* When you drag a level into blueprint graph it will create **GetStreamingLevel** node for that level.
-* If something is missing or work incorrectly in a renewed Levels tool you can switch back to old Levels tool by using **-oldlevels commandline** parameter.
+* 所有文件操作（新建、保存、另存为、添加、合并等）已从快捷菜单移至工具栏按钮 **关卡** 下。
+* 状态条加入了新的查看选项：**显示每个关卡的actor数** 与 **显示完整包命名**。
+* 不常用操作（如关卡变换、流送体积管理等）可通过 **关卡细节** 面板进行。点击 **关卡** 面板工具条上的 **细节** 按钮即可呼出此面板。**关卡细节** 独立于常规的 **细节** 面板，其只显示选中关卡的细节，支持多选。
+* 在 **PIE** 模式中，**关卡** 面板将显示每个关卡的模拟状态，隐藏关卡的可视性“眼睛”图标将显示为闭合，未加载关卡的名称将显示为灰色。
+* 将一个关卡拖入蓝图图表时，将创建该关卡的 **GetStreamingLevel** 节点。
+* 如更新的关卡工具中出现内容缺失或功能错误，可使用 **-oldlevels commandline** 参数切换回旧关卡工具。
 
-### New: Render to Texture Blueprint
-New texture baking features available with the 'RenderToTexture_LevelBP' Blueprint! In the **Engine\Content\ArtTools\** directory now houses a blueprint named the RenderToTexture_LevelBP. This blueprint offers a few different baking options.
+(#new:rendertotextureblueprint)
+### 新增内容：渲染至纹理蓝图
+“RenderToTexture_LevelBP”蓝图中有全新的纹理烘焙功能可用！**Engine\Content\ArtTools\** 目录现在保存了一个命名为RenderToTexture_LevelBP的蓝图。此蓝图将提供多个不同的烘焙选项。
  
-**Render Unwrapped Material to Textures**
+**将展开材质渲染到纹理**
  
-This unwraps with a companion material function using a vertex shader. This can be useful if you want to bake out the result of something like World Aligned Textures to cut down on cost or if you for some reason needed to capture the engine static lightmap of a mesh to do something custom with it. 
+此项通过伙伴材质函数（使用顶点着色器）进行展开。适用于以下情况：需要烘焙出场景对齐纹理等内容的结果以便降低开销；出于某种原因需要采集网格体的引擎静态光照贴图，对其进行自定义操作。 
 
 ![](RenderUnwrappedMat.png)(w:900)
 
-**Render 3D Imposter Sprites**
+**渲染3D Imposter Sprites**
  
-Imposters are like sprites that are represented from all view angles so they can rotate and light in 3D. 
+Imposter和sprite相似，从各个查看角度进行呈现，因此可在3D中进行旋转和照亮。 
 
 ![](Render3D.png)(w:900)
 
-Example Imposters:
-One of the meshes near the middle is a real static mesh, the rest are imposters.
+Imposter样本：
+靠近中央的其中一个网格体是真实的静态网格体，其余的均是imposter。
 
 ![](ExampleImposters.png)
 
-It also supports a mode called "Single Rotation Axis" which is meant to represent a billboard for a distant object on the horizon. What that does is only rotate the mesh around Z so that you get either more frames or more resolution than a full imposter. 
+其还支持一个名为“单一旋转轴”的模式，其代表地平线上远距离物体的公告板。其执行的操作是只围绕Z轴旋转网格体，以便获得比完整imposter更多的帧或更高的分辨率。 
 
 ![](ExampleImposters2.png)
 
-This is a test scene using the Single Rotation axis imposters.  Here the material was set to randomly rotate the position of the 'flipbook' by using worldposition, giving each a unique rotation. 
+这是使用单一旋转轴imposter的一个测试场景。此处材质设为使用场景位置来随机旋转图像序列视图的位置，为其赋予各不相同的独有旋转。 
 
 ![](ExampleImposters3.png)
 
-**Render a Per Object Shadow Depth Texture**
+**渲染一个逐对象阴影深度纹理**
  
-This mode bakes a depth map from a specified light view and can be used to do a custom Per-Object shadow within a material. This example tree material is unlit and the shadow is provided from a depth texture. This was used on the Apple Zen demo. 
+此模式从特定的光照视图烘焙深度图，可用于构建材质中的自定义逐对象阴影。此范例树材质无光照，阴影则来自深度纹理。此方法曾用于Apple Zen演示中。 
 
 ![](RenderPerObject.png)
 
-**Flipbook Animations**
+**图像序列视图动画**
  
-This mode is very similar to the Imposter sprite function. It uses a series of mesh rotations but this time they are specified by user input rather than pre-set by the blueprint.
+此模式与Imposter sprite函数十分相似。其使用一系列的网格体旋转，但此时其由用户输入指定，而非由蓝图预设。
  
-It renders out the desired image types as a flipbook texture which can be animated on a sprite anywhere in the engine such as a particle effect. 
+其将所需的图像类型渲染为图像序列视图纹理，此纹理可在引擎中任意处的sprite上播放动画（例如粒子效果）。 
 
 ![](FlipbookAnim.png)(w:900)
 
-There is also the option to pass an "Animation Phase" parameter to the target mesh in order to render a vertex shader animation to a flipbook.
+此外也有选项将一个“动画阶段”参数传至目标网格体，以便将一个顶点着色器动画渲染至图像序列视图。
 
 ![](FlipbookAnim2.png)(w:900)
 
-### New: Credits (Thank you!)
-Past and future contributors are immortalized in Unreal Editor with our new Credits screen. We can't thank you enough!
+(#new:credits(thankyou!))
+### 新增内容：制作人员列表（感谢您！）
+为表彰长期以来对虚幻引擎做出不朽贡献的开发者，新版本中加入了制作人员列表。感谢你们付出的心血！
 
 ![](CommunityDevs.png)
 
-You can access the new Credits screen through the editor's **Help -> Credits** menu.
+通过编辑器的 **帮助 -> 制作人员列表** 菜单即可访问。
 
-### New: Oculus Rift Upgrade
-* Upgraded to new Oculus SDK (0.3.3-pre.1 SDK), with latest goodies!
-* Oculus Rift DK2 supported out of the box, with full motion tracking.
-* New direct rendering path and time-warping, which significantly reduces latency on the device.
-* Check out our new "Couch Knights" sample, created to show off the new Oculus Rift DK2's capabilities.
+(#new:oculusriftupgrade)
+### 新增内容：Oculus Rift更新
+* 已更新至Oculus SDK（0.3.3-pre.1 SDK），包含最新内容！
+* 原生支持Oculus Rift DK2，带完整运动追踪。
+* 全新直接渲染路径和时间扭曲，极大地降低设备上的延迟。
+* 查看我们全新推出的“Couch Knights”，其展示了全新Oculus Rift DK2的功能。
 
 ![](OculusRiftUpgrade.png)
 
-### New: SpeedTree 7 Supported
-You can now import SpeedTree assets into Unreal Engine!
+(#new:speedtree7supported)
+### 新增内容：已支持SpeedTree 7
+新版本中使用者可将SpeedTree资源导入虚幻引擎！
 
 ![](Speedtree01.png)
 
-SpeedTree trees and plants will all include light map UVs, dynamic LOD and wind effects. Those who download the new version will have several options:
-* The SpeedTree for Unreal Engine 4 Subscription Modeler, available on Windows and Mac OS X at $19 USD per month. No royalties, per-title or per-platform fees apply.
-* Trees for sale - seasonal variations, various triangle counts etc.
-* Three free sample trees that can be dropped into any UE 4.3 project.
-* Everything will be available at the [SpeedTree Website](http://www.speedtree.com/).
+SpeedTree树木和植物所有均包含光照图UV、动态LOD和风效果。下载新版本后，使用者便可进行多个选择：
+* Unreal Engine 4 Subscription Modeler的SpeedTree在Windows和Mac OS X平台上可用，价格为每月19美元。无需额外支付版权费，无项目费和平台费。
+* 购买树木——各种季节的树木，亦可选择不同的三角形数量。
+* 可放置到UE 4.3项目中的3个免费树木样本。
+* 所有内容均可在[SpeedTree网站](http://www.speedtree.com/)上找到。
 
 ![](Speedtree02.png)
 
-### Blueprints
+(#blueprints)
+### 蓝图
 
-##### New: Spline and Spline Mesh Components
-We now have the ability to edit Splines directly in the world! By simply adding a Spline Component or Spline Mesh Component to your Blueprint and selecting an instance of that Blueprint, users gain access to editing splines within their levels. 
+(#new:splineandsplinemeshcomponents)
+##### 新增内容：样条与样条网格体组件
+新版本中可以直接在场景中编辑样条了！将样条组件或样条网格体组件添加到蓝图并选择该蓝图的一个实例后，用户即可在关卡中编辑样条。 
 
 ![](SplineMeshComponents.png)(w:900)
 
-**Click** on keys to select them.
-* Use the translate widget to move them around (the 'tangents' are automatically updated by default).
-* **Alt-drag** with a key selected to add a new one.
+**点击** 键将其选中。
+* 使用平移组件对其进行移动（“切线”默认为自动更新）。
+* 选中键后 **按住Alt进行拖动** 来进行新增。
 
-If you want more control:
-* Use the rotate widget to rotate the tangents.
-* Use the scale widget to extend them.
+如果希望进行更多控制：
+* 使用旋转控件来旋转切线。
+* 使用缩放控件对其进行延展。
 
-You can also **right-click** on a key to get a context menu:
+也可在一个键上 **点击右键** 来获取快捷菜单：
 
-If you want, you can also construct the spline inside your Construction Script using the **AddSplineWorldPoint** and **SetSplineWorldPoints** functions.
+如果需要，也可使用 **AddSplineWorldPoint** 和 **SetSplineWorldPoints** 函数在构造脚本中构建样条。
 
-##### New: Reroute Nodes
-**Add Reroute Node...** now shows up in the context menu when you click-drag off of a pin; you can make connections to a reroute pin like normal, move it around (by dragging near it or **ctrl + dragging** on it), and remove it by **Alt + Clicking**. 
+(#new:reroutenodes)
+##### 新增内容：重路由节点
+点击引脚连出引线时 **添加重路由节点** 将显示在快捷菜单中，可正常连接到重路由引脚，将其移动（拖拽其周围或在其上方 **按住ctrl拖动**），**按住Alt点击** 则可将其移除。 
 
-You can also put comments on a reroute node by double-clicking on the draggable area below, or hitting **F2**.
+双击下方的可拖动区域或按下 **F2** 即可将注释放置在重路径节点上。
 
 ![](RerouteNodes.png)
 
-##### New: Split Struct Pins
-Users now have the ability to split a struct pin directly in place on the node instead of having to insert the Make and Break nodes. 
+(#new:splitstructpins)
+##### 新增内容：分离结构体引脚
+新版本中使用者可以在节点上直接分离结构体引脚，而无需再插入Make和Break节点。 
 
 ![](SplitStructPins.png)
 
-This works for both input and output pins of any struct, and if the split struct also contains structs, they can also be expanded.
+这可用于所有结构体的输入和输出引脚；如果分离结构体也包含结构体，其也能够扩张。
 
-##### New: Expand Enum for Output Pins
-You can now enable expanded Enumeration execution pins for Blueprint Nodes. This has existed for input pins for sometime now, but now can be enabled for output execution pins:
+(#new:expandenumforoutputpins)
+##### 新增内容：扩展输出引脚列举
+新版本中用户可以启用蓝图节点执行引脚的扩展列举。输入引脚的此内容已存在一段时间，新版本中已为输出执行引脚将其启用：
 
 ![](ExpandEnum.png)
 
-* Now you can just create an enum, have one as an output parameter for your function, and mark that output parameter it as ExpandEnumAsExecs in the UFunction metadata (C++).
+* 使用者可创建一个列举，将其设为函数的一个输出参数，并将该输出参数标记为UFunction元数据（C++）中的ExpandEnumAsExecs。
 
-##### New: Data and Curve Table Support
-Evaluate Curve Table Row will return you the output value for Row Name at XY:
+(#new:dataandcurvetablesupport)
+##### 新增内容：支持数据和曲线表
+“计算曲线表行（Evaluate Curve Table Row）”将返回XY处行命名的输出值：
 
 ![](DataandCurve01.png)
 
-Get Data Table Row will return you a Row struct that can be broken into its individual component variables:
+“获取数据表行（Get Data Table Row）”将返回一个行结构体，其可被分解为其个体组件变量：
 
 ![](DataandCurve02.png)
 
-##### New: Blueprints Control of Anim Trails
-You can now control Anim Trail emitters in Blueprint (and code) without anim notifies.
-* The only restriction with this is that the particle system component must be the child of the skeletal mesh component from which you are sampling socket locations.
-* The **Begin Trails** function of the component will start all Anim Trail emitters in the Particle System. 
+(#new:blueprintscontrolofanimtrails)
+##### 新增内容：动画尾迹的蓝图控制
+新版本中，使用者可对蓝图（和代码）中不带动画通知的动画尾迹发射器进行控制。
+* 唯一限制是粒子系统组件必须为骨架网格体组件（正是从此处采样插槽位置）的子项。
+* 组件的 **Begin Trails** 函数将开始粒子系统中的所有动画尾迹发射器。 
 
 ![](AnimTrails02.png)
 
-* The EndTrails function of the component will end all Anim Trail emitters in the Particle System.
+* 组件的EndTrails函数将结束粒子系统中的所有动画尾迹发射器。
 
 ![](AnimTrails03.png)
 
-* You can also alter the trails properties while it is running. Here we alter the width each tick using the game time.
+* 使用者也可在尾迹运行时调整其属性。此处将在每次tick时对宽度进行调整（使用游戏时间）。
 
 ![](AnimTrails04.png)
 
-##### New: Global Blueprint Search
-Find-in-Blueprints has been given a significant revamp to accommodate feature requests and should now be more robust and useful.
+(#new:globalblueprintsearch)
+##### 新增内容：全局蓝图搜索
+蓝图搜索已得到大幅改进，功能与实用性均更加强大，足以满足使用者的需求。
 
-Searching should be more all-encompassing than ever before, finding: nodes, pins, pin values, graphs, variables, variable values, as well as searching animation graphs. 
+搜索的范围将更为广泛，可找到节点、引脚、引脚值、图表、变量、变量值，也可对动画图表进行搜索。 
 
-Searching is an asynchronous process, meaning it will not prevent you from using the editor as the search completes, you can also make multiple searches in different Blueprints at the same time. 
+搜索是一个异步进程，意味着搜索完成后用户可以使用编辑器，也可同时在不同蓝图中执行多次搜索。 
 
-Find-in-Blueprints now leverages the DDC for the searchable data - when Blueprints are updated their information is refreshed and when another user syncs that Blueprint the searchable data will be unreachable. 
+新版本中蓝图将利用可搜索数据的DDC：蓝图更新时其信息将被刷新，另一个用户同步该蓝图的数据时将无法获取到可搜索数据。 
 
-When Blueprints are not indexed in the system, it will inform you, as in the below image:
+蓝图未在系统中编入索引时将显示下图中的提示：
 
 ![](FindBlueprintsRefactor.png)
 
-* **Note**: Level Blueprints are not fully supported, though you should be able to search your current level without a problem.
+* **注意**：并不完全支持关卡蓝图，但使用者应该能够毫无障碍地搜索当前关卡。
 
-### Scalability Updates
-For 4.3 we've focused on editor performance and CPU usage of the editor
+(#scalabilityupdates)
+### 可延展性更新
+在4.3版本中，我们着重改善了编辑器性能和编辑器CPU使用率
  
-* To improve editor performance scalability settings are now auto-applied by measuring CPU and GPU performance at editor startup.
-	* Scalability settings may reduce the quality of some rendering settings and disable realtime preview in viewports to improve performance.  You can read more about the scalability settings that can be applied [here](https://docs.unrealengine.com/latest/INT/Engine/Rendering/Scalability/ScalabilityReference/index.html).
-	* You can disable this feature and change scalability settings manually in the editor via the Quick Settings menu in the level editor toolbar.
+* 为提升编辑器性能，编辑器启动时将测量CPU和GPU性能，自动应用可延展性设置。
+	* 可延展性设置可能降低部分渲染设置的精度，并禁用视口中的实时预览来改良性能。可在[此处](https://docs.unrealengine.com/latest/INT/Engine/Rendering/Scalability/ScalabilityReference/index.html)了解能够应用的可延展性设置的详细内容。
+	* 可通过关卡编辑器工具条中的“快速设置（Quick Settings）”菜单在编辑器中手动禁用此功能并修改可延展性设置。
 
 ![](ScalabilityUpdates01.png)
 
 ![](ScalabilityUpdates02.png)
 
-* CPU Usage has been significantly reduced when the editor is minimized. 
-* For laptops running on battery power, the editor framerate is throttled to a maximum of 60 hz in order to preserve battery life.
+* 编辑器最小化时的CPU使用率已大幅降低。 
+* 笔记本电脑使用电池电量时，编辑器帧率将节流为最高60 hz，以节约电量。
 
 
-### Static Mesh Editor
+(#staticmesheditor)
+### 静态网格体编辑器
 
-##### New: Customizable Static Mesh Collision
-The Static Mesh editor now supports adding multiple collision primitives of differing types, allowing for the quick creation of a custom collision setup, and modifications to existing collision to fix any issues affecting gameplay.
+(#new:customizablestaticmeshcollision)
+##### 新增内容：可自定义静态网格体碰撞
+静态网格体编辑器现支持添加不同类型的多个碰撞基元，以便快速创建自定义碰撞设置，并对现有碰撞进行修改，修复影响游戏进程的问题。
 
-This can be used to make it easier to shoot through or traverse more complex geometry, as well as place blockers when you do not want to user to be able to. For example:
+使用此功能后，穿透或遍历更复杂的几何体时将更加轻松，也可通过放置阻碍来防止使用者进行此类操作。举例而言：
 
 ![](CustomStaticMeshCollision01.png)
 ![](CustomStaticMeshCollision02.png)
 
-The Static Mesh Editor now supports Capsule/Sphyl collision geometry too.
-* It attempts to calculate the correct axis it should align itself with, along with the best fit for the mesh. For example:
+新版本中静态网格体编辑器也支持胶囊体/长菱形碰撞几何体。
+* 其将尝试计算其自身应对齐的正确轴，以及网格体的最佳匹配。举例而言：
 
 ![](CustomStaticMeshCollision03.png)
 
-* All the collision primitives can be selected with the mouse and moved, rotated, and scaled with the editor widget (**Spacebar** and **W,E,R keys** toggle manipulation type).
-* Collision primitives can also be multi selected (**Ctrl+LMB**), focused (**F key**), duplicated (**Alt+drag**) and deleted (**delete key**) if they are no longer needed - all of which should be transactional.
+* 所有碰撞基元均可使用鼠标选中，并通过编辑器控件进行移动、旋转和缩放（使用 **空格键**、**WER键** 切换操纵类型）。
+* 碰撞基元也可被多选（**ctrl+鼠标左键**）、聚焦（**F键**）、复制（**Alt+拖动**），不需要时可删除（**Delete键**）。所有操作均为事务处理性质。
 
 
-## Release Notes
+## Release Notes （以下内容仅供参考，不作翻译）
 
 ### Marketplace
 
@@ -776,7 +804,7 @@ Black Jack is made completely in Blueprint and is mobile ready!
 * New: Improved device compatibility across many devices. 
 * New: The **FOnlineAchievementsGooglePlay::QueryAchievements** function now works on Android.
 * New: Changed default Android depth buffer precision to 24 bit and added Android Platform Setting to choose preference.
-* New: Allow portrait-only orientations on Android tablets, but force landscape on devices with naturally landscape output (NVidia Shield, Google TV, Kindle Fire TV, Ouya).
+* New: Allow portrait-only orientations on Android tablets, but force landscape on devices with naturally landscape output (NVIDIA Shield, Google TV, Kindle Fire TV, Ouya).
 * New: Install batch file for Android APK generated by packaging now takes an optional device serial number to pass to ADB.
 * New: The engine now choses a better EGL config at startup, which fixes performance issues on newer Android devices.
 * New: Improved error handling in Android install batch file (with some output giving suggestions).
@@ -1106,6 +1134,10 @@ Black Jack is made completely in Blueprint and is mobile ready!
 * Added UE_WITH_PHYSICS as a shorthand for (WITH_PHYSX || WITH_BOX2D).
 * Changed CalculateMass to use GetSimplePhysicalMaterial with the richer set of override points.
 * Replaced many FCollsionShape switches with a FPhysXShapeAdaptor helper.
+
+
+
+
 
 
 

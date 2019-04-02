@@ -1,6 +1,6 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:3782314
 Availability:Public
-Title:Light Propagation Volumes
+Title:라이트 프로퍼게이션 볼륨
 Crumbs:%ROOT%, Engine, Engine/Rendering/LightingAndShadows
 Description:글로벌 일루미네이션의 동적인 생성을 위한 시스템입니다.
 Version: 4.9
@@ -8,7 +8,7 @@ SkillLevel: Advanced
 topic-image:lpv_topic.png
 
 [REGION:todo]
-Light Propagation Volume (라이트 전파 볼륨)은 개발중인 기능으로, 아직은 제작 단계에서 사용할 준비가 되어있지 않습니다.
+Light Propagation Volume (라이트 프로퍼게이션 볼륨)은 개발중인 기능으로, 아직은 제작 단계에서 사용할 준비가 되어있지 않습니다.
 [/REGION]
 
 [TOC]
@@ -19,7 +19,7 @@ Light Propagation Volume (라이트 전파 볼륨)은 개발중인 기능으로,
 ![](lpv_scene.png)
 [/REGION]
 
-## Light Propagation Volume 켜기
+## 라이트 프로퍼게이션 볼륨 켜기
 
 이 기능을 켜려면 `ConsoleVariables.ini` 에 다음 줄을 입력하고 엔진을 재시작합니다:
 
@@ -33,14 +33,14 @@ Light Propagation Volume (라이트 전파 볼륨)은 개발중인 기능으로,
 * 지오메트리를 추가하고 빛과 그림자를 받는 부분이 생기도록 라이트의 방향을 조절합니다 (밝은 색의 머티리얼이 이상적입니다).
 * 다이내믹 GI 와 혼동되지 않도록 라이트매스 GI 는 꺼 둡니다 (두 기법을 같이 사용하면 간접광이 너무 밝아집니다).
 * 디렉셔널 라이트에 **Affect Dynamic Indirect Lighting** (다이내믹 간접광에 영향) 옵션을 켭니다.
-* 표시 플래그 중 Light Propagation Mode (켜진 라이트 전파 모드) 뷰모드를 켜서 Light Propagation Volume 에 덮인 영역을 시각화시킵니다 ([글로벌 일루미네이션 보기](#글로벌일루미네이션보기) 부분 참고).
-* Post Process Volume 을 추가하고 (unbound 여야 합니다) LightPropagationVolume 세팅의 "Size" 를 조절하여 영역을 필요한 디테일과 거리(감쇠)로 덮도록 합니다.
+* 표시 플래그 중 Enabled Light Propagation Mode (활성화된 라이트 전파 모드) 뷰모드를 켜서 라이트 프로퍼게이션 볼륨에 덮인 영역을 시각화시킵니다 ([글로벌 일루미네이션 보기](#글로벌일루미네이션보기) 부분 참고).
+* 포스트 프로세스 볼륨을 추가하고 (unbound 여야 합니다) LightPropagationVolume 세팅의 "Size" 를 조절하여 영역을 필요한 디테일과 거리(감쇠)로 덮도록 합니다.
 * GlobalIllumination 표시 플래그를 사용하여 GI 를 켜고/끕니다.
                 
 
-## Light Propagation Volume 세팅
+## 라이트 프로퍼게이션 볼륨 세팅
 
-포스트 프로세스 세팅에서 몇몇 글로벌 세팅을 찾을 수 있습니다 (Post Process Volume 을 추가하고, unbound 로 만들고, 
+포스트 프로세스 세팅에서 몇몇 글로벌 세팅을 찾을 수 있습니다 (포스트 프로세스 볼륨을 추가하고, unbound 로 만들고, 
 우선권이 적절히 설정되었는지 확인합니다):
 
 ![](LPV_settings.png)
@@ -77,7 +77,7 @@ Light Propagation Volume (라이트 전파 볼륨)은 개발중인 기능으로,
 
 ## 디렉셔널 라이트 세팅
 
-퍼포먼스 상의 이유로 Light Propagation Volume 은 입사광으로 디렉셔널 라이트만을 사용합니다. 이 방법은 
+퍼포먼스 상의 이유로 라이트 프로퍼게이션 볼륨은 입사광으로 디렉셔널 라이트만을 사용합니다. 이 방법은 
 소위 카메라 근처의 _Reflective Shadow Map_ 이라 불립니다. 일반적인 섀도 맵(라이트 시점에서의 불투명 
 깊이 2D 텍스처)과 비슷하지만 (머티리얼 컬러, 노멀 등의) 머티리얼 프로퍼티가 추가됩니다. 그 작업을 
 각 포인트 라이트마다 하면 비용이 매우 높겠지요. 디렉셔널 라이트의 세팅이 올바르게 되었는지 확인하세요:
@@ -101,9 +101,9 @@ Light Propagation Volume (라이트 전파 볼륨)은 개발중인 기능으로,
 	[/PARAM]
 [/OBJECT]
 
-## Light Propagation Volume 시각화
+## 라이트 프로퍼게이션 볼륨 시각화
 
-실제 Light Propagation Volume 의 시각화는 표시 플래그를 통해 가능하며, 뷰포트에 표시됩니다:
+실제 라이트 프로퍼게이션 볼륨의 시각화는 표시 플래그를 통해 가능하며, 뷰포트에 표시됩니다:
  
 [INCLUDE:#visualizeslider]
 
@@ -157,7 +157,7 @@ Light Propagation Volume (라이트 전파 볼륨)은 개발중인 기능으로,
 	17
 	[/PARAMLITERAL]
 	[PARAM:caption]
-	**슬라이더를 끌면 시각화된 Light Propagation Volume 을 확인할 수 있습니다.** 
+	**슬라이더를 끌면 시각화된 라이트 프로퍼게이션 볼륨을 확인할 수 있습니다.** 
 	[/PARAM]
 	[PARAM:image_list]
 	![](LPV_visualize_1.png)

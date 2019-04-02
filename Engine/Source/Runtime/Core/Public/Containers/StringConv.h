@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 // This file contains the classes used when converting strings between
 // standards (ANSI, UNICODE, etc.)
@@ -825,10 +825,10 @@ FORCEINLINE To CharCast(From Ch)
 /**
  * This class is returned by StringPassthru and is not intended to be used directly.
  */
-template <typename ToType, typename FromType>
-class TStringPassthru : private TInlineAllocator<DEFAULT_STRING_CONVERSION_SIZE>::template ForElementType<FromType>
+template <typename ToType, typename FromType, int32 DefaultConversionSize = DEFAULT_STRING_CONVERSION_SIZE>
+class TStringPassthru : private TInlineAllocator<DefaultConversionSize>::template ForElementType<FromType>
 {
-	typedef typename TInlineAllocator<DEFAULT_STRING_CONVERSION_SIZE>::template ForElementType<FromType> AllocatorType;
+	typedef typename TInlineAllocator<DefaultConversionSize>::template ForElementType<FromType> AllocatorType;
 
 public:
 	FORCEINLINE TStringPassthru(ToType* InDest, int32 InDestLen, int32 InSrcLen)
@@ -922,23 +922,23 @@ private:
  *     // Now Buffer holds the data output by SomeAPI, already converted if necessary.
  * }
  */
-template <typename From, typename To>
+template <typename From, typename To, int32 DefaultConversionSize = DEFAULT_STRING_CONVERSION_SIZE>
 FORCEINLINE typename TEnableIf<FPlatformString::TAreEncodingsCompatible<To, From>::Value, TPassthruPointer<From>>::Type StringMemoryPassthru(To* Buffer, int32 BufferSize, int32 SourceLength)
 {
 	check(SourceLength <= BufferSize);
 	return TPassthruPointer<From>((From*)Buffer);
 }
 
-template <typename From, typename To>
-FORCEINLINE typename TEnableIf<!FPlatformString::TAreEncodingsCompatible<To, From>::Value, TStringPassthru<To, From>>::Type StringMemoryPassthru(To* Buffer, int32 BufferSize, int32 SourceLength)
+template <typename From, typename To, int32 DefaultConversionSize = DEFAULT_STRING_CONVERSION_SIZE>
+FORCEINLINE typename TEnableIf<!FPlatformString::TAreEncodingsCompatible<To, From>::Value, TStringPassthru<To, From, DefaultConversionSize>>::Type StringMemoryPassthru(To* Buffer, int32 BufferSize, int32 SourceLength)
 {
-	return TStringPassthru<To, From>(Buffer, BufferSize, SourceLength);
+	return TStringPassthru<To, From, DefaultConversionSize>(Buffer, BufferSize, SourceLength);
 }
 
 template <typename ToType, typename FromType>
 FORCEINLINE TArray<ToType> StringToArray(const FromType* Src, int32 SrcLen)
 {
-	int32 DestLen = FPlatformString::ConvertedLength<TCHAR>(Src, SrcLen);
+	int32 DestLen = FPlatformString::ConvertedLength<ToType>(Src, SrcLen);
 
 	TArray<ToType> Result;
 	Result.AddUninitialized(DestLen);

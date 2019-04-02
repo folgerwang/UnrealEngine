@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimNodes/AnimNode_MultiWayBlend.h"
 #include "AnimationRuntime.h"
@@ -86,7 +86,7 @@ void FAnimNode_MultiWayBlend::UpdateCachedAlphas()
 void FAnimNode_MultiWayBlend::Update_AnyThread(const FAnimationUpdateContext& Context)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FAnimationNode_MultiWayBlend_Update);
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 	UpdateCachedAlphas();
 
 	for (int32 PoseIndex = 0; PoseIndex < Poses.Num(); ++PoseIndex)
@@ -122,8 +122,12 @@ void FAnimNode_MultiWayBlend::Evaluate_AnyThread(FPoseContext& Output)
 				// total alpha shouldn't be zero
 				Poses[PoseIndex].Evaluate(PoseContext);
 
-				SourcePoses.Add(PoseContext.Pose);
-				SourceCurves.Add(PoseContext.Curve);
+				FCompactPose& SourcePose = SourcePoses.AddDefaulted_GetRef();
+				SourcePose.MoveBonesFrom(PoseContext.Pose);
+
+				FBlendedCurve& SourceCurve = SourceCurves.AddDefaulted_GetRef();
+				SourceCurve.MoveFrom(PoseContext.Curve);
+
 				SourceWeights.Add(CurrentAlpha);
 			}
 		}

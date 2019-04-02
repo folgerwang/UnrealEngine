@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -14,6 +14,7 @@
 #include "HAL/Allocators/PooledVirtualMemoryAllocator.h"
 #include "HAL/PlatformMath.h"
 #include "HAL/LowLevelMemTracker.h"
+#include "Templates/Atomic.h"
 
 #define BINNED2_MAX_CACHED_OS_FREES (64)
 #if PLATFORM_64BITS
@@ -31,10 +32,19 @@
 
 #define DEFAULT_GMallocBinned2PerThreadCaches 1
 #define DEFAULT_GMallocBinned2LockFreeCaches 0
-#define DEFAULT_GMallocBinned2BundleSize BINNED2_LARGE_ALLOC
 #define DEFAULT_GMallocBinned2BundleCount 64
 #define DEFAULT_GMallocBinned2AllocExtra 32
 #define BINNED2_MAX_GMallocBinned2MaxBundlesBeforeRecycle 8
+
+#if !defined(AGGRESSIVE_MEMORY_SAVING)
+	#error "AGGRESSIVE_MEMORY_SAVING must be defined"
+#endif
+#if AGGRESSIVE_MEMORY_SAVING
+	#define DEFAULT_GMallocBinned2BundleSize 8192
+#else
+	#define DEFAULT_GMallocBinned2BundleSize BINNED2_LARGE_ALLOC
+#endif
+
 
 #define BINNED2_ALLOW_RUNTIME_TWEAKING 0
 #if BINNED2_ALLOW_RUNTIME_TWEAKING
@@ -66,10 +76,10 @@
 #if BINNED2_ALLOCATOR_STATS
 //////////////////////////////////////////////////////////////////////////
 // the following don't need a critical section because they are covered by the critical section called Mutex
-extern int64 AllocatedSmallPoolMemory; // memory that's requested to be allocated by the game
-extern int64 AllocatedOSSmallPoolMemory;
-extern int64 AllocatedLargePoolMemory; // memory requests to the OS which don't fit in the small pool
-extern int64 AllocatedLargePoolMemoryWAlignment; // when we allocate at OS level we need to align to a size
+extern TAtomic<int64> AllocatedSmallPoolMemory; // memory that's requested to be allocated by the game
+extern TAtomic<int64> AllocatedOSSmallPoolMemory;
+extern TAtomic<int64> AllocatedLargePoolMemory; // memory requests to the OS which don't fit in the small pool
+extern TAtomic<int64> AllocatedLargePoolMemoryWAlignment; // when we allocate at OS level we need to align to a size
 #endif
 #if BINNED2_ALLOCATOR_STATS_VALIDATION
 #include "Misc/ScopeLock.h"
@@ -461,7 +471,27 @@ public:
 		}
 		if (Result == nullptr)
 		{
-			Result = MallocExternal(Size, Alignment);
+			Result = MallocSelect(Size, Alignment);
+		}
+
+		return Result;
+	}
+	FORCEINLINE static bool UseSmallAlloc(SIZE_T Size, uint32 Alignment)
+	{
+		bool bResult = ((Size <= BINNED2_MAX_SMALL_POOL_SIZE) & (Alignment <= BINNED2_MINIMUM_ALIGNMENT)); // one branch, not two
+		return bResult;
+	}
+	FORCEINLINE void* MallocSelect(SIZE_T Size, uint32 Alignment)
+	{
+		void* Result;
+
+		if (UseSmallAlloc(Size, Alignment))
+		{
+			Result = MallocExternalSmall(Size, Alignment);
+		}
+		else
+		{
+			Result = MallocExternalLarge(Size, Alignment);
 		}
 
 		return Result;
@@ -641,14 +671,15 @@ public:
 	}
 
 	virtual bool ValidateHeap() override;
-	virtual void Trim() override;
+	virtual void Trim(bool bTrimThreadCaches) override;
 	virtual void SetupTLSCachesOnCurrentThread() override;
 	virtual void ClearAndDisableTLSCachesOnCurrentThread() override;
 	virtual const TCHAR* GetDescriptiveName() override;
 	// End FMalloc interface.
 
 	void FlushCurrentThreadCache();
-	void* MallocExternal(SIZE_T Size, uint32 Alignment);
+	void* MallocExternalSmall(SIZE_T Size, uint32 Alignment);
+	void* MallocExternalLarge(SIZE_T Size, uint32 Alignment);
 	void* ReallocExternal(void* Ptr, SIZE_T NewSize, uint32 Alignment);
 	void FreeExternal(void *Ptr);
 	bool GetAllocationSizeExternal(void* Ptr, SIZE_T& SizeOut);

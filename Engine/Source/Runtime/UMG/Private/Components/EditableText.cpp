@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Components/EditableText.h"
 #include "UObject/ConstructorHelpers.h"
@@ -130,6 +130,12 @@ void UEditableText::SetIsReadOnly(bool InbIsReadyOnly)
 	{
 		MyEditableText->SetIsReadOnly(IsReadOnly);
 	}
+}
+
+void UEditableText::SetClearKeyboardFocusOnCommit(bool bInClearKeyboardFocusOnCommit)
+{
+	ClearKeyboardFocusOnCommit = bInClearKeyboardFocusOnCommit;
+	MyEditableText->SetClearKeyboardFocusOnCommit(ClearKeyboardFocusOnCommit);
 }
 
 void UEditableText::HandleOnTextChanged(const FText& InText)

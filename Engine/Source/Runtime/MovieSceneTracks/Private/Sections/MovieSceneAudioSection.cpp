@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Sections/MovieSceneAudioSection.h"
 #include "Sound/SoundBase.h"
@@ -32,7 +32,7 @@ UMovieSceneAudioSection::UMovieSceneAudioSection( const FObjectInitializer& Obje
 	: Super( ObjectInitializer )
 {
 	Sound = nullptr;
-	StartOffset = 0.f;
+	StartOffset_DEPRECATED = AudioDeprecatedMagicNumber;
 	AudioStartTime_DEPRECATED = AudioDeprecatedMagicNumber;
 	AudioDilationFactor_DEPRECATED = AudioDeprecatedMagicNumber;
 	AudioVolume_DEPRECATED = AudioDeprecatedMagicNumber;
@@ -73,7 +73,7 @@ FMovieSceneEvalTemplatePtr UMovieSceneAudioSection::GenerateTemplate() const
 
 TOptional<FFrameTime> UMovieSceneAudioSection::GetOffsetTime() const
 {
-	return TOptional<FFrameTime>(StartOffset * GetTypedOuter<UMovieScene>()->GetTickResolution());
+	return TOptional<FFrameTime>(StartFrameOffset);
 }
 
 void UMovieSceneAudioSection::PostLoad()
@@ -94,21 +94,37 @@ void UMovieSceneAudioSection::PostLoad()
 		AudioVolume_DEPRECATED = AudioDeprecatedMagicNumber;
 	}
 
+	TOptional<double> StartOffsetToUpgrade;
 	if (AudioStartTime_DEPRECATED != AudioDeprecatedMagicNumber)
 	{
 		// Previously, start time in relation to the sequence. Start time was used to calculate the offset into the 
 		// clip at the start of the section evaluation as such: Section Start Time - Start Time. 
 		if (AudioStartTime_DEPRECATED != 0.f && HasStartFrame())
 		{
-			StartOffset = GetInclusiveStartFrame() / GetTypedOuter<UMovieScene>()->GetTickResolution() - AudioStartTime_DEPRECATED;
+			StartOffsetToUpgrade = GetInclusiveStartFrame() / GetTypedOuter<UMovieScene>()->GetTickResolution() - AudioStartTime_DEPRECATED;
 		}
 		AudioStartTime_DEPRECATED = AudioDeprecatedMagicNumber;
 	}
+
+	if (StartOffset_DEPRECATED != AudioDeprecatedMagicNumber)
+	{
+		StartOffsetToUpgrade = StartOffset_DEPRECATED;
+
+		StartOffset_DEPRECATED = AudioDeprecatedMagicNumber;
+	}
+
+	FFrameRate LegacyFrameRate = GetLegacyConversionFrameRate();
+
+	if (StartOffsetToUpgrade.IsSet())
+	{
+		FFrameNumber StartFrame = UpgradeLegacyMovieSceneTime(this, LegacyFrameRate, StartOffsetToUpgrade.GetValue());
+		StartFrameOffset = StartFrame.Value;
+	}
 }
 
-float GetStartOffsetAtTrimTime(FQualifiedFrameTime TrimTime, float StartOffset, FFrameNumber StartFrame)
+FFrameNumber GetStartOffsetAtTrimTime(FQualifiedFrameTime TrimTime, FFrameNumber StartOffset, FFrameNumber StartFrame)
 {
-	return StartOffset + (TrimTime.Time - StartFrame) / TrimTime.Rate;
+	return StartOffset + TrimTime.Time.FrameNumber - StartFrame;
 }
 
 	
@@ -145,7 +161,7 @@ void UMovieSceneAudioSection::TrimSection(FQualifiedFrameTime TrimTime, bool bTr
 	{
 		if (bTrimLeft)
 		{
-			StartOffset = HasStartFrame() ? GetStartOffsetAtTrimTime(TrimTime, StartOffset, GetInclusiveStartFrame()) : 0;
+			StartFrameOffset = HasStartFrame() ? GetStartOffsetAtTrimTime(TrimTime, StartFrameOffset, GetInclusiveStartFrame()) : 0;
 		}
 
 		Super::TrimSection(TrimTime, bTrimLeft);
@@ -154,13 +170,13 @@ void UMovieSceneAudioSection::TrimSection(FQualifiedFrameTime TrimTime, bool bTr
 
 UMovieSceneSection* UMovieSceneAudioSection::SplitSection(FQualifiedFrameTime SplitTime)
 {
-	const float NewOffset = HasStartFrame() ? GetStartOffsetAtTrimTime(SplitTime, StartOffset, GetInclusiveStartFrame()) : 0;
+	const FFrameNumber NewOffset = HasStartFrame() ? GetStartOffsetAtTrimTime(SplitTime, StartFrameOffset, GetInclusiveStartFrame()) : 0;
 
 	UMovieSceneSection* NewSection = Super::SplitSection(SplitTime);
 	if (NewSection != nullptr)
 	{
 		UMovieSceneAudioSection* NewAudioSection = Cast<UMovieSceneAudioSection>(NewSection);
-		NewAudioSection->StartOffset = NewOffset;
+		NewAudioSection->StartFrameOffset = NewOffset;
 	}
 	return NewSection;
 }

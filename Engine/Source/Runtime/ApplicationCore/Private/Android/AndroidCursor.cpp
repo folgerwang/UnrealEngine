@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Android/AndroidCursor.h"
 #include "Android/AndroidApplication.h"
@@ -33,7 +33,7 @@ void FAndroidCursor::SetPosition( const int32 X, const int32 Y )
 {
 	FVector2D NewPosition(X, Y);
 
-	NewPosition *= UIScaleFactor;
+//	NewPosition *= UIScaleFactor;
 
 	UpdateCursorClipping(NewPosition);
 	CurrentPosition = NewPosition;
@@ -78,7 +78,7 @@ void FAndroidCursor::Lock(const RECT* const Bounds)
 	FVector2D Position = GetPosition();
 	if (UpdateCursorClipping(Position))
 	{
-		SetPosition(Position.X, Position.Y);
+//		SetPosition(Position.X, Position.Y);
 	}
 }
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
   Implementation of animation export related functionality from FbxExporter
@@ -33,15 +33,18 @@ void FFbxExporter::ExportAnimSequenceToFbx(const UAnimSequence* AnimSeq,
 									 float AnimPlayRate,
 									 float StartTime)
 {
+	// stack allocator for extracting curve
+	FMemMark Mark(FMemStack::Get());
+
 	USkeleton* Skeleton = AnimSeq->GetSkeleton();
 
-	if (AnimSeq->SequenceLength == 0.f)
+	if (AnimSeq->SequenceLength == 0.f || Skeleton == nullptr)
 	{
 		// something is wrong
 		return;	
 	}
 
-	const float FrameRate = FMath::TruncToFloat(((AnimSeq->NumFrames - 1) / AnimSeq->SequenceLength) + 0.5f);
+	const float FrameRate = FMath::TruncToFloat(((AnimSeq->GetRawNumberOfFrames() - 1) / AnimSeq->SequenceLength) + 0.5f);
 
 	// set time correctly
 	FbxTime ExportedStartTime, ExportedStopTime;
@@ -62,7 +65,35 @@ void FFbxExporter::ExportAnimSequenceToFbx(const UAnimSequence* AnimSeq,
 	FbxTimeSpan ExportedTimeSpan;
 	ExportedTimeSpan.Set(ExportedStartTime, ExportedStopTime);
 	AnimStack->SetLocalTimeSpan(ExportedTimeSpan);
-	
+
+	//Prepare root anim curves data to be exported
+	TArray<FName> AnimCurveNames;
+	TArray<SmartName::UID_Type> AnimCurveUIDs;
+	TMap<FName, FbxAnimCurve*> CustomCurveMap;
+	if (BoneNodes.Num() > 0)
+	{
+		const FSmartNameMapping* AnimCurveMapping = Skeleton->GetSmartNameContainer(USkeleton::AnimCurveMappingName);
+		
+		if (AnimCurveMapping)
+		{
+			AnimCurveMapping->FillNameArray(AnimCurveNames);
+			AnimCurveMapping->FillUidArray(AnimCurveUIDs);
+		}
+		
+		if (AnimCurveNames.Num() > 0)
+		{
+			for (auto AnimCurveName : AnimCurveNames)
+			{
+				FbxProperty AnimCurveFbxProp = FbxProperty::Create(BoneNodes[0], FbxDoubleDT, TCHAR_TO_ANSI(*AnimCurveName.ToString()));
+				AnimCurveFbxProp.ModifyFlag(FbxPropertyFlags::eAnimatable, true);
+				AnimCurveFbxProp.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
+				FbxAnimCurve* AnimFbxCurve = AnimCurveFbxProp.GetCurve(InAnimLayer, true);
+				CustomCurveMap.Add(AnimCurveName, AnimFbxCurve);
+			}
+		}
+	}
+
+
 	// Add the animation data to the bone nodes
 	for(int32 BoneIndex = 0; BoneIndex < BoneNodes.Num(); ++BoneIndex)
 	{
@@ -88,7 +119,7 @@ void FFbxExporter::ExportAnimSequenceToFbx(const UAnimSequence* AnimSeq,
 		float AnimTime					= AnimStartOffset;
 		float AnimEndTime				= (AnimSeq->SequenceLength - AnimEndOffset);
 		// Subtracts 1 because NumFrames includes an initial pose for 0.0 second
-		double TimePerKey				= (AnimSeq->SequenceLength / (AnimSeq->NumFrames-1));
+		double TimePerKey				= (AnimSeq->SequenceLength / (AnimSeq->GetRawNumberOfFrames()-1));
 		const float AnimTimeIncrement	= TimePerKey * AnimPlayRate;
 		uint32 AnimFrameIndex = 0;
 
@@ -123,6 +154,30 @@ void FFbxExporter::ExportAnimSequenceToFbx(const UAnimSequence* AnimSeq,
 			FbxVector4 Scale = Converter.ConvertToFbxScale(BoneAtom.GetScale3D());
 			FbxVector4 Vectors[3] = { Translation, Rotation, Scale };
 		
+			//Add custom curve keys only to the root bone
+			if (BoneIndex == 0 && CustomCurveMap.Num() > 0)
+			{
+				FBlendedCurve BlendedCurve;
+				BlendedCurve.InitFrom(&AnimCurveUIDs);
+				AnimSeq->EvaluateCurveData(BlendedCurve, AnimTime, true);
+				if (BlendedCurve.IsValid())
+				{
+					//Loop over the custom curves and add the actual keys
+					for (auto CustomCurve : CustomCurveMap)
+					{
+						CustomCurve.Value->KeyModifyBegin();
+						SmartName::UID_Type NameUID = Skeleton->GetUIDByName(USkeleton::AnimCurveMappingName, CustomCurve.Key);
+						if (NameUID != SmartName::MaxUID)
+						{
+							float CurveValueAtTime = BlendedCurve.Get(NameUID);
+							int32 KeyIndex = CustomCurve.Value->KeyAdd(ExportTime);
+							CustomCurve.Value->KeySetValue(KeyIndex, CurveValueAtTime);
+						}
+					}
+
+				}
+			}
+
 			int32 lKeyIndex;
 			bLastKey = (AnimTime + KINDA_SMALL_NUMBER) > AnimEndTime;
 			
@@ -152,6 +207,14 @@ void FFbxExporter::ExportAnimSequenceToFbx(const UAnimSequence* AnimSeq,
 		for (FbxAnimCurve* Curve : Curves)
 		{
 			Curve->KeyModifyEnd();
+		}
+
+		if (BoneIndex == 0 && CustomCurveMap.Num() > 0)
+		{
+			for (auto CustomCurve : CustomCurveMap)
+			{
+				CustomCurve.Value->KeyModifyEnd();
+			}
 		}
 	}
 }
@@ -259,20 +322,56 @@ FbxNode* FFbxExporter::ExportAnimSequence( const UAnimSequence* AnimSeq, const U
 			SkelMesh->GetName(MeshNodeName);
 		}
 
-		// Add the mesh
-		FbxNode* MeshRootNode = CreateMesh(SkelMesh, *MeshNodeName);
-		if(MeshRootNode)
+		FbxNode* MeshRootNode = nullptr;
+		if (GetExportOptions()->LevelOfDetail && SkelMesh->GetLODNum() > 1)
 		{
+			FString LodGroup_MeshName = MeshNodeName + TEXT("_LodGroup");
+			MeshRootNode = FbxNode::Create(Scene, TCHAR_TO_UTF8(*LodGroup_MeshName));
 			TmpNodeNoTransform->AddChild(MeshRootNode);
+			LodGroup_MeshName = MeshNodeName + TEXT("_LodGroupAttribute");
+			FbxLODGroup *FbxLodGroupAttribute = FbxLODGroup::Create(Scene, TCHAR_TO_UTF8(*LodGroup_MeshName));
+			MeshRootNode->AddNodeAttribute(FbxLodGroupAttribute);
+
+			FbxLodGroupAttribute->ThresholdsUsedAsPercentage = true;
+			//Export an Fbx Mesh Node for every LOD and child them to the fbx node (LOD Group)
+			for (int CurrentLodIndex = 0; CurrentLodIndex < SkelMesh->GetLODNum(); ++CurrentLodIndex)
+			{
+				FString FbxLODNodeName = MeshNodeName + TEXT("_LOD") + FString::FromInt(CurrentLodIndex);
+				if (CurrentLodIndex + 1 < SkelMesh->GetLODNum())
+				{
+					//Convert the screen size to a threshold, it is just to be sure that we set some threshold, there is no way to convert this precisely
+					double LodScreenSize = (double)(10.0f / SkelMesh->GetLODInfo(CurrentLodIndex)->ScreenSize.Default);
+					FbxLodGroupAttribute->AddThreshold(LodScreenSize);
+				}
+				FbxNode* FbxActorLOD = CreateMesh(SkelMesh, *FbxLODNodeName, CurrentLodIndex);
+				if (FbxActorLOD)
+				{
+					MeshRootNode->AddChild(FbxActorLOD);
+					if (SkeletonRootNode)
+					{
+						// Bind the mesh to the skeleton
+						BindMeshToSkeleton(SkelMesh, FbxActorLOD, BoneNodes, CurrentLodIndex);
+						// Add the bind pose
+						CreateBindPose(FbxActorLOD);
+					}
+				}
+			}
 		}
-
-		if(SkeletonRootNode && MeshRootNode)
+		else
 		{
-			// Bind the mesh to the skeleton
-			BindMeshToSkeleton(SkelMesh, MeshRootNode, BoneNodes);
+			MeshRootNode = CreateMesh(SkelMesh, *MeshNodeName, 0);
+			if (MeshRootNode)
+			{
+				TmpNodeNoTransform->AddChild(MeshRootNode);
+				if (SkeletonRootNode)
+				{
+					// Bind the mesh to the skeleton
+					BindMeshToSkeleton(SkelMesh, MeshRootNode, BoneNodes, 0);
 
-			// Add the bind pose
-			CreateBindPose(MeshRootNode);
+					// Add the bind pose
+					CreateBindPose(MeshRootNode);
+				}
+			}
 		}
 
 		if (MeshRootNode)

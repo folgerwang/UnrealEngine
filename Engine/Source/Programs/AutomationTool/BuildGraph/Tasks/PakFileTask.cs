@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using AutomationTool;
 using System;
@@ -149,7 +149,7 @@ namespace BuildGraph.Tasks
 			{
 				CommandLine.AppendFormat(" -order={0}", CommandUtils.MakePathSafeToUseWithCommandLine(Parameters.Order.FullName));
 			}
-			if (GlobalCommandLine.Installed)
+			if (CommandUtils.IsEngineInstalled())
 			{
 				CommandLine.Append(" -installed");
 			}

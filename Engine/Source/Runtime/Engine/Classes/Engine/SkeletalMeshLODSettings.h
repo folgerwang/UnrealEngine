@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -55,14 +55,16 @@ struct FSkeletalMeshLODGroupSettings
 	FSkeletalMeshLODGroupSettings()
 		: ScreenSize(0.3f)
 		, LODHysteresis(0.0f)
-		, BoneFilterActionOption(EBoneFilterActionOption::Remove) 
+		, BoneFilterActionOption(EBoneFilterActionOption::Remove)
+		, WeightOfPrioritization(1.f)
+		, BakePose(nullptr)
 	{}
 	
 	/** Get Skeletal mesh optimizations setting structure for the given LOD level */
 	ENGINE_API FSkeletalMeshOptimizationSettings GetReductionSettings() const;
 
 	/** Get Skeletal mesh optimizations setting structure for the given LOD level */
-	DEPRECATED(4.20, "Please use GetReductionSettings instead")
+	UE_DEPRECATED(4.20, "Please use GetReductionSettings instead")
 	FSkeletalMeshOptimizationSettings GetSettings() const
 	{
 		return GetReductionSettings();
@@ -90,6 +92,18 @@ struct FSkeletalMeshLODGroupSettings
 	UPROPERTY(EditAnywhere, Category = Reduction)
 	TArray<FBoneFilter> BoneList;
 
+	/** Bones which should be prioritized for the quality, this will be weighted toward keeping source data. */
+	UPROPERTY(EditAnywhere, Category = Reduction)
+	TArray<FName> BonesToPrioritize;
+
+	/** Weight of how much consider for BonesToPrioritize. 0 means nothing, and 1 means take all source */
+	UPROPERTY(EditAnywhere, Category = Reduction, meta = (UIMin = "0.0", UIMax = "1.0", ClampMin = "0.0", ClampMax = "1.0"))
+	float WeightOfPrioritization;
+
+	/** Pose which should be used to reskin vertex influences for which the bones will be removed in this LOD level, uses ref-pose by default */
+	UPROPERTY(EditAnywhere, Category = Reduction)
+	class UAnimSequence* BakePose;
+
 	/** The optimization settings to use for the respective LOD level */
 	UPROPERTY(EditAnywhere, Category = Reduction)
 	FSkeletalMeshOptimizationSettings ReductionSettings;
@@ -102,7 +116,7 @@ class USkeletalMeshLODSettings : public UDataAsset
 protected:
 
 	/** Minimum LOD to render. Can be overridden per component as well as set here for all mesh instances here */
-	UPROPERTY(globalconfig, EditAnywhere, Category=LODGroups)
+	UPROPERTY(globalconfig, EditAnywhere, Category=LODGroups, meta = (DisplayName = "Minimum LOD"))
 	FPerPlatformInt MinLod;
 
 	UPROPERTY(globalconfig, EditAnywhere, Category=LODGroups)

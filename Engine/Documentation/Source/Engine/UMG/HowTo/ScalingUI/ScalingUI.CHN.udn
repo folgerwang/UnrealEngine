@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3011129
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:针对不同设备缩放 UI
 Crumbs: %ROOT%, Engine, Engine/UMG, Engine/UMG/HowTo
@@ -9,45 +9,8 @@ Related:Engine/UMG/UserGuide/DPIScaling
 Related:Resources\SampleGames\UnrealMatch3
 Version:4.10
 SkillLevel:Intermediate
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/UMG/HowTo/ScalingUI:title%](UIScaling.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/start_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/UMG/HowTo/ScalingUI:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/UMG/HowTo/ScalingUI:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UMG/HowTo/ScalingUI]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/UMG/HowTo/ScalingUI:title%](UIScaling.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/start_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/UMG/HowTo/ScalingUI:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/UMG/HowTo/ScalingUI:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UMG/HowTo/ScalingUI]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+tags:UMG UI Designer
+topic-image:UIScaling.png
 
 [REGION:note]
 建议您先整体了解 [](Engine/UMG)，然后再阅读此指南。 
@@ -61,6 +24,7 @@ SkillLevel:Intermediate
 此指南将讲述如何对简单 UI 画面设置 DPI 缩放规则，以便将其部署到多个设备上。 
 
 
+(#Steps)
 ## 步骤
 
 [REGION:note]

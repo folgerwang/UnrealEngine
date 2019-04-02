@@ -1,8 +1,8 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "DisplayClusterDeviceQuadBufferStereoBase.h"
+#include "Render/Devices/QuadBufferStereo/DisplayClusterDeviceQuadBufferStereoBase.h"
 #include "Render/Devices/DisplayClusterDeviceInternals.h"
 
 
@@ -16,7 +16,6 @@ public:
 	virtual ~FDisplayClusterDeviceQuadBufferStereoOpenGL();
 
 protected:
-	virtual void SetSwapSyncPolicy(EDisplayClusterSwapSyncPolicy policy);
 	virtual bool Present(int32& InOutSyncInterval) override;
 	void SwapBuffers(FOpenGLViewport* pOglViewport, int32& InOutSyncInterval);
 

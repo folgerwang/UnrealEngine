@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3749329
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:使用运动控制器 
 Crumbs: %ROOT%, Platforms
@@ -31,10 +31,12 @@ topic-image:Platforms\Oculus\HowTo\TouchControllers\HT_Rift_Touch_Setup_Topic_Im
 
 [/REGION]
 
+(#MotionControllerSetup)
 ## 使用运动控制器 
 
 以下部分将说明如何设置运动控制器，使其能够捡起和放置关卡中放置的物体。
 
+(#MotionControllerSetup)
 ### 组件、变量和事件设置
 开始为事件图表添加节点之前，首先需要创建并设置一些组件和变量。以下部分说明需要哪些组件和变量，以及它们所需要的设置。
 
@@ -63,6 +65,7 @@ topic-image:Platforms\Oculus\HowTo\TouchControllers\HT_Rift_Touch_Setup_Topic_Im
 
 ![](HT_Using_Touch_06.png)
 
+(#HoldingandDroppingofItems)
 ### 拿起和放置物品（Holding and Dropping of Items）
 
 拿起和放置物品（Holding and Dropping of Items）部分调用不同的自定义事件，处理拿起物品、持有物品和放置物品。用户按下或松开左运动控制器扳机键即可使用此功能。需要注意的一点是我们使用了一个 Branch 语句来确保一次只能拾取一个物体。这点非常重要，因为我们希望用户一次只能拾取一个物体。
@@ -99,6 +102,7 @@ Drop Object Event 部分负责处理放置已拾取物体的全部逻辑并进�
 [INCLUDE:Platforms\VR\UsingTouchControllers\#PickUp3]
 
 
+(#CompletedBlueprint)
 ### 完成的蓝图
 
 蓝图完成后，我们需要在世界场景中添加一些物体进行拾取。我们要拾取的物体必须拥有物理形体，因此可以添加一些静态网格体，并将其 **Mobility** 设为 **Movable**，并启用 **Simulate Physics**。 
@@ -137,6 +141,7 @@ Drop Object Event 部分负责处理放置已拾取物体的全部逻辑并进�
 [/REGION]
 
 
+(#UE4ProjectDownloads)
 ## UE4 项目下载
 可使用以下链接下载用于创建此例的 UE4 项目。
 

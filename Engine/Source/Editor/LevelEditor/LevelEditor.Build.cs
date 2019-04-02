@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -24,6 +24,7 @@ public class LevelEditor : ModuleRules
 				"Settings",
 				"IntroTutorials",
 				"HeadMountedDisplay",
+				"UnrealEd",
 				"VREditor",
 				"CommonMenuExtensions"
 			}
@@ -91,5 +92,10 @@ public class LevelEditor : ModuleRules
 				"VREditor"
 			}
 		);
+
+		if(Target.bWithLiveCoding)
+		{
+			PrivateIncludePathModuleNames.Add("LiveCoding");
+		}
 	}
 }

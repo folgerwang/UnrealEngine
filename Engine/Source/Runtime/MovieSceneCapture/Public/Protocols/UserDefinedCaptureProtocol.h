@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -14,6 +14,22 @@ struct FImageWriteOptions;
 struct ICaptureProtocolHost;
 class UTexture;
 
+/** Structure used as an identifier for a particular buffer within a capture. */
+USTRUCT(BlueprintType)
+struct FCapturedPixelsID
+{
+	GENERATED_BODY()
+
+	/** Convert this strream ID to a string */
+	FString ToString() const;
+
+	/** Map of identifiers to their values for this ID. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Capture)
+	TMap<FName, FName> Identifiers;
+};
+
+
+
 USTRUCT(BlueprintType)
 struct FCapturedPixels
 {
@@ -21,9 +37,6 @@ struct FCapturedPixels
 
 	TSharedPtr<FImagePixelData, ESPMode::ThreadSafe> ImageData;
 };
-
-
-DECLARE_DYNAMIC_DELEGATE_ThreeParams(FOnReceiveCapturedPixels, const FCapturedPixels&, Pixels, FName, StreamName, FFrameMetrics, FrameMetrics);
 
 /**
  * A blueprintable capture protocol that defines how to capture frames from the engine
@@ -106,47 +119,33 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category=Capture)
 	void OnFinalize();
 
-public:
 
 	/**
-	 * Add a handler to the specified stream that will be called whenever it receives data.
-	 * Push data to a stream with either StartCapturingFinalPixels() or PushBufferToStream()
-	 *
-	 * @param StreamName      The name of the stream to bind this handler to. The handler will be invoked whenever pixels are received on that stream.
-	 * @param Handler         A delegate for handling the pixels received on this stream name
+	 * Called when pixels have been received for the specified stream name
 	 */
-	UFUNCTION(BlueprintCallable, Category=Capture)
-	void BindToStream(FName StreamName, FOnReceiveCapturedPixels Handler);
+	UFUNCTION(BlueprintImplementableEvent, Category=Capture)
+	void OnPixelsReceived(const FCapturedPixels& Pixels, const FCapturedPixelsID& ID, FFrameMetrics FrameMetrics);
 
 
-	/*
-	 * Capture the specified texture buffer using this protocol's settings
-	 * 
-	 * @param Buffer          The desired buffer to save
-	 * @param StreamName      The name of the stream to push the buffer onto (e.g. a composition pass name). Bind to the stream with BindStreamHandler.
-	 */
-	UFUNCTION(BlueprintCallable, Category=Capture)
-	void PushBufferToStream(UTexture* Buffer, FName StreamName);
-
+public:
 
 	/*
 	 * Resolve the specified buffer and pass it directly to the specified handler when done (does not pass to any bound streams)
 	 * 
 	 * @param Buffer          The desired buffer to save
-	 * @param BufferName      The name of this buffer that is passed to the resulting handler (e.g. a composition pass name).
-	 * @param Handler         A delegate for handling the pixels received on this stream name
+	 * @param BufferID        The ID of this buffer that is passed to the pixel handler (e.g. a composition pass name).
 	 */
 	UFUNCTION(BlueprintCallable, Category=Capture)
-	void ResolveBuffer(UTexture* Buffer, FName BufferName, FOnReceiveCapturedPixels Handler);
+	void ResolveBuffer(UTexture* Buffer, const FCapturedPixelsID& BufferID);
 
 
 	/**
 	 * Instruct this protocol to start capturing LDR final pixels (including slate widgets and burn-ins)
 	 *
-	 * @param StreamName      The name of the stream to send final pixels to. Bind to streams with BindStreamHandler.
+	 * @param StreamID        The identifier to use for the final pixels buffer
 	 */
 	UFUNCTION(BlueprintCallable, Category=Capture)
-	void StartCapturingFinalPixels(FName StreamName);
+	void StartCapturingFinalPixels(const FCapturedPixelsID& StreamID);
 
 
 	/**
@@ -177,7 +176,13 @@ public:
 	/**
 	 * Called when image pixel data is ready to be processed
 	 */
-	void OnBufferReady();
+	void OnPixelsReceivedImpl(const FCapturedPixels& Pixels, const FCapturedPixelsID& StreamID, FFrameMetrics FrameMetrics);
+
+	/**
+	 * INTERNAL: Report that the protocol is dispatching the specified number of asynchronous tasks that need to be completed
+	 * before this protocol can be finalized
+	 */
+	void ReportOutstandingWork(int32 NumNewOperations);
 
 protected:
 
@@ -215,14 +220,11 @@ protected:
 	/** Frame metrics cached for the current frame */
 	FFrameMetrics CachedFrameMetrics;
 
-	/** A map of stream names to pixel data pipes that handle each stream's pixels */
-	TMap<FName, TSharedPtr<FImagePixelPipe, ESPMode::ThreadSafe>> StreamPipes;
+	/** The ID of the final pixel stream cached from StartCapturingFinalPixels */
+	FCapturedPixelsID FinalPixelsID;
 
-	/** The name of final pixel streams cached from StartCapturingFinalPixels */
-	FName FinalPixelsStreamName;
-
-	/** Transient stream name used only during filename generation */
-	FName CurrentStreamName;
+	/** Transient stream ID used only during filename generation */
+	const FCapturedPixelsID* CurrentStreamID;
 };
 
 
@@ -258,11 +260,11 @@ public:
 	 * Generate a filename for the specified buffer using this protocol's file name formatter
 	 * 
 	 * @param Buffer          The desired buffer to generate a filename for
-	 * @param StreamName      The name of the stream for this buffer (e.g. a composition pass name)
+	 * @param StreamID        The ID of the stream for this buffer (e.g. a composition pass name)
 	 * @return A fully qualified file name
 	 */
 	UFUNCTION(BlueprintCallable, Category=Capture)
-	FString GenerateFilenameForBuffer(UTexture* Buffer, FName StreamName);
+	FString GenerateFilenameForBuffer(UTexture* Buffer, const FCapturedPixelsID& StreamID);
 
 
 	/*
@@ -280,7 +282,7 @@ public:
 	 * @return A fully qualified file name for the current frame number
 	 */
 	UFUNCTION(BlueprintCallable, Category=Capture)
-	void WriteImageToDisk(const FCapturedPixels& PixelData, FName StreamName, const FFrameMetrics& FrameMetrics, bool bCopyImageData = false);
+	void WriteImageToDisk(const FCapturedPixels& PixelData, const FCapturedPixelsID& StreamID, const FFrameMetrics& FrameMetrics, bool bCopyImageData = false);
 
 protected:
 

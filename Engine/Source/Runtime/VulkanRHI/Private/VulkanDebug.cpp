@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanDebug.cpp: Vulkan device RHI implementation.
@@ -73,11 +73,6 @@ static VkBool32 VKAPI_PTR DebugReportFunction(
 			if (MsgCode == 3)
 			{
 				// Attachment N not written by fragment shader
-				return VK_FALSE;
-			}
-			else if (MsgCode == 5)
-			{
-				// SPIR-V module not valid: MemoryBarrier: Vulkan specification requires Memory Semantics to have one of the following bits set: Acquire, Release, AcquireRelease or SequentiallyConsistent
 				return VK_FALSE;
 			}
 		}
@@ -3632,6 +3627,16 @@ void FWrapLayer::SetStencilReference(VkResult Result, VkCommandBuffer CommandBuf
 	}
 }
 
+void FWrapLayer::UpdateBuffer(VkResult Result, VkCommandBuffer CommandBuffer, VkBuffer DstBuffer, VkDeviceSize DstOffset, VkDeviceSize DataSize, const void* pData)
+{
+	if (Result == VK_RESULT_MAX_ENUM)
+	{
+#if VULKAN_ENABLE_DUMP_LAYER
+		CmdPrintfBegin(CommandBuffer, FString::Printf(TEXT("vkCmdUpdateBuffer(DstBuffer=0x%p, DstOffset=%d, Size=%d, Data=0x%p)"), DstBuffer, (uint32)DstOffset, (uint32)DataSize, pData));
+#endif
+	}
+}
+
 void FWrapLayer::FillBuffer(VkResult Result, VkCommandBuffer CommandBuffer, VkBuffer DstBuffer, VkDeviceSize DstOffset, VkDeviceSize Size, uint32 Data)
 {
 	if (Result == VK_RESULT_MAX_ENUM)
@@ -3658,6 +3663,42 @@ void FWrapLayer::ResetEvent(VkResult Result, VkCommandBuffer CommandBuffer, VkEv
 	{
 #if VULKAN_ENABLE_DUMP_LAYER
 		CmdPrintfBegin(CommandBuffer, FString::Printf(TEXT("vkCmdResetEvent(Event=0x%p, StageMask=0x%x)"), Event, StageMask));
+#endif
+	}
+}
+
+void FWrapLayer::SetEvent(VkResult Result, VkDevice Device, VkEvent Event)
+{
+	if (Result == VK_RESULT_MAX_ENUM)
+	{
+#if VULKAN_ENABLE_DUMP_LAYER
+		CmdPrintfBegin(CommandBuffer, FString::Printf(TEXT("vkCmdSetEvent(Event=0x%p, StageMask=0x%x)"), Event, StageMask));
+#endif
+	}
+}
+
+void FWrapLayer::ResetEvent(VkResult Result, VkDevice Device, VkEvent Event)
+{
+	if (Result == VK_RESULT_MAX_ENUM)
+	{
+#if VULKAN_ENABLE_DUMP_LAYER
+		CmdPrintfBegin(CommandBuffer, FString::Printf(TEXT("vkCmdResetEvent(Event=0x%p, StageMask=0x%x)"), Event, StageMask));
+#endif
+	}
+}
+
+void FWrapLayer::GetEventStatus(VkResult Result, VkDevice Device, VkEvent Event)
+{
+	if (Result == VK_RESULT_MAX_ENUM)
+	{
+#if VULKAN_ENABLE_DUMP_LAYER
+		DevicePrintfBegin(CommandBuffer, FString::Printf(TEXT("GetEventStatus(Event=0x%p)"), Event));
+#endif
+	}
+	else
+	{
+#if VULKAN_ENABLE_DUMP_LAYER
+		PrintResult(Result);
 #endif
 	}
 }

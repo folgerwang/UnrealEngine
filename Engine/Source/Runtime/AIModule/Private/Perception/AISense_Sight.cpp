@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Perception/AISense_Sight.h"
 #include "EngineDefines.h"
@@ -183,16 +183,15 @@ float UAISense_Sight::Update()
 		if (TracesCount < MaxTracesPerTick && bHitTimeSliceLimit == false)
 		{
 			FPerceptionListener& Listener = ListenersMap[SightQuery->ObserverId];
-			ensure(Listener.Listener.IsValid());
 			FAISightTarget& Target = ObservedTargets[SightQuery->TargetId];
-					
-			const bool bTargetValid = Target.Target.IsValid();
-			const bool bListenerValid = Listener.Listener.IsValid();
+
+			AActor* TargetActor = Target.Target.Get();
+			UAIPerceptionComponent* ListenerPtr = Listener.Listener.Get();
+			ensure(ListenerPtr);
 
 			// @todo figure out what should we do if not valid
-			if (bTargetValid && bListenerValid)
+			if (TargetActor && ListenerPtr)
 			{
-				AActor* TargetActor = Target.Target.Get();
 				const FVector TargetLocation = TargetActor->GetActorLocation();
 				const FDigestedSightProperties& PropDigest = DigestedProperties[SightQuery->ObserverId];
 				const float SightRadiusSq = SightQuery->bLastResult ? PropDigest.LoseSightRadiusSq : PropDigest.SightRadiusSq;
@@ -209,7 +208,7 @@ float UAISense_Sight::Update()
 				}
 				else if (CheckIsTargetInSightPie(Listener, PropDigest, TargetLocation, SightRadiusSq))
 				{
-					SIGHT_LOG_SEGMENT(Listener.Listener.Get()->GetOwner(), Listener.CachedLocation, TargetLocation, FColor::Green, TEXT("%s"), *(Target.TargetId.ToString()));
+					SIGHT_LOG_SEGMENT(ListenerPtr->GetOwner(), Listener.CachedLocation, TargetLocation, FColor::Green, TEXT("%s"), *(Target.TargetId.ToString()));
 
 					FVector OutSeenLocation(0.f);
 					// do line checks
@@ -217,7 +216,7 @@ float UAISense_Sight::Update()
 					{
 						int32 NumberOfLoSChecksPerformed = 0;
 						// defaulting to 1 to have "full strength" by default instead of "no strength"
-						if (Target.SightTargetInterface->CanBeSeenFrom(Listener.CachedLocation, OutSeenLocation, NumberOfLoSChecksPerformed, StimulusStrength, Listener.Listener->GetBodyActor()) == true)
+						if (Target.SightTargetInterface->CanBeSeenFrom(Listener.CachedLocation, OutSeenLocation, NumberOfLoSChecksPerformed, StimulusStrength, ListenerPtr->GetBodyActor()) == true)
 						{
 							Listener.RegisterStimulus(TargetActor, FAIStimulus(*this, StimulusStrength, OutSeenLocation, Listener.CachedLocation));
 							SightQuery->bLastResult = true;
@@ -233,7 +232,7 @@ float UAISense_Sight::Update()
 
 						if (SightQuery->bLastResult == false)
 						{
-							SIGHT_LOG_LOCATION(Listener.Listener.Get()->GetOwner(), TargetLocation, 25.f, FColor::Red, TEXT(""));
+							SIGHT_LOG_LOCATION(ListenerPtr->GetOwner(), TargetLocation, 25.f, FColor::Red, TEXT(""));
 						}
 
 						TracesCount += NumberOfLoSChecksPerformed;
@@ -244,11 +243,17 @@ float UAISense_Sight::Update()
 						FHitResult HitResult;
 						const bool bHit = World->LineTraceSingleByChannel(HitResult, Listener.CachedLocation, TargetLocation
 							, DefaultSightCollisionChannel
-							, FCollisionQueryParams(SCENE_QUERY_STAT(AILineOfSight), true, Listener.Listener->GetBodyActor()));
+							, FCollisionQueryParams(SCENE_QUERY_STAT(AILineOfSight), true, ListenerPtr->GetBodyActor()));
 
 						++TracesCount;
 
-						if (bHit == false || (HitResult.Actor.IsValid() && HitResult.Actor->IsOwnedBy(TargetActor)))
+						auto HitResultActorIsOwnedByTargetActor = [&HitResult, TargetActor]()
+						{
+							AActor* HitResultActor = HitResult.Actor.Get();
+							return (HitResultActor ? HitResultActor->IsOwnedBy(TargetActor) : false);
+						};
+
+						if (bHit == false || HitResultActorIsOwnedByTargetActor())
 						{
 							Listener.RegisterStimulus(TargetActor, FAIStimulus(*this, 1.f, TargetLocation, Listener.CachedLocation));
 							SightQuery->bLastResult = true;
@@ -264,14 +269,14 @@ float UAISense_Sight::Update()
 
 						if (SightQuery->bLastResult == false)
 						{
-							SIGHT_LOG_LOCATION(Listener.Listener.Get()->GetOwner(), TargetLocation, 25.f, FColor::Red, TEXT(""));
+							SIGHT_LOG_LOCATION(ListenerPtr->GetOwner(), TargetLocation, 25.f, FColor::Red, TEXT(""));
 						}
 					}
 				}
 				// communicate failure only if we've seen give actor before
 				else if (SightQuery->bLastResult)
 				{
-					SIGHT_LOG_SEGMENT(Listener.Listener.Get()->GetOwner(), Listener.CachedLocation, TargetLocation, FColor::Red, TEXT("%s"), *(Target.TargetId.ToString()));
+					SIGHT_LOG_SEGMENT(ListenerPtr->GetOwner(), Listener.CachedLocation, TargetLocation, FColor::Red, TEXT("%s"), *(Target.TargetId.ToString()));
 					Listener.RegisterStimulus(TargetActor, FAIStimulus(*this, 0.f, TargetLocation, Listener.CachedLocation, FAIStimulus::SensingFailed));
 					SightQuery->bLastResult = false;
 				}
@@ -285,7 +290,7 @@ float UAISense_Sight::Update()
 			{
 				// put this index to "to be removed" array
 				InvalidQueries.Add(QueryIndex);
-				if (bTargetValid == false)
+				if (TargetActor == nullptr)
 				{
 					InvalidTargets.AddUnique(SightQuery->TargetId);
 				}
@@ -481,8 +486,9 @@ bool UAISense_Sight::RegisterTarget(AActor& TargetActor, FQueriesOperationPostPr
 
 void UAISense_Sight::OnNewListenerImpl(const FPerceptionListener& NewListener)
 {
-	check(NewListener.Listener.IsValid());
-	const UAISenseConfig_Sight* SenseConfig = Cast<const UAISenseConfig_Sight>(NewListener.Listener->GetSenseConfig(GetSenseID()));
+	UAIPerceptionComponent* NewListenerPtr = NewListener.Listener.Get();
+	check(NewListenerPtr);
+	const UAISenseConfig_Sight* SenseConfig = Cast<const UAISenseConfig_Sight>(NewListenerPtr->GetSenseConfig(GetSenseID()));
 	check(SenseConfig);
 	const FDigestedSightProperties PropertyDigest(*SenseConfig);
 	DigestedProperties.Add(NewListener.GetListenerID(), PropertyDigest);
@@ -587,10 +593,11 @@ void UAISense_Sight::RemoveAllQueriesByListener(const FPerceptionListener& Liste
 	const uint32 ListenerId = Listener.GetListenerID();
 	bool bQueriesRemoved = false;
 	
-	const FAISightQuery* SightQuery = &SightQueryQueue[SightQueryQueue.Num() - 1];
-	for (int32 QueryIndex = SightQueryQueue.Num() - 1; QueryIndex >= 0 ; --QueryIndex, --SightQuery)
+	for (int32 QueryIndex = SightQueryQueue.Num() - 1; QueryIndex >= 0 ; --QueryIndex)
 	{
-		if (SightQuery->ObserverId == ListenerId)
+		const FAISightQuery& SightQuery = SightQueryQueue[QueryIndex];
+
+		if (SightQuery.ObserverId == ListenerId)
 		{
 			SightQueryQueue.RemoveAt(QueryIndex, 1, /*bAllowShrinking=*/false);
 			bQueriesRemoved = true;
@@ -614,10 +621,11 @@ void UAISense_Sight::RemoveAllQueriesToTarget(const FAISightTarget::FTargetId& T
 
 	bool bQueriesRemoved = false;
 
-	const FAISightQuery* SightQuery = &SightQueryQueue[SightQueryQueue.Num() - 1];
-	for (int32 QueryIndex = SightQueryQueue.Num() - 1; QueryIndex >= 0 ; --QueryIndex, --SightQuery)
+	for (int32 QueryIndex = SightQueryQueue.Num() - 1; QueryIndex >= 0; --QueryIndex)
 	{
-		if (SightQuery->TargetId == TargetId)
+		const FAISightQuery& SightQuery = SightQueryQueue[QueryIndex];
+
+		if (SightQuery.TargetId == TargetId)
 		{
 			SightQueryQueue.RemoveAt(QueryIndex, 1, /*bAllowShrinking=*/false);
 			bQueriesRemoved = true;

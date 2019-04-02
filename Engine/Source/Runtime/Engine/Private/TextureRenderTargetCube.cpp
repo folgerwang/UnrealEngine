@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	TextureRenderTargetCube.cpp: UTextureRenderTargetCube implementation
@@ -298,22 +298,18 @@ void FTextureRenderTargetCubeResource::UpdateDeferredResource(FRHICommandListImm
 	const FIntPoint Dims = GetSizeXY();
 	for(int32 FaceIdx = CubeFace_PosX; FaceIdx < CubeFace_MAX; FaceIdx++)
 	{
+		ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::ELoad;
 		// clear each face of the cube target texture to ClearColor
 		if (bClearRenderTarget)
 		{
-			TransitionSetRenderTargetsHelper(RHICmdList, RenderTargetTextureRHI, FTextureRHIParamRef(), FExclusiveDepthStencil::DepthWrite_StencilWrite);
-
-			FRHIRenderTargetView RtView = FRHIRenderTargetView(RenderTargetTextureRHI, ERenderTargetLoadAction::EClear);
-			FRHISetRenderTargetsInfo Info(1, &RtView, FRHIDepthRenderTargetView());
-			RHICmdList.SetRenderTargetsAndClear(Info);
-			RHICmdList.SetViewport(0, 0, 0.0f, Dims.X, Dims.Y, 1.0f);
+			LoadAction = ERenderTargetLoadAction::EClear;
 		}
-		else
-		{
-			SetRenderTarget(RHICmdList, RenderTargetTextureRHI, FTextureRHIParamRef(), true);
-			RHICmdList.SetViewport(0, 0, 0.0f, Dims.X, Dims.Y, 1.0f);
-		}
-
+		
+		FRHIRenderPassInfo RPInfo(RenderTargetTextureRHI, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore));
+		TransitionRenderPassTargets(RHICmdList, RPInfo);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("UpdateTargetCube"));
+		RHICmdList.SetViewport(0, 0, 0.0f, Dims.X, Dims.Y, 1.0f);
+		RHICmdList.EndRenderPass();
 		// copy surface to the texture for use
 		FResolveParams ResolveParams;
 		ResolveParams.CubeFace = (ECubeFace)FaceIdx;
@@ -384,7 +380,7 @@ bool FTextureRenderTargetCubeResource::ReadPixels(TArray< FColor >& OutImageData
 	};
 
 	OutImageData.Reset();
-	FReadSurfaceContext ReadSurfaceContext =
+	FReadSurfaceContext Context =
 	{
 		this,
 		&OutImageData,
@@ -392,17 +388,16 @@ bool FTextureRenderTargetCubeResource::ReadPixels(TArray< FColor >& OutImageData
 		InFlags
 	};
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-	  ReadSurfaceCommand,
-	  FReadSurfaceContext, Context, ReadSurfaceContext,
-	{
-		RHICmdList.ReadSurfaceData(
-		  Context.SrcRenderTarget->TextureCubeRHI,
-		  Context.Rect,
-		  *Context.OutData,
-		  Context.Flags
-		);
-	});
+	ENQUEUE_RENDER_COMMAND(ReadSurfaceCommand)(
+		[Context](FRHICommandListImmediate& RHICmdList)
+		{
+			RHICmdList.ReadSurfaceData(
+				Context.SrcRenderTarget->TextureCubeRHI,
+				Context.Rect,
+				*Context.OutData,
+				Context.Flags
+			);
+		});
 	FlushRenderingCommands();
 
 	return true;
@@ -430,7 +425,7 @@ bool FTextureRenderTargetCubeResource::ReadPixels(TArray<FFloat16Color>& OutImag
 		ECubeFace CubeFace;
 	};
 
-	FReadSurfaceFloatContext ReadSurfaceFloatContext =
+	FReadSurfaceFloatContext Context =
 	{
 		this,
 		&OutImageData,
@@ -438,18 +433,17 @@ bool FTextureRenderTargetCubeResource::ReadPixels(TArray<FFloat16Color>& OutImag
 		InFlags.GetCubeFace()
 	};
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-	  ReadSurfaceFloatCommand,
-	  FReadSurfaceFloatContext, Context, ReadSurfaceFloatContext,
-	{
-		RHICmdList.ReadSurfaceFloatData(
-		  Context.SrcRenderTarget->TextureCubeRHI,
-		  Context.Rect,
-		  *Context.OutData,
-		  Context.CubeFace,
-		  0,
-		  0
-		);
+	ENQUEUE_RENDER_COMMAND(ReadSurfaceFloatCommand)(
+		[Context](FRHICommandListImmediate& RHICmdList)
+		{
+			RHICmdList.ReadSurfaceFloatData(
+				Context.SrcRenderTarget->TextureCubeRHI,
+				Context.Rect,
+				*Context.OutData,
+				Context.CubeFace,
+				0,
+				0
+			);
 	});
 
 	FlushRenderingCommands();

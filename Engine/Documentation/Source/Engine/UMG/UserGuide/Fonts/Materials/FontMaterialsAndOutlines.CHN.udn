@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3244089
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:字体材质和外框
 Description:使用颜色、材质和外框设计 UMG 字体的范例。
@@ -8,14 +8,19 @@ Related:Engine/UMG/UserGuide/Fonts
 Related:Engine/UMG/UserGuide/Styling
 Version:4.14
 Parent:Engine/UMG/UserGuide/Fonts
-order:1
+type: Overview
+Skilllevel:Beginner
+order: 2
 tags: User Interface
 tags:UMG UI Designer
+tags: Fonts
+Topic-image:FontMaterials_Topic.png
 
 [TOC]
 
 在 UMG 中除能够为 **字体** 设置 **颜色和不透明度** 之外，还可使用材质和字体外框进行更多 **字体** 设计。
 
+(#FontColors)
 ## 字体颜色
 
 对 **字体** 的 **颜色和不透明度（Color and Opacity）** 进行设置即可设置其 **顶点颜色**。 
@@ -26,6 +31,7 @@ tags:UMG UI Designer
 
 ![](GreenFontNoMaterialDisplay.png)
  
+(#FontMaterials)
 ## 字体材质
 
 可在 **Details** 面板中指定 **字体** 的 **字体材质**。
@@ -67,6 +73,7 @@ tags:UMG UI Designer
 [/EXCERPT]
 
 [/COMMENT]
+(#FontOutlines)
 ## 字体外框
 
 您可指定字体外框使用不同的 **外框颜色** 及材质。 

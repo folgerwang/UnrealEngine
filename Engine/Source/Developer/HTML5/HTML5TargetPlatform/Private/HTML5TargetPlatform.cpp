@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	HTML5TargetPlatform.cpp: Implements the FHTML5TargetPlatform class.
@@ -53,11 +53,6 @@ void FHTML5TargetPlatform::GetAllDevices( TArray<ITargetDevicePtr>& OutDevices )
 	}
 }
 
-
-ECompressionFlags FHTML5TargetPlatform::GetBaseCompressionMethod( ) const
-{
-	return COMPRESS_ZLIB;
-}
 
 
 ITargetDevicePtr FHTML5TargetPlatform::GetDefaultDevice( ) const

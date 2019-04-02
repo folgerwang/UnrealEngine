@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -93,6 +93,9 @@ public:
 	/** @return	Returns the title to display in the level editor's tab label */
 	FText GetTabTitle() const;
 
+	/** @return	Returns the suffix to display in the level editor's after tab label */
+	FText GetTabSuffix() const;
+
 	/**
 	 * Processes level editor keybindings using events made in a viewport
 	 * 
@@ -128,6 +131,10 @@ public:
 	
 	/** Attaches a sequencer asset editor used to animate objects in the level to this level editor */
 	void AttachSequencer( TSharedPtr<SWidget> SequencerWidget, TSharedPtr<IAssetEditorInstance> NewSequencerAssetEditor );
+
+	/** Returns current scene outliner associated with level editor's scene outliner tab, if it exists */
+	TSharedPtr<ISceneOutliner> GetSceneOutliner() { return SceneOutlinerPtr.Pin();  }
+
 private:
 	
 	TSharedRef<SDockTab> SpawnLevelEditorTab(const FSpawnTabArgs& Args, FName TabIdentifier, FString InitializationPayload);
@@ -150,6 +157,9 @@ private:
 
 	/** Rebuilds the command list for spawning editor modes, this is done when new modes are registered. */
 	void RefreshEditorModeCommands();
+
+	/** Editor mode has been added or removed, clears cached command list so it will be rebuilt */
+	void EditorModeCommandsChanged();
 
 	/** Gets the tabId mapping to an editor mode */
 	static FName GetEditorModeTabId( FEditorModeID ModeID );
@@ -242,4 +252,10 @@ private:
 
 	/** Weak pointer to the level editor's Sequencer widget */
 	TWeakPtr<SWidget> SequencerWidgetPtr;
+
+	/** Weak pointer to the level editor's scene outliner */
+	TWeakPtr<ISceneOutliner> SceneOutlinerPtr;
+
+	/** Handle to the registered OnPreviewFeatureLevelChanged delegate. */
+	FDelegateHandle PreviewFeatureLevelChangedHandle;
 };

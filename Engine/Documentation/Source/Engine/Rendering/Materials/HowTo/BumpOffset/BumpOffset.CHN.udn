@@ -1,13 +1,14 @@
-﻿INTSourceChangelist:2691626
+﻿INTSourceChangelist:3242329
 Availability:Public
-Title:材质编辑器 - 如何使用凹凸贴图偏移（Bump Offset） 
+Title:使用凹凸贴图偏移（Bump Offset） 
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/HowTo
-Description:有关在材质中使用“凹凸贴图偏移”（Bump Offset）节点的操作指南。
+Description:有关在材质中使用“凹凸贴图偏移”（Bump Offset）节点的指南。
 Related:Resources/Showcases/RealisticRendering
 Related:Engine/Rendering/Materials/ExpressionReference/Utility
 Related:Engine/Rendering/Materials
 Version:4.9
 SkillLevel:Intermediate
+tags:Materials
 
 [TOC(start:2)]
 
@@ -16,10 +17,12 @@ SkillLevel:Intermediate
 **凹凸贴图偏移**（Bump Offset）贴图通过以创新的方式修改 UV 坐标来帮助强化纹素与对象表面的错位，从而营造出表面细节超出实际情况的错觉。 
 在本操作方式示例中，我们不仅阐述如何找到凹凸贴图偏移材质表达式，还将说明如何在材质中利用“凹凸贴图偏移”（Bump Offset）节点。
 
+(#BumpOffset)
 ## 凹凸贴图偏移（Bump Offset）
 
 [INCLUDE:Engine\Rendering\Materials\ExpressionReference\Utility#BumpOffset]
 
+(#FindingtheBumpOffsetMaterialExpression)
 ## 查找“凹凸贴图偏移”（Bump Offset）材质表达式
 
 您可以通过在 ** 选用板（Palette）**搜索框中进行搜索来找到“凹凸贴图偏移”（Bump Offset）材质表达式。 
@@ -47,6 +50,7 @@ XUq0zSiUIX4
 [/PARAMLITERAL]
 [/OBJECT]
 
+(#UsingtheBumpOffsetMaterialExpression)
 ## 使用“凹凸贴图偏移”（Bump Offset）材质表达式 
 
 可以通过下列步骤将材质设置为使用“凹凸贴图偏移”（Bump Offset）材质表达式。 
@@ -133,6 +137,7 @@ XUq0zSiUIX4
 	以下是创建的新材质投入使用的示例。 
 	![](BumpOffset_Setting_Results.png)
 
+(#Conclusion)
 ## 结论
 
 使用“凹凸贴图偏移”（Bump Offset）材质表达式是一种非常有效的低成本方法，您可以采用这种方法为材质添加额外的深度信息，而无需添加额外的 3D 几何体。 

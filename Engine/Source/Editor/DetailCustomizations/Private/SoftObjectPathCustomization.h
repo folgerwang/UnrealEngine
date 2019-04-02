@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,7 +8,7 @@
 class IPropertyHandle;
 
 /**
- * Customizes a string asset reference to look like a UObject property
+ * Customizes a soft object path to look like a UObject property
  */
 class FSoftObjectPathCustomization : public IPropertyTypeCustomization
 {

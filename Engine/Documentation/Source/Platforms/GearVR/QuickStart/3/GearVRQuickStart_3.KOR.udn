@@ -1,8 +1,8 @@
 ﻿INTSourceChangelist:3769005
 Availability:Public
-Title:3. 기어 VR 프로젝트 패키징 & 디플로이
+Title:3. Gear VR 프로젝트 패키징 & 디플로이
 Crumbs:%ROOT%, Platforms/GearVR
-Description:삼성 기어 VR 헤드셋을 사용하는 UE4 프로젝트 디플로이 방법 안내입니다.
+Description:삼성 Gear VR 헤드셋을 사용하는 UE4 프로젝트 디플로이 방법 안내입니다.
 Version: 4.16
 Skilllevel: Intermediate
 tags:VR
@@ -15,7 +15,7 @@ prereq:Platforms\GearVR\Prerequisites\
 
 [nav]
 
-기어 VR 퀵 스타트 이번에는 UE4 프로젝트를 기어 VR HMD 로 볼 수 있도록 실행하는 법에 대해 알아보겠습니다.
+Gear VR 퀵 스타트 이번에는 UE4 프로젝트를 Gear VR HMD 로 볼 수 있도록 실행하는 법에 대해 알아보겠습니다.
 
 ## 단계
 
@@ -64,7 +64,7 @@ prereq:Platforms\GearVR\Prerequisites\
     패키징 프로세스 도중 현재 벌어지는 일 관련 자세한 정보는 진행상황 창의 **Show Output Log** (출력 로그 표시) 링크를 클릭하세요.
     [/region]
 
-1. 패키징 및 인스톨 프로세스가 완료되면, 알림창이 표시되면서 소리가 재생됩니다. 이제 기어 VR HMD 에 디바이스를 넣고 머리에 쓰면 다음 비이오와 같은 화면이 보일 것입니다.
+1. 패키징 및 인스톨 프로세스가 완료되면, 알림창이 표시되면서 소리가 재생됩니다. 이제 Gear VR HMD 에 디바이스를 넣고 머리에 쓰면 다음 비이오와 같은 화면이 보일 것입니다.
 
     [OBJECT:EmbeddedVideo]
         [PARAMLITERAL:videoid]
@@ -85,6 +85,6 @@ prereq:Platforms\GearVR\Prerequisites\
     [/OBJECT]
 
 ## 최종 결과
-완성되면 삼성 갤럭시 스마트폰과 기어 VR HMD 를 사용하여 프로젝트를 실행시켜 볼 수 있을 것입니다.
+완성되면 삼성 갤럭시 스마트폰과 Gear VR HMD 를 사용하여 프로젝트를 실행시켜 볼 수 있을 것입니다.
 
 [nav]

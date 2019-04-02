@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -41,11 +41,12 @@ struct FLinearColor;
 -----------------------------------------------------------------------------*/
 
 #undef  PI
-#define PI 					(3.1415926535897932f)
+#define PI 					(3.1415926535897932f)	/* Extra digits if needed: 3.1415926535897932384626433832795f */
 #define SMALL_NUMBER		(1.e-8f)
 #define KINDA_SMALL_NUMBER	(1.e-4f)
 #define BIG_NUMBER			(3.4e+38f)
 #define EULERS_NUMBER       (2.71828182845904523536f)
+#define UE_GOLDEN_RATIO		(1.6180339887498948482045868343656381f)	/* Also known as divine proportion, golden mean, or golden section - related to the Fibonacci Sequence = (1 + sqrt(5)) / 2 */
 
 // Copied from float.h
 #define MAX_FLT 3.402823466e+38F
@@ -53,6 +54,15 @@ struct FLinearColor;
 // Aux constants.
 #define INV_PI			(0.31830988618f)
 #define HALF_PI			(1.57079632679f)
+
+// Common square roots
+#define UE_SQRT_2		(1.4142135623730950488016887242097f)
+#define UE_SQRT_3		(1.7320508075688772935274463415059f)
+#define UE_INV_SQRT_2	(0.70710678118654752440084436210485f)
+#define UE_INV_SQRT_3	(0.57735026918962576450914878050196f)
+#define UE_HALF_SQRT_2	(0.70710678118654752440084436210485f)
+#define UE_HALF_SQRT_3	(0.86602540378443864676372317075294f)
+
 
 // Magic numbers for numerical precision.
 #define DELTA			(0.00001f)
@@ -104,11 +114,24 @@ struct FMath : public FPlatformMath
 		return A > 0 ? Min(TruncToInt(FRand() * A), A - 1) : 0;
 	}
 
+	static FORCEINLINE int64 RandHelper64(int64 A)
+	{
+		// Note that on some platforms RAND_MAX is a large number so we cannot do ((rand()/(RAND_MAX+1)) * A)
+		// or else we may include the upper bound results, which should be excluded.
+		return A > 0 ? Min<int64>(TruncToInt(FRand() * A), A - 1) : 0;
+	}
+
 	/** Helper function for rand implementations. Returns a random number >= Min and <= Max */
 	static FORCEINLINE int32 RandRange(int32 Min, int32 Max)
 	{
 		const int32 Range = (Max - Min) + 1;
 		return Min + RandHelper(Range);
+	}
+
+	static FORCEINLINE int64 RandRange(int64 Min, int64 Max)
+	{
+		const int64 Range = (Max - Min) + 1;
+		return Min + RandHelper64(Range);
 	}
 
 	/** Util to generate a random number in a range. Overloaded to distinguish from int32 version, where passing a float is typically a mistake. */
@@ -483,7 +506,7 @@ struct FMath : public FPlatformMath
 		return Delta;
 	}
 
-	DEPRECATED(4.12, "Please use FindDeltaAngleRadians(float A1, float A2) instead of FindDeltaAngle(float A1, float A2).")
+	UE_DEPRECATED(4.12, "Please use FindDeltaAngleRadians(float A1, float A2) instead of FindDeltaAngle(float A1, float A2).")
 	static float FindDeltaAngle(float A1, float A2)
 	{
 		return FindDeltaAngleRadians(A1, A2);

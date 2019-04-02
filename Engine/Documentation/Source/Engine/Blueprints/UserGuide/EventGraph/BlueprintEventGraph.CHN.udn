@@ -1,53 +1,16 @@
-﻿INTSourceChangelist:2968923
+﻿INTSourceChangelist:4305504
 Availability:Public
 Title:事件图表
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide
-Description: 使用事件及函数调用来执行动作的节点图表，用于对和该蓝图相关的游戏事件作出反应。
+Description:使用事件和函数调用来执行操作以响应蓝图事件。
 version: 4.9
 Parent:Engine/Blueprints/Anatomy
 Tags:Graphs
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints/UserGuide/EventGraph:title%](Engine\Blueprints\UserGuide\EventGraph\eventgraph_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/UserGuide/EventGraph:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/UserGuide/EventGraph:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/UserGuide/EventGraph]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints/UserGuide/EventGraph:title%](Engine\Blueprints\UserGuide\EventGraph\eventgraph_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/UserGuide/EventGraph:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/UserGuide/EventGraph:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/UserGuide/EventGraph]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+tags:Blueprints
+topic-image:Engine/Blueprints/UserGuide/EventGraph/eventgraph_topic.png
 
 
-
-![事件面板](k2_graphview.png)
+![图（Graph）面板](k2_graphview.png)
 
 [EXCERPT:Intro]
 
@@ -55,15 +18,18 @@ Tags:Graphs
 
 [/EXCERPT:Intro]
 
-_关卡蓝图_ 中的 **EventGraph（事件图表）** 包含一个节点图表，该图表使用事件和函数调用来之行动作，以便对 
-游戏事件做出反应。这个事件图表用于从总体上处理关卡中的事件，及给世界中特定的 _Actor_ 和 _蓝图_ 实例 
-添加功能。
+关卡蓝图的 **事件图表（EventGraph）** 包含一个节点图表，它使用事件和函数调用来执行操作以响应游戏事件。这用于将关卡事件作为一个整体进行处理，并为场景中的特定Actor和蓝图实例添加功能。 
 
-无论哪种情况，应用 **EventGraph（事件图表）** 都要通过添加一个或多个事件来作为入口点，然后连接 _Function Calls（函数调用）_ 、 
- _Flow Control（流程控制）_ 节点及 _变量_ 来执行期望的动作。
+在任一情况下，**事件图表（EventGraph）** 的使用方式都是添加一个或多个事件来充当输入点，然后连接函数调用、流控制节点和变量来执行所需操作。
 
-## 应用图表
+(#workingwithgraphs)
+
+## 使用图表
+
+**图表（Graph）** 选项卡显示特定节点图的视觉表示，因为它会显示该图表包含的所有节点以及它们之间的关联。它提供一些编辑功能，如添加和移除节点、排列节点和在节点之间创建链接。断点也在 **图表（Graph）** 选项卡中设置，用来帮助调试蓝图。 
+
+请参阅[](Engine/Blueprints/Editor/UIComponents/GraphEditor)查看详细指南，了解如何在蓝图中使用 **事件图表（EventGraph）** 和其他 **图表**。
 
 [REGION:note]
-For information about using Matinee to control specific types of Blueprint components and properties, and to create events, see [](Engine/Matinee\UserGuide\BlueprintComponents).
+有关使用Matinee控制特定类型蓝图组件和属性以及创建事件的信息，请参阅[](Engine/Matinee/UserGuide/BlueprintComponents)。
 [/REGION]

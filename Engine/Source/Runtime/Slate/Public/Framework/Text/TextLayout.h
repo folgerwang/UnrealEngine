@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -217,7 +217,7 @@ public:
 		int16 MaxAboveBaseline;
 		int16 MaxBelowBaseline;
 
-		uint8 Kerning;
+		int8 Kerning;
 
 #if TEXT_LAYOUT_DEBUG
 		FString DebugSlice;
@@ -245,7 +245,7 @@ public:
 
 		FVector2D Measure( int32 BeginIndex, int32 EndIndex, float Scale, const FRunTextContext& InTextContext );
 
-		uint8 GetKerning( int32 CurrentIndex, float Scale, const FRunTextContext& InTextContext );
+		int8 GetKerning( int32 CurrentIndex, float Scale, const FRunTextContext& InTextContext );
 
 		static int32 BinarySearchForBeginIndex( const TArray< FTextRange >& Ranges, int32 BeginIndex );
 
@@ -430,7 +430,7 @@ public:
 		TArray<TSharedRef<IRun>> Runs;
 	};
 
-	DEPRECATED(4.11, "Please use the version of AddLine that takes an FNewLineData parameter.")
+	UE_DEPRECATED(4.11, "Please use the version of AddLine that takes an FNewLineData parameter.")
 	void AddLine( const TSharedRef< FString >& Text, const TArray< TSharedRef< IRun > >& Runs );
 
 	void AddLine( const FNewLineData& NewLine );

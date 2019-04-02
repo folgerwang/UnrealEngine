@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Stats/StatsMisc.h"
 #include "Stats/Stats.h"
@@ -15,8 +15,16 @@ void FLightweightStatScope::ReportHitch()
 	if (StatString)
 	{
 		float Delta = float(FGameThreadHitchHeartBeat::Get().GetCurrentTime() - FGameThreadHitchHeartBeat::Get().GetFrameStartTime()) * 1000.0f;
-		FString ThreadString(FPlatformTLS::GetCurrentThreadId() == GGameThreadId ? TEXT("GameThread") : FThreadManager::Get().GetThreadName(FPlatformTLS::GetCurrentThreadId()));
+
+		bool isGT = FPlatformTLS::GetCurrentThreadId() == GGameThreadId;
+		FString ThreadString(isGT ? TEXT("GameThread") : FThreadManager::Get().GetThreadName(FPlatformTLS::GetCurrentThreadId()));
 		FString StackString = StatString; // possibly convert from ANSICHAR
+
+		if (!isGT && (StackString == TEXT("STAT_EventWait") || StackString == TEXT("STAT_FQueuedThread_Run_WaitForWork")))
+		{
+			return;
+		}
+
 		UE_LOG(LogCore, Error, TEXT("Leaving stat scope on hitch (+%8.2fms) [%s] %s"), Delta, *ThreadString, *StackString);
 	}
 }
@@ -24,39 +32,42 @@ void FLightweightStatScope::ReportHitch()
 #endif
 
 
-FScopeLogTime::FScopeLogTime( const WIDECHAR* InName, FTotalTimeAndCount* InCumulative /*= nullptr */, EScopeLogTimeUnits InUnits /*= ScopeLog_Milliseconds */ )
-: StartTime( FPlatformTime::Seconds() )
+FConditionalScopeLogTime::FConditionalScopeLogTime( bool bCondition, const WIDECHAR* InName, FTotalTimeAndCount* InCumulative /*= nullptr */, EScopeLogTimeUnits InUnits /*= ScopeLog_Milliseconds */ )
+: StartTime( bCondition ? FPlatformTime::Seconds() : 0.0 )
 , Name( InName )
 , Cumulative( InCumulative )
-, Units( InUnits )
+, Units( bCondition ? InUnits : ScopeLog_DontLog )
 {}
 
-FScopeLogTime::FScopeLogTime( const ANSICHAR* InName, FTotalTimeAndCount* InCumulative /*= nullptr*/, EScopeLogTimeUnits InUnits /*= ScopeLog_Milliseconds */ )
-: StartTime( FPlatformTime::Seconds() )
+FConditionalScopeLogTime::FConditionalScopeLogTime( bool bCondition, const ANSICHAR* InName, FTotalTimeAndCount* InCumulative /*= nullptr*/, EScopeLogTimeUnits InUnits /*= ScopeLog_Milliseconds */ )
+: StartTime( bCondition ? FPlatformTime::Seconds() : 0.0 )
 , Name( InName )
 , Cumulative( InCumulative )
-, Units( InUnits )
+, Units( bCondition ? InUnits : ScopeLog_DontLog )
 {}
 
-FScopeLogTime::~FScopeLogTime()
+FConditionalScopeLogTime::~FConditionalScopeLogTime()
 {
-	const double ScopedTime = FPlatformTime::Seconds() - StartTime;
-	const FString DisplayUnitsString = GetDisplayUnitsString();
-	if( Cumulative )
+	if (Units != ScopeLog_DontLog)
 	{
-		Cumulative->Key += ScopedTime;
-		Cumulative->Value++;
+		const double ScopedTime = FPlatformTime::Seconds() - StartTime;
+		const FString DisplayUnitsString = GetDisplayUnitsString();
+		if( Cumulative )
+		{
+			Cumulative->Key += ScopedTime;
+			Cumulative->Value++;
 
-		const double Average = Cumulative->Key / (double)Cumulative->Value;
-		UE_LOG( LogStats, Log, TEXT( "%32s - %6.3f %s - Total %6.2f s / %5u / %6.3f %s" ), *Name, GetDisplayScopedTime(ScopedTime), *DisplayUnitsString, Cumulative->Key, Cumulative->Value, GetDisplayScopedTime(Average), *DisplayUnitsString );
-	}
-	else
-	{
-		UE_LOG( LogStats, Log, TEXT( "%32s - %6.3f %s" ), *Name, GetDisplayScopedTime(ScopedTime), *DisplayUnitsString );
+			const double Average = Cumulative->Key / (double)Cumulative->Value;
+			UE_LOG( LogStats, Log, TEXT( "%32s - %6.3f %s - Total %6.2f s / %5u / %6.3f %s" ), *Name, GetDisplayScopedTime(ScopedTime), *DisplayUnitsString, Cumulative->Key, Cumulative->Value, GetDisplayScopedTime(Average), *DisplayUnitsString );
+		}
+		else
+		{
+			UE_LOG( LogStats, Log, TEXT( "%32s - %6.3f %s" ), *Name, GetDisplayScopedTime(ScopedTime), *DisplayUnitsString );
+		}
 	}
 }
 
-double FScopeLogTime::GetDisplayScopedTime(double InScopedTime) const
+double FConditionalScopeLogTime::GetDisplayScopedTime(double InScopedTime) const
 {
 	switch(Units)
 	{
@@ -69,7 +80,7 @@ double FScopeLogTime::GetDisplayScopedTime(double InScopedTime) const
 	return InScopedTime * 1000.0f;
 }
 
-FString FScopeLogTime::GetDisplayUnitsString() const
+FString FConditionalScopeLogTime::GetDisplayUnitsString() const
 {
 	switch (Units)
 	{

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GameFramework/Actor.h"
 #include "Serialization/AsyncLoading.h"
@@ -65,13 +65,23 @@ FUObjectAnnotationSparseBool GSelectedActorAnnotation;
 FOnProcessEvent AActor::ProcessEventDelegate;
 #endif
 
+#if (CSV_PROFILER && !UE_BUILD_SHIPPING)
+
+/** Count of total actors created */
+int32 CSVActorTotalCount = 0;
+/** Map of Actor class names to count */
+TMap<FName, int32> CSVActorClassNameToCountMap;
+/** Critical section to control access to map */
+FCriticalSection CSVActorClassNameToCountMapLock;
+
+#endif // (CSV_PROFILER && !UE_BUILD_SHIPPING)
+
 uint32 AActor::BeginPlayCallDepth = 0;
 
 AActor::AActor()
 {
 	InitializeDefaults();
 }
-
 
 AActor::AActor(const FObjectInitializer& ObjectInitializer)
 {
@@ -105,8 +115,8 @@ void AActor::InitializeDefaults()
 	bHiddenEdLevel = false;
 	bActorLabelEditable = true;
 	SpriteScale = 1.0f;
-	bEnableAutoLODGeneration = true;	
-	InputConsumeOption_DEPRECATED = ICO_ConsumeBoundKeys;
+	bEnableAutoLODGeneration = true;
+	bOptimizeBPComponentData = false;
 #endif // WITH_EDITORONLY_DATA
 	NetCullDistanceSquared = 225000000.0f;
 	NetDriverName = NAME_GameNetDriver;
@@ -119,12 +129,29 @@ void AActor::InitializeDefaults()
 	bFindCameraComponentWhenViewTarget = true;
 	bAllowReceiveTickEventOnDedicatedServer = true;
 	bRelevantForNetworkReplays = true;
+	bRelevantForLevelBounds = true;
 	bGenerateOverlapEventsDuringLevelStreaming = false;
 	bHasDeferredComponentRegistration = false;
 #if WITH_EDITORONLY_DATA
 	PivotOffset = FVector::ZeroVector;
 #endif
 	SpawnCollisionHandlingMethod = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+#if (CSV_PROFILER && !UE_BUILD_SHIPPING)
+	// Increment actor class count
+	{
+		if (!HasAnyFlags(RF_ArchetypeObject | RF_ClassDefaultObject))
+		{
+			FScopeLock Lock(&CSVActorClassNameToCountMapLock);
+
+			const UClass* ParentNativeClass = GetParentNativeClass(GetClass());
+			FName NativeClassName = ParentNativeClass ? ParentNativeClass->GetFName() : NAME_None;
+			int32& CurrentCount = CSVActorClassNameToCountMap.FindOrAdd(NativeClassName);
+			CurrentCount++;
+			CSVActorTotalCount++;
+		}
+	}
+#endif // (CSV_PROFILER && !UE_BUILD_SHIPPING)
 }
 
 void FActorTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
@@ -142,6 +169,20 @@ void FActorTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, 
 FString FActorTickFunction::DiagnosticMessage()
 {
 	return Target->GetFullName() + TEXT("[TickActor]");
+}
+
+FName FActorTickFunction::DiagnosticContext(bool bDetailed)
+{
+	if (bDetailed)
+	{
+		// Format is "ActorNativeClass/ActorClass"
+		FString ContextString = FString::Printf(TEXT("%s/%s"), *GetParentNativeClass(Target->GetClass())->GetName(), *Target->GetClass()->GetName());
+		return FName(*ContextString);
+	}
+	else
+	{
+		return GetParentNativeClass(Target->GetClass())->GetFName();
+	}
 }
 
 bool AActor::CheckDefaultSubobjectsInternal() const
@@ -526,6 +567,26 @@ void AActor::BeginDestroy()
 	{
 		OwnerLevel->Actors.RemoveSingleSwap(this, false);
 	}
+
+#if (CSV_PROFILER && !UE_BUILD_SHIPPING)
+	// Decrement actor class count
+	{
+		if (!HasAnyFlags(RF_ArchetypeObject | RF_ClassDefaultObject))
+		{
+			FScopeLock Lock(&CSVActorClassNameToCountMapLock);
+
+			const UClass* ParentNativeClass = GetParentNativeClass(GetClass());
+			FName NativeClassName = ParentNativeClass ? ParentNativeClass->GetFName() : NAME_None;
+			int32* CurrentCount = CSVActorClassNameToCountMap.Find(NativeClassName);
+			if (CurrentCount)
+			{
+				(*CurrentCount)--;
+			}
+			CSVActorTotalCount--;
+		}
+	}
+#endif // (CSV_PROFILER && !UE_BUILD_SHIPPING)
+
 	Super::BeginDestroy();
 }
 
@@ -612,11 +673,6 @@ void AActor::PostLoad()
 	}
 
 #if WITH_EDITORONLY_DATA
-	if (GetLinkerUE4Version() < VER_UE4_CONSUME_INPUT_PER_BIND)
-	{
-		bBlockInput = (InputConsumeOption_DEPRECATED == ICO_ConsumeAll);
-	}
-
 	if (AActor* ParentActor = ParentComponentActor_DEPRECATED.Get())
 	{
 		TInlineComponentArray<UChildActorComponent*> ParentChildActorComponents(ParentActor);
@@ -967,6 +1023,7 @@ void AActor::PreReplication( IRepChangedPropertyTracker & ChangedPropertyTracker
 {
 	// Attachment replication gets filled in by GatherCurrentMovement(), but in the case of a detached root we need to trigger remote detachment.
 	AttachmentReplication.AttachParent = nullptr;
+	AttachmentReplication.AttachComponent = nullptr;
 
 	GatherCurrentMovement();
 
@@ -1502,7 +1559,7 @@ float AActor::GetLastRenderTime() const
 	return CachedLastRenderTime;
 }
 
-void AActor::SetOwner( AActor *NewOwner )
+void AActor::SetOwner(AActor* NewOwner)
 {
 	if (Owner != NewOwner && !IsPendingKill())
 	{
@@ -1513,7 +1570,7 @@ void AActor::SetOwner( AActor *NewOwner )
 		}
 
 		// Sets this actor's parent to the specified actor.
-		if( Owner != nullptr )
+		if (Owner != nullptr)
 		{
 			// remove from old owner's Children array
 			verifySlow(Owner->Children.Remove(this) == 1);
@@ -1521,7 +1578,7 @@ void AActor::SetOwner( AActor *NewOwner )
 
 		Owner = NewOwner;
 
-		if( Owner != nullptr )
+		if (Owner != nullptr)
 		{
 			// add to new owner's Children array
 			checkSlow(!Owner->Children.Contains(this));
@@ -1529,8 +1586,34 @@ void AActor::SetOwner( AActor *NewOwner )
 		}
 
 		// mark all components for which Owner is relevant for visibility to be updated
-		MarkOwnerRelevantComponentsDirty(this);
+		if (bHasFinishedSpawning)
+		{
+			MarkOwnerRelevantComponentsDirty(this);
+		}
 	}
+}
+
+bool AActor::HasLocalNetOwner() const
+{
+	// I might be the top owner if I am a Pawn or a Controller (owner will be null)
+	const AActor* TopOwner = this;
+
+	if (Owner != nullptr)
+	{
+		// I have an owner so search that for the top owner
+		for (TopOwner = Owner; TopOwner->Owner; TopOwner = TopOwner->Owner)
+		{
+		}
+	}
+
+	// Top owner will normally be a Pawn or a Controller
+	if (const APawn* Pawn = Cast<APawn>(TopOwner))
+	{
+		return Pawn->IsLocallyControlled();
+	}
+
+	const AController* Controller = Cast<AController>(TopOwner);
+	return Controller && Controller->IsLocalController();
 }
 
 bool AActor::HasNetOwner() const
@@ -1553,7 +1636,7 @@ bool AActor::HasNetOwner() const
 void AActor::K2_AttachRootComponentTo(USceneComponent* InParent, FName InSocketName, EAttachLocation::Type AttachLocationType /*= EAttachLocation::KeepRelativeOffset */, bool bWeldSimulatedBodies /*=true*/)
 {
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
-if (RootComponent && InParent)
+	if (RootComponent && InParent)
 	{
 		RootComponent->AttachTo(InParent, InSocketName, AttachLocationType, bWeldSimulatedBodies);
 	}
@@ -1586,7 +1669,21 @@ void AActor::OnRep_AttachmentReplication()
 				RootComponent->RelativeLocation = AttachmentReplication.LocationOffset;
 				RootComponent->RelativeRotation = AttachmentReplication.RotationOffset;
 				RootComponent->RelativeScale3D = AttachmentReplication.RelativeScale3D;
-				RootComponent->AttachToComponent(AttachParentComponent, FAttachmentTransformRules::KeepRelativeTransform,  AttachmentReplication.AttachSocket);
+
+				// If we're already attached to the correct Parent and Socket, then the update must be position only.
+				// AttachToComponent would early out in this case.
+				// Note, we ignore the special case for simulated bodies in AttachToComponent as AttachmentReplication shouldn't get updated
+				// if the body is simulated (see AActor::GatherMovement).
+				const bool bAlreadyAttached = (AttachParentComponent == RootComponent->GetAttachParent() && AttachmentReplication.AttachSocket == RootComponent->GetAttachSocketName() && AttachParentComponent->GetAttachChildren().Contains(RootComponent));
+				if (bAlreadyAttached)
+				{
+					// Note, this doesn't match AttachToComponent, but we're assuming it's safe to skip physics (see comment above).
+					RootComponent->UpdateComponentToWorld(EUpdateTransformFlags::SkipPhysicsUpdate, ETeleportType::None);
+				}
+				else
+				{
+					RootComponent->AttachToComponent(AttachParentComponent, FAttachmentTransformRules::KeepRelativeTransform, AttachmentReplication.AttachSocket);
+				}
 			}
 		}
 	}
@@ -1597,7 +1694,10 @@ void AActor::OnRep_AttachmentReplication()
 		// Handle the case where an object was both detached and moved on the server in the same frame.
 		// Calling this extraneously does not hurt but will properly fire events if the movement state changed while attached.
 		// This is needed because client side movement is ignored when attached
-		OnRep_ReplicatedMovement();
+		if (bReplicateMovement)
+		{
+			OnRep_ReplicatedMovement();
+		}
 	}
 }
 
@@ -1874,7 +1974,12 @@ void AActor::SetNetDormancy(ENetDormancy NewDormancy)
 	{
 		return;
 	}
-	
+
+	if (IsPendingKillPending())
+	{
+		return;
+	}
+
 	UWorld* MyWorld = GetWorld();
 	UNetDriver* NetDriver = GEngine->FindNamedNetDriver(MyWorld, NetDriverName);
 	if (NetDriver)
@@ -2847,6 +2952,12 @@ void AActor::PostSpawnInitialize(FTransform const& UserSpawnTransform, AActor* I
 	check(Role == ROLE_Authority);
 	ExchangeNetRoles(bRemoteOwned);
 
+	// Set owner.
+	SetOwner(InOwner);
+
+	// Set instigator
+	Instigator = InInstigator;
+
 	// Set the actor's world transform if it has a native rootcomponent.
 	USceneComponent* const SceneRootComponent = FixupNativeActorComponents(this);
 	if (SceneRootComponent != nullptr)
@@ -2905,12 +3016,6 @@ void AActor::PostSpawnInitialize(FTransform const& UserSpawnTransform, AActor* I
 	{
 		RegisterAllComponents();
 	}
-
-	// Set owner.
-	SetOwner(InOwner);
-
-	// Set instigator
-	Instigator = InInstigator;
 
 #if WITH_EDITOR
 	// When placing actors in the editor, init any random streams 
@@ -2980,9 +3085,9 @@ void AActor::FinishSpawning(const FTransform& UserTransform, bool bIsDefaultTran
 				}
 			}
 
-			// should be fast and relatively rare
-			ValidateDeferredTransformCache();
-		}
+				// should be fast and relatively rare
+				ValidateDeferredTransformCache();
+			}
 
 		FinalRootComponentTransform.GetLocation().DiagnosticCheckNaN(TEXT("AActor::FinishSpawning: FinalRootComponentTransform.GetLocation()"));
 		FinalRootComponentTransform.GetRotation().DiagnosticCheckNaN(TEXT("AActor::FinishSpawning: FinalRootComponentTransform.GetRotation()"));
@@ -3121,19 +3226,24 @@ void AActor::SetReplicates(bool bInReplicates)
 { 
 	if (Role == ROLE_Authority)
 	{
-		const bool ChangedReplicates = (bReplicates == false && bInReplicates == true);
-
-		// Update our settings before calling into net driver
-		RemoteRole = (bInReplicates ? ROLE_SimulatedProxy : ROLE_None);
-		bReplicates = bInReplicates;
-
 		// Only call into net driver if we actually changed
-		if (ChangedReplicates)
+		if (bReplicates != bInReplicates)
 		{
-			if (UWorld* MyWorld = GetWorld())		// GetWorld will return nullptr on CDO, FYI
+			// Update our settings before calling into net driver
+			RemoteRole = bInReplicates ? ROLE_SimulatedProxy : ROLE_None;
+			bReplicates = bInReplicates;
+
+			// This actor should already be in the Network Actors List if it was already replicating.
+			if (bReplicates)
 			{
-				MyWorld->AddNetworkActor(this);
+				// GetWorld will return nullptr on CDO, FYI
+				if (UWorld* MyWorld = GetWorld())		
+				{
+					MyWorld->AddNetworkActor(this);
+					ForcePropertyCompare();
+				}
 			}
+			
 		}
 	}
 	else
@@ -3174,6 +3284,7 @@ void AActor::CopyRemoteRoleFrom(const AActor* CopyFromActor)
 	if (RemoteRole != ROLE_None)
 	{
 		GetWorld()->AddNetworkActor(this);
+		ForcePropertyCompare();
 	}
 }
 
@@ -3206,15 +3317,17 @@ void AActor::ExchangeNetRoles(bool bRemoteOwned)
 	{
 		if (bRemoteOwned)
 		{
+			// Don't worry about calling SetRemoteRoleInternal here, as this should only be hit during initialization.
 			Exchange( Role, RemoteRole );
 		}
 		bExchangedRoles = true;
 	}
 }
 
-void AActor::SwapRolesForReplay()
+void AActor::SwapRoles()
 {
 	Swap(Role, RemoteRole);
+	ForcePropertyCompare();
 }
 
 void AActor::DispatchBeginPlay()
@@ -3993,14 +4106,22 @@ int32 AActor::GetFunctionCallspace( UFunction* Function, void* Parameters, FFram
 
 bool AActor::CallRemoteFunction( UFunction* Function, void* Parameters, FOutParmRec* OutParms, FFrame* Stack )
 {
-	UNetDriver* NetDriver = GetNetDriver();
-	if (NetDriver)
+	bool bProcessed = false;
+
+	FWorldContext* const Context = GEngine->GetWorldContextFromWorld(GetWorld());
+	if (Context != nullptr)
 	{
-		NetDriver->ProcessRemoteFunction(this, Function, Parameters, OutParms, Stack, nullptr);
-		return true;
+		for (FNamedNetDriver& Driver : Context->ActiveNetDrivers)
+		{
+			if (Driver.NetDriver != nullptr && Driver.NetDriver->ShouldReplicateFunction(this, Function))
+			{
+				Driver.NetDriver->ProcessRemoteFunction(this, Function, Parameters, OutParms, Stack, nullptr);
+				bProcessed = true;
+			}
+		}
 	}
 
-	return false;
+	return bProcessed;
 }
 
 void AActor::DispatchPhysicsCollisionHit(const FRigidBodyCollisionInfo& MyInfo, const FRigidBodyCollisionInfo& OtherInfo, const FCollisionImpactData& RigidCollisionData)
@@ -4488,9 +4609,14 @@ void AActor::SetLifeSpan( float InLifespan )
 
 float AActor::GetLifeSpan() const
 {
-	// Timer remaining returns -1.0f if there is no such timer - return this as ZERO
-	const float CurrentLifespan = GetWorldTimerManager().GetTimerRemaining(TimerHandle_LifeSpanExpired);
-	return ( CurrentLifespan != -1.0f ) ? CurrentLifespan : 0.0f;
+	if (UWorld* World = GetWorld())
+	{
+		// Timer remaining returns -1.0f if there is no such timer - return this as ZERO
+		const float CurrentLifespan = World->GetTimerManager().GetTimerRemaining(TimerHandle_LifeSpanExpired);
+		return (CurrentLifespan != -1.0f) ? CurrentLifespan : 0.0f;
+	}
+	
+	return 0.0f;
 }
 
 void AActor::PostInitializeComponents()
@@ -4528,7 +4654,13 @@ float AActor::GetActorTimeDilation() const
 	// get actor custom time dilation
 	// if you do slomo, that changes WorldSettings->TimeDilation
 	// So multiply to get final TimeDilation
-	return CustomTimeDilation*GetWorldSettings()->GetEffectiveTimeDilation();
+	return CustomTimeDilation * GetWorldSettings()->GetEffectiveTimeDilation();
+}
+
+float AActor::GetActorTimeDilation(const UWorld& ActorWorld) const
+{
+	checkSlow(&ActorWorld == GetWorld());
+	return CustomTimeDilation * ActorWorld.GetWorldSettings()->GetEffectiveTimeDilation();
 }
 
 UMaterialInstanceDynamic* AActor::MakeMIDForMaterial(class UMaterialInterface* Parent)

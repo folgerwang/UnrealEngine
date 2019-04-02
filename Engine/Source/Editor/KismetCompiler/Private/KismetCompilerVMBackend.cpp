@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	KismetCompilerVMBackend.cpp
@@ -488,7 +488,7 @@ public:
 			{
 				return Property->IsA<UInt64Property>();
 			}
-			return false;
+			return Type && (Type->PinCategory == UEdGraphSchema_K2::PC_Int64);
 		}
 
 		static bool IsUInt64(const FEdGraphPinType* Type, const UProperty* Property)
@@ -1194,6 +1194,9 @@ public:
 			&& !FunctionToCall->GetOuterUClass()->IsChildOf(UInterface::StaticClass())
 			&& FunctionToCall->GetOwnerClass()->GetName() == TEXT("KismetMathLibrary");
 
+		const bool bLocalScriptFunction = 
+			!FunctionToCall->HasAnyFunctionFlags(FUNC_Native|FUNC_NetFuncFlags);
+
 		// Handle the function calling context if needed
 		FContextEmitter CallContextWriter(*this);
 
@@ -1217,6 +1220,10 @@ public:
 			{
 				Writer << EX_CallMath;
 			}
+			else if(bLocalScriptFunction)
+			{
+				Writer << EX_LocalFinalFunction;
+			}
 			else
 			{
 				Writer << EX_FinalFunction;
@@ -1227,7 +1234,14 @@ public:
 		else
 		{
 			FName FunctionName(FunctionToCall->GetFName());
-			Writer << EX_VirtualFunction;
+			if(bLocalScriptFunction)
+			{
+				Writer << EX_LocalVirtualFunction;
+			}
+			else
+			{
+				Writer << EX_VirtualFunction;
+			}
 			Writer << FunctionName;
 		}
 		

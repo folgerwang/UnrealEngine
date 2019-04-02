@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Player.cpp: Unreal player implementation.
@@ -64,7 +64,7 @@ FString UPlayer::ConsoleCommand(const FString& Cmd, bool bWriteToLog)
 
 	if (!bWriteToLog)
 	{
-		return StrOut;
+		return MoveTemp(StrOut);
 	}
 
 	return TEXT("");

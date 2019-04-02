@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieSceneSlomoTrack.h"
 #include "Sections/MovieSceneSlomoSection.h"
@@ -15,6 +15,11 @@ UMovieSceneSlomoTrack::UMovieSceneSlomoTrack(const FObjectInitializer& Init)
 	: Super(Init)
 {
 	EvalOptions.bCanEvaluateNearestSection = true;
+}
+
+bool UMovieSceneSlomoTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneSlomoSection::StaticClass();
 }
 
 UMovieSceneSection* UMovieSceneSlomoTrack::CreateNewSection()

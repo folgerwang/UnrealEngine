@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ToolModes/PatchGenerationMode.h"
 #include "Misc/DefaultValueHelper.h"
@@ -124,7 +124,7 @@ public:
 		}
 
 		// Setup and run
-		BuildPatchServices::FGenerationConfiguration Settings;
+		BuildPatchServices::FChunkBuildConfiguration Settings;
 		const uint32 DefaultChunkWindowSize = Settings.OutputChunkWindowSize;
 		if (!BuildPatchServices::FeatureLevelFromString(*FeatureLevel, Settings.FeatureLevel))
 		{
@@ -179,7 +179,7 @@ public:
 		}
 
 		// Run the build generation
-		bool bSuccess = BpsInterface.GenerateChunksManifestFromDirectory(Settings);
+		bool bSuccess = BpsInterface.ChunkBuildDirectory(Settings);
 		return bSuccess ? EReturnCode::OK : EReturnCode::ToolFailure;
 	}
 
@@ -248,10 +248,12 @@ private:
 			return true;
 		}
 
-		// Get all required parameters
-		if (!PARSE_SWITCH(FeatureLevel))
+		// Grab the FeatureLevel. This is required param but safe to default, we can change this to a warning after first release, and then an error later, as part of a friendly roll out.
+		PARSE_SWITCH(FeatureLevel);
+		FeatureLevel.TrimStartAndEndInline();
+		if (FeatureLevel.IsEmpty())
 		{
-			UE_LOG(LogBuildPatchTool, Warning, TEXT("FeatureLevel was not provided, defaulting to LatestJson. Please provide the FeatureLevel commandline argument which matches the existing client support."));
+			UE_LOG(LogBuildPatchTool, Log, TEXT("FeatureLevel was not provided, defaulting to LatestJson. Please provide the FeatureLevel commandline argument which matches the existing client support."));
 			FeatureLevel = TEXT("LatestJson");
 		}
 
@@ -266,9 +268,9 @@ private:
 			UE_LOG(LogBuildPatchTool, Error, TEXT("CloudDir, BuildRoot, AppName, BuildVersion, AppLaunch, and AppArgs are required parameters"));
 			return false;
 		}
-		FPaths::NormalizeDirectoryName(CloudDir);
-		FPaths::NormalizeDirectoryName(BuildRoot);
-		FPaths::NormalizeDirectoryName(AppLaunch);
+		NormalizeUriPath(CloudDir);
+		NormalizeUriPath(BuildRoot);
+		NormalizeUriFile(AppLaunch);
 
 		// Get optional parameters
 		PARSE_SWITCH(AppId);
@@ -283,14 +285,19 @@ private:
 		PARSE_SWITCH(ChunkWindowSize);
 		bIgnoreOtherWindowSizes = ParseOption(TEXT("IgnoreOtherWindowSizes"), Switches);
 		PARSE_SWITCH(OutputFilename);
-		FPaths::NormalizeDirectoryName(FileList);
-		FPaths::NormalizeDirectoryName(FileIgnoreList);
-		FPaths::NormalizeDirectoryName(FileAttributeList);
-		FPaths::NormalizeDirectoryName(PrereqPath);
-		FPaths::NormalizeDirectoryName(OutputFilename);
+		NormalizeUriFile(FileList);
+		NormalizeUriFile(FileIgnoreList);
+		NormalizeUriFile(FileAttributeList);
+		NormalizeUriFile(PrereqPath);
+		NormalizeUriFile(OutputFilename);
 
 		// Clamp ChunkWindowSize to sane range.
+		const uint32 RequestedChunkWindowSize = ChunkWindowSize;
 		ChunkWindowSize = FMath::Clamp<uint32>(ChunkWindowSize, 32000, 10485760);
+		if (RequestedChunkWindowSize != ChunkWindowSize)
+		{
+			UE_LOG(LogBuildPatchTool, Warning, TEXT("Requested -ChunkWindowSize=%u is outside of allowed range 10485760 >= n >= 32000. Please update your args to be within range. Continuing with %u."), RequestedChunkWindowSize, ChunkWindowSize);
+		}
 
 		// Check numeric values
 		if (!AppId.IsEmpty() && !AppId.IsNumeric())

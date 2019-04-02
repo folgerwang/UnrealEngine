@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CineCameraActor.h"
 #include "DrawDebugHelpers.h"
@@ -34,9 +34,9 @@ bool ACineCameraActor::ShouldTickIfViewportsOnly() const
 FVector ACineCameraActor::GetLookatLocation() const
 {
 	FVector FinalLookat;
-	if (LookatTrackingSettings.ActorToTrack)
+	if (AActor* ActorToTrack = LookatTrackingSettings.ActorToTrack.Get())
 	{
-		FTransform const BaseTransform = LookatTrackingSettings.ActorToTrack->GetActorTransform();
+		FTransform const BaseTransform = ActorToTrack->GetActorTransform();
 		FinalLookat = BaseTransform.TransformPosition(LookatTrackingSettings.RelativeOffset);
 	}
 	else

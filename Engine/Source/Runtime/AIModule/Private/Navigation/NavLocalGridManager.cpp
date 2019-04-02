@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Navigation/NavLocalGridManager.h"
 #include "AISystem.h"
@@ -438,6 +438,6 @@ UNavLocalGridManager* UNavLocalGridManager::GetCurrent(const UObject* WorldConte
 #if WITH_ENGINE
 UWorld* UNavLocalGridManager::GetWorld() const
 {
-	return Cast<UWorld>(GetOuter());
+	return GetOuter()->GetWorld();
 }
 #endif // WITH_ENGINE

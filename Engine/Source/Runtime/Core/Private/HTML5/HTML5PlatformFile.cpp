@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	HTML5File.cpp: HTML5 platform implementations of File functions
@@ -155,6 +155,20 @@ public:
 		return true;
 	}
 
+	virtual bool Flush(const bool bFullFlush = false) override
+	{
+		check(IsValid());
+		return bFullFlush
+			? fsync(FileHandle) == 0
+			: fdatasync(FileHandle) == 0;
+	}
+
+	virtual bool Truncate(int64 NewSize) override
+	{
+		check(IsValid());
+		return ftruncate(FileHandle, NewSize) == 0;
+	}
+
 private:
 	FString Filename;
 	bool bUseLocalStorage;
@@ -181,6 +195,10 @@ protected:
 	}
 
 public:
+	//~ For visibility of overloads we don't override
+	using IPhysicalPlatformFile::IterateDirectory;
+	using IPhysicalPlatformFile::IterateDirectoryStat;
+
 	virtual bool FileExists(const TCHAR* Filename) override
 	{
 		struct stat FileInfo;

@@ -1,12 +1,12 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Misc/Variant.h"
 #include "BuildPatchManifest.h"
 #include "Core/BlockStructure.h"
+#include "Core/FileSpan.h"
 #include "Generation/FileAttributesParser.h"
-#include "Generation/BuildStreamer.h"
 
 namespace BuildPatchServices
 {

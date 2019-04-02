@@ -1,7 +1,7 @@
-﻿INTSourceChangelist:3255885
+﻿INTSourceChangelist:3782314
 Availability: Public
 Title:创建瞄准偏移
-Crumbs: %ROOT%, Engine, Engine\Animation, Engine\Animation\AnimHowTo
+Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/AnimHowTo
 Description:利用瞄准偏移，Character 可以向鼠标或控制器的方向瞄准武器。 
 Version: 4.14
 skilllevel: Advanced
@@ -25,14 +25,11 @@ CEIeNE9lKxI
 
 通过完成下面这些步骤，便能得到类似于上面这个视频中的效果。
 
-## Steps
+(#Steps)
+## 步骤
 
-[REGION:buttonlist]
+[DIR(output:"checkpoint" parent:"Engine/Animation/AnimHowTo/AimOffset")]
 
-	* [](Engine\Animation\AnimHowTo\AimOffset\01_CreatingAimPoses "%Engine\Animation\AnimHowTo\AimOffset\01_CreatingAimPoses:description%")
-	* [](Engine\Animation\AnimHowTo\AimOffset\02_CreatingAimOffset "%Engine\Animation\AnimHowTo\AimOffset\02_CreatingAimOffset:description%")
-	* [](Engine\Animation\AnimHowTo\AimOffset\03_ImplementingAimOffset "%Engine\Animation\AnimHowTo\AimOffset\03_ImplementingAimOffset:description%")
-	* [](Engine\Animation\AnimHowTo\AimOffset\04_FinishingUp "%Engine\Animation\AnimHowTo\AimOffset\04_FinishingUp:description%")
-	
+[REGION:call_to_action]
+[点击开始](Engine/Animation/AnimHowTo/AimOffset/01_CreatingAimPoses "%Engine/Animation/AnimHowTo/AimOffset/01_CreatingAimPoses:description%")
 [/REGION]
-

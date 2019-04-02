@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using AutomationTool;
 using System;
@@ -115,7 +115,7 @@ namespace BuildGraph.Tasks
 
 			// Try to load it
 			TargetReceipt Receipt;
-			if(!TargetReceipt.TryRead(ReceiptFileName, SourceEngineDir, SourceProjectDir, out Receipt))
+			if(!TargetReceipt.TryRead(ReceiptFileName, out Receipt))
 			{
 				throw new AutomationException("Couldn't read receipt '{0}'", ReceiptFileName);
 			}

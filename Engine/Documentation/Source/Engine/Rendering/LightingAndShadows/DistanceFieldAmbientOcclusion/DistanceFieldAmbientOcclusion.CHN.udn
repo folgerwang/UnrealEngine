@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:2693703
+﻿INTSourceChangelist:4307670
 Availability: Public
 Crumbs: %ROOT%
-Title: Distance Field Ambient Occlusion
-Description: An overview of using Mesh Distance Fields to create dynamic ambient occlusion for SkyLights.
+Title: 距离场环境光遮蔽
+Description: 使用网格体距离场创建天空光照动态环境光遮蔽的总览。
 Type: Overview
 SkillLevel:Intermediate
 Version:4.18
@@ -25,37 +25,36 @@ Social-Image:Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo/DFHT_2
 
 [TOC(start:2 end:2)]
 
-Shadowing for Movable Sky Lights is provided by using Signed Distance Field Volumes precomputed around each rigid mesh to generate medium scale Ambient Occlusion. In Unreal Engine 4 (UE4), this is 
-called **Distance Field Ambient Occlusion** (DFAO). It supports dynamic scene changes; the rigid meshes can be moved or hidden, and it will affect the occlusion. Unlike 
-[Screen Space Ambient Occlusion](Engine/Rendering/LightingAndShadows/AmbientOcclusion) (SSAO), occlusion is computed from world-space occluders, so there are no artifacts from missing data off-screen.
+使用有向距离场体积能获得可移动天空光照的阴影；该有向距离场体积在各刚性网格体周围预计算，以产生中等范围的环境光遮蔽。在虚幻引擎4（UE4）中，这被称为 **距离场环境光遮蔽（Distance Field Ambient Occlusion）**（DFAO）。其支持动态场景变化；刚性网格体可移动或隐藏，其会影响遮蔽。与[屏幕空间环境光遮蔽](Engine/Rendering/LightingAndShadows/AmbientOcclusion)不同，遮蔽在场景空间遮挡物中进行计算，因此出屏丢失数据不会导致瑕疵。
 
-This dynamic AO solution will not work for all projects, as it has some invasive limitations which enable it to support dynamic scene changes. In particular, only slight-non-uniform scaling
-(squishing) is supported. Also, large Static Meshes produce inferior quality results because a small volume texture is mapped to every object.
+此动态环境光遮蔽解决方案存在部分扩散限制，以便支持动态场景修改，因此并不适用于所有项目。具体而言，其仅支持轻微非等分缩放（挤压）。此外，映射到每个物体上的体积纹理较小，因此大型静态网格体产生的效果较差。
 
-## Scene Setup
+(#scenesetup)
+## 场景设置
 
 [REGION:note]
-This feature requires that **Generate Mesh Distance Fields** be enabled in your **Project Settings** in the **Rendering** section. See the [Mesh Distance Fields](Engine/Rendering/LightingAndShadows/MeshDistanceFields#enablingdistancefields) page for more information.
+使用此功能需要首先启用 **渲染（Rendering）** 部分中 **项目设置（Project Settings）** 下的 *生成网格体距离场（Generate Mesh Distance Fields）**。参见[网格体距离场](Engine/Rendering/LightingAndShadows/MeshDistanceFields#enablingdistancefields)页面了解详情。
 [/REGION]
 
-To enable Distance Field Ambient Occlusion, drag a **Sky Light** into the scene and set its Mobility to **Movable**
+启用距离场环境光遮蔽需将 **天空光照（Sky Light）** 拖入场景，并将其移动性设为 **可移动（Movable）**
 
 [REGION:note]
-For a step-by-step guide, follow the [Distance Field Ambient Occlusion](Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo/DFHT_2) How-To guide to learn more.
+欲了解详细步骤教程，请浏览[距离场环境光遮蔽](Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo/DFHT_2)指南进行学习。
 [/REGION]
 
-## Sky Light
+(#skylight)
+## 天空光照
 
-The **Sky Light** component enables you to adjust the various settings that can be found listed under **Distance Field Ambient Occlusion**. These are comparisons of some of the settings you can adjust:
+利用 **天空光照（Sky Light）** 组件可调整 **距离场环境光遮蔽（Distance Field Ambient Occlusion）** 下列出的各项设置。以下为部分可调设置的对比：
 
 [REGION:imagetable]
 | [INCLUDE:#occlusioncontrast] | [INCLUDE:#MinOcclusion] | [INCLUDE:#OcclusionTint] |
 |  ----- | ----- | ----- |
-| Occlusion Contrast | Min Occlusion | Occlusion Tint |
+| 遮蔽对比度 | 最小遮蔽 | 遮蔽着色 |
 [/REGION]
 
 [REGION:note]
-For additional information about Sky Light settings and additional examples, see the [Mesh Distance Fields Reference](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference#skylight) page.
+参见[网格体距离场参考](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference#skylight)页面，了解天空光照设置的更多详情与范例。
 [/REGION]
 
 [COMMENT:none]
@@ -103,52 +102,52 @@ For additional information about Sky Light settings and additional examples, see
 
 
 
-## Scene Representation
+(#scenerepresentation)
+## 场景代表
  
-The view mode for Distance Field AO enables you to see how DFAO looks in the level without regards to any other lighting that is happening. 
+利用距离场光遮蔽的视图模式可忽略其他正在发生的光照，查看关卡中的DFAO效果。 
 
-You can visualize the Distance Fields that represent your scene ambient occlusion by using the Level Viewport view mode for **Distance Fields Ambient Occlusion** by selecting **Show** > **Visualize** > **Distance Fields Ambient Occlusion**.
+选择 **显示（Show）** > **可视化（Visualiz）** > **环境场光遮蔽（Distance Fields Ambient Occlusion）**，即可使用关卡视口查看模式来显示将代表场景环境光遮蔽的距离场。
 
 [REGION:imagetable]
 | [REGION:lightbox] [![](DFAOVisualize.png)(w:400)](DFAOVisualize.png) [/REGION] | [REGION:lightbox] [![](DFAOView.png)(w:750)](DFAOView.png) [/REGION] |
 | --- | --- |
-| _Click image for full size._ | _Click image for full size._ |
+| _点击图片查看全尺寸。_ | _点击图片查看全尺寸。_ |
 [/REGION]
 
-While in this view mode, the only [Sky Light setting](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference#遮蔽最大距离（occlusionmaxdistance）) that will have any effect is **Occlusion Max Distance**.
+在此查看模式中，唯一有效果的[天空光照设置](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference#OcclusionMaxDistance)便是 **遮蔽最大距离（Occlusion Max Distance）**。
 
 
-### Quality
+(#quality)
+## 质量
 
-Distance Field AO quality is determined by the resolution of the Mesh Distance Field it represents. Since AO is very soft shadowing, so even if the surfaces aren't represented
-properly, occlusion further from the surface will be accurate. It's often not noticeable with sky occlusion. However, make sure that the larger details of the mesh are well
-represented in the Mesh Distance Field for good results. Use the [Mesh Distance Field Visualization](Engine/Rendering/LightingAndShadows/MeshDistanceFields#场景表达) 
-to inspect the quality.
+距离场环境光遮蔽的质量由其显示的网格体距离场的分辨率所决定。环境光遮蔽的阴影十分柔和，因此即使表面未正确显示，离表面较远的遮蔽也会十分精确。这在天空遮蔽中通常不易察觉。使网格体较大的细节在网格体距离场中正确显示才能获得较好结果。使用[网格体距离场显示](Engine/Rendering/LightingAndShadows/MeshDistanceFields#scenerepresentation)来查看质量。
 
 [REGION:note]
-For additional information about Mesh Distance Field quality, see the [Distance Fields](Engine/Rendering/LightingAndShadows/MeshDistanceFields#Quality) page.
+参见[距离场](Engine/Rendering/LightingAndShadows/MeshDistanceFields#Quality)页面，了解网格体距离场质量的详情。
 [/REGION]
 
 
-## Occlusion Results
+(#occlusionresults)
+## 遮蔽结果
 
-### Diffuse
+(#Diffuse)
+### 散射
 
-Distance Field AO produces a bent normal (the direction of least occlusion) which is used to modify the diffuse sky light calculation (along with an occlusion factor).
+距离场环境光遮蔽生成会一个环境法线（最少遮蔽的方向），用于修改散射天空光照计算（以及遮蔽因子）。
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![No Distance Field Ambient Occlusion](Original2.jpg)(w:850)
+	![无距离场环境光遮蔽](Original2.jpg)(w:850)
 	[/PARAM]
 	[PARAM:after]
-	![Distance Field Ambient Occlusion](DistanceFieldAO2.jpg)(w:850)
+	![距离场环境光遮蔽](DistanceFieldAO2.jpg)(w:850)
 	[/PARAM]
 [/OBJECT]
 [REGION:caption]
 [/REGION]
 
-In this example, this is a Fortnite level at midday. In Fortnite, players can knock down any wall, floor or ceiling and build new ones, so the lighting must be updated accordingly. Distance
-Field AO supports these types of dynamic changes in the level around you.
+此范例是《堡垒之夜》中正午的场景。在《堡垒之夜》中，玩家可以随时推倒任何墙壁、地板或天花板并重新建造，因此光照必须随之进行更新。距离场光遮蔽支持在关卡中动态修改这些类型。
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -168,134 +167,129 @@ Field AO supports these types of dynamic changes in the level around you.
 	[/PARAMLITERAL]
 [/OBJECT]
 
-In this example from a level in Fortnite, the AO is updating in real time as assets are hidden or moved in the Editor. 
+此范例来自《堡垒之夜》的关卡，编辑器中的资源有些被隐藏，有些被移动，而环境光遮蔽正进行实时更新。 
 
-### Specular
+(#specular)
+### 高光
 
-Distance Field AO also provides approximate specular occlusion on Sky Lights. This is computed by intersecting the directional occlusion cone with the reflection cone (whose size depends on the material roughness).
+距离场光遮蔽同样提供天空光照中的高光遮蔽。定向遮蔽椎体和反射椎体（尺寸取决于材质的粗糙度）相交即可进行计算。
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![No Specular Occlusion](0Original.jpg)(w:850)
+	![无高光遮蔽](0Original.jpg)(w:850)
 	[/PARAM]
 	[PARAM:after]
-	![Specular Occlusion](0SpecularOcclusion.jpg)(w:850)
+	![高光遮蔽](0SpecularOcclusion.jpg)(w:850)
 	[/PARAM]
 [/OBJECT]
 [REGION:caption]
 [/REGION]
 [REGION:caption]
-Specular occlusion on pipes.
+管道上的高光遮蔽。
 [/REGION]
 
-By default, non-directional AO is applied to specular. You can use **r.AOSpecularOcclusionMode** to give more accurate occlusion results than the default method by intersecting the reflection cone with the unoccluded cone produced by DFAO. Note that this can introduce DFAO sampling artifacts.
+非定向环境光遮蔽默认应用至高光。将反射椎体和DFAO产生的未遮蔽椎体相交，使用 **r.AOSpecularOcclusionMode** 便能获得比默认方式更加精确的遮蔽结果。注意：此操作会导致DFAO采样瑕疵。
 
-### Foliage 
+(#foliage)
+### 植物 
 
-For Actors painted with the [Foliage Tool](Engine/Rendering/LightingAndShadows/MeshDistanceFields#植物叶子工具设置), you must first enable the option **Affect Distance Field Lighting** in tool settings.
+针对使用[植物工具](Engine/Rendering/LightingAndShadows/MeshDistanceFields#foliagetoolsettings)绘制的Actor时，必须首先启用工具设置中的 **影响距离场光照（Affect Distance Field Lighting）** 选项。
 
 ![](Engine/Rendering/LightingAndShadows/MeshDistanceFields/FoliageToolSettings.png)
 
-Even though Distance Field AO operates on surfaces, it can still handle foliage where many small leaves are combined into sheets. The best results are obtained by enabling **Two-Sided Distance Field Generation**
-for foliage type assets from the **Build Settings** options in the **Static Mesh Editor**. This will soften the computed occlusion. 
+即使距离场光遮蔽在表面运行，其仍会处理由小树叶组成的片状植物。在 **静态网格体编辑器（Static Mesh Editor）** 的 **构建设置（Build Settings）** 中，启用植物类型资源的 **生成两面距离场（Two-Sided Distance Field Generation）** 可获得最佳结果。这将使已计算的遮蔽更加柔和。 
 
 [REGION:tip]
-In the Sky Light options, increase the **Min Occlusion** to prevent the interior parts of the asset from going fully black.
+在天空光照选项中增加 **最小遮蔽（Min Occlusion）** 来防止资源内部完全变黑。
 [/REGION]
 
 ![](Engine/Rendering/LightingAndShadows/MeshDistanceFields/BuildSettings_TwoSided.png)
 
-This is an example where DFAO has been enabled and is using Two-Sided Distance Field Generation:
+在此范例中，DFAO已被启用并正在使用“两面距离场生成”：
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Screen Space Ambient Occlusion only](NoDFAO2.jpg)(w:850)
+	![仅屏幕空间环境光遮蔽](NoDFAO2.jpg)(w:850)
 	[/PARAM]
 	[PARAM:after]
-	![Distance Field Ambient Occlusion on foliage](DFAO2.jpg)(w:850)
+	![有距离场环境光遮蔽的植物叶子](DFAO2.jpg)(w:850)
 	[/PARAM]
 [/OBJECT]
 [REGION:caption]
 [/REGION]
 
-For Foliage assets that use LODs (Levels of Detail), you can run into some problem with Distance Field AO produces over-occlusion. This happens when the [Mesh Distance Field](Engine/Rendering/LightingAndShadows/MeshDistanceFields)
-is still accurate at far distances, but the LOD level is using a lower triangle count and may shrink to be inside of the generated Mesh Distance Field.
+对于使用LOD（细节级别）的植物资源，距离场光遮蔽可能会产生过度遮蔽的问题。[网格体距离场](Engine/Rendering/LightingAndShadows/MeshDistanceFields)在远距离仍准确、LOD关卡却使用较少三角形数量且可能会缩小到生成的网格体距离场中时，便会出现以上问题。
 
-To combat this, you can use **World Position Offset** on those LODs to pull the vertices outside of the Distance Field. Typically, a small offset towards the camera is effective enough to 
-resolve the artifact. For billboards, use the [Pixel Depth Offset](Engine/Content/Tools/RenderToTextureTools/4) feature to create valid depth values which better represent the original 3D
-triangle mesh. This technique was used in the "A Boy and His Kite" GDC demo, which relied on Distance Fields for the long view distances.
+在这些LOD上使用 **场景位置偏移（World Position Offset）**，将顶点拉出距离场即可解决此问题。相机的少量偏移通常就足以解决瑕疵。对于公告板来说，使用[像素深度偏移](Engine/Content/Tools/RenderToTextureTools/4)功能可创建有效深度值，更好地显示原始3D三角形网格体。GDC演示“男孩和他的风筝”便使用了此技术，其依赖于距离场进行远距离观察。
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![No Pixel Depth Offset ](0Billboard.jpg)(w:850)
+	![无像素深度偏移](0Billboard.jpg)(w:850)
 	[/PARAM]
 	[PARAM:after]
-	![Pixel Depth Offset](0BillboardWithPixelDepthOffset.jpg)(w:850)
+	![像素深度偏移](0BillboardWithPixelDepthOffset.jpg)(w:850)
 	[/PARAM]
 [/OBJECT]
 [REGION:caption]   
 [/REGION]
 [REGION:caption]
-Distance tree billboards showing over-occlusion. Use Pixel Depth Offset and the Skylight Min Occlusion to reduce over-occlusion.
+距离树公告板显示了过度遮蔽。使用“像素深度偏移”和“天空光照最小遮蔽”来减少过度遮蔽。
 [/REGION]
 
 
 
 
 (#landscapes)
-### Landscapes
+### 地形
 
-Landscapes use a heightfield for their representation instead of a Mesh Distance Field. This uses an approximate cone intersection, which is computed against the heightfield enabling pixels
-without a Distance Field representation to receive occlusion. However, there is no self-shadowing or Distance Field shadowing. Instead, landscapes should use **Far Shadows** with Cascaded Shadow
-Maps (CSM) shadowing for far distances. 
+地形使用高度场进行自身显示，而非使用网格体距离场。此操作使用近似椎体交叉。该交叉根据高度场计算得出，使像素可在无距离场代表的情况下获得遮蔽。但其中无自投阴影或距离场阴影。相反，地形应将带级联阴影贴图（CSM）的 **远景阴影（Far Shadows）** 用于远距离的投影。 
 
 ![](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Landscape.png)(w:700)
 [REGION:caption] DFAO visualization view mode showing landscape occlusion. [/REGION]
 
-## Performance
+(#performance)
+## 性能
 
-The cost of Distance Field AO is primarily GPU time and video memory. DFAO has been optimized such that it can run on medium-spec PC, PlayStation 4, and Xbox One. Currently, it has a much more
-reliable cost so that it's mostly constant (with a slight dependency on object-density).
+距离场环境光遮蔽的开销主要是GPU耗时和显卡内存。DFAO已经过优化，可在中配PC、PlayStation 4和Xbox One上运行。目前其开销更加稳定，几乎不变（稍稍取决于对象密度）。
 
-In cases with a static camera and mostly flat surfaces, DFAO is 1.6x faster when compared to earlier implementations. In complex scenes with foliage and a fast moving camera, the latest optimizations
-are 5.5x faster. The cost of Distance Field AO on PlayStation 4 for a full game scene is around 3.7ms.
-
-
-### Optimizations
-
-Below are some of the optimizations that have been added to DFAO to make it faster, more efficient, and to improve its look. 
+若相机静止且表面几乎是平面，与早期实现进行比较时，DFAO的速度为1.6倍之多。在有植物和快速移动相机的复杂场景中，最新的优化速度要快5.5倍。PlayStation 4上运行完整游戏场景距离场环境光遮蔽的用时为3.7毫秒。
 
 
-#### General Improvements
+(#optimizations)
+### 优化
 
-With Unreal Engine 4.16, these are some improvements for DFAO with test results using a PlayStation 4: 
+以下为已加入DFAO的部分优化项目，可使其运行更高效，同时提升其效果。 
+
+
+(#generalimprovements)
+#### 总体改良
+
+使用PlayStation 4进行测试后，虚幻引擎4.16中DFAO的部分改良结果如下： 
 
 [REGION:simpletable]
-| Optimization | Orignal Cost (ms) | New Cost (ms) | Savings (ms) |
+| 优化 | 原耗时（毫秒） | 新耗时（毫秒） | 节约时间（毫秒） |
 | ------------ | ------------ | -------- | ------- |
-| The culling algorithm has changed to produce a list of intersecting screen tiles for each object, instead of the other way around. Each tile/object intersection gets its cone tracing thread group, so wavefronts are much smaller and scheduled better.  | 3.63 | 3.48 | 0.15 |
-| Slow instructions in the inner loop have been replaced with fast approximations | 3.25 | 3.09 | 0.16 |
-| The transform was moved out of the inner loop from world to local space (sample position constructed from local space position + direction). | 3.09 | 3.04 | 0.05 |
-| Compute shader for ClearUAV.  | 3.04 | 2.62 | 0.42 |
+| 变更剔除算法，生成各对象的交叉画面贴图的列表，而非反向进行。各贴图/对象交叉获得自身椎体追踪线程组，因此波阵面更小也排列更好。  | 3.63 | 3.48 | 0.15 |
+| 内循环中的缓慢指令被替换为快速近似值 | 3.25 | 3.09 | 0.16 |
+| 从场景空间内循环将变换移出至本地空间（采样位置基于空间位置和方向构建）。 | 3.09 | 3.04 | 0.05 |
+| 计算ClearUAV的着色器。  | 3.04 | 2.62 | 0.42 |
 [/REGION]
 
 
-#### Smooth Sampling
+(#smoothsampling)
+#### 流畅采样
 
-Before using smooth sampling for DFAO, adaptive sampling was used which meant that flat surfaces did less work compared to denser scenes with many surfaces, like foliage. It also meant that 
-there could be a lot of splotches in clean environments.
+使用DFAO的流畅采样前使用的是自适应采用，意味着扁平表面与所做的工作比多表面的密集场景（如植物）更少。也意味着干净环境中会出现许多污点。
 
-In the example below, AO computations are now fast enough to get rid of the adaptive sampling, so occlusion is much smoother. 
+在下例中，环境光遮蔽当前的计算速度足以消除自适应采样，因此遮蔽将更为流畅。 
 
 [REGION:imagetable]
 | [INCLUDE:#comp1] | [INCLUDE:#comp2] |
 | --- | --- |
-| Scene View | DFAO Visualization |
+| 场景视图 | DFAO显示 |
 [/REGION]
 
-The smooth sampling requires a longer history filter, which can contribute to "ghosting" (or a trail behind a moving object), especially when shadow casters are moved. In Unreal Engine 4.16 and later, 
-Ghosting has been improved by having the Distance Field temporal filter store a confidence value. It is used to track leaking of occlusion during the upsample and then flush those leaked values through
-the history faster. Overall, this should help reduce ghosting that can happen when the camera or a dynamic object is moving fast. 
+流畅采样需要更长的历史过滤，可能会出现“重影”(或移动对象的拖影），移除阴影投射物后尤为如此。而在虚幻引擎4.16和之后的版本中，利用距离场临时过滤保存信任值，便可消除重影。其用于在上采样时追踪遮蔽的泄漏，然后将泄漏值通过历史更快地清空。总之，在相机或动态物体快速移动时，此操作可减少重影的发生。 
 
 
 [COMMENT:none]
@@ -305,10 +299,10 @@ the history faster. Overall, this should help reduce ghosting that can happen wh
 [EXCERPT:comp1]
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Adaptive Sampling](DFAO_Scene_OldMethod.png)(w:590)
+	![自适应采样](DFAO_Scene_OldMethod.png)(w:590)
 	[/PARAM]
 	[PARAM:after]
-	![Smooth Sampling](DFAO_Scene_NewMethod.png)(w:590)
+	![流畅采样](DFAO_Scene_NewMethod.png)(w:590)
 	[/PARAM]
 [/OBJECT]
 [REGION:caption]
@@ -318,10 +312,10 @@ the history faster. Overall, this should help reduce ghosting that can happen wh
 [EXCERPT:comp2]
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Adaptive Sampling](DFAO_View_OldMethod.png)(w:590)
+	![自适应采样](DFAO_View_OldMethod.png)(w:590)
 	[/PARAM]
 	[PARAM:after]
-	![Smooth Sampling](DFAO_View_NewMethod.png)(w:590)
+	![流畅采样](DFAO_View_NewMethod.png)(w:590)
 	[/PARAM]
 [/OBJECT]
 [REGION:caption]
@@ -331,45 +325,44 @@ the history faster. Overall, this should help reduce ghosting that can happen wh
 [/COMMENT]
 
 
-#### Global Distance Fields
+(#globaldistancefields)
+#### 全局距离场
 
 [INCLUDE:Engine/Rendering/LightingAndShadows/MeshDistanceFields#visualizeglobaldf1]
 
-The clipmap is separated into four slices around the camera that are only updated where needed, which can happen when camera movement reveals a new slice or an object is never moved causing 
-its influence bounds to become dirty. The average cost of maintaining it stays close to zero, however, in a worse-case scenario, the update cost could be higher when performing something like
-a teleport. 
+裁剪图被分为四个切片，围绕在仅在需要时更新的相机周围。相机移动显示新切片或固定不动的物体导致其影响边界被修改时会发生此情况。其维护的平均开销接近于零，但在最坏的情况下，进行瞬移等行为时的更新开销将更高。 
 
 ![](DF_ClipMap.png)(w:750)
-[REGION:caption] Clipmap visualization of the texel size of the clipmaps with each clipmap being represented by a different color. [/REGION]
+[REGION:caption] 裁剪图纹素尺寸的裁剪图显示，每个裁剪图均由不同颜色所代表。 [/REGION]
 
 
 [INCLUDE:Engine/Rendering/LightingAndShadows/MeshDistanceFields#visualizeglobaldf2]
 
-The Global Distance Field is a lower resolution than its object Distance Fields counterpart, making Global Distance Fields inaccurate near surfaces. When cone traces happen, the object Distance Field
-is used near the start of the occlusion cone and Global Distance Field for the rest of the trace, giving better results because you get accurate self-occlusion and efficient long distance
-traces. Because of this, sky occlusion sees five times the performance gain because the effective max object influence distance is dramatically decreased. 
+全局距离场的分辨率低于其对象距离场分辨率，会造成表面附近的距离场不精确。椎体踪迹产生时，对象距离场用于遮蔽椎体的起始处，而将全局距离场用于踪迹的剩余部分。得到精确自遮蔽和有效长距离踪迹后，可获得更好的结果。有效最大对象影响距离大幅降低，因此天空遮蔽可获得5倍的性能提升。 
 
 
 
-## Limitations
+(#limitations)
+## 限制
 
-**Limitations of the technique**
-* Only Ambient Occlusion is provided, which is different from Sky Occlusion because it has a limited blocking distance.
-* Shadows only cast from rigid meshes. For Skeletal Meshes, use [Capsule Shadows](Engine/Rendering/LightingAndShadows/CapsuleShadows) for indirectly lit areas. 
+**技术限制（Limitations of the technique）**
+* 仅生成环境光遮蔽，其与天空遮蔽不同（因其遮蔽距离受限）。
+* 阴影仅从刚性网格体处投射。针对骨架网格体时，在间接光照区域使用[胶囊体阴影](Engine/Rendering/LightingAndShadows/CapsuleShadows)。 
 
-**Limitations of the current implementation (can be improved in the future)**
-* Updates to the AO from dynamic scene changes lag a bit as the work is spread across multiple frames causing occlusion to shift around a bit as new samples are generated. This has been improved in Unreal Engine 4.16 and later by having the Distance Field temporal filter store a confidence value which is used to track leaking of occlusion during the upsample and then flush those leaked values through the history faster. This helps reduce the ghosting that happens when the camera is moving.
-* Large objects will have diminished Distance Field resolution and cause inferior AO quality since a volume texture is mapped to each mesh. 
+**当前版本的限制（会在之后进行改善）**
+* 工作是跨多帧进行的，生成新采样时遮蔽会出现细微变化，因此动态场景修改引发的环境光遮蔽更新会出现些许延迟。已在虚幻引擎4.6及之后版本中修复此问题：利用距离场临时过滤器保存信任值，该值用于在上采样时追踪遮蔽的泄漏，然后将泄漏值通过历史更快地清空。相机移动时，此操作可减少重影的发生。
+* 体积纹理将被映射到每个网格体，因此较大物体的距离场分辨率较低，环境光遮蔽质量较差。 
 
-For additional limitation of Distance Fields, see the [Distance Fields](Engine/Rendering/LightingAndShadows/MeshDistanceFields#局限性) page.
+参见[距离场](Engine/Rendering/LightingAndShadows/MeshDistanceFields#Limitations)页面，了解距离场的更多详情。
 
 
-## Tips and Tricks
+(#tipsandtricks)
+## 提示和技巧
 
-### Cheap Bounce Light
+(#cheapbouncelight)
+### 简易反射光照
 
-By unchecking **Lower Hemisphere is Solid Color** on the Sky Light and painting in some ground color into the cubemap, you can get what looks like Sun bounce lighting for no further cost. 
-This will cause light leaking indoors as it does not respect shadowing of the directional light, but can be effective for outdoor scenes.
+在天空光照上取消勾选 **下半球为纯色（Lower Hemisphere is Solid Color）** 并在立方体贴图上绘制底色，可获得与太阳反射光照相似的效果，不会产生额外开销。这将使灯光泄露到室内，因其并不遵循定向光源的投影，在室外场景中较为有效。
 
 
 

@@ -1,0 +1,38 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Magic Leap Camera",
+	"CreatedBy": "Magic Leap, Inc.",
+	"CreatedByURL": "http://magicleap.com",
+	"Description": "Support for the Magic Leap Camera API.",
+	"Category": "Lumin",
+	"EnabledByDefault": false,
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"SupportedTargetPlatforms": [
+		"Lumin"
+	],
+	"Modules": [
+		{
+			"Name": "MagicLeapCamera",
+			"Type": "Runtime",
+			"LoadingPhase": "PostConfigInit",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Mac",
+				"Lumin"
+			]
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "MagicLeap",
+			"Enabled": true
+		}
+	]
+}

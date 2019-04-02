@@ -1,10 +1,11 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "IOSRuntimeSettings.h"
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
 #include "Misc/EngineBuildSettings.h"
 #include "HAL/IConsoleManager.h"
+#include "HAL/PlatformApplicationMisc.h"
 
 UIOSRuntimeSettings::UIOSRuntimeSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -12,6 +13,7 @@ UIOSRuntimeSettings::UIOSRuntimeSettings(const FObjectInitializer& ObjectInitial
 	bEnableGameCenterSupport = true;
 	bEnableCloudKitSupport = false;
 	bSupportsPortraitOrientation = true;
+	bSupportsITunesFileSharing = false;
 	BundleDisplayName = TEXT("UE4 Game");
 	BundleName = TEXT("MyUE4Game");
 	BundleIdentifier = TEXT("com.YourCompany.GameNameNoSpaces");
@@ -30,7 +32,7 @@ UIOSRuntimeSettings::UIOSRuntimeSettings(const FObjectInitializer& ObjectInitial
 	bShipForArmV7 = false;
 	bShipForArm64 = true;
 	bShipForArmV7S = false;
-	bShipForBitcode = false;
+	bShipForBitcode = true;
 	bUseRSync = true;
 	AdditionalPlistData = TEXT("");
 	AdditionalLinkerFlags = TEXT("");
@@ -45,6 +47,17 @@ UIOSRuntimeSettings::UIOSRuntimeSettings(const FObjectInitializer& ObjectInitial
 	bSupportsMetal = true;
 	bSupportsMetalMRT = false;
 	bDisableHTTPS = false;
+}
+
+void UIOSRuntimeSettings::PostReloadConfig(class UProperty* PropertyThatWasLoaded)
+{
+	Super::PostReloadConfig(PropertyThatWasLoaded);
+
+#if PLATFORM_IOS
+
+	FPlatformApplicationMisc::SetGamepadsAllowed(bAllowControllers);
+
+#endif //PLATFORM_IOS
 }
 
 #if WITH_EDITOR
@@ -185,15 +198,5 @@ void UIOSRuntimeSettings::PostInitProperties()
 		MinimumiOSVersion = EIOSVersion::IOS_10;
 	}
 
-	EnsureOrientationInProjectDefaultEngine();
 }
 #endif
-
-void UIOSRuntimeSettings::EnsureOrientationInProjectDefaultEngine()
-{
-	// Make sure the values from BaseEngine.ini are written in the project's DefaultEngine.ini
-	UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bSupportsPortraitOrientation)), GetDefaultConfigFilename());
-	UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bSupportsUpsideDownOrientation)), GetDefaultConfigFilename());
-	UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bSupportsLandscapeLeftOrientation)), GetDefaultConfigFilename());
-	UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, PreferredLandscapeOrientation)), GetDefaultConfigFilename());
-}

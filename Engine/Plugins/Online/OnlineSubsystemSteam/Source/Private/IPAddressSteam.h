@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -163,9 +163,19 @@ public:
 		return !(FInternetAddrSteam::operator==(Other));
 	}
 
-	virtual uint32 GetTypeHash() override
+	virtual uint32 GetTypeHash() const override
 	{
-		return ::GetTypeHash(*(uint64*)SteamId.GetBytes());
+		return GetConstTypeHash();
+	}
+
+	uint32 GetConstTypeHash() const
+	{
+		return ::GetTypeHash(ToString(true));
+	}
+
+	friend uint32 GetTypeHash(const FInternetAddrSteam& A)
+	{
+		return A.GetConstTypeHash();
 	}
 
 	/**

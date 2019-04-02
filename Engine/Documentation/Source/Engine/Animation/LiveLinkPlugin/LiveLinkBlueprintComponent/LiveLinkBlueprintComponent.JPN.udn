@@ -1,0 +1,221 @@
+﻿INTSourceChangelist:4404731
+Availability: Public
+Crumbs: 
+Title: ブループリントでの Live Link
+Description: ランタイムまたはパッケージ化したプロジェクトにて、接続を確立する機能を付与する Live Link コンポーネントをブループリントで使用する方法について説明します。
+Type: 
+Version: 4.20
+Parent: 
+Order: 
+Tags: Live Link
+
+**Live Link** 機能のアクセシビリティを高めるために、 **Live Link コンポーネント** を **アクタ ブループリント** に追加して、 Live Link ソースをエディタとランタイム両方で自動的に検出、確立できるようにします。また、サブジェクトと、これらサブジェクトについての情報を取得したり、ブループリント経由で他の関数を多数実行することができます。 
+
+このページでは Live Link コンポーネントを追加して使用する方法や、呼び出し可能な関数についての概要を説明します。 
+
+## Live Link コンポーネント
+
+Live Link コンポーネントを **[Components]** パネルからアクタ ブループリントに追加する際、他のコンポーネントの子コンポーネントとならず、ブループリント内に固定され、ユーザーは **On Live Link Updated** イベントにアクセスできるようになります。 
+
+![](OnLiveLinkUpdatedComponent.png)
+
+On Live Link Updated は、エディタ内を含む新規 Live Link データが利用可能になると有効になります。
+
+![](LiveLinkUpdated.png)
+
+On Live Link Updated ノードは効率よく **ティック イベント** の役目を果たしますが、エディタ内でも実行されます。たとえば、エディタ内でデータをライブにしたい場合にこのノードがサポートします。 
+
+以下では、 Maya エディタのアクティブ カメラからストリーミングした Live Link 経由でエディタのカメラの移動を実行しています。 
+
+[OBJECT:EmbeddedVideo]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ uPG4MKaVyFU
+ [/PARAMLITERAL]
+[/OBJECT]
+
+[REGION:note]
+On Live Link Updated イベントをエディタで実行するためには、 **[Viewport Options]** メニューで **[Realtime]** オプションを有効にします。
+
+![](ViewportOptions.png)
+[/REGION]
+
+スケルタル メッシュのあるアクタ ブループリント内の Live Link コンポーネントを使用する場合、 Live Link コンポーネントはスケルタルメッシュがエディタで評価されるように自動設定されます。
+
+![](SkeletalMeshExample.png)
+
+上の例では、 **SK_Mannequin** という名前のスケルタルメッシュ コンポーネントがあり、アニメーション データをストリーム インする Live Link ポーズ ノードを使用するアニメーション ブループリントを割り当てています。通常、カメラ、ライト、その他スケルタルやスタティック メッシュなど外部でアニメートしてストリーム インしたいものがある場合、ブループリント内で行います。ストリームインしたいアニメーション データはアニメーション ブループリントと Live Link ポーズ ノードを経由させて処理するのが最善です。 
+
+### Get Subject Data
+
+Live Link コンポーネントの使用時、 **Get Subject Data** 関数を呼び出して提供したサブジェクト名に関連付けた Live Link データを取得することができます。関数は、 **Subject Frame Handle** 同様、フレームが検出されたか否かの boolean 値を返します。
+
+![](GetSubjectData.png)
+
+Subject Frame Handle は、純粋にフレームのハンドルにすぎません。フレームがまだ C++ に存在しているためです。これは単にブループリントの周りのラッパーで、ラッパーにはデータを取り出すために呼び出せる追加の関数が含まれています。
+
+![](SubjectHandleFunctions.png)
+
+#### Get Curves
+
+この関数により、すべてのブレンド シェイプやアニメートされたカーブを取得して、各エントリで Name が Value と結びつく Map として返すことができます。
+
+![](GetCurves.png)
+
+**Find** で Name を入力して、カーブの値を取得することができます (または boolean を使用して検出されたか否かを決定できます)。  
+
+![](FindMapLeftEyeOpen.png)
+
+#### Get Metadata
+
+この関数は、サブジェクト フレームに保持されたサブジェクト メタデータ構造体を返し、分解して情報の取得が可能です。 
+
+![](GetMetadata.png)
+
+String Metadata はサブジェクトの名前付き文字列への Map です。たとえば、ストリーミングされるオブジェクトのタイプを名前付きストリングとして渡すことができます。また、 Scene Timecode と Scene Framerate はメタデータを保持しており、構造体を分解して必要な情報を取得することができます。
+
+| 出力 | 説明 |
+| --- | --- |
+| **String Metadata** | フレームやサブジェクトについての追加情報を提供する名前付き文字列のマップ。例えば、“タイプ”:“カメラ”。|
+| **Scene Timecode** | 現在のフレームに紐づくタイムコード値[INCLUDE:#excerpt1]|
+| **Scene Framerate** | シーン タイムコードに対するフレームレートに相当します。|
+
+[COMMENT:none]
+[EXCERPT:Excerpt1]
+[REGION:note]
+一意であることは保証されません。たとえば、 MotionBuilder のフレームを 1 つ編集すると、そのフレームのタイムコードが複数のフレームに送られます。
+[/REGION]
+[/EXCERPT]
+[/COMMENT]
+
+#### Get Root Transform
+
+この関数はサブジェクト フレームのルート トランスフォームを Live Link トランスフォーム (またはトランスフォームがなければ識別子) として返します。
+
+![](RootTransformLiveLink.png)
+
+標準トランスフォームの代わりに Live Link トランスフォームを返します。この関数上で追加の関数を呼び出すこともできます。 
+
+| 関数 | 説明 |
+| --- | --- |
+| **Child Count** | 与えられた Live Link トランスフォームの子の数を返します。|
+| **Component Space Transform** | 与えられた Live Link トランスフォームのルート スペースのトランスフォーム値を返します。|
+| **Get Children** | 与えられた Live Link トランスフォームの子 Live Link トランスフォームの配列を返します。|
+| **Get Parent** | 親 Live Link トランスフォームが存在すれば親 Live Link トランスフォームを返し、存在しなければ識別子トランスフォームを返します。|
+| **Has Parent** | 与えられた Live Link トランスフォームに親トランスフォームが存在するか返します。|
+| **Parent Bone Space Transform** | 与えられた Live Link トランスフォームの親空間のトランスフォーム値を返します (内部でとのように保持されているか、親ボーンが何であれどのように関連しているか)。|
+| **Transform Name** | 与えられた Live Link トランスフォームの名前を返します。|
+
+#### Get Transform By Index
+
+指定したインデックスのサブジェクト フレームの Live Link トランスフォームを返します（トランスフォーム インデックスが無効な場合は、識別子のトランスフォームを返します）。
+
+![](LiveLinkTransformIndex.png)
+
+#### Number of Transforms
+
+サブジェクト フレーム内のトランスフォームの数を返します。
+
+![](LiveLinkNumOfTransforms.png)
+
+使用例の 1 つとして、 **Get Transform By Index** と併用して、（下記のような）各 Live Link トランスフォームをループさせて取得するというのものがあります。
+
+[REGION:lightbox]
+[![](LoopingThroughTransforms-1.png)(w:900)](LoopingThroughTransforms-1.png)
+[/REGION]
+[REGION:caption]
+クリックして拡大
+[/REGION]
+
+#### Get Transform Names
+
+**Get Transform Names** 関数はフレームの全トランスフォーム名の配列を返します。 
+
+![](GetTransformNames.png)
+
+#### Get Transform by Name
+
+**Get Transform by Name** 関数は **Get Transform by Index** と似ていますが、トランスフォーム ネーム データを入力にとります。
+
+![](GetTransformByName.png)
+
+### Get Available Subject Names
+
+Live Link コンポーネントから **Get Available Subject Names** 関数を使用して、 **Get Subject Data** を呼び出すための有効な名の配列を返すことができます。 
+
+![](GetAvailableSubjectNames.png)
+
+## Message Bus Finder
+
+以下のブループリント ノードを使用してメッセージ バス ソース経由の接続を設置、確立することができます。 
+
+### Construct Message Bus Finder
+
+**Construct Message Bus Finder** ノードにより、ネットワーク上の有効なメッセージ バス プロバイダを検出可能です。 
+
+![](ConstructMessageBusFinder.png)
+
+この関数は、 **Get Available Providers**の呼び出しに使用可能な **Live Link Message Bus Finder Object Reference** 型を返します。
+
+### Get Available Providers
+
+Get Available Providers ノードは、ネットワークにメッセージをブロードキャストして、 **Duration** で定義された一定時間内に応答のあったすべての **Available Providers** の配列を返します・ 
+
+![](GetAvailableProviders-1.png)
+
+[REGION:note]
+Get Available Providers は、 **Delay** ノードのように振る舞い、ブロックしません。
+[/REGION]
+
+以下の例のように、Live Link Message Bus Finder を対象にします。 
+
+![](ExampleGetAvailProviders.png)
+
+上図のように、 **Begin Play** で **Construct Message Bus Finder** を使用して、変数として保持したものを、 **Get Available Providers** を呼び出すために使用して、接続できる利用可能なプロバイダのリストを取得します。 
+
+### Connect to Provider
+
+このノードによって、指定したメッセージ バス プロバイダに接続して、作成された Live Link ソースへのハンドルを返すことが可能です。 
+
+![](ConnectToProvider.png)
+
+**Get Available Providers** 関数呼出しにより利用可能なプロバイダを取得すれば、このノードを使用して目的のプロバイダに接続可能です。 
+
+以下の例では、メッセージ バス ソースを自動検出し、利用可能なプロバイダを取得して、このノードを使用するプロバイダがあれば、リストの最初のものに接続する方法を示しています。 
+
+[REGION:lightbox]
+[![](AutoConnectToProviders.png)(w:900)](AutoConnectToProviders.png)
+[/REGION]
+
+クリックして拡大
+
+Connect to Provider ノードは、作成された Live Link ソースに関する情報のクエリに使用できる **Source Handle** を返します。
+
+![](ProviderSourceHandle-1.png)
+
+これらの関数には以下のものが実装されています。
+
+| 関数 | 説明 |
+| --- | --- |
+| **Get Source Machine Name** | ハンドル経由の Live Link ソースのマシン名を取得します。|
+| **Get Source Status** | ハンドル経由で Live Link ソースのテキストのステータスを取得します。|
+| **Get Source Type** | ハンドル経由で Live Link ソース のタイプを取得します。|
+| **Is Source Still Valid** | ハンドル経由で Live Link ソースが有効かどうかをチェックします (有効でなければ Request Shutdown を使用することができます)。|
+| **Request Shutdown** | ハンドル経由で与えられた Live Link ソースのシャットダウンを要求します。|
+
+Connect to Provider ノードの使用時はいつも、 **Source Handle** をキャッシュすると良いでしょう。 **Event End Play** 上で **Request Shutdown** を使用して接続を終了できます (下図を参照)。接続を終了しないでプロバイダに接続する毎に、新しい接続が確立されますが、古い接続は残ったままです (Live Link UI ウィンドウに表示されます)。
+
+![](RequestShutdown.png)
+
+## パッケージ化されたプロジェクトの Live Link
+
+ブループリント関数 **Construct Message Bus Finder** 、 **Get Available Providers** 、 および **Connect to Provider** を使用することで、 Message Bus ソースを自動検出してランタイムで接続することができます。また、パッケージ化されたプロジェクトのソースに接続することもできます。
+
+[REGION:warning]
+プロジェクトをパッケージ化して、ノード ネットワークがランタイムで動作しているのに、パッケージ化されたプロジェクトで動作しない場合、動作させるために、コマンドラインの引数に `- Messaging` フラグを付加しなければならないことあります。これは メッセージ バスを使用する際の制限の 1 つになります。なぜなら、このフラグなしでは動作しないからです。
+[/REGION]

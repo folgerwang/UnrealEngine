@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -22,6 +22,12 @@ namespace Gauntlet
 
 		public Params TestParams { get; set; }
 
+		public override string ToString()
+		{
+			return string.Format("{0}({1})", TestName, string.Join(",", Platforms.Aggregate(new List<string>(), (L, P) => { L.Add(P.Argument); return L; })));
+		}
+
+
 		static public TestRequest CreateRequest(string InName) { return new TestRequest() { TestName = InName, TestParams = new Params(new string[0]) }; }
 	}
 
@@ -41,20 +47,20 @@ namespace Gauntlet
 		/// <summary>
 		/// Name of this project
 		/// </summary>
-		[AutoParam("")]
-		public string Project;
+		[AutoParam]
+		public string Project = "";
 
 		/// <summary>
 		/// Reference to the build that is being tested
 		/// </summary>
-		[AutoParamWithNames("", "Build", "Builds")]
-		public string Build;
+		[AutoParamWithNames("Build", "Builds")]
+		public string Build = "";
 
 		/// <summary>
 		/// Does this project use 'Game' or Client/Server?
 		/// </summary>
 		[AutoParam(true)]
-		public bool UsesSharedBuildType;
+		public bool UsesSharedBuildType = true;
 
 		// todo - remove this and pass in BuildSource
 		public Type BuildSourceType;

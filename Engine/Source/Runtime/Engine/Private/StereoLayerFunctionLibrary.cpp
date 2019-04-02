@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 //
 #include "Kismet/StereoLayerFunctionLibrary.h"
 #include "EngineGlobals.h"
@@ -65,7 +65,7 @@ UStereoLayerFunctionLibrary::UStereoLayerFunctionLibrary(const FObjectInitialize
 {
 }
 
-void UStereoLayerFunctionLibrary::SetSplashScreen(class UTexture* Texture, FVector2D Scale, FVector2D Offset, bool bShowLoadingMovie, bool bShowOnSet)
+void UStereoLayerFunctionLibrary::SetSplashScreen(class UTexture* Texture, FVector2D Scale, FVector Offset, bool bShowLoadingMovie, bool bShowOnSet)
 {
 	IStereoLayers* StereoLayers = GetStereoLayers();
 	if (StereoLayers && Texture && Texture->Resource)

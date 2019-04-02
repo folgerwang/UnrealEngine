@@ -1,12 +1,13 @@
-﻿INTSourceChangelist:1622772
+﻿INTSourceChangelist:3108692
 Availability:Licensee
 Title:内容搜索
 Crumbs:%ROOT%, GettingStarted, Support/UDNGettingStarted
-Description:文件包含了如何搜索在UDN中的内容。
+Description:文档介绍了如何在UDN中正确搜索内容。
+Version: 4.9
 
 
 
-我们通过搜索栏来在支持入口或文件内进行内容搜素，该搜索栏位于任意页面右上方的页眉处。
+我们通过搜索栏来在支持站点或文件内进行内容搜素，该搜索栏位于任意页面右上方的页眉处。
 
 ![](SearchBar.png)
 
@@ -14,8 +15,8 @@ Description:文件包含了如何搜索在UDN中的内容。
 
 ![](SearchFilters.png)
 
-您可以通过 **+** 符号来添加搜索条件，然后使用 **-** 来移除多余的搜索条件。 
+您可以通过 **+** 符号来添加搜索条件，或使用 **-** 来移除多余的搜索条件。 
 
-本例中，我们正在搜索 _materials_  （材质）项和 _textures_ （贴图）项，但正从搜索结果中移除 _functions_ （函数）项。
+本例中，我们要搜索 _materials_  （材质）项和 _textures_ （贴图）项，但要从搜索结果中移除 _functions_ （函数）项。
 
 ![](SearchAddRemove.png)

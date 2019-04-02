@@ -1,15 +1,14 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "WebRTCProxyPCH.h"
 #include "CmdLine.h"
 #include "StringUtils.h"
 #include "Logging.h"
 
 std::string FCmdLine::Empty;
 
-bool FCmdLine::Parse(int Argc, char* Argv[], bool CaseSensitive)
+bool FCmdLine::Parse(int Argc, char* Argv[], bool InCaseSensitive)
 {
-	this->CaseSensitive = CaseSensitive;
+	this->CaseSensitive = InCaseSensitive;
 
 	if (Argc <= 1)
 	{

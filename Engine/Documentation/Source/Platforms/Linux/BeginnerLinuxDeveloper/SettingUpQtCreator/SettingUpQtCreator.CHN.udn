@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3782314
 Availability: Public
-Title: How to Set up Qt Creator for UE4
+Title: 如何为UE4设置Qt Creator
 Crumbs:%ROOT%
-Description:Learn how to set up your IDE to build and run UE4 on Linux.
+Description:学习如何设置您的集成开发环境（IDE），以在Linux上构建并运行虚幻引擎4（UE4）。
 Platform:Linux
 Version: 4.14
 type:how to
@@ -16,38 +16,28 @@ topic-image:IDE_HowToTopic.png
 
 [REGION:imagetable]
 ![](CompiledEditor_LinuxIDE.png)(w:1280)  
-At the end of this tutorial, you'll have an **Integrated Development Environment** (IDE) configured to build and run Unreal Engine 4 (UE4).
+本教程结束时，您将配置好 **集成开发环境**（IDE），以构建和运行虚幻引擎4（UE4）。
 [/REGION]
 
-## Goal
+## 目的
 
-The focus of this guide is to show you how to set up an IDE to build and run UE4. 
+本指南将重点介绍如何设置IDE以构建和运行UE4。 
 
-## Objectives
+## 目标
 
-After working through this tutorial, you'll know the following:
+学完本教程后，您将掌握下列知识：
 
-* How to configure your IDE to build UE4 in debug and release mode.
-* How to configure your IDE to run UE4 in debug and release mode.
-* How to build UE4 from your IDE.
-* How to run UE4 from your IDE.
-* How to create and configure a new Blueprint project with UE4 from your IDE.
-* How to create and configure a new CPP project with UE4 from your IDE.
+* 如何配置IDE以在调试和发布模式下构建UE4。
+* 如何配置IDE以在调试和发布模式下运行UE4。
+* 如何从IDE构建UE4。
+* 如何从IDE运行UE4。
+* 如何从IDE使用UE4创建和配置新的蓝图项目。
+* 如何从IDE使用UE4创建和配置新的CPP项目。
 
-[OBJECT:TopicList]
-	[PARAM:icon]
-		![](%ROOT%/build_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		Steps
-	[/PARAM]
-	[PARAM:description]
-	[/PARAM]
-	[PARAM:links]
-	[DIR(output:"checkpoint" parent:"Platforms/Linux/BeginnerLinuxDeveloper/SettingUpQtCreator" org:"hierarchy")]
-	[/PARAM]
-[/OBJECT]
+## 步骤
+
+[DIR(output:"checkpoint" parent:"Platforms/Linux/BeginnerLinuxDeveloper/SettingUpQtCreator" org:"hierarchy")]
 
 [REGION:call_to_action]
-	[Click to Start](Platforms/Linux/BeginnerLinuxDeveloper/SettingUpQtCreator/1 "%Platforms/Linux/BeginnerLinuxDeveloper/SettingUpQtCreator/1:title%")
+	[单击此处开始学习](Platforms/Linux/BeginnerLinuxDeveloper/SettingUpQtCreator/1 "%Platforms/Linux/BeginnerLinuxDeveloper/SettingUpQtCreator/1:title%")
 [/REGION]

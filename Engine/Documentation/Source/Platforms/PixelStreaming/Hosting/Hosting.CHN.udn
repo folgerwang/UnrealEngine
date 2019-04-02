@@ -1,0 +1,119 @@
+﻿INTSourceChangelist:4717155
+Availability: Public
+Crumbs: 
+Title: 创建主机和网络连接指南
+Description: 高级网络配置和创建像素流送系统的其他注意事项。
+Type: 
+Version: 4.21
+Parent: Platforms/PixelStreaming
+Order: 
+topic-image:hosting-topic.png
+Tags: Guide
+Tags: Early Access
+Tags: Pixel Streaming
+
+
+即使没有开发或部署网络服务的经验，浏览[总览](Platforms/PixelStreaming/PixelStreamingOverview)和[入门]Platforms/PixelStreaming/PixelStreamingIntro)页面后也能学会如何进行像素流送设置，在简易局域网中开展工作。如要将服务部署到更加复杂的网络或公开网络中，或要改良用户体验和连接流程，建议重新考虑设置。
+
+此页面将展示部分范例，说明如何对像素流送架构的组件进行设置，以达成不同目标。
+
+(#stunandturnservers)
+
+## STUN和TURN服务器
+
+为确保信令和Web服务器能够在WebRTC代理服务器和浏览器间交涉直接连接，双方需互相发送各自的IP地址。浏览器需要访问WebRTC代理服务器发送的IP地址，反之亦然。
+
+在一个简易局域网中，每个端点通常会假设另一方能够使用自身网卡所知的私有IP地址，以便对该端点进行访问。在公开网络、子网络中，或是网络地址转换（NAT）服务在浏览器和WebRTC代理服务器间进行干涉时，通常情况却并非如此。相反，每一方需通过查询实现STUN（NAT会话遍历工具）协议的服务器，以找出自身公开可见的IP地址。STUN服务器告知所有端点其自身的公开可见IP地址后，信令和Web服务器可继续中继各自的直接连接。
+
+![Pixel Streaming with STUN and TURN servers](cloud-stun-turn.png "Pixel Streaming with STUN and TURN servers")  
+
+另外，可使用TURN服务器在WebRTC代理服务器和浏览器之间中继媒体流。启动TURN协议后，TURN服务器一方面与WebRTC代理服务器连接，另一方面则与浏览器连接。WebRTC代理服务器将自身所有流送的数据发送给TURN服务器，后者又将数据传送至浏览器。在此情况下，WebRTC代理服务器和浏览器间并无直接连接。（如要在无线运营商网络中支持移动设备，只能使用TURN服务器。移动网络通常不支持客户端通过WebRTC协议进行连接。）
+
+STUN和TURN协议共同组成了ICE（交互式连接建立）框架，可以从一个服务器退回到另一服务器。
+
+在网络上可以找到多个STUN和TURN服务器的[开源实现](https://github.com/coturn/coturn)。甚至有免费[公开STUN服务器](https://gist.github.com/mondain/b0ec1cf5f60ae726202e)可供使用，无需另行创建。但在实际操作时，建议谨慎使用非自行创建的服务器。（考虑到通过TURN协议中继媒体时所涉及的容量和带宽，公开TURN服务不太可能完全免费。)
+
+[REGION:tip]
+为方便使用，虚幻引擎同时附带了STUN和TURN参考服务器的二进制版本，两者均在C++ WebRTC SDK中定义。可在虚幻引擎安装目录的 `Engine/Source/ThirdParty/WebRTC/rev.23789/programs/Win64/VS2017/release` 文件夹中找到。此类实现可靠性不够高，但足以帮助用户进行上手。
+[/REGION]
+
+要设置像素流送以使用ICE连接，需要设置在信令和Web服务器 **peerConnectionOptions** 配置参数中使用的STUN和TURN服务器主机名。欲了解该参数格式化和支持方法的详情，请参阅[像素流送参考](Platforms/PixelStreaming/PixelStreamingReference#signalingserverconfigurationparameters)。
+
+此外，如自行创建STUN或TURN服务器，务必确保在 **peerConnectionOptions** 参数中为其指定的IP地址和端口在公开网络中可见。
+
+(#multipleplayerendpoints)
+
+## 多用户端点
+
+有时需要将所有用户保存在同一个虚幻引擎会话中，但他们却未必都能对会话进行控制。
+
+举例而言，创建展示等体验时，展示者可在自己的浏览器中完全控制虚幻引擎，但其他参与用户只能观看流送；或是创建不同用户的控制自定义设置，以便他们一起实时控制体验的各个方面。
+
+在此类情况中，仅需使用网络服务的一个堆栈来运行一个虚幻引擎实例，便能在信令和Web服务器上创建不同的播放器HTML页面：
+
+![Multiple player pages](cloud-multi-player.png "Multiple player pages")
+
+在此情况中，可自定义各个不同HTML播放器页面及其JavaScript环境，从而只公开所需的控制。之后，每类用户需要从信令和Web服务器处请求一个不同的URL。举例而言，展示者可能加载的是 `http://yourhostname/presenter.html`，而其他用户则加载 `http://yourhostname/attendee.html`。
+
+查阅[自定义播放器网页](Platforms/PixelStreaming/PixelStreamingReference)，详细了解自定义播放器网页的方法。
+
+(#multiplefullstackswithmatchmaking)
+
+## 配对时的多个完整堆栈
+
+有时需要所有用户能拥有各自的交互体验，而非将每个用户都连接到同一流送中。要进行此操作，可为每个用户单独运行像素流送组件的堆栈，并为每个用户单独指定信令和Web服务器，以便开始连接。
+
+可在不同主机上设置像素流送组件的每个堆栈，或在相同主机上放置多个堆栈（前提是在每个堆栈中配置组件的端口设置，以便其可通过不同端口进行通信）。查阅[像素流送参考](Platforms/PixelStreaming/PixelStreamingReference)，了解此类端口设置的详情。
+
+[REGION:note]
+如希望在同一电脑上使用像素流送来运行多个虚幻引擎实例，须注意NVIDIA GeForce系列等诸多应用级显卡一次最多只能运行2个编码器。Quadro和Tesla等专业级显卡则无此类限制。
+[/REGION]
+
+要进行此类配置的设置，像素流送系统可使用配对服务器来追踪可用的信令和Web服务器，以及它们是否被客户端连接所使用。
+
+![Multiple full stacks with a Matchmaker Server](cloud-multi-server.png "Multiple full stacks with a Matchmaker Server")
+
+各个客户端首先与配对服务器连接，而非需要与自身信令和Web服务器URL连接。配对服务器负责将所有请求程序重新指定到各自信令和Web服务器，以便在客户端与其自身WebRTC代理服务器间构建对等网络连接。一旦激活连接，配对服务器不再会将任何新的浏览器连接重新定向至相同信令和Web服务器。
+
+像素流送系统包含配对服务器的一项参考实现，该实现在 `Engine/Source/Programs/PixelStreaming/WebServers/Matchmaker` 文件夹中。可直接使用该服务器，而无需设置；也可自定义 `matchmaker.js` 文件来满足需要，前提是对来自信令和Web服务器的相同消息进行处理。
+
+设置配对服务器的步骤：
+
+1.  启动信令和Web服务器前，运行配对服务器的 `run.bat` 文件以启动该服务器。默认情况下，服务器会在端口 **90** 上聆听来自客户端的HTTP连接，而在端口 **9999** 上聆听来自信令和Web服务器的连接。在命令行中输入以下配置参数即可覆盖以上设置：
+    
+    | 参数 | 描述 |
+    | --- | --- |
+    | **--httpPort** |  定义配对服务器聆听传入HTTP连接（来自浏览器）所用的端口。 |
+    | **--matchmakerPort** | 定义配对服务器聆听传入状态消息（来自信令和Web服务器）所用的端口。 |
+
+    例如：
+
+    \> run.bat --httpPort 88 --matchmakerPort 9988
+
+2.  为信令和Web服务器设置以下配置参数：
+    
+    | 参数 | 描述 |
+    | --- | --- |
+    | **UseMatchmaker** | 将此参数设为 `true`，以便信令和Web服务器向配对服务器发送自身当前状态。|
+    | **matchmakerAddress** | 将与该信令和Web服务器连接的配对服务器IP地址。|
+    | **matchmakerPort** | 该信令和网络服务器需要向配对服务器发送消息时所用的端口。请确保此数值与配对服务器所设的 **--matchmakerPort** 值相匹配。 |
+    | **publicIp** | 信令和Web服务器的公开可见IP地址。配对服务器将用户重新指定到该信令和Web服务器时，其会把它们发送到该IP地址。因此，其必须对连接浏览器可见。|
+    | **httpPort** | 信令和Web服务器聆听HTTP连接所用的端口。配对服务器将用户重新指定到该信令和Web服务器时，其会把它们发送到该端口。|
+
+    参阅[像素流送参考](https://docs.unrealengine.com/en-us/Platforms/PixelStreaming/PixelStreamingReference)，了解此类参数的设置指南。
+
+(#scalingondemand)
+
+## 根据需求扩展
+
+要使用之前所述的策略之一，例如单独的完整堆栈为每个新客户端连接提供服务，则不可运行预设数量的虚幻引擎程序。如用户数少于服务器数，则浪费资源；相反，如用户数多于服务器数，在空出连接前用户将需要等待。因此，建议在每次客户端尝试连接时启动一个新的服务器实例。
+
+利用像素流送系统的组件和额外配对服务器，用户应拥有建立类似动态扩展主机系统的所有资源。但目前此类云部署需要用户在自己的云服务提供商上进行设置。
+
+(#hostmachinehardwarecapabilities)
+
+## 主机硬件性能
+
+如选择Amazon（AWS）或Microsoft Azure等服务提供商来创建虚幻引擎程序和像素流送网络服务，可在具有不同硬件性能的多个不同等级主机间进行选择。请注意：主机的性能可能会影响提供的流送质量。
+
+举例而言，AWS设备通常不提供硬件声卡。在此类主机上运行虚幻引擎程序时，媒体流将不包含任何声音。相同，如选择GPU或内存较差的设备创建主机，将无法在流送中获取最高质量的视频。

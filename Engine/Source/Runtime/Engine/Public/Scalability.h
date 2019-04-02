@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*===================================================================================
 	Scalability.h: Manager class for handling scalability settings
@@ -105,6 +105,8 @@ namespace Scalability
 		void SetDefaults();
 	};
 
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnScalabilitySettingsChanged, const Scalability::FQualityLevels&);
+	static FOnScalabilitySettingsChanged OnScalabilitySettingsChanged;
 
 	/** This is the only suggested way to set the current state - don't set CVars directly **/
 	ENGINE_API void SetQualityLevels(const FQualityLevels& QualityLevels, bool bForce = false);

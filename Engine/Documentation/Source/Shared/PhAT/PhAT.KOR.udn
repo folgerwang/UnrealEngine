@@ -170,7 +170,7 @@ Engine/Physics/PhAT/UserGuide#enablinganddisablingcollisionbetweenphysicsbodies
 
 
 1. Ctrl+클릭으로 둘 이상의 피직스 바디를 선택합니다.
-1. "Weld" (결합) 버튼을 누르거나 우클릭 맥락 메뉴에서 "Weld" (결합) 명령을 선택합니다.
+1. "Weld" (결합) 버튼을 누르거나 우클릭 컨텍스트 메뉴에서 "Weld" (결합) 명령을 선택합니다.
 
 노랑 피직스 바디가 현재 선택된 피직스 바디에 결합됩니다.
 [VAR:ToolTipFullLink]

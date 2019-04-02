@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -25,7 +25,7 @@ public:
 	void ResetMaterial();
 
 	/** @return The material render proxy */
-	FMaterialRenderProxy* GetRenderProxy() const { return MaterialObject ? MaterialObject->GetRenderProxy(false, false) : nullptr; }
+	FMaterialRenderProxy* GetRenderProxy() const { return MaterialObject ? MaterialObject->GetRenderProxy() : nullptr; }
 
 	/** @return the material object */
 	const UMaterialInterface* GetMaterialObject() const { return MaterialObject; }

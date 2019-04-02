@@ -1,64 +1,24 @@
-﻿INTSourceChangelist:2735870
+﻿INTSourceChangelist:3782314
 Availability: Public
-Title:流关卡（Level Streaming）
+Title:关卡流送
 Crumbs:%ROOT%, Engine, Engine/UI/LevelEditor
-Description:在游戏过程中对关卡数据的异步加载与卸载，来减少内存的使用并创建无缝的世界。
+Description:在游戏时异步加载和卸载关卡，降低内存使用率，创建无缝的世界场景。
+Version: 4.12
 parent:Engine
-order:10
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/LevelStreaming:title%](streaming_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/LevelStreaming:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/LevelStreaming:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/LevelStreaming]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/LevelStreaming:title%](streaming_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/LevelStreaming:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/LevelStreaming:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/LevelStreaming]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+order:12
+tags:Level Streaming
+topic-image:streaming_topic.png
 
 [EXCERPT:Intro]
-流关卡的功能使得在游戏过程中加载或卸载关卡成为可能，并能控制关卡是否可见。这样便能将整个游戏世界分拆成一个个小的区块，在特定时刻，只有那些相关的区块才需要占据资源，并得到渲染显示。
-如果制作的恰当，能够做到一个非常大的，无缝的管卡之间的切换，这能使玩家觉得仿佛置身在一个庞大的世界中。
+关卡流送功能可将地图文件加载到内存中，也可从内存中卸载，并在游戏过程中切换地图的显示。这样一来场景便能拆分为较小的文件块，只有相关的部分才会占用资源并被渲染。进行正确的设置后，使用者便能创建大型而无缝衔接的游戏，玩家身处其中时将真实体会到自身的渺小。
 [/EXCERPT:Intro]
 
-## 流关卡的话题
+[DIR(output:"listbutton" parent:"Engine/LevelStreaming" tags:"Level Streaming" org:"hierarchy")]
 
-[REGION:buttonlist]
+(#worldcomposition)
 
-	* [](Engine/LevelStreaming/WorldBrowser "%Engine/LevelStreaming/WorldBrowser:description%")
-	
-[/REGION]
- 
+## 世界场景构成
 
+世界场景构成用于创建大型场景的特定关卡流送形式。关卡分布在平面网格中，并在玩家靠近时流入。
 
-
-
+[DIR(output:"listbutton" parent:"Engine/LevelStreaming" tags:"World Composition" org:"hierarchy")]

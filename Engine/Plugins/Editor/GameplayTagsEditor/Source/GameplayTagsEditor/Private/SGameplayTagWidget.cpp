@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SGameplayTagWidget.h"
 #include "Misc/ConfigCacheIni.h"
@@ -29,7 +29,7 @@
 #include "SAddNewRestrictedGameplayTagWidget.h"
 #include "SRenameGameplayTagDialog.h"
 #include "AssetData.h"
-#include "AssetManagerEditorModule.h"
+#include "Editor.h"
 #include "Framework/Commands/UIAction.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 
@@ -710,6 +710,32 @@ ECheckBoxState SGameplayTagWidget::IsTagChecked(TSharedPtr<FGameplayTagNode> Nod
 	}
 }
 
+bool SGameplayTagWidget::IsExactTagInCollection(TSharedPtr<FGameplayTagNode> Node) const
+{
+	if (Node.IsValid())
+	{
+		UGameplayTagsManager& TagsManager = UGameplayTagsManager::Get();
+
+		for (int32 ContainerIdx = 0; ContainerIdx < TagContainers.Num(); ++ContainerIdx)
+		{
+			FGameplayTagContainer* Container = TagContainers[ContainerIdx].TagContainer;
+			if (Container)
+			{
+				FGameplayTag GameplayTag = Node->GetCompleteTag();
+				if (GameplayTag.IsValid())
+				{
+					if (Container->HasTagExact(GameplayTag))
+					{
+						return true;
+					}
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
 void SGameplayTagWidget::OnAllowChildrenTagCheckStatusChanged(ECheckBoxState NewCheckState, TSharedPtr<FGameplayTagNode> NodeChanged)
 {
 	IGameplayTagsEditorModule& TagsEditor = IGameplayTagsEditorModule::Get();
@@ -877,13 +903,22 @@ TSharedRef<SWidget> SGameplayTagWidget::MakeTagActionsMenu(TSharedPtr<FGameplayT
 		MenuBuilder.AddMenuEntry(LOCTEXT("GameplayTagWidget_DeleteTag", "Delete"), LOCTEXT("GameplayTagWidget_DeleteTagTooltip", "Delete this tag"), FSlateIcon(), FUIAction(DeleteAction));
 	}
 
+	if (IsExactTagInCollection(InTagNode))
+	{
+		FExecuteAction RemoveAction = FExecuteAction::CreateSP(this, &SGameplayTagWidget::OnRemoveTag, InTagNode);
+		MenuBuilder.AddMenuEntry(LOCTEXT("GameplayTagWidget_RemoveTag", "Remove Exact Tag"), LOCTEXT("GameplayTagWidget_RemoveTagTooltip", "Remove this exact tag, Parent and Child Tags will not be effected."), FSlateIcon(), FUIAction(RemoveAction));
+	}
+	else
+	{
+		FExecuteAction AddAction = FExecuteAction::CreateSP(this, &SGameplayTagWidget::OnAddTag, InTagNode);
+		MenuBuilder.AddMenuEntry(LOCTEXT("GameplayTagWidget_AddTag", "Add Exact Tag"), LOCTEXT("GameplayTagWidget_AddTagTooltip", "Add this exact tag, Parent and Child Child Tags will not be effected."), FSlateIcon(), FUIAction(AddAction));
+	}
+
 	// Search for References
-	if (IAssetManagerEditorModule::IsAvailable())
+	if (FEditorDelegates::OnOpenReferenceViewer.IsBound())
 	{
 		FExecuteAction SearchForReferencesAction = FExecuteAction::CreateSP(this, &SGameplayTagWidget::OnSearchForReferences, InTagNode);
-
-		MenuBuilder.AddMenuEntry(LOCTEXT("GameplayTagWidget_SearchForReferences", "Search For References"), LOCTEXT("GameplayTagWidget_SearchForReferencesTooltip", "Find references for this tag"),
-										 FSlateIcon(), FUIAction(SearchForReferencesAction));
+		MenuBuilder.AddMenuEntry(LOCTEXT("GameplayTagWidget_SearchForReferences", "Search For References"), LOCTEXT("GameplayTagWidget_SearchForReferencesTooltip", "Find references for this tag"), FSlateIcon(), FUIAction(SearchForReferencesAction));
 	}
 
 	return MenuBuilder.MakeWidget();
@@ -912,16 +947,41 @@ void SGameplayTagWidget::OnDeleteTag(TSharedPtr<FGameplayTagNode> InTagNode)
 	}
 }
 
+void SGameplayTagWidget::OnAddTag(TSharedPtr<FGameplayTagNode> InTagNode)
+{
+	if (InTagNode.IsValid())
+	{
+		for (int32 ContainerIdx = 0; ContainerIdx < TagContainers.Num(); ++ContainerIdx)
+		{
+			FGameplayTagContainer* Container = TagContainers[ContainerIdx].TagContainer;
+			Container->AddTag(InTagNode->GetCompleteTag());
+		}
+
+		OnTagChanged.ExecuteIfBound();
+	}
+}
+
+void SGameplayTagWidget::OnRemoveTag(TSharedPtr<FGameplayTagNode> InTagNode)
+{
+	if (InTagNode.IsValid())
+	{
+		for (int32 ContainerIdx = 0; ContainerIdx < TagContainers.Num(); ++ContainerIdx)
+		{
+			FGameplayTagContainer* Container = TagContainers[ContainerIdx].TagContainer;
+			Container->RemoveTag(InTagNode->GetCompleteTag());
+		}
+
+		OnTagChanged.ExecuteIfBound();
+	}
+}
+
 void SGameplayTagWidget::OnSearchForReferences(TSharedPtr<FGameplayTagNode> InTagNode)
 {
-	if (InTagNode.IsValid() && IAssetManagerEditorModule::IsAvailable())
+	if (InTagNode.IsValid())
 	{
-		IAssetManagerEditorModule& ManagerEditorModule = IAssetManagerEditorModule::Get();
-
 		TArray<FAssetIdentifier> AssetIdentifiers;
 		AssetIdentifiers.Add(FAssetIdentifier(FGameplayTag::StaticStruct(), InTagNode->GetCompleteTagName()));
-
-		ManagerEditorModule.OpenReferenceViewerUI(AssetIdentifiers);
+		FEditorDelegates::OnOpenReferenceViewer.Broadcast(AssetIdentifiers);
 	}
 }
 
@@ -1302,10 +1362,14 @@ void SGameplayTagWidget::OpenRenameGameplayTagDialog(TSharedPtr<FGameplayTagNode
 
 	RenameTagWindow->SetContent(RenameTagDialog);
 
-	FWidgetPath WidgetPath;
-	TSharedPtr<SWindow> CurrentWindow = FSlateApplication::Get().FindWidgetWindow( AsShared(), WidgetPath );
+	TSharedPtr<SWindow> CurrentWindow = FSlateApplication::Get().FindWidgetWindow(AsShared() );
 
 	FSlateApplication::Get().AddModalWindow(RenameTagWindow, CurrentWindow);
+}
+
+TSharedPtr<SWidget> SGameplayTagWidget::GetWidgetToFocusOnOpen()
+{
+	return SearchTagBox;
 }
 
 #undef LOCTEXT_NAMESPACE

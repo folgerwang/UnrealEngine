@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -158,9 +158,6 @@ protected:
 
 	/** Video frame rate in the last received sample. */
 	FFrameRate VideoFrameRate;
-	
-	/** Number of frames drop from the last tick. */
-	uint32 LastFrameDropCount;
 
 	/** The media sample cache. */
 	FMediaIOCoreSamples* Samples;

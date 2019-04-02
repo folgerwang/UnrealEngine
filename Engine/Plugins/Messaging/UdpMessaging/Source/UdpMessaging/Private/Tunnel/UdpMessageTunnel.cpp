@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tunnel/UdpMessageTunnel.h"
 #include "UdpMessagingPrivate.h"
@@ -52,9 +52,10 @@ FUdpMessageTunnel::FUdpMessageTunnel(const FIPv4Endpoint& InUnicastEndpoint, con
 		.BoundToAddress(InUnicastEndpoint.Address)
 #endif
 		.BoundToPort(InMulticastEndpoint.Port)
-		.JoinedToGroup(InMulticastEndpoint.Address)
+		.JoinedToGroup(InMulticastEndpoint.Address, InUnicastEndpoint.Address)
 		.WithMulticastLoopback()
 		.WithMulticastTtl(1)
+		.WithMulticastInterface(InUnicastEndpoint.Address)
 		.WithReceiveBufferSize(UDP_MESSAGING_RECEIVE_BUFFER_SIZE);
 
 	if (MulticastSocket == nullptr)

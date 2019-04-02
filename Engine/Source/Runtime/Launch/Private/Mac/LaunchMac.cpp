@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Misc/App.h"
@@ -49,7 +49,7 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 		GError->Flush();
 		GError->HandleError();
 	}
-	LaunchStaticShutdownAfterError();
+
 	return Context.GenerateCrashInfoAndLaunchReporter();
 }
 
@@ -254,23 +254,19 @@ static int32 MacOSVersionCompare(const NSOperatingSystemVersion& VersionA, const
 	NSString* MinimumSystemVersionString = (NSString*)InfoDictionary[@"LSMinimumSystemVersion"];
 	NSOperatingSystemVersion MinimumSystemVersion = { 0 };
 	NSOperatingSystemVersion CurrentSystemVersion = [[NSProcessInfo processInfo] operatingSystemVersion];
-#if WITH_EDITOR
-	NSOperatingSystemVersion LatestMacOSVersion = { 10, 13, 5 };
-	NSString* LatestMacOSVersionString = @"10.13.5";
-#else
-	NSOperatingSystemVersion LatestMacOSVersion = { 10, 12, 6 };
-	NSString* LatestMacOSVersionString = @"10.12.6";
-#endif
+	NSOperatingSystemVersion MinSupportedMacOSVersion = { 10, 13, 6 };
+	NSString* MinSupportedMacOSVersionString = @"10.13.6";
+
 	NSArray<NSString*>* VersionComponents = [MinimumSystemVersionString componentsSeparatedByString:@"."];
 	MinimumSystemVersion.majorVersion = [[VersionComponents objectAtIndex:0] integerValue];
 	MinimumSystemVersion.minorVersion = VersionComponents.count > 1 ? [[VersionComponents objectAtIndex:1] integerValue] : 0;
 	MinimumSystemVersion.patchVersion = VersionComponents.count > 2 ? [[VersionComponents objectAtIndex:2] integerValue] : 0;
 
-	// Make sure that the min version in Info.plist is at least 10.12.6 for games or 10.13.5 for the editor, as that's the absolute minimum
-	if (MacOSVersionCompare(MinimumSystemVersion, LatestMacOSVersion) < 0)
+	// Make sure that the min version in Info.plist is at least 10.13.6, as that's the absolute minimum
+	if (MacOSVersionCompare(MinimumSystemVersion, MinSupportedMacOSVersion) < 0)
 	{
-		MinimumSystemVersion = LatestMacOSVersion;
-		MinimumSystemVersionString = LatestMacOSVersionString;
+		MinimumSystemVersion = MinSupportedMacOSVersion;
+		MinimumSystemVersionString = MinSupportedMacOSVersionString;
 	}
 
 	if (MacOSVersionCompare(CurrentSystemVersion, MinimumSystemVersion) < 0)
@@ -339,6 +335,8 @@ static int32 MacOSVersionCompare(const NSOperatingSystemVersion& VersionA, const
 
 @end
 
+extern bool GIsConsoleExecutable;
+
 INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 {
 	for (int32 Option = 1; Option < ArgC; Option++)
@@ -366,6 +364,8 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 	// On Mac we always want games to save files to user dir instead of inside the app bundle
 	GSavedCommandLine += TEXT(" -installed");
 #endif
+
+	GIsConsoleExecutable = !FCString::Strstr(ArgV[0], TEXT(".app/Contents/MacOS/"));
 
 	// convert $'s to " because Xcode swallows the " and this will allow -execcmds= to be usable from xcode
 	GSavedCommandLine = GSavedCommandLine.Replace(TEXT("$"), TEXT("\""));

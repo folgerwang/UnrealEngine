@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -20,7 +20,7 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_ApplyAdditive : public FAnimNode_Base
 	FPoseLink Additive;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Alpha, meta=(PinShownByDefault))
-	mutable float Alpha;
+	float Alpha;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Alpha)
 	FInputScaleBias AlphaScaleBias;
@@ -34,25 +34,22 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_ApplyAdditive : public FAnimNode_Base
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Performance, meta=(DisplayName="LOD Threshold"))
 	int32 LODThreshold;
 
-	virtual int32 GetLODThreshold() const override { return LODThreshold; }
-
-	UPROPERTY(Transient)
-	float ActualAlpha;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha)
-	EAnimAlphaInputType AlphaInputType;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (PinShownByDefault, DisplayName = "bEnabled"))
-	mutable bool bAlphaBoolEnabled;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (DisplayName = "Blend Settings"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (DisplayName = "Blend Settings", DisplayAfter = "bAlphaBoolEnabled"))
 	FInputAlphaBoolBlend AlphaBoolBlend;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (PinShownByDefault))
-	mutable FName AlphaCurveName;
+	FName AlphaCurveName;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha)
 	FInputScaleBiasClamp AlphaScaleBiasClamp;
+
+	float ActualAlpha;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (DisplayAfter = "AlphaScaleBias"))
+	EAnimAlphaInputType AlphaInputType;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (PinShownByDefault, DisplayName = "bEnabled", DisplayAfter = "AlphaInputType"))
+	bool bAlphaBoolEnabled;
 
 public:	
 	FAnimNode_ApplyAdditive();
@@ -63,6 +60,7 @@ public:
 	virtual void Update_AnyThread(const FAnimationUpdateContext& Context) override;
 	virtual void Evaluate_AnyThread(FPoseContext& Output) override;
 	virtual void GatherDebugData(FNodeDebugData& DebugData) override;
+	virtual int32 GetLODThreshold() const override { return LODThreshold; }
 	// End of FAnimNode_Base interface
 
 };

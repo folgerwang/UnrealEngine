@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -209,6 +209,9 @@ public:
 	/** Notifies all active modes of captured mouse movement */	
 	bool CapturedMouseMove( FEditorViewportClient* InViewportClient, FViewport* InViewport, int32 InMouseX, int32 InMouseY );
 
+	/** Notifies all active modes of all captured mouse movement */	
+	bool ProcessCapturedMouseMoves( FEditorViewportClient* InViewportClient, FViewport* InViewport, const TArrayView<FIntPoint>& CapturedMouseMoves );
+
 	/** Notifies all active modes of keyboard input */
 	bool InputKey( FEditorViewportClient* InViewportClient, FViewport* Viewport, FKey Key, EInputEvent Event);
 
@@ -236,6 +239,13 @@ public:
 
 	/** Draws the HUD for all active modes */
 	void DrawHUD( FEditorViewportClient* InViewportClient,FViewport* Viewport,const FSceneView* View,FCanvas* Canvas );
+
+	/** 
+	 * Get a pivot point specified by any active modes around which the camera should orbit
+	 * @param	OutPivot	The custom pivot point returned by the mode/tool
+	 * @return	true if a custom pivot point was specified, false otherwise.
+	 */
+	bool GetPivotForOrbit( FVector& OutPivot ) const;
 
 	/** Calls PostUndo on all active modes */
 	// Begin FEditorUndoClient
@@ -317,7 +327,7 @@ public:
 	 * @param					Set to true to restore the visibility of any streaming levels.
 	 * @param InViewportClient	Level editor viewport client used to reference the world which owns the bookmark.
 	 */
-	DEPRECATED(4.21, "Please use the version of JumpToBookmark that accepts a Shared Pointer to FBookmarkBaseJumpToSettings.")
+	UE_DEPRECATED(4.21, "Please use the version of JumpToBookmark that accepts a Shared Pointer to FBookmarkBaseJumpToSettings.")
 	void JumpToBookmark( uint32 InIndex, bool bShouldRestoreLevelVisibility, FEditorViewportClient* InViewportClient );
 
 	/**

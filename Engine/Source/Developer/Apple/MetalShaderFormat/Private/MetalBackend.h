@@ -1,10 +1,8 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
-
-#define USE_VS_HS_ATTRIBUTES 1
 
 #include "hlslcc.h"
 THIRD_PARTY_INCLUDES_START
@@ -25,15 +23,10 @@ public:
 	
 	uint32 GetClipDistanceCount() const { return ClipDistanceCount; }
 
-	virtual bool SupportsDeterminantIntrinsic() const override
-	{
-		return (Version >= 2);
-	}
+	virtual bool SupportsDeterminantIntrinsic() const override { return true; }
 
-	virtual bool SupportsTransposeIntrinsic() const override
-	{
-		return (Version >= 2);
-	}
+	virtual bool SupportsTransposeIntrinsic() const override { return true; }
+	
 	virtual bool SupportsIntegerModulo() const override { return true; }
 
 	virtual bool SupportsMatrixConversions() const override { return false; }
@@ -50,9 +43,9 @@ public:
 	
 	virtual bool SplitInputVariableStructs() const { return false; }
 	
-	virtual bool SupportsFusedMultiplyAdd() const { return (Version >= 2); }
+	virtual bool SupportsFusedMultiplyAdd() const { return true; }
 	
-	virtual bool SupportsSaturateIntrinsic() const { return (Version >= 2); }
+	virtual bool SupportsSaturateIntrinsic() const { return true; }
 
     virtual bool SupportsSinCosIntrinsic() const { return true; }
     
@@ -83,10 +76,10 @@ enum EMetalGPUSemantics
 enum EMetalTypeBufferMode
 {
 	EMetalTypeBufferModeRaw = 0, // No typed buffers
-    EMetalTypeBufferModeSRV = 1, // Buffer<> Typed via 2D textures, RWBuffer<> typed via function constants
-    EMetalTypeBufferModeUAV = 2, // Buffer<> SRVs & RWBuffer<> UAVs are typed via 2D textures
-    EMetalTypeBufferModeTex = 3, // Buffer<> SRVs & RWBuffer<> UAVs are typed via texture-buffers
-    EMetalTypeBufferModeFun = 4, // Buffer<> SRVs & RWBuffer<> UAVs are typed via function constants
+	EMetalTypeBufferMode2DSRV = 1, // Buffer<> SRVs are typed via 2D textures, RWBuffer<> UAVs are raw buffers
+	EMetalTypeBufferModeTBSRV = 2, // Buffer<> SRVs are typed via texture-buffers, RWBuffer<> UAVs are raw buffers
+    EMetalTypeBufferMode2D = 3, // Buffer<> SRVs & RWBuffer<> UAVs are typed via 2D textures
+    EMetalTypeBufferModeTB = 4, // Buffer<> SRVs & RWBuffer<> UAVs are typed via texture-buffers
 };
 
 // Metal supports 16 across all HW
@@ -106,6 +99,9 @@ struct FMetalCodeBackend : public FCodeBackend
 	// Return false if there were restrictions that made compilation fail
 	virtual bool ApplyAndVerifyPlatformRestrictions(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, EHlslShaderFrequency Frequency) override;
 
+	struct glsl_type const* create_iab_type(_mesa_glsl_parse_state* ParseState, struct glsl_type const* UBType, char const* n, FBuffers const& Buffers);
+	void build_iab_fields(_mesa_glsl_parse_state* ParseState, char const* n, struct glsl_type const* t, TArray<struct glsl_struct_field>& Fields, unsigned& FieldIndex, unsigned& BufferIndex, bool top, FBuffers const& Buffers);
+	void InsertArgumentBuffers(exec_list* ir, _mesa_glsl_parse_state* state, FBuffers& Buffers);
 	void PackInputsAndOutputs(exec_list* ir, _mesa_glsl_parse_state* state, EHlslShaderFrequency Frequency, exec_list& InputVars);
 	void MovePackedUniformsToMain(exec_list* ir, _mesa_glsl_parse_state* state, FBuffers& OutBuffers);
 	void FixIntrinsics(exec_list* ir, _mesa_glsl_parse_state* state);
@@ -114,7 +110,11 @@ struct FMetalCodeBackend : public FCodeBackend
 	void ConvertHalfToFloatUniformsAndSamples(exec_list* ir, _mesa_glsl_parse_state* State, bool bConvertUniforms, bool bConvertSamples);
 	void BreakPrecisionChangesVisitor(exec_list* ir, _mesa_glsl_parse_state* State);
 	void FixupMetalBaseOffsets(exec_list* ir, _mesa_glsl_parse_state* state, EHlslShaderFrequency Frequency);
+	void InsertSamplerStates(exec_list* ir, _mesa_glsl_parse_state* State);
+	void FixupTextureAtomics(exec_list* ir, _mesa_glsl_parse_state* state);
 
+	TMap<ir_variable*, TSet<uint8>> IABVariableMask;
+	TMap<ir_variable*, ir_variable*> IABVariablesMap;
     TMap<ir_variable*, uint32> ImageRW;
     FMetalTessellationOutputs& TessAttribs;
 	TArray<uint8> TypedBufferFormats;

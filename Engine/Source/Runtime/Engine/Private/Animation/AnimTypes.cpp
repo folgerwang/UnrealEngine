@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Animation/AnimTypes.h"
 #include "Animation/AnimationAsset.h"
@@ -91,6 +91,23 @@ void FAnimNotifyEvent::SetTime(float NewTime, EAnimLinkMethod::Type ReferenceFra
 {
 	FAnimLinkableElement::SetTime(NewTime, ReferenceFrame);
 	SetDuration(Duration);
+}
+
+FName FAnimNotifyEvent::GetNotifyEventName() const
+{
+	if(NotifyName != NAME_None)
+	{
+		if(NotifyName != CachedNotifyEventBaseName)
+		{
+			const FString EventName = FString::Printf(TEXT("AnimNotify_%s"), *NotifyName.ToString());
+			CachedNotifyEventBaseName = NotifyName;
+			CachedNotifyEventName = FName(*EventName);
+		}
+
+		return CachedNotifyEventName;
+	}
+
+	return NAME_None;
 }
 
 ////////////////////////////

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateRHIResourceManager.h"
 #include "RenderingThread.h"
@@ -298,13 +298,12 @@ void FSlateRHIResourceManager::Tick(float DeltaSeconds)
 		{
 			FSlateRHIResourceManager* ResourceManager;
 		};
-		FDeleteCachedRenderDataContext DeleteCachedRenderDataContext =
+		FDeleteCachedRenderDataContext Context =
 		{
 			this,
 		};
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			DeleteCachedRenderData,
-			FDeleteCachedRenderDataContext, Context, DeleteCachedRenderDataContext,
+		ENQUEUE_RENDER_COMMAND(DeleteCachedRenderData)(
+			[Context](FRHICommandListImmediate& RHICmdList)
 			{
 				// Go through the pending delete buffers and see if any of their fences has cleared
 				// the RHI thread, if so, they should be safe to delete now.
@@ -470,7 +469,8 @@ FSlateShaderResourceProxy* FSlateRHIResourceManager::GenerateTextureResource( co
 		{
 			INC_DWORD_STAT_BY(STAT_SlateNumTextureAtlases, 1);
 
-			Atlas = new FSlateTextureAtlasRHI( AtlasSize, AtlasSize, ESlateTextureAtlasPaddingStyle::DilateBorder );
+			bool bCanUpdateAfterInitialization = GIsEditor;
+			Atlas = new FSlateTextureAtlasRHI( AtlasSize, AtlasSize, ESlateTextureAtlasPaddingStyle::DilateBorder, bCanUpdateAfterInitialization);
 			TextureAtlases.Add( Atlas );
 			NewSlot = TextureAtlases.Last()->AddTexture( Width, Height, Info.TextureData->GetRawBytes() );
 		}
@@ -490,7 +490,7 @@ FSlateShaderResourceProxy* FSlateRHIResourceManager::GenerateTextureResource( co
 		NewProxy = new FSlateShaderResourceProxy;
 
 		// Create a new standalone texture because we can't atlas this one
-		FSlateTexture2DRHIRef* Texture = new FSlateTexture2DRHIRef( Width, Height, PF_B8G8R8A8, Info.TextureData, Info.bSrgb ? TexCreate_SRGB : TexCreate_None );
+		FSlateTexture2DRHIRef* Texture = new FSlateTexture2DRHIRef( Width, Height, PF_B8G8R8A8, Info.TextureData, (Info.bSrgb ? TexCreate_SRGB : TexCreate_None) | TexCreate_ShaderResource );
 		// Add it to the list of non atlased textures that we must clean up later
 		NonAtlasedTextures.Add( Texture );
 
@@ -619,19 +619,20 @@ TSharedPtr<FSlateDynamicTextureResource> FSlateRHIResourceManager::MakeDynamicTe
 
 
 	// Init render thread data
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(InitNewSlateDynamicTextureResource,
-		FSlateDynamicTextureResource*, TextureResource, TextureResource.Get(),
-		FSlateTextureDataPtr, InNewTextureData, TextureData,
-	{
-		if(InNewTextureData.IsValid())
+	FSlateDynamicTextureResource* InTextureResource = TextureResource.Get();
+	FSlateTextureDataPtr InNewTextureData = TextureData;
+	ENQUEUE_RENDER_COMMAND(InitNewSlateDynamicTextureResource)(
+		[InTextureResource, InNewTextureData](FRHICommandListImmediate& RHICmdList)
 		{
-			// Set the texture to use as the texture we just loaded
-			TextureResource->RHIRefTexture->SetTextureData(InNewTextureData, PF_B8G8R8A8, TexCreate_SRGB);
-		}
+			if (InNewTextureData.IsValid())
+			{
+				// Set the texture to use as the texture we just loaded
+				InTextureResource->RHIRefTexture->SetTextureData(InNewTextureData, PF_B8G8R8A8, TexCreate_SRGB);
+			}
 
-		// Initialize and link the rendering resource
-		TextureResource->RHIRefTexture->InitResource();
-	});
+			// Initialize and link the rendering resource
+			InTextureResource->RHIRefTexture->InitResource();
+		});
 
 	// Map the new resource so we don't have to load again
 	DynamicResourceMap.AddDynamicTextureResource( ResourceName, TextureResource.ToSharedRef() );
@@ -970,15 +971,14 @@ void FSlateRHIResourceManager::BeginReleasingRenderData(const FSlateRenderDataHa
 		const FSlateRenderDataHandle* RenderDataHandle;
 		const ILayoutCache* LayoutCacher;
 	};
-	FReleaseCachedRenderDataContext ReleaseCachedRenderDataContext =
+	FReleaseCachedRenderDataContext Context =
 	{
 		this,
 		RenderHandle,
 		RenderHandle->GetCacher()
 	};
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		ReleaseCachedRenderData,
-		FReleaseCachedRenderDataContext, Context, ReleaseCachedRenderDataContext,
+	ENQUEUE_RENDER_COMMAND(ReleaseCachedRenderData)(
+		[Context](FRHICommandListImmediate& RHICmdList)
 		{
 			Context.ResourceManager->ReleaseCachedRenderData(RHICmdList, Context.RenderDataHandle, Context.LayoutCacher);
 		});

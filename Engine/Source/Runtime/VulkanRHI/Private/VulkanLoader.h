@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -139,16 +139,19 @@
 	EnumMacro(PFN_vkCmdNextSubpass, vkCmdNextSubpass) \
 	EnumMacro(PFN_vkCmdEndRenderPass, vkCmdEndRenderPass) \
 	EnumMacro(PFN_vkCmdExecuteCommands, vkCmdExecuteCommands) \
-	EnumMacro(PFN_vkDestroySurfaceKHR, vkDestroySurfaceKHR) \
-	EnumMacro(PFN_vkGetPhysicalDeviceSurfaceSupportKHR, vkGetPhysicalDeviceSurfaceSupportKHR) \
-	EnumMacro(PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR, vkGetPhysicalDeviceSurfaceCapabilitiesKHR) \
-	EnumMacro(PFN_vkGetPhysicalDeviceSurfaceFormatsKHR, vkGetPhysicalDeviceSurfaceFormatsKHR) \
-	EnumMacro(PFN_vkGetPhysicalDeviceSurfacePresentModesKHR, vkGetPhysicalDeviceSurfacePresentModesKHR) \
 	EnumMacro(PFN_vkCreateSwapchainKHR, vkCreateSwapchainKHR) \
 	EnumMacro(PFN_vkDestroySwapchainKHR, vkDestroySwapchainKHR) \
 	EnumMacro(PFN_vkGetSwapchainImagesKHR, vkGetSwapchainImagesKHR) \
 	EnumMacro(PFN_vkAcquireNextImageKHR, vkAcquireNextImageKHR) \
 	EnumMacro(PFN_vkQueuePresentKHR, vkQueuePresentKHR)
+
+// List all surface Vulkan entry points used by Unreal that need to be loaded manually
+#define ENUM_VK_ENTRYPOINTS_SURFACE_INSTANCE(EnumMacro) \
+	EnumMacro(PFN_vkDestroySurfaceKHR, vkDestroySurfaceKHR) \
+	EnumMacro(PFN_vkGetPhysicalDeviceSurfaceSupportKHR, vkGetPhysicalDeviceSurfaceSupportKHR) \
+	EnumMacro(PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR, vkGetPhysicalDeviceSurfaceCapabilitiesKHR) \
+	EnumMacro(PFN_vkGetPhysicalDeviceSurfaceFormatsKHR, vkGetPhysicalDeviceSurfaceFormatsKHR) \
+	EnumMacro(PFN_vkGetPhysicalDeviceSurfacePresentModesKHR, vkGetPhysicalDeviceSurfacePresentModesKHR)
 
 // List all base Vulkan entry points used by Unreal that need to be loaded manually
 #define ENUM_VK_ENTRYPOINTS_BASE(EnumMacro) \
@@ -170,15 +173,13 @@
 // List all optional Vulkan entry points used by Unreal that need to be loaded manually
 #define ENUM_VK_ENTRYPOINTS_OPTIONAL_INSTANCE(EnumMacro) \
 	EnumMacro(PFN_vkCreateSharedSwapchainsKHR, vkCreateSharedSwapchainsKHR)
-	//EnumMacro(PFN_vkCreateDebugReportCallbackEXT, vkCreateDebugReportCallbackEXT)
-	//EnumMacro(PFN_vkDestroyDebugReportCallbackEXT, vkDestroyDebugReportCallbackEXT)
-	//EnumMacro(PFN_vkCreateDisplayPlaneSurfaceKHR, vkCreateDisplayPlaneSurfaceKHR)
 
 // List of all Vulkan entry points
 #define ENUM_VK_ENTRYPOINTS_ALL(EnumMacro) \
 	ENUM_VK_ENTRYPOINTS_BASE(EnumMacro) \
 	ENUM_VK_ENTRYPOINTS_OPTIONAL_BASE(EnumMacro) \
 	ENUM_VK_ENTRYPOINTS_INSTANCE(EnumMacro) \
+	ENUM_VK_ENTRYPOINTS_SURFACE_INSTANCE(EnumMacro) \
 	ENUM_VK_ENTRYPOINTS_OPTIONAL_INSTANCE(EnumMacro) \
 	ENUM_VK_ENTRYPOINTS_PLATFORM_BASE(EnumMacro) \
 	ENUM_VK_ENTRYPOINTS_OPTIONAL_PLATFORM_INSTANCE(EnumMacro) \

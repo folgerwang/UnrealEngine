@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2664386
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:旧版本安卓开发
 Crumbs:%ROOT%, Platforms
@@ -46,7 +46,8 @@ Android Works 在虚幻引擎 4.8 上 **无法使用**。如已安装 **Android 
 	[/PARAM]
 [/OBJECT]
  
-<!--
+[COMMENT:none]
+
 [EXCERPT:WindowsSetup]
 
 [REGION:tip]
@@ -211,7 +212,7 @@ TADP 安装程序和 Android SDK 工具要求 Mac 上同时安装 Java 6 和 Jav
 [/EXCERPT:MacOSSetup]
 
 
-
+[/COMMENT]
 
 
 

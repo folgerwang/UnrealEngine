@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SWorldHierarchyImpl.h"
 #include "SLevelsTreeWidget.h"
@@ -725,7 +725,15 @@ void SWorldHierarchyImpl::OnSelectionChanged(const WorldHierarchy::FWorldTreeIte
 
 	for (const WorldHierarchy::FWorldTreeItemPtr& TreeItem : SelectedItems)
 	{
-		SelectedLevels.Append(TreeItem->GetModel());
+		// Folder items should return all child models, but anything else should only return the model for that item
+		if (TreeItem->GetAsFolderTreeItem() != nullptr)
+		{
+			SelectedLevels.Append(TreeItem->GetLevelModels());
+		}
+		else
+		{
+			SelectedLevels.Append(TreeItem->GetModel());
+		}
 	}
 
 	if (!bFoldersOnlyMode)

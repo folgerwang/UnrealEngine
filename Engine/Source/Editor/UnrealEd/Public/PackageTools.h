@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PackageTools.h: Object-related utilities
@@ -11,6 +11,9 @@
 #include "PackageTools.generated.h"
 
 class ULevel;
+
+class FPackageReloadedEvent;
+enum class EPackageReloadPhase : uint8;
 
 UCLASS(Abstract)
 class UNREALED_API UPackageTools : public UObject
@@ -105,7 +108,7 @@ public:
 	 *
 	 * @return	true if the set of loaded packages was changed
 	 */
-	DEPRECATED(4.21, "ReloadPackages taking bInteractive is deprecated. Use the version taking EReloadPackagesInteractionMode instead.")
+	UE_DEPRECATED(4.21, "ReloadPackages taking bInteractive is deprecated. Use the version taking EReloadPackagesInteractionMode instead.")
 	static bool ReloadPackages( const TArray<UPackage*>& PackagesToReload, FText& OutErrorMessage, const bool bInteractive = true );
 
 	/**
@@ -178,11 +181,13 @@ public:
 private:
 	static void RestoreStandaloneOnReachableObjects();
 
+	static void HandlePackageReloaded(const EPackageReloadPhase InPackageReloadPhase, FPackageReloadedEvent* InPackageReloadedEvent);
+
 	static UPackage* PackageBeingUnloaded;
 	static TMap<UObject*, UObject*> ObjectsThatHadFlagsCleared;
 	static FDelegateHandle ReachabilityCallbackHandle;
 };
 
-DEPRECATED(4.21, "PackageTools namespace has been deprecated. Please use UPackageTools instead.") 
+UE_DEPRECATED(4.21, "PackageTools namespace has been deprecated. Please use UPackageTools instead.") 
 typedef UPackageTools PackageTools;
 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3339965
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:基础枪械参考
 Crumbs:%ROOT%
@@ -16,8 +16,10 @@ social-image:RoboRecallModding_Guns_Ref.png
 
 [TOC]
 
+(#Events)
 ## 事件
 
+(#EventNotifyStartFiring)
 ### Notify Start Firing 事件
 
 [REGION:graph]
@@ -47,40 +49,14 @@ social-image:RoboRecallModding_Guns_Ref.png
 
 每次玩家按下 'fire' 按钮时便会调用 Notify Start Firing 事件。连接到 _exec_ 输出引脚的节点将在此时执行。使用此事件延展或覆盖武器的开火功能，如改变开火位置或生成开火效果。
 
-[OBJECT:Section]
-    [PARAMLITERAL:id]
-    outputs
-    [/PARAMLITERAL]
-    [PARAM:heading]
-    输出
-    [/PARAM]
-    [PARAM:content]
-        [OBJECT:MemberIconListHeadBlank]
-        [/OBJECT]
-        [OBJECT:ActionPinListItem]
-            [PARAM:icons]
-                [REGION:input_exec exec]
-                    
-                [/REGION]
-            [/PARAM]
-            [PARAMLITERAL:name]
-                
-            [/PARAMLITERAL]
-            [PARAMLITERAL:type]
-                exec
-            [/PARAMLITERAL]
-            [PARAM:tooltip]
-                与此连接的节点在事件被调用时执行。
-            [/PARAM]
-            [PARAMLITERAL:id]
-                Out_Exec
-            [/PARAMLITERAL]
-        [/OBJECT]
-        [OBJECT:MemberIconListTail]
-        [/OBJECT]
-    [/PARAM]
-[/OBJECT]
+(#Outputs)
+### 输出
 
+| 类型 | 描述 |
+| ---- | ----------- |
+| exec | 与此连接的节点在事件被调用时执行。 |
+
+(#EventNotifyStopFiring)
 ### Notify Stop Firing 事件
 
 [REGION:graph]
@@ -110,37 +86,10 @@ social-image:RoboRecallModding_Guns_Ref.png
 
 每次玩家松开 'fire' 按钮时便会调用 Notify Stop Firing 事件。连接到 _exec_ 输出引脚的节点将在此时执行。使用此事件延展或覆盖武器的 '停止开火' 功能，如消除开火时生成的开火效果。
 
-[OBJECT:Section]
-    [PARAMLITERAL:id]
-    outputs
-    [/PARAMLITERAL]
-    [PARAM:heading]
-    输出
-    [/PARAM]
-    [PARAM:content]
-        [OBJECT:MemberIconListHeadBlank]
-        [/OBJECT]
-        [OBJECT:ActionPinListItem]
-            [PARAM:icons]
-                [REGION:input_exec exec]
-                    
-                [/REGION]
-            [/PARAM]
-            [PARAMLITERAL:name]
-                
-            [/PARAMLITERAL]
-            [PARAMLITERAL:type]
-                exec
-            [/PARAMLITERAL]
-            [PARAM:tooltip]
-                与此连接的节点在事件被调用时执行。
-            [/PARAM]
-            [PARAMLITERAL:id]
-                Out_Exec
-            [/PARAMLITERAL]
-        [/OBJECT]
-        [OBJECT:MemberIconListTail]
-        [/OBJECT]
-    [/PARAM]
-[/OBJECT]
+(#Outputs)
+### 输出
+
+| 类型 | 描述 |
+| ---- | ----------- |
+| exec | 与此连接的节点在事件被调用时执行。 |
 

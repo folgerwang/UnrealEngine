@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #include "LayerCollectionViewModel.h"
 #include "Editor/EditorEngine.h"
 #include "Misc/FilterCollection.h"
@@ -258,6 +258,7 @@ void FLayerCollectionViewModel::OnLayerAdded( const TWeakObjectPtr< ULayer >& Ad
 	}
 
 	const TSharedRef< FLayerViewModel > NewLayerViewModel = FLayerViewModel::Create( AddedLayer, WorldLayers, Editor );
+	NewLayerViewModel->OnVisibilityToggled().AddSP( this, &FLayerCollectionViewModel::ToggleLayerVisibility );
 	AllLayerViewModels.Add( NewLayerViewModel );
 
 	// We specifically ignore filters when dealing with single additions
@@ -299,6 +300,7 @@ void FLayerCollectionViewModel::CreateViewModels( const TArray< TWeakObjectPtr< 
 	for( auto LayerIt = InLayers.CreateConstIterator(); LayerIt; ++LayerIt )
 	{
 		const TSharedRef< FLayerViewModel > NewLayerViewModel = FLayerViewModel::Create( *LayerIt, WorldLayers, Editor );
+		NewLayerViewModel->OnVisibilityToggled().AddSP( this, &FLayerCollectionViewModel::ToggleLayerVisibility );
 		AllLayerViewModels.Add( NewLayerViewModel );
 
 		if( Filters->PassesAllFilters( NewLayerViewModel ) )
@@ -561,6 +563,33 @@ bool FLayerCollectionViewModel::DeselectActors_CanExecute() const
 	return SelectedLayers.Num() > 0;
 }
 
+void FLayerCollectionViewModel::ToggleLayerVisibility( const TSharedPtr<FLayerViewModel>& InLayer )
+{
+	if ( SelectedLayers.Find( InLayer ) == INDEX_NONE )
+	{
+		// Given layer wasn't selected so toggle only its own visibility
+		const FScopedTransaction Transaction( LOCTEXT( "ToggleVisibility", "Toggle Layer Visibility" ) );
+		WorldLayers->ToggleLayerVisibility( InLayer->GetFName() );
+	}
+	else
+	{
+		// Toggle visibility of selected layers to the same visibility state as the given layer
+		bool bVisible = InLayer->IsVisible();
+
+		TArray< FName > SelectedLayerNames;
+		for( auto LayersIt = SelectedLayers.CreateConstIterator(); LayersIt; ++LayersIt )
+		{
+			const TSharedPtr< FLayerViewModel >& Layer = *LayersIt;
+			if ( Layer->IsVisible() == bVisible )
+			{
+				SelectedLayerNames.Add( Layer->GetFName() );
+			}
+		}
+
+		const FScopedTransaction Transaction( LOCTEXT("ToggleSelectedLayersVisibility", "Toggle Layer Visibility") );
+		WorldLayers->ToggleLayersVisibility( SelectedLayerNames );
+	}
+}
 
 void FLayerCollectionViewModel::ToggleSelectedLayersVisibility_Executed()
 {

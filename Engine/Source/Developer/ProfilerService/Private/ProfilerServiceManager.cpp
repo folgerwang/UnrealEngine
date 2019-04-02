@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ProfilerServiceManager.h"
 #include "MessageEndpointBuilder.h"
@@ -422,7 +422,7 @@ void FProfilerServiceManager::CompressDataAndSendToGame( TArray<uint8>* DataToTa
 	int32 CompressedSize = UncompressedSize;
 
 	// We assume that compression cannot fail.
-	const bool bResult = FCompression::CompressMemory( COMPRESS_ZLIB, CompressedBuffer.GetData(), CompressedSize, UncompressedPtr, UncompressedSize );
+	const bool bResult = FCompression::CompressMemory( NAME_Zlib, CompressedBuffer.GetData(), CompressedSize, UncompressedPtr, UncompressedSize );
 	check( bResult );
 
 	// Convert to hex.

@@ -573,7 +573,7 @@ Task, 태스크란 AI 이동, 블랙보드 값 조정 등 무언가를 하는 �
 이 그래프에서 벌어지는 일은 이렇습니다:
 
 1. **Event Receive Execute** 는 비헤이비어 트리가 이 태스크 노드를 실행할 때 호출됩니다.
-1. 예전 단계에서 했던 것처럼 Follower_AI_CON 을 저장합니다.
+1. 이전 단계에서 했던 것처럼 Follower_AI_CON 을 저장합니다.
 1. **Cast to Actor** 노드가 "TargetToFollow" 오브젝트 값을 블랙보드에서 끌어온 다음 Actor 로 형변환하여 **AI MoveTo** 노드에서 사용할 수 있도록 합니다.
 1. 성공시, 태스크는 **Finish Execute** 노드를 성공적으로 실행할 것입니다.
 

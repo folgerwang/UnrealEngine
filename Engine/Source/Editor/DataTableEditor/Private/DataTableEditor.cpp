@@ -1,27 +1,28 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "DataTableEditor.h"
+#include "DataTableEditorModule.h"
 #include "Dom/JsonObject.h"
-#include "Widgets/Text/STextBlock.h"
-#include "Misc/FileHelper.h"
-#include "Modules/ModuleManager.h"
-#include "Serialization/JsonReader.h"
-#include "Policies/PrettyJsonPrintPolicy.h"
-#include "Serialization/JsonSerializer.h"
+#include "Editor.h"
+#include "EditorStyleSet.h"
 #include "Fonts/FontMeasure.h"
 #include "Framework/Application/SlateApplication.h"
-#include "Widgets/Layout/SScrollBar.h"
 #include "Framework/Layout/Overscroll.h"
-#include "Widgets/Layout/SScrollBox.h"
-#include "EditorStyleSet.h"
-#include "DataTableEditorModule.h"
-#include "Editor.h"
-#include "Widgets/Input/SSearchBox.h"
-#include "Widgets/Docking/SDockTab.h"
-#include "Widgets/Views/SListView.h"
 #include "IDocumentation.h"
+#include "Misc/FileHelper.h"
+#include "Modules/ModuleManager.h"
+#include "Policies/PrettyJsonPrintPolicy.h"
+#include "SDataTableListViewRowName.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Widgets/Input/SSearchBox.h"
+#include "Widgets/Layout/SScrollBar.h"
+#include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/SToolTip.h"
- 
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Views/SListView.h"
+
 #define LOCTEXT_NAMESPACE "DataTableEditor"
 
 const FName FDataTableEditor::DataTableTabId("DataTableEditor_DataTable");
@@ -383,23 +384,9 @@ void FDataTableEditor::SaveLayoutData()
 
 TSharedRef<ITableRow> FDataTableEditor::MakeRowNameWidget(FDataTableEditorRowListViewDataPtr InRowDataPtr, const TSharedRef<STableViewBase>& OwnerTable)
 {
-	return
-		SNew(STableRow<FDataTableEditorRowListViewDataPtr>, OwnerTable)
-		.Style(FEditorStyle::Get(), "DataTableEditor.NameListViewRow")
-		[
-			SNew(SBox)
-			.Padding(FMargin(4, 2, 4, 2))
-			[
-				SNew(SBox)
-				.HeightOverride(InRowDataPtr->DesiredRowHeight)
-				[
-					SNew(STextBlock)
-					.ColorAndOpacity(this, &FDataTableEditor::GetRowTextColor, InRowDataPtr->RowId)
-					.Text(InRowDataPtr->DisplayName)
-					.HighlightText(this, &FDataTableEditor::GetFilterText)
-				]
-			]
-		];
+	return SNew(SDataTableListViewRowName, OwnerTable)
+		.DataTableEditor(SharedThis(this))
+		.RowDataPtr(InRowDataPtr);
 }
 
 TSharedRef<ITableRow> FDataTableEditor::MakeRowWidget(FDataTableEditorRowListViewDataPtr InRowDataPtr, const TSharedRef<STableViewBase>& OwnerTable)

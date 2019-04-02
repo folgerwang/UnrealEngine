@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Customizations/UMGDetailCustomizations.h"
 #include "Widgets/Images/SImage.h"
@@ -281,6 +281,9 @@ void FBlueprintWidgetCustomization::CreateMulticastEventCustomization(IDetailLay
 void FBlueprintWidgetCustomization::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 {
 	static const FName LayoutCategoryKey(TEXT("Layout"));
+	static const FName LocalizationCategoryKey(TEXT("Localization"));
+
+	DetailLayout.EditCategory(LocalizationCategoryKey, FText::GetEmpty(), ECategoryPriority::Uncommon);
 
 	TArray< TWeakObjectPtr<UObject> > OutObjects;
 	DetailLayout.GetObjectsBeingCustomized(OutObjects);

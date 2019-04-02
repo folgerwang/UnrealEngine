@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Linux/LinuxWindow.h"
 
@@ -171,8 +171,7 @@ void FLinuxWindow::Initialize( FLinuxApplication* const Application, const TShar
 		!Definition->IsModalWindow && !Definition->IsRegularWindow &&
 		bShouldActivate && !Definition->SizeWillChangeOften)
 	{
-		// Popup menus grab the mouse/keyboard which is undesired behaviour. Slate will give the window events.
-		WindowStyle |= SDL_WINDOW_BORDERLESS;
+		WindowStyle |= SDL_WINDOW_POPUP_MENU;
 		bIsPopupWindow = true;
 		UE_LOG(LogLinuxWindowType, Verbose, TEXT("*** New Window is a Popup Menu Window ***"));
 	}
@@ -183,7 +182,7 @@ void FLinuxWindow::Initialize( FLinuxApplication* const Application, const TShar
 		!Definition->IsModalWindow && !Definition->IsRegularWindow &&
 		!bShouldActivate && !Definition->SizeWillChangeOften)
 	{
-		WindowStyle |= SDL_WINDOW_BORDERLESS;
+		WindowStyle |= SDL_WINDOW_POPUP_MENU;
 		bIsConsoleWindow = true;
 		bIsPopupWindow = true;
 		UE_LOG(LogLinuxWindowType, Verbose, TEXT("*** New Window is a Console Window ***"));
@@ -421,14 +420,17 @@ void FLinuxWindow::BringToFront( bool bForce )
 /** Native windows should implement this function by asking the OS to destroy OS-specific resource associated with the window (e.g. Win32 window handle) */
 void FLinuxWindow::Destroy()
 {
-	OwningApplication->RemoveRevertFocusWindow( HWnd );
-	OwningApplication->RemoveEventWindow( HWnd );
-	OwningApplication->RemoveNotificationWindow( HWnd );
+	if (HWnd)
+	{
+		OwningApplication->RemoveRevertFocusWindow( HWnd );
+		OwningApplication->RemoveEventWindow( HWnd );
+		OwningApplication->RemoveNotificationWindow( HWnd );
 
-	UE_LOG(LogLinuxWindow, Verbose, TEXT("Destroying SDL Window '%p'\n"), HWnd);
+		UE_LOG(LogLinuxWindow, Verbose, TEXT("Destroying SDL Window '%p'\n"), HWnd);
 
-	SDL_DestroyWindow( HWnd );
-	HWnd = nullptr;
+		SDL_DestroyWindow( HWnd );
+		HWnd = nullptr;
+	}
 }
 
 /** Native window should implement this function by performing the equivalent of the Win32 minimize-to-taskbar operation */
@@ -469,7 +471,7 @@ void FLinuxWindow::Hide()
 	}
 }
 
-static void _GetBestFullscreenResolution( SDL_HWindow hWnd, int32 *pWidth, int32 *pHeight )
+static void GetBestFullscreenResolution( SDL_HWindow hWnd, int32 *pWidth, int32 *pHeight )
 {
 	uint32 InitializedMode = false;
 	uint32 BestWidth = 0;
@@ -681,7 +683,7 @@ void FLinuxWindow::AdjustCachedSize( FVector2D& Size ) const
 			SizeW = VirtualWidth ;
 			SizeH = VirtualHeight;
 
-			_GetBestFullscreenResolution( HWnd, &SizeW, &SizeH );
+			GetBestFullscreenResolution( HWnd, &SizeW, &SizeH );
 		}
 		*/
 

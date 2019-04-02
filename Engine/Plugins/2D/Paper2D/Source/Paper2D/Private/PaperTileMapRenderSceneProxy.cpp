@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PaperTileMapRenderSceneProxy.h"
 #include "Materials/Material.h"
@@ -300,7 +300,7 @@ void FPaperTileMapRenderSceneProxy::GetDynamicMeshElements(const TArray<const FS
 								? GEngine->ShadedLevelColorationLitMaterial : GEngine->ShadedLevelColorationUnlitMaterial;
 
 							auto CollisionMaterialInstance = new FColoredMaterialRenderProxy(
-								LevelColorationMaterial->GetRenderProxy(IsSelected(), IsHovered()),
+								LevelColorationMaterial->GetRenderProxy(),
 								GetWireframeColor()
 								);
 

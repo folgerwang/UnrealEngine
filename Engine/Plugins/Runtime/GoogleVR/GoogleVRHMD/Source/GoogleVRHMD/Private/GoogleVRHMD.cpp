@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GoogleVRHMD.h"
 #include "Engine/LocalPlayer.h"
@@ -12,12 +12,6 @@
 #include "Android/AndroidApplication.h"
 #include "HAL/IConsoleManager.h"
 #endif // GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
-#if GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
-#include "IOS/IOSApplication.h"
-#include "IOS/IOSWindow.h"
-#include "IOS/IOSAppDelegate.h"
-#include "IOS/IOSView.h"
-#endif
 #if GOOGLEVRHMD_SUPPORTED_INSTANT_PREVIEW_PLATFORMS
 #include "GlobalShader.h"
 #include "ScreenRendering.h"
@@ -225,43 +219,6 @@ FString AndroidThunkCpp_GetDataString()
 
 #endif // GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
 
-/////////////////////////////////////
-// Begin IOS Class Implementations //
-/////////////////////////////////////
-
-#if GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
-
-// Helped function to get global access
-FGoogleVRHMD* GetGoogleVRHMD()
-{
-	if (GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetVersionString().Contains(TEXT("GoogleVR")) )
-	{
-		return static_cast<FGoogleVRHMD*>(GEngine->XRSystem.Get());
-	}
-
-	return nullptr;
-}
-
-@implementation FOverlayViewDelegate
-
-- (void)didChangeViewerProfile
-{
-	FGoogleVRHMD* HMD = GetGoogleVRHMD();
-	if(HMD)
-	{
-		HMD->RefreshViewerProfile();
-	}
-}
-
-- (void)didTapBackButton
-{
-	bBackDetected = true;
-}
-
-@end
-
-#endif
-
 /////////////////////////////////////////////////
 // Begin FGoogleVRHMDPlugin Implementation     //
 /////////////////////////////////////////////////
@@ -306,7 +263,8 @@ TSharedPtr< class IXRTrackingSystem, ESPMode::ThreadSafe > FGoogleVRHMDPlugin::C
 // Begin FGoogleVRHMD Self API     //
 /////////////////////////////////////
 FGoogleVRHMD::FGoogleVRHMD(const FAutoRegister& AutoRegister)
-	: FSceneViewExtensionBase(AutoRegister)
+	: FHeadMountedDisplayBase(nullptr)
+	, FSceneViewExtensionBase(AutoRegister)
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
 	, CustomPresent(nullptr)
 #endif
@@ -322,9 +280,6 @@ FGoogleVRHMD::FGoogleVRHMD(const FAutoRegister& AutoRegister)
 	, BaseOrientation(FQuat::Identity)
 	, PixelDensity(1.0f)
 	, RendererModule(nullptr)
-#if GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
-	, OverlayView(nil)
-#endif
 	, LastUpdatedCacheFrame(0)
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
 	, CachedFinalHeadRotation(EForceInit::ForceInit)
@@ -481,21 +436,6 @@ FGoogleVRHMD::FGoogleVRHMD(const FAutoRegister& AutoRegister)
 
 		// Set Hardware Scaling in GvrLayout
 		AndroidThunkCpp_GvrLayout_SetFixedPresentationSurfaceSizeToCurrent();
-
-#elif GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
-
-		// We will use Unreal's PostProcessing Distortion for iOS
-		bUseGVRApiDistortionCorrection = false;
-		bIsInDaydreamMode = false;
-
-		// Setup and show ui on iOS
-		dispatch_async(dispatch_get_main_queue(), ^
-		{
-			OverlayViewDelegate = [[FOverlayViewDelegate alloc] init];
-			OverlayView = [[GVROverlayView alloc] initWithFrame:[IOSAppDelegate GetDelegate].IOSView.bounds];
-			OverlayView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-			OverlayView.delegate = OverlayViewDelegate;
-		});
 #endif // GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
 
 		// By default, go ahead and disable the screen saver. The user can still change this freely
@@ -722,10 +662,6 @@ FIntPoint FGoogleVRHMD::GetUnrealMobileContentSize()
 	FPlatformRect Rect = FAndroidWindow::GetScreenRect();
 	Size.X = Rect.Right;
 	Size.Y = Rect.Bottom;
-#elif GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
-	FPlatformRect Rect = FIOSWindow::GetScreenRect();
-	Size.X = Rect.Right;
-	Size.Y = Rect.Bottom;
 #endif
 	return Size;
 }
@@ -761,10 +697,6 @@ FIntPoint FGoogleVRHMD::SetRenderTargetSizeToDefault()
 		GVRRenderTargetSize.X = Rect.Right;
 		GVRRenderTargetSize.Y = Rect.Bottom;
 	}
-#elif GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
-	FPlatformRect Rect = FIOSWindow::GetScreenRect();
-	GVRRenderTargetSize.X = Rect.Right;
-	GVRRenderTargetSize.Y = Rect.Bottom;
 #endif
 	return GVRRenderTargetSize;
 }
@@ -842,10 +774,6 @@ void FGoogleVRHMD::HandleGVRBackEvent()
 #if GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
 		GEngine->GameViewport->Viewport->GetClient()->InputKey(GEngine->GameViewport->Viewport, 0, EKeys::Android_Back, EInputEvent::IE_Pressed);
 		GEngine->GameViewport->Viewport->GetClient()->InputKey(GEngine->GameViewport->Viewport, 0, EKeys::Android_Back, EInputEvent::IE_Released);
-#elif GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
-		// TODO: iOS doesn't have hardware back buttons, so what should be fired?
-		GEngine->GameViewport->Viewport->GetClient()->InputKey(GEngine->GameViewport->Viewport, 0, EKeys::Global_Back, EInputEvent::IE_Pressed);
-		GEngine->GameViewport->Viewport->GetClient()->InputKey(GEngine->GameViewport->Viewport, 0, EKeys::Global_Back, EInputEvent::IE_Released);
 #endif
 	}
 }
@@ -1234,13 +1162,12 @@ void FGoogleVRHMD::OnBeginRendering_GameThread()
 		instant_preview::ReferencePose currentPose;
 		instant_preview::ReferencePose *renderPose;
 	};
-	struct FQueueRenderPoseContext context {
+	struct FQueueRenderPoseContext Context {
 		CurrentReferencePose,
 		&RenderReferencePose,
 	};
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		QueueRenderPose,
-		struct FQueueRenderPoseContext, Context, context,
+	ENQUEUE_RENDER_COMMAND(QueueRenderPose)(
+		[Context](FRHICommandListImmediate& RHICmdList)
 		{
 			*Context.renderPose = Context.currentPose;
 		});
@@ -1307,40 +1234,45 @@ void FGoogleVRHMD::PostRenderViewFamily_RenderThread(FRHICommandListImmediate& R
 		RendererModule->RenderTargetPoolFindFreeElement(RHICmdList, OutputDesc, ResampleTexturePooledRenderTarget, TEXT("ResampleTexture"));
 		check(ResampleTexturePooledRenderTarget);
 		const FSceneRenderTargetItem& DestRenderTarget = ResampleTexturePooledRenderTarget->GetRenderTargetItem();
-		SetRenderTarget(RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-		RHICmdList.SetViewport(0, 0, 0.0f, ReadbackTextureSizes[textureIndex].X, ReadbackTextureSizes[textureIndex].Y, 1.0f);
 
-		FGraphicsPipelineStateInitializer GraphicsPSOInit;
-		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("GoogleVRViewFamily"));
+		{
+			RHICmdList.SetViewport(0, 0, 0.0f, ReadbackTextureSizes[textureIndex].X, ReadbackTextureSizes[textureIndex].Y, 1.0f);
 
-		auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
-		TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
-		TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
+			FGraphicsPipelineStateInitializer GraphicsPSOInit;
+			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+			auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
+			TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
+			TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
 
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule->GetFilterVertexDeclaration().VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
-		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
 
-		PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Point>::GetRHI(),
-			InViewFamily.RenderTarget->GetRenderTargetTexture());
-		RendererModule->DrawRectangle(
-			RHICmdList,
-			0, 0,		// Dest X, Y
-			ReadbackTextureSizes[textureIndex].X, ReadbackTextureSizes[textureIndex].Y,	// Dest Width, Height
-			0, 0,		// Source U, V
-			1, 1,		// Source USize, VSize
-			ReadbackTextureSizes[textureIndex],		// Target buffer size
-			FIntPoint(1, 1),		// Source texture size
-			*VertexShader,
-			EDRF_Default);
+			PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Point>::GetRHI(),
+				InViewFamily.RenderTarget->GetRenderTargetTexture());
+			RendererModule->DrawRectangle(
+				RHICmdList,
+				0, 0,		// Dest X, Y
+				ReadbackTextureSizes[textureIndex].X, ReadbackTextureSizes[textureIndex].Y,	// Dest Width, Height
+				0, 0,		// Source U, V
+				1, 1,		// Source USize, VSize
+				ReadbackTextureSizes[textureIndex],		// Target buffer size
+				FIntPoint(1, 1),		// Source texture size
+				*VertexShader,
+				EDRF_Default);
+		}
+		RHICmdList.EndRenderPass();
 		// Asynchronously copy delayed render target from GPU to CPU
 		RHICmdList.CopyToResolveTarget(
 			DestRenderTarget.TargetableTexture,
@@ -1430,20 +1362,6 @@ bool FGoogleVRHMD::EnableStereo(bool stereo)
 		return true;
 	}
 	AndroidThunkCpp_UiLayer_SetEnabled(stereo);
-#endif
-
-#if GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
-	dispatch_async(dispatch_get_main_queue(), ^
-	{
-		if (stereo)
-		{
-			[[IOSAppDelegate GetDelegate].IOSView addSubview : OverlayView];
-		}
-		else
-		{
-			[OverlayView removeFromSuperview];
-		}
-	});
 #endif
 
 	bStereoEnabled = stereo;
@@ -1683,10 +1601,6 @@ bool FGoogleVRHMD::GetHMDMonitorInfo(MonitorInfo& OutMonitorInfo)
 	FPlatformRect Rect = FAndroidWindow::GetScreenRect();
 	OutMonitorInfo.ResolutionX = Rect.Right - Rect.Left;
 	OutMonitorInfo.ResolutionY = Rect.Bottom - Rect.Top;
-#elif GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
-	FPlatformRect Rect = FIOSWindow::GetScreenRect();
-	OutMonitorInfo.ResolutionX = Rect.Right - Rect.Left;
-	OutMonitorInfo.ResolutionY = Rect.Bottom - Rect.Top;
 #else
 	gvr_recti Bounds = gvr_get_window_bounds(GVRAPI);
 	OutMonitorInfo.ResolutionX = Bounds.right - Bounds.left;
@@ -1826,7 +1740,7 @@ bool FGoogleVRHMD::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 	// Tune the distortion mesh vert count when use Unreal's PostProcessing Distortion
 	else if (FParse::Command(&Cmd, TEXT("DISTORTMESH")))
 	{
-		const static UEnum* MeshSizeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EDistortionMeshSizeEnum"));
+		const static UEnum* MeshSizeEnum = StaticEnum<EDistortionMeshSizeEnum>();
 		FString Value = FParse::Token(Cmd, 0);
 
 		if (!Value.IsEmpty() && MeshSizeEnum->GetIndexByName(*FString::Printf(TEXT("DMS_%s"), *Value.ToUpper())) != INDEX_NONE)
@@ -1916,7 +1830,7 @@ void FGoogleVRHMD::NeckModelScaleCommandHandler(const TArray<FString>& Args, UWo
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
 void FGoogleVRHMD::DistortMeshSizeCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar)
 {
-	const static UEnum* MeshSizeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EDistortionMeshSizeEnum"));
+	const static UEnum* MeshSizeEnum = StaticEnum<EDistortionMeshSizeEnum>();
 	int EnumIndex = INDEX_NONE;
 
 	if (Args.Num())
@@ -2157,22 +2071,6 @@ void FGoogleVRHMD::UpdatePoses()
 	// Convert Gvr right handed coordinate system rotation into UE left handed coordinate system.
 	CachedFinalHeadRotation = FQuat(FinalHeadPoseUnreal);
 	CachedFinalHeadRotation = FQuat(-CachedFinalHeadRotation.Z, CachedFinalHeadRotation.X, CachedFinalHeadRotation.Y, -CachedFinalHeadRotation.W);
-	
-#if GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
-	// iOS UIInterfaceOrientationLandscapeLeft needs a 180 degree rotated transform
-	UIInterfaceOrientation Orientation = UIInterfaceOrientationPortrait;
-	Orientation = [[UIApplication sharedApplication] statusBarOrientation];
-	#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_8_0
-		Orientation = [[IOSAppDelegate GetDelegate].IOSController interfaceOrientation];
-	#endif
-	
-	if (Orientation == UIInterfaceOrientationLandscapeLeft)
-	{
-		FVector EulerRotate180(180.0f, 0.0f, 0.0f);
-		FQuat Rotate180Quat = FQuat::MakeFromEuler(EulerRotate180);
-		CachedFinalHeadRotation = Rotate180Quat * CachedFinalHeadRotation;
-	}
-#endif
 
 #elif GOOGLEVRHMD_SUPPORTED_INSTANT_PREVIEW_PLATFORMS
 	instant_preview::Session* session = ip_static_server_acquire_active_session(IpServerHandle);

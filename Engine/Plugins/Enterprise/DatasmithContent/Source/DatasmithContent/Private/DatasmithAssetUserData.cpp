@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "DatasmithAssetUserData.h"
 
@@ -22,7 +22,7 @@ void UDatasmithAssetUserData::PostLoad()
 	// This cleanup ensure values from this map can always be dereferenced
 	for (auto It = ObjectTemplates.CreateIterator(); It; ++It)
 	{
-		if (!ensure(It->Value))
+		if (!It->Value)
 		{
 			It.RemoveCurrent();
 			UE_LOG(LogDatasmithContent, Warning, TEXT("Serialization issue: null value found in templates"))

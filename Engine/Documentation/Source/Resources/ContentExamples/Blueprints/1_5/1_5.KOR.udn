@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:4768277
 Availability: Public
 Title:1.5 - 이벤트 그래프
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Blueprints
@@ -16,7 +16,7 @@ Version: 4.9
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 예제](Resources/ContentExamples/Blueprints/1_4 "%Resources/ContentExamples/Blueprints/1_4:title%")
+		[이전 예제](Resources/ContentExamples/Blueprints/1_4 "%Resources/ContentExamples/Blueprints/1_4:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]

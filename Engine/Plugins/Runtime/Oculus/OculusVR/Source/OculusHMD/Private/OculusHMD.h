@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "OculusHMDModule.h"
@@ -54,6 +54,12 @@ struct FPerformanceStats
 	}
 };
 
+enum FRecenterTypes
+{
+	RecenterOrientation = 0x1,
+	RecenterPosition = 0x2,
+	RecenterOrientationAndPosition = 0x3
+};
 
 //-------------------------------------------------------------------------------------------------
 // FOculusHMD - Oculus Rift Head Mounted Display
@@ -94,6 +100,8 @@ public:
 	virtual class IHeadMountedDisplay* GetHMDDevice() override { return this; }
 	virtual class TSharedPtr< class IStereoRendering, ESPMode::ThreadSafe > GetStereoRenderingDevice() override { return SharedThis(this); }
 	//virtual class IXRInput* GetXRInput() override;
+	virtual bool IsHeadTrackingEnforced() const override;
+	virtual void SetHeadTrackingEnforced(bool bEnabled) override;
 	virtual bool IsHeadTrackingAllowed() const override;
 	virtual void OnBeginPlay(FWorldContext& InWorldContext) override;
 	virtual void OnEndPlay(FWorldContext& InWorldContext) override;
@@ -188,6 +196,7 @@ public:
 	virtual void UpdateSplashScreen() override;
 	virtual IStereoLayers::FLayerDesc GetDebugCanvasLayerDesc(FTextureRHIRef Texture) override;
 	virtual void GetAllocatedTexture(uint32 LayerId, FTextureRHIRef &Texture, FTextureRHIRef &LeftTexture) override;
+	virtual bool ShouldCopyDebugLayersToSpectatorScreen() const override { return true; }
 
 	// ISceneViewExtension
 	virtual void SetupViewFamily(FSceneViewFamily& InViewFamily) override;
@@ -221,11 +230,13 @@ protected:
 	void ApplySystemOverridesOnStereo(bool force = false);
 	bool OnOculusStateChange(bool bIsEnabledNow);
 	bool ShouldDisableHiddenAndVisibileAreaMeshForSpectatorScreen_RenderThread() const;
+	void Recenter(FRecenterTypes RecenterType, float Yaw);
 #if !UE_BUILD_SHIPPING
 	void DrawDebug(UCanvas* InCanvas, APlayerController* InPlayerController);
 #endif
 
 	class FSceneViewport* FindSceneViewport();
+	FOculusSplashDesc GetUESplashScreenDesc();
 
 public:
 	bool IsHMDActive() const;
@@ -234,7 +245,6 @@ public:
 	FCustomPresent* GetCustomPresent_Internal() const { return CustomPresent; }
 
 	float GetWorldToMetersScale() const;
-	float GetMonoCullingDistance() const;
 
 	ESpectatorScreenMode GetSpectatorScreenMode_RenderThread() const;
 
@@ -309,6 +319,8 @@ public:
 
 	const int GetNextFrameNumber() const { return NextFrameNumber; }
 
+	const FRotator GetSplashRotation() const { return SplashRotation; }
+
 	void StartGameFrame_GameThread(); // Called from OnStartGameFrame
 	void FinishGameFrame_GameThread(); // Called from OnEndGameFrame
 	void StartRenderFrame_GameThread(); // Called from BeginRenderViewFamily
@@ -316,7 +328,9 @@ public:
 	void StartRHIFrame_RenderThread(); // Called from PreRenderViewFamily_RenderThread
 	void FinishRHIFrame_RHIThread(); // Called from FinishRendering_RHIThread
 
+	void SetCPUAndGPULevel(int CPULevel, int GPULevel);
 	void SetTiledMultiResLevel(ETiledMultiResLevel multiresLevel);
+	void SetColorScaleAndOffset(FLinearColor ColorScale, FLinearColor ColorOffset, bool bApplyToAllLayers);
 
 	OCULUSHMD_API void UpdateRTPoses();
 
@@ -330,14 +344,12 @@ protected:
 	void ShowGlobalMenuCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 	void ShowQuitMenuCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 #if !UE_BUILD_SHIPPING
-	void EnforceHeadTrackingCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 	void StatsCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 	void ShowSettingsCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 	void IPDCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 #endif
 
-	void LoadFromIni();
-	void SaveToIni();
+	void LoadFromSettings();
 
 protected:
 	void UpdateHMDWornState();
@@ -377,7 +389,7 @@ protected:
 	FSplashPtr Splash;
 	IRendererModule* RendererModule;
 
-	ovrpTrackingOrigin TrackingOrigin;
+	EHMDTrackingOrigin::Type TrackingOrigin;
 	// Stores difference between ViewRotation and EyeOrientation from previous frame
 	FQuat LastPlayerOrientation;
 	// Stores GetFrame()->PlayerLocation (i.e., ViewLocation) from the previous frame
@@ -387,7 +399,6 @@ protected:
 	TWeakPtr<SWindow> CachedWindow;
 	FVector2D CachedWindowSize;
 	float CachedWorldToMetersScale;
-	float CachedMonoCullingDistance;
 
 	// Game thread
 	FSettingsPtr Settings;
@@ -416,6 +427,8 @@ protected:
 	FHMDViewMesh VisibleAreaMeshes[2];
 
 	FPerformanceStats PerformanceStats;
+
+	FRotator SplashRotation; // rotation applied to all splash screens (dependent on HMD orientation as the splash is shown)
 
 #if !UE_BUILD_SHIPPING
 	FDelegateHandle DrawDebugDelegateHandle;

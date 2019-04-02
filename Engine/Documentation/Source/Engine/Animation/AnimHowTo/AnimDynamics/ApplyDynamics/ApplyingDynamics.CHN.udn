@@ -1,27 +1,16 @@
-﻿INTSourceChangelist:2988432
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:2 - 应用 AnimDynamics
-Crumbs:%ROOT%, Engine, Engine\Animation, Engine\Animation\AnimHowTo, Engine\Animation\AnimHowTo\AnimDynamics
+Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/AnimHowTo, Engine/Animation/AnimHowTo/AnimDynamics
 Description:在这一步中，我们将 AnimDynamics 应用到角色身上的背带和炉子，使它们对运动作出反应。
-version:4.12
-skilllevel:Advanced
+version: 4.12
+skilllevel: Advanced
+parent:Engine/Animation/AnimHowTo/AnimDynamics
+type:how-to
+type:multi-step
+Order: 2
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[上一步](Engine\Animation\AnimHowTo\AnimDynamics\Setup "%Engine\Animation\AnimHowTo\AnimDynamics\Setup:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[AnimDynamics 操作指南](Engine\Animation\AnimHowTo\AnimDynamics)
-	[/PARAM]
-	[PARAM:next]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
+[NAV]
 
 现在我们的角色已经设置了 **动画蓝图** 并有了我们希望动态地产生动画的骨骼，而要产生动态动画，我们可以在 **动画蓝图** 的 **动画图** 中使用 **AnimDynamics** 节点来实现。 
 
@@ -68,7 +57,7 @@ skilllevel:Advanced
 	在 **设置（Setup）**和 **约束（Constraint）**部分中您可以定义 AnimDynamics 驱动的骨骼的运动和运动范围。**框范围（Box Extent）**提供惯性，**局部关节偏移（Local Joint Offset）**定义支点，**角度限制（Angular Limits）**提供运动的旋转范围（启用相关预览呈现选项就可以看到）。 
 
 	[REGION:note]
-	请参见骨骼控件的 [**AnimDynamics**](Engine\Animation\NodeReference\SkeletalControls) 部分了解更多关于设置和约束设置的信息。 
+	请参见骨骼控件的 [**AnimDynamics**](Engine/Animation/NodeReference/SkeletalControls)部分了解更多关于设置和约束设置的信息。 
 	[/REGION]
 
 1. 	单击 **编译（Compile）**，注意背带对象如何向一侧倾斜。 
@@ -98,27 +87,23 @@ skilllevel:Advanced
 1. 	**编译（Compile）**并 **保存（Save）**，然后在编辑器中运行。
 
 
+(#EndResult)
 ## 最终结果
 
 现在您应该可以看到示例角色的炉子根据我们的约束设置随着对象的移动而弹跳。 
 
 [OBJECT:EmbeddedVideo]
-[PARAMLITERAL:width]
-640
-[/PARAMLITERAL]
-[PARAMLITERAL:height]
-360
-[/PARAMLITERAL]
-[PARAMLITERAL:videoid]
-w7c3i2vpcUc
-[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	640
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	360
+	[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	w7c3i2vpcUc
+	[/PARAMLITERAL]
 [/OBJECT]
 
 您可以自由地试验 **设置（Setup）**部分中的 **框范围（Box Extent）**和 **局部关节偏移（Local Joint Offset）**值，以及 **约束（Constraints）**部分中的 **线性（Linear）**和 **角度限制（Angular Limits）**值，看看这会如何改变受 AnimDynamics 影响的骨骼的运动。
 
-
-
-
-
-
-
+[NAV]

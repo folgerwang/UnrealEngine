@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "BehaviorTree/BTNode.h"
 #include "Engine/World.h"
@@ -6,6 +6,7 @@
 #include "BehaviorTree/BTCompositeNode.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "GameplayTasksComponent.h"
+#include "UObject/Package.h"
 
 //----------------------------------------------------------------------//
 // UBTNode
@@ -29,12 +30,20 @@ UBTNode::UBTNode(const FObjectInitializer& ObjectInitializer) : Super(ObjectInit
 
 UWorld* UBTNode::GetWorld() const
 {
-	// instanced nodes are created for behavior tree component owning that instance
-	// template nodes are created for behavior tree manager, which is located directly in UWorld
+	if (GetOuter() == nullptr)
+	{
+		return nullptr;
+	}
 
-	return GetOuter() == NULL ? NULL :
-		IsInstanced() ? (Cast<UBehaviorTreeComponent>(GetOuter()))->GetWorld() :
-		Cast<UWorld>(GetOuter()->GetOuter());
+	// Special case for behavior tree nodes in the editor
+	if (Cast<UPackage>(GetOuter()) != nullptr)
+	{
+		// GetOuter should return a UPackage and its Outer is a UWorld
+		return Cast<UWorld>(GetOuter()->GetOuter());
+	}
+
+	// In all other cases...
+	return GetOuter()->GetWorld();
 }
 
 void UBTNode::InitializeNode(UBTCompositeNode* InParentNode, uint16 InExecutionIndex, uint16 InMemoryOffset, uint8 InTreeDepth)

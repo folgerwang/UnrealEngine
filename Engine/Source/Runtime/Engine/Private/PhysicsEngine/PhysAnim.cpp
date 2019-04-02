@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PhysAnim.cpp: Code for supporting animation/physics blending
@@ -105,9 +105,9 @@ public:
 
 	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
+		CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Physics);
 		SCOPED_NAMED_EVENT(FParallelBlendPhysicsCompletionTask_DoTask, FColor::Yellow);
 		SCOPE_CYCLE_COUNTER(STAT_AnimGameThreadTime);
-		CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_AnimGameThread);
 
 		if (USkeletalMeshComponent* Comp = SkeletalMeshComponent.Get())
 		{
@@ -310,17 +310,16 @@ void USkeletalMeshComponent::PerformBlendPhysicsBones(const TArray<FBoneIndexTyp
 
 bool USkeletalMeshComponent::ShouldBlendPhysicsBones() const
 {
-	const bool bHasPhysicsBodies = Bodies.Num() > 0;
-	const bool bCollisionEnabledHasPhysics = CollisionEnabledHasPhysics(GetCollisionEnabled());
-	const bool bBlendPhysicsOrWeights = DoAnyPhysicsBodiesHaveWeight() || bBlendPhysics;
-	return bHasPhysicsBodies && bCollisionEnabledHasPhysics && bBlendPhysicsOrWeights;
+	return	(Bodies.Num() > 0) &&
+			(CollisionEnabledHasPhysics(GetCollisionEnabled())) &&
+			(bBlendPhysics || DoAnyPhysicsBodiesHaveWeight());
 }
 
 bool USkeletalMeshComponent::DoAnyPhysicsBodiesHaveWeight() const
 {
 	for (const FBodyInstance* Body : Bodies)
 	{
-		if (Body->PhysicsBlendWeight > 0.f)
+		if (Body && Body->PhysicsBlendWeight > 0.f)
 		{
 			return true;
 		}
@@ -409,13 +408,24 @@ void USkeletalMeshComponent::FinalizeAnimationUpdate()
 		UpdateOverlaps();
 	}
 
-	// Cached local bounds are now out of date
-	InvalidateCachedBounds();
+	// update bounds
+	if(bSkipBoundsUpdateWhenInterpolating)
+	{
+		if(AnimEvaluationContext.bDoEvaluation)
+		{
+			SCOPE_CYCLE_COUNTER(STAT_FinalizeAnimationUpdate_UpdateBounds);
+			// Cached local bounds are now out of date
+			InvalidateCachedBounds();
 
+			UpdateBounds();
+		}
+	}
+	else
 	{
 		SCOPE_CYCLE_COUNTER(STAT_FinalizeAnimationUpdate_UpdateBounds);
+		// Cached local bounds are now out of date
+		InvalidateCachedBounds();
 
-		// update bounds
 		UpdateBounds();
 	}
 
@@ -439,7 +449,7 @@ void USkeletalMeshComponent::CompleteParallelBlendPhysics()
 	ParallelBlendPhysicsCompletionTask.SafeRelease();
 }
 
-void USkeletalMeshComponent::UpdateKinematicBonesToAnim(const TArray<FTransform>& InSpaceBases, ETeleportType Teleport, bool bNeedsSkinning)
+void USkeletalMeshComponent::UpdateKinematicBonesToAnim(const TArray<FTransform>& InSpaceBases, ETeleportType Teleport, bool bNeedsSkinning, EAllowKinematicDeferral DeferralAllowed)
 {
 	SCOPE_CYCLE_COUNTER(STAT_UpdateRBBones);
 
@@ -487,6 +497,13 @@ void USkeletalMeshComponent::UpdateKinematicBonesToAnim(const TArray<FTransform>
 		return;
 	}
 #endif
+
+	// If we are only using bodies for physics, don't need to move them right away, can defer until simulation (unless told not to)
+	if (DeferralAllowed == EAllowKinematicDeferral::AllowDeferral && (bDeferKinematicBoneUpdate || BodyInstance.GetCollisionEnabled() == ECollisionEnabled::PhysicsOnly))
+	{
+		PhysScene->MarkForPreSimKinematicUpdate(this, Teleport, bNeedsSkinning);
+		return;
+	}
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	// If desired, draw the skeleton at the point where we pass it to the physics.
@@ -537,6 +554,10 @@ void USkeletalMeshComponent::UpdateKinematicBonesToAnim(const TArray<FTransform>
 				for(int32 i = 0; i < NumBodies; i++)
 				{
 					FBodyInstance* BodyInst = Bodies[i];
+					if (!ensure(BodyInst))
+					{
+						continue;
+					}
 					FPhysicsActorHandle& ActorHandle = BodyInst->ActorHandle;
 					const bool bIsRigidBody = FPhysicsInterface::IsRigidBody(ActorHandle);
 
@@ -682,7 +703,7 @@ void USkeletalMeshComponent::UpdateRBJointMotors()
 
 			// If we found this bone, and a visible bone that is not the root, and its joint is motorised in some way..
 			if( (BoneIndex != INDEX_NONE) && (BoneIndex != 0) &&
-				(BoneVisibilityStates[BoneIndex] == BVS_Visible) &&
+				(GetBoneVisibilityStates()[BoneIndex] == BVS_Visible) &&
 				(CI->IsAngularOrientationDriveEnabled()) )
 			{
 				check(BoneIndex < BoneSpaceTransforms.Num());

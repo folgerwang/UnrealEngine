@@ -1,4 +1,5 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// .
 
 #include "ShaderFormatVectorVM.h"
 #include "VectorVMBackend.h"
@@ -31,7 +32,7 @@ bool CompileShader_VectorVM(const FShaderCompilerInput& Input, FShaderCompilerOu
 }
 
 //TODO: Move to this output living in the shader eco-system with the compute shaders too but for now just do things more directly.
-bool CompileShader_VectorVM(const FShaderCompilerInput& Input, FShaderCompilerOutput& Output,const FString& WorkingDirectory, uint8 Version, FVectorVMCompilationOutput& VMCompilationOutput)
+bool CompileShader_VectorVM(const FShaderCompilerInput& Input, FShaderCompilerOutput& Output,const FString& WorkingDirectory, uint8 Version, FVectorVMCompilationOutput& VMCompilationOutput, bool bSkipBackendOptimizations)
 {
 	SCOPE_CYCLE_COUNTER(STAT_VectorVM_Compiler_CompileShader_VectorVM);
 
@@ -101,6 +102,11 @@ bool CompileShader_VectorVM(const FShaderCompilerInput& Input, FShaderCompilerOu
 	uint32 CCFlags = HLSLCC_NoPreprocess;
 		//CCFlags |= HLSLCC_PrintAST;
 	//CCFlags |= HLSLCC_UseFullPrecisionInPS;
+
+	if (bSkipBackendOptimizations)
+	{
+		CCFlags |= HLSLCC_DisableBackendOptimizations;
+	}
 
 	//TODO: Do this later when we implement the rest of the shader plumbing stuff.
 // 		if (bDumpDebugInfo)

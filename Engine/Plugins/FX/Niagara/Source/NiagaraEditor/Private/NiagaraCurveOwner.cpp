@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraCurveOwner.h"
 
@@ -86,7 +86,7 @@ void FNiagaraCurveOwner::OnCurveChanged(const TArray<FRichCurveEditInfo>& Change
 		UObject** CurveOwner = EditInfoToOwnerMap.Find(ChangedCurveEditInfo);
 		if (CurveChanged != nullptr && CurveOwner != nullptr)
 		{
-			CurveChanged->Execute(ChangedCurveEditInfo.CurveToEdit, *CurveOwner);
+			CurveChanged->Execute((FRichCurve*)ChangedCurveEditInfo.CurveToEdit, *CurveOwner);
 			(*CurveOwner)->PostEditChange();
 		}
 	}

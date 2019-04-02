@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,7 @@
 #include "Sound/SoundSubmix.h"
 #include "Sound/SampleBuffer.h"
 #include "DSP/EnvelopeFollower.h"
+#include "DSP/SpectrumAnalyzer.h"
 
 class USoundEffectSubmix;
 
@@ -134,12 +135,28 @@ namespace Audio
 		// Adds an envelope follower delegate
 		void AddEnvelopeFollowerDelegate(const FOnSubmixEnvelopeBP& OnSubmixEnvelopeBP);
 
+		// Initializes a new FFT analyzer for this submix and immediately begins feeding audio to it.
+		void StartSpectrumAnalysis(const FSpectrumAnalyzerSettings& InSettings);
+
+		// Terminates whatever FFT Analyzer is being used for this submix.
+		void StopSpectrumAnalysis();
+
+		// Gets the most recent magnitude values for each corresponding value in InFrequencies (in Hz).
+		// This requires StartSpectrumAnalysis to be called first.
+		void GetMagnitudeForFrequencies(const TArray<float>& InFrequencies, TArray<float>& OutMagnitudes);
+
+		// Gets the most recent phase values for each corresponding value in InFrequencies (in Hz).
+		// This requires StartSpectrumAnalysis to be called first.
+		void GetPhaseForFrequencies(const TArray<float>& InFrequencies, TArray<float>& OutPhases);
+
 		// Broadcast the envelope value on the game thread
 		void BroadcastEnvelope();
 
 	protected:
 		// Down mix the given buffer to the desired down mix channel count
 		void FormatChangeBuffer(const ESubmixChannelFormat NewChannelType, AlignedFloatBuffer& InBuffer, AlignedFloatBuffer& OutNewBuffer);
+
+		void MixBufferDownToMono(const AlignedFloatBuffer& InBuffer, int32 NumInputChannels, AlignedFloatBuffer& OutBuffer);
 
 		// Set up ambisonics encoder. Called when ambisonics settings are changed.
 		void SetUpAmbisonicsEncoder();
@@ -237,6 +254,12 @@ namespace Audio
 		Audio::FEnvelopeFollower EnvelopeFollowers[AUDIO_MIXER_MAX_OUTPUT_CHANNELS];
 		int32 EnvelopeNumChannels;
 		FCriticalSection EnvelopeCriticalSection;
+
+		// Spectrum analyzer:
+		TUniquePtr<FSpectrumAnalyzer> SpectrumAnalyzer;
+		
+		// This buffer is used to downmix the submix output to mono before submitting it to the SpectrumAnalyzer.
+		AlignedFloatBuffer MonoMixBuffer;
 
 		// This buffer is encoded into for each source, then summed into the ambisonics buffer.
 		AlignedFloatBuffer InputAmbisonicsBuffer;

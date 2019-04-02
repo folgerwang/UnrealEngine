@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -49,6 +49,10 @@ private:
 
 	bool CanSelectAllKeys() const;
 
+	void SetSectionToKey();
+
+	bool CanSetSectionToKey() const;
+
 	void TogglePrimeForRecording() const;
 
 	bool IsPrimedForRecording() const;
@@ -86,7 +90,7 @@ private:
 	void BringForward();
 
 	void SendBackward();
-
+	
 	FMovieSceneBlendTypeField GetSupportedBlendTypes() const;
 
 	/** The sequencer */

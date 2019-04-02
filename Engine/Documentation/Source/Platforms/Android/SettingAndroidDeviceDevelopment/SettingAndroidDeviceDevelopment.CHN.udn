@@ -1,0 +1,203 @@
+﻿INTSourceChangelist:4674424
+Availability: Public
+Crumbs: 
+Title: 设置Android设备进行开发
+Description: 了解用Android设备进行UE4开发时需要进行哪些设置。
+Type: 
+Version: 4.19
+Parent: Platforms/Mobile/Android
+Order: 
+Tags: mobile
+Tags: Android
+Tags: StartingOut
+Tags: PreRec
+
+以下部分将讲述如何设置Android设备，使其能运行您的UE4项目。
+
+(#steps)
+
+## 步骤
+
+1.  首先用USB线将Android设备连接到开发电脑。
+
+2.  插入电脑后，设备驱动软件应自动安装。如未安装，请访问[Android的OEM USB驱动](http://developer.android.com/tools/extras/oem-usb.html)页面来查找更多驱动安装链接和额外信息。
+
+3.  在Android设备上打开 **设置（Settings）** 应用程序。
+
+4.  点击 **开发者选项（Developer Options）** 打开菜单。
+
+    [REGION:tip]
+    如菜单未出现，则需要在设备上启用开发者选项。如需了解开发者选项的详情，请访问[在硬件设备上运行应用](http://developer.android.com/tools/device.html)页面。
+    [/REGION]
+
+5.  向下滚动并选择 **关于手机（About Phone）**。根据所使用Android设备的不同，此处可能出现“关于设备（About Device）”、“关于平板（About Tablet）”或“关于Shield（About Shield）”等选项。
+
+    [REGION:note]
+    在较新的Android版本中，其可能位于 **更多（More）** 部分中。
+    [/REGION]
+
+6.  点按 **版本号（Build Number）** 7次来启动开发者模式。
+
+    [REGION:lightbox]
+    [![](Enable_Dev_Mode.png)(w:200px)](Enable_Dev_Mode.png)
+    [/REGION]
+
+7.  进行数次点击后将出现一条消息：“再点击#次您便能启动开发者模式（You are now # steps away from becoming a developer）”。
+
+8.  启动开发者模式后，屏幕上便会出现类似于下图的成功消息。
+
+    ![](Dev_Mode_Active.png)
+
+9.  回到“设置（Settings）”菜单中，并选择应已存在与此的 **开发者选项（Developer Options）**。 
+
+    [REGION:lightbox]
+    [![](Dev_Options_Enabled.png)(w:200px)](Dev_Options_Enabled.png)
+    [/REGION]
+
+10. 在“开发者选项（Developer Options）”菜单点按中启用 **USB调试（USB debugging）**。 
+
+    [REGION:lightbox]
+    [![](Enable_USB_Debugging.png)(w:200px)](Enable_USB_Debugging.png)
+    [/REGION]
+
+11. 弹出提示后点按 **OK** 键。
+
+    [![](Enable_USB_Debugging_Warning.png)(w:200px)](Enable_USB_Debugging_Warning.png)
+
+12.  断开Android的USB连接，然后立即重新连接。设备被PC识别后，Android设备上将出现以下消息，询问是否允许此PC与设备对话。消息框将询问将把USB连接用作何用。点按 **固定允许来自此电脑的连接** 的 **勾选框**，然后点按 **OK** 按钮。
+
+    [![](PC_RSA_Fingerprint.png)(w:200px)](PC_RSA_Fingerprint.png)
+
+(#endresult)
+
+## 最终结果
+
+可执行以下操作来验证所有内容是否已设置完毕，Android也已能够用于UE4开发。
+
+1.  首先按下 **Windows + R** 键打开 **运行** 对话框。
+
+2.  在 **打开** 域中输入 **cmd**，然后点击 **OK** 按钮打开 **Windows命令行**。
+
+    ![](Windows_Run_Command.png)
+
+3.  在命令行上输入 **adb devices** 然后按下 **回车键** 来显示所有已连接的Android设备。
+
+    ![](ADB_Devices.png)
+
+使用 `adb devices` 命令后如未看到设备，可尝试以下操作：
+
+*   如设备已在列表中但名称旁显示有 **未授权**，则说明尚未接受开发电脑的电脑RSA密钥指纹。 
+*   如插入并设置设备后其仍未出现，则在Windows命令行中按以下顺序输入命令并重启 **Android调试桥** 或（ADB）服务：
+[REGION:MyTableInList] 
+| **属性名称** | **描述** |
+| --- | --- |
+| **ADB kill - server** | 其将停止ADB服务。 |
+| **ADB start - server** | 其将开始ADB服务。 |
+[/REGION]  
+*   在一些情况下，一个已正确配置的Android设备如果被连接为 **媒体设备（MTP）**，其则有可能不会出现。如出现此情况，请在使用USB的选项中选择“相机（PTP）”选项，将其连接为 **相机（PTP）**。
+
+操作完成后，此Android智能机便能用于部署和运行UE4项目。
+
+(#steps)
+
+## 步骤
+
+1.  用USB线将Android设备连接到Mac。
+2.  插入电脑后，设备驱动软件应自动安装。如未安装，请访问[Android的OEM USB驱动](http://developer.android.com/tools/extras/oem-usb.html)页面来查找更多驱动安装链接和额外信息。
+3.  在Android设备上打开 **设置（Settings）** 应用程序。
+4.  点击 **开发者选项（Developer Options）** 打开菜单。
+    [REGION:tip]
+    如菜单未出现，则需要在设备上启用开发者选项。如需了解开发者选项的详情，请访问[在硬件设备上运行应用](http://developer.android.com/tools/device.html)页面。
+    [/REGION]
+5.  向下滚动并选择 **关于手机（About Phone）**。根据所使用Android设备的不同，此处可能出现“关于设备（About Device）”、“关于平板（About Tablet）”或“关于Shield（About Shield）”等选项。
+    [REGION:note]
+    在较新的Android版本中，其可能位于 **更多（More）** 部分中。
+    [/REGION]
+6.  点按 **版本号（Build Number）** 7次来启动开发者模式。
+    [REGION:lightbox]
+    [![](Enable_Dev_Mode.png)(w:200px)](Enable_Dev_Mode.png)
+    [/REGION]
+7.  进行数次点击后将出现一条消息：**“再点击#次您便能启动开发者模式（You are now # steps away from becoming a developer）”**。
+8.  启动开发者模式后，屏幕上便会出现类似于下图的成功消息。  
+    ![](Dev_Mode_Active.png)
+9.  返回“设置（Settings）”菜单中，并选择应已存在与此的 **开发者选项（Developer Options）**。  
+    [REGION:lightbox]
+    [![](Dev_Options_Enabled.png)(w:200px)](Dev_Options_Enabled.png)
+    [/REGION]
+10. 在“开发者选项（Developer Options）”菜单点按中启用 **USB调试（USB debugging）**。  
+    [REGION:lightbox]
+    [![](Enable_USB_Debugging.png)(w:200px)](Enable_USB_Debugging.png)
+    [/REGION]
+11. 弹出提示后点按 **OK** 键。  
+    [![](Enable_USB_Debugging_Warning.png)(w:200px)](Enable_USB_Debugging_Warning.png)
+12. 断开Android的USB连接，然后立即重新连接。设备被Mac识别后，Android设备上将出现以下消息，询问是否允许此Mac与设备对话。消息框将询问将把USB连接用作何用。点按 **固定允许来自此电脑的连接** 的 **勾选框**，然后点按 **OK** 按钮。  
+    [![](PC_RSA_Fingerprint.png)(w:200px)](PC_RSA_Fingerprint.png)
+
+(#endresult)
+
+## 最终结果
+
+*   从/Applications/Utilities打开终端应用程序即可验证设备是否已设置妥当。  
+    ![](MAC_Terminal_Activate.png)
+
+在命令行中输入“ADB devices”即可看到连接到Mac的所有设备。  
+![](MAC_Checking_ADB_Devices.png)
+
+输入 `adb devices` 命令后如未看到设备，可尝试以下操作：
+
+*   如设备已在列表中但名称旁显示有 **未授权**，则说明尚未接受开发电脑的RSA密钥指纹。
+*   如插入并设置设备后其仍未出现，则在命令行中按以下顺序输入命令并重启 **Android调试桥** 或（ADB）服务：
+
+[REGION:MyTableInList] 
+| **属性名称** | **描述** |
+| --- | --- |
+| **ADB kill - server** | 其将停止ADB服务。 |
+| **ADB start - server** | 其将开始ADB服务。 |
+[/REGION]  
+ 
+*   在一些情况下，一个已正确配置的Android设备如果被连接为 **媒体设备（MTP）**，其则有可能不会出现。如出现此情况，请在使用USB的选项中选择“相机（PTP）”选项，将其连接为 **相机（PTP）**。
+
+操作完成后，此Android智能机便能用于部署和运行UE4项目。
+
+(#steps)
+
+## 步骤
+
+1.  用USB线将Android设备连接到安装有Linux系统的电脑。
+2.  在Android设备上打开“设置（Settings）”应用程序。  
+    [![](LinuxAndroid_Step17.png)](http://dnnrz1gqa.evoqondemand.com/en-us/Platforms/Android/GettingStarted/LinuxAndroid_Step17.png)
+3.  点击 **开发者选项（Developer Options）** 打开菜单。  
+    [![](LinuxAndroid_Step18.png)](http://dnnrz1gqa.evoqondemand.com/en-us/Platforms/Android/GettingStarted/LinuxAndroid_Step18.png)
+    [REGION:note]
+    如菜单未出现，则需要在设备上启用“开发者选项”。启用方法为打开“设置”应用程序，滚动到底部并选择“关于电话（About Phone）”。选择此项后，滚动到底部并点按“版本号”7次。如需了解在Android设备上启用开发者选项的方法，请参见Android的使用者指南。
+    [/REGION]
+
+(#enablingusbdebugging)
+
+## 启用USB调试
+
+1.  在 **开发者选项（Developer Options）** 菜单中启用 **USB调试（USB debugging）**。  
+    [![](LinuxAndroid_Step19.png)](http://dnnrz1gqa.evoqondemand.com/en-us/Platforms/Android/GettingStarted/LinuxAndroid_Step19.png)
+2.  将出现一个窗口，确认启用USB调试。阅读提示后点按 **OK** 按钮。  
+    [![](LinuxAndroid_Step20.png)](http://dnnrz1gqa.evoqondemand.com/en-us/Platforms/Android/GettingStarted/LinuxAndroid_Step20.png)
+3.  现在USB调试便已启用。  
+    ![](LinuxAndroid_Step20Note.png)
+4.  现在断开Android设备的USB连接，并在数秒之后将其重新连接。如果连接的是运行Android 4.2.2或以上版本的设备，将出现以下对话，询问使用者是否接受允许通过Linux电脑进行调试的RSA密钥。选择 **固定允许来自此电脑的连接** 的勾选框，然后点按 **OK** 按钮。  
+    [![](LinuxAndroid_Step21.png)](http://dnnrz1gqa.evoqondemand.com/en-us/Platforms/Android/GettingStarted/LinuxAndroid_Step21.png)
+
+(#endresult)
+
+## 最终结果
+
+输入 `adb devices` 命令后如未看到设备，可尝试以下操作：
+*   如设备已在列表中但名称旁显示有 **未授权**，则说明尚未接受开发电脑的RSA密钥指纹。
+*   如插入并设置设备后其仍未出现，则在Windows命令行中按以下顺序输入命令并重启 **Android调试桥** 或（ADB）服务：
+
+[REGION:MyTableInList] 
+| **属性名称** | **描述** |
+| --- | --- |
+| **ADB kill - server** | 其将停止ADB服务。 |
+| **ADB start - server** | 其将开始ADB服务。 |
+[/REGION] 
+
+*   在一些情况下，一个已正确配置的Android设备如果被连接为 **媒体设备（MTP）**，其则有可能不会出现。如出现此情况，请在使用USB的选项中选择“相机（PTP）”选项，将其连接为 **相机（PTP）**。操作完成后，这台Android智能机便能用于部署和运行UE4项目。

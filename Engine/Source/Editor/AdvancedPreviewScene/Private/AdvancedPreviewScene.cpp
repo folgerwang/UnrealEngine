@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AdvancedPreviewScene.h"
 #include "UnrealClient.h"
@@ -23,6 +23,7 @@
 #include "AdvancedPreviewSceneCommands.h"
 #include "Framework/Commands/UICommandList.h"
 #include "Framework/Application/SlateApplication.h"
+#include "Editor.h"
 
 FAdvancedPreviewScene::FAdvancedPreviewScene(ConstructionValues CVS, float InFloorOffset)
 	: FPreviewScene(CVS)
@@ -41,9 +42,28 @@ FAdvancedPreviewScene::FAdvancedPreviewScene(ConstructionValues CVS, float InFlo
 
 	const FTransform Transform(FRotator(0, 0, 0), FVector(0, 0, 0), FVector(1));
 
-	// Set up sky light using the set cube map texture, reusing the sky light from PreviewScene class
-	SetSkyCubemap(Profile.EnvironmentCubeMap.Get());
-	SetSkyBrightness(Profile.SkyLightIntensity);
+	static const auto CVarSupportStationarySkylight = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.SupportStationarySkylight"));
+	bUseSkylight = CVarSupportStationarySkylight->GetValueOnAnyThread() != 0;
+
+	if (bUseSkylight)
+	{
+		// Set up sky light using the set cube map texture, reusing the sky light from PreviewScene class
+		SetSkyCubemap(Profile.EnvironmentCubeMap.Get());
+		SetSkyBrightness(Profile.SkyLightIntensity);
+	}
+	else
+	{
+		// Hide the inherited skylight 
+		SkyLight->SetVisibility(false);
+
+		// Setup sphere reflection
+		SphereReflectionComponent = NewObject<USphereReflectionCaptureComponent>();
+		SphereReflectionComponent->Cubemap = Profile.EnvironmentCubeMap.Get();
+		SphereReflectionComponent->ReflectionSourceType = EReflectionSourceType::SpecifiedCubemap;
+		SphereReflectionComponent->Brightness = Profile.SkyLightIntensity;
+		AddComponent(SphereReflectionComponent, Transform);
+		SphereReflectionComponent->UpdateReflectionCaptureContents(PreviewWorld);
+	}
 	
 	// Large scale to prevent sphere from clipping
 	const FTransform SphereTransform(FRotator(0, 0, 0), FVector(0, 0, 0), FVector(2000));
@@ -88,9 +108,14 @@ FAdvancedPreviewScene::FAdvancedPreviewScene(ConstructionValues CVS, float InFlo
 	bRotateLighting = Profile.bRotateLightingRig;
 	CurrentRotationSpeed = Profile.RotationSpeed;
 	bSkyChanged = false;
-	bUseSkylight = true;
 
 	BindCommands();
+
+	// since advance preview scenes are used in conjunction with material/mesh editors we should match their feature level with the global one
+	if (GIsEditor && GEditor != nullptr)
+	{
+		PreviewWorld->ChangeFeatureLevel(GEditor->DefaultWorldFeatureLevel);
+	}
 }
 
 FAdvancedPreviewScene::~FAdvancedPreviewScene()
@@ -194,7 +219,7 @@ void FAdvancedPreviewScene::UpdateScene(FPreviewSceneProfile& Profile, bool bUpd
 	SkyComponent->SetVisibility(Profile.bShowEnvironment, true);
 	if (bUseSkylight)
 	{
-		SkyLight->SetVisibility(Profile.bShowEnvironment, true);
+		SkyLight->SetVisibility(Profile.bUseSkyLighting, true);
 	}
 	else
 	{
@@ -360,7 +385,7 @@ void FAdvancedPreviewScene::SetFloorVisibility(const bool bVisible, const bool b
 	}
 	else
 	{
-		// Otherwise set visiblity directly on the component
+		// Otherwise set visibility directly on the component
 		FloorMeshComponent->SetVisibility(bVisible ? DefaultSettings->Profiles[CurrentProfileIndex].bShowFloor : bVisible);
 	}
 }
@@ -379,14 +404,10 @@ void FAdvancedPreviewScene::SetEnvironmentVisibility(const bool bVisible, const 
 	else
 	{
 		// Otherwise set visibility directly on the component
-		SkyComponent->SetVisibility(bVisible ? DefaultSettings->Profiles[CurrentProfileIndex].bShowEnvironment : bVisible);
-		if (bUseSkylight)
+		SkyComponent->SetVisibility(bVisible);
+		if (!bUseSkylight)
 		{
-			SkyLight->SetVisibility(bVisible ? DefaultSettings->Profiles[CurrentProfileIndex].bShowEnvironment : bVisible);
-		}
-		else
-		{
-			SphereReflectionComponent->SetVisibility(bVisible ? DefaultSettings->Profiles[CurrentProfileIndex].bShowEnvironment : bVisible);
+			SphereReflectionComponent->SetVisibility(bVisible);
 		}
 	}
 }
@@ -472,7 +493,7 @@ void FAdvancedPreviewScene::OnAssetViewerSettingsRefresh(const FName& InProperty
 		const bool bNameNone = InPropertyName == NAME_None;
 
 		const bool bUpdateEnvironment = (InPropertyName == GET_MEMBER_NAME_CHECKED(FPreviewSceneProfile, EnvironmentCubeMap)) || (InPropertyName == GET_MEMBER_NAME_CHECKED(FPreviewSceneProfile, LightingRigRotation) || (InPropertyName == GET_MEMBER_NAME_CHECKED(UAssetViewerSettings, Profiles)));
-		const bool bUpdateSkyLight = bUpdateEnvironment || (InPropertyName == GET_MEMBER_NAME_CHECKED(FPreviewSceneProfile, SkyLightIntensity) || (InPropertyName == GET_MEMBER_NAME_CHECKED(UAssetViewerSettings, Profiles)));
+		const bool bUpdateSkyLight = bUpdateEnvironment || (InPropertyName == GET_MEMBER_NAME_CHECKED(FPreviewSceneProfile, SkyLightIntensity) || InPropertyName == GET_MEMBER_NAME_CHECKED(FPreviewSceneProfile, bUseSkyLighting) || (InPropertyName == GET_MEMBER_NAME_CHECKED(UAssetViewerSettings, Profiles)));
 		const bool bUpdateDirectionalLight = (InPropertyName == GET_MEMBER_NAME_CHECKED(FPreviewSceneProfile, DirectionalLightIntensity)) || (InPropertyName == GET_MEMBER_NAME_CHECKED(FPreviewSceneProfile, DirectionalLightColor));
 		const bool bUpdatePostProcessing = (InPropertyName == GET_MEMBER_NAME_CHECKED(FPreviewSceneProfile, PostProcessingSettings)) || (InPropertyName == GET_MEMBER_NAME_CHECKED(FPreviewSceneProfile, bPostProcessingEnabled));
 

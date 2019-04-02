@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Misc/AutomationTest.h"
@@ -52,24 +52,24 @@ void RunSegmentationTest(FAutomationTestBase& Test, uint32 MessageSize, uint16 S
 	// peeking at next pending segment
 	{
 		TArray<uint8> OutData;
-		uint16 OutSegmentNumber;
+		uint32 OutSegmentNumber;
 
 		Segmenter.GetNextPendingSegment(OutData, OutSegmentNumber);
 
 		Test.TestEqual(TEXT("The number of pending segments must not change when peeking at a pending segment"), Segmenter.GetPendingSegmentsCount(), NumSegments);
 	}
 
-	uint16 GeneratedSegmentCount = 0;
+	uint32 GeneratedSegmentCount = 0;
 
 	// do the segmentation
 	{
 		TArray<uint8> OutData;
-		uint16 OutSegmentNumber = 0;
-		int32 NumInvalidSegments = 0;
+		uint32 OutSegmentNumber = 0;
+		uint32 NumInvalidSegments = 0;
 
 		while (Segmenter.GetNextPendingSegment(OutData, OutSegmentNumber))
 		{
-			Segmenter.MarkAsAcknowledged(TArrayBuilder<uint16>().Add(OutSegmentNumber));
+			Segmenter.MarkAsAcknowledged(TArrayBuilder<uint32>().Add(OutSegmentNumber));
 			++GeneratedSegmentCount;
 
 			// verify segment size

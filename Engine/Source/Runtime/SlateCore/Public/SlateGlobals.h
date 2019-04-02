@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,10 +6,6 @@
 #include "Stats/Stats.h"
 
 #define SLATE_CHECK_UOBJECT_RENDER_RESOURCES !UE_BUILD_SHIPPING
-
-#ifndef SLATE_PARENT_POINTERS
-	#define SLATE_PARENT_POINTERS 0
-#endif
 
 #ifndef SLATE_CULL_WIDGETS
 	#define SLATE_CULL_WIDGETS 1

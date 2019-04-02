@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Perception/AISense_Team.h"
 
@@ -35,10 +35,8 @@ float UAISense_Team::Update()
 			continue;
 		}
 
-		for (int32 EventIndex = 0; EventIndex < RegisteredEvents.Num(); ++EventIndex)
+		for (const FAITeamStimulusEvent& Event : RegisteredEvents)
 		{
-			const FAITeamStimulusEvent& Event = RegisteredEvents[EventIndex];
-
 			// @todo implement some kind of TeamIdentifierType that would supply comparison operator 
 			if (Listener.TeamIdentifier != Event.TeamIdentifier 
 				|| FVector::DistSquared(Event.GetBroadcastLocation(), Listener.CachedLocation) > Event.RangeSq)

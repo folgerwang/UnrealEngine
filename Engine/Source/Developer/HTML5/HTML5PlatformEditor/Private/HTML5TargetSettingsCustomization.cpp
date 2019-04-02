@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "HTML5TargetSettingsCustomization.h"
 #include "HTML5TargetSettings.h"
@@ -45,6 +45,8 @@ void FHTML5TargetSettingsCustomization::CustomizeDetails(IDetailLayoutBuilder& D
 	}
 
 	SETUP_SOURCEONLY_PROP(EnableIndexedDB, EmscriptenCategory);
+
+	SETUP_SOURCEONLY_PROP(EnableMultithreading, EmscriptenCategory);
 
 	AudioPluginWidgetManager.BuildAudioCategory(DetailLayout, EAudioPlatform::HTML5);
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "BuildPatchGeneration.h"
 #include "Templates/ScopedPointer.h"
@@ -40,7 +40,7 @@ namespace BuildPatchServices
 	struct FScannerDetails
 	{
 	public:
-		FScannerDetails(int32 InLayer, uint64 InLayerOffset, bool bInIsFinalScanner, uint64 InPaddingSize, TArray<uint8> InData, FBlockStructure InStructure, const TArray<uint32>& ChunkWindowSizes, const ICloudEnumerationRef& CloudEnumeration, const FStatsCollectorRef& StatsCollector)
+		FScannerDetails(int32 InLayer, uint64 InLayerOffset, bool bInIsFinalScanner, uint64 InPaddingSize, TArray<uint8> InData, FBlockStructure InStructure, const TArray<uint32>& ChunkWindowSizes, const ICloudEnumeration* CloudEnumeration, FStatsCollector* StatsCollector)
 			: Layer(InLayer)
 			, LayerOffset(InLayerOffset)
 			, bIsFinalScanner(bInIsFinalScanner)
@@ -51,13 +51,13 @@ namespace BuildPatchServices
 		{}
 
 	public:
-		int32 Layer;
-		uint64 LayerOffset;
-		bool bIsFinalScanner;
-		uint64 PaddingSize;
-		TArray<uint8> Data;
-		FBlockStructure Structure;
-		IDataScannerRef Scanner;
+		const int32 Layer;
+		const uint64 LayerOffset;
+		const bool bIsFinalScanner;
+		const uint64 PaddingSize;
+		const TArray<uint8> Data;
+		const FBlockStructure Structure;
+		const TUniquePtr<IDataScanner> Scanner;
 	};
 }
 
@@ -86,7 +86,7 @@ namespace PatchGenerationHelpers
 
 }
 
-bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchServices::FGenerationConfiguration& Settings)
+bool FBuildDataGenerator::ChunkBuildDirectory(const BuildPatchServices::FChunkBuildConfiguration& Settings)
 {
 	const uint64 StartTime = FStatsCollector::GetCycles();
 
@@ -122,7 +122,7 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchSe
 	const uint64 ScannerDataSize = GenerationScannerSizeMegabytes * 1048576;
 
 	// Create stat collector.
-	FStatsCollectorRef StatsCollector = FStatsCollectorFactory::Create();
+	TUniquePtr<FStatsCollector> StatsCollector(FStatsCollectorFactory::Create());
 
 	// Setup Generation stats.
 	volatile int64* StatTotalTime = StatsCollector->CreateStat(TEXT("Generation: Total Time"), EStatFormat::Timer);
@@ -135,7 +135,7 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchSe
 	// Create a chunk writer.
 	TUniquePtr<IFileSystem> FileSystem(FFileSystemFactory::Create());
 	TUniquePtr<IChunkDataSerialization> ChunkDataSerialization(FChunkDataSerializationFactory::Create(FileSystem.Get(), Settings.FeatureLevel));
-	TUniquePtr<IParallelChunkWriter> ChunkWriter(FParallelChunkWriterFactory::Create({5, 5, 50, 8, Settings.CloudDirectory, Settings.FeatureLevel}, FileSystem.Get(), ChunkDataSerialization.Get(), &StatsCollector.Get()));
+	TUniquePtr<IParallelChunkWriter> ChunkWriter(FParallelChunkWriterFactory::Create({5, 5, 50, 8, Settings.CloudDirectory, Settings.FeatureLevel}, FileSystem.Get(), ChunkDataSerialization.Get(), StatsCollector.Get()));
 
 	// Create a manifest details.
 	FManifestDetails ManifestDetails;
@@ -164,10 +164,12 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchSe
 
 	// Enumerate Chunks.
 	const FDateTime Cutoff = Settings.bShouldHonorReuseThreshold ? FDateTime::UtcNow() - FTimespan::FromDays(Settings.DataAgeThreshold) : FDateTime::MinValue();
-	ICloudEnumerationRef CloudEnumeration = FCloudEnumerationFactory::Create(Settings.CloudDirectory, Cutoff, Settings.FeatureLevel, StatsCollector);
+	TUniquePtr<ICloudEnumeration> CloudEnumeration(FCloudEnumerationFactory::Create(Settings.CloudDirectory, Cutoff, Settings.FeatureLevel, StatsCollector.Get()));
 
 	// Start the build stream.
-	FBuildStreamerRef BuildStream = FBuildStreamerFactory::Create(Settings.RootDirectory, Settings.InputListFile, Settings.IgnoreListFile, StatsCollector);
+	FDirectoryBuildStreamerConfig BuildStreamConfig({Settings.RootDirectory, Settings.InputListFile, Settings.IgnoreListFile});
+	FDirectoryBuildStreamerDependencies BuildStreamDependencies({StatsCollector.Get(), FileSystem.Get()});
+	TUniquePtr<IDirectoryBuildStreamer> BuildStream(FBuildStreamerFactory::Create(MoveTemp(BuildStreamConfig), MoveTemp(BuildStreamDependencies)));
 
 	// Check existence of launch exe, if specified.
 	TArray<FString> EnumeratedFiles = BuildStream->GetAllFilenames();
@@ -200,14 +202,14 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchSe
 	TArray<uint32> WindowSizes;
 	if (Settings.bShouldMatchAnyWindowSize)
 	{
-		WindowSizes.Append(CloudEnumeration->GetChunkWindowSizes().Array());
+		WindowSizes.Append(CloudEnumeration->GetUniqueWindowSizes().Array());
 	}
 	else
 	{
 		WindowSizes.Add(Settings.OutputChunkWindowSize);
 	}
 	Algo::Sort(WindowSizes, TGreater<uint32>());
-	const uint32 LargestWindowSize = WindowSizes.Num() > 0 ? WindowSizes[0] : Settings.OutputChunkWindowSize;
+	const uint32 LargestWindowSize = FMath::Max<uint32>(Settings.OutputChunkWindowSize, WindowSizes.Num() > 0 ? WindowSizes[0] : 0);
 	const uint64 ScannerOverlapSize = LargestWindowSize - 1;
 
 	// Construct the chunk match processor.
@@ -292,7 +294,7 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchSe
 
 			// Give some flush time to the processor.
 			check(ScannerDetails.PaddingSize == 0 || ScannerDetails.bIsFinalScanner);
-			const FBlockRange ScannerRange(ScannerDetails.LayerOffset, ScannerDetails.Data.Num() - ScannerDetails.PaddingSize);
+			const FBlockRange ScannerRange = FBlockRange::FromFirstAndSize(ScannerDetails.LayerOffset, ScannerDetails.Data.Num() - ScannerDetails.PaddingSize);
 			const uint64 SafeFlushSize = ScannerDetails.bIsFinalScanner ? ScannerRange.GetLast() + 1 : ScannerRange.GetLast() - ScannerOverlapSize;
 			ChunkMatchProcessor->FlushLayer(ScannerDetails.Layer, SafeFlushSize);
 			if (ScannerDetails.bIsFinalScanner)
@@ -308,7 +310,7 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchSe
 		// Handle accepted chunk matches, and unknown data tracking.
 		for (int32 LayerIdx = 0; LayerIdx <= MaxLayer; ++LayerIdx)
 		{
-			TArray<TTuple<FChunkMatch, FBlockStructure>> AcceptedChunkMatches;
+			TArray<FMatchEntry> AcceptedChunkMatches;
 			const FBlockStructure& LayerBuildSpaceStructure = LayerToBuildSpaceStructure.FindOrAdd(LayerIdx);
 			uint64& LayerScannedSize = LayerToScannedSize.FindOrAdd(LayerIdx);
 			const FBlockRange CollectionRange = ChunkMatchProcessor->CollectLayer(LayerIdx, AcceptedChunkMatches);
@@ -323,10 +325,10 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchSe
 				checkSlow(BytesFound == CollectionRange.GetSize());
 				const uint64 BeforeDataCount = LayerSpaceBlockData.GetDataCount();
 				const uint64 BeforeStructureCount = CollectionRange.GetSize();
-				for (TTuple<FChunkMatch, FBlockStructure>& AcceptedChunkMatch : AcceptedChunkMatches)
+				for (FMatchEntry& AcceptedChunkMatch : AcceptedChunkMatches)
 				{
-					const FChunkMatch& ChunkMatch = AcceptedChunkMatch.Get<0>();
-					const FBlockStructure& BlockStructure = AcceptedChunkMatch.Get<1>();
+					const FChunkMatch& ChunkMatch = AcceptedChunkMatch.ChunkMatch;
+					const FBlockStructure& BlockStructure = AcceptedChunkMatch.BlockStructure;
 					const FBlockStructure LayerSpaceStructure(ChunkMatch.DataOffset, ChunkMatch.WindowSize);
 
 					check(BlockStructureHelpers::CountSize(LayerSpaceStructure.Intersect(NewUnknownLayerSpaceStructure)) == ChunkMatch.WindowSize);
@@ -423,7 +425,7 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchSe
 				{
 					// Copy out the chunk data.
 					FBlockStructure NewChunkLayerSpace(UnknownBlockOffset, FMath::Min<uint64>(Settings.OutputChunkWindowSize, UnknownBlockSize));
-					check(BlockStructureHelpers::CountSize(NewChunkLayerSpace) == Settings.OutputChunkWindowSize || bIsFinalSingleBlock);
+					checkf((BlockStructureHelpers::CountSize(NewChunkLayerSpace) == Settings.OutputChunkWindowSize) || bIsFinalSingleBlock, TEXT("Expected correct chunk size! (%llu == %u) || %d"), BlockStructureHelpers::CountSize(NewChunkLayerSpace), Settings.OutputChunkWindowSize, bIsFinalSingleBlock);
 					TArray<uint8> NewChunkDataArray;
 					LayerSpaceBlockData.CopyTo(NewChunkDataArray, NewChunkLayerSpace);
 					check( bIsFinalSingleBlock || NewChunkDataArray.Num() == Settings.OutputChunkWindowSize);
@@ -554,7 +556,7 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchSe
 					}
 
 					UE_LOG(LogPatchGeneration, Verbose, TEXT("Creating scanner on layer %d at %llu. IsFinal:%d. Mapping:%s, BuildMapping:%s"), NextLayer, NextLayerScannerOffset, bIsFinalScanner, *NewScannerLayerSpaceStructure.ToString(), *NewScannerBuildSpaceStructure.ToString());
-					Scanners.Emplace(new FScannerDetails(NextLayer, NextLayerScannerOffset, bIsFinalScanner, PadSize, MoveTemp(ScannerData), NewScannerBuildSpaceStructure, WindowSizes, CloudEnumeration, StatsCollector));
+					Scanners.Emplace(new FScannerDetails(NextLayer, NextLayerScannerOffset, bIsFinalScanner, PadSize, MoveTemp(ScannerData), NewScannerBuildSpaceStructure, WindowSizes, CloudEnumeration.Get(), StatsCollector.Get()));
 					NextLayerScannerOffset += ScannerDataSize - ScannerOverlapSize;
 
 					// Remove blocks from structures.
@@ -648,7 +650,7 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchSe
 						}
 
 						UE_LOG(LogPatchGeneration, Verbose, TEXT("Creating scanner on layer 0 at %llu. IsFinal:%d. Mapping:%s"), DataBufferFirstIdx, BuildStream->IsEndOfData(), *Structure.ToString());
-						Scanners.Emplace(new FScannerDetails(0, DataBufferFirstIdx, BuildStream->IsEndOfData(), PadSize, DataBuffer, MoveTemp(Structure), WindowSizes, CloudEnumeration, StatsCollector));
+						Scanners.Emplace(new FScannerDetails(0, DataBufferFirstIdx, BuildStream->IsEndOfData(), PadSize, DataBuffer, MoveTemp(Structure), WindowSizes, CloudEnumeration.Get(), StatsCollector.Get()));
 						LayerToScannerCount.FindOrAdd(0)++;
 					}
 				}
@@ -698,6 +700,7 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchSe
 	// Collect chunk info for the manifest builder.
 	TMap<FGuid, FChunkInfo> ChunkInfoMap;
 	TMap<FGuid, int64> ChunkFileSizes = CloudEnumeration->GetChunkFileSizes();
+	TMap<FGuid, uint32> ChunkWindowSizes = CloudEnumeration->GetChunkWindowSizes();
 	ChunkFileSizes.Append(ChunkWriterSummaries.ChunkOutputSizes);
 	for (const TPair<uint64, TSet<FGuid>>& ChunkInventoryPair : CloudEnumeration->GetChunkInventory())
 	{
@@ -717,6 +720,7 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory(const BuildPatchSe
 				FMemory::Memcpy(ChunkInfo.ShaHash.Hash, ChunkShaHashes[ChunkGuid].Hash, FSHA1::DigestSize);
 				ChunkInfo.FileSize = ChunkFileSizes[ChunkGuid];
 				ChunkInfo.GroupNumber = FCrc::MemCrc32(&ChunkGuid, sizeof(FGuid)) % 100;
+				ChunkInfo.WindowSize = ChunkWindowSizes.Contains(ChunkGuid) ? ChunkWindowSizes[ChunkGuid] : Settings.OutputChunkWindowSize;
 			}
 		}
 	}

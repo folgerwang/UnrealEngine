@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelEditorContextMenu.h"
 #include "Misc/Attribute.h"
@@ -198,7 +198,7 @@ void FLevelEditorContextMenu::FillMenu( FMenuBuilder& MenuBuilder, TWeakPtr<SLev
 
 		FComponentEditorUtils::FillComponentContextMenuOptions(MenuBuilder, SelectedComponents);
 	}
-	else
+	else if (GEditor->GetSelectedActorCount() > 0)
 	{
 		// Generate information about our selection
 		TArray<AActor*> SelectedActors;
@@ -440,6 +440,20 @@ void FLevelEditorContextMenu::FillMenu( FMenuBuilder& MenuBuilder, TWeakPtr<SLev
 
 		MenuBuilder.PopExtender();
 	}	
+	else if (ContextType == LevelEditorMenuContext::SceneOutliner)
+	{
+		TWeakPtr<ISceneOutliner> SceneOutlinerPtr = LevelEditor.Pin()->GetSceneOutliner();
+		if (SceneOutlinerPtr.IsValid())
+		{
+			MenuBuilder.BeginSection("SelectVisibilityLevels");
+			{
+				MenuBuilder.AddSubMenu(
+					LOCTEXT("EditSubMenu", "Edit"),
+					FText::GetEmpty(),
+					FNewMenuDelegate::CreateStatic(&FLevelEditorContextMenuImpl::FillEditMenu, ContextType));
+			}
+		}
+	}
 
 	MenuBuilder.PopCommandList();
 }
@@ -647,6 +661,13 @@ void FLevelEditorContextMenuImpl::FillSelectActorMenu( FMenuBuilder& MenuBuilder
 		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().SelectAllActorsOfSameClass, NAME_None, SelectAllActorStr );
 	}
 
+	MenuBuilder.BeginSection("SelectActorHierarchy", LOCTEXT("SelectHierarchyHeading", "Hierarchy") );
+	{
+		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().SelectImmediateChildren );
+		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().SelectAllDescendants );
+	}
+	MenuBuilder.EndSection();
+
 	// Add brush commands when we have a brush or any surfaces selected
 	MenuBuilder.BeginSection("SelectBSP", LOCTEXT("SelectBSPHeading", "BSP") );
 	{
@@ -725,6 +746,18 @@ void FLevelEditorContextMenuImpl::FillSelectActorMenu( FMenuBuilder& MenuBuilder
 		MenuBuilder.BeginSection("SelectMaterial", LOCTEXT("SelectMaterialHeading", "Materials") );
 		{
 			MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().SelectAllWithSameMaterial );
+		}
+		MenuBuilder.EndSection();
+	}
+
+	// Add geometry collection commands
+	if (FModuleManager::Get().IsModuleLoaded("GeometryCollectionEditor"))
+	{
+		MenuBuilder.BeginSection("SelectBones", LOCTEXT("GeometryCollectionHeading", "Geometry Collection"));
+		{
+			MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().GeometryCollectionSelectAllGeometry);
+			MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().GeometryCollectionSelectNone);
+			MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().GeometryCollectionSelectInverseGeometry);
 		}
 		MenuBuilder.EndSection();
 	}

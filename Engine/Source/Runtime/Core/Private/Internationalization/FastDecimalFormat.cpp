@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Internationalization/FastDecimalFormat.h"
 #include "Misc/EnumClassFlags.h"
@@ -528,7 +528,7 @@ private:
 	const FDecimalNumberSigningStrings ASCII_AlwaysSigned;
 };
 
-bool StringToIntegral_StringToUInt64(const TCHAR*& InBuffer, const TCHAR* InBufferEnd, const FDecimalNumberFormattingRules& InFormattingRules, const FDecimalNumberSignParser& InSignParser, const EDecimalNumberParseFlags& InParseFlags, bool& OutIsNegative, uint64& OutVal, uint8& OutDigitCount)
+bool StringToIntegral_StringToUInt64(const TCHAR*& InBuffer, const TCHAR* InBufferEnd, const FDecimalNumberFormattingRules& InFormattingRules, const FDecimalNumberSignParser& InSignParser, const EDecimalNumberParseFlags& InParseFlags, const int32* InMaxDigitsToParse, bool& OutIsNegative, uint64& OutVal, uint8& OutDigitCount)
 {
 	OutIsNegative = false;
 	OutVal = 0;
@@ -569,9 +569,12 @@ bool StringToIntegral_StringToUInt64(const TCHAR*& InBuffer, const TCHAR* InBuff
 			if ((*InBuffer == InFormattingRules.DigitCharacters[CharIndex]) || (*InBuffer == EuropeanNumerals[CharIndex]))
 			{
 				++InBuffer;
-				++OutDigitCount;
-				OutVal *= 10;
-				OutVal += CharIndex;
+				if (!InMaxDigitsToParse || OutDigitCount < *InMaxDigitsToParse)
+				{
+					++OutDigitCount;
+					OutVal *= 10;
+					OutVal += CharIndex;
+				}
 				bValidChar = true;
 				break;
 			}
@@ -618,6 +621,7 @@ FORCEINLINE bool StringToIntegral_Common(const TCHAR*& InBuffer, const TCHAR* In
 		InFormattingRules, 
 		InSignParser, 
 		EDecimalNumberParseFlags::AllowLeadingSign | EDecimalNumberParseFlags::AllowTrailingSign | EDecimalNumberParseFlags::AllowDecimalSeparators | (InParsingOptions.UseGrouping ? EDecimalNumberParseFlags::AllowGroupSeparators : EDecimalNumberParseFlags::None), 
+		nullptr, 
 		OutIsNegative, 
 		OutVal, 
 		OutDigitCount
@@ -665,7 +669,7 @@ bool StringToFractional(const TCHAR* InStr, const int32 InStrLen, const FDecimal
 	if (bResult && Buffer > InStr && *(Buffer - 1) == InFormattingRules.DecimalSeparatorCharacter)
 	{
 		// Only parse the fractional part of the number if the preceding character was a decimal separator
-		bResult &= StringToIntegral_StringToUInt64(Buffer, BufferEnd, InFormattingRules, SignParser, EDecimalNumberParseFlags::AllowTrailingSign, bFractionPartIsNegative, FractionalPart, FractionalPartDigitCount);
+		bResult &= StringToIntegral_StringToUInt64(Buffer, BufferEnd, InFormattingRules, SignParser, EDecimalNumberParseFlags::AllowTrailingSign, &MaxFractionalPrintPrecision, bFractionPartIsNegative, FractionalPart, FractionalPartDigitCount);
 	}
 
 	// A number can only be valid if we actually parsed some digits

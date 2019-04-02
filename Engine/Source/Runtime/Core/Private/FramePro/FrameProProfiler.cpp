@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "FramePro/FrameProProfiler.h"
 
@@ -23,6 +23,8 @@ static FAutoConsoleVariableRef CVarVerboseScriptStats(
 	TEXT("Enable FramePro named events.\n"),
 	ECVF_Default
 );
+
+static bool GFrameProIsRecording = 0;
 
 #if PLATFORM_TCHAR_IS_CHAR16
 #define FP_TEXT_PASTE(x) L ## x
@@ -333,7 +335,7 @@ void FFrameProProfiler::PopEvent(const ANSICHAR* Override)
 
 void FFrameProProfiler::StartFrameProRecordingFromCommand(const TArray< FString >& Args)
 {
-	FString FilenameRoot = TEXT("Profile");
+	FString FilenameRoot = FString::Printf(TEXT("ProfilePid%d"), FPlatformProcess::GetCurrentProcessId());
 	if (Args.Num() > 0 && Args[0].Len() > 0)
 	{
 		FilenameRoot = Args[0];
@@ -350,7 +352,7 @@ void FFrameProProfiler::StartFrameProRecordingScopeOverrideFromCommand(const TAr
 		MinScopeTime = FCString::Atoi(*Args[0]);
 	}
 
-	StartFrameProRecording(TEXT("Profile"), MinScopeTime);
+	StartFrameProRecording(FString::Printf(TEXT("ProfilePid%d"), FPlatformProcess::GetCurrentProcessId()), MinScopeTime);
 }
 
 FString FFrameProProfiler::StartFrameProRecording(const FString& FilenameRoot, int32 MinScopeTime)
@@ -371,6 +373,9 @@ FString FFrameProProfiler::StartFrameProRecording(const FString& FilenameRoot, i
 
 	// Enable named events as well
 	GCycleStatsShouldEmitNamedEvents = true;
+
+	// Set recording flag
+	GFrameProIsRecording = true;
 
 	return OutputFilename;
 }
@@ -394,6 +399,10 @@ void FFrameProProfiler::StopFrameProRecording()
 	// Disable named events
 	GCycleStatsShouldEmitNamedEvents = false;
 
+	// Clear recording flag
+	GFrameProIsRecording = false;
+
+
 	UE_LOG(LogFramePro, Log, TEXT("--- Stop Recording"));
 }
 
@@ -402,6 +411,12 @@ static FAutoConsoleCommand StopFrameProRecordCommand(
 	TEXT("Stop FramePro recording"),
 	FConsoleCommandDelegate::CreateStatic(&FFrameProProfiler::StopFrameProRecording)
 );
+
+bool FFrameProProfiler::IsFrameProRecording()
+{
+	return GFrameProIsRecording;
+}
+
 
 
 #endif // FRAMEPRO_ENABLED

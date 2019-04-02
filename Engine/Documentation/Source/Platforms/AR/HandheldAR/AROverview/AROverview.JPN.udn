@@ -1,0 +1,83 @@
+﻿INTSourceChangelist:4400433
+Availability: Public
+Crumbs: 
+Title: 拡張現実 (AR) の概要
+Description: Epic の 拡張現実 (AR) 実装の概要です。
+Type: 
+Version: 4.19
+Parent: Platforms/AR/HandheldAR
+Order: 2
+Tags: iOS
+Tags: Android
+Tags: StartingOut
+Tags: AR
+Tags: Mobile AR
+
+
+拡張現実 (Augmented reality ：AR) は、実世界のユーザーの視点でコンピュータ生成画像を重ね合わせて、複合ビューを提供する技術です。 
+
+Unreal Engine AR フレームワークは、 iOS と Android の両方のハンドヘルド プラットフォームで、 Unreal Engine を使用して AR アプリケーションを構築するための豊富で統一されたフレームワークです。このフレームワークは、両方のプラットフォームで単一の開発パスを提供します。それにより、デベロッパーは、そうした単一のコードパスで両方のプラットフォーム用の AR アプリケーションを構築できるようになります。 **Handheld AR** ブループリント テンプレートには、 Unreal Engine で利用可能な AR 用の関数を使用した最適なサンプル プロジェクトが用意されています。
+
+![](AR_IntroShot.png)
+
+[REGION:caption]
+AR で、デバイスのカメラからのライブビューに 2D または 3D エレメントを追加することで、それらのエレメントを現実世界にあるかのように見せるユーザー体験を作り上げることができます。
+[/REGION]
+
+## iOS と Android のリリース サポート
+
+統一された AR フレームワークは、アライメント、光源の推定、ピン留め、セッション状態、トレース結果、トラッキングなど、基本的な AR 機能もサポートしています。
+
+しかしながら、 Android と iOS の AR は絶えず進化しています。現在 Unreal Engine 4.20 では、 ARCore 1.2 および ARKit 2.0 のリリースで提供された高度な関数がサポートされるようになりました。
+
+**ARCore **
+
+*   画像を拡張する
+*   垂直なプレーンの検出
+*   Cloud Anchor
+
+**ARKit **
+
+*   フェイス トラッキング
+*   2D 画像検出
+*   3D オブジェクト検出
+*   パーシスタント体験
+*   シェア体験
+
+[REGION:tip]
+Epic Games デベロッパー **Joe Graf** のブログには、 UE4 の ARKit の機能について、いくつか有益な記事があります。
+
+*   [2D Image Detection in UE4 4.20](https://medium.com/@joe.j.graf/arkit-1-5-image-detection-in-ue4-4-20-4dcbefb7a178)
+*   [ARKit 2.0 support in UE4 4.20](https://medium.com/@joe.j.graf/arkit-2-0-support-in-ue4-4-20-47d1156d545f)
+*   [AR Environment Probes in UE4 4.20](https://medium.com/@joe.j.graf/ar-environment-probes-in-ue4-4-20-afda05bcc587)
+[/REGION]
+
+## AR に関する API
+
+統一された AR フレームワークには、 iOS と Android の両方のハンドヘルドプラットフォームで、 Unreal Engine を使用して AR アプリケーションを構築するためのフレームワークがあります。統合された AR フレームワークでは、単一のコードパスを使用して両方のプラットフォーム用の AR アプリをデベロッパーが構築できるようになる C++  、ブループリントの新しいライブラリが利用できます。これらの新機能により、 AR をより簡単に扱うことができるようになります。   
+詳細については、 [Unreal Engine API Reference](http://api.unrealengine.com/INT/API/) を参照してください。 
+
+[REGION:tip]
+**Handheld AR** ブループリント テンプレートには、 Unreal Engine で利用可能な新しい AR 用の関数を使用した最適なサンプル プロジェクトが用意されています。プロジェクトと新しい AR 機能を試すには、 **[Content Browser]** を開き、 **Content\HandheldARBP\Blueprints\UI** に移動し、 **Blueprint Editor** の **[BP_DebugMenu]** を開きます。
+[/REGION]
+
+## サポートされているハンドヘルド プラットフォーム
+
+現在、 iOS と Android プラットフォームをサポートしています。各プラットフォームでサポートされているデバイスについては、次のページを参照してください。
+
+*   [Apple iOS デバイス互換性についてのリファレンス](https://developer.apple.com/library/content/documentation/DeviceInformation/Reference/iOSDeviceCompatibility/DeviceCompatibilityMatrix/DeviceCompatibilityMatrix.html)
+*   [ARCore がサポートされているデバイスの概要](https://developers.google.com/ar/discover/#supported_devices)
+
+Unreal Engine では、ハンドヘルドの iOS と Android デバイスを既にサポートしています (つまり新機能ではありません)。既に Unreal Engine を iOS または Android デバイスと一緒に使用しているユーザーが Unreal Engine で AR を新たに使いたい場合は、追加設定を少しするだけで済みます。
+
+### iOS
+
+iOS AR 前提条件の詳細情報については、 [](Platforms/AR/HandheldAR/ARKitPrerequisites) トピックを参照してください。更に、 Unreal Engine と iOS デバイスの基本的な設定については、 Unreal Engine のドキュメントの [](Platforms/iOS) セクションを参照してください。   
+
+### Android
+
+Android AR 前提条件の詳細情報については、 [](Platforms/AR/HandheldAR/ARCorePrerequisites) トピックを参照してください。Unreal Engine と Android デバイスの基本的な設定については、 Unreal Engine のドキュメントの [](Platforms/Android/GettingStarted) セクションを参照してください。 
+
+## Unreal Engine で AR の使用を開始する
+
+ここまで読めば、 Unreal Engine での AR の使用に関する基本的な情報について理解できたと思います。次は、 [](Platforms/AR/HandheldAR/ARQuickStart) チュートリアルを通して使い始めましょう。

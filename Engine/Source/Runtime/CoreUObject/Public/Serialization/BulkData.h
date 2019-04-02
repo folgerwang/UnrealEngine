@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -29,15 +29,19 @@ enum EBulkDataFlags
 	/** Flag to check if either compression mode is specified						*/
 	BULKDATA_SerializeCompressed				= (BULKDATA_SerializeCompressedZLIB),
 	/** Forces the payload to be always streamed, regardless of its size */
-	BULKDATA_ForceStreamPayload = 1 << 7,
+	BULKDATA_ForceStreamPayload					= 1 << 7,
 	/** If set, payload is stored in a .upack file alongside the uasset				*/
 	BULKDATA_PayloadInSeperateFile				= 1 << 8,
-	/** If set, payload is compressed using platform specific bit window			*/
-	BULKDATA_SerializeCompressedBitWindow		= 1<<9,
+	/** DEPRECATED: If set, payload is compressed using platform specific bit window	*/
+	BULKDATA_SerializeCompressedBitWindow		= 1 << 9,
 	/** There is a new default to inline unless you opt out */
 	BULKDATA_Force_NOT_InlinePayload			= 1 << 10,
 	/** This payload is optional and may not be on device */
 	BULKDATA_OptionalPayload					= 1 << 11,
+	/** This payload will be memory mapped, this requires alignment, no compression etc. */
+	BULKDATA_MemoryMappedPayload = 1 << 12,
+	/** Bulk data size is 64 bits long */
+	BULKDATA_Size64Bit							= 1 << 13
 };
 
 /**
@@ -62,6 +66,9 @@ enum EBulkDataLockFlags
 	LOCK_READ_WRITE								= 2,
 };
 
+class IMappedFileHandle;
+class IMappedFileRegion;
+
 /*-----------------------------------------------------------------------------
 	Base version of untyped bulk data.
 -----------------------------------------------------------------------------*/
@@ -77,15 +84,21 @@ private:
 	{
 		FAllocatedPtr()
 			: Ptr       (nullptr)
+			, MappedHandle(nullptr)
+			, MappedRegion(nullptr)
 			, bAllocated(false)
 		{
 		}
 
 		FAllocatedPtr(FAllocatedPtr&& Other)
 			: Ptr       (Other.Ptr)
+			, MappedHandle(Other.MappedHandle)
+			, MappedRegion(Other.MappedRegion)
 			, bAllocated(Other.bAllocated)
 		{
-			Other.Ptr        = nullptr;
+			Other.Ptr = nullptr;
+			Other.MappedHandle = nullptr;
+			Other.MappedRegion = nullptr;
 			Other.bAllocated = false;
 		}
 
@@ -99,7 +112,7 @@ private:
 
 		~FAllocatedPtr()
 		{
-			FMemory::Free(Ptr);
+			Deallocate();
 		}
 
 		void* Get() const
@@ -112,8 +125,9 @@ private:
 			return bAllocated;
 		}
 
-		void Reallocate(int32 Count, int32 Alignment = DEFAULT_ALIGNMENT)
+		void Reallocate(int64 Count, int32 Alignment = DEFAULT_ALIGNMENT)
 		{
+			check(!MappedHandle && !MappedRegion); // not legal for mapped bulk data
 			if (Count)
 			{
 				Ptr = FMemory::Realloc(Ptr, Count, Alignment);
@@ -129,6 +143,11 @@ private:
 
 		void* ReleaseWithoutDeallocating()
 		{
+			if (MappedHandle || MappedRegion)
+			{
+				// Super scary, we returned a pointer to a mapped file but we have no guarantees that this outlives the pointer we let out into the engine
+				// @todo transfer ownership properly by making FAllocatedPtr a public thing that can be used by people to take ownership of the entire mapping. 
+			}
 			void* Result = Ptr;
 			Ptr = nullptr;
 			bAllocated = false;
@@ -137,16 +156,25 @@ private:
 
 		void Deallocate()
 		{
+			if (MappedHandle || MappedRegion)
+			{
+				UnmapFile();
+			}
 			FMemory::Free(Ptr);
 			Ptr = nullptr;
 			bAllocated = false;
 		}
+
+		COREUOBJECT_API bool MapFile(const TCHAR *Filename, int64 Offset, int64 Size);
+		COREUOBJECT_API void UnmapFile();
 
 	private:
 		FAllocatedPtr(const FAllocatedPtr&);
 		FAllocatedPtr& operator=(const FAllocatedPtr&);
 
 		void* Ptr;
+		IMappedFileHandle* MappedHandle;
+		IMappedFileRegion* MappedRegion;
 		bool  bAllocated;
 	};
 
@@ -201,7 +229,7 @@ public:
 	 *
 	 * @return Number of elements in this bulk data array
 	 */
-	int32 GetElementCount() const;
+	int64 GetElementCount() const;
 	/**
 	 * Returns size in bytes of single element.
 	 *
@@ -215,14 +243,14 @@ public:
 	 *
 	 * @return Size of the bulk data in bytes
 	 */
-	int32 GetBulkDataSize() const;
+	int64 GetBulkDataSize() const;
 	/**
 	 * Returns the size of the bulk data on disk. This can differ from GetBulkDataSize if
 	 * BULKDATA_SerializeCompressed is set.
 	 *
 	 * @return Size of the bulk data on disk or INDEX_NONE in case there's no association
 	 */
-	int32 GetBulkDataSizeOnDisk() const;
+	int64 GetBulkDataSizeOnDisk() const;
 	/**
 	 * Returns the offset into the file the bulk data is located at.
 	 *
@@ -244,9 +272,9 @@ public:
 	/**
 	 * Returns flags usable to decompress the bulk data
 	 * 
-	 * @return COMPRESS_NONE if the data was not compressed on disk, or valid flags to pass to FCompression::UncompressMemory for this data
+	 * @return NAME_None if the data was not compressed on disk, or valid format to pass to FCompression::UncompressMemory for this data
 	 */
-	ECompressionFlags GetDecompressionFlags() const;
+	FName GetDecompressionFormat() const;
 
 	/**
 	 * Returns whether the bulk data is currently loaded and resident in memory.
@@ -340,7 +368,7 @@ public:
 	 *
 	 * @param InElementCount	Number of elements array should be resized to
 	 */
-	void* Realloc( int32 InElementCount );
+	void* Realloc( int64 InElementCount );
 
 	/** 
 	 * Unlocks bulk data after which point the pointer returned by Lock no longer is valid.
@@ -373,8 +401,17 @@ public:
 	 *
 	 * @param CompressionFlags	Flags to use for compressing the data. Use COMPRESS_NONE for no compression, or something like COMPRESS_ZLIB to compress the data
 	 */
+	UE_DEPRECATED(4.21, "Use the FName version of StoreCompressedOnDisk")
 	void StoreCompressedOnDisk( ECompressionFlags CompressionFlags );
+	void StoreCompressedOnDisk( FName CompressionFormat );
 
+	/**
+	 * Deallocates bulk data without detaching the archive, so that further bulk data accesses require a reload.
+	 * Only supported in editor builds.
+	 *
+	 * @return Whether the operation succeeded.
+	 */
+	bool UnloadBulkData();
 
 	/*-----------------------------------------------------------------------------
 		Serialization.
@@ -386,8 +423,9 @@ public:
 	 * @param Ar	Archive to serialize with
 	 * @param Owner	Object owning the bulk data
 	 * @param Idx	Index of bulk data item being serialized
+	 * @param bAttemptFileMapping	If true, attempt to map this instead of loading it into malloc'ed memory
 	 */
-	void Serialize( FArchive& Ar, UObject* Owner, int32 Idx=INDEX_NONE );
+	void Serialize( FArchive& Ar, UObject* Owner, int32 Idx=INDEX_NONE, bool bAttemptFileMapping = false);
 
 	/**
 	 * Serialize just the bulk data portion to/ from the passed in memory.
@@ -420,7 +458,7 @@ protected:
 	 * @param Data			Base pointer to data
 	 * @param ElementIndex	Index of element to serialize
 	 */
-	virtual void SerializeElement( FArchive& Ar, void* Data, int32 ElementIndex ) = 0;
+	virtual void SerializeElement( FArchive& Ar, void* Data, int64 ElementIndex ) = 0;
 
 	/**
 	 * Returns whether single element serialization is required given an archive. This e.g.
@@ -494,21 +532,21 @@ private:
 
 	/** Serialized flags for bulk data																					*/
 	uint32					BulkDataFlags;
+	/** Alignment of bulk data																							*/
+	uint16					BulkDataAlignment;
+	/** Current lock status																								*/
+	uint16					LockStatus;
 	/** Number of elements in bulk data array																			*/
-	int32					ElementCount;
+	int64					ElementCount;
 	/** Offset of bulk data into file or INDEX_NONE if no association													*/
 	int64					BulkDataOffsetInFile;
 	/** Size of bulk data on disk or INDEX_NONE if no association														*/
-	int32					BulkDataSizeOnDisk;
-	/** Alignment of bulk data																							*/
-	int32					BulkDataAlignment;
+	int64					BulkDataSizeOnDisk;
 
 	/** Pointer to cached bulk data																						*/
 	FAllocatedPtr		BulkData;
 	/** Pointer to cached async bulk data																				*/
 	FAllocatedPtr		BulkDataAsync;
-	/** Current lock status																								*/
-	uint32				LockStatus;
 	/** Async helper for loading bulk data on a separate thread */
 	TFuture<bool> SerializeFuture;
 
@@ -547,7 +585,7 @@ struct COREUOBJECT_API FByteBulkData : public FUntypedBulkData
 	 * @param Data			Base pointer to data
 	 * @param ElementIndex	Element index to serialize
 	 */
-	virtual void SerializeElement( FArchive& Ar, void* Data, int32 ElementIndex );
+	virtual void SerializeElement( FArchive& Ar, void* Data, int64 ElementIndex );
 };
 
 /*-----------------------------------------------------------------------------
@@ -570,7 +608,7 @@ struct COREUOBJECT_API FWordBulkData : public FUntypedBulkData
 	 * @param Data			Base pointer to data
 	 * @param ElementIndex	Element index to serialize
 	 */
-	virtual void SerializeElement( FArchive& Ar, void* Data, int32 ElementIndex );
+	virtual void SerializeElement( FArchive& Ar, void* Data, int64 ElementIndex );
 };
 
 /*-----------------------------------------------------------------------------
@@ -593,7 +631,7 @@ struct COREUOBJECT_API FIntBulkData : public FUntypedBulkData
 	 * @param Data			Base pointer to data
 	 * @param ElementIndex	Element index to serialize
 	 */
-	virtual void SerializeElement( FArchive& Ar, void* Data, int32 ElementIndex );
+	virtual void SerializeElement( FArchive& Ar, void* Data, int64 ElementIndex );
 };
 
 /*-----------------------------------------------------------------------------
@@ -616,7 +654,7 @@ struct COREUOBJECT_API FFloatBulkData : public FUntypedBulkData
 	 * @param Data			Base pointer to data
 	 * @param ElementIndex	Element index to serialize
 	 */
-	virtual void SerializeElement( FArchive& Ar, void* Data, int32 ElementIndex );
+	virtual void SerializeElement( FArchive& Ar, void* Data, int64 ElementIndex );
 };
 
 class FFormatContainer
@@ -653,5 +691,6 @@ public:
 		Formats.Empty();
 	}
 	COREUOBJECT_API void Serialize(FArchive& Ar, UObject* Owner, const TArray<FName>* FormatsToSave = nullptr, bool bSingleUse = true, uint32 InAlignment = DEFAULT_ALIGNMENT);
+	COREUOBJECT_API void SerializeAttemptMappedLoad(FArchive& Ar, UObject* Owner);
 };
 

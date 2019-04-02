@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemTwitchPrivate.h"
 #include "OnlineIdentityTwitch.h"
@@ -117,6 +117,11 @@ IOnlinePresencePtr FOnlineSubsystemTwitch::GetPresenceInterface() const
 }
 
 IOnlineChatPtr FOnlineSubsystemTwitch::GetChatInterface() const
+{
+	return nullptr;
+}
+
+IOnlineStatsPtr FOnlineSubsystemTwitch::GetStatsInterface() const
 {
 	return nullptr;
 }

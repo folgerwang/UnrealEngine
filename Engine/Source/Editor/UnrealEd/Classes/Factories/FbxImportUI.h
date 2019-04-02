@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /**
  * Fbx Importer UI options.
@@ -68,6 +68,16 @@ namespace ImportCompareHelper
 		}
 	};
 
+	enum class ECompareResult : int32
+	{
+		SCR_None = 0x00000000,
+		SCR_SkeletonMissingBone = 0x00000001,
+		SCR_SkeletonAddedBone = 0x00000002,
+		SCR_SkeletonBadRoot = 0x00000004,
+	};
+
+	ENUM_CLASS_FLAGS(ECompareResult);
+
 	struct FSkeletonCompareData
 	{
 		FSkeletonTreeNode CurrentAssetRoot;
@@ -76,10 +86,10 @@ namespace ImportCompareHelper
 		{
 			CurrentAssetRoot.Empty();
 			ResultAssetRoot.Empty();
-			bHasConflict = false;
+			CompareResult = ECompareResult::SCR_None;
 		}
-		bool HasConflict() { return bHasConflict; }
-		bool bHasConflict;
+		ECompareResult GetCompareResult() { return CompareResult; }
+		ECompareResult CompareResult;
 	};
 
 }
@@ -127,40 +137,40 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category=Mesh, meta=(ImportType="SkeletalMesh", editcondition="!bCreatePhysicsAsset"))
 	class UPhysicsAsset* PhysicsAsset;
 
-	/** If checked, the static mesh auto compute LOD distance will be turn on. If unchecked user will be able to specify custom LOD distance for every LOD. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = LodSettings, meta = (ImportType = "StaticMesh"))
+	/** If checked, the editor will automatically compute screen size values for the static mesh's LODs. If unchecked, the user can enter custom screen size values for each LOD. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = LODSettings, meta = (ImportType = "StaticMesh", DisplayName = "Auto Compute LOD Screen Size"))
 	uint32 bAutoComputeLodDistances : 1;
-	/** Specify the LOD distance for LOD 0*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = LodSettings, meta = (ImportType = "StaticMesh", UIMin = "0.0"))
+	/** Set a screen size value for LOD 0*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = LODSettings, meta = (ImportType = "StaticMesh", UIMin = "0.0", DisplayName = "LOD 0 Screen Size"))
 	float LodDistance0;
-	/** Specify the LOD distance for LOD 1*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = LodSettings, meta = (ImportType = "StaticMesh", UIMin = "0.0"))
+	/** Set a screen size value for LOD 1*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = LODSettings, meta = (ImportType = "StaticMesh", UIMin = "0.0", DisplayName = "LOD 1 Screen Size"))
 	float LodDistance1;
-	/** Specify the LOD distance for LOD 2*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = LodSettings, meta = (ImportType = "StaticMesh", UIMin = "0.0"))
+	/** Set a screen size value for LOD 2*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = LODSettings, meta = (ImportType = "StaticMesh", UIMin = "0.0", DisplayName = "LOD 2 Screen Size"))
 	float LodDistance2;
-	/** Specify the LOD distance for LOD 3*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = LodSettings, meta = (ImportType = "StaticMesh", UIMin = "0.0"))
+	/** Set a screen size value for LOD 3*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = LODSettings, meta = (ImportType = "StaticMesh", UIMin = "0.0", DisplayName = "LOD 3 Screen Size"))
 	float LodDistance3;
-	/** Specify the LOD distance for LOD 4*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = LodSettings, meta = (ImportType = "StaticMesh", UIMin = "0.0"))
+	/** Set a screen size value for LOD 4*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = LODSettings, meta = (ImportType = "StaticMesh", UIMin = "0.0", DisplayName = "LOD 4 Screen Size"))
 	float LodDistance4;
-	/** Specify the LOD distance for LOD 5*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = LodSettings, meta = (ImportType = "StaticMesh", UIMin = "0.0"))
+	/** Set a screen size value for LOD 5*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = LODSettings, meta = (ImportType = "StaticMesh", UIMin = "0.0", DisplayName = "LOD 5 Screen Size"))
 	float LodDistance5;
-	/** Specify the LOD distance for LOD 6*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = LodSettings, meta = (ImportType = "StaticMesh", UIMin = "0.0"))
+	/** Set a screen size value for LOD 6*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = LODSettings, meta = (ImportType = "StaticMesh", UIMin = "0.0", DisplayName = "LOD 6 Screen Size"))
 	float LodDistance6;
-	/** Specify the LOD distance for LOD 7*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = LodSettings, meta = (ImportType = "StaticMesh", UIMin = "0.0"))
+	/** Set a screen size value for LOD 7*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = LODSettings, meta = (ImportType = "StaticMesh", UIMin = "0.0", DisplayName = "LOD 7 Screen Size"))
 	float LodDistance7;
 
-	/** Set the minimum LOD number. A value of 0 disable the option. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, AdvancedDisplay, Category = LodSettings, meta = (ImportType = "StaticMesh", UIMin = "-1"))
+	/** Set the minimum LOD used for rendering. Setting the value to 0 will use the default value of LOD0. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, AdvancedDisplay, Category = LODSettings, meta = (ImportType = "StaticMesh", UIMin = "0", DisplayName = "Minimum LOD"))
 	int32 MinimumLodNumber;
 
-	/** Set the number of LODs. A value of 0 disable the option. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, AdvancedDisplay, Category = LodSettings, meta = (ImportType = "StaticMesh", UIMin = "-1"))
+	/** Set the number of LODs for the editor to import. Setting the value to 0 imports the number of LODs found in the file (up to the maximum). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, AdvancedDisplay, Category = LODSettings, meta = (ImportType = "StaticMesh", UIMin = "0", DisplayName = "Number of LODs"))
 	int32 LodNumber;
 
 	/** True to import animations from the FBX File */

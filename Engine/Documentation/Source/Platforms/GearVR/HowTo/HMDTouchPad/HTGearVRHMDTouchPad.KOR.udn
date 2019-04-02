@@ -1,8 +1,8 @@
 ﻿INTSourceChangelist:3810467
 Availability: Public
 Crumbs: %ROOT%
-Title: 기어 VR HMD 터치패드 사용
-Description: 기어 VR HMD 터치패드 구성법입니다.
+Title: Gear VR HMD 터치패드 사용
+Description: Gear VR HMD 터치패드 구성법입니다.
 Type: how-to
 SkillLevel: Intermediate
 Version: 4.17
@@ -16,11 +16,11 @@ topic-image:Platforms\GearVR\HowTo\GearVR_How_To_Header.png
 
 ![](HTTouchPad.png)
 
-기어 VR HMD 측면에는 터치패드가 있으며, 사용자는 이 터치패드를 두드리거나(tap) 그어(swipe) 현재 보고 있는 VR 프로젝트와 상호작용할 수 있습니다. 여기서는 여러가지 터치패드 입력에 따라 다른 텍스트를 표시하도록 기어 VR HMD 터치패드를 구성하는 법을 살펴보겠습니다.
+Gear VR HMD 측면에는 터치패드가 있으며, 사용자는 이 터치패드를 두드리거나(tap) 그어(swipe) 현재 보고 있는 VR 프로젝트와 상호작용할 수 있습니다. 여기서는 여러가지 터치패드 입력에 따라 다른 텍스트를 표시하도록 Gear VR HMD 터치패드를 구성하는 법을 살펴보겠습니다.
 
 ## 단계
 
-아래는 기어 VR 터치패드에 어떤 종류의 작업을 하고있는지 표시할 수 있도록 플레이어 폰을 구성하는 단계별 방법입니다.
+아래는 Gear VR 터치패드에 어떤 종류의 작업을 하고있는지 표시할 수 있도록 플레이어 폰을 구성하는 단계별 방법입니다.
 
 1. 플레이어 폰 블루프린트를 열고 **컴포넌트** 탭에서 **TextRender** 컴포넌트를 새로 추가하고 부모를 **VRCamera** 로 설정한 뒤 다음과 같이 설정하여 나중에 어떤 동작을 수행했는지 확인할 수 있도록 합니다.
 
@@ -199,7 +199,7 @@ topic-image:Platforms\GearVR\HowTo\GearVR_How_To_Header.png
     클릭하면 이미지 원본을 확인합니다.
     [/REGION]
 
-1. 이벤트 그래프에 Branch 노드를 두 개 더 추가한 뒤 그 입력을 예전 단계에서 추가한 Branch 노드의 True 와 False 출력에 연결합니다. 이 두 Branch 노드는 사용자가 특정 방향으로 스와이프할 때 표시할 것을 제어합니다. True 입력에서 오는 Branch 노드는 좌우 스와이프, False 는 상하 스와이프입니다.
+1. 이벤트 그래프에 Branch 노드를 두 개 더 추가한 뒤 그 입력을 이전 단계에서 추가한 Branch 노드의 True 와 False 출력에 연결합니다. 이 두 Branch 노드는 사용자가 특정 방향으로 스와이프할 때 표시할 것을 제어합니다. True 입력에서 오는 Branch 노드는 좌우 스와이프, False 는 상하 스와이프입니다.
 
     [REGION:lightbox]
     [![](HTTouch_TapOrSwipeSetup_04.png)(w:530)](HTTouch_TapOrSwipeSetup_04.png)
@@ -219,7 +219,7 @@ topic-image:Platforms\GearVR\HowTo\GearVR_How_To_Header.png
     클릭하면 이미지 원본을 확인합니다.
     [/REGION]
 
-블루프린트 탭과 스와이프 기능이 구성되었으니, 다음에는 기어 VR 터치패드에 적용된 입력 유형에 따라 다른 텍스트를 표시하는 법을 살펴보겠습니다.
+블루프린트 탭과 스와이프 기능이 구성되었으니, 다음에는 Gear VR 터치패드에 적용된 입력 유형에 따라 다른 텍스트를 표시하는 법을 살펴보겠습니다.
 
 ### 터치 & 스와이프에 따라 다른 동작 수행
 
@@ -261,7 +261,7 @@ topic-image:Platforms\GearVR\HowTo\GearVR_How_To_Header.png
 
 ## 최종 결과
 
-GearVR_Pawn 블루프린트를 컴파일 및 저장한 후, UE4 프로젝트를 삼성 갤럭시 스마트폰에 디플로이하고 기어 VR HMD 에 폰을 넣습니다. 손가락으로 터치패드를 탭 또는 스와이프하면, 아래 비디오처럼 수행한 동작이 텍스트로 표시될 것입니다.
+GearVR_Pawn 블루프린트를 컴파일 및 저장한 후, UE4 프로젝트를 삼성 갤럭시 스마트폰에 디플로이하고 Gear VR HMD 에 폰을 넣습니다. 손가락으로 터치패드를 탭 또는 스와이프하면, 아래 비디오처럼 수행한 동작이 텍스트로 표시될 것입니다.
 
 [OBJECT:EmbeddedVideo]
     [PARAMLITERAL:videoid]
@@ -282,7 +282,7 @@ GearVR_Pawn 블루프린트를 컴파일 및 저장한 후, UE4 프로젝트를 
 [/OBJECT]
 
 [region:note]
-기어 VR 터치패드 탭 또는 스와이프를 했는데 텍스트가 표시되지 않는다면, Text 변수의 Default Value 에 텍스트를 입력했는지 확인하시기 바랍니다.
+Gear VR 터치패드 탭 또는 스와이프를 했는데 텍스트가 표시되지 않는다면, Text 변수의 Default Value 에 텍스트를 입력했는지 확인하시기 바랍니다.
 
 ![](HTTouch_TapOrSwipeDisplayText_03.png)
 [/region]

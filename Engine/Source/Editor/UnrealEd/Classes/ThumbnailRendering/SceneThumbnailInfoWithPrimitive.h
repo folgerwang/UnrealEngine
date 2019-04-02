@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /**
  * Thumbnail information for assets that need a scene and a primitive
@@ -25,7 +25,7 @@ class USceneThumbnailInfoWithPrimitive : public USceneThumbnailInfo
 	TEnumAsByte<EThumbnailPrimType> PrimitiveType;
 
 	/** The custom mesh used when the primitive type is TPT_None */
-	UPROPERTY(EditAnywhere, Category=Thumbnail)
+	UPROPERTY(EditAnywhere, Category=Thumbnail, meta = (AllowedClasses = "StaticMesh,SkeletalMesh", ExactClass = "true"))
 	FSoftObjectPath PreviewMesh;
 
 	UPROPERTY()

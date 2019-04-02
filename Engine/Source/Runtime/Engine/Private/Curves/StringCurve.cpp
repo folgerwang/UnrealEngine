@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Curves/StringCurve.h"
 
@@ -36,13 +36,6 @@ FKeyHandle FStringCurve::AddKey(float InTime, const FString& InValue, FKeyHandle
 	for(; Index < Keys.Num() && Keys[Index].Time < InTime; ++Index);
 	Keys.Insert(FStringCurveKey(InTime, InValue), Index);
 
-	// update key indices
-	for ( auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
-	{
-		int32& KeyIndex = It.Value();
-		if (KeyIndex >= Index) {++KeyIndex;}
-	}
-
 	KeyHandlesToIndices.Add(KeyHandle, Index);
 
 	return GetKeyHandle(Index);
@@ -56,16 +49,6 @@ void FStringCurve::DeleteKey(FKeyHandle KeyHandle)
 	Keys.RemoveAt(Index);
 
 	KeyHandlesToIndices.Remove(KeyHandle);
-
-	// update key indices
-	for (auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
-	{
-		int32& KeyIndex = It.Value();
-		if (KeyIndex >= Index)
-		{
-			--KeyIndex;
-		}
-	}
 }
 
 
@@ -171,23 +154,20 @@ FString FStringCurve::GetKeyValue(FKeyHandle KeyHandle) const
 }
 
 
-FKeyHandle FStringCurve::SetKeyTime(FKeyHandle KeyHandle, float NewTime)
+void FStringCurve::SetKeyTime(FKeyHandle KeyHandle, float NewTime)
 {
-	if (!IsKeyHandleValid(KeyHandle))
+	if (IsKeyHandleValid(KeyHandle))
 	{
-		return KeyHandle;
+		const FStringCurveKey OldKey = GetKey(KeyHandle);
+
+		DeleteKey(KeyHandle);
+		AddKey(NewTime, OldKey.Value, KeyHandle);
+
+		// Copy all properties from old key, but then fix time to be the new time
+		FStringCurveKey& NewKey = GetKey(KeyHandle);
+		NewKey = OldKey;
+		NewKey.Time = NewTime;
 	}
-
-	FStringCurveKey OldKey = GetKey(KeyHandle);
-	
-	DeleteKey(KeyHandle);
-	AddKey(NewTime, OldKey.Value, KeyHandle);
-
-	// Copy all properties from old key, but then fix time to be the new time
-	GetKey(KeyHandle) = OldKey;
-	GetKey(KeyHandle).Time = NewTime;
-
-	return KeyHandle;
 }
 
 void FStringCurve::SetKeyValue(FKeyHandle KeyHandle, FString NewValue)
@@ -197,59 +177,6 @@ void FStringCurve::SetKeyValue(FKeyHandle KeyHandle, FString NewValue)
 		GetKey(KeyHandle).Value = NewValue;
 	}
 }
-
-
-void FStringCurve::ShiftCurve(float DeltaTime)
-{
-	TSet<FKeyHandle> KeyHandles;
-	for (auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
-	{
-		FKeyHandle& KeyHandle = It.Key();
-		KeyHandles.Add(KeyHandle);
-	}
-
-	ShiftCurve(DeltaTime, KeyHandles);
-}
-
-
-void FStringCurve::ShiftCurve(float DeltaTime, TSet<FKeyHandle>& KeyHandles)
-{
-	for (auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
-	{
-		const FKeyHandle& KeyHandle = It.Key();
-		if (KeyHandles.Num() != 0 && KeyHandles.Contains(KeyHandle))
-		{
-			SetKeyTime(KeyHandle, GetKeyTime(KeyHandle) + DeltaTime);
-		}
-	}
-}
-
-
-void FStringCurve::ScaleCurve(float ScaleOrigin, float ScaleFactor)
-{
-	TSet<FKeyHandle> KeyHandles;
-	for (auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
-	{
-		FKeyHandle& KeyHandle = It.Key();
-		KeyHandles.Add(KeyHandle);
-	}
-
-	ScaleCurve(ScaleOrigin, ScaleFactor, KeyHandles);
-}
-
-
-void FStringCurve::ScaleCurve(float ScaleOrigin, float ScaleFactor, TSet<FKeyHandle>& KeyHandles)
-{
-	for (auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
-	{
-		const FKeyHandle& KeyHandle = It.Key();
-		if (KeyHandles.Num() != 0 && KeyHandles.Contains(KeyHandle))
-		{
-			SetKeyTime(KeyHandle, (GetKeyTime(KeyHandle) - ScaleOrigin) * ScaleFactor + ScaleOrigin);
-		}
-	}
-}
-
 
 FKeyHandle FStringCurve::UpdateOrAddKey(float InTime, const FString& InValue, float KeyTimeTolerance)
 {
@@ -275,23 +202,4 @@ FKeyHandle FStringCurve::UpdateOrAddKey(float InTime, const FString& InValue, fl
 
 	// a key wasn't found, add it now
 	return AddKey(InTime, InValue);
-}
-
-
-int32 FStringCurve::GetNumKeys() const
-{
-	return Keys.Num();
-}
-
-
-bool FStringCurve::IsKeyHandleValid(FKeyHandle KeyHandle) const
-{
-	bool bValid = false;
-
-	if (FIndexedCurve::IsKeyHandleValid(KeyHandle))
-	{
-		bValid = Keys.IsValidIndex(GetIndex(KeyHandle));
-	}
-
-	return bValid;
 }

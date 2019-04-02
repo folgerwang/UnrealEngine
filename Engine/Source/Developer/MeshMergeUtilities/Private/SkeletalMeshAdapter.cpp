@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SkeletalMeshAdapter.h"
 #include "MeshMergeHelpers.h"
@@ -19,7 +19,7 @@ int32 FSkeletalMeshComponentAdapter::GetNumberOfLODs() const
 	return NumLODs;
 }
 
-void FSkeletalMeshComponentAdapter::RetrieveRawMeshData(int32 LODIndex, FRawMesh& InOutRawMesh, bool bPropogateMeshData) const
+void FSkeletalMeshComponentAdapter::RetrieveRawMeshData(int32 LODIndex, FMeshDescription& InOutRawMesh, bool bPropogateMeshData) const
 {
 	FMeshMergeHelpers::RetrieveMesh(SkeletalMeshComponent, LODIndex, InOutRawMesh, bPropogateMeshData);
 }

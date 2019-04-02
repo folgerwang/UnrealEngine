@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 TextureInstanceTask.cpp: Definitions of classes used for texture streaming.
@@ -7,6 +7,7 @@ TextureInstanceTask.cpp: Definitions of classes used for texture streaming.
 #include "Streaming/TextureInstanceTask.h"
 #include "Components/PrimitiveComponent.h"
 #include "Engine/Texture2D.h"
+#include "HAL/LowLevelMemTracker.h"
 
 namespace TextureInstanceTask {
 
@@ -177,6 +178,8 @@ void FDoWorkTask::ProcessTasks(TArray< TRefCountPtr<TTask> >& Tasks)
 
 void FDoWorkTask::DoWork()
 {
+	LLM_SCOPE(ELLMTag::Textures);
+
 	// The order of execution is important in case other tasks need to sync.
 	ProcessTasks(RefreshFullTasks);
 	ProcessTasks(CreateViewWithUninitializedBoundsTasks);

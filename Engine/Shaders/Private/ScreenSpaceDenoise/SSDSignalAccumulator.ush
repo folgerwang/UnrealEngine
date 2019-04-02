@@ -1,0 +1,267 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+#include "SSDSignalCore.ush"
+
+
+//------------------------------------------------------- SIGNAL ACCUMULATOR
+
+/** Accumulator of multiple signals. Multiple accumulators are actually implemented in the same structure because lack
+ * of templating in shading language, so relly on shader compiler ability's to prune useless stuf.
+ */
+struct FSSDSignalAccumulator
+{
+	// Sums of moment.
+	FSSFSignalSample Moment1;
+	FSSFSignalSample Moment2;
+
+	// Per component min and max values.
+	FSSFSignalSample Min;
+	FSSFSignalSample Max;
+
+	// Minimal inverse frequency found and intersected when sampling.
+	float MinInvFrequency;
+	
+	// Descending ring bucketing.
+	FSSFSignalSample Current;
+	float CurrentInvFrequency;
+	float CurrentTranslucency;
+
+	FSSFSignalSample Previous;
+	float PreviousInvFrequency;
+
+	float BorderingRadius;
+	float HighestInvFrequency;
+};
+
+/** Informations about cluster of sample */
+struct FSSDSampleClusterInfo
+{
+	// Outter radius boundary of the cluster.
+	float OutterBoundaryRadius;
+};
+
+
+FSSDSignalAccumulator CreateSignalAccumulator()
+{
+	FSSDSignalAccumulator Accumulator;
+	
+	Accumulator.Moment1 = CreateSignalSampleFromScalarValue(0.0);
+	Accumulator.Moment2 = CreateSignalSampleFromScalarValue(0.0);
+		
+	Accumulator.Min = CreateSignalSampleFromScalarValue(1.#INF);
+	Accumulator.Max = CreateSignalSampleFromScalarValue(0.0); // TODO: -1.#INF? otherwise there is a risk to color clamp with YCoCg.
+
+	Accumulator.MinInvFrequency = WORLD_RADIUS_MISS;
+
+	// DRB initialization.
+	{
+		Accumulator.Current = CreateSignalSampleFromScalarValue(0.0);
+		Accumulator.CurrentInvFrequency = 0.0;
+		Accumulator.CurrentTranslucency = 0.0;
+		
+		Accumulator.Previous = CreateSignalSampleFromScalarValue(0.0);
+		Accumulator.PreviousInvFrequency = 0.0;
+
+		Accumulator.BorderingRadius = 0.0;
+		Accumulator.HighestInvFrequency = 0.0;
+	}
+
+	return Accumulator;
+}
+
+
+//------------------------------------------------------- SIGNAL INFORMATION
+
+struct FSSDSampleAccumulationInfos
+{
+	// Sample to accumulate.
+	FSSFSignalSample Sample;
+
+	// Weight of the sample in the kernel.
+	float FinalWeight;
+
+	// 1 / SignalFrequency
+	float InvFrequency;
+};
+
+
+// Transform the world bluring distance due to pixel size with some conservative to be forgiving
+float AmendWorldBluringRadiusCausedByPixelSize(float WorldBluringDistance)
+{
+	float Multiplier = 1;
+
+	// The distance between two pixel is 2 times the radius of the pixel.
+	Multiplier *= 2;
+
+	// Need to take into account the furthearest pixel of 3x3 neighborhood.
+	Multiplier *= sqrt(2);
+
+	return WorldBluringDistance * Multiplier;
+}
+
+
+
+//------------------------------------------------------- ONE BIN AVG & SQUARE AVG ACCUMULATION
+
+/** Accumulate a sample withing the accumulator. */
+void AccumulateSampleInOneBin(inout FSSDSignalAccumulator Accumulator, FSSDSampleAccumulationInfos SampleInfos)
+{
+	float SampleWeight = SampleInfos.FinalWeight;
+	Accumulator.Moment1 = Add(Accumulator.Moment1, Mul(SampleInfos.Sample, SampleWeight));
+	Accumulator.Moment2 = Add(Accumulator.Moment2, Mul(Power(SampleInfos.Sample, 2), SampleWeight));
+}
+
+
+//------------------------------------------------------- MIN MAX tracking
+
+/** Tracks min and max values accumulator. */
+void AccumulateSampleInDomainBoundaries(inout FSSDSignalAccumulator Accumulator, FSSDSampleAccumulationInfos SampleInfos)
+{
+	FLATTEN
+	if (SampleInfos.FinalWeight > 0)
+	{
+		Accumulator.Min = Min(Accumulator.Min, SampleInfos.Sample);
+		Accumulator.Max = Max(Accumulator.Max, SampleInfos.Sample);
+		
+		// Track the minimal frequency inverse.
+		if (SampleInfos.InvFrequency != WORLD_RADIUS_MISS)
+			Accumulator.MinInvFrequency = min(Accumulator.MinInvFrequency, SampleInfos.InvFrequency);
+	}
+}
+
+
+//------------------------------------------------------- DESCENDING RING BUCKETING
+// [ SIGGRAPH 2018, "A life of bokeh" ]
+
+void StartAccumulatingClusterInDRB(
+	FSSFSampleSceneInfos RefSceneMetadata,
+	inout FSSDSignalAccumulator Accumulator,
+	FSSDSampleClusterInfo ClusterInfo)
+{
+	const float ErrorCorrection = 1;
+	
+	// Compute the bluring radius of the output pixel itself.
+	float RefPixelWorldBluringRadius = AmendWorldBluringRadiusCausedByPixelSize(ComputeWorldBluringRadiusCausedByPixelSize(RefSceneMetadata));
+
+	Accumulator.BorderingRadius = RefPixelWorldBluringRadius * (ClusterInfo.OutterBoundaryRadius + ErrorCorrection);
+
+	// TODO: could this be constant.
+	Accumulator.HighestInvFrequency = Accumulator.BorderingRadius * 2;
+
+	// Reset current bucket.
+	{
+		Accumulator.Current = CreateSignalSampleFromScalarValue(0.0);
+		Accumulator.CurrentInvFrequency = 0.0;
+		Accumulator.CurrentTranslucency = 0.0;
+	}
+
+	#if CONFIG_SGPR_HINT_OPTIMIZATION && 0
+	{
+		Accumulator.BorderingRadius = ToScalarMemory(Accumulator.BorderingRadius);
+		Accumulator.HighestInvFrequency = ToScalarMemory(Accumulator.HighestInvFrequency);
+	}
+	#endif
+}
+
+void AccumulateSampleInDRB(inout FSSDSignalAccumulator Accumulator, FSSDSampleAccumulationInfos A)
+{
+	float ClampedInvFrequency = min(A.InvFrequency, Accumulator.HighestInvFrequency);
+
+	// Compare the sample's frequency with the bucket bordering radius.
+	float bBelongsToPrevious = saturate(ClampedInvFrequency - Accumulator.BorderingRadius + 0.5);
+	float bBelongsToCurrent = 1.0 - bBelongsToPrevious;
+	
+	// Accumulate current bucket.
+	{
+		float CurrentWeight = A.FinalWeight * bBelongsToCurrent;
+		Accumulator.Current = Add(Accumulator.Current, Mul(A.Sample, CurrentWeight));
+		Accumulator.CurrentInvFrequency += A.Sample.AccumulatedSampleCount * ClampedInvFrequency * CurrentWeight;
+	}
+
+	// Accumulate current bucket translucency.
+	{
+		float SampleTranslucency = saturate(ClampedInvFrequency - Accumulator.BorderingRadius);
+		
+		// TODO: do need (A.Sample.LeavingRayCount * SafeRcp(A.Sample.AccumulatedSampleCount)) computation onen 1spp reconstruction.
+		// TODO: could pass down a normalised version of A.Sample to avoid Rcp.
+		float R = A.Sample.LeavingRayCount * SafeRcp(A.Sample.AccumulatedSampleCount);
+		
+		float Translucency = lerp(R, 1, SampleTranslucency);
+		float TranslucencyWeight = 1;
+
+		Accumulator.CurrentTranslucency += Translucency * TranslucencyWeight;
+	}
+
+	// Accumulate previous bucket.
+	{
+		float PreviousWeight = A.FinalWeight * bBelongsToPrevious;
+		Accumulator.Previous = Add(Accumulator.Previous, Mul(A.Sample, PreviousWeight));
+		Accumulator.PreviousInvFrequency += A.Sample.AccumulatedSampleCount * ClampedInvFrequency * PreviousWeight;
+	}
+}
+
+void DijestSampleClusterInDRB(
+	inout FSSDSignalAccumulator Accumulator,
+	uint RingId, uint SampleCount)
+{
+	//if (RingId != 0)
+	//	return;
+
+	if (Accumulator.Current.AccumulatedSampleCount == 0.0)
+	{
+		return;
+	}
+	
+	// Opacity of the current bucket.
+	float CurrentClusterOpacity = saturate(1 - Accumulator.CurrentTranslucency * rcp(float(SampleCount)));
+	
+	// Compute current and previous Coc radii.
+	float PreviousInvFrequency = Accumulator.PreviousInvFrequency * SafeRcp(Accumulator.Previous.AccumulatedSampleCount);
+	float CurrentInvFrequency = Accumulator.CurrentInvFrequency * rcp(Accumulator.Current.AccumulatedSampleCount);
+
+	// Whether current bucket is occluding previous bucket.
+	// TODO: put a contrast.
+	float bOccludingCluster = saturate((PreviousInvFrequency - CurrentInvFrequency) * rcp(Accumulator.BorderingRadius));
+
+	// Compute final factor to use to with previous bucket.
+	float PreviousBucketFactor = (Accumulator.Previous.AccumulatedSampleCount == 0.0) ? 0.0 : (1.0 - CurrentClusterOpacity * bOccludingCluster);
+
+	// TODO: the big difference in sample count could lead to wrong opacity between sample clusters.
+	//if (PreviousBucketFactor < 1)
+	//	PreviousBucketFactor *= Accumulator.Current.AccumulatedSampleCount * SafeRcp(Accumulator.Previous.AccumulatedSampleCount);
+
+	Accumulator.Previous = Add(Mul(Accumulator.Previous, PreviousBucketFactor), Accumulator.Current);
+	Accumulator.PreviousInvFrequency = Accumulator.PreviousInvFrequency * PreviousBucketFactor + Accumulator.CurrentInvFrequency;
+}
+
+
+//------------------------------------------------------- SPATIAL KERNEL ENTRY POINT.
+
+/** Start accumulating a cluster of samples. */
+void StartAccumulatingCluster(
+	FSSFSampleSceneInfos RefSceneMetadata,
+	inout FSSDSignalAccumulator Accumulator,
+	FSSDSampleClusterInfo ClusterInfo)
+{
+	StartAccumulatingClusterInDRB(RefSceneMetadata, /* inout */ Accumulator, ClusterInfo);
+}
+
+/** Accumulate a sample withing the accumulator. */
+void AccumulateSample(
+	inout FSSDSignalAccumulator Accumulator,
+	FSSDSampleAccumulationInfos SampleInfos)
+{
+	AccumulateSampleInOneBin(/* inout */ Accumulator, SampleInfos);
+	AccumulateSampleInDomainBoundaries(/* inout */ Accumulator, SampleInfos);
+	AccumulateSampleInDRB(/* inout */ Accumulator, SampleInfos);
+}
+
+/** Digest the accumulated cluster of samples. */
+void DijestAccumulatedClusterSamples(
+	inout FSSDSignalAccumulator Accumulator,
+	uint RingId, uint SampleCount)
+{
+	DijestSampleClusterInDRB(/* inout */ Accumulator, RingId, SampleCount);
+}

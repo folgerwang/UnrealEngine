@@ -1,145 +1,127 @@
-﻿INTSourceChangelist:3810467
-Availability: Docs
-Crumbs: %ROOT%, 
-Title:使用Niagara创建基于Sprite的效果
-Description:描述如何使用Niagara创建基于Sprite的视觉效果。
-Type: how-to
-SkillLevel:Beginner
-Version:4.17
-parent:Engine/Niagara/HowTo
-order:1
-tags:Niagara
-topic-image:
+﻿INTSourceChangelist:4703316
+Availability: Public
+Crumbs: 
+Title:在Niagara中创建Sprite粒子效果
+Description:介绍使用Niagara创建Sprite粒子效果的方法。
+Type:how-to
+Version: 4.21
+Parent: Engine/Niagara/HowTo
+Order: 6
+Tags: Niagara
+Tags: Early Access
 
-最常用的一种视觉效果方法是将纹理和材质渲染为面向镜头的2D平面图，称为Sprite。在以下操作指南中，我们将介绍如何设置Niagara发射器以与Sprite配合工作，以便在关卡中放入效果后，它能够正常工作和显示。 
+事先必须了解的主题
 
-![](HeroImage_00.png)
+在阅读本文前应对以下主题有所了解。如尚不了解，请先浏览以下主题再继续阅读。
 
+*   [启用Niagara插件](Engine/Niagara/HowTo/EnableNiagara "Describes how you can enable the Niagara.")
+ 
+有一种常用的视觉效果技巧是将纹理和材质渲染为面向镜头的2D平面图，这称为*Sprite*。在以下操作指南中，我们将为使用Sprite而设置Niagara发射器。将包含Niagara发射器的Niagara系统放置在关卡中时，你将看到该关卡中显示的效果。
+
+![](Sprite_Banner_01.png "Sprite_Banner_01.png")
+
+[REGION:note]
+**事先必须完成的步骤：**
+
+本操作指南使用 **M\_smoke\_subUV** 材质，它包含在 **初学者内容包** 中。如果你尚未将该材质或初学者内容添加到你的项目，请确保进行添加。
+[/REGION]
+
+(#steps)
 ## 步骤
 
-[region:note]
-本操作指南利用 **初学者内容** 中包含的 **M_smoke_subUV** 材质。如果您尚未将该材质或初学者内容添加到您的项目，请确保进行添加。
-[/region]
-
-
-1. 首先，我们需要在 **内容浏览器（Content Browser）** 中单击右键，从显示的菜单中，转至 **FX**，然后单击 **Niagara发射器（Niagara Emitter）**，以创建 **Niagara 发射器（Niagara Emitter）**。 
-
-    ![](SE_01.png)
-
-2. 将新创建的 Niagara发射器命名为 **FX_Smoke**，然后双击以将其打开。
-
+1.  首先，在 **内容浏览器** 中单击右键，从显示的菜单中选择 **FX > Niagara发射器（FX > Niagara Emitter）**，以创建 **Niagara 发射器**。Niagara发射器向导将显示。 
+    ![](SE_01.png)(w:400)
+2.  单击 **使用发射器模板创建新发射器（Create a new emitter from an emitter template）** 旁边的单选按钮。在 **选择模板发射器（Select a Template Emitter）** 下，选择 **喷泉（Fountain）** 模板。然后单击 **确定（OK）**，在内容浏览器中创建新的发射器。  
+    ![](NiagaraEmitter_FountainTemplate.png)(w:400)
+3.  将新创建的Niagara发射器命名为 **FX_Smoke**，然后双击将其打开。   
     ![](SE_02.png)
+4.  打开Niagara编辑器后，转至 **所选发射器（Selected Emitter）** 面板，找到 **渲染（Render）** 部分。
+5.  展开 **Sprite渲染（Sprite Rendering）** 部分，然后为以下属性设置下列值。  
+    ![](CreateSpriteBasedEffect_Steps_Step4-SpriteRender.png)(w:400)  
+    
+    | **属性名称** | **值** |
+    | --- | --- |
+    | 材质 | M_smoke_subUV |
+    | 子图像大小（Sub Image Size） | X: 8.0, Y: 8.0 |
+    | 启用子UV混合（Sub UV Blending Enabled） | 选中 |
+    
+6.  折叠“渲染（Render）”部分，然后找到并展开 **发射器更新（Emitter Update）** 部分。找到 **产生率（Spawn Rate）** 模块。
+7.  在 **产生率（Spawn Rate）** 模块中，将 **产生率（Spawn Rate）** 值更改为 **50**。  
+    ![](CreateSpriteBasedEffect_Steps_Step6-EmitterUpdate.png)(w:400)
+8.  折叠“发射器更新（Emitter Update）”部分，然后找到并展开 **粒子产生（Particle Spawn）** 部分。展开 **添加速度（Add Velocity）** 模块。
+9.  将 **最小值（Minimum）** 和 **最大值（Maximum）** 速度设置为以下值。  
+    ![](CreateSpriteBasedEffect_Steps_Step8-AddVelocityMinMax.png)
+    
+    | **属性名称** | **值** |
+    | --- | --- |
+    | 最小值 | X: 0.0, Y: 0.0, Z: 50.0 |
+    | 最大值 | X: 0.0, Y: 0.0, Z: 200.0 |
 
-3. 打开Niagara编辑器后，转至 **所选发射器（Selected Emitter）** 面板，查找 **发射器产生（Emitter Spawn）** 部分。
+10.  展开 **球体位置（Sphere Location）** 模块。将 **球体半径（Sphere Radius）** 值更改为 **64.0**。单击模块底部的白色箭头将其展开，确保选中 **仅表面（Surface Only）** 框。  
+    ![](CreateSpriteBasedEffect_Steps_Step10-SphereRadius.png "CreateSpriteBasedEffect_Steps_Step10-SphereRadius.png")
+11.  找到并展开 **设置变量（Set Variables）** 部分。展开 **Particles.Lifetime** 变量以显示 **最小值（Minimum）** 和 **最大值（Maximum）** 字段。
+12.  将 **最小值（Minimum）** 和 **最大值（Maximum）** 字段设置为以下值。  
+    ![](CreateSpriteBasedEffect_Steps_Step13-ParticlesLifetimeMinMax.png)
+    
+    | **属性名称** | **值** |
+    | --- | --- |
+    | 最小值 | 2.0 |
+    | 最大值 | 3.0 |
+    
+13.  展开 **Particles.SpriteSize** 变量以显示 **最小值（Minimum）** 和 **最大值（Maximum）** 字段。
+14.  将 **最小值（Minimum）** 和 **最大值（Maximum）** 字段设置为以下值。  
+    ![](CreateSpriteBasedEffect_Steps_Step15-ParticlesSpriteSizeMinMax.png)
+    
+    | **属性名称** | **值** |
+    | --- | --- |
+    | 最小值 | X: 200.0, Y: 200.0 |
+    | 最大值 | X: 700.0, Y: 700.0 |
 
-    [REGION:lightbox]
-    [![](SE_03.png)(w:834)](SE_03.png)
+15.  折叠“粒子产生（Particle Spawn）”部分，然后找到并展开 **粒子更新（Particle Update）** 部分。
+16.  展开 **加速力（Acceleration Force）** 部分。将 **加速Z（Acceleration Z）** 值更改为 **500**。  
+    ![](CreateSpriteBasedEffect_Steps_Step17_AccelerationForce.png)
+    [REGION:note]
+    如果粒子流先向上后向下（像喷泉一样），确保 **Z** 值为 **正数**，而不是负数。正数向上，负数向下。
     [/REGION]
-
-    [REGION:caption]
-    单击查看大图。
+17.  单击 **粒子更新（Particle Update）** 旁边的 **加号** 图标（**+**）以显示选项列表。选择 **设置特定参数（Set Specific Parameters）> Particles.SubImageIndex**。这样会为Particles.SubImageIndex添加 **设置变量（Set Variables）** 部分。  
+    [REGION:imagetable]
+    | ![](CreateSpriteBasedEffect_Steps_Step18-ParticlesSubImageIndex1.jpg)(w:555) | ![](CreateSpriteBasedEffect_Steps_Step18-ParticlesSubImageIndex2.jpg)(w:550) |
+    | --- | --- |
     [/REGION]
+18.  在 **Particles.SubImageIndex** 变量中，单击 **Particle.SubImageIndex** 对面的白色三角形以显示选项列表。选择 **动态输入（Dynamic Inputs）>来自曲线的浮点（Float From Curve）**。  
+    ![](CreateSpriteBasedEffect_Steps_Step19-ParticlesSubImageIndexFloatCurve.png)
+19.  在 **曲线（Curve）** 输入窗口中，单击曲线左侧的第一个键。将该键的 **时间（Time）** 和 **值（Value）** 设置为 **0.0**。  
+    ![](CreateSpriteBasedEffect_Steps_Step21-FloatCurveFirstKey2.png)
+20.  单击曲线右侧的第二个键，确保其 **时间（Time）** 设置为 **1.0**，**值（Value）** 设置为 **.64**。  
+    ![](CreateSpriteBasedEffect_Steps_Step21-FloatCurveSecondKey.png)
+21.  在 **Particles.SubImageIndex** 变量中，按 **CurveIndex** 对面的白色小三角形以显示选项列表。选择 **链接输入（Link Inputs）>粒子属性（Particle Attributes）>规格化寿命（Normalized Age）**。  
+    ![](CreateSpriteBasedEffect_Steps_Step21-CurveIndexNormalizedAge.png)
+22.  然后，单击 **编译（Compile）**、**应用（Apply）** 和 **保存（Save）** 按钮，以应用和保存更改，而后关闭 **FX_Smoke** Niagara发射器。  
+    ![](SE_15.png)
+23.在 **内容浏览器** 中单击右键，从显示的菜单中选择 **FX > Niagara系统（FX > Niagara System）**。Niagara系统向导将显示。  
+    ![](SE_16.png)
+24.单击 **创建没有发射器的空系统（Create an empty system with no emitters）** 旁边的单选按钮。然后单击 **确定（OK）**。  
+    ![](NiagaraSystem_EmptySystem.png)(w:400)
+25.将新Niagara系统命名为 **Smoke**。  
+    ![](NiagaraSystem_NewSmokeSystem.png)(w:75)
+26.双击 **Smoke** Niagara系统将其打开，然后将 **FX_Smoke** 发射器从内容浏览器拖到 **时间轴（Timeline）**。  
+    ![](SE_17.png)(w:400)
+27.  单击 **编译（Compile）** 和 **保存（Save）** 按钮以应用和保存你的更改，然后关闭Smoke Niagara系统。
+28.在内容浏览器中，将 **Smoke** Niagara系统拖到关卡视口。
 
-4. 展开 **发射器产生（Emitter Spawn）** 的 **渲染（Render）** 部分，并为以下属性设置以下选项。
-
-    ![](SE_04.png)
-
-    | 属性名称                             | 值             |
-    | -------------------------------- | ------------- |
-    | 材质（Material）                     | M_smoke_subUV |
-    | 子图像大小（Sub Image Size）            | x：8，y：8       |
-    | 启用子UV混合（Sub UV Blending Enabled） | 选中            |
-
-5. 然后在 **发射器更新（Emitter Update）** 的 **产生率（Spawn Rate）** 部分中，将 **产生率（Spawn Rate）*** 设置为值 **50**。
-
-    ![](SE_05.png)
-
-6. 接下来，在 **粒子产生（Particle Spawn）** 部分中，转至 **添加速度（Add Velocity）** 部分，将 **最小值（Minimum）** 和 **最大值（Maximum）** 设置为以下值：
-
-    ![](SE_06.png)
-
-    | 属性名称         | 值       |
-    | ------------ | ------- |
-    | 最小值（Minimum） | 0,0,50  |
-    | 最大值（Maximum） | 0,0,200 |
-
-7. 在 **球体位置（Sphere Location）** 中，将 **球体半径（Sphere Radius）** 设置为 **64**，然后确保启用 **仅表面（Surface Only）**。
-
-    ![](SE_07.png)
-
-    [region:note]
-    如果您看不到“仅表面”（Surface Only）选项，请按白色小三角以展开更多选项。
-    [/region]
-
-8. 接下来，在 **设置Particles.Lifetime（Set Particles.Lifetime）** 部分中,单击 **寿命（Lifetime）** 旁边的白色小三角，然后从下拉列表中选择 **设置局部值（Set Local Value）** 选项，并输入 **5** 作为寿命。
-
-    ![](SE_08.png)
-
-9. 在 **设置Particles.SpriteSize（Set Particles.SpriteSize）** 中，将 **最小值（Minimum）** 设置为 **200**，将 **最大值（Maximum）** 设置为 **700**。
-
-    ![](SE_09.png)
-
-10. 在 **粒子更新（Particle Update）** 部分中，转至 **加速力（Acceleration Force）** 并将 **Z** 值设置为 **300**。
-
-    ![](SE_10.png)
-
-11. 转至“粒子更新”（Particle Update）部分的底部，按 **加号（Plus）** 图标，并向列表添加一个新模块。从显示的列表中，选择 **设置Particles.SubImageIndex（Set Particles.SubImageIndex）** 选项。
-
-     ![](SE_11.png)
-
-12. 在“设置Particles.SubImageIndex”（Set Particles.SubImageIndex）中，按 **SubImagIndex** 选项旁边的白色小三角，然后从显示的列表中，选择 **来自曲线的浮点（Float From Curve）** 选项。
-
-     ![](SE_12.png)
-
-13. 在 **曲线（Curve）** 输入窗口中，选择第1个键，确保其 **时间（Time）** 和 **值（Value）** 都设置为0。然后选择第2个键，确保其时间（Time）设置为 **1**，值（Value）设置为 **64**。 
-
-     ![](SE_13.png)
-
-14. 接下来，在“设置Particles.SubImageIndex”（Set Particles.SubImageIndex）部分底部，按 **曲线索引（CurveIndex）** 旁边的灰色小三角，并从下拉列表中选择 **（规范化年龄（Normalized Age）** 选项。
-
-     ![](SE_14.png)
-
-15. 然后，按 **编译（Compile）**、**应用（Apply）** 和 **保存（Save）** 按钮，以应用和保存更改，而后关闭 **FX_Smoke** 发射器。
-
-     ![](SE_15.png)
-
-16. 现在移到“内容浏览器”（Content Browser），单击右键并从显示的列表中，转至 **FX**，然后选择 **Niagara系统（Niagara System）** 选项，将其命名为 **Smoke**。
-
-     ![](SE_16.png)
-
-17. 双击 Smoke Niagara 系统将其打开，打开后，将 **FX_Smoke** 从“内容浏览器”（Content Browser）拖到 **时间轴（Timeline）**。
-
-     ![](SE_17.png)
-
-18. 按 **编译（Compile）** 和 **保存（Save）** 按钮，然后关闭 Smoke Niagara 系统。然后，在“内容浏览器”（Content Browser）中，将Smoke Niagara系统拖到关卡视口。
-
-     [REGION:lightbox]
-     [![](SE_18.png)(w:834)](SE_18.png)
-     [/REGION]
-
-     [REGION:caption]
-     单击查看大图。
-     [/REGION]
-
+(#endresult)
 ## 最终结果
 
-完成后，您现在拥有一个Niagara系统，将该Niagara系统放到关卡中时，将播放您的Niagara发射器，如以下视频所示。
+完成本操作指南中的步骤后，放置在关卡中的Niagara系统将播放Niagara发射器，从而产生想要的效果（如下面的视频所示）。
 
 [OBJECT:EmbeddedVideo]
-    [PARAMLITERAL:videoid]
-    h_3CVsDqKBc
-    [/PARAMLITERAL]
-    [PARAMLITERAL:width]
-    100
-    [/PARAMLITERAL]
-    [PARAMLITERAL:height]
-    56.25
-    [/PARAMLITERAL]
-    [PARAMLITERAL:units]
-    %
-    [/PARAMLITERAL]
-    [PARAMLITERAL:type]
-    simple
-    [/PARAMLITERAL]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ 3mGxYRZDORY
+ [/PARAMLITERAL]
 [/OBJECT]
-

@@ -1,0 +1,56 @@
+﻿INTSourceChangelist:4499799
+Availability: Public
+Crumbs: 
+Title: Android调试
+Description: 了解如何使用Android Studio调试您的UE4项目。
+Type: 
+Version: 4.20
+Parent: Platforms/Android
+Order: 1
+Tags: Android
+
+
+虚幻引擎4(UE4)允许您使用Android Studio调试UE4项目中使用的C++和Java代码。在下面的教程中，我们将了解如何设置Android Studio，以便它可以用于调试UE4 Android项目。
+
+##步骤
+
+在下一部分，我们将介绍如何下载和设置Android Studio，以便它能够与UE4项目一起工作。
+
+1.  首先，使用以下链接下载并安装Android Studio 3.0.1版本：   
+      [https://developer.android.com/studio/archive](https://developer.android.com/studio/archive)
+2.  接下来，构建要调试的apk，然后将其部署到用于调试的Android设备上。  
+    ![](package_menu.png)
+3.  打开Android Studio Launcher，从显示的选项中，选择 **打开一个现有的Android Studio项目（Open an existing Android Studio Project）**。  
+    ![](AndroidDebugging_01.png "AndroidDebugging_01.png")
+4.  在 **打开文件或项目（Open File or Project）** 菜单中，导航到 **C:\\YourProjectName\\Intermediate\\Android\\APK\\Gradle**，选择 **Gradle** 目录，然后按下 **确定（OK）** 按钮。  
+    ![](AndroidDebugging_02.png "AndroidDebugging_02.png")
+5.  打开Android Studio后，转到 **运行菜单（Run Menu）**，并选择 **Edit Configurations（编辑配置）** 选项。  
+    ![](AndroidDebugging_03.png "AndroidDebugging_03.png")
+6.  单击 **调试器（Debugger）** 选项卡，并将调试类型设置为 **双（Dual）**。  
+    ![](AndroidDebugging_04.png "AndroidDebugging_04.png")
+7.  接下来，转到 **LLDB启动命令（LLDB Startup Command）** 选项卡，按下 **加号（plus）** 图标(+)然后输入以下一行，同时按下 **确定（OK）** 按钮以完成此过程。  
+		命令脚本导入 "C:\PathToYourUE4EngineInstall\Engine\Extras/LLDBDataFormatters\UE4DataFormatters_2ByteChars.py"
+	[REGION:note]
+	请注意，在C++代码中，应使用TEXT（"string"）替代L（"string"）。
+	[/REGION]
+	![](AndroidDebugging_05.png "AndroidDebugging_05.png")
+	[REGION:note]
+	请务必按下 **回车（Enter）** 键，否则命令不会执行。
+	[/REGION]
+
+8.  现在，打开项目的任意一个.cpp文件，并将断点添加到要调试的项目。  
+    
+	![](AndroidDebugging_10.png)
+10.  在主菜单中，选择 **运行（Run）** > **调试（Debug）‘app-app’**。  
+	![](AndroidDebugging_06.png "AndroidDebugging_06.png")
+11.  当显示 **选择部署类型（Select Deployment Type）** 窗口时，从列表中选择您的设备并按下 **确定（OK）** 按钮。  
+    ![](AndroidDebugging_07.png "AndroidDebugging_07.png")
+
+##最终结果
+
+完成所有这些操作后，等待调试器附加到您的Android设备。  
+![](AndroidDebugging_08.png)  
+
+[REGION:note]
+根据项目的大小，调试器可能需要一些时间来进行附加。如果没有使用 **在APK内打包数据（Package data inside APK）** 选项，这样做也 **不会** 在设备上安装数据。这样做会减慢重新部署调试的速度，因为APK会更大。另一种选择是，在使用Android Studio进行调试之前，首先在编辑器上执行 **启动**，以在设备上安装当前关卡。或者，如果您需要的不仅仅是当前关卡数据，则可以在设备上打包和安装OBB。
+[/REGION]

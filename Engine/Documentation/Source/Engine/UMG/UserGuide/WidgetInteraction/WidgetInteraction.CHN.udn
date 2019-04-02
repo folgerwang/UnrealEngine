@@ -1,12 +1,20 @@
-﻿INTSourceChangelist:3102822
-Availability:Public
+﻿INTSourceChangelist:3612551
+Availability: Public
+Crumbs: %ROOT%
 Title:控件交互组件
-Crumbs:%ROOT%, Engine, Engine/UMG, Engine/UMG/UserGuide
 Description:说明如何使用控件交互组件和 3D 控件互动。
-Version:4.13
-Related:Engine/UMG/UserGuide
-Related:Engine/Blueprints
-Related:Engine/Components/Widget
+Type: Overview
+SkillLevel:Beginner
+Version:4.17
+Parent:Engine/UMG/UserGuide
+Related: Engine/UMG/UserGuide
+Related: Engine/Blueprints
+Related: Engine/Components/Widget
+Order:10
+Tags:UMG UI Designer
+Topic-Image:WidgetInteractionBanner.png
+
+
 
 [REGION:warning]
 此功能仍在实验阶段，一些部分可能无法正常工作，在未来更新中也可能被修改。 
@@ -24,6 +32,7 @@ Related:Engine/Components/Widget
 如要了解详细范例，请查阅 [](Engine\UMG\HowTo\InWorldWidgetInteraction\) 和 [](Engine\UMG\HowTo\VirtualKeyboards)。 
 [/REGION]
 
+(#AddingaWidgetInteractionComponent)
 ## 添加控件交互组件
 
 通常需要将控件交互组件添加到玩家 [](Gameplay/Framework/Pawn) 或来自 [](Engine/Blueprints/UserGuide/Components/) 的 [](Gameplay/Framework/Pawn/Character) 类。 
@@ -33,6 +42,7 @@ Related:Engine/Components/Widget
 我们将其添加并附加到角色手持的一把枪上，因此枪指向的方向就是控件交互组件的朝向。 
 
 
+(#WidgetInteractionPropertyReference)
 ## 控件交互属性参考
 
 添加控件交互组件后，可调整 **Details** 面板中的数个属性来定义其功能。除常见的组件属性外（如 **Transform**、**Rendering**，或 **Sockets**），以下属性为控件交互组件专用。 
@@ -52,6 +62,7 @@ Related:Engine/Components/Widget
 | **On Hovered Widget Changed** | 悬停控件组件改变时调用。Slate 层的交互组件函数 — 因此它无法针对命中结果下的控件进行报告。|
 
 
+(#WidgetInteractionBlueprintNodeReference)
 ## 控件交互蓝图节点参考
 
 控件交互组件可模拟不同类型的输入方法（如按下、松开，或按下 + 松开），在蓝图快捷菜单的 **Interaction** 部分可找到这部分内容。还可获得其他信息，如控件交互组件注册的“命中”位置，或世界场景中的控件组件当前是否被悬停。 

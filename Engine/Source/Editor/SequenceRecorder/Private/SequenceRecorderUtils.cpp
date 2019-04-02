@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SequenceRecorderUtils.h"
 #include "GameFramework/Actor.h"
@@ -59,7 +59,7 @@ bool RecordSingleNodeInstanceToAnimation(USkeletalMeshComponent* PreviewComponen
 
 		FAnimRecorderInstance AnimRecorder;
 		FAnimationRecordingSettings Setting;
-		AnimRecorder.Init(PreviewComponent, NewAsset, Setting);
+		AnimRecorder.Init(PreviewComponent, NewAsset,nullptr, Setting);
 		float Length = SingleNodeInstance->GetLength();
 		const float DefaultSampleRate = (Setting.SampleRate > 0.f) ? Setting.SampleRate : DEFAULT_SAMPLERATE;
 		const float Interval = 1.f / DefaultSampleRate;

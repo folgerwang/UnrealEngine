@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,8 @@
 #include "Modules/ModuleManager.h"
 #include "IHeadMountedDisplayModule.h"
 #include "IMagicLeapHMD.h"
+
+class IMagicLeapInputDevice;
 
 /**
  * The public interface to this module.  In most cases, this interface is only public to sibling modules
@@ -49,4 +51,10 @@ public:
 	* @return Shared pointer to the HMD.
 	*/
 	virtual TWeakPtr<IMagicLeapHMD, ESPMode::ThreadSafe> GetHMD() = 0;
+
+	virtual void RegisterMagicLeapInputDevice(IMagicLeapInputDevice* InputDevice) = 0;
+	virtual void UnregisterMagicLeapInputDevice(IMagicLeapInputDevice* InputDevice) = 0;
+	virtual void EnableInputDevices() = 0;
+	virtual void DisableInputDevices() = 0;
+	virtual void OnBeginRendering_GameThread_UpdateInputDevices() = 0;
 };

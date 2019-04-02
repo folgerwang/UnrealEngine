@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -13,6 +13,24 @@
 class USkeletalMesh;
 class USkeleton;
 class USkeletalMesh;
+
+/** in the future if we need more bools, please convert to bitfield 
+ * These are not saved in asset but per skeleton. 
+ */
+USTRUCT()
+struct ENGINE_API FAnimCurveType
+{
+	GENERATED_USTRUCT_BODY()
+
+	bool bMaterial;
+	bool bMorphtarget;
+
+	FAnimCurveType(bool bInMorphtarget = false, bool bInMaterial = false)
+		: bMaterial(bInMaterial)
+		, bMorphtarget(bInMorphtarget)
+	{
+	}
+};
 
 /**
 * This is a native transient structure. Used to store virtual bone mappings for compact poses
@@ -130,6 +148,12 @@ private:
 
 	/** Look up table of UID to array index UIDToArrayIndexLUT[InUID] = ArrayIndex of order. If MAX_uint16, it is invalid.*/
 	TArray<uint16> UIDToArrayIndexLUT;
+
+	/** Look up table of UID to Name UIDToNameLUT[InUID] = Name of curve. If NAME_None, it is invalid.*/
+	TArray<FName> UIDToNameLUT;
+
+	/** Look up table of UID to FAnimCurveType UIDToNameLUT[InUID] = FAnimCurveType of curve. */
+	TArray<FAnimCurveType> UIDToCurveTypeLUT;
 
 	/** For debugging. */
 	/** Disable Retargeting. Extract animation, but do not retarget it. */
@@ -292,6 +316,18 @@ public:
 		return UIDToArrayIndexLUT;
 	}
 
+	/** Get UID To Name look up table */
+	TArray<FName> const& GetUIDToNameLookupTable() const
+	{
+		return UIDToNameLUT;
+	}
+
+	/** Get UID To curve type look up table */
+	TArray<FAnimCurveType> const& GetUIDToCurveTypeLookupTable() const
+	{
+		return UIDToCurveTypeLUT;
+	}
+
 	/**
 	* Serializes the bones
 	*
@@ -391,17 +427,18 @@ struct FBoneReference
 	FName BoneName;
 
 	/** Cached bone index for run time - right now bone index of skeleton **/
-	int32 BoneIndex;
+	int32 BoneIndex:31;
 
 	/** Change this to Bitfield if we have more than one bool 
 	 * This specifies whether or not this indices is mesh or skeleton
 	 */
-	bool bUseSkeletonIndex;
+	uint32 bUseSkeletonIndex:1;
 
 	FCompactPoseBoneIndex CachedCompactPoseIndex;
 
 	FBoneReference()
-		: BoneIndex(INDEX_NONE)
+		: BoneName(NAME_None)
+		, BoneIndex(INDEX_NONE)
 		, bUseSkeletonIndex(false)
 		, CachedCompactPoseIndex(INDEX_NONE)
 	{
@@ -428,7 +465,7 @@ struct FBoneReference
 	ENGINE_API bool Initialize(const USkeleton* Skeleton);
 
 	/** Deprecated functions */
-	DEPRECATED(4.17, "Please use IsValidToEvaluate instead")
+	UE_DEPRECATED(4.17, "Please use IsValidToEvaluate instead")
 	ENGINE_API bool IsValid(const FBoneContainer& RequiredBones) const;
 	
 	/** return true if it has valid set up */

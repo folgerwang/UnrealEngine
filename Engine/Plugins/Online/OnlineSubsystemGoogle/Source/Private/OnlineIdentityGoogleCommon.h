@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
  
@@ -8,13 +8,11 @@
 #include "Interfaces/IHttpRequest.h"
 #include "OnlineSubsystemGooglePackage.h"
 
-// Google scope fields
+// Google scope fields: https://developers.google.com/identity/protocols/googlescopes
 // email profile
-// https://www.googleapis.com/auth/plus.login
-// https://www.googleapis.com/auth/plus.me 
 // https://www.googleapis.com/auth/userinfo.email
 // https://www.googleapis.com/auth/userinfo.profile
-#define GOOGLE_PERM_PUBLIC_PROFILE "https://www.googleapis.com/auth/plus.login"
+#define GOOGLE_PERM_PUBLIC_PROFILE "https://www.googleapis.com/auth/userinfo.profile"
 
 class FOnlineSubsystemGoogle;
 class FUserOnlineAccountGoogleCommon;
@@ -78,9 +76,6 @@ public:
 	// FOnlineIdentityGoogle
 
 	FOnlineIdentityGoogleCommon(FOnlineSubsystemGoogle* InSubsystem);
-
-	/** @return an invalid/empty unique id */
-	static const FUniqueNetId& GetEmptyUniqueId();
 
 	/**
 	 * Destructor

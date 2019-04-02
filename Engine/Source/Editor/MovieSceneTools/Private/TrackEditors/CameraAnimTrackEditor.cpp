@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "TrackEditors/CameraAnimTrackEditor.h"
 #include "Widgets/SBoxPanel.h"
@@ -189,7 +189,7 @@ TSharedPtr<SWidget> FCameraAnimTrackEditor::BuildOutlinerEditWidget(const FGuid&
 	.AutoWidth()
 	.VAlign(VAlign_Center)
 	[
-		FSequencerUtilities::MakeAddButton(LOCTEXT("AddCameraAnim", "Camera Anim"), FOnGetContent::CreateSP(this, &FCameraAnimTrackEditor::BuildCameraAnimSubMenu, ObjectBinding), Params.NodeIsHovered)
+		FSequencerUtilities::MakeAddButton(LOCTEXT("AddCameraAnim", "Camera Anim"), FOnGetContent::CreateSP(this, &FCameraAnimTrackEditor::BuildCameraAnimSubMenu, ObjectBinding), Params.NodeIsHovered, GetSequencer())
 	];
 }
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -13,6 +13,7 @@
 #include "IMessageHandler.h"
 #include "IMessageReceiver.h"
 #include "IMessageSender.h"
+#include "IMessageBusListener.h"
 #include "Misc/Guid.h"
 #include "Templates/SharedPointer.h"
 #include "UObject/NameTypes.h"
@@ -26,6 +27,21 @@
  */
 DECLARE_DELEGATE_TwoParams(FOnMessageEndpointError, const IMessageContext&, const FString&);
 
+
+/**
+ * Struct to propagate message bus notifications
+ */
+struct FMessageBusNotification
+{
+	/** Notification type. */
+	EMessageBusNotification NotificationType;
+
+	/** Address of the un/registered. */
+	FMessageAddress RegistrationAddress;
+};
+
+/** Delegate type for MessageBus notifications. */
+DECLARE_DELEGATE_OneParam(FOnBusNotification, const FMessageBusNotification&);
 
 /**
  * Implements a message endpoint for sending and receiving messages on a message bus.
@@ -49,6 +65,7 @@ class FMessageEndpoint
 	: public TSharedFromThis<FMessageEndpoint, ESPMode::ThreadSafe>
 	, public IMessageReceiver
 	, public IMessageSender
+	, public IBusListener
 {
 public:
 
@@ -69,11 +86,12 @@ public:
 	 * @param InBus The message bus to attach this endpoint to.
 	 * @param InHandlers The collection of message handlers to register.
 	 */
-	FMessageEndpoint(const FName& InName, const TSharedRef<IMessageBus, ESPMode::ThreadSafe>& InBus, const TArray<TSharedPtr<IMessageHandler, ESPMode::ThreadSafe>>& InHandlers)
+	FMessageEndpoint(const FName& InName, const TSharedRef<IMessageBus, ESPMode::ThreadSafe>& InBus, const TArray<TSharedPtr<IMessageHandler, ESPMode::ThreadSafe>>& InHandlers, const FOnBusNotification InNotificationDelegate)
 		: Address(FMessageAddress::NewAddress())
 		, BusPtr(InBus)
 		, Enabled(true)
 		, Handlers(InHandlers)
+		, NotificationDelegate(InNotificationDelegate)
 		, Id(FGuid::NewGuid())
 		, InboxEnabled(false)
 		, Name(InName)
@@ -241,7 +259,7 @@ public:
 	 * @param Delay The delay after which to send the message.
 	 * @param Expiration The time at which the message expires.
 	 */
-	DEPRECATED(4.21, "FMessageEndpoint::Send with 6 params is deprecated. Please use FMessageEndpoint::Send that takes additionnal EMessageFlags instead!")
+	UE_DEPRECATED(4.21, "FMessageEndpoint::Send with 6 params is deprecated. Please use FMessageEndpoint::Send that takes additionnal EMessageFlags instead!")
 	void Send(void* Message, UScriptStruct* TypeInfo, const TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe>& Attachment, const TArray<FMessageAddress>& Recipients, const FTimespan& Delay, const FDateTime& Expiration)
 	{
 		Send(Message, TypeInfo, EMessageFlags::None, Attachment, Recipients, Delay, Expiration);
@@ -424,6 +442,23 @@ public:
 		{
 			ProcessMessage(Context);
 		}
+	}
+
+	//~ IBusListener interface
+
+	virtual ENamedThreads::Type GetListenerThread() const override
+	{
+		return RecipientThread;
+	}
+
+	virtual void NotifyRegistration(const FMessageAddress& InAddress, EMessageBusNotification InNotification)
+	{
+		if (!Enabled)
+		{
+			return;
+		}
+
+		NotificationDelegate.ExecuteIfBound(FMessageBusNotification{ InNotification, InAddress });
 	}
 
 public:
@@ -678,6 +713,24 @@ public:
 	}
 
 	/**
+	 * Sends a message to the specified list of recipients.
+	 * Allows to specify message flags
+	 *
+	 * @param Message The message to send.
+	 * @param TypeInfo The message's type information.
+	 * @param Flags The message's type information.
+	 * @param Attachment An optional binary data attachment.
+	 * @param Recipients The message recipients.
+	 * @param Delay The delay after which to send the message.
+	 * @param Expiration The time at which the message expires.
+	 */
+	template<typename MessageType>
+	void Send(MessageType* Message, EMessageFlags Flags, const TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe>& Attachment, const TArray<FMessageAddress>& Recipients, const FTimespan& Delay, const FDateTime& Expiration)
+	{
+		Send(Message, MessageType::StaticStruct(), Flags, Attachment, Recipients, Delay, Expiration);
+	}
+
+	/**
 	 * Template method to subscribe the message endpoint to the specified type of messages with the default message scope.
 	 *
 	 * The default message scope is all messages excluding loopback messages.
@@ -802,6 +855,9 @@ private:
 	/** Holds the registered message handlers. */
 	TArray<TSharedPtr<IMessageHandler, ESPMode::ThreadSafe>> Handlers;
 
+	/** Holds a delegate that is invoked on disconnection events. */
+	FOnBusNotification NotificationDelegate;
+
 	/** Holds the endpoint's unique identifier (for debugging purposes). */
 	const FGuid Id;
 
@@ -825,9 +881,9 @@ private:
 
 
 /** Type definition for shared pointers to instances of FMessageEndpoint. */
-DEPRECATED(4.16, "FMessageEndpointPtr is deprecated. Please use 'TSharedPtr<FMessageEndpoint, ESPMode::ThreadSafe>' instead!")
+UE_DEPRECATED(4.16, "FMessageEndpointPtr is deprecated. Please use 'TSharedPtr<FMessageEndpoint, ESPMode::ThreadSafe>' instead!")
 typedef TSharedPtr<FMessageEndpoint, ESPMode::ThreadSafe> FMessageEndpointPtr;
 
 /** Type definition for shared references to instances of FMessageEndpoint. */
-DEPRECATED(4.16, "FMessageEndpointRef is deprecated. Please use 'TSharedPtr<FMessageEndpoint, ESPMode::ThreadSafe>' instead!")
+UE_DEPRECATED(4.16, "FMessageEndpointRef is deprecated. Please use 'TSharedPtr<FMessageEndpoint, ESPMode::ThreadSafe>' instead!")
 typedef TSharedRef<FMessageEndpoint, ESPMode::ThreadSafe> FMessageEndpointRef;

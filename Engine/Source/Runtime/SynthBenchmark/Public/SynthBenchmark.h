@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,6 +22,7 @@ public:
 
 	// could be moved out of SynthBenchmark, it only requires the RHI, only returns valid data after the RHI started up
 	virtual void GetRHIDisplay(FGPUAdpater& Out) const = 0;
+	virtual void GetRHIInfo(FGPUAdpater& Out, FString& RHIName) const = 0;
 
 	/**
 	 * Singleton-like access to this module's interface.  This is just for convenience!

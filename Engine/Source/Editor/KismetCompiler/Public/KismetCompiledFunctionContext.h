@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -199,7 +199,8 @@ public:
 
 	FBPTerminal* RegisterLiteral(UEdGraphPin* Net)
 	{
-		FBPTerminal* Term = new (Literals) FBPTerminal();
+		FBPTerminal* Term = new FBPTerminal();
+		Literals.Add(Term);
 		Term->CopyFromPin(Net, Net->DefaultValue);
 		Term->ObjectLiteral = Net->DefaultObject;
 		Term->TextLiteral = Net->DefaultTextValue;

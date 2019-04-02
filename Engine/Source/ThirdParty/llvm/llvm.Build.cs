@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -17,7 +17,7 @@ public class llvm : ModuleRules
 
 		var LLVMVersion = @"3.5.0";
 		// VS2015 uses a newer version of the libs
-		if (Target.WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015)
+		if (Target.WindowsPlatform.Compiler >= WindowsCompiler.VisualStudio2015_DEPRECATED)
 		{
 			LLVMVersion = @"3.6.2";
 		}
@@ -67,7 +67,7 @@ public class llvm : ModuleRules
 			});
 
 		// The 3.6.2 version we use for VS2015 has moved some functionality around.
-		if (Target.WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015)
+		if (Target.WindowsPlatform.Compiler >= WindowsCompiler.VisualStudio2015_DEPRECATED)
 		{
 			PublicAdditionalLibraries.AddRange(
 				new string[] {

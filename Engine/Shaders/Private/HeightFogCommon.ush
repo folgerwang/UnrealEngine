@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	HeightFogCommon.usf: 
@@ -20,6 +20,7 @@ static const float FLT_EPSILON = 0.001f;
 static const float FLT_EPSILON2 = 0.01f;
 
 // FogStruct.ExponentialFogParameters: FogDensity * exp2(-FogHeightFalloff * (CameraWorldPosition.z - FogHeight)) in x, FogHeightFalloff in y, CosTerminatorAngle in z, StartDistance in w. 
+// FogStruct.ExponentialFogParameters2: FogDensitySecond * exp2(-FogHeightFalloffSecond * (CameraWorldPosition.z - FogHeightSecond)) in x, FogHeightFalloffSecond in y, FogDensitySecond in z, FogHeightSecond in w 
 // FogStruct.ExponentialFogParameters3: FogDensity in x, FogHeight in y, whether to use cubemap fog color in z, FogCutoffDistance in w. 
 // FogStruct.FogInscatteringTextureParameters: mip distance scale in x, bias in y, num mips in z 
 
@@ -45,6 +46,17 @@ float3 ComputeInscatteringColor(float3 CameraToReceiver, float CameraToReceiverL
 	return Inscattering;
 }
 
+// Calculate the line integral of the ray from the camera to the receiver position through the fog density function
+// The exponential fog density function is d = GlobalDensity * exp(-HeightFalloff * z)
+float CalculateLineIntegralShared(float FogHeightFalloff, float RayDirectionZ, float RayOriginTerms)
+{
+	float Falloff = max(-127.0f, FogHeightFalloff * RayDirectionZ);    // if it's lower than -127.0, then exp2() goes crazy in OpenGL's GLSL.
+	float LineIntegral = ( 1.0f - exp2(-Falloff) ) / Falloff;
+	float LineIntegralTaylor = log(2.0) - ( 0.5 * Pow2( log(2.0) ) ) * Falloff;		// Taylor expansion around 0
+	
+	return RayOriginTerms * ( abs(Falloff) > FLT_EPSILON2 ? LineIntegral : LineIntegralTaylor );
+}
+
 // @param WorldPositionRelativeToCamera = WorldPosition - InCameraPosition
 half4 GetExponentialHeightFog(float3 WorldPositionRelativeToCamera, float ExcludeDistance)
 {
@@ -57,6 +69,7 @@ half4 GetExponentialHeightFog(float3 WorldPositionRelativeToCamera, float Exclud
 	half3 CameraToReceiverNormalized = CameraToReceiver * CameraToReceiverLengthInv;
 
 	float RayOriginTerms = FogStruct.ExponentialFogParameters.x;
+	float RayOriginTermsSecond = FogStruct.ExponentialFogParameters2.x;
 	float RayLength = CameraToReceiverLength;
 	float RayDirectionZ = CameraToReceiver.z;
 
@@ -94,14 +107,14 @@ half4 GetExponentialHeightFog(float3 WorldPositionRelativeToCamera, float Exclud
 
 		float Exponent = max(-127.0f, FogStruct.ExponentialFogParameters.y * (ExclusionIntersectionZ - FogStruct.ExponentialFogParameters3.y));
 		RayOriginTerms = FogStruct.ExponentialFogParameters3.x * exp2(-Exponent);
+		
+		float ExponentSecond = max(-127.0f, FogStruct.ExponentialFogParameters2.y * (ExclusionIntersectionZ - FogStruct.ExponentialFogParameters2.w)); 	 
+		RayOriginTermsSecond = FogStruct.ExponentialFogParameters2.z * exp2(-ExponentSecond);
 	}
 
-	// Calculate the line integral of the ray from the camera to the receiver position through the fog density function
-	// The exponential fog density function is d = GlobalDensity * exp(-HeightFalloff * z)
-	float Falloff = max(-127.0f, FogStruct.ExponentialFogParameters.y * RayDirectionZ);    // if it's lower than -127.0, then exp2() goes crazy in OpenGL's GLSL.
-	float LineIntegral = ( 1.0f - exp2(-Falloff) ) / Falloff;
-	float LineIntegralTaylor = log(2.0) - ( 0.5 * Pow2( log(2.0) ) ) * Falloff;		// Taylor expansion around 0
-	float ExponentialHeightLineIntegralShared = RayOriginTerms * ( abs(Falloff) > FLT_EPSILON2 ? LineIntegral : LineIntegralTaylor );
+	// Calculate the "shared" line integral (this term is also used for the directional light inscattering) by adding the two line integrals together (from two different height falloffs and densities)
+	float ExponentialHeightLineIntegralShared = CalculateLineIntegralShared(FogStruct.ExponentialFogParameters.y, RayDirectionZ, RayOriginTerms) + CalculateLineIntegralShared(FogStruct.ExponentialFogParameters2.y, RayDirectionZ, RayOriginTermsSecond);
+
 	float ExponentialHeightLineIntegral = ExponentialHeightLineIntegralShared * RayLength;
 
 	half3 InscatteringColor = ComputeInscatteringColor(CameraToReceiver, CameraToReceiverLength);
@@ -109,7 +122,12 @@ half4 GetExponentialHeightFog(float3 WorldPositionRelativeToCamera, float Exclud
 
 #if SUPPORT_FOG_DIRECTIONAL_LIGHT_INSCATTERING
 	// if InscatteringLightDirection.w is negative then it's disabled, otherwise it holds directional inscattering start distance
-	if (FogStruct.InscatteringLightDirection.w >= 0 && FogStruct.ExponentialFogParameters3.z == 0)
+	BRANCH
+	if (FogStruct.InscatteringLightDirection.w >= 0
+	#if SUPPORT_FOG_INSCATTERING_TEXTURE
+		&& FogStruct.ExponentialFogParameters3.z == 0
+	#endif
+	)
 	{
 		float DirectionalInscatteringStartDistance = FogStruct.InscatteringLightDirection.w;
 		// Setup a cosine lobe around the light direction to approximate inscattering from the directional light off of the ambient haze;
@@ -134,7 +152,14 @@ half4 GetExponentialHeightFog(float3 WorldPositionRelativeToCamera, float Exclud
 		DirectionalInscattering = 0;
 	}
 
-	return half4((InscatteringColor) * (1 - ExpFogFactor) + DirectionalInscattering, ExpFogFactor);
+	// Fog color is unused when additive / modulate blend modes are active.
+	#if (MATERIALBLENDING_ADDITIVE || MATERIALBLENDING_MODULATE)
+		half3 FogColor = 0.0;
+	#else
+		half3 FogColor = (InscatteringColor) * (1 - ExpFogFactor) + DirectionalInscattering;
+	#endif
+
+	return half4(FogColor, ExpFogFactor);
 }
 
 half4 CalculateHeightFog(float3 WorldPositionRelativeToCamera)

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 InstancedFoliage.cpp: Instanced foliage implementation.
@@ -1196,6 +1196,7 @@ void FFoliageMeshInfo::RemoveInstances(AInstancedFoliageActor* InIFA, const TArr
 	Instances.Shrink();
 		
 	Component->bAutoRebuildTreeOnInstanceChanges = PreviousbAutoRebuildTreeOnInstanceChanges;
+	Component->InvalidateLightingCache();
 
 	if (RebuildFoliageTree)
 	{
@@ -1371,7 +1372,7 @@ void FFoliageMeshInfo::ReapplyInstancesToComponent()
 		}
 
 		Component->bAutoRebuildTreeOnInstanceChanges = true;
-		Component->BuildTreeIfOutdated(true, true);
+		Component->BuildTreeIfOutdated(false, true);
 
 		Component->ClearInstanceSelection();
 
@@ -1836,6 +1837,9 @@ void AInstancedFoliageActor::DeleteInstancesForProceduralFoliageComponent(const 
 			MeshInfo.RemoveInstances(this, InstancesToRemove, InRebuildTree);
 		}
 	}
+
+	// Clean up dead cross-level references
+	FFoliageInstanceBaseCache::CompactInstanceBaseCache(this);
 }
 
 bool AInstancedFoliageActor::ContainsInstancesFromProceduralFoliageComponent(const UProceduralFoliageComponent* ProceduralFoliageComponent)
@@ -2227,14 +2231,15 @@ FFoliageMeshInfo* AInstancedFoliageActor::AddMesh(UStaticMesh* InMesh, UFoliageT
 	if (DefaultSettings)
 	{
 		// TODO: Can't we just use this directly?
-		Settings = DuplicateObject<UFoliageType_InstancedStaticMesh>(DefaultSettings, this);
+		FObjectDuplicationParameters DuplicationParameters(const_cast<UFoliageType_InstancedStaticMesh*>(DefaultSettings), this);
+		DuplicationParameters.ApplyFlags = RF_Transactional;
+		Settings = CastChecked<UFoliageType_InstancedStaticMesh>(StaticDuplicateObjectEx(DuplicationParameters));
 	}
 	else
 #endif
 	{
-		Settings = NewObject<UFoliageType_InstancedStaticMesh>(this);
+		Settings = NewObject<UFoliageType_InstancedStaticMesh>(this, NAME_None, RF_Transactional);
 	}
-	Settings->SetFlags(RF_Transactional);
 	Settings->Mesh = InMesh;
 
 	FFoliageMeshInfo* MeshInfo = AddMesh(Settings);

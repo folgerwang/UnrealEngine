@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -17,7 +17,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		public override string RuntimeVersion
 		{
-			get { return "9.0"; }
+			get { return "10.0"; }
 		}
 
 		/// <summary>
@@ -28,8 +28,8 @@ namespace UnrealBuildTool
 			get { return "3"; }
 		}
 
-		public TVOSProjectSettings(FileReference ProjectFile)
-			: base(ProjectFile, UnrealTargetPlatform.TVOS)
+		public TVOSProjectSettings(FileReference ProjectFile, String Bundle)
+			: base(ProjectFile, UnrealTargetPlatform.TVOS, Bundle)
 		{
 		}
 	}
@@ -71,14 +71,14 @@ namespace UnrealBuildTool
 			}
 		}
 
-		public new TVOSProjectSettings ReadProjectSettings(FileReference ProjectFile)
+		public new TVOSProjectSettings ReadProjectSettings(FileReference ProjectFile, string Bundle = "")
 		{
-			return (TVOSProjectSettings)base.ReadProjectSettings(ProjectFile);
+			return (TVOSProjectSettings)base.ReadProjectSettings(ProjectFile, Bundle);
 		}
 
-		protected override IOSProjectSettings CreateProjectSettings(FileReference ProjectFile)
+		protected override IOSProjectSettings CreateProjectSettings(FileReference ProjectFile, string Bundle)
 		{
-			return new TVOSProjectSettings(ProjectFile);
+			return new TVOSProjectSettings(ProjectFile, Bundle);
 		}
 
 		public TVOSProvisioningData ReadProvisioningData(TVOSProjectSettings ProjectSettings, bool bForDistribution = false)
@@ -127,18 +127,18 @@ namespace UnrealBuildTool
 		public override UEToolChain CreateToolChain(CppPlatform CppPlatform, ReadOnlyTargetRules Target)
 		{
 			TVOSProjectSettings ProjectSettings = ((TVOSPlatform)UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.TVOS)).ReadProjectSettings(Target.ProjectFile);
-			return new TVOSToolChain(Target.ProjectFile, ProjectSettings);
+			return new TVOSToolChain(Target, ProjectSettings);
 		}
 
-		public override void Deploy(UEBuildDeployTarget Target)
+		public override void Deploy(TargetReceipt Receipt)
 		{
-			new UEDeployTVOS().PrepTargetForDeployment(Target);
+			new UEDeployTVOS().PrepTargetForDeployment(Receipt);
 		}
 	}
 
 	class TVOSPlatformFactory : UEBuildPlatformFactory
 	{
-		protected override UnrealTargetPlatform TargetPlatform
+		public override UnrealTargetPlatform TargetPlatform
 		{
 			get { return UnrealTargetPlatform.TVOS; }
 		}
@@ -146,10 +146,10 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Register the platform with the UEBuildPlatform class
 		/// </summary>
-		protected override void RegisterBuildPlatforms(SDKOutputLevel OutputLevel)
+		public override void RegisterBuildPlatforms()
 		{
 			IOSPlatformSDK SDK = new IOSPlatformSDK();
-			SDK.ManageAndValidateSDK(OutputLevel);
+			SDK.ManageAndValidateSDK();
 
 			// Register this build platform for IOS
 			Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.TVOS.ToString());

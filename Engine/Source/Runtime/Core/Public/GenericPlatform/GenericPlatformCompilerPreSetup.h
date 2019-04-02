@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -64,7 +64,7 @@
 	 * @param VERSION The release number in which the feature was marked deprecated.
 	 * @param MESSAGE A message text containing additional upgrade notes.
 	 */
-	#define DEPRECATED(VERSION, MESSAGE)
+	#define DEPRECATED(VERSION, MESSAGE) DEPRECATED_MACRO(4.22, "The DEPRECATED macro has been deprecated in favor of UE_DEPRECATED().")
 #endif // DEPRECATED
 
 #ifndef PRAGMA_DISABLE_DEPRECATION_WARNINGS

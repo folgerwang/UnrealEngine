@@ -1,0 +1,110 @@
+Availability: Public
+Crumbs: 
+Title: Using an Installed Build
+Description: This page describes the Installed Build process, including an overview of how to write Installed Build scripts.
+Type: 
+Version: 4.13
+Parent: Programming/Deployment
+Order: 2
+Tags: 
+
+
+Developers are always looking for ways to efficiently deliver build solutions for a variety of hardware profiles and operating systems. An **Installed Build** is a fully featured engine build that can be redistributed to quickly get your team up and running with the engine. From a technical standpoint, an Installed build contains precompiled binaries for Unreal Editor and a static library for each target platform in development and shipping configurations.
+
+The Installed Build process automates build packages and tools that are needed to make an Installed Build version of Unreal Engine 4 (UE4). In summary, making an Installed Build is the process of setting up default target platforms, compiling UE4 with its tools and editor, running tests, and deploying the Installed Build version of UE4 to targeted platforms.
+
+[REGION:note]
+In addition to making your own build, you can download UE4 from our launcher.
+[/REGION]
+
+## Making an Installed Build
+
+You can create Installed Builds using the [BuildGraph](Programming/Development/BuildGraph) scripting system with the Installed Build script located at `[UE4Root]/Engine/Build/InstalledBuild.xml`.  
+
+**To create an Installed Build:**
+
+1.  Run the Installed Build Script by invoking the **AutomationTool** with the following command line, replacing `[PLATFORM]` with either `Win64` or `Mac`.  
+      
+    BuildGraph -target="Make Installed Build \[PLATFORM\]" -script=Engine/Build/InstalledEngineBuild.xml -clean  
+
+1.  Navigate to the `LocalBuilds/Engine/` folder in your Unreal Engine directory to view the Installed Build that you created. If you specified a different directory to publish to, navigate to that directory instead.
+
+Configure your build using the following Installed Build Script Options:
+
+## Installed Build Script Options
+
+The `InstalledEngineBuild.xml` script makes an Installed Build with all of the default options and platforms enabled; however, it can be configured using a set of specified options, enabling you to target which platforms to include, where to publish the build to, etc. You can view a list of available options for customizing the build process (along with a list of nodes that will be built), by passing the `-listonly` option to the script.
+
+The available options are:
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `-set:HostPlatformOnly=[true/false]` | false | A helper option to make an installed build for your host platform only, so that you don't have to disable each platform individually. |
+| `-set:WithWin64=[true/false]` | true | Include the Win64 target platform. |
+| `-set:WithWin32=[true/false]` | true | Include the Win32 target platform. |
+| `-set:WithMac=[true/false]` | true | Include the Mac target platform. |
+| `-set:WithAndroid=[true/false]` | true | Include the Android target platform. |
+| `-set:WithIOS=[true/false]` | true | [INCLUDE:#excerpt_0] |
+| `-set:WithTVOS=[true/false]` | true | [INCLUDE:#excerpt_1] |
+| `-set:WithLinux=[true/false]` | true | Include the Linux target platform. |
+| `-set:WithHTML5=[true/false]` | true | Include the HTML5 target platform. |
+| `-set:WithPS4=[true/false]` | false | [INCLUDE:#excerpt_2] |
+| `-set:WithXboxOne=[true/false]` | false | [INCLUDE:#excerpt_3] |
+| `-set:WithDDC=[true/false]` | true | [INCLUDE:#excerpt_4] |
+| `-set:WithFullDebugInfo=[true/false]` | false | Generate full debug info for binary editor and packaged application builds. |
+| `-set:SignExecutables=[true/false]` | false | Sign the executables produced if you have to set up your machine to sign executables as part of the build process. |
+| `-set:AnalyticsTypeOverride=[ID]` | N/A | Identifier for analytic events to send. |
+| `-set:GameConfigurations=[Configurations]` | Development;Shipping | Specifies the configurations for packaged applications. |
+
+[COMMENT:none]
+
+[EXCERPT:excerpt_0]
+Include the iOS target platform.
+[REGION:note]Enabling this option requires a Mac set up for remote building.[/REGION]
+[/EXCERPT:excerpt_0]
+
+[EXCERPT:excerpt_1]
+Include the tvOS target platform.
+[REGION:note]Enabling this option requires a Mac set up for remote building.[/REGION]
+[/EXCERPT:excerpt_1]
+
+[EXCERPT:excerpt_2]
+Include the PS4 target platform.
+[REGION:note]Enabling this option requires the PS4 SDK.[/REGION]
+[/EXCERPT:excerpt_2]
+
+[EXCERPT:excerpt_3]
+Include the XBoxOne target platform.
+[REGION:note]Enabling this option requires the Xbox One SDK.[/REGION]
+[/EXCERPT:excerpt_3]
+
+[EXCERPT:excerpt_4]
+Build a stand-alone derived-data cache for the engine content and templates.
+[REGION:note]Building a stand-alone [Derived Data Cache (DDC)](Engine/Basics/DerivedDataCache) for the Engine and Template content can be one of the slowest aspects of the build. If you don't need a stand-alone DDC, you can skip this step by appending -set:WithDDC=false to the command line.[/REGION]
+[/EXCERPT:excerpt_4]
+
+[/COMMENT]
+### Including Additional Files
+
+RuntimeDependencies (set in `build.cs` files for each module) automatically collate and determine which files are included in an Installed Build. However, there are some required files that cannot be included this way, so they're defined in `[UE4Root]/Engine/Build/InstalledEngineFilters.xml`. The `InstalledEngineFilters` XML file also lists patterns of files that should be excluded from the build, determining the types of files that need to be stripped or signed, and finally, deciding what projects to build the DDC for. If you need to include any additional files with the Installed Build, the `InstalledEngineFilters` XML file is a great place to start.
+
+## Registering an Installed Build
+
+UE4 has the concept of "foreign" projects and "non-foreign" projects. Foreign projects are those stored in a separate directory tree to the Engine, while non-foreign projects are stored in sub-directories of the engine root, referenced by the `UE4Games.uprojectdirs` extension.
+
+The "EngineAssociation" field in a `.uproject` file identifies which Editor version will open the project. For non-foreign projects, it is left blank, because being non-foreign implies the existence of an Editor in a (known) relative location, up from the directory hierarchy of the project. For foreign projects using Engine builds installed by the Launcher, the field will contain the official version number (such as "4.19"), and the Launcher can find the appropriate Editor binary (assuming it has been installed) based on its list of installed applications. For foreign projects using an Engine build distributed by means other than the Launcher, the Engine build's random unique identifier can be used to find the installed directory via a globally-accessible data repository, specifically, the registry on Windows, or a file in the library folder on Mac. If an association with an installed Editor build cannot be found, the user will be prompted to select a version, and the `.uproject` file will be updated with the selected version.
+
+When distributing an Installed Build to a team, make sure that the build's identifier is common to everyone. This will prevent the Editor from prompting for version selection, and then updating the `.uproject` file with a locally-generated unique identifier. Setting a custom identifier can be done as follows:
+
+*   On **Windows**, add a registry key to HKEY\_CURRENT\_USER\\\SOFTWARE\\\Epic Games\\UnrealEngine\\Builds that uses your identifier as its key, and the path to the Engine as its value. For example, the Key might be "MyCustom419" , and the value might be "D:\\CustomUE4".
+*   On **Mac**, open /Users/MyName/Library/Application Support/Epic/UnrealEngine/Install.ini and and add an entry to the "\[Installations\]" section that uses your identifier as the key, and the path to the Engine as the value. For example:
+    
+    
+    [Installations]
+    MyCustom419 = /Users/MyName/CustomUE4
+
+## Choosing this Deployment Method
+
+If you rarely need to change the engine, and if you’re looking for a way to quickly (and efficiently) deliver build solutions for a variety of hardware profiles and operating systems, you can deploy an Installed Build of UE4 (or download the engine from our launcher). 
+
+Keep in mind, though, that if you’re not looking for a read-only distribution of UE4 (that can be installed into C:\\Program Files), then this method isn’t for you, mainly because it’s designed to create standalone, read-only engine content, source code, and third-party libraries. Although we provide Installed Engine Builds as a courtesy through the Epic Games Launcher, we don’t consume this method for our internal games teams. Furthermore, we treat this as a standalone deployment product in its own right.

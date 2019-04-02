@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MkvFileReader.h"
 
@@ -12,6 +12,19 @@ bool FMkvFileReader::Open(const TCHAR* Filename)
 	IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 	m_file.Reset(PlatformFile.OpenRead(Filename));
 	return m_file.IsValid();
+}
+
+FTimespan FMkvFileReader::GetVideoFrameDuration(const mkvparser::VideoTrack& track)
+{
+	double FrameRate = track.GetFrameRate();
+	if (FrameRate > 0)
+	{
+		return FTimespan::FromSeconds(1.0 / FrameRate);
+	}
+	else
+	{
+		return FTimespan::FromSeconds(1.0 / 30.0);
+	}
 }
 
 int FMkvFileReader::Read(long long Position, long Lenght, unsigned char* Buffer)

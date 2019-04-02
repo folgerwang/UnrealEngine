@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "StreamingGeometryCacheData.h"
 #include "Async/AsyncFileHandle.h"
@@ -229,7 +229,7 @@ void FStreamingGeometryCacheData::UpdateStreamingStatus()
 				FResidentChunk &ResidentChunk = AddResidentChunk(NeededIndex, Chunk);
 
 				// Todo find something more smart...
-				EAsyncIOPriority AsyncIOPriority = AIOP_BelowNormal;
+				EAsyncIOPriorityAndFlags AsyncIOPriority = AIOP_BelowNormal;
 
 				// Kick of a load
 				if (!IORequestHandle)

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -93,11 +93,13 @@ protected:
 	 * update only some components of the rotation).
 	 */
 	UPROPERTY(EditDefaultsOnly, AdvancedDisplay, Category="Controller|Transform")
-	uint32 bAttachToPawn:1;
+	uint8 bAttachToPawn:1;
 
 	/** Whether this controller is a PlayerController. */
-	UPROPERTY()
-	uint32 bIsPlayerController:1;
+	uint8 bIsPlayerController:1;
+
+	/** Whether the controller must have authority to be able to call possess on a Pawn */
+	uint8 bCanPossessWithoutAuthority:1;
 
 	/** Ignores movement input. Stacked state storage, Use accessor function IgnoreMoveInput() */
 	uint8 IgnoreMoveInput;
@@ -183,7 +185,7 @@ public:
 	}
 
 	/** DEPRECATED! Use the standard "Cast To" node instead. Casts this Controller to a Player Controller, if possible. */
-	DEPRECATED(4.11, "CastToPlayerController has been replaced by the standard Cast To node.")
+	UE_DEPRECATED(4.11, "CastToPlayerController has been replaced by the standard Cast To node.")
 	UFUNCTION(BlueprintCallable, Category=Pawn, meta=(DeprecatedFunction, DeprecationMessage="Use standard Cast To node instead."))
 	class APlayerController* CastToPlayerController();
 
@@ -199,7 +201,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category=Pawn, meta=(DisplayName="Get Controlled Pawn", ScriptName="GetControlledPawn"))
 	APawn* K2_GetPawn() const;
 
-	FPawnChangedSignature GetOnNewPawnNotifier() { return OnNewPawn; }
+	FPawnChangedSignature& GetOnNewPawnNotifier() { return OnNewPawn; }
 
 public:
 
@@ -261,12 +263,28 @@ public:
 	 * @see HasAuthority()
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category=Pawn, meta=(Keywords="set controller"))
-	virtual void Possess(APawn* InPawn);
+	virtual void Possess(APawn* InPawn) final; // DEPRECATED(4.22, "Posssess is marked virtual final as you should now be overriding OnPossess instead")
 
 	/** Called to unpossess our pawn for any reason that is not the pawn being destroyed (destruction handled by PawnDestroyed()). */
 	UFUNCTION(BlueprintCallable, Category=Pawn, meta=(Keywords="set controller"))
-	virtual void UnPossess();
+	virtual void UnPossess() final; // DEPRECATED(4.22, "Posssess is marked virtual final as you should now be overriding OnUnPossess instead")
 
+protected:
+	/** Blueprint implementable event to react to the controller possessing a pawn */
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Possess"))
+	void ReceivePossess(APawn* PossessedPawn);
+
+	/** Overridable native function for when this controller possesses a pawn. */
+	virtual void OnPossess(APawn* InPawn);
+
+	/** Blueprint implementable event to react to the controller unpossessing a pawn */
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On UnPossess"))
+	void ReceiveUnPossess(APawn* UnpossessedPawn);
+
+	/** Overridable native function for when this controller unpossesses its pawn. */
+	virtual void OnUnPossess();
+
+public:
 	/**
 	 * Called to unpossess our pawn because it is going to be destroyed.
 	 * (other unpossession handled by UnPossess())
@@ -367,7 +385,7 @@ private:
 public:
 
 	/** prepares path following component */
-	DEPRECATED(4.20, "InitNavigationControl is depracated. The function lost its meaning due to better Engine-AIModule code separation")
+	UE_DEPRECATED(4.20, "InitNavigationControl is depracated. The function lost its meaning due to better Engine-AIModule code separation")
 	virtual void InitNavigationControl(UObject*& PathFollowingComp) {}
 
 	/** If controller has any navigation-related components then this function
@@ -375,7 +393,7 @@ public:
 	 *	DEPRECATED: this functionality has been taken over by PathFollowingComponent 
 	 *		by observing newly possessed pawns (via OnNewPawn)
 	 */
-	DEPRECATED(4.20, "UpdateNavigationComponents is depracated. The function lost its meaning due to better Engine-AIModule code separation.")
+	UE_DEPRECATED(4.20, "UpdateNavigationComponents is depracated. The function lost its meaning due to better Engine-AIModule code separation.")
 	virtual void UpdateNavigationComponents() {}
 };
 

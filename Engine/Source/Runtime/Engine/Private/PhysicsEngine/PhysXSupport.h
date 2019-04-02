@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PhysXSupport.h: PhysX support
@@ -80,6 +80,8 @@ bool IsRigidBodyKinematicAndInSimulationScene_AssumesLocked(const PxRigidBody* P
 extern ENGINE_API PxFoundation*			GPhysXFoundation;
 /** Pointer to PhysX debugger */
 extern PxPvd*					GPhysXVisualDebugger;
+
+extern int32 GPhysXHackCurrentLoopCounter;
 
 extern ENGINE_API TAutoConsoleVariable<float> CVarToleranceScaleLength;
 
@@ -406,12 +408,12 @@ PxFilterFlags PhysXSimFilterShader(	PxFilterObjectAttributes attributes0, PxFilt
 									PxFilterObjectAttributes attributes1, PxFilterData filterData1,
 									PxPairFlags& pairFlags, const void* constantBlock, PxU32 constantBlockSize );
 
-#if !WITH_APEIRON && !PHYSICS_INTERFACE_LLIMMEDIATE
+#if !WITH_CHAOS && !PHYSICS_INTERFACE_LLIMMEDIATE
 /** Event callback used to notify engine about various collision events */
 class ENGINE_API FPhysXSimEventCallback : public PxSimulationEventCallback
 {
 public:
-	FPhysXSimEventCallback(FPhysScene* InOwningScene, int32 InSceneType) : OwningScene(InOwningScene), SceneType(InSceneType){}
+	FPhysXSimEventCallback(FPhysScene* InOwningScene) : OwningScene(InOwningScene){}
 
 	virtual void onConstraintBreak(PxConstraintInfo* constraints, PxU32 count) override;
 	virtual void onWake(PxActor** actors, PxU32 count) override;
@@ -422,7 +424,6 @@ public:
 
 private:	
 	FPhysScene* OwningScene;
-	int32 SceneType;
 };
 #endif
 

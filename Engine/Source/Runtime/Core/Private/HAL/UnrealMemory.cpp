@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "HAL/UnrealMemory.h"
 #include "Math/UnrealMathUtility.h"
@@ -197,9 +197,9 @@ public:
 	{
 		return UsedMalloc->QuantizeSize(Count, Alignment);
 	}
-	virtual void Trim() override
+	virtual void Trim(bool bTrimThreadCaches) override
 	{
-		return UsedMalloc->Trim();
+		return UsedMalloc->Trim(bTrimThreadCaches);
 	}
 	virtual void SetupTLSCachesOnCurrentThread() override
 	{
@@ -504,7 +504,7 @@ SIZE_T FMemory::QuantizeSizeExternal(SIZE_T Count, uint32 Alignment)
 }	
 
 
-void FMemory::Trim()
+void FMemory::Trim(bool bTrimThreadCaches)
 {
 	if (!GMalloc)
 	{
@@ -517,7 +517,7 @@ void FMemory::Trim()
 		FCoreDelegates::GetMemoryTrimDelegate().Broadcast();
 	}
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FMemory_Trim_GMalloc);
-	GMalloc->Trim();
+	GMalloc->Trim(bTrimThreadCaches);
 }
 
 void FMemory::SetupTLSCachesOnCurrentThread()

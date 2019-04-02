@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Transport/UdpMessageProcessor.h"
 #include "UdpMessagingPrivate.h"
@@ -168,8 +168,10 @@ bool FUdpMessageProcessor::Init()
 	Beacon = new FUdpMessageBeacon(Socket, LocalNodeId, MulticastEndpoint, StaticEndpoints);
 	SocketSender = new FUdpSocketSender(Socket, TEXT("FUdpMessageProcessor.Sender"));
 
+	// Current protocol version 12
 	SupportedProtocolVersions.Add(UDP_MESSAGING_TRANSPORT_PROTOCOL_VERSION);
-	// Support Protocol version 10
+	// Support Protocol version 10-11
+	SupportedProtocolVersions.Add(11);
 	SupportedProtocolVersions.Add(10);
 
 	return true;
@@ -453,28 +455,7 @@ void FUdpMessageProcessor::ProcessDataSegment(FInboundSegment& Segment, FNodeInf
 	}
 
 	AcknowledgeReceipt(DataChunk.MessageId, NodeInfo);
-
-	if (ReassembledMessage->GetSequence() == 0)
-	{
-		if (NodeInfo.NodeId.IsValid())
-		{
-			MessageReassembledDelegate.ExecuteIfBound(*ReassembledMessage, nullptr, NodeInfo.NodeId);
-		}
-	}
-	else if (NodeInfo.Resequencer.Resequence(ReassembledMessage))
-	{
-		TSharedPtr<FUdpReassembledMessage, ESPMode::ThreadSafe> ResequencedMessage;
-
-		while (NodeInfo.Resequencer.Pop(ResequencedMessage))
-		{
-			if (NodeInfo.NodeId.IsValid())
-			{
-				MessageReassembledDelegate.ExecuteIfBound(*ResequencedMessage, nullptr, NodeInfo.NodeId);
-			}
-		}
-	}
-	// Mark the message delivered but do not remove it from the list yet, this is to prevent the double delivery of reliable message
-	ReassembledMessage->MarkDelivered();
+	DeliverMessage(ReassembledMessage, NodeInfo);
 }
 
 
@@ -581,11 +562,44 @@ void FUdpMessageProcessor::ProcessUnknownSegment(FInboundSegment& Segment, FNode
 }
 
 
+void FUdpMessageProcessor::DeliverMessage(const TSharedPtr<FUdpReassembledMessage, ESPMode::ThreadSafe>& ReassembledMessage, FNodeInfo& NodeInfo)
+{
+	// Do not deliver message while saving or garbage collecting since those deliveries will fail anyway...
+	if (GIsSavingPackage || IsGarbageCollecting())
+	{
+		return;
+	}
+
+	if (ReassembledMessage->GetSequence() == 0)
+	{
+		if (NodeInfo.NodeId.IsValid())
+		{
+			MessageReassembledDelegate.ExecuteIfBound(*ReassembledMessage, nullptr, NodeInfo.NodeId);
+		}
+	}
+	else if (NodeInfo.Resequencer.Resequence(ReassembledMessage))
+	{
+		TSharedPtr<FUdpReassembledMessage, ESPMode::ThreadSafe> ResequencedMessage;
+
+		while (NodeInfo.Resequencer.Pop(ResequencedMessage))
+		{
+			if (NodeInfo.NodeId.IsValid())
+			{
+				MessageReassembledDelegate.ExecuteIfBound(*ResequencedMessage, nullptr, NodeInfo.NodeId);
+			}
+		}
+	}
+	// Mark the message delivered but do not remove it from the list yet, this is to prevent the double delivery of reliable message
+	ReassembledMessage->MarkDelivered();
+}
+
+
 void FUdpMessageProcessor::RemoveKnownNode(const FGuid& NodeId)
 {
 	NodeLostDelegate.ExecuteIfBound(NodeId);
 	KnownNodes.Remove(NodeId);
 }
+
 
 void FUdpMessageProcessor::UpdateKnownNodes()
 {
@@ -701,15 +715,11 @@ void FUdpMessageProcessor::UpdateReassemblers(FNodeInfo& NodeInfo)
 	for (TMap<int32, TSharedPtr<FUdpReassembledMessage, ESPMode::ThreadSafe>>::TIterator It(NodeInfo.ReassembledMessages); It; ++It)
 	{
 		TSharedPtr<FUdpReassembledMessage, ESPMode::ThreadSafe>& ReassembledMessage = It.Value();
-		FUdpMessageSegment::FAcknowledgeSegmentsChunk AcknowledgeChunk
-		{
-			It.Key(),										// MessageId
-			ReassembledMessage->GetPendingAcknowledgments()	// Segments
-		};
 
 		// Send pending acknowledgments
-		if (AcknowledgeChunk.Segments.Num() > 0)
+		if (ReassembledMessage->HasPendingAcknowledgements())
 		{
+			FUdpMessageSegment::FAcknowledgeSegmentsChunk AcknowledgeChunk(It.Key()/*MessageId*/, ReassembledMessage->GetPendingAcknowledgments()/*Segments*/);
 			TSharedRef<FArrayWriter, ESPMode::ThreadSafe> Writer = MakeShared<FArrayWriter, ESPMode::ThreadSafe>();
 			{
 				*Writer << Header;
@@ -720,6 +730,12 @@ void FUdpMessageProcessor::UpdateReassemblers(FNodeInfo& NodeInfo)
 			{
 				return;
 			}
+		}
+
+		// Try to deliver completed message that couldn't be delivered the first time around
+		if (ReassembledMessage->IsComplete() && !ReassembledMessage->IsDelivered())
+		{
+			DeliverMessage(ReassembledMessage, NodeInfo);
 		}
 
 		// Remove stale reassembled message if they aren't reliable or are marked delivered

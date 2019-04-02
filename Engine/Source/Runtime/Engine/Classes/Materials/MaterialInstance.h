@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -295,20 +295,27 @@ class UMaterialInstance : public UMaterialInterface
 	 */
 	ENGINE_API const FStaticParameterSet& GetStaticParameters() const;
 
+	/** Flag to detect cycles in the material instance graph. */
+	bool ReentrantFlag[2];
+
 	/**
 	 * Indicates whether the instance has static permutation resources (which are required when static parameters are present) 
 	 * Read directly from the rendering thread, can only be modified with the use of a FMaterialUpdateContext.
 	 * When true, StaticPermutationMaterialResources will always be valid and non-null.
 	 */
 	UPROPERTY()
-	uint32 bHasStaticPermutationResource:1;
+	uint8 bHasStaticPermutationResource:1;
 
 	/** Defines if SubsurfaceProfile from this instance is used or it uses the parent one. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = MaterialInstance)
-	uint32 bOverrideSubsurfaceProfile:1;
-	
-	/** Flag to detect cycles in the material instance graph. */
-	bool ReentrantFlag[2];
+	uint8 bOverrideSubsurfaceProfile:1;
+
+	uint8 TwoSided : 1;
+	uint8 DitheredLODTransition : 1;
+	uint8 bCastDynamicShadowAsMasked : 1;
+
+	TEnumAsByte<EBlendMode> BlendMode;
+	TEnumAsByte<EMaterialShadingModel> ShadingModel;
 
 	FORCEINLINE bool GetReentrantFlag() const
 	{
@@ -336,8 +343,10 @@ class UMaterialInstance : public UMaterialInterface
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=MaterialInstance)
 	TArray<struct FFontParameterValue> FontParameterValues;
 
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	bool bOverrideBaseProperties_DEPRECATED;
+#endif
 
 	UPROPERTY(EditAnywhere, Category=MaterialInstance)
 	struct FMaterialInstanceBasePropertyOverrides BasePropertyOverrides;
@@ -349,17 +358,11 @@ class UMaterialInstance : public UMaterialInterface
 
 	//Cached copies of the base property overrides or the value from the parent to avoid traversing the parent chain for each access.
 	float OpacityMaskClipValue;
-	TEnumAsByte<EBlendMode> BlendMode;
-	TEnumAsByte<EMaterialShadingModel> ShadingModel;
-	uint32 TwoSided : 1;
-	uint32 DitheredLODTransition : 1;
-	uint32 bCastDynamicShadowAsMasked : 1;
 
 	/** 
-	 * FMaterialRenderProxy derivatives that represent this material instance to the renderer, when the renderer needs to fetch parameter values. 
-	 * Second instance is used when selected, third when hovered.
+	 * FMaterialRenderProxy derivative that represent this material instance to the renderer, when the renderer needs to fetch parameter values. 
 	 */
-	class FMaterialInstanceResource* Resources[3];
+	class FMaterialInstanceResource* Resource;
 
 	/** 
 	 * Cached texture references from all expressions in the material (including nested functions). 
@@ -426,13 +429,13 @@ public:
 	virtual ENGINE_API void OverrideScalarParameterDefault(const FMaterialParameterInfo& ParameterInfo, float Value, bool bOverride, ERHIFeatureLevel::Type FeatureLevel) override;
 	virtual ENGINE_API bool CheckMaterialUsage(const EMaterialUsage Usage) override;
 	virtual ENGINE_API bool CheckMaterialUsage_Concurrent(const EMaterialUsage Usage) const override;
-	virtual ENGINE_API bool GetStaticSwitchParameterValue(const FMaterialParameterInfo& ParameterInfo, bool &OutValue, FGuid &OutExpressionGuid, bool bOveriddenOnly = false) const override;
-	virtual ENGINE_API bool GetStaticComponentMaskParameterValue(const FMaterialParameterInfo& ParameterInfo, bool &R, bool &G, bool &B, bool &A, FGuid &OutExpressionGuid, bool bOveriddenOnly = false) const override;
+	virtual ENGINE_API bool GetStaticSwitchParameterValue(const FMaterialParameterInfo& ParameterInfo, bool &OutValue, FGuid &OutExpressionGuid, bool bOveriddenOnly = false, bool bCheckParent = true) const override;
+	virtual ENGINE_API bool GetStaticComponentMaskParameterValue(const FMaterialParameterInfo& ParameterInfo, bool &R, bool &G, bool &B, bool &A, FGuid &OutExpressionGuid, bool bOveriddenOnly = false, bool bCheckParent = true) const override;
 	virtual ENGINE_API bool GetTerrainLayerWeightParameterValue(const FMaterialParameterInfo& ParameterInfo, int32& OutWeightmapIndex, FGuid &OutExpressionGuid) const override;
-	virtual ENGINE_API bool GetMaterialLayersParameterValue(const FMaterialParameterInfo& ParameterInfo, FMaterialLayersFunctions& OutLayers, FGuid &OutExpressionGuid) const override;
+	virtual ENGINE_API bool GetMaterialLayersParameterValue(const FMaterialParameterInfo& ParameterInfo, FMaterialLayersFunctions& OutLayers, FGuid &OutExpressionGuid, bool bCheckParent = true) const override;
 			ENGINE_API bool UpdateMaterialLayersParameterValue(const FMaterialParameterInfo& ParameterInfo, const FMaterialLayersFunctions& LayersValue, const bool bOverridden, const FGuid& GUID);
 	virtual ENGINE_API bool IsDependent(UMaterialInterface* TestDependency) override;
-	virtual ENGINE_API FMaterialRenderProxy* GetRenderProxy(bool Selected, bool bHovered = false) const override;
+	virtual ENGINE_API FMaterialRenderProxy* GetRenderProxy() const override;
 	virtual ENGINE_API UPhysicalMaterial* GetPhysicalMaterial() const override;
 	virtual ENGINE_API bool UpdateLightmassTextureTracking() override;
 	virtual ENGINE_API bool GetCastShadowAsMasked() const override;
@@ -447,10 +450,13 @@ public:
 		TArray<FName>* OutTextureParamNames, struct FStaticParameterSet* InStaticParameterSet,
 		ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type InQuality) override;
 #endif
-	virtual ENGINE_API void RecacheUniformExpressions() const override;
+	virtual ENGINE_API void RecacheUniformExpressions(bool bRecreateUniformBuffer) const override;
 	virtual ENGINE_API bool GetRefractionSettings(float& OutBiasValue) const override;
+
+#if WITH_EDITOR
 	ENGINE_API virtual void ForceRecompileForRendering() override;
-	
+#endif // WITH_EDITOR
+
 	ENGINE_API virtual float GetOpacityMaskClipValue() const override;
 	ENGINE_API virtual EBlendMode GetBlendMode() const override;
 	ENGINE_API virtual EMaterialShadingModel GetShadingModel() const override;
@@ -483,7 +489,6 @@ public:
 	virtual ENGINE_API bool IsReadyForFinishDestroy() override;
 	virtual ENGINE_API void FinishDestroy() override;
 	ENGINE_API static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
-	ENGINE_API virtual void NotifyObjectReferenceEliminated() const override;
 #if WITH_EDITOR
 	virtual ENGINE_API void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 
@@ -492,12 +497,12 @@ public:
 	 * Can be passed either a minimal parameter set (overridden parameters only) or the entire set generated by GetStaticParameterValues().
 	 * Can also trigger recompile based on new set of FMaterialInstanceBasePropertyOverrides 
 	 */
-	ENGINE_API void UpdateStaticPermutation(const FStaticParameterSet& NewParameters, FMaterialInstanceBasePropertyOverrides& NewBasePropertyOverrides, const bool bForceStaticPermutationUpdate = false);
+	ENGINE_API void UpdateStaticPermutation(const FStaticParameterSet& NewParameters, FMaterialInstanceBasePropertyOverrides& NewBasePropertyOverrides, const bool bForceStaticPermutationUpdate = false, FMaterialUpdateContext* MaterialUpdateContext = nullptr);
 	/**
 	* Sets new static parameter overrides on the instance and recompiles the static permutation resources if needed.
 	* Can be passed either a minimal parameter set (overridden parameters only) or the entire set generated by GetStaticParameterValues().
 	*/
-	ENGINE_API void UpdateStaticPermutation(const FStaticParameterSet& NewParameters);
+	ENGINE_API void UpdateStaticPermutation(const FStaticParameterSet& NewParameters, FMaterialUpdateContext* MaterialUpdateContext = nullptr);
 	/** Ensure's static permutations for current parameters and overrides are upto date. */
 	ENGINE_API void UpdateStaticPermutation();
 
@@ -572,9 +577,9 @@ public:
 	ENGINE_API virtual bool HasOverridenBaseProperties()const;
 
 	// For all materials instances, UMaterialInstance::CacheResourceShadersForRendering
-	ENGINE_API static void AllMaterialsCacheResourceShadersForRendering();
+	ENGINE_API static void AllMaterialsCacheResourceShadersForRendering(bool bUpdateProgressDialog = false);
 
-	/** 
+	/**
 	 * Determine whether this Material Instance is a child of another Material
 	 *
 	 * @param	Material	Material to check against
@@ -606,6 +611,15 @@ public:
 
 
 protected:
+
+	/**
+	* Copies the uniform parameters (scalar, vector and texture) from a material or instance hierarchy.
+	* This will typically be faster than parsing all expressions but still slow as it must walk the full
+	* material hierarchy as each parameter may be overridden at any level in the chain.
+	* Note: This will not copy static or font parameters
+	*/
+	void CopyMaterialUniformParametersInternal(UMaterialInterface* Source);
+
 	/**
 	 * Updates parameter names on the material instance, returns true if parameters have changed.
 	 */

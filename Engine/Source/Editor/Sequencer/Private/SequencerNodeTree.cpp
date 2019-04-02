@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerNodeTree.h"
 #include "MovieSceneBinding.h"
@@ -170,7 +170,7 @@ void FSequencerNodeTree::Update()
 	}
 
 	RootNodes.Append(FolderAndObjectAndTrackNodes);
-	RootNodes.Reserve((RootNodes.Num()-1)*2);
+	RootNodes.Reserve(FMath::Max(1, RootNodes.Num() - 1) * 2);
 	for (int32 Index = 1; Index < RootNodes.Num(); Index += 2)
 	{
 		RootNodes.Insert(MakeShareable(new FSequencerSpacerNode(1.f, nullptr, *this, false)), Index);

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MergeProxyUtils/Utils.h"
 
@@ -122,27 +122,10 @@ void FComponentSelectionControl::UpdateSelectedStaticMeshComponents()
 TSharedRef<ITableRow> FComponentSelectionControl::MakeComponentListItemWidget(TSharedPtr<FMergeComponentData> ComponentData, const TSharedRef<STableViewBase>& OwnerTable)
 {
 	check(ComponentData->PrimComponent != nullptr);
-
-	// Retrieve information about the mesh component
-	const FString OwningActorName = ComponentData->PrimComponent->GetOwner()->GetName();
-
+	
 	// If box should be enabled
 	bool bEnabled = true;
 	bool bIsMesh = false;
-
-	FString ComponentInfo;
-	if (UStaticMeshComponent* StaticMeshComponent = Cast<UStaticMeshComponent>(ComponentData->PrimComponent.Get()))
-	{
-		ComponentInfo = (StaticMeshComponent->GetStaticMesh() != nullptr) ? StaticMeshComponent->GetStaticMesh()->GetName() : TEXT("No Static Mesh Available");
-		bEnabled = (StaticMeshComponent->GetStaticMesh() != nullptr);
-		bIsMesh = true;
-	}
-	else if (UShapeComponent* ShapeComponent = Cast<UShapeComponent>(ComponentData->PrimComponent.Get()))
-	{
-		ComponentInfo = ShapeComponent->GetClass()->GetName();
-	}
-
-	const FString ComponentName = ComponentData->PrimComponent->GetName();
 
 	// See if we stored a checkbox state for this mesh component, and set accordingly
 	ECheckBoxState State = bEnabled ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
@@ -150,6 +133,12 @@ TSharedRef<ITableRow> FComponentSelectionControl::MakeComponentListItemWidget(TS
 	if (StoredState)
 	{
 		State = *StoredState;
+	}
+
+	if (UStaticMeshComponent* StaticMeshComponent = Cast<UStaticMeshComponent>(ComponentData->PrimComponent.Get()))
+	{
+		bEnabled = (StaticMeshComponent->GetStaticMesh() != nullptr);
+		bIsMesh = true;
 	}
 
 

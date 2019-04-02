@@ -1,0 +1,63 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: Datasmith を使用するための Unreal プロジェクトの設定
+Description: Datasmith を使用して Unreal Editor にコンテンツを取り込むには、Unreal Studio 固有の専用のプラグインやコンテンツをいくつか使用してプロジェクトを設定する必要があります。
+Type:how-to
+SkillLevel:Beginner
+Version: 4.20
+Parent: Enterprise/Datasmith/HowTo
+Order: 2
+Tags: Enterprise
+Tags: how to
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: beginner
+
+
+![](datasmith-setup-create-project.png)
+
+Datasmith は、コンテンツおよびプラグインの専用のセットにアクセスできるプロジェクトのみにコンテンツをインポートできます。 コンテンツおよびプラグインのセットへのアクセスは Unreal Studio の利用資格の対象となるため、これを **Unreal Studio プロジェクト** と呼びます。
+
+このページでは、Datasmith で使用する Unreal Studio プロジェクトを作成する 2 つの方法について説明します。
+
+*   Unreal Engine に付属のテンプレートから新しいテンプレートを作成する
+*   Unreal Studio 以外のテンプレートから既に作成した既存のプロジェクトを変換する
+
+## 新しい Unreal Studio プロジェクトを作成する
+
+Epic Games Launcher から Unreal Engine を起動して、アカウントで Unreal Studio の利用資格を有効にすると、エディタで作成する **すべての** プロジェクトが Unreal Studio プロジェクトとして自動的に設定されます。 
+
+1.  ランチャーの左側に **[Launch (起動)]** ボタンをクリックして、インストールした最新のエンジン バージョンを開始します。 Datasmith を使用している場合、Unreal Engine 4 を常に最新の状態に保つことを推奨します。  
+    ![エンジン バージョンの起動](CreateProject_LaunchEngineVersion.png "エンジン バージョンの起動")(w:500)  
+    Unreal Editor を既に開いている場合は、メイン メニューから代わりに **[File (ファイル)] > [New Project... (新規プロジェクト...)]** を選択して、手順 3 に進みます。
+2.  しばらくすると、[Unreal Project Browser](Engine/Basics/Projects/Browser/) が表示されます。 まだ開いていない場合は、**[New Project (新規プロジェクト)]** タブをクリックします。  
+    ![New Project (新規プロジェクト) タブ](CreateProject_SelectNewProjectTab-1.png "[New Project （新規プロジェクト）] タブ")(w:500)
+3.  次に、テンプレートを選択して、テンプレートに関する基本情報を設定します。  
+    ![テンプレートの選択](CreateProject_SetProjectProperties-1.png "テンプレートの選択")(w:500)
+    1.  開始するテンプレートを選択します。  
+        Epic Games Launcher から Unreal Engine を起動した場合は、任意のタブの任意のプロジェクトを選択できます。また、新しいプロジェクトは Unreal Studio プロジェクトとして自動的に設定されます。  
+        使用するテンプレートが決まっていない場合は、まず [Unreal Studio] タブの **Blank (空白)** のテンプレートを使用することをお勧めします。  
+        使用可能なテンプレートおよびそれぞれの機能の詳細については、「[Unreal Studio テンプレート](Enterprise/UnrealStudioProjectTemplates)」を参照してください。
+    2.  コンピュータでプロジェクトを保存する **[Folder (フォルダ)]** を入力します。
+    3.  プロジェクト **[Name (名)]** を入力します。
+4.  **[Create Project (プロジェクトの作成)]** をクリックします。  
+    ![プロジェクトの作成](CreateProject_CreateProjectButton.png "プロジェクトの作成")(w:500)
+
+これで、Datasmith ファイルと CAD ファイルをプロジェクトにインポートできるようになりました。 「[Unreal Engine 4 に Datasmith および CAD ファイルをインポートする](Enterprise/Datasmith/HowTo/ImportingContent)」を参照してください。
+
+## 既存のプロジェクトを Unreal Studio プロジェクトに変換する
+
+既存のプロジェクトを Unreal Studio プロジェクトに変換するには、次の手順を実行します。
+
+1.  Unreal Editor でプロジェクトを開きます。
+2.  プロジェクトが開いたら、メイン メニューから**[Edit (編集)] > [Plugins (プラグイン)]** を選択して、**[Plugins (プラグイン)]** ウィンドウを開きます。  
+    ![Edit | Plugins](Convert_EditPluginsMenu.png "Edit | Plugins")
+3.  **[Plugins (プラグイン)]** ウィンドウの左側のパネルで [**Unreal Studio**] を選択します。  
+    ![Unreal Studio セクション](Convert_PluginBrowserUnrealStudio.png "[Unreal Studio] セクション")  
+    [REGION:note]
+    なお、Datasmith CAD Importer と Datasmith Importer のどちらもグレイ アウトしています。 これらは、まだ Unreal Studio プロジェクトではないためです。したがって、このプロジェクトでは無効になっています。
+    [/REGION]
+4.  **[Plugins (プラグイン)]** ウィンドウの下部の **[Convert Project & Restart (プロジェクトを変換して再起動)]** ボタンをクリックして、プロジェクトを Unreal Studio プロジェクトに変換します。 ![Convert Project & Restart (プロジェクトを変換して再起動)](Convert_ConverProjectButton.png "[Convert Project & Restart （プロジェクトを変換して再起動）]")
+
+これで、Datasmith を使用して Datasmith ファイルと CAD ファイルをプロジェクトにインポートできるようになりました。 「[Unreal Engine 4 に Datasmith および CAD ファイルをインポートする](Enterprise/Datasmith/HowTo/ImportingContent)」を参照してください。

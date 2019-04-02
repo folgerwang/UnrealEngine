@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -46,13 +46,13 @@ public:
 	/** Delegate that gets called after the settings have changed in the editor */
 	static GAMEPLAYTAGS_API FSimpleMulticastDelegate OnTagSettingsChanged;
 
-	DEPRECATED(4.15, "Call FGameplayTag::RequestGameplayTag or RequestGameplayTag on the manager instead")
+	UE_DEPRECATED(4.15, "Call FGameplayTag::RequestGameplayTag or RequestGameplayTag on the manager instead")
 	FORCEINLINE_DEBUGGABLE static FGameplayTag RequestGameplayTag(FName InTagName, bool ErrorIfNotFound=true)
 	{
 		return UGameplayTagsManager::Get().RequestGameplayTag(InTagName, ErrorIfNotFound);
 	}
 
-	DEPRECATED(4.15, "Call UGameplayTagsManager::Get instead")
+	UE_DEPRECATED(4.15, "Call UGameplayTagsManager::Get instead")
 	FORCEINLINE_DEBUGGABLE static UGameplayTagsManager& GetGameplayTagsManager()
 	{
 		return UGameplayTagsManager::Get();

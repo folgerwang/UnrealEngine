@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "EditorModeRegistry.h"
 #include "Modules/ModuleManager.h"
@@ -145,8 +145,9 @@ void FEditorModeRegistry::RegisterMode(FEditorModeID ModeID, TSharedRef<IEditorM
 void FEditorModeRegistry::UnregisterMode(FEditorModeID ModeID)
 {
 	// First off delete the factory
-	ModeFactories.Remove(ModeID);
-
-	OnModeUnregisteredEvent.Broadcast(ModeID);
-	RegisteredModesChanged.Broadcast();
+	if (ModeFactories.Remove(ModeID) > 0)
+	{
+		OnModeUnregisteredEvent.Broadcast(ModeID);
+		RegisteredModesChanged.Broadcast();
+	}
 }

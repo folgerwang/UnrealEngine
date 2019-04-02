@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ObjectTemplates/DatasmithCineCameraComponentTemplate.h"
 
@@ -46,6 +46,12 @@ void FDatasmithPostProcessSettingsTemplate::Apply( FPostProcessSettings* Destina
 
 	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( bOverride_CameraISO, Destination, PreviousTemplate );
 	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( CameraISO, Destination, PreviousTemplate );
+
+	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( bOverride_CameraShutterSpeed, Destination, PreviousTemplate );
+	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( CameraShutterSpeed, Destination, PreviousTemplate );
+
+	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( bOverride_DepthOfFieldFstop, Destination, PreviousTemplate );
+	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( DepthOfFieldFstop, Destination, PreviousTemplate );
 }
 
 void FDatasmithPostProcessSettingsTemplate::Load( const FPostProcessSettings& Source )
@@ -67,6 +73,12 @@ void FDatasmithPostProcessSettingsTemplate::Load( const FPostProcessSettings& So
 
 	bOverride_CameraISO = Source.bOverride_CameraISO;
 	CameraISO = Source.CameraISO;
+
+	bOverride_CameraShutterSpeed = Source.bOverride_CameraShutterSpeed;
+	CameraShutterSpeed = Source.CameraShutterSpeed;
+
+	bOverride_DepthOfFieldFstop = Source.bOverride_DepthOfFieldFstop;
+	DepthOfFieldFstop = Source.DepthOfFieldFstop;
 }
 
 bool FDatasmithPostProcessSettingsTemplate::Equals( const FDatasmithPostProcessSettingsTemplate& Other ) const
@@ -88,6 +100,12 @@ bool FDatasmithPostProcessSettingsTemplate::Equals( const FDatasmithPostProcessS
 
 	bEquals = bEquals && bOverride_CameraISO == Other.bOverride_CameraISO;
 	bEquals = bEquals && FMath::IsNearlyEqual( CameraISO, Other.CameraISO );
+
+	bEquals = bEquals && bOverride_CameraShutterSpeed == Other.bOverride_CameraShutterSpeed;
+	bEquals = bEquals && FMath::IsNearlyEqual( CameraShutterSpeed, Other.CameraShutterSpeed );
+
+	bEquals = bEquals && bOverride_DepthOfFieldFstop == Other.bOverride_DepthOfFieldFstop;
+	bEquals = bEquals && FMath::IsNearlyEqual( DepthOfFieldFstop, Other.DepthOfFieldFstop );
 
 	return bEquals;
 }
@@ -189,6 +207,7 @@ bool UDatasmithCineCameraComponentTemplate::Equals( const UDatasmithObjectTempla
 	bEquals = bEquals && FilmbackSettings.Equals( TypedOther->FilmbackSettings );
 	bEquals = bEquals && LensSettings.Equals( TypedOther->LensSettings );
 	bEquals = bEquals && FocusSettings.Equals( TypedOther->FocusSettings );
+	bEquals = bEquals && PostProcessSettings.Equals( TypedOther->PostProcessSettings );
 
 	return bEquals;
 }

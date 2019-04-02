@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3710462
-Availability: Docs
+﻿INTSourceChangelist:4323617
+Availability: Public
 Crumbs: %ROOT%, 
 Title:启用Niagara插件
 Description:描述如何启动Niagara。
@@ -21,7 +21,7 @@ topic-image:
 
   ![](HT_EnableNP_00.png)
 
-1. 在插件（Plugins）菜单中，找到 **FX** 部分，然后在Niagara下面，单击 **启用（Enabled）** 复选框。
+1. 在插件（Plugins）菜单中，找到 **FX** 部分，然后在Niagara下面，找到 **Niagara附加菜单（Niagara Extras）**, 点击钩选 **启用（Enabled）**。
 
   ![](HT_EnableNP_02.png)
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "FileMediaSource.h"
 #include "Misc/Paths.h"
@@ -43,6 +43,18 @@ void UFileMediaSource::SetFilePath(const FString& Path)
 		FilePath = FullPath;
 	}
 }
+
+#if WITH_EDITOR
+void UFileMediaSource::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	if (PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(UFileMediaSource, FilePath))
+	{
+		ClearResolvedFullPath();
+	}
+}
+#endif
 
 void UFileMediaSource::ClearResolvedFullPath() const
 {

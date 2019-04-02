@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -168,6 +168,10 @@ public:
 
 	FGeometryCacheTrackStreamableRenderResource *Resource;
 	int32 UploadedSampleIndex;
+
+#if RHI_RAYTRACING
+	FRayTracingGeometry RayTracingGeometry;
+#endif
 };
 
 /** Procedural mesh scene proxy */
@@ -185,6 +189,7 @@ public:
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override;
 
 	virtual bool CanBeOccluded() const override;
+	virtual bool IsUsingDistanceCullFade() const override;
 	virtual uint32 GetMemoryFootprint(void) const;
 	uint32 GetAllocatedSize(void) const;
 	// End FPrimitiveSceneProxy interface.
@@ -200,6 +205,11 @@ public:
 
 	/** Clears the Sections array*/
 	void ClearSections();
+
+#if RHI_RAYTRACING
+	virtual void GetDynamicRayTracingInstances(FRayTracingMaterialGatheringContext& Context, TArray<FRayTracingInstance>& OutRayTracingInstances) override final;
+	virtual bool IsRayTracingRelevant() const override { return true; }
+#endif
 	
 private:	
 	FMaterialRelevance MaterialRelevance;
@@ -210,4 +220,13 @@ private:
 
 	/** Array of Track Proxies */
 	TArray<FGeomCacheTrackProxy*> Tracks;
+
+	void FrameUpdate() const;
+
+	void CreateMeshBatch(
+		const FGeomCacheTrackProxy* TrackProxy,
+		const struct FGeometryCacheMeshBatchInfo& BatchInfo,
+		class FGeometryCacheVertexFactoryUserDataWrapper& UserDataWrapper,
+		FDynamicPrimitiveUniformBuffer& DynamicPrimitiveUniformBuffer,
+		FMeshBatch& Mesh) const;
 };

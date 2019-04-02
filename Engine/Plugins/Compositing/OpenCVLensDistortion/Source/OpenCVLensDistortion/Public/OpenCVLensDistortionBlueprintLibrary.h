@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -27,7 +27,7 @@ class UOpenCVLensDistortionBlueprintLibrary : public UBlueprintFunctionLibrary
 	 * @param OutputRenderTarget The render target to draw to. Don't necessarily need to have same resolution or aspect ratio as distorted render.
 	 * @param PreComputedUndistortDisplacementMap Distort to undistort displacement pre computed using OpenCV in engine or externally.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Lens Distortion | OpenCV", meta = (WorldContext = "WorldContextObject", ScriptMethod))
+	UFUNCTION(BlueprintCallable, Category = "Lens Distortion | OpenCV", meta = (WorldContext = "WorldContextObject"))
 	static void DrawDisplacementMapToRenderTarget(const UObject* WorldContextObject, UTextureRenderTarget2D* OutputRenderTarget, UTexture2D* PreComputedUndistortDisplacementMap);
 
 	/**
@@ -39,11 +39,11 @@ class UOpenCVLensDistortionBlueprintLibrary : public UBlueprintFunctionLibrary
 	 * @param CameraViewInfo Information computed by OpenCV about the undistorted space. Can be used with SceneCapture to adjust FOV.
 	 * @return Texture2D containing the distort to undistort space displacement map.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Lens Distortion | OpenCV", meta = (WorldContext = "WorldContextObject", ScriptMethod))
+	UFUNCTION(BlueprintCallable, Category = "Lens Distortion | OpenCV", meta = (WorldContext = "WorldContextObject"))
 	static UTexture2D* CreateUndistortUVDisplacementMap(const FOpenCVLensDistortionParameters& LensParameters, const FIntPoint& ImageSize, const float CroppingFactor, FOpenCVCameraViewInfo& CameraViewInfo);
 
 	/* Returns true if A is equal to B (A == B) */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "Equal (LensDistortionParameters)", CompactNodeTitle = "==", Keywords = "== equal", ScriptMethod), Category = "Lens Distortion")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Equal (LensDistortionParameters)", CompactNodeTitle = "==", Keywords = "== equal", ScriptOperator = "=="), Category = "Lens Distortion")
 	static bool EqualEqual_CompareLensDistortionModels(
 		const FOpenCVLensDistortionParameters& A,
 		const FOpenCVLensDistortionParameters& B)
@@ -52,7 +52,7 @@ class UOpenCVLensDistortionBlueprintLibrary : public UBlueprintFunctionLibrary
 	}
 
 	/* Returns true if A is not equal to B (A != B) */
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "NotEqual (LensDistortionParameters)", CompactNodeTitle = "!=", Keywords = "!= not equal", ScriptMethod), Category = "Lens Distortion")
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "NotEqual (LensDistortionParameters)", CompactNodeTitle = "!=", Keywords = "!= not equal", ScriptOperator = "!="), Category = "Lens Distortion")
 	static bool NotEqual_CompareLensDistortionModels(
 		const FOpenCVLensDistortionParameters& A,
 		const FOpenCVLensDistortionParameters& B)

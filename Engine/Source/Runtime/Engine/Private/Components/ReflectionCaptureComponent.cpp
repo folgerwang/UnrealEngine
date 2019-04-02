@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	
@@ -890,7 +890,7 @@ void UReflectionCaptureComponent::SerializeLegacyData(FArchive& Ar)
 						LegacyMapBuildData->FullHDRCapturedData.AddUninitialized(UncompressedSize);
 
 						const uint8* SourceData = &CompressedCapturedData[MemoryAr.Tell()];
-						verify(FCompression::UncompressMemory((ECompressionFlags)COMPRESS_ZLIB, LegacyMapBuildData->FullHDRCapturedData.GetData(), UncompressedSize, SourceData, CompressedSize));
+						verify(FCompression::UncompressMemory(NAME_Zlib, LegacyMapBuildData->FullHDRCapturedData.GetData(), UncompressedSize, SourceData, CompressedSize));
 					}
 
 					LegacyMapBuildData->AverageBrightness = AverageBrightness;
@@ -1194,6 +1194,7 @@ float UPlaneReflectionCaptureComponent::GetInfluenceBoundingRadius() const
 FReflectionCaptureProxy::FReflectionCaptureProxy(const UReflectionCaptureComponent* InComponent)
 {
 	PackedIndex = INDEX_NONE;
+	SortedCaptureIndex = INDEX_NONE;
 	CaptureOffset = InComponent->CaptureOffset;
 
 	const USphereReflectionCaptureComponent* SphereComponent = Cast<const USphereReflectionCaptureComponent>(InComponent);
@@ -1226,7 +1227,7 @@ FReflectionCaptureProxy::FReflectionCaptureProxy(const UReflectionCaptureCompone
 	Component = InComponent;
 	EncodedHDRCubemap = InComponent->EncodedHDRCubemapTexture;
 	const FReflectionCaptureMapBuildData* MapBuildData = InComponent->GetMapBuildData();
-	EncodedHDRAverageBrightness = MapBuildData ? MapBuildData->AverageBrightness : 0.0f;
+	EncodedHDRAverageBrightness = MapBuildData ? MapBuildData->AverageBrightness : 1.0f;
 	SetTransform(InComponent->GetComponentTransform().ToMatrixWithScale());
 	InfluenceRadius = InComponent->GetInfluenceBoundingRadius();
 	Brightness = InComponent->Brightness;

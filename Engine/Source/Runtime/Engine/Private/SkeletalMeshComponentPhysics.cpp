@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Misc/MessageDialog.h"
@@ -79,10 +79,15 @@ FString FSkeletalMeshComponentClothTickFunction::DiagnosticMessage()
 	return TEXT("FSkeletalMeshComponentClothTickFunction");
 }
 
+FName FSkeletalMeshComponentClothTickFunction::DiagnosticContext(bool bDetailed)
+{
+	return FName(TEXT("SkeletalMeshComponentClothTick"));
+}
+
 void FSkeletalMeshComponentEndPhysicsTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(FSkeletalMeshComponentEndPhysicsTickFunction_ExecuteTick);
-	CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_AnimGameThread);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Physics);
 
 	FActorComponentTickFunction::ExecuteTickHelper(Target, /*bTickInEditor=*/ false, DeltaTime, TickType, [this](float DilatedTime)
 	{
@@ -93,6 +98,11 @@ void FSkeletalMeshComponentEndPhysicsTickFunction::ExecuteTick(float DeltaTime, 
 FString FSkeletalMeshComponentEndPhysicsTickFunction::DiagnosticMessage()
 {
 	return TEXT("FSkeletalMeshComponentEndPhysicsTickFunction");
+}
+
+FName FSkeletalMeshComponentEndPhysicsTickFunction::DiagnosticContext(bool bDetailed)
+{
+	return FName(TEXT("SkeletalMeshComponentEndPhysicsTick"));
 }
 
 void USkeletalMeshComponent::CreateBodySetup()
@@ -198,7 +208,10 @@ void USkeletalMeshComponent::OnComponentCollisionSettingsChanged()
 {
 	for(int32 i=0; i<Bodies.Num(); i++)
 	{
-		Bodies[i]->UpdatePhysicsFilterData();
+		if (ensure(Bodies[i]))
+		{
+			Bodies[i]->UpdatePhysicsFilterData();
+		}
 	}
 
 	if (SceneProxy)
@@ -522,7 +535,7 @@ int32 USkeletalMeshComponent::FindRootBodyIndex() const
 }
 
 static int32 bAllowNotForDedServerPhysicsAssets = 1;
-static FAutoConsoleVariableRef CVarAllowCachedOverlaps(
+static FAutoConsoleVariableRef CVarAllowNotForDedServerPhysicsAssets(
 	TEXT("p.AllowNotForDedServerPhysicsAssets"),
 	bAllowNotForDedServerPhysicsAssets,
 	TEXT("Allow 'Not For Dedicated Server' flag on PhysicsAssets\n")
@@ -575,7 +588,10 @@ void USkeletalMeshComponent::InitArticulated(FPhysScene* PhysScene)
 	const int32 NumBodies = PhysicsAsset->SkeletalBodySetups.Num();
 	for(int32 BodyIndex = 0; BodyIndex < NumBodies; ++BodyIndex)
 	{
-		NumShapes += PhysicsAsset->SkeletalBodySetups[BodyIndex]->AggGeom.GetElementCount();
+		if (PhysicsAsset->SkeletalBodySetups[BodyIndex])
+		{
+			NumShapes += PhysicsAsset->SkeletalBodySetups[BodyIndex]->AggGeom.GetElementCount();
+		}
 	}
 
 	if(!Aggregate.IsValid() && NumShapes > RagdollAggregateThreshold && NumShapes <= AggregateMaxSize)
@@ -605,12 +621,6 @@ void USkeletalMeshComponent::InitArticulated(FPhysScene* PhysScene)
 }
 
 TAutoConsoleVariable<int32> CVarEnableRagdollPhysics(TEXT("p.RagdollPhysics"), 1, TEXT("If 1, ragdoll physics will be used. Otherwise just root body is simulated"));
-
-static uint32 GetPhysicsSceneType(const UPhysicsAsset& PhysAsset, const FPhysScene& PhysScene, EDynamicActorScene SimulationScene)
-{
-	bool bUseAsync = SimulationScene == EDynamicActorScene::Default ? PhysAsset.bUseAsyncScene : (SimulationScene == EDynamicActorScene::UseAsyncScene);
-	return (bUseAsync && PhysScene.HasAsyncScene()) ? PST_Async : PST_Sync;
-}
 
 void USkeletalMeshComponent::InstantiatePhysicsAsset(const UPhysicsAsset& PhysAsset, const FVector& Scale3D, TArray<FBodyInstance*>& OutBodies, TArray<FConstraintInstance*>& OutConstraints, FPhysScene* PhysScene, USkeletalMeshComponent* OwningComponent, int32 UseRootBodyIndex, const FPhysicsAggregateHandle& UseAggregate) const
 {
@@ -660,6 +670,10 @@ void USkeletalMeshComponent::InstantiatePhysicsAsset_Internal(const UPhysicsAsse
 	for(int32 BodyIdx = 0; BodyIdx < NumOutBodies; BodyIdx++)
 	{
 		UBodySetup* PhysicsAssetBodySetup = PhysAsset.SkeletalBodySetups[BodyIdx];
+		if (!ensure(PhysicsAssetBodySetup))
+		{
+			continue;
+		}
 		OutBodies[BodyIdx] = new FBodyInstance;
 		FBodyInstance* BodyInst = OutBodies[BodyIdx];
 		check(BodyInst);
@@ -711,7 +725,6 @@ void USkeletalMeshComponent::InstantiatePhysicsAsset_Internal(const UPhysicsAsse
 			FTransform BoneTransform = BoneTransformGetter(BoneIndex);
 
 			FBodyInstance::FInitBodySpawnParams SpawnParams(OwningComponent);
-			SpawnParams.DynamicActorScene = UseAsyncScene;
 
 			if(OwningComponent == nullptr)
 			{
@@ -731,8 +744,7 @@ void USkeletalMeshComponent::InstantiatePhysicsAsset_Internal(const UPhysicsAsse
 #if WITH_PHYSX
 	if(PhysScene && Aggregate.IsValid())
 	{
-		const uint32 SceneType = GetPhysicsSceneType(PhysAsset, *PhysScene, UseAsyncScene);
-		PhysScene->AddAggregateToScene(Aggregate, SceneType == PST_Async);
+		PhysScene->AddAggregateToScene(Aggregate);
 	}
 
 #endif //WITH_PHYSX
@@ -833,9 +845,11 @@ void USkeletalMeshComponent::TermArticulated()
 
 	for(int32 i=0; i<Bodies.Num(); i++)
 	{
-		check( Bodies[i] );
-		Bodies[i]->TermBody();
-		delete Bodies[i];
+		if (ensure(Bodies[i]))
+		{
+			Bodies[i]->TermBody();
+			delete Bodies[i];
+		}
 	}
 	
 	Bodies.Empty();
@@ -1133,6 +1147,10 @@ void USkeletalMeshComponent::ResetAllBodiesSimulatePhysics()
 		for (int32 i = 0; i<Bodies.Num(); i++)
 		{
 			FBodyInstance*	BodyInst = Bodies[i];
+			if (!ensure(BodyInst))
+			{
+				continue;
+			}
 			UBodySetup*	BodyInstSetup = BodyInst->BodySetup.Get();
 
 			// Set fixed on any bodies with bAlwaysFullAnimWeight set to true
@@ -1184,6 +1202,10 @@ void USkeletalMeshComponent::SetAllBodiesPhysicsBlendWeight(float PhysicsBlendWe
 	for(int32 i=0; i<Bodies.Num(); i++)
 	{
 		FBodyInstance*	BodyInst	= Bodies[i];
+		if (!ensure(BodyInst))
+		{
+			continue;
+		}
 		UBodySetup*	BodyInstSetup	= BodyInst->BodySetup.Get();
 
 		// Set fixed on any bodies with bAlwaysFullAnimWeight set to true
@@ -1379,10 +1401,10 @@ void USkeletalMeshComponent::SendRenderDebugPhysics(FPrimitiveSceneProxy* Overri
 			}
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			SkeletalMesh_SendRenderDebugPhysics, FPrimitiveSceneProxy*, PassedSceneProxy, UseSceneProxy, TArray<FPrimitiveSceneProxy::FDebugMassData>, UseDebugMassData, DebugMassData,
+		ENQUEUE_RENDER_COMMAND(SkeletalMesh_SendRenderDebugPhysics)(
+			[UseSceneProxy, DebugMassData](FRHICommandListImmediate& RHICmdList)
 			{
-				PassedSceneProxy->SetDebugMassData(UseDebugMassData);
+				UseSceneProxy->SetDebugMassData(DebugMassData);
 			}
 		);
 		
@@ -2174,7 +2196,7 @@ bool USkeletalMeshComponent::LineTraceComponent(struct FHitResult& OutHit, const
 	FHitResult Hit;
 	for (int32 BodyIdx=0; BodyIdx < Bodies.Num(); ++BodyIdx)
 	{
-		if (Bodies[BodyIdx]->LineTrace(Hit, Start, End, Params.bTraceComplex, Params.bReturnPhysicalMaterial))
+		if (Bodies[BodyIdx] && Bodies[BodyIdx]->LineTrace(Hit, Start, End, Params.bTraceComplex, Params.bReturnPhysicalMaterial))
 		{
 			bHaveHit = true;
 			if(MinTime > Hit.Time)
@@ -2286,30 +2308,69 @@ void USkeletalMeshComponent::RecreateClothingActors()
 {
 	ReleaseAllClothingResources();
 
-	if(SkeletalMesh == nullptr)
+	if(SkeletalMesh == nullptr || !IsRegistered())
 	{
 		return;
 	}
 
-	if(ClothingSimulation)
+	if(SkeletalMesh->MeshClothingAssets.Num() > 0)
 	{
-		TArray<UClothingAssetBase*> AssetsInUse;
-		SkeletalMesh->GetClothingAssetsInUse(AssetsInUse);
-
-		const int32 NumMeshAssets = SkeletalMesh->MeshClothingAssets.Num();
-		for(int32 BaseAssetIndex = 0; BaseAssetIndex < NumMeshAssets; ++BaseAssetIndex)
+		UClass* SimFactoryClass = *ClothingSimulationFactory;
+		if (SimFactoryClass)
 		{
-			UClothingAssetBase* Asset = SkeletalMesh->MeshClothingAssets[BaseAssetIndex];
-
-			if(!AssetsInUse.Contains(Asset))
+			UClothingSimulationFactory* SimFactory = SimFactoryClass->GetDefaultObject<UClothingSimulationFactory>();
+			if(ClothingSimulation == nullptr)
 			{
-				continue;
-			}
+				ClothingSimulation = SimFactory->CreateSimulation();
 
-			ClothingSimulation->CreateActor(this, Asset, BaseAssetIndex);
+				if(ClothingSimulation)
+				{
+					ClothingSimulation->Initialize();
+					ClothingSimulationContext = ClothingSimulation->CreateContext();
+
+					if(SimFactory->SupportsRuntimeInteraction())
+					{
+						ClothingInteractor = SimFactory->CreateInteractor();
+					}
+				}
+			}
 		}
 
-		WritebackClothingSimulationData();
+		if(ClothingSimulation)
+		{
+			TArray<UClothingAssetBase*> AssetsInUse;
+			SkeletalMesh->GetClothingAssetsInUse(AssetsInUse);
+
+			const int32 NumMeshAssets = SkeletalMesh->MeshClothingAssets.Num();
+			for(int32 BaseAssetIndex = 0; BaseAssetIndex < NumMeshAssets; ++BaseAssetIndex)
+			{
+				UClothingAssetBase* Asset = SkeletalMesh->MeshClothingAssets[BaseAssetIndex];
+
+				if(!AssetsInUse.Contains(Asset))
+				{
+					continue;
+				}
+
+				ClothingSimulation->CreateActor(this, Asset, BaseAssetIndex);
+			}
+
+			WritebackClothingSimulationData();
+		}
+	}
+	else
+	{
+		// No clothing assets, so destroy any clothing sim we have
+		UClothingSimulationFactory* SimFactory = GetClothingSimFactory();
+		if(ClothingSimulation && SimFactory)
+		{
+			ClothingSimulation->DestroyContext(ClothingSimulationContext);
+			ClothingSimulation->DestroyActors();
+			ClothingSimulation->Shutdown();
+
+			SimFactory->DestroySimulation(ClothingSimulation);
+			ClothingSimulation = nullptr;
+			ClothingSimulationContext = nullptr;
+		}
 	}
 }
 
@@ -2605,7 +2666,7 @@ void USkeletalMeshComponent::ProcessClothCollisionWithEnvironment()
 						// Pose of the shape in actor space
 						FMatrix ShapeLocalPose = FPhysicsInterface::GetLocalTransform(Shape).ToMatrixWithScale();
 
-#if WITH_APEIRON
+#if WITH_CHAOS
                         check(false);
 #else
 						switch(GeoType)

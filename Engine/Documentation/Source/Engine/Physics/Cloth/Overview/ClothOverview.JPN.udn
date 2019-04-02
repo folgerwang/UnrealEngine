@@ -193,7 +193,7 @@ NVIDIA の PhysX DCC Plugin を使って、3DS Max や Maya、他のプログラ
 ![](Paint_Brush.png)(w:500)
 
 [REGION:note]
-このツールとプロパティに関する追加情報は、 [ブラシのプロパティ](Engine/Physics/Cloth/Reference#brush) のリファレンスをご覧ください。
+このツールとプロパティに関する追加情報は、 [ブラシのプロパティ](Engine/Physics/Cloth/Reference#ブラシ) のリファレンスをご覧ください。
 [/REGION]
 
 ### グラデーション
@@ -229,7 +229,7 @@ NVIDIA の PhysX DCC Plugin を使って、3DS Max や Maya、他のプログラ
 ![](Paint_Gradient.png)(w:500)
 
 [REGION:note]
-このツールとプロパティに関する追加情報は、 [グラデーションのプロパティ](Engine/Physics/Cloth/Reference#gradient) のリファレンスをご覧ください。
+このツールとプロパティに関する追加情報は、 [グラデーションのプロパティ](Engine/Physics/Cloth/Reference#グラデーション) のリファレンスをご覧ください。
 [/REGION]
 
 ### スムーズ
@@ -243,7 +243,7 @@ NVIDIA の PhysX DCC Plugin を使って、3DS Max や Maya、他のプログラ
 ![](Paint_Smooth.png)(w:500)
 
 [REGION:note]
-このツールとプロパティに関する追加情報は、 [Smooth のプロパティ](Engine/Physics/Cloth/Reference#smooth) のリファレンスをご覧ください。
+このツールとプロパティに関する追加情報は、 [Smooth のプロパティ](Engine/Physics/Cloth/Reference#スムーズ) のリファレンスをご覧ください。
 [/REGION]
 
 ### フィル
@@ -264,7 +264,7 @@ NVIDIA の PhysX DCC Plugin を使って、3DS Max や Maya、他のプログラ
 [/OBJECT]
 
 [REGION:note]
-このツールとプロパティに関する追加情報は、[フィルのプロパティ](Engine/Physics/Cloth/Reference#fill) のリファレンスをご覧ください。
+このツールとプロパティに関する追加情報は、[フィルのプロパティ](Engine/Physics/Cloth/Reference#フィル) のリファレンスをご覧ください。
 [/REGION]
 
 ## クロスのプロパティ
@@ -309,7 +309,7 @@ NVIDIA の PhysX DCC Plugin を使って、3DS Max や Maya、他のプログラ
 	![](Masks03.png)(w:450)
 
 [REGION:note]
-マスクの追加情報は、 [マスクのプロパティ](Engine/Physics/Cloth/Reference#masks) のリファレンスをご覧ください。
+マスクの追加情報は、 [マスクのプロパティ](Engine/Physics/Cloth/Reference#マスク) のリファレンスをご覧ください。
 [/REGION]
 
 

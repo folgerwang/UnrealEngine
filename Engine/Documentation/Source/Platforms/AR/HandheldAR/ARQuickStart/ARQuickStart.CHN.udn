@@ -1,0 +1,136 @@
+﻿INTSourceChangelist:4400933
+Availability: Public
+Crumbs: 
+Title: 增强现实快速入门
+Description: 设置并运行基本的增强现实。
+Type: 
+Version: 4.19
+Parent: Platforms/AR/HandheldAR
+Order: 3
+Tags: iOS
+Tags: Android
+Tags: StartingOut
+Tags: AR
+Tags: Mobile AR
+prereq: Platforms/AR/HandheldAR/ARKitPrerequisites
+prereq: Platforms/AR/HandheldAR/ARCorePrerequisites
+
+![](AR_IntroShot.png "AR_IntroShot.png")
+
+学习完本教程后，您将了解以下内容：
+
+*   如何使用手持式AR蓝图模板在虚幻引擎4（UE4）中创建基础增强现实项目。
+*   如何将一个基础增强现实项目从UE4部署到手持设备。
+*   如何运行增强现实应用程序。 
+
+## 1.创建AR项目
+
+要在虚幻引擎中开展增强现实设备的开发工作，首先要做的是创建新项目。  
+
+1.  打开 **虚幻项目浏览器（Unreal Project Browser）**，并使用以下选项新建蓝图项目。
+    
+    *   选择 **手持式AR** 模板。
+    *   将 **目标硬件** 设置为 **移动/平板电脑**。
+    *   将 **图形等级** 设置为 **可扩展3D或2D**。
+    *   选择 **无初学者内容包**。
+    
+    ![](AR_NewProjectScreen_HandheldARandProjectSettingsSelected.png "AR_NewProjectScreen_HandheldARandProjectSettingsSelected.png")
+2.  为该项目命名，设置该项目的 **文件夹** 位置。对于本教程，我们将该项目命名为 **ARProject**。  
+    ![](AR_NewProjectScreen_ARProject.png "AR_NewProjectScreen_ARProject.png")
+3.  完成您的项目设置后，单击 **创建项目** 按钮。  
+    ![](AR_NewProjectScreen_CreateProject.png "AR_NewProjectScreen_CreateProject.png")
+4.  此时将生成基于 **手持式AR** 蓝图模板的新UE4项目（**ARProject**）。  
+    ![](AR_InitialEditorScreen_HandheldARBlankMap.png "AR_InitialEditorScreen_HandheldARBlankMap.png")
+
+## 2.其他项目配置
+
+#### **iOS**
+
+**手持式AR** 蓝图模板将预配置很多必要的项目设置，以通过虚幻引擎使用增强现实技术。然而，在为iOS平台创建项目时，您将需要手动配置一些设置。  
+
+| 设置 |  数值 | 说明 |
+| --- | --- | --- |
+| **Apple ARKit插件**  | 已启用 | 由手持式AR模板配置。|
+| **支持AR** | 已启用 | 由手持式AR模板配置。|
+| **最低iOS版本** | 11 | 不由手持式AR模板配置。|
+| **目标金属着色器最高标准** | 1.2 | 不由手持式AR模板配置。|
+| **其他Plist数据** | UE4需要使用摄像机的权限才能使用ARKit。| 不由手持式AR模板配置。|
+
+项目设置界面中的配置设置：  
+![](AR_ConfigureProject_MinimumiOSVersion_POST.png "AR_ConfigureProject_MinimumiOSVersion_POST.png")  
+![](AR_ConfigureProject_MaxMetalShader_POST.png "AR_ConfigureProject_MaxMetalShader_POST.png")  
+![](AR_ConfigureProject_ExtraPListData_POST.png "AR_ConfigureProject_ExtraPListData_POST.png")  
+
+#### **Android**
+
+**手持式AR** 蓝图模板预配置大部分必要的项目设置，以通过虚幻引擎使用增强现实技术。然而，为Android平台创建项目时，您将需要使用 **立即配置** 按钮手动为Android平台配置该项目。  
+  
+
+| 设置 | 数值 | 
+| --- | --- |
+| **为Android配置项目** | <需要手动配置> |
+
+项目设置用户界面中的已配置设置（之前/之后）：  
+![](AR_ConfigureProject_ForAndroid_PRE.png "AR_ConfigureProject_ForAndroid_PRE.png")  
+![](AR_ConfigureProject_ForAndroid_POST.png "AR_ConfigureProject_ForAndroid_POST.png")
+
+## 3.部署默认关卡
+
+1.  要将当前关卡部署到设备上，首先需要确保您要测试的关卡处于打开状态。对于本教程，我们将使用通过 **手持式AR** 模板创建的 **手持式AR空白贴图** 关卡。   
+    ![](AR_InitialEditorScreen_HandheldARBlankMap.png "AR_InitialEditorScreen_HandheldARBlankMap.png")  
+    
+2.  当 **手持式AR空白贴图** 处于打开状态时，转到 **主工具栏**，再转到 **启动** 图标，单击小三角形，会显示更多选项。  
+    ![](AR_LaunchButton.png "AR_LaunchButton.png")  
+    
+3.  从 **设备** 下的 **启动** 菜单中，单击列表中的设备，将其选择为目标设备。  
+    ![](LaunchMenu_Pixel.png "LaunchMenu_Pixel.png")
+4.  一旦部署开始，将在 **虚幻编辑器（Unreal Editor）** 屏幕底部显示状态对话框，其中显示进度。应用程序部署需要数分钟时间。   
+    ![](AR_DeviceInstallationMessages.png "AR_DeviceInstallationMessages.png")  
+
+
+## 4.运行AR应用程序
+
+1.  在设备上，通过选择 **ARProject** 图标以启动应用程序。  
+    [REGION:lightbox]
+    [![](AR_DeviceScreenIcon.png "AR_DeviceScreenIcon.png")](AR_DeviceScreenIcon.png)
+    [/REGION]
+    [REGION:caption]
+    单击显示全图。
+    [/REGION]
+2.  选择 **开始AR** 按钮，将初始化一个AR会话，该会话将激活AR所需的平台功能。  
+    [REGION:lightbox]
+    [![](AR_DeviceStartButton.png "AR_DeviceStartButton.png")](AR_DeviceStartButton.png)
+    [/REGION]
+    [REGION:caption]
+    单击显示全图。
+    [/REGION]
+3.  该应用程序打开后，直通摄像机处于活动状态，且角落里显示 **显示调试菜单** 按钮。
+    [REGION:lightbox]
+    [![](AR_DeviceShowDebugMenu.png "AR_DeviceShowDebugMenu.png")](AR_DeviceShowDebugMenu.png)
+    [/REGION]
+    [REGION:caption]
+    单击显示全图。
+    [/REGION]
+4.  选择 **显示调试菜单** 按钮以显示更多细节。  
+    [REGION:lightbox]
+    [![](AR_DeviceFullDebugMenu.png "AR_DeviceFullDebugMenu.png")](AR_DeviceFullDebugMenu.png)
+    [/REGION]
+    [REGION:caption]
+    单击显示全图。
+    [/REGION]
+
+| 菜单项 | 说明 |
+| --- | --- |
+| **启动/停止AR模式** |  打开或关闭AR会话。|
+| **显示/隐藏世界原点** | 切换世界原点变形工具。|
+| **显示/隐藏平面** | 切换硬件检测到的平面调试图。|
+| **显示/隐藏引脚** | 切换任何客户端定义的引脚。|
+| **显示/隐藏灯光信息** | 切换灯光评估信息，包括光强度（lm）、温度（K）和颜色（RGBA）。|
+| **最后一个命中对象** | 显示用户“碰触”到的最后一个有效物品（无论是在追踪空间还是世界空间内）。|
+| **每秒帧数** | 显示每秒要处理的帧数。|
+| **追踪质量** | 显示追踪质量，包括方向或方向和位置。|
+| **显示/隐藏调试菜单** | 切换调试菜单。|
+
+## 5.自己动手！
+
+您已经运行了一个示范性的增强现实应用程序，是时候好好研究一番这个应用程序了，特别是调试菜单功能。使用 **显示平面** 功能将设备发现的内容显示为水平面，并轻击被追踪的几何体以生成一些对象。尝试不同的角度、照明和/或再生成一些对象。祝您玩的开心！

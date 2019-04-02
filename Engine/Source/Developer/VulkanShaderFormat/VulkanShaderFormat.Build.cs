@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -14,14 +14,11 @@ public class VulkanShaderFormat : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",
-				"ShaderCore",
+				"RenderCore",
 				"ShaderCompilerCommon",
 				"ShaderPreprocessor",
 			}
 			);
-
-		// GlsLang has a shadowed variable:
-		bEnableShadowVariableWarnings = false;
 
 		AddEngineThirdPartyPrivateStaticDependencies(Target, "HLSLCC");
 		AddEngineThirdPartyPrivateStaticDependencies(Target, "GlsLang");

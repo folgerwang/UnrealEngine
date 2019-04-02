@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "UI/Synth2DSliderStyle.h"
 #include "Interfaces/IPluginManager.h"
@@ -8,6 +8,7 @@
 #include "HAL/FileManager.h"
 
 FSynth2DSliderStyle::FSynth2DSliderStyle()
+	: BarThickness(2.0f)
 {
 }
 

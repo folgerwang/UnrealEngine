@@ -23,9 +23,9 @@ Event 노드는 [Custom Event 노드](Engine/Blueprints/UserGuide\Events\Custom)
 이벤트 디스패처 **Event** 노드는 우상단의 빨강 사각 핀을 **Bind Event** 노드의 빨강 사각 **Event** 입력 핀에 연결하는 것으로 **Bind Event** 노드에 연결됩니다. 즉 이미 
 특정 이벤트 디스패처에 대해 **Bind Event** 노드가 있고, 그에 대해 이벤트 노드를 생성하려면:
 
-1. **Event** 입력 핀을 끌어 놓아 맥락 메뉴를 띄웁니다.
+1. **Event** 입력 핀을 끌어 놓아 컨텍스트 메뉴를 띄웁니다.
 
-1. 맥락 메뉴에서 **Add Custom Event for Dispatcher** (디스패처에 대한 커스텀 이벤트 추가)를 선택합니다.
+1. 컨텍스트 메뉴에서 **Add Custom Event for Dispatcher** (디스패처에 대한 커스텀 이벤트 추가)를 선택합니다.
 
 	![](add_custom_event_for_dispatcher.png)
 
@@ -33,7 +33,7 @@ Event 노드는 [Custom Event 노드](Engine/Blueprints/UserGuide\Events\Custom)
 
 	![](delegate_pin_enter_name.png)
 
-이벤트 디스패처 메뉴나 맥락 메뉴 중 하나에서 **Assign** (할당)을 선택해도 **Bind Event** 노드와 그에 맞는 **Event** 노드가 서로 연결된 채 생성됩니다.
+이벤트 디스패처 메뉴나 컨텍스트 메뉴 중 하나에서 **Assign** (할당)을 선택해도 **Bind Event** 노드와 그에 맞는 **Event** 노드가 서로 연결된 채 생성됩니다.
 
 ### 블루프린트 클래스에서
 

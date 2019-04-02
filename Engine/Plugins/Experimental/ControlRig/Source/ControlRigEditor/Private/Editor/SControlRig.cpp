@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SControlRig.h"
 #include "Widgets/Input/SComboButton.h"
@@ -17,11 +17,11 @@
 #include "ControlRigBlueprintUtils.h"
 #include "NodeSpawners/ControlRigPropertyNodeSpawner.h"
 #include "SControlRigItem.h"
-#include "ControlRigBlueprintCommands.h"
-#include "ControlRigGraph.h"
 #include "ControlRigBlueprint.h"
-#include "ControlRigGraphNode.h"
-#include "ControlRigGraphSchema.h"
+#include "ControlRigBlueprintCommands.h"
+#include "Graph/ControlRigGraph.h"
+#include "Graph/ControlRigGraphNode.h"
+#include "Graph/ControlRigGraphSchema.h"
 #include "GraphEditorModule.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Algo/Transform.h"

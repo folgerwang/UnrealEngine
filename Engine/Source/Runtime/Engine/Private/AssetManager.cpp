@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/AssetManager.h"
 #include "Engine/AssetManagerSettings.h"
@@ -12,9 +12,11 @@
 #include "Misc/FileHelper.h"
 #include "Misc/ScopedSlowTask.h"
 #include "Misc/Paths.h"
+#include "Serialization/MemoryReader.h"
 #include "AssetRegistryState.h"
 #include "HAL/PlatformFilemanager.h"
 #include "IPlatformFilePak.h"
+#include "Stats/StatsMisc.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
@@ -166,6 +168,15 @@ void UAssetManager::PostInitProperties()
 	}
 }
 
+void UAssetManager::GetCachedPrimaryAssetEncryptionKeyGuid(FPrimaryAssetId InPrimaryAssetId, FGuid& OutGuid)
+{
+	OutGuid.Invalidate();
+	if (const FGuid* Guid = PrimaryAssetEncryptionKeyCache.Find(InPrimaryAssetId))
+	{
+		OutGuid = *Guid;
+	}
+}
+
 bool UAssetManager::IsValid()
 {
 	if (GEngine && GEngine->AssetManager)
@@ -240,6 +251,35 @@ const UAssetManagerSettings& UAssetManager::GetSettings() const
 		CachedSettings = GetDefault<UAssetManagerSettings>();
 	}
 	return *CachedSettings;
+}
+
+FTimerManager* UAssetManager::GetTimerManager() const
+{
+#if WITH_EDITOR
+	if (GEditor)
+	{
+		// In editor use the editor manager
+		if (GEditor->IsTimerManagerValid())
+		{
+			return &GEditor->GetTimerManager().Get();
+		}
+	}
+	else
+#endif
+	{
+		// Otherwise we should always have a game instance
+		const TIndirectArray<FWorldContext>& WorldContexts = GEngine->GetWorldContexts();
+		for (const FWorldContext& WorldContext : WorldContexts)
+		{
+			if (WorldContext.WorldType == EWorldType::Game && WorldContext.OwningGameInstance)
+			{
+				return &WorldContext.OwningGameInstance->GetTimerManager();
+			}
+		}
+	}
+
+	// This will only hit in very early startup
+	return nullptr;
 }
 
 FPrimaryAssetId UAssetManager::DeterminePrimaryAssetIdForObject(const UObject* Object)
@@ -403,12 +443,6 @@ int32 UAssetManager::ScanPathsForPrimaryAssets(FPrimaryAssetType PrimaryAssetTyp
 
 	if (BaseClass)
 	{
-		if (!bShouldGuessTypeAndName)
-		{
-			// Primary type check
-			ARFilter.TagsAndValues.Add(FPrimaryAssetId::PrimaryAssetTypeTag, PrimaryAssetType.ToString());
-		}
-
 		// Class check
 		if (!bHasBlueprintClasses)
 		{
@@ -435,22 +469,6 @@ int32 UAssetManager::ScanPathsForPrimaryAssets(FPrimaryAssetType PrimaryAssetTyp
 			// Make sure this works, if it does remove post load check
 			ClassNames.Add(BaseClass->GetFName());
 			AssetRegistry.GetDerivedClassNames(ClassNames, TSet<FName>(), DerivedClassNames);
-
-			/* DerivedClassNames are short names, GeneratedClass is a long name
-			const FName GeneratedClassName = FName(TEXT("GeneratedClass"));
-			for (const FName& DerivedClassName : DerivedClassNames)
-			{
-			ARFilter.TagsAndValues.Add(GeneratedClassName, DerivedClassName.ToString());
-
-			// Add any old names to the list in case things haven't been resaved
-			TArray<FName> OldNames = FLinkerLoad::FindPreviousNamesForClass(BaseClass->GetPathName(), false);
-
-			for (const FName& OldClassName : OldNames)
-			{
-			ARFilter.TagsAndValues.Add(GeneratedClassName, OldClassName.ToString());
-			}
-			}
-			*/
 		}
 	}
 
@@ -517,6 +535,12 @@ void UAssetManager::StartBulkScanning()
 	{
 		bIsBulkScanning = true;
 		NumberOfSpawnedNotifications = 0;
+
+		if (!WITH_EDITOR)
+		{
+			// Go into temporary caching mode to speed up class queries, not guaranteed safe in editor builds
+			GetAssetRegistry().SetTemporaryCachingMode(true);
+		}
 	}
 }
 
@@ -526,6 +550,13 @@ void UAssetManager::StopBulkScanning()
 	{
 		bIsBulkScanning = false;
 	}
+
+	if (!WITH_EDITOR)
+	{
+		// Leave temporary caching mode
+		GetAssetRegistry().SetTemporaryCachingMode(false);
+	}
+	
 	RebuildObjectReferenceList();
 }
 
@@ -592,24 +623,44 @@ void UAssetManager::UpdateCachedAssetData(const FPrimaryAssetId& PrimaryAssetId,
 			AssetPathMap.Add(NewAssetPath.GetAssetPathName(), PrimaryAssetId);
 		}
 
+		// Cooked builds strip the asset bundle data from the registry after scanning to save on memory
+		// This means that we need to reuse any data that's already been read in
+		bool bStripBundleData = !WITH_EDITOR;
+		bool bUseExistingBundleData = false;
+
 		if (OldData)
 		{
-			CachedAssetBundles.Remove(PrimaryAssetId);
-		}
-		
-		// Mark these as editor only if our type is editor only
-		FSoftObjectPathSerializationScope SerializationScope(NAME_None, NAME_None, TypeData.Info.bIsEditorOnly ? ESoftObjectPathCollectType::EditorOnlyCollect : ESoftObjectPathCollectType::AlwaysCollect, ESoftObjectPathSerializeType::AlwaysSerialize);
-
-		FAssetBundleData BundleData;
-		if (BundleData.SetFromAssetData(NewAssetData))
-		{
-			for (FAssetBundleEntry& Entry : BundleData.Bundles)
+			if (bStripBundleData)
 			{
-				if (Entry.BundleScope.IsValid() && Entry.BundleScope == PrimaryAssetId)
-				{
-					TMap<FName, FAssetBundleEntry>& BundleMap = CachedAssetBundles.FindOrAdd(PrimaryAssetId);
+				bUseExistingBundleData = CachedAssetBundles.Contains(PrimaryAssetId);
+			}
+			else
+			{
+				CachedAssetBundles.Remove(PrimaryAssetId);
+			}
+		}
 
-					BundleMap.Emplace(Entry.BundleName, Entry);
+		if (!bUseExistingBundleData)
+		{
+			// Mark these as editor only if our type is editor only
+			FSoftObjectPathSerializationScope SerializationScope(NAME_None, NAME_None, TypeData.Info.bIsEditorOnly ? ESoftObjectPathCollectType::EditorOnlyCollect : ESoftObjectPathCollectType::AlwaysCollect, ESoftObjectPathSerializeType::AlwaysSerialize);
+
+			FAssetBundleData BundleData;
+			if (BundleData.SetFromAssetData(NewAssetData))
+			{
+				for (FAssetBundleEntry& Entry : BundleData.Bundles)
+				{
+					if (Entry.BundleScope.IsValid() && Entry.BundleScope == PrimaryAssetId)
+					{
+						TMap<FName, FAssetBundleEntry>& BundleMap = CachedAssetBundles.FindOrAdd(PrimaryAssetId);
+
+						BundleMap.Emplace(Entry.BundleName, Entry);
+					}
+				}
+
+				if (bStripBundleData)
+				{
+					GetAssetRegistry().StripAssetRegistryKeyForObject(NewAssetData.ObjectPath, FAssetBundleData::StaticStruct()->GetFName());
 				}
 			}
 		}
@@ -991,7 +1042,7 @@ FPrimaryAssetId UAssetManager::ExtractPrimaryAssetIdFromData(const FAssetData& A
 	return FoundId;
 }
 
-bool UAssetManager::GetPrimaryAssetIdList(FPrimaryAssetType PrimaryAssetType, TArray<FPrimaryAssetId>& PrimaryAssetIdList) const
+bool UAssetManager::GetPrimaryAssetIdList(FPrimaryAssetType PrimaryAssetType, TArray<FPrimaryAssetId>& PrimaryAssetIdList, EAssetManagerFilter Filter) const
 {
 	const TSharedRef<FPrimaryAssetTypeData>* FoundType = AssetTypeMap.Find(PrimaryAssetType);
 
@@ -1001,7 +1052,10 @@ bool UAssetManager::GetPrimaryAssetIdList(FPrimaryAssetType PrimaryAssetType, TA
 
 		for (const TPair<FName, FPrimaryAssetData>& Pair : TypeData.AssetMap)
 		{
-			PrimaryAssetIdList.Add(FPrimaryAssetId(PrimaryAssetType, Pair.Key));
+			if ((!(Filter & EAssetManagerFilter::UnloadedOnly)) || ((Pair.Value.CurrentState.BundleNames.Num() == 0) && (Pair.Value.PendingState.BundleNames.Num() == 0)))
+			{
+				PrimaryAssetIdList.Add(FPrimaryAssetId(PrimaryAssetType, Pair.Key));
+			}
 		}
 	}
 
@@ -1133,9 +1187,10 @@ TSharedPtr<FStreamableHandle> UAssetManager::ChangeBundleStateForPrimaryAssets(c
 
 			NewHandle = LoadAssetList(PathsToLoad.Array(), FStreamableDelegate(), Priority, DebugName);
 
-			if (!ensureMsgf(NewHandle.IsValid(), TEXT("Requested load of Primary Asset with no referenced assets!")))
+			if (!NewHandle.IsValid())
 			{
-				return nullptr;
+				// LoadAssetList already throws an error, no need to do it here as well
+				continue;
 			}
 
 			if (NewHandle->HasLoadCompleted())
@@ -1807,6 +1862,100 @@ void UAssetManager::OnChunkDownloaded(uint32 ChunkId, bool bSuccess)
 	}
 }
 
+bool UAssetManager::OnAssetRegistryAvailableAfterInitialization(FName InName, FAssetRegistryState& OutNewState)
+{
+#if WITH_EDITOR
+	UE_LOG(LogAssetManager, Warning, TEXT("UAssetManager::OnAssetRegistryAvailableAfterInitialization is only supported in cooked builds, but was called from the editor!"));
+	return false;
+#endif
+
+	bool bLoaded = false;
+	double RegistrationTime = 0.0;
+
+	{
+		SCOPE_SECONDS_COUNTER(RegistrationTime);
+
+		IAssetRegistry& LocalAssetRegistry = GetAssetRegistry();
+		
+		{
+			TArray<uint8> Bytes;
+			FString Filename = FPaths::ProjectDir() / (TEXT("AssetRegistry") + InName.ToString()) + TEXT(".bin");
+			if (FPaths::FileExists(*Filename) && FFileHelper::LoadFileToArray(Bytes, *Filename))
+			{
+				bLoaded = true;
+				FMemoryReader Ar(Bytes);
+
+				FAssetRegistrySerializationOptions SerializationOptions;
+				LocalAssetRegistry.InitializeSerializationOptions(SerializationOptions);
+				OutNewState.Serialize(Ar, SerializationOptions);
+			}
+		}
+
+		if (bLoaded)
+		{
+			LocalAssetRegistry.AppendState(OutNewState);
+
+			TArray<FAssetData> NewAssetData;
+			bool bRebuildReferenceList = false;
+			if (OutNewState.GetAllAssets(TSet<FName>(), NewAssetData))
+			{
+				for (const FAssetData& AssetData : NewAssetData)
+				{
+					if (!IsPathExcludedFromScan(AssetData.PackageName.ToString()))
+					{
+						FPrimaryAssetId PrimaryAssetId = AssetData.GetPrimaryAssetId();
+						if (PrimaryAssetId.IsValid())
+						{
+							FPrimaryAssetTypeInfo TypeInfo;
+							if (GetPrimaryAssetTypeInfo(PrimaryAssetId.PrimaryAssetType, TypeInfo))
+							{
+								if (ShouldScanPrimaryAssetType(TypeInfo))
+								{
+									// Make sure it's in a valid path
+									bool bFoundPath = false;
+									for (const FString& Path : TypeInfo.AssetScanPaths)
+									{
+										if (AssetData.PackagePath.ToString().Contains(Path))
+										{
+											bFoundPath = true;
+											break;
+										}
+									}
+
+									if (bFoundPath)
+									{
+										FString GuidString;
+										if (AssetData.GetTagValue(GetEncryptionKeyAssetTagName(), GuidString))
+										{
+											FGuid Guid;
+											FGuid::Parse(GuidString, Guid);
+											check(!PrimaryAssetEncryptionKeyCache.Contains(PrimaryAssetId));
+											PrimaryAssetEncryptionKeyCache.Add(PrimaryAssetId, Guid);
+											UE_LOG(LogAssetManager, Verbose, TEXT("Found encrypted primary asset '%s' using keys '%s'"), *PrimaryAssetId.PrimaryAssetName.ToString(), *GuidString);
+										}
+
+										// Check exclusion path
+										UpdateCachedAssetData(PrimaryAssetId, AssetData, false);
+										bRebuildReferenceList = true;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			if (bRebuildReferenceList)
+			{
+				RebuildObjectReferenceList();
+			}
+		}
+	}
+
+	UE_CLOG(bLoaded, LogAssetManager, Log, TEXT("Registered new asset registry '%s' in %.4fs"), *InName.ToString(), RegistrationTime);
+	return bLoaded;
+}
+
 FPrimaryAssetData* UAssetManager::GetNameData(const FPrimaryAssetId& PrimaryAssetId, bool bCheckRedirector)
 {
 	return const_cast<FPrimaryAssetData*>(AsConst(this)->GetNameData(PrimaryAssetId));
@@ -2062,15 +2211,15 @@ bool UAssetManager::GetAssetDataForPath(const FSoftObjectPath& ObjectPath, FAsse
 	}
 
 	// Handle redirector chains
-	const FString* DestinationObjectStrPtr = AssetData.TagsAndValues.Find("DestinationObject");
-
-	while (DestinationObjectStrPtr)
+	FAssetDataTagMapSharedView::FFindTagResult Result = AssetData.TagsAndValues.FindTag("DestinationObject");
+	while (Result.IsSet())
 	{
-		FString DestinationObjectPath = *DestinationObjectStrPtr;
+		FString DestinationObjectPath = Result.GetValue();
 		ConstructorHelpers::StripObjectClass(DestinationObjectPath);
 		AssetData = AssetRegistry.GetAssetByObjectPath(*DestinationObjectPath);
-		DestinationObjectStrPtr = AssetData.TagsAndValues.Find("DestinationObject");
+		Result = AssetData.TagsAndValues.FindTag("DestinationObject");
 	}
+
 #endif
 
 	return AssetData.IsValid();
@@ -2317,6 +2466,12 @@ void UAssetManager::DumpReferencersForPackage(const TArray< FString >& PackageNa
 	Manager.WriteCustomReport(FString::Printf(TEXT("ReferencersForPackage%s%s.gv"), *PackageNames[0], *FDateTime::Now().ToString()), ReportLines);
 }
 
+FName UAssetManager::GetEncryptionKeyAssetTagName()
+{
+	static const FName NAME_EncryptionKey(TEXT("EncryptionKey"));
+	return NAME_EncryptionKey;
+}
+
 bool UAssetManager::ShouldScanPrimaryAssetType(FPrimaryAssetTypeInfo& TypeInfo) const
 {
 	if (!ensureMsgf(TypeInfo.PrimaryAssetType != PackageChunkType, TEXT("Cannot use %s as an asset manager type, this is reserved for internal use"), *TypeInfo.PrimaryAssetType.ToString()))
@@ -2330,12 +2485,16 @@ bool UAssetManager::ShouldScanPrimaryAssetType(FPrimaryAssetTypeInfo& TypeInfo) 
 		return false;
 	}
 
-	if (!TypeInfo.FillRuntimeData())
+	bool bIsValid, bBaseClassWasLoaded;
+	TypeInfo.FillRuntimeData(bIsValid, bBaseClassWasLoaded);
+
+	if (bBaseClassWasLoaded)
 	{
-		return false;
+		// Had to load a class, leave temporary caching mode for future scans
+		GetAssetRegistry().SetTemporaryCachingMode(false);
 	}
 
-	return true;
+	return bIsValid;
 }
 
 void UAssetManager::ScanPrimaryAssetTypesFromConfig()
@@ -2359,6 +2518,11 @@ void UAssetManager::ScanPrimaryAssetTypesFromConfig()
 	}
 
 	StopBulkScanning();
+}
+
+void UAssetManager::ScanPrimaryAssetRulesFromConfig()
+{
+	const UAssetManagerSettings& Settings = GetSettings();
 
 	// Read primary asset rule overrides
 	for (const FPrimaryAssetRulesOverride& Override : Settings.PrimaryAssetRules)
@@ -2371,10 +2535,50 @@ void UAssetManager::ScanPrimaryAssetTypesFromConfig()
 
 		SetPrimaryAssetRules(Override.PrimaryAssetId, Override.Rules);
 	}
+
+	for (const FPrimaryAssetRulesCustomOverride& Override : Settings.CustomPrimaryAssetRules)
+	{
+		ApplyCustomPrimaryAssetRulesOverride(Override);
+	}
+}
+
+void UAssetManager::ApplyCustomPrimaryAssetRulesOverride(const FPrimaryAssetRulesCustomOverride& CustomOverride)
+{
+	TArray<FPrimaryAssetId> PrimaryAssets;
+	GetPrimaryAssetIdList(CustomOverride.PrimaryAssetType, PrimaryAssets);
+
+	for (FPrimaryAssetId PrimaryAssetId : PrimaryAssets)
+	{
+		if (DoesPrimaryAssetMatchCustomOverride(PrimaryAssetId, CustomOverride))
+		{
+			SetPrimaryAssetRules(PrimaryAssetId, CustomOverride.Rules);
+		}
+	}
+}
+
+bool UAssetManager::DoesPrimaryAssetMatchCustomOverride(FPrimaryAssetId PrimaryAssetId, const FPrimaryAssetRulesCustomOverride& CustomOverride) const
+{
+	if (!CustomOverride.FilterDirectory.Path.IsEmpty())
+	{
+		FSoftObjectPath AssetPath = GetPrimaryAssetPath(PrimaryAssetId);
+		FString PathString = AssetPath.ToString();
+
+		if (!PathString.Contains(CustomOverride.FilterDirectory.Path))
+		{
+			return false;
+		}
+	}
+
+	// Filter string must be checked by an override of this function
+
+	return true;
 }
 
 void UAssetManager::PostInitialAssetScan()
 {
+	// Don't apply rules until scanning is done
+	ScanPrimaryAssetRulesFromConfig();
+
 	bIsPrimaryAssetDirectoryCurrent = true;
 
 #if WITH_EDITOR
@@ -2849,7 +3053,7 @@ const TMap<int32, FAssetManagerChunkInfo>& UAssetManager::GetChunkManagementMap(
 
 void UAssetManager::ApplyPrimaryAssetLabels()
 {
-	// Load all of them off disk. Turn off string asset reference tracking to avoid them getting cooked
+	// Load all of them off disk. Turn off soft object path tracking to avoid them getting cooked
 	FSoftObjectPathSerializationScope SerializationScope(NAME_None, NAME_None, ESoftObjectPathCollectType::NeverCollect, ESoftObjectPathSerializeType::AlwaysSerialize);
 
 	TSharedPtr<FStreamableHandle> Handle = LoadPrimaryAssetsWithType(PrimaryAssetLabelType);
@@ -2876,26 +3080,53 @@ void UAssetManager::ModifyCook(TArray<FName>& PackagesToCook, TArray<FName>& Pac
 	for (const FPrimaryAssetTypeInfo& TypeInfo : TypeList)
 	{
 		// Cook these types
-		TArray<FAssetData> AssetDataList;
-		GetPrimaryAssetDataList(TypeInfo.PrimaryAssetType, AssetDataList);
+		TArray<FPrimaryAssetId> AssetIdList;
+		GetPrimaryAssetIdList(TypeInfo.PrimaryAssetType, AssetIdList);
 
-		for (const FAssetData& AssetData : AssetDataList)
+		TArray<FName> AssetPackages;
+		for (const FPrimaryAssetId& PrimaryAssetId : AssetIdList)
 		{
-			EPrimaryAssetCookRule CookRule = GetPackageCookRule(AssetData.PackageName);
+			FAssetData AssetData;
+			if (GetPrimaryAssetData(PrimaryAssetId, AssetData))
+			{
+				// If this has an asset data, add that package name
+				AssetPackages.Add(AssetData.PackageName);
+			}
+			else
+			{
+				// If not, this may have bundles, so add those
+				TArray<FAssetBundleEntry> FoundEntries;
+				if (GetAssetBundleEntries(PrimaryAssetId, FoundEntries))
+				{
+					for (const FAssetBundleEntry& FoundEntry : FoundEntries)
+					{
+						for (const FSoftObjectPath& FoundReference : FoundEntry.BundleAssets)
+						{
+							FName PackageName = FName(*FoundReference.GetLongPackageName());
+							AssetPackages.AddUnique(PackageName);
+						}
+					}
+				}
+			}
+		}
+
+		for (FName PackageName : AssetPackages)
+		{
+			EPrimaryAssetCookRule CookRule = GetPackageCookRule(PackageName);
 
 			// Treat DevAlwaysCook as AlwaysCook, may get excluded in VerifyCanCookPackage
 			bool bAlwaysCook = (CookRule == EPrimaryAssetCookRule::AlwaysCook || CookRule == EPrimaryAssetCookRule::DevelopmentAlwaysCook);
-			bool bCanCook = VerifyCanCookPackage(AssetData.PackageName, false);
+			bool bCanCook = VerifyCanCookPackage(PackageName, false);
 
 			if (bAlwaysCook && bCanCook && !TypeInfo.bIsEditorOnly)
 			{
 				// If this is always cook, not excluded, and not editor only, cook it
-				PackagesToCook.AddUnique(AssetData.PackageName);
+				PackagesToCook.AddUnique(PackageName);
 			}
 			else if (!bCanCook)
 			{
 				// If this package cannot be cooked, add to exclusion list
-				PackagesToNeverCook.AddUnique(AssetData.PackageName);
+				PackagesToNeverCook.AddUnique(PackageName);
 			}
 		}
 	}
@@ -3077,8 +3308,17 @@ void UAssetManager::RefreshPrimaryAssetDirectory(bool bForceRefresh)
 		{
 			FPrimaryAssetTypeData& TypeData = TypePair.Value.Get();
 
-			// Rescan the runtime data, the class may have gotten changed by hot reload
-			if (!TypeData.Info.FillRuntimeData())
+			// Rescan the runtime data, the class may have gotten changed by hot reload or config changes
+			bool bIsValid, bBaseClassWasLoaded;
+			TypeData.Info.FillRuntimeData(bIsValid, bBaseClassWasLoaded);
+
+			if (bBaseClassWasLoaded)
+			{
+				// Had to load a class, leave temporary caching mode for future scans
+				GetAssetRegistry().SetTemporaryCachingMode(false);
+			}
+
+			if (!bIsValid)
 			{
 				continue;
 			}

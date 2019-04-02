@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Misc/CoreDelegates.h"
@@ -51,10 +51,10 @@ static FName Name_RelativeScale3D = GET_MEMBER_NAME_CHECKED(USceneComponent, Rel
 
 void AActor::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-	UProperty* PropertyThatChanged = PropertyChangedEvent.Property;
-	FName PropertyName = PropertyThatChanged != NULL ? PropertyThatChanged->GetFName() : NAME_None;
+	UProperty* MemberPropertyThatChanged = PropertyChangedEvent.MemberProperty;
+	const FName MemberPropertyName = MemberPropertyThatChanged != NULL ? MemberPropertyThatChanged->GetFName() : NAME_None;
 	
-	const bool bTransformationChanged = (PropertyName == Name_RelativeLocation || PropertyName == Name_RelativeRotation || PropertyName == Name_RelativeScale3D);
+	const bool bTransformationChanged = (MemberPropertyName == Name_RelativeLocation || MemberPropertyName == Name_RelativeRotation || MemberPropertyName == Name_RelativeScale3D);
 
 	// During SIE, allow components to reregistered and reconstructed in PostEditChangeProperty.
 	// This is essential as construction is deferred during spawning / duplication when in SIE.
@@ -426,6 +426,7 @@ void AActor::FActorTransactionAnnotation::Serialize(FArchive& Ar)
 	enum class EVersion : uint8
 	{
 		InitialVersion = 0,
+		WithInstanceCache,
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1
@@ -440,17 +441,21 @@ void AActor::FActorTransactionAnnotation::Serialize(FArchive& Ar)
 		return;
 	}
 
+	// InitialVersion
 	Ar << Actor;
+	Ar << bRootComponentDataCached;
+	if (bRootComponentDataCached)
+	{
+		Ar << RootComponentData;
+	}
+	// WithInstanceCache
 	if (Ar.IsLoading())
 	{
 		ComponentInstanceData = FComponentInstanceDataCache(Actor.Get());
 	}
-
-	Ar << bRootComponentDataCached;
-
-	if (bRootComponentDataCached)
+	if (Version >= EVersion::WithInstanceCache)
 	{
-		Ar << RootComponentData;
+		ComponentInstanceData.Serialize(Ar);
 	}
 }
 
@@ -977,7 +982,12 @@ bool AActor::GetReferencedContentObjects( TArray<UObject*>& Objects ) const
 
 EDataValidationResult AActor::IsDataValid(TArray<FText>& ValidationErrors)
 {
-	bool bSuccess = CheckDefaultSubobjectsInternal();
+	bool bSuccess = CheckDefaultSubobjects();
+	if (!bSuccess)
+	{
+		FText ErrorMsg = FText::Format(LOCTEXT("IsDataValid_Failed_CheckDefaultSubobjectsInternal", "{0} failed CheckDefaultSubobjectsInternal()"), FText::FromString(GetName()));
+		ValidationErrors.Add(ErrorMsg);
+	}
 
 	int32 OldNumMapWarningsAndErrors = FMessageLog("MapCheck").NumMessages(EMessageSeverity::Warning);
 	CheckForErrors();

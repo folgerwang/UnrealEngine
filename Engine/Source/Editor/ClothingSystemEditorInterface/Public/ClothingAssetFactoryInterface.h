@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -37,6 +37,17 @@ public:
 	 */
 	virtual UClothingAssetBase* CreateFromSkeletalMesh(USkeletalMesh* TargetMesh, FSkeletalMeshClothBuildParams& Params)
 	PURE_VIRTUAL(UClothingAssetFactoryBase::CreateFromSkeletalMesh, return nullptr;);
+
+
+	/**
+	 * Given a target mesh and a source clothing asset bound to source mesh, clone the clothing asset for
+	 * use on the target mesh
+	 * @param TargetMesh - The mesh to target
+	 * @param SourceMesh - The mesh to copy the clothing asset from
+	 * @param SourceAsset - The clothing asset to copy
+	 */
+	virtual UClothingAssetBase* CreateFromExistingCloth(USkeletalMesh* TargetMesh, USkeletalMesh* SourceMesh, UClothingAssetBase* SourceAsset)
+	PURE_VIRTUAL(UClothingAssetFactoryBase::CreateFromExistingCloth, return nullptr;);
 
 	/** 
 	 * Given a target mesh and valid parameters, import a simulation mesh as a LOD for the clothing

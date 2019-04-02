@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Animation/AnimNode_TransitionPoseEvaluator.h"
 #include "Animation/AnimInstanceProxy.h"
@@ -7,10 +7,10 @@
 // FAnimNode_TransitionPoseEvaluator
 
 FAnimNode_TransitionPoseEvaluator::FAnimNode_TransitionPoseEvaluator()
-	: DataSource(EEvaluatorDataSource::EDS_SourcePose)
-	, EvaluatorMode(EEvaluatorMode::EM_Standard)
-	, FramesToCachePose(1)
+	: FramesToCachePose(1)
 	, CacheFramesRemaining(1)
+	, DataSource(EEvaluatorDataSource::EDS_SourcePose)
+	, EvaluatorMode(EEvaluatorMode::EM_Standard)
 {
 }
 

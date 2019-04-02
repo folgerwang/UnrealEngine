@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -95,10 +95,10 @@ struct COREUOBJECT_API FSoftObjectPath
 
 	/**
 	 * Attempts to load the asset, this will call LoadObject which can be very slow
-	 *
+	 * @param InLoadContext Optional load context when called from nested load callstack
 	 * @return Loaded UObject, or nullptr if the reference is null or the asset fails to load
 	 */
-	UObject* TryLoad() const;
+	UObject* TryLoad(FUObjectSerializeContext* InLoadContext = nullptr) const;
 
 	/**
 	 * Attempts to find a currently loaded object that matches this path
@@ -148,17 +148,20 @@ struct COREUOBJECT_API FSoftObjectPath
 	}
 	FSoftObjectPath& operator=(FSoftObjectPath Other);
 	bool ExportTextItem(FString& ValueStr, FSoftObjectPath const& DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope) const;
-	bool ImportTextItem( const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText );
+	bool ImportTextItem( const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText, FArchive* InSerializingArchive = nullptr );
 	bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FStructuredArchive::FSlot Slot);
 
 	/** Serializes the internal path and also handles save/PIE fixups. Call this from the archiver overrides */
 	void SerializePath(FArchive& Ar);
 
-	/** Fixes up string asset reference for saving, call if saving with a method that skips SerializePath. This can modify the path, it will return true if it was modified */
+	/** Fixes up path for saving, call if saving with a method that skips SerializePath. This can modify the path, it will return true if it was modified */
 	bool PreSavePath(bool* bReportSoftObjectPathRedirects = nullptr);
 
-	/** Handles when a string asset reference has been loaded, call if loading with a method that skips SerializePath. This does not modify path but might call callbacks */
-	void PostLoadPath() const;
+	/** 
+	 * Handles when a path has been loaded, call if loading with a method that skips SerializePath. This does not modify path but might call callbacks
+	 * @param InArchive The archive that loaded this path
+	 */
+	void PostLoadPath(FArchive* InArchive) const;
 
 	/** Fixes up this SoftObjectPath to add the PIE prefix depending on what is currently active, returns true if it was modified. The overload that takes an explicit PIE instance is preferred, if it's available. */
 	bool FixupForPIE();
@@ -271,10 +274,10 @@ private:
 };
 
 // Not deprecating these yet as it will lead to too many warnings in games
-//DEPRECATED(4.18, "FStringAssetReference was renamed to FSoftObjectPath as it is now not always a string and can also refer to a subobject")
+//UE_DEPRECATED(4.18, "FStringAssetReference was renamed to FSoftObjectPath as it is now not always a string and can also refer to a subobject")
 typedef FSoftObjectPath FStringAssetReference;
 
-//DEPRECATED(4.18, "FStringClassReference was renamed to FSoftClassPath")
+//UE_DEPRECATED(4.18, "FStringClassReference was renamed to FSoftClassPath")
 typedef FSoftClassPath FStringClassReference;
 
 /** Options for how to set soft object path collection */
@@ -323,21 +326,21 @@ public:
 	 * Returns the current serialization options that were added using SerializationScope or LinkerLoad
 	 *
 	 * @param OutPackageName Package that this string asset belongs to
-	 * @param OutPropertyName Property that this string asset reference belongs to
+	 * @param OutPropertyName Property that this path belongs to
 	 * @param OutCollectType Type of collecting that should be done
 	 * @param Archive The FArchive that is serializing this path if known. If null it will check FUObjectThreadContext
 	 */
 	bool GetSerializationOptions(FName& OutPackageName, FName& OutPropertyName, ESoftObjectPathCollectType& OutCollectType, ESoftObjectPathSerializeType& OutSerializeType, FArchive* Archive = nullptr) const;
 };
 
-/** Helper class to set and restore serialization options for string asset references */
+/** Helper class to set and restore serialization options for soft object paths */
 struct FSoftObjectPathSerializationScope
 {
 	/** 
-	 * Create a new serialization scope, which affects the way that string asset references are saved
+	 * Create a new serialization scope, which affects the way that soft object paths are saved
 	 *
 	 * @param SerializingPackageName Package that this string asset belongs to
-	 * @param SerializingPropertyName Property that this string asset reference belongs to
+	 * @param SerializingPropertyName Property that this path belongs to
 	 * @param CollectType Set type of collecting that should be done, can be used to disable tracking entirely
 	 */
 	FSoftObjectPathSerializationScope(FName SerializingPackageName, FName SerializingPropertyName, ESoftObjectPathCollectType CollectType, ESoftObjectPathSerializeType SerializeType)

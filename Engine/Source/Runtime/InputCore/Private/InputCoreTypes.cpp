@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "InputCoreTypes.h"
 #include "UObject/UnrealType.h"
@@ -1102,6 +1102,11 @@ void FKey::PostSerialize(const FArchive& Ar)
 	ResetKey();
 }
 
+void FKey::PostScriptConstruct()
+{
+	KeyDetails.Reset();
+}
+
 void FKey::ResetKey()
 {
 	KeyDetails.Reset();
@@ -1183,6 +1188,7 @@ FKey FInputKeyManager::GetKeyFromCodes( const uint32 KeyCode, const uint32 CharC
 	{
 		FKey NewKey(*FString::Printf(TEXT("%s%d"), FKey::SyntheticCharPrefix, CharCode));
 		EKeys::AddKey(FKeyDetails(NewKey, FText::AsCultureInvariant(FString::Chr(CharCode)), FKeyDetails::NotBlueprintBindableKey));
+		const_cast<FInputKeyManager*>(this)->KeyMapCharToEnum.Add(CharCode, NewKey);
 		return NewKey;
 	}
 	return KeyPtr ? *KeyPtr : EKeys::Invalid;

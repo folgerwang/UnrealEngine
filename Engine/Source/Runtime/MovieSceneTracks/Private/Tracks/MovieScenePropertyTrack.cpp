@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieScenePropertyTrack.h"
 #include "MovieSceneCommonHelpers.h"
@@ -60,6 +60,7 @@ FName UMovieScenePropertyTrack::GetTrackName() const
 void UMovieScenePropertyTrack::RemoveAllAnimationData()
 {
 	Sections.Empty();
+	SectionToKey = nullptr;
 }
 
 
@@ -78,6 +79,17 @@ void UMovieScenePropertyTrack::AddSection(UMovieSceneSection& Section)
 void UMovieScenePropertyTrack::RemoveSection(UMovieSceneSection& Section)
 {
 	Sections.Remove(&Section);
+	if (SectionToKey == &Section)
+	{
+		if (Sections.Num() > 0)
+		{
+			SectionToKey = Sections[0];
+		}
+		else
+		{
+			SectionToKey = nullptr;
+		}
+	}
 }
 
 
@@ -86,7 +98,8 @@ bool UMovieScenePropertyTrack::IsEmpty() const
 	return Sections.Num() == 0;
 }
 
-UMovieSceneSection* UMovieScenePropertyTrack::FindSection(FFrameNumber Time)
+
+TArray<UMovieSceneSection*, TInlineAllocator<4>> UMovieScenePropertyTrack::FindAllSections(FFrameNumber Time)
 {
 	TArray<UMovieSceneSection*, TInlineAllocator<4>> OverlappingSections;
 
@@ -100,21 +113,73 @@ UMovieSceneSection* UMovieScenePropertyTrack::FindSection(FFrameNumber Time)
 
 	Algo::Sort(OverlappingSections, MovieSceneHelpers::SortOverlappingSections);
 
+	return OverlappingSections;
+}
+
+
+UMovieSceneSection* UMovieScenePropertyTrack::FindSection(FFrameNumber Time)
+{
+	TArray<UMovieSceneSection*, TInlineAllocator<4>> OverlappingSections = FindAllSections(Time);
+
 	if (OverlappingSections.Num())
 	{
-		return OverlappingSections[0];
+		if (SectionToKey && OverlappingSections.Contains(SectionToKey))
+		{
+			return SectionToKey;
+		}
+		else
+		{
+			return OverlappingSections[0];
+		}
 	}
 
 	return nullptr;
 }
 
 
-UMovieSceneSection* UMovieScenePropertyTrack::FindOrExtendSection(FFrameNumber Time)
+UMovieSceneSection* UMovieScenePropertyTrack::FindOrExtendSection(FFrameNumber Time, float& Weight)
 {
-	UMovieSceneSection* FoundSection = FindSection(Time);
-	if (FoundSection)
+	Weight = 1.0f;
+	TArray<UMovieSceneSection*, TInlineAllocator<4>> OverlappingSections = FindAllSections(Time);
+	if (SectionToKey)
 	{
-		return FoundSection;
+		bool bCalculateWeight = false;
+		if (SectionToKey && !OverlappingSections.Contains(SectionToKey))
+		{
+			if (SectionToKey->HasEndFrame() && SectionToKey->GetExclusiveEndFrame() < Time)
+			{
+				SectionToKey->SetEndFrame(Time);
+			}
+			else
+			{
+				SectionToKey->SetStartFrame(Time);
+			}
+			if (OverlappingSections.Num() > 0)
+			{
+				bCalculateWeight = true;
+			}
+		}
+		else
+		{
+			if (OverlappingSections.Num() > 1)
+			{
+				bCalculateWeight = true;
+			}
+		}
+		//we need to calculate weight also possibly
+		FOptionalMovieSceneBlendType BlendType = SectionToKey->GetBlendType();
+		if (bCalculateWeight)
+		{
+			Weight = MovieSceneHelpers::CalculateWeightForBlending(SectionToKey, Time);
+		}
+		return SectionToKey;
+	}
+	else
+	{
+		if (OverlappingSections.Num() > 0)
+		{
+			return OverlappingSections[0];
+		}
 	}
 
 	// Find a spot for the section so that they are sorted by start time
@@ -186,3 +251,14 @@ UMovieSceneSection* UMovieScenePropertyTrack::FindOrAddSection(FFrameNumber Time
 
 	return NewSection;
 }
+
+void UMovieScenePropertyTrack::SetSectionToKey(UMovieSceneSection* InSection)
+{
+	SectionToKey = InSection;
+}
+
+UMovieSceneSection* UMovieScenePropertyTrack::GetSectionToKey()
+{
+	return SectionToKey;
+}
+

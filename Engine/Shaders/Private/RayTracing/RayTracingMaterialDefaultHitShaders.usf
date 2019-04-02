@@ -1,0 +1,26 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+#include "RayTracingCommon.ush"
+
+[shader("closesthit")]
+void OpaqueShadowCHS(inout FPackedMaterialClosestHitPayload PackedPayload, in FDefaultAttributes Attributes)
+{
+	PackedPayload.HitT = RayTCurrent();
+}
+
+[shader("closesthit")]
+void HiddenMaterialCHS(inout FPackedMaterialClosestHitPayload PackedPayload, in FDefaultAttributes Attributes)
+{
+}
+
+[shader("anyhit")] 
+void HiddenMaterialAHS(inout FPackedMaterialClosestHitPayload PackedPayload, in FDefaultAttributes Attributes)
+{
+	IgnoreHit();
+}  
+
+[shader("miss")]
+void DefaultMaterialMS(inout FPackedMaterialClosestHitPayload PackedPayload)
+{
+	PackedPayload.HitT = -1;
+}

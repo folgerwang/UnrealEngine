@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	URL.cpp: Various file-management functions.
@@ -75,9 +75,9 @@ FURL::FURL( const TCHAR* LocalFilename )
 :	Protocol	( UrlConfig.DefaultProtocol )
 ,	Host		( UrlConfig.DefaultHost )
 ,	Port		( UrlConfig.DefaultPort )
+,	Valid		( 1 )
 ,	Op			()
 ,	Portal		( UrlConfig.DefaultPortal )
-,	Valid		( 1 )
 {
 	// strip off any extension from map name
 	if (LocalFilename)
@@ -136,10 +136,10 @@ FURL::FURL( FURL* Base, const TCHAR* TextURL, ETravelType Type )
 :	Protocol	( UrlConfig.DefaultProtocol )
 ,	Host		( UrlConfig.DefaultHost )
 ,	Port		( UrlConfig.DefaultPort )
+,	Valid		( 1 )
 ,	Map			( UGameMapsSettings::GetGameDefaultMap() )
 ,	Op			()
 ,	Portal		( UrlConfig.DefaultPortal )
-,	Valid		( 1 )
 {
 	check(TextURL);
 

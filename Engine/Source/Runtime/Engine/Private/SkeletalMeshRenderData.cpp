@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Rendering/SkeletalMeshRenderData.h"
 #include "Rendering/SkeletalMeshLODRenderData.h"
@@ -98,7 +98,8 @@ void FSkeletalMeshRenderData::Cache(USkeletalMesh* Owner)
 			for (int32 LODIndex = 0; LODIndex < SkelMeshModel->LODModels.Num(); LODIndex++)
 			{
 				FSkeletalMeshLODModel& LODModel = SkelMeshModel->LODModels[LODIndex];
-				FSkeletalMeshLODRenderData* LODData = new(LODRenderData) FSkeletalMeshLODRenderData();
+				FSkeletalMeshLODRenderData* LODData = new FSkeletalMeshLODRenderData();
+				LODRenderData.Add(LODData);
 
 				LODData->BuildFromLODModel(&LODModel, VertexBufferBuildFlags);
 			}

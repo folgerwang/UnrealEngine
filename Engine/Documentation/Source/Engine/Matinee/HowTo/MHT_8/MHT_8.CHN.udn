@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2738171
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:触发事件并切换可视性
 Crumbs: %ROOT%, Engine, Engine/Matinee, Engine/Matinee/HowTo
@@ -6,11 +6,11 @@ Description:使用事件和可视性创建一个倒计时结束后爆炸的石�
 Version:4.9
 SkillLevel:Intermediate
 
----
 在以下步骤中，我们将使用 **Matinee 事件（Matinee Events）** 和 **可视性（Visibility）** 轨迹创建在倒计时结束后爆炸的岩石和破碎效果。
 
 [INCLUDE:Engine/Matinee/HowTo/MHT_1#projectstart]
 
+(#AddtheMatineeActorandProps)
 ## 添加 Matinee Actor 和道具
 
 在这步中，我们将添加用于此场景的 **Matinee Actor** 和资源。
@@ -91,6 +91,7 @@ SkillLevel:Intermediate
 
 	_我们将通过 Matinee 控制 Actors 的可视性以及其默认隐藏的属性。_
 
+(#AddingtheAssetstoMatineeandSettingtheTracks)
 ## 向 Matinee 添加资源并设置轨迹
 
 在这步中，我们将把所有资源添加到 **Matinee**，并定义用于驱动序列的轨迹。
@@ -144,6 +145,7 @@ SkillLevel:Intermediate
 	![](MHT8_MatineeFinished.png)
 
 
+(#UsingtheMatineeActorinBlueprints)
 ## 在蓝图中使用 Matinee Actor
 
 在这步中，**爆炸** 事件在 **Matinee** 序列中被调用时将触发事件，**Matinee** 结束后开启粒子效果。
@@ -211,41 +213,4 @@ SkillLevel:Intermediate
 	[/OBJECT]
 
 	_可以在场景中看到倒计时开始，石块爆炸，出现粒子效果和音效，之后石块位置上将出现火焰。_
-
-
-
-
-	
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

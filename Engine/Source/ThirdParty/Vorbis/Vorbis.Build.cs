@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 using UnrealBuildTool;
 
 public class Vorbis : ModuleRules
@@ -70,7 +70,14 @@ public class Vorbis : ModuleRules
 			PublicLibraryPaths.Add(VorbisPath + "lib/Android/x64");
 
 			PublicAdditionalLibraries.Add("vorbis");
-		}
+            PublicAdditionalLibraries.Add("vorbisenc");
+        }
+		else if (Target.Platform == UnrealTargetPlatform.IOS)
+        {
+            PublicAdditionalLibraries.Add(VorbisPath + "lib/IOS/libvorbis.a");
+            PublicAdditionalLibraries.Add(VorbisPath + "lib/IOS/libvorbisenc.a");
+            PublicAdditionalLibraries.Add(VorbisPath + "lib/IOS/libvorbisfile.a");
+        }
 		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			PublicAdditionalLibraries.Add(VorbisPath + "lib/Linux/" + Target.Architecture + "/libvorbis.a");
@@ -86,6 +93,13 @@ public class Vorbis : ModuleRules
 				PublicAdditionalLibraries.Add("libvorbis_static.lib");
 			}
 		}
+		else if (Target.Platform == UnrealTargetPlatform.PS4)
+        {
+            PublicAdditionalLibraries.Add(VorbisPath + "lib/ORBIS_Release/" + "libvorbis-1.3.2_PS4_static.a");
+        }
+		else if (Target.Platform == UnrealTargetPlatform.Switch)
+        {
+            PublicAdditionalLibraries.Add(VorbisPath + "lib/NX64/Release/" + "Switch_Static_Vorbis.a");
+        }
 	}
 }
-

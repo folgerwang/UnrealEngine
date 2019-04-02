@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "FrontendFilters.h"
 #include "Framework/Commands/UIAction.h"
@@ -20,6 +20,7 @@
 #include "ContentBrowserModule.h"
 #include "MRUFavoritesList.h"
 #include "Settings/ContentBrowserSettings.h"
+#include "HAL/FileManager.h"
 
 /** Helper functions for frontend filters */
 namespace FrontendFilterHelper
@@ -266,31 +267,44 @@ public:
 		, TypeKeyName("Type")
 		, CollectionKeyName("Collection")
 		, TagKeyName("Tag")
+		, CollectionManager(nullptr)
 	{
 	}
 
 	void SetAsset(FAssetFilterTypePtr InAsset)
 	{
 		AssetPtr = InAsset;
-		
-		// Get the full asset path, and also split it so we can compare each part in the filter
-		AssetPtr->PackageName.AppendString(AssetFullPath);
-		AssetFullPath.ParseIntoArray(AssetSplitPath, TEXT("/"));
 
-		// Get the full export text path as people sometimes search by copying this (requires class and asset path search to be enabled in order to match)
-		AssetPtr->GetExportTextName(AssetExportTextName);
-
-		if (FCollectionManagerModule::IsModuleAvailable())
+		if (bIncludeAssetPath)
 		{
-			FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
-			CollectionManagerModule.Get().GetCollectionsContainingObject(AssetPtr->ObjectPath, ECollectionShareType::CST_All, AssetCollectionNames, ECollectionRecursionFlags::SelfAndChildren);
+			// Get the full asset path, and also split it so we can compare each part in the filter
+			AssetPtr->PackageName.AppendString(AssetFullPath);
+			AssetFullPath.ParseIntoArray(AssetSplitPath, TEXT("/"));
+			AssetFullPath.ToUpperInline();
+
+			if (bIncludeClassName)
+			{
+				// Get the full export text path as people sometimes search by copying this (requires class and asset path search to be enabled in order to match)
+				AssetPtr->GetExportTextName(AssetExportTextName);
+				AssetExportTextName.ToUpperInline();
+			}
+		}
+
+		if (CollectionManager == nullptr)
+		{
+			CollectionManager = &FCollectionManagerModule::GetModule().Get();
+		}
+
+		if (CollectionManager)
+		{
+			CollectionManager->GetCollectionsContainingObject(AssetPtr->ObjectPath, ECollectionShareType::CST_All, AssetCollectionNames, ECollectionRecursionFlags::SelfAndChildren);
 
 			// Test the dynamic collections from the active query against the current asset
 			// We can do this as a flat list since FFrontendFilter_GatherDynamicCollectionsExpressionContext has already taken care of processing the recursion
 			for (const FCollectionNameType& DynamicCollection : ReferencedDynamicCollections)
 			{
 				bool bPassesCollectionFilter = false;
-				CollectionManagerModule.Get().TestDynamicQuery(DynamicCollection.Name, DynamicCollection.Type, *this, bPassesCollectionFilter);
+				CollectionManager->TestDynamicQuery(DynamicCollection.Name, DynamicCollection.Type, *this, bPassesCollectionFilter);
 				if (bPassesCollectionFilter)
 				{
 					AssetCollectionNames.AddUnique(DynamicCollection.Name);
@@ -340,21 +354,21 @@ public:
 
 	virtual bool TestBasicStringExpression(const FTextFilterString& InValue, const ETextFilterTextComparisonMode InTextComparisonMode) const override
 	{
-		if (TextFilterUtils::TestBasicStringExpression(AssetPtr->AssetName, InValue, InTextComparisonMode))
+		if (InValue.CompareName(AssetPtr->AssetName, InTextComparisonMode))
 		{
 			return true;
 		}
 
 		if (bIncludeAssetPath)
 		{
-			if (TextFilterUtils::TestBasicStringExpression(AssetFullPath, InValue, InTextComparisonMode))
+			if (InValue.CompareFString(AssetFullPath, InTextComparisonMode))
 			{
 				return true;
 			}
 
 			for (const FString& AssetPathPart : AssetSplitPath)
 			{
-				if (TextFilterUtils::TestBasicStringExpression(AssetPathPart, InValue, InTextComparisonMode))
+				if (InValue.CompareFString(AssetPathPart, InTextComparisonMode))
 				{
 					return true;
 				}
@@ -363,7 +377,7 @@ public:
 
 		if (bIncludeClassName)
 		{
-			if (TextFilterUtils::TestBasicStringExpression(AssetPtr->AssetClass, InValue, InTextComparisonMode))
+			if (InValue.CompareName(AssetPtr->AssetClass, InTextComparisonMode))
 			{
 				return true;
 			}
@@ -372,7 +386,7 @@ public:
 		if (bIncludeClassName && bIncludeAssetPath)
 		{
 			// Only test this if we're searching the class name and asset path too, as the exported text contains the type and path in the string
-			if (TextFilterUtils::TestBasicStringExpression(AssetExportTextName, InValue, InTextComparisonMode))
+			if (InValue.CompareFString(AssetExportTextName, InTextComparisonMode))
 			{
 				return true;
 			}
@@ -382,7 +396,7 @@ public:
 		{
 			for (const FName& AssetCollectionName : AssetCollectionNames)
 			{
-				if (TextFilterUtils::TestBasicStringExpression(AssetCollectionName, InValue, InTextComparisonMode))
+				if (InValue.CompareName(AssetCollectionName, InTextComparisonMode))
 				{
 					return true;
 				}
@@ -531,6 +545,9 @@ private:
 	const FName TypeKeyName;
 	const FName CollectionKeyName;
 	const FName TagKeyName;
+
+	/** Cached Collection manager */
+	ICollectionManager* CollectionManager;
 };
 
 FFrontendFilter_Text::FFrontendFilter_Text()
@@ -681,7 +698,8 @@ void FFrontendFilter_Text::RebuildReferencedDynamicCollections()
 /////////////////////////////////////////
 
 FFrontendFilter_CheckedOut::FFrontendFilter_CheckedOut(TSharedPtr<FFrontendFilterCategory> InCategory) 
-	: FFrontendFilter(InCategory)
+	: FFrontendFilter(InCategory),
+	bSourceControlEnabled(false)
 {
 	
 }
@@ -692,10 +710,24 @@ void FFrontendFilter_CheckedOut::ActiveStateChanged(bool bActive)
 	{
 		RequestStatus();
 	}
+	else
+	{
+		OpenFilenames.Empty();
+	}
+}
+
+void FFrontendFilter_CheckedOut::SetCurrentFilter(const FARFilter& InBaseFilter)
+{
+	bSourceControlEnabled = ISourceControlModule::Get().IsEnabled();
 }
 
 bool FFrontendFilter_CheckedOut::PassesFilter(FAssetFilterType InItem) const
 {
+	if (!bSourceControlEnabled || !OpenFilenames.Contains(InItem.AssetName))
+	{
+		return false;
+	}
+
 	FSourceControlStatePtr SourceControlState = ISourceControlModule::Get().GetProvider().GetState(SourceControlHelpers::PackageFilename(InItem.PackageName.ToString()), EStateCacheUsage::Use);
 	return SourceControlState.IsValid() && (SourceControlState->IsCheckedOut() || SourceControlState->IsAdded());
 }
@@ -714,6 +746,112 @@ void FFrontendFilter_CheckedOut::RequestStatus()
 
 void FFrontendFilter_CheckedOut::SourceControlOperationComplete(const FSourceControlOperationRef& InOperation, ECommandResult::Type InResult)
 {
+	OpenFilenames.Reset();
+
+	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+
+	TArray<FSourceControlStateRef> CheckedOutFiles = SourceControlProvider.GetCachedStateByPredicate(
+		[](const FSourceControlStateRef& State) { return State->IsCheckedOut() || State->IsAdded(); }
+	);
+	
+	FString PathPart;
+	FString FilenamePart;
+	FString ExtensionPart;
+	for (int32 i = 0; i < CheckedOutFiles.Num(); ++i)
+	{
+		FPaths::Split(CheckedOutFiles[i]->GetFilename(), PathPart, FilenamePart, ExtensionPart);
+		OpenFilenames.Add(FName(*FilenamePart));
+	}
+
+	BroadcastChangedEvent();
+}
+
+/////////////////////////////////////////
+// FFrontendFilter_NotSourceControlled
+/////////////////////////////////////////
+
+FFrontendFilter_NotSourceControlled::FFrontendFilter_NotSourceControlled(TSharedPtr<FFrontendFilterCategory> InCategory) 
+	: FFrontendFilter(InCategory),
+	bSourceControlEnabled(false),
+	bIsRequestStatusRunning(false),
+	bInitialRequestCompleted(false)
+{
+
+}
+
+void FFrontendFilter_NotSourceControlled::ActiveStateChanged(bool bActive)
+{
+	if (bActive)
+	{
+		if (!bIsRequestStatusRunning)
+		{
+			RequestStatus();
+		}
+	}
+}
+
+void FFrontendFilter_NotSourceControlled::SetCurrentFilter(const FARFilter& InBaseFilter)
+{
+	bSourceControlEnabled = ISourceControlModule::Get().IsEnabled();
+}
+
+bool FFrontendFilter_NotSourceControlled::PassesFilter(FAssetFilterType InItem) const
+{
+	if (!bSourceControlEnabled)
+	{
+		return true;
+	}
+
+	// Hide all items until the first status request finishes
+	if (!bInitialRequestCompleted)
+	{
+		return false;
+	}
+
+	FSourceControlStatePtr SourceControlState = ISourceControlModule::Get().GetProvider().GetState(SourceControlHelpers::PackageFilename(InItem.PackageName.ToString()), EStateCacheUsage::Use);
+	if (!SourceControlState.IsValid())
+	{
+		return false;
+	}
+
+	if (SourceControlState->IsUnknown())
+	{
+		return true;
+	}
+
+	if (SourceControlState->IsSourceControlled())
+	{
+		return false;
+	}
+
+	return true;
+}
+
+void FFrontendFilter_NotSourceControlled::RequestStatus()
+{
+	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+	bSourceControlEnabled = ISourceControlModule::Get().IsEnabled();
+	if ( bSourceControlEnabled )
+	{
+		bSourceControlEnabled = true;
+		bIsRequestStatusRunning = true;
+
+		// Request the state of files at filter construction time to make sure files have the correct state for the filter
+		TSharedRef<FUpdateStatus, ESPMode::ThreadSafe> UpdateStatusOperation = ISourceControlOperation::Create<FUpdateStatus>();
+
+		TArray<FString> Filenames;
+		Filenames.Add(FPaths::ConvertRelativePathToFull(FPaths::EngineContentDir()));
+		Filenames.Add(FPaths::ConvertRelativePathToFull(FPaths::ProjectContentDir()));
+		UpdateStatusOperation->SetCheckingAllFiles(false);
+		SourceControlProvider.Execute(UpdateStatusOperation, Filenames, EConcurrency::Asynchronous, FSourceControlOperationComplete::CreateSP(this, &FFrontendFilter_NotSourceControlled::SourceControlOperationComplete));
+	}
+}
+
+void FFrontendFilter_NotSourceControlled::SourceControlOperationComplete(const FSourceControlOperationRef& InOperation, ECommandResult::Type InResult)
+{
+	bIsRequestStatusRunning = false;
+	bInitialRequestCompleted = true;
+
 	BroadcastChangedEvent();
 }
 
@@ -740,14 +878,7 @@ void FFrontendFilter_Modified::ActiveStateChanged(bool bActive)
 
 bool FFrontendFilter_Modified::PassesFilter(FAssetFilterType InItem) const
 {
-	UPackage* Package = FindPackage(NULL, *InItem.PackageName.ToString());
-
-	if ( Package != NULL )
-	{
-		return Package->IsDirty();
-	}
-
-	return false;
+	return DirtyPackageNames.Contains(InItem.PackageName);
 }
 
 void FFrontendFilter_Modified::OnPackageDirtyStateUpdated(UPackage* Package)
@@ -755,6 +886,24 @@ void FFrontendFilter_Modified::OnPackageDirtyStateUpdated(UPackage* Package)
 	if (bIsCurrentlyActive)
 	{
 		BroadcastChangedEvent();
+	}
+}
+
+void FFrontendFilter_Modified::SetCurrentFilter(const FARFilter& InBaseFilter)
+{
+	DirtyPackageNames.Reset();
+
+	const UPackage* TransientPackage = GetTransientPackage();
+	if (TransientPackage)
+	{
+		for (TObjectIterator<UPackage> PackageIter; PackageIter; ++PackageIter)
+		{
+			UPackage* CurPackage = *PackageIter;
+			if (CurPackage && CurPackage->IsDirty())
+			{
+				DirtyPackageNames.Add(CurPackage->GetFName());
+			}
+		}
 	}
 }
 
@@ -944,10 +1093,12 @@ FString FFrontendFilter_ArbitraryComparisonOperation::ConvertOperationToString(E
 FFrontendFilter_ShowOtherDevelopers::FFrontendFilter_ShowOtherDevelopers(TSharedPtr<FFrontendFilterCategory> InCategory)
 	: FFrontendFilter(InCategory)
 	, BaseDeveloperPath(FPackageName::FilenameToLongPackageName(FPaths::GameDevelopersDir()))
+	, BaseDeveloperPathAnsi()
 	, UserDeveloperPath(FPackageName::FilenameToLongPackageName(FPaths::GameUserDeveloperDir()))
 	, bIsOnlyOneDeveloperPathSelected(false)
 	, bShowOtherDeveloperAssets(false)
 {
+	TextFilterUtils::TryConvertWideToAnsi(BaseDeveloperPath, BaseDeveloperPathAnsi);
 }
 
 void FFrontendFilter_ShowOtherDevelopers::SetCurrentFilter(const FARFilter& InFilter)
@@ -975,11 +1126,10 @@ bool FFrontendFilter_ShowOtherDevelopers::PassesFilter(FAssetFilterType InItem) 
 		if ( !bIsOnlyOneDeveloperPathSelected )
 		{
 			// If selecting multiple folders, the Developers folder/parent folder, or "All Assets", hide assets which are found in the development folder unless they are in the current user's folder
-			const FString PackagePath = InItem.PackagePath.ToString() + TEXT("/");
-			const bool bPackageInDeveloperFolder = PackagePath.StartsWith(BaseDeveloperPath) && PackagePath.Len() != BaseDeveloperPath.Len();
-
+			const bool bPackageInDeveloperFolder = !TextFilterUtils::NameStrincmp(InItem.PackagePath, BaseDeveloperPath, BaseDeveloperPathAnsi, BaseDeveloperPath.Len());
 			if ( bPackageInDeveloperFolder )
 			{
+				const FString PackagePath = InItem.PackagePath.ToString() + TEXT("/");
 				const bool bPackageInUserDeveloperFolder = PackagePath.StartsWith(UserDeveloperPath);
 				if ( !bPackageInUserDeveloperFolder )
 				{
@@ -1077,11 +1227,9 @@ void FFrontendFilter_InUseByLoadedLevels::OnAssetPostRename(const TArray<FAssetR
 bool FFrontendFilter_InUseByLoadedLevels::PassesFilter(FAssetFilterType InItem) const
 {
 	bool bObjectInUse = false;
-	
-	if ( InItem.IsAssetLoaded() )
-	{
-		UObject* Asset = InItem.GetAsset();
 
+	if (UObject* Asset = InItem.FastGetAsset(false))
+	{
 		const bool bUnreferenced = !Asset->HasAnyMarks( OBJECTMARK_TagExp );
 		const bool bIndirectlyReferencedObject = Asset->HasAnyMarks( OBJECTMARK_TagImp );
 		const bool bRejectObject =
@@ -1207,25 +1355,29 @@ void FFrontendFilter_Recent::ActiveStateChanged(bool bActive)
 
 bool FFrontendFilter_Recent::PassesFilter(FAssetFilterType InItem) const
 {
-	static FName ClassName(TEXT("Class"));
+	return RecentPackagePaths.Contains(InItem.PackageName);
+}
 
-	// Exclude classes because they will not have a valid long package name and cause an assert in FindMRUItemIdx
-	if (ClassName == InItem.AssetClass)
-	{
-		return false;
-	}
+void FFrontendFilter_Recent::SetCurrentFilter(const FARFilter& InBaseFilter)
+{
+	RefreshRecentPackagePaths();
+}
 
-	FString PackagePath = InItem.PackageName.ToString();
-	FContentBrowserModule& CBModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
+void FFrontendFilter_Recent::RefreshRecentPackagePaths()
+{
+	static const FName ContentBrowserName(TEXT("ContentBrowser"));
+
+	RecentPackagePaths.Reset();
+	FContentBrowserModule& CBModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>(ContentBrowserName);
 	FMainMRUFavoritesList* RecentlyOpenedAssets = CBModule.GetRecentlyOpenedAssets();
 	if (RecentlyOpenedAssets)
 	{
-		if (RecentlyOpenedAssets->FindMRUItemIdx(PackagePath) != INDEX_NONE)
+		RecentPackagePaths.Reserve(RecentlyOpenedAssets->GetNumItems());
+		for (int32 i = 0; i < RecentlyOpenedAssets->GetNumItems(); ++i)
 		{
-			return true;
+			RecentPackagePaths.Add(FName(*RecentlyOpenedAssets->GetMRUItem(i)));
 		}
 	}
-	return false;
 }
 
 void FFrontendFilter_Recent::ResetFilter(FName InName)

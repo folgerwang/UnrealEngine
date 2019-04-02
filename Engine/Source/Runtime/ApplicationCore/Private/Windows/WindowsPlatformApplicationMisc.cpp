@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Windows/WindowsPlatformApplicationMisc.h"
 #include "Windows/WindowsApplication.h"
@@ -319,7 +319,7 @@ float FWindowsPlatformApplicationMisc::GetDPIScaleFactorAtPoint(float X, float Y
 	{
 		if (GetDpiForMonitor)
 		{
-			POINT Position = { X, Y };
+			POINT Position = { static_cast<LONG>(X), static_cast<LONG>(Y) };
 			HMONITOR Monitor = MonitorFromPoint(Position, MONITOR_DEFAULTTONEAREST);
 			if (Monitor)
 			{

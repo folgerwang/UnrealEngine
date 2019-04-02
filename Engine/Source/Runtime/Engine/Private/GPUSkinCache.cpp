@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // Copyright (C) Microsoft. All rights reserved.
 
 /*=============================================================================
@@ -14,6 +14,7 @@ GPUSkinCache.cpp: Performs skinning on a compute shader into a buffer to avoid v
 #include "ShaderParameterUtils.h"
 #include "ClearQuad.h"
 #include "Shader.h"
+#include "MeshMaterialShader.h"
 
 DEFINE_STAT(STAT_GPUSkinCache_TotalNumChunks);
 DEFINE_STAT(STAT_GPUSkinCache_TotalNumVertices);
@@ -26,6 +27,7 @@ DEFINE_STAT(STAT_GPUSkinCache_NumPreGDME);
 DEFINE_LOG_CATEGORY_STATIC(LogSkinCache, Log, All);
 
 static int32 GEnableGPUSkinCacheShaders = 0;
+
 static FAutoConsoleVariableRef CVarEnableGPUSkinCacheShaders(
 	TEXT("r.SkinCache.CompileShaders"),
 	GEnableGPUSkinCacheShaders,
@@ -299,7 +301,7 @@ public:
 
 			Data.MorphBufferOffset = Section->BaseVertexIndex;
 		}
-		if (ClothVertexBuffer)
+		if (ClothVertexBuffer && ClothVertexBuffer->GetClothIndexMapping().Num() > SectionIndex)
 		{
 			Data.ClothBufferOffset = (ClothVertexBuffer->GetClothIndexMapping()[SectionIndex] & 0xFFFFFFFF);
 		}
@@ -340,6 +342,26 @@ public:
 				}
 			}
 		}
+	}
+
+	void CreateMergedPositionVertexBuffer(FRHICommandList& RHICmdList, FVertexBufferRHIRef OutVertexBuffer)
+	{
+	#if RHI_RAYTRACING
+		TArray<FCopyBufferRegionParams> CopyParams;
+
+		for (int32 SectionIdx = 0; SectionIdx < DispatchData.Num(); SectionIdx++)
+		{
+			CopyParams.Add(FCopyBufferRegionParams {
+				OutVertexBuffer,
+				DispatchData[SectionIdx].OutputStreamStart * sizeof(FVector),
+				DispatchData[SectionIdx].PositionBuffer->Buffer,
+				DispatchData[SectionIdx].OutputStreamStart * sizeof(FVector),
+				DispatchData[SectionIdx].NumVertices * sizeof(FVector) }
+			);
+		}
+
+		RHICmdList.CopyBufferRegions(CopyParams);
+	#endif
 	}
 
 protected:
@@ -582,6 +604,17 @@ void FGPUSkinCache::TransitionAllToReadable(FRHICommandList& RHICmdList)
 		BuffersToTransition.SetNum(0, false);
 	}
 }
+
+#if RHI_RAYTRACING
+void FGPUSkinCache::CommitRayTracingGeometryUpdates(FRHICommandList& RHICmdList)
+{
+	if (RayTracingGeometriesToUpdate.Num())
+	{
+		RHICmdList.UpdateAccelerationStructures(RayTracingGeometriesToUpdate);
+		RayTracingGeometriesToUpdate.Reset();
+	}
+}
+#endif // RHI_RAYTRACING
 
 #if 0
 void FGPUSkinCache::TransitionToWriteable(FRHICommandList& RHICmdList)
@@ -997,9 +1030,7 @@ void FGPUSkinCache::ProcessEntry(FRHICommandListImmediate& RHICmdList, FGPUBaseS
 	INC_DWORD_STAT(STAT_GPUSkinCache_NumSectionsProcessed);
 
 	const uint32 NumVertices = BatchElement.GetNumVertices();
-	uint32 StreamStrides[MaxVertexElementCount];
 	//#todo-gpuskin Check that stream 0 is the position stream
-	const uint32 StreamStrideCount = VertexFactory->GetStreamStrides(StreamStrides);
 	const uint32 InputStreamStart = BatchElement.BaseVertexIndex;
 
 	FSkeletalMeshRenderData& SkelMeshRenderData = Skin->GetSkeletalMeshRenderData();
@@ -1088,7 +1119,10 @@ void FGPUSkinCache::ProcessEntry(FRHICommandListImmediate& RHICmdList, FGPUBaseS
         checkSlow(Stride*VertexAndNormalData.GetNumVertices() == sizeof(FClothSimulEntry) * SimData->Positions.Num());
         check(sizeof(FClothSimulEntry) == 6 * sizeof(float));
 		
-		InOutEntry->DispatchData[Section].ClothBufferOffset = (ClothVertexBuffer->GetClothIndexMapping()[Section] & 0xFFFFFFFF);
+		if (ClothVertexBuffer && ClothVertexBuffer->GetClothIndexMapping().Num() > Section)
+		{
+			InOutEntry->DispatchData[Section].ClothBufferOffset = (ClothVertexBuffer->GetClothIndexMapping()[Section] & 0xFFFFFFFF);
+		}
 
         for (int32 Index = 0;Index < SimData->Positions.Num();Index++)
         {
@@ -1149,6 +1183,34 @@ void FGPUSkinCache::SetVertexStreams(FGPUSkinCacheEntry* Entry, int32 Section, F
 	{
 		RHICmdList.SetShaderResourceViewParameter(ShaderRHI, GPUSkinCachePreviousPositionBuffer.GetBaseIndex(), DispatchData.GetPreviousPositionRWBuffer()->SRV);
 	}
+}
+
+void FGPUSkinCache::GetShaderBindings(
+	FGPUSkinCacheEntry* Entry, 
+	int32 Section,
+	const FShader* Shader, 
+	const FGPUSkinPassthroughVertexFactory* VertexFactory,
+	uint32 BaseVertexIndex, 
+	FShaderResourceParameter GPUSkinCachePreviousPositionBuffer,
+	class FMeshDrawSingleShaderBindings& ShaderBindings,
+	FVertexInputStreamArray& VertexStreams)
+{
+	INC_DWORD_STAT(STAT_GPUSkinCache_NumSetVertexStreams);
+	check(Entry);
+	check(Entry->IsSectionValid(Section));
+
+	FGPUSkinCacheEntry::FSectionDispatchData& DispatchData = Entry->DispatchData[Section];
+
+	//UE_LOG(LogSkinCache, Warning, TEXT("*** SetVertexStreams E %p All %p Sec %d(%p) LOD %d"), Entry, Entry->DispatchData[Section].Allocation, Section, Entry->DispatchData[Section].Section, Entry->LOD);
+
+	VertexStreams.Add(FVertexInputStream(VertexFactory->GetPositionStreamIndex(), 0, DispatchData.GetPositionRWBuffer()->Buffer));
+
+	if (VertexFactory->GetTangentStreamIndex() > -1 && DispatchData.GetTangentRWBuffer())
+	{
+		VertexStreams.Add(FVertexInputStream(VertexFactory->GetTangentStreamIndex(), 0, DispatchData.GetTangentRWBuffer()->Buffer));
+	}
+
+	ShaderBindings.Add(GPUSkinCachePreviousPositionBuffer, DispatchData.GetPreviousPositionRWBuffer()->SRV);
 }
 
 void FGPUSkinCache::DispatchUpdateSkinning(FRHICommandListImmediate& RHICmdList, FGPUSkinCacheEntry* Entry, int32 Section, uint32 RevisionNumber)
@@ -1277,6 +1339,11 @@ void FGPUSkinCache::ReleaseSkinCacheEntry(FGPUSkinCacheEntry* SkinCacheEntry)
 
 	SkinCache->Entries.RemoveSingleSwap(SkinCacheEntry, false);
 	delete SkinCacheEntry;
+}
+
+void FGPUSkinCache::CreateMergedPositionVertexBuffer(FRHICommandList& RHICmdList, FGPUSkinCacheEntry* SkinCacheEntry, FVertexBufferRHIRef OutVertexBuffer)
+{
+	SkinCacheEntry->CreateMergedPositionVertexBuffer(RHICmdList, OutVertexBuffer);
 }
 
 bool FGPUSkinCache::IsEntryValid(FGPUSkinCacheEntry* SkinCacheEntry, int32 Section)

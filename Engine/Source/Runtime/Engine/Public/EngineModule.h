@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // 
 // Engine module class
 
@@ -16,6 +16,7 @@ public:
 
 	// IModuleInterface
 	virtual void StartupModule();
+	virtual void ShutdownModule();
 };
 
 /** Accessor that gets the renderer module and caches the result. */

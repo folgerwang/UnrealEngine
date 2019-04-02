@@ -94,7 +94,7 @@ topic-image:ParticleSystemLOD_topic.png
 | --- | --- |
 |![HighestLevelModules.png](HighestLevelModules.png)| ![LowestLevelModules.png](LowestLevelModules.png)|
 
-스태틱 LOD 레벨의 모듈을 수정하기 위해서는 활성화시켜 줘야 합니다. 모듈에 우클릭하여 뜨는 맥락 메뉴에서 _상위에서 복제_ 를 선택하면 됩니다.
+스태틱 LOD 레벨의 모듈을 수정하기 위해서는 활성화시켜 줘야 합니다. 모듈에 우클릭하여 뜨는 컨텍스트 메뉴에서 _상위에서 복제_ 를 선택하면 됩니다.
 
 가능한 옵션은 다음과 같습니다:
 

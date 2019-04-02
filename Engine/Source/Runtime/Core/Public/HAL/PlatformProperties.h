@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreTypes.h"
@@ -30,7 +30,7 @@ typedef FAndroidPlatformProperties FPlatformProperties;
 typedef FHTML5PlatformProperties FPlatformProperties;
 #elif PLATFORM_QUAIL
 #include "Quail/QuailPlatformProperties.h"
-typedef FQuailPlatformProperties<!WITH_SERVER_CODE> FPlatformProperties;
+typedef FQuailPlatformProperties FPlatformProperties;
 #elif PLATFORM_LINUX
 #include "Linux/LinuxPlatformProperties.h"
 typedef FLinuxPlatformProperties<WITH_EDITORONLY_DATA, UE_SERVER, !WITH_SERVER_CODE> FPlatformProperties;

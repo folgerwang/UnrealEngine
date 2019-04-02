@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealWatchdog.h"
 #include "Linux/LinuxPlatformCrashContext.h"
@@ -44,7 +44,6 @@ int main(int argc, const char *argv[])
 
 	FString SavedCommandLine;
 
-	setlocale(LC_CTYPE, "");
 	for (int32 Option = 1; Option < argc; Option++)
 	{
 		SavedCommandLine += TEXT(" ");

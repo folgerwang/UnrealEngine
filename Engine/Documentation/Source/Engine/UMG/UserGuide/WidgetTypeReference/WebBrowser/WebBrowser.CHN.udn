@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:3038415
+﻿INTSourceChangelist:3244089
 Availability:Public
 Title:网络浏览器
 Crumbs:%ROOT%, Engine, Engine/UMG, Engine/UMG/UserGuide, Engine/UMG/UserGuide/WidgetTypeReference
 Description:使用网络浏览器控件实现游戏网页浏览功能的概览。
 version:4.10
+tags:UMG UI Designer
 
 
 [REGION:warning]
@@ -13,8 +14,8 @@ version:4.10
 
 [TOC(start:2 end:2)]
 
-
-##描述
+(#Description)
+## 描述
 
 [EXCERPT:desc]
 此控件用于显示游戏内的网络浏览器。此浏览器可托管来自网页上任意位置的内容。 
@@ -47,6 +48,7 @@ Chromium 用于桌面平台的网络浏览器控件，但 iOS 和安卓使用的
 ![](ExperimentalWidgets.png)
 
 
+(#Details)
 ##细节
 
 在放置的 **网络浏览器** 控件的 **Details** 面板中，可对从属于控件的几个指定选项进行设置： 
@@ -58,6 +60,7 @@ Chromium 用于桌面平台的网络浏览器控件，但 iOS 和安卓使用的
 | **Initial URL** | 输入网络浏览器打开的默认 URL。必须设置一个 www 网页地址，否则页面将显示为空。|
 | **Supports Transparency** | 启用或禁用控件网络浏览器的透明度。|
 
+(#Functions)
 ##函数
 
 在 **图表** 上，**网络浏览器** 控件拥有一些可调用的公开蓝图函数。 

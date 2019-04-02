@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Sound/SoundCue.h"
 #include "Misc/App.h"
@@ -485,6 +485,58 @@ const FSoundAttenuationSettings* USoundCue::GetAttenuationSettingsToApply() cons
 float USoundCue::GetSubtitlePriority() const
 {
 	return SubtitlePriority;
+}
+
+bool USoundCue::GetSoundWavesWithCookedAnalysisData(TArray<USoundWave*>& OutSoundWaves)
+{
+	// Check this sound cue's wave players to see if any of their soundwaves have cooked analysis data
+	TArray<USoundNodeWavePlayer*> WavePlayers;
+	RecursiveFindNode<USoundNodeWavePlayer>(FirstNode, WavePlayers);
+
+	bool bHasAnalysisData = false;
+	for (USoundNodeWavePlayer* Player : WavePlayers)
+	{
+		USoundWave* SoundWave = Player->GetSoundWave();
+		if (SoundWave && SoundWave->GetSoundWavesWithCookedAnalysisData(OutSoundWaves))
+		{
+			bHasAnalysisData = true;
+		}
+	}
+	return bHasAnalysisData;
+}
+
+bool USoundCue::HasCookedFFTData() const
+{
+	// Check this sound cue's wave players to see if any of their soundwaves have cooked analysis data
+	TArray<const USoundNodeWavePlayer*> WavePlayers;
+	RecursiveFindNode<USoundNodeWavePlayer>(FirstNode, WavePlayers);
+
+	for (const USoundNodeWavePlayer* Player : WavePlayers)
+	{
+		const USoundWave* SoundWave = Player->GetSoundWave();
+		if (SoundWave && SoundWave->HasCookedFFTData())
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool USoundCue::HasCookedAmplitudeEnvelopeData() const
+{
+	// Check this sound cue's wave players to see if any of their soundwaves have cooked analysis data
+	TArray<const USoundNodeWavePlayer*> WavePlayers;
+	RecursiveFindNode<USoundNodeWavePlayer>(FirstNode, WavePlayers);
+
+	for (const USoundNodeWavePlayer* Player : WavePlayers)
+	{
+		const USoundWave* SoundWave = Player->GetSoundWave();
+		if (SoundWave && SoundWave->HasCookedAmplitudeEnvelopeData())
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 #if WITH_EDITOR

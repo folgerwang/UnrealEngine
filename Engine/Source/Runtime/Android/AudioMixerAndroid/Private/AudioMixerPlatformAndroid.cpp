@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AudioMixerPlatformAndroid.h"
 #include "Modules/ModuleManager.h"
@@ -359,6 +359,11 @@ namespace Audio
 			SLresult result = (*SL_PlayerPlayInterface)->SetPlayState(SL_PlayerPlayInterface, SL_PLAYSTATE_PLAYING);
 			check(SL_RESULT_SUCCESS == result);
 		}
+	}
+
+	bool FMixerPlatformAndroid::SupportsRealtimeDecompression() const
+	{
+		return true;
 	}
 
 	void FMixerPlatformAndroid::SubmitBuffer(const uint8* Buffer)

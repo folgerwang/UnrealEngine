@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -76,11 +76,11 @@ public class Ansel : ModuleRules
         }
         else
         {
-            PublicDefinitions.Add("WITH_ANSEL=0");
             PublicDefinitions.Add("ANSEL_DLL=");
-        }        
+			PublicDefinitions.Add("WITH_ANSEL=0");
+		}
 
-        PrivateDependencyModuleNames.AddRange(new string[]
+		PrivateDependencyModuleNames.AddRange(new string[]
         {
 			"Core",
 			"CoreUObject",

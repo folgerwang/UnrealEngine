@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PackageUtilities.cpp: Commandlets for viewing information about package files
@@ -55,6 +55,7 @@
 #include "Serialization/ArchiveStackTrace.h"
 #include "Misc/OutputDeviceHelper.h"
 #include "Misc/OutputDeviceFile.h"
+#include "UObject/UObjectThreadContext.h"
 
 DEFINE_LOG_CATEGORY(LogPackageHelperFunctions);
 DEFINE_LOG_CATEGORY_STATIC(LogPackageUtilities, Log, All);
@@ -780,9 +781,7 @@ int32 ULoadPackageCommandlet::Main( const FString& Params )
 
 		if (bCheckForLegacyPackages)
 		{
-			BeginLoad();
-			auto Linker = GetPackageLinker(nullptr, *Filename,LOAD_NoVerify,NULL,NULL);
-			EndLoad();
+			FLinkerLoad* Linker = LoadPackageLinker(nullptr, *Filename, LOAD_NoVerify);
 			MinVersion = FMath::Min<int32>(MinVersion, Linker->Summary.GetFileVersionUE4());
 		}
 		else
@@ -901,7 +900,7 @@ namespace
 }
 
 /** Given a package filename, creates a linker and a temporary package. The filename does not need to point to a package under the current project content folder */
-FLinkerLoad* CreateLinkerForFilename(const FString& InFilename)
+FLinkerLoad* CreateLinkerForFilename(FUObjectSerializeContext* LoadContext, const FString& InFilename)
 {
 	FString TempPackageName;
 	TempPackageName = FPaths::Combine(TEXT("/Temp"), *FPaths::GetPath(InFilename.Mid(InFilename.Find(TEXT(":"), ESearchCase::CaseSensitive) + 1)), *FPaths::GetBaseFilename(InFilename));
@@ -910,7 +909,7 @@ FLinkerLoad* CreateLinkerForFilename(const FString& InFilename)
 	{
 		Package = CreatePackage(nullptr, *TempPackageName);
 	}
-	FLinkerLoad* Linker = FLinkerLoad::CreateLinker(Package, *InFilename, LOAD_NoVerify);
+	FLinkerLoad* Linker = FLinkerLoad::CreateLinker(LoadContext, Package, *InFilename, LOAD_NoVerify);
 	return Linker;
 }
 
@@ -1554,9 +1553,10 @@ int32 UPkgInfoCommandlet::Main( const FString& Params )
 		if (!bDumpProperties)
 		{
 			TGuardValue<bool> GuardAllowUnversionedContentInEditor(GAllowUnversionedContentInEditor, true);
-			BeginLoad();
-			Linker = CreateLinkerForFilename(Filename);
-			EndLoad();
+			TRefCountPtr<FUObjectSerializeContext> LoadContext(FUObjectThreadContext::Get().GetSerializeContext());
+			BeginLoad(LoadContext);
+			Linker = CreateLinkerForFilename(LoadContext, Filename);
+			EndLoad(Linker->GetSerializeContext());
 		}
 		else
 		{
@@ -1607,6 +1607,7 @@ int32 UPkgInfoCommandlet::Main( const FString& Params )
 			{
 				Reporter->GeneratePackageReport(Linker, *OutputOverride);
 			}
+#if !NO_LOGGING
 			if (bDumpProperties)
 			{
 				check(Reader);
@@ -1635,6 +1636,7 @@ int32 UPkgInfoCommandlet::Main( const FString& Params )
 				}
 				Out.Logf(ELogVerbosity::Display, TEXT("Total number of Serialize calls: %lld"), TotalSerializeCalls);
 			}
+#endif // !NO_LOGGING
 		}
 		CollectGarbage(RF_NoFlags);
 	}
@@ -1790,9 +1792,9 @@ struct CompressAnimationsFunctor
 				continue;
 			}
 
-			if( !bAnalyze && !bForceCompression && bSkipLongAnimations && (AnimSeq->NumFrames > 300) )
+			if( !bAnalyze && !bForceCompression && bSkipLongAnimations && (AnimSeq->GetRawNumberOfFrames() > 300) )
 			{
-				UE_LOG(LogPackageUtilities, Warning, TEXT("Animation (%s) has more than 300 frames (%i frames) and SKIPLONGANIMS switch is set. Skipping."), *AnimSeq->GetName(), AnimSeq->NumFrames);
+				UE_LOG(LogPackageUtilities, Warning, TEXT("Animation (%s) has more than 300 frames (%i frames) and SKIPLONGANIMS switch is set. Skipping."), *AnimSeq->GetName(), AnimSeq->GetRawNumberOfFrames());
 				continue;
 			}
 
@@ -2250,15 +2252,16 @@ struct CompressAnimationsFunctor
 			// Problem is this is going to create a DDC key with 'Automatic Compressor'
 			UAnimCompress* CompressionAlgorithm = NewObject<UAnimCompress_Automatic>();
 			AnimSeq->CompressionScheme = static_cast<UAnimCompress*>(StaticDuplicateObject(CompressionAlgorithm, AnimSeq));
-			AnimSeq->RequestAnimCompression(false, true, false);
+			AnimSeq->RequestAnimCompression(FRequestAnimCompressionParams(false, true, false));
 
 			// Automatic compression should have picked a suitable compressor that is not UAnimCompress_Automatic
-			if (ensure(!AnimSeq->CompressionScheme->IsA(UAnimCompress_Automatic::StaticClass())))
+			// May still be automatic if we read the data from the DDC
+			if (!AnimSeq->CompressionScheme->IsA(UAnimCompress_Automatic::StaticClass()))
 			{
 				// Update CompressCommandletVersion in that case, and create a proper DDC entry
 				// (with actual compressor)
 				AnimSeq->CompressCommandletVersion = CompressCommandletVersion;
-				AnimSeq->RequestAnimCompression(false, false, false);
+				AnimSeq->RequestAnimCompression(FRequestAnimCompressionParams(false, false, false));
 				bDirtyPackage = true;
 			}
 

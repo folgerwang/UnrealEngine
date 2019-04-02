@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "LandscapeToolInterface.h"
@@ -7,7 +7,12 @@
 #include "Landscape.h"
 #include "LandscapeDataAccess.h"
 #include "LandscapeEdModeTools.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/MapErrors.h"
+#include "Settings/EditorExperimentalSettings.h"
 
+#define LOCTEXT_NAMESPACE "LandscapeTools"
 namespace
 {
 	FORCEINLINE FVector4 GetWorldPos(const FMatrix& LocalToWorld, FVector2D LocalXY, uint16 Height, FVector2D XYOffset)
@@ -536,6 +541,14 @@ public:
 			}
 		}
 
+		ALandscape* Landscape = LandscapeInfo->LandscapeActor.Get();
+
+		if (Landscape != nullptr && Landscape->HasProceduralContent && !GetMutableDefault<UEditorExperimentalSettings>()->bProceduralLandscape)
+		{
+			FMessageLog("MapCheck").Warning()->AddToken(FTextToken::Create(LOCTEXT("LandscapeProcedural_ChangingDataWithoutSettings", "This map contains landscape procedural content, modifying the landscape data will result in data loss when the map is reopened with Landscape Procedural settings on. Please enable Landscape Procedural settings before modifying the data.")));
+			FMessageLog("MapCheck").Open(EMessageSeverity::Warning);
+		}
+
 		// Apply to XYOffset Texture map and Height map
 		Cache.SetCachedData(X1, Y1, X2, Y2, XYOffsetVectorData);
 		Cache.Flush();
@@ -571,3 +584,5 @@ void FEdModeLandscape::InitializeTool_Retopologize()
 	Tool_Retopologize->ValidBrushes.Add("BrushSet_Pattern");
 	LandscapeTools.Add(MoveTemp(Tool_Retopologize));
 }
+
+#undef LOCTEXT_NAMESPACE

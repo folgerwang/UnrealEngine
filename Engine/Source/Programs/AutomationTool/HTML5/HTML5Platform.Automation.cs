@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.IO;
 using System.Net.Http;
@@ -16,6 +16,8 @@ public class HTML5Platform : Platform
 	// ini configurations
 	static bool Compressed = false;
 	static bool enableIndexedDB = false; // experimental for now...
+	static bool enableMultithreading = true;
+	static bool bMultithreading_UseOffscreenCanvas = true;
 
 	public HTML5Platform()
 		: base(UnrealTargetPlatform.HTML5)
@@ -34,6 +36,9 @@ public class HTML5Platform : Platform
 		// ini configurations
 		ConfigHierarchy ConfigCache = UnrealBuildTool.ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(Params.RawProjectPath), UnrealTargetPlatform.HTML5);
 
+		ConfigCache.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "EnableMultithreading", out enableMultithreading);
+		ConfigCache.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "OffscreenCanvas", out bMultithreading_UseOffscreenCanvas);
+
 		// Debug and Development builds are not compressed to:
 		// - speed up iteration times
 		// - ensure (IndexedDB) data are not cached/used
@@ -48,6 +53,8 @@ public class HTML5Platform : Platform
 		}
 		LogInformation("HTML5Platform.Automation: Compressed = "       + Compressed      );
 		LogInformation("HTML5Platform.Automation: EnableIndexedDB = "  + enableIndexedDB );
+		LogInformation("HTML5Platform.Automation: Multithreading = "   + enableMultithreading );
+		LogInformation("HTML5Platform.Automation: OffscreenCanvas = "  + bMultithreading_UseOffscreenCanvas );
 
 		// ----------------------------------------
 		// package directory
@@ -98,7 +105,7 @@ public class HTML5Platform : Platform
 		else
 		{
 			// we need to operate in the root
-			string PythonPath = HTML5SDKInfo.Python();
+			string PythonPath = HTML5SDKInfo.Python().FullName;
 			string EmPackagerPath = HTML5SDKInfo.EmscriptenPackager();
 
 			using (new ScopedEnvVar("EM_CONFIG", HTML5SDKInfo.DOT_EMSCRIPTEN))
@@ -118,20 +125,38 @@ public class HTML5Platform : Platform
 		// ensure the ue4game binary exists, if applicable
 		if (!FileExists_NoExceptions(SrcUE4GameBasename + ".js"))
 		{
-			LogInformation("Failed to find game application " + SrcUE4GameBasename + ".js");
+            LogInformation("Failed to find game application " + SrcUE4GameBasename + ".js");
 			throw new AutomationException(ExitCode.Error_MissingExecutable, "Stage Failed. Could not find application {0}. You may need to build the UE4 project with your target configuration and platform.", SrcUE4GameBasename + ".js");
 		}
 
 		if ( !Params.IsCodeBasedProject )
 		{
 			// template project - need to copy over UE4Game.*
-			File.Copy(SrcUE4GameBasename + ".wasm",       UE4GameBasename + ".wasm",       true);
-			File.Copy(SrcUE4GameBasename + ".js",         UE4GameBasename + ".js",         true);
-			File.Copy(SrcUE4GameBasename + ".js.symbols", UE4GameBasename + ".js.symbols", true);
+			File.Copy(SrcUE4GameBasename + ".wasm", UE4GameBasename + ".wasm", true);
+			File.Copy(SrcUE4GameBasename + ".js",   UE4GameBasename + ".js",   true);
 
-			File.SetAttributes(UE4GameBasename + ".wasm",       FileAttributes.Normal);
-			File.SetAttributes(UE4GameBasename + ".js" ,        FileAttributes.Normal);
-			File.SetAttributes(UE4GameBasename + ".js.symbols", FileAttributes.Normal);
+			File.SetAttributes(UE4GameBasename + ".wasm", FileAttributes.Normal);
+			File.SetAttributes(UE4GameBasename + ".js" ,  FileAttributes.Normal);
+
+			if (File.Exists(SrcUE4GameBasename + ".js.symbols"))
+			{
+				File.Copy(      SrcUE4GameBasename + ".js.symbols", UE4GameBasename + ".js.symbols", true);
+				File.SetAttributes(UE4GameBasename + ".js.symbols", FileAttributes.Normal);
+			}
+
+			if (enableMultithreading)
+			{
+				File.Copy(      SrcUE4GameBasename + ".js.mem", UE4GameBasename + ".js.mem", true);
+				File.SetAttributes(UE4GameBasename + ".js.mem", FileAttributes.Normal);
+
+				File.Copy(Path.Combine(Path.GetDirectoryName(_ProjectFullpath), "pthread-main.js"), Path.Combine(PackagePath, "pthread-main.js"), true);
+				File.SetAttributes(Path.Combine(PackagePath, "pthread-main.js"), FileAttributes.Normal);
+			}
+			else
+			{
+				// nuke possibly old deployed pthread-main.js, which is not needed for singlethreaded build.
+				File.Delete(Path.Combine(PackagePath, "pthread-main.js"));
+			}
 		}
 		// else, c++ projects will compile "to" PackagePath
 
@@ -204,19 +229,27 @@ public class HTML5Platform : Platform
 			// Compress all files. These are independent tasks which can be threaded.
 			List<Task> CompressionTasks = new List<Task>();
 
-			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(UE4GameBasename + ".wasm",       UE4GameBasename + ".wasmgz")));			// main game code
-			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(UE4GameBasename + ".js",         UE4GameBasename + ".jsgz")));			// main js (emscripten)
-			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(UE4GameBasename + ".js.symbols", UE4GameBasename + ".js.symbolsgz")));	// symbols fil.
-			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(PackagePath + "/Utility.js",     PackagePath + "/Utility.jsgz")));		// Utility
-			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(ProjectBasename + ".data",       ProjectBasename + ".datagz")));			// DATA file
-			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(ProjectBasename + ".data.js" ,   ProjectBasename + ".data.jsgz")));		// DATA file .js driver (emscripten)
+			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(UE4GameBasename + ".wasm",       UE4GameBasename + ".wasmgz")));				// main game code
+			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(UE4GameBasename + ".js",         UE4GameBasename + ".jsgz")));				// main js (emscripten)
+			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(PackagePath + "/Utility.js",     PackagePath + "/Utility.jsgz")));			// Utility
+			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(ProjectBasename + ".data",       ProjectBasename + ".datagz")));				// DATA file
+			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(ProjectBasename + ".data.js" ,   ProjectBasename + ".data.jsgz")));			// DATA file .js driver (emscripten)
+			if ( File.Exists(UE4GameBasename + ".js.symbols") )
+			{
+				CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(UE4GameBasename + ".js.symbols", UE4GameBasename + ".js.symbolsgz")));	// symbols fil.
+			}
 			if ( File.Exists(ProjectBasename + ".UE4.js") )
 			{
-				CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(ProjectBasename + ".UE4.js" , ProjectBasename + ".UE4.jsgz")));		// UE4 js
+				CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(ProjectBasename + ".UE4.js" , ProjectBasename + ".UE4.jsgz")));			// UE4 js
 			}
 			if ( File.Exists(ProjectBasename + ".css") )
 			{
-				CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(ProjectBasename + ".css" , ProjectBasename + ".cssgz")));				// UE4 css
+				CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(ProjectBasename + ".css" , ProjectBasename + ".cssgz")));					// UE4 css
+			}
+			if (enableMultithreading)
+			{
+				CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(UE4GameBasename + ".js.mem", UE4GameBasename + ".js.memgz")));			// mem init file
+				CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(PackagePath + "/pthread-main.js", PackagePath + "/pthread-main.jsgz")));	// pthread file
 			}
 			Task.WaitAll(CompressionTasks.ToArray());
 		}
@@ -228,6 +261,8 @@ public class HTML5Platform : Platform
 			File.Delete(UE4GameBasename + ".wasmgz");
 			File.Delete(UE4GameBasename + ".jsgz");
 			File.Delete(UE4GameBasename + ".js.symbolsgz");
+			File.Delete(UE4GameBasename + ".js.memgz");
+			File.Delete(PackagePath + "/pthread-main.jsgz");
 			File.Delete(PackagePath + "/Utility.jsgz");
 			File.Delete(ProjectBasename + ".datagz");
 			File.Delete(ProjectBasename + ".data.jsgz");
@@ -291,8 +326,6 @@ public class HTML5Platform : Platform
 		string CanvasScaleMode;
 		ConfigCache.GetString("/Script/HTML5PlatformEditor.HTML5TargetSettings", "CanvasScalingMode", out CanvasScaleMode);
 
-		string HeapSize = HTML5SDKInfo.HeapSize(ConfigCache, ProjectConfiguration).ToString();
-
 		StringBuilder outputContents = new StringBuilder();
 		using (StreamReader reader = new StreamReader(InTemplateFile))
 		{
@@ -332,11 +365,6 @@ public class HTML5Platform : Platform
 							enableIndexedDB ? "" : "enableReadFromIndexedDB = false;\nenableWriteToIndexedDB = false;");
 				}
 
-				if (LineStr.Contains("%HEAPSIZE%"))
-				{
-					LineStr = LineStr.Replace("%HEAPSIZE%", HeapSize + " * 1024 * 1024");
-				}
-
 				if (LineStr.Contains("%UE4CMDLINE%"))
 				{
 					string ArgumentString = "'../../../" + Params.ShortProjectName + "/" + Params.ShortProjectName + ".uproject',";
@@ -356,6 +384,28 @@ public class HTML5Platform : Platform
 						mode = "3 /*FIXED*/";
 					}
 					LineStr = LineStr.Replace("%CANVASSCALEMODE%", mode);
+				}
+
+				if (LineStr.Contains("%MULTITHREADED%"))
+				{
+					LineStr = LineStr.Replace("%MULTITHREADED%", enableMultithreading ? "true" : "false");
+				}
+
+				if (LineStr.Contains("%OFFSCREENCANVAS%"))
+				{
+					LineStr = LineStr.Replace("%OFFSCREENCANVAS%", bMultithreading_UseOffscreenCanvas ? "true" : "false");
+				}
+
+				if (LineStr.Contains("%EMSDK_VERSION%"))
+				{
+					string escpath = HTML5SDKInfo.EMSCRIPTEN_ROOT.Replace("\\", "/");
+					LineStr = LineStr.Replace("%EMSDK_VERSION%", (ProjectConfiguration == "Shipping") ? HTML5SDKInfo.EmscriptenVersion() : escpath);
+				}
+
+				if (LineStr.Contains("%EMSDK_CONFIG%"))
+				{
+					string escpath = HTML5SDKInfo.DOT_EMSCRIPTEN.Replace("\\", "/");
+					LineStr = LineStr.Replace("%EMSDK_CONFIG%", (ProjectConfiguration == "Shipping") ? "" : escpath);
 				}
 
 				outputContents.AppendLine(LineStr);
@@ -413,6 +463,7 @@ public class HTML5Platform : Platform
 				}
 				File.Copy(InTemplateFile, InOutputFile);
 				File.SetAttributes(InOutputFile, File.GetAttributes(InOutputFile) & ~FileAttributes.ReadOnly);
+//				System.Diagnostics.Process.Start("chmod", "+x " + InOutputFile);
 				using (var CmdFile = File.Open(InOutputFile, FileMode.OpenOrCreate | FileMode.Truncate))
 				{
 					Byte[] BytesToWrite = new UTF8Encoding(true).GetBytes(outputContents.ToString());
@@ -450,13 +501,23 @@ public class HTML5Platform : Platform
 
 		SC.ArchiveFiles(PackagePath, UE4GameBasename + ".wasm");			// MAIN game code
 		SC.ArchiveFiles(PackagePath, UE4GameBasename + ".js");				// MAIN js file (emscripten)
-		SC.ArchiveFiles(PackagePath, UE4GameBasename + ".js.symbols");		// symbols file
 		SC.ArchiveFiles(PackagePath, "Utility.js");							// utilities
 		SC.ArchiveFiles(PackagePath, ProjectBasename + ".data");			// DATA file
 		SC.ArchiveFiles(PackagePath, ProjectBasename + ".data.js");			// DATA file js driver (emscripten)
 		SC.ArchiveFiles(PackagePath, ProjectBasename + ".UE4.js");			// UE4 js file
 		SC.ArchiveFiles(PackagePath, ProjectBasename + ".css");				// UE4 css file
 		SC.ArchiveFiles(PackagePath, ProjectBasename + ".html");			// landing page.
+
+		if (File.Exists(CombinePaths(PackagePath, UE4GameBasename + ".symbols")))
+		{
+			SC.ArchiveFiles(PackagePath, UE4GameBasename + ".js.symbols");	// symbols file
+		}
+
+		if (enableMultithreading)
+		{
+			SC.ArchiveFiles(PackagePath, UE4GameBasename + ".js.mem");		// memory init file
+			SC.ArchiveFiles(PackagePath, "pthread-main.js");
+		}
 
 		// Archive HTML5 Server and a Readme.
 		SC.ArchiveFiles(CombinePaths(CmdEnv.LocalRoot, "Engine/Binaries/DotNET/"), "HTML5LaunchHelper.exe");
@@ -468,12 +529,20 @@ public class HTML5Platform : Platform
 		{
 			SC.ArchiveFiles(PackagePath, UE4GameBasename + ".wasmgz");
 			SC.ArchiveFiles(PackagePath, UE4GameBasename + ".jsgz");
-			SC.ArchiveFiles(PackagePath, UE4GameBasename + ".js.symbolsgz");
 			SC.ArchiveFiles(PackagePath, "Utility.jsgz");
 			SC.ArchiveFiles(PackagePath, ProjectBasename + ".datagz");
 			SC.ArchiveFiles(PackagePath, ProjectBasename + ".data.jsgz");
 			SC.ArchiveFiles(PackagePath, ProjectBasename + ".UE4.jsgz");
 			SC.ArchiveFiles(PackagePath, ProjectBasename + ".cssgz");
+			if (File.Exists(CombinePaths(PackagePath, UE4GameBasename + ".js.symbolsgz")))
+			{
+				SC.ArchiveFiles(PackagePath, UE4GameBasename + ".js.symbolsgz");
+			}
+			if (enableMultithreading)
+			{
+				SC.ArchiveFiles(PackagePath, UE4GameBasename + ".js.memgz");
+				SC.ArchiveFiles(PackagePath, "pthread-main.jsgz");
+			}
 		}
 		else
 		{
@@ -481,6 +550,7 @@ public class HTML5Platform : Platform
 			File.Delete(UE4GameBasename + ".wasmgz");
 			File.Delete(UE4GameBasename + ".jsgz");
 			File.Delete(UE4GameBasename + ".js.symbolsgz");
+			File.Delete("pthread-main.jsgz");
 			File.Delete("Utility.jsgz");
 			File.Delete(ProjectBasename + ".datagz");
 			File.Delete(ProjectBasename + ".data.jsgz");
@@ -517,19 +587,20 @@ public class HTML5Platform : Platform
 		string WorkingDirectory = Path.GetDirectoryName(ClientApp);
 		string url = Path.GetFileName(ClientApp) +".html";
 
-		// WARNING: splitting the following situation
-		// if cookonthefly is used: tell the browser to use the PROXY at DEFAULT_HTTP_FILE_SERVING_PORT
-		// leave the normal HTML5LaunchHelper port (ServerPort) alone -- otherwise it will collide with the PROXY port
+// UE-64628: seems proxy port is no longer used anymore -- leaving details here for future reference...
+//		// WARNING: splitting the following situation
+//		// if cookonthefly is used: tell the browser to use the PROXY at DEFAULT_HTTP_FILE_SERVING_PORT
+//		// leave the normal HTML5LaunchHelper port (ServerPort) alone -- otherwise it will collide with the PROXY port
 		if (ClientCmdLine.Contains("filehostip"))
 		{
 			url += "?cookonthefly=true";
-			Int32 ProxyPort = 41898; // DEFAULT_HTTP_FILE_SERVING_PORT
-			url = String.Format("http://localhost:{0}/{1}", ProxyPort, url);
+//			Int32 ProxyPort = 41898; // DEFAULT_HTTP_FILE_SERVING_PORT
+//			url = String.Format("http://localhost:{0}/{1}", ProxyPort, url);
 		}
-		else
-		{
+//		else
+//		{
 			url = String.Format("http://localhost:{0}/{1}", ServerPort, url);
-		}
+//		}
 
 		// Check HTML5LaunchHelper source for command line args
 
@@ -706,7 +777,7 @@ public class HTML5Platform : Platform
 
 	private static IDictionary<string, string> MimeTypeMapping = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase)
 		{
-			// the following will default to: "appication/octet-stream"
+			// the following will default to: "application/octet-stream"
 			// .data .datagz
 
 			{ ".wasm", "application/wasm" },

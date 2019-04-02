@@ -1,0 +1,78 @@
+Availability: Public
+Crumbs: 
+Title: iOS Device Compatibility
+Description: Device compatibility for developing with iOS.
+Type: 
+Version: 4.21
+Parent: Platforms/iOS
+Order: 
+Tags: mobile
+Tags: iOS
+Tags: Reference
+
+
+Unreal Engine 4 (UE4) currently supports **iOS 10.0** and above. The following charts give information about device-specific compatibility for Engine features. 
+
+[REGION:note]
+We have not yet tested all iOS devices but this table will give you an idea what features we expect to work well on each device. We plan to expand and refine this section as new devices are released and we broaden the devices we are testing in house.
+[/REGION]
+
+| **Feature** | **Console Variable** | **Devices which Console Variables enabled by Default** |
+| --- | --- | --- |
+| Bloom | r.BloomQuality | [INCLUDE:#excerpt_0] |
+| Depth of Field | r.DepthOfFieldQuality | [INCLUDE:#excerpt_1] |
+| Light Shafts | r.LightShaftQuality | [INCLUDE:#excerpt_2] |
+| Refraction | r.RefractionQuality | [INCLUDE:#excerpt_3] |
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_3]
+iPhone 5s and above  
+iPad Air 2 and above
+[/EXCERPT:excerpt_3]
+-
+[/COMMENT]
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_2]
+iPhone 5s and above  
+iPad Air 2 and above
+[/EXCERPT:excerpt_2]
+-
+[/COMMENT]
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_1]
+iPhone 5s and above  
+iPad Air 2 and above
+[/EXCERPT:excerpt_1]
+-
+[/COMMENT]
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_0]
+iPhone 5s and above  
+iPad Air 2 and above
+[/EXCERPT:excerpt_0]
+-
+[/COMMENT]
+
+
+**Mobile Content Scale Factor** is a way to scale the resolution of your project to best fit the screen resolution of the mobile device being used to view your project. You can [create and store multiple device profiles](Platforms/DeviceProfiles) by creating a new configuration (.ini) file called **DefaultDeviceProfiles.ini** in your project's config folder.
+
+  
+
+| **Device** | **Scale Factor** | **Native Resolution** | **In Game Resolution** |
+| --- | --- | --- | --- |
+| iPhone 5s, iPhone SE, iPod Touch 6 | 2 | 1136x640 | 1136x640 |
+| iPhone 6, iPhone 6s, iPhone 7, iPhone 8 | 2 | 1134x750 | 1136x750 |
+| iPhone 6 Plus, iPhone 7 Plus, iPhone 8 Plus | 2 | 1920x1080 | 1920x1080 |
+| iPhone X | 3 | 2436x1125 | 2436x1125 |
+| iPhone XR | 2 | 1792x828 | 1792x828 |
+| iPhone XS | 3 | 2436x1125 | 2436x1125 |
+| iPhone XS Max | 3 | 2688x1242 | 2688x1242 |
+| iPad Pro | 2 | 2732x2048 | 2732x2048 |
+

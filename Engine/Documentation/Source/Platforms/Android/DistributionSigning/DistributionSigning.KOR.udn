@@ -1,6 +1,6 @@
 ﻿INTSourceChangelist:3482332
 Title: 프로젝트 릴리즈 사이닝
-Description:프로젝트를 구글 플레이 스토어에 릴리즈할 수 있도록 준비하는 작업입니다.
+Description:프로젝트를 Google 플레이 스토어에 릴리즈할 수 있도록 준비하는 작업입니다.
 Crumbs:
 Availability:Public
 version:4.10
@@ -10,13 +10,13 @@ tags:Android
 type:how-to
 
 
-여기서는 UE4 모바일 프로젝트를 구글 플레이 스토어에서 릴리즈할 수 있도록 준비하는 데 필요한 작업들에 대해서 다룹니다. 
-참고로 이 문서는 UE4 기반 프로젝트를 구글 플레이 스토어에 올리는 데 관련된 항목에 대해서만 집중하도록 하겠습니다.
-구글 플레이 관련 일반적인 정보를 찾으시는 경우, [Google Developer Console Help](https://support.google.com/googleplay/android-developer/#topic=3450986) 페이지를 참고하시기 바랍니다.
+여기서는 UE4 모바일 프로젝트를 Google 플레이 스토어에서 릴리즈할 수 있도록 준비하는 데 필요한 작업들에 대해서 다룹니다. 
+참고로 이 문서는 UE4 기반 프로젝트를 Google 플레이 스토어에 올리는 데 관련된 항목에 대해서만 집중하도록 하겠습니다.
+Google 플레이 관련 일반적인 정보를 찾으시는 경우, [Google Developer Console Help](https://support.google.com/googleplay/android-developer/#topic=3450986) 페이지를 참고하시기 바랍니다.
 
 ## 키 생성
-구글 플레이 스토어에 프로젝트를 제출, 아니 업로드라도 하려면 Keystore (키스토어)를 생성해야 합니다.
-키스토어는 자신의 프로젝트가 다른 사람이 아닌 자신의 구글 플레이 계정에 링크되도록 보장해 주는 고유 키입니다.
+Google 플레이 스토어에 프로젝트를 제출, 아니 업로드라도 하려면 Keystore (키스토어)를 생성해야 합니다.
+키스토어는 자신의 프로젝트가 다른 사람이 아닌 자신의 Google 플레이 계정에 링크되도록 보장해 주는 고유 키입니다.
 여기서는 이 키를 생성하는 방법과 아울러 어디에 둬야 프로젝트 패키징시 사용되도록 할 수 있을지를 다뤄보도록 하겠습니다.
 
 1. 키를 생성하려면 먼저 cmd 창을 열어야 합니다.
@@ -453,7 +453,7 @@ mac
 ## 키 적용
 키를 **(Your Game Folder)\Build\Android** 폴더에 넣었으면 UE4 프로젝트에 적용해 줘야 하는데, 방법은 다음과 같습니다.
 
-1. UE4 안에서 **편집 > 프로젝트 세팅 > 플랫폼 > 안드로이드** 로 갑니다.
+1. UE4 안에서 **편집 > 프로젝트 세팅 > 플랫폼 > Android** 로 갑니다.
 
 	[OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
@@ -533,9 +533,9 @@ mac
 [/PARAM]
 [/OBJECT]
 
-## 구글 플레이 스토어에 디플로이
-이제 구글 플레이 스토어에 프로젝트를 업로드하기만 하면 됩니다.
-구글 플레이 스토어에 프로젝트를 업로드하는 방법 관련 자세한 내용은 [Google Developer Console](https://support.google.com/googleplay/android-developer/#topic=3450986) 공식 도움말을 참고하시기 바랍니다.
+## Google 플레이 스토어에 디플로이
+이제 Google 플레이 스토어에 프로젝트를 업로드하기만 하면 됩니다.
+Google 플레이 스토어에 프로젝트를 업로드하는 방법 관련 자세한 내용은 [Google Developer Console](https://support.google.com/googleplay/android-developer/#topic=3450986) 공식 도움말을 참고하시기 바랍니다.
 
 
 

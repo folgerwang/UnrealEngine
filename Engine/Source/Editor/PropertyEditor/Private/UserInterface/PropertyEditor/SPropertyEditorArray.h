@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -67,6 +67,13 @@ public:
 private:
 	FText GetArrayTextValue() const
 	{
+		FString ArrayString;
+		FPropertyAccess::Result GetValResult = PropertyEditor->GetPropertyHandle()->GetValueAsDisplayString(ArrayString);
+
+		if (GetValResult == FPropertyAccess::MultipleValues)
+		{
+			return LOCTEXT("MultipleValues", "Multiple Values");
+		}
 		return FText::Format( LOCTEXT("NumArrayItemsFmt", "{0} Array elements"), FText::AsNumber(PropertyEditor->GetPropertyNode()->GetNumChildNodes()) );
 	}
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LuminTargetSettingsDetails.h"
 #include "LuminRuntimeSettings.h"
@@ -69,7 +69,18 @@ class FLuminPlatformEditorModule
 				);
 			}
 
-			// @todo Shader quality settings
+			{
+				static FName NAME_SF_VULKAN_ES31_LUMIN(TEXT("SF_VULKAN_ES31_LUMIN"));
+				static FName NAME_SF_VULKAN_ES31_LUMIN_NOUB(TEXT("SF_VULKAN_ES31_LUMIN_NOUB"));
+				auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
+				const bool bUseNOUB = (CVar && CVar->GetValueOnAnyThread() == 0);
+				UShaderPlatformQualitySettings* LuminMaterialQualitySettings = UMaterialShaderQualitySettings::Get()->GetShaderPlatformQualitySettings(bUseNOUB ? NAME_SF_VULKAN_ES31_LUMIN_NOUB : NAME_SF_VULKAN_ES31_LUMIN);
+				SettingsModule->RegisterSettings("Project", "Platforms", "MagicLeapVulkanQuality",
+					LOCTEXT("LuminVulkanQualitySettingsName", "Lumin Material Quality - Vulkan"),
+					LOCTEXT("LuminVulkanQualitySettingsDescription", "Settings for Lumin Vulkan material quality."),
+					LuminMaterialQualitySettings
+				);
+			}
 		}
 
 		// Force the SDK settings into a sane state initially so we can make use of them
@@ -89,6 +100,7 @@ class FLuminPlatformEditorModule
 		{
 			SettingsModule->UnregisterSettings("Project", "Platforms", "Lumin");
 			SettingsModule->UnregisterSettings("Project", "Platforms", "MagicLeapSDK");
+			SettingsModule->UnregisterSettings("Project", "Platforms", "MagicLeapVulkanQuality");
 		}
 	}
 };

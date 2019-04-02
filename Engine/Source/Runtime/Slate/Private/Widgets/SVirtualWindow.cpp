@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Widgets/SVirtualWindow.h"
 #include "Layout/ArrangedChildren.h"
@@ -39,7 +39,7 @@ FPopupMethodReply SVirtualWindow::OnQueryPopupMethod() const
 
 bool SVirtualWindow::OnVisualizeTooltip(const TSharedPtr<SWidget>& TooltipContent)
 {
-	TooltipPresenter->SetContent(TooltipContent.IsValid() ? TooltipContent.ToSharedRef() : SNullWidget::NullWidget);
+	TooltipPresenter->SetContent(TooltipContent);
 
 	return true;
 }

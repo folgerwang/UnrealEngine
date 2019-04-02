@@ -1,14 +1,25 @@
-﻿INTSourceChangelist:2709468
-Availability:Public
+﻿INTSourceChangelist:3612551
+Availability: Public
+Crumbs: %ROOT%
 Title:属性绑定
-Crumbs:%ROOT%, Engine, Engine/UMG, Engine/UMG/UserGuide
-Description:在 UMG 中绑定属性的相关指南。 
+Description: 在 UMG 中绑定属性的相关指南。 
 Version:4.9
+Type: Overview
+SkillLevel:Beginner
+Version:4.17
+Parent:Engine/UMG/UserGuide
+Order:7
+Tags:UMG UI Designer
+Topic-Image:Engine/UMG/UserGuide/PropertyBindingTopic.png
+
+
+
 
 [TOC(start:2 end:2)]
 
 UMG 最有用的一个方面是能够将控件的属性绑定到蓝图中的功能或者属性。将属性绑定到蓝图中的功能或属性变量后，只要调用功能或更新属性，都会在控件中反映出来。 
 
+(#FunctionBinding)
 ## 功能绑定
 
 举例来说，您有一个 **进度条** 控件，并且希望随时进行更新，从而反映出玩家的体力值。在进度条的 **外观** 下，您会看到 **百分比** 选项带有可以将百分比值 **绑定** 到功能或属性（如下图黄框中所示）的选项。 
@@ -25,6 +36,7 @@ UMG 最有用的一个方面是能够将控件的属性绑定到蓝图中的功�
 
 如上图所示，功能从我们的角色蓝图中获得了一个名为玩家体力的变量。只要玩家体力变量更新，这种更新就会自动传递到进度条上并以进度条上的百分比反映出来。 
 
+(#PropertyBinding)
 ## 属性绑定
 
 **属性绑定** 包括指定一个绑定到控件属性的属性变量。更新属性变量后，绑定到该属性变量的设置会自动更新并反映在控件中。 

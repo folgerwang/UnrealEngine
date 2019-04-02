@@ -1,17 +1,23 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#if WITH_EDITOR
-	#include "ISequenceRecorder.h"
-	#include "SequenceRecorderSettings.h"
-#endif //WITH_EDITOR
+#include "UObject/Object.h"
 
-#include "LevelSequencePlayer.h"
-#include "CineCameraActor.h"
-#include "CineCameraComponent.h"
-#include "IAssetRegistry.h"
+#include "CoreMinimal.h"
+#include "Misc/FrameNumber.h"
+#include "Misc/FrameRate.h"
+#include "Misc/Timecode.h"
+
+#if WITH_EDITOR
+#include "ISequencer.h"
+#endif
+
 #include "LevelSequencePlaybackController.generated.h"
+
+
+class ULevelSequence;
+
 
 DECLARE_DELEGATE_OneParam(FRecordEnabledStateChanged, bool)
 
@@ -39,27 +45,13 @@ public:
 };
 
 UCLASS()
-class VIRTUALCAMERA_API ULevelSequencePlaybackController : public ULevelSequencePlayer
+class VIRTUALCAMERA_API ULevelSequencePlaybackController : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
 public:
 	/** Notify whether recording is enabled or disabled for the current sequence*/
 	FRecordEnabledStateChanged OnRecordEnabledStateChanged;
-
-	/** Tracks whether or not pawn is currently recording */
-	bool bIsRecording;
-
-	/**
-	 * Records current movement into a new take sequence.
-	 */
-	void StartRecording();
-
-	/**
-	 * Stops recording and cleans up scene from temporary actors only needed when recording.
-	 */
-	UFUNCTION()
-	void StopRecording();
 
 	/**
 	 * Plays current level sequence from the current time.
@@ -73,17 +65,91 @@ public:
 	void GetLevelSequences(TArray<FLevelSequenceData>& OutLevelSequenceNames);
 
 	/**
-	 * Returns the asset name of the currently selected sequence
-	 * @return the name of the crrent selected sequence; returns empty string if no selected sequence
+	 * @return the name of the currently selected sequence; returns empty string if no selected sequence
 	 */
 	FString GetActiveLevelSequenceName() const;
 
 	/**
-	 * Changes the active level sequence to a new level sequence.
-	 * @param LevelSequencePath - The name of the level sequence to select
-	 * @return true if a valid level sequence player was found, false if no level sequence player is currently available
+	 * @return the currently selected LevelSequence
 	 */
-	bool SetActiveLevelSequence(const FString& LevelSequencePath);
+	ULevelSequence* GetActiveLevelSequence() { return ActiveLevelSequence; }
+
+	/**
+	 * @return the FrameRate of the currently loaded sequence FrameRate
+	 */
+	FFrameRate GetCurrentSequenceFrameRate() const;
+
+	/**
+	 * @return true if the active Sequencer is locked to camera cut
+	 */
+	bool IsSequencerLockedToCameraCut() const;
+
+	/**
+	 * Sets the current Sequencer perspective to be locked to camera cut
+	 */
+	void SetSequencerLockedToCameraCut(bool bLockView);
+
+	/**
+	 * @return The FrameNumber of the sequence's start.
+	 */
+	FFrameNumber GetCurrentSequencePlaybackStart() const;
+
+	/**
+	 * @return The FrameNumber of the sequence's end.
+	 */
+	FFrameNumber GetCurrentSequencePlaybackEnd() const;
+
+	/**
+	 * @return the duration of the sequence in FrameNumber
+	 */
+	FFrameNumber GetCurrentSequenceDuration() const;
+
+	/**
+	 * @return the current FrameTime of the sequence playback.
+	 */
+	FFrameTime GetCurrentSequencePlaybackPosition() const;
+
+	/**
+	 * @return The current Timecode of the sequence playback.
+	 */
+	FTimecode GetCurrentSequencePlaybackTimecode() const;
+
+	/**
+	 * Moves the current sequence to a desired playback position
+	 */
+	void JumpToPlaybackPosition(const FFrameNumber& InFrameNumber);
+
+	/**
+	 * @return true if a valid LevelSequence is being played.
+	 */
+	bool IsSequencePlaybackActive() const;
+
+	/**
+	 * Pause the currently active sequence 
+	 */
+	void PauseLevelSequence();
+
+	/**
+	 * Starts playing the currently active sequence
+	 */
+	void PlayLevelSequence();
+
+	/**
+	 * Starts playing the currently active sequence in reverse
+	 */
+	void PlayLevelSequenceReverse();
+
+	/**
+	 * Stops playing the currently active sequence
+	 */
+	void StopLevelSequencePlay();
+
+	/**
+	 * Changes the active level sequence to a new level sequence.
+	 * @param InNewLevelSequence - The LevelSequence to select
+	 * @return true if a valid LevelSequence was passed and sequencer was successfully found.
+	 */
+	bool SetActiveLevelSequence(ULevelSequence* InNewLevelSequence);
 
 	/**
 	 * Clears the current level sequence player, needed when recording clean takes of something.
@@ -91,95 +157,23 @@ public:
 	void ClearActiveLevelSequence();
 
 	/**
-	 * Pilot the controlled camera during recording, copying over settings from the pawn.
-	 * @param FilmbackSettings - Optional override for filmback settings 
-	 */
-	void PilotTargetedCamera(FCameraFilmbackSettings* FilmbackSettingsOverride = nullptr);
-
-	/**
-	 * Set the target camera component we need to be tracking during recording
-	 * @param NewCameraCompToFollow - A pointer to the camera component whose movement and settings should be recorded
-	 */
-	void SetCameraComponentToFollow(UCineCameraComponent* NewCameraCompToFollow) { CameraToFollow = NewCameraCompToFollow;  }
-
-	/**
 	 * Plays current level sequence from beginning.
 	 */
 	void PlayFromBeginning();
 
-	/**
-	 * Ensure the sequence recorder settings contain crucial values for recording
-	 */
-	void SetupSequenceRecorderSettings(const TArray<FName>& RequiredSettings);
-
-	/**
-	 * Get the frame rate at which Sequencer Recorder will record
-	 * @return the record rate in frames per second
-	 */
-	float GetCurrentRecordingFrameRate() const;
-
-	/**
-	 * Get the current amount of time that this sequence has been recording
-	 * @return - The length of time in seconds that this sequence has been recording
-	 */
-	float GetCurrentRecordingLength() const;
-
-	/**
-	 * Get the scene name of the sequence that will be created by the next or current recording
-	 * @return - The name of the current or next sequence that will be recorded
-	 */
-	FString GetCurrentRecordingSceneName();
-
-	/**
-	 * Get the take number of the sequence that will be created by the next or current recording
-	 * @return - The name of the current or next sequence that will be recorded
-	 */
-	FString GetCurrentRecordingTakeName() const;
-
 protected:
-	/** Whether the sequence is reversed */
-	bool bIsReversed;
 
-	/** Used to detect when the sequence name changes so we can do updates */
-	FString CachedSequenceName;
+	/** The sequence to play back */
+	UPROPERTY(Transient)
+	ULevelSequence* ActiveLevelSequence;
 
-	/** Reference to the camera being driven while we record */
-	ACineCameraActor* TargetCamera;
-
-	/** The camera component that our dummy camera should mirror */
-	UCineCameraComponent* CameraToFollow;
-
-	/** Pointer to the sequence recorder module */
-	IAssetRegistry* AssetRegistry;
-
-	/** 
-	 * Overriding to allow playback controller to intercept and modify objects spawned by sequencer, for example disabling attach to HMD on spawned cameras 
-	 */
-	virtual void OnObjectSpawned(UObject* InObject, const FMovieSceneEvaluationOperand& Operand) override;
-
-#if WITH_EDITOR
-	/** Pointer to the sequence recorder module */
-	ISequenceRecorder* Recorder;
-
-	/** The UE4 Sequence Recorder Settings */
-	USequenceRecorderSettings* RecorderSettings;
-#endif //WITH_EDITOR
-
-	/** The take number of the next take to render */
-	int32 NextTakeNumber;
+#if WITH_EDITORONLY_DATA
+	/** Weak reference to Sequencer associated with the active LevelSequence */
+	TWeakPtr<ISequencer> WeakSequencer;
+#endif //WITH_EDITORONLY_DATA
 
 	/**
 	 * Play to the end of the current sequence and stop
 	 */
 	void PlayToEnd();
-
-	/**
-	 * Update the next take number to use
-	 */
-	void UpdateNextTakeNumber();
-
-	/**
-	 * Updates the camera bindings for the target camera in Sequence Recorder
-	 */
-	void SetupTargetCamera();
 };

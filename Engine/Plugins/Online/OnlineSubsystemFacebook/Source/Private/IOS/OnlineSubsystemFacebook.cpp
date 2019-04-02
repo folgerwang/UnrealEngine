@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemFacebook.h"
 #include "OnlineSubsystemFacebookPrivate.h"
@@ -21,16 +21,6 @@
 FOnlineSubsystemFacebook::FOnlineSubsystemFacebook(FName InInstanceName)
 	: FOnlineSubsystemFacebookCommon(InInstanceName)
 {
-	FString IOSFacebookAppID;
-	if (!GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("FacebookAppID"), IOSFacebookAppID, GEngineIni))
-	{
-		UE_LOG_ONLINE(Warning, TEXT("The [IOSRuntimeSettings]:FacebookAppID has not been set"));
-	}
-
-	if (ClientId.IsEmpty() || IOSFacebookAppID.IsEmpty() || (IOSFacebookAppID != ClientId))
-	{
-		UE_LOG_ONLINE(Warning, TEXT("Inconsistency between OnlineSubsystemFacebook AppId [%s] and IOSRuntimeSettings AppId [%s]"), *ClientId, *IOSFacebookAppID);
-	}
 }
 
 FOnlineSubsystemFacebook::~FOnlineSubsystemFacebook()
@@ -47,15 +37,18 @@ static void OnFacebookOpenURL(UIApplication* application, NSURL* url, NSString* 
 
 static void OnFacebookAppDidBecomeActive()
 {
+#if 0 // turn off analytics
 	dispatch_async(dispatch_get_main_queue(), ^
 	{
 		[FBSDKAppEvents activateApp];
 	});
+#endif
 }
 
 /** Add verbose logging for various Facebook SDK features */
 void SetFBLoggingBehavior()
 {
+	[FBSDKSettings enableLoggingBehavior:FBSDKLoggingBehaviorAppEvents];
 #if FACEBOOK_DEBUG_ENABLED
 	[FBSDKSettings enableLoggingBehavior:FBSDKLoggingBehaviorAccessTokens];
 	[FBSDKSettings enableLoggingBehavior:FBSDKLoggingBehaviorPerformanceCharacteristics];
@@ -79,10 +72,10 @@ void PrintSDKStatus()
 	NSString* OverrideAppId = [FBSDKAppEvents loggingOverrideAppID];
 	NSSet* LoggingBehaviors = [FBSDKSettings loggingBehavior];
 
-	UE_LOG_ONLINE(Verbose, TEXT("Facebook SDK:%s"), *FString(SDKVersion));
-	UE_LOG_ONLINE(Verbose, TEXT("AppId:%s"), *FString(AppId));
-	UE_LOG_ONLINE(Verbose, TEXT("OverridAppId:%s"), *FString(OverrideAppId));
-	UE_LOG_ONLINE(Verbose, TEXT("GraphVer:%s"), *FString(GraphVer));
+	UE_LOG_ONLINE(Log, TEXT("Facebook SDK:%s"), *FString(SDKVersion));
+	UE_LOG_ONLINE(Log, TEXT("AppId:%s"), *FString(AppId));
+	UE_LOG_ONLINE(Log, TEXT("OverrideAppId:%s"), *FString(OverrideAppId));
+	UE_LOG_ONLINE(Log, TEXT("GraphVer:%s"), *FString(GraphVer));
 
 	if (LoggingBehaviors != nil && [LoggingBehaviors count] > 0)
 	{
@@ -99,6 +92,17 @@ bool FOnlineSubsystemFacebook::Init()
 	bool bSuccessfullyStartedUp = false;
 	if (FOnlineSubsystemFacebookCommon::Init())
 	{
+		FString IOSFacebookAppID;
+		if (!GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("FacebookAppID"), IOSFacebookAppID, GEngineIni))
+		{
+			UE_LOG_ONLINE(Warning, TEXT("The [IOSRuntimeSettings]:FacebookAppID has not been set"));
+		}
+
+		if (ClientId.IsEmpty() || IOSFacebookAppID.IsEmpty() || (IOSFacebookAppID != ClientId))
+		{
+			UE_LOG_ONLINE(Warning, TEXT("Inconsistency between OnlineSubsystemFacebook AppId [%s] and IOSRuntimeSettings AppId [%s]"), *ClientId, *IOSFacebookAppID);
+		}
+
 		FIOSCoreDelegates::OnOpenURL.AddStatic(&OnFacebookOpenURL);
 		FCoreDelegates::ApplicationHasReactivatedDelegate.AddStatic(&OnFacebookAppDidBecomeActive);
 
@@ -118,17 +122,49 @@ bool FOnlineSubsystemFacebook::Init()
 		[FBSDKSettings setGraphAPIVersion:APIVerStr];
 		SetFBLoggingBehavior();
 
+		/** Sets whether data such as that generated through FBSDKAppEvents and sent to Facebook should be restricted from being used for other than analytics and conversions */
+		[FBSDKSettings setLimitEventAndDataUsage:TRUE];
+
+		bool bEnableAutomaticLogging = false;
+		if (GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bEnableAutomaticLogging"), bEnableAutomaticLogging, GEngineIni) && bEnableAutomaticLogging)
+		{
+			UE_LOG_ONLINE(Log, TEXT("AutologAppEvents: Enabled"));
+			[FBSDKSettings setAutoLogAppEventsEnabled:[NSNumber numberWithBool: YES]];
+		}
+		else
+		{
+			UE_LOG_ONLINE(Log, TEXT("AutologAppEvents: Disabled"));
+			[FBSDKSettings setAutoLogAppEventsEnabled:[NSNumber numberWithBool: NO]];
+		}
+
+#if 0
+		bool bEnableAdvertisingId = false;
+		if (GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bEnableAdvertisingId"), bEnableAdvertisingId, GEngineIni) && bEnableAdvertisingId)
+		{
+			UE_LOG_ONLINE(Log, TEXT("AdvertiserId collection: Enabled"));
+			[FBSDKSettings setAdvertiserIDCollectionEnabled:1];
+		}
+		else
+		{
+			UE_LOG_ONLINE(Log, TEXT("AdvertiserId collection: Disabled"));
+			[[FBSDKSettings setAdvertiserIDCollectionEnabled:0];
+		}
+#endif
+
 		// Trigger Facebook SDK last now that everything is setup
 		dispatch_async(dispatch_get_main_queue(), ^
 		{
 			UIApplication* sharedApp = [UIApplication sharedApplication];
 			NSDictionary* launchDict = [IOSAppDelegate GetDelegate].launchOptions;
-			if (!AnalyticsId.IsEmpty())
+			if (bEnableAutomaticLogging)
 			{
-				NSString* AnalyticsStr = [NSString stringWithFString:AnalyticsId];
-				[FBSDKAppEvents setLoggingOverrideAppID:AnalyticsStr];
+				if (!AnalyticsId.IsEmpty())
+				{
+					NSString* AnalyticsStr = [NSString stringWithFString:AnalyticsId];
+					[FBSDKAppEvents setLoggingOverrideAppID:AnalyticsStr];
+				}
+				[FBSDKAppEvents activateApp];
 			}
-			[FBSDKAppEvents activateApp];
 			[[FBSDKApplicationDelegate sharedInstance] application:sharedApp didFinishLaunchingWithOptions: launchDict];
 			PrintSDKStatus();
 		});

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3039616
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:平面反射
 Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows
@@ -17,10 +17,10 @@ UE4 支持实时平面反射，它比屏幕空间反射（SSR）更加精确，�
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Screen Space Reflections](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\SSR_Relections_00.png)(w:800 h:500)
+	![Screen Space Reflections](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\SSR_Relections_00.png)(w:800)
 	[/PARAM]
 	[PARAM:after]
-	![Planar Reflections](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\PR_00.png)(w:800 h:500)
+	![Planar Reflections](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\PR_00.png)(w:800)
 	[/PARAM]
 [/OBJECT]
 
@@ -34,7 +34,7 @@ UE4 支持实时平面反射，它比屏幕空间反射（SSR）更加精确，�
 1. 在主工具栏中前往 **Edit > Project Settings**，然后前往 Project Settings 菜单下的 **Rendering > Optimizations** 部分。
 	
 	[REGION:lightbox]
-	[![](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\PR_Project_Settings_00.png)(w:502 h:322)](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\PR_Project_Settings_00.png)
+	[![](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\PR_Project_Settings_00.png)(w:502)](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\PR_Project_Settings_00.png)
 	[/REGION]
 
 1. 点击 **Support global clip plane for Planar Reflections** 旁边的勾选框，在弹出提示后重启 UE4 编辑器。 
@@ -48,7 +48,7 @@ UE4 支持实时平面反射，它比屏幕空间反射（SSR）更加精确，�
 1. 重启 UE4 编辑器后，前往 **Modes** 面板，从 **Visual Effects** 部分选择一个 **平面反射 Actor** 并将其拖入关卡。
 
 	[REGION:lightbox]
-	[![](Adding_Planar_Reflection_Actor.png)(w:380 h:286)](Adding_Planar_Reflection_Actor.png)
+	[![](Adding_Planar_Reflection_Actor.png)(w:380)](Adding_Planar_Reflection_Actor.png)
 	[/REGION]
 
 1. 将平面反射 Actor 放进关卡后，即可使用 **G** 键隐藏或取消隐藏 Actor。可使用 **移动**、**旋转** 和 **缩放** 工具更佳地放置平面反射 Actor 并设置大小，满足关卡需求。 
@@ -74,7 +74,7 @@ UE4 支持实时平面反射，它比屏幕空间反射（SSR）更加精确，�
 平面反射 Actor 拥有多个属性，调整后可对反射效果产生较大影响。下表包含这些属性，以及它们对平面发射效果产生的改变。
 
 [REGION:lightbox]
-[![](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\PR_Props_Breakdown_00.png)(w:238 h:232)](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\PR_Props_Breakdown_00.png)
+[![](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\PR_Props_Breakdown_00.png)(w:238)](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\PR_Props_Breakdown_00.png)
 [/REGION]
 
 |设置名称 | 描述|
@@ -114,10 +114,10 @@ UE4 支持实时平面反射，它比屏幕空间反射（SSR）更加精确，�
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Planar Reflections Off](SSR_Reflections_00.png)(w:853 h:466)
+	![Planar Reflections Off](SSR_Reflections_00.png)(w:853)
 	[/PARAM]
 	[PARAM:after]
-	![Planar Reflections On](PR_Reflections_00.png)(w:853 h:466)
+	![Planar Reflections On](PR_Reflections_00.png)(w:853)
 	[/PARAM]
 [/OBJECT]
 
@@ -135,10 +135,10 @@ UE4 支持实时平面反射，它比屏幕空间反射（SSR）更加精确，�
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Planar Reflections Off](SSR_Reflections_01.png)(w:853 h:466)
+	![Planar Reflections Off](SSR_Reflections_01.png)(w:853)
 	[/PARAM]
 	[PARAM:after]
-	![Planar Reflections On](PR_Reflections_01.png)(w:853 h:466)
+	![Planar Reflections On](PR_Reflections_01.png)(w:853)
 	[/PARAM]
 [/OBJECT]
 
@@ -154,7 +154,7 @@ UE4 支持实时平面反射，它比屏幕空间反射（SSR）更加精确，�
   
 [EXCERPT:KitePlanarReflection]
 [REGION:imagetable lightbox caption]
-|[![](GPU_Profile_PR_Off_00.png)(w:400 h:200)](GPU_Profile_PR_Off_00.png)|[![](GPU_Profile_PR_On_00.png)(w:400 h:200)](GPU_Profile_PR_On_00.png) | 
+|[![](GPU_Profile_PR_Off_00.png)(w:400)](GPU_Profile_PR_Off_00.png)|[![](GPU_Profile_PR_On_00.png)(w:400 h:200)](GPU_Profile_PR_On_00.png) | 
 | ------ | ------ |
 | 平面反射关闭 | 平面反射开启 |
 |点击查看全图 |点击查看全图|
@@ -167,7 +167,7 @@ UE4 支持实时平面反射，它比屏幕空间反射（SSR）更加精确，�
   
 [EXCERPT:ElvenRuinsReflection]
 [REGION:imagetable lightbox caption]
-|[![](GPU_Profile_PR_Off_01.png)(w:400 h:200)](GPU_Profile_PR_Off_01.png)|[![](GPU_Profile_PR_On_01.png)(w:400 h:200)](GPU_Profile_PR_On_01.png) | 
+|[![](GPU_Profile_PR_Off_01.png)(w:400)](GPU_Profile_PR_Off_01.png)|[![](GPU_Profile_PR_On_01.png)(w:400)](GPU_Profile_PR_On_01.png) | 
 | ------ | ------ |
 | 平面反射关闭 | 平面反射开启 |
 |点击查看全图 |点击查看全图|

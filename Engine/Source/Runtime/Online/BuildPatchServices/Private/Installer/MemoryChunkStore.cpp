@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Installer/MemoryChunkStore.h"
 #include "Misc/ScopeLock.h"
@@ -17,7 +17,7 @@ namespace BuildPatchServices
 		virtual void Put(const FGuid& DataId, TUniquePtr<IChunkDataAccess> ChunkData) override;
 		virtual IChunkDataAccess* Get(const FGuid& DataId) override;
 		virtual TUniquePtr<IChunkDataAccess> Remove(const FGuid& DataId) override;
-		virtual int32 GetSlack() const override;
+		virtual int32 GetSize() const override;
 		virtual void SetLostChunkCallback(TFunction<void(const FGuid&)> Callback) override;
 		// IChunkStore interface end.
 
@@ -136,14 +136,9 @@ namespace BuildPatchServices
 		return MoveTemp(Rtn);
 	}
 
-	int32 FMemoryChunkStore::GetSlack() const
+	int32 FMemoryChunkStore::GetSize() const
 	{
-		// Thread lock to protect access to Store.
-		FScopeLock ThreadLock(&ThreadLockCs);
-		TSet<FGuid> Cleanable;
-		TSet<FGuid> Bootable;
-		EvictionPolicy->Query(Store, StoreSize, Cleanable, Bootable);
-		return StoreSize - (Store.Num() - Cleanable.Num());
+		return StoreSize;
 	}
 
 	void FMemoryChunkStore::SetLostChunkCallback(TFunction<void(const FGuid&)> Callback)

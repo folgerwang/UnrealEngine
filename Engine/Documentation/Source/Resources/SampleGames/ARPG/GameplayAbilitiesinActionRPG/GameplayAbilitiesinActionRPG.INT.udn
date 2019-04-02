@@ -1,0 +1,55 @@
+Availability: Public
+Crumbs: 
+Title: Gameplay Abilities in Action RPG 
+Description: Going over how gameplay abilities are using in ARPG.
+Type: 
+Version: 4.20
+Parent: Resources/SampleGames/ARPG
+Order: 1
+Tags: 
+
+
+The **Action RPG (ARPG)** sample uses the **Gameplay Abilities** **Plugin** to handle performing player and enemy attacks and for modifying statistics like health and mana. The purpose of these documents is to explain why the [Gameplay Abilities System](https://docs.unrealengine.com/en-us/Gameplay/GameplayAbilitySystem) is used and how it was customized to add game-specific functionality for ARPG. On this page you will find links to various documents that break down the individual pieces that comprise the Abilities System. You will want to read the documents list in the page in the order they are listed to gain a better understanding on how all of these systems work together. 
+
+There is also a general [Ability System](Gameplay/GameplayAbilitySystem) document that covers some of the features talked about in the document in more detail. You may want to read that document first to understand the general concepts used and then read this document for an example of how to use it in practice. If you do not choose to use the Ability System found in ARPG in your project some of the concepts and code can serve as a useful example when trying to build a similar system.
+
+## Abilities in Action RPG
+
+While the Abilities System has many features, ARPG only uses the following features:
+
+| **System** | **Description** |
+| --- | --- |
+| **Attributes** | Values like Health and Damage and are required to use the system. |
+| **Gameplay Effects** | How Attributes are modified and are required to use the system. |
+| **Ability System Component** | Is the component used to actually apply effects and abilities. All Actors that have attributes must have this component. There is an ActionRPG subclass that handles some game-specific logic. |
+| **Execution Calculations** | Used by Gameplay Effects to apply math buffs and debuffs when changing attributes. ARPG uses **Execution Calculations **for the damage formula. |
+| **Abilities** | Special Blueprints that are executed to make gameplay changes and are useful in any game that wants custom logic for specific abilities. A highly data-driven game may choose to use something other than Blueprints to execute effects but ability Blueprints work well for an action game like ARPG. ARPG has a game-specific subclass of **UGameplayAbility** that all Blueprint abilities must inherit from. |
+| **Gameplay Events** | Gameplay tags with optional payload data that are used to communicate between different parts of the ability system. ARPG uses them to pass information between montages and abilities. |
+| **Gameplay Cues** | [INCLUDE:#excerpt_0] |
+| **Targeting Actors** | Blueprints that are spawned to gather and replicate the targets of abilities. By default, these Actors are inefficient and complicated, so ARPG uses a simpler custom system. These Actors should not be used without heavy game-specific customization, but they serve as an example for how to handle target prediction in a client-server game. |
+
+[COMMENT:none]
+
+[EXCERPT:excerpt_0]
+
+Assets that are used to tie a **Gameplay Tag** to a spawned particle or sound. These are useful for handling client prediction or creating visuals that scale in intensity.
+
+[REGION:note]
+They’re not used in the initial release of ARPG but may be added later.
+[/REGION]
+
+[/EXCERPT:excerpt_0]
+-
+[/COMMENT]
+
+## Action RPG Ability System Breakdown
+
+Each of the following sections breaks down how a specific part of the Abilities System was used in ARPG. You should read the following topics in order, starting with **Attributes and Effects in ARPG** first and then moving on to **Melee Abilities in ARPG**, **Skill Abilities in ARPG** and finally **Executing Abilities in ARPG**.
+
+%Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG/AttributesandEffects:topic%
+
+%Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG/MeleeAbilitiesInARPG:topic%
+
+%Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG/SkillAbilitiesInARPG:topic%
+
+%Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG/ExecutingAbilitiesInARPG:topic%

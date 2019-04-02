@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SCSEditorViewportClient.h"
 #include "Components/StaticMeshComponent.h"
@@ -439,17 +439,17 @@ bool FSCSEditorViewportClient::InputWidgetDelta( FViewport* InViewport, EAxisLis
 
 					if(bCanEdit)
 					{
+						if (GUnrealEd->ComponentVisManager.HandleInputDelta(this, InViewport, Drag, Rot, Scale))
+						{
+							GUnrealEd->RedrawLevelEditingViewports();
+							Invalidate();
+							return true;
+						}
+						
 						USceneComponent* SceneComp = Cast<USceneComponent>(SelectedNodePtr->FindComponentInstanceInActor(PreviewActor));
 						USceneComponent* SelectedTemplate = Cast<USceneComponent>(SelectedNodePtr->GetEditableComponentTemplate(BlueprintEditor->GetBlueprintObj()));
 						if(SceneComp != NULL && SelectedTemplate != NULL)
 						{
-							if (GUnrealEd->ComponentVisManager.HandleInputDelta(this, InViewport, Drag, Rot, Scale))
-							{
-								GUnrealEd->RedrawLevelEditingViewports();
-								Invalidate();
-								return true;
-							}
-
 							// Cache the current default values for propagation
 							FVector OldRelativeLocation = SelectedTemplate->RelativeLocation;
 							FRotator OldRelativeRotation = SelectedTemplate->RelativeRotation;

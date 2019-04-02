@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "BuildSettings.h"
 
@@ -22,6 +22,11 @@ namespace BuildSettings
 	const TCHAR* GetBranchName()
 	{
 		return TEXT(BRANCH_NAME);
+	}
+	
+	const TCHAR* GetBuildDate()
+	{
+		return TEXT(__DATE__);
 	}
 
 	const TCHAR* GetBuildVersion()

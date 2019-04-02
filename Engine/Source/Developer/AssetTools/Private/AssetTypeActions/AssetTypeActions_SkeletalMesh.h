@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -12,6 +12,8 @@ class FMenuBuilder;
 class FAssetTypeActions_SkeletalMesh : public FAssetTypeActions_Base
 {
 public:
+	FAssetTypeActions_SkeletalMesh();
+
 	// IAssetTypeActions Implementation
 	virtual FText GetName() const override { return NSLOCTEXT("AssetTypeActions", "AssetTypeActions_SkeletalMesh", "Skeletal Mesh"); }
 	virtual FColor GetTypeColor() const override { return FColor(255,0,255); }
@@ -23,8 +25,13 @@ public:
 	virtual class UThumbnailInfo* GetThumbnailInfo(UObject* Asset) const override;
 	virtual bool IsImportedAsset() const override { return true; }
 	virtual void GetResolvedSourceFilePaths(const TArray<UObject*>& TypeAssets, TArray<FString>& OutSourceFilePaths) const override;
+	virtual void GetSourceFileLabels(const TArray<UObject*>& TypeAssets, TArray<FString>& OutSourceFileLabels) const override;
+	virtual TSharedPtr<class SWidget> GetThumbnailOverlay(const FAssetData& AssetData) const override;
 	
 private:
+	/* If the skeletal mesh asset was lastly import with geometry only, we want to add an overlay icon to tell users.*/
+	EVisibility GetThumbnailSkinningOverlayVisibility(const FAssetData AssetData) const;
+
 	/** Handler for when skeletal mesh LOD import is selected */
 	void LODImport(TArray<TWeakObjectPtr<USkeletalMesh>> Objects);
 
@@ -62,4 +69,8 @@ private:
 	void FillSourceMenu(FMenuBuilder& MenuBuilder, TArray<TWeakObjectPtr<USkeletalMesh>> Meshes) const;
 	void FillSkeletonMenu(FMenuBuilder& MenuBuilder, TArray<TWeakObjectPtr<USkeletalMesh>> Meshes) const;
 	void FillCreateMenu(FMenuBuilder& MenuBuilder, TArray<TWeakObjectPtr<USkeletalMesh>> Meshes) const;
+
+	void OnAssetRemoved(const struct FAssetData& AssetData);
+
+	mutable TArray<FString> ThumbnailSkinningOverlayAssetNames;
 };

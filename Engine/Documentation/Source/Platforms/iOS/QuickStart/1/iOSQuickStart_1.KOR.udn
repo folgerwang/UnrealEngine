@@ -67,7 +67,7 @@ order:1
 이미 iTunes 가 설치되었나요? [이 단계는 건너뛰어도 됩니다.](Platforms/iOS/QuickStart/2)
 [/REGION]
 
-윈도우에서 디바이스에 iOS 프로젝트를 패키징하고 디플로이하기 위해서는 iTunes 가 설치되어 있어야 합니다. iTunes 는 다음 링크를 통해 애플에서 받아 설치할 수 있습니다: 
+Windows에서 디바이스에 iOS 프로젝트를 패키징하고 디플로이하기 위해서는 iTunes 가 설치되어 있어야 합니다. iTunes 는 다음 링크를 통해 애플에서 받아 설치할 수 있습니다: 
 
 * [**iTunes 설치**](http://www.apple.com/itunes/)
 

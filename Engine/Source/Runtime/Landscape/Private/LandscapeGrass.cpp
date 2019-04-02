@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "GenericPlatform/GenericPlatformStackWalk.h"
@@ -32,7 +32,6 @@
 #include "LandscapeVersion.h"
 #include "MaterialShaderType.h"
 #include "MeshMaterialShaderType.h"
-#include "DrawingPolicy.h"
 #include "MeshMaterialShader.h"
 #include "Materials/Material.h"
 #include "LandscapeGrassType.h"
@@ -53,6 +52,8 @@
 #include "Engine/StaticMesh.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "InstancedStaticMesh.h"
+#include "MeshPassProcessor.h"
+#include "MeshPassProcessor.inl"
 
 #define LOCTEXT_NAMESPACE "Landscape"
 
@@ -146,6 +147,11 @@ static TAutoConsoleVariable<int32> CVarDisableDynamicShadows(
 	0,
 	TEXT("0: Dynamic shadows from grass follow the grass type bCastDynamicShadow flag; 1: Dynamic shadows are disabled for all grass"));
 
+static TAutoConsoleVariable<int32> CVarIgnoreExcludeBoxes(
+	TEXT("grass.IgnoreExcludeBoxes"),
+	0,
+	TEXT("For debugging. Ignores any exclusion boxes."));
+
 DECLARE_CYCLE_STAT(TEXT("Grass Async Build Time"), STAT_FoliageGrassAsyncBuildTime, STATGROUP_Foliage);
 DECLARE_CYCLE_STAT(TEXT("Grass Start Comp"), STAT_FoliageGrassStartComp, STATGROUP_Foliage);
 DECLARE_CYCLE_STAT(TEXT("Grass End Comp"), STAT_FoliageGrassEndComp, STATGROUP_Foliage);
@@ -202,6 +208,14 @@ static bool ShouldCacheLandscapeGrassShaders(EShaderPlatform Platform, const FMa
 		&& !IsConsolePlatform(Platform);
 }
 
+class FLandscapeGrassWeightShaderElementData : public FMeshMaterialShaderElementData
+{
+public:
+
+	int32 OutputPass;
+	FVector2D RenderOffset;
+};
+
 class FLandscapeGrassWeightVS : public FMeshMaterialShader
 {
 	DECLARE_SHADER_TYPE(FLandscapeGrassWeightVS, MeshMaterial);
@@ -217,7 +231,7 @@ protected:
 	: FMeshMaterialShader(Initializer)
 	{
 		RenderOffsetParameter.Bind(Initializer.ParameterMap, TEXT("RenderOffset"));
-		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 
 public:
@@ -227,16 +241,19 @@ public:
 		return ShouldCacheLandscapeGrassShaders(Platform, Material, VertexFactoryType);
 	}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy, const FMaterial& MaterialResource, const FSceneView& View, const FDrawingPolicyRenderState& DrawRenderState, const FVector2D& RenderOffset)
+	void GetShaderBindings(
+		const FScene* Scene,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+		const FMaterialRenderProxy& MaterialRenderProxy,
+		const FMaterial& Material,
+		const FMeshPassProcessorRenderState& DrawRenderState,
+		const FLandscapeGrassWeightShaderElementData& ShaderElementData,
+		FMeshDrawSingleShaderBindings& ShaderBindings) const
 	{
-		//TUniformBufferRef<FSceneTexturesUniformParameters> SceneTexturePassUniformBuffer = CreateSceneTextureUniformBufferSingleDraw(RHICmdList, ESceneTextureSetupMode::None, View.FeatureLevel);
-		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, MaterialResource, View, DrawRenderState.GetViewUniformBuffer(), nullptr);
-		SetShaderValue(RHICmdList, GetVertexShader(), RenderOffsetParameter, RenderOffset);
-	}
+		FMeshMaterialShader::GetShaderBindings(Scene, FeatureLevel, PrimitiveSceneProxy, MaterialRenderProxy, Material, DrawRenderState, ShaderElementData, ShaderBindings);
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState)
-	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(), VertexFactory, View, Proxy, BatchElement, DrawRenderState);
+		ShaderBindings.Add(RenderOffsetParameter, ShaderElementData.RenderOffset);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
@@ -264,25 +281,25 @@ public:
 	: FMeshMaterialShader(Initializer)
 	{
 		OutputPassParameter.Bind(Initializer.ParameterMap, TEXT("OutputPass"));
-		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 	}
 
 	FLandscapeGrassWeightPS()
 	{}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy, const FMaterial& MaterialResource, const FSceneView* View, const FDrawingPolicyRenderState& DrawRenderState, int32 OutputPass)
+	void GetShaderBindings(
+		const FScene* Scene,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+		const FMaterialRenderProxy& MaterialRenderProxy,
+		const FMaterial& Material,
+		const FMeshPassProcessorRenderState& DrawRenderState,
+		const FLandscapeGrassWeightShaderElementData& ShaderElementData,
+		FMeshDrawSingleShaderBindings& ShaderBindings) const
 	{
-		//TUniformBufferRef<FSceneTexturesUniformParameters> SceneTexturePassUniformBuffer = CreateSceneTextureUniformBufferSingleDraw(RHICmdList, ESceneTextureSetupMode::None, View->FeatureLevel);
-		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(), MaterialRenderProxy, MaterialResource, *View, DrawRenderState.GetViewUniformBuffer(), nullptr);
-		if (OutputPassParameter.IsBound())
-		{
-			SetShaderValue(RHICmdList, GetPixelShader(), OutputPassParameter, OutputPass);
-		}
-	}
+		FMeshMaterialShader::GetShaderBindings(Scene, FeatureLevel, PrimitiveSceneProxy, MaterialRenderProxy, Material, DrawRenderState, ShaderElementData, ShaderBindings);
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState)
-	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetPixelShader(), VertexFactory, View, Proxy, BatchElement, DrawRenderState);
+		ShaderBindings.Add(OutputPassParameter, ShaderElementData.OutputPass);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
@@ -295,85 +312,113 @@ public:
 
 IMPLEMENT_MATERIAL_SHADER_TYPE(, FLandscapeGrassWeightPS, TEXT("/Engine/Private/LandscapeGrassWeight.usf"), TEXT("PSMain"), SF_Pixel);
 
-/**
-* Drawing policy used to write out landscape grass weightmap.
-*/
-class FLandscapeGrassWeightDrawingPolicy : public FMeshDrawingPolicy
+class FLandscapeGrassWeightMeshProcessor : public FMeshPassProcessor
 {
 public:
-	FLandscapeGrassWeightDrawingPolicy(
-		const FVertexFactory* InVertexFactory,
-		const FMaterialRenderProxy* InMaterialRenderProxy,
-		const FMaterial& InMaterialResource,
-		const FMeshDrawingPolicyOverrideSettings& InOverrideSettings
-		)
-		:
-		FMeshDrawingPolicy(InVertexFactory, InMaterialRenderProxy, InMaterialResource, InOverrideSettings)
+	FLandscapeGrassWeightMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext);
+
+	void AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch,
+		uint64 BatchElementMask,
+		int32 NumPasses,
+		FVector2D ViewOffset,
+		float PassOffsetX,
+		const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy);
+
+	virtual void AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch, uint64 BatchElementMask, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, int32 StaticMeshId = -1) override final
 	{
-		PixelShader = InMaterialResource.GetShader<FLandscapeGrassWeightPS>(InVertexFactory->GetType());
-		VertexShader = InMaterialResource.GetShader<FLandscapeGrassWeightVS>(VertexFactory->GetType());
-		BaseVertexShader = VertexShader;
+		checkf(false, TEXT("Default AddMeshBatch can't be used as rendering requires extra parameters per pass."));
 	}
 
-	// FMeshDrawingPolicy interface.
-	FDrawingPolicyMatchResult Matches(const FLandscapeGrassWeightDrawingPolicy& Other, bool bForReals = false) const
-	{
-		DRAWING_POLICY_MATCH_BEGIN
-			DRAWING_POLICY_MATCH(FMeshDrawingPolicy::Matches(Other, bForReals)) &&
-			DRAWING_POLICY_MATCH(VertexShader == Other.VertexShader) &&
-			DRAWING_POLICY_MATCH(PixelShader == Other.PixelShader);
-		DRAWING_POLICY_MATCH_END
-	}
 
-	void SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FSceneView* View, const ContextDataType PolicyContext, int32 OutputPass, const FVector2D& RenderOffset) const
-	{
-		// Set the shader parameters for the material.
-		VertexShader->SetParameters(RHICmdList, MaterialRenderProxy, *MaterialResource, *View, DrawRenderState, RenderOffset);
-		PixelShader->SetParameters(RHICmdList, MaterialRenderProxy, *MaterialResource, View, DrawRenderState, OutputPass);
-
-		// Set the shared mesh resources.
-		FMeshDrawingPolicy::SetSharedState(RHICmdList, DrawRenderState, View, PolicyContext);
-	}
-
-	FBoundShaderStateInput GetBoundShaderStateInput(ERHIFeatureLevel::Type InFeatureLevel) const
-	{
-		return FBoundShaderStateInput(
-			FMeshDrawingPolicy::GetVertexDeclaration(),
-			VertexShader->GetVertexShader(),
-			FHullShaderRHIRef(),
-			FDomainShaderRHIRef(),
-			PixelShader->GetPixelShader(),
-			NULL);
-	}
-
-	void SetMeshRenderState(
-		FRHICommandList& RHICmdList,
-		const FSceneView& View,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		const FMeshBatch& Mesh,
-		int32 BatchElementIndex,
-		const FDrawingPolicyRenderState& DrawRenderState,
-		const ElementDataType& ElementData,
-		const ContextDataType PolicyContext
-		) const
-	{
-		const FMeshBatchElement& BatchElement = Mesh.Elements[BatchElementIndex];
-		VertexShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState);
-		PixelShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState);
-	}
-
-	friend int32 CompareDrawingPolicy(const FLandscapeGrassWeightDrawingPolicy& A, const FLandscapeGrassWeightDrawingPolicy& B)
-	{
-		COMPAREDRAWINGPOLICYMEMBERS(VertexShader);
-		COMPAREDRAWINGPOLICYMEMBERS(PixelShader);
-		COMPAREDRAWINGPOLICYMEMBERS(VertexFactory);
-		COMPAREDRAWINGPOLICYMEMBERS(MaterialRenderProxy);
-		return 0;
-	}
 private:
-	FLandscapeGrassWeightVS* VertexShader;
-	FLandscapeGrassWeightPS* PixelShader;
+	void Process(
+		const FMeshBatch& MeshBatch,
+		uint64 BatchElementMask,
+		const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+		const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+		const FMaterial& RESTRICT MaterialResource,
+		int32 NumPasses,
+		FVector2D ViewOffset,
+		float PassOffsetX);
+
+	FMeshPassProcessorRenderState PassDrawRenderState;
 };
+
+FLandscapeGrassWeightMeshProcessor::FLandscapeGrassWeightMeshProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
+	: FMeshPassProcessor(Scene, InViewIfDynamicMeshCommand->GetFeatureLevel(), InViewIfDynamicMeshCommand, InDrawListContext)
+{
+	PassDrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
+	PassDrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
+
+	PassDrawRenderState.SetViewUniformBuffer(InViewIfDynamicMeshCommand->ViewUniformBuffer);
+	PassDrawRenderState.SetPassUniformBuffer(nullptr);
+}
+
+void FLandscapeGrassWeightMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBatch,
+	uint64 BatchElementMask,
+	int32 NumPasses,
+	FVector2D ViewOffset,
+	float PassOffsetX,
+	const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy)
+{
+	// Determine the mesh's material and blend mode.
+	const FMaterialRenderProxy* FallbackMaterialRenderProxyPtr = nullptr;
+	const FMaterial& Material = MeshBatch.MaterialRenderProxy->GetMaterialWithFallback(FeatureLevel, FallbackMaterialRenderProxyPtr);
+
+	const FMaterialRenderProxy& MaterialRenderProxy = FallbackMaterialRenderProxyPtr ? *FallbackMaterialRenderProxyPtr : *MeshBatch.MaterialRenderProxy;
+
+	Process(MeshBatch, BatchElementMask, PrimitiveSceneProxy, MaterialRenderProxy, Material, NumPasses, ViewOffset, PassOffsetX);
+}
+
+void FLandscapeGrassWeightMeshProcessor::Process(
+	const FMeshBatch& MeshBatch,
+	uint64 BatchElementMask,
+	const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+	const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+	const FMaterial& RESTRICT MaterialResource,
+	int32 NumPasses,
+	FVector2D ViewOffset,
+	float PassOffsetX)
+{
+	const FVertexFactory* VertexFactory = MeshBatch.VertexFactory;
+
+	TMeshProcessorShaders<
+		FLandscapeGrassWeightVS,
+		FMeshMaterialShader,
+		FMeshMaterialShader,
+		FLandscapeGrassWeightPS> PassShaders;
+
+	PassShaders.PixelShader = MaterialResource.GetShader<FLandscapeGrassWeightPS>(VertexFactory->GetType());
+	PassShaders.VertexShader = MaterialResource.GetShader<FLandscapeGrassWeightVS>(VertexFactory->GetType());
+
+	const ERasterizerFillMode MeshFillMode = ComputeMeshFillMode(MeshBatch, MaterialResource);
+	const ERasterizerCullMode MeshCullMode = CM_None;
+
+	FLandscapeGrassWeightShaderElementData ShaderElementData;
+	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, -1, true);
+
+	const FMeshDrawCommandSortKey SortKey = CalculateMeshStaticSortKey(PassShaders.VertexShader, PassShaders.PixelShader);
+
+	for (int32 PassIndex = 0; PassIndex < NumPasses; ++PassIndex)
+	{
+		ShaderElementData.OutputPass = PassIndex;
+		ShaderElementData.RenderOffset = ViewOffset + FVector2D(PassOffsetX * PassIndex, 0);
+
+		BuildMeshDrawCommands(
+			MeshBatch,
+			BatchElementMask,
+			PrimitiveSceneProxy,
+			MaterialRenderProxy,
+			MaterialResource,
+			PassDrawRenderState,
+			PassShaders,
+			MeshFillMode,
+			MeshCullMode,
+			SortKey,
+			EMeshPassFeatures::Default,
+			ShaderElementData);
+	}
+}
 
 // data also accessible by render thread
 class FLandscapeGrassWeightExporter_RenderThread
@@ -445,32 +490,28 @@ public:
 		const FSceneView* View = ViewFamily.Views[0];
 		RHICmdList.SetViewport(View->UnscaledViewRect.Min.X, View->UnscaledViewRect.Min.Y, 0.0f, View->UnscaledViewRect.Max.X, View->UnscaledViewRect.Max.Y, 1.0f);
 
-		FDrawingPolicyRenderState DrawRenderState(*View);
-		DrawRenderState.ModifyViewOverrideFlags() |= EDrawingPolicyOverrideFlags::TwoSided;
-		DrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
-		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
-
 		RHICmdList.SetScissorRect(false, 0, 0, 0, 0);
 
-		for (auto& ComponentInfo : ComponentInfos)
+		FMemMark Mark(FMemStack::Get());
+
+		DrawDynamicMeshPass(*View, RHICmdList,
+			[View, PassOffsetX = PassOffsetX, &ComponentInfos = ComponentInfos, NumPasses = NumPasses](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 		{
-			const FMeshBatch& Mesh = ComponentInfo.SceneProxy->GetGrassMeshBatch();
+			FLandscapeGrassWeightMeshProcessor PassMeshProcessor(
+				nullptr,
+				View,
+				DynamicMeshPassContext);
 
-			for (int32 PassIdx = 0; PassIdx < NumPasses; PassIdx++)
+			const uint64 DefaultBatchElementMask = ~0ull;
+
+			for (auto& ComponentInfo : ComponentInfos)
 			{
-				FLandscapeGrassWeightDrawingPolicy DrawingPolicy(Mesh.VertexFactory, Mesh.MaterialRenderProxy, *Mesh.MaterialRenderProxy->GetMaterial(GMaxRHIFeatureLevel), ComputeMeshOverrideSettings(Mesh));
+				const FMeshBatch& Mesh = ComponentInfo.SceneProxy->GetGrassMeshBatch();
+				Mesh.MaterialRenderProxy->UpdateUniformExpressionCacheIfNeeded(View->GetFeatureLevel());
 
-				const int32 ShaderPass = (PassIdx >= FirstHeightMipsPassIndex) ? 0 : PassIdx;
-				DrawingPolicy.SetupPipelineState(DrawRenderState, *View);
-				CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderState, DrawingPolicy.GetBoundShaderStateInput(View->GetFeatureLevel()), DrawingPolicy.GetMaterialRenderProxy());
-				DrawingPolicy.SetSharedState(RHICmdList, DrawRenderState, View, FLandscapeGrassWeightDrawingPolicy::ContextDataType(), ShaderPass, ComponentInfo.ViewOffset + FVector2D(PassOffsetX * PassIdx, 0));
-
-				// The first batch element contains the grass batch for the entire component
-				const int32 ElementIndex = (PassIdx >= FirstHeightMipsPassIndex) ? HeightMips[PassIdx - FirstHeightMipsPassIndex] : 0;
-				DrawingPolicy.SetMeshRenderState(RHICmdList, *View, ComponentInfo.SceneProxy, Mesh, ElementIndex, DrawRenderState, FMeshDrawingPolicy::ElementDataType(), FLandscapeGrassWeightDrawingPolicy::ContextDataType());
-				DrawingPolicy.DrawMesh(RHICmdList, *View, Mesh, ElementIndex);
+				PassMeshProcessor.AddMeshBatch(Mesh, DefaultBatchElementMask, NumPasses, ComponentInfo.ViewOffset, PassOffsetX, ComponentInfo.SceneProxy);
 			}
-		}
+		});
 	}
 };
 
@@ -545,9 +586,9 @@ public:
 		RenderTargetResource = RenderTargetTexture->GameThread_GetRenderTargetResource()->GetTextureRenderTarget2DResource();
 
 		// render
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FDrawSceneCommand,
-			FLandscapeGrassWeightExporter_RenderThread*, Exporter, this,
+		FLandscapeGrassWeightExporter_RenderThread* Exporter = this;
+		ENQUEUE_RENDER_COMMAND(FDrawSceneCommand)(
+			[Exporter](FRHICommandListImmediate& RHICmdList)
 			{
 				Exporter->RenderLandscapeComponentToTexture_RenderThread(RHICmdList);
 				FlushPendingDeleteRHIResources_RenderThread();
@@ -1450,9 +1491,7 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 	FBox MeshBox;
 	int32 DesiredInstancesPerLeaf;
 
-	double RasterTime;
 	double BuildTime;
-	double InstanceTime;
 	int32 TotalInstances;
 	uint32 HaltonBaseIndex;
 
@@ -1465,12 +1504,14 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 	FVector2D LightMapComponentScale;
 	bool RequireCPUAccess;
 
+	TArray<FBox> ExcludedBoxes;
+
 	// output
 	FStaticMeshInstanceData InstanceBuffer;
 	TArray<FClusterNode> ClusterTree;
 	int32 OutOcclusionLayerNum;
 
-	FAsyncGrassBuilder(ALandscapeProxy* Landscape, ULandscapeComponent* Component, const ULandscapeGrassType* GrassType, const FGrassVariety& GrassVariety, ERHIFeatureLevel::Type FeatureLevel, UHierarchicalInstancedStaticMeshComponent* HierarchicalInstancedStaticMeshComponent, int32 SqrtSubsections, int32 SubX, int32 SubY, uint32 InHaltonBaseIndex)
+	FAsyncGrassBuilder(ALandscapeProxy* Landscape, ULandscapeComponent* Component, const ULandscapeGrassType* GrassType, const FGrassVariety& GrassVariety, ERHIFeatureLevel::Type FeatureLevel, UHierarchicalInstancedStaticMeshComponent* HierarchicalInstancedStaticMeshComponent, int32 SqrtSubsections, int32 SubX, int32 SubY, uint32 InHaltonBaseIndex, TArray<FBox>& InExcludedBoxes)
 		: FGrassBuilderBase(Landscape, Component, GrassVariety, FeatureLevel, SqrtSubsections, SubX, SubY, GrassType->bEnableDensityScaling)
 		, GrassData(Component, GrassType)
 		, Scaling(GrassVariety.Scaling)
@@ -1486,9 +1527,7 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 		, MeshBox(GrassVariety.GrassMesh->GetBounds().GetBox())
 		, DesiredInstancesPerLeaf(HierarchicalInstancedStaticMeshComponent->DesiredInstancesPerLeaf())
 
-		, RasterTime(0)
 		, BuildTime(0)
-		, InstanceTime(0)
 		, TotalInstances(0)
 		, HaltonBaseIndex(InHaltonBaseIndex)
 
@@ -1506,6 +1545,15 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 		, ClusterTree()
 		, OutOcclusionLayerNum(0)
 	{
+		if (InExcludedBoxes.Num())
+		{
+			FMatrix BoxXForm = HierarchicalInstancedStaticMeshComponent->GetComponentToWorld().ToMatrixWithScale().Inverse() * XForm.Inverse();
+			for (const FBox& Box : InExcludedBoxes)
+			{
+				ExcludedBoxes.Add(Box.TransformBy(BoxXForm));
+			}
+		}
+
 		bHaveValidData = bHaveValidData && GrassData.IsValid();
 
 		InstanceBuffer.SetAllowCPUAccess(RequireCPUAccess);
@@ -1613,11 +1661,23 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 		return Result;
 	}
 
+	bool IsExcluded(const FVector& LocationWithHeight)
+	{
+		for (const FBox& Box : ExcludedBoxes)
+		{
+			if (Box.IsInside(LocationWithHeight))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 	void Build()
 	{
 		SCOPE_CYCLE_COUNTER(STAT_FoliageGrassAsyncBuildTime);
 		check(bHaveValidData);
-		RasterTime -= FPlatformTime::Seconds();
+		double StartTime = FPlatformTime::Seconds();
 
 		float Div = 1.0f / float(SqrtMaxInstances);
 		TArray<FMatrix> InstanceTransforms;
@@ -1643,7 +1703,7 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 				FVector Location(Origin.X + HaltonX * Extent.X, Origin.Y + HaltonY * Extent.Y, 0.0f);
 				FVector LocationWithHeight;
 				float Weight = GetLayerWeightAtLocationLocal(Location, &LocationWithHeight);
-				bool bKeep = Weight > 0.0f && Weight >= RandomStream.GetFraction();
+				bool bKeep = Weight > 0.0f && Weight >= RandomStream.GetFraction() && !IsExcluded(LocationWithHeight);
 				if (bKeep)
 				{
 					const FVector Scale = RandomScale ? GetRandomScale() : FVector(1);
@@ -1727,7 +1787,7 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 
 						FInstanceLocal& Instance = Instances[InstanceIndex];
 						float Weight = GetLayerWeightAtLocationLocal(Location, &Instance.Pos);
-						Instance.bKeep = Weight > 0.0f && Weight >= RandomStream.GetFraction();
+						Instance.bKeep = Weight > 0.0f && Weight >= RandomStream.GetFraction() && !IsExcluded(Instance.Pos);
 						if (Instance.bKeep)
 						{
 							NumKept++;
@@ -1820,6 +1880,7 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 				}
 			}
 		}
+		BuildTime = FPlatformTime::Seconds() - StartTime;
 	}
 	FORCEINLINE_DEBUGGABLE float GetLayerWeightAtLocationLocal(const FVector& InLocation, FVector* OutLocation, bool bWeight = true)
 	{
@@ -1833,11 +1894,11 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 		int32 X2 = FMath::CeilToInt(TestX);
 		int32 Y2 = FMath::CeilToInt(TestY);
 
-		// Min is to prevent the sampling of the final column from overflowing
-		int32 IdxX1 = FMath::Min<int32>(X1, GrassData.GetStride() - 1);
-		int32 IdxY1 = FMath::Min<int32>(Y1, GrassData.GetStride() - 1);
-		int32 IdxX2 = FMath::Min<int32>(X2, GrassData.GetStride() - 1);
-		int32 IdxY2 = FMath::Min<int32>(Y2, GrassData.GetStride() - 1);
+		// Clamp to prevent the sampling of the final columns from overflowing
+		int32 IdxX1 = FMath::Clamp<int32>(X1, 0, GrassData.GetStride() - 1);
+		int32 IdxY1 = FMath::Clamp<int32>(Y1, 0, GrassData.GetStride() - 1);
+		int32 IdxX2 = FMath::Clamp<int32>(X2, 0, GrassData.GetStride() - 1);
+		int32 IdxY2 = FMath::Clamp<int32>(Y2, 0, GrassData.GetStride() - 1);
 
 		float LerpX = FMath::Fractional(TestX);
 		float LerpY = FMath::Fractional(TestY);
@@ -1899,7 +1960,7 @@ void ALandscapeProxy::FlushGrassComponents(const TSet<ULandscapeComponent*>* Onl
 			}
 		}
 #if WITH_EDITOR
-		if (GIsEditor && bFlushGrassMaps && GetWorld() && GetWorld()->Scene && GetWorld()->Scene->GetFeatureLevel() >= ERHIFeatureLevel::SM4)
+		if (GIsEditor && bFlushGrassMaps && GetWorld() && GetWorld()->FeatureLevel >= ERHIFeatureLevel::SM4)
 		{
 			for (ULandscapeComponent* Component : *OnlyForComponents)
 			{
@@ -1977,6 +2038,30 @@ TArray<ULandscapeGrassType*> ALandscapeProxy::GetGrassTypes() const
 	return GrassTypes;
 }
 
+static uint32 GGrassExclusionChangeTag = 1;
+static uint32 GFrameNumberLastStaleCheck = 0;
+static TMap<FWeakObjectPtr, FBox> GGrassExclusionBoxes;
+
+void ALandscapeProxy::AddExclusionBox(FWeakObjectPtr Owner, const FBox& BoxToRemove)
+{
+	GGrassExclusionBoxes.Add(Owner, BoxToRemove);
+	GGrassExclusionChangeTag++;
+}
+void ALandscapeProxy::RemoveExclusionBox(FWeakObjectPtr Owner)
+{
+	GGrassExclusionBoxes.Remove(Owner);
+	GGrassExclusionChangeTag++;
+}
+void ALandscapeProxy::RemoveAllExclusionBoxes()
+{
+	if (GGrassExclusionBoxes.Num())
+	{
+		GGrassExclusionBoxes.Empty();
+		GGrassExclusionChangeTag++;
+	}
+}
+
+
 #if WITH_EDITOR
 int32 ALandscapeProxy::TotalComponentsNeedingGrassMapRender = 0;
 int32 ALandscapeProxy::TotalTexturesToStreamForVisibleGrassMapRender = 0;
@@ -1986,6 +2071,18 @@ int32 ALandscapeProxy::TotalComponentsNeedingTextureBaking = 0;
 void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSync)
 {
 	SCOPE_CYCLE_COUNTER(STAT_GrassUpdate);
+	if (GFrameNumberLastStaleCheck != GFrameNumber && CVarIgnoreExcludeBoxes.GetValueOnAnyThread() == 0)
+	{
+		GFrameNumberLastStaleCheck = GFrameNumber;
+		for (auto Iter = GGrassExclusionBoxes.CreateIterator(); Iter; ++Iter)
+		{
+			if (!Iter->Key.IsValid())
+			{
+				Iter.RemoveCurrent();
+				GGrassExclusionChangeTag++;
+			}
+		}
+	}
 
 	if (CVarGrassEnable.GetValueOnAnyThread() > 0)
 	{
@@ -2017,10 +2114,11 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 				{
 					if (Component != nullptr)
 					{
+						UTexture2D* Heightmap = Component->GetHeightmap();
 						// check textures currently needing force streaming
-						if (Component->HeightmapTexture->bForceMiplevelsToBeResident)
+						if (Heightmap->bForceMiplevelsToBeResident)
 						{
-							CurrentForcedStreamedTextures.Add(Component->HeightmapTexture);
+							CurrentForcedStreamedTextures.Add(Heightmap);
 						}
 						for (auto WeightmapTexture : Component->WeightmapTextures)
 						{
@@ -2074,6 +2172,23 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 				{
 					MinDistanceToComp = FMath::Min<float>(MinDistanceToComp, WorldBounds.ComputeSquaredDistanceFromBoxToPoint(Pos));
 				}
+				if (Component->ChangeTag != GGrassExclusionChangeTag)
+				{
+					Component->ActiveExcludedBoxes.Empty();
+					if (GGrassExclusionBoxes.Num() && CVarIgnoreExcludeBoxes.GetValueOnAnyThread() == 0)
+					{
+						FBox WorldBox = WorldBounds.GetBox();
+
+						for (const TPair<FWeakObjectPtr, FBox>& Pair : GGrassExclusionBoxes)
+						{
+							if (Pair.Value.Intersect(WorldBox))
+							{
+								Component->ActiveExcludedBoxes.AddUnique(Pair.Value);
+							}
+						}
+					}
+					Component->ChangeTag = GGrassExclusionChangeTag;
+				}
 
 				MinDistanceToComp = FMath::Sqrt(MinDistanceToComp);
 
@@ -2123,7 +2238,9 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 									{
 										float MinDistanceToSubComp = MinDistanceToComp;
 
-										if (bCullSubsections && SqrtSubsections > 1)
+										FBox WorldSubBox;
+
+										if ((bCullSubsections && SqrtSubsections > 1) || Component->ActiveExcludedBoxes.Num())
 										{
 											FVector BoxMin;
 											BoxMin.X = LocalBox.Min.X + LocalExtentDiv.X * float(SubX);
@@ -2136,14 +2253,17 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 											BoxMax.Z = LocalBox.Max.Z;
 
 											FBox LocalSubBox(BoxMin, BoxMax);
-											FBox WorldSubBox = LocalSubBox.TransformBy(Component->GetComponentTransform());
+											WorldSubBox = LocalSubBox.TransformBy(Component->GetComponentTransform());
 
-											MinDistanceToSubComp = Cameras.Num() ? MAX_flt : 0.0f;
-											for (auto& Pos : Cameras)
+											if (bCullSubsections && SqrtSubsections > 1)
 											{
-												MinDistanceToSubComp = FMath::Min<float>(MinDistanceToSubComp, ComputeSquaredDistanceFromBoxToPoint(WorldSubBox.Min, WorldSubBox.Max, Pos));
+												MinDistanceToSubComp = Cameras.Num() ? MAX_flt : 0.0f;
+												for (auto& Pos : Cameras)
+												{
+													MinDistanceToSubComp = FMath::Min<float>(MinDistanceToSubComp, ComputeSquaredDistanceFromBoxToPoint(WorldSubBox.Min, WorldSubBox.Max, Pos));
+												}
+												MinDistanceToSubComp = FMath::Sqrt(MinDistanceToSubComp);
 											}
-											MinDistanceToSubComp = FMath::Sqrt(MinDistanceToSubComp);
 										}
 
 										if (bUseHalton)
@@ -2166,22 +2286,59 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 										NewComp.Key.NumVarieties = GrassType->GrassVarieties.Num();
 										NewComp.Key.VarietyIndex = GrassVarietyIndex;
 
+										bool bRebuildForBoxes = false;
+
 										{
 											FCachedLandscapeFoliage::FGrassComp* Existing = FoliageCache.CachedGrassComps.Find(NewComp.Key);
+											if (Existing && !Existing->PreviousFoliage.IsValid() && Existing->ExclusionChangeTag != GGrassExclusionChangeTag && !Existing->PendingRemovalRebuild && !Existing->Pending)
+											{
+												for (const FBox& Box : Component->ActiveExcludedBoxes)
+												{
+													if (Box.Intersect(WorldSubBox))
+													{
+														NewComp.ExcludedBoxes.Add(Box);
+													}
+												}
+												if (NewComp.ExcludedBoxes != Existing->ExcludedBoxes)
+												{
+													bRebuildForBoxes = true;
+													NewComp.PreviousFoliage = Existing->Foliage;
+													Existing->PendingRemovalRebuild = true;
+												}
+												else
+												{
+													Existing->ExclusionChangeTag = GGrassExclusionChangeTag;
+												}
+											}
+
 											if (Existing || MinDistanceToSubComp > MustHaveDistance)
 											{
 												if (Existing)
 												{
 													Existing->Touch();
 												}
-												continue;
+												if (!bRebuildForBoxes)
+												{
+													continue;
+												}
 											}
 										}
 
-										if (!bForceSync && (NumCompsCreated || AsyncFoliageTasks.Num() >= MaxTasks))
+										if (!bRebuildForBoxes && !bForceSync && (NumCompsCreated || AsyncFoliageTasks.Num() >= MaxTasks))
 										{
-											continue; // one per frame, but we still want to touch the existing ones
+											continue; // one per frame, but we still want to touch the existing ones and we must do the rebuilds because we changed the tag
 										}
+										if (!bRebuildForBoxes)
+										{
+											for (const FBox& Box : Component->ActiveExcludedBoxes)
+											{
+												if (Box.Intersect(WorldSubBox))
+												{
+													NewComp.ExcludedBoxes.Add(Box);
+												}
+											}
+										}
+										NewComp.ExclusionChangeTag = GGrassExclusionChangeTag;
 
 #if WITH_EDITOR
 										// render grass data if we don't have any
@@ -2195,7 +2352,7 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 											else if (!Component->AreTexturesStreamedForGrassMapRender())
 											{
 												// we're ready to generate but our textures need streaming in
-												DesiredForceStreamedTextures.Add(Component->HeightmapTexture);
+												DesiredForceStreamedTextures.Add(Component->GetHeightmap());
 												for (auto WeightmapTexture : Component->WeightmapTextures)
 												{
 													DesiredForceStreamedTextures.Add(WeightmapTexture);
@@ -2306,7 +2463,7 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 												check(HaltonBaseIndex > (uint32)MaxInstancesSub);
 												HaltonIndexForSub = HaltonBaseIndex - (uint32)MaxInstancesSub;
 											}
-											Builder = new FAsyncGrassBuilder(this, Component, GrassType, GrassVariety, FeatureLevel, HierarchicalInstancedStaticMeshComponent, SqrtSubsections, SubX, SubY, HaltonIndexForSub);
+											Builder = new FAsyncGrassBuilder(this, Component, GrassType, GrassVariety, FeatureLevel, HierarchicalInstancedStaticMeshComponent, SqrtSubsections, SubX, SubY, HaltonIndexForSub, NewComp.ExcludedBoxes);
 										}
 
 										if (Builder->bHaveValidData)
@@ -2368,7 +2525,7 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 							{
 								// Force stream in other heightmaps but only if we're not waiting for the textures 
 								// near the camera to stream in
-								DesiredForceStreamedTextures.Add(Component->HeightmapTexture);
+								DesiredForceStreamedTextures.Add(Component->GetHeightmap());
 								for (auto WeightmapTexture : Component->WeightmapTextures)
 								{
 									DesiredForceStreamedTextures.Add(WeightmapTexture);
@@ -2417,25 +2574,33 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 		{
 			const FCachedLandscapeFoliage::FGrassComp& GrassItem = *Iter;
 			UHierarchicalInstancedStaticMeshComponent *Used = GrassItem.Foliage.Get();
+			UHierarchicalInstancedStaticMeshComponent *UsedPrev = GrassItem.PreviousFoliage.Get();
 			bool bOld =
 				!GrassItem.Pending &&
 				(
-				!GrassItem.Key.BasedOn.Get() ||
-				!GrassItem.Key.GrassType.Get() ||
-				!Used ||
+					!GrassItem.Key.BasedOn.Get() ||
+					!GrassItem.Key.GrassType.Get() ||
+					!Used ||
 				(GrassItem.LastUsedFrameNumber < OldestToKeepFrame && GrassItem.LastUsedTime < OldestToKeepTime)
 				);
 			if (bOld)
 			{
 				Iter.RemoveCurrent();
 			}
-			else if (Used)
+			else if (Used || UsedPrev)
 			{
 				if (!StillUsed.Num())
 				{
 					StillUsed.Reserve(FoliageCache.CachedGrassComps.Num());
 				}
-				StillUsed.Add(Used);
+				if (Used)
+				{
+					StillUsed.Add(Used);
+				}
+				if (UsedPrev)
+				{
+					StillUsed.Add(UsedPrev);
+				}
 			}
 		}
 	}
@@ -2453,9 +2618,9 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 					SCOPE_CYCLE_COUNTER(STAT_FoliageGrassDestoryComp);
 					if (HComponent)
 					{
-					HComponent->ClearInstances();
-					HComponent->DetachFromComponent(FDetachmentTransformRules(EDetachmentRule::KeepRelative, false));
-					HComponent->DestroyComponent();
+						HComponent->ClearInstances();
+						HComponent->DetachFromComponent(FDetachmentTransformRules(EDetachmentRule::KeepRelative, false));
+						HComponent->DestroyComponent();
 					}
 					FoliageComponents.RemoveAtSwap(Index--);
 				}
@@ -2482,9 +2647,11 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 				FAsyncGrassTask& Inner = Task->GetTask();
 				AsyncFoliageTasks.RemoveAtSwap(Index--);
 				UHierarchicalInstancedStaticMeshComponent* HierarchicalInstancedStaticMeshComponent = Inner.Foliage.Get();
+				int32 NumBuiltRenderInstances = Inner.Builder->InstanceBuffer.GetNumInstances();
+				//UE_LOG(LogCore, Display, TEXT("%d instances in %4.0fms     %6.0f instances / sec"), NumBuiltRenderInstances, 1000.0f * float(Inner.Builder->BuildTime), float(NumBuiltRenderInstances) / float(Inner.Builder->BuildTime));
+
 				if (HierarchicalInstancedStaticMeshComponent && StillUsed.Contains(HierarchicalInstancedStaticMeshComponent))
 				{
-					int32 NumBuiltRenderInstances = Inner.Builder->InstanceBuffer.GetNumInstances();
 					if (NumBuiltRenderInstances > 0)
 					{
 						QUICK_SCOPE_CYCLE_COUNTER(STAT_FoliageGrassEndComp_AcceptPrebuiltTree);
@@ -2510,6 +2677,20 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 				if (Existing)
 				{
 					Existing->Pending = false;
+					if (Existing->PreviousFoliage.IsValid())
+					{
+						SCOPE_CYCLE_COUNTER(STAT_FoliageGrassDestoryComp);
+						UHierarchicalInstancedStaticMeshComponent* HComponent = Existing->PreviousFoliage.Get();
+						if (HComponent)
+						{
+							HComponent->ClearInstances();
+							HComponent->DetachFromComponent(FDetachmentTransformRules(EDetachmentRule::KeepRelative, false));
+							HComponent->DestroyComponent();
+						}
+						FoliageComponents.RemoveSwap(HComponent);
+						Existing->PreviousFoliage = nullptr;
+					}
+
 					Existing->Touch();
 				}
 				delete Task;
@@ -2555,6 +2736,23 @@ static void FlushGrassPIE(const TArray<FString>& Args)
 	}
 }
 
+static void DumpExclusionBoxes(const TArray<FString>& Args)
+{
+	for (const TPair<FWeakObjectPtr, FBox>& Pair : GGrassExclusionBoxes)
+	{
+		UObject* Owner = Pair.Key.Get();
+		UE_LOG(LogCore, Warning, TEXT("%f %f %f   %f %f %f   %s"),
+			Pair.Value.Min.X,
+			Pair.Value.Min.Y,
+			Pair.Value.Min.Z,
+			Pair.Value.Max.X,
+			Pair.Value.Max.Y,
+			Pair.Value.Max.Z,
+			Owner ? *Owner->GetFullName() : TEXT("[stale]")
+		);
+	}
+}
+
 static FAutoConsoleCommand FlushGrassCmd(
 	TEXT("grass.FlushCache"),
 	TEXT("Flush the grass cache, debugging."),
@@ -2567,6 +2765,11 @@ static FAutoConsoleCommand FlushGrassCmdPIE(
 	FConsoleCommandWithArgsDelegate::CreateStatic(&FlushGrassPIE)
 	);
 
+static FAutoConsoleCommand DumpExclusionBoxesCmd(
+	TEXT("grass.DumpExclusionBoxes"),
+	TEXT("Print the exclusion boxes, debugging."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&DumpExclusionBoxes)
+);
 
 
 #undef LOCTEXT_NAMESPACE

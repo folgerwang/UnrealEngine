@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -151,7 +151,7 @@ private:
 	}
 
 public:
-	DEPRECATED(4.21, "Please use the new constructor that adds support for analytics and better precision")
+	UE_DEPRECATED(4.21, "Please use the new constructor that adds support for analytics and better precision")
 	BufferedPacket(uint8* InCopyData, uint32 InCountBits, float InResendTime=0.f, uint32 InId=0)
 		: CountBits(InCountBits)
 		, Traits()
@@ -180,7 +180,7 @@ public:
 		FMemory::Memcpy(Data, InCopyData, FMath::DivideAndRoundUp(InCountBits, 8u));
 	}
 
-	DEPRECATED(4.21, "Please use the new constructor that adds support for analytics")
+	UE_DEPRECATED(4.21, "Please use the new constructor that adds support for analytics")
 	BufferedPacket(const FString& InAddress, uint8* InCopyData, uint32 InCountBits, double InResendTime=0.0, uint32 InId=0)
 		: CountBits(InCountBits)
 		, Traits()
@@ -210,6 +210,13 @@ public:
 	{
 		delete [] Data;
 	}
+
+	void CountBytes(FArchive& Ar) const
+	{
+		Ar.CountBytes(sizeof(*this), sizeof(*this));
+		Ar.CountBytes(FMath::DivideAndRoundUp(CountBits, 8u), FMath::DivideAndRoundUp(CountBits, 8u));
+		Address.CountBytes(Ar);
+	}
 };
 
 /**
@@ -233,11 +240,12 @@ public:
 	 * @param bConnectionlessOnly	Whether or not this is a connectionless-only manager (ignores .ini components)
 	 * @param InProvider			The analytics provider
 	 * @param InDDoS				Reference to the owning net drivers DDoS detection handler
+	 * @param InDriverProfile		The PacketHandler configuration profile to use
 	 */
 	void Initialize(Handler::Mode Mode, uint32 InMaxPacketBits, bool bConnectionlessOnly=false,
-					TSharedPtr<class IAnalyticsProvider> InProvider=nullptr, FDDoSDetection* InDDoS=nullptr);
+					TSharedPtr<class IAnalyticsProvider> InProvider=nullptr, FDDoSDetection* InDDoS=nullptr, FName InDriverProfile=NAME_None);
 
-	DEPRECATED(4.21, "Use the traits based delegate instead for compatibility with other systems.")
+	UE_DEPRECATED(4.21, "Use the traits based delegate instead for compatibility with other systems.")
 	void InitializeDelegates(FPacketHandlerLowLevelSend InLowLevelSendDel)
 	{
 		LowLevelSendDel_Deprecated = InLowLevelSendDel;
@@ -338,7 +346,7 @@ public:
 		return Incoming_Internal(Packet, CountBytes, false, EmptyString);
 	}
 
-	DEPRECATED(4.21, "Please move to the functional flow that includes support for PacketTraits.")
+	UE_DEPRECATED(4.21, "Please move to the functional flow that includes support for PacketTraits.")
 	FORCEINLINE const ProcessedPacket Outgoing(uint8* Packet, int32 CountBits)
 	{
 		FOutPacketTraits EmptyTraits;
@@ -377,7 +385,7 @@ public:
 		return Incoming_Internal(Packet, CountBytes, true, Address);
 	}
 
-	DEPRECATED(4.21, "Please use the member that supports PacketTraits for alllowing additional flags on sends.")
+	UE_DEPRECATED(4.21, "Please use the member that supports PacketTraits for alllowing additional flags on sends.")
 	FORCEINLINE const ProcessedPacket OutgoingConnectionless(const FString& Address, uint8* Packet, int32 CountBits)
 	{
 		FOutPacketTraits EmptyTraits;
@@ -405,6 +413,8 @@ public:
 	/** Returns a pointer to the first component in the HandlerComponents array with the specified name. */
 	TSharedPtr<HandlerComponent> GetComponentByName(FName ComponentName) const;
 
+	virtual void CountBytes(FArchive& Ar) const;
+
 protected:
 	/**
 	 * Internal handling for Incoming/IncomingConnectionless
@@ -431,7 +441,7 @@ protected:
 
 public:
 
-	DEPRECATED(4.21, "Please use the packet traits when sending to handle modifications of packets and analytics.")
+	UE_DEPRECATED(4.21, "Please use the packet traits when sending to handle modifications of packets and analytics.")
 	void SendHandlerPacket(HandlerComponent* InComponent, FBitWriter& Writer)
 	{
 		FOutPacketTraits EmptyTraits;
@@ -474,6 +484,23 @@ public:
 	{
 		QueuedHandlerPackets.Enqueue(PacketToQueue);
 	}
+
+	/**
+	 * Searches the PacketHandler profile configurations to find if a component is listed.
+	 *
+	 * @param InComponentName	The PacketHandler Component to search for
+	 * @return if there is a profile that has the component included.
+	 */
+	static bool DoesAnyProfileHaveComponent(const FString& InComponentName);
+
+	/**
+	 * Searches the PacketHandler profile configuration for the given netdriver to find if a component is listed.
+	 *
+	 * @param InNetDriverName	The name of the netdriver to search configuration for
+	 * @param InComponentName	The component to search for
+	 * @return if the component is listed in the profile configuration.
+	 */
+	static bool DoesProfileHaveComponent(const FName InNetDriverName, const FString& InComponentName);
 
 	/**
 	 * Gets a packet from the buffered packet queue for sending
@@ -577,8 +604,6 @@ private:
 public:
 	/** Mode of the handler, Client or Server */
 	Handler::Mode Mode;
-
-private:
 
 private:
 	/** Whether or not this PacketHandler handles connectionless (i.e. non-UNetConnection) data */
@@ -711,7 +736,7 @@ public:
 	 */
 	virtual void Incoming(FBitReader& Packet) = 0;
 
-	DEPRECATED(4.21, "Use the other Outgoing function as it allows for packet modifiers and traits.")
+	UE_DEPRECATED(4.21, "Use the other Outgoing function as it allows for packet modifiers and traits.")
 	virtual void Outgoing(FBitWriter& Packet)
 	{
 		FOutPacketTraits EmptyTraits;
@@ -734,7 +759,7 @@ public:
 	 */
 	virtual void IncomingConnectionless(const FString& Address, FBitReader& Packet) = 0;
 
-	DEPRECATED(4.21, "Use the method that allows traits on the packet.")
+	UE_DEPRECATED(4.21, "Use the method that allows traits on the packet.")
 	virtual void OutgoingConnectionless(const FString& Address, FBitWriter& Packet)
 	{
 		FOutPacketTraits EmptyTraits;
@@ -800,7 +825,7 @@ public:
 	/** Returns the name of this component. */
 	FName GetName() const { return Name; }
 
-	DEPRECATED(4.21, "The Analytics Provider is now handled in the main PacketHandler class.")
+	UE_DEPRECATED(4.21, "The Analytics Provider is now handled in the main PacketHandler class.")
 	virtual void SetAnalyticsProvider(TSharedPtr<class IAnalyticsProvider> Provider)
 	{
 	}
@@ -810,6 +835,8 @@ public:
 	 * NOTE: Can also mean disabled, e.g. during hotfix
 	 */
 	virtual void NotifyAnalyticsProvider() {}
+
+	virtual void CountBytes(FArchive& Ar) const;
 
 protected:
 	/**

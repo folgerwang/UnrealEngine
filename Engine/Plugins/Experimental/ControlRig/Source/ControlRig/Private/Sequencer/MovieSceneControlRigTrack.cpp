@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Sequencer/MovieSceneControlRigTrack.h"
 #include "Sequencer/MovieSceneControlRigSection.h"
@@ -36,6 +36,11 @@ void UMovieSceneControlRigTrack::AddNewControlRig(FFrameNumber KeyTime, UControl
 	}
 
 	AddSection(*NewSection);
+}
+
+bool UMovieSceneControlRigTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneControlRigSection::StaticClass();
 }
 
 UMovieSceneSection* UMovieSceneControlRigTrack::CreateNewSection()

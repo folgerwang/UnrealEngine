@@ -47,6 +47,10 @@ namespace ansel
         // applied directly as translations to the projection matrix. These values are only
         // non-zero during Highres capture.
         float projectionOffsetX, projectionOffsetY;
+        // Values of the near and far planes
+        float nearPlane, farPlane;
+        // Projection matrix aspect ratio
+        float aspectRatio;
     };
 
     // Must be called on every frame an Ansel session is active. The 'camera' must contain

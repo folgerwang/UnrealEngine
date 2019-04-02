@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3697586
+﻿INTSourceChangelist:3719384
 Availability:Public
 Crumbs: %ROOT%, Platforms
 Title:使用 Oculus Rift 的启动画面
@@ -9,24 +9,20 @@ Version:4.17
 Parent:Platforms/Oculus
 Order:2
 tags:Oculus
+prereq: Platforms\Oculus\HowTo\StandingCamera
+prereq: Platforms/VR/UsingTouchControllers
+prereq: Platforms\Oculus\HowTo\GuardianSystem
+
+![](HTSplashScreen_Hero_Image.png)
 
 在 UE4 VR 项目中变更关卡时有大量数据被卸载和加载，因此用户可能会遇到一些帧率问题。为掩盖加载新关卡时可能出现的帧率问题，可显示一个过渡画面或影片。以下指南将说明如何在 UE4 项目中设置并调用过渡画面。
 
+(#Steps)
+## 步骤
+
 [REGION:note]
-以下指南将使用添加了触摸控制器和 Guardian 支持的站立 VR Pawn。如您不明确设置方法，请参考以下两个指南：
-
-* [**设置 Oculus Rift 站立式摄像机**](Platforms\Oculus\HowTo\StandingCamera)
-* [**设置 Oculus Rift 触摸控制器**](Platforms/VR/UsingTouchControllers)
-* [**设置 Guardian 系统**](Platforms\Oculus\HowTo\GuardianSystem)
-[/REGION]
-
-## 设置 Oculus 加载过渡画面
-
-[region:note]
- * 请注意，以下是以最简单的方式在设置 VR 过渡画面。每个项目的需求均有所不同，但 VR 过渡画面的整体设置均十分相似。
  * 针对此指南，您需要下载、解压并导入以下 zip 文件中包含的两个文件，**[Oculus 过渡画面源文件](OclusSplashScreenSourceContent.zip)**
 [/region]
-
 
 1. 打开 VRPawn 并前往 **事件图表**。在事件图表中点击右键，搜索并添加以下蓝图节点：
 
@@ -100,20 +96,30 @@ tags:Oculus
     点击查看全图。
     [/REGION]
 
-1. 现在按下触摸控制器上的左扳机键后，场景应变黑，并出现 UE4 Logo 或您选择的图像。松开触摸控制器左扳机键将返回关卡，显示以下视频中的画面。
+(#EndResult)
+## 最终结果
 
-    [OBJECT:EmbeddedVideo]
-        [PARAMLITERAL:width]
-        640
-        [/PARAMLITERAL]
-        [PARAMLITERAL:height]
-        360
-        [/PARAMLITERAL]
-        [PARAMLITERAL:videoid]
-        H_APZ1h8H5o
-        [/PARAMLITERAL]
-    [/OBJECT]
+现在按下触摸控制器上的左扳机键后，场景应变黑，并出现 UE4 Logo 或您选择的图像。松开触摸控制器左扳机键将返回关卡，显示以下视频中的画面。
 
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	H_APZ1h8H5o
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	100
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+(#UE4ProjectDownloads)
 ## UE4 项目下载
 可使用以下链接下载用于创建此例的 UE4 项目。
 

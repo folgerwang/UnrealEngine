@@ -1,177 +1,200 @@
-﻿INTSourceChangelist:3011129
+INTSourceChangelist:3810557
 Availability:Public
-Title: 编译游戏项目
+Title:编译游戏项目
 Crumbs: %ROOT%, Programming, Programming/Development
-Description: 使用 Windows 的 Visual Studio 或 Mac 的 Xcode 编译单独的游戏项目。
+Description:使用Windows上的Visual Studio或Mac上的Xcode编译单个游戏项目。
+Version: 4.16
+Parent:Programming/Development
+Order:
+type:overview
 
 [TOC (start:2 end:3)]
 
 [EXCERPT:Main]
 
-虚幻引擎通过 UnrealBuildTool 来使用自定义编译方式，而此工具会处理编译项目的所有复杂的方面并将其与引擎进行链接。该过程的发生是透明的，这样您就可以直接通过标准 Visual Studio 编译工作流程来编译项目。
+虚幻引擎4（UE4）通过UnrealBuildTool使用自定义构建方法，该工具处理所有复杂的项目编译工作， 
+并将项目与引擎关联起来。该过程以透明方式进行，这样，您只需通过标准的Visual Studio 
+构建工作流程构建项目即可。
 
-UnrealBuildTool使用 `*.Build.cs` 和 `*.Target.cs` 文件来编译游戏项目。当项目使用C++模板来创建，或当使用 [](Programming\Development\ManagingGameCode\CppClassWizard) 来添加代码到一个仅使用蓝图的模板中创建的项目时，它们会被自动生成。
+UnrealBuildTool使用.Build.cs和.Target.cs文件来构建游戏项目。这些文件在以下情况下会自动生成： 
+使用C++模板创建项目；或者使用[](Programming\Development\ManagingGameCode\CppClassWizard)向使用“仅蓝图”模板创建的 
+项目添加代码。
 
-## 编译配置
+(#buildconfiguration)
+## 构建配置
 
-虚幻引擎 4 和 UnrealBuildTool 使用不同的版本配置来决定引擎如何被编译。使用何种配置将会由您创建版本的目的来决定。
+UE4和UnrealBuildTool使用不同的构建配置来确定如何编译引擎。您使用哪种配置取决于想要创建的构建目的。
 
-[EXCERPT:winbuildconfig]
-每种编译配置包含两种关键字。第一种表明了引擎以及游戏项目的状态。比如，如果使用 **Debug** 配置来进行编译，将可以调试游戏代码。第二个关键字表明正在编译的对象。如果想要在 Unreal 中打开一个项目，需要采用 **Editor** 对象关键字来编译。
-
-|编译配置 - 状态 | 描述 |
-|-------------|-------------|
-| **Debug** （调试）| 该配置在调试模式中同时编译引擎和游戏代码。|
-| **DebugGame** （调试游戏）| 该配置按最优方式编译引擎，但游戏代码可被调试。此配置对于仅使用调试的游戏模块是非常有用的。|
-| **Development** (开发）| 该配置等同于发布。引擎和游戏代码都将在此配置中被编译。|
-| **Shipping** （发行)|该配置在设置后可达到最佳性能并能发行您的游戏。此配置剥离了控制台命令行，统计数据和分析工具。|
-| **Test** (测试）| 该配置就是启用了一些控制台命令，统计数据和分析工具后的 **Shipping** （发行）配置。|
-
-|编译配置 - 对象 | 描述 |
-| ------------------| ----------|
-|  [empty]  （空白）   | 该配置编译了您项目的一个独立可执行版本，但需要平台特定的已烘焙内容。 |
-| **Editor**   （编辑器）| 为能在虚幻编辑器内打开项目并查看所有变更的代码，该项目必须在 **Editor** （编辑器）配置内进行编译。|  
-| **Client**  (客户端）| 如存在 `<Game>Client.Target.cs` 文件，则 **Client** （客户端）编译配置将可用。 |
-| **Server**  (服务器）| 如存在 `<Game>Server.Target.cs` 文件，则 **Server** （服务器）编译配置将可用。|
-[/EXCERPT:winbuildconfig]
+[INCLUDE:#winbuildconfig]
 
 [/EXCERPT:Main]
 
+[COMMENT:none]
+[EXCERPT:winbuildconfig]
+每种构建配置都包含两个关键词。第一个表示引擎状态和游戏项目。例如，如果使用 **调试（Debug）** 配置进行编译，将能够
+调试游戏代码。第二个关键词表示构建目标。例如，如果想要在虚幻中打开项目，需要使用 **编辑器（Editor）** 目标关键词
+进行构建。
+
+|构建配置——状态 | 说明                                                                                                                                                                                                                                                                                                                                     |
+|-------------                |-------------                                                                                                                                                                                                                                                                                                                                    |
+| **调试（Debug）**           | 该配置包含用于调试的符号。该配置在调试配置中同时构建引擎和游戏代码。如果通过 **调试（Debug）** 配置编译项目并打算用虚幻编辑器打开项目，则必须使用“-debug”标志查看项目中反映出来的代码变化。|
+| **调试游戏（DebugGame）**   | 该配置按最优方式构建引擎，但游戏代码为可调试状态。此配置适用于调试游戏模块。|
+| **开发（Development）**     | 该配置等同于发布。虚幻编辑器默认采用 **开发（Development）** 配置。如采用 **开发（Development）** 配置编译项目，可在编辑器中看到项目代码的变化情况。|
+| **交付（Shipping）**        | 这是最佳性能配置，用于交付游戏。此配置剥离了控制台命令、统计数据和性能分析工具。|
+| **测试（Test）**            | 该配置就是启用了一些控制台命令、统计数据和性能分析工具后的 **交付（Shipping）** 配置。|
+
+|构建配置——目标 | 说明                                                                                                                                                                                                                                                                                                                                     |
+| ------------------          | ----------                                                                                                                                                                                                                                                                                                                                      |
+| **[空（empty）]**           | 该配置构建项目的独立可执行版本，但需要特定于平台的已烘焙内容。请参阅我们的[](Engine/Basics/Projects/Packaging)参考页面，以进一步了解烘焙内容。|
+| **编辑器（Editor）**        | 为了能够在虚幻编辑器中打开项目并看到反映出来的所有代码更改，项目必须以 **编辑器（Editor）** 配置构建。|  
+| **客户端（Client）**        | 如果您使用UE4联网功能处理多人项目，该目标将指定项目用作面向多玩家游戏的UE4客户端-服务器模型中的客户端。如果存在`<Game>Client.Target.cs`文件，则 **客户端（Client）** 构建配置将有效。|
+| **服务器（Server）**        | 如果您使用UE4联网功能处理多人项目，该目标将指定项目用作面向多玩家游戏的UE4客户端-服务器模型中的服务器。如果存在`<Game>Server.Target.cs`文件，则 **服务器（Server）** 构建配置将有效。|                                                                                                                                
+[/EXCERPT:winbuildconfig]
+[/COMMENT]
+
 [EXCERPT:VS]
-## 使用 Visual Studio 编译
+(#buildingwithvisualstudio)
+## 使用Visual Studio进行构建
 
-编译配置可在 Visual Studio 工具条中进行设置。
+(#settingthebuildconfiguration)
+### 设置构建配置
 
-### 设置编译配置
+构建配置可以在Visual Studio工具栏中设置。
 
-![Project - Configuration Menu](rocket_configuration_menu.png)
+(#project-configurationmenu)
+### 项目——配置菜单
+
+![项目——配置菜单](rocket_configuration_menu.png)
 [COMMENT:none]
 
-### Solution - Configuration Menu
+(#solution-configurationmenu)
+### 解决方案——配置菜单
 
-![UE4 Solution - Configuration Menu](configuration_menu.png)
+![UE4解决方案——配置菜单](configuration_menu.png)
 
 [/COMMENT]
+(#settingthesolutionplatform)
 ### 设置解决方案平台
 
-编译配置可在 Visual Studio 工具条中进行设置。
+解决方案平台可以在Visual Studio工具栏中设置。
 [COMMENT:none]
 
-虚幻引擎当前支持以下平台：
+UE4目前支持以下平台：
 
 * **Windows 64位**
 
-![Project - Platform Menu](rocket_platform_menu.png)
-![UE4 Solution - Platform Menu](platform_menu.png)
+![项目——平台菜单](rocket_platform_menu.png)
+![UE4解决方案——平台菜单](platform_menu.png)
 
 [/COMMENT]
-虚幻引擎 4 当前支持以下平台：
+UE4目前支持以下平台：
 
 * **Windows 32位**
 * **Windows 64位**
 
-在使用虚幻引擎 4 工作时，一般您都会使用 **Win64** 平台。这是生成项目文件时唯一默认包含的文件；
-[](Programming/UnrealBuildSystem/ProjectFileGenerator) 页面有在其它平台生成项目文件的指示。
+在使用虚幻引擎4时，您通常使用 **Win64** 平台。这是生成项目文件时默认包含的唯一一个平台；[](Programming/UnrealBuildSystem/ProjectFileGenerator)页面
+包含为其他平台生成项目文件的说明。
 
-### 编译项目
+(#buildingtheproject)
+### 构建项目
 
 [REGION:note]
-在继续前请确认您安装的是 Windows 平台的 Visual Studio 2013 专业版或 Visual Studio 2013 高级版。如果您使用的是 Mac，请确认您已经安装了 Xcode。
+在继续之前，请确保您运行的是适用于已安装的Windows桌面版的Visual Studio 2015或更高版本。如果使用Mac，请确保安装Xcode 8或更高版本。
 [/REGION]
 
 [COMMENT:none]
 
 
 [REGION:tip]
-当您在 Visual Studio 中编译时，您实际上仅仅在编译游戏项目，而不是 Unreal 编辑器。
+在Visual Studio中构建时，您仅编译游戏项目，而不是虚幻编辑器。  
 [/REGION]
 [REGION:tip]
-当您在 Visual Studio 中编译时，您编译的不仅是引擎，还有游戏项目。
+在Visual Studio中构建时，除了游戏项目，您还会编译引擎。  
 [/REGION]
 
 
 
-1.	设置 **Solution Configuration** （解决方案配置文件）为您想要编译的配置。在本示例中，它被设置为 **Development Editor** （开发编辑器）。请参照 [编译配置](#编译配置) 章节以获得每个可用配置的描述。
+1.	将 **解决方案配置（Solution Configuration）** 设置为您想要构建的配置。在该示例中，设置为了 **开发编辑器（Development Editor）**。请参考[构建配置](#BuildConfiguration)部分以了解每个可用配置的说明。
 
-	![Project - Set Configuration to Development](config_development_menu.png)
+	![项目——将配置设置为开发](config_development_menu.png)
 
-1. **右键点击** 您的游戏项目并选择 **Rebuild** （重新编译）以进行重新编译。
+1. **右键单击** 游戏项目并选择 **重新构建（Rebuild）** 来重新编译。
 
 	![](rebuild_project_rocket.png)
 
 [/COMMENT]
-1.	设置 **Solution Configuration** （解决方案配置文件）为您想要编译的配置。在本示例中，它被设置为 **Development** （开发）。请参照 [编译配置](#编译配置) 章节以获得每个可用配置的描述。
+1.	将 **解决方案配置（Solution Configuration）** 设置为您想要构建的配置。在该示例中，设置为了 **开发编辑器（Development Editor）**。请参考[构建配置](#BuildConfiguration)部分以了解每个可用配置的说明。
 
 	![](rocket_config_development_menu.png)
 
-1. **右键点击** 您的游戏项目并选择 **Rebuild** （重新编译）以进行重新编译。
+1. **右键单击** 游戏项目并选择 **重新构建（Rebuild）** 来重新编译。
 
 	![](rebuild_project_outside.png)
 
+现在，您可以通过编译好的项目[运行引擎](GettingStarted/RunningUnrealEngine)。  
 
+[INCLUDE:#MatchEXE]
 
-您现在可以使用编译项目来 [运行引擎](GettingStarted/RunningUnrealEngine)。
-
-
-[EXCERPT:MatchEXE]
-[REGION:note]
-在运行引擎时，很重要的一点是使用虚幻引擎可执行文件来匹配您重建项目所用的编译配置。例如，如果您使用 **DebugGame Uncooked** 编译配置来编译项目，您可以将游戏信息作为 `UE4-Win64-DebugGame.exe` 可执行文件的参数来运行。更多关于二进制命名规则的信息可以在[编译虚幻引擎](Programming/Development/BuildingUnrealEngine) 页面找到。
-[/REGION:note]
-
-[REGION:note]
-在运行 Unreal 时，如果您在任意 **Uncooked** （未烘焙）配置下重建您的项目，很重要的一点是添加`-game`标识，如果您在任意 **Debug** （调试）配置下重建您的项目，很重要的一点是添加`-debug`标识。
-[/REGION:note]
-[/EXCERPT:MatchEXE]
-
-### Visual Studio 已知问题
-
+(#visualstudioknownissues)
+### Visual Studio已知问题
 
 | 问题 | 解决方案 |
 | ----- | -------- |
-| "项目过期"信息总是出现 | 当项目已经是最新时，Visual Studio 仍认为该项目过期。您可以方便地通过勾选 **不再显示该对话框** 选框并按下 **No（不）** 按钮来禁止该信息。|
-| 当使用 Debug（调试） 配置时出现 **无调试信息** 窗口 | 产生的原因是 UE4editor.exe 是通过 _Development_ （开发）配置来进行编译的。尽管有这个警告，但当您使用 _Debug_（调试）配置来编译该游戏项目时仍然可以对其进行调试。您可以方便地通过勾选 **不再显示该对话框** 选框并按下 **Yes（是）** 按钮来禁止该信息。|
+| 总是出现“项目过期（Project is out of date）”消息 | Visual Studio认为项目过期，但项目其实是最新状态。您可以选中 **不再显示该消息（Do not show this dialog again）** 框并按 **否（No）** 来安全禁止该消息。|
+| 使用_调试（Debug）_配置时出现 **无调试信息（No Debugging Information）** 窗口 | 原因是UE4editor.exe是使用_开发（Development）_配置编译的。尽管在使用_调试（Debug）_配置进行编译时出现这个警告，游戏项目也仍然可以调试。您可以选中 **不再显示该消息（Do not show this dialog again）** 框并按 **是（Yes）** 来安全禁止该消息。|
 [/EXCERPT:VS]
 
-[EXCERPT:Xcode]
-## 使用 Xcode 来编译
+[COMMENT:none]
+[EXCERPT:MatchEXE]
+[REGION:note]
+在运行引擎时，必须使用与重新构建项目所用的构建配置相匹配的虚幻引擎可执行文件。例如，如果项目编译使用的是 **调试游戏未烘焙（DebugGame Uncooked）**
+构建配置，则在运行`UE4-Win64-DebugGame.exe`可执行文件时，应以游戏信息作为参数。有关二进制命名约定的更多信息，请参阅[构建虚幻引擎](Programming/Development/BuildingUnrealEngine)页面。
+[/REGION:note]
 
-[REGION:tip]
-当您使用 Xcode 来编译时，您实际上仅仅在编译游戏项目，而不是编辑器。
+[REGION:note]
+在运行虚幻时，如果是以任何 **未烘焙（Uncooked）** 配置重新构建项目的，则必须添加`-game`标志，如果是以 **调试（Debug）** 配置重新构建项目的，则必须添加`-debug`标志。  
+[/REGION:note]
+[/EXCERPT:MatchEXE]
+[/COMMENT]
+
+[EXCERPT:Xcode]
+
+(#buildingwithxcode)
+## 使用Xcode构建
+
+[REGION:note]
+在Xcode中构建时，您仅编译游戏项目，而不是编辑器。  
 [/REGION]
 
-**如需编译项目:**
+**要编译项目：**
 
-当您使用 Xcode 的 **Product > Build** （产品>编译）选项时，虚幻引擎 Xcode 项目被配置为 Debug（调试）的编译配置，当您使用 Xcode 的 **Product > Build For > Profiling** （产品>编译>分析器）选项时，虚幻引擎 Xcode 项目被配置为 Development（开发）的编译配置。您可以通过编辑目标计划来编辑此操作。
+如果您使用Xcode的 **产品（Product）>构建（Build）** 选项，则虚幻引擎Xcode项目配置为构建“调试（Debug）”配置；如果使用 **产品（Product）>构建用途（Build For）>分析（Profiling）**，则构建“开发（Development）”配置。您可以通过编辑目标方案来编辑该行为。
 
-您现在可以使用编译项目来 [运行引擎](GettingStarted/RunningUnrealEngine)。
+现在，您可以通过编译好的项目[运行引擎](GettingStarted/RunningUnrealEngine)。  
 
-[EXCERPT:MatchDMG]
-[REGION:note]
-在运行二进制编辑器时，如果您在任意 **Uncooked** （未烘焙）配置下重建您的项目，很重要的一点是添加 `-game` 标识，如果您在任意 **Debug** （调试）配置下重建您的项目，很重要的一点是添加 `-debug` 标识。
-[/REGION:note]	
-[/EXCERPT:MatchDMG]
+[INCLUDE:#MatchDMG]
 
-### Xcode 的已知问题
+(#xcodeknownissues)
+### Xcode已知问题
 
 
 | 问题 | 解决方案 |
 | ----- | -------- |
-| Xcode 未在断点处停止 | [INCLUDE:#XcodeDebug] |
+| Xcode不会在断点处停止 | [INCLUDE:#XcodeDebug] |
 
+[/EXCERPT:Xcode]
 [COMMENT:none]
 
 [EXCERPT:XcodeDebug]
-Xcode的LLDB调试器需要被配置，以正确处理虚幻引擎项目的断点。您需要在主文件夹中创建（或编辑，如果您已有该文件的话）.lldbinit文件，并添加以下行：
+Xcode的LLDB调试程序需要进行配置，才能正确处理虚幻引擎项目中的断点。您需要在主目录中创建.lldbinit文件（如果已经有了则需要编辑），并添加以下行：
 
 	settings set target.inline-breakpoint-strategy always
 [/EXCERPT:XcodeDebug]
 
-[/COMMENT]
-
-[/EXCERPT:Xcode]
-
-[COMMENT:none]
- The following was deprecated per LaurenR 29.7.15
-| **Uncooked**                | Projects built using configurations that have an **Uncooked** type should be opened in Unreal Editor with the "-game" flag.  This runs your game with uncooked content, in a new window, and is equivalent to **Play in > New Window at Default Player Start** in the editor.       | 
+[EXCERPT:MatchDMG]
+[REGION:note]
+在运行二进制编辑器时，如果是以任何 **未烘焙（Uncooked）** 配置重新构建项目的，则必须添加`-game`标志，如果是以 **调试（Debug）** 配置重新构建项目的，则必须添加`-debug`标志。  
+[/REGION:note]	
+[/EXCERPT:MatchDMG]
 
 [/COMMENT]

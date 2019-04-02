@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UObjectBaseUtility.cpp: Unreal UObject functions that only depend on UObjectBase
@@ -265,41 +265,6 @@ bool UObjectBaseUtility::RootPackageHasAnyFlags( uint32 CheckFlagMask ) const
 /***********************/
 
 /**
- * @return	true if this object is of the specified type.
- */
-#if UCLASS_FAST_ISA_COMPARE_WITH_OUTERWALK || UCLASS_FAST_ISA_IMPL == UCLASS_ISA_OUTERWALK
-	bool UObjectBaseUtility::IsA( const UClass* SomeBase ) const
-	{
-		UE_CLOG(!SomeBase, LogObj, Fatal, TEXT("IsA(NULL) cannot yield meaningful results"));
-
-		UClass* ThisClass = GetClass();
-
-		bool bOldResult = false;
-		for ( UClass* TempClass=ThisClass; TempClass; TempClass=TempClass->GetSuperClass() )
-		{
-			if ( TempClass == SomeBase )
-			{
-				bOldResult = true;
-				break;
-			}
-		}
-
-	#if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE
-		bool bNewResult = ThisClass->IsAUsingFastTree(*SomeBase);
-	#elif UCLASS_FAST_ISA_IMPL == UCLASS_ISA_CLASSARRAY
-		bool bNewResult = ThisClass->IsAUsingClassArray(*SomeBase);
-	#endif
-
-	#if UCLASS_FAST_ISA_COMPARE_WITH_OUTERWALK
-		ensureMsgf(bOldResult == bNewResult, TEXT("New cast code failed"));
-	#endif
-
-		return bOldResult;
-	}
-#endif
-
-
-/**
  * Finds the most-derived class which is a parent of both TestClass and this object's class.
  *
  * @param	TestClass	the class to find the common base for
@@ -419,6 +384,17 @@ bool UObjectBaseUtility::IsDefaultSubobject() const
 	return bIsInstanced;
 }
 
+
+UClass* GetParentNativeClass(UClass* Class)
+{
+	while (Class && !Class->IsNative())
+	{
+		Class = Class->GetSuperClass();
+	}
+
+	return Class;
+}
+
 #if STATS && USE_MALLOC_PROFILER
 void FScopeCycleCounterUObject::TrackObjectForMallocProfiling(const UObjectBaseUtility *InObject)
 {
@@ -532,3 +508,34 @@ void FScopeCycleCounterUObject::UntrackObjectForMallocProfiling()
 	}
 }
 #endif
+
+#if !STATS && !ENABLE_STATNAMEDEVENTS && USE_LIGHTWEIGHT_STATS_FOR_HITCH_DETECTION && USE_HITCH_DETECTION && USE_LIGHTWEIGHT_UOBJECT_STATS_FOR_HITCH_DETECTION
+#include "HAL/ThreadHeartBeat.h"
+#include "HAL/ThreadManager.h"
+
+void FScopeCycleCounterUObject::ReportHitch()
+{
+	float Delta = float(FGameThreadHitchHeartBeat::Get().GetCurrentTime() - FGameThreadHitchHeartBeat::Get().GetFrameStartTime()) * 1000.0f;
+	bool isGT = FPlatformTLS::GetCurrentThreadId() == GGameThreadId;
+	FString ThreadString(isGT ? TEXT("GameThread") : FThreadManager::Get().GetThreadName(FPlatformTLS::GetCurrentThreadId()));
+	FString StackString;
+	if (isGT)
+	{
+		if (StatObject->IsValidLowLevel() && StatObject->IsValidLowLevelFast())
+		{
+			StackString = GetFullNameSafe(StatObject);
+		}
+		else
+		{
+			StackString = FString(TEXT("[UObject was invalid]"));
+		}
+	}
+	else
+	{
+		StackString = FString(TEXT("[Not grabbing UObject name from other threads]"));
+	}
+	UE_LOG(LogCore, Error, TEXT("Leaving UObject scope on hitch (+%8.2fms) [%s] %s"), Delta, *ThreadString, *StackString);
+}
+#endif
+
+

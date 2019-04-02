@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "K2Node_Literal.h"
@@ -54,7 +54,8 @@ public:
 		if( !Term )
 		{
 			FString RefPropName = (TargetObject ? TargetObject->GetName() : TEXT("None")) + TEXT("_") + (Context.SourceGraph ? *Context.SourceGraph->GetName() : TEXT("None")) + TEXT("_RefProperty");
-			Term = new (Context.LevelActorReferences) FBPTerminal();
+			Term = new FBPTerminal();
+			Context.LevelActorReferences.Add(Term);
 			Term->CopyFromPin(Net, Context.NetNameMap->MakeValidName(Net));
 			Term->Name = RefPropName;
 			Term->PropertyDefault = TargetObjectName;

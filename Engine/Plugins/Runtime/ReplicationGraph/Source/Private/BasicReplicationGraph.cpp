@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // 
 #include "BasicReplicationGraph.h"
 #include "Net/UnrealNetwork.h"
@@ -112,7 +112,7 @@ void UBasicReplicationGraph::RouteRemoveNetworkActorToNodes(const FNewReplicated
 	}
 	else if (ActorInfo.Actor->bOnlyRelevantToOwner)
 	{
-		if (UReplicationGraphNode* Node = GetAlwaysRelevantNodeForConnection(ActorInfo.Actor->GetNetConnection()))
+		if (UReplicationGraphNode* Node = ActorInfo.Actor->GetNetConnection() ? GetAlwaysRelevantNodeForConnection(ActorInfo.Actor->GetNetConnection()) : nullptr)
 		{
 			Node->NotifyRemoveNetworkActor(ActorInfo);
 		}

@@ -10,7 +10,7 @@ Version: 4.8
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-	[예전 단계](Engine\OpenWorldTools\ProceduralFoliage\QuickStart\1 "%Engine\OpenWorldTools\ProceduralFoliage\QuickStart\1:title%") 
+	[이전 단계](Engine\OpenWorldTools\ProceduralFoliage\QuickStart\1 "%Engine\OpenWorldTools\ProceduralFoliage\QuickStart\1:title%") 
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -25,7 +25,7 @@ Version: 4.8
 
 
 다음 섹션에서는 프로시저럴 폴리지 스포너와 정상 작동하게끔 **폴리지 타입** 액터를 구성하는 법을 다뤄보겠습니다.
-예전 단계에서 만들었던 **PFT_00** 레벨 작업을 이어가겠습니다.
+이전 단계에서 만들었던 **PFT_00** 레벨 작업을 이어가겠습니다.
 
 1. 콘텐츠 브라우저에서 **프로시저럴 폴리지 스포너** 를 **더블클릭** 하여 열어줍니다.
 

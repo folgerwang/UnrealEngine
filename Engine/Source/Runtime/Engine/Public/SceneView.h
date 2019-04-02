@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -26,6 +26,15 @@ class FViewElementDrawer;
 class ISceneViewExtension;
 class FSceneViewFamily;
 class FVolumetricFogViewResources;
+class FIESLightProfileResource;
+
+// #dxr_todo: share this enum with ray tracing shader code via RayTracingDefinitions.ush
+enum class ERayTracingRenderMode
+{
+	Disabled			= 0,
+	PathTracing			= 1,
+	RayTracingDebug		= 2,
+};
 
 // Projection data for a FSceneView
 struct FSceneViewProjectionData
@@ -80,27 +89,6 @@ public:
 	}
 };
 
-enum EMonoscopicFarFieldMode
-{
-	// Disabled
-	Off = 0,
-
-	// Enabled
-	On = 1,
-
-	// Render only the stereo views up to the far field clipping plane
-	StereoOnly = 2,
-
-	// Render only the stereo views, but without the far field clipping plane enabled.
-	// This is useful for finding meshes that pass the culling test, but aren't 
-	// actually visible in the stereo view and should be explicitly set to far field.
-	// Like a sky box.
-	StereoNoClipping = 3,
-
-	// Render only the far field view behind the far field clipping plane
-	MonoOnly = 4,
-};
-
 /** Method used for primary screen percentage method. */
 enum class EPrimaryScreenPercentageMethod
 {
@@ -128,41 +116,6 @@ enum class ESecondaryScreenPercentageMethod
 	LowerPixelDensitySimulation,
 
 	// TODO: Same config as primary upscale?
-};
-
-// Parameters defining monoscopic far field VR rendering
-struct FMonoscopicFarFieldParameters
-{
-	// Culling plane in unreal units between stereo and mono far field
-	float CullingDistance;
-
-	// Culling plane distance for stereo views in NDC depth [0:1]
-	float StereoDepthClip;
-
-	// Culling plane distance for the mono far field view in NDC depth [0:1]
-	// This is the same the stereo depth clip, but with the overlap distance bias applied.
-	float MonoDepthClip;
-
-	// Stereo disparity lateral offset between a stereo view and the mono far field view at the culling plane distance for reprojection.
-	float LateralOffset;
-
-	// Distance to overlap the mono and stereo views in unreal units to handle precision artifacts
-	float OverlapDistance;
-
-	EMonoscopicFarFieldMode Mode;
-
-	bool bEnabled;
-
-	FMonoscopicFarFieldParameters() :
-		CullingDistance(0.0f),
-		StereoDepthClip(0.0f),
-		MonoDepthClip(0.0f), 
-		LateralOffset(0.0f),
-		OverlapDistance(50.0f),
-		Mode(EMonoscopicFarFieldMode::Off),
-		bEnabled(false)
-	{
-	}
 };
 
 // Construction parameters for a FSceneView
@@ -583,16 +536,16 @@ static const int MAX_MOBILE_SHADOWCASCADES = 4;
 /** The uniform shader parameters for a mobile directional light and its shadow.
   * One uniform buffer will be created for the first directional light in each lighting channel.
   */
-BEGIN_UNIFORM_BUFFER_STRUCT_WITH_CONSTRUCTOR(FMobileDirectionalLightShaderParameters, ENGINE_API)
-	UNIFORM_MEMBER_EX(FLinearColor, DirectionalLightColor, EShaderPrecisionModifier::Half)
-	UNIFORM_MEMBER_EX(FVector4, DirectionalLightDirectionAndShadowTransition, EShaderPrecisionModifier::Half)
-	UNIFORM_MEMBER_EX(FVector4, DirectionalLightShadowSize, EShaderPrecisionModifier::Half)
-	UNIFORM_MEMBER_EX(FVector4, DirectionalLightDistanceFadeMAD, EShaderPrecisionModifier::Half) // .zw is not used atm
-	UNIFORM_MEMBER_EX(FVector4, DirectionalLightShadowDistances, EShaderPrecisionModifier::Half)
-	UNIFORM_MEMBER_ARRAY(FMatrix, DirectionalLightScreenToShadow, [MAX_MOBILE_SHADOWCASCADES])
-	UNIFORM_MEMBER_TEXTURE(Texture2D, DirectionalLightShadowTexture)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, DirectionalLightShadowSampler)
-END_UNIFORM_BUFFER_STRUCT(FMobileDirectionalLightShaderParameters)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT_WITH_CONSTRUCTOR(FMobileDirectionalLightShaderParameters, ENGINE_API)
+	SHADER_PARAMETER_EX(FLinearColor, DirectionalLightColor, EShaderPrecisionModifier::Half)
+	SHADER_PARAMETER_EX(FVector4, DirectionalLightDirectionAndShadowTransition, EShaderPrecisionModifier::Half)
+	SHADER_PARAMETER_EX(FVector4, DirectionalLightShadowSize, EShaderPrecisionModifier::Half)
+	SHADER_PARAMETER_EX(FVector4, DirectionalLightDistanceFadeMAD, EShaderPrecisionModifier::Half) // .zw is not used atm
+	SHADER_PARAMETER_EX(FVector4, DirectionalLightShadowDistances, EShaderPrecisionModifier::Half)
+	SHADER_PARAMETER_ARRAY(FMatrix, DirectionalLightScreenToShadow, [MAX_MOBILE_SHADOWCASCADES])
+	SHADER_PARAMETER_TEXTURE(Texture2D, DirectionalLightShadowTexture)
+	SHADER_PARAMETER_SAMPLER(SamplerState, DirectionalLightShadowSampler)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -611,6 +564,7 @@ enum ETranslucencyVolumeCascade
 #define VIEW_UNIFORM_BUFFER_MEMBER_TABLE \
 	VIEW_UNIFORM_BUFFER_MEMBER(FMatrix, TranslatedWorldToClip) \
 	VIEW_UNIFORM_BUFFER_MEMBER(FMatrix, WorldToClip) \
+	VIEW_UNIFORM_BUFFER_MEMBER(FMatrix, ClipToWorld)  \
 	VIEW_UNIFORM_BUFFER_MEMBER(FMatrix, TranslatedWorldToView) \
 	VIEW_UNIFORM_BUFFER_MEMBER(FMatrix, ViewToTranslatedWorld) \
 	VIEW_UNIFORM_BUFFER_MEMBER(FMatrix, TranslatedWorldToCameraView) \
@@ -673,11 +627,13 @@ enum ETranslucencyVolumeCascade
 	VIEW_UNIFORM_BUFFER_MEMBER(float, AdaptiveTessellationFactor) \
 	VIEW_UNIFORM_BUFFER_MEMBER(float, GameTime) \
 	VIEW_UNIFORM_BUFFER_MEMBER(float, RealTime) \
+	VIEW_UNIFORM_BUFFER_MEMBER(float, DeltaTime) \
 	VIEW_UNIFORM_BUFFER_MEMBER(float, MaterialTextureMipBias) \
 	VIEW_UNIFORM_BUFFER_MEMBER(float, MaterialTextureDerivativeMultiply) \
 	VIEW_UNIFORM_BUFFER_MEMBER(uint32, Random) \
 	VIEW_UNIFORM_BUFFER_MEMBER(uint32, FrameNumber) \
 	VIEW_UNIFORM_BUFFER_MEMBER(uint32, StateFrameIndexMod8) \
+	VIEW_UNIFORM_BUFFER_MEMBER(uint32, StateFrameIndex) \
 	VIEW_UNIFORM_BUFFER_MEMBER_EX(float, CameraCut, EShaderPrecisionModifier::Half) \
 	VIEW_UNIFORM_BUFFER_MEMBER_EX(float, UnlitViewmodeMask, EShaderPrecisionModifier::Half) \
 	VIEW_UNIFORM_BUFFER_MEMBER_EX(FLinearColor, DirectionalLightColor, EShaderPrecisionModifier::Half) \
@@ -744,82 +700,86 @@ enum ETranslucencyVolumeCascade
 	VIEW_UNIFORM_BUFFER_MEMBER(FVector, VolumetricLightmapIndirectionTextureSize) \
 	VIEW_UNIFORM_BUFFER_MEMBER(float, VolumetricLightmapBrickSize) \
 	VIEW_UNIFORM_BUFFER_MEMBER(FVector, VolumetricLightmapBrickTexelSize) \
-	VIEW_UNIFORM_BUFFER_MEMBER(float, StereoIPD)
+	VIEW_UNIFORM_BUFFER_MEMBER(float, StereoIPD) \
+	VIEW_UNIFORM_BUFFER_MEMBER(float, IndirectLightingCacheShowFlag) \
+	VIEW_UNIFORM_BUFFER_MEMBER(float, EyeToPixelSpreadAngle)
 
 #define VIEW_UNIFORM_BUFFER_MEMBER(type, identifier) \
-	UNIFORM_MEMBER(type, identifier)
+	SHADER_PARAMETER(type, identifier)
 
 #define VIEW_UNIFORM_BUFFER_MEMBER_EX(type, identifier, precision) \
-	UNIFORM_MEMBER_EX(type, identifier, precision)
+	SHADER_PARAMETER_EX(type, identifier, precision)
 
 #define VIEW_UNIFORM_BUFFER_MEMBER_ARRAY(type, identifier, dimension) \
-	UNIFORM_MEMBER_ARRAY(type, identifier, dimension)
+	SHADER_PARAMETER_ARRAY(type, identifier, dimension)
 
 /** The uniform shader parameters associated with a view. */
-BEGIN_UNIFORM_BUFFER_STRUCT_WITH_CONSTRUCTOR(FViewUniformShaderParameters, ENGINE_API)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT_WITH_CONSTRUCTOR(FViewUniformShaderParameters, ENGINE_API)
 
 	VIEW_UNIFORM_BUFFER_MEMBER_TABLE
 
 	// Same as Wrap_WorldGroupSettings and Clamp_WorldGroupSettings, but with mipbias=MaterialTextureMipBias.
-	UNIFORM_MEMBER_SAMPLER(SamplerState, MaterialTextureBilinearWrapedSampler)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, MaterialTextureBilinearClampedSampler)
+	SHADER_PARAMETER_SAMPLER(SamplerState, MaterialTextureBilinearWrapedSampler)
+	SHADER_PARAMETER_SAMPLER(SamplerState, MaterialTextureBilinearClampedSampler)
 
-	UNIFORM_MEMBER_TEXTURE(Texture3D<uint4>, VolumetricLightmapIndirectionTexture) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, VolumetricLightmapBrickAmbientVector) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients0) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients1) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients2) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients3) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients4) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients5) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, SkyBentNormalBrickTexture) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, DirectionalLightShadowingBrickTexture) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D<uint4>, VolumetricLightmapIndirectionTexture) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, VolumetricLightmapBrickAmbientVector) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients0) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients1) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients2) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients3) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients4) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, VolumetricLightmapBrickSHCoefficients5) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, SkyBentNormalBrickTexture) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, DirectionalLightShadowingBrickTexture) // FPrecomputedVolumetricLightmapLightingPolicy
 
-	UNIFORM_MEMBER_SAMPLER(SamplerState, VolumetricLightmapBrickAmbientVectorSampler) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler0) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler1) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler2) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler3) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler4) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler5) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, SkyBentNormalTextureSampler) // FPrecomputedVolumetricLightmapLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, DirectionalLightShadowingTextureSampler) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, VolumetricLightmapBrickAmbientVectorSampler) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler0) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler1) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler2) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler3) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler4) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, VolumetricLightmapTextureSampler5) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, SkyBentNormalTextureSampler) // FPrecomputedVolumetricLightmapLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, DirectionalLightShadowingTextureSampler) // FPrecomputedVolumetricLightmapLightingPolicy
 
-	UNIFORM_MEMBER_TEXTURE(Texture3D, GlobalDistanceFieldTexture0)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, GlobalDistanceFieldSampler0)
-	UNIFORM_MEMBER_TEXTURE(Texture3D, GlobalDistanceFieldTexture1)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, GlobalDistanceFieldSampler1)
-	UNIFORM_MEMBER_TEXTURE(Texture3D, GlobalDistanceFieldTexture2)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, GlobalDistanceFieldSampler2)
-	UNIFORM_MEMBER_TEXTURE(Texture3D, GlobalDistanceFieldTexture3)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, GlobalDistanceFieldSampler3)
+	SHADER_PARAMETER_TEXTURE(Texture3D, GlobalDistanceFieldTexture0)
+	SHADER_PARAMETER_SAMPLER(SamplerState, GlobalDistanceFieldSampler0)
+	SHADER_PARAMETER_TEXTURE(Texture3D, GlobalDistanceFieldTexture1)
+	SHADER_PARAMETER_SAMPLER(SamplerState, GlobalDistanceFieldSampler1)
+	SHADER_PARAMETER_TEXTURE(Texture3D, GlobalDistanceFieldTexture2)
+	SHADER_PARAMETER_SAMPLER(SamplerState, GlobalDistanceFieldSampler2)
+	SHADER_PARAMETER_TEXTURE(Texture3D, GlobalDistanceFieldTexture3)
+	SHADER_PARAMETER_SAMPLER(SamplerState, GlobalDistanceFieldSampler3)
 
-	UNIFORM_MEMBER_TEXTURE(Texture2D, AtmosphereTransmittanceTexture)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, AtmosphereTransmittanceTextureSampler)
-	UNIFORM_MEMBER_TEXTURE(Texture2D, AtmosphereIrradianceTexture)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, AtmosphereIrradianceTextureSampler)
-	UNIFORM_MEMBER_TEXTURE(Texture3D, AtmosphereInscatterTexture)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, AtmosphereInscatterTextureSampler)
-	UNIFORM_MEMBER_TEXTURE(Texture2D, PerlinNoiseGradientTexture)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, PerlinNoiseGradientTextureSampler)
-	UNIFORM_MEMBER_TEXTURE(Texture3D, PerlinNoise3DTexture)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, PerlinNoise3DTextureSampler)
-	UNIFORM_MEMBER_TEXTURE(Texture2D<uint>, SobolSamplingTexture)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, SharedPointWrappedSampler)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, SharedPointClampedSampler)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, SharedBilinearWrappedSampler)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, SharedBilinearClampedSampler)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, SharedTrilinearWrappedSampler)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, SharedTrilinearClampedSampler)
-	UNIFORM_MEMBER_TEXTURE(Texture2D, PreIntegratedBRDF)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, PreIntegratedBRDFSampler)
+	SHADER_PARAMETER_TEXTURE(Texture2D, AtmosphereTransmittanceTexture)
+	SHADER_PARAMETER_SAMPLER(SamplerState, AtmosphereTransmittanceTextureSampler)
+	SHADER_PARAMETER_TEXTURE(Texture2D, AtmosphereIrradianceTexture)
+	SHADER_PARAMETER_SAMPLER(SamplerState, AtmosphereIrradianceTextureSampler)
+	SHADER_PARAMETER_TEXTURE(Texture3D, AtmosphereInscatterTexture)
+	SHADER_PARAMETER_SAMPLER(SamplerState, AtmosphereInscatterTextureSampler)
+	SHADER_PARAMETER_TEXTURE(Texture2D, PerlinNoiseGradientTexture)
+	SHADER_PARAMETER_SAMPLER(SamplerState, PerlinNoiseGradientTextureSampler)
+	SHADER_PARAMETER_TEXTURE(Texture3D, PerlinNoise3DTexture)
+	SHADER_PARAMETER_SAMPLER(SamplerState, PerlinNoise3DTextureSampler)
+	SHADER_PARAMETER_TEXTURE(Texture2D<uint>, SobolSamplingTexture)
+	SHADER_PARAMETER_SAMPLER(SamplerState, SharedPointWrappedSampler)
+	SHADER_PARAMETER_SAMPLER(SamplerState, SharedPointClampedSampler)
+	SHADER_PARAMETER_SAMPLER(SamplerState, SharedBilinearWrappedSampler)
+	SHADER_PARAMETER_SAMPLER(SamplerState, SharedBilinearClampedSampler)
+	SHADER_PARAMETER_SAMPLER(SamplerState, SharedTrilinearWrappedSampler)
+	SHADER_PARAMETER_SAMPLER(SamplerState, SharedTrilinearClampedSampler)
+	SHADER_PARAMETER_TEXTURE(Texture2D, PreIntegratedBRDF)
+	SHADER_PARAMETER_SAMPLER(SamplerState, PreIntegratedBRDFSampler)
+	SHADER_PARAMETER_SRV(StructuredBuffer<float4>, PrimitiveSceneData)
+	SHADER_PARAMETER_SRV(StructuredBuffer<float4>, LightmapSceneData)
 
-END_UNIFORM_BUFFER_STRUCT(FViewUniformShaderParameters)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 /** Copy of the view uniform shader parameters associated with a view for instanced stereo. */
-BEGIN_UNIFORM_BUFFER_STRUCT_WITH_CONSTRUCTOR(FInstancedViewUniformShaderParameters, ENGINE_API)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT_WITH_CONSTRUCTOR(FInstancedViewUniformShaderParameters, ENGINE_API)
 	VIEW_UNIFORM_BUFFER_MEMBER_TABLE
-END_UNIFORM_BUFFER_STRUCT(FInstancedViewUniformShaderParameters)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 #undef VIEW_UNIFORM_BUFFER_MEMBER_TABLE
 #undef VIEW_UNIFORM_BUFFER_MEMBER
@@ -1074,6 +1034,10 @@ public:
 	/** Feature level for this scene */
 	const ERHIFeatureLevel::Type FeatureLevel;
 
+#if RHI_RAYTRACING
+	FIESLightProfileResource* IESLightProfileResource;
+#endif
+
 protected:
 	friend class FSceneRenderer;
 
@@ -1193,7 +1157,7 @@ public:
 	 */
 	uint32 GetOcclusionFrameCounter() const;
 
-  void UpdateProjectionMatrix(const FMatrix& NewProjectionMatrix);
+	void UpdateProjectionMatrix(const FMatrix& NewProjectionMatrix);
 
 	/** Allow things like HMD displays to update the view matrix at the last minute, to minimize perceived latency */
 	void UpdateViewMatrix();
@@ -1245,6 +1209,16 @@ public:
 		const FIntRect& InEffectiveViewRect,
 		const FViewMatrices& InViewMatrices,
 		const FViewMatrices& InPrevViewMatrices) const;
+
+#if RHI_RAYTRACING
+	/** Setup ray tracing based rendering */
+	void SetupRayTracedRendering();
+
+	ERayTracingRenderMode RayTracingRenderMode = ERayTracingRenderMode::Disabled;
+
+	/** Current ray tracing debug visualization mode */
+	FName CurrentRayTracingDebugVisualizationMode;
+#endif
 
 	/** Will return custom data associated with the specified primitive index.	*/
 	FORCEINLINE void* GetCustomData(int32 InPrimitiveSceneInfoIndex) const { return PrimitivesCustomData.IsValidIndex(InPrimitiveSceneInfoIndex) ? PrimitivesCustomData[InPrimitiveSceneInfoIndex] : nullptr; }
@@ -1377,7 +1351,6 @@ public:
 		,	DeltaWorldTime(0.0f)
 		,	CurrentRealTime(0.0f)
 		,	GammaCorrection(1.0f)
-		,	MonoFarFieldCullingDistance(0.0f)
 		,	bRealtimeUpdate(false)
 		,	bDeferClear(false)
 		,	bResolveScene(true)			
@@ -1393,7 +1366,6 @@ public:
 					DeltaWorldTime = World->GetDeltaSeconds();
 					CurrentRealTime = World->GetRealTimeSeconds();
 					bTimesSet = true;
-					MonoFarFieldCullingDistance = World->GetMonoFarFieldCullingDistance();
 				}
 			}
 		}
@@ -1422,9 +1394,6 @@ public:
 
 		/** Gamma correction used when rendering this family. Default is 1.0 */
 		float GammaCorrection;
-
-		/** Distance from the camera to set the mono far field culling plane in unreal units. */
-		float MonoFarFieldCullingDistance;
 
 		/** Indicates whether the view family is updated in real-time. */
 		uint32 bRealtimeUpdate:1;
@@ -1471,9 +1440,6 @@ public:
 
 	/** The new show flags for the views (meant to replace the old system). */
 	FEngineShowFlags EngineShowFlags;
-
-	/** Monoscopic rendering parameters for VR */
-	FMonoscopicFarFieldParameters MonoParameters;
 
 	/** The current world time. */
 	float CurrentWorldTime;
@@ -1583,11 +1549,6 @@ public:
 
 	/** Returns whether the screen percentage show flag is supported or not for this view family. */
 	bool SupportsScreenPercentage() const;
-
-	const bool IsMonoscopicFarFieldEnabled() const
-	{
-		return MonoParameters.bEnabled && MonoParameters.Mode != EMonoscopicFarFieldMode::Off;
-	}
 
 	bool AllowTranslucencyAfterDOF() const;
 

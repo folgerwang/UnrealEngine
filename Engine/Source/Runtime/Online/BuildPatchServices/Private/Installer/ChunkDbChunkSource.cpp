@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Installer/ChunkDbChunkSource.h"
 #include "Misc/Guid.h"
@@ -307,22 +307,16 @@ namespace BuildPatchServices
 					PlacedInStore.Remove(RepeatRequirement);
 				}
 				// Select chunks that are contained in our chunk db files.
-				TFunction<bool(const FGuid&)> SelectPredicate = [this](const FGuid& ChunkId)
-				{
-					return AvailableChunks.Contains(ChunkId);
-				};
-				// Clamp load count between min and max, balancing on store slack.
-				int32 StoreSlack = ChunkStore->GetSlack();
-				int32 BatchFetchCount = FMath::Clamp(StoreSlack, Configuration.PreFetchMinimum, Configuration.PreFetchMaximum);
-				TArray<FGuid> BatchLoadChunks = ChunkReferenceTracker->GetNextReferences(BatchFetchCount, SelectPredicate);
+				TFunction<bool(const FGuid&)> SelectPredicate = [this](const FGuid& ChunkId) { return AvailableChunks.Contains(ChunkId); };
+				// Grab all the chunks relevant to this source to fill the store.
+				int32 SearchLength = FMath::Max(ChunkStore->GetSize(), Configuration.PreFetchMinimum);
+				TArray<FGuid> BatchLoadChunks = ChunkReferenceTracker->SelectFromNextReferences(SearchLength, SelectPredicate);
 				// Remove already loaded chunks from our todo list.
 				// We only grab more chunks as they come into scope.
-				TFunction<bool(const FGuid&)> RemovePredicate = [this](const FGuid& ChunkId)
-				{
-					return PlacedInStore.Contains(ChunkId);
-				};
+				TFunction<bool(const FGuid&)> RemovePredicate = [this](const FGuid& ChunkId) { return PlacedInStore.Contains(ChunkId); };
 				BatchLoadChunks.RemoveAll(RemovePredicate);
-
+				// Clamp to configured max.
+				BatchLoadChunks.SetNum(FMath::Min(BatchLoadChunks.Num(), Configuration.PreFetchMaximum), false);
 				// Load this batch.
 				ChunkDbChunkSourceStat->OnBatchStarted(BatchLoadChunks);
 				for (int32 ChunkIdx = 0; ChunkIdx < BatchLoadChunks.Num() && !bShouldAbort; ++ChunkIdx)

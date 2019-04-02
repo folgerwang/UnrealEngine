@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "VREditorDockableWindow.h"
 #include "UObject/ConstructorHelpers.h"
@@ -60,7 +60,6 @@ void AVREditorDockableWindow::PostActorCreated()
 		DockButtonMeshComponent->RegisterComponent();
 		DockButtonMeshComponent->SetStaticMesh(DockingMesh);
 		DockButtonMeshComponent->SetMobility( EComponentMobility::Movable );
-
 
 		DockButtonMeshComponent->SetGenerateOverlapEvents(false);
 		DockButtonMeshComponent->SetCanEverAffectNavigation( false );
@@ -337,15 +336,15 @@ void AVREditorDockableWindow::OnPressed( UViewportInteractor* Interactor, const 
 {
 	bOutResultedInDrag = false;
 
-	UVREditorInteractor* VRInteractor = Cast<UVREditorInteractor>( Interactor );
-	if( VRInteractor != nullptr )
+	UVREditorInteractor* VREditorInteractor = Cast<UVREditorInteractor>( Interactor );
+	if( VREditorInteractor != nullptr )
 	{
 		if( InHitResult.Component == GetCloseButtonMeshComponent() )
 		{
 			// Close the window
 			const bool bShouldShow = false;
 			const bool bSpawnInFront = false;
-			GetOwner().ShowEditorUIPanel(this, VRInteractor, bShouldShow, bSpawnInFront);
+			GetOwner().ShowEditorUIPanel(this, VREditorInteractor, bShouldShow, bSpawnInFront);
 		}
 		if (InHitResult.Component == DockButtonMeshComponent)
 		{
@@ -363,7 +362,7 @@ void AVREditorDockableWindow::OnPressed( UViewportInteractor* Interactor, const 
 		{
 			bOutResultedInDrag = true;
 			SetDockSelectDistance((InHitResult.TraceStart - InHitResult.Location ).Size());
-			GetOwner().StartDraggingDockUI(this, VRInteractor, DockSelectDistance);
+			GetOwner().StartDraggingDockUI(this, VREditorInteractor, DockSelectDistance);
 		}
 	}
 }
@@ -455,15 +454,15 @@ void AVREditorDockableWindow::SetDockButtonColor(const FLinearColor& LinearColor
 /******************	******************************************************/
 void UDockableWindowDragOperation::ExecuteDrag( UViewportInteractor* Interactor, IViewportInteractableInterface* Interactable  )
 {
-	UVREditorInteractor* VRInteractor = Cast<UVREditorInteractor>( Interactor );
+	UVREditorInteractor* VREditorInteractor = Cast<UVREditorInteractor>( Interactor );
 	AVREditorDockableWindow* DockableWindow = Cast<AVREditorDockableWindow>( Interactable );
-	if ( VRInteractor && DockableWindow )
+	if ( VREditorInteractor && DockableWindow )
 	{
 		UVREditorUISystem& UISystem = DockableWindow->GetOwner();
 
 		if (UISystem.CanScalePanel())
 		{
-			float NewUIScale = DockableWindow->GetScale() + VRInteractor->GetSlideDelta();
+			float NewUIScale = DockableWindow->GetScale() + VREditorInteractor->GetSlideDelta();
 			if (NewUIScale <= UISystem.GetMinDockWindowSize())
 			{
 				NewUIScale = UISystem.GetMinDockWindowSize();
@@ -475,7 +474,7 @@ void UDockableWindowDragOperation::ExecuteDrag( UViewportInteractor* Interactor,
 			DockableWindow->SetScale(NewUIScale);
 		}
 
-		const FTransform UIToWorld = UISystem.MakeDockableUITransform( DockableWindow, VRInteractor, DockableWindow->GetDockSelectDistance() );
+		const FTransform UIToWorld = UISystem.MakeDockableUITransform( DockableWindow, VREditorInteractor, DockableWindow->GetDockSelectDistance() );
 		FTransform SmoothedUIToWorld = UIToWorld;
 		if( LastUIToWorld.IsSet() )
 		{
@@ -483,7 +482,7 @@ void UDockableWindowDragOperation::ExecuteDrag( UViewportInteractor* Interactor,
 		}
 
 		// Update interactor hover location while dragging the interactor
-		const FTransform LaserImpactToWorld = UISystem.MakeDockableUITransformOnLaser( DockableWindow, VRInteractor, DockableWindow->GetDockSelectDistance() );
+		const FTransform LaserImpactToWorld = UISystem.MakeDockableUITransformOnLaser( DockableWindow, VREditorInteractor, DockableWindow->GetDockSelectDistance() );
 		FTransform SmoothedLaserImpactToWorld = LaserImpactToWorld;
 		if( LastLaserImpactToWorld.IsSet() )
 		{

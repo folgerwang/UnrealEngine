@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,7 @@
 #include "Misc/Char.h"
 #include "GenericPlatform/GenericPlatformStricmp.h"
 #include "GenericPlatform/GenericPlatformString.h"
+#include "HAL/PlatformCrt.h"
 
 #if PLATFORM_APPLE || PLATFORM_UNIX || PLATFORM_HTML5 || PLATFORM_PS4 || PLATFORM_SWITCH || PLATFORM_ANDROID
 
@@ -25,39 +26,6 @@ struct FGenericWidePlatformString : public FGenericPlatformString
 	}
 
 public:
-	/**
-	 * Compares two strings case-insensitive.
-	 *
-	 * @param String1 First string to compare.
-	 * @param String2 Second string to compare.
-	 *
-	 * @returns Zero if both strings are equal. Greater than zero if first
-	 *          string is greater than the second one. Less than zero
-	 *          otherwise.
-	 */
-	template <typename CharType1, typename CharType2>
-	static inline int32 Stricmp(const CharType1* String1, const CharType2* String2)
-	{
-		return FGenericPlatformStricmp::Stricmp(String1, String2);
-	}
-
-	template <typename CharType>
-	static inline int32 Strnicmp( const CharType* String1, const CharType* String2, SIZE_T Count )
-	{
-		// walk the strings, comparing them case insensitively, up to a max size
-		for (; (*String1 || *String2) && Count > 0; String1++, String2++, Count--)
-		{
-			if(*String1 != *String2)
-			{
-				CharType Char1 = TChar<CharType>::ToUpper(*String1), Char2 = TChar<CharType>::ToUpper(*String2);
-				if (Char1 != Char2)
-				{
-					return Char1 - Char2;
-				}
-			}
-		}
-		return 0;
-	}
 
 	/**
 	 * Unicode implementation
@@ -184,7 +152,14 @@ public:
 	
 	
 	static WIDECHAR* Strtok( WIDECHAR* StrToken, const WIDECHAR* Delim, WIDECHAR** Context );
-	static int32 GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, int32 Count, const WIDECHAR*& Fmt, va_list ArgPtr );
+
+	UE_DEPRECATED(4.22, "GetVarArgs with DestSize and Count arguments has been deprecated - only DestSize should be passed")
+	static int32 GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, int32 Count, const WIDECHAR*& Fmt, va_list ArgPtr )
+	{
+		return GetVarArgs(Dest, DestSize, Fmt, ArgPtr);
+	}
+
+	static CORE_API int32 GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, const WIDECHAR*& Fmt, va_list ArgPtr );
 
 	/**
 	 * Ansi implementation
@@ -276,11 +251,17 @@ public:
 		return strtok(StrToken, Delim);
 	}
 
+	UE_DEPRECATED(4.22, "GetVarArgs with DestSize and Count arguments has been deprecated - only DestSize should be passed")
 	static int32 GetVarArgs( ANSICHAR* Dest, SIZE_T DestSize, int32 Count, const ANSICHAR*& Fmt, va_list ArgPtr )
 	{
-		int32 Result = vsnprintf(Dest,Count,Fmt,ArgPtr);
+		return GetVarArgs(Dest, DestSize, Fmt, ArgPtr);
+	}
+
+	static int32 GetVarArgs( ANSICHAR* Dest, SIZE_T DestSize, const ANSICHAR*& Fmt, va_list ArgPtr )
+	{
+		int32 Result = vsnprintf(Dest, DestSize, Fmt, ArgPtr);
 		va_end( ArgPtr );
-		return Result;
+		return (Result != -1 && Result < (int32)DestSize) ? Result : -1;
 	}
 
 	/**

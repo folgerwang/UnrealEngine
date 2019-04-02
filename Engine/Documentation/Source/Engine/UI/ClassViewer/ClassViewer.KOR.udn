@@ -57,15 +57,15 @@ topic-imge:Engine/UI/ClassViewer_topic.png
 ![Item Interface](ItemInterface.png)(type:png)
 	
 1. [클래스 이름](#클래스이름)
-1. [맥락 메뉴](#맥락메뉴)
+1. [컨텍스트 메뉴](#컨텍스트메뉴)
 
 
 #### 클래스 이름
 클래스의 이름입니다. 파랑은 블루프린트 클래스, 하양은 블루프린트 이외의 클래스입니다.
 	
 
-#### 맥락 메뉴
-맥락 메뉴는 ![Context Menu Button](ContextMenuButton.png)(type:png) 버튼을 클릭하거나 블루프린트 또는 블루프린트 베이스 클래스에 우클릭하면 열립니다. 반드시 클래스가 로드되어 있어야 (우클릭) 맥락 메뉴를 불러오기 위한 ![Context Menu Button](ContextMenuButton.png)(type:png) 버튼이 표시됩니다. 선택된 클래스 유형에 따라 맥락 메뉴에서 사용가능한 옵션은 다음과 같습니다:
+#### 컨텍스트 메뉴
+컨텍스트 메뉴는 ![Context Menu Button](ContextMenuButton.png)(type:png) 버튼을 클릭하거나 블루프린트 또는 블루프린트 베이스 클래스에 우클릭하면 열립니다. 반드시 클래스가 로드되어 있어야 (우클릭) 컨텍스트 메뉴를 불러오기 위한 ![Context Menu Button](ContextMenuButton.png)(type:png) 버튼이 표시됩니다. 선택된 클래스 유형에 따라 컨텍스트 메뉴에서 사용가능한 옵션은 다음과 같습니다:
 
 |클래스 유형|옵션|설명|
 |----------|-------|-----------|

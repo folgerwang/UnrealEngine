@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /**
  * Base class for tracking transactions for undo/redo.
@@ -13,7 +13,6 @@
 #include "Misc/ITransaction.h"
 #include "Serialization/ArchiveSerializedPropertyChain.h"
 #include "Transactor.generated.h"
-
 
 /*-----------------------------------------------------------------------------
 	FTransaction.
@@ -139,6 +138,7 @@ protected:
 				ObjectName = InObject->GetFName();
 				ObjectPathName = *InObject->GetPathName();
 				ObjectOuterPathName = InObject->GetOuter() ? FName(*InObject->GetOuter()->GetPathName()) : FName();
+				ObjectClassPathName = FName(*InObject->GetClass()->GetPathName());
 				bIsPendingKill = InObject->IsPendingKill();
 				ObjectAnnotation = InObject->FindOrCreateTransactionAnnotation();
 			}
@@ -148,6 +148,7 @@ protected:
 				ObjectName = FName();
 				ObjectPathName = FName();
 				ObjectOuterPathName = FName();
+				ObjectClassPathName = FName();
 				bIsPendingKill = false;
 				Data.Reset();
 				ReferencedObjects.Reset();
@@ -163,6 +164,7 @@ protected:
 				Exchange(ObjectName, Other.ObjectName);
 				Exchange(ObjectPathName, Other.ObjectPathName);
 				Exchange(ObjectOuterPathName, Other.ObjectOuterPathName);
+				Exchange(ObjectClassPathName, Other.ObjectClassPathName);
 				Exchange(bIsPendingKill, Other.bIsPendingKill);
 				Exchange(Data, Other.Data);
 				Exchange(ReferencedObjects, Other.ReferencedObjects);
@@ -179,6 +181,8 @@ protected:
 			FName ObjectPathName;
 			/** The outer path name of the object when it was serialized */
 			FName ObjectOuterPathName;
+			/** The path name of the object's class. */
+			FName ObjectClassPathName;
 			/** The pending kill state of the object when it was serialized */
 			bool bIsPendingKill;
 			/** The data stream used to serialize/deserialize record */
@@ -255,7 +259,7 @@ protected:
 		void Load( FTransaction* Owner );
 		void Finalize( FTransaction* Owner, TSharedPtr<ITransactionObjectAnnotation>& OutFinalizedObjectAnnotation );
 		void Snapshot( FTransaction* Owner );
-		static void Diff( FTransaction* Owner, const FSerializedObject& OldSerializedObect, const FSerializedObject& NewSerializedObject, FTransactionObjectDeltaChange& OutDeltaChange );
+		static void Diff( const FTransaction* Owner, const FSerializedObject& OldSerializedObect, const FSerializedObject& NewSerializedObject, FTransactionObjectDeltaChange& OutDeltaChange );
 
 		/** Used by GC to collect referenced objects. */
 		void AddReferencedObjects( FReferenceCollector& Collector );
@@ -515,6 +519,7 @@ protected:
 
 	/** Objects that will be changed directly by the transaction, empty when not transacting */
 	TMap<UObject*, FChangedObjectValue> ChangedObjects;
+
 public:
 	// Constructor.
 	FTransaction(  const TCHAR* InContext=nullptr, const FText& InTitle=FText(), bool bInFlip=false )
@@ -631,6 +636,11 @@ public:
 	 */
 	void DumpObjectMap(FOutputDevice& Ar) const;
 
+	/**
+	 * Create a map that holds information about objects of a given transaction.
+	 */
+	FTransactionDiff GenerateDiff() const;
+
 	// Transaction friends.
 	friend FArchive& operator<<( FArchive& Ar, FTransaction::FObjectRecord& R );
 
@@ -709,6 +719,15 @@ class UNREALED_API UTransactor : public UObject
 	 * @return Queue length.
 	 */
 	virtual int32 GetQueueLength( ) const PURE_VIRTUAL(UTransactor::GetQueueLength,return 0;);
+
+	/**
+	 * Gets the transaction queue index from its TransactionId.
+	 *
+	 * @param TransactionId - The id of transaction in the queue.
+	 *
+	 * @return The queue index or INDEX_NONE if not found.
+	 */
+	virtual int32 FindTransactionIndex(const FGuid& TransactionId ) const PURE_VIRTUAL(UTransactor::FindTransactionIndex, return INDEX_NONE;);
 
 	/**
 	 * Gets the transaction at the specified queue index.

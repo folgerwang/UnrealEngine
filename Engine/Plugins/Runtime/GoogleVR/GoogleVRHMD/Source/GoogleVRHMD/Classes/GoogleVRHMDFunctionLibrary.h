@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -234,4 +234,11 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category = "GoogleVRHMD", meta = (Keywords = "Cardboard AVR GVR"))
 	static bool GetRecenterTransform(FQuat& RecenterOrientation, FVector& RecenterPosition);
+
+	/**
+	* Sets whether or not the Recenter event only recenters the Controller.
+	* @param isRecenterControllerOnly, true will only recenter the Controller
+	*/
+	UFUNCTION(BlueprintCallable, Category = "GoogleVRHMD", meta = (Keywords = "Cardboard AVR GVR"))
+	static void SetRecenterControllerOnly(bool bIsRecenterControllerOnly);
 };

@@ -1,0 +1,383 @@
+﻿INTSourceChangelist:4385465
+Availability: Public
+Crumbs: 
+Title: 使用模块化角色
+Description: 描述创建由多个骨架网格体组成的模块化角色的多种方法。 
+Type: 
+Version: 4.20 
+Parent: Engine/Animation
+Order: 2
+Tags: undefined
+
+
+![](ModularBanner.png)
+
+在创建允许玩家自定义角色并切换不同部位的系统时，例如不同的头部或身体类型、衣着或其他选项，您需要以模块化方式构造角色。作为取代完整角色骨架网格体的替代方法，可以将骨架网格体分解成多个分段，例如躯干、腿和头，然后将它们导入到引擎中；接下来您可以使用本页所述的一些方法来组装这些部件并添加动画。这样不仅提高了生成不同角色的灵活性，也可以提高性能。 
+
+## 主姿势组件
+
+**主姿势组件** 是一个可以通过蓝图调用的函数，您可以用它将一个 **有皮肤网格体组件对象**（或多个有皮肤网格体组件对象）设置为另一个打算用作主对象的有皮肤网格体组件对象的子代。例如，您可以将躯干定义为主姿势组件，为躯干分配动画，然后添加脚、腿、手和头作为子代，这些部位将跟随为躯干分配的动画而动。 
+
+在后台，子代不使用任何骨骼变换缓冲，即使对子代设置了动画也不会运行任何动画，在渲染时，子代仅使用躯干的骨骼变换缓冲，这样就会形成一个超轻量级的连接系统。唯一必须运行动画的组件是躯干，所有连接的组件都将使用躯干的骨骼变换（在以下示例设置中，我们为躯干分配了动画）。 
+
+![](SetMasterPoseComponentImage.png)
+
+*在上图中，我们在蓝图内部使用 **构造脚本（Construction Script）** 将躯干骨架网格体设置为 **主骨骼组件（Master Bone Component）**，并将其他模块化角色部位设置为子代。*  
+
+[REGION:note]
+**设置主姿势组件** 功能还有一个布尔型参数，名为 **强制更新（Force Update）**。如果“强制更新（Force Update）”为false，则所有运行时信息与输入主组件相同时则跳过更新（如果启用，将强制更新运行时信息）。这个参数仅在注册期间有效，因为注册是可以序列化的，并且需要刷新所有运行时数据。
+[/REGION]
+
+角色的每个方面都是一个骨架网格体，我们可以换成另一个 **骨架网格体组件**。 
+
+![](HiddenComponents.png)
+
+*在上图中，我们关闭了躯干和脚的显示（我们可以将它们更换为具有相同骨架层级的不同的骨架网格体）。*
+
+  
+但有一个需要考虑的问题，就是在使用 **主姿势组件** 时，虽然会降低游戏线程成本，但不会降低渲染成本。您仍需要单独渲染相同数量的组件，需要牢记的是每个组件的分段越多，就会需要越多的绘制调用。 
+
+[REGION:note]
+还有一个限制，即主骨骼的任何子代都必须是具有完全匹配结构的子集，不能有任何多余的关节或省略任何关节。由于多余关节没有骨骼缓冲数据，因此将使用引用姿势进行渲染。此外，还无法对任何子代运行任何其他动画或物理效果。
+[/REGION]
+
+## 从网格体复制姿势
+
+**从网格体复制姿势** 是一个可以在子代的 **动画蓝图** 上使用的 **动画图形** 节点，允许您从任意 **骨架网格体组件** 复制动画姿势。   
+  
+[REGION:lightbox]
+[![CopyPoseFromMesh.png](CopyPoseFromMesh.png)(w:900)](CopyPoseFromMesh.png)
+[/REGION]
+
+[REGION:caption]
+单击查看大图。
+[/REGION]
+  
+*“从网格体复制姿势”不仅复制匹配的骨骼，还会复制使用引用姿势的所有内容。但是，您可以如上图所示，在任何复制的变换上播放动画。*
+
+在使用[从网格体复制姿势](Engine/Animation/AnimHowTo/CopyPose)时，您需要确保作为复制来源的骨架网格体组件已经有了tick事件，否则将复制最后一帧动画（例如，从身体进行复制且头是子代）。为确保身体有tick事件，可以将头与身体连接起来，这样就可以确保父代先发生tick事件，而后轮到子代。 
+
+[REGION:note]
+您还可以用代码设置此关系。如果将其设置为先决条件，便可确保它们先发生tick事件，而后轮到当前组件。请参阅[Tick依赖关系](Programming/UnrealArchitecture/Actors/Ticking)页面以了解更多信息。
+[/REGION]
+
+使用“从网格体复制姿势”时要考虑的一些要素包括，它比主姿势组件的开销更大，因为它会在每个子代上运行动画。此外，如果想要在子代上使用物理效果，则需要改为使用[刚体](Engine/Animation/NodeReference/SkeletalControls/RigidBody)或[AnimDynamics](Engine/Animation/NodeReference/SkeletalControls/AnimDynamics)骨架控制节点。
+
+在动画编辑器中预览动画时，可以指定更多将自动使用“从网格体复制姿势”的网格体。您还可以创建自定义 **预览网格体集合**，用来构建一起制作动画的相关骨架网格体集合（例如，一个角色的组成部分）。下面我们将说明如何为预览更改和分配不同的骨架网格体，以便为角色切换不同的头部。 
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:width]
+	640
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	360
+	[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	-a_GC1y2SA0
+	[/PARAMLITERAL]
+[/OBJECT]
+
+## 骨架网格体合并
+
+在运行时，可以通过代码，利用 `FSkeletalMeshMerge` 将多个骨架网格体合并为一个骨架网格体。虽然这样初始创建骨架网格体的成本较高，但渲染成本会降低，因为您只需渲染一个骨架网格体，而不是多个网格体。例如，如果您的一个角色由三个组件（头、身体和腿）组成，而屏幕上有50个角色，这就会导致 **50次绘制调用**。如果不使用骨架网格体合并，则每个组件都有自己的绘制调用，因此每个角色有三个调用，总共产生 **150次绘制调用**。 
+
+在使用 `FSkeletalMeshMerge` 时，您的主“身体”必须包含所有动画，因为合并后的网格体仅使用设置的骨架，而不包含您需要添加动画的所有关节。如果您的某些身体部位有额外的关节，还必须在身体上包含所有动画。其他要考虑的事情包括，只能在合并的网格体上运行一个动画，而且不支持将变形目标传输到合并的网格体。但是，如果查看 `FSkeletalMeshMerge::GenerateLODModel`，当您有了骨架网格体后，就可以通过计算基本网格体和任意变形之间的 `FMorphTargetDelta` 来创建变形目标。 
+
+此外，在使用 `FSkeletalMeshMerge` 时，您很可能需要从头开始以一种特定方式构建内容。您需要使用一个常用材质，并决定纹理图集（例如，靴子放这个区域，手套放这个区域等），这样就可以对纹理进行裁剪和拼接，创建新纹理并将整个角色渲染为一个分段。 
+
+### 网格体合并示例
+
+在以下示例中，我们使用网格体合并代码在运行时组装多个骨架网格体。 
+
+![](Individual_Meshes.png)
+
+在上图中，我们需要在运行时连接多个骨架网格体以形成一个骨架网格体。在该示例中，我们创建一个可以通过蓝图调用的函数，名为 **网格体合并（Mesh Merge）**，它将让我们能够定义想要合并起来的网格体。需要做的第一件事是根据[蓝图函数库](Programming/BlueprintFunctionLibraries)创建C++类，以便从任意蓝图调用该函数，我们将其命名为 **MeshMergeFunctionLibrary**。 
+
+![](Blueprint_FunctionLibrary.png)
+
+下面我们提供了相同的代码块，供您在您的 **标头** 和 **源代码** 文件中使用： 
+
+**.h示例代码**
+
+	//在项目设置的“描述”页面中填写版权声明。
+	#pragma once
+	#include "CoreMinimal.h"
+	#include "Kismet/BlueprintFunctionLibrary.h"
+	#include "UObject/NoExportTypes.h"
+	#include "MeshMergeFunctionLibrary.generated.h"
+	/**
+	* 等效于FSkeleMeshMergeSectionMapping的蓝图
+	* 用于将单个源骨架网格体的所有分段映射到
+	* 合并后骨架网格体中的最后一个分段条目的信息。
+	*/
+	USTRUCT(BlueprintType)
+	struct PROJECTNAME_API FSkelMeshMergeSectionMapping_BP
+	{
+		GENERATED_BODY()
+			/**合并后骨架网格体的最终分段条目的索引*/
+			UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh Merge Params")
+			TArray SectionIDs;
+	};
+	/**
+	* 用于包含一个网格体的一组UV变换。
+	*/
+	USTRUCT(BlueprintType)
+	struct PROJECTNAME_API FSkelMeshMergeUVTransform
+	{
+		GENERATED_BODY()
+			/** 在给定网格体上应如何变换UV的列表，其中索引表示具体的UV通道。*/
+			UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh Merge Params")
+			TArray UVTransforms;
+	};
+	/**
+	* 等效于FSkelMeshMergeUVTransforms的蓝图
+	* 用于映射所有分段的有关如何变换UV的信息
+	*/
+	USTRUCT(BlueprintType)
+	struct PROJECTNAME_API FSkelMeshMergeUVTransformMapping
+	{
+		GENERATED_BODY()
+			/** 对于每个网格体上的每个UV通道，描述应如何变换UVS。*/
+			UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh Merge Params")
+			TArray UVTransformsPerMesh;
+	};
+	/**
+	* 包含用于执行骨架网格体合并的所有参数的结构。
+	*/
+	USTRUCT(BlueprintType)
+	struct PROJECTNAME_API FSkeletalMeshMergeParams
+	{
+		GENERATED_BODY()
+			FSkeletalMeshMergeParams()
+		{
+			MeshSectionMappings = TArray();
+			UVTransformsPerMesh = TArray();
+			StripTopLODS = 0;
+			bNeedsCpuAccess = false;
+			bSkeletonBefore = false;
+			Skeleton = nullptr;
+		}
+		// 一个可选数组，用于将源网格体的分段映射到合并后的分段条目
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			TArray MeshSectionMappings;
+		// 一个可选数组，用于变换每个网格体中的UV
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			TArray UVTransformsPerMesh;
+		// 要合并的骨架网格体的列表。
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			TArray MeshesToMerge;
+		// 要从输入网格体移除的高LOD的数量
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			int32 StripTopLODS;
+		// CPU是否会因任何原因（例如，产生粒子效果）而需要访问所产生的网格体。
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			uint32 bNeedsCpuAccess :1;
+		// 先更新骨架再合并。否则，合并后更新。
+		// 还必须提供骨架。
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			uint32 bSkeletonBefore :1;
+		// 将用于合并后网格体的骨架。
+		// 如果生成的骨架正常，则留空。
+		UPROPERTY(EditAnywhere, BlueprintReadOnly)
+			class USkeleton* Skeleton;
+	};
+	/**
+	*
+	*/
+	UCLASS()
+	class PROJECTNAME_API UMeshMergeFunctionLibrary : public UBlueprintFunctionLibrary
+	{
+		GENERATED_BODY()
+	public:
+		/**
+		* 将指定的网格体合并为一个网格体。
+		* @return合并的网格体（如果合并失败将失效）。
+		*/
+		UFUNCTION(BlueprintCallable, Category = "Mesh Merge", meta = (UnsafeDuringActorConstruction = "true"))
+			static class USkeletalMesh* MergeMeshes(const FSkeletalMeshMergeParams& Params);
+	};
+	~~~
+
+在标头中，需要将所有 **PROJECTNAME_API** 引用更改为引用实际项目名称。例如，如果项目名为“MyProject”，需要在所有出现的引用中改为使用 **MYPROJECT_API**，这样代码才能起作用。 
+
+**.cpp示例代码**
+
+	//在项目设置的“描述”页面中填写版权声明。
+	#include "MeshMergeFunctionLibrary.h"
+	#include "SkeletalMeshMerge.h"
+	#include "Engine/SkeletalMeshSocket.h"
+	#include "Engine/SkeletalMesh.h"
+	#include "Animation/Skeleton.h"
+	static void ToMergeParams(const TArray<FSkelMeshMergeSectionMapping_BP>& InSectionMappings, TArray<FSkelMeshMergeSectionMapping>& OutSectionMappings)
+	{
+		if (InSectionMappings.Num() > 0)
+		{
+			OutSectionMappings.AddUninitialized(InSectionMappings.Num());
+			for (int32 i = 0; i < InSectionMappings.Num(); ++i)
+			{
+				OutSectionMappings[i].SectionIDs = InSectionMappings[i].SectionIDs;
+			}
+		}
+	}
+	static void ToMergeParams(const TArray<FSkelMeshMergeUVTransformMapping>& InUVTransformsPerMesh, TArray<FSkelMeshMergeUVTransforms>& OutUVTransformsPerMesh)
+	{
+		if (InUVTransformsPerMesh.Num() > 0)
+		{
+			OutUVTransformsPerMesh.Empty();
+			OutUVTransformsPerMesh.AddUninitialized(InUVTransformsPerMesh.Num());
+			for (int32 i = 0; i < InUVTransformsPerMesh.Num(); ++i)
+			{
+				TArray<TArray<FTransform>>& OutUVTransforms = OutUVTransformsPerMesh[i].UVTransformsPerMesh;
+				const TArray<FSkelMeshMergeUVTransform>& InUVTransforms = InUVTransformsPerMesh[i].UVTransformsPerMesh;
+				if (InUVTransforms.Num() > 0)
+				{
+					OutUVTransforms.Empty();
+					OutUVTransforms.AddUninitialized(InUVTransforms.Num());
+					for (int32 j = 0; j < InUVTransforms.Num(); j++)
+					{
+						OutUVTransforms[i] = InUVTransforms[i].UVTransforms;
+					}
+				}
+			}
+		}
+	}
+	USkeletalMesh* UMeshMergeFunctionLibrary::MergeMeshes(const FSkeletalMeshMergeParams& Params)
+	{
+		TArray<USkeletalMesh*> MeshesToMergeCopy = Params.MeshesToMerge;
+		MeshesToMergeCopy.RemoveAll([](USkeletalMesh* InMesh)
+		{
+			return InMesh == nullptr;
+		});
+		if (MeshesToMergeCopy.Num() <= 1)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Must provide multiple valid Skeletal Meshes in order to perform a merge."));
+			return nullptr;
+		}
+		EMeshBufferAccess BufferAccess = Params.bNeedsCpuAccess ?
+			EMeshBufferAccess::ForceCPUAndGPU :
+			EMeshBufferAccess::Default;
+		TArray<FSkelMeshMergeSectionMapping> SectionMappings;
+		TArray<FSkelMeshMergeUVTransforms> UvTransforms;
+		ToMergeParams(Params.MeshSectionMappings, SectionMappings);
+		ToMergeParams(Params.UVTransformsPerMesh, UvTransforms);
+		bool bRunDuplicateCheck = false;
+		USkeletalMesh* BaseMesh = NewObject<USkeletalMesh>();
+		if (Params.Skeleton && Params.bSkeletonBefore)
+		{
+			BaseMesh->Skeleton = Params.Skeleton;
+			bRunDuplicateCheck = true;
+			for (USkeletalMeshSocket* Socket :BaseMesh->GetMeshOnlySocketList())
+			{
+				if (Socket)
+				{
+					UE_LOG(LogTemp, Warning, TEXT("SkelMeshSocket:%s"), *(Socket->SocketName.ToString()));
+				}
+			}
+			for (USkeletalMeshSocket* Socket :BaseMesh->Skeleton->Sockets)
+			{
+				if (Socket)
+				{
+					UE_LOG(LogTemp, Warning, TEXT("SkelSocket:%s"), *(Socket->SocketName.ToString()));
+				}
+			}
+		}
+		FSkeletalMeshMerge Merger(BaseMesh, MeshesToMergeCopy, SectionMappings, Params.StripTopLODS, BufferAccess, UvTransforms.GetData());
+		if (!Merger.DoMerge())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Merge failed!"));
+			return nullptr;
+		}
+		if (Params.Skeleton && !Params.bSkeletonBefore)
+		{
+			BaseMesh->Skeleton = Params.Skeleton;
+		}
+		if (bRunDuplicateCheck)
+		{
+			TArray<FName> SkelMeshSockets;
+			TArray<FName> SkelSockets;
+			for (USkeletalMeshSocket* Socket :BaseMesh->GetMeshOnlySocketList())
+			{
+				if (Socket)
+				{
+					SkelMeshSockets.Add(Socket->GetFName());
+					UE_LOG(LogTemp, Warning, TEXT("SkelMeshSocket:%s"), *(Socket->SocketName.ToString()));
+				}
+			}
+			for (USkeletalMeshSocket* Socket :BaseMesh->Skeleton->Sockets)
+			{
+				if (Socket)
+				{
+					SkelSockets.Add(Socket->GetFName());
+					UE_LOG(LogTemp, Warning, TEXT("SkelSocket:%s"), *(Socket->SocketName.ToString()));
+				}
+			}
+			TSet<FName> UniqueSkelMeshSockets;
+			TSet<FName> UniqueSkelSockets;
+			UniqueSkelMeshSockets.Append(SkelMeshSockets);
+			UniqueSkelSockets.Append(SkelSockets);
+			int32 Total = SkelSockets.Num() + SkelMeshSockets.Num();
+			int32 UniqueTotal = UniqueSkelMeshSockets.Num() + UniqueSkelSockets.Num();
+			UE_LOG(LogTemp, Warning, TEXT("SkelMeshSocketCount:%d | SkelSocketCount:%d | Combined:%d"), SkelMeshSockets.Num(), SkelSockets.Num(), Total);
+			UE_LOG(LogTemp, Warning, TEXT("SkelMeshSocketCount:%d | SkelSocketCount:%d | Combined:%d"), UniqueSkelMeshSockets.Num(), UniqueSkelSockets.Num(), UniqueTotal);
+			UE_LOG(LogTemp, Warning, TEXT("Found Duplicates:%s"), *((Total != UniqueTotal) ?FString("True") :FString("False")));
+		}
+		return BaseMesh;
+	}
+
+
+当您在编辑器中编译完代码后，就会创建具有 **骨架网格体组件** 和 **骨架网格体参数** 类型的公开变量的ActorBlueprint。该变量将为您提供多个属性，不仅可以定义要合并的骨架网格体，还可以定义如何合并这些网格体和其他选项。
+
+![](SkelMeshParams.png)
+
+以下是您可以用来定义如何合并骨架网格体的选项： 
+
+| 属性 | 说明 |
+| --- | --- |
+| **网格体分段映射（Mesh Section Mappings）** | 这是一个可选数组，用于将源网格体的分段映射到合并后的分段条目。|
+| **每个网格体的UV变换（UVTransforms Per Mesh）** | 	这是一个可选数组，用于变换每个网格体中的UV。|
+| **要合并的网格体（Meshes to Merge）** | 这些是将要合并起来的骨架网格体。|
+| **分割顶级LOD（Strip Top LOD）** | 	要从输入网格体中移除的顶级LOD数量。|
+| **需要CPU访问（Needs Cpu Access）** | CPU是否会因任何原因（例如，产生粒子效果）而需要访问所产生的网格体。|
+| **骨架先于（Skeleton Before）** | 是在合并之前还是之后更新骨架（还必须提供骨架）。|
+| **骨架（Skeleton）** | 这是将用于合并后网格体的骨架。如果生成的骨架正常，则留空。|
+
+在 **事件图形（Event Graph）** 内部，在 **事件开始播放（Event Begin Play）** 时，使用以下节点网络。   
+  
+[REGION:lightbox]
+[![](MeshMergeBPScript.png)(w:900)](MeshMergeBPScript.png)
+[/REGION]
+
+单击查看大图。  
+  
+您可以使用新的蓝图函数 **合并网格体**，通过网格体合并参数传递来返回骨架网格体对象引用。然后可以使用添加到蓝图的 **骨架网格体组件** 作为目标，以设置要使用的新骨架网格体，并将它指向合并网格体函数调用的返回值。在以上示例中，我们还可以为骨架网格体分配闲置动画，以在所有网格体合并完成后播放。   
+
+在将网格体合并蓝图添加到关卡后，在 **细节（Details）** 面板内部，可以定义 **网格体合并参数（Mesh Merge Parameters）**，包括要使用的 **要使用的网格体（Meshes to Use）** 和 **骨架（Skeleton）** 资源。   
+  
+
+![](AssignedDetails-1.png)
+
+在运行时，网格体合并函数将根据定义的网格体执行并组装骨架网格体。
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:width]
+	640
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	360
+	[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	N4dri0RLZFg
+	[/PARAMLITERAL]
+[/OBJECT]
+
+## 比较图表
+
+无论您是使用 **主姿势组件**、**从网格体复制姿势** 还是 **骨架网格体合并**，每种方法都存在一些优势和劣势。下表概括了各自关联的设置和性能成本，以及支持（或不支持）的其他功能。   
+
+| | 主姿势 | 复制姿势 | 网格体合并 |
+| --- | --- | --- | --- |
+| **设置成本** | 最小 | 中等| 高 |
+| **游戏线程成本** | 最小 | 高 | 中等 |
+| **渲染线程成本** | 高 | 高 | 低 |
+| **物理** | 否 | AnimDynamics或刚体 | 是 |
+| **变形目标** | 是 | 是| 否 |

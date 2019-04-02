@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -221,7 +221,7 @@ private:
 	/** Meta-data for this generated class that is applied to the Python type */
 	FPyWrapperObjectMetaData PyMetaData;
 
-	friend struct FPythonGeneratedClassUtil;
+	friend class FPythonGeneratedClassBuilder;
 
 #endif	// WITH_PYTHON
 };

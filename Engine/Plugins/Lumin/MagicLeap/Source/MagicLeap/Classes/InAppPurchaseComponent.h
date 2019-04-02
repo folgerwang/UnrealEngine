@@ -222,9 +222,7 @@ public:
 	/** Activated when a purchase history request fails. */
 	FGetPurchaseHistoryFailure& OnGetPurchaseHistoryFailure();
 
-private:
-	friend class FInAppPurchaseImpl;
-	class FInAppPurchaseImpl* Impl;
+	void Log(const FString& LogMessage, bool bError = true);
 
 	UPROPERTY(BlueprintAssignable, Category = "InAppPurchase|MagicLeap", meta = (AllowPrivateAccess = true))
 	FInAppPurchaseLogMessage InAppPurchaseLogMessage;
@@ -248,7 +246,7 @@ private:
 	FGetPurchaseHistoryFailure GetPurchaseHistoryFailure;
 
 private:
-	void Log(const FString& LogMessage, bool bError = true);
+	class FInAppPurchaseImpl* Impl;
 };
 
 DECLARE_LOG_CATEGORY_EXTERN(LogInAppPurchase, Verbose, All);

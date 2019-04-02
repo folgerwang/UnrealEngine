@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "WidgetBlueprintCompiler.h"
 #include "Components/SlateWrapperTypes.h"
@@ -20,6 +20,8 @@
 #include "IUMGModule.h"
 #include "UMGEditorProjectSettings.h"
 #include "WidgetCompilerRule.h"
+#include "Editor/WidgetCompilerLog.h"
+#include "Editor.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -27,24 +29,88 @@
 
 extern COREUOBJECT_API bool GMinimalCompileOnLoad;
 
-FWidgetBlueprintCompiler::FWidgetBlueprintCompiler(UWidgetBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompilerOptions, TArray<UObject*>* InObjLoaded)
-	: Super(SourceSketch, InMessageLog, InCompilerOptions, InObjLoaded)
+
+FWidgetBlueprintCompiler::FWidgetBlueprintCompiler()
+	: ReRegister(nullptr)
+	, CompileCount(0)
+{
+
+}
+
+bool FWidgetBlueprintCompiler::CanCompile(const UBlueprint* Blueprint)
+{
+	return Cast<UWidgetBlueprint>(Blueprint) != nullptr;
+}
+
+
+void FWidgetBlueprintCompiler::PreCompile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions)
+{
+	if (ReRegister == nullptr
+		&& CanCompile(Blueprint)
+		&& (CompileOptions.CompileType == EKismetCompileType::Full || CompileOptions.CompileType == EKismetCompileType::Cpp))
+	{
+		ReRegister = new TComponentReregisterContext<UWidgetComponent>();
+	}
+
+	CompileCount++;
+}
+
+void FWidgetBlueprintCompiler::Compile(UBlueprint * Blueprint, const FKismetCompilerOptions & CompileOptions, FCompilerResultsLog & Results)
+{
+	if (UWidgetBlueprint* WidgetBlueprint = CastChecked<UWidgetBlueprint>(Blueprint))
+	{
+		FWidgetBlueprintCompilerContext Compiler(WidgetBlueprint, Results, CompileOptions);
+		Compiler.Compile();
+		check(Compiler.NewClass);
+	}
+}
+
+void FWidgetBlueprintCompiler::PostCompile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions)
+{
+	CompileCount--;
+
+	if (CompileCount == 0 && ReRegister)
+	{
+		delete ReRegister;
+		ReRegister = nullptr;
+
+		if (GIsEditor && GEditor)
+		{
+			GEditor->RedrawAllViewports(true);
+		}
+	}
+}
+
+bool FWidgetBlueprintCompiler::GetBlueprintTypesForClass(UClass* ParentClass, UClass*& OutBlueprintClass, UClass*& OutBlueprintGeneratedClass) const
+{
+	if (ParentClass == UUserWidget::StaticClass() || ParentClass->IsChildOf(UUserWidget::StaticClass()))
+	{
+		OutBlueprintClass = UWidgetBlueprint::StaticClass();
+		OutBlueprintGeneratedClass = UWidgetBlueprintGeneratedClass::StaticClass();
+		return true;
+	}
+
+	return false;
+}
+
+FWidgetBlueprintCompilerContext::FWidgetBlueprintCompilerContext(UWidgetBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompilerOptions)
+	: Super(SourceSketch, InMessageLog, InCompilerOptions)
 	, NewWidgetBlueprintClass(nullptr)
 	, WidgetSchema(nullptr)
 {
 }
 
-FWidgetBlueprintCompiler::~FWidgetBlueprintCompiler()
+FWidgetBlueprintCompilerContext::~FWidgetBlueprintCompilerContext()
 {
 }
 
-UEdGraphSchema_K2* FWidgetBlueprintCompiler::CreateSchema()
+UEdGraphSchema_K2* FWidgetBlueprintCompilerContext::CreateSchema()
 {
 	WidgetSchema = NewObject<UWidgetGraphSchema>();
 	return WidgetSchema;
 }
 
-void FWidgetBlueprintCompiler::CreateFunctionList()
+void FWidgetBlueprintCompilerContext::CreateFunctionList()
 {
 	Super::CreateFunctionList();
 
@@ -113,7 +179,7 @@ void FWidgetBlueprintCompiler::CreateFunctionList()
 	}
 }
 
-void FWidgetBlueprintCompiler::ValidateWidgetNames()
+void FWidgetBlueprintCompilerContext::ValidateWidgetNames()
 {
 	UWidgetBlueprint* WidgetBP = WidgetBlueprint();
 
@@ -144,7 +210,7 @@ struct FCullTemplateObjectsHelper
 };
 
 
-void FWidgetBlueprintCompiler::CleanAndSanitizeClass(UBlueprintGeneratedClass* ClassToClean, UObject*& InOutOldCDO)
+void FWidgetBlueprintCompilerContext::CleanAndSanitizeClass(UBlueprintGeneratedClass* ClassToClean, UObject*& InOutOldCDO)
 {
 	UWidgetBlueprint* WidgetBP = WidgetBlueprint();
 
@@ -192,7 +258,7 @@ void FWidgetBlueprintCompiler::CleanAndSanitizeClass(UBlueprintGeneratedClass* C
 	NewWidgetBlueprintClass->Bindings.Empty();
 }
 
-void FWidgetBlueprintCompiler::SaveSubObjectsFromCleanAndSanitizeClass(FSubobjectCollection& SubObjectsToSave, UBlueprintGeneratedClass* ClassToClean)
+void FWidgetBlueprintCompilerContext::SaveSubObjectsFromCleanAndSanitizeClass(FSubobjectCollection& SubObjectsToSave, UBlueprintGeneratedClass* ClassToClean)
 {
 	Super::SaveSubObjectsFromCleanAndSanitizeClass(SubObjectsToSave, ClassToClean);
 
@@ -207,7 +273,7 @@ void FWidgetBlueprintCompiler::SaveSubObjectsFromCleanAndSanitizeClass(FSubobjec
 	SubObjectsToSave.AddObject(WidgetBP->WidgetTree);
 }
 
-void FWidgetBlueprintCompiler::CreateClassVariablesFromBlueprint()
+void FWidgetBlueprintCompilerContext::CreateClassVariablesFromBlueprint()
 {
 	Super::CreateClassVariablesFromBlueprint();
 
@@ -309,7 +375,7 @@ void FWidgetBlueprintCompiler::CreateClassVariablesFromBlueprint()
 
 			AnimationProperty->SetMetaData(TEXT("Category"), TEXT("Animations"));
 
-			AnimationProperty->SetPropertyFlags(CPF_Instanced);
+			AnimationProperty->SetPropertyFlags(CPF_Transient);
 			AnimationProperty->SetPropertyFlags(CPF_BlueprintVisible);
 			AnimationProperty->SetPropertyFlags(CPF_BlueprintReadOnly);
 			AnimationProperty->SetPropertyFlags(CPF_RepSkip);
@@ -319,7 +385,7 @@ void FWidgetBlueprintCompiler::CreateClassVariablesFromBlueprint()
 	}
 }
 
-void FWidgetBlueprintCompiler::CopyTermDefaultsToDefaultObject(UObject* DefaultObject)
+void FWidgetBlueprintCompilerContext::CopyTermDefaultsToDefaultObject(UObject* DefaultObject)
 {
 	FKismetCompilerContext::CopyTermDefaultsToDefaultObject(DefaultObject);
 
@@ -386,7 +452,7 @@ void FWidgetBlueprintCompiler::CopyTermDefaultsToDefaultObject(UObject* DefaultO
 	}
 }
 
-bool FWidgetBlueprintCompiler::CanAllowTemplate(FCompilerResultsLog& MessageLog, UWidgetBlueprintGeneratedClass* InClass)
+bool FWidgetBlueprintCompilerContext::CanAllowTemplate(FCompilerResultsLog& MessageLog, UWidgetBlueprintGeneratedClass* InClass)
 {
 	if ( InClass == nullptr )
 	{
@@ -435,7 +501,7 @@ bool FWidgetBlueprintCompiler::CanAllowTemplate(FCompilerResultsLog& MessageLog,
 	return true;
 }
 
-bool FWidgetBlueprintCompiler::CanTemplateWidget(FCompilerResultsLog& MessageLog, UUserWidget* ThisWidget, TArray<FText>& OutErrors)
+bool FWidgetBlueprintCompilerContext::CanTemplateWidget(FCompilerResultsLog& MessageLog, UUserWidget* ThisWidget, TArray<FText>& OutErrors)
 {
 	UWidgetBlueprintGeneratedClass* WidgetClass = Cast<UWidgetBlueprintGeneratedClass>(ThisWidget->GetClass());
 	if ( WidgetClass == nullptr )
@@ -454,7 +520,7 @@ bool FWidgetBlueprintCompiler::CanTemplateWidget(FCompilerResultsLog& MessageLog
 	return ThisWidget->VerifyTemplateIntegrity(OutErrors);
 }
 
-void FWidgetBlueprintCompiler::SanitizeBindings(UBlueprintGeneratedClass* Class)
+void FWidgetBlueprintCompilerContext::SanitizeBindings(UBlueprintGeneratedClass* Class)
 {
 	UWidgetBlueprint* WidgetBP = WidgetBlueprint();
 
@@ -487,7 +553,28 @@ void FWidgetBlueprintCompiler::SanitizeBindings(UBlueprintGeneratedClass* Class)
 	WidgetBP->PropertyBindings = AttributeBindings;
 }
 
-void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
+void FWidgetBlueprintCompilerContext::FixAbandonedWidgetTree(UWidgetBlueprint* WidgetBP)
+{
+	UWidgetTree* WidgetTree = WidgetBP->WidgetTree;
+
+	if (ensure(WidgetTree))
+	{
+		if (WidgetTree->GetName() != TEXT("WidgetTree"))
+		{
+			if (UWidgetTree* AbandonedWidgetTree = static_cast<UWidgetTree*>(FindObjectWithOuter(WidgetBP, UWidgetTree::StaticClass(), TEXT("WidgetTree"))))
+			{
+				AbandonedWidgetTree->ClearFlags(RF_DefaultSubObject);
+				AbandonedWidgetTree->SetFlags(RF_Transient);
+				AbandonedWidgetTree->Rename(nullptr, GetTransientPackage(), REN_DontCreateRedirectors | REN_ForceNoResetLoaders | REN_NonTransactional | REN_DoNotDirty);
+			}
+
+			WidgetTree->Rename(TEXT("WidgetTree"), nullptr, REN_DontCreateRedirectors | REN_ForceNoResetLoaders | REN_NonTransactional | REN_DoNotDirty);
+			WidgetTree->SetFlags(RF_DefaultSubObject);
+		}
+	}
+}
+
+void FWidgetBlueprintCompilerContext::FinishCompilingClass(UClass* Class)
 {
 	UWidgetBlueprint* WidgetBP = WidgetBlueprint();
 	UWidgetBlueprintGeneratedClass* BPGClass = CastChecked<UWidgetBlueprintGeneratedClass>(Class);
@@ -501,6 +588,8 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 			UBlueprint::ForceLoadMembers(WidgetBP->WidgetTree);
 		}
 
+		FixAbandonedWidgetTree(WidgetBP);
+
 		BPGClass->bCookSlowConstructionWidgetTree = GetDefault<UUMGEditorProjectSettings>()->CompilerOption_CookSlowConstructionWidgetTree(WidgetBP);
 
 		BPGClass->WidgetTree = Cast<UWidgetTree>(StaticDuplicateObject(WidgetBP->WidgetTree, BPGClass, NAME_None, RF_AllFlags & ~RF_DefaultSubObject));
@@ -509,10 +598,6 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 		{
 			UWidgetAnimation* ClonedAnimation = DuplicateObject<UWidgetAnimation>(Animation, BPGClass, *( Animation->GetName() + TEXT("_INST") ));
 			//ClonedAnimation->SetFlags(RF_Public); // Needs to be marked public so that it can be referenced from widget instances.
-			//if (ClonedAnimation->MovieScene)
-			//{
-			//	ClonedAnimation->MovieScene->SetFlags(RF_Public); // Needs to be marked public so that it can be referenced from widget instances.
-			//}
 
 			BPGClass->Animations.Add(ClonedAnimation);
 		}
@@ -613,6 +698,11 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 				}
 			}
 		}
+	}
+
+	if (bIsSkeletonOnly || WidgetBP->SkeletonGeneratedClass != Class)
+	{
+		bool bCanCallPreConstruct = true;
 
 		// Check that all BindWidget properties are present and of the appropriate type
 		for (TUObjectPropertyBase<UWidget*>* WidgetProperty : TFieldRange<TUObjectPropertyBase<UWidget*>>(ParentClass))
@@ -621,8 +711,8 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 
 			if (FWidgetBlueprintEditorUtils::IsBindWidgetProperty(WidgetProperty, bIsOptional))
 			{
-				const FText OptionalBindingAvailableNote = LOCTEXT("OptionalWidgetNotBound", "An optional widget binding @@ of type @@ is available.");
-				const FText RequiredWidgetNotBoundError = LOCTEXT("RequiredWidgetNotBound", "A required widget binding @@ of type @@ was not found.");
+				const FText OptionalBindingAvailableNote = LOCTEXT("OptionalWidgetNotBound", "An optional widget binding \"{0}\" of type @@ is available.");
+				const FText RequiredWidgetNotBoundError = LOCTEXT("RequiredWidgetNotBound", "A required widget binding \"{0}\" of type @@ was not found.");
 				const FText IncorrectWidgetTypeError = LOCTEXT("IncorrectWidgetTypes", "The widget @@ is of type @@, but the bind widget property is of type @@.");
 
 				UWidget* const* Widget = WidgetToMemberVariableMap.FindKey(WidgetProperty);
@@ -630,15 +720,17 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 				{
 					if (bIsOptional)
 					{
-						MessageLog.Note(*OptionalBindingAvailableNote.ToString(), WidgetProperty, WidgetProperty->PropertyClass);
+						MessageLog.Note(*FText::Format(OptionalBindingAvailableNote, FText::FromName(WidgetProperty->GetFName())).ToString(), WidgetProperty->PropertyClass);
 					}
 					else if (Blueprint->bIsNewlyCreated)
 					{
-						MessageLog.Warning(*RequiredWidgetNotBoundError.ToString(), WidgetProperty, WidgetProperty->PropertyClass);
+						MessageLog.Warning(*FText::Format(RequiredWidgetNotBoundError, FText::FromName(WidgetProperty->GetFName())).ToString(), WidgetProperty->PropertyClass);
+						bCanCallPreConstruct = false;
 					}
 					else
 					{
-						MessageLog.Error(*RequiredWidgetNotBoundError.ToString(), WidgetProperty, WidgetProperty->PropertyClass);
+						MessageLog.Error(*FText::Format(RequiredWidgetNotBoundError, FText::FromName(WidgetProperty->GetFName())).ToString(), WidgetProperty->PropertyClass);
+						bCanCallPreConstruct = false;
 					}
 				}
 				else if (!(*Widget)->IsA(WidgetProperty->PropertyClass))
@@ -646,13 +738,20 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 					if (Blueprint->bIsNewlyCreated)
 					{
 						MessageLog.Warning(*IncorrectWidgetTypeError.ToString(), *Widget, (*Widget)->GetClass(), WidgetProperty->PropertyClass);
+						bCanCallPreConstruct = false;
 					}
 					else
 					{
 						MessageLog.Error(*IncorrectWidgetTypeError.ToString(), *Widget, (*Widget)->GetClass(), WidgetProperty->PropertyClass);
+						bCanCallPreConstruct = false;
 					}
 				}
 			}
+		}
+
+		if (UWidgetBlueprintGeneratedClass* BPGC = Cast<UWidgetBlueprintGeneratedClass>(WidgetBP->GeneratedClass))
+		{
+			BPGC->bCanCallPreConstruct = bCanCallPreConstruct;
 		}
 
 		// Check that all BindWidgetAnim properties are present
@@ -688,7 +787,27 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 	Super::FinishCompilingClass(Class);
 }
 
-void FWidgetBlueprintCompiler::PostCompile()
+
+class FBlueprintCompilerLog : public IWidgetCompilerLog
+{
+public:
+	FBlueprintCompilerLog(FCompilerResultsLog& InMessageLog)
+		: MessageLog(InMessageLog)
+	{
+	}
+
+	virtual void InternalLogMessage(TSharedRef<FTokenizedMessage>& InMessage) override
+	{
+		MessageLog.AddTokenizedMessage(InMessage);
+	}
+
+private:
+	// Compiler message log (errors, warnings, notes)
+	FCompilerResultsLog& MessageLog;
+};
+
+
+void FWidgetBlueprintCompilerContext::PostCompile()
 {
 	Super::PostCompile();
 
@@ -711,7 +830,8 @@ void FWidgetBlueprintCompiler::PostCompile()
 
 	if (!Blueprint->bIsRegeneratingOnLoad && bIsFullCompile)
 	{
-		WidgetClass->GetDefaultObject<UUserWidget>()->ValidateBlueprint(*WidgetBP->WidgetTree, MessageLog);
+		FBlueprintCompilerLog BlueprintLog(MessageLog);
+		WidgetClass->GetDefaultObject<UUserWidget>()->ValidateBlueprint(*WidgetBP->WidgetTree, BlueprintLog);
 
 		if (MessageLog.NumErrors == 0 && WidgetClass->bAllowTemplate)
 		{
@@ -719,10 +839,13 @@ void FWidgetBlueprintCompiler::PostCompile()
 			WidgetTemplate->TemplateInit();
 
 			int32 TotalWidgets = 0;
-			WidgetTemplate->WidgetTree->ForEachWidgetAndDescendants([&TotalWidgets](UWidget* Widget) {
+			int32 TotalWidgetSize = WidgetTemplate->GetClass()->GetStructureSize();
+			WidgetTemplate->WidgetTree->ForEachWidgetAndDescendants([&TotalWidgets, &TotalWidgetSize](UWidget* Widget) {
 				TotalWidgets++;
+				TotalWidgetSize += Widget->GetClass()->GetStructureSize();
 			});
 			WidgetBP->InclusiveWidgets = TotalWidgets;
+			WidgetBP->EstimatedTemplateSize = WidgetClass->bAllowDynamicCreation ? TotalWidgetSize : 0;
 
 			// Determine if we can generate a template for this widget to speed up CreateWidget time.
 			TArray<FText> PostCompileErrors;
@@ -739,10 +862,14 @@ void FWidgetBlueprintCompiler::PostCompile()
 				}
 			}
 		}
+		else
+		{
+			WidgetBP->EstimatedTemplateSize = 0;
+		}
 	}
 }
 
-void FWidgetBlueprintCompiler::EnsureProperGeneratedClass(UClass*& TargetUClass)
+void FWidgetBlueprintCompilerContext::EnsureProperGeneratedClass(UClass*& TargetUClass)
 {
 	if ( TargetUClass && !( (UObject*)TargetUClass )->IsA(UWidgetBlueprintGeneratedClass::StaticClass()) )
 	{
@@ -751,7 +878,7 @@ void FWidgetBlueprintCompiler::EnsureProperGeneratedClass(UClass*& TargetUClass)
 	}
 }
 
-void FWidgetBlueprintCompiler::SpawnNewClass(const FString& NewClassName)
+void FWidgetBlueprintCompilerContext::SpawnNewClass(const FString& NewClassName)
 {
 	NewWidgetBlueprintClass = FindObject<UWidgetBlueprintGeneratedClass>(Blueprint->GetOutermost(), *NewClassName);
 
@@ -767,19 +894,19 @@ void FWidgetBlueprintCompiler::SpawnNewClass(const FString& NewClassName)
 	NewClass = NewWidgetBlueprintClass;
 }
 
-void FWidgetBlueprintCompiler::OnNewClassSet(UBlueprintGeneratedClass* ClassToUse)
+void FWidgetBlueprintCompilerContext::OnNewClassSet(UBlueprintGeneratedClass* ClassToUse)
 {
 	NewWidgetBlueprintClass = CastChecked<UWidgetBlueprintGeneratedClass>(ClassToUse);
 }
 
-void FWidgetBlueprintCompiler::PrecompileFunction(FKismetFunctionContext& Context, EInternalCompilerFlags InternalFlags)
+void FWidgetBlueprintCompilerContext::PrecompileFunction(FKismetFunctionContext& Context, EInternalCompilerFlags InternalFlags)
 {
 	Super::PrecompileFunction(Context, InternalFlags);
 
 	VerifyEventReplysAreNotEmpty(Context);
 }
 
-void FWidgetBlueprintCompiler::VerifyEventReplysAreNotEmpty(FKismetFunctionContext& Context)
+void FWidgetBlueprintCompilerContext::VerifyEventReplysAreNotEmpty(FKismetFunctionContext& Context)
 {
 	TArray<UK2Node_FunctionResult*> FunctionResults;
 	Context.SourceGraph->GetNodesOfClass<UK2Node_FunctionResult>(FunctionResults);
@@ -803,7 +930,7 @@ void FWidgetBlueprintCompiler::VerifyEventReplysAreNotEmpty(FKismetFunctionConte
 	}
 }
 
-bool FWidgetBlueprintCompiler::ValidateGeneratedClass(UBlueprintGeneratedClass* Class)
+bool FWidgetBlueprintCompilerContext::ValidateGeneratedClass(UBlueprintGeneratedClass* Class)
 {
 	bool SuperResult = Super::ValidateGeneratedClass(Class);
 	bool Result = UWidgetBlueprint::ValidateGeneratedClass(Class);

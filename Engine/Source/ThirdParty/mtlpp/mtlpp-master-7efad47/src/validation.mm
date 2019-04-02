@@ -2,7 +2,7 @@
  * Copyright 2016-2017 Nikolay Aleksiev. All rights reserved.
  * License: https://github.com/naleksiev/mtlpp/blob/master/LICENSE
  */
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // Modifications for Unreal Engine
 
 #include <Foundation/NSObject.h>
@@ -484,7 +484,7 @@ namespace mtlpp
 	ParallelEncoderValidationTable::ParallelEncoderValidationTable(ParallelRenderCommandEncoder& Encoder)
 	: ns::Object<ParallelEncoderValidationTableImpl*, ns::CallingConvention::ObjectiveC>([[ParallelEncoderValidationTableImpl alloc] init], ns::Ownership::Assign)
 	{
-		
+		Encoder.SetAssociatedObject(ParallelEncoderValidationTable::kTableAssociationKey, *this);
 	}
 	ParallelEncoderValidationTable::ParallelEncoderValidationTable(ParallelEncoderValidationTableImpl* Table)
 	: ns::Object<ParallelEncoderValidationTableImpl*, ns::CallingConvention::ObjectiveC>(Table)
@@ -705,6 +705,7 @@ namespace mtlpp
 	CommandEncoderValidationTable CommandBufferValidationTable::AddEncoderValidator(ParallelRenderCommandEncoder& Encoder)
 	{
 		ParallelEncoderValidationTable ParallelValidator(Encoder);
+		ParallelValidator.GetPtr()->CommandBufferValidator = m_ptr;
 		
 		CommandEncoderValidationTable Validator(Encoder);
 		m_ptr->EncoderValidators.push(Validator);

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -30,7 +30,6 @@ public class coremod: ModuleRules
 		else if (Target.Platform == UnrealTargetPlatform.IOS)
 		{
 			PublicLibraryPaths.Add(LibraryPath + "/lib/IOS");
-			PublicAdditionalShadowFiles.Add(LibraryPath + "/lib/IOS/libcoremod.a");
 		}
 		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
         {

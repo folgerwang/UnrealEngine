@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System;
@@ -352,7 +352,6 @@ public class PhysX : ModuleRules
 			foreach (string PhysXLib in PhysXLibs)
 			{
 				PublicAdditionalLibraries.Add(PhysXLib + LibrarySuffix);
-				PublicAdditionalShadowFiles.Add(Path.Combine(PhysXLibDir, "lib" + PhysXLib + LibrarySuffix + ".a"));
 			}
 		}
 		else if (Target.Platform == UnrealTargetPlatform.TVOS)
@@ -384,7 +383,6 @@ public class PhysX : ModuleRules
 			foreach (string PhysXLib in PhysXLibs)
 			{
 				PublicAdditionalLibraries.Add(PhysXLib + LibrarySuffix);
-				PublicAdditionalShadowFiles.Add(Path.Combine(PhysXLibDir, "lib" + PhysXLib + LibrarySuffix + ".a"));
 			}
 		}
 		else if (Target.Platform == UnrealTargetPlatform.HTML5)

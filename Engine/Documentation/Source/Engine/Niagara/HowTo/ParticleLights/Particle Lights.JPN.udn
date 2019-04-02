@@ -1,76 +1,63 @@
-﻿INTSourceChangelist:0
-Availability: Docs
-Crumbs: %ROOT%, 
-Title:Create a particle light
-Description:Describes how you can create light with in your particle system.
-Type: how-to
-SkillLevel:Beginner
-Version: 4.17
-parent:Engine/Niagara/HowTo
+﻿INTSourceChangelist:4323617
+Availability: Public
+Crumbs: 
+Title:パーティクルライトの作成
+Description:パーティクルライトの作成方法の説明。
+Type:how-to
+Version:4.20
+parent:Engine/Niagara/HowTo 
 order:5
-tags:Niagara
-topic-image:
+SkillLevel:Beginner
+Tags:Niagara
+Tags:Early Access
+prereqs:Engine/Niagara/HowTo/EnableNiagara
+    
 
-Giving particles the ability to illuminate the world around them can add an extra layer of realism to any of your projects visual effects. In the following How - To we will take a look at setting up a Niagara emitter so that particles and lights are spawned at the same time.
+パーティクルに周囲のワールドを照らす機能を与えると、プロジェクトの視覚効果のリアルさが一段と高まります。以下の操作ガイドでは、パーティクルとライトが同時にスポーンするナイアガラエミッタのセットアップを見ていきます。
 
-![](PL_Hero_Image.png)
+![](Light_Banner_01.png "Light_Banner_01.png")
 
-## Steps
+## ステップ
 
-1. First, we will need to create a **Niagara Emitter** by right-clicking in the **Content Browser** and from the displayed menu go to **FX** and then click **Niagara Emitter**. 
-
-    ![](Engine\Niagara\HowTo\SpriteEffect\SE_01.png)
-
-1. Name the newly created Niagara Emitter, **FX_Light** and then double click on it to open it up.
-
+1. まず、 **ナイアガラエミッタ** を作成する必要があります。これを行うには、**コンテンツ ブラウザ** で右クリックして、表示されるメニューから、 ** [FX]** に進み、**[Niagara Emitter]** をクリックします。  
+    ![](SE_01.png)
+2. 新規作成したナイアガラエミッタに **FX_Light** という名前を付けて、その上でダブルクリックして開きます。  
     ![](PL_01.png)
-
-1. Next in the **Render** section of the FX_Light Niagara Emitter, press the **Plus** sign icon and from the displayed list, select the **Niagara Light Renderer Properties** option.
-
-    ![](PL_02.png)
-
-1. In the Niagara Light Renderer Properties, set the **Radius Scale** and **Color Add** to a value of **10**.
-
-    ![](PL_03.png)
-
-1. Then press the **Compile**, **Apply** and **Save** buttons to apply and save the changes and then close the **FX_Mesh** emitter.
-
-    ![](Engine\Niagara\HowTo\MeshEffect\ME_09.png)
-
-1. Now over in the **Content Browser**, right - click and from the displayed list, go to **FX** and then select the **Niagara System** option, giving it a name of **ParticleLight**.
-
-    ![](Engine\Niagara\HowTo\SpriteEffect\SE_16.png)
-
-1. Double - click on the Particle Light Niagara System to open it up and then drag the **FX_Light** Niagara Emitter to the **Timeline** of the Particle Light Niagara System.
-
+3. ナイアガラエディタを開いた状態で、**[Selected Emitter]** パネルに進み、**[Render]** セクションを探します。  
+    
+4. **プラス** 記号のアイコンをクリックして、表示されるリストから **[Niagara Light Renderer Properties]** オプションを選択します。  
+    ![](CreateParticleLight_Steps_Step4-AddLightRenderer.png)
+5. Render モジュールの下部から **NiagaraLightRendererProperties** セクションを探します。以下のプロパティに値を設定します。  
+    ![ParticleLights/CreateParticleLight_Steps_Step5-RadiusScaleColorAdd.png](CreateParticleLight_Steps_Step5-RadiusScaleColorAdd.png) 
+	| プロパティ | 値 |
+	| --- | --- |
+	| **Radius Scale** | 1 |
+	| **Color Add X** | 10 |
+    
+6. **[Compile]**、**[Apply]** ボタンと **[Save]** ボタンをクリックして、コンパイルしてから保存します。そして **FX_Light** ナイアガラエミッタを閉じます。  
+    ![](ME_09.png)
+7. **コンテンツ ブラウザ** を 右クリックして、コンテキスト メニューから **[FX > Niagara System]** を選択します。新規のナイアガラシステムに **ParticleLight** と名前を付けます。  
+    ![](SE_16.png)
+8. **ParticleLight** **ナイアガラ** システムの上でダブルクリックして開きます。次に **FX_Light** ナイアガラエミッタを Particle Light ナイアガラシステムの **Timeline** にドラッグします。  
     [REGION:lightbox]
     [![](PL_04.png)(w:317)](PL_04.png)
     [/REGION]
-
     [REGION:caption]
-    Click for full image.
+    *クリックしてフルサイズで表示*
     [/REGION]
+9. **[Compile]** ボタンと **[Save]** ボタンをクリックし、コンパイルと保存をしてから、Particle Light **ナイアガラシステム** を閉じます。**コンテンツ ブラウザ** で **Particle Light ナイアガラシステム** をレベル ビューポートにドラッグします。  
+    ![](CreateParticleLight_Steps_Step9_AddToLevel.png)
 
-1. Press the **Compile** and **Save** buttons and then close the Particle Light Niagara System down and then over in the Content Browser, drag the Mesh Niagara System into the level viewport.
+## 最終結果
 
-    [REGION:lightbox]
-    [![](PL_05.png)(w:779)](PL_05.png)
-    [/REGION]
-
-    [REGION:caption]
-    Click for full image.
-    [/REGION]
-
-## End Result
-
-When completed you will now have a VFX that will cast light into the world when the particles are spawned.
+完了すると、パーティクルがスポーンされるときにワールドに光を放つ VFX ができます。以下のビデオをご覧ください。
 
 [OBJECT:EmbeddedVideo]
     [PARAMLITERAL:videoid]
-    7D0edbLt2oE
+    cRcjPhPHmSM
     [/PARAMLITERAL]
     [PARAMLITERAL:width]
-    100
+    78
     [/PARAMLITERAL]
     [PARAMLITERAL:height]
     56.25
@@ -82,9 +69,3 @@ When completed you will now have a VFX that will cast light into the world when 
     simple
     [/PARAMLITERAL]
 [/OBJECT]
-
-
-
-
-
-

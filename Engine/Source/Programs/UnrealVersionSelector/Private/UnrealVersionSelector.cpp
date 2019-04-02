@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealVersionSelector.h"
 #include "RequiredProgramMainCPPInclude.h"
@@ -311,7 +311,7 @@ int Main(const TArray<FString>& Arguments)
 	#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <Shellapi.h>
 
-	int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int ShowCmd)
+	int WINAPI WinMain(HINSTANCE hCurrInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int ShowCmd)
 	{
 		int ArgC;
 		LPWSTR* ArgV = ::CommandLineToArgvW(GetCommandLineW(), &ArgC);

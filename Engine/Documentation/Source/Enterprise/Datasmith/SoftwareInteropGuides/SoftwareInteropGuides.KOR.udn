@@ -1,0 +1,21 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: 데이터스미스 소프트웨어 상호운용 가이드
+Description: 여러가지 소스 프로그램의 콘텐츠를 데이터스미스로 임포트할 때 알아야 할 특수한 사항을 설명합니다.
+Type:landing
+Version: 4.20
+Parent: Enterprise/Datasmith
+Order: 2
+Tags: Unreal Studio
+Tags: Datasmith
+
+
+데이터스미스의 목표는 건축, 엔지니어링, 건설, 제조 등 산업 전반에 사용되는 다양한 업계 표준 3D 디자인 프로그램을 지원하는 것입니다. 대부분의 경우 데이터스미스는 지원 소프트웨어 프로그램과 파일 포맷 각각을 비슷한 방식으로 취급하여 비슷한 결과를 내는데, [](Enterprise/Datasmith/Overview) 문서에 자세히 설명되어 있습니다.
+
+하지만 지원 프로그램과 파일 포맷 각각은 임포트 프로세스에 고유의 어려움과 기회가 공존합니다. 여기서는 다양한 데이터 소스 각각에 대한 추가적인 고려사항을 자세히 다룹니다.
+
+%Enterprise/Datasmith/SoftwareInteropGuides/3dsMax:topic%
+%Enterprise/Datasmith/SoftwareInteropGuides/SketchUp:topic%
+%Enterprise/Datasmith/SoftwareInteropGuides/CAD:topic%
+%Enterprise/Datasmith/SoftwareInteropGuides/Rhino:topic%

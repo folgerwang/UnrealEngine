@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -11,7 +11,7 @@
 class UMovieSceneCaptureProtocolBase;
 
 UCLASS()
-class UMovieSceneCaptureEnvironment : public UObject
+class MOVIESCENECAPTURE_API UMovieSceneCaptureEnvironment : public UObject
 {
 public:
 	GENERATED_BODY()

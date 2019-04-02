@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanRHI.cpp: Vulkan device RHI implementation.
@@ -21,6 +21,12 @@
 
 extern RHI_API bool GUseTexture3DBulkDataRHI;
 
+TAtomic<uint64> GVulkanBufferHandleIdCounter{ 0 };
+TAtomic<uint64> GVulkanBufferViewHandleIdCounter{ 0 };
+TAtomic<uint64> GVulkanImageViewHandleIdCounter{ 0 };
+TAtomic<uint64> GVulkanSamplerHandleIdCounter{ 0 };
+TAtomic<uint64> GVulkanDSetLayoutHandleIdCounter{ 0 };
+
 #if VULKAN_ENABLE_DESKTOP_HMD_SUPPORT
 #include "Runtime/HeadMountedDisplay/Public/IHeadMountedDisplayModule.h"
 #endif
@@ -42,7 +48,7 @@ static_assert(VK_API_VERSION >= UE_VK_API_VERSION, "Vulkan SDK is older than the
 
 TAutoConsoleVariable<int32> GRHIThreadCvar(
 	TEXT("r.Vulkan.RHIThread"),
-	!(PLATFORM_LUMIN || PLATFORM_LUMINGL4),
+	1,
 	TEXT("0 to only use Render Thread\n")
 	TEXT("1 to use ONE RHI Thread\n")
 	TEXT("2 to use multiple RHI Thread\n")
@@ -426,7 +432,7 @@ void FVulkanDynamicRHI::CreateInstance()
 #if VULKAN_HAS_DEBUGGING_ENABLED
 	SetupDebugLayerCallback();
 
-	if (!GRHISupportsRHIThread || GRenderDocFound)
+	if (GRenderDocFound)
 	{
 		EnableIdealGPUCaptureOptions(true);
 	}
@@ -564,6 +570,8 @@ void FVulkanDynamicRHI::SelectAndInitDevice()
 	GRHIVendorId = Props.vendorID;
 	GRHIAdapterName = ANSI_TO_TCHAR(Props.deviceName);
 
+	FVulkanPlatform::CheckDeviceDriver(DeviceIndex, Props);
+
 	Device->InitGPU(DeviceIndex);
 
 	if (PLATFORM_ANDROID && !PLATFORM_LUMIN && !PLATFORM_LUMINGL4)
@@ -654,6 +662,8 @@ void FVulkanDynamicRHI::InitInstance()
 
 		// Indicate that the RHI needs to use the engine's deferred deletion queue.
 		GRHINeedsExtraDeletionLatency = true;
+
+		GRHISupportsCopyToTextureMultipleMips = true;
 
 		GMaxShadowDepthBufferSizeX =  FPlatformMath::Min<int32>(Props.limits.maxImageDimension2D, GMaxShadowDepthBufferSizeX);
 		GMaxShadowDepthBufferSizeY =  FPlatformMath::Min<int32>(Props.limits.maxImageDimension2D, GMaxShadowDepthBufferSizeY);
@@ -795,6 +805,11 @@ void FVulkanCommandListContext::RHIEndDrawingViewport(FViewportRHIParamRef Viewp
 		//#todo-rco: Check for r.FinishCurrentFrame
 	}
 
+	if (GVulkanDelayAcquireImage == EDelayAcquireImageType::PreAcquire)
+	{
+		RHI->DrawingViewport->PreAcquireSwapchainImage();
+	}
+
 	RHI->DrawingViewport = nullptr;
 
 	ReadAndCalculateGPUFrameTime();
@@ -811,8 +826,17 @@ void FVulkanCommandListContext::RHIEndFrame()
 
 	Device->GetStagingManager().ProcessPendingFree(false, true);
 	Device->GetResourceHeapManager().ReleaseFreedPages();
+	
+	if (UseVulkanDescriptorCache())
+	{
+		Device->GetDescriptorSetCache().GC();
+	}
+	else
+	{
+		Device->GetDescriptorPoolsManager().GC();
+	}
 
-	Device->GetDescriptorPoolsManager().GC();
+	Device->ReleaseUnusedOcclusionQueryPools();
 
 	++FrameCounter;
 }
@@ -962,22 +986,26 @@ void FVulkanDynamicRHI::RHISubmitCommandsAndFlushGPU()
 
 FTexture2DRHIRef FVulkanDynamicRHI::RHICreateTexture2DFromResource(EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 NumMips, uint32 NumSamples, uint32 NumSamplesTileMem, VkImage Resource, uint32 Flags)
 {
-	return new FVulkanTexture2D(*Device, Format, SizeX, SizeY, NumMips, NumSamples, NumSamplesTileMem, Resource, Flags, FRHIResourceCreateInfo());
+	const FRHIResourceCreateInfo ResourceCreateInfo(IsDepthOrStencilFormat(Format) ? FClearValueBinding::DepthZero : FClearValueBinding::Transparent);
+	return new FVulkanTexture2D(*Device, Format, SizeX, SizeY, NumMips, NumSamples, NumSamplesTileMem, Resource, Flags, ResourceCreateInfo);
 }
 
 FTexture2DRHIRef FVulkanDynamicRHI::RHICreateTexture2DFromResource(EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 NumMips, uint32 NumSamples, VkImage Resource, FSamplerYcbcrConversionInitializer& ConversionInitializer, uint32 Flags)
 {
-	return new FVulkanTexture2D(*Device, Format, SizeX, SizeY, NumMips, NumSamples, Resource, ConversionInitializer, Flags, FRHIResourceCreateInfo());
+	const FRHIResourceCreateInfo ResourceCreateInfo(IsDepthOrStencilFormat(Format) ? FClearValueBinding::DepthZero : FClearValueBinding::Transparent);
+	return new FVulkanTexture2D(*Device, Format, SizeX, SizeY, NumMips, NumSamples, Resource, ConversionInitializer, Flags, ResourceCreateInfo);
 }
 
 FTexture2DArrayRHIRef FVulkanDynamicRHI::RHICreateTexture2DArrayFromResource(EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 ArraySize, uint32 NumMips, VkImage Resource, uint32 Flags)
 {
-	return new FVulkanTexture2DArray(*Device, Format, SizeX, SizeY, ArraySize, NumMips, Resource, Flags, nullptr, FClearValueBinding());
+	const FClearValueBinding ClearValueBinding(IsDepthOrStencilFormat(Format) ? FClearValueBinding::DepthZero : FClearValueBinding::Transparent);
+	return new FVulkanTexture2DArray(*Device, Format, SizeX, SizeY, ArraySize, NumMips, Resource, Flags, nullptr, ClearValueBinding);
 }
 
 FTextureCubeRHIRef FVulkanDynamicRHI::RHICreateTextureCubeFromResource(EPixelFormat Format, uint32 Size, bool bArray, uint32 ArraySize, uint32 NumMips, VkImage Resource, uint32 Flags)
 {
-	return new FVulkanTextureCube(*Device, Format, Size, bArray, ArraySize, NumMips, Resource, Flags, nullptr, FClearValueBinding());
+	const FClearValueBinding ClearValueBinding(IsDepthOrStencilFormat(Format) ? FClearValueBinding::DepthZero : FClearValueBinding::Transparent);
+	return new FVulkanTextureCube(*Device, Format, Size, bArray, ArraySize, NumMips, Resource, Flags, nullptr, ClearValueBinding);
 }
 
 void FVulkanDynamicRHI::RHIAliasTextureResources(FTextureRHIParamRef DestTextureRHI, FTextureRHIParamRef SrcTextureRHI)
@@ -1079,12 +1107,7 @@ FVulkanDescriptorSetsLayout::FVulkanDescriptorSetsLayout(FVulkanDevice* InDevice
 
 FVulkanDescriptorSetsLayout::~FVulkanDescriptorSetsLayout()
 {
-	VulkanRHI::FDeferredDeletionQueue& DeletionQueue = Device->GetDeferredDeletionQueue();
-	for (VkDescriptorSetLayout& Handle : LayoutHandles)
-	{
-		DeletionQueue.EnqueueResource(VulkanRHI::FDeferredDeletionQueue::EType::DescriptorSetLayout, Handle);
-	}
-
+	// Handles are owned by FVulkanPipelineStateCacheManager
 	LayoutHandles.Reset(0);
 }
 
@@ -1135,8 +1158,8 @@ void FVulkanDescriptorSetsLayoutInfo::GenerateHash(const TArrayView<const FSampl
 
 	for (int32 layoutIndex = 0; layoutIndex < LayoutCount; ++layoutIndex)
 	{
-		TArray<VkDescriptorSetLayoutBinding>& DescSetLayout = SetLayouts[layoutIndex].LayoutBindings;
-		Hash = FCrc::MemCrc32(DescSetLayout.GetData(), sizeof(VkDescriptorSetLayoutBinding) * DescSetLayout.Num(), Hash);
+		SetLayouts[layoutIndex].GenerateHash();
+		Hash = FCrc::MemCrc32(&SetLayouts[layoutIndex].Hash, sizeof(uint32), Hash);
 	}
 
 	for (uint32 RemapingIndex = 0; RemapingIndex < ShaderStage::NumStages; ++RemapingIndex)
@@ -1148,7 +1171,7 @@ void FVulkanDescriptorSetsLayoutInfo::GenerateHash(const TArrayView<const FSampl
 		Hash = FCrc::MemCrc32(Globals.GetData(), sizeof(FDescriptorSetRemappingInfo::FRemappingInfo) * Globals.Num(), Hash);
 
 		TArray<FDescriptorSetRemappingInfo::FUBRemappingInfo>& UniformBuffers = RemappingInfo.StageInfos[RemapingIndex].UniformBuffers;
-		Hash = FCrc::MemCrc32(UniformBuffers.GetData(), sizeof(FDescriptorSetRemappingInfo::FRemappingInfo) * UniformBuffers.Num(), Hash);
+		Hash = FCrc::MemCrc32(UniformBuffers.GetData(), sizeof(FDescriptorSetRemappingInfo::FUBRemappingInfo) * UniformBuffers.Num(), Hash);
 
 		TArray<uint16>& PackedUBBindingIndices = RemappingInfo.StageInfos[RemapingIndex].PackedUBBindingIndices;
 		Hash = FCrc::MemCrc32(PackedUBBindingIndices.GetData(), sizeof(uint16) * PackedUBBindingIndices.Num(), Hash);
@@ -1167,8 +1190,11 @@ void FVulkanDescriptorSetsLayoutInfo::GenerateHash(const TArrayView<const FSampl
 #endif
 }
 
+static FCriticalSection GTypesUsageCS;
 void FVulkanDescriptorSetsLayoutInfo::CompileTypesUsageID()
 {
+	FScopeLock ScopeLock(&GTypesUsageCS);
+
 	static TMap<uint32, uint32> GTypesUsageHashMap;
 	static uint32 GUniqueID = 1;
 
@@ -1185,7 +1211,7 @@ void FVulkanDescriptorSetsLayoutInfo::CompileTypesUsageID()
 	}
 }
 
-void FVulkanDescriptorSetsLayout::Compile()
+void FVulkanDescriptorSetsLayout::Compile(FVulkanDescriptorSetLayoutMap& DSetLayoutMap)
 {
 	check(LayoutHandles.Num() == 0);
 
@@ -1234,18 +1260,51 @@ void FVulkanDescriptorSetsLayout::Compile()
 			<	Limits.maxDescriptorSetStorageImages);
 
 	check(LayoutTypes[VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT] < Limits.maxDescriptorSetInputAttachments);
-
+	
 	LayoutHandles.Empty(SetLayouts.Num());
 
+	if (UseVulkanDescriptorCache())
+	{
+		LayoutHandleIds.Empty(SetLayouts.Num());
+	}
+				
 	for (FSetLayout& Layout : SetLayouts)
 	{
+		VkDescriptorSetLayout* LayoutHandle = new(LayoutHandles) VkDescriptorSetLayout;
+
+		uint32* LayoutHandleId = nullptr;
+		if (UseVulkanDescriptorCache())
+		{
+			LayoutHandleId = new(LayoutHandleIds) uint32;
+		}
+			
+		if (FVulkanDescriptorSetLayoutEntry* Found = DSetLayoutMap.Find(Layout))
+		{
+			*LayoutHandle = Found->Handle;
+			if (LayoutHandleId)
+			{
+				*LayoutHandleId = Found->HandleId;
+			}
+			continue;
+		}
+
 		VkDescriptorSetLayoutCreateInfo DescriptorLayoutInfo;
 		ZeroVulkanStruct(DescriptorLayoutInfo, VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO);
 		DescriptorLayoutInfo.bindingCount = Layout.LayoutBindings.Num();
 		DescriptorLayoutInfo.pBindings = Layout.LayoutBindings.GetData();
 
-		VkDescriptorSetLayout* LayoutHandle = new(LayoutHandles) VkDescriptorSetLayout;
 		VERIFYVULKANRESULT(VulkanRHI::vkCreateDescriptorSetLayout(Device->GetInstanceHandle(), &DescriptorLayoutInfo, VULKAN_CPU_ALLOCATOR, LayoutHandle));
+
+		if (LayoutHandleId)
+		{
+			*LayoutHandleId = ++GVulkanDSetLayoutHandleIdCounter;
+		}
+
+		FVulkanDescriptorSetLayoutEntry DescriptorSetLayoutEntry;
+		DescriptorSetLayoutEntry.Handle = *LayoutHandle;
+		DescriptorSetLayoutEntry.HandleId = LayoutHandleId ? *LayoutHandleId : 0;
+				
+		DSetLayoutMap.Add(Layout, DescriptorSetLayoutEntry);
 	}
 
 	if (TypesUsageID == ~0)
@@ -1264,30 +1323,35 @@ void FVulkanBufferView::Create(FVulkanBuffer& Buffer, EPixelFormat Format, uint3
 	Offset = InOffset;
 	Size = InSize;
 	check(Format != PF_Unknown);
-	const FPixelFormatInfo& FormatInfo = GPixelFormats[Format];
-	check(FormatInfo.Supported);
+	VkFormat BufferFormat = GVulkanBufferFormat[Format];
+	check(BufferFormat != VK_FORMAT_UNDEFINED);
 
 	VkBufferViewCreateInfo ViewInfo;
 	ZeroVulkanStruct(ViewInfo, VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO);
 	ViewInfo.buffer = Buffer.GetBufferHandle();
-	ViewInfo.format = (VkFormat)FormatInfo.PlatformFormat;
+	ViewInfo.format = BufferFormat;
 	ViewInfo.offset = Offset;
 	ViewInfo.range = Size;
 	Flags = Buffer.GetFlags() & VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT;
 	check(Flags);
 
 	VERIFYVULKANRESULT(VulkanRHI::vkCreateBufferView(GetParent()->GetInstanceHandle(), &ViewInfo, VULKAN_CPU_ALLOCATOR, &View));
+	
+	if (UseVulkanDescriptorCache())
+	{
+		ViewId = ++GVulkanBufferViewHandleIdCounter;
+	}
+
 	INC_DWORD_STAT(STAT_VulkanNumBufferViews);
 }
 
 void FVulkanBufferView::Create(FVulkanResourceMultiBuffer* Buffer, EPixelFormat Format, uint32 InOffset, uint32 InSize)
 {
 	check(Format != PF_Unknown);
-	const FPixelFormatInfo& FormatInfo = GPixelFormats[Format];
-	check(FormatInfo.Supported);
-	Create((VkFormat)FormatInfo.PlatformFormat, Buffer, InOffset, InSize);
+	VkFormat BufferFormat = GVulkanBufferFormat[Format];
+	check(BufferFormat != VK_FORMAT_UNDEFINED);
+	Create(BufferFormat, Buffer, InOffset, InSize);
 }
-
 
 void FVulkanBufferView::Create(VkFormat Format, FVulkanResourceMultiBuffer* Buffer, uint32 InOffset, uint32 InSize)
 {
@@ -1310,6 +1374,12 @@ void FVulkanBufferView::Create(VkFormat Format, FVulkanResourceMultiBuffer* Buff
 	check(Flags);
 
 	VERIFYVULKANRESULT(VulkanRHI::vkCreateBufferView(GetParent()->GetInstanceHandle(), &ViewInfo, VULKAN_CPU_ALLOCATOR, &View));
+	
+	if (UseVulkanDescriptorCache())
+	{
+		ViewId = ++GVulkanBufferViewHandleIdCounter;
+	}
+
 	INC_DWORD_STAT(STAT_VulkanNumBufferViews);
 }
 
@@ -1320,6 +1390,7 @@ void FVulkanBufferView::Destroy()
 		DEC_DWORD_STAT(STAT_VulkanNumBufferViews);
 		Device->GetDeferredDeletionQueue().EnqueueResource(FDeferredDeletionQueue::EType::BufferView, View);
 		View = VK_NULL_HANDLE;
+		ViewId = 0;
 	}
 }
 

@@ -1,11 +1,17 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreTypes.h"
 #include "CoreFwd.h"
+#include "Logging/LogMacros.h"
+#include "Common/TcpSocketBuilder.h"
+#include "string.h"
 
 class FIOSDeviceOutputReaderRunnable;
 class FIOSTargetDevice;
 class FIOSTargetDeviceOutput;
+
+
+
 
 inline FIOSDeviceOutputReaderRunnable::FIOSDeviceOutputReaderRunnable(const FTargetDeviceId InDeviceId, FOutputDevice* InOutput)
 	: StopTaskCounter(0)
@@ -13,37 +19,45 @@ inline FIOSDeviceOutputReaderRunnable::FIOSDeviceOutputReaderRunnable(const FTar
 	, Output(InOutput)
 	, DSReadPipe(nullptr)
 	, DSWritePipe(nullptr)
+	, DSCommander(nullptr)
 {
 }
 
-inline bool FIOSDeviceOutputReaderRunnable::StartDSProcess(void)
+inline bool FIOSDeviceOutputReaderRunnable::StartDSCommander()
 {
-	FString DSFilename = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/IOS/DeploymentServer.exe"));
-	FString Params = FString::Printf(TEXT(" listentodevice -device %s"), *DeviceId.GetDeviceName());
-	Output->Serialize(TEXT("Starting process ....."), ELogVerbosity::Log, NAME_None);
+	if (DSCommander)
+	{
+		DSCommander->Stop();
+		delete DSCommander;
+	}
+	Output->Serialize(TEXT("Starting listening ....."), ELogVerbosity::Log, NAME_None);
 	Output->Serialize(*DeviceId.GetDeviceName(), ELogVerbosity::Log, NAME_None);
-	DSProcHandle = FPlatformProcess::CreateProc(*DSFilename, *Params, true, false, false, NULL, 0, NULL, DSWritePipe);
-	return DSProcHandle.IsValid();
+	FString Command = FString::Printf(TEXT("listentodevice -device %s"), *DeviceId.GetDeviceName());
+	uint8* DSCommand = (uint8*)TCHAR_TO_UTF8(*Command);
+	DSCommander = new FTcpDSCommander(DSCommand, strlen((const char*)DSCommand), DSWritePipe);
+	return DSCommander->IsValid();
 }
 
 inline bool FIOSDeviceOutputReaderRunnable::Init(void) 
 { 
 	FPlatformProcess::CreatePipe(DSReadPipe, DSWritePipe);
-	return StartDSProcess();
+	return StartDSCommander();
 }
 
 inline void FIOSDeviceOutputReaderRunnable::Exit(void) 
 {
 	StopTaskCounter.Increment();
-	if (DSProcHandle.IsValid())
+	if (DSCommander)
 	{
-		if (DSReadPipe && DSWritePipe)
-		{
-			FPlatformProcess::ClosePipe(DSReadPipe, DSWritePipe);
-			DSReadPipe = nullptr;
-			DSWritePipe = nullptr;
-		}
-		FPlatformProcess::TerminateProc(DSProcHandle, true);
+		DSCommander->Stop();
+		delete DSCommander;
+		DSCommander = nullptr;
+	}
+	if (DSReadPipe && DSWritePipe)
+	{
+		FPlatformProcess::ClosePipe(DSReadPipe, DSWritePipe);
+		DSReadPipe = nullptr;
+		DSWritePipe = nullptr;
 	}
 }
 
@@ -55,23 +69,21 @@ inline void FIOSDeviceOutputReaderRunnable::Stop(void)
 inline uint32 FIOSDeviceOutputReaderRunnable::Run(void)
 {
 	FString DSOutput;
-	
-	while (StopTaskCounter.GetValue() == 0 && DSProcHandle.IsValid())
+	Output->Serialize(TEXT("Starting Output"), ELogVerbosity::Log, NAME_None);
+	while (StopTaskCounter.GetValue() == 0 && DSCommander->IsValid())
 	{
-		if (!FPlatformProcess::IsProcRunning(DSProcHandle))
+		if (DSCommander->IsStopped() || !DSCommander->IsValid())
 		{
 			// When user plugs out USB cable DS process stops
 			// Keep trying to restore DS connection until code that uses this object will not kill us
 			Output->Serialize(TEXT("Trying to restore connection to device..."), ELogVerbosity::Log, NAME_None);
-			FPlatformProcess::CloseProc(DSProcHandle);
-			if (StartDSProcess())
+			if (StartDSCommander())
 			{
 				FPlatformProcess::Sleep(5.0f);
 			}
 			else
 			{
-				Output->Serialize(TEXT("Failed to start DS proccess"), ELogVerbosity::Log, NAME_None);
-				Stop();
+				Output->Serialize(TEXT("Failed to start DS commander"), ELogVerbosity::Log, NAME_None);
 			}
 		}
 		else
@@ -96,7 +108,10 @@ inline uint32 FIOSDeviceOutputReaderRunnable::Run(void)
 
 				for (int32 i = 0; i < OutputLines.Num(); ++i)
 				{
-					Output->Serialize(*OutputLines[i], ELogVerbosity::Log, NAME_None);
+					if (OutputLines[i].Contains(TEXT("[UE4]"), ESearchCase::CaseSensitive))
+					{
+						Output->Serialize(*OutputLines[i], ELogVerbosity::Log, NAME_None);
+					}
 				}
 			}
 			
@@ -122,4 +137,3 @@ inline bool FIOSTargetDeviceOutput::Init(const FIOSTargetDevice& TargetDevice, F
 	DeviceOutputThread = TUniquePtr<FRunnableThread>(FRunnableThread::Create(Runnable, TEXT("FIOSDeviceOutputReaderRunnable")));
 	return true;
 }
-	

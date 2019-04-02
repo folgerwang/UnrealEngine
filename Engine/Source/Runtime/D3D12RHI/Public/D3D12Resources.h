@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D12Resources.h: D3D resource RHI definitions.
@@ -15,8 +15,16 @@ class FD3D12StateCacheBase;
 class FD3D12CommandListManager;
 class FD3D12CommandContext;
 class FD3D12CommandListHandle;
+class FD3D12SegListAllocator;
 struct FD3D12GraphicsPipelineState;
 typedef FD3D12StateCacheBase FD3D12StateCache;
+
+#if D3D12_RHI_RAYTRACING
+class FD3D12RayTracingGeometry;
+class FD3D12RayTracingScene;
+class FD3D12RayTracingPipelineState;
+class FD3D12RayTracingShader;
+#endif // D3D12_RHI_RAYTRACING
 
 class FD3D12PendingResourceBarrier
 {
@@ -70,7 +78,7 @@ public:
 	~FD3D12Heap();
 
 	inline ID3D12Heap* GetHeap() { return Heap.GetReference(); }
-	inline void SetHeap(ID3D12Heap* HeapIn) { Heap = HeapIn; }
+	inline void SetHeap(ID3D12Heap* HeapIn) { *Heap.GetInitReference() = HeapIn; }
 
 	void UpdateResidency(FD3D12CommandListHandle& CommandList);
 
@@ -189,6 +197,8 @@ public:
 	}
 
 	inline bool ShouldDeferDelete() const { return bDeferDelete; }
+	void DeferDelete();
+
 	inline bool IsPlacedResource() const { return Heap.GetReference() != nullptr; }
 	inline FD3D12Heap* GetHeap() const { return Heap; };
 	inline bool IsDepthStencilResource() const { return bDepthStencil; }
@@ -266,7 +276,20 @@ private:
 	void InitalizeResourceState(D3D12_RESOURCE_STATES InitialState)
 	{
 		SubresourceCount = GetMipLevels() * GetArraySize() * GetPlaneCount();
-		DetermineResourceStates();
+
+#if D3D12_RHI_RAYTRACING
+		if (InitialState == D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE)
+		{
+			// Ray-tracing acceleration structure resources can never be transitioned out of their initial state.
+			bRequiresResourceStateTracking = false;
+			WritableState = InitialState;
+			ReadableState = InitialState;
+		}
+		else
+#endif // D3D12_RHI_RAYTRACING
+		{
+			DetermineResourceStates();
+		}
 
 		if (bRequiresResourceStateTracking)
 		{
@@ -375,9 +398,19 @@ struct FD3D12BlockAllocatorPrivateData
 	}
 };
 
+struct FD3D12SegListAllocatorPrivateData
+{
+	uint32 Offset;
+
+	void Init()
+	{
+		Offset = 0;
+	}
+};
+
 class FD3D12ResourceAllocator;
 // A very light-weight and cache friendly way of accessing a GPU resource
-class FD3D12ResourceLocation : public FD3D12DeviceChild
+class FD3D12ResourceLocation : public FD3D12DeviceChild, public FNoncopyable
 {
 public:
 
@@ -392,6 +425,13 @@ public:
 		eHeapAliased, 
 	};
 
+	enum EAllocatorType : uint8
+	{
+		AT_Default, // FD3D12BaseAllocatorType
+		AT_SegList, // FD3D12SegListAllocator
+		AT_Unknown = 0xff
+	};
+
 	FD3D12ResourceLocation(FD3D12Device* Parent);
 	~FD3D12ResourceLocation();
 
@@ -404,7 +444,8 @@ public:
 	void SetResource(FD3D12Resource* Value);
 	inline void SetType(ResourceLocationType Value) { Type = Value;}
 
-	inline void SetAllocator(FD3D12BaseAllocatorType* Value) { Allocator = Value; }
+	inline void SetAllocator(FD3D12BaseAllocatorType* Value) { Allocator = Value; AllocatorType = AT_Default; }
+	inline void SetSegListAllocator(FD3D12SegListAllocator* Value) { SegListAllocator = Value; AllocatorType = AT_SegList; }
 	inline void SetMappedBaseAddress(void* Value) { MappedBaseAddress = Value; }
 	inline void SetGPUVirtualAddress(D3D12_GPU_VIRTUAL_ADDRESS Value) { GPUVirtualAddress = Value; }
 	inline void SetOffsetFromBaseOfResource(uint64 Value) { OffsetFromBaseOfResource = Value; }
@@ -412,7 +453,8 @@ public:
 
 	// Getters
 	inline ResourceLocationType GetType() const { return Type; }
-	inline FD3D12BaseAllocatorType* GetAllocator() { return Allocator; }
+	inline FD3D12BaseAllocatorType* GetAllocator() { check(AT_Default == AllocatorType); return Allocator; }
+	inline FD3D12SegListAllocator* GetSegListAllocator() { check(AT_SegList == AllocatorType); return SegListAllocator; }
 	inline FD3D12Resource* GetResource() const { return UnderlyingResource; }
 	inline void* GetMappedBaseAddress() const { return MappedBaseAddress; }
 	inline D3D12_GPU_VIRTUAL_ADDRESS GetGPUVirtualAddress() const { return GPUVirtualAddress; }
@@ -421,6 +463,7 @@ public:
 	inline FD3D12ResidencyHandle* GetResidencyHandle() { return ResidencyHandle; }
 	inline FD3D12BuddyAllocatorPrivateData& GetBuddyAllocatorPrivateData() { return AllocatorData.BuddyAllocatorPrivateData; }
 	inline FD3D12BlockAllocatorPrivateData& GetBlockAllocatorPrivateData() { return AllocatorData.BlockAllocatorPrivateData; }
+	inline FD3D12SegListAllocatorPrivateData& GetSegListAllocatorPrivateData() { return AllocatorData.SegListAllocatorPrivateData; }
 
 	const inline bool IsValid() const { return Type != ResourceLocationType::eUndefined; }
 
@@ -494,13 +537,18 @@ private:
 	FD3D12ResidencyHandle* ResidencyHandle;
 
 	// Which allocator this belongs to
-	FD3D12BaseAllocatorType* Allocator;
+	union
+	{
+		FD3D12BaseAllocatorType* Allocator;
+		FD3D12SegListAllocator* SegListAllocator;
+	};
 
 	// Union to save memory
 	union PrivateAllocatorData
 	{
 		FD3D12BuddyAllocatorPrivateData BuddyAllocatorPrivateData;
 		FD3D12BlockAllocatorPrivateData BlockAllocatorPrivateData;
+		FD3D12SegListAllocatorPrivateData SegListAllocatorPrivateData;
 	} AllocatorData;
 
 	// Note: These values refer to the start of this location including any padding *NOT* the start of the underlying resource
@@ -512,11 +560,28 @@ private:
 	uint64 Size;
 
 	bool bTransient;
+
+	EAllocatorType AllocatorType;
 };
 
 class FD3D12DeferredDeletionQueue : public FD3D12AdapterChild
 {
-	typedef TPair<FD3D12Resource*, uint64> FencedObjectType;
+	enum class EObjectType
+	{
+		RHI,
+		D3D,
+	};
+
+	struct FencedObjectType
+	{
+		union
+		{
+			FD3D12Resource* RHIObject;
+			ID3D12Object*   D3DObject;
+		};
+		uint64 FenceValue;
+		EObjectType Type;
+	};
 	FThreadsafeQueue<FencedObjectType> DeferredReleaseQueue;
 
 public:
@@ -524,6 +589,7 @@ public:
 	inline const uint32 QueueSize() const { return DeferredReleaseQueue.GetSize(); }
 
 	void EnqueueResource(FD3D12Resource* pResource);
+	void EnqueueResource(ID3D12Object* pResource);
 
 	bool ReleaseResources(bool DeleteImmediately = false);
 
@@ -558,13 +624,14 @@ private:
 
 struct FD3D12LockedResource : public FD3D12DeviceChild
 {
-	FD3D12LockedResource(FD3D12Device* Device) 
+	FD3D12LockedResource(FD3D12Device* Device)
 		: FD3D12DeviceChild(Device)
 		, ResourceLocation(Device)
 		, LockedOffset(0)
 		, LockedPitch(0)
 		, bLocked(false)
 		, bLockedForReadOnly(false)
+		, bHasNeverBeenLocked(true)
 	{}
 
 	inline void Reset()
@@ -581,6 +648,7 @@ struct FD3D12LockedResource : public FD3D12DeviceChild
 	uint32 LockedPitch;
 	uint32 bLocked : 1;
 	uint32 bLockedForReadOnly : 1;
+	uint32 bHasNeverBeenLocked : 1;
 };
 
 /** The base class of resources that may be bound as shader resources. */
@@ -622,21 +690,21 @@ public:
 	/** Resource table containing RHI references. */
 	TArray<TRefCountPtr<FRHIResource> > ResourceTable;
 
+	const EUniformBufferUsage UniformBufferUsage;
+
 	/** Initialization constructor. */
-	FD3D12UniformBuffer(class FD3D12Device* InParent, const FRHIUniformBufferLayout& InLayout)
+	FD3D12UniformBuffer(class FD3D12Device* InParent, const FRHIUniformBufferLayout& InLayout, EUniformBufferUsage InUniformBufferUsage)
 		: FRHIUniformBuffer(InLayout)
 		, FD3D12DeviceChild(InParent)
 #if USE_STATIC_ROOT_SIGNATURE
 		, View(nullptr)
 #endif
 		, ResourceLocation(InParent)
+		, UniformBufferUsage(InUniformBufferUsage)
 	{
 	}
 
 	virtual ~FD3D12UniformBuffer();
-
-private:
-	class FD3D12DynamicRHI* D3D12RHI;
 };
 
 #if PLATFORM_WINDOWS
@@ -759,6 +827,33 @@ public:
 	FD3D12LockedResource LockedData;
 };
 
+template<class BufferType>
+inline void UpdateBufferStats(FD3D12ResourceLocation* ResourceLocation, bool bAllocating);
+
+template<>
+inline void UpdateBufferStats<FD3D12UniformBuffer>(FD3D12ResourceLocation* ResourceLocation, bool bAllocating)
+{
+	UpdateBufferStats(ResourceLocation, bAllocating, D3D12_BUFFER_TYPE_CONSTANT);
+}
+
+template<>
+inline void UpdateBufferStats<FD3D12VertexBuffer>(FD3D12ResourceLocation* ResourceLocation, bool bAllocating)
+{
+	UpdateBufferStats(ResourceLocation, bAllocating, D3D12_BUFFER_TYPE_VERTEX);
+}
+
+template<>
+inline void UpdateBufferStats<FD3D12IndexBuffer>(FD3D12ResourceLocation* ResourceLocation, bool bAllocating)
+{
+	UpdateBufferStats(ResourceLocation, bAllocating, D3D12_BUFFER_TYPE_INDEX);
+}
+
+template<>
+inline void UpdateBufferStats<FD3D12StructuredBuffer>(FD3D12ResourceLocation* ResourceLocation, bool bAllocating)
+{
+	UpdateBufferStats(ResourceLocation, bAllocating, D3D12_BUFFER_TYPE_STRUCTURED);
+}
+
 class FD3D12ResourceBarrierBatcher : public FNoncopyable
 {
 public:
@@ -850,24 +945,45 @@ private:
 
 class FD3D12StagingBuffer : public FRHIStagingBuffer
 {
-public:
-	FD3D12StagingBuffer(FVertexBufferRHIRef InBuffer)
-		: FRHIStagingBuffer(InBuffer)
-	{}
+	friend class FD3D12CommandContext;
+	friend class FD3D12DynamicRHI;
 
-	TRefCountPtr<FD3D12Resource> StagedRead;
+public:
+	FD3D12StagingBuffer()
+		: FRHIStagingBuffer()
+		, StagedRead(nullptr)
+		, ShadowBufferSize(0)
+	{}
+	virtual ~FD3D12StagingBuffer() final override;
+
+	void SafeRelease()
+	{
+		if (StagedRead)
+		{
+			StagedRead->Release();
+			StagedRead = nullptr;
+		}
+	}
+
+	virtual void* Lock(uint32 Offset, uint32 NumBytes) final override;
+	virtual void Unlock() final override;
+
+private:
+	FD3D12Resource* StagedRead;
+	uint32 ShadowBufferSize;
 };
 
 class FD3D12GPUFence : public FRHIGPUFence
 {
 public:
-	FD3D12GPUFence(FName InName, FD3D12Fence* InFence) 
+	FD3D12GPUFence(FName InName, FD3D12Fence* InFence)
 		: FRHIGPUFence(InName)
 		, Fence(InFence)
 		, Value(0)
 	{}
 
 	void WriteInternal(ED3D12CommandQueueType QueueType);
+	virtual void Clear() final override;
 	virtual bool Poll() const final override;
 
 protected:
@@ -946,3 +1062,26 @@ struct TD3D12ResourceTraits<FRHIStagingBuffer>
 	typedef FD3D12StagingBuffer TConcreteType;
 };
 
+
+#if D3D12_RHI_RAYTRACING
+template<>
+struct TD3D12ResourceTraits<FRHIRayTracingScene>
+{
+	typedef FD3D12RayTracingScene TConcreteType;
+};
+template<>
+struct TD3D12ResourceTraits<FRHIRayTracingGeometry>
+{
+	typedef FD3D12RayTracingGeometry TConcreteType;
+};
+template<>
+struct TD3D12ResourceTraits<FRHIRayTracingPipelineState>
+{
+	typedef FD3D12RayTracingPipelineState TConcreteType;
+};
+template<>
+struct TD3D12ResourceTraits<FRHIRayTracingShader>
+{
+	typedef FD3D12RayTracingShader TConcreteType;
+};
+#endif // D3D12_RHI_RAYTRACING

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -27,6 +27,8 @@ public:
 	static void StartFrameProRecordingScopeOverrideFromCommand(const TArray< FString >& Args);
 	static FString StartFrameProRecording(const FString& FilenameRoot, int32 MinScopeTime);
 	static void StopFrameProRecording();
+
+	static bool IsFrameProRecording();
 };
 
 #endif // FRAMEPRO_ENABLED

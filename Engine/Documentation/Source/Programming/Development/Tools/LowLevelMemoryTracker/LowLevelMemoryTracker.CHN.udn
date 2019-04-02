@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3782314
 Availability: Docs
 Crumbs: %ROOT%
-Title: Low-Level Memory Tracker
-Description: Going over how to use the Low-Level Memory Tracker in your Unreal Engine projects.
+Title: 低级内存跟踪器
+Description: 概述了如何在您的虚幻引擎项目中使用低级内存跟踪器。
 Type: Overview
 SkillLevel: Advanced
 Version:4.18
@@ -16,125 +16,125 @@ Tags:Optimization
 ![](LLM_00.png)
 
 [REGION:caption]
-LLM supports PlayStation 4 and XboxOne. Windows is supported as an experimental feature.
+LLM支持PlayStation 4和XboxOne。Windows作为实验性功能受到支持。
 [/REGION]
 
 
-The **Low-Level Memory Tracker**, or **LLM**, is a tool that tracks memory usage in Unreal Engine projects. LLM uses a scoped-tag system to keep an account of all memory allocated by the Unreal Engine and the OS.
+**低级内存跟踪器（Low-Level Memory Tracker）**（简称 **LLM**）是一种跟踪虚幻引擎项目中内存使用情况的工具。LLM使用范围标记系统来记录虚幻引擎和操作系统分配的所有内存。
 
 
-## LLM Trackers
+## LLM跟踪器
 
-There are currently two trackers in LLM. Each tracker has its own allocation map and tag stack. The Default Tracker is for all allocations from the Engine. It is the higher-level of the two, and records allocations made through the `FMemory` class function, `Malloc`. This is the tracker that supplies the stats for the `stat LLM` and `stat LLMFULL` Console Commands. The Platform Tracker is the lower-level version, and it records all allocations made from the OS. For example, it will track the internal allocations made by functions like `Binned2`. The Default Tracker stats are therefore a subset of the platform tracker stats.
+LLM目前有两个跟踪器。每个跟踪器都有自己的分配映射和标记堆栈。默认跟踪器适用于引擎的所有分配。在这两个跟踪器中，它的级别较高并记录通过 `FMemory` 类函数 `Malloc` 进行的分配。该跟踪器可为 `stat LLM` 和 `stat LLMFULL` 控制台命令提供统计信息。平台跟踪器是较低级别的版本，它记录从OS进行的所有分配。例如，它会跟踪 `Binned2` 等函数进行的内部分配。因此，默认跟踪器统计信息是平台跟踪器统计信息的子集。
 
 
-## LLM Setup
+## LLM设置
 
-To enable LLM in your project, use the following command-line arguments and Console Commands.
+要在项目中启用LLM，请使用以下命令行参数和控制台命令。
 
-| Command Line Argument | Description |
+| 命令行参数 | 说明 |
 |--|--|
-|`-LLM`|Enables LLM|
-|`-LLMCSV`|Continuously writes out all values to a CSV file. Automatically enables -LLM.|
-|`-llmtagsets=Assets`|Experimental Feature. Shows the total allocated by each asset.|
-|`-llmtagsets=AssetClasses`|Experimental Feature. Shows the totals for each UObject class type.|
+|`-LLM`|启用LLM|
+|`-LLMCSV`|连续将所有值写入CSV文件。自动启用-LLM。|
+|`-llmtagsets=Assets`|实验性功能。显示每个资源分配的内存总计。|
+|`-llmtagsets=AssetClasses`|实验性功能。显示每个UObject类类型的总计。|
 
-| Console Commands| Description|
+| 控制台命令| 说明|
 |--|--|
-|`stat LLM`| Shows the LLM summary. All lower level engine stats are grouped under a single Engine stat.|
-|`stat LLMFULL`|Shows all LLM stats.|
-|`stat LLMPlatform`|Shows stats for all memory allocated from the OS.|
-|`stat LLMOverhead`|Shows the memory used internally by LLM.|
+|`stat LLM`| 显示LLM摘要。所有较低级别的引擎统计信息都归入单个引擎统计信息。|
+|`stat LLMFULL`|显示所有LLM统计信息。|
+|`stat LLMPlatform`|显示从OS分配的所有内存的统计信息。|
+|`stat LLMOverhead`|显示LLM内部使用的内存。|
 
-When using the `-LLMCSV` command-line argument, the `.CSV` file will be written out to `saved/profiling/llm/`. The file will contain a column for each tag showing the current value in MB. A new line is written every 5 seconds (by default). The frequency can be changed using the `LLM.LLMWriteInterval` Console Variable.
+使用 `-LLMCSV` 命令行参数时，`.CSV` 文件将写入 `saved/profiling/llm/`。该文件将包含每个标记的列，以MB为单位显示当前值。每隔5秒写一个新行（默认情况下）。此频率可以使用 `LLM.LLMWriteInterval` 控制台变量更改。
 
 
-## LLM Tags
+## LLM标记
 
-Every memory allocation made by the Engine (including game code) is assigned a tag value identifying the category to which it belongs. This means that all memory is tracked once and only once, nothing is missed, and nothing is counted twice. The total of all of the categories will add up to the total amount of memory used for the game.
+引擎（包括游戏代码）的每次内存分配都会被指定一个标记值，用于标识其所属的类别。也就是说，所有内存仅被跟踪一次，没有任何内存错过或被计算两次。所有类别的总计会累计到游戏所用的总内存。
 
-The tags are applied using tag-scope macros. Any allocation made within that scope will be given the specified tag. LLM maintains a stack of tag scopes and applies the top tag to the allocation. LLM stats can be viewed in-game using the `stat LLM` or `stat LLMFULL` Console Commands. The current total for each tag will be shown in MB. LLM also writes out the stat values to a `.CSV` file, so that the values can be analyzed. The following Tag Categories currently exist within the Engine:
+这些标记使用标记范围宏进行应用。在该范围内应用的任何分配都会被分配指定标记。LLM维护有一个标记范围堆栈，并将顶部标记应用于分配。LLM统计信息可以在游戏中使用 `stat LLM` 或 `stat LLMFULL` 控制台命令进行查看。每个标记的当前总计将以MB为单位显示。LLM还会将统计信息值写入 `.CSV` 文件，以便分析这些值。引擎中当前存在以下标记类别：
 
-| Tag Name| Description|
+| 标记名称| 说明|
 |--|--|
-|**UObject**| This includes any class that inherits from `UObject` and anything that is serialized by that class including properties. **UObject** is a catch-all for all Engine and game memory that is not tracked in any other category. Note that this stat doesn't include Mesh or Animation data which are tracked separately. It corresponds to the number of Objects placed in the Level.|
-|**EngineMisc**|Any low-level memory that is not tracked in any other category. |
-|**TaskGraphTasksMisc**|Any task that is kicked off from the task graph that doesn't have its own category. This should generally be fairly low. |
-|**StaticMesh**|This is the `UStaticMesh` class and related properties, and does not include the actual mesh data.|
+|**UObject**| 该标记包括从 `UObject` 继承的任何类以及由该类序列化的任何内容，包括属性。**UObject** 囊括了所有未在任何其他类别中跟踪的引擎和游戏内存。请注意，此统计信息不包括单独跟踪的网格体或动画数据。它对应于放置在关卡中的对象数。|
+|**EngineMisc**|任何其他类别中未跟踪的所有低级内存。|
+|**TaskGraphTasksMisc**|从任务图中启动的任何没有自己类别的任务。该任务通常级别应较低。|
+|**StaticMesh**|该标记是 `UStaticMesh` 类和相关属性，并不包括实际的网格体数据。|
 
-To add a new tag you will need to do the following:
+要添加新的标记，需要执行以下步骤：
 
-1. Add a value to the `ELLMTag` enumerated type found in `LowLevelMemTracker.h`.
-1. Add a corresponding element to the `ELLMTagNames` array found in `LowLevelMemTracker.cpp`.
-1. Add tag scopes to the code using the `LLM_SCOPE` macro.
+1. 将值添加到 `LowLevelMemTracker.h` 中的 `ELLMTag` 列举类型。
+1. 将相应的元素添加到 `LowLevelMemTracker.cpp` 中的 `ELLMTagNames` 数组中。
+1. 使用 `LLM_SCOPE` 宏将标记范围添加到代码中。
 
-If the scope is platform-specific, add to the enumerated type in the same way within the platform-specific LLM files, for example, `PS4LLM.cpp` and `PS4LLM.h` for the PlayStation 4.
+如果范围是特定于平台的，则以相同的方式添加到特定于平台的LLM文件中的列举类型，例如，PlayStation 4的 `PS4LLM.cpp` 和 `PS4LLM.h`。
 
 
-## Tag Sets (Experimental)
+## 标记集（实验性）
 
-To use Tag Sets, define `LLM_ALLOW_ASSETS_TAGS` in `LowLevelMemory.h`. When using Tag Sets, each allocation will additionally store the Asset name or the Object class name.
-[REGION:note]Using Tag Sets will add overhead to both memory usage and runtime performance.[/REGION]
+要使用标记集，请在 `LowLevelMemory.h` 中定义 `LLM_ALLOW_ASSETS_TAGS`。使用标记集时，每个分配还将存储资源名称或Object类名称。
+[REGION:note]使用标记集将增加内存占用和运行时性能耗用。[/REGION]
 
 [COMMENT:none]
-- Commenting this out because I'm not sure we want the burden of supporting third-party engine ports to new platforms.
+- 标注出这一内容，是因为我不确定我们是否需要承担支持第三方引擎端口到新平台的责任。
 
-## Setup for a New Platform
+## 设置新平台
 
-The platform memory class that inherits from `FGenericPlatformMemory` needs to implement this function:
+从 `FGenericPlatformMemory` 继承的平台内存类需要实现以下函数：
 
     static bool GetLLMAllocFunctions(void*(*&OutAllocFunction)(size_t), void(*&OutFreeFunction)(void*, size_t), int32& OutAlignment);
 
-The function fills out the `alloc` and `free` function pointers and the alignment (usually the OS page size). The allocation function needs to use an OS allocation function that isn't hooked by LLM. For example, on Windows, it uses `VirtualAlloc`.
+该函数填充 `alloc` 和 `free` 函数指针以及对齐（通常是OS页面大小）。分配函数需使用未被LLM连接的OS分配函数。例如，在Windows上，它使用 `VirtualAlloc`。
 
-These functions must be called when allocating and freeing memory:
+分配和释放内存时必须调用以下函数：
 
     void FLowLevelMemTracker::OnLowLevelAlloc(ELLMTracker Tracker, const void* Ptr, uint64 Size, ELLMTag DefaultTag, ELLMAllocType AllocType)
 
 
     void FLowLevelMemTracker::OnLowLevelFree(ELLMTracker Tracker, const void* Ptr, uint64 CheckSize, ELLMAllocType AllocType)
 
-Care must be taken that memory is not counted twice by these functions. The `FMemory` class's `Malloc` function contains hooks for the Default Tracker, so this memory will already be tracked for all platforms. However, the OS allocations made by `Binned2` will need to be tracked by the Platform tracker (see the `FGenericPlatformMemory` class function, `BinnedAllocFromOS`).
+请注意，这些函数不会将内存计数两次。`FMemory` 类的 `Malloc` 函数包含默认跟踪器的钩函数，因此将为所有平台跟踪该内存。但是，`Binned2` 进行的OS分配需要由平台跟踪器跟踪（请参阅 `FGenericPlatformMemory` 类函数 `BinnedAllocFromOS`）。
 -
 [/COMMENT]
 
-## Technical Implementation Details
+## 技术实现细节
 
-LLM works by maintaining a map of all allocations indexed by a pointer. The map currently contains the size of each allocation and its assigned Tag. Games can have as many as 4 million live allocations at any one time, so it is important to keep the memory overhead as small as possible. The current implementation uses 21 bytes per allocation:
+LLM的作用原理是维护由指针索引的所有分配的映射。该映射当前包含每个分配的大小及其指定的标记。游戏一次可有多达400万个实时分配，因此内存开销必须尽可能少。当前实现中每个分配使用21个字节：
 
-| Allocation| Size|
+| 分配| 大小|
 |--|--|
-|Pointer|8 bytes |
-|Pointer Hash Key|4 bytes |
-|Size|4 bytes |
-|Tag|1 byte |
-|Hash Map Index|4 bytes |
+|指针|8个字节 |
+|指针散列键|4个字节 |
+|大小|4个字节 |
+|标记|1个字节 |
+|散列图索引|4个字节 |
 
-When an allocation is tracked with the `OnLowLevelAlloc` function, the tag on the top of the tag stack becomes the current tag and is stored in the allocation map with that pointer as its key. To avoid contention, the frame deltas of each tag are tracked in a separate `FLLMThreadState` class instance. At the end of a frame, these deltas are summed and published to the stats system and `.CSV` file.
+使用 `OnLowLevelAlloc` 函数跟踪分配时，标记堆栈顶部的标记将成为当前标记，并存储在分配映射中，以该指针作为其关键帧。为了避免争用，在单独的 `FLLMThreadState` 类实例中跟踪每个标记的帧增量。在帧结束时，这些增量将相加并发布到统计信息系统和 `.CSV` 文件。
 
-LLM is initialized very early on, which means that it must be enabled by default. If LLM isn't enabled on the command line, it will shut itself down and clean up all memory, ensuring there is no overhead. LLM is completely compiled out in Test and Shipping builds.
+LLM早已被初始化，也就是说它必须默认启用。如果未在命令行上启用LLM，它将自行关闭并清理所有内存，以确保没有占用内存。LLM完全在“测试”和“发行”构建中编译。
 
-LLM can be run without the stats system (for example in the Test config). It won't be possible to show the stats on screen, but the stats will still be written out to the `.CSV` file. LLM will need to be enabled by modifying `ENABLE_LOW_LEVEL_MEM_TRACKER` in `LowLevelMemTracker.h`.
+LLM可在没有统计信息系统的情况下运行（例如在“测试”配置中）。如果这样，屏幕上将无法显示统计信息，但统计信息仍将写入 `.CSV` 文件。LLM将需要通过修改 `LowLevelMemTracker.h` 中的 `ENABLE_LOW_LEVEL_MEM_TRACKER` 来启用。
 
-Tags are applied using the scope macros. The two main macros are:
+标记使用范围宏进行应用。以下是两个主要的宏：
 * `LLM_SCOPE(Tag)`
 * `LLM_PLATFORM_SCOPE(Tag)`
 
-These set the current scope of the Default Tracker and Platform Tracker, respectively. There are platform-dependent versions of these scopes, for example, `LLM_SCOPE_PS4(Tag)`, which use the platform-specific tag enumerated types. The scope macros that use stats, such as `LLM_SCOPED_TAG_WITH_STAT`, are considered deprecated at the moment, and should not be used.
+这两个宏分别设置了默认跟踪器和平台跟踪器的当前范围。这些范围有平台相关版本，例如 `LLM_SCOPE_PS4(Tag)`，它使用特定于平台的标记列举类型。使用统计信息的范围宏（例如 `LLM_SCOPED_TAG_WITH_STAT`）目前被视为已弃用，不应被使用。
 
-All memory used by LLM internally is managed by the platform-supplied `LLMAlloc` and `LLMFree` functions. It is important that LLM doesn't make allocations in any other way, so that it doesn't track its own memory usage (and cause infinite recursion).
+LLM内部使用的所有内存均由平台提供的 `LLMAlloc` 和 `LLMFree` 函数管理。LLM不以任何其他方式进行分配，因此它不会跟踪自己的内存使用情况（并导致无穷递归），这一点非常重要。
 
-## Additional Technical Details
+## 其他技术细节
 
-The following section contains various notes and additional information you should be aware of when using LLM.
+以下部分介绍了使用LLM时应注意的各种注释和其他信息。
 
-* Because the overhead of LLM can be 100MB or more it is strongly advised to run in large memory mode on consoles:
+* 因为LLM占用的内存可能高达100MB甚至更多，所以强烈建议在控制台上以大内存模式运行：
 
-    * For PlayStation 4, go to Target Settings for the console and change "Memory Budget Mode" to "LARGE".
-    * For XBox One, go to the XBox One Manager's Settings tab and set "Debug Memory Mode" to "Pix and Title".
+    * 如果使用PlayStation 4，请转至控制台的“目标设置（Target Settings）”，然后将“内存预算模式（Memory Budget Mode）”更改为“LARGE”。
+    * 如果使用XBox One，请转至XBox One Manager的“设置（Settings）”选项卡，将“调试内存模式（Debug Memory Mode）”设置为“Pix and Title”。
 
-* LLM in the Test config won't show the on-screen stats page, but it will write out the `.CSV` file. LLM is completely disabled in Shipping.
+* 测试配置中的LLM不会显示屏幕统计信息页面，但会写出 `.CSV` 文件。在发售时LLM完全禁用。
 
-* On PlayStation 4, LLM needs to reserve memory up front for its internal use (currently 600MB). When PlayStation 4 is moved to the new memory system (`PS4Memory2.cpp`), this will no longer be required.
+* 在PlayStation 4上，LLM需要预留供内部使用的内存（目前为600MB）。如果PlayStation 4移动到新的内存系统（`PS4Memory2.cpp`），将无需再满足这一要求。
 
-* Asset tag tracking is still in an early experimental state.
+* 资源标记跟踪仍处于早期实验状态。

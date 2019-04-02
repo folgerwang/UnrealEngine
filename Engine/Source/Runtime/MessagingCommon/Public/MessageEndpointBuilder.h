@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -92,6 +92,12 @@ public:
 	{
 		Handlers.Add(MakeShareable(new TFunctionMessageHandler<MessageType>(MoveTemp(HandlerFunc))));
 
+		return *this;
+	}
+
+	FMessageEndpointBuilder& NotificationHandling(FOnBusNotification&& InHandler)
+	{
+		OnNotification = MoveTemp(InHandler);
 		return *this;
 	}
 
@@ -237,8 +243,13 @@ public:
 		
 		if (Bus.IsValid())
 		{
-			Endpoint = MakeShareable(new FMessageEndpoint(Name, Bus.ToSharedRef(), Handlers));
+			Endpoint = MakeShared<FMessageEndpoint, ESPMode::ThreadSafe>(Name, Bus.ToSharedRef(), Handlers, OnNotification);
 			Bus->Register(Endpoint->GetAddress(), Endpoint.ToSharedRef());
+
+			if (OnNotification.IsBound())
+			{
+				Bus->AddNotificationListener(Endpoint.ToSharedRef());
+			}
 
 			if (Disabled)
 			{
@@ -276,6 +287,9 @@ private:
 
 	/** Holds a flag indicating whether the endpoint should be disabled. */
 	bool Disabled;
+
+	/** Holds a delegate to invoke on disconnection event. */
+	FOnBusNotification OnNotification;
 
 	/** Holds the collection of message handlers to register. */
 	TArray<TSharedPtr<IMessageHandler, ESPMode::ThreadSafe>> Handlers;

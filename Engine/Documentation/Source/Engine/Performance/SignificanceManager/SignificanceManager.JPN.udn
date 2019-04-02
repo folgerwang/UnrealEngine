@@ -1,0 +1,142 @@
+﻿INTSourceChangelist:4499937
+Availability: Public
+Crumbs: 
+Title: Significance Manager
+Description: Significance Manager を使用して、プロジェクト固有の方法でパフォーマンスを調整します。
+Type: 
+Version: 4.20
+Parent: Performance
+Order: 1
+Tags: Performance
+Tags: Significance Manager
+Tags: CPU
+
+
+「ゲーム出荷時のパフォーマンス目標に適合させる」ための作業には、通常、シーンの複雑度を下げ、ターゲットの解像度やフレーム レートに合わせるという内容が含まれます。それには、ジオメトリ、アニメーション、およびオーディオに対するレベルオブディテールシステムが一般的に使用されますが、これらの距離ベースの手法、アクタ単位の手法では十分と言えない場合もあります。特に、プレイヤー数が多いマルチプレイヤー ゲームや、AI 制御のキャラクター群がひとつのエリアに集まることがある場合に当てはまります。
+
+**Significance Manager** は、一元化されたフレームワークで、ここではオブジェクトを相対的に評価および優先順位付けするための、柔軟性のあるプロジェクトに固有なコードの記述をサポートします。この評価を使用すると、パーティクル エミッターなどのコンポーネントを遮断したり、複雑な AI コードの頻度を減らして実行したりすることによって、オブジェクトは自身の動作を修正することが可能です。
+
+[REGION:note]
+Significance Manager 自体が実際にパフォーマンスを向上するということではありません。プロジェクト固有のニーズに適合するようにオーバーライドおよびカスタマイズできるシステムを提供するというのがその役目です。
+[/REGION]
+
+## セットアップ
+
+Significance Manager はプラグイン内に存在するため、**[編集] > [プラグイン]** メニューで有効にし、そのモジュールをプロジェクトの「Build.cs」ファイルに追加する必要があります。
+
+![](SignificancePlugin.png "SignificancePlugin.png")
+
+*Significance Manager は [プラグイン] メニューの [プログラミング] セクションにあります。*
+
+[REGION:note]
+Significance Manager プラグインを有効にした後に、エンジンの再起動が必要になることがあります。
+[/REGION]
+
+このプラグインが有効になったら、プロジェクトの「Build.cs」ファイルの `PublicDependencyModuleNames` に「SignficanceManager」を追加します。次の例は「Basic C++」プロジェクト テンプレートの 1 行であり、Significance Manager を使用するように修正されています。
+
+
+	PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "SignificanceManager" });
+
+
+## Significance Manager の基本的な機能
+
+Significance Manager プラグインには 1 つのクラス `USignificanceManager` が入っていて、このクラスは、管理対象オブジェクトの「重要度」を評価するための拡張可能なフレームワークとして機能します。これらのオブジェクトは、重要度の値に基づいてパフォーマンスへの影響を軽減するカスタムな方法で自身の動作を調整できます。パフォーマンスの向上をもたらす特定の動作は、ゲーム コードでオブジェクト自身によってカスタム定義されます。たとえば、かすかなオーディオ キューやパーティクル エフェクトを再生するアクタは、重要度の値が小さい場合には再生しないようにすることができます。高度な使用事例として、類似したアクタをまとめてグループ化して、アクタ単位のタイプの割り当てを演奏することもできます。これを使用して、プレイヤー制御のポーンが、カメラに近いときは常に高詳細で実行され、複数のプレイヤーがカメラの回りに集まっているときは、高詳細で実行される AI 制御のポーンの数をそれに応じて制限することにより補うようにすることもできます。
+
+### RegisterObject / UnregisterObject
+
+オブジェクトを Significance Manager に登録し、ユーザー指定の名前に基づいて他の登録済みオブジェクトとまとめてグループ化できます。登録プロセスでは、オブジェクトの重要度を評価するために使用する関数と、評価の実施後に実行されるオプションの関数をユーザーを指定できます。登録時に、可能であれば Significance Manager の Update 関数の直近の呼び出しで使用された Transform を使用して、オブジェクトの初期重要度が計算されます。そのときに、既知の登録済みオブジェクトのリスト (通常はタイプごとに異なるリストを使用) に基づいた内部データ構造のビルドなどの高レベルの処理を行うこともできます。これは、ゲームでオブジェクトのタイプごとに異なるカテゴリベースの割り当てを実装する場合に役立ちます。
+
+[REGION:warning]
+4.20 より前のバージョンのエンジンでは、オブジェクトは生のポインターで格納されています。そのため、`UnregisterObject` を手動で呼び出す必要がありますが、そうしなかった場合 Significance Manager は無効なメモリに対して操作を試みます。
+[/REGION]
+
+### GetSignificance / QuerySignificance
+
+これらの関数は、オブジェクトのキャッシュされている重要度の値をレポートします。指定したオブジェクトが Significance Manager に登録されていない場合、この値はゼロになります。`GetSignificance` とは異なり、`QuerySignificance` 関数は、`false` を返すことによって、そのオブジェクトが登録されていないことを表します。
+
+### Update
+
+この関数は、Transform の配列を受け取って、オブジェクトに関連付けられている重要度関数を使用して、各管理対象オブジェクトの各 Transform に基づく重要度を評価します。返された値の最大値 (`bSortSignificanceAscending` が `true` に設定されている場合は最小値) が最終的な結果になります。この関数はゲームのニーズに適合するように (たとえば、新しい前処理や後処理のステップをシステムに実装することにより) オーバーライドできます。オブジェクトの重要度が評価された後に、重要度後処理関数が呼び出されます (指定されていた場合)。この関数は、オブジェクトの [Post Significance Type (重要度後処理タイプ)] が [Concurrent (並列)] である場合は直ちに呼び出されます。そのタイプが [Sequential (順次)] である場合は、シーケンシャルなポストアップデートを使用して、他のすべての管理対象オブジェクトと一緒に、重要度が高い順序で後処理関数が呼び出されます。Transform が指定されていない場合、重要度の値はゼロになります。
+
+重要度評価関数と重要度評価後処理関数は並列に実行されるため、これらの関数にはスレッドセーフであるという要件が追加されます。重要度評価後処理関数では、順次実行することによってこの要件を回避できます (詳細については、後述の「`FPostSignificanceFunction`」セクションを参照)。
+
+[REGION:note]
+`Update` 関数は自動的には実行されません。ほとんどの場合、デベロッパーはこの関数をすべてのフレームで 1 回ずつ呼び出します。この関数を呼び出すのに適切な場所として、次のコード例で示しているように、オーバーライド版の `UGameViewportClient` であることが考えられます。
+
+
+	#include "MyGameViewportClient.h"
+	#include "SignificanceManager.h"
+	#include "Kismet/GameplayStatics.h"
+	void UMyGameViewportClient::Tick(float DeltaTime)
+	{
+		// 親クラスの ティック関数を呼び出します。
+		Super::Tick(DeltaTime);
+		// 有効なワールドと Significance Manager インスタンスがあることを確認します。
+		if (UWorld* World = GetWorld())
+		{
+			if (USignificanceManager* SignificanceManager = FSignificanceManagerModule::Get(World))
+			{
+				// プレイヤー 0 のワールド トランスフォームのみを使用して、フレームごとに一度更新します。
+				if (APawn *PlayerPawn = UGameplayStatics::GetPlayerPawn(World, 0))
+				{
+					// Significance Manager では ArrayView が使用されます。Transform を保持するための 1 要素の配列を作成します。
+					TArray<FTransform> TransformArray;
+					TransformArray.Add(PlayerPawn->GetTransform());
+					// ArrayView で渡される 1 要素の配列を使用して Significance Manager を更新します。
+					SignificanceManager->Update(TArrayView<FTransform>(TransformArray));
+				}
+			}
+		}
+	}
+
+[/REGION]
+
+## プロジェクト側の機能
+
+Significance Manager では、オブジェクトの重要度を判定するためのフレームワークだけが提供されていて、実際の計算はプロジェクトでの定義に任されています。オブジェクトを Significance Manager に登録する際に、次のタイプに一致する関数も登録します。
+
+*   FSignificanceFunction
+*   FPostSignificanceFunction
+
+これらの関数は、Significance Manager のアップデート時にオブジェクトに対して呼び出されます。
+
+### FSignificanceFunction
+
+この関数は、Significance Manager を使用するために記述する必要があるプライマリ評価関数です。この関数は 1 つのオブジェクト パラメータと 1 つの Transform を受け取り、オブジェクトの重要度を計算して、その値を `float` として返します。Significance Manager のアップデート プロセス中に、この関数は渡された各 Transform に対して 1 回呼び出されます。最終的な結果は Significance Manager の Update 関数によって判定され、デフォルトでは最大値が使用されます。登録される各オブジェクトは、登録時に `FSignificanceFunction` タイプの関数と関連付けられている必要があります。
+
+### FPostSignificanceFunction
+
+このタイプの関数はオブジェクト自体、以前の重要度の値、新しい重要度の値 (オブジェクトが未登録である場合以外。未登録の場合この値は 1)、およびオブジェクトが現在未登録であるかかどうかを表す `bool` と一緒に指定されます。重要度評価関数とは異なり、この関数は値を返しません。この関数は、オブジェクトの重要度の変更や管理対象オブジェクトの全体的な順序での配置の変更をゲームが処理する手段として提供されます。Significance Manager は、オブジェクトがどのように登録されたかに基づいて、次のようにこの関数を呼び出します。
+
+| Post Significance Type (重要度後処理タイプ)| 動作|
+| ---| ---|
+| **なし**| 関数は null であることを前提としています。重要度評価後処理コールバックはありません。|
+| **Concurrent (並列)**| 関数は null でないことを前提としていて、オブジェクトの重要度が評価された直後に呼び出されます。この方法で呼び出される関数は、並列で実行されるためスレッドセーフである必要があります。|
+| **Sequential (順次)**| [INCLUDE:#excerpt_2] |
+
+[COMMENT:none]
+
+[EXCERPT:excerpt_2]
+
+関数は null でないことを前提としていて、[Sequential (順次)] であるすべてのオブジェクトの重要度が評価された後に、それらのオブジェクトと一緒にソート順序で呼び出されます。
+
+[REGION:note]
+この関数ではスレッドセーフの要件は免除されています。
+[/REGION]
+
+[/EXCERPT:excerpt_2]
+
+[/COMMENT]
+
+### パーティクル システムでの重要度
+
+[パーティクル システム コンポーネントとパーティクル エミッター](Engine/Rendering/ParticleSystems/UserGuide)では重要度のコンセプトがサポートされていて、適切な実装例が提供されています。各エミッターには独自の重要度レベル (列挙型 `EParticleSignificanceLevel` を使用) があり、次の図に示しているように「低」から「重要」までの範囲があります。
+
+![](ParticleEmitterSignificance.png "ParticleEmitterSignificance.png")
+*重要度レベルが異なるパーティクル エミッター。*
+
+パーティクル システム コンポーネントには、「必須重要度レベル」(`SetRequiredSignificance` を呼び出すことで設定される) があり、その値は「そのエミッターがアクティブになるためにどの程度重要である必要があるか」を表しています。たとえば、重要度レベルが「中」であるパーティクル エミッターは、それを所有するパーティクル システム コンポーネントの必須重要度レベルが「中」または「低」である場合はアクティブになりますが、必須重要度レベルが「高」または「重要」になっている場合はパーティクルのスポーンを停止します。パーティクル システム コンポーネントは、所有するすべてのエミッターが必須重要度レベルを下回っている場合は自身のティック関数も非アクティブにし、それに該当しなくなったときにティック関数を再度アクティブにします。この設計により、実装はゲーム システム (この場合はパーティクル システム コンポーネントとパーティクル エミッター) に任されます。そして、Significance Manager のタスクは、重要度レベルの判定と、パーティクル システム コンポーネントへ通知を行う関数の適宜呼び出しのみとなります。
+
+[REGION:tip]
+パーティクル エミッターは、`bDisableWhenInsignficant` が `true` に設定されている場合に限り、必須重要度レベルを下回っていると判定されるとパーティクル システム コンポーネントと同様に自身のティック関数を一時的に非アクティブにします。それ以外の場合、パーティクル エミッターは新たなパーティクルのスポーンを停止するだけであり、ティック関数はアクティブのままです。
+[/REGION]

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -70,7 +70,7 @@ public:
 	static UMovieSceneTrack* AddMasterTrack(UMovieSceneSequence* Sequence, TSubclassOf<UMovieSceneTrack> TrackType);
 
 	/**
-	 * Get's this sequence's display rate
+	 * Gets this sequence's display rate
 	 *
 	 * @param Sequence        The sequence to use
 	 * @return The display rate that this sequence is displayed as
@@ -79,13 +79,31 @@ public:
 	static FFrameRate GetDisplayRate(UMovieSceneSequence* Sequence);
 
 	/**
-	 * Get's this sequence's tick resolution
+	 * Sets this sequence's display rate
+	 *
+	 * @param Sequence        The sequence to use
+	 * @param DisplayRate The display rate that this sequence is displayed as
+	 */
+	UFUNCTION(BlueprintCallable, Category="Sequence", meta=(ScriptMethod))
+	static void SetDisplayRate(UMovieSceneSequence* Sequence, FFrameRate DisplayRate);
+
+	/**
+	 * Gets this sequence's tick resolution
 	 *
 	 * @param Sequence        The sequence to use
 	 * @return The tick resolution of the sequence, defining the smallest unit of time representable on this sequence
 	 */
 	UFUNCTION(BlueprintCallable, Category="Sequence", meta=(ScriptMethod))
 	static FFrameRate GetTickResolution(UMovieSceneSequence* Sequence);
+
+	/**
+	 * Sets this sequence's tick resolution
+	 *
+	 * @param Sequence        The sequence to use
+	 * @param TickResolution The tick resolution of the sequence, defining the smallest unit of time representable on this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category="Sequence", meta=(ScriptMethod))
+	static void SetTickResolution(UMovieSceneSequence* Sequence, FFrameRate TickResolution);
 
 	/**
 	 * Make a new range for this sequence in its display rate
@@ -109,21 +127,159 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Sequence", meta=(ScriptMethod))
 	static FSequencerScriptingRange MakeRangeSeconds(UMovieSceneSequence* Sequence, float StartTime, float Duration);
 
-	/**
-	 * Get playback range of this sequence
-	 *
-	 * @param Sequence        The sequence within which to get the playback range
-	 * @return Playback range of this sequence
-	 */
-	UFUNCTION(BlueprintCallable, Category="Sequence", meta=(ScriptMethod))
+	UE_DEPRECATED(4.22, "Please use GetPlaybackStart and GetPlaybackEnd instead.")
 	static FSequencerScriptingRange GetPlaybackRange(UMovieSceneSequence* Sequence);
 
 	/**
-	* Get the timecode source of this sequence
-	*
-	* @param Sequence        The sequence within which to get the timecode source
-	* @return Timecode source of this sequence
-	*/
+	 * Get playback start of this sequence
+	 *
+	 * @param Sequence        The sequence within which to get the playback start
+	 * @return Playback start of this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static int32 GetPlaybackStart(UMovieSceneSequence* Sequence);
+
+	/**
+	 * Get playback start of this sequence in seconds
+	 *
+	 * @param Sequence        The sequence within which to get the playback start
+	 * @return Playback start of this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static float GetPlaybackStartSeconds(UMovieSceneSequence* Sequence);
+
+	/**
+	 * Get playback end of this sequence
+	 *
+	 * @param Sequence        The sequence within which to get the playback end
+	 * @return Playback end of this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static int32 GetPlaybackEnd(UMovieSceneSequence* Sequence);
+
+	/**
+	 * Get playback end of this sequence in seconds
+	 *
+	 * @param Sequence        The sequence within which to get the playback end
+	 * @return Playback end of this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static float GetPlaybackEndSeconds(UMovieSceneSequence* Sequence);
+
+	/**
+	 * Set playback start of this sequence
+	 *
+	 * @param Sequence        The sequence within which to set the playback start
+	 * @param StartFrame      The desired start frame for this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static void SetPlaybackStart(UMovieSceneSequence* Sequence, int32 StartFrame);
+
+	/**
+	 * Set playback start of this sequence in seconds
+	 *
+	 * @param Sequence        The sequence within which to set the playback start
+	 * @param StartTime       The desired start time in seconds for this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static void SetPlaybackStartSeconds(UMovieSceneSequence* Sequence, float StartTime);
+
+	/**
+	 * Set playback end of this sequence
+	 *
+	 * @param Sequence        The sequence within which to set the playback end
+	 * @param EndFrame        The desired end frame for this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static void SetPlaybackEnd(UMovieSceneSequence* Sequence, int32 EndFrame);
+
+	/**
+	 * Set playback end of this sequence in seconds
+	 *
+	 * @param Sequence        The sequence within which to set the playback end
+	 * @param EndTime         The desired end time in seconds for this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static void SetPlaybackEndSeconds(UMovieSceneSequence* Sequence, float EndTime);
+
+	/**
+	 * Set the sequence view range start in seconds
+	 *
+	 * @param Sequence The sequence within which to set the view range start
+	 * @param StartTimeInSeconds The desired view range start time in seconds for this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod, DevelopmentOnly))
+	static void SetViewRangeStart(UMovieSceneSequence* InSequence, float StartTimeInSeconds);
+
+	/**
+	 * Get the sequence view range start in seconds
+	 *
+	 * @param Sequence The sequence within which to get the view range start
+	 * @return The view range start time in seconds for this sequence
+	 */
+	UFUNCTION(BlueprintPure, Category = "Sequence", meta = (ScriptMethod, DevelopmentOnly))
+	static float GetViewRangeStart(UMovieSceneSequence* InSequence);
+
+	/**
+	 * Set the sequence view range end in seconds
+	 *
+	 * @param Sequence The sequence within which to set the view range end
+	 * @param StartTimeInSeconds The desired view range end time in seconds for this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod, DevelopmentOnly))
+	static void SetViewRangeEnd(UMovieSceneSequence* InSequence, float EndTimeInSeconds);
+
+	/**
+	 * Get the sequence view range end in seconds
+	 *
+	 * @param Sequence The sequence within which to get the view range end
+	 * @return The view range end time in seconds for this sequence
+	 */
+	UFUNCTION(BlueprintPure, Category = "Sequence", meta = (ScriptMethod, DevelopmentOnly))
+	static float GetViewRangeEnd(UMovieSceneSequence* InSequence);
+
+	/**
+	 * Set the sequence work range start in seconds
+	 *
+	 * @param Sequence The sequence within which to set the work range start
+	 * @param StartTimeInSeconds The desired work range start time in seconds for this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod, DevelopmentOnly))
+	static void SetWorkRangeStart(UMovieSceneSequence* InSequence, float StartTimeInSeconds);
+
+	/**
+	 * Get the sequence work range start in seconds
+	 *
+	 * @param Sequence The sequence within which to get the work range start
+	 * @return The work range start time in seconds for this sequence
+	 */
+	UFUNCTION(BlueprintPure, Category = "Sequence", meta = (ScriptMethod, DevelopmentOnly))
+	static float GetWorkRangeStart(UMovieSceneSequence* InSequence);
+
+	/**
+	 * Set the sequence work range end in seconds
+	 *
+	 * @param Sequence The sequence within which to set the work range end
+	 * @param StartTimeInSeconds The desired work range end time in seconds for this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod, DevelopmentOnly))
+	static void SetWorkRangeEnd(UMovieSceneSequence* InSequence, float EndTimeInSeconds);
+
+	/**
+	 * Get the sequence work range end in seconds
+	 *
+	 * @param Sequence The sequence within which to get the work range end
+	 * @return The work range end time in seconds for this sequence
+	 */
+	UFUNCTION(BlueprintPure, Category = "Sequence", meta = (ScriptMethod, DevelopmentOnly))
+	static float GetWorkRangeEnd(UMovieSceneSequence* InSequence);
+
+	/**
+	 * Get the timecode source of this sequence
+	 *
+	 * @param Sequence        The sequence within which to get the timecode source
+	 * @return Timecode source of this sequence
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
 	static FTimecode GetTimecodeSource(UMovieSceneSequence* Sequence);
 
@@ -205,6 +361,25 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Sequence", meta=(ScriptMethod))
 	static TArray<UObject*> LocateBoundObjects(UMovieSceneSequence* Sequence, const FSequencerBindingProxy& InBinding, UObject* Context);
 
+	/**
+	 * Get the root folders in the provided sequence
+	 *
+	 * @param Sequence	The sequence to retrieve folders from
+	 * @return The folders contained within the given sequence
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Editor Scripting|Sequencer Tools|Folders", meta=(ScriptMethod))
+	static TArray<UMovieSceneFolder*> GetRootFoldersInSequence(UMovieSceneSequence* Sequence);
+
+	/**
+	 * Add a root folder to the given sequence
+	 *
+	 * @param Sequence			The sequence to add a folder to
+	 * @param NewFolderName		The name to give the added folder
+	 * @return The newly created folder
+	 */
+	UFUNCTION(BlueprintCallable, Category="Editor Scripting|Sequencer Tools|Folders", meta=(ScriptMethod))
+	static UMovieSceneFolder* AddRootFolderToSequence(UMovieSceneSequence* Sequence, FString NewFolderName);
+
 public:
 
 	/**
@@ -216,4 +391,60 @@ public:
 	 * @return A filtered array of tracks
 	 */
 	static TArray<UMovieSceneTrack*> FilterTracks(TArrayView<UMovieSceneTrack* const> InTracks, UClass* DesiredClass, bool bExactMatch);
+
+public:
+
+	/*
+	 * @return Return the user marked frames
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static TArray<FMovieSceneMarkedFrame> GetMarkedFrames(UMovieSceneSequence* Sequence);
+
+	/*
+	 * Add a given user marked frame.
+	 * A unique label will be generated if the marked frame label is empty
+	 *
+	 * @InMarkedFrame The given user marked frame to add
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static void AddMarkedFrame(UMovieSceneSequence* Sequence, const FMovieSceneMarkedFrame& InMarkedFrame);
+
+	/*
+	 * Remove the user marked frame by index.
+	 *
+	 * @RemoveIndex The index to the user marked frame to remove
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static void RemoveMarkedFrame(UMovieSceneSequence* Sequence, int32 RemoveIndex);
+
+	/*
+	 * Clear all user marked frames
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static void ClearMarkedFrames(UMovieSceneSequence* Sequence);
+
+	/*
+	 * Find the user marked frame by label
+	 *
+	 * @InLabel The label to the user marked frame to find
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static int32 FindMarkedFrameByLabel(UMovieSceneSequence* Sequence, const FString& InLabel);
+
+	/*
+	 * Find the user marked frame by frame number
+	 *
+	 * @InFrameNumber The frame number of the user marked frame to find
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static int32 FindMarkedFrameByFrameNumber(UMovieSceneSequence* Sequence, FFrameNumber InFrameNumber);
+
+	/*
+	 * Find the next/previous user marked frame from the given frame number
+	 *
+	 * @InFrameNumber The frame number to find the next/previous user marked frame from
+	 * @bForward Find forward from the given frame number.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sequence", meta = (ScriptMethod))
+	static int32 FindNextMarkedFrame(UMovieSceneSequence* Sequence, FFrameNumber InFrameNumber, bool bForward);
 };

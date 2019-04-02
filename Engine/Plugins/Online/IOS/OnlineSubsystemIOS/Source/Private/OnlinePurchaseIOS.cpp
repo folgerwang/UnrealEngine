@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemIOSPrivatePCH.h"
 #include "OnlinePurchaseIOS.h"
@@ -315,7 +315,7 @@ void FOnlinePurchaseIOS::OnTransactionCompleteResponse(EPurchaseTransactionState
 				if (StrongThis.IsValid())
 				{
 					// No user id for app store
-					StrongThis->TriggerOnUnexpectedPurchaseReceiptDelegates(FOnlineIdentityIOS::GetEmptyUniqueId());
+					StrongThis->TriggerOnUnexpectedPurchaseReceiptDelegates(*FUniqueNetIdIOS::EmptyId());
 				}
 			});
 		}

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnMath.cpp: Unreal math routines
@@ -24,10 +24,14 @@ DECLARE_CYCLE_STAT( TEXT( "Convert Quat to Rotator" ), STAT_MathConvertQuatToRot
 CORE_API const FVector FVector::ZeroVector(0.0f, 0.0f, 0.0f);
 CORE_API const FVector FVector::OneVector(1.0f, 1.0f, 1.0f);
 CORE_API const FVector FVector::UpVector(0.0f, 0.0f, 1.0f);
+CORE_API const FVector FVector::DownVector(0.0f, 0.0f, -1.0f);
 CORE_API const FVector FVector::ForwardVector(1.0f, 0.0f, 0.0f);
+CORE_API const FVector FVector::BackwardVector(-1.0f, 0.0f, 0.0f);
 CORE_API const FVector FVector::RightVector(0.0f, 1.0f, 0.0f);
+CORE_API const FVector FVector::LeftVector(0.0f, -1.0f, 0.0f);
 CORE_API const FVector2D FVector2D::ZeroVector(0.0f, 0.0f);
 CORE_API const FVector2D FVector2D::UnitVector(1.0f, 1.0f);
+CORE_API const FVector2D FVector2D::Unit45Deg(UE_INV_SQRT_2, UE_INV_SQRT_2);
 CORE_API const FRotator FRotator::ZeroRotator(0.f,0.f,0.f);
 
 CORE_API const VectorRegister VECTOR_INV_255 = DECLARE_VECTOR_REGISTER(1.f/255.f, 1.f/255.f, 1.f/255.f, 1.f/255.f);
@@ -398,7 +402,8 @@ FQuat FRotator::Quaternion() const
 
 #if PLATFORM_ENABLE_VECTORINTRINSICS
 	const VectorRegister Angles = MakeVectorRegister(Pitch, Yaw, Roll, 0.0f);
-	const VectorRegister HalfAngles = VectorMultiply(Angles, GlobalVectorConstants::DEG_TO_RAD_HALF);
+	const VectorRegister AnglesNoWinding = VectorMod(Angles, GlobalVectorConstants::Float360);
+	const VectorRegister HalfAngles = VectorMultiply(AnglesNoWinding, GlobalVectorConstants::DEG_TO_RAD_HALF);
 
 	VectorRegister SinAngles, CosAngles;
 	VectorSinCos(&SinAngles, &CosAngles, &HalfAngles);
@@ -428,13 +433,17 @@ FQuat FRotator::Quaternion() const
 	VectorStoreAligned(Result, &RotationQuat);
 #else
 	const float DEG_TO_RAD = PI/(180.f);
-	const float DIVIDE_BY_2 = DEG_TO_RAD/2.f;
+	const float RADS_DIVIDED_BY_2 = DEG_TO_RAD/2.f;
 	float SP, SY, SR;
 	float CP, CY, CR;
 
-	FMath::SinCos(&SP, &CP, Pitch*DIVIDE_BY_2);
-	FMath::SinCos(&SY, &CY, Yaw*DIVIDE_BY_2);
-	FMath::SinCos(&SR, &CR, Roll*DIVIDE_BY_2);
+	const float PitchNoWinding = FMath::Fmod(Pitch, 360.0f);
+	const float YawNoWinding = FMath::Fmod(Yaw, 360.0f);
+	const float RollNoWinding = FMath::Fmod(Roll, 360.0f);
+
+	FMath::SinCos(&SP, &CP, PitchNoWinding * RADS_DIVIDED_BY_2);
+	FMath::SinCos(&SY, &CY, YawNoWinding * RADS_DIVIDED_BY_2);
+	FMath::SinCos(&SR, &CR, RollNoWinding * RADS_DIVIDED_BY_2);
 
 	FQuat RotationQuat;
 	RotationQuat.X =  CR*SP*SY - SR*CP*CY;
@@ -445,7 +454,11 @@ FQuat FRotator::Quaternion() const
 
 #if ENABLE_NAN_DIAGNOSTIC || DO_CHECK
 	// Very large inputs can cause NaN's. Want to catch this here
-	ensureMsgf(!RotationQuat.ContainsNaN(), TEXT("Invalid input to FRotator::Quaternion - generated NaN output: %s"), *RotationQuat.ToString());
+	if (RotationQuat.ContainsNaN())
+	{
+		logOrEnsureNanError(TEXT("Invalid input %s to FRotator::Quaternion - generated NaN output: %s"), *ToString(), *RotationQuat.ToString());
+		RotationQuat = FQuat::Identity;
+	}
 #endif
 
 	return RotationQuat;
@@ -1799,7 +1812,7 @@ static bool ComputeProjectedSphereShaft(
 		}
 	}
 
-	return InOutMinX <= InOutMaxX;
+	return InOutMinX < InOutMaxX;
 }
 
 uint32 FMath::ComputeProjectedSphereScissorRect(FIntRect& InOutScissorRect, FVector SphereOrigin, float Radius, FVector ViewOrigin, const FMatrix& ViewMatrix, const FMatrix& ProjMatrix)
@@ -2702,7 +2715,9 @@ FVector FMath::RandPointInBox(const FBox& Box)
 
 FVector FMath::GetReflectionVector(const FVector& Direction, const FVector& SurfaceNormal)
 {
-	return Direction - 2 * (Direction | SurfaceNormal.GetSafeNormal()) * SurfaceNormal.GetSafeNormal();
+	FVector SafeNormal(SurfaceNormal.GetSafeNormal());
+
+	return Direction - 2 * (Direction | SafeNormal) * SafeNormal;
 }
 
 struct FClusterMovedHereToMakeCompile

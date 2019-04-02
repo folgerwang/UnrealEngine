@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "AssetViewWidgets.h"
@@ -33,6 +33,8 @@
 #include "ContentBrowserLog.h"
 #include "ObjectTools.h"
 #include "AssetThumbnail.h"
+#include "Settings/ContentBrowserSettings.h"
+#include "ContentBrowserModule.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 
@@ -188,18 +190,30 @@ TSharedRef<SWidget> FAssetViewItemHelper::CreateListTileItemContents(T* const In
 			InThumbnail
 		];
 
-
 		// Source control state
 		ItemContentsOverlay->AddSlot()
 		.HAlign(HAlign_Right)
 		.VAlign(VAlign_Top)
 		[
 			SNew(SBox)
-			.WidthOverride(InTileOrListItem, &T::GetSCCImageSize)
-			.HeightOverride(InTileOrListItem, &T::GetSCCImageSize)
+			.MaxDesiredWidth(InTileOrListItem, &T::GetStateIconImageSize)
+			.MaxDesiredHeight(InTileOrListItem, &T::GetStateIconImageSize)
 			[
 				SNew(SImage)
 				.Image(InTileOrListItem, &T::GetSCCStateImage)
+			]
+		];
+
+		// Extra external state hook
+		ItemContentsOverlay->AddSlot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Top)
+		[
+			SNew(SBox)
+			.MaxDesiredWidth(InTileOrListItem, &T::GetExtraStateIconMaxWidth)
+			.MaxDesiredHeight(InTileOrListItem, &T::GetStateIconImageSize)
+			[
+				InTileOrListItem->GenerateExtraStateIconWidget(TAttribute<float>(InTileOrListItem, &T::GetExtraStateIconWidth))
 			]
 		];
 
@@ -208,10 +222,14 @@ TSharedRef<SWidget> FAssetViewItemHelper::CreateListTileItemContents(T* const In
 		.HAlign(HAlign_Left)
 		.VAlign(VAlign_Bottom)
 		[
-			SNew(SImage)
-			.Image(InTileOrListItem, &T::GetDirtyImage)
+			SNew(SBox)
+			.MaxDesiredWidth(InTileOrListItem, &T::GetStateIconImageSize)
+			.MaxDesiredHeight(InTileOrListItem, &T::GetStateIconImageSize)
+			[
+				SNew(SImage)
+				.Image(InTileOrListItem, &T::GetDirtyImage)
+			]
 		];
-
 
 		// Tools for thumbnail edit mode
 		ItemContentsOverlay->AddSlot()
@@ -306,6 +324,23 @@ void SAssetTileView::Tick(const FGeometry& AllottedGeometry, const double InCurr
 	}
 }
 
+bool SAssetTileView::HasWidgetForAsset(const FName& AssetPathName)
+{
+	for (const TSharedPtr<FAssetViewItem>& Item : WidgetGenerator.ItemsWithGeneratedWidgets)
+	{
+		if (Item.IsValid() && Item->GetType() == EAssetItemType::Normal)
+		{
+			const FName& ObjectPath = StaticCastSharedPtr<FAssetViewAsset>(Item)->Data.ObjectPath;
+			if (ObjectPath == AssetPathName)
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 FReply SAssetListView::OnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
 	FReply Reply = FAssetViewModeUtils::OnViewModeKeyDown(SelectedItems, InKeyEvent);
@@ -329,6 +364,23 @@ void SAssetListView::Tick(const FGeometry& AllottedGeometry, const double InCurr
 	{
 		SListView<TSharedPtr<FAssetViewItem>>::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 	}
+}
+
+bool SAssetListView::HasWidgetForAsset(const FName& AssetPathName)
+{
+	for (const TSharedPtr<FAssetViewItem>& Item : WidgetGenerator.ItemsWithGeneratedWidgets)
+	{
+		if (Item.IsValid() && Item->GetType() == EAssetItemType::Normal)
+		{
+			const FName& ObjectPath = StaticCastSharedPtr<FAssetViewAsset>(Item)->Data.ObjectPath;
+			if (ObjectPath == AssetPathName)
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
 }
 
 FReply SAssetColumnView::OnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
@@ -652,6 +704,52 @@ const FSlateBrush* SAssetViewItem::GetDirtyImage() const
 	return IsDirty() ? AssetDirtyBrush : NULL;
 }
 
+TSharedRef<SWidget> SAssetViewItem::GenerateExtraStateIconWidget(TAttribute<float> InMaxExtraStateIconWidth) const
+{
+	TArray<FOnGenerateAssetViewExtraStateIndicators>& ExtraStateIconGenerators = FModuleManager::GetModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser")).GetAllAssetViewExtraStateIconGenerators();
+	if (AssetItem->GetType() != EAssetItemType::Folder && ExtraStateIconGenerators.Num() > 0)
+	{
+		FAssetData& AssetData = StaticCastSharedPtr<FAssetViewAsset>(AssetItem)->Data;
+		TSharedPtr<SHorizontalBox> Content = SNew(SHorizontalBox);
+		for (const auto& Generator : ExtraStateIconGenerators)
+		{
+			if (Generator.IsBound())
+			{
+				Content->AddSlot()
+					.HAlign(HAlign_Left)
+					.MaxWidth(InMaxExtraStateIconWidth)
+					[
+						Generator.Execute(AssetData)
+					];
+			}
+		}
+		return Content.ToSharedRef();
+	}
+	return SNullWidget::NullWidget;
+}
+
+TSharedRef<SWidget> SAssetViewItem::GenerateExtraStateTooltipWidget() const
+{
+	TArray<FOnGenerateAssetViewExtraStateIndicators>& ExtraStateTooltipGenerators = FModuleManager::GetModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser")).GetAllAssetViewExtraStateTooltipGenerators();
+	if (AssetItem->GetType() != EAssetItemType::Folder && ExtraStateTooltipGenerators.Num() > 0)
+	{
+		FAssetData& AssetData = StaticCastSharedPtr<FAssetViewAsset>(AssetItem)->Data;
+		TSharedPtr<SVerticalBox> Content = SNew(SVerticalBox);
+		for (const auto& Generator : ExtraStateTooltipGenerators)
+		{
+			if (Generator.IsBound())
+			{
+				Content->AddSlot()
+					[
+						Generator.Execute(AssetData)
+					];
+			}
+		}
+		return Content.ToSharedRef();
+	}
+	return SNullWidget::NullWidget;
+}
+
 EVisibility SAssetViewItem::GetThumbnailEditModeUIVisibility() const
 {
 	return !IsFolder() && ThumbnailEditMode.Get() ? EVisibility::Visible : EVisibility::Collapsed;
@@ -704,8 +802,7 @@ TSharedRef<SWidget> SAssetViewItem::CreateToolTipWidget() const
 			// Add Collections
 			{
 				FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
-
-				const FString CollectionNames = CollectionManagerModule.Get().GetCollectionsStringForObject(AssetData.ObjectPath, ECollectionShareType::CST_All);
+				const FString CollectionNames = CollectionManagerModule.Get().GetCollectionsStringForObject(AssetData.ObjectPath, ECollectionShareType::CST_All, ECollectionRecursionFlags::Self, GetDefault<UContentBrowserSettings>()->bShowFullCollectionNameInToolTip);
 				if (!CollectionNames.IsEmpty())
 				{
 					AddToToolTipInfoBox(InfoBox, LOCTEXT("AssetToolTipKey_Collections", "Collections"), FText::FromString(CollectionNames), false);
@@ -724,7 +821,12 @@ TSharedRef<SWidget> SAssetViewItem::CreateToolTipWidget() const
 			{
 				for (const auto& File : ImportInfo->SourceFiles)
 				{
-					AddToToolTipInfoBox( InfoBox, LOCTEXT("TileViewTooltipSourceFile", "Source File"), FText::FromString(File.RelativeFilename), false );
+					FText SourceLabel = LOCTEXT("TileViewTooltipSourceFile", "Source File");
+					if (File.DisplayLabelName.Len() > 0)
+					{
+						SourceLabel = FText::FromString(FText(LOCTEXT("TileViewTooltipSourceFile", "Source File")).ToString() + TEXT(" (") + File.DisplayLabelName + TEXT(")"));
+					}
+					AddToToolTipInfoBox( InfoBox, SourceLabel, FText::FromString(File.RelativeFilename), false );
 				}
 			}
 
@@ -772,6 +874,11 @@ TSharedRef<SWidget> SAssetViewItem::CreateToolTipWidget() const
 							.Visibility(this, &SAssetViewItem::GetCheckedOutByOtherTextVisibility)
 							.Text(this, &SAssetViewItem::GetCheckedOutByOtherText)
 							.ColorAndOpacity(FLinearColor(0.1f, 0.5f, 1.f, 1.f))
+						]
+						+ SVerticalBox::Slot()
+						.AutoHeight()
+						[
+							GenerateExtraStateTooltipWidget()
 						]
 					]
 				];
@@ -952,6 +1059,7 @@ void SAssetViewItem::AddToToolTipInfoBox(const TSharedRef<SVerticalBox>& InfoBox
 			SNew(STextBlock) .Text( Value )
 			.ColorAndOpacity(bImportant ? ImportantStyle.GetForegroundColor() : FSlateColor::UseForeground())
 			.HighlightText((Key.ToString() == TEXT("Path")) ? HighlightText : FText())
+			.WrapTextAt(700.0f)
 		]
 	];
 }
@@ -985,13 +1093,14 @@ void SAssetViewItem::UpdateSourceControlState(float InDeltaTime)
 {
 	SourceControlStateDelay += InDeltaTime;
 
-	if ( !bSourceControlStateRequested && SourceControlStateDelay > 1.0f && ISourceControlModule::Get().IsEnabled() && AssetItem.IsValid() )
+	static ISourceControlModule& SourceControlModule = ISourceControlModule::Get();
+	if ( !bSourceControlStateRequested && SourceControlStateDelay > 1.0f && SourceControlModule.IsEnabled() && AssetItem.IsValid() )
 	{
 		// Only update the SCC state for non-temporary asset items that aren't a built in script
 		if ( !AssetItem->IsTemporaryItem() && AssetItem->GetType() != EAssetItemType::Folder && !FPackageName::IsScriptPackage(CachedPackageName) && !FPackageName::IsMemoryPackage(CachedPackageName) && !FPackageName::IsTempPackage(CachedPackageName))
 		{
 			// Request the most recent SCC state for this asset
-			ISourceControlModule::Get().QueueStatusUpdate(CachedPackageFileName);
+			SourceControlModule.QueueStatusUpdate(CachedPackageFileName);
 		}
 
 		bSourceControlStateRequested = true;
@@ -1243,9 +1352,7 @@ void SAssetViewItem::CacheDisplayTags()
 			// The tag value might be localized text, so we need to parse it for display
 			if (!bHasSetDisplayValue && FTextStringHelper::IsComplexText(*TagAndValuePair.Value))
 			{
-				bHasSetDisplayValue = true;
-
-				FTextStringHelper::ReadFromString(*TagAndValuePair.Value, DisplayValue);
+				bHasSetDisplayValue = FTextStringHelper::ReadFromBuffer(*TagAndValuePair.Value, DisplayValue) != nullptr;
 			}
 
 			// Do our best to build something valid from the string value
@@ -1399,24 +1506,6 @@ void SAssetViewItem::SetForceMipLevelsToBeResident(bool bForce) const
 	}
 }
 
-void SAssetViewItem::HandleAssetLoaded(UObject* InAsset) const
-{
-	if(InAsset != nullptr)
-	{
-		if(AssetItem.IsValid() && AssetItem->GetType() == EAssetItemType::Normal)
-		{
-			const FAssetData& AssetData = StaticCastSharedPtr<FAssetViewAsset>(AssetItem)->Data;
-			if(AssetData.IsValid() && AssetData.IsAssetLoaded())
-			{
-				if(InAsset == AssetData.GetAsset())
-				{
-					SetForceMipLevelsToBeResident(true);
-				}
-			}
-		}
-	}
-}
-
 bool SAssetViewItem::OnVisualizeTooltip(const TSharedPtr<SWidget>& TooltipContent)
 {
 	if(OnVisualizeAssetToolTip.IsBound() && TooltipContent.IsValid() && AssetItem->GetType() != EAssetItemType::Folder)
@@ -1440,7 +1529,7 @@ void SAssetViewItem::OnToolTipClosing()
 
 SAssetListItem::~SAssetListItem()
 {
-	FCoreUObjectDelegates::OnAssetLoaded.RemoveAll(this);
+
 }
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
@@ -1561,9 +1650,6 @@ void SAssetListItem::Construct( const FArguments& InArgs )
 	}
 
 	SetForceMipLevelsToBeResident(true);
-
-	// listen for asset loads so we can force mips to stream in if required
-	FCoreUObjectDelegates::OnAssetLoaded.AddSP(this, &SAssetViewItem::HandleAssetLoaded);
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
@@ -1575,6 +1661,27 @@ void SAssetListItem::OnAssetDataChanged()
 	{
 		ClassText->SetText(GetAssetClassText());
 	}
+
+	if (AssetItem->GetType() != EAssetItemType::Folder && AssetThumbnail.IsValid())
+	{
+		AssetThumbnail->SetAsset(StaticCastSharedPtr<FAssetViewAsset>(AssetItem)->Data);
+	}
+}
+
+float SAssetListItem::GetExtraStateIconWidth() const
+{
+	return GetStateIconImageSize().Get();
+}
+
+FOptionalSize SAssetListItem::GetExtraStateIconMaxWidth() const
+{
+	return GetThumbnailBoxSize().Get() * 0.7;
+}
+
+FOptionalSize SAssetListItem::GetStateIconImageSize() const
+{
+	float IconSize = GetThumbnailBoxSize().Get() * 0.3;
+	return IconSize > 12 ? IconSize : 12;
 }
 
 FOptionalSize SAssetListItem::GetThumbnailBoxSize() const
@@ -1582,19 +1689,13 @@ FOptionalSize SAssetListItem::GetThumbnailBoxSize() const
 	return FOptionalSize( ItemHeight.Get() );
 }
 
-FOptionalSize SAssetListItem::GetSCCImageSize() const
-{
-	return GetThumbnailBoxSize().Get() * 0.3;
-}
-
-
 ///////////////////////////////
 // SAssetTileItem
 ///////////////////////////////
 
 SAssetTileItem::~SAssetTileItem()
 {
-	FCoreUObjectDelegates::OnAssetLoaded.RemoveAll(this);
+
 }
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
@@ -1701,25 +1802,38 @@ void SAssetTileItem::Construct( const FArguments& InArgs )
 	}
 
 	SetForceMipLevelsToBeResident(true);
-
-	// listen for asset loads so we can force mips to stream in if required
-	FCoreUObjectDelegates::OnAssetLoaded.AddSP(this, &SAssetViewItem::HandleAssetLoaded);
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 void SAssetTileItem::OnAssetDataChanged()
 {
 	SAssetViewItem::OnAssetDataChanged();
+
+	if (AssetItem->GetType() != EAssetItemType::Folder && AssetThumbnail.IsValid())
+	{
+		AssetThumbnail->SetAsset(StaticCastSharedPtr<FAssetViewAsset>(AssetItem)->Data);
+	}
+}
+
+float SAssetTileItem::GetExtraStateIconWidth() const
+{
+	return GetStateIconImageSize().Get();
+}
+
+FOptionalSize SAssetTileItem::GetExtraStateIconMaxWidth() const
+{
+	return GetThumbnailBoxSize().Get() * 0.8;
+}
+
+FOptionalSize SAssetTileItem::GetStateIconImageSize() const
+{
+	float IconSize = GetThumbnailBoxSize().Get() * 0.2;
+	return IconSize > 12 ? IconSize : 12;
 }
 
 FOptionalSize SAssetTileItem::GetThumbnailBoxSize() const
 {
-	return FOptionalSize( ItemWidth.Get() );
-}
-
-FOptionalSize SAssetTileItem::GetSCCImageSize() const
-{
-	return GetThumbnailBoxSize().Get() * 0.2;
+	return FOptionalSize(ItemWidth.Get());
 }
 
 FSlateFontInfo SAssetTileItem::GetThumbnailFont() const
@@ -1881,6 +1995,19 @@ TSharedRef<SWidget> SAssetColumnItem::GenerateWidgetForColumn( const FName& Colu
 					[
 						SNew(SImage)
 						.Image(this, &SAssetColumnItem::GetSCCStateImage)
+					]
+				]
+
+				// Extra external state hook
+				+ SOverlay::Slot()
+				.HAlign(HAlign_Left)
+				.VAlign(VAlign_Top)
+				[
+					SNew(SBox)
+					.HeightOverride(IconOverlaySize)
+					.MaxDesiredWidth(IconOverlaySize)
+					[
+						GenerateExtraStateIconWidget(IconOverlaySize)
 					]
 				]
 

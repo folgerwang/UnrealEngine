@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -12,10 +12,10 @@
 #include "Containers/Map.h"
 #include "Templates/SharedPointer.h"
 #include "Delegates/Delegate.h"
+#include "Internationalization/TextKey.h"
 #include "Internationalization/LocTesting.h"
 #include "Internationalization/LocKeyFuncs.h"
 #include "Internationalization/LocalizedTextSourceTypes.h"
-#include "Internationalization/TextLocalizationResourceId.h"
 
 struct FPolyglotTextData;
 class ILocalizedTextSource;
@@ -32,54 +32,36 @@ class CORE_API FTextLocalizationManager
 	friend CORE_API void InitGameTextLocalization();
 
 private:
-	/** Utility class for managing the currently loaded or registered text localizations. */
-	class FDisplayStringLookupTable
+
+	/** Data struct for tracking a display string. */
+	struct FDisplayStringEntry
 	{
-	public:
-		/** Data struct for tracking a display string. */
-		struct FDisplayStringEntry
-		{
-			bool bIsLocalized;
-			FTextLocalizationResourceId LocResID;
-			uint32 SourceStringHash;
-			FTextDisplayStringRef DisplayString;
-#if ENABLE_LOC_TESTING
-			FString NativeStringBackup;
+		FTextDisplayStringRef DisplayString;
+#if WITH_EDITORONLY_DATA
+		FTextKey LocResID;
 #endif
+#if ENABLE_LOC_TESTING
+		FString NativeStringBackup;
+#endif
+		uint32 SourceStringHash;
+		bool bIsLocalized;
 
-			FDisplayStringEntry(const bool InIsLocalized, const FTextLocalizationResourceId& InLocResID, const uint32 InSourceStringHash, const FTextDisplayStringRef& InDisplayString)
-				: bIsLocalized(InIsLocalized)
-				, LocResID(InLocResID)
-				, SourceStringHash(InSourceStringHash)
-				, DisplayString(InDisplayString)
-			{
-			}
-		};
-
-		typedef TMap<FString, FDisplayStringEntry, FDefaultSetAllocator, FLocKeyMapFuncs<FDisplayStringEntry>> FKeysTable;
-		typedef TMap<FString, FKeysTable, FDefaultSetAllocator, FLocKeyMapFuncs<FKeysTable>> FNamespacesTable;
-
-		FNamespacesTable NamespacesTable;
-
-	public:
-		/** Finds the keys table for the specified namespace and the display string entry for the specified namespace and key combination. If not found, the out parameters are set to null. */
-		void Find(const FString& InNamespace, FKeysTable*& OutKeysTableForNamespace, const FString& InKey, FDisplayStringEntry*& OutDisplayStringEntry);
-		/** Finds the keys table for the specified namespace and the display string entry for the specified namespace and key combination. If not found, the out parameters are set to null. */
-		void Find(const FString& InNamespace, const FKeysTable*& OutKeysTableForNamespace, const FString& InKey, const FDisplayStringEntry*& OutDisplayStringEntry) const;
+		FDisplayStringEntry(const bool InIsLocalized, const FTextKey& InLocResID, const uint32 InSourceStringHash, const FTextDisplayStringRef& InDisplayString)
+			: DisplayString(InDisplayString)
+#if WITH_EDITORONLY_DATA
+			, LocResID(InLocResID)
+#endif
+			, SourceStringHash(InSourceStringHash)
+			, bIsLocalized(InIsLocalized)
+		{
+		}
 	};
 
-	/** Simple data structure containing the name of the namespace and key associated with a display string, for use in looking up namespace and key from a display string. */
-	struct FNamespaceKeyEntry
-	{
-		FString Namespace;
-		FString Key;
+	/** Manages the currently loaded or registered text localizations. */
+	typedef TMap<FTextId, FDisplayStringEntry> FDisplayStringLookupTable;
 
-		FNamespaceKeyEntry(const FString& InNamespace, const FString& InKey)
-			: Namespace(InNamespace)
-			, Key(InKey)
-		{}
-	};
-	typedef TMap<FTextDisplayStringRef, FNamespaceKeyEntry> FNamespaceKeyLookupTable;
+	/** Manages the identity associated with a display string, for use in looking up namespace and key from a display string. */
+	typedef TMap<FTextDisplayStringRef, FTextId> FNamespaceKeyLookupTable;
 
 private:
 	bool bIsInitialized;
@@ -104,6 +86,9 @@ public:
 	/** Singleton accessor */
 	static FTextLocalizationManager& Get();
 
+	void DumpMemoryInfo();
+	void CompactDataStructures();
+
 	/**
 	 * Given a localization category, get the native culture for the category (if known).
 	 * @return The native culture for the given localization category, or an empty string if the native culture is unknown.
@@ -124,10 +109,11 @@ public:
 	 * Register a polyglot text data with the text localization manager.
 	 */
 	void RegisterPolyglotTextData(const FPolyglotTextData& InPolyglotTextData, const bool InAddDisplayString = true);
+	void RegisterPolyglotTextData(TArrayView<const FPolyglotTextData> InPolyglotTextDataArray, const bool InAddDisplayStrings = true);
 
 	/**	Finds and returns the display string with the given namespace and key, if it exists.
 	 *	Additionally, if a source string is specified and the found localized display string was not localized from that source string, null will be returned. */
-	FTextDisplayStringPtr FindDisplayString(const FString& Namespace, const FString& Key, const FString* const SourceString = nullptr);
+	FTextDisplayStringPtr FindDisplayString(const FTextKey& Namespace, const FTextKey& Key, const FString* const SourceString = nullptr);
 
 	/**	Returns a display string with the given namespace and key.
 	 *	If no display string exists, it will be created using the source string or an empty string if no source string is provided.
@@ -135,11 +121,12 @@ public:
 	 *		... but it was not localized from the specified source string, the display string will be set to the specified source and returned.
 	 *		... and it was localized from the specified source string (or none was provided), the display string will be returned.
 	*/
-	FTextDisplayStringRef GetDisplayString(const FString& Namespace, const FString& Key, const FString* const SourceString);
+	FTextDisplayStringRef GetDisplayString(const FTextKey& Namespace, const FTextKey& Key, const FString* const SourceString);
 
+#if WITH_EDITORONLY_DATA
 	/** If an entry exists for the specified namespace and key, returns true and provides the localization resource identifier from which it was loaded. Otherwise, returns false. */
-	bool GetLocResID(const FString& Namespace, const FString& Key, FString& OutLocResId);
-
+	bool GetLocResID(const FTextKey& Namespace, const FTextKey& Key, FString& OutLocResId);
+#endif
 	/**	Finds the namespace and key associated with the specified display string.
 	 *	Returns true if found and sets the out parameters. Otherwise, returns false.
 	 */
@@ -156,19 +143,17 @@ public:
 	 *	Returns true if the display string has been or was already associated with the namespace and key.
 	 *	Returns false if the display string was already associated with another namespace and key or the namespace and key are already in use by another display string.
 	 */
-	bool AddDisplayString(const FTextDisplayStringRef& DisplayString, const FString& Namespace, const FString& Key);
+	bool AddDisplayString(const FTextDisplayStringRef& DisplayString, const FTextKey& Namespace, const FTextKey& Key);
 
 	/**
 	 * Updates the underlying value of a display string and associates it with a specified namespace and key, then returns true.
 	 * If the namespace and key are already in use by another display string, no changes occur and false is returned.
 	 */
-	bool UpdateDisplayString(const FTextDisplayStringRef& DisplayString, const FString& Value, const FString& Namespace, const FString& Key);
+	bool UpdateDisplayString(const FTextDisplayStringRef& DisplayString, const FString& Value, const FTextKey& Namespace, const FTextKey& Key);
 
 	/** Updates display string entries and adds new display string entries based on localizations found in a specified localization resource. */
 	void UpdateFromLocalizationResource(const FString& LocalizationResourceFilePath);
-
-	/** Updates display string entries and adds new display string entries based on localizations found in the specified localization resources. */
-	void UpdateFromLocalizationResources(TArrayView<const TSharedPtr<FTextLocalizationResource>> TextLocalizationResources);
+	void UpdateFromLocalizationResource(const FTextLocalizationResource& TextLocalizationResource);
 
 	/** Reloads resources for the current culture. */
 	void RefreshResources();
@@ -251,10 +236,10 @@ private:
 	void LoadLocalizationResourcesForPrioritizedCultures(TArrayView<const FString> PrioritizedCultureNames, const ELocalizationLoadFlags LocLoadFlags);
 
 	/** Updates display string entries and adds new display string entries based on provided native text. */
-	void UpdateFromNative(const FTextLocalizationResource& TextLocalizationResource);
+	void UpdateFromNative(FTextLocalizationResource&& TextLocalizationResource, const bool bDirtyTextRevision = true);
 
 	/** Updates display string entries and adds new display string entries based on provided localizations. */
-	void UpdateFromLocalizations(TArrayView<const TSharedPtr<FTextLocalizationResource>> TextLocalizationResources);
+	void UpdateFromLocalizations(FTextLocalizationResource&& TextLocalizationResource, const bool bDirtyTextRevision = true);
 
 	/** Dirties the local revision counter for the given display string by incrementing it (or adding it) */
 	void DirtyLocalRevisionForDisplayString(const FTextDisplayStringRef& InDisplayString);

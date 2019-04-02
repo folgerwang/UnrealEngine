@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -52,6 +52,8 @@ class SAppIconWidget
 	
 	void Construct( const FArguments& Args )
 	{
+		SetCanTick(false);
+
 		this->ChildSlot
 			[
 				SNew(SVerticalBox)
@@ -105,6 +107,8 @@ public:
 	 */
 	void Construct( const FArguments& InArgs, const TSharedRef<SWindow>& InWindow, const TSharedPtr<SWidget>& InCenterContent, EHorizontalAlignment InCenterContentAlignment )
 	{
+		SetCanTick(false);
+
 		OwnerWindowPtr = InWindow;
 		Style = InArgs._Style;
 		ShowAppIcon = InArgs._ShowAppIcon;
@@ -316,7 +320,7 @@ protected:
 			CenterContent = SNew(SBox)
 				.HAlign(HAlign_Center)
 				.Visibility(EVisibility::SelfHitTestInvisible)
-				.Padding(FMargin(5.0f, 2.0f, 2.0f, 5.0f))
+				.Padding(FMargin(5.0f, 2.0f, 5.0f, 2.0f))
 				[
 					// NOTE: We bind the window's title text to our window's GetTitle method, so that if the
 					//       title is changed later, the text will always be visually up to date
@@ -371,7 +375,7 @@ protected:
 
 						+ SHorizontalBox::Slot()
 							.HAlign(CenterContentAlignment)
-							.VAlign(VAlign_Top)
+							.VAlign(VAlign_Center)
 							.FillWidth(1.0f)
 							[
 								CenterContent.ToSharedRef()

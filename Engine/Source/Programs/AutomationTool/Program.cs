@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // This software is provided "as-is," without any express or implied warranty. 
 // In no event shall the author, nor Epic Games, Inc. be held liable for any damages arising from the use of this software.
 // This software will not be supported.
@@ -23,11 +23,8 @@ namespace AutomationTool
 		static ProcessManager.CtrlHandlerDelegate CtrlHandlerDelegateInstance = CtrlHandler;
 
 		[STAThread]
-		public static int Main()
+		public static int Main(string[] Arguments)
 		{
-			// Parse the command line
-			string[] Arguments = SharedUtils.ParseCommandLineAndRemoveExe(Environment.CommandLine);
-
             // Ensure UTF8Output flag is respected, since we are initializing logging early in the program.
             if (CommandUtils.ParseParam(Arguments, "-Utf8output"))
             {
@@ -35,31 +32,21 @@ namespace AutomationTool
             }
 
 			// Parse the log level argument
-			LogEventType LogLevel = LogEventType.Log;
 			if(CommandUtils.ParseParam(Arguments, "-Verbose"))
 			{
-				LogLevel = LogEventType.Verbose;
+				Log.OutputLevel = LogEventType.Verbose;
 			}
 			if(CommandUtils.ParseParam(Arguments, "-VeryVerbose"))
 			{
-				LogLevel = LogEventType.VeryVerbose;
+				Log.OutputLevel = LogEventType.VeryVerbose;
 			}
 
 			// Initialize the log system, buffering the output until we can create the log file
 			StartupTraceListener StartupListener = new StartupTraceListener();
-			Log.InitLogging(
-                bLogTimestamps: CommandUtils.ParseParam(Arguments, "-Timestamps"),
-				InLogLevel: LogLevel,
-                bLogSeverity: true,
-				bLogProgramNameWithSeverity: false,
-                bLogSources: true,
-				bLogSourcesToConsole: false,
-                bColorConsoleOutput: true,
-                TraceListeners: new TraceListener[]
-                {
-					StartupListener
-				}
-			);
+			Trace.Listeners.Add(StartupListener);
+
+			// Configure log timestamps
+			Log.IncludeTimestamps = CommandUtils.ParseParam(Arguments, "-Timestamps");
 
 			// Enter the main program section
             ExitCode ReturnCode = ExitCode.Success;
@@ -69,7 +56,9 @@ namespace AutomationTool
 				Environment.CurrentDirectory = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().GetOriginalLocation()), "..", "..", ".."));
 
 				// Ensure we can resolve any external assemblies as necessary.
-				AssemblyUtils.InstallAssemblyResolver(Path.GetDirectoryName(Assembly.GetEntryAssembly().GetOriginalLocation()));
+				string PathToBinariesDotNET = Path.GetDirectoryName(Assembly.GetEntryAssembly().GetOriginalLocation());
+				AssemblyUtils.InstallAssemblyResolver(PathToBinariesDotNET);
+				AssemblyUtils.InstallRecursiveAssemblyResolver(PathToBinariesDotNET);
 
 				// Initialize the host platform layer
 				HostPlatform.Initialize();

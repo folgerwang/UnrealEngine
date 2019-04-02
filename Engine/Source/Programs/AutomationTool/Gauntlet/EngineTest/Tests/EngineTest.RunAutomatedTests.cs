@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using EpicGame;
 using Gauntlet;
@@ -12,7 +12,7 @@ namespace EngineTest
 	/// <summary>
 	/// Runs automated tests on a platform
 	/// </summary>
-	public class RunAutomatedTests : UE4Game.DefaultNode
+	public class RunAutomatedTests : UE4Game.DefaultTest
 	{
 		public RunAutomatedTests(Gauntlet.UnrealTestContext InContext)
 			: base(InContext)

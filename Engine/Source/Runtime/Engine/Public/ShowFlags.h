@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ShowFlags.h: Show Flag Definitions.
@@ -53,7 +53,7 @@ struct FEngineShowFlags
 	// Define the showflags.
 	// A show flag is either an uint32:1 or static const bool (if optimized out according to UE_BUILD_OPTIMIZED_SHOWFLAGS)
 
-#if PLATFORM_HTML5 // broken fit field compiler -- will be sending this test case to the emscripten &/or clang keepers
+#if PLATFORM_HTML5 // TODO: EMSCRITPEN_TOOLCHAIN_UPGRADE_CHECK - broken fit field compiler
 	#define SHOWFLAG_ALWAYS_ACCESSIBLE(a,...) bool a; void Set##a(bool bVal){ a = bVal;}
 #else
 	#define SHOWFLAG_ALWAYS_ACCESSIBLE(a,...) uint32 a : 1; void Set##a(bool bVal){ a = bVal?1:0;}
@@ -301,7 +301,7 @@ private:
 		}
 
 		// Most flags are on by default. With the following line we only need disable flags.
-#if PLATFORM_HTML5 // broken compiler -- will be sending this test case to the emscripten &/or clang keepers
+#if PLATFORM_HTML5 // TODO: EMSCRITPEN_TOOLCHAIN_UPGRADE_CHECK - broken fit field compiler
 		FMemory::Memset(this, uint8(true), sizeof(*this));
 #else
 		FMemory::Memset(this, 0xff, sizeof(*this));
@@ -394,6 +394,8 @@ private:
 		SetScreenPercentage(InitMode != ESFIM_Editor && InitMode != ESFIM_VREditing);
 		SetVREditing(InitMode == ESFIM_VREditing);
 		SetOcclusionMeshes(false);
+		SetPathTracing(false);
+		SetRayTracingDebug(false);
 	}
 
 
@@ -450,7 +452,7 @@ private:
 ENGINE_API void ApplyViewMode(EViewModeIndex ViewModeIndex, bool bPerspective, FEngineShowFlags& EngineShowFlags);
 
 /** Call each view rendering after game [engine] show flags for rendering a view have been set. */
-ENGINE_API void EngineShowFlagOverride(EShowFlagInitMode ShowFlagInitMode, EViewModeIndex ViewModeIndex, FEngineShowFlags& EngineShowFlags, FName CurrentBufferVisualizationMode);
+ENGINE_API void EngineShowFlagOverride(EShowFlagInitMode ShowFlagInitMode, EViewModeIndex ViewModeIndex, FEngineShowFlags& EngineShowFlags, bool bCanDisableTonemapper);
 
 /** Call each view rendering after game [engine] show flags for rendering a view have been set; disables effects that will not work in an orthographic projection due to shader limitations. */
 ENGINE_API void EngineShowFlagOrthographicOverride(bool bIsPerspective, FEngineShowFlags& EngineShowFlags);

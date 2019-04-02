@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -31,11 +31,34 @@ struct FPrimaryAssetRulesOverride
 	GENERATED_BODY()
 
 	/** Which primary asset to override the rules for */
-	UPROPERTY(EditAnywhere, Category = AssetRedirect)
+	UPROPERTY(EditAnywhere, Category = PrimaryAssetRules)
 	FPrimaryAssetId PrimaryAssetId;	
 
 	/** What to overrides the rules with */
-	UPROPERTY(EditAnywhere, Category = AssetRedirect, meta = (ShowOnlyInnerProperties))
+	UPROPERTY(EditAnywhere, Category = PrimaryAssetRules, meta = (ShowOnlyInnerProperties))
+	FPrimaryAssetRules Rules;
+};
+
+/** Apply primary asset rules to groups of primary assets, using type + filter directory or string */
+USTRUCT()
+struct FPrimaryAssetRulesCustomOverride
+{
+	GENERATED_BODY()
+
+	/** Which type to apply rules for */
+	UPROPERTY(EditAnywhere, Category = PrimaryAssetRules)
+	FPrimaryAssetType PrimaryAssetType;
+
+	/** Will only apply to files in this directory */
+	UPROPERTY(EditAnywhere, Category = PrimaryAssetRules, meta = (RelativeToGameContentDir, LongPackageName))
+	FDirectoryPath FilterDirectory;
+
+	/** Game-specific string defining which assets to apply this to */
+	UPROPERTY(EditAnywhere, Category = PrimaryAssetRules)
+	FString FilterString;
+
+	/** What to overrides the rules with */
+	UPROPERTY(EditAnywhere, Category = PrimaryAssetRules, meta = (ShowOnlyInnerProperties))
 	FPrimaryAssetRules Rules;
 };
 
@@ -59,6 +82,10 @@ public:
 	/** List of specific asset rule overrides */
 	UPROPERTY(config, EditAnywhere, Category = "Asset Manager")
 	TArray<FPrimaryAssetRulesOverride> PrimaryAssetRules;
+
+	/** List of game-specific asset rule overrides for types, this will not do anything by default */
+	UPROPERTY(config, EditAnywhere, Category = "Asset Manager")
+	TArray<FPrimaryAssetRulesCustomOverride> CustomPrimaryAssetRules;
 
 	/** If true, DevelopmentCook assets will error when they are cooked, you should enable this on production branches */
 	UPROPERTY(config, EditAnywhere, Category = "Asset Manager")

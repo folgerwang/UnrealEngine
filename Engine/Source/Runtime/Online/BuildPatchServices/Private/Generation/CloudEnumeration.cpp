@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Generation/CloudEnumeration.h"
 #include "HAL/FileManager.h"
@@ -18,19 +18,21 @@ namespace BuildPatchServices
 		: public ICloudEnumeration
 	{
 	public:
-		FCloudEnumeration(const FString& CloudDirectory, const FDateTime& ManifestAgeThreshold, const EFeatureLevel& OutputFeatureLevel, const FStatsCollectorRef& StatsCollector);
+		FCloudEnumeration(const FString& CloudDirectory, const FDateTime& ManifestAgeThreshold, const EFeatureLevel& OutputFeatureLevel, FStatsCollector* StatsCollector);
 		virtual ~FCloudEnumeration();
 
 		virtual bool IsComplete() const override;
-		virtual const TSet<uint32>& GetChunkWindowSizes() const override;
+		virtual const TSet<uint32>& GetUniqueWindowSizes() const override;
 		virtual const TMap<uint64, TSet<FGuid>>& GetChunkInventory() const override;
 		virtual const TMap<FGuid, int64>& GetChunkFileSizes() const override;
 		virtual const TMap<FGuid, FSHAHash>& GetChunkShaHashes() const override;
+		virtual const TMap<FGuid, uint32>& GetChunkWindowSizes() const override;
 		virtual bool IsChunkFeatureLevelMatch(const FGuid& ChunkId) const override;
 		virtual const uint64& GetChunkHash(const FGuid& ChunkId) const override;
 		virtual const FSHAHash& GetChunkShaHash(const FGuid& ChunkId) const override;
 	private:
 		void EnumerateCloud();
+		TFuture<FBuildPatchAppManifestPtr> AsyncLoadManifest(const FString& ManifestFilename);
 		void EnumerateManifestData(const FBuildPatchAppManifestRef& Manifest);
 		TTuple<TSet<uint32>, TMap<FGuid, uint32>> CalculateChunkWindowSizes(const FBuildPatchAppManifestRef& Manifest);
 
@@ -43,10 +45,10 @@ namespace BuildPatchServices
 		TMap<FGuid, uint64> ChunkHashes;
 		TMap<FGuid, FSHAHash> ChunkShaHashes;
 		TSet<uint32> UniqueWindowSizes;
-		TMap<FGuid, uint32> ChunkWindowsSizes;
+		TMap<FGuid, uint32> ChunkWindowSizes;
 		TMap<uint32, TSet<FGuid>> WindowsSizeChunks;
 		TSet<FGuid> FeatureLevelMatchedChunks;
-		FStatsCollectorRef StatsCollector;
+		FStatsCollector* StatsCollector;
 		TFuture<void> Future;
 		volatile FStatsCollector::FAtomicValue* StatManifestsLoaded;
 		volatile FStatsCollector::FAtomicValue* StatManifestsRejected;
@@ -56,7 +58,7 @@ namespace BuildPatchServices
 		volatile FStatsCollector::FAtomicValue* StatUniqueWindowSizes;
 	};
 
-	FCloudEnumeration::FCloudEnumeration(const FString& InCloudDirectory, const FDateTime& InManifestAgeThreshold, const EFeatureLevel& OutputFeatureLevel, const FStatsCollectorRef& InStatsCollector)
+	FCloudEnumeration::FCloudEnumeration(const FString& InCloudDirectory, const FDateTime& InManifestAgeThreshold, const EFeatureLevel& OutputFeatureLevel, FStatsCollector* InStatsCollector)
 		: CloudDirectory(InCloudDirectory)
 		, ManifestAgeThreshold(InManifestAgeThreshold)
 		, FeatureLevelChunkSubdir(ManifestVersionHelpers::GetChunkSubdir(OutputFeatureLevel))
@@ -85,7 +87,7 @@ namespace BuildPatchServices
 		return Future.IsReady();
 	}
 
-	const TSet<uint32>& FCloudEnumeration::GetChunkWindowSizes() const
+	const TSet<uint32>& FCloudEnumeration::GetUniqueWindowSizes() const
 	{
 		Future.Wait();
 		return UniqueWindowSizes;
@@ -107,6 +109,12 @@ namespace BuildPatchServices
 	{
 		Future.Wait();
 		return ChunkShaHashes;
+	}
+
+	const TMap<FGuid, uint32>& FCloudEnumeration::GetChunkWindowSizes() const
+	{
+		Future.Wait();
+		return ChunkWindowSizes;
 	}
 
 	bool FCloudEnumeration::IsChunkFeatureLevelMatch(const FGuid& ChunkId) const
@@ -137,31 +145,25 @@ namespace BuildPatchServices
 		FStatsCollector::AccumulateTimeBegin(EnumerationTimer);
 		if (FileManager.DirectoryExists(*CloudDirectory))
 		{
-			TArray<FString> AllManifests;
-			FileManager.FindFiles(AllManifests, *(CloudDirectory / TEXT("*.manifest")), true, false);
+			TArray<FString> AllManifestFilenames;
+			FileManager.FindFiles(AllManifestFilenames, *(CloudDirectory / TEXT("*.manifest")), true, false);
 			FStatsCollector::AccumulateTimeEnd(StatTotalTime, EnumerationTimer);
 			FStatsCollector::AccumulateTimeBegin(EnumerationTimer);
 
 			// Load all manifest files
-			for (const auto& ManifestFile : AllManifests)
+			TArray<TFuture<FBuildPatchAppManifestPtr>> AllManifestFutures;
+			for (const FString& ManifestFilename : AllManifestFilenames)
+			{
+				AllManifestFutures.Add(AsyncLoadManifest(CloudDirectory / ManifestFilename));
+			}
+			// Process all manifest files
+			for (const TFuture<FBuildPatchAppManifestPtr>& ManifestFuture : AllManifestFutures)
 			{
 				// Determine chunks from manifest file
-				const FString ManifestFilename = CloudDirectory / ManifestFile;
-				if (IFileManager::Get().GetTimeStamp(*ManifestFilename) < ManifestAgeThreshold)
+				FBuildPatchAppManifestPtr BuildManifest = ManifestFuture.Get();
+				if (BuildManifest.IsValid())
 				{
-					FStatsCollector::Accumulate(StatManifestsRejected, 1);
-					continue;
-				}
-				FBuildPatchAppManifestRef BuildManifest = MakeShareable(new FBuildPatchAppManifest());
-				if (BuildManifest->LoadFromFile(ManifestFilename))
-				{
-					FStatsCollector::Accumulate(StatManifestsLoaded, 1);
-					EnumerateManifestData(BuildManifest);
-				}
-				else
-				{
-					FStatsCollector::Accumulate(StatManifestsRejected, 1);
-					UE_LOG(LogCloudEnumeration, Warning, TEXT("Could not read Manifest file. Data recognition will suffer (%s)"), *ManifestFilename);
+					EnumerateManifestData(BuildManifest.ToSharedRef());
 				}
 				FStatsCollector::AccumulateTimeEnd(StatTotalTime, EnumerationTimer);
 				FStatsCollector::AccumulateTimeBegin(EnumerationTimer);
@@ -174,51 +176,66 @@ namespace BuildPatchServices
 		FStatsCollector::AccumulateTimeEnd(StatTotalTime, EnumerationTimer);
 	}
 
+	TFuture<FBuildPatchAppManifestPtr> FCloudEnumeration::AsyncLoadManifest(const FString& ManifestFilename)
+	{
+		return Async<FBuildPatchAppManifestPtr>(EAsyncExecution::ThreadPool, [this, ManifestFilename]() -> FBuildPatchAppManifestPtr
+		{
+			if (IFileManager::Get().GetTimeStamp(*ManifestFilename) < ManifestAgeThreshold)
+			{
+				FStatsCollector::Accumulate(StatManifestsRejected, 1);
+				return nullptr;
+			}
+			FBuildPatchAppManifestRef BuildManifest = MakeShareable(new FBuildPatchAppManifest());
+			if (BuildManifest->LoadFromFile(ManifestFilename))
+			{
+				FStatsCollector::Accumulate(StatManifestsLoaded, 1);
+				return BuildManifest;
+			}
+			else
+			{
+				FStatsCollector::Accumulate(StatManifestsRejected, 1);
+				UE_LOG(LogCloudEnumeration, Warning, TEXT("Could not read Manifest file. Data recognition will suffer (%s)"), *ManifestFilename);
+			}
+			return nullptr;
+		});
+	}
+
 	void FCloudEnumeration::EnumerateManifestData(const FBuildPatchAppManifestRef& Manifest)
 	{
 		typedef TTuple<TSet<uint32>, TMap<FGuid, uint32>> FWindowSizes;
 		// Check if this chunk will already beling to our matching feature level sub dir - ptr==ptr test is fine, no need to string compare.
 		const bool bMatchingChunkSubdir = FeatureLevelChunkSubdir == ManifestVersionHelpers::GetChunkSubdir(Manifest->GetFeatureLevel());
-		TFuture<FWindowSizes> ChunkWindowSizesFuture = Async<FWindowSizes>(EAsyncExecution::TaskGraph, [&](){ return CalculateChunkWindowSizes(Manifest); });
+		TFuture<FWindowSizes> CalculateChunkWindowSizesFuture = Async<FWindowSizes>(EAsyncExecution::TaskGraph, [&](){ return CalculateChunkWindowSizes(Manifest); });
 		TArray<FGuid> DataList;
 		Manifest->GetDataList(DataList);
 		if (!Manifest->IsFileDataManifest())
 		{
-			FSHAHash DataShaHash;
-			uint64 DataChunkHash;
 			for (const FGuid& DataGuid : DataList)
 			{
-				if (Manifest->GetChunkHash(DataGuid, DataChunkHash))
+				const FChunkInfo* ChunkInfo = Manifest->GetChunkInfo(DataGuid);
+				const bool bChunkAccepted = ChunkInfo != nullptr && ChunkInfo->Hash != 0;
+				if (bChunkAccepted)
 				{
-					if (DataChunkHash != 0)
+					bool bIsAlreadyInSet = false;
+					ChunkInventory.FindOrAdd(ChunkInfo->Hash).Add(DataGuid, &bIsAlreadyInSet);
+					if (!bIsAlreadyInSet)
 					{
-						TSet<FGuid>& HashChunkList = ChunkInventory.FindOrAdd(DataChunkHash);
-						if (!HashChunkList.Contains(DataGuid))
-						{
-							HashChunkList.Add(DataGuid);
-							ChunkFileSizes.Add(DataGuid, Manifest->GetDataSize(DataGuid));
-							ChunkHashes.Add(DataGuid, DataChunkHash);
-							FStatsCollector::Accumulate(StatChunksEnumerated, 1);
-						}
-						if (bMatchingChunkSubdir)
-						{
-							FeatureLevelMatchedChunks.Add(DataGuid);
-						}
+						// Added new chunk, fill out all the various tracking data.
+						ChunkFileSizes.Add(DataGuid, Manifest->GetDataSize(DataGuid));
+						ChunkHashes.Add(DataGuid, ChunkInfo->Hash);
+						FMemory::Memcpy(ChunkShaHashes.FindOrAdd(DataGuid).Hash, ChunkInfo->ShaHash.Hash, FSHA1::DigestSize);
+						UniqueWindowSizes.Add(ChunkInfo->WindowSize);
+						ChunkWindowSizes.Add(DataGuid, ChunkInfo->WindowSize);
+						FStatsCollector::Accumulate(StatChunksEnumerated, 1);
 					}
-					else
+					if (bMatchingChunkSubdir)
 					{
-						FStatsCollector::Accumulate(StatChunksRejected, 1);
+						FeatureLevelMatchedChunks.Add(DataGuid);
 					}
 				}
 				else
 				{
 					FStatsCollector::Accumulate(StatChunksRejected, 1);
-					UE_LOG(LogCloudEnumeration, Warning, TEXT("Missing chunk hash for %s in manifest %s %s"), *DataGuid.ToString(), *Manifest->GetAppName(), *Manifest->GetVersionString());
-				}
-				if (Manifest->GetChunkShaHash(DataGuid, DataShaHash))
-				{
-					FSHAHash& ShaHash = ChunkShaHashes.FindOrAdd(DataGuid);
-					FMemory::Memcpy(ShaHash.Hash, DataShaHash.Hash, FSHA1::DigestSize);
 				}
 			}
 		}
@@ -226,12 +243,12 @@ namespace BuildPatchServices
 		{
 			FStatsCollector::Accumulate(StatManifestsRejected, 1);
 		}
-		FWindowSizes ChunkWindowSizes = ChunkWindowSizesFuture.Get();
-		UniqueWindowSizes.Append(ChunkWindowSizes.Get<0>());
-		ChunkWindowsSizes.Append(ChunkWindowSizes.Get<1>());
-		for (const TPair<FGuid, uint32>& ChunkWindowPair : ChunkWindowSizes.Get<1>())
+		FWindowSizes CalculatedChunkWindowSizes = CalculateChunkWindowSizesFuture.Get();
+		UniqueWindowSizes.Append(CalculatedChunkWindowSizes.Get<0>());
+		ChunkWindowSizes.Append(CalculatedChunkWindowSizes.Get<1>());
+		for (const TPair<FGuid, uint32>& CalculatedChunkWindowSizePair : CalculatedChunkWindowSizes.Get<1>())
 		{
-			WindowsSizeChunks.FindOrAdd(ChunkWindowPair.Value).Add(ChunkWindowPair.Key);
+			WindowsSizeChunks.FindOrAdd(CalculatedChunkWindowSizePair.Value).Add(CalculatedChunkWindowSizePair.Key);
 		}
 		FStatsCollector::Set(StatUniqueWindowSizes, UniqueWindowSizes.Num());
 	}
@@ -240,66 +257,70 @@ namespace BuildPatchServices
 	{
 		using namespace BuildPatchServices;
 		TTuple<TSet<uint32>, TMap<FGuid, uint32>> DiscoveredDetails;
-		TMap<FGuid, FBlockStructure> ChunkBlockStructures;
-		TMap<uint32, TSet<FGuid>> WindowSizeChunks;
-		TArray<FString> Files;
-		Manifest->GetFileList(Files);
-		for (const FString& File : Files)
+		// We only need to perform calculations if the manifest is a specific version, otherwise the default, or the serialised value, is the correct one to use.
+		if (Manifest->GetFeatureLevel() == EFeatureLevel::VariableSizeChunksWithoutWindowSizeChunkInfo)
 		{
-			const FFileManifest* FileManifest = Manifest->GetFileManifest(File);
-			if (FileManifest != nullptr)
+			TMap<FGuid, FBlockStructure> ChunkBlockStructures;
+			TMap<uint32, TSet<FGuid>> WindowSizeChunks;
+			TArray<FString> Files;
+			Manifest->GetFileList(Files);
+			for (const FString& File : Files)
 			{
-				for (const FChunkPart& ChunkPart : FileManifest->ChunkParts)
+				const FFileManifest* FileManifest = Manifest->GetFileManifest(File);
+				if (FileManifest != nullptr)
 				{
-					FBlockStructure& ChunkBlockStructure = ChunkBlockStructures.FindOrAdd(ChunkPart.Guid);
-					ChunkBlockStructure.Add(ChunkPart.Offset, ChunkPart.Size);
+					for (const FChunkPart& ChunkPart : FileManifest->ChunkParts)
+					{
+						FBlockStructure& ChunkBlockStructure = ChunkBlockStructures.FindOrAdd(ChunkPart.Guid);
+						ChunkBlockStructure.Add(ChunkPart.Offset, ChunkPart.Size);
+					}
 				}
 			}
-		}
-		for (const TPair<FGuid, FBlockStructure>& ChunkBlockStructurePair : ChunkBlockStructures)
-		{
-			const FBlockStructure& ChunkBlockStructure = ChunkBlockStructurePair.Value;
-			// If we got a single block, from 0 to n, that's going to be the window size.
-			if (ChunkBlockStructure.GetHead() != nullptr && ChunkBlockStructure.GetHead() == ChunkBlockStructure.GetTail() && ChunkBlockStructure.GetHead()->GetOffset() == 0)
+			for (const TPair<FGuid, FBlockStructure>& ChunkBlockStructurePair : ChunkBlockStructures)
 			{
-				const uint32 ChunkWindowSize = static_cast<uint32>(ChunkBlockStructure.GetHead()->GetSize());
-				DiscoveredDetails.Get<0>().Add(ChunkWindowSize);
-				DiscoveredDetails.Get<1>().Add(ChunkBlockStructurePair.Key, ChunkWindowSize);
-				WindowSizeChunks.FindOrAdd(ChunkWindowSize).Add(ChunkBlockStructurePair.Key);
-			}
-		}
-		// We check any chunks that have their own unique size as these were probably padded.
-		TSet<FGuid> ChunksToCheck;
-		for (const TPair<uint32, TSet<FGuid>>& WindowSizeChunksPair : WindowSizeChunks)
-		{
-			if (WindowSizeChunksPair.Value.Num() <= 1)
-			{
-				DiscoveredDetails.Get<0>().Remove(WindowSizeChunksPair.Key);
-				for (const FGuid& TheChunk : WindowSizeChunksPair.Value)
+				const FBlockStructure& ChunkBlockStructure = ChunkBlockStructurePair.Value;
+				// If we got a single block, from 0 to n, that's going to be the window size.
+				if (ChunkBlockStructure.GetHead() != nullptr && ChunkBlockStructure.GetHead() == ChunkBlockStructure.GetTail() && ChunkBlockStructure.GetHead()->GetOffset() == 0)
 				{
-					DiscoveredDetails.Get<1>().Remove(TheChunk);
-					ChunksToCheck.Add(TheChunk);
+					const uint32 ChunkWindowSize = static_cast<uint32>(ChunkBlockStructure.GetHead()->GetSize());
+					DiscoveredDetails.Get<0>().Add(ChunkWindowSize);
+					DiscoveredDetails.Get<1>().Add(ChunkBlockStructurePair.Key, ChunkWindowSize);
+					WindowSizeChunks.FindOrAdd(ChunkWindowSize).Add(ChunkBlockStructurePair.Key);
 				}
 			}
-		}
-		for (const FGuid& ChunkToCheck : ChunksToCheck)
-		{
-			FString FinalChunkPartFilename = FBuildPatchUtils::GetDataFilename(Manifest, CloudDirectory, ChunkToCheck);
-			IFileManager& FileManager = IFileManager::Get();
-			TUniquePtr<FArchive> FinalChunkPartFile(FileManager.CreateFileReader(*FinalChunkPartFilename));
-			if (FinalChunkPartFile.IsValid())
+			// We check any chunks that have their own unique size as these were probably padded.
+			TSet<FGuid> ChunksToCheck;
+			for (const TPair<uint32, TSet<FGuid>>& WindowSizeChunksPair : WindowSizeChunks)
 			{
-				FChunkHeader ChunkHeader;
-				*FinalChunkPartFile << ChunkHeader;
-				DiscoveredDetails.Get<0>().Add(ChunkHeader.DataSizeUncompressed);
-				DiscoveredDetails.Get<1>().Add(ChunkToCheck, ChunkHeader.DataSizeUncompressed);
+				if (WindowSizeChunksPair.Value.Num() <= 1)
+				{
+					DiscoveredDetails.Get<0>().Remove(WindowSizeChunksPair.Key);
+					for (const FGuid& TheChunk : WindowSizeChunksPair.Value)
+					{
+						DiscoveredDetails.Get<1>().Remove(TheChunk);
+						ChunksToCheck.Add(TheChunk);
+					}
+				}
+			}
+			for (const FGuid& ChunkToCheck : ChunksToCheck)
+			{
+				FString FinalChunkPartFilename = FBuildPatchUtils::GetDataFilename(Manifest, CloudDirectory, ChunkToCheck);
+				IFileManager& FileManager = IFileManager::Get();
+				TUniquePtr<FArchive> FinalChunkPartFile(FileManager.CreateFileReader(*FinalChunkPartFilename));
+				if (FinalChunkPartFile.IsValid())
+				{
+					FChunkHeader ChunkHeader;
+					*FinalChunkPartFile << ChunkHeader;
+					DiscoveredDetails.Get<0>().Add(ChunkHeader.DataSizeUncompressed);
+					DiscoveredDetails.Get<1>().Add(ChunkToCheck, ChunkHeader.DataSizeUncompressed);
+				}
 			}
 		}
 		return DiscoveredDetails;
 	}
 
-	ICloudEnumerationRef FCloudEnumerationFactory::Create(const FString& CloudDirectory, const FDateTime& ManifestAgeThreshold, const EFeatureLevel& OutputFeatureLevel, const FStatsCollectorRef& StatsCollector)
+	ICloudEnumeration* FCloudEnumerationFactory::Create(const FString& CloudDirectory, const FDateTime& ManifestAgeThreshold, const EFeatureLevel& OutputFeatureLevel, FStatsCollector* StatsCollector)
 	{
-		return MakeShareable(new FCloudEnumeration(CloudDirectory, ManifestAgeThreshold, OutputFeatureLevel, StatsCollector));
+		return new FCloudEnumeration(CloudDirectory, ManifestAgeThreshold, OutputFeatureLevel, StatsCollector);
 	}
 }

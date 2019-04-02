@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -57,6 +57,14 @@ public:
 	virtual int64		Size() override
 	{
 		return FileHandle->Size();
+	}
+	virtual bool		Flush(const bool bFullFlush = false) override
+	{
+		return FileHandle->Flush(bFullFlush);
+	}
+	virtual bool		Truncate(int64 NewSize) override
+	{
+		return FileHandle->Truncate(NewSize);
 	}
 };
 
@@ -179,6 +187,12 @@ public:
 	virtual ~FSandboxPlatformFile()
 	{
 	}
+
+	//~ For visibility of overloads we don't override
+	using IPlatformFile::IterateDirectory;
+	using IPlatformFile::IterateDirectoryRecursively;
+	using IPlatformFile::IterateDirectoryStat;
+	using IPlatformFile::IterateDirectoryStatRecursively;
 
 	/**
 	 *	Set whether the sandbox is enabled or not
@@ -635,9 +649,18 @@ public:
 		}
 		return LowerLevel->OpenAsyncRead(Filename);
 	}
-	virtual void ThrottleAsyncPrecaches(bool bEnablePrecacheRequests) override
+	virtual void SetAsyncMinimumPriority(EAsyncIOPriorityAndFlags Priority) override
 	{
-		LowerLevel->ThrottleAsyncPrecaches(bEnablePrecacheRequests);
+		LowerLevel->SetAsyncMinimumPriority(Priority);
+	}
+	virtual IMappedFileHandle* OpenMapped(const TCHAR* Filename) override
+	{
+		FString UserFilename(*ConvertToSandboxPath(Filename));
+		if (!OkForInnerAccess(Filename) || LowerLevel->FileExists(*UserFilename))
+		{
+			return LowerLevel->OpenMapped(*UserFilename);
+		}
+		return LowerLevel->OpenMapped(Filename);
 	}
 
 };

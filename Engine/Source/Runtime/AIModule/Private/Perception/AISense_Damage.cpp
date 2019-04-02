@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Perception/AISense_Damage.h"
 #include "GameFramework/Pawn.h"
@@ -80,10 +80,8 @@ float UAISense_Damage::Update()
 {
 	AIPerception::FListenerMap& ListenersMap = *GetListeners();
 
-	for (int32 EventIndex = 0; EventIndex < RegisteredEvents.Num(); ++EventIndex)
+	for (const FAIDamageEvent& Event : RegisteredEvents)
 	{
-		const FAIDamageEvent& Event = RegisteredEvents[EventIndex];
-
 		IAIPerceptionListenerInterface* PerceptionListener = Event.GetDamagedActorAsPerceptionListener();
 		if (PerceptionListener != nullptr)
 		{

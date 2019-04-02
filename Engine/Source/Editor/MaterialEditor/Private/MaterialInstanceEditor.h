@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -152,6 +152,9 @@ private:
 
 	/** Creates all internal widgets for the tabs to point at */
 	void CreateInternalWidgets();
+
+	/** Delegate for overriding Show Modified to Show Overridden instead */
+	void FilterOverriddenProperties();
 
 	/** Updates the 3D and UI preview viewport visibility based on material domain */
 	void UpdatePreviewViewportsVisibility();

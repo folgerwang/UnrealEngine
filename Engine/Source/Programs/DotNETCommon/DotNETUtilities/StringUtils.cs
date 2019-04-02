@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -38,28 +38,58 @@ namespace Tools.DotNETCommon
 		}
 
 		/// <summary>
-		/// Case-sensitive replacement for String.EndsWith(), which seems to be pathalogically slow on Mono.
+		/// Formats a list of strings in the style "1, 2, 3 and 4"
 		/// </summary>
-		/// <param name="Source">String to test</param>
-		/// <param name="Suffix">Suffix to check for</param>
-		/// <returns>True if the source string ends with the given suffix</returns>
-		public static bool FastEndsWith(string Source, string Suffix)
+		/// <param name="Arguments">List of strings to format</param>
+		/// <returns>Formatted list of strings</returns>
+		public static string FormatList(string[] Arguments)
 		{
-			if(Source.Length < Suffix.Length)
+			StringBuilder Result = new StringBuilder();
+			if(Arguments.Length > 0)
 			{
-				return false;
-			}
-
-			int SourceBase = Source.Length - Suffix.Length;
-			for(int Idx = 0; Idx < Suffix.Length; Idx++)
-			{
-				if(Source[SourceBase + Idx] != Suffix[Idx])
+				Result.Append(Arguments[0]);
+				for(int Idx = 1; Idx < Arguments.Length; Idx++)
 				{
-					return false;
+					if(Idx == Arguments.Length - 1)
+					{
+						Result.Append(" and ");
+					}
+					else
+					{
+						Result.Append(", ");
+					}
+					Result.Append(Arguments[Idx]);
 				}
 			}
+			return Result.ToString();
+		}
 
-			return true;
+		/// <summary>
+		/// Formats a list of strings in the style "1, 2, 3 and 4"
+		/// </summary>
+		/// <param name="Arguments">List of strings to format</param>
+		/// <returns>Formatted list of strings</returns>
+		public static string FormatList(IEnumerable<string> Arguments)
+		{
+			return FormatList(Arguments.ToArray());
+		}
+
+		/// <summary>
+		/// Formats an array of bytes as a hexadecimal string
+		/// </summary>
+		/// <param name="Bytes">An array of bytes</param>
+		/// <returns>String representation of the array</returns>
+		public static string FormatHexString(byte[] Bytes)
+		{
+			const string HexDigits = "0123456789abcdef";
+
+			char[] Characters = new char[Bytes.Length * 2];
+			for(int Idx = 0; Idx < Bytes.Length; Idx++)
+			{
+				Characters[Idx * 2 + 0] = HexDigits[Bytes[Idx] >> 4];
+				Characters[Idx * 2 + 1] = HexDigits[Bytes[Idx] & 15];
+			}
+			return new string(Characters);
 		}
 	}
 }

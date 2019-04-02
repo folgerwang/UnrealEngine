@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreTypes.h"
@@ -54,6 +54,22 @@ CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogTemp, Log, All);
 
 CORE_API FOutputDeviceRedirector* GetGlobalLogSingleton();
 
+CORE_API void BootTimingPoint(const ANSICHAR *Message);
+
+CORE_API void DumpBootTiming();
+
+struct CORE_API FScopedBootTiming
+{
+	FString Message;
+	double StartTime;
+	FScopedBootTiming(const ANSICHAR *InMessage);
+	FScopedBootTiming(const ANSICHAR *InMessage, FName Suffix);
+	~FScopedBootTiming();
+};
+
+
+#define SCOPED_BOOT_TIMING(x) FScopedBootTiming ANONYMOUS_VARIABLE(BootTiming_)(x);
+
 #define GLog GetGlobalLogSingleton()
 extern CORE_API FConfigCacheIni* GConfig;
 extern CORE_API ITransaction* GUndo;
@@ -66,7 +82,6 @@ extern CORE_API TCHAR GErrorHist[16384];
 
 // #crashReport: 2014-08-19 Combine into one, refactor.
 extern CORE_API TCHAR GErrorExceptionDescription[4096];
-extern CORE_API TCHAR GErrorMessage[4096];
 
 extern CORE_API const FText GTrue, GFalse, GYes, GNo, GNone;
 

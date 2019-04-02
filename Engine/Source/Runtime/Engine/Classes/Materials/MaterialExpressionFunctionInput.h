@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -67,7 +67,7 @@ class UMaterialExpressionFunctionInput : public UMaterialExpression
 	uint32 bUsePreviewValueAsDefault:1;
 
 	/** Controls where the input is displayed relative to the other inputs. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=MaterialExpressionFunctionInput)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=MaterialExpression)
 	int32 SortPriority;
 
 	/** 

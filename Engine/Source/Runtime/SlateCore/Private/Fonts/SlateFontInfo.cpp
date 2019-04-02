@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Fonts/SlateFontInfo.h"
 #include "Templates/Casts.h"
@@ -12,7 +12,7 @@
 
 FFontOutlineSettings FFontOutlineSettings::NoOutline;
 
-
+#if WITH_EDITORONLY_DATA
 bool FFontOutlineSettings::Serialize(FArchive& Ar)
 {
 	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
@@ -30,13 +30,14 @@ void FFontOutlineSettings::PostSerialize(const FArchive& Ar)
 		bApplyOutlineToDropShadows = true;
 	}
 }
+#endif
 
 FSlateFontInfo::FSlateFontInfo( )
 	: FontObject(nullptr)
 	, FontMaterial(nullptr)
 	, CompositeFont()
 	, TypefaceFontName()
-	, Size(0)
+	, Size(24)
 	, FontFallback(EFontFallback::FF_Max)
 #if WITH_EDITORONLY_DATA
 	, Hinting_DEPRECATED(EFontHinting::Default)

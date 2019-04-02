@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -39,8 +39,5 @@ public class EditorStyle : ModuleRules
 				}
 			);
 		}
-
-		// I'm told this is to improve compilation performance of this module
-		OptimizeCode = CodeOptimization.Never;
 	}
 }

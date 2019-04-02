@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
 #include "Containers/SortedMap.h"
@@ -226,7 +226,7 @@ void FMovieSceneRootEvaluationTemplateInstance::Evaluate(FMovieSceneContext Cont
 		return;
 	}
 
-	const FMovieSceneEvaluationGroup* GroupToEvaluate = SetupFrame(OverrideRootSequence, InOverrideRootID, Context);
+	const FMovieSceneEvaluationGroup* GroupToEvaluate = SetupFrame(OverrideRootSequence, InOverrideRootID, &Context);
 	if (!GroupToEvaluate)
 	{
 		CallSetupTearDown(Player);
@@ -268,7 +268,7 @@ FMovieSceneEvaluationPtrCache FMovieSceneRootEvaluationTemplateInstance::Constru
 	return FMovieSceneEvaluationPtrCache(RootOverridePath, OverrideRootSequence, TemplateStore.Get(), PreviousAndCurrentFrameSequenceIDs);
 }
 
-const FMovieSceneEvaluationGroup* FMovieSceneRootEvaluationTemplateInstance::SetupFrame(UMovieSceneSequence* OverrideRootSequence, FMovieSceneSequenceID InOverrideRootID, FMovieSceneContext Context)
+const FMovieSceneEvaluationGroup* FMovieSceneRootEvaluationTemplateInstance::SetupFrame(UMovieSceneSequence* OverrideRootSequence, FMovieSceneSequenceID InOverrideRootID, FMovieSceneContext* InOutContext)
 {
 	check(OverrideRootSequence);
 
@@ -276,7 +276,6 @@ const FMovieSceneEvaluationGroup* FMovieSceneRootEvaluationTemplateInstance::Set
 	RootOverridePath.Set(InOverrideRootID, GetHierarchy());
 
 	FMovieSceneEvaluationTemplate* OverrideRootTemplate = nullptr;
-	FMovieSceneSequenceTransform   RootOverrideTransform;
 
 	if (InOverrideRootID == MovieSceneSequenceID::Root)
 	{
@@ -288,7 +287,7 @@ const FMovieSceneEvaluationGroup* FMovieSceneRootEvaluationTemplateInstance::Set
 		OverrideRootTemplate = &TemplateStore->AccessTemplate(*OverrideRootSequence);
 		if (const FMovieSceneSubSequenceData* OverrideSubData = GetHierarchy().FindSubData(InOverrideRootID))
 		{
-			RootOverrideTransform = OverrideSubData->RootToSequenceTransform;
+			*InOutContext = InOutContext->Transform(OverrideSubData->RootToSequenceTransform, OverrideSubData->TickResolution);
 		}
 	}
 
@@ -303,14 +302,10 @@ const FMovieSceneEvaluationGroup* FMovieSceneRootEvaluationTemplateInstance::Set
 		FMovieSceneEvaluationTemplateGenerator(*OverrideRootSequence, *OverrideRootTemplate).Generate();
 	}
 
-	FFrameNumber RootOverrideTime = (Context.GetTime() * RootOverrideTransform).FloorToFrame();
-
-
-
 	FMovieSceneEvaluationField& EvaluationField = OverrideRootTemplate->EvaluationField;
 
 	// Get the range that we are evaluating in the root's space
-	TRange<FFrameNumber> ContextRange = Context.GetTraversedFrameNumberRange() * RootOverrideTransform;
+	TRange<FFrameNumber> ContextRange = InOutContext->GetTraversedFrameNumberRange();
 
 	// Verify and update the evaluation field for this range, returning the bounds of the overlapping field entries
 	TRange<int32> FieldRange = EvaluationField.ConditionallyCompileRange(ContextRange, OverrideRootSequence, *TemplateStore);
@@ -321,7 +316,7 @@ const FMovieSceneEvaluationGroup* FMovieSceneRootEvaluationTemplateInstance::Set
 
 	// The one that we want to evaluate is either the first or last index in the range.
 	// FieldRange is always of the form [First, Last+1)
-	int32 TemplateFieldIndex = Context.GetDirection() == EPlayDirection::Forwards ? FieldRange.GetUpperBoundValue() - 1 : FieldRange.GetLowerBoundValue();
+	int32 TemplateFieldIndex = InOutContext->GetDirection() == EPlayDirection::Forwards ? FieldRange.GetUpperBoundValue() - 1 : FieldRange.GetLowerBoundValue();
 	if (TemplateFieldIndex != INDEX_NONE)
 	{
 		// Set meta-data
@@ -542,7 +537,7 @@ void FMovieSceneRootEvaluationTemplateInstance::CallSetupTearDown(const FMovieSc
 			{
 				Track->OnBeginEvaluation(PersistentDataProxy, Player);
 			}
-			else
+			else if (Track->HasChildTemplate(Key.SectionIndex))
 			{
 				PersistentDataProxy.SetSectionKey(Key);
 				Track->GetChildTemplate(Key.SectionIndex).OnBeginEvaluation(PersistentDataProxy, Player);

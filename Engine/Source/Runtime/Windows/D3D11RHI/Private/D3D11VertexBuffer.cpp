@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D11VertexBuffer.cpp: D3D vertex buffer RHI implementation.
@@ -94,6 +94,15 @@ FVertexBufferRHIRef FD3D11DynamicRHI::RHICreateVertexBuffer(uint32 Size,uint32 I
 	return new FD3D11VertexBuffer(VertexBufferResource,Size,InUsage);
 }
 
+FVertexBufferRHIRef FD3D11DynamicRHI::CreateVertexBuffer_RenderThread(
+	class FRHICommandListImmediate& RHICmdList,
+	uint32 Size,
+	uint32 InUsage,
+	FRHIResourceCreateInfo& CreateInfo)
+{
+	return RHICreateVertexBuffer(Size, InUsage, CreateInfo);
+}
+
 void* FD3D11DynamicRHI::RHILockVertexBuffer(FVertexBufferRHIParamRef VertexBufferRHI,uint32 Offset,uint32 Size,EResourceLockMode LockMode)
 {
 	check(Size > 0);
@@ -101,7 +110,7 @@ void* FD3D11DynamicRHI::RHILockVertexBuffer(FVertexBufferRHIParamRef VertexBuffe
 	FD3D11VertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
 	
 	// If this resource is bound to the device, unbind it
-	ConditionalClearShaderResource(VertexBuffer);
+	ConditionalClearShaderResource(VertexBuffer, true);
 
 	// Determine whether the vertex buffer is dynamic or not.
 	D3D11_BUFFER_DESC Desc;
@@ -160,7 +169,7 @@ void* FD3D11DynamicRHI::RHILockVertexBuffer(FVertexBufferRHIParamRef VertexBuffe
 	}
 
 	// Add the lock to the lock map.
-	OutstandingLocks.Add(LockedKey,LockedData);
+	GetThreadLocalLockTracker().Add(LockedKey,LockedData);
 
 	// Return the offset pointer
 	return (void*)((uint8*)LockedData.GetData() + Offset);
@@ -176,9 +185,10 @@ void FD3D11DynamicRHI::RHIUnlockVertexBuffer(FVertexBufferRHIParamRef VertexBuff
 	const bool bIsDynamic = (Desc.Usage == D3D11_USAGE_DYNAMIC);
 
 	// Find the outstanding lock for this VB.
+	FD3D11LockTracker& OutstandingLocks = GetThreadLocalLockTracker();
 	FD3D11LockedKey LockedKey(VertexBuffer->Resource);
 	FD3D11LockedData* LockedData = OutstandingLocks.Find(LockedKey);
-	check(LockedData);
+	checkf(LockedData, TEXT("Vertex buffer is either not locked or locked on a different thread"));
 
 	if(bIsDynamic)
 	{

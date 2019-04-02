@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SslCertificateManager.h"
 #include "Ssl.h"
@@ -47,6 +47,11 @@ void FSslCertificateManager::ClearAllPinnedPublicKeys()
 	PinnedPublicKeys.Empty();
 }
 
+bool FSslCertificateManager::HasPinnedPublicKeys() const
+{
+	return PinnedPublicKeys.Num() > 0;
+}
+
 // Compare function to order domains by exact matches, then from most specific to least specific subdomain matches
 // For example: { "a.b.c.d", ".b.c.d", ".c.d", ".d" }
 static bool DomainLessThan(const FString& DomainA, const FString& DomainB)
@@ -83,6 +88,33 @@ static bool DomainLessThan(const FString& DomainA, const FString& DomainB)
 		// exact matches come first
 		return bDomainBIncludesSubdomains;
 	}
+}
+
+bool FSslCertificateManager::IsDomainPinned(const FString& Domain)
+{
+	bool bWasDomainFound = false;
+
+	FString DomainWithoutPort = Domain;
+	int PortStart = Domain.Find(TEXT(":"), ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+	if (PortStart >= 0)
+	{
+		int PortLength = DomainWithoutPort.Len() - PortStart;
+		DomainWithoutPort.RemoveAt(PortStart, PortLength);
+	}
+
+	const TArray<TArray<uint8, TFixedAllocator<PUBLIC_KEY_DIGEST_SIZE>>>* PinnedKeys = nullptr;
+	for (const TPair<FString, TArray<TArray<uint8, TFixedAllocator<PUBLIC_KEY_DIGEST_SIZE>>>>& PinnedKeyPair : PinnedPublicKeys)
+	{
+		const FString& PinnedDomain = PinnedKeyPair.Key;
+		if ((PinnedDomain[0] == TEXT('.') && DomainWithoutPort.EndsWith(PinnedDomain))
+			|| DomainWithoutPort == PinnedDomain)
+		{
+			bWasDomainFound = true;
+			break;
+		}
+	}
+
+	return bWasDomainFound;
 }
 
 void FSslCertificateManager::SetPinnedPublicKeys(const FString& Domain, const FString& PinnedKeyDigests)
@@ -322,6 +354,18 @@ void FSslCertificateManager::AddPEMFileToRootCertificateArray(const FString& Pat
 	}
 }
 
+namespace
+{
+	FString GetCertificateName(X509* const Certificate)
+	{
+		char StaticBuffer[2048];
+		// We do not have to free the return value of get_subject_name
+		X509_NAME_oneline(X509_get_subject_name(Certificate), StaticBuffer, sizeof(StaticBuffer));
+
+		return FString(ANSI_TO_TCHAR(StaticBuffer));
+	}
+}
+
 void FSslCertificateManager::AddCertificateToRootCertificateArray(X509* Certificate)
 {
 	bool bValidateRootCertificates = true;
@@ -332,13 +376,13 @@ void FSslCertificateManager::AddCertificateToRootCertificateArray(X509* Certific
 		ASN1_TIME* NotAfter = X509_get_notAfter(Certificate);
 		if (X509_cmp_current_time(NotAfter) < 0)
 		{
-			UE_LOG(LogSsl, Log, TEXT("Ignoring expired certificate: %s"), ANSI_TO_TCHAR(Certificate->name));
+			UE_LOG(LogSsl, Log, TEXT("Ignoring expired certificate: %s"), *GetCertificateName(Certificate));
 			X509_free(Certificate);
 			return;
 		}
 		if (X509_cmp_current_time(NotBefore) > 0)
 		{
-			UE_LOG(LogSsl, Log, TEXT("Ignoring not yet valid certificate: %s"), ANSI_TO_TCHAR(Certificate->name));
+			UE_LOG(LogSsl, Log, TEXT("Ignoring not yet valid certificate: %s"), *GetCertificateName(Certificate));
 			X509_free(Certificate);
 			return;
 		}
@@ -352,12 +396,12 @@ void FSslCertificateManager::AddCertificateToRootCertificateArray(X509* Certific
 
 	if (bFound)
 	{
-		UE_LOG(LogSsl, VeryVerbose, TEXT("Ignoring duplicate certificate: %s"), ANSI_TO_TCHAR(Certificate->name));
+		UE_LOG(LogSsl, VeryVerbose, TEXT("Ignoring duplicate certificate: %s"), *GetCertificateName(Certificate));
 		X509_free(Certificate);
 	}
 	else
 	{
-		UE_LOG(LogSsl, Verbose, TEXT("Adding certificate: %s"), ANSI_TO_TCHAR(Certificate->name));
+		UE_LOG(LogSsl, Verbose, TEXT("Adding certificate: %s"), *GetCertificateName(Certificate));
 		RootCertificateArray.Add(Certificate);
 	}
 }

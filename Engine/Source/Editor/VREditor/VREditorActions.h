@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "VREditorUISystem.h"
@@ -193,9 +193,9 @@ public:
 	/** Sets the current sequence's selection range end to the current time */
 	static void SetSelectionRangeEnd(UVREditorMode* InVRMode);
 
-	static void ToggleSequencerScrubbing(UVREditorMode* InVRMode, UVREditorMotionControllerInteractor* InController);
+	static void ToggleSequencerScrubbing(UVREditorMode* InVRMode, UVREditorInteractor* InController);
 
-	static ECheckBoxState GetSequencerScrubState(UVREditorMotionControllerInteractor* InController);
+	static ECheckBoxState GetSequencerScrubState(UVREditorInteractor* InController);
 
 	/** Toggles whether or not the world interaction method should align transformables to actors in the scene*/
 	static void ToggleAligningToActors(UVREditorMode* InVRMode);

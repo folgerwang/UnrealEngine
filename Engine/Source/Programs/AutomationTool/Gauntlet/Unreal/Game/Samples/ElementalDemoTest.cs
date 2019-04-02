@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -15,7 +15,7 @@ namespace UE4Game
 	/// <summary>
 	/// Runs automated tests on a platform
 	/// </summary>
-	public class ElementalDemoTest : DefaultNode
+	public class ElementalDemoTest : DefaultTest
 	{
 		public ElementalDemoTest(Gauntlet.UnrealTestContext InContext)
 			: base(InContext)

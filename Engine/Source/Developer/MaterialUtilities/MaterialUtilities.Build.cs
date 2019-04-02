@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -17,7 +17,6 @@ public class MaterialUtilities : ModuleRules
                 "RHI",
                 "Landscape",
                 "UnrealEd",
-                "ShaderCore",
                 "MaterialBaking",
             }
 		);
@@ -30,7 +29,8 @@ public class MaterialUtilities : ModuleRules
 
         PublicDependencyModuleNames.AddRange(
 			new string [] {
-				 "RawMesh",            
+                 "MeshDescription",
+                 "MeshDescriptionOperations",
 			}
 		);      
 

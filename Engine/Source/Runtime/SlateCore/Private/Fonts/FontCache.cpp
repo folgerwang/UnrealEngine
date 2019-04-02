@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Fonts/FontCache.h"
 #include "Misc/ScopeLock.h"
@@ -750,7 +750,7 @@ FCharacterEntry FCharacterList::MakeCharacterEntry(TCHAR Character, const FChara
 	return CharEntry;
 }
 
-FSlateFontCache::FSlateFontCache( TSharedRef<ISlateFontAtlasFactory> InFontAtlasFactory )
+FSlateFontCache::FSlateFontCache( TSharedRef<ISlateFontAtlasFactory> InFontAtlasFactory, ESlateTextureAtlasThreadId InOwningThread)
 	: FTLibrary( new FFreeTypeLibrary() )
 	, FTGlyphCache( new FFreeTypeGlyphCache() )
 	, FTAdvanceCache( new FFreeTypeAdvanceCache() )
@@ -763,6 +763,7 @@ FSlateFontCache::FSlateFontCache( TSharedRef<ISlateFontAtlasFactory> InFontAtlas
 	, CurrentMaxAtlasPagesBeforeFlushRequest(InitialMaxAtlasPagesBeforeFlushRequest)
 	, CurrentMaxNonAtlasedTexturesBeforeFlushRequest(InitialMaxNonAtlasedTexturesBeforeFlushRequest)
 	, FrameCounterLastFlushRequest( 0 )
+	, OwningThread(InOwningThread)
 {
 	FInternationalization::Get().OnCultureChanged().AddRaw(this, &FSlateFontCache::HandleCultureChanged);
 }
@@ -982,10 +983,8 @@ FCharacterList& FSlateFontCache::GetCharacterList( const FSlateFontInfo &InFontI
 FShapedGlyphFontAtlasData FSlateFontCache::GetShapedGlyphFontAtlasData( const FShapedGlyphEntry& InShapedGlyph, const FFontOutlineSettings& InOutlineSettings )
 {
 	uint8 CachedTypeIndex = (uint8)(InOutlineSettings.OutlineSize <= 0 ? EFontCacheAtlasDataType::Regular : EFontCacheAtlasDataType::Outline);
-	const ESlateTextureAtlasThreadId AtlasThreadId = GetCurrentSlateTextureAtlasThreadId();
-	check(AtlasThreadId != ESlateTextureAtlasThreadId::Unknown);
 
-	const int32 CachedAtlasDataThreadIndex = (AtlasThreadId == ESlateTextureAtlasThreadId::Game) ? 0 : 1;
+	const int32 CachedAtlasDataThreadIndex = static_cast<int32>(OwningThread);
 
 	// Has the atlas data already been cached on the glyph?
 	{
@@ -1008,17 +1007,23 @@ FShapedGlyphFontAtlasData FSlateFontCache::GetShapedGlyphFontAtlasData( const FS
 		return **FoundAtlasData;
 	}
 
-	// Not cached at all... create a new entry
-	TSharedRef<FShapedGlyphFontAtlasData> NewAtlasData = MakeShareable(new FShapedGlyphFontAtlasData());
-	AddNewEntry(InShapedGlyph, InOutlineSettings, *NewAtlasData);
 
-	if (NewAtlasData->Valid)
 	{
-		InShapedGlyph.CachedAtlasData[CachedTypeIndex][CachedAtlasDataThreadIndex] = NewAtlasData;
-		ShapedGlyphToAtlasData.Add(GlyphKey, NewAtlasData);
-	}
 
-	return *NewAtlasData;
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_SlateFontCacheAddNewShapedEntry)
+
+			// Not cached at all... create a new entry
+		TSharedRef<FShapedGlyphFontAtlasData> NewAtlasData = MakeShareable(new FShapedGlyphFontAtlasData());
+		AddNewEntry(InShapedGlyph, InOutlineSettings, *NewAtlasData);
+
+		if (NewAtlasData->Valid)
+		{
+			InShapedGlyph.CachedAtlasData[CachedTypeIndex][CachedAtlasDataThreadIndex] = NewAtlasData;
+			ShapedGlyphToAtlasData.Add(GlyphKey, NewAtlasData);
+		}
+
+		return *NewAtlasData;
+	}
 }
 
 const FFontData& FSlateFontCache::GetDefaultFontData( const FSlateFontInfo& InFontInfo ) const
@@ -1044,6 +1049,11 @@ int16 FSlateFontCache::GetBaseline( const FSlateFontInfo& InFontInfo, float Font
 void FSlateFontCache::GetUnderlineMetrics( const FSlateFontInfo& InFontInfo, const float FontScale, int16& OutUnderlinePos, int16& OutUnderlineThickness ) const
 {
 	FontRenderer->GetUnderlineMetrics(InFontInfo, FontScale, OutUnderlinePos, OutUnderlineThickness);
+}
+
+void FSlateFontCache::GetStrikeMetrics( const FSlateFontInfo& InFontInfo, const float FontScale, int16& OutStrikeLinePos, int16& OutStrikeLineThickness ) const
+{
+	FontRenderer->GetStrikeMetrics(InFontInfo, FontScale, OutStrikeLinePos, OutStrikeLineThickness);
 }
 
 int8 FSlateFontCache::GetKerning( const FFontData& InFontData, const int32 InSize, TCHAR First, TCHAR Second, float Scale ) const
@@ -1199,6 +1209,11 @@ void FSlateFontCache::FlushData()
 
 	FontToCharacterListCache.Empty();
 	ShapedGlyphToAtlasData.Empty();
+}
+
+uint32 FSlateFontCache::GetFontDataAssetResidentMemory(const UObject* FontDataAsset) const
+{
+	return CompositeFontCache->GetFontDataAssetResidentMemory(FontDataAsset);
 }
 
 void FSlateFontCache::FlushFontObjects()

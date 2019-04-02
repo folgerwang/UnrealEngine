@@ -35,7 +35,7 @@ sweep 이란 폰을 해당 방향으로 이동시키다가 무언가에 걸리�
 Pawn 클래스가 월드의 플레이어나 AI 개체의 물리적 표현을 만드는 데 있어 꼭 필요한 것만 제공해 주는 반면, _DefaultPawn_ 서브클래스에는 추가적인 컴포넌트와 함수성이 딸려 옵니다.
 
 DefaultPawn 클래스에는 네이티브 DefaultPawnMovementComponent, 구체형 CollisionComponent, StaticMeshComponent 가 들어 있습니다. DefaultPawnMovementComponent 와 카메라 제어는 물론 
-기본 이동 바인딩 추가를 위한 불리언 역시 DefaultPawn 클래스에 존재하며, 기본값은 _True_ 로 설정되어 있습니다.
+기본 이동 바인딩 추가를 위한 부울 역시 DefaultPawn 클래스에 존재하며, 기본값은 _True_ 로 설정되어 있습니다.
 
 
 ### DefaultPawnMovementComponent

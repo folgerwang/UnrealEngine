@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	WindowsD3D12Device.cpp: Windows D3D device RHI implementation.
@@ -14,6 +14,8 @@
 #include "HardwareInfo.h"
 #include "Runtime/HeadMountedDisplay/Public/IHeadMountedDisplayModule.h"
 #include "GenericPlatform/GenericPlatformDriver.h"			// FGPUDriverInfo
+
+#include "ShaderCompiler.h"
 
 #pragma comment(lib, "d3d12.lib")
 
@@ -33,6 +35,17 @@ static TAutoConsoleVariable<int32> CVarGraphicsAdapter(
 	TEXT("  0: Adapter #0\n")
 	TEXT("  1: Adapter #1, ..."),
 	ECVF_RenderThreadSafe);
+
+#if NV_AFTERMATH
+// Disabled by default since introduces stalls between render and driver threads
+int32 GDX12NVAfterMathEnabled = 0;
+static FAutoConsoleVariableRef CVarDX12NVAfterMathBufferSize(
+	TEXT("r.DX12NVAfterMathEnabled"),
+	GDX12NVAfterMathEnabled,
+	TEXT("Use NV Aftermath for GPU crash analysis in D3D12"),
+	ECVF_ReadOnly
+);
+#endif
 
 static inline int D3D12RHI_PreferAdapterVendor()
 {
@@ -130,7 +143,7 @@ static bool SafeTestD3D12CreateDevice(IDXGIAdapter* Adapter, D3D_FEATURE_LEVEL M
 			D3D_FEATURE_LEVEL MaxFeatureLevel = MinFeatureLevel;
 			D3D12_FEATURE_DATA_FEATURE_LEVELS FeatureLevelCaps = {};
 			FeatureLevelCaps.pFeatureLevelsRequested = FeatureLevels;
-			FeatureLevelCaps.NumFeatureLevels = _countof(FeatureLevels);	
+			FeatureLevelCaps.NumFeatureLevels = ARRAY_COUNT(FeatureLevels);	
 			if (SUCCEEDED(pDevice->CheckFeatureSupport(D3D12_FEATURE_FEATURE_LEVELS, &FeatureLevelCaps, sizeof(FeatureLevelCaps))))
 			{
 				MaxFeatureLevel = FeatureLevelCaps.MaxSupportedFeatureLevel;
@@ -448,6 +461,22 @@ FDynamicRHI* FD3D12DynamicRHIModule::CreateRHI(ERHIFeatureLevel::Type RequestedF
 
 void FD3D12DynamicRHIModule::StartupModule()
 {
+#if NV_AFTERMATH
+	// Note - can't check device type here, we'll check for that before actually initializing Aftermath
+	FString AftermathBinariesRoot = FPaths::EngineDir() / TEXT("Binaries/ThirdParty/NVIDIA/NVaftermath/Win64/");
+	if (LoadLibraryW(*(AftermathBinariesRoot + "GFSDK_Aftermath_Lib.x64.dll")) == nullptr)
+	{
+		UE_LOG(LogD3D12RHI, Warning, TEXT("Failed to load GFSDK_Aftermath_Lib.x64.dll"));
+		GDX12NVAfterMathEnabled = 0;
+		return;
+	}
+	else
+	{
+		UE_LOG(LogD3D12RHI, Log, TEXT("Aftermath initialized"));
+		GDX12NVAfterMathEnabled = 1;
+	}
+#endif
+
 #if USE_PIX
 	static FString WindowsPixDllRelativePath = FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries/ThirdParty/Windows/DirectX/x64"));
 	static FString WindowsPixDll("WinPixEventRuntime.dll");
@@ -658,12 +687,40 @@ void FD3D12DynamicRHI::Init()
 	// Indicate that the RHI needs to use the engine's deferred deletion queue.
 	GRHINeedsExtraDeletionLatency = true;
 
+	// There is no need to defer deletion of streaming textures
+	// - Suballocated ones are defer-deleted by their allocators
+	// - Standalones are added to the deferred deletion queue of its parent FD3D12Adapter
+	GRHIForceNoDeletionLatencyForStreamingTextures = !!PLATFORM_WINDOWS;
+
+#if D3D12_RHI_RAYTRACING
+	GRHISupportsRayTracing = GetAdapter().GetD3DRayTracingDevice() != nullptr;
+#endif
+
 	// Set the RHI initialized flag.
 	GIsRHIInitialized = true;
 }
 
 void FD3D12DynamicRHI::PostInit()
 {
+	if (!FPlatformProperties::RequiresCookedData() && (GRHISupportsRayTracing || GRHISupportsRHIThread))
+	{
+		// Make sure all global shaders are complete at this point
+		extern RENDERCORE_API const int32 GlobalShaderMapId;
+
+		TArray<int32> ShaderMapIds;
+		ShaderMapIds.Add(GlobalShaderMapId);
+
+		GShaderCompilingManager->FinishCompilation(TEXT("Global"), ShaderMapIds);
+	}
+
+	if (GRHISupportsRayTracing)
+	{
+		for (FD3D12Adapter*& Adapter : ChosenAdapters)
+		{
+			Adapter->InitializeRayTracing();
+		}
+	}
+
 	if (GRHISupportsRHIThread)
 	{
 		SetupRecursiveResources();

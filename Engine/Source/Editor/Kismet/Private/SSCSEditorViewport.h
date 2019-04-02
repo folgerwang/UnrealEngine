@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -89,6 +89,7 @@ protected:
 	/** SEditorViewport interface */
 	virtual TSharedRef<class FEditorViewportClient> MakeEditorViewportClient() override;
 	virtual TSharedPtr<class SWidget> MakeViewportToolbar() override;
+	virtual void PopulateViewportOverlays(TSharedRef<class SOverlay> Overlay) override;
 	virtual void BindCommands() override;
 
 private:
@@ -107,4 +108,7 @@ private:
 
 	/** The owner dock tab for this viewport. */
 	TWeakPtr<SDockTab> OwnerTab;
+
+	/** Handle to the registered OnPreviewFeatureLevelChanged delegate. */
+	FDelegateHandle PreviewFeatureLevelChangedHandle;
 };

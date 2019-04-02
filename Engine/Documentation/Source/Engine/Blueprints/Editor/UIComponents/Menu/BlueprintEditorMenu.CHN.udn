@@ -1,131 +1,164 @@
-﻿Availability:Public
-Title: 菜单
-Crumbs:%ROOT%, Engine/Blueprints, Engine/Blueprints/Editor, Engine/Blueprints/Editor/Modes
-Description:
+﻿INTSourceChangelist:4305335
+Availability:Public
+Title:菜单
+Crumbs:%ROOT%, Engine/Blueprints, Engine/Blueprints/Editor
+Description:用于执行多个操作的菜单，如保存、加载和打开窗口。
+version: 4.9
+tags:Blueprints
 
-## 概述
 
 
 [EXCERPT:Intro]
-**菜单** 默认显示在蓝图编辑器顶端。
+默认情况下，**菜单** 显示在蓝图编辑器左上角。
 [/EXCERPT:Intro]
 
 [EXCERPT:Main]
 
-
-
+(#file)
 
 ### 文件
 
-[EXCERPT:FileMenu]
-| 命令 | 描述 |
-| --- | --- |
-| [REGION:tablesection]**加载及保存**[/REGION] ||
-| 保存 | 保存蓝图。|
-| 保存所有 | 保存所有未保存的关卡和资源。|
-| 选择要保存的文件... | 对内容和关卡打开带保存选项的对话框。|
-| 提交到源代码控制... | 如果启用了源代码控制，对内容和关卡打开带迁入选项的对话框。|
-| [REGION:tablesection]**蓝图**[/REGION] ||
-| 编译 | 编译蓝图。|
-| 刷新所有节点 | 刷新图表中的所有节点来应对外部变更。|
-| 重定义蓝图父类| 改变打开的蓝图的父类。|
-| 比较文件差异 | 与上一版本比较差异。需要启用源文件控制。|
-| 开发者 | 打开开发者菜单，您可以改变编译器设置，并且犹如在图表编辑器中一样，重新编译模块。|
-[/EXCERPT:FileMenu]
+[INCLUDE:#FileMenu]
+
+(#edit)
 
 ### 编辑
 
-
 [VAR:BlueprintSearch]
-| 查找 |  在当前蓝图中查找函数，事件，变量和引脚的引用。|
-| 在蓝图中查找 | 在所有蓝图中查找函数，事件，变量和引脚的引用。|
-| 删除未使用的变量 | 删除任何从未使用的变量。|
+| **搜索（Search）** | 在当前蓝图中查找对函数、事件、变量和引脚的引用。|
+| **在蓝图中查找（Find in Blueprints）** | 在所有蓝图中查找对函数、事件、变量和引脚的引用。|
+| **删除未使用的变量（Delete Unused Variables）** | 删除从不使用的任何变量。|
 [/VAR]
 
-[EXCERPT:EditMenu]
-| 命令 | 描述 |
-| --- | --- |
-| [REGION:tablesection]**历史记录**[/REGION] ||
-| 取消 | 取消上一次执行的操作。|
-| 重复| 重复上一次取消的操作。|
-| [REGION:tablesection]**搜索**[/REGION] ||
-%BlueprintSearch%
-| [REGION:tablesection]**设置**[/REGION] ||
-| 编辑器偏好设置 | 打开编辑器设置。|
-| 项目设置 | 打开当前项目设置。|
-[/EXCERPT:EditMenu]
+[INCLUDE:#EditMenu]
 
+
+(#asset)
 
 ### 资源
+
+[INCLUDE:#AssetMenu]
+
+(#view)
+
+### 视图
+
+[INCLUDE:#ViewMenu]
+
+(#debug)
+
+### 调试
+
+[INCLUDE:#DebugMenu]
+
+(#window)
+
+### 窗口 
+
+**蓝图编辑器** 中的 **窗口（Window）** 菜单有一个特定的子部分，用于显示特定于蓝图编辑器的选项卡。当蓝图编辑器处于 **默认（Defaults）** 和 **组件（Components）** 模式中时，并非所有选项卡都会出现在该菜单中。
+
+
+| 命令 | 说明 |
+| --- | --- |
+| **工具栏（Toolbar）** | 显示工具栏（如果当前不可见）。|
+| **详细信息（Details）** | 显示[细节（Details）](Engine/Blueprints\Editor/UIComponents\Details)窗格（如果当前不可见）。|
+| **调试（Debug）** | 显示 **调试（Debug）** 窗格（如果当前不可见）。|
+| **选用板（Palette）** | 显示[](Engine/Blueprints\Editor/UIComponents\Palette)窗格（如果当前不可见）。|
+| **我的蓝图（My Blueprint）** | 显示[](Engine/Blueprints\Editor/UIComponents\MyBlueprint)窗格（如果当前不可见）。|
+| **编译结果（Compiler Results）** | 显示 **编译结果（Compiler Results）** 窗格（如果当前不可见）。|
+| **查找结果（Find Results）** | 显示 **查找结果（Find Results）** 窗格（如果当前不可见）。| 
+| **组件（Components）** | 显示 **组件（Components）** 面板（如果当前不可见）。|
+| **视口（Viewport）** | 显示 **预览视口（Preview Viewport）** 窗格（如果当前不可见）。|
+| **内容浏览器（Content Browser）** | 打开能够访问所有四个 **内容浏览器** 的子菜单。|
+| **开发者工具（Developer Tools）** | [INCLUDE:#devtools] |
+| **项目启动程序（Project Launcher）** | 显示项目启动程序（Project Launcher），让您能够在任何已设置妥当并连接的设备上运行您的项目。|
+| **插件（Plugins）** | 显示可供您加载/卸载插件的“插件（Plugin）”选项卡。|
+| **重设布局...（Reset Layout...）**| 重设整个虚幻引擎4编辑器的默认布局。这需要重新启动编辑器，但会重新打开当前项目。|
+| **保存布局（Save Layout）** | 保存当前界面布局。|
+| **启用全屏（Enable Fullscreen）** | 为主编辑器窗口启用全屏模式。|
+
+
+[/EXCERPT:Main]
+
+[COMMENT:none]
+[EXCERPT:FileMenu]
+| 命令 | 说明 |
+| --- | --- |
+| [REGION:tablesection]**加载并保存（Load and Save）**[/REGION] ||
+| **保存（Save）** | 保存蓝图。|
+| **打开资源...（Open Asset...）**| 调出资源选取窗口。|
+| **全部保存（Save All）** | 保存所有未保存的关卡和资源。|
+| **选择要保存的文件...（Choose Files to Save...）**| 打开一个对话框，其中包含内容和关卡的保存选项。|
+| **连接到源控制...（Connect to Source Control...）**| 如果启用了源控制，打开一个对话框，其中包含内容和关卡的检入选项。|
+| [REGION:tablesection]**蓝图**[/REGION] ||
+| **编译（Compile）** | 编译蓝图。|
+| **刷新所有节点（Refresh All Nodes）** | 刷新图中的所有节点以将外部更改更新进去。|
+| **重设蓝图父代（Reparent Blueprint）** | 更改已打开蓝图的父代。|
+| **对比（Diff）** | 与先前修订对比。需要启用源控制。|
+| **开发者（Developer）** | 打开“开发者（Developer）”菜单，您可以在这里更改编译器设置，并像“图编辑器（Graph Editor）”一样重新编译模块。|
+[/EXCERPT:FileMenu]
+[EXCERPT:EditMenu]
+| 命令 | 说明 |
+| --- | --- |
+| [REGION:tablesection]**历史记录**[/REGION] ||
+| **撤销（Undo）** | 撤销上一个操作。|
+| **恢复（Redo）** | 恢复上一个撤销的操作。|
+| **撤销历史（Undo History）** | 显示完整撤销历史。|
+| [REGION:tablesection]**搜索**[/REGION] ||
+%BlueprintSearch%
+| [REGION:tablesection]**配置**[/REGION] ||
+| **编辑器首选项（Editor Preferences）** | 打开编辑器的设置。|
+| **项目设置（Project Settings）** | 打开当前项目的设置。|
+| **插件（Plugins）** | 打开“插件浏览器（Plugin Browser）”选项卡。|
+[/EXCERPT:EditMenu]
 [EXCERPT:AssetMenu]
 [VAR:AssetMenu]
-| 命令 | 描述 |
+| 命令 | 说明 |
 | --- | --- |
-|在内容浏览器中查找... | 调出内容浏览器并导航到该资源" |
+| **在内容浏览器中查找...（Find in Content Browser...）**| 调出 **内容浏览器（Content Browser）** 并导航到该资源。|
+| **引用查看器...（Reference Viewer...）**| 启动引用查看器以显示当前资源引用的对象和引用当前资源的对象。
+| **尺寸贴图...（Size Map...）**| 显示一个交互式贴图，其中显示该资源及其引用的所有内容的近似大小。|
 [/VAR]
 
 %assetmenu%
 [/EXCERPT:AssetMenu]
-
-### 视图
-
 [EXCERPT:ViewMenu]
-| 命令 | 描述 |
+| 命令 | 说明 |
 | --- | --- |
-| [REGION:tablesection]**引脚可见度**[/REGION] ||
-| 显示所有引脚 | 显示所有节点的所有引脚。|
-| 隐藏未使用的引脚 | 隐藏没有连接和默认值的所有引脚。|
-| 隐藏未连接的引脚 | 隐藏所有未连接的引脚。此选项将会隐藏节点上直接设置的输入的引脚。|
+| [REGION:tablesection]**引脚可见性（Pin Visibility）**[/REGION] ||
+| **显示所有引脚（Show All Pins）** | 显示所有节点上的所有引脚。|
+| **隐藏未使用引脚（Hide Unused Pins）** | 隐藏没有连接也没有默认值的所有引脚。|
+| **隐藏未连接引脚（Hide Unconnected Pins）** | 隐藏没有连接的所有引脚。该选项将隐藏已在节点上直接设置的输入的输入引脚。|
 | [REGION:tablesection]**缩放**[/REGION] ||
-| 缩放至窗口| 将当前视图缩放至整个图表。|
-| 缩放至选中内容| 将当前视图缩放至选中内容。|
+| **缩放到图范围（Zoom to Graph Extents）** | 让当前视图适应整个图形。|
+| **缩放到选择范围（Zoom to Selection）** | 让当前视图适应选择范围。|
 [/EXCERPT:ViewMenu]
-
-### 调试
-
 [EXCERPT:DebugMenu]
-| 命令 | 描述 |
+| 命令 | 说明 |
 | --- | --- |
 | [REGION:tablesection]**断点**[/REGION] ||
-| 禁用所有数据断点 | 禁用当前蓝图或关卡蓝图的所有图表的所有数据断点。|
-| 启用所有数据断点 | 启用当前蓝图或关卡蓝图的所有图表的所有数据断点。|
-| 删除所有数据断点 | 删除当前蓝图或关卡蓝图的所有图表的所有数据断点。|
-| [REGION:tablesection]**查看项**[/REGION] ||
-| 删除所有查看项 | 删除当前蓝图或关卡蓝图的所有图表的所有查看项值。|
+| **禁用所有断点（Disable All Breakpoints）** | 禁用当前蓝图或关卡蓝图的所有图形中的所有断点。|
+| **启用所有断点（Enable All Breakpoints）** | 启用当前蓝图或关卡蓝图的所有图形中的所有断点。|
+| **删除所有断点（Delete All Breakpoints）** | 移除当前蓝图或关卡蓝图的所有图形中的所有断点。|
+| [REGION:tablesection]**监测**[/REGION] ||
+| **删除所有监测值（Delete All Watches）** | 移除当前蓝图或关卡蓝图的所有图形中的所有监测值。|
 [/EXCERPT:DebugMenu]
-
-### 窗口 
-
-**蓝图编辑器** 的 **窗口** 菜单有特定的子部分来显示 _蓝图编辑器_ -选项卡。当 _蓝图编辑器_ 处于 **默认** 和 **组件** 模式时， 菜单中并不会出现所有选项卡。
-
-
-| 命令 | 描述 |
+[EXCERPT:devtools]
+[REGION:simpletable]
+| 子菜单项 | 说明 |
 | --- | --- |
-| 工具栏 | 如当前工具栏不可见，则显示工具栏。|
-| 详细信息 | 如果[详细信息](Engine/Blueprints\Editor/UIComponents\Details)面板当前不可见，则显示它。|
-| 调试 | 如当前不可见，则显示 **调试** 面板。|
-| 蓝图默认值 | 如当前不可见，则显示 **蓝图默认值** 面板。|
-| Palette（面板） |如果[](Engine/Blueprints\Editor/UIComponents\Palette)面板当前不可见，则显示它。|
-| 我的蓝图 | 如果[](Engine/Blueprints\Editor/UIComponents\MyBlueprint) 面板当前不存在则显示它。|
-| 编译器结果 | 如当前不可见，则显示 **编译器结果** 面板。|
-| 查找结果 | 如当前不可见，则显示 **查找结果** 面板。| 
-| 视口 | 如当前不可见，则显示 **预览视口** 面板。|
-
-[COMMENT:none]
-
-|内容浏览器| 打开子菜单以访问所有的四个 **内容浏览器** 。|
-| 开发者工具|  打开子菜单以访问**镜头调试器** ， **碰撞分析器** ， **调试工具** ， **模块** ，以及 **控件反射器** 。|
-| 蓝图调试器 |  打开 **蓝图调试器** 。|
-| 类查看器 | 打开 **类查看器** 。|
-| 输出日志 |  打开 **输出日志** 。|
-| 消息日志 |  打开 **消息日志** 。|
-| [REGION:tablesection]**虚幻前端**[/REGION] ||
-| 设备管理器 | |
-| 会话前端 | |
-| [REGION:tablesection]**布局**[/REGION] ||
-| 保存布局 | |
-| 启用全屏| |
+| **蓝图调试程序（Blueprint Debugger）** | 打开蓝图调试程序，其中显示当前在蓝图中连同所有检测值一起运行的命令“堆栈”。|
+| **碰撞分析程序（Collision Analyzer）** | 显示碰撞分析程序。|
+| **调试工具（Debug Tools）**| 显示“调试工具（Debug Tools）”面板，其中包含用于执行常用调试任务的一系列功能（重新加载纹理、显示纹理图集、伽玛校正等）|
+| **消息日志（Message Log）** | 打开消息日志。这里将显示来自编辑器的错误或警告。|
+| **输出日志（Output Log）** | 打开输出日志。如果您使用“打印（Print）”来进行调试，则结果会显示在这里。|
+| **视觉记录工具（Visual Logger）** | 打开视觉记录工具。|
+| **类查看器（Class Viewer）** | 打开类查看器。|
+| **设备管理器（Device Manager）** | 打开设备管理器。|
+| **设备描述（Device Profiles）** | 打开“设备描述（Device Profiles）”选项卡。|
+| **会话前端（Session Frontend）** | 显示会话前端。请参阅[](Engine/Deployment/UnrealFrontend)文档以了解更多信息。|
+| **小部件反射器（Widget Reflector）** | 打开小部件反射器。这使您能够在编辑器界面中看到构成界面的各个Slate元素。|
+[/REGION]
+[/EXCERPT:devtools]
 
 [/COMMENT]
- 
-[/EXCERPT:Main]

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ApplePlatformCrashContext.cpp: Common implementations of Apple platform crash context.
@@ -9,8 +9,9 @@
 #include "Containers/StringConv.h"
 #include "CoreGlobals.h"
 
-FApplePlatformCrashContext::FApplePlatformCrashContext()
-:	Signal(0)
+FApplePlatformCrashContext::FApplePlatformCrashContext(ECrashContextType InType, const TCHAR* InErrorMessage)
+:	FGenericCrashContext(InType, InErrorMessage)
+,	Signal(0)
 ,	Info(NULL)
 ,	Context(NULL)
 ,	IgnoreDepth(6)

@@ -1,3 +1,5 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -59,6 +61,37 @@ namespace UnrealBuildTool
 				throw new BuildException("Missing UUID in MobileProvision");
 			}
 			return UniqueIdElement.InnerText;
+		}
+
+		/// <summary>
+		/// Gets the bundle id for this mobileprovision
+		/// </summary>
+		/// <returns>Bundle Identifier for the provision</returns>
+		public string GetBundleIdentifier()
+		{
+			XmlElement UniqueIdElement = null, UniqueIdEntitlement;
+			if (!NameToValue.TryGetValue("Entitlements", out UniqueIdEntitlement) || UniqueIdEntitlement.Name != "dict")
+			{
+				throw new BuildException("Missing Entitlements in MobileProvision");
+			}
+
+			foreach (XmlElement KeyElement in UniqueIdEntitlement.SelectNodes("key"))
+			{
+				Console.WriteLine("Found entitlement node:" + KeyElement.InnerText);
+				if (!KeyElement.InnerText.Equals("application-identifier"))
+				{
+					continue;
+				}
+				UniqueIdElement = KeyElement.NextSibling as XmlElement;
+				break;
+			}
+
+
+			if (UniqueIdElement == null)
+			{
+				throw new BuildException("Missing Bundle Identifier in MobileProvision");
+			}
+			return UniqueIdElement.InnerText.Substring(UniqueIdElement.InnerText.IndexOf('.') + 1);
 		}
 
 		/// <summary>
@@ -141,6 +174,54 @@ namespace UnrealBuildTool
 				}
 				throw new BuildException("No PKCS7-Data section found in {0}", Location);
 			}
+		}
+
+		// return the outerXML of the node's value
+		public string GetNodeXMLValueByName(string InValue)
+		{
+			XmlNodeList elemList = this.Document.GetElementsByTagName("key");
+			for (int i = 0; i < elemList.Count; i++)
+			{
+				if (elemList[i].InnerXml.Equals(InValue))
+				{
+					XmlNode valueNode = elemList[i].NextSibling;
+
+					if (valueNode != null)
+					{
+						return valueNode.OuterXml;
+					}
+				}
+			}
+			return "";
+		}
+
+		// return the innerXML of the node's value
+		public string GetNodeValueByName(string InValue)
+		{
+			XmlNodeList elemList = this.Document.GetElementsByTagName("key");
+			for (int i = 0; i < elemList.Count; i++)
+			{
+				if (elemList[i].InnerXml.Equals(InValue))
+				{
+					XmlNode valueNode = elemList[i].NextSibling;
+					if (valueNode != null)
+					{
+						if (valueNode.Name.Equals("array"))
+						{
+							XmlNode firstChildNode = valueNode.FirstChild;
+							if (firstChildNode != null)
+							{
+								return firstChildNode.InnerXml;
+							}
+						}
+						else
+						{
+							return valueNode.InnerXml;
+						}
+					}
+				}
+			}
+			return "";
 		}
 	}
 }

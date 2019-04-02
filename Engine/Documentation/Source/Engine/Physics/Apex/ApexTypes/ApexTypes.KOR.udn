@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:4649792
 Availability: Public
 Title:APEX 유형
 Crumbs: %ROOT%, Engine, Engine/Physics, Engine/Physics/Apex
@@ -25,7 +25,7 @@ APEX 애셋 생성 및 익스포트 관련해서는 [](Engine/Physics/Apex) 문�
 
 또는
 
-1. 윈도우 탐색기에서 .APX 또는 .APB 파일을 선택합니다.
+1. Windows 탐색기에서 .APX 또는 .APB 파일을 선택합니다.
 1. 언리얼 에디터 4 의 콘텐츠 브라우저에 끌어놓습니다.
 
 ###클로스 애셋

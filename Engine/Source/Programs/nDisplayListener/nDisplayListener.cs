@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Net;
@@ -15,9 +15,10 @@ namespace nDisplay
 	{
 		const int MessageMaxLength = 2048;
 
-		const string CmdStart  = "start";
-		const string CmdKill   = "kill";
-		const string CmdStatus = "status";
+		const string CmdStart   = "start";
+		const string CmdKill    = "kill";
+		const string CmdStatus  = "status";
+		const string CmdRestart = "restart";
 
 		const string ArgPort = "port=";
 
@@ -41,7 +42,7 @@ namespace nDisplay
 				server.Start();
 
 				//@note: I'm note sure is it allowed to use copyright strings in the code
-				//PrintColorText("Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.", ConsoleColor.Cyan);
+				//PrintColorText("Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.", ConsoleColor.Cyan);
 				PrintColorText(string.Format("Listening to port {0}", Port.ToString()), ConsoleColor.Cyan);
 				Console.WriteLine("---------------------------------------------------------");
 
@@ -126,6 +127,10 @@ namespace nDisplay
 			else if (data.StartsWith(CmdKill, StringComparison.OrdinalIgnoreCase))
 			{
 				return KillAll();
+			}
+			else if (data.StartsWith(CmdRestart, StringComparison.OrdinalIgnoreCase))
+			{
+				return RestartComputer();
 			}
 			else if (data.StartsWith(CmdStatus, StringComparison.OrdinalIgnoreCase))
 			{
@@ -260,6 +265,23 @@ namespace nDisplay
 			catch(Exception)
 			{
 				//PrintColorText(e.Message, ConsoleColor.Red);
+			}
+		}
+
+		private static int RestartComputer()
+		{
+			try
+			{
+				Process proc = new Process();
+				proc.StartInfo.FileName = "shutdown";
+				proc.StartInfo.Arguments = "-r -f -t 00";
+				proc.Start();
+				return 0;
+			}
+			catch (Exception e)
+			{
+				PrintColorText(e.Message, ConsoleColor.Red);
+				return 1;
 			}
 		}
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -41,7 +41,7 @@ struct KISMET_API FBlueprintCompilationManager
 	 * of objects the compilation manager has loaded. The compilation manager
 	 * will not load data while processing the compilation queue)
 	 */
-	static void FlushCompilationQueue(TArray<UObject*>* ObjLoaded = nullptr);
+	static void FlushCompilationQueue(FUObjectSerializeContext* InLoadContext);
 	
 	/**
 	 * Flushes the compilation queue and finishes reinstancing
@@ -74,6 +74,13 @@ struct KISMET_API FBlueprintCompilationManager
 	 * value from there
 	 */
 	static bool GetDefaultValue(const UClass* ForClass, const UProperty* Property, FString& OutDefaultValueAsString);
+
+	/**
+	 * Safely reparents all child classes of every Key in OldClassToNewClass to the class in 
+	 * the corresponding Value. Typically this means every child type will be reinstanced - although
+	 * reinstancing could be avoided when layouts match.
+	 */
+	static void ReparentHierarchies(const TMap<UClass*, UClass*>& OldClassToNewClass);
 private:
 	FBlueprintCompilationManager();
 };

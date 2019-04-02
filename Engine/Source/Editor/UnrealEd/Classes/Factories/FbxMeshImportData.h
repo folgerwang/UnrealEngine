@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -25,6 +25,20 @@ namespace EFBXNormalGenerationMethod
 		BuiltIn,
 		/** Use MikkTSpace to generate normals and tangents */
 		MikkTSpace,
+	};
+}
+
+UENUM()
+namespace EVertexColorImportOption
+{
+	enum Type
+	{
+		/** Import the static mesh using the vertex colors from the FBX file. */
+		Replace,
+		/** Ignore vertex colors from the FBX file, and keep the existing mesh vertex colors. */
+		Ignore,
+		/** Override all vertex colors with the specified color. */
+		Override
 	};
 }
 

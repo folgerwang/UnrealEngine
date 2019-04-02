@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "HAL/PlatformProcess.h"
@@ -41,6 +41,10 @@
 #endif
 #include "Misc/ScopeExit.h"
 #include "Algo/Transform.h"
+
+#if WITH_LIVE_CODING
+#include "ILiveCodingModule.h"
+#endif
 
 #if WITH_EDITOR
 #include "Editor.h"
@@ -200,7 +204,7 @@ private:
 	void ReplaceReferencesToReconstructedCDOs();
 
 #if WITH_ENGINE
-	void RegisterForReinstancing(UClass* OldClass, UClass* NewClass);
+	void RegisterForReinstancing(UClass* OldClass, UClass* NewClass, EHotReloadedClassFlags Flags);
 	void ReinstanceClasses();
 
 	/**
@@ -601,6 +605,16 @@ FString FHotReloadModule::GetModuleCompileMethod(FName InModuleName)
 bool FHotReloadModule::RecompileModule(const FName InModuleName, const bool bReloadAfterRecompile, FOutputDevice &Ar, bool bFailIfGeneratedCodeChanges, bool bForceCodeProject)
 {
 #if WITH_HOT_RELOAD
+
+#if WITH_LIVE_CODING
+	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME);
+	if (LiveCoding != nullptr && LiveCoding->IsEnabledForSession())
+	{
+		UE_LOG(LogHotReload, Error, TEXT("Unable to hot-reload modules while Live Coding is enabled."));
+		return false;
+	}
+#endif
+
 	UE_LOG(LogHotReload, Log, TEXT("Recompiling module %s..."), *InModuleName.ToString());
 
 	// This is an internal request for hot-reload (not from IDE)
@@ -674,6 +688,11 @@ bool FHotReloadModule::RecompileModule(const FName InModuleName, const bool bRel
 	{
 		Ar.Logf( TEXT( "Unloading module before compile." ) );
 		ModuleManager.UnloadOrAbandonModuleWithCallback( InModuleName, Ar );
+	}
+	else
+	{
+		// Reset the module cache in case it's a new module that we probably didn't know about already.
+		ModuleManager.ResetModulePathsCache();
 	}
 
 	// Reload the module if it was loaded before we recompiled
@@ -1200,15 +1219,23 @@ namespace {
 	}
 }
 
-void FHotReloadModule::RegisterForReinstancing(UClass* OldClass, UClass* NewClass)
+void FHotReloadModule::RegisterForReinstancing(UClass* OldClass, UClass* NewClass, EHotReloadedClassFlags Flags)
 {
 	TPair<UClass*, UClass*> Pair;
 	
 	Pair.Key = OldClass;
 	Pair.Value = NewClass;
 
-	TArray<TPair<UClass*, UClass*> >& ClassesToReinstance = GetClassesToReinstance();
-	ClassesToReinstance.Add(MoveTemp(Pair));
+	// Don't allow reinstancing of UEngine classes
+	if (!OldClass->IsChildOf(UEngine::StaticClass()) || !(Flags & EHotReloadedClassFlags::Changed))
+	{
+		TArray<TPair<UClass*, UClass*> >& ClassesToReinstance = GetClassesToReinstance();
+		ClassesToReinstance.Add(MoveTemp(Pair));
+	}
+	else
+	{
+		UE_LOG(LogHotReload, Warning, TEXT("Engine class '%s' has changed but will be ignored for hot reload"), *NewClass->GetName());
+	}
 }
 
 void FHotReloadModule::ReinstanceClasses()
@@ -1225,13 +1252,6 @@ void FHotReloadModule::ReinstanceClasses()
 	TMap<UClass*, UClass*> OldToNewClassesMap;
 	for (const TPair<UClass*, UClass*>& Pair : ClassesToReinstance)
 	{
-		// Don't allow reinstancing of UEngine classes
-		if (Pair.Key->IsChildOf(UEngine::StaticClass()))
-		{
-			UE_LOG(LogHotReload, Warning, TEXT("Engine class '%s' has changed but will be ignored for hot reload"), *Pair.Key->GetName());
-			continue;
-		}
-
 		if (Pair.Value != nullptr)
 		{
 			OldToNewClassesMap.Add(Pair.Key, Pair.Value);
@@ -1240,11 +1260,7 @@ void FHotReloadModule::ReinstanceClasses()
 
 	for (const TPair<UClass*, UClass*>& Pair : ClassesToReinstance)
 	{
-		// Don't allow reinstancing of UEngine classes
-		if (!Pair.Key->IsChildOf(UEngine::StaticClass()))
-		{
-			ReinstanceClass(Pair.Key, Pair.Value, OldToNewClassesMap);
-		}
+		ReinstanceClass(Pair.Key, Pair.Value, OldToNewClassesMap);
 	}
 
 	ClassesToReinstance.Empty();
@@ -1418,6 +1434,15 @@ bool FHotReloadModule::Tick(float DeltaTime)
 		return true;
 	}
 
+	// Early out if live coding is enabled
+#if WITH_LIVE_CODING
+	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME);
+	if (LiveCoding != nullptr && LiveCoding->IsEnabledForSession())
+	{
+        return false;
+	}
+#endif
+
 #if WITH_EDITOR
 	if (GEditor)
 	{
@@ -1571,21 +1596,8 @@ FString FHotReloadModule::MakeUBTArgumentsForModuleCompiling()
 	{
 		// We have to pass FULL paths to UBT
 		FString FullProjectPath = FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath());
-
-		// @todo projectdirs: Currently non-installed projects that exist under the UE4 root are compiled by UBT with no .uproject file
-		//     name passed in (see bIsProjectTarget in VCProject.cs), which causes intermediate libraries to be saved to the Engine
-		//     intermediate folder instead of the project's intermediate folder.  We're emulating this behavior here for module
-		//     recompiling, so that compiled modules will be able to find their import libraries in the original folder they were compiled.
-		if( FApp::IsEngineInstalled() || !FullProjectPath.StartsWith( FPaths::ConvertRelativePathToFull( FPaths::RootDir() ) ) )
-		{
-			const FString ProjectFilenameWithQuotes = FString::Printf(TEXT("\"%s\""), *FullProjectPath);
-			AdditionalArguments += FString::Printf(TEXT("%s "), *ProjectFilenameWithQuotes);
-		}
+		AdditionalArguments += FString::Printf(TEXT("\"%s\" "), *FullProjectPath);
 	}
-
-	// Use new FastPDB option to cut down linking time. Currently disabled due to problems with missing symbols in VS2015.
-	// AdditionalArguments += TEXT(" -FastPDB");
-
 	return AdditionalArguments;
 }
 
@@ -1636,7 +1648,7 @@ bool FHotReloadModule::StartCompilingModuleDLLs(const TArray< FModuleToRecompile
 
 	if (FPaths::IsProjectFilePathSet())
 	{
-		ExtraArg += FString::Printf(TEXT("-Project=\"%s\" "), *FPaths::GetProjectFilePath());
+		ExtraArg += FString::Printf(TEXT("-Project=\"%s\" "), *FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath()));
 	}
 
 	if (bInFailIfGeneratedCodeChanges)
@@ -1645,16 +1657,7 @@ bool FHotReloadModule::StartCompilingModuleDLLs(const TArray< FModuleToRecompile
 		ExtraArg += TEXT( "-FailIfGeneratedCodeChanges " );
 	}
 
-	// If there's nothing to compile, don't bother linking the DLLs as the old ones are up-to-date
-	ExtraArg += TEXT("-canskiplink ");
-
-	// Shared PCH does no work with hot-reloading engine/editor modules as we don't scan all modules for them.
-	if (!ContainsOnlyGameModules(ModuleNames))
-	{
-		ExtraArg += TEXT("-nosharedpch ");
-	}
-	
-	FString CmdLineParams = FString::Printf( TEXT( "%s %s %s %s%s" ), 
+	FString CmdLineParams = FString::Printf( TEXT( "%s %s %s %s%s -IgnoreJunk" ), 
 		*ModuleArg, 
 		BuildPlatformName, BuildConfigurationName, 
 		*ExtraArg, *InAdditionalCmdLineArgs );

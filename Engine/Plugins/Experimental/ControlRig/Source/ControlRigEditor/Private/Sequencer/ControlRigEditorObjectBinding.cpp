@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigEditorObjectBinding.h"
 #include "ISequencer.h"
@@ -61,7 +61,7 @@ void FControlRigEditorObjectBinding::AddSpawnControlRigMenuExtensions(FMenuBuild
 
 	FClassViewerInitializationOptions Options;
 	Options.bShowUnloadedBlueprints = true;
-	Options.bShowDisplayNames = true;
+	Options.NameTypeToDisplay = EClassViewerNameTypeToDisplay::DisplayName;
 
 	TSharedPtr<FControlRigClassFilter> ClassFilter = MakeShareable(new FControlRigClassFilter);
 	Options.ClassFilter = ClassFilter;

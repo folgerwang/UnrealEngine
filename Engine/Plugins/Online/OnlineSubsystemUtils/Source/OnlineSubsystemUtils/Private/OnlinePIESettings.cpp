@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlinePIESettings.h"
 #include "UObject/UnrealType.h"
@@ -119,10 +119,21 @@ void UOnlinePIESettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyC
 			FName SubPropName = PropertyChangedEvent.Property->GetFName();
 			if (SubPropName == GET_MEMBER_NAME_CHECKED(FPIELoginSettingsInternal, Id))
 			{
+				TSet<FString> Ids;
 				for (FPIELoginSettingsInternal& Login : Logins)
 				{
 					// Remove any whitespace from login input
 					Login.Id.TrimStartAndEndInline();
+
+					if (Ids.Contains(Login.Id))
+					{
+						// Don't allow duplicate login ids
+						Login.Id.Reset();
+					}
+					else
+					{
+						Ids.Add(Login.Id);
+					}
 				}
 			}
 			else if (SubPropName == GET_MEMBER_NAME_CHECKED(FPIELoginSettingsInternal, Token))

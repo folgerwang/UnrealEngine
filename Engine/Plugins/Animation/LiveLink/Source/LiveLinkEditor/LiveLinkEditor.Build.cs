@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealBuildTool.Rules
 {
@@ -6,7 +6,16 @@ namespace UnrealBuildTool.Rules
 	{
 		public LiveLinkEditor(ReadOnlyTargetRules Target) : base(Target)
         {
-			PrivateDependencyModuleNames.AddRange(
+
+            PublicDependencyModuleNames.AddRange(
+                new string[] {
+                    "TargetPlatform",
+                }
+            );
+
+
+
+            PrivateDependencyModuleNames.AddRange(
 				new string[]
 				{
 					"Core",
@@ -20,13 +29,16 @@ namespace UnrealBuildTool.Rules
                     "MovieSceneTools",
                     "MovieSceneTracks",
                     "WorkspaceMenuStructure",
+					"SerializedRecorderInterface",
                     "EditorStyle",
                     "Sequencer",
 					"SequenceRecorder",
-					"SlateCore",
+                    "TakesCore",
+                    "TakeRecorder",
+				    "TakeTrackRecorders",
+                    "SlateCore",
                     "Slate",
                     "InputCore",
-
                     //"Messaging",
                     "LiveLinkInterface",
 					"LiveLinkMessageBusFramework",

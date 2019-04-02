@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,6 +7,8 @@
 #include "UObject/UObjectAnnotation.h"
 #include "Serialization/DuplicatedObject.h"
 #include "Serialization/LargeMemoryData.h"
+#include "Templates/RefCounting.h"
+#include "UObject/UObjectThreadContext.h"
 
 /*----------------------------------------------------------------------------
 	FDuplicateDataReader.
@@ -22,6 +24,9 @@ private:
 	class FUObjectAnnotationSparse<FDuplicatedObject,false>&	DuplicatedObjectAnnotation;
 	const FLargeMemoryData&					ObjectData;
 	int64									Offset;
+
+	/** Context for duplication */
+	TRefCountPtr<FUObjectSerializeContext> DuplicateContext;
 
 	//~ Begin FArchive Interface.
 
@@ -65,6 +70,16 @@ public:
 	virtual int64 TotalSize()
 	{
 		return ObjectData.GetSize();
+	}
+
+	virtual void SetSerializeContext(FUObjectSerializeContext* InLoadContext) override
+	{
+		DuplicateContext = InLoadContext;
+	}
+
+	virtual FUObjectSerializeContext* GetSerializeContext() override
+	{
+		return DuplicateContext;
 	}
 
 	/**

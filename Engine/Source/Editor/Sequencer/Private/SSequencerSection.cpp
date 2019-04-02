@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SSequencerSection.h"
 #include "Rendering/DrawElements.h"
@@ -21,6 +21,7 @@
 #include "Framework/Application/SlateApplication.h"
 #include "KeyDrawParams.h"
 #include "MovieSceneTimeHelpers.h"
+#include "Tracks/MovieScenePropertyTrack.h"
 
 double SSequencerSection::SectionSelectionThrobEndTime = 0;
 double SSequencerSection::KeySelectionThrobEndTime = 0;
@@ -1033,6 +1034,17 @@ int32 SSequencerSection::OnPaint( const FPaintArgs& Args, const FGeometry& Allot
 
 	const bool bEnabled = bParentEnabled && SectionObject.IsActive();
 	const bool bLocked = SectionObject.IsLocked();
+	UMovieScenePropertyTrack* Track = SectionObject.GetTypedOuter<UMovieScenePropertyTrack>();
+	bool bSetSectionToKey = false;
+	if (Track)
+	{
+		if (Track->GetSectionToKey() == &SectionObject)
+		{
+			bSetSectionToKey = true;
+		}
+	}
+
+
 	const ESlateDrawEffect DrawEffects = bEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
 
 	FGeometry SectionGeometry = MakeSectionGeometryWithoutHandles( AllottedGeometry, SectionInterface );
@@ -1085,6 +1097,19 @@ int32 SSequencerSection::OnPaint( const FPaintArgs& Args, const FGeometry& Allot
 			FLinearColor::Red
 		);
 	}
+	else if (bSetSectionToKey)
+	{
+		static const FName SelectionBorder("Sequencer.Section.LockedBorder");
+
+		FSlateDrawElement::MakeBox(
+			OutDrawElements,
+			LayerId,
+			AllottedGeometry.ToPaintGeometry(),
+			FEditorStyle::GetBrush(SelectionBorder),
+			DrawEffects,
+			FLinearColor::Green
+		);
+	}
 
 	// Section name with drop shadow
 	FText SectionTitle = SectionInterface->GetSectionTitle();
@@ -1098,12 +1123,31 @@ int32 SSequencerSection::OnPaint( const FPaintArgs& Args, const FGeometry& Allot
 
 	if (!SectionTitle.IsEmpty())
 	{
+		FVector2D TopLeft = SectionGeometry.AbsoluteToLocal(Painter.SectionClippingRect.GetTopLeft()) + FVector2D(1.f, -1.f);
+
+		FSlateFontInfo FontInfo = FEditorStyle::GetFontStyle("NormalFont");
+
+		TSharedRef<FSlateFontCache> FontCache = FSlateApplication::Get().GetRenderer()->GetFontCache();
+
+		auto GetFontHeight = [&]
+		{
+			return FontCache->GetMaxCharacterHeight(FontInfo, 1.f) + FontCache->GetBaseline(FontInfo, 1.f);
+		};
+		while (GetFontHeight() > SectionGeometry.Size.Y && FontInfo.Size > 11)
+		{
+			FontInfo.Size = FMath::Max(FMath::FloorToInt(FontInfo.Size - 6.f), 11);
+		}
+
+		// Drop shadow
 		FSlateDrawElement::MakeText(
 			OutDrawElements,
 			LayerId,
-			Painter.SectionGeometry.ToOffsetPaintGeometry(FVector2D(ContentPadding.Left + 1, ContentPadding.Top + 1)),
+			SectionGeometry.MakeChild(
+				FVector2D(SectionGeometry.Size.X, GetFontHeight()),
+				FSlateLayoutTransform(TopLeft + FVector2D(ContentPadding.Left, ContentPadding.Top) + FVector2D(1.f, 1.f))
+			).ToPaintGeometry(),
 			SectionTitle,
-			FEditorStyle::GetFontStyle("NormalFont"),
+			FontInfo,
 			DrawEffects,
 			FLinearColor(0,0,0,.5f)
 		);
@@ -1111,9 +1155,12 @@ int32 SSequencerSection::OnPaint( const FPaintArgs& Args, const FGeometry& Allot
 		FSlateDrawElement::MakeText(
 			OutDrawElements,
 			LayerId,
-			Painter.SectionGeometry.ToOffsetPaintGeometry(FVector2D(ContentPadding.Left, ContentPadding.Top)),
+			SectionGeometry.MakeChild(
+				FVector2D(SectionGeometry.Size.X, GetFontHeight()),
+				FSlateLayoutTransform(TopLeft + FVector2D(ContentPadding.Left, ContentPadding.Top))
+			).ToPaintGeometry(),
 			SectionTitle,
-			FEditorStyle::GetFontStyle("NormalFont"),
+			FontInfo,
 			DrawEffects,
 			FColor(200, 200, 200)
 		);

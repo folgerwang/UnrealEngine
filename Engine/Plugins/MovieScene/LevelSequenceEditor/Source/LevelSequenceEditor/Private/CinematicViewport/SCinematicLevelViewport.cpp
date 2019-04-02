@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CinematicViewport/SCinematicLevelViewport.h"
 #include "Widgets/SBoxPanel.h"
@@ -125,6 +125,7 @@ class SCinematicPreviewViewport : public SLevelViewport
 public:
 	virtual const FSlateBrush* OnGetViewportBorderBrush() const override { return nullptr; }
 	virtual EVisibility GetCurrentLevelTextVisibility() const override { return EVisibility::Collapsed; }
+	virtual EVisibility GetSelectedActorsCurrentLevelTextVisibility() const override { return EVisibility::Collapsed; }
 	virtual EVisibility GetViewportControlsVisibility() const override { return EVisibility::Collapsed; }
 
 	virtual TSharedPtr<SWidget> MakeViewportToolbar() { return nullptr; }

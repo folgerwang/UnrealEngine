@@ -1,0 +1,220 @@
+﻿INTSourceChangelist:4404731
+Availability: Public
+Crumbs: 
+Title: Live Link による UE4 と Motionbuilder の接続
+Description: Live Link プラグイン によって、UE4 を Motionbuilder に接続する手順を説明します。
+Type:how-to
+Version: 4.20
+Parent: Engine/Animation/LiveLinkPlugin
+Order: 5
+Tags: Live Link, Motionbuilder
+
+この操作ガイドでは、 Live Link プラグインによって、 Unreal Engine 4 (UE4) を Motionbuilder (Mobu) へ接続するためのセットアップ手順を説明します。接続を確立後は、リアルタイムにコンテンツを Motionbuilder から UE4 にストリームすることができます。それにより、コンテンツのエクスポートおよびエンジンへのインポートなしで UE4 でのプレビューが可能になります。
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    xeTXP9k96Ww
+    [/PARAMLITERAL]
+[/OBJECT]
+
+[REGION:note]
+**前提条件** 本ガイドでは、 新規作成した **Blueprint Thirdperson** テンプレート プロジェクトと **Motionbuilder 2017** を使用します。
+[/REGION]
+
+## 1 - プロジェクトの設定
+
+1. お使いの UE4 プロジェクト内にある [Edit] の下にある **[Menu Bar]** から、 **[Plugins]** を選択します。
+
+    ![](Step_01-1.png)
+
+1. **Animation** セクションで、 **Live Link** の **[Enabled]** をクリックします。そして、確認ウィンドウで **[Yes]** ボタンを押して、エディタを再起動します。
+
+   ![](Step_02-3.png)
+
+   これにより、外部デジタル コンテンツ作成 (DCC) ツールへの接続に使用可能な Live Link プラグインが有効になります。DCC ツールが UE4 に接続するために、対応するプラグインを有効にする必要があります。このガイドでは、 Motionbuilder との接続を確立しますが、Maya などお使いのツールにも接続可能です （ツールが Live Link へのソースを公開していることが条件です）。 
+
+1. **[Content] > [Mannequin] > [Animations]** フォルダ下の **[Content Browser]** にあるアニメーション、 **「 ThirdPersonWalk 」** を開きます。
+
+    ![](ThirdPersonWalkImage.png)
+
+1. ツールバーから、 **[Export Asset]** をクリックして、 **[Preview Mesh]** を選択します。 
+
+    ![](MobuHowTo_03.png)
+
+    確認ウィンドウで **Yes** を選択します。 
+
+    ![](MobuHowTo_03b.png)
+
+    そして **[FBX Export Options]** ウィンドウで **[Export]** します。 
+
+    ![](MobuHowTo_03c.png)
+
+1. [GitHub Repository](https://github.com/ue4plugins/MobuLiveLink) から **Motionbuilder** プラグインをダウンロードして、お使いのコンピューターに zip ファイルを展開します。
+
+    ![](MobuFiles.png)
+
+    zip ファイルを展開すると、 Motionbuilder の各バージョンのフォルダと Mobu 内にセットアップが必要なプラグインのファイルがあります。
+
+1.  **Motionbuilder** 内の **[Settings]** から **[Preferences...]** を選択します。
+
+    ![](MobuHowTo_04.png)
+
+1.  **[SDK]** から **[Add]** ボタンをクリックして、展開したフォルダのパスとお使いの Motionbuilder のバージョンを指定します。 
+
+    ![](MobuHowTo_05.png)
+
+    ウィンドウでパスを確認したら **[Ok]** をクリックします。 
+
+    ![](MobuHowTo_05b.png)
+
+1. 確認ウィンドウで、 **[Ok]** をクリックして、 Motionbuilder を再起動して変更を有効にします。 
+
+    ![](MobuHowTo_05c.png)
+
+    **[Devices]** の **[Asset Browser]**に、 **UE - LiveLink** アセットが表示されるようになりました。 
+
+    ![](MobuHowTo_05d.png)
+
+    ビューポートにこのアセットをドラッグすることで、シーンから何をストリーミングするか定義できます。 
+
+1. UE4 からエクスポートした **「 ThirdPersonWalk_PreviewMesh 」** を **[Open]** して、 **[Open Options]** メニューで **[Open]** をクリックします。
+
+    ![](MobuHowTo_06.png)
+
+    これにより、Motionbuilder にキャラクター メッシュとアニメーションがインポートされます。 
+
+    ![](MobuHowTo_06b.png)
+
+1. **[Elements]** 下の **[Asset Browser]** から、 **Camera** をビューポートにドラッグします。 
+
+    ![](MobuHowTo_07.png)
+
+    カメラを希望する任意の位置に移動します。これは代替のカメラとなり、 切り替えることで UE4 内をプレビューすることができます。 
+
+    ![](MobuHowTo_07b.png)
+
+    次のステップで、 UE4 にストリーミングしたい要素を定義して [UE - LiveLink] アセットをセットアップします。 
+
+## 2 - Mobu の Live Link 設定
+
+1. Motionbuilder の **[Asset Browser]** 内で、 **[UE - LiveLink]** アセットをビューポートにドラッグします。 
+
+    ![](MobuHowTo_08.png)
+
+    これにより、 **Devices** の下に、 Live Link コネクション ウィンドウが開きます。 
+
+    [REGION:lightbox]
+    [![](MobuHowTo_08b.png)(w:900)](MobuHowTo_08b.png)
+    [/REGION]
+    [REGION:caption]
+    クリックして拡大
+    [/REGION]
+
+1. 接続ウィンドウのセレクター **...** をクリックして、**Root** ボーンと **Camera** を選択して、 **[Add]** ボタンをクリックします。 
+
+    ![](MobuHowTo_09.png)
+
+    両方とも UE4 へのストリーミングとして追加されます。ストリーミングしたいコンテンツに応じてストリーム タイプが自動検出されていることが分かります。 
+
+    ![](MobuHowTo_10.png)
+
+    * **Subject Name** は UE4 で表示される名前です。
+    * **Stream Type** は送信されるデータのタイプです。
+    * **Status** 対象がストリーミング可能かどうか表します。 
+
+    ストリーム タイプは、ストリーミングしているコンテンツのタイプによって自動検出されますが、ストリーム タイプを選択すると、ご使用のコンテンツに応じた各種オプションを確認することが可能です。 
+
+    以下に例をいくつか示します。 
+
+    | ストリーム タイプ | 説明 |
+    | --- | --- |
+    | **Root Only** | ルート トランスフォームのみストリーミングします。|
+    | **Full Hierarchy** | 対象の子すべてを取得して、トランスフォームとアニメーション化されるプロパティはすべてストリーミングします。|
+    | **Skeleton Hierarchy** | 対象の子ボーンをすべてストリーミングして、実際にボーンであることを確認します (ボーンを親に持つボーンでないものは無視されます) 。|
+    | **Camera** | Root Only と似ていますが、カメラ プロパティのストリーミングが異なります (例： フィルムバック設定)。|
+
+1. **ルート** オブジェクトの **[Subject Name]** フィールドで、 Root から **Character**に変更します。
+
+    ![](MobuHowTo_10b.png)
+
+1. **Online** の隣のボタンをクリックしてコンテンツのストリーミングを有効にします。 
+
+    ![](MobuHowTo_11.png)
+
+    オンライン状態を示すボタンが赤 (オフライン) から 緑 (オンライン) に変わります。 
+
+1. [Navigator] ウインドウで、 **System** の **[Always refresh viewer]** オプションを有効にします。 
+
+    ![](MobuHowTo_12.png)
+
+    Live Link でコンテンツをストリーミングする場合、このオプションを有効にします。 Motionbuilder がバックグラウンド アプリケーションとなりフォーカスを失うと、パフォーマンスが制限されて、ストリーミング処理の最中に動画が途切れ途切れになる可能性があるためです。
+
+## 3 - UE4 へのコンテンツのストリーミング
+
+1. Mobu をバックグラウンドで実行させて、 UE4 内の **[Window]** のファイル メニューから、 **[Live Link]** を選択します。 
+
+    ![](MobuHowTo_13.png)
+
+    これにより、 Live Link ストリーミング マネージャーが開き、実行中の Motionbuilder のインスタンスに接続できるようになります。 
+
+1. **[Add]** ボタンをクリックして、 **[Message Bus Source]** より、 Mobu のインスタンスを選択して **[Ok]** をクリックします。 
+
+    ![](MobuHowTo_14.png)
+
+    ストリーミング マネージャーが更新され、接続されたソース タイプと、 UE4 にストリーミングされている対象を表示します。 
+
+    ![](MobuHowTo_14b.png)
+
+1.  **[Content Browser]** の **[Content] > [Mannequin] > [Character] > [Mesh]** から **「SK_Mannequin」** アセットを開きます。 
+
+    ![](SK_MannequinImage.png)
+
+1.  **[Preview Scene Settings]** タブで以下の設定を使用します。 
+
+    ![](MobuHowTo_15.png)
+
+    * Preview Controller - **Live Link Preview Controller**
+    * Subject Name - **Character**
+    * Enable Camera Sync - **Enabled**
+
+    これにより、 Mobu のサブジェクト名を付けたキャラクターを取得して、UE4にストリーミングして、 Live Link コントローラーにプレビューさせることができます。Mobu からアクティブなカメラにもストリーミングしています。 
+
+[REGION:note]
+ライブ リンク UI ウィンドウ経由で手動接続する代わりに [Blueprint 関数](Engine/Animation/LiveLinkPlugin/LiveLinkBlueprintComponent) を使用して接続を確立することも可能です。
+[/REGION]
+
+## 4 - まとめ
+
+Motionbuilder と UE4 両方とも Live Link に接続することにより、Mobu からのコンテンツを UE4 でリアルタイムにプレビューできるようになりました。次のビデオでは、Mobu のカメラで操作したり、カメラの視点を変えたりしたことを UE4 内にも反映させています。Mobu でアニメーションをスクラブすると UE4 に反映され、ボーンのトランスフォームやキーフレームの新しいポーズを調節しても同様に反映されます。 
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    xeTXP9k96Ww
+    [/PARAMLITERAL]
+[/OBJECT]
+
+Mobu で直接ボーンを制御して、UE4 に反映された変更を確認することも可能です。　これにより、 Mobu でアニメーションをキーフレームしながら、一方で、キーフレームの付いたアニメーションが UE4 でリアルタイムでどう見えるかプレビューすることが可能になります。 
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    iuFy3G5bQzE
+    [/PARAMLITERAL]
+[/OBJECT]

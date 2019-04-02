@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -24,7 +24,7 @@ namespace UnrealBuildTool
 		{
 		}
 
-		public override bool WriteProjectFile(List<UnrealTargetPlatform> InPlatforms, List<UnrealTargetConfiguration> InConfigurations)
+		public override bool WriteProjectFile(List<UnrealTargetPlatform> InPlatforms, List<UnrealTargetConfiguration> InConfigurations, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			return true;
 		}
@@ -240,7 +240,7 @@ namespace UnrealBuildTool
 			return new VSCodeProjectFolder(InitOwnerProjectFileGenerator, InitFolderName);
 		} 
 
-		protected override bool WriteMasterProjectFile(ProjectFile UBTProject)
+		protected override bool WriteMasterProjectFile(ProjectFile UBTProject, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			VSCodeDir = DirectoryReference.Combine(MasterProjectPath, ".vscode");
 			DirectoryReference.CreateDirectory(VSCodeDir);
@@ -269,7 +269,7 @@ namespace UnrealBuildTool
 			}
 			Projects.Sort((A, B) => { return A.ProjectFilePath.GetFileName().CompareTo(B.ProjectFilePath.GetFileName()); });
 
-			ProjectData ProjectData = GatherProjectData(Projects);
+			ProjectData ProjectData = GatherProjectData(Projects, PlatformProjectGenerators);
 
 			WriteTasksFile(ProjectData);
 			WriteLaunchFile(ProjectData);
@@ -345,9 +345,10 @@ namespace UnrealBuildTool
 			public List<Project> CSharpProjects = new List<Project>();
 			public List<Project> AllProjects = new List<Project>();
 			public List<string> CombinedIncludePaths = new List<string>();
+			public List<string> CombinedPreprocessorDefinitions = new List<string>();
 		}
 
-		private ProjectData GatherProjectData(List<ProjectFile> InProjects)
+		private ProjectData GatherProjectData(List<ProjectFile> InProjects, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			ProjectData ProjectData = new ProjectData();
 
@@ -383,7 +384,7 @@ namespace UnrealBuildTool
 							{
 								foreach (UnrealTargetConfiguration Config in Configs)
 								{
-									if (MSBuildProjectFile.IsValidProjectPlatformAndConfiguration(Target, Platform, Config))
+									if (MSBuildProjectFile.IsValidProjectPlatformAndConfiguration(Target, Platform, Config, PlatformProjectGenerators))
 									{
 										NewTarget.BuildProducts.Add(new ProjectData.BuildProduct
 										{
@@ -433,6 +434,15 @@ namespace UnrealBuildTool
 								ProjectData.CombinedIncludePaths.Add(Processed);
 							}
 							
+						}
+					}
+					
+					foreach (string Definition in Project.IntelliSensePreprocessorDefinitions)
+					{
+						string Processed = Definition.Replace("\"", "\\\"");
+						if (!ProjectData.CombinedPreprocessorDefinitions.Contains(Processed))
+						{
+							ProjectData.CombinedPreprocessorDefinitions.Add(Processed);
 						}
 					}
 
@@ -615,8 +625,10 @@ namespace UnrealBuildTool
 
 						OutFile.BeginArray("defines");
 						{
-							OutFile.AddUnnamedField("_DEBUG");
-							OutFile.AddUnnamedField("UNICODE");
+							foreach (string Definition in Projects.CombinedPreprocessorDefinitions)
+							{
+								OutFile.AddUnnamedField(Definition);
+							}
 						}
 						OutFile.EndArray();
 					}

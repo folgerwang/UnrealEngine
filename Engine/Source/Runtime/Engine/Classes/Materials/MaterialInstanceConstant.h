@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -54,6 +54,14 @@ class UMaterialInstanceConstant : public UMaterialInstance
 	 * @param NewParent - The new parent for this material instance.
 	 */
 	ENGINE_API void SetParentEditorOnly(class UMaterialInterface* NewParent);
+
+	/**
+	* Copies the uniform parameters (scalar, vector and texture) from a material or instance hierarchy.
+	* This will typically be faster than parsing all expressions but still slow as it must walk the full
+	* material hierarchy as each parameter may be overridden at any level in the chain.
+	* Note: This will not copy font parameters
+	*/
+	ENGINE_API void CopyMaterialUniformParametersEditorOnly(UMaterialInterface* Source, bool bIncludeStaticParams = true);
 
 	/**
 	 * Set the value parameters. These functions may be called only in the Editor!

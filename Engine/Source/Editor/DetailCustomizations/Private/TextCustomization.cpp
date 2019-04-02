@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "TextCustomization.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
@@ -62,7 +62,7 @@ namespace
 				if (PropertyHandle->GetPerObjectValue(InIndex, ObjectValue) == FPropertyAccess::Success)
 				{
 					FText TextValue;
-					if (FTextStringHelper::ReadFromString(*ObjectValue, TextValue))
+					if (FTextStringHelper::ReadFromBuffer(*ObjectValue, TextValue))
 					{
 						return TextValue;
 					}
@@ -77,10 +77,8 @@ namespace
 			if (PropertyHandle->IsValidHandle())
 			{
 				FString ObjectValue;
-				if (FTextStringHelper::WriteToString(ObjectValue, InText))
-				{
-					PropertyHandle->SetPerObjectValue(InIndex, ObjectValue);
-				}
+				FTextStringHelper::WriteToBuffer(ObjectValue, InText);
+				PropertyHandle->SetPerObjectValue(InIndex, ObjectValue);
 			}
 		}
 

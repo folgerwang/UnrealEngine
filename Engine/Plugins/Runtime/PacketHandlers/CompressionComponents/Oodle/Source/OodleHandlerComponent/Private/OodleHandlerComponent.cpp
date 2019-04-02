@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OodleHandlerComponent.h"
 #include "Misc/CoreMisc.h"
@@ -302,6 +302,14 @@ OodleHandlerComponent::~OodleHandlerComponent()
 
 	FreeDictionary(ServerDictionary);
 	FreeDictionary(ClientDictionary);
+}
+
+void OodleHandlerComponent::CountBytes(FArchive& Ar) const
+{
+	HandlerComponent::CountBytes(Ar);
+
+	const SIZE_T SizeOfThis = sizeof(*this) - sizeof(HandlerComponent);
+	Ar.CountBytes(SizeOfThis, SizeOfThis);
 }
 
 void OodleHandlerComponent::InitFirstRunConfig()
@@ -1434,36 +1442,6 @@ TSharedPtr<HandlerComponent> FOodleComponentModuleInterface::CreateComponentInst
 	return MakeShareable(new OodleHandlerComponent);
 }
 
-void* LoadOodleDll()
-{
-	void* OodleDllHandle = nullptr;
-#if PLATFORM_WINDOWS
-	// Load the Oodle library (NOTE: Path and fallback path mirrored in Oodle.Build.cs)
-	FString OodleBinaryPath = FPaths::ProjectDir() / TEXT( "Binaries/ThirdParty/Oodle/" );
-	FString OodleBinaryFile = TEXT( "oo2core_5" );
-
-#if PLATFORM_64BITS
-	OodleBinaryPath += TEXT("Win64/");
-	OodleBinaryFile += TEXT("_win64.dll");
-#else
-	OodleBinaryPath += TEXT("Win32/");
-	OodleBinaryFile += TEXT("_win32.dll");
-#endif
-
-	FPlatformProcess::PushDllDirectory(*OodleBinaryPath);
-
-	OodleDllHandle = FPlatformProcess::GetDllHandle(*(OodleBinaryPath + OodleBinaryFile));
-
-	FPlatformProcess::PopDllDirectory(*OodleBinaryPath);
-
-	if (OodleDllHandle == nullptr)
-	{
-		UE_LOG(OodleHandlerComponentLog, Fatal, TEXT("Could not find Oodle .dll's in path: %s" ),
-				*(OodleBinaryPath + OodleBinaryFile));
-	}
-#endif
-	return OodleDllHandle;
-}
 
 
 void FOodleComponentModuleInterface::StartupModule()
@@ -1483,8 +1461,6 @@ void FOodleComponentModuleInterface::StartupModule()
 	GOodleSaveDir = FPaths::ConvertRelativePathToFull(FPaths::Combine(*FPaths::ProjectSavedDir(), TEXT("Oodle")));
 	GOodleContentDir = FPaths::ConvertRelativePathToFull(FPaths::Combine(*FPaths::ProjectContentDir(), TEXT("Oodle")));
 
-	OodleDllHandle = LoadOodleDll();
-
 	// @todo #JohnB: Remove after Oodle update, and after checking with Luigi
 	OodlePlugins_SetAssertion(&UEOodleDisplayAssert);
 }
@@ -1494,11 +1470,13 @@ void FOodleComponentModuleInterface::ShutdownModule()
 	// @todo #JohnB: Remove after Oodle update, and after checking with Luigi
 	OodlePlugins_SetAssertion(nullptr);
 
+#if PLATFORM_WINDOWS
 	if (OodleDllHandle != nullptr)
 	{
 		FPlatformProcess::FreeDllHandle(OodleDllHandle);
 		OodleDllHandle = nullptr;
 	}
+#endif
 }
 #else
 TSharedPtr<HandlerComponent> FOodleComponentModuleInterface::CreateComponentInstance(FString& Options)
@@ -1519,14 +1497,3 @@ void FOodleComponentModuleInterface::ShutdownModule()
 
 IMPLEMENT_MODULE( FOodleComponentModuleInterface, OodleHandlerComponent );
 
-#ifdef REGISTER_OODLE_CUSTOM_COMPRESSOR
-struct FOodleCompressorRegistration
-{
-	FOodleCompressorRegistration()
-	{
-		LoadOodleDll();
-		extern ICustomCompressor* CreateOodleCustomCompressor();
-		IModularFeatures::Get().RegisterModularFeature(CUSTOM_COMPRESSOR_FEATURE_NAME, CreateOodleCustomCompressor());
-	}
-} GOodleCompressionRegistration;
-#endif

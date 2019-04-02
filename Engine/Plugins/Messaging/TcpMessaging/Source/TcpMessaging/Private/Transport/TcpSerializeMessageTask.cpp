@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Transport/TcpSerializeMessageTask.h"
 #include "Transport/TcpMessageTransportConnection.h"
@@ -49,8 +49,9 @@ void FTcpSerializeMessageTask::DoTask(ENamedThreads::Type CurrentThread, const F
 		}
 
 		// serialize message body
-		FJsonStructSerializerBackend Backend(Archive);
-		FStructSerializer::Serialize(MessageContext->GetMessage(), *MessageContext->GetMessageTypeInfo(), Backend);
+		UScriptStruct* MessageTypeInfoPtr = MessageContext->GetMessageTypeInfo().Get();
+		FJsonStructSerializerBackend Backend(Archive, EStructSerializerBackendFlags::Legacy);
+		FStructSerializer::Serialize(MessageContext->GetMessage(), *MessageTypeInfoPtr, Backend);
 
 		// enqueue to recipients
 		for (auto& Connection : RecipientConnections)

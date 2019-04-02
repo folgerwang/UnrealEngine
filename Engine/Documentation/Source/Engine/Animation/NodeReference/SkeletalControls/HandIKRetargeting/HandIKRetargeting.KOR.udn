@@ -1,6 +1,6 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:3782314
 Availability:Public
-Title:손 IK 리타기팅
+Title:Hand IK Retargeting
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
 Description:IK 본의 리타기팅 처리에 사용되는 Hand IK Retargeting 컨트롤에 대한 설명입니다.
 version: 4.12
@@ -8,7 +8,7 @@ topic-image:handIKretargeting.png
 
 
 
-**Hand IK Retargeting** 컨트롤은 IK 본 체인 리타기팅 처리에 사용되는 솔버입니다. 이 솔버는 **Hand FKWeight** 값에 따라 IK 본 체인이 (한 쪽 손에 맞도록) FK 손 본에 맞추어 움직여 줍니다. 
+**Hand IK Retargeting** (핸드 IK 리타기팅) 컨트롤은 IK 본 체인 리타기팅 처리에 사용되는 솔버입니다. 이 솔버는 **Hand FKWeight** 값에 따라 IK 본 체인이 (한 쪽 손에 맞도록) FK 손 본에 맞추어 움직여 줍니다. 
 예를 들어 0 이면 왼쪽 손에, 1 이면 오른쪽 손에, 0.5 면 양쪽 동일한 가중치로 맞게 됩니다.
 
 ![](handIKretargeting.png)

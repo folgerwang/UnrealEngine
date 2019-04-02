@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimNodes/AnimNode_CurveSource.h"
 #include "AnimationRuntime.h"
@@ -98,5 +98,24 @@ void FAnimNode_CurveSource::Evaluate_AnyThread(FPoseContext& Output)
 void FAnimNode_CurveSource::Update_AnyThread(const FAnimationUpdateContext& Context)
 {
 	// Evaluate any BP logic plugged into this node
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
+	SourcePose.Update(Context);
+}
+
+void FAnimNode_CurveSource::Initialize_AnyThread(const FAnimationInitializeContext& Context)
+{
+	FAnimNode_Base::Initialize_AnyThread(Context);
+	SourcePose.Initialize(Context);
+}
+
+void FAnimNode_CurveSource::CacheBones_AnyThread(const FAnimationCacheBonesContext& Context)
+{
+	FAnimNode_Base::CacheBones_AnyThread(Context);
+	SourcePose.CacheBones(Context);
+}
+
+void FAnimNode_CurveSource::GatherDebugData(FNodeDebugData& DebugData)
+{
+	FAnimNode_Base::GatherDebugData(DebugData);
+	SourcePose.GatherDebugData(DebugData.BranchFlow(1.f));
 }

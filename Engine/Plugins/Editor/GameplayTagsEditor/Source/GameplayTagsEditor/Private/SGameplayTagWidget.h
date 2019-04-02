@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -97,6 +97,9 @@ public:
 
 	/** Forces the widget to refresh its tags on the next tick */
 	void RefreshOnNextTick();
+
+	/** Gets the widget to focus once the menu opens. */
+	TSharedPtr<SWidget> GetWidgetToFocusOnOpen();
 
 private:
 
@@ -202,6 +205,11 @@ private:
 	 * @return Checkbox state of the specified node
 	 */
 	ECheckBoxState IsTagChecked(TSharedPtr<FGameplayTagNode> Node) const;
+
+	/**
+	 * @return true if the exact Tag provided is included in any of the tag containers the widget is editing.
+	 */
+	bool IsExactTagInCollection(TSharedPtr<FGameplayTagNode> Node) const;
 
 	/**
 	 * Called via delegate when the status of the allow non-restricted children check box in a row changes
@@ -331,6 +339,12 @@ private:
 
 	/** Attempts to delete the specified tag */
 	void OnDeleteTag(TSharedPtr<FGameplayTagNode> InTagNode);
+
+	/** Attempts to add the exact specified tag*/
+	void OnAddTag(TSharedPtr<FGameplayTagNode> InTagNode);
+
+	/** Attempts to remove the specified tag, but not the children */
+	void OnRemoveTag(TSharedPtr<FGameplayTagNode> InTagNode);
 
 	/** Searches for all references for the selected tag */
 	void OnSearchForReferences(TSharedPtr<FGameplayTagNode> InTagNode);

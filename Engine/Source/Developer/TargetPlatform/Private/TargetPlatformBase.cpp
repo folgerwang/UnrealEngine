@@ -1,7 +1,8 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Common/TargetPlatformBase.h"
 #include "HAL/IConsoleManager.h"
+#include "DeviceBrowserDefaultPlatformWidgetCreator.h"
 
 bool FTargetPlatformBase::UsesForwardShading() const
 {
@@ -15,6 +16,8 @@ bool FTargetPlatformBase::UsesDBuffer() const
 	return CVar ? (CVar->GetInt() != 0) : false;
 }
 
-
-
-
+TSharedPtr<IDeviceManagerCustomPlatformWidgetCreator> FTargetPlatformBase::GetCustomWidgetCreator() const
+{
+	static TSharedPtr<FDeviceBrowserDefaultPlatformWidgetCreator> DefaultWidgetCreator = MakeShared<FDeviceBrowserDefaultPlatformWidgetCreator>();
+	return DefaultWidgetCreator;
+}

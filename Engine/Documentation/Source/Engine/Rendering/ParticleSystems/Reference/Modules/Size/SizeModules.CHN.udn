@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2750779
+﻿INTSourceChangelist:3243860
 Availability:Public
 Title:Size 模块
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
 Description:这些模块影响粒子在其生命周期中多个点的尺寸。
 Version:4.9
+tags:Particles
 
 [TOC(start:2 end:3)]
 

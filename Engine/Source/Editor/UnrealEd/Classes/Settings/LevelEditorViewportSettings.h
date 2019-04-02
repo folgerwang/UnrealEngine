@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -270,6 +270,10 @@ class UNREALED_API ULevelEditorViewportSettings
 	UPROPERTY(EditAnywhere, config, Category=Controls)
 	bool bInvertMiddleMousePan;
 
+	/** Whether or not to invert the direction of right mouse dolly on the Y axis in orbit mode */
+	UPROPERTY(EditAnywhere, config, Category = Controls)
+	bool bInvertRightMouseDollyYAxis;
+
 	/** Whether to use mouse position as direct widget position. */
 	UPROPERTY(EditAnywhere, config, Category=Controls, AdvancedDisplay)
 	uint32 bUseAbsoluteTranslation:1;
@@ -293,6 +297,14 @@ class UNREALED_API ULevelEditorViewportSettings
 	/** Enables joystick-based camera movement in 3D level editing viewports */
 	UPROPERTY(EditAnywhere, config, Category=Controls, meta=(DisplayName="Level Editor Joystick Controls" ) )
 	bool bLevelEditorJoystickControls;
+
+	/** If enabled, scale the perspective camera speed based on the distance between the camera and its look-at position */
+	UPROPERTY(EditAnywhere, config, Category = Controls, meta = (DisplayName = "Use distance-scaled camera speed"), AdvancedDisplay)
+	bool bUseDistanceScaledCameraSpeed;
+
+	/** If enabled, the camera will orbit around the current selection in the viewport */
+	UPROPERTY(EditAnywhere, config, Category = Controls, meta = (DisplayName = "Orbit camera around selection"), AdvancedDisplay)
+	bool bOrbitCameraAroundSelection;
 
 public:
 
@@ -431,10 +443,6 @@ public:
 	/** Sets the intensity of the overlay displayed when an object is selected */
 	UPROPERTY(EditAnywhere, config, Category=LookAndFeel, AdvancedDisplay, meta=(DisplayName = "BSP Surface Highlight Intensity" ,ClampMin = "0", UIMin = "0", UIMax = "1"))
 	float BSPSelectionHighlightIntensity;
-
-	/** Sets the intensity of the overlay displayed when an object is hovered */
-	UPROPERTY(EditAnywhere, config, Category=LookAndFeel, AdvancedDisplay, meta=(DisplayName = "Hover Highlight Intensity" ,ClampMin = "0", UIMin = "0", UIMax = "20"))
-	float HoverHighlightIntensity;
 
 	/** Enables the editor perspective camera to be dropped at the last PlayInViewport cam position */
 	UPROPERTY(EditAnywhere, config, Category=LookAndFeel, meta=(DisplayName = "Use Camera Location from Play-In-Viewport"))

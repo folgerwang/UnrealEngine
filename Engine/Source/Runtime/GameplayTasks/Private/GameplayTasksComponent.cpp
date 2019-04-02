@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GameplayTasksComponent.h"
 #include "UObject/Package.h"
@@ -16,7 +16,7 @@ namespace
 {
 	FORCEINLINE const TCHAR* GetGameplayTaskEventName(EGameplayTaskEvent Event)
 	{
-		/*static const UEnum* GameplayTaskEventEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EGameplayTaskEvent"));
+		/*static const UEnum* GameplayTaskEventEnum = StaticEnum<EGameplayTaskEvent>();
 		return GameplayTaskEventEnum->GetDisplayNameTextByValue(static_cast<int64>(Event)).ToString();*/
 
 		return Event == EGameplayTaskEvent::Add ? TEXT("Add") : TEXT("Remove");
@@ -179,12 +179,14 @@ void UGameplayTasksComponent::OnRep_SimulatedTasks()
 		if (SimulatedTask && SimulatedTask->IsTickingTask() && TickingTasks.Contains(SimulatedTask) == false)
 		{
 			SimulatedTask->InitSimulatedTask(*this);
-			if (TickingTasks.Num() == 0)
+
+			TickingTasks.Add(SimulatedTask);
+
+			// If this is our first ticking task, set this component as active so it begins ticking
+			if (TickingTasks.Num() == 1)
 			{
 				UpdateShouldTick();
 			}
-
-			TickingTasks.Add(SimulatedTask);
 		}
 	}
 }
@@ -572,7 +574,7 @@ FString UGameplayTasksComponent::GetTasksPriorityQueueDescription() const
 
 FString UGameplayTasksComponent::GetTaskStateName(EGameplayTaskState Value)
 {
-	static const UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EGameplayTaskState"));
+	static const UEnum* Enum = StaticEnum<EGameplayTaskState>();
 	check(Enum);
 	return Enum->GetNameStringByValue(int64(Value));
 }

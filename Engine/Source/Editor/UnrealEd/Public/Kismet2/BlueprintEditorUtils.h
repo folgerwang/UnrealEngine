@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -183,7 +183,7 @@ public:
 	/** 
 	 * Helper function to patch the new CDO into the linker where the old one existed 
 	 */
-	static void PatchNewCDOIntoLinker(UObject* CDO, FLinkerLoad* Linker, int32 ExportIndex, TArray<UObject*>& ObjLoaded);
+	static void PatchNewCDOIntoLinker(UObject* CDO, FLinkerLoad* Linker, int32 ExportIndex, FUObjectSerializeContext* InLoadContext);
 
 	/** 
 	 * Procedure used to remove old function implementations and child properties from data only blueprints.
@@ -201,7 +201,7 @@ public:
 	/**
 	 * Regenerates the class at class load time, and refreshes the blueprint
 	 */
-	static UClass* RegenerateBlueprintClass(UBlueprint* Blueprint, UClass* ClassToRegenerate, UObject* PreviousCDO, TArray<UObject*>& ObjLoaded);
+	static UClass* RegenerateBlueprintClass(UBlueprint* Blueprint, UClass* ClassToRegenerate, UObject* PreviousCDO);
 	
 	/**
 	 * Links external dependencies
@@ -350,7 +350,7 @@ public:
 				// We need to mark the function entry as editable so that we can
 				// set metadata on it if it is a blutility:
 				K2Schema->MarkFunctionEntryAsEditable(Graph, true);
-				if( IsBlutility( Blueprint ))
+				if( IsEditorUtilityBlueprint( Blueprint ))
 				{
 					if( FKismetUserDeclaredFunctionMetadata* MetaData = GetGraphFunctionMetaData( Graph ))
 					{
@@ -524,7 +524,7 @@ public:
 	static bool IsBlueprintConst(const UBlueprint* Blueprint);
 
 	/** Returns whether or not the blueprint is a blutility */
-	static bool IsBlutility(const UBlueprint* Blueprint);
+	static bool IsEditorUtilityBlueprint(const UBlueprint* Blueprint);
 
 	/**
 	 * Whether or not this is an actor-based blueprint, and supports features like the uber-graph, components, etc
@@ -707,7 +707,7 @@ public:
 	 * @param [out]		HiddenPins		Set of pins that should be hidden
 	 * @param [out]		OutInternalPins	Subset of hidden pins that are marked for internal use only rather than marked as hidden (optional)
 	 */
-	DEPRECATED(4.19, "Use version that passes sets by name")
+	UE_DEPRECATED(4.19, "Use version that passes sets by name")
 	static void GetHiddenPinsForFunction(UEdGraph const* Graph, UFunction const* Function, TSet<FString>& HiddenPins, TSet<FString>* OutInternalPins = nullptr);
 
 	static void GetHiddenPinsForFunction(UEdGraph const* Graph, UFunction const* Function, TSet<FName>& HiddenPins, TSet<FName>* OutInternalPins = nullptr);
@@ -1163,7 +1163,7 @@ public:
 	static void PostEditChangeBlueprintActors(UBlueprint* Blueprint, bool bComponentEditChange = false);
 
 	/** Checks if the property can be modified in given blueprint */
-	DEPRECATED(4.17, "Use IsPropertyWritableInBlueprint instead.")
+	UE_DEPRECATED(4.17, "Use IsPropertyWritableInBlueprint instead.")
 	static bool IsPropertyReadOnlyInCurrentBlueprint(const UBlueprint* Blueprint, const UProperty* Property);
 
 	/** Enumeration of whether a property is writable or if not, why. */
@@ -1600,7 +1600,7 @@ public:
 	 */
 	static bool ImplementsGetWorld(const UBlueprint* BP);
 
-	DEPRECATED(4.20, "Use ImplementsGetWorld")
+	UE_DEPRECATED(4.20, "Use ImplementsGetWorld")
 	static bool ImplentsGetWorld(const UBlueprint* BP) { return ImplementsGetWorld(BP); }
 };
 

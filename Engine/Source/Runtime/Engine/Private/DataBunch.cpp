@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DataBunch.cpp: Unreal bunch (sub-packet) functions.
@@ -18,14 +18,19 @@ const int32 MAX_BUNCH_SIZE = 1024 * 1024;
 FInBunch::FInBunch( UNetConnection* InConnection, uint8* Src, int64 CountBits )
 :	FNetBitReader	(InConnection->PackageMap, Src, CountBits)
 ,	PacketId	( 0 )
-,	Next ( NULL )
+,	Next ( nullptr )
 ,	Connection ( InConnection )
 ,	ChIndex ( 0 )
-,	ChType ( 0 )
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+,	ChType( CHTYPE_None )
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+,	ChName ( NAME_None )
 ,	ChSequence ( 0 )
 ,	bOpen ( 0 )
 ,	bClose ( 0 )
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 ,	bDormant ( 0 )
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 ,	bReliable ( 0 )
 ,	bPartial ( 0 )
 ,	bPartialInitial ( 0 )
@@ -33,6 +38,7 @@ FInBunch::FInBunch( UNetConnection* InConnection, uint8* Src, int64 CountBits )
 ,	bHasPackageMapExports ( 0 )
 ,	bHasMustBeMappedGUIDs ( 0 )
 ,	bIgnoreRPCs ( 0 )
+,	CloseReason( EChannelCloseReason::Destroyed )
 {
 	check(Connection);
 	// Match the byte swapping settings of the connection
@@ -41,9 +47,6 @@ FInBunch::FInBunch( UNetConnection* InConnection, uint8* Src, int64 CountBits )
 	// Copy network version info
 	this->SetEngineNetVer(InConnection->EngineNetworkProtocolVersion);
 	this->SetGameNetVer(InConnection->GameNetworkProtocolVersion);
-
-	// Crash protection: the max string size serializable on this archive 
-	ArMaxSerializeSize = MAX_STRING_SERIALIZE_SIZE;
 }
 
 /** Copy constructor but with optional parameter to not copy buffer */
@@ -53,11 +56,16 @@ FInBunch::FInBunch( FInBunch &InBunch, bool CopyBuffer )
 	Next =	InBunch.Next;
 	Connection = InBunch.Connection;
 	ChIndex = InBunch.ChIndex;
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	ChType = InBunch.ChType;
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	ChName = InBunch.ChName;
 	ChSequence = InBunch.ChSequence;
 	bOpen =	InBunch.bOpen;
 	bClose = InBunch.bClose;
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	bDormant = InBunch.bDormant;
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	bIsReplicationPaused = InBunch.bIsReplicationPaused;
 	bReliable =	InBunch.bReliable;
 	bPartial = InBunch.bPartial;
@@ -66,14 +74,13 @@ FInBunch::FInBunch( FInBunch &InBunch, bool CopyBuffer )
 	bHasPackageMapExports = InBunch.bHasPackageMapExports;
 	bHasMustBeMappedGUIDs =	InBunch.bHasMustBeMappedGUIDs;
 	bIgnoreRPCs = InBunch.bIgnoreRPCs;
+	CloseReason = InBunch.CloseReason;
 
 	// Copy network version info
 	this->SetEngineNetVer(InBunch.EngineNetVer());
 	this->SetGameNetVer(InBunch.GameNetVer());
 
 	PackageMap = InBunch.PackageMap;
-	
-	ArMaxSerializeSize = MAX_STRING_SERIALIZE_SIZE;
 
 	if (CopyBuffer)
 	{
@@ -81,6 +88,16 @@ FInBunch::FInBunch( FInBunch &InBunch, bool CopyBuffer )
 	}
 
 	Pos = 0;
+}
+
+void FInBunch::CountMemory(FArchive& Ar) const
+{
+	for (const FInBunch* Current = this; Current; Current = Current->Next)
+	{
+		Current->FNetBitReader::CountMemory(Ar);
+		const SIZE_T MemberSize = sizeof(*this) - sizeof(FNetBitReader);
+		Ar.CountBytes(MemberSize, MemberSize);
+	}
 }
 
 /*-----------------------------------------------------------------------------
@@ -96,17 +113,22 @@ FOutBunch::FOutBunch()
 {}
 FOutBunch::FOutBunch( UChannel* InChannel, bool bInClose )
 :	FNetBitWriter	( InChannel->Connection->PackageMap, InChannel->Connection->GetMaxSingleBunchSizeBits())
-,	Next		( NULL )
+,	Next		( nullptr )
 ,	Channel		( InChannel )
 ,	Time		( 0 )
 ,	ChIndex		( InChannel->ChIndex )
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 ,	ChType		( InChannel->ChType )
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+,	ChName		( InChannel->ChName )
 ,	ChSequence	( 0 )
 ,	PacketId	( 0 )
 ,	ReceivedAck	( 0 )
 ,	bOpen		( 0 )
 ,	bClose		( bInClose )
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 ,	bDormant	( 0 )
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 ,	bIsReplicationPaused	( 0 )
 ,	bReliable	( 0 )
 ,	bPartial	( 0 )
@@ -114,6 +136,7 @@ FOutBunch::FOutBunch( UChannel* InChannel, bool bInClose )
 ,	bPartialFinal			( 0 )
 ,	bHasPackageMapExports	( 0 )
 ,	bHasMustBeMappedGUIDs	( 0 )
+,	CloseReason( EChannelCloseReason::Destroyed )
 {
 	checkSlow(!Channel->Closing);
 	checkSlow(Channel->Connection->Channels[Channel->ChIndex]==Channel);
@@ -130,17 +153,22 @@ FOutBunch::FOutBunch( UChannel* InChannel, bool bInClose )
 }
 FOutBunch::FOutBunch( UPackageMap *InPackageMap, int64 MaxBits )
 :	FNetBitWriter	( InPackageMap, MaxBits )
-,	Next		( NULL )
-,	Channel		( NULL )
+,	Next		( nullptr )
+,	Channel		( nullptr )
 ,	Time		( 0 )
-,	ChIndex     ( 0 )
-,	ChType      ( 0 )
+,	ChIndex		( 0 )
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+,	ChType		( 0 )
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+,	ChName		( NAME_None )
 ,	ChSequence	( 0 )
 ,	PacketId	( 0 )
 ,	ReceivedAck	( 0 )
 ,	bOpen		( 0 )
 ,	bClose		( 0 )
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 ,	bDormant	( 0 )
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 ,   bIsReplicationPaused	( 0 )
 ,	bReliable	( 0 )
 ,	bPartial	( 0 )
@@ -148,14 +176,24 @@ FOutBunch::FOutBunch( UPackageMap *InPackageMap, int64 MaxBits )
 ,	bPartialFinal	( 0 )
 ,	bHasPackageMapExports	( 0 )
 ,	bHasMustBeMappedGUIDs	( 0 )
+,	CloseReason( EChannelCloseReason::Destroyed )
 {
 }
 
+void FOutBunch::CountMemory(FArchive& Ar) const
+{
+	for (const FOutBunch* Current = this; Current; Current = Current->Next)
+	{
+		Current->FNetBitWriter::CountMemory(Ar);
+		const SIZE_T MemberSize = sizeof(*this) - sizeof(FNetBitWriter);
+		Ar.CountBytes(MemberSize, MemberSize);
+	}
+}
 
 FControlChannelOutBunch::FControlChannelOutBunch(UChannel* InChannel, bool bClose)
 	: FOutBunch(InChannel, bClose)
 {
-	checkSlow(Cast<UControlChannel>(InChannel) != NULL);
+	checkSlow(Cast<UControlChannel>(InChannel) != nullptr);
 	// control channel bunches contain critical handshaking/synchronization and should always be reliable
 	bReliable = true;
 }

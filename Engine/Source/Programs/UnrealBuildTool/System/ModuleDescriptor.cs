@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -89,6 +89,11 @@ namespace UnrealBuildTool
 		/// Right before the default phase
 		/// </summary>
 		PreDefault,
+
+		/// <summary>
+		/// Loaded as soon as plugins can possibly be loaded (need GConfig)
+		/// </summary>
+		EarliestPossible,
 
 		/// <summary>
 		/// Loaded before the engine is fully initialized, immediately after the config system has been initialized.  Necessary only for very low-level hooks

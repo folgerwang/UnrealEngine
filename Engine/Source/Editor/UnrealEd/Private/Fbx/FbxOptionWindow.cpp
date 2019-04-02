@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #include "FbxOptionWindow.h"
 #include "Modules/ModuleManager.h"
 #include "Widgets/Layout/SBorder.h"
@@ -52,7 +52,7 @@ void SFbxOptionWindow::Construct(const FArguments& InArgs)
 					[
 						SNew(STextBlock)
 						.Font(FEditorStyle::GetFontStyle("CurveEd.LabelFont"))
-						.Text(LOCTEXT("Import_CurrentFileTitle", "Current File: "))
+						.Text(LOCTEXT("Import_CurrentFileTitle", "Current Asset: "))
 					]
 					+SHorizontalBox::Slot()
 					.Padding(5, 0, 0, 0)
@@ -62,6 +62,7 @@ void SFbxOptionWindow::Construct(const FArguments& InArgs)
 						SNew(STextBlock)
 						.Font(FEditorStyle::GetFontStyle("CurveEd.InfoFont"))
 						.Text(InArgs._FullPath)
+						.ToolTipText(InArgs._FullPath)
 					]
 				]
 			]

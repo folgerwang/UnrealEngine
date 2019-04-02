@@ -1,0 +1,16 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+#include "PathTracingDefinitions.ush"
+#include "../RayTracing/RayTracingCommon.ush"
+#include "../RayTracing/RayTracingHitGroupCommon.ush"
+
+[shader("miss")]
+void PathTracingMainMS(inout FPackedMaterialClosestHitPayload PackedPayload)
+{
+	//Payload.Barycentrics = float2(0, 0);
+	//Payload.InstanceID = ~0;
+	//Payload.InstanceIndex = ~0;
+	//Payload.PrimitiveIndex = ~0;
+
+	PackedPayload.HitT = -1;
+}

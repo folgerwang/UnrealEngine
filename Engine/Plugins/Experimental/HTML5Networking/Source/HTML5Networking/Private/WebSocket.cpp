@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #include "WebSocket.h"
 #include "HTML5NetworkingPrivate.h"
 #include "IPAddress.h"
@@ -488,7 +488,7 @@ static int unreal_networking_client(
 			lws_set_timeout(Wsi, NO_PENDING_TIMEOUT, 0);
 			break;
 		}
-	case LWS_CALLBACK_CLOSED:
+	case LWS_CALLBACK_CLIENT_CLOSED:
 		{
 			Socket->ErrorCallBack.ExecuteIfBound();
 			return -1;

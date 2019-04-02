@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3218993
+﻿INTSourceChangelist:3429236
 Availability:Public
 Title:1.创建 Dialogue Voices
 Crumbs: %ROOT%, Engine, Engine/Audio
@@ -6,9 +6,10 @@ Description:设置每个角色的声音
 version:4.13
 parent:Engine/Audio/Dialogue
 order:1
-type:quick start
+type:how-to
 checkpoint:dialogueqs
-prereq:Engine/Blueprints/QuickStart
+prereq: Engine/Blueprints/QuickStart
+skilllevel:Intermediate
 related:Engine/Audio
 related:Engine/Audio/Overview
 related:Engine/Audio/SoundCues/Editor

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3801260
+﻿INTSourceChangelist:4649792
 Availability: Public
 Crumbs: %ROOT%
 Title: 物理资源编辑器 - 约束图
@@ -21,7 +21,7 @@ Tags:Animation
 **约束图** 显示物理资源中所选形体间的约束的连接。在其中，你可以执行以下操作：
 
 * 选择并查看骨骼层级中的形体和约束。
-* 使用[右击上下文菜单](Engine/Physics/PhAT/SkeletonTree#selectioncontextmenus)创建和编辑形体和约束。
+* 使用[右击情境菜单](Engine/Physics/PhAT/SkeletonTree#selectioncontextmenus)创建和编辑形体和约束。
 * 使用引脚拖动选项创建约束连接。
 * 为物理动画和约束指定/取消指定配置文件。
 
@@ -52,7 +52,7 @@ Tags:Animation
 
 #### 约束图引脚拖动连接
 
-约束图中基于节点的显示方法使你能够从主形体（最左端 **hand_l**）的输出引脚拖出引线并使用选择菜单来选择形体以创建约束。也可以通过[骨架树](Engine/Physics/PhAT/SkeletonTree#selectioncontextmenus)中的右击上下文菜单来实现相同的工作流。
+约束图中基于节点的显示方法使你能够从主形体（最左端 **hand_l**）的输出引脚拖出引线并使用选择菜单来选择形体以创建约束。也可以通过[骨架树](Engine/Physics/PhAT/SkeletonTree#selectioncontextmenus)中的右击情境菜单来实现相同的工作流。
 
 [REGION:imagetable]
 | ![](PinDragging01.png)(h:500) | ![](PinDragging02.png)(h:500) |

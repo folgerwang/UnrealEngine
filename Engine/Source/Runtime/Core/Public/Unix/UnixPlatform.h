@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*================================================================================
 	UnixPlatform.h: Setup for the linux platform
@@ -7,6 +7,7 @@
 #pragma once
 
 #include <linux/version.h>
+#include <signal.h>
 
 struct FGenericPlatformTypes;
 
@@ -56,6 +57,14 @@ typedef FUnixPlatformTypes FPlatformTypes;
 #define PLATFORM_HAS_BSD_SOCKET_FEATURE_IOCTL			1
 #define PLATFORM_HAS_BSD_SOCKET_FEATURE_MSG_DONTWAIT	1
 #define PLATFORM_SUPPORTS_STACK_SYMBOLS					1
+
+#if PLATFORM_CPU_X86_FAMILY
+	#define PLATFORM_BREAK()							__asm__ volatile("int $0x03")
+#else
+	#define PLATFORM_BREAK()							raise(SIGTRAP)
+#endif // PLATFORM_CPU_X86_FAMILY
+
+#define PLATFORM_CODE_SECTION(Name)						__attribute__((section(Name)))
 
 #define PLATFORM_ENABLE_POPCNT_INTRINSIC				1
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealBuildTool.Rules
 {
@@ -28,9 +28,12 @@ namespace UnrealBuildTool.Rules
 
 			if (Target.bBuildEditor == true)
 			{
-				PrivateDependencyModuleNames.AddRange(
+                PrivateDependencyModuleNames.AddRange(
 					new string[]
 					{
+                        "MediaPlayerEditor",
+                        "Slate",
+						"SlateCore",
 						"Settings",
 						"UnrealEd"
 					});

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:FBX 导入错误
 Crumbs:%ROOT%, Engine, Engine/Content, Engine/Content/FBX
@@ -10,6 +10,7 @@ Version:4.9
 此列表包含导入 FBX 文件时可能出现的错误或警告信息。 
 
 
+(#Generic)
 ## 泛型 
 
 (#Generic_ImportingNewObjectFailed)
@@ -77,12 +78,13 @@ Version:4.9
 
 ---
 
-## 模型
+(#Mesh)
+## 网格体
 
 (#Generic_Mesh_NoGeometry)
 [EXCERPT:Generic_Mesh_NoGeometry]
 
-模型物体不包含几何体。 
+网格体对象不包含几何体。 
 
 [/EXCERPT:Generic_Mesh_NoGeometry]
 
@@ -95,7 +97,7 @@ Version:4.9
 (#Generic_Mesh_TriangulationFailed)
 [EXCERPT:Generic_Mesh_TriangulationFailed]
 
-模型由多边形组成（而非三角形），因此导入器尝试进行三角剖分，但失败。检查源内容，并在 DCC 工具中对其进行三角剖分。 
+网格体由多边形组成（而非三角形），因此导入器尝试进行三角剖分，但失败。检查源内容，并在 DCC 工具中对其进行三角剖分。 
 
 [/EXCERPT:Generic_Mesh_TriangulationFailed]
 
@@ -149,7 +151,7 @@ FBX 导入器将在导出时生成适当的平滑数据（即使工具不支持�
 
 (#Generic_Mesh_LOD_InvalidIndex)
 [EXCERPT:Generic_Mesh_LOD_InvalidIndex]
-模型 LOD 索引无效。为添加 LOD(N)，当前模型应包含从 [0-(N-1)] 的所有 LOD。
+网格体 LOD 索引无效。为添加 LOD(N)，当前模型应包含从 [0-(N-1)] 的所有 LOD。
 
 [/EXCERPT:Generic_Mesh_LOD_InvalidIndex]
 
@@ -172,6 +174,7 @@ FBX 导入器将在导出时生成适当的平滑数据（即使工具不支持�
 ---
 
 
+(#StaticMesh)
 ### 静态网格体
 
 (#StaticMesh_TooManyMaterials)
@@ -190,6 +193,7 @@ FBX 导入器将在导出时生成适当的平滑数据（即使工具不支持�
 
 ---
 
+(#SkeletalMesh)
 ### 骨架网格体
 
 (#SkeletalMesh_DifferentRoots)
@@ -459,6 +463,7 @@ LOD 中的根骨骼命名与原始网格体根骨骼命名不同。确保两个�
 ---
 
 
+(#Animation)
 ### 动画
 
 (#Animation_CouldNotFindRootTrack)

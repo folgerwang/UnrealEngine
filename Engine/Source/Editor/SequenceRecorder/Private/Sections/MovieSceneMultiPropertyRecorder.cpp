@@ -1,9 +1,9 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Sections/MovieSceneMultiPropertyRecorder.h"
 #include "UObject/UnrealType.h"
 #include "MovieSceneCommonHelpers.h"
-#include "Sections/MovieScenePropertyRecorder.h"
+#include "MovieScenePropertyRecorder.h"
 #include "SequenceRecorderSettings.h"
 
 TSharedPtr<IMovieSceneSectionRecorder> FMovieSceneMultiPropertyRecorderFactory::CreateSectionRecorder(const FActorRecordingSettings& InActorRecordingSettings) const
@@ -13,6 +13,7 @@ TSharedPtr<IMovieSceneSectionRecorder> FMovieSceneMultiPropertyRecorderFactory::
 
 bool FMovieSceneMultiPropertyRecorderFactory::CanRecordObject(UObject* InObjectToRecord) const
 {
+	return true;
 	const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
 
 	for (const FPropertiesToRecordForClass& PropertiesToRecordForClass : Settings->ClassesAndPropertiesToRecord)

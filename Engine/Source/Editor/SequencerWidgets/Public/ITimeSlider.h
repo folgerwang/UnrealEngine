@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -135,8 +135,11 @@ struct FTimeSliderArgs
 	/** Called right after the selection range has finished being dragged */
 	FSimpleDelegate OnSelectionRangeEndDrag;
 
+	/** Attribute for the current sequence's vertical frames */
+	TAttribute<TSet<FFrameNumber>> VerticalFrames;
+
 	/** Attribute for the current sequence's marked frames */
-	TAttribute<TSet<FFrameNumber>> MarkedFrames;
+	TAttribute<TArray<FMovieSceneMarkedFrame>> MarkedFrames;
 
 	/** Called when the marked frames need to be updated */
 	FOnMarkedFrameChanged OnMarkedFrameChanged;

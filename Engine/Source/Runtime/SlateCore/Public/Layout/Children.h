@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -9,6 +9,7 @@
 #include "Widgets/SNullWidget.h"
 #include "SlotBase.h"
 #include "Widgets/SWidget.h"
+#include "FlowDirection.h"
 
 /**
  * FChildren is an interface that must be implemented by all child containers.
@@ -64,7 +65,7 @@ public:
 		// Nobody should be getting a child when there aren't any children.
 		// We expect this to crash!
 		check( false );
-		return TSharedPtr<SWidget>(nullptr).ToSharedRef();
+		return SNullWidget::NullWidget;
 	}
 	
 	virtual TSharedRef<const SWidget> GetChildAt( int32 ) const override
@@ -72,7 +73,7 @@ public:
 		// Nobody should be getting a child when there aren't any children.
 		// We expect this to crash!
 		check( false );
-		return TSharedPtr<const SWidget>(nullptr).ToSharedRef();
+		return SNullWidget::NullWidget;
 	}
 
 private:
@@ -100,8 +101,19 @@ public:
 	}
 
 	virtual int32 Num() const override { return 1; }
-	virtual TSharedRef<SWidget> GetChildAt( int32 ChildIndex ) override { check(ChildIndex == 0); return FSlotBase::GetWidget(); }
-	virtual TSharedRef<const SWidget> GetChildAt( int32 ChildIndex ) const override { check(ChildIndex == 0); return FSlotBase::GetWidget(); }
+
+	virtual TSharedRef<SWidget> GetChildAt( int32 ChildIndex ) override
+	{
+		check(ChildIndex == 0);
+		return FSlotBase::GetWidget();
+	}
+
+	virtual TSharedRef<const SWidget> GetChildAt( int32 ChildIndex ) const override
+	{
+		check(ChildIndex == 0);
+		return FSlotBase::GetWidget();
+	}
+
 private:
 	virtual const FSlotBase& GetSlotAt(int32 ChildIndex) const override { check(ChildIndex == 0); return *this; }
 };
@@ -122,8 +134,18 @@ public:
 	}
 
 	virtual int32 Num() const override { return WidgetPtr.IsValid() ? 1 : 0 ; }
-	virtual TSharedRef<SWidget> GetChildAt( int32 ChildIndex ) override { check(ChildIndex == 0); return WidgetPtr.Pin().ToSharedRef(); }
-	virtual TSharedRef<const SWidget> GetChildAt( int32 ChildIndex ) const override { check(ChildIndex == 0); return WidgetPtr.Pin().ToSharedRef(); }
+
+	virtual TSharedRef<SWidget> GetChildAt( int32 ChildIndex ) override
+	{
+		check(ChildIndex == 0);
+		return GetWidget();
+	}
+
+	virtual TSharedRef<const SWidget> GetChildAt( int32 ChildIndex ) const override
+	{
+		check(ChildIndex == 0);
+		return GetWidget();
+	}
 
 private:
 	virtual const FSlotBase& GetSlotAt(int32 ChildIndex) const override { static FSlotBase NullSlot; check(ChildIndex == 0); return NullSlot; }
@@ -135,22 +157,40 @@ public:
 		if (Owner) 
 		{ 
 			Owner->InvalidatePrepass();
-		}
-#if SLATE_PARENT_POINTERS
-		if (Owner)
-		{
+
 			if (InWidget.IsValid() && InWidget != SNullWidget::NullWidget)
 			{
 				InWidget->AssignParentWidget(Owner->AsShared());
 			}
 		}
-#endif
+	}
+
+	void DetachWidget()
+	{
+		if (WidgetPtr.IsValid())
+		{
+			WidgetPtr.Reset();
+
+			if (Owner)
+			{
+				Owner->InvalidatePrepass();
+			}
+		}
 	}
 
 	TSharedRef<SWidget> GetWidget() const
 	{
+		ensure(Num() > 0);
 		TSharedPtr<SWidget> Widget = WidgetPtr.Pin();
 		return (Widget.IsValid()) ? Widget.ToSharedRef() : SNullWidget::NullWidget;
+	}
+
+private:
+	SWidget& GetWidgetRef() const
+	{
+		ensure(Num() > 0);
+		SWidget* Widget = WidgetPtr.Pin().Get();
+		return Widget ? *Widget : SNullWidget::NullWidget.Get();
 	}
 
 private:
@@ -225,6 +265,8 @@ public:
 	{
 	}
 };
+
+
 
 
 /**
@@ -354,6 +396,121 @@ private:
 	bool bEmptying;
 };
 
+
+
+template<typename SlotType>
+class TPanelChildrenConstIterator
+{
+public:
+	TPanelChildrenConstIterator(const TPanelChildren<SlotType>& InContainer, EFlowDirection InLayoutFlow)
+		: Container(InContainer)
+		, LayoutFlow(InLayoutFlow)
+	{
+		Reset();
+	}
+
+	TPanelChildrenConstIterator(const TPanelChildren<SlotType>& InContainer, EOrientation InOrientation, EFlowDirection InLayoutFlow)
+		: Container(InContainer)
+		, LayoutFlow(InOrientation == Orient_Vertical ? EFlowDirection::LeftToRight : InLayoutFlow)
+	{
+		Reset();
+	}
+
+	/** Advances iterator to the next element in the container. */
+	TPanelChildrenConstIterator<SlotType>& operator++()
+	{
+		switch (LayoutFlow)
+		{
+		default:
+		case EFlowDirection::LeftToRight:
+			++Index;
+			break;
+		case EFlowDirection::RightToLeft:
+			--Index;
+			break;
+		}
+
+		return *this;
+	}
+
+	/** Moves iterator to the previous element in the container. */
+	TPanelChildrenConstIterator<SlotType>& operator--()
+	{
+		switch (LayoutFlow)
+		{
+		default:
+		case EFlowDirection::LeftToRight:
+			--Index;
+			break;
+		case EFlowDirection::RightToLeft:
+			++Index;
+			break;
+		}
+
+		return *this;
+	}
+
+	const SlotType& operator* () const
+	{
+		return Container[Index];
+	}
+
+	const SlotType* operator->() const
+	{
+		return &Container[Index];
+	}
+
+	/** conversion to "bool" returning true if the iterator has not reached the last element. */
+	FORCEINLINE explicit operator bool() const
+	{
+		return Container.IsValidIndex(Index);
+	}
+
+	/** Returns an index to the current element. */
+	int32 GetIndex() const
+	{
+		return Index;
+	}
+
+	/** Resets the iterator to the first element. */
+	void Reset()
+	{
+		switch (LayoutFlow)
+		{
+		default:
+		case EFlowDirection::LeftToRight:
+			Index = 0;
+			break;
+		case EFlowDirection::RightToLeft:
+			Index = Container.Num() - 1;
+			break;
+		}
+	}
+
+	/** Sets iterator to the last element. */
+	void SetToEnd()
+	{
+		switch (LayoutFlow)
+		{
+		default:
+		case EFlowDirection::LeftToRight:
+			Index = Container.Num() - 1;
+			break;
+		case EFlowDirection::RightToLeft:
+			Index = 0;
+			break;
+		}
+	}
+
+private:
+
+	const TPanelChildren<SlotType>& Container;
+	int32 Index;
+	EFlowDirection LayoutFlow;
+};
+
+
+
 /**
  * Some advanced widgets contain no layout information, and do not require slots.
  * Those widgets may wish to store a specialized type of child widget.
@@ -396,26 +553,24 @@ public:
 
 	int32 Add( const TSharedRef<ChildType>& Child )
 	{
-		if (Owner && bChangesInvalidatePrepass)
-		{ 
-			Owner->InvalidatePrepass(); 
-		}
-
-#if SLATE_PARENT_POINTERS
 		if (Owner)
 		{
+			if(bChangesInvalidatePrepass)
+			{
+				Owner->InvalidatePrepass();
+			}
+
 			if (Child != SNullWidget::NullWidget)
 			{
 				Child->AssignParentWidget(Owner->AsShared());
 			}
 		}
-#endif
+
 		return TArray< TSharedRef<ChildType> >::Add(Child);
 	}
 
 	void Empty()
 	{
-#if SLATE_PARENT_POINTERS
 		for (int ChildIndex = 0; ChildIndex < TArray< TSharedRef<ChildType> >::Num(); ChildIndex++)
 		{
 			TSharedRef<SWidget> Child = GetChildAt(ChildIndex);
@@ -424,50 +579,46 @@ public:
 				Child->ConditionallyDetatchParentWidget(Owner);
 			}
 		}
-#endif
 
 		TArray< TSharedRef<ChildType> >::Empty();
 	}
 
 	void Insert(const TSharedRef<ChildType>& Child, int32 Index)
 	{
-		if (Owner && bChangesInvalidatePrepass) 
-		{ 
-			Owner->InvalidatePrepass();
-		}
-#if SLATE_PARENT_POINTERS
 		if (Owner)
 		{
+			if(bChangesInvalidatePrepass)
+			{
+				Owner->InvalidatePrepass();
+			}
+		
 			if (Child != SNullWidget::NullWidget)
 			{
 				Child->AssignParentWidget(Owner->AsShared());
 			}
 		}
-#endif
+
 		TArray< TSharedRef<ChildType> >::Insert(Child, Index);
 	}
 
 	int32 Remove( const TSharedRef<ChildType>& Child )
 	{
-#if SLATE_PARENT_POINTERS
 		if (Child != SNullWidget::NullWidget)
 		{
 			Child->ConditionallyDetatchParentWidget(Owner);
 		}
-#endif
+
 		const int32 NumFoundAndRemoved = TArray< TSharedRef<ChildType> >::Remove( Child );
 		return NumFoundAndRemoved;
 	}
 
 	void RemoveAt( int32 Index )
 	{
-#if SLATE_PARENT_POINTERS
 		TSharedRef<SWidget> Child = GetChildAt(Index);
 		if (Child != SNullWidget::NullWidget)
 		{
 			Child->ConditionallyDetatchParentWidget(Owner);
 		}
-#endif
 
 		TArray< TSharedRef<ChildType> >::RemoveAt( Index );
 	}
@@ -500,4 +651,37 @@ public:
 
 private:
 	bool bChangesInvalidatePrepass;
+};
+
+
+/** Required to implement GetChildren() in a way that can dynamically return the currently active child. */
+template<typename SlotType>
+class TOneDynamicChild : public FChildren
+{
+public:
+	TOneDynamicChild(SWidget* InOwner, TPanelChildren<SlotType>* InAllChildren, const TAttribute<int32>* InWidgetIndex)
+		: FChildren(InOwner)
+		, AllChildren(InAllChildren)
+		, WidgetIndex(InWidgetIndex)
+	{ }
+
+	virtual int32 Num() const override { return AllChildren->Num() > 0 ? 1 : 0; }
+
+	virtual TSharedRef<SWidget> GetChildAt(int32 Index) override
+	{
+		check(Index == 0); return AllChildren->GetChildAt(WidgetIndex->Get());
+	}
+
+	virtual TSharedRef<const SWidget> GetChildAt(int32 Index) const override
+	{
+		check(Index == 0);
+		return AllChildren->GetChildAt(WidgetIndex->Get());
+	}
+
+private:
+
+	virtual const FSlotBase& GetSlotAt(int32 ChildIndex) const override { return (*AllChildren)[ChildIndex]; }
+
+	TPanelChildren<SlotType>* AllChildren;
+	const TAttribute<int32>* WidgetIndex;
 };

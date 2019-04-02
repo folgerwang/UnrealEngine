@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DynamicPrimitiveDrawing.inl: Dynamic primitive drawing implementation.
@@ -27,167 +27,11 @@ struct FMeshBatchElement;
 struct TStatId;
 template<typename TTask> class TGraphTask;
 
-template<class DrawingPolicyFactoryType>
-void DrawViewElementsInner(
-	FRHICommandList& RHICmdList,
-	const FViewInfo& View,
-	const FDrawingPolicyRenderState& DrawRenderState,
-	const typename DrawingPolicyFactoryType::ContextType& DrawingContext,
-	uint8 DPGIndex,
-	bool bPreFog,
-	int32 FirstIndex,
-	int32 LastIndex
-	)
-{
-	// Get the correct element list based on dpg index
-	const TIndirectArray<FMeshBatch>& ViewMeshElementList = ( DPGIndex == SDPG_Foreground ? View.TopViewMeshElements : View.ViewMeshElements );
-	// Draw the view's mesh elements.
-	check(LastIndex < ViewMeshElementList.Num());
-	for (int32 MeshIndex = FirstIndex; MeshIndex <= LastIndex; MeshIndex++)
-	{
-		const FMeshBatch& Mesh = ViewMeshElementList[MeshIndex];
-		const auto FeatureLevel = View.GetFeatureLevel();
-		check(Mesh.MaterialRenderProxy);
-		check(Mesh.MaterialRenderProxy->GetMaterial(FeatureLevel));
-		const bool bIsTwoSided = Mesh.MaterialRenderProxy->GetMaterial(FeatureLevel)->IsTwoSided();
-		int32 bBackFace = bIsTwoSided ? 1 : 0;
-		do
-		{
-			FDrawingPolicyRenderState DrawRenderStateLocal(DrawRenderState);
-			DrawRenderStateLocal.ModifyViewOverrideFlags() ^= (bBackFace != 0) ? EDrawingPolicyOverrideFlags::ReverseCullMode : EDrawingPolicyOverrideFlags::None;
-
-			DrawingPolicyFactoryType::DrawDynamicMesh(
-				RHICmdList, 
-				View,
-				DrawingContext,
-				Mesh,
-				bPreFog,
-				DrawRenderStateLocal,
-				NULL,
-				Mesh.BatchHitProxyId
-				);
-			--bBackFace;
-		} while( bBackFace >= 0 );
-	}
-}
-
-template<typename DrawingPolicyFactoryType>
-class FDrawViewElementsAnyThreadTask : public FRenderTask
-{
-	FRHICommandList& RHICmdList;
-	const FViewInfo& View;
-	FDrawingPolicyRenderState DrawRenderState;
-	const typename DrawingPolicyFactoryType::ContextType& DrawingContext;
-	uint8 DPGIndex;
-	bool bPreFog;
-
-
-	const int32 FirstIndex;
-	const int32 LastIndex;
-
-public:
-
-	FDrawViewElementsAnyThreadTask(
-		FRHICommandList& InRHICmdList,
-		const FViewInfo& InView,
-		const FDrawingPolicyRenderState& InDrawRenderState,
-		const typename DrawingPolicyFactoryType::ContextType& InDrawingContext,
-		uint8 InDPGIndex,
-		bool InbPreFog,
-		int32 InFirstIndex,
-		int32 InLastIndex
-		)
-		: RHICmdList(InRHICmdList)
-		, View(InView)
-		, DrawRenderState(InDrawRenderState)
-		, DrawingContext(InDrawingContext)
-		, DPGIndex(InDPGIndex)
-		, bPreFog(InbPreFog)
-		, FirstIndex(InFirstIndex)
-		, LastIndex(InLastIndex)
-	{
-	}
-
-	FORCEINLINE TStatId GetStatId() const
-	{
-		RETURN_QUICK_DECLARE_CYCLE_STAT(FDrawViewElementsAnyThreadTask, STATGROUP_TaskGraphTasks);
-	}
-
-	static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }
-
-	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
-	{
-		DrawViewElementsInner<DrawingPolicyFactoryType>(RHICmdList, View, DrawRenderState, DrawingContext, DPGIndex, bPreFog, FirstIndex, LastIndex);
-		RHICmdList.HandleRTThreadTaskCompletion(MyCompletionGraphEvent);
-	}
-};
-
-template<class DrawingPolicyFactoryType>
-void DrawViewElementsParallel(
-	const typename DrawingPolicyFactoryType::ContextType& DrawingContext,
-	uint8 DPGIndex,
-	bool bPreFog,
-	FParallelCommandListSet& ParallelCommandListSet
-	)
-{
-	// Get the correct element list based on dpg index
-	const TIndirectArray<FMeshBatch>& ViewMeshElementList = (DPGIndex == SDPG_Foreground ? ParallelCommandListSet.View.TopViewMeshElements : ParallelCommandListSet.View.ViewMeshElements);
-
-	{
-		int32 NumPrims = ViewMeshElementList.Num();
-		int32 EffectiveThreads = FMath::Min<int32>(FMath::DivideAndRoundUp(NumPrims, ParallelCommandListSet.MinDrawsPerCommandList), ParallelCommandListSet.Width);
-
-		int32 Start = 0;
-		if (EffectiveThreads)
-		{
-
-			int32 NumPer = NumPrims / EffectiveThreads;
-			int32 Extra = NumPrims - NumPer * EffectiveThreads;
-
-
-			for (int32 ThreadIndex = 0; ThreadIndex < EffectiveThreads; ThreadIndex++)
-			{
-				int32 Last = Start + (NumPer - 1) + (ThreadIndex < Extra);
-				check(Last >= Start);
-
-				{
-					FRHICommandList* CmdList = ParallelCommandListSet.NewParallelCommandList();
-
-					FGraphEventRef AnyThreadCompletionEvent = TGraphTask<FDrawViewElementsAnyThreadTask<DrawingPolicyFactoryType> >::CreateTask(ParallelCommandListSet.GetPrereqs(), ENamedThreads::GetRenderThread())
-						.ConstructAndDispatchWhenReady(*CmdList, ParallelCommandListSet.View, ParallelCommandListSet.DrawRenderState, DrawingContext, DPGIndex, bPreFog, Start, Last);
-
-					ParallelCommandListSet.AddParallelCommandList(CmdList, AnyThreadCompletionEvent, Last - Start + 1);
-				}
-				Start = Last + 1;
-			}
-		}
-	}
-}
-
-template<class DrawingPolicyFactoryType>
-bool DrawViewElements(
-	FRHICommandList& RHICmdList,
-	const FViewInfo& View,
-	const FDrawingPolicyRenderState& DrawRenderState,
-	const typename DrawingPolicyFactoryType::ContextType& DrawingContext,
-	uint8 DPGIndex,
-	bool bPreFog
-	)
-{
-	// Get the correct element list based on dpg index
-	const TIndirectArray<FMeshBatch>& ViewMeshElementList = (DPGIndex == SDPG_Foreground ? View.TopViewMeshElements : View.ViewMeshElements);
-	if (ViewMeshElementList.Num() != 0)
-	{
-		DrawViewElementsInner<DrawingPolicyFactoryType>(RHICmdList, View, DrawRenderState, DrawingContext, DPGIndex, bPreFog, 0, ViewMeshElementList.Num() - 1);
-		return true;
-	}
-	return false;
-}
-
-inline FViewElementPDI::FViewElementPDI(FViewInfo* InViewInfo,FHitProxyConsumer* InHitProxyConsumer):
+inline FViewElementPDI::FViewElementPDI(FViewInfo* InViewInfo,FHitProxyConsumer* InHitProxyConsumer,TArray<FPrimitiveUniformShaderParameters>* InDynamicPrimitiveShaderData):
 	FPrimitiveDrawInterface(InViewInfo),
 	ViewInfo(InViewInfo),
-	HitProxyConsumer(InHitProxyConsumer)
+	HitProxyConsumer(InHitProxyConsumer),
+	DynamicPrimitiveShaderData(InDynamicPrimitiveShaderData)
 {}
 
 inline bool FViewElementPDI::IsHitTesting()
@@ -211,16 +55,18 @@ inline void FViewElementPDI::RegisterDynamicResource(FDynamicPrimitiveResource* 
 	if (IsInGameThread())
 	{
 		// Render thread might be reading the array while we are adding in the game thread
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(AddViewInfoDynamicResource,
-			FViewInfo*, InViewInfo, ViewInfo,
-			FDynamicPrimitiveResource*, InDynamicResource, DynamicResource,
+		FViewInfo* InViewInfo = ViewInfo;
+		ENQUEUE_RENDER_COMMAND(AddViewInfoDynamicResource)(
+			[InViewInfo, DynamicResource](FRHICommandListImmediate& RHICmdList)
 			{
-				InViewInfo->DynamicResources.Add(InDynamicResource);
+				InViewInfo->DynamicResources.Add(DynamicResource);
+				DynamicResource->InitPrimitiveResource();
 			});
 	}
 	else
 	{
 		ViewInfo->DynamicResources.Add(DynamicResource);
+		DynamicResource->InitPrimitiveResource();
 	}
 }
 
@@ -327,6 +173,8 @@ inline bool MeshBatchHasPrimitives(const FMeshBatch& Mesh)
 
 inline int32 FViewElementPDI::DrawMesh(const FMeshBatch& Mesh)
 {
+	// Warning: can be called from Game Thread or Rendering Thread.  Be careful what you access.
+
 	if (ensure(MeshBatchHasPrimitives(Mesh)))
 	{
 		// Keep track of view mesh elements whether that have translucency.
@@ -337,11 +185,56 @@ inline int32 FViewElementPDI::DrawMesh(const FMeshBatch& Mesh)
 		// Translucent view mesh elements in the foreground dpg are not supported yet
 		TIndirectArray<FMeshBatch>& ViewMeshElementList = ( ( DPGIndex == SDPG_Foreground  ) ? ViewInfo->TopViewMeshElements : ViewInfo->ViewMeshElements );
 
-		FMeshBatch* NewMesh = new(ViewMeshElementList) FMeshBatch(Mesh);
+		FMeshBatch* NewMesh = new FMeshBatch(Mesh);
+		ViewMeshElementList.Add(NewMesh);
 		if( CurrentHitProxy != nullptr )
 		{
 			NewMesh->BatchHitProxyId = CurrentHitProxy->Id;
 		}
+
+		{
+			TArray<FPrimitiveUniformShaderParameters>* DynamicPrimitiveShaderDataForRT = DynamicPrimitiveShaderData;
+			ERHIFeatureLevel::Type FeatureLevel = ViewInfo->GetFeatureLevel();
+
+			ENQUEUE_RENDER_COMMAND(FCopyDynamicPrimitiveShaderData)(
+				[NewMesh, DynamicPrimitiveShaderDataForRT, FeatureLevel](FRHICommandListImmediate& RHICmdList)
+				{
+					const bool bPrimitiveShaderDataComesFromSceneBuffer = NewMesh->VertexFactory->GetPrimitiveIdStreamIndex(false) >= 0;
+
+					for (int32 ElementIndex = 0; ElementIndex < NewMesh->Elements.Num(); ElementIndex++)
+					{
+						FMeshBatchElement& MeshElement = NewMesh->Elements[ElementIndex];
+
+						if (bPrimitiveShaderDataComesFromSceneBuffer)
+						{
+							checkf(!NewMesh->Elements[ElementIndex].PrimitiveUniformBuffer,
+								TEXT("FMeshBatch was assigned a PrimitiveUniformBuffer even though Vertex Factory %s fetches primitive shader data through a Scene buffer.  The assigned PrimitiveUniformBuffer cannot be respected.  Use PrimitiveUniformBufferResource instead for dynamic primitive data, or leave both null to get FPrimitiveSceneProxy->UniformBuffer."), NewMesh->VertexFactory->GetType()->GetName());
+						}
+
+						checkf(bPrimitiveShaderDataComesFromSceneBuffer || NewMesh->Elements[ElementIndex].PrimitiveUniformBufferResource != NULL,
+							TEXT("FMeshBatch was not properly setup.  The primitive uniform buffer must be specified."));
+					}
+
+					// If we are maintaining primitive scene data on the GPU, copy the primitive uniform buffer data to a unified array so it can be uploaded later
+					if (UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel) && bPrimitiveShaderDataComesFromSceneBuffer)
+					{
+						for (int32 Index = 0; Index < NewMesh->Elements.Num(); ++Index)
+						{
+							const TUniformBuffer<FPrimitiveUniformShaderParameters>* PrimitiveUniformBufferResource = NewMesh->Elements[Index].PrimitiveUniformBufferResource;
+
+							if (PrimitiveUniformBufferResource)
+							{
+								const int32 DataIndex = DynamicPrimitiveShaderDataForRT->AddUninitialized(1);
+								NewMesh->Elements[Index].PrimitiveIdMode = PrimID_DynamicPrimitiveShaderData;
+								NewMesh->Elements[Index].DynamicPrimitiveShaderDataIndex = DataIndex;
+								FPlatformMemory::Memcpy(&(*DynamicPrimitiveShaderDataForRT)[DataIndex], PrimitiveUniformBufferResource->GetContents(), sizeof(FPrimitiveUniformShaderParameters));
+							}
+						}
+					}
+
+					NewMesh->MaterialRenderProxy->UpdateUniformExpressionCacheIfNeeded(FeatureLevel);
+				});
+		}		
 
 		return 1;
 	}

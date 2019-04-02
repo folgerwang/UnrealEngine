@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3482294
+INTSourceChangelist:3810467
 Availability:Public
-Title:移动平台后期处理效果
+Title:移动平台上的后期处理效果
 Crumbs:
-Description:在移动游戏中使用后期处理效果。
+Description:在移动平台上使用后期处理效果。
 Platform:Mobile
-Version:4.14
+Version: 4.17
 parent:Platforms/Mobile
 order:5
 type:overview
@@ -14,367 +14,364 @@ reference-image:Mobile_PostProcessEffect.gif
 
 [TOC(start:2)]
 
-移动后期处理的实现是独立于 PC/主机后期处理之外的代码路径。这是为了反映较慢的独立纹理读取、缺失的硬件功能、额外的渲染目标处理开销，以及较慢的整体性能。如需为移动应用程序启用后期处理，请确保 **Mobile HDR** 已在 **项目设置** 中启用，因为以下多数设置均要求启用 Mobile HDR，效果方能生效。
+移动后期处理作为独立于PC/控制台后期处理的代码路径实现。这是为了全面反映较慢的依赖纹理读取、丢失硬件功能、额外的渲染目标解析成本和较慢性能。 
+要针对移动应用程序启用后期处理，请确保在 **项目设置（Project Settings）** 中启用 **移动HDR（Mobile HDR）**，因为下面的大部分设置都需要启用移动HDR，效果方能生效。
 
-[OBJECT:ToggleButtonContent]
-[PARAMLITERAL:category]
-OS
-[/PARAMLITERAL]
-[PARAMLITERAL:id]
-windows
-[/PARAMLITERAL]
-[PARAMLITERAL:active]
-[/PARAMLITERAL]
-[PARAM:content]
 [region: lightbox]
 [![](MobileHDR_Enabled.png)(w:400)](MobileHDR_Enabled.png)
 [/region]
-[/PARAM]
-[/OBJECT]
-
-[OBJECT:ToggleButtonContent]
-[PARAMLITERAL:category]
-OS
-[/PARAMLITERAL]
-[PARAMLITERAL:id]
-mac
-[/PARAMLITERAL]
-[PARAMLITERAL:active]
-[/PARAMLITERAL]
-[PARAM:content]
-[region: lightbox]
-[![](MobileHDR_Enabled_Mac.png)(w:400)](MobileHDR_Enabled_Mac.png)
-[/region]
-[/PARAM]
-[/OBJECT]
 
 [region:caption]
-点击查看全图。
+单击查看大图。
 [/region]
 
-## 启用移动设备的色调映射器
-如需在移动设备上使用色调映射器后期处理选项，需要将 **r.tonemapperfilm** 的值从默认的 **0** 设为 **1**。用户可以如下方式在虚幻引擎 4（UE4）编辑器中修改、启用或禁用色调映射器。 
+(#enablingtonemapperformobiledevices)
+## 为移动设备启用色调映射器
+要使用移动设备上的色调映射器后期处理选项，需要将 **r.tonemapperfilm** 的值从默认值 **0** 更改为 **1**。在虚幻引擎4（UE4）中，您可以通过以下方法更改、启用或禁用色调映射器： 
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Tonemapper On](Tonemapper_On.png)
+	![色调映射器开启](Tonemapper_On.png)
 	[/PARAM]
 	[PARAM:after]
-	![Tonemapper Off](Tonemapper_Off.png)
+	![色调映射器关闭](Tonemapper_Off.png)
 	[/PARAM]
 [/OBJECT]
 
 
-### 通过控制台启用色调映射器影片
-按下 **重音符键（`）** 打开控制台，输入以下命令即可在 UE4 编辑器中启用色调映射器。
-* **r.tonemapperfilm 1** 
+(#enablingtonemapperfilmviatheconsole)
+### 通过控制台启用色调映射器胶片
+要在UE4中启用色调映射器，首先按 **撇号键（`）** 打开控制台，输入以下命令：
+* **r.Mobile.TonemapperFilm 1** 
 
-打开控制台并输入以下命令即可禁用色调映射器。
-* **r.tonemapperfilm 0** 
+要禁用色调映射器，打开控制台并输入以下命令：
+*  **r.Mobile.TonemapperFilm 0**
 
 [region:note]
-此方法将启用仅针对此会话的色调映射器。如希望色调映射器固定开启，则需要添加用于 DefaultEngine.INI 的色调映射器设置。
+该方法仅启用当前会话的色调映射器。如果您希望始终启用色调映射器，需要将您想要使用的色调映射器设置添加到DefaultEngine.INI。
 [/region]
 
 [REGION:lightbox]
-[![](TM_Console.png)(w:468 h:315)](TM_Console.png)
+[![](TM_Console.png)(w:468)](TM_Console.png)
 [/REGION]
 
 [REGION:caption]
-点击查看全图。
+单击查看大图。
 [/REGION]
 
-### 通过 .INI 文件启用色调映射器影片
-如需在项目范围内启用或禁用色调映射器，则需要在项目的 **DefaultEngine.ini** 文件中将 **r.tonemapperfilm=1** 添加到 **Rendering Settings**。
-
-
-
-[OBJECT:ToggleButtonContent]
-[PARAMLITERAL:category]
-OS
-[/PARAMLITERAL]
-[PARAMLITERAL:id]
-windows
-[/PARAMLITERAL]
-[PARAMLITERAL:active]
-[/PARAMLITERAL]
-[PARAM:content]
-[REGION:lightbox]
-[![](TM_Default_Engine_INI.png)(w:422 h:199)](TM_Default_Engine_INI.png)
-[/REGION]
-[/PARAM]
-[/OBJECT]
-
-[OBJECT:ToggleButtonContent]
-[PARAMLITERAL:category]
-OS
-[/PARAMLITERAL]
-[PARAMLITERAL:id]
-mac
-[/PARAMLITERAL]
-[PARAMLITERAL:active]
-[/PARAMLITERAL]
-[PARAM:content]
-[REGION:lightbox]
-[![](TM_Default_Engine_INI_Mac.png)(w:422 h:199)](TM_Default_Engine_INI_Mac.png)
-[/REGION]
-[/PARAM]
-[/OBJECT]
-	
-[REGION:caption]
-点击查看全图。
-[/REGION]
-
-[OBJECT:ToggleButtonContent]
-[PARAMLITERAL:category]
-OS
-[/PARAMLITERAL]
-[PARAMLITERAL:id]
-windows
-[/PARAMLITERAL]
-[PARAMLITERAL:active]
-[/PARAMLITERAL]
-[PARAM:content]
-[REGION:lightbox]
-[![](TM_INI_Location.png)(w:422 h:199)](TM_INI_Location.png)
-[/REGION]
-[/PARAM]
-[/OBJECT]
-
-[OBJECT:ToggleButtonContent]
-[PARAMLITERAL:category]
-OS
-[/PARAMLITERAL]
-[PARAMLITERAL:id]
-mac
-[/PARAMLITERAL]
-[PARAMLITERAL:active]
-[/PARAMLITERAL]
-[PARAM:content]
-[REGION:lightbox]
-[![](TM_INI_Location_Mac.png)(w:422 h:199)](TM_INI_Location_Mac.png)
-[/REGION]
-[/PARAM]
-[/OBJECT]
-
-	
-[REGION:caption]
-点击查看全图。
-[/REGION]
-
-### 在移动设备上启用色调映射器影片
-在移动设备的屏幕上同时按下 **四根手指** 呼出 **控制台窗口** 然后输入 **r.tonemapperfilm 1** 启用色调映射器，或输入 **r.tonemapperfilm 0** 禁用色调映射器。
+(#enablingtonemapperfilmvia.inifiles)
+### 通过.INI文件启用色调映射器胶片
+要在项目范围内启用或禁用色调映射器，需要将 **r.tonemapperfilm=1** 添加到 **DefaultEngine.ini** 文件的 **Rendering Settings** 节。
 
 [REGION:lightbox]
-[![](TM_Phone_Console.png)(w:640 h:360)](TM_Phone_Console.png)
+[![](TM_Default_Engine_INI.png)(w:422)](TM_Default_Engine_INI.png)
 [/REGION]
 	
 [REGION:caption]
-点击查看全图。
+单击查看大图。
 [/REGION]
 
+[REGION:lightbox]
+[![](TM_INI_Location.png)(w:422)](TM_INI_Location.png)
+[/REGION]
+	
+[REGION:caption]
+单击查看大图。
+[/REGION]
+
+(#enablingtonemapperfilmonamobiledevice)
+### 在移动设备上启用色调映射器胶片
+要启用或禁用移动设备上的色调映射器，需要 **四指** 同时轻触屏幕，调出 **控制台窗口**，然后输入 **r.tonemapperfilm 1** 以启用色调映射器，或输入 **r.tonemapperfilm 0** 以禁用色调映射器。
+
+[REGION:lightbox]
+[![](TM_Phone_Console.png)(w:640)](TM_Phone_Console.png)
+[/REGION]
+	
+[REGION:caption]
+单击查看大图。
+[/REGION]
+
+(#supportedpostprocesseffectsandsettingsonmobile)
 ## 移动平台上支持的后期处理效果和设置
-在以下部分中，我们将了解移动设备上支持的后期处理效果和设置，以及它们是否要求启用色调映射器。
+在下面一节中，我们将介绍移动设备上支持哪些后期处理效果和设置，以及它们是否需要启用色调映射器。
 
 [REGION:lightbox]
-[![](TM_PostProcess_Settings.png)(w:275 h:355)](TM_PostProcess_Settings.png)
+[![](TM_PostProcess_Settings.png)(w:275)](TM_PostProcess_Settings.png)
 [/REGION]
 	
 [REGION:caption]
-点击查看全图。
+单击查看大图。
 [/REGION]
 
-### 白平衡（White Balance）
-|后期处理属性| 支持|R.tonemapperfilm 值| 
-|--------------------|-----------|--------------|
+(#colorgrading)
+### 颜色分级
+
+在 **颜色分级（Color Grading）** 部分中，您将找到允许对图像进行颜色校正的支持属性。
+
+|后期处理属性| 是否支持 |R.tonemapperfilm值| 
+|---------------------|-----------|----------------------|
+| [REGION:tablesection] 白平衡 [/REGION] |||
 |**Temp**|是|1|
 |**Tint**|是|1|
-
-### 颜色分级（Color Grading）
-|后期处理属性| 支持|R.tonemapperfilm 值| 
-|--------------------|-----------|--------------|
+| [REGION:tablesection] 全局 [/REGION] |||
 |**Saturation**|是|1|
 |**Contrast**|是|1|
 |**Gamma**|是|1|
 |**Gain**|是|1|
 |**Offset**|是|1|
+|**Scene Color Tint**|是|1|
+|**Color Grading LUT Intensity**|是|1|
+|**Color Grading LUT**|是|1|
+| [REGION:tablesection] 阴影 [/REGION] |||
+|**Saturation**|是|1|
+|**Contrast**|是|1|
+|**Gamma**|是|1|
+|**Gain**|是|1|
+|**Offset**|是|1|
+|**Shadows Max**|是|1|
+| [REGION:tablesection] 中间色 [/REGION] |||
+|**Saturation**|是|1|
+|**Contrast**|是|1|
+|**Gamma**|是|1|
+|**Gain**|是|1|
+|**Offset**|是|1|
+| [REGION:tablesection] 高亮 [/REGION] |||
+|**Saturation**|是|1|
+|**Contrast**|是|1|
+|**Gamma**|是|1|
+|**Gain**|是|1|
+|**Offset**|是|1|
+|**Highlights Min**|是|1|
 
-### 胶片（Film）
-|后期处理属性| 支持|R.tonemapperfilm 值| 
+
+(#tonemapper)
+### 色调映射器
+
+在 **色调映射器（Tonemapper）** 部分中，您将找到允许对图像颜色范围进行调节的支持属性。
+
+
+|后期处理属性| 是否支持 |R.tonemapperfilm值| 
 |--------------------|-----------|--------------|
-|**Tint**|是|0|
-|**Tint Shadow**|是|0|
-|**Tint Shadow Blend**|是|0|
-|**Tint Shadow Amount**|是|0|
-|**Saturation**|是|0|
-|**Channel Mixer Red**|是|0|
-|**Channel Mixer Green**|是|0|
-|**Channel Mixer Blue**|是|0|
-|**Contrast**|是|0|
-|**Crush Shadows**|是|0|
-|**Crush Highlights**|是|0|
-|**Dynamic Range**|是|0|
 |**Slope**|是|1|
 |**Toe**|是|1|
 |**Shoulder**|是|1|
 |**Black Clip**|是|1|
 |**White Clip**|是|1|
 
-### 场景颜色（Scene Color）
-|后期处理属性| 支持|R.tonemapperfilm 值| 
-|--------------------|-----------|--------------|
-|**Scene Color Tint**|是|1|
-|**Fringe Intensity**|是|0 & 1|
-|**Vignette Intensity**|是|0 & 1|
-|**Grain Jitter**|是|0 & 1|
-|**Grain Intensity**|是|0 & 1|
-|**Color Grading Intensity**|是|1|
-|**Color Grading**|是|1|
+(#mobiletonemapper)
+### 移动色调映射器
 
-### 光晕（Bloom）
-|后期处理属性| 支持|R.tonemapperfilm 值| 
+在 **移动色调映射器（Mobile Tonemapper）** 部分中，您将找到允许对图像颜色范围进行调节的特定于移动平台的支持属性。
+
+|后期处理属性| 是否支持 |R.tonemapperfilm值| 
 |--------------------|-----------|--------------|
-|**Intensity**|是|0 & 1|
-|**Threshold**|是|0 & 1|
-|**Size Scale**|是|0 & 1|
-|**#1 Size**|否|n/a|
-|**#2 Size**|否|n/a|
-|**#3 Size**|否|n/a|
-|**#4 Size**|否|n/a|
-|**#5 Size**|否|n/a|
-|**#1 Tint**|否|n/a|
-|**#2 Tint**|否|n/a|
-|**#3 Tint**|否|n/a|
-|**#4 Tint**|否|n/a|
-|**#5 Tint**|否|n/a|
-|**#6 Tint**|否|n/a|
+|**Tint**|是|0|
+|**Saturation**|是|0|
+|**Contrast**|是|0|
+|**Tint Shadow**|是|0|
+|**Tint Shadow Blend**|是|0|
+|**Tint Shadow Amount**|是|0|
+|**Channel Mixer Red**|是|0|
+|**Channel Mixer Green**|是|0|
+|**Channel Mixer Blue**|是|0|
+|**Crush Shadows**|是|0|
+|**Crush Highlights**|是|0|
+|**Dynamic Range**|是|0|
+
+
+(#lens)
+### 镜头
+
+在 **镜头（Lens）** 部分中，您将找到允许对图像进行不同视觉调整的支持属性，例如泛光和景深等功能。
+
+|后期处理属性| 是否支持 |R.tonemapperfilm值| 
+|--------------------|-----------|--------------|
+| [REGION:tablesection] 图像效果 [/REGION] |||
+|**Chromatic Aberation**|是|0和1|
+|**Vignette Intensity**|是|0和1|
+|**Grain Jitter**|是|0和1|
+|**Color Grading Intensity**|是|1|
+|[REGION:tablesection] 泛光 [/REGION] |||
+|**Method:Standard**|是|0和1|
+|**Method:Convolution**|否|无|
+|**Intensity**|是|0和1|
+|**Threshold**|是|0和1|
+|**Size Scale**|是|0和1|
+|**#123456 Size**|否|无|
+|**#123456 Tint**|否|无|
+|**Convolution Scale**|否|无|
+|**Convolution Center**|否|无|
+|**Convolution Boost**|否|无|
+|**Convolution Buffer**|否|无|
+|[REGION:tablesection] 尘土遮罩 [/REGION] |||
+|**Dirt Mask Texture**|是|1|
 |**Dirt Mask Intensity**|是|1|
 |**Dirt Mask Tint**|是|1|
-|**Dirt Mask**|是|1|
-
-### 自动曝光
-|后期处理属性| 支持|R.tonemapperfilm 值| 
-|--------------------|-----------|--------------|
-|**Auto Exposure Histogram**|是|0 & 1|
-|**Auto Exposure Basic**|是|0 & 1|
-|**Low Percent**|否|n/a|
-|**High Percent**|否|n/a|
-|**Min Brightness**|否|n/a|
-|**Max Brightness**|否|n/a|
-|**Speed Up**|否|n/a|
-|**Speed Down**|否|n/a|
-|**Exposure Bias**|是|0 & 1|
-|**Histogram Log Min**|否|n/a|
-|**Histogram Log Max**|否|n/a|
-
-### 景深（Depth Of Field）
-|后期处理属性| 支持|R.tonemapperfilm 值| 
-|--------------------|-----------|--------------|
-|**BokehDOF**|是|0 |
+|[REGION:tablesection] 自动曝光 [/REGION] |||
+|**Auto Exposure Histogram**|否|无|
+|**Auto Exposure Basic**|否|无|
+|**Low Percent**|否|无|
+|**High Percent**|否|无|
+|**Min Brightness**|否|无|
+|**Max Brightness**|否|无|
+|**Speed Up**|否|无|
+|**Speed Down**|否|无|
+|**Exposure Bias**|是|0和1|
+|**Histogram Log Min**|否|无|
+|**Histogram Log Max**|否|无|
+|**Low Percent**|否|无|
+|**High Percent**|否|无|
+|**Histogram Log Min**|否|无|
+|**Histogram Log Max**|否|无|
+|[REGION:tablesection] 镜头光斑 [/REGION] |||
+|**Intensity**|否|无|
+|**Tint**|否|无|
+|**Bokeh Size**|否|无|
+|**Threshold**|否|无|
+|**Bokeh Shape**|否|无|
+|**Tints #012345678**|否|无|
+|[REGION:tablesection] 景深 [/REGION] |||
+|**BokehDOF**|否|无|
 |**GaussianDOF**|是|0 |
-|**CircleDOF**|否|n/a |
+|**CircleDOF**|否|无|
 |**High Quality Gaussian DoF on Mobile**|是|1|
-|**Aperture F - Stop**|否|n/a|
+|**Aperture F - Stop**|否|无|
 |**Focal Distance**|是|0|
-|**Depth Blur km for 50%**|否|n/a|
-|**Depth Blur Radius**|否|n/a|
-|**Focal Region**|否|n/a|
+|**Depth Blur km for 50%**|否|无|
+|**Depth Blur Radius**|否|无|
+|**Focal Region**|否|无|
 |**Near Transition Region**|是|0|
 |**Far Transition Region**|是|0|
 |**Scale**|是|0|
-|**Max Bokeh Size**|否|n/a|
-|**Near Blur Size**|否|n/a|
-|**Far Blur Size**|否|n/a|
-|**Shape**|否|n/a|
-|**Occlusion**|否|n/a|
-|**Color Threshold**|否|n/a|
-|**Sky Distance**|否|n/a|
-|**Vignette Size**|否|n/a|
+|**Max Bokeh Size**|否|无|
+|**Near Blur Size**|否|无|
+|**Far Blur Size**|否|无|
+|**Shape**|否|无|
+|**Occlusion**|否|无|
+|**Color Threshold**|否|无|
+|**Size Threshold**|否|无|
+|**Sky Distance**|否|无|
+|**Vignette Size**|否|无|
 
+(#renderingfeatures)
+### 渲染功能
 
-### 杂项
-|后期处理属性| 支持|R.tonemapperfilm 值| 
+在 **渲染功能（Rendering Features）** 部分中，您将找到允许对图像进行特定材质后期处理方面的视觉调整的支持属性，例如自定义景深和自定模具。 
+
+|后期处理属性| 是否支持 |R.tonemapperfilm值| 
 |--------------------|-----------|--------------|
-|**Screen Percentage**|否|n/a |
-|**AA Methods**|是|0 & 1|
-[region:note]
-AA 法（AA Method）支持“None”（最快的）和“TemporalAA”（这种方法提供一种特殊的移动平台临时抗锯齿，可提供约 SGSSAA 两倍的效果，会导致运动中出现轻微颤抖）。
-[/region]
+| [REGION:tablesection] 材质后期处理 [/REGION] |||
+|**Array**|是|1|
+| [REGION:tablesection] 环境立方体贴图 [/REGION] |||
+|**Tint**|否|无|
+|**Intensity**|否|无|
+|**Cubemap Texture**|否|无|
+| [REGION:tablesection] 环境光遮蔽 [/REGION] |||
+|**Intensity**|否|无|
+|**Radius**|否|无|
+|**Static Fraction**|否|无|
+|**Radius in Worldspace**|否|无|
+|**Fade Out Distance**|否|无|
+|**Fade Out Radius**|否|无|
+|**Power**|否|无|
+|**Bias**|否|无|
+|**Quality**|否|无|
+|**Mip Blend**|否|无|
+|**Mip Scale**|否|无|
+|**Mip Threshold**|否|无|
+| [REGION:tablesection] 全局光照 [/REGION] |||
+|**Indirect Lighting Color**|是|0和1|
+|**Indirect Lighting Intensity**|是|0和1|
+| [REGION:tablesection] 动态模糊 [/REGION] |||
+|**Amount**|否|无|
+|**Max**|否|无|
+|**Per Object Size**|否|无|
+| [REGION:tablesection] 光传播体积 [/REGION] |||
+|**Intensity**|否|无|
+|**Size**|否|无|
+|**Secondary Occlusion Intensity**|否|无|
+|**Occlusion Intensity**|否|无|
+|**Diffuse Occlusion Exponent**|否|无|
+|**Specular Occlusion Exponent**|否|无|
+|**Light Injection Bias**|否|无|
+|**Secondary Bounce Intensity**|否|无|
+|**Geometry Volume Bias**|否|无|
+|**Emissive Injection Intensity**|否|无|
+|**Occlusion Radius**|否|无|
+|**Diffuse Occlusion Intensity**|否|无|
+|**Specular Occlusion Intensity**|否|无|
+|**Fade Range**|否|无|
+|**Directional Occlusion Fade Range**|否|无|
+| [REGION:tablesection] 屏幕空间反射 [/REGION] |||
+|**Intensity**|否|无|
+|**Quality**|否|无|
+|**Max Roughness**|否|无|
+| [REGION:tablesection] 其他 [/REGION] |||
+|**Screen Percentage**|否|无|
 
-## 自定义后期处理材质
 
-虚幻引擎自带大量后期处理效果，便于用户自定义移动应用程序的观感效果。有时用户需要创建自定义后期处理材质，启用自定义的效果（如“VCR Static”）。
+(#custompostprocessmaterials)
+## 自定义材质后期处理
+
+虚幻引擎附带一些后期处理效果，使您可以自定义移动应用程序的外观。但有时，您会想要创建 
+自定义材质后期处理来实现自己的效果（如“VCR静态”）。
 
 [REGION:asyncgif]
 ![image alt text](Mobile_PostProcessEffect.gif)
 [/REGION]
 
-为移动平台应用程序添加效果需要开发自定义后期处理材质。为移动平台应用程序创建自定义后期处理材质时，要注意一些需要考虑的关键点。尤其需要注意的是移动平台应用程序的自定义后期处理材质只能通过以下 **混合位置（Blendable Locations）** 从 PostProcessInput0（场景色彩）进行获取：
+为移动应用程序添加效果需要开发自定义材质后期处理。为移动应用程序创建自定义材质后期处理时，要注意一些需要 
+考虑的关键点。尤其需要注意的是移动应用程序的自定义材质后期处理只能通过以下 **混合位置（Blendable Locations）** 从 **PostProcessInput0（场景色彩）**、
+**场景深度（Scene Depth）**、**自定义深度（Custom Depth）** 和 **自定义模具（Custom Stencil）** 获取：
 
 * **色调映射前（Before Tonemapping）**
 * **色调映射后（After Tonemapping）**
 
-如需详细了解混合位置，请阅读 [](Engine/Rendering/PostProcessEffects/PostProcessMaterials) 参考页面。当前，用户无法为旧型 Android 设备（需要“马赛克”模式进行 HDR 渲染）创建自定义后期处理材质。最后一提的是，尚不支持像素深度信息。
+如需详细了解混合位置，请阅读[](Engine/Rendering/PostProcessEffects/PostProcessMaterials)参考页面。 
+当前，用户无法为旧型Android设备（需要“马赛克”模式进行HDR渲染）创建自定义材质后期处理。最后一点，暂时还不支持像素深度信息。
 
-### 自定义深度
+因为此功能需要后期处理才能正常工作，而且必须启用 **移动HDR（Mobile HDR）**。要启用移动HDR，请转至 **项目设置（Project Settings）** >**引擎（Engine）** >**渲染（Rendering）** >**移动（Mobile）**，并确保选中 **移动HDR（Mobile HDR）**。
 
-用户现可使结合移动渲染通道使用 **自定义深度（Custom Depth）** 后期处理选项。自定义后期处理材质现在可从 **场景深度（Scene Depth）**、**自定义深度（Custom Depth）** 以及 **场景色彩（Scene Color）** 取样。 
+[REGION:lightbox]
+[![](MobileHDR_Enabled.png)(w:500)](MobileHDR_Enabled.png)
+[/REGION]
 
-![](Custom_Scene_Depth.png)
+[REGION:caption]
+单击查看大图。
+[/REGION]
 
-此功能需要后期处理方能正常工作，因此必须启用 **Mobile HDR**。启用 Mobile HDR：**Project Settings** > **Engine** > **Rendering** > **Mobile**，勾选 **Mobile HDR**。
 
-[OBJECT:ToggleButtonContent]
-[PARAMLITERAL:category]
-OS
-[/PARAMLITERAL]
-[PARAMLITERAL:id]
-windows
-[/PARAMLITERAL]
-[PARAMLITERAL:active]
-[/PARAMLITERAL]
-[PARAM:content]
-[region: lightbox]
-[![](MobileHDR_Enabled.png)(w:400)](MobileHDR_Enabled.png)
-[/region]
-[/PARAM]
-[/OBJECT]
+用户现可使结合移动渲染通道使用 **自定义深度（Custom Depth）** 后期处理选项。自定义材质后期处理现在可从 **场景深度（Scene Depth）**、**自定义深度（Custom Depth）**、**场景色彩（Scene Color）** 和 **自定义模具（Custom Stencil）** 取样。
 
-[OBJECT:ToggleButtonContent]
-[PARAMLITERAL:category]
-OS
-[/PARAMLITERAL]
-[PARAMLITERAL:id]
-mac
-[/PARAMLITERAL]
-[PARAMLITERAL:active]
-[/PARAMLITERAL]
-[PARAM:content]
-[region: lightbox]
-[![](MobileHDR_Enabled_Mac.png)(w:400)](MobileHDR_Enabled_Mac.png)
-[/region]
-[/PARAM]
-[/OBJECT]
+[REGION:imagetable]
+| [INCLUDE:#customdepth] | [INCLUDE:#customstencil] |
+|---|---|
+| 自定义深度 | 自定义模具 |
+[/REGION]
 
-[region:caption]
-点击查看全图。
-[/region]
+[COMMENT:none]
+-
+[EXCERPT:customdepth]
+[REGION:raw]
+![](Custom_Scene_Depth.png)(w:575)
+[/REGION]
+[/EXCERPT:customdepth]
 
-[region:warning]
-请注意此功能当前在 **Mobile MSAA** 启用时无法使用，因此禁用 Mobile MSAA 后方能在设备上看到效果。
-[/region]
+[EXCERPT:customstencil]
+[REGION:raw]
+![](Custom_Stencil.png)(w:575)
+[/REGION]
+[/EXCERPT:customstencil]
+-
+[/COMMENT]
 
-## 总体后期处理性能提示
 
-* 为保证最佳性能和质量，应该坚持只使用 Bloom 和 TemporalAA。
+(#generalpostprocessperformancetips)
+## 一般性后期处理性能提示
+
+* 为保证最佳性能和质量，应该坚持只使用Bloom和TemporalAA。
 
 [REGION:note]
-为追求更好的性能，我们提供了一种特殊解决方法，由控制台变量“r.RenderTargetSwitchWorkaround”控制。您可看到它已在 **BaseDeviceProfiles.ini** 针对数个设备启用。注意：拥有特定性能特征的设备上的光晕效果将出现较小变化。控制台变量帮助文本对此进行了详细描述：
-
-	r.RenderTargetSwitchWorkaround
-
-	部分移动平台需要的解决方案，避免切换渲染目标出现性能下降。
-	仅在部分硬件上启用。这将对光晕质量产生些许影响。它的运行速度比普通代码路径慢，但
-	速度仍然较快（因为它能避免大量的渲染目标切换）。（默认：0）
-	我们需要在所有 32 位 iOS 设备上启用（1）此项（通过 DeviceProfiles 实现）。
+为追求更好的性能，我们提供了一种特殊解决方法，由控制台变量“r.RenderTargetSwitchWorkaround”控制。在 **BaseDeviceProfiles.ini** 中，您会看到它已经
+针对多个设备启用了。需要注意的是，在具备特定性能特征的设备上，泛光效果会有较小变化。 
 [/REGION]

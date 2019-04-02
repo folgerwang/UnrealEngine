@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "TrackEditors/PropertyTrackEditors/ColorPropertyTrackEditor.h"
 #include "Editor/UnrealEdEngine.h"
@@ -7,7 +7,7 @@
 #include "MatineeImportTools.h"
 #include "Matinee/InterpTrackLinearColorProp.h"
 #include "Matinee/InterpTrackColorProp.h"
-
+#include "Evaluation/MovieScenePropertyTemplate.h"
 
 FName FColorPropertyTrackEditor::RedName( "R" );
 FName FColorPropertyTrackEditor::GreenName( "G" );
@@ -38,6 +38,11 @@ void FColorPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FProperty
 	}
 
 	const UStructProperty* StructProp = Cast<const UStructProperty>( Property );
+	if (!StructProp)
+	{
+		return;
+	}
+
 	FName StructName = StructProp->Struct->GetFName();
 	FName PropertyName = Property->GetFName();
 
@@ -117,3 +122,34 @@ void FColorPropertyTrackEditor::BuildTrackContextMenu( FMenuBuilder& MenuBuilder
 	FKeyframeTrackEditor::BuildTrackContextMenu(MenuBuilder, Track);
 }
 
+
+bool FColorPropertyTrackEditor::ModifyGeneratedKeysByCurrentAndWeight(UObject *Object, UMovieSceneTrack *Track, UMovieSceneSection* SectionToKey, FFrameNumber KeyTime, FGeneratedTrackKeys& GeneratedTotalKeys, float Weight) const
+{
+	FFrameRate TickResolution = GetSequencer()->GetFocusedTickResolution();
+
+	UMovieSceneColorTrack* ColorTrack = Cast<UMovieSceneColorTrack>(Track);
+	FMovieSceneEvaluationTrack EvalTrack = Track->GenerateTrackTemplate();
+
+	if (ColorTrack)
+	{
+		FMovieSceneInterrogationData InterrogationData;
+		GetSequencer()->GetEvaluationTemplate().CopyActuators(InterrogationData.GetAccumulator());
+
+		FMovieSceneContext Context(FMovieSceneEvaluationRange(KeyTime, GetSequencer()->GetFocusedTickResolution()));
+		EvalTrack.Interrogate(Context, InterrogationData, Object);
+
+		FLinearColor Val(0.0f, 0.0f, 0.0f, 0.0f);
+		for (const FLinearColor& InColor : InterrogationData.Iterate<FLinearColor>(FMovieScenePropertySectionTemplate::GetColorInterrogationKey()))
+		{
+			Val = InColor;
+			break;
+		}
+		FMovieSceneChannelProxy& Proxy = SectionToKey->GetChannelProxy();
+		GeneratedTotalKeys[0]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&Val.R, Weight);
+		GeneratedTotalKeys[1]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&Val.G, Weight);
+		GeneratedTotalKeys[2]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&Val.B, Weight);
+		GeneratedTotalKeys[3]->ModifyByCurrentAndWeight(Proxy, KeyTime, (void *)&Val.A, Weight);
+		return true;
+	}
+	return false;
+}

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieSceneParticleParameterTrack.h"
 #include "MovieSceneCommonHelpers.h"
@@ -17,6 +17,11 @@ UMovieSceneParticleParameterTrack::UMovieSceneParticleParameterTrack( const FObj
 FMovieSceneEvalTemplatePtr UMovieSceneParticleParameterTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const
 {
 	return FMovieSceneParticleParameterSectionTemplate(*CastChecked<UMovieSceneParameterSection>(&InSection), *this);
+}
+
+bool UMovieSceneParticleParameterTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneParameterSection::StaticClass();
 }
 
 UMovieSceneSection* UMovieSceneParticleParameterTrack::CreateNewSection()

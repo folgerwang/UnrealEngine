@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	XeAudioDevice.cpp: Unreal XAudio2 Audio interface object.
@@ -329,7 +329,7 @@ bool FXAudio2SoundBuffer::ReadCompressedInfo(USoundWave* SoundWave)
 	return DecompressionState->ReadCompressedInfo(SoundWave->ResourceData, SoundWave->ResourceSize, nullptr);
 }
 
-bool FXAudio2SoundBuffer::ReadCompressedData( uint8* Destination, bool bLooping )
+bool FXAudio2SoundBuffer::ReadCompressedData( uint8* Destination, int32 NumFramesToDecode, bool bLooping )
 {
 	if (!DecompressionState)
 	{
@@ -337,14 +337,14 @@ bool FXAudio2SoundBuffer::ReadCompressedData( uint8* Destination, bool bLooping 
 		return false;
 	}
 	
-	const uint32 kPCMBufferSize = MONO_PCM_BUFFER_SIZE * NumChannels;
+	int32 NumBytesToDecode = NumFramesToDecode * sizeof(int16) * NumChannels;
 	if (SoundFormat == SoundFormat_Streaming)
 	{
-		return DecompressionState->StreamCompressedData( Destination, bLooping, kPCMBufferSize );
+		return DecompressionState->StreamCompressedData(Destination, bLooping, NumBytesToDecode);
 	}
 	else
 	{
-		return( DecompressionState->ReadCompressedData( Destination, bLooping, kPCMBufferSize ) );
+		return DecompressionState->ReadCompressedData(Destination, bLooping, NumBytesToDecode);
 	}
 }
 
@@ -489,8 +489,14 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateStreamingBuffer( FXAudio2Device*
 		// Refresh the wave data
 		Wave->SetSampleRate(QualityInfo.SampleRate);
 		Wave->NumChannels = QualityInfo.NumChannels;
-		Wave->RawPCMDataSize = QualityInfo.SampleDataSize;
-		Wave->Duration = QualityInfo.Duration;
+		if (QualityInfo.SampleDataSize != 0)
+		{
+			Wave->RawPCMDataSize = QualityInfo.SampleDataSize;
+		}
+		if (QualityInfo.Duration != 0.0f)
+		{
+			Wave->Duration = QualityInfo.Duration;
+		}
 
 		Buffer->InitWaveFormatEx(WAVE_FORMAT_PCM, Wave, false);
 
@@ -502,6 +508,9 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateStreamingBuffer( FXAudio2Device*
 	}
 	else
 	{
+		Wave->DecompressionType = DTYPE_Invalid;
+		Wave->NumChannels = 0;
+
 		delete Buffer;
 		Buffer = nullptr;
 

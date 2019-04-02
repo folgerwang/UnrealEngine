@@ -16,6 +16,8 @@
 		<!-- get packaging for Facebook from ini and reset it if architecture not supported -->
 		<setBoolFromProperty result="bEnabled" ini="Engine" section="OnlineSubsystemFacebook" property="bEnabled" default="false"/>
 		<setStringFromProperty result="ClientId" ini="Engine" section="OnlineSubsystemFacebook" property="ClientId" default="0"/>
+		<setBoolFromProperty result="bEnableAutomaticLogging" ini="Engine" section="OnlineSubsystemFacebook" property="bEnableAutomaticLogging" default="1"/>
+		<setBoolFromProperty result="bEnableAdvertisingId" ini="Engine" section="OnlineSubsystemFacebook" property="bEnableAdvertisingId" default="1"/>
 		<dumpvars/>
 	</init>
 	
@@ -57,11 +59,15 @@
 	</AARImports>
 
 	<buildGradleAdditions>
-		<insert>
+		<if condition="bEnabled">
+			<true>
+				<insert>
 dependencies {
-	implementation('com.facebook.android:facebook-android-sdk:4.32.0')
+	implementation('com.facebook.android:facebook-android-sdk:4.39.0')
 }
-		</insert>
+				</insert>
+			</true>
+		</if>
 	</buildGradleAdditions>
 	
 	<!-- optional updates applied to AndroidManifest.xml -->
@@ -74,6 +80,24 @@ dependencies {
 				<addAttribute tag="$FBAppId" name="android:name" value="com.facebook.sdk.ApplicationId" />
 				<addAttribute tag="$FBAppId" name="android:value" value="fb$S(ClientId)" />
 				<addElement tag="application" name="FBAppId" />
+
+				<if condition="bEnableAutomaticLogging">
+					<false>
+						<setElement result="FBAnalyticsEnabled" value="meta-data" />
+						<addAttribute tag="$FBAnalyticsEnabled" name="android:name" value="com.facebook.sdk.AutoLogAppEventsEnabled" />
+						<addAttribute tag="$FBAnalyticsEnabled" name="android:value" value="false" />
+						<addElement tag="application" name="FBAnalyticsEnabled" />
+					</false>
+				</if>
+
+				<if condition="bEnableAdvertisingId">
+					<false>
+						<setElement result="FBAdIdCollectionEnabled" value="meta-data" />
+						<addAttribute tag="$FBAdIdCollectionEnabled" name="android:name" value="com.facebook.sdk.AdvertiserIDCollectionEnabled" />
+						<addAttribute tag="$FBAdIdCollectionEnabled" name="android:value" value="false" />
+						<addElement tag="application" name="FBAdIdCollectionEnabled" />
+					</false>
+				</if>
 				
 				<setElement result="FBActivity" value="activity" />
 				<addAttribute tag="$FBActivity" name="android:name" value="com.facebook.FacebookActivity" />
@@ -197,20 +221,24 @@ dependencies {
 	<!-- optional additions to GameActivity onCreate in GameActivity.java -->
 	<gameActivityOnCreateAdditions>
 		<if condition="bEnabled">
-			<true>
+			<true>				
+				<insertValue value="    boolean bEnableAppEvents = $B(bEnableAutomaticLogging);" />
+				<insertNewline/>
+				<insertValue value="    boolean bEnableAdId = $B(bEnableAdvertisingId);" />
+				<insertNewline/>
 				<insert>
-	// Begin Facebook onCreate
-	facebookLogin = new FacebookLogin(this, Log);
-	if (!facebookLogin.init(BuildConfiguration))
-	{
-		facebookLogin = null;
-		Log.error("Facebook SDK failed to initialize!");
-	}
-	else
-	{
-		Log.debug("Facebook SDK success!");
-	}
-	// End Facebook onCreate
+					// Begin Facebook onCreate
+					facebookLogin = new FacebookLogin(this, Log);
+					if (!facebookLogin.init(BuildConfiguration, bEnableAppEvents, bEnableAdId))
+					{
+					facebookLogin = null;
+					Log.error("Facebook SDK failed to initialize!");
+					}
+					else
+					{
+					Log.debug("Facebook SDK success!");
+					}
+					// End Facebook onCreate
 				</insert>
 			</true>
 		</if>

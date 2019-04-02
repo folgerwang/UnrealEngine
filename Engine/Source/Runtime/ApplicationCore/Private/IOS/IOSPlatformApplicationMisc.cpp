@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "IOS/IOSPlatformApplicationMisc.h"
 
@@ -175,6 +175,14 @@ bool FIOSPlatformApplicationMisc::ControlScreensaver(EScreenSaverAction Action)
 	IOSAppDelegate* AppDelegate = [IOSAppDelegate GetDelegate];
 	[AppDelegate EnableIdleTimer : (Action == FGenericPlatformApplicationMisc::Enable)];
 	return true;
+}
+
+void FIOSPlatformApplicationMisc::SetGamepadsAllowed(bool bAllowed)
+{
+	if (FIOSInputInterface* InputInterface = (FIOSInputInterface*)CachedApplication->GetInputInterface())
+	{
+		InputInterface->SetGamepadsAllowed(bAllowed);
+	}
 }
 
 void FIOSPlatformApplicationMisc::ResetGamepadAssignments()

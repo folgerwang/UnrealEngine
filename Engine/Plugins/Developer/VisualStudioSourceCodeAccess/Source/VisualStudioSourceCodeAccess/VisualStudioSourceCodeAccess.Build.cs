@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 using Microsoft.Win32;
 using System.IO;
 
@@ -14,7 +14,9 @@ namespace UnrealBuildTool.Rules
 					"Core",
 					"SourceCodeAccess",
 					"DesktopPlatform",
-					"Projects"
+					"Projects",
+					"Json",
+					"VisualStudioSetup"
 				}
 			);
 
@@ -44,7 +46,7 @@ namespace UnrealBuildTool.Rules
 						case WindowsCompiler.VisualStudio2017:
 							DTEKey = "VisualStudio.DTE.15.0";
 							break;
-						case WindowsCompiler.VisualStudio2015:
+						case WindowsCompiler.VisualStudio2015_DEPRECATED:
 							DTEKey = "VisualStudio.DTE.14.0";
 							break;
 					}
@@ -56,7 +58,7 @@ namespace UnrealBuildTool.Rules
 				}
 			}
 
-			if (bHasVisualStudioDTE)
+			if (bHasVisualStudioDTE && Target.WindowsPlatform.StaticAnalyzer != WindowsStaticAnalyzer.PVSStudio)
 			{
 				PublicDefinitions.Add("VSACCESSOR_HAS_DTE=1");
 			}

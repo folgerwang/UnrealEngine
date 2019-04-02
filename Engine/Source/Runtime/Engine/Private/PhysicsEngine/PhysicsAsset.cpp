@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PhysicsAsset.cpp
@@ -36,8 +36,7 @@ void UPhysicsAsset::UpdateBoundsBodiesArray()
 
 	for(int32 i=0; i<SkeletalBodySetups.Num(); i++)
 	{
-		check(SkeletalBodySetups[i]);
-		if(SkeletalBodySetups[i]->bConsiderForBounds)
+		if(ensure(SkeletalBodySetups[i]) && SkeletalBodySetups[i]->bConsiderForBounds)
 		{
 			BoundsBodies.Add(i);
 		}
@@ -135,8 +134,10 @@ void UPhysicsAsset::UpdateBodySetupIndexMap()
 
 	for(int32 i=0; i<SkeletalBodySetups.Num(); i++)
 	{
-		check(SkeletalBodySetups[i]);
-		BodySetupIndexMap.Add(SkeletalBodySetups[i]->BoneName, i);
+		if (ensure(SkeletalBodySetups[i]))
+		{
+			BodySetupIndexMap.Add(SkeletalBodySetups[i]->BoneName, i);
+		}
 	}
 }
 
@@ -169,46 +170,6 @@ void UPhysicsAsset::PostLoad()
 	if (SkeletalBodySetups.Num() > 0 && BodySetupIndexMap.Num() == 0)
 	{
 		UpdateBodySetupIndexMap();
-	}
-
-	if (GetLinkerCustomVersion(FReleaseObjectVersion::GUID) < FReleaseObjectVersion::NoSyncAsyncPhysAsset)
-	{
-		bool bCurrentUseAsync = false;
-		bool bAnyConflicts = false;
-		for (int32 BodySetupIdx = 0; BodySetupIdx < SkeletalBodySetups.Num(); ++BodySetupIdx)
-		{
-			if(UBodySetup* BS = SkeletalBodySetups[BodySetupIdx])
-			{
-				if(BodySetupIdx == 0)
-				{
-					bCurrentUseAsync = BS->DefaultInstance.bUseAsyncScene;
-				}
-				else if(BS->DefaultInstance.bUseAsyncScene != bCurrentUseAsync)
-				{
-					bAnyConflicts = true;
-					break;
-				}
-			}
-		}
-
-		bUseAsyncScene = bAnyConflicts ? false : bCurrentUseAsync;	//If there's any conflict just use the sync scene
-
-		for (UBodySetup* BS : SkeletalBodySetups)
-		{
-			if (BS)
-			{
-				BS->DefaultInstance.bUseAsyncScene = bUseAsyncScene;
-			}
-		}
-
-		
-#if WITH_EDITOR
-		if(bAnyConflicts)
-		{
-			FMessageLog("LoadErrors").Warning(FText::Format(LOCTEXT("ConflictSyncAsync", "Physics Asset had both sync and async bodies. Defaulting to sync scene only. If you'd like to use async change UseAsyncScene on the PhysicsAsset:{0}"),
-				FText::FromString(GetName())));
-		}
-#endif
 	}
 }
 
@@ -531,6 +492,10 @@ void UPhysicsAsset::GetBodyIndicesBelow(TArray<int32>& OutBodyIndices, FName InB
 	for(int32 i=0; i<SkeletalBodySetups.Num(); i++)
 	{
 		UBodySetup* BS = SkeletalBodySetups[i];
+		if (!ensure(BS))
+		{
+			continue;
+		}
 		FName TestName = BS->BoneName;
 		int32 TestIndex = SkelMesh->RefSkeleton.FindBoneIndex(TestName);
 
@@ -560,6 +525,10 @@ void UPhysicsAsset::GetNearestBodyIndicesBelow(TArray<int32> & OutBodyIndices, F
 		if (Nearest[BodyIndex] == false) continue;
 
 		UBodySetup * Body = SkeletalBodySetups[BodyIndex];
+		if (!ensure(Body))
+		{
+			continue;
+		}
 		TArray<int32> BodiesBelowMe;
 		GetBodyIndicesBelow(BodiesBelowMe, Body->BoneName, InSkelMesh, false);
 		
@@ -583,7 +552,10 @@ void UPhysicsAsset::ClearAllPhysicsMeshes()
 {
 	for(int32 i=0; i<SkeletalBodySetups.Num(); i++)
 	{
-		SkeletalBodySetups[i]->ClearPhysicsMeshes();
+		if (ensure(SkeletalBodySetups[i]))
+		{
+			SkeletalBodySetups[i]->ClearPhysicsMeshes();
+		}
 	}
 }
 
@@ -593,7 +565,10 @@ void UPhysicsAsset::InvalidateAllPhysicsMeshes()
 {
 	for(int32 i=0; i<SkeletalBodySetups.Num(); i++)
 	{
-		SkeletalBodySetups[i]->InvalidatePhysicsData();
+		if (ensure(SkeletalBodySetups[i]))
+		{
+			SkeletalBodySetups[i]->InvalidatePhysicsData();
+		}
 	}
 }
 
@@ -723,14 +698,6 @@ void UPhysicsAsset::PostEditChangeProperty(FPropertyChangedEvent& PropertyChange
 			};
 
 			SanitizeProfilesHelper<UPhysicsConstraintTemplate>(ConstraintSetup, PreConstraintProfiles, ConstraintProfiles, PropertyChangedEvent, PropertyName, CurrentConstraintProfileName, RenameFunc, DuplicateFunc, UpdateFunc);
-		}
-		else if (PropertyName == GET_MEMBER_NAME_CHECKED(UPhysicsAsset, bUseAsyncScene))
-		{
-			for(USkeletalBodySetup* BS : SkeletalBodySetups)
-			{
-				BS->Modify();
-				BS->DefaultInstance.bUseAsyncScene = bUseAsyncScene;
-			}
 		}
 	}
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -42,6 +42,10 @@ class ENGINE_API ULocalLightComponent : public ULightComponent
 
 	UFUNCTION(BlueprintCallable, Category="Rendering|Lighting")
 	void SetAttenuationRadius(float NewRadius);
+
+	/** Set the units used for the intensity of the light */
+	UFUNCTION(BlueprintCallable, Category="Rendering|Components|Light")
+	void SetIntensityUnits(ELightUnits NewIntensityUnits);
 
 	UFUNCTION(BlueprintPure, Category="Rendering|Lighting")
 	static float GetUnitsConversionFactor(ELightUnits SrcUnits, ELightUnits TargetUnits, float CosHalfConeAngle = -1);

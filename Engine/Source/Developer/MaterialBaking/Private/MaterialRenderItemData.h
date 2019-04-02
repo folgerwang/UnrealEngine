@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -11,10 +11,16 @@
 class FMeshRenderInfo : public FLightCacheInterface
 {
 public:
-	FMeshRenderInfo(const FLightMap* InLightMap, const FShadowMap* InShadowMap, FUniformBufferRHIRef Buffer)
-		: FLightCacheInterface(InLightMap, InShadowMap)
+	FMeshRenderInfo(const FLightMap* InLightMap, const FShadowMap* InShadowMap, FUniformBufferRHIRef Buffer, const FLightmapResourceCluster* InLightmapResourceCluster)
+		: FLightCacheInterface()
 	{
+		SetLightMap(InLightMap);
+		SetShadowMap(InShadowMap);
 		SetPrecomputedLightingBuffer(Buffer);
+		if (InLightmapResourceCluster)
+		{
+			SetResourceCluster(InLightmapResourceCluster);
+		}
 	}
 
 	virtual FLightInteraction GetInteraction(const class FLightSceneProxy* LightSceneProxy) const override

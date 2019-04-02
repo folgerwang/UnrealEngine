@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -50,6 +50,11 @@ namespace EButtonTouchMethod
 	{
 		/** Most buttons behave this way. */
 		DownAndUp,
+
+		/**
+		 * Click will be triggered immediately on touch down, and touch will not be captured.
+		 */
+		Down,
 
 		/**
 		 * Inside a list, buttons can only be clicked with precise tap.

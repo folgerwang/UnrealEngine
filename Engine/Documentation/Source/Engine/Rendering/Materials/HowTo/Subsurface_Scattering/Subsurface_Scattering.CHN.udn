@@ -1,26 +1,28 @@
-﻿INTSourceChangelist:2738838
+﻿INTSourceChangelist:3242329
 Availability:Public
-Title:材质编辑器 - 如何在材质中使用次表面散射 
+Title:在材质中使用次表面散射 
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials
-Description:如何创建材质 
+Description:在材质中使用次表面散射着色模型的指南 
 Related:Engine/Rendering/Materials/LightingModels/SubSurfaceProfile
 Related:Engine/Rendering/Materials/LightingModels/SubSurface
 Related:Resources/ContentExamples/MaterialNodes/1_13
 Related:Resources/ContentExamples/MaterialNodes/1_7
 Version:4.9
 SkillLevel:Intermediate
+tags:Materials
 
 [TOC(start:2)]
 
 
 “次表面散射”术语用来描述光线穿过透明/半透明表面时发生散射的照明现象。
- 虚幻引擎 4 (UE4) 提供了称为 [次表面](Engine/Rendering/Materials/LightingModels/SubSurface) 的特殊 [明暗处理模型](Engine/Rendering/Materials/MaterialProperties/LightingModels)，专门用于需要此类互动的材质，例如皮肤或蜡状物。
+ 虚幻引擎 4 (UE4) 提供了称为 [次表面](Engine/Rendering/Materials/LightingModels/SubSurface) 的特殊 [着色模型](Engine/Rendering/Materials/MaterialProperties/LightingModels)，专门用于需要此类互动的材质，例如皮肤或蜡状物。
  以下操作指南将阐述在材质中使用次表面散射所需了解的所有内容。
 
-## 启用次表面明暗处理模型
-使材质能够使用次表面明暗处理模型的步骤如下所示。 
+(#EnablingtheSubsurfaceShadingModel)
+## 启用次表面着色模型
+使材质能够使用次表面着色模型的步骤如下所示。 
 
-1. 首先，通过在 **内容浏览器** 中 **右键单击**，然后从 **创建基本资产（Create Basic Asset）**列表中选择“材质”（Material），创建新材质。 
+1. 首先，通过在 **内容浏览器** 中 **右键单击**，然后从 **创建基本资源（Create Basic Asset）**列表中选择“材质”（Material），创建新材质。 
 创建之后，务必对该材质进行命名。在此示例中，材质将命名为 **MAT_Subsurface_00**。 
 完成后，您的 **内容浏览器** 应该如下所示。 
 
@@ -30,7 +32,7 @@ SkillLevel:Intermediate
 
 	![](SSM_Open_New_Material.png)
 
-1. 材质现已打开，我们需要将其 **明暗处理模型（Shading Model）**从 **默认点亮（Default Lit）**更改为 **次表面（Subsurface）**。 
+1. 材质现已打开，我们需要将其 **着色模型（Shading Model）**从 **默认点亮（Default Lit）**更改为 **次表面（Subsurface）**。 
 
 	[OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:width]
@@ -47,6 +49,7 @@ SkillLevel:Intermediate
 1. 此材质现在已可用作次表面材质。 
 	
 
+(#SettingupaSubsurfaceMaterial)
 ## 设置次表面材质
 
 继续使用上文中启用了次表面散射的材质，让我们设置一个基本材质，以便查看关卡内作用中的次表面散射。 
@@ -58,6 +61,7 @@ SkillLevel:Intermediate
 	* **标量参数（Scalar Parameter）**x 2
 
 	![](SSM_Adding_Nodes.png)
+
 	[region:tip]
 	我们使用参数材质节点而非一般材质节点的原因是，这样可以根据此材质来建立材质实例，从而方便在编辑器内进行微调。 
 	[/region]
@@ -91,6 +95,7 @@ SkillLevel:Intermediate
 	[/OBJECT]
 
 1. 所有节点都已连接完毕，请务必按 **应用（Apply）**按钮以编译材质。编译完成后，结果如下图所示。 
+
 	![](SSM_Finshed_Material.png)
 
 1. 编译材质完成后，您现在可关闭材质窗口。接着，在 **内容浏览器** 内，选中该材质，**右键单击**，然后从菜单中选择 **创建材质实例（Create Material Instance）**选项。  
@@ -107,6 +112,7 @@ SkillLevel:Intermediate
 	[/OBJECT]
 
 
+(#ApplyingaSubsurfaceMaterial)
 ## 应用次表面材质
 1. 材质实例现已创建完毕，我们可以开始测试新材质。 
 	为此，我们首先需要创建新的空白关卡以便在其中工作，方法如下：打开主菜单，然后从 **文件（File）**选项中选择 **新建关卡（New Level）**。 
@@ -153,7 +159,8 @@ SkillLevel:Intermediate
 
 	找到该网格后，请将其从 **内容浏览器** 拖放到关卡中。 
 	放入关卡后，请将其位置设置为环境中的 **0,0,0**。 
-	完成后，您的关卡视口应该如下所示。 
+	完成后，您的关卡视口应该如下所示。
+ 
 	![](SSM_Adding_Meshes.png)
 
 1. 静态网格现已放入关卡，我们现在可以对其应用次表面材质。 
@@ -171,10 +178,12 @@ SkillLevel:Intermediate
 	[/PARAMLITERAL]
 	[/OBJECT]
 
+(#WorkingwiththeSubsurfaceMaterial)
 ## 使用次表面材质
 次表面材质现已应用完毕，您可以开始调整材质实例的设置。 
 在下列各节中，我们将回顾如何控制次表面材质的外观，以及如何调整材质实例中的各种选项以获得我们所需的结果。 
 
+(#OpacityControls)
 ### “不透明”（Opacity）控制 
 在次表面材质的当前设置中，“不透明”（Opacity）输入控制着我们要让对象散射的光线量。 
 设置 0 将允许所有光线散射，而设置 1 不允许任何光线散射。 
@@ -186,6 +195,7 @@ SkillLevel:Intermediate
 虽然“不透明”（Opacity）确实有助于消除大量散射光，但是您可能会注意到，仍存在一些次表面散射。要完全消除该效果，您还必须调整“次表面颜色”（Subsurface Color）的 **值（Value）**（下面的“次表面颜色值”一节提供了这方面的更多信息。）
 [/region]
 
+(#SubsurfaceColorValue)
 ### 次表面颜色值
  虽然您可通过“不透明”（Opacity）输入来调整次表面散射量，但也可以使用 **取色器** 中的 **值（Value）**滑块进行此调整。 
  例如，将“不透明”（Opacity）设置为值 1.0 并将“次表面颜色值”（Subsurface Colors Value）从白色调整为黑色将有效地关闭次表面散射，如以下示例所示。 
@@ -206,6 +216,7 @@ SkillLevel:Intermediate
 yKmyUwXmSJE
 [/PARAMLITERAL]
 [/OBJECT]
+(#UsingaTextureasaSubsurfaceInfluenceMask)
 ## 使用纹理作为次表面影响蒙版
 您可使用纹理作为蒙版，以进一步控制接收或不接收次表面散射的区域。 
 为此，您只需将所要使用的纹理作为蒙版连接到材质的 **不透明（Opacity）**通道。 

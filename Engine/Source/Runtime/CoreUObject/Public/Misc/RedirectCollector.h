@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RedirectCollector:  Editor-only global object that handles resolving redirectors and handling string asset cooking rules
@@ -15,7 +15,7 @@ class COREUOBJECT_API FRedirectCollector
 {
 private:
 	
-	/** Helper struct for string asset reference tracking */
+	/** Helper struct for soft object path tracking */
 	struct FPackagePropertyPair
 	{
 		FPackagePropertyPair() : bReferencedByEditorOnlyProperty(false) {}
@@ -77,8 +77,9 @@ public:
 	/**
 	 * Called from FSoftObjectPath::PostLoadPath, registers this for later querying
 	 * @param InPath The soft object path that was loaded
+	 * @Param InArchive The archive that loaded this path
 	 */
-	void OnSoftObjectPathLoaded(const struct FSoftObjectPath& InPath);
+	void OnSoftObjectPathLoaded(const struct FSoftObjectPath& InPath, FArchive* InArchive);
 
 	/**
 	 * Load all soft object paths to resolve them, add that to the remap table, and empty the array
@@ -112,13 +113,13 @@ public:
 		return SoftObjectPathMap.Num() > 0;
 	}
 
-	DEPRECATED(4.17, "OnStringAssetReferenceSaved is deprecated, call GetAssetPathRedirection")
+	UE_DEPRECATED(4.17, "OnStringAssetReferenceSaved is deprecated, call GetAssetPathRedirection")
 	FString OnStringAssetReferenceSaved(const FString& InString);
 
-	DEPRECATED(4.18, "OnStringAssetReferenceLoaded is deprecated, call OnSoftObjectPathLoaded")
+	UE_DEPRECATED(4.18, "OnStringAssetReferenceLoaded is deprecated, call OnSoftObjectPathLoaded")
 	void OnStringAssetReferenceLoaded(const FString& InString);
 
-	DEPRECATED(4.18, "ResolveStringAssetReference is deprecated, call ResolveAllSoftObjectPaths")
+	UE_DEPRECATED(4.18, "ResolveStringAssetReference is deprecated, call ResolveAllSoftObjectPaths")
 	void ResolveStringAssetReference(FName FilterPackage = NAME_None, bool bProcessAlreadyResolvedPackages = true)
 	{
 		ResolveAllSoftObjectPaths(FilterPackage);
@@ -129,7 +130,7 @@ private:
 	/** A map of assets referenced by soft object paths, with the key being the asset being referenced and the value equal to the package with the reference */
 	TMultiMap<FName, FPackagePropertyPair> SoftObjectPathMap;
 
-	/** When saving, apply this remapping to all string asset references */
+	/** When saving, apply this remapping to all soft object paths */
 	TMap<FName, FName> AssetPathRedirectionMap;
 
 	/** For SoftObjectPackageMap map */

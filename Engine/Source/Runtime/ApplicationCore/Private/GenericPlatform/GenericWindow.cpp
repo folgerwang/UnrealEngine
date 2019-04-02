@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GenericPlatform/GenericWindow.h"
 
@@ -187,6 +187,16 @@ bool FGenericWindow::IsManualManageDPIChanges() const
 }
 
 void FGenericWindow::SetManualManageDPIChanges(const bool bAutoHandle)
+{
+	// empty default functionality
+}
+
+void FGenericWindow::DrawAttention(const FWindowDrawAttentionParameters& Parameters)
+{
+	// empty default functionality
+}
+
+void FGenericWindow::SetNativeWindowButtonsVisibility(bool bVisible)
 {
 	// empty default functionality
 }

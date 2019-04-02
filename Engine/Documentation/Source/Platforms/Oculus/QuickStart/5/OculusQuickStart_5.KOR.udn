@@ -2,7 +2,7 @@
 Availability: Public
 Crumbs: %ROOT%
 Title: 5. 리프트와 UE4 테스트
-Description: 언리얼 엔진 4 를 사용하여 오큘러스 리프트용으로 디자인된 콘텐츠를 로드하고 플레이합니다.
+Description: 언리얼 엔진 4 를 사용하여 Oculus 리프트용으로 디자인된 콘텐츠를 로드하고 플레이합니다.
 Type: quick start
 SkillLevel: Beginner
 Version: 4.17

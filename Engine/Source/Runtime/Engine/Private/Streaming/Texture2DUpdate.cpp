@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 Texture2DUpdate.cpp: Helpers to stream in and out mips.
@@ -35,7 +35,7 @@ FTexture2DUpdate::FTexture2DUpdate(UTexture2D* InTexture, int32 InRequestedMips)
 	const int32 MaxMipCount = InTexture->GetNumMips();
 	InRequestedMips = FMath::Clamp<int32>(InRequestedMips, NonStreamingMipCount, MaxMipCount);
 
-	if (InRequestedMips != InTexture->GetNumResidentMips() && InTexture->bIsStreamable && InTexture->Resource)
+	if (InRequestedMips > 0 && InRequestedMips != InTexture->GetNumResidentMips() && InTexture->bIsStreamable && InTexture->Resource)
 	{
 		RequestedMips = InRequestedMips;
 		PendingFirstMip	= InTexture->GetPlatformMips().Num() - RequestedMips;
@@ -178,19 +178,19 @@ void FTexture2DUpdate::ScheduleTick(const FContext& Context, EThreadType InThrea
 		FPlatformAtomics::InterlockedIncrement(&ScheduledTaskCount);
 		PendingTaskState = TS_Scheduled;
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		Texture2DUpdateCommand,
-		UTexture2D*, Texture, Context.Texture,
-		FTexture2DUpdate*, CachedPendingUpdate, this,
-		{
-			check(Texture && CachedPendingUpdate);
+		UTexture2D* Texture = Context.Texture;
+		FTexture2DUpdate* CachedPendingUpdate = this;
+		ENQUEUE_RENDER_COMMAND(Texture2DUpdateCommand)(
+			[Texture, CachedPendingUpdate](FRHICommandListImmediate& RHICmdList)
+			{
+				check(Texture && CachedPendingUpdate);
 
-			// Recompute the context has things might have changed!
-			CachedPendingUpdate->Tick(Texture, TT_Render);
+				// Recompute the context has things might have changed!
+				CachedPendingUpdate->Tick(Texture, TT_Render);
 
-			FPlatformMisc::MemoryBarrier();
-			FPlatformAtomics::InterlockedDecrement(&CachedPendingUpdate->ScheduledTaskCount);
-		});
+				FPlatformMisc::MemoryBarrier();
+				FPlatformAtomics::InterlockedDecrement(&CachedPendingUpdate->ScheduledTaskCount);
+			});
 	}
 	else // InThread == TT_Async
 	{

@@ -1,0 +1,94 @@
+INTSourceChangelist:4400471
+Availability: Public
+Crumbs: 
+Title: AR 히트 테스트 안내서
+Description: 증강 현실에서 트래킹 지오메트리의 히트 테스트 방법을 안내합니다.
+Type: 
+Version: 4.19
+Parent: Platforms/AR/HandheldAR
+Order: 5
+Tags: mobile
+Tags: iOS
+Tags: Android
+Tags: AR
+
+
+전제 조건  
+이 글은 다음 주제에 대해 알고 있는 분들을 대상으로 합니다. 계속하기 전 확인해 주세요.
+
+*   [](Platforms/AR/HandheldAR/ARKitPrerequisites)
+*   [](Platforms/AR/HandheldAR/ARCorePrerequisites)
+*   [](Platforms/AR/HandheldAR/ARQuickStart)
+
+![](AR_HitTesting.png)
+[REGION:note]
+여기서는 **Handheld AR** 템플릿을 사용합니다.
+[/REGION]
+
+여기서는 **Handheld AR** 템플릿이 생성한 예제 프로젝트를 살펴보며 표준 히트 테스트와 트래킹 오브젝트 히트 테스트 방법을 알아봅니다. 히트 테스트(라인 트레이스)는 언리얼 엔진 또는 블루프린트에 새로운 개념은 아닙니다. 하지만 한 가지 중요한 점은, 언리얼 월드의 히트 테스트와 증강 현실의 히트 테스트는 접근법이 다르다는 것을 인식해야 합니다. 예제 프로젝트에 언리얼 월드의 히트 테스트 표준 패턴 및 핸드헬드 디바이스에서 증강 현실의 히트 테스트가 들어있습니다. 
+[REGION:tip]
+AR 헤드셋과 같은 다른 AR 디바이스는 여기서 논한 것과 다른 접근법이 필요할 것입니다.
+[/REGION]
+
+## 단계
+
+### 새 핸드헬드 AR 프로젝트 생성
+
+1.  언리얼 프로젝트 브라우저를 열고 **Handheld AR** (휴대형 증강 현실) 블루프린트 프로젝트를 새로 생성하거나, 기존 증강 현실 프로젝트를 엽니다.  
+    증강 현실 프로젝트를 새로 생성하는 방법은 [](Platforms/AR/HandheldAR/ARQuickStart) 문서를 참고하세요.  
+    ![](AR_NewProjectScreen_HandheldARandProjectSettingsSelected.png)
+2.  **BP_ARPawn** 블루프린트 클래스를 엽니다.  
+    ![](AR_BlueprintARPawnClass.png)
+3.  **이벤트 그래프** 탭을 선택합니다.  
+    ![](AR_BlueprintARPawnEventGraph.png)
+
+  
+
+### 트래킹 지오메트리 vs 월드 오브젝트에 대한 히트 테스트
+
+예제 프로젝트는 보통 워크플로 상황에서 **Line Trace For Objects** 및 **Line Trace Tracked Objects** 를 사용하는 것을 보여줍니다. 언리얼 월드 오브젝트에 대한 히트 검사에는 **Line Trace For Objects** 가 쓰이는 반면, (증강 현실) 트래킹 오브젝트에 대한 히트 검사는 **Line Trace Tracked Objects** 가 쓰입니다. 라인 트레이스는 언리얼 엔진에 새로운 개념은 아니지만, **Line Trace Tracked Objects** 라는 새로운 함수로 월드의 추가 트래킹 지오메트리를 감지할 수 있습니다.
+[REGION:tip]
+아래 예제에서 보이듯, 먼저 월드 오브젝트를 검사합니다. 그 이유는 스폰된 월드 오브젝트는 종종 라인 트레이스 원점 가까이 렌더링되므로, 트래킹 지오메트리 앞에 보입니다. 트래킹 지오메트리를 먼저 테스트하면, 매번 터치하려는 것을 놓칠 것입니다.
+[/REGION]  
+[REGION:lightbox]
+[![](AR_BlueprintBothHitTests.png)](AR_BlueprintBothHitTests.png)
+[/REGION]
+[REGION:caption]
+클릭하면 이미지 원본을 확인합니다.
+[/REGION]  
+
+*   **Test If User Touched World Object** (사용자가 월드 오브젝트를 터치했는지 테스트)  
+    **Line Trace For Objects** 함수를 (**World Hit Test** 에서) 사용하는 표준 용도로, 잠재적 언리얼 월드 오브젝트 배열을 검사하고 "true" / "false" 를 반환합니다. 이 경우 반환 값이 "true" 면 **AR Hit Result** 를 호출, **Debug Menu** 아이템 하나를 업데이트합니다. 반환 값이 "false" 면 실행 경로가 새 증강 현실 함수 **Line Trace Tracked Objects** 로 이동합니다.   
+    [REGION:lightbox]
+    [![](AR_BlueprintHitTests_WorldHitTest.png)](AR_BlueprintHitTests_WorldHitTest.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]  
+    [REGION:lightbox]
+    [![](AR_WorldHitTest.png)](AR_WorldHitTest.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+  
+*   **Test If User Touched Tracked Geometry, Spawn Object** (사용자가 트래킹 지오메트리를 터치했는지 테스트하고, 오브젝트 스폰)  
+    **Line Trace Tracked Objects** 는 트래킹 오브젝트(증강 현실 트래킹 시스템이 인지한 지오메트리)에 대한 라인 트레이스 테스트용 새 증강 현실 함수입니다. **Line Trace Tracked Objects** 는 카메라까지 거리에 따라 정렬한 결과 목록을 반환합니다. 이 경우 반환 값이 *0 보다 크면* (트래킹 오브젝트에 히트), **AR Hit Result** 를 호출하여 **Debug Menu** 아이템 중 하나를 업데이트하고, **Spawn Actor BP Placeable** 을 호출하여 히트한 *트래킹* 위치에 폰을 생성합니다. 반환 값에 히트 결과가 없(트래킹 오브젝트에 히트하지 않았)으면 , **AR Hit Result** 를 호출하여 **Debug Menu** 아이템 중 하나를 업데이트합니다.   
+    [REGION:lightbox]
+    [![](AR_BlueprintHitTests_ARHitTest.png)](AR_BlueprintHitTests_ARHitTest.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+
+[REGION:tip]
+이 프로젝트의 동작 다수는 결국 앱의 **Debug Menu** 를 업데이트하지만, 이는 이 프로젝트에 한해서입니다. 물론 라인 트래이스의 히트 데이터를 필요한 다른 방식으로 사용할 수도 있습니다. 여기서 차이점은 **Line Trace Tracked Object** 는 증강 현실 트래킹 지오메트리를 감지하고 반응하는 기능을 제공한다는 점입니다.
+[/REGION]
+
+### 다른 AR 함수 탐구
+
+**Handheld AR** 블루프린트 템플릿 기반 프로젝트를 탐구해 보면 여러 증강 현실 함수를 실제 상황에서 사용한 예제를 확인할 수 있습니다. 새로운 증강 현실 함수는 여러가지 있으니, 시간을 내서 프로젝트의 자세한 구현 내용을 살펴보시기 바랍니다. 
+
+[REGION:tip]
+프로젝트와 새 증강 현실 기능 탐구를 시작하기 좋은 곳은 **콘텐츠 브라우저** 에서 **Content\HandheldARBP\Blueprints\UI** 의 **BP_DebugMenu** 애셋을 **블루프린트 에디터** 로 열어보면 됩니다.
+[/REGION]

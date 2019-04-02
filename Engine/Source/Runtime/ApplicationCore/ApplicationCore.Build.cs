@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -73,8 +73,16 @@ public class ApplicationCore : ModuleRules
 			PublicIncludePaths.AddRange(new string[] {"Runtime/ApplicationCore/Public/IOS"});
 			AddEngineThirdPartyPrivateStaticDependencies(Target, "SoundSwitch");
 		}
+        else if (Target.Platform == UnrealTargetPlatform.Android || Target.Platform == UnrealTargetPlatform.Lumin)
+        {
+            PrivateDependencyModuleNames.AddRange(
+				new string[] {
+					"Launch"
+				}
+			);
+        }
 
-		if (!Target.bCompileAgainstApplicationCore)
+        if (!Target.bCompileAgainstApplicationCore)
         {
 			throw new System.Exception("ApplicationCore cannot be used when Target.bCompileAgainstApplicationCore = false.");
         }

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Sections/MovieSceneBoolSection.h"
 #include "UObject/SequencerObjectVersion.h"
@@ -71,6 +71,13 @@ void UMovieSceneBoolSection::ReconstructChannelProxy()
 	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(BoolCurve);
 
 #endif
+}
+
+void UMovieSceneBoolSection::PostEditImport()
+{
+	Super::PostEditImport();
+
+	ReconstructChannelProxy();
 }
 
 void UMovieSceneBoolSection::PostLoad()

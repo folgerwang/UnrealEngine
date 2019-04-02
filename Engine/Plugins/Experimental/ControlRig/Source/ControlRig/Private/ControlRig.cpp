@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRig.h"
 #include "GameFramework/Actor.h"
@@ -47,6 +47,8 @@ UWorld* UControlRig::GetWorld() const
 
 void UControlRig::Initialize()
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_ControlRig_Initialize);
+
 	// initialize hierarchy refs
 	// @todo re-think
 	{
@@ -81,6 +83,10 @@ void UControlRig::Initialize()
 			FRigUnit* RigUnit = UnitProperty->ContainerPtrToValuePtr<FRigUnit>(this);
 			RigUnit->RigUnitName = UnitProperty->GetFName();
 			RigUnit->RigUnitStructName = UnitProperty->Struct->GetFName();
+#if 0 
+			FRigUnit* RigUnitDefault = UnitProperty->ContainerPtrToValuePtr<FRigUnit>(Class->GetDefaultObject());
+			ensure(RigUnitDefault != nullptr);
+#endif // DEBUG only
 		}
 	}
 #endif // WITH_EDITOR
@@ -269,6 +275,25 @@ FRigUnit* UControlRig::GetRigUnitFromName(const FName& PropertyName)
 void UControlRig::PostReinstanceCallback(const UControlRig* Old)
 {
 	ObjectBinding = Old->ObjectBinding;
+
+	// initialize rig unit cached names
+	// @fixme: we noticed the CDO changes are not propagating all the time
+	// so here we forcefully set to default class when compiled
+	UControlRigBlueprintGeneratedClass* Class = Cast<UControlRigBlueprintGeneratedClass>(GetClass());
+	if (Class)
+	{
+		const UObject* CurrentDefaultObject = Class->GetDefaultObject();
+		for (UStructProperty* UnitProperty : Class->RigUnitProperties)
+		{
+			const FRigUnit* RigUnitDefault = UnitProperty->ContainerPtrToValuePtr<FRigUnit>(CurrentDefaultObject);
+			ensure(RigUnitDefault != nullptr);
+
+			FRigUnit* RigUnit = UnitProperty->ContainerPtrToValuePtr<FRigUnit>(this);
+			FMemory::Memcpy(RigUnit, RigUnitDefault, UnitProperty->ElementSize);
+			RigUnit->RigUnitName = UnitProperty->GetFName();
+			RigUnit->RigUnitStructName = UnitProperty->Struct->GetFName();
+		}
+	}
 
 	Initialize();
 }

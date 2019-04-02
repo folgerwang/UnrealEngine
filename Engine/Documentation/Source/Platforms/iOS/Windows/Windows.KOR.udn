@@ -1,8 +1,8 @@
 ﻿INTSourceChangelist:3565221
 Availability: Public
-Title: 윈도우에서 iOS 용 빌드
+Title: Windows에서 iOS 용 빌드
 Crumbs:%ROOT%, Platforms
-Description:윈도우 머신에서 맥 원격 컴파일을 통해 iOS 빌드를 만드는 법입니다.d. 
+Description:Windows 머신에서 Mac 원격 컴파일을 통해 iOS 빌드를 만드는 법입니다.d. 
 Platform:iOS
 Navigation:platform
 Version: 4.9
@@ -13,11 +13,11 @@ tags:iOS
 prereq:Platforms/iOS/QuickStart
 related:Platforms/iOS/GettingStarted
 
-iOS 용 빌드에는 맥이 필요하지만, 원격 컴파일 방법을 통하면 전체 팀원이 윈도우 머신을 써도 맥 하나만 있으면 iOS 빌드가 가능합니다.
+iOS 용 빌드에는 Mac이 필요하지만, 원격 컴파일 방법을 통하면 전체 팀원이 Windows 머신을 써도 Mac 하나만 있으면 iOS 빌드가 가능합니다.
 
-## 맥 셋업
+## Mac 셋업
 
-1. 맥에서 Remote Compiling (원격 컴파일) 옵션을 켭니다: [Apple 참고 문서](https://support.apple.com/kb/PH18726).
+1. Mac에서 Remote Compiling (원격 컴파일) 옵션을 켭니다: [Apple 참고 문서](https://support.apple.com/kb/PH18726).
 
 1. 시스템 키체인에 iOS Developer Certificates 를 설치합니다. 로그인 키체인에 이미 Certificate 가 설치된 경우, 그냥 시스템 키체인에 끌어놓으면 거기에도 설치될 것입니다.
 
@@ -41,11 +41,11 @@ iOS 용 빌드에는 맥이 필요하지만, 원격 컴파일 방법을 통하�
 
 	![](BuildOptions.png)
 
-1. **Remote Server Name** 칸에 프로젝트 빌드에 사용중인 맥 이름을 입력합니다.
+1. **Remote Server Name** 칸에 프로젝트 빌드에 사용중인 Mac 이름을 입력합니다.
 
-1. **Remote User Name** 칸에 보통 원격 맥에 로그인하는 데 쓰는 사용자명을 입력합니다.
+1. **Remote User Name** 칸에 보통 원격 Mac에 로그인하는 데 쓰는 사용자명을 입력합니다.
 
-1. 여기서 원격 맥 안전 접속 확인에 사용되는 SSH 키를 생성해야 할 것입니다. Generate SSH Key 버튼을 누르고 지시에 따릅니다.
+1. 여기서 원격 Mac 안전 접속 확인에 사용되는 SSH 키를 생성해야 할 것입니다. Generate SSH Key 버튼을 누르고 지시에 따릅니다.
 
 ### SSH 셋업
 

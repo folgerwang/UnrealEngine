@@ -1,0 +1,196 @@
+﻿INTSourceChangelist:4404731
+Availability: Public
+Crumbs: 
+Title: 使用Live Link整合虚幻引擎4与Maya
+Description: 描述如何将虚幻引擎4（UE4）与特定版本的Maya整合起来，让您能够在UE4中实时预览来自Maya的内容。 
+Type:how-to
+Version: 4.19
+Parent: Engine/Animation/LiveLinkPlugin
+Order: 2
+Tags: Animation, Maya, Live Link
+
+在本方法说明中，我们使用Live Link插件将虚幻引擎4 (UE4)连接到Maya，这让我们能够控制我们在Maya内的骨架网格和动画，同时在UE4中渲染的骨架网格上实时预览。  
+  
+使用Live Link插件可以加快您的动画工作流程，因为您不再需要导出内容并将其导入到UE4中进行查看，您可以直接在Maya中操作，通过Live Link实时预览内容在引擎内的效果。在本方法说明中，我们会完成为Maya设置Live Link的流程，并在Maya中控制一个骨架网格动画，同时在UE4中预览。
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:width]
+	640
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	360
+	[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	pe9WGDbJrv0
+	[/PARAMLITERAL]
+[/OBJECT]
+
+[REGION:note]
+对于本指南，我们使用的是蓝图第三人称模板项目（Blueprint Third Person Template Project）和Maya 2017。Live Link使用其他版本的Maya和其他DDC工具，更多信息请参见 [Live Link插件](Engine/Animation/LiveLinkPlugin) 文档页面。
+[/REGION]
+
+## 1 - 启用Live Link插件
+
+1\. 在您的项目中，从 **编辑（Edit）** 下的 **菜单栏（Menu Bar）**，选择 **插件（Plugins）**。
+
+![](Step_01-1.png)
+
+2\. 在 **动画（Animation）** 部分下，针对 **Live Link** 单击 **已启用（Enabled）**，并在确认窗口上单击 **是（Yes）**，然后重启编辑器。  
+
+![](Step_02-3.png)
+
+这将启用Live Link插件以连接到外部DDC工具。为了将您的DDC工具连接到UE4，您将需要启用对应插件。对于本方法说明，我们主要关注Maya，并需要在Maya内启用插件。
+
+引擎随附的Maya Live Link插件的预制二进制文件可在您的UE4安装文件夹中找到。
+
+3. 导航到您的UE4安装文件夹，然后在 **Engine\\Extras\\MayaLiveLink** 文件夹下解压 **LiveLinkMaya.zip** 文件。
+
+[REGION:warning]
+部署4.19后，Maya Live Link插件未包括在Engine\\Extras\\MayaLiveLink文件夹内（应包含在内）。在部署热修复补丁以解决此问题之前，您可以使用 [此链接](https://epicgames.app.box.com/s/awdz97dguh6k61opwy66ovfhn3gpk1hg) 下载该内容。
+[/REGION]
+
+![](Step_03-1.png)
+
+4. 针对您的 **Maya** 版本复制该文件夹，然后导航到您的 **Maya** 安装文件夹并将其粘贴到 **plug-ins** 文件夹中。
+
+![](Step_04-1.png)
+
+在下一个步骤中，我们将在Maya中启用Live Link插件，并打开Maya Live LinkUI（Live Link UI）窗口，以便您查看与正在运行的UE4编辑器版本的连接状态。  
+
+## 2 - 启用Maya Live Link
+
+1. 打开 **Maya**，然后在 **Windows** 和 **设置/首选项（Settings/Preferences）** 下选择 **插件管理器（Plug-in Manager）**。
+
+	![](Step_05-1.png)
+
+1. 单击 **浏览（Browse）** 按钮，然后导航到复制的MayaLiveLink文件夹并添加 **.py** 文件。  
+
+	![](Step_06-1.png)
+
+1. 重复之前的步骤，并从 **插件管理器（Plug-in Manager）** 添加 **.mll** 文件。
+
+	![](Step_07-2.png)
+
+	一旦添加，您将看到插件管理器（Plug-in Manager）内的插件状态为已加载（Loaded）。
+
+1. 在Maya左下方的 **MEL** 控制台中，输入 **MayaLiveLinkUI**，然后按 **Enter**。
+
+	![](Step_08-2.png)
+
+这将打开Maya Live LinkUI连接状态（Maya Live Link UI Connection Status）窗口。   
+
+![](Step_09-1.png)
+
+窗口右上方显示连接状态，指示您是否连接到一个正在运行的的UE4编辑器版本。下方的窗口用于命名和添加/移除要流送到UE4（本指南中稍后会执行此操作）的 **主题（Subjects）**。
+
+目前我们还未连接，但在下一步骤中，我们将建立与UE4的连接，导出我们可以在Maya中使用的动画资源和骨架网格，并将其作为一个主题添加，以流送回UE4进行实时预览。
+
+## 3 - 建立UE4连接
+
+1. 在UE4编辑器内，从 **Window** 下的 **菜单栏（Menu Bar）**，选择 **Live Link**。
+
+	![](Step_10-1.png)
+
+1. 在 **Live Link** 窗口中，单击 **添加（Add）** 按钮，然后在 **消息总线源（Message Bus Source）** 下选择您的 **Maya Live Link** 源，并单击 **确定（Ok）**。
+
+	![](Step_11-2.png)
+
+	如果您返回Maya，Maya Live Link连接状态（Maya Live Link Connection Status）窗口将更新，以反映新的连接状态。  
+
+	![](Step_11b-1.png)
+
+	现在我们已经连接，我们就需要一个主题以预览和测试该连接。
+
+1. 在UE4内，在 **Content/Mannequin/Animations** 文件夹中打开 **ThirdPersonRun** 资源。
+
+1. 从工具栏中单击 **导出资源（Export Asset）** 并选择 **预览网格（Preview Mesh）**。
+
+	![](Step_12-1.png)
+
+1. 选择 **是（Yes）** 导出骨架网格并选择一个导出位置，然后在 **FBX导出选项（FBX Export Options）** 窗口中选择 **导出（Export）**
+
+	![](Step_13-1.png)
+
+1. 在Maya内，在 **文件（File）** 下选择 **导入（Import）**，并导入上一步骤中所获得的FBX资源。  
+
+	![](Step_14-1.png )
+
+1. 切换到 **动画（Animation）** 模式，然后选择角色的 **根（Root）** 骨骼。
+
+	![](Step_15-1.png)
+
+1. 在 **Maya Live Link UI（Maya Live Link UI）** 窗口中，单击 **添加主题（Add Subject）** 按钮。
+
+	![](Step_16-2.png)
+
+	这将把选择内容作为 **主题（Subject）** 添加，以流送到UE4。
+
+	![](Step_17-1.png)
+
+	插件知道这是一个关节层级，并将该主题标记为角色（Character）。名称 **Maya** 是您可在文本输入框中更改的主题名称。必须记住此名称，因为您将需要在UE4内提供此名称作为主题名称。
+
+现已设置Maya以将我们的主题流送到UE4编辑器，下一步我们将设置UE4以接收流送的主题，以便我们可以开始从UE4内的Maya实时预览内容。
+
+## 4 - Live Link预览控制器
+
+1. 在UE4内，在 **Content/Mannequin/Character/Mesh** 文件夹下打开 **SK_Mannequin** 资源。
+
+1. 单击 **预览场景设置（Preview Scene Settings）** 选项卡，然后在 **预览控制器（Preview Controller）** 下选择 **Live Link预览控制器（Live Link Preview Controller）**。
+
+	![](Step_18-1.png)
+
+1. 在 **主题名称（Subject Name）** 下输入名称 **Maya** 并按 **Enter**。
+
+	![](Step_19-1.png)
+
+	如果您输入了自己的名称而非默认名称，您将需要改为输入自己的名称。视口将更新，且角色将进入该角色正在Maya内使用的姿势。
+
+	在此例中，由于采用了此骨架网格最初导入到引擎时所用的方法，角色会旋转90度。我们会尽快在Maya内解决此问题。
+
+1. 启用 **启用摄像机同步（Enable Camera Sync）** 选项。
+
+	![](Step_20-1.png)
+
+	这将把UE4的摄像机同步到Maya内上一次使用的视口摄像机。无论何时，当您在Maya中移动摄像机时，UE4的摄像机将更新以匹配。
+
+1. 转到您的 **编辑器首选项（Editor Preferences）**，并在 **性能（Performance）** 下禁用 **在后台时使用较少CPU（Use Less CPU when in Background）** 选项。
+
+	![](DisableUseLessCPU-1.png)
+
+	此选项会限制编辑器的后台性能，并阻止编辑器在Maya有焦点的时候进行渲染，这将阻止我们看到实时的更新。
+
+1. 返回 **Maya** 并擦除动画，或在视口中移动摄像机。
+
+## 5 - 最终结果
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:width]
+	640
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	360
+	[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	_ku41AVH16g
+	[/PARAMLITERAL]
+[/OBJECT]
+
+当您在Maya中擦除动画或移动摄像机时，角色和摄像机在UE4中的运动将更新，以匹配您在Maya中看到的内容。此例中，如前所述，当这个骨架网格最初导入到UE4中时，上轴是不同的，因此角色会在UE4中旋转。
+
+出于测试目的，我们将旋转X（Rotate X）值增加了90，并在动画开头处将其作为关键帧。典型的工作流程如下，在Maya中创作您的内容，导出骨架网格并将其导入到UE4中，按照本指南中所述的连接设置步骤建立一个连接，然后在UE4中的Live Link主题上预览在Maya中创作的动画。
+
+您还可以更改您的动画，所做更改会实时反映到UE4中的Live Link主题上。
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:width]
+	640
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	360
+	[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	pe9WGDbJrv0
+	[/PARAMLITERAL]
+[/OBJECT]
+
+上文中我们更新了头的位置以使角色在跑步时向上看，让我们看看它在UE4内是什么样子。这是关于如何使用Live Link插件的简单例子，这个功能还有很多其他优势，您可以在Live Link插件文档页面上找到这些优势。

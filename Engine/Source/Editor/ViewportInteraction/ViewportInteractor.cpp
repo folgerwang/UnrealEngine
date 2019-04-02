@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ViewportInteractor.h"
 #include "CollisionQueryParams.h"
@@ -50,6 +50,11 @@ void UViewportInteractor::SetWorldInteraction( UViewportWorldInteraction* InWorl
 	WorldInteraction = InWorldInteraction;
 }
 
+UViewportWorldInteraction* UViewportInteractor::GetWorldInteraction() const
+{
+	return WorldInteraction;
+}
+
 void UViewportInteractor::SetOtherInteractor( UViewportInteractor* InOtherInteractor )
 {
 	OtherInteractor = InOtherInteractor;
@@ -65,7 +70,7 @@ UViewportInteractor* UViewportInteractor::GetOtherInteractor() const
 	return OtherInteractor;
 }
 
-void UViewportInteractor::Shutdown()
+void UViewportInteractor::Shutdown_Implementation()
 {
 	KeyToActionMap.Empty();
 
@@ -73,7 +78,7 @@ void UViewportInteractor::Shutdown()
 	OtherInteractor = nullptr;
 }
 
-void UViewportInteractor::Tick( const float DeltaTime )
+void UViewportInteractor::Tick_Implementation( const float DeltaTime )
 {
 }
 
@@ -113,11 +118,17 @@ bool UViewportInteractor::HandleInputKey( FEditorViewportClient& ViewportClient,
 	if ( Action != nullptr )	// Ignore key repeats
 	{
 		Action->Event = Event;
-		
+
 		if( !bHandled )
 		{
 			// Give the derived classes a chance to update according to the input
 			PreviewInputKey( ViewportClient, *Action, Key, Event, bHandled );
+		}
+
+		if (!bHandled)
+		{
+			// Here we try to call an BP overridden function.  This is cut down to not include non BP friendly classes.
+			HandleInputKey_BP( *Action, Key, Event, bHandled );
 		}
 
 		FHitResult HitResult = GetHitResultFromLaserPointer();
@@ -235,7 +246,7 @@ bool UViewportInteractor::HandleInputKey( FEditorViewportClient& ViewportClient,
 										InteractorData.bWasAssistingDrag = true;
 										InteractorData.DragRayLength = ( HitResult.ImpactPoint - LaserPointerStart ).Size();
 										InteractorData.LastDragToLocation = HitResult.ImpactPoint;
-										InteractorData.InteractorRotationAtDragStart = InteractorData.Transform.GetRotation();
+										InteractorData.InteractorTransformAtDragStart = InteractorData.Transform;
 										InteractorData.GrabberSphereLocationAtDragStart = FVector::ZeroVector;
 										InteractorData.ImpactLocationAtDragStart = HitResult.ImpactPoint;
 										InteractorData.DragTranslationVelocity = FVector::ZeroVector;
@@ -256,7 +267,7 @@ bool UViewportInteractor::HandleInputKey( FEditorViewportClient& ViewportClient,
 										WorldInteraction->SetDraggedSinceLastSelection( true );
 										WorldInteraction->SetLastDragGizmoStartTransform( InteractorData.GizmoStartTransform );
 
-										Action->bIsInputCaptured = true; 
+										Action->bIsInputCaptured = true;
 
 										// Play a haptic effect when objects are picked up
 										PlayHapticEffect( VI::DragHapticFeedbackStrength->GetFloat() ); //@todo ViewportInteraction
@@ -276,7 +287,7 @@ bool UViewportInteractor::HandleInputKey( FEditorViewportClient& ViewportClient,
 								}
 								else
 								{
-									// Only start dragging if the actor was already selected (and it's a full press), or if we clicked on a gizmo.  It's too easy to 
+									// Only start dragging if the actor was already selected (and it's a full press), or if we clicked on a gizmo.  It's too easy to
 									// accidentally move actors around the scene when you only want to select them otherwise.
 									const bool bOtherHandTryingToDrag =
 										Actor != WorldInteraction->GetTransformGizmoActor() &&
@@ -339,6 +350,13 @@ bool UViewportInteractor::HandleInputKey( FEditorViewportClient& ViewportClient,
 										}
 
 										bShouldDragSelected = bOtherHandTryingToDrag || !bSelectionChanged;
+
+										// Carryable items, like cameras are a special case, we want to be able to click and move in one action.
+										const TArray< TUniquePtr< FViewportTransformable > >&Transformables = WorldInteraction->GetTransformables();
+										if (!bShouldDragSelected && Transformables.Num() == 1 && Transformables[0].Get()->ShouldBeCarried())
+										{
+											bShouldDragSelected = true;
+										}
 									}
 
 									if ( bShouldDragSelected && InteractorData.DraggingMode != EViewportInteractionDraggingMode::Interactable )
@@ -365,7 +383,7 @@ bool UViewportInteractor::HandleInputKey( FEditorViewportClient& ViewportClient,
 									}
 									else if ( bSelectionChanged )
 									{
-										// Stop our transaction 
+										// Stop our transaction
 										TrackingTransaction.End();
 
 										// User didn't drag but did select something, so play a haptic effect.
@@ -384,7 +402,7 @@ bool UViewportInteractor::HandleInputKey( FEditorViewportClient& ViewportClient,
 						InteractorData.ClickingOnComponent = nullptr;
 					}
 
-					// Don't allow the trigger to cancel our drag on release if we're dragging the world. 
+					// Don't allow the trigger to cancel our drag on release if we're dragging the world.
 					if ( InteractorData.DraggingMode != EViewportInteractionDraggingMode::Nothing &&
 						!bIsDraggingWorld &&
 						!bIsDraggingWorldWithTwoHands )
@@ -426,7 +444,7 @@ bool UViewportInteractor::HandleInputKey( FEditorViewportClient& ViewportClient,
 					InteractorData.bDraggingWithGrabberSphere = false;
 					InteractorData.DragRayLength = 0.0f;
 					InteractorData.LastDragToLocation = InteractorData.Transform.GetLocation();
-					InteractorData.InteractorRotationAtDragStart = InteractorData.Transform.GetRotation();
+					InteractorData.InteractorTransformAtDragStart = InteractorData.Transform;
 					InteractorData.GrabberSphereLocationAtDragStart = FVector::ZeroVector;
 					InteractorData.DragTranslationVelocity = FVector::ZeroVector;
 					InteractorData.DragRayLengthVelocity = 0.0f;
@@ -510,6 +528,12 @@ bool UViewportInteractor::HandleInputAxis( FEditorViewportClient& ViewportClient
 		{
 			// Give the derived classes a chance to update according to the input
 			PreviewInputAxis( ViewportClient, Action, Key, Delta, DeltaTime, bHandled );
+		}
+
+		if (!bHandled)
+		{
+			// Here we try to call an BP overridden function.  This is cut down to not include non BP friendly classes.
+			HandleInputAxis_BP( Action, Key, Delta, DeltaTime, bHandled );
 		}
 
 		if( !bHandled )
@@ -629,12 +653,12 @@ void UViewportInteractor::ResetHoverState()
 	SavedHitResult.Reset();
 }
 
-FHitResult UViewportInteractor::GetHitResultFromLaserPointer( TArray<AActor*>* OptionalListOfIgnoredActors /*= nullptr*/, const bool bIgnoreGizmos /*= false*/, 
+FHitResult UViewportInteractor::GetHitResultFromLaserPointer( TArray<AActor*>* OptionalListOfIgnoredActors /*= nullptr*/, const bool bIgnoreGizmos /*= false*/,
 	TArray<UClass*>* ObjectsInFrontOfGizmo /*= nullptr */, const bool bEvenIfBlocked /*= false */, const float LaserLengthOverride /*= 0.0f */ )
 {
 	FHitResult BestHitResult;
 
-	if (SavedHitResult.IsSet())
+	if (SavedHitResult.IsSet() && OptionalListOfIgnoredActors != nullptr && !OptionalListOfIgnoredActors->Contains(SavedHitResult->Actor))
 	{
 		BestHitResult = SavedHitResult.GetValue();
 	}
@@ -707,7 +731,7 @@ FHitResult UViewportInteractor::GetHitResultFromLaserPointer( TArray<AActor*>* O
 					FCollisionObjectQueryParams EverythingButGizmos( FCollisionObjectQueryParams::AllObjects );
 					EverythingButGizmos.RemoveObjectTypesToQuery( COLLISION_GIZMO );
 					bHit = WorldInteraction->GetWorld()->LineTraceSingleByObjectType( HitResult, LaserPointerStart, LaserPointerEnd, EverythingButGizmos, TraceParams );
-				
+
 					if ( bHit )
 					{
 						InteractorData.bHitResultIsPriorityType = false;
@@ -754,7 +778,7 @@ bool UViewportInteractor::GetTransformAndForwardVector( FTransform& OutHandTrans
 	return true;
 }
 
-FVector UViewportInteractor::GetHoverLocation() 
+FVector UViewportInteractor::GetHoverLocation()
 {
 	FVector Result = FVector::ZeroVector;
 	if (InteractorData.HoverLocation.IsSet())
@@ -776,7 +800,7 @@ bool UViewportInteractor::IsHovering() const
 	return InteractorData.HoverLocation.IsSet();
 }
 
-bool UViewportInteractor::IsHoveringOverGizmo()
+bool UViewportInteractor::IsHoveringOverGizmo() const
 {
 	return InteractorData.HoveringOverTransformGizmoComponent.IsValid();
 }

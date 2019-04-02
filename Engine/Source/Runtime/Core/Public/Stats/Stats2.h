@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -17,6 +17,8 @@
 #include "Templates/Atomic.h"
 #include "Math/Color.h"
 #include "StatsCommon.h"
+#include "HAL/ThreadManager.h"
+#include "Templates/UniquePtr.h"
 
 class FScopeCycleCounter;
 class FThreadStats;
@@ -104,12 +106,6 @@ struct CORE_API FStats
 
 struct TStatIdData
 {
-	FORCEINLINE TStatIdData()
-		: AnsiString(0)
-		, WideString(0)
-	{
-	}
-
 	bool IsNone() const
 	{
 		FMinimalName LocalName = Name.Load(EMemoryOrder::Relaxed);
@@ -119,11 +115,11 @@ struct TStatIdData
 	/** Name of the active stat; stored as a minimal name to minimize the data size */
 	TAtomic<FMinimalName> Name;
 
-	/** const ANSICHAR* pointer to a string; stored as a uint64 so it doesn't change size and affect TStatIdData alignment between 32 and 64-bit builds) */
-	uint64 AnsiString;
+	/** const ANSICHAR* pointer to a string describing the stat */
+	TUniquePtr<WIDECHAR[]> StatDescriptionWide;
 
-	/** const WIDECHAR* pointer to a string; stored as a uint64 so it doesn't change size and affect TStatIdData alignment between 32 and 64-bit builds) */
-	uint64 WideString;
+	/** const WIDECHAR* pointer to a string describing the stat */
+	TUniquePtr<ANSICHAR[]> StatDescriptionAnsi;
 };
 
 struct TStatId
@@ -171,7 +167,7 @@ struct TStatId
 	 */
 	FORCEINLINE const ANSICHAR* GetStatDescriptionANSI() const
 	{
-		return reinterpret_cast<const ANSICHAR*>(StatIdPtr->AnsiString);
+		return StatIdPtr->StatDescriptionAnsi.Get();
 	}
 
 	/**
@@ -181,7 +177,7 @@ struct TStatId
 	 */
 	FORCEINLINE const WIDECHAR* GetStatDescriptionWIDE() const
 	{
-		return reinterpret_cast<const WIDECHAR*>(StatIdPtr->WideString);
+		return StatIdPtr->StatDescriptionWide.Get();
 	}
 
 private:
@@ -1071,12 +1067,17 @@ struct EComplexStatField
 		IncAve,
 		/** Maximum inclusive time. */
 		IncMax,
+		/** Minimum inclusive time. */
+		IncMin,
 		/** Summed exclusive time. */
 		ExcSum,
 		/** Average exclusive time. */
 		ExcAve,
 		/** Maximum exclusive time. */
 		ExcMax,
+		/** Minimum exclusive time. */
+		ExcMin,
+
 		/** Number of enumerates. */
 		Num,
 	};
@@ -1122,6 +1123,9 @@ struct FStatPacket
 	/** Size we presize the message buffer to, currently the max of what we have seen for the last PRESIZE_MAX_NUM_ENTRIES. **/
 	TArray<int32> StatMessagesPresize;
 
+	/** If true, we dump ThreadedStats to track number of statmessage in each thread **/
+	static bool bDumpStatPacket;
+
 	/** constructor **/
 	FStatPacket()
 		: Frame(1)
@@ -1163,6 +1167,11 @@ struct FStatPacket
 	void AssignFrame( int64 InFrame )
 	{
 		Frame = InFrame;
+
+		if (bDumpStatPacket)
+		{
+			UE_LOG(LogStats, Display, TEXT("Frame %d, Size of StatMessages for Thread %d(%s) is %d"), Frame, ThreadId, *FThreadManager::Get().GetThreadName(ThreadId), StatMessages.Num());
+		}
 	}
 };
 

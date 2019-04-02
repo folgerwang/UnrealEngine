@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved..
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved..
 
 /*=============================================================================
 	VulkanRHIPrivate.h: Private Vulkan RHI definitions.
@@ -77,8 +77,8 @@ inline EShaderFrequency VkStageBitToUEFrequency(VkShaderStageFlagBits FlagBits)
 	switch (FlagBits)
 	{
 	case VK_SHADER_STAGE_VERTEX_BIT:					return SF_Vertex;
-	//case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:		return SF_Hull;
-	//case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:		return SF_Domain;
+	case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:		return SF_Hull;
+	case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:	return SF_Domain;
 	case VK_SHADER_STAGE_FRAGMENT_BIT:					return SF_Pixel;
 	case VK_SHADER_STAGE_GEOMETRY_BIT:					return SF_Geometry;
 	case VK_SHADER_STAGE_COMPUTE_BIT:					return SF_Compute;
@@ -196,60 +196,36 @@ public:
 		return Framebuffer;
 	}
 
-	inline VkImageView GetPartialDepthView() const
+	inline const FVulkanTextureView& GetPartialDepthTextureView() const
 	{
-		check(PartialDepthView != VK_NULL_HANDLE);
-		return PartialDepthView;
+		check(PartialDepthTextureView.View != VK_NULL_HANDLE);
+		return PartialDepthTextureView;
 	}
 
-	TArray<VkImageView> AttachmentViews;
+	TArray<FVulkanTextureView> AttachmentTextureViews;
 	// Copy from the Depth render target partial view
-	VkImageView PartialDepthView = VK_NULL_HANDLE;
+	FVulkanTextureView PartialDepthTextureView;
 	TArray<VkImageView> AttachmentViewsToDelete;
 
 	inline bool ContainsRenderTarget(FRHITexture* Texture) const
 	{
 		ensure(Texture);
-		for (int32 Index = 0; Index < FMath::Min((int32)NumColorAttachments, RTInfo.NumColorRenderTargets); ++Index)
-		{
-			if (RTInfo.ColorRenderTarget[Index].Texture == Texture)
-			{
-				return true;
-			}
-		}
-
-		if (RTInfo.DepthStencilRenderTarget.Texture == Texture)
-		{
-			return true;
-		}
-
-		return false;
+		FVulkanTextureBase* Base = (FVulkanTextureBase*)Texture->GetTextureBaseRHI();
+		return ContainsRenderTarget(Base->Surface.Image);
 	}
 
 	inline bool ContainsRenderTarget(VkImage Image) const
 	{
 		ensure(Image != VK_NULL_HANDLE);
-		for (int32 Index = 0; Index < FMath::Min((int32)NumColorAttachments, RTInfo.NumColorRenderTargets); ++Index)
+		for (uint32 Index = 0; Index < NumColorAttachments; ++Index)
 		{
-			FRHITexture* RHITexture = RTInfo.ColorRenderTarget[Index].Texture;
-			if (RHITexture)
+			if (ColorRenderTargetImages[Index] == Image)
 			{
-				FVulkanTextureBase* Base = (FVulkanTextureBase*)RHITexture->GetTextureBaseRHI();
-				if (Image == Base->Surface.Image)
-				{
-					return true;
-				}
+				return true;
 			}
 		}
 
-		if (RTInfo.DepthStencilRenderTarget.Texture)
-		{
-			FVulkanTextureBase* Depth = (FVulkanTextureBase*)RTInfo.DepthStencilRenderTarget.Texture->GetTextureBaseRHI();
-			check(Depth);
-			return Depth->Surface.Image == Image;
-		}
-
-		return false;
+		return (DepthStencilRenderTargetImage == Image);
 	}
 
 	inline uint32 GetWidth() const
@@ -266,12 +242,11 @@ private:
 	VkFramebuffer Framebuffer;
 	VkExtent2D Extents;
 
-	// We do not adjust RTInfo, since it used for hashing and is what the UE provides,
-	// it's up to VulkanRHI to handle this correctly.
-	const FRHISetRenderTargetsInfo RTInfo;
-	uint32 NumColorAttachments;
+	// Unadjusted number of color render targets as in FRHISetRenderTargetsInfo 
+	uint32 NumColorRenderTargets;
 
 	// Save image off for comparison, in case it gets aliased.
+	uint32 NumColorAttachments;
 	VkImage ColorRenderTargetImages[MaxSimultaneousRenderTargets];
 	VkImage DepthStencilRenderTargetImage;
 
@@ -628,6 +603,7 @@ static inline VkAttachmentStoreOp RenderTargetStoreActionToVulkan(ERenderTargetS
 		break;
 	//#todo-rco: Temp until we have fully switched to RenderPass system
 	case ERenderTargetStoreAction::ENoAction:
+	case ERenderTargetStoreAction::EMultisampleResolve:
 		OutStoreAction = bRealRenderPass ? VK_ATTACHMENT_STORE_OP_DONT_CARE : VK_ATTACHMENT_STORE_OP_STORE;
 		break;
 	default:
@@ -639,7 +615,7 @@ static inline VkAttachmentStoreOp RenderTargetStoreActionToVulkan(ERenderTargetS
 	return OutStoreAction;
 }
 
-inline VkFormat UEToVkFormat(EPixelFormat UEFormat, const bool bIsSRGB)
+inline VkFormat UEToVkTextureFormat(EPixelFormat UEFormat, const bool bIsSRGB)
 {
 	VkFormat Format = (VkFormat)GPixelFormats[UEFormat].PlatformFormat;
 	if (bIsSRGB && GMaxRHIFeatureLevel > ERHIFeatureLevel::ES2)
@@ -685,7 +661,7 @@ inline VkFormat UEToVkFormat(EPixelFormat UEFormat, const bool bIsSRGB)
 	return Format;
 }
 
-static inline VkFormat UEToVkFormat(EVertexElementType Type)
+static inline VkFormat UEToVkBufferFormat(EVertexElementType Type)
 {
 	switch (Type)
 	{
@@ -727,28 +703,14 @@ static inline VkFormat UEToVkFormat(EVertexElementType Type)
 		return VK_FORMAT_R32G32B32A32_SFLOAT;
 	case VET_URGB10A2N:
 		return VK_FORMAT_A2B10G10R10_UNORM_PACK32;
+	case VET_UInt:
+		return VK_FORMAT_R32_UINT;
 	default:
 		break;
 	}
 
 	check(!"Undefined vertex-element format conversion");
 	return VK_FORMAT_UNDEFINED;
-}
-
-static inline VkPrimitiveTopology UEToVulkanType(EPrimitiveType PrimitiveType)
-{
-	switch (PrimitiveType)
-	{
-	case PT_PointList:			return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
-	case PT_LineList:			return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-	case PT_TriangleList:		return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-	case PT_TriangleStrip:		return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
-	default:
-		break;
-	}
-
-	checkf(false, TEXT("Unsupported primitive type"));
-	return VK_PRIMITIVE_TOPOLOGY_MAX_ENUM;
 }
 
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT

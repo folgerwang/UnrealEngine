@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigEditor.h"
 #include "Modules/ModuleManager.h"
@@ -9,7 +9,7 @@
 #include "SKismetInspector.h"
 #include "Framework/Commands/GenericCommands.h"
 #include "Editor.h"
-#include "ControlRigGraphNode.h"
+#include "Graph/ControlRigGraphNode.h"
 #include "BlueprintActionDatabase.h"
 #include "ControlRigBlueprintCommands.h"
 #include "SControlRig.h"
@@ -832,6 +832,9 @@ void FControlRigEditor::SetJointTransform(const FName& InJoint, const FTransform
 	{
 		EditorSkelComp->RebuildDebugDrawSkeleton();
 	}
+
+	// I don't think I have to mark dirty here. 
+	// FBlueprintEditorUtils::MarkBlueprintAsModified(GetControlRigBlueprint());
 
 	// I don't think I have to mark dirty here. 
 	// FBlueprintEditorUtils::MarkBlueprintAsModified(GetControlRigBlueprint());

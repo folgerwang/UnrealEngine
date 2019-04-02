@@ -1,14 +1,9 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "RenderDocPluginSettings.h"
 #include "UObject/UnrealType.h"
 
 static FName DeveloperSettingsConsoleVariableMetaFName(TEXT("ConsoleVariable"));
-
-void URenderDocPluginSettings::SaveSettings()
-{
-	SaveConfig(CPF_Config, *GetClass()->GetDefaultConfigFilename(), GConfig);
-}
 
 void URenderDocPluginSettings::PostInitProperties()
 {
@@ -18,7 +13,6 @@ void URenderDocPluginSettings::PostInitProperties()
 	if (IsTemplate())
 	{
 		ImportConsoleVariableValues();
-		SaveSettings();
 	}
 #endif
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -22,7 +22,7 @@ namespace BuildPatchServices
 		StoresIfChunkOrFileData,
 		// Manifest stores group number for each chunk/file data for reference so that external readers don't need to know how to calculate them.
 		StoresDataGroupNumbers,
-		// Added support for chunk compression, these chunks now go to ChunkV3. NB: Not File Data Compression yet.
+		// Added support for chunk compression, these chunks now go to ChunksV3. NB: Not File Data Compression yet.
 		ChunkCompressionSupport,
 		// Manifest stores product prerequisites info.
 		StoresPrerequisitesInfo,
@@ -39,8 +39,12 @@ namespace BuildPatchServices
 		StoresPrerequisiteIds,
 		// The first minimal binary format was added. UObject classes will no longer be saved out when binary selected.
 		StoredAsBinaryData,
-		// Manifest can reference chunks with dynamic data size.
+		// Temporary level where manifest can reference chunks with dynamic window size, but did not serialize them. Chunks from here onwards are stored in ChunksV4.
+		VariableSizeChunksWithoutWindowSizeChunkInfo,
+		// Manifest can reference chunks with dynamic window size, and also serializes them.
 		VariableSizeChunks,
+		// Manifest stores a unique build id for exact matching of build data.
+		StoresUniqueBuildId,
 
 		// !! Always after the latest version entry, signifies the latest version plus 1 to allow the following Latest alias.
 		LatestPlusOne,
@@ -50,6 +54,12 @@ namespace BuildPatchServices
 		LatestNoChunks = StoresChunkFileSizes,
 		// An alias to provide the latest version of a manifest supported by a json serialized format.
 		LatestJson = StoresPrerequisiteIds,
+		// An alias to provide the first available version of optimised delta manifest saving.
+		FirstOptimisedDelta = StoresUniqueBuildId,
+
+		// JSON manifests were stored with a version of 255 during a certain CL range due to a bug.
+		// We will treat this as being StoresChunkFileSizes in code.
+		BrokenJsonVersion = 255,
 		// This is for UObject default, so that we always serialize it.
 		Invalid = -1
 	};

@@ -1,26 +1,43 @@
-﻿INTSourceChangelist:2940199
+﻿INTSourceChangelist:3643552
 Availability:Public
-Title:三星 Gear VR UE4 快速入门
-Crumbs:%ROOT%, Platforms/GearVR
-Description:三星 Gear VR 头戴设备项目的快速设置和部署说明。
+Title:三星Gear VR UE4快速入门
+Crumbs:%ROOT%
+Description:三星Gear VR头戴设备项目的快速设置和部署说明。
 Navigation:platform
 Platform:Gear VR
-Skilllevel:Intermediate
-Version:4.9
-type:quickstart
+Skilllevel: Intermediate
+Version:4.17
+type:quick start
+type:landing
 parent:Platforms/GearVR
 tags:VR
 tags:GearVR
+tags:Getting Started
+order:2
+Checkpoint:GearVRQS
+prereq:Platforms/Android/GettingStarted/
+prereq:Platforms\GearVR\Prerequisites
+Topic-image:Platforms\GearVR\SamsungGearVRDevelopment_topic.png
 
-Gear VR 快速入门将说明如何对开发电脑和三星 Galaxy Note 4 智能手机进行设置，以便结合三星 Gear VR 头戴设备使用。
+![](GVR_Headset_00.png)
 
+(#Goals)
+## 目的
+
+Gear VR快速入门将说明如何对开发电脑和三星智能手机进行设置，以便结合三星Gear VR头戴设备使用。
+
+(#Objectives)
+## 目标
+
+* 创建一个以Gear VR开发为目的的全新UE4项目。
+* 进行必要的项目设置，以便项目可以与Gear VR配合使用。
+* 使用Gear VR头戴设备部署并浏览您的UE4项目。
+
+(#Steps)
 ## 步骤
 
-[REGION:buttonlist]
+[DIR(output:"checkpoint" parent:"Platforms/GearVR/QuickStart")]
 
-	* [](Platforms/GearVR/QuickStart/1 "%Platforms/GearVR/QuickStart/1:description%")
-	* [](Platforms/GearVR/QuickStart/2 "%Platforms/GearVR/QuickStart/2:description%")
-	* [](Platforms/GearVR/QuickStart/3 "%Platforms/GearVR/QuickStart/3:description%")
-	
+[REGION:call_to_action]
+ [点击开始](Platforms/GearVR/QuickStart/1 "%Platforms/GearVR/QuickStart/1:title%")
 [/REGION]
-

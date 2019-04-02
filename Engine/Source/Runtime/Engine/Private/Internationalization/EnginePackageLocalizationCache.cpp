@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Internationalization/EnginePackageLocalizationCache.h"
 #include "Misc/ScopeLock.h"
@@ -50,7 +50,9 @@ void FEnginePackageLocalizationCache::FindLocalizedPackages(const FString& InSou
 #endif // WITH_EDITOR
 
 	TArray<FAssetData> LocalizedAssetDataArray;
-	AssetRegistry.GetAssetsByPath(*InLocalizedRoot, LocalizedAssetDataArray, /*bRecursive*/true);
+	bool bIncludeOnlyOnDiskAssets = !GIsEditor;
+	bool bRecursive = true;
+	AssetRegistry.GetAssetsByPath(*InLocalizedRoot, LocalizedAssetDataArray, bRecursive, bIncludeOnlyOnDiskAssets);
 
 	for (const FAssetData& LocalizedAssetData : LocalizedAssetDataArray)
 	{

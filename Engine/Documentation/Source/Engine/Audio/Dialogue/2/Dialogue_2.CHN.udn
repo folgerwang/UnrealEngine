@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3218993
+﻿INTSourceChangelist:3429236
 Availability:Public
 Title:2.编译 Dialogue Waves
 Crumbs: %ROOT%, Engine, Engine/Audio
@@ -6,18 +6,19 @@ Description:编译 Dialogue Waves 保存对话数据
 version:4.13
 parent:Engine/Audio/Dialogue
 order:2
-type:quick start
+type:how-to
 checkpoint:dialogueqs
-prereq:Engine/Blueprints/QuickStart
+prereq: Engine/Blueprints/QuickStart
 related:Engine/Audio
 related:Engine/Audio/Overview
 related:Engine/Audio/SoundCues/Editor
 related:Engine/Audio/SoundCues/NodeReference
+skilllevel:Intermediate
 
 [NAV]
 
 
-在此例中，我们将实现任务 NPC 对 Adam 和 Zoe 打招呼。如需了解复杂对话的更多内容，请查阅 [声音提示和对话部分](Engine/Audio/Dialogue/2)。每行对话都需要一个与其相关的 **Dialogue Wave** 资源。
+在此例中，我们将实现任务 NPC 对 Adam 和 Zoe 打招呼。如需了解复杂对话的更多内容，请查阅 [声音提示和对话](Engine/Audio/Dialogue/2)部分 。每行对话都需要一个与其相关的 **Dialogue Wave** 资源。
 
 1. 返回 **Content Browser** 并新建一个 **Dialogue Wave** 资源。 
 

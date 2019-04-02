@@ -1,20 +1,22 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Installer/InstallChunkSource.h"
-#include "HAL/ThreadSafeBool.h"
-#include "Serialization/MemoryReader.h"
+
+#include "Algo/Transform.h"
 #include "Containers/Queue.h"
-#include "Installer/ChunkReferenceTracker.h"
-#include "Installer/ChunkStore.h"
-#include "Installer/InstallerError.h"
+#include "Core/BlockStructure.h"
+#include "HAL/ThreadSafeBool.h"
+#include "Misc/Paths.h"
+#include "Serialization/MemoryReader.h"
+
 #include "Common/FileSystem.h"
 #include "Common/StatsCollector.h"
+#include "Installer/InstallerError.h"
+#include "Installer/ChunkStore.h"
+#include "Installer/ChunkReferenceTracker.h"
 #include "BuildPatchHash.h"
-#include "Algo/Transform.h"
-#include "Misc/Paths.h"
 
-DECLARE_LOG_CATEGORY_EXTERN(LogInstallChunkSource, Warning, All);
-DEFINE_LOG_CATEGORY(LogInstallChunkSource);
+DECLARE_LOG_CATEGORY_CLASS(LogInstallChunkSource, Warning, All);
 
 namespace BuildPatchServices
 {
@@ -127,20 +129,15 @@ namespace BuildPatchServices
 					PlacedInStore.Remove(RepeatRequirement);
 				}
 				// Select the next X chunks that are locally available.
-				TFunction<bool(const FGuid&)> SelectPredicate = [this](const FGuid& ChunkId)
-				{
-					return AvailableInBuilds.Contains(ChunkId) && (!Configuration.ChunkIgnoreSet.Contains(ChunkId) || RuntimeRequests.Contains(ChunkId));
-				};
-				// Clamp load count between min and max according to current space in the store.
-				int32 StoreSlack = ChunkStore->GetSlack();
-				int32 BatchFetchCount = FMath::Clamp(StoreSlack, Configuration.BatchFetchMinimum, Configuration.BatchFetchMaximum);
-				TArray<FGuid> BatchLoadChunks = ChunkReferenceTracker->GetNextReferences(BatchFetchCount, SelectPredicate);
+				TFunction<bool(const FGuid&)> SelectPredicate = [this](const FGuid& ChunkId) { return AvailableInBuilds.Contains(ChunkId) && (!Configuration.ChunkIgnoreSet.Contains(ChunkId) || RuntimeRequests.Contains(ChunkId)); };
+				// Grab all the chunks relevant to this source to fill the store.
+				int32 SearchLength = FMath::Max(ChunkStore->GetSize(), Configuration.BatchFetchMinimum);
+				TArray<FGuid> BatchLoadChunks = ChunkReferenceTracker->SelectFromNextReferences(SearchLength, SelectPredicate);
 				// Remove already loaded chunks.
-				TFunction<bool(const FGuid&)> RemovePredicate = [this](const FGuid& ChunkId)
-				{
-					return PlacedInStore.Contains(ChunkId) || FailedChunks.Contains(ChunkId);
-				};
+				TFunction<bool(const FGuid&)> RemovePredicate = [this](const FGuid& ChunkId) { return PlacedInStore.Contains(ChunkId) || FailedChunks.Contains(ChunkId); };
 				BatchLoadChunks.RemoveAll(RemovePredicate);
+				// Clamp to configured max.
+				BatchLoadChunks.SetNum(FMath::Min(BatchLoadChunks.Num(), Configuration.BatchFetchMaximum), false);
 				// Ensure requested chunk is in the array.
 				BatchLoadChunks.AddUnique(DataId);
 				// Call to stat.
@@ -210,6 +207,7 @@ namespace BuildPatchServices
 			// Collect all chunks in this file.
 			TSet<FGuid> FileManifestChunks;
 			Algo::Transform(FileManifest->ChunkParts, FileManifestChunks, &FChunkPart::Guid);
+			FileManifestChunks = FileManifestChunks.Intersect(AvailableInBuilds);
 			// Select all chunks still required from this file.
 			TFunction<bool(const FGuid&)> SelectPredicate = [this, &FileManifestChunks](const FGuid& ChunkId)
 			{
@@ -284,14 +282,17 @@ namespace BuildPatchServices
 		{
 			// Get the list of data pieces we need to load.
 			TArray<FFileChunkPart> FileChunkParts = FoundInstallManifest->GetFilePartsForChunk(DataId);
-			LoadResult = FileChunkParts.Num() <= 0 ? IInstallChunkSourceStat::ELoadResult::MissingPartInfo : IInstallChunkSourceStat::ELoadResult::Success;
+			const FChunkInfo* ChunkInfoPtr = FoundInstallManifest->GetChunkInfo(DataId);
+			LoadResult = ChunkInfoPtr == nullptr || FileChunkParts.Num() <= 0 ? IInstallChunkSourceStat::ELoadResult::MissingPartInfo : IInstallChunkSourceStat::ELoadResult::Success;
 			if (LoadResult == IInstallChunkSourceStat::ELoadResult::Success)
 			{
+				FBlockStructure ChunkBlocks;
 				const int32 InitialDataSize = 1024*1024;
 				TArray<uint8> TempArray;
 				uint8* TempChunkConstruction = nullptr;
 				uint32 LoadedChunkSize = 0;
-				for (int32 FileChunkPartsIdx = 0; FileChunkPartsIdx < FileChunkParts.Num() && LoadResult == IInstallChunkSourceStat::ELoadResult::Success && !bShouldAbort; ++FileChunkPartsIdx)
+				bool bLoadedWholeChunk = false;
+				for (int32 FileChunkPartsIdx = 0; FileChunkPartsIdx < FileChunkParts.Num() && !bLoadedWholeChunk && !bShouldAbort; ++FileChunkPartsIdx)
 				{
 					const FFileChunkPart& FileChunkPart = FileChunkParts[FileChunkPartsIdx];
 					LoadedChunkSize = FMath::Max<uint32>(LoadedChunkSize, FileChunkPart.ChunkPart.Offset + FileChunkPart.ChunkPart.Size);
@@ -327,14 +328,20 @@ namespace BuildPatchServices
 						{
 							FileArchive->Seek(FileChunkPart.FileOffset);
 							FileArchive->Serialize(TempChunkConstruction + FileChunkPart.ChunkPart.Offset, FileChunkPart.ChunkPart.Size);
+							ChunkBlocks.Add(FileChunkPart.ChunkPart.Offset, FileChunkPart.ChunkPart.Size);
 							LoadRecord.Size += FileChunkPart.ChunkPart.Size;
 						}
 					}
+					bLoadedWholeChunk = ChunkBlocks.GetHead() && ChunkBlocks.GetHead() == ChunkBlocks.GetTail() && ChunkBlocks.GetHead()->GetSize() == ChunkInfoPtr->WindowSize;
 					// Wait while paused
 					while (bIsPaused && !bShouldAbort)
 					{
 						FPlatformProcess::Sleep(0.5f);
 					}
+				}
+				if (bLoadedWholeChunk)
+				{
+					LoadResult = IInstallChunkSourceStat::ELoadResult::Success;
 				}
 
 				// Mark not success if we gave up due to being aborted.

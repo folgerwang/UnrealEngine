@@ -1,4 +1,5 @@
-﻿Availability: Public
+﻿INTSourceChangelist:3782314
+Availability: Public
 Title:1.7 -线性发动机
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Physics
 Description:物理表现示例关卡概述，示例1.7： 带物理约束的线性发动机
@@ -8,46 +9,9 @@ Related: Engine/Physics/Constraints/ConstraintsReference
 Related: Engine/Physics/Constraints/ConstraintsUserGuide
 Related: Engine/Physics/Collision
 Related: Engine/Physics/PhysicalMaterials/Reference
+Version: 4.9
+topic-image:physics_1_7_topic.png
 
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources\ContentExamples\Physics\1_7:title%](physics_1_7_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\Physics\1_7:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\Physics\1_7:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\Physics\1_7]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources\ContentExamples\Physics\1_7:title%](physics_1_7_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\Physics\1_7:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\Physics\1_7:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\Physics\1_7]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 
 [REGION:fullwidth]

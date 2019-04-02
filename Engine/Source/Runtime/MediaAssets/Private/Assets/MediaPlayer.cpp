@@ -1,8 +1,9 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaPlayer.h"
 #include "MediaAssetsPrivate.h"
 
+#include "Engine/Engine.h"
 #include "IMediaClock.h"
 #include "IMediaControls.h"
 #include "IMediaModule.h"
@@ -10,8 +11,10 @@
 #include "IMediaPlayerFactory.h"
 #include "IMediaTicker.h"
 #include "IMediaTracks.h"
+#include "LatentActions.h"
 #include "MediaPlayerFacade.h"
 #include "MediaPlayerOptions.h"
+#include "MediaHelpers.h"
 #include "Misc/App.h"
 #include "Misc/Paths.h"
 #include "Misc/ScopeLock.h"
@@ -223,6 +226,15 @@ FTimespan UMediaPlayer::GetTime() const
 	return PlayerFacade->GetTime();
 }
 
+FTimespan UMediaPlayer::GetLastAudioSampleProcessedTime() const
+{
+	return PlayerFacade->GetLastAudioSampleProcessedTime();
+}
+
+FTimespan UMediaPlayer::GetLastVideoSampleProcessedTime() const
+{
+	return PlayerFacade->GetLastVideoSampleProcessedTime();
+}
 
 FText UMediaPlayer::GetTrackDisplayName(EMediaPlayerTrack TrackType, int32 TrackIndex) const
 {
@@ -352,6 +364,11 @@ bool UMediaPlayer::IsPreparing() const
 	return PlayerFacade->IsPreparing();
 }
 
+
+bool UMediaPlayer::IsClosed() const
+{
+	return PlayerFacade->IsClosed();
+}
 
 bool UMediaPlayer::IsReady() const
 {
@@ -742,22 +759,34 @@ void UMediaPlayer::PostInitProperties()
 		// Set the player GUID - required for UMediaPlayers dynamically allocated at runtime
 		PlayerFacade->SetGuid(PlayerGuid);
 
-		IMediaModule* MediaModule = nullptr;
-		if (IsInGameThread())
-		{
-			// LoadModulePtr can't be used on a non-game thread (like the AsyncLoadingThread)
-			MediaModule = FModuleManager::LoadModulePtr<IMediaModule>("Media");
-		}
-		else
-		{
-			// By the time we get here we should've already called LoadModulePtr above on the game thread (when constructing CDO)
-			MediaModule = FModuleManager::GetModulePtr<IMediaModule>("Media");
-		}
-		if (MediaModule != nullptr)
-		{
-			MediaModule->GetClock().AddSink(PlayerFacade.ToSharedRef());
-			MediaModule->GetTicker().AddTickable(PlayerFacade.ToSharedRef());
-		}
+		RegisterWithMediaModule();
+	}
+}
+
+
+void UMediaPlayer::RegisterWithMediaModule()
+{
+	static const FName MediaModuleName("Media");
+	IMediaModule* MediaModule = nullptr;
+	if (IsInGameThread())
+	{
+		// LoadModulePtr can't be used on a non-game thread (like the AsyncLoadingThread)
+		MediaModule = FModuleManager::LoadModulePtr<IMediaModule>(MediaModuleName);
+	}
+	else
+	{
+		// By the time we get here we should've already called LoadModulePtr above on the game thread (when constructing CDO)
+		MediaModule = FModuleManager::GetModulePtr<IMediaModule>(MediaModuleName);
+	}
+
+	if (MediaModule != nullptr)
+	{
+		MediaModule->GetClock().AddSink(PlayerFacade.ToSharedRef());
+		MediaModule->GetTicker().AddTickable(PlayerFacade.ToSharedRef());
+	}
+	else
+	{
+		UE_LOG(LogMediaAssets, Warning, TEXT("Failed to register media player '%s' due to module 'Media' not being loaded yet."), *GetName());
 	}
 }
 
@@ -803,6 +832,8 @@ void UMediaPlayer::HandlePlayerMediaEvent(EMediaEvent Event)
 {
 	MediaEvent.Broadcast(Event);
 
+	bool bPlayOnOpen = false;
+
 	switch(Event)
 	{
 	case EMediaEvent::MediaClosed:
@@ -811,17 +842,39 @@ void UMediaPlayer::HandlePlayerMediaEvent(EMediaEvent Event)
 
 	case EMediaEvent::MediaOpened:
 		PlayerFacade->SetCacheWindow(CacheAhead, FApp::IsGame() ? CacheBehindGame : CacheBehind);
-		PlayerFacade->SetLooping(Loop && (Playlist->Num() == 1));
+		if (PlayerFacade->ActivePlayerOptions.IsSet() && PlayerFacade->ActivePlayerOptions->Loop != EMediaPlayerOptionBooleanOverride::UseMediaPlayerSetting)
+		{
+			PlayerFacade->SetLooping(PlayerFacade->ActivePlayerOptions->Loop == EMediaPlayerOptionBooleanOverride::Enabled);
+		}
+		else
+		{
+			PlayerFacade->SetLooping(Loop && (Playlist->Num() == 1));
+		}
 		PlayerFacade->SetViewField(HorizontalFieldOfView, VerticalFieldOfView, true);
 		PlayerFacade->SetViewOrientation(FQuat(ViewRotation), true);
 		PlayerFacade->TimeDelay = TimeDelay;
 
 		OnMediaOpened.Broadcast(PlayerFacade->GetUrl());
 
-		if (PlayOnOpen || PlayOnNext)
+		if (PlayerFacade->ActivePlayerOptions.IsSet() && PlayerFacade->ActivePlayerOptions->PlayOnOpen != EMediaPlayerOptionBooleanOverride::UseMediaPlayerSetting)
+		{
+			bPlayOnOpen = (PlayerFacade->ActivePlayerOptions->PlayOnOpen == EMediaPlayerOptionBooleanOverride::Enabled);
+		}
+		else
+		{
+			bPlayOnOpen = (PlayOnOpen || PlayOnNext);
+		}
+
+		if (bPlayOnOpen)
 		{
 			PlayOnNext = false;
-			Play();
+			if (Play())
+			{
+				if (PlayerFacade->ActivePlayerOptions.IsSet() && !PlayerFacade->ActivePlayerOptions->SeekTime.IsZero() && SupportsSeeking())
+				{
+					Seek(PlayerFacade->ActivePlayerOptions->SeekTime);
+				}
+			}
 		}
 		break;
 
@@ -863,3 +916,202 @@ void UMediaPlayer::HandlePlayerMediaEvent(EMediaEvent Event)
 		break;
 	}
 }
+
+class FLatentOpenMediaSourceAction : public FPendingLatentAction
+{
+public:
+	FName ExecutionFunction;
+	int32 OutputLink;
+	FWeakObjectPtr CallbackTarget;
+
+	TWeakObjectPtr<UMediaPlayer> MediaPlayer;
+	float TimeRemaining;
+	bool& OutSuccess;
+	bool bSawError;
+	bool bSawMediaOpened;
+	bool bSawMediaOpenFailed;
+	bool bSawSeekCompleted;
+	FMediaPlayerOptions Options;
+	FString URL;
+
+	FLatentOpenMediaSourceAction(const FLatentActionInfo& LatentInfo, UMediaPlayer* InMediaPlayer, UMediaSource* InMediaSource, const FMediaPlayerOptions& InOptions, bool& InSuccess)
+		: ExecutionFunction(LatentInfo.ExecutionFunction)
+		, OutputLink(LatentInfo.Linkage)
+		, CallbackTarget(LatentInfo.CallbackTarget)
+		, MediaPlayer(InMediaPlayer)
+		, TimeRemaining(10.0)
+		, OutSuccess(InSuccess)
+		, bSawError(false)
+		, bSawMediaOpened(false)
+		, bSawMediaOpenFailed(false)
+		, bSawSeekCompleted(false)
+		, Options(InOptions)
+	{
+		if (InMediaSource)
+		{
+			URL = InMediaSource->GetUrl();
+
+			InMediaPlayer->OnMediaEvent().AddRaw(this, &FLatentOpenMediaSourceAction::HandleMediaPlayerEvent);
+			if (!InMediaPlayer->OpenSourceWithOptions(InMediaSource, InOptions))
+			{
+				UE_LOG(LogMediaAssets, Warning, TEXT("Open Media Latent: Failed initial open: %s"), *URL);
+				bSawError = true;
+			}
+		}
+		else
+		{
+			UE_LOG(LogMediaAssets, Warning, TEXT("Open Media Latent: Failed initial open because no media source given"));
+			bSawError = true;
+		}
+	}
+
+	virtual ~FLatentOpenMediaSourceAction()
+	{
+		UnregisterMediaEvent();
+	}
+
+	void UnregisterMediaEvent()
+	{
+		if (MediaPlayer.IsValid())
+		{
+			MediaPlayer->OnMediaEvent().RemoveAll(this);
+		}
+	}
+
+	void HandleMediaPlayerEvent(EMediaEvent Event)
+	{
+		UE_LOG(LogMediaAssets, Verbose, TEXT("Open Media Latent: Saw event: %s"), *MediaUtils::EventToString(Event));
+
+		switch (Event)
+		{
+		case EMediaEvent::MediaOpened:
+			bSawMediaOpened = true;
+			break;
+		case EMediaEvent::MediaOpenFailed:
+			bSawMediaOpenFailed = true;
+			break;
+		case EMediaEvent::SeekCompleted:
+			bSawSeekCompleted = true;
+			break;
+		}
+	}
+
+	void FailedOperation(FLatentResponse& Response)
+	{
+		OutSuccess = false;
+		Response.FinishAndTriggerIf(true, ExecutionFunction, OutputLink, CallbackTarget);
+	}
+
+	virtual void UpdateOperation(FLatentResponse& Response) override
+	{
+		if (bSawMediaOpenFailed)
+		{
+			UE_LOG(LogMediaAssets, Warning, TEXT("Open Media Latent: Saw media open failed event. %s"), *URL);
+			FailedOperation(Response);
+			return;
+		}
+
+		if (!MediaPlayer.IsValid() || MediaPlayer.IsStale())
+		{
+			UE_LOG(LogMediaAssets, Warning, TEXT("Open Media Latent: Media player object was deleted. %s"), *URL);
+			FailedOperation(Response);
+			return;
+		}
+
+		if (bSawError || MediaPlayer->HasError())
+		{
+			UE_LOG(LogMediaAssets, Warning, TEXT("Open Media Latent: Media player is in Error state. %s"), *URL);
+			FailedOperation(Response);
+			return;
+		}
+
+		if (MediaPlayer->IsClosed())
+		{
+			UE_LOG(LogMediaAssets, Warning, TEXT("Open Media Latent: Media player is closed. %s"), *URL);
+			FailedOperation(Response);
+			return;
+		}
+
+		if (MediaPlayer->IsPreparing())
+		{
+			UE_LOG(LogMediaAssets, Verbose, TEXT("Open Media Latent: Is preparing ..."));
+		}
+		else if (MediaPlayer->IsReady())
+		{
+			UE_LOG(LogMediaAssets, Verbose, TEXT("Open Media Latent: IsReady() ... %s"), *URL);
+
+			if (bSawMediaOpened)
+			{
+				if (!Options.SeekTime.IsZero())
+				{
+					if (bSawSeekCompleted)
+					{
+						UE_LOG(LogMediaAssets, Verbose, TEXT("Open Media Latent: Triggering output pin after seek completed. Success: %d, %s"), OutSuccess, *URL);
+						OutSuccess = true;
+						Response.FinishAndTriggerIf(true, ExecutionFunction, OutputLink, CallbackTarget);
+						return;
+					}
+					else
+					{
+						if (Options.SeekTime < FTimespan::FromSeconds(0) || Options.SeekTime > MediaPlayer->GetDuration())
+						{
+							UE_LOG(LogMediaAssets, Warning, TEXT("Open Media Latent: Media player seeking to time out of bounds. Seek: %s, Duration: %s, URL: %s"), 
+								*Options.SeekTime.ToString(), *MediaPlayer->GetDuration().ToString(), *URL);
+							FailedOperation(Response);
+							return;
+						}
+						UE_LOG(LogMediaAssets, Verbose, TEXT("Open Media Latent: Waiting for seek completed event ..."));
+					}
+				}
+				else
+				{
+					UE_LOG(LogMediaAssets, Verbose, TEXT("Open Media Latent: Triggering output pin after opened event. Success: %d, %s"), OutSuccess, *URL);
+					OutSuccess = true;
+					Response.FinishAndTriggerIf(true, ExecutionFunction, OutputLink, CallbackTarget);
+					return;
+				}
+			}
+			else
+			{
+				UE_LOG(LogMediaAssets, Verbose, TEXT("Open Media Latent: Waiting for opened event ..."));
+			}
+		}
+		else
+		{
+			UE_LOG(LogMediaAssets, Verbose, TEXT("Open Media Latent: Waiting for IsReady() ..."));
+		}
+
+		// Timed out
+		TimeRemaining -= Response.ElapsedTime();
+		if (TimeRemaining <= 0.0f)
+		{
+			UE_LOG(LogMediaAssets, Warning, TEXT("Open Media Latent: Timed out. %s"), *URL);
+			FailedOperation(Response);
+			return;
+		}
+	}
+
+#if WITH_EDITOR
+	// Returns a human readable description of the latent operation's current state
+	virtual FString GetDescription() const override
+	{
+		return FString::Printf(TEXT("Opening Media: %s"), *URL);
+	}
+#endif
+};
+
+void UMediaPlayer::OpenSourceLatent(const UObject* WorldContextObject, FLatentActionInfo LatentInfo, UMediaSource* MediaSource, const FMediaPlayerOptions& Options, bool& bSuccess)
+{
+	bSuccess = false;
+
+	if (UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull))
+	{
+		FLatentActionManager& LatentManager = World->GetLatentActionManager();
+		if (LatentManager.FindExistingAction<FLatentOpenMediaSourceAction>(LatentInfo.CallbackTarget, LatentInfo.UUID) == nullptr)
+		{
+			FLatentOpenMediaSourceAction* NewAction = new FLatentOpenMediaSourceAction(LatentInfo, this, MediaSource, Options, bSuccess);
+			LatentManager.AddNewAction(LatentInfo.CallbackTarget, LatentInfo.UUID, NewAction);
+		}
+	}
+}
+

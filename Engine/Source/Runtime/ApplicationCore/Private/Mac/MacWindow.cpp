@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Mac/MacWindow.h"
 #include "Mac/MacApplication.h"
@@ -520,6 +520,32 @@ float FMacWindow::GetDPIScaleFactor() const
 	return FPlatformApplicationMisc::IsHighDPIModeEnabled() ? WindowHandle.backingScaleFactor : 1.0f;
 }
 
+void FMacWindow::SetNativeWindowButtonsVisibility(bool bVisible)
+{
+	const bool bHidden = !(bVisible && Definition->IsRegularWindow);
+	MainThreadCall(^{
+		SCOPED_AUTORELEASE_POOL;
+
+		NSButton* CloseButton = [WindowHandle standardWindowButton:NSWindowCloseButton];
+		if (CloseButton)
+		{
+			CloseButton.hidden = bHidden;
+		}
+
+		NSButton* MinimizeButton = [WindowHandle standardWindowButton:NSWindowMiniaturizeButton];
+		if (MinimizeButton)
+		{
+			MinimizeButton.hidden = bHidden;
+		}
+
+		NSButton* MaximizeButton = [WindowHandle standardWindowButton:NSWindowZoomButton];
+		if (MaximizeButton)
+		{
+			MaximizeButton.hidden = bHidden;
+		}
+	}, NSDefaultRunLoopMode, false);
+}
+
 void FMacWindow::OnDisplayReconfiguration(CGDirectDisplayID Display, CGDisplayChangeSummaryFlags Flags)
 {
 	if(WindowHandle)
@@ -553,6 +579,9 @@ void FMacWindow::ApplySizeAndModeChanges(int32 X, int32 Y, int32 Width, int32 He
 	// in rare cases due to FPlatformApplicationMisc::PumpMessages
 	
 	SCOPED_AUTORELEASE_POOL;
+
+	// Wait if we're in a middle of fullscreen transition
+	WaitForFullScreenTransition();
 
 	bool bIsFullScreen = [WindowHandle windowMode] == EWindowMode::WindowedFullscreen || [WindowHandle windowMode] == EWindowMode::Fullscreen;
 	const bool bWantsFullScreen = WindowMode == EWindowMode::WindowedFullscreen || WindowMode == EWindowMode::Fullscreen;
@@ -594,11 +623,11 @@ void FMacWindow::ApplySizeAndModeChanges(int32 X, int32 Y, int32 Width, int32 He
 			WindowHandle.TargetWindowMode = WindowMode;
 
 			const float DPIScaleFactor = FPlatformApplicationMisc::GetDPIScaleFactorAtPoint(X, Y);
-			Width /= DPIScaleFactor;
-			Height /= DPIScaleFactor;
+			Width = FMath::CeilToInt(Width / DPIScaleFactor);
+			Height = FMath::CeilToInt(Height / DPIScaleFactor);
 
 			const FVector2D CocoaPosition = FMacApplication::ConvertSlatePositionToCocoa(X, Y);
-			NSRect Rect = NSMakeRect(CocoaPosition.X, CocoaPosition.Y - Height + 1, FMath::Max(Width, 1), FMath::Max(Height, 1));
+			NSRect Rect = NSMakeRect(CocoaPosition.X, CocoaPosition.Y - Height + 1, FMath::Max(Width, 0), FMath::Max(Height, 0));
 			if (Definition->HasOSWindowBorder)
 			{
 				Rect = [WindowHandle frameRectForContentRect:Rect];
@@ -670,10 +699,6 @@ void FMacWindow::UpdateFullScreenState(bool bToggleFullScreen)
 		SCOPED_AUTORELEASE_POOL;
 		if (bToggleFullScreen)
 		{
-			// Make sure we don't limit the window size for fullscreen toggle
-			[WindowHandle setMinSize:NSMakeSize(10.0f, 10.0f)];
-			[WindowHandle setMaxSize:NSMakeSize(10000.0f, 10000.0f)];
-
 			[WindowHandle toggleFullScreen:nil];
 		}
 		else
@@ -699,6 +724,14 @@ void FMacWindow::UpdateFullScreenState(bool bToggleFullScreen)
 
 	// If we toggle fullscreen, ensure that the window has transitioned BEFORE leaving this function.
 	// This prevents problems with failure to correctly update mouse locks and rendering contexts due to bad event ordering.
+	WaitForFullScreenTransition();
+
+	// Restore window size limits if needed
+	MacApplication->OnCursorLock();
+}
+
+void FMacWindow::WaitForFullScreenTransition()
+{
 	bool bModeChanged = false;
 	do
 	{
@@ -706,7 +739,4 @@ void FMacWindow::UpdateFullScreenState(bool bToggleFullScreen)
 		FPlatformApplicationMisc::PumpMessages(true);
 		bModeChanged = [WindowHandle windowMode] == WindowHandle.TargetWindowMode;
 	} while (!bModeChanged);
-
-	// Restore window size limits if needed
-	MacApplication->OnCursorLock();
 }

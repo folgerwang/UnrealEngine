@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3317931
+﻿INTSourceChangelist:3806721
 Availability: Public
 Title: 为 Unity 开发者准备的虚幻引擎 4
 Crumbs: %ROOT%, GettingStarted
@@ -16,13 +16,66 @@ version: 4.9
 
 下面是 Unity 编辑器和虚幻编辑器的图片，用颜色标识了同类的区块。每个区块也添加了标签，对应于虚幻术语表。虚幻编辑器完全可以通过对各个区块的拖拽做到窗口布局的自定义。
 
-![](image_1.png)
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	![](EditorCompare_Windows.png)
+	[/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	![](EditorCompare_Mac.png)
+	[/PARAM]
+[/OBJECT]
+
 
 ### 编辑资源素材
 
 在 Unity 中，Inspector 分页时用来编辑当前项目中选中的素材。在虚幻 4 中，**细节** 面板则用来展示并修改当前选中物体的属性，然后大量的编辑修改则需要专用的窗口或分页。编辑每种类型的资源时都会打开分页窗口，类似于网页浏览器。当然这些分页窗口也可以任意拖拽，并悬浮在其他窗口之上作为独立窗口显示。
 
-![](image_2.png)
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	![](TabbedWindows_Windows.png)
+	[/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	![](TabbedWindows_Mac.png)
+	[/PARAM]
+[/OBJECT]
 
 ## 快速词汇查找表
 
@@ -64,7 +117,33 @@ version: 4.9
 
 在虚幻 4 中，每个项目都有一个 **Content** 文件夹。类似于 Unity 项目的 Asset 目录，这里就是游戏资源素材保存的地方。要向游戏中导入素材的话，只需要将素材文件拷贝到 Content 目录，它们便会自动导入并出现在 **内容浏览器** 中。当使用外部程序修改这些资源时，编辑器中的资源也会自动的被更新。
 
-![image alt text](image_3.png)
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	![](ProjectOnDisk_Windows.png)
+	[/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	![](ProjectOnDisk_Mac.png)
+	[/PARAM]
+[/OBJECT]
 
 ### 支持哪些通用资源文件格式？
 
@@ -187,11 +266,10 @@ In addition to Blueprint Classes supporting visual scripting, UE4 also supports 
 除了蓝图支持可视化脚本编辑，虚幻 4 还支持通过代码 C++ 类来实现。这里是双方的一个对照：
 
 
-| Unity C# | 虚幻 4 C++ |
-| --- | --- | 
-|[INCLUDE:GettingStarted/FromUnity#csharp_unity]| [INCLUDE:GettingStarted/FromUnity#cpp_ue4] | 
-
-
+| Unity C# | UE4 C++ | 虚幻4蓝图 |
+| --- | --- | --- |
+|[INCLUDE:GettingStarted/FromUnity#csharp_unity]| [INCLUDE:GettingStarted/FromUnity#cpp_ue4] |[REGION:lightbox][![](image_28.png)(w:220)](image_28.png)[/REGION]|
+																							   
 [COMMENT:none]
 
 [EXCERPT:csharp_Unity]
@@ -254,11 +332,6 @@ In addition to Blueprint Classes supporting visual scripting, UE4 also supports 
 [/EXCERPT:cpp_UE4]
 
 [/COMMENT]
-
-
-| 虚幻 4 蓝图 | 
-| --- |
-|![](image_28.png)| 
 
 ### 虚幻 4 蓝图类的扩展性
 
@@ -371,6 +444,7 @@ C++ 编程可以为更大体量的任务工作，比如构建一个游戏体系�
 类似于 Unity 的 Start，OnDestroy 和 Update 函数，虚幻 4 在 Actor 中有类似的方法：
 
 **C++**：
+
 	UCLASS()
 	class AMyActor : public AActor
 	{
@@ -393,6 +467,7 @@ C++ 编程可以为更大体量的任务工作，比如构建一个游戏体系�
 在虚幻 4 中，组件具有不同的函数。以下是示例：
 
 **C++**：
+
 	UCLASS()
 	class UMyComponent : public UActorComponent
 	{

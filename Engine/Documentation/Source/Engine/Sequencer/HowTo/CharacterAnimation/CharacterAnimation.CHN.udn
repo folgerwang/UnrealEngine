@@ -1,102 +1,160 @@
-﻿INTSourceChangelist:3439587
-Availability:Public
-Title:动画和动画混合
+﻿INTSourceChangelist:3807090
+Availability: Public
+Title:混合动画和属性
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
-Description:说明如何在 Sequencer 中将动画应用到骨架网格体并混合动画。 
-Version:4.15
-SkillLevel:Intermediate
-parent:Engine/Sequencer/HowTo
-order:1
-checkpoint: editorqs
-Related:Engine/Sequencer/Overview
-Related:Engine\Sequencer\ReferenceEditor\
-tags:Sequencer
+Description:演示如何将动画应用到序列器中的骨架网格体actor以及混合动画和混合属性值。 
+Type: how-to
+SkillLevel: Intermediate
+Version: 4.17
+Parent: Engine/Sequencer/HowTo
+Order: 1
+Tags: Sequencer
+Related: Engine/Sequencer/Overview
+Related: Engine\Sequencer\ReferenceEditor\
+type:how-to
 
-创建影片序列时，有时可能需要角色在场景中四处移动，或者执行一些动画。
-在 **Sequencer** 实现这种效果的方法是为关卡序列添加一个骨架网格体 Actor，然后添加一个动画子轨迹，并指定 Actor 需要执行的动画。
-重复此流程，为 Actor 添加不同类型的动画，使影片序列中的角色活灵活现！
+在创建动画序列时，有时可能需要让场景中的某个角色移动或执行某种动画。
+在 **序列器（Sequencer）** 中，这是通过将骨架网格Actor添加到关卡序列，然后添加动画子轨迹并指定希望Actor执行的动画来完成的。
+序列器使您能够通过将一个属性轨迹拖放到现有属性轨迹，自动对动画（以及属性值）执行交叉渐变和混合操作。 
+这样做时，将应用自动混合，您可以通过使用缓和属性或定义自己的自定义曲线资源对其进行调优和调整。 
 
-我们将在此指南中创建一个小场景，其中的角色将以行走开始，然后混合到跳跃动画中。 
+在本指南中，我们将创建一个动画示例序列，其中一个角色将在行走中融入跳跃动作，然后再回到行走状态。 
+
+![](AnimationBlending.png)(w:720)
+
+(#steps)
 
 ## 步骤
 
 [REGION:note]
-在此指南中，我们使用的是启用了 **Starter Content** 的 **Blueprint Third Person Template** 项目。 
+对于本教程，我们使用的是 **已启用初学者内容包（Starter Content Enabled）** 的 **蓝图第三人称模板（Blueprint Third Person Template）** 项目。 
 [/REGION]
 
-1.	点击项目中工具栏下的 **Cinematics** 按钮和 **Add Level Sequence**。 
+1.	在项目内部，从主工具栏（Main Toolbar）中，单击 **动画（Cinematics）** 按钮和 **添加关卡序列（Add Level Sequence）**。 
 
 	![](CharacterAnim_01.png)
 
-1.	在 **Content Browser** 下的 **Content/Mannequin/Character/Mesh** 中，将 **SK_Mannequin** 拖入关卡。 
+1.	在 **Content/Mannequin/Character/Mesh** 下的 **内容浏览器（Content Browser）** 中，将 **SK_Mannequin** 拖动到关卡中。 
 
 	![](CharacterAnim_02.png)
 
-1.	保持 **SK_Mannequin** 的选中状态，点击 Sequencer 中的 **Add** 按钮将其添加到关卡序列。 
+1.	在仍选中 **SK_Mannequin** 资源的情况下，单击序列器中的 **轨迹（Track）** 按钮将其添加到您的关卡序列中。 
 
 	![](CharacterAnim_03.png)
 
-1.	点击新骨架网格体轨迹中的 **Animation** 按钮，指定 **ThirdPersonWalk** 动画。 
+1.	点击新的骨架网格体轨迹上的 **动画（Animation）** 按钮，并分配 **ThirdPersonWalk** 动画。 
 
 	![](CharacterAnim_04.png)
 
-1.	展开 **Animation**，然后将 **时间轴** 拖至第 **30** 帧处。 
+1.	将时间轴擦除到 **30**，并单击 **动画（Animation）** 按钮，添加 **ThirdPersonJump_Start** 动画。 
 
 	![](CharacterAnim_05.png)
 
-1.	再次点击 **Animation** 按钮并添加 **ThirdPersonJump_Start** 动画。 
+1.	单击轨迹窗口中的 **ThirdPersonJump_Start** 动画并将其拖动到 **ThirdPersonWalk** 上，回到帧 **25**。 
 
 	![](CharacterAnim_06.png)
 
-	现在播放动画会发现两个动画之间存在跳动。 
+	[REGION:tip]
+	在时间轴上拖动动画时，负数表示在时间轴上向后移动了多少帧，而正数表示在时间轴上向前移动了多少帧。
+	[/REGION]
 
-	[OBJECT:EmbeddedVideo]
-	[PARAMLITERAL:width]
-	640
-	[/PARAMLITERAL]
-	[PARAMLITERAL:height]
-	360
-	[/PARAMLITERAL]
-	[PARAMLITERAL:videoid]
-	oHjDpYPAdCo
-	[/PARAMLITERAL]
-	[/OBJECT]
-
-	添加动画时，可以使用加权值在多个动画之间进行混合。这就是处理动画之间跳动的方法。 
-
-1.	将下方的 **ThirdPersonJump_Start** 动画拖至行走动画下方，并回到序列的第 **25** 帧。 
+1.	在帧 **39** 处添加 **ThirdPersonJump_Loop**，然后将其向后拖动到 **ThirPersonJump_start**，并在帧 **34** 处开始交叉渐变。 
 
 	![](CharacterAnim_07.png)
 
-1.	展开两个子动画轨迹并点击行走轨迹上的 **add key** 按钮，为跳跃开始动画的值设为 **1.0** 和 **0.0**。 
+1.	添加 **ThirdPersonJump_End** 动画，并将其交叉渐变 **2** 帧。 
 
 	![](CharacterAnim_08.png)
 
-	这将关闭跳跃开始动画的播放，因其权重值为 0.0。 
-
-1.	拖至第 **30** 帧并分别在行走和跳跃动画上添加 **0.0** 和 **1.0** 的键。 
+1.	添加 **ThirdPersonWalk** 并将其交叉渐变 **3** 帧。 
 
 	![](CharacterAnim_09.png)
 
-	这将混入跳跃开始动画，混出行走动画。 
+1.	在某次交叉渐变开始时，右键单击上三角形图标，以显示 **缓和曲线（Easing Curve）** 选项。 
 
-1.	点击 **Preview Play** 按钮观看动画混合。 
+	![](CharacterAnim_10.png)
 
+1.	在 **选项（Options）** 部分下，选择任意所需的 **缓和（Easing）** 选项以定义如何执行曲线。 
+
+	![](CharacterAnim_11.png)
+
+	或者，您可以将 **方法（Method）** 更改为 **曲线资源（Curve Asset）**。 
+
+	![](CharacterAnim_12.png)
+
+	这样做时，**选项（Option）** 部分将使您能够定义您想要使用的自定义 **曲线（Curve）** 资源。 
+
+	![](CharacterAnim_13.png)
+
+1.	在序列中擦除时间轴以查看混合或单击 **预览播放（Preview Play）** 按钮。 
+
+
+(#endresult)
 
 ## 最终结果
 
-现在序列便包含骨架网格体和多个顺畅混合的动画，动画之间不会出现跳动。 
+您的序列现在包括一个骨架网格体和平滑地混合起来的多个动画，并可使用缓和选项来优化混合。 
 
 [OBJECT:EmbeddedVideo]
+[PARAMLITERAL:videoid]
+ZV_jKfrmVM0
+[/PARAMLITERAL]
 [PARAMLITERAL:width]
-640
+100
 [/PARAMLITERAL]
 [PARAMLITERAL:height]
-360
+56.25
 [/PARAMLITERAL]
-[PARAMLITERAL:videoid]
-kVotxriT1Y4
+[PARAMLITERAL:units]
+%
+[/PARAMLITERAL]
+[PARAMLITERAL:type]
+simple
 [/PARAMLITERAL]
 [/OBJECT]
 
-还可在此例基础上进行拓展：加入跳跃循环和跳跃结束动画，并将它们混入，使角色能够跳跃和落地。 
+(#blendingbyweightvalues)
+
+### 按权重值混合
+
+可以使用动画轨迹上的 **权重（Weight）** 子轨迹执行另一种动画混合方法。 
+
+下面，我们有一个权重（Weight）值为 **1.0** 的动画和另一个权重（Weight）值为 **0.0** 的动画。 
+
+![](CharacterAnim_14.png)
+
+然后，我们向前擦除时间轴，并反转各个动画的权重（Weight）值，这将在两个值之间产生插值，导致动画混合。
+
+![](CharacterAnim_15.png)
+
+(#blendingpropertyvalues)
+
+### 混合属性值
+
+混合不限于动画，任何二维/三维变形、矢量、颜色或浮点也可以自动混合。 
+
+默认情况下，变形、矢量、颜色和类似的轨迹被设置为 **无限（Infinite）**，这意味着属性值在整个序列中是持久存在的。 
+通过关闭此选项并使用属性 **分段（Sections）**，可以将这些分段混合在一起。在下面的示例视频中，我们使用与本指南类似的方法，随着时间的推移在序列器中混合光源的颜色。 
+
+[OBJECT:EmbeddedVideo]
+[PARAMLITERAL:videoid]
+w9j6RaMG9Nc
+[/PARAMLITERAL]
+[PARAMLITERAL:width]
+100
+[/PARAMLITERAL]
+[PARAMLITERAL:height]
+56.25
+[/PARAMLITERAL]
+[PARAMLITERAL:units]
+%
+[/PARAMLITERAL]
+[PARAMLITERAL:type]
+simple
+[/PARAMLITERAL]
+[/OBJECT]
+
+
+
+
+

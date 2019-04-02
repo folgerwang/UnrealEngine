@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -207,7 +207,7 @@ private:
 	uint32 NumVertices;
 
 	/** Allocates the vertex data storage type. */
-	void AllocateData();
+	ENGINE_API void AllocateData();
 
 #if WITH_EDITOR
 	/** Helper for concrete types */

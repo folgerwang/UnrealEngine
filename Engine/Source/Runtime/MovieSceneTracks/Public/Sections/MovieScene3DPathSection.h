@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -61,29 +61,27 @@ public:
 
 	const FMovieSceneFloatChannel& GetTimingChannel() const { return TimingCurve; }
 
-private:
-
 	/** Timing Curve */
 	UPROPERTY()
 	FMovieSceneFloatChannel TimingCurve;
 
 	/** Front Axis */
-	UPROPERTY(EditAnywhere, Category="Path")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Path")
 	MovieScene3DPathSection_Axis FrontAxisEnum;
 
 	/** Up Axis */
-	UPROPERTY(EditAnywhere, Category="Path")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Path")
 	MovieScene3DPathSection_Axis UpAxisEnum;
 
 	/** Follow Curve */
-	UPROPERTY(EditAnywhere, Category="Path")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Path")
 	uint32 bFollow:1;
 
 	/** Reverse Timing */
-	UPROPERTY(EditAnywhere, Category="Path")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Path")
 	uint32 bReverse:1;
 
 	/** Force Upright */
-	UPROPERTY(EditAnywhere, Category="Path")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Path")
 	uint32 bForceUpright:1;
 };

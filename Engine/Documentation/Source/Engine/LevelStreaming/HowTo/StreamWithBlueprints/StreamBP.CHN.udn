@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3075226
+﻿INTSourceChangelist:3150518
 Availability:Public
 Title:使用蓝图加载和卸载关卡
 Crumbs:%ROOT%, Engine, Engine/UI/LevelEditor
 Description:如何使用蓝图创建的自定义流送 Actor 进行关卡流送。
 parent:Engine/LevelStreaming/HowTo
-type:howto
+type:how-to
 order:2
 tags:Level Streaming
 
@@ -13,6 +13,7 @@ tags:Level Streaming
 [INCLUDE:Engine/LevelStreaming/HowTo#levelstreamscenario]
 
 
+(#StreamingInLevelswithBlueprints)
 ## 使用蓝图流入关卡
 
 1. 打开 **Content Browser**，新建一个 **蓝图类**。此类将以 **Actor** 为基础。
@@ -57,6 +58,7 @@ tags:Level Streaming
 
 1. 使用 Play In Editor 测试流送关卡。
 
+(#UnloadingLevelswithBlueprints)
 ## 使用蓝图卸载关卡
 
 要实现 _角色_ 离开 **方块** 组件时卸载关卡，图表的逻辑非常相似，但最后是以一个 **Unload Stream Level** 节点结束。

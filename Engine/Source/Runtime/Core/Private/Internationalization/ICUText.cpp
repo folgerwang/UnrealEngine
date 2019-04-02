@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreTypes.h"
 #include "Misc/AssertionMacros.h"
@@ -19,9 +19,6 @@ THIRD_PARTY_INCLUDES_START
 	#include <unicode/unistr.h>
 	#include <unicode/coll.h>
 	#include <unicode/sortkey.h>
-	#include <unicode/numfmt.h>
-	#include <unicode/msgfmt.h>
-	#include <unicode/uniset.h>
 	#include <unicode/ubidi.h>
 THIRD_PARTY_INCLUDES_END
 
@@ -36,8 +33,7 @@ FString FTextChronoFormatter::AsDate(const FDateTime& DateTime, const EDateTimeS
 	checkf(I18N.IsInitialized() == true, TEXT("FInternationalization is not initialized. An FText formatting method was likely used in static object initialization - this is not supported."));
 	const UDate ICUDate = I18N.Implementation->UEDateTimeToICUDate(DateTime);
 
-	UErrorCode ICUStatus = U_ZERO_ERROR;
-	const TSharedRef<const icu::DateFormat> ICUDateFormat( TargetCulture.Implementation->GetDateFormatter(DateStyle, TimeZone) );
+	const TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> ICUDateFormat( TargetCulture.Implementation->GetDateFormatter(DateStyle, TimeZone) );
 	icu::UnicodeString FormattedString;
 	ICUDateFormat->format(ICUDate, FormattedString);
 
@@ -50,8 +46,7 @@ FString FTextChronoFormatter::AsTime(const FDateTime& DateTime, const EDateTimeS
 	checkf(I18N.IsInitialized() == true, TEXT("FInternationalization is not initialized. An FText formatting method was likely used in static object initialization - this is not supported."));
 	const UDate ICUDate = I18N.Implementation->UEDateTimeToICUDate(DateTime);
 
-	UErrorCode ICUStatus = U_ZERO_ERROR;
-	const TSharedRef<const icu::DateFormat> ICUDateFormat( TargetCulture.Implementation->GetTimeFormatter(TimeStyle, TimeZone) );
+	const TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> ICUDateFormat( TargetCulture.Implementation->GetTimeFormatter(TimeStyle, TimeZone) );
 	icu::UnicodeString FormattedString;
 	ICUDateFormat->format(ICUDate, FormattedString);
 
@@ -64,8 +59,7 @@ FString FTextChronoFormatter::AsDateTime(const FDateTime& DateTime, const EDateT
 	checkf(I18N.IsInitialized() == true, TEXT("FInternationalization is not initialized. An FText formatting method was likely used in static object initialization - this is not supported."));
 	const UDate ICUDate = I18N.Implementation->UEDateTimeToICUDate(DateTime);
 
-	UErrorCode ICUStatus = U_ZERO_ERROR;
-	const TSharedRef<const icu::DateFormat> ICUDateFormat( TargetCulture.Implementation->GetDateTimeFormatter(DateStyle, TimeStyle, TimeZone) );
+	const TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> ICUDateFormat( TargetCulture.Implementation->GetDateTimeFormatter(DateStyle, TimeStyle, TimeZone) );
 	icu::UnicodeString FormattedString;
 	ICUDateFormat->format(ICUDate, FormattedString);
 

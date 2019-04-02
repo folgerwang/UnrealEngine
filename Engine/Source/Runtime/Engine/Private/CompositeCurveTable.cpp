@@ -1,7 +1,8 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/CompositeCurveTable.h"
 #include "Misc/MessageDialog.h"
+#include "UObject/LinkerLoad.h"
 
 #include "EditorFramework/AssetImportData.h"
 #if WITH_EDITOR
@@ -14,6 +15,7 @@
 UCompositeCurveTable::UCompositeCurveTable(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	bIsLoading = false;
 }
 
 void UCompositeCurveTable::GetPreloadDependencies(TArray<UObject*>& OutDeps)
@@ -32,7 +34,34 @@ void UCompositeCurveTable::PostLoad()
 {
 	Super::PostLoad();
 
-	OnParentTablesUpdated();
+	bIsLoading = false;
+}
+
+void UCompositeCurveTable::Serialize(FArchive& Ar)
+{
+	if (Ar.IsLoading())
+	{
+		bIsLoading = true;
+	}
+
+	Super::Serialize(Ar);
+
+	if (Ar.IsLoading())
+	{
+		for (UCurveTable* ParentTable : ParentTables)
+		{
+			if (ParentTable && ParentTable->HasAnyFlags(RF_NeedLoad))
+			{
+				FLinkerLoad* ParentTableLinker = ParentTable->GetLinker();
+				if (ParentTableLinker)
+				{
+					ParentTableLinker->Preload(ParentTable);
+				}
+			}
+		}
+
+		OnParentTablesUpdated();
+	}
 }
 
 void UCompositeCurveTable::UpdateCachedRowMap()
@@ -46,12 +75,34 @@ void UCompositeCurveTable::UpdateCachedRowMap()
 	// Throw up an error message and stop if any loops are found
 	if (const UCompositeCurveTable* LoopTable = FindLoops(TArray<const UCompositeCurveTable*>()))
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(LOCTEXT("FoundLoopError", "Cyclic dependency found. Table {0} depends on itself. Please fix your data"), FText::FromString(LoopTable->GetPathName())));
+		const FText ErrorMsg = FText::Format(LOCTEXT("FoundLoopError", "Cyclic dependency found. Table {0} depends on itself. Please fix your data"), FText::FromString(LoopTable->GetPathName()));
+#if WITH_EDITOR
+		if (!bIsLoading)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, ErrorMsg);
+		}
+		else
+#endif
+		{
+			UE_LOG(LogCurveTable, Warning, TEXT("%s"), *ErrorMsg.ToString());
+		}
 		bLeaveEmpty = true;
 	}
 
 	if (!bLeaveEmpty)
 	{
+		CurveTableMode = ECurveTableMode::SimpleCurves;
+
+		// First determine if all our parent tables are simple
+		for (const UCurveTable* ParentTable : ParentTables)
+		{
+			if (ParentTable && ParentTable->GetCurveTableMode() == ECurveTableMode::RichCurves)
+			{
+				CurveTableMode = ECurveTableMode::RichCurves;
+				break;
+			}
+		}
+
 		// iterate through all of the rows
 		for (const UCurveTable* ParentTable : ParentTables)
 		{
@@ -61,20 +112,56 @@ void UCompositeCurveTable::UpdateCachedRowMap()
 			}
 
 			// Add new rows or overwrite previous rows
-			for (TMap<FName, FRichCurve*>::TConstIterator RowMapIter(ParentTable->GetRowMap().CreateConstIterator()); RowMapIter; ++RowMapIter)
+			auto AddCurveToMap = [&RowMap=RowMap](FName CurveName, FRealCurve* NewCurve)
 			{
-				FRichCurve* NewCurve = new FRichCurve();
-				FRichCurve* InCurve = RowMapIter.Value();
-				NewCurve->SetKeys(InCurve->GetConstRefOfKeys());
-
-				if (FRichCurve** Curve = RowMap.Find(RowMapIter.Key()))
+				if (FRealCurve** Curve = RowMap.Find(CurveName))
 				{
 					delete *Curve;
 					*Curve = NewCurve;
 				}
 				else
 				{
-					RowMap.Add(RowMapIter.Key(), NewCurve);
+					RowMap.Add(CurveName, NewCurve);
+				}
+			};
+
+			// If we are using simple curves we know all our parents are also simple
+			if (CurveTableMode == ECurveTableMode::SimpleCurves)
+			{
+				for (const TPair<FName, FSimpleCurve*>& CurveRow : ParentTable->GetSimpleCurveRowMap())
+				{
+					FSimpleCurve* NewCurve = new FSimpleCurve();
+					FSimpleCurve* InCurve = CurveRow.Value;
+					NewCurve->SetKeys(InCurve->GetConstRefOfKeys());
+					NewCurve->SetKeyInterpMode(InCurve->GetKeyInterpMode());
+					AddCurveToMap(CurveRow.Key, NewCurve);
+				}
+			}
+			// If we are Rich but this Parent is Simple then we need to do a little more conversion work
+			else if (ParentTable->GetCurveTableMode() == ECurveTableMode::SimpleCurves)
+			{
+				for (const TPair<FName, FSimpleCurve*>& CurveRow : ParentTable->GetSimpleCurveRowMap())
+				{
+					FRichCurve* NewCurve = new FRichCurve();
+					FSimpleCurve* InCurve = CurveRow.Value;
+					for (const FSimpleCurveKey& CurveKey : InCurve->GetConstRefOfKeys())
+					{
+						FKeyHandle KeyHandle = NewCurve->AddKey(CurveKey.Time, CurveKey.Value);
+						NewCurve->SetKeyInterpMode(KeyHandle, InCurve->GetKeyInterpMode());
+					}
+					NewCurve->AutoSetTangents();
+					AddCurveToMap(CurveRow.Key, NewCurve);
+				}
+			}
+			// Otherwise Rich to Rich is also straightforward
+			else
+			{
+				for (const TPair<FName, FRichCurve*>& CurveRow : ParentTable->GetRichCurveRowMap())
+				{
+					FRichCurve* NewCurve = new FRichCurve();
+					FRichCurve* InCurve = CurveRow.Value;
+					NewCurve->SetKeys(InCurve->GetConstRefOfKeys());
+					AddCurveToMap(CurveRow.Key, NewCurve);
 				}
 			}
 		}

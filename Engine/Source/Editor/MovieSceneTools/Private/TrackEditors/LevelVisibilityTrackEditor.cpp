@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "TrackEditors/LevelVisibilityTrackEditor.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
@@ -59,7 +59,7 @@ TSharedPtr<SWidget> FLevelVisibilityTrackEditor::BuildOutlinerEditWidget( const 
 	return FSequencerUtilities::MakeAddButton( 
 		LOCTEXT( "AddVisibilityTrigger", "Visibility Trigger" ),
 		FOnGetContent::CreateSP( this, &FLevelVisibilityTrackEditor::BuildAddVisibilityTriggerMenu, Track ),
-		Params.NodeIsHovered );
+		Params.NodeIsHovered, GetSequencer() );
 }
 
 

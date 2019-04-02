@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tests/TestExternalUIInterface.h"
 #include "OnlineSubsystem.h"
@@ -185,7 +185,7 @@ void FTestExternalUIInterface::OnExternalUIChange(bool bIsOpening)
 
 void FTestExternalUIInterface::OnLoginUIClosed(TSharedPtr<const FUniqueNetId> LoggedInUserId, const int LocalUserId, const FOnlineError& Error)
 {
-	UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("Login UI closed by local user %d. Logged-in user = %s.  Error = %s"), LocalUserId, *LoggedInUserId->ToString(), Error.ToLogString());
+	UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("Login UI closed by local user %d. Logged-in user = %s. Error = %s"), LocalUserId, *LoggedInUserId->ToString(), *Error.ToLogString());
 }
 
 void FTestExternalUIInterface::OnProfileUIClosed()

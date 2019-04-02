@@ -1,46 +1,18 @@
-﻿INTSourceChangelist:3011129
-Availability:Public
+﻿INTSourceChangelist:3612551
+Availability: Public
+Crumbs: %ROOT%
 Title:UMG 最佳方法
-Crumbs:%ROOT%, Engine\UMG\UserGuide
 Description:使用虚幻动态图形的提示和技巧。
-version:4.10
-parent:Engine/UMG	
-order:2
-type:howto
+Type:how-to
+SkillLevel:Beginner
+Version:4.17
+Parent:Engine/UMG/UserGuide
+Order:4
+Tags:UMG UI Designer
+Tags:Getting Started
+Topic-Image:BestPractices_topic.png
 
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-	![](Engine\UMG\UserGuide\BestPractices\BestPractices_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\UMG\UserGuide\BestPractices:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\UMG\UserGuide\BestPractices:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Engine\UMG\UserGuide\BestPractices]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-	![](Engine\UMG\UserGuide\BestPractices\BestPractices_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\UMG\UserGuide\BestPractices:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\UMG\UserGuide\BestPractices:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Engine\UMG\UserGuide\BestPractices]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [TOC(start:2 end:2)]
 
@@ -51,6 +23,7 @@ type:howto
 注意：使用 UMG 创建内容时，不存在“正确”或“错误”的答案。根据您所处的具体情况使用效果最佳的方法即可。如此说来，您在创建内容时可先参考此页面中讲述的内容，然后再决定是否应用到实际操作中。 
 
 
+(#TargetResolutionandScale)
 ## 目标分辨率和比例
 
 在 UMG 中创建内容时，需牢记目标分辨率，然后基于此分辨率创建所有控件。例如目标分辨率为 1080x1920，则使用此分辨率设置在 UMG 中制作每个控件蓝图。可在 **ScreenSize** 下拉菜单中设置工作屏幕尺寸。 
@@ -69,6 +42,7 @@ type:howto
 与在不同屏幕尺寸下工作相似，如在针对不同屏幕尺寸缩放控件蓝图时将一个控件蓝图指定为一个比例、另一个指定为不同比例，缩放效果可能和预期不符。 
 
 
+(#CreatingArtforUMG)
 ## 创建 UMG 的美术效果 
 
 在创建 UMG 美术资源前，创建目标分辨率和比例十分重要。如创建资源时未确定分辨率或比例，一些纹理则会出现过大或过小的情况。无论怎样都需要使纹理与 UI 符合，可能使纹理出现拉伸或扭曲，出现非期望的效果。
@@ -101,10 +75,12 @@ type:howto
 
 
 
+(#TipsandTricks)
 ## 提示和技巧
 
 此部分讲述使用 UMG 或使用 UMG 资源时的提示和技巧。 
 
+(#FormattingTip)
 ### 格式技巧
 
 使用如垂直框或横向框的面板时，需要确定是否对 [槽](Engine/UMG/UserGuide/Slots) 尺寸使用 **填充（Fill）** 或 **自动（Auto）**。 
@@ -123,6 +99,7 @@ type:howto
 ![](Auto2.png)
 
 
+(#UsingRenderTransforms)
 ### 使用渲染变形
 
 使用 **渲染变形（Render Transforms）** 影响特定控件的平移、缩放或其他设置时需谨慎。 
@@ -136,6 +113,7 @@ type:howto
 渲染变形适用于临时变形（如控件动画），但执行永久变形效果不佳。例如：需要放大控件尺寸时，使用 **缩放框** 包住控件即可，不必通过渲染变形调整比例。缩放框执行布局缩放。而渲染变形（未作为布局部分进行计算）不会进行布局缩放，因此在针对不同分辨率进行缩放时无法正常进行，可能导致控件的不当缩放。 
 
 
+(#Right-clickContextMenu)
 ### 右键快捷菜单
 
 在控件蓝图的 **Designer** 标签上，可 **右键单击** 层级中的控件，用另一控件将其包裹或替代。
@@ -154,6 +132,7 @@ type:howto
 在复制/粘贴按钮风格之类的资源时十分实用。 
 [/REGION]
 
+(#Ctrl-DragAnchorsandWidgets)
 ### Ctrl 拖动锚和控件
 
 使用画布画板时，可长按 **Ctrl** 拖动锚（或从预设锚中进行选择），将锚和控件同时拖动到所需的位置。  
@@ -165,6 +144,7 @@ type:howto
 [/REGION]
 
 
+(#DesignerPreviewBackground)
 ### 设计师预览背景
 
 可在控件蓝图的 **Designer** 标签中设置预览图片，用作图表中的背景。 
@@ -178,6 +158,7 @@ type:howto
 如要执行此操作，在 **层级** 中选中 **Root**，然后在 **Details** 下指定材质使用。 
 
 
+(#UserWidgets/ReusingContent)
 ### 用户控件/重复使用内容
 
 创建带有内容的控件蓝图时，其会被视为 **用户控件**。这些用户控件将显示在 **User Created** 部分下 **Designer** 标签的 **Palette** 窗口中，可像其他控件一样被拖放到图表中。 
@@ -191,6 +172,7 @@ type:howto
 请在构建画面和内容时善加利用。如项目中部分功能使用频率较高，将其设为自身的控件（可放入任意其他控件）支持功能，无需在每次需要时植入每个区域。 
 
 
+(#Optimizations)
 ### 优化
 
 制作 UI 画面时可进行以下优化： 

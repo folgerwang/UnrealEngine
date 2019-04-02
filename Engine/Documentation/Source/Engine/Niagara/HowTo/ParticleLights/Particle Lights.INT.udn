@@ -2,14 +2,19 @@ Availability: Public
 Crumbs: 
 Title: Create a Particle Light
 Description: Describes how you can create light within your particle system.
-Type:how-to
-Version: 4.20
-Parent:Engine/Niagara/HowTo 
-Order:5 
+Type:how-to 
+SkillLevel:Beginner
+Version: 4.21
+Parent: Engine/Niagara/HowTo
+Order: 4
 Tags: Niagara
-Tags:Early Access
-prereqs:Engine/Niagara/HowTo/EnableNiagara
-    
+Tags: Early Access
+
+Prerequisite Topics
+
+This page assumes you have prior knowledge of the following topics. Please read them before proceeding.
+
+*   [Enable the Niagara Plugin](Engine/Niagara/HowTo/EnableNiagara "Describes how you can enable the Niagara Plugin.")
 
 Giving particles the ability to illuminate the world around them can add an extra layer of realism to any of your project's visual effects. In the following How-To, we will take a look at setting up a Niagara emitter so that particles and lights are spawned at the same time.
 
@@ -17,53 +22,53 @@ Giving particles the ability to illuminate the world around them can add an extr
 
 ## Steps
 
-1.  First, we will need to create a **Niagara Emitter** by right-clicking in the **Content Browser**, then from the displayed menu, go to **FX** and click **Niagara Emitter**.  
-    ![](SE_01.png)
-2.  Name the newly created Niagara Emitter, **FX_Light** and then double-click on it to open it up.  
+1.  First, create a **Niagara Emitter** by right-clicking in the **Content Browser**, and from the displayed menu select **FX > Niagara Emitter**. The Niagara Emitter wizard displays.  
+    ![](SE_01.png)(w:400)
+2.  Click the radio button next to **Create a new emitter from an emitter template**. Select the **Fountain** template. Then click **OK** to create a new emitter in the Content Browser.  
+    ![](NiagaraEmitter_FountainTemplate.png)(w:400)
+3.  Name the newly created Niagara Emitter, **FX_Light** and then double-click on it to open it.  
     ![](PL_01.png)
-3.  With the Niagara Editor now open, go to the **Selected Emitter** panel and locate the **Render** section.  
-    
-4.  Click the **Plus** sign icon (**+**) next to **Render**, and from the displayed list, select the **Niagara Light Renderer Properties** option.  
+4.  With the Niagara Editor now open, go to the **Selected Emitter** panel and locate the **Render** section.
+5.  Click the **Plus sign** icon (**+**) next to **Render**, and from the displayed list select the **Niagara Light Renderer Properties** option.  
     ![](CreateParticleLight_Steps_Step4-AddLightRenderer.png)
-5.  Locate the new **NiagaraLightRendererProperties** section at the bottom of the Render module. Set the following properties to the following values.  
-    ![ParticleLights/CreateParticleLight_Steps_Step5-RadiusScaleColorAdd.png](CreateParticleLight_Steps_Step5-RadiusScaleColorAdd.png) 
-	| Property Name | Value |
-	| --- | --- |
-	| **Radius Scale** | 1 |
-	| **Color Add X** | 10 |
-    
-6.  Click the **Compile**, **Apply** and **Save** buttons to compile and save your work. Then close the **FX_Light** Niagara Emitter.  
+6.  Locate the new **NiagaraLightRendererProperties** section at the bottom of the Render module. Set the following properties to the following values.  
+    ![ParticleLights/CreateParticleLight_Steps_Step5-RadiusScaleColorAdd.png](CreateParticleLight_Steps_Step5-RadiusScaleColorAdd.png)
+
+    | **Property Name** | **Value** |
+    | --- | --- |
+    | **Radius Scale** | 1 |
+    | **Color Add X** | X: 10 Y:0 Z:0 |
+
+7.  Click the **Compile**, **Apply** and **Save** buttons to compile and save your work. Then close the **FX_Light** Niagara Emitter.  
     ![](ME_09.png)
-7.  Now right-click in the **Content Browser**, and select **FX > Niagara System**. Name the new Niagara System **ParticleLight**.  
-    ![](SE_16.png)
-8.  Double-click on the **ParticleLight** **Niagara** System to open it, and then drag the **FX_Light** Niagara Emitter to the **Timeline** of the Particle Light Niagara System.  
+8.  Now right-click in the **Content Browser**, and select **FX > Niagara System**. The Niagara System wizard displays.  
+    ![](SE_16.png)(w:500)
+9.  Click the radio button next to **Create an empty system with no emitters**. Then click **OK** to create a new Niagara System in the Content Browser.  
+    ![](NiagaraSystem_EmptySystem.png)(w:400)
+10.  Name the new Niagara System **ParticleLight**.  
+    ![](NiagaraSystem_ParticleLightIcon.png)(w:100)
+11.  Double-click the **ParticleLight** **Niagara** System to open it, and then drag the **FX_Light** Niagara Emitter to the **Timeline** of the Particle Light Niagara System.  
     [REGION:lightbox]
     [![](PL_04.png)(w:317)](PL_04.png)
     [/REGION]
     [REGION:caption]
     *Click for full image.*
     [/REGION]
-9.  Click the **Compile** and **Save** buttons to compile and save your work, and then close the Particle Light **Niagara System**. In the **Content Browser**, drag the **Mesh Niagara System** into the level viewport.  
+12.  Click the **Compile** and **Save** buttons to compile and save your work, and then close the Particle Light **Niagara System**. In the **Content Browser**, drag the **Mesh Niagara System** into the level viewport.  
     ![](CreateParticleLight_Steps_Step9_AddToLevel.png)
 
 ## End Result
 
-When completed you will now have a VFX that will cast light into the world when the particles are spawned. You can see an example in the video below.
+When the steps are completed, you have a visual effect that casts light into the level when the particles are spawned. You can see an example in the video below.
 
 [OBJECT:EmbeddedVideo]
-    [PARAMLITERAL:videoid]
-    cRcjPhPHmSM
-    [/PARAMLITERAL]
-    [PARAMLITERAL:width]
-    78
-    [/PARAMLITERAL]
-    [PARAMLITERAL:height]
-    56.25
-    [/PARAMLITERAL]
-    [PARAMLITERAL:units]
-    %
-    [/PARAMLITERAL]
-    [PARAMLITERAL:type]
-    simple
-    [/PARAMLITERAL]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ cRcjPhPHmSM
+ [/PARAMLITERAL]
 [/OBJECT]

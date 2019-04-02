@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraNodeParameterMapBase.h"
 #include "EdGraphSchema_Niagara.h"
@@ -91,7 +91,8 @@ TArray<FNiagaraParameterMapHistory> UNiagaraNodeParameterMapBase::GetParameterMa
 
 bool UNiagaraNodeParameterMapBase::AllowNiagaraTypeForAddPin(const FNiagaraTypeDefinition& InType)
 {
-	return InType != FNiagaraTypeDefinition::GetGenericNumericDef();
+	return InType != FNiagaraTypeDefinition::GetGenericNumericDef() &&
+		InType != FNiagaraTypeDefinition::GetParameterMapDef();
 }
 
 FText UNiagaraNodeParameterMapBase::GetPinDescriptionText(UEdGraphPin* Pin) const

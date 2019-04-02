@@ -1,10 +1,12 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
+using System.Security.Cryptography;
+using System.Text;
 using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
@@ -15,116 +17,289 @@ namespace UnrealBuildTool
 	class ActionHistory
 	{
 		/// <summary>
+		/// Version number to check
+		/// </summary>
+		const int CurrentVersion = 2;
+
+		/// <summary>
+		/// Size of each hash value
+		/// </summary>
+		const int HashLength = 16;
+
+		/// <summary>
 		/// Path to store the cache data to.
 		/// </summary>
-		private string FilePath;
+		FileReference Location;
+
+		/// <summary>
+		/// Base directory for output files. Any files under this directory will have their command lines stored in this object, otherwise the parent will be used.
+		/// </summary>
+		DirectoryReference BaseDirectory;
+
+		/// <summary>
+		/// The parent action history. Any files not under this base directory will use this.
+		/// </summary>
+		ActionHistory Parent;
 
 		/// <summary>
 		/// The command lines used to produce files, keyed by the absolute file paths.
 		/// </summary>
-		private Dictionary<string, string> ProducedItemToPreviousActionCommandLine;
+		Dictionary<FileItem, byte[]> OutputItemToCommandLineHash = new Dictionary<FileItem, byte[]>();
 
 		/// <summary>
 		/// Whether the dependency cache is dirty and needs to be saved.
 		/// </summary>
-		private bool bIsDirty;
+		bool bModified;
 
-		public ActionHistory(string InFilePath)
+		/// <summary>
+		/// Object to use for guarding access to the OutputItemToCommandLine dictionary
+		/// </summary>
+		object LockObject = new object();
+
+		/// <summary>
+		/// Static cache of all loaded action history files
+		/// </summary>
+		static Dictionary<FileReference, ActionHistory> LoadedFiles = new Dictionary<FileReference, ActionHistory>();
+
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		/// <param name="Location">File to store this history in</param>
+		/// <param name="BaseDirectory">Base directory for files to track</param>
+		/// <param name="Parent">The parent action history</param>
+		public ActionHistory(FileReference Location, DirectoryReference BaseDirectory, ActionHistory Parent)
 		{
-			FilePath = Path.GetFullPath(InFilePath);
+			this.Location = Location;
+			this.BaseDirectory = BaseDirectory;
+			this.Parent = Parent;
 
-			bool bFoundCache = false;
-			if (File.Exists(FilePath) == true)
+			if(FileReference.Exists(Location))
 			{
-				try
-				{
-					// Deserialize the history from disk if the file exists.
-					using (FileStream Stream = new FileStream(FilePath, FileMode.Open, FileAccess.Read))
-					{
-						BinaryFormatter Formatter = new BinaryFormatter();
-						ProducedItemToPreviousActionCommandLine = Formatter.Deserialize(Stream) as Dictionary<string, string>;
-					}
-
-					bFoundCache = true;
-				}
-				catch (Exception)
-				{
-					// If this fails for any reason just reset. History will be created later.
-					ProducedItemToPreviousActionCommandLine = null;
-				}
+				Load();
 			}
-
-			if (!bFoundCache)
-			{
-				// Otherwise create a fresh history.
-				ProducedItemToPreviousActionCommandLine = new Dictionary<string, string>();
-			}
-
-			bIsDirty = false;
-		}
-
-		public void Save()
-		{
-			// Only save if we've made changes to it since load.
-			if (bIsDirty)
-			{
-				// Serialize the cache to disk.
-				try
-				{
-					Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
-					using (FileStream Stream = new FileStream(FilePath, FileMode.Create, FileAccess.Write))
-					{
-						BinaryFormatter Formatter = new BinaryFormatter();
-						Formatter.Serialize(Stream, ProducedItemToPreviousActionCommandLine);
-					}
-				}
-				catch (Exception Ex)
-				{
-					throw new BuildException(Ex, "Failed to write dependency cache.");
-				}
-			}
-		}
-
-		public bool GetProducingCommandLine(FileItem File, out string Result)
-		{
-			return ProducedItemToPreviousActionCommandLine.TryGetValue(File.AbsolutePath.ToUpperInvariant(), out Result);
-		}
-
-		public void SetProducingCommandLine(FileItem File, string CommandLine)
-		{
-			ProducedItemToPreviousActionCommandLine[File.AbsolutePath.ToUpperInvariant()] = CommandLine;
-			bIsDirty = true;
 		}
 
 		/// <summary>
-		/// Generates a full path to action history file for the specified target.
+		/// Attempts to load this action history from disk
 		/// </summary>
-		public static FileReference GeneratePathForTarget(UEBuildTarget Target)
+		void Load()
 		{
-			DirectoryReference Folder = null;
-			if (Target.ShouldCompileMonolithic() || Target.TargetType == TargetType.Program)
+			try
 			{
-				// Monolithic configs and programs have their Action History stored in their respective project folders
-				// or under engine intermediate folder + program name folder
-				DirectoryReference RootDirectory;
-				if (Target.ProjectFile != null)
+				using(BinaryArchiveReader Reader = new BinaryArchiveReader(Location))
 				{
-					RootDirectory = Target.ProjectFile.Directory;
+					int Version = Reader.ReadInt();
+					if(Version != CurrentVersion)
+					{
+						Log.TraceLog("Unable to read action history from {0}; version {1} vs current {2}", Location, Version, CurrentVersion);
+						return;
+					}
+
+					OutputItemToCommandLineHash = Reader.ReadDictionary(() => Reader.ReadFileItem(), () => Reader.ReadFixedSizeByteArray(HashLength));
 				}
-				else
+			}
+			catch(Exception Ex)
+			{
+				Log.TraceWarning("Unable to read {0}. See log for additional information.", Location);
+				Log.TraceLog("{0}", ExceptionUtils.FormatExceptionDetails(Ex));
+			}
+		}
+
+		/// <summary>
+		/// Saves this action history to disk
+		/// </summary>
+		void Save()
+		{
+			DirectoryReference.CreateDirectory(Location.Directory);
+			using(BinaryArchiveWriter Writer = new BinaryArchiveWriter(Location))
+			{
+				Writer.WriteInt(CurrentVersion);
+				Writer.WriteDictionary(OutputItemToCommandLineHash, Key => Writer.WriteFileItem(Key), Value => Writer.WriteFixedSizeByteArray(Value));
+			}
+			bModified = false;
+		}
+
+		/// <summary>
+		/// Computes the case-invariant hash for a string
+		/// </summary>
+		/// <param name="Text">The text to hash</param>
+		/// <returns>Hash of the string</returns>
+		static byte[] ComputeHash(string Text)
+		{
+			string InvariantText = Text.ToUpperInvariant();
+			byte[] InvariantBytes = Encoding.Unicode.GetBytes(InvariantText);
+			return new MD5CryptoServiceProvider().ComputeHash(InvariantBytes);
+		}
+
+		/// <summary>
+		/// Compares two hashes for equality
+		/// </summary>
+		/// <param name="A">The first hash value</param>
+		/// <param name="B">The second hash value</param>
+		/// <returns>True if the hashes are equal</returns>
+		static bool CompareHashes(byte[] A, byte[] B)
+		{
+			for(int Idx = 0; Idx < HashLength; Idx++)
+			{
+				if(A[Idx] != B[Idx])
 				{
-					RootDirectory = UnrealBuildTool.EngineDirectory;
+					return false;
 				}
-				Folder = DirectoryReference.Combine(RootDirectory, Target.PlatformIntermediateFolder, Target.GetTargetName());
+			}
+			return true;
+		}
+
+		/// <summary>
+		/// Gets the producing command line for the given file
+		/// </summary>
+		/// <param name="File">The output file to look for</param>
+		/// <param name="CommandLine">Receives the command line used to produce this file</param>
+		/// <returns>True if the output item exists</returns>
+		public bool UpdateProducingCommandLine(FileItem File, string CommandLine)
+		{
+			if(File.Location.IsUnderDirectory(BaseDirectory) || Parent == null)
+			{
+				byte[] NewHash = ComputeHash(CommandLine);
+				lock (LockObject)
+				{
+					byte[] CurrentHash;
+					if(!OutputItemToCommandLineHash.TryGetValue(File, out CurrentHash) || !CompareHashes(CurrentHash, NewHash))
+					{
+						OutputItemToCommandLineHash[File] = NewHash;
+						bModified = true;
+						return true;
+					}
+					return false;
+				}
 			}
 			else
 			{
-				// Shared action history (unless this is an installed build target)
-				Folder = (UnrealBuildTool.IsEngineInstalled() && Target.ProjectFile != null) ?
-					DirectoryReference.Combine(Target.ProjectFile.Directory, "Intermediate", "Build") :
-					DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build");
+				return Parent.UpdateProducingCommandLine(File, CommandLine);
 			}
-			return FileReference.Combine(Folder, "ActionHistory.bin");
+		}
+
+		/// <summary>
+		/// Gets the location for the engine action history
+		/// </summary>
+		/// <param name="TargetName">Target name being built</param>
+		/// <param name="Platform">The platform being built</param>
+		/// <param name="TargetType">Type of the target being built</param>
+		/// <returns>Path to the engine action history for this target</returns>
+		public static FileReference GetEngineLocation(string TargetName, UnrealTargetPlatform Platform, TargetType TargetType)
+		{
+			string AppName;
+			if(TargetType == TargetType.Program)
+			{
+				AppName = TargetName;
+			}
+			else
+			{
+				AppName = UEBuildTarget.GetAppNameForTargetType(TargetType);
+			}
+
+			return FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", Platform.ToString(), AppName, "ActionHistory.bin");
+		}
+
+		/// <summary>
+		/// Gets the location of the project action history
+		/// </summary>
+		/// <param name="ProjectFile">Path to the project file</param>
+		/// <param name="Platform">Platform being built</param>
+		/// <param name="TargetName">Name of the target being built</param>
+		/// <returns>Path to the project action history</returns>
+		public static FileReference GetProjectLocation(FileReference ProjectFile, string TargetName, UnrealTargetPlatform Platform)
+		{
+			return FileReference.Combine(ProjectFile.Directory, "Intermediate", "Build", Platform.ToString(), TargetName, "ActionHistory.bin");
+		}
+
+		/// <summary>
+		/// Creates a hierarchy of action history stores for a particular target
+		/// </summary>
+		/// <param name="ProjectFile">Project file for the target being built</param>
+		/// <param name="TargetName">Name of the target</param>
+		/// <param name="Platform">Platform being built</param>
+		/// <param name="TargetType">The target type</param>
+		/// <returns>Dependency cache hierarchy for the given project</returns>
+		public static ActionHistory CreateHierarchy(FileReference ProjectFile, string TargetName, UnrealTargetPlatform Platform, TargetType TargetType)
+		{
+			ActionHistory History = null;
+
+			if(ProjectFile == null || !UnrealBuildTool.IsEngineInstalled())
+			{
+				FileReference EngineCacheLocation = GetEngineLocation(TargetName, Platform, TargetType);
+				History = FindOrAddHistory(EngineCacheLocation, UnrealBuildTool.EngineDirectory, History);
+			}
+
+			if(ProjectFile != null)
+			{
+				FileReference ProjectCacheLocation = GetProjectLocation(ProjectFile, TargetName, Platform);
+				History = FindOrAddHistory(ProjectCacheLocation, ProjectFile.Directory, History);
+			}
+
+			return History;
+		}
+
+		/// <summary>
+		/// Enumerates all the locations of action history files for the given target
+		/// </summary>
+		/// <param name="ProjectFile">Project file for the target being built</param>
+		/// <param name="TargetName">Name of the target</param>
+		/// <param name="Platform">Platform being built</param>
+		/// <param name="TargetType">The target type</param>
+		/// <returns>Dependency cache hierarchy for the given project</returns>
+		public static IEnumerable<FileReference> GetFilesToClean(FileReference ProjectFile, string TargetName, UnrealTargetPlatform Platform, TargetType TargetType)
+		{
+			if(ProjectFile == null || !UnrealBuildTool.IsEngineInstalled())
+			{
+				yield return GetEngineLocation(TargetName, Platform, TargetType);
+			}
+			if(ProjectFile != null)
+			{
+				yield return GetProjectLocation(ProjectFile, TargetName, Platform);
+			}
+		}
+
+		/// <summary>
+		/// Reads a cache from the given location, or creates it with the given settings
+		/// </summary>
+		/// <param name="Location">File to store the cache</param>
+		/// <param name="BaseDirectory">Base directory for files that this cache should store data for</param>
+		/// <param name="Parent">The parent cache to use</param>
+		/// <returns>Reference to a dependency cache with the given settings</returns>
+		static ActionHistory FindOrAddHistory(FileReference Location, DirectoryReference BaseDirectory, ActionHistory Parent)
+		{
+			lock(LoadedFiles)
+			{
+				ActionHistory History;
+				if(LoadedFiles.TryGetValue(Location, out History))
+				{
+					Debug.Assert(History.BaseDirectory == BaseDirectory);
+					Debug.Assert(History.Parent == Parent);
+				}
+				else
+				{
+					History = new ActionHistory(Location, BaseDirectory, Parent);
+					LoadedFiles.Add(Location, History);
+				}
+				return History;
+			}
+		}
+
+		/// <summary>
+		/// Save all the loaded action histories
+		/// </summary>
+		public static void SaveAll()
+		{
+			lock(LoadedFiles)
+			{
+				foreach(ActionHistory History in LoadedFiles.Values)
+				{
+					if(History.bModified)
+					{
+						History.Save();
+					}
+				}
+			}
 		}
 	}
 }

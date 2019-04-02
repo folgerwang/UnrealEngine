@@ -1,0 +1,65 @@
+Availability: Public
+Crumbs: 
+Title: Installing the Datasmith Exporter Plugin for SketchUp Pro
+Description: Describes how to install and uninstall the Datasmith Exporter plugin for SketchUp Pro.
+Type:how-to
+Version: 4.20
+SkillLevel:Beginner
+Parent: Enterprise/Datasmith/SoftwareInteropGuides/SketchUp
+Order: 3
+Tags: Enterprise
+Tags:how to
+Tags: Datasmith
+Tags: studio
+Tags: SketchUp
+
+
+![](datasmith-setup-install-skp.png)
+
+Before you can get started working with your SketchUp content in the Unreal Engine, you need to install the Unreal Datasmith Exporter plugin for SketchUp.
+
+To see what versions of SketchUp Pro the exporter plugin currently supports, see [Datasmith Supported Software and File Types](Enterprise/Datasmith/SupportedSoftwareAndFileTypes).
+
+[REGION:tip]
+We encourage you to share the download link to the Datasmith Exporter plugins with any number of people, both inside and outside of your organization. An Unreal Studio entitlement is not required to download and use the Datasmith Exporter plugins. Please note, however, that you are not permitted to distribute the Datasmith Exporter plugins themselves.
+[/REGION]
+
+## Installing the Datasmith Exporter for SketchUp
+
+Follow the steps below to install the Datasmith Exporter plugin for any supported version of SketchUp that you have installed on your computer.
+
+1.  Close any instances of SketchUp that are running on your machine. If any instances are still running, the installation will fail.
+1.  If you have already installed an older version of the Datasmith Exporter plugin, we recommend uninstalling it first. For details, see [Removing the Datasmith Exporter for SketchUp](#removingthedatasmithexporterforsketchup) below.
+1.  Download the Exporter plugin from the [Datasmith Export Plugins download](https://www.unrealengine.com/studio/downloads) page, or from the Epic Games Launcher.
+1.  When the download has completed, run the installer, accept the license agreement, and follow the prompts.  
+    ![Datasmith Exporter installer wizard](sketchup_installer.png "Datasmith Exporter installer wizard")
+1.  You may see a security warning due to the plugin installer not being registered with Microsoft yet. Click **More info**.  
+    ![More info](unnamed-image-resize546x189.png "More info")  
+    Then click **Run Anyway**.  
+    ![Run Anyway](unnamed-image-resize549x190.png "Run Anyway")
+1.  The installer automatically detects the versions of SketchUp Pro installed on your system. Check the box for each version that you want to be able to export through Datasmith, and click **Install**.  
+    ![SketchUp installer versions](sketchup_installer_versions.png "SketchUp installer versions")
+
+### End Result
+
+Now that you have the Datasmith Exporter plugin installed, you can move on to export a scene from SketchUp as a *.udatasmith* file. See [Exporting Datasmith Content from SketchUp Pro](Enterprise/Datasmith/SoftwareInteropGuides/SketchUp/ExportingDatasmithContentfromSketchUp).
+
+## Removing the Datasmith Exporter for SketchUp
+
+Use the standard Windows control panel utilities to find and remove the **Unreal Datasmith Exporter for SketchUp** application from your system.
+
+For example, on Windows 10, you can use the **Apps & features** control panel. Click the entry for your Datasmith exporter plugin in the list, then click **Uninstall**:
+
+[REGION:lightbox]
+[![](uninstall-datasmith-sketchup-plugin-appsfeatures-1.png)](uninstall-datasmith-sketchup-plugin-appsfeatures-1.png) 
+
+*Click for full image.*
+[/REGION]
+
+Or, use the **Uninstall or change a program** control panel. Right-click the entry for your Datasmith exporter plugin, and choose **Uninstall** from the contextual menu:
+
+[REGION:lightbox]
+[![](uninstall-datasmith-sketchup-plugin-uninstallchange.png "uninstall-datasmith-sketchup-plugin-uninstallchange.png")](uninstall-datasmith-sketchup-plugin-uninstallchange.png)
+
+*Click for full image.*
+[/REGION]

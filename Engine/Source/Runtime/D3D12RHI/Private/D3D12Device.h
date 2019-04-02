@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 D3D12Device.h: D3D12 Device Interfaces
@@ -9,6 +9,8 @@ D3D12Device.h: D3D12 Device Interfaces
 #include "CoreMinimal.h"
 
 class FD3D12DynamicRHI;
+class FD3D12BasicRayTracingPipeline;
+class FD3D12RayTracingDescriptorHeapCache;
 
 class FD3D12Device : public FD3D12SingleNodeGPUObject, public FNoncopyable, public FD3D12AdapterChild
 {
@@ -17,7 +19,7 @@ public:
 	FD3D12Device(FRHIGPUMask InGPUMask, FD3D12Adapter* InAdapter);
 	virtual ~FD3D12Device();
 
-	/** Intialized members*/
+	/** Initialized members*/
 	void Initialize();
 
 	void CreateCommandContexts();
@@ -38,10 +40,20 @@ public:
 	bool GetQueryData(FD3D12RenderQuery& Query, bool bWait);
 
 	ID3D12Device* GetDevice();
+
+#if D3D12_RHI_RAYTRACING
+	void									InitRayTracing();
+	void									CleanupRayTracing();
+	ID3D12Device5*							GetRayTracingDevice();
+	const FD3D12BasicRayTracingPipeline*	GetBasicRayTracingPipeline() const { return BasicRayTracingPipeline; }
+	FD3D12RayTracingDescriptorHeapCache*	GetRayTracingDescriptorHeapCache() { return RayTracingDescriptorHeapCache; }
+#endif // D3D12_RHI_RAYTRACING
+
 	FD3D12DynamicRHI* GetOwningRHI();
 
 	inline FD3D12QueryHeap* GetOcclusionQueryHeap() { return &OcclusionQueryHeap; }
 	inline FD3D12QueryHeap* GetTimestampQueryHeap() { return &TimestampQueryHeap; }
+	FD3D12LinearQueryHeap* GetCmdListExecTimeQueryHeap();
 
 	template <typename TViewDesc> FD3D12OfflineDescriptorManager& GetViewDescriptorAllocator();
 	template<> FD3D12OfflineDescriptorManager& GetViewDescriptorAllocator<D3D12_SHADER_RESOURCE_VIEW_DESC>() { return SRVAllocator; }
@@ -99,6 +111,10 @@ public:
 	void PushGPUEvent(const TCHAR* Name, FColor Color);
 	void PopGPUEvent();
 
+#if NV_AFTERMATH
+	void PushGPUEvent(const TCHAR* Name, FColor Color, GFSDK_Aftermath_ContextHandle Context);
+#endif
+
 	FD3D12SamplerState* CreateSampler(const FSamplerStateInitializerRHI& Initializer);
 	void CreateSamplerInternal(const D3D12_SAMPLER_DESC& Desc, D3D12_CPU_DESCRIPTOR_HANDLE Descriptor);
 
@@ -129,6 +145,9 @@ protected:
 
 	FD3D12QueryHeap OcclusionQueryHeap;
 	FD3D12QueryHeap TimestampQueryHeap;
+#if WITH_PROFILEGPU
+	FD3D12LinearQueryHeap CmdListExecTimeQueryHeap;
+#endif
 
 	FD3D12DefaultBufferAllocator DefaultBufferAllocator;
 
@@ -165,4 +184,12 @@ protected:
 	FD3D12TextureAllocatorPool TextureAllocator;
 
 	FD3D12ResidencyManager ResidencyManager;
+
+#if D3D12_RHI_RAYTRACING
+	FD3D12BasicRayTracingPipeline* BasicRayTracingPipeline = nullptr;
+
+	// #dxr_todo: unify RT descriptor cache with main FD3D12DescriptorCache
+	FD3D12RayTracingDescriptorHeapCache* RayTracingDescriptorHeapCache = nullptr;
+	void DestroyRayTracingDescriptorCache();
+#endif
 };

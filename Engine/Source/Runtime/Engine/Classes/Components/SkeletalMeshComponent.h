@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -47,23 +47,39 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnAnimInitialized);
 DECLARE_MULTICAST_DELEGATE(FOnSkelMeshTeleportedMultiCast);
 typedef FOnSkelMeshTeleportedMultiCast::FDelegate FOnSkelMeshTeleported;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnBoneTransformsFinalized);
+
 namespace physx
 {
 	class PxAggregate;
 }
 
+UENUM()
+enum class EAnimCurveType : uint8 
+{
+	AttributeCurve,
+	MaterialCurve, 
+	MorphTargetCurve, 
+	// make sure to update MaxCurve 
+	MaxAnimCurveType UMETA(Hidden)
+};
 
 struct FAnimationEvaluationContext
 {
 	// The anim instance we are evaluating
 	UAnimInstance* AnimInstance;
 
+	// The post process instance we are evaluating
+	UAnimInstance* PostProcessAnimInstance;
+
 	// The SkeletalMesh we are evaluating for
 	USkeletalMesh* SkeletalMesh;
 
-	// Double buffer evaluation data
+	// Evaluation data, swapped in from the component when we are running parallel eval
 	TArray<FTransform> ComponentSpaceTransforms;
 	TArray<FTransform> BoneSpaceTransforms;
+	TArray<FTransform> CachedComponentSpaceTransforms;
+	TArray<FTransform> CachedBoneSpaceTransforms;
 	FVector RootBoneTranslation;
 
 	// Are we performing interpolation this tick
@@ -78,8 +94,9 @@ struct FAnimationEvaluationContext
 	// duplicate the cache curves
 	bool bDuplicateToCacheCurve;
 
-	// Double buffer curve data
+	// Curve data, swapped in from the component when we are running parallel eval
 	FBlendedHeapCurve	Curve;
+	FBlendedHeapCurve	CachedCurve;
 
 	FAnimationEvaluationContext()
 	{
@@ -89,13 +106,19 @@ struct FAnimationEvaluationContext
 	void Copy(const FAnimationEvaluationContext& Other)
 	{
 		AnimInstance = Other.AnimInstance;
+		PostProcessAnimInstance = Other.PostProcessAnimInstance;
 		SkeletalMesh = Other.SkeletalMesh;
 		ComponentSpaceTransforms.Reset();
 		ComponentSpaceTransforms.Append(Other.ComponentSpaceTransforms);
 		BoneSpaceTransforms.Reset();
 		BoneSpaceTransforms.Append(Other.BoneSpaceTransforms);
+		CachedComponentSpaceTransforms.Reset();
+		CachedComponentSpaceTransforms.Append(Other.CachedComponentSpaceTransforms);
+		CachedBoneSpaceTransforms.Reset();
+		CachedBoneSpaceTransforms.Append(Other.CachedBoneSpaceTransforms);
 		RootBoneTranslation = Other.RootBoneTranslation;
 		Curve.CopyFrom(Other.Curve);
+		CachedCurve.CopyFrom(Other.CachedCurve);
 		bDoInterpolation = Other.bDoInterpolation;
 		bDoEvaluation = Other.bDoEvaluation;
 		bDuplicateToCacheBones = Other.bDuplicateToCacheBones;
@@ -104,8 +127,9 @@ struct FAnimationEvaluationContext
 
 	void Clear()
 	{
-		AnimInstance = NULL;
-		SkeletalMesh = NULL;
+		AnimInstance = nullptr;
+		PostProcessAnimInstance = nullptr;
+		SkeletalMesh = nullptr;
 	}
 
 };
@@ -147,6 +171,13 @@ namespace EPhysicsTransformUpdateMode
 	};
 }
 
+/** Enum for indicating whether kinematic updates can be deferred */
+enum class EAllowKinematicDeferral
+{
+	AllowDeferral,
+	DisallowDeferral
+};
+
 /**
 * Tick function that does post physics work on skeletal mesh component. This executes in EndPhysics (after physics is done)
 **/
@@ -167,6 +198,8 @@ struct FSkeletalMeshComponentEndPhysicsTickFunction : public FTickFunction
 	virtual void ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
 	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph. */
 	virtual FString DiagnosticMessage() override;
+	/** Function used to describe this tick for active tick reporting. **/
+	virtual FName DiagnosticContext(bool bDetailed) override;
 };
 
 template<>
@@ -199,6 +232,8 @@ struct FSkeletalMeshComponentClothTickFunction : public FTickFunction
 	virtual void ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
 	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph. */
 	virtual FString DiagnosticMessage() override;
+	/** Function used to describe this tick for active tick reporting. **/
+	virtual FName DiagnosticContext(bool bDetailed) override;
 };
 
 template<>
@@ -246,6 +281,7 @@ class ENGINE_API USkeletalMeshComponent : public USkinnedMeshComponent, public I
 	GENERATED_UCLASS_BODY()
 
 	friend class FSkinnedMeshComponentRecreateRenderStateContext;
+	friend class FParallelAnimationCompletionTask;
 	
 	/**
 	 * Animation 
@@ -262,7 +298,7 @@ public:
 	class UAnimBlueprint* AnimationBlueprint_DEPRECATED;
 #endif
 
-	DEPRECATED(4.11, "This property is deprecated. Please use AnimClass instead")
+	UE_DEPRECATED(4.11, "This property is deprecated. Please use AnimClass instead")
 	UPROPERTY(BlueprintReadOnly, Category = Animation, meta = (DeprecationMessage = "This property is deprecated. Please use AnimClass instead"))
 	class UAnimBlueprintGeneratedClass* AnimBlueprintGeneratedClass;
 
@@ -317,6 +353,10 @@ public:
 	/** Temporary storage for curves */
 	FBlendedHeapCurve AnimCurves;
 
+	/** Access cached component space transforms */
+	const TArray<FTransform>& GetCachedComponentSpaceTransforms() const;
+
+private:
 	// Update Rate
 
 	/** Cached BoneSpaceTransforms for Update Rate optimization. */
@@ -330,14 +370,11 @@ public:
 	/** Cached Curve result for Update Rate optimization */
 	FBlendedHeapCurve CachedCurve;
 
+public:
 	/** Used to scale speed of all animations on this skeletal mesh. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Animation)
 	float GlobalAnimRateScale;
-
-	/** The simulation scene to use for this instance. By default we use what's in the physics asset (which defaults to the sync scene) */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics)
-	EDynamicActorScene UseAsyncScene;
-
+	
 	/** If we are running physics, should we update non-simulated bones based on the animation bone positions. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=SkeletalMesh)
 	TEnumAsByte<EKinematicBonesUpdateToPhysics::Type> KinematicBonesUpdateType;
@@ -412,7 +449,7 @@ private:
 	uint8 bAllowAnimCurveEvaluation : 1;
 
 	/** DEPRECATED. Use bAllowAnimCurveEvaluation instead */
-	DEPRECATED(4.18, "This property is deprecated. Please use bAllowAnimCurveEvaluatiuon instead. Note that the meaning is reversed.")	
+	UE_DEPRECATED(4.18, "This property is deprecated. Please use bAllowAnimCurveEvaluatiuon instead. Note that the meaning is reversed.")	
 	UPROPERTY()
 	uint8 bDisableAnimCurves_DEPRECATED : 1;
 
@@ -453,6 +490,10 @@ public:
 	 * Optimization
 	 */
 	
+	 /** Whether animation and world transform updates are deferred. If this is on, the kinematic bodies (scene query data) will not update until the next time the physics simulation is run */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = SkeletalMesh)
+	uint8 bDeferKinematicBoneUpdate : 1;
+
 	/** Skips Ticking and Bone Refresh. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=SkeletalMesh)
 	uint8 bNoSkeletonUpdate:1;
@@ -527,6 +568,18 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Clothing)
     uint8 bUseContinuousCollisionDetection:1;
+
+	/** If true, propagates calls to ApplyAnimationCurvesToComponent for slave components, only needed if slave components do not tick themselves */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MasterPoseComponent)
+	uint8 bPropagateCurvesToSlaves : 1;
+
+	/** Whether to skip UpdateKinematicBonesToAnim() when interpolating. Kinematic bones are updated to the target interpolation pose only on ticks when they are evaluated. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = Optimization)
+	uint8 bSkipKinematicUpdateWhenInterpolating:1;
+
+	/** Whether to skip bounds update when interpolating. Bounds are updated to the target interpolation pose only on ticks when they are evaluated. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = Optimization)
+	uint8 bSkipBoundsUpdateWhenInterpolating:1;
 
 protected:
 
@@ -892,11 +945,11 @@ public:
 	}
 #endif 
 
-	DEPRECATED(4.18, "This function is deprecated. Please use SetAllowAnimCurveEvaluation instead. Note that the meaning is reversed.")
+	UE_DEPRECATED(4.18, "This function is deprecated. Please use SetAllowAnimCurveEvaluation instead. Note that the meaning is reversed.")
 	UFUNCTION(BlueprintCallable, Category = "Components|SkeletalMesh")
 	void SetDisableAnimCurves(bool bInDisableAnimCurves);
 
-	DEPRECATED(4.18, "This function is deprecated. Please use GetAllowedAnimCurveEvaluate instead. Note that the meaning is reversed.")
+	UE_DEPRECATED(4.18, "This function is deprecated. Please use GetAllowedAnimCurveEvaluate instead. Note that the meaning is reversed.")
 	UFUNCTION(BlueprintCallable, Category = "Components|SkeletalMesh")
 	bool GetDisableAnimCurves() const { return !bAllowAnimCurveEvaluation; }
 
@@ -1244,7 +1297,6 @@ public:
 public:
 	//~ Begin UObject Interface.
 	virtual void Serialize(FArchive& Ar) override;
-	virtual void NotifyObjectReferenceEliminated() const override;
 	virtual void PostLoad() override;
 #if WITH_EDITOR
 	DECLARE_MULTICAST_DELEGATE(FOnSkeletalMeshPropertyChangedMulticaster)
@@ -1477,6 +1529,8 @@ public:
 	virtual void ClearRefPoseOverride() override;
 	//~ End USkinnedMeshComponent Interface
 
+	FOnBoneTransformsFinalized OnBoneTransformsFinalized;
+
 	void GetCurrentRefToLocalMatrices(TArray<FMatrix>& OutRefToLocals, int32 InLodIdx);
 
 	// Conditions used to gate when post process events happen
@@ -1502,8 +1556,10 @@ public:
 	* @param	OutRootBoneTranslation	Calculated root bone translation
 	* @param	OutCurves				Blended Curve
 	*/
-	void PerformAnimationEvaluation(const USkeletalMesh* InSkeletalMesh, UAnimInstance* InAnimInstance, TArray<FTransform>& OutSpaceBases, TArray<FTransform>& OutBoneSpaceTransforms, FVector& OutRootBoneTranslation, FBlendedHeapCurve& OutCurve) const;
-	void PerformAnimationProcessing(const USkeletalMesh* InSkeletalMesh, UAnimInstance* InAnimInstance, bool bInDoEvaluation, TArray<FTransform>& OutSpaceBases, TArray<FTransform>& OutBoneSpaceTransforms, FVector& OutRootBoneTranslation, FBlendedHeapCurve& OutCurve) const;
+#if WITH_EDITOR
+	void PerformAnimationEvaluation(const USkeletalMesh* InSkeletalMesh, UAnimInstance* InAnimInstance, TArray<FTransform>& OutSpaceBases, TArray<FTransform>& OutBoneSpaceTransforms, FVector& OutRootBoneTranslation, FBlendedHeapCurve& OutCurve);
+#endif
+	void PerformAnimationProcessing(const USkeletalMesh* InSkeletalMesh, UAnimInstance* InAnimInstance, bool bInDoEvaluation, TArray<FTransform>& OutSpaceBases, TArray<FTransform>& OutBoneSpaceTransforms, FVector& OutRootBoneTranslation, FBlendedHeapCurve& OutCurve);
 
 	/**
 	 * Evaluates the post process instance from the skeletal mesh this component is using.
@@ -1673,8 +1729,9 @@ public:
 	 *	@param	InComponentSpaceTransforms	Array of bone transforms in component space
 	 *	@param	Teleport					Whether movement is a 'teleport' (ie infers no physics velocity, but moves simulating bodies) or not
 	 *	@param	bNeedsSkinning				Whether we may need  to send new triangle data for per-poly skeletal mesh collision
+	 *	@param	AllowDeferral				Whether we can defer actual update of bodies (if 'physics only' collision)
 	 */
-	void UpdateKinematicBonesToAnim(const TArray<FTransform>& InComponentSpaceTransforms, ETeleportType Teleport, bool bNeedsSkinning);
+	void UpdateKinematicBonesToAnim(const TArray<FTransform>& InComponentSpaceTransforms, ETeleportType Teleport, bool bNeedsSkinning, EAllowKinematicDeferral DeferralAllowed = EAllowKinematicDeferral::AllowDeferral);
 
 	/**
 	 * Look up all bodies for broken constraints.
@@ -1797,6 +1854,7 @@ public:
 
 public:
 	bool IsAnimBlueprintInstanced() const;
+	void ClearAnimScriptInstance();
 
 protected:
 	bool NeedToSpawnAnimScriptInstance() const;
@@ -1816,10 +1874,19 @@ private:
 	void EndPhysicsTickComponent(FSkeletalMeshComponentEndPhysicsTickFunction& ThisTickFunction);
 
 	/** Evaluate Anim System **/
-	void EvaluateAnimation(const USkeletalMesh* InSkeletalMesh, UAnimInstance* InAnimInstance, TArray<FTransform>& OutBoneSpaceTransforms, FVector& OutRootBoneTranslation, FBlendedHeapCurve& OutCurve, FCompactPose& OutPose) const;
+	void EvaluateAnimation(const USkeletalMesh* InSkeletalMesh, UAnimInstance* InAnimInstance, FVector& OutRootBoneTranslation, FBlendedHeapCurve& OutCurve, FCompactPose& OutPose) const;
 
 	/** Queues up tasks for parallel update/evaluation, as well as the chained game thread completion task */
 	void DispatchParallelEvaluationTasks(FActorComponentTickFunction* TickFunction);
+
+	/** Performs parallel eval/update work, but on the game thread */
+	void DoParallelEvaluationTasks_OnGameThread();
+
+	/** Swaps buffers into the evaluation context before and after task dispatch */
+	void SwapEvaluationContextBuffers();
+
+	/** Duplicates cached transforms/curves and performs interpolation */
+	void ParallelDuplicateAndInterpolate(FAnimationEvaluationContext& InAnimEvaluationContext);
 
 	/**
 	* Take the BoneSpaceTransforms array (translation vector, rotation quaternion and scale vector) and update the array of component-space bone transformation matrices (ComponentSpaceTransforms).
@@ -1830,7 +1897,6 @@ private:
 
 	bool DoAnyPhysicsBodiesHaveWeight() const;
 
-	void ClearAnimScriptInstance();
 	virtual void RefreshMorphTargets() override;
 
 	void GetWindForCloth_GameThread(FVector& WindVector, float& WindAdaption) const;
@@ -1849,7 +1915,7 @@ private:
 public:
 	// Parallel evaluation wrappers
 	void ParallelAnimationEvaluation();
-	void CompleteParallelAnimationEvaluation(bool bDoPostAnimEvaluation);
+	virtual void CompleteParallelAnimationEvaluation(bool bDoPostAnimEvaluation);
 
 
 	// Returns whether we are currently trying to run a parallel animation evaluation task
@@ -1877,6 +1943,7 @@ protected:
 private:
 	/** Override USkinnedMeshComponent */
 	virtual void AddSlavePoseComponent(USkinnedMeshComponent* SkinnedMeshComponent) override;
+	virtual void RemoveSlavePoseComponent(USkinnedMeshComponent* SkinnedMeshComponent) override;
 
 	// Returns whether we need to run the Pre Cloth Tick or not
 	bool ShouldRunEndPhysicsTick() const;

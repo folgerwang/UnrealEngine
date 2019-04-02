@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2465567
+﻿INTSourceChangelist:3782314
 Availability: Public
 Title:粒子特效 
 Crumbs:%ROOT%, Resources,
@@ -8,50 +8,8 @@ Related: Engine/Rendering/ParticleSystems
 Related: Engine/Rendering/ParticleSystems\Cascade
 Related: Engine/Rendering/ParticleSystems\Reference\TypeData\GPUSprites
 Related: Engine/Rendering/ParticleSystems/Reference
-
-
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/Showcases/Effects:title%](Effects_CE_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\anim_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Showcases/Effects:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Showcases/Effects:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Showcases/Effects]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/Showcases/Effects:title%](Effects_CE_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\anim_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Showcases/Effects:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Showcases/Effects:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Showcases/Effects]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+Version: 4.9
+topic-image:Effects_CE_topic.png
 
 
 [REGION:fullwidth]
@@ -60,22 +18,16 @@ Related: Engine/Rendering/ParticleSystems/Reference
 
 [TOC(start:2 end:2)]
 
+该示例展示了一系列粒子系统，它们演示了不同的环境和元素特效。 这些实例的目的是创建一系列可信的真实视觉效果，主要使用[GPU平面粒子](Engine/Rendering/ParticleSystems\Reference\TypeData\GPUSprites)粒子及其特性。
 
-
-## 概述
-
-粒子特效实例展示了一系列粒子系统，它们演示了不同的环境和元素特效。 这些实例的目的是创建一系列可信的真实视觉效果，主要使用[GPU平面粒子](Engine/Rendering/ParticleSystems\Reference\TypeData\GPUSprites)粒子及其特性。
-
+(#SceneBreakdown)
 ## 场景详细介绍
 
 粒子特效实例展示了洞穴关卡，它位于积雪皑皑的北极山脉的高地。 在山洞内，瀑布跨越长满苔藓的岩层顺流直下，流入洞穴表面多水的流淌的水池中。 神秘而又神奇的火焰产生了奇异的光照。 洞穴外，凌厉的暴风雪拍打着岩石。 
 
 
+(#ParticleSystemExamples)
 ## 粒子系统实例
-
-
-
-[REGION:topics third]
 
 [OBJECT:TopicCompact]
 	[PARAM:image]
@@ -112,43 +64,26 @@ Related: Engine/Rendering/ParticleSystems/Reference
 		[RELATIVE:Resources\Showcases\Effects\FireExamples]
 	[/PARAM]
 [/OBJECT]
-[/REGION]
 
-
-
-
+(#DeconstructingParticleExamples)
 ## 拆解粒子实例
 
 本实例所包含的文件旨在帮助您起步并了解每个粒子系统特效。 但是，如果您确实想要更好地了解每种特效是如何被创建的，您可以打开它们并看一下它们是如何被组合起来的。 在这些文件中，我们会给出供您在 **内容浏览器** 中找到每种特效的文件夹路径。 或者，您也可以直接选择令您感兴趣的特效，您可以在视口或世界大纲视图中点击它，然后按下 **Ctrl+B** 。您也可以对Actor **点击右键** （在视口或世界大纲视图中）并从关联菜单中选择 **Show in Content Browser** （在内容浏览器中显示）。
 
 ![](FindInCB.png)
 
-这样就可以在 **内容浏览器** 中选中粒子系统。 **双击** **内容浏览器** 中的图标从而在虚幻引擎4强大的粒子编辑系统 **Cascade** 中打开特效。
+这样就可以在内容浏览器中选中粒子系统。 **双击** 内容浏览器中的图标从而在虚幻引擎4强大的粒子编辑系统 **Cascade** 中打开特效。
 
 ![](CascadeEditorOpen.png)(w:600)
 
 
 
+(#LevelMatineeSequence)
 ## 关卡Matinee序列
 
 作为在本关卡中特效展示的特殊礼物，我们在其中包括了Matinee序列，它可以进行漂亮的过场动画式的关卡漫游。 您可以通过轻敲 **Spacebar** （空格键）在编辑器回放时的任意时刻打开它。  
 
 ![](MatineePlayback.png)
-
-
-
-[EXCERPT:ParticleTopics]
-
-)
-
-
-[/EXCERPT:ParticleTopics]
-
-
-
-
-
-
 
 
 [COMMENT:none]
@@ -194,12 +129,4 @@ Related: Engine/Rendering/ParticleSystems/Reference
 [/OBJECT]
 [/EXCERPT:FireTopic]
 
-
-
-
-
-
-
-
-------------------
 [/COMMENT]

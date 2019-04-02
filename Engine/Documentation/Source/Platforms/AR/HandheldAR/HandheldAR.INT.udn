@@ -1,0 +1,29 @@
+Availability: Public
+Crumbs: 
+Title: Handheld Augmented Reality
+Description: Handheld Augmented Reality
+Type: landing
+Version: 4.20
+Parent: Platforms/AR
+Order: 2
+Tags: AR
+Tags: Landing Page
+
+
+## Platforms
+
+%Platforms/AR/HandheldAR/ARKitPrerequisites:topic%
+
+%Platforms/AR/HandheldAR/ARCorePrerequisites:topic%
+
+## Starting Out
+
+%Platforms/AR/HandheldAR/AROverview:topic%
+
+%Platforms/AR/HandheldAR/ARQuickStart:topic%
+
+## Reference
+
+%Platforms/AR/HandheldAR/ARHowToHitTesting:topic%
+
+%Platforms/AR/HandheldAR/ARHowToShowWorldOrigin:topic%

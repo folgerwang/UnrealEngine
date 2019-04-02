@@ -4,7 +4,7 @@ Title:변수 유형
 Crumbs:
 
 [EXCERPT:Bool]
-불(bool) 또는 불리언(boolean) 은 `True` 또는 `False` 값을 갖는 변수입니다.
+불(bool) 또는 부울(boolean) 은 `True` 또는 `False` 값을 갖는 변수입니다.
 [VAR:ToolTipFullLink]
 Engine/Blueprints/UserGuide/Variables
 [/VAR]

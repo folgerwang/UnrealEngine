@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -90,7 +90,7 @@ public:
 	/**
 	 * Display the media profile icon in the editor toolbar.
 	 */
-	UPROPERTY(Config, EditAnywhere, Category = "MediaProfile")
+	UPROPERTY(Config, EditAnywhere, Category = "MediaProfile", meta=(ConfigRestartRequired=true))
 	bool bDisplayInToolbar;
 
 private:

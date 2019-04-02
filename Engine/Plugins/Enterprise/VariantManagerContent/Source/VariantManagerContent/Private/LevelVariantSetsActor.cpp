@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelVariantSetsActor.h"
 
@@ -6,12 +6,10 @@
 #include "VariantSet.h"
 #include "Variant.h"
 #include "VariantObjectBinding.h"
-
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
 #include "UObject/SoftObjectPath.h"
-
 
 ALevelVariantSetsActor::ALevelVariantSetsActor(const FObjectInitializer& Init)
 	: Super(Init)
@@ -20,26 +18,7 @@ ALevelVariantSetsActor::ALevelVariantSetsActor(const FObjectInitializer& Init)
 	RootComponent = SceneComponent;
 }
 
-void ALevelVariantSetsActor::BeginPlay()
-{
-	// See comment on UVariantObjectBinding->FixupForPIE for an explanation as to why we need to do this
-	ULevelVariantSets* LevelVarSets = GetLevelVariantSets(true);
-	if (LevelVarSets)
-	{
-		for (UVariantSet* VarSet : LevelVarSets->GetVariantSets())
-		{
-			for (UVariant* Var : VarSet->GetVariants())
-			{
-				for (UVariantObjectBinding* Binding : Var->GetBindings())
-				{
-					Binding->FixupForPIE();
-				}
-			}
-		}
-	}
-}
-
-ULevelVariantSets* ALevelVariantSetsActor::GetLevelVariantSets(bool bLoad) const
+ULevelVariantSets* ALevelVariantSetsActor::GetLevelVariantSets(bool bLoad)
 {
 	if (LevelVariantSets.IsValid())
 	{

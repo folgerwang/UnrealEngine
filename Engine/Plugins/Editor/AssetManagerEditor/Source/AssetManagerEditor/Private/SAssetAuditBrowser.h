@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -33,6 +33,7 @@ public:
 	/** Adds assets to current management view */
 	void AddAssetsToList(const TArray<FAssetData>& AssetsToView, bool bReplaceExisting);
 	void AddAssetsToList(const TArray<FSoftObjectPath>& AssetsToView, bool bReplaceExisting);
+	void AddAssetsToList(const TArray<FAssetIdentifier>& AssetsToView, bool bReplaceExisting);
 	void AddAssetsToList(const TArray<FName>& PackageNamesToView, bool bReplaceExisting);
 
 	/** Called when the current registry source changes */

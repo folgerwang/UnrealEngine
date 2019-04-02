@@ -1,7 +1,8 @@
-﻿Availability: Public
-Title:2.1 - 静态光源
+INTSourceChangelist:3810557
+Availability: Public
+Title:2.1——静态照明
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Lighting
-Description:光照示例关卡的概述,示例2.1: 静态光源
+Description:对照明示例关卡“示例2.1：静态照明”的概述
 Related: Engine/Rendering/LightingAndShadows/Basics
 Related: Engine/Rendering/LightingAndShadows/LightTypes/Point
 Related: Engine/Rendering/LightingAndShadows/LightTypes/Spot
@@ -11,6 +12,24 @@ Related: Engine/Rendering/LightingAndShadows/Lightmass
 Related: Engine/Rendering/LightingAndShadows/Shadows
 Related: Engine/Rendering/LightingAndShadows/IndirectLightingCache
 Related: Engine/Rendering/LightingAndShadows/LightMobility
+Version: 4.9
+
+[VAR:Steps]
+[OBJECT:Navigation]
+	[PARAM:previous]
+	[/PARAM]
+	[PARAM:current]
+	[/PARAM]
+	[PARAM:home]
+		[Lighting Home](Resources/ContentExamples/Lighting)
+	[/PARAM]
+	[PARAM:next]
+		[Next Example](Resources/ContentExamples/Lighting/2_2 "%Resources/ContentExamples/Lighting/2_2:title%")
+	[/PARAM]
+[/OBJECT]
+[/VAR]
+
+
 
 [VAR:2xSize]456[/VAR]
 
@@ -43,41 +62,44 @@ Related: Engine/Rendering/LightingAndShadows/LightMobility
 
 [INCLUDE:Shared/Glossary/S/#Glossary_Static_Lights]
 
-因为静态光源仅使用光照贴图，所以在游戏可玩之前它们的阴影就烘焙好了。这意味着它们不能给移动（动态）对象产生阴影，正如我们在示例中所看到的。但是，当照亮的对象也是静态的时，静态光源可以产生区域（接触）阴影。这是通过调整 **光源半径** 属性实现的。然而，应该注意的是，为了获得较好的阴影效果，接收柔和阴影的表面需要合理设置它们的光照贴图分辨率。
+由于静态照明仅使用光照贴图，因此它们的阴影会在游戏前烘焙。这意味着，它们不能让移动（动态）对象产生阴影，如示例所示。但是，如果要照明的对象也是静态的，就能够产生面积（接触）阴影。这是通过调整 **源半径（Source Radius）** 属性实现的。但是，应当注意的是，获得柔和阴影的表面很可能必须设置相应的光照贴图分辨率以便阴影呈现较好的效果。 
 [/EXCERPT:StaticLighting01]
 
 [EXCERPT:StaticLighting02]
-在静态网格物体组件上，光照贴图分辨率可以在静态网格物体资源上设置，或者通过勾选 _Override Lightmap Res_ （覆盖光照贴图分辨率）勾选框并设置值。 更高的值意味着更高的分辨率，但也意味着更长的编译时间以及占用更多的内存。
+在静态网格体组件上，光照贴图分辨率可以在静态网格体资源上设置，也可以通过选中_覆盖光照贴图分辨率（Override Lightmap Res）_复选框并设置值。值越大，分辨率越高，但构建时间也会延长，同时占用更多内存。
 
-在画刷表面，光照贴图分辨率通过 _光照贴图分辨率_ 属性来设置。 这实际上是在设置密度，更低的值会产生更高的分辨率。
+在刷表面，光照贴图分辨率通过_光照贴图分辨率（Lightmap Resolution）_属性设置。这实际上是在设置密度，因此值越低，分辨率越高。
 
-[REGION:imagetable]
-|![](LightmapRes_4.png)(w:%2XSize%)  |![](LightmapRes_16.png)(w:%2XSize%)  |
-|------------------------|-------------------------|
-|Lightmap Resolution: 4.0|Lightmap Resolution: 16.0|
-[/REGION]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![光照贴图分辨率：4.0](LightmapRes_4.png)(w:%2XSize%)
+	[/PARAM]
+	[PARAM:after]
+	![光照贴图分辨率：16.0](LightmapRes_16.png)(w:%2XSize%)
+	[/PARAM]
+[/OBJECT]
 [/EXCERPT:StaticLighting02]
 
 [EXCERPT:ILC]
-由于 _间接光照缓存示例网格物体_ ，静态光照也可影响动态对象。这是光照示例的三维网格，它会被烘焙到场景中，并由渲染引擎来使用以决定静态光照在动态对象上会有何种效果。通过在编辑器右下方的控制台栏中输入以下命令，可以在视口中可视化地查看该网格：
+由于存在_间接照明缓存样本网格_，静态照明也会影响动态对象。这是烘焙到场景中的照明样本的3D网格，渲染引擎用这个网格来确定静态照明对动态对象的影响通过在编辑器右上角的控制台栏中输入以下命令，可以在视口中将这个网格显示出来：
 
 `r.Cache.DrawLightingSamples 1`
 
-您将会看到样本分散在整个场景中，如下所示：
+您会看到样本分散在场景中的效果，如：
 
 ![](IndirectLightingCache.png)
 
 [REGION:note]
-为了让简介光照缓存样本存在，在场景中必须使用一个 _Lightmass Importance Volume（Lightmass重要体积）_ 体积包围它，且必须使用Lightmass构建光照。
+为了能够存在间接照明缓存样本，场景必须有 **Lightmass重要体积**，并且必须已经由Lightmass构建照明。
 [/REGION]
 
 
-因为动态对象正在使用这个间接光照缓存，所以它们不知道该光源的实际位置，因此在示例中，我们没有看到动态对象上的阴影。
+由于动态对象利用该间接照明缓存，因此它们无从得知光源的实际位置，因此在该示例中的动态对象上缺少阴影。
 
 [/EXCERPT:ILC] 
 
 
-更深一层讲解，静态光源可以使用IES光照概述文件，关于这一点将会在 [Example 3.1](Resources\ContentExamples\Lighting\3_1)中对此进行探讨，但是该概述文件中的数据将会烘焙到光照贴图中，这意味着它的质量要依赖于光照贴图分辨率。静态光源也不支持光照函数，关于这点我们会在[Example 3.2](Resources\ContentExamples\Lighting\3_2)中进行探讨。
+此外，静态照明可以使用IES光源配置文件（稍后将在[示例3.1](Resources\ContentExamples\Lighting\3_1)中讨论），但该配置文件数据将烘焙到光照贴图中，意味着其质量将依赖于光照贴图分辨率。静态照明还不支持光照功能，这一点将在[示例3.2](Resources\ContentExamples\Lighting\3_2)中探讨。
 
 
 

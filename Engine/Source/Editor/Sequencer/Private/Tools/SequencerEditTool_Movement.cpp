@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tools/SequencerEditTool_Movement.h"
 #include "Editor.h"
@@ -307,7 +307,7 @@ FReply FSequencerEditTool_Movement::OnMouseButtonUp(SWidget& OwnerWidget, const 
 
 	SequencerHelpers::PerformDefaultSelection(Sequencer, MouseEvent);
 
-	if (MouseEvent.GetEffectingButton() == EKeys::RightMouseButton)
+	if (MouseEvent.GetEffectingButton() == EKeys::RightMouseButton && !Sequencer.IsReadOnly())
 	{
 		TSharedPtr<SWidget> MenuContent = SequencerHelpers::SummonContextMenu( Sequencer, MyGeometry, MouseEvent );
 		if (MenuContent.IsValid())

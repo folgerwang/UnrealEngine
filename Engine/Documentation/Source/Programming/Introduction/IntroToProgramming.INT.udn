@@ -223,7 +223,7 @@ So far, we have shown how to expose properties to Blueprints, but there is one l
 	UFUNCTION(BlueprintCallable, Category="Damage")
 	void CalculateValues();
 
-The **UFUNCTION()** macro handles exposing the C++ function to the reflection system. The BlueprintCallable option exposes it to the Blueprints Virtual Machine. Every Blueprint exposed function requires a category associated with it, so that the right click context menu works properly. The image below shows how the category affects the context menu.
+The **UFUNCTION()** macro handles exposing the C++ function to the reflection system. The BlueprintCallable option exposes it to Blueprints, so that users can call the function from within a Blueprint Graph. The image below shows how the category affects the context menu:
 
 ![image alt text](image_12.png)
 
@@ -352,19 +352,20 @@ Here is an example declaration of a UCLASS:
 	public:
 		MyUObject();
 
-		UPROPERTY(BlueprintReadOnly, EditAnywhere)
+		UPROPERTY(BlueprintReadOnly, EditAnywhere, Category="Example")
 		float ExampleProperty;
 
-		UFUNCTION(BlueprintCallable)
+		UFUNCTION(BlueprintCallable, Category="Example")
 		void ExampleFunction();
 	};
 
 You'll first notice the inclusion of "MyClass.generated.h".  Unreal will generate all the reflection data and put it into this file.  You must include this file as the last include in the header file that declares your type.
 
-The UCLASS, UPROPERTY, and UFUNCTION markups in this example include additional specifiers. These are not required, but some common specifiers have been added for demonstration purposes. These allow us to specify certain behaviors or properties.
+The UCLASS, UPROPERTY, and UFUNCTION markups in this example include additional specifiers. These are not required, but some common specifiers have been added for demonstration purposes. Specifiers enable or change certain behaviors or properties.
 
 * **Blueprintable** - This class can be extended by a Blueprint.
 * **BlueprintReadOnly** - This property can be read from a Blueprint, but not written to.
+* **EditAnywhere** - This property can be edited by property windows, on archetypes and instances.
 * **Category** - Defines what section this property appears under in the Details view of the Editor. This is helpful for organizational purposes.
 * **BlueprintCallable** - This function can be called from Blueprints.
 
@@ -398,7 +399,7 @@ You can limit the scope of the search by providing a more specific type to the i
 [REGION:warning]
 Using object iterators in PIE (Play In Editor) can lead to unexpected results.  Since the editor is loaded, the object iterator will return all UObjects created for your game world instance, in addition to those that are just being used by the editor.
 [/REGION]
-Actor iterators work in much the same way as object iterators, but only work for objects that derive from AActor.  Actor iterators do not have the problem noted below, and will only return objects being used by the current game world instance.
+Actor iterators work in much the same way as object iterators, but only work for objects that derive from AActor.  Actor iterators do not have the problem noted above, and will only return objects being used by the current game world instance.
 
 When creating an actor iterator, you need to give it a pointer to a **UWorld** instance.  Many UObject classes, such as **APlayerController**, provide a **GetWorld** method to help you.  If you are not sure, you can check the **ImplementsGetWorld** method on a UObject to see if it implements the GetWorld method.
 

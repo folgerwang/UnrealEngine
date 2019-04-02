@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -33,7 +33,7 @@ public:
 	 *
 	 * The box extents are initialized to zero and the box is marked as invalid.
 	 */
-	DEPRECATED(4.16, "Use ForceInit constructor instead.")
+	UE_DEPRECATED(4.16, "Use ForceInit constructor instead.")
 	FBox2D( int32 )
 	{
 		Init();

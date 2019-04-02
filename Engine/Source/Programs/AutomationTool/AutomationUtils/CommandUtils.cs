@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -105,6 +105,21 @@ namespace AutomationTool
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Returns true if AutomationTool is running using installed Engine components
+		/// </summary>
+		/// <returns>True if running using installed Engine components</returns>
+		static public bool IsEngineInstalled()
+		{
+			if (!bIsEngineInstalled.HasValue)
+			{
+				bIsEngineInstalled = FileReference.Exists(FileReference.Combine(CommandUtils.EngineDirectory, "Build", "InstalledBuild.txt"));
+			}
+			return bIsEngineInstalled.Value;
+		}
+
+		static private bool? bIsEngineInstalled;
 
 		#region Logging
 
@@ -576,6 +591,16 @@ namespace AutomationTool
 
 		/// <summary>
 		/// Deletes a directory(or directories) including its contents (recursively, will delete read-only files).
+		/// If the deletion of the directory fails, this function throws an Exception.
+		/// </summary>
+        /// <param name="Directories">Directories</param>
+        public static void DeleteDirectory(DirectoryReference Directory)
+		{
+			DeleteDirectory(Directory.FullName);
+		}
+
+		/// <summary>
+		/// Deletes a directory(or directories) including its contents (recursively, will delete read-only files).
 		/// If the deletion of the directory fails, prints a warning.
 		/// </summary>
 		/// <param name="bQuiet">Suppresses log output if true</param>
@@ -637,6 +662,17 @@ namespace AutomationTool
 			{
 				CommandUtils.DeleteDirectory_NoExceptions(bQuiet, SubDirectoryName);
 			}
+		}
+
+		/// <summary>
+		/// Attempts to delete a directory, if that fails deletes all files and folder from the specified directory.
+		/// This works around the issue when the user has a file open in a notepad from that directory. Somehow deleting the file works but
+		/// deleting the directory with the file that's open, doesn't.
+		/// </summary>
+		/// <param name="DirectoryName"></param>
+		public static void DeleteDirectoryContents(DirectoryReference DirectoryName)
+		{
+			DeleteDirectoryContents(DirectoryName.FullName);
 		}
 
 		/// <summary>
@@ -1624,6 +1660,11 @@ namespace AutomationTool
 			ThreadedCopyFiles(SourceFiles, DestFiles, MaxThreads);
 		}
 
+		public static void ThreadedCopyFiles(DirectoryReference SourceDirectory, DirectoryReference DestDirectory, int MaxThreads = 64)
+		{
+			ThreadedCopyFiles(SourceDirectory.FullName, DestDirectory.FullName, MaxThreads);
+		}
+
 		/// <summary>
 		/// Copies files using multiple threads
         /// </summary>
@@ -2078,40 +2119,8 @@ namespace AutomationTool
 		/// <param name="BaseDirectory">Base directory to store relative paths in the zip file to</param>
 		public static void ZipFiles(FileReference ZipFileName, DirectoryReference BaseDirectory, FileFilter Filter)
 		{
-			// Ionic.Zip.Zip64Option.Always option produces broken archives on Mono, so we use system zip tool instead
-			if (Utils.IsRunningOnMono)
-			{
-				CommandUtils.CreateDirectory(Path.GetDirectoryName(ZipFileName.FullName));
-				CommandUtils.PushDir(BaseDirectory.FullName);
-				string FilesList = "";
-				foreach (FileReference FilteredFile in Filter.ApplyToDirectory(BaseDirectory, true))
-				{
-					FilesList += " \"" + FilteredFile.MakeRelativeTo(BaseDirectory) + "\"";
-					if (FilesList.Length > 32000)
-					{
-						CommandUtils.RunAndLog(CommandUtils.CmdEnv, "zip", "-g -q \"" + ZipFileName + "\"" + FilesList);
-						FilesList = "";
-					}
-				}
-				if (FilesList.Length > 0)
-				{
-					CommandUtils.RunAndLog(CommandUtils.CmdEnv, "zip", "-g -q \"" + ZipFileName + "\"" + FilesList);
-				}
-				CommandUtils.PopDir();
-			}
-			else
-			{
-				using (Ionic.Zip.ZipFile Zip = new Ionic.Zip.ZipFile(Encoding.UTF8))
-				{
-					Zip.UseZip64WhenSaving = Ionic.Zip.Zip64Option.Always;
-					foreach (FileReference FilteredFile in Filter.ApplyToDirectory(BaseDirectory, true))
-					{
-						Zip.AddFile(FilteredFile.FullName, Path.GetDirectoryName(FilteredFile.MakeRelativeTo(BaseDirectory)));
-					}
-					CommandUtils.CreateDirectory(Path.GetDirectoryName(ZipFileName.FullName));
-					Zip.Save(ZipFileName.FullName);
-				}
-			}
+			List<FileReference> Files = Filter.ApplyToDirectory(BaseDirectory, true);
+			ZipFiles(ZipFileName, BaseDirectory, Files);
 		}
 
 		/// <summary>
@@ -2125,7 +2134,7 @@ namespace AutomationTool
 			// Ionic.Zip.Zip64Option.Always option produces broken archives on Mono, so we use system zip tool instead
 			if (Utils.IsRunningOnMono)
 			{
-				CommandUtils.CreateDirectory(ZipFile.Directory.FullName);
+				CommandUtils.CreateDirectory(ZipFile.Directory);
  				CommandUtils.PushDir(BaseDirectory.FullName);
  				string FilesList = "";
 				foreach(FileReference File in Files)
@@ -2145,14 +2154,16 @@ namespace AutomationTool
 			}
 			else
 			{
-				Ionic.Zip.ZipFile Zip = new Ionic.Zip.ZipFile(Encoding.UTF8);
-				Zip.UseZip64WhenSaving = Ionic.Zip.Zip64Option.Always;
-				foreach(FileReference File in Files)
+				using(Ionic.Zip.ZipFile Zip = new Ionic.Zip.ZipFile(Encoding.UTF8))
 				{
-					Zip.AddFile(File.FullName, Path.GetDirectoryName(File.MakeRelativeTo(BaseDirectory)));
+					Zip.UseZip64WhenSaving = Ionic.Zip.Zip64Option.Always;
+					foreach(FileReference File in Files)
+					{
+						Zip.AddFile(File.FullName, Path.GetDirectoryName(File.MakeRelativeTo(BaseDirectory)));
+					}
+					CommandUtils.CreateDirectory(ZipFile.Directory);
+					Zip.Save(ZipFile.FullName);
 				}
-				CommandUtils.CreateDirectory(ZipFile.Directory.FullName);
-				Zip.Save(ZipFile.FullName);
 			}
 		}
 
@@ -2336,6 +2347,88 @@ namespace AutomationTool
 			}
 
 			return String.Format("{0} {1}", AbsSize.ToString("N2"), Units[UnitIndex]);
+		}
+		
+		public static void TakeLock(DirectoryReference LockDirectory, TimeSpan Timeout, System.Action Callback)
+		{
+			string LockFilePath = Path.Combine(LockDirectory.FullName, ".lock");
+
+			FileStream Stream = null;
+			DateTime StartTime = DateTime.Now;
+			DateTime Deadline = StartTime.Add(Timeout);
+
+			try
+			{
+				DirectoryReference.CreateDirectory(LockDirectory);
+
+				for (int Iterations = 0; ; ++Iterations)
+				{
+					// Attempt to create the lock file. Ignore any IO exceptions. Stream will be null if this fails.
+					try { Stream = new FileStream(LockFilePath, FileMode.Create, FileAccess.Write, FileShare.Read, 4096, FileOptions.DeleteOnClose); }
+					catch (IOException) { }
+
+					if (Stream != null)
+					{
+						// If we have a stream, we've taken the lock.
+						try
+						{
+							// Write the machine name to the file.
+							Stream.Write(Encoding.UTF8.GetBytes(Environment.MachineName));
+							Stream.Flush();
+							break;
+						}
+						catch
+						{
+							throw new AutomationException("Failed to write to the lock file '{0}'.", LockFilePath);
+						}
+					}
+
+					// We've failed to take the lock. Throw an exception if the timeout has elapsed.
+					// Otherwise print a log message and retry.
+					var CurrentTime = DateTime.Now;
+					if (CurrentTime >= Deadline)
+					{
+						throw new AutomationException("Couldn't create lock file '{0}' after {1} seconds.", LockFilePath, CurrentTime.Subtract(StartTime).TotalSeconds);
+					}
+
+					if (Iterations == 0)
+					{
+						LogInformation("Waiting for lock file '{0}' to be removed...", LockFilePath);
+					}
+					else if ((Iterations % 30) == 0)
+					{
+						LogInformation("Still waiting for lock file '{0}' after {1} seconds.", LockFilePath, CurrentTime.Subtract(StartTime).TotalSeconds);
+					}
+
+					// Wait for a while before retrying.
+					Thread.Sleep(1000);
+				}
+
+				// Invoke the user callback now that we own the lock.
+				Callback();
+			}
+			finally
+			{
+				// Always dispose the lock file stream if we took the lock.
+				// The file will delete on close.
+				if (Stream != null)
+				{
+					Stream.Dispose();
+					Stream = null;
+				}
+			}
+		}
+		public static void OptionallyTakeLock(bool Condition, DirectoryReference LockDirectory, TimeSpan Timeout, System.Action Callback)
+		{
+			if (Condition)
+			{
+				TakeLock(LockDirectory, Timeout, Callback);
+			}
+			else
+			{
+				// No lock required, invoke the callback directly.
+				Callback();
+			}
 		}
 	}
 

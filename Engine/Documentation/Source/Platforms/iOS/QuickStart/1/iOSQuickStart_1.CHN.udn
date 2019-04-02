@@ -1,22 +1,25 @@
-﻿INTSourceChangelist:2464839
-Title:1. 必备软件
+﻿INTSourceChangelist:4300533
+Title:1.安装先决条件
 Crumbs:%ROOT%, Platforms, Platforms/iOS, Platforms/iOS/QuickStart
-Description:获取并安装所有所需的软件以开发iOS设备的游戏。
+Description:为iOS设备获取并安装开发游戏所需的所有软件。
 Availability:Public
-
+Version:4.18
+SkillLevel:Intermediate
+Checkpoint:iOSQS
+order:1
 
 [VAR:Steps]
 [OBJECT:Navigation]
-	[PARAM:previous]
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[快速入门主页](Platforms/iOS/QuickStart)
-	[/PARAM]
-	[PARAM:next]
-		[下一步](Platforms/iOS/QuickStart/2 "%Platforms/iOS/QuickStart/2:title%")
-	[/PARAM]
+    [PARAM:previous]
+    [/PARAM]
+    [PARAM:current]
+    [/PARAM]
+    [PARAM:home]
+        [快速入门主页](Platforms/iOS/QuickStart)
+    [/PARAM]
+    [PARAM:next]
+        [下一步](Platforms/iOS/QuickStart/2 "%Platforms/iOS/QuickStart/2:title%")
+    [/PARAM]
 [/OBJECT]
 [/VAR]
 
@@ -28,65 +31,78 @@ Availability:Public
 %Globals:OSSelect%
 
 [OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	windows
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	active_button_content
-	[/PARAMLITERAL]
-	[PARAM:content]
-	%windows%
-	[/PARAM]
+    [PARAMLITERAL:category]
+    操作系统
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    windows
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    active_button_content
+    [/PARAMLITERAL]
+    [PARAM:content]
+    %windows%
+    [/PARAM]
 [/OBJECT]
 [OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	mac
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	[/PARAMLITERAL]
-	[PARAM:content]
-	%macos%
-	[/PARAM]
+    [PARAMLITERAL:category]
+    操作系统
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    mac
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    %macos%
+    [/PARAM]
 [/OBJECT]
 
 
 
 
 [VAR:windows]
+(#steps)
 
+## 步骤
 [REGION:note]
-您是否已经安装了iTunes？ [您可以跳过这个部分。](Platforms/iOS/QuickStart/2)
+已安装了iTunes？[可略过本节。](Platforms/iOS/QuickStart/2)
 [/REGION]
 
-您必须安装 **iTunes** ，从而打包并部署您的iOS项目到Window的设备上。
+使用Windows时，您必须先安装 **iTunes** 才能打包您的iOS项目并将其部署到您的设备。可使用以下链接从Apple安装iTunes： 
 
-您可以使用以下链接从Apple处安装iTunes： [安装iTunes](http://www.apple.com/itunes/)
+* [**安装iTunes（Install iTunes）**](http://www.apple.com/itunes/)
 
-[![](itunes.png)](http://www.apple.com/itunes/)
+    [![](itunes.png)](http://www.apple.com/itunes/)
 
-在 **iTunes** 完成安装后运行它。
+完成安装后，运行 **iTunes**。
+
+(#endresult)
+## 最终结果
+完成后，您即已安装iTunes，并能够将UE4项目部署到您的iOS设备。
 
 [/VAR]
 
 [VAR:macos]
+(#steps)
 
+## 步骤
 [REGION:note]
-您是否已经安装了Xcode？ [您可以跳过这个部分。](Platforms/iOS/QuickStart/2)
+是否已安装XCode？[可略过本节。](Platforms/iOS/QuickStart/2)
 [/REGION]
 
-您必须安装 **Xcode** ，从而打包并部署您的iOS项目到Mac OS的设备上。
+您必须已安装最新版 **XCode** 才能打包您的iOS项目并将其部署到Mac操作系统上的设备。可使用以下链接从Apple安装XCode： 
 
-您可以使用以下链接从Apple处安装XCode: [安装XCode](https://developer.apple.com/xcode/)
+* [**安装XCode（Install XCode）**](https://developer.apple.com/xcode/)
 
-[![](DownloadXCode.png)](https://developer.apple.com/xcode/)
+    [![](DownloadXCode.png)](https://developer.apple.com/xcode/)
 
-在 **Xcode** 完成安装后运行它。
+完成安装后，运行 **Xcode**。
+
+(#endresult)
+
+## 最终结果
+完成后，您即已安装XCode，并能够将UE4项目部署到您的iOS设备。
 
 [/VAR]
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -174,7 +174,8 @@ public:
 
 #if WITH_EDITOR
 	// UObject interface
-	virtual void PreEditChange(class FEditPropertyChain& PropertyAboutToChange) override;
+	using Super::PreEditChange;
+	virtual void PreEditChange(UProperty* PropertyThatWillChange) override;
 	virtual void PostEditChangeChainProperty(struct FPropertyChangedChainEvent& PropertyChangedEvent) override;
 	// End of UObject interface
 

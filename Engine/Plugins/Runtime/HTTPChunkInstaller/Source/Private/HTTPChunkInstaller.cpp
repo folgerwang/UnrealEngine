@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "HTTPChunkInstaller.h"
 #include "HTTPChunkInstallerLog.h"
@@ -864,7 +864,7 @@ private:
 	/**
 	* Should use the initialization constructor instead
 	*/
-	FOnlineTitleFileHttp();
+	FOnlineTitleFileHttp() = delete;
 
 	/** Config based url for enumerating list of cloud files*/
 	FString EnumerateFilesUrl;

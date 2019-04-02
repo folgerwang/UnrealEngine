@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -193,13 +193,13 @@ public:
 		SkipFrames = InMasterCounter.SkipFrames;
 	}
 
-	DEPRECATED(4.19, "Use the specific IsSynchronized_* functions to determing sync state")
+	UE_DEPRECATED(4.19, "Use the specific IsSynchronized_* functions to determing sync state")
 	bool IsSynchronizedWith(const FGraphTraversalCounter& InMasterCounter) const
 	{
 		return IsSynchronized_Counter(InMasterCounter);
 	}
 
-	DEPRECATED(4.19, "Use the specific WasSynchronizedLast* functions to determine sync state")
+	UE_DEPRECATED(4.19, "Use the specific WasSynchronizedLast* functions to determine sync state")
 	bool WasSynchronizedInTheLastFrame(const FGraphTraversalCounter& InMasterCounter) const
 	{
 		return WasSynchronizedCounter(InMasterCounter);
@@ -338,6 +338,14 @@ struct FAnimNotifyEvent : public FAnimLinkableElement
 	UPROPERTY()
 	int32 TrackIndex;
 
+private:
+	/** NotifyName appended to "AnimNotify_" */
+	mutable FName CachedNotifyEventName;
+
+	/** NotifyName used to generate CachedNotifyEventName, for invalidation */
+	mutable FName CachedNotifyEventBaseName;
+
+public:
 	FAnimNotifyEvent()
 		: FAnimLinkableElement()
 		, DisplayTime_DEPRECATED(0)
@@ -358,6 +366,8 @@ struct FAnimNotifyEvent : public FAnimLinkableElement
 		, NotifyColor(FColor::Black)
 #endif // WITH_EDITORONLY_DATA
 		, TrackIndex(0)
+		, CachedNotifyEventName(NAME_None)
+		, CachedNotifyEventBaseName(NAME_None)
 	{
 	}
 
@@ -403,6 +413,9 @@ struct FAnimNotifyEvent : public FAnimLinkableElement
 	ENGINE_API bool operator <(const FAnimNotifyEvent& Other) const;
 
 	ENGINE_API virtual void SetTime(float NewTime, EAnimLinkMethod::Type ReferenceFrame = EAnimLinkMethod::Absolute) override;
+
+	/** Get the NotifyName pre-appended to "AnimNotify_", for calling the event */
+	ENGINE_API FName GetNotifyEventName() const;
 };
 
 // Used by UAnimSequenceBase::SortNotifies() to sort its Notifies array
@@ -623,6 +636,12 @@ struct FAnimKeyHelper
 	float TimePerKey() const
 	{
 		return (NumKeys > 1) ? Length / (float)(NumKeys - 1) : MINIMUM_ANIMATION_LENGTH;
+	}
+
+	// Returns the FPS for the given length and number of keys
+	float KeysPerSecond() const
+	{
+		return NumKeys > 0 ? (float(NumKeys - 1) / Length) : 0.0f;
 	}
 
 	int32 LastKey() const

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -21,8 +21,6 @@ namespace AutomationTool
 	public class UE4Build
 	{
 		private BuildCommand OwnerCommand;
-
-		private String XGEConsoleExePath = "";
 
 		public bool HasBuildProduct(string InFile)
 		{
@@ -96,7 +94,7 @@ namespace AutomationTool
 			public string OutputCaption;
 		}
 
-		XGEItem XGEPrepareBuildWithUBT(string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Config, FileReference UprojectPath, bool ForceMonolithic = false, bool ForceNonUnity = false, bool ForceDebugInfo = false, string InAddArgs = "", bool ForceUnity = false)
+		XGEItem XGEPrepareBuildWithUBT(string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Config, FileReference UprojectPath, string InAddArgs)
 		{
 			string AddArgs = "";
 			if (UprojectPath != null)
@@ -105,22 +103,6 @@ namespace AutomationTool
 			}
 			AddArgs += " -NoUBTMakefiles";
 			AddArgs += " " + InAddArgs;
-			if (ForceMonolithic)
-			{
-				AddArgs += " -monolithic";
-			}
-			if (ForceNonUnity)
-			{
-				AddArgs += " -disableunity";
-			}
-			if (ForceUnity)
-			{
-				AddArgs += " -forceunity";
-			}
-			if (ForceDebugInfo)
-			{
-				AddArgs += " -forcedebuginfo";
-			}
 
 			PrepareUBT();
 
@@ -129,7 +111,7 @@ namespace AutomationTool
 
 			ClearExportedXGEXML();
 
-			CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: Platform, Config: Config, AdditionalArgs: String.Format("-Manifest={0} -nobuilduht -xgeexport {1}", CommandUtils.MakePathSafeToUseWithCommandLine(ManifestFile.FullName), AddArgs));
+			CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: Platform, Config: Config, AdditionalArgs: String.Format("-Manifest={0} -nobuilduht -NoHotReload -xgeexport {1}", CommandUtils.MakePathSafeToUseWithCommandLine(ManifestFile.FullName), AddArgs));
 
 			XGEItem Result = new XGEItem();
 			Result.Platform = Platform;
@@ -171,7 +153,7 @@ namespace AutomationTool
 			// run the deployment steps, if necessary
 			foreach(string DeployTargetFile in Item.Manifest.DeployTargetFiles)
 			{
-				CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable, String.Format("-deploy=\"{0}\" -nomutex", DeployTargetFile));
+				CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable, String.Format("-Mode=Deploy -Receipt=\"{0}\"", DeployTargetFile));
 			}
 
 			foreach (string ManifestItem in Item.Manifest.BuildProducts)
@@ -184,7 +166,7 @@ namespace AutomationTool
 			}
 		}
 
-		void CleanWithUBT(string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Config, FileReference UprojectPath, bool ForceMonolithic = false, bool ForceNonUnity = false, bool ForceDebugInfo = false, string InAddArgs = "", bool ForceUnity = false)
+		void CleanWithUBT(string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Config, FileReference UprojectPath, string InAddArgs = "")
 		{
 			string AddArgs = "";
 			if (UprojectPath != null)
@@ -193,22 +175,6 @@ namespace AutomationTool
 			}
 			AddArgs += " -NoUBTMakefiles";
 			AddArgs += " " + InAddArgs;
-			if (ForceMonolithic)
-			{
-				AddArgs += " -monolithic";
-			}
-			if (ForceNonUnity)
-			{
-				AddArgs += " -disableunity";
-			}
-			if (ForceUnity)
-			{
-				AddArgs += " -forceunity";
-			}
-			if (ForceDebugInfo)
-			{
-				AddArgs += " -forcedebuginfo";
-			}
 			if (!TargetName.Equals("UnrealHeaderTool", StringComparison.InvariantCultureIgnoreCase))
 			{
 				AddArgs += " -nobuilduht";
@@ -217,11 +183,11 @@ namespace AutomationTool
 			PrepareUBT();
 			using(TelemetryStopwatch CleanStopwatch = new TelemetryStopwatch("CleanWithUBT.{0}.{1}.{2}", TargetName, Platform.ToString(), Config))
 			{
-				CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: Platform, Config: Config, AdditionalArgs: "-clean" + AddArgs);
+				CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: Platform, Config: Config, AdditionalArgs: "-Clean -NoHotReload" + AddArgs);
 			}
         }
 
-		BuildManifest BuildWithUBT(string TargetName, UnrealTargetPlatform TargetPlatform, UnrealTargetConfiguration Config, FileReference UprojectPath, bool ForceMonolithic = false, bool ForceNonUnity = false, bool ForceDebugInfo = false, bool ForceFlushMac = false, bool DisableXGE = false, string InAddArgs = "", bool ForceUnity = false)
+		BuildManifest BuildWithUBT(string TargetName, UnrealTargetPlatform TargetPlatform, UnrealTargetConfiguration Config, FileReference UprojectPath, bool ForceFlushMac = false, bool DisableXGE = false, string InAddArgs = "")
 		{
 			string AddArgs = "";
 			if (UprojectPath != null)
@@ -230,22 +196,6 @@ namespace AutomationTool
 			}
 			AddArgs += " -NoUBTMakefiles";
 			AddArgs += " " + InAddArgs;
-			if (ForceMonolithic)
-			{
-				AddArgs += " -monolithic";
-			}
-			if (ForceNonUnity)
-			{
-				AddArgs += " -disableunity";
-			}
-			if (ForceUnity)
-			{
-				AddArgs += " -forceunity";
-			}
-			if (ForceDebugInfo)
-			{
-				AddArgs += " -forcedebuginfo";
-			}
 			if (ForceFlushMac)
 			{
 				AddArgs += " -flushmac";
@@ -260,7 +210,7 @@ namespace AutomationTool
 			FileReference ManifestFile = GetManifestFile(UprojectPath);
 			CommandUtils.DeleteFile(ManifestFile);
 
-			CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: TargetPlatform, Config: Config, AdditionalArgs: String.Format("{0} -Manifest={1}", AddArgs, CommandUtils.MakePathSafeToUseWithCommandLine(ManifestFile.FullName)));
+			CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: TargetPlatform, Config: Config, AdditionalArgs: String.Format("{0} -Manifest={1} -NoHotReload", AddArgs, CommandUtils.MakePathSafeToUseWithCommandLine(ManifestFile.FullName)));
 
 			BuildManifest Manifest = AddBuildProductsFromManifest(ManifestFile);
 			CommandUtils.DeleteFile(ManifestFile);
@@ -474,38 +424,10 @@ namespace AutomationTool
 		public class BuildAgenda
 		{
 			/// <summary>
-			/// Full .NET solution files that we will compile and include in the build.  Currently we assume the output
-			/// binary file names match the solution file base name, but with various different binary file extensions.
-			/// </summary>
-			public List<string> DotNetSolutions = new List<string>();
-
-			/// <summary>
 			/// .NET .csproj files that will be compiled and included in the build.  Currently we assume the output
 			/// binary file names match the solution file base name, but with various different binary file extensions.
 			/// </summary>
 			public List<string> DotNetProjects = new List<string>();
-
-			/// <summary>
-			/// These are .NET project binary base file names that we want to include and label with the build, but
-			/// we won't be compiling these projects directly ourselves (however, they may be incidentally build or
-			/// published by a different project that we are building.)  We'll look for various .NET binary files with
-			/// this base file name but with different extensions.
-			/// </summary>
-			public List<string> ExtraDotNetFiles = new List<string>();
-
-			/// <summary>
-			/// These are .NET project binary files that are specific to IOS and found in the IOS subdirectory.  We define
-			/// these buildproducts as existing in the DotNET\IOS directory and assume that the output binary file names match
-			/// the solution file base name, but with various binary file extensions
-			/// </summary>
-			public List<string> IOSDotNetProjects = new List<string>();
-
-			/// <summary>
-			/// These are .NET project binary files that are specific to HTML5.  We define these build products as existing in the 
-			/// DotNET directory and assume that the output binary file names match
-			/// the solution file base name, but with various binary file extensions
-			/// </summary>
-			public List<string> HTML5DotNetProjects = new List<string>();
 
 			public string SwarmAgentProject = "";
 			public string SwarmCoordinatorProject = "";
@@ -585,30 +507,6 @@ namespace AutomationTool
 			Result.AddRange(CommandUtils.FindFiles_NoExceptions("*.xge.xml", false, Root));
 			Result.Sort();
 			return Result;
-		}
-
-		public string XGEConsoleExe()
-		{
-			if (string.IsNullOrEmpty(XGEConsoleExePath))
-			{
-				string[] PathDirs = Environment.GetEnvironmentVariable("PATH").Split(Path.PathSeparator);
-				foreach (string PathDir in PathDirs)
-				{
-					try
-					{
-						string FullPath = Path.Combine(PathDir, "xgConsole" + Platform.GetExeExtension(BuildHostPlatform.Current.Platform));
-						if (CommandUtils.FileExists(FullPath))
-						{
-							XGEConsoleExePath = FullPath;
-							break;
-						}
-					}
-					catch
-					{
-					}
-				}
-			}
-			return XGEConsoleExePath;
 		}
 
 		public bool ProcessXGEItems(List<XGEItem> Actions, string XGETool, string Args, string TaskFilePath, bool ShowProgress)
@@ -711,13 +609,6 @@ namespace AutomationTool
 							break;
 						}
 					}
-				}
-			}
-			foreach(XGEItem Item in Actions)
-			{
-				if(Item.Manifest.PostBuildScripts != null)
-				{
-					Utils.ExecuteCustomBuildSteps(Item.Manifest.PostBuildScripts.Select(x => new FileReference(x)).ToArray());
 				}
 			}
 			foreach (var Item in Actions)
@@ -1069,7 +960,7 @@ namespace AutomationTool
 		/// <param name="InUpdateVersionFiles">True if the version files are to be updated </param>
 		/// <param name="InForceNoXGE">If true will force XGE off</param>
 		/// <param name="InUseParallelExecutor">If true AND XGE not present or not being used then use ParallelExecutor</param>
-		public void Build(BuildAgenda Agenda, bool? InDeleteBuildProducts = null, bool InUpdateVersionFiles = true, bool InForceNoXGE = false, bool InUseParallelExecutor = false, bool InForceNonUnity = false, bool InForceUnity = false, bool InShowProgress = false, int? InChangelistNumberOverride = null, Dictionary<BuildTarget, BuildManifest> InTargetToManifest = null)
+		public void Build(BuildAgenda Agenda, bool? InDeleteBuildProducts = null, bool InUpdateVersionFiles = true, bool InForceNoXGE = false, bool InUseParallelExecutor = false, bool InShowProgress = false, int? InChangelistNumberOverride = null, Dictionary<BuildTarget, BuildManifest> InTargetToManifest = null)
 		{
 			if (!CommandUtils.CmdEnv.HasCapabilityToCompile)
 			{
@@ -1106,14 +997,7 @@ namespace AutomationTool
 				CommandUtils.BuildSolution(CommandUtils.CmdEnv, SwarmCoordinatorSolution, "Development", "Mixed Platforms");
 				AddSwarmBuildProducts();
 			}
-			
-			foreach (var DotNetSolution in Agenda.DotNetSolutions)
-			{
-				string Solution = Path.Combine(CommandUtils.CmdEnv.LocalRoot, DotNetSolution);
-				CommandUtils.BuildSolution(CommandUtils.CmdEnv, Solution, "Development", "Any CPU");
-				AddBuildProductsForCSharpProj(Solution);
-			}
-			
+				
 			foreach (var DotNetProject in Agenda.DotNetProjects)
 			{
 				string CsProj = Path.Combine(CommandUtils.CmdEnv.LocalRoot, DotNetProject);
@@ -1121,39 +1005,13 @@ namespace AutomationTool
 				AddBuildProductsForCSharpProj(CsProj);
 			}
 
-			foreach (var IOSDotNetProject in Agenda.IOSDotNetProjects)
-			{
-				string IOSCsProj = Path.Combine(CommandUtils.CmdEnv.LocalRoot, IOSDotNetProject);
-				CommandUtils.BuildCSharpProject(CommandUtils.CmdEnv, IOSCsProj);
-				AddIOSBuildProductsForCSharpProj(IOSCsProj);
-			}
-
-			foreach (var HTML5DotNetProject in Agenda.HTML5DotNetProjects)
-			{
-				string CsProj = Path.Combine(CommandUtils.CmdEnv.LocalRoot, HTML5DotNetProject);
-				CommandUtils.BuildCSharpProject(CommandUtils.CmdEnv, CsProj);
-				AddBuildProductsForCSharpProj(CsProj);
-			}
-
-			foreach (var File in Agenda.ExtraDotNetFiles)
-			{
-				AddBuildProductsForCSharpProj(Path.Combine(CommandUtils.CmdEnv.LocalRoot, File));
-			}
-
-			bool bForceMonolithic = ParseParam("ForceMonolithic");
-			bool bForceNonUnity = ParseParam("ForceNonUnity") || InForceNonUnity;
-			bool bForceUnity = ParseParam("ForceUnity") || InForceUnity;
-			bool bForceDebugInfo = ParseParam("ForceDebugInfo");
-			string XGEConsole = XGEConsoleExe();
+			string XGEConsole = null;
 			bool bDisableXGE = ParseParam("NoXGE") || InForceNoXGE;
-			bool bCanUseXGE = !bDisableXGE && !String.IsNullOrEmpty(XGEConsole);
+			bool bCanUseXGE = !bDisableXGE && PlatformExports.TryGetXgConsoleExecutable(out XGEConsole);
 
 			// only run ParallelExecutor if not running XGE (and we've requested ParallelExecutor and it exists)
-			bool bCanUseParallelExecutor = !bCanUseXGE && InUseParallelExecutor && (HostPlatform.Current.HostEditorPlatform == UnrealTargetPlatform.Win64);
+			bool bCanUseParallelExecutor = InUseParallelExecutor && (HostPlatform.Current.HostEditorPlatform == UnrealTargetPlatform.Win64);
 			CommandUtils.LogLog("************************* UE4Build:");
-			CommandUtils.LogLog("************************* ForceMonolithic: {0}", bForceMonolithic);
-			CommandUtils.LogLog("************************* ForceNonUnity:{0} ", bForceNonUnity);
-			CommandUtils.LogLog("************************* ForceDebugInfo: {0}", bForceDebugInfo);
 			CommandUtils.LogLog("************************* UseXGE: {0}", bCanUseXGE);
 			CommandUtils.LogLog("************************* UseParallelExecutor: {0}", bCanUseParallelExecutor);
 
@@ -1163,111 +1021,104 @@ namespace AutomationTool
 				bool bClean = Target.Clean ?? DeleteBuildProducts;
 				if (bClean)
 				{
-					CleanWithUBT(Target.TargetName, Target.Platform, Target.Config, Target.UprojectPath, bForceMonolithic, bForceNonUnity, bForceDebugInfo, Target.UBTArgs, bForceUnity);
+					CleanWithUBT(Target.TargetName, Target.Platform, Target.Config, Target.UprojectPath, Target.UBTArgs);
 				}
 			}
 
 			// Filter the targets into those which can be built in parallel, vs those that must be executed serially
-			List<BuildTarget> NonParallelTargets = new List<BuildTarget>();
+			List<BuildTarget> NormalTargets = new List<BuildTarget>();
+			List<BuildTarget> ParallelXgeTargets = new List<BuildTarget>();
 			List<BuildTarget> ParallelTargets = new List<BuildTarget>();
 			foreach (BuildTarget Target in Agenda.Targets)
 			{
 				if(Target.TargetName == "UnrealHeaderTool")
 				{
-					NonParallelTargets.Insert(0, Target);
+					NormalTargets.Insert(0, Target);
 				}
-				else if(bCanUseXGE)
+				else if(bCanUseXGE && CanUseXGE(Target.Platform))
 				{
-					if(CanUseXGE(Target.Platform))
-					{
-						ParallelTargets.Add(Target);
-					}
-					else
-					{
-						NonParallelTargets.Add(Target);
-					}
+					ParallelXgeTargets.Add(Target);
 				}
-				else if(bCanUseParallelExecutor)
+				else if(bCanUseParallelExecutor && CanUseParallelExecutor(Target.Platform))
 				{
-					if(CanUseParallelExecutor(Target.Platform))
-					{
-						ParallelTargets.Add(Target);
-					}
-					else
-					{
-						NonParallelTargets.Add(Target);
-					}
+					ParallelTargets.Add(Target);
 				}
 				else
 				{
-					NonParallelTargets.Add(Target);
+					NormalTargets.Add(Target);
 				}
 			}
 
 			// Execute all the serial targets
-			foreach(BuildTarget Target in NonParallelTargets)
+			foreach(BuildTarget Target in NormalTargets)
 			{
 				// When building a target for Mac or iOS, use UBT's -flushmac option to clean up the remote builder
 				bool bForceFlushMac = DeleteBuildProducts && (Target.Platform == UnrealTargetPlatform.Mac || Target.Platform == UnrealTargetPlatform.IOS);
-				BuildManifest Manifest = BuildWithUBT(Target.TargetName, Target.Platform, Target.Config, Target.UprojectPath, bForceMonolithic, bForceNonUnity, bForceDebugInfo, bForceFlushMac, bDisableXGE, Target.UBTArgs, bForceUnity);
+				BuildManifest Manifest = BuildWithUBT(Target.TargetName, Target.Platform, Target.Config, Target.UprojectPath, bForceFlushMac, bDisableXGE, Target.UBTArgs);
 				if(InTargetToManifest != null)
 				{
 					InTargetToManifest[Target] = Manifest;
 				}
 			}
 
+			// Execute all the XGE targets
+			if(ParallelXgeTargets.Count > 0)
+			{
+				BuildParallelTargets(ParallelXgeTargets, InShowProgress, XGEConsole, InTargetToManifest);
+			}
+
 			// Execute all the parallel targets
 			if(ParallelTargets.Count > 0)
 			{
-				string TaskFilePath = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LogFolder, @"UAT_XGE.xml");
+				BuildParallelTargets(ParallelTargets, InShowProgress, null, InTargetToManifest);
+			}
+		}
 
-				CommandUtils.LogSetProgress(InShowProgress, "Generating headers...");
+		private void BuildParallelTargets(List<BuildTarget> ParallelTargets, bool InShowProgress, string XGETool, Dictionary<BuildTarget, BuildManifest> InTargetToManifest)
+		{
+			string TaskFilePath = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LogFolder, @"UAT_XGE.xml");
 
-				List<XGEItem> XGEItems = new List<XGEItem>();
-				foreach (BuildTarget Target in ParallelTargets)
+			CommandUtils.LogSetProgress(InShowProgress, "Generating headers...");
+
+			List<XGEItem> XGEItems = new List<XGEItem>();
+			foreach (BuildTarget Target in ParallelTargets)
+			{
+				XGEItem Item = XGEPrepareBuildWithUBT(Target.TargetName, Target.Platform, Target.Config, Target.UprojectPath, Target.UBTArgs);
+				if(InTargetToManifest != null)
 				{
-					XGEItem Item = XGEPrepareBuildWithUBT(Target.TargetName, Target.Platform, Target.Config, Target.UprojectPath, bForceMonolithic, bForceNonUnity, bForceDebugInfo, Target.UBTArgs, bForceUnity);
-					if(InTargetToManifest != null)
-					{
-						InTargetToManifest[Target] = Item.Manifest;
-					}
-					XGEItems.Add(Item);
+					InTargetToManifest[Target] = Item.Manifest;
+				}
+				XGEItems.Add(Item);
+			}
+
+			string Args = null;
+			if (XGETool != null) 
+			{
+				Args = "\"" + TaskFilePath + "\" /Rebuild /NoLogo /ShowAgent /ShowTime";
+				if (ParseParam("StopOnErrors"))
+				{
+					Args += " /StopOnErrors";
 				}
 
-				string XGETool = null;
-				string Args = null;
-				if (bCanUseXGE) 
+				// A bug in the UCRT can cause XGE to hang on VS2015 builds. Figure out if this hang is likely to effect this build and workaround it if able.
+				string XGEVersion = Microsoft.Win32.Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Xoreax\IncrediBuild\Builder", "Version", null) as string;
+				if (XGEVersion != null)
 				{
-					XGETool = XGEConsoleExePath;
-					Args = "\"" + TaskFilePath + "\" /Rebuild /NoLogo /ShowAgent /ShowTime";
-					if (ParseParam("StopOnErrors"))
+					// Per Xoreax support, subtract 1001000 from the registry value to get the build number of the installed XGE.
+					int XGEBuildNumber;
+					if (Int32.TryParse(XGEVersion, out XGEBuildNumber) && XGEBuildNumber - 1001000 >= 1659)
 					{
-						Args += " /StopOnErrors";
+						Args += " /no_watchdog_thread";
 					}
-
-					// A bug in the UCRT can cause XGE to hang on VS2015 builds. Figure out if this hang is likely to effect this build and workaround it if able.
-					string XGEVersion = Microsoft.Win32.Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Xoreax\IncrediBuild\Builder", "Version", null) as string;
-					if (XGEVersion != null)
-					{
-						// Per Xoreax support, subtract 1001000 from the registry value to get the build number of the installed XGE.
-						int XGEBuildNumber;
-						if (Int32.TryParse(XGEVersion, out XGEBuildNumber) && XGEBuildNumber - 1001000 >= 1659)
-						{
-							Args += " /no_watchdog_thread";
-						}
-					}
-				}
-
-				CommandUtils.LogSetProgress(InShowProgress, "Building...");
-				if (!ProcessXGEItems(XGEItems, XGETool, Args, TaskFilePath, InShowProgress))
-				{
-					throw new AutomationException("BUILD FAILED: {0} failed, retries not enabled:", XGETool);
 				}
 			}
 
-			// NOTE: OK, we're done building projects.  You can build additional targets after this.  Call FinalizebuildProducts() when done.
+			CommandUtils.LogSetProgress(InShowProgress, "Building...");
+			if (!ProcessXGEItems(XGEItems, XGETool, Args, TaskFilePath, InShowProgress))
+			{
+				throw new AutomationException("BUILD FAILED: {0} failed, retries not enabled:", XGETool);
+			}
 		}
-
 
 		/// <summary>
 		/// Checks to make sure there was at least one build product, and that all files exist.  Also, logs them all out.
@@ -1455,7 +1306,7 @@ namespace AutomationTool
 		FileReference GetManifestFile(FileReference ProjectFile)
 		{
 			// Can't write to Engine directory on installed builds
-			if (Automation.IsEngineInstalled() && ProjectFile != null)
+			if (CommandUtils.IsEngineInstalled() && ProjectFile != null)
 			{
 				return FileReference.Combine(ProjectFile.Directory, "Intermediate", "Build", "Manifest.xml");
 			}

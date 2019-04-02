@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	XAudio2Support.h: XAudio2 specific structures.
@@ -270,9 +270,10 @@ public:
 	 *
 	 * @param Destination		Memory to decompress to
 	 * @param bLooping			Whether to loop the sound seamlessly, or pad with zeroes
+	 * @param DecodeSizeBytes	Number of bytes to decode
 	 * @return					Whether the sound looped or not
 	 */
-	bool ReadCompressedData( uint8* Destination, bool bLooping ) override;
+	bool ReadCompressedData( uint8* Destination, int32 NumFramesToDecode, bool bLooping) override;
 
 	/**
 	 * Sets the point in time within the buffer to the specified time
@@ -923,7 +924,7 @@ struct FXAudioDeviceProperties final : public IDeviceChangedListener
 		{
 			check(XAudio2 != nullptr);
 			bSuccess = Validate(TEXT("GetFreeSourceVoice, XAudio2->CreateSourceVoice"),
-				XAudio2->CreateSourceVoice(Voice, &BufferInfo.PCMFormat, XAUDIO2_VOICE_USEFILTER, MAX_PITCH, &SourceCallback, SendList, EffectChain));
+				XAudio2->CreateSourceVoice(Voice, &BufferInfo.PCMFormat, XAUDIO2_VOICE_USEFILTER, 4.0f, &SourceCallback, SendList, EffectChain));
 		}
 
 		if (bSuccess)

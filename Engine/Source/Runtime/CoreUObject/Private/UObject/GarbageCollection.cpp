@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnObjGC.cpp: Unreal object garbage collection code.
@@ -43,6 +43,8 @@ int32		GPurgedObjectCountSinceLastMarkPhase	= 0;
 bool GObjIncrementalPurgeIsInProgress = false;
 /** Whether GC is currently routing BeginDestroy to objects										*/
 bool GObjUnhashUnreachableIsInProgress = false;
+/** Time the GC started, needs to be reset on return from being in the background on some OSs */
+double GCStartTime = 0.;
 /** Whether FinishDestroy has already been routed to all unreachable objects. */
 static bool GObjFinishDestroyHasBeenRoutedToAllObjects	= false;
 /** 
@@ -149,14 +151,6 @@ static FAutoConsoleVariableRef CVarMinDesiredObjectsPerSubTask(
 	TEXT("Minimum number of objects to spawn a GC sub-task for."),
 	ECVF_Default
 	);
-
-static int32 GCheckForIllegalMarkPendingKill = !(UE_BUILD_TEST || UE_BUILD_SHIPPING);
-static FAutoConsoleVariableRef CVarCheckForIllegalMarkPendingKill(
-	TEXT("gc.CheckForIllegalMarkPendingKill"),
-	GCheckForIllegalMarkPendingKill,
-	TEXT("If > 0, garbage collection will check for certainly rendering uobjects being illegally marked pending kill. This eventually causes mysterious and hard to find crashes in the renderer. There is a large performance penalty, so by default this is not enabled in shipping and test configurations."),
-	ECVF_Default
-);
 
 static int32 GIncrementalBeginDestroyEnabled = 1;
 static FAutoConsoleVariableRef CIncrementalBeginDestroyEnabled(
@@ -479,20 +473,6 @@ public:
 
 			// Null out reference.
 			Object = NULL;
-
-			// Silently nulling out references can be fatal for some objects.  Usually rendering objects which would need to recreate renderthread proxies to avoid using deleted data and crashing.  e.g.
-			// If MarkPendingKill destroyed a UTexture that was still referenced by a Material then that can cause a crash as the RT data of the material will still try to render with the bad texture.
-			// Unfortunately this is often a race condition between threads, so we want to log errors early and deterministically.
-			if (GCheckForIllegalMarkPendingKill && ReferencingObject && !ReferencingObject->IsPendingKill())
-			{
-				const int32 ObjectIndexReferencer = GUObjectArray.ObjectToIndex(ReferencingObject);
-				FUObjectItem* ObjectItemReferencer = GUObjectArray.IndexToObjectUnsafeForGC(ObjectIndexReferencer);
-
-				//set HadReferenceKilled so we can later call NotifyObjectReferenceEliminated() on objects that have had references silently null'd out.  We don't do it immediately here to avoid false positives in the case where
-				//the Referencer is unreachable.  i.e. If the referencing object is dead anyway we don't need to notify it.
-				ObjectItemReferencer->SetFlags(EInternalObjectFlags::HadReferenceKilled);
-				UE_LOG(LogGarbage, Verbose, TEXT("NotifyObjectReferenceEliminated %s %s %s"), *ReferencingObject->GetPathName(), *ObjectItem->Object->GetFName().ToString(), *ObjectItem->Object->GetOuter()->GetName());				
-			}
 		}
 		// Add encountered object reference to list of to be serialized objects if it hasn't already been added.
 		else if (ObjectItem->IsUnreachable())
@@ -1017,7 +997,8 @@ struct FConditionalGCLock
 void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 {
 	SCOPED_NAMED_EVENT(IncrementalPurgeGarbage, FColor::Red);
-	DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "IncrementalPurgeGarbage" ), STAT_IncrementalPurgeGarbage, STATGROUP_GC );
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("IncrementalPurgeGarbage"), STAT_IncrementalPurgeGarbage, STATGROUP_GC);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(GarbageCollection);
 
 	if (GExitPurge)
 	{
@@ -1056,7 +1037,7 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 	} ResetPurgeProgress(bCompleted);
 
 	// Keep track of start time to enforce time limit unless bForceFullPurge is true;
-	const double		StartTime							= FPlatformTime::Seconds();
+	GCStartTime							= FPlatformTime::Seconds();
 	bool		bTimeLimitReached							= false;
 	// Depending on platform FPlatformTime::Seconds might take a noticeable amount of time if called thousands of times so we avoid
 	// enforcing the time limit too often, especially as neither Destroy nor actual deletion should take significant
@@ -1142,7 +1123,7 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 
 			// Only check time limit every so often to avoid calling FPlatformTime::Seconds too often.
 			const bool bPollTimeLimit = ((TimeLimitTimePollCounter++) % TimeLimitEnforcementGranularityForDestroy == 0);
-			if( bUseTimeLimit && bPollTimeLimit && ((FPlatformTime::Seconds() - StartTime) > TimeLimit) )
+			if( bUseTimeLimit && bPollTimeLimit && ((FPlatformTime::Seconds() - GCStartTime) > TimeLimit) )
 			{
 				bTimeLimitReached = true;
 				break;
@@ -1199,7 +1180,7 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 
 					// Only check time limit every so often to avoid calling FPlatformTime::Seconds too often.
 					const bool bPollTimeLimit = ((TimeLimitTimePollCounter++) % TimeLimitEnforcementGranularityForDestroy == 0);
-					if( bUseTimeLimit && bPollTimeLimit && ((FPlatformTime::Seconds() - StartTime) > TimeLimit) )
+					if( bUseTimeLimit && bPollTimeLimit && ((FPlatformTime::Seconds() - GCStartTime) > TimeLimit) )
 					{
 						bTimeLimitReached = true;
 						break;
@@ -1218,10 +1199,14 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 					if (FPlatformProperties::RequiresCookedData())
 					{
 						const bool bPollTimeLimit = ((FinishDestroyTimePollCounter++) % TimeLimitEnforcementGranularityForDestroy == 0);
+#if PLATFORM_IOS
+                        const double MaxTimeForFinishDestroy = 30.0;
+#else
 						const double MaxTimeForFinishDestroy = 10.0;
+#endif
 						// Check if we spent too much time on waiting for FinishDestroy without making any progress
 						if (LastLoopObjectsPendingDestructionCount == GGCObjectsPendingDestructionCount && bPollTimeLimit &&
-							((FPlatformTime::Seconds() - StartTime) > MaxTimeForFinishDestroy))
+							((FPlatformTime::Seconds() - GCStartTime) > MaxTimeForFinishDestroy))
 						{
 							UE_LOG(LogGarbage, Warning, TEXT("Spent more than %.2fs on routing FinishDestroy to objects (objects in queue: %d)"), MaxTimeForFinishDestroy, GGCObjectsPendingDestructionCount);
 							UObject* LastObjectNotReadyForFinishDestroy = nullptr;
@@ -1322,7 +1307,7 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 			// Only check time limit every so often to avoid calling FPlatformTime::Seconds too often.
 			if( bUseTimeLimit && (ProcessCount == TimeLimitEnforcementGranularityForDeletion))
 			{
-				if ((FPlatformTime::Seconds() - StartTime) > TimeLimit)
+				if ((FPlatformTime::Seconds() - GCStartTime) > TimeLimit)
 				{
 					bTimeLimitReached = true;
 					break;
@@ -1342,7 +1327,6 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 
 			// Log status information.
 			UE_LOG(LogGarbage, Log, TEXT("GC purged %i objects (%i -> %i)"), GPurgedObjectCountSinceLastMarkPhase, GObjectCountDuringLastMarkPhase.GetValue(), GObjectCountDuringLastMarkPhase.GetValue() - GPurgedObjectCountSinceLastMarkPhase );
-
 #if PERF_DETAILED_PER_CLASS_GC_STATS
 			LogClassCountInfo( TEXT("objects of"), GClassToPurgeCountMap, 10, GPurgedObjectCountSinceLastMarkPhase );
 #endif
@@ -1483,6 +1467,7 @@ void CollectGarbageInternal(EObjectFlags KeepFlags, bool bPerformFullPurge)
 	SCOPE_TIME_GUARD(TEXT("Collect Garbage"));
 	SCOPED_NAMED_EVENT(CollectGarbageInternal, FColor::Red);
 	CSV_EVENT_GLOBAL(TEXT("GC"));
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(GarbageCollection);
 
 	FGCCSyncObject::Get().ResetGCIsWaiting();
 
@@ -1522,7 +1507,7 @@ void CollectGarbageInternal(EObjectFlags KeepFlags, bool bPerformFullPurge)
 		// This has to be unlocked before we call post GC callbacks
 		FGCScopeLock GCLock;
 
-		UE_LOG(LogGarbage, Log, TEXT("Collecting garbage%s   (GCheckForIllegalMarkPendingKill = %d)"), IsAsyncLoading() ? TEXT(" while async loading") : TEXT(""), GCheckForIllegalMarkPendingKill);
+		UE_LOG(LogGarbage, Log, TEXT("Collecting garbage%s"), IsAsyncLoading() ? TEXT(" while async loading") : TEXT(""));
 
 		// Make sure previous incremental purge has finished or we do a full purge pass in case we haven't kicked one
 		// off yet since the last call to garbage collection.
@@ -1599,6 +1584,11 @@ void CollectGarbageInternal(EObjectFlags KeepFlags, bool bPerformFullPurge)
 			IncrementalPurgeGarbage(false);
 		}
 
+		if (bPerformFullPurge)
+		{
+			ShrinkUObjectHashTables();
+		}
+
 		// Destroy all pending delete linkers
 		DeleteLoaders();
 
@@ -1642,7 +1632,7 @@ bool UnhashUnreachableObjects(bool bUseTimeLimit, float TimeLimit)
 			// Begin the object's asynchronous destruction.
 			Object->ConditionalBeginDestroy();
 		}
-		ObjectItem->ClearFlags(EInternalObjectFlags::HadReferenceKilled);
+
 		Items++;
 
 		const bool bPollTimeLimit = ((TimePollCounter++) % TimeLimitEnforcementGranularityForBeginDestroy == 0);

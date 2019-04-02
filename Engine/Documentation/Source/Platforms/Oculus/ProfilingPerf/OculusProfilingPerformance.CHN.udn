@@ -1,12 +1,13 @@
-﻿INTSourceChangelist:3622856
+﻿INTSourceChangelist:3769397
 Title:Oculus 分析与性能
 Availability:Public
 Crumbs:%ROOT%, Platforms
 Description:UE4 Rift 项目的性能分析信息。
 Navigation:platform
 Platform:Oculus
-Version:4.16
-type:landing
+Version: 4.16
+type:overview
+Skilllevel:Advanced
 parent:Platforms/Oculus
 order:2
 tags:Performance and Profiling

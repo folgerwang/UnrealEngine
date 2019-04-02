@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Animation/AnimNode_SaveCachedPose.h"
 #include "Animation/AnimInstanceProxy.h"
@@ -52,8 +52,8 @@ void FAnimNode_SaveCachedPose::Evaluate_AnyThread(FPoseContext& Output)
 
 		FPoseContext CachingContext(Output);
 		Pose.Evaluate(CachingContext);
-		CachedPose.CopyBonesFrom(CachingContext.Pose);
-		CachedCurve.CopyFrom(CachingContext.Curve);
+		CachedPose.MoveBonesFrom(CachingContext.Pose);
+		CachedCurve.MoveFrom(CachingContext.Curve);
 	}
 
 	// Return the cached result

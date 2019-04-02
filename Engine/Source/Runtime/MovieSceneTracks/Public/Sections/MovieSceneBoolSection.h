@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -31,7 +31,7 @@ public:
 public:
 
 	//~ UObject interface
-
+	virtual void PostEditImport() override;
 	virtual void PostLoad() override;
 
 protected:

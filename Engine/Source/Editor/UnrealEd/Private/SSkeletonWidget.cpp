@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SSkeletonWidget.h"
 #include "Modules/ModuleManager.h"
@@ -1138,8 +1138,7 @@ TSharedRef<ITableRow> SRemapFailures::MakeListViewWidget(TSharedRef<FText> Item,
 
 FReply SRemapFailures::CloseClicked()
 {
-	FWidgetPath WidgetPath;
-	TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(AsShared(), WidgetPath);
+	TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(AsShared());
 
 	if ( Window.IsValid() )
 	{

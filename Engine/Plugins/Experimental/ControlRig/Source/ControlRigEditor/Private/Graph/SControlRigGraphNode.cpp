@@ -1,9 +1,9 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SControlRigGraphNode.h"
-#include "ControlRigGraphNode.h"
+#include "Graph/ControlRigGraphNode.h"
 #include "SGraphPin.h"
-#include "ControlRigGraphSchema.h"
+#include "Graph/ControlRigGraphSchema.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Layout/SSpacer.h"

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -126,9 +126,70 @@ public:
 	}
 
 	/** Adds an element to the array. */
-	int32 Add(typename TTypeTraits<ElementType>::ConstInitType Element)
+	int32 Add(const ElementType& Element)
 	{
 		FSparseArrayAllocationInfo Allocation = AddUninitialized();
+		new(Allocation) ElementType(Element);
+		return Allocation.Index;
+	}
+
+	/** Adds an element to the array. */
+	int32 Add(ElementType&& Element)
+	{
+		FSparseArrayAllocationInfo Allocation = AddUninitialized();
+		new(Allocation) ElementType(MoveTemp(Element));
+		return Allocation.Index;
+	}
+
+	FSparseArrayAllocationInfo AddUninitializedAtLowestFreeIndex(int32& LowestFreeIndexSearchStart)
+	{
+		int32 Index;
+		if(NumFreeIndices)
+		{
+			Index = AllocationFlags.FindAndSetFirstZeroBit(LowestFreeIndexSearchStart);
+			LowestFreeIndexSearchStart = Index + 1;
+
+			auto& IndexData = GetData(Index);
+
+			// Update FirstFreeIndex
+			if (FirstFreeIndex == Index)
+			{
+				FirstFreeIndex = IndexData.NextFreeIndex;
+			}
+
+			// Link our next and prev free nodes together
+			if (IndexData.NextFreeIndex >= 0)
+			{
+				GetData(IndexData.NextFreeIndex).PrevFreeIndex = IndexData.PrevFreeIndex;
+			}
+
+			if (IndexData.PrevFreeIndex >= 0)
+			{
+				GetData(IndexData.PrevFreeIndex).NextFreeIndex = IndexData.NextFreeIndex;
+			}
+
+			--NumFreeIndices;
+		}
+		else
+		{
+			// Add a new element.
+			Index = Data.AddUninitialized(1);
+			AllocationFlags.Add(true);
+		}
+
+		FSparseArrayAllocationInfo Result;
+		Result.Index = Index;
+		Result.Pointer = &GetData(Result.Index).ElementData;
+		return Result;
+	}
+
+	/** 
+	 * Add an element at the lowest free index, instead of the last freed index. 
+	 * This requires a search which can be accelerated with LowestFreeIndexSearchStart.
+	 */
+	int32 AddAtLowestFreeIndex(const ElementType& Element, int32& LowestFreeIndexSearchStart)
+	{
+		FSparseArrayAllocationInfo Allocation = AddUninitializedAtLowestFreeIndex(LowestFreeIndexSearchStart);
 		new(Allocation) ElementType(Element);
 		return Allocation.Index;
 	}
@@ -295,7 +356,15 @@ public:
 				FirstFreeIndex = FreeIndex;
 				++NumFreeIndices;
 			}
-			AllocationFlags.Add(false, ElementsToAdd);
+
+			if (ElementsToAdd == ExpectedNumElements)
+			{
+				AllocationFlags.Init(false, ElementsToAdd);
+			}
+			else
+			{
+				AllocationFlags.Add(false, ElementsToAdd);
+			}
 		}
 	}
 
@@ -303,11 +372,7 @@ public:
 	void Shrink()
 	{
 		// Determine the highest allocated index in the data array.
-		int32 MaxAllocatedIndex = INDEX_NONE;
-		for(TConstSetBitIterator<typename Allocator::BitArrayAllocator> AllocatedIndexIt(AllocationFlags);AllocatedIndexIt;++AllocatedIndexIt)
-		{
-			MaxAllocatedIndex = FMath::Max(MaxAllocatedIndex,AllocatedIndexIt.GetIndex());
-		}
+		int32 MaxAllocatedIndex = AllocationFlags.FindLast(true);
 
 		const int32 FirstIndexToRemove = MaxAllocatedIndex + 1;
 		if(FirstIndexToRemove < Data.Num())
@@ -456,10 +521,15 @@ public:
 	}
 
 	/** Tracks the container's memory use through an archive. */
-	void CountBytes(FArchive& Ar)
+	void CountBytes(FArchive& Ar) const
 	{
 		Data.CountBytes(Ar);
 		AllocationFlags.CountBytes(Ar);
+	}
+
+	bool IsCompact() const
+	{
+		return NumFreeIndices == 0;
 	}
 
 	/** Serializer. */
@@ -674,7 +744,17 @@ public:
 		//checkSlow(AllocationFlags[Index]); // Disabled to improve loading times -BZ
 		return *(ElementType*)&GetData(Index).ElementData;
 	}
-
+	int32 PointerToIndex(const ElementType* Ptr) const
+	{
+		checkSlow(Data.Num());
+		int32 Index = Ptr - &GetData(0);
+		checkSlow(Index >= 0 && Index < Data.Num() && Index < AllocationFlags.Num() && AllocationFlags[Index]);
+		return Index;
+	}
+	bool IsValidIndex(int32 Index) const
+	{
+		return AllocationFlags.IsValidIndex(Index) && AllocationFlags[Index];
+	}
 	bool IsAllocated(int32 Index) const { return AllocationFlags[Index]; }
 	int32 GetMaxIndex() const { return Data.Num(); }
 	int32 Num() const { return Data.Num() - NumFreeIndices; }
@@ -846,15 +926,15 @@ public:
 		return TConstIterator(*this);
 	}
 
-private:
+public:
 	/**
 	 * DO NOT USE DIRECTLY
 	 * STL-like iterators to enable range-based for loop support.
 	 */
-	FORCEINLINE friend TRangedForIterator      begin(      TSparseArray& Array) { return TRangedForIterator     (Array, TConstSetBitIterator<typename Allocator::BitArrayAllocator>(Array.AllocationFlags)); }
-	FORCEINLINE friend TRangedForConstIterator begin(const TSparseArray& Array) { return TRangedForConstIterator(Array, TConstSetBitIterator<typename Allocator::BitArrayAllocator>(Array.AllocationFlags)); }
-	FORCEINLINE friend TRangedForIterator      end  (      TSparseArray& Array) { return TRangedForIterator     (Array, TConstSetBitIterator<typename Allocator::BitArrayAllocator>(Array.AllocationFlags, Array.AllocationFlags.Num())); }
-	FORCEINLINE friend TRangedForConstIterator end  (const TSparseArray& Array) { return TRangedForConstIterator(Array, TConstSetBitIterator<typename Allocator::BitArrayAllocator>(Array.AllocationFlags, Array.AllocationFlags.Num())); }
+	FORCEINLINE TRangedForIterator      begin()       { return TRangedForIterator     (*this, TConstSetBitIterator<typename Allocator::BitArrayAllocator>(AllocationFlags)); }
+	FORCEINLINE TRangedForConstIterator begin() const { return TRangedForConstIterator(*this, TConstSetBitIterator<typename Allocator::BitArrayAllocator>(AllocationFlags)); }
+	FORCEINLINE TRangedForIterator      end  ()       { return TRangedForIterator     (*this, TConstSetBitIterator<typename Allocator::BitArrayAllocator>(AllocationFlags, AllocationFlags.Num())); }
+	FORCEINLINE TRangedForConstIterator end  () const { return TRangedForConstIterator(*this, TConstSetBitIterator<typename Allocator::BitArrayAllocator>(AllocationFlags, AllocationFlags.Num())); }
 
 public:
 	/** An iterator which only iterates over the elements of the array which correspond to set bits in a separate bit array. */
@@ -991,7 +1071,7 @@ template <typename T, typename Allocator> void* operator new( size_t Size, TSpar
 
 struct FScriptSparseArrayLayout
 {
-	int32 ElementOffset;
+	// ElementOffset is at zero offset from the TSparseArrayElementOrFreeListLink - not stored here
 	int32 Alignment;
 	int32 Size;
 };
@@ -1004,7 +1084,6 @@ public:
 	static FScriptSparseArrayLayout GetScriptLayout(int32 ElementSize, int32 ElementAlignment)
 	{
 		FScriptSparseArrayLayout Result;
-		Result.ElementOffset = 0;
 		Result.Alignment     = FMath::Max(ElementAlignment, (int32)alignof(FFreeListLink));
 		Result.Size          = FMath::Max(ElementSize,      (int32)sizeof (FFreeListLink));
 

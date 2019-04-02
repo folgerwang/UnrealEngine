@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,7 @@
 #include "Misc/Attribute.h"
 #include "Layout/Visibility.h"
 #include "Layout/Clipping.h"
+#include "Layout/FlowDirection.h"
 #include "Rendering/SlateRenderTransform.h"
 #include "GenericPlatform/ICursor.h"
 #include "Types/ISlateMetaData.h"
@@ -333,7 +334,7 @@ template<typename WidgetType> struct TSlateBaseNamedArgs;
 		\
 		WidgetArgsType& ArgName( const TWeakObjectPtr< const class USlateWidgetStyleAsset >& InSlateStyleAsset ) \
 		{ \
-			_##ArgName = InSlateStyleAsset->GetStyleChecked< ArgType >(); \
+			_##ArgName = InSlateStyleAsset.Get()->GetStyleChecked< ArgType >(); \
 			return this->Me(); \
 		}\
 		\
@@ -352,7 +353,7 @@ template<typename WidgetType> struct TSlateBaseNamedArgs;
 		\
 		WidgetArgsType& ArgName( const TWeakObjectPtr< const class ISlateStyle >& InSlateStyle, const FName& StyleName, const ANSICHAR* Specifier = nullptr ) \
 		{ \
-			_##ArgName = &InSlateStyle->GetWidgetStyle< ArgType >( StyleName, Specifier ); \
+			_##ArgName = &InSlateStyle.Get()->GetWidgetStyle< ArgType >( StyleName, Specifier ); \
 			return this->Me(); \
 		} \
 		\
@@ -774,6 +775,7 @@ struct TSlateBaseNamedArgs
 	, _RenderTransformPivot( FVector2D::ZeroVector )
 	, _ForceVolatile( false )
 	, _Clipping( EWidgetClipping::Inherit )
+	, _FlowDirectionPreference( EFlowDirectionPreference::Inherit )
 	{
 	}
 
@@ -817,6 +819,7 @@ struct TSlateBaseNamedArgs
 	SLATE_ARGUMENT( FName, Tag )
 	SLATE_ARGUMENT( bool, ForceVolatile )
 	SLATE_ARGUMENT( EWidgetClipping, Clipping )
+	SLATE_ARGUMENT( EFlowDirectionPreference, FlowDirectionPreference)
 
 	TArray<TSharedRef<ISlateMetaData>> MetaData;
 };
@@ -1089,6 +1092,7 @@ struct TDecl
 			InArgs._Tag,
 			InArgs._ForceVolatile,
 			InArgs._Clipping,
+			InArgs._FlowDirectionPreference,
 			InArgs.MetaData );
 
 		_RequiredArgs.CallConstruct(_Widget, InArgs);

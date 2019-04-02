@@ -1,36 +1,65 @@
-﻿INTSourceChangelist:2693435
+﻿INTSourceChangelist:3810557
 Availability:Public
-Title:“在编辑器中游戏”设置
-Crumbs:%ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor, Engine/UI/LevelEditor/InEditorTesting
-Description:设置“游戏位置”功能的窗口大小和其他选项
-Version:4.9
+Title:PIE设置
+Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor, Engine/UI/LevelEditor/InEditorTesting
+Description:设置PIE功能的窗口大小和其他选项
+Version: 4.9
 
 [TOC(start:2)]
-**游戏（Play）**设置面板可通过两种不同方式打开：
+可以两种方式打开 **运行（Play）** 设置面板：
 
-* **游戏（Play）**设置面板可通过单击 **编辑（Edit）** > **编辑器首选项（Editor Preferences）**来打开...
+* 点击 **编辑（Edit）** > **编辑器偏好（Editor Preferences）** 即可打开 **运行（Play）** 设置面板
 
-	![](PIE_settings.png) 
+	[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	操作系统
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	![](PIE_settings.png)
+	[/REGION]
+	[/PARAM]
+	[/OBJECT]
 
-	然后，选择“编辑器首选项”（Editor Preferences）窗口的 **游戏（Play）**部分。
+	[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	操作系统
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	![](PIESettings_Mac.png)
+	[/REGION]
+	[/PARAM]
+	[/OBJECT]
+
+	然后选择编辑器偏好（Editor Preferences）窗口的 **运行（Play）** 部分。
 
 	![](PIE_Settings_Preferences.png)
 
-* 您也可通过单击 **游戏（Play）**下拉菜单底部的 **高级设置...（Advanced Settings...）**来打开该面板。
+* 或者点击 **运行（Play）** 下拉菜单底部的 **高级设置（Advanced Settings）** 将其打开。
 
 	![](PIE_settings_buttonmenu.png)
 
-(#PlayInEditor)
-## 在编辑器中游戏
+(#playineditor)
+## Play In Editor
 
-**在编辑器中游戏（Play In Editor）**设置允许您更改 **在编辑器中游戏** 会话中的鼠标控制行为。这些设置仅应用于显示在 **关卡视口** 中的 _在编辑器中游戏_ 会话。
-因此，没有可设置的默认窗口大小。
+在 **Play In Editor** 会话中时可通过 **Play In Editor** 设置修改鼠标控制行为。这些设置只应用于 **关卡视口** 中显示的 _Play In Editor_ 会话。因此，没有需要设置的默认窗口大小。
 
-| 设置 | 说明 |
+| 设置 | 描述 |
 | ------- | ------------|
-| 游戏获取鼠标控制权（Game Gets Mouse Control）| %doxygen:ULevelEditorPlaySettings::GameGetsMouseControl% |
-| 显示鼠标控制标签（Show Mouse Control Label） |%doxygen:ULevelEditorPlaySettings::ShowMouseControlLabel% |
-| 鼠标控制标签位置（Mouse Control Label Position） |%doxygen:ULevelEditorPlaySettings::MouseControlLabelPosition%  |
+| 游戏获取鼠标控制 | %doxygen:ULevelEditorPlaySettings::GameGetsMouseControl% |
+| 显示鼠标控制标签 |%doxygen:ULevelEditorPlaySettings::ShowMouseControlLabel% |
+| 鼠标控制标签位置 |%doxygen:ULevelEditorPlaySettings::MouseControlLabelPosition%  |
 
 [COMMENT:none]
 
@@ -49,28 +78,28 @@ Version:4.9
 
 [/COMMENT]
 
-(#PlayInNewWindow)
-## 在新窗口中游戏
+(#playinnewwindow)
+## 在新窗口中运行
 
-启动要在新窗口中显示的 _在编辑器中游戏_ 会话时，这些设置确定所显示的新窗口的大小和开始位置。
+开始一个在新窗口中显示的 _Play In Editor_ 会话时，这些设置将决定出现的新窗口的大小和初始位置。
 
-| 设置 | 说明 |
+| 设置 | 描述 |
 | ------- | ------------|
-| 新窗口大小（像素）（New Window Size (in pixels)）|  [INCLUDE:#NewWindowSize] |
-| 新窗口位置（像素）（New Window Position (in pixels)） | [INCLUDE:#NewWindowPosition] |
+| 新窗口大小（按像素计）|  [INCLUDE:#NewWindowSize] |
+| 新窗口位置（按像素计） | [INCLUDE:#NewWindowPosition] |
 
 
 [COMMENT:none]
 
 [EXCERPT:NewWindowSize]
-设置浮动的“在编辑器中游戏”（Play in Editor）窗口的宽度和高度（像素）：
+设置浮动PIE窗口的宽度和高度（按像素计）：
 * %doxygen:ULevelEditorPlaySettings::NewWindowWidth% 
 * %doxygen:ULevelEditorPlaySettings::NewWindowHeight% 
-* 从常用窗口大小（包括电话和平板电脑等设备的设置）的列表中进行选择。 
+* 从常见窗口大小的列表中进行选取，其中包含手机和平板等设备的设置。 
 [/EXCERPT]
 
 [EXCERPT:NewWindowPosition]
-设置浮动的“在编辑器中游戏”（Play in Editor）窗口的左上角屏幕坐标（像素）：
+设置浮动PIE窗口左上角的屏幕空间坐标（按像素计）：
 * %doxygen:ULevelEditorPlaySettings::NewWindowPosition% 
 * %doxygen:ULevelEditorPlaySettings::CenterNewWindow% 
 [/EXCERPT]
@@ -78,47 +107,48 @@ Version:4.9
 
 [/COMMENT]
 
-(#PlayInStandaloneGame)
-## 在独立游戏中游戏
 
-启动要在独立游戏窗口中显示的 _在编辑器中游戏_ 会话时，这些设置确定所显示的新窗口的大小和开始位置。另外，还可通过一些选项
-将其他命令行设置传递给游戏用户端。
+(#playinstandalonegame)
+## 在Standalone游戏中运行
 
-| 设置 | 说明 |
+开始一个在standalone游戏窗口中显示的 _Play In Editor_ 会话时，这些设置将决定出现的新窗口的大小和初始位置。此外，使用者还可使用选项将额外的命令行设置传递到游戏客户端上。
+
+| 设置 | 描述 |
 | ------- | ------------|
-| 独立窗口大小（像素）（Standalone Window Size (in pixels)） | [INCLUDE:#StandaloneWindowSize] |
-| 用户端命令行选项（Client Command Line Options） | [INCLUDE:#ClientCommandLineOptions]| 
+| Standalone窗口大小（按像素计） | [INCLUDE:#StandaloneWindowSize] |
+| 客户端命令行选项 | [INCLUDE:#ClientCommandLineOptions]| 
 
 [COMMENT:none]
 
 [EXCERPT:StandaloneWindowSize]
-设置独立游戏窗口的宽度和高度（像素）：
+设置standalone游戏窗口的宽度和高度（按像素计）：
 * %doxygen:ULevelEditorPlaySettings::StandaloneWindowWidth% 
 * %doxygen:ULevelEditorPlaySettings::StandaloneWindowHeight% 
-* 从常用窗口大小（包括电话和平板电脑等设备的设置）的列表中进行选择。 
+* 从常见窗口大小的列表中进行选取，其中包含手机和平板等设备的设置。 
 [/EXCERPT]
 
 [EXCERPT:ClientCommandLineOptions]
-针对要传递给游戏用户端的其他设置，生成一个命令行：
+为将被传至游戏客户端的额外设置生成一条命令行：
 * %doxygen:ULevelEditorPlaySettings::AdditionalLaunchParameters% 
 [/EXCERPT]
 
 
 [/COMMENT]
 
-## 多玩家选项
+(#multiplayeroptions)
+## 多人游戏选项
 
-[联网 _在编辑器中游戏_ 测试](Engine/UI/LevelEditor\InEditorTesting\NetworkedPlayInEditor) 有一些基本选项和高级选项。除了
-**游戏位置（Play In）**下拉菜单中的玩家数目和专用服务器选项以外，还有用于 URL 参数、游戏手柄布线和恢复为多进程测试方法的相关设置。
+这些是[联网 _Play In Editor_ 测试](Engine/UI/LevelEditor\InEditorTesting\NetworkedPlayInEditor)的基础和高级选项。除玩家数和专属服务器选项外，**Play In** 下拉菜单中还包含URL参数、游戏手柄路由，以及返回多进程测试法的设置。
 
 [EXCERPT:NetworkPIESettings]
-| 设置 | 说明 |
+| 设置 | 描述 |
 | ------- | ------------|
-| 玩家数目（Number of Players） | [INCLUDE:#PlayNumberOfClients] |
-| 服务器游戏选项（Server Game Options） | [INCLUDE:#AdditionalServerGameOptions]|
-| 运行专用服务器（Run Dedicated Server） |[INCLUDE:#PlayNetDedicated] |
-| 将第一个游戏手柄连接到第二个用户端（Route 1st Gamepad to 2nd Client）| [INCLUDE:#RouteGamepadToSecondWindow]|
-| 使用单个进程（Use Single Process） |[INCLUDE:#RunUnderOneProcess] |
+| 玩家数量 | [INCLUDE:#PlayNumberOfClients] |
+| 服务器游戏选项 | [INCLUDE:#AdditionalServerGameOptions]|
+| 运行专属服务器 |[INCLUDE:#PlayNetDedicated] |
+| 将第一个游戏手柄路由到第二个客户端 | [INCLUDE:#RouteGamepadToSecondWindow]|
+| 使用单一进程 |[INCLUDE:#RunUnderOneProcess] |
+[/EXCERPT:NetworkPIESettings]
 
 [COMMENT:none]
 
@@ -147,5 +177,3 @@ Version:4.9
 
 
 [/COMMENT]
-
-[/EXCERPT:NetworkPIESettings]

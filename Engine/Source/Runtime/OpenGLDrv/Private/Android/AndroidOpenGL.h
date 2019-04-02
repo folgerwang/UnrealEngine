@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AndroidOpenGL.h: Public OpenGL ES definitions for Android-specific functionality
@@ -245,6 +245,8 @@ struct FAndroidOpenGL : public FOpenGLES2
 	static void BeginQuery(GLenum QueryType, GLuint QueryId);
 
 	static void EndQuery(GLenum QueryType);
+
+	static bool SupportsFramebufferSRGBEnable();
 
 	static FORCEINLINE void DeleteSync(UGLsync Sync)
 	{
@@ -589,6 +591,8 @@ struct FAndroidOpenGL : public FOpenGLES2
 	
 	static FORCEINLINE bool SupportsBlitFramebuffer() { return FOpenGLES2::SupportsBlitFramebuffer() || IsES31Usable(); }
 
+	static FORCEINLINE bool SupportsComputeShaders() { return bES31Support && RHISupportsComputeShaders(GetShaderPlatform()); }
+
 	enum class EImageExternalType : uint8
 	{
 		None,
@@ -603,7 +607,7 @@ struct FAndroidOpenGL : public FOpenGLES2
 	static FORCEINLINE GLenum GetVertexHalfFloatFormat() { return bES31Support ? GL_HALF_FLOAT : GL_HALF_FLOAT_OES; }
 
 	static FORCEINLINE GLenum GetDepthFormat() { return GL_DEPTH_COMPONENT24; }
-	static FORCEINLINE GLenum GetShadowDepthFormat() { return GL_DEPTH_COMPONENT24; }
+	static FORCEINLINE GLenum GetShadowDepthFormat() { return GL_DEPTH_COMPONENT16; }
 
 	static FORCEINLINE GLint GetMaxMSAASamplesTileMem() { return MaxMSAASamplesTileMem; }
 

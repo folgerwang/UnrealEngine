@@ -91,7 +91,7 @@ Rotation/Life 모듈은 파티클의 수명 동안의 로테이션을 설정하�
 | ---------- | ----------- |
 |[REGION:tablesection]Rotation[/REGION]||
 |**Rotation Over Life** | 수명 동안의 로테이션 - 파티클의 로테이션을 나타내는 실수 분포입니다 (1.0 = 360 도). 파티클 업데이트시의 RelativeTime 에 따라 값을 구합니다. |
-|**Scale** | 스케일 - 기존 파티클 로테이션에 RotationOverLife 분포에서 구한 값을 곱할지를 나타내는 불리언입니다. _False_ 면 그 값을 파티클 로테이션에 더합니다. |
+|**Scale** | 스케일 - 기존 파티클 로테이션에 RotationOverLife 분포에서 구한 값을 곱할지를 나타내는 부울입니다. _False_ 면 그 값을 파티클 로테이션에 더합니다. |
 
 
 

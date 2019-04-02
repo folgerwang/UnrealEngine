@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieSceneEnumTrack.h"
 #include "Sections/MovieSceneEnumSection.h"
@@ -13,6 +13,11 @@ void UMovieSceneEnumTrack::PostLoad()
 {
 	Super::PostLoad();
 	SetEnum(Enum);
+}
+
+bool UMovieSceneEnumTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneEnumSection::StaticClass();
 }
 
 UMovieSceneSection* UMovieSceneEnumTrack::CreateNewSection()

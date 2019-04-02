@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LightMap.cpp: Light-map implementation.
@@ -270,7 +270,7 @@ struct FLightMapAllocation
 	{
 		if (InstanceIndex >= 0 && Registry)
 		{
-			FMeshMapBuildData* MeshBuildData = Registry->GetMeshBuildData(MapBuildDataId);
+			FMeshMapBuildData* MeshBuildData = Registry->GetMeshBuildDataDuringBuild(MapBuildDataId);
 			check(MeshBuildData);
 
 			UInstancedStaticMeshComponent* Component = CastChecked<UInstancedStaticMeshComponent>(Primitive);
@@ -283,7 +283,7 @@ struct FLightMapAllocation
 				// Need to create per-LOD instance data to fix that
 				MeshBuildData->PerInstanceLightmapData[InstanceIndex].LightmapUVBias = LightMap->GetCoordinateBias();
 
-				int32 RenderIndex = Component->InstanceReorderTable.IsValidIndex(InstanceIndex) ? Component->InstanceReorderTable[InstanceIndex] : InstanceIndex;
+				int32 RenderIndex = (Component->InstanceReorderTable.IsValidIndex(InstanceIndex) && Component->InstanceReorderTable[InstanceIndex] != INDEX_NONE) ? Component->InstanceReorderTable[InstanceIndex] : InstanceIndex;
 				Component->InstanceUpdateCmdBuffer.SetLightMapData(RenderIndex, MeshBuildData->PerInstanceLightmapData[InstanceIndex].LightmapUVBias);
 				Component->MarkRenderStateDirty();
 			}
@@ -2228,13 +2228,11 @@ FLightMap2D::FLightMap2D(const TArray<FGuid>& InLightGuids)
 
 const UTexture2D* FLightMap2D::GetTexture(uint32 BasisIndex) const
 {
-	check(IsValid(BasisIndex));
 	return Textures[BasisIndex];
 }
 
 UTexture2D* FLightMap2D::GetTexture(uint32 BasisIndex)
 {
-	check(IsValid(BasisIndex));
 	return Textures[BasisIndex];
 }
 
@@ -2511,7 +2509,7 @@ int32 TQuantizedLightSampleBulkData<QuantizedLightSampleType>::GetElementSize() 
  * @param ElementIndex	Element index to serialize
  */
 template<class QuantizedLightSampleType>
-void TQuantizedLightSampleBulkData<QuantizedLightSampleType>::SerializeElement( FArchive& Ar, void* Data, int32 ElementIndex )
+void TQuantizedLightSampleBulkData<QuantizedLightSampleType>::SerializeElement( FArchive& Ar, void* Data, int64 ElementIndex )
 {
 	QuantizedLightSampleType* QuantizedLightSample = (QuantizedLightSampleType*)Data + ElementIndex;
 	// serialize as colors
@@ -2630,4 +2628,28 @@ bool FQuantizedLightmapData::HasNonZeroData() const
 	}
 
 	return false;
+}
+
+void FLightmapResourceCluster::UpdateUniformBuffer(ERHIFeatureLevel::Type InFeatureLevel)
+{
+	FLightmapResourceCluster* Cluster = this;
+
+	ENQUEUE_RENDER_COMMAND(SetFeatureLevel)(
+		[Cluster, InFeatureLevel](FRHICommandList& RHICmdList)
+	{
+		Cluster->FeatureLevel = InFeatureLevel;
+
+		FLightmapResourceClusterShaderParameters Parameters;
+		GetLightmapClusterResourceParameters(InFeatureLevel, Cluster->Input, Parameters);
+
+		RHIUpdateUniformBuffer(Cluster->UniformBuffer, &Parameters);
+	});
+}
+
+void FLightmapResourceCluster::InitRHI()
+{
+	FLightmapResourceClusterShaderParameters Parameters;
+	GetLightmapClusterResourceParameters(GMaxRHIFeatureLevel, FLightmapClusterResourceInput(), Parameters);
+
+	UniformBuffer = FLightmapResourceClusterShaderParameters::CreateUniformBuffer(Parameters, UniformBuffer_MultiFrame);
 }

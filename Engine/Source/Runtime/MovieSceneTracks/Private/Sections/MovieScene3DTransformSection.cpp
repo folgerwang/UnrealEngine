@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Sections/MovieScene3DTransformSection.h"
 #include "UObject/StructOnScope.h"
@@ -8,6 +8,10 @@
 #include "Channels/MovieSceneChannelProxy.h"
 #include "GameFramework/Actor.h"
 #include "EulerTransform.h"
+#include "Compilation/MovieSceneTemplateInterrogation.h"
+#include "Evaluation/MovieSceneEvaluationTrack.h"
+#include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
+#include "Evaluation/MovieScenePropertyTemplate.h"
 
 #if WITH_EDITOR
 
@@ -23,48 +27,57 @@ struct F3DTransformChannelEditorData
 			MetaData[0].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::TranslationX);
 			MetaData[0].Color = FCommonChannelData::RedChannelColor;
 			MetaData[0].SortOrder = 0;
+			MetaData[0].bCanCollapseToTrack = false;
 
 			MetaData[1].SetIdentifiers("Location.Y", FCommonChannelData::ChannelY, LocationGroup);
 			MetaData[1].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::TranslationY);
 			MetaData[1].Color = FCommonChannelData::GreenChannelColor;
 			MetaData[1].SortOrder = 1;
+			MetaData[1].bCanCollapseToTrack = false;
 
 			MetaData[2].SetIdentifiers("Location.Z", FCommonChannelData::ChannelZ, LocationGroup);
 			MetaData[2].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::TranslationZ);
 			MetaData[2].Color = FCommonChannelData::BlueChannelColor;
 			MetaData[2].SortOrder = 2;
+			MetaData[2].bCanCollapseToTrack = false;
 		}
 		{
 			MetaData[3].SetIdentifiers("Rotation.X", NSLOCTEXT("MovieSceneTransformSection", "RotationX", "Roll"), RotationGroup);
 			MetaData[3].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::RotationX);
 			MetaData[3].Color = FCommonChannelData::RedChannelColor;
 			MetaData[3].SortOrder = 3;
+			MetaData[3].bCanCollapseToTrack = false;
 
 			MetaData[4].SetIdentifiers("Rotation.Y", NSLOCTEXT("MovieSceneTransformSection", "RotationY", "Pitch"), RotationGroup);
 			MetaData[4].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::RotationY);
 			MetaData[4].Color = FCommonChannelData::GreenChannelColor;
 			MetaData[4].SortOrder = 4;
+			MetaData[4].bCanCollapseToTrack = false;
 
 			MetaData[5].SetIdentifiers("Rotation.Z", NSLOCTEXT("MovieSceneTransformSection", "RotationZ", "Yaw"), RotationGroup);
 			MetaData[5].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::RotationZ);
 			MetaData[5].Color = FCommonChannelData::BlueChannelColor;
 			MetaData[5].SortOrder = 5;
+			MetaData[5].bCanCollapseToTrack = false;
 		}
 		{
 			MetaData[6].SetIdentifiers("Scale.X", FCommonChannelData::ChannelX, ScaleGroup);
 			MetaData[6].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::ScaleX);
 			MetaData[6].Color = FCommonChannelData::RedChannelColor;
 			MetaData[6].SortOrder = 6;
+			MetaData[6].bCanCollapseToTrack = false;
 
 			MetaData[7].SetIdentifiers("Scale.Y", FCommonChannelData::ChannelY, ScaleGroup);
 			MetaData[7].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::ScaleY);
 			MetaData[7].Color = FCommonChannelData::GreenChannelColor;
 			MetaData[7].SortOrder = 7;
+			MetaData[7].bCanCollapseToTrack = false;
 
 			MetaData[8].SetIdentifiers("Scale.Z", FCommonChannelData::ChannelZ, ScaleGroup);
 			MetaData[8].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::ScaleZ);
 			MetaData[8].Color = FCommonChannelData::BlueChannelColor;
 			MetaData[8].SortOrder = 8;
+			MetaData[8].bCanCollapseToTrack = false;
 		}
 		{
 			MetaData[9].SetIdentifiers("Weight", NSLOCTEXT("MovieSceneTransformSection", "Weight", "Weight"));
@@ -80,6 +93,17 @@ struct F3DTransformChannelEditorData
 		ExternalValues[6].OnGetExternalValue = ExtractScaleX;
 		ExternalValues[7].OnGetExternalValue = ExtractScaleY;
 		ExternalValues[8].OnGetExternalValue = ExtractScaleZ;
+
+		ExternalValues[0].OnGetCurrentValueAndWeight = GetTranslationXValueAndWeight;
+		ExternalValues[1].OnGetCurrentValueAndWeight = GetTranslationYValueAndWeight;
+		ExternalValues[2].OnGetCurrentValueAndWeight = GetTranslationZValueAndWeight;
+		ExternalValues[3].OnGetCurrentValueAndWeight = GetRotationXValueAndWeight;
+		ExternalValues[4].OnGetCurrentValueAndWeight = GetRotationYValueAndWeight;
+		ExternalValues[5].OnGetCurrentValueAndWeight = GetRotationZValueAndWeight;
+		ExternalValues[6].OnGetCurrentValueAndWeight = GetScaleXValueAndWeight;
+		ExternalValues[7].OnGetCurrentValueAndWeight = GetScaleYValueAndWeight;
+		ExternalValues[8].OnGetCurrentValueAndWeight = GetScaleZValueAndWeight;
+
 	}
 
 	static TOptional<FVector> GetTranslation(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
@@ -178,6 +202,62 @@ struct F3DTransformChannelEditorData
 		return TOptional<FVector>();
 	}
 
+	static void GetValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, int32 Index, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float& OutWeight)
+	{
+		UMovieSceneTrack* Track = SectionToKey->GetTypedOuter<UMovieSceneTrack>();
+		FMovieSceneEvaluationTrack EvalTrack = Track->GenerateTrackTemplate();
+		FMovieSceneInterrogationData InterrogationData;
+		RootTemplate.CopyActuators(InterrogationData.GetAccumulator());
+
+		FMovieSceneContext Context(FMovieSceneEvaluationRange(KeyTime, TickResolution));
+		EvalTrack.Interrogate(Context, InterrogationData, Object);
+
+		FVector CurrentPos; FRotator CurrentRot;
+		FVector CurrentScale;
+		for (const FTransform& Transform : InterrogationData.Iterate<FTransform>(UMovieScene3DTransformSection::GetInterrogationKey()))
+		{
+			CurrentPos = Transform.GetTranslation();
+			CurrentRot = Transform.Rotator();
+			CurrentScale = Transform.GetScale3D();
+			break;
+		}
+
+		switch (Index)
+		{
+		case 0:
+			OutValue = CurrentPos.X;
+			break;
+		case 1:
+			OutValue = CurrentPos.Y;
+			break;
+		case 2:
+			OutValue = CurrentPos.Z;
+			break;
+		case 3:
+			OutValue = CurrentRot.Roll;
+			break;
+		case 4:
+			OutValue = CurrentRot.Pitch;
+			break;
+		case 5:
+			OutValue = CurrentRot.Yaw;
+			break;
+		case 6:
+			OutValue = CurrentScale.X;
+			break;
+		case 7:
+			OutValue = CurrentScale.Y;
+			break;
+		case 8:
+			OutValue = CurrentScale.Z;
+			break;
+
+		}
+		OutWeight = MovieSceneHelpers::CalculateWeightForBlending(SectionToKey, KeyTime);
+	}
+
+
 	static TOptional<float> ExtractTranslationX(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
 	{
 		TOptional<FVector> Translation = GetTranslation(InObject, Bindings);
@@ -225,6 +305,53 @@ struct F3DTransformChannelEditorData
 		TOptional<FVector> Scale = GetScale(InObject, Bindings);
 		return Scale.IsSet() ? Scale->Z : TOptional<float>();
 	}
+
+	static void GetTranslationXValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float& OutWeight)
+	{
+		GetValueAndWeight(Object, SectionToKey, 0, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+	static void GetTranslationYValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey,  FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float& OutWeight)
+	{
+		GetValueAndWeight(Object, SectionToKey, 1, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+	static void GetTranslationZValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float& OutWeight)
+	{
+		GetValueAndWeight(Object, SectionToKey, 2, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+	static void GetRotationXValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float& OutWeight)
+	{
+		GetValueAndWeight(Object, SectionToKey, 3, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+	static void GetRotationYValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float& OutWeight)
+	{
+		GetValueAndWeight(Object, SectionToKey, 4, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+	static void GetRotationZValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float& OutWeight)
+	{
+		GetValueAndWeight(Object, SectionToKey, 5, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+	static void GetScaleXValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float& OutWeight)
+	{
+		GetValueAndWeight(Object, SectionToKey, 6, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+	static void GetScaleYValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float& OutWeight)
+	{
+		GetValueAndWeight(Object, SectionToKey, 7, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+	static void GetScaleZValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float& OutWeight)
+	{
+		GetValueAndWeight(Object, SectionToKey, 8, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+
 
 	FMovieSceneChannelMetaData      MetaData[10];
 	TMovieSceneExternalValue<float> ExternalValues[10];
@@ -293,6 +420,19 @@ UMovieScene3DTransformSection::UMovieScene3DTransformSection(const FObjectInitia
 	bSupportsInfiniteRange = true;
 
 	UpdateChannelProxy();
+	TArrayView<FMovieSceneFloatChannel*> FloatChannels = ChannelProxy->GetChannels<FMovieSceneFloatChannel>();
+	//Set Defaults this fixes issues with blending sections with newly created sections
+	// Set default translation and rotation
+	for (int32 Index = 0; Index < 6; ++Index)
+	{
+		FloatChannels[Index]->SetDefault(0.f);
+	}
+	// Set default scale and weight
+	for (int32 Index = 6; Index <=9; ++Index)
+	{
+		FloatChannels[Index]->SetDefault(1.f);
+	}
+
 }
 
 void UMovieScene3DTransformSection::Serialize(FArchive& Ar)
@@ -303,6 +443,13 @@ void UMovieScene3DTransformSection::Serialize(FArchive& Ar)
 	{
 		UpdateChannelProxy();
 	}
+}
+
+void UMovieScene3DTransformSection::PostEditImport()
+{
+	Super::PostEditImport();
+
+	UpdateChannelProxy();
 }
 
 FMovieSceneTransformMask UMovieScene3DTransformSection::GetMask() const
@@ -471,7 +618,7 @@ TSharedPtr<FStructOnScope> UMovieScene3DTransformSection::GetKeyStruct(TArrayVie
 		return KeyStruct;
 	}
 
-	if (AnyLocationKeys > 1)
+	if (AnyLocationKeys)
 	{
 		TSharedRef<FStructOnScope> KeyStruct = MakeShareable(new FStructOnScope(FMovieScene3DLocationKeyStruct::StaticStruct()));
 		auto Struct = (FMovieScene3DLocationKeyStruct*)KeyStruct->GetStructMemory();
@@ -538,4 +685,38 @@ bool UMovieScene3DTransformSection::ShowCurveForChannel(const void *ChannelPtr) 
 		}
 	}
 	return true;
+}
+
+float UMovieScene3DTransformSection::GetTotalWeightValue(FFrameTime InTime) const
+{
+	float Weight = EvaluateEasing(InTime);
+	if (EnumHasAllFlags(TransformMask.GetChannels(), EMovieSceneTransformChannel::Weight))
+	{
+		float ManualWeightVal = 1.f;
+		ManualWeight.Evaluate(InTime, ManualWeightVal);
+		Weight *= ManualWeightVal;
+	}
+	return Weight;
+}
+
+void UMovieScene3DTransformSection::SetBlendType(EMovieSceneBlendType InBlendType) 
+{
+	if (GetSupportedBlendTypes().Contains(InBlendType))
+	{
+		BlendType = InBlendType;
+		//Set the Scale Default based upon the type that was Set
+		float DefaultVal = InBlendType == EMovieSceneBlendType::Absolute ? 1.0f : 0.0f;
+		TArrayView<FMovieSceneFloatChannel*> FloatChannels = ChannelProxy->GetChannels<FMovieSceneFloatChannel>();
+		// Set default scale and weight
+		for (int32 Index = 6; Index < 9; ++Index)
+		{
+			FloatChannels[Index]->SetDefault(DefaultVal);
+		}
+
+	}
+}
+FMovieSceneInterrogationKey UMovieScene3DTransformSection::GetInterrogationKey()
+{
+	static FMovieSceneAnimTypeID TypeID = FMovieSceneAnimTypeID::Unique();
+	return TypeID;
 }

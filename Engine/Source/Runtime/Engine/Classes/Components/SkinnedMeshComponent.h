@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -72,15 +72,15 @@ enum class EVisibilityBasedAnimTickOption : uint8
 /** Previous deprecated animation tick option. */
 namespace EMeshComponentUpdateFlag
 {
-	DEPRECATED(4.21, "EMeshComponentUpdateFlag has been deprecated use EVisibilityBasedAnimTickOption instead")
+	UE_DEPRECATED(4.21, "EMeshComponentUpdateFlag has been deprecated use EVisibilityBasedAnimTickOption instead")
 	typedef int32 Type;
-	DEPRECATED(4.21, "EMeshComponentUpdateFlag has been deprecated use EVisibilityBasedAnimTickOption instead")
+	UE_DEPRECATED(4.21, "EMeshComponentUpdateFlag has been deprecated use EVisibilityBasedAnimTickOption instead")
 	static const uint8 AlwaysTickPoseAndRefreshBones = 0;
-	DEPRECATED(4.21, "EMeshComponentUpdateFlag has been deprecated use EVisibilityBasedAnimTickOption instead")
+	UE_DEPRECATED(4.21, "EMeshComponentUpdateFlag has been deprecated use EVisibilityBasedAnimTickOption instead")
 	static const uint8 AlwaysTickPose = 1;
-	DEPRECATED(4.21, "EMeshComponentUpdateFlag has been deprecated use EVisibilityBasedAnimTickOption instead")
+	UE_DEPRECATED(4.21, "EMeshComponentUpdateFlag has been deprecated use EVisibilityBasedAnimTickOption instead")
 	static const uint8 OnlyTickMontagesWhenNotRendered = 2;
-	DEPRECATED(4.21, "EMeshComponentUpdateFlag has been deprecated use EVisibilityBasedAnimTickOption instead")
+	UE_DEPRECATED(4.21, "EMeshComponentUpdateFlag has been deprecated use EVisibilityBasedAnimTickOption instead")
 	static const uint8 OnlyTickPoseWhenRendered = 3;
 };
 
@@ -213,14 +213,23 @@ class ENGINE_API USkinnedMeshComponent : public UMeshComponent
 	 *	skeleton within the same Actor.
 	 */
 	UPROPERTY(BlueprintReadOnly, Category="Mesh")
-	TWeakObjectPtr< class USkinnedMeshComponent > MasterPoseComponent;
+	TWeakObjectPtr<USkinnedMeshComponent> MasterPoseComponent;
 
 	/** const getters for previous transform idea */
-	const TArray<uint8>& GetPreviousBoneVisibilityStates() const { return PreviousBoneVisibilityStates;  }
-	const TArray<FTransform>& GetPreviousComponentTransformsArray() const { return  PreviousComponentSpaceTransformsArray;  }
+	const TArray<uint8>& GetPreviousBoneVisibilityStates() const
+	{
+		return bDoubleBufferedComponentSpaceTransforms ? GetEditableBoneVisibilityStates() : PreviousBoneVisibilityStates;
+	}
+
+	const TArray<FTransform>& GetPreviousComponentTransformsArray() const
+	{
+		return bDoubleBufferedComponentSpaceTransforms ? GetEditableComponentSpaceTransforms() : PreviousComponentSpaceTransformsArray;
+	}
+
 	uint32 GetBoneTransformRevisionNumber() const 
-	{ 
-		return (MasterPoseComponent.IsValid()? MasterPoseComponent->CurrentBoneTransformRevisionNumber : CurrentBoneTransformRevisionNumber);  
+	{
+		const USkinnedMeshComponent* MasterPoseComponentPtr = MasterPoseComponent.Get();
+		return (MasterPoseComponentPtr ? MasterPoseComponentPtr->CurrentBoneTransformRevisionNumber : CurrentBoneTransformRevisionNumber);
 	}
 
 	/* this update renderer with new revision number twice so to clear bone velocity for motion blur or temporal AA */
@@ -232,7 +241,11 @@ private:
 
 protected:
 	/** Array of bone visibilities (containing one of the values in EBoneVisibilityStatus for each bone).  A bone is only visible if it is *exactly* 1 (BVS_Visible) */
+	/** Note these are only used if we are NOT double-buffering bone transforms */
 	TArray<uint8> PreviousBoneVisibilityStates;
+
+	/** Array of previous bone transforms */
+	/** Note these are only used if we are NOT double-buffering bone transforms */
 	TArray<FTransform> PreviousComponentSpaceTransformsArray;
 
 protected:
@@ -343,9 +356,6 @@ public:
 	 */
 	int32 PredictedLODLevel;
 
-	/** LOD level from previous frame, so we can detect changes in LOD to recalc required bones. */
-	int32 OldPredictedLODLevel;
-
 	/**	High (best) DistanceFactor that was desired for rendering this USkeletalMesh last frame. Represents how big this mesh was in screen space   */
 	float MaxDistanceFactor;
 
@@ -358,13 +368,26 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=SkeletalMesh)
 	float StreamingDistanceMultiplier;
 
+protected:
+	/** Non-URO-based interpolation alpha */
+	float ExternalInterpolationAlpha;
+
+	/* Non-URO-based delta time used to tick the pose */
+	float ExternalDeltaTime;
+
+public:
 	/** LOD array info. Each index will correspond to the LOD index **/
 	UPROPERTY(transient)
 	TArray<struct FSkelMeshComponentLODInfo> LODInfo;
 
+protected:
 	/** Array of bone visibilities (containing one of the values in EBoneVisibilityStatus for each bone).  A bone is only visible if it is *exactly* 1 (BVS_Visible) */
-	TArray<uint8> BoneVisibilityStates;
+	TArray<uint8> BoneVisibilityStates[2];
 
+	/** Cache the scene feature level */
+	ERHIFeatureLevel::Type CachedSceneFeatureLevel;
+
+public:
 	/*
 	 * This is tick animation frequency option based on this component rendered or not or using montage
 	 *  You can change this default value in the INI file 
@@ -374,7 +397,7 @@ public:
 	EVisibilityBasedAnimTickOption VisibilityBasedAnimTickOption;
 
 #if WITH_EDITOR
-	DEPRECATED(4.21, "MeshComponentUpdateFlag has been renamed VisibilityBasedAnimTickOption")
+	UE_DEPRECATED(4.21, "MeshComponentUpdateFlag has been renamed VisibilityBasedAnimTickOption")
 	uint8& MeshComponentUpdateFlag = *(uint8*)&VisibilityBasedAnimTickOption;
 #endif
 
@@ -480,6 +503,10 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Optimization)
 	uint8 bRenderStatic:1;
 
+	/** Flag that when set will ensure UpdateLODStatus will not take the MasterPoseComponent's current LOD in consideration when determining the correct LOD level (this requires MasterPoseComponent's LOD to always be >= determined LOD otherwise bone transforms could be missing */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = LOD)
+	uint8 bIgnoreMasterPoseComponentLOD : 1;
+
 protected:
 	/** Are we using double buffered ComponentSpaceTransforms */
 	uint8 bDoubleBufferedComponentSpaceTransforms : 1;
@@ -491,12 +518,49 @@ protected:
 	UPROPERTY(Transient)
 	mutable uint8 bCachedLocalBoundsUpToDate:1;
 
+	/** Whether we have updated bone visibility this tick */
+	uint8 bBoneVisibilityDirty:1;
+
 private:
 	/** If true, UpdateTransform will always result in a call to MeshObject->Update. */
 	UPROPERTY(transient)
 	uint8 bForceMeshObjectUpdate:1;
 
+protected:
+	/** Whether we are externally controlling tick rate */
+	uint8 bExternalTickRateControlled:1;
+
+	/** Non URO-based interpolation flag */
+	uint8 bExternalInterpolate:1;
+
+	/** Non URO-based update flag */
+	uint8 bExternalUpdate:1;
+
+	/** External flag indicating that we may not be evaluated every frame */
+	uint8 bExternalEvaluationRateLimited:1;
+
 public:
+	/** Set whether we have our tick rate externally controlled non-URO-based interpolation */
+	void EnableExternalTickRateControl(bool bInEnable) { bExternalTickRateControlled = bInEnable; }
+
+	/** Enable non-URO-based interpolation */
+	void EnableExternalInterpolation(bool bInEnable) { bExternalInterpolate = bInEnable; }
+
+	/** Check whether we should be interpolating due to external settings */
+	bool IsUsingExternalInterpolation() const { return bExternalInterpolate && bExternalEvaluationRateLimited; }
+
+	/** Set us to tick this frame for non-URO-based interpolation */
+	void EnableExternalUpdate(bool bInEnable) { bExternalUpdate = bInEnable; }
+
+	/** Set non-URO-based interpolation alpha */
+	void SetExternalInterpolationAlpha(float InAlpha) { ExternalInterpolationAlpha = InAlpha; }
+
+	/** Set non-URO-based delta time */
+	void SetExternalDeltaTime(float InDeltaTime) { ExternalDeltaTime = InDeltaTime; }
+
+	/** Manually enable/disable animation evaluation rate limiting */
+	void EnableExternalEvaluationRateLimiting(bool bInEnable) { bExternalEvaluationRateLimited = bInEnable; }
+
 	/** 
 	 * Controls how dark the capsule indirect shadow can be.
 	 */
@@ -827,6 +891,9 @@ protected:
 	 */
 	virtual void DispatchParallelTickPose(FActorComponentTickFunction* TickFunction) {}
 
+	/** Helper function for UpdateLODStatus, called with a valid index for InMasterPoseComponentPredictedLODLevel when updating LOD status for slave components */
+	bool UpdateLODStatus_Internal(int32 InMasterPoseComponentPredictedLODLevel);
+
 public:
 	/**
 	 * Tick Pose, this function ticks and do whatever it needs to do in this frame, should be called before RefreshBoneTransforms
@@ -880,7 +947,7 @@ public:
 
 	/** Get Access to the current editable space bases */
 	TArray<FTransform>& GetEditableComponentSpaceTransforms() 
-	{ 
+	{
 		return ComponentSpaceTransformsArray[CurrentEditableComponentTransforms];
 	}
 	const TArray<FTransform>& GetEditableComponentSpaceTransforms() const
@@ -888,29 +955,46 @@ public:
 		return ComponentSpaceTransformsArray[CurrentEditableComponentTransforms];
 	}
 
+public:
 	/** Get current number of component space transorms */
 	int32 GetNumComponentSpaceTransforms() const 
 	{ 
 		return GetComponentSpaceTransforms().Num(); 
 	}
 
+	/** Access BoneVisibilityStates for reading */
+	const TArray<uint8>& GetBoneVisibilityStates() const 
+	{
+		return BoneVisibilityStates[CurrentReadComponentTransforms];
+	}
+
+	/** Get Access to the current editable bone visibility states */
+	TArray<uint8>& GetEditableBoneVisibilityStates() 
+	{
+		return BoneVisibilityStates[CurrentEditableComponentTransforms];
+	}
+	const TArray<uint8>& GetEditableBoneVisibilityStates() const
+	{
+		return BoneVisibilityStates[CurrentEditableComponentTransforms];
+	}
+
 	void SetComponentSpaceTransformsDoubleBuffering(bool bInDoubleBufferedComponentSpaceTransforms);
 
 	const FBoxSphereBounds& GetCachedLocalBounds() { return CachedLocalBounds; } 
+
+	/**
+	* Should update transform in Tick
+	*
+	* @param bLODHasChanged	: Has LOD been changed since last time?
+	*
+	* @return : return true if need transform update. false otherwise.
+	*/
+	virtual bool ShouldUpdateTransform(bool bLODHasChanged) const;
 
 protected:
 
 	/** Flip the editable space base buffer */
 	void FlipEditableSpaceBases();
-
-	/** 
-	 * Should update transform in Tick
-	 * 
-	 * @param bLODHasChanged	: Has LOD been changed since last time?
-	 * 
-	 * @return : return true if need transform update. false otherwise.
-	 */
-	virtual bool ShouldUpdateTransform(bool bLODHasChanged) const;
 
 	/** 
 	 * Should tick  pose (by calling TickPose) in Tick
@@ -971,6 +1055,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Components|SkinnedMesh")
 	void SetMasterPoseComponent(USkinnedMeshComponent* NewMasterBoneComponent, bool bForceUpdate = false);
 
+	/** Return current active list of slave components */
+	const TArray< TWeakObjectPtr<USkinnedMeshComponent> >& GetSlavePoseComponents() const;
 protected:
 	/** Add a slave component to the SlavePoseComponents array */
 	virtual void AddSlavePoseComponent(USkinnedMeshComponent* SkinnedMeshComponent);
@@ -991,6 +1077,15 @@ public:
 	void UpdateMasterBoneMap();
 
 	/**
+	 * @param InSocketName	The name of the socket to find
+	 * @param OutBoneIndex	The socket bone index in this skeletal mesh, or INDEX_NONE if the socket is not found or not a bone-relative socket
+	 * @param OutTransform	The socket local transform, or identity if the socket is not found.
+	 * @return SkeletalMeshSocket of named socket on the skeletal mesh component, or NULL if not found.
+	 */
+	class USkeletalMeshSocket const* GetSocketInfoByName(FName InSocketName, FTransform& OutTransform, int32& OutBoneIndex) const;
+
+	/**
+	 * @param InSocketName	The name of the socket to find
 	 * @return SkeletalMeshSocket of named socket on the skeletal mesh component, or NULL if not found.
 	 */
 	class USkeletalMeshSocket const* GetSocketByName( FName InSocketName ) const;
@@ -1247,6 +1342,13 @@ public:
 
 	/** Release any rendering resources owned by this component */
 	void ReleaseResources();
+
+#if WITH_EDITOR
+	/** Helpers allowing us to cache feature level */
+	static void BindWorldDelegates();
+	static void HandlePostWorldCreation(UWorld* InWorld);
+	static void HandleFeatureLevelChanged(ERHIFeatureLevel::Type InFeatureLevel, TWeakObjectPtr<UWorld> InWorld);
+#endif
 
 	friend class FRenderStateRecreator;
 };

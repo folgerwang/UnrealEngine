@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SkeletonEditor.h"
 #include "Modules/ModuleManager.h"
@@ -232,6 +232,11 @@ void FSkeletonEditor::ExtendMenu()
 
 	ISkeletonEditorModule& SkeletonEditorModule = FModuleManager::GetModuleChecked<ISkeletonEditorModule>("SkeletonEditor");
 	AddMenuExtender(SkeletonEditorModule.GetMenuExtensibilityManager()->GetAllExtenders(GetToolkitCommands(), GetEditingObjects()));
+}
+
+UObject* FSkeletonEditor::HandleGetAsset()
+{
+	return GetEditingObject();
 }
 
 void FSkeletonEditor::HandleObjectsSelected(const TArray<UObject*>& InObjects)

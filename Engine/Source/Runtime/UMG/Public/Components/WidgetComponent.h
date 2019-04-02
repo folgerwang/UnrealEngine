@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -46,7 +46,7 @@ enum class EWidgetBlendMode : uint8
 	Transparent
 };
 
-UENUM()
+UENUM(BlueprintType)
 enum class EWidgetGeometryMode : uint8
 {
 	/** The widget is mapped onto a plane */
@@ -86,11 +86,12 @@ public:
 	virtual void OnUnregister() override;
 	virtual void DestroyComponent(bool bPromoteChildren = false) override;
 	UMaterialInterface* GetMaterial(int32 MaterialIndex) const override;
+	virtual void SetMaterial(int32 ElementIndex, UMaterialInterface* Material) override;
 	int32 GetNumMaterials() const override;
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
-	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
-	void ApplyComponentInstanceData(class FWidgetComponentInstanceData* ComponentInstanceData);
+	virtual TStructOnScope<FActorComponentInstanceData> GetComponentInstanceData() const override;
+	void ApplyComponentInstanceData(struct FWidgetComponentInstanceData* ComponentInstanceData);
 	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials = false) const override;
 
 #if WITH_EDITOR
@@ -131,37 +132,37 @@ public:
 	 */
 	TTuple<FVector, FVector2D> GetCylinderHitLocation(FVector WorldHitLocation, FVector WorldHitDirection) const;
 
-	/** @return Gets the last local location that was hit */
+	/** Gets the last local location that was hit */
 	FVector2D GetLastLocalHitLocation() const
 	{
 		return LastLocalHitLocation;
 	}
 	
-	/** @return The class of the user widget displayed by this component */
+	/** Returns the class of the user widget displayed by this component */
 	TSubclassOf<UUserWidget> GetWidgetClass() const { return WidgetClass; }
 
-	/** @return The user widget object displayed by this component */
+	/** Returns the user widget object displayed by this component */
 	UFUNCTION(BlueprintCallable, Category=UserInterface, meta=(UnsafeDuringActorConstruction=true))
 	UUserWidget* GetUserWidgetObject() const;
 
-	/** @return Returns the Slate widget that was assigned to this component, if any */
+	/** Returns the Slate widget that was assigned to this component, if any */
 	const TSharedPtr<SWidget>& GetSlateWidget() const;
 
-	/** @return List of widgets with their geometry and the cursor position transformed into this Widget component's space. */
+	/** Returns the list of widgets with their geometry and the cursor position transformed into this Widget component's space. */
 	TArray<FWidgetAndPointer> GetHitWidgetPath(FVector WorldHitLocation, bool bIgnoreEnabledStatus, float CursorRadius = 0.0f);
 
-	/** @return List of widgets with their geometry and the cursor position transformed into this Widget space. The widget space is expressed as a Vector2D. */
+	/** Returns the list of widgets with their geometry and the cursor position transformed into this Widget space. The widget space is expressed as a Vector2D. */
 	TArray<FWidgetAndPointer> GetHitWidgetPath(FVector2D WidgetSpaceHitCoordinate, bool bIgnoreEnabledStatus, float CursorRadius = 0.0f);
 
-	/** @return The render target to which the user widget is rendered */
+	/** Returns the render target to which the user widget is rendered */
 	UFUNCTION(BlueprintCallable, Category=UserInterface)
 	UTextureRenderTarget2D* GetRenderTarget() const;
 
-	/** @return The dynamic material instance used to render the user widget */
+	/** Returns the dynamic material instance used to render the user widget */
 	UFUNCTION(BlueprintCallable, Category=UserInterface)
 	UMaterialInstanceDynamic* GetMaterialInstance() const;
 
-	/** @return The window containing the user widget content */
+	/** Returns the window containing the user widget content */
 	TSharedPtr<SWindow> GetSlateWindow() const;
 
 	/**  
@@ -186,6 +187,13 @@ public:
 	void SetOwnerPlayer(ULocalPlayer* LocalPlayer);
 
 	/** @see bManuallyRedraw */
+	UFUNCTION(BlueprintCallable, Category = UserInterface)
+	bool GetManuallyRedraw() const
+	{
+		return bManuallyRedraw;
+	};
+
+	/** @see bManuallyRedraw */
 	UFUNCTION(BlueprintCallable, Category=UserInterface)
 	void SetManuallyRedraw(bool bUseManualRedraw);
 
@@ -193,9 +201,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category=UserInterface)
 	ULocalPlayer* GetOwnerPlayer() const;
 
-	/** @return The draw size of the quad in the world */
+	/** Returns the "specified" draw size of the quad in the world */
 	UFUNCTION(BlueprintCallable, Category=UserInterface)
 	FVector2D GetDrawSize() const;
+
+	/** Returns the "actual" draw size of the quad in the world */
+	UFUNCTION(BlueprintCallable, Category = UserInterface)
+	FVector2D GetCurrentDrawSize() const;
 
 	/** Sets the draw size of the quad in the world */
 	UFUNCTION(BlueprintCallable, Category=UserInterface)
@@ -211,8 +223,30 @@ public:
 	/** Sets the blend mode to use for this widget */
 	void SetBlendMode( const EWidgetBlendMode NewBlendMode );
 
+	/** Gets whether the widget is two-sided or not */
+	UFUNCTION(BlueprintCallable, Category = Rendering)
+	bool GetTwoSided() const
+	{
+		return bIsTwoSided;
+	};
+
 	/** Sets whether the widget is two-sided or not */
+	UFUNCTION(BlueprintCallable, Category = Rendering)
 	void SetTwoSided( const bool bWantTwoSided );
+
+	/** Gets whether the widget ticks when offscreen or not */
+	UFUNCTION(BlueprintCallable, Category = Animation)
+	bool GetTickWhenOffscreen() const
+	{
+		return TickWhenOffscreen;
+	};
+
+	/** Sets whether the widget ticks when offscreen or not */
+	UFUNCTION(BlueprintCallable, Category = Animation)
+	void SetTickWhenOffscreen(const bool bWantTickWhenOffscreen)
+	{
+		TickWhenOffscreen = bWantTickWhenOffscreen;
+	};
 
 	/** Sets the background color and opacityscale for this widget */
 	UFUNCTION(BlueprintCallable, Category=UserInterface)
@@ -225,22 +259,28 @@ public:
 	/** Sets how much opacity from the UI widget's texture alpha is used when rendering to the viewport (0.0-1.0) */
 	void SetOpacityFromTexture( const float NewOpacityFromTexture );
 
-	/** @return The pivot point where the UI is rendered about the origin. */
+	/** Returns the pivot point where the UI is rendered about the origin. */
+	UFUNCTION(BlueprintCallable, Category = UserInterface)
 	FVector2D GetPivot() const { return Pivot; }
 
 	/**  */
+	UFUNCTION(BlueprintCallable, Category = UserInterface)
 	void SetPivot( const FVector2D& InPivot ) { Pivot = InPivot; }
 
 	/**  */
+	UFUNCTION(BlueprintCallable, Category = UserInterface)
 	bool GetDrawAtDesiredSize() const { return bDrawAtDesiredSize; }
 
 	/**  */
+	UFUNCTION(BlueprintCallable, Category = UserInterface)
 	void SetDrawAtDesiredSize(bool InbDrawAtDesiredSize) { bDrawAtDesiredSize = InbDrawAtDesiredSize; }
 
 	/**  */
+	UFUNCTION(BlueprintCallable, Category = UserInterface)
 	float GetRedrawTime() const { return RedrawTime; }
 
 	/**  */
+	UFUNCTION(BlueprintCallable, Category = UserInterface)
 	void SetRedrawTime(float bInRedrawTime) { RedrawTime = bInRedrawTime; }
 
 	/** Get the fake window we create for widgets displayed in the world. */
@@ -252,8 +292,10 @@ public:
 	/** Sets the widget class used to generate the widget for this component */
 	void SetWidgetClass(TSubclassOf<UUserWidget> InWidgetClass);
 
+	UFUNCTION(BlueprintCallable, Category = UserInterface)
 	EWidgetSpace GetWidgetSpace() const { return Space; }
 
+	UFUNCTION(BlueprintCallable, Category = UserInterface)
 	void SetWidgetSpace( EWidgetSpace NewSpace ) { Space = NewSpace; }
 
 	bool GetEditTimeUsable() const { return bEditTimeUsable; }
@@ -261,12 +303,51 @@ public:
 	void SetEditTimeUsable(bool Value) { bEditTimeUsable = Value; }
 
 	/** @see EWidgetGeometryMode, @see GetCylinderArcAngle() */
-	EWidgetGeometryMode GetGeometryMode() const { return GeometryMode; }
+	UFUNCTION(BlueprintCallable, Category = UserInterface)
+	EWidgetGeometryMode GetGeometryMode() const 
+	{
+		return GeometryMode; 
+	}
+
+	UFUNCTION(BlueprintCallable, Category = UserInterface)
+	void SetGeometryMode(EWidgetGeometryMode InGeometryMode) 
+	{ 
+		GeometryMode = InGeometryMode; 
+	}
 
 	bool GetReceiveHardwareInput() const { return bReceiveHardwareInput; }
 
 	/** Defines the curvature of the widget component when using EWidgetGeometryMode::Cylinder; ignored otherwise.  */
+	UFUNCTION(BlueprintCallable, Category = UserInterface)
 	float GetCylinderArcAngle() const { return CylinderArcAngle; }
+
+	/** Defines the curvature of the widget component when using EWidgetGeometryMode::Cylinder; ignored otherwise.  */
+	UFUNCTION(BlueprintCallable, Category = UserInterface)
+	void SetCylinderArcAngle(const float InCylinderArcAngle) 
+	{ 
+		CylinderArcAngle = InCylinderArcAngle; 
+	}
+
+	
+	/** Sets shared layer name used when this widget is initialized */
+	void SetInitialSharedLayerName(FName NewSharedLayerName) { SharedLayerName = NewSharedLayerName; }
+	
+	/** Sets layer z order used when this widget is initialized */
+	void SetInitialLayerZOrder(int32 NewLayerZOrder) { LayerZOrder = NewLayerZOrder; }
+
+	/** @see bWindowFocusable */
+	UFUNCTION(BlueprintCallable, Category = UserInterface)
+	bool GetWindowFocusable() const
+	{
+		return bWindowFocusable;
+	};
+
+	/** @see bWindowFocusable */
+	UFUNCTION(BlueprintCallable, Category = UserInterface)
+	void SetWindowFocusable(bool bInWindowFocusable)
+	{
+		bWindowFocusable = bInWindowFocusable;
+	};
 
 protected:
 	/** Just because the user attempts to receive hardware input does not mean it's possible. */
@@ -285,8 +366,10 @@ protected:
 	/** Draws the current widget to the render target if possible. */
 	virtual void DrawWidgetToRenderTarget(float DeltaTime);
 
-	/** @return the width of the widget component taking GeometryMode into account. */
+	/** Returns the width of the widget component taking GeometryMode into account. */
 	float ComputeComponentWidth() const;
+
+	void UpdateMaterialInstance();
 
 protected:
 	/** The coordinate space in which to render the widget */
@@ -487,4 +570,45 @@ protected:
 
 	/** Helper class for drawing widgets to a render target. */
 	class FWidgetRenderer* WidgetRenderer;
+};
+
+USTRUCT()
+struct FWidgetComponentInstanceData : public FSceneComponentInstanceData
+{
+	GENERATED_BODY()
+public:
+	FWidgetComponentInstanceData()
+		: RenderTarget(nullptr)
+	{}
+
+	FWidgetComponentInstanceData(const UWidgetComponent* SourceComponent)
+		: FSceneComponentInstanceData(SourceComponent)
+		, WidgetClass(SourceComponent->GetWidgetClass())
+		, RenderTarget(SourceComponent->GetRenderTarget())
+	{}
+	virtual ~FWidgetComponentInstanceData() = default;
+
+	virtual bool ContainsData() const override
+	{
+		return true;
+	}
+
+	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
+	{
+		Super::ApplyToComponent(Component, CacheApplyPhase);
+		CastChecked<UWidgetComponent>(Component)->ApplyComponentInstanceData(this);
+	}
+
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
+	{
+		Super::AddReferencedObjects(Collector);
+
+		UClass* WidgetUClass = *WidgetClass;
+		Collector.AddReferencedObject(WidgetUClass);
+		Collector.AddReferencedObject(RenderTarget);
+	}
+
+public:
+	TSubclassOf<UUserWidget> WidgetClass;
+	UTextureRenderTarget2D* RenderTarget;
 };

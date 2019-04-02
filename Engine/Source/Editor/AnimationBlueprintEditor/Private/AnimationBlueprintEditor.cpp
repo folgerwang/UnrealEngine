@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "AnimationBlueprintEditor.h"
@@ -158,7 +158,7 @@ FAnimationBlueprintEditor::~FAnimationBlueprintEditor()
 {
 	GEditor->OnBlueprintPreCompile().RemoveAll(this);
 
-	FEditorDelegates::OnAssetPostImport.RemoveAll(this);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetPostImport.RemoveAll(this);
 	FReimportManager::Instance()->OnPostReimport().RemoveAll(this);
 
 	// NOTE: Any tabs that we still have hanging out when destroyed will be cleaned up by FBaseToolkit's destructor
@@ -1037,6 +1037,7 @@ void FAnimationBlueprintEditor::Compile()
 {
 	// Grab the currently debugged object, so we can re-set it below
 	USkeletalMeshComponent* DebuggedMeshComponent = nullptr;
+	
 	if (UBlueprint* Blueprint = GetBlueprintObj())
 	{
 		UAnimInstance* CurrentDebugObject = Cast<UAnimInstance>(Blueprint->GetObjectBeingDebugged());
@@ -1059,7 +1060,13 @@ void FAnimationBlueprintEditor::Compile()
 			DebuggedMeshComponent->InitAnim(true);
 		}
 
-		GetBlueprintObj()->SetObjectBeingDebugged(DebuggedMeshComponent->GetAnimInstance());
+		UAnimInstance* NewInstance = DebuggedMeshComponent->GetAnimInstance();
+		UBlueprint* Blueprint = GetBlueprintObj();
+
+		if(NewInstance->IsA(Blueprint->GeneratedClass))
+		{
+			Blueprint->SetObjectBeingDebugged(NewInstance);
+		}
 	}
 
 	// reset the selected skeletal control node

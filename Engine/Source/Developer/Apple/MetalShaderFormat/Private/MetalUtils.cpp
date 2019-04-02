@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MetalUtils.h"
 #include "MetalShaderFormat.h"
@@ -203,7 +203,7 @@ namespace MetalUtils
 	{
 		{"SV_Depth", glsl_type::float_type, "FragDepth", ir_var_out, "[[ depth(any) ]]"},
 		{"SV_DepthLessEqual", glsl_type::float_type, "FragDepth", ir_var_out, "[[ depth(less) ]]"},
-		{"SV_Position", glsl_type::vec4_type, "IN_FragCoord", ir_var_in, "[[ position ]]"},
+		{"SV_Position", glsl_type::vec4_type, "IN_FragCoord", ir_var_in, "position"},
 		{"SV_IsFrontFace", glsl_type::bool_type, "IN_FrontFacing", ir_var_in, "[[ front_facing ]]"},
 		//{"SV_PrimitiveID", glsl_type::int_type, "IN_PrimitiveID", ir_var_in, "[[  ]]"},
 		//{"SV_RenderTargetArrayIndex", glsl_type::uint_type, "IN_Layer", ir_var_in, "[[ render_target_array_index ]]"},
@@ -248,7 +248,7 @@ namespace MetalUtils
 	{
 		{"SV_Depth", glsl_type::float_type, "FragDepth", ir_var_out, "[[ depth(any) ]]"},
 		{"SV_DepthLessEqual", glsl_type::float_type, "FragDepth", ir_var_out, "[[ depth(less) ]]"},
-		{"SV_Position", glsl_type::vec4_type, "IN_FragCoord", ir_var_in, "[[ position ]]"},
+		{"SV_Position", glsl_type::vec4_type, "IN_FragCoord", ir_var_in, "position"},
 		{"SV_IsFrontFace", glsl_type::bool_type, "IN_FrontFacing", ir_var_in, "[[ front_facing ]]"},
 		{"SV_Coverage", glsl_type::uint_type, "IN_Coverage", ir_var_in, "[[ sample_mask ]]"},
 		{"SV_Coverage", glsl_type::uint_type, "OUT_Coverage", ir_var_out, "[[ sample_mask ]]"},
@@ -392,9 +392,11 @@ namespace MetalUtils
 		DomainSystemValueTable,
 		ComputeSystemValueTable
 	};
+	
+	char const* interpolant_qualifiers[2][4] = {{"", "center_perspective", "flat", "center_no_perspective"}, {"centroid_perspective", "centroid_perspective", "flat", "centroid_no_perspective"}};
 
 	static ir_rvalue* GenerateInputFromSemantic(EHlslShaderFrequency Frequency, EMetalGPUSemantics bIsDesktop, _mesa_glsl_parse_state* ParseState,
-		const char* Semantic, const glsl_type* Type, char const* Name, exec_list* DeclInstructions, exec_list* PreCallInstructions)
+		const char* Semantic, FSemanticQualifier Qualifier, const glsl_type* Type, char const* Name, exec_list* DeclInstructions, exec_list* PreCallInstructions)
 	{
 		if (!Semantic)
 		{
@@ -431,7 +433,15 @@ namespace MetalUtils
 					if (!Variable)
 					{
 						Variable = new(ParseState) ir_variable(SystemValues[i].Type, SystemValues[i].MetalName, ir_var_in);
-						Variable->semantic = SystemValues[i].MetalSemantic;
+						if (!FCStringAnsi::Stricmp(Semantic, "SV_Position"))
+						{
+							char const* interp = Frequency == HSF_PixelShader ? interpolant_qualifiers[Qualifier.Fields.bCentroid][Qualifier.Fields.InterpolationMode] : "";
+							Variable->semantic = ralloc_asprintf(ParseState, "[[ %s, %s ]]", SystemValues[i].MetalSemantic, interp);
+						}
+						else
+						{
+							Variable->semantic = SystemValues[i].MetalSemantic;
+						}
 						Variable->read_only = true;
 						Variable->origin_upper_left = false;
 						DeclInstructions->push_tail(Variable);
@@ -531,9 +541,13 @@ namespace MetalUtils
 		else
 		if (!Variable->semantic)
 		{
-			Variable->semantic = ralloc_asprintf(ParseState, "[[ user(%s) ]]", Semantic);
+			char const* interp = Frequency == HSF_PixelShader ? interpolant_qualifiers[Qualifier.Fields.bCentroid][Qualifier.Fields.InterpolationMode] : "";
+			Variable->semantic = ralloc_asprintf(ParseState, "[[ user(%s), %s ]]", Semantic, interp);
 		}
 		Variable->read_only = true;
+		Variable->centroid = Qualifier.Fields.bCentroid;
+		Variable->interpolation = Qualifier.Fields.InterpolationMode;
+		Variable->is_patch_constant = Qualifier.Fields.bIsPatchConstant;
 		DeclInstructions->push_tail(Variable);
 		ParseState->symbols->add_variable(Variable);
 		ir_dereference_variable* VariableDeref = new(ParseState)ir_dereference_variable(Variable);
@@ -541,7 +555,7 @@ namespace MetalUtils
 	}
 
 	static void GenerateInputForVariable(EHlslShaderFrequency Frequency, EMetalGPUSemantics bIsDesktop, _mesa_glsl_parse_state* ParseState,
-		const char* InputSemantic, ir_dereference* InputVariableDeref, exec_list* DeclInstructions, exec_list* PreCallInstructions)
+		const char* InputSemantic, FSemanticQualifier Qualifier, ir_dereference* InputVariableDeref, exec_list* DeclInstructions, exec_list* PreCallInstructions)
 	{
 		const glsl_type* InputType = InputVariableDeref->type;
 		if (InputType->is_record())
@@ -577,7 +591,12 @@ namespace MetalUtils
 					ir_dereference_record* FieldDeref = new(ParseState)ir_dereference_record(
 						InputVariableDeref->clone(ParseState, NULL),
 						InputType->fields.structure[i].name);
-					GenerateInputForVariable(Frequency, bIsDesktop, ParseState, Semantic, FieldDeref, DeclInstructions, PreCallInstructions);
+					
+					FSemanticQualifier InQualifier = Qualifier;
+					InQualifier.Fields.bCentroid = InputType->fields.structure[i].centroid;
+					InQualifier.Fields.InterpolationMode = InputType->fields.structure[i].interpolation;
+					InQualifier.Fields.bIsPatchConstant = InputType->fields.structure[i].patchconstant;
+					GenerateInputForVariable(Frequency, bIsDesktop, ParseState, Semantic, InQualifier, FieldDeref, DeclInstructions, PreCallInstructions);
 				}
 				else
 				{
@@ -610,6 +629,7 @@ namespace MetalUtils
 						bIsDesktop,
 						ParseState,
 						ralloc_asprintf(ParseState, "%s%d", Semantic, BaseIndex + i),
+						Qualifier,
 						ArrayDeref,
 						DeclInstructions,
 						PreCallInstructions);
@@ -617,6 +637,7 @@ namespace MetalUtils
 			}
 			else
 			{
+				FSemanticQualifier InQualifier = Qualifier;
 				ir_dereference_variable* DerefVariable = InputVariableDeref->as_dereference_variable();
 				ir_dereference_array* DerefArray = InputVariableDeref->as_dereference_array();
 				ir_constant* DerefIndex = DerefArray ? DerefArray->array_index->as_constant() : nullptr;
@@ -629,13 +650,29 @@ namespace MetalUtils
 				else if (DerefIndex && DerefStruct)
 				{
 					Name = ralloc_asprintf(ParseState, "%s%d", DerefStruct->field, DerefIndex->value.u[0]);
+					
+					int FieldIndex = DerefStruct->type->field_index(DerefStruct->field);
+					if (FieldIndex >= 0)
+					{
+						InQualifier.Fields.bCentroid = DerefStruct->type->fields.structure[FieldIndex].centroid;
+						InQualifier.Fields.InterpolationMode = DerefStruct->type->fields.structure[FieldIndex].interpolation;
+						InQualifier.Fields.bIsPatchConstant = DerefStruct->type->fields.structure[FieldIndex].patchconstant;
+					}
 				}
 				else if(DerefStruct)
 				{
 					Name = DerefStruct->field;
+					
+					int FieldIndex = DerefStruct->type->field_index(DerefStruct->field);
+					if (FieldIndex >= 0)
+					{
+						InQualifier.Fields.bCentroid = DerefStruct->type->fields.structure[FieldIndex].centroid;
+						InQualifier.Fields.InterpolationMode = DerefStruct->type->fields.structure[FieldIndex].interpolation;
+						InQualifier.Fields.bIsPatchConstant = DerefStruct->type->fields.structure[FieldIndex].patchconstant;
+					}
 				}
 				
-				ir_rvalue* SrcValue = GenerateInputFromSemantic(Frequency, bIsDesktop, ParseState, InputSemantic, InputType, Name, DeclInstructions, PreCallInstructions);
+				ir_rvalue* SrcValue = GenerateInputFromSemantic(Frequency, bIsDesktop, ParseState, InputSemantic, InQualifier, InputType, Name, DeclInstructions, PreCallInstructions);
 				if (SrcValue)
 				{
 					YYLTYPE loc;
@@ -647,16 +684,16 @@ namespace MetalUtils
 		}
 	}
 
-	ir_dereference_variable* GenerateInput(EHlslShaderFrequency Frequency, uint32 bIsDesktop, _mesa_glsl_parse_state* ParseState, const char* InputName, const char* InputSemantic, const glsl_type* InputType, exec_list* DeclInstructions, exec_list* PreCallInstructions)
+	ir_dereference_variable* GenerateInput(EHlslShaderFrequency Frequency, uint32 bIsDesktop, _mesa_glsl_parse_state* ParseState, const char* InputName, const char* InputSemantic, FSemanticQualifier Qualifier, const glsl_type* InputType, exec_list* DeclInstructions, exec_list* PreCallInstructions)
 	{
 		if((InputType->is_inputpatch()))
 		{
-			return GenerateInputFromSemantic(Frequency, (EMetalGPUSemantics)bIsDesktop, ParseState, InputSemantic, InputType, nullptr, DeclInstructions, PreCallInstructions)->as_dereference_variable();
+			return GenerateInputFromSemantic(Frequency, (EMetalGPUSemantics)bIsDesktop, ParseState, InputSemantic, Qualifier, InputType, nullptr, DeclInstructions, PreCallInstructions)->as_dereference_variable();
 		}
 		ir_variable* TempVariable = new(ParseState)ir_variable(InputType, InputName ? ralloc_strdup(ParseState, InputName) : nullptr, ir_var_temporary);
 		ir_dereference_variable* TempVariableDeref = new(ParseState)ir_dereference_variable(TempVariable);
 		PreCallInstructions->push_tail(TempVariable);
-		GenerateInputForVariable(Frequency, (EMetalGPUSemantics)bIsDesktop, ParseState, InputSemantic, TempVariableDeref, DeclInstructions, PreCallInstructions);
+		GenerateInputForVariable(Frequency, (EMetalGPUSemantics)bIsDesktop, ParseState, InputSemantic, Qualifier, TempVariableDeref, DeclInstructions, PreCallInstructions);
 		return TempVariableDeref;
 	}
 
@@ -697,42 +734,9 @@ namespace MetalUtils
 		// As it happens we already order them by importance (0: Global > 1: VR-instanced fallback > 2: vertex-shader-layer)
 		uint32 const ClipPrefixLen = 15;
 		FMetalLanguageSpec* Spec = (FMetalLanguageSpec*)ParseState->LanguageSpec;
-		if ((bIsDesktop == EMetalGPUSemanticsImmediateDesktop && Spec->Version < 3) && Semantic && FCStringAnsi::Strnicmp(Semantic, "SV_ClipDistance", ClipPrefixLen) == 0 && !Variable)
-		{
-			uint32 const Count = Spec->GetClipDistanceCount();
-			uint32 const Used = Spec->ClipDistancesUsed;
-			check(Count > 0);
-			
-			uint32 Index = 0;
-			if (Semantic[ClipPrefixLen] >= '1' && Semantic[ClipPrefixLen] <= '7')
-			{
-				Index = Semantic[ClipPrefixLen] - '0';
-			}
-			
-			bool bUsed = false;
-			for (uint32 i = 0; !bUsed && i < Index; i++)
-			{
-				bUsed = (Used & (1 << i)) != 0;
-			}
-			
-			if (!bUsed)
-			{
-				ir_variable* compacted_clip = ParseState->symbols->get_variable("clip_distance_array");
-				if (!compacted_clip)
-				{
-					compacted_clip = new(ParseState)ir_variable(glsl_type::float_type, "clip_distance_array", ir_var_out);
-					compacted_clip->semantic = ralloc_asprintf(ParseState, "[[ clip_distance ]]");
-					DeclInstructions->push_tail(compacted_clip);
-					ParseState->symbols->add_variable(compacted_clip);
-				}
-				*DestVariableType = glsl_type::float_type;
-				ir_rvalue* VariableDeref = new(ParseState)ir_dereference_variable(compacted_clip);
-				return VariableDeref;
-			}
-		}
 		
 		// But for iOS/tvOS and future, non-broken desktop we can just remap the variable to the actual clip-distance-array
-		if ((bIsDesktop != EMetalGPUSemanticsImmediateDesktop || Spec->Version >= 3) && Semantic && FCStringAnsi::Strnicmp(Semantic, "SV_ClipDistance", ClipPrefixLen) == 0 && !Variable)
+		if (Semantic && FCStringAnsi::Strnicmp(Semantic, "SV_ClipDistance", ClipPrefixLen) == 0 && !Variable)
 		{
 			Variable = ParseState->symbols->get_variable("clip_distance_array");
 			
@@ -1229,18 +1233,18 @@ void FMetalCodeBackend::MovePackedUniformsToMain(exec_list* ir, _mesa_glsl_parse
 			switch(TypedMode)
 			{
 				case EMetalTypeBufferModeRaw:
-                case EMetalTypeBufferModeFun:
 				{
 					bIsBuffer = (!Var->type->is_sampler() && !Var->type->is_image()) || Var->type->sampler_buffer;
 					break;
 				}
-				case EMetalTypeBufferModeSRV:
+				case EMetalTypeBufferMode2DSRV:
+				case EMetalTypeBufferModeTBSRV:
 				{
-					bIsBuffer = (!Var->type->is_sampler() && !Var->type->is_image()) || (Var->type->sampler_buffer && (Var->type->is_image() || bIsStructuredBuffer || bIsByteAddressBuffer || bIsInvariant || OutBuffers.AtomicVariables.find(Var) != OutBuffers.AtomicVariables.end())) || bIsVec3;
+					bIsBuffer = (!Var->type->is_sampler() && !Var->type->is_image()) || (Var->type->sampler_buffer && (Var->type->is_image() || OutBuffers.AtomicVariables.find(Var) != OutBuffers.AtomicVariables.end() || bIsStructuredBuffer || bIsInvariant || bIsByteAddressBuffer)) || bIsVec3;
 					break;
 				}
-				case EMetalTypeBufferModeUAV:
-				case EMetalTypeBufferModeTex:
+				case EMetalTypeBufferMode2D:
+				case EMetalTypeBufferModeTB:
 				{
 					bIsBuffer = (!Var->type->is_sampler() && !Var->type->is_image()) || (Var->type->sampler_buffer && (OutBuffers.AtomicVariables.find(Var) != OutBuffers.AtomicVariables.end() || bIsStructuredBuffer || bIsInvariant || bIsByteAddressBuffer)) || bIsVec3;
 					break;
@@ -1249,13 +1253,27 @@ void FMetalCodeBackend::MovePackedUniformsToMain(exec_list* ir, _mesa_glsl_parse
 					check(false);
 					break;
 			}
-			if (bIsBuffer)
+			if (Var->type->is_sampler() || Var->type->is_image() || Var->type->is_array() || Var->type->is_record() || Var->mode == ir_var_uniform)
 			{
-				OutBuffers.AddBuffer(Var);
+				if (bIsBuffer)
+				{
+                    bool bReallyIsStructuredBuffer = Var->type->sampler_buffer && Var->type->inner_type && Var->type->inner_type->is_record() && (!strncmp(Var->type->name, "RWStructuredBuffer<", 19) || !strncmp(Var->type->name, "StructuredBuffer<", 17));
+                    if (bReallyIsStructuredBuffer)
+					{
+						((glsl_type*)Var->type->inner_type)->HlslName = "__PACKED__";
+					}
+					
+					OutBuffers.AddBuffer(Var);
+				}
+				else
+				{
+					OutBuffers.AddTexture(Var);
+				}
 			}
 			else
 			{
-				OutBuffers.AddTexture(Var);
+				Var->remove();
+				MainSig->parameters.push_tail(Var);
 			}
 		}
 	}
@@ -1387,6 +1405,10 @@ static bool ProcessStageInVariables(_mesa_glsl_parse_state* ParseState, EMetalGP
 						OutMember.type = Variable->type->element_type();
 						OutMember.semantic = ralloc_asprintf(ParseState, "ATTRIBUTE%d", AttributeIndex);
 						OutMember.name = ralloc_asprintf(ParseState, "ATTRIBUTE%d_%s", AttributeIndex, Variable->name);
+						OutMember.centroid = Variable->centroid;
+						OutMember.interpolation = Variable->interpolation;
+						OutMember.geometryinput = Variable->geometryinput;
+						OutMember.patchconstant = Variable->is_patch_constant;
 
 						if (OutVertexAttributesMask)
 						{
@@ -1402,6 +1424,10 @@ static bool ProcessStageInVariables(_mesa_glsl_parse_state* ParseState, EMetalGP
 					OutMember.type = Variable->type;
 					OutMember.semantic = ralloc_asprintf(ParseState, "ATTRIBUTE%d", AttributeIndex);
 					OutMember.name = Variable->name;
+					OutMember.centroid = Variable->centroid;
+					OutMember.interpolation = Variable->interpolation;
+					OutMember.geometryinput = Variable->geometryinput;
+					OutMember.patchconstant = Variable->is_patch_constant;
 
 					if (OutVertexAttributesMask)
 					{
@@ -1442,6 +1468,10 @@ static bool ProcessStageInVariables(_mesa_glsl_parse_state* ParseState, EMetalGP
 	Member.type = Variable->type;
 	Member.name = ralloc_strdup(ParseState, Variable->name);
 	Member.semantic = ralloc_strdup(ParseState, Variable->semantic ? Variable->semantic : Variable->name);
+	Member.centroid = Variable->centroid;
+	Member.interpolation = Variable->interpolation;
+	Member.geometryinput = Variable->geometryinput;
+	Member.patchconstant = Variable->is_patch_constant;
 	OutStageInMembers.Add(Member);
 	OutStageInVariables.insert(Variable);
 
@@ -1514,6 +1544,7 @@ static ir_dereference_variable* GenerateShaderInput(
 	EHlslShaderFrequency Frequency, EMetalGPUSemantics bIsDesktop,
 	_mesa_glsl_parse_state* ParseState,
 	const char* InputSemantic,
+	FSemanticQualifier Qualifier,
 	const glsl_type* InputType,
 	exec_list* DeclInstructions,
 	exec_list* PreCallInstructions)
@@ -1526,7 +1557,7 @@ static ir_dereference_variable* GenerateShaderInput(
 	PreCallInstructions->push_tail(TempVariable);
 
 	check(!InputType->is_inputpatch() && !InputType->is_outputpatch());
-	ir_rvalue* SrcValue = MetalUtils::GenerateInputFromSemantic(Frequency, bIsDesktop, ParseState, InputSemantic, InputType, nullptr, DeclInstructions, PreCallInstructions);
+	ir_rvalue* SrcValue = MetalUtils::GenerateInputFromSemantic(Frequency, bIsDesktop, ParseState, InputSemantic, Qualifier, InputType, nullptr, DeclInstructions, PreCallInstructions);
 	if(SrcValue)
 	{
 		YYLTYPE loc ={0};
@@ -1803,7 +1834,250 @@ static ir_dereference_variable* GenerateShaderOutput(
 	return TempVariableDeref;
 }
 
-#define USE_DS_ATTRIBUTES 0 // @todo Unicorn: consider using this as it would be more elegant, but currently isn't complete.
+void FMetalCodeBackend::build_iab_fields(_mesa_glsl_parse_state* ParseState, char const* n, struct glsl_type const* t, TArray<struct glsl_struct_field>& Fields, unsigned& FieldIndex, unsigned& BufferIndex, bool top, FBuffers const& Buffers)
+{
+	switch(t->base_type)
+	{
+		case GLSL_TYPE_UINT:
+		case GLSL_TYPE_INT:
+		case GLSL_TYPE_HALF:
+		case GLSL_TYPE_FLOAT:
+		case GLSL_TYPE_BOOL:
+		case GLSL_TYPE_SAMPLER:
+		case GLSL_TYPE_IMAGE:
+		case GLSL_TYPE_SAMPLER_STATE:
+		case GLSL_TYPE_ARRAY:
+		{
+			// All ignored
+			break;
+		}
+		case GLSL_TYPE_STRUCT:
+		{
+			const char *name = n;
+			for (unsigned j = 0; j < t->length; j++)
+			{
+				switch (t->fields.structure[j].type->base_type)
+				{
+					case GLSL_TYPE_STRUCT:
+					{
+						const char *newname = ralloc_asprintf(ParseState, "%s_%s",
+															  n,
+															  t->fields.structure[j].name);
+						build_iab_fields(ParseState, newname, t->fields.structure[j].type, Fields, FieldIndex, BufferIndex, false, Buffers);
+						break;
+					}
+					case GLSL_TYPE_IMAGE:
+					case GLSL_TYPE_SAMPLER:
+					case GLSL_TYPE_SAMPLER_STATE:
+					{
+						const char *newname = ralloc_asprintf(ParseState, "%s_%s",
+															  name,
+															  t->fields.structure[j].name);
+						glsl_struct_field field(t->fields.structure[j].type, newname);
+						field.semantic = ralloc_asprintf(ParseState, "[[ id(%d) ]]", FieldIndex);
+						if (t->fields.structure[j].type->sampler_buffer)
+						{
+							FieldIndex += 2;
+							BufferIndex++;
+						}
+						else
+						{
+							FieldIndex++;
+						}
+						Fields.Add(field);
+						break;
+					}
+					default:
+					{
+						break;
+					}
+				}
+			}
+			if (top)
+			{
+				if (BufferIndex)
+				{
+					glsl_struct_field field(glsl_type::GetStructuredBufferInstance("StructuredBuffer", glsl_type::uint_type), ralloc_strdup(ParseState, "BufferSizes"));
+					field.semantic = ralloc_asprintf(ParseState, "[[ id(%d) ]]", FieldIndex++);
+					field.patchconstant = 1;
+					Fields.Add(field);
+				}
+				
+				name = ralloc_asprintf(ParseState, "CB_%s", n);
+				struct glsl_type const* c = ParseState->symbols->get_type(name);
+				if (c)
+				{
+					glsl_struct_field field(c, ralloc_strdup(ParseState, n));
+					field.semantic = ralloc_asprintf(ParseState, "[[ id(%d) ]]", FieldIndex++);
+					Fields.Add(field);
+				}
+			}
+			break;
+		}
+		case GLSL_TYPE_INPUTPATCH:
+		case GLSL_TYPE_OUTPUTPATCH:
+		{
+			// Unhandled because I don't think they should appear as globals...
+			check(false);
+			break;
+		}
+		case GLSL_TYPE_VOID:
+		case GLSL_TYPE_OUTPUTSTREAM:
+		case GLSL_TYPE_ERROR:
+		case GLSL_TYPE_MAX:
+		default:
+		{
+			// Invalid types
+			check(false);
+			break;
+		}
+	}
+}
+
+struct glsl_type const* FMetalCodeBackend::create_iab_type(_mesa_glsl_parse_state* ParseState, struct glsl_type const* UBType, char const* n, FBuffers const& Buffers)
+{
+	TArray<struct glsl_struct_field> IABFields;
+	unsigned FieldIndex = 0;
+	unsigned BufferIndex = 0;
+	build_iab_fields(ParseState, n, UBType, IABFields, FieldIndex, BufferIndex, true, Buffers);
+	glsl_struct_field *const fields = ralloc_array(ParseState, glsl_struct_field, IABFields.Num());
+	memcpy(fields, IABFields.GetData(), sizeof(glsl_struct_field) * IABFields.Num());
+	const glsl_type * Result = glsl_type::get_record_instance(fields,
+												IABFields.Num(),
+												ralloc_asprintf(ParseState, "IAB_%s", n));
+	ParseState->AddUserStruct(Result);
+	return Result;
+}
+
+void FMetalCodeBackend::InsertArgumentBuffers(exec_list* ir, _mesa_glsl_parse_state* state, FBuffers& Buffers)
+{
+	ir_function_signature* EntryPointSig = GetMainFunction(ir);
+	check(EntryPointSig);
+	
+	TMap<FString, ir_variable*> IABVars;
+	foreach_iter(exec_list_iterator, Iter, EntryPointSig->parameters)
+	{
+		ir_variable* Variable = (ir_variable*)Iter.get();
+		char const* Underscore = strchr(Variable->name, '_');
+		if (Underscore)
+		{
+			uintptr_t Diff = (Underscore - Variable->name);
+			char* Name = ralloc_strndup(state, Variable->name, Diff);
+			ir_variable* UB = state->symbols->get_variable(Name);
+			if (UB)
+			{
+				ir_variable* IABVariable = IABVars.FindRef(Name);
+				if (!IABVariable)
+				{
+					struct glsl_type const* UBType = UB->type;
+					struct glsl_type const* IABType = create_iab_type(state, UBType, Name, Buffers);
+					ir_variable* NewInputVariable = new(state)ir_variable(IABType, ralloc_asprintf(state, "IAB%s", Name), ir_var_uniform);
+					NewInputVariable->semantic = ralloc_asprintf(state, "%s", Name);
+					NewInputVariable->read_only = true;
+					state->symbols->add_variable(NewInputVariable);
+					
+					IABVariable = NewInputVariable;
+					IABVars.Add(Name, NewInputVariable);
+					
+					glsl_uniform_block* block = glsl_uniform_block::alloc(state, 1);
+					block->vars[0] = NewInputVariable;
+					block->name = ralloc_asprintf(state, NewInputVariable->name);
+					const glsl_uniform_block** blocks = reralloc(state, state->uniform_blocks,
+																 const glsl_uniform_block *,
+																 state->num_uniform_blocks + 1);
+					if (blocks != NULL)
+					{
+						blocks[state->num_uniform_blocks] = block;
+						state->uniform_blocks = blocks;
+						state->num_uniform_blocks++;
+					}
+
+				}
+				
+				ir_dereference_variable* DerefVariable = new (state)ir_dereference_variable(Variable);
+				ir_dereference_record* DerefRecord = new (state)ir_dereference_record(IABVariable, ralloc_strdup(state, Variable->name));
+				int Index = IABVariable->type->field_index(DerefRecord->field);
+				if (Variable->type->base_type == GLSL_TYPE_SAMPLER)
+				{
+					IABVariable->type->fields.structure[Index].type = Variable->type;
+				}
+				ir_assignment* Assign = new (state)ir_assignment(DerefVariable, DerefRecord);
+				
+				IABVariablesMap.Add(Variable, IABVariable);
+				TSet<uint8>& Mask = IABVariableMask.FindOrAdd(IABVariable);
+				Mask.Add(Index);
+				
+				Variable->mode = ir_var_temporary;
+				Iter.remove();
+
+				for (_mesa_glsl_parse_state::TUniformList::iterator It = state->GlobalPackedArraysMap[EArrayType_Sampler].begin(); It != state->GlobalPackedArraysMap[EArrayType_Sampler].end(); ++It)
+				{
+					glsl_packed_uniform& Sampler = *It;
+					if (!strcmp(Variable->name, Sampler.Name.c_str()))
+					{
+						state->GlobalPackedArraysMap[EArrayType_Sampler].erase(It);
+						break;
+					}
+				}
+				for (_mesa_glsl_parse_state::TUniformList::iterator It = state->GlobalPackedArraysMap[EArrayType_Image].begin(); It != state->GlobalPackedArraysMap[EArrayType_Image].end(); ++It)
+				{
+					glsl_packed_uniform& Sampler = *It;
+					if (!strcmp(Variable->name, Sampler.Name.c_str()))
+					{
+						state->GlobalPackedArraysMap[EArrayType_Image].erase(It);
+						break;
+					}
+				}
+				Buffers.Remove(Variable);
+				
+				state->symbols->add_variable(Variable);
+				EntryPointSig->body.push_head(Assign);
+				EntryPointSig->body.push_head(Variable);
+			}
+		}
+	}
+	
+	foreach_iter(exec_list_iterator, Iter, EntryPointSig->parameters)
+	{
+		ir_variable* Variable = (ir_variable*)Iter.get();
+		char* Name = ralloc_strdup(state, Variable->name);
+		
+		ir_variable* UB = state->symbols->get_variable(Name);
+		if (UB && !strncmp(Variable->type->name, "CB_", 3))
+		{
+			ir_variable* IABVariable = IABVars.FindRef(Name);
+			if (IABVariable)
+			{
+				ir_dereference_variable* DerefVariable = new (state)ir_dereference_variable(Variable);
+				ir_dereference_record* DerefRecord = new (state)ir_dereference_record(IABVariable, ralloc_strdup(state, Variable->name));
+				ir_assignment* Assign = new (state)ir_assignment(DerefVariable, DerefRecord);
+				
+				Variable->mode = ir_var_ref;
+				Iter.remove();
+				
+				Buffers.Replace(Variable, IABVariable);
+				IABVariablesMap.Add(Variable, IABVariable);
+				
+				int Index = IABVariable->type->field_index(DerefRecord->field);
+				TSet<uint8>& Mask = IABVariableMask.FindOrAdd(IABVariable);
+				Mask.Add(Index);
+
+				state->symbols->add_variable(Variable);
+				EntryPointSig->body.push_head(Assign);
+				EntryPointSig->body.push_head(Variable);
+			}
+		}
+	}
+	
+	for (auto const& Pair : IABVars)
+	{
+		EntryPointSig->parameters.push_tail(Pair.Value);
+		if (Buffers.GetIndex(Pair.Value) == -1)
+		{
+			Buffers.AddBuffer(Pair.Value);
+		}
+	}
+}
 
 void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, EHlslShaderFrequency Frequency, exec_list& InputVars)
 {
@@ -1842,11 +2116,8 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 	ir_variable* DSStageIn = nullptr;
 	TIRVarList DSInputArguments;
 
-#if USE_DS_ATTRIBUTES
-#else // USE_DS_ATTRIBUTES
 	TIRVarSet DSPatchVariables;
 	ir_variable* DSPatch = nullptr;
-#endif // USE_DS_ATTRIBUTES
 
 	ir_variable* internalPatchIDVar = nullptr;
 
@@ -1895,14 +2166,9 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 					break;
 
 				case ir_var_in:
-#if USE_VS_HS_ATTRIBUTES
 					{
 						// do nothing here MovePackedUniformsToMain will move all these input arguments to the function signature
 					}
-#else // USE_VS_HS_ATTRIBUTES
-					// there should be no input attributes
-					check(0);
-#endif // USE_VS_HS_ATTRIBUTES
 					break;
 				}
 			}
@@ -1954,6 +2220,12 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 						Member.type = Variable->type;
 						Member.name = ralloc_strdup(ParseState, Variable->name);
 						Member.semantic = ralloc_strdup(ParseState, Variable->semantic ? Variable->semantic : Variable->name);
+						
+						Member.centroid = Variable->centroid;
+						Member.interpolation = Variable->interpolation;
+						Member.geometryinput = Variable->geometryinput;
+						Member.patchconstant = Variable->is_patch_constant;
+						
 						VSOutMembers.Add(Member);
 						VSOutVariables.insert(Variable);
 					}
@@ -2080,6 +2352,10 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 						Member.type = Variable->type;
 						Member.name = ralloc_strdup(ParseState, Variable->name);
 						Member.semantic = ralloc_strdup(ParseState, Variable->semantic ? Variable->semantic : Variable->name);
+						Member.centroid = Variable->centroid;
+						Member.interpolation = Variable->interpolation;
+						Member.geometryinput = Variable->geometryinput;
+						Member.patchconstant = Variable->is_patch_constant;
 						PSOutMembers.Add(Member);
 						PSOutVariables.insert(Variable);
 					}
@@ -2181,10 +2457,7 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 	{
 		// Vertex Fetch to Vertex connector
 		TArray<glsl_struct_field> DSStageInMembers;
-#if USE_DS_ATTRIBUTES
-#else // USE_DS_ATTRIBUTES
 		TArray<glsl_struct_field> DSPatchMembers;
-#endif // USE_DS_ATTRIBUTES
 
 		// Vertex Output connector. Gather position semantic & other outputs into a struct
 		TArray<glsl_struct_field> DSOutMembers;
@@ -2203,25 +2476,30 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 						Member.type = Variable->type;
 						Member.name = ralloc_strdup(ParseState, Variable->name);
 						Member.semantic = ralloc_strdup(ParseState, Variable->semantic ? Variable->semantic : Variable->name);
+						Member.centroid = Variable->centroid;
+						Member.interpolation = Variable->interpolation;
+						Member.geometryinput = Variable->geometryinput;
+						Member.patchconstant = Variable->is_patch_constant;
 						DSOutMembers.Add(Member);
 						DSOutVariables.insert(Variable);
 					}
 					break;
 
 				case ir_var_in:
-#if USE_DS_ATTRIBUTES
-#else // USE_DS_ATTRIBUTES
 					if(Variable->type->is_patch())
 					{
 						glsl_struct_field Member;
 						Member.type = Variable->type;
 						Member.name = ralloc_strdup(ParseState, Variable->name);
 						Member.semantic = ralloc_strdup(ParseState, Variable->semantic ? Variable->semantic : Variable->name);
+						Member.centroid = Variable->centroid;
+						Member.interpolation = Variable->interpolation;
+						Member.geometryinput = Variable->geometryinput;
+						Member.patchconstant = Variable->is_patch_constant;
 						DSPatchMembers.Add(Member);
 						DSPatchVariables.insert(Variable);
 					}
 					else
-#endif // USE_DS_ATTRIBUTES
 					if (!ProcessStageInVariables(ParseState, bIsDesktop, Frequency, Variable, DSStageInMembers, DSStageInVariables, nullptr, DSInputArguments))
 					{
 						return;
@@ -2230,38 +2508,6 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 				}
 			}
 		}
-
-#if USE_DS_ATTRIBUTES
-#error add attribute(0..N) semantics...
-		if (DSStageInMembers.Num())
-		{
-			check(Frequency == HSF_DomainShader);
-
-			//@todo-rco: Make me nice...
-			for (auto& Member : DSStageInMembers)
-			{
-				InputVars.push_tail(new(ParseState)extern_var(new(ParseState)ir_variable(Member.type, ralloc_strdup(ParseState, Member.name), ir_var_in)));
-			}
-
-			DSStageInMembers.Sort(
-				[](glsl_struct_field const& A, glsl_struct_field const& B)
-				{
-					return GetAttributeIndex(A.semantic) < GetAttributeIndex(B.semantic);
-				});
-
-			auto* Type = glsl_type::get_record_instance(&DSStageInMembers[0], (unsigned int)DSStageInMembers.Num(), "FDSStageIn");
-			DSStageIn = new(ParseState)ir_variable(Type, "__DSStageIn", ir_var_in);
-			// Hack: This way we tell we need to convert types from half to float
-			((glsl_type*)Type)->HlslName = "__STAGE_IN__";
-			ParseState->symbols->add_variable(DSStageIn);
-
-			if (!ParseState->AddUserStruct(Type))
-			{
-				YYLTYPE loc = {0};
-				_mesa_glsl_error(&loc, ParseState, "struct '%s' previously defined", Type->name);
-			}
-		}
-#else // USE_DS_ATTRIBUTES
 
 		// track attribute#s
 		int onAttribute = 0;
@@ -2337,9 +2583,13 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 					exec_list PreMainDomainCallInstructions;
 
 					FSemanticQualifier Qualifier;
+					Qualifier.Fields.bCentroid = Variable->centroid;
+					Qualifier.Fields.InterpolationMode = Variable->interpolation;
+					Qualifier.Fields.bIsPatchConstant = Variable->is_patch_constant;
+					Qualifier.Fields.bIsTessellationVSHS = false;
 
 					// @todo there has to be a better way to handle this vs looping over GenerateInput...
-					auto deref = MetalUtils::GenerateInput(Frequency, bIsDesktop, ParseState, Variable->name, Variable->semantic, Variable->type->inner_type, &MainDomainDeclInstructions, &PreMainDomainCallInstructions);
+					auto deref = MetalUtils::GenerateInput(Frequency, bIsDesktop, ParseState, Variable->name, Variable->semantic, Qualifier, Variable->type->inner_type, &MainDomainDeclInstructions, &PreMainDomainCallInstructions);
 
 					// make a flat perControlPoint struct
 					ir_dereference_variable* OutputControlPointDeref = NULL;
@@ -2364,6 +2614,10 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 										InnerVariable->name = ralloc_asprintf(ParseState, "OUT_ATTRIBUTE%d_%s", InnerAttribute, InnerVariable->name);
 										Member.name = ralloc_strdup(ParseState, InnerVariable->name);
 										Member.semantic = ralloc_asprintf(ParseState, "[[ attribute(%d) ]]", InnerAttribute);
+										Member.centroid = InnerVariable->centroid;
+										Member.interpolation = InnerVariable->interpolation;
+										Member.geometryinput = InnerVariable->geometryinput;
+										Member.patchconstant = InnerVariable->is_patch_constant;
 
 										if (OutputVertex == 0)
 										{
@@ -2442,7 +2696,6 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 				}
 			}
 		}
-#endif // USE_DS_ATTRIBUTES
 
 		if (DSOutMembers.Num())
 		{
@@ -2510,49 +2763,9 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 				}
 				else if(bIsTessellationVSHS)
 				{
-#if USE_VS_HS_ATTRIBUTES
 					// see above...
 					// do nothing here MovePackedUniformsToMain will move all these output arguments to the function signature
-#else // USE_VS_HS_ATTRIBUTES
-					// there should be no input attributes
-					check(0);
-#endif // USE_VS_HS_ATTRIBUTES
 				}
-#if USE_DS_ATTRIBUTES
-				else if (DSStageInVariables.find(Variable) != DSStageInVariables.end())
-				{
-					//if(Variable->type->is_outputpatch()) // not exactly what I want...
-					//{
-					//	break; // skip for the outputpatch
-					//}
-					ir_dereference* DeRefMember = new(ParseState)ir_dereference_record(DSStageIn, Variable->name);
-					if(DeRefMember->type->is_outputpatch())
-					{
-						const unsigned ElementCount = DeRefMember->type->patch_length;
-						check(Variable->type->is_outputpatch());
-						check(ElementCount == Variable->type->patch_length);
-						for (unsigned i = 0; i < ElementCount; ++i)
-						{
-							ir_dereference_array* ArrayVariable = new(ParseState)ir_dereference_array(
-								new(ParseState) ir_dereference_variable(Variable),
-								new(ParseState) ir_constant((unsigned)i)
-								);
-							ir_dereference_array* ArrayDerefMember = new(ParseState)ir_dereference_array(
-								DeRefMember->clone(ParseState, NULL),
-								new(ParseState) ir_constant((unsigned)i)
-								);
-							auto* Assign = new(ParseState)ir_assignment(ArrayVariable, ArrayDerefMember);
-							PreCallInstructions.push_tail(Assign);
-						}
-					}
-					else
-					{
-						auto* Assign = new(ParseState)ir_assignment(new(ParseState)ir_dereference_variable(Variable), DeRefMember);
-						PreCallInstructions.push_tail(Assign);
-					}
-					VarsToMoveToBody.push_back(Variable);
-				}
-#else // USE_DS_ATTRIBUTES
 				else if (DSStageInVariables.find(Variable) != DSStageInVariables.end())
 				{
 					// TOOD could merge the code above down here...
@@ -2561,15 +2774,16 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 				{
 					// TOOD could merge the code above down here...
 				}
-#endif // USE_DS_ATTRIBUTES
 				else
 				{
+					FSemanticQualifier Qualifier;
 					// At this point this should be a built-in system value
 					check(Variable->semantic);
 					ArgVarDeref = GenerateShaderInput(
 						Frequency, bIsDesktop,
 						ParseState,
 						Variable->semantic,
+						Qualifier,
 						Variable->type,
 						&DeclInstructions,
 						&PreCallInstructions
@@ -2913,6 +3127,60 @@ void FMetalCodeBackend::ConvertHalfToFloatUniformsAndSamples(exec_list* ir, _mes
 	}
 }
 
+struct FMetalInsertSamplerStates final : public ir_rvalue_visitor
+{
+	_mesa_glsl_parse_state* State;
+	TMap<FString, ir_variable*> SamplerStates;
+	
+	FMetalInsertSamplerStates(_mesa_glsl_parse_state* InState) : State(InState)
+	{}
+	virtual ~FMetalInsertSamplerStates() { }
+	
+	virtual ir_visitor_status visit_leave(ir_texture * tex_op)
+	{
+		switch (tex_op->op)
+		{
+			case ir_tex:
+			case ir_txl:
+			case ir_txb:
+			case ir_txd:
+			case ir_txg:
+				if (tex_op->SamplerStateName && strlen(tex_op->SamplerStateName) > 0 && !tex_op->SamplerState)
+				{
+					ir_variable* Sampler = SamplerStates.FindRef(tex_op->SamplerStateName);
+					if (!Sampler)
+					{
+						Sampler = new (State)ir_variable(glsl_type::sampler_state_type, ralloc_strdup(State, tex_op->SamplerStateName), ir_var_uniform);
+						SamplerStates.Add(tex_op->SamplerStateName, Sampler);
+					}
+					ir_dereference_variable* Deref = new (State)ir_dereference_variable(Sampler);
+					tex_op->SamplerState = Deref;
+				}
+				break;
+			default:
+				break;
+		}
+		return ir_rvalue_visitor::visit_leave(tex_op);
+	}
+	
+	virtual void handle_rvalue(ir_rvalue** RValuePtr) override
+	{
+	}
+};
+
+void FMetalCodeBackend::InsertSamplerStates(exec_list* ir, _mesa_glsl_parse_state* State)
+{
+	FMetalInsertSamplerStates Visitor(State);
+	Visitor.run(ir);
+	
+	ir_function_signature* MainSig = GetMainFunction(ir);
+	check(MainSig);
+	for (auto const& Pair : Visitor.SamplerStates)
+	{
+		MainSig->parameters.push_tail(Pair.Value);
+	}
+}
+
 struct FMetalBreakPrecisionChangesVisitor final : public ir_rvalue_visitor
 {
 	_mesa_glsl_parse_state* State;
@@ -3039,6 +3307,20 @@ struct FDeReferencePackedVarsVisitor final : public ir_rvalue_visitor
 	virtual ~FDeReferencePackedVarsVisitor()
 	{
 	}
+	
+	virtual ir_visitor_status visit_leave(ir_assignment * ir) override
+	{
+		auto* DerefRecord = ir->lhs->as_dereference_record();
+		if (DerefRecord)
+		{
+            auto* StructVar = ir->lhs->variable_referenced();
+            if (StructVar->type->base_type == GLSL_TYPE_IMAGE && StructVar->type->inner_type->is_record() && StructVar->type->inner_type->HlslName && !strcmp(StructVar->type->inner_type->HlslName, "__PACKED__"))
+            {
+                handle_rvalue((ir_rvalue**)&ir->lhs);
+            }
+		}
+		return ir_rvalue_visitor::visit_leave(ir);
+	}
 
 	virtual ir_visitor_status visit_enter(ir_expression* ir) override
 	{
@@ -3059,6 +3341,16 @@ struct FDeReferencePackedVarsVisitor final : public ir_rvalue_visitor
 		}
 
 		--ExpressionDepth;
+		return ir_rvalue_visitor::visit_leave(ir);
+	}
+	
+	virtual ir_visitor_status visit_leave(ir_dereference_record * ir) override
+	{
+        auto* StructVar = ir->variable_referenced();
+        if (StructVar->type->base_type == GLSL_TYPE_IMAGE && StructVar->type->inner_type->is_record() && StructVar->type->inner_type->HlslName && !strcmp(StructVar->type->inner_type->HlslName, "__PACKED__"))
+        {
+            handle_rvalue((ir_rvalue**)&ir);
+        }
 		return ir_rvalue_visitor::visit_leave(ir);
 	}
 
@@ -3084,17 +3376,25 @@ struct FDeReferencePackedVarsVisitor final : public ir_rvalue_visitor
 				}
 			}
 		}
-		else if (DeRefRecord && ExpressionDepth > 0)
+		else if (DeRefRecord)
 		{
 			auto* StructVar = DeRefRecord->variable_referenced();
-			if (StructVar->type->HlslName && !strcmp(StructVar->type->HlslName, "__PACKED__"))
+			if (ExpressionDepth > 0 && StructVar->type->HlslName && !strcmp(StructVar->type->HlslName, "__PACKED__"))
 			{
 				if (DeRefRecord->type->vector_elements > 1 && DeRefRecord->type->vector_elements < 4)
 				{
 					auto* Var = GetVar(DeRefRecord);
 					*RValuePtr = new(State)ir_dereference_variable(Var);
 				}
-			}
+            }
+            else if (StructVar->type->base_type == GLSL_TYPE_IMAGE && StructVar->type->inner_type->is_record() && StructVar->type->inner_type->HlslName && !strcmp(StructVar->type->inner_type->HlslName, "__PACKED__"))
+            {
+                if (DeRefRecord->type->vector_elements > 1 && DeRefRecord->type->vector_elements < 4)
+                {
+                    auto* Var = GetVar(DeRefRecord);
+                    *RValuePtr = new(State)ir_dereference_variable(Var);
+                }
+            }
 		}
 	}
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D12Util.h: D3D RHI utility definitions.
@@ -42,10 +42,7 @@ namespace D3D12RHI
 	 * @param	Line - The line number of Code within Filename.
 	 */
 	extern void VerifyD3D12Result(HRESULT Result, const ANSICHAR* Code, const ANSICHAR* Filename, uint32 Line, ID3D12Device* Device);
-}
 
-namespace D3D12RHI
-{
 	/**
 	* Checks that the given result isn't a failure.  If it is, the application exits with an appropriate error message.
 	* @param	Result - The result code to check
@@ -53,15 +50,14 @@ namespace D3D12RHI
 	* @param	Filename - The filename of the source file containing Code.
 	* @param	Line - The line number of Code within Filename.
 	*/
-	extern void VerifyD3D12CreateTextureResult(HRESULT D3DResult, const ANSICHAR* Code, const ANSICHAR* Filename, uint32 Line,
-		uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint8 D3DFormat, uint32 NumMips, uint32 Flags);
+	extern void VerifyD3D12CreateTextureResult(HRESULT D3DResult, const ANSICHAR* Code, const ANSICHAR* Filename, uint32 Line, const D3D12_RESOURCE_DESC& TextureDesc);
 
 	/**
 	 * A macro for using VERIFYD3D12RESULT that automatically passes in the code and filename/line.
 	 */
-#define VERIFYD3D12RESULT_EX(x, Device)	{HRESULT hr = x; if (FAILED(hr)) { VerifyD3D12Result(hr,#x,__FILE__,__LINE__, Device); }}
-#define VERIFYD3D12RESULT(x)			{HRESULT hr = x; if (FAILED(hr)) { VerifyD3D12Result(hr,#x,__FILE__,__LINE__, 0); }}
-#define VERIFYD3D12CREATETEXTURERESULT(x,SizeX,SizeY,SizeZ,Format,NumMips,Flags) {HRESULT hr = x; if (FAILED(hr)) { VerifyD3D12CreateTextureResult(hr,#x,__FILE__,__LINE__,SizeX,SizeY,SizeZ,Format,NumMips,Flags); }}
+#define VERIFYD3D12RESULT_EX(x, Device)	{HRESULT hres = x; if (FAILED(hres)) { VerifyD3D12Result(hres, #x, __FILE__, __LINE__, Device); }}
+#define VERIFYD3D12RESULT(x)			{HRESULT hres = x; if (FAILED(hres)) { VerifyD3D12Result(hres, #x, __FILE__, __LINE__, nullptr); }}
+#define VERIFYD3D12CREATETEXTURERESULT(x, Desc) {HRESULT hres = x; if (FAILED(hres)) { VerifyD3D12CreateTextureResult(hres, #x, __FILE__, __LINE__, Desc); }}
 
 	/**
 	 * Checks that a COM object has the expected number of references.
@@ -91,6 +87,13 @@ enum EShaderVisibility
 	SV_ShaderVisibilityCount
 };
 
+enum ERTRootSignatureType
+{
+	RS_Raster,
+	RS_RayTracingGlobal,
+	RS_RayTracingLocal,
+};
+
 struct FShaderRegisterCounts
 {
 	uint8 SamplerCount;
@@ -102,6 +105,7 @@ struct FShaderRegisterCounts
 struct FD3D12QuantizedBoundShaderState
 {
 	FShaderRegisterCounts RegisterCounts[SV_ShaderVisibilityCount];
+	ERTRootSignatureType RootSignatureType = RS_Raster;
 	bool bAllowIAInputLayout;
 
 	inline bool operator==(const FD3D12QuantizedBoundShaderState& RHS) const
@@ -122,14 +126,22 @@ class FD3D12BoundShaderState;
 extern void QuantizeBoundShaderState(
 	const D3D12_RESOURCE_BINDING_TIER& ResourceBindingTier,
 	const FD3D12BoundShaderState* const BSS,
-	FD3D12QuantizedBoundShaderState &QBSS
-	);
+	FD3D12QuantizedBoundShaderState &OutQBSS);
 
 class FD3D12ComputeShader;
 extern void QuantizeBoundShaderState(
 	const D3D12_RESOURCE_BINDING_TIER& ResourceBindingTier,
 	const FD3D12ComputeShader* const ComputeShader,
-	FD3D12QuantizedBoundShaderState &QBSS);
+	FD3D12QuantizedBoundShaderState &OutQBSS);
+
+#if D3D12_RHI_RAYTRACING
+class FD3D12RayTracingShader;
+extern void QuantizeBoundShaderState(
+	EShaderFrequency ShaderFrequency,
+	const D3D12_RESOURCE_BINDING_TIER& ResourceBindingTier,
+	const FD3D12RayTracingShader* const Shader,
+	FD3D12QuantizedBoundShaderState &OutQBSS);
+#endif
 
 /**
 * Convert from ECubeFace to D3DCUBEMAP_FACES type
@@ -817,10 +829,8 @@ inline DXGI_FORMAT FindShaderResourceDXGIFormat(DXGI_FORMAT InFormat, bool bSRGB
 	case DXGI_FORMAT_R24G8_TYPELESS: return DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
 	case DXGI_FORMAT_R32_TYPELESS: return DXGI_FORMAT_R32_FLOAT;
 	case DXGI_FORMAT_R16_TYPELESS: return DXGI_FORMAT_R16_UNORM;
-#if DEPTH_32_BIT_CONVERSION
 		// Changing Depth Buffers to 32 bit on Dingo as D24S8 is actually implemented as a 32 bit buffer in the hardware
 	case DXGI_FORMAT_R32G8X24_TYPELESS: return DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
-#endif
 	}
 	return InFormat;
 }
@@ -843,11 +853,9 @@ inline DXGI_FORMAT FindDepthStencilDXGIFormat(DXGI_FORMAT InFormat)
 	{
 	case DXGI_FORMAT_R24G8_TYPELESS:
 		return DXGI_FORMAT_D24_UNORM_S8_UINT;
-#if DEPTH_32_BIT_CONVERSION
 		// Changing Depth Buffers to 32 bit on Dingo as D24S8 is actually implemented as a 32 bit buffer in the hardware
 	case DXGI_FORMAT_R32G8X24_TYPELESS:
 		return DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
-#endif
 	case DXGI_FORMAT_R32_TYPELESS:
 		return DXGI_FORMAT_D32_FLOAT;
 	case DXGI_FORMAT_R16_TYPELESS:
@@ -865,10 +873,8 @@ inline bool HasStencilBits(DXGI_FORMAT InFormat)
 	switch (InFormat)
 	{
 	case DXGI_FORMAT_D24_UNORM_S8_UINT:
-#if  DEPTH_32_BIT_CONVERSION
 		// Changing Depth Buffers to 32 bit on Dingo as D24S8 is actually implemented as a 32 bit buffer in the hardware
 	case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
-#endif
 		return true;
 	};
 
@@ -1024,12 +1030,10 @@ inline DXGI_FORMAT FindDepthStencilParentDXGIFormat(DXGI_FORMAT InFormat)
 	case DXGI_FORMAT_D24_UNORM_S8_UINT:
 	case DXGI_FORMAT_X24_TYPELESS_G8_UINT:
 		return DXGI_FORMAT_R24G8_TYPELESS;
-#if DEPTH_32_BIT_CONVERSION
 		// Changing Depth Buffers to 32 bit on Dingo as D24S8 is actually implemented as a 32 bit buffer in the hardware
 	case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
 	case DXGI_FORMAT_X32_TYPELESS_G8X24_UINT:
 		return DXGI_FORMAT_R32G8X24_TYPELESS;
-#endif
 	case DXGI_FORMAT_D32_FLOAT:
 		return DXGI_FORMAT_R32_TYPELESS;
 	case DXGI_FORMAT_D16_UNORM:

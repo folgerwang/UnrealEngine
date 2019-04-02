@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -155,7 +155,7 @@ private:
 	/**
 	 * Should use the initialization constructor instead
 	 */
-	FOnlineFriendsFacebookCommon();
+	FOnlineFriendsFacebookCommon() = delete;
 
 	/**
 	 * Delegate called when a user /me request from Facebook is complete

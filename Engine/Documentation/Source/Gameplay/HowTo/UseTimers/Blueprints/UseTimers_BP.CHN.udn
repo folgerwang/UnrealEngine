@@ -1,14 +1,17 @@
-﻿INTSourceChangelist:2713187
+﻿INTSourceChangelist:3429254
 Availability: Public
 Title:在蓝图中使用计时器（Timer）
 Crumbs: %ROOT%, Gameplay, Gameplay\HowTo\UseTimers
 Description:关于如何在蓝图中使用计时器的操作指南。 
 version: 4.9
+type:how-to
+skilllevel:Intermediate
 
 [TOC (start:2 end:2)]
 
 本页介绍了如何在蓝图中使用 **Timers** 实现游戏目的，以及与 Timer 相关的节点。 
  
+(#CreatingandClearingTimers)
 ## 创建和清除计时器
 
 以下步骤将向您介绍如何在蓝图中创建/设置计时器。 
@@ -88,10 +91,12 @@ _在本示例中，我们将使用 **Blueprint Third Person Template** 并对玩
 这个示例介绍了如何用计时器实现随时间累计伤害效果；但您也可以使用计时器呈现其他应用，例如，可以让玩家持续X秒钟所向无敌或拥有某种能力的强化道具。 
 
 
+(#AdditionalTimerRelatedNodes)
 ## 其他计时器相关节点
 
 **Set Timer** 和 **Clear Timer** 节点可用于开始/停止计时器，而下面的节点也可能满足您的其他需要。 
 
+(#GetTimerElapsedandGetTimerRemaining)
 ### Get Timer Elapsed 和 Get Timer Remaining
 
 ![](GHT6B_10.png)
@@ -99,6 +104,7 @@ _在本示例中，我们将使用 **Blueprint Third Person Template** 并对玩
 **Get Timer Elapsed** 和 **Get Timer Remaining** 节点分别用于获取指定计时器（由 FunctionName 指定）从开始后经过的时间，以及指定计时器的剩余时间。
 它将返回浮点值，而且可用于几种不同目的，例如，随时间改变某种效果或在效果即将失效时提供一条消息。 
 
+(#PauseTimerandUnPauseTimer)
 ### Pause Timer 和 Un Pause Timer
 
 ![](GHT6B_11.png)
@@ -106,12 +112,14 @@ _在本示例中，我们将使用 **Blueprint Third Person Template** 并对玩
 顾名思义，**Pause Timer** 能将计时器暂停在当前时间，而 **Clear Timer** 能使其完全停止并重置。**Un Pause Timer** 节点可用于恢复暂停的计时器并从它之前停止的地方开始。
 这种设定有很多实际用途，例如，当玩家被施加了一个基于计时器的效果，然后又进入了菜单或物品栏界面，而您希望暂停该效果并在他们返回游戏时将其恢复。 
 
+(#TimerExists,IsTimerActiveandIsTimerPaused)
 ### Timer Exists、Is Timer Active 和 Is Timer Paused
 
 ![](GHT6B_12.png)
 
 **Timer Exists**、**Is Timer Active** 和 **Is Timer Paused** 节点全都会返回 **True** 或 **False** 值，分别用于确定计时器是否存在、计时器当前是否激活，以及计时器当前是否暂停。 
 
+(#SetTimerbyEvent)
 ### Set Timer Delegate
 
 ![](GHT6B_13.png)

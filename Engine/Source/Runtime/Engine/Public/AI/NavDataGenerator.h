@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once 
 
@@ -48,7 +48,7 @@ public:
 	virtual void ExportNavigationData(const FString& FileName) const {}
 	virtual void GrabDebugSnapshot(struct FVisualLogEntry* Snapshot, const FBox& BoundingBox, const FName& CategoryName, ELogVerbosity::Type Verbosity) const {}
 
-	DEPRECATED(4.19, "This version of GrabDebugSnapshot has been deprecated. Please use the other version of the function.")
+	UE_DEPRECATED(4.19, "This version of GrabDebugSnapshot has been deprecated. Please use the other version of the function.")
 	virtual void GrabDebugSnapshot(struct FVisualLogEntry* Snapshot, const FBox& BoundingBox, const struct FLogCategoryBase& Category, ELogVerbosity::Type Verbosity) const {}
 #endif
 

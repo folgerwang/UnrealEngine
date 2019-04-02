@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Transport/UdpMessageTransport.h"
 #include "UdpMessagingPrivate.h"
@@ -86,9 +86,10 @@ bool FUdpMessageTransport::StartTransport(IMessageTransportHandler& Handler)
 #endif
 		.BoundToPort(MulticastEndpoint.Port)
 #if PLATFORM_SUPPORTS_UDP_MULTICAST_GROUP
-		.JoinedToGroup(MulticastEndpoint.Address)
+		.JoinedToGroup(MulticastEndpoint.Address, UnicastEndpoint.Address)
 		.WithMulticastLoopback()
 		.WithMulticastTtl(MulticastTtl)
+		.WithMulticastInterface(UnicastEndpoint.Address)
 #endif
 		.WithReceiveBufferSize(UDP_MESSAGING_RECEIVE_BUFFER_SIZE);
 

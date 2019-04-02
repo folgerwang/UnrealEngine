@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -140,13 +140,3 @@ protected:
 
 typedef TInlineValue<FMovieSceneTrackRowSegmentBlender, 16> FMovieSceneTrackRowSegmentBlenderPtr;
 typedef TInlineValue<FMovieSceneTrackSegmentBlender, 16> FMovieSceneTrackSegmentBlenderPtr;
-
-
-/** Deprecated type support */
-struct FMovieSceneSegmentCompilerRules : FMovieSceneTrackSegmentBlender
-{
-	virtual void Blend(FSegmentBlendData& BlendData) const override;
-
-protected:
-	virtual void BlendSegment(FMovieSceneSegment& Segment, const TArrayView<const FMovieSceneSectionData>& SourceData) const = 0;
-};

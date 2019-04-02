@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ImageWriteBlueprintLibrary.h"
 #include "Engine/Texture.h"
@@ -54,10 +54,9 @@ bool UImageWriteBlueprintLibrary::ResolvePixelData(UTexture* InTexture, const FO
 		break;
 	}
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		ResolvePixelData,
-		FTextureResource*, TextureResource, InTexture->Resource,
-		FOnPixelsReady, OnPixelsReady, OnPixelsReady,
+	FTextureResource* TextureResource = InTexture->Resource;
+	ENQUEUE_RENDER_COMMAND(ResolvePixelData)(
+		[TextureResource, OnPixelsReady](FRHICommandListImmediate& RHICmdList)
 		{
 			FTexture2DRHIRef Texture2D = TextureResource->TextureRHI ? TextureResource->TextureRHI->GetTexture2D() : nullptr;
 			if (!Texture2D)

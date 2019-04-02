@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3801260
+﻿INTSourceChangelist:4308942
 Availability: Public
 Crumbs: %ROOT%
 Title: 使用查找表（LUT）进行颜色校正
@@ -10,6 +10,8 @@ Parent:Engine/Rendering/PostProcessEffects
 Related:Engine/Rendering/PostProcessEffects/ColorGrading
 Order:1000
 Tags:Post Process
+Topic-image:ColorGrading_Topic.png
+Social-image:ColorGrading_Overview.png
 
 
 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2745726
+﻿INTSourceChangelist:4279407
 Availability:NoPublish
 Title:
 Crumbs:
@@ -17,11 +17,11 @@ Description:
 [VAR:OSSelect]
 [REGION:section]
 	[REGION:titlesection]
-	Choose Your Operating System
+	选择操作系统
 	[/REGION]
 	[OBJECT:ToggleButton]
 		[PARAMLITERAL:category]
-		OS
+		操作系统
 		[/PARAMLITERAL]
 		[PARAMLITERAL:id]
 		windows
@@ -35,7 +35,7 @@ Description:
 	[/OBJECT]
 	[OBJECT:ToggleButton]
 		[PARAMLITERAL:category]
-		OS
+		操作系统
 		[/PARAMLITERAL]
 		[PARAMLITERAL:id]
 		mac
@@ -52,11 +52,11 @@ Description:
 [VAR:OSSelect_Linux]
 [REGION:section]
 	[REGION:titlesection]
-	Choose Your Operating System
+	选择操作系统
 	[/REGION]
 	[OBJECT:ToggleButton]
 		[PARAMLITERAL:category]
-		OS
+		操作系统
 		[/PARAMLITERAL]
 		[PARAMLITERAL:id]
 		windows
@@ -70,7 +70,7 @@ Description:
 	[/OBJECT]
 	[OBJECT:ToggleButton]
 		[PARAMLITERAL:category]
-		OS
+		操作系统
 		[/PARAMLITERAL]
 		[PARAMLITERAL:id]
 		mac
@@ -83,7 +83,7 @@ Description:
 	[/OBJECT]
 	[OBJECT:ToggleButton]
 		[PARAMLITERAL:category]
-		OS
+		操作系统
 		[/PARAMLITERAL]
 		[PARAMLITERAL:id]
 		linux
@@ -101,7 +101,7 @@ Description:
 [VAR:DCCSelect]
 [REGION:section]
 	[REGION:titlesection]
-	Choose Your 3D Art Tool
+	选择3D美术工具
 	[/REGION]
 	[OBJECT:ToggleButton]
 		[PARAMLITERAL:category]
@@ -137,7 +137,7 @@ Description:
 [VAR:BinarySourceSelectVar]
 [REGION:section]
 	[REGION:titlesection]
-	Choose your installation method:
+	选择安装方法：
 	[/REGION]
 	[OBJECT:ToggleButton]
 		[PARAMLITERAL:category]
@@ -163,7 +163,7 @@ Description:
 		[PARAMLITERAL:active]
 		[/PARAMLITERAL]
 		[PARAM:label]
-		Compiling from Source
+		从源进行编译
 		[/PARAM]
 	[/OBJECT]
 [/REGION]
@@ -173,7 +173,7 @@ Description:
 [VAR:BlueprintOrCPPSelectVar]
 [REGION:section]
 	[REGION:titlesection]
-	Choose your implementation method:
+	选择实现方法：
 	[/REGION]
 	[OBJECT:ToggleButton]
 		[PARAMLITERAL:category]
@@ -208,7 +208,7 @@ Description:
 [VAR:BlueprintOrPythonSelectVar]
 [REGION:section]
 	[REGION:titlesection]
-	Choose your implementation method:
+	选择实现方法：
 	[/REGION]
 	[OBJECT:ToggleButton]
 		[PARAMLITERAL:category]
@@ -243,11 +243,11 @@ Description:
 [VAR:MobileSelect]
 [REGION:section]
 	[REGION:titlesection]
-	Choose Your mobile platform
+	选择移动平台
 	[/REGION]
 	[OBJECT:ToggleButton]
 		[PARAMLITERAL:category]
-		Platform
+		平台
 		[/PARAMLITERAL]
 		[PARAMLITERAL:id]
 		android
@@ -261,7 +261,7 @@ Description:
 	[/OBJECT]
 	[OBJECT:ToggleButton]
 		[PARAMLITERAL:category]
-		Platform
+		平台
 		[/PARAMLITERAL]
 		[PARAMLITERAL:id]
 		ios
@@ -278,7 +278,7 @@ Description:
 [VAR:VRSelect]
 [REGION:section]
 	[REGION:titlesection]
-	Choose Your VR platform
+	选择VR平台
 	[/REGION]
 	[OBJECT:ToggleButton]
 		[PARAMLITERAL:category]
@@ -317,7 +317,7 @@ Description:
 		[PARAMLITERAL:active]
 		[/PARAMLITERAL]
 		[PARAM:label]
-		Samsung Gear VR
+		三星Gear VR
 		[/PARAM]
 	[/OBJECT]
 	[OBJECT:ToggleButton]
@@ -339,11 +339,11 @@ Description:
 [VAR:MethodSelect]
 [REGION:section]
 	[REGION:titlesection]
-	Choose Implementation Method
+	选择实现方法
 	[/REGION]
 	[OBJECT:ToggleButton]
 		[PARAMLITERAL:category]
-		Method
+		方法
 		[/PARAMLITERAL]
 		[PARAMLITERAL:id]
 		method01
@@ -352,12 +352,12 @@ Description:
 		active_button
 		[/PARAMLITERAL]
 		[PARAM:label]
-		Method 1
+		方法1
 		[/PARAM]
 	[/OBJECT]
 	[OBJECT:ToggleButton]
 		[PARAMLITERAL:category]
-		Method
+		方法
 		[/PARAMLITERAL]
 		[PARAMLITERAL:id]
 		method02
@@ -365,7 +365,7 @@ Description:
 		[PARAMLITERAL:active]
 		[/PARAMLITERAL]
 		[PARAM:label]
-		Method 2
+		方法2
 		[/PARAM]
 	[/OBJECT]
 [/REGION]
@@ -373,6 +373,6 @@ Description:
 
 [EXCERPT:bpModesRemoved]
 [REGION:note]
-The Blueprint Editor Modes were removed in 4.7. Please see [%Engine/Blueprints/Editor:title%](Engine/Blueprints/Editor "%Engine/Blueprints/Editor:description%") for information about the **Blueprint Editor Interface**.
+蓝图编辑器模式已在4.7版本中移除。请参阅[%Engine/Blueprints/Editor:title%](Engine/Blueprints/Editor "%Engine/Blueprints/Editor:description%")，了解 **蓝图编辑器接口** 的信息。
 [/REGION]
 [/EXCERPT:bpModesRemoved]

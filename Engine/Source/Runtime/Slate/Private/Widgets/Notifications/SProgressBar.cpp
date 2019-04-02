@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Widgets/Notifications/SProgressBar.h"
 #include "Rendering/DrawElements.h"
@@ -174,8 +174,22 @@ int32 SProgressBar::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGe
 	
 	if( ProgressFraction.IsSet() )
 	{
+		EProgressBarFillType::Type ComputedBarFillType = BarFillType;
+		if (GSlateFlowDirection == EFlowDirection::RightToLeft)
+		{
+			switch (ComputedBarFillType)
+			{
+			case EProgressBarFillType::LeftToRight:
+				ComputedBarFillType = EProgressBarFillType::RightToLeft;
+				break;
+			case EProgressBarFillType::RightToLeft:
+				ComputedBarFillType = EProgressBarFillType::LeftToRight;
+				break;
+			}
+		}
+
 		const float ClampedFraction = FMath::Clamp(ProgressFraction.GetValue(), 0.0f, 1.0f);
-		switch (BarFillType)
+		switch (ComputedBarFillType)
 		{
 			case EProgressBarFillType::RightToLeft:
 			{

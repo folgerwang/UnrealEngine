@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
@@ -68,7 +68,7 @@ public class HTMLPakAutomation
 	/// </summary>
 	public void CreateEmscriptenDataPackage(string PackagePath, string FinalDataLocation)
 	{
-		string PythonPath = HTML5SDKInfo.Python();
+		string PythonPath = HTML5SDKInfo.Python().FullName;
 		string PackagerPath = HTML5SDKInfo.EmscriptenPackager();
 
 		using (new ScopedEnvVar("EM_CONFIG", HTML5SDKInfo.DOT_EMSCRIPTEN))
@@ -290,7 +290,7 @@ public class HTMLPakAutomation
 		{
 			CmdLine += " -sign=" + CommandUtils.MakePathSafeToUseWithCommandLine(EncryptionKeys);
 		}
-		if (GlobalCommandLine.Installed)
+		if (CommandUtils.IsEngineInstalled())
 		{
 			CmdLine += " -installed";
 		}

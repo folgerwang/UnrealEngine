@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DistanceFieldAmbientOcclusion.h
@@ -29,7 +29,7 @@ extern const uint32 UpdateObjectsGroupSize;
 inline bool DoesPlatformSupportDistanceFieldAO(EShaderPlatform Platform)
 {
 	return Platform == SP_PCD3D_SM5 || Platform == SP_PS4 || Platform == SP_XBOXONE_D3D12
-		|| (IsMetalPlatform(Platform) && GetMaxSupportedFeatureLevel(Platform) >= ERHIFeatureLevel::SM5 && RHIGetShaderLanguageVersion(Platform) >= 2)
+		|| IsMetalSM5Platform(Platform)
 		|| IsVulkanSM5Platform(Platform);
 }
 
@@ -280,9 +280,9 @@ public:
 
 extern void GetSpacedVectors(uint32 FrameNumber, TArray<FVector, TInlineAllocator<9> >& OutVectors);
 
-BEGIN_UNIFORM_BUFFER_STRUCT(FAOSampleData2,)
-	UNIFORM_MEMBER_ARRAY(FVector4,SampleDirections,[NumConeSampleDirections])
-END_UNIFORM_BUFFER_STRUCT(FAOSampleData2)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FAOSampleData2,)
+	SHADER_PARAMETER_ARRAY(FVector4,SampleDirections,[NumConeSampleDirections])
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 class FAOParameters
 {

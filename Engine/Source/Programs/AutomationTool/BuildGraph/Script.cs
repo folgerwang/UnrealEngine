@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -343,6 +343,9 @@ namespace AutomationTool
 						break;
 					case "Property":
 						ReadProperty(ChildElement);
+						break;
+					case "Regex":
+						ReadRegex(ChildElement);
 						break;
 					case "EnvVar":
 						ReadEnvVar(ChildElement);
@@ -704,6 +707,55 @@ namespace AutomationTool
 		}
 
 		/// <summary>
+		/// Reads a Regex assignment.
+		/// </summary>
+		/// <param name="Element">Xml element to read the definition from</param>
+		void ReadRegex(ScriptElement Element)
+		{
+			if (EvaluateCondition(Element))
+			{
+				// Get the pattern
+				string RegexString = ReadAttribute(Element, "Pattern");
+				// Make sure its a valid regex.
+				Regex RegexValue = ParseRegex(Element, RegexString);
+				if (RegexValue != null)
+				{
+					// read the names in 
+					string[] CaptureNames = ReadListAttribute(Element, "Capture");
+
+					// get number of groups we passed in
+					int[] GroupNumbers = RegexValue.GetGroupNumbers();
+
+					// make sure the number of property names is the same as the number of match groups
+					// this includes the entire string match group as [0], so don't count that one.
+					if (CaptureNames.Length != GroupNumbers.Count() - 1)
+					{
+						LogError(Element, "MatchGroup count: {0} does not match the number of names specified: {1}", GroupNumbers.Count() - 1, CaptureNames.Length);
+					}
+					else
+					{
+						// apply the regex to the value
+						string Input = ReadAttribute(Element, "Input");
+						Match Match = RegexValue.Match(Input);
+
+						if (!Match.Success)
+						{
+							LogError(Element, "Regex {0} did not find a match against input string {1}", RegexString, Input);
+						}
+						else
+						{
+							// assign each property to the group it matches, skip over [0]
+							for (int MatchIdx = 1; MatchIdx < GroupNumbers.Count(); MatchIdx++)
+							{
+								SetPropertyValue(Element, CaptureNames[MatchIdx - 1], Match.Groups[MatchIdx].Value);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		/// <summary>
 		/// Reads a property assignment from an environment variable.
 		/// </summary>
 		/// <param name="Element">Xml element to read the definition from</param>
@@ -832,6 +884,9 @@ namespace AutomationTool
 					case "Property":
 						ReadProperty(ChildElement);
 						break;
+					case "Regex":
+						ReadRegex(ChildElement);
+						break;
 					case "Node":
 						ReadNode(ChildElement, ParentAgent, ControllingTrigger);
 						break;
@@ -909,6 +964,7 @@ namespace AutomationTool
 			if (EvaluateCondition(Element) && TryReadObjectName(Element, out Name))
 			{
 				string[] RequiredNames = ReadListAttribute(Element, "Requires");
+				string[] TargetNames = ReadListAttribute(Element, "Targets");
 				string Project = ReadAttribute(Element, "Project");
 				int Change = ReadIntegerAttribute(Element, "Change", 0);
 
@@ -916,6 +972,11 @@ namespace AutomationTool
 				foreach (Node ReferencedNode in ResolveReferences(Element, RequiredNames))
 				{
 					NewBadge.Nodes.Add(ReferencedNode);
+				}
+				foreach (Node ReferencedNode in ResolveReferences(Element, TargetNames))
+				{
+					NewBadge.Nodes.Add(ReferencedNode);
+					NewBadge.Nodes.UnionWith(ReferencedNode.OrderDependencies);
 				}
 				Graph.Badges.Add(NewBadge);
 			}
@@ -1057,6 +1118,9 @@ namespace AutomationTool
 				{
 					case "Property":
 						ReadProperty(ChildElement);
+						break;
+					case "Regex":
+						ReadRegex(ChildElement);
 						break;
 					case "Trace":
 						ReadDiagnostic(ChildElement, LogEventType.Console, NewNode, ParentAgent, ControllingTrigger);
@@ -1665,6 +1729,30 @@ namespace AutomationTool
 				}
 			}
 			return true;
+		}
+
+		/// <summary>
+		/// Constructs a regex from a regex string and returns it
+		/// </summary>
+		/// <param name="Element">The element that contains the regex</param>
+		/// <param name="Regex">The pattern to construct</param>
+		/// <returns>The regex if is valid, otherwise null</returns>
+		Regex ParseRegex(ScriptElement Element, string Regex)
+		{
+			if(Regex.Length == 0)
+			{
+				LogError(Element, "Regex is empty");
+				return null;
+			}
+			try
+			{
+				return new Regex(Regex);
+			}
+			catch(ArgumentException InvalidRegex)
+			{
+				LogError(Element, "Could not construct the Regex, reason: {0}", InvalidRegex.Message);
+				return null;
+			}
 		}
 
 		/// <summary>

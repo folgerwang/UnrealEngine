@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -36,18 +36,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
 	FName Tag;
 
-	/** This is the actual instance allocated at runtime that will run */
-	UPROPERTY(transient)
-	UAnimInstance* InstanceToRun;
-
-	/** List of properties on the calling instance to push from */
-	UPROPERTY(transient)
-	TArray<UProperty*> InstanceProperties;
-
-	/** List of properties on the sub instance to push to, built from name list when initialised */
-	UPROPERTY(transient)
-	TArray<UProperty*> SubInstanceProperties;
-
 	/** List of source properties to use, 1-1 with Dest names below, built by the compiler */
 	UPROPERTY()
 	TArray<FName> SourcePropertyNames;
@@ -56,9 +44,19 @@ public:
 	UPROPERTY()
 	TArray<FName> DestPropertyNames;
 
+	/** This is the actual instance allocated at runtime that will run */
+	UPROPERTY(Transient)
+	UAnimInstance* InstanceToRun;
+
+	/** List of properties on the calling instance to push from */
+	UPROPERTY(Transient)
+	TArray<UProperty*> InstanceProperties;
+
+	/** List of properties on the sub instance to push to, built from name list when initialised */
+	UPROPERTY(Transient)
+	TArray<UProperty*> SubInstanceProperties;
+
 	// Temporary storage for the output of the subinstance, will be copied into output pose.
-	// Declared at member level to avoid reallocating the objects
-	TArray<FTransform> BoneTransforms;
 	FBlendedHeapCurve BlendedCurve;
 
 	// FAnimNode_Base interface
@@ -67,8 +65,6 @@ public:
 	virtual void Update_AnyThread(const FAnimationUpdateContext& Context) override;
 	virtual void Evaluate_AnyThread(FPoseContext& Output) override;
 	virtual void GatherDebugData(FNodeDebugData& DebugData) override;
-	virtual bool HasPreUpdate() const override;
-	virtual void PreUpdate(const UAnimInstance* InAnimInstance) override;
 
 protected:
 	virtual void OnInitializeAnimInstance(const FAnimInstanceProxy* InProxy, const UAnimInstance* InAnimInstance) override;
@@ -76,7 +72,4 @@ protected:
 
 	// Shutdown the currently running instance
 	void TeardownInstance();
-
-	// Makes sure the bone transforms array can contain the pose information from the provided anim instance
-	void AllocateBoneTransforms(const UAnimInstance* InAnimInstance);
 };

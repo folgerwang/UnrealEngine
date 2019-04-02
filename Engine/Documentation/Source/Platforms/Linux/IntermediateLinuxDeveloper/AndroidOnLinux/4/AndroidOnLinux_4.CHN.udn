@@ -1,9 +1,9 @@
-﻿INTSourceChangelist:3457813
+﻿INTSourceChangelist:3736300
 Availability:Public
 Title:4 - 部署关卡
 Crumbs:%ROOT%
 Description:学习如何将关卡从 UE4 部署到 Android 设备上。
-Version:4.14
+Version:4.17
 type:quick start
 parent:Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux
 order:4
@@ -16,6 +16,7 @@ Contributor:yaakuro
 
 部署关卡意味着您将从 UE4 到 Android 设备 [烘焙](Engine/Deployment/Cooking) 并 [启动](Engine/Deployment/Launching) 关卡。部署移动应用程序到 Android 设备上需要考虑诸多细节，包括（但不限于）Linux 电脑的编译环境、Android 设备的指令集，以及设备的渲染能力。因此，在将 **ThirdPersonExampleMap** 关卡部署到 Android 设备上之前需要进行常规部署前注意事项。 
 
+(#Pre-deploymentConsiderationsonLinux)
 ## Linux 上的部署前注意事项
 
 部署应用程序之前请参考列表。此列表有助于避免部署游戏到设备时可能出现的常见问题。
@@ -27,12 +28,14 @@ Contributor:yaakuro
 * UE4 当前版本不提供 Linux 上的 **Vulkan** 渲染支持。 
 * 不同 Android 设备支持的纹理格式均有所不同。如您不确定自己的 Android 设备支持哪些纹理格式，可将目标纹理设为多数 Android 设备均支持的 Ericsson Texture Compression 1（ETC 1）压缩方案。如要了解支持多种纹理的详细内容，请在查阅 [为不同 GL 纹理创建多个 APK](https://developer.android.com/training/multiple-apks/texture.html) 上的 Android 文档。 
 
+(#ReviewingAvailableTextureFormats)
 #### 查看可用纹理格式
 
 如有兴趣了解当前支持纹理的更多内容，可参考下表中 Android 设备常见支持纹理的快速概览。
 
 [INCLUDE:Platforms/Android/Reference#androidformats]
 
+(#DeployingyourLevel)
 ## 部署关卡
 
 通读部署游戏到 Android 设备最重要的注意事项后，即可开始部署进程。
@@ -89,6 +92,7 @@ Contributor:yaakuro
 
 	![](LinuxAndroid_Step29.png)
 
+(#DeterminingSupportedTextureFormats)
 ## 决定支持的纹理格式
 
 如您仍在考虑 Android 设备支持哪些纹理格式，请尝试以下步骤：
@@ -101,6 +105,7 @@ Contributor:yaakuro
 		将出现一个对话框，显示 Android 设备支持的纹理格式。
 	[/REGION]
 
+(#EndResult)
 ## 最终结果
 
 恭喜！现在 Third Person Example 地图便已在 Android 设备上运行。

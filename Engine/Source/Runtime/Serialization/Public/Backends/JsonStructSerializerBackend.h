@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -20,12 +20,26 @@ class SERIALIZATION_API FJsonStructSerializerBackend
 public:
 
 	/**
-	 * Creates and initializes a new instance.
+	 * Creates and initializes a new legacy instance.
+	 * @note Deprecated, use the two-parameter constructor with EStructSerializerBackendFlags::Legacy if you need backwards compatibility with code compiled prior to 4.22.
 	 *
-	 * @param Archive The archive to serialize into.
+	 * @param InArchive The archive to serialize into.
 	 */
-	FJsonStructSerializerBackend( FArchive& Archive )
-		: JsonWriter(TJsonWriter<UCS2CHAR>::Create(&Archive))
+	UE_DEPRECATED(4.22, "Use the two-parameter constructor with EStructSerializerBackendFlags::Legacy only if you need backwards compatibility with code compiled prior to 4.22; otherwise use EStructSerializerBackendFlags::Default.")
+	FJsonStructSerializerBackend( FArchive& InArchive )
+		: JsonWriter(TJsonWriter<UCS2CHAR>::Create(&InArchive))
+		, Flags(EStructSerializerBackendFlags::Legacy)
+	{ }
+
+	/**
+	 * Creates and initializes a new instance with the given flags.
+	 *
+	 * @param InArchive The archive to serialize into.
+	 * @param InFlags The flags that control the serialization behavior (typically EStructSerializerBackendFlags::Default).
+	 */
+	FJsonStructSerializerBackend( FArchive& InArchive, const EStructSerializerBackendFlags InFlags )
+		: JsonWriter(TJsonWriter<UCS2CHAR>::Create(&InArchive))
+		, Flags(InFlags)
 	{ }
 
 public:
@@ -51,4 +65,7 @@ private:
 
 	/** Holds the Json writer used for the actual serialization. */
 	TSharedRef<TJsonWriter<UCS2CHAR>> JsonWriter;
+
+	/** Flags controlling the serialization behavior. */
+	EStructSerializerBackendFlags Flags;
 };

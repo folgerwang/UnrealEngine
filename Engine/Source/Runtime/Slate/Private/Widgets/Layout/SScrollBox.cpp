@@ -1,8 +1,7 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Widgets/Layout/SScrollBox.h"
 #include "Rendering/DrawElements.h"
-#include "Widgets/SPanel.h"
 #include "Types/SlateConstants.h"
 #include "Layout/LayoutUtils.h"
 #include "Widgets/SBoxPanel.h"
@@ -16,139 +15,92 @@ SScrollBox::FSlot& SScrollBox::Slot()
 	return *(new SScrollBox::FSlot());
 }
 
-class SScrollPanel : public SPanel
+void SScrollPanel::Construct(const FArguments& InArgs, const TArray<SScrollBox::FSlot*>& InSlots)
 {
-public:
-	
-	SLATE_BEGIN_ARGS(SScrollPanel)
+	PhysicalOffset = 0;
+	Children.Reserve(InSlots.Num());
+	for (int32 SlotIndex = 0; SlotIndex < InSlots.Num(); ++SlotIndex)
+	{
+		Children.Add(InSlots[SlotIndex]);
+	}
+	Orientation = InArgs._Orientation;
+}
+
+void SScrollPanel::OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const
+{
+	float CurChildOffset = -PhysicalOffset;
+
+	for (int32 SlotIndex = 0; SlotIndex < Children.Num(); ++SlotIndex)
+	{
+		const SScrollBox::FSlot& ThisSlot = Children[SlotIndex];
+		const EVisibility ChildVisibility = ThisSlot.GetWidget()->GetVisibility();
+
+		if (ChildVisibility != EVisibility::Collapsed)
 		{
-			_Visibility = EVisibility::SelfHitTestInvisible;
-		}
-
-		SLATE_ARGUMENT(EOrientation, Orientation)
-
-	SLATE_END_ARGS()
-
-	SScrollPanel()
-	: Children(this)
-	{
-	}
-
-	void Construct( const FArguments& InArgs, const TArray<SScrollBox::FSlot*>& InSlots )
-	{
-		PhysicalOffset = 0;
-		Children.Reserve( InSlots.Num() );
-		for ( int32 SlotIndex=0; SlotIndex < InSlots.Num(); ++SlotIndex )
-		{
-			Children.Add( InSlots[ SlotIndex ] );
-		}
-		Orientation = InArgs._Orientation;
-	}
-
-public:
-
-	EOrientation GetOrientation()
-	{
-		return Orientation;
-	}
-
-	void SetOrientation(EOrientation InOrientation)
-	{
-		Orientation = InOrientation;
-	}
-
-	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override
-	{
-		float CurChildOffset = -PhysicalOffset;
-
-		for( int32 SlotIndex=0; SlotIndex < Children.Num(); ++SlotIndex )
-		{
-			const SScrollBox::FSlot& ThisSlot = Children[SlotIndex];
-			const EVisibility ChildVisibility = ThisSlot.GetWidget()->GetVisibility();
-
-			if ( ChildVisibility != EVisibility::Collapsed )
+			if (Orientation == Orient_Vertical)
 			{
-				if (Orientation == Orient_Vertical)
-				{
-					CurChildOffset = ArrangeChildVerticalAndReturnOffset(AllottedGeometry, ArrangedChildren, ThisSlot, CurChildOffset);
-				}
-				else
-				{
-					CurChildOffset = ArrangeChildHorizontalAndReturnOffset(AllottedGeometry, ArrangedChildren, ThisSlot, CurChildOffset);
-				}
+				CurChildOffset = ArrangeChildVerticalAndReturnOffset(AllottedGeometry, ArrangedChildren, ThisSlot, CurChildOffset);
+			}
+			else
+			{
+				CurChildOffset = ArrangeChildHorizontalAndReturnOffset(AllottedGeometry, ArrangedChildren, ThisSlot, CurChildOffset);
+			}
+		}
+	}
+}
+
+FVector2D SScrollPanel::ComputeDesiredSize(float) const
+{
+	FVector2D ThisDesiredSize = FVector2D::ZeroVector;
+	for (int32 SlotIndex = 0; SlotIndex < Children.Num(); ++SlotIndex)
+	{
+		const SScrollBox::FSlot& ThisSlot = Children[SlotIndex];
+		if (ThisSlot.GetWidget()->GetVisibility() != EVisibility::Collapsed)
+		{
+			const FVector2D ChildDesiredSize = ThisSlot.GetWidget()->GetDesiredSize();
+			if (Orientation == Orient_Vertical)
+			{
+				ThisDesiredSize.X = FMath::Max(ChildDesiredSize.X, ThisDesiredSize.X);
+				ThisDesiredSize.Y += ChildDesiredSize.Y + ThisSlot.SlotPadding.Get().GetTotalSpaceAlong<Orient_Vertical>();
+			}
+			else
+			{
+				ThisDesiredSize.X += ChildDesiredSize.X + ThisSlot.SlotPadding.Get().GetTotalSpaceAlong<Orient_Horizontal>();
+				ThisDesiredSize.Y = FMath::Max(ChildDesiredSize.Y, ThisDesiredSize.Y);
 			}
 		}
 	}
 
-	virtual FChildren* GetChildren() override
-	{
-		return &Children;
-	}
+	return ThisDesiredSize;
+}
 
-	float PhysicalOffset;
-	TPanelChildren<SScrollBox::FSlot> Children;
+float SScrollPanel::ArrangeChildVerticalAndReturnOffset(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren, const SScrollBox::FSlot& ThisSlot, float CurChildOffset) const
+{
+	const FMargin& ThisPadding = ThisSlot.SlotPadding.Get();
+	const FVector2D& WidgetDesiredSize = ThisSlot.GetWidget()->GetDesiredSize();
+	const float ThisSlotDesiredHeight = WidgetDesiredSize.Y + ThisPadding.GetTotalSpaceAlong<Orient_Vertical>();
 
-protected:
-	virtual FVector2D ComputeDesiredSize(float) const override
-	{
-		FVector2D ThisDesiredSize = FVector2D::ZeroVector;
-		for ( int32 SlotIndex=0; SlotIndex < Children.Num(); ++SlotIndex )
-		{
-			const SScrollBox::FSlot& ThisSlot = Children[SlotIndex];
-			if ( ThisSlot.GetWidget()->GetVisibility() != EVisibility::Collapsed )
-			{
-				const FVector2D ChildDesiredSize = ThisSlot.GetWidget()->GetDesiredSize();
-				if ( Orientation == Orient_Vertical )
-				{
-					ThisDesiredSize.X = FMath::Max(ChildDesiredSize.X, ThisDesiredSize.X);
-					ThisDesiredSize.Y += ChildDesiredSize.Y + ThisSlot.SlotPadding.Get().GetTotalSpaceAlong<Orient_Vertical>();
-				}
-				else
-				{
-					ThisDesiredSize.X += ChildDesiredSize.X + ThisSlot.SlotPadding.Get().GetTotalSpaceAlong<Orient_Horizontal>();
-					ThisDesiredSize.Y = FMath::Max(ChildDesiredSize.Y, ThisDesiredSize.Y);
-				}
-			}
-		}
+	// Figure out the size and local position of the child within the slot.  There is no vertical alignment, because 
+	// it does not make sense in a panel where items are stacked vertically end-to-end.
+	AlignmentArrangeResult XAlignmentResult = AlignChild<Orient_Horizontal>(AllottedGeometry.GetLocalSize().X, ThisSlot, ThisPadding);
 
-		return ThisDesiredSize;
-	}
+	ArrangedChildren.AddWidget(AllottedGeometry.MakeChild(ThisSlot.GetWidget(), FVector2D(XAlignmentResult.Offset, CurChildOffset + ThisPadding.Top), FVector2D(XAlignmentResult.Size, WidgetDesiredSize.Y)));
+	return CurChildOffset + ThisSlotDesiredHeight;
+}
 
-private:
-	
-	float ArrangeChildVerticalAndReturnOffset(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren, const SScrollBox::FSlot& ThisSlot, float CurChildOffset) const
-	{
-		const FMargin& ThisPadding = ThisSlot.SlotPadding.Get();
-		const FVector2D& WidgetDesiredSize = ThisSlot.GetWidget()->GetDesiredSize();
-		const float ThisSlotDesiredHeight = WidgetDesiredSize.Y + ThisPadding.GetTotalSpaceAlong<Orient_Vertical>();
+float SScrollPanel::ArrangeChildHorizontalAndReturnOffset(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren, const SScrollBox::FSlot& ThisSlot, float CurChildOffset) const
+{
+	const FMargin& ThisPadding = ThisSlot.SlotPadding.Get();
+	const FVector2D& WidgetDesiredSize = ThisSlot.GetWidget()->GetDesiredSize();
+	const float ThisSlotDesiredWidth = WidgetDesiredSize.X + ThisPadding.GetTotalSpaceAlong<Orient_Horizontal>();
 
-		// Figure out the size and local position of the child within the slot.  There is no vertical alignment, because 
-		// it does not make sense in a panel where items are stacked vertically end-to-end.
-		AlignmentArrangeResult XAlignmentResult = AlignChild<Orient_Horizontal>(AllottedGeometry.GetLocalSize().X, ThisSlot, ThisPadding);
+	// Figure out the size and local position of the child within the slot.  There is no horizontal alignment, because
+	// it doesn't make sense in a panel where items are stacked horizontally end-to-end.
+	AlignmentArrangeResult YAlignmentResult = AlignChild<Orient_Vertical>(AllottedGeometry.GetLocalSize().Y, ThisSlot, ThisPadding);
 
-		ArrangedChildren.AddWidget(AllottedGeometry.MakeChild(ThisSlot.GetWidget(), FVector2D(XAlignmentResult.Offset, CurChildOffset + ThisPadding.Top), FVector2D(XAlignmentResult.Size, WidgetDesiredSize.Y)));
-		return CurChildOffset + ThisSlotDesiredHeight;
-	}
-
-	float ArrangeChildHorizontalAndReturnOffset(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren, const SScrollBox::FSlot& ThisSlot, float CurChildOffset) const
-	{
-		const FMargin& ThisPadding = ThisSlot.SlotPadding.Get();
-		const FVector2D& WidgetDesiredSize = ThisSlot.GetWidget()->GetDesiredSize();
-		const float ThisSlotDesiredWidth = WidgetDesiredSize.X + ThisPadding.GetTotalSpaceAlong<Orient_Horizontal>();
-
-		// Figure out the size and local position of the child within the slot.  There is no horizontal alignment, because
-		// it doesn't make sense in a panel where items are stacked horizontally end-to-end.
-		AlignmentArrangeResult YAlignmentResult = AlignChild<Orient_Vertical>(AllottedGeometry.GetLocalSize().Y, ThisSlot, ThisPadding);
-
-		ArrangedChildren.AddWidget(AllottedGeometry.MakeChild(ThisSlot.GetWidget(), FVector2D(CurChildOffset + ThisPadding.Left, YAlignmentResult.Offset), FVector2D(WidgetDesiredSize.X, YAlignmentResult.Size)));
-		return CurChildOffset + ThisSlotDesiredWidth;
-	}
-
-private:
-
-	EOrientation Orientation;
-};
-
+	ArrangedChildren.AddWidget(AllottedGeometry.MakeChild(ThisSlot.GetWidget(), FVector2D(CurChildOffset + ThisPadding.Left, YAlignmentResult.Offset), FVector2D(WidgetDesiredSize.X, YAlignmentResult.Size)));
+	return CurChildOffset + ThisSlotDesiredWidth;
+}
 
 SScrollBox::SScrollBox()
 {
@@ -491,6 +443,11 @@ EOrientation SScrollBox::GetOrientation()
 	return Orientation;
 }
 
+void SScrollBox::SetConsumeMouseWheel(EConsumeMouseWheel NewConsumeMouseWheel)
+{
+	ConsumeMouseWheel = NewConsumeMouseWheel;
+}
+
 void SScrollBox::SetOrientation(EOrientation InOrientation)
 {
 	if (Orientation != InOrientation)
@@ -520,6 +477,11 @@ void SScrollBox::SetScrollBarVisibility(EVisibility InVisibility)
 void SScrollBox::SetScrollBarAlwaysVisible(bool InAlwaysVisible)
 {
 	ScrollBar->SetScrollBarAlwaysVisible(InAlwaysVisible);
+}
+
+void SScrollBox::SetScrollBarTrackAlwaysVisible(bool InAlwaysVisible)
+{
+	ScrollBar->SetScrollBarTrackAlwaysVisible(InAlwaysVisible);
 }
 
 void SScrollBox::SetScrollBarThickness(FVector2D InThickness)
@@ -997,8 +959,8 @@ FNavigationReply SScrollBox::OnNavigation(const FGeometry& MyGeometry, const FNa
 			// Search in the direction we need to move for the next focusable child of the scrollbox.
 			for ( int32 ChildIndex = FocusedChildIndex + FocusedChildDirection; ChildIndex >= 0 && ChildIndex < Children.Num(); ChildIndex += FocusedChildDirection )
 			{
-				TSharedRef<SWidget> PossiblyFocusableChild = Children[ChildIndex].GetWidget();
-				if ( PossiblyFocusableChild->SupportsKeyboardFocus() )
+				TSharedPtr<SWidget> PossiblyFocusableChild = GetKeyboardFocusableWidget(Children[ChildIndex].GetWidget());
+				if ( PossiblyFocusableChild.IsValid() )
 				{
 					NextFocusableChild = PossiblyFocusableChild;
 					break;
@@ -1015,6 +977,28 @@ FNavigationReply SScrollBox::OnNavigation(const FGeometry& MyGeometry, const FNa
 	}
 
 	return SCompoundWidget::OnNavigation(MyGeometry, InNavigationEvent);
+}
+
+TSharedPtr<SWidget> SScrollBox::GetKeyboardFocusableWidget(TSharedPtr<SWidget> InWidget)
+{
+	if (InWidget->SupportsKeyboardFocus())
+	{
+		return InWidget;
+	}
+	else
+	{
+		FChildren* Children = InWidget->GetChildren();
+		for (int32 i = 0; i < Children->Num(); ++i)
+		{
+			TSharedPtr<SWidget> ChildWidget = Children->GetChildAt(i);
+			TSharedPtr<SWidget> FoucusableWidget = GetKeyboardFocusableWidget(ChildWidget);
+			if (FoucusableWidget.IsValid())
+			{
+				return FoucusableWidget;
+			}
+		}
+	}
+	return nullptr;
 }
 
 int32 SScrollBox::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Particles/WorldPSCPool.h"
 #include "HAL/IConsoleManager.h"
@@ -37,19 +37,37 @@ void FPSCPool::Cleanup()
 {
 	for (FPSCPoolElem& Elem : FreeElements)
 	{
-		Elem.PSC->DestroyComponent();
+		if (Elem.PSC)
+		{
+			Elem.PSC->PoolingMethod = EPSCPoolMethod::None;//Reset so we don't trigger warnings about destroying pooled PSCs.
+			Elem.PSC->DestroyComponent();
+		}
+		else
+		{
+			UE_LOG(LogParticles, Error, TEXT("Free element in the WorldPSCPool was null. Someone must be keeping a reference to a PSC that has been freed to the pool and then are manually destroying it."));
+		}
 	}
 
 	for (UParticleSystemComponent* PSC : InUseComponents_Auto)
 	{
-		PSC->DestroyComponent();
+		//It's possible for people to manually destroy these so we have to guard against it. Though we warn about it in UParticleSystemComponent::BeginDestroy
+		if (PSC)
+		{
+			PSC->PoolingMethod = EPSCPoolMethod::None;//Reset so we don't trigger warnings about destroying pooled PSCs.
+			PSC->DestroyComponent();
+		}
 	}
 
 	//Warn if there are any manually released PSCs still in the world at cleanup time.
 	for (UParticleSystemComponent* PSC : InUseComponents_Manual)
 	{
-		UE_LOG(LogParticles, Warning, TEXT("Pooled PSC set to manual release is still in use as the pool is being cleaned up. %s"), *PSC->Template->GetFullName());
-		PSC->DestroyComponent();
+		//It's possible for people to manually destroy these so we have to guard against it. Though we warn about it in UParticleSystemComponent::BeginDestroy
+		if (PSC)
+		{
+			UE_LOG(LogParticles, Warning, TEXT("Pooled PSC set to manual release is still in use as the pool is being cleaned up. %s"), *PSC->Template->GetFullName());
+			PSC->PoolingMethod = EPSCPoolMethod::None;//Reset so we don't trigger warnings about destroying pooled PSCs.
+			PSC->DestroyComponent();
+		}
 	}
 
 	FreeElements.Empty();
@@ -69,10 +87,13 @@ UParticleSystemComponent* FPSCPool::Acquire(UWorld* World, UParticleSystem* Temp
 		check(RetElem.PSC->Template == Template);
 		check(!RetElem.PSC->IsPendingKill());
 
-		// Rename the PSC to move it into the current PersistentLevel - it may have been spawned in one
-		// level but is now needed in another level.
-		// Use the REN_ForceNoResetLoaders flag to prevent the rename from potentially calling FlushAsyncLoading.
-		RetElem.PSC->Rename(nullptr, World, REN_ForceNoResetLoaders);
+		if (RetElem.PSC->GetWorld() != World)
+		{
+			// Rename the PSC to move it into the current PersistentLevel - it may have been spawned in one
+			// level but is now needed in another level.
+			// Use the REN_ForceNoResetLoaders flag to prevent the rename from potentially calling FlushAsyncLoading.
+			RetElem.PSC->Rename(nullptr, World, REN_ForceNoResetLoaders);
+		}
 	}
 	else
 	{
@@ -161,11 +182,13 @@ void FPSCPool::Reclaim(UParticleSystemComponent* PSC, const float CurrentTimeSec
 		//Ensure a small cull distance doesn't linger to future users.
 		PSC->SetCullDistance(FLT_MAX);
 
+		PSC->PoolingMethod = EPSCPoolMethod::FreeInPool;
 		FreeElements.Push(FPSCPoolElem(PSC, CurrentTimeSeconds));
 	}
 	else
 	{
 		//We've stopped pooling while some effects were in flight so ensure they're destroyed now.
+		PSC->PoolingMethod = EPSCPoolMethod::None;//Reset so we don't trigger warnings about destroying pooled PSCs.
 		PSC->DestroyComponent();
 	}
 }
@@ -180,6 +203,7 @@ void FPSCPool::KillUnusedComponents(float KillTime, UParticleSystem* Template)
 			UParticleSystemComponent* PSC = FreeElements[i].PSC;
 			if (PSC)
 			{
+				PSC->PoolingMethod = EPSCPoolMethod::None;//Reset so we don't trigger warnings about destroying pooled PSCs.
 				PSC->DestroyComponent();
 			}
 

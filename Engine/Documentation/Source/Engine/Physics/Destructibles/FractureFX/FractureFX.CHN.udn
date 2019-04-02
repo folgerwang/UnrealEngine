@@ -1,62 +1,25 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:4649792
 Availability: Docs
-Title:Fracture Effects
+Title:破裂效果
 Crumbs: %ROOT%, Engine
-Description:Particles and sounds to play at the various levels of destruction
+Description:不同破坏程度下播放的粒子效果和音效。
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Physics/Destructibles/FractureFX:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/Destructibles/FractureFX:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/Destructibles/FractureFX:description%
-	[/PARAM]
-	[PARAMLITERAL:path]
-		Engine/Physics/Destructibles/FractureFX
-	[/PARAMLITERAL]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Physics/Destructibles/FractureFX:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/Destructibles/FractureFX:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/Destructibles/FractureFX:description%
-	[/PARAM]
-	[PARAMLITERAL:path]
-		Engine/Physics/Destructibles/FractureFX
-	[/PARAMLITERAL]
-[/OBJECT]
-[/VAR]
 
 [REGION:banner]
 ![Physics](Engine/Physics/physics_landing_banner.png)
 [/REGION]
 
-## Overview
+##概述
 
-Fracture Effects on a **Destructible Actor** allow content creators to set a specific sound (or sound cue) and a particle effect to fire off upon a chunk of the destructible breaking. These are set **per depth layer**, meaning the largest breaks can have a really potent effect and sound, with the smaller chunks getting less impressive sounds and effects.
+ **可破坏物Actor** 的破裂效果使内容创建者能够将特定声音（或声音提示）和粒子效果设置为在可破坏物的碎块碎裂时触发。
+它们是 **根据深度级别** 进行设置的，这意味着最大的裂口可以产生非常强大的效果和声音，而较小的碎块可以获得相对不太不引人注意的声音和效果。
 
-## Particles
+##粒子
 
-This will spawn a particle system at each unique break event at a world position that averages the positions of the breaking chunks. So a single effect can be fired off many times on a strong destructible. However, if you turn support off, only one effect will fire, and will occur at an average location of all chunks in the Destructible Actor.
+这将在平均分配碎裂碎块位置的世界场景位置的每个唯一碎裂事件处产生粒子系统。因此，在可破坏物非常坚固的情况下，可以多次触发单一效果。然而，如果关闭支持，则只有一次效果会触发，并且将发生在可破坏物Actor中所有碎块的平均位置。
 
-Remember, when adding a particle system to a Destructible Actor, make sure that particle system is a **burst** system with no (or very limited) looping, otherwise, you will end up with static particle effects in the area where the destructible broke.
+请记住，向可破坏物Actor中添加粒子系统时，请确保粒子系统没有（或仅包含非常有限）循环的 **爆发** 系统，否则，最终将在可破坏物的破碎区域中产生静态粒子效果。
 
-## Sound
+##声音
 
-This will fire off a **sound** or **Sound Cue** from the location of the breaking chunk. Again, as with the particle systems fired off on breaking, these are set per depth layer.
+这将从碎裂碎块的位置处发出 **声音** 或 **声音提示**。此外，正如粒子系统在碎裂时触发一样，它们也是根据深度级别进行设置的。

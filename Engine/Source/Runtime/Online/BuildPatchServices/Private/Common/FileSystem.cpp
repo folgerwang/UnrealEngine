@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Common/FileSystem.h"
 #include "Containers/StringConv.h"
@@ -193,6 +193,7 @@ namespace BuildPatchServices
 		virtual bool MakeDirectory(const TCHAR* DirectoryPath) const override;
 		virtual bool GetFileSize(const TCHAR* Filename, int64& FileSize) const override;
 		virtual bool GetAttributes(const TCHAR* Filename, EAttributeFlags& Attributes) const override;
+		virtual bool GetTimeStamp(const TCHAR* Path, FDateTime& TimeStamp) const override;
 		virtual bool SetReadOnly(const TCHAR* Filename, bool bIsReadOnly) const override;
 		virtual bool SetCompressed(const TCHAR* Filename, bool bIsCompressed) const override;
 		virtual bool SetExecutable(const TCHAR* Filename, bool bIsExecutable) const override;
@@ -202,6 +203,8 @@ namespace BuildPatchServices
 		virtual bool MoveFile(const TCHAR* FileDest, const TCHAR* FileSource) const override;
 		virtual bool CopyFile(const TCHAR* FileDest, const TCHAR* FileSource) const override;
 		virtual bool FileExists(const TCHAR* Filename) const override;
+		virtual void FindFiles(TArray<FString>& FoundFiles, const TCHAR* Directory, const TCHAR* FileExtension = nullptr) const override;
+		virtual void FindFilesRecursively(TArray<FString>& FoundFiles, const TCHAR* Directory, const TCHAR* FileExtension = nullptr) const override;
 		// IFileSystem interface end.
 
 	private:
@@ -238,6 +241,13 @@ namespace BuildPatchServices
 	bool FFileSystem::GetAttributes(const TCHAR* Filename, EAttributeFlags& Attributes) const
 	{
 		return FileSystemHelpers::PlatformGetAttributes(Filename, Attributes);
+	}
+
+	bool FFileSystem::GetTimeStamp(const TCHAR* Path, FDateTime& TimeStamp) const
+	{
+		static const FDateTime FailedLookup = FDateTime::MinValue();
+		TimeStamp = PlatformFile.GetTimeStamp(Path);
+		return TimeStamp != FailedLookup;
 	}
 
 	bool FFileSystem::SetReadOnly(const TCHAR* Filename, bool bIsReadOnly) const
@@ -283,6 +293,16 @@ namespace BuildPatchServices
 	bool FFileSystem::FileExists(const TCHAR* Filename) const
 	{
 		return FileManager.FileExists(Filename);
+	}
+
+	void FFileSystem::FindFiles(TArray<FString>& FoundFiles, const TCHAR* Directory, const TCHAR* FileExtension) const
+	{
+		PlatformFile.FindFiles(FoundFiles, Directory, FileExtension);
+	}
+
+	void FFileSystem::FindFilesRecursively(TArray<FString>& FoundFiles, const TCHAR* Directory, const TCHAR* FileExtension) const
+	{
+		PlatformFile.FindFilesRecursively(FoundFiles, Directory, FileExtension);
 	}
 
 	IFileSystem* FFileSystemFactory::Create()

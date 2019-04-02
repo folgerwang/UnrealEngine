@@ -1,0 +1,175 @@
+﻿INTSourceChangelist:4221079
+Availability: Public
+Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
+title: シーケンサーでのトラックを使用した作業
+description:
+type: how-to
+SkillLevel: intermediate
+Version: 4.20
+Parent: Engine/Sequencer/HowTo
+Order: 2
+Tags: Sequencer
+Tags: how-to
+
+
+レベル シーケンスを作成する際は、作成するシネマティックスのタイプにかかわらず、[Tracks] ウィンドウ内でトラックを追加して作業を行います。シーケンサーには、これらのトラックとコンテンツを内部で整理して視覚化するのに有用な機能がいくつか用意されています。
+
+この操作ガイドでは、シーケンサーでのトラックのシステム機能をいくつか紹介し、これらの使用方法について説明します。
+
+## ステップ
+
+[REGION:note]このガイドでは、 ** スターター コンテンツ ** を有効にした状態の ** Blueprint Thirdperson ** テンプレートを使用します。[/REGION]
+
+1. ** Content/Mannequin/Character/Mesh ** フォルダにあるプロジェクト内で、 ** SK_Mannequin ** をレベルにドラッグします。
+
+	![image alt text](image_0.png)(w:624 h:250 convert:false)
+
+1. メイン ツールバーで ** [Cinematics] ** ボタンをクリックして ** [Add Level Sequence] ** をクリックし、名前を付けて位置を保存します。
+
+	![image alt text](image_1.png)(w:420 h:162 convert:false)
+
+1. ** [World Outliner] ** ウィンドウで ** SK_Mannequin ** アクタを ** [Tracks] ** ウィンドウにドラッグし、このアクタをシーケンサーに追加します。
+
+	![image alt text](image_2.png)(w:624 h:353 convert:false)
+
+	これは、シーケンサーにアクタを追加する別の方法です。** [+ Track] ** ボタンのクリックに加えて、 ** World Outliner ** からだけでなく ** コンテンツ ブラウザ ** からもアイテムをドラッグすることができます。
+
+1. ** Content/StarterContent/Audio ** フォルダ内で、任意の ** Sound Wave ** アセットをシーケンサーにドラッグします。
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		RlCorqp9wdg
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+	シーケンサーにアセットをドラッグする際はドラッグ先の場所がハイライトされ、アセットが置かれる場所が示されます。追加時には少しの間黄色で点滅し、新しく追加されたセクションが示されます。また、任意のセクションをタイムライン内の任意の行にドラッグしたり、タイムライン マーカーを目的の場所に移動してアセット内にドロップし、その場所にセクションを作成したりすることができます (上記動画参照)。
+
+1. ** [+ Track] ** メニューから ** フォルダ ** を追加し、 ** F2 ** キーで名前を変更します。次にトラックをそれにドラッグ & ドロップするか、 ** [Tracks List] ** ウィンドウで並べ替えます。
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		LieJ347Qa9U
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+	** フォルダ ** 内で複数のトラックをグループ化して、[Tracks] ウィンドウを整理することができます。シーケンスに追加されるトラック、アクタおよびフォルダは、作成後にはハイライトで表示されます。現在フォルダが既に選択されていると、そのフォルダ内に新しいアイテムが置かれます。現在別のトラックが選択されている場合は、新しいアイテムはそのアイテムの「兄弟」として置かれます。
+
+	シーケンサー内ではトラック、アクタおよびフォルダを並べ替えることもできます (UMG アニメーションも同様です)。また、 ** [General Options] ** メニューでもこれらを並べ替えることができます (タイプ順、次にアルファベット順)。
+
+1. ** SK_Mannequin ** トラックについては、 ** Animation ** トラックにアニメーションを追加して、選択したアニメーションと共にトラックをスクラブします。
+	
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		TXZnzMkgFvM
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+	シーケンサー内でアニメーションをスクラブする際は、選択したセクションのソース アニメーションのフレーム番号が表示されます。これにより、ブレンドされているアニメーションの開始点や、ブレンドされたアニメーションの終了点を確認できます。
+
+1. アニメーションをループして右クリックし、コンテキスト メニューの ** [Edit] ** から ** [Auto Size] ** を選択します。
+
+	![image alt text](image_3.png)(w:624 h:350 convert:false)
+
+	[Auto Size] 機能を使用すると、セクションをそのソースの持続時間に合わせて素早くサイズ変更できます (例えば、以前に行ったように、Skeletal Mesh Animation をアニメーションの境界に合わせてサイズ変更できます)。
+
+1. 以下のようにキャラクターに動きを加え、コンテキスト メニューからチャンネルを削除するか無効にすることで ** Z ** 軸をマスクアウトします。
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		0pg9DgIrpGo
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+	また、UMG アニメーションでチャンネルのマスキングを行うこともできます (以下ではアニメーションの平行移動とスケールをマスクアウトします)。
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		jrTfOw0GhLo
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+1. タイムライン マーカーをトランスフォーム キーが存在しない位置に移動して、任意のトランスフォーム キーを右クリックして ** [Rekey] ** を選択し、マーカーの位置に移動します。
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		nGglzSUID9I
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+	キーフレームの調整および現在の時間への割り当てを素早く行う際には、コンテキスト メニューから [Rekey] を使用すると便利です。上の例では、トランスフォーム トラックでキャラクターを移動させましたが、移動が止まった場合でもアニメーションは継続します。ここでは、[Rekey] を使用して、アニメーションの長さに合わせてトランスフォーム値をシーケンスの最後に移動します。
+
+## 最終結果
+
+このガイドでは、フォルダによるトラックの整理方法、セクションのサイズ変更、キーフレームのキー更新方法、チャンネルのマスキング、トラックをシーケンスに追加する際のヒントなど、シーケンサー内でトラックで作業するためのさまざまな方法について学習しました。これらのヒントを一度に使用することはないかもしれませんが、これらを知っておくことは大切であり、状況に応じて既存のシーケンサー ワークフローで役立てることができます。

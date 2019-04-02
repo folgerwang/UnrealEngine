@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:4649792
 Availability: Public
 Crumbs: %ROOT%
 Title: 피직스 애셋 에디터
@@ -75,7 +75,7 @@ Tags:Physics
 [/REGION]
 -
 [/COMMENT]
-* 우클릭 맥락 메뉴에서 **편집...** 을 선택하는 방법.
+* 우클릭 컨텍스트 메뉴에서 **편집...** 을 선택하는 방법.
 
 	[REGION:lightbox]
 	[![](RightClickOpen.png)(w:300)](RightClickOpen.png)

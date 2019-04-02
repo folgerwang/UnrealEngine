@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -69,8 +69,9 @@ struct FLandscapeTargetListInfo
 	TWeakObjectPtr<class UMaterialInstanceConstant> ThumbnailMIC;	// ignored for heightmap
 	int32 DebugColorChannel;										// ignored for heightmap
 	uint32 bValid : 1;												// ignored for heightmap
+	int32 ProceduralLayerIndex;
 
-	FLandscapeTargetListInfo(FText InTargetName, ELandscapeToolTargetType::Type InTargetType, const FLandscapeInfoLayerSettings& InLayerSettings)
+	FLandscapeTargetListInfo(FText InTargetName, ELandscapeToolTargetType::Type InTargetType, const FLandscapeInfoLayerSettings& InLayerSettings, int32 InProceduralLayerIndex)
 		: TargetName(InTargetName)
 		, TargetType(InTargetType)
 		, LandscapeInfo(InLayerSettings.Owner->GetLandscapeInfo())
@@ -80,10 +81,11 @@ struct FLandscapeTargetListInfo
 		, ThumbnailMIC(InLayerSettings.ThumbnailMIC)
 		, DebugColorChannel(InLayerSettings.DebugColorChannel)
 		, bValid(InLayerSettings.bValid)
+		, ProceduralLayerIndex (InProceduralLayerIndex)
 	{
 	}
 
-	FLandscapeTargetListInfo(FText InTargetName, ELandscapeToolTargetType::Type InTargetType, ULandscapeInfo* InLandscapeInfo)
+	FLandscapeTargetListInfo(FText InTargetName, ELandscapeToolTargetType::Type InTargetType, ULandscapeInfo* InLandscapeInfo, int32 InProceduralLayerIndex)
 		: TargetName(InTargetName)
 		, TargetType(InTargetType)
 		, LandscapeInfo(InLandscapeInfo)
@@ -92,6 +94,7 @@ struct FLandscapeTargetListInfo
 		, Owner(NULL)
 		, ThumbnailMIC(NULL)
 		, bValid(true)
+		, ProceduralLayerIndex(InProceduralLayerIndex)
 	{
 	}
 
@@ -307,6 +310,7 @@ public:
 	void InitializeTool_Splines();
 	void InitializeTool_Ramp();
 	void InitializeTool_Mirror();
+	void InitializeTool_BPCustom();
 	void InitializeToolModes();
 
 	/** Destructor */
@@ -466,6 +470,31 @@ public:
 	void OnLandscapeMaterialChangedDelegate();
 	void RefreshDetailPanel();
 
+	// Procedural Layers
+	int32 GetProceduralLayerCount() const;
+	void SetCurrentProceduralLayer(int32 InLayerIndex);
+	int32 GetCurrentProceduralLayerIndex() const;
+	FName GetCurrentProceduralLayerName() const;
+	FName GetProceduralLayerName(int32 InLayerIndex) const;
+	void SetProceduralLayerName(int32 InLayerIndex, const FName& InName);
+	float GetProceduralLayerWeight(int32 InLayerIndex) const;
+	void SetProceduralLayerWeight(float InWeight, int32 InLayerIndex);
+	void SetProceduralLayerVisibility(bool InVisible, int32 InLayerIndex);
+	bool IsProceduralLayerVisible(int32 InLayerIndex) const;
+	void AddBrushToCurrentProceduralLayer(int32 InTargetType, class ALandscapeBlueprintCustomBrush* InBrush);
+	void RemoveBrushFromCurrentProceduralLayer(int32 InTargetType, class ALandscapeBlueprintCustomBrush* InBrush);
+	bool AreAllBrushesCommitedToCurrentProceduralLayer(int32 InTargetType);
+	void SetCurrentProceduralLayerBrushesCommitState(int32 InTargetType, bool InCommited);
+	TArray<int8>& GetBrushesOrderForCurrentProceduralLayer(int32 InTargetType) const;
+	class ALandscapeBlueprintCustomBrush* GetBrushForCurrentProceduralLayer(int32 InTargetType, int8 BrushIndex) const;
+	TArray<class ALandscapeBlueprintCustomBrush*> GetBrushesForCurrentProceduralLayer(int32 InTargetType);
+	struct FProceduralLayer* GetCurrentProceduralLayer() const;
+	void ChangeHeightmapsToCurrentProceduralLayerHeightmaps(bool InResetCurrentEditingHeightmap = false);
+	void RequestProceduralContentUpdate();
+
+	void OnLevelActorAdded(AActor* InActor);
+	void OnLevelActorRemoved(AActor* InActor);
+
 	DECLARE_EVENT(FEdModeLandscape, FTargetsListUpdated);
 	static FTargetsListUpdated TargetsListUpdated;
 
@@ -501,7 +530,7 @@ public:
 	{
 		return GetEditingState() == ELandscapeEditingState::Enabled;
 	}
-
+	
 private:
 	TArray<TSharedRef<FLandscapeTargetListInfo>> LandscapeTargetList;
 	TArray<FLandscapeListInfo> LandscapeList;
@@ -517,6 +546,9 @@ private:
 	FDelegateHandle OnWorldChangeDelegateHandle;
 	FDelegateHandle OnLevelsChangedDelegateHandle;
 	FDelegateHandle OnMaterialCompilationFinishedDelegateHandle;
+
+	FDelegateHandle OnLevelActorDeletedDelegateHandle;
+	FDelegateHandle OnLevelActorAddedDelegateHandle;
 
 	/** Check if we are painting using the VREditor */
 	bool bIsPaintingInVR;

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	HTML5Misc.cpp: HTML5 implementations of misc functions
@@ -16,7 +16,6 @@ THIRD_PARTY_INCLUDES_START
 THIRD_PARTY_INCLUDES_END
 #include "GenericPlatform/GenericPlatformCrashContext.h"
 THIRD_PARTY_INCLUDES_START
-	#include <SDL.h>
 	#include <ctime>
 THIRD_PARTY_INCLUDES_END
 
@@ -76,7 +75,8 @@ extern "C"
 		// !!JM todo: pass msg & error to a crash context? Must be copied?
 		if (GHTML5CrashHandler)
 		{
-			FGenericCrashContext Ctx;
+			FString Message = FString::Printf(TEXT("Fatal error: %s"), ANSI_TO_TCHAR(msg));
+			FGenericCrashContext Ctx(ECrashContextType::Crash, *Message);
 			GHTML5CrashHandler(Ctx);
 		}
 	}

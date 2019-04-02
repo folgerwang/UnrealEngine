@@ -1,9 +1,10 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Components/DynamicEntryBox.h"
 #include "UMGPrivate.h"
 #include "Widgets/Layout/SWrapBox.h"
 #include "Widgets/SBoxPanel.h"
+#include "Editor/WidgetCompilerLog.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -180,11 +181,11 @@ void UDynamicEntryBox::SetEntrySpacing(const FVector2D& InEntrySpacing)
 }
 
 #if WITH_EDITOR
-void UDynamicEntryBox::ValidateCompiledDefaults(class FCompilerResultsLog& CompileLog) const
+void UDynamicEntryBox::ValidateCompiledDefaults(IWidgetCompilerLog& CompileLog) const
 {
 	if (!EntryWidgetClass)
 	{
-		CompileLog.Error(*FText::Format(LOCTEXT("Error_DynamicEntryBox_MissingEntryClass", "{0} has no EntryWidgetClass specified - required for any Dynamic Entry Box to function."), FText::FromString(GetName())).ToString());
+		CompileLog.Error(FText::Format(LOCTEXT("Error_DynamicEntryBox_MissingEntryClass", "{0} has no EntryWidgetClass specified - required for any Dynamic Entry Box to function."), FText::FromString(GetName())));
 	}
 }
 #endif

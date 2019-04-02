@@ -1,0 +1,135 @@
+﻿INTSourceChangelist:4400933
+Availability: Public
+Crumbs: 
+Title: AR クイック スタート
+Description: 準備をしてAR の基礎機能を動かしてみましょう。
+Type: 
+Version: 4.19
+Parent: Platforms/AR/HandheldAR
+Order: 3
+Tags: iOS
+Tags: Android
+Tags: StartingOut
+Tags: AR
+Tags: Mobile AR
+prereq: Platforms/AR/HandheldAR/ARKitPrerequisites
+prereq: Platforms/AR/HandheldAR/ARCorePrerequisites
+
+![](AR_IntroShot.png "AR_IntroShot.png")
+
+このチュートリアルでは、以下の習得を目指します。
+
+*   Handheld AR ブループリント テンプレートを使用して、 Unreal Engine 4 (UE4) で基本的な AR プロジェクトを作成する方法。
+*   基本的な AR プロジェクトを UE4 からハンドヘルド デバイスに導入する方法。
+*   AR アプリを実行する方法。 
+
+## 1. AR プロジェクトを作成する
+
+Unreal Engine で AR デバイスの開発を開始するには、まず初めに新しいプロジェクトを作成します。  
+
+1. **Unreal Project Browser** を開き、新しいハンドヘルド AR プロジェクトを作成するか、既存の AR のプロジェクトを開きます。
+    
+    *   **Handheld AR** テンプレートを選択します。
+    *   ** ターゲット ハードウェア ** を ** モバイル / タブレット ** に設定します。
+    *   ** グラフィックス レベル ** を ** スケーラブル 3D または 2D** に設定します。
+    *   **[No Starter Content]** を選択します。
+    
+    ![](AR_NewProjectScreen_HandheldARandProjectSettingsSelected.png "AR_NewProjectScreen_HandheldARandProjectSettingsSelected.png")
+2. プロジェクトに名前を付け、プロジェクトの **フォルダ** の場所を設定します。このチュートリアルでは、プロジェクトに **ARProject** という名前を付けています。
+    ![](AR_NewProjectScreen_ARProject.png "AR_NewProjectScreen_ARProject.png")
+3. **[Create Project]** ボタンをクリックします。
+    ![](AR_NewProjectScreen_CreateProject.png "AR_NewProjectScreen_CreateProject.png")
+4. その結果、 **Handheld AR** テンプレートに基づく新しい UE4 プロジェクト (**ARProject**) が作成されます。
+    ![](AR_InitialEditorScreen_HandheldARBlankMap.png "AR_InitialEditorScreen_HandheldARBlankMap.png")
+
+## 2. その他のプロジェクト設定
+
+#### **iOS**
+
+**HandheldAR** ブループリント テンプレートは、 AR を Unreal Engine で使用するために必要なプロジェクト設定の多くを事前設定されています。ただし、 iOS プラットフォームのプロジェクトを作成する場合は、いくつかの設定を手動で設定する必要があります。  
+
+| 設定 |  値 | 説明 |
+| --- | --- | --- |
+|  **Apple ARKit Plugin**  | Enabled | HandheldAR テンプレートで設定します。|
+| **Support AR** | Enabled | HandheldAR テンプレートで設定します。|
+| **Minimum iOS Version** | 11 | HandheldAR テンプレートで設定しません。|
+| **Max. Metal Shader Standard to Target** | 1.2 | HandheldAR テンプレートで設定しません。|
+| **Additional Plist Data** | UE4 は、 ARKit を使用するためにカメラの使用許可を必要とします。| HandheldAR テンプレートで設定しません。|
+
+プロジェクト セットアップ UI で構成された設定
+![](AR_ConfigureProject_MinimumiOSVersion_POST.png "AR_ConfigureProject_MinimumiOSVersion_POST.png")  
+![](AR_ConfigureProject_MaxMetalShader_POST.png "AR_ConfigureProject_MaxMetalShader_POST.png")  
+![](AR_ConfigureProject_ExtraPListData_POST.png "AR_ConfigureProject_ExtraPListData_POST.png")  
+
+#### **Android**
+
+**HandheldAR** ブループリント テンプレートは、 AR を Unreal Engine で使用するために必要なプロジェクト設定の多くを事前設定されています。ただし、 Android プラットフォームのプロジェクトを作成する場合は、 **[Configure Now]** ボタンを使用して、手動で設定する必要があります。
+  
+
+| 設定 | 値 |
+| --- | --- |
+| **Configure Project for Android** | 手動での設定が必要です  |
+
+プロジェクト セットアップ UI で構成された設定 (前 / 後)
+![](AR_ConfigureProject_ForAndroid_PRE.png "AR_ConfigureProject_ForAndroid_PRE.png")  
+![](AR_ConfigureProject_ForAndroid_POST.png "AR_ConfigureProject_ForAndroid_POST.png")
+
+## 3. デフォルト レベルのデプロイ
+
+1. 現在のレベルをデバイスにデプロイするには、まず、テストするレベルが開いていることを確認する必要があります。このチュートリアルでは、 **Handheld AR** テンプレートによって作成された **Handheld AR Blank Map** レベルを使用します。   
+    ![](AR_InitialEditorScreen_HandheldARBlankMap.png "AR_InitialEditorScreen_HandheldARBlankMap.png")  
+    
+2. **Handheld AR Blank Map** を開いた状態で、 ** [メインツールバー]** に移動し、 ** [Launch]** アイコンの隣にある小さな三角形をクリックすると、さらに多くのオプションが表示されます。
+    ![](AR_LaunchButton.png "AR_LaunchButton.png")  
+    
+3. **[Devices]** の下の ** [Launch]** メニューから、リストからターゲットとするデバイスをクリックして選択します。
+    ![](LaunchMenu_Pixel.png "LaunchMenu_Pixel.png")
+4. デプロイが開始されると、ステータス ダイアログ ボックスが **Unreal Editor** 画面の下部に表示され、進行状況が示されます。アプリのデプロイには数分かかることがあります。   
+    ![](AR_DeviceInstallationMessages.png "AR_DeviceInstallationMessages.png")  
+
+## 4. AR アプリの実行
+
+1. デバイス上で、 **[ARProject]** アイコンを選択してアプリケーションを起動します。
+    [REGION:lightbox]
+    [![](AR_DeviceScreenIcon.png "AR_DeviceScreenIcon.png")](AR_DeviceScreenIcon.png)
+    [/REGION]
+    [REGION:caption]
+    クリックしてフルサイズで表示
+    [/REGION]
+2. **[Start AR]** ボタンを選択すると、 AR に必要なプラットフォーム機能をアクティブにする AR セッションが初期化されます。
+    [REGION:lightbox]
+    [![](AR_DeviceStartButton.png "AR_DeviceStartButton.png")](AR_DeviceStartButton.png)
+    [/REGION]
+    [REGION:caption]
+    クリックしてフルサイズで表示
+    [/REGION]
+3. 透過するカメラをアクティブにしてアプリケーションを開き、角にある **[Show Debug Menu]** ボタンを表示します。
+    [REGION:lightbox]
+    [![](AR_DeviceShowDebugMenu.png "AR_DeviceShowDebugMenu.png")](AR_DeviceShowDebugMenu.png)
+    [/REGION]
+    [REGION:caption]
+    クリックしてフルサイズで表示
+    [/REGION]
+4. 追加の詳細を表示するには、 **[Show Debug Menu]** ボタンを選択します。
+    [REGION:lightbox]
+    [![](AR_DeviceFullDebugMenu.png "AR_DeviceFullDebugMenu.png")](AR_DeviceFullDebugMenu.png)
+    [/REGION]
+    [REGION:caption]
+    クリックしてフルサイズで表示
+    [/REGION]
+
+| メニュー アイテム | 説明 |
+| --- | --- |
+| **Start/Stop AR Mode** |  AR セッションのオン / オフを切り替えます。|
+| **Show/Hide World Origin** | ワールド基点トランスフォーム ウィジェットを切り替えます。|
+| **Show/Hide Planes** | ハードウェアで検出されたプレーンのデバッグ描画を切り替えます。|
+| **Show/Hide Pins** | クライアント定義のピンを切り替えます。|
+| **Show/Hide Light Info** | 光の強さ (lm) 、温度 (K) 、色 (RGBA) などの光源の推定情報を切り替えます。|
+| **Last Hit Object** | トラックされた空間であろうとワールド空間に関係なく、ユーザーが最後に「触れた(と認識された)」アイテムを表示します。|
+| **Frames Per Second** | 1 秒間に処理されるフレーム数を示します。|
+| **Tracking Quality** | 方向と位置、方向を含んだトラッキングの品質を表示します。|
+| **Show/Hide Debug Menu** | デバッグメニューを切り替えます。|
+
+## 5. 応用編
+
+以上で、 AR アプリのサンプルを作成して実行することができました。次はアプリ、特にデバッグメニューの機能を調べてみましょう。**show planes** 関数で、デバイスが水平面として検出しているものを確認できます。そして、トラックされたジオメトリをタップすることでオブジェクトをスポーンできます。異なるアングル、ライティング、いくつかのオブジェクトのスポーンなど、色々試してみてください。ぜひ楽しんで！

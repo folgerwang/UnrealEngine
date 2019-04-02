@@ -1,51 +1,14 @@
-﻿INTSourceChangelist:2714483
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:SciFi Bunk：材质实例
 Description:此文档说明在 SciFi Bunk 项目中构建环境时主材质和材质实例的使用方式。
 Version:4.9
 SkillLevel:Intermediate
-
-[VAR:Params]
-[PARAM:image]
-	![%Resources/Community/SciFiBunk_MaterialInstancing:title%](scifi_bunk_topic.png)
-[/PARAM]
-[PARAM:icon]
-	![](%ROOT%/tutorial_icon.png)(convert:false)
-[/PARAM]
-[PARAM:title]
-	%Resources/Community/SciFiBunk_MaterialInstancing:title%
-[/PARAM]
-[PARAM:description]
-	%Resources/Community/SciFiBunk_MaterialInstancing:description%
-[/PARAM]
-[PARAM:path]
-	[RELATIVE:Resources/Community/SciFiBunk_MaterialInstancing]
-[/PARAM]
-[/VAR]
-
-[VAR:Topic]
-[OBJECT:Topic]
-%params%
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-%params%
-[/OBJECT]
-[/VAR]
-
-[VAR:Role]
-[OBJECT:Role]
-%params%
-[PARAMLITERAL:id]
-resources
-[/PARAMLITERAL]
-[/OBJECT]
-[/VAR]
+topic-image:scifi_bunk_topic.png
 
 [TOC]
 
+(#Foreword)
 ## 前言
 
 此教程由社区成员 Liam Tart（PogoP）提供，授权转载于此。
@@ -61,6 +24,7 @@ Liam，感谢你！
 
 开始此教程之前推荐阅读 [](Engine/Rendering/Materials) 文档，理解材质和材质实例的工作原理。此教程说明如何将这些概念应用到工作环境。
 
+(#Goals)
 ## 目标
 
 设置主材质的目标是创建一个可被实例化的材质，并访问多个参数，以便快速对材质进行调整。可将所需的任意选项和特性放入主材质。作为基础，主材质允许选项输入指定的反射率、粗糙度、金属感和法线贴图，并添加反射色度和粗糙度以及金属感数值，对这些特性进行微调控制。 
@@ -76,6 +40,7 @@ Liam，感谢你！
 	[/PARAM]
 [/OBJECT]
 
+(#MasterMaterialSetup)
 ## 主材质设置
 
 从创建主材质开始。场景中的所有材质均从主材质实例化而来。因此需要对其进行正确有效的设置，避免过度复杂。使用主材质的一个优点是 — 如果之后需要为材质添加更多特性，只需将其应用到主材质即可，将向下传递到实例。
@@ -86,6 +51,7 @@ Liam，感谢你！
 
 ![](image_1.jpg)
 
+(#AlbedoSetup)
 ### 反射率设置
 
 ![](image_2.jpg)
@@ -106,6 +72,7 @@ Liam，感谢你！
 
 ![](image_3.jpg)
 
+(#MetallicSetup)
 ### 金属感设置
 
 ![](image_4.jpg)
@@ -122,6 +89,7 @@ Liam，感谢你！
 | 金属感值 - 0 | 金属感值 - 1 | 金属感纹理贴图 |
 [/REGION]
 
+(#RoughnessSetup)
 ### 粗糙度设置
 
 ![](image_6.jpg)
@@ -146,12 +114,14 @@ Liam，感谢你！
 | 未使用法线贴图 | 带法线贴图，平铺设为 1 | 带法线贴图，平铺设为 4 |
 [/REGION]
 
+(#OcclusionSetup)
 ### 遮挡设置
 
 ![](image_8.jpg)
 
 此设置使用静态切换参数选择使用遮挡贴图或单一值。多数材质使用的遮挡值为 1（即为简单的白色），而此设置可选择使用特定的环境遮挡贴图（如材质需要）。例如材质用于一个独特的未包裹模型，此模型的部分区域无法接受光照。
 
+(#EmissiveSetup)
 ### 自发光设置
 
 ![](image_9.jpg)
@@ -166,6 +136,7 @@ Liam，感谢你！
 | 自发光值 - 0 | 自发光值 - 1 | 自发光值 - 2 |
 [/REGION]
 
+(#NormalSetup)
 ### 法线设置
 
 ![](image_11.jpg)
@@ -174,6 +145,7 @@ Liam，感谢你！
 
 还可通过此设置将法线贴图和细节法线贴图组合。**DetailTiling** 常量与 **TexCoord** 叠加，对平铺率进行控制。可通过 **DetailNormalStrength** 控制细节法线贴图的强度。 
 
+(#ParallaxSetup)
 ### 视差设置
 
 ![](image_12.jpg)
@@ -194,6 +166,7 @@ Liam，感谢你！
 [/OBJECT]
 
 
+(#MaterialInstancing)
 ## 材质实例
 
 主材质设置完成后，可右键单击主材质并创建一个材质实例。 
@@ -212,12 +185,14 @@ Liam，感谢你！
 
 ![](image_16.jpg)
 
+(#ApplicationtoMeshes)
 ## 应用到模型
 
 材质库设置完成后，即可将这些平铺材质应用到模型。如下图所示，此模型不使用任何单独烘焙的法线贴图，而通过平铺材质来构建效果惊艳的表面。拥有以此方法构建的模型库后，即可了解使用材质实例的优点 — 调整单一数值即可传播到整个场景。举例而言，如需修改此场景中使用的木头纹理，只需在木头材质实例中进行一次修改即可，整个场景皆会更新。较之于对数个单独的弥散贴图重新设置纹理，这种方法更加快捷。
 
 ![](image_17.jpg)
 
+(#ExtraFeatures)
 ## 更多特性
 
 基础主材质和材质库设置完成后，即可轻松展开主材质添加更多特性。例如，在此材质设置中没有顶点绘制的选项。可添加一个基础插值函数，结合顶点绘制进行绘制（例如在材质表面绘制尘土）。可在此处阅读更多内容：[](Engine/UI/LevelEditor/Modes/MeshPaintMode/VertexColor/MaterialSetup/2Way)。

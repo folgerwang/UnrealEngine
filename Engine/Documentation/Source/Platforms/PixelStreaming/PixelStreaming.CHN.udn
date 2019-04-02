@@ -1,0 +1,41 @@
+﻿INTSourceChangelist:4677050
+Availability: Public
+Crumbs: 
+Title: 像素流送
+Description: 在云端服务器上运行虚幻引擎应用程序，通过WebRTC将渲染的帧和音频流送到浏览器和移动设备。
+Type: 
+Version: 4.21
+Parent: Platforms
+Order: 
+topic-image:PixelStreaming_Topic_01.png
+Tags: Early Access
+Tags: Landing Page
+Tags: Pixel Streaming
+Tags: Cloud Platform
+
+
+![](PixelStreaming_Banner_01.png "PixelStreaming_Banner_01.png")
+
+*Images courtesy of McLaren*
+
+通过像素流送可将打包的虚幻引擎应用程序在桌面PC或云端服务器上运行，也可包含少量虚幻引擎中自带的网络服务。使用者通过任意现代网络浏览器进行连接（电脑版或移动版），并从虚幻引擎应用程序流送渲染的帧和音频。不需要使用者安装或下载其他内容。操作类似于从YouTube或Netflix下载一个视频，区别是使用者可使用键盘、鼠标、触控输入，甚至在播放器网页中创建的自定义HTML5 UI来与应用程序进行交互。
+
+(#gettingstarted)
+
+## 入门
+
+%Platforms/PixelStreaming/PixelStreamingOverview:topic%
+%Platforms/PixelStreaming/PixelStreamingIntro:topic%
+
+(#guides)
+
+## 指南
+
+%Platforms/PixelStreaming/CustomPlayer:topic%
+%Platforms/PixelStreaming/Hosting:topic%
+
+(#reference)
+
+## 参考
+
+%Platforms/PixelStreaming/PixelStreamingReference:topic%

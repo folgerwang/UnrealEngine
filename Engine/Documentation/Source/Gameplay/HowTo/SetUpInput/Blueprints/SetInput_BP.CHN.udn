@@ -1,10 +1,11 @@
-﻿INTSourceChangelist:2749579
+﻿INTSourceChangelist:3429254
 Availability: Public
 Title: 如何在蓝图中设置输入
 Crumbs: %ROOT%, Gameplay, Gameplay\HowTo\SetUpInput
 Description: 关于如何在蓝图中进行输入设置的操作指南。
 Version: 4.9
 SkillLevel: Intermediate
+type:how-to
 
 [TOC (start:2 end:2)]
 
@@ -12,6 +13,7 @@ SkillLevel: Intermediate
 在本页中，您将创建一个简单人物并对其进行设置以便接收输入，之后将该人物分配到一个 **GameMode**，使之作为游戏过程中的默认 Pawn。
 如果您熟悉人物设置或拥有一个要接受输入的人物（同时设置了一个使用该人物的 **GameMode**），您可以跳过人物创建部分，直接去新建输入并实施它们。 
 
+(#CreatingaSimpleCharacter)
 ## 创建一个简单人物
 
 在该部分中，我们将创建一个可对其分配输入的人物（如果您已经有一个 **Character Blueprint**，可以跳过这一步）。 
@@ -72,6 +74,7 @@ _在此示例中，我们将使用 **Blank** 项目模板并启用 **Starter Con
 
 1.	**Compile** 并 **Save**，然后关闭蓝图。 
 
+(#CreatingaGameModetousetheSimpleCharacter)
 ### 创建一个可使用简单人物的游戏模式
 
 我们已经创建了一个简单人物，现在需要创建一个 **GameMode** 并让它使用我们的新人物。 
@@ -103,6 +106,7 @@ _在此示例中，我们将使用 **Blank** 项目模板并启用 **Starter Con
 	![](Input2_11.png)
 
 
+(#CreatingNewInputs_Action/AxisMappings_)
 ## 新建输入(Action/Axis Mappings)
 
 以下步骤将指引您为项目添加新的 **Action** 和 **Axis Mappings**，然后您可以将其分配给您的人物。 
@@ -120,6 +124,7 @@ _在此示例中，我们将使用 **Blank** 项目模板并启用 **Starter Con
 	您需要在这里为每一个映射命名，然后为其分配一个输入。请务必将高亮显示的 **Scale** 值设置为 **-1.0**，因为在累加坐标值的时候，**Scale** 充当了按键值的乘数（这可以让我们得到相反方向）。 
 
 	
+(#ImplementingAction/AxisMappingsinBlueprints)
 ## 在蓝图中实施动作/坐标轴映射
 
 通过 **Project Settings** 创建输入后，您便可以从 **Blueprint** 内调用这些输入了。在这一部分中，我们将针对简单人物（或是您已有的人物）实施这些输入设置。 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -11,6 +11,9 @@
 #include "MovieSceneObjectBindingID.h"
 #include "MovieSceneCameraCutSection.generated.h"
 
+struct FMovieSceneSequenceID;
+class IMovieScenePlayer;
+class UCameraComponent;
 
 /**
  * Movie CameraCuts are sections on the CameraCuts track, that show what the viewer "sees"
@@ -31,12 +34,6 @@ public:
 				EMovieSceneCompletionMode::ProjectDefault);
 	}
 
-	DEPRECATED(4.18, "Camera guid no longer supported, Use GetCameraBindingID.")
-	FGuid GetCameraGuid() const
-	{
-		return FGuid();
-	}
-
 	/** Sets the camera binding for this CameraCut section. Evaluates from the sequence binding ID */
 	void SetCameraGuid(const FGuid& InGuid)
 	{
@@ -44,12 +41,14 @@ public:
 	}
 
 	/** Gets the camera binding for this CameraCut section */
+	UFUNCTION(BlueprintCallable, Category = "Movie Scene Section")
 	const FMovieSceneObjectBindingID& GetCameraBindingID() const
 	{
 		return CameraBindingID;
 	}
 
 	/** Sets the camera binding for this CameraCut section */
+	UFUNCTION(BlueprintPure, Category = "Movie Scene Section")
 	void SetCameraBindingID(const FMovieSceneObjectBindingID& InCameraBindingID)
 	{
 		CameraBindingID = InCameraBindingID;
@@ -58,9 +57,20 @@ public:
 	//~ UMovieSceneSection interface
 	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
 	virtual void OnBindingsUpdated(const TMap<FGuid, FGuid>& OldGuidToNewGuidMap) override;
+	virtual void GetReferencedBindings(TArray<FGuid>& OutBindings) override;
 
 	/** ~UObject interface */
 	virtual void PostLoad() override;
+
+	/**
+	 * Resolve a camera component for this cut section from the specified player and sequence ID
+	 *
+	 * @param Player     The sequence player to use to resolve the object binding for this camera
+	 * @param SequenceID The sequence ID for the specific instance that this section exists within
+	 *
+	 * @return A camera component to be used for this cut section, or nullptr if one was not found.
+	 */
+	MOVIESCENETRACKS_API UCameraComponent* GetFirstCamera(IMovieScenePlayer& Player, FMovieSceneSequenceID SequenceID) const;
 
 private:
 

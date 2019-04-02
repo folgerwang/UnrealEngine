@@ -1,9 +1,8 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "VoiceCodecOpus.h"
 #include "VoiceModule.h"
-
-#if PLATFORM_SUPPORTS_VOICE_CAPTURE
+#if PLATFORM_SUPPORTS_OPUS_CODEC
 
 THIRD_PARTY_INCLUDES_START
 #include "opus.h"
@@ -746,4 +745,4 @@ void FVoiceDecoderOpus::DumpState() const
 	}
 }
 
-#endif // PLATFORM_SUPPORTS_VOICE_CAPTURE
+#endif

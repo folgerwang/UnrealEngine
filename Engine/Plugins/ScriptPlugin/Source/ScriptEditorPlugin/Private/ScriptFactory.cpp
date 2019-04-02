@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved. 
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved. 
 
 #include "ScriptFactory.h"
 #include "GameFramework/Actor.h"
@@ -87,7 +87,7 @@ UObject* UScriptFactory::FactoryCreateText(UClass* InClass, UObject* InParent, F
 		// Need to make sure we compile with the new source code
 		FKismetEditorUtilities::CompileBlueprint(NewBlueprint);
 
-		FEditorDelegates::OnAssetPostImport.Broadcast(this, NewBlueprint);
+		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, NewBlueprint);
 	}
 	else
 	{

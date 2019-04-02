@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -228,7 +228,7 @@ struct FTextureSource
 	FORCEINLINE void RemoveBulkData() { BulkData.RemoveBulkData(); }
 	
 	/** Sets the GUID to use, and whether that GUID is actually a hash of some data. */
-	void SetId(const FGuid& InId, bool bInGuidIsHash);
+	ENGINE_API void SetId(const FGuid& InId, bool bInGuidIsHash);
 #endif
 
 private:
@@ -700,12 +700,12 @@ public:
 	/**
 	 * Begins caching platform data in the background.
 	 */
-	void BeginCachePlatformData();
+	ENGINE_API void BeginCachePlatformData();
 
 	/**
 	 * Returns true if all async caching has completed.
 	 */
-	bool IsAsyncCacheComplete();
+	ENGINE_API bool IsAsyncCacheComplete();
 
 	/**
 	 * Blocks on async cache tasks and prepares platform data for use.
@@ -745,6 +745,7 @@ public:
 	//~ Begin UObject Interface.
 #if WITH_EDITOR
 	ENGINE_API virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	ENGINE_API virtual bool CanEditChange(const UProperty* InProperty) const override;
 #endif // WITH_EDITOR
 	ENGINE_API virtual void Serialize(FArchive& Ar) override;
 	ENGINE_API virtual void PostInitProperties() override;

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PlayerInput.cpp: Unreal input system.
@@ -56,6 +56,9 @@ UAudioSettings::UAudioSettings(const FObjectInitializer& ObjectInitializer)
 
 	bAllowVirtualizedSounds = true;
 	bIsAudioMixerEnabled = false;
+
+	GlobalMinPitchScale = 0.4F;
+	GlobalMaxPitchScale = 2.0F;
 }
 
 void UAudioSettings::AddDefaultSettings()

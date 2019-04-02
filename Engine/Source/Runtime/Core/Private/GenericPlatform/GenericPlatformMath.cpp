@@ -1,6 +1,7 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GenericPlatform/GenericPlatformMath.h"
+#include "HAL/PlatformMath.h"
 #include "Misc/AssertionMacros.h"
 #include "Math/UnrealMathUtility.h"
 #include "Math/BigInt.h"
@@ -74,6 +75,29 @@ float FGenericPlatformMath::Atan2(float Y, float X)
 	return t3;
 }
 
+/*FORCENOINLINE*/ float FGenericPlatformMath::Fmod(float X, float Y)
+{
+	if (fabsf(Y) <= 1.e-8f)
+	{
+		FmodReportError(X, Y);
+		return 0.f;
+	}
+	const float Div = (X / Y);
+	// All floats where abs(f) >= 2^23 (8388608) are whole numbers so do not need truncation, and avoid overflow in TruncToFloat as they get even larger.
+	const float Quotient = fabsf(Div) < 8388608.f ? TruncToFloat(Div) : Div;
+	float IntPortion = Y * Quotient;
+
+	// Rounding and imprecision could cause IntPortion to exceed X and cause the result to be outside the expected range.
+	// For example Fmod(55.8, 9.3) would result in a very small negative value!
+	if (fabsf(IntPortion) > fabsf(X))
+	{
+		IntPortion = X;
+	}
+
+	const float Result = X - IntPortion;
+	return Result;
+}
+
 void FGenericPlatformMath::FmodReportError(float X, float Y)
 {
 	if (Y == 0)
@@ -98,31 +122,42 @@ namespace CompilerHiddenConstants
 	volatile float FloatMax = MAX_FLT;
 }
 
+template<class MathPlatform>
+class FPlatformMathTest
+{
+public:
+	// Tests for functions that should be implemented in FGenericPlatformMath and can have a platform specific implementation. 
+	static void AutoTest()
+	{
+		using namespace CompilerHiddenConstants;
+
+		check(MathPlatform::IsNaN(sqrtf(MinusOne)));
+		check(!MathPlatform::IsFinite(sqrtf(MinusOne)));
+		check(!MathPlatform::IsFinite(-1.0f / Zero));
+		check(!MathPlatform::IsFinite(1.0f / Zero));
+		check(!MathPlatform::IsNaN(-1.0f / Zero));
+		check(!MathPlatform::IsNaN(1.0f / Zero));
+		check(!MathPlatform::IsNaN(FloatMax));
+		check(MathPlatform::IsFinite(FloatMax));
+		check(!MathPlatform::IsNaN(Zero));
+		check(MathPlatform::IsFinite(Zero));
+		check(!MathPlatform::IsNaN(One));
+		check(MathPlatform::IsFinite(One));
+		check(!MathPlatform::IsNaN(MinusOneE37));
+		check(MathPlatform::IsFinite(MinusOneE37));
+		check(MathPlatform::FloorLog2(Zero) == 0);
+		check(MathPlatform::FloorLog2(One) == 0);
+		check(MathPlatform::FloorLog2(Two) == 1);
+		check(MathPlatform::FloorLog2(Twelve) == 3);
+		check(MathPlatform::FloorLog2(Sixteen) == 4);
+	}
+};
 
 void FGenericPlatformMath::AutoTest() 
 {
 	{
-		using namespace CompilerHiddenConstants;
-
-		check(IsNaN(sqrtf(MinusOne)));
-		check(!IsFinite(sqrtf(MinusOne)));
-		check(!IsFinite(-1.0f / Zero));
-		check(!IsFinite(1.0f / Zero));
-		check(!IsNaN(-1.0f / Zero));
-		check(!IsNaN(1.0f / Zero));
-		check(!IsNaN(FloatMax));
-		check(IsFinite(FloatMax));
-		check(!IsNaN(Zero));
-		check(IsFinite(Zero));
-		check(!IsNaN(One));
-		check(IsFinite(One));
-		check(!IsNaN(MinusOneE37));
-		check(IsFinite(MinusOneE37));
-		check(FloorLog2(Zero) == 0);
-		check(FloorLog2(One) == 0);
-		check(FloorLog2(Two) == 1);
-		check(FloorLog2(Twelve) == 3);
-		check(FloorLog2(Sixteen) == 4);
+		FPlatformMathTest<FPlatformMath>::AutoTest();
+		FPlatformMathTest<FGenericPlatformMath>::AutoTest();
 	}
 
 	{

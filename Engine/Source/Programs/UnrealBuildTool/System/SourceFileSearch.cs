@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -7,7 +7,6 @@ using System.IO;
 using System.Diagnostics;
 using System.Linq;
 using Tools.DotNETCommon;
-using DotNETUtilities;
 
 namespace UnrealBuildTool
 {
@@ -107,7 +106,7 @@ namespace UnrealBuildTool
 			}
 		}
 
-		static bool ShouldInclude(FileSystemReference Reference, string[] InvariantExcludedSuffixes)
+		static bool ShouldInclude(FileSystemReference Reference, string[] ExcludedSuffixes)
 		{
 			// Ignore Mac resource fork files on non-HFS partitions
 			if (Path.GetFileName(Reference.FullName).StartsWith("._"))
@@ -115,9 +114,9 @@ namespace UnrealBuildTool
 				return false;
 			}
 			
-			foreach (string InvariantExcludedSuffix in InvariantExcludedSuffixes)
+			foreach (string ExcludedSuffix in ExcludedSuffixes)
 			{
-				if (StringUtils.FastEndsWith(Reference.FullName, InvariantExcludedSuffix))
+				if (Reference.FullName.EndsWith(ExcludedSuffix, FileSystemReference.Comparison))
 				{
 					return false;
 				}

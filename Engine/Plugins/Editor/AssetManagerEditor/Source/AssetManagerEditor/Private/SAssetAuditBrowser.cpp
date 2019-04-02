@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SAssetAuditBrowser.h"
@@ -559,6 +559,22 @@ void SAssetAuditBrowser::AddAssetsToList(const TArray<FAssetData>& AssetsToView,
 	for (const FAssetData& AssetToView : AssetsToView)
 	{
 		AssetNames.Add(AssetToView.PackageName);
+	}
+
+	AddAssetsToList(AssetNames, bReplaceExisting);
+}
+
+void SAssetAuditBrowser::AddAssetsToList(const TArray<FAssetIdentifier>& AssetsToView, bool bReplaceExisting)
+{
+	TArray<FName> AssetNames;
+
+	for (const FAssetIdentifier& AssetToView : AssetsToView)
+	{
+		FName PackageName = AssetToView.PackageName;
+		if (!PackageName.IsNone())
+		{
+			AssetNames.AddUnique(PackageName);
+		}
 	}
 
 	AddAssetsToList(AssetNames, bReplaceExisting);

@@ -1,0 +1,218 @@
+﻿INTSourceChangelist:4399490
+Availability: Public
+Crumbs: 
+Title: 虚幻工作室产品查看器模板
+Description: 描述如何使用产品查看器模板在PC及VR平台上创建互动式产品可视化应用。
+Type:how-to
+Version: 4.20
+Parent: Enterprise/UnrealStudioProjectTemplates
+Order: 1
+Tags: Enterprise
+Tags: template
+Tags: studio
+reference-image:product_viewer.gif
+topic-image:studio-product-viewer-template-topic.png
+
+
+![虚幻工作室产品查看器模板](studio-product-viewer-template-banner.png "Unreal Studio Product Viewer Template")
+
+产品查看器模板为桌面和VR设备提供即用型交互式产品可视化体验。您可以与模型进行交互，移动部件，使它们变透明，并使用内置的导航控制在场景内移动。
+
+所有的交互和导航控制都由蓝图在项目中提供，以便您定制它们，学习它们，甚至将它们复制到您自己的项目中。
+
+本页面对快速了解产品查看器模板以及将它用于您自己的模型所需的知识进行了全面介绍。
+
+## 运行项目
+
+产品查看器随附了一些内置的模型，您可在创建好新项目以后，立即在编辑器中尝试运行它。
+
+[REGION:asyncgif]
+![](product_viewer.gif)(w:620 convert:false)
+[/REGION]
+
+[REGION:note]
+如果要在VR中测试项目，请参阅下面的[在编辑器中以VR测试](#testinvrintheeditor)。
+[/REGION]
+
+### 在场景中导航
+
+产品查看器针对桌面和VR查看提供了不同的导航模式。
+
+#### 桌面旋转模式（Orbit Mode）（鼠标导航）
+
+**旋转模式（Orbit Mode）** 是桌面查看的默认导航模式。在此模式下，摄像机始终围绕3D场景中的特定点。
+
+| 要...| 请...|
+| --- | --- |
+| 围绕当前兴趣点旋转 | 右键单击并拖动|
+| 将摄像机的兴趣点更改到新的位置，但是保留当前缩放级别 | 左键单击 |
+| 将摄像机的兴趣点更改到新位置，进行缩放以将新对象放置在视口中 | 中键单击 |
+| 将摄像机向侧面、上面或下面平移 | 中键单击并拖动 |
+| 在当前兴趣点上进行放大或缩小 | 使用鼠标滚轮 |
+
+[REGION:tip]
+要使场景中的某个对象在“旋转模式（Orbit Mode）”下能够被选择作为兴趣点，它必须被设置为交互对象或可传送的表面。请参阅下面的[添加您自己的内容](#addingyourowncontent)。
+[/REGION]
+
+#### 桌面飞行模式（Flying Mode）（键盘导航）
+
+在 **飞行模式（Flying Mode）** 导航中，您可以使用键盘在场景中四处移动摄像机。
+
+| 要...| 请...|
+| --- | --- |
+| 将摄像机沿着它的面向轴向前或向后移动 | 	W 和 S  |
+| 将摄像机垂直于它的面向轴向左或向右移动 | A 和 D |
+| 将摄像机沿着场景Z轴向上或向下移动 | E 和 Q |
+| 将摄像机旋转到新的面向方向 | 右键单击并拖动 |
+
+[REGION:note]
+位于“飞行”模式下时，选择对象、移动对象和控制X光的交互控制将被禁用。
+[/REGION]
+
+要将产品查看器切换为使用“飞行”模式：
+
+1.  在 **世界大纲视图** 面板中，找到并选择 **ProductViewer_Collector** Actor。  
+    ![选择产品查看器收集器](studio-template-product-viewer-collector_world_outliner.png "Select the Product Viewer Collector")
+2.  在 **细节（Details）** 面板中，找到 **产品查看器（Product Viewer）** 部分，并将 **导航模式（Navigation Mode）** 设置更改为飞行模式（FlyingMode）。  
+    ![飞行模式（Flying Mode）设置](studio-template-product-viewer-collector-details-navigation.png "Flying Mode settings")
+3.  默认情况下，处于“飞行”模式下时，可以穿过场景中的所有对象，即使已为它们设置了碰撞网格体。如果要阻止摄像机穿过具有碰撞网格体的对象，还应清除 **在飞行模式下无碰撞（No Collision on Flying Mode）** 复选框。
+
+#### VR传送模式
+
+当您以VR运行产品查看器时，您在场景上的视点由头盔和您在VR场景中的位置控制。如果需要移到场景中的不同位置，可以使用左控制器传送自己。
+
+1.  单击左控制器摇杆。您将看到地面上叠加了目标标志：  
+    ![产品查看器传送](VRController.png "Product Viewer teleport")
+2.  在空间中移动左控制器，直到目标标志出现在VR场景中您想要移动的位置。
+3.  在您向前及向后推动左控制器摇杆时，目标标志将旋转以显示在您传送之后的面向方向。
+4.  当目标标志位于想要的位置并且指向正确的方向时，松开摇杆。
+
+[REGION:tip]
+默认情况下，仅可在地面上传送。添加您自己的内容时，可以精确指定可以传送到的表面。请参阅下面的[添加您自己的内容](#addingyourowncontent)。
+[/REGION]
+
+### 选择和移动对象
+
+可以选择和移动场景中任何已被认定为“交互式”的可移动对象。
+
+[REGION:tip]
+有关如何将对象定义为“交互式”的说明，请参阅下面的[添加您自己的内容](#addingyourowncontent)。
+[/REGION]
+
+#### 桌面
+
+| 要...| 请...|
+| --- | --- |
+| 将对象移到场景中的新位置 | 左键单击并拖动对象 |
+| 将对象移回其原始位置 | 右键单击对象 |
+
+#### VR
+
+在VR中，可以使用右控制器来选择和移动对象。
+
+| 要...| 请...|
+| --- | --- |
+| 突出显示对象 | 将右控制器的激光选择器指向对象 |
+| 抓取对象 | 	突出显示对象，然后按右触发器按钮 |
+| 移动对象 | 抓取对象，然后在真实世界空间中移动右控制器 |
+| 在新位置释放对象 | 松开右触发器按钮 |
+| 将对象移回其初始位置 | 突出显示对象，然后按右控制器上的握柄按钮 |
+
+### 使用X光模式
+
+可以让产品查看器中的任何交互对象使用X光模式。处于X光模式下时，对象几乎是透明的，而且暂时变得不可交互。这使您能够看到其后面的对象并与之交互。
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![X光关闭](studio-template-product-viewer-xray-off.png) 
+ [/PARAM]
+ [PARAM:after]
+ ![X光开启](studio-template-product-viewer-xray-on.png) 
+ [/PARAM]
+[/OBJECT]
+
+可以从X光菜单中选择以下选项：
+
+| 菜单项 | 效果 |
+| --- | --- |
+| 应用X光（Apply X-ray） | 将突出显示的对象切换为使用X光模式 |
+| 剔出X光应用（Isolate X-ray） | 将所有其他对象切换为使用X光模式，但是使突出显示的对象保持不透明状态 |
+| 清除所有X光（Clear All X-ray） | 将场景中的所有对象重置为其原始材质 |
+
+#### 桌面
+
+要打开X光菜单，将光标悬停在交互对象上时按空格键。
+
+#### VR
+
+要在VR中打开X光菜单，将右控制器摇杆向前或向后推动。按下摇杆来确认当前选择。  
+
+![VR中的产品查看器菜单](studio-template-product-viewer-xray-vr.png "Product Viewer menu in VR")
+
+  
+
+(#testinvrintheeditor)
+### 在编辑器中以VR测试
+
+在计算机上已设置VR的情况下启动已转化的或独立版本的产品查看器时，可以在启动画面中选择使用桌面控制还是VR控制启动：
+
+![产品查看器启动画面](studio-template-product-viewer-startup-vr.png "Product Viewer splash screen")
+
+但是，如果要使用VR控制在编辑器中测试产品查看器，需要执行以下步骤：
+
+1.  在 **世界大纲视图** 面板中，找到并选择 **ProductViewer_Collector** Actor。  
+    ![选择产品查看器收集器](studio-template-product-viewer-collector_world_outliner.png "Select the Product Viewer Collector")
+1.  在 **细节（Details）** 面板中，找到 **产品查看器（Product Viewer）** 部分并选中 **VR预览（VR Preview）** 选项。  
+    ![产品查看器“VR预览（VR Preview）”设置](studio-template-product-viewer-collector-details-vrpreview.png "Product Viewer VR Preview setting")
+1.  要启动预览，使用工具栏中 **运行（Play）** 按钮旁边的下拉箭头并选择 **VR预览（VR Preview）**。  
+    ![工具栏中的“VR预览（VR Preview）”](studio-template-product-viewer-vr-preview.png "VR Preview in the Toolbar")
+
+[REGION:note]
+请记得在转化游戏前关闭此设置！如果未关闭，生成的包将无法以预期的方式工作。
+[/REGION]
+
+(#addingyourowncontent)
+## 添加您自己的内容
+
+在了解产品查看器使用内置的内容时的工作方式之后，可以将您自己的模型导入并在体验中使用它们。
+
+1.  将您自己的内容导入到项目中。可以使用任何方法来将内容导入到项目中：作为FBX导入，使用[Datasmith](https://docs.unrealengine.com/en-us/Studio/Datasmith)导入，从商城或从其他功能或内容包等中添加。
+1.  将要探索的模型添加到默认的 **ProductViewer/Levels/ProductViewer** 关卡中。
+1.  请确保对于希望能够在运行时进行移动的所有静态网格体Actor，其 **可移动性（Mobility）** 选项都已在 **细节（Details）** 面板中设置为 **可移动（Movable）**：  
+    [REGION:lightbox]
+    [![Actor“可移动性（Mobility）”设置](studio-template-accumulator-mobility.png "Actor Mobility setting")](studio-template-accumulator-mobility.png) *单击查看大图。*
+    [/REGION]
+1.  在 **世界大纲视图** 面板中，找到并选择 **ProductViewer_Collector** Actor。  
+    ![选择产品查看器收集器](studio-template-product-viewer-collector_world_outliner.png "Select the Product Viewer Collector")
+1.  在 **细节（Details）** 面板中，找到 **产品查看器（Product Viewer）** 部分。  
+    ![产品查看器“交互根（interactive root）”和“传送表面根（teleport surface root）”](studio-template-product-viewer-collector-details-rootlists.png "Product Viewer interactive root and teleport surface root")
+
+ProductViewer_Collector Actor包含两个关键设置，如上图所示：
+
+*   **交互根（Interactive Root）** 是场景中玩家可与其交互的对象列表。
+*   **传送表面根（Teleport Surface Root）** 是场景中玩家可在VR模式中传送至的对象列表。
+
+您可以将每个您希望玩家能够与之交互或传送的您自己的模型添加到这些列表中。
+
+[REGION:tip]
+如果您使用Datasmith来导入内容，关卡中的“Datasmith场景Actor（Datasmith Scene Actor）”将是所有导入的静态网格体Actor的父。在 **交互根（Interactive Root）** 列表中添加一个新条目，将其设置为引用“Datasmith场景Actor（Datasmith Scene Actor）”，然后其所有子项都将自动成为交互式的。
+[/REGION]
+
+或者，您可以选择已在所需列表中的另一个Actor作为要变成交互式或可传送的静态网格体Actor的父项。例如，默认情况下，ProductViewer_Collector 在其 **交互根（Interactive Root）** 列表中只有一个条目，即 `Interactive_Root` Actor。如果在 **世界大纲视图** 中找到该Actor，您将发现它是多个表示齿轮、球体和手电筒的子Actor的父项：
+
+![Interactive_Root Actor](studio-template-product-viewer-interactive-root.png "Interactive_Root Actor")
+
+**交互根（Interactive Root）** 列表中的Actor的每个子Actor也将自动标记为交互式。这样，只需在现有的 `Interactive_Root` Actor 下为您自己的模型重新选择父项即可。可以通过在 **世界大纲视图** 中拖放它们来实现。
+
+## 将产品查看器添加到其他的项目
+
+如果另一个项目中也有您自己的内容，您可以将产品查看器中的导航和交互控制添加到此项目中。
+
+1.  打开要使用项目查看器控制优化的项目和关卡。
+1.  在内容浏览器中，选择 **新增（Add New） > 添加功能或内容包（Add Feature or Content Pack）**。  
+    ![](studio-template-product-viewer-add-feature.png "studio-template-product-viewer-add-feature.png")
+1.  在 **向项目中添加内容（Add Content to the Project）** 窗口中，打开 **Unreal Studio 功能（Unreal Studio Feature）** 选项卡。单击 **产品查看器（Product Viewer）** 缩略图，然后单击 **\+ 添加到项目（Add to Project）**。  
+    ![](studio-template-product-viewer-add-content-window.png "studio-template-product-viewer-add-content-window.png")
+1.  单击 **X** 来关闭 **向项目中添加内容（Add Content to the Project）** 窗口。
+1.  在内容浏览器中，找到 **ProductViewer/Blueprints/ProductViewer_Collector** 蓝图Actor，并将其拖放到关卡视口中。
+1.  最后，在关卡中设置ProductViewer_Collector Actor（按上面的[添加您自己的内容](#addingyourowncontent)下的说明）。

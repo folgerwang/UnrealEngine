@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 DerivedDataCacheCommandlet.cpp: Commandlet for DDC maintenence
@@ -99,7 +99,7 @@ int32 UDerivedDataCacheCommandlet::Main( const FString& Params )
 		FString MapList;
 		if(FParse::Value(*Params, TEXT("Map="), MapList))
 		{
-			for(int StartIdx = 0; StartIdx < MapList.Len(); StartIdx++)
+			for(int StartIdx = 0; StartIdx < MapList.Len();)
 			{
 				int EndIdx = StartIdx;
 				while(EndIdx < MapList.Len() && MapList[EndIdx] != '+')

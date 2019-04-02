@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -11,7 +11,7 @@
 /**
  * Settings for the WmfMedia plug-in.
  */
-UCLASS(config=Engine)
+UCLASS(config=Engine, defaultconfig)
 class WMFMEDIAFACTORY_API UWmfMediaSettings
 	: public UObject
 {
@@ -50,4 +50,8 @@ public:
 	/** Play audio tracks via the operating system's native sound mixer (default = off). */
 	UPROPERTY(config, EditAnywhere, Category=Debug)
 	bool NativeAudioOut;
+
+	/** Use hardware accelerated video acceleration (GPU) when possible otherwise fallback to software implementation (CPU), Windows and DX11 only. */
+	UPROPERTY(config, EditAnywhere, Category=Media, meta = (DisplayName = "Hardware Accelerated Video Decoding (Experimental)"))
+	bool HardwareAcceleratedVideoDecoding;
 };

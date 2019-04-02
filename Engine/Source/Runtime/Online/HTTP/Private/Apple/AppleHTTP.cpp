@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "AppleHTTP.h"
@@ -16,6 +16,8 @@
 
 FAppleHttpRequest::FAppleHttpRequest()
 :	Connection(nullptr)
+,	bIsPayloadFile(false)
+,	RequestPayloadByteLength(0)
 ,	CompletionStatus(EHttpRequestStatus::NotStarted)
 ,	ProgressBytesSent(0)
 ,	StartRequestTime(0.0)
@@ -146,12 +148,21 @@ TArray<FString> FAppleHttpRequest::GetAllHeaders() const
 
 const TArray<uint8>& FAppleHttpRequest::GetContent() const
 {
-	SCOPED_AUTORELEASE_POOL;
 	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpRequest::GetContent()"));
-	NSData* Body = Request.HTTPBody; // accessing HTTPBody will call copy on the value, increasing its retain count
-	RequestPayload.Empty();
-	RequestPayload.Append((const uint8*)Body.bytes, Body.length);
-	return RequestPayload;
+	if (bIsPayloadFile)
+	{
+		UE_LOG(LogHttp, Warning, TEXT("FAppleHttpRequest::GetContent() called on a request that is set up for streaming a file. Return value is an empty buffer"));
+		RequestPayload.Empty();
+		return RequestPayload;
+	}
+	else
+	{
+		SCOPED_AUTORELEASE_POOL;
+		NSData* Body = Request.HTTPBody; // accessing HTTPBody will call copy on the value, increasing its retain count
+		RequestPayload.Empty();
+		RequestPayload.Append((const uint8*)Body.bytes, Body.length);
+		return RequestPayload;
+	}
 }
 
 
@@ -159,6 +170,8 @@ void FAppleHttpRequest::SetContent(const TArray<uint8>& ContentPayload)
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpRequest::SetContent()"));
 	Request.HTTPBody = [NSData dataWithBytes:ContentPayload.GetData() length:ContentPayload.Num()];
+	RequestPayloadByteLength = ContentPayload.Num();
+	bIsPayloadFile = false;
 }
 
 
@@ -172,11 +185,8 @@ FString FAppleHttpRequest::GetContentType() const
 
 int32 FAppleHttpRequest::GetContentLength() const
 {
-	SCOPED_AUTORELEASE_POOL;
-	NSData* Body = Request.HTTPBody;
-	int Len = Body.length;
-	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpRequest::GetContentLength() - %i"), Len);
-	return Len;
+	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpRequest::GetContentLength() - %i"), RequestPayloadByteLength);
+	return RequestPayloadByteLength;
 }
 
 
@@ -187,6 +197,50 @@ void FAppleHttpRequest::SetContentAsString(const FString& ContentString)
 	
 	// The extra length computation here is unfortunate, but it's technically not safe to assume the length is the same.
 	Request.HTTPBody = [NSData dataWithBytes:(ANSICHAR*)Converter.Get() length:Converter.Length()];
+	RequestPayloadByteLength = Converter.Length();
+	bIsPayloadFile = false;
+}
+
+bool FAppleHttpRequest::SetContentAsStreamedFile(const FString& Filename)
+{
+	SCOPED_AUTORELEASE_POOL;
+    UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpRequest::SetContentAsStreamedFile() - %s"), *Filename);
+
+	if (CompletionStatus == EHttpRequestStatus::Processing)
+	{
+		UE_LOG(LogHttp, Warning, TEXT("FAppleHttpRequest::SetContentAsStreamedFile() - attempted to set content on a request that is inflight"));
+		return false;
+	}
+
+	NSString* PlatformFilename = Filename.GetNSString();
+
+	struct stat FileAttrs = { 0 };
+	if (stat(PlatformFilename.fileSystemRepresentation, &FileAttrs) == 0)
+	{
+		UE_LOG(LogHttp, VeryVerbose, TEXT("FAppleHttpRequest::SetContentAsStreamedFile succeeded in getting the file size - %d"), FileAttrs.st_size);
+		// Under the hood, the Foundation framework unsets HTTPBody, and takes over as the stream delegate.
+		// The stream itself should be unopened when passed to setHTTPBodyStream.
+		Request.HTTPBodyStream = [NSInputStream inputStreamWithFileAtPath: PlatformFilename];
+		RequestPayloadByteLength = FileAttrs.st_size;
+		bIsPayloadFile = true;
+	}
+	else
+	{
+		UE_LOG(LogHttp, VeryVerbose, TEXT("FAppleHttpRequest::SetContentAsStreamedFile failed to get file size"));
+		Request.HTTPBody = nil;
+		Request.HTTPBodyStream = nil;
+		RequestPayloadByteLength = 0;
+		bIsPayloadFile = false;
+	}
+
+	return bIsPayloadFile;
+}
+
+
+bool FAppleHttpRequest::SetContentFromStream(TSharedRef<FArchive, ESPMode::ThreadSafe> Stream)
+{
+	UE_LOG(LogHttp, Warning, TEXT("FAppleHttpRequest::SetContentFromStream is not implemented"));
+	return false;
 }
 
 

@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3588288
-Availability:Docs
+﻿INTSourceChangelist:3717095
+Availability:Public
 Crumbs: %ROOT%
 Title:烘焙和数据块划分
 Description:烘焙内容、编译 .pak 文件进行发布
@@ -18,10 +18,12 @@ Related:Engine/Basics/AssetsAndPackages/AssetManagement
 
 烘焙游戏进行发布或在非编辑器平台上进行测试时，可使用 **数据块（Chunking）** 将数据拆分为数个 .pak 文件，然后独立进行部署。数据块划分现已被整合到资源管理器（Asset Manager）中，可使用 **主资源标签（Primary Asset Labels）** 或 **规则覆盖（Rules Overrides）** 进行设置。ShooterGame 范例项目中包含数据块的最佳实例。ShooterGame 构建了 3 个数据块：数据块 1 是“Sanctuary”地图；数据块 2 是“Highrise”地图；数据块 3 则是其他所有数据。[ShooterGame](Resources/SampleGames/ShooterGame) 项目中选择的是 Primary Asset Labels，但两种方法我们皆会讨论。
 
+(#PrimaryAssetRules)
 ## 主资源规则（Primary Asset Rules）
 
 **主资源规则** 用于决定哪个主资源对哪个次资源拥有管理权限，以及在烘焙过程中如何处理资源。这些规则由 `FPrimaryAssetRules` 结构所定义，由 [资源管理器](Engine\Basics\AssetsAndPackages\AssetManagement) 所使用，决定烘焙时的资源处理方式。如需了解 `FPrimaryAssetRules` 中可用选项的详细信息，请查看其 [API 页面](API:FPrimaryAssetRules)。您也需要查看 [FPrimaryAssetRules` API 页面](API:EPrimaryAssetCookRule) 上定义的烘焙规则。
 
+(#PrimaryAssetLabels)
 ## 主资源标签（Primary Asset Labels）
 
 **主资源标签** 是 `UPrimaryDataAsset` 的最小覆盖，对其进行设置后可指定其他资源进行数据块划分和烘焙。其在游戏中通常不会被加载，但在烘焙和划分数据块时需要使用，可对其规则、列表和其他项目资源的优先级进行设置。以 ShooterGame 为例，创建的标签能够指定放置到诸多数据块中的资源。
@@ -40,6 +42,7 @@ Related:Engine/Basics/AssetsAndPackages/AssetManagement
 
 [REGION:caption]双击“Map:/Game/Maps/Highrise”将显示其由“PrimaryAssetLabel:HighriseLabel”所管理。[/REGION]
 
+(#RulesOverrides)
 ## 规则覆盖（Rules Overrides）
 
 **规则覆盖（Rules Overrides）** 可用于建立特定主资源的优先级和数据块设置。如要使用规则覆盖替代主资源标签构建 ShooterGame 的 3 数据块设置，需要在 `DefaultGame.ini` 中创建以下代码段：

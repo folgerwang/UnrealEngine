@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RHIContext.h: Interface for RHI Contexts
@@ -22,19 +22,11 @@ class FRHIRenderTargetView;
 class FRHISetRenderTargetsInfo;
 struct FResolveParams;
 struct FViewportBounds;
+struct FRayTracingGeometryInstance;
+struct FRayTracingShaderBindings;
 enum class EAsyncComputeBudget;
 enum class EResourceTransitionAccess;
 enum class EResourceTransitionPipeline;
-
-
-FORCEINLINE FBoundShaderStateRHIRef RHICreateBoundShaderState(
-	FVertexDeclarationRHIParamRef VertexDeclaration,
-	FVertexShaderRHIParamRef VertexShader,
-	FHullShaderRHIParamRef HullShader,
-	FDomainShaderRHIParamRef DomainShader,
-	FPixelShaderRHIParamRef PixelShader,
-	FGeometryShaderRHIParamRef GeometryShader
-);
 
 /** Context that is capable of doing Compute work.  Can be async or compute on the gfx pipe. */
 class IRHIComputeContext
@@ -127,44 +119,37 @@ public:
 	 */
 	virtual void RHIInvalidateCachedState() {};
 
-    /**
-     * Enqueues on the GPU timeline any necessary operations to make the contents of 'StagingBuffer' accessible to the CPU, flushing outstanding GPU writes and/or transferring from inaccessible non-unified GPU memory to local CPU memory.
-     * @param StagingBuffer The buffer to stage. Must not be null.
-     * @param Fence A GPU fence that will be inserted into the GPU timeline and which must then be tested on the CPU to know when the StagedRead was completed. Must not be null.
-     * @param Offset The start of the data in 'StagingBuffer' to make available.
-     * @param NumBytes The lenght of data in 'StagingBuffer' to make available.
-     */
-	virtual void RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 InOffset, uint32 InNumBytes)
+	/**
+	 * Performs a copy of the data in 'SourceBuffer' to 'DestinationStagingBuffer.' This will occur inline on the GPU timeline. This is a mechanism to perform nonblocking readback of a buffer at a point in time.
+	 * @param SourceBuffer The source vertex buffer that will be inlined copied.
+	 * @param DestinationStagingBuffer The the host-visible destination buffer
+	 * @param Offset The start of the data in 'SourceBuffer'
+	 * @param NumBytes The number of bytes to copy out of 'SourceBuffer'
+	 * @param Fence (optional) A GPU fence that will be inserted into the GPU timeline and which must then be tested on the CPU to know when the Copy was completed. Can be NULL, though that implies you will not have any guarantees as to when it is safe to read from 'DestinationStagingBuffer'
+	 */
+	virtual void RHICopyToStagingBuffer(FVertexBufferRHIParamRef SourceBufferRHI, FStagingBufferRHIParamRef DestinationStagingBufferRHI, uint32 InOffset, uint32 InNumBytes, FGPUFenceRHIParamRef FenceRHI = nullptr)
 	{
-		if (Fence)
-		{
-			Fence->Write();
-		}
+		check(false);
 	}
 };
 
-// These states are now set by the Pipeline State Object and are now deprecated
-class IRHIDeprecatedContext
+struct FAccelerationStructureUpdateParams
 {
-public:
-	/**
-	* Set bound shader state. This will set the vertex decl/shader, and pixel shader
-	* @param BoundShaderState - state resource
-	*/
-	virtual void RHISetBoundShaderState(FBoundShaderStateRHIParamRef BoundShaderState) = 0;
+	FRayTracingGeometryRHIParamRef Geometry;
+	FVertexBufferRHIParamRef VertexBuffer;
+};
 
-	virtual void RHISetDepthStencilState(FDepthStencilStateRHIParamRef NewState, uint32 StencilRef) = 0;
-
-	virtual void RHISetRasterizerState(FRasterizerStateRHIParamRef NewState) = 0;
-
-	// Allows to set the blend state, parameter can be created with RHICreateBlendState()
-	virtual void RHISetBlendState(FBlendStateRHIParamRef NewState, const FLinearColor& BlendFactor) = 0;
-
-	virtual void RHIEnableDepthBoundsTest(bool bEnable) = 0;
+struct FCopyBufferRegionParams
+{
+	FVertexBufferRHIParamRef DestBuffer;
+	uint64 DstOffset;
+	FVertexBufferRHIParamRef SourceBuffer;
+	uint64 SrcOffset;
+	uint64 NumBytes;
 };
 
 /** The interface RHI command context. Sometimes the RHI handles these. On platforms that can processes command lists in parallel, it is a separate object. */
-class IRHICommandContext : public IRHIComputeContext, public IRHIDeprecatedContext
+class IRHICommandContext : public IRHIComputeContext
 {
 public:
 	virtual ~IRHICommandContext()
@@ -344,36 +329,7 @@ public:
 	// @param MaxY excluding like Win32 RECT
 	virtual void RHISetScissorRect(bool bEnable, uint32 MinX, uint32 MinY, uint32 MaxX, uint32 MaxY) = 0;
 
-	/**
-	* This will set most relevant pipeline state. Legacy APIs are expected to set corresponding disjoint state as well.
-	* @param GraphicsShaderState - the graphics pipeline state
-	* This implementation is only in place while we transition/refactor.
-	*/
-	virtual void RHISetGraphicsPipelineState(FGraphicsPipelineStateRHIParamRef GraphicsState)
-	{
-		FRHIGraphicsPipelineStateFallBack* FallbackGraphicsState = static_cast<FRHIGraphicsPipelineStateFallBack*>(GraphicsState);
-
-		auto& PsoInit = FallbackGraphicsState->Initializer;
-
-		RHISetBoundShaderState(
-			RHICreateBoundShaderState(
-				PsoInit.BoundShaderState.VertexDeclarationRHI,
-				PsoInit.BoundShaderState.VertexShaderRHI,
-				PsoInit.BoundShaderState.HullShaderRHI,
-				PsoInit.BoundShaderState.DomainShaderRHI,
-				PsoInit.BoundShaderState.PixelShaderRHI,
-				PsoInit.BoundShaderState.GeometryShaderRHI
-			).GetReference()
-		);
-
-		RHISetDepthStencilState(FallbackGraphicsState->Initializer.DepthStencilState, 0);
-		RHISetRasterizerState(FallbackGraphicsState->Initializer.RasterizerState);
-		RHISetBlendState(FallbackGraphicsState->Initializer.BlendState, FLinearColor(1.0f, 1.0f, 1.0f));
-		if (GSupportsDepthBoundsTest)
-		{
-			RHIEnableDepthBoundsTest(FallbackGraphicsState->Initializer.bDepthBounds);
-		}
-	}
+	virtual void RHISetGraphicsPipelineState(FGraphicsPipelineStateRHIParamRef GraphicsState) = 0;
 
 	/** Set the shader resource view of a surface.  This is used for binding TextureMS parameter types that need a multi sampled view. */
 	virtual void RHISetShaderTexture(FVertexShaderRHIParamRef VertexShader, uint32 TextureIndex, FTextureRHIParamRef NewTexture) = 0;
@@ -507,26 +463,25 @@ public:
 	// The explicit bind is needed to support parallel rendering (propagate state between contexts).
 	virtual void RHIBindClearMRTValues(bool bClearColor, bool bClearDepth, bool bClearStencil) {}
 
-	virtual void RHIDrawPrimitive(uint32 PrimitiveType, uint32 BaseVertexIndex, uint32 NumPrimitives, uint32 NumInstances) = 0;
+	virtual void RHIDrawPrimitive(uint32 BaseVertexIndex, uint32 NumPrimitives, uint32 NumInstances) = 0;
 
-	virtual void RHIDrawPrimitiveIndirect(uint32 PrimitiveType, FVertexBufferRHIParamRef ArgumentBuffer, uint32 ArgumentOffset) = 0;
+	virtual void RHIDrawPrimitiveIndirect(FVertexBufferRHIParamRef ArgumentBuffer, uint32 ArgumentOffset) = 0;
 
-	virtual void RHIDrawIndexedIndirect(FIndexBufferRHIParamRef IndexBufferRHI, uint32 PrimitiveType, FStructuredBufferRHIParamRef ArgumentsBufferRHI, int32 DrawArgumentsIndex, uint32 NumInstances) = 0;
+	virtual void RHIDrawIndexedIndirect(FIndexBufferRHIParamRef IndexBufferRHI, FStructuredBufferRHIParamRef ArgumentsBufferRHI, int32 DrawArgumentsIndex, uint32 NumInstances) = 0;
 
 	// @param NumPrimitives need to be >0 
-	virtual void RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef IndexBuffer, uint32 PrimitiveType, int32 BaseVertexIndex, uint32 FirstInstance, uint32 NumVertices, uint32 StartIndex, uint32 NumPrimitives, uint32 NumInstances) = 0;
+	virtual void RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef IndexBuffer, int32 BaseVertexIndex, uint32 FirstInstance, uint32 NumVertices, uint32 StartIndex, uint32 NumPrimitives, uint32 NumInstances) = 0;
 
-	virtual void RHIDrawIndexedPrimitiveIndirect(uint32 PrimitiveType, FIndexBufferRHIParamRef IndexBuffer, FVertexBufferRHIParamRef ArgumentBuffer, uint32 ArgumentOffset) = 0;
+	virtual void RHIDrawIndexedPrimitiveIndirect(FIndexBufferRHIParamRef IndexBuffer, FVertexBufferRHIParamRef ArgumentBuffer, uint32 ArgumentOffset) = 0;
 
 	/**
 	* Preallocate memory or get a direct command stream pointer to fill up for immediate rendering . This avoids memcpys below in DrawPrimitiveUP
-	* @param PrimitiveType The type (triangles, lineloop, etc) of primitive to draw
 	* @param NumPrimitives The number of primitives in the VertexData buffer
 	* @param NumVertices The number of vertices to be written
 	* @param VertexDataStride Size of each vertex
 	* @param OutVertexData Reference to the allocated vertex memory
 	*/
-	virtual void RHIBeginDrawPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData) = 0;
+	virtual void RHIBeginDrawPrimitiveUP(uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData) = 0;
 
 	/**
 	* Draw a primitive using the vertex data populated since RHIBeginDrawPrimitiveUP and clean up any memory as needed
@@ -535,7 +490,6 @@ public:
 
 	/**
 	* Preallocate memory or get a direct command stream pointer to fill up for immediate rendering . This avoids memcpys below in DrawIndexedPrimitiveUP
-	* @param PrimitiveType The type (triangles, lineloop, etc) of primitive to draw
 	* @param NumPrimitives The number of primitives in the VertexData buffer
 	* @param NumVertices The number of vertices to be written
 	* @param VertexDataStride Size of each vertex
@@ -545,7 +499,7 @@ public:
 	* @param IndexDataStride Size of each index (either 2 or 4 bytes)
 	* @param OutIndexData Reference to the allocated index memory
 	*/
-	virtual void RHIBeginDrawIndexedPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData) = 0;
+	virtual void RHIBeginDrawIndexedPrimitiveUP(uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData) = 0;
 
 	/**
 	* Draw a primitive using the vertex and index data populated since RHIBeginDrawIndexedPrimitiveUP and clean up any memory as needed
@@ -568,9 +522,6 @@ public:
 
 	virtual void RHIBeginRenderPass(const FRHIRenderPassInfo& InInfo, const TCHAR* InName)
 	{
-		// Fallback...
-		InInfo.Validate();
-
 		if (InInfo.bGeneratingMips)
 		{
 			FRHITexture* Textures[MaxSimultaneousRenderTargets];
@@ -633,18 +584,18 @@ public:
 	virtual void RHICopyTexture(FTextureRHIParamRef SourceTexture, FTextureRHIParamRef DestTexture, const FRHICopyTextureInfo& CopyInfo)
 	{
 		const bool bIsCube = SourceTexture->GetTextureCube() != nullptr;
-		const bool bAllCubeFaces = bIsCube && (CopyInfo.NumArraySlices % 6) == 0;
-		const int32 NumArraySlices = bAllCubeFaces ? CopyInfo.NumArraySlices / 6 : CopyInfo.NumArraySlices;
+		const bool bAllCubeFaces = bIsCube && (CopyInfo.NumSlices % 6) == 0;
+		const int32 NumArraySlices = bAllCubeFaces ? CopyInfo.NumSlices / 6 : CopyInfo.NumSlices;
 		const int32 NumFaces = bAllCubeFaces ? 6 : 1;
 		for (int32 ArrayIndex = 0; ArrayIndex < NumArraySlices; ++ArrayIndex)
 		{
-			int32 SourceArrayIndex = CopyInfo.SourceArraySlice + ArrayIndex;
-			int32 DestArrayIndex = CopyInfo.DestArraySlice + ArrayIndex;
+			int32 SourceArrayIndex = CopyInfo.SourceSliceIndex + ArrayIndex;
+			int32 DestArrayIndex = CopyInfo.DestSliceIndex + ArrayIndex;
 			for (int32 FaceIndex = 0; FaceIndex < NumFaces; ++FaceIndex)
 			{
 				FResolveParams ResolveParams(FResolveRect(),
 					bIsCube ? (ECubeFace)FaceIndex : CubeFace_PosX,
-					CopyInfo.MipIndex,
+					CopyInfo.SourceMipIndex,
 					SourceArrayIndex,
 					DestArrayIndex
 				);
@@ -652,7 +603,130 @@ public:
 			}
 		}
 	}
+#if RHI_RAYTRACING
+	virtual void RHICopyBufferRegion(FVertexBufferRHIParamRef DestBuffer, uint64 DstOffset, FVertexBufferRHIParamRef SourceBuffer, uint64 SrcOffset, uint64 NumBytes)
+	{
+		checkNoEntry();
+	}
+
+	virtual void RHICopyBufferRegions(const TArrayView<const FCopyBufferRegionParams> Params)
+	{
+		checkNoEntry();
+	}
+#endif
+	virtual void RHIBuildAccelerationStructure(FRayTracingGeometryRHIParamRef Geometry)
+	{
+		checkNoEntry();
+	}
+
+	virtual void RHIUpdateAccelerationStructures(const TArrayView<const FAccelerationStructureUpdateParams> Params)
+	{
+		checkNoEntry();
+	}
+
+	virtual void RHIBuildAccelerationStructures(const TArrayView<const FAccelerationStructureUpdateParams> Params)
+	{
+		checkNoEntry();
+	}
+
+	virtual void RHIBuildAccelerationStructure(FRayTracingSceneRHIParamRef Scene)
+	{
+		checkNoEntry();
+	}
+
+	virtual void RHIRayTraceOcclusion(FRayTracingSceneRHIParamRef Scene,
+		FShaderResourceViewRHIParamRef Rays,
+		FUnorderedAccessViewRHIParamRef Output,
+		uint32 NumRays)
+	{
+		checkNoEntry();
+	}
+
+	virtual void RHIRayTraceIntersection(FRayTracingSceneRHIParamRef Scene,
+		FShaderResourceViewRHIParamRef Rays,
+		FUnorderedAccessViewRHIParamRef Output,
+		uint32 NumRays)
+	{
+		checkNoEntry();
+	}
+
+	virtual void RHIRayTraceDispatch(FRayTracingPipelineStateRHIParamRef RayTracingPipelineState, FRayTracingShaderRHIParamRef RayGenShader,
+		FRayTracingSceneRHIParamRef Scene, 
+		const FRayTracingShaderBindings& GlobalResourceBindings,
+		uint32 Width, uint32 Height)
+	{
+		checkNoEntry();
+	}
+
+	virtual void RHISetRayTracingHitGroup(
+		FRayTracingSceneRHIParamRef Scene, uint32 InstanceIndex, uint32 SegmentIndex, uint32 ShaderSlot,
+		FRayTracingPipelineStateRHIParamRef Pipeline, uint32 HitGroupIndex,
+		uint32 NumUniformBuffers, const FUniformBufferRHIParamRef* UniformBuffers,
+		uint32 UserData)
+	{
+		checkNoEntry();
+	}
 
 	protected:
 		FRHIRenderPassInfo RenderPassInfo;
+};
+
+
+
+FORCEINLINE FBoundShaderStateRHIRef RHICreateBoundShaderState(
+	FVertexDeclarationRHIParamRef VertexDeclaration,
+	FVertexShaderRHIParamRef VertexShader,
+	FHullShaderRHIParamRef HullShader,
+	FDomainShaderRHIParamRef DomainShader,
+	FPixelShaderRHIParamRef PixelShader,
+	FGeometryShaderRHIParamRef GeometryShader
+);
+
+
+// Command Context for RHIs that do not support real Graphics Pipelines.
+class IRHICommandContextPSOFallback : public IRHICommandContext
+{
+public:
+	/**
+	* Set bound shader state. This will set the vertex decl/shader, and pixel shader
+	* @param BoundShaderState - state resource
+	*/
+	virtual void RHISetBoundShaderState(FBoundShaderStateRHIParamRef BoundShaderState) = 0;
+
+	virtual void RHISetDepthStencilState(FDepthStencilStateRHIParamRef NewState, uint32 StencilRef) = 0;
+
+	virtual void RHISetRasterizerState(FRasterizerStateRHIParamRef NewState) = 0;
+
+	virtual void RHISetBlendState(FBlendStateRHIParamRef NewState, const FLinearColor& BlendFactor) = 0;
+
+	virtual void RHIEnableDepthBoundsTest(bool bEnable) = 0;
+
+	/**
+	* This will set most relevant pipeline state. Legacy APIs are expected to set corresponding disjoint state as well.
+	* @param GraphicsShaderState - the graphics pipeline state
+	*/
+	virtual void RHISetGraphicsPipelineState(FGraphicsPipelineStateRHIParamRef GraphicsState) override
+	{
+		FRHIGraphicsPipelineStateFallBack* FallbackGraphicsState = static_cast<FRHIGraphicsPipelineStateFallBack*>(GraphicsState);
+		FGraphicsPipelineStateInitializer& PsoInit = FallbackGraphicsState->Initializer;
+
+		RHISetBoundShaderState(
+			RHICreateBoundShaderState(
+				PsoInit.BoundShaderState.VertexDeclarationRHI,
+				PsoInit.BoundShaderState.VertexShaderRHI,
+				PsoInit.BoundShaderState.HullShaderRHI,
+				PsoInit.BoundShaderState.DomainShaderRHI,
+				PsoInit.BoundShaderState.PixelShaderRHI,
+				PsoInit.BoundShaderState.GeometryShaderRHI
+			).GetReference()
+		);
+
+		RHISetDepthStencilState(FallbackGraphicsState->Initializer.DepthStencilState, 0);
+		RHISetRasterizerState(FallbackGraphicsState->Initializer.RasterizerState);
+		RHISetBlendState(FallbackGraphicsState->Initializer.BlendState, FLinearColor(1.0f, 1.0f, 1.0f));
+		if (GSupportsDepthBoundsTest)
+		{
+			RHIEnableDepthBoundsTest(FallbackGraphicsState->Initializer.bDepthBounds);
+		}
+	}
 };

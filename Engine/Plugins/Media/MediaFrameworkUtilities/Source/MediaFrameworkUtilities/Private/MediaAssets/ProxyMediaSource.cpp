@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaAssets/ProxyMediaSource.h"
 #include "MediaFrameworkUtilitiesModule.h"
@@ -75,6 +75,12 @@ UMediaSource* UProxyMediaSource::GetLeafMediaSource() const
 		MediaSource = ProxyMediaSource->GetLeafMediaSource();
 	}
 	return MediaSource;
+}
+
+
+bool UProxyMediaSource::IsProxyValid() const
+{
+	return GetLeafMediaSource() != nullptr;
 }
 
 

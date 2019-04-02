@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -159,7 +159,7 @@ protected:
 			DestData.Reserve( EStatsFileConstants::MAX_COMPRESSED_SIZE );
 			int32 CompressedSize = DestData.GetAllocatedSize();
 
-			const bool bResult = FCompression::CompressMemory( COMPRESS_ZLIB, DestData.GetData(), CompressedSize, SrcData.GetData(), UncompressedSize );
+			const bool bResult = FCompression::CompressMemory( NAME_Zlib, DestData.GetData(), CompressedSize, SrcData.GetData(), UncompressedSize );
 			check( bResult );
 			Writer << CompressedSize << UncompressedSize;
 			Writer.Serialize( DestData.GetData(), CompressedSize );
@@ -192,7 +192,7 @@ protected:
 			DestData.AddUninitialized( UncompressedSize );
 
 			Reader.Serialize( SrcData.GetData(), CompressedSize );
-			const bool bResult = FCompression::UncompressMemory( COMPRESS_ZLIB, DestData.GetData(), UncompressedSize, SrcData.GetData(), CompressedSize );
+			const bool bResult = FCompression::UncompressMemory(NAME_Zlib, DestData.GetData(), UncompressedSize, SrcData.GetData(), CompressedSize );
 			check( bResult );
 		}
 	}

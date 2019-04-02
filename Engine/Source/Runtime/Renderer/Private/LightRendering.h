@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LightRendering.h: Light rendering declarations.
@@ -19,26 +19,15 @@
 #include "LightSceneInfo.h"
 
 /** Uniform buffer for rendering deferred lights. */
-BEGIN_UNIFORM_BUFFER_STRUCT(FDeferredLightUniformStruct,)
-	UNIFORM_MEMBER(FVector,LightPosition)
-	UNIFORM_MEMBER(float,LightInvRadius)
-	UNIFORM_MEMBER(FVector,LightColor)
-	UNIFORM_MEMBER(float,LightFalloffExponent)
-	UNIFORM_MEMBER(FVector,NormalizedLightDirection)
-	UNIFORM_MEMBER(FVector,NormalizedLightTangent)
-	UNIFORM_MEMBER(FVector2D,SpotAngles)
-	UNIFORM_MEMBER(float,SpecularScale)
-	UNIFORM_MEMBER(float,SourceRadius)
-	UNIFORM_MEMBER(float,SoftSourceRadius)
-	UNIFORM_MEMBER(float,SourceLength)
-	UNIFORM_MEMBER(float,ContactShadowLength)
-	UNIFORM_MEMBER(FVector2D,DistanceFadeMAD)
-	UNIFORM_MEMBER(FVector4,ShadowMapChannelMask)
-	UNIFORM_MEMBER(uint32,ShadowedBits)
-	UNIFORM_MEMBER(uint32,LightingChannelMask)
-	UNIFORM_MEMBER(float,VolumetricScatteringIntensity)
-	UNIFORM_MEMBER_TEXTURE(Texture2D, SourceTexture)
-END_UNIFORM_BUFFER_STRUCT(FDeferredLightUniformStruct)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FDeferredLightUniformStruct,)
+	SHADER_PARAMETER(FVector4,ShadowMapChannelMask)
+	SHADER_PARAMETER(FVector2D,DistanceFadeMAD)
+	SHADER_PARAMETER(float, ContactShadowLength)
+	SHADER_PARAMETER(float, VolumetricScatteringIntensity)
+	SHADER_PARAMETER(uint32,ShadowedBits)
+	SHADER_PARAMETER(uint32,LightingChannelMask)
+	SHADER_PARAMETER_STRUCT_INCLUDE(FLightShaderParameters, LightParameters)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 extern uint32 GetShadowQuality();
 
@@ -53,24 +42,8 @@ void SetDeferredLightParameters(
 	const FSceneView& View)
 {
 	FDeferredLightUniformStruct DeferredLightUniformsValue;
-
-	FLightParameters LightParameters;
-
-	LightSceneInfo->Proxy->GetParameters(LightParameters);
+	LightSceneInfo->Proxy->GetLightShaderParameters(DeferredLightUniformsValue.LightParameters);
 	
-	DeferredLightUniformsValue.LightPosition = LightParameters.LightPositionAndInvRadius;
-	DeferredLightUniformsValue.LightInvRadius = LightParameters.LightPositionAndInvRadius.W;
-	DeferredLightUniformsValue.LightColor = LightParameters.LightColorAndFalloffExponent;
-	DeferredLightUniformsValue.LightFalloffExponent = LightParameters.LightColorAndFalloffExponent.W;
-	DeferredLightUniformsValue.NormalizedLightDirection = LightParameters.NormalizedLightDirection;
-	DeferredLightUniformsValue.NormalizedLightTangent = LightParameters.NormalizedLightTangent;
-	DeferredLightUniformsValue.SpotAngles = LightParameters.SpotAngles;
-	DeferredLightUniformsValue.SpecularScale = LightParameters.SpecularScale;
-	DeferredLightUniformsValue.SourceRadius = LightParameters.LightSourceRadius;
-	DeferredLightUniformsValue.SoftSourceRadius = LightParameters.LightSoftSourceRadius;
-	DeferredLightUniformsValue.SourceLength = LightParameters.LightSourceLength;
-	DeferredLightUniformsValue.SourceTexture = LightParameters.SourceTexture->TextureRHI;
-
 	const FVector2D FadeParams = LightSceneInfo->Proxy->GetDirectionalLightDistanceFadeParameters(View.GetFeatureLevel(), LightSceneInfo->IsPrecomputedLightingValid(), View.MaxShadowCascades);
 
 	// use MAD for efficiency in the shader
@@ -113,13 +86,13 @@ void SetDeferredLightParameters(
 	// When rendering reflection captures, the direct lighting of the light is actually the indirect specular from the main view
 	if (View.bIsReflectionCapture)
 	{
-		DeferredLightUniformsValue.LightColor *= LightSceneInfo->Proxy->GetIndirectLightingScale();
+		DeferredLightUniformsValue.LightParameters.Color *= LightSceneInfo->Proxy->GetIndirectLightingScale();
 	}
 
 	const ELightComponentType LightType = (ELightComponentType)LightSceneInfo->Proxy->GetLightType();
 	if ((LightType == LightType_Point || LightType == LightType_Spot || LightType == LightType_Rect) && View.IsPerspectiveProjection())
 	{
-		DeferredLightUniformsValue.LightColor *= GetLightFadeFactor(View, LightSceneInfo->Proxy);
+		DeferredLightUniformsValue.LightParameters.Color *= GetLightFadeFactor(View, LightSceneInfo->Proxy);
 	}
 
 	DeferredLightUniformsValue.LightingChannelMask = LightSceneInfo->Proxy->GetLightingChannelMask();
@@ -137,23 +110,23 @@ void SetSimpleDeferredLightParameters(
 	const FSceneView& View)
 {
 	FDeferredLightUniformStruct DeferredLightUniformsValue;
-	DeferredLightUniformsValue.LightPosition = SimpleLightPerViewData.Position;
-	DeferredLightUniformsValue.LightInvRadius = 1.0f / FMath::Max(SimpleLight.Radius, KINDA_SMALL_NUMBER);
-	DeferredLightUniformsValue.LightColor = SimpleLight.Color;
-	DeferredLightUniformsValue.LightFalloffExponent = SimpleLight.Exponent;
-	DeferredLightUniformsValue.NormalizedLightDirection = FVector(1, 0, 0);
-	DeferredLightUniformsValue.NormalizedLightTangent = FVector(1, 0, 0);
-	DeferredLightUniformsValue.SpotAngles = FVector2D(-2, 1);
-	DeferredLightUniformsValue.SpecularScale = 1.0f;
-	DeferredLightUniformsValue.SourceRadius = 0.0f;
-	DeferredLightUniformsValue.SoftSourceRadius = 0.0f;
-	DeferredLightUniformsValue.SourceLength = 0.0f;
+	DeferredLightUniformsValue.LightParameters.Position = SimpleLightPerViewData.Position;
+	DeferredLightUniformsValue.LightParameters.InvRadius = 1.0f / FMath::Max(SimpleLight.Radius, KINDA_SMALL_NUMBER);
+	DeferredLightUniformsValue.LightParameters.Color = SimpleLight.Color;
+	DeferredLightUniformsValue.LightParameters.FalloffExponent = SimpleLight.Exponent;
+	DeferredLightUniformsValue.LightParameters.Direction = FVector(1, 0, 0);
+	DeferredLightUniformsValue.LightParameters.Tangent = FVector(1, 0, 0);
+	DeferredLightUniformsValue.LightParameters.SpotAngles = FVector2D(-2, 1);
+	DeferredLightUniformsValue.LightParameters.SpecularScale = 1.0f;
+	DeferredLightUniformsValue.LightParameters.SourceRadius = 0.0f;
+	DeferredLightUniformsValue.LightParameters.SoftSourceRadius = 0.0f;
+	DeferredLightUniformsValue.LightParameters.SourceLength = 0.0f;
+	DeferredLightUniformsValue.LightParameters.SourceTexture = GWhiteTexture->TextureRHI;
 	DeferredLightUniformsValue.ContactShadowLength = 0.0f;
 	DeferredLightUniformsValue.DistanceFadeMAD = FVector2D(0, 0);
 	DeferredLightUniformsValue.ShadowMapChannelMask = FVector4(0, 0, 0, 0);
 	DeferredLightUniformsValue.ShadowedBits = 0;
 	DeferredLightUniformsValue.LightingChannelMask = 0;
-	DeferredLightUniformsValue.SourceTexture = GWhiteTexture->TextureRHI;
 
 	SetUniformBufferParameterImmediate(RHICmdList, ShaderRHI, DeferredLightUniformBufferParameter, DeferredLightUniformsValue);
 }
@@ -574,4 +547,12 @@ private:
 };
 
 extern void SetBoundingGeometryRasterizerAndDepthState(FGraphicsPipelineStateInitializer& GraphicsPSOInit, const FViewInfo& View, const FSphere& LightBounds);
+
+enum class FLightOcclusionType : uint8
+{
+	Shadowmap,
+	Raytraced,
+};
+FLightOcclusionType GetLightOcclusionType(const FLightSceneProxy& Proxy);
+FLightOcclusionType GetLightOcclusionType(const FLightSceneInfoCompact& LightInfo);
 

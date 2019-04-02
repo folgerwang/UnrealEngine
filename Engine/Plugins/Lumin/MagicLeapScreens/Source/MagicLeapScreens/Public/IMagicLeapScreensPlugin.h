@@ -1,8 +1,9 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Modules/ModuleManager.h"
+#include "Containers/Ticker.h"
 
 /**
  * The public interface to this module.  In most cases, this interface is only public to sibling modules
@@ -33,7 +34,12 @@ public:
 		return FModuleManager::Get().IsModuleLoaded( "MagicLeapScreens" );
 	}
 
+	virtual bool Tick(float DeltaTime) = 0;
+
 	virtual bool IsEngineLoopInitComplete() const = 0;
 
 	virtual void OnEngineLoopInitComplete() = 0;
+
+	FTickerDelegate TickDelegate;
+	FDelegateHandle TickDelegateHandle;
 };

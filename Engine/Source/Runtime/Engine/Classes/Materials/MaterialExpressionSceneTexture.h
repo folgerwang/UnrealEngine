@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -69,6 +69,8 @@ enum ESceneTextureId
 	PPI_StoredBaseColor UMETA(DisplayName="BaseColor (as stored in GBuffer)"),
 	/** Material specular, single channel (GBuffer) */
 	PPI_StoredSpecular UMETA(DisplayName="Specular (as stored in GBuffer)"),
+	/** Scene Velocity */
+	PPI_Velocity UMETA(DisplayName="Velocity"),
 };
 
 UCLASS(collapsecategories, hidecategories=Object)

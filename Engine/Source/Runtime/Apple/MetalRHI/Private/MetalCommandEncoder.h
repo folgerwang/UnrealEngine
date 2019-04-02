@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -112,6 +112,9 @@ public:
 	/** @returns True if and only if there is valid render pass descriptor set on the encoder, otherwise false. */
 	bool IsRenderPassDescriptorValid(void) const;
 	
+	/** @returns The current render pass descriptor. */
+	mtlpp::RenderPassDescriptor const& GetRenderPassDescriptor(void) const;
+	
 	/** @returns The active render command encoder or nil if there isn't one. */
 	mtlpp::ParallelRenderCommandEncoder& GetParallelRenderCommandEncoder(void);
 	
@@ -128,7 +131,10 @@ public:
 	mtlpp::BlitCommandEncoder& GetBlitCommandEncoder(void);
 	
 	/** @returns The MTLFence for the current encoder or nil if there isn't one. */
-	mtlpp::Fence GetEncoderFence(void) const;
+	TRefCountPtr<FMetalFence> const& GetEncoderFence(void) const;
+	
+	/** @returns The number of encoded passes in the command buffer. */
+	uint32 NumEncodedPasses(void) const { return EncoderNum; }
 	
 #pragma mark - Public Command Encoder Mutators -
 
@@ -144,13 +150,13 @@ public:
 	void BeginRenderCommandEncoding(void);
 	
 	/** Begins encoding compute commands into the current command buffer. No other encoder may be active. */
-	void BeginComputeCommandEncoding(void);
+	void BeginComputeCommandEncoding(mtlpp::DispatchType Type = mtlpp::DispatchType::Serial);
 	
 	/** Begins encoding blit commands into the current command buffer. No other encoder may be active. */
 	void BeginBlitCommandEncoding(void);
 	
 	/** Declare that all command generation from this encoder is complete, and detach from the MTLCommandBuffer if there is an encoder active or does nothing if there isn't. */
-	mtlpp::Fence EndEncoding(void);
+	TRefCountPtr<FMetalFence> EndEncoding(void);
 	
 	/** Initialises a fence for the current command-buffer optionally adding a command-buffer completion handler to the command-buffer */
 	void InsertCommandBufferFence(FMetalCommandBufferFence& Fence, mtlpp::CommandBufferHandler Handler);
@@ -159,10 +165,16 @@ public:
 	void AddCompletionHandler(mtlpp::CommandBufferHandler Handler);
 	
 	/** Update the event to capture all GPU work so far enqueued by this encoder. */
-	void UpdateFence(mtlpp::Fence Fence);
+	void UpdateFence(FMetalFence* Fence);
 	
 	/** Prevent further GPU work until the event is reached. */
-	void WaitForFence(mtlpp::Fence Fence);
+	void WaitForFence(FMetalFence* Fence);
+	
+	/**
+	 * Prevent further GPU work until the event is reached and then kick the fence again so future encoders may wait on it.
+	 * Unlike the functions above this is not guarded and the caller must ensure proper matching waits & updates.
+	 */
+	void WaitAndUpdateFence(FMetalFence* Fence);
 
 #pragma mark - Public Debug Support -
 	
@@ -302,8 +314,10 @@ public:
 	 * @param Offset The offset in the buffer or 0 when Buffer is nil.
 	 * @param Length The data length - caller is responsible for accounting for non-zero Offset.
 	 * @param Index The index to modify.
+	 * @param Usage The resource usage mask.
+	 * @param Format The Pixel format to reinterpret the resource as.
 	 */
-	void SetShaderBuffer(mtlpp::FunctionType const FunctionType, FMetalBuffer const& Buffer, NSUInteger const Offset, NSUInteger const Length, NSUInteger const Index, EPixelFormat const Format = PF_Unknown);
+	void SetShaderBuffer(mtlpp::FunctionType const FunctionType, FMetalBuffer const& Buffer, NSUInteger const Offset, NSUInteger const Length, NSUInteger const Index, mtlpp::ResourceUsage const Usage, EPixelFormat const Format = PF_Unknown);
 	
 	/*
 	 * Set an FMetalBufferData to the specified shader frequency at the given bind point index.
@@ -311,6 +325,7 @@ public:
 	 * @param Data The data to bind or nullptr to clear.
 	 * @param Offset The offset in the buffer or 0 when Buffer is nil.
 	 * @param Index The index to modify.
+	 * @param Format The pixel format to reinterpret the resource as.
 	 */
 	void SetShaderData(mtlpp::FunctionType const FunctionType, FMetalBufferData* Data, NSUInteger const Offset, NSUInteger const Index, EPixelFormat const Format = PF_Unknown);
 	
@@ -328,8 +343,9 @@ public:
 	 * @param FunctionType The shader function to modify.
 	 * @param Texture The texture to bind or nil to clear.
 	 * @param Index The index to modify.
+	 * @param Usage The resource usage mask.
 	 */
-	void SetShaderTexture(mtlpp::FunctionType const FunctionType, FMetalTexture const& Texture, NSUInteger const Index);
+	void SetShaderTexture(mtlpp::FunctionType const FunctionType, FMetalTexture const& Texture, NSUInteger const Index, mtlpp::ResourceUsage const Usage);
 	
 	/*
 	 * Set a global sampler for the specified shader frequency at the given bind point index.
@@ -345,6 +361,26 @@ public:
 	 * @param Index The index to bind data to.
 	 */
 	void SetShaderSideTable(mtlpp::FunctionType const FunctionType, NSUInteger const Index);
+	
+    /*
+     * Inform the driver that an indirect argument resource will be used and what the usage mode will be.
+     * @param Texture The texture that will be used as an indirect argument.
+     * @param Usage The usage mode for the texture.
+     */
+	void UseIndirectArgumentResource(FMetalTexture const& Texture, mtlpp::ResourceUsage const Usage);
+    
+    /*
+     * Inform the driver that an indirect argument resource will be used and what the usage mode will be.
+     * @param Buffer The buffer that will be used as an indirect argument.
+     * @param Usage The usage mode for the texture.
+     */
+	void UseIndirectArgumentResource(FMetalBuffer const& Buffer, mtlpp::ResourceUsage const Usage);
+
+	/*
+	 * Transition resource so that we can barrier fragment->vertex stages.
+	 * @param Resource The resource we are going to make readable having been written.
+	 */
+	void TransitionResources(mtlpp::Resource const& Resource);
 	
 #pragma mark - Public Compute State Mutators -
 	
@@ -384,6 +420,11 @@ private:
 	
 	void SetShaderBufferInternal(mtlpp::FunctionType Function, uint32 Index);
 	
+	void FenceResource(mtlpp::Texture const& Resource);
+	void FenceResource(mtlpp::Buffer const& Resource);
+
+	void UseResource(mtlpp::Resource const& Resource, mtlpp::ResourceUsage const Usage);
+	
 #pragma mark - Private Type Declarations -
 private:
     /** A structure of arrays for the current buffer binding settings. */
@@ -397,6 +438,8 @@ private:
         FMetalBufferData* Bytes[ML_MaxBuffers];
         /** The bound buffer offsets or 0. */
         NSUInteger Offsets[ML_MaxBuffers];
+		/** The usage mask for the bound resource or 0 */
+		mtlpp::ResourceUsage Usage[ML_MaxBuffers];
 		/** The bound buffer lengths */
 		uint32 Lengths[ML_MaxBuffers*2];
         /** A bitmask for which buffers were bound by the application where a bit value of 1 is bound and 0 is unbound. */
@@ -418,7 +461,6 @@ private:
 	FMetalSubBufferRing RingBuffer;
 	
 	mtlpp::RenderPassDescriptor RenderPassDesc;
-	NSUInteger RenderPassDescApplied;
 	
 	mtlpp::CommandBuffer CommandBuffer;
 	mtlpp::ParallelRenderCommandEncoder ParallelRenderCommandEncoder;
@@ -433,11 +475,15 @@ private:
 	METAL_DEBUG_ONLY(FMetalBlitCommandEncoderDebugging BlitEncoderDebug);
 	METAL_DEBUG_ONLY(FMetalParallelRenderCommandEncoderDebugging ParallelEncoderDebug);
 	
-	FMetalFence EncoderFence;
+	TRefCountPtr<FMetalFence> EncoderFence;
 #if ENABLE_METAL_GPUPROFILE
 	FMetalCommandBufferStats* CommandBufferStats;
 #endif
-	
+#if METAL_DEBUG_OPTIONS
+	uint8 WaitCount;
+	uint8 UpdateCount;
+#endif
+
 	TArray<ns::Object<mtlpp::CommandBufferHandler>> CompletionHandlers;
 	NSMutableArray* DebugGroups;
     
@@ -446,5 +492,13 @@ private:
 	TSet<ns::AutoReleased<FMetalBuffer>> BufferBindingHistory;
 	TSet<ns::AutoReleased<FMetalTexture>> TextureBindingHistory;
 	
+	TMap<mtlpp::Resource::Type, mtlpp::ResourceUsage> ResourceUsage;
+	
+	TSet<mtlpp::Resource::Type> TransitionedResources;
+	TSet<mtlpp::Resource::Type> FenceResources;
+	
+	TSet<TRefCountPtr<FMetalFence>> FragmentFences;
+	
+	mtlpp::RenderStages FenceStage;
 	uint32 EncoderNum;
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimNodes/AnimNode_AimOffsetLookAt.h"
 #include "Animation/AnimInstanceProxy.h"
@@ -48,7 +48,7 @@ void FAnimNode_AimOffsetLookAt::OnInitializeAnimInstance(const FAnimInstanceProx
 
 void FAnimNode_AimOffsetLookAt::UpdateAssetPlayer(const FAnimationUpdateContext& Context)
 {
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 
 	bIsLODEnabled = IsLODEnabled(Context.AnimInstanceProxy);
 
@@ -177,10 +177,14 @@ void FAnimNode_AimOffsetLookAt::GatherDebugData(FNodeDebugData& DebugData)
 }
 
 FAnimNode_AimOffsetLookAt::FAnimNode_AimOffsetLookAt()
-	: LODThreshold(INDEX_NONE)
-	, bIsLODEnabled(false)
+	: SocketLocalTransform(FTransform::Identity)
+	, PivotSocketLocalTransform(FTransform::Identity)
+	, LODThreshold(INDEX_NONE)
+	, SourceSocketName(NAME_None)
+	, PivotSocketName(NAME_None)
 	, LookAtLocation(ForceInitToZero)
 	, SocketAxis(1.0f, 0.0f, 0.0f)
 	, Alpha(1.f)
+	, bIsLODEnabled(false)
 {
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -33,6 +33,12 @@ public:
 	 * @return true if source code can be accessed.
 	 */
 	virtual bool CanAccessSourceCode() const = 0;
+
+	/** 
+	 * Checks if a compiler is available
+	 * @return true if source code can be compiled.
+	 */
+	virtual bool CanCompileSourceCode() const = 0;
 
 	/**
 	 * Get the accessor to allow us to view source code

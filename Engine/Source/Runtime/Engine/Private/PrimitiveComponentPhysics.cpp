@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Stats/Stats.h"
@@ -114,11 +114,6 @@ void UPrimitiveComponent::SetConstraintMode(EDOFMode::Type ConstraintMode)
 	}
 
 	RootBI->SetDOFLock(ConstraintMode);
-}
-
-void UPrimitiveComponent::SetLockedAxis(EDOFMode::Type LockedAxis)
-{
-	SetConstraintMode(LockedAxis);
 }
 
 void UPrimitiveComponent::AddImpulse(FVector Impulse, FName BoneName, bool bVelChange)

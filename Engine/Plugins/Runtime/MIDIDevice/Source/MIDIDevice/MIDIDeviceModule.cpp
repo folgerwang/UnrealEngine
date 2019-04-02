@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Stats/Stats.h"
@@ -74,7 +74,7 @@ void FMIDIDeviceModule::Tick( float DeltaTime )
 	if( LastFrameNumberWeTicked != GFrameCounter )
 	{
 		// Update the MIDI device manager
-		UMIDIDeviceManager::ProcessIncomingMIDIEvents();
+		UMIDIDeviceManager::ProcessMIDIEvents();
 
 		LastFrameNumberWeTicked = GFrameCounter;
 	}

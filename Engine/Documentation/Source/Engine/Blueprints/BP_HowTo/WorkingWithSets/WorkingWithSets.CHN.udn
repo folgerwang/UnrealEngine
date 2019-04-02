@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3489715
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:使用 Set
 Description:学习如何在蓝图中使用 Set。
@@ -23,10 +23,12 @@ Related:Programming/UnrealArchitecture/TSet
 
 此时便要用到 **Blueprint Set**。
 
+(#Goal)
 ## 目标
 
 此指南将指导您设置并使用蓝图 Set。
 
+(#Objectives)
 ## 目的
 
 在此教程的学习中您将了解以下内容： 
@@ -35,10 +37,9 @@ Related:Programming/UnrealArchitecture/TSet
 * 如何查询并显示蓝图 Set 中包含的项目。 
 * 如何在蓝图 Set 上进行一些基本预算，如交集与合并。
 
+(#Steps)
 ## 步骤
 
-[DIR(output:"checkpoint" parent:"Engine/Blueprints/BP_HowTo/WorkingWithSets" org:"hierarchy")]
-
 [REGION:call_to_action]
-	[Click to Start](Engine/Blueprints/BP_HowTo/WorkingWithSets/1 "%Engine/Blueprints/BP_HowTo/WorkingWithSets/1:title%")
+	[点击开始](Engine/Blueprints/BP_HowTo/WorkingWithSets/1 "%Engine/Blueprints/BP_HowTo/WorkingWithSets/1:title%")
 [/REGION]

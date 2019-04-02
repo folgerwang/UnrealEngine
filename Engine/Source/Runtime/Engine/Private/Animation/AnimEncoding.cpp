@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AnimEncoding.cpp: Skeletal mesh animation functions.
@@ -461,7 +461,7 @@ void AnimationFormat_GetStats(
 	if (Seq)
 	{
 		OverheadSize = Seq->CompressedTrackOffsets.Num() * sizeof(int32);
-		const size_t KeyFrameLookupSize = (Seq->NumFrames > 0xFF) ? sizeof(uint16) : sizeof(uint8);
+		const size_t KeyFrameLookupSize = (Seq->GetCompressedNumberOfFrames() > 0xFF) ? sizeof(uint16) : sizeof(uint8);
 
 		if (Seq->KeyEncodingFormat != AKF_PerTrackCompression)
 		{

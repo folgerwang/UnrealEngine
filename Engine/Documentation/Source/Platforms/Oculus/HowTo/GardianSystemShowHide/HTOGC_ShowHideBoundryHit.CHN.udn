@@ -1,97 +1,101 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3782314
 Availability: Public
 Crumbs: %ROOT%, Platforms
-Title: Detect Oculus Rift Guardian System Activation
-Description: Detecting if the user has activated the Oculus Rift Guardian system.
+Title: 检测Oculus Rift Guardian系统激活
+Description: 检测用户是否已经激活了Oculus Rift Guardian系统。
 Type: how-to
-Skilllevel: Intermidate
+Skilllevel: Intermediate
 Version: 4.17
 Parent: Platforms/Oculus
 Order: 2
 tags: VR
 topic-image:Platforms\Oculus\HowTo\GuardianSystem\HTGuardian_System_Topic_Image.png
+prereq:Platforms\Oculus\HowTo\StandingCamera
+prereq:Platforms\VR\MotionController
+prereq:Platforms\Oculus\HowTo\GuardianSystem
 
-The Oculus Guardian system is used to display the boundaries of the VR interaction area. As a tracked device approaches the boundaries, the Oculus Runtime automatically provides visual cues notifying the user of this. In the following How - To we will take a look at how to display the interaction as well as other visual cues to notify the users that one of their devices is outside or are close to going outside the interaction area.
+![](HTGuardian_Hero_Image.png)
 
-[REGION:note]
-The following How - To is going to make use of the Standing VR Pawn with added Touch Controller and Guardian support. If you are not sure how to set this up, the following two How - To's will help you out.
-* [Set Up Standing Cameras for the Oculus Rift](Platforms\Oculus\HowTo\StandingCamera)
-* [Set Up Touch Controllers for the Oculus Rift](Platforms\Oculus\HowTo\TouchControllers)
-* [Set Up Oculus Rift Guardian System](Platforms\Oculus\HowTo\GuardianSystem)
-[/REGION]
+Oculus Guardian系统用于显示VR交互区域的边界。追踪设备靠近边界时，Oculus Runtime将自动进行可视提示，告知用户。在以下操作指南中，我们将阐述如何显示交互以及其他可视提示，以告知用户他们的一台设备已超出或快要超出交互区域。
 
 [REGION:note]
-For the Guardian system to work, you will need to make sure you have set it up using the Oculus App. For more information on how to do this, please see the official [Oculus Guardian System](https://developer.oculus.com/documentation/pcsdk/latest/concepts/dg-guardian-system/) Setup pages.
+要使Guardian系统能够正常工作，需要确保你已使用Oculus应用程序对它进行了设置。有关如何设置此系统的更多信息，请参阅官方[Oculus Guardian系统](https://developer.oculus.com/documentation/pcsdk/latest/concepts/dg-guardian-system/)设置页面。
 [/REGION]
 
 [REGION:warning]
-It is **NOT** possible nor advisable to disable the Guardian system from inside UE4. You can, however, adjust how UE4 will react to the user getting close to the boundaries.  
+在UE4中禁用Guardian系统 **不** 明智，也不可取。然而，你可以调整用户靠近边界时UE4作出的响应。  
 [/REGION]
 
-## Interacting with the Oculus Rift Guardian System
+## 步骤
 
-1. To display the Oculus Rift Boundary, we have to know when one of the user's devices is close to it. The node **Is Outer Boundary Displayed** will allow us to do just this but we need a way to check this each tick. For us to be able to do this in UE4 we will first need to add the following nodes to the Event Graph:
+1. 要显示Oculus Rift边界，在某台用户设备靠近边界时我们必须要了解这一情况。而 **Is Outer Boundary Displayed** 节点恰恰使我们能够做到这一点，但是我们需要一种方法，以在每一次更新时检查这一情况是否发生。要在UE4中做到这一点，我们首先需要向事件图表中添加以下节点：
 
-    * **Event Tick**  
-    * **Branch**
-    * **Is Outer Boundary Displayed**
-    * **Oculus Rift Boundary**
+	[REGION:simpletable]
+	|节点名称| 值 |
+	|--------|------------|
+	|**Event Tick**|N/A|
+	|**Branch**|N/A|
+	|**Is Outer Boundary Displayed**|N/A|
+	|**Oculus Rift Boundary**|N/A|
+	[/REGION]
 
-1. Once the nodes have been added, we will need to connect them so that the Is Outer Boundary Displayed node is only called when a user's device gets close to the boundary; otherwise, we do not want anything to happen. To achieve this, setup up your Event graph to match the following image:
+1. 添加好节点之后，我们需要将它们连接起来，使得仅当用户设备靠近边界时才会调用Is Outer Boundary Displayed节点；除此以外，我们不希望任何事件发生。要实现这一点，请按照下图所示设置事件图表：
 
     [REGION:lightbox]
     [![](HTGuardian_System_00.png)(w:405)](HTGuardian_System_00.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    单击查看大图。
     [/REGION]
 
-1. Next, we want to display not only the boundaries that the user setup in the Oculus App but also the square/rectangular interaction area that fits within those boundaries. To do this, we are going to look at all the points within the play area using the **Get Play Area Points** node. Then to determine the size of the square/rectangular interaction we will go through each point using a **For Loop** and at each point, we draw a point and connect each point with a line display this information to the user.  To achieve this, setup up your Event graph to match the following image:
+1. 接下来，我们不仅要显示用户在Oculus应用程序中设置的边界，还要显示与这些边界相吻合的正方形/长方形交互区域。为了做到这一点，我们将使用 **Get Play Area Points** 节点来检查运行区域中的所有点。然后，为了确定正方形/长方形交互区域的大小，我们将使用 **For Loop** 检查每一个点，并且在每一个点上，我们都绘制一个点，然后将每个点都用一条线连起来向用户显示该信息。要实现这一点，请按照下图所示设置事件图表：
 
     [REGION:lightbox]
     [Include:Platforms\Oculus\HowTo\GardianSystemShowHide\#DrawPlayArea]
     [/REGION]
 
     [REGION:caption]
-    Click on image to copy Blueprint code.
+    单击图片复制蓝图代码。
     [/REGION]
 
-1. When that is completed, make sure to connect the For Loop to the True output of the Branch node and do not forget to Compile and Save your Blueprint. When completed your Blueprint Event graph should look like the following image:
+1. 完成上述步骤后，请确保将“For Loop”与“Branch”节点的“True”输出相连，然后务必编译并保存蓝图。完成后，你的蓝图事件图表应该类似于下图：
 
     [REGION:lightbox]
     [![](HTGuardian_System_02.png)(w:1000)](HTGuardian_System_02.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    单击查看大图。
     [/REGION]
 
-1. Now, put on your Oculus Rift HMD on, pick up your Touch controllers and launch the project using VR Preview. Once the project launches, slowly move one of the Touch controllers to towards the Guardian boundary. When the Guardian boundary is displayed, you should also see the square/rectangular interaction area being displayed like in the following video.
+## 最终结果
 
-    [OBJECT:EmbeddedVideo]
-        [PARAMLITERAL:videoid]
-            09yYAc_kLXM
-        [/PARAMLITERAL]
-        [PARAMLITERAL:width]
-        100
-        [/PARAMLITERAL]
-        [PARAMLITERAL:height]
-        56.25
-        [/PARAMLITERAL]
-        [PARAMLITERAL:units]
-        %
-        [/PARAMLITERAL]
-        [PARAMLITERAL:type]
-        simple
-        [/PARAMLITERAL]
-    [/OBJECT]
+现在，请戴上Oculus Rift HMD，拿起Touch控制器并使用“VR预览（VR Preview）”启动项目。项目启动后，缓缓将一个Touch控制器朝着Guardian边界移动。当Guardian边界显示时，你应该也会看到正方形/长方形交互区域显示，如以下视频中所示。
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+        09yYAc_kLXM
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    100
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
 
 
-## UE4 Project Downloads
-Below you will find a link to where you can download the UE4 project that was used to create this example.
+## UE4项目下载
+在下面可以找到一个链接，可供你下载用来创建此示例的UE4项目。
 
-* [**Oculus Rift Guardian System Example Project**](https://epicgames.box.com/s/s4vvkb2i0ohtice8vtqude6i8ih7hy8i)
+* [**Oculus Rift Guardian系统示例项目**](https://epicgames.box.com/s/s4vvkb2i0ohtice8vtqude6i8ih7hy8i)
 
 
 

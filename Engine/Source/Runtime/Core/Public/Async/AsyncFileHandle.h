@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -123,7 +123,7 @@ public:
 
 	/**
 	* Return the bytes of a completed read request. Not legal to call unless the request is complete.
-	* @return Returned memory block which if non-null contains the bytes read. Caller owns the memory block and must call FMemory::Free on it when done. Can be null if the file was not found or could not be read or the request was cancelled, or the request priority was AIOP_Precache.
+	* @return Returned memory block which if non-null contains the bytes read. Caller owns the memory block and must call FMemory::Free on it when done. Can be null if the file was not found or could not be read or the request was cancelled, or the request had AIOP_FLAG_PRECACHE.
 	**/
 	FORCEINLINE uint8* GetReadResults() TSAN_SAFE
 	{
@@ -199,11 +199,11 @@ public:
 	* Submit an async request and/or wait for an async request
 	* @param Offset					Offset into the file to start reading.
 	* @param BytesToRead			number of bytes to read. If this request is AIOP_Preache, the size can be anything, even MAX_int64, otherwise the size and offset must be fully contained in the file.
-	* @PAram Priority				Priority of the request. If this is AIOP_Precache, then memory will never be returned. The request should always be canceled and waited for, even for a precache request.
+	* @param PriorityAndFlags		Priority and flags of the request. If this includes AIOP_FLAG_PRECACHE, then memory will never be returned. The request should always be canceled and waited for, even for a precache request.
 	* @param CompleteCallback		Called from an arbitrary thread when the request is complete. Can be nullptr, if non-null, must remain valid until it is called. It will always be called.
 	* @return A request for the read. This is owned by the caller and must be deleted by the caller.
 	**/
-	virtual IAsyncReadRequest* ReadRequest(int64 Offset, int64 BytesToRead, EAsyncIOPriority Priority = AIOP_Normal, FAsyncFileCallBack* CompleteCallback = nullptr, uint8* UserSuppliedMemory = nullptr) = 0;
+	virtual IAsyncReadRequest* ReadRequest(int64 Offset, int64 BytesToRead, EAsyncIOPriorityAndFlags PriorityAndFlags = AIOP_Normal, FAsyncFileCallBack* CompleteCallback = nullptr, uint8* UserSuppliedMemory = nullptr) = 0;
 
 	// Non-copyable
 	IAsyncReadFileHandle(const IAsyncReadFileHandle&) = delete;

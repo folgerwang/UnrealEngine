@@ -1,0 +1,98 @@
+#include "RayTracingCommon.ush"
+
+#if DIM_SORT_SIZE == 0
+	#define NUM_ELEMENTS 256
+
+#elif DIM_SORT_SIZE == 1
+	#define NUM_ELEMENTS 512
+
+#elif DIM_SORT_SIZE == 2
+	#define NUM_ELEMENTS 1024
+
+#elif DIM_SORT_SIZE == 3
+#define NUM_ELEMENTS 2048
+
+#elif DIM_SORT_SIZE == 4
+#define NUM_ELEMENTS 4096
+
+
+#else
+	#error Unknown sorting size
+#endif
+
+#define NUM_BINS  64
+
+groupshared uint Bins[NUM_BINS];
+groupshared uint Offsets[NUM_BINS];
+
+
+int NumTotalEntries;
+RWStructuredBuffer<FDeferredMaterialPayload> MaterialBuffer;
+
+#if NUM_ELEMENTS < 1024
+#define NUM_THREADS 256
+#else
+#define NUM_THREADS  512
+#endif
+
+// Simple local bin sort based on shared atomics
+[numthreads(NUM_THREADS, 1, 1)]
+void MaterialSortLocal(uint3 DispatchThread : SV_DispatchThreadID, uint3 GroupThread : SV_GroupThreadID, uint3 GroupIndex : SV_GroupID)
+{
+	const uint GroupBase = GroupIndex.x * NUM_ELEMENTS;
+
+	if (GroupThread.x < NUM_BINS)
+	{
+		Bins[GroupThread.x] = 0;
+		Offsets[GroupThread.x] = 0;
+	}
+
+	GroupMemoryBarrierWithGroupSync();
+
+	FDeferredMaterialPayload Data[NUM_ELEMENTS / NUM_THREADS];
+	uint Slot[NUM_ELEMENTS / NUM_THREADS];
+
+	//get counts
+	[unroll]
+	for (int i = GroupThread.x; i < NUM_ELEMENTS ; i += NUM_THREADS)
+	{
+		uint Index = GroupBase + i;
+		if (Index < NumTotalEntries)
+		{
+			Data[i/ NUM_THREADS] = MaterialBuffer[Index];
+			uint Bin = Data[i / NUM_THREADS].SortKey % NUM_BINS;
+
+			InterlockedAdd(Bins[Bin], 1, Slot[i/ NUM_THREADS]);
+		}
+	}
+
+	GroupMemoryBarrierWithGroupSync();
+
+	// compute prefix sum
+	// Naive implementation that trades instructions for fewer barriers
+	// Can be improved by WaveOps if compiled as SM6
+	if (GroupThread.x < NUM_BINS)
+	{
+		for (int i = 0; i < GroupThread.x; i++)
+		{
+			Offsets[GroupThread.x] += Bins[i];
+		}
+	}
+
+	DeviceMemoryBarrier();
+	GroupMemoryBarrierWithGroupSync();
+	
+	//write data
+	[unroll]
+	for (int i = GroupThread.x; i < NUM_ELEMENTS; i += NUM_THREADS)
+	{
+		uint Index = GroupBase + i;
+		if (Index < NumTotalEntries)
+		{
+			uint Bin = Data[i / NUM_THREADS].SortKey % NUM_BINS;
+			uint DestIndex = GroupBase + Offsets[Bin] + Slot[i / NUM_THREADS];
+
+			MaterialBuffer[DestIndex] = Data[i / NUM_THREADS];
+		}
+	}
+}

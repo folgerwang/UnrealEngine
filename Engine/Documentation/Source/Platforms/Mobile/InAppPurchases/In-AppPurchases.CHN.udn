@@ -1,52 +1,21 @@
-﻿INTSourceChangelist:2940199
-Title:使用内购
-Description:利用内购为游戏增加更多付费内容。
+﻿INTSourceChangelist:3810557
+Title:使用应用程序内购买
+Description:使用应用程序内购买，为您的游戏提供额外的付费内容。
 Crumbs:
 Availability:Public
 parent:Platforms/Mobile
 order:1
-type:howto
+type:how-to
 tags:mobile
+topic-image:iap_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Platforms/Mobile/InAppPurchases:title%](Platforms/Mobile/InAppPurchases/iap_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Mobile/InAppPurchases:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Mobile/InAppPurchases:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Mobile/InAppPurchases]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+应用程序内购买使您能够向玩家提供额外的内容和功能。这可以用来为免费游戏创收，或者为您的游戏提供额外付费内容。
 
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Platforms/Mobile/InAppPurchases:title%](Platforms/Mobile/InAppPurchases/iap_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Mobile/InAppPurchases:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Mobile/InAppPurchases:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Mobile/InAppPurchases]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-您可通过内购为玩家提供额外内容和功能。它可作为 F2P 游戏的一种盈利方式，或为您的游戏提供额外的付费内容。
+(#configuration)
 
 ## 配置
 
-在下方页面中查看在每个平台上进行内购配置的详细内容：
+有关为各个平台配置应用程序内购买的详细信息，请参阅下方相应的平台特定页面：
 
 [REGION:buttonlist]
 * [](Platforms/Android/InAppPurchases)
@@ -54,32 +23,39 @@ tags:mobile
 [/REGION]
 
 [EXCERPT:usage]
+[INCLUDE:#usage_android]
+
+(#restoringpurchases)
+
+## 恢复购买
+
+![image alt text](image_5.png)
+
+若要恢复购买，请使用 **恢复应用程序内购买（Restore In-App Purchases）** 蓝图节点（或关联的C++函数调用）。它仅接受玩家控制器，并返回与该玩家控制器关联的所有购买信息的数组。然后您可以处理该数组，以与您的游戏进程逻辑需要的特定辨识符进行对比。 
+
+[/EXCERPT:usage]
+
+[COMMENT:none]
 [EXCERPT:usage_android]
+(#readingpurchaseinformation)
+
 ## 读取购买信息
 
 ![image alt text](image_3.png)
 
-可通过 **Read In-App Purchase Information** 蓝图节点（或相关 C++ 函数调用）读取内购信息。和其他多数在线子系统函数相同，它将 Player Controller（和一个产品标识符阵列）用作输入。下图中的 Make In-App Purchase 接受单个标识符，而 Read 可处理一个信息阵列。该函数将返回一个 In App Purchase 结构体阵列，阵列的每个元素可用于将名称、描述、价格和其他数据显示在 UI 中（或使其用于游戏性逻辑中）。 
+然后您可以使用 **读取应用程序内购买信息（Read In-App Purchase Information）** 蓝图节点（或关联的C++函数调用）阅读应用程序内购买信息。像大多数其他在线子系统函数一样，它将玩家控制器作为输入以及您的产品辨识符数组。注意，下方的进行应用程序内购买（Make In-App Purchase）采用单个辨识符，而读取（Read）可以处理信息数组。此函数返回应用程序内购买（In App Purchase）结构体的数组，且该数组的各个元素均可以经过分析来获取名称、描述、价格和其他数据，以显示在您的UI中或用于您的游戏进程逻辑。 
 
+
+(#completingapurchase)
 
 ## 完成购买
 
 ![image alt text](image_4.png)
 
-可通过 **Make an In-App Purchase** 蓝图节点（或相关 C++ 函数调用）完成内购。它将 Player Controller （和一个 Product Request 结构体）用作输入。Product Request 即为来自 iTunes Connect 或 Google Play Developer console 的产品标识符（此例中为 match3theme_night），并说明产品是否为消耗品。 
+若要进行应用程序内购买，请使用 **进行应用程序内购买（Make In-App Purchases）** 蓝图节点（或关联的C++函数调用）。它将玩家控制器作为输入以及产品请求（Product Request）结构体。产品请求（Product Request）就是来自iTunes Connect或Google Play Developer主机的产品辨识符（此例中为match3theme_night），以及产品是否是消费品。 
 
-**Make an In-App Purchase** 节点为隐藏状态。因此依赖于购买是否成功的游戏性行为应使用这两个执行引脚。在线服务反馈回应之后，它们才会执行。节点还将返回购买的完成状态（如成功、失败、还原）和详细的 In App Purchase Information 结构体。
+ **进行应用程序内购买（Make an In-App Purchase）** 节点是潜在的，因此您希望使其依赖于购买成功与否的任何游戏进程行为都应使用那两个执行引脚。它们将仅在收到在线服务返回的响应后执行。此节点还返回购买的完成状态（例如成功（Success）、失败（Failed）、恢复（Restored））和详细的应用程序内购买信息（In App Purchase Information）结构体。
 
-此函数存在非隐藏版本（蓝图节点显示时将不带右上角的钟表图案）。该输出执行节点不会等待在线服务反馈回应，因此隐藏函数更为常用。
+此函数有非潜在版本（将显示蓝图节点，而不显示时钟）。此处的退出执行引脚并不会等待在线服务的响应，因此您通常需要使用潜在版本。
 [/EXCERPT:usage_android]
-
-## 还原购买
-
-![image alt text](image_5.png)
-
-可通过 **Restore In-App Purchases** 蓝图节点（或相关 C++ 函数调用）还原内购。它只接受 Player Controller，返回 Player Controller 相关的所有购买信息的阵列。之后即可将阵列与游戏性逻辑需要的单个（或多个）特殊标识符进行比较。 
-
-[/EXCERPT:usage]
-[REGION:warning]
-从 4.10 版本起，Restore In-App Purchases 功能只可在 iOS 平台上使用。 
-[/REGION]
+[/COMMENT]

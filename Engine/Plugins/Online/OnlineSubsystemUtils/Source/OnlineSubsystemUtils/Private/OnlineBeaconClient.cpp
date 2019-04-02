@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineBeaconClient.h"
 #include "TimerManager.h"
@@ -11,6 +11,8 @@
 #include "Engine/LocalPlayer.h"
 #include "Net/DataChannel.h"
 #include "Misc/NetworkVersion.h"
+#include "Interfaces/OnlineIdentityInterface.h"
+#include "OnlineSubsystemUtils.h"
 
 #define BEACON_RPC_TIMEOUT 15.0f
 
@@ -108,11 +110,22 @@ bool AOnlineBeaconClient::InitClient(FURL& URL)
 
 				BeaconConnection = NetDriver->ServerConnection;
 
-				ULocalPlayer* LocalPlayer = GEngine->GetFirstGamePlayer(World);
-				if (LocalPlayer)
+				if (IsRunningDedicatedServer())
 				{
-					// Send the player unique Id at login
-					BeaconConnection->PlayerId = LocalPlayer->GetPreferredUniqueNetId();
+					IOnlineIdentityPtr IdentityPtr = Online::GetIdentityInterface(World);
+					if (IdentityPtr.IsValid())
+					{
+						BeaconConnection->PlayerId = IdentityPtr->GetUniquePlayerId(DEDICATED_SERVER_USER_INDEX);
+					}
+				}
+				else
+				{
+					ULocalPlayer* LocalPlayer = GEngine->GetFirstGamePlayer(World);
+					if (LocalPlayer)
+					{
+						// Send the player unique Id at login
+						BeaconConnection->PlayerId = LocalPlayer->GetPreferredUniqueNetId();
+					}
 				}
 
 #if NETCONNECTION_HAS_SETENCRYPTIONKEY
@@ -121,6 +134,8 @@ bool AOnlineBeaconClient::InitClient(FURL& URL)
 					BeaconConnection->SetEncryptionKey(EncryptionKey);
 				}
 #endif
+
+				SetConnectionState(EBeaconConnectionState::Pending);
 
 				// Kick off the connection handshake
 				bool bSentHandshake = false;
@@ -133,20 +148,32 @@ bool AOnlineBeaconClient::InitClient(FURL& URL)
 					bSentHandshake = true;
 				}
 
-				SetConnectionState(EBeaconConnectionState::Pending);
-
-				NetDriver->SetWorld(World);
-				NetDriver->Notify = this;
-				NetDriver->InitialConnectTimeout = BeaconConnectionInitialTimeout;
-				NetDriver->ConnectionTimeout = BeaconConnectionTimeout;
-
-
-				if (!bSentHandshake)
+				if (NetDriver)
 				{
-					SendInitialJoin();
-				}
+					NetDriver->SetWorld(World);
+					NetDriver->Notify = this;
+					NetDriver->InitialConnectTimeout = BeaconConnectionInitialTimeout;
+					NetDriver->ConnectionTimeout = BeaconConnectionTimeout;
 
-				bSuccess = true;
+					if (!bSentHandshake)
+					{
+						SendInitialJoin();
+					}
+
+					bSuccess = true;
+				}
+				else
+				{
+					// an error must have occurred during BeginHandshaking
+					UE_LOG(LogBeacon, Warning, TEXT("AOnlineBeaconClient::InitClient BeginHandshaking failed"));
+
+					// if the connection is still pending, notify of failure
+					if (GetConnectionState() == EBeaconConnectionState::Pending)
+					{
+						SetConnectionState(EBeaconConnectionState::Invalid);
+						OnFailure();
+					}
+				}
 			}
 			else
 			{

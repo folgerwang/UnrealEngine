@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -875,10 +875,9 @@ public:
 #endif
 
 	/** 
-	 * FMaterialRenderProxy derivatives that represent this material to the renderer, when the renderer needs to fetch parameter values. 
-	 * Second instance is used when selected, third when hovered.
+	 * FMaterialRenderProxy derivative that represent this material to the renderer, when the renderer needs to fetch parameter values.
 	 */
-	class FDefaultMaterialInstance* DefaultMaterialInstances[3];
+	class FDefaultMaterialInstance* DefaultMaterialInstance;
 
 #if WITH_EDITORONLY_DATA
 	/** Used to detect duplicate parameters.  Does not contain parameters in referenced functions! */
@@ -938,7 +937,7 @@ public:
 	ENGINE_API virtual bool GetTextureParameterValue(const FMaterialParameterInfo& ParameterInfo,class UTexture*& OutValue, bool bOveriddenOnly = false) const override;
 	ENGINE_API virtual bool GetFontParameterValue(const FMaterialParameterInfo& ParameterInfo,class UFont*& OutFontValue,int32& OutFontPage, bool bOveriddenOnly = false) const override;
 	ENGINE_API virtual bool GetRefractionSettings(float& OutBiasValue) const override;
-	ENGINE_API virtual FMaterialRenderProxy* GetRenderProxy(bool Selected, bool bHovered=false) const override;
+	ENGINE_API virtual FMaterialRenderProxy* GetRenderProxy() const override;
 	ENGINE_API virtual UPhysicalMaterial* GetPhysicalMaterial() const override;
 	ENGINE_API virtual void GetUsedTextures(TArray<UTexture*>& OutTextures, EMaterialQualityLevel::Type QualityLevel, bool bAllQualityLevels, ERHIFeatureLevel::Type FeatureLevel, bool bAllFeatureLevels) const override;
 	ENGINE_API virtual void GetUsedTexturesAndIndices(TArray<UTexture*>& OutTextures, TArray< TArray<int32> >& OutIndices, EMaterialQualityLevel::Type QualityLevel, ERHIFeatureLevel::Type FeatureLevel) const override;
@@ -950,10 +949,10 @@ public:
 	ENGINE_API virtual FMaterialResource* AllocateResource();
 	ENGINE_API virtual FMaterialResource* GetMaterialResource(ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type QualityLevel = EMaterialQualityLevel::Num) override;
 	ENGINE_API virtual const FMaterialResource* GetMaterialResource(ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type QualityLevel = EMaterialQualityLevel::Num) const override;
-	ENGINE_API virtual bool GetStaticSwitchParameterValue(const FMaterialParameterInfo& ParameterInfo,bool& OutValue,FGuid& OutExpressionGuid, bool bOveriddenOnly = false) const override;
-	ENGINE_API virtual bool GetStaticComponentMaskParameterValue(const FMaterialParameterInfo& ParameterInfo, bool& R, bool& G, bool& B, bool& A, FGuid& OutExpressionGuid, bool bOveriddenOnly = false) const override;
+	ENGINE_API virtual bool GetStaticSwitchParameterValue(const FMaterialParameterInfo& ParameterInfo,bool& OutValue,FGuid& OutExpressionGuid, bool bOveriddenOnly = false, bool bCheckParent = true) const override;
+	ENGINE_API virtual bool GetStaticComponentMaskParameterValue(const FMaterialParameterInfo& ParameterInfo, bool& R, bool& G, bool& B, bool& A, FGuid& OutExpressionGuid, bool bOveriddenOnly = false, bool bCheckParent = true) const override;
 	ENGINE_API virtual bool GetTerrainLayerWeightParameterValue(const FMaterialParameterInfo& ParameterInfo, int32& OutWeightmapIndex, FGuid& OutExpressionGuid) const override;
-	ENGINE_API virtual bool GetMaterialLayersParameterValue(const FMaterialParameterInfo& ParameterInfo, FMaterialLayersFunctions& OutLayers, FGuid& OutExpressionGuid) const override;
+	ENGINE_API virtual bool GetMaterialLayersParameterValue(const FMaterialParameterInfo& ParameterInfo, FMaterialLayersFunctions& OutLayers, FGuid& OutExpressionGuid, bool bCheckParent = true) const override;
 	ENGINE_API virtual bool UpdateLightmassTextureTracking() override;
 #if WITH_EDITOR
 	ENGINE_API virtual bool GetGroupName(const FMaterialParameterInfo& ParameterInfo, FName& OutGroup) const override;
@@ -964,7 +963,7 @@ public:
 		TArray<FName>* OutTextureParamNames, struct FStaticParameterSet* InStaticParameterSet,
 		ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type InQuality) override;
 #endif
-	ENGINE_API virtual void RecacheUniformExpressions() const override;
+	ENGINE_API virtual void RecacheUniformExpressions(bool bRecreateUniformBuffer) const override;
 
 	ENGINE_API virtual float GetOpacityMaskClipValue() const override;
 	ENGINE_API virtual bool GetCastDynamicShadowAsMasked() const override;
@@ -982,12 +981,26 @@ public:
 
 	/** Checks to see if an input property should be active, based on the state of the material */
 	ENGINE_API virtual bool IsPropertyActive(EMaterialProperty InProperty) const override;
+
+#if WITH_EDITOR
+	/** 
+	* Like IsPropertyActive(), but should be used in context of editor.
+	* For example, there is an optimization that transforms masked materials into opaque materials in certain situations.  If this optimization is active,
+	* the opacity mask input will no longer be active normally (since blend mode will be reported as opaque),
+	* but we still want to be able to connect this input from within the material editor.
+	*/
+	ENGINE_API bool IsPropertyActiveInEditor(EMaterialProperty InProperty) const;
+#endif
+
+	/** Like IsPropertyActive(), but considers any state overriden by DerivedMaterial */
+	ENGINE_API bool IsPropertyActiveInDerived(EMaterialProperty InProperty, const UMaterialInterface* DerivedMaterial) const;
+
 #if WITH_EDITOR
 	/** Allows material properties to be compiled with the option of being overridden by the material attributes input. */
 	ENGINE_API virtual int32 CompilePropertyEx( class FMaterialCompiler* Compiler, const FGuid& AttributeID ) override;
 	ENGINE_API virtual bool ShouldForcePlanePreview() override;
-#endif // WITH_EDITOR
 	ENGINE_API virtual void ForceRecompileForRendering() override;
+#endif // WITH_EDITOR
 	//~ End UMaterialInterface Interface.
 
 	//~ Begin UObject Interface
@@ -1010,7 +1023,6 @@ public:
 	ENGINE_API virtual void BeginDestroy() override;
 	ENGINE_API virtual bool IsReadyForFinishDestroy() override;
 	ENGINE_API virtual void FinishDestroy() override;
-	ENGINE_API virtual void NotifyObjectReferenceEliminated() const override;
 	ENGINE_API virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 	ENGINE_API static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	ENGINE_API virtual bool CanBeClusterRoot() const override;
@@ -1128,7 +1140,7 @@ public:
 	* @return	Returns a array of parameter names used in this material for the specified expression type.
 	*/
 	template<typename ExpressionType>
-	DEPRECATED(4.18, "This function is deprecated. Use GetAllParameterInfo instead, this contains a struct with FNames, layer association, and index")
+	UE_DEPRECATED(4.18, "This function is deprecated. Use GetAllParameterInfo instead, this contains a struct with FNames, layer association, and index")
 	void GetAllParameterNames(TArray<FName>& OutParameterNames, TArray<FGuid>& OutParameterIds, const TArray<FStaticMaterialLayersParameter>* MaterialLayersParameters = nullptr) const
 	{
 		OutParameterNames.Empty();
@@ -1223,17 +1235,17 @@ public:
 		}
 	}
 	
-	DEPRECATED(4.18, "This function is deprecated. Use GetAllScalarParameterInfo instead, this contains a struct with FNames, layer association, and index")
+	UE_DEPRECATED(4.18, "This function is deprecated. Use GetAllScalarParameterInfo instead, this contains a struct with FNames, layer association, and index")
 	ENGINE_API void GetAllScalarParameterNames(TArray<FName>& OutParameterNames, TArray<FGuid>& OutParameterIds) const;
-	DEPRECATED(4.18, "This function is deprecated. Use GetAllVectorParameterInfo instead, this contains a struct with FNames, layer association, and index")
+	UE_DEPRECATED(4.18, "This function is deprecated. Use GetAllVectorParameterInfo instead, this contains a struct with FNames, layer association, and index")
 	ENGINE_API void GetAllVectorParameterNames(TArray<FName>& OutParameterNames, TArray<FGuid>& OutParameterIds) const;
-	DEPRECATED(4.18, "This function is deprecated. Use GetAllTextureParameterInfo instead, this contains a struct with FNames, layer association, and index")
+	UE_DEPRECATED(4.18, "This function is deprecated. Use GetAllTextureParameterInfo instead, this contains a struct with FNames, layer association, and index")
 	ENGINE_API void GetAllTextureParameterNames(TArray<FName>& OutParameterNames, TArray<FGuid>& OutParameterIds) const;
-	DEPRECATED(4.18, "This function is deprecated. Use GetAllFontParameterInfo instead, this contains a struct with FNames, layer association, and index")
+	UE_DEPRECATED(4.18, "This function is deprecated. Use GetAllFontParameterInfo instead, this contains a struct with FNames, layer association, and index")
 	ENGINE_API void GetAllFontParameterNames(TArray<FName>& OutParameterNames, TArray<FGuid>& OutParameterIds) const;
-	DEPRECATED(4.18, "This function is deprecated. Use GetAllStaticSwitchParameterInfo instead, this contains a struct with FNames, layer association, and index")
+	UE_DEPRECATED(4.18, "This function is deprecated. Use GetAllStaticSwitchParameterInfo instead, this contains a struct with FNames, layer association, and index")
 	ENGINE_API void GetAllStaticSwitchParameterNames(TArray<FName>& OutParameterNames, TArray<FGuid>& OutParameterIds) const;
-	DEPRECATED(4.18, "This function is deprecated. Use GetAllStaticComponentMaskParameterInfo instead, this contains a struct with FNames, layer association, and index")
+	UE_DEPRECATED(4.18, "This function is deprecated. Use GetAllStaticComponentMaskParameterInfo instead, this contains a struct with FNames, layer association, and index")
 	ENGINE_API void GetAllStaticComponentMaskParameterNames(TArray<FName>& OutParameterNames, TArray<FGuid>& OutParameterIds) const;
 
 	ENGINE_API virtual void GetAllScalarParameterInfo(TArray<FMaterialParameterInfo>& OutParameterInfo, TArray<FGuid>& OutParameterIds) const override;
@@ -1564,9 +1576,6 @@ public:
 	/** Returns an array of the guids of parameter collections used in this material. */
 	void AppendReferencedParameterCollectionIdsTo(TArray<FGuid>& OutIds) const;
 
-	/** Returns an array of the guids of shared input collections used in this material. */
-	void AppendReferencedSharedInputCollectionIdsTo(TArray<FGuid>& OutIds) const;
-
 	/* Helper functions for text output of properties. */
 	static const TCHAR* GetMaterialShadingModelString(EMaterialShadingModel InMaterialShadingModel);
 	static EMaterialShadingModel GetMaterialShadingModelFromString(const TCHAR* InMaterialShadingModelStr);
@@ -1664,13 +1673,15 @@ public:
 	bool HasNormalConnected() const { return Normal.IsConnected(); }
 	bool HasEmissiveColorConnected() const { return EmissiveColor.IsConnected(); }
 
+#if WITH_EDITOR
 	static void NotifyCompilationFinished(UMaterialInterface* Material);
 
 	DECLARE_EVENT_OneParam( UMaterial, FMaterialCompilationFinished, UMaterialInterface* );
 	ENGINE_API static FMaterialCompilationFinished& OnMaterialCompilationFinished();
+#endif // WITH_EDITOR
 
 	// For all materials, UMaterial::CacheResourceShadersForRendering
-	ENGINE_API static void AllMaterialsCacheResourceShadersForRendering();
+	ENGINE_API static void AllMaterialsCacheResourceShadersForRendering(bool bUpdateProgressDialog = false);
 
 #if WITH_EDITORONLY_DATA
 	/**
@@ -1697,7 +1708,9 @@ public:
 #endif //WITH_EDITORONLY_DATA
 
 private:
+#if WITH_EDITOR
 	static FMaterialCompilationFinished MaterialCompilationFinishedEvent;
+#endif // WITH_EDITOR
 
 	friend class FLightmassMaterialProxy;
 	/** Class that knows how to update Materials */

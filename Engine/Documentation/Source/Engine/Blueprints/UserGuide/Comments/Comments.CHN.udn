@@ -1,49 +1,12 @@
-﻿INTSourceChangelist:2968923
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:注释
 Crumbs: %ROOT%, Engine/Blueprints, Engine/Blueprints/Workflow
 Description:可用于组相关节点并提供其功能描述的容器。
 version: 4.9
 Parent:Engine/Blueprints/Workflow
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints/UserGuide/Comments:title%](Engine\Blueprints\UserGuide\Comments.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/UserGuide/Comments:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/UserGuide/Comments:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/UserGuide/Comments]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints/UserGuide/Comments:title%](Engine\Blueprints\UserGuide\Comments.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/UserGuide/Comments:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/UserGuide/Comments:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/UserGuide/Comments]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+tags:Blueprints
+topic-image:Engine/Blueprints/UserGuide/Comments.png
 
 
 [EXCERPT:Intro]
@@ -72,6 +35,7 @@ Parent:Engine/Blueprints/Workflow
 
 再次右键单击节点，在右键单击出现的菜单中变更 **Node Comment** （节点注释）文本框的内容来改变注释。  删除文本并按下 **回车** 将会移除注释。
 
+(#commentboxes)
 ## 注释框
 
 ### 创建注释框

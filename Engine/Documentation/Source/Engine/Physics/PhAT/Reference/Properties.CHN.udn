@@ -1,473 +1,248 @@
-﻿INTSourceChangelist:2714898
-Availability:Public
+INTSourceChangelist:4649792
+Availability: Public
 Title:物理资源属性参考
 Crumbs: %ROOT%, Engine, Engine/Physics, Engine/Physics/PhAT
-Description:Physics Asset 工具中可用物理形体、物理约束和物理资源的属性和描述列表。
-Version:4.9
+Description:在物理资源工具中可访问的物理形体、物理约束和物理资源的属性列表及说明。
+parent:Engine/Physics/PhAT
+order:1
+Version: 4.13
+topic-image:Engine/Physics/physics_topic.png
+tags:Physics
+SkillLevel: Beginner
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Physics/PhAT/Properties:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/PhAT/Properties:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/PhAT/Properties:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Physics/PhAT/Properties]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Physics/PhAT/Properties:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/PhAT/Properties:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/PhAT/Properties:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Physics/PhAT/Properties]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+[TOC(end:3)]
 
+本页中包含物理资源工具属性的参考列表，分为三个可扩展的部分，可以在视口中选择阅读。
 
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
+(#physicsassettoolproperties)
+## 物理资源工具属性
 
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
+如果未选中任何物理形体或物理约束（无论模式如何），物理资源工具的属性会显示在“细节”面板中。
 
-本页中包含 Physics Asset 工具使用属性的参考列表。
-
-## 属性
-
-以下为 Physics Asset 工具的属性，基于视口中选择的内容划分为三个可扩展的部分。
-
-[OBJECT:modulesection]
-	[PARAMLITERAL:id]
-		PhatP
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Physics Asset 工具属性
-	[/PARAM]
-	[PARAM:content]
-		%c1%
-	[/PARAM]
-[/OBJECT]
-
-[VAR:c1]
-
-未选中物理形体或物理约束时（无论哪个模式），Physics Asset 工具的属性显示在 Details 面板中。
-
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		Anim1
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Anim
-	[/PARAM]
-	[PARAM:content]
-		%p11%
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		Sim1
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		模拟
-	[/PARAM]
-	[PARAM:content]
-		%p12%
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		MousS
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		鼠标弹力
-	[/PARAM]
-	[PARAM:content]
-		%p13%
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		Poke
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		存数
-	[/PARAM]
-	[PARAM:content]
-		%p14%
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		Adv
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		高级
-	[/PARAM]
-	[PARAM:content]
-		%p15%
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		Draw
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		绘图
-	[/PARAM]
-	[PARAM:content]
-		%p16%
-	[/PARAM]
-[/OBJECT]
-
-[/VAR]
-
-[VAR:p11]
+(#anim)
+### 动画
 
 ![](PhATDef1.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Physics Blend** || %doxygen:UPhATSimOptions::PhysicsBlend% |
-| **Update Joints from Animation** || |
-| **Poke Pause Time** || %doxygen:UPhATSimOptions::PokePauseTime% |
-| **Poke Blend Time** || %doxygen:UPhATSimOptions::PokeBlendTime% |
+| 属性 | 说明 |
+| --- | :--- |
+| **物理混合（Physics Blend）** | 你可以在 **物理资源工具** 中自行调整模拟期间的物理/动画混合。|
+| **更新动画中的关节（Update Joints from Animation）** | 你可以自行调整物理/动画。|
+| **物理更新模式（Physics Update Mode）** | [INCLUDE:#UpdateJointsfromAnimationEnum] |
+| **戳弄暂停时间量（Poke Pause Time）** | 从戳弄布偶到混合回的时间量。|
+| **戳弄混合时间（Poke Blend Time）** | 从物理混合到动画所需的时间。|
 [/REGION]
 
-[/VAR]
-
-[VAR:p12]
+(#Simulation)
+### 模拟
 
 ![](PhATDef2.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-|**Floor Gap** || %doxygen:UPhATSimOptions::FloorGap% |
-|**Grav Scale** || %doxygen:UPhATSimOptions::GravScale% |
-|**Max FPS** || PhAT 中模拟的最高 FPS。为游戏设定目标 FPS 时十分实用。数值 -1 将禁用此功能。|
-|**Time Dilation** || 该属性将按比例膨胀时间。|
+| 属性 | 说明 |
+| --- | :--- |
+|**地面间隔（Floor Gap）** | **物理资源工具** 中地面与物理对象之间的距离。要更改此属性，必须重启 **物理资源工具**。|
+|**重力缩放比例（Grav Scale）** | **物理资源工具** 中模拟使用的重力换算系数。|
+|**最大FPS（Max FPS）** | 使用物理资源工具（PhAT）进行模拟的最大FPS。当以与游戏相同的FPS为目标时，这非常有用。值为-1表示禁用此项。|
+|**时间延缓（Time Dilation）** | 通过对时间应用比例来将时间延缓。|
 [/REGION]
 
-[/VAR]
-
-[VAR:p13]
+(#mousespring)
+### 鼠标弹力
 
 ![](PhATDef3.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-|**Handle Linear Damping** || %doxygen:UPhATSimOptions::HandleLinearDamping% |
-|**Handle Linear Stiffness** || %doxygen:UPhATSimOptions::HandleLinearStiffness% |
-|**Handle Angular Damping** || %doxygen:UPhATSimOptions::HandleAngularDamping% |
-|**Handle Angular Stiffness** || %doxygen:UPhATSimOptions::HandleAngularStiffness% |
-|**Interpolation Speed** || %doxygen:UPhATSimOptions::InterpolationSpeed%|
+| 属性 | 说明 |
+| --- | :--- |
+|**处理线性阻尼（Handle Linear Damping）** | 鼠标弹力的线性阻尼。|
+|**处理线性强度（Handle Linear Stiffness）** | 鼠标弹力的线性强度。|
+|**处理角度阻尼（Handle Angular Damping）** | 鼠标弹力的角度阻尼。|
+|**处理角度强度（Handle Angular Stiffness）** | 鼠标弹力的角度强度。|
+|**插值速度（Interpolation Speed）** | 针对鼠标弹力插入物理目标变换的速度。|
 [/REGION]
 
-[/VAR]
-
-[VAR:p14]
+(#poking)
+### 外力戳弄
 
 ![](PhATDef4.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Poke Strength** || %doxygen:UPhATSimOptions::PokeStrength% |
+| 属性 | 说明 |
+| --- | :--- |
+| **戳弄强度（Poke Strength）** | 使用鼠标左键戳弄时所应用的冲力强度。|
 [/REGION]
 
-[/VAR]
-
-[VAR:p15]
+(#advanced)
+### 高级
 
 ![](PhATDef5.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Show Constraints as Points** || %doxygen:UPhATSimOptions::bShowConstraintsAsPoints% |
-| **Show Names in Hierarchy** || %doxygen:UPhATSimOptions::bShowNamesInHierarchy% |
+| 属性 | 说明 |
+| --- | :--- |
+| **将约束显示为点（Show Constraints as Points）** | 设置是否将约束描画为点。|
+| **在层级中显示名称（Show Names in Hierarchy）** | 设置是否在视口中描画骨骼名称。|
 [/REGION]
 
-[/VAR]
-
-[VAR:p16]
+(#drawing)
+### 描画
 
 ![](PhATDef6.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Constraint Draw Size** || %doxygen:UPhATSimOptions::ConstraintDrawSize% |
+| 属性 | 说明 |
+| --- | :--- |
+| **约束的描画尺寸（Constraint Draw Size）** | 控制在 **物理资源工具** 中描画约束的尺寸。|
 [/REGION]
 
-[/VAR]
+[COMMENT:none]
 
----
+[EXCERPT:UpdateJointsfromAnimationEnum]
 
-[OBJECT:modulesection]
-	[PARAMLITERAL:id]
-		BodyM
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		形体模式
-	[/PARAM]
-	[PARAM:content]
-		%c2%
-	[/PARAM]
-[/OBJECT]
+决定根形体模拟是否更新组件变换。
 
-[VAR:c2]
+| 值 | 说明 |
+| --- | :--- |
+| **模拟更新组件变换（Simulation Updates Component Transfrom）** | 模拟会更新组件的变换。|
+| **组件变换为动态（Component Trasform is Kinematic）** | 模拟不会更新组件的变换。相反，它是由动画、蓝图等驱动。|
+[/EXCERPT]
 
-当 Physics Asset 工具在形体模式中且一个物理形体已被选中时，Details 面板将显示此物理形体的属性。
+[/COMMENT]
 
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		Body1
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		形体设置
-	[/PARAM]
-	[PARAM:content]
-		%p21%
-	[/PARAM]
-[/OBJECT]
+(#bodymodeproperties)
+## 形体模式属性
 
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		Phys1
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		物理
-	[/PARAM]
-	[PARAM:content]
-		%p22%
-	[/PARAM]
-[/OBJECT]
+当物理资源工具处于“形体模式（Body Mode）”并且选择了“物理形体（Physics Body）”时，“细节（Details）”面板将显示该物理形体的属性。
 
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		Coll
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		碰撞
-	[/PARAM]
-	[PARAM:content]
-		%p23%
-	[/PARAM]
-[/OBJECT]
-
-[/VAR]
-
-[VAR:p21]
-
-![](PhATBody1.png)
-
-[REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Bone Name** || %doxygen:UBodySetup::BoneName% |
-| **Consider for Bounds** || %doxygen:UBodySetup::bConsiderForBounds% |
-[/REGION]
-
-[/VAR]
-
-[VAR:p22]
+(#physics)
+### 物理
 
 ![](PhATBody2.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Mass in KG** || 形体的质量按千克计。|
-| **Linear Damping** || %doxygen:FBodyInstance::LinearDamping% |
-| **Angular Damping** || %doxygen:FBodyInstance::AngularDamping% |
-| **Enable Gravity** || %doxygen:FBodyInstance::bEnableGravity% |
-| **Physics Type** || %doxygen:UBodySetup::PhysicsType% |
-| **Double Sided Geometry** || 如为 true，物理三角网格体在进行场景查询时将使用双面。它对需要追踪来执行双面操作的平面和单面网格体十分有用。|
-| **Simple Collision Physical Material** || %doxygen:UBodySetup::PhysMaterial% |
+| 属性 | 说明 |
+| --- | :--- |
+| **KG单位质量（Mass in KG）** | 以KG为单位的形体质量。|
+| **线性阻尼（Linear Damping）** | 为了减少线性移动而增加的“拖拽”力。|
+| **角度阻尼（Angular Damping）** | 为了减少角度移动而增加的“拖拽”力。|
+| **启用重力（Enable Gravity）** | 是否对物体施加重力。|
+| **物理类型（Physics Type）** | 如果设置为 **模拟（Simulated）**，则会使用物理效果。如果设置为 **运动学（Kinematic）**，则会使用运动学效果。**默认** 将继承 **OwnerComponent** 的行为。|
+| **双面几何体（Double Sided Geometry）** | 如果勾选，则物理三角形网格体将使用双面进行场景查询。它适用于平面网格体和需要使用痕迹处理双面的单面网格体。|
+| **简单碰撞物理材质（Simple Collision Physical Material）** | 用于此形体简单碰撞的 **物理材质**。|
 [/REGION]
 
-### 高级
+(#advanced)
+#### 高级
 
 ![](PhATBody2_adv.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Start Awake** || %doxygen:FBodyInstance::bStartAwake% |
-| **Center of Mass Offset** || %doxygen:FBodyInstance::COMNudge% |
-| **Mass Scale** || %doxygen:FBodyInstance::MassScale% |
-| **Max Angular Velocity** || 此例的最大角速度。|
-| **Use Async Scene** || %doxygen:FBodyInstance::bUseAsyncScene% |
-| **Generate Wake Events** ||  |
-| **Max Depenetration Velocity** || 反穿透此物体的最大速度。|
-| **Walkable Slope Override** || %doxygen:UBodySetup::WalkableSlopeOverride% |
-| **Walkable Slope Behavior** || 该表面的行为（是否影响可行走斜面）。确定可行走斜面角度增加或减小现有可行走角度。|
-| **Walkable Slope Angle** || %doxygen:FWalkableSlopeOverride::WalkableSlopeAngle% |
-| **Custom Sleep Threshold Multiplier** || |
-| **Position Solver Iteration Count** || %doxygen:FBodyInstance::PositionSolverIterationCount% |
-| **Velocity Solver Iteration Count** || %doxygen:FBodyInstance::VelocitySolverIterationCount% |
-| **Sleep Family** || %doxygen:FBodyInstance::SleepFamily% |
+| 属性 | 说明 |
+| --- | :--- |
+| **开始时为唤醒状态（Start Awake）** | 物理形体应该开始时为唤醒状态（并移动），还是应该开始时为休眠状态（静止直到交互为止）。|
+| **质量重心偏移（Center of Mass Offset）** | 用户指定的对象质心距离计算位置的偏离值。|
+| **质量缩放比例（Mass Scale）** | 每个实例的质量缩放比例。|
+| **最大角度速度（Max Angular Velocity）** | 此实例的最大角度速度。|
+| **生成唤醒事件（Generate Wake Events）** | 设置当此对象被唤醒或进入休眠状态时，物理模拟是否会触发 **唤醒**/**休眠** 事件。|
+| **最大脱离重叠速度（Max Depenetration Velocity）** | 此对象脱离重叠时的最大速度。|
+| **可行走斜面覆盖（Walkable Slope Override）** | 自定义此形体的可行走斜面设置。有关用法信息，请参阅[可行走斜面](Engine/Physics/WalkableSlope)文档。|
+| **可行走斜面行为（Walkable Slope Behavior）** | 此表面的行为（是否作用于可行走斜面）。确定可行走斜面角度如何影响现有的可行走角度，是将其增加还是减少。|
+| **可行走斜面角度（Walkable Slope Angle）** | 覆盖可行走斜面，应用可行走斜面行为规则。|
+| **自定义休眠阈值乘数（Custom Sleep Threshold Multiplier）** | 通过将此值乘以自然休眠阈值来自定义 **SleepFamily**。值越高，形体就会越快休眠。|
+| **位置解算器迭代次数（Position Solver Iteration Count）** | 物理形体的解算器对于位置的迭代次数。提高此值将增加CPU负载，但会提高稳定性。|
+| **速度解算器迭代数（Velocity Solver Iteration Count）** | 物理形体的解算器对于速度的迭代次数。提高此值将增加CPU负载，但会提高稳定性。|
+| **休眠集（Sleep Family）** | 决定什么时候让实体进入休眠状态的一组值。|
 [/REGION]
 
-[/VAR]
+(#bodysetup)
+### 形体设置
 
-[VAR:p23]
+![](PhATBody1.png)
+
+[REGION:raw]
+| 属性 | 说明 |
+| --- | :--- |
+| **Primitives** | 构成此骨骼碰撞的基本形状。|
+| **骨骼名称（Bone Name）** | 物理资源中使用的名称，将此形体与骨架网格体中的骨骼相关联。|
+| **考虑边界（Consider for Bounds）** | 设置在计算骨架网格体的包围体时是否使用此骨骼。|
+[/REGION]
+
+(#collision)
+### 碰撞
 
 ![](PhATBody3.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Simulation Generates Hit Events** || %doxygen:FBodyInstance::bNotifyRigidBodyCollision% |
-| **Phys Material Override** || %doxygen:FBodyInstance::PhysMaterialOverride% |
-| **Collision Response** || %doxygen:UBodySetup::CollisionReponse% |
+| 属性 | 说明 |
+| --- | :--- |
+| **模拟生成撞击事件（Simulation Generates Hit Events）** | 设置当此对象在物理模拟期间发生碰撞时，是否应触发“撞击”事件。|
+| **物理材质覆盖（Phys Material Override）** | 允许你覆盖要用于此形体的简单碰撞的物理材质。|
+| **碰撞响应（Collision Response）** | 有关更多信息，请参阅[碰撞响应参考](Engine/Physics/Collision/Reference)文档。|
 
 [/REGION]
-### 高级
+
+(#advanced)
+#### 高级
 
 ![](PhATBody3_adv.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Use CCD** || %doxygen:FBodyInstance::bUseCCD% |
+| 属性 | 说明 |
+| --- | :--- |
+| **使用连续碰撞（Use CCD）** | 如果为true，此组件就会进行连续碰撞检测。|
 [/REGION]
 
-[/VAR]
+(#physicalanimation)
+### 物理动画
+		
+![](PhATBody4.png)
 
+请参阅[](Engine/Physics/PhAT/HowTo)，了解有关使用 **物理动画** 的更多信息。
 
----
+(#constraintmodeproperties)
+## 约束模式属性
 
-[OBJECT:modulesection]
-	[PARAMLITERAL:id]
-		ConsM
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		约束模式
-	[/PARAM]
-	[PARAM:content]
-		%c3%
-	[/PARAM]
-[/OBJECT]
+当物理资源工具处于“形体模式（Body Mode）”并且选择了“物理形体（Physics Body）”时，“细节（Details）”面板将显示该物理形体的属性。
 
-[VAR:c3]
-
-当 Physics Asset 工具在形体模式中且一个物理形体已被选中时，Details 面板将显示此物理形体的属性。
-
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		Cons2
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		约束
-	[/PARAM]
-	[PARAM:content]
-		%p31%
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		Line1
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		线型限度
-	[/PARAM]
-	[PARAM:content]
-		%Engine/Physics/Constraints/ConstraintsReference:p2%
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		Proj2
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		投射
-	[/PARAM]
-	[PARAM:content]
-		%Engine/Physics/Constraints/ConstraintsReference:p3%
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		Angu2
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		角限度
-	[/PARAM]
-	[PARAM:content]
-		%Engine/Physics/Constraints/ConstraintsReference:p4%
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		Lmoto
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		线型马达
-	[/PARAM]
-	[PARAM:content]
-		%Engine/Physics/Constraints/ConstraintsReference:p5%
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		Amoto
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		角马达
-	[/PARAM]
-	[PARAM:content]
-		%Engine/Physics/Constraints/ConstraintsReference:p6%
-	[/PARAM]
-[/OBJECT]
-
-[/VAR]
-
-[VAR:p31]
+(#constraint)
+### 约束
 
 ![](PhATCon1.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Joint Name** || %doxygen:FConstraintInstance::JointName% |
-| **Constraint Bone 1** || %doxygen:FConstraintInstance::ConstraintBone1% |
-| **Constraint Bone 2** || %doxygen:FConstraintInstance::ConstraintBone2% |
-| **Disable Collision** || 禁用此约束连接的形体之间的碰撞。|
+| 属性 | 说明 |
+| --- | :--- |
+| **关节名称（Joint Name）** | 与此 **物理约束** 关联的骨骼（**物理形体**）的名称。|
+| **约束骨骼1（Constraint Bone 1）** | 此**物理约束** 连接的第一个骨骼（**物理形体**）的名称。这将成为 **物理资源** 中的“子”骨骼。|
+| **约束骨骼2（Constraint Bone 1）** | 此 **物理约束** 连接的第二个骨骼（**物理形体**）的名称。这将成为 **物理资源** 中的“父”骨骼。|
 [/REGION]
-[/VAR]
+
+(#linearlimits)
+### 线性限制
+
+[INCLUDE:Engine/Physics/Constraints/ConstraintsReference#p2(offset:1)]
+
+(#projection)
+### 投射
+
+[INCLUDE:Engine/Physics/Constraints/ConstraintsReference#p3(offset:1)]
+
+(#angularlimits)
+### 角度限制
+
+[INCLUDE:Engine/Physics/Constraints/ConstraintsReference#p4(offset:1)]
+
+(#linearmotor)
+### 线性马达
+
+[INCLUDE:Engine/Physics/Constraints/ConstraintsReference#p5(offset:1)]
+
+(#Angularmotor)
+### 角度马达
+
+[INCLUDE:Engine/Physics/Constraints/ConstraintsReference#p6(offset:1)]
 
 
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 D3D12Util.h: D3D RHI utility implementation.
@@ -30,12 +30,24 @@ D3D12Util.h: D3D RHI utility implementation.
 
 extern bool D3D12RHI_ShouldCreateWithD3DDebug();
 
+static FString GetUniqueName()
+{
+	static int64 ID = 0;
+	const int64 UniqueID = FPlatformAtomics::InterlockedIncrement(&ID);
+	const FString UniqueName = FString::Printf(TEXT("D3D12RHIObjectUniqueName%lld"), UniqueID);
+	return UniqueName;
+}
+
 void SetName(ID3D12Object* const Object, const TCHAR* const Name)
 {
 #if NAME_OBJECTS
-	if (Object)
+	if (Object && Name)
 	{
 		VERIFYD3D12RESULT(Object->SetName(Name));
+	}
+	else if (Object)
+	{
+		VERIFYD3D12RESULT(Object->SetName(*GetUniqueName()));
 	}
 #else
 	UNREFERENCED_PARAMETER(Object);
@@ -47,9 +59,13 @@ void SetName(FD3D12Resource* const Resource, const TCHAR* const Name)
 {
 #if NAME_OBJECTS
 	// Special case for FD3D12Resources because we also store the name as a member in FD3D12Resource
-	if (Resource)
+	if (Resource && Name)
 	{
 		Resource->SetName(Name);
+	}
+	else if (Resource)
+	{
+		Resource->SetName(*GetUniqueName());
 	}
 #else
 	UNREFERENCED_PARAMETER(Resource);
@@ -64,11 +80,12 @@ static FString GetD3D12DeviceHungErrorString(HRESULT ErrorCode)
 	switch (ErrorCode)
 	{
 		D3DERR(DXGI_ERROR_DEVICE_HUNG)
-			D3DERR(DXGI_ERROR_DEVICE_REMOVED)
-			D3DERR(DXGI_ERROR_DEVICE_RESET)
-			D3DERR(DXGI_ERROR_DRIVER_INTERNAL_ERROR)
-			D3DERR(DXGI_ERROR_INVALID_CALL)
-	default: ErrorCodeText = FString::Printf(TEXT("%08X"), (int32)ErrorCode);
+		D3DERR(DXGI_ERROR_DEVICE_REMOVED)
+		D3DERR(DXGI_ERROR_DEVICE_RESET)
+		D3DERR(DXGI_ERROR_DRIVER_INTERNAL_ERROR)
+		D3DERR(DXGI_ERROR_INVALID_CALL)
+		default:
+			ErrorCodeText = FString::Printf(TEXT("%08X"), (int32)ErrorCode);
 	}
 
 	return ErrorCodeText;
@@ -82,24 +99,25 @@ static FString GetD3D12ErrorString(HRESULT ErrorCode, ID3D12Device* Device)
 	{
 		D3DERR(S_OK);
 		D3DERR(D3D11_ERROR_FILE_NOT_FOUND)
-			D3DERR(D3D11_ERROR_TOO_MANY_UNIQUE_STATE_OBJECTS)
+		D3DERR(D3D11_ERROR_TOO_MANY_UNIQUE_STATE_OBJECTS)
 #if WITH_D3DX_LIBS
-			D3DERR(D3DERR_INVALIDCALL)
-			D3DERR(D3DERR_WASSTILLDRAWING)
+		D3DERR(D3DERR_INVALIDCALL)
+		D3DERR(D3DERR_WASSTILLDRAWING)
 #endif	//WITH_D3DX_LIBS
-			D3DERR(E_FAIL)
-			D3DERR(E_INVALIDARG)
-			D3DERR(E_OUTOFMEMORY)
-			D3DERR(DXGI_ERROR_INVALID_CALL)
-			D3DERR(E_NOINTERFACE)
-			D3DERR(DXGI_ERROR_DEVICE_REMOVED)
-	default: ErrorCodeText = FString::Printf(TEXT("%08X"), (int32)ErrorCode);
+		D3DERR(E_FAIL)
+		D3DERR(E_INVALIDARG)
+		D3DERR(E_OUTOFMEMORY)
+		D3DERR(DXGI_ERROR_INVALID_CALL)
+		D3DERR(E_NOINTERFACE)
+		D3DERR(DXGI_ERROR_DEVICE_REMOVED)
+		default:
+			ErrorCodeText = FString::Printf(TEXT("%08X"), (int32)ErrorCode);
 	}
 
 	if (ErrorCode == DXGI_ERROR_DEVICE_REMOVED && Device)
 	{
 		HRESULT hResDeviceRemoved = Device->GetDeviceRemovedReason();
-		ErrorCodeText += FString(TEXT(" ")) + GetD3D12DeviceHungErrorString(hResDeviceRemoved);
+		ErrorCodeText += FString(TEXT(" with Reason: ")) + GetD3D12DeviceHungErrorString(hResDeviceRemoved);
 	}
 
 	return ErrorCodeText;
@@ -127,10 +145,8 @@ namespace D3D12RHI
 				D3DFORMATCASE(DXGI_FORMAT_R32G32B32A32_FLOAT)
 				D3DFORMATCASE(DXGI_FORMAT_UNKNOWN)
 				D3DFORMATCASE(DXGI_FORMAT_R8_UNORM)
-#if DEPTH_32_BIT_CONVERSION
 				D3DFORMATCASE(DXGI_FORMAT_D32_FLOAT_S8X24_UINT)
 				D3DFORMATCASE(DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS)
-#endif
 				D3DFORMATCASE(DXGI_FORMAT_R32G8X24_TYPELESS)
 				D3DFORMATCASE(DXGI_FORMAT_D24_UNORM_S8_UINT)
 				D3DFORMATCASE(DXGI_FORMAT_R24_UNORM_X8_TYPELESS)
@@ -186,6 +202,11 @@ static FString GetD3D12TextureFlagString(uint32 TextureFlags)
 extern CORE_API bool GIsGPUCrashed;
 static void TerminateOnDeviceRemoved(HRESULT D3DResult)
 {
+	if (GDynamicRHI)
+	{
+		GDynamicRHI->CheckGpuHeartbeat();
+	}
+
 	if (D3DResult == DXGI_ERROR_DEVICE_REMOVED)
 	{
 		GIsGPUCrashed = true;
@@ -242,12 +263,12 @@ namespace D3D12RHI
 		UE_LOG(LogD3D12RHI, Fatal, TEXT("%s failed \n at %s:%u \n with error %s"), ANSI_TO_TCHAR(Code), ANSI_TO_TCHAR(Filename), Line, *ErrorString);
 	}
 
-	void VerifyD3D12CreateTextureResult(HRESULT D3DResult, const ANSICHAR* Code, const ANSICHAR* Filename, uint32 Line, uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint8 Format, uint32 NumMips, uint32 Flags)
+	void VerifyD3D12CreateTextureResult(HRESULT D3DResult, const ANSICHAR* Code, const ANSICHAR* Filename, uint32 Line, const D3D12_RESOURCE_DESC& TextureDesc)
 	{
 		check(FAILED(D3DResult));
 
 		const FString ErrorString = GetD3D12ErrorString(D3DResult, 0);
-		const TCHAR* D3DFormatString = GetD3D12TextureFormatString((DXGI_FORMAT)Format);
+		const TCHAR* D3DFormatString = GetD3D12TextureFormatString(TextureDesc.Format);
 
 		UE_LOG(LogD3D12RHI, Error,
 			TEXT("%s failed \n at %s:%u \n with error %s, \n Size=%ix%ix%i Format=%s(0x%08X), NumMips=%i, Flags=%s"),
@@ -255,13 +276,13 @@ namespace D3D12RHI
 			ANSI_TO_TCHAR(Filename),
 			Line,
 			*ErrorString,
-			SizeX,
-			SizeY,
-			SizeZ,
+			TextureDesc.Width,
+			TextureDesc.Height,
+			TextureDesc.DepthOrArraySize,
 			D3DFormatString,
-			Format,
-			NumMips,
-			*GetD3D12TextureFlagString(Flags));
+			TextureDesc.Format,
+			TextureDesc.MipLevels,
+			*GetD3D12TextureFlagString(TextureDesc.Flags));
 
 		TerminateOnDeviceRemoved(D3DResult);
 		TerminateOnOutOfMemory(D3DResult, true);
@@ -280,13 +301,13 @@ namespace D3D12RHI
 			ANSI_TO_TCHAR(Filename),
 			Line,
 			*ErrorString,
-			SizeX,
-			SizeY,
-			SizeZ,
+			TextureDesc.Width,
+			TextureDesc.Height,
+			TextureDesc.DepthOrArraySize,
 			D3DFormatString,
-			Format,
-			NumMips,
-			*GetD3D12TextureFlagString(Flags));
+			TextureDesc.Format,
+			TextureDesc.MipLevels,
+			*GetD3D12TextureFlagString(TextureDesc.Flags));
 	}
 
 	void VerifyComRefCount(IUnknown* Object, int32 ExpectedRefs, const TCHAR* Code, const TCHAR* Filename, int32 Line)
@@ -364,7 +385,7 @@ void QuantizeBoundShaderState(
 	// The objective is to allow a single root signature to represent many bound shader state objects.
 	// The bigger the quantization step sizes, the fewer the root signatures.
 	FMemory::Memzero(&QBSS, sizeof(QBSS));
-	QBSS.bAllowIAInputLayout = BSS->InputLayout.NumElements > 0;	// Does the root signature need access to vertex buffers?
+	QBSS.bAllowIAInputLayout = BSS->GetVertexDeclaration() != nullptr;	// Does the root signature need access to vertex buffers?
 
 	const FD3D12VertexShader* const VertexShader = BSS->GetVertexShader();
 	const FD3D12PixelShader* const PixelShader = BSS->GetPixelShader();
@@ -378,20 +399,86 @@ void QuantizeBoundShaderState(
 	if (GeometryShader) FD3D12QuantizedBoundShaderState::InitShaderRegisterCounts(ResourceBindingTier, GeometryShader->ResourceCounts, QBSS.RegisterCounts[SV_Geometry]);
 }
 
-void QuantizeBoundShaderState(
-	const D3D12_RESOURCE_BINDING_TIER& ResourceBindingTier,
-	const FD3D12ComputeShader* const ComputeShader,
-	FD3D12QuantizedBoundShaderState &QBSS
-	)
+static void QuantizeBoundShaderStateCommon(
+	D3D12_RESOURCE_BINDING_TIER ResourceBindingTier,
+	const FShaderCodePackedResourceCounts& ResourceCounts,
+	EShaderVisibility ShaderVisibility,
+	bool bAllowUAVs,
+	FD3D12QuantizedBoundShaderState &OutQBSS
+)
 {
 	// BSS quantizer. There is a 1:1 mapping of quantized bound shader state objects to root signatures.
 	// The objective is to allow a single root signature to represent many bound shader state objects.
 	// The bigger the quantization step sizes, the fewer the root signatures.
-	FMemory::Memzero(&QBSS, sizeof(QBSS));
-	check(QBSS.bAllowIAInputLayout == false);	// No access to vertex buffers needed
-	check(ComputeShader);
-	FD3D12QuantizedBoundShaderState::InitShaderRegisterCounts(ResourceBindingTier, ComputeShader->ResourceCounts, QBSS.RegisterCounts[SV_All], true);
+	FMemory::Memzero(&OutQBSS, sizeof(OutQBSS));
+	FD3D12QuantizedBoundShaderState::InitShaderRegisterCounts(ResourceBindingTier, ResourceCounts, OutQBSS.RegisterCounts[ShaderVisibility], bAllowUAVs);
 }
+
+void QuantizeBoundShaderState(
+	const D3D12_RESOURCE_BINDING_TIER& ResourceBindingTier,
+	const FD3D12ComputeShader* const ComputeShader,
+	FD3D12QuantizedBoundShaderState &OutQBSS
+	)
+{
+	check(ComputeShader);
+	const bool bAllosUAVs = true;
+	QuantizeBoundShaderStateCommon(ResourceBindingTier, ComputeShader->ResourceCounts, SV_All, bAllosUAVs, OutQBSS);
+	check(OutQBSS.bAllowIAInputLayout == false); // No access to vertex buffers needed
+}
+
+#if D3D12_RHI_RAYTRACING
+void QuantizeBoundShaderState(
+	EShaderFrequency ShaderFrequency,
+	const D3D12_RESOURCE_BINDING_TIER& ResourceBindingTier,
+	const FD3D12RayTracingShader* const RayTracingShader,
+	FD3D12QuantizedBoundShaderState &OutQBSS
+)
+{
+	check(RayTracingShader);
+
+	const FShaderCodePackedResourceCounts& Counts = RayTracingShader->ResourceCounts;
+
+	FMemory::Memzero(&OutQBSS, sizeof(OutQBSS));
+	FShaderRegisterCounts& QBSSRegisterCounts = OutQBSS.RegisterCounts[SV_All];
+
+	switch (ShaderFrequency)
+	{
+	case SF_RayGen:
+	case SF_RayMiss:
+
+		// Shared conservative root signature layout is used for all raygen and miss shaders.
+
+		OutQBSS.RootSignatureType = RS_RayTracingGlobal;
+
+		QBSSRegisterCounts.SamplerCount = MAX_SAMPLERS;
+		QBSSRegisterCounts.ShaderResourceCount = MAX_SRVS;
+		QBSSRegisterCounts.ConstantBufferCount = MAX_CBS;
+		QBSSRegisterCounts.UnorderedAccessCount = MAX_UAVS;
+
+		break;
+
+	case SF_RayHitGroup:
+
+		// Local root signature is used for hit group shaders, using the exact number of resources to minimize shader binding table record size.
+
+		OutQBSS.RootSignatureType = RS_RayTracingLocal;
+
+		QBSSRegisterCounts.SamplerCount = Counts.NumSamplers;
+		QBSSRegisterCounts.ShaderResourceCount = Counts.NumSRVs;
+		QBSSRegisterCounts.ConstantBufferCount = Counts.NumCBs;
+		QBSSRegisterCounts.UnorderedAccessCount = Counts.NumUAVs;
+
+		check(QBSSRegisterCounts.SamplerCount <= MAX_SAMPLERS);
+		check(QBSSRegisterCounts.ShaderResourceCount <= MAX_SRVS);
+		check(QBSSRegisterCounts.ConstantBufferCount <= MAX_CBS);
+		check(QBSSRegisterCounts.UnorderedAccessCount <= MAX_UAVS);
+
+		break;
+	default:
+		checkNoEntry(); // Unexpected shader target frequency
+	}
+}
+#endif // D3D12_RHI_RAYTRACING
 
 FD3D12BoundRenderTargets::FD3D12BoundRenderTargets(FD3D12RenderTargetView** RTArray, uint32 NumActiveRTs, FD3D12DepthStencilView* DSView)
 {
@@ -781,6 +868,7 @@ DEFINE_STAT(STAT_D3D12WaitForFenceTime);
 DEFINE_STAT(STAT_D3D12UsedVideoMemory);
 DEFINE_STAT(STAT_D3D12AvailableVideoMemory);
 DEFINE_STAT(STAT_D3D12TotalVideoMemory);
+DEFINE_STAT(STAT_D3D12TextureAllocatorWastage);
 
 DEFINE_STAT(STAT_ViewHeapChanged);
 DEFINE_STAT(STAT_SamplerHeapChanged);

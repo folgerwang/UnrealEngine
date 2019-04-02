@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieSceneSubTrack.h"
 #include "Evaluation/MovieSceneEvaluationField.h"
@@ -151,6 +151,11 @@ void UMovieSceneSubTrack::AddSection(UMovieSceneSection& Section)
 	}
 }
 
+
+bool UMovieSceneSubTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneSubSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneSubTrack::CreateNewSection()
 {

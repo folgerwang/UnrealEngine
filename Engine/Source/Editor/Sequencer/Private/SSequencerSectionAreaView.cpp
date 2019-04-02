@@ -1,6 +1,7 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SSequencerSectionAreaView.h"
+#include "Sequencer.h"
 #include "Types/PaintArgs.h"
 #include "Layout/ArrangedChildren.h"
 #include "CommonMovieSceneTools.h"
@@ -99,14 +100,19 @@ void SSequencerSectionAreaView::GenerateSectionWidgets()
 			Children.Add( 
 				SNew( SSequencerSection, SectionAreaNode.ToSharedRef(), SectionIndex ) 
 				.Visibility( this, &SSequencerSectionAreaView::GetSectionVisibility, Sections[SectionIndex]->GetSectionObject() )
-				);
+				.IsEnabled(this, &SSequencerSectionAreaView::GetSectionEnabled, Sections[SectionIndex]));
 		}
 	}
 }
 
-EVisibility SSequencerSectionAreaView::GetSectionVisibility( UMovieSceneSection* SectionObject ) const
+EVisibility SSequencerSectionAreaView::GetSectionVisibility(UMovieSceneSection* SectionObject) const
 {
 	return EVisibility::Visible;
+}
+
+bool SSequencerSectionAreaView::GetSectionEnabled(TSharedRef<ISequencerSection> InSequencerSection) const
+{
+	return !InSequencerSection->IsReadOnly();
 }
 
 

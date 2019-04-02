@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /**
  * MaterialParameterCollection.h - defines an asset that has a list of parameters, which can be referenced by any material and updated efficiently at runtime
@@ -90,7 +90,8 @@ class UMaterialParameterCollection : public UObject
 
 	//~ Begin UObject Interface.
 #if WITH_EDITOR
-	virtual void PreEditChange(class FEditPropertyChain& PropertyAboutToChange) override;
+	using Super::PreEditChange;
+	virtual void PreEditChange(UProperty* PropertyThatWillChange) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	virtual void PostInitProperties() override;
@@ -118,7 +119,7 @@ class UMaterialParameterCollection : public UObject
 	ENGINE_API const FCollectionVectorParameter* GetVectorParameterByName(FName ParameterName) const;
 
 	/** Accessor for the uniform buffer layout description. */
-	const FUniformBufferStruct& GetUniformBufferStruct() const
+	const FShaderParametersMetadata& GetUniformBufferStruct() const
 	{
 		check(UniformBufferStruct);
 		return *UniformBufferStruct;
@@ -129,14 +130,14 @@ private:
 	/** Default resource used when no instance is available. */
 	class FMaterialParameterCollectionInstanceResource* DefaultResource;
 
-	TUniquePtr<FUniformBufferStruct> UniformBufferStruct;
+	TUniquePtr<FShaderParametersMetadata> UniformBufferStruct;
 
 	void CreateBufferStruct();
 
 	/** Gets default values into data to be set on the uniform buffer. */
 	void GetDefaultParameterData(TArray<FVector4>& ParameterData) const;
 
-	void UpdateDefaultResource();
+	void UpdateDefaultResource(bool bRecreateUniformBuffer);
 };
 
 

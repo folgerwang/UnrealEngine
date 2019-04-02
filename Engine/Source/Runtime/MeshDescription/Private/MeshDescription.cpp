@@ -1,7 +1,9 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MeshDescription.h"
 #include "MeshAttributes.h"
+#include "Serialization/BulkDataReader.h"
+#include "Serialization/BulkDataWriter.h"
 
 
 void UDEPRECATED_MeshDescription::Serialize( FArchive& Ar )
@@ -21,6 +23,7 @@ void UDEPRECATED_MeshDescription::Serialize( FArchive& Ar )
 FArchive& operator<<( FArchive& Ar, FMeshDescription& MeshDescription )
 {
 	Ar.UsingCustomVersion( FReleaseObjectVersion::GUID );
+	Ar.UsingCustomVersion( FEditorObjectVersion::GUID );
 
 	if( Ar.IsLoading() && Ar.CustomVer( FReleaseObjectVersion::GUID ) < FReleaseObjectVersion::MeshDescriptionNewSerialization )
 	{
@@ -77,11 +80,6 @@ FArchive& operator<<( FArchive& Ar, FMeshDescription& MeshDescription )
 
 			PopulatePolygonIDs( MeshDescription.GetPolygonPerimeterVertexInstances( PolygonID ) );
 
-			for( int32 HoleIndex = 0; HoleIndex < MeshDescription.GetNumPolygonHoles( PolygonID ); ++HoleIndex )
-			{
-				PopulatePolygonIDs( MeshDescription.GetPolygonHoleVertexInstances( PolygonID, HoleIndex ) );
-			}
-
 			const FPolygonGroupID PolygonGroupID = MeshDescription.PolygonArray[ PolygonID ].PolygonGroupID;
 			MeshDescription.PolygonGroupArray[ PolygonGroupID ].Polygons.Add( PolygonID );
 
@@ -108,6 +106,16 @@ void FMeshDescription::Empty()
 	EdgeAttributesSet.Initialize( 0 );
 	PolygonAttributesSet.Initialize( 0 );
 	PolygonGroupAttributesSet.Initialize( 0 );
+}
+
+
+bool FMeshDescription::IsEmpty() const
+{
+	return VertexArray.GetArraySize() == 0 &&
+		   VertexInstanceArray.GetArraySize() == 0 &&
+		   EdgeArray.GetArraySize() == 0 &&
+		   PolygonArray.GetArraySize() == 0 &&
+		   PolygonGroupArray.GetArraySize() == 0;
 }
 
 
@@ -196,14 +204,6 @@ void FMeshDescription::FixUpElementIDs( const FElementIDRemappings& Remappings )
 			VertexInstanceID = Remappings.GetRemappedVertexInstanceID( VertexInstanceID );
 		}
 
-		for( FMeshPolygonContour& HoleContour : Polygon.HoleContours )
-		{
-			for( FVertexInstanceID& VertexInstanceID : HoleContour.VertexInstanceIDs )
-			{
-				VertexInstanceID = Remappings.GetRemappedVertexInstanceID( VertexInstanceID );
-			}
-		}
-
 		for( FMeshTriangle& Triangle : Polygon.Triangles )
 		{
 			for( int32 TriangleVertexNumber = 0; TriangleVertexNumber < 3; ++TriangleVertexNumber )
@@ -227,6 +227,76 @@ void FMeshDescription::FixUpElementIDs( const FElementIDRemappings& Remappings )
 		}
 	}
 }
+
+
+void FMeshDescription::CreatePolygon_Internal( const FPolygonID PolygonID, const FPolygonGroupID PolygonGroupID, const TArray<FContourPoint>& Perimeter )
+{
+	FMeshPolygon& Polygon = PolygonArray[ PolygonID ];
+
+	Polygon.PerimeterContour.VertexInstanceIDs.Reset( Perimeter.Num() );
+	for( const FContourPoint ContourPoint : Perimeter )
+	{
+		const FVertexInstanceID VertexInstanceID = ContourPoint.VertexInstanceID;
+		const FEdgeID EdgeID = ContourPoint.EdgeID;
+
+		Polygon.PerimeterContour.VertexInstanceIDs.Add( VertexInstanceID );
+		check( !VertexInstanceArray[ VertexInstanceID ].ConnectedPolygons.Contains( PolygonID ) );
+		VertexInstanceArray[ VertexInstanceID ].ConnectedPolygons.Add( PolygonID );
+
+		check( !EdgeArray[ EdgeID ].ConnectedPolygons.Contains( PolygonID ) );
+		EdgeArray[ EdgeID ].ConnectedPolygons.Add( PolygonID );
+	}
+
+	Polygon.PolygonGroupID = PolygonGroupID;
+	PolygonGroupArray[ PolygonGroupID ].Polygons.Add( PolygonID );
+
+	PolygonAttributesSet.Insert( PolygonID );
+}
+
+
+void FMeshDescription::CreatePolygon_Internal( const FPolygonID PolygonID, const FPolygonGroupID PolygonGroupID, const TArray<FVertexInstanceID>& VertexInstanceIDs, TArray<FEdgeID>* OutEdgeIDs )
+{
+	if( OutEdgeIDs )
+	{
+		OutEdgeIDs->Empty();
+	}
+
+	FMeshPolygon& Polygon = PolygonArray[ PolygonID ];
+	const int32 NumVertices = VertexInstanceIDs.Num();
+	Polygon.PerimeterContour.VertexInstanceIDs.Reset( NumVertices );
+
+	for( int32 Index = 0; Index < NumVertices; ++Index )
+	{
+		const FVertexInstanceID VertexInstanceID = VertexInstanceIDs[ Index ];
+		const FVertexInstanceID NextVertexInstanceID = VertexInstanceIDs[ ( Index + 1 == NumVertices ) ? 0 : Index + 1 ];
+
+		Polygon.PerimeterContour.VertexInstanceIDs.Add( VertexInstanceID );
+		check( !VertexInstanceArray[ VertexInstanceID ].ConnectedPolygons.Contains( PolygonID ) );
+		VertexInstanceArray[ VertexInstanceID ].ConnectedPolygons.Add( PolygonID );
+
+		const FVertexID VertexID0 = GetVertexInstanceVertex( VertexInstanceID );
+		const FVertexID VertexID1 = GetVertexInstanceVertex( NextVertexInstanceID );
+
+		FEdgeID EdgeID = GetVertexPairEdge( VertexID0, VertexID1 );
+		if( EdgeID == FEdgeID::Invalid )
+		{
+			EdgeID = CreateEdge( VertexID0, VertexID1 );
+			if( OutEdgeIDs )
+			{
+				OutEdgeIDs->Add( EdgeID );
+			}
+		}
+
+		check( !EdgeArray[ EdgeID ].ConnectedPolygons.Contains( PolygonID ) );
+		EdgeArray[ EdgeID ].ConnectedPolygons.Add( PolygonID );
+	}
+
+	Polygon.PolygonGroupID = PolygonGroupID;
+	PolygonGroupArray[ PolygonGroupID ].Polygons.Add( PolygonID );
+
+	PolygonAttributesSet.Insert( PolygonID );
+}
+
 
 
 void FMeshDescription::RemapAttributes( const FElementIDRemappings& Remappings )
@@ -264,22 +334,6 @@ void FMeshDescription::GetPolygonPerimeterVertices( const FPolygonID PolygonID, 
 	{
 		const FMeshVertexInstance& VertexInstance = VertexInstanceArray[ VertexInstanceID ];
 		OutPolygonPerimeterVertexIDs[ Index ] = VertexInstance.VertexID;
-		Index++;
-	}
-}
-
-
-void FMeshDescription::GetPolygonHoleVertices( const FPolygonID PolygonID, const int32 HoleIndex, TArray<FVertexID>& OutPolygonHoleVertexIDs ) const
-{
-	const FMeshPolygon& Polygon = GetPolygon( PolygonID );
-
-	OutPolygonHoleVertexIDs.SetNumUninitialized( Polygon.HoleContours[ HoleIndex ].VertexInstanceIDs.Num(), false );
-
-	int32 Index = 0;
-	for( const FVertexInstanceID VertexInstanceID : Polygon.HoleContours[ HoleIndex ].VertexInstanceIDs )
-	{
-		const FMeshVertexInstance& VertexInstance = VertexInstanceArray[ VertexInstanceID ];
-		OutPolygonHoleVertexIDs[ Index ] = VertexInstance.VertexID;
 		Index++;
 	}
 }
@@ -387,7 +441,6 @@ void FMeshDescription::ComputePolygonTriangulation(const FPolygonID PolygonID, T
 
 	OutTriangles.Reset();
 
-	// @todo mesheditor holes: Does not support triangles with holes yet!
 	// @todo mesheditor: Perhaps should always attempt to triangulate by splitting polygons along the shortest edge, for better determinism.
 
 	//	const FMeshPolygon& Polygon = GetPolygon( PolygonID );
@@ -789,19 +842,6 @@ float FMeshDescription::GetPolygonCornerAngleForVertex(const FPolygonID PolygonI
 		// Return the internal angle if found
 		return GetContourAngle(Polygon.PerimeterContour, ContourIndex);
 	}
-	else
-	{
-		// If not found, look in all the holes
-		for (const FMeshPolygonContour& HoleContour : Polygon.HoleContours)
-		{
-			ContourIndex = HoleContour.VertexInstanceIDs.IndexOfByPredicate(IsVertexInstancedFromThisVertex);
-			if (ContourIndex != INDEX_NONE)
-			{
-				// Hole vertex contribution is the part which ISN'T the internal angle of the contour, so subtract from 2*pi
-				return (2.0f * PI) - GetContourAngle(HoleContour, ContourIndex);
-			}
-		}
-	}
 
 	// Found nothing; return 0
 	return 0.0f;
@@ -1180,3 +1220,107 @@ void FMeshDescription::ReverseAllPolygonFacing()
 		ReversePolygonFacing(PolygonID);
 	}
 }
+
+
+#if WITH_EDITORONLY_DATA
+
+void FMeshDescriptionBulkData::Serialize( FArchive& Ar, UObject* Owner )
+{
+	Ar.UsingCustomVersion( FEditorObjectVersion::GUID );
+
+	if( Ar.IsTransacting() )
+	{
+		// If transacting, keep these members alive the other side of an undo, otherwise their values will get lost
+		CustomVersions.Serialize( Ar );
+		Ar << bBulkDataUpdated;
+	}
+	else
+	{
+		if( Ar.IsLoading() )
+		{
+			// If loading, take a copy of the package custom version container, so it can be applied when unpacking
+			// MeshDescription from the bulk data.
+			CustomVersions = Ar.GetCustomVersions();
+		}
+		else if( Ar.IsSaving() )
+		{
+			// If the bulk data hasn't been updated since this was loaded, there's a possibility that it has old versioning.
+			// Explicitly load and resave the FMeshDescription so that its version is in sync with the FMeshDescriptionBulkData.
+			if( !bBulkDataUpdated )
+			{
+				FMeshDescription MeshDescription;
+				LoadMeshDescription( MeshDescription );
+				SaveMeshDescription( MeshDescription );
+			}
+		}
+	}
+
+	BulkData.Serialize( Ar, Owner );
+
+	if( Ar.IsLoading() && Ar.CustomVer( FEditorObjectVersion::GUID ) < FEditorObjectVersion::MeshDescriptionBulkDataGuid )
+	{
+		FPlatformMisc::CreateGuid( Guid );
+	}
+	else
+	{
+		Ar << Guid;
+	}
+}
+
+
+void FMeshDescriptionBulkData::SaveMeshDescription( FMeshDescription& MeshDescription )
+{
+	BulkData.RemoveBulkData();
+
+	if( !MeshDescription.IsEmpty() )
+	{
+		const bool bIsPersistent = true;
+		FBulkDataWriter Ar( BulkData, bIsPersistent );
+		Ar << MeshDescription;
+	}
+
+	FPlatformMisc::CreateGuid( Guid );
+
+	// Mark the MeshDescriptionBulkData as having been updated.
+	// This means we know that its version is up-to-date.
+	bBulkDataUpdated = true;
+}
+
+
+void FMeshDescriptionBulkData::LoadMeshDescription( FMeshDescription& MeshDescription )
+{
+	MeshDescription.Empty();
+
+	if( BulkData.GetElementCount() > 0 )
+	{
+		// Get a lock on the bulk data and read it into the mesh description
+		{
+			const bool bIsPersistent = true;
+			FBulkDataReader Ar( BulkData, bIsPersistent );
+
+			// Propagate the custom version information from the package to the bulk data, so that the MeshDescription
+			// is serialized with the same versioning.
+			Ar.SetCustomVersions( CustomVersions );
+			Ar << MeshDescription;
+		}
+		// Unlock bulk data when we leave scope
+
+		// Throw away the bulk data allocation as we don't need it now we have its contents as a FMeshDescription
+		// @todo: revisit this
+//		BulkData.UnloadBulkData();
+	}
+}
+
+
+void FMeshDescriptionBulkData::Empty()
+{
+	BulkData.RemoveBulkData();
+}
+
+
+FString FMeshDescriptionBulkData::GetIdString() const
+{
+	return Guid.ToString();
+}
+
+#endif // #if WITH_EDITORONLY_DATA

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -93,6 +93,7 @@ public:
 	virtual FText GetDisplayName() const override { return LOCTEXT("FrontendFilter_CheckedOut", "Checked Out"); }
 	virtual FText GetToolTipText() const override { return LOCTEXT("FrontendFilter_CheckedOutTooltip", "Show only assets that you have checked out or pending for add."); }
 	virtual void ActiveStateChanged(bool bActive) override;
+	virtual void SetCurrentFilter(const FARFilter& InBaseFilter);
 
 	// IFilter implementation
 	virtual bool PassesFilter(FAssetFilterType InItem) const override;
@@ -104,6 +105,40 @@ private:
 
 	/** Callback when source control operation has completed */
 	void SourceControlOperationComplete(const FSourceControlOperationRef& InOperation, ECommandResult::Type InResult);
+
+	/** Names of files that are currently checked out (no path or extension) */
+	TSet<FName> OpenFilenames;
+
+	bool bSourceControlEnabled;
+};
+
+/** A filter that displays assets not tracked by source control */
+class FFrontendFilter_NotSourceControlled : public FFrontendFilter, public TSharedFromThis<FFrontendFilter_NotSourceControlled>
+{
+public:
+	FFrontendFilter_NotSourceControlled(TSharedPtr<FFrontendFilterCategory> InCategory);
+
+	// FFrontendFilter implementation
+	virtual FString GetName() const override { return TEXT("NotSourceControlled"); }
+	virtual FText GetDisplayName() const override { return LOCTEXT("FrontendFilter_NotSourceControlled", "Not Source Controlled"); }
+	virtual FText GetToolTipText() const override { return LOCTEXT("FrontendFilter_NotSourceControlledTooltip", "Show only assets that are not tracked by source control."); }
+	virtual void ActiveStateChanged(bool bActive) override;
+	virtual void SetCurrentFilter(const FARFilter& InBaseFilter);
+
+	// IFilter implementation
+	virtual bool PassesFilter(FAssetFilterType InItem) const override;
+
+private:
+
+	/** Request the source control status for this filter */
+	void RequestStatus();
+
+	/** Callback when source control operation has completed */
+	void SourceControlOperationComplete(const FSourceControlOperationRef& InOperation, ECommandResult::Type InResult);
+
+	bool bSourceControlEnabled;
+	bool bIsRequestStatusRunning;
+	bool bInitialRequestCompleted;
 };
 
 /** A filter that displays only modified assets */
@@ -118,6 +153,7 @@ public:
 	virtual FText GetDisplayName() const override { return LOCTEXT("FrontendFilter_Modified", "Modified"); }
 	virtual FText GetToolTipText() const override { return LOCTEXT("FrontendFilter_ModifiedTooltip", "Show only assets that have been modified and not yet saved."); }
 	virtual void ActiveStateChanged(bool bActive) override;
+	virtual void SetCurrentFilter(const FARFilter& InBaseFilter);
 
 	// IFilter implementation
 	virtual bool PassesFilter(FAssetFilterType InItem) const override;
@@ -128,6 +164,9 @@ private:
 	void OnPackageDirtyStateUpdated(UPackage* Package);
 
 	bool bIsCurrentlyActive;
+
+	/** Names of packages in memory that are dirty */
+	TSet<FName> DirtyPackageNames;
 };
 
 /** A filter that displays blueprints that have replicated properties */
@@ -205,6 +244,7 @@ public:
 
 private:
 	FString BaseDeveloperPath;
+	TArray<ANSICHAR> BaseDeveloperPathAnsi;
 	FString UserDeveloperPath;
 	bool bIsOnlyOneDeveloperPathSelected;
 	bool bShowOtherDeveloperAssets;
@@ -312,16 +352,21 @@ public:
 	~FFrontendFilter_Recent();
 
 	// FFrontendFilter implementation
-	virtual FString GetName() const override { return TEXT("Modified"); }
+	virtual FString GetName() const override { return TEXT("RecentlyOpened"); }
 	virtual FText GetDisplayName() const override { return LOCTEXT("FrontendFilter_Recent", "Recently Opened"); }
 	virtual FText GetToolTipText() const override { return LOCTEXT("FrontendFilter_RecentTooltip", "Show only recently opened assets."); }
 	virtual void ActiveStateChanged(bool bActive) override;
+	virtual void SetCurrentFilter(const FARFilter& InBaseFilter);
 
 	// IFilter implementation
 	virtual bool PassesFilter(FAssetFilterType InItem) const override;
 
 	void ResetFilter(FName InName);
+
 private:
+	void RefreshRecentPackagePaths();
+
+	TSet<FName> RecentPackagePaths;
 	bool bIsCurrentlyActive;
 };
 

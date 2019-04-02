@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -415,6 +415,9 @@ public:
 
 	/** Sets the filename for a module. The module is not reloaded immediately, but the new name will be used for subsequent unload/load events. */
 	void SetModuleFilename(FName ModuleName, const FString& Filename);
+
+	/** Determines if any non-default module instances are loaded (eg. hot reloaded modules) */
+	bool HasAnyOverridenModuleFilename() const;
 #endif
 
 public:
@@ -555,10 +558,10 @@ private:
 
 #if !IS_MONOLITHIC
 	/** Finds modules matching a given name wildcard. */
-	void FindModulePaths(const TCHAR *NamePattern, TMap<FName, FString> &OutModulePaths, bool bCanUseCache = true) const;
+	void FindModulePaths(const TCHAR *NamePattern, TMap<FName, FString> &OutModulePaths) const;
 
-	/** Finds modules matching a given name wildcard within a given directory. */
-	void FindModulePathsInDirectory(const FString &DirectoryName, bool bIsGameDirectory, const TCHAR *NamePattern, TMap<FName, FString> &OutModulePaths) const;
+	/** Finds modules within a given directory. */
+	void FindModulePathsInDirectory(const FString &DirectoryName, bool bIsGameDirectory, TMap<FName, FString> &OutModulePaths) const;
 #endif
 
 private:
@@ -576,7 +579,7 @@ private:
 	bool bCanProcessNewlyLoadedObjects;
 
 	/** Cache of known module paths. Used for performance. Can increase editor startup times by up to 30% */
-	mutable TOptional<TMap<FName, FString>> ModulePathsCache;
+	mutable TMap<FName, FString> ModulePathsCache;
 
 	/** Multicast delegate that will broadcast a notification when modules are loaded, unloaded, or
 		our set of known modules changes */
@@ -590,10 +593,12 @@ private:
 	FIsPackageLoadedCallback IsPackageLoaded;
 
 	/** Array of engine binaries directories. */
-	TArray<FString> EngineBinariesDirectories;
+	mutable TArray<FString> EngineBinariesDirectories;
+	mutable TArray<FString> PendingEngineBinariesDirectories;
 
 	/** Array of game binaries directories. */
-	TArray<FString> GameBinariesDirectories;
+	mutable TArray<FString> GameBinariesDirectories;
+	mutable TArray<FString> PendingGameBinariesDirectories;
 
 	/** ID used to validate module manifests. Read from the module manifest in the engine directory on first query to load a new module; unset until then. */
 	mutable TOptional<FString> BuildId;
@@ -697,9 +702,8 @@ class FDefaultGameModuleImpl
 	#define IMPLEMENT_MODULE( ModuleImplClass, ModuleName ) \
 		/** Global registrant object for this module when linked statically */ \
 		static FStaticallyLinkedModuleRegistrant< ModuleImplClass > ModuleRegistrant##ModuleName( #ModuleName ); \
-		/** Implement an empty function so that if this module is built as a statically linked lib, */ \
-		/** static initialization for this lib can be forced by referencing this symbol */ \
-		void EmptyLinkFunctionForStaticInitialization##ModuleName(){} \
+		/* Forced reference to this function is added by the linker to check that each module uses IMPLEMENT_MODULE */ \
+		extern "C" void IMPLEMENT_MODULE_##ModuleName() { } \
 		PER_MODULE_BOILERPLATE_ANYLINK(ModuleImplClass, ModuleName)
 
 #else
@@ -715,6 +719,8 @@ class FDefaultGameModuleImpl
 		{ \
 			return new ModuleImplClass(); \
 		} \
+		/* Forced reference to this function is added by the linker to check that each module uses IMPLEMENT_MODULE */ \
+		extern "C" void IMPLEMENT_MODULE_##ModuleName() { } \
 		PER_MODULE_BOILERPLATE \
 		PER_MODULE_BOILERPLATE_ANYLINK(ModuleImplClass, ModuleName)
 
@@ -761,16 +767,21 @@ class FDefaultGameModuleImpl
 	{ \
 		FSigningKeyRegistration() \
 		{ \
-			extern void RegisterSigningKeyCallback(void (*)(unsigned char OutExponent[64], unsigned char OutModulus[64])); \
+			extern void RegisterSigningKeyCallback(void (*)(TArray<uint8>&, TArray<uint8>&)); \
 			RegisterSigningKeyCallback(&Callback); \
 		} \
-		static void Callback(unsigned char OutExponent[64], unsigned char OutModulus[64]) \
+		static void Callback(TArray<uint8>& OutExponent, TArray<uint8>& OutModulus) \
 		{ \
-			const unsigned char Exponent[64] = { ExponentValue }; \
-			const unsigned char Modulus[64] = { ModulusValue }; \
-			for(int ByteIdx = 0; ByteIdx < 64; ByteIdx++) \
+			const uint8 Exponent[] = { ExponentValue }; \
+			const uint8 Modulus[] = { ModulusValue }; \
+			OutExponent.SetNum(ARRAY_COUNT(Exponent)); \
+			OutModulus.SetNum(ARRAY_COUNT(Modulus)); \
+			for(int ByteIdx = 0; ByteIdx < ARRAY_COUNT(Exponent); ByteIdx++) \
 			{ \
 				OutExponent[ByteIdx] = Exponent[ByteIdx]; \
+			} \
+			for(int ByteIdx = 0; ByteIdx < ARRAY_COUNT(Modulus); ByteIdx++) \
+			{ \
 				OutModulus[ByteIdx] = Modulus[ByteIdx]; \
 			} \
 		} \

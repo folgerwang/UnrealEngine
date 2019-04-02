@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GameplayTask.h"
 #include "UObject/Package.h"
@@ -400,7 +400,7 @@ FString UGameplayTask::GenerateDebugDescription() const
 
 FString UGameplayTask::GetTaskStateName() const
 {
-	static const UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EGameplayTaskState"));
+	static const UEnum* Enum = StaticEnum<EGameplayTaskState>();
 	check(Enum);
 	return Enum->GetNameStringByValue(int64(TaskState));
 }

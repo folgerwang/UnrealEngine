@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MaterialShader.h: Shader base classes
@@ -12,6 +12,7 @@
 #include "SceneView.h"
 #include "Shader.h"
 #include "GlobalShader.h"
+#include "NiagaraCommon.h"
 #include "NiagaraShared.h"
 #include "NiagaraShaderType.h"
 #include "SceneRenderTargetParameters.h"
@@ -48,7 +49,7 @@ public:
 	static bool ShouldCompilePermutation(EShaderPlatform Platform, const FNiagaraShaderScript*  Script)
 	{
 		//@todo - lit materials only 
-		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5);
+		return FNiagaraUtilities::SupportsGPUParticles(Platform);
 	}
 
 
@@ -163,3 +164,5 @@ class FNiagaraEmitterInstanceShader : public FNiagaraShader
 {
 
 };
+
+extern NIAGARASHADER_API int32 GNiagaraSkipVectorVMBackendOptimizations;

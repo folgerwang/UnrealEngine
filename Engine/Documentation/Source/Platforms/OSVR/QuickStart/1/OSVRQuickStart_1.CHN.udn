@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3807090
 Availability:Docs
-Title:1. OSVR Prerequisites 
+Title:1.OSVR先决条件 
 Crumbs:%ROOT%, Platforms/OSVR
-Description:Setting up required OSVR software.
+Description:设置必须的OSVR软件。
 Navigation:platform
 Skilllevel: Intermediate
 Version: 4.12
@@ -14,42 +14,42 @@ tags:OSVR
 
 [NAV]
 
-In this part of the OSVR Quick Start, we will go over what software you need to download and install to get OSVR to work with Unreal Engine 4 (UE4).
+在OSVR快速入门的这一部分，我们将介绍需要下载和安装哪些软件才能让OSVR与虚幻引擎4(UE4)一起工作。
 
-1. Click on the following link to bring up the OSVR Developer Portal web page. 
+1. 单击以下链接以打开OSVR开发人员门户（OSVR Developer Portal）网页。 
 
 	**[https://osvr.github.io/using/](https://osvr.github.io/using/)**
 
-1. On the OSVR Developer page, locate the **OSVR Runtime for Windows**  option and then click on the **Download** option to download the OSVR Windows drivers.
+1. 在OSVR开发人员（OSVR Developer）页面上，找到 **OSVR Runtime for Windows** 选项，然后单击 **下载（Download）** 选项以下载OSVR Windows驱动程序。
 
 	[REGION:lightbox]
-	[![](OSVR_Driver_Download.png)(w:640 h:336)](OSVR_Driver_Download.png)
+	[![](OSVR_Driver_Download.png)(w:640)](OSVR_Driver_Download.png)
 	[/REGION]
 	
 	[REGION:caption]
-	Click for full image.
+	单击显示全图。
 	[/REGION]
 
-1. After the OSVR Runtime for Windows has finished downloading, locate the installer and begin the install process. 
+1. 在OSVR Runtime for Windows完成下载后，找到安装程序并开始安装过程。 
 
-1. Once the install is completed locate the OSVR folder and look for the **osvr_server.exe** and double - click on it to run it.
+1. 安装完成后，找到OSVR文件夹，查找 **osvr_server.exe**，然后双击以运行它。
 
 	[REGION:lightbox]
-	[![](OSVR_Server_Location.png)(w:407 h:293)](OSVR_Server_Location.png)
+	[![](OSVR_Server_Location.png)(w:407)](OSVR_Server_Location.png)
 	[/REGION]
 	
 	[REGION:caption]
-	Click for full image.
+	单击显示全图。
 	[/REGION]
 
-1. When the OSVR server launches you will the following command line window being displayed.
+1. 当OSVR服务器启动时，将显示以下命令行窗口。
 
 	![](OSVR_Server_Windows.png)
 
 	[region:note]
-	For UE4 to use OSVR you will need to launch the OSVR sever **Before** you launch your UE4 project.
+	若要使UE4使用OSVR，需要在启动UE4 **之前** 先启动OSVR服务器。
 	[/region]
 
-In the next section of the OSVR Quick Start, we will go over how to create a UE4 project to work with OSVR.
+在OSVR快速入门的下一部分，我们将介绍如何创建UE4项目来与OSVR一起工作。
 
 [NAV]

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AndroidTargetDevice.h: Declares the AndroidTargetDevice class.
@@ -227,7 +227,7 @@ protected:
 	 */
 	bool ExecuteAdbCommand( const FString& Params, FString* OutStdOut, FString* OutStdErr ) const;
 
-private:
+protected:
 
 	// The variant of the Android platform, i.e. ATC, DXT or PVRTC.
 	FString AndroidVariant;

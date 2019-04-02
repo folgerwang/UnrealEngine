@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleBeamTrailVertexFactory.hlsl: Particle vertex factory shader code.
@@ -149,13 +149,12 @@ Buffer<int> SortedIndices;
 uint SortedIndicesOffset;
 
 Buffer<float> SegmentDistances;
+Buffer<uint> MultiRibbonIndices;
 Buffer<float> PackedPerRibbonDataByIndex;
 
 struct FVertexFactoryInput
 {
 	uint VertexId					: SV_VertexID;
-
-	uint RibbonIndex				: ATTRIBUTE0;
 
 	// Optional instance ID for vertex layered rendering
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
@@ -213,7 +212,7 @@ struct FVertexFactoryInterpolantsVSToPS
 #endif
 
 #if INSTANCED_STEREO
-	nointerpolation uint PackedEyeIndex : PACKED_EYE_INDEX;
+	nointerpolation uint EyeIndex : PACKED_EYE_INDEX;
 #endif
 };
 
@@ -464,16 +463,6 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	return Result;
 }
 
-void GetLightMapCoordinates(FVertexFactoryInterpolantsVSToPS Interpolants, out float2 LightmapUV0, out float2 LightmapUV1)
-{
-	LightmapUV0 = LightmapUV1 = 0;
-}
-
-half2 GetShadowMapCoordinate(FVertexFactoryInterpolantsVSToPS Interpolants)
-{
-	return 0;
-}
-
 float3 SafeNormalize(float3 V)
 {
 	return V / sqrt(max(dot(V,V),0.01));
@@ -502,13 +491,10 @@ void GetTangents(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermed
 	float cosa = cos(Intermediates.Twist);
 	Facing = Facing * cosa + cross(Facing, NormDir) * sin(Intermediates.Twist) + NormDir * dot(NormDir, Facing) * (1-cosa);
 
-	if( abs(dot(NormDir, Facing)) < 0.999f)
+	RightDir = SafeNormalize(cross(NormDir, Facing));
+	if(!any(RightDir))
 	{
-		RightDir = SafeNormalize(cross(NormDir, Facing));
-	}
-	else
-	{
-		RightDir = SafeNormalize(cross(NormDir, float3(0.0f, 0.0f, -1.0f)));
+		RightDir = SafeNormalize(cross(NormDir, float3(0.0f, 0.0f, 1.0f)));
 	}
 
 	Right = RightDir;
@@ -553,7 +539,9 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	float2 UV1Offset;
 	uint NumSegments;
 	uint StartVertexId;
-	UnpackPerRibbonDataByIndex(Input.RibbonIndex, UV0Scale, UV0Offset, UV1Scale, UV1Offset, NumSegments,  StartVertexId);
+
+	uint RibbonIndex = MultiRibbonIndices[Input.VertexId / 2];
+	UnpackPerRibbonDataByIndex(RibbonIndex, UV0Scale, UV0Offset, UV1Scale, UV1Offset, NumSegments,  StartVertexId);
 	
 	uint StartParticleId = GetParticleIdByVertexId(StartVertexId);
 
@@ -725,7 +713,7 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 	Interpolants.TangentToWorld2 = float4(TangentToWorld[2], sign(determinant(TangentToLocal)));
 
 #if INSTANCED_STEREO
-	Interpolants.PackedEyeIndex = 0;
+	Interpolants.EyeIndex = 0;
 #endif
 
 	return Interpolants;
@@ -749,14 +737,12 @@ float3x3 VertexFactoryGetTangentToLocal( FVertexFactoryInput Input, FVertexFacto
 	return CalcTangentBasis(Input, Intermediates);
 }
 
-#if INSTANCED_STEREO
-uint VertexFactoryGetEyeIndex(uint InstanceId)
-{
-	return InstanceId & 1;
-}
-#endif
-
 float4 VertexFactoryGetTranslatedPrimitiveVolumeBounds(FVertexFactoryInterpolantsVSToPS Interpolants)
+{
+	return 0;
+}
+
+uint VertexFactoryGetPrimitiveId(FVertexFactoryInterpolantsVSToPS Interpolants)
 {
 	return 0;
 }

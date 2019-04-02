@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -66,6 +66,9 @@ public:
 
 	/** Destructor. */
 	virtual ~FCrashReportClient();
+
+	/** Stops processing work in the background. */
+	void StopBackgroundThread();
 
 	/** Closes the crash report client without sending any data. Except the startup analytics. */
 	FReply CloseWithoutSending();

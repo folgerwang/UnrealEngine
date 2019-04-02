@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ViewModels/Stack/NiagaraStackPropertyRow.h"
 #include "NiagaraNode.h"
@@ -52,9 +52,10 @@ void UNiagaraStackPropertyRow::RefreshChildrenInternal(const TArray<UNiagaraStac
 		NewChildren.Add(ChildRow);
 	}
 }
-
-void UNiagaraStackPropertyRow::GetAdditionalSearchItemsInternal(TArray<FStackSearchItem>& SearchItems) const
+void UNiagaraStackPropertyRow::GetSearchItems(TArray<FStackSearchItem>& SearchItems) const
 {
+	SearchItems.Add({ FName("DisplayName"), GetDisplayName() });
+
 	TArray<FString> NodeFilterStrings;
 	DetailTreeNode->GetFilterStrings(NodeFilterStrings);
 	for (FString& FilterString : NodeFilterStrings)

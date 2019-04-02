@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -79,6 +79,9 @@ public:
 
 	/** Returns the localized name of this toolkit */
 	virtual FText GetToolkitName() const = 0;
+
+	/** Returns the localized tab suffix */
+	virtual FText GetTabSuffix() const = 0;
 
 	/** Returns the localized tooltip text of this toolkit */
 	virtual FText GetToolkitToolTipText() const = 0;

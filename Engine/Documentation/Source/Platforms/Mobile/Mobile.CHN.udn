@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2940199
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:移动平台游戏开发
 Crumbs:%ROOT%, Platforms
@@ -10,40 +10,29 @@ parent:Platforms
 tags:Mobile
 order:0
 type:landing
+topic-image:MobileGameDevelopment_topic.png
 
 [REGION:banner]
 ![](mobile_banner.png)
 [/REGION]
 
+(#StartingOut)
 ## 开始
 
-[REGION:buttonlist]
+[DIR(output:"topiccompact" type:"quick start" tags:"mobile")]
 
-		[DIR(output:"topiccompact" type:"quickstart" tags:"mobile")]
-	
-[/REGION]
-
+(#MobilePlatforms)
 ## 移动平台
 
-[REGION:buttonlist]
+[DIR(output:"listbutton" type:"landing" parent:"Platforms/Mobile")]
 
-		[DIR(output:"listbutton" type:"landing" parent:"Platforms/Mobile")]
-	
-[/REGION]
-
+(#MobileServices)
 ## 移动服务
 
-[REGION:buttonlist]
+[DIR(end:"1" output:"listbutton" type:"how-to" parent:"Platforms/Mobile")]
 
-		[DIR(end:"1" output:"listbutton" type:"howto" parent:"Platforms/Mobile")]
-	
-[/REGION]
-
+(#GeneralMobileDevelopment)
 ## 通用移动开发
 
-[REGION:buttonlist]
-
-		[DIR(end:"1" output:"listbutton" type:"overview" parent:"Platforms/Mobile")]
-	
-[/REGION]
+[DIR(end:"1" output:"listbutton" type:"overview" parent:"Platforms/Mobile")]
 

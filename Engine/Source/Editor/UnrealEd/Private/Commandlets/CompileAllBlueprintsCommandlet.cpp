@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Commandlets/CompileAllBlueprintsCommandlet.h"
 
@@ -250,7 +250,8 @@ bool UCompileAllBlueprintsCommandlet::CheckHasTagInList(FAssetData const& Asset,
 			{
 				for (const FString& IndividualValueToCheck : TagValuesToCheck)
 				{
-					if ((Asset.TagsAndValues.Find(FName(*SingleTagAndValues.Key))) && (*Asset.TagsAndValues.Find(FName(*SingleTagAndValues.Key)) == IndividualValueToCheck))
+					
+					if (Asset.TagsAndValues.ContainsKeyValue(FName(*SingleTagAndValues.Key), IndividualValueToCheck))
 					{
 						bContainedTag = true;
 						break;

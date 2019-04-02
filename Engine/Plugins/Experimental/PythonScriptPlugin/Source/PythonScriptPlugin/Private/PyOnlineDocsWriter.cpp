@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PyOnlineDocsWriter.h"
 #include "PythonScriptPlugin.h"
@@ -328,7 +328,7 @@ void FPyOnlineDocsWriter::GenerateFiles(const FString& InPythonStubPath)
 		//   https://pip.pypa.io/en/stable/user_guide/#using-pip-from-your-program
 
 		FString PyCommandStr;
-		FString PythonPath = FPaths::ConvertRelativePathToFull(FPaths::EngineSourceDir()) / TEXT("ThirdParty/Python/Win64/python.exe");
+		FString PythonPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir()) / TEXT("Binaries/ThirdParty/Python/Win64/python.exe");
 
 		PyCommandStr += TEXT(
 			"import sys\n"
@@ -368,6 +368,7 @@ void FPyOnlineDocsWriter::GenerateFiles(const FString& InPythonStubPath)
 			"This can take a long time - 16+ minutes for full build on test system...\n"),
 			*PyCommandStr);
 
+#if !NO_LOGGING
 		bool bLogSphinx = Commandline.Contains(TEXT("-HTMLLog"));
 		ELogVerbosity::Type OldVerbosity = LogPython.GetVerbosity();
 
@@ -376,15 +377,18 @@ void FPyOnlineDocsWriter::GenerateFiles(const FString& InPythonStubPath)
 			// Disable Python logging (default)
 			LogPython.SetVerbosity(ELogVerbosity::NoLogging);
 		}
+#endif // !NO_LOGGING
 
 		// Run the Python commands
 		bool PyRunSuccess = FPythonScriptPlugin::Get()->RunString(*PyCommandStr);
 
+#if !NO_LOGGING
 		if (!bLogSphinx)
 		{
 			// Re-enable Python logging
 			LogPython.SetVerbosity(OldVerbosity);
 		}
+#endif // !NO_LOGGING
 
 		// The running of the Python commands seem to think there are errors no matter what so not much use to make this notification.
 		//if (PyRunSuccess)

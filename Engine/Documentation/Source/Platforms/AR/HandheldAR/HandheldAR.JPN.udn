@@ -1,0 +1,30 @@
+﻿INTSourceChangelist:4359079
+Availability: Public
+Crumbs: 
+Title: ハンドヘルド拡張現実 (AR)
+Description: ハンドヘルド拡張現実 (AR)
+Type: landing
+Version: 4.20
+Parent: Platforms/AR
+Order: 2
+Tags: AR
+Tags: Landing Page
+
+
+## プラットフォーム
+
+%Platforms/AR/HandheldAR/ARKitPrerequisites:topic%
+
+%Platforms/AR/HandheldAR/ARCorePrerequisites:topic%
+
+## はじめよう
+
+%Platforms/AR/HandheldAR/AROverview:topic%
+
+%Platforms/AR/HandheldAR/ARQuickStart:topic%
+
+## リファレンス
+
+%Platforms/AR/HandheldAR/ARHowToHitTesting:topic%
+
+%Platforms/AR/HandheldAR/ARHowToShowWorldOrigin:topic%

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 // This needed to be UnrealString.h to avoid conflicting with
 // the Windows platform SDK string.h
@@ -232,15 +232,15 @@ public:
 		return Data.CreateConstIterator();
 	}
 
-private:
+public:
 	/**
 	 * DO NOT USE DIRECTLY
 	 * STL-like iterators to enable range-based for loop support.
 	 */
-	FORCEINLINE friend DataType::RangedForIteratorType      begin(      FString& Str) { auto Result = begin(Str.Data);                                   return Result; }
-	FORCEINLINE friend DataType::RangedForConstIteratorType begin(const FString& Str) { auto Result = begin(Str.Data);                                   return Result; }
-	FORCEINLINE friend DataType::RangedForIteratorType      end  (      FString& Str) { auto Result = end  (Str.Data); if (Str.Data.Num()) { --Result; } return Result; }
-	FORCEINLINE friend DataType::RangedForConstIteratorType end  (const FString& Str) { auto Result = end  (Str.Data); if (Str.Data.Num()) { --Result; } return Result; }
+	FORCEINLINE DataType::RangedForIteratorType      begin()       { auto Result = Data.begin();                                   return Result; }
+	FORCEINLINE DataType::RangedForConstIteratorType begin() const { auto Result = Data.begin();                                   return Result; }
+	FORCEINLINE DataType::RangedForIteratorType      end  ()       { auto Result = Data.end();   if (Data.Num()) { --Result; }     return Result; }
+	FORCEINLINE DataType::RangedForConstIteratorType end  () const { auto Result = Data.end();   if (Data.Num()) { --Result; }     return Result; }
 
 public:
 	FORCEINLINE uint32 GetAllocatedSize() const
@@ -1139,31 +1139,31 @@ public:
 		return Data.Num() ? Data.Num() - 1 : 0;
 	}
 
-	/** @return the left most given number of characters */
+	/** Returns the left most given number of characters */
 	FORCEINLINE FString Left( int32 Count ) const
 	{
 		return FString( FMath::Clamp(Count,0,Len()), **this );
 	}
 
-	/** @return the left most characters from the string chopping the given number of characters from the end */
+	/** Returns the left most characters from the string chopping the given number of characters from the end */
 	FORCEINLINE FString LeftChop( int32 Count ) const
 	{
 		return FString( FMath::Clamp(Len()-Count,0,Len()), **this );
 	}
 
-	/** @return the string to the right of the specified location, counting back from the right (end of the word). */
+	/** Returns the string to the right of the specified location, counting back from the right (end of the word). */
 	FORCEINLINE FString Right( int32 Count ) const
 	{
 		return FString( **this + Len()-FMath::Clamp(Count,0,Len()) );
 	}
 
-	/** @return the string to the right of the specified location, counting forward from the left (from the beginning of the word). */
+	/** Returns the string to the right of the specified location, counting forward from the left (from the beginning of the word). */
 	FORCEINLINE FString RightChop( int32 Count ) const
 	{
 		return FString( **this + Len()-FMath::Clamp(Len()-Count,0,Len()) );
 	}
 
-	/** @return the substring from Start position for Count characters. */
+	/** Returns the substring from Start position for Count characters. */
 	FORCEINLINE FString Mid( int32 Start, int32 Count=MAX_int32 ) const
 	{
 		check(Count >= 0);
@@ -1342,7 +1342,7 @@ public:
 		return true;
 	}
 
-	/** @return a new string with the characters of this converted to uppercase */
+	/** Returns a new string with the characters of this converted to uppercase */
 	FString ToUpper() const &;
 
 	/**
@@ -1354,7 +1354,7 @@ public:
 	/** Converts all characters in this string to uppercase */
 	void ToUpperInline();
 
-	/** @return a new string with the characters of this converted to lowercase */
+	/** Returns a new string with the characters of this converted to lowercase */
 	FString ToLower() const &;
 
 	/**
@@ -1372,7 +1372,7 @@ public:
 	/** Pad the right of this string for ChCount characters */
 	FString RightPad( int32 ChCount ) const;
 	
-	/** @return true if the string only contains numeric characters */
+	/** Returns true if the string only contains numeric characters */
 	bool IsNumeric() const;
 	
 	/** Removes spaces from the string.  I.E. "Spaces Are Cool" --> "SpacesAreCool". */
@@ -1396,7 +1396,7 @@ public:
 	}
 
 	template <typename FmtType, typename... Types>
-	DEPRECATED(4.20, "The formatting string must now be a TCHAR string literal.")
+	UE_DEPRECATED(4.20, "The formatting string must now be a TCHAR string literal.")
 	static typename TEnableIf<!TIsArrayOrRefOfType<FmtType, TCHAR>::Value, FString>::Type Printf(const FmtType& Fmt, Types... Args)
 	{
 		// NOTE: When this deprecated function is removed, the return type of the overload above
@@ -1427,7 +1427,7 @@ public:
 	 */
 	static FString Format(const TCHAR* InFormatString, const TArray<FStringFormatArg>& InOrderedArguments);
 
-	// @return string with Ch character
+	/** Returns a string containing only the Ch character */
 	static FString Chr( TCHAR Ch );
 
 	/**
@@ -1496,13 +1496,13 @@ public:
 	/**
 	 * Removes whitespace characters from the front of this string.
 	 */
-	DEPRECATED(4.18, "FString::Trim() has been split into separate functions for copy and mutate semantics. Call FString::TrimStart() to return a copy of the string with whitespace trimmed from the start, or FString::TrimStartInline() to modify an FString object in-place.")
+	UE_DEPRECATED(4.18, "FString::Trim() has been split into separate functions for copy and mutate semantics. Call FString::TrimStart() to return a copy of the string with whitespace trimmed from the start, or FString::TrimStartInline() to modify an FString object in-place.")
 	FString Trim();
 
 	/**
 	 * Removes trailing whitespace characters
 	 */
-	DEPRECATED(4.18, "FString::TrimTrailing() has been split into separate functions for copy and mutate semantics. Call FString::TrimEnd() to return a copy of the string with whitespace trimmed from the start, or FString::TrimEndInline() to modify an FString object in-place.")
+	UE_DEPRECATED(4.18, "FString::TrimTrailing() has been split into separate functions for copy and mutate semantics. Call FString::TrimEnd() to return a copy of the string with whitespace trimmed from the start, or FString::TrimEndInline() to modify an FString object in-place.")
 	FString TrimTrailing();
 
 	/**
@@ -1652,6 +1652,32 @@ public:
 	int32 ReplaceInline( const TCHAR* SearchText, const TCHAR* ReplacementText, ESearchCase::Type SearchCase = ESearchCase::IgnoreCase );
 
 	/**
+	 * Replace all occurrences of a character with another.
+	 *
+	 * @param SearchChar      Character to remove from this FString
+	 * @param ReplacementChar Replacement character
+	 * @param SearchCase      Indicates whether the search is case sensitive or not ( defaults to ESearchCase::IgnoreCase )
+	 * @note no dynamic allocation
+	 */
+	void ReplaceCharInline(const TCHAR SearchChar, const TCHAR ReplacementChar, ESearchCase::Type SearchCase = ESearchCase::IgnoreCase)
+	{
+		if (SearchCase == ESearchCase::IgnoreCase && TChar<TCHAR>::IsAlpha(SearchChar))
+		{
+			ReplaceCharInlineIgnoreCase(SearchChar, ReplacementChar);
+		}
+		else
+		{
+			ReplaceCharInlineCaseSensitive(SearchChar, ReplacementChar);
+		}
+	}
+
+private:
+	void ReplaceCharInlineCaseSensitive(const TCHAR SearchChar, const TCHAR ReplacementChar);
+	void ReplaceCharInlineIgnoreCase(const TCHAR SearchChar, const TCHAR ReplacementChar);
+
+public:
+
+	/**
 	 * Returns a copy of this string with all quote marks escaped (unless the quote is already escaped)
 	 */
 	FString ReplaceQuotesWithEscapedQuotes() const;
@@ -1684,8 +1710,9 @@ public:
 	static FString FormatAsNumber( int32 InNumber );
 
 	// To allow more efficient memory handling, automatically adds one for the string termination.
-	FORCEINLINE void Reserve(const uint32 CharacterCount)
+	FORCEINLINE void Reserve(int32 CharacterCount)
 	{
+		checkSlow(CharacterCount >= 0 && CharacterCount < MAX_int32);
 		Data.Reserve(CharacterCount + 1);
 	}
 
@@ -1830,6 +1857,11 @@ public:
 
 		return Result;
 	}
+
+	FORCEINLINE void CountBytes(FArchive& Ar) const
+	{
+		Data.CountBytes(Ar);
+	}
 };
 
 template<>
@@ -1914,7 +1946,7 @@ inline int32 StringToBytes( const FString& String, uint8* OutBytes, int32 MaxBuf
 	return NumBytes;
 }
 
-/** @return Char value of Nibble */
+/** Returns Char value of Nibble */
 inline TCHAR NibbleToTChar(uint8 Num)
 {
 	if (Num > 9)
@@ -2116,14 +2148,14 @@ namespace Lex
 {
 	
 	template<typename T> 
-	DEPRECATED(4.20, "Lex::FromString has been deprecated. Please use LexFromString instead.")
+	UE_DEPRECATED(4.20, "Lex::FromString has been deprecated. Please use LexFromString instead.")
 	void FromString(T& OutValue, const TCHAR* Buffer) 
 	{ 
 		LexFromString(OutValue, Buffer); 
 	}
 
 	template<typename T> 
-	DEPRECATED(4.20, "Lex::ToString has been deprecated. Please use LexToString instead.")
+	UE_DEPRECATED(4.20, "Lex::ToString has been deprecated. Please use LexToString instead.")
 #if PLATFORM_COMPILER_HAS_DECLTYPE_AUTO
 	decltype(auto) ToString(T&& Value)
 #else
@@ -2134,7 +2166,7 @@ namespace Lex
 	}
 
 	template<typename T>
-	DEPRECATED(4.20, "Lex::ToSanitizedString has been deprecated. Please use LexToSanitizedString instead.")
+	UE_DEPRECATED(4.20, "Lex::ToSanitizedString has been deprecated. Please use LexToSanitizedString instead.")
 #if PLATFORM_COMPILER_HAS_DECLTYPE_AUTO
 	decltype(auto) ToSanitizedString(T&& Value)
 #else
@@ -2145,7 +2177,7 @@ namespace Lex
 	}
 
 	template<typename T>
-	DEPRECATED(4.20, "Lex::TryParseString has been deprecated. Please use LexTryParseString instead.")
+	UE_DEPRECATED(4.20, "Lex::TryParseString has been deprecated. Please use LexTryParseString instead.")
 	bool TryParseString(T& OutValue, const TCHAR* Buffer) 
 	{ 
 		return LexTryParseString(OutValue, Buffer); 
@@ -2153,7 +2185,7 @@ namespace Lex
 }
 
 // Deprecated alias for old LexicalConversion namespace.
-// Namespace alias deprecation doesn't work on our compilers, so we can't actually mark it with the DEPRECATED() macro.
+// Namespace alias deprecation doesn't exist, so we can't actually mark it with the UE_DEPRECATED() macro.
 namespace LexicalConversion = Lex;
 
 /** Shorthand legacy use for Lex functions */

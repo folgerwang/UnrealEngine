@@ -1,10 +1,11 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "HTML5HTTP.h"
 #include "Misc/EngineVersion.h"
 #include "Http.h"
 #include "HttpManager.h"
 #include "Misc/App.h"
+#include "GenericPlatform/GenericPlatformHttp.h"
 
 #include "HTML5JavaScriptFx.h"
 
@@ -150,6 +151,21 @@ void FHTML5HttpRequest::SetContentAsString(const FString& ContentString)
 }
 
 
+bool FHTML5HttpRequest::SetContentAsStreamedFile(const FString& Filename)
+{
+	// TODO: Not implemented.
+	UE_LOG(LogHttp, Warning, TEXT("FHTML5HttpRequest::SetContentAsStreamedFile is not implemented"));
+	return false;
+}
+
+
+bool FHTML5HttpRequest::SetContentFromStream(TSharedRef<FArchive, ESPMode::ThreadSafe> Stream)
+{
+	UE_LOG(LogHttp, Warning, TEXT("FHTML5HttpRequest::SetContentFromStream is not implemented"));
+	return false;
+}
+
+
 void FHTML5HttpRequest::AppendToHeader(const FString& HeaderName, const FString& AdditionalHeaderValue)
 {
 	if (!HeaderName.IsEmpty() && !AdditionalHeaderValue.IsEmpty())
@@ -177,34 +193,6 @@ void FHTML5HttpRequest::SetVerb(const FString& InVerb)
 	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpRequest::SetVerb() - %s"), *InVerb);
 
 	Verb = InVerb.ToUpper();
-}
-
-bool IsURLEncoded(const TArray<uint8> & Payload)
-{
-	static char AllowedChars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~";
-	static bool bTableFilled = false;
-	static bool AllowedTable[256] = { false };
-
-	if (!bTableFilled)
-	{
-		for (int32 Idx = 0; Idx < ARRAY_COUNT(AllowedChars) - 1; ++Idx)	// -1 to avoid trailing 0
-		{
-			uint8 AllowedCharIdx = static_cast<uint8>(AllowedChars[Idx]);
-			check(AllowedCharIdx < ARRAY_COUNT(AllowedTable));
-			AllowedTable[AllowedCharIdx] = true;
-		}
-
-		bTableFilled = true;
-	}
-
-	const int32 Num = Payload.Num();
-	for (int32 Idx = 0; Idx < Num; ++Idx)
-	{
-		if (!AllowedTable[Payload[Idx]])
-			return false;
-	}
-
-	return true;
 }
 
 void FHTML5HttpRequest::StaticReceiveCallback(void *arg, void *buffer, uint32 size, void* httpHeaders)
@@ -345,7 +333,7 @@ bool FHTML5HttpRequest::StartRequest()
 	{
 		const TCHAR* zurl = *URL;
 		const TCHAR* zverb = *Verb;
-		EM_ASM_({
+		EM_ASM({
 			console.log( "FHTML5HttpRequest::StartRequest()" + $0);
 
 			console.log( "- URL='" + $1 + "'");
@@ -382,7 +370,7 @@ bool FHTML5HttpRequest::StartRequest()
 	{
 		// If we don't pass any other Content-Type, RequestPayload is assumed to be URL-encoded by this time
 		// (if we pass, don't check here and trust the request)
-		check(!GetHeader("Content-Type").IsEmpty() || IsURLEncoded(RequestPayload));
+		check(!GetHeader("Content-Type").IsEmpty() || FGenericPlatformHttp::IsURLEncoded(RequestPayload));
 
 		UE_MakeHTTPDataRequest(this, TCHAR_TO_ANSI(*URL), "POST", (char*)RequestPayload.GetData(), RequestPayload.Num(),TCHAR_TO_ANSI(*RequestHeaders), 1, 0, StaticReceiveCallback, StaticErrorCallback, StaticProgressCallback);
 	}
@@ -412,7 +400,7 @@ bool FHTML5HttpRequest::StartRequest()
 
 		// If we don't pass any other Content-Type, RequestPayload is assumed to be URL-encoded by this time
 		// (if we pass, don't check here and trust the request)
-		check(!GetHeader("Content-Type").IsEmpty() || IsURLEncoded(RequestPayload));
+		check(!GetHeader("Content-Type").IsEmpty() || FGenericPlatformHttp::IsURLEncoded(RequestPayload));
 
 		//TODO: DELETE
 

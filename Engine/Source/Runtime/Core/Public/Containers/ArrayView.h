@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -104,7 +104,7 @@ public:
 	 */
 	template <typename OtherElementType, size_t Size,
 		typename = typename TEnableIf<TIsCompatibleElementType<const OtherElementType>::Value>::Type>
-		FORCEINLINE TArrayView(const OtherElementType (&Other)[Size])
+	FORCEINLINE TArrayView(const OtherElementType (&Other)[Size])
 		: DataPtr(Other)
 		, ArrayNum((int32)Size)
 	{
@@ -138,7 +138,7 @@ public:
 	 * @param List The initializer list to view.
 	 */
 	template <typename OtherElementType,
-		typename = typename TEnableIf<TIsCompatibleElementType<OtherElementType>::Value>::Type>
+		typename = typename TEnableIf<TIsCompatibleElementType<const OtherElementType>::Value>::Type>
 	FORCEINLINE TArrayView(std::initializer_list<OtherElementType> List)
 		: DataPtr(&*List.begin())
 		, ArrayNum(List.size())
@@ -508,13 +508,13 @@ public:
 		return FindByPredicate(Pred) != nullptr;
 	}
 
-private:
+public:
 	/**
 	 * DO NOT USE DIRECTLY
 	 * STL-like iterators to enable range-based for loop support.
 	 */
-	FORCEINLINE friend ElementType* begin(const TArrayView& Array) { return Array.GetData(); }
-	FORCEINLINE friend ElementType* end  (const TArrayView& Array) { return Array.GetData() + Array.Num(); }
+	FORCEINLINE ElementType* begin() const { return GetData(); }
+	FORCEINLINE ElementType* end  () const { return GetData() + Num(); }
 
 public:
 	/**

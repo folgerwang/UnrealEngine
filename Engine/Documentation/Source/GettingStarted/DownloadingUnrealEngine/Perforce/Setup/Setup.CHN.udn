@@ -1,149 +1,198 @@
+﻿INTSourceChangelist:3807090
 Availability: Licensee
-Title: 设立Perforce连接
+Title:设置Perforce连接
 Crumbs:%ROOT%, Engine, Programming, Programming/Basics, GettingStarted/DownloadingUnrealEngine/Perforce
-Description:连接到Epic的Perforce服务器以获得虚幻引擎4版本的指南。
+Description:连接到Epic的Perforce服务器以获取虚幻引擎4版本的指南。
+version: 4.9
 
 [TOC(start:2)]
 
+Epic Games通过一个可从外部访问的Perforce库，将经过QA批准的虚幻引擎4版本以及其他专门的代码更新 
+提供给被许可方。这是被许可方用于先 
+获取引擎以及在新版本发布时获取更新的方法，被许可方认为 
+此方法是合适的。本文档介绍了在本地设置Perforce以连接到Epic的虚幻引擎4库 
+并同步到一个引擎版本的步骤。
 
-
-## 概述
-
-Epic Games通过使用可以从外部访问的Perforce库向授权用户提供经过QA验证的虚幻引擎4版本及其他专用的已完成代码。授权用户使用这个方法来获得第一次的引擎版本并且当有新版本发布时也通过该方法来进行更新，他们认为这是个合适的方法。本文覆盖了在本地设置Perforce的步骤，以便连接到Epic的虚幻引擎4库并同步引擎版本。
-
-要想连接到Perforce,首先您需要建立一个到Epic Games的安全的私有专用网络(VPN)连接。
-要想了解关于设置及建立VPN连接的信息，请参照[设立VPN连接](GettingStarted/DownloadingUnrealEngine/VPNSetup)页面。
+要连接到Perforce，首先需要设置虚拟专用网(VPN)安全连接到Epic Games。 
+要了解如何设置和建立VPN连接，请参阅[设置VPN连接](GettingStarted/DownloadingUnrealEngine/VPNSetup)页面。
 
 [REGION:red]
-Epic Games和Perforce执行了自定义的授权协议。为了遵守该授权协议，一个授权仅允许一台机器同步完整的版本，但是多个用户 **可以** 使用同一个登录名称连接来查看源码元数据及以前的版本。单独的UDN登录信息 **无法** 生效。
+Epic Games已与Perforce执行一份自定义许可协议。为了遵守此许可，每个许可证只有一台机器应该 
+同步完整的版本，但多个用户可使用同一登录名连接 
+以查看源元数据和以往的修订。个人UDN登录信息将无效。
 [/REGION]
 
-在某些情况下，较大的组织机构可能会为每个团队设立一个账户；即时这样，每个团队仅有一台机器应该同步完整版本。多台机器同步完整版本是Perforce授权用户协议的，同时也违反和Epic的协议。
+在某些情况下，大型组织可能每个团队一个帐户；即便如此，每个团队只有一台机器应该同步 
+完整的版本。多台机器同步完整的版本违反Perforce许可协议， 
+也违反与Epic的协议。
 
- [使用Perforce同步版本](GettingStarted/DownloadingUnrealEngine/Perforce/Syncing) 页面详细介绍了从Epic的Perforce库下载虚幻引擎4的版本或修订版本的完整过程。
+有关从Epic的Perforce库下载虚幻引擎4的版本或修订版的完整过程在 
+[同步版本和Perforce](GettingStarted/DownloadingUnrealEngine/Perforce/Syncing)页面上有详细的说明。
 
 [REGION:warning]
-	为能让Perforce服务器保持顺利和高效地运行，我们在服务器一段时间不运行后会有禁用和移除账户的分层政策。
+	为了保持我们的Perforce服务器平稳高效地运行，我们针对在不活跃期之后禁用和删除帐户 
+	制定了一项分层规则。 
 
-	* 任何超过6个月不用的Perforce账户都会被禁用。
-	* 任何超过1年无法访问的Perforce账户都将被移除。
+	* 任何超过六(6)个月未使用的Perforce帐户将被禁用。  
+	* 任何在一(1)年内未访问的Perforce帐户将被删除。
 
 
-	这些操作都可以很容易地被反转，请联系[P4AccountTrouble](mailto:P4AccountTrouble@epicgames.com) 
-	如果您发现您的账户被禁用了或移除了，我们可以恢复您的账户。如果您有任何问题，请马上发布在[UDN](https://udn.unrealengine.com)上。
+	这两项操作都可以轻松逆转，所以请联系[P4AccountTrouble](mailto:P4AccountTrouble@epicgames.com)。 
+	如果您发现您的帐户已被禁用或删除，我们将对它进行恢复。如果您有任何问题，请在 
+	[UDN](https://udn.unrealengine.com)上发帖。
 [/REGION]
 
 
-## 连接策略
+(#connectivitypolicy)
+## 连接规则
 
-到Epic的VPN连接可以通过以下两种方式之一完成。第一种方法允许工作室最多有5个VPN连接从内部工作站直接连接到Epic的代理服务器(尽管仅允许一台机器同步完整的版本)。第二个方法允许工作室将它们自己的代理直接连接到Epic的库，这里工作室的开发人员将会连接到他们的本地代理。允许从这个本地代理到库之间同时建立两个VPN连接，一个是主连接，一个是备用连接。
+VPN有两种方法连接到Epic。第一种方法允许工作室从内部工作站最多建立5个 
+从VPN到Epic的代理服务器的开放式直接连接（尽管只允许一台机器同步 
+完整的版本。）第二种方法允许工作室将自己的代理直接连接到Epic的库， 
+工作室的开发人员将从此处连接到他们的本地代理。从该本地代理到库允许两个并发VPN连接， 
+一个为主连接，一个为备份连接。 
 
-请注意这些方法之间彼此是独立的，一个工作室不能同时使用这两种连接类型。无论哪种方法，一台机器上同时建立的P4连接数量是没有限制的，仅从工作室到Epic的VPN连接数量有限制。
+请注意这两种方法是相互独立的，工作室不能同时拥有这两种 
+连接类型。在这两种情况下，机器上的并发P4连接数量都不受限制，只限制来自工作室的VPN 
+连接数量。 
 
 
 
+(#installationandconfiguration)
 ## 安装和配置
 
-为了连接到Epic的Perforce库，您将需要在机器上安装一个Perforce客户端，将会使用它来下载及存储引擎版本。
+为了连接到Epic的Perforce库，需要在机器上安装一个Perforce客户端， 
+用于下载和存储引擎版本。
 
 
+(#settingupp4V)
 ### 设置P4V
 
-P4V客户端是Perforce提供的当前客户端。它提供了通过图形界面访问版本化的文件的功能，同时包含了一些融合版本及可视化版本发展的工具。
+P4V客户端是当前客户端，由Perforce提供。它通过图形接口提供对版本化文件 
+的访问，还包括用于合并和可视化代码演化的工具。
 
-![p4v.jpg](p4v.jpg)(w:900 h:591)
+![](P4VUpdated.png)(w:900)
 
-完整的P4V安装程序可以从 [Perforce下载: 精华版](http://www.perforce.com/perforce/downloads/index.html)页面下载。
+完整的P4V安装程序可从[Perforce下载：必备软件](http://www.perforce.com/perforce/downloads/index.html)页面下载。
 
-注意： 请确保下载和您的操作系统相适应的版本，包括32-位或64-位。
+注意：请确保下载适用于您的操作系统的版本，包括32位或64位版本。
 
-关于设立从P4V客户端到Epic的Perforce库的连接的指南，请参照[设置P4V](GettingStarted/DownloadingUnrealEngine/Perforce/P4V) 页面。
+有关如何设置P4V客户端以连接到Epic的Perforce库的指南，请参阅[设置P4V](GettingStarted/DownloadingUnrealEngine/Perforce/P4V)页面。
 
 
+(#settingupp4Win)
 ### 设置P4Win
 
-P4Win是在当前的多平台P4V客户端之前的仅针对Windows的图形界面。如果您想使用最新版本的P4Win Windows Client应用程序，您可以从Perforce网站的[遗留软件](http://www.perforce.com/perforce/downloads/legacy.html)页面下载它。
+P4Win是当前多平台P4V客户端之前的Windows专用图形接口。如果您喜欢 
+使用最新版本的P4Win Windows客户端应用程序，可以从Perforce网站的[旧版软件](http://www.perforce.com/perforce/downloads/legacy.html) 
+页面下载它。
 
-关于设立从P4Win客户端到Epic的Perforce库的连接的指南，请参照[设置P4Win](GettingStarted/DownloadingUnrealEngine/Perforce/P4Win) 页面。
-
-
-### 额外下载内容
-
-关于包括插件和其他工具在内的可用下载资料的完整列表，请参照[Perforce下载](http://www.perforce.com/perforce/downloads/platform.html)页面。
+有关如何设置P4Win客户端以连接到Epic的Perforce库的指南，请参阅[设置P4Win](GettingStarted/DownloadingUnrealEngine/Perforce/P4Win)页面。
 
 
+(#additionaldownloads)
+### 其他下载
+
+有关包括插件和其他工具在内的可用下载的完整列表，请参阅[Perforce下载](http://www.perforce.com/perforce/downloads/platform.html)页面。
+
+
+(#localperforceproxy)
 ### 本地Perforce代理
 
-如果您想运行您的本地代理，那么这是个选择。以下信息仅为那些想建立5个以上的Perforce连接的人提供。
+这是供您运行自己的本地代理的一个选项。以下信息仅适用于希望有 
+5台以上机器连接到Perforce的用户。
 
 使用本地代理的优势是：
 
 
-* 如果同步失败，代理保存已同步信息的副本。如果您必须重新启动同步，它将会从您的本地代理获取数据而不是从Epic获取。
-* 允许多个用户快速地访问数据。
+* 如果同步失败，代理将保留已同步内容的副本。如果必须重新启动同步，它将从本地代理 
+而不是Epic中提取数据。
+* 对于多个用户，能够更快地访问数据。
 
 
-为了使用代理配置，您必须通过在[虚幻开发者网络](http://udn.unrealengine.com)上做申请而申请使用。当您可以访问时，您仅能使用两种VPN连接，并且您将仅能访问主库，您将失去对授权用户代理的访问。
+要使用代理配置，您必须通过在[虚幻开发者网络](http://udn.unrealengine.com)上发出请求来请求代理配置。 
+当授予此访问时，将只授予您两个VPN连接，并且您只能访问主库， 
+您将失去对被许可方代理的访问权。 
 
-您可以从Perforce的 http://perforce.com/perforce/downloads/ 页面获得代理应用程序(P4P)。在安装过程中，您将需要配置您的代理服务器来链接到p4-server.epicgames.net。
+您可以从Perforce获取代理应用程序(P4P)，网址为http://perforce.com/perforce/downloads/。在 
+安装期间，需要将代理服务器配置为链接到p4-server.epicgames.net。
 
-关于设立代理的信息可以在这里找到： [http://www.perforce.com/perforce/r10.1/manuals/p4sag/09_p4p.html#1056059](http://www.perforce.com/perforce/r10.1/manuals/p4sag/09_p4p.html#1056059)
+可在此处找到有关设置代理的说明：[http://www.perforce.com/perforce/r10.1/manuals/p4sag/09_p4p.html#1056059](http://www.perforce.com/perforce/r10.1/manuals/p4sag/09_p4p.html#1056059)
 
 
+(#remotedepot)
 ### 远程库
 
-请参照以下页面了解更多信息：
+请查看以下线程了解更多信息：
 
 https://udn.epicgames.com/lists/showpost.php?list=unedit3&id=5885
 
-远程库允许您在您的位置处设置Perforce服务器，那个服务器自动地和我们的服务器保持同步。这样做的好处是这提供了一个在您的组织团队内部发布引擎代码的简单方法。
-缺点是仅能同步文件到远程库上；远程库的用户将不能看到我们的变更编号、变更列表信息及标签。
+远程库允许您在您的位置设置一个Perforce服务器；该服务器 
+自动与我们的服务器保持同步。这样做的好处是，它提供了一种在组织中分发引擎代码的简单方法。 
+缺点是只有文件被同步到远程库；远程库的用户将无法看到 
+我们的更改编号、更改列表信息和标签。
 
  
 
-要想设置远程库，请在[虚幻开发者网络](http://udn.unrealengine.com)上发布申请。
+要设置远程库，请在[虚幻开发者网络](http://udn.unrealengine.com)上提交请求。
 
 
-### 角色编码
+(#characterencoding)
+### 字符编码
 
-如果您在Perforce中将Unicode文件存储为文本，那么它将添加一个0xd 来和本地行的结尾相匹配；所以Unicode行结尾0x0a 0x00 0x0d 0x00将会被转换为0x0a 0x0d 0x00 0x0d 0x00，并适当地断开。但是，当它执行这个处理时，它将保持您的本地版本不变（并且可以正常工作）。同步到之前的版本然后返回到最新版本来查看这个问题。
+如果在Perforce中将Unicode文件存储为文本，它将添加0xd以匹配本地行尾；所以Unicode 
+行尾0x0a 0x00 0x0d 0x00将被转换成0x0a 0x0d 0x00 0x0d 0x00，并出现糟糕的中断现象。然而，当 
+发生这种情况时，它将保持您的本地版本不变（并正常运行）。同步到之前的版本，然后返回到 
+开始部分查看问题。
 
-Perforce将UTF-8定义为Unicode。如果没有人意外地转换为ASCII，那么UTF-16是最理想的。如果您没有漏掉融合过程或者多个迁出文件，那么Binary（二进制）也可以正常工作。
+Perforce将UTF-8定义为Unicode。UTF-16是理想的选择，前提是没有意外转换成ASCII。如果您没有 
+错过合并或多重签出，二进制也是可行的。
 
-如果ASCII或UTF-16格式的文件是有效文件，虚幻引擎4将使用BOM来加载ASCII或UTF-16文件。
+虚幻引擎4将使用BOM加载ASCII或UTF-16，前提是它们是有效的文件。
 
 
 
+(#eastasianperforcemirror)
 ## 东亚Perforce镜像
 
-在[设置VPN连接](GettingStarted/DownloadingUnrealEngine/VPNSetup)并连接到[东亚VPN镜像](GettingStarted/DownloadingUnrealEngine/VPNSetup#东亚VPN镜像)之后，您应该可以连接到代理服务器。直接连接到p4-licensee-proxy-asia.epicgames.net的1667端口。
-通过这个连接也可以访问美国代理(p4-licensee-proxy.epicgames.net:1667)，但仅应在亚洲代理不可用时使用。
+在[设置VPN连接](GettingStarted/DownloadingUnrealEngine/VPNSetup)并连接到[东亚VPN镜像](GettingStarted/DownloadingUnrealEngine/VPNSetup#EastAsianVPNMirror)后， 
+您应该能够连接到代理。只需在端口1667上连接到p4-licensee-proxy-asia.epicgames.net。 
+美国代理(p4-licensee-proxy.epicgames.net:1667)可以通过此连接获得；但只有在亚洲代理 
+不可用时才应该使用。
 
-如果您没有使用代理来连接我们的主要库服务器(p4-server.epicgames.net:1666)，那么应该在代理服务器上禁用压缩功能。通过在我们的下载位置之间放置一个WAN优化器，我们可以为使用代理的授权用户提供更好的性能。压缩过程降低了数据缩减效率，从而导致较慢的性能。
+如果您正在使用代理连接到我们的主库服务器(p4-server.epicgames.net:1666)，则应该在 
+代理服务器上禁用压缩。通过在下载位置之间放置WAN优化器，我们能够 
+为使用代理的被许可方提供更好的性能。压缩降低了数据缩减的有效性， 
+这会导致性能下降。  
 
-关于禁用压缩的更多信息，请查看P4P标志的[此位置](http://www.perforce.com/perforce/doc.current/manuals/p4sag/09_p4p.html)。
-如果在Windows服务器上将Perforce作为服务运行，那么关闭压缩功能的命令如下所示：
+有关禁用压缩的更多信息，请查看[此处](http://www.perforce.com/perforce/doc.current/manuals/p4sag/09_p4p.html)有关P4P标记的部分。 
+如果在Windows服务器上以服务的形式运行，则关闭压缩的命令将大致如下：
 
 	p4 set -S "Perforce Proxy" P4POPTIONS="-c -p 1667 -t p4-server.epicgames.net:1666"
 
-注意 "-c"。这是指关闭压缩功能。
+注意“-c”。其意味着关闭压缩。
 
 
 
+(#maintenanceandsupport)
 ## 维护和支持
 
 
+(#proxymaintenance)
 ### 代理维护
 
-这里是一个脚本文件，它可以保持代理服务器库的干净-防止它存在许多个修订版本。我们会在我们的代理服务器上使用这个脚本。
+下面是一个脚本，它将帮助保持代理库整洁——防止其中充斥修订版。我们在 
+我们的代理上使用它。 
 
 
 * [StartCleaning](StartCleaning.txt)
 
 
-它是个VBScript文件，可以删除在一定时间内没有访问的文件，保持服务器的干净。最好是把它设置为一个Windows任务或预定任务。请确保只有获得文件系统中特定位置的适当许可的用户才能运行该文件。
+它是一个VBScript，用于删除在一段时间内没有访问过的文件， 
+保持内容美观、整洁。最好将其设置为一项Windows“运行任务”或一项计划任务。确保以用户身份（该用户对文件系统上的该位置具有相应的权限） 
+运行它。
 
-该脚本称为：
+该脚本可调用作为：
 
 
     
@@ -151,18 +200,24 @@ Perforce将UTF-8定义为Unicode。如果没有人意外地转换为ASCII，那�
     
 
 
+[REGION:note]
+这仅适用于Windows。此外，如果在Windows Server 2008 R2、Vista或Windows 7上运行， 
+默认情况下禁用最后访问日期。您需要执行“fsutil behavior set disablelastaccess 0”以重新启用最后访问日期。
+[/REGION]
 
-注意： 它仅在Windows上运行。同时需要注意，如果在Windows Server 2008 R2、Vista或Windows 7上运行，默认会禁用最后的访问日期。您需要"fsutil behavior set disablelastaccess 0"来重新启用最后访问日期。
+(#scheduleddowntime)
+### 计划停机时间
+
+Epic的Perforce服务器在每个 **北美东部标准时间周日的凌晨 2 点关机约 4 小时（Sunday at 2am EST for about 4 hours）**， 
+以执行检查点验证和数据库备份。此外，Epic还预留了 **北美东部标准时间每月第 2 个和第 4 个周日的上午 8 点至中午（2nd and 4th Sunday of the month from 8am-Noon EST）** 时间段， 
+以进行定期维护。在规划时请记住这一点，因为在这些时间段期间任何或所有的支持机构 
+都可能会受到影响，特别是网络/服务器资源。
 
 
-### 预订停机时间
-
-按美国东部标准时区计算， **每个周日的上午2点, Epic的Perforce服务器将会停服4个小时** 来进行检查确认及数据库备份。另外，Epic预计在 **美国东部时间每月的第二个星期日和第四个星期日的早上8点到中午12点** 之间执行定期维护。当在进行规划时，请考虑到这一点，因为在这段时间内任何或所有支持途径都可能受到影响，尤其是 网络/服务器 资源。
-
-
+(#connectionissues)
 ### 连接问题
 
-如果您由于任何原因而不能连接到Perforce库，那么请联系[虚幻开发者网络](http://udn.unrealengine.com)。
+如果您因任何原因无法连接到Perforce库，请在[虚幻开发者网络](http://udn.unrealengine.com)上发帖。
 
  
 

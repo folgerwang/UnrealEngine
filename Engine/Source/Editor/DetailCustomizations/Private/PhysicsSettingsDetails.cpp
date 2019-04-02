@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PhysicsSettingsDetails.h"
 #include "Misc/MessageDialog.h"
@@ -283,7 +283,7 @@ void FPhysicsSettingsDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuil
 	PhysicsSettings= UPhysicsSettings::Get();
 	check(PhysicsSettings);
 
-	PhysicalSurfaceEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EPhysicalSurface"), true);
+	PhysicalSurfaceEnum = StaticEnum<EPhysicalSurface>();
 	check(PhysicalSurfaceEnum);
 
 	TSharedPtr<IPropertyHandle> PhysicalSurfacesProperty = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UPhysicsSettings, PhysicalSurfaces));

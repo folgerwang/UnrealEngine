@@ -1,0 +1,27 @@
+﻿INTSourceChangelist:4381169
+Availability: Public
+Crumbs: 
+Title: ARPG中的属性与效果
+Description: 了解如何在ARPG中使用属性与效果。
+Type: 
+Version: 4.20
+Parent: Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG
+Order: 1
+Tags: 
+
+
+在动作RPG（ARPG）中使用技能系统的第一步是启用 **GameplayAbilities** 插件并创建 **属性集** 类。技能仅在C++游戏中受支持，因为属性集必须是 **UAttributeSet** 的C++子类。**URPGAttributeSet** 定义 **当前/最大生命值** 和 **法力**、**攻击** 和 **防御** **增益**、**移动** **速度** 属性及在伤害公式中使用的 **临时** **伤害** 属性。前述的每个属性都定义为 **FGameplayAttributeData** 结构，它存储仅可由永久更改修改的 **底数值** 以及由临时增益/减益修改的 **当前值**。该类会使用一些宏来添加样板代码，以处理这些属性的修改和复制。因为ARPG相对简单，所以只有一个AttributeSet，但是对于某些游戏，更合理的做法可能是设置一个玩家和敌人共用的“核心”集以及一个继承自 **核心** 且包含仅可由玩家使用的额外属性的“玩家”集。
+
+在属性被修改之前，**PreAttributeChange** 函数处理以最大值为限的当前生命值/法力调整。在属性被修改之后，**PostGameplayEffectExecute** 函数处理限制并将更改告知给其他对象。在ARPG中所有角色都继承自提供蓝图事件的 **RPGCharacterBase** 类以处理受到伤害等事件。**RPGCharacterBase** 的构造函数负责创建使游戏性效果生效的 **URPGAbilitySystemComponent** 和 **URPGAttributeSet** 子对象。取决于你开发的游戏，在特定于游戏的 **AbilitySystemComponent** 子类或控制器中对此进行处理可能更为合理。另外，可能需要在首次与Actor交互时生成 **AttributeSets** 或 **AbilitySystemComponents**，以避免对象开销。
+
+角色的 **生命值必须大于0** 才能应用伤害。初始化属性默认值的方法有多种，但是对于ARPG我们决定使用 **Stats GameplayEffect** 来初始化它们。该Stats Gameplay效果在 **ARPGCharacterBase::AddStartupGameplayAbilities** 中应用，在那里，它从角色蓝图读取 **PassiveGameplayEffects** 列表并在当前 **CharacterLevel** 应用它们。如果 **CharacterLevel** 更改，它将删除它们并在新关卡中重新添加它们。在虚幻引擎4（UE4）编辑器中，用于NPC的 **GE_StatsBase** Gameplay效果如下图中所示：   
+
+![](ARPG_AttributesAndEffects_01.png "ARPG_AttributesAndEffects_01.png")
+
+**“瞬间（Instant）”时长** 表示该效果仅永久性地应用一次。然后，对于每个主要统计数据，都将具有一个 **属性修饰符**，它会基于 **CurveTable** 覆盖该值。**StartingStats** 从一个 **CSV**（位于 **Abilities/DataTables** 中）中导入，其中，针对每个统计数据都存在一行，针对每个关卡都存在一列。在本示例中，它将关注 **DefaultMaxHealth** 行，以及 **CharacterLevel** 列。**GE_PlayerStats** 效果会从该泛型效果中进行继承，并将所有行更改为 **PlayerMaxHealth** 等。通过以这种方式使用曲线表，可以轻松针对整个游戏一次性调整各个属性，无需手动逐个修改效果。也可以在游戏之外设置脚本，以创建 **CSV** 或 **JSON** 文件（从外部数据源创建，例如，**Excel**），并按照需要将它们导入。
+
+可以使用简单 **修饰符** 配合 **添加（Add）** 操作来更改法力，但是要造成伤害，需要使用 **RPGDamageExecution** 类。该执行计算由两部分组成，一组捕捉声明和一个执行函数。捕捉声明宏会向UE4编辑器注册信息，使Gameplay效果可以使用项目中的执行。对于每个捕捉到的属性，当前活动临时修饰符列表是与其Gameplay标记一起被捕捉的。然后在 **URPGDamageExecution::Execute_Implementation** 中，它仅应用与效果执行时传入的Gameplay标记匹配的修饰符。在将这些修饰符合并以得到 **伤害（Damage）**、**AttackPower** 和 **DefensePower** 的计算后的值之后，它就会使用公式 **SourceDamage * AttackPower / DefensePower** 将其变成“最终”伤害。该最终伤害然后会变成 **URPGAttributeSet::PostGameplayEffectExecute** 中的生命值修饰符。**GE_DamageBase** 如下图所示：  
+
+![](ARPG_AttributesAndEffects_02.png "ARPG_AttributesAndEffects_02.png")
+
+造成的“伤害”取自 **DefaultAttack** 行（**AttackDamage** 中），但是也可以为每个攻击分别应用乘数，方法是更改“曲线表（Curve Table）”参考左侧的1.0比例。**源（Source）/目标（Target）** 标记使你能够设置用于过滤的 **必需/忽略** 标记，在此示例中，如果目标具有 **Status.DamageImmune** 标记，将不应用伤害。每个攻击会子类化 **GE_DamageBase** 并根据需要修改标记或修饰符。

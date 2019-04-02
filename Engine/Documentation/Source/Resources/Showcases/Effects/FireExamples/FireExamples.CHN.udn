@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2591123
+﻿INTSourceChangelist:4309167
 Availability: Public
 Title:火焰示例
 Crumbs:%ROOT%, Resources, Resources/Showcases/Effects
@@ -6,6 +6,7 @@ Description:虚幻引擎4内包含的粒子特效实例之火焰特效概述。
 Related: Engine/Rendering/ParticleSystems/Reference/TypeData/GPUSprites
 Related: Engine/Rendering/ParticleSystems/Reference/Modules/VectorField
 Related: Engine/Rendering/ParticleSystems/Optimization
+Version: 4.9
 
 [REGION:fullwidth]
 ![](title_Fire.png)

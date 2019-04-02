@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -31,6 +31,16 @@ enum EChannelType
 	CHTYPE_MAX          = 8,  // Maximum.
 };
 
+/**
+ * Flags for channel creation.
+ */
+enum class EChannelCreateFlags : uint32
+{
+	None			= (1 << 0),
+	OpenedLocally	= (1 << 1)
+};
+
+ENUM_CLASS_FLAGS(EChannelCreateFlags);
 
 // The channel index to use for voice
 #define VOICE_CHANNEL_INDEX 1
@@ -60,10 +70,12 @@ class ENGINE_API UChannel
 	uint32				bPausedUntilReliableACK:1; // Unreliable property replication is paused until all reliables are ack'd.
 	uint32				SentClosingBunch:1;	// Set when sending closing bunch to avoid recursion in send-failure-close case.
 	uint32				bPooled:1;			// Set when placed in the actor channel pool
+	uint32				OpenedLocally:1;	// Whether channel was opened locally or by remote.
 	int32				ChIndex;			// Index of this channel.
-	int32				OpenedLocally;		// Whether channel was opened locally or by remote.
 	FPacketIdRange		OpenPacketId;		// If OpenedLocally is true, this is the packet we sent the bOpen bunch on. Otherwise, it's the packet we received the bOpen bunch on.
+	UE_DEPRECATED(4.22, "ChType has been deprecated in favor of ChName.")
 	EChannelType		ChType;				// Type of this channel.
+	FName				ChName;				// Name of the type of this channel.
 	int32				NumInRec;			// Number of packets in InRec.
 	int32				NumOutRec;			// Number of packets in OutRec.
 	class FInBunch*		InRec;				// Incoming data with queued dependencies.
@@ -75,17 +87,26 @@ public:
 	// UObject overrides
 
 	virtual void BeginDestroy() override;
+	virtual void Serialize(FArchive& Ar) override;
 
 public:	
 
 	/** UChannel interface. */
-	virtual void Init( UNetConnection* InConnection, int32 InChIndex, bool InOpenedLocally );
+	UE_DEPRECATED(4.22, "Use Init that takes channel create flags instead.")
+	virtual void Init(UNetConnection* InConnection, int32 InChIndex, bool InOpenedLocally) { Init(InConnection, InChIndex, InOpenedLocally ? EChannelCreateFlags::OpenedLocally : EChannelCreateFlags::None);  }
+
+	/** Initialize this channel for the given connection and index. */
+	virtual void Init(UNetConnection* InConnection, int32 InChIndex, EChannelCreateFlags CreateFlags);
 
 	/** Set the closing flag. */
 	virtual void SetClosingFlag();
 
 	/** Close the base channel. Returns how many bits were written to the send buffer */
-	virtual int64 Close();
+	UE_DEPRECATED(4.22, "Use the Close that takes a reason instead")
+	virtual int64 Close() { return Close(EChannelCloseReason::Destroyed); }
+
+	/** Close the base channel. Returns how many bits were written to the send buffer */
+	virtual int64 Close(EChannelCloseReason Reason);
 
 	/** Describe the channel. */
 	virtual FString Describe();
@@ -131,7 +152,11 @@ public:
 	void AssertInSequenced();
 
 	/** cleans up channel if it hasn't already been */
-	void ConditionalCleanUp( const bool bForDestroy = false );
+	UE_DEPRECATED(4.22, "Please use ConditionalCleanUp that takes a close reason")
+	void ConditionalCleanUp(const bool bForDestroy = false) { ConditionalCleanUp(bForDestroy, EChannelCloseReason::Destroyed);  }
+
+	/** cleans up channel if it hasn't already been */
+	void ConditionalCleanUp(const bool bForDestroy, EChannelCloseReason CloseReason);
 
 	/** Returns true if channel is ready to go dormant (e.g., all outstanding property updates have been ACK'd) */
 	virtual bool ReadyForDormancy(bool suppressLogs=false) { return false; }
@@ -150,7 +175,11 @@ protected:
 	virtual void BecomeDormant() { }
 
 	/** cleans up channel structures and nulls references to the channel */
-	virtual bool CleanUp( const bool bForDestroy );
+	UE_DEPRECATED(4.22, "Please use Cleanup that takes a close reason")
+	virtual bool CleanUp( const bool bForDestroy ) { return CleanUp(bForDestroy, EChannelCloseReason::Destroyed); }
+
+	/** cleans up channel structures and nulls references to the channel */
+	virtual bool CleanUp( const bool bForDestroy, EChannelCloseReason CloseReason );
 
 	/** Sets whether replication is currently paused on this channel or not */
 	virtual void SetReplicationPaused(bool InbIsReplicationPaused) { bIsReplicationPaused = InbIsReplicationPaused; }

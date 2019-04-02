@@ -1,10 +1,12 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreTypes.h"
 #include "Math/Color.h"
 #include "Math/IntPoint.h"
+#include "Math/Matrix.h"
+#include "Math/Plane.h"
 #include "Misc/Optional.h"
 #include "Misc/Timecode.h"
 #include "Misc/Timespan.h"
@@ -12,6 +14,7 @@
 
 #if WITH_ENGINE
 	class FRHITexture;
+	class IMediaTextureSampleConverter;
 #endif
 
 
@@ -61,7 +64,10 @@ enum class EMediaTextureSampleFormat
 	FloatRGB,
 
 	/** Four 16-bit floating point components (Red, Green, Blue, Alpha) per texel. */
-	FloatRGBA
+	FloatRGBA,
+
+	/** YUV v210 format which pack 6 pixel using 12 x 10bits components (128 bits block). */
+	YUVv210
 };
 
 namespace MediaTextureSampleFormat
@@ -154,6 +160,16 @@ public:
 	 */
 	virtual FRHITexture* GetTexture() const = 0;
 
+	/**
+	 * Get media texture sample converter if sample implements it
+	 *
+	 * @return texture sample converter
+	 */
+	virtual IMediaTextureSampleConverter* GetMediaTextureSampleConverter()
+	{ 
+		return nullptr; 
+	}
+
 #endif //WITH_ENGINE
 
 	/**
@@ -209,6 +225,25 @@ public:
 	virtual FLinearColor GetOffset() const
 	{
 		return FLinearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	}
+
+	/**
+	 * Get the YUV to RGB conversion matrix.
+	 *
+	 * Equivalent to MediaShaders::YuvToSrgbDefault Matrix.
+	 *
+	 * @return Conversion Matrix
+	 */
+	virtual const FMatrix& GetYUVToRGBMatrix() const
+	{
+		static const FMatrix DefaultMatrix(
+			FPlane(1.164383f, 0.000000f, 1.596027f, 0.000000f),
+			FPlane(1.164383f, -0.391762f, -0.812968f, 0.000000f),
+			FPlane(1.164383f, 2.017232f, 0.000000f, 0.000000f),
+			FPlane(0.000000f, 0.000000f, 0.000000f, 0.000000f)
+		);
+
+		return DefaultMatrix;
 	}
 
 public:

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -57,6 +57,7 @@ class UMG_API SObjectWidget : public SCompoundWidget, public FGCObject
 	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
 
 	virtual bool ComputeVolatility() const override;
+	virtual FVector2D ComputeDesiredSize(float LayoutScaleMultiplier) const override;
 
 	virtual bool IsInteractable() const override;
 	virtual bool SupportsKeyboardFocus() const override;
@@ -108,6 +109,11 @@ private:
 	FORCEINLINE bool CanRouteEvent() const
 	{
 		return WidgetObject && WidgetObject->CanSafelyRouteEvent();
+	}
+
+	FORCEINLINE bool CanRoutePaint() const
+	{
+		return WidgetObject && WidgetObject->CanSafelyRoutePaint();
 	}
 
 #if SLATE_VERBOSE_NAMED_EVENTS

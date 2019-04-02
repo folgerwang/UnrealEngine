@@ -1,0 +1,215 @@
+Availability: Public
+Crumbs: 
+Title: Unreal Studio Product Viewer Template
+Description: Describes how to use the Product Viewer template to create an interactive product visualization for PC and VR.
+Type:how-to
+Version: 4.20
+Parent: Enterprise/UnrealStudioProjectTemplates
+Order: 1
+Tags: Enterprise
+Tags: template
+Tags: studio
+reference-image:product_viewer.gif
+topic-image:studio-product-viewer-template-topic.png
+
+
+![Unreal Studio Product Viewer Template](studio-product-viewer-template-banner.png "Unreal Studio Product Viewer Template")
+
+The Product Viewer Template provides a ready-to-use interactive product visualization experience for desktop and VR devices. You can interact with the models, move pieces around, make them transparent, and get around the scene using built-in navigation controls.
+
+All of the interaction and navigation controls are provided by Blueprints in the Project, so you can customize them, learn from them, or even copy them into your own Projects.
+
+This page describes everything you need to know to get started with the Product Viewer template, and to use it for your own models.
+
+## Playing the Project
+
+The Product Viewer comes with some built-in models, so that you can try out working your new Project right away in the Editor, as soon as you create it.
+
+[REGION:asyncgif]
+![](product_viewer.gif)(w:620 convert:false)
+[/REGION]
+
+[REGION:note]
+If you want to test out the Project in VR, see [Test in VR in the Editor](#testinvrintheeditor) below.
+[/REGION]
+
+### Navigating the Scene
+
+The Product Viewer offers different navigation modes for desktop and VR viewing.
+
+#### Desktop Orbit Mode (Mouse Navigation)
+
+**Orbit mode** is the default navigation mode for desktop viewing. In this mode, the camera is always centered around a particular spot in the 3D world.
+
+| To... | Do... |
+| --- | --- |
+| Rotate around the current point of interest | Right-click and drag |
+| Change the camera's point of interest to a new location, remaining at the current zoom level | Left-click |
+| Change the camera's point of interest to a new location, zooming to fit the new object in the viewport | Middle-click |
+| Pan the camera sideways, up, or down | Middle-click and drag |
+| Zoom in or out on the current point of interest | Use the mouse wheel |
+
+[REGION:tip]
+In order for an object in the scene to be selectable as a point of interest in Orbit Mode, it must be set as either an interactive object or a teleportable surface. See [Adding Your Own Content](#addingyourowncontent) below.
+[/REGION]
+
+#### Desktop Flying Mode (Keyboard Navigation)
+
+In **Flying mode** navigation, you can move the camera around the scene using your keyboard.
+
+| To... | Do... |
+| --- | --- |
+| Move the camera forward and back along its facing axis | 	W and S  |
+| Move the camera left and right perpendicular to its facing axis | A and D |
+| Move the camera up and down along the world Z axis | E and Q |
+| Rotate the camera to a new facing direction | Right-click and drag |
+
+[REGION:note]
+While in Flying mode, the interaction controls for selecting objects, moving objects and controlling X-Ray are disabled.
+[/REGION]
+
+To switch the Product Viewer to use Flying mode:
+
+1.  In the **World Outliner** panel, find and select the **ProductViewer_Collector** Actor.  
+    ![Select the Product Viewer Collector](studio-template-product-viewer-collector_world_outliner.png "Select the Product Viewer Collector")
+2.  In the **Details** panel, find the **Product Viewer** section, and change the **Navigation Mode** setting to FlyingMode.  
+    ![Flying Mode settings](studio-template-product-viewer-collector-details-navigation.png "Flying Mode settings")
+3.  By default, while in Flying mode you can pass through all objects in the scene, even those with collision meshes set up for them. If you want to prevent the camera from passing through objects with collision meshes, also clear the **No Collision on Flying Mode** checkbox.
+
+#### VR Teleport Mode
+
+When you run the Product Viewer in VR, your viewpoint on the scene is controlled by your headset and your position in the VR scene. If you need to move to a different position in the scene, you can use the left controller to teleport yourself.
+
+1.  Click the left-hand controller thumbstick button. You'll see a target marker superimposed on the ground:  
+    ![Product Viewer teleport](VRController.png "Product Viewer teleport")
+2.  Move the left-hand controller around in space until the target marker appears at the location you want to move in the VR scene.
+3.  As you push the left-hand controller thumbstick back and forth, the target marker rotates to show the facing direction you'll have after you teleport.
+4.  When you have the target marker where you want it, and pointed in the right direction, release the thumbstick button.
+
+[REGION:tip]
+By default, you can only teleport on the floor. When you add your own content, you can specify exactly what surfaces you can teleport to. See [Adding Your Own Content](#addingyourowncontent) below.
+[/REGION]
+
+### Selecting and Moving Objects
+
+You can select and move any movable object in the scene that has been identified as interactive.
+
+[REGION:tip]
+For instructions on defining what objects are interactive, see [Adding Your Own Content](#addingyourowncontent) below.
+[/REGION]
+
+#### Desktop
+
+| To... | Do... |
+| --- | --- |
+| Move an object to a new position in the scene | Left-click and drag the object |
+| Snap an object back to its original position | Right-click the object |
+
+#### VR
+
+In VR, you'll use the right-hand controller to select and move objects.
+
+| To... | Do... |
+| --- | --- |
+| Highlight an object | Point the laser selector from the right-hand controller at the object |
+| Grab an object | 	Highlight the object, then press the right-hand trigger button |
+| Move an object | Grab the object, then move the right-hand controller in real-world space |
+| Release an object at its new position | Release the right-hand trigger button |
+| Snap an object back to its starting position | Highlight the object, then press the grip button on the right-hand controller |
+
+### Using X-ray Mode
+
+You can make any interactive object in the Product Viewer use X-ray mode. While in X-ray mode, the object is nearly transparent, and temporarily becomes non-interactive. This lets you see and interact with the objects behind it.
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![X-ray Off](studio-template-product-viewer-xray-off.png) 
+ [/PARAM]
+ [PARAM:after]
+ ![X-ray On](studio-template-product-viewer-xray-on.png) 
+ [/PARAM]
+[/OBJECT]
+
+You can choose the following options from the X-ray menu:
+
+| Menu item | Effect |
+| --- | --- |
+| Apply X-ray | Switches the highlighted object to use X-ray mode |
+| Isolate X-ray | Switches all other objects to X-ray mode, but leaves the highlighted object opaque |
+| Clear All X-ray | Resets all objects in the scene to their original Material |
+
+#### Desktop
+
+To open the X-ray menu, press the space bar while hovering over an interactive object.
+
+#### VR
+
+To open the X-ray menu in VR and select an option, push the right-hand controller thumbstick forward or back. Press the thumbstick button to confirm the current choice.  
+
+![Product Viewer menu in VR](studio-template-product-viewer-xray-vr.png "Product Viewer menu in VR")
+
+  
+
+### Test in VR in the Editor
+
+When you launch a cooked or standalone version of the Product Viewer with VR set up on your computer, you'll be able to choose whether to launch using desktop controls or VR controls in the splash screen:
+
+![Product Viewer splash screen](studio-template-product-viewer-startup-vr.png "Product Viewer splash screen")
+
+However, if you want to test the Product Viewer in the Editor using VR controls, you need to follow these steps:
+
+1.  In the **World Outliner** panel, find and select the **ProductViewer_Collector** Actor.  
+    ![Select the Product Viewer Collector](studio-template-product-viewer-collector_world_outliner.png "Select the Product Viewer Collector")
+1.  In the **Details** panel, find the **Product Viewer** section, and select the **VR Preview** option.  
+    ![Product Viewer VR Preview setting](studio-template-product-viewer-collector-details-vrpreview.png "Product Viewer VR Preview setting")
+1.  To launch the preview, use the drop-down arrow next to the **Play** button in the Toolbar to select  **VR Preview**.  
+    ![VR Preview in the Toolbar](studio-template-product-viewer-vr-preview.png "VR Preview in the Toolbar")
+
+[REGION:note]
+Don't forget to turn this setting back off before you cook your game! If you don't, the resulting package will not work as you expect.
+[/REGION]
+
+## Adding Your Own Content
+
+Once you've seen how the Product Viewer works using the built-in content, you'll want to bring in your own models and get them working in the experience.
+
+1.  Import your content into your Project. You can use any method to get your content into the Project: import as FBX, import using [Datasmith](https://docs.unrealengine.com/en-us/Studio/Datasmith), add from the Marketplace or from another feature or content pack, etc.
+1.  Add the models you want to explore into the default **ProductViewer/Levels/ProductViewer** level.
+1.  Make sure all of the Static Mesh Actors that you want to be able to move around at runtime have their **Mobility** option set to **Movable** in the **Details** panel:  
+    [REGION:lightbox]
+    [![Actor Mobility setting](studio-template-accumulator-mobility.png "Actor Mobility setting")](studio-template-accumulator-mobility.png) *Click for full image.*
+    [/REGION]
+1.  In the **World Outliner** panel, find and select the **ProductViewer_Collector** Actor.  
+    ![Select the Product Viewer Collector](studio-template-product-viewer-collector_world_outliner.png "Select the Product Viewer Collector")
+1.  In the **Details** panel, find the **Product Viewer** section.  
+    ![Product Viewer interactive root and teleport surface root](studio-template-product-viewer-collector-details-rootlists.png "Product Viewer interactive root and teleport surface root")
+
+The ProductViewer_Collector Actor contains two key settings, shown above:
+
+*   The **Interactive Root** is a list of objects in the scene that the player can interact with.
+*   The **Teleport Surface Root** is a list of objects in the scene that the player can teleport to in VR mode.
+
+You can add each of your own models that you want the player to be able to interact with or teleport to into these lists.
+
+[REGION:tip]
+If you've used Datasmith to import your content, the Datasmith Scene Actor in your Level will already be the parent of all your imported Static Mesh Actors. Add a new entry in the **Interactive Root** list, set it to refer to the Datasmith Scene Actor, and all of its children will automatically become interactive.
+[/REGION]
+
+Alternatively, you can parent the Static Mesh Actors that you want to become interactive or teleportable to another Actor that is already in the list you want. For example, by default, the ProductViewer_Collector has only one entry in its **Interactive Root** list: an Actor named `Interactive_Root`. If you find that Actor in the **World Outliner**, you'll see that it is the parent of many child Actors that represent the gears, the ball, and the flashlight:
+
+![Interactive_Root Actor](studio-template-product-viewer-interactive-root.png "Interactive_Root Actor")
+
+Every child of an Actor in the **Interactive Root** list is automatically marked as interactive as well. So, all you need to do is re-parent your own models under the existing `Interactive_Root` Actor. You can do this by dragging and dropping them in the **World Outliner**.
+
+## Adding the Product Viewer to a Different Project
+
+If you have your content in another Project, you can add the navigation and interaction controls from the Product Viewer into your other Project.
+
+1.  Open the Project and Level you want to enhance with the Product Viewer controls.
+1.  In the Content Browser, choose **Add New > Add Feature or Content Pack**.  
+    ![](studio-template-product-viewer-add-feature.png "studio-template-product-viewer-add-feature.png")
+1.  In the **Add Content to the Project** window, open the **Unreal Studio Feature** tab. Click the **Product Viewer** thumbnail, then click **\+ Add to Project**.  
+    ![](studio-template-product-viewer-add-content-window.png "studio-template-product-viewer-add-content-window.png")
+1.  Click the **X** to close the **Add Content to the Project** window.
+1.  In your Content Browser, find the **ProductViewer/Blueprints/ProductViewer_Collector** Blueprint Actor, and drag and drop it into the Level Viewport.
+1.  Finally, set up the ProductViewer_Collector Actor in your Level as instructed under [Adding Your Own Content](#addingyourowncontent) above.

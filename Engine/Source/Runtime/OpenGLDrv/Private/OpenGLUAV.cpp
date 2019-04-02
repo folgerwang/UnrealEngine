@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "CoreMinimal.h"
@@ -158,11 +158,19 @@ FUnorderedAccessViewRHIRef FOpenGLDynamicRHI::RHICreateUnorderedAccessView(FInde
 
 FShaderResourceViewRHIRef FOpenGLDynamicRHI::RHICreateShaderResourceView(FStructuredBufferRHIParamRef StructuredBufferRHI)
 {
-	FOpenGLStructuredBuffer* StructuredBuffer = ResourceCast(StructuredBufferRHI);
-	UE_LOG(LogRHI, Fatal,TEXT("OpenGL RHI doesn't support RHICreateShaderResourceView yet!"));
-	return new FOpenGLShaderResourceViewProxy([=](FShaderResourceViewRHIParamRef)
+	return new FOpenGLShaderResourceViewProxy([=](FShaderResourceViewRHIParamRef OwnerRHI)
 	{
-		return nullptr;
+		VERIFY_GL_SCOPE();
+		GLuint TextureID = 0;
+		if (FOpenGL::SupportsResourceView())
+		{
+			FOpenGLStructuredBuffer* StructuredBuffer = ResourceCast(StructuredBufferRHI);
+			FOpenGL::GenTextures(1, &TextureID);
+			CachedSetupTextureStage(GetContextStateForCurrentContext(), FOpenGL::GetMaxCombinedTextureImageUnits() - 1, GL_TEXTURE_BUFFER, TextureID, -1, 1);
+			FOpenGL::TexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, StructuredBuffer->Resource);
+		}
+
+		return new FOpenGLShaderResourceView(this, TextureID, GL_TEXTURE_BUFFER);
 	});
 }
 

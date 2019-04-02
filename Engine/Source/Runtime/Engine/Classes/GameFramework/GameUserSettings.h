@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -156,7 +156,7 @@ public:
 	virtual int32 GetOverallScalabilityLevel() const;
 
 	// Returns the current resolution scale and the range
-	DEPRECATED(4.12, "Please call GetResolutionScaleInformationEx")
+	UE_DEPRECATED(4.12, "Please call GetResolutionScaleInformationEx")
 	UFUNCTION(BlueprintCallable, Category = Settings, meta = (DeprecatedFunction, DisplayName = "GetResolutionScaleInformation_Deprecated"))
 	void GetResolutionScaleInformation(float& CurrentScaleNormalized, int32& CurrentScaleValue, int32& MinScaleValue, int32& MaxScaleValue) const;
 
@@ -165,7 +165,7 @@ public:
 	void GetResolutionScaleInformationEx(float& CurrentScaleNormalized, float& CurrentScaleValue, float& MinScaleValue, float& MaxScaleValue) const;
 
 	// Sets the current resolution scale
-	DEPRECATED(4.12, "Please call SetResolutionScaleValueEx")
+	UE_DEPRECATED(4.12, "Please call SetResolutionScaleValueEx")
 	UFUNCTION(BlueprintCallable, Category=Settings, meta=(DeprecatedFunction, DisplayName="SetResolutionScaleValue_Deprecated"))
 	void SetResolutionScaleValue(int32 NewScaleValue);
 
@@ -278,17 +278,21 @@ public:
 	/** Loads the resolution settings before is object is available */
 	static void PreloadResolutionSettings();
 
-	/** @return The default resolution when no resolution is set */
+	/** Returns the default resolution when no resolution is set */
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	static FIntPoint GetDefaultResolution();
 
-	/** @return The default window position when no position is set */
+	/** Returns the default window position when no position is set */
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	static FIntPoint GetDefaultWindowPosition();
 
-	/** @return The default window mode when no mode is set */
+	/** Returns the default window mode when no mode is set */
 	UFUNCTION(BlueprintCallable, Category=Settings)
 	static EWindowMode::Type GetDefaultWindowMode();
+
+	/** Gets the current vsync interval setting */
+	UFUNCTION(BlueprintPure, Category = Settings)
+	static int32 GetSyncInterval();
 
 	/** Loads the user .ini settings into GConfig */
 	static void LoadConfigIni(bool bForceReload = false);

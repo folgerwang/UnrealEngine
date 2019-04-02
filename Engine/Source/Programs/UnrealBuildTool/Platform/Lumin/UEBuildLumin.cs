@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -86,7 +86,6 @@ namespace UnrealBuildTool
 			}
 
 			// look up Android specific settings
-			// @todo Lumin: When we subclass platform ini's, this would be Platform!!
 			if (!DoProjectSettingsMatchDefault(UnrealTargetPlatform.Lumin, ProjectPath, "/Script/LuminRuntimeSettings.LuminRuntimeSettings", ConfigBoolKeys.ToArray(), null, null))
 			{
 				return false;
@@ -165,10 +164,10 @@ namespace UnrealBuildTool
 			CompileEnvironment.Definitions.Add("USE_ANDROID_OPENGL=0");
 			CompileEnvironment.Definitions.Add("WITH_OGGVORBIS=1");
 
-			DirectoryReference MLSDKDir = new DirectoryReference("$(MLSDK)", DirectoryReference.Sanitize.None);
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "lumin/stl/gnu-libstdc++/include"));
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "lumin/stl/gnu-libstdc++/include/aarch64-linux-android"));
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "include"));
+			DirectoryReference MLSDKDir = new DirectoryReference(Environment.GetEnvironmentVariable("MLSDK"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "lumin/stl/gnu-libstdc++/include"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "lumin/stl/gnu-libstdc++/include/aarch64-linux-android"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "include"));
 
 			LinkEnvironment.LibraryPaths.Add(DirectoryReference.Combine(MLSDKDir, "lib/lumin"));
 			LinkEnvironment.LibraryPaths.Add(DirectoryReference.Combine(MLSDKDir, "lumin/stl/gnu-libstdc++/lib"));
@@ -255,10 +254,10 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Deploys the given target
 		/// </summary>
-		/// <param name="Target">Information about the target being deployed</param>
-		public override void Deploy(UEBuildDeployTarget Target)
+		/// <param name="Receipt">Receipt for the target being deployed</param>
+		public override void Deploy(TargetReceipt Receipt)
 		{
-			new UEDeployLumin(Target.ProjectFile).PrepTargetForDeployment(Target);
+			new UEDeployLumin(Receipt.ProjectFile).PrepTargetForDeployment(Receipt);
 		}
 
 		public override void ValidateTarget(TargetRules Target)
@@ -266,7 +265,7 @@ namespace UnrealBuildTool
 			base.ValidateTarget(Target);
 
 			// #todo: ICU is crashing on startup, this is a workaround
-			Target.bCompileICU = false;
+			Target.bCompileICU = true;
 		}
 	}
 
@@ -276,7 +275,7 @@ namespace UnrealBuildTool
 		/// This is the minimum SDK version we support.
 		/// </summary>
 		static uint MinimumSDKVersionMajor = 0;
-		static uint MinimumSDKVersionMinor = 16;
+		static uint MinimumSDKVersionMinor = 19;
 
 		public override string GetSDKTargetPlatformName()
 		{
@@ -314,34 +313,11 @@ namespace UnrealBuildTool
 		protected override bool HasAnySDK()
 		{
 			string EnvVarKey = "MLSDK";
-			string IniVarKey = "MLSDKPath";
 
 			string MLSDKPath = Environment.GetEnvironmentVariable(EnvVarKey);
-			{
-				var configCacheIni = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, (DirectoryReference)null, UnrealTargetPlatform.Unknown);
-
-				string path;
-				if (GetPath(configCacheIni, "/Script/LuminPlatformEditor.MagicLeapSDKSettings", IniVarKey, out path) && !string.IsNullOrEmpty(path))
-				{
-					// if the folder specified by the config var doesn't exist, fall back to the env var.
-					if (Directory.Exists(path))
-					{
-						if (MLSDKPath != path)
-						{
-							Console.WriteLine("*** MLSDK environment variable differs from config file; overriding environment variable ***");
-						}
-
-						MLSDKPath = path;
-					}
-				}
-
-				// Set for the process
-				Environment.SetEnvironmentVariable(EnvVarKey, MLSDKPath);
-			}
-
-			// we don't have an MLSDK directory specified
 			if (String.IsNullOrEmpty(MLSDKPath))
 			{
+				Log.TraceLog("*** Unable to determine MLSDK location ***");
 				return false;
 			}
 
@@ -360,17 +336,18 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				Console.WriteLine("*** Unable to locate MLSDK version file ml_version.h ***");
+				Log.TraceLog("*** Unable to locate MLSDK version file ml_version.h ***");
 				return false;
 			}
 
 			if (DetectedMajorVersion < MinimumSDKVersionMajor || (DetectedMajorVersion == MinimumSDKVersionMajor && DetectedMinorVersion < MinimumSDKVersionMinor))
 			{
-				Console.WriteLine("*** Found installed MLSDK version {0}.{1} but require at least {2}.{3} ***",
-					DetectedMajorVersion, DetectedMinorVersion, MinimumSDKVersionMajor, MinimumSDKVersionMinor);
+				Log.TraceLog("*** Found installed MLSDK version {0}.{1} at '{2}' but require at least {3}.{4} ***",
+					DetectedMajorVersion, DetectedMinorVersion, MLSDKPath, MinimumSDKVersionMajor, MinimumSDKVersionMinor);
 				return false;
 			}
 
+			Log.TraceLog("*** Found installed MLSDK version {0}.{1} at '{2}' ***", DetectedMajorVersion, DetectedMinorVersion, MLSDKPath);
 			return true;
 		}
 
@@ -393,15 +370,15 @@ namespace UnrealBuildTool
 
 	class LuminPlatformFactory : UEBuildPlatformFactory
 	{
-		protected override UnrealTargetPlatform TargetPlatform
+		public override UnrealTargetPlatform TargetPlatform
 		{
 			get { return UnrealTargetPlatform.Lumin; }
 		}
 
-		protected override void RegisterBuildPlatforms(SDKOutputLevel OutputLevel)
+		public override void RegisterBuildPlatforms()
 		{
 			LuminPlatformSDK SDK = new LuminPlatformSDK();
-			SDK.ManageAndValidateSDK(OutputLevel);
+			SDK.ManageAndValidateSDK();
 
 			if ((ProjectFileGenerator.bGenerateProjectFiles == true) || (SDK.HasRequiredSDKsInstalled() == SDKStatus.Valid) || Environment.GetEnvironmentVariable("IsBuildMachine") == "1")
 			{

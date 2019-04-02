@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "EnvironmentQuery/EnvQueryInstanceBlueprintWrapper.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType_ActorBase.h"
@@ -31,16 +31,42 @@ void UEnvQueryInstanceBlueprintWrapper::OnQueryFinished(TSharedPtr<FEnvQueryResu
 	}
 }
 
-float UEnvQueryInstanceBlueprintWrapper::GetItemScore(int32 ItemIndex)
+float UEnvQueryInstanceBlueprintWrapper::GetItemScore(int32 ItemIndex) const
 {
 	return QueryResult.IsValid() ? QueryResult->GetItemScore(ItemIndex) : -1.f;
 }
 
-TArray<AActor*> UEnvQueryInstanceBlueprintWrapper::GetResultsAsActors()
+bool UEnvQueryInstanceBlueprintWrapper::GetQueryResultsAsActors(TArray<AActor*>& ResultActors) const
+{
+	ResultActors.Empty();
+
+	if (QueryResult.IsValid() && 
+		(QueryResult->GetRawStatus() == EEnvQueryStatus::Success) &&
+		(ItemType.Get() != nullptr) &&
+		ItemType->IsChildOf(UEnvQueryItemType_ActorBase::StaticClass()))
+	{
+		if (RunMode != EEnvQueryRunMode::AllMatching)
+		{
+			ResultActors.Add(QueryResult->GetItemAsActor(0));
+		}
+		else
+		{
+			QueryResult->GetAllAsActors(ResultActors);
+		}
+
+		return (ResultActors.Num() > 0);
+	}
+
+	return false;
+}
+
+TArray<AActor*> UEnvQueryInstanceBlueprintWrapper::GetResultsAsActors() const
 {
 	TArray<AActor*> Results;
 
-	if (QueryResult.IsValid() && ItemType->IsChildOf(UEnvQueryItemType_ActorBase::StaticClass()))
+	if (QueryResult.IsValid() && 
+		(ItemType.Get() != nullptr) &&
+		ItemType->IsChildOf(UEnvQueryItemType_ActorBase::StaticClass()))
 	{
 		if (RunMode != EEnvQueryRunMode::AllMatching)
 		{
@@ -55,7 +81,29 @@ TArray<AActor*> UEnvQueryInstanceBlueprintWrapper::GetResultsAsActors()
 	return Results;
 }
 
-TArray<FVector> UEnvQueryInstanceBlueprintWrapper::GetResultsAsLocations()
+bool UEnvQueryInstanceBlueprintWrapper::GetQueryResultsAsLocations(TArray<FVector>& ResultLocations) const
+{
+	ResultLocations.Empty();
+
+	if (QueryResult.IsValid() &&
+		(QueryResult->GetRawStatus() == EEnvQueryStatus::Success))
+	{
+		if (RunMode != EEnvQueryRunMode::AllMatching)
+		{
+			ResultLocations.Add(QueryResult->GetItemAsLocation(0));
+		}
+		else
+		{
+			QueryResult->GetAllAsLocations(ResultLocations);
+		}
+
+		return (ResultLocations.Num() > 0);
+	}
+
+	return false;
+}
+
+TArray<FVector> UEnvQueryInstanceBlueprintWrapper::GetResultsAsLocations() const
 {
 	TArray<FVector> Results;
 

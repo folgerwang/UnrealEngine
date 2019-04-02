@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	XeAudioDevice.cpp: Unreal XAudio2 Audio interface object.
@@ -353,7 +353,11 @@ class ICompressedAudioInfo* FXAudio2Device::CreateCompressedAudioInfo(USoundWave
 
 	if (SoundWave->IsStreaming())
 	{
+#if USE_VORBIS_FOR_STREAMING
+		return new FVorbisAudioInfo();
+#else
 		return new FOpusAudioInfo();
+#endif
 	}
 
 #if WITH_OGGVORBIS

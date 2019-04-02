@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Perception/AISense_Prediction.h"
 #include "Perception/AIPerceptionListenerInterface.h"
@@ -15,10 +15,8 @@ float UAISense_Prediction::Update()
 {
 	AIPerception::FListenerMap& ListenersMap = *GetListeners();
 
-	for (int32 EventIndex = 0; EventIndex < RegisteredEvents.Num(); ++EventIndex)
+	for (const FAIPredictionEvent& Event : RegisteredEvents)
 	{
-		const FAIPredictionEvent& Event = RegisteredEvents[EventIndex];
-
 		if (Event.Requestor != NULL && Event.PredictedActor != NULL)
 		{
 			IAIPerceptionListenerInterface* PerceptionListener = Cast<IAIPerceptionListenerInterface>(Event.Requestor);

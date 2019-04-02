@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 package com.epicgames.ue4;
 
@@ -10,6 +10,7 @@ import android.os.Build;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import android.media.MediaDataSource;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaPlayer;
@@ -29,6 +30,7 @@ public class MediaPlayer14
 {
 	private boolean SwizzlePixels = true;
 	private boolean VulkanRenderer = false;
+	private boolean NeedTrackInfo = true;
 	private boolean Looping = false;
 	private boolean AudioEnabled = true;
 	private float AudioVolume = 1.0f;
@@ -81,10 +83,11 @@ public class MediaPlayer14
 
 	// ======================================================================================
 
-	public MediaPlayer14(boolean swizzlePixels, boolean vulkanRenderer)
+	public MediaPlayer14(boolean swizzlePixels, boolean vulkanRenderer, boolean needTrackInfo)
 	{
 		SwizzlePixels = swizzlePixels;
 		VulkanRenderer = vulkanRenderer;
+		NeedTrackInfo = needTrackInfo;
 		WaitOnBitmapRender = false;
 		AudioEnabled = true;
 		AudioVolume = 1.0f;
@@ -264,12 +267,131 @@ public class MediaPlayer14
 			setDataSource(UrlPath);
 			releaseOESTextureRenderer();
 			releaseBitmapRenderer();
-			if (android.os.Build.VERSION.SDK_INT >= 16)
+			if (NeedTrackInfo && android.os.Build.VERSION.SDK_INT >= 16)
 			{
 				MediaExtractor extractor = new MediaExtractor();
 				if (extractor != null)
 				{
-					extractor.setDataSource(UrlPath);
+					try
+					{
+						extractor.setDataSource(UrlPath);
+						updateTrackInfo(extractor);
+						extractor.release();
+						extractor = null;
+					}
+					catch (Exception e)
+					{
+						GameActivity.Log.debug("setDataSourceURL: Exception = " + e);
+
+						// unable to collect track info, but can still try to play it
+						GameActivity.Log.debug("setDataSourceURL: Continuing without track info");
+						extractor.release();
+						extractor = null;
+						return true;
+					}
+				}
+			}
+		}
+		catch(IOException e)
+		{
+			GameActivity.Log.debug("setDataSourceURL: Exception = " + e);
+			return false;
+		}
+		return true;
+	}
+
+	public native int nativeReadAt(long identifier, long position, java.nio.ByteBuffer buffer, int offset, int size);
+
+	public class PakDataSource extends MediaDataSource {
+		java.nio.ByteBuffer fileBuffer;
+		long identifier;
+		long fileSize;
+
+		public PakDataSource(long inIdentifier, long inFileSize)
+		{
+			fileBuffer = java.nio.ByteBuffer.allocateDirect(65536);
+			identifier = inIdentifier;
+			fileSize = inFileSize;
+		}
+
+		@Override
+		public synchronized int readAt(long position, byte[] buffer, int offset, int size) throws IOException
+		{
+			synchronized(fileBuffer)
+			{
+				//GameActivity.Log.debug("PDS: readAt(" + position + ", " + offset + ", " + size + ") bufferLen=" + buffer.length + ", fileBuffer.length=" + fileSize);
+				if (position >= fileSize)
+				{
+					return -1;  // EOF
+				}
+				if (position + size > fileSize)
+				{
+					size = (int)(fileSize - position);
+				}
+				if (size > 0)
+				{
+					int readBytes = nativeReadAt(identifier, position, fileBuffer, 0, size);
+					if (readBytes > 0)
+					{
+						System.arraycopy(fileBuffer.array(), fileBuffer.arrayOffset(), buffer, offset, readBytes);
+					}
+
+					return readBytes;
+				}
+				return 0;
+			}
+		}
+
+		@Override
+		public synchronized long getSize() throws IOException
+		{
+			//GameActivity.Log.debug("PDS: getSize() = " + fileSize);
+			return fileSize;
+		}
+
+		@Override
+		public synchronized void close() throws IOException
+		{
+			//GameActivity.Log.debug("PDS: close()");
+		}
+	}
+
+	public boolean setDataSourceArchive(
+		long identifier, long size)
+		throws IOException,
+			java.lang.InterruptedException,
+			java.util.concurrent.ExecutionException
+	{
+		synchronized(this)
+		{
+			Prepared = false;
+			Completed = false;
+		}
+		Looping = false;
+		AudioEnabled = true;
+		audioTracks.clear();
+		videoTracks.clear();
+
+		// Android 6.0 required for MediaDataSource
+		if (android.os.Build.VERSION.SDK_INT < 23)
+		{
+			return false;
+		}
+
+		try
+		{
+			PakDataSource dataSource = new PakDataSource(identifier, size);
+			setDataSource(dataSource);
+
+			releaseOESTextureRenderer();
+			releaseBitmapRenderer();
+
+			if (NeedTrackInfo && android.os.Build.VERSION.SDK_INT >= 16)
+			{
+				MediaExtractor extractor = new MediaExtractor();
+				if (extractor != null)
+				{
+					extractor.setDataSource(dataSource);
 					updateTrackInfo(extractor);
 					extractor.release();
 					extractor = null;
@@ -278,7 +400,7 @@ public class MediaPlayer14
 		}
 		catch(IOException e)
 		{
-			GameActivity.Log.debug("setDataSourceURL: Exception = " + e);
+			GameActivity.Log.debug("setDataSource (archive): Exception = " + e);
 			return false;
 		}
 		return true;
@@ -312,7 +434,7 @@ public class MediaPlayer14
 			releaseOESTextureRenderer();
 			releaseBitmapRenderer();
 
-			if (android.os.Build.VERSION.SDK_INT >= 16)
+			if (NeedTrackInfo && android.os.Build.VERSION.SDK_INT >= 16)
 			{
 				MediaExtractor extractor = new MediaExtractor();
 				if (extractor != null)
@@ -354,7 +476,7 @@ public class MediaPlayer14
 			releaseOESTextureRenderer();
 			releaseBitmapRenderer();
 
-			if (android.os.Build.VERSION.SDK_INT >= 16)
+			if (NeedTrackInfo && android.os.Build.VERSION.SDK_INT >= 16)
 			{
 				MediaExtractor extractor = new MediaExtractor();
 				if (extractor != null)
@@ -1726,7 +1848,7 @@ public class MediaPlayer14
 
 	public AudioTrackInfo[] GetAudioTracks()
 	{
-		if (android.os.Build.VERSION.SDK_INT >= 16)
+		if (NeedTrackInfo && android.os.Build.VERSION.SDK_INT >= 16)
 		{
 			TrackInfo[] trackInfo = getTrackInfo();
 			int CountTracks = 0;
@@ -1802,7 +1924,7 @@ public class MediaPlayer14
 
 	public CaptionTrackInfo[] GetCaptionTracks()
 	{
-		if (android.os.Build.VERSION.SDK_INT >= 21)
+		if (NeedTrackInfo && android.os.Build.VERSION.SDK_INT >= 21)
 		{
 			TrackInfo[] trackInfo = getTrackInfo();
 			int CountTracks = 0;
@@ -1854,7 +1976,7 @@ public class MediaPlayer14
 		int Width = getVideoWidth();
 		int Height = getVideoHeight();
 
-		if (android.os.Build.VERSION.SDK_INT >= 16)
+		if (NeedTrackInfo && android.os.Build.VERSION.SDK_INT >= 16)
 		{
 			TrackInfo[] trackInfo = getTrackInfo();
 			int CountTracks = 0;

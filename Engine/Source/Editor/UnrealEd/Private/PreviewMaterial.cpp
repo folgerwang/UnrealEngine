@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MaterialEditor/PreviewMaterial.h"
 #include "Modules/ModuleManager.h"
@@ -208,32 +208,32 @@ public:
 	virtual bool IsPersistent() const { return false; }
 
 	// FMaterialRenderProxy interface
-	virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type FeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const FMaterial*& OutMaterial) const override
+	virtual const FMaterial& GetMaterialWithFallback(ERHIFeatureLevel::Type FeatureLevel, const FMaterialRenderProxy*& OutFallbackMaterialRenderProxy) const override
 	{
 		if(GetRenderingThreadShaderMap())
 		{
-			OutMaterialRenderProxy = this;
-			OutMaterial = this;
+			return *this;
 		}
 		else
 		{
-			UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(false)->GetMaterialWithFallback(FeatureLevel, OutMaterialRenderProxy, OutMaterial);
+			OutFallbackMaterialRenderProxy = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
+			return OutFallbackMaterialRenderProxy->GetMaterialWithFallback(FeatureLevel, OutFallbackMaterialRenderProxy);
 		}
 	}
 
 	virtual bool GetVectorValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor* OutValue, const FMaterialRenderContext& Context) const
 	{
-		return Material->GetRenderProxy(0)->GetVectorValue(ParameterInfo, OutValue, Context);
+		return Material->GetRenderProxy()->GetVectorValue(ParameterInfo, OutValue, Context);
 	}
 
 	virtual bool GetScalarValue(const FMaterialParameterInfo& ParameterInfo, float* OutValue, const FMaterialRenderContext& Context) const
 	{
-		return Material->GetRenderProxy(0)->GetScalarValue(ParameterInfo, OutValue, Context);
+		return Material->GetRenderProxy()->GetScalarValue(ParameterInfo, OutValue, Context);
 	}
 
 	virtual bool GetTextureValue(const FMaterialParameterInfo& ParameterInfo, const UTexture** OutValue, const FMaterialRenderContext& Context) const
 	{
-		return Material->GetRenderProxy(0)->GetTextureValue(ParameterInfo,OutValue,Context);
+		return Material->GetRenderProxy()->GetTextureValue(ParameterInfo,OutValue,Context);
 	}
 };
 
@@ -251,7 +251,7 @@ FMaterialResource* UPreviewMaterial::AllocateResource()
 
 void UMaterialEditorPreviewParameters::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-	if (PreviewMaterial)
+	if (PreviewMaterial && PropertyChangedEvent.ChangeType != EPropertyChangeType::Interactive)
 	{
 		UProperty* PropertyThatChanged = PropertyChangedEvent.Property;
 		if (OriginalFunction == nullptr)
@@ -267,13 +267,6 @@ void UMaterialEditorPreviewParameters::PostEditChangeProperty(FPropertyChangedEv
 				OriginalFunction->PreviewMaterial->PostEditChangeProperty(PropertyChangedEvent);
 			}
 		}
-	
-		if(DetailsView.IsValid())
-		{
-			// Tell our source instance to update itself so the preview updates.
-			DetailsView.Pin()->OnFinishedChangingProperties().Broadcast(PropertyChangedEvent);
-		}
-
 	}
 }
 
@@ -789,6 +782,7 @@ UMaterialEditorInstanceConstant::UMaterialEditorInstanceConstant(const FObjectIn
 	: Super(ObjectInitializer)
 {
 	bIsFunctionPreviewMaterial = false;
+	bShowOnlyOverrides = false;
 }
 
 void UMaterialEditorInstanceConstant::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
@@ -1488,44 +1482,7 @@ void UMaterialEditorInstanceConstant::SetSourceInstance(UMaterialInstanceConstan
 	Parent = SourceInstance->Parent;
 	PhysMaterial = SourceInstance->PhysMaterial;
 
-	BasePropertyOverrides = SourceInstance->BasePropertyOverrides;
-	// Copy the overrides (if not yet overridden), so they match their true values in the UI
-	if (!BasePropertyOverrides.bOverride_OpacityMaskClipValue)
-	{
-		BasePropertyOverrides.OpacityMaskClipValue = SourceInstance->GetOpacityMaskClipValue();
-	}
-	if (!BasePropertyOverrides.bOverride_BlendMode)
-	{
-		BasePropertyOverrides.BlendMode = SourceInstance->GetBlendMode();
-	}
-	if (!BasePropertyOverrides.bOverride_ShadingModel)
-	{
-		BasePropertyOverrides.ShadingModel = SourceInstance->GetShadingModel();
-	}
-	if (!BasePropertyOverrides.bOverride_TwoSided)
-	{
-		BasePropertyOverrides.TwoSided = SourceInstance->IsTwoSided();
-	}
-	if (!BasePropertyOverrides.DitheredLODTransition)
-	{
-		BasePropertyOverrides.DitheredLODTransition = SourceInstance->IsDitheredLODTransition();
-	}
-
-	// Copy the Lightmass settings...
-	LightmassSettings.CastShadowAsMasked.bOverride = SourceInstance->GetOverrideCastShadowAsMasked();
-	LightmassSettings.CastShadowAsMasked.ParameterValue = SourceInstance->GetCastShadowAsMasked();
-	LightmassSettings.EmissiveBoost.bOverride = SourceInstance->GetOverrideEmissiveBoost();
-	LightmassSettings.EmissiveBoost.ParameterValue = SourceInstance->GetEmissiveBoost();
-	LightmassSettings.DiffuseBoost.bOverride = SourceInstance->GetOverrideDiffuseBoost();
-	LightmassSettings.DiffuseBoost.ParameterValue = SourceInstance->GetDiffuseBoost();
-	LightmassSettings.ExportResolutionScale.bOverride = SourceInstance->GetOverrideExportResolutionScale();
-	LightmassSettings.ExportResolutionScale.ParameterValue = SourceInstance->GetExportResolutionScale();
-
-	//Copy refraction settings
-	SourceInstance->GetRefractionSettings(RefractionDepthBias);
-
-	bOverrideSubsurfaceProfile = SourceInstance->bOverrideSubsurfaceProfile;
-	SubsurfaceProfile = SourceInstance->SubsurfaceProfile;
+	CopyBasePropertiesFromParent();
 
 	RegenerateArrays();
 
@@ -1550,6 +1507,49 @@ void UMaterialEditorInstanceConstant::UpdateSourceInstanceParent()
 	}
 
 	SourceInstance->SetParentEditorOnly( Parent );
+}
+
+
+void UMaterialEditorInstanceConstant::CopyBasePropertiesFromParent()
+{
+	BasePropertyOverrides = SourceInstance->BasePropertyOverrides;
+	// Copy the overrides (if not yet overridden), so they match their true values in the UI
+	if (!BasePropertyOverrides.bOverride_OpacityMaskClipValue)
+	{
+		BasePropertyOverrides.OpacityMaskClipValue = SourceInstance->GetOpacityMaskClipValue();
+	}
+	if (!BasePropertyOverrides.bOverride_BlendMode)
+	{
+		BasePropertyOverrides.BlendMode = SourceInstance->GetBlendMode();
+	}
+	if (!BasePropertyOverrides.bOverride_ShadingModel)
+	{
+		BasePropertyOverrides.ShadingModel = SourceInstance->GetShadingModel();
+	}
+	if (!BasePropertyOverrides.bOverride_TwoSided)
+	{
+		BasePropertyOverrides.TwoSided = SourceInstance->IsTwoSided();
+	}
+	if (!BasePropertyOverrides.DitheredLODTransition)
+	{
+		BasePropertyOverrides.DitheredLODTransition = SourceInstance->IsDitheredLODTransition();
+	}
+
+	// Copy the Lightmass settings...
+	// The lightmass functions (GetCastShadowAsMasked, etc.) check if the value is overridden and returns the current value if so, otherwise returns the parent value
+	// So we don't need to wrap these in the same "if not overriding" as above
+	LightmassSettings.CastShadowAsMasked.ParameterValue = SourceInstance->GetCastShadowAsMasked();
+	LightmassSettings.EmissiveBoost.ParameterValue = SourceInstance->GetEmissiveBoost();
+	LightmassSettings.DiffuseBoost.ParameterValue = SourceInstance->GetDiffuseBoost();
+	LightmassSettings.ExportResolutionScale.ParameterValue = SourceInstance->GetExportResolutionScale();
+
+	//Copy refraction settings
+	SourceInstance->GetRefractionSettings(RefractionDepthBias);
+
+	if (!bOverrideSubsurfaceProfile)
+	{
+		SubsurfaceProfile = SourceInstance->SubsurfaceProfile;
+	}
 }
 
 #if WITH_EDITOR

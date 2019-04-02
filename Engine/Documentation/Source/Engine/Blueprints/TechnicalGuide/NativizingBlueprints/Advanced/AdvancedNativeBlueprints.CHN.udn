@@ -1,60 +1,120 @@
-﻿INTSourceChangelist:3075225
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:高级蓝图原生化
-Crumbs: %ROOT%, Programming, Engine/Blueprints/TechnicalGuide
-Description:游戏性程序员将游戏性元素对蓝图公开的技术教程。
-Related:Engine/Blueprints/TechnicalGuide/NativizingBlueprints
-Parent:Engine/Blueprints/TechnicalGuide
-Version:4.12
+Crumbs:%ROOT%
+Description:程序员将游戏进程元素展示给蓝图的技术指南。
+Related: Engine/Blueprints/TechnicalGuide/NativizingBlueprints
+Parent: Engine/Blueprints/TechnicalGuide
+Version:4.16
 type:reference
+tags:Blueprints
+SkillLevel:Advanced
+prereq:Engine/Blueprints/TechnicalGuide/NativizingBlueprints
 
 [TOC(start:2)]
 
+(#buildingwithunrealautomationtool)
 
 ## 使用虚幻自动化工具进行构建
-如要在使用虚幻自动化工具进行构建时原生化蓝图，须在 BuildCookRun 命令行中添加 `-nativizeAssets` 开关。
 
-## C++ 协作
+若要在使用虚幻自动化工具（Unreal Automation Tool）从命令行进行构建时将蓝图原生化，请将“-nativizeAssets”切换为“BuildCookRun”命令。
 
-原生化蓝图保存在单独的新模块中，意味着游戏性模块的头文件现在模块之外使用。 
-须进行检查，确定所有头文件已将使用的所有类和结构体作为内含头文件或前置声明进行声明。
+(#headerdeclaration)
 
-一些规则/限制有助于使手写代码和原生化代码之间的协作更加高效可靠。 
+## 标头声明
 
+原生化蓝图存储在一个新的独立模块中，这意味着来自游戏进程模块的标头现在用于原始模块之外。 
+您应该检查所有的标头是否声明了所有正在使用的类和结构体；它们要么作为包含的标头，要么作为前向声明。
+
+(#fixingmissingheaders)
+
+### 修复缺失的标头
+
+很多项目都有一个“聚合”标头：“[GameName]/[GameName].h”，或“[GameName]/Public/[GameName].h”。 
+* 如果您将此标头的路径添加到“[BlueprintNativizationSettings]”下的“DefaultEditor.ini”中的“FilesToIncludeInModuleHeader”， 
+  您可以修复许多与缺失标头相关的问题。
+
+(#Fosteringcodecooperation)
+
+## 促进代码合作
+
+有一些限制有助于使手工编写的代码和原生化代码之间的合作变得更加可靠和高效。出于这种考虑， 
 不支持以下实现： 
-- 带 `BlueprintVisible` 或 `Editable` 标记的私有/受保护变量
-- 标记为 `BlueprintPure` 或 `BlueprintCallable` 的私有/受保护函数
-- `noexport` 结构/类
-- 带 `BlueprintVisible` 或 `Editable` 标记的位域变量
-- 私有位域变量
-- `UBlueprintGeneratedClass`、`UUserDefinedStruct`、`UUserDefinedEnum` 变量，或基于它们的任意类型
+
+* 标记为“BlueprintPure”或“BlueprintCallable”的私有和受保护函数
+* “noexport”结构体和类
+* 带“蓝图可见（BlueprintVisible）”或“可编辑（Editable）”标签的Bitfield变量
+* 私有Bitfield变量
+* “UBlueprintGeneratedClass”、“UUserDefinedStruct”和“UUserDefinedEnum”变量（或基于这些变量的任何类型）
+
+(#technicaldetails)
 
 ## 技术细节
 
-原生化蓝图兼容 Visual Studio 2013 和 Visual Studio 2015，但强烈推荐使用 2015，因为它的大项目处理能力更强。
-如出现奇怪的编译器/连接器错误（如 LNK1000、LNK1248），可尝试将部分类型或特定蓝图排除，削减原生化蓝图的量。
+如果遇到编译器或连接器错误（如LNK1000或LNK1248），请尝试通过在“DefaultEngine.ini”配置设置文件中
+排除蓝图类型或特定蓝图来减少项目中原生化蓝图的数量。有关从原生化中排除蓝图的更多信息， 
+请参阅[](Engine/Blueprints/TechnicalGuide/NativizingBlueprints)文档。
 
-`BlueprintCompilerCppBackend` 模块（此路径中：`Engine\Source\Developer\BlueprintCompilerCppBackend\`）将把蓝图语法树转入 C++。 
-`BlueprintNativeCodeGen` 模块（此路径中：`Engine\Source\Developer\BlueprintNativeCodeGen\`）在烘焙和打包时可大展身手。 
+如果您想了解蓝图原生化过程的“内部”工作方式，请通读以下模块：
 
+* “BlueprintCompilerCppBackend”模块（在“Engine\Source\Developer\BlueprintCompilerCppBackend\”中）将蓝图语法树转换为C++。 
+* “BlueprintNativeCodeGen”模块（在“Engine\Source\Developer\BlueprintNativeCodeGen\”中）在烘焙和打包时会执行许多“神奇的变化”。 
 
 [PUBLISH:Licensee]
-## Windows 上的调试转换代码
 
-在包含部分 C++ 代码的项目中，可通过现有的项目解决方案进行调试。
-如果项目原始只包含蓝图，则需要执行 `GenerateProjectFiles.bat`，为项目创建一个解决方案。  
-不要使用此解决方案（或主 UE4 解决方案下的新项目）编译项目或构建项目的编辑器版本。 
+(#debuggingconvertedcodeonwindows)
 
-构建调试 .exe 文件的步骤：
+## 在Windows上调试已转换的代码
 
-1. 运行以下命令行：原生化版本打包时可在输出日志中找到这些命令行，直接将它们复制出来便可确认环境使用的开关是否正确。将 `Development` 开关改为 `Debug`。 
+如果您正在处理一个已经包含一些C++代码的项目，那么您可以使用现有的项目解决方案来调试代码。但是，如果您的项目最初只包含蓝图，则需要运行“GenerateProjectFiles”批处理文件，以便您的项目拥有Visual Studio解决方案。
+
+[REGION:warning]
+请勿使用此解决方案（或主UE4解决方案下的新项目）来编译项目或构建项目的编辑器版本。 
+[/REGION]
+
+(#steps)
+
+### 步骤
+
+以下步骤假设您已经烘焙、构建并暂存了您的项目。 
+
+1.	导航到NativizedAssets插件文件夹，该文件夹应该位于游戏的中间文件夹中（例如“[GameDirectory]\Intermediate\WindowsNoEditor\NativizedAssets”）。
+
+	![](NativizedAssetsFolder_Loc.png)(w:863)
+
+1.	将NativizedAssets插件文件夹移至游戏的插件文件夹（例如“[游戏目录]\Plugins”）。
+
+	[REGION:lightbox]
+		[![](NativizedAssetsMove_Loc.png)(w:863)](NativizedAssetsMove_Loc.png)
+	[/REGION]
+	
+	[REGION:caption]
+		单击显示全图。
+	[/REGION]
+
+1.	现在，将UE4编译为一个开发（或开发客户端、开发服务器）可执行配置，将“-basedir="[已烘焙游戏的路径]\Binaries\Win64"”作为命令行参数进行传递。
+
+	[REGION:note]
+	将“-basedir=""”作为命令行参数进行传递会将UE4指向您游戏的已烘焙构建。
+	[/REGION]
+
+此时，您应该能够自行调试和修改原生化代码。
+
+[/PUBLISH:Licensee]
+
+[COMMENT:none]
+每个SME都添加了注释；但是它被保留下来以备将来查阅。
+
+1. 运行以下行。在打包原生化构建时，您可以在输出日志中找到它们，因此最简单的办法是将它们复制出来， 
+以验证交换机是否适合您的环境。只需将“开发（Development）”交换机更改为“调试（Debug）”。 
 
 		<UE4>\Engine\Binaries\DotNET\UnrealBuildTool.exe" <project name> Win64 Debug -Project=<project path>\<project name>.uproject  <project path>\<project name>.uproject  -PLUGIN "<project path>\Intermediate\<platform>\NativizedAssets\NativizedAssets.uplugin" -remoteini="<project path>" -noxge -generatemanifest -NoHotReloadFromIDE -ignorejunk
 
 		<UE4>\Engine\Binaries\DotNET\UnrealBuildTool.exe" <project name> Win64 Debug -Project=<project path>\<project name>.uproject  <project path>\<project name>.uproject  -PLUGIN "<project path>\Intermediate\<platform>\NativizedAssets\NativizedAssets.uplugin" -remoteini="<project path>" -noxge -NoHotReloadFromIDE -ignorejunk
 
-2. 将 Visual Studio 项目（调试配置）中的工作目录设为 `<Packaged Folder>\<platform>\<project name>\Binaries\Win64\`。
+2. 将您的Visual Studio项目中的工作目录（调试配置）更改为“<Packaged Folder>\<platform>\<project name>\Binaries\Win64\”
 
-3. 在 Visual Studio 中运行调试，但不要在 Visual Studio 中再次编译项目。
+3. 在Visual Studio中运行调试，但请勿从Visual Studio重新编译项目。
 
-[/PUBLISH:Licensee]
+
+[/COMMENT]

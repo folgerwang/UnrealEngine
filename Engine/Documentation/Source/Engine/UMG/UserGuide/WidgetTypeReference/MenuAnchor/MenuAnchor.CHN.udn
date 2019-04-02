@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2828862
+﻿INTSourceChangelist:3244089
 Availability:Public
 Title:菜单锚
 Crumbs:%ROOT%, Engine, Engine/UMG, Engine/UMG/UserGuide, Engine/UMG/UserGuide/WidgetTypeReference
@@ -7,15 +7,18 @@ Related:Engine/UMG/UserGuide
 Related:Engine/UMG/UserGuide/Styling
 Related:Engine/UMG/UserGuide/Slots
 version:4.9
+tags:UMG UI Designer
 
 [TOC(start:2 end:2)]
 
+(#Description)
 ## 描述
 
 [EXCERPT:desc]
 此控件用于指定一个位置，弹出菜单将从此处调出并被锚定在此处。
 [/EXCERPT:desc]
 
+(#Details)
 ## 详情
 
 在已放置的 **菜单锚** 的 **细节** 面板中，有一系列与此控件相关并可以进行设置的特定选项： 
@@ -33,6 +36,7 @@ version:4.9
 
 ![](ExampleGetMenu.png)(w:840)
 
+(#BlueprintFunctions)
 ### 蓝图功能
 
 菜单锚控件拥有一些控件特有的功能，这些功能可以通过脚本进行调用，下文进行介绍。 
@@ -49,6 +53,7 @@ version:4.9
 | **应在点击时打开** | 返回菜单是否可通过点击打开。|
 | **切换打开** | 此功能可切换菜单的打开状态，并可以用于代替打开/关闭。|
 
+(#UsageExample)
 ## 使用示例
 
 若您想要创建库存菜单并在玩家点击物品时显示弹出菜单，请参阅以下示例。 

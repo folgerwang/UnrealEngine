@@ -1,11 +1,10 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System.Collections.Generic;
 using System.IO;
 using UnrealBuildTool;
 
 [SupportedPlatforms(UnrealPlatformClass.Editor)]
-[SupportedConfigurations(UnrealTargetConfiguration.Debug, UnrealTargetConfiguration.Development)]
 public class ShaderCompileWorkerTarget : TargetRules
 {
 	public ShaderCompileWorkerTarget(TargetInfo Target) : base(Target)
@@ -15,7 +14,7 @@ public class ShaderCompileWorkerTarget : TargetRules
 
 		LaunchModuleName = "ShaderCompileWorker";
 
-        if (bUseXGEController && (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64))
+        if (bUseXGEController && (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64) && Configuration == UnrealTargetConfiguration.Development)
         {
             // The interception interface in XGE requires that the parent and child processes have different filenames on disk.
             // To avoid building an entire separate worker just for this, we duplicate the ShaderCompileWorker in a post build step.
@@ -23,13 +22,15 @@ public class ShaderCompileWorkerTarget : TargetRules
             const string DestPath = "$(EngineDir)\\Binaries\\$(TargetPlatform)\\XGEControlWorker.exe";
 
             PostBuildSteps.Add(string.Format("echo Copying {0} to {1}", SrcPath, DestPath));
-            PostBuildSteps.Add(string.Format("copy /Y /B \"{0}\" /B \"{1}\"", SrcPath, DestPath));
+            PostBuildSteps.Add(string.Format("copy /Y /B \"{0}\" /B \"{1}\" >nul:", SrcPath, DestPath));
+
+			AdditionalBuildProducts.Add(DestPath);
         }
 
 		// Turn off various third party features we don't need
 
 		// Currently we force Lean and Mean mode
-		bCompileLeanAndMeanUE = true;
+		bBuildDeveloperTools = false;
 
 		// ShaderCompileWorker isn't localized, so doesn't need ICU
 		bCompileICU = false;

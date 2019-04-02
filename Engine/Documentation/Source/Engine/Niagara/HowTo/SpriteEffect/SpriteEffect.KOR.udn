@@ -1,122 +1,125 @@
-INTSourceChangelist:4300884
-Availability: Docs
-Crumbs: %ROOT%, 
-Title:나이아가라로 스프라이트 기반 이펙트 생성
-Description:나이아가라를 사용하여 스프라이트 메시 기반 비주얼 이펙트를 만드는 법을 설명합니다. 
-Type: how-to
-SkillLevel:Beginner
-Version: 4.17
-parent:Engine/Niagara/HowTo
-order:2
-tags:Niagara
-topic-image:
-prereq: Engine/Niagara/HowTo/EnableNiagara
+INTSourceChangelist:4703316
+Availability: Public
+Crumbs: 
+Title: 나이아가라에서 메시 파티클 이펙트 생성
+Description: 나이아가라를 사용하여 스프라이트 파티클 이펙트를 만드는 법을 설명합니다.
+Type:how-to
+Version: 4.21
+Parent: Engine/Niagara/HowTo
+Order: 6
+Tags: Niagara
+Tags: Early Access
 
-가장 많이 쓰이는 비주얼 이펙트 기법 중 하나라면 2D 카메라를 향한 면에 텍스처와 머티리얼을 렌더링하는, 스프라이트 기법입니다.  이번 하우투 페이지에서는 레벨에 이펙트를 배치하면 스프라이트가 제대로 작동하고 표시되도록 나이아가라 이미터를 구성하는 방법을 살펴보겠습니다.  
+전제 조건 주제
+
+이 글은 다음 주제에 대한 사전 지식이 있다 가정합니다. 먼저 확인해 주세요.
+
+*   [나이아가라 플러그인 활성화](Engine/Niagara/HowTo/EnableNiagara "나이아가라 활성화 방법을 설명합니다.")
+
+흔히 사용되는 비주얼 이펙트 기법은 텍스처와 머티리얼을 2D 카메라를 향한 평면에 렌더링하는 *sprite* (스프라이트) 기법입니다. 여기서는 스프라이트 작업을 위한 나이아가라 이미터 설정법을 알아봅니다. 나이아가라 이미터가 들어있는 나이아가라 시스템을 레벨에 배치하면, 그 레벨에 이펙트가 보입니다.
 
 ![](Sprite_Banner_01.png "Sprite_Banner_01.png")
 
 [REGION:note]
-**사전 필수 단계:**
-여기서는 **시작용 콘텐츠** 에 있는 **M_smoke_subUV** 머티리얼을 활용합니다.  없는 경우, 프로젝트에 이 머티리얼 또는 시작용 콘텐츠를 추가하시기 바랍니다. 
+**전제 조건 단계:**
+
+여기서는 **M\_smoke\_subUV** 머티리얼을 사용합니다. **시작용 콘텐츠** 에 포함되어 있습니다. 없는 경우 프로젝트에 이 머티리얼 또는 시작용 콘텐츠를 추가하세요.
 [/REGION]
 
 ## 단계
 
-1.  **콘텐츠 브라우저** 에 우클릭하면 뜨는 메뉴에서 **FX** > **나이아가라 이미터** 를 클릭하여 **나이아가라 이미터** 를 생성합니다.  
-![](SE_01.png)
-2.  새로 생성된 나이아가라 이미터 이름을 **FX_Smoke** 라 한 뒤 더블클릭하여 엽니다. 
+1.  먼저 **콘텐츠 브라우저** 에 우클릭하여 표시되는 메뉴에서 **FX > 나이아가라 이미터** 를 선택하여 **나이아가라 이미터** 를 만듭니다. 나이아가라 이미터 마법사가 표시됩니다.  
+    ![](SE_01.png)(w:400)
+2.  **Create a new emitter from an emitter template** (이미터 템플릿에서 이미터를 새로 만듭니다.) 옆의 동글 버튼을 클릭합니다. **Select a Template Emitter** (템플릿 이미터 선택) 아래 **Fountain** (분수) 템플릿을 선택합니다. 그런 다음 **OK** (확인)을 누르면 콘텐츠 브라우저에 새 이미터가 생깁니다.  
+    ![](NiagaraEmitter_FountainTemplate.png)(w:400)
+3.  새로 만든 나이아가라 이미터 이름을 **FX_Smoke** 라 하고 더블클릭하여 엽니다.   
     ![](SE_02.png)
-3.  나이아가라 에디터가 열리면 **Selected Emitter** (선택된 이미터) 패널에서 **Render** (렌더) 섹션을 찾습니다.
-4.  **Sprite Render** (스프라이트 렌더) 섹션을 펼치고 프로퍼티와 옵션을 다음과 같이 설정합니다:
-    ![](CreateSpriteBasedEffect_Steps_Step4-SpriteRender.png)  
+4.  나이아가라 에디터가 열렸으면 **Selected Emitter** (선택된 이미터) 패널에서 **Render** (렌더) 섹션을 찾습니다.
+5.  **Sprite Rendering** (스프라이트 렌더링) 섹션을 펼치고 다음 프로퍼티에 다음 값을 설정합니다.  
+    ![](CreateSpriteBasedEffect_Steps_Step4-SpriteRender.png)(w:400)  
     
-    |프로퍼티 이름| 값|
+    | **Property Name** | **Value** |
     | --- | --- |
-    |**Material**|M_smoke_subUV|
-    |**Sub Image Size**| X: 8, Y: 8|
-    |**Sub UV Blending Enabled**| 체크 |
+    | Material | M_smoke_subUV |
+    | Sub Image Size | X: 8.0, Y: 8.0 |
+    | Sub UV Blending Enabled | Checked |
     
-5.  Render (렌더) 섹션을 접고 **Emitter Update** (이미터 업데이트) 섹션을 찾아 펼칩니다.
-6.  **Spawn Rate** (스폰 속도) 섹션에서 **Spawn Rate** (스폰 속도) 값을 **50.0** 로 변경합니다.  
-    ![](CreateSpriteBasedEffect_Steps_Step6-EmitterUpdate.png)
-7.  이미터 업데이트 섹션을 접고 **Add Velocity** (속도 추가) 섹션을 찾아 펼칩니다.
-8.  **Minimum** (최소) 및 **Maximum** (최대) 속도에 다음 값을 설정합니다.  
+6.  Render (렌더) 섹션을 접고 **Emitter Update** (이미터 업데이트) 섹션을 찾아 펼칩니다. **Spawn Rate** (스폰 속도) 모듈을 찾습니다.
+7.  **Spawn Rate** (스폰 속도) 모듈에서 값을 **50** 으로 변경합니다.  
+    ![](CreateSpriteBasedEffect_Steps_Step6-EmitterUpdate.png)(w:400)
+8.  이미터 업데이트 섹션을 덥고 **Particle Spawn** (파티클 스폰) 섹션을 펼칩니다. **Add Velocity** (속도 추가) 모듈을 펼칩니다.
+9.  **Minimum** (최소) 및 **Maximum** (최대) 속도에 다음 값을 설정합니다.  
     ![](CreateSpriteBasedEffect_Steps_Step8-AddVelocityMinMax.png)
     
-    | 프로퍼티 이름 | 값 |
+    | **Property Name** | **Value** |
     | --- | --- |
-    | **Minimum** | X: 0.0, Y: 0.0, Z: 50.0 |
-    | **Maximum** | X: 0.0, Y: 0.0, Z: 200.0 |
-    
-9.  **Sphere Location** (구체 위치) 섹션을 찾습니다.
-10.  **Sphere Radius** (구체 반경) 값을 **64.0** 으로 설정합니다. 흰색 화살표를 클릭하여 섹션을 펼치고, **Surface Only** (표면만) 박스가 체크되어 있는지 확인합니다.  
+    | Minimum | X: 0.0, Y: 0.0, Z: 50.0 |
+    | Maximum | X: 0.0, Y: 0.0, Z: 200.0 |
+
+10.  **Sphere Location** (구체 위치) 모듈을 펼칩니다. **Sphere Radius** (구체 반경) 값을 **64.0** 으로 변경합니다. 모듈 끝 흰색 화살표를 클릭하여 펼치고, **Surface Only** (표면만) 박스가 체크되어 있는지 확인합니다.  
     ![](CreateSpriteBasedEffect_Steps_Step10-SphereRadius.png "CreateSpriteBasedEffect_Steps_Step10-SphereRadius.png")
-11.  **Set Variables** (변수 설정) 섹션을 찾습니다.
-12.  **Particles.Lifetime** 변수를 펼칩니다.**Minimum** (최소) 및 **Maximum** (최대) 칸이 표시됩니다.  
-    
-13.  **Minimum** (최소) 및 **Maximum** (최대) 수명 칸을 다음 값으로 설정합니다.  
+11.  **Set Variables** (변수 설정) 섹션을 찾아 펼칩니다. **Particles.Lifetime** 변수를 펼치면 **Minimum** 및 **Maximum** 칸이 보입니다.
+12.  **Minimum** (최소) 및 **Maximum** (최대) 칸을 다음 값으로 설정합니다.  
     ![](CreateSpriteBasedEffect_Steps_Step13-ParticlesLifetimeMinMax.png)
     
-    | 프로퍼티 이름 | 값 |
+    | **Property Name** | **Value** |
     | --- | --- |
-    | **Minimum** | 2.0 |
-    | **Maximum** | 3.0 |
+    | Minimum | 2.0 |
+    | Maximum | 3.0 |
     
-14.  **Particles.SpriteSize** 변수를 펼쳐 **Minimum** (최소) 및 **Maximum** (최대) 칸을 표시합니다.
-15.  **Minimum** (최소) 및 **Maximum** (최대) 칸을 다음 값으로 설정합니다.  
+13.  **Particles.SpriteSize** 변수를 펼쳐 **Minimum** (최소) 및 **Maximum** (최대) 칸을 표시합니다.
+14.  **Minimum** (최소) 및 **Maximum** (최대) 칸을 다음 값으로 설정합니다.  
     ![](CreateSpriteBasedEffect_Steps_Step15-ParticlesSpriteSizeMinMax.png)
     
-    | 프로퍼티 이름 | 값 |
+    | **Property Name** | **Value** |
     | --- | --- |
-    | **Minimum** | X: 200.0, Y: 200.0 |
-    | **Maximum** | X: 700.0, Y: 700.0 |
-    
-16.  파티클 스폰 섹션을 접고 **Particle Update** (파티클 업데이트) 섹션을 찾아 펼칩니다.
-17. **Acceleration Force** (가속력) 섹션을 찾습니다. **Z** 값을 **500** 으로 설정합니다.  
+    | Minimum | X: 200.0, Y: 200.0 |
+    | Maximum | X: 700.0, Y: 700.0 |
+
+15.  파티클 스폰 섹션을 접고 **Particle Update** (파티클 업데이트) 섹션을 찾아 펼칩니다.
+16.  **Acceleration Force** (가속력) 섹션을 펼칩니다. **Acceleration Z** (Z 가속) 값을 **500** 으로 설정합니다.  
     ![](CreateSpriteBasedEffect_Steps_Step17_AccelerationForce.png)
     [REGION:note]
     파티클이 (분수처럼) 위로 올라갔다가 아래로 흐르는 경우, **Z** 값이 음수가 아닌 **양수** 인지 확인하세요. 양수는 올라가고, 음수는 내려갑니다.
     [/REGION]
-18. **Particle Update** (파티클 업데이트) 옆 **더하기** (**+**) 부호를 클릭하여 옵션 목록을 표시합니다. **Set Specific Parameters > Particles.SubImageIndex** (특정 파라미터 설정 > 파티클.서브 이미지 인덱스) 를 선택합니다. 파티클에 **Set Variables** (변수 설정) 섹션이 추가됩니다.SubImageIndex.  
+17.  **Particle Update** (파티클 업데이트) 옆 **더하기** (**+**) 부호를 클릭하여 옵션 목록을 표시합니다. **Set Specific Parameters > Particles.SubImageIndex** (특정 파라미터 설정 > 파티클.서브 이미지 인덱스) 를 선택합니다. Particles.SubImageIndex 에 대한 **Set Variables** (변수 설정) 섹션이 추가됩니다.  
     [REGION:imagetable]
-    | ![](CreateSpriteBasedEffect_Steps_Step18-ParticlesSubImageIndex1.png) | ![](CreateSpriteBasedEffect_Steps_Step18-ParticlesSubImageIndex2.png) |
+    | ![](CreateSpriteBasedEffect_Steps_Step18-ParticlesSubImageIndex1.jpg)(w:555) | ![](CreateSpriteBasedEffect_Steps_Step18-ParticlesSubImageIndex2.jpg)(w:550) |
     | --- | --- |
     [/REGION]
-19. **Particles.SubImageIndex** 섹션에서 그 옆 작은 삼각형을 클릭하여 옵션 목록을 표시합니다. **Dynamic Inputs > Float From Curve** (동적 입력 > 커브에서 플로트로) 를 선택합니다.  
+18.  **Particles.SubImageIndex** 변수에서 **Particle.SubImageIndex** 의 흰색 삼각형을 클릭하면 옵션 목록이 표시됩니다. **Dynamic Inputs > Float From Curve** (동적 입력 > 커브에서 플로트로) 를 선택합니다.  
     ![](CreateSpriteBasedEffect_Steps_Step19-ParticlesSubImageIndexFloatCurve.png)
-20. **Curve** (커브) 입력 창에서, 커브 왼쪽의 첫 키를 클릭합니다. 이 키의 **Time** (시간) 및 **Value** (값)을 **0.0** 으로 설정합니다.  
-    ![](CreateSpriteBasedEffect_Steps_Step20-FloatCurveFirstKey.png)
-21. 커브 오른쪽의 두 번째 키를 클릭하고, **Time** (시간)은 **1.0** 으로, **Value** (값)은 **0.64** 로 설정합니다.  
+19.  **Curve** (커브) 입력 창에서, 커브 왼쪽의 첫 키를 클릭합니다. 이 키의 **Time** (시간) 및 **Value** (값)을 **0.0** 으로 설정합니다.  
+    ![](CreateSpriteBasedEffect_Steps_Step21-FloatCurveFirstKey2.png)
+4.20:  커브 오른쪽의 두 번째 키를 클릭하고, **Time** (시간)은 **1.0** 으로, **Value** (값)은 **.64** 로 설정합니.  
     ![](CreateSpriteBasedEffect_Steps_Step21-FloatCurveSecondKey.png)
-22. **Particles.SubImageIndex** 변수에서 **CurveIndex** (커브 인덱스) 옆 작은 흰색 삼각형을 클릭하여 옵션 목록을 표시합니다. **Link Inputs > Particle Attributes > Normalized Age** (링크 입력 > 파티클 어트리뷰트 > 정규화된 나이)를 선택합니다.  
-    ![](CreateSpriteBasedEffect_Steps_Step22-CurveIndexNormalizedAge.png)
-23. 그런 다음 **컴파일**, **적용**, **저장** 버튼을 눌러 변경사항을 적용하고 저장한 뒤 **FX_Smoke** 나이아가라 이미터를 닫습니다.  
+4.21:  **Particles.SubImageIndex** 변수에서 **CurveIndex** (커브 인덱스) 의 작은 흰색 삼각형을 클릭하여 옵션 목록을 표시합니다. **Link Inputs > Particle Attributes > Normalized Age** (링크 입력 > 파티클 어트리뷰트 > 정규화된 나이)를 선택합니다.  
+    ![](CreateSpriteBasedEffect_Steps_Step21-CurveIndexNormalizedAge.png)
+22.  그런 다음 **컴파일**, **적용**, **저장** 버튼을 눌러 변경사항을 적용하고 저장한 뒤 **FX_Smoke** 나이아가라 이미터를 닫습니다.  
     ![](SE_15.png)
-24. 이제 **콘텐츠 브라우저** 로 돌아와 우클릭하고 **FX > 나이아가라 시스템** 을 선택합니다. 새 나이아가라 시스템 이름은 **Smoke** 라 합니다.  
+23.  **콘텐츠 브라우저** 에 우클릭하면 표시되는 메뉴에서 **FX** > **Niagara System** (나이아가라 시스템)을 선택합니다. 나이아가라 시스템 마법사가 표시됩니다.  
     ![](SE_16.png)
-25. **Smoke** 나이아가라 시스템을 더블클릭하여 열고, 콘텐츠 브라우저에서 **FX_Smoke** 이미터를 끌어 **타임라인** 에 놓습니다.  
-    ![](SE_17.png)
-26. **컴파일**, **저장** 버튼을 눌러 변경사항을 적용 및 저장한 뒤 Smoke 나이아가라 시스템을 닫습니다. 콘텐츠 브라우저에서 **Smoke** 나이아가라 시스템을 끌어 레벨 뷰포트에 놓습니다.
+24.  **Create an empty system with no emitters** (이미터 없는 빈 시스템을 만듭니다.) 옆 동글 버튼을 클릭합니다. **OK** (확인)을 클릭합니다.  
+    ![](NiagaraSystem_EmptySystem.png)(w:400)
+25.  새 나이아가라 시스템 이름은 **Smoke** 라 합니다.  
+    ![](NiagaraSystem_NewSmokeSystem.png)(w:75)
+26.  **Smoke** 나이아가라 시스템을 더블클릭하여 열고, 콘텐츠 브라우저에서 **FX_Smoke** 이미터를 끌어 **타임라인** 에 놓습니다.  
+    ![](SE_17.png)(w:400)
+27.  **컴파일**, **저장** 버튼을 눌러 변경사항을 적용 및 저장한 뒤 Smoke 나이아가라 시스템을 닫습니다.
+28.  콘텐츠 브라우저에서 **Smoke** 나이아가라 시스템을 끌어 레벨 뷰포트에 놓습니다.
 
 ## 최종 결과
 
-작업이 끝나면 레벨에 배치했을 때 (다음 비디오처럼) 나이아가라 이미터를 재생하는 나이아가라 시스템이 완성되었을 것입니다.
+위 단계를 따른 후, 레벨에 배치된 나이아가라 시스템이 나이아가라 이미터를 재생하면 (다음 비디오같은) 이펙트가 나옵니다.
 
 [OBJECT:EmbeddedVideo]
-    [PARAMLITERAL:videoid]
-    3mGxYRZDORY
-    [/PARAMLITERAL]
-    [PARAMLITERAL:width]
-    100
-    [/PARAMLITERAL]
-    [PARAMLITERAL:height]
-    56.25
-    [/PARAMLITERAL]
-    [PARAMLITERAL:units]
-    %
-    [/PARAMLITERAL]
-    [PARAMLITERAL:type]
-    simple
-    [/PARAMLITERAL]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ 3mGxYRZDORY
+ [/PARAMLITERAL]
 [/OBJECT]

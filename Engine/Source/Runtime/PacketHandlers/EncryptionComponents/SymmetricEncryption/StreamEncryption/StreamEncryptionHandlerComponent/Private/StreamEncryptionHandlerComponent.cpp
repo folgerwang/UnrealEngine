@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "StreamEncryptionHandlerComponent.h"
 #include "XORStreamEncryptor.h"
@@ -27,6 +27,15 @@ StreamEncryptionHandlerComponent::StreamEncryptionHandlerComponent(StreamEncrypt
 
 	// Set key size, if no key size passed in then get default key size for the encryptor
 	KeySizeInBytes = InKeySizeInBytes != 0 ? InKeySizeInBytes : Encryptor->GetDefaultKeySize();
+}
+
+void StreamEncryptionHandlerComponent::CountBytes(FArchive& Ar) const
+{
+	HandlerComponent::CountBytes(Ar);
+
+	const SIZE_T SizeOfThis = sizeof(*this) - sizeof(HandlerComponent);
+	Ar.CountBytes(SizeOfThis, SizeOfThis);
+	Key.CountBytes(Ar);
 }
 
 void StreamEncryptionHandlerComponent::Initialize()

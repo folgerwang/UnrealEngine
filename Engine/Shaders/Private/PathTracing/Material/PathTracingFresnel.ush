@@ -1,0 +1,46 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================================
+PathTracingFresnel.usf: Fresnel utilities for material sampling functions 
+===============================================================================================*/
+#pragma once
+
+
+float3 FresnelDielectric(float CosThetaI, float IorI, float IorT)
+{
+	if (IorI == IorT)
+	{
+		return float3(1.0, 1.0, 1.0);
+	}
+
+	CosThetaI = clamp(CosThetaI, -1.0, 1.0);
+
+	if (CosThetaI < 0.0)
+	{
+		// Swap indices
+		CosThetaI = -CosThetaI;
+		float IorTmp = IorI;
+		IorI = IorT;
+		IorT = IorTmp;
+	}
+
+	const float SinThetaI = 1.0 - (CosThetaI * CosThetaI);
+	const float IorRatio = IorI / IorT;
+	const float d = 1.0 - SinThetaI * IorRatio*IorRatio;
+	if (d < 0.0)
+	{
+		return float3(1.0, 1.0, 1.0);
+	}
+
+	float CosThetaT = sqrt(d);
+	float CosI_A = IorI * CosThetaI;
+	float CosT_A = IorI * CosThetaT;
+	float CosI_B = IorT * CosThetaI;
+	float CosT_B = IorT * CosThetaT;
+
+	float Parl = (CosT_A - CosI_B) / (CosT_A + CosI_B);
+	float Perp = (CosI_A - CosT_B) / (CosI_A + CosT_B);
+	float Fr = min(0.5*(Perp*Perp + Parl * Parl), 1.0);
+
+	return float3(Fr, Fr, Fr);
+}

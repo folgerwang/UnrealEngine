@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "Common.ush"
@@ -120,6 +120,10 @@ void MainComposeEditorPrimitivesPS(
 	// Fetch scene color.
 	float2 SceneColorUV = ViewportUVToPostProcessingSceneColorBufferUV(ViewportUV);
 	float4 SceneColor = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, SceneColorUV);
+
+#if OUTPUT_SRGB_BUFFER
+	SceneColor.rgb = pow( SceneColor.rgb, 1.0f / 2.2f );
+#endif
 
 	// Resolve editor primitive scene color and depth.
 	float4 EditorPrimitiveColor;

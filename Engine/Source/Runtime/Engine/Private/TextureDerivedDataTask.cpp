@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	TextureDerivedDataTask.cpp: Tasks to update texture DDC.
@@ -154,7 +154,8 @@ void FTextureCacheDerivedDataWorker::BuildTexture()
 			for (int32 MipIndex = 0; MipIndex < MipCount; ++MipIndex)
 			{
 				const FCompressedImage2D& CompressedImage = CompressedMips[MipIndex];
-				FTexture2DMipMap* NewMip = new(DerivedData->Mips) FTexture2DMipMap();
+				FTexture2DMipMap* NewMip = new FTexture2DMipMap();
+				DerivedData->Mips.Add(NewMip);
 				NewMip->SizeX = CompressedImage.SizeX;
 				NewMip->SizeY = CompressedImage.SizeY;
 				NewMip->SizeZ = CompressedImage.SizeZ;

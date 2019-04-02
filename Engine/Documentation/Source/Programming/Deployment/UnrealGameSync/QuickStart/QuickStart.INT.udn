@@ -1,0 +1,108 @@
+Availability: Public
+Crumbs: 
+Title: UGS Quick Start
+Description: Learn how to get started using UnrealGameSync.
+Type: 
+Version: 4.19
+Parent: Programming/Deployment/UnrealGameSync
+Order: 1
+Tags: 
+
+
+![](UGSQS_Step1_EndResult-2.png "UGSQS_Step1_EndResult-2.png")
+
+The goal of this guide is to show you the primary workflow of syncing your **Unreal Project** (.uproject) using **UnrealGameSync (UGS)**. After working through this tutorial, you'll know how to open an Unreal Project with UGS, and how to sync from the **Project Overview** and **Changelist Areas** of the application's main menu.
+
+[REGION:note]
+**Required Setup:** The following steps assume that your team has distributed and set up UGS on your machine(s).
+[/REGION]
+
+## 1\. Opening a Local File
+
+The following steps show you how to open a local Unreal Project file with UGS.
+
+1.  To open a ***.uproject** on your local drive, click the **Open project…** link.  
+    ![](UGSQS_Step1_1.png)
+2.  When the **Open Project** window opens, UGS enables the **Local File** radio button by default. To select a local file, click the **Browse...** button.  
+    ![](UGSQS_Step1_2-1.png "UGSQS_Step1_2-1.png")
+3.  Navigate to and select the ***.uproject** file before clicking **Open**.  
+    ![](UGSQS_Step1_3.png)
+    [REGION:note]
+    **Note**: We're using the [First Person Shooter Tutorial](Programming/Tutorials/FirstPersonShooter) as an example Unreal Project.
+    [/REGION]
+4.  To open the Unreal Project with UGS, click the **Ok** button.  
+    ![](UGSQS_Step1_4.png "UGSQS_Step1_4.png")
+
+
+## 2\. Opening a Workspace File
+
+The following steps show you how to open a workspace Unreal Project file with UGS.
+
+1.  To open a ***.uproject** file on your local drive, click the **Open project…** link.  
+    ![](UGSQS_Step1_1.png)
+2.  When the **Open Project** window opens, UGS selects the **Local File** radio button by default. Select the **Workspace **radio button to get started.  
+    ![](UGSQS_Step2b_1.png)
+3.  The first field that needs to be populated is the Workspace's name. If you already have a Workspace to point UGS to, click the** Browse...** button next to the **Name:** field.  
+    ![](UGSQS_Step2b_2.png)  
+    **Note**: If you need to create new Workspace, click the **New...** button to set up a New Workspace.  
+    ![](UGSQS_Step2b_NewWSNote.png)
+4.  When the **Select Workspace** menu opens, it will show you a list of Workspaces that you can choose from. Go ahead and select a **Workspace** (1) and click the **Ok** button (2).  
+    ![](UGSQS_Step2b_3.png "UGSQS_Step2b_3.png")
+5.  Now, click the **Browse...** button next to the **Path:** field.  
+    ![](UGSQS_Step2b_4.png "UGSQS_Step2b_4.png")
+6.  With the **Select Project** menu open, expand the Workspace tree, select the ***.uproject** file (1), and click the **Ok** button (2).  
+    ![](UGSQS_Step2b_5.png "UGSQS_Step2b_5.png")
+    [REGION:note]
+    **Note**: We're using the [First Person Shooter Tutorial](Programming/Tutorials/FirstPersonShooter) as an example Unreal Project.
+    [/REGION]
+7.  Now that you've specified the **Workspace ****Name** and **Path**, you're ready to open the Unreal Project with UGS by clicking the **Ok** button.  
+    ![](UGSQS_Step2b_6.png "UGSQS_Step2b_6.png")
+
+
+## 3\. Syncing from the Changelist Area
+
+Now that you’ve opened a project with UGS, you’ll want to perform a common task with UGS, syncing from the **Changelist Area**.
+[REGION:note]
+Please make sure that you’ve logged into **Perforce** before proceeding with the following steps.
+[/REGION]
+
+1.  Now that you’ve opened your project with UGS, locate the **Changelist Area** in the **Main Menu**.  
+    ![](UGSQS_Step3_1-1.png "UGSQS_Step3_1-1.png")
+2.  Locate the change that you’re using, it will have an **arrow icon** next to it.  
+    ![](UGSQS_Step3_2-1.png "UGSQS_Step3_2-1.png")
+3.  To update to another change that was committed to the project’s stream, double click on the other change while inside of the **Changelist Area**.  
+    ![](UGSQS_Step3_3-1.png "UGSQS_Step3_3-1.png")
+
+When the sync finishes, UGS updates the **Output Log (3)**, the **Changelist Area (2)**, and the **Project Overview Area (1)**, which is where you’ll sync your project from in the next step.
+
+![](UGSQS_Step3_4-1.png "UGSQS_Step3_4-1.png")
+
+
+## 4\. Syncing from the Project Overview Area
+
+Now that you’ve performed a sync from the **Changelist Area**, having already opened the project with UGS, you’ll want to perform another common task with UGS, syncing from the **Project Overview Area**.  
+
+1.  First, locate the **Project Overview Area** in the **Main Menu**.  
+    ![](UGSQS_Step4_1.png "UGSQS_Step4_1.png")
+2.  Click the **down arrow** button next to the **Sync Now - To…** button link to open the shortcut menu.  
+    ![](UGSQS_Step4_2.png "UGSQS_Step4_2.png")
+3.  Now, select the **Latest Change** option.  
+    ![](UGSQS_Step4_3.png "UGSQS_Step4_3.png")
+    [REGION:note]
+    To learn more about navigating the interface, options, and menus built into UGS, check out the [UGS Reference](Programming/Deployment/UnrealGameSync/Reference) Guide.
+    [/REGION]
+
+At the end of the sync, UGS will notify you that you’ve successfully updated to the latest **Change**.   
+
+![](UGSQS_Step4_5.png "UGSQS_Step4_5.png")
+
+You’ve now reached the end of this guide, where you learned how to open a project and how to sync it from the **Changelist** and **Project Overview Areas** of the user interface. If you want to continue learning more about UGS on your own, including how to deploy a binary version of your project or how to navigate the interface with all of its menus and options, check out the next section of this guide.  
+
+
+## 5\. On Your Own!
+
+Now that you’ve opened your project, having performed a couple of common sync methods with UGS, try out the following:  
+
+*   Enable the **Build** and **Run** check boxes, which are found at the bottom of the UGS main menu to sync, build, and run your Unreal project.  
+    ![](UGSQS_Step4_OYO1.png "UGSQS_Step4_OYO1.png")
+*   If you’re a developer looking to make use of the precompiled binaries feature for Creators who don’t need to compile from source, read through the [UGS Reference](Programming/Deployment/UnrealGameSync/Reference) guide for more information on how to set up your build system to periodically submit a zip file containing Editor binaries to Perforce, enabling UGS to extract it to your creative's workspace.  

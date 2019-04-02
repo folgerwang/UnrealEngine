@@ -1,0 +1,53 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	SceneViewFamilyBlackboard.ush: 
+=============================================================================*/
+
+#pragma once
+
+#include "SceneTexturesCommon.ush"
+#include "DeferredShadingCommon.ush"
+
+uint bIsSceneLightingChannelsValid;
+
+// Matches FSceneViewFamilyBlackboard
+Texture2D SceneDepthBuffer;
+Texture2D SceneVelocityBuffer;
+Texture2D SceneGBufferA;
+Texture2D SceneGBufferB;
+Texture2D SceneGBufferC;
+Texture2D SceneGBufferD;
+Texture2D SceneGBufferE;
+Texture2D<uint> SceneLightingChannels;
+
+
+// @param UV - UV space in the GBuffer textures (BufferSize resolution)
+FGBufferData GetGBufferDataFromSceneBlackboard(float2 UV, bool bGetNormalizedNormal = true)
+{
+	float4 GBufferA = SceneGBufferA.SampleLevel(GlobalPointClampedSampler, UV, 0);
+	float4 GBufferB = SceneGBufferB.SampleLevel(GlobalPointClampedSampler, UV, 0);
+	float4 GBufferC = SceneGBufferC.SampleLevel(GlobalPointClampedSampler, UV, 0);
+	float4 GBufferD = SceneGBufferD.SampleLevel(GlobalPointClampedSampler, UV, 0);
+	float4 GBufferE = SceneGBufferE.SampleLevel(GlobalPointClampedSampler, UV, 0);
+	float4 GBufferVelocity = SceneVelocityBuffer.SampleLevel(GlobalPointClampedSampler, UV, 0);
+
+	uint CustomStencil = 0;
+	float CustomNativeDepth = 0;
+
+	float DeviceZ = SceneDepthBuffer.SampleLevel(GlobalPointClampedSampler, UV, 0).r;
+	float SceneDepth = ConvertFromDeviceZ(DeviceZ);
+
+	return DecodeGBufferData(GBufferA, GBufferB, GBufferC, GBufferD, GBufferE, GBufferVelocity, CustomNativeDepth, CustomStencil, SceneDepth, bGetNormalizedNormal, CheckerFromSceneColorUV(UV));
+}
+
+/** Returns the light channel mask that should be executed for this pixel. */
+uint GetSceneLightingChannel(uint2 PixelCoord)
+{
+	BRANCH
+	if (bIsSceneLightingChannelsValid)
+	{
+		return SceneLightingChannels.Load(uint3(PixelCoord, 0)).x;
+	}
+	return ~0;
+}

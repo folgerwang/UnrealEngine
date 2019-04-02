@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -126,6 +126,16 @@ private:
 	 */
 	bool GetEnabledState() const;
 
+	/** 
+	 * Looks up and caches (if not already) the associated type interface, and then returns it.
+	 * Could be null/invalid if no customization was specified for this row.
+	 *
+	 * Creating the CustomTypeInterface on demand, instead of at construction, allows for 
+	 * IDetailCustomization's to override custom property type layouts via a IDetailLayoutBuilder.
+	 * 
+	 */
+	TSharedPtr<IPropertyTypeCustomization>& GetTypeInterface();
+
 	/**
 	 * Generates children for the property node
 	 *
@@ -160,7 +170,7 @@ private:
 	/** Visibility of the property */
 	TAttribute<EVisibility> PropertyVisibility;
 	/** If the property on this row is a customized property type, this is the interface to that customization */
-	TSharedPtr<IPropertyTypeCustomization> CustomTypeInterface;
+	TSharedPtr<IPropertyTypeCustomization> CachedCustomTypeInterface;
 	/** Builder for children of a customized property type */
 	TSharedPtr<class FCustomChildrenBuilder> PropertyTypeLayoutBuilder;
 	/** The property handle for this row */
@@ -191,4 +201,6 @@ private:
 	bool bShowCustomPropertyChildren;
 	/** True to force auto-expansion */
 	bool bForceAutoExpansion;
+	/** True if we've already attempted to fill out our CustomTypeInterface (no need to rerun the query) */
+	bool bCachedCustomTypeInterface;
 };

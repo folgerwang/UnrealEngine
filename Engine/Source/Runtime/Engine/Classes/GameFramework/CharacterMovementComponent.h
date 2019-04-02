@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -124,6 +124,8 @@ struct FCharacterMovementComponentPostPhysicsTickFunction : public FTickFunction
 
 	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph **/
 	virtual FString DiagnosticMessage() override;
+	/** Function used to describe this tick for active tick reporting. **/
+	virtual FName DiagnosticContext(bool bDetailed) override;
 };
 
 template<>
@@ -294,6 +296,12 @@ public:
 	float BrakingFriction;
 
 	/**
+	 * Time substepping when applying braking friction. Smaller time steps increase accuracy at the slight cost of performance, especially if there are large frame times.
+	 */
+	UPROPERTY(Category="Character Movement (General Settings)", EditAnywhere, BlueprintReadWrite, AdvancedDisplay, meta=(ClampMin="0.0166", ClampMax="0.05", UIMin="0.0166", UIMax="0.05"))
+	float BrakingSubStepTime;
+
+	/**
 	 * Deceleration when walking and not applying acceleration. This is a constant opposing force that directly lowers velocity by a constant value.
 	 * @see GroundFriction, MaxAcceleration
 	 */
@@ -438,6 +446,16 @@ public:
 	 */
 	UPROPERTY(Category="Character Movement (General Settings)", EditAnywhere, AdvancedDisplay)
 	uint8 bEnableScopedMovementUpdates:1;
+
+	/**
+	 * Optional scoped movement update to combine moves for cheaper performance on the server when the client sends two moves in one packet.
+	 * Be warned that since this wraps a larger scope than is normally done with bEnableScopedMovementUpdates, this can result in subtle changes in behavior
+	 * in regards to when overlap events are handled, when attached components are moved, etc.
+	 *
+	 * @see bEnableScopedMovementUpdates
+	 */
+	UPROPERTY(Category="Character Movement (General Settings)", EditAnywhere, AdvancedDisplay)
+	uint8 bEnableServerDualMoveScopedMovementUpdates : 1;
 
 	/** Ignores size of acceleration component, and forces max acceleration to drive character at full velocity. */
 	UPROPERTY()
@@ -1178,12 +1196,12 @@ public:
 	virtual void AddRadialImpulse(const FVector& Origin, float Radius, float Strength, enum ERadialImpulseFalloff Falloff, bool bVelChange) override;
 	//END UMovementComponent Interface
 
-	/** @return true if the character is in the 'Walking' movement mode. */
+	/** Returns true if the character is in the 'Walking' movement mode. */
 	UFUNCTION(BlueprintCallable, Category="Pawn|Components|CharacterMovement")
 	bool IsWalking() const;
 
 	/**
-	 * @return true if currently performing a movement update.
+	 * Returns true if currently performing a movement update.
 	 * @see bMovementInProgress
 	 */
 	bool IsMovementInProgress() const { return bMovementInProgress; }
@@ -1228,6 +1246,11 @@ public:
 	 * @return true if Character should start falling
 	 */
 	virtual bool ShouldCatchAir(const FFindFloorResult& OldFloor, const FFindFloorResult& NewFloor);
+
+	/**
+	 * Trigger OnWalkingOffLedge event on CharacterOwner.
+	 */
+	virtual void HandleWalkingOffLedge(const FVector& PreviousFloorImpactNormal, const FVector& PreviousFloorContactNormal, const FVector& PreviousLocation, float TimeDelta);
 
 	/** Adjust distance from floor, trying to maintain a slight offset from the floor when walking (based on CurrentFloor). */
 	virtual void AdjustFloorHeight();
@@ -1291,7 +1314,7 @@ public:
 	/** Jump onto shore from water */
 	virtual void JumpOutOfWater(FVector WallNormal);
 
-	/** @return how far to rotate character during the time interval DeltaTime. */
+	/** Returns how far to rotate character during the time interval DeltaTime. */
 	virtual FRotator GetDeltaRotation(float DeltaTime) const;
 
 	/**
@@ -1361,35 +1384,34 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Pawn|Components|CharacterMovement")
 	virtual float GetMaxJumpHeightWithJumpTime() const;
 
-	/** @return Maximum acceleration for the current state. */
+	/** Returns maximum acceleration for the current state. */
 	UFUNCTION(BlueprintCallable, Category = "Pawn|Components|CharacterMovement")
 	virtual float GetMinAnalogSpeed() const;
 	
-	/** @return Maximum acceleration for the current state, based on MaxAcceleration and any additional modifiers. */
-	DEPRECATED(4.3, "GetModifiedMaxAcceleration() is deprecated, apply your own modifiers to GetMaxAcceleration() if desired.")
+	UE_DEPRECATED(4.3, "GetModifiedMaxAcceleration() is deprecated, apply your own modifiers to GetMaxAcceleration() if desired.")
 	virtual float GetModifiedMaxAcceleration() const;
 	
-	/** @return Maximum acceleration for the current state, based on MaxAcceleration and any additional modifiers. */
+	/** Returns maximum acceleration for the current state, based on MaxAcceleration and any additional modifiers. */
 	UFUNCTION(BlueprintCallable, Category="Pawn|Components|CharacterMovement", meta=(DeprecatedFunction, DisplayName="GetModifiedMaxAcceleration", ScriptName="GetModifiedMaxAcceleration", DeprecationMessage="GetModifiedMaxAcceleration() is deprecated, apply your own modifiers to GetMaxAcceleration() if desired."))
 	virtual float K2_GetModifiedMaxAcceleration() const;
 
-	/** @return Maximum acceleration for the current state. */
+	/** Returns maximum acceleration for the current state. */
 	UFUNCTION(BlueprintCallable, Category="Pawn|Components|CharacterMovement")
 	virtual float GetMaxAcceleration() const;
 
-	/** @return Maximum deceleration for the current state when braking (ie when there is no acceleration). */
+	/** Returns maximum deceleration for the current state when braking (ie when there is no acceleration). */
 	UFUNCTION(BlueprintCallable, Category="Pawn|Components|CharacterMovement")
 	virtual float GetMaxBrakingDeceleration() const;
 
-	/** @return Current acceleration, computed from input vector each update. */
+	/** Returns current acceleration, computed from input vector each update. */
 	UFUNCTION(BlueprintCallable, Category="Pawn|Components|CharacterMovement", meta=(Keywords="Acceleration GetAcceleration"))
 	FVector GetCurrentAcceleration() const;
 
-	/** @return Modifier [0..1] based on the magnitude of the last input vector, which is used to modify the acceleration and max speed during movement. */
+	/** Returns modifier [0..1] based on the magnitude of the last input vector, which is used to modify the acceleration and max speed during movement. */
 	UFUNCTION(BlueprintCallable, Category="Pawn|Components|CharacterMovement")
 	float GetAnalogInputModifier() const;
 	
-	/** @return true if we can step up on the actor in the given FHitResult. */
+	/** Returns true if we can step up on the actor in the given FHitResult. */
 	virtual bool CanStepUp(const FHitResult& Hit) const;
 
 	/** Struct updated by StepUp() to return result of final step down, if applicable. */
@@ -1566,10 +1588,10 @@ public:
 	 */
 	virtual void UnCrouch(bool bClientSimulation = false);
 
-	/** @return true if the character is allowed to crouch in the current state. By default it is allowed when walking or falling, if CanEverCrouch() is true. */
+	/** Returns true if the character is allowed to crouch in the current state. By default it is allowed when walking or falling, if CanEverCrouch() is true. */
 	virtual bool CanCrouchInCurrentState() const;
 	
-	/** @return true if there is a suitable floor SideStep from current position. */
+	/** Returns true if there is a suitable floor SideStep from current position. */
 	virtual bool CheckLedgeDirection(const FVector& OldLocation, const FVector& SideStep, const FVector& GravDir) const;
 
 	/** 
@@ -1608,10 +1630,16 @@ public:
 	 */
 	virtual void MoveSmooth(const FVector& InVelocity, const float DeltaSeconds, FStepDownResult* OutStepDownResult = NULL );
 
+	/**
+	 * Used during SimulateMovement for proxies, this computes a new value for Acceleration before running proxy simulation.
+	 * The base implementation simply derives a value from the normalized Velocity value, which may help animations that want some indication of the direction of movement.
+	 * Proxies don't implement predictive acceleration by default so this value is not used for the actual simulation.
+	 */
+	virtual void UpdateProxyAcceleration();
 	
 	virtual void SetUpdatedComponent(USceneComponent* NewUpdatedComponent) override;
 	
-	/** @Return MovementMode string */
+	/** Returns MovementMode string */
 	virtual FString GetMovementName() const;
 
 	/** 
@@ -1658,10 +1686,10 @@ public:
 	/** Check if swimming pawn just ran into edge of the pool and should jump out. */
 	virtual bool CheckWaterJump(FVector CheckPoint, FVector& WallNormal);
 
-	/** @return whether this pawn is currently allowed to walk off ledges */
+	/** Returns whether this pawn is currently allowed to walk off ledges */
 	virtual bool CanWalkOffLedges() const;
 
-	/** @return The distance from the edge of the capsule within which we don't allow the character to perch on the edge of a surface. */
+	/** Returns The distance from the edge of the capsule within which we don't allow the character to perch on the edge of a surface. */
 	UFUNCTION(BlueprintCallable, Category="Pawn|Components|CharacterMovement")
 	float GetPerchRadiusThreshold() const;
 
@@ -2261,7 +2289,7 @@ public:
 
 protected:
 
-	/** Event notification when client receives a correction from the server. Base implementation logs relevant data and draws debug info if "p.NetShowCorrections" is not equal to 0. */
+	/** Event notification when client receives correction data from the server, before applying the data. Base implementation logs relevant data and draws debug info if "p.NetShowCorrections" is not equal to 0. */
 	virtual void OnClientCorrectionReceived(class FNetworkPredictionData_Client_Character& ClientData, float TimeStamp, FVector NewLocation, FVector NewVelocity, UPrimitiveComponent* NewBase, FName NewBaseBoneName, bool bHasBase, bool bBaseRelativePosition, uint8 ServerMovementMode);
 
 	// Root Motion
@@ -2270,7 +2298,7 @@ public:
 	UPROPERTY(Transient)
 	FRootMotionSourceGroup CurrentRootMotion;
 
-	/** @return true if we have Root Motion from any source to use in PerformMovement() physics. */
+	/** Returns true if we have Root Motion from any source to use in PerformMovement() physics. */
 	bool HasRootMotionSources() const;
 
 	/** Apply a RootMotionSource to current root motion 
@@ -2321,7 +2349,7 @@ public:
 	UPROPERTY(Transient)
 	FVector AnimRootMotionVelocity;
 
-	/** @return true if we have Root Motion from animation to use in PerformMovement() physics. 
+	/** Returns true if we have Root Motion from animation to use in PerformMovement() physics. 
 		Not valid outside of the scope of that function. Since RootMotion is extracted and used in it. */
 	bool HasAnimRootMotion() const
 	{
@@ -2349,7 +2377,7 @@ public:
 	 */
 	virtual FVector CalcAnimRootMotionVelocity(const FVector& RootMotionDeltaMove, float DeltaSeconds, const FVector& CurrentVelocity) const;
 
-	DEPRECATED(4.13, "CalcRootMotionVelocity() has been replaced by CalcAnimRootMotionVelocity() instead, and ConstrainAnimRootMotionVelocity() now handles restricting root motion velocity under different conditions.")
+	UE_DEPRECATED(4.13, "CalcRootMotionVelocity() has been replaced by CalcAnimRootMotionVelocity() instead, and ConstrainAnimRootMotionVelocity() now handles restricting root motion velocity under different conditions.")
 	virtual FVector CalcRootMotionVelocity(const FVector& RootMotionDeltaMove, float DeltaSeconds, const FVector& CurrentVelocity) const;
 
 	/**
@@ -2446,7 +2474,7 @@ public:
 	FSavedMove_Character();
 	virtual ~FSavedMove_Character();
 
-	// DEPRECATED_FORGAME(4.20)
+	// UE_DEPRECATED_FORGAME(4.20)
 	FSavedMove_Character(const FSavedMove_Character&);
 	FSavedMove_Character(FSavedMove_Character&&);
 	FSavedMove_Character& operator=(const FSavedMove_Character&);
@@ -2474,7 +2502,7 @@ public:
 	int32 JumpMaxCount;
 	int32 JumpCurrentCount;
 	
-	DEPRECATED_FORGAME(4.20, "This property is deprecated, use StartPackedMovementMode or EndPackedMovementMode instead.")
+	UE_DEPRECATED_FORGAME(4.20, "This property is deprecated, use StartPackedMovementMode or EndPackedMovementMode instead.")
 	uint8 MovementMode;
 
 	// Information at the start of the move
@@ -2544,7 +2572,7 @@ public:
 	/** Set the properties describing the position, etc. of the moved pawn at the start of the move. */
 	virtual void SetInitialPosition(ACharacter* C);
 
-	/** @Return true if this move is an "important" move that should be sent again if not acked by the server */
+	/** Returns true if this move is an "important" move that should be sent again if not acked by the server */
 	virtual bool IsImportantMove(const FSavedMovePtr& LastAckedMove) const;
 	
 	/** Returns starting position if we were to revert the move, either absolute StartLocation, or StartRelativeLocation offset from MovementBase's current location (since we want to try to move forward at this time). */
@@ -2559,7 +2587,7 @@ public:
 	/** Set the properties describing the final position, etc. of the moved pawn. */
 	virtual void PostUpdate(ACharacter* C, EPostUpdateMode PostUpdateMode);
 	
-	/** @Return true if this move can be combined with NewMove for replication without changing any behavior */
+	/** Returns true if this move can be combined with NewMove for replication without changing any behavior */
 	virtual bool CanCombineWith(const FSavedMovePtr& NewMove, ACharacter* InCharacter, float MaxDelta) const;
 
 	/** Combine this move with an older move and update relevant state. */
@@ -2568,7 +2596,7 @@ public:
 	/** Called before ClientUpdatePosition uses this SavedMove to make a predictive correction	 */
 	virtual void PrepMoveFor(ACharacter* C);
 
-	/** @returns a byte containing encoded special movement information (jumping, crouching, etc.)	 */
+	/** Returns a byte containing encoded special movement information (jumping, crouching, etc.)	 */
 	virtual uint8 GetCompressedFlags() const;
 
 	// Bit masks used by GetCompressedFlags() to encode movement information.
@@ -2586,7 +2614,7 @@ public:
 	};
 };
 
-//DEPRECATED_FORGAME(4.20)
+//UE_DEPRECATED_FORGAME(4.20)
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
 inline FSavedMove_Character::FSavedMove_Character(const FSavedMove_Character&) = default;
 inline FSavedMove_Character::FSavedMove_Character(FSavedMove_Character&&) = default;
@@ -2671,7 +2699,7 @@ public:
 	// Mesh smoothing variables (for network smoothing)
 	//
 	/** Whether to smoothly interpolate pawn position corrections on clients based on received location updates */
-	DEPRECATED(4.11, "bSmoothNetUpdates will be removed, use UCharacterMovementComponent::NetworkSmoothingMode instead.")
+	UE_DEPRECATED(4.11, "bSmoothNetUpdates will be removed, use UCharacterMovementComponent::NetworkSmoothingMode instead.")
 	uint32 bSmoothNetUpdates:1;
 
 	/** Used for position smoothing in net games */
@@ -2695,6 +2723,9 @@ public:
 	/** Used to track time of last correction */
 	float LastCorrectionTime;
 
+	/** Max time delta between server updates over which client smoothing is allowed to interpolate. */
+	float MaxClientSmoothingDeltaTime;
+
 	/** Used to track the timestamp of the last server move. */
 	double SmoothingServerTimeStamp;
 
@@ -2702,11 +2733,11 @@ public:
 	double SmoothingClientTimeStamp;
 
 	/** Used to track how much time has elapsed since last correction. It can be computed as World->TimeSince(LastCorrectionTime). */
-	DEPRECATED(4.11, "CurrentSmoothTime will be removed, use LastCorrectionTime instead.")
+	UE_DEPRECATED(4.11, "CurrentSmoothTime will be removed, use LastCorrectionTime instead.")
 	float CurrentSmoothTime;
 
 	/** Used to signify that linear smoothing is desired */
-	DEPRECATED(4.11, "bUseLinearSmoothing will be removed, use UCharacterMovementComponent::NetworkSmoothingMode instead.")
+	UE_DEPRECATED(4.11, "bUseLinearSmoothing will be removed, use UCharacterMovementComponent::NetworkSmoothingMode instead.")
 	bool bUseLinearSmoothing;
 
 	/**
@@ -2728,7 +2759,7 @@ public:
 	float SmoothNetUpdateRotationTime;
 
 	/** (DEPRECATED) How long server will wait for client move update before setting position */
-	DEPRECATED(4.12, "MaxResponseTime has been renamed to MaxMoveDeltaTime for clarity in what it does and will be removed, use MaxMoveDeltaTime instead.")
+	UE_DEPRECATED(4.12, "MaxResponseTime has been renamed to MaxMoveDeltaTime for clarity in what it does and will be removed, use MaxMoveDeltaTime instead.")
 	float MaxResponseTime;
 	
 	/** 
@@ -2798,7 +2829,7 @@ public:
 	float ServerTimeStampLastServerMove;
 
 	/** (DEPRECATED) How long server will wait for client move update before setting position */
-	DEPRECATED(4.12, "MaxResponseTime has been renamed to MaxMoveDeltaTime for clarity in what it does and will be removed, use MaxMoveDeltaTime instead.")
+	UE_DEPRECATED(4.12, "MaxResponseTime has been renamed to MaxMoveDeltaTime for clarity in what it does and will be removed, use MaxMoveDeltaTime instead.")
 	float MaxResponseTime;
 	
 	/** 
@@ -2843,14 +2874,10 @@ public:
 	/** Creation time of this prediction data, used to contextualize LifetimeRawTimeDiscrepancy */
 	float WorldCreationTime;
 
-	/** 
-	 * @return Time delta to use for the current ServerMove(). Takes into account time discrepancy resolution if active.
-	 */
+	/** Returns time delta to use for the current ServerMove(). Takes into account time discrepancy resolution if active. */
 	float GetServerMoveDeltaTime(float ClientTimeStamp, float ActorTimeDilation) const;
 
-	/** 
-	 * @return Base time delta to use for a ServerMove, default calculation (no time discrepancy resolution)
-	 */
+	/** Returns base time delta to use for a ServerMove, default calculation (no time discrepancy resolution) */
 	float GetBaseServerMoveDeltaTime(float ClientTimeStamp, float ActorTimeDilation) const;
 
 };

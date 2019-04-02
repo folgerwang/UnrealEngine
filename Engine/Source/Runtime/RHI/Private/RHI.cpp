@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RHI.cpp: Render Hardware Interface implementation.
@@ -33,15 +33,22 @@ DEFINE_STAT(STAT_IndexBufferMemory);
 DEFINE_STAT(STAT_VertexBufferMemory);
 DEFINE_STAT(STAT_StructuredBufferMemory);
 DEFINE_STAT(STAT_PixelBufferMemory);
-DEFINE_STAT(STAT_GetOrCreatePSO);
 
 static FAutoConsoleVariable CVarUseVulkanRealUBs(
 	TEXT("r.Vulkan.UseRealUBs"),
-	1,
+	0,
 	TEXT("0: Emulate uniform buffers on Vulkan SM4/SM5 (debugging ONLY)\n")
 	TEXT("1: Use real uniform buffers [default]"),
 	ECVF_ReadOnly
 	);
+
+static FAutoConsoleVariable CVarVulkanEnableTessellation(
+	TEXT("r.Vulkan.EnableTessellation"),
+	0,
+	TEXT("0: Tessellation disabled[default]\n")
+	TEXT("1: Enable flat tessellation (experimental)"),
+	ECVF_ReadOnly
+);
 
 static TAutoConsoleVariable<int32> CVarDisableEngineAndAppRegistration(
 	TEXT("r.DisableEngineAndAppRegistration"),
@@ -437,6 +444,7 @@ namespace RHIConfig
 
 bool GIsRHIInitialized = false;
 int32 GMaxTextureMipCount = MAX_TEXTURE_MIP_COUNT;
+bool GRHISupportsCopyToTextureMultipleMips = false;
 bool GSupportsQuadBufferStereo = false;
 bool GSupportsDepthFetchDuringDepthTest = true;
 FString GRHIAdapterName;
@@ -476,6 +484,7 @@ bool GSupportsWideMRT = true;
 float GMinClipZ = 0.0f;
 float GProjectionSignY = 1.0f;
 bool GRHINeedsExtraDeletionLatency = false;
+bool GRHIForceNoDeletionLatencyForStreamingTextures = false;
 TRHIGlobal<int32> GMaxComputeDispatchDimension((1 << 16) - 1);
 bool GRHILazyShaderCodeLoading = false;
 bool GRHISupportsLazyShaderCodeLoading = false;
@@ -497,6 +506,8 @@ bool GRHISupportsBaseVertexIndex = true;
 TRHIGlobal<bool> GRHISupportsInstancing(true);
 bool GRHISupportsFirstInstance = false;
 bool GRHISupportsDynamicResolution = false;
+bool GRHISupportsRayTracing = false;
+bool GRHISupportsWaveOperations = false;
 bool GRHISupportsRHIThread = false;
 bool GRHISupportsRHIOnTaskThread = false;
 bool GRHISupportsParallelRHIExecute = false;
@@ -761,10 +772,12 @@ RHI_API uint32 RHIGetShaderLanguageVersion(const EShaderPlatform Platform)
 			if (MaxShaderVersion < 0)
 			{
 				MaxShaderVersion = 2;
+				int32 MinShaderVersion = 3;
 				if(!GConfig->GetInt(TEXT("/Script/MacTargetPlatform.MacTargetSettings"), TEXT("MaxShaderLanguageVersion"), MaxShaderVersion, GEngineIni))
 				{
-					MaxShaderVersion = 2;
+					MaxShaderVersion = 3;
 				}
+				MaxShaderVersion = FMath::Max(MinShaderVersion, MaxShaderVersion);
 			}
 			Version = (uint32)MaxShaderVersion;
 		}
@@ -773,11 +786,13 @@ RHI_API uint32 RHIGetShaderLanguageVersion(const EShaderPlatform Platform)
 			static int32 MaxShaderVersion = -1;
 			if (MaxShaderVersion < 0)
 			{
-				MaxShaderVersion = 0;
+				MaxShaderVersion = 2;
+				int32 MinShaderVersion = 2;
 				if(!GConfig->GetInt(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("MaxShaderLanguageVersion"), MaxShaderVersion, GEngineIni))
 				{
 					MaxShaderVersion = 0;
 				}
+				MaxShaderVersion = FMath::Max(MinShaderVersion, MaxShaderVersion);
 			}
 			Version = (uint32)MaxShaderVersion;
 		}
@@ -787,41 +802,31 @@ RHI_API uint32 RHIGetShaderLanguageVersion(const EShaderPlatform Platform)
 
 RHI_API bool RHISupportsTessellation(const EShaderPlatform Platform)
 {
-	if (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && !IsMetalPlatform(Platform))
+	if (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5))
 	{
-		return (Platform == SP_PCD3D_SM5) || (Platform == SP_XBOXONE_D3D12) || (Platform == SP_OPENGL_SM5) || (Platform == SP_OPENGL_ES31_EXT)/* || (IsVulkanSM5Platform(Platform)*/;
-	}
-	// For Metal we can only support tessellation if we are willing to sacrifice backward compatibility with OS versions.
-	// As such it becomes an opt-in project setting.
-	else if (Platform == SP_METAL_SM5)
-	{
-		return (RHIGetShaderLanguageVersion(Platform) >= 2);
+		return (Platform == SP_PCD3D_SM5) || (Platform == SP_XBOXONE_D3D12) || (Platform == SP_OPENGL_SM5) || (Platform == SP_OPENGL_ES31_EXT) || (Platform == SP_METAL_SM5) || (IsVulkanSM5Platform(Platform) && CVarVulkanEnableTessellation->GetInt() != 0);
 	}
 	return false;
 }
 
 RHI_API bool RHISupportsPixelShaderUAVs(const EShaderPlatform Platform)
 {
-	if (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && !IsMetalPlatform(Platform))
+	if (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5))
 	{
 		return true;
-	}
-	else if (IsMetalSM5Platform(Platform))
-	{
-		return (RHIGetShaderLanguageVersion(Platform) >= 2);
 	}
 	return false;
 }
 
 RHI_API bool RHISupportsIndexBufferUAVs(const EShaderPlatform Platform)
 {
-	return Platform == SP_PCD3D_SM5 || IsVulkanPlatform(Platform) || Platform == SP_XBOXONE_D3D12 || Platform == SP_PS4;
+	return Platform == SP_PCD3D_SM5 || IsVulkanPlatform(Platform) || IsMetalSM5Platform(Platform) || Platform == SP_XBOXONE_D3D12 || Platform == SP_PS4;
 }
+
 
 static ERHIFeatureLevel::Type GRHIMobilePreviewFeatureLevel = ERHIFeatureLevel::Num;
 RHI_API void RHISetMobilePreviewFeatureLevel(ERHIFeatureLevel::Type MobilePreviewFeatureLevel)
 {
-	check(MobilePreviewFeatureLevel == ERHIFeatureLevel::ES2 || MobilePreviewFeatureLevel == ERHIFeatureLevel::ES3_1);
 	check(GRHIMobilePreviewFeatureLevel == ERHIFeatureLevel::Num);
 	check(!GIsEditor);
 	GRHIMobilePreviewFeatureLevel = MobilePreviewFeatureLevel;
@@ -890,8 +895,9 @@ void FRHIRenderPassInfo::ConvertToRenderTargetsInfo(FRHISetRenderTargetsInfo& Ou
 	if (NumUAVs > 0)
 	{
 		check(UAVIndex != -1);
-		check(UAVIndex >= OutRTInfo.NumColorRenderTargets);
-		OutRTInfo.NumColorRenderTargets = UAVIndex;
+		int32 StartingUAVIndex = FMath::Max(UAVIndex, OutRTInfo.NumColorRenderTargets);
+		check((StartingUAVIndex+NumUAVs) <= MaxSimultaneousUAVs);
+		OutRTInfo.NumColorRenderTargets = StartingUAVIndex;
 		for (int32 Index = 0; Index < NumUAVs; ++Index)
 		{
 			OutRTInfo.UnorderedAccessView[Index] = UAVs[Index];
@@ -900,7 +906,7 @@ void FRHIRenderPassInfo::ConvertToRenderTargetsInfo(FRHISetRenderTargetsInfo& Ou
 	}
 }
 
-
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 void FRHIRenderPassInfo::Validate() const
 {
 	int32 NumSamples = -1;	// -1 means nothing found yet
@@ -925,6 +931,11 @@ void FRHIRenderPassInfo::Validate() const
 			ensure(Store != ERenderTargetStoreAction::EMultisampleResolve || Entry.RenderTarget->GetNumSamples() > 1);
 			// Don't resolve to null
 			ensure(Store != ERenderTargetStoreAction::EMultisampleResolve || Entry.ResolveTarget);
+
+			if (Entry.ResolveTarget)
+			{
+				//ensure(Store == ERenderTargetStoreAction::EMultisampleResolve);
+			}
 		}
 		else
 		{
@@ -966,9 +977,31 @@ void FRHIRenderPassInfo::Validate() const
 		ensure(!bIsMSAAResolve || DepthStencilRenderTarget.DepthStencilTarget->GetNumSamples() > 1);
 		// Don't resolve to null
 		//ensure(DepthStencilRenderTarget.ResolveTarget || DepthStore != ERenderTargetStoreAction::EStore);
+
 		// Don't write to depth if read-only
-		ensure(DepthStencilRenderTarget.ExclusiveDepthStencil.IsDepthWrite() || DepthStore != ERenderTargetStoreAction::EStore);
-		ensure(DepthStencilRenderTarget.ExclusiveDepthStencil.IsStencilWrite() || StencilStore != ERenderTargetStoreAction::EStore);
+		//ensure(DepthStencilRenderTarget.ExclusiveDepthStencil.IsDepthWrite() || DepthStore != ERenderTargetStoreAction::EStore);
+		// This is not true for stencil. VK and Metal specify that the DontCare store action MAY leave the attachment in an undefined state.
+		/*ensure(DepthStencilRenderTarget.ExclusiveDepthStencil.IsStencilWrite() || StencilStore != ERenderTargetStoreAction::EStore);*/
+
+		// If we have a depthstencil target we MUST Store it or it will be undefined after rendering.
+		if (DepthStencilRenderTarget.DepthStencilTarget->GetFormat() != PF_D24)
+		{
+			// If this is DepthStencil we must store it out unless we are absolutely sure it will never be used again.
+			// it is valid to use a depthbuffer for performance and not need the results later.
+			//ensure(StencilStore == ERenderTargetStoreAction::EStore);
+		}
+
+		if (DepthStencilRenderTarget.ExclusiveDepthStencil.IsDepthWrite())
+		{
+			// this check is incorrect for mobile, depth/stencil is intermediate and we don't want to store it to main memory
+			//ensure(DepthStore == ERenderTargetStoreAction::EStore);
+		}
+
+		if (DepthStencilRenderTarget.ExclusiveDepthStencil.IsStencilWrite())
+		{
+			// this check is incorrect for mobile, depth/stencil is intermediate and we don't want to store it to main memory
+			//ensure(StencilStore == ERenderTargetStoreAction::EStore);
+		}
 	}
 	else
 	{
@@ -976,6 +1009,7 @@ void FRHIRenderPassInfo::Validate() const
 		ensure(DepthStencilRenderTarget.ExclusiveDepthStencil == FExclusiveDepthStencil::DepthNop_StencilNop);
 	}
 }
+#endif
 
 static FRHIPanicEvent RHIPanicEvent;
 FRHIPanicEvent& RHIGetPanicDelegate()

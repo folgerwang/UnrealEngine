@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -40,6 +40,20 @@ public:
 	void SetStackEntryIsExpanded(const FString& StackEntryKey, bool bIsExpanded);
 
 	/*
+	 * Gets whether or not a stack entry was Expanded before triggering a stack search.
+	 * @param bWasExpandedPreSearchDefault The default value to to return if the pre-search expanded state hasn't been set for the stack entry.
+	 * @param StackEntryKey a unique key for the entry.
+	 */
+	bool GetStackEntryWasExpandedPreSearch(const FString& StackEntryKey, bool bWasExpandedPreSearchDefault) const;
+
+	/*
+	 * Sets whether or not a stack entry was Expanded before a stack search was triggered.
+	 * @param StackEntryKey A unique key for the entry.
+	 * @param bWasExpandedPreSearch Whether or not the entry was expanded pre-search.
+	 */
+	void SetStackEntryWasExpandedPreSearch(const FString& StackEntryKey, bool bWasExpandedPreSearch);
+
+	/*
 	* Gets whether or not a stack item is showing advanced items.
 	* @param StackItemKey A unique key for the entry.
 	* @param bIsExpandedDefault The default value to return if the expanded state hasn't been set for the stack entry.
@@ -64,6 +78,12 @@ public:
 
 	/* Sets whether or not item outputs should be shown in the stack. */
 	void SetShowOutputs(bool bInShowOutputs);
+
+	/* Gets whether or not item linked script inputs should be shown in the stack. */
+	bool GetShowLinkedInputs() const;
+
+	/* Sets whether or not item linked script inputs should be shown in the stack. */
+	void SetShowLinkedInputs(bool bInShowLinkedInputs);
 
 	/* Gets the last scroll position for the associated stack. */
 	double GetLastScrollPosition() const;
@@ -90,6 +110,9 @@ private:
 	TMap<FString, bool> StackEntryKeyToExpandedMap;
 
 	UPROPERTY()
+	TMap<FString, bool> StackEntryKeyToPreSearchExpandedMap;
+
+	UPROPERTY()
 	TMap<FString, bool> StackItemKeyToShowAdvancedMap;
 
 	UPROPERTY()
@@ -97,6 +120,9 @@ private:
 
 	UPROPERTY()
 	bool bShowOutputs;
+
+	UPROPERTY()
+	bool bShowLinkedInputs;
 
 	UPROPERTY()
 	double LastScrollPosition;

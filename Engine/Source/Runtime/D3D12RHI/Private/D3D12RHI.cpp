@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D12RHI.cpp: Unreal D3D RHI library implementation.
@@ -19,6 +19,15 @@
 #endif
 
 DEFINE_LOG_CATEGORY(LogD3D12RHI);
+
+
+static TAutoConsoleVariable<int32> CVarD3D12UseD24(
+	TEXT("r.D3D12.Depth24Bit"),
+	0,
+	TEXT("0: Use 32-bit float depth buffer\n1: Use 24-bit fixed point depth buffer(default)\n"),
+	ECVF_ReadOnly
+);
+
 
 TAutoConsoleVariable<int32> CVarD3D12ZeroBufferSizeInMB(
 	TEXT("D3D12.ZeroBufferSizeInMB"),
@@ -83,19 +92,22 @@ FD3D12DynamicRHI::FD3D12DynamicRHI(TArray<FD3D12Adapter*>& ChosenAdaptersIn) :
 	GPixelFormats[PF_DXT5			].PlatformFormat = DXGI_FORMAT_BC3_TYPELESS;
 	GPixelFormats[PF_BC4			].PlatformFormat = DXGI_FORMAT_BC4_UNORM;
 	GPixelFormats[PF_UYVY			].PlatformFormat = DXGI_FORMAT_UNKNOWN;		// TODO: Not supported in D3D11
-#if DEPTH_32_BIT_CONVERSION
-	GPixelFormats[PF_DepthStencil	].PlatformFormat = DXGI_FORMAT_R32G8X24_TYPELESS;
-	GPixelFormats[PF_DepthStencil	].BlockBytes = 5;
-	GPixelFormats[PF_DepthStencil	].Supported = true;
-	GPixelFormats[PF_X24_G8			].PlatformFormat = DXGI_FORMAT_X32_TYPELESS_G8X24_UINT;
-	GPixelFormats[PF_X24_G8			].BlockBytes = 5;
-#else
-	GPixelFormats[PF_DepthStencil	].PlatformFormat = DXGI_FORMAT_R24G8_TYPELESS;
-	GPixelFormats[PF_DepthStencil	].BlockBytes = 4;
-	GPixelFormats[PF_DepthStencil	].Supported = true;
-	GPixelFormats[PF_X24_G8			].PlatformFormat = DXGI_FORMAT_X24_TYPELESS_G8_UINT;
-	GPixelFormats[PF_X24_G8			].BlockBytes = 4;
-#endif
+	if (CVarD3D12UseD24.GetValueOnAnyThread())
+	{
+		GPixelFormats[PF_DepthStencil].PlatformFormat = DXGI_FORMAT_R24G8_TYPELESS;
+		GPixelFormats[PF_DepthStencil].BlockBytes = 4;
+		GPixelFormats[PF_DepthStencil].Supported = true;
+		GPixelFormats[PF_X24_G8].PlatformFormat = DXGI_FORMAT_X24_TYPELESS_G8_UINT;
+		GPixelFormats[PF_X24_G8].BlockBytes = 4;
+	}
+	else
+	{
+		GPixelFormats[PF_DepthStencil].PlatformFormat = DXGI_FORMAT_R32G8X24_TYPELESS;
+		GPixelFormats[PF_DepthStencil].BlockBytes = 5;
+		GPixelFormats[PF_DepthStencil].Supported = true;
+		GPixelFormats[PF_X24_G8].PlatformFormat = DXGI_FORMAT_X32_TYPELESS_G8X24_UINT;
+		GPixelFormats[PF_X24_G8].BlockBytes = 5;
+	}
 	GPixelFormats[PF_ShadowDepth	].PlatformFormat = DXGI_FORMAT_R16_TYPELESS;
 	GPixelFormats[PF_ShadowDepth	].BlockBytes = 2;
 	GPixelFormats[PF_ShadowDepth	].Supported = true;
@@ -160,14 +172,11 @@ FD3D12DynamicRHI::FD3D12DynamicRHI(TArray<FD3D12Adapter*>& ChosenAdaptersIn) :
 	GMaxShadowDepthBufferSizeY = GMaxTextureDimensions;
 	GRHISupportsResolveCubemapFaces = true;
 
-	// Enable multithreading if not in the editor (editor crashes with multithreading enabled).
-	if (!GIsEditor)
-	{
-		GRHISupportsRHIThread = true;
+	GRHISupportsRHIThread = true;
 #if PLATFORM_XBOXONE
-		GRHISupportsRHIOnTaskThread = true;
+	GRHISupportsRHIOnTaskThread = true;
 #endif
-	}
+
 	GRHISupportsParallelRHIExecute = D3D12_SUPPORTS_PARALLEL_RHI_EXECUTE;
 
 	GSupportsTimestampRenderQueries = true;
@@ -344,7 +353,7 @@ void FD3D12DynamicRHI::UpdateBuffer(FD3D12Resource* Dest, uint32 DestOffset, FD3
 	FD3D12CommandContext& DefaultContext = Device->GetDefaultCommandContext();
 	FD3D12CommandListHandle& hCommandList = DefaultContext.CommandListHandle;
 
-	FScopeResourceBarrier ScopeResourceBarrierDest(hCommandList, Dest, Dest->GetDefaultResourceState(), D3D12_RESOURCE_STATE_COPY_DEST, 0);
+	FConditionalScopeResourceBarrier ScopeResourceBarrierDest(hCommandList, Dest, D3D12_RESOURCE_STATE_COPY_DEST, 0);
 	// Don't need to transition upload heaps
 
 	DefaultContext.numCopies++;
@@ -495,4 +504,9 @@ void FD3D12DynamicRHI::GetBestSupportedMSAASetting(DXGI_FORMAT PlatformFormat, u
 uint32 FD3D12DynamicRHI::GetDebugFlags()
 {
 	return GetAdapter().GetDebugFlags();
+}
+
+bool FD3D12DynamicRHI::CheckGpuHeartbeat() const
+{
+	return ChosenAdapters[0]->GetGPUProfiler().CheckGpuHeartbeat();
 }

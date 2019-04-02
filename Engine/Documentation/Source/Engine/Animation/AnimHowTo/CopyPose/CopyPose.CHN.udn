@@ -1,0 +1,85 @@
+﻿INTSourceChangelist:4385367
+Availability: Public
+Crumbs: 
+Title: 从另一个骨架网格体复制姿势
+Description: 展示如何使用“从网格体复制姿势”动画蓝图节点将姿势从一个骨架网格体复制到另一个骨架网格体。 
+Type:how-to
+Version: 4.20
+Parent: Engine/Animation/AnimHowTo
+Order: 2
+Tags: Animation, Animation Blueprint, Copy Pose
+
+
+处理动画角色时，有时可能希望将同一动画数据应用给完全不同的角色。通过使用 **从网格体复制姿势（Copy Pose From Mesh）** 动画蓝图节点和少量蓝图可视化脚本，可以引用骨架网格体组件并将它使用的姿势复制给其他骨架网格体的动画蓝图。
+
+在此操作指南中，我们将使用“从网格体复制姿势”（Copy Pose From Mesh）节点来将玩家角色的动画复制给另外一个骨架网格体。
+
+![](CopyPoseFromMesh.png)
+
+## 步骤
+
+1.  在 **Content/ThirdPersonBP/Blueprints** 文件夹中，复制 **ThirdPersonCharacter** 蓝图并使用默认名称。
+
+    ![](CopyPose_1.png)
+
+2.  在 **Content/Mannequin/Character/Mesh** 文件夹中，右键单击 **SK_Mannequin**，在 **创建（Create）** 下，选择 **动画蓝图（Anim Blueprint）** 并使用默认的命名规范。
+
+    ![](CopyPose_2.png)
+
+3.  打开步骤1中的 **ThirdPersonCharacter1** 蓝图，然后删除 **事件图表** 中的所有节点。
+
+4.  在 **组件（Components）** 窗口中选中 **网格体（Mesh）**，然后在 **细节（Details）** 面板中，将 **动画类（Anim Class）** 设置为 **UE4\_Mannequin\_Skeleton_AnimBlueprint**。
+
+    ![](CopyPose_3-1.png)
+
+5.  打开 **UE4\_Mannequin\_Skeleton_AnimBlueprint**，在 **动画图表** 中，添加 **从网格体复制姿势（Copy Pose From Mesh）** 节点并将其连接到 **最终动画姿势（Final Animation Pose）**，然后将 **源网格体组件（Source Mesh Component）** 提升为 **角色引用（Character Reference）** 变量。
+
+    ![](CopyPose_5.png)  
+
+    “角色引用（Character Reference）”变量将引用我们指定的角色的骨架网格体组件。 
+
+6.  在 **ThirdPersonCharacter1** 蓝图中，创建名为 **角色引用（Character Reference）** 的变量并将 **变量类型（Variable Type）** 设置为 **第三人称角色（Third Person Character）**，然后启用 **实例可编辑（Instance Editable）**。  
+
+    ![](CopyPose_6.png)
+
+7.  将 **ThirdPersonCharacter1** 蓝图拖到关卡中，然后在其 **细节（Details）** 面板中，将关卡中的 **ThirdPersonCharacter** 指定为 **角色引用（Character Reference）** 变量。 
+ 
+    ![](CopyPose_7.png)  
+
+    通过在此处指定该值，我们将创建到我们希望复制其骨架网格体组件的角色（在此示例中，为玩家角色）的引用。 
+
+8.  打开 **UE4\_Mannequin\_Skeleton_AnimBlueprint**，在 **事件图表** 中，使用 **尝试获取Pawn拥有者（Try Get Pawn Owner）** 节点连接 **投射到ThirdPersonCharacter1（Cast to ThirdPersonCharacter1）**，然后将 **作为第三人称角色1（As Third Person Character 1）** 引脚与 **角色引用（Character Reference）** 变量相连。  
+    
+	![](CopyPose_8.png)
+
+9.  从 **角色引用（Character Reference）** 节点拖出引线并与添加的 **获取网格体（Get Mesh）** 节点相连，然后设置动画蓝图中的 **角色引用（Character Reference）** 变量。  
+
+    ![](CopyPose_9.png)  
+
+    现在玩家角色的骨架网格体将被复制并指定给动画蓝图中的“角色引用（Character Reference）”，以驱动角色的姿势。 
+
+10.  从主工具栏中，在编辑器中 **运行（Play）**。 
+
+## 最终结果
+
+在编辑器中运行时，该不可操作角色将播放和玩家角色相同的动画。 
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:width]
+	640
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	360
+	[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	5SVoMKr_X-4
+	[/PARAMLITERAL]
+[/OBJECT]
+
+当你四处移动时，关卡中的另一个角色将复制你的动画姿势，即使该角色并没有可驱动这些不同姿势的逻辑或状态机。尽管该示例从玩家角色进行复制，但是可以设置具有AI和状态机驱动动画的不可操作角色（NPC），然后让另一个不具有逻辑的NPC通过“从网格体复制姿势（Copy Pose From Mesh）”节点来复制姿势，从而模仿相同的行为和逻辑。 
+
+使用“从网格体复制姿势（Copy Pose From Mesh）”节点时，可以在 **细节（Details）** 面板中启用 **使用连接的父项（Use Attached Parent）**，它可在源网格体组件无效时查找连接的父项并将它用作源。 
+
+![](CopyPoseDetails.png)
+
+而且除骨骼变换以外，还可以 **复制曲线（Copy Curves）**，它将复制当前骨架中现有的曲线。如果曲线列表变化了，动画系统也需要重新初始化。

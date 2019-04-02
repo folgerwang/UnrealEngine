@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Evaluation/MovieScenePropertyTemplate.h"
 
@@ -28,4 +28,46 @@ void FMovieScenePropertySectionTemplate::Setup(FPersistentEvaluationData& Persis
 FMovieSceneAnimTypeID FMovieScenePropertySectionTemplate::GetPropertyTypeID() const
 {
 	return PropertyTypeIDs.GetAnimTypeID(PropertyData.PropertyPath);
+}
+
+const FMovieSceneInterrogationKey FMovieScenePropertySectionTemplate::GetFloatInterrogationKey()
+{
+	const static FMovieSceneAnimTypeID TypeID = FMovieSceneAnimTypeID::Unique();
+	return TypeID;
+}
+const FMovieSceneInterrogationKey FMovieScenePropertySectionTemplate::GetInt32InterrogationKey()
+{
+	const static FMovieSceneAnimTypeID TypeID = FMovieSceneAnimTypeID::Unique();
+	return TypeID;
+}
+const FMovieSceneInterrogationKey FMovieScenePropertySectionTemplate::GetTransformInterrogationKey()
+{
+	const static FMovieSceneAnimTypeID TypeID = FMovieSceneAnimTypeID::Unique();
+	return TypeID;
+}
+const FMovieSceneInterrogationKey FMovieScenePropertySectionTemplate::GetEulerTransformInterrogationKey()
+{
+	const static FMovieSceneAnimTypeID TypeID = FMovieSceneAnimTypeID::Unique();
+	return TypeID;
+}
+const FMovieSceneInterrogationKey FMovieScenePropertySectionTemplate::GetVector4InterrogationKey()
+{
+	const static FMovieSceneAnimTypeID TypeID = FMovieSceneAnimTypeID::Unique();
+	return TypeID;
+}
+const FMovieSceneInterrogationKey FMovieScenePropertySectionTemplate::GetVectorInterrogationKey()
+{
+	const static FMovieSceneAnimTypeID TypeID = FMovieSceneAnimTypeID::Unique();
+	return TypeID;
+}
+const FMovieSceneInterrogationKey FMovieScenePropertySectionTemplate::GetVector2DInterrogationKey()
+{
+	const static FMovieSceneAnimTypeID TypeID = FMovieSceneAnimTypeID::Unique();
+	return TypeID;
+}
+
+const FMovieSceneInterrogationKey FMovieScenePropertySectionTemplate::GetColorInterrogationKey()
+{
+	const static FMovieSceneAnimTypeID TypeID = FMovieSceneAnimTypeID::Unique();
+	return TypeID;
 }

@@ -9,7 +9,7 @@ Version: 4.15
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 단계](Programming/Tutorials/FirstPersonShooter/4/4/1)
+		[이전 단계](Programming/Tutorials/FirstPersonShooter/4/4/1)
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -34,7 +34,7 @@ Version: 4.15
 
 1.	**내 블루프린트** 탭의 **IsFalling** 에 **Ctrl + 클릭** 하고 그래프에 끌어 놓아 **Get Is Falling** 노드를 만듭니다.
 
-1.	**Get Is Falling** 노드의 출력 불리언 핀을 **Result** 노드에 있는 **Can Enter Transition** 입력 불리언 핀에 연결합니다.
+1.	**Get Is Falling** 노드의 출력 부울 핀을 **Result** 노드에 있는 **Can Enter Transition** 입력 부울 핀에 연결합니다.
 
 	![](IsFallingtoResult.png)
 

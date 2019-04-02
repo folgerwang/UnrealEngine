@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Factories/FbxSceneImportFactory.h"
 #include "Misc/MessageDialog.h"
@@ -134,18 +134,21 @@ bool GetFbxSceneImportOptions(UnFbx::FFbxImporter* FbxImporter
 
 	GlobalImportSettings->OverrideMaterials.Reset();
 
-	TSharedPtr<SWindow> ParentWindow;
-	if (FModuleManager::Get().IsModuleLoaded("MainFrame"))
+	// Don't show the import options in unattended mode
+	if (!GIsRunningUnattendedScript)
 	{
-		IMainFrameModule& MainFrame = FModuleManager::LoadModuleChecked<IMainFrameModule>("MainFrame");
-		ParentWindow = MainFrame.GetParentWindow();
-	}
-	TSharedRef<SWindow> Window = SNew(SWindow)
-		.ClientSize(FVector2D(820.f, 650.f))
-		.Title(NSLOCTEXT("UnrealEd", "FBXSceneImportOpionsTitle", "FBX Scene Import Options"));
-	TSharedPtr<SFbxSceneOptionWindow> FbxSceneOptionWindow;
+		TSharedPtr<SWindow> ParentWindow;
+		if (FModuleManager::Get().IsModuleLoaded("MainFrame"))
+		{
+			IMainFrameModule& MainFrame = FModuleManager::LoadModuleChecked<IMainFrameModule>("MainFrame");
+			ParentWindow = MainFrame.GetParentWindow();
+		}
+		TSharedRef<SWindow> Window = SNew(SWindow)
+			.ClientSize(FVector2D(820.f, 650.f))
+			.Title(NSLOCTEXT("UnrealEd", "FBXSceneImportOpionsTitle", "FBX Scene Import Options"));
+		TSharedPtr<SFbxSceneOptionWindow> FbxSceneOptionWindow;
 
-	Window->SetContent
+		Window->SetContent
 		(
 			SAssignNew(FbxSceneOptionWindow, SFbxSceneOptionWindow)
 			.SceneInfo(SceneInfoPtr)
@@ -156,13 +159,14 @@ bool GetFbxSceneImportOptions(UnFbx::FFbxImporter* FbxImporter
 			.SceneImportOptionsSkeletalMeshDisplay(SkeletalMeshImportData)
 			.OwnerWindow(Window)
 			.FullPath(Path)
-			);
+		);
 
-	FSlateApplication::Get().AddModalWindow(Window, ParentWindow, false);
+		FSlateApplication::Get().AddModalWindow(Window, ParentWindow, false);
 
-	if (!FbxSceneOptionWindow->ShouldImport())
-	{
-		return false;
+		if (!FbxSceneOptionWindow->ShouldImport())
+		{
+			return false;
+		}
 	}
 
 	//setup all options
@@ -1004,7 +1008,7 @@ FFeedbackContext*	Warn
 	// Unselect all actors.
 	GEditor->SelectNone(false, false);
 
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, Class, InParent, Name, Type);
 	
 	//TODO verify if we really need this when instancing actor in a level from an import
 	//In that case we should change the variable name.
@@ -1040,7 +1044,7 @@ FFeedbackContext*	Warn
 		GEditor->IsImportingT3D = 0;
 		GIsImportingT3D = false;
 		Warn->EndSlowTask();
-		FEditorDelegates::OnAssetPostImport.Broadcast(this, World);
+		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, World);
 		return nullptr;
 	}
 
@@ -1084,7 +1088,7 @@ FFeedbackContext*	Warn
 		GEditor->IsImportingT3D = 0;
 		GIsImportingT3D = false;
 		Warn->EndSlowTask();
-		FEditorDelegates::OnAssetPostImport.Broadcast(this, World);
+		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, World);
 		return nullptr;
 	}
 
@@ -1116,7 +1120,7 @@ FFeedbackContext*	Warn
 			GEditor->IsImportingT3D = 0;
 			GIsImportingT3D = false;
 			Warn->EndSlowTask();
-			FEditorDelegates::OnAssetPostImport.Broadcast(this, World);
+			GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, World);
 			return nullptr;
 		}
 	}
@@ -1236,7 +1240,7 @@ FFeedbackContext*	Warn
 	ReimportData = nullptr;
 
 	Warn->EndSlowTask();
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, World);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, World);
 
 	return ReturnObject;
 }
@@ -2176,8 +2180,10 @@ UObject* UFbxSceneImportFactory::RecursiveImportNode(void* VoidFbxImporter, void
 				{
 					if (LODIndex >= MAX_STATIC_MESH_LODS)
 					{
-						FFbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("ImporterLimits_MaximumStaticMeshLODReach", "Reach the maximum LOD number({0}) for a staticmesh."), FText::AsNumber(MAX_STATIC_MESH_LODS))), FFbxErrors::Generic_Mesh_TooManyLODs);
-						continue;
+						FFbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(
+							LOCTEXT("ImporterLimits_MaximumStaticMeshLODReach", "Reached the maximum number of LODs for a Static Mesh({0}) - discarding {1} LOD meshes."), FText::AsNumber(MAX_STATIC_MESH_LODS), FText::AsNumber(Node->GetChildCount() - MAX_STATIC_MESH_LODS))
+						), FFbxErrors::Generic_Mesh_TooManyLODs);
+						break;
 					}
 					AllNodeInLod.Empty();
 					FFbxImporter->FindAllLODGroupNode(AllNodeInLod, Node, LODIndex);

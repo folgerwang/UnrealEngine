@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MetalState.cpp: Metal state implementation.
@@ -345,6 +345,10 @@ static FMetalSampler FindOrCreateSamplerState(mtlpp::Device Device, const FSampl
 #if PLATFORM_MAC
 		Desc.SetBorderColor(Initializer.BorderColor == 0 ? mtlpp::SamplerBorderColor::TransparentBlack : mtlpp::SamplerBorderColor::OpaqueWhite);
 #endif
+		if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesIABs))
+		{
+			Desc.SetSupportArgumentBuffers(true);
+		}
 		
 		State = Device.NewSamplerState(Desc);
 		

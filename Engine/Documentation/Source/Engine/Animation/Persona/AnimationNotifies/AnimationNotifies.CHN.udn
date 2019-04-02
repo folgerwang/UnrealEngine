@@ -1,41 +1,54 @@
-﻿INTSourceChangelist:2083400
+﻿INTSourceChangelist:3782314
 Availability:Public
-Title:角色编辑器中的动画通知
+Title:动画通知窗口
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Persona
-Description: 关于角色动画编辑器中的动画通知窗口的用户指南。
+Description:骨架编辑器中动画通知窗口的用户指南。
+version: 4.14
+related: Engine/Animation/Sequences/Notifies
+related: Engine/Animation/Persona/Modes/Skeleton
+related: Engine/Animation/Skeleton
+related: Engine/Animation/Persona/AssetEditor
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Animation/Persona/AssetBrowser:title%](Engine/Animation/animation_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/content_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Animation/Persona/AnimationNotifies:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Animation/Persona/AnimationNotifies:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Animation/Persona/AnimationNotifies]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-角色编辑器的 **Animation Notifies（动画通知）** 窗口显示了资源编辑器中创建的自定义的动画通知。
-
-**动画通知** 窗口默认是不可见的。要想查看它，请在角色编辑器的 **窗口** 菜单上，点击 **动画通知** 。
 
 ![Animation Notifies Window](AnimationNotifies.png)
 
-[REGION:note]
-在 **动画通知** 窗口中选择一个自定义的动画通知，将会在角色编辑器的 **详细信息** 面板中显示它的属性。
+**骨架编辑器（Skeleton Editor）** 中的 **动画通知（Anim Notifies）** 窗口显示当前选中[骨架](Engine/Animation/Skeleton)资源的所有自定义[动画通知](Engine/Animation/Sequences/Notifies)。“动画通知”窗口可视为一种动画通知管理器，使用者可以看到当前指定的所有自定义通知和通知关联的动画，并能删除或重命名通知。但无法在此窗口中新建通知，新建将在动画资源自身的[](Engine/Animation/Persona/AssetEditor)中完成。 
+
+(#viewingtheanimationnotifieswindow)
+## 查看动画通知窗口
+
+在 **内容浏览器** 中打开 **骨架** 资源即可查看 **动画通知** 窗口： 
+
+![](OpenSkeletonAsset.png)
+
+**动画通知** 窗口将出现在 **骨架编辑器** 的右下部： 
+
+[REGION:lightbox]
+[![](AnimationNotifiesWindow.png)(w:800)](AnimationNotifiesWindow.png)
 [/REGION]
 
-要想删除一个自定义的动画通知，请右击它，然后点击 **删除** 。
+[REGION:caption]
+点击图片查看全图。 
+[/REGION]
 
-要想重命名一个自定义的动画通知，请右击它，然后点击 **重命名** 。
+如 **动画通知** 窗口未出现或已关闭，可在 **主工具栏** 选项中再次打开： 
 
-关于角色资源编辑器的更多信息，请参照[](Engine/Animation/Persona\AssetEditor)。
+![](MainToolbarOption.png)
+
+(#renaming/deletingnotifies)
+## 重命名/删除通知
+
+在 **动画通知** 窗口中 **右键点击** 通知即可 **重命名** 或 **删除** 通知： 
+
+![](RightClickMenu.png)
+
+(#skeletonnotifywindow)
+## 骨架通知窗口
+
+在 **动画通知** 窗口中选中一个通知时，**骨架通知** 窗口将被填充： 
+
+![](SkeletonNotify.png)
+
+此窗口将显示通知的命名和其当前所处的动画。 
+
+

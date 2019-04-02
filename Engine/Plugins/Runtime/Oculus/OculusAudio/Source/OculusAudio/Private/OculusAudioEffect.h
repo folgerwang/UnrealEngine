@@ -1,8 +1,10 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-#if PLATFORM_WINDOWS
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
+
+#if PLATFORM_WINDOWS
+
 #include "XAudio2Device.h"
 #include "AudioEffect.h"
 #include "Runtime/Windows/XAudio2/Private/XAudio2Support.h"

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 //
 // Private implementation for communication with Recast library
@@ -188,6 +188,11 @@ public:
 
 	float GetTotalDataSize() const;
 
+	/** Gets the size of the compressed tile cache, this is slow */
+#if !UE_BUILD_SHIPPING
+	int32 GetCompressedTileCacheSize();
+#endif
+
 	/** Called on world origin changes */
 	void ApplyWorldOffset(const FVector& InOffset, bool bWorldShift);
 
@@ -223,8 +228,8 @@ public:
 	void PostProcessPath(dtStatus PathfindResult, FNavMeshPath& Path,
 		const dtNavMeshQuery& Query, const dtQueryFilter* Filter,
 		NavNodeRef StartNode, NavNodeRef EndNode,
-		const FVector& UnrealStart, const FVector& UnrealEnd,
-		const FVector& RecastStart, FVector& RecastEnd,
+		FVector UnrealStart, FVector UnrealEnd,
+		FVector RecastStart, FVector RecastEnd,
 		dtQueryResult& PathResult) const;
 
 	void GetDebugPolyEdges(const dtMeshTile& Tile, bool bInternalEdges, bool bNavMeshEdges, TArray<FVector>& InternalEdgeVerts, TArray<FVector>& NavMeshEdgeVerts) const;

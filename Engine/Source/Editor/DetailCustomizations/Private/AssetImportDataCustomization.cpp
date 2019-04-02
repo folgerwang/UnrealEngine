@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AssetImportDataCustomization.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
@@ -14,6 +14,8 @@
 #include "IDetailChildrenBuilder.h"
 #include "DetailWidgetRow.h"
 #include "DetailLayoutBuilder.h"
+
+#include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "AssetImportDataCustomization"
 
@@ -43,11 +45,17 @@ void FAssetImportDataCustomization::CustomizeChildren( TSharedRef<IPropertyHandl
 
 	for (int32 Index = 0; Index < NumSourceFiles; ++Index)
 	{
-		ChildBuilder.AddCustomRow(SourceFileText)
+		FText SourceFileLabel = SourceFileText;
+		if (Info->SourceFiles.IsValidIndex(Index) && Info->SourceFiles[Index].DisplayLabelName.Len() > 0)
+		{
+			SourceFileLabel = FText::FromString(SourceFileText.ToString() + TEXT(" (") + Info->SourceFiles[Index].DisplayLabelName + TEXT(")"));
+		}
+
+		ChildBuilder.AddCustomRow(SourceFileLabel)
 		.NameContent()
 		[
 			SNew(STextBlock)
-			.Text(SourceFileText)
+			.Text(SourceFileLabel)
 			.Font(Font)
 		]
 		.ValueContent()
@@ -97,11 +105,53 @@ void FAssetImportDataCustomization::CustomizeChildren( TSharedRef<IPropertyHandl
 
 		ChildBuilder.AddCustomRow(SourceFileText)
 			.ValueContent()
+			.HAlign(HAlign_Fill)
+			.MaxDesiredWidth(TOptional<float>())
 			[
-				SNew(SEditableText)
-				.IsReadOnly(true)
-				.Text(this, &FAssetImportDataCustomization::GetTimestampText, Index)
-				.Font(Font)
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.FillWidth(1.0f)
+				[
+					SNew(SEditableText)
+					.IsReadOnly(true)
+					.Text(this, &FAssetImportDataCustomization::GetTimestampText, Index)
+					.Font(Font)
+				]
+				+ SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Center)
+				.AutoWidth()
+				[
+					SNew(SButton)
+					.VAlign(VAlign_Center)
+					.HAlign(HAlign_Center)
+					.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
+					.IsEnabled(this, &FAssetImportDataCustomization::IsPropagateFromAbovePathEnable, Index)
+					.OnClicked(this, &FAssetImportDataCustomization::OnPropagateFromAbovePathClicked, Index)
+					.ToolTipText(LOCTEXT("PropagateFromAbovePath_Tooltip", "Use the above source path to set this path."))
+					[
+						SNew(SImage)
+						.Image(FEditorStyle::GetBrush("ArrowDown"))
+					]
+				]
+				+ SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Center)
+				.AutoWidth()
+				[
+					SNew(SButton)
+					.VAlign(VAlign_Center)
+					.HAlign(HAlign_Center)
+					.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
+					.IsEnabled(this, &FAssetImportDataCustomization::IsPropagateFromBelowPathEnable, Index)
+					.OnClicked(this, &FAssetImportDataCustomization::OnPropagateFromBelowPathClicked, Index)
+					.ToolTipText(LOCTEXT("PropagateFromBelowPath_Tooltip", "Use the below source path to set this path."))
+					[
+						SNew(SImage)
+						.Image(FEditorStyle::GetBrush("ArrowUp"))
+					]
+				]
 			];
 	}
 }
@@ -160,6 +210,37 @@ UAssetImportData* FAssetImportDataCustomization::GetOuterClass() const
 	return OuterObjects.Num() ? Cast<UAssetImportData>(OuterObjects[0]) : nullptr;
 }
 
+class FImportDataSourceFileTransactionScope
+{
+public:
+	FImportDataSourceFileTransactionScope(FText TransactionName, UAssetImportData* InImportData)
+	{
+		check(InImportData);
+		ImportData = InImportData;
+		FScopedTransaction Transaction(TransactionName);
+
+		bIsTransactionnal = (ImportData->GetFlags() & RF_Transactional) > 0;
+		if (!bIsTransactionnal)
+		{
+			ImportData->SetFlags(RF_Transactional);
+		}
+
+		ImportData->Modify();
+	}
+	
+	~FImportDataSourceFileTransactionScope()
+	{
+		if (!bIsTransactionnal)
+		{
+			ImportData->ClearFlags(RF_Transactional);
+		}
+		ImportData->MarkPackageDirty();
+	}
+private:
+	bool bIsTransactionnal;
+	UAssetImportData* ImportData;
+};
+
 FReply FAssetImportDataCustomization::OnChangePathClicked(int32 Index) const
 {
 	UAssetImportData* ImportData = GetOuterClass();
@@ -176,6 +257,7 @@ FReply FAssetImportDataCustomization::OnChangePathClicked(int32 Index) const
 	FReimportManager::Instance()->GetNewReimportPath(Obj, OpenFilenames);
 	if (OpenFilenames.Num() == 1)
 	{
+		FImportDataSourceFileTransactionScope TransactionScope(LOCTEXT("SourceReimportChangePath", "Change source file path"), ImportData);
 		if (!Info || !Info->SourceFiles.IsValidIndex(Index))
 		{
 			ImportData->UpdateFilenameOnly(FPaths::ConvertRelativePathToFull(OpenFilenames[0]));
@@ -184,7 +266,6 @@ FReply FAssetImportDataCustomization::OnChangePathClicked(int32 Index) const
 		{
 			ImportData->UpdateFilenameOnly(FPaths::ConvertRelativePathToFull(OpenFilenames[0]), Index);
 		}
-		ImportData->MarkPackageDirty();
 	}
 	return FReply::Handled();
 }
@@ -194,12 +275,48 @@ FReply FAssetImportDataCustomization::OnClearPathClicked(int32 Index) const
 	UAssetImportData* ImportData = GetOuterClass();
 	if (ImportData && ImportData->SourceData.SourceFiles.IsValidIndex(Index))
 	{
+		FImportDataSourceFileTransactionScope TransactionScope(LOCTEXT("SourceReimportClearPath", "Clear Source file path"), ImportData);
 		ImportData->SourceData.SourceFiles[Index] = FAssetImportInfo::FSourceFile(FString());
-		ImportData->MarkPackageDirty();
 	}
 
 	return FReply::Handled();
 }
 
+bool FAssetImportDataCustomization::IsPropagateFromAbovePathEnable(int32 Index) const
+{
+	UAssetImportData* ImportData = GetOuterClass();
+	return (ImportData && ImportData->SourceData.SourceFiles.IsValidIndex(Index) && ImportData->SourceData.SourceFiles.IsValidIndex(Index - 1));
+}
+
+bool FAssetImportDataCustomization::IsPropagateFromBelowPathEnable(int32 Index) const
+{
+	UAssetImportData* ImportData = GetOuterClass();
+	return (ImportData && ImportData->SourceData.SourceFiles.IsValidIndex(Index) && ImportData->SourceData.SourceFiles.IsValidIndex(Index + 1));
+}
+
+void FAssetImportDataCustomization::PropagatePath(int32 SrcIndex, int32 DstIndex) const
+{
+	UAssetImportData* ImportData = GetOuterClass();
+	if (ImportData && ImportData->SourceData.SourceFiles.IsValidIndex(DstIndex) && ImportData->SourceData.SourceFiles.IsValidIndex(SrcIndex))
+	{
+		FImportDataSourceFileTransactionScope TransactionScope(LOCTEXT("SourceReimportPropagateFromAbove", "Propagate source file path"), ImportData);
+		FString OriginalLabel = ImportData->SourceData.SourceFiles[DstIndex].DisplayLabelName;
+		ImportData->SourceData.SourceFiles[DstIndex] = ImportData->SourceData.SourceFiles[SrcIndex];
+		ImportData->SourceData.SourceFiles[DstIndex].DisplayLabelName = OriginalLabel;
+	}
+}
+
+FReply FAssetImportDataCustomization::OnPropagateFromAbovePathClicked(int32 Index) const
+{
+	PropagatePath(Index - 1, Index);
+	return FReply::Handled();
+}
+
+
+FReply FAssetImportDataCustomization::OnPropagateFromBelowPathClicked(int32 Index) const
+{
+	PropagatePath(Index + 1, Index);
+	return FReply::Handled();
+}
 
 #undef LOCTEXT_NAMESPACE

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 D3D12Adapter.cpp:D3D12 Adapter implementation.
@@ -13,6 +13,15 @@ static TAutoConsoleVariable<int32> CVarTransientUniformBufferAllocatorSizeKB(
 	ECVF_ReadOnly
 );
 
+#if ENABLE_RESIDENCY_MANAGEMENT
+bool GEnableResidencyManagement = true;
+static TAutoConsoleVariable<int32> CVarResidencyManagement(
+	TEXT("D3D12.ResidencyManagement"),
+	1,
+	TEXT("Controls whether D3D12 resource residency management is active (default = on)."),
+	ECVF_ReadOnly
+);
+#endif // ENABLE_RESIDENCY_MANAGEMENT
 
 struct FRHICommandSignalFrameFence final : public FRHICommand<FRHICommandSignalFrameFence>
 {
@@ -133,7 +142,96 @@ void FD3D12Adapter::CreateRootDevice(bool bWithDebug)
 		GetAdapter(),
 		GetFeatureLevel(),
 		IID_PPV_ARGS(RootDevice.GetInitReference())
-		));
+	));
+
+	// Detect availability of shader model 6.0 wave operations
+	{
+		D3D12_FEATURE_DATA_D3D12_OPTIONS1 Features = {};
+		RootDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS1, &Features, sizeof(Features));
+		GRHISupportsWaveOperations = Features.WaveOps;
+	}
+
+#if ENABLE_RESIDENCY_MANAGEMENT
+	if (!CVarResidencyManagement.GetValueOnAnyThread())
+	{
+		UE_LOG(LogD3D12RHI, Log, TEXT("D3D12 resource residency management is disabled."));
+		GEnableResidencyManagement = false;
+	}
+#endif // ENABLE_RESIDENCY_MANAGEMENT
+
+
+#if D3D12_RHI_RAYTRACING
+	bool bRayTracingSupported = false;
+
+	{
+		D3D12_FEATURE_DATA_D3D12_OPTIONS5 Features = {};
+		if (SUCCEEDED(RootDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &Features, sizeof(Features)))
+			&& Features.RaytracingTier >= D3D12_RAYTRACING_TIER_1_0)
+		{
+			bRayTracingSupported = true;
+		}
+	}
+
+	auto GetRayTracingCVarValue = []()
+	{
+		auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.RayTracing"));
+		return CVar && CVar->GetInt() > 0;
+	};
+
+ 	if (bRayTracingSupported && GetRayTracingCVarValue() && !FParse::Param(FCommandLine::Get(), TEXT("noraytracing")))
+	{
+		RootDevice->QueryInterface(IID_PPV_ARGS(RootRayTracingDevice.GetInitReference()));
+		if (RootRayTracingDevice)
+		{
+			UE_LOG(LogD3D12RHI, Log, TEXT("D3D12 ray tracing enabled."));
+		}
+		else
+		{
+			bRayTracingSupported = false;
+		}
+	}
+#endif // D3D12_RHI_RAYTRACING
+
+#if NV_AFTERMATH
+	// Two ways to enable aftermath, command line or the r.GPUCrashDebugging variable
+	// Note: If intending to change this please alert game teams who use this for user support.
+	if (FParse::Param(FCommandLine::Get(), TEXT("gpucrashdebugging")))
+	{
+		GDX12NVAfterMathEnabled = true;
+	}
+	else
+	{
+		static IConsoleVariable* GPUCrashDebugging = IConsoleManager::Get().FindConsoleVariable(TEXT("r.GPUCrashDebugging"));
+		if (GPUCrashDebugging)
+		{
+			GDX12NVAfterMathEnabled = GPUCrashDebugging->GetInt();
+		}
+	}
+
+	if (GDX12NVAfterMathEnabled)
+	{
+		if (IsRHIDeviceNVIDIA())
+		{
+			GFSDK_Aftermath_Result Result = GFSDK_Aftermath_DX12_Initialize(GFSDK_Aftermath_Version_API, GFSDK_Aftermath_FeatureFlags_Maximum, RootDevice);
+			if (Result == GFSDK_Aftermath_Result_Success)
+			{
+				UE_LOG(LogD3D12RHI, Log, TEXT("[Aftermath] Aftermath enabled and primed"));
+				SetEmitDrawEvents(true);
+			}
+			else
+			{
+				UE_LOG(LogD3D12RHI, Log, TEXT("[Aftermath] Aftermath enabled but failed to initialize (%x)"), Result);
+				GDX12NVAfterMathEnabled = 0;
+			}
+		}
+		else
+		{
+			GDX12NVAfterMathEnabled = 0;
+			UE_LOG(LogD3D12RHI, Warning, TEXT("[Aftermath] Skipping aftermath initialization on non-Nvidia device"));
+		}
+	}
+#endif
+
 
 #if UE_BUILD_DEBUG	&& PLATFORM_WINDOWS
 	//break on debug
@@ -167,7 +265,7 @@ void FD3D12Adapter::CreateRootDevice(bool bWithDebug)
 			NewFilter.DenyList.pSeverityList = &DenySeverity;
 
 			// Be sure to carefully comment the reason for any additions here!  Someone should be able to look at it later and get an idea of whether it is still necessary.
-			D3D12_MESSAGE_ID DenyIds[] = {
+			TArray<D3D12_MESSAGE_ID, TInlineAllocator<16>> DenyIds = {
 				// OMSETRENDERTARGETS_INVALIDVIEW - d3d will complain if depth and color targets don't have the exact same dimensions, but actually
 				//	if the color target is smaller then things are ok.  So turn off this error.  There is a manual check in FD3D12DynamicRHI::SetRenderTarget
 				//	that tests for depth smaller than color and MSAA settings to match.
@@ -211,14 +309,28 @@ void FD3D12Adapter::CreateRootDevice(bool bWithDebug)
 				// but will hopefully be resolved when the RHI switches to use the engine's resource tracking system.
 				(D3D12_MESSAGE_ID)1008,
 
+				// This error gets generated on the first run when you install a new driver. The code handles this error properly and resets the PipelineLibrary,
+				// so we can safely ignore this message. It could possibly be avoided by adding driver version to the PSO cache filename, but an average user is unlikely
+				// to be interested in keeping PSO caches associated with old drivers around on disk, so it's better to just reset.
+				D3D12_MESSAGE_ID_CREATEPIPELINELIBRARY_DRIVERVERSIONMISMATCH,
+
 #if ENABLE_RESIDENCY_MANAGEMENT
 				// TODO: Remove this when the debug layers work for executions which are guarded by a fence
-				D3D12_MESSAGE_ID_INVALID_USE_OF_NON_RESIDENT_RESOURCE
+				D3D12_MESSAGE_ID_INVALID_USE_OF_NON_RESIDENT_RESOURCE,
 #endif
 			};
 
-			NewFilter.DenyList.NumIDs = sizeof(DenyIds) / sizeof(D3D12_MESSAGE_ID);
-			NewFilter.DenyList.pIDList = (D3D12_MESSAGE_ID*)&DenyIds;
+#if D3D12_RHI_RAYTRACING
+			if (bRayTracingSupported)
+			{
+				// When the debug layer is enabled and ray tracing is supported, this error is triggered after a CopyDescriptors
+				// call in the DescriptorCache even when ray tracing device is never used. This workaround is still required as of 2018-12-17.
+				DenyIds.Add(D3D12_MESSAGE_ID_COPY_DESCRIPTORS_INVALID_RANGES);
+			}
+#endif // D3D12_RHI_RAYTRACING
+
+			NewFilter.DenyList.NumIDs = DenyIds.Num();
+			NewFilter.DenyList.pIDList = DenyIds.GetData();
 
 			pd3dInfoQueue->PushStorageFilter(&NewFilter);
 
@@ -399,8 +511,22 @@ void FD3D12Adapter::InitializeDevices()
 		ID3D12RootSignature* StaticGraphicsRS = (GetStaticGraphicsRootSignature()) ? GetStaticGraphicsRootSignature()->GetRootSignature() : nullptr;
 		ID3D12RootSignature* StaticComputeRS = (GetStaticComputeRootSignature()) ? GetStaticComputeRootSignature()->GetRootSignature() : nullptr;
 
+		// #dxr_todo: verify that disk cache works correctly with DXR
 		PipelineStateCache.RebuildFromDiskCache(StaticGraphicsRS, StaticComputeRS);
 	}
+}
+
+void FD3D12Adapter::InitializeRayTracing()
+{
+#if D3D12_RHI_RAYTRACING
+	for (uint32 GPUIndex : FRHIGPUMask::All())
+	{
+		if (Devices[GPUIndex]->GetRayTracingDevice())
+		{
+			Devices[GPUIndex]->InitRayTracing();
+		}
+	}
+#endif // D3D12_RHI_RAYTRACING
 }
 
 void FD3D12Adapter::CreateSignatures()
@@ -432,11 +558,6 @@ void FD3D12Adapter::CreateSignatures()
 
 void FD3D12Adapter::Cleanup()
 {
-	// Execute
-	FlushRenderingCommands();
-	FRHICommandListExecutor::CheckNoOutstandingCmdLists();
-	FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);
-
 	// Reset the RHI initialized flag.
 	GIsRHIInitialized = false;
 
@@ -445,6 +566,13 @@ void FD3D12Adapter::Cleanup()
 		Viewport->IssueFrameEvent();
 		Viewport->WaitForFrameEventCompletion();
 	}
+
+#if D3D12_RHI_RAYTRACING
+	for (uint32 GPUIndex : FRHIGPUMask::All())
+	{
+		Devices[GPUIndex]->CleanupRayTracing();
+	}
+#endif // D3D12_RHI_RAYTRACING
 
 	// Manually destroy the effects as we can't do it in their destructor.
 	for (auto& Effect : TemporalEffectMap)
@@ -517,6 +645,12 @@ void FD3D12Adapter::Cleanup()
 
 
 	PipelineStateCache.Close();
+	RootSignatureManager.Destroy();
+
+	DrawIndirectCommandSignature.SafeRelease();
+	DrawIndexedIndirectCommandSignature.SafeRelease();
+	DispatchIndirectCommandSignature.SafeRelease();
+
 	FenceCorePool.Destroy();
 }
 
@@ -545,7 +679,7 @@ void FD3D12Adapter::SignalFrameFence_RenderThread(FRHICommandListImmediate& RHIC
 	}
 	else
 	{
-		new (RHICmdList.AllocCommand<FRHICommandSignalFrameFence>()) FRHICommandSignalFrameFence(ED3D12CommandQueueType::Default, FrameFence, PreviousFence);
+		ALLOC_COMMAND_CL(RHICmdList, FRHICommandSignalFrameFence)(ED3D12CommandQueueType::Default, FrameFence, PreviousFence);
 	}
 }
 

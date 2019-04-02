@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -27,7 +27,10 @@ typedef TRefCountPtr<FRHITexture2D> FTexture2DRHIRef;
  */
 struct FRenderThreadUpdateContext
 {
-	class FSlateDrawBuffer* DrawBuffer;
+	class FSlateDrawBuffer* WindowDrawBuffer;
+	float WorldTimeSeconds;
+	float DeltaTimeSeconds;
+	float RealTimeSeconds;
 	void* RenderTargetResource;
 	void* Renderer;
 	bool bClearTarget;
@@ -245,7 +248,7 @@ public:
 	FOnPostResizeWindowBackbuffer& OnPostResizeWindowBackBuffer() { return PostResizeBackBufferDelegate; }
 
 	/** Callback on the render thread after slate rendering finishes and right before present is called */
-	DECLARE_DELEGATE_OneParam(FOnBackBufferReadyToPresent, const FTexture2DRHIRef&);
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnBackBufferReadyToPresent, SWindow&, const FTexture2DRHIRef&);
 	FOnBackBufferReadyToPresent& OnBackBufferReadyToPresent() { return OnBackBufferReadyToPresentDelegate; }
 
 	/** 

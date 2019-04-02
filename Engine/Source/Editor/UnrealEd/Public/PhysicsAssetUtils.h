@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -46,6 +46,7 @@ struct FPhysAssetCreateParams
 		bCreateConstraints = true;
 		bWalkPastSmall = true;
 		bBodyForAll = false;
+		bDisableCollisionsByDefault = true;
 		AngularConstraintMode = ACM_Limited;
 		HullCount = 4;
 		MaxHullVerts = 16;
@@ -82,6 +83,10 @@ struct FPhysAssetCreateParams
 	/** Forces creation of a body for each bone */
 	UPROPERTY(EditAnywhere, Category = "Body Creation", meta=(DisplayName="Create Body for All Bones"))
 	bool								bBodyForAll;
+
+	/** Whether to disable collision of body with other bodies on creation */
+	UPROPERTY(EditAnywhere, Category = "Body Creation")
+	bool								bDisableCollisionsByDefault;
 
 	/** The type of angular constraint to create between bodies */
 	UPROPERTY(EditAnywhere, Category = "Constraint Creation", meta=(EditCondition="bCreateConstraints"))
@@ -174,7 +179,7 @@ namespace FPhysicsAssetUtils
 	 * @param	InBodyName			Name of the new body
 	 * @return	The Index of the newly created body.
 	 */
-	UNREALED_API int32 CreateNewBody(UPhysicsAsset* PhysAsset, FName InBodyName);
+	UNREALED_API int32 CreateNewBody(UPhysicsAsset* PhysAsset, FName InBodyName, const FPhysAssetCreateParams& Params);
 	
 	/** 
 	 * Destroys the specified body

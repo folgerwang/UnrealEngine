@@ -1,9 +1,14 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieScene/Parameters/MovieSceneNiagaraVectorParameterTrack.h"
 #include "MovieScene/Parameters/MovieSceneNiagaraVectorParameterSectionTemplate.h"
 #include "Sections/MovieSceneVectorSection.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
+
+bool UMovieSceneNiagaraVectorParameterTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneVectorSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneNiagaraVectorParameterTrack::CreateNewSection()
 {

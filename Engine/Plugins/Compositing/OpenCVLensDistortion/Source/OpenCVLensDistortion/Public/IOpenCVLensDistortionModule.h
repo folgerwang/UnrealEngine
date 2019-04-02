@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -18,6 +18,9 @@ class IOpenCVLensDistortionModule : public IModuleInterface
 {
 
 public:
+
+	// IModuleInterface
+	virtual void StartupModule() override;
 
 	/**
 	 * Singleton-like access to this module's interface.  This is just for convenience!

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Texture2D.cpp: Implementation of UTexture2D.
@@ -964,6 +964,12 @@ bool UTexture2D::ShouldMipLevelsBeForcedResident() const
 	{
 		return true;
 	}
+
+	if (GIsEditor && (LODGroup == TEXTUREGROUP_Terrain_Heightmap || LODGroup == TEXTUREGROUP_Terrain_Weightmap))
+	{
+		return true;
+	}
+
 	return false;
 }
 
@@ -1005,7 +1011,8 @@ UTexture2D* UTexture2D::CreateTransient(int32 InSizeX, int32 InSizeY, EPixelForm
 		// Allocate first mipmap.
 		int32 NumBlocksX = InSizeX / GPixelFormats[InFormat].BlockSizeX;
 		int32 NumBlocksY = InSizeY / GPixelFormats[InFormat].BlockSizeY;
-		FTexture2DMipMap* Mip = new(NewTexture->PlatformData->Mips) FTexture2DMipMap();
+		FTexture2DMipMap* Mip = new FTexture2DMipMap();
+		NewTexture->PlatformData->Mips.Add(Mip);
 		Mip->SizeX = InSizeX;
 		Mip->SizeY = InSizeY;
 		Mip->BulkData.Lock(LOCK_READ_WRITE);
@@ -1087,30 +1094,28 @@ void UTexture2D::UpdateTextureRegions(int32 MipIndex, uint32 NumRegions, const F
 		RegionData->SrcBpp = SrcBpp;
 		RegionData->SrcData = SrcData;
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			UpdateTextureRegionsData,
-			FUpdateTextureRegionsData*, RegionData, RegionData,			
-			TFunction<void(uint8* SrcData, const FUpdateTextureRegion2D* Regions)>, DataCleanupFunc, DataCleanupFunc,
+		ENQUEUE_RENDER_COMMAND(UpdateTextureRegionsData)(
+			[RegionData, DataCleanupFunc](FRHICommandListImmediate& RHICmdList)
 			{
-			for (uint32 RegionIndex = 0; RegionIndex < RegionData->NumRegions; ++RegionIndex)
-			{
-				int32 CurrentFirstMip = RegionData->Texture2DResource->GetCurrentFirstMip();
-				if (RegionData->MipIndex >= CurrentFirstMip)
+				for (uint32 RegionIndex = 0; RegionIndex < RegionData->NumRegions; ++RegionIndex)
 				{
-					RHIUpdateTexture2D(
-						RegionData->Texture2DResource->GetTexture2DRHI(),
-						RegionData->MipIndex - CurrentFirstMip,
-						RegionData->Regions[RegionIndex],
-						RegionData->SrcPitch,
-						RegionData->SrcData
-						+ RegionData->Regions[RegionIndex].SrcY * RegionData->SrcPitch
-						+ RegionData->Regions[RegionIndex].SrcX * RegionData->SrcBpp
-						);
+					int32 CurrentFirstMip = RegionData->Texture2DResource->GetCurrentFirstMip();
+					if (RegionData->MipIndex >= CurrentFirstMip)
+					{
+						RHIUpdateTexture2D(
+							RegionData->Texture2DResource->GetTexture2DRHI(),
+							RegionData->MipIndex - CurrentFirstMip,
+							RegionData->Regions[RegionIndex],
+							RegionData->SrcPitch,
+							RegionData->SrcData
+							+ RegionData->Regions[RegionIndex].SrcY * RegionData->SrcPitch
+							+ RegionData->Regions[RegionIndex].SrcX * RegionData->SrcBpp
+							);
+					}
 				}
-			}
-			DataCleanupFunc(RegionData->SrcData, RegionData->Regions);
-			delete RegionData;
-		});
+				DataCleanupFunc(RegionData->SrcData, RegionData->Regions);
+				delete RegionData;
+			});
 	}
 }
 
@@ -1141,12 +1146,12 @@ void UTexture2D::RefreshSamplerStates()
 		return;
 	}
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		RefreshSamplerStatesCommand,
-		FTexture2DResource*, Texture2DResource, ((FTexture2DResource*)Resource),
-	{
-		Texture2DResource->RefreshSamplerStates();
-	});
+	FTexture2DResource* Texture2DResource = ((FTexture2DResource*)Resource);
+	ENQUEUE_RENDER_COMMAND(RefreshSamplerStatesCommand)(
+		[Texture2DResource](FRHICommandList& RHICmdList)
+		{
+			Texture2DResource->RefreshSamplerStates();
+		});
 }
 
 /*-----------------------------------------------------------------------------
@@ -1172,7 +1177,7 @@ FTexture2DResource::FTexture2DResource( UTexture2D* InOwner, int32 InitialMipCou
 	MipFadeSetting = (Owner->LODGroup == TEXTUREGROUP_Lightmap || Owner->LODGroup == TEXTUREGROUP_Shadowmap) ? MipFade_Slow : MipFade_Normal;
 
 	// HDR images are stored in linear but still require gamma correction to display correctly.
-	bIgnoreGammaConversions = !Owner->SRGB && Owner->CompressionSettings != TC_HDR;
+	bIgnoreGammaConversions = !Owner->SRGB && Owner->CompressionSettings != TC_HDR && Owner->CompressionSettings != TC_HDR_Compressed;
 	bSRGB = InOwner->SRGB;
 
 	check(InitialMipCount>0);
@@ -1200,11 +1205,11 @@ FTexture2DResource::~FTexture2DResource()
 {
 	// free resource memory that was preallocated
 	// The deletion needs to happen in the rendering thread.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		DeleteResourceMem,
-		FTexture2DResourceMem*,ResourceMem,ResourceMem,
+	FTexture2DResourceMem* InResourceMem = ResourceMem;
+	ENQUEUE_RENDER_COMMAND(DeleteResourceMem)(
+		[InResourceMem](FRHICommandList& RHICmdList)
 		{
-			delete ResourceMem;
+			delete InResourceMem;
 		});
 
 	// Make sure we're not leaking memory if InitRHI has never been called.
@@ -1542,7 +1547,7 @@ bool UTexture2D::StreamIn(int32 NewMipCount, bool bHighPrio)
 	if (bIsStreamable && !PendingUpdate && Texture2DResource && Texture2DResource->bReadyForStreaming && NewMipCount > GetNumResidentMips())
 	{
 #if WITH_EDITORONLY_DATA
-		if (FPlatformProperties::HasEditorOnlyData())
+		if (FPlatformProperties::HasEditorOnlyData() && !GetOutermost()->bIsCookedForEditor)
 		{
 			if (GRHISupportsAsyncTextureCreation)
 			{
@@ -1622,6 +1627,11 @@ void FTexture2DResource::UpdateTexture(FTexture2DRHIRef& InTextureRHI, int32 InN
 			STAT( TextureSize = Owner->CalcTextureMemorySize(RequestedMips) );
 			INC_DWORD_STAT_BY( STAT_TextureMemory, TextureSize );
 			INC_DWORD_STAT_FNAME_BY( LODGroupStatName, TextureSize );
+		}
+
+		if (GRHIForceNoDeletionLatencyForStreamingTextures)
+		{
+			TextureRHI->DoNoDeferDelete();
 		}
 
 		TextureRHI		= InTextureRHI;

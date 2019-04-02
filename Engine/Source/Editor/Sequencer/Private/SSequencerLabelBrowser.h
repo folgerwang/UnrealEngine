@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -88,6 +88,12 @@ private:
 
 	/** Callback for checking whether 'Rename' context menu entry can execute. */
 	bool HandleRenameLabelMenuEntryCanExecute() const;
+
+	/** Remove label item and its children */
+	void RemoveLabelItem(TSharedPtr<FSequencerLabelTreeNode> InItem);
+
+	/** Add node's label and its children to the new label */
+	void AddLabelNode(TSharedPtr<FSequencerLabelTreeNode> InItem, FString& NewLabel);
 
 private:
 

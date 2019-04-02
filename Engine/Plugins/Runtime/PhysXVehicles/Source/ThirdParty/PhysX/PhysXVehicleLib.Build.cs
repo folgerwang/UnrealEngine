@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System;
@@ -117,14 +117,12 @@ public class PhysXVehicleLib : ModuleRules
             PublicLibraryPaths.Add(PhysXLibDir + "IOS");
 
             PublicAdditionalLibraries.Add("PhysX3Vehicle" + LibrarySuffix);
-            PublicAdditionalShadowFiles.Add(Path.Combine(PhysXLibDir, "IOS", "libPhysX3Vehicle" + LibrarySuffix + ".a"));
         }
         else if (Target.Platform == UnrealTargetPlatform.TVOS)
         {
             PublicLibraryPaths.Add(PhysXLibDir + "TVOS");
 
             PublicAdditionalLibraries.Add("PhysX3Vehicle" + LibrarySuffix);
-            PublicAdditionalShadowFiles.Add(Path.Combine(PhysXLibDir, "TVOS", "libPhysX3Vehicle" + LibrarySuffix + ".a"));
         }
         else if (Target.Platform == UnrealTargetPlatform.HTML5)
         {

@@ -1,13 +1,14 @@
-﻿INTSourceChangelist:2738908
+﻿INTSourceChangelist:3242329
 Availability:Public
-Title:材质编辑器 - 如何使用透明度
+Title:使用透明度
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials
-Description:有关在材质中使用透明度的操作指南
+Description:有关在材质中使用透明度的指南
 Related:Engine/Rendering/Materials/MaterialProperties/BlendModes
 Related:Engine/Rendering/Materials/Functions/Reference/Opacity
 Related:Engine/Rendering/LightingAndShadows/LitTranslucency
 Version:4.9
 SkillLevel:Intermediate
+tags:Materials
 
 [TOC(start:2 end:3)]
 
@@ -17,6 +18,7 @@ SkillLevel:Intermediate
 在现实世界中，经常将这些属性称为 **透明度** 或 **不透明度**，并且经常互换使用以说明同一件事情。 
 但是，在虚幻引擎 4 (UE4) 中，“透明度”用来说明表面是否通透，而“不透明度”用来定义表面的通透度。在以下操作指南中，您将学习在虚幻引擎 4 中将透明度引入材质所需了解的所有内容。
 
+(#Transparency)
 ## 透明度
 
 **透明度** 术语用来说明表面阻挡或允许光线穿过的能力。 
@@ -29,6 +31,7 @@ SkillLevel:Intermediate
 这个纹理是一个渐变，其顶部为黑色，表示完全透明，而底部为白色，表示不透明。 
 中间的区域根据纹理像素距离黑色或白色的远近程度，具有不同的透明度。 
 
+(#Transparency&Opacity)
 ## 透明度与不透明度
 
 在 UE4 中处理透明度时，您还会见到我们使用 **不透明度** 等术语。 
@@ -46,6 +49,7 @@ SkillLevel:Intermediate
 * **不透明度：**用来定义表面的透明或不透明程度（通透/非通透程度）。
 
 
+(#UsingTransparencyinMaterials)
 ## 在材质中使用透明度
 
 以下是设置材质以使用透明度的步骤。
@@ -134,6 +138,7 @@ SkillLevel:Intermediate
 	[/PARAMLITERAL]
 	[/OBJECT]
 
+(#Transparency&Reflections)
 ## 透明度与反射
 
 设置下列选项后，使用了透明度的对象可以显示场景反射。 
@@ -163,6 +168,7 @@ SkillLevel:Intermediate
 
 ![](Trans_Reflection_Different_Results.png)
 
+(#UsesforTransparency)
 ## 透明度的用途
 
 透明度可用来模拟各种不同的现实世界表面类型。 
@@ -177,6 +183,7 @@ SkillLevel:Intermediate
 * 植物叶子 
 
 
+(#Transparency&Performance)
 ## 透明度与性能
 
 ![](Trans_Shader_Complexity.png)
@@ -209,6 +216,7 @@ SkillLevel:Intermediate
 判断性能问题的确切来源时非常有帮助。 
 
 
+(#TranslucencySortPriority)
 ## 半透明优先顺序（Translucency Sort Priority）
 
 当场景中存在多个彼此接近的透明对象时，您有时会注意到，在确定哪个透明对象在其他透明对象 
@@ -290,6 +298,7 @@ BipY-HUpClk
 因此，如果关卡中存在一些顺序问题，您可将关卡中对象的 **半透明优先顺序（Translucency Sort Priority）**调整为任何不大于 99 的数值。
 这样，产生的游戏效果将始终在所有其他对象前面渲染，而无论关卡中这些对象的 **半透明优先顺序（Translucency Sort Priority）**为何。
 
+(#Conclusion)
 ## 总结
 
 透明度是功能非常强大的工具，可以帮助您真正实现 3D 项目。 

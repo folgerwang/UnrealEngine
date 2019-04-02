@@ -1,16 +1,25 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "VariantObjectBinding.h"
 
+#include "Engine/World.h"
 #include "UObject/LazyObjectPtr.h"
 #include "UObject/SoftObjectPath.h"
 #include "PropertyValue.h"
 #include "Variant.h"
+#include "LevelVariantSets.h"
+#include "LevelVariantSetsFunctionDirector.h"
+#include "GameFramework/Actor.h"
+#include "Algo/Sort.h"
+#include "FunctionCaller.h"
+#if WITH_EDITORONLY_DATA
+#include "K2Node_FunctionEntry.h"
+#endif
 
 #define LOCTEXT_NAMESPACE "VariantObjectBinding"
 
-
-UVariantObjectBinding::UVariantObjectBinding(const FObjectInitializer& Init)
+UVariantObjectBinding::UVariantObjectBinding(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 }
 
@@ -27,15 +36,19 @@ UVariant* UVariantObjectBinding::GetParent()
 
 FText UVariantObjectBinding::GetDisplayText() const
 {
-	UObject* Obj = GetObject();
-	if (Obj)
+	AActor* Actor = Cast<AActor>(GetObject());
+	if (Actor)
 	{
-		return FText::FromName(Obj->GetFName());
+#if WITH_EDITOR
+		const FString& Label = Actor->GetActorLabel();
+#else
+		const FString& Label = Actor->GetName();
+#endif
+
+		return FText::FromString(Label);
 	}
-	else
-	{
-		return FText::FromString(TEXT("<Unloaded binding>"));
-	}
+
+	return FText::FromString(TEXT("<Unloaded binding>"));
 }
 
 FString UVariantObjectBinding::GetObjectPath() const
@@ -47,23 +60,59 @@ UObject* UVariantObjectBinding::GetObject() const
 {
 	if (ObjectPtr.IsValid())
 	{
-		UObject* Obj = ObjectPtr.ResolveObject();
-		if (Obj)
+		FSoftObjectPath TempPtr = ObjectPtr;
+
+		// Fixup for PIE
+		// We can't just call FixupForPIE blindly, and need all this structure in LVS
+		// (that is, GetWorldContext and so on) because if this function is called from anything
+		// that originates from a Slate tick it will occur at a moment when GPlayInEditorID is -1
+		// (i.e. we're not evaluating any particular world).
+		// We use the same GetWorldContext trick that LevelSequencePlaybackContext uses to go
+		// through this.
+		//
+		// We also need to do this every time (instead of the LVS updating US) to minimize the
+		// cost of having each LVS asset subscribed to editor events. Right now those event callbacks
+		// just null a single pointer, which is acceptable. Having it iterate over all bindings to
+		// fixup all softobjectpaths is not. On top of that, this is more efficient as it only
+		// updates the required bindings on demand. In the future we can change it so that Slate
+		// is not constantly calling this function every frame to repaint the node names, but keeping
+		// a cached name would cause its own set of problems (currently we update the property list
+		// when the name changes, so as to track objects going into/out of resolved states)
+#if WITH_EDITOR
+		ULevelVariantSets* LVS = GetTypedOuter<ULevelVariantSets>();
+		if (LVS)
 		{
+			int32 PIEInstanceID;
+			UWorld* World = LVS->GetWorldContext(PIEInstanceID);
+
+			if (PIEInstanceID != INDEX_NONE)
+			{
+				TempPtr.FixupForPIE(PIEInstanceID);
+			}
+		}
+#endif
+
+		UObject* Obj = TempPtr.ResolveObject();
+		if (Obj && !Obj->IsPendingKillOrUnreachable())
+		{
+			LazyObjectPtr = Obj;
 			return Obj;
 		}
-
-		// Last resort: When an actor switches levels (e.g. new level -> create variant manager ->
-		// -> add one of the temp actors -> save level) the FSoftObjectPath might lose track of it
-		// We will then use our TLazyObjectPtr to try and find the object since it uses FGuids and
-		// it might still have a valid link
-		if (!Obj)
+		// Fixup for redirectors (e.g. when going from temp level to a saved level)
+		// I could do ObjectPtr.PreSavePath, which in fact follows redirectors. This doesn't work
+		// for saving after moving to a new level and then reloading, as the redirector will
+		// only be created AFTER we saved. The LazyObjectPtr successfully manages to track
+		// the object across levels, however. We don't exclusively use this because it is not meant
+		// to update to the duplicated objects when going into PIE
+		// This could potentially be enclosed in a #if WITH_EDITOR block
+		else
 		{
 			UObject* LazyObject = LazyObjectPtr.Get();
 			if (LazyObject)
 			{
-				UE_LOG(LogVariantContent, Log, TEXT("Actor '%s' switched path. Binding updating from path '%s' to '%s'"), *LazyObject->GetName(), *ObjectPtr.ToString(), *LazyObject->GetFullName());
+				//UE_LOG(LogVariantContent, Log, TEXT("Actor '%s' switched path. Binding updating from path '%s' to '%s'"), *LazyObject->GetName(), *ObjectPtr.ToString(), *LazyObject->GetFullName());
 				ObjectPtr = LazyObject;
+				return LazyObject;
 			}
 		}
 	}
@@ -71,98 +120,32 @@ UObject* UVariantObjectBinding::GetObject() const
 	return nullptr;
 }
 
-void UVariantObjectBinding::FixupForPIE()
-{
-	// For some reason calls from UMG blueprints hit FSoftObjectPaths while GPlayInEditorID is INDEX_NONE,
-	// so all object bindings would target the actors back in the editor world.
-	// Calls from the level blueprint or actor blueprints work fine, as they call FSoftObjectPath.ResolveObject()
-	// in a moment where the GPlayInEditorID is a valid index so that ResolveObject can internally call it's FixupForPIE()
-	// and update the path.
-	// We expose this here so that the ALevelVariantSets actor can call this on BeginPlay and update our path for PIE,
-	// as that is also an instant where GPlayInEditorID is valid.
-
-	ObjectPtr.FixupForPIE();
-}
-
-void UVariantObjectBinding::AddCapturedProperties(const TArray<UPropertyValue*>& NewProperties, int32 Index)
+void UVariantObjectBinding::AddCapturedProperties(const TArray<UPropertyValue*>& NewProperties)
 {
 	Modify();
 
-	if (Index == INDEX_NONE)
+	TSet<FString> ExistingProperties;
+	for (UPropertyValue* Prop : CapturedProperties)
 	{
-		Index = CapturedProperties.Num();
+		ExistingProperties.Add(Prop->GetFullDisplayString());
 	}
-
-	// Inserting first ensures we preserve the target order
-	CapturedProperties.Insert(NewProperties, Index);
 
 	bool bIsMoveOperation = false;
 	TSet<UVariantObjectBinding*> ParentsModified;
 	for (UPropertyValue* NewProp : NewProperties)
 	{
-		UVariantObjectBinding* OldParent = NewProp->GetParent();
-
-		// We can't just RemoveCapturedProperty since that might remove the wrong item in case
-		// we're moving bindings around within this Variant
-		if (OldParent)
+		if (ExistingProperties.Contains(NewProp->GetFullDisplayString()))
 		{
-			if (OldParent != this)
-			{
-				// Don't call RemoveProperty here so that we get the entire thing in a single transaction
-				if (!ParentsModified.Contains(OldParent))
-				{
-					OldParent->Modify();
-					ParentsModified.Add(OldParent);
-				}
-				OldParent->CapturedProperties.RemoveSingle(NewProp);
-			}
-			else
-			{
-				bIsMoveOperation = true;
-			}
+			continue;
 		}
 
 		NewProp->Modify();
-		NewProp->Rename(nullptr, this);
+		NewProp->Rename(nullptr, this, REN_DontCreateRedirectors);  // Make us its Outer
+
+		CapturedProperties.Add(NewProp);
 	}
 
-	// If it's a move operation, we'll have to manually clear the old pointers from the array
-	if (!bIsMoveOperation)
-	{
-		return;
-	}
-
-	TSet<FString> NewPropertyPaths = TSet<FString>();
-	for (UPropertyValue* NewProp : NewProperties)
-	{
-		NewPropertyPaths.Add(NewProp->GetFullDisplayString());
-	}
-
-	// Sweep back from insertion point nulling old bindings with the same GUID
-	for (int32 SweepIndex = Index-1; SweepIndex >= 0; SweepIndex--)
-	{
-		if (NewPropertyPaths.Contains(CapturedProperties[SweepIndex]->GetFullDisplayString()))
-		{
-			CapturedProperties[SweepIndex] = nullptr;
-		}
-	}
-	// Sweep forward from the end of the inserted segment nulling old bindings with the same GUID
-	for (int32 SweepIndex = Index + NewProperties.Num(); SweepIndex < CapturedProperties.Num(); SweepIndex++)
-	{
-		if (NewPropertyPaths.Contains(CapturedProperties[SweepIndex]->GetFullDisplayString()))
-		{
-			CapturedProperties[SweepIndex] = nullptr;
-		}
-	}
-
-	// Finally remove null entries
-	for (int32 IterIndex = CapturedProperties.Num() - 1; IterIndex >= 0; IterIndex--)
-	{
-		if (CapturedProperties[IterIndex] == nullptr)
-		{
-			CapturedProperties.RemoveAt(IterIndex);
-		}
-	}
+	SortCapturedProperties();
 }
 
 const TArray<UPropertyValue*>& UVariantObjectBinding::GetCapturedProperties() const
@@ -178,6 +161,200 @@ void UVariantObjectBinding::RemoveCapturedProperties(const TArray<UPropertyValue
 	{
 		CapturedProperties.RemoveSingle(Prop);
 	}
+
+	SortCapturedProperties();
 }
+
+void UVariantObjectBinding::SortCapturedProperties()
+{
+	CapturedProperties.Sort([](const UPropertyValue& A, const UPropertyValue& B)
+	{
+		return A.GetFullDisplayString() < B.GetFullDisplayString();
+	});
+}
+
+void UVariantObjectBinding::AddFunctionCallers(const TArray<FFunctionCaller>& InFunctionCallers)
+{
+	Modify();
+
+	FunctionCallers.Append(InFunctionCallers);
+}
+
+TArray<FFunctionCaller>& UVariantObjectBinding::GetFunctionCallers()
+{
+	return FunctionCallers;
+}
+
+void UVariantObjectBinding::RemoveFunctionCallers(const TArray<FFunctionCaller>& InFunctionCallers)
+{
+	Modify();
+
+#if WITH_EDITORONLY_DATA
+	TSet<UK2Node_FunctionEntry*> EntryNodes;
+	for (const FFunctionCaller& Caller : InFunctionCallers)
+	{
+		EntryNodes.Add(Caller.GetFunctionEntry());
+	}
+
+	FunctionCallers.RemoveAll([&EntryNodes](const FFunctionCaller& Item)
+	{
+		return EntryNodes.Contains(Item.GetFunctionEntry());
+	});
+#endif
+}
+
+void UVariantObjectBinding::ExecuteTargetFunction(FName FunctionName)
+{
+	ULevelVariantSets* ParentLVS = GetTypedOuter<ULevelVariantSets>();
+
+	UObject* BoundObject = GetObject();
+	UObject* DirectorInstance = ParentLVS->GetDirectorInstance(BoundObject);
+	if (!DirectorInstance)
+	{
+		return;
+	}
+
+	UFunction* Func = DirectorInstance->FindFunction(FunctionName);
+	if (!Func)
+	{
+		return;
+	}
+
+	//need to check if we're in edit mode and the function is CallInEditor
+#if WITH_EDITOR
+	const static FName NAME_CallInEditor(TEXT("CallInEditor"));
+
+	UWorld* World = DirectorInstance->GetWorld();
+	if (World->WorldType == EWorldType::Editor && !Func->HasMetaData(NAME_CallInEditor))
+	{
+		UE_LOG(LogVariantContent, Warning, TEXT("Cannot call function '%s' as it doesn't have the CallInEditor option checked! Also note that calling this from the editor may have irreversible effects on the level."), *FunctionName.ToString());
+		return;
+	}
+#endif
+
+	if (Func->NumParms == 0)
+	{
+		DirectorInstance->ProcessEvent(Func, nullptr);
+	}
+	else if (Func->NumParms == 1 && Func->PropertyLink && (Func->PropertyLink->GetPropertyFlags() & CPF_ReferenceParm) == 0)
+	{
+		if (UObjectProperty* ObjectParameter = Cast<UObjectProperty>(Func->PropertyLink))
+		{
+			if (!ObjectParameter->PropertyClass || BoundObject->IsA(ObjectParameter->PropertyClass))
+			{
+				DirectorInstance->ProcessEvent(Func, &BoundObject);
+			}
+			else
+			{
+				UE_LOG(LogVariantContent, Error, TEXT("Failed to call function '%s' with object '%s' because it is not the correct type. Function expects a '%s' but target object is a '%s'."),
+					*Func->GetName(),
+					*BoundObject->GetName(),
+					*ObjectParameter->PropertyClass->GetName(),
+					*BoundObject->GetClass()->GetName()
+				);
+			}
+		}
+	}
+
+}
+
+void UVariantObjectBinding::ExecuteAllTargetFunctions()
+{
+	if (FunctionCallers.Num() == 0)
+	{
+		return;
+	}
+
+	ULevelVariantSets* ParentLVS = GetTypedOuter<ULevelVariantSets>();
+
+	UObject* BoundObject = GetObject();
+	if (!BoundObject)
+	{
+		return;
+	}
+
+	UObject* DirectorInstance = ParentLVS->GetDirectorInstance(BoundObject);
+
+	for (FFunctionCaller& Caller : FunctionCallers)
+	{
+		UFunction* Func = DirectorInstance->FindFunction(Caller.FunctionName);
+
+		if (!Func || !Func->IsValidLowLevel() || Func->IsPendingKillOrUnreachable() || !DirectorInstance->FindFunction(Func->GetFName()))
+		{
+			continue;
+		}
+
+		//need to check if we''re in edit mode and the function is CallInEditor
+#if WITH_EDITOR
+		const static FName NAME_CallInEditor(TEXT("CallInEditor"));
+
+		UWorld* World = DirectorInstance->GetWorld();
+		if (World->WorldType == EWorldType::Editor && !Func->HasMetaData(NAME_CallInEditor))
+		{
+			UE_LOG(LogVariantContent, Warning, TEXT("Cannot call function '%s' as it doesn't have the CallInEditor option checked! Also note that calling this from the editor may have irreversible effects on the level."), *Func->GetName());
+			continue;
+		}
+#endif
+
+		if (Func->NumParms == 0)
+		{
+			DirectorInstance->ProcessEvent(Func, nullptr);
+		}
+		else if (Func->NumParms == 1 && Func->PropertyLink && (Func->PropertyLink->GetPropertyFlags() & CPF_ReferenceParm) == 0)
+		{
+			if (UObjectProperty* ObjectParameter = Cast<UObjectProperty>(Func->PropertyLink))
+			{
+				if (!ObjectParameter->PropertyClass || BoundObject->IsA(ObjectParameter->PropertyClass))
+				{
+					DirectorInstance->ProcessEvent(Func, &BoundObject);
+				}
+				else
+				{
+					UE_LOG(LogVariantContent, Error, TEXT("Failed to call function '%s' with object '%s' because it is not the correct type. Function expects a '%s' but target object is a '%s'."),
+						*Func->GetName(),
+						*BoundObject->GetName(),
+						*ObjectParameter->PropertyClass->GetName(),
+						*BoundObject->GetClass()->GetName()
+					);
+				}
+			}
+		}
+	}
+}
+
+#if WITH_EDITORONLY_DATA
+void UVariantObjectBinding::UpdateFunctionCallerNames()
+{
+	ULevelVariantSets* ParentLVS = GetTypedOuter<ULevelVariantSets>();
+	UObject* DirectorInstance = ParentLVS->GetDirectorInstance(GetObject());
+
+	bool bHasChanged = false;
+
+	for (FFunctionCaller& Caller : FunctionCallers)
+	{
+		FName OldFunctionName = Caller.FunctionName;
+
+		Caller.CacheFunctionName();
+
+		// Catch case where function has been deleted and clear the caller,
+		// as the entry node will still be valid
+		UFunction* Func = DirectorInstance->FindFunction(Caller.FunctionName);
+		if (!Func)
+		{
+			Caller.SetFunctionEntry(nullptr);
+		}
+
+		if (Caller.FunctionName != OldFunctionName)
+		{
+			bHasChanged = true;
+		}
+	}
+
+	if (bHasChanged)
+	{
+		MarkPackageDirty();
+	}
+}
+#endif
 
 #undef LOCTEXT_NAMESPACE

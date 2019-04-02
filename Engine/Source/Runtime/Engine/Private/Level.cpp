@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 Level.cpp: Level-related functions
@@ -62,7 +62,7 @@ Level.cpp: Level-related functions
 DEFINE_LOG_CATEGORY(LogLevel);
 
 int32 GActorClusteringEnabled = 1;
-static FAutoConsoleVariableRef CVarUseBackgroundLevelStreaming(
+static FAutoConsoleVariableRef CVarActorClusteringEnabled(
 	TEXT("gc.ActorClusteringEnabled"),
 	GActorClusteringEnabled,
 	TEXT("Whether to allow levels to create actor clusters for GC."),
@@ -474,14 +474,15 @@ void ULevel::SortActorList()
 	NewActors.Reserve(Actors.Num());
 	NewNetActors.Reserve(Actors.Num());
 
-	check(WorldSettings);
-
-	// The WorldSettings tries to stay at index 0
-	NewActors.Add(WorldSettings);
-
-	if (OwningWorld != nullptr)
+	if (WorldSettings)
 	{
-		OwningWorld->AddNetworkActor(WorldSettings);
+		// The WorldSettings tries to stay at index 0
+		NewActors.Add(WorldSettings);
+
+		if (OwningWorld != nullptr)
+		{
+			OwningWorld->AddNetworkActor(WorldSettings);
+		}
 	}
 
 	// Add non-net actors to the NewActors immediately, cache off the net actors to Append after
@@ -703,15 +704,6 @@ void ULevel::ClearLevelComponents()
 		if (Actor)
 		{
 			Actor->UnregisterAllComponents();
-		}
-	}
-
-	if (IsPersistentLevel())
-	{
-		FSceneInterface* WorldScene = GetWorld()->Scene;
-		if (WorldScene)
-		{
-			WorldScene->SetClearMotionBlurInfoGameThread();
 		}
 	}
 }
@@ -1361,6 +1353,14 @@ void ULevel::UpdateModelComponents()
 		}
 	}
 
+	// Initialize the model's index buffers.
+	for(TMap<UMaterialInterface*,TUniquePtr<FRawIndexBuffer16or32> >::TIterator IndexBufferIt(Model->MaterialIndexBuffers);
+		IndexBufferIt;
+		++IndexBufferIt)
+	{
+		BeginInitResource(IndexBufferIt->Value.Get());
+	}
+
 	if (ModelComponents.Num() > 0)
 	{
 		check( OwningWorld );
@@ -1372,14 +1372,6 @@ void ULevel::UpdateModelComponents()
 				ModelComponents[ComponentIndex]->RegisterComponentWithWorld(OwningWorld);
 			}
 		}
-	}
-
-	// Initialize the model's index buffers.
-	for(TMap<UMaterialInterface*,TUniquePtr<FRawIndexBuffer16or32> >::TIterator IndexBufferIt(Model->MaterialIndexBuffers);
-		IndexBufferIt;
-		++IndexBufferIt)
-	{
-		BeginInitResource(IndexBufferIt->Value.Get());
 	}
 
 	Model->bInvalidForStaticLighting = true;
@@ -1481,6 +1473,14 @@ void ULevel::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 		ReleaseRenderingResources();
 		InitializeRenderingResources();
 	}
+
+	for (UAssetUserData* Datum : AssetUserData)
+	{
+		if (Datum != nullptr)
+		{
+			Datum->PostEditChangeOwner();
+		}
+	}
 } 
 
 #endif // WITH_EDITOR
@@ -1560,6 +1560,14 @@ void ULevel::CommitModelSurfaces()
 		}
 		Model->InvalidSurfaces = false;
 
+		// Initialize the model's index buffers.
+		for(TMap<UMaterialInterface*,TUniquePtr<FRawIndexBuffer16or32> >::TIterator IndexBufferIt(Model->MaterialIndexBuffers);
+			IndexBufferIt;
+			++IndexBufferIt)
+		{
+			BeginInitResource(IndexBufferIt->Value.Get());
+		}
+
 		// Register model components before init'ing index buffer so collision has access to index buffer data
 		// This matches the order of operation in ULevel::UpdateModelComponents
 		if (ModelComponents.Num() > 0)
@@ -1580,14 +1588,6 @@ void ULevel::CommitModelSurfaces()
 					}
 				}
 			}
-		}
-
-		// Initialize the model's index buffers.
-		for(TMap<UMaterialInterface*,TUniquePtr<FRawIndexBuffer16or32> >::TIterator IndexBufferIt(Model->MaterialIndexBuffers);
-			IndexBufferIt;
-			++IndexBufferIt)
-		{
-			BeginInitResource(IndexBufferIt->Value.Get());
 		}
 
 		Model->bOnlyRebuildMaterialIndexBuffers = false;
@@ -1752,6 +1752,22 @@ void ULevel::InitializeNetworkActors()
 			Actor->bActorSeamlessTraveled = false;
 		}
 	}
+
+	bAlreadyClearedActorsSeamlessTravelFlag = true;
+	bAlreadyInitializedNetworkActors = true;
+}
+
+void ULevel::ClearActorsSeamlessTraveledFlag()
+{
+	for (AActor* Actor : Actors)
+	{
+		if (Actor)
+		{
+			Actor->bActorSeamlessTraveled = false;
+		}
+	}
+
+	bAlreadyClearedActorsSeamlessTravelFlag = true;
 }
 
 void ULevel::InitializeRenderingResources()
@@ -1776,6 +1792,11 @@ void ULevel::InitializeRenderingResources()
 		if (!PrecomputedVolumetricLightmap->IsAddedToScene())
 		{
 			PrecomputedVolumetricLightmap->AddToScene(OwningWorld->Scene, EffectiveMapBuildData, LevelBuildDataId);
+		}
+
+		if (OwningWorld->Scene && EffectiveMapBuildData)
+		{
+			EffectiveMapBuildData->InitializeClusterRenderingResources(OwningWorld->Scene->GetFeatureLevel());
 		}
 	}
 }
@@ -1866,7 +1887,7 @@ UMapBuildDataRegistry* ULevel::GetOrCreateMapBuildData()
 		if (MapBuildData)
 		{
 			// Release rendering data depending on MapBuildData, before we destroy MapBuildData
-			MapBuildData->InvalidateStaticLighting(GetWorld(), nullptr);
+			MapBuildData->InvalidateStaticLighting(GetWorld(), true, nullptr);
 
 			// Allow the legacy registry to be GC'ed
 			MapBuildData->ClearFlags(RF_Standalone);
@@ -2101,13 +2122,12 @@ void ULevel::ApplyWorldOffset(const FVector& InWorldOffset, bool bWorldShift)
 		// Otherwise we need to send a command to move just this volume
 		else if (!bWorldShift) 
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
- 				ApplyWorldOffset_PLV,
- 				FPrecomputedLightVolume*, InPrecomputedLightVolume, PrecomputedLightVolume,
- 				FVector, InWorldOffset, InWorldOffset,
- 			{
-				InPrecomputedLightVolume->ApplyWorldOffset(InWorldOffset);
- 			});
+			FPrecomputedLightVolume* InPrecomputedLightVolume = PrecomputedLightVolume;
+			ENQUEUE_RENDER_COMMAND(ApplyWorldOffset_PLV)(
+				[InPrecomputedLightVolume, InWorldOffset](FRHICommandListImmediate& RHICmdList)
+	 			{
+					InPrecomputedLightVolume->ApplyWorldOffset(InWorldOffset);
+ 				});
 		}
 	}
 
@@ -2128,13 +2148,12 @@ void ULevel::ApplyWorldOffset(const FVector& InWorldOffset, bool bWorldShift)
 		// Otherwise we need to send a command to move just this volume
 		else if (!bWorldShift) 
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
- 				ApplyWorldOffset_PLV,
- 				FPrecomputedVolumetricLightmap*, InPrecomputedVolumetricLightmap, PrecomputedVolumetricLightmap,
- 				FVector, InWorldOffset, InWorldOffset,
- 			{
-				InPrecomputedVolumetricLightmap->ApplyWorldOffset(InWorldOffset);
- 			});
+			FPrecomputedVolumetricLightmap* InPrecomputedVolumetricLightmap = PrecomputedVolumetricLightmap;
+			ENQUEUE_RENDER_COMMAND(ApplyWorldOffset_PLV)(
+				[InPrecomputedVolumetricLightmap, InWorldOffset](FRHICommandListImmediate& RHICmdList)
+	 			{
+					InPrecomputedVolumetricLightmap->ApplyWorldOffset(InWorldOffset);
+ 				});
 		}
 	}
 

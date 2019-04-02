@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieSceneSpawnTrack.h"
 #include "MovieSceneCommonHelpers.h"
@@ -51,6 +51,11 @@ void UMovieSceneSpawnTrack::PostLoad()
 
 /* UMovieSceneTrack interface
  *****************************************************************************/
+
+bool UMovieSceneSpawnTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneSpawnSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneSpawnTrack::CreateNewSection()
 {

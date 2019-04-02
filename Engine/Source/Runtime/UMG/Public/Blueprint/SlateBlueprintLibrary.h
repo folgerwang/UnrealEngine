@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -43,15 +43,31 @@ public:
 	UFUNCTION(BlueprintPure, Category="User Interface|Geometry")
 	static FVector2D LocalToAbsolute(const FGeometry& Geometry, FVector2D LocalCoordinate);
 
-	/** @return the size of the geometry in local space. */
+	/** Returns the size of the geometry in local space. */
 	UFUNCTION(BlueprintPure, Category="User Interface|Geometry")
 	static FVector2D GetLocalSize(const FGeometry& Geometry);
 
-	/** @return the size of the geometry in absolute space. */
+	/** Returns the size of the geometry in absolute space. */
 	UFUNCTION(BlueprintPure, Category="User Interface|Geometry")
 	static FVector2D GetAbsoluteSize(const FGeometry& Geometry);
 
-	/** @return Whether brushes A and B are identical. */
+	/**  */
+	UFUNCTION(BlueprintPure, Category = "User Interface|Geometry")
+	static float TransformScalarAbsoluteToLocal(const FGeometry& Geometry, float AbsoluteScalar);
+
+	/**  */
+	UFUNCTION(BlueprintPure, Category = "User Interface|Geometry")
+	static float TransformScalarLocalToAbsolute(const FGeometry& Geometry, float LocalScalar);
+
+	/**  */
+	UFUNCTION(BlueprintPure, Category = "User Interface|Geometry")
+	static FVector2D TransformVectorAbsoluteToLocal(const FGeometry& Geometry, FVector2D AbsoluteVector);
+
+	/**  */
+	UFUNCTION(BlueprintPure, Category = "User Interface|Geometry")
+	static FVector2D TransformVectorLocalToAbsolute(const FGeometry& Geometry, FVector2D LocalVector);
+
+	/** Returns whether brushes A and B are identical. */
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "Equal (SlateBrush)", CompactNodeTitle = "=="), Category = "SlateBrush")
 	static bool EqualEqual_SlateBrush(const FSlateBrush& A, const FSlateBrush& B);
 

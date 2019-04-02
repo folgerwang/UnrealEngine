@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "StandaloneRenderer.h"
 #include "Misc/CommandLine.h"
@@ -45,4 +45,4 @@ class FStandaloneRenderer : public IModuleInterface
 {
 };
 
-IMPLEMENT_MODULE( FStandaloneRenderer, BlankPlugin )
+IMPLEMENT_MODULE( FStandaloneRenderer, StandaloneRenderer )

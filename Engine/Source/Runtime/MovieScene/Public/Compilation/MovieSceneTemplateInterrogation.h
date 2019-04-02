@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -43,9 +43,9 @@ struct TMovieSceneInterrogationToken : IMovieSceneInterrogationToken
 {
 	T Data;
 
-	TMovieSceneInterrogationToken(T&& In, FMovieSceneInterrogationKey InKey)
+	template<typename U> TMovieSceneInterrogationToken(U&& In, FMovieSceneInterrogationKey InKey)
 		: IMovieSceneInterrogationToken(InKey)
-		, Data(MoveTemp(In))
+		, Data(Forward<U>(In))
 	{
 	}
 };
@@ -63,9 +63,8 @@ struct FMovieSceneInterrogationData
 	template<typename T>
 	void Add(T&& InData, FMovieSceneInterrogationKey Key)
 	{
-		TokenData.Add(TMovieSceneInterrogationToken<T>(Forward<T>(InData), Key));
+		TokenData.Add(TMovieSceneInterrogationToken<typename TDecay<T>::Type>(Forward<T>(InData), Key));
 	}
-
 	/**
 	 * Iterate all data stored in this container
 	 */

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -199,6 +199,11 @@ public:
 	 * @param bShowFocusVisualization - The desired state of the visualization tools
 	 */
 	void SetFocusVisualization(bool bShowFocusVisualization);
+
+	/**
+	 * Is focus visualization tools activated on camera.
+	 */
+	bool IsFocusVisualizationActivated() const;
 
 	/**
 	 * Updates the camera view to have the desired film format view within the Virtual Camera UI area.

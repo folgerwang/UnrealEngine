@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:4284421
+INTSourceChangelist:4476116
 Availability: Public
 Crumbs: 
 Title: Python 을 사용한 에디터 스크립팅
@@ -16,6 +16,7 @@ Tags: Experimental
 Tags: scripting
 Tags: editor
 Tags: Landing Page
+topic-image:Python_Topic.png
 
 
 언리얼 에디터에서 Python 사용을 시작하는 방법 설명서입니다.
@@ -286,8 +287,8 @@ Python 을 사용해서 프로젝트의 오브젝트에 액세스하고 그 오�
     import unreal
     obj = unreal.MediaPlayer()
     with unreal.ScopedEditorTransaction("My Transaction Test") as trans:
-        obj.set_editor_property(“play_on_open”, True)
-        obj.set_editor_property(“vertical_field_of_view”, 60)
+        obj.set_editor_property("play_on_open", True)
+        obj.set_editor_property("vertical_field_of_view", 60)
 
 에디터의 **Undo History** (실행 취소 히스토리) 패널에 이제 트랜잭션이 이름별로 나열됩니다.
 

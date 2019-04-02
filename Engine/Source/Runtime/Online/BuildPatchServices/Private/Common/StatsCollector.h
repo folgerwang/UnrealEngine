@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -25,6 +25,7 @@ namespace BuildPatchServices
 		typedef int64 FAtomicValue;
 
 	public:
+		virtual ~FStatsCollector() {}
 		virtual volatile FAtomicValue* CreateStat(const FString& Name, EStatFormat Type, FAtomicValue InitialValue = 0) = 0;
 		virtual void LogStats(float TimeBetweenLogs = 0.0f) = 0;
 
@@ -41,13 +42,10 @@ namespace BuildPatchServices
 		static double GetAsPercentage(volatile FAtomicValue* Stat);
 	};
 
-	typedef TSharedRef<FStatsCollector, ESPMode::ThreadSafe> FStatsCollectorRef;
-	typedef TSharedPtr<FStatsCollector, ESPMode::ThreadSafe> FStatsCollectorPtr;
-
 	class FStatsCollectorFactory
 	{
 	public:
-		static FStatsCollectorRef Create();
+		static FStatsCollector* Create();
 	};
 
 	class FStatsScopedTimer

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "StreamingLevels/StreamingLevelEdMode.h"
 #include "Engine/LevelStreaming.h"
@@ -144,7 +144,7 @@ void FStreamingLevelEdMode::Render( const FSceneView* View, FViewport* Viewport,
 		FTransform BoxTransform = LevelTransform;
 		FVector BoxLocation = ( LevelBounds.GetCenter() ) + ( LevelTransform.GetLocation() - SelectedLevel->LevelTransform.GetLocation() );
 		BoxTransform.SetLocation( BoxLocation );
-		DrawBox( PDI, BoxTransform.ToMatrixWithScale(), LevelBounds.GetExtent(), BoxMaterial->GetRenderProxy( false ), SDPG_World );
+		DrawBox( PDI, BoxTransform.ToMatrixWithScale(), LevelBounds.GetExtent(), BoxMaterial->GetRenderProxy(), SDPG_World );
 	}
 }
 

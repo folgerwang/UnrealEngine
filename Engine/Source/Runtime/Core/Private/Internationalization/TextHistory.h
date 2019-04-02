@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreTypes.h"
@@ -7,13 +7,15 @@
 #include "Templates/SharedPointer.h"
 #include "Misc/Optional.h"
 #include "Internationalization/Text.h"
+#include "Internationalization/ITextGenerator.h"
 #include "Internationalization/StringTableCoreFwd.h"
 #include "Misc/DateTime.h"
 
 struct FDecimalNumberFormattingRules;
 
-enum class ETextHistoryType
+enum class ETextHistoryType : int8
 {
+	None = -1,
 	Base = 0,
 	NamedFormat,
 	OrderedFormat,
@@ -26,9 +28,106 @@ enum class ETextHistoryType
 	AsDateTime,
 	Transform,
 	StringTableEntry,
+	TextGenerator,
 
 	// Add new enum types at the end only! They are serialized by index.
 };
+
+#define OVERRIDE_TEXT_HISTORY_STRINGIFICATION																																\
+	static  bool StaticShouldReadFromBuffer(const TCHAR* Buffer);																											\
+	virtual bool ShouldReadFromBuffer(const TCHAR* Buffer) const override { return StaticShouldReadFromBuffer(Buffer); }													\
+	virtual const TCHAR* ReadFromBuffer(const TCHAR* Buffer, const TCHAR* TextNamespace, const TCHAR* PackageNamespace, FTextDisplayStringPtr& OutDisplayString) override;	\
+	virtual bool WriteToBuffer(FString& Buffer, FTextDisplayStringPtr DisplayString) const override;
+
+/** Utilities for stringifying text */
+namespace TextStringificationUtil
+{
+
+#define LOC_DEFINE_REGION
+static const TCHAR TextMarker[] = TEXT("TEXT");
+static const TCHAR InvTextMarker[] = TEXT("INVTEXT");
+static const TCHAR NsLocTextMarker[] = TEXT("NSLOCTEXT");
+static const TCHAR LocTextMarker[] = TEXT("LOCTEXT");
+static const TCHAR LocTableMarker[] = TEXT("LOCTABLE");
+static const TCHAR LocGenNumberMarker[] = TEXT("LOCGEN_NUMBER");
+static const TCHAR LocGenPercentMarker[] = TEXT("LOCGEN_PERCENT");
+static const TCHAR LocGenCurrencyMarker[] = TEXT("LOCGEN_CURRENCY");
+static const TCHAR LocGenDateMarker[] = TEXT("LOCGEN_DATE");
+static const TCHAR LocGenTimeMarker[] = TEXT("LOCGEN_TIME");
+static const TCHAR LocGenDateTimeMarker[] = TEXT("LOCGEN_DATETIME");
+static const TCHAR LocGenToLowerMarker[] = TEXT("LOCGEN_TOLOWER");
+static const TCHAR LocGenToUpperMarker[] = TEXT("LOCGEN_TOUPPER");
+static const TCHAR LocGenFormatOrderedMarker[] = TEXT("LOCGEN_FORMAT_ORDERED");
+static const TCHAR LocGenFormatNamedMarker[] = TEXT("LOCGEN_FORMAT_NAMED");
+static const TCHAR GroupedSuffix[] = TEXT("_GROUPED");
+static const TCHAR UngroupedSuffix[] = TEXT("_UNGROUPED");
+static const TCHAR CustomSuffix[] = TEXT("_CUSTOM");
+static const TCHAR UtcSuffix[] = TEXT("_UTC");
+static const TCHAR LocalSuffix[] = TEXT("_LOCAL");
+#undef LOC_DEFINE_REGION
+
+#define TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(Func, ...)		\
+	Buffer = Func(Buffer, ##__VA_ARGS__);									\
+	if (!Buffer) { return nullptr; }
+
+#define TEXT_STRINGIFICATION_PEEK_MARKER(T)					TextStringificationUtil::PeekMarker(Buffer, T, ARRAY_COUNT(T) - 1)
+#define TEXT_STRINGIFICATION_PEEK_INSENSITIVE_MARKER(T)		TextStringificationUtil::PeekInsensitiveMarker(Buffer, T, ARRAY_COUNT(T) - 1)
+bool PeekMarker(const TCHAR* Buffer, const TCHAR* InMarker, const int32 InMarkerLen);
+bool PeekInsensitiveMarker(const TCHAR* Buffer, const TCHAR* InMarker, const int32 InMarkerLen);
+
+#define TEXT_STRINGIFICATION_SKIP_MARKER(T)					TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(TextStringificationUtil::SkipMarker, T, ARRAY_COUNT(T) - 1)
+#define TEXT_STRINGIFICATION_SKIP_INSENSITIVE_MARKER(T)		TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(TextStringificationUtil::SkipInsensitiveMarker, T, ARRAY_COUNT(T) - 1)
+#define TEXT_STRINGIFICATION_SKIP_MARKER_LEN(T)				Buffer += (ARRAY_COUNT(T) - 1)
+const TCHAR* SkipMarker(const TCHAR* Buffer, const TCHAR* InMarker, const int32 InMarkerLen);
+const TCHAR* SkipInsensitiveMarker(const TCHAR* Buffer, const TCHAR* InMarker, const int32 InMarkerLen);
+
+#define TEXT_STRINGIFICATION_SKIP_WHITESPACE()				TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(TextStringificationUtil::SkipWhitespace)
+const TCHAR* SkipWhitespace(const TCHAR* Buffer);
+
+#define TEXT_STRINGIFICATION_SKIP_WHITESPACE_TO_CHAR(C)		TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(TextStringificationUtil::SkipWhitespaceToCharacter, TEXT(C))
+const TCHAR* SkipWhitespaceToCharacter(const TCHAR* Buffer, const TCHAR InChar);
+
+#define TEXT_STRINGIFICATION_SKIP_WHITESPACE_AND_CHAR(C)	TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(TextStringificationUtil::SkipWhitespaceAndCharacter, TEXT(C))
+const TCHAR* SkipWhitespaceAndCharacter(const TCHAR* Buffer, const TCHAR InChar);
+
+#define TEXT_STRINGIFICATION_READ_NUMBER(V)					TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(TextStringificationUtil::ReadNumberFromBuffer, V)
+const TCHAR* ReadNumberFromBuffer(const TCHAR* Buffer, FFormatArgumentValue& OutValue);
+
+#define TEXT_STRINGIFICATION_READ_ALNUM(V)					TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(TextStringificationUtil::ReadAlnumFromBuffer, V)
+const TCHAR* ReadAlnumFromBuffer(const TCHAR* Buffer, FString& OutValue);
+
+#define TEXT_STRINGIFICATION_READ_QUOTED_STRING(V)			TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(TextStringificationUtil::ReadQuotedStringFromBuffer, V)
+const TCHAR* ReadQuotedStringFromBuffer(const TCHAR* Buffer, FString& OutStr);
+
+#define TEXT_STRINGIFICATION_READ_SCOPED_ENUM(S, V)			TEXT_STRINGIFICATION_FUNC_MODIFY_BUFFER_AND_VALIDATE(TextStringificationUtil::ReadScopedEnumFromBuffer, S, V)
+template <typename T>
+const TCHAR* ReadScopedEnumFromBuffer(const TCHAR* Buffer, const FString& Scope, T& OutValue)
+{
+	if (PeekInsensitiveMarker(Buffer, *Scope, Scope.Len()))
+	{
+		// Parsing something of the form: EEnumName::...
+		Buffer += Scope.Len();
+
+		FString EnumValueString;
+		Buffer = ReadAlnumFromBuffer(Buffer, EnumValueString);
+
+		if (Buffer && LexTryParseString(OutValue, *EnumValueString))
+		{
+			return Buffer;
+		}
+	}
+
+	return nullptr;
+}
+
+template <typename T>
+void WriteScopedEnumToBuffer(FString& Buffer, const TCHAR* Scope, const T Value)
+{
+	Buffer += Scope;
+	Buffer += LexToString(Value);
+}
+
+}	// namespace TextStringificationUtil
 
 /** Base interface class for all FText history types */
 class CORE_API FTextHistory
@@ -57,6 +156,35 @@ public:
 	/** Serializes data needed to get the FText's DisplayString */
 	virtual void SerializeForDisplayString(FStructuredArchive::FRecord Record, FTextDisplayStringPtr& InOutDisplayString);
 
+	/**
+	 * Check the given stream of text to see if it looks like something this class could process in via ReadFromBuffer.
+	 * @note This doesn't guarantee that ReadFromBuffer will be able to process the stream, only that it could attempt to.
+	 */
+	static  bool StaticShouldReadFromBuffer(const TCHAR* Buffer);
+	virtual bool ShouldReadFromBuffer(const TCHAR* Buffer) const { return StaticShouldReadFromBuffer(Buffer); }
+
+	/**
+	 * Attempt to parse this text history from the given stream of text.
+	 *
+	 * @param Buffer			The buffer of text to read from.
+	 * @param TextNamespace		An optional namespace to use when parsing texts that use LOCTEXT (default is an empty namespace).
+	 * @param PackageNamespace	The package namespace of the containing object (if loading for a property - see TextNamespaceUtil::GetPackageNamespace).
+	 * @param OutDisplayString	The display string pointer to potentially fill in (depending on the history type).
+	 *
+	 * @return The updated buffer after we parsed this text history, or nullptr on failure
+	 */
+	virtual const TCHAR* ReadFromBuffer(const TCHAR* Buffer, const TCHAR* TextNamespace, const TCHAR* PackageNamespace, FTextDisplayStringPtr& OutDisplayString);
+
+	/**
+	 * Write this text history to a stream of text
+	 *
+	 * @param Buffer			The buffer of text to write to.
+	 * @param DisplayString		The display string associated with the text being written
+	 *
+	 * @return True if we wrote valid data into Buffer, false otherwise
+	 */
+	virtual bool WriteToBuffer(FString& Buffer, FTextDisplayStringPtr DisplayString) const;
+
 	/** Returns TRUE if the Revision is out of date */
 	virtual bool IsOutOfDate() const;
 
@@ -79,6 +207,9 @@ protected:
 	/** Returns true if this kind of text history is able to rebuild its localized display string */
 	virtual bool CanRebuildLocalizedDisplayString() { return true; }
 
+	/** Common logic for setting the display string correctly on load so that it will perform a rebuild */
+	void PrepareDisplayStringForRebuild(FTextDisplayStringPtr& OutDisplayString);
+
 	/** Revision index of this history, rebuilds when it is out of sync with the FTextLocalizationManager */
 	uint16 Revision;
 
@@ -100,6 +231,7 @@ public:
 	FTextHistory_Base& operator=(FTextHistory_Base&& Other);
 
 	//~ Begin FTextHistory Interface
+	OVERRIDE_TEXT_HISTORY_STRINGIFICATION;
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::Base; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
@@ -134,6 +266,7 @@ public:
 	FTextHistory_NamedFormat& operator=(FTextHistory_NamedFormat&& Other);
 
 	//~ Begin FTextHistory Interface
+	OVERRIDE_TEXT_HISTORY_STRINGIFICATION;
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::NamedFormat; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
@@ -164,6 +297,7 @@ public:
 	FTextHistory_OrderedFormat& operator=(FTextHistory_OrderedFormat&& Other);
 
 	//~ Begin FTextHistory Interface
+	OVERRIDE_TEXT_HISTORY_STRINGIFICATION;
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::OrderedFormat; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
@@ -194,6 +328,7 @@ public:
 	FTextHistory_ArgumentDataFormat& operator=(FTextHistory_ArgumentDataFormat&& Other);
 
 	//~ Begin FTextHistory Interface
+	OVERRIDE_TEXT_HISTORY_STRINGIFICATION;
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::ArgumentFormat; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
@@ -256,6 +391,7 @@ public:
 	FTextHistory_AsNumber& operator=(FTextHistory_AsNumber&& Other);
 
 	//~ Begin FTextHistory Interface
+	OVERRIDE_TEXT_HISTORY_STRINGIFICATION;
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::AsNumber; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
@@ -281,6 +417,7 @@ public:
 	FTextHistory_AsPercent& operator=(FTextHistory_AsPercent&& Other);
 
 	//~ Begin FTextHistory Interface
+	OVERRIDE_TEXT_HISTORY_STRINGIFICATION;
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::AsPercent; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
@@ -306,6 +443,7 @@ public:
 	FTextHistory_AsCurrency& operator=(FTextHistory_AsCurrency&& Other);
 
 	//~ Begin FTextHistory Interface
+	OVERRIDE_TEXT_HISTORY_STRINGIFICATION;
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::AsCurrency; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
@@ -333,6 +471,7 @@ public:
 	FTextHistory_AsDate& operator=(FTextHistory_AsDate&& Other);
 
 	//~ Begin FTextHistory Interface
+	OVERRIDE_TEXT_HISTORY_STRINGIFICATION;
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::AsDate; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
@@ -366,6 +505,7 @@ public:
 	FTextHistory_AsTime& operator=(FTextHistory_AsTime&& Other);
 
 	//~ Begin FTextHistory Interface
+	OVERRIDE_TEXT_HISTORY_STRINGIFICATION;
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::AsTime; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
@@ -399,6 +539,7 @@ public:
 	FTextHistory_AsDateTime& operator=(FTextHistory_AsDateTime&& Other);
 
 	//~ Begin FTextHistory Interface
+	OVERRIDE_TEXT_HISTORY_STRINGIFICATION;
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::AsDateTime; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
@@ -442,6 +583,7 @@ public:
 	FTextHistory_Transform& operator=(FTextHistory_Transform&& Other);
 
 	//~ Begin FTextHistory Interface
+	OVERRIDE_TEXT_HISTORY_STRINGIFICATION;
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::Transform; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
@@ -466,13 +608,14 @@ class CORE_API FTextHistory_StringTableEntry : public FTextHistory
 {
 public:
 	FTextHistory_StringTableEntry() {}
-	FTextHistory_StringTableEntry(FName InTableId, FString&& InKey);
+	FTextHistory_StringTableEntry(FName InTableId, FString&& InKey, const EStringTableLoadingPolicy InLoadingPolicy);
 
 	/** Allow moving */
 	FTextHistory_StringTableEntry(FTextHistory_StringTableEntry&& Other);
 	FTextHistory_StringTableEntry& operator=(FTextHistory_StringTableEntry&& Other);
 
 	//~ Begin FTextHistory Interface
+	OVERRIDE_TEXT_HISTORY_STRINGIFICATION;
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::StringTableEntry; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
@@ -495,21 +638,92 @@ private:
 	FTextHistory_StringTableEntry(const FTextHistory_StringTableEntry&);
 	FTextHistory_StringTableEntry& operator=(FTextHistory_StringTableEntry&);
 
-	/** Get the string table pointer, potentially re-caching it if it's missing or stale */
-	FStringTableEntryConstPtr GetStringTableEntry(const bool InSilent = false) const;
+	enum class EStringTableLoadingPhase : uint8
+	{
+		/** This string table is pending load, and load should be attempted when possible */
+		PendingLoad,
+		/** This string table is currently being loaded, potentially asynchronously */
+		Loading,
+		/** This string was loaded, though that load may have failed */
+		Loaded,
+	};
 
-	/** The string table ID being referenced */
-	FName TableId;
+	/** Hosts the reference data for this text history */
+	class FStringTableReferenceData : public TSharedFromThis<FStringTableReferenceData, ESPMode::ThreadSafe>
+	{
+	public:
+		/** Initialize this data, immediately starting an asset load if required and possible */
+		void Initialize(uint16* InRevisionPtr, FName InTableId, FString&& InKey, const EStringTableLoadingPolicy InLoadingPolicy);
 
-	/** The key within the string table being referenced */
-	FString Key;
+		/** Get the string table ID being referenced */
+		FName GetTableId() const;
 
-	/** True if the string table asset referenced is pending load because we weren't able to load it during Serialize */
-	mutable bool bStringTableAssetPendingLoad;
+		/** Get the key within the string table being referenced */
+		FString GetKey() const;
 
-	/** Cached string table entry pointer */
-	mutable FStringTableEntryConstWeakPtr StringTableEntry;
+		/** Get the table ID and key within it that are being referenced */
+		void GetTableIdAndKey(FName& OutTableId, FString& OutKey) const;
 
-	/** Critical section preventing concurrent access when re-caching StringTableEntry */
-	mutable FCriticalSection StringTableEntryCS;
+		/** Collect any string table asset references */
+		void CollectStringTableAssetReferences(FStructuredArchive::FRecord Record) const;
+
+		/** Resolve the string table pointer, potentially re-caching it if it's missing or stale */
+		FStringTableEntryConstPtr ResolveStringTableEntry();
+
+	private:
+		/** Begin an asset load if required and possible */
+		void ConditionalBeginAssetLoad();
+
+		/** Pointer to the owner text history revision that we need to reset when the cached string table entry pointer changes */
+		uint16* RevisionPtr = nullptr;
+
+		/** The string table ID being referenced */
+		FName TableId;
+
+		/** The key within the string table being referenced */
+		FString Key;
+
+		/** The loading phase of any referenced string table asset */
+		EStringTableLoadingPhase LoadingPhase = EStringTableLoadingPhase::PendingLoad;
+
+		/** Cached string table entry pointer */
+		FStringTableEntryConstWeakPtr StringTableEntry;
+
+		/** Critical section preventing concurrent access to the resolved data */
+		mutable FCriticalSection DataCS;
+	};
+	typedef TSharedPtr<FStringTableReferenceData, ESPMode::ThreadSafe> FStringTableReferenceDataPtr;
+	typedef TWeakPtr<FStringTableReferenceData, ESPMode::ThreadSafe> FStringTableReferenceDataWeakPtr;
+
+	/** The reference data for this text history */
+	FStringTableReferenceDataPtr StringTableReferenceData;
 };
+
+/** Handles history for FText::FromTextGenerator */
+class CORE_API FTextHistory_TextGenerator : public FTextHistory
+{
+public:
+	FTextHistory_TextGenerator() {}
+	FTextHistory_TextGenerator(const TSharedRef<ITextGenerator>& InTextGenerator);
+
+	/** Disallow copying */
+	FTextHistory_TextGenerator(const FTextHistory_TextGenerator&) = delete;
+	FTextHistory_TextGenerator& operator=(const FTextHistory_TextGenerator&) = delete;
+
+	/** Allow moving */
+	FTextHistory_TextGenerator(FTextHistory_TextGenerator&& Other) = default;
+	FTextHistory_TextGenerator& operator=(FTextHistory_TextGenerator&& Other) = default;
+
+	//~ Begin FTextHistory Interface
+	virtual ETextHistoryType GetType() const override { return ETextHistoryType::TextGenerator; }
+	virtual FString BuildLocalizedDisplayString() const override;
+	virtual FString BuildInvariantDisplayString() const override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
+	//~ End FTextHistory Interface
+
+private:
+	/** The object implementing the custom generation code */
+	TSharedPtr<ITextGenerator> TextGenerator;
+};
+
+#undef OVERRIDE_TEXT_HISTORY_STRINGIFICATION

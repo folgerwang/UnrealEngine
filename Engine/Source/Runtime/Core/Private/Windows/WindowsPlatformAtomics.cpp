@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Windows/WindowsPlatformAtomics.h"
 #include "Misc/AssertionMacros.h"
@@ -13,7 +13,7 @@ void FWindowsPlatformAtomics::HandleAtomicsFailure( const TCHAR* InFormat, ... )
 	va_list Ptr;
 
 	va_start( Ptr, InFormat );	
-	FCString::GetVarArgs( TempStr, ARRAY_COUNT(TempStr), ARRAY_COUNT(TempStr) - 1, InFormat, Ptr );
+	FCString::GetVarArgs( TempStr, ARRAY_COUNT(TempStr), InFormat, Ptr );
 	va_end( Ptr );
 
 	UE_LOG(LogWindows, Log,  TempStr );

@@ -1,0 +1,189 @@
+﻿INTSourceChangelist:4531380
+Availability: Public
+Crumbs: 
+Title: Datasmith で SketchUp Pro を使用する
+Description: Datasmith を使用して Trimble SketchUp Pro から Unreal Editor にシーンを取り込む際に特段考慮すべき事項を説明します。
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/SoftwareInteropGuides
+Order: 3
+Tags: Enterprise
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: overview
+Tags: SketchUp
+Tags: interop
+topic-image:sketchup_datasmith_topic.png
+
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![SketchUp](sketchup_datasmith_compare_skp.png) 
+	[/PARAM]
+	[PARAM:after]
+	![UE4](sketchup_datasmith_compare_unreal.png) 
+	[/PARAM]
+[/OBJECT]
+
+Datasmith を使用して Trimble SketchUp Pro から Unreal Editor にシーンを取り込むにあたり、Datasmith によるシーンの処理方法について、 [](Enterprise/Datasmith/Overview) および [](Enterprise/Datasmith/Overview/ImportProcess) で説明されている基本事項以外にも何点か追加で知っておくべきことがあります。
+
+## SketchUp Workflow
+
+Datasmith は SketchUp に対して **Export Plugin** のワークフローを使用するので、Datasmith を使用して SketchUp のコンテンツを Unreal に取り込むには以下を実行する必要があります。
+
+1. SketchUp 用のプラグインをインストールします。[](Enterprise/Datasmith/SoftwareInteropGuides/SketchUp/InstallingExporterPlugin) を参照してください。
+2. SketchUp のコンテンツを *「.udatasmith」* ファイルにエクスポートします。[](Enterprise/Datasmith/SoftwareInteropGuides/SketchUp/ExportingDatasmithContentfromSketchUp) を参照してください。
+3. Datasmith インポータを使用して、エクスポートした *「.udatasmith」* ファイルを Unreal Editor に取り込みます。[](Enterprise/Datasmith/HowTo/ImportingContent) を参照してください。
+
+## ジオメトリのスタティック メッシュへの変換
+
+Datasmith は、同一のコンポーネントまたはグループの連結したポリゴン面をすべて単一のスタティック メッシュに結合して、SketchUp のジオメトリをスタティック メッシュ アセットに分割します。この基本的な動作を把握しておくことで、作成するスタティック メッシュをよりうまく制御することができます。
+
+Unreal のスタティック メッシュが非常に大きい場合、シーンの静的あるいは固定ライトのベイクがうまくいかないことがあります。大きなメッシュには、モデルの各部分に光と影を記録する十分な量のテクスチャ スペースを確保するため、それに対応する大きなライトマップ テクスチャが必要になります。大きなスタティック メッシュのライトマップの解像度を上げることもできますが、これによりベイク時間とランタイム時のメモリ要求も増大します。ライトマップ UV の配置方法によっては、生成がまったくうまくいかないことがあります。こうした場合には、Unreal でのスタティック メッシュの処理を容易にするために、大きなジオメトリを SketchUp で複数のコンポーネントやレイヤに分割してみてください。
+
+### インスタンス化
+
+Datasmith が SketchUp のシーン内に同一コンポーネントの複数のコピーを検出すると、そのコンポーネントのスタティック メッシュ アセットを 1 セットのみ作成して、これらのスタティック メッシュの複数のインスタンスをシーンに配置します。通常、これによりランタイム メモリの要求とプロジェクトのパフォーマンスにおいて良い結果がもたらされます。また、コンテンツ ブラウザでのスタティック メッシュ アセット数の管理が簡素化されます。
+
+この機能を可能な限り活用して、シーンに繰り返し登場するエレメント (窓、ドア、椅子など) を SketchUp の再利用可能なコンポーネントにすることを推奨します。
+
+### ビルボード
+
+SketchUp のシーンに回転するビルボードがある場合、Datasmith はこれをスタティック メッシュとしてエクスポートして、SketchUp からのエクスポート時のカメラの視点に基づいてシーンに配置します。
+
+### トライアングルの面方向
+
+SketchUp はジオメトリの面の向きに関しては大変柔軟です。「片面のジオメトリ」、つまり厚みのないジオメトリを作成することができます。それを両側から表示することができ、それぞれの平面に別のマテリアルを適用することも可能です。
+
+Unreal Engine でのアプローチはこれとは異なり、すべてのジオメトリには厚みがあるということが前提となっています。カメラの方を向いていないトライアングルはサーフェスの背面を意味し、サーフェス前面からの視点では非表示になることが想定されています。ランタイム時のパフォーマンスを最大限に引き出すために、Unreal では後ろ向きのトライアングルは常に *間引き* されます。これにより、実際には見えないトライアングルのレンダリングに浪費される GPU サイクルを防ぐことができます。
+
+3D オブジェクトが Unreal で想定通りに動作するよう、常に厚みを含めてモデリングすることを推奨します。ただし、SketchUp で片面のジオメトリを使用している場合、Datasmith では、マテリアルと面方向をスタティック メッシュのトライアングルに割り当てる方法において、片面のジオメトリを使用する意図を最大限尊重します。
+
+*   SketchUp でサーフェスの 1 面だけにマテリアルが割り当てられている場合、Unreal ではそのサーフェスをトライアングルの前面として理解します。
+*   それ以外の場合、Datasmith は SketchUp でのサーフェスの正面を Unreal での前面として理解します。
+*   *両面* にマテリアルが割り当てられている場合、Datasmith は正面のマテリアルのみをインポートします。
+
+つまり、片面のジオメトリに含まれるトライアングルを裏側から見た場合、デフォルトでは Unreal のシーンではこれらが表示されないことになります。さらに、背面側では影を投影しませんん。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![SketchUp](sketchup_datasmith_single_side_skp.png) 
+	[/PARAM]
+	[PARAM:after]
+	![Unreal](sketchup_datasmith_single_side_unreal.png) 
+	[/PARAM]
+[/OBJECT]
+
+上の例では、それぞれのボックスの側面と底は外側を向いています。左の画像では、側面にはそれぞれ外側に割り当てられている単一のマテリアルが含まれています。中央の画像ではそれぞれに 2 つのマテリアルが割り当てられており、各面に 1 つずつ割り当てられています。右の画像では、赤のマテリアルがグループ全体に割り当てられており、ボックスの 1 面だけに異なるマテリアルが割り当てられています。外側に向かっている前面の色はすべて Unreal 向けに変換されますが、背面側はボックスをもう一方の側から見た場合にのみ表示されます。
+
+これに対処する最良の方法は、SketchUp でオブジェクトに厚みを加えて修正することです。Unreal でこの問題を修正する場合は、これ以外のオプションもあります。詳細については、 [インポート プロセスについて](Enterprise/Datasmith/Overview/ImportProcess#三角ポリゴンの面方向) を参照してください。
+
+## SketchUp のマテリアル
+
+SketchUp のシーンに含まれる各種サーフェスに対して、Datasmith によって新規のマテリアル アセットが作成され、Datasmith シーン アセットの横の「Materials」フォルダに配置されます。これらのマテリアルの目的は、Unreal の物理ベースのレンダラーを活用するための追加プロパティを提供しつつ、SketchUp で設定したサーフェスの外観を忠実に描くことにあります。
+
+[REGION:lightbox]
+[![SketchUp のマテリアルを編集](sketchup_datasmith_material_editing.png "SketchUp のマテリアルを編集")](sketchup_datasmith_material_editing.png)
+
+*クリックしてフルサイズで表示*
+[/REGION]
+
+マテリアルを変更する
+
+1. コンテンツ ブラウザで目的のマテリアルをダブルクリックします。または、変更するマテリアルを使用するレベルのアクタを選択し、 **[Details (詳細)]** パネルでそのマテリアルをダブルクリックします。
+2. 上のマテリアル エディタが起動します。 **[Details (詳細)]** パネル上部の **[Parameter Groups (パラメータ グループ)]** セクションでこれらのパラメータを変更できます。Unreal レンダラーにより提供されている他のビルトイン パラメータを変更することもできます。
+3. プロパティのデフォルト値をオーバーライドするには、変更するプロパティ名の左にあるチェックボックスをオンにして、マテリアルでそのプロパティをアクティベートします。次に、そのプロパティで使用する値を設定します。
+
+### 色とテクスチャ イメージ
+
+デフォルトでは、インポートしたマテリアルでは SketchUp で保持していたテクスチャまたは色が維持されます。これをオーバーライドして、マテリアルがソリッド カラーまたはテクスチャのいずれかを使用するように設定することができます。
+
+*   **[Color (色)]** オプションまたは **[Use Texture Image (テクスチャの画像を使用する)]** オプションのいずれかをアクティベートします。**[Color (色)]** オプションが表示されない場合は、 **[Use Texture Image (テクスチャの画像を使用する)]** オプションをまず解除してください。
+*   ソリッド カラーを使用するには、希望の色が出力されるよう **RGB** カラー値を設定します。   
+    ![](datasmith-sketchup-material-color.png "datasmith-sketchup-material-color.png")  
+    A チャンネルは使用されないことに注意してください。アルファ ブレンディングは別のオパシティ オプションにより制御されます (下記参照)。
+*   テクスチャの画像を使用するよう選択すると **[Texture (テクスチャ)]** プロパティが表示され、使用するテクスチャ アセットを参照するよう設定できます。Unreal プロジェクトにまだ存在しないテクスチャを使用する場合は、テクスチャをプロジェクトにインポートするために、コンテンツ ブラウザにドラッグ ＆ ドロップします。
+    ![](datasmith-sketchup-material-usetexture.png "datasmith-sketchup-material-usetexture.png")  
+    テクスチャがサーフェスにタイル化される方法を変更する場合は、 **[Texture Scale (テクスチャのスケール)]** コントロールも使用できます。**[R]** 値は水平スケーリングを (UV 空間の U 軸)、 **[G]** 値は垂直スケーリングを制御します (UV 空間の V 軸)。**[B]** 値と **[A]** 値は使用されません。
+
+[EXCERPT:datasmith-sketchup-texture-scale-sequenceSlider]
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:max]
+	3
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	datasmith-sketchup-texture-scale-sequence
+	[/PARAMLITERAL]
+    [PARAM:caption]
+    テクスチャのスケール設定の違いによる効果	[/PARAM]
+    [PARAM:image_list]
+    ![](datasmith-sketchup-material-scale-1.png)
+	![](datasmith-sketchup-material-scale-2.png)
+	![](datasmith-sketchup-material-scale-3.png)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:datasmith-sketchup-texture-scale-sequenceSlider]
+
+### オパシティおよびブレンド モード
+
+マテリアルのベース カラーにソリッド カラーまたはテクスチャ マップのいずれを使用している場合でも、 **[Opacity (オパシティ)]** コントロールを使用して、スタティック メッシュを透かして見える背景の量を設定できます。
+
+デフォルトでは、SketchUp マテリアルのオパシティ値が 100% 未満であれば、Unreal ではその値が正しく引き継がれてマテリアルに適用されます。
+
+Unreal でこれまで *不透明* だったマテリアルにオパシティを設定する場合は、マテリアルのブレンド モードを変更する必要があります。**[General (全般)]** セクションで、 **[Material Property Overrides (マテリアル プロパティ オーバーライド)]** グループを展開して **[Blend Mode (ブレンド モード)]** チェックボックスをオンにして、その値を **[Translucent (半透明)]** に設定します。
+
+[REGION:lightbox]
+[![SketchUp マテリアルのオパシティ](sketchup_datasmith_material_opacity.png "SketchUp マテリアルのオパシティ")](sketchup_datasmith_material_opacity.png)
+
+*クリックしてフルサイズで表示*
+[/REGION]
+
+### UE Extended プロパティ
+
+デフォルトでは、インポートされたマテリアルはすべて非メタリックで、バランスの取れたラフネス値 0.5 が設定されています。しかし、異なるマテリアルに対してこれらの値を調整することで、Unreal でのシーンのレンダリングにおいて写実性を容易に高めることができます。これらの値は **[UE Extended (UE 拡張機能)]** グループ pf プロパティにあります。
+
+![](datasmith-sketchup-material-ueextended.png "datasmith-sketchup-material-ueextended.png")
+
+*   金属で構成されている任意のオブジェクトで **[Metallic (メタリック)]** オプションを選択します。これにより、ベース カラーまたはテクスチャがサーフェスに当たる入射光に影響を及ぼす方法がわずかに変化します。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![デフォルト](sketchup_datasmith_material_metallic_off.png) 
+	[/PARAM]
+	[PARAM:after]
+	![メタリック オン](sketchup_datasmith_material_metallic_on.png) 
+	[/PARAM]
+[/OBJECT]
+
+*   オブジェクトのサーフェスがとりわけ艶なし、あるいは艶光りしている場合は、 **[Roughness]** チェックボックスをオンにして、その値を変更します。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![デフォルトのラフネス値 0.5](sketchup_datasmith_material_roughness_default.png) 
+	[/PARAM]
+	[PARAM:after]
+	![ラフネス値 0.05](sketchup_datasmith_material_roughness_zero.png) 
+	[/PARAM]
+[/OBJECT]
+
+*   オブジェクトの部分ごとに異なる光沢が必要な場合は、代わりにラフネス マップを使用できます。ラフネス マップは、艶消しする部分は白く塗り、艶光りさせる部分は黒く塗った、グレースケールのテクスチャの画像です。
+*   どのようにラフネス値とメタリック値が相互作用して、光沢のあるサーフェスが作成されるかについては、 [](Engine/Rendering/Materials/HowTo/ShinyMaterials) を参照してください。
+*   さらに、インポートしたマテリアルに対する法線マップを設定することもできます。これにより、ジオメトリの小スケール サーフェスの詳細に関するヒントがレンダラーに提供されます。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![法線マップなし](sketchup_datasmith_material_normal_off.png) 
+	[/PARAM]
+	[PARAM:after]
+	![法線マップあり](sketchup_datasmith_material_normal_on.png) 
+	[/PARAM]
+[/OBJECT]
+
+法線マップおよびラフネス マップは、Adobe Photoshop のような 2D 画像作成ソフトウェアで生成することができます。上の画像のテクスチャのように、これらの法線マップおよびラフネス マップをマテリアルのベース カラー テクスチャで基礎として使用できる場合もあります。
+
+## SketchUp Pro のみ
+
+現時点では、Datasmith Exporter プラグインは SketchUp Pro でのみ動作します。SketchUp Free または廃盤となった SketchUp Make はサポートされていません。

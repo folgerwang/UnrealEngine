@@ -1,0 +1,106 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+#include "SSDDefinitions.ush"
+
+
+//------------------------------------------------------- CONFIGS
+
+#define TILE_PIXEL_SIZE 8
+
+#define CONFIG_SIGNAL_PROCESSING DIM_SIGNAL_PROCESSING
+#define CONFIG_SIGNAL_BATCH_SIZE DIM_SIGNAL_BATCH_SIZE
+
+
+#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_MONOCHROMATIC_PENUMBRA
+	#if DIM_MULTI_SPP
+		#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_PENUMBRA_INPUT_NSPP
+		#define CONFIG_SIGNAL_OUTPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_PENUMBRA_INJESTION_NSPP
+	#else
+		#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_PENUMBRA_INPUT_1SPP
+		#define CONFIG_SIGNAL_OUTPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_PENUMBRA_INJESTION_1SPP
+	#endif
+	#define CONFIG_MULTIPLEXED_SIGNALS_PER_SIGNAL_DOMAIN 1
+
+#else
+	#error Unknown signal processing.
+#endif
+
+
+//------------------------------------------------------- INCLUDES
+
+#include "SSDSignalFramework.ush"
+#include "SSDSignalArray.ush"
+
+
+//------------------------------------------------------- PARAMETERS
+
+Texture2D SignalInput_Textures_0;
+Texture2D SignalInput_Textures_1;
+Texture2D SignalInput_Textures_2;
+Texture2D SignalInput_Textures_3;
+
+RWTexture2D<float4>	SignalOutput_UAVs_0;
+RWTexture2D<float4>	SignalOutput_UAVs_1;
+RWTexture2D<float4>	SignalOutput_UAVs_2;
+RWTexture2D<float4>	SignalOutput_UAVs_3;
+
+
+//------------------------------------------------------- ENTRY POINT
+
+[numthreads(TILE_PIXEL_SIZE, TILE_PIXEL_SIZE, 1)]
+void MainCS(
+	uint2 DispatchThreadId : SV_DispatchThreadID,
+	uint2 GroupId : SV_GroupID,
+	uint2 GroupThreadId : SV_GroupThreadID,
+	uint GroupThreadIndex : SV_GroupIndex)
+{
+	// Find out scene buffer UV.
+	float2 SceneBufferUV = (DispatchThreadId + 0.5 + View.ViewRectMin.xy) * View.BufferSizeAndInvSize.zw;
+	if (true)
+	{
+		SceneBufferUV = clamp(SceneBufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw);
+	}
+	
+	// Read reference meta data.
+	float2 ScreenPosition = ViewportUVToScreenPos(BufferUVToViewportUV(SceneBufferUV));
+	FSSFSampleSceneInfos RefSceneMetadata = FetchCurrentSceneInfos(ScreenPosition, SceneBufferUV);
+
+	// Sample the reference sample.
+	FSSDSignalArray MultiplexedSamples = SampleMultiplexedSignals(
+		SignalInput_Textures_0,
+		SignalInput_Textures_1,
+		SignalInput_Textures_2,
+		SignalInput_Textures_3,
+		GlobalPointClampedSampler,
+		CONFIG_SIGNAL_INPUT_LAYOUT,
+		/* MultiplexedSampleId = */ 0,
+		/* bNormalizeSample = */ false,
+		SceneBufferUV,
+		/* MipLevel = */ 0);
+
+	// Performs sample value precomputation.
+	UNROLL
+	for (uint MultiplexId = 0; MultiplexId < CONFIG_SIGNAL_BATCH_SIZE; MultiplexId++)
+	{
+		const uint BatchedSignalId = MultiplexId / CONFIG_MULTIPLEXED_SIGNALS_PER_SIGNAL_DOMAIN;
+		MultiplexedSamples.Array[MultiplexId].WorldBluringRadius = GetSignalWorldBluringRadius(
+			MultiplexedSamples.Array[MultiplexId], RefSceneMetadata, BatchedSignalId);
+	}
+
+	// Whitelists computation that needs to be done.
+	const uint MultiplexCount = CONFIG_SIGNAL_BATCH_SIZE;
+	FSSDSignalArray OutputSamples = CreateSignalArrayFromScalarValue(0.0);
+	UNROLL
+	for (uint MultiplexId = 0; MultiplexId < MultiplexCount; MultiplexId++)
+	{
+		OutputSamples.Array[MultiplexId] = MultiplexedSamples.Array[MultiplexId];
+	}
+
+	OutputMultiplexedSignal(
+		SignalOutput_UAVs_0,
+		SignalOutput_UAVs_1,
+		SignalOutput_UAVs_2,
+		SignalOutput_UAVs_3,
+		CONFIG_SIGNAL_OUTPUT_LAYOUT, MultiplexCount,
+		DispatchThreadId, OutputSamples.Array);
+} // MainCS

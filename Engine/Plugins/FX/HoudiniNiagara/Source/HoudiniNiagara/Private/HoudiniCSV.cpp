@@ -846,49 +846,56 @@ bool UHoudiniCSV::GetLastRowIndexAtTime(const float& desiredTime, int32& lastRow
 // If the CSV file doesn't have time informations, returns false and set the LastIndex to the last point
 // If desiredTime is smaller than the first point time, LastIndex will be set to -1
 // If desiredTime is higher than the last point time in the csv file, LastIndex will be set to the last point's index
-bool UHoudiniCSV::GetLastPointIDToSpawnAtTime( const float& desiredTime, int32& lastID ) const
+bool UHoudiniCSV::GetLastPointIDToSpawnAtTime(const float& desiredTime, int32& lastID) const
 {
 	/*
 	// If we dont have proper time info, always return the last point
-	int32 TimeColumnIndex = GetAttributeColumnIndex(EHoudiniAttributes::TIME);    
-    if ( TimeColumnIndex < 0 || TimeColumnIndex >= NumberOfColumns )
-    {
-		lastID = NumberOfPoints - 1;
-		return false;
-    }
-	*/
-
-    float temp_time = 0.0f;
-	if ( !SpawnTimes.IsValidIndex( NumberOfPoints - 1 ) )
+	int32 TimeColumnIndex = GetAttributeColumnIndex(EHoudiniAttributes::TIME);
+	if ( TimeColumnIndex < 0 || TimeColumnIndex >= NumberOfColumns )
 	{
 		lastID = NumberOfPoints - 1;
 		return false;
 	}
+	*/
 
-	if ( SpawnTimes[ NumberOfPoints - 1 ] < desiredTime )
+	float temp_time = 0.0f;
+	if (!SpawnTimes.IsValidIndex(NumberOfPoints - 1))
 	{
-		// We didn't find a suitable index because the desired time is higher than our last time value
 		lastID = NumberOfPoints - 1;
+		LastDesiredTime = desiredTime;
+		return false;
+	}
+
+	else if (SpawnTimes[NumberOfPoints - 1] < desiredTime && desiredTime > LastDesiredTime)
+	{
+		// We didn't find a suitable index because the desired time is higher than the last index's time value and the spawn time has not looped over
+		lastID = NumberOfPoints - 1;
+		LastDesiredTime = desiredTime;
 		return true;
 	}
 
-	// Iterates through all the points
-	lastID = INDEX_NONE;
-	for ( int32 n = 0; n < NumberOfPoints; n++ )
+	else
 	{
-		temp_time = SpawnTimes[ n ];
+		// Iterates through all the points
+		lastID = GetNumberOfPoints();
+		for (int32 n = 0; n < NumberOfPoints; n++)
+		{
+			temp_time = SpawnTimes[n];
 
-		if ( temp_time == desiredTime )
-		{
-			lastID = n;
-		}
-		else if ( temp_time > desiredTime )
-		{
-			lastID = n - 1;
-			return true;
+			if (temp_time == desiredTime)
+			{
+				lastID = n;
+			}
+			else if (temp_time > desiredTime)
+			{
+				lastID = n - 1;
+				LastDesiredTime = desiredTime;
+				return true;
+			}
 		}
 	}
 
+	LastDesiredTime = desiredTime;
 	return true;
 }
 

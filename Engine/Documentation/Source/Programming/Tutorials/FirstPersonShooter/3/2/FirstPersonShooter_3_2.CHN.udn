@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3069483
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:3.2 - 实现射击
 Crumbs: %ROOT%, Programming, Programming/Tutorials/FirstPersonShooter, Programming/Tutorials/FirstPersonShooter/3
 Description:学习如何向第一人称射击游戏角色射击。
 SkillLevel:Beginner
-Version:4.11
+Version:4.15
 
 [VAR:Steps]
 [OBJECT:Navigation]
@@ -24,9 +24,10 @@ Version:4.11
 
 
 
-在这步中，我们将实现 `OnFire` 函数，使角色能够发射物体。
+在这步中，我们将实现 `Fire` 函数，使角色能够发射物体。
 
-## 实现 OnFire 函数
+(#ImplementingtheFireFunction)
+## 实现 Fire 函数
 
 1.	在 **Solution Explorer** 中找到 `FPSCharacter` 类 CPP 文件并打开 `FPSCharacter.cpp`。
 
@@ -86,7 +87,7 @@ Version:4.11
 			// 创建一个第一人称摄像机组件。
 			FPSCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
 			// 将摄像机组件附加到胶囊体组件。
-			FPSCameraComponent->AttachTo(GetCapsuleComponent());
+			FPSCameraComponent->SetupAttachment(GetCapsuleComponent());
 			// 将摄像机放置在眼睛上方不远处。
 			FPSCameraComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 50.0f + BaseEyeHeight));
 			// 用 pawn 控制摄像机旋转。
@@ -97,7 +98,7 @@ Version:4.11
 			// 该模型仅对拥有玩家可见。
 			FPSMesh->SetOnlyOwnerSee(true);
 			// 将 FPS 模型添加到 FPS 摄像机。
-			FPSMesh->AttachTo(FPSCameraComponent);
+			FPSMesh->SetupAttachment(FPSCameraComponent);
 			// 禁用部分环境阴影，保留单一模型存在的假象。
 			FPSMesh->bCastDynamicShadow = false;
 			FPSMesh->CastShadow = false;
@@ -126,22 +127,22 @@ Version:4.11
 		}
 		
 		// 调用后将功能绑定到输入
-		void AFPSCharacter::SetupPlayerInputComponent(class UInputComponent* InputComponent)
+		void AFPSCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
 		{
-			Super::SetupPlayerInputComponent(InputComponent);
+			Super::SetupPlayerInputComponent(PlayerInputComponent);
 		
 			// 设置“移动”绑定。
-			InputComponent->BindAxis("MoveForward", this, &AFPSCharacter::MoveForward);
-			InputComponent->BindAxis("MoveRight", this, &AFPSCharacter::MoveRight);
+			PlayerInputComponent->BindAxis("MoveForward", this, &AFPSCharacter::MoveForward);
+			PlayerInputComponent->BindAxis("MoveRight", this, &AFPSCharacter::MoveRight);
 		
 			// 设置“查看”绑定。
-			InputComponent->BindAxis("Turn", this, &AFPSCharacter::AddControllerYawInput);
-			InputComponent->BindAxis("LookUp", this, &AFPSCharacter::AddControllerPitchInput);
+			PlayerInputComponent->BindAxis("Turn", this, &AFPSCharacter::AddControllerYawInput);
+			PlayerInputComponent->BindAxis("LookUp", this, &AFPSCharacter::AddControllerPitchInput);
 		
 			// 设置“动作”绑定。
-			InputComponent->BindAction("Jump", IE_Pressed, this, &AFPSCharacter::StartJump);
-			InputComponent->BindAction("Jump", IE_Released, this, &AFPSCharacter::StopJump);
-			InputComponent->BindAction("Fire", IE_Pressed, this, &AFPSCharacter::Fire);
+			PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AFPSCharacter::StartJump);
+			PlayerInputComponent->BindAction("Jump", IE_Released, this, &AFPSCharacter::StopJump);
+			PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &AFPSCharacter::Fire);
 		}
 		
 		void AFPSCharacter::MoveForward(float Value)
@@ -209,6 +210,7 @@ Version:4.11
 
 	![](BuildFPSProject.png)
 
+(#BuildingtheProjectileBlueprint)
 ## 构建发射物蓝图
 
 [REGION:note]
@@ -230,7 +232,9 @@ Version:4.11
 
 	[REGION:warning]
 	忽略以下关于平滑组的错误：
-	![](FBXWarning.png)  
+	
+	![](FBXWarning.png)
+	
 	此模型仍将展现第一人称模型设置，可用于之后设置的动画。
 	[/REGION]
 
@@ -300,6 +304,7 @@ Version:4.11
 
 1.	关闭 **蓝图编辑器** 之前 **编译** 并 **保存** 蓝图。
 
+(#ShootingProjectilesIn-Game)
 ## 在游戏中进行射击
 
 1.	点击 **关卡编辑器工具栏** 中的 **Play In** 按钮在游戏中进行射击。

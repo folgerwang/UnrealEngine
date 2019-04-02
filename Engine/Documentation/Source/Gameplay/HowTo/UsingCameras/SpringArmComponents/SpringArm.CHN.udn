@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2617899
+﻿INTSourceChangelist:3429254
 Availability: Public
 Title:使用弹簧臂组件
 Crumbs: %ROOT%, Gameplay, Gameplay\HowTo\UsingCameras
@@ -9,6 +9,7 @@ Related: Engine/Matinee
 Related: Engine/Blueprints
 SkillLevel: Beginner
 Version: 4.8
+type:how-to
 
 [REGION:warning]
 您可以使用您自己的人物来完成本次教程，但必须为它分配一个 **Camera** 组件。如果您没有自己的人物，我们建议您先完成 [](Gameplay\HowTo\UsingCameras\CameraComponents) 教程以创建基本人物用于本次指南。 
@@ -51,6 +52,7 @@ Version: 4.8
 
 1.	单击 **Compile** 和 **Play**，在编辑器中运行程序。 
 
+(#EndResult)
 ## 最终结果
 
 [OBJECT:EmbeddedVideo]

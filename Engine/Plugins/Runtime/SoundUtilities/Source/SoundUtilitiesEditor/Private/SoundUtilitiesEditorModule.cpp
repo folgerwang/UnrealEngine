@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SoundUtilitiesEditorModule.h"
 #include "CoreMinimal.h"
@@ -11,7 +11,7 @@
 #include "AudioEditorModule.h"
 
 
-IMPLEMENT_MODULE(FSoundUtilitiesEditorModule, FSynthesisEditor)
+IMPLEMENT_MODULE(FSoundUtilitiesEditorModule, SoundUtilitiesEditor)
 
 void FSoundUtilitiesEditorModule::StartupModule()
 {

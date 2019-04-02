@@ -1,75 +1,66 @@
-﻿INTSourceChangelist:3064728
+﻿INTSourceChangelist:3782314
 Availability:Public
-Title:基础脚本
+Title: 基本脚本
 Crumbs: %ROOT%, Engine, Engine/Blueprints
-Description:蓝图可视化脚本系统变量和执行流程的整体概览。
-version:4.12
+Description: 蓝图可视化脚本系统的变量和执行流的一般概述。
+version: 4.12
 parent:Engine/Blueprints
+tags:Blueprints
+type:landing
+topic-image:Engine/Blueprints/UserGuide/using_interface_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints/Scripting:title%](Engine\Blueprints\UserGuide\using_interface_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/reference_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/Scripting:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/Scripting:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/Scripting]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints/Scripting:title%](BasicScripting.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/reference_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/Scripting:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/Scripting:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/Scripting]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
-蓝图为脚本语言提供了可视方案。因此，该系统拥有标准脚本编写语言的许多细微差别，如数据类型变量、阵列、结构体等。虽然蓝图要求每个节点的显式线性执行，执行流程仍然按照典型脚本语言中的方式进行。以下页面将详细说明不同变量类型、这些变量的使用，以及图表中节点的执行。 
+
+蓝图为脚本语言提供了一种可视化的方法。就其本身而言，此系统与标准书面脚本语言有许多细微差别，例如数据类型化变量、阵列、结构体等等。 
+执行流的工作方式与在典型脚本语言中一样，但蓝图要求每个节点的显式线性执行。以下各页将更详细地介绍 
+不同的变量类型、如何处理这些变量以及图表中节点的执行。 
+
+(#variables)
 
 ## 变量
 
-变量可创建为各种不同类型，如布尔、整数、浮点数据类型。它们拥有颜色编码，便于在蓝图中进行识别。蓝图变量也可以是保存对象、Actor 和类等资源的引用类型。
+变量可以采用各种不同的类型创建，包括布尔型、整数型和浮点型等数据类型。它们采用颜色编码，便于在您的蓝图中识别。
+蓝图变量还可以是用于保存对象、Actor和类等内容的引用类型。
 
 [DIR(output:"listbutton" parent:"Engine/Blueprints" tags:"Data Types" org:"flat")]
 
-## 执行流程
+(#executionflow)
 
-在蓝图中，首先执行的是事件节点，然后执行流程跟随白色执行引线从左至右进行。游戏在编辑器中运行时可显示执行流程，有助于进行调试。数据通过带颜色的引线流动，匹配相应的变量类型。节点执行时将对输入引脚进行求值，从右至左反推数据引线，直到算出最终结果并供应到节点。
+## 执行流
 
-带执行引脚的节点（非纯节点）在执行时保存其输出引脚的数值，而不带执行引脚的节点（纯节点）在连接到其输出的节点每次执行时对输出进行重新求值。 
+在蓝图中，要执行的第一个节点是一个事件，然后是从左至右通过白色执行线的执行流。游戏运行时，您可以在编辑器中可视化执行流，
+这有助于调试。数据还流经采用匹配变量类型的彩色导线。当节点执行时，将对输入引脚进行评估，
+反向从右至左跟踪数据线，直到计算出最终结果并将其提供给节点。
+
+带有执行引脚（非纯节点）的节点在执行时存储其输出引脚的值，而不带执行引脚（纯节点）的节点
+则在每次与其输出相连的节点执行时重新计算其输出。 
 
 [DIR(output:"listbutton" parent:"Engine/Blueprints/Scripting" tags:"Execution Flow")]
 
-## 阵列和结构
+(#arrays&structures)
 
-阵列和结构是多种数据类型的合集。它们可用于更复杂的系统，有助于集中相关信息，并保证大量信息的流线型处理。
+## 阵列和结构体
+
+阵列和结构体是多个数据类型的集合。它们适用于更复杂的系统，有助于将类似的信息保存在一起，并简化大量信息的处理工作。
 
 [DIR(output:"listbutton" parent:"Engine/Blueprints/Scripting" tags:"Arrays and Structures")]
 
-[COMMENT:none]
+(#advancedcontainers)
 
-结构体
+## 高级容器
 
-[/COMMENT]
+从虚幻引擎4.15版起，蓝图集合和地图都已添加到蓝图应用程序编程接口(API)中。尽管这些容器为开发人员提供了一些令人兴奋的机会，使他们能够创造性地存储和访问数据，
+但这些容器是为那些具备高级蓝图专业知识的用户而设计的。虽然理想的容器通常会是蓝图阵列，但有时关联式容器（例如地图和集合）却可以帮助您使用游戏中的数据达成一些 
+有趣和令人兴奋之事。
 
+(#blueprintmaps)
+
+### 蓝图地图
+
+[DIR(output:"listbutton" parent:"Engine/Blueprints/Scripting" tags:"Blueprint Map")]
+
+(#blueprintsets)
+
+### 蓝图集合
+
+[DIR(output:"listbutton" parent:"Engine/Blueprints/Scripting" tags:"Blueprint Set")]

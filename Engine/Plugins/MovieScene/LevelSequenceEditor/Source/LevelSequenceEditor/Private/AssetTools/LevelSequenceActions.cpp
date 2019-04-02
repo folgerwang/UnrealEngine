@@ -1,11 +1,11 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AssetTools/LevelSequenceActions.h"
 #include "EngineGlobals.h"
 #include "Engine/Engine.h"
 #include "LevelSequence.h"
 #include "LevelSequenceEditorToolkit.h"
-
+#include "LevelSequenceActionExtender.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
@@ -86,6 +86,21 @@ bool FLevelSequenceActions::ShouldForceWorldCentric()
 {
 	// @todo sequencer: Hack to force world-centric mode for Sequencer
 	return true;
+}
+
+
+bool FLevelSequenceActions::HasActions( const TArray<UObject*>& InObjects ) const
+{
+	return ActionExtenders.Num() > 0;
+}
+
+
+void FLevelSequenceActions::GetActions( const TArray<UObject*>& InObjects, FMenuBuilder& MenuBuilder )
+{
+	for (const TSharedRef<FLevelSequenceActionExtender>& Extender : ActionExtenders)
+	{
+		Extender->GetActions(InObjects, MenuBuilder);
+	}
 }
 
 

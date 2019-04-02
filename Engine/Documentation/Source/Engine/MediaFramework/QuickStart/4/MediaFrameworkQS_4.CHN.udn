@@ -1,11 +1,13 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3750348
 Availability:Public
-Title:4 - TV Blueprint Setup - Construction Script
-Description:In this step, we use the Construction Script to set up some parameters that we can change for the TV Blueprint within the editor. 
+Crumbs: %ROOT%
+Title:4 - 电视机蓝图设置 - 构造脚本
+Description:在本节中，我们将使用构造脚本设置一些可以在编辑器内修改电视机蓝图的参数。
 SkillLevel:Beginner
 Version:4.18
 checkpoint: mediaframeworkqs
-parent:Engine\MediaFramework\QuickStart
+parent:Engine/MediaFramework/QuickStart
+type:quick start
 type:multi-step
 order:4
 tags:Media Framework
@@ -13,93 +15,89 @@ tags:Blueprints
  
 [NAV]
 
-With the Components of our TV Blueprint defined, in this step we set up the [Construction Script ](Engine/Blueprints/UserGuide/UserConstructionScript) so we can change the content on our TVs when we place them in our level. 
+我们已定义了电视机蓝图的组件，接下来我们将设置[构造脚本（Construction Script）](Engine/Blueprints/UserGuide/UserConstructionScript)，以便当我们将电视机放置在关卡中时可以更改其上的内容。
 
-## Steps
+## 步骤
 
-1. Inside the **TV_Blueprint**, click on the **Construction Script** tab below the Main Toolbar. 
+1. 在 **TV_Blueprint** 中，单击主工具栏下的 **构造脚本（Construction Script）** 选项卡。 
 
 	![](Construct_01.png)
 
-1. Right-click in the graph and add a **Create Dynamic Material Instance** node and set the **Parent** to **M_TV_Inst** and connect as shown. 
+1. 在图中右键单击并添加一个 **创建动态材质实例（Create Dynamic Material Instance）** 节点。将 **父（Parent）** 设置为 **M_TV_Inst** 并按下图中所示进行连接。 
 
 	![](Construct_02.png)
 
-	To change the Media Texture within the Material applied to our TV, we first need to create a [Dynamic Material Instance](Engine/Rendering/Materials/MaterialInstances) based on that Material and assign it to our TV. 
+	要更改应用到电视机的材质中的媒体纹理，首先需要基于该材质创建[动态材质实例](Engine/Rendering/Materials/MaterialInstances)并将它分配给电视机。 
 
-1.	On the **Return Value** of the **Create Dynamic Material Instance** node, right-click and select **Promote to Variable** and call it **TV_MID**. 
+1.	在 **创建动态材质实例（Create Dynamic Material Instance）** 节点的 **返回值（Return Value）**上，右键单击并选择 **提升为变量（Promote to Variable）** 并将它命名为 **TV_MID**。 
 
 	![](Construct_03.png)
 
-	This will store a reference to the Dynamic Material we created which we can use later in our setup. 
+	这将存储到我们创建的动态材质的引用，我们可以在稍后的设置中使用它。
 
-1.	In the **Components** window select the **TV_Mesh**, then in the graph right-click and choose **Set Material (TV_Mesh)**. 
+1.	在 **组件（Components）** 窗口中，选择 **TV_Mesh**，然后在图中右键单击并选择 **Set Material (TV_Mesh)**。
 
 	![](Construct_04.png)
 
-	This will add a reference to the TV and a Set Material node which we can then assign our Dynamic Material to. 
+	这将添加对电视机的引用和“Set Material”节点（然后我们可以将动态材质分配给它）。
 
-1.	From the **My Blueprint** panel, drag the **TV_MID** variable onto the **Material** pin of the **Set Material** node and connect as shown. 
+1.	从 **我的蓝图（My Blueprint）** 面板将 **TV_MID** 变量拖到 **Set Material** 节点的 **材质（Material）** 引脚上，并按下图中所示进行连接。
 
 	![](Construct_05.png)
 
-1.	Drag off the **TV_MID** node and use a **Set Texture Parameter Value** node and connect as shown. 
+1.	从 **TV_MID** 节点拖出引线并使用 **设置纹理参数值（Set Texture Parameter Value）** 节点。如下图中所示进行连接。
 
 	![](Construct_06.png)
 
-1.	Set the **Parameter Name** to **TV_Texture** then right-click on **Value** and **Promote to Variable** and call it **Texture for TV**.  
+1.	将 **参数名称（Parameter Name）** 设置为 **TV_Texture**，然后在 **值（Value）** 上右键单击。选择 **提升为变量（Promote to Variable）** 并将它命名为 **Texture for TV**。
 
 	![](Construct_07.png)
 
-	This will enable us to define what Media Texture we want sample from on a per TV basis as it is now a variable. 
+	由于它现在是变量，我们可以按电视机定义要取样的媒体纹理。 
 
-1.	From the **Components** window, drag the **Media Sound** asset into the graph, then off it use **Set Media Player**. 
+1.	从 **组件（Components）** 窗口中将 **媒体声音（Media Sound）** 资源拖到图中，然后从它拖出引线并使用 **设置媒体播放器（Set Media Player）**。
 
 	![](Construct_08.png)
 
-1.	Right-click on the **Media Player** pin and select **Promote to Variable** and call it **Media Player for Sound** and connect as shown. 
+1.	在 **媒体播放器（Media Player）** 引脚上右键单击并选择 **提升为变量（Promote to Variable）**。将新变量命名为 **Media Player for Sound** 并如下图中所示进行连接。 
 
 	![](Construct_09.png)
 
-	Similar to the way we set up our texture, this will enable us to define what Media Player to associate the Media Sound with on a per TV basis. 
+	与设置纹理的方法相似，这使我们能够按电视机定义将媒体声音与哪个媒体播放器相关联。 
 
-	Your full graph should look like the following. 
+	完整图应如下图中所示：
 
 	[REGION:lightbox]
 	[![](Construct_10.png)](Construct_10.png)
 	[/REGION]
 
 	[REGION:caption]
-	Click for full view. 
+	单击查看大图。 
 	[/REGION]
 
-1.	In the **My Blueprint** panel, select the **TextureForTV** variable, then set as **Instance Editable** and assign the **MediaPlayer_01_Video** Media Texture. 
+1.	在 **我的蓝图（My Blueprint）** 面板中，选择 **TextureForTV** 变量，然后将其设置为 **可编辑实例（Instance Editable）** 并分配 **MediaPlayer_01_Video** 媒体纹理。 
 
 	![](Construct_11.png)
 
-	Here we are defining the Default Value to use for our Texture and enabling Instance Editable gives us a way to change this value for each instance of this Blueprint. 
+	在此处，我们定义了用于纹理的默认值，而启用 **可编辑实例（Instance Editable）** 为我们提供了为此蓝图的每个实例更改该值的方法。 
 
 	[REGION:note]
-	In order to set the **Media Texture** Default Value, you may need to click the **Compile** button from the Main Toolbar. 
+	要设置 **媒体纹理** 默认值，需要在主工具栏中单击 **编译（Compile）** 按钮。 
 	[/REGION]
 
-1.	In the **My Blueprint** panel, select the **MediaPlayerForSound** variable, then set as **Instance Editable** and assign the **MediaPlayer_01** Media Player. 
+1.	在 **我的蓝图（My Blueprint）** 面板中，选择 **MediaPlayerForSound** 变量，然后将其设置为 **可编辑实例（Instance Editable）** 并分配 **MediaPlayer_01** 媒体播放器。 
 
 	![](Construct_12.png)
 
-	Similar to the previous step, we are assigning the Default Value and providing a way for us to change this value on a per-instance basis. 
+	与前一步骤相似，我们指定了默认值并提供了按实例更改该值的方法。 
 
 	[REGION:note]
-	In order to set the **Media Player** Default Value, you may need to click the **Compile** button from the Main Toolbar. 
+	要设置 **媒体播放器** 默认值，需要在主工具栏中单击 **编译（Compile）** 按钮。 
 	[/REGION]
 
-## End Result
+## 最终结果
 
-Our TV Blueprint is now set up in a way that enables us to define what Media Sound, Media Texture (and in the next step, what Media Player) assets we want to associate with which TVs we place in our level. 
-By creating variables for those assets and making them Instance Editable, this gives us the flexibility to change the content on any TV we place but reuse the functionality allowing the player to turn the TV on or off. 
+在对电视机蓝图进行设置后，我们可以在下一步中定义将哪些媒体声音、媒体纹理和媒体播放器资源与放置在关卡中的哪个电视机进行关联。通过为这些资源创建变量并将它们设置为可编辑实例，我们可以灵活更改我们放置的任何电视机上的内容，还可重复使用使玩家能够打开或关闭电视机的功能。
 
 [NAV]
-
-
-
 

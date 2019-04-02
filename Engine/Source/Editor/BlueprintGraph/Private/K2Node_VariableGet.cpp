@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "K2Node_VariableGet.h"
@@ -189,7 +189,6 @@ FText UK2Node_VariableGet::GetPropertyTooltip(UProperty const* VariableProperty)
 		UClass* SourceClass = VariableProperty->GetOwnerClass();
 		// discover if the variable property is a non blueprint user variable
 		bool const bIsNativeVariable = (SourceClass != nullptr) && (SourceClass->ClassGeneratedBy == nullptr);
-		FName const TooltipMetaKey(TEXT("tooltip"));
 
 		FText SubTooltip;
 		if (bIsNativeVariable)
@@ -199,7 +198,7 @@ FText UK2Node_VariableGet::GetPropertyTooltip(UProperty const* VariableProperty)
 			{
 				// See if the native property has a tooltip
 				SubTooltip = PropertyTooltip;
-				FString TooltipName = FString::Printf(TEXT("%s.%s"), *VarName.ToString(), *TooltipMetaKey.ToString());
+				FString TooltipName = FString::Printf(TEXT("%s.%s"), *VarName.ToString(), *FBlueprintMetadata::MD_Tooltip.ToString());
 				FText::FindText(*VariableProperty->GetFullGroupName(true), *TooltipName, SubTooltip);
 			}
 		}
@@ -208,7 +207,7 @@ FText UK2Node_VariableGet::GetPropertyTooltip(UProperty const* VariableProperty)
 			if (UBlueprint* VarBlueprint = Cast<UBlueprint>(SourceClass->ClassGeneratedBy))
 			{
 				FString UserTooltipData;
-				if (FBlueprintEditorUtils::GetBlueprintVariableMetaData(VarBlueprint, VarName, VariableProperty->GetOwnerStruct(), TooltipMetaKey, UserTooltipData))
+				if (FBlueprintEditorUtils::GetBlueprintVariableMetaData(VarBlueprint, VarName, VariableProperty->GetOwnerStruct(), FBlueprintMetadata::MD_Tooltip, UserTooltipData))
 				{
 					SubTooltip = FText::FromString(UserTooltipData);
 				}
@@ -229,13 +228,12 @@ FText UK2Node_VariableGet::GetPropertyTooltip(UProperty const* VariableProperty)
 
 FText UK2Node_VariableGet::GetBlueprintVarTooltip(FBPVariableDescription const& VarDesc)
 {
-	FName const TooltipMetaKey(TEXT("tooltip"));
-	int32 const MetaIndex = VarDesc.FindMetaDataEntryIndexForKey(TooltipMetaKey);
+	int32 const MetaIndex = VarDesc.FindMetaDataEntryIndexForKey(FBlueprintMetadata::MD_Tooltip);
 	bool const bHasTooltipData = (MetaIndex != INDEX_NONE);
 
 	if (bHasTooltipData)
 	{
-		FString UserTooltipData = VarDesc.GetMetaData(TooltipMetaKey);
+		FString UserTooltipData = VarDesc.GetMetaData(FBlueprintMetadata::MD_Tooltip);
 
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("VarName"), FText::FromName(VarDesc.VarName));
@@ -429,12 +427,12 @@ void UK2Node_VariableGet::ValidateNodeDuringCompilation(FCompilerResultsLog& Mes
 
 				if (PropertyReadableState == FBlueprintEditorUtils::EPropertyReadableState::NotBlueprintVisible)
 				{
-					// DEPRECATED(4.17) ... make this an error
+					// UE_DEPRECATED(4.17) ... make this an error
 					MessageLog.Warning(*FText::Format(LOCTEXT("UnableToGet_NotVisible", "{VariableName} is not blueprint visible (BlueprintReadOnly or BlueprintReadWrite). Please fix mark up or cease accessing as this will be made an error in a future release. @@"), Args).ToString(), this);
 				}
 				else if (PropertyReadableState == FBlueprintEditorUtils::EPropertyReadableState::Private)
 				{
-					// DEPRECATED(4.17) ... make this an error
+					// UE_DEPRECATED(4.17) ... make this an error
 					MessageLog.Warning(*FText::Format(LOCTEXT("UnableToGet_ReadOnly", "{VariableName} is private and not accessible in this context. Please fix mark up or cease accessing as this will be an error in a future release. @@"), Args).ToString(), this);
 				}
 				else

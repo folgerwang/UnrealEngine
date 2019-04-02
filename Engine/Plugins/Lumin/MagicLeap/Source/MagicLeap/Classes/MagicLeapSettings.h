@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -17,4 +17,8 @@ public:
 	// Enables 'Zero Iteration mode'. Note: Vulkan rendering will be used by default. Set bUseVulkan to false to use OpenGL instead.
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = "General", Meta = (DisplayName = "Enable Zero Iteration", ConfigRestartRequired = true))
 	bool bEnableZI;
+
+	// Use the editor in Vulkan. If False, OpenGL is used with ZI.
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = "General", Meta = (DisplayName = "Use Vulkan with Zero Iteration (otherwise, OpenGL)", ConfigRestartRequired = true))
+	bool bUseVulkanForZI;
 };

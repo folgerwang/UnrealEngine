@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	WorldCompositionUtility.cpp : Support structures for world composition
@@ -7,7 +7,6 @@
 #include "HAL/FileManager.h"
 #include "Templates/ScopedPointer.h"
 #include "UObject/PropertyPortFlags.h"
-#include "Serialization/ArchiveAsync.h"
 #include "UObject/PackageFileSummary.h"
 #include "UObject/Linker.h"
 #include "Templates/UniquePtr.h"

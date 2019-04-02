@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SMyBlueprint.h"
@@ -827,6 +827,12 @@ TSharedRef<SWidget> SMyBlueprint::OnGetFunctionListMenu()
 	BuildOverridableFunctionsMenu(MenuBuilder);
 
 	TSharedRef<SWidget> MenuWidget = MenuBuilder.MakeWidget();
+	
+	// force user focus onto the menu widget:
+	if(FunctionSectionButton.IsValid())
+	{
+		FunctionSectionButton->SetMenuContentWidgetToFocus(MenuWidget);
+	}
 
 	return MenuWidget;
 }
@@ -1685,7 +1691,7 @@ void SMyBlueprint::ExecuteAction(TSharedPtr<FEdGraphSchemaAction> InAction)
 				for (int32 i=0; i<BlueprintObj->Timelines.Num(); i++)
 				{
 					// Convert the Timeline's name to a variable name before comparing it to the variable
-					if (FName(*UTimelineTemplate::TimelineTemplateNameToVariableName(BlueprintObj->Timelines[i]->GetFName())) == VarAction->GetVariableName())
+					if (BlueprintObj->Timelines[i]->GetVariableName() == VarAction->GetVariableName())
 					{
 						BlueprintEditorPtr.Pin()->OpenDocument(BlueprintObj->Timelines[i], OpenMode);
 					}

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Protocols/UserDefinedCaptureProtocol.h"
 #include "ImageWriteQueue.h"
@@ -10,17 +10,29 @@
 #include "MovieSceneCaptureSettings.h"
 #include "Slate/SceneViewport.h"
 #include "ImagePixelData.h"
+#include "Engine/Engine.h"
+#include "Logging/MessageLog.h"
+
+#define LOCTEXT_NAMESPACE "UserDefinedImageCaptureProtocol"
+
+struct FCaptureProtocolFrameData : IFramePayload
+{
+	FFrameMetrics Metrics;
+
+	FCaptureProtocolFrameData(const FFrameMetrics& InMetrics)
+		: Metrics(InMetrics)
+	{}
+};
 
 /** Callable utility struct that calls a handler with the specified parameters on the game thread */
 struct FCallPixelHandler_GameThread
 {
-	static void Dispatch(FName InStreamName, const FFrameMetrics& InFrameMetrics, const FCapturedPixels& InPixels, TWeakObjectPtr<UUserDefinedCaptureProtocol> InWeakProtocol, const FOnReceiveCapturedPixels& InHandler)
+	static void Dispatch(const FCapturedPixelsID& InStreamID, const FFrameMetrics& InFrameMetrics, const FCapturedPixels& InPixels, TWeakObjectPtr<UUserDefinedCaptureProtocol> InWeakProtocol)
 	{
 		FCallPixelHandler_GameThread Functor;
 		Functor.Pixels           = InPixels;
-		Functor.Handler          = InHandler;
 		Functor.FrameMetrics     = InFrameMetrics;
-		Functor.StreamName       = InStreamName;
+		Functor.StreamID         = InStreamID;
 		Functor.WeakProtocol     = InWeakProtocol;
 
 		if (!IsInGameThread())
@@ -40,12 +52,7 @@ struct FCallPixelHandler_GameThread
 		UUserDefinedCaptureProtocol* Protocol = WeakProtocol.Get();
 		if (Protocol)
 		{
-			Protocol->OnBufferReady();
-		}
-
-		if (Pixels.ImageData->IsDataWellFormed() && Handler.IsBound())
-		{
-			Handler.Execute(MoveTemp(Pixels), StreamName, FrameMetrics);
+			Protocol->OnPixelsReceivedImpl(Pixels, StreamID, FrameMetrics);
 		}
 	}
 
@@ -53,70 +60,41 @@ private:
 
 	/** The captured pixels themselves */
 	FCapturedPixels Pixels;
-	/** The name of the stream that these pixels represent */
-	FName StreamName;
+	/** The ID of the stream that these pixels represent */
+	FCapturedPixelsID StreamID;
 	/** Metrics for the frame from which the pixel data is derived */
 	FFrameMetrics FrameMetrics;
-	/** A handler to call with the pixels */
-	FOnReceiveCapturedPixels Handler;
 	/** Weak pointer back to the protocol. Only used to invoke OnBufferReady. */
 	TWeakObjectPtr<UUserDefinedCaptureProtocol> WeakProtocol;
 };
 
-struct FCaptureProtocolBufferEndpoint : FImageStreamEndpoint
+FString FCapturedPixelsID::ToString() const
 {
-	FCaptureProtocolBufferEndpoint(UUserDefinedCaptureProtocol* CaptureProtocol, FName InStreamName, const FOnReceiveCapturedPixels& InHandler)
-		: WeakProtocol(CaptureProtocol)
-		, Handler(InHandler)
-		, StreamName(InStreamName)
-	{}
-
-	void PushMetrics(const FFrameMetrics& InMetrics)
+	FString Name;
+	for (const TTuple<FName, FName>& Pair : Identifiers)
 	{
-		FScopeLock Lock(&IncomingMetricsMutex);
-		IncomingMetrics.Add(InMetrics);
-	}
-
-private:
-
-	// Called on the thread in which the data is created (possibly the render thread)
-	virtual void OnImageReceived(TUniquePtr<FImagePixelData>&& InOwnedImage) override
-	{
-		FFrameMetrics   ThisFrameMetrics = PopMetrics();
-		FCapturedPixels PixelData        = { MakeShareable(InOwnedImage.Release()) };
-
-		FCallPixelHandler_GameThread::Dispatch(StreamName, ThisFrameMetrics, PixelData, WeakProtocol, Handler);
-	}
-
-	FFrameMetrics PopMetrics()
-	{
-		FFrameMetrics Popped;
-
-		FScopeLock Lock(&IncomingMetricsMutex);
-		if (ensure(IncomingMetrics.Num()))
+		if (Name.Len() > 0)
 		{
-			Popped = IncomingMetrics[0];
-			IncomingMetrics.RemoveAt(0, 1, false);
+			Name += TEXT(",");
 		}
 
-		return Popped;
+		Name += Pair.Key.ToString();
+		if (Pair.Value != NAME_None)
+		{
+			Name += TEXT(":");
+			Name += Pair.Value.ToString();
+		}
 	}
+	return Name.Len() > 0 ? Name : TEXT("<none>");
+}
 
-private:
-
-	TWeakObjectPtr<UUserDefinedCaptureProtocol> WeakProtocol;
-	FOnReceiveCapturedPixels Handler;
-	FName StreamName;
-
-	FCriticalSection IncomingMetricsMutex;
-	TArray<FFrameMetrics> IncomingMetrics;
-};
 
 UUserDefinedCaptureProtocol::UUserDefinedCaptureProtocol(const FObjectInitializer& ObjInit)
 	: Super(ObjInit)
 	, World(nullptr)
 	, NumOutstandingOperations(0)
 {
+	CurrentStreamID = nullptr;
 }
 
 void UUserDefinedCaptureProtocol::PreTickImpl()
@@ -128,16 +106,19 @@ void UUserDefinedCaptureProtocol::TickImpl()
 {
 	OnTick();
 
-	TSharedPtr<FImagePixelPipe, ESPMode::ThreadSafe> FinalPixelsPipe = StreamPipes.FindRef(FinalPixelsStreamName);
-
 	// Process any frames that have been captured from the frame grabber
-	if (FinalPixelsPipe.IsValid() && FinalPixelsFrameGrabber.IsValid())
+	if (FinalPixelsFrameGrabber.IsValid())
 	{
 		TArray<FCapturedFrameData> CapturedFrames = FinalPixelsFrameGrabber->GetCapturedFrames();
 
 		for (FCapturedFrameData& Frame : CapturedFrames)
 		{
-			FinalPixelsPipe->Push(MakeUnique<TImagePixelData<FColor>>(Frame.BufferSize, MoveTemp(Frame.ColorBuffer)));
+			// Steal the frame and make it shareable
+			FCapturedPixels CapturedPixels { MakeShared<TImagePixelData<FColor>, ESPMode::ThreadSafe>( Frame.BufferSize, MoveTemp(Frame.ColorBuffer) ) };
+			FFrameMetrics   CapturedMetrics = static_cast<FCaptureProtocolFrameData*>(Frame.Payload.Get())->Metrics;
+
+			// Call the handler
+			OnPixelsReceivedImpl(CapturedPixels, FinalPixelsID, CapturedMetrics);
 		}
 	}
 }
@@ -153,9 +134,26 @@ bool UUserDefinedCaptureProtocol::SetupImpl()
 		World = nullptr;
 	}
 
+	int32 PreviousPlayInEditorID = GPlayInEditorID;
+
+	if (World)
+	{
+		for (const FWorldContext& Context : GEngine->GetWorldContexts())
+		{
+			if (World == Context.World())
+			{
+				GPlayInEditorID = Context.PIEInstance;
+			}
+		}
+	}
+
 	// Preemptively create the frame grabber for final pixels, but do not start capturing final pixels until instructed
 	FinalPixelsFrameGrabber.Reset(new FFrameGrabber(InitSettings->SceneViewport.ToSharedRef(), InitSettings->DesiredSize, PF_B8G8R8A8, 3));
-	return OnSetup();
+	const bool bSuccess = OnSetup();
+
+	GPlayInEditorID = PreviousPlayInEditorID;
+
+	return bSuccess;
 }
 
 void UUserDefinedCaptureProtocol::WarmUpImpl()
@@ -169,26 +167,11 @@ bool UUserDefinedCaptureProtocol::StartCaptureImpl()
 	return true;
 }
 
-void UUserDefinedCaptureProtocol::BindToStream(FName StreamName, FOnReceiveCapturedPixels Handler)
-{
-	if (Handler.IsBound())
-	{
-		TSharedPtr<FImagePixelPipe, ESPMode::ThreadSafe> Pipe = StreamPipes.FindRef(StreamName);
-		if (!Pipe.IsValid())
-		{
-			Pipe = MakeShared<FImagePixelPipe, ESPMode::ThreadSafe>();
-			StreamPipes.Add(StreamName, Pipe);
-		}
-
-		Pipe->AddEndpoint(MakeUnique<FCaptureProtocolBufferEndpoint>(this, StreamName, Handler));
-	}
-}
-
-void UUserDefinedCaptureProtocol::StartCapturingFinalPixels(FName StreamName)
+void UUserDefinedCaptureProtocol::StartCapturingFinalPixels(const FCapturedPixelsID& StreamID)
 {
 	if (FinalPixelsFrameGrabber.IsValid() && GetState() == EMovieSceneCaptureProtocolState::Capturing && !FinalPixelsFrameGrabber->IsCapturingFrames())
 	{
-		FinalPixelsStreamName = StreamName;
+		FinalPixelsID = StreamID;
 		FinalPixelsFrameGrabber->StartCapturingFrames();
 	}
 }
@@ -241,69 +224,18 @@ void UUserDefinedCaptureProtocol::CaptureFrameImpl(const FFrameMetrics& InFrameM
 
 	if (FinalPixelsFrameGrabber.IsValid() && FinalPixelsFrameGrabber->IsCapturingFrames())
 	{
-		TSharedPtr<FImagePixelPipe, ESPMode::ThreadSafe> Pipe = StreamPipes.FindRef(FinalPixelsStreamName);
-		if (Pipe.IsValid())
-		{
-			// Add the incoming metrics for this buffer to all the pipes that are streaming it
-			for (const TUniquePtr<FImageStreamEndpoint>& EndPoint : Pipe->GetEndPoints())
-			{
-				static_cast<FCaptureProtocolBufferEndpoint*>(EndPoint.Get())->PushMetrics(CachedFrameMetrics);
-			}
-
-			++NumOutstandingOperations;
-			FinalPixelsFrameGrabber->CaptureThisFrame(nullptr);
-		}
+		ReportOutstandingWork(1);
+		FinalPixelsFrameGrabber->CaptureThisFrame(MakeShared<FCaptureProtocolFrameData, ESPMode::ThreadSafe>(CachedFrameMetrics));
 	}
 
 	OnCaptureFrame();
 }
 
-void UUserDefinedCaptureProtocol::PushBufferToStream(UTexture* Buffer, FName StreamName)
+void UUserDefinedCaptureProtocol::ResolveBuffer(UTexture* Buffer, const FCapturedPixelsID& StreamID)
 {
 	if (!IsCapturing())
 	{
 		FFrame::KismetExecutionMessage(TEXT("Capture protocol is not currently capturing frames."), ELogVerbosity::Error);
-		return;
-	}
-
-	// Find the pipe that we want to push this buffer onto
-	TSharedPtr<FImagePixelPipe, ESPMode::ThreadSafe> Pipe = StreamPipes.FindRef(StreamName);
-	if (Pipe.IsValid())
-	{
-		// Add the incoming metrics for this buffer to all the pipes that are streaming it
-		for (const TUniquePtr<FImageStreamEndpoint>& EndPoint : Pipe->GetEndPoints())
-		{
-			static_cast<FCaptureProtocolBufferEndpoint*>(EndPoint.Get())->PushMetrics(CachedFrameMetrics);
-		}
-
-		auto OnPixelsReady = [Pipe](TUniquePtr<FImagePixelData>&& PixelData)
-		{
-			Pipe->Push(MoveTemp(PixelData));
-		};
-
-		// Resolve the texture data
-		if (UImageWriteBlueprintLibrary::ResolvePixelData(Buffer, OnPixelsReady))
-		{
-			++NumOutstandingOperations;
-		}
-	}
-	else
-	{
-		FFrame::KismetExecutionMessage(*FString::Format(TEXT("No handlers have been added for stream '{0}' - PushBufferToStream without first calling BindToStream is ineffectual."), TArray<FStringFormatArg>{ StreamName.ToString() }), ELogVerbosity::Warning);
-	}
-}
-
-void UUserDefinedCaptureProtocol::ResolveBuffer(UTexture* Buffer, FName StreamName, FOnReceiveCapturedPixels Handler)
-{
-	if (!IsCapturing())
-	{
-		FFrame::KismetExecutionMessage(TEXT("Capture protocol is not currently capturing frames."), ELogVerbosity::Error);
-		return;
-	}
-
-	if (!Handler.IsBound())
-	{
-		FFrame::KismetExecutionMessage(*FString::Format(TEXT("The specified handler for stream '{0}' is not bound. ResolveBuffer BindToStream is ineffectual."), TArray<FStringFormatArg>{ StreamName.ToString() }), ELogVerbosity::Warning);
 		return;
 	}
 
@@ -311,23 +243,26 @@ void UUserDefinedCaptureProtocol::ResolveBuffer(UTexture* Buffer, FName StreamNa
 	FFrameMetrics FrameMetrics = CachedFrameMetrics;
 
 	// Capture the current state by-value into the lambda so it can be correctly processed by the thread that resolves the pixels
-	auto OnPixelsReady = [StreamName, FrameMetrics, Handler, WeakProtocol](TUniquePtr<FImagePixelData>&& PixelData)
+	auto OnPixelsReady = [StreamID, FrameMetrics, WeakProtocol](TUniquePtr<FImagePixelData>&& PixelData)
 	{
 		FCapturedPixels CapturedPixels = { MakeShareable(PixelData.Release()) };
-		FCallPixelHandler_GameThread::Dispatch(StreamName, FrameMetrics, CapturedPixels, WeakProtocol, Handler);
+		FCallPixelHandler_GameThread::Dispatch(StreamID, FrameMetrics, CapturedPixels, WeakProtocol);
 	};
 
 	// Resolve the texture data
 	if (UImageWriteBlueprintLibrary::ResolvePixelData(Buffer, OnPixelsReady))
 	{
-		++NumOutstandingOperations;
+		ReportOutstandingWork(1);
 	}
 }
 
-
-void UUserDefinedCaptureProtocol::OnBufferReady()
+void UUserDefinedCaptureProtocol::OnPixelsReceivedImpl(const FCapturedPixels& Pixels, const FCapturedPixelsID& StreamID, FFrameMetrics FrameMetrics)
 {
 	--NumOutstandingOperations;
+	if (Pixels.ImageData->IsDataWellFormed())
+	{
+		OnPixelsReceived(Pixels, StreamID, FrameMetrics);
+	}
 }
 
 FString UUserDefinedCaptureProtocol::GenerateFilename(const FFrameMetrics& InFrameMetrics) const
@@ -345,8 +280,25 @@ FString UUserDefinedCaptureProtocol::GenerateFilename(const FFrameMetrics& InFra
 
 void UUserDefinedCaptureProtocol::AddFormatMappingsImpl(TMap<FString, FStringFormatArg>& FormatMappings) const
 {
-	FormatMappings.Add(TEXT("BufferName"), CurrentStreamName.ToString());
-	FormatMappings.Add(TEXT("StreamName"), CurrentStreamName.ToString());
+	if (CurrentStreamID)
+	{
+		for (const TTuple<FName, FName>& Pair : CurrentStreamID->Identifiers)
+		{
+			if (Pair.Value == NAME_None)
+			{
+				FormatMappings.Add(Pair.Key.ToString(), FString());
+			}
+			else
+			{
+				FormatMappings.Add(Pair.Key.ToString(), Pair.Value.ToString());
+			}
+		}
+	}
+}
+
+void UUserDefinedCaptureProtocol::ReportOutstandingWork(int32 NumNewOperations)
+{
+	NumOutstandingOperations += NumNewOperations;
 }
 
 UUserDefinedImageCaptureProtocol::UUserDefinedImageCaptureProtocol(const FObjectInitializer& ObjInit)
@@ -358,9 +310,6 @@ UUserDefinedImageCaptureProtocol::UUserDefinedImageCaptureProtocol(const FObject
 
 void UUserDefinedImageCaptureProtocol::OnReleaseConfigImpl(FMovieSceneCaptureSettings& InSettings)
 {
-	// Remove _{BufferName} if it exists
-	InSettings.OutputFormat = InSettings.OutputFormat.Replace(TEXT("_{BufferName}"), TEXT(""));
-
 	// Remove .{frame} if it exists
 	InSettings.OutputFormat = InSettings.OutputFormat.Replace(TEXT(".{frame}"), TEXT(""));
 }
@@ -369,18 +318,14 @@ void UUserDefinedImageCaptureProtocol::OnLoadConfigImpl(FMovieSceneCaptureSettin
 {
 	FString OutputFormat = InSettings.OutputFormat;
 
-	if (!OutputFormat.Contains(TEXT("{BufferName}")))
-	{
-		OutputFormat.Append(TEXT("_{BufferName}"));
-
-		InSettings.OutputFormat = OutputFormat;
-	}
-
-	if (!OutputFormat.Contains(TEXT("{frame}")))
+	// Ensure the format string tries to always export a uniquely named frame so the file doesn't overwrite itself if the user doesn't add it.
+	bool bHasFrameFormat = OutputFormat.Contains(TEXT("{frame}")) || OutputFormat.Contains(TEXT("{shot_frame}"));
+	if (!bHasFrameFormat)
 	{
 		OutputFormat.Append(TEXT(".{frame}"));
 
 		InSettings.OutputFormat = OutputFormat;
+		UE_LOG(LogTemp, Warning, TEXT("Automatically appended .{frame} to the format string as specified format string did not provide a way to differentiate between frames via {frame} or {shot_frame}!"));
 	}
 }
 
@@ -415,7 +360,7 @@ FString UUserDefinedImageCaptureProtocol::GenerateFilenameForCurrentFrame()
 	return GenerateFilename(CachedFrameMetrics);
 }
 
-FString UUserDefinedImageCaptureProtocol::GenerateFilenameForBuffer(UTexture* Buffer, FName StreamName)
+FString UUserDefinedImageCaptureProtocol::GenerateFilenameForBuffer(UTexture* Buffer, const FCapturedPixelsID& StreamID)
 {
 	if (!CaptureHost)
 	{
@@ -433,40 +378,57 @@ FString UUserDefinedImageCaptureProtocol::GenerateFilenameForBuffer(UTexture* Bu
 	default: break;
 	}
 
-	CurrentStreamName = StreamName;
+	CurrentStreamID = &StreamID;
 
 	FString Filename = GenerateFilenameImpl(CachedFrameMetrics, Extension);
 	EnsureFileWritableImpl(Filename);
 
-	CurrentStreamName = NAME_None;
+	CurrentStreamID = nullptr;
 
 	return Filename;
 }
 
-void UUserDefinedImageCaptureProtocol::WriteImageToDisk(const FCapturedPixels& PixelData, FName StreamName, const FFrameMetrics& FrameMetrics, bool bCopyImageData)
+void UUserDefinedImageCaptureProtocol::WriteImageToDisk(const FCapturedPixels& PixelData, const FCapturedPixelsID& StreamID, const FFrameMetrics& FrameMetrics, bool bCopyImageData)
 {
 	if (!PixelData.ImageData.IsValid())
 	{
 		return;
 	}
+	else if (PixelData.ImageData->GetBitDepth() != 8)
+	{
+		if (Format == EDesiredImageFormat::BMP)
+		{
+			FMessageLog("PIE")
+			.Warning(FText::Format(LOCTEXT("InvalidBMPExport", "Unable to write the specified render target (stream '{0}' is {1}bit) as BMP. BMPs must be supplied 8bit render targets."),
+				FText::FromString(StreamID.ToString()), FText::AsNumber(PixelData.ImageData->GetBitDepth())));
+			return;
+		}
+		else if (Format == EDesiredImageFormat::JPG)
+		{
+			FMessageLog("PIE")
+				.Warning(FText::Format(LOCTEXT("InvalidJPGExport", "Unable to write the specified render target (stream '{0}' is {1}bit) as JPG. JPGs must be supplied 8bit render targets."),
+					FText::FromString(StreamID.ToString()), FText::AsNumber(PixelData.ImageData->GetBitDepth())));
+			return;
+		}
+	}
 
 	TUniquePtr<FImageWriteTask> ImageTask = MakeUnique<FImageWriteTask>();
 
-	// If the pixels are FColors, and this is the final pixels buffer, and we're writing PNG, always write out full alpha
-	if (PixelData.ImageData->GetType() == EImagePixelType::Color && StreamName == FinalPixelsStreamName && ImageTask->Format == EImageFormat::PNG)
-	{
-		ImageTask->PixelPreProcessors.Add(TAsyncAlphaWrite<FColor>(255));
-	}
-
-	// Cache the buffer name so we generate the correct filename
-	CurrentStreamName = StreamName;
+	// Cache the buffer ID so we generate the correct filename
+	CurrentStreamID = &StreamID;
 
 	ImageTask->PixelData = bCopyImageData ? PixelData.ImageData->CopyImageData() : PixelData.ImageData->MoveImageDataToNew();
 	ImageTask->Filename = GenerateFilename(FrameMetrics);
 	ImageTask->Format = ImageFormatFromDesired(Format);
 	ImageTask->bOverwriteFile = false;
 
-	CurrentStreamName = NAME_None;
+	CurrentStreamID = nullptr;
+
+	// If the pixels are FColors, and this is the final pixels buffer, and we're writing PNG, always write out full alpha
+	if (PixelData.ImageData->GetType() == EImagePixelType::Color && ImageTask->Format == EImageFormat::PNG && StreamID.Identifiers.OrderIndependentCompareEqual(FinalPixelsID.Identifiers))
+	{
+		ImageTask->PixelPreProcessors.Add(TAsyncAlphaWrite<FColor>(255));
+	}
 
 	if (Format == EDesiredImageFormat::EXR)
 	{
@@ -495,7 +457,7 @@ void UUserDefinedImageCaptureProtocol::WriteImageToDisk(const FCapturedPixels& P
 	if (DispatchedTask.IsValid())
 	{
 		// If we actually dispatched the task, increment the number of outstanding operations
-		++NumOutstandingOperations;
+		ReportOutstandingWork(1);
 	}
 }
 
@@ -503,3 +465,5 @@ void UUserDefinedImageCaptureProtocol::OnFileWritten()
 {
 	--NumOutstandingOperations;
 }
+
+#undef LOCTEXT_NAMESPACE

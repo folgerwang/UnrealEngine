@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -121,7 +121,7 @@ class FNiagaraSystemSimulation
 {
 public:
 	~FNiagaraSystemSimulation();
-	bool Init(UNiagaraSystem* InSystem, UWorld* InWorld, FNiagaraSystemInstance* InSoloSystemInstance=nullptr);
+	bool Init(UNiagaraSystem* InSystem, UWorld* InWorld, bool bInIsSolo);
 	void Destroy();
 	bool Tick(float DeltaSeconds);
 
@@ -141,13 +141,16 @@ public:
 	void TransferInstance(FNiagaraSystemSimulation* SourceSimulation, FNiagaraSystemInstance* SystemInst);
 
 	void DumpInstance(const FNiagaraSystemInstance* Inst)const;
+
+	bool GetIsSolo() const { return bIsSolo; }
+
+	FNiagaraScriptExecutionContext& GetSpawnExecutionContext() { return SpawnExecContext; }
+	FNiagaraScriptExecutionContext& GetUpdateExecutionContext() { return UpdateExecContext; }
+
 protected:
 
 	/** System of instances being simulated.  We use a weak object ptr here because once the last referencing object goes away this system may be come invalid at runtime. */
 	TWeakObjectPtr<UNiagaraSystem> WeakSystem;
-
-	/** The parent system instance if this simulation is  */
-	FNiagaraSystemInstance* SoloSystemInstance;
 
 	/** World this system simulation belongs to. */
 	UWorld* World;
@@ -206,7 +209,7 @@ protected:
 
 	TArray<TArray<FNiagaraDataSetAccessor<FNiagaraSpawnInfo>>> EmitterSpawnInfoAccessors;
 
-	void InitBindings(FNiagaraSystemInstance* SystemInst);
+	void InitParameterDataSetBindings(FNiagaraSystemInstance* SystemInst);
 
 	FNiagaraDataSetAccessor<int32> SystemExecutionStateAccessor;
 	TArray<FNiagaraDataSetAccessor<int32>> EmitterExecutionStateAccessors;
@@ -215,4 +218,8 @@ protected:
 
 	/** A parameter store which contains the data interfaces parameters which were defined by the scripts. */
 	FNiagaraParameterStore ScriptDefinedDataInterfaceParameters;
+
+	bool bIsSolo;
+
+	TOptional<float> MaxDeltaTime;
 };

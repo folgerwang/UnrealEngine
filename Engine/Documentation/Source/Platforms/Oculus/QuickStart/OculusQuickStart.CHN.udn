@@ -1,61 +1,37 @@
-﻿INTSourceChangelist:2975673
-Title:Oculus Rift 快速入门
-Crumbs:%ROOT%, Platforms, Platforms/Oculus
-Description:在 Oculus Rift 上设置并运行游戏的说明。
-Availability:Public
-Version:4.11
-SkillLevel:Intermediate
-parent:Platforms/Oculus
-type:quickstart
-tags:VR
-tags:Oculus Rift
+﻿INTSourceChangelist:3718992
+Availability: Public
+Title: Oculus Rift快速入门
+Crumbs: %ROOT%
+Description:在Oculus Rift上设置并运行UE4项目的说明。
+Navigation:platform
+Platform:Oculus
+SkillLevel: Beginner
+Version: 4.17
+type:quick start
+Type:landing
+Tags: VR
+Tags: Oculus Rift
+Tags:Getting Started
+Order: 2
+Checkpoint:RIFTQS
+topic-image:Platforms\Oculus\QuickStart\oculus_qs_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](oculus_qs_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Oculus/QuickStart:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Oculus/QuickStart]
-	[/PARAM]
-	[PARAM:description]
-	%Platforms/Oculus/QuickStart:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+![](Oculus_Topic_Image.png)
 
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](oculus_qs_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Oculus/QuickStart:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Oculus/QuickStart]
-	[/PARAM]
-	[PARAM:description]
-	%Platforms/Oculus/QuickStart:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+(#Goals)
+## 目的
+Oculus快速入门将带您逐步了解如何设置电脑和Oculus Rift，从而与虚幻引擎4配合使用。 
 
+(#Objectives)
+## 目标
+* 创建一个以SteamVR开发为目的的全新UE4项目。
+* 对项目进行必要的设置，使项目能够用于Steam VR。
 
-Oculus 快速入门将指导您对电脑和 Oculus Rift 进行设置，以便使用虚幻引擎 4.0。 
-
+(#Steps)
 ## 步骤
 
-[REGION:buttonlist]
+[DIR(output:"checkpoint" parent:"Platforms/Oculus/QuickStart")]
 
-	* [](Platforms/Oculus/QuickStart/1 "%Platforms/Oculus/QuickStart/1:description%")
-	* [](Platforms/Oculus/QuickStart/2 "%Platforms/Oculus/QuickStart/2:description%")
-	* [](Platforms/Oculus/QuickStart/3 "%Platforms/Oculus/QuickStart/3:description%")
-	* [](Platforms/Oculus/QuickStart/4 "%Platforms/Oculus/QuickStart/4:description%")
-	* [](Platforms/Oculus/QuickStart/5 "%Platforms/Oculus/QuickStart/5:description%")
-	* [](Platforms/Oculus/QuickStart/6 "%Platforms/Oculus/QuickStart/6:description%")
-	
+[REGION:call_to_action]
+ [点击开始](Platforms/Oculus/QuickStart/1 "%Platforms/Oculus/QuickStart/1:title%")
 [/REGION]

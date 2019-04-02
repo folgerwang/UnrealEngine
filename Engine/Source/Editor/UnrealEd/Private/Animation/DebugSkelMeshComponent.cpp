@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "Animation/DebugSkelMeshComponent.h"
@@ -968,8 +968,8 @@ void FDebugSkelMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneV
 				SurfaceMID->SetScalarParameterValue(FName("BackfaceCull"), DynamicData->bCullBackface ? 1.0f : 0.0f);
 				WireMID->SetScalarParameterValue(FName("BackfaceCull"), true);
 
-				FMaterialRenderProxy* MatProxySurface = SurfaceMID->GetRenderProxy(false);
-				FMaterialRenderProxy* MatProxyWireframe = WireMID->GetRenderProxy(false);
+				FMaterialRenderProxy* MatProxySurface = SurfaceMID->GetRenderProxy();
+				FMaterialRenderProxy* MatProxyWireframe = WireMID->GetRenderProxy();
 
 				if (MatProxySurface && MatProxyWireframe)
 				{

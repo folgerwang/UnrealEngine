@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -24,11 +24,11 @@ class AIMODULE_API UBTTask_MoveDirectlyToward : public UBTTask_MoveTo
 	virtual FName GetNodeIconName() const override;
 #endif // WITH_EDITOR
 
-	DEPRECATED_FORGAME(4.12, "This property is now deprecated, use UBTTask_MoveTo::bTrackMovingGoal instead.")
+	UE_DEPRECATED_FORGAME(4.12, "This property is now deprecated, use UBTTask_MoveTo::bTrackMovingGoal instead.")
 	UPROPERTY()
 	uint32 bDisablePathUpdateOnGoalLocationChange : 1;
 
-	DEPRECATED_FORGAME(4.12, "This property is now deprecated, use UBTTask_MoveTo::bProjectGoalLocation instead.")
+	UE_DEPRECATED_FORGAME(4.12, "This property is now deprecated, use UBTTask_MoveTo::bProjectGoalLocation instead.")
 	UPROPERTY()
 	uint32 bProjectVectorGoalToNavigation : 1;
 

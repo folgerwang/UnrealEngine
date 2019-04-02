@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3580568
-Availability:Docs
+﻿INTSourceChangelist:3728507
+Availability:Public
 Title:5 - Composure 游戏模式与关卡蓝图设置
 Crumbs:%ROOT%
 Description:在这步中，我们将对 Composure 使用的关卡蓝图和游戏模式进行设置。 
@@ -15,6 +15,7 @@ tags:Composure
 
 在以下部分中，我们将对关卡蓝图和游戏模式进行设置，使 Sequencer 和 Composure 在运行项目时共同工作。操作完成后您将获得 Composure 范例项目的第三个镜头。
 
+(#Steps)
 ## 步骤
 
 1. 首先打开关卡蓝图并点击 **Class Defaults** 按钮。然后在 **Details** 面板中的 **Actor Tick** 下按下 Show Advanced Properties 按钮并将 **Tick Group** 改为 **Post Update Work**。
@@ -101,6 +102,7 @@ tags:Composure
         [/PARAMLITERAL]
     [/OBJECT]
 
+(#EndResult)
 ## 最终结果
 
 角色与前景、背景和灯光无缝混合后，Composure 快速入门的内容即将完结。这只是利用 Composure 进行的一个小例子而已，它还有极大潜力可以挖掘！最后一篇文档包含自由发挥的内容以及衍生文档的链接。

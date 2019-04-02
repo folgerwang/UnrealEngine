@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -10,6 +10,8 @@
 #include "HAL/CriticalSection.h"
 
 class FWmfMediaStreamSink;
+struct ID3D11DeviceContext;
+struct ID3D11Device;
 
 
 /**
@@ -35,7 +37,7 @@ public:
 	 * @param InStreamSink The stream sink to use for the fixed stream.
 	 * @return true on success, false otherwise.
 	 */
-	bool Initialize(FWmfMediaStreamSink& InStreamSink);
+	bool Initialize(TComPtr<FWmfMediaStreamSink> InStreamSink);
 
 public:
 
@@ -89,10 +91,15 @@ public:
 	STDMETHODIMP QueryInterface(REFIID RefID, void** Object);
 	STDMETHODIMP_(ULONG) Release();
 
+	ID3D11DeviceContext* GetImmediateContext() const { return D3DImmediateContext; }
+	ID3D11Device* GetDevice() const { return D3D11Device; }
+
 private:
 
 	/** Hidden destructor (this class is reference counted). */
 	virtual ~FWmfMediaSink();
+
+	bool CreateDXGIManagerAndDevice();
 
 private:
 
@@ -107,6 +114,11 @@ private:
 
 	/** The stream sink. */
 	TComPtr<FWmfMediaStreamSink> StreamSink;
+
+	/** Support for Hardware Accelerated **/
+	TComPtr<IMFDXGIDeviceManager> DXGIManager;
+	TComPtr<ID3D11Device> D3D11Device;
+	TComPtr<ID3D11DeviceContext> D3DImmediateContext;
 };
 
 #endif

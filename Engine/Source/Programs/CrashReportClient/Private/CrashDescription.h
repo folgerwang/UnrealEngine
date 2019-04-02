@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -266,6 +266,11 @@ struct FPrimaryCrashProperties
 	FCrashProperty GameSessionID;
 
 	/**
+	 * Specifies the number of stack frames in the callstack to ignore when symbolicating from a minidump.
+	 */
+	int32 NumMinidumpFramesToIgnore;
+
+	/**
 	 * An array of FStrings representing the callstack of the crash.
 	 * @RawCallStack	varchar(MAX)
 	 * 
@@ -356,7 +361,9 @@ struct FPrimaryCrashProperties
 	/** Whether this crash contains primary usable data. */
 	bool bHasPrimaryData;
 
-	/** Copy of CommandLine that isn't anonymized so it can be used to restart the process */
+	/** 
+	 * Copy of CommandLine that isn't anonymized so it can be used to restart the process 
+	 */
 	FString RestartCommandLine;
 
 	/**

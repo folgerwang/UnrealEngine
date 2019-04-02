@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3259022
+﻿INTSourceChangelist:3782314
 availability:Public
 title:2.所需资源的创建和设置
 description:了解所需资源的创建和设置。
@@ -30,6 +30,7 @@ checkpoint:FSB
 
 ![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\FS_Render_Targets.png)
 
+(#MaterialCreation&Setup)
 ## 材质创建和设置
 为使流体模拟正常工作，我们需要新建两个材质，一个为水面材质，另一个为高度图模拟材质。创建这两个材质：在 **Content Browser** 中点击右键，然后从 **Create Basic Assets** 列表中选择 Material 选项。
 

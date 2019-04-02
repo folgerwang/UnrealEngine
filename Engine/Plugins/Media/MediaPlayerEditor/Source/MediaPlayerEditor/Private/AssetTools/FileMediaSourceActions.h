@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -31,7 +31,6 @@ public:
 	virtual bool CanFilter() override;
 	virtual FText GetName() const override;
 	virtual UClass* GetSupportedClass() const override;
-	virtual TSharedPtr<class SWidget> GetThumbnailOverlay(const FAssetData& AssetData) const override;
 
 private:
 

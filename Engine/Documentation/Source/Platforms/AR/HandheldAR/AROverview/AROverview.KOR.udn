@@ -1,0 +1,83 @@
+INTSourceChangelist:4400433
+Availability: Public
+Crumbs: 
+Title: 증강 현실 개요
+Description: 에픽의 Augmented Reality 구현 개요입니다.
+Type: 
+Version: 4.19
+Parent: Platforms/AR/HandheldAR
+Order: 2
+Tags: iOS
+Tags: Android
+Tags: StartingOut
+Tags: AR
+Tags: Mobile AR
+
+
+Augmented Reality (증강 현실, AR)은 사용자가 보는 현실에 컴퓨터 생성 이미지 오버레이를 합성하는 기술입니다. 
+
+언리얼 엔진 AR 프레임워크는 언리얼 엔진으로 iOS 및 Android 핸드헬드 플랫폼용 증강 현실 앱 제작을 편하게 하는 풍부한 통합 프레임워크입니다. 통합 프레임워크에는 양쪽 플랫폼을 모두 지원하는 단일 개발 방법을 제공, 하나의 코드 패스로 양쪽 플랫폼용 증강 현실 앱을 만들 수 있습니다. **Handheld AR** (휴대형 증강 현실) 블루프린트 템플릿에는 언리얼 엔진에서 사용할 수 있는 증강 현실 기능 데모용 완성 예제 프로젝트가 제공됩니다.
+
+![](AR_IntroShot.png "AR_IntroShot.png")
+
+[REGION:caption]
+증강 현실은 디바이스의 카메라에서 라이브 뷰에 2D 또는 3D 요소를 추가하면 마치 현실에 그 요소가 실제 있는 것처럼 보이도록 해줍니다.
+[/REGION]
+
+## iOS 및 Android 출시 지원
+
+통합 AR 프레임워크에 지원되는 기본 AR 기능은 Alignment (정렬), Light Estimation (빛 추정), Pinning (핀 설정), Session State (세션 상태), Trace Results (트레이스 결과), Tracking (트래킹)입니다.
+
+하지만 Android 및 iOS 용 증강 현실 스토리는 끊임없이 진화하고 있습니다. 언리얼 엔진 4.20 이후 ARCore 1.2 및 ARKit 2.0 의 고급 기능을 지원합니다.
+
+**ARCore**
+
+*   Augmented Images (증강 이미지)
+*   Vertical Plane Detection (수직면 감지)
+*   Cloud Anchors (클라우드 앵커)
+
+**ARKit**
+
+*   Face Tracking (얼굴 트래킹)
+*   2D Image Detection (2D 이미지 감지)
+*   3D Object Detection (3D 오브젝트 감지)
+*   Persistent Experiences (지속 경험)
+*   Shared Experiences (공유 경험)
+
+[REGION:tip]
+다음은 에픽게임즈 개발자 **Joe Graf** 가 작성한 UE4 의 ARKit 기능 관련 정보성 블로그 글입니다.
+
+*   [2D Image Detection in UE4 4.20](https://medium.com/@joe.j.graf/arkit-1-5-image-detection-in-ue4-4-20-4dcbefb7a178)
+*   [ARKit 2.0 support in UE4 4.20](https://medium.com/@joe.j.graf/arkit-2-0-support-in-ue4-4-20-47d1156d545f)
+*   [AR Environment Probes in UE4 4.20](https://medium.com/@joe.j.graf/ar-environment-probes-in-ue4-4-20-afda05bcc587)
+[/REGION]
+
+## 증강 현실 API
+
+통합 AR 프레임워크는 언리얼 엔진으로 iOS 및 Android 양쪽 핸드헬드 플랫폼용 증강 현실 앱을 제작하기 위한 프레임워크를 제공합니다. 통합 AR 프레임워크는 C++ 및 블루프린트 새 라이브러리를 제공하여 개발자가 단일 코드 패스로 양쪽 플랫폼용 증강 현실 앱을 만들 수 있습니다. 이 새로운 함수는 증강 현실 작업을 수월하게 만들어주기도 합니다.   
+보다 자세한 정보는 [Unreal Engine API Reference](http://api.unrealengine.com/INT/API/) 를 참고하세요. 
+
+[REGION:tip]
+**Handheld AR** 블루프린트에는 언리얼 엔진의 새로운 증강 현실 기능 데모용 완성 예제 프로젝트가 제공됩니다. 프로젝트와 새 증강 현실 기능 탐험을 시작하기 좋은 곳은 **콘텐츠 브라우저** 에서 **Content\HandheldARBP\Blueprints\UI** 의 **BP_DebugMenu** 애셋을 **블루프린트 에디터** 로 열어보면 됩니다.
+[/REGION]
+
+## 지원되는 핸드헬드 플랫폼
+
+현재 iOS 및 Android 플랫폼을 지원합니다. 각 플랫폼별 지원되는 디바이스 목록은 다음 글을 참고하세요.
+
+*   [Apple's iOS Device Compatibility Reference](https://developer.apple.com/library/content/documentation/DeviceInformation/Reference/iOSDeviceCompatibility/DeviceCompatibilityMatrix/DeviceCompatibilityMatrix.html)
+*   [ARCore Supported Devices Overview](https://developers.google.com/ar/discover/#supported_devices)
+
+핸드헬드 iOS 및 Android 디바이스는 예전부터 언리얼 엔진에 지원되던 것이라, 이미 언리얼 엔진으로 iOS 또는 Android 앱을 만드는 중이라면 추가 구성할 필요가 거의 없이 증강 현실 제작도 시작할 수 있을 것입니다.
+
+### iOS
+
+iOS 증강 현실 전제 조건 관련 자세한 정보는 [](Platforms/AR/HandheldAR/ARKitPrerequisites) 문서를 참고하세요. 추가로 언리얼 엔진 및 iOS 디바이스 기본 구성은 [](Platforms/iOS) 문서를 참고하세요.   
+
+### Android
+
+Android 증강 현실 전제 조건 관련 자세한 정보는 [](Platforms/AR/HandheldAR/ARCorePrerequisites) 문서를 참고하세요. 언리얼 엔진 및 Android 디바이스 기본 구성은 [](Platforms/Android/GettingStarted) 문서를 참고하세요. 
+
+## 언리얼 AR 시작하기
+
+언리얼 엔진으로 증강 현실 앱을 만드는 데 관련된 기본 정보를 이해했으니, 이제 [](Platforms/AR/HandheldAR/ARQuickStart) 튜토리얼을 시작하세요.

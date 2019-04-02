@@ -424,6 +424,15 @@ BuildToolchain()
   set +x
 }
 
+BuildLLVMCompilerRt()
+{
+  echo "building LLVM-compiler-rt"
+  set -x
+  cd Build/BatchFiles/Linux/Toolchain
+  sh BuildLLVM-compiler-rt.sh
+  set +x
+}
+
 FixICU()
 {
   echo "setting symlinks for ICU libraries (possibly temporary)"
@@ -512,6 +521,7 @@ print_valid_build_opts() {
   echo "    ICU"
   echo "    Mono"
   echo "    GoogleTest"
+  echo "    LLVMCompilerRt"
 }
 
 BuildList=()
@@ -593,7 +603,7 @@ if [[ ${#BuildList[@]} -ne 0 &&  $ALL -eq 0 ]]; then
     exit
 elif [[ ${#BuildList[@]} -ne 0 ]] && [[ $ALL -eq 1 ]]; then
     echo "ERROR: Can not build all and individual packages at the same time"
-    exit 1
+    exit
 fi
 
 if [[ $ALL -eq 1 ]]; then

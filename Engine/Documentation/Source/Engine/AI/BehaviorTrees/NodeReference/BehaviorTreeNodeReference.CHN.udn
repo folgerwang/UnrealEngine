@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2755875
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:行为树节点参考
 Crumbs:%ROOT%, Engine, Gameplay, Engine/AI/BehaviorTrees
@@ -18,16 +18,10 @@ version: 4.9
 
 访问以下链接，查看默认行为树节点的完整列表。
 
+(#BehaviorTreeNodeTypes)
 ## 行为树节点类型
 
-[REGION:buttonlist]
-
-	* [Composites](Engine/AI/BehaviorTrees/NodeReference/Composites "%Engine/AI/BehaviorTrees/NodeReference/Composites:description% 这种节点定义一个分支的根以及该分支如何被执行的基本规则")
-	* [Tasks](Engine/AI/BehaviorTrees/NodeReference/Tasks "%Engine/AI/BehaviorTrees/NodeReference/Tasks:description% 这种节点是行为树的“叶子”，实际“执行”操作。")
-	* [Decorators](Engine/AI/BehaviorTrees/NodeReference/Decorators "%Engine/AI/BehaviorTrees/NodeReference/Decorators:description% 即为条件语句。这种节点附着于其他节点，决定着树中的一个分支，甚至单个节点是否能被执行。")
-	* [Services](Engine/AI/BehaviorTrees/NodeReference/Services "%Engine/AI/BehaviorTrees/NodeReference/Services:description% 这种节点附着在 Composite 节点上，只要其分支节点被执行，它们便将按所定义的频率执行。它们常用于检查和更新黑板，以行为树系统的形态取代了传统平行节点。")
-	
-[/REGION]
+[DIR(output:"listbutton" parent:"Engine/AI/BehaviorTrees/NodeReference")]
 
 [COMMENT:none]
 

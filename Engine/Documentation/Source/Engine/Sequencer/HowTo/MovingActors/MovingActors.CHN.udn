@@ -1,129 +1,102 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3741733
 Availability: Docs
-Title:Moving Actors with Sequencer
+Title:使用Sequencer移动Actor
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
-Description:Illustrates the different ways you can move Actors in your levels with Sequencer.
-Version: 4.17
+Description:介绍了在关卡中使用Sequencer移动Actor的各种方法。
+Version: 4.18
 SkillLevel: Beginner
 parent:Engine/Sequencer/HowTo
 order:1
 checkpoint: editorqs
 Related: Engine/Sequencer/Overview
 Related: Engine\Sequencer\ReferenceEditor\
+Related: Engine\Sequencer\HowTo\MultipleTransforms
 tags:Sequencer
 type:how-to
 
-When creating your cinematic, you may want to move objects around in your scene (for example, moving a camera which you are shooting from, opening a door, moving a car down the street). 
-Using the **Transform** track of an Actor added to Sequencer, you can keyframe a starting position, scrub the timeline forward then move the Actor to a new position and keyframe it to have that Actor move between keyframes over time. 
-Sequencer enables you to also isolate the axis to move on which is useful in situations where you want the Actor to move in a direction, regardless of where the Actor is in the scene. 
+创建过场动画时，可能会需要在场景中移动对象（例如，移动正在拍摄的摄像机、打开门、沿着街道移动车辆）。 
+使用添加到Sequencer的Actor的 **变换（Transform）** 轨迹，可为起始位置设定关键帧，将时间轴向前推进，然后将Actor移动到新位置并对其设定关键帧，以使该Actor随时间在关键帧之间移动。 
 
-In this example, we move a box around in the scene using the **Transform** track. 
+在此示例中，我们使用 **变换（Transform）** 轨迹移动场景中的盒子。 
 
 ![](MovingActors_06.png)
 
-## Steps
+## 步骤
 
 [REGION:note]
-For this how-to guide, we are using the **Blueprint Third Person Template** with **Starter Content** enabled. 
+在本操作指南使用 **蓝图第三人称模板（Blueprint Third Person Template）**，其中启用了 **初学者内容包（Starter Content）**。 
 [/REGION]
 
-1.	Inside your project, from the **Modes** panel under **Basic**, drag the **Cube** asset into the level. 
+1.	在项目中，在 **基本（Basic）** 下的 **模式（Modes）** 面板上，将 **立方体（Cube）** 资源拖动到关卡中。 
 
 	![](MovingActors_01.png)
 
-1.	From the main toolbar, click the **Cinematics** button then select **Add Level Sequence**. 
+1.	在主工具栏中，单击 **过场动画（Cinematics）** 按钮，然后选择 **添加关卡序列（Add Level Sequence）**。 
 
 	![](MovingActors_02.png)
 
-1.	In the **Save Asset As** window, choose a save name and location then click the **Save** button. 
+1.	在 **将资源另存为（Save Asset As）** 窗口中，选择名称和保存位置，然后单击 **保存（Save）** 按钮。 
 
 	![](MovingActors_02b.png)
 
-1.	Inside the level select the cube, then inside **Sequencer**, click the **Track** button and under **Actor To Sequencer** select **Add Cube**. 
+1.	在关卡中选择立方体，然后在 **Sequencer** 中单击 **轨迹（Track）** 按钮，在 **添加Actor到 Sequencer（Actor To Sequencer）** 下选择 **添加立方体（Add Cube）**。 
 
 	![](MovingActors_03.png)
 
-	This will add the cube to and enable us to control through the Sequencer Editor. 
+	此操作将添加立方体并让我们能通过Sequencer编辑器进行控制。 
 
-1.	On the **Transform** track for the cube, click the **+** symbol to add a key at frame **0**. 
+1.	在立方体的 **变换（Transform）** 轨迹上，单击 **+** 符号以在第 **0** 帧添加关键帧。 
 
 	![](MovingActors_04.png)
 
-	This will add a keyframe for the current transform of the cube to Sequencer. 
+	此操作将为立方体当前转换到Sequencer添加关键帧。 
 
-1.	Scrub the timeline marker forward to frame **100**, then move the cube in the level along the **Y** axis forward and add a key for it by clicking the **+** symbol.
+1.	将时间轴标记向前推进到第 **100** 帧，然后沿 **Y** 轴向前移动关卡中的立方体，并单击 **+** 符号为其添加一个关键帧。
 
 	![](MovingActors_05.png)
 
-	After adding the keyframe at frame 100, you will see a dotted line inside the viewport indicating the movement path of the cube. 
+	在第100帧添加关键帧后，视口中将显示一条虚线，表示立方体的移动路径。 
 
 	![](MovingActors_06.png)
 
-	If you click the preview play button, you will see the cube move along your specified path. 
+	[REGION:tip]
+	除了单击 **变换（Transform）** 轨迹上的 **+** 号，还可在选择Actor后按 **S** 键。 
+	[/REGION]
 
-	[OBJECT:EmbeddedVideo]
-	[PARAMLITERAL:videoid]
-	z8OFi2bE5q4
-	[/PARAMLITERAL]
-	[PARAMLITERAL:width]
-	100
-	[/PARAMLITERAL]
-	[PARAMLITERAL:height]
-	56.25
-	[/PARAMLITERAL]
-	[PARAMLITERAL:units]
-	%
-	[/PARAMLITERAL]
-	[PARAMLITERAL:type]
-	simple
-	[/PARAMLITERAL]
-	[/OBJECT]
-
-	In the video above, the cube moves along our specified path but what if we wanted to have the cube follow the same path but in a different location in the level? 
-	You can see in the video that if we move the cube, whenever we click play the cube jumps back to the transform information provided in the first keyframe. 
-	Sequencer gives you the option to determine which individual axis track is the active track, in our case we only care about the Y axis. 
-
-1.	Click the expand icon next to **Transform** to expand all the transform tracks, then expand **Location** as well. 
-
-	![](MovingActors_07.png)
-
-	Each of the pink circles indicates keyframes and we are currently set to use Location, Rotation and Scale from our Transform as well as the X, Y and Z axis. 
-	If we wanted our cube to move along the **Y** axis regardless of where it is in the level, we would set only the **Y** axis to be the **Active Channel**. 
-
-1.	Right-click on the **Transform** track inside the keyframe window and uncheck all **Active Channels** except the **Y** under **Translation**. 
-
-	![](MovingActors_08.png)
-
-	This will instruct the cube to move along the **Y** axis relative to its current position. 
-
-1.	Move the cube to a new location in the level, then click the **Preview Play** button in the viewport or inside Sequencer.
+1.	在视口或Sequencer中单击 **预览播放（Preview Play）** 按钮。
 
 	![](PreviewPlayButton.png)
 
-## End Result
+## 最终结果
 
-When we play the sequence, the cube will move along the **Y** axis based on where the cube is in the level. 
+播放序列时，立方体将沿指定的关键帧路径移动。 
 
 [OBJECT:EmbeddedVideo]
-	[PARAMLITERAL:videoid]
-	46k3sgbFNK0
-	[/PARAMLITERAL]
-	[PARAMLITERAL:width]
-	100
-	[/PARAMLITERAL]
-	[PARAMLITERAL:height]
-	56.25
-	[/PARAMLITERAL]
-	[PARAMLITERAL:units]
-	%
-	[/PARAMLITERAL]
-	[PARAMLITERAL:type]
-	simple
-	[/PARAMLITERAL]
+[PARAMLITERAL:videoid]
+z8OFi2bE5q4
+[/PARAMLITERAL]
+[PARAMLITERAL:width]
+100
+[/PARAMLITERAL]
+[PARAMLITERAL:height]
+56.25
+[/PARAMLITERAL]
+[PARAMLITERAL:units]
+%
+[/PARAMLITERAL]
+[PARAMLITERAL:type]
+simple
+[/PARAMLITERAL]
 [/OBJECT]
 
-Above, we have our movement defined and we move our cube to a new location. The cube still moves along our predefined movement (along the Y axis) and we can re-key where we want it to start along the Y by clicking the **+** on the **Y Axis** track. 
-This type of transform keying is useful when you have an Actor that you want to move along a predefined path but relative to its current position. For example, you could have an elevator that moves up along the Z axis placed in different locations in the level. 
+想要在不会改变的指定开始/结束位置移动对象时，这种生成Actor移动的方法非常适用。 
+
+
+
+
+
+
+
 
 
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MaterialShader.h"
 #include "Stats/StatsMisc.h"
@@ -35,7 +35,7 @@ namespace MaterialShaderCookStats
 //
 // Globals
 //
-FCriticalSection GIdToMaterialShaderMapCS;
+FCriticalSection FMaterialShaderMap::GIdToMaterialShaderMapCS;
 TMap<FMaterialShaderMapId,FMaterialShaderMap*> FMaterialShaderMap::GIdToMaterialShaderMap[SP_NumPlatforms];
 #if ALLOW_SHADERMAP_DEBUG_DATA
 TArray<FMaterialShaderMap*> FMaterialShaderMap::AllMaterialShaderMaps;
@@ -964,10 +964,11 @@ FShader* FMaterialShaderType::FinishCompileShader(
 * @param Platform - The platform to lookup for
 * @return NULL if no cached shader map was found.
 */
-FMaterialShaderMap* FMaterialShaderMap::FindId(const FMaterialShaderMapId& ShaderMapId, EShaderPlatform InPlatform)
+TRefCountPtr<FMaterialShaderMap> FMaterialShaderMap::FindId(const FMaterialShaderMapId& ShaderMapId, EShaderPlatform InPlatform)
 {
+	FScopeLock ScopeLock(&GIdToMaterialShaderMapCS);
 	check(ShaderMapId.BaseMaterialId != FGuid());
-	FMaterialShaderMap* Result = GIdToMaterialShaderMap[InPlatform].FindRef(ShaderMapId);
+	TRefCountPtr<FMaterialShaderMap> Result = GIdToMaterialShaderMap[InPlatform].FindRef(ShaderMapId);
 	check(Result == nullptr || !Result->bDeletedThroughDeferredCleanup);
 	return Result;
 }
@@ -1322,13 +1323,11 @@ void FMaterialShaderMap::LoadForRemoteRecompile(FArchive& Ar, EShaderPlatform Sh
 							MaterialResource->SetGameThreadShaderMap(LoadedShaderMap);
 							MaterialResource->RegisterInlineShaderMap(false);
 
-							ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-								FSetShaderMapOnMaterialResources,
-								FMaterial*,MaterialResource,MaterialResource,
-								FMaterialShaderMap*,LoadedShaderMap,LoadedShaderMap,
-							{
-								MaterialResource->SetRenderingThreadShaderMap(LoadedShaderMap);
-							});
+							ENQUEUE_RENDER_COMMAND(FSetShaderMapOnMaterialResources)(
+								[MaterialResource, LoadedShaderMap](FRHICommandListImmediate& RHICmdList)
+								{
+									MaterialResource->SetRenderingThreadShaderMap(LoadedShaderMap);
+								});
 						}
 					}
 				}
@@ -1478,7 +1477,8 @@ void FMaterialShaderMap::Compile(
 					{
 						// Create a new mesh material shader map.
 						MeshShaderMapIndex = MeshShaderMaps.Num();
-						MeshShaderMap = new(MeshShaderMaps) FMeshMaterialShaderMap(InPlatform, VertexFactoryType);
+						MeshShaderMap = new FMeshMaterialShaderMap(InPlatform, VertexFactoryType);
+						MeshShaderMaps.Add(MeshShaderMap);
 					}
   
 					// Enqueue compilation all mesh material shaders for this material and vertex factory type combo.
@@ -1578,7 +1578,7 @@ void FMaterialShaderMap::Compile(
 				}
 			}
 
-			UE_LOG(LogShaders, Warning, TEXT("		%u Shaders among %u VertexFactories"), NumShaders, NumVertexFactories);
+			UE_LOG(LogShaders, Log, TEXT("		%u Shaders among %u VertexFactories"), NumShaders, NumVertexFactories);
 
 			// Register this shader map in the global map with the material's ID.
 			Register(InPlatform);
@@ -2279,7 +2279,7 @@ struct FCompareMeshShaderMaps
 
 void FMaterialShaderMap::Serialize(FArchive& Ar, bool bInlineShaderResources, bool bLoadedByCookedMaterial)
 {
-	LLM_SCOPE(ELLMTag::MaterialShaderMaps);
+	LLM_SCOPE(ELLMTag::Shaders);
 	// Note: This is saved to the DDC, not into packages (except when cooked)
 	// Backwards compatibility therefore will not work based on the version of Ar
 	// Instead, just bump MATERIALSHADERMAP_DERIVEDDATA_VER
@@ -2381,7 +2381,7 @@ void FMaterialShaderMap::Serialize(FArchive& Ar, bool bInlineShaderResources, bo
 
 			if (VertexFactoryType->IsUsedWithMaterials())
 			{
-				new(MeshShaderMaps) FMeshMaterialShaderMap(GetShaderPlatform(), VertexFactoryType);
+				MeshShaderMaps.Add(new FMeshMaterialShaderMap(GetShaderPlatform(), VertexFactoryType));
 			}
 		}
 

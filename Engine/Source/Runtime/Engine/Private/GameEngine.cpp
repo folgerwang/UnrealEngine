@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GameEngine.cpp: Unreal game engine.
@@ -644,8 +644,7 @@ void UGameEngine::OnGameWindowMoved( const TSharedRef<SWindow>& WindowBeingMoved
 void UGameEngine::RedrawViewports( bool bShouldPresent /*= true*/ )
 {
 	SCOPE_CYCLE_COUNTER(STAT_RedrawViewports);
-	CSV_SCOPED_TIMING_STAT(Basic, RedrawViewports);
-
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(ViewportMisc);
 	if ( GameViewport != NULL )
 	{
 		GameViewport->LayoutPlayers();
@@ -665,6 +664,7 @@ void UGameEngine::OnViewportResized(FViewport* Viewport, uint32 Unused)
 		{
 			GSystemResolution.ResX = ViewportSize.X;
 			GSystemResolution.ResY = ViewportSize.Y;
+			FSystemResolution::RequestResolutionChange(GSystemResolution.ResX, GSystemResolution.ResY, EWindowMode::Windowed);
 
 			UGameUserSettings* Settings = GetGameUserSettings();
 			Settings->SetScreenResolution(ViewportSize);
@@ -680,6 +680,7 @@ void UGameEngine::OnViewportResized(FViewport* Viewport, uint32 Unused)
 UEngine::UEngine(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, ViewExtensions( new FSceneViewExtensions() )
+	, EngineSubsystemCollection(this)
 {
 	C_WorldBox = FColor(0, 0, 40, 255);
 	C_BrushWire = FColor(192, 0, 0, 255);
@@ -696,11 +697,7 @@ UEngine::UEngine(const FObjectInitializer& ObjectInitializer)
 	C_BrushShape = FColor(128, 255, 128, 255);
 
 	SelectionHighlightIntensity = 0.0f;
-#if WITH_EDITOR
-	SelectionMeshSectionHighlightIntensity = 0.2f;
-#endif
 	BSPSelectionHighlightIntensity = 0.0f;
-	HoverHighlightIntensity = 10.f;
 
 	SelectionHighlightIntensityBillboards = 0.25f;
 
@@ -1249,8 +1246,8 @@ float UGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothing
 
 void UGameEngine::Tick( float DeltaSeconds, bool bIdleMode )
 {
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(EngineTickMisc);
 	SCOPE_TIME_GUARD(TEXT("UGameEngine::Tick"));
-
 	SCOPE_CYCLE_COUNTER(STAT_GameEngineTick);
 	NETWORK_PROFILER(GNetworkProfiler.TrackFrameBegin());
 
@@ -1429,7 +1426,6 @@ void UGameEngine::Tick( float DeltaSeconds, bool bIdleMode )
 	// ----------------------------
 	{
 		SCOPE_TIME_GUARD(TEXT("UGameEngine::Tick - TickObjects"));
-		CSV_SCOPED_TIMING_STAT(Basic, GameEngineTickObjects);
 		FTickableGameObject::TickObjects(nullptr, LEVELTICK_All, false, DeltaSeconds);
 	}
 
@@ -1505,15 +1501,14 @@ void UGameEngine::Tick( float DeltaSeconds, bool bIdleMode )
 
 	// rendering thread commands
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			TickRenderingTimer,
-			bool, bPauseRenderingRealtimeClock, GPauseRenderingRealtimeClock,
-			float, DeltaTime, DeltaSeconds,
+		bool bPauseRenderingRealtimeClock = GPauseRenderingRealtimeClock;
+		ENQUEUE_RENDER_COMMAND(TickRenderingTimer)(
+			[bPauseRenderingRealtimeClock, DeltaSeconds](FRHICommandListImmediate& RHICmdList)
 		{
 			if(!bPauseRenderingRealtimeClock)
 			{
 				// Tick the GRenderingRealtimeClock, unless it's paused
-				GRenderingRealtimeClock.Tick(DeltaTime);
+				GRenderingRealtimeClock.Tick(DeltaSeconds);
 			}
 
 			GetRendererModule().TickRenderTargetPool();

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraSpriteRendererProperties.h"
 #include "NiagaraRenderer.h"
@@ -145,9 +145,9 @@ void UNiagaraSpriteRendererProperties::FixMaterial(UMaterial* InMaterial)
 	InMaterial->ForceRecompileForRendering();
 }
 
-#undef LOCTEXT_NAMESPACE
-
 #endif // WITH_EDITORONLY_DATA
+
+#undef LOCTEXT_NAMESPACE
 
 
 

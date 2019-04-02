@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,5 +6,5 @@
 
 struct GAMEPLAYABILITIES_API FAggregatorEvaluateMetaDataLibrary
 {
-	static FAggregatorEvaluateMetaData MostNegativeMod_AllPostiiveMods;
+	static FAggregatorEvaluateMetaData MostNegativeMod_AllPositiveMods;
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraMeshRendererProperties.h"
 #include "NiagaraRendererMeshes.h"
@@ -159,7 +159,7 @@ void UNiagaraMeshRendererProperties::PostEditChangeProperty(FPropertyChangedEven
 			UMaterialInterface *Material = ParticleMesh->GetMaterial(Section.MaterialIndex);
 			if (Material)
 			{
-				FMaterialRenderProxy* MaterialProxy = Material->GetRenderProxy(false, false);
+				FMaterialRenderProxy* MaterialProxy = Material->GetRenderProxy();
 				Material->CheckMaterialUsage(MATUSAGE_NiagaraMeshParticles);
 			}
 		}

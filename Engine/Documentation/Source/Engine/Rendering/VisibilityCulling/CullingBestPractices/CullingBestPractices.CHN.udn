@@ -1,91 +1,51 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3782314
 Availability: Docs
-Title: Visibility Culling Best Practices
+Title: 可视性剔除的最佳实践
 Crumbs: %ROOT%, Engine, 
-Description: Visibility Culling Strategies and Best Practices
+Description: 可视性剔除的策略和最佳实践
 Version: 4.13
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/VisibilityCulling:title%]()
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/VisibilityCulling:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/VisibilityCulling:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/VisibilityCulling]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/VisibilityCulling:title%]()
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/VisibilityCulling:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/VisibilityCulling:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/VisibilityCulling]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [TOC(start:2 end:2)]
 
 
 
-Below are some good practices to follow when designing and working with visibility culling for your game. 
+以下是设计和处理游戏可视性剔除时应当遵循的一些良好做法。 
 
-## Large View Distances
+##大视图距离
 
-Large view distances can cause an impact on performance due to the number of Actors that need to be rendered. By blocking these large view distances with large occluders you can block Actors that would have been rendered otherwise.
-This can reduce the number of queries that need to be sent to the GPU by having fewer Actors to check. In turn, you get better performance by having fewer Actors to check and render.
+由于待渲染的Actor数量较多，大视图距离会对性能产生影响。通过使用大型遮挡物遮挡这些大视图距离，您可以遮挡原本会被渲染的Actor。
+这可以通过减少待检查的Actor来减少需要发送至GPU的查询数量。反过来，通过减少待检查和待渲染的Actor，可以获得更好性能。
 
-* Use large occluders where possible. 
-* Use Cull Distance Volumes to remove any smaller Actors that will not be easily visible at far distances, even if they are occluded from view.
-* Limit the amount of overdraw you get from Translucent Actors, since they will not occlude.
+* 尽可能使用大型遮挡物。 
+* 使用剔除距离体积以移除远距离处不易发现的任何较小Actor，即使这些Actor被遮挡在视线之外时也是如此。
+* 限制从半透明Actor处获得的过度绘制量，因为这些Actor不会遮挡。
 
-## "Popping" in/Lag from GPU Queries
+##GPU查询中的“弹出”/延迟
 
-This is a common issue with using visibility culling for the view frustum and hardware occlusion queries since they are being read back from the GPU one frame later. This is often 
-noticeable when turning your player camera very fast or when you come around a corner in darkly lit areas that have a contrasting lit area behind them. 
+这是为视锥体和硬件遮挡查询而使用可视性剔除时的常见问题，因为这些查询会在一帧后从GPU读回。当您非常快速地转动玩家摄像机时， 
+或者当您走到后方有强烈光照区域的灯光昏暗区域中的拐角处时，这个现象通常很明显。 
 
-* Use other geometry to help hide this artifact. For something like caves or darkened areas with bright outsides use a large occluder mesh that can sit just outside of these pieces to hide the popping in and block the light that makes it evident.
-* Increase the Bounds Scale of the Actor that is causing the offending behavior. 
-* Build geometry in a way that does not have too many small pieces that need to be assembled. This is especially true for walls, floors, and ceilings.
+* 使用其他几何体以便隐藏此瑕疵。对于洞穴或具有明亮外部的黑暗区域之类的物体，使用恰好可以放在这些碎片外部的大型遮挡物网格体，从而隐藏弹出并阻挡使其变得显眼的光线。
+* 扩大造成攻击行为的Actor的边界范围。 
+* 以无需组装太多小碎片的方式构建几何体。这对于墙体、地板和天花板尤其适用。
 
-## Asset Construction
+##资源构造
 
-When creating geometry for your game it is a good idea to break your geometry up into modular pieces for design purposes and reusability. However, it is possible to modularize too much in the design 
-process by using pieces that are too small to make up larger geometry. Because of this, each actor will need to be have its visibility state checked. It's best to find a balance that makes sense
-for your game design and optimize for the best performance. Reducing the number of queries needed to check visibility is key for optimization and to help reduce the "Popping" in that can happen. 
+为游戏创建几何体时，为了实现设计目的和可重复利用，最好将几何体分解成模块化碎片。然而，如果使用太小而无法构成较大几何体的碎片， 
+则可能会导致设计过程中过度模块化。因此，需要为每个Actor检查其可视性状态。最好是找到一个适合游戏设计的平衡点，
+并对其进行优化，以获得最佳性能。减少检查可视性所需的查询数量是优化的关键，并有助于减少可能发生的“弹出”。 
 
-* Use larger geometry when crafting your levels for structural surfaces rather than breaking it up into many smaller pieces. There is more impact on the GPU testing multiple smaller Actors than a single Actor.
-* "Popping" in of Actors is reduced when considering the construction of the mesh.
+* 在制作结构表面的关卡时，应使用较大几何体，而不是将其分解成许多较小碎片。与测试单个Actor相比，测试多个较小Actor会对GPU产生更大的影响。
+* 考虑网格体的构造会减少Actor的“弹出”。
 
 
-## Consider Occlusion vs Distance Culling Cost
+##考虑遮挡与距离剔除成本
 
-Occlusion and visibility culling methods cost much more than distance culling since these require GPU queries, so it is a good idea to setup Cull Distance Volumes for distant stuff even if they will 
-be occluded by other Actors from a certain part of the scene.
+遮挡法和可视性剔除法的成本远远超过距离剔除法，因为这两种方法需要GPU查询，因此为远距离物体设置剔除距离体积不失为一种好方法，即使它们会被场景中某一部分的其他Actor所遮挡。
 
-* Make good use of Cull Distance Volumes to reduce occlusion culling costs.
-* Stream out levels where possible instead of relying on distance or occlusion culling.
-* Use the `Stat Initviews` command to keep performance balance in check.
+* 充分利用剔除距离体积以减少遮挡剔除成本。
+* 尽可能地流送出关卡，而非依赖距离或遮挡剔除。
+* 使用‘Stat Initviews’命令来确保性能在检查时维持平衡。
 
-For information about [Level Streaming](Engine/LevelStreaming) see how to set this up in this page.
+有关[关卡流送](Engine/LevelStreaming)的信息，请参阅此页面中的设置方法。
 

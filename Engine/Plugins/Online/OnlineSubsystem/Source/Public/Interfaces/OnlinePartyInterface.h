@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,7 +7,8 @@
 #include "UObject/CoreOnline.h"
 #include "OnlineSubsystemTypes.h"
 #include "OnlineDelegateMacros.h"
-#include "Interfaces/OnlineChatInterface.h"
+
+typedef FString FChatRoomId;
 
 ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineParty, Log, All);
 #define UE_LOG_ONLINE_PARTY(Verbosity, Format, ...) \
@@ -34,6 +35,8 @@ enum class ERejectPartyInvitationCompletionResult;
 enum class ERequestPartyInvitationCompletionResult;
 enum class ESendPartyInvitationCompletionResult;
 enum class EUpdateConfigCompletionResult;
+
+struct FAnalyticsEventAttribute;
 
 /**
  * Party member user info returned by IOnlineParty interface
@@ -605,6 +608,14 @@ DECLARE_MULTICAST_DELEGATE_ThreeParams(F_PREFIX(OnPartyStateChanged), const FUni
 PARTY_DECLARE_DELEGATETYPE(OnPartyStateChanged);
 
 /**
+* Notification when a player has been approved for JIP
+* @param LocalUserId - id associated with this notification
+* @param PartyId - id associated with the party
+*/
+DECLARE_MULTICAST_DELEGATE_ThreeParams(F_PREFIX(OnPartyJIP), const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, bool /*Success*/);
+PARTY_DECLARE_DELEGATETYPE(OnPartyJIP);
+
+/**
  * Notification when player promotion is locked out.
  * @param LocalUserId - id associated with this notification
  * @param PartyId - id associated with the party
@@ -717,6 +728,17 @@ DECLARE_MULTICAST_DELEGATE_FiveParams(F_PREFIX(OnPartyJoinRequestReceived), cons
 PARTY_DECLARE_DELEGATETYPE(OnPartyJoinRequestReceived);
 
 /**
+* Notification when a new reservation request is received
+* @param LocalUserId - id associated with this notification
+* @param PartyId - id associated with the party
+* @param SenderId - id of member that sent the request
+* @param Platform - platform of member that sent the request
+* @param PartyData - data provided by the sender for the leader to use to determine joinability
+*/
+DECLARE_MULTICAST_DELEGATE_ThreeParams(F_PREFIX(OnPartyJIPRequestReceived), const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, const FUniqueNetId& /*SenderId*/);
+PARTY_DECLARE_DELEGATETYPE(OnPartyJIPRequestReceived);
+
+/**
  * Notification when a player wants to know if the party is in a joinable state
  * @param LocalUserId - id associated with this notification
  * @param PartyId - id associated with the party
@@ -735,6 +757,15 @@ PARTY_DECLARE_DELEGATETYPE(OnQueryPartyJoinabilityReceived);
  */
 DECLARE_MULTICAST_DELEGATE_ThreeParams(F_PREFIX(OnFillPartyJoinRequestData), const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, FOnlinePartyData& /*PartyData*/);
 PARTY_DECLARE_DELEGATETYPE(OnFillPartyJoinRequestData);
+
+/**
+ * Notification when an analytics event needs to be recorded
+ * @param LocalUserId - id associated with this notification
+ * @param PartyId - id associated with the party
+ * @param PartyData - data for the game to populate
+ */
+DECLARE_MULTICAST_DELEGATE_ThreeParams(F_PREFIX(OnPartyAnalyticsEvent), const FUniqueNetId& /*LocalUserId*/, const FString& /*EventName*/, const TArray<FAnalyticsEventAttribute>& /*Attributes*/);
+PARTY_DECLARE_DELEGATETYPE(OnPartyAnalyticsEvent);
 
 /**
  * Interface definition for the online party services 
@@ -781,6 +812,17 @@ public:
 	 * @return true if task was started
 	 */
 	virtual bool JoinParty(const FUniqueNetId& LocalUserId, const IOnlinePartyJoinInfo& OnlinePartyJoinInfo, const FOnJoinPartyComplete& Delegate = FOnJoinPartyComplete()) = 0;
+
+	/**
+	* Join an existing game session from within a party
+	*
+	* @param LocalUserId - user making the request
+	* @param OnlinePartyJoinInfo - join information containing data such as party id, leader id
+	* @param Delegate - called on completion
+	*
+	* @return true if task was started
+	*/
+	virtual bool JIPFromWithinParty(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, const FUniqueNetId& PartyLeaderId) = 0;
 
 	/**
 	 * Query a party to check it's current joinability
@@ -830,6 +872,19 @@ public:
 	* @return true if task was started
 	*/
 	virtual bool ApproveJoinRequest(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, const FUniqueNetId& RecipientId, bool bIsApproved, int32 DeniedResultCode = 0) = 0;
+
+	/**
+	* Approve a request to join the JIP match a party is in.
+	*
+	* @param LocalUserId - user making the request
+	* @param PartyId - id of an existing party
+	* @param RecipientId - id of the user being invited
+	* @param bIsApproved - whether the join request was approved or not
+	* @param DeniedResultCode - used when bIsApproved is false - client defined value to return when leader denies approval
+	*
+	* @return true if task was started
+	*/
+	virtual bool ApproveJIPRequest(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, const FUniqueNetId& RecipientId, bool bIsApproved, int32 DeniedResultCode = 0) = 0;
 
 	/**
 	 * Respond to a query joinability request.  This reflects the current party's joinability state and can change from moment to moment, and therefore does not guarantee a successful join.
@@ -1177,6 +1232,7 @@ public:
 	 * OnPartyJoinRequestReceived
 	 * OnPartyQueryJoinabilityReceived
 	 * OnFillPartyJoinRequestData
+	 * OnPartyAnalyticsEvent
 	 */
 
 	/**
@@ -1200,6 +1256,13 @@ public:
 	 * @param State - state of the party
 	*/
 	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnPartyStateChanged, const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, EPartyState /*State*/);
+
+	/**
+	* notification of when a player had been approved to Join In Progress
+	* @param LocalUserId - id associated with this notification
+	* @param PartyId - id associated with the party
+	*/
+	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnPartyJIP, const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, bool /*Success*/);
 
 	/**
 	 * Notification when player promotion is locked out.
@@ -1303,6 +1366,17 @@ public:
 	DEFINE_ONLINE_DELEGATE_FIVE_PARAM(OnPartyJoinRequestReceived, const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, const FUniqueNetId& /*SenderId*/, const FString& /*Platform*/, const FOnlinePartyData& /*PartyData*/);
 
 	/**
+	* Notification when a new reservation request is received
+	* Subscriber is expected to call ApproveJoinRequest
+	* @param LocalUserId - id associated with this notification
+	* @param PartyId - id associated with the party
+	* @param SenderId - id of member that sent the request
+	* @param Platform - platform of member that sent the request
+	* @param PartyData - data provided by the sender for the leader to use to determine joinability
+	*/
+	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnPartyJIPRequestReceived, const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, const FUniqueNetId& /*SenderId*/);
+
+	/**
 	 * Notification when a player wants to know if the party is in a joinable state
 	 * Subscriber is expected to call RespondToQueryJoinability
 	 * @param LocalUserId - id associated with this notification
@@ -1321,6 +1395,15 @@ public:
 	 * @param PartyData - data provided by the sender for the leader to use to determine joinability
 	 */
 	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnFillPartyJoinRequestData, const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, FOnlinePartyData& /*PartyData*/);
+
+	/**
+	 * Notification when an analytics event needs to be recorded
+	 * Subscriber is expected to record the event
+	 * @param LocalUserId - id associated with this event
+	 * @param EventName - name of the event
+	 * @param Attributes - attributes for the event
+	 */
+	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnPartyAnalyticsEvent, const FUniqueNetId& /*LocalUserId*/, const FString& /*EventName*/, const TArray<FAnalyticsEventAttribute>& /*Attributes*/);
 
 	/**
 	 * Dump out party state for all known parties
@@ -1362,8 +1445,6 @@ enum class EJoinPartyCompletionResult
 	RequesteeNotMember,
 	/** The player you send the join request to is not the leader of the specified party */
 	RequesteeNotLeader,
-	/** The player you send the join request to is unavailable */
-	RequesteeUnavailable,
 	/** A response was not received from the party leader in a timely manner, the join attempt is considered failed */
 	NoResponse,
 	/** You were logged out while attempting to join the party */
@@ -1731,10 +1812,6 @@ inline const TCHAR* ToString(const EJoinPartyCompletionResult Value)
 	case EJoinPartyCompletionResult::MessagingFailure:
 	{
 		return TEXT("MessagingFailure");
-	}
-	case EJoinPartyCompletionResult::RequesteeUnavailable:
-	{
-		return TEXT("RequesteeUnavailable");
 	}
 	case EJoinPartyCompletionResult::GameSpecificReason:
 	{

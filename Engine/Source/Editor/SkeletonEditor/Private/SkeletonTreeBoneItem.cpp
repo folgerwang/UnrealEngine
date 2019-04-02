@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SkeletonTreeBoneItem.h"
 #include "SSkeletonTreeRow.h"
@@ -161,7 +161,7 @@ TSharedRef< SWidget > FSkeletonTreeBoneItem::CreateBoneTranslationRetargetingMod
 
 	MenuBuilder.BeginSection("BoneTranslationRetargetingMode", LOCTEXT( "BoneTranslationRetargetingModeMenuHeading", "Bone Translation Retargeting Mode" ) );
 	{
-		UEnum* const Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EBoneTranslationRetargetingMode"), true);	
+		UEnum* const Enum = StaticEnum<EBoneTranslationRetargetingMode::Type>();	
 		check(Enum);
 
 		FUIAction ActionRetargetingAnimation = FUIAction(FExecuteAction::CreateSP(this, &FSkeletonTreeBoneItem::SetBoneTranslationRetargetingMode, EBoneTranslationRetargetingMode::Animation));
@@ -193,7 +193,7 @@ FText FSkeletonTreeBoneItem::GetTranslationRetargetingModeMenuTitle() const
 	if( BoneIndex != INDEX_NONE )
 	{
 		const EBoneTranslationRetargetingMode::Type RetargetingMode = Skeleton.GetBoneTranslationRetargetingMode(BoneIndex);
-		UEnum* const Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EBoneTranslationRetargetingMode"), true);	
+		UEnum* const Enum = StaticEnum<EBoneTranslationRetargetingMode::Type>();	
 		if (Enum)
 		{
 			return Enum->GetDisplayNameTextByValue(RetargetingMode);

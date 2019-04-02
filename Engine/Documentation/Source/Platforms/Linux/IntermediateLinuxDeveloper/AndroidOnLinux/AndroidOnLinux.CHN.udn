@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3457813
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Linux 系统 Android 快速入门
 Crumbs:%ROOT%
 Description:学习在 Linux 系统上创建、部署和打包 Android 游戏。
 Platform:Linux
-Version:4.14
+Version: 4.17
 type:quick start
 parent:Platforms/Linux
 order:5
@@ -23,10 +23,12 @@ _阅读完此教程后，您将能够在 Linux 系统上使用虚幻引擎 4（U
 
 如您是在 Linux 上开发并发行 Android 平台游戏的开发者，本页面便是您的指路明灯。 
 
+(#Goal)
 ## 目标
 
 此指南将指导您在 Linux 上对 Android 设备进行配置，满足使用 UE4 开发的要求。然后说明如何从 Linux 将移动游戏部署并打包到 Android。
 
+(#Objectives)
 ## 目的
 
 在此教程的学习中您将了解以下内容： 
@@ -37,22 +39,11 @@ _阅读完此教程后，您将能够在 Linux 系统上使用虚幻引擎 4（U
 * 如何从 UE4 部署关卡到 Android 设备上。 
 * 如何打包移动游戏进行发行（发布）。 
 
-[OBJECT:TopicList]
-	[PARAM:icon]
-		![](%ROOT%/build_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		步骤
-	[/PARAM]
-	[PARAM:description]
-	[/PARAM]
-	[PARAM:links]
-	[DIR(output:"checkpoint" parent:"Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux" org:"hierarchy")]
-	[/PARAM]
-[/OBJECT]
+(#Steps)
+## 步骤
 
 [REGION:call_to_action]
-	[Click to Start](Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux/1 "%Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux/1:title%")
+	[点击开始](Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux/1 "%Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux/1:title%")
 [/REGION]
 
 [REGION:quote]

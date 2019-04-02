@@ -1,9 +1,10 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
+#include "Hash/CityHash.h"
 
 #define GameSessionName NAME_GameSession
 #define PartySessionName NAME_PartySession
@@ -195,24 +196,9 @@ public:
 		return FString();
 	}
 
-	friend inline uint32 GetTypeHash(FUniqueNetId const& Value)
+	friend inline uint32 GetTypeHash(const FUniqueNetId& Value)
 	{
-		const int32 Size = Value.GetSize();
-		if (Size < sizeof(uint32))
-		{
-			// Grab 1 byte worth of data as 32bit
-			return GetTypeHash((uint32)(*Value.GetBytes()));
-		}
-		else if (Size < sizeof(uint64))
-		{
-			// Grab 4 bytes worth of data
-			return GetTypeHash(*((uint32*)Value.GetBytes()));
-		}
-		else
-		{
-			// Grab 8 bytes worth of data
-			return GetTypeHash(*((uint64*)Value.GetBytes()));
-		}
+		return CityHash32(reinterpret_cast<const char*>(Value.GetBytes()), Value.GetSize());
 	}
 
 	virtual ~FUniqueNetId() {}
@@ -394,6 +380,7 @@ protected:
 	// Actual unique id
 	TSharedPtr<const FUniqueNetId> UniqueNetId;
 };
+
 
 template <typename ValueType>
 struct TUniqueNetIdMapKeyFuncs : public TDefaultMapKeyFuncs<TSharedRef<const FUniqueNetId>, ValueType, false>

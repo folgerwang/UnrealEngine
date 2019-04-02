@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	IOSTargetPlatform.h: Declares the FIOSTargetPlatform class.
@@ -77,11 +77,6 @@ public:
 	virtual void EnableDeviceCheck(bool OnOff) override;
 
 	virtual void GetAllDevices( TArray<ITargetDevicePtr>& OutDevices ) const override;
-
-	virtual ECompressionFlags GetBaseCompressionMethod() const override
-	{
-		return COMPRESS_ZLIB;
-	}
 
 	virtual bool GenerateStreamingInstallManifest(const TMultiMap<FString, int32>& ChunkMap, const TSet<int32>& ChunkIDsInUse) const override
 	{

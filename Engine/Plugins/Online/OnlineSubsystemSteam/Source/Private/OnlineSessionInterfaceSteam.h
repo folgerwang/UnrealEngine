@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -433,6 +433,15 @@ PACKAGE_SCOPE:
 	 * @param Session the session that they are registering in
 	 */
 	void RegisterLocalPlayers(class FNamedOnlineSession* Session);
+
+	/**
+	 * Parses the dedicated server custom name launch argument as specified by the
+	 * -SteamServerName= flag.
+	 *
+	 * @return the custom name if the value of the launch argument is specified and less than 64 characters
+	 *			otherwise returns empty string
+	 */
+	FString GetCustomDedicatedServerName() const;
 
 public:
 

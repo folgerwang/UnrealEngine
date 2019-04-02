@@ -1,52 +1,24 @@
-﻿INTSourceChangelist:2911160
-Title:VR 编辑器控制
-Description:学习在 VR 模式中创建世界场景时使用的诸多控制方式和互动。
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title: VR模式控制
+Description:学习在VR模式中创建世界场景时使用的诸多控制方式和交互。
 Crumbs:
-Availability: public
-parent:Engine/Editor/VR
-type: reference
+parent: Engine/Editor/VR
+type: overview
 order:1
-tags:VR
-version:4.11
+tags: VR
+version: 4.17
 skilllevel: intermediate
+topic-image:vreditor_controls.png
+prereq:Engine/Editor/VR/ActivateVRMode
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Editor/VR/Controls:title%](Engine/Editor/VR/Controls/vreditor_controls.png)(fill:#919293)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Editor/VR/Controls:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Editor/VR/Controls]
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Editor/VR/Controls:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+[TOC(start:1 end:4)]
 
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Editor/VR/Controls:title%](Engine/Editor/VR/Controls/vreditor_controls.png)(fill:#919293)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Editor/VR/Controls:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Editor/VR/Controls]
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Editor/VR/Controls:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+虚拟现实（VR）中有多种控制方式，用于导航场景、选择并操纵Actor，以及使用编辑器面板和窗口。
 
-存在多种控制方式，用于导航场景、选择并操作 Actor，以及使用编辑器面板和窗口。
+(#controllerinterface)
 
-## 控制器
+## 控制器界面
 
 [REGION:raw]
 ![](controller.png)(convert:false)
@@ -57,74 +29,162 @@ skilllevel: intermediate
 3. 扳机键
 4. 侧边键
 
-## 激光指示
+(#laserpointer)
+### 激光指示
 
-每个控制器均会发射激光指示光束，用于确定将进行互动的 Actor。光束颜色代表控制器所在的互动模式。
+每个控制器均会发射称为“激光指示”的光束，用于确定将要交互的Actor。光束颜色代表控制器当前所处的交互模式。
 
 | 颜色 | 外观 | 含义 |
 | ----- | ---------- | ------- |
-| 橘色 |![](standardmode.png)(w:192) | 控制器处于标准互动模式中。这是控制器的默认状态。 |
-| 绿色 |![](selectionmode.png)(w:192) | 控制器处于选择模式中，代表其当前已选中一个 Actor。 |
-| 黄色 |![](movementmode.png)(w:192) | 控制器处于移动模式中，代表其正用于导航世界场景。 |
+| 红色 |![](standardmode.png)(w:192) | 控制器处于标准交互模式中。这是控制器的默认状态。 |
+| 橙色 |![](selectionmode.png)(w:192) | 控制器处于选择模式中，意味着其当前已选中一个 Actor。  |
+| 绿色 |![](movementmode.png)(w:192) | 控制器处于移动模式中，意味着其正用于导航世界场景。 |
+| 蓝色 |![](UImode.png)(w:192) | 控制器处于UI交互模式中，意味着其正用于移动UI。 |
 
-## 导航控制
+(#uiinvr)
+
+##VR中的UI
+
+利用“VR中的UI”模式无需离开VR环境便能在编辑器中进行工作。使用控制方式呼出菜单系统即可访问诸多设置和编辑器窗口。以下章节将介绍如何调用这些系统并与之进行交互。
+
+(#interactorhand)
+
+## 交互者手部
+
+前往 **编辑器偏好（Editor Preferences）** > **通用（General）** > **VR模式（VR Mode）** 即可修改主激光附加的手部。然后在 **通用** 部分中将 **交互器手部** 改为 **左** 或 **右**。
+
+[REGION:lightbox]
+[![](InteractionHand.png)(w:472)](InteractionHand.png)
+[/REGION]
+
+[REGION:caption]
+点击查看全图。
+[/REGION]
+
+(#menucontrols)
+
+### 菜单控制
+
+如果希望使用VR模式中的菜单，请参考下表，了解 **圆形** 和 **圆形菜单**。 
 
 [REGION:raw]
 | 控制 | 描述 |
 | ------- | ----------- |
-| ![Press Side Buttons + Move Controller](move_world.png)(convert:false) | 按下侧边键并向世界场景移动控制器，感觉像是用手抓住世界场景进行推拉。 |
-| ![Press Side Buttons + Aim Controller + Squeeze Trigger](teleport_world.png)(convert:false) | 按下侧边键、对准控制器并按下扳机键即可从当前所在位置移动到控制器对准的位置。 |
-| ![Press Side Buttons + Move Controllers Around Each Other](rotate_world.png)(convert:false) | 按下两个控制器上的侧边键并交替移动两个控制器即可围绕操作者旋转世界场景，感觉像是用手抓住世界场景进行旋转。 |
-| ![Press Side Buttons + Move Controllers Towards or Away From Each Other](scale_world.png)(convert:false) | 按下两个控制器上的侧边键并将它们相互移近或移远，即可放大缩小世界场景。 |
+| ![Modifier Button](radial_menu.png)(convert:false) | 拇指轻按追踪板即可打开 **圆形菜单**。在追踪版上移动拇指即可高亮选项。完全按下追踪板即可选中高亮的选项。 |
+| ![Pressing the Menu Button](Menu_Button.png)(convert:false) | 按下另一个控制器上的“Menu”键即可访问 **圆形菜单**。 |
 [/REGION]
 
-## 选择控制
+(#windowcontrols)
+
+### 窗口控制
+
+如果需要在VR编辑模式中控制诸多窗口，请参照下表，可在其中了解到如何显示和隐藏窗口，以及如何放大或缩小窗口。
 
 [REGION:raw]
 | 控制 | 描述 |
-| ------- | ----------- |
-| ![Aim Controller at Actor + Squeeze Trigger](select_actor.png)(convert:false) ](select_actor.png)(convert:false) | 用控制器对准世界场景中的一个 Actor 并按下扳机键选中此 Actor。 |
-| [INCLUDE:#multiselect] | 用控制器对准世界场景中的一个 Actor，半按下扳机键可选中此 Actor 并进入多选模式。保持半按扳机键，将另一个控制器对准其他的 Actor，按下扳机键将其添加到选择或取消选择。|
+| ------- | ----------- |	
+| ![Aim Controller at Window Grip + Squeeze Trigger + Track Pad Towards or Away](scale_window.png)(convert:false) | 用控制器瞄准窗口的握把并按下扳机键即可抓取窗口。在追踪板上上下移动拇指即可放大或缩小窗口。 |
 [/REGION]
 
-## 变形控制
+(#editinginvr)
 
-[REGION:raw]
-| 控制 | 描述 |
-| ------- | ----------- |
-| ![Aim Controller at Actor + Squeeze Trigger + Move Controller](move_actor.png)(convert:false) | 用控制器对准世界场景中的一个 Actor，按下扳机键将其选中。移动控制器即可将 Actor 移动到对准的位置。 |
-| ![Aim Controllers at Actor + Squeeze Triggers + Move Controller Around Each Other](rotate_actor.png)(convert:false) | 用两个控制器对准世界场景中的一个 Actor，按下两个扳机键将其选中。交替移动两个控制器旋转 Actor，感觉像是用手抓住 Actor 进行旋转。 |
-| ![Aim Controllers at Actor + Squeeze Triggers + Move Controllers Towards or Away From Each Other](scale_actor.png)(convert:false) | 用两个控制器对准世界场景中的一个 Actor，按下两个扳机键将其选中。将控制器相互移近或移远即可缩小或放大 Actor，感觉像是用手抓住 Actor 进行拉伸。 |
-| ![Aim Controller at Actor + Squeeze Trigger + Track Pad Towards or Away](slide_actor.png)(convert:false) | 用控制器对准世界场景中的一个 Actor，按下扳机键将其选中。用拇指上下滑动追踪板即可使选中的 Actor 靠近或远离操作者。 |
-[/REGION]
+##在VR中进行编辑
 
-## 菜单控制
+在VR模式中进行编辑时，使用者需要以更直观的方式遍历场景并操纵场景中的actor。以下部分将介绍如何与actor进行交互，如何对其进行移动、缩放和旋转，以及如何在VR中有效导航场景。 
 
-[REGION:raw]
-| 控制 | 描述 |
-| ------- | ----------- |
-| ![Modifier Button](radial_menu.png)(convert:false) | 拇指轻按追踪板打开圆形菜单。在追踪版上移动拇指高亮选项。以正常力量按下追踪板即可选中高亮的选项。 |
-| ![Aim One Controller at the Other Controller](quick_select_menu.png)(convert:false) | 用一个控制器对准另一个控制器即可访问快速选择菜单。 |
-[/REGION]
-
-## 窗口控制
-
-[REGION:raw]
-| 控制 | 描述 |
-| ------- | ----------- |
-| ![Tap Track Pad](show_hide_windows.png)(convert:false) | 点击追踪板即可显示或隐藏打开的窗口。 |
-| ![Aim Controller at Window Grip + Squeeze Trigger + Track Pad Towards or Away](scale_window.png)(convert:false) | 用控制器对准窗口的柄后按下扳机键即可选取窗口。在追踪板上上下移动拇指即可放大或缩小窗口。 |
-[/REGION]
 
 [COMMENT:none]
-
-[EXCERPT:MultiSelect]
-[PUBLISH:Rocket]
-[REGION:lightbox][![Aim Controller at Actor + Squeeze Trigger Halfway + Aim Controller at another Actor + Squeeze Trigger](select_actor_multiple.png)(h:108 convert:false)](select_actor_multiple.png)[/REGION]
-[/PUBLISH:Rocket]
-[PUBLISH:Epic]
-![Aim Controller at Actor + Squeeze Trigger Halfway + Aim Controller at another Actor + Squeeze Trigger](select_actor_multiple.png)(h:108 convert:false)
-[/PUBLISH:Epic]
-[/EXCERPT:MultiSelect]
-
+Add introductory text summarizing this section.
 [/COMMENT]
+
+(#navigationcontrols)
+
+### 导航控制
+
+如要在VR环境中进行导航，请参考下表。其介绍了如何用手推拉场景、导航至场景中的位置、旋转周围的场景，以及放大缩小场景。
+
+
+[REGION:raw]
+| 控制 | 描述 |
+| ------- | ----------- |
+| ![Press Side Buttons + Move Controller](move_world.png)(convert:false) | 按下侧边键并移动控制器，操作方法类似于用自己的手抓住场景并进行推拉。 |
+| ![Press Side Buttons + Aim Controller + Squeeze Trigger](teleport_world.png)(convert:false) | 按下侧边键、瞄准控制器并按下扳机键从当前位置瞬移到控制器瞄准的位置。 |
+| ![Press Side Buttons + Move Controllers Around Each Other](rotate_world.png)(convert:false) | 按下两个控制器上的侧边键并交替移动即可旋转周围的场景，操作方式类似于用自己的手抓住场景并进行旋转。 |
+| ![Press Side Buttons + Move Controllers Towards or Away From Each Other](scale_world.png)(convert:false) | 按下两个控制器上的侧边键并移近移远，即可放大缩小场景。 |
+| ![Press Side Buttons + Tap the Tack Pad](Reset_World_Scale.png)(convert:false) | 按下侧边键抓取场景，在编辑时按下追踪板便能即时将场景的缩放重设为默认玩家的大小。 |
+
+[/REGION]
+
+(#selectioncontrols)
+
+### 选择控制
+
+如果需要选中VR环境中的Actor，请参照下表，了解如何选中一个actor，以及如何一次选中多个actor。 
+
+[REGION:raw]
+| 控制 | 描述 |
+| ------- | ----------- |
+| ![Aim Controller at Actor + Squeeze Trigger](select_actor.png)(convert:false) | 选中单个actor的方法是用运动控制器瞄准场景中的一个actor，然后按下扳机键将其选中。 |
+| [REGION:lightbox][![multi_select_actors.png](multi_select_actors.png)(h:108 convert:false)](multi_select_actors.png)[/REGION] |选择多个actor的方法是长按交互者手部运动控制器上的菜单键，然后将运动控制器瞄准需要选择的actor。在按住菜单键的同时按下运动控制器扳机键即可在选择中添加或移除actor。|
+[/REGION]
+
+(#transformcontrols)
+
+### 变换控制
+
+如需使用平移、旋转和缩放小工具来变换actor，请参照下表，了解如何在VR中移动、旋转、缩放和滑动actor。
+
+[REGION:raw]
+| 控制 | 描述 |
+| ------- | ----------- |
+| ![Aim Controller at Actor + Squeeze Trigger + Move Controller](move_actor.png)(convert:false) | 将控制器瞄准场景中的actor，并按下扳机键将其选中。移动控制器即可将actor移至其瞄准的位置。 |
+| ![Aim Controllers at Actor + Squeeze Triggers + Move Controller Around Each Other](rotate_actor.png)(convert:false) | 将两个控制器瞄准场景中的一个actor并按下两个扳机键将其选中。交替移动两个控制器即可旋转actor，操作方式类似于用手抓住进行旋转。 |
+| ![Aim Controllers at Actor + Squeeze Triggers + Move Controllers Towards or Away From Each Other](scale_actor.png)(convert:false) | 将两个控制器瞄准场景中的一个actor并按下两个扳机键将其选中。将两个控制器移远移近即可放大/缩小actor。操作方式类似于用手抓住进行拉伸。 |
+| ![Aim Controller at Actor + Squeeze Trigger + Track Pad Towards or Away](slide_actor.png)(convert:false) | 将控制器瞄准场景中的一个actor并按下扳机键将其选中。在追踪板上上下移动拇指即可将选中的actor拉近/推远。 |
+[/REGION]
+
+(#paintinginvr)
+
+##在VR中绘制
+
+在VR模式中进行绘制时，可选择与桌面编辑器相似的选项，例如用植物工具和网格体绘制对地形模式进行绘制。以下部分将讲述如何使用可用工具和选项进行这些模式的绘制。 
+
+
+(#meshpaintingcontrols)
+
+### 网格体绘制控制
+
+如果需要使用顶点绘制在一个网格体上进行绘制，请参考下表了解如何绘制与擦除已绘制的区域。 
+
+[REGION:raw]
+| 控制 | 描述 |
+| ------- | ----------- |
+| ![Aim Controller at Actor + Squeeze Trigger + Move Controller](MeshPaint_2_NoModifier.png)(convert:false) | 将控制器瞄准场景中的一个静态网格体并按下扳机键即可开始绘制。移动控制器即可沿网格体移动笔刷。 |
+| ![Modifier + Aim Controller at Actor + Squeeze Trigger + Move Controller](ModifierMeshPaint.png)(convert:false) | 长按修改键即可进行擦除。将控制器瞄准场景中的静态网格体并按下扳机键即可开始擦除。移动控制器即可沿网格体移动擦除器。  |
+[/REGION]
+
+(#foliagepaintingcontrols)
+
+### 植物绘制控制
+
+如要使用植物绘制控制，请参考下表了解植物的绘制和擦除。值得一提的是，扳机键拥有压力感应，可以控制区域绘制和擦除的强度。
+
+[REGION:raw]
+| 控制 | 描述 |
+| ------- | ----------- |
+| ![Aim Controller at Actor + Squeeze Trigger + Move Controller](MeshPaint_2_NoModifier.png)(convert:false) | 在 **模式** 面板中选择一个植物类型。将控制器瞄准场景中的一个位置并按下扳机键即可开始绘制植物。移动控制器即可在场景中移动笔刷。|
+| ![Modifier + Aim Controller at Actor + Squeeze Trigger + Move Controller](ModifierMeshPaint.png)(convert:false) | 长按修改键即可擦除植物。将控制器瞄准场景中的位置并按下扳机键即可开始擦除。移动控制器即可在场景中移动擦除器。  |
+[/REGION]
+
+(#landscapepaintingcontrols)
+
+### 地形绘制控制
+
+如要了解地形工具，请参考下表了解地形的升降。值得一提的是，扳机键拥有压力感应，可以控制区域升降的强度。 
+
+[REGION:raw]
+| 控制 | 描述 |
+| ------- | ----------- |
+| ![Aim Controller at Actor + Squeeze Trigger + Move Controller](MeshPaint_2_NoModifier.png)(convert:false) | 在 **雕刻** 面板中选择一个地形笔刷。将控制器瞄准场景中的一个位置并按下扳机键即可开始升高地形。移动控制器即可在场景中移动笔刷。|
+| ![Modifier + Aim Controller at Actor + Squeeze Trigger + Move Controller](ModifierMeshPaint.png)(convert:false) | 在 **雕刻** 面板中选中一个笔刷并按住修改键来降低地形。将控制器瞄准场景中的一个位置并按下修改键，然后按下扳机键开始降低地形。移动控制器即可降低场景中的不同区域。  |
+[/REGION]

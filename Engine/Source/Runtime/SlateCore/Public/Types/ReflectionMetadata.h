@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -13,7 +13,7 @@
  * additional information about slate widgets that are constructed by UObject
  * classes for UMG.
  */
-class FReflectionMetaData : public ISlateMetaData
+class SLATECORE_API FReflectionMetaData : public ISlateMetaData
 {
 public:
 	SLATE_METADATA_TYPE(FReflectionMetaData, ISlateMetaData)
@@ -40,20 +40,7 @@ public:
 
 public:
 
-	static FString GetWidgetDebugInfo(const SWidget* InWidget)
-	{
-		// UMG widgets have meta-data to help track them
-		TSharedPtr<FReflectionMetaData> MetaData = InWidget->GetMetaData<FReflectionMetaData>();
-		if ( MetaData.IsValid() && MetaData->Asset.Get() != nullptr )
-		{
-			const FName AssetName = MetaData->Asset->GetFName();
-			const FName WidgetName = MetaData->Name;
+	static FString GetWidgetDebugInfo(const SWidget* InWidget);
 
-			return FString::Printf(TEXT("%s [%s]"), *AssetName.ToString(), *WidgetName.ToString());
-		}
-		else
-		{
-			return InWidget->GetReadableLocation();
-		}
-	}
+	static TSharedPtr<FReflectionMetaData> GetWidgetOrParentMetaData(const SWidget* InWidget);
 };

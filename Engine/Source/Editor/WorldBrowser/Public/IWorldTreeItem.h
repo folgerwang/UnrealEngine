@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -52,10 +52,12 @@ namespace WorldHierarchy
 
 			bool bLocked : 1;
 
-			FlagsType() 
+			FlagsType()
 				: bExpanded(1)
 				, bFilteredOut(0)
 				, bChildrenRequiresSort(1)
+				, bVisible(1)
+				, bLocked(0)
 			{}
 		};
 
@@ -63,7 +65,7 @@ namespace WorldHierarchy
 
 		FlagsType Flags;
 
-		DECLARE_DELEGATE( FOnRenameRequest );
+		DECLARE_DELEGATE(FOnRenameRequest);
 
 		FOnRenameRequest RenameRequestEvent;
 
@@ -258,7 +260,12 @@ namespace WorldHierarchy
 		virtual float GetHierarchyItemBrushWidth() const { return 7.0f; }
 
 		virtual void OnToggleVisibility() {}
+		virtual void OnShowOnlySelected() {}
+		virtual void OnShowAllButSelected() {}
+		virtual void PopulateLevelModelList(FLevelModelList& InModelList) {}
 		virtual void OnToggleLightingScenario() {}
+		virtual void OnLockOnlySelected() {}
+		virtual void OnLockAllButSelected() {}
 		virtual void OnToggleLock() {}
 		virtual void OnSave() {}
 		virtual void OnOpenKismet() {} 

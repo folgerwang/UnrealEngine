@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -277,7 +277,7 @@ struct CORE_API FWindowsPlatformAtomics
 		#endif
 	}
 
-	DEPRECATED(4.19, "AtomicRead64 has been deprecated, please use AtomicRead's overload instead")
+	UE_DEPRECATED(4.19, "AtomicRead64 has been deprecated, please use AtomicRead's overload instead")
 	static FORCEINLINE int64 AtomicRead64(volatile const int64* Src)
 	{
 		return AtomicRead(Src);

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -29,6 +29,14 @@ namespace UnrealBuildTool
 			/// Modulus
 			/// </summary>
 			public byte[] Modulus;
+
+			/// <summary>
+			/// Determine if this key is valid
+			/// </summary>
+			public bool IsValid()
+			{
+				return Exponent != null && Modulus != null && Exponent.Length > 0 && Modulus.Length > 0;
+			}
 		}
 
 		/// <summary>
@@ -45,6 +53,26 @@ namespace UnrealBuildTool
 			/// Private key
 			/// </summary>
 			public SigningKey PrivateKey = new SigningKey();
+
+			/// <summary>
+			/// Determine if this key is valid
+			/// </summary>
+			public bool IsValid()
+			{
+				return PublicKey != null && PrivateKey != null && PublicKey.IsValid() && PrivateKey.IsValid();
+			}
+
+			/// <summary>
+			/// Returns TRUE if this is a short key from the old 256-bit system
+			/// </summary>
+			public bool IsUnsecureLegacyKey()
+			{
+				int LongestKey = PublicKey.Exponent.Length;
+				LongestKey = Math.Max(LongestKey, PublicKey.Modulus.Length);
+				LongestKey = Math.Max(LongestKey, PrivateKey.Exponent.Length);
+				LongestKey = Math.Max(LongestKey, PrivateKey.Modulus.Length);
+				return LongestKey <= 64;
+			}
 		}
 
 		/// <summary>
@@ -61,9 +89,16 @@ namespace UnrealBuildTool
 			/// </summary>
 			public string Guid;
 			/// <summary>
-			/// 128 bit AES key
+			/// AES key
 			/// </summary>
 			public byte[] Key;
+			/// <summary>
+			/// Determine if this key is valid
+			/// </summary>
+			public bool IsValid()
+			{
+				return Key != null && Key.Length > 0 && Guid != null;
+			}
 		}
 
 		/// <summary>
@@ -113,6 +148,16 @@ namespace UnrealBuildTool
 			public bool bDataCryptoRequired = false;
 
 			/// <summary>
+			/// Config setting to enable pak signing
+			/// </summary>
+			public bool PakEncryptionRequired = true;
+
+			/// <summary>
+			/// Config setting to enable pak encryption
+			/// </summary>
+			public bool PakSigningRequired = true;
+			
+			/// <summary>
 			/// A set of named encryption keys that can be used to encrypt different sets of data with a different key that is delivered dynamically (i.e. not embedded within the game executable)
 			/// </summary>
 			public EncryptionKey[] SecondaryEncryptionKeys;
@@ -122,7 +167,15 @@ namespace UnrealBuildTool
 			/// </summary>
 			public bool IsAnyEncryptionEnabled()
 			{
-				return bEnablePakFullAssetEncryption || bEnablePakUAssetEncryption || bEnablePakIndexEncryption || bEnablePakIniEncryption;
+				return (EncryptionKey != null && EncryptionKey.IsValid()) && (bEnablePakFullAssetEncryption || bEnablePakUAssetEncryption || bEnablePakIndexEncryption || bEnablePakIniEncryption);
+			}
+
+			/// <summary>
+			/// 
+			/// </summary>
+			public bool IsPakSigningEnabled()
+			{
+				return (SigningKey != null && SigningKey.IsValid()) && bEnablePakSigning;
 			}
 
 			/// <summary>
@@ -148,15 +201,38 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Helper function for comparing two AES keys
+		/// </summary>
+		private static bool CompareKey(byte[] KeyA, byte[] KeyB)
+		{
+			if (KeyA.Length != KeyB.Length)
+			{
+				return false;
+			}
+
+			for (int Index = 0; Index < KeyA.Length; ++Index)
+			{
+				if (KeyA[Index] != KeyB[Index])
+				{
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		/// <summary>
 		/// Parse crypto settings from INI file
 		/// </summary>
 		public static CryptoSettings ParseCryptoSettings(DirectoryReference InProjectDirectory, UnrealTargetPlatform InTargetPlatform)
 		{
 			CryptoSettings Settings = new CryptoSettings();
-
+			
 			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, InProjectDirectory, InTargetPlatform);
 			Ini.GetBool("PlatformCrypto", "PlatformRequiresDataCrypto", out Settings.bDataCryptoRequired);
-			
+			Ini.GetBool("PlatformCrypto", "PakSigningRequired", out Settings.PakSigningRequired);
+			Ini.GetBool("PlatformCrypto", "PakEncryptionRequired", out Settings.PakEncryptionRequired);
+
 			{
 				// Start by parsing the legacy encryption.ini settings
 				Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Encryption, InProjectDirectory, InTargetPlatform);
@@ -232,6 +308,8 @@ namespace UnrealBuildTool
 				{
 					Settings.EncryptionKey = new EncryptionKey();
 					Settings.EncryptionKey.Key = System.Convert.FromBase64String(EncryptionKeyString);
+					Settings.EncryptionKey.Guid = Guid.Empty.ToString();
+					Settings.EncryptionKey.Name = "Embedded";
 				}
 
 				// Parse secondary encryption keys
@@ -299,7 +377,12 @@ namespace UnrealBuildTool
 						FileReference ProjectKeyChainFile = FileReference.Combine(InProjectDirectory, "Content", Filename);
 						if (FileReference.Exists(ProjectKeyChainFile))
 						{
-							List<EncryptionKey> EncryptionKeys = new List<EncryptionKey>(Settings.SecondaryEncryptionKeys);
+							List<EncryptionKey> EncryptionKeys = new List<EncryptionKey>();
+
+							if (Settings.SecondaryEncryptionKeys != null)
+							{
+								EncryptionKeys.AddRange(Settings.SecondaryEncryptionKeys);
+							}
 
 							string[] Lines = FileReference.ReadAllLines(ProjectKeyChainFile);
 							foreach (string Line in Lines)
@@ -313,9 +396,10 @@ namespace UnrealBuildTool
 									NewKey.Guid = KeyParts[2];
 									NewKey.Key = System.Convert.FromBase64String(KeyParts[3]);
 
-									if (EncryptionKeys.Find((EncryptionKey OtherKey) => { return OtherKey.Guid == NewKey.Guid; }) != null)
+									EncryptionKey ExistingKey = EncryptionKeys.Find((EncryptionKey OtherKey) => { return OtherKey.Guid == NewKey.Guid; });
+									if (ExistingKey != null && !CompareKey(ExistingKey.Key, NewKey.Key))
 									{
-										throw new Exception("Found a duplicated encryption key guid when merging a project keychain into the secondary key list");
+										throw new Exception("Found multiple encryption keys with the same guid but different AES keys while merging secondary keys from the project key-chain!");
 									}
 
 									EncryptionKeys.Add(NewKey);
@@ -333,6 +417,45 @@ namespace UnrealBuildTool
 				CryptoSettings NewSettings = new CryptoSettings();
 				NewSettings.SecondaryEncryptionKeys = Settings.SecondaryEncryptionKeys;
 				Settings = NewSettings;
+			}
+			else
+			{
+				if (!Settings.PakSigningRequired)
+				{
+					Settings.bEnablePakSigning = false;
+					Settings.SigningKey = null;
+				}
+
+				if (!Settings.PakEncryptionRequired)
+				{
+					Settings.bEnablePakFullAssetEncryption = false;
+					Settings.bEnablePakIndexEncryption = false;
+					Settings.bEnablePakIniEncryption = false;
+					Settings.EncryptionKey = null;
+					Settings.SigningKey = null;
+				}
+			}
+
+			// Check if we have a valid signing key that is of the old short form
+			if (Settings.SigningKey != null && Settings.SigningKey.IsValid() && Settings.SigningKey.IsUnsecureLegacyKey())
+			{
+				Log.TraceWarningOnce("Project signing keys found in '{0}' are of the old insecure short format. Please regenerate them using the project crypto settings panel in the editor!", InProjectDirectory);
+			}
+
+			// Validate the settings we have read
+			if (Settings.bDataCryptoRequired && Settings.bEnablePakSigning && (Settings.SigningKey == null || !Settings.SigningKey.IsValid()))
+			{
+				Log.TraceWarningOnce("Pak signing is enabled, but no valid signing keys were found. Please generate a key in the editor project crypto settings. Signing will be disabled");
+				Settings.bEnablePakSigning = false;
+			}
+
+			if (Settings.bDataCryptoRequired && Settings.IsAnyEncryptionEnabled() && (Settings.EncryptionKey == null || !Settings.EncryptionKey.IsValid()))
+			{
+				Log.TraceWarningOnce("Pak encryption is enabled, but no valid encryption key was found. Please generate a key in the editor project crypto settings. Encryption will be disabled");
+				Settings.bEnablePakUAssetEncryption = false;
+				Settings.bEnablePakFullAssetEncryption = false;
+				Settings.bEnablePakIndexEncryption = false;
+				Settings.bEnablePakIniEncryption = false;
 			}
 
 			return Settings;

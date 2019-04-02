@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Customizations/TextureDetailsCustomization.h"
 #include "Misc/MessageDialog.h"
@@ -43,6 +43,13 @@ void FTextureDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 		FDetailWidgetRow Row;
 		MaxTextureSizePropertyRow.GetDefaultWidgets(NameWidget, ValueWidget, Row);
 
+		int32 MaxTextureSize = 2048;
+
+		if (UTexture* Texture = Cast<UTexture>(TextureBeingCustomized.Get()))
+		{
+			MaxTextureSize = Texture->GetMaximumDimension();
+		}
+
 		const bool bShowChildren = true;
 		MaxTextureSizePropertyRow.CustomWidget(bShowChildren)
 			.NameContent()
@@ -60,9 +67,9 @@ void FTextureDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 				.Value(this, &FTextureDetails::OnGetMaxTextureSize)
 				.Font(IDetailLayoutBuilder::GetDetailFont())
 				.MinValue(0)
-				.MaxValue(2048)
+				.MaxValue(MaxTextureSize)
 				.MinSliderValue(0)
-				.MaxSliderValue(2048)
+				.MaxSliderValue(MaxTextureSize)
 				.OnValueChanged(this, &FTextureDetails::OnMaxTextureSizeChanged)
 				.OnValueCommitted(this, &FTextureDetails::OnMaxTextureSizeCommitted)
 				.OnBeginSliderMovement(this, &FTextureDetails::OnBeginSliderMovement)

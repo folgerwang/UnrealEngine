@@ -28,7 +28,7 @@ public:
 
 	void				InitCosts();
 
-	float				SimplifyMesh( float maxErrorLimit, int minTris );
+	float				SimplifyMesh( float maxErrorLimit, int minTris, int minVerts = INT_MAX);
 
 	int					GetNumVerts() const { return numVerts; }
 	int					GetNumTris() const { return numTris; }
@@ -1288,7 +1288,7 @@ void TMeshSimplifier<T, NumAttributes>::UpdateEdges()
 }
 
 template< typename T, uint32 NumAttributes >
-float TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxErrorLimit, int minTris )
+float TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxErrorLimit, int minTris, int minVerts )
 {
 	TSimpVert<T>* v;
 	TSimpEdge<T>* e;
@@ -1297,7 +1297,7 @@ float TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxErrorLimit, int 
 
 	while( edgeHeap.Num() > 0 )
 	{
-		if( numTris <= minTris )
+		if( numTris <= minTris || numVerts <= minVerts )
 			break;
 
 		// get the next vertex to collapse

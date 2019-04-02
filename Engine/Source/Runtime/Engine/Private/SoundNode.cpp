@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "Sound/SoundNode.h"
@@ -67,13 +67,21 @@ UEdGraphNode* USoundNode::GetGraphNode() const
 UPTRINT USoundNode::GetNodeWaveInstanceHash(const UPTRINT ParentWaveInstanceHash, const USoundNode* ChildNode, const uint32 ChildIndex)
 {
 	checkf(ChildIndex < MAX_ALLOWED_CHILD_NODES, TEXT("Too many children (%d) in SoundCue '%s'"), ChildIndex, *CastChecked<USoundCue>(ChildNode->GetOuter())->GetFullName());
-	return ((ParentWaveInstanceHash << ChildIndex) ^ (UPTRINT)ChildNode);
+
+	return GetNodeWaveInstanceHash(ParentWaveInstanceHash, reinterpret_cast<const UPTRINT>(ChildNode), ChildIndex);
 }
 
 UPTRINT USoundNode::GetNodeWaveInstanceHash(const UPTRINT ParentWaveInstanceHash, const UPTRINT ChildNodeHash, const uint32 ChildIndex)
 {
-	checkf(ChildIndex < MAX_ALLOWED_CHILD_NODES, TEXT("Too many children (%d) in SoundCue"), ChildIndex);
+#define USE_NEW_SOUNDCUE_NODE_HASH 1
+#if USE_NEW_SOUNDCUE_NODE_HASH
+	const uint32 ChildHash = PointerHash(reinterpret_cast<const void*>(ChildNodeHash), GetTypeHash(ChildIndex));
+	const uint32 Hash = PointerHash(reinterpret_cast<const void*>(ParentWaveInstanceHash), ChildHash);
+
+	return static_cast<UPTRINT>(Hash);
+#else
 	return ((ParentWaveInstanceHash << ChildIndex) ^ ChildNodeHash);
+#endif // USE_NEW_SOUNDCUE_NODE_HASH
 }
 
 void USoundNode::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances )
@@ -179,7 +187,10 @@ bool USoundNode::HasDelayNode() const
 		if (ChildNode)
 		{
 			ChildNode->ConditionalPostLoad();
-			return ChildNode->HasDelayNode();
+			if (ChildNode->HasDelayNode())
+			{
+				return true;
+			}
 		}
 	}
 	return false;
@@ -192,7 +203,10 @@ bool USoundNode::HasConcatenatorNode() const
 		if (ChildNode)
 		{
 			ChildNode->ConditionalPostLoad();
-			return ChildNode->HasConcatenatorNode();
+			if (ChildNode->HasConcatenatorNode())
+			{
+				return true;
+			}
 		}
 	}
 	return false;
@@ -205,7 +219,10 @@ bool USoundNode::IsVirtualizeWhenSilent() const
 		if (ChildNode)
 		{
 			ChildNode->ConditionalPostLoad();
-			return ChildNode->IsVirtualizeWhenSilent();
+			if (ChildNode->IsVirtualizeWhenSilent())
+			{
+				return true;
+			}
 		}
 	}
 	return false;

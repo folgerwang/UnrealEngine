@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -50,8 +50,24 @@ public:
 	 * @param InSocketType the type of socket that was created.
 	 * @param InSocketDescription the debug description of the socket.
 	 */
-	FSocketBSD(SOCKET InSocket, ESocketType InSocketType, const FString& InSocketDescription, ISocketSubsystem * InSubsystem) 
-		: FSocket(InSocketType, InSocketDescription)
+	UE_DEPRECATED(4.22, "Use the socket constructor that specifies protocol stack for better compatibility and debugging")
+	FSocketBSD(SOCKET InSocket, ESocketType InSocketType, const FString& InSocketDescription, ISocketSubsystem * InSubsystem)
+		: FSocket(InSocketType, InSocketDescription, ESocketProtocolFamily::None)
+		, Socket(InSocket)
+		, LastActivityTime(0)
+		, SocketSubsystem(InSubsystem)
+	{ }
+
+	/**
+	 * Assigns a BSD socket to this object.
+	 *
+	 * @param InSocket the socket to assign to this object.
+	 * @param InSocketType the type of socket that was created.
+	 * @param InSocketDescription the debug description of the socket.
+	 * @param InSocketProtocol the protocol this socket is initialized with
+	 */
+	FSocketBSD(SOCKET InSocket, ESocketType InSocketType, const FString& InSocketDescription, ESocketProtocolFamily InSocketProtocol, ISocketSubsystem * InSubsystem)
+		: FSocket(InSocketType, InSocketDescription, InSocketProtocol)
 		, Socket(InSocket)
 		, LastActivityTime(0.0)
 		, SocketSubsystem(InSubsystem)
@@ -103,9 +119,12 @@ public:
 	virtual bool SetNonBlocking(bool bIsNonBlocking = true) override;
 	virtual bool SetBroadcast(bool bAllowBroadcast = true) override;
 	virtual bool JoinMulticastGroup(const FInternetAddr& GroupAddress) override;
+	virtual bool JoinMulticastGroup(const FInternetAddr& GroupAddress, const FInternetAddr& InterfaceAddress) override;
 	virtual bool LeaveMulticastGroup(const FInternetAddr& GroupAddress) override;
+	virtual bool LeaveMulticastGroup(const FInternetAddr& GroupAddress, const FInternetAddr& InterfaceAddress) override;
 	virtual bool SetMulticastLoopback(bool bLoopback) override;
 	virtual bool SetMulticastTtl(uint8 TimeToLive) override;
+	virtual bool SetMulticastInterface(const FInternetAddr& InterfaceAddress) override;
 	virtual bool SetReuseAddr(bool bAllowReuse = true) override;
 	virtual bool SetLinger(bool bShouldLinger = true, int32 Timeout = 0) override;
 	virtual bool SetRecvErr(bool bUseErrorQueue = true) override;

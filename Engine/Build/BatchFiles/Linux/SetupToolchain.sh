@@ -1,10 +1,10 @@
 #!/bin/bash
-# Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+# Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 # put ourselves into Engine directory (two up from location of this script)
 pushd "`dirname "$0"`/../../.." > /dev/null
 
-TOOLCHAIN_VERSION=v12_clang-6.0.1-centos7
+TOOLCHAIN_VERSION=v13_clang-7.0.1-centos7
 TOOLCHAIN_ARCHIVE=$TOOLCHAIN_VERSION.tar.gz
 
 TOOLCHAIN_URL=http://cdn.unrealengine.com/Toolchain_Linux/native-linux-$TOOLCHAIN_ARCHIVE
@@ -40,7 +40,7 @@ if [ ! -f $TOOLCHAIN_ARCHIVE ]; then
 		wget $TOOLCHAIN_URL -O $TOOLCHAIN_ARCHIVE
 	else 
 		echo "Please install curl or wget"
-		exit 1
+		exit
 	fi
 else
 	echo "Using cached toolchain."

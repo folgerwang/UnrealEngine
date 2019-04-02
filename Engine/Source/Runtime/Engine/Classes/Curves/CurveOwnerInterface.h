@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -40,6 +40,12 @@ public:
 	virtual bool IsLinearColorCurve() const
 	{
 		return false;
+	}
+
+	/** Whether the curves returned by GetCurves are rich or simple curves */
+	virtual bool HasRichCurves() const
+	{
+		return true;
 	}
 
 	/** Evaluate this color curve at the specified time */

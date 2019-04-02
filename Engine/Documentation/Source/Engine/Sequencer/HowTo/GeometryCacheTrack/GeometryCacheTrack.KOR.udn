@@ -1,0 +1,78 @@
+﻿INTSourceChangelist:4640840
+Availability: Public
+Crumbs: 
+Title: 지오메트리 캐시 트랙 사용법
+Description: 시퀀서에서 Geometry Cache, 지오메트리 캐시 애셋을 검색하고 활용하는 데 쓰이는 Geometry Cache Track, 지오메트리 캐시 트랙 사용법입니다. 
+Type: 
+Version: 4.21
+Parent: 
+Order: 
+Tags: Sequencer
+Tags: Experimental
+Tags: Landing Page
+Tags: Geometry Cache
+Tags: Alembic
+
+
+새로운 (실험단계) **Geometry Cache Track** (지오메트리 캐시 트랙)을 통해 지오메트리 캐시를 스크러빙 이동하고 높은 프레임 정확도로 렌더링할 수 있습니다. Alembic (얼렘빅) 파일을 언리얼 엔진 4 (UE4)로 임포트하고 레벨에 추가한 뒤 **레벨 시퀀서** 에 추가하고 **Geometry Cache Track** (지오메트리 캐시 트랙)을 추가하면 콘텐츠를 재생할 수 있습니다.
+
+[OBJECT:EmbeddedVideo]
+[PARAMLITERAL:width]
+640
+[/PARAMLITERAL]
+[PARAMLITERAL:height]
+360
+[/PARAMLITERAL]
+[PARAMLITERAL:videoid]
+hGKjgV5eE6k
+[/PARAMLITERAL]
+[/OBJECT]
+
+## 단계
+
+[REGION:note]
+이 가이드에서는 **블루프린트 삼인칭** 템플릿 프로젝트를 사용합니다. 엔진에 임포트할 Alembic (얼렘빅) 파일도 필요합니다. 별도의 애셋이 없는 경우 이 [샘플 파일](https://epicgames.box.com/s/l74nagy14ttaium5j41gu61ljz4v5rul) 을 다운로드하세요.
+[/REGION]
+
+2.  얼렘빅 파일을 UE4 에 [지오메트리 캐시](Engine/Content/AlembicImporter) 로 임포트한 뒤 원하는 설정을 정의합니다.  
+    ![](GeoCache_01-2.png "GeoCache_01-2.png")
+
+5.  레벨에 **지오메트리 캐시** 를 배치한 다음 **레벨 시퀀스** 를 생성하고 **시퀀서** 에 **\+ 트랙** 버튼으로 추가합니다.   
+    ![](GeoCache_02.png "GeoCache_02.png")
+
+8.  새로 생성된 트랙에 대해 **\+ 트랙** 버튼을 클릭하고 **트랙** 메뉴에서 **지오메트리 캐시** 를 선택합니다.   
+    ![](GeoCache_03.png "GeoCache_03.png")
+
+11.  **타임라인** 을 스크러빙하여 재생을 확인합니다.  
+    [REGION:note]
+    레벨에서 재생하기 전 **레벨 시퀀스** 를 **Auto Play** (자동 재생) 설정할 수도 있습니다.
+    [/REGION]
+
+## 최종 결과
+
+**지오메트리 캐시 트랙** 을 설정한 상태에서 콘텐츠를 스크러빙하거나, 레벨 시퀀스 재생 시 자동으로 재생할 수도 있습니다. 
+
+[OBJECT:EmbeddedVideo]
+[PARAMLITERAL:width]
+640
+[/PARAMLITERAL]
+[PARAMLITERAL:height]
+360
+[/PARAMLITERAL]
+[PARAMLITERAL:videoid]
+hGKjgV5eE6k
+[/PARAMLITERAL]
+[/OBJECT]
+
+**트랙 창** 의 트랙에 우클릭하여 지오메트리 캐시의 프로퍼티에 액세스할 수 있습니다. 프로퍼티 메뉴에서 사용 중인 **지오메트리 캐시** 애셋을 바꾸거나, **시작** 또는 **끝 오프셋** 을 추가하거나, **재생 속도** 를 바꿀 수 있습니다. **섹션** 조정 옵션 기능과 애니메이션 **역재생** 도 가능합니다.   
+
+![](GeoCache_04.png "GeoCache_04.png")
+
+우클릭 컨텍스트 메뉴의 **프로퍼티** 아래 지오메트리 캐시 트랙에 사용할 수 있는 프로퍼티는 다음과 같습니다. 
+
+| 프로퍼티 | 설명 |
+| --- | --- |
+| **Geometry Cache** | 지오메트리 캐시 - 재생할 지오메트리 캐시 애셋을 지정합니다. |
+| **Start Offset** | 시작 오프셋 - 애니메이션 클립 시작 부분에 오프셋을 적용할 프레임 수입니다. |
+| **End Offset** | 끝 오프셋 - 애니메이션 클립 끝 부분에 오프셋을 적용할 프레임 수입니다. |
+| **Play Rate** | 재생 속도 - 애니메이션 클립의 재생 속도를 정의합니다 (낮으면 느리고 높으면 빠릅니다). |

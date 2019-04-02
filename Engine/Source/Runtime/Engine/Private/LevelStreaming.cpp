@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/LevelStreaming.h"
 #include "ContentStreaming.h"
@@ -291,7 +291,7 @@ void ULevelStreaming::PostLoad()
 			// Convert the FName reference to a TSoftObjectPtr, then broadcast that we loaded a reference
 			// so this reference is gathered by the cooker without having to resave the package.
 			SetWorldAssetByPackageName(PackageName_DEPRECATED);
-			WorldAsset.GetUniqueID().PostLoadPath();
+			WorldAsset.GetUniqueID().PostLoadPath(GetLinker());
 		}
 		else
 		{
@@ -428,10 +428,6 @@ bool ULevelStreaming::DetermineTargetState()
 		else if (World->GetShouldForceUnloadStreamingLevels())
 		{
 			bContinueToConsider = false;
-		}
-		else if (!GUseBackgroundLevelStreaming && ShouldBeLoaded())
-		{
-			TargetState = ETargetState::LoadedNotVisible;
 		}
 		else if (!World->IsGameWorld())
 		{
@@ -762,6 +758,8 @@ void ULevelStreaming::SetLoadedLevel(ULevel* Level)
 
 	if (LoadedLevel)
 	{
+		LoadedLevel->OwningWorld = World;
+
 		// Remove the loaded level from its current collection, if any.
 		if (LoadedLevel->GetCachedLevelCollection())
 		{
@@ -1434,6 +1432,22 @@ void ULevelStreaming::RenameForPIE(int32 PIEInstanceID)
 	}
 }
 
+void ULevelStreaming::SetPriority(const int32 NewPriority)
+{
+	if (NewPriority != StreamingPriority)
+	{
+		StreamingPriority = NewPriority;
+
+		if (CurrentState != ECurrentState::Removed && CurrentState != ECurrentState::FailedToLoad)
+		{
+			if (UWorld* World = GetWorld())
+			{
+				World->UpdateStreamingLevelPriority(this);
+			}
+		}
+	}
+}
+
 void ULevelStreaming::SetLevelLODIndex(const int32 LODIndex)
 {
 	if (LODIndex != LevelLODIndex)
@@ -1625,7 +1639,7 @@ void ULevelStreamingDynamic::PostLoad()
 	// Initialize startup state of the streaming level
 	if ( GetWorld()->IsGameWorld() )
 	{
-		bShouldBeLoaded = bInitiallyLoaded;
+		SetShouldBeLoaded(bInitiallyLoaded);
 		SetShouldBeVisible(bInitiallyVisible);
 	}
 }

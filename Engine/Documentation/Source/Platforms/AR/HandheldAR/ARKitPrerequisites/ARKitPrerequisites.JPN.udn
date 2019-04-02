@@ -1,0 +1,37 @@
+﻿INTSourceChangelist:4400408
+Availability: Public
+Crumbs: 
+Title: ARKit 前提条件
+Description: Apple の ARKit の前提条件と拡張現実 (AR) のセットアップについてです。
+Type: 
+Version: 
+Parent: Platforms/AR/HandheldAR
+Order: 3
+Tags: mobile
+Tags: iOS
+Tags: AR
+
+
+Unreal Engine は iOS デバイスを既にサポートしており、新機能ではありません。 ユーザーが既に Unreal Engine と iOS デバイスを使用している場合は、 AR と Unreal Engine の使用するにあたって、追加設定の必要はないかもしれません。
+
+## 一般前提条件
+
+Unreal Engine と iOS デバイスの基本的な設定については、 Unreal Engine のドキュメントの [iOS Game Development](Platforms/iOS) セクションを参照してください。
+
+**ARKit 1.5 前提条件**
+
+*   [推奨仕様](GettingStarted/RecommendedSpecifications) を満たす開発マシン。
+*   Unreal Engine 4.20 以上のバージョンがインストール済みであること。
+*   Xcode 9 以上のバージョンがインストール済みであること。
+*   ハンドヘルド iOS デバイス (サポートされており、設定済みで、接続されているもの)。
+
+**ARKit 2.0 前提条件**
+
+*   [推奨仕様](GettingStarted/RecommendedSpecifications) を満たす開発マシン。
+*   Unreal Engine 4.20 以上のバージョンがインストール済みであること。
+*   Xcode 10 以上のバージョンがインストール済みであること。
+*   ハンドヘルド iOS デバイス (サポートされており、設定済みで、接続されているもの)。
+
+[REGION:note]
+** サポートについて： ** [Supported Devices](https://developer.apple.com/library/content/documentation/DeviceInformation/Reference/iOSDeviceCompatibility/DeviceCompatibilityMatrix/DeviceCompatibilityMatrix.html) で、 ARKit が現在サポートしている iOS デバイスを知ることができます (iOS 12 ベータ版が必要です）。
+[/REGION]

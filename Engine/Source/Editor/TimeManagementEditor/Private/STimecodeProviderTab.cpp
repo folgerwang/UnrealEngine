@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "STimecodeProviderTab.h"
 
@@ -9,6 +9,8 @@
 #include "Framework/Docking/TabManager.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Framework/MultiBox/SToolBarComboButtonBlock.h"
+#include "LevelEditor.h"
+#include "Modules/ModuleManager.h"
 #include "STimecodeProvider.h"
 #include "Widgets/Docking/SDockTab.h"
 #include "Widgets/Input/SComboButton.h"
@@ -20,6 +22,7 @@
 
 namespace TimecodeProviderTab
 {
+	static FDelegateHandle LevelEditorTabManagerChangedHandle;
 	static const FName NAME_TimecodeProviderTab = FName("TimecodeProviderTab");
 
 	TSharedRef<SDockTab> CreateTab(const FSpawnTabArgs& Args)
@@ -34,18 +37,45 @@ namespace TimecodeProviderTab
 
 void STimecodeProviderTab::RegisterNomadTabSpawner()
 {
-	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(TimecodeProviderTab::NAME_TimecodeProviderTab, FOnSpawnTab::CreateStatic(&TimecodeProviderTab::CreateTab))
-		.SetDisplayName(NSLOCTEXT("TimecodeProviderTab", "DisplayName", "Timecode Provider"))
-		.SetTooltipText(NSLOCTEXT("TimecodeProviderTab", "TooltipText", "Displays the Timecode and the state of the current Timecode Provider."))
-		.SetGroup(WorkspaceMenu::GetMenuStructure().GetDeveloperToolsMiscCategory())
-		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "TimecodeProvider.TabIcon"));
+	auto RegisterTabSpawner = []()
+	{
+		FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+		TSharedPtr<FTabManager> LevelEditorTabManager = LevelEditorModule.GetLevelEditorTabManager();
+
+		LevelEditorTabManager->RegisterTabSpawner(TimecodeProviderTab::NAME_TimecodeProviderTab, FOnSpawnTab::CreateStatic(&TimecodeProviderTab::CreateTab))
+			.SetDisplayName(NSLOCTEXT("TimecodeProviderTab", "DisplayName", "Timecode Provider"))
+			.SetTooltipText(NSLOCTEXT("TimecodeProviderTab", "TooltipText", "Displays the Timecode and the state of the current Timecode Provider."))
+			.SetGroup(WorkspaceMenu::GetMenuStructure().GetDeveloperToolsMiscCategory())
+			.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "TimecodeProvider.TabIcon"));
+	};
+
+	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+	if (LevelEditorModule.GetLevelEditorTabManager())
+	{
+		RegisterTabSpawner();
+	}
+	else
+	{
+		TimecodeProviderTab::LevelEditorTabManagerChangedHandle = LevelEditorModule.OnTabManagerChanged().AddLambda(RegisterTabSpawner);
+	}
 }
 
 void STimecodeProviderTab::UnregisterNomadTabSpawner()
 {
-	if (FSlateApplication::IsInitialized())
+	if (FSlateApplication::IsInitialized() && FModuleManager::Get().IsModuleLoaded("LevelEditor"))
 	{
-		FGlobalTabmanager::Get()->UnregisterTabSpawner(TimecodeProviderTab::NAME_TimecodeProviderTab);
+		FLevelEditorModule* LevelEditorModule = FModuleManager::GetModulePtr<FLevelEditorModule>("LevelEditor");
+		TSharedPtr<FTabManager> LevelEditorTabManager;
+		if (LevelEditorModule)
+		{
+			LevelEditorTabManager = LevelEditorModule->GetLevelEditorTabManager();
+			LevelEditorModule->OnTabManagerChanged().Remove(TimecodeProviderTab::LevelEditorTabManagerChangedHandle);
+		}
+
+		if (LevelEditorTabManager.IsValid())
+		{
+			LevelEditorTabManager->UnregisterTabSpawner(TimecodeProviderTab::NAME_TimecodeProviderTab);
+		}
 	}
 }
 

@@ -1,15 +1,15 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Animation/AnimNode_AssetPlayerBase.h"
 #include "Animation/AnimInstanceProxy.h"
 
 FAnimNode_AssetPlayerBase::FAnimNode_AssetPlayerBase()
-	: bIgnoreForRelevancyTest(false)
-	, GroupIndex(INDEX_NONE)
+	: GroupIndex(INDEX_NONE)
 	, GroupRole(EAnimGroupRole::CanBeLeader)
+	, bIgnoreForRelevancyTest(false)
+	, bHasBeenFullWeight(false)
 	, BlendWeight(0.0f)
 	, InternalTimeAccumulator(0.0f)
-	, bHasBeenFullWeight(false)
 {
 
 }

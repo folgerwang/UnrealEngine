@@ -1,43 +1,10 @@
-﻿INTSourceChangelist:3032506
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:轨迹控制器（Trail Controller）
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
 Description:说明 Trail Controller 节点如何对骨骼链产生影响。  
 version:4.12
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Animation\NodeReference\SkeletalControls\TrailController:title%](Engine\Animation\NodeReference\SkeletalControls\TrailController\TrailController.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\NodeReference\SkeletalControls\TrailController:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\NodeReference\SkeletalControls\TrailController]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\NodeReference\SkeletalControls\TrailController:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Animation\NodeReference\SkeletalControls\TrailController:title%](Engine\Animation\NodeReference\SkeletalControls\TrailController\TrailController.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\NodeReference\SkeletalControls\TrailController:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\NodeReference\SkeletalControls\TrailController]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\NodeReference\SkeletalControls\TrailController:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:TrailController.png
 
 **Trail Controller** 可用于影响层级中一系列的骨骼。
 
@@ -66,5 +33,7 @@ version:4.12
 | **Component Pose** | 引入的姿态。|
 | **Alpha** | 当前的控制强度。|
 
+**Trail Controller** 节点还会受到4.11版本中加入的 **LOD Threshold** 系统影响。您可以在 **Trail Controlle** 节点的 **细节面板** 上找到其设置。
 
+[INCLUDE:Engine/Animation/NodeReference/SkeletalControls#lodthresh]
 

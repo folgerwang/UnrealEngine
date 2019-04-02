@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -140,6 +140,16 @@ namespace UnrealBuildTool
 				InPath = "\"" + InPath + "\"";
 			}
 			return InPath;
+		}
+
+		/// <summary>
+		/// Makes sure path can be used as a command line param (adds quotes if it contains spaces)
+		/// </summary>
+		/// <param name="InPath">Path to convert</param>
+		/// <returns></returns>
+		public static string MakePathSafeToUseWithCommandLine(FileReference InPath)
+		{
+			return MakePathSafeToUseWithCommandLine(InPath.FullName);
 		}
 
 		/// <summary>
@@ -1041,31 +1051,29 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="ScriptFiles">List of script files to execute</param>
 		/// <returns>True if the steps succeeded, false otherwise</returns>
-		public static bool ExecuteCustomBuildSteps(FileReference[] ScriptFiles)
+		public static void ExecuteCustomBuildSteps(FileReference[] ScriptFiles)
 		{
 			UnrealTargetPlatform HostPlatform = BuildHostPlatform.Current.Platform;
 			foreach(FileReference ScriptFile in ScriptFiles)
 			{
 				ProcessStartInfo StartInfo = new ProcessStartInfo();
-				if(HostPlatform == UnrealTargetPlatform.Win64)
+				StartInfo.FileName = BuildHostPlatform.Current.Shell.FullName;
+
+				if(BuildHostPlatform.Current.ShellType == ShellType.Cmd)
 				{
-					StartInfo.FileName = "cmd.exe";
 					StartInfo.Arguments = String.Format("/C \"{0}\"", ScriptFile.FullName);
 				}
 				else
 				{
-					StartInfo.FileName = "/bin/sh";
 					StartInfo.Arguments = String.Format("\"{0}\"", ScriptFile.FullName);
 				}
 
 				int ReturnCode = Utils.RunLocalProcessAndLogOutput(StartInfo);
 				if(ReturnCode != 0)
 				{
-					Log.TraceError("Custom build step terminated with exit code {0}", ReturnCode);
-					return false;
+					throw new BuildException("Custom build step terminated with exit code {0}", ReturnCode);
 				}
 			}
-			return true;
 		}
 	}
 }

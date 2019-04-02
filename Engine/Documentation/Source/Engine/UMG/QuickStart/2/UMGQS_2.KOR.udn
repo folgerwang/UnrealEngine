@@ -10,7 +10,7 @@ tags:UMG UI Designer
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 단계](Engine/UMG\QuickStart\1 "%Engine/UMG\QuickStart\1:title%") 
+		[이전 단계](Engine/UMG\QuickStart\1 "%Engine/UMG\QuickStart\1:title%") 
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]

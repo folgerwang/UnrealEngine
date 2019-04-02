@@ -1,46 +1,19 @@
-﻿INTSourceChangelist:2806926
+﻿INTSourceChangelist:3782314
 Title:移动性能提示与技巧
 Description:用于 Unreal Match 3 中的优化和技术，确保支持移动设备上的最佳性能。
-Crumbs:
-Parent:Platforms/Mobile/Performance
+Crumbs:%ROOT%, Platforms, Platforms/Mobile
 Availability:Public
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Platforms/Mobile/Performance/TipsAndTricks:title%](Platforms/Mobile/Performance/TipsAndTricks/perf_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Mobile/Performance/TipsAndTricks:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Mobile/Performance/TipsAndTricks:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Mobile/Performance/TipsAndTricks]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Platforms/Mobile/Ads:title%](Platforms/Mobile/Performance/TipsAndTricks/perf_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Mobile/Performance/TipsAndTricks:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Mobile/Performance/TipsAndTricks:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Mobile/Performance/TipsAndTricks]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+Version: 4.9
+Platform:Mobile
+parent:Platforms/Mobile
+order:6
+type:overview
+tags:mobile
+topic-image:perf_topic.png
 
 此指南包含应用到 Unreal Match 3 的优化和技术，确保在支持设备上运行时的最佳性能。
 
+(#DefaultDeviceProfiles)
 ## 默认设备描述
 
 为确保尽量多的移动设备支持 Unreal Match 3，须对 **DefaultDeviceProfiles.ini** 文件进行修改，在低端移动设备上运行 Unreal Match 3 时调低其渲染设置。这样游戏便可在众多移动设备上运行，而无需牺牲整体观感。以下部分将讲解部分设置，以及如何在虚幻引擎 4 移动项目中进行使用。
@@ -106,6 +79,7 @@ iPhone 6 性能远强于 iPhone 4，因此 6 诸多设置的数值均高于 4。
 | sg.EffectsQuality | 控制每次 tick 的粒子生成率。范围 0 - 3，默认值为 3。数字越低，每次 tick 生成的粒子数量越少。数字设为 1 后生成粒子数量极少，只推荐在非常低端的设备上使用。数字设为 0 后将完全不生成粒子。|
 | fx.MaxCPUParticlesPerEmitter | 控制每个发射器发射 CPU 粒子的方式。|
 
+(#UtilizingLODsinadifferentway)
 ## 以不同方式应用 LOD
 
 ![](ULOD_00.png)
@@ -161,6 +135,7 @@ Android Device Profile 段中的中低设备输入表明中低端安卓移动设
 此处以安卓为例，相同的概念和命令也可用于 iOS 段。
 [/region]
 
+(#RecordingVideoonAndroidDevices)
 ## 在安卓设备上录制视频
 
 在特定安卓设备上打开控制台窗口，输入以下命令行参数后即可录制视频。
@@ -171,6 +146,7 @@ Android Device Profile 段中的中低设备输入表明中低端安卓移动设
 
 视频文件通常保存在手机的根目录中，也可在设备插入开发电脑后搜索视频命名进行查找。 
 
+(#LightingtheCharacter)
 ## 为角色打光
 
 Unreal Match 3 的角色材质使用默认照亮光照模型，而非开销更低的不照亮光照模型。购买并启用夜晚主题后，火把的光线便会对角色进行动态着色和阴影投射。如材质为不照亮，动态阴影互动便无法实现。动态光照的开销较高，在移动设备上尤其如此。Unreal Match 3 使用的是单个动态点光源，降低了资源使用，不会产生明显的性能区别。

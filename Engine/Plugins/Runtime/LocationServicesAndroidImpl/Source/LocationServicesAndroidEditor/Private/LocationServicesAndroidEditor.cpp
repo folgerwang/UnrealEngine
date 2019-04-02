@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LocationServicesAndroidEditor.h"
 #include "LocationServicesAndroidSettings.h"
@@ -12,7 +12,7 @@
 #endif
 
 
-IMPLEMENT_MODULE( FLocationServicesAndroidEditorModule, LocationServicesAndroidEditorModule );
+IMPLEMENT_MODULE( FLocationServicesAndroidEditorModule, LocationServicesAndroidEditor );
 
 #define LOCTEXT_NAMESPACE "FLocationServicesAndroidEditorModule"
 

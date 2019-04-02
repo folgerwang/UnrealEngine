@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 D3D12Adapter.h: D3D12 Adapter Interfaces
@@ -84,6 +84,7 @@ public:
 
 	void Initialize(FD3D12DynamicRHI* RHI);
 	void InitializeDevices();
+	void InitializeRayTracing();
 
 	// Getters
 	FORCEINLINE const uint32 GetAdapterIndex() const { return Desc.AdapterIndex; }
@@ -93,6 +94,9 @@ public:
 #if PLATFORM_WINDOWS
 	FORCEINLINE ID3D12Device2* GetD3DDevice2() const { return RootDevice2.GetReference(); }
 #endif
+#if D3D12_RHI_RAYTRACING
+	FORCEINLINE ID3D12Device5* GetD3DRayTracingDevice() { return RootRayTracingDevice.GetReference(); }
+#endif // D3D12_RHI_RAYTRACING
 	FORCEINLINE void SetDeviceRemoved(bool value) { bDeviceRemoved = value; }
 	FORCEINLINE const bool IsDeviceRemoved() const { return bDeviceRemoved; }
 	FORCEINLINE FD3D12DynamicRHI* GetOwningRHI() { return OwningRHI; }
@@ -180,25 +184,39 @@ public:
 		const D3D12_HEAP_PROPERTIES& HeapProps,
 		const D3D12_RESOURCE_STATES& InitialUsage,
 		const D3D12_CLEAR_VALUE* ClearValue,
-		FD3D12Resource** ppOutResource);
+		FD3D12Resource** ppOutResource,
+		const TCHAR* Name);
 
 	HRESULT CreatePlacedResource(const D3D12_RESOURCE_DESC& Desc,
 		FD3D12Heap* BackingHeap,
 		uint64 HeapOffset,
 		const D3D12_RESOURCE_STATES& InitialUsage,
 		const D3D12_CLEAR_VALUE* ClearValue,
-		FD3D12Resource** ppOutResource);
+		FD3D12Resource** ppOutResource,
+		const TCHAR* Name);
 
 	HRESULT CreateBuffer(D3D12_HEAP_TYPE HeapType,
 		FRHIGPUMask CreationNode,
 		FRHIGPUMask VisibleNodes,
 		uint64 HeapSize,
 		FD3D12Resource** ppOutResource,
+		const TCHAR* Name,
+		D3D12_RESOURCE_FLAGS Flags = D3D12_RESOURCE_FLAG_NONE);
+
+	HRESULT CreateBuffer(D3D12_HEAP_TYPE HeapType,
+		FRHIGPUMask CreationNode,
+		FRHIGPUMask VisibleNodes,
+		D3D12_RESOURCE_STATES InitialState,
+		uint64 HeapSize,
+		FD3D12Resource** ppOutResource,
+		const TCHAR* Name,
 		D3D12_RESOURCE_FLAGS Flags = D3D12_RESOURCE_FLAG_NONE);
 
 	HRESULT CreateBuffer(const D3D12_HEAP_PROPERTIES& HeapProps,
+		D3D12_RESOURCE_STATES InitialState,
 		uint64 HeapSize,
 		FD3D12Resource** ppOutResource,
+		const TCHAR* Name,
 		D3D12_RESOURCE_FLAGS Flags = D3D12_RESOURCE_FLAG_NONE);
 
 	template <typename BufferType> 
@@ -206,7 +224,6 @@ public:
 		const D3D12_RESOURCE_DESC& Desc,
 		uint32 Alignment, uint32 Stride, uint32 Size, uint32 InUsage,
 		FRHIResourceCreateInfo& CreateInfo,
-		bool SkipCreate,
 		FRHIGPUMask GPUMask = FRHIGPUMask::All());
 
 	// Queue up a command to signal the frame fence on the command list. This should only be called from the rendering thread.
@@ -298,6 +315,9 @@ protected:
 #if PLATFORM_WINDOWS
 	TRefCountPtr<ID3D12Device2> RootDevice2;
 #endif
+#if D3D12_RHI_RAYTRACING
+	TRefCountPtr<ID3D12Device5> RootRayTracingDevice;
+#endif // D3D12_RHI_RAYTRACING
 	D3D12_RESOURCE_HEAP_TIER ResourceHeapTier;
 	D3D12_RESOURCE_BINDING_TIER ResourceBindingTier;
 	D3D_ROOT_SIGNATURE_VERSION RootSignatureVersion;

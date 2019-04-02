@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineAsyncTaskManager.h"
 #include "Misc/ScopeLock.h"
@@ -6,6 +6,7 @@
 #include "HAL/Event.h"
 #include "Misc/ConfigCacheIni.h"
 #include "HAL/IConsoleManager.h"
+#include "HAL/LowLevelMemTracker.h"
 #include "OnlineSubsystem.h"
 
 int32 FOnlineAsyncTaskManager::InvocationCount = 0;
@@ -50,6 +51,8 @@ bool FOnlineAsyncTaskManager::Init(void)
 
 uint32 FOnlineAsyncTaskManager::Run(void)
 {
+	LLM_SCOPE(ELLMTag::Networking);
+
 	InvocationCount++;
 	// This should not be set yet
 	check(OnlineThreadId == 0);

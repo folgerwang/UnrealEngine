@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -12,6 +12,9 @@ class IDetailCustomization : public TSharedFromThis<IDetailCustomization>
 {
 public:
 	virtual ~IDetailCustomization() {}
+
+	/** Called when no longer used and will be deleted */
+	virtual void PendingDelete() {}
 
 	/** Called when details should be customized */
 	virtual void CustomizeDetails( IDetailLayoutBuilder& DetailBuilder ) = 0;

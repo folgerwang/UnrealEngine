@@ -1,0 +1,53 @@
+﻿INTSourceChangelist:4668692
+Availability: Public
+Crumbs: 
+Title: 업적 인터페이스
+Description: Achievements Interface, 업적 인터페이스 개요입니다.
+Type: 
+Version: 4.21
+Parent: Programming/Online
+Order: 
+Tags: 
+
+
+Achievement (업적)은 플레이어에게 도전 과제, 동기 부여, 보상을 제공하여 게임에서 제공하는 내용을 보다 많이 경험할 수 있도록 이끌어 주는 수단으로, 게임을 다시 플레이하는 가치를 높이거나 플레이어와 친구들 사이 경쟁을 지원할 수도 있습니다. 다수의 온라인 서비스에서 업적에 보상을 주는 기능을 제공하며, 온라인 서브시스템에서는 **Achievements Interface** (업적 인터페이스)를 통해 지원하고 있습니다.
+
+[REGION:note]
+Achievement, 업적이란 용어가 모든 온라인 서비스에 공통은 아니지만, 언리얼 엔진에서는 이 용어를 통해 그 개념과 지원 시스템을 설명합니다.
+[/REGION]
+
+온라인 서브시스템은 업적 시스템 사용을 위한 게임 내 함수 기능을 제공하지만, 업적 자체를 생성, 삭제, 어떤 식으로든 수정하는 데 관련된 기능을 처리하지는 않습니다. 각 온라인 서비스에는 별도의 백엔드 시스템을 통해 업적 관리를 지원하고 있습니다.
+
+## 업적 데이터 구하기
+
+업적 데이터에는 특정 사용자가 (일부 또는 전부) 해제한 업적을 나타내는 플레이어 전용 데이터, 그리고 업적의 이름과 그 아이콘을 나타내는 일반 데이터 모두 포함됩니다.
+
+### 업적 데이터 검색
+
+업적 데이터는 온라인 서비스로의 비동기 호출을 통한 요청 시 사용할 수 있습니다. 하지만 이 데이터는 두 부분으로 나뉩니다. 한 부분은 업적의 ID 와 특정 플레이어의 진행율, 나머지는 업적에 대한 설명, 즉 업적 자체에 대한 설명으로 모든 플레이어에게 공통인 부분입니다. 사용 가능한 업적 목록을 검색하려면 `QueryAchievements` 에 정보를 원하는 플레이어의 `FUniqueNetId` 를 붙여 호출합니다. (`FOnQueryAchievementsCompleteDelegate` 유형) 델리게이트가 호출되고 결과가 성공한 경우, 업적의 ID 와 (해당 플레이어의) 진행율이 캐시에 저장됩니다. 이 업적 관련 정보를 표시 또는 실제로 사용하기 전, 전체 설명이 필요합니다. `FOnQueryAchievementsCompleteDelegate` 를 통해 요청할 수 있는데, 완료 시 제공된 `FOnQueryAchievementsCompleteDelegate` 유형 델리게이트 역시 호출합니다.
+
+### 업적 데이터 검사
+
+데이터를 캐시에 저장한 이후, 몇 가지 함수 호출로 검사할 수 있습니다. 시작하기 가장 좋은 곳은 `GetCachedAchievements` 로, 알려진 모든 업적 ID 가 들어있는 배열을 반환합니다. 그런 다음 이 ID 를 사용하여 `GetCachedAchievement` 에다 해당 업적의 진행률을 확인하려는 특정 플레이어의 `FUniqueNetId` 또는 `GetCachedAchievementDescription` 의 파라미터로 붙여 호출하면, ([`FOnlineAchievementDesc`](https://api.unrealengine.com/INT/API/Plugins/OnlineSubsystem/Interfaces/FOnlineAchievementDesc/index.html) 유형) 전체 업적 설명이 반환됩니다.
+
+## 업적 데이터 설정
+
+특정 사용자에 대한 업적은 일부 또는 전부 해제할 수 있습니다. 예를 들어 게임을 완료한 플레이어는 "게임 승리" 업적을 받을 수도 있고, 어떤 특수 기술을 사용한 플레이어는 "이 기술 1000 번 사ㅏ용" 업적의 1/10 만큼을 받을 수도 있습니다. 추가로 테스트 도중 대부분의 온라인 서비스는 테스터가 게임을 새로 테스트할 때마다 계정을 매번 새로 만들지 않아도 되도록 게임에 대한 플레이어의 업적 리셋 기능을 지원합니다.
+
+### 업적 데이터 작성
+
+`WriteAchievements` 함수는 한 번에 최대 5 개의 업적 업데이트를 받아 온라인 서비스에 전송한 뒤, 완료 시 제공된 `FOnAchievementsWrittenDelegate` 유형 델리게이트를 호출합니다. 각 업데이트는 단일 `FOnlineAchievementsWrite` 가 들어있는 레퍼런스 유형으로, [`FOnlineStats`](https://api.unrealengine.com/INT/API/Plugins/OnlineSubsystem/FOnlineStats/index.html) 오브젝트를 감싸는 역할을 합니다. `Properties` 칸을 통해 전송된 키-값 짝에는 업적 ID 를 나타내는 키와 0.0 에서 100.0 퍼센트까지 진행률을 나타내는 `double` 값이 포함됩니다. 대부분의 온라인 서비스는 플레이어의 업적 진행률에 이미 기록된 값 이하로 변경 시도하면 거부하므로, 업데이트 전송 전 현재 진행률을 확인하세요.
+
+### 업적 데이터 리셋
+
+개발 및 테스트 도중 `ResetAchievements` 함수는 현재 타이틀에 대한 제공된 플레이어의 업적을 모두 리셋합니다. 온라인 서비스마다 정책이 다르긴 하지만, 이 함수는 테스팅 환경 이외에는 작동하지 않아야 합니다.
+
+[REGION:warning]
+Shipping 빌드에는 존재하지 않는 함수이므로 해당 함수를 호출하는 코드를 제거하거나, 다음과 같이 컴파일 시간에 해당 코드를 제거하는 로직을 사용하세요.
+
+~~~
+ #if !UE_BUILD_SHIPPING
+ // Call to ResetAchievements
+ #endif
+~~~
+[/REGION]

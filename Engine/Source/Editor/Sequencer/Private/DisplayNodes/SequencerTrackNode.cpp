@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "DisplayNodes/SequencerTrackNode.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
@@ -203,7 +203,7 @@ TSharedRef<SWidget> FSequencerTrackNode::GetCustomOutlinerContent()
 		Params.TrackInsertRowIndex = Track->GetMaxRowIndex()+1;
 	}
 
-	TSharedPtr<SWidget> CustomWidget = GetSequencer().IsReadOnly() ? SNullWidget::NullWidget : AssociatedEditor.BuildOutlinerEditWidget(ObjectBinding, Track, Params);
+	TSharedPtr<SWidget> CustomWidget = AssociatedEditor.BuildOutlinerEditWidget(ObjectBinding, Track, Params);
 
 	if (KeyEditorWidget.IsValid())
 	{
@@ -510,8 +510,10 @@ void FSequencerTrackNode::SetDisplayName(const FText& NewDisplayName)
 {
 	auto NameableTrack = Cast<UMovieSceneNameableTrack>(AssociatedTrack.Get());
 
-	if (NameableTrack != nullptr)
+	if (NameableTrack != nullptr && !NameableTrack->GetDisplayName().EqualTo(NewDisplayName))
 	{
+		const FScopedTransaction Transaction(NSLOCTEXT("SequencerTrackNode", "RenameTrack", "Rename Track"));
+
 		NameableTrack->SetDisplayName(NewDisplayName);
 		GetSequencer().NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::TrackValueChanged);
 	}

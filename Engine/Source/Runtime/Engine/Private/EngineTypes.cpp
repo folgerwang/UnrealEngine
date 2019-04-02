@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/EngineTypes.h"
 #include "UObject/UnrealType.h"
@@ -30,13 +30,11 @@ FAutoConsoleVariableRef CVarEnableMultiplayerWorldOriginRebasing(
 	TEXT("Enable world origin rebasing for multiplayer, meaning that servers and clients can have different world origin locations."),
 	ECVF_ReadOnly);
 
+#if WITH_EDITORONLY_DATA
 void FMeshProxySettings::PostLoadDeprecated()
 {
-	FMeshProxySettings DefaultObject;
-
 	MaterialSettings.MaterialMergeType = EMaterialMergeType::MaterialMergeType_Simplygon;
 }
-
 
 void FMeshMergingSettings::PostLoadDeprecated()
 {
@@ -79,6 +77,7 @@ void FMeshMergingSettings::PostLoadDeprecated()
 		LODSelectionType = EMeshLODSelectionType::SpecificLOD;
 	}
 }
+#endif
 
 UEngineBaseTypes::UEngineBaseTypes(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

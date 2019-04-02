@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -48,8 +48,11 @@ public:
 	/** 'Normal' painting functionality, called when the user tries to paint on a mesh using the mouse */
 	virtual bool Paint(FViewport* Viewport, const FVector& InCameraOrigin, const FVector& InRayOrigin, const FVector& InRayDirection);
 
+	/** 'Normal' painting functionality, called when the user tries to paint on a mesh using the mouse */
+	virtual bool Paint(FViewport* Viewport, const FVector& InCameraOrigin, const TArrayView<TPair<FVector, FVector>>& Rays);
+
 	/** VR painting functionality, called when the user tries to paint on a mesh using a VR controller */
-	virtual bool PaintVR(FViewport* Viewport, const FVector& InCameraOrigin, const FVector& InRayOrigin, const FVector& InRayDirection, UVREditorInteractor* VRInteractor);	
+	virtual bool PaintVR(FViewport* Viewport, const FVector& InCameraOrigin, const FVector& InRayOrigin, const FVector& InRayDirection, UVREditorInteractor* VREditorInteractor);
 
 	/** Allows painter to act on specific key actions */
 	virtual bool InputKey(FEditorViewportClient* InViewportClient, FViewport* InViewport, FKey InKey, EInputEvent InEvent);
@@ -87,7 +90,7 @@ public:
 	virtual void Reset() = 0;
 protected:
 	/** Internal painting functionality, is called from Paint and PaintVR and implemented in the derived painters */
-	virtual bool PaintInternal(const FVector& InCameraOrigin, const FVector& InRayOrigin, const FVector& InRayDirection, EMeshPaintAction PaintAction, float PaintStrength) = 0;
+	virtual bool PaintInternal(const FVector& InCameraOrigin, const TArrayView<TPair<FVector, FVector>>& Rays, EMeshPaintAction PaintAction, float PaintStrength) = 0;
 
 	/** Renders viewport interactor widget */
 	void RenderInteractors(const FSceneView* View, FViewport* Viewport, FPrimitiveDrawInterface* PDI, bool bRenderVertices, ESceneDepthPriorityGroup DepthGroup = SDPG_World);

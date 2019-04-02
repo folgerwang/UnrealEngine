@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AVIWriter.cpp: AVI creation implementation.
@@ -18,31 +18,31 @@ class FAVIWriterModule : public IModuleInterface
 
 IMPLEMENT_MODULE(FAVIWriterModule, AVIWriter);
 
-#if PLATFORM_WINDOWS && !UE_BUILD_MINIMAL
+#if PLATFORM_WINDOWS && WITH_UNREAL_DEVELOPER_TOOLS
 
 #include "Windows/WindowsHWrapper.h"
 #include "Windows/AllowWindowsPlatformTypes.h"
+
 typedef TCHAR* PTCHAR;
-#pragma warning(push)
-#pragma warning(disable : 4263) // 'function' : member function does not override any base class virtual member function
-#pragma warning(disable : 4264) // 'virtual_function' : no override available for virtual member function from base 'cla
-#pragma warning(disable : 4265) // 'class' : class has virtual functions, but destructor is not virtual
-#if USING_CODE_ANALYSIS
-	#pragma warning(disable:6509)  // Invalid annotation: 'return' cannot be referenced in some contexts
-	#pragma warning(disable:6101)  // Returning uninitialized memory '*lpdwExitCode'.  A successful path through the function does not set the named _Out_ parameter.
-	#pragma warning(disable:28204) // 'Func' has an override at 'file' and only the override is annotated for _Param_(N): when an override is annotated, the base (this function) should be similarly annotated.
-#endif
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wreorder"
-#endif
+
+THIRD_PARTY_INCLUDES_START
+#if !defined(__clang__)
+	#pragma warning(push)
+	#pragma warning(disable: 4263) // 'function' : member function does not override any base class virtual member function
+	#pragma warning(disable: 4264) // 'virtual_function' : no override available for virtual member function from base 'cla
+	#if USING_CODE_ANALYSIS
+		#pragma warning(disable: 6509)  // Invalid annotation: 'return' cannot be referenced in some contexts
+		#pragma warning(disable: 6101)  // Returning uninitialized memory '*lpdwExitCode'.  A successful path through the function does not set the named _Out_ parameter.
+		#pragma warning(disable: 28204) // 'Func' has an override at 'file' and only the override is annotated for _Param_(N): when an override is annotated, the base (this function) should be similarly annotated.
+	#endif // USING_CODE_ANALYSIS
+#endif // !defined(__clang__)
 #include <streams.h>
 #include <dshow.h>
 #include <initguid.h>
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif
-#pragma warning(pop)
+#if !defined(__clang__)
+	#pragma warning(pop)
+#endif // !defined(__clang__)
+THIRD_PARTY_INCLUDES_END
 
 #include "Windows/HideWindowsPlatformTypes.h"
 
@@ -425,7 +425,7 @@ private:
 	IBaseFilter* EncodingFilter;
 };
 
-#elif PLATFORM_MAC && !UE_BUILD_MINIMAL
+#elif PLATFORM_MAC && WITH_UNREAL_DEVELOPER_TOOLS
 
 #import <AVFoundation/AVFoundation.h>
 
@@ -476,7 +476,7 @@ public:
 			if (Options.CompressionQuality.IsSet())
 			{
 				VideoSettings = [NSDictionary dictionaryWithObjectsAndKeys:
-								 AVVideoCodecJPEG, AVVideoCodecKey,
+								 AVVideoCodecTypeJPEG, AVVideoCodecKey,
 								 [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithFloat:Options.CompressionQuality.GetValue()], AVVideoQualityKey, nil], AVVideoCompressionPropertiesKey,
 								 [NSNumber numberWithInt:Options.Width], AVVideoWidthKey,
 								 [NSNumber numberWithInt:Options.Height], AVVideoHeightKey,
@@ -485,7 +485,7 @@ public:
 			else
 			{
 				VideoSettings = [NSDictionary dictionaryWithObjectsAndKeys:
-								 AVVideoCodecH264, AVVideoCodecKey,
+								 AVVideoCodecTypeH264, AVVideoCodecKey,
 								 [NSNumber numberWithInt:Options.Width], AVVideoWidthKey,
 								 [NSNumber numberWithInt:Options.Height], AVVideoHeightKey,
 								 nil];
@@ -840,9 +840,9 @@ void FAVIWriter::Update(double FrameTimeSeconds, TArray<FColor> FrameData)
 
 FAVIWriter* FAVIWriter::CreateInstance(const FAVIWriterOptions& InOptions)
 {
-#if PLATFORM_WINDOWS && !UE_BUILD_MINIMAL
+#if PLATFORM_WINDOWS && WITH_UNREAL_DEVELOPER_TOOLS
 	return new FAVIWriterWin(InOptions);
-#elif PLATFORM_MAC && !UE_BUILD_MINIMAL
+#elif PLATFORM_MAC && WITH_UNREAL_DEVELOPER_TOOLS
 	return new FAVIWriterMac(InOptions);
 #else
 	return nullptr;

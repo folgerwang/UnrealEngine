@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -12,7 +12,8 @@ enum class ELightmapUVVersion : int32
 	ScaleChartsOrderingFix = 3,
 	ChartJoiningLFix = 4,
 	Allocator2DFlipFix = 5,
-	Latest = ScaleChartsOrderingFix
+	ConsiderLightmapPadding = 6,
+	Latest = ConsiderLightmapPadding
 };
 
 /** Helper struct for building acceleration structures. */

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -9,7 +9,6 @@
 #include "CoreGlobals.h"
 
 class FTextLocalizationResource;
-class FTextLocalizationResources;
 
 /**
  * Interface for a localized text source.
@@ -42,7 +41,7 @@ public:
 	/**
 	 * Load the localized resources from this localized text source for the given cultures into the given maps (ELocalizationLoadFlags controls which resources should be loaded).
 	 */
-	virtual void LoadLocalizedResources(const ELocalizationLoadFlags InLoadFlags, TArrayView<const FString> InPrioritizedCultures, FTextLocalizationResource& InOutNativeResource, FTextLocalizationResources& InOutLocalizedResources) = 0;
+	virtual void LoadLocalizedResources(const ELocalizationLoadFlags InLoadFlags, TArrayView<const FString> InPrioritizedCultures, FTextLocalizationResource& InOutNativeResource, FTextLocalizationResource& InOutLocalizedResource) = 0;
 
 	/** Should we load native data based on the given load flags and environment? */
 	static FORCEINLINE bool ShouldLoadNative(const ELocalizationLoadFlags InLoadFlags)

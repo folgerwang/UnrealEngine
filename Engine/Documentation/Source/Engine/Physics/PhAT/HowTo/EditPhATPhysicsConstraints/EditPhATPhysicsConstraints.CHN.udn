@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3149430
+﻿INTSourceChangelist:4649792
 Availability:Public
 Title:编辑物理资源约束
 Crumbs: %ROOT%, Engine
@@ -8,48 +8,11 @@ order:1
 Version:4.13
 related:Engine/Physics/PhAT/HowTo/EditPhATPhysicsBodies
 skilllevel:Beginner
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Physics/PhAT/HowTo/EditPhATPhysicsConstraints:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/PhAT/HowTo/EditPhATPhysicsConstraints:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/PhAT/HowTo/EditPhATPhysicsConstraints:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Physics/Phat/HowTo]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Physics/PhAT/HowTo/EditPhATPhysicsConstraints:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/PhAT/HowTo/EditPhATPhysicsConstraints:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/PhAT/HowTo/EditPhATPhysicsConstraints:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Physics/Phat/HowTo]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:Engine/Physics/physics_topic.png
 
 以下讲述几种常见方法和步骤，以及在 **物理资源工具** 中对 **物理约束** 进行的编辑。
 
+(#EditingPhysicsConstraints)
 ## 编辑物理约束
 
 [REGION:note]
@@ -70,6 +33,7 @@ skilllevel:Beginner
 
 可在 **[物理资源工具参考](Engine/Physics/PhAT/Reference)** 中查阅物理资源工具属性的更多内容。
 
+(#AligningPhysicsConstraints)
 ## 对齐物理约束
 
 如使用的是物理约束的线性或角限制，将会看到它们的对齐。
@@ -80,6 +44,7 @@ skilllevel:Beginner
 
 如需了解物理约束及其属性的更多内容，请查阅 **[物理约束用户指南](Engine/Physics\Constraints\ConstraintsUserGuide)**。
 
+(#CopyingPhysicsConstraints)
 ## 复制物理约束
 
 在任一模式中，一个约束的属性可被复制到另外的约束：
@@ -89,6 +54,7 @@ skilllevel:Beginner
 1. **选择** 需要应用数据的约束。
 1. **按下 Ctrl + V**。
 
+(#DeletingPhysicsConstraints)
 ## 删除物理约束
 
 [REGION:note]
@@ -100,6 +66,7 @@ skilllevel:Beginner
 1. **按下** **Delete** 键。
 
 
+(#RecreatingaPhysicsConstraint)
 ## 重建物理约束
 
 [REGION:note]
@@ -109,6 +76,7 @@ skilllevel:Beginner
 物理约束只能在生成的物理形体之上创建，且只能向上生成。如果从肩部移除物理约束，则必须移除上臂物理形体（将移除肘部物理约束），然后重建上臂物理形体。这会创建肩部物理约束，但不会创建肘部物理约束，因此必须沿手臂往下继续此操作。
 
 
+(#ConstraintSnapping)
 ## 约束捕捉
 
 捕捉物理约束将获取物理约束的蓝色定位符，并将其位置和旋转与红色定位符的位置和旋转对齐。

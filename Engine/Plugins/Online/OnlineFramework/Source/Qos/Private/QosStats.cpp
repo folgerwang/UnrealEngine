@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "QosStats.h"
 #include "Misc/Guid.h"
@@ -151,8 +151,8 @@ void FQosDatacenterStats::Upload(TSharedPtr<IAnalyticsProvider>& AnalyticsProvid
  * @EventParam NumResults integer Total number of results found for consideration
  * @EventParam NumSuccessCount integer Total number of successful ping evaluations
  * @EventParam NetworkType string type of network the client is connected to. (Unknown, None, AirplaneMode, Cell, Wifi, Ethernet) are possible values. Will be Unknown on PC and Switch.
- * @EventParam BestRegionId string RegionId with best ping (that is usable)
- * @EventParam BestRegionPing integer ping in the best RegionId (that is usable)
+ * @EventParam BestRegionId string RegionId with best ping (that is usable, UNREACHABLE if none pass QoS)
+ * @EventParam BestRegionPing integer ping in the best RegionId (that is usable, 0 if BestRegionId is UNREACHABLE)
  * @EventParam RegionDetails json representation of ping details
  * @Comments Analytics data for a complete qos datacenter determination attempt
  * 
@@ -185,9 +185,16 @@ void FQosDatacenterStats::ParseQosResults(TSharedPtr<IAnalyticsProvider>& Analyt
 		}
 
 		BestPing = FMath::Clamp(BestPing, 0, UNREACHABLE_PING);
-
-		QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_BestRegionId, BestRegionId));
-		QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_BestRegionPing, BestPing));
+		if (BestPing < UNREACHABLE_PING)
+		{
+			QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_BestRegionId, BestRegionId));
+			QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_BestRegionPing, BestPing));
+		}
+		else
+		{
+			QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_BestRegionId, TEXT("UNREACHABLE")));
+			QoSAttributes.Add(FAnalyticsEventAttribute(QosStats_BestRegionPing, 0));
+		}
 	}
 
 	{

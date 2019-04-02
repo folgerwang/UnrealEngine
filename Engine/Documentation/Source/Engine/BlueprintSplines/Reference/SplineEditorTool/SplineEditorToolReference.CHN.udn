@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:3149199
+﻿INTSourceChangelist:3801260
 Availability:Public
 Title:蓝图样条编辑器工具参考
 Crumbs: %ROOT%, Engine
-Description:快速参考关卡编辑器中编辑蓝图样条组件的工具和步骤。
+Description:在关卡编辑器中时，用于编辑蓝图样条组件的工具和程序的快速参考。
 Navigation:topic
 parent:Engine/BlueprintSplines
 order:1
@@ -14,100 +14,64 @@ reference-image:MoveTangent.gif
 reference-image:RotatePoint.gif
 reference-image:ScalePoint.gif
 tags:Splines
+topic-image:Engine/BlueprintSplines/Splines_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/BlueprintSplines/Reference/SplineEditorTool:title%](Engine/BlueprintSplines/Splines_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/BlueprintSplines/Reference/SplineEditorTool:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/BlueprintSplines/Reference/SplineEditorTool:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/BlueprintSplines/Reference/SplineEditorTool]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/BlueprintSplines/Reference/SplineEditorTool:title%](Engine/BlueprintSplines/Splines_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/BlueprintSplines/Reference/SplineEditorTool:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/BlueprintSplines/Reference/SplineEditorTool:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/BlueprintSplines/Reference/SplineEditorTool]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+本页面包含有关在关卡编辑器中编辑 **蓝图样条组件（Blueprint Spline Components）** 和 **蓝图样条网格体组件（Blueprint Spline Mesh Components）** 的工具和程序的信息。从4.13开始，**蓝图样条组件（Blueprint Spline Components）** 也可以使用下面的所有工具和程序在 **蓝图编辑器视口（Blueprint Editor Viewport）** 中进行编辑。
 
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
-
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
-
-本页面包含在关卡编辑器中编辑 **蓝图样条组件** 和 **蓝图样条网格体组件** 的工具和步骤的相关信息。从 4.13 版本起，可使用以下所有工具和步骤在 **蓝图编辑器视口** 中编辑 **蓝图样条组件**。
+(#tools)
 
 ## 工具
 
-在编辑器中选择一个样条点（使样条曲线选择其上的最后一个点），可使用标准操作工具（移动、旋转和缩放）来选择和调整样条曲线点的位置和切线。
+在编辑器中选择了样条点（选择样条曲线即会选择其上的最后一个点）后，可以使用标准操作工具（移动、旋转和缩放）选择和调整样条曲线点的位置和切线。
 
 | 工具 | 结果 |
 | --- | :--- |
-| **移动选中的点** | [REGION:asyncgif]![](MovePoint.gif)[/REGION] |
-| **移动选中的切线** | [REGION:asyncgif]![](MoveTangent.gif)[/REGION] |
-| **旋转** | [REGION:asyncgif]![](RotatePoint.gif)[/REGION] |
-| **缩放** | [REGION:asyncgif]![](ScalePoint.gif)[/REGION] |
+| **移动选定点（Move Selected Point）** | [REGION:asyncgif]![](MovePoint.gif)[/REGION] |
+| **移动选定切线（Move Selected Tangent）** | [REGION:asyncgif]![](MoveTangent.gif)[/REGION] |
+| **旋转（Rotate）** | [REGION:asyncgif]![](RotatePoint.gif)[/REGION] |
+| **缩放（Scale）** | [REGION:asyncgif]![](ScalePoint.gif)[/REGION] |
 
 
-## 步骤
+(#procedures)
 
-右键单击点上或各个点之间曲线上的样条可打开数个菜单。
+## 程序
 
-### 在样条点上单击右键
+有一些菜单可以通过右键单击样条曲线上的点或点之间的曲线来访问。
 
-在点上单击右键可访问以下菜单和选项：
+(#right-clickonasplinepoint)
+
+### 右键单击样条点
+
+右键单击一个点，将显示以下菜单和选项：
 
 ![](Spline_RC_Point.png)
 
 [REGION:raw]
-| 选项 | 描述 |
+| 选项 | 说明 |
 | --- | :--- |
-| **Delete Spline Point** | 移除选中的样条点。|
-| **Duplicate Spline Point** | 复制当前选中的样条点。|
-| **Spline Point Type** | [INCLUDE:#SplinePointType] |
-| **Reset to Automatic Tangent** | [INCLUDE:#ResetToAutomaticTanget] |
-| **Reset to Default** | 将样条重设为其原型默认。|
-| **Visualize Roll and Scale** | 确定样条是否在编辑器中显示滚动和缩放。|
-| **Allow Discontinous Splines** | 切换显示是否允许单独设置 **Arrive** 和 **Leave** 切线。|
+| **删除样条点（Delete Spline Point）** | 移除所选样条点。|
+| **复制样条点（Duplicate Spline Point）** | 复制当前选定的样条点。|
+| **样条点类型（Spline Point Type）** | [INCLUDE:#SplinePointType] |
+| **重置为自动切线（Reset to Automatic Tangent）** | [INCLUDE:#ResetToAutomaticTanget] |
+| **重置为默认值（Reset to Default）** | 将样条重置为其原型默认值。|
+| **可视化滚动和缩放（Visualize Roll and Scale）** | 样条是否应该在编辑器中可视化滚动和缩放。|
+| **允许不连续样条（Allow Discontinous Splines）** | 切换可视化是否允许单独设置 **到达（Arrive）** 和 **离开（Leave）** 切线。|
 [/REGION]
 
 [COMMENT:none]
 
 [EXCERPT:SplinePointType]
 
-修改选中样条点的插值样式。与样条曲线点相关的样条曲线显示为红色（默认）。修改此项将对曲线构成影响。默认 **点类型** 为 **Curve**。下图为各种类型的示例：
+更改选定样条点的插值样式。与样条曲线点相关的样条曲线显示为红色（默认情况下）。它将是受这个变化影响的曲线。默认 **点类型（Point Type）** 是 **曲线（Curve）**。下面是不同类型的示例：
 
 ![](Spline_RC_Point_Type.png)
 
 [REGION:transparenttable]
-| 选项 | 描述 |
+| 选项 | 说明 |
 | --- | --- |
-| **Curve** | ![](PointTypeCurve.PNG)(convert:false) |
-| **Linear** | ![](PointTypeLinear.PNG)(convert:false) |
-| **Constant** | ![](PointTypeConstant.PNG)(convert:false) |
+| **曲线（Curve）** | ![](PointTypeCurve.PNG)(convert:false) |
+| **线性（Linear）** | ![](PointTypeLinear.PNG)(convert:false) |
+| **常量（Constant）** | ![](PointTypeConstant.PNG)(convert:false) |
 [/REGION]
 [/EXCERPT]
 
@@ -116,28 +80,30 @@ tags:Splines
 ![](Spline_RC_Point_Reset.png)
 
 [REGION:transparenttable]
-| 选项 | 描述 |
+| 选项 | 说明 |
 | --- | :--- |
-| **Unclamped Tangent** | 将选中 **曲线点** 的切线设为其 **Unclamped Tangent** 数值。|
-| **Clamped Tangent** | 将选中 **曲线点** 的切线设为其 **Clamped Tangent** 数值。|
+| **未钳位切线（Unclamped Tangent）** | 将选定 **曲线点（Curve Point）** 的切线重置为 **未钳位切线（Unclamped Tangent）** 值。|
+| **钳制切线（Clamped Tangent）** | 将选定 **曲线点（Curve Point）** 的切线重置为 **钳制切线（Clamped Tangent）** 值。|
 [/REGION]
 [/EXCERPT]
 
 [/COMMENT]
 
-### 在样条曲线上单击右键
+(#right-clickonasplinecurve)
 
-在曲线上单击右键可访问以下菜单和选项：
+### 右键单击样条曲线
+
+右键单击曲线将显示以下菜单和选项：
 
 ![](Spline_RC_Curve.png)
 
 [REGION:raw]
-| 选项 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Add Spline Point Here** || 在指针所在位置新增一个样条点。|
-| **Reset to Default** || 将样条重设为其原型默认。|
-| **Visualize Roll and Scale** || 确定样条是否在编辑器中显示滚动和缩放。|
-| **Allow Discontinous Splines** || 切换显示是否允许单独设置 **Arrive** 和 **Leave** 切线。|
+| 选项 | 说明 |
+| --- | :--- |
+| **在此处添加样条点（Add Spline Point Here）** | 在光标位置添加一个新的样条点。|
+| **重置为默认值（Reset to Default）** | 将样条重置为其原型默认值。|
+| **可视化滚动和缩放（Visualize Roll and Scale）** | 切换样条是否应该在编辑器中可视化滚动和缩放。|
+| **允许不连续样条（Allow Discontinous Splines）** | 切换可视化是否允许单独设置 **到达（Arrive）** 和 **离开（Leave）** 切线。|
 [/REGION]
 
 

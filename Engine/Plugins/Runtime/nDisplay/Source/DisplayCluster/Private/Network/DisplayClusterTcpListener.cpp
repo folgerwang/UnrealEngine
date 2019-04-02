@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "DisplayClusterTcpListener.h"
 
@@ -11,8 +11,8 @@
 #include "Misc/DisplayClusterHelpers.h"
 
 
-FDisplayClusterTcpListener::FDisplayClusterTcpListener(const FString& name) :
-	Name(name)
+FDisplayClusterTcpListener::FDisplayClusterTcpListener(const FString& InName) :
+	Name(InName)
 {
 }
 
@@ -24,7 +24,7 @@ FDisplayClusterTcpListener::~FDisplayClusterTcpListener()
 }
 
 
-bool FDisplayClusterTcpListener::StartListening(const FString& addr, const int32 port)
+bool FDisplayClusterTcpListener::StartListening(const FString& InAddr, const int32 InPort)
 {
 	FScopeLock lock(&InternalsSyncScope);
 
@@ -33,16 +33,16 @@ bool FDisplayClusterTcpListener::StartListening(const FString& addr, const int32
 		return true;
 	}
 
-	FIPv4Endpoint ep;
-	if (!DisplayClusterHelpers::net::GenIPv4Endpoint(addr, port, ep))
+	FIPv4Endpoint EP;
+	if (!DisplayClusterHelpers::net::GenIPv4Endpoint(InAddr, InPort, EP))
 	{
 		return false;
 	}
 
-	return StartListening(ep);
+	return StartListening(EP);
 }
 
-bool FDisplayClusterTcpListener::StartListening(const FIPv4Endpoint& ep)
+bool FDisplayClusterTcpListener::StartListening(const FIPv4Endpoint& InEP)
 {
 	FScopeLock lock(&InternalsSyncScope);
 
@@ -52,7 +52,7 @@ bool FDisplayClusterTcpListener::StartListening(const FIPv4Endpoint& ep)
 	}
 
 	// Save new endpoint
-	Endpoint = ep;
+	Endpoint = InEP;
 
 	// Create listening thread
 	ThreadObj = FRunnableThread::Create(this, *(Name + FString("_thread")), 1 * 1024, TPri_Normal);
@@ -114,6 +114,8 @@ uint32 FDisplayClusterTcpListener::Run()
 	{
 		while (FSocket* pSock = SocketObj->Accept(*RemoteAddress, TEXT("FDisplayClusterTcpListener client")))
 		{
+			UE_LOG(LogDisplayClusterNetwork, Log, TEXT("New incoming connection: %s"), *RemoteAddress->ToString(true));
+
 			if (OnConnectionAcceptedDelegate.IsBound())
 			{
 				if (!OnConnectionAcceptedDelegate.Execute(pSock, FIPv4Endpoint(RemoteAddress)))

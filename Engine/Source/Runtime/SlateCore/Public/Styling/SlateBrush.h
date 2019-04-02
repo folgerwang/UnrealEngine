@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -157,6 +157,7 @@ public:
 public:
 
 	FVector2D GetImageSize() const { return ImageSize; }
+	void SetImageSize(FVector2D InImageSize) { ImageSize = InImageSize; }
 
 	const FMargin& GetMargin() const { return Margin; }
 

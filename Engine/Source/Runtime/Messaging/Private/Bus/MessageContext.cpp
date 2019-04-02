@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Bus/MessageContext.h"
 
@@ -10,9 +10,9 @@ FMessageContext::~FMessageContext()
 {
 	if (Message != nullptr)
 	{
-		if (TypeInfo.IsValid())
+		if (UScriptStruct* TypeInfoPtr = TypeInfo.Get())
 		{
-			TypeInfo->DestroyStruct(Message);
+			TypeInfoPtr->DestroyStruct(Message);
 		}
 
 		FMemory::Free(Message);

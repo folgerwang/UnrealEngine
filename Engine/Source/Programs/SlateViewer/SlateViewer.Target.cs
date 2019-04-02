@@ -1,11 +1,10 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.Collections.Generic;
 
 [SupportedPlatforms(UnrealPlatformClass.Desktop)]
 [SupportedPlatforms(UnrealTargetPlatform.IOS)]
-[SupportedConfigurations(UnrealTargetConfiguration.Debug, UnrealTargetConfiguration.Development)]
 public class SlateViewerTarget : TargetRules
 {
 	public SlateViewerTarget(TargetInfo Target) : base(Target)
@@ -16,10 +15,7 @@ public class SlateViewerTarget : TargetRules
 		LaunchModuleName = "SlateViewer";
 		ExtraModuleNames.Add("EditorStyle");
 
-		bCompileLeanAndMeanUE = true;
-
-		// Don't need editor
-		bBuildEditor = false;
+		bBuildDeveloperTools = false;
 
 		// SlateViewer doesn't ever compile with the engine linked in
 		bCompileAgainstEngine = false;
@@ -30,5 +26,8 @@ public class SlateViewerTarget : TargetRules
 		// SlateViewer.exe has no exports, so no need to verify that a .lib and .exp file was emitted by
 		// the linker.
 		bHasExports = false;
+
+		// Make sure to get all code in SlateEditorStyle compiled in
+        bBuildDeveloperTools = true;
 	}
 }

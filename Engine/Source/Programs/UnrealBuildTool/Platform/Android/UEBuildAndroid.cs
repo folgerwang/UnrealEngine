@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -99,22 +99,17 @@ namespace UnrealBuildTool
 
 		public override void ValidateTarget(TargetRules Target)
 		{
-			Target.bCompileLeanAndMeanUE = true;
 			Target.bCompilePhysX = true;
 			Target.bCompileAPEX = false;
 			Target.bCompileNvCloth = false;
-
-			Target.bBuildEditor = false;
-			Target.bBuildDeveloperTools = false;
-			Target.bCompileSimplygon = false;
-			Target.bCompileSimplygonSSF = false;
 
 			Target.bCompileRecast = true;
 		}
 
 		public override bool CanUseXGE()
 		{
-			return !(Environment.GetEnvironmentVariable("IsBuildMachine") == "1");
+			// Disable when building on Linux
+			return BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Linux && !(Environment.GetEnvironmentVariable("IsBuildMachine") == "1");
 		}
 
 		public override bool IsBuildProduct(string FileName, string[] NamePrefixes, string[] NameSuffixes)
@@ -214,16 +209,6 @@ namespace UnrealBuildTool
 		public override bool ShouldCompileMonolithicBinary(UnrealTargetPlatform InPlatform)
 		{
 			// This platform currently always compiles monolithic
-			return true;
-		}
-
-		public override bool BuildRequiresCookedData(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
-		{
-			return true;
-		}
-
-		public override bool RequiresDeployPrepAfterCompile()
-		{
 			return true;
 		}
 
@@ -362,35 +347,25 @@ namespace UnrealBuildTool
 			CompileEnvironment.Definitions.Add("PLATFORM_ANDROID=1");
 			CompileEnvironment.Definitions.Add("ANDROID=1");
 
-			CompileEnvironment.Definitions.Add("WITH_DATABASE_SUPPORT=0");
 			CompileEnvironment.Definitions.Add("WITH_EDITOR=0");
 			CompileEnvironment.Definitions.Add("USE_NULL_RHI=0");
 
 			DirectoryReference NdkDir = new DirectoryReference(NDKPath);
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/include"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/include"));
 
 			// the toolchain will actually filter these out
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/armeabi-v7a/include"));
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/arm64-v8a/include"));
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/x86/include"));
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/x86_64/include"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/armeabi-v7a/include"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/arm64-v8a/include"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/x86/include"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/x86_64/include"));
 
 			LinkEnvironment.LibraryPaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/armeabi-v7a"));
 			LinkEnvironment.LibraryPaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/arm64-v8a"));
 			LinkEnvironment.LibraryPaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/x86"));
 			LinkEnvironment.LibraryPaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/x86_64"));
 
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/android/native_app_glue"));
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/android/cpufeatures"));
-
-
-			// if the project has an Oodle compression Dll, enable the decompressor on Android
-			DirectoryReference ProjectDir = Target.ProjectFile != null ? DirectoryReference.GetParentDirectory(Target.ProjectFile) : UnrealBuildTool.EngineDirectory;
-			string OodleDllPath = DirectoryReference.Combine(ProjectDir, "Binaries/ThirdParty/Oodle/Win64/UnrealPakPlugin.dll").FullName;
-			if (File.Exists(OodleDllPath))
-			{
-				CompileEnvironment.Definitions.Add("REGISTER_OODLE_CUSTOM_COMPRESSOR=1");
-			}
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/android/native_app_glue"));
+			CompileEnvironment.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/android/cpufeatures"));
 
 			//@TODO: Tegra Gfx Debugger - standardize locations - for now, change the hardcoded paths and force this to return true to test
 			if (UseTegraGraphicsDebugger(Target))
@@ -423,7 +398,6 @@ namespace UnrealBuildTool
 			CompileEnvironment.Definitions.Add("PLATFORM_ANDROID=1");
 			CompileEnvironment.Definitions.Add("ANDROID=1");
 
-			CompileEnvironment.Definitions.Add("WITH_DATABASE_SUPPORT=0");
 			CompileEnvironment.Definitions.Add("WITH_EDITOR=0");
 			CompileEnvironment.Definitions.Add("USE_NULL_RHI=0");
 
@@ -462,7 +436,7 @@ namespace UnrealBuildTool
 			bool bUseLdGold = Target.bUseUnityBuild;
 			return new AndroidToolChain(Target.ProjectFile, bUseLdGold, Target.AndroidPlatform.Architectures, Target.AndroidPlatform.GPUArchitectures);
 		}
-		public override UEToolChain CreateTempToolChainForProject(FileReference ProjectFile)
+		public virtual UEToolChain CreateTempToolChainForProject(FileReference ProjectFile)
 		{
 			return new AndroidToolChain(ProjectFile, true, null, null);
 		}
@@ -470,11 +444,11 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Deploys the given target
 		/// </summary>
-		/// <param name="Target">Information about the target being deployed</param>
-		public override void Deploy(UEBuildDeployTarget Target)
+		/// <param name="Receipt">Receipt for the target being deployed</param>
+		public override void Deploy(TargetReceipt Receipt)
 		{
 			// do not package data if building via UBT
-			new UEDeployAndroid(Target.ProjectFile, false).PrepTargetForDeployment(Target);
+			new UEDeployAndroid(Receipt.ProjectFile, false).PrepTargetForDeployment(Receipt);
 		}
 	}
 
@@ -551,11 +525,11 @@ namespace UnrealBuildTool
 				Dictionary<string, string> AndroidEnv = new Dictionary<string, string>();
 
 				Dictionary<string, string> EnvVarNames = new Dictionary<string, string> { 
-														 {"ANDROID_HOME", "SDKPath"}, 
-														 {"NDKROOT", "NDKPath"}, 
-														 {"ANT_HOME", "ANTPath"},
-														 {"JAVA_HOME", "JavaPath"}
-														 };
+                                                         {"ANDROID_HOME", "SDKPath"}, 
+                                                         {"NDKROOT", "NDKPath"}, 
+                                                         {"ANT_HOME", "ANTPath"},
+                                                         {"JAVA_HOME", "JavaPath"}
+                                                         };
 
 				string path;
 				foreach (KeyValuePair<string, string> kvp in EnvVarNames)
@@ -656,15 +630,15 @@ namespace UnrealBuildTool
 
 	class AndroidPlatformFactory : UEBuildPlatformFactory
 	{
-		protected override UnrealTargetPlatform TargetPlatform
+		public override UnrealTargetPlatform TargetPlatform
 		{
 			get { return UnrealTargetPlatform.Android; }
 		}
 
-		protected override void RegisterBuildPlatforms(SDKOutputLevel OutputLevel)
+		public override void RegisterBuildPlatforms()
 		{
 			AndroidPlatformSDK SDK = new AndroidPlatformSDK();
-			SDK.ManageAndValidateSDK(OutputLevel);
+			SDK.ManageAndValidateSDK();
 
 			if ((ProjectFileGenerator.bGenerateProjectFiles == true) || (SDK.HasRequiredSDKsInstalled() == SDKStatus.Valid) || Environment.GetEnvironmentVariable("IsBuildMachine") == "1")
 			{

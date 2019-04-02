@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaSoundComponent.h"
 #include "MediaAssetsPrivate.h"
@@ -29,7 +29,17 @@ FAutoConsoleVariableRef CVarSyncAudioAfterDropouts(
 	TEXT("0: Not Enabled, 1: Enabled"),
 	ECVF_Default);
 
-DECLARE_FLOAT_COUNTER_STAT(TEXT("MediaUtils MediaSoundComponent Sync"), STAT_MediaUtils_MediaSoundComponent, STATGROUP_Media);
+static int32 FlushBackloggedAudioCVar = 0;
+FAutoConsoleVariableRef CVarFlushBackloggedAudio(
+	TEXT("m.FlushBackloggedAudio"),
+	FlushBackloggedAudioCVar,
+	TEXT("Flush backlogged audio samples when max value reached.\n")
+	TEXT("0: Not Enabled, 4 or higher: Max queued samples"),
+	ECVF_Default);
+
+DECLARE_FLOAT_COUNTER_STAT(TEXT("MediaUtils MediaSoundComponent Sync"), STAT_MediaUtils_MediaSoundComponentSync, STATGROUP_Media);
+DECLARE_FLOAT_COUNTER_STAT(TEXT("MediaUtils MediaSoundComponent SampleTime"), STAT_MediaUtils_MediaSoundComponentSampleTime, STATGROUP_Media);
+DECLARE_DWORD_COUNTER_STAT(TEXT("MediaUtils MediaSoundComponent Queued"), STAT_Media_SoundCompQueued, STATGROUP_Media);
 
 /* Static initialization
  *****************************************************************************/
@@ -51,7 +61,13 @@ UMediaSoundComponent::UMediaSoundComponent(const FObjectInitializer& ObjectIniti
 	, RateAdjustment(1.0f)
 	, Resampler(new FMediaAudioResampler)
 	, FrameSyncOffset(0)
+	, LastPlaySampleTime(FTimespan::MinValue())
+	, EnvelopeFollowerAttackTime(10)
+	, EnvelopeFollowerReleaseTime(100)
+	, CurrentEnvelopeValue(0.0f)
 	, bSyncAudioAfterDropouts(false)
+	, bSpectralAnalysisEnabled(false)
+	, bEnvelopeFollowingEnabled(false)
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	bAutoActivate = true;
@@ -120,7 +136,8 @@ void UMediaSoundComponent::SetDefaultMediaPlayer(UMediaPlayer* NewMediaPlayer)
 
 void UMediaSoundComponent::UpdatePlayer()
 {
-	if (!CurrentPlayer.IsValid())
+	UMediaPlayer* CurrentPlayerPtr = CurrentPlayer.Get();
+	if (CurrentPlayerPtr == nullptr)
 	{
 		CachedRate = 0.0f;
 		CachedTime = FTimespan::Zero();
@@ -133,7 +150,7 @@ void UMediaSoundComponent::UpdatePlayer()
 	}
 
 	// create a new sample queue if the player changed
-	TSharedRef<FMediaPlayerFacade, ESPMode::ThreadSafe> PlayerFacade = CurrentPlayer->GetPlayerFacade();
+	TSharedRef<FMediaPlayerFacade, ESPMode::ThreadSafe> PlayerFacade = CurrentPlayerPtr->GetPlayerFacade();
 
 	if (PlayerFacade != CurrentPlayerFacade)
 	{
@@ -151,6 +168,8 @@ void UMediaSoundComponent::UpdatePlayer()
 	// caching play rate and time for audio thread (eventual consistency is sufficient)
 	CachedRate = PlayerFacade->GetRate();
 	CachedTime = PlayerFacade->GetTime();
+
+	PlayerFacade->SetLastAudioRenderedSampleTime(LastPlaySampleTime.Load());
 }
 
 
@@ -291,6 +310,9 @@ bool UMediaSoundComponent::Init(int32& SampleRate)
 {
 	Super::Init(SampleRate);
 
+	// Initialize the settings for the spectrum analyzer
+	SpectrumAnalyzer.Init(SampleRate);
+
 	if (Channels == EMediaSoundChannels::Mono)
 	{
 		NumChannels = 1;
@@ -353,7 +375,7 @@ int32 UMediaSoundComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 
 				if (JumpFrame != MAX_uint32)
 				{
-					UE_LOG(LogMediaAssets, Verbose, TEXT("Audio ( JUMP ) SyncOffset was: %d"), SyncOffset);
+					UE_LOG(LogMediaAssets, Verbose, TEXT("Audio ( JUMP ) SyncOffset was: %d, OutTime: %s"), SyncOffset, *OutTime.ToString());
 					int32 JumpFramesRequested = FramesRequested - JumpFrame;
 					int32 JumpFramesWritten = FramesWritten - JumpFrame;
 					SyncOffset = JumpFramesRequested - JumpFramesWritten;
@@ -404,9 +426,78 @@ int32 UMediaSoundComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 			}
 		}
 
-#if STATS
-		SET_FLOAT_STAT(STAT_MediaUtils_MediaSoundComponent, (Time - OutTime).GetTotalMilliseconds());
+		LastPlaySampleTime = OutTime;
+
+
+		if (bSpectralAnalysisEnabled || bEnvelopeFollowingEnabled)
+		{
+			float* BufferToUseForAnalysis = nullptr;
+			int32 NumFrames = NumSamples;
+			
+			if (NumChannels == 2)
+			{
+				NumFrames = NumSamples / 2;
+
+				// Use the scratch buffer to sum the audio to mono
+				AudioScratchBuffer.Reset();
+				AudioScratchBuffer.AddUninitialized(NumFrames);
+				BufferToUseForAnalysis = AudioScratchBuffer.GetData();
+				int32 SampleIndex = 0;
+				for (int32 FrameIndex = 0; FrameIndex < NumFrames; ++FrameIndex, SampleIndex += NumChannels)
+				{
+					BufferToUseForAnalysis[FrameIndex] = 0.5f * (OutAudio[SampleIndex] + OutAudio[SampleIndex + 1]);
+				}
+			}
+			else
+			{
+				BufferToUseForAnalysis = OutAudio;
+			}
+
+			if (bSpectralAnalysisEnabled)
+			{
+				SpectrumAnalyzer.PushAudio(BufferToUseForAnalysis, NumFrames);
+				SpectrumAnalyzer.PerformAnalysisIfPossible(true, true);
+			}
+
+			{
+				FScopeLock ScopeLock(&EnvelopeFollowerCriticalSection);
+				if (bEnvelopeFollowingEnabled)
+				{
+					if (bEnvelopeFollowerSettingsChanged)
+					{
+						EnvelopeFollower.SetAttackTime((float)EnvelopeFollowerAttackTime);
+						EnvelopeFollower.SetReleaseTime((float)EnvelopeFollowerReleaseTime);
+
+						bEnvelopeFollowerSettingsChanged = false;
+					}
+
+					for (int32 FrameIndex = 0; FrameIndex < NumFrames; ++FrameIndex)
+					{
+						EnvelopeFollower.ProcessAudio(BufferToUseForAnalysis[FrameIndex]);
+					}
+
+					CurrentEnvelopeValue = EnvelopeFollower.GetCurrentValue();
+				}
+			}
+		}
+
+#if PLATFORM_WINDOWS
+		// Garbage collection and other operations can cause calls to OnGenerateAudio() to be spaced too far apart (no audio being processed)
+		// These gaps are not tracked leading to a backlogged buffer that becomes further and further out of sync
+		if (FlushBackloggedAudioCVar > 3 && PinnedSampleQueue->Num() > FlushBackloggedAudioCVar)
+		{
+			const int32 NumQueued = PinnedSampleQueue->Num();
+			for (int32 i = 0; i < NumQueued - 3; ++i)
+			{
+				TSharedPtr<IMediaAudioSample, ESPMode::ThreadSafe> NextSample;
+				PinnedSampleQueue->Dequeue(NextSample);
+			}
+		}
 #endif
+
+		SET_FLOAT_STAT(STAT_MediaUtils_MediaSoundComponentSync, FMath::Abs((Time - OutTime).GetTotalMilliseconds()));
+		SET_FLOAT_STAT(STAT_MediaUtils_MediaSoundComponentSampleTime, OutTime.GetTotalMilliseconds());
+		SET_DWORD_STAT(STAT_Media_SoundCompQueued, PinnedSampleQueue->Num());
 	}
 	else
 	{
@@ -417,10 +508,88 @@ int32 UMediaSoundComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 			FScopeLock Lock(&CriticalSection);
 			FrameSyncOffset = 0;
 		}
+
+		LastPlaySampleTime = FTimespan::MinValue();
 	}
 	return NumSamples;
 }
 
+void UMediaSoundComponent::SetEnableSpectralAnalysis(bool bInSpectralAnalysisEnabled)
+{
+	bSpectralAnalysisEnabled = bInSpectralAnalysisEnabled;
+}
+
+void UMediaSoundComponent::SetSpectralAnalysisSettings(TArray<float> InFrequenciesToAnalyze, EMediaSoundComponentFFTSize InFFTSize)
+{
+	Audio::FSpectrumAnalyzerSettings::EFFTSize SpectrumAnalyzerSize;
+
+	switch (InFFTSize)
+	{
+		case EMediaSoundComponentFFTSize::Min_64: 
+			SpectrumAnalyzerSize = Audio::FSpectrumAnalyzerSettings::EFFTSize::Min_64;
+			break;
+		
+		case EMediaSoundComponentFFTSize::Small_256: 
+			SpectrumAnalyzerSize = Audio::FSpectrumAnalyzerSettings::EFFTSize::Small_256;
+			break;
+		
+		default:
+		case EMediaSoundComponentFFTSize::Medium_512:
+			SpectrumAnalyzerSize = Audio::FSpectrumAnalyzerSettings::EFFTSize::Medium_512;
+			break;
+
+		case EMediaSoundComponentFFTSize::Large_1024: 
+			SpectrumAnalyzerSize = Audio::FSpectrumAnalyzerSettings::EFFTSize::Large_1024;
+			break;
+	}
+
+	SpectrumAnalyzerSettings.FFTSize = SpectrumAnalyzerSize;
+	SpectrumAnalyzer.SetSettings(SpectrumAnalyzerSettings);
+
+	FrequenciesToAnalyze = InFrequenciesToAnalyze;
+}
+
+TArray<FMediaSoundComponentSpectralData> UMediaSoundComponent::GetSpectralData()
+{
+	if (bSpectralAnalysisEnabled)
+	{
+		TArray<FMediaSoundComponentSpectralData> SpectralData;
+		SpectrumAnalyzer.LockOutputBuffer();
+
+		for (float Frequency : FrequenciesToAnalyze)
+		{
+			FMediaSoundComponentSpectralData Data;
+			Data.FrequencyHz = Frequency;
+			Data.Magnitude = SpectrumAnalyzer.GetMagnitudeForFrequency(Frequency);
+			SpectralData.Add(Data);
+		}
+		SpectrumAnalyzer.UnlockOutputBuffer();
+
+		return SpectralData;
+	}
+	// Empty array if spectrum analysis is not implemented
+	return TArray<FMediaSoundComponentSpectralData>();
+}
+
+void UMediaSoundComponent::SetEnableEnvelopeFollowing(bool bInEnvelopeFollowing)
+{
+	FScopeLock ScopeLock(&EnvelopeFollowerCriticalSection);
+	bEnvelopeFollowingEnabled = bInEnvelopeFollowing;
+	CurrentEnvelopeValue = 0.0f;
+}
+
+void UMediaSoundComponent::SetEnvelopeFollowingsettings(int32 AttackTimeMsec, int32 ReleaseTimeMsec)
+{
+	FScopeLock ScopeLock(&EnvelopeFollowerCriticalSection);
+	EnvelopeFollowerAttackTime = AttackTimeMsec;
+	EnvelopeFollowerReleaseTime = ReleaseTimeMsec;
+	bEnvelopeFollowerSettingsChanged = true;
+}
+
+float UMediaSoundComponent::GetEnvelopeValue() const
+{
+	return CurrentEnvelopeValue;
+}
 
 /* UMediaSoundComponent implementation
  *****************************************************************************/

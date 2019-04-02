@@ -1,9 +1,13 @@
-﻿INTSourceChangelist:3075229
+﻿INTSourceChangelist:3467293
 Availability:Public
 Title:开发者工具
 Crumbs: %ROOT%, Engine
 Description:开发者工具文件菜单中选项的描述。 
 version:4.12
+parent:Engine/Editor
+type:overview
+order:30
+Topic-image:DeveloperTools_topic.png
 
 [REGION:raw]
 ![](DeveloperTools2.png)
@@ -26,6 +30,7 @@ version:4.12
 [/REGION]
 
 
+(#ToolsAvailable)
 ## 可用工具
 
 | 选项| 描述 |

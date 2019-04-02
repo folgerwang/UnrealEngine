@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ReliabilityHandlerComponent.h"
 #include "Modules/ModuleManager.h"
@@ -17,6 +17,23 @@ ReliabilityHandlerComponent::ReliabilityHandlerComponent()
 , ResendResolutionTime(0.1)
 , LastResendTime(0.0)
 {
+}
+
+void ReliabilityHandlerComponent::CountBytes(FArchive& Ar) const
+{
+	HandlerComponent::CountBytes(Ar);
+
+	const SIZE_T SizeOfThis = sizeof(*this) - sizeof(HandlerComponent);
+	Ar.CountBytes(SizeOfThis, SizeOfThis);
+
+	BufferedPackets.CountBytes(Ar);
+	for (BufferedPacket const * const LocalPacket : BufferedPackets)
+	{
+		if (LocalPacket)
+		{
+			LocalPacket->CountBytes(Ar);
+		}
+	}
 }
 
 void ReliabilityHandlerComponent::Initialize()

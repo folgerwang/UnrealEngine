@@ -1,7 +1,8 @@
-﻿Availability: Public
-Title:1.1 - 点光源
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:1.1 - 点光源（1.1 - Point Light）
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Lighting
-Description:光照示例关卡的概述,示例1.1: 点光源
+Description:光照示例关卡概述，示例1.1：点光源（Point Light）
 Related: Engine/Rendering/LightingAndShadows/Basics
 Related: Engine/Rendering/LightingAndShadows/LightTypes/Point
 Related: Engine/Rendering/LightingAndShadows/LightTypes/Spot
@@ -11,6 +12,23 @@ Related: Engine/Rendering/LightingAndShadows/Lightmass
 Related: Engine/Rendering/LightingAndShadows/Shadows
 Related: Engine/Rendering/LightingAndShadows/IndirectLightingCache
 Related: Engine/Rendering/LightingAndShadows/LightMobility
+Version: 4.9
+
+[VAR:Steps]
+[OBJECT:Navigation]
+	[PARAM:previous]
+	[/PARAM]
+	[PARAM:current]
+	[/PARAM]
+	[PARAM:home]
+		[光照主页](Resources/ContentExamples/Lighting)
+	[/PARAM]
+	[PARAM:next]
+		[下一个示例](Resources/ContentExamples/Lighting/1_2 "%Resources/ContentExamples/Lighting/1_2:title%")
+	[/PARAM]
+[/OBJECT]
+[/VAR]
+
 
 
 [VAR:Topic]
@@ -38,12 +56,12 @@ Related: Engine/Rendering/LightingAndShadows/LightMobility
 ![%Resources\ContentExamples\Lighting\1_1:title%](Resources\ContentExamples\Lighting\Lighting_1_1.png)
 [/REGION]
 
-上图显示的是点光源，它是虚幻引擎4中最为基础的光照类型。点光源从一点沿球形向所有方向发光。在选中光源后，在光照半径内可以看得最为清楚：
+本示例关卡展示了一个 **点光源**，点光源是UE4中提供的最基本的光源类型。点光源以球体为作用范围从单独的一个点向各个方向散发光线。要理解这句话的含义，最简单的方法是查看光源的半径，它在你选中光源时可见。
 
 
 ![](LightRadius_PointLight.png)(w:500)
 
-上图中，您可以看到围绕光照的淡蓝色线框球体。这就是光照的半径，超过该半径后，光照对环境将无法产生影响。自该球体的外沿开始，光照向内朝光照Actor位置而衰减。
+在上图中，你可以看到光源周围围绕着淡蓝色的线框球体。它显示了光源的半径，在半径范围之外，光源不会对环境产生影响。以该球体的半径范围为界限，光线将开始衰减，越靠近光源Actor所在位置，光线越亮。
 
 
 

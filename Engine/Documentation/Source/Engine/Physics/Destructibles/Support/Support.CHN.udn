@@ -1,28 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:4649792
 Availability: Docs
-Title:Support
+Title:支撑
 Crumbs: %ROOT%, Engine
-Description:World Support, Support Layer, and Forming Extended Structures
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Physics/Destructibles/Support:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/Destructibles/Support:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/Destructibles/Support:description%
-	[/PARAM]
-	[PARAMLITERAL:path]
-		Engine/Physics/Destructibles/Support
-	[/PARAMLITERAL]
-[/OBJECT]
-[/VAR]
+Description:场景支撑，支撑层及形成扩展结构
 
 [REGION:banner]
 ![Physics](Engine/Physics/physics_landing_banner.png)
@@ -30,75 +10,74 @@ Description:World Support, Support Layer, and Forming Extended Structures
 
 [TOC(start:2)]
 
-## Overview
+##概述
 
-**Destructible Actors** in Unreal Engine 4 will shatter completely with the first amount of damage able to cause a fracture, unless some measure of support is defined. Support will make **Destructibles** behave more like real objects.
+除非定义了某种支撑措施，否则在第一波伤害量足以引起破裂时，虚幻引擎4中的 **可破坏物Actor** 将会完全粉碎。支撑将使 **可破坏物** 的行为更接近真实对象。
 
 ![](DS_supportSettings.png)
 
-_These are the primary settings to examine for support._
+_以下是用于检查支撑的主要设置。_
 
-## Support Layer
+## 支撑层
 
-This is the base level of support, and it is just a single value on the **Destructible** that points to a layer level. This layer will then act as support for the rest of the object, making it so the pieces that have not taken damage stick together.
+它是支撑的基础级别，而且只是 **可破坏物** 上指向层级别的单个数值。此层随后将向对象的剩余部分起到支持作用，使未受损的碎片粘合在一起。
 
-Think of a slab of concrete hitting the ground on one of its corners, without support, it just shatters:
+想象一下一块混凝土板以其一角撞向地面的情景，如果没有支撑，它就会粉碎：
 
 ![](DS_shatter.png)(w:500)
 
-But with a support layer set to a layer other than 0, this happens:
+但是当支撑层被设置为非0层时，则会发生以下情况：
 
 ![](DS_support.png)(w:500)
 
-For APEX PhysX Lab imported objects, it is possible to have more than 2 depth layers, making it so you can set a mid layer as support making everything "above" it stick together, but everything "below" it just fall apart.
+对于APEX PhysX Lab导入的对象，可以使用2个以上的深度层，这样就可以设置一个中间层作为支撑，使它“上面”的所有物体全部粘合在一起，而“下面”的所有物体则全部崩溃。
 
 [COMMENT:none]
 
-## Support Chunks
+##支撑块
 
-This will basically work like the **Support Layer** feature, but instead of making an entire level support, you can make individual chunks on a layer support. There doesn't _need_ to be any rhyme or reason to what bits you define as support, but it could create some rather interesting results. Another way to look at them is that support chunks are sticky, and more damage is needed for them to give up what they are attached to.
+它的功能与 **支撑层** 基本类似，只不过它不是实现对一整层的支撑，因此可以在层支撑上制作单独的支撑块。对于将哪些碎块定义为支撑，虽然不必有任何规律或理由，但这可以产生一些相当有趣的结果。换个方式来看，支撑块是有粘性的，因此需要更大的伤害才能使它们脱离其所附着的物体。
 
 [/COMMENT]
 
-## World Support
+##场景支撑
 
-**World Support** allows a destructible to "attach" itself to a Static Mesh in the world. The destructible just needs to be really close to the Static Object you want to support it. To be safe, you can just have the destructible penetrate the Static Object, but too much penetration does open the asset up to having chunks rapidly expel themselves from the Static Mesh if they are ever dealt enough damage to break off.
+ **场景支撑（World Support）** 允许可破坏物将自身“附着”到世界场景中的静态网格体上。可破坏物只需非常靠近您希望用于支撑它的静态对象即可。为了安全起见，您可以使可破坏物穿透静态对象，但是贯穿量太大确实会打开资源，从而使支撑块在受到足以造成破碎的伤害时迅速地脱离静态网格体。
 
 ![](DS_worldSupport.png)(w:500)
 
-## Forming Extended Structures
 
-
+##形成扩展结构
 
 [COMMENT:none]
 
-As for objects imported from APEX PhysX Lab, these objects allow for an extreme amount of chaining, but are still bound by the order in which they are placed.
+对于从APEX PhysX Lab导入的对象，这些对象允许进行大量链接，但仍受其放置顺序的约束。
 
-In this image, the radial force (the little icon in the middle) ticks every 2 seconds, applying damage and force to all the panels.
+在此图中，径向力（中间的小图标）每隔2秒活动一次，对所有的面板施加伤害和作用力。
 
 ![](DS_ApexOrderSetup.png)(convert:false)
 
-They were placed from right to left so on the first pulse:
+将它们从右到左放置，因此发生第一次脉冲时：
 
 ![](DS_ApexOrder_01.png)(convert:false)
 
-Second Pulse
+第二次脉冲时
 
 ![](DS_ApexOrder_02.png)(convert:false)
 
-Third Pulse:
+第三次脉冲时：
 
 ![](DS_ApexOrder_03.png)(convert:false)
 
-And finally:
+以及最终：
 
 ![](DS_ApexOrder_04.png)(convert:false)
 
-Mind you, this is just for **World Supported** APEX objects. If they had been "free" then on the 2nd pulse this happens:
+请注意，这仅仅适用于 **场景支撑（World Support）** APEX对象。它们一旦获得“自由”，那么在发生第二次脉冲时，将会出现以下状况：
 
 ![](DS_2ndPulseNoWorldSupport.png)
 
-The 2nd and 4th panels "shatter" while the center one is just "broken."
+第2个和第4个面板“粉碎”，而中间的面板只是“破裂”。
 
 
 [/COMMENT]

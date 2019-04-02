@@ -1,9 +1,9 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GPUFastFourierTransform.h"
 #include "SceneUtils.h"
 #include "GlobalShader.h"
-#include "PostProcess/RenderTargetPool.h" // used for on-the-fly acquisition of 
+#include "RenderTargetPool.h" // used for on-the-fly acquisition of 
 
 
 uint32 GPUFFT::MaxScanLineLength() 
@@ -200,7 +200,7 @@ namespace GPUFFT
 		static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 		{
 			// @todo MetalMRT: Metal MRT can't cope with the threadgroup storage requirements for these shaders right now
-			return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (!IsMetalPlatform(Parameters.Platform) || RHIGetShaderLanguageVersion(Parameters.Platform) >= 2) && !IsMetalMRTPlatform(Parameters.Platform);
+			return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && !IsMetalMRTPlatform(Parameters.Platform);
 		}
 
 		static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
@@ -306,7 +306,7 @@ namespace GPUFFT
 		static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 		{
 			// @todo MetalMRT: Metal MRT can't cope with the threadgroup storage requirements for these shaders right now
-			return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (!IsMetalPlatform(Parameters.Platform) || RHIGetShaderLanguageVersion(Parameters.Platform) >= 2) && !IsMetalMRTPlatform(Parameters.Platform);
+			return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && !IsMetalMRTPlatform(Parameters.Platform);
 		}
 
 		static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
@@ -408,7 +408,7 @@ namespace GPUFFT
 		static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 		{
 			// @todo MetalMRT: Metal MRT can't cope with the threadgroup storage requirements for these shaders right now
-			return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (!IsMetalPlatform(Parameters.Platform) || RHIGetShaderLanguageVersion(Parameters.Platform) >= 2) && !IsMetalMRTPlatform(Parameters.Platform);
+			return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && !IsMetalMRTPlatform(Parameters.Platform);
 		}
 
 		static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
@@ -509,7 +509,7 @@ namespace GPUFFT
 		static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 		{
 			// @todo MetalMRT: Metal MRT can't cope with the threadgroup storage requirements for these shaders right now
-			return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (!IsMetalPlatform(Parameters.Platform) || RHIGetShaderLanguageVersion(Parameters.Platform) >= 2) && !IsMetalMRTPlatform(Parameters.Platform);
+			return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && !IsMetalMRTPlatform(Parameters.Platform);
 		}
 
 		static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
@@ -595,7 +595,7 @@ namespace GPUFFT
 		static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 		{
 			// @todo MetalMRT: Metal MRT can't cope with the threadgroup storage requirements for these shaders right now
-			return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (!IsMetalPlatform(Parameters.Platform) || RHIGetShaderLanguageVersion(Parameters.Platform) >= 2) && !IsMetalMRTPlatform(Parameters.Platform);
+			return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && !IsMetalMRTPlatform(Parameters.Platform);
 		}
 
 		static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
@@ -680,7 +680,7 @@ namespace GPUFFT
 		static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 		{
 			// @todo MetalMRT: Metal MRT can't cope with the threadgroup storage requirements for these shaders right now
-			return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (!IsMetalPlatform(Parameters.Platform) || RHIGetShaderLanguageVersion(Parameters.Platform) >= 2) && !IsMetalMRTPlatform(Parameters.Platform);
+			return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && !IsMetalMRTPlatform(Parameters.Platform);
 		}
 
 		static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
@@ -839,7 +839,7 @@ namespace GPUFFT
 		static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 		{
 			// @todo MetalMRT: Metal MRT can't cope with the threadgroup storage requirements for these shaders right now
-			return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (!IsMetalPlatform(Parameters.Platform) || RHIGetShaderLanguageVersion(Parameters.Platform) >= 2) && !IsMetalMRTPlatform(Parameters.Platform);
+			return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && !IsMetalMRTPlatform(Parameters.Platform);
 		}
 
 
@@ -876,7 +876,7 @@ namespace GPUFFT
 		static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 		{
 			// @todo MetalMRT: Metal MRT can't cope with the threadgroup storage requirements for these shaders right now
-			return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (!IsMetalPlatform(Parameters.Platform) || RHIGetShaderLanguageVersion(Parameters.Platform) >= 2) && !IsMetalMRTPlatform(Parameters.Platform);
+			return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && !IsMetalMRTPlatform(Parameters.Platform);
 		}
 
 
@@ -1049,7 +1049,7 @@ namespace GPUFFT
 		static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 		{
 			// @todo MetalMRT: Metal MRT can't cope with the threadgroup storage requirements for these shaders right now
-			return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (!IsMetalPlatform(Parameters.Platform) || RHIGetShaderLanguageVersion(Parameters.Platform) >= 2) && !IsMetalMRTPlatform(Parameters.Platform);
+			return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && !IsMetalMRTPlatform(Parameters.Platform);
 		}
 
 
@@ -1304,7 +1304,8 @@ namespace
 		// Get pointer to the shader
 		FCopyWindowCS* ComputeShader = GetCopyWindowCS(ShaderMap);
 
-		SetRenderTarget(RHICmdList, FTextureRHIRef(), FTextureRHIRef());
+		// #todo-renderpasses remove once everything is converted
+		UnbindRenderTargets(RHICmdList);
 		RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 
 		// Bind output
@@ -1364,7 +1365,8 @@ namespace
 		// Get pointer to the shader
 		FComplexMultiplyImagesCS* ComputeShader = GetComplexMultiplyImagesCS(ShaderMap);
 
-		SetRenderTarget(RHICmdList, FTextureRHIRef(), FTextureRHIRef());
+		// #todo-renderpasses remove once everything is converted
+		UnbindRenderTargets(RHICmdList);
 		RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 
 		// Bind output
@@ -1432,7 +1434,8 @@ namespace
 		// Get pointer to the shader
 		FPackTwoForOneFFTPassCS* ComputeShader = GetPackTwoForOneFFTPassCS(ShaderMap, TransformLength);
 
-		SetRenderTarget(RHICmdList, FTextureRHIRef(), FTextureRHIRef());
+		// #todo-renderpasses remove once everything is converted
+		UnbindRenderTargets(RHICmdList);
 		RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 
 		// Bind output
@@ -1482,7 +1485,8 @@ namespace
 		FComplexFFTPassCS* ComputeShader = GetComplexFFTPassCS(ShaderMap, TransformLength);
 
 
-		SetRenderTarget(RHICmdList, FTextureRHIRef(), FTextureRHIRef());
+		// #todo-renderpasses remove once everything is converted
+		UnbindRenderTargets(RHICmdList);
 		RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 
 		// Bind output
@@ -1534,7 +1538,8 @@ namespace
 		FReorderFFTPassCS* ComputeShader = GetReorderFFTPassCS(ShaderMap);
 
 
-		SetRenderTarget(RHICmdList, FTextureRHIRef(), FTextureRHIRef());
+		// #todo-renderpasses remove once everything is converted
+		UnbindRenderTargets(RHICmdList);
 		RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 
 		// Bind output
@@ -1596,7 +1601,8 @@ namespace
 		FGroupShardSubFFTPassCS* ComputeShader = GetGroupSharedSubFFTPassCS(ShaderMap, TransformLength);
 
 
-		SetRenderTarget(RHICmdList, FTextureRHIRef(), FTextureRHIRef());
+		// #todo-renderpasses remove once everything is converted
+		UnbindRenderTargets(RHICmdList);
 		RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 
 		// Bind output
@@ -1643,7 +1649,8 @@ namespace
 		FGSComplexTransformBaseCS* ComputeShader = GetComplexFFTCS(ShaderMap, TransformLength);
 
 
-		SetRenderTarget(RHICmdList, FTextureRHIRef(), FTextureRHIRef());
+		// #todo-renderpasses remove once everything is converted
+		UnbindRenderTargets(RHICmdList);
 		RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 
 		// Bind output
@@ -1694,7 +1701,8 @@ namespace
 		FGSComplexTransformBaseCS* ComputeShader = GetTwoForOneFFTCS(ShaderMap, TransformLength);
 
 		// DJH - do we need this SetRenderTarget?
-		SetRenderTarget(RHICmdList, FTextureRHIRef(), FTextureRHIRef());
+		// #todo-renderpasses remove once everything is converted
+		UnbindRenderTargets(RHICmdList);
 		RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 
 
@@ -1751,7 +1759,8 @@ namespace
 		FGSConvolutionWithTextureKernelBaseCS* ComputeShader = GetConvolutionWithTextureKernelCS(ShaderMap, SignalLength);
 
 
-		SetRenderTarget(RHICmdList, FTextureRHIRef(), FTextureRHIRef());
+		// #todo-renderpasses remove once everything is converted
+		UnbindRenderTargets(RHICmdList);
 		RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 		
 		FScopedUAVBind ScopedBind = FScopedUAVBind::BindOutput(RHICmdList, *ComputeShader, DstUAV);

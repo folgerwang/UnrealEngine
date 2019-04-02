@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2696030
+﻿INTSourceChangelist:3108692
 Availability:Public
 Title:音频组件
 Crumbs:%ROOT%, Engine, Engine/Components
@@ -11,6 +11,7 @@ version: 4.9
 
 **AudioComponent** 用于创建和控制游戏内部声音的实例。 
 
+(#AudioComponent)
 ## Audio Component （音频组件）
 
 音频组件允许将 [Sound Wave](Engine/Audio/WAV) 或 [Sound Cue](Engine/Audio/Overview#soundcue) 添加为 Actor 的子对象，从而提供声源。 

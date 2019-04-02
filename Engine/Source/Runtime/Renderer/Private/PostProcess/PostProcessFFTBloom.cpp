@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 PostProcessFFTBlooom.cpp: Post processing blom using an FFT-based convolution.
@@ -42,7 +42,7 @@ public:
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		// @todo MetalMRT: Metal MRT can't cope with the threadgroup storage requirements for these shaders right now
-		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (!IsMetalPlatform(Parameters.Platform) || RHIGetShaderLanguageVersion(Parameters.Platform) >= 2) && !IsMetalMRTPlatform(Parameters.Platform);
+		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && !IsMetalMRTPlatform(Parameters.Platform);
 	}
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
@@ -139,7 +139,7 @@ public:
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		// @todo MetalMRT: Metal MRT can't cope with the threadgroup storage requirements for these shaders right now
-		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (!IsMetalPlatform(Parameters.Platform) || RHIGetShaderLanguageVersion(Parameters.Platform) >= 2) && !IsMetalMRTPlatform(Parameters.Platform);
+		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && !IsMetalMRTPlatform(Parameters.Platform);
 	}
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
@@ -228,7 +228,7 @@ public:
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		// @todo MetalMRT: Metal MRT can't cope with the threadgroup storage requirements for these shaders right now
-		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (!IsMetalPlatform(Parameters.Platform) || RHIGetShaderLanguageVersion(Parameters.Platform) >= 2) && !IsMetalMRTPlatform(Parameters.Platform);
+		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && !IsMetalMRTPlatform(Parameters.Platform);
 	}
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
@@ -326,7 +326,7 @@ public:
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		// @todo MetalMRT: Metal MRT can't cope with the threadgroup storage requirements for these shaders right now
-		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && (!IsMetalPlatform(Parameters.Platform) || RHIGetShaderLanguageVersion(Parameters.Platform) >= 2) && !IsMetalMRTPlatform(Parameters.Platform);
+		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5) && !IsMetalMRTPlatform(Parameters.Platform);
 	}
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
@@ -421,8 +421,8 @@ void ResizeAndCenterTexture(FRenderingCompositePassContext& Context,
 	// Get a pointer to the shader
 	FResizeAndCenterTextureCS* ComputeShader = ShaderMap.GetShader< FResizeAndCenterTextureCS >();
 
-	//
-	SetRenderTarget(RHICmdList, FTextureRHIRef(), FTextureRHIRef());
+	// #todo-renderpasses remove once everything is renderpasses
+	UnbindRenderTargets(Context.RHICmdList);
 	RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 
 	// set destination
@@ -477,8 +477,8 @@ void CaptureKernelWeight(FRenderingCompositePassContext& Context,
 	// Get a pointer to the shader
 	FCaptureKernelWeightsCS* ComputeShader = ShaderMap.GetShader< FCaptureKernelWeightsCS >();
 
-
-	SetRenderTarget(RHICmdList, FTextureRHIRef(), FTextureRHIRef());
+	// #todo-renderpasses remove once everything is renderpasses
+	UnbindRenderTargets(Context.RHICmdList);
 	RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 
 	// set destination
@@ -536,8 +536,8 @@ void BlendLowRes(FRenderingCompositePassContext& Context,
 	// Get a pointer to the shader
 	FBlendLowResCS* ComputeShader = ShaderMap.GetShader< FBlendLowResCS>();
 
-
-	SetRenderTarget(RHICmdList, FTextureRHIRef(), FTextureRHIRef());
+	// #todo-renderpasses remove once everything is renderpasses
+	UnbindRenderTargets(Context.RHICmdList);
 	RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 
 	// set destination
@@ -584,7 +584,8 @@ void CopyImageRect(FRenderingCompositePassContext& Context, const FSceneRenderTa
 	// Get a pointer to the shader
 	FPassThroughCS* ComputeShader = ShaderMap.GetShader< FPassThroughCS >();
 
-	SetRenderTarget(Context.RHICmdList, FTextureRHIRef(), FTextureRHIRef());
+	// #todo-renderpasses remove once everything is renderpasses
+	UnbindRenderTargets(Context.RHICmdList);
 	Context.RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 
 	// set destination
@@ -613,7 +614,7 @@ void FRCPassFFTBloom::InitializeDomainParameters(FRenderingCompositePassContext&
 	// so if the kernel is being applied on the edge of the image it will see padding and not periodicity
 	// NB:  If the kernel padding would force a transform buffer that is too big for group shared memory (> 4096)
 	//      we clamp it.  This could result in a wrap-around in the bloom (from one side of the screen to the other),
-	//      but since the amplitude of the bloom kernel tails is usually very small, this shouldnt be too bad.
+	//      but since the amplitude of the bloom kernel tails is usually very small, this shouldn't be too bad.
 	auto KernelRadiusSupportFunctor = [KernelSupportScale, KernelSupportScaleClamp](const FIntPoint& Size) ->int32 {
 
 		float ClampedKernelSupportScale = (KernelSupportScaleClamp > 0) ? FMath::Min(KernelSupportScale, KernelSupportScaleClamp) : KernelSupportScale;
@@ -662,8 +663,13 @@ void FRCPassFFTBloom::InitializeDomainParameters(FRenderingCompositePassContext&
 	// Capture the region of interest
 	ImageRect = InputRect;
 	const FIntPoint ImageSize = ImageRect.Size();
-	
+
+	// The length of the a side of the square kernel image in pixels
+
+	int32 KernelSize = FMath::CeilToInt(KernelSupportScale * FMath::Max(ImageSize.X, ImageSize.Y));
+
 	int32 SpectralPadding = KernelRadiusSupportFunctor(ImageSize);
+
 
 	// The following are mathematically equivalent
 	// 1) Horizontal FFT / Vertical FFT / Filter / Vertical InvFFT / Horizontal InvFFT
@@ -674,9 +680,13 @@ void FRCPassFFTBloom::InitializeDomainParameters(FRenderingCompositePassContext&
 	// the width of the kernel.  The ImageRect is virtually padded
 	// with black to account for the gather action of the convolution.
 	FIntPoint PaddedImageSize = ImageSize + FIntPoint(SpectralPadding, SpectralPadding);
+
+	PaddedImageSize.X = FMath::Max(PaddedImageSize.X, KernelSize);
+	PaddedImageSize.Y = FMath::Max(PaddedImageSize.Y, KernelSize);
+
 	FrequencySize = FIntPoint(FMath::RoundUpToPowerOfTwo(PaddedImageSize.X), FMath::RoundUpToPowerOfTwo(PaddedImageSize.Y));
 
-	// Chose to do to transform in the direction that results in writting the least amount of data to main memory.
+	// Choose to do to transform in the direction that results in writing the least amount of data to main memory.
 
 	bDoHorizontalFirst = ((FrequencySize.Y * PaddedImageSize.X) > (FrequencySize.X * PaddedImageSize.Y));
 

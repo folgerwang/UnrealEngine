@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title: 3.调整 Actor 的物理与碰撞
 Crumbs:%ROOT%, Gameplay, GettingStarted\HowTo, GettingStarted\HowTo\DetailsPanel
@@ -34,6 +34,7 @@ checkpoint: editorqs
 我们可以将 Actor 设置为模拟物理，这将允许我们在环境中撞击和推动该 Actor，以及定义它与其他 Actor 发生碰撞时如何作出反应。 
 
 
+(#Steps)
 ## 步骤
 
 1. 	选中 **Shape_Sphere**，然后在 **细节（Details）** 面板中的 **碰撞（Collision）** 下，选中 **模拟生成碰撞事件（Simulation Generates Hit Events）** 复选框。 
@@ -88,6 +89,7 @@ checkpoint: editorqs
 
 	![](Details24.png)
 
+(#EndResult)
 ## 最终结果
 
 现在，在编辑器中游戏时，您可以使用 **WASD** 来移动角色，并使用 **鼠标** 来操纵摄像机。您应该会看到球体现在滚下楼梯，如果您走近它，它应该会杀死角色，从而使角色消失（您被“杀死”后，可按 **Esc** 键退出游戏会话）。 

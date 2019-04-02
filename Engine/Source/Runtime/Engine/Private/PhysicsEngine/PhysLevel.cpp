@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Misc/Paths.h"
@@ -68,14 +68,9 @@ void UWorld::SetupPhysicsTickFunctions(float DeltaSeconds)
 	EndPhysicsTickFunction.bCanEverTick = true;
 	EndPhysicsTickFunction.Target = this;
 	
-	StartAsyncTickFunction.bCanEverTick = true;
-	StartAsyncTickFunction.Target = this;
-	
-	
 	// see if we need to update tick registration
 	bool bNeedToUpdateTickRegistration = (bShouldSimulatePhysics != StartPhysicsTickFunction.IsTickFunctionRegistered())
-		|| (bShouldSimulatePhysics != EndPhysicsTickFunction.IsTickFunctionRegistered())
-		|| (bShouldSimulatePhysics != StartAsyncTickFunction.IsTickFunctionRegistered());
+		|| (bShouldSimulatePhysics != EndPhysicsTickFunction.IsTickFunctionRegistered());
 
 	if (bNeedToUpdateTickRegistration && PersistentLevel)
 	{
@@ -99,18 +94,6 @@ void UWorld::SetupPhysicsTickFunctions(float DeltaSeconds)
 		{
 			EndPhysicsTickFunction.RemovePrerequisite(this, StartPhysicsTickFunction);
 			EndPhysicsTickFunction.UnRegisterTickFunction();
-		}
-
-		//async scene
-		if (bShouldSimulatePhysics && !StartAsyncTickFunction.IsTickFunctionRegistered() && UPhysicsSettings::Get()->bEnableAsyncScene)
-		{
-			StartAsyncTickFunction.TickGroup = TG_EndPhysics;
-			StartAsyncTickFunction.RegisterTickFunction(PersistentLevel);
-			StartAsyncTickFunction.AddPrerequisite(this, EndPhysicsTickFunction);
-		}
-		else if (!bShouldSimulatePhysics && StartAsyncTickFunction.IsTickFunctionRegistered())
-		{
-			StartAsyncTickFunction.UnRegisterTickFunction();
 		}
 	}
 
@@ -155,14 +138,6 @@ void UWorld::FinishPhysicsSim()
 	PhysScene->EndFrame(LineBatcher);
 }
 
-void UWorld::StartAsyncSim()
-{
-	if (FPhysScene* PhysScene = GetPhysicsScene())
-	{
-		PhysScene->StartAsync();
-	}
-}
-
 // the physics tick functions
 
 void FStartPhysicsTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
@@ -175,6 +150,11 @@ void FStartPhysicsTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick Tic
 FString FStartPhysicsTickFunction::DiagnosticMessage()
 {
 	return TEXT("FStartPhysicsTickFunction");
+}
+
+FName FStartPhysicsTickFunction::DiagnosticContext(bool bDetailed)
+{
+	return FName(TEXT("StartPhysicsTick"));
 }
 
 void FEndPhysicsTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
@@ -226,17 +206,9 @@ FString FEndPhysicsTickFunction::DiagnosticMessage()
 	return TEXT("FEndPhysicsTickFunction");
 }
 
-void FStartAsyncSimulationFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+FName FEndPhysicsTickFunction::DiagnosticContext(bool bDetailed)
 {
-	QUICK_SCOPE_CYCLE_COUNTER(FStartAsyncSimulationFunction_ExecuteTick);
-
-	check(Target);
-	Target->StartAsyncSim();
-}
-
-FString FStartAsyncSimulationFunction::DiagnosticMessage()
-{
-	return TEXT("FStartAsyncSimulationFunction");
+	return FName(TEXT("EndPhysicsTick"));
 }
 
 void PvdConnect(FString Host, bool bVisualization);
@@ -244,6 +216,12 @@ void PvdConnect(FString Host, bool bVisualization);
 //////// GAME-LEVEL RIGID BODY PHYSICS STUFF ///////
 bool InitGamePhys()
 {
+#if INCLUDE_CHAOS
+	// If we're running with Chaos enabled, load its module
+	FModuleManager::Get().LoadModule("Chaos");
+	FModuleManager::Get().LoadModule("ChaosSolvers");
+#endif
+
 #if WITH_PHYSX
 	// Do nothing if SDK already exists
 	if(GPhysXFoundation != NULL)

@@ -1,60 +1,26 @@
-﻿INTSourceChangelist:1941792
+﻿INTSourceChangelist:3782314
 Availability: Public
 Title:1.5 -屏幕空间反射
-Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Reflections
+Crumbs: %ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Reflections
 Description:反射示例关卡概述，示例1.5： 屏幕空间反射
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/Reflections/1_5:title%](Reflections_1_5_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Reflections/1_5:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Reflections/1_5:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/Reflections/1_5]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/Reflections/1_5:title%](Reflections_1_5_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Reflections/1_5:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Reflections/1_5:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/Reflections/1_5]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-![](Reflections_1_5_Header.png)
-
-## 概述
+Related: Engine/Rendering/LightingAndShadows/ReflectionEnvironment
+Related: Engine/Rendering/LightingAndShadows/Lightmass
+Related: Engine/Rendering/LightingAndShadows/LightTypes/SkyLight\
+Related: Engine/Rendering/Materials/PhysicallyBased
+Related: Resources/Showcases/RealisticRendering
+Related: Engine/Rendering/PostProcessEffects
+Version: 4.9
+topic-image:Reflections_1_5_Topic.png
 
 [REGION:fullwidth]
 
-**Screen-Space Reflections** （屏幕空间反射）是动态后处理特效。 尽管它只能反射屏幕上的内容，但会在完全反射表面上产生一些奇怪的失真现象。 然而，通过对材质添加一点粗糙度，这些失真现象会消失。
+![](Reflections_1_5_Header.png)
+
+[/REGION]
+
+**屏幕空间反射** （Screenspace Reflections）是动态后处理特效。 尽管它只能反射屏幕上的内容，但会在完全反射表面上产生一些奇怪的失真现象。 然而，通过对材质添加一点粗糙度，这些失真现象会消失。
 
 [REGION:tip]
-使用控制台命令`r.ssr 1`以启用 **Screen-Space Reflections** （屏幕空间反射）。 此命令可在游戏运行时或在编辑器内，在右上方的 _Enter Console Command_ （输入控制台命令）区域内输入。
+使用控制台命令`r.ssr 1`以启用 **屏幕空间反射** （Screenspace Reflections），或者在视口中选择 **显示（Show）> 光照功能（Lighting Features）> 屏幕空间反射（Screen Space Reflections）** 启用。
 [/REGION]
 
-
-[/REGION]

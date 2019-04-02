@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -17,7 +17,7 @@ class AActor;
 /**
  * Represents the interactor in the world
  */
-UCLASS( ABSTRACT )
+UCLASS( Abstract, Blueprintable, BlueprintType)
 class VIEWPORTINTERACTION_API UViewportInteractor : public UObject
 {
 	GENERATED_BODY()
@@ -36,6 +36,10 @@ public:
 	/** Sets the world interaction */
 	void SetWorldInteraction( class UViewportWorldInteraction* InWorldInteraction );
 
+	/** Gets the world interaction */
+	UFUNCTION(BlueprintCallable, Category = "Interactor")
+	UViewportWorldInteraction* GetWorldInteraction() const;
+
 	/** Sets the other interactor */
 	void SetOtherInteractor( UViewportInteractor* InOtherInteractor ); //@todo ViewportInteraction: This should not be public to other modules and should only be called from the world interaction.
 
@@ -43,13 +47,16 @@ public:
 	void RemoveOtherInteractor();
 
 	/** Gets the paired interactor assigned by the world interaction, can return null when there is no other interactor */
+	UFUNCTION(BlueprintCallable, Category = "Interactor")
 	UViewportInteractor* GetOtherInteractor() const;
 
 	/** Whenever the ViewportWorldInteraction is shut down, the interacts will shut down as well */
-	virtual void Shutdown();
+	UFUNCTION(BlueprintNativeEvent, CallInEditor, Category = "Interactor")
+	void Shutdown();
 
 	/** Update for this interactor called by the ViewportWorldInteraction */
-	virtual void Tick( const float DeltaTime );
+	UFUNCTION(BlueprintNativeEvent, CallInEditor, Category = "Interactor")
+	void Tick( const float DeltaTime );
 
 	/** Gets the last component hovered on by the interactor laser. */
 	virtual class UActorComponent* GetLastHoverComponent();
@@ -63,10 +70,20 @@ public:
 	/** Base classes need to implement getting the input for the input devices for that interactor */
 	virtual void PollInput() {}
 
-	/** Handles axis input and translates it actions */
+	/**
+	 * Handles key input and translates it actions 
+	 *  C++ Child classes are expected to to call there super versions of this.
+	 *  BP will have there "Receive" versions called from within these function and do not have to call
+	 *  there parents.  They simply need to return if they handled the input or not.
+	 */
 	bool HandleInputKey( class FEditorViewportClient& ViewportClient, const FKey Key, const EInputEvent Event );
 
-	/** Handles axis input and translates it to actions */
+	/**
+	 * Handles axis input and translates it to actions
+	 * C++ Child classes are expected to to call there super versions of this.
+	 *  BP will have there "Receive" versions called from within these function and do not have to call
+	 *  there parents.They simply need to return if they handled the input or not.
+	 */
 	bool HandleInputAxis( class FEditorViewportClient& ViewportClient, const FKey Key, const float Delta, const float DeltaTime );
 
 	/** @return	Returns true if this interactor's designated 'modifier button' is currently held down.  Some interactors may not support this */
@@ -76,9 +93,11 @@ public:
 	}
 
 	/** Gets the world transform of this interactor */
+	UFUNCTION(BlueprintCallable, Category = "Interactor")
 	FTransform GetTransform() const;
 
 	/** Gets the current interactor data dragging mode */
+	UFUNCTION(BlueprintCallable, Category = "Interactor")
 	EViewportInteractionDraggingMode GetDraggingMode() const;
 
 	/** Gets the interactor data previous dragging mode */
@@ -101,6 +120,7 @@ public:
 	 *
 	 * @return	True if we have motion controller data for this hand and could return a valid result
 	 */
+	UFUNCTION(BlueprintCallable, Category = "Interactor")
 	bool GetLaserPointer( FVector& LaserPointerStart, FVector& LaserPointerEnd, const bool bEvenIfBlocked = false, const float LaserLengthOverride = 0.0f );
 
 	/**
@@ -147,21 +167,25 @@ public:
 	 *
 	 * @return	True if we have motion controller data for this hand and could return a valid result
 	 */
+	UFUNCTION(BlueprintCallable, Category = "Interactor")
 	virtual bool GetTransformAndForwardVector( FTransform& OutHandTransform, FVector& OutForwardVector ) const;
 
 	/** Called by StartDragging in world interaction to give the interactor a chance of acting upon starting a drag operation */
 	virtual void OnStartDragging( const FVector& HitLocation, const bool bIsPlacingNewObjects );
 
 	/** Gets the interactor laser hover location */
+	UFUNCTION(BlueprintCallable, Category = "Interactor")
 	FVector GetHoverLocation();
 
 	/** If the interactor laser is currently hovering */
 	bool IsHovering() const;
 
 	/** If the interactor laser is currently hovering over a gizmo handle */
-	bool IsHoveringOverGizmo();
+	UFUNCTION(BlueprintCallable, Category = "Interactor")
+	bool IsHoveringOverGizmo() const;
 
 	/** Sets the current dragging mode for this interactor */
+	UFUNCTION(BlueprintCallable, Category = "Interactor")
 	void SetDraggingMode( const EViewportInteractionDraggingMode NewDraggingMode );
 
 	/** To be overridden by base class. Called by GetLaserPointer to give the derived interactor a chance to disable the laser. By default it is not blocked */
@@ -193,9 +217,17 @@ protected:
 
 	/** To be overridden. Called by HandleInputKey before delegates and default input implementation */
 	virtual void HandleInputKey( class FEditorViewportClient& ViewportClient, FViewportActionKeyInput& Action, const FKey Key, const EInputEvent Event, bool& bOutWasHandled ) {};
-	
+
+	/** To be overridden. Called by HandleInputKey before delegates and default input implementation */
+	UFUNCTION(BlueprintImplementableEvent, CallInEditor, meta = (DisplayName = "HandleInputKey"), Category = "Interactor")
+	void HandleInputKey_BP( const FViewportActionKeyInput& Action, const FKey Key, const EInputEvent Event, bool& bOutWasHandled);
+
 	/** To be overridden. Called by HandleInputAxis before delegates and default input implementation */
 	virtual void HandleInputAxis( class FEditorViewportClient& ViewportClient, FViewportActionKeyInput& Action, const FKey Key, const float Delta, const float DeltaTime, bool& bOutWasHandled ) {};
+
+	/** To be overridden. Called by HandleInputAxis before delegates and default input implementation */
+	UFUNCTION(BlueprintImplementableEvent, CallInEditor, meta = (DisplayName = "HandleInputAxis"), Category = "Interactor")
+	void HandleInputAxis_BP( const FViewportActionKeyInput& Action, const FKey Key, const float Delta, const float DeltaTime, bool& bOutWasHandled);
 
 	/** If this interactors allows to smooth the laser. Default is true. */
 	virtual bool AllowLaserSmoothing() const;
@@ -204,8 +236,9 @@ protected:
 
 	/** All the private data for the interactor */
 	FViewportInteractorData InteractorData;
-	
+
 	/** Mapping of raw keys to actions*/
+	UPROPERTY()
 	TMap<FKey, FViewportActionKeyInput> KeyToActionMap;
 
 	/** The owning world interaction */

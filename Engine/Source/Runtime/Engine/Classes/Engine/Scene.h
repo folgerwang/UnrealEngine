@@ -1,6 +1,6 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-//=============================================================================
+//===============================s==============================================
 // Scene - script exposed scene enums
 //=============================================================================
 
@@ -62,12 +62,34 @@ enum EBloomMethod
 	BM_MAX,
 };
 
-UENUM()
+UENUM() 
 enum class ELightUnits : uint8
 {
 	Unitless,
 	Candelas,
 	Lumens,
+};
+
+UENUM()
+enum class EReflectionsType : uint8
+{
+	ScreenSpace	UMETA(DisplayName = "Screen Space"),
+	RayTracing	UMETA(DisplayName = "Ray Tracing"),
+};
+
+UENUM()
+enum class ETranslucencyType : uint8
+{
+	Raster		UMETA(DisplayName = "Raster"),
+	RayTracing	UMETA(DisplayName = "Ray Tracing"),
+};
+
+UENUM()
+enum class EReflectedAndRefractedRayTracedShadows : uint8
+{
+	Disabled		UMETA(DisplayName = "Disabled"),
+	Hard_shadows	UMETA(DisplayName = "Hard Shadows"),
+	Area_shadows	UMETA(DisplayName = "Area Shadows"),
 };
 
 
@@ -491,6 +513,14 @@ struct FCameraExposureSettings
 	UPROPERTY(Interp, BlueprintReadWrite, Category = "Exposure", meta = (UIMin = "-8.0", UIMax = "8.0", DisplayName = "Exposure Bias"))
 	float Bias;
 
+	/**
+	 * Exposure compensation based on the scene EV100.
+	 * Used to calibrate the final exposure differently depending on the average scene luminance.
+	 * 0: no adjustment, -1:2x darker, -2:4x darker, 1:2x brighter, 2:4x brighter, ...
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Exposure", meta = (DisplayName = "Exposure Bias Curve"))
+	class UCurveFloat* BiasCurve = nullptr;
+
 	/** temporary exposed until we found good values, -8: 1/256, -10: 1/1024 */
 	UPROPERTY(Interp, BlueprintReadWrite, Category="Exposure", AdvancedDisplay, meta=(UIMin = "-16", UIMax = "0.0"))
 	float HistogramLogMin;
@@ -798,6 +828,9 @@ struct FPostProcessSettings
 	uint8 bOverride_AutoExposureBias:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
+	uint8 bOverride_AutoExposureBiasCurve:1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_HistogramLogMin:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
@@ -868,6 +901,9 @@ struct FPostProcessSettings
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_AmbientOcclusionMipThreshold:1;
+
+	UPROPERTY(BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_RayTracingAOSamplesPerPixel : 1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_LPVIntensity:1;
@@ -959,7 +995,7 @@ struct FPostProcessSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldScale:1;
 
-	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UE_DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldMaxBokehSize:1;
 
@@ -969,25 +1005,25 @@ struct FPostProcessSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldFarBlurSize:1;
 
-	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer. Mobile renderer still support Gaussian method.")
+	UE_DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer. Mobile renderer still support Gaussian method.")
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldMethod:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_MobileHQGaussian:1;
 
-	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UE_DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldBokehShape:1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldOcclusion:1;
 
-	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UE_DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldColorThreshold:1;
 
-	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UE_DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
 	uint8 bOverride_DepthOfFieldSizeThreshold:1;
 
@@ -1023,6 +1059,58 @@ struct FPostProcessSettings
 
 	// -----------------------------------------------------------------------
 
+	// Ray Tracing
+	
+	UPROPERTY(BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_ReflectionsType : 1;
+
+	UPROPERTY(BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_RayTracingReflectionsMaxRoughness : 1;
+
+	UPROPERTY(BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_RayTracingReflectionsMaxBounces : 1;
+
+	UPROPERTY(BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_RayTracingReflectionsSamplesPerPixel : 1;
+
+	UPROPERTY(BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_RayTracingReflectionsShadows : 1;
+
+	UPROPERTY(BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_TranslucencyType : 1;
+
+	UPROPERTY(BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_RayTracingTranslucencyMaxRoughness : 1;
+
+	UPROPERTY(BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_RayTracingTranslucencyRefractionRays : 1;
+
+	UPROPERTY(BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_RayTracingTranslucencySamplesPerPixel : 1;
+
+	UPROPERTY(BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_RayTracingTranslucencyShadows : 1;
+
+	UPROPERTY(BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_RayTracingTranslucencyRefraction : 1;
+
+	UPROPERTY(BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_RayTracingGI : 1;
+
+	UPROPERTY(BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_RayTracingGIMaxBounces : 1;
+
+	UPROPERTY(BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_RayTracingGISamplesPerPixel : 1;
+
+	UPROPERTY(BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_PathTracingMaxBounces : 1;
+
+	UPROPERTY(BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_PathTracingSamplesPerPixel : 1;
+
+	// -----------------------------------------------------------------------
+
 	/** Enable HQ Gaussian on high end mobile platforms. (ES3_1) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lens|Depth of Field", meta = (editcondition = "bOverride_MobileHQGaussian", DisplayName = "High Quality Gaussian DoF on Mobile"))
 	uint8 bMobileHQGaussian:1;
@@ -1036,7 +1124,7 @@ struct FPostProcessSettings
     TEnumAsByte<enum EAutoExposureMethod> AutoExposureMethod;
 
 	/** DEPRECATED: BokehDOF, Simple gaussian, ... Mobile supports Gaussian only. Deferred shading renderer will only support CircleDOF. */
-	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer. Mobile renderer still support Gaussian method.")
+	UE_DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer. Mobile renderer still support Gaussian method.")
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Lens|Depth of Field", meta=(editcondition = "bOverride_DepthOfFieldMethod", DisplayName = "Method"))
 	TEnumAsByte<enum EDepthOfFieldMethod> DepthOfFieldMethod;
 
@@ -1321,6 +1409,14 @@ struct FPostProcessSettings
 	float AutoExposureBias;
 
 	/**
+	 * Exposure compensation based on the scene EV100.
+	 * Used to calibrate the final exposure differently depending on the average scene luminance.
+	 * 0: no adjustment, -1:2x darker, -2:4x darker, 1:2x brighter, 2:4x brighter, ...
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lens|Exposure", meta = (editcondition = "bOverride_AutoExposureBiasCurve", DisplayName = "Exposure Compensation Curve"))
+	class UCurveFloat* AutoExposureBiasCurve = nullptr;
+
+	/**
 	 * The eye adaptation will adapt to a value extracted from the luminance histogram of the scene color.
 	 * The value is defined as having x percent below this brightness. Higher values give bright spots on the screen more priority
 	 * but can lead to less stable results. Lower values give the medium and darker values more priority but might cause burn out of
@@ -1465,6 +1561,10 @@ struct FPostProcessSettings
 	UPROPERTY(interp, BlueprintReadWrite, Category="Rendering Features|Ambient Occlusion", AdvancedDisplay, meta=(ClampMin = "0.0", UIMax = "0.1", editcondition = "bOverride_AmbientOcclusionMipThreshold", DisplayName = "Mip Threshold"))
 	float AmbientOcclusionMipThreshold;
 
+	/** Sets the samples per pixel for ray tracing global illumination. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Rendering Features|Ray Tracing Ambient Occlusion", meta = (ClampMin = "1", ClampMax = "64", editcondition = "bOverride_RayTracingAOSamplesPerPixel", DisplayName = "Samples Per Pixel"))
+	int32 RayTracingAOSamplesPerPixel;
+
 	/** Adjusts indirect lighting color. (1,1,1) is default. (0,0,0) to disable GI. The show flag 'Global Illumination' must be enabled to use this property. */
 	UPROPERTY(interp, BlueprintReadWrite, Category="Rendering Features|Global Illumination", meta=(editcondition = "bOverride_IndirectLightingColor", DisplayName = "Indirect Lighting Color", HideAlphaChannel))
 	FLinearColor IndirectLightingColor;
@@ -1472,6 +1572,18 @@ struct FPostProcessSettings
 	/** Scales the indirect lighting contribution. A value of 0 disables GI. Default is 1. The show flag 'Global Illumination' must be enabled to use this property. */
 	UPROPERTY(interp, BlueprintReadWrite, Category="Rendering Features|Global Illumination", meta=(ClampMin = "0", UIMax = "4.0", editcondition = "bOverride_IndirectLightingIntensity", DisplayName = "Indirect Lighting Intensity"))
 	float IndirectLightingIntensity;
+
+	/** Enables ray tracing global illumination. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Rendering Features|Ray Tracing Global Illumination", meta = (editcondition = "bOverride_RayTracingGI", DisplayName = "Enabled"))
+	uint32 RayTracingGI : 1;
+
+	/** Sets the ray tracing global illumination maximum bounces. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Rendering Features|Ray Tracing Global Illumination", meta = (ClampMin = "0", ClampMax = "50", editcondition = "bOverride_RayTracingGIMaxBounces", DisplayName = "Max. Bounces"))
+	int32 RayTracingGIMaxBounces;
+
+	/** Sets the samples per pixel for ray tracing global illumination. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Rendering Features|Ray Tracing Global Illumination", meta = (ClampMin = "1", ClampMax = "64", editcondition = "bOverride_RayTracingGISamplesPerPixel", DisplayName = "Samples Per Pixel"))
+	int32 RayTracingGISamplesPerPixel;
 
 	/** Color grading lookup table intensity. 0 = no intensity, 1=full intensity */
 	UPROPERTY(interp, BlueprintReadWrite, Category="Color Grading|Misc", meta=(ClampMin = "0", ClampMax = "1.0", editcondition = "bOverride_ColorGradingIntensity", DisplayName = "Color Grading LUT Intensity"))
@@ -1516,7 +1628,7 @@ struct FPostProcessSettings
 	float DepthOfFieldScale;
 
 	/** DEPRECATED: BokehDOF only: Maximum size of the Depth of Field blur (in percent of the view width) (note: performance cost scales with size*size) */
-	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UE_DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Depth of Field", meta=(UIMin = "0.0", UIMax = "32.0", editcondition = "bOverride_DepthOfFieldMaxBokehSize", DisplayName = "Max Bokeh Size"))
 	float DepthOfFieldMaxBokehSize;
 
@@ -1533,17 +1645,17 @@ struct FPostProcessSettings
 	float DepthOfFieldOcclusion;
 
 	/** DEPRECATED: Defines the shape of the Bokeh when object get out of focus, cannot be blended */
-	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UE_DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category="Lens|Depth of Field", meta=(editcondition = "bOverride_DepthOfFieldBokehShape", DisplayName = "Shape"))
 	class UTexture* DepthOfFieldBokehShape;
 
 	/** DEPRECATED: Color threshold to do full quality DOF (BokehDOF only) */
-	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UE_DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Depth of Field", AdvancedDisplay, meta=(ClampMin = "0.0", ClampMax = "10.0", editcondition = "bOverride_DepthOfFieldColorThreshold", DisplayName = "Color Threshold"))
 	float DepthOfFieldColorThreshold;
 
 	/** DEPRECATED: Size threshold to do full quality DOF (BokehDOF only) */
-	DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
+	UE_DEPRECATED(4.21, "This property is now deprecated, please use circle DOF method for deferred shading renderer.")
 	UPROPERTY(interp, BlueprintReadWrite, Category="Lens|Depth of Field", AdvancedDisplay, meta=(ClampMin = "0.0", ClampMax = "1.0", editcondition = "bOverride_DepthOfFieldSizeThreshold", DisplayName = "Size Threshold"))
 	float DepthOfFieldSizeThreshold;
 	
@@ -1616,6 +1728,10 @@ struct FPostProcessSettings
 	UPROPERTY(interp, BlueprintReadWrite, Category="Rendering Features|Light Propagation Volume", AdvancedDisplay, meta=(editcondition = "bOverride_LPVSpecularOcclusionIntensity", UIMin = "0", UIMax = "4", DisplayName = "Specular occlusion intensity"))
 	float LPVSpecularOcclusionIntensity;
 
+	/** Sets the reflections type */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Rendering Features|Reflections", meta = (editcondition = "bOverride_ReflectionsType", DisplayName = "Type"))
+	EReflectionsType ReflectionsType;
+
 	/** Enable/Fade/disable the Screen Space Reflection feature, in percent, avoid numbers between 0 and 1 fo consistency */
 	UPROPERTY(interp, BlueprintReadWrite, Category="Rendering Features|Screen Space Reflections", meta=(ClampMin = "0.0", ClampMax = "100.0", editcondition = "bOverride_ScreenSpaceReflectionIntensity", DisplayName = "Intensity"))
 	float ScreenSpaceReflectionIntensity;
@@ -1627,6 +1743,59 @@ struct FPostProcessSettings
 	/** Until what roughness we fade the screen space reflections, 0.8 works well, smaller can run faster */
 	UPROPERTY(interp, BlueprintReadWrite, Category="Rendering Features|Screen Space Reflections", meta=(ClampMin = "0.01", ClampMax = "1.0", editcondition = "bOverride_ScreenSpaceReflectionMaxRoughness", DisplayName = "Max Roughness"))
 	float ScreenSpaceReflectionMaxRoughness;
+
+	/** Sets the maximum roughness until which ray tracing reflections will be visible (lower value is faster). Reflection contribution is smoothly faded when close to roughness threshold. This parameter behaves similarly to ScreenSpaceReflectionMaxRoughness. */
+	UPROPERTY(interp, BlueprintReadWrite, Category = "Rendering Features|Ray Tracing Reflections", meta = (ClampMin = "0.01", ClampMax = "1.0", editcondition = "bOverride_RayTracingReflectionsMaxRoughness", DisplayName = "Max Roughness"))
+	float RayTracingReflectionsMaxRoughness;
+
+	/** Sets the maximum number of ray tracing reflection bounces. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Rendering Features|Ray Tracing Reflections", meta = (ClampMin = "0", ClampMax = "50", editcondition = "bOverride_RayTracingReflectionsMaxBounces", DisplayName = "Max. Bounces"))
+	int32 RayTracingReflectionsMaxBounces;
+
+	/** Sets the samples per pixel for ray traced reflections. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Rendering Features|Ray Tracing Reflections", meta = (ClampMin = "1", ClampMax = "64", editcondition = "bOverride_RayTracingReflectionsSamplesPerPixel", DisplayName = "Samples Per Pixel"))
+	int32 RayTracingReflectionsSamplesPerPixel;
+
+	/** Sets the reflected shadows type. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Rendering Features|Ray Tracing Reflections", meta = (editcondition = "bOverride_RayTracingReflectionsShadows", DisplayName = "Shadows"))
+	EReflectedAndRefractedRayTracedShadows RayTracingReflectionsShadows;
+
+
+	/** Sets the translucency type */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Rendering Features|Translucency", meta = (editcondition = "bOverride_TranslucencyType", DisplayName = "Type"))
+	ETranslucencyType TranslucencyType;
+
+	/** Sets the maximum roughness until which ray tracing translucency will be visible (lower value is faster). Translucency contribution is smoothly faded when close to roughness threshold. This parameter behaves similarly to ScreenSpaceReflectionMaxRoughness. */
+	UPROPERTY(interp, BlueprintReadWrite, Category = "Rendering Features|Ray Tracing Translucency", meta = (ClampMin = "0.01", ClampMax = "1.0", editcondition = "bOverride_RayTracingTranslucencyMaxRoughness", DisplayName = "Max Roughness"))
+	float RayTracingTranslucencyMaxRoughness;
+
+	/** Sets the maximum number of ray tracing refraction rays. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Rendering Features|Ray Tracing Translucency", meta = (ClampMin = "0", ClampMax = "50", editcondition = "bOverride_RayTracingTranslucencyRefractionRays", DisplayName = "Max. Refraction Rays"))
+	int32 RayTracingTranslucencyRefractionRays;
+
+	/** Sets the samples per pixel for ray traced translucency. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Rendering Features|Ray Tracing Translucency", meta = (ClampMin = "1", ClampMax = "64", editcondition = "bOverride_RayTracingTranslucencySamplesPerPixel", DisplayName = "Samples Per Pixel"))
+	int32 RayTracingTranslucencySamplesPerPixel;
+
+	/** Sets the translucency shadows type. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Rendering Features|Ray Tracing Translucency", meta = (editcondition = "bOverride_RayTracingTranslucencyShadows", DisplayName = "Shadows"))
+	EReflectedAndRefractedRayTracedShadows RayTracingTranslucencyShadows;
+
+	/** Sets whether refraction should be enabled or not (if not rays will not scatter and only travel in the same direction as before the intersection event). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Rendering Features|Ray Tracing Translucency", meta = (editcondition = "bOverride_RayTracingTranslucencyRefraction", DisplayName = "Refraction"))
+	uint8 RayTracingTranslucencyRefraction : 1;
+
+
+	// Path Tracing
+	/** Sets the path tracing maximum bounces */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Rendering Features|PathTracing", meta = (ClampMin = "0", ClampMax = "50", editcondition = "bOverride_PathTracingMaxBounces", DisplayName = "Max. Bounces"))
+	int32 PathTracingMaxBounces;
+
+	/** Sets the samples per pixel for the path tracer. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Rendering Features|PathTracing", meta = (ClampMin = "1", ClampMax = "64", editcondition = "bOverride_PathTracingSamplesPerPixel", DisplayName = "Samples Per Pixel"))
+	int32 PathTracingSamplesPerPixel;
+
+
 
 	/** LPV Fade range - increase to fade more gradually towards the LPV edges.*/
 	UPROPERTY(interp, BlueprintReadWrite, Category = "Rendering Features|Light Propagation Volume", AdvancedDisplay, meta = (editcondition = "bOverride_LPVFadeRange", UIMin = "0", UIMax = "9", DisplayName = "Fade range"))
@@ -1645,6 +1814,8 @@ struct FPostProcessSettings
 	*/
 	UPROPERTY(interp, BlueprintReadWrite, Category="Rendering Features|Misc", meta=(ClampMin = "0.0", ClampMax = "400.0", editcondition = "bOverride_ScreenPercentage"))
 	float ScreenPercentage;
+
+
 
 	// Note: Adding properties before this line require also changes to the OverridePostProcessSettings() function and 
 	// FPostProcessSettings constructor and possibly the SetBaseValues() method.

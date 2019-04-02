@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -37,6 +37,9 @@ public:
 	/** Delegate for when the context menu has successfully toggled the favorite status of a folder */
 	DECLARE_DELEGATE_OneParam(FOnFolderFavoriteToggled, const TArray<FString>& /*FoldersToToggle*/)
 	void SetOnFolderFavoriteToggled(const FOnFolderFavoriteToggled& InOnFolderFavoriteToggled);
+
+	/** Gets the currently selected paths */
+	const TArray<FString>& GetSelectedPaths() const;
 
 	/** Sets the currently selected paths */
 	void SetSelectedPaths(const TArray<FString>& InSelectedPaths);

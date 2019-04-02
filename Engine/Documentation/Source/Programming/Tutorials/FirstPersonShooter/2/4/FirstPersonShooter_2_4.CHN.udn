@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3069483
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:2.4 - 实现鼠标摄像机控制
 Crumbs: %ROOT%, Programming, Programming/Tutorials/FirstPersonShooter, Programming/Tutorials/FirstPersonShooter/2
 Description:学习如何实现第一人称射击游戏角色的鼠标摄像机控制。
 SkillLevel:Beginner
-Version:4.11
+Version: 4.15
 
 [VAR:Steps]
 [OBJECT:Navigation]
@@ -26,6 +26,7 @@ Version:4.11
 
 在这步中，我们将实现鼠标控制角色四处查看的功能。
 
+(#TurnAxisMapping)
 ## 转动轴映射
 
 1.	在 **Edit** 菜单中点击 **Project Settings**。
@@ -44,6 +45,7 @@ Version:4.11
 
 	![](TurnAxisMapping_MouseX.png)
 
+(#Look-upAxisMapping)
 ## 仰视轴映射
 
 1.	在 **Bindings** 下点击 **Axis Mappings** 旁的加号。
@@ -60,6 +62,7 @@ Version:4.11
 
 1.	关闭 **Project Settings** 菜单。
 
+(#ImplementingInputHandling)
 ## 实现输入处理
 
 现在即可添加代码，处理转动和仰视的鼠标输入。`Character` 基类定义两个必要函数：
@@ -73,25 +76,25 @@ Version:4.11
 
 1.	将以下代码行添加到 `FPSCharacter.cpp` 中的 `SetupPlayerInputComponent`。
 		// 设置“查看”绑定。
-		InputComponent->BindAxis("Turn", this, &AFPSCharacter::AddControllerYawInput);
-		InputComponent->BindAxis("LookUp", this, &AFPSCharacter::AddControllerPitchInput);
+		PlayerInputComponent->BindAxis("Turn", this, &AFPSCharacter::AddControllerYawInput);
+		PlayerInputComponent->BindAxis("LookUp", this, &AFPSCharacter::AddControllerPitchInput);
 
 1.	`SetupPlayerInputComponent` 应与以下代码相似：
 
 		// 调用后将功能绑定到输入
-		void AFPSCharacter::SetupPlayerInputComponent(class UInputComponent* InputComponent)
+		void AFPSCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
 		{
-			Super::SetupPlayerInputComponent(InputComponent);
+			Super::SetupPlayerInputComponent(PlayerInputComponent);
 		
 			// 设置“移动”绑定。
-			InputComponent->BindAxis("MoveForward", this, &AFPSCharacter::MoveForward);
-			InputComponent->BindAxis("MoveRight", this, &AFPSCharacter::MoveRight);
-
+			PlayerInputComponent->BindAxis("MoveForward", this, &AFPSCharacter::MoveForward);
+			PlayerInputComponent->BindAxis("MoveRight", this, &AFPSCharacter::MoveRight);
 			// 设置“查看”绑定。
-			InputComponent->BindAxis("Turn", this, &AFPSCharacter::AddControllerYawInput);
-			InputComponent->BindAxis("LookUp", this, &AFPSCharacter::AddControllerPitchInput);
+			PlayerInputComponent->BindAxis("Turn", this, &AFPSCharacter::AddControllerYawInput);
+			PlayerInputComponent->BindAxis("LookUp", this, &AFPSCharacter::AddControllerPitchInput);
 		}
 
+(#TestingMouseCameraControl)
 ## 测试鼠标摄像机控制
 
 1.	在 Visual Studio 中保存 `FPSCharacter` 实现文件。

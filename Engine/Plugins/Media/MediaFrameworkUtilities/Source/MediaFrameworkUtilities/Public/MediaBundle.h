@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -177,6 +177,11 @@ private:
 
 	/** Delegate for the media state changed event */
 	FOnMediaStateChanged MediaStateChangedDelegate;
+
+#if WITH_EDITORONLY_DATA
+	/** Last time the warning has been displayed.*/
+	double PreviousWarningTime;
+#endif // WITH_EDITOR
 
 private:
 	/**

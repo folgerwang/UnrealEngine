@@ -31,20 +31,10 @@
 			]
 		},
 		{
-			"Name" : "MagicLeapAudio",
-			"Type" : "Runtime",
-			"LoadingPhase" : "PreDefault",
-			"WhitelistPlatforms" :
-			[
-				"Win64",
-				"Lumin"
-			]
-		},
-		{
-			"Name" : "MagicLeapController",
-			"Type" : "Runtime",
-			"LoadingPhase" : "PostConfigInit",
-			"WhitelistPlatforms" :
+			"Name": "MagicLeapAR",
+			"Type": "Runtime",
+			"LoadingPhase": "PreDefault",
+			"WhitelistPlatforms": 
 			[
 				"Win64",
 				"Mac",
@@ -52,10 +42,30 @@
 			]
 		},
 		{
-			"Name" : "MagicLeapEyeTracker",
+			"Name" : "MagicLeapAudio",
 			"Type" : "Runtime",
-			"LoadingPhase" : "PostConfigInit",
 			"WhitelistPlatforms" :
+			[
+				"Win64",
+				"Lumin"
+			]
+		},
+		{
+			"Name": "MagicLeapController",
+			"Type": "Runtime",
+			"LoadingPhase": "PreDefault",
+			"WhitelistPlatforms": 
+			[
+				"Win64",
+				"Mac",
+				"Lumin"
+			]
+		},
+		{
+			"Name": "MagicLeapEyeTracker",
+			"Type": "Runtime",
+			"LoadingPhase": "PreDefault",
+			"WhitelistPlatforms": 
 			[
 				"Win64",
 				"Mac",
@@ -65,7 +75,7 @@
 		{
 			"Name" : "MagicLeapHandTracking",
 			"Type" : "Runtime",
-			"LoadingPhase" : "PostConfigInit",
+			"LoadingPhase" : "PreDefault",
 			"WhitelistPlatforms" :
 			[
 				"Win64",
@@ -74,10 +84,10 @@
 			]
 		},
 		{
-			"Name" : "MagicLeapSecureStorage",
-			"Type" : "Runtime",
-			"LoadingPhase" : "PostConfigInit",
-			"WhitelistPlatforms" :
+			"Name": "MagicLeapSecureStorage",
+			"Type": "Runtime",
+			"LoadingPhase": "PreDefault",
+			"WhitelistPlatforms": 
 			[
 				"Win64",
 				"Mac",
@@ -87,7 +97,6 @@
 		{
 			"Name" : "MagicLeapHelperOpenGL",
 			"Type" : "Runtime",
-			"LoadingPhase" : "PostConfigInit",
 			"WhitelistPlatforms" :
 			[
 				"Win64",
@@ -98,7 +107,6 @@
 		{
 			"Name" : "MagicLeapHelperVulkan",
 			"Type" : "Runtime",
-			"LoadingPhase" : "PostConfigInit",
 			"WhitelistPlatforms" :
 			[
 				"Win64",
@@ -107,10 +115,10 @@
 			]
 		},
 		{
-			"Name" : "MagicLeapIdentity",
-			"Type" : "Runtime",
-			"LoadingPhase" : "PostConfigInit",
-			"WhitelistPlatforms" :
+			"Name": "MagicLeapIdentity",
+			"Type": "Runtime",
+			"LoadingPhase": "PreDefault",
+			"WhitelistPlatforms": 
 			[
 				"Win64",
 				"Mac",

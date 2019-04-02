@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Scalability.h"
 #include "GenericPlatform/GenericPlatformSurvey.h"
@@ -569,6 +569,8 @@ void SetQualityLevels(const FQualityLevels& QualityLevels, bool bForce/* = false
 		CVarEffectsQuality.AsVariable()->Set(ClampedLevels.EffectsQuality, ECVF_SetByScalability);
 		CVarFoliageQuality.AsVariable()->Set(ClampedLevels.FoliageQuality, ECVF_SetByScalability);
 	}
+
+	OnScalabilitySettingsChanged.Broadcast(ClampedLevels);
 }
 
 FQualityLevels GetQualityLevels()

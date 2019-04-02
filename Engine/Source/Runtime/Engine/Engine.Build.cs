@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -7,11 +7,13 @@ public class Engine : ModuleRules
 {
 	public Engine(ReadOnlyTargetRules Target) : base(Target)
 	{
+		PrivateIncludePaths.Add("../Shaders/Shared");
+
 		PrivatePCHHeaderFile = "Private/EnginePrivatePCH.h";
 
 		SharedPCHHeaderFile = "Public/EngineSharedPCH.h";
 
-        PublicIncludePathModuleNames.AddRange(new string[] { "Renderer", "PacketHandler", "NetworkReplayStreaming", "AudioMixer", "AnimationCore" });
+		PublicIncludePathModuleNames.AddRange(new string[] { "Renderer", "PacketHandler", "NetworkReplayStreaming", "AudioMixer", "AnimationCore" });
 
 		PrivateIncludePaths.AddRange(
 			new string[] {
@@ -71,7 +73,6 @@ public class Engine : ModuleRules
 				"MessagingCommon",
 				"RenderCore",
 				"RHI",
-				"ShaderCore",
 				"Sockets",
 				"UtilityShaders",
 				"AssetRegistry", // Here until FAssetData is moved to engine
@@ -79,7 +80,6 @@ public class Engine : ModuleRules
 				"EngineSettings",
 				"SynthBenchmark",
 				"GameplayTags",
-				"DatabaseSupport",
 				"PacketHandler",
 				"AudioPlatformConfiguration",
 				"MeshDescription",
@@ -98,9 +98,22 @@ public class Engine : ModuleRules
 				"CinematicCamera",
 				"Analytics",
 				"AnalyticsET",
-                //"CrunchCompression"
-            }
+				"AudioMixer",
+				//"CrunchCompression"
+			}
 		);
+
+		if((Target.Platform != UnrealTargetPlatform.TVOS && Target.Platform != UnrealTargetPlatform.HTML5))
+        {
+            // Cross platform Audio Codecs:
+            AddEngineThirdPartyPrivateStaticDependencies(Target,
+                    "UEOgg",
+                    "Vorbis",
+                    "VorbisFile",
+                    "libOpus"
+                    );
+        }
+		
 
 		DynamicallyLoadedModuleNames.Add("EyeTracker");
 
@@ -123,8 +136,8 @@ public class Engine : ModuleRules
 		{
 			// for now we depend on this
 			PrivateDependencyModuleNames.Add("RawMesh");
-            PrivateDependencyModuleNames.Add("MeshDescriptionOperations");
-        }
+			PrivateDependencyModuleNames.Add("MeshDescriptionOperations");
+		}
 
 		bool bVariadicTemplatesSupported = true;
 		if (Target.Platform == UnrealTargetPlatform.XboxOne)
@@ -173,17 +186,19 @@ public class Engine : ModuleRules
 		CircularlyReferencedDependentModules.Add("UMG");
 		CircularlyReferencedDependentModules.Add("MaterialShaderQualitySettings");
 		CircularlyReferencedDependentModules.Add("CinematicCamera");
+		CircularlyReferencedDependentModules.Add("AudioMixer");
 
-        // The AnimGraphRuntime module is not needed by Engine proper, but it is loaded in LaunchEngineLoop.cpp,
-        // and needs to be listed in an always-included module in order to be compiled into standalone games
-        DynamicallyLoadedModuleNames.Add("AnimGraphRuntime");
-        
+		// The AnimGraphRuntime module is not needed by Engine proper, but it is loaded in LaunchEngineLoop.cpp,
+		// and needs to be listed in an always-included module in order to be compiled into standalone games
+		DynamicallyLoadedModuleNames.Add("AnimGraphRuntime");
+		
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[]
 			{
 				"MovieScene",
 				"MovieSceneCapture",
 				"MovieSceneTracks",
+				"LevelSequence",
 				"HeadMountedDisplay",
 				"MRMesh",
 				"StreamingPauseRendering",
@@ -294,6 +309,11 @@ public class Engine : ModuleRules
 			}
 		);
 
+		if(Target.bWithLiveCoding)
+		{
+			DynamicallyLoadedModuleNames.Add("LiveCoding");
+		}
+
 		if (Target.Type != TargetType.Server)
 		{
 			DynamicallyLoadedModuleNames.AddRange(
@@ -366,13 +386,6 @@ public class Engine : ModuleRules
 		if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 			(Target.Platform == UnrealTargetPlatform.Win32))
 		{
-			AddEngineThirdPartyPrivateStaticDependencies(Target,
-				"UEOgg",
-				"Vorbis",
-				"VorbisFile",
-				"libOpus"
-				);
-
 			// Head Mounted Display support
 //			PrivateIncludePathModuleNames.AddRange(new string[] { "HeadMountedDisplay" });
 //			DynamicallyLoadedModuleNames.AddRange(new string[] { "HeadMountedDisplay" });
@@ -391,11 +404,6 @@ public class Engine : ModuleRules
 
 		if (Target.Platform == UnrealTargetPlatform.Mac)
 		{
-			AddEngineThirdPartyPrivateStaticDependencies(Target,
-				"UEOgg",
-				"Vorbis",
-				"libOpus"
-				);
 			PublicFrameworks.AddRange(new string[] { "AVFoundation", "CoreVideo", "CoreMedia" });
 		}
 
@@ -407,20 +415,20 @@ public class Engine : ModuleRules
 				"VorbisFile"
 				);
 
-            PrivateDependencyModuleNames.Add("AndroidRuntimeSettings");
-        }
+			PrivateDependencyModuleNames.Add("AndroidRuntimeSettings");
+		}
 
-        if (Target.Platform == UnrealTargetPlatform.IOS || Target.Platform == UnrealTargetPlatform.TVOS)
-        {
-            PrivateDependencyModuleNames.Add("IOSRuntimeSettings");
-        }
+		if (Target.Platform == UnrealTargetPlatform.IOS || Target.Platform == UnrealTargetPlatform.TVOS)
+		{
+			PrivateDependencyModuleNames.Add("IOSRuntimeSettings");
+		}
 
-        if (Target.Platform == UnrealTargetPlatform.Switch)
-        {
-            PrivateDependencyModuleNames.Add("SwitchRuntimeSettings");
-        }
+		if (Target.Platform == UnrealTargetPlatform.Switch)
+		{
+			PrivateDependencyModuleNames.Add("SwitchRuntimeSettings");
+		}
 
-        if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
+		if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"UEOgg",
@@ -432,8 +440,8 @@ public class Engine : ModuleRules
 
 		PublicDefinitions.Add("GPUPARTICLE_LOCAL_VF_ONLY=0");
 
-        // Add a reference to the stats HTML files referenced by UEngine::DumpFPSChartToHTML. Previously staged by CopyBuildToStagingDirectory.
-    if (Target.bBuildEditor || Target.Configuration != UnrealTargetConfiguration.Shipping)
+		// Add a reference to the stats HTML files referenced by UEngine::DumpFPSChartToHTML. Previously staged by CopyBuildToStagingDirectory.
+	if (Target.bBuildEditor || Target.Configuration != UnrealTargetConfiguration.Shipping)
 		{
 			RuntimeDependencies.Add("$(EngineDir)/Content/Stats/...", StagedFileType.UFS);
 		}

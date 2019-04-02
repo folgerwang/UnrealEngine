@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -361,7 +361,7 @@ public:
 
 	const AActor* GetGoalActor() const
 	{
-		return GoalActor.Get();
+		return bObservingGoalActor ? GoalActor.Get() : nullptr;
 	}
 	const INavAgentInterface* GetGoalActorAsNavAgent() const
 	{
@@ -969,6 +969,7 @@ struct FAsyncPathFindingQuery : public FPathFindingQuery
 
 	FAsyncPathFindingQuery()
 		: QueryID(INVALID_NAVQUERYID)
+		, Mode(EPathFindingMode::Regular)
 	{ }
 
 	FAsyncPathFindingQuery(const UObject* InOwner, const ANavigationData& InNavData, const FVector& Start, const FVector& End, const FNavPathQueryDelegate& Delegate, FSharedConstNavQueryFilter SourceQueryFilter);

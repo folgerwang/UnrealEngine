@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,6 +7,7 @@
 #include "IMagicLeapPlugin.h"
 #include "IMagicLeapHMD.h"
 #include "Misc/ScopeLock.h"
+#include "HAL/ThreadSafeBool.h"
 
 #include "XRRenderTargetManager.h"
 #include "IStereoLayers.h"
@@ -17,13 +18,29 @@
 #include "MagicLeapHMDFunctionLibrary.h"
 #include "LuminRuntimeSettings.h"
 #include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
-#include "IHeadMountedDisplayVulkanExtensions.h"
 
 #if WITH_MLSDK
 ML_INCLUDES_START
 #include <ml_head_tracking.h>
 ML_INCLUDES_END
 #endif //WITH_MLSDK
+
+class IARSystemSupport;
+class FXRTrackingSystemBase;
+
+/**
+ * The public interface to this module.
+ */
+class ILuminARModule : public IModuleInterface
+{
+public:
+	//create for mutual connection (regardless of construction order)
+	virtual TSharedPtr<IARSystemSupport, ESPMode::ThreadSafe> CreateARImplementation() = 0;
+	//Now connect (regardless of connection order)
+	virtual void ConnectARImplementationToXRSystem(FXRTrackingSystemBase* InXRTrackingSystem) = 0;
+	//Now initialize fully connected systems
+	virtual void InitializeARImplementation() = 0;
+};
 
 /**
   * MagicLeap Head Mounted Display
@@ -43,6 +60,7 @@ public:
 	virtual class TSharedPtr< class IStereoRendering, ESPMode::ThreadSafe > GetStereoRenderingDevice() override { return AsShared(); }
 	virtual class TSharedPtr< class IXRCamera, ESPMode::ThreadSafe > GetXRCamera(int32 DeviceId) override;
 	virtual FName GetSystemName() const override;
+	virtual FString GetVersionString() const override;
 
 	virtual bool DoesSupportPositionalTracking() const override;
 	virtual bool HasValidTrackingPosition() override;
@@ -85,6 +103,10 @@ public:
 	virtual void UpdateScreenSettings(const FViewport* InViewport) override {}
 	virtual bool IsRenderingPaused() const override { return bIsRenderingPaused; }
 
+	virtual float GetPixelDenity() const override { return PixelDensity; }
+	virtual void SetPixelDensity(const float NewDensity) override;
+	virtual FIntPoint GetIdealRenderTargetSize() const override;
+
 	/** IStereoRendering interface */
 	virtual bool IsStereoEnabled() const override
 	{
@@ -111,19 +133,6 @@ public:
 		return false;
 	}
 
-	/** Vulkan Extensions */
-	class FMagicLeapVulkanExtensions : public IHeadMountedDisplayVulkanExtensions, public TSharedFromThis<FMagicLeapVulkanExtensions, ESPMode::ThreadSafe>
-	{
-	public:
-		FMagicLeapVulkanExtensions() {}
-		virtual ~FMagicLeapVulkanExtensions() {}
-
-		// IHeadMountedDisplayVulkanExtensions
-		virtual bool GetVulkanInstanceExtensionsRequired(TArray<const ANSICHAR*>& Out) override;
-		virtual bool GetVulkanDeviceExtensionsRequired(struct VkPhysicalDevice_T *pPhysicalDevice, TArray<const ANSICHAR*>& Out) override;
-	};
-
-
 	IStereoLayers* GetStereoLayers() override;
 
 	// FXRRenderTargetManager interface
@@ -136,14 +145,12 @@ public:
 
 public:
 	/** Constructor */
-	FMagicLeapHMD(IMagicLeapPlugin* MagicLeapPlugin, bool bEnableVDZI = false, bool bUseVulkan = false);
+	FMagicLeapHMD(IMagicLeapPlugin* MagicLeapPlugin, IARSystemSupport* ARImplementation, bool bEnableVDZI = false, bool bUseVulkan = false);
 
 	/** Destructor */
 	virtual ~FMagicLeapHMD();
 
 	/** FMagicLeapHMDBase interface */
-	virtual void RegisterMagicLeapInputDevice(IMagicLeapInputDevice* InputDevice) override;
-	virtual void UnregisterMagicLeapInputDevice(IMagicLeapInputDevice* InputDevice) override;
 	virtual bool IsInitialized() const override;
 	bool IsDeviceInitialized() const { return (bDeviceInitialized != 0) ? true : false; }
 
@@ -199,12 +206,15 @@ public:
 	// HACK: This is a hack in order to use projection matrices from last render frame
 	// This should be removed once unreal can use separate projection matrices for update and render
 	void InitializeOldFrameFromRenderFrame();
+	void InitializeRenderFrameFromRHIFrame();
 
 	const FAppFramework& GetAppFrameworkConst() const;
 	FAppFramework& GetAppFramework();
 	void SetFocusActor(const AActor* InFocusActor);
 
 	bool IsPerceptionEnabled() const;
+
+	bool IsVDZIEnabled() const { return bIsVDZIEnabled; }
 
 	int32 WindowMirrorMode; // how to mirror the display contents to the desktop window: 0 - no mirroring, 1 - single eye, 2 - stereo pair
 	uint32 DebugViewportWidth;
@@ -213,11 +223,6 @@ public:
 	MLHandle GraphicsClient;
 #endif //WITH_MLSDK
 
-private:
-
-	// The FMagicLeapPlugin class functions as a factory for FMagicLeapHMD.
-	// Therefore, it needs some control over initalization & termination.
-	friend class FMagicLeapPlugin;
 
 	/**
 	* Starts up the SensoryWare API
@@ -229,6 +234,7 @@ private:
 	*/
 	void Shutdown();
 
+private:
 	void EnableDeviceFeatures();
 	void DisableDeviceFeatures();
 
@@ -294,7 +300,7 @@ private:
 #endif //WITH_MLSDK
 	IRendererModule* RendererModule;
 	IMagicLeapPlugin* MagicLeapPlugin;
-	float IdealScreenPercentage;
+	float PixelDensity;
 	bool bIsPlaying;
 	bool bIsPerceptionEnabled;
 	bool bIsVDZIEnabled;
@@ -325,8 +331,8 @@ public:
 	FTrackingFrame OldTrackingFrame;
 
 private:
-	TSet<IMagicLeapInputDevice*> InputDevices;
 	TWeakObjectPtr<const AActor> FocusActor;
+	FThreadSafeBool bQueuedGraphicsCreateCall;
 
 	struct SavedProfileState
 	{

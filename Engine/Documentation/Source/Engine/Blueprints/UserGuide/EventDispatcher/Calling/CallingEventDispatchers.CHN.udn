@@ -1,8 +1,10 @@
-﻿INTSourceChangelist:1903102
+﻿INTSourceChangelist:3244370
 Availability:Public
 Title:调用事件调度器
-Crumbs: %ROOT%, Engine/Blueprints, Engine/Blueprints/UserGuide, Engine/Blueprints/UserGuide/EventDispatcher
+Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide, Engine/Blueprints/UserGuide/EventDispatcher
 Description: 调用事件调度器来执行事件列表中当前绑定的所有事件。
+version: 4.9
+tags:Blueprints
 
 
 
@@ -12,12 +14,12 @@ Description: 调用事件调度器来执行事件列表中当前绑定的所有�
 ![](event_dispatcher_call_node.png)
 
 [EXCERPT:Intro]
-使用 **Call** 节点调用一个Event Dispatcher(事件调度器)，将会触发绑定到该事件调度器的所有事件。对于每个事件调度器，您可以应用多个 **Call** 节点，且您既可以在
-_类蓝图_ 中调用事件调度器也可以在 _关卡蓝图_ 中进行调用。
+使用 **Call** 节点调用一个Event Dispatcher(事件调度器)，将会触发绑定到该事件调度器的所有事件。对于每个事件调度器，您可以应用多个 **Call** 节点，且您既可以在蓝图类中调用事件调度器也可以在关卡蓝图中进行调用。
 [/EXCERPT:Intro]
 
 
-## 在类蓝图中进行调用
+(#CallinginBlueprintClasses)
+## 在蓝图类中进行调用
 
 1. 在 **My Blueprint（我的蓝图）** 选卡下，从 Event Dispatcher(事件调度器)名称处开始拖拽鼠标并将其放置到您正处理的图表中。
 
@@ -27,7 +29,7 @@ _类蓝图_ 中调用事件调度器也可以在 _关卡蓝图_ 中进行调用�
 
 **另一种方法:**
 
-1. 右击图表。
+1. **右击** 图表。
 
 1. 在出现的关联菜单中展开 **Event Dispatcher（事件调度器）** 。
 
@@ -38,9 +40,10 @@ _类蓝图_ 中调用事件调度器也可以在 _关卡蓝图_ 中进行调用�
 	![](event_dispatcher_context_name.png)
 
 
+(#CallinginLevelBlueprints)
 ## 在关卡蓝图中进行调用
 
-1. 添加到关卡中您想为其调用事件调度器的[Actor的引用](Engine/Blueprints/UserGuide/Types/LevelBlueprint#引用Actor)。
+1. 添加到关卡中您想为其调用事件调度器的[Actor的引用](Engine/Blueprints/UserGuide/Types/LevelBlueprint#referencingactors)。
 
 	![](target_step1.png)
 

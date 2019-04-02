@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MacPlatformMemory.cpp: Mac platform memory functions
@@ -140,7 +140,7 @@ FPlatformMemoryStats FMacPlatformMemory::GetStats()
 	vm_statistics Stats;
 	mach_msg_type_number_t StatsSize = sizeof(Stats);
 	host_statistics(mach_host_self(), HOST_VM_INFO, (host_info_t)&Stats, &StatsSize);
-	uint64_t FreeMem = Stats.free_count * MemoryConstants.PageSize;
+	uint64_t FreeMem = (Stats.free_count + Stats.inactive_count) * MemoryConstants.PageSize;
 	MemoryStats.AvailablePhysical = FreeMem;
 	
 	// Get swap file info

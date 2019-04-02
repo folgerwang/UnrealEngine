@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System;
@@ -117,13 +117,13 @@ public class PhysXCookingLib : ModuleRules
         {
             PhysXLibDir = Path.Combine(PhysXLibDir, "IOS/");
             PublicAdditionalLibraries.Add("PhysX3Cooking" + LibrarySuffix);
-            PublicAdditionalShadowFiles.Add(Path.Combine(PhysXLibDir, "libPhysX3Cooking" + LibrarySuffix + ".a"));
+            PublicLibraryPaths.Add(PhysXLibDir);
         }
         else if (Target.Platform == UnrealTargetPlatform.TVOS)
         {
             PhysXLibDir = Path.Combine(PhysXLibDir, "TVOS/");
             PublicAdditionalLibraries.Add("PhysX3Cooking" + LibrarySuffix);
-            PublicAdditionalShadowFiles.Add(Path.Combine(PhysXLibDir, "libPhysX3Cooking" + LibrarySuffix + ".a"));
+            PublicLibraryPaths.Add(PhysXLibDir);
         }
         else if (Target.Platform == UnrealTargetPlatform.HTML5)
         {

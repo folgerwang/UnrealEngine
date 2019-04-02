@@ -1,7 +1,13 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 // Re-enable warnings
 THIRD_PARTY_INCLUDES_END
+
+// Hide Windows-only types (same as HideWindowsPlatformTypes.h)
+#undef INT
+#undef UINT
+#undef DWORD
+#undef FLOAT
 
 // Undo any Windows defines.
 #undef uint8
@@ -33,6 +39,11 @@ THIRD_PARTY_INCLUDES_END
 #undef GetProp
 #undef SetProp
 #undef GetFileAttributes
+#undef ReportEvent
+#undef GetClassName
+#undef GetClassInfo
+#undef Yield
+#undef IMediaEventSink
 
 // Undefine all the atomics. AllowWindowsPlatformAtomics/HideWindowsPlatformAtomics temporarily defining these macros.
 #if !PLATFORM_XBOXONE
@@ -56,6 +67,8 @@ THIRD_PARTY_INCLUDES_END
 #pragma pop_macro("MAX_uint32")
 #pragma pop_macro("MAX_int32")
 #pragma pop_macro("TEXT")
+#pragma pop_macro("TRUE")
+#pragma pop_macro("FALSE")
 
 // Redefine CDECL to our version of the #define.  <AJS> Is this really necessary?
 #define CDECL	    __cdecl					/* Standard C function */

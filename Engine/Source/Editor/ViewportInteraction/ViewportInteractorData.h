@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -77,8 +77,8 @@ struct FViewportInteractorData
 	/** Location that we dragged to last frame (end point of the ray) */
 	FVector LastDragToLocation;
 
-	/** The orientation of the interactor when we first started the drag */
-	FQuat InteractorRotationAtDragStart;
+	/** The transform of the interactor when we first started the drag */
+	FTransform InteractorTransformAtDragStart;
 
 	/** Where the grabber sphere center point was when we first started the drag */
 	FVector GrabberSphereLocationAtDragStart;
@@ -172,7 +172,7 @@ struct FViewportInteractorData
 		bIsFirstDragUpdate = false;
 		DragRayLength = 0.0f;
 		LastDragToLocation = FVector::ZeroVector;
-		InteractorRotationAtDragStart = FQuat::Identity;
+		InteractorTransformAtDragStart = FTransform::Identity;
 		GrabberSphereLocationAtDragStart = FVector::ZeroVector;
 		ImpactLocationAtDragStart = FVector::ZeroVector;
 		DragTranslationVelocity = FVector::ZeroVector;

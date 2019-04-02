@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreTypes.h"
 #include "EditorStyleSet.h"
@@ -84,6 +84,12 @@ private:
 
 	// @todo gmp: implement an IoC container
 	TSharedPtr<ITargetDeviceServiceManager> TargetDeviceServiceManager;
+
+	// default widget creator for platforms that don't specify their own
+	TSharedPtr<IDeviceManagerCustomPlatformWidgetCreator> DefaultWidgetCreator;
+
+	// custom widget creators
+	TMap<FString, TSharedPtr<IDeviceManagerCustomPlatformWidgetCreator>> CustomWidgetCreators;
 };
 
 

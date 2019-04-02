@@ -1,7 +1,9 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SSequencer.h"
 #include "Engine/Blueprint.h"
+#include "MovieSceneSequence.h"
+#include "Sections/MovieSceneSubSection.h"
 #include "MovieScene.h"
 #include "Framework/MultiBox/MultiBoxDefs.h"
 #include "Widgets/Text/STextBlock.h"
@@ -73,6 +75,7 @@
 #include "LevelSequence.h"
 #include "SequencerLog.h"
 #include "MovieSceneCopyableBinding.h"
+#include "MovieSceneCopyableTrack.h"
 
 #define LOCTEXT_NAMESPACE "Sequencer"
 
@@ -107,28 +110,34 @@ void SSequencer::Construct(const FArguments& InArgs, TSharedRef<FSequencer> InSe
 	USequencerSettings* SequencerSettings = Settings;
 
 	// Get the desired display format from the user's settings each time.
-	auto GetDisplayFormatDelegate = FOnGetDisplayFormat::CreateLambda([SequencerSettings]() ->EFrameNumberDisplayFormats {
-		if (SequencerSettings)
+	TAttribute<EFrameNumberDisplayFormats> GetDisplayFormatAttr = MakeAttributeLambda(
+		[SequencerSettings]
 		{
-			return SequencerSettings->GetTimeDisplayFormat();
+			if (SequencerSettings)
+			{
+				return SequencerSettings->GetTimeDisplayFormat();
+			}
+			return EFrameNumberDisplayFormats::Frames;
 		}
-		return EFrameNumberDisplayFormats::Frames;
-	});
+	);
 
 	// Get the number of zero pad frames from the user's settings as well.
-	auto GetZeroPadFramesDelegate = FOnGetZeroPad::CreateLambda([SequencerSettings]() -> uint8 {
-		if (SequencerSettings)
+	TAttribute<uint8> GetZeroPadFramesAttr = MakeAttributeLambda(
+		[SequencerSettings]()->uint8
 		{
-			return SequencerSettings->GetZeroPadFrames();
+			if (SequencerSettings)
+			{
+				return SequencerSettings->GetZeroPadFrames();
+			}
+			return 0;
 		}
-		return 0;
-	});
+	);
 
-	auto GetTickResolutionDelegate = FOnGetFrameRate::CreateSP(InSequencer, &FSequencer::GetFocusedTickResolution);
-	auto GetDisplayRateDelegate = FOnGetFrameRate::CreateSP(InSequencer, &FSequencer::GetFocusedDisplayRate);
+	TAttribute<FFrameRate> GetTickResolutionAttr = TAttribute<FFrameRate>(InSequencer, &FSequencer::GetFocusedTickResolution);
+	TAttribute<FFrameRate> GetDisplayRateAttr    = TAttribute<FFrameRate>(InSequencer, &FSequencer::GetFocusedDisplayRate);
 
 	// Create our numeric type interface so we can pass it to the time slider below.
-	NumericTypeInterface = MakeShareable(new FFrameNumberInterface(GetDisplayFormatDelegate, GetZeroPadFramesDelegate, GetTickResolutionDelegate, GetDisplayRateDelegate));
+	NumericTypeInterface = MakeShareable(new FFrameNumberInterface(GetDisplayFormatAttr, GetZeroPadFramesAttr, GetTickResolutionAttr, GetDisplayRateAttr));
 
 	FTimeSliderArgs TimeSliderArgs;
 	{
@@ -155,6 +164,7 @@ void SSequencer::Construct(const FArguments& InArgs, TSharedRef<FSequencer> InSe
 		TimeSliderArgs.OnScrubPositionChanged = InArgs._OnScrubPositionChanged;
 		TimeSliderArgs.PlaybackStatus = InArgs._PlaybackStatus;
 		TimeSliderArgs.SubSequenceRange = InArgs._SubSequenceRange;
+		TimeSliderArgs.VerticalFrames = InArgs._VerticalFrames;
 		TimeSliderArgs.MarkedFrames = InArgs._MarkedFrames;
 		TimeSliderArgs.OnMarkedFrameChanged = InArgs._OnMarkedFrameChanged;
 		TimeSliderArgs.OnClearAllMarkedFrames = InArgs._OnClearAllMarkedFrames;
@@ -285,6 +295,13 @@ void SSequencer::Construct(const FArguments& InArgs, TSharedRef<FSequencer> InSe
 							[
 								SNew(SSequencerCurveEditorToolBar, InSequencer, CurveEditorAndSequencerCommands)
 								.Visibility(this, &SSequencer::GetCurveEditorToolBarVisibility)
+							]
+
+							+ SHorizontalBox::Slot()
+							.HAlign(HAlign_Right)
+							.VAlign(VAlign_Center)
+							[
+								SNew(SSpacer)
 							]
 
 							+ SHorizontalBox::Slot()
@@ -1093,13 +1110,11 @@ void SSequencer::FillTimeDisplayFormatMenu(FMenuBuilder& MenuBuilder)
 	TSharedPtr<FSequencer> Sequencer = SequencerPtr.Pin();
 	bool bSupportsDropFormatDisplay = FTimecode::IsDropFormatTimecodeSupported(Sequencer->GetFocusedDisplayRate());
 
-	const UEnum* FrameNumberDisplayEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EFrameNumberDisplayFormats"), true);
+	const UEnum* FrameNumberDisplayEnum = StaticEnum<EFrameNumberDisplayFormats>();
 	check(FrameNumberDisplayEnum);
 
 	if (Settings)
 	{
-		EFrameNumberDisplayFormats CurrentDisplay = Settings->GetTimeDisplayFormat();
-
 		for (int32 Index = 0; Index < FrameNumberDisplayEnum->NumEnums() - 1; Index++)
 		{
 			if (!FrameNumberDisplayEnum->HasMetaData(TEXT("Hidden"), Index))
@@ -1110,7 +1125,6 @@ void SSequencer::FillTimeDisplayFormatMenu(FMenuBuilder& MenuBuilder)
 				if (Value == EFrameNumberDisplayFormats::DropFrameTimecode && !bSupportsDropFormatDisplay)
 					continue;
 
-				bool bIsSet = CurrentDisplay == Value;
 				MenuBuilder.AddMenuEntry(
 					FrameNumberDisplayEnum->GetDisplayNameTextByIndex(Index),
 					FrameNumberDisplayEnum->GetToolTipTextByIndex(Index),
@@ -1118,7 +1132,7 @@ void SSequencer::FillTimeDisplayFormatMenu(FMenuBuilder& MenuBuilder)
 					FUIAction(
 						FExecuteAction::CreateUObject(Settings, &USequencerSettings::SetTimeDisplayFormat, Value),
 						FCanExecuteAction(),
-						FIsActionChecked::CreateLambda([=] { return CurrentDisplay == Value; })
+						FIsActionChecked::CreateLambda([=] { return Settings->GetTimeDisplayFormat() == Value; })
 					),
 					NAME_None,
 					EUserInterfaceActionType::RadioButton
@@ -1139,14 +1153,34 @@ TSharedRef<SWidget> SSequencer::MakePlaybackMenu()
 		auto OnStartChanged = [=](double NewValue){
 
 			// We clamp the new value when the value is set. We can't clamp in the UI because we need an unset Min/Max for linear scaling to work.
-			double Min = (SequencerPtr.Pin()->GetClampRange().GetLowerBoundValue() * SequencerPtr.Pin()->GetFocusedTickResolution()).GetFrame().Value;
-			double Max = SequencerPtr.Pin()->GetPlaybackRange().GetUpperBoundValue().Value; 
+			double Min = -FLT_MAX;
+			double Max = SequencerPtr.Pin()->GetPlaybackRange().GetUpperBoundValue().Value;
 
 			NewValue = FMath::Clamp(NewValue, Min, Max);
 			FFrameNumber ValueAsFrame = FFrameTime::FromDecimal(NewValue).GetFrame();
 
 			FFrameNumber Upper = MovieScene::DiscreteExclusiveUpper(SequencerPtr.Pin()->GetPlaybackRange());
-			SequencerPtr.Pin()->SetPlaybackRange(TRange<FFrameNumber>(FMath::Min(ValueAsFrame, Upper-1), Upper));
+
+			TRange<FFrameNumber> NewRange = TRange<FFrameNumber>(FMath::Min(ValueAsFrame, Upper - 1), Upper);
+
+			SequencerPtr.Pin()->SetPlaybackRange(NewRange);
+
+			TRange<double> PlayRangeSeconds = SequencerPtr.Pin()->GetPlaybackRange() / SequencerPtr.Pin()->GetFocusedTickResolution();
+			const double AdditionalRange = (PlayRangeSeconds.GetUpperBoundValue() - PlayRangeSeconds.GetLowerBoundValue()) * 0.1;
+
+			TRange<double> NewClampRange = SequencerPtr.Pin()->GetClampRange();
+			NewClampRange.SetLowerBoundValue(SequencerPtr.Pin()->GetPlaybackRange().GetLowerBoundValue() / SequencerPtr.Pin()->GetFocusedTickResolution() - AdditionalRange);
+			if (SequencerPtr.Pin()->GetClampRange().GetLowerBoundValue() > NewClampRange.GetLowerBoundValue())
+			{
+				SequencerPtr.Pin()->SetClampRange(NewClampRange);
+			}
+
+			TRange<double> NewViewRange = SequencerPtr.Pin()->GetViewRange();
+			NewViewRange.SetLowerBoundValue(SequencerPtr.Pin()->GetPlaybackRange().GetLowerBoundValue() / SequencerPtr.Pin()->GetFocusedTickResolution() - AdditionalRange);
+			if (SequencerPtr.Pin()->GetViewRange().GetLowerBoundValue() > NewViewRange.GetLowerBoundValue())
+			{
+				SequencerPtr.Pin()->SetViewRange(NewViewRange);
+			}
 		};
 
 		MenuBuilder.AddWidget(
@@ -1183,13 +1217,30 @@ TSharedRef<SWidget> SSequencer::MakePlaybackMenu()
 
 			// We clamp the new value when the value is set. We can't clamp in the UI because we need an unset Min/Max for linear scaling to work.
 			double Min = SequencerPtr.Pin()->GetPlaybackRange().GetLowerBoundValue().Value;
-			double Max = (SequencerPtr.Pin()->GetClampRange().GetUpperBoundValue() * SequencerPtr.Pin()->GetFocusedTickResolution()).GetFrame().Value;
+			double Max = FLT_MAX;
 
 			NewValue = FMath::Clamp(NewValue, Min, Max);
 			FFrameNumber ValueAsFrame = FFrameTime::FromDecimal(NewValue).GetFrame();
 
 			FFrameNumber Lower = MovieScene::DiscreteInclusiveLower(SequencerPtr.Pin()->GetPlaybackRange());
 			SequencerPtr.Pin()->SetPlaybackRange(TRange<FFrameNumber>(Lower, FMath::Max(ValueAsFrame, Lower)));
+
+			TRange<double> PlayRangeSeconds = SequencerPtr.Pin()->GetPlaybackRange() / SequencerPtr.Pin()->GetFocusedTickResolution();
+			const double AdditionalRange = (PlayRangeSeconds.GetUpperBoundValue() - PlayRangeSeconds.GetLowerBoundValue()) * 0.1;
+
+			TRange<double> NewClampRange = SequencerPtr.Pin()->GetClampRange();
+			NewClampRange.SetUpperBoundValue(SequencerPtr.Pin()->GetPlaybackRange().GetUpperBoundValue() / SequencerPtr.Pin()->GetFocusedTickResolution() + AdditionalRange);
+			if (SequencerPtr.Pin()->GetClampRange().GetUpperBoundValue() < NewClampRange.GetUpperBoundValue())
+			{
+				SequencerPtr.Pin()->SetClampRange(NewClampRange);
+			}
+
+			TRange<double> NewViewRange = SequencerPtr.Pin()->GetViewRange();
+			NewViewRange.SetUpperBoundValue(SequencerPtr.Pin()->GetPlaybackRange().GetUpperBoundValue() / SequencerPtr.Pin()->GetFocusedTickResolution() + AdditionalRange);
+			if (SequencerPtr.Pin()->GetViewRange().GetUpperBoundValue() < NewViewRange.GetUpperBoundValue())
+			{
+				SequencerPtr.Pin()->SetViewRange(NewViewRange);
+			}
 		};
 
 		MenuBuilder.AddWidget(
@@ -1242,8 +1293,13 @@ TSharedRef<SWidget> SSequencer::MakePlaybackMenu()
 
 		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ToggleKeepCursorInPlaybackRangeWhileScrubbing );
 		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ToggleKeepCursorInPlaybackRange );
-		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ToggleKeepPlaybackRangeInSectionBounds );
-		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ToggleLinkCurveEditorTimeRange );
+
+		if (!SequencerPtr.Pin()->IsLevelEditorSequencer())
+		{
+			MenuBuilder.AddMenuEntry(FSequencerCommands::Get().ToggleKeepPlaybackRangeInSectionBounds);
+		}
+		
+		MenuBuilder.AddMenuEntry(FSequencerCommands::Get().ToggleLinkCurveEditorTimeRange);
 
 		// Menu entry for zero padding
 		auto OnZeroPadChanged = [=](uint8 NewValue){
@@ -1633,20 +1689,11 @@ void SSequencer::UpdateBreadcrumbs()
 
 	if( BreadcrumbTrail->PeekCrumb().BreadcrumbType == FSequencerBreadcrumb::MovieSceneType && BreadcrumbTrail->PeekCrumb().SequenceID != FocusedID )
 	{
-		FText CrumbName;
-		if(Sequencer->GetFocusedSequenceIsActive())
-		{
-			CrumbName = Sequencer->GetFocusedMovieSceneSequence()->GetDisplayName();
-		}
-		else
-		{
-			CrumbName = FText::Format(LOCTEXT("InactiveSequenceBreadcrumbFormat", "{0} [{1}]"),
-				Sequencer->GetFocusedMovieSceneSequence()->GetDisplayName(),
-				LOCTEXT("InactiveSequenceBreadcrumb", "Inactive"));
-		}
-			
+		TWeakObjectPtr<UMovieSceneSubSection> SubSection = Sequencer->FindSubSection(FocusedID);
+		TAttribute<FText> CrumbNameAttribute = MakeAttributeSP(this, &SSequencer::GetBreadcrumbTextForSection, SubSection);
+
 		// The current breadcrumb is not a moviescene so we need to make a new breadcrumb in order return to the parent moviescene later
-		BreadcrumbTrail->PushCrumb( CrumbName, FSequencerBreadcrumb( FocusedID ) );
+		BreadcrumbTrail->PushCrumb( CrumbNameAttribute, FSequencerBreadcrumb( FocusedID ) );
 	}
 }
 
@@ -1654,7 +1701,9 @@ void SSequencer::UpdateBreadcrumbs()
 void SSequencer::ResetBreadcrumbs()
 {
 	BreadcrumbTrail->ClearCrumbs();
-	BreadcrumbTrail->PushCrumb(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(this, &SSequencer::GetRootAnimationName)), FSequencerBreadcrumb(MovieSceneSequenceID::Root));
+
+	TAttribute<FText> CrumbNameAttribute = MakeAttributeSP(this, &SSequencer::GetBreadcrumbTextForSequence, MakeWeakObjectPtr(SequencerPtr.Pin()->GetRootMovieSceneSequence()), true);
+	BreadcrumbTrail->PushCrumb(CrumbNameAttribute, FSequencerBreadcrumb(MovieSceneSequenceID::Root));
 }
 
 void SSequencer::PopBreadcrumb()
@@ -2015,9 +2064,8 @@ void SSequencer::StepToKey(bool bStepToNextKey, bool bCameraOnly)
 			TSet<TSharedRef<FSequencerDisplayNode>> RootNodes( Sequencer->GetNodeTree()->GetRootNodes() );
 
 			TSet<TWeakObjectPtr<AActor> > LockedActors;
-			for ( int32 i = 0; i < GEditor->LevelViewportClients.Num(); ++i )
+			for (FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients())
 			{
-				FLevelEditorViewportClient* LevelVC = GEditor->LevelViewportClients[i];
 				if ( LevelVC && LevelVC->IsPerspective() && LevelVC->GetViewMode() != VMI_Unknown )
 				{
 					TWeakObjectPtr<AActor> ActorLock = LevelVC->GetActiveActorLock();
@@ -2078,7 +2126,7 @@ void SSequencer::StepToKey(bool bStepToNextKey, bool bCameraOnly)
 				SequencerHelpers::GetAllKeyAreas( Node, KeyAreas );
 				for ( TSharedPtr<IKeyArea> KeyArea : KeyAreas )
 				{
-					KeyArea->GetKeyTimes(AllTimes);
+					KeyArea->GetKeyTimes(AllTimes, KeyArea->GetOwningSection()->GetRange());
 				}
 
 				TSet<TWeakObjectPtr<UMovieSceneSection> > Sections;
@@ -2125,6 +2173,29 @@ void SSequencer::StepToKey(bool bStepToNextKey, bool bCameraOnly)
 				Sequencer->SetLocalTime( StepToTime.GetValue() );
 			}
 		}
+	}
+}
+
+
+FText SSequencer::GetBreadcrumbTextForSection(TWeakObjectPtr<UMovieSceneSubSection> SubSection) const
+{
+	UMovieSceneSubSection* SubSectionPtr = SubSection.Get();
+	return SubSectionPtr ? GetBreadcrumbTextForSequence(SubSectionPtr->GetSequence(), SubSectionPtr->IsActive()) : FText();
+}
+
+
+FText SSequencer::GetBreadcrumbTextForSequence(TWeakObjectPtr<UMovieSceneSequence> Sequence, bool bIsActive) const
+{
+	UMovieSceneSequence* SequencePtr = Sequence.Get();
+	if (bIsActive)
+	{
+		return SequencePtr->GetDisplayName();
+	}
+	else
+	{
+		return FText::Format(LOCTEXT("InactiveSequenceBreadcrumbFormat", "{0} [{1}]"),
+			SequencePtr->GetDisplayName(),
+			LOCTEXT("InactiveSequenceBreadcrumb", "Inactive"));
 	}
 }
 
@@ -2305,7 +2376,7 @@ void SSequencer::OnPaste()
 		}
 	}
 
-	PasteTracks();
+	DoPaste();
 }
 
 bool SSequencer::CanPaste()
@@ -2318,14 +2389,16 @@ bool SSequencer::CanPaste()
 	// Attempts to deserialize the text into object bindings/tracks that Sequencer understands.
 	if (Sequencer->CanPaste(TextToImport))
 	{
-		TArray<UMovieSceneTrack*> ImportedTrack;
+		TArray<UMovieSceneCopyableTrack*> ImportedTracks;
+		TArray<UMovieSceneSection*> ImportedSections;
 		TArray<UMovieSceneCopyableBinding*> ImportedObjects;
-		Sequencer->ImportTracksFromText(TextToImport, ImportedTrack);
-		Sequencer->ImportObjectsFromText(TextToImport, ImportedObjects);
+		Sequencer->ImportTracksFromText(TextToImport, ImportedTracks);
+		Sequencer->ImportSectionsFromText(TextToImport, ImportedSections);
+		Sequencer->ImportObjectBindingsFromText(TextToImport, ImportedObjects);
 
 		// If we couldn't deserialize any tracks or objects then the data isn't valid for sequencer,
 		// and we'll block a paste attempt.
-		if (ImportedTrack.Num() == 0 && ImportedObjects.Num() == 0)
+		if (ImportedTracks.Num() == 0 && ImportedSections.Num() == 0 && ImportedObjects.Num() == 0)
 		{
 			return false;
 		}
@@ -2337,11 +2410,11 @@ bool SSequencer::CanPaste()
 	return SequencerPtr.Pin()->GetClipboardStack().Num() != 0;
 }
 
-void SSequencer::PasteTracks()
+void SSequencer::DoPaste()
 {
 	TSharedPtr<FSequencer> Sequencer = SequencerPtr.Pin();
 
-	Sequencer->PasteCopiedTracks();
+	Sequencer->DoPaste();
 }
 
 bool SSequencer::OpenPasteMenu()
@@ -2361,7 +2434,7 @@ bool SSequencer::OpenPasteMenu()
 	}
 	else if (ContextMenu->AutoPaste())
 	{
-		return false;
+		return true;
 	}
 
 	const bool bShouldCloseWindowAfterMenuSelection = true;
@@ -2440,13 +2513,27 @@ void SSequencer::OnSetSequenceReadOnly(ECheckBoxState CheckBoxState)
 {
 	TSharedPtr<FSequencer> Sequencer = SequencerPtr.Pin();
 	
+	bool bReadOnly = CheckBoxState == ECheckBoxState::Checked;
+
 	if (Sequencer->GetFocusedMovieSceneSequence())
 	{
 		UMovieScene* MovieScene = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene();
 		const FScopedTransaction Transaction(CheckBoxState == ECheckBoxState::Checked ? LOCTEXT("LockMovieScene", "Lock Movie Scene") : LOCTEXT("UnlockMovieScene", "Unlock Movie Scene") );
 
 		MovieScene->Modify();
-		MovieScene->SetReadOnly(CheckBoxState == ECheckBoxState::Checked);
+		MovieScene->SetReadOnly(bReadOnly);
+
+		TArray<UMovieScene*> DescendantMovieScenes;
+		MovieSceneHelpers::GetDescendantMovieScenes(Sequencer->GetFocusedMovieSceneSequence(), DescendantMovieScenes);
+
+		for (UMovieScene* DescendantMovieScene : DescendantMovieScenes)
+		{
+			if (DescendantMovieScene && bReadOnly != DescendantMovieScene->IsReadOnly())
+			{
+				DescendantMovieScene->Modify();
+				DescendantMovieScene->SetReadOnly(bReadOnly);
+			}
+		}
 
 		Sequencer->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::Unknown);
 	}

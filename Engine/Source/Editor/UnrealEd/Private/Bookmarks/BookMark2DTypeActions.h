@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Bookmarks/IBookmarkTypeActions.h"
 #include "EditorViewportClient.h"
@@ -34,10 +34,10 @@ public:
 		{
 			// Set all level editing cameras to this bookmark
 			FVector Location(Bookmark->Zoom2D, Bookmark->Location.X, Bookmark->Location.Y);
-			for (int32 v = 0; v < GEditor->LevelViewportClients.Num(); v++)
+			for (FLevelEditorViewportClient* ViewportClient : GEditor->GetLevelViewportClients())
 			{
-				GEditor->LevelViewportClients[v]->SetViewLocation(Location);
-				GEditor->LevelViewportClients[v]->Invalidate();
+				ViewportClient->SetViewLocation(Location);
+				ViewportClient->Invalidate();
 			}
 		}
 	}

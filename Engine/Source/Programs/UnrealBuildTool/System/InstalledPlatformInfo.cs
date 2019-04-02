@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -122,6 +122,14 @@ namespace UnrealBuildTool
 					}
 				}
 			}
+		}
+
+		/// <summary>
+		/// Initializes the InstalledPlatformInfo. While this is not necessary to be called, it allows timing the static constructor call.
+		/// </summary>
+		internal static void Initialize()
+		{
+			// Unused, but allows timing call of the static constructor
 		}
 
 		private static void ParsePlatformConfiguration(string PlatformConfiguration)

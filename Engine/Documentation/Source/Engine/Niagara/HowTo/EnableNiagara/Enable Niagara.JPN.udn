@@ -1,36 +1,36 @@
-﻿INTSourceChangelist:0
-Availability: Docs
+﻿INTSourceChangelist:4323617
+Availability:Public
 Crumbs: %ROOT%, 
-Title:Enable the Niagara Plugin
-Description:Describes how you can enable the Niagara.
+Title:ナイアガラプラグインの有効化
+Description:ナイアガラを有効にする方法
 Type: how-to
 SkillLevel:Beginner
-Version: 4.17
+Version:4.17
 parent:Engine/Niagara/HowTo
 order:1
 tags:Niagara
 topic-image:
 
-Before you can begin to create visual effects using Niagara you will need to enable it via the **Plugins** menu. In the following How - to we go over what needs to be done in your UE4 project so that you can use Niagara.
+ナイアガラ を使った視覚効果の作成を始める前に、**[Plugins]** メニューからナイアガラを有効にする必要があります。以下の操作ガイドでは、UE4 プロジェクトでナイアガラを使うための手順を説明します。
 
 ![](HT_EnableNP_01.png)
 
-## Steps
+## ステップ
 
-1. First we need to open the Plugins menu by going to **Edit** > **Plugins**.
+1. **[Edit]** > **[Plugins]** を選択し **[Plugins]** メニューを開きます。
 
 	![](HT_EnableNP_00.png)
 
-1. In the Plugins menu, locate the **FX** section and then under Niagara, click on the **Enabled** checkmark box.
+1. プラグイン メニューで **[FX]** セクションを探し、[Niagara] と **[Niagara Extras]** に対して、 **[Enabled]** チェックマーク ボックスをクリックします。
 
 	![](HT_EnableNP_02.png)
 
-1. Now press the **Restart Now** button to restart the Unreal Engine 4 (UE4) Editor with the Niagara plugin enabled.
+1.**[Restart Now]**ボタンを押して、ナイアガラ プラグインを有効になった状態の UE4 エディタを再起動します。
 
 	![](HT_EnableNP_04.png)
 
-## End Result
+## 最終結果
 
-Once the UE4 Editor has re-started, when you right - click in the **Content Browser** you will have a new **FX** section that will have all of the various items you can use with Niagara.
+UE4 エディタが再起動し、**コンテンツ ブラウザ** で右クリックすると、ナイアガラ で使用できる様々なアイテムがある新規 **FX** セクションが表示されます。
 
 ![](HT_EnableNP_03.png)

@@ -1,8 +1,8 @@
 ﻿INTSourceChangelist:3718992
 Availability: Public
 Crumbs: %ROOT%
-Title: 1. 오큘러스 런타임 다운로드
-Description: 오큘러스 리프트 런타임 다운로드 사이트 안내입니다.
+Title: 1. Oculus 런타임 다운로드
+Description: Oculus 리프트 런타임 다운로드 사이트 안내입니다.
 Type:quick start
 SkillLevel:Beginner
 Version:4.17
@@ -14,9 +14,9 @@ Tags:VR
 
 [NAV]
 
-여기서는 언리얼 엔진 4 와 호환되는 최신 오큘러스 런타임을 어디에서 다운로드할 수 있는지에 대해 다루겠습니다.
+여기서는 언리얼 엔진 4 와 호환되는 최신 Oculus 런타임을 어디에서 다운로드할 수 있는지에 대해 다루겠습니다.
 
-1. [Oculus Setup](https://www.oculus.com/en-us/setup/) 페이지 중앙의 **Start  Download** 버튼을 클릭하여 오큘러스 런타임 다운로드를 시작합니다.
+1. [Oculus Setup](https://www.oculus.com/en-us/setup/) 페이지 중앙의 **Start  Download** 버튼을 클릭하여 Oculus 런타임 다운로드를 시작합니다.
 
 	![](OR_Download_Runtimes_00.png)
 

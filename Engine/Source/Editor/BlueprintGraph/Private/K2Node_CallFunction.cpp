@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "K2Node_CallFunction.h"
 #include "BlueprintCompilationManager.h"
@@ -19,6 +19,7 @@
 #include "K2Node_FunctionEntry.h"
 #include "K2Node_IfThenElse.h"
 #include "K2Node_TemporaryVariable.h"
+#include "K2Node_ExecutionSequence.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Classes/EditorStyleSettings.h"
 #include "Editor.h"
@@ -327,19 +328,6 @@ void FDynamicOutputHelper::VerifyNode(const UK2Node_CallFunction* FuncNode, FCom
 			}
 		}
 	}
-	
-	// Ensure that editor module BP exposed UFunctions can only be called in blueprints for which the baseclass is also part of an editor module
-	const UClass* FunctionClass = FuncNode->FunctionReference.GetMemberParentClass();
-	const bool bIsEditorOnlyFunction = FunctionClass && IsEditorOnlyObject(FunctionClass);
-
-	const UBlueprint* Blueprint = FuncNode->GetBlueprint();
-	const UClass* BlueprintClass = Blueprint->ParentClass;
-	bool bIsEditorOnlyBlueprintBaseClass = !BlueprintClass || IsEditorOnlyObject(BlueprintClass);
-	if (bIsEditorOnlyFunction && !bIsEditorOnlyBlueprintBaseClass)
-	{
-		FText const ErrorFormat = LOCTEXT("BlueprintEditorOnly", "Function in Editor Only Module '@@' cannot be called within the Non-Editor module blueprint base class '@@'.");
-		MessageLog.Error(*ErrorFormat.ToString(), FuncNode, BlueprintClass);
-	}
 }
 
 UK2Node_CallFunction* FDynamicOutputHelper::GetFunctionNode() const
@@ -557,7 +545,12 @@ void UK2Node_CallFunction::GetPinHoverText(const UEdGraphPin& Pin, FString& Hove
 	{
 		for (UEdGraphPin* P : Pins)
 		{
-			P->PinToolTip.Empty();
+			if (!P->PinToolTip.IsEmpty() && ExpandAsEnumPins.Contains(P))
+			{
+				continue;
+			}
+
+			P->PinToolTip.Reset();
 			GeneratePinTooltip(*P);
 		}
 
@@ -735,57 +728,105 @@ void UK2Node_CallFunction::CreateExecPinsForFunctionCall(const UFunction* Functi
 	bool bCreateSingleExecInputPin = true;
 	bool bCreateThenPin = true;
 	
+	ExpandAsEnumPins.Reset();
+
 	// If not pure, create exec pins
 	if (!bIsPureFunc)
 	{
 		// If we want enum->exec expansion, and it is not disabled, do it now
 		if(bWantsEnumToExecExpansion)
 		{
-			const FString& EnumParamName = Function->GetMetaData(FBlueprintMetadata::MD_ExpandEnumAsExecs);
+			TArray<FName> EnumNames;
+			GetExpandEnumPinNames(Function, EnumNames);
 
-			UProperty* Prop = nullptr;
-			UEnum* Enum = nullptr;
+			UProperty* PreviousInput = nullptr;
 
-			if(UByteProperty* ByteProp = FindField<UByteProperty>(Function, FName(*EnumParamName)))
+			for (const FName& EnumParamName : EnumNames)
 			{
-				Prop = ByteProp;
-				Enum = ByteProp->Enum;
-			}
-			else if(UEnumProperty* EnumProp = FindField<UEnumProperty>(Function, FName(*EnumParamName)))
-			{
-				Prop = EnumProp;
-				Enum = EnumProp->GetEnum();
-			}
+				UProperty* Prop = nullptr;
+				UEnum* Enum = nullptr;
 
-			if(Prop != nullptr && Enum != nullptr)
-			{
-				const bool bIsFunctionInput = !Prop->HasAnyPropertyFlags(CPF_ReturnParm) &&
-					(!Prop->HasAnyPropertyFlags(CPF_OutParm) ||
-					 Prop->HasAnyPropertyFlags(CPF_ReferenceParm));
-				const EEdGraphPinDirection Direction = bIsFunctionInput ? EGPD_Input : EGPD_Output;
-				
-				// yay, found it! Now create exec pin for each
-				int32 NumExecs = (Enum->NumEnums() - 1);
-				for(int32 ExecIdx=0; ExecIdx<NumExecs; ExecIdx++)
+				if (UByteProperty* ByteProp = FindField<UByteProperty>(Function, EnumParamName))
 				{
-					bool const bShouldBeHidden = Enum->HasMetaData(TEXT("Hidden"), ExecIdx) || Enum->HasMetaData(TEXT("Spacer"), ExecIdx);
-					if (!bShouldBeHidden)
+					Prop = ByteProp;
+					Enum = ByteProp->Enum;
+				}
+				else if (UEnumProperty* EnumProp = FindField<UEnumProperty>(Function, EnumParamName))
+				{
+					Prop = EnumProp;
+					Enum = EnumProp->GetEnum();
+				}
+
+				if (Prop != nullptr && Enum != nullptr)
+				{
+					const bool bIsFunctionInput = !Prop->HasAnyPropertyFlags(CPF_ReturnParm) &&
+						(!Prop->HasAnyPropertyFlags(CPF_OutParm) ||
+						Prop->HasAnyPropertyFlags(CPF_ReferenceParm));
+					const EEdGraphPinDirection Direction = bIsFunctionInput ? EGPD_Input : EGPD_Output;
+
+					if (bIsFunctionInput)
 					{
-						// Can't use Enum->GetNameByIndex here because it doesn't do namespace mangling
-						const FName ExecName = *Enum->GetNameStringByIndex(ExecIdx);
-						CreatePin(Direction, UEdGraphSchema_K2::PC_Exec, ExecName);
+						if (PreviousInput)
+						{
+							bHasCompilerMessage = true;
+							ErrorType = EMessageSeverity::Error;
+							ErrorMsg = FString::Printf(TEXT("Parameter '%s' is listed as an ExpandEnumAsExecs input, but %s already was one. Only one is permitted."), *EnumParamName.ToString(), *PreviousInput->GetName());
+							break;
+						}
+						PreviousInput = Prop;
 					}
-				}
-				
-				if (bIsFunctionInput)
-				{
-					// If using ExpandEnumAsExec for input, don't want to add a input exec pin
-					bCreateSingleExecInputPin = false;
-				}
-				else
-				{
-					// If using ExpandEnumAsExec for output, don't want to add a "then" pin
-					bCreateThenPin = false;
+
+					// yay, found it! Now create exec pin for each
+					int32 NumExecs = (Enum->NumEnums() - 1);
+					for (int32 ExecIdx = 0; ExecIdx < NumExecs; ExecIdx++)
+					{
+						bool const bShouldBeHidden = Enum->HasMetaData(TEXT("Hidden"), ExecIdx) || Enum->HasMetaData(TEXT("Spacer"), ExecIdx);
+						if (!bShouldBeHidden)
+						{
+							// Can't use Enum->GetNameByIndex here because it doesn't do namespace mangling
+							const FString NameStr = Enum->GetNameStringByIndex(ExecIdx);
+							
+							UEdGraphPin* CreatedPin = nullptr;
+
+							// todo: really only makes sense if there are multiple outputs
+							if (bIsFunctionInput || EnumNames.Num() == 1)
+							{
+								CreatedPin = CreatePin(Direction, UEdGraphSchema_K2::PC_Exec, *NameStr);
+							}
+							else
+							{
+								CreatedPin = CreatePin(Direction, UEdGraphSchema_K2::PC_Exec, *NameStr);
+								CreatedPin->PinFriendlyName = FText::FromString(FString::Printf(TEXT("(%s) %s"), *Prop->GetDisplayNameText().ToString(), *NameStr));
+							}
+
+							ExpandAsEnumPins.Add(CreatedPin);
+
+							if (Enum->HasMetaData(TEXT("Tooltip"), ExecIdx))
+							{
+								FString EnumTooltip = Enum->GetMetaData(TEXT("Tooltip"), ExecIdx);
+
+								if (const UEdGraphSchema_K2* const K2Schema = Cast<const UEdGraphSchema_K2>(GetSchema()))
+								{
+									K2Schema->ConstructBasicPinTooltip(*CreatedPin, FText::FromString(EnumTooltip), CreatedPin->PinToolTip);
+								}
+								else
+								{
+									CreatedPin->PinToolTip = EnumTooltip;
+								}
+							}
+						}
+					}
+
+					if (bIsFunctionInput)
+					{
+						// If using ExpandEnumAsExec for input, don't want to add a input exec pin
+						bCreateSingleExecInputPin = false;
+					}
+					else
+					{
+						// If using ExpandEnumAsExec for output, don't want to add a "then" pin
+						bCreateThenPin = false;
+					}
 				}
 			}
 		}
@@ -814,21 +855,72 @@ void UK2Node_CallFunction::DetermineWantsEnumToExecExpansion(const UFunction* Fu
 
 	if (Function->HasMetaData(FBlueprintMetadata::MD_ExpandEnumAsExecs))
 	{
-		const FString& EnumParamName = Function->GetMetaData(FBlueprintMetadata::MD_ExpandEnumAsExecs);
-		UByteProperty* EnumProp = FindField<UByteProperty>(Function, FName(*EnumParamName));
-		if((EnumProp != NULL && EnumProp->Enum != NULL) || FindField<UEnumProperty>(Function, FName(*EnumParamName)))
+		TArray<FName> EnumNamesToCheck;
+		GetExpandEnumPinNames(Function, EnumNamesToCheck);
+
+		for (int32 i = EnumNamesToCheck.Num() - 1; i >= 0; --i)
 		{
-			bWantsEnumToExecExpansion = true;
-		}
-		else
-		{
-			if (!bHasCompilerMessage)
+			const FName& EnumParamName = EnumNamesToCheck[i];
+
+			UByteProperty* EnumProp = FindField<UByteProperty>(Function, EnumParamName);
+			if ((EnumProp != NULL && EnumProp->Enum != NULL) || FindField<UEnumProperty>(Function, EnumParamName))
 			{
-				//put in warning state
-				bHasCompilerMessage = true;
-				ErrorType = EMessageSeverity::Warning;
-				ErrorMsg = FText::Format(LOCTEXT("EnumToExecExpansionFailedFmt", "Unable to find enum parameter with name '{0}' to expand for @@"), FText::FromString(EnumParamName)).ToString();
+				bWantsEnumToExecExpansion = true;
+				EnumNamesToCheck.RemoveAt(i);
 			}
+		}
+		
+		if (bWantsEnumToExecExpansion && EnumNamesToCheck.Num() > 0 && !bHasCompilerMessage)
+		{
+			bHasCompilerMessage = true;
+			ErrorType = EMessageSeverity::Warning;
+
+			if (EnumNamesToCheck.Num() == 1)
+			{
+				ErrorMsg = FText::Format(LOCTEXT("EnumToExecExpansionFailedFmt", "Unable to find enum parameter with name '{0}' to expand for @@"), FText::FromName(EnumNamesToCheck[0])).ToString();
+			}
+			else
+			{
+				FString ParamNames;
+
+				for (const FName& Name : EnumNamesToCheck)
+				{
+					if (!ParamNames.IsEmpty())
+					{
+						ParamNames += TEXT(", ");
+					}
+
+					ParamNames += Name.ToString();
+				}
+
+				ErrorMsg = FText::Format(LOCTEXT("EnumToExecExpansionFailedMultipleFmt", "Unable to find enum parameters for names:\n '{{0}}' \nto expand for @@"), FText::FromString(ParamNames)).ToString();
+			}
+		}
+	}
+}
+
+void UK2Node_CallFunction::GetExpandEnumPinNames(const UFunction* Function, TArray<FName>& EnumNamesToCheck)
+{ 
+	EnumNamesToCheck.Reset();
+
+	// todo: use metadatacache if/when that's accepted.
+	const FString& EnumParamString = Function->GetMetaData(FBlueprintMetadata::MD_ExpandEnumAsExecs);
+
+	TArray<FString> RawGroupings;
+	EnumParamString.ParseIntoArray(RawGroupings, TEXT(","), false);
+	for (const FString& RawGroup : RawGroupings)
+	{
+		TArray<FString> IndividualEntries;
+		RawGroup.ParseIntoArray(IndividualEntries, TEXT("|"));
+
+		for (const FString& Entry : IndividualEntries)
+		{
+			if (Entry.IsEmpty())
+			{
+				continue;
+			}
+
+			EnumNamesToCheck.Add(*Entry);
 		}
 	}
 }
@@ -986,14 +1078,19 @@ bool UK2Node_CallFunction::CreatePinsForFunctionCall(const UFunction* Function)
 		bAllPinsGood = bAllPinsGood && bPinGood;
 	}
 
-	// If we have an 'enum to exec' parameter, set its default value to something valid so we don't get warnings
+	// If we have 'enum to exec' parameters, set their default value to something valid so we don't get warnings
 	if(bWantsEnumToExecExpansion)
 	{
-		const FString& EnumParamName = Function->GetMetaData(FBlueprintMetadata::MD_ExpandEnumAsExecs);
-		UEdGraphPin* EnumParamPin = FindPin(EnumParamName);
-		if (UEnum* PinEnum = (EnumParamPin ? Cast<UEnum>(EnumParamPin->PinType.PinSubCategoryObject.Get()) : NULL))
+		TArray<FName> EnumNamesToCheck;
+		GetExpandEnumPinNames(Function, EnumNamesToCheck);
+
+		for (const FName& Name : EnumNamesToCheck)
 		{
-			EnumParamPin->DefaultValue = PinEnum->GetNameStringByIndex(0);
+			UEdGraphPin* EnumParamPin = FindPin(Name);
+			if (UEnum* PinEnum = (EnumParamPin ? Cast<UEnum>(EnumParamPin->PinType.PinSubCategoryObject.Get()) : NULL))
+			{
+				EnumParamPin->DefaultValue = PinEnum->GetNameStringByIndex(0);
+			}
 		}
 	}
 
@@ -1409,6 +1506,16 @@ void UK2Node_CallFunction::GeneratePinTooltipFromFunction(UEdGraphPin& Pin, cons
 
 	} while (CurStrPos < FullToolTipLen);
 
+	// If we have no parameter or return value descriptions the full description will be relevant in describing the return value:
+	if( bReturnPin && 
+		Pin.PinToolTip.IsEmpty() && 
+		FunctionToolTipText.Find(TEXT("@param")) == INDEX_NONE && 
+		FunctionToolTipText.Find(TEXT("@return")) == INDEX_NONE)
+	{
+		// for the return pin, default to using the function description if no @return tag was provided:
+		Pin.PinToolTip = Function->GetToolTipText().ToString();
+	}
+
 	GetDefault<UEdGraphSchema_K2>()->ConstructBasicPinTooltip(Pin, FText::FromString(Pin.PinToolTip), Pin.PinToolTip);
 }
 
@@ -1618,7 +1725,7 @@ bool UK2Node_CallFunction::ShouldDrawAsBead() const
 bool UK2Node_CallFunction::ShouldShowNodeProperties() const
 {
 	// Show node properties if this corresponds to a function graph
-	if (FunctionReference.GetMemberName() != NAME_None)
+	if (FunctionReference.GetMemberName() != NAME_None && HasValidBlueprint())
 	{
 		return FindObject<UEdGraph>(GetBlueprint(), *(FunctionReference.GetMemberName().ToString())) != NULL;
 	}
@@ -1815,8 +1922,24 @@ void UK2Node_CallFunction::ValidateNodeDuringCompilation(class FCompilerResultsL
 	}
 	else if (Function->HasMetaData(FBlueprintMetadata::MD_ExpandEnumAsExecs) && bWantsEnumToExecExpansion == false)
 	{
+		// will technically not have a properly formatted output for multiple params... but /shrug. 
 		const FString& EnumParamName = Function->GetMetaData(FBlueprintMetadata::MD_ExpandEnumAsExecs);
 		MessageLog.Warning(*FText::Format(LOCTEXT("EnumToExecExpansionFailedFmt", "Unable to find enum parameter with name '{0}' to expand for @@"), FText::FromString(EnumParamName)).ToString(), this);
+	}
+	
+	// Ensure that editor module BP exposed UFunctions can only be called in blueprints for which the base class is also part of an editor module
+	// Also check for functions wrapped in WITH_EDITOR 
+	if (Function && Blueprint &&
+		(IsEditorOnlyObject(Function) || Function->HasAnyFunctionFlags(FUNC_EditorOnly)))
+	{	
+		const UClass* BlueprintClass = Blueprint->ParentClass;
+		bool bIsEditorOnlyBlueprintBaseClass = !BlueprintClass || IsEditorOnlyObject(BlueprintClass);
+		if (!bIsEditorOnlyBlueprintBaseClass)
+		{
+			FString const FunctName = Function->GetName();
+			FText const WarningFormat = LOCTEXT("EditorFunctionFmt", "Cannot use the editor function \"{0}\" in this runtime Blueprint. Only for use in Editor Utility Blueprints and Blutilities.");
+			MessageLog.Error(*FText::Format(WarningFormat, FText::FromString(FunctName)).ToString(), this);
+		}
 	}
 
 	if (Function)
@@ -2004,103 +2127,163 @@ void UK2Node_CallFunction::ExpandNode(class FKismetCompilerContext& CompilerCont
 	{
 		if(Function)
 		{
-			// Get the metadata that identifies which param is the enum, and try and find it
-			const FString& EnumParamName = Function->GetMetaData(FBlueprintMetadata::MD_ExpandEnumAsExecs);
+			TArray<FName> EnumNamesToCheck;
+			GetExpandEnumPinNames(Function, EnumNamesToCheck);
 
-			UEnum* Enum = nullptr;
+			bool bAlreadyHandleInput = false;
 
-			if (UByteProperty* ByteProp = FindField<UByteProperty>(Function, FName(*EnumParamName)))
-			{
-				Enum = ByteProp->Enum;
-			}
-			else if (UEnumProperty* EnumProp = FindField<UEnumProperty>(Function, FName(*EnumParamName)))
-			{
-				Enum = EnumProp->GetEnum();
-			}
+			UEdGraphPin* OutMainExecutePin = nullptr;
+			UK2Node_ExecutionSequence* SpawnedSequenceNode = nullptr;
+			int32 OutSequenceIndex = 0;
 
-			UEdGraphPin* EnumParamPin = FindPinChecked(EnumParamName);
-			if(Enum != nullptr)
+			for (const FName& EnumParamName : EnumNamesToCheck)
 			{
-				// Expanded as input execs pins
-				if (EnumParamPin->Direction == EGPD_Input)
+				UEnum* Enum = nullptr;
+
+				if (UByteProperty* ByteProp = FindField<UByteProperty>(Function, EnumParamName))
 				{
-					// Create normal exec input
-					UEdGraphPin* ExecutePin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Exec, UEdGraphSchema_K2::PN_Execute);
+					Enum = ByteProp->Enum;
+				}
+				else if (UEnumProperty* EnumProp = FindField<UEnumProperty>(Function, EnumParamName))
+				{
+					Enum = EnumProp->GetEnum();
+				}
 
-					// Create temp enum variable
-					UK2Node_TemporaryVariable* TempEnumVarNode = CompilerContext.SpawnIntermediateNode<UK2Node_TemporaryVariable>(this, SourceGraph);
-					TempEnumVarNode->VariableType.PinCategory = UEdGraphSchema_K2::PC_Byte;
-					TempEnumVarNode->VariableType.PinSubCategoryObject = Enum;
-					TempEnumVarNode->AllocateDefaultPins();
-					// Get the output pin
-					UEdGraphPin* TempEnumVarOutput = TempEnumVarNode->GetVariablePin();
-
-					// Connect temp enum variable to (hidden) enum pin
-					Schema->TryCreateConnection(TempEnumVarOutput, EnumParamPin);
-
-					// Now we want to iterate over other exec inputs...
-					for(int32 PinIdx=Pins.Num()-1; PinIdx>=0; PinIdx--)
+				UEdGraphPin* EnumParamPin = FindPin(EnumParamName);
+				if (Enum && EnumParamPin)
+				{
+					// Expanded as input execs pins
+					if (EnumParamPin->Direction == EGPD_Input)
 					{
-						UEdGraphPin* Pin = Pins[PinIdx];
-						if( Pin != NULL && 
-							Pin != ExecutePin &&
-							Pin->Direction == EGPD_Input && 
-							Pin->PinType.PinCategory == UEdGraphSchema_K2::PC_Exec )
+						if (bAlreadyHandleInput)
 						{
-							// Create node to set the temp enum var
-							UK2Node_AssignmentStatement* AssignNode = CompilerContext.SpawnIntermediateNode<UK2Node_AssignmentStatement>(this, SourceGraph);
-							AssignNode->AllocateDefaultPins();
+							CompilerContext.MessageLog.Error(TEXT("@@ Already provided an input enum parameter for ExpandEnumAsExecs. Only one is permitted."), this);
+							return;
+						}
 
-							// Move connections from fake 'enum exec' pint to this assignment node
-							CompilerContext.MovePinLinksToIntermediate(*Pin, *AssignNode->GetExecPin());
+						bAlreadyHandleInput = true;
 
-							// Connect this to out temp enum var
-							Schema->TryCreateConnection(AssignNode->GetVariablePin(), TempEnumVarOutput);
+						// Create normal exec input
+						UEdGraphPin* ExecutePin = CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Exec, UEdGraphSchema_K2::PN_Execute);
 
-							// Connect exec output to 'real' exec pin
-							Schema->TryCreateConnection(AssignNode->GetThenPin(), ExecutePin);
+						// Create temp enum variable
+						UK2Node_TemporaryVariable* TempEnumVarNode = CompilerContext.SpawnIntermediateNode<UK2Node_TemporaryVariable>(this, SourceGraph);
+						TempEnumVarNode->VariableType.PinCategory = UEdGraphSchema_K2::PC_Byte;
+						TempEnumVarNode->VariableType.PinSubCategoryObject = Enum;
+						TempEnumVarNode->AllocateDefaultPins();
+						// Get the output pin
+						UEdGraphPin* TempEnumVarOutput = TempEnumVarNode->GetVariablePin();
 
-							// set the literal enum value to set to
-							AssignNode->GetValuePin()->DefaultValue = Pin->PinName.ToString();
+						// Connect temp enum variable to (hidden) enum pin
+						Schema->TryCreateConnection(TempEnumVarOutput, EnumParamPin);
 
-							// Finally remove this 'cosmetic' exec pin
-							Pins[PinIdx]->MarkPendingKill();
-							Pins.RemoveAt(PinIdx);
+						// Now we want to iterate over other exec inputs...
+						for (int32 PinIdx = Pins.Num() - 1; PinIdx >= 0; PinIdx--)
+						{
+							UEdGraphPin* Pin = Pins[PinIdx];
+							if (Pin != NULL &&
+								Pin != ExecutePin &&
+								Pin->Direction == EGPD_Input &&
+								Pin->PinType.PinCategory == UEdGraphSchema_K2::PC_Exec)
+							{
+								// Create node to set the temp enum var
+								UK2Node_AssignmentStatement* AssignNode = CompilerContext.SpawnIntermediateNode<UK2Node_AssignmentStatement>(this, SourceGraph);
+								AssignNode->AllocateDefaultPins();
+
+								// Move connections from fake 'enum exec' pint to this assignment node
+								CompilerContext.MovePinLinksToIntermediate(*Pin, *AssignNode->GetExecPin());
+
+								// Connect this to out temp enum var
+								Schema->TryCreateConnection(AssignNode->GetVariablePin(), TempEnumVarOutput);
+
+								// Connect exec output to 'real' exec pin
+								Schema->TryCreateConnection(AssignNode->GetThenPin(), ExecutePin);
+
+								// set the literal enum value to set to
+								AssignNode->GetValuePin()->DefaultValue = Pin->PinName.ToString();
+
+								// Finally remove this 'cosmetic' exec pin
+								Pins[PinIdx]->MarkPendingKill();
+								Pins.RemoveAt(PinIdx);
+							}
 						}
 					}
-				}
-				// Expanded as output execs pins
-				else if (EnumParamPin->Direction == EGPD_Output)
-				{
-					// Create normal exec output
-					UEdGraphPin* ExecutePin = CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Exec, UEdGraphSchema_K2::PN_Execute);
-						
-					// Create a SwitchEnum node to switch on the output enum
-					UK2Node_SwitchEnum* SwitchEnumNode = CompilerContext.SpawnIntermediateNode<UK2Node_SwitchEnum>(this, SourceGraph);
-					UEnum* EnumObject = Cast<UEnum>(EnumParamPin->PinType.PinSubCategoryObject.Get());
-					SwitchEnumNode->SetEnum(EnumObject);
-					SwitchEnumNode->AllocateDefaultPins();
-						
-					// Hook up execution to the switch node
-					Schema->TryCreateConnection(ExecutePin, SwitchEnumNode->GetExecPin());
-					// Connect (hidden) enum pin to switch node's selection pin
-					Schema->TryCreateConnection(EnumParamPin, SwitchEnumNode->GetSelectionPin());
-						
-					// Now we want to iterate over other exec outputs
-					for(int32 PinIdx=Pins.Num()-1; PinIdx>=0; PinIdx--)
+					// Expanded as output execs pins
+					else if (EnumParamPin->Direction == EGPD_Output)
 					{
-						UEdGraphPin* Pin = Pins[PinIdx];
-						if( Pin != NULL &&
-							Pin != ExecutePin &&
-							Pin->Direction == EGPD_Output &&
-							Pin->PinType.PinCategory == UEdGraphSchema_K2::PC_Exec )
+						if (!OutMainExecutePin)
 						{
-							// Move connections from fake 'enum exec' pin to this switch node
-							CompilerContext.MovePinLinksToIntermediate(*Pin, *SwitchEnumNode->FindPinChecked(Pin->PinName));
-								
-							// Finally remove this 'cosmetic' exec pin
-							Pins[PinIdx]->MarkPendingKill();
-							Pins.RemoveAt(PinIdx);
+							// Create normal exec output -- only once though.
+							OutMainExecutePin = CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Exec, UEdGraphSchema_K2::PN_Then);
+						}
+						else
+						{	
+							// set up a sequence so we can call one after another.
+							if (!SpawnedSequenceNode)
+							{
+								SpawnedSequenceNode = CompilerContext.SpawnIntermediateNode<UK2Node_ExecutionSequence>(this, SourceGraph);
+								SpawnedSequenceNode->AllocateDefaultPins();
+								CompilerContext.MovePinLinksToIntermediate(*OutMainExecutePin, *SpawnedSequenceNode->GetThenPinGivenIndex(OutSequenceIndex++));
+								Schema->TryCreateConnection(OutMainExecutePin, SpawnedSequenceNode->Pins[0]);
+							}
+						}
+
+						// Create a SwitchEnum node to switch on the output enum
+						UK2Node_SwitchEnum* SwitchEnumNode = CompilerContext.SpawnIntermediateNode<UK2Node_SwitchEnum>(this, SourceGraph);
+						UEnum* EnumObject = Cast<UEnum>(EnumParamPin->PinType.PinSubCategoryObject.Get());
+						SwitchEnumNode->SetEnum(EnumObject);
+						SwitchEnumNode->AllocateDefaultPins();
+
+						// Hook up execution to the switch node
+						if (!SpawnedSequenceNode)
+						{
+							Schema->TryCreateConnection(OutMainExecutePin, SwitchEnumNode->GetExecPin());
+						}
+						else
+						{
+							UEdGraphPin* SequenceOutput = SpawnedSequenceNode->GetThenPinGivenIndex(OutSequenceIndex);
+
+							if (!SequenceOutput)
+							{
+								SpawnedSequenceNode->AddInputPin();
+								SequenceOutput = SpawnedSequenceNode->GetThenPinGivenIndex(OutSequenceIndex);
+							}
+
+							Schema->TryCreateConnection(SequenceOutput, SwitchEnumNode->GetExecPin());
+							OutSequenceIndex++;
+						}
+						// Connect (hidden) enum pin to switch node's selection pin
+						Schema->TryCreateConnection(EnumParamPin, SwitchEnumNode->GetSelectionPin());
+
+						// Now we want to iterate over other exec outputs corresponding to the enum.
+						// the first pins created are the ExpandEnumAsExecs pins, and they're all made at the same time.
+						for (int32 PinIdx = Enum->NumEnums() - 2; PinIdx >= 0; PinIdx--)
+						{
+							UEdGraphPin* Pin = Pins[PinIdx];
+
+							if (Pin &&
+								Pin != OutMainExecutePin &&
+								Pin->Direction == EGPD_Output &&
+								Pin->PinType.PinCategory == UEdGraphSchema_K2::PC_Exec)
+							{
+								if (UEdGraphPin* FoundPin = SwitchEnumNode->FindPin(Pin->PinName))
+								{
+									if (!FoundPin->LinkedTo.Contains(Pin))
+									{
+										// Move connections from fake 'enum exec' pin to this switch node
+										CompilerContext.MovePinLinksToIntermediate(*Pin, *FoundPin);
+
+										// Finally remove this 'cosmetic' exec pin
+										Pins[PinIdx]->MarkPendingKill();
+										Pins.RemoveAt(PinIdx);
+									}
+								}
+								// Have passed the relevant entries... no more work to do here.
+								else
+								{
+									break;
+								}
+							}
 						}
 					}
 				}

@@ -1,20 +1,17 @@
-﻿INTSourceChangelist:3378497
+﻿INTSourceChangelist:3809606
 Availability:Public
 crumbs:
 Title:使用模型贴花（Mesh Decal）
 Description:此指南说明模型贴花（Mesh Decal）材质的设置和使用。
 Type: how-to
 Version:4.15
-Parent: Engine/Rendering/Materials/HowTo
+PParent: Engine/Rendering/Materials/HowTo
 related: Engine\Rendering\Materials\MeshDecals
 Order:
-SkillLevel:Intermediate
+SkillLevel: Intermediate
 tags:Materials
 
-
-<div align= "center">
 ![](MeshDecalVsMasked.png)(w:700)
-</div>
 
 [TOC (start:2 end:2)]
 
@@ -25,7 +22,7 @@ tags:Materials
 
 为重现此指南中的步骤，您需要下载、解压下列 FBX 和纹理文件，并将其导入 UE4。如您不熟悉操作方法，请查阅 [如何导入静态网格体指南](Engine/Content/ImportingContent/ImportingMeshes) 和 [如何导入纹理指南](Engine/Content/ImportingContent/ImportingTextures) ，了解如何进行操作。 
 
-[所需纹理下载](MeshDecalAssets.zip) _（点击右键另存为...）_
+[所需FBX及纹理下载](MeshDecalAssets.zip) _（点击右键另存为...）_
 
 
 ## 为项目启用 Dbuffer 贴花

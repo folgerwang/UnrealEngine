@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ActorTreeItem.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
@@ -175,6 +175,8 @@ void FActorDropTarget::PerformAttachment(FName SocketName, TWeakObjectPtr<AActor
 			if (GEditor->CanParentActors(ParentActor, ChildActor))
 			{
 				GEditor->ParentActors(ParentActor, ChildActor, SocketName);
+
+				ChildActor->SetFolderPath_Recursively(ParentActor->GetFolderPath());
 			}
 		}
 	}

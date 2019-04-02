@@ -1,0 +1,247 @@
+﻿INTSourceChangelist:4527375
+Availability: Public
+Crumbs: 
+Title: UGS参考
+Description: 使用USG过程中的菜单、系统和选项参考。
+Type: 
+Version: 
+Parent: Programming/Deployment/UnrealGameSync
+Order: 2
+Tags: Unreal Game Sync
+
+
+如果作为开发者，你希望针对无需从源代码编译的创意人员利用预编译二进制文件功能，本参考指南中包含一些非常有用的信息，使你能够设置构建系统，以定期向Perforce提交包含编辑器二进制文件的zip文件，以便UGS将它提取到创意人员的工作空间中。
+
+## 分发UGS
+
+如果要为团队部署UGS，可在以下文件夹中找到应用程序的解决方案文件：
+
+`[UE4ROOT]\Engine\Source\Programs\UnrealGameSync`
+
+你可以自行选择分发UGS的方式，但是需要记住以下几点：
+
+*   如果计划构建安装程序，需要使用Wix 3.8版本来构建。
+*   UnrealGameSyncLauncher用于将引导启动程序安装到计算机上。在引导启动程序在开发者机器上运行之后，它将自动从Perforce更新并运行UGS。
+
+## 部署工具
+
+我们使用以下工具在内部部署虚幻项目：
+
+| **工具** | **说明** |
+| --- | --- |
+| **UnrealGameSync（UGS）** | 从 **Perforce** 同步和构建的主要工具。|
+| **UnrealGameSyncLauncher** | 适用于 **UGS** 的启动程序，它自动从 **Perforce** 中的路径更新程序可执行文件。对于映射的路径，它不要求 **clientspec**。|
+| **UnrealGameSyncMetadataServer** | [INCLUDE:#excerpt_0] |
+| **安装程序** | [INCLUDE:#excerpt_1] |
+| **PostBadgeStatus** | 小型实用程序，用于将CIS结果存数到UGS从中读取数据的数据库。|
+
+[COMMENT:none]
+[EXCERPT:excerpt_1]
+
+适用于 **UnrealGameSyncLauncher** 的MSI安装程序。通常用于将引导启动程序安装到开发者机器上，然后它可自动从 **Perforce** 更新并运行程序。
+
+[REGION:note]
+需要使用Wix 3.8来构建。
+[/REGION]
+
+[/EXCERPT:excerpt_1]
+
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_0]
+
+REST API，与 **UGS** 一起部署以启用其完整功能集，包括对构建版本进行注释，就构建版本运行状况进行表决并标记有问题的构建版本，以及显示PostBadgeStatus提交的CIS结果。  
+
+元数据服务器必须部署在具有IIS 7.0或更高版本且安装有.NET 4.0的Windows Server 计算机上。 
+
+[/EXCERPT:excerpt_0]
+
+[/COMMENT]
+
+## 特定于站点的配置
+
+我们的多个部署工具都要求对 **Perforce** 路径和数据库服务器连接设置进行特定于站点的配置。默认值保留为空，它在每个工具的 `Program.cs` 文件的顶部定义。 
+
+具体来说：
+
+**UnrealGameSync：**
+
+`string` ApiUrl（指定部署UGSAPI的基URI的字符串）
+
+**UnrealGameSyncLauncher：**
+
+`string StableSyncPath`（用于自动更新UnrealGameSync可执行文件的路径。）
+
+`string UnstableSyncPath`（用于更新预发布UnrealGameSync可执行文件的路径。运行UnrealGameSyncLauncher时按住SHIFT键来使用预发布可执行文件。） 
+
+Epic设置位于每个工具下的 `NotForLicensees/ProgramSettings.cs` 文件中，它们包含在项目文件（如有）中，但是我们不分发它们。在每种情况下，该文件都使用C#的“部分类”功能来为Program类实现初始化这些设置的静态构造函数。
+
+  
+被许可方可以添加他们自己版本的这些文件，如下所示：  
+
+
+	using System;
+	using System.Data.SqlClient;
+	namespace UnrealGameSync
+	{
+	  static partial class Program
+	  {
+		static Program()
+		{
+		  ApiUrl = "http://ugsapi-server.net";
+		}
+	  }
+	}
+
+
+## 打包的编辑器构建版本
+
+要允许用户下载打包的编辑器构建版本（而非在本地编译），可以在项目下添加 `Build\UnrealGameSync.ini` 文件，它引用 **Perforce** 中保存每个分支的打包的二进制文件的位置。 
+
+例如：
+
+`[//UE4/Main/Samples/Games/ShooterGame/ShooterGame.uproject]`  
+`ZippedBinariesPath=//UE4/Dev-Binaries/++UE4+Main-Editor.zip`  
+
+该功能不需要使用数据库，但是从变更列表描述（应以“\[CL 12345678\]”标记开头）读取每个提交的zip文件的匹配的相应变更列表。 
+
+[REGION:note]
+由于UGS不允许你在进行代码更改之后同步任何变更列表（甚至内容变更列表）（除非存在相应的二进制文件），和本地构建版本一样，也对打包的编辑器二进制文件实施了相同的限制。只要未修改 `*.cpp`、`*.h`、`*.cs`、`*.usf` 和 `*.ush` 文件，它允许你使用先前提交的二进制文件同步仅对内容进行的更改。
+[/REGION]
+
+我们提供了可供你随意使用的示例 [BuildGraph](Programming/Development/BuildGraph) 脚本，以展示如何从构建机器创建并提交格式正确的编辑器二进制文件。该示例脚本位于以下位置：  
+
+`Engine/Build/Graph/Examples/BuildEditorAndTools.xml`
+
+可运行它的典型命令行如下所示：  
+
+
+	Engine\Build\BatchFiles\RunUAT.bat
+	  BuildGraph
+	  -Script=Engine/Build/Graph/Examples/BuildEditorAndTools.xml
+	  -Target="Submit To Perforce for UGS"
+	  -set:EditorTarget=ShooterGameEditor
+	  -set:ArchiveStream=//UE4/Dev-Binaries
+	  -p4
+	  -submit
+
+
+该命令行会向//UE4/Dev-Binaries/++UE4+Main-Editor.zip提交一个zip文件，其中“++UE4+Main”是当前分支的名称（斜杠使用“+”号进行了转义）。应在UnrealGameSync.ini中将相同的路径设置为ZippedBinariesPath的值。
+
+有关使用BuildEditorAndTools.xml的其他信息位于该文件开头的注释部分。
+
+## 项目配置文件
+
+可以使用特定于项目的配置文件自定义项目显示给用户的方式。应以 `<ProjectDir>/Build/<wbr>UnrealGameSync.ini` 格式将项目配置文件提交到Perforce。可以使用以下设置：
+
+*   默认情况下，UGS仅显示由对项目的源代码进行的更改导致的构建失败通知。如果你的团队正在开发项目，也可能出现由内容更改导致的构建失败，请添加以下代码：
+    
+
+		[Notifications]
+		+ContentBadges=Content
+
+    
+*   向CL的说明列、按钮添加可点击按钮，用户点击这些按钮时，通过在CL说明上运行正则表达式，使用户跳转到某个URL。例如，以下用例在每个具有“#jira”标记的CL旁边添加具有Jira中相应问题的链接的标记：
+		
+			[Badges]
+			+DescriptionBadges=(Pattern="(?i)#\\s*jira\\s*:?\\s+([A-Za-z]+-[0-9]+)", Name="$1", Group="Jira", Color="#c0c0c0", HoverColor="#e0e0e0", Url="https://jira.it.yourcompany.net/browse/$1")
+	
+	该示例中用到了以下属性：
+    
+    | 属性 | 说明 |
+    | --- | --- |
+    | **模式（Pattern）** | 指定要匹配的正则表达式，它可能捕捉部分匹配的文字，可在稍后替换它。|
+    | **标签（Label）** | 	指定显示在标记上的标签。|
+    | **组（Group）** | 	指定任意辨识符，将相关的标记集合到一起，而不是使用空格将它们分开。|
+    | **颜色（Color）** | 指定标记的十六进制RGB值。|
+    | **悬停颜色（HoverColor）** | 	指定悬停在其上时标记的十六进制RGB值。|
+    | **Url** | 指定单击标记时要使用C# Process.Open调用打开的路径。|
+    
+*   添加具有特定分支的相应状态面板颜色的“每日消息”：
+    
+		[//UE4/Main/Samples/Games/ShooterGame/ShooterGame.uproject]
+		Message=:alert:Lock-down for fixes is **5 pm on Friday**.Only fixes for the 1.2.3 release should be submitted to this branch.123 issues are remaining as of 1/23.
+		StatusPanelColor=#e20000
+
+	通过使用 `StatusPanelColor` 选项，你可以轻松地标识流。另外，使用 `Message` 选项时，支持Markdown的有限子集，包括： 
+    
+    *   \[web links\](http://www.google.com)
+    *   \*italic\*
+    *   \_italic\_
+    *   \*\*bold\*\*
+    *   \_\_bold\_\_
+    
+    最后，使用 `:icon:` 语法支持图标；但是，`:alert:` 是当前可用的唯一图标。
+
+*   自定义CIS显示列：
+    
+
+		[Default]
+		ColumnWidth_CIS=580
+		+BadgeGroups=Editor
+		+BadgeGroups=And, Lin, PS4, XB1, Win, IOS, Mac, Swi
+		+BadgeGroups=Content
+
+## 构建系统集成
+
+UGS可以通过提交的变更列表中显示的 **标记** 来显示构建系统结果（以及构建正在“进行中”的通知），它也将显示吐司弹出消息来通知已提交更改的任何开发者。单击 **标记** 将在Web浏览器中打开包含 **构建日志** 的URL。该信息存储在数据库中，条目通过使用 **PostBadgeStatus** 实用程序存数到数据库中。  
+  
+**PostBadgeStatus** 的命令行语法如下所示：
+
+	PostBadgeStatus.exe
+		//（将在UGS中显示的标记名称。）
+	  -Name=Editor
+		//（编译的变更列表。）
+	  -Change=123456
+		//（要为其显示标记的项目。注意，其为文件夹路径，并非实际的.uproject文件。）
+	  -Project=//UE4/Main/Samples/StarterContent
+		//（部署UGSAPI的基URI）
+	  -RestUrl="http://ugsapi-server.net"
+		//（构建的状态。有效值为“Starting”、“Failure”、“Warning”和“Success”。)
+	  -Status=Success
+		//（如果用户单击标记，这就是使用户跳转到构建日志的链接。）
+	  -Url=http://link-to-build-log
+
+
+## 元数据服务器设置
+
+UGS与元数据服务器进行通信，以存储用户反馈、编译结果、遥测和任何使用 **PostBadgeStatus** 实用程序发布的外部 **CIS** 结果的结果。尽管无需设置就可运行它，但是用户无法使用相对来说更加强大的功能。
+
+要使元数据服务器正确部署，需要进行以下环境设置：
+
+1.  确保安装ASP.NET Web发布工具。可在Visual Studio安装过程中找到该程序包。如果不安装此程序包，构建项目时将发生“未找到‘TransformXmlIf’任务”错误并失败。
+2.  项目发布时不附带传统的web.config文件，而是随附web.template.config.xml，要针对.debug和.release XML文件对其进行变换，以动态生成web.config。需要将web.template.config而非web.config检入源代码控制。
+3.  可以使用“连接字符串（Connection String）”属性在.debug和.release XML文件中指定SQLite数据库将位于的路径。它与标准的SQLite连接字符串相似，如下所示：
+    
+    ~~~
+    <add key="ConnectionString" value="Data Source=C:\inetpub\wwwroot\UGSAPI\database.sqlite;Version=3;" xdt:Transform="Replace" xdt:Locator="Match(key)"/>
+    ~~~
+    
+4.  当API第一次被命中时，将自动在连接字符串中指定的目录中创建数据库。要获取与IIS有关的权限，请确保在IIS服务器上创建具有.NETv4.0 CLR的应用程序池。让UGSAPI利用它，并授予其对数据库即将位于的目录的根目录的完全访问权限。
+
+[REGION:note]
+如果无法创建或找到数据库，为确保数据库能够正常初始化，站点将终止其自己的实例。如果你部署了站点并向/api/cis 404部署了GET，这可能就是原因。要确保能够创建数据库，请检查目录权限。
+[/REGION]
+
+## 品牌化
+
+可以通过在包含项目的目录中放置 `Build\UnrealGameSync.png` 文件来添加在UGS中显示的项目徽标。图像将被缩放至126像素高。 
+
+[REGION:tip]
+推荐的像素大小是200x126。
+
+![](BrandPxDim.png "BrandPxDim.png")
+
+*你可以自由下载此参考图像。*
+[/REGION]
+
+## 为团队部署
+
+为支持在UGS上进行具有不同分支和游戏项目的带外开发，我们通过利用 [Perforce](https://www.perforce.com/) 进行分发的自我修补机制向内部开发者分发UGS。
+
+需要通过MSI（“安装程序”项目）手动在每个开发者的计算机上安装甚少更新的启动程序应用程序（**UnrealGameSyncLauncher**）。安装它将创建一个开始菜单图标，如果运行它，将从 **Perforce** 中的一个路径同步最新的UGS可执行文件并运行它们。将监视该路径，如有新的可执行文件被提交，该程序将重启并重新同步它们。
+
+[REGION:tip]
+你可能会认为直接在 **Perforce** 中或通过其他方法分发UGS可执行文件更加方便。
+[/REGION]

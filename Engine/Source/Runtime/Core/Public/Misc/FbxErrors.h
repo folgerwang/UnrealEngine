@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -65,6 +65,10 @@ struct CORE_API FFbxErrors
 
 	static FName Generic_Mesh_TangentsComputeError;
 
+	static FName Generic_Mesh_NoReductionModuleAvailable;
+
+	static FName Generic_Mesh_TooMuchUVChannels;
+
 	/** Static Mesh **/
 	static FName StaticMesh_TooManyMaterials;
 
@@ -75,6 +79,8 @@ struct CORE_API FFbxErrors
 	static FName StaticMesh_BuildError;
 
 	static FName StaticMesh_AllTrianglesDegenerate;
+
+	static FName StaticMesh_AdjacencyOptionForced;
 
 	/** SkeletalMesh **/
 	static FName SkeletalMesh_DifferentRoots;

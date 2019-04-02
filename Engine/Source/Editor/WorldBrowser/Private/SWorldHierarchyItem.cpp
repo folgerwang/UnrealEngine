@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #include "SWorldHierarchyItem.h"
 #include "SlateOptMacros.h"
 #include "Widgets/Images/SImage.h"
@@ -20,6 +20,7 @@
 
 #include "WorldTreeItemTypes.h"
 #include "LevelFolders.h"
+#include "Framework/Application/SlateApplication.h"
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 
@@ -384,8 +385,21 @@ FSlateColor SWorldHierarchyItem::GetDrawColor() const
 
 FReply SWorldHierarchyItem::OnToggleVisibility()
 {
-	WorldTreeItem->OnToggleVisibility();
-
+	if (FSlateApplication::Get().GetModifierKeys().AreModifersDown(EModifierKey::Alt))
+	{
+		if (WorldTreeItem->IsVisible()) 
+		{
+			WorldTreeItem->OnShowAllButSelected();
+		}
+		else
+		{
+			WorldTreeItem->OnShowOnlySelected();
+		}
+	}
+	else
+	{
+		WorldTreeItem->OnToggleVisibility();
+	}
 	return FReply::Handled();
 }
 
@@ -397,7 +411,21 @@ FReply SWorldHierarchyItem::OnToggleLightingScenario()
 
 FReply SWorldHierarchyItem::OnToggleLock()
 {
-	WorldTreeItem->OnToggleLock();
+	if (FSlateApplication::Get().GetModifierKeys().AreModifersDown(EModifierKey::Alt))
+	{
+		if (WorldTreeItem->IsLocked())
+		{
+			WorldTreeItem->OnLockAllButSelected();
+		}
+		else
+		{
+			WorldTreeItem->OnLockOnlySelected();
+		}
+	}
+	else
+	{
+		WorldTreeItem->OnToggleLock();
+	}
 	
 	return FReply::Handled();
 }
@@ -508,6 +536,7 @@ FReply SWorldHierarchyItem::OnMouseButtonDown(const FGeometry& MyGeometry, const
 		}
 
 		Reply.PreventThrottling();
+		return Reply;
 	}
 
 	return FReply::Handled();

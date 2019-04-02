@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -41,6 +41,13 @@ namespace BuildSettings
 	 * @return Name of the current branch, with slashes escaped as '+' characters.
 	 */
 	BUILDSETTINGS_API const TCHAR* GetBranchName();
+
+	/**
+	 * The timestamp of this build. Derived from the compiler's __DATE__ macro, so only updated when the BuildSettings module is rebuilt (ie. whenever CL changes, etc...)
+	 *
+	 * @return String representing the build timestamp
+	 */
+	BUILDSETTINGS_API const TCHAR* GetBuildDate();
 
 	/**
 	 * Retrieves the user-defined build version for this application.

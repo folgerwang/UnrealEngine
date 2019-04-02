@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -6,6 +6,8 @@ public class GeometryCache : ModuleRules
 {
 	public GeometryCache(ReadOnlyTargetRules Target) : base(Target)
 	{
+		PrivateIncludePaths.Add("../../../../Shaders/Shared");
+
         PublicDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",
@@ -15,7 +17,6 @@ public class GeometryCache : ModuleRules
 				"SlateCore",
                 "InputCore",
                 "RenderCore",
-                "ShaderCore",
                 "RHI"
 			}
 		);

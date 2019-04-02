@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateRHITextureAtlas.h"
 #include "Textures/SlateTextureData.h"
@@ -11,8 +11,8 @@
 /* FSlateTextureAtlasRHI structors
  *****************************************************************************/
 
-FSlateTextureAtlasRHI::FSlateTextureAtlasRHI( uint32 InWidth, uint32 InHeight, ESlateTextureAtlasPaddingStyle PaddingStyle )
-	: FSlateTextureAtlas(InWidth, InHeight, GPixelFormats[PF_B8G8R8A8].BlockBytes, PaddingStyle)
+FSlateTextureAtlasRHI::FSlateTextureAtlasRHI( uint32 InWidth, uint32 InHeight, ESlateTextureAtlasPaddingStyle PaddingStyle, bool bUpdatesAfterInitialization)
+	: FSlateTextureAtlas(InWidth, InHeight, GPixelFormats[PF_B8G8R8A8].BlockBytes, PaddingStyle, bUpdatesAfterInitialization)
 	, AtlasTexture(new FSlateTexture2DRHIRef(InWidth, InHeight, PF_B8G8R8A8, NULL, TexCreate_SRGB, true)) 
 {
 }
@@ -71,13 +71,18 @@ void FSlateTextureAtlasRHI::ConditionalUpdateTexture( )
 	{
 		// Copy the game thread data. This is deleted on the render thread
 		FSlateTextureData* RenderThreadData = new FSlateTextureData( AtlasWidth, AtlasHeight, BytesPerPixel, AtlasData ); 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER( SlateUpdateAtlasTextureCommand,
-			FSlateTextureAtlasRHI&, Atlas, *this,
-			FSlateTextureData*, InRenderThreadData, RenderThreadData,
-		{
-			Atlas.UpdateTexture_RenderThread( InRenderThreadData );
-		});
+		FSlateTextureAtlasRHI* Atlas = this;
+		ENQUEUE_RENDER_COMMAND(SlateUpdateAtlasTextureCommand)(
+			[Atlas, RenderThreadData](FRHICommandListImmediate& RHICmdList)
+			{
+				Atlas->UpdateTexture_RenderThread( RenderThreadData );
+			});
 
 		bNeedsUpdate = false;
+
+		if (!bUpdatesAfterInitialization)
+		{
+			EmptyAtlasData();
+		}
 	}
 }

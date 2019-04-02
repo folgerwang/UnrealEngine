@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	TickTaskManager.cpp: Manager for ticking tasks
@@ -42,7 +42,7 @@ namespace
 	{
 		FStringOutputDevice Output;
 		DescribeFTimerDataSafely(Output, Data);
-		return Output;
+		return MoveTemp(Output);
 	}
 }
 
@@ -215,7 +215,7 @@ FTimerHandle FTimerManager::K2_FindDynamicTimerHandle(FTimerDynamicDelegate InDy
 	return Result;
 }
 
-void FTimerManager::InternalSetTimer(FTimerHandle& InOutHandle, FTimerUnifiedDelegate const& InDelegate, float InRate, bool InbLoop, float InFirstDelay)
+void FTimerManager::InternalSetTimer(FTimerHandle& InOutHandle, FTimerUnifiedDelegate&& InDelegate, float InRate, bool InbLoop, float InFirstDelay)
 {
 	SCOPE_CYCLE_COUNTER(STAT_SetTimer);
 
@@ -233,7 +233,7 @@ void FTimerManager::InternalSetTimer(FTimerHandle& InOutHandle, FTimerUnifiedDel
 	{
 		// set up the new timer
 		FTimerData NewTimerData;
-		NewTimerData.TimerDelegate = InDelegate;
+		NewTimerData.TimerDelegate = MoveTemp(InDelegate);
 
 		NewTimerData.Rate = InRate;
 		NewTimerData.bLoop = InbLoop;
@@ -269,7 +269,7 @@ void FTimerManager::InternalSetTimer(FTimerHandle& InOutHandle, FTimerUnifiedDel
 	}
 }
 
-void FTimerManager::InternalSetTimerForNextTick(FTimerUnifiedDelegate const& InDelegate)
+FTimerHandle FTimerManager::InternalSetTimerForNextTick(FTimerUnifiedDelegate&& InDelegate)
 {
 	SCOPE_CYCLE_COUNTER(STAT_SetTimerForNextTick);
 
@@ -280,7 +280,7 @@ void FTimerManager::InternalSetTimerForNextTick(FTimerUnifiedDelegate const& InD
 	NewTimerData.Rate = 0.f;
 	NewTimerData.bLoop = false;
 	NewTimerData.bRequiresDelegate = true;
-	NewTimerData.TimerDelegate = InDelegate;
+	NewTimerData.TimerDelegate = MoveTemp(InDelegate);
 	NewTimerData.ExpireTime = InternalTime;
 	NewTimerData.Status = ETimerStatus::Active;
 
@@ -293,6 +293,8 @@ void FTimerManager::InternalSetTimerForNextTick(FTimerUnifiedDelegate const& InD
 
 	FTimerHandle NewTimerHandle = AddTimer(MoveTemp(NewTimerData));
 	ActiveTimerHeap.HeapPush(NewTimerHandle, FTimerHeapOrder(Timers));
+
+	return NewTimerHandle;
 }
 
 void FTimerManager::InternalClearTimer(FTimerHandle const& InHandle)
@@ -516,7 +518,7 @@ DECLARE_DWORD_COUNTER_STAT(TEXT("TimerManager Heap Size"),STAT_NumHeapEntries,ST
 
 void FTimerManager::Tick(float DeltaTime)
 {
-	CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_TimerManagerTick);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Tickables);
 
 #if DO_TIMEGUARD && 0
 	TArray<FTimerUnifiedDelegate> RunTimerDelegates;

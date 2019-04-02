@@ -1,12 +1,12 @@
-﻿INTSourceChangelist:3457813
-Availability:Public
-Title:1 - 所需设置
+INTSourceChangelist:3810557
+Availability: Public
+Title:1——所需设置
 Crumbs:%ROOT%
-Description:学习如何在 Linux 系统中安装和设置 Android SDK，以便用 UE4 进行移动游戏开发。
-Version:4.14
+Description:了解如何在Linux上安装和设置Android SDK以便使用虚幻引擎进行移动游戏开发。
+Version: 4.17
 type:quick start
 parent:Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux
-order:1
+order: 1
 tags:Linux
 SkillLevel:Intermediate
 Checkpoint:AndroidOnLinuxQS
@@ -15,117 +15,109 @@ Contributor:yaakuro
 [nav]
 
 [EXCERPT:AndroidLinux_1]
-虚幻引擎 4（UE4）使用的是特殊版本的 Android 软件开发套件（SDK），名为 CodeWorks for Android。设置用 UE4 开发 Android 项目所需的 SDK 和原生开发套件（NDK）时，使用 CodeWorks for Android 最为简便。如您安装的 Android SDK（或 CodeWorks for Android）版本过老（低于 1R5 版本），我们建议您将其卸载并安装 [CodeWorks for Android](https://developer.nvidia.com/codeworks-android)，使用和 UE4 一同发布的 CodeWorks for Android 安装程序。  
+虚幻引擎4使用特殊版本的Android软件开发套件（SDK），称为CodeWorks for Android。CodeWorks for Android是设置SDK和原生开发套件（NDK）最简单的方法，SDK和NDK是使用虚幻引擎4开发Android项目必不可少的。如果您安装了较旧版本（1R5之前的版本）的Android SDK（或较旧版本的CodeWorks for Android），我们建议您将它们卸载，使用虚幻引擎4随附的CodeWorks for Android安装程序安装[CodeWorks for Android](https://developer.nvidia.com/codeworks-android)。
 
 [REGION:note]
-我们已将 CodeWorks for Android 安装程序和 UE4 绑定，确保 Android SDK 与虚幻引擎相互兼容。 
-注意：从虚幻引擎 4.16 版本起，UE4 将内置 CodeWorks for Android 1R6u1 版本。
+我们已在虚幻引擎4中捆绑了CodeWorks for Android安装程序，确保您的Android SDK与引擎兼容。需要注意的是，截至虚幻引擎版本4.16，引擎包含的是CodeWorks for Android 1R6u1。
 [/REGION]
 
-## 安装 CodeWorks for Android
+(#installingcodeworksforandroid)
+## 安装CodeWorks for Android
 
-为便于展示如何在 Linux 平台着手使用 Android，我们将结合虚幻引擎 4.14 版本使用 CodeWorks for Android 1R5 版本。
-安装 CodeWorks for Android 1R5 之前应将 UE4 关闭。此外请安装 Java 开发套件 8（JDK 8），并将 `JAVA_HOME` 环境变量设为 Java 开发套件（JDK）的正确版本。
-在终端中输入 `echo $JAVA_HOME` 即可验证 `JAVA_HOME` 是否正确设置。如未看到正确的 JDK 版本，[下载 JDK 8](http://www.oracle.com/technetwork/java/javase/downloads/index.html)，在 Linux 电脑上进行安装，并将 `JAVA_HOME` 环境变量设为新安装的 JDK。
+为了向您显示如何开始在Linux上进行Android开发，我们将使用CodeWorks for Android 1R6u1和虚幻引擎版本4.14。在安装CodeWorks for Android 1R6u1之前，引擎应处于关闭状态。此外，还请确保您安装了Java Development Kit 8（JDK 8），并将`JAVA_HOME`环境变量设置为正确版本的Java Development Kit（JDK）。要验证`JAVA_HOME`设置是否正确，在终端中输入`echo $JAVA_HOME`。如果您没看到正确的JDK版本[download JDK 8](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html)，并在Linux计算机上安装正确版本，并确保将`JAVA_HOME`环境变量设置为新安装的SDK。
 
 [REGION:warning]
-继续之前须注意，此版本尚未包括 Linux 上的 Android Vulkan 支持。
+在继续之前，请注意目前不支持Linux上的Android Vulkan。
 [/REGION]
 
-1.	打开终端并导航至包含已编译引擎的 `[UE4Root]` 文件夹（使用 `cd` 命令修改 shell 工作目录）。
+1.	首先，打开终端并浏览到`[UE4Root]`文件夹，其中包含编译好的引擎（使用`cd`命令并切换shell工作目录）。
 
 	![](LinuxAndroid_Step0.png)(w:900)
 
-1.	将以下字符串输入终端，在 `[UE4Root]` 文件夹中找到 CodeWorks for Android 1R5 二进制文件（**CodeWorksforAndroid-1R5-linux-x64.run**）：`cd Engine/Extras/AndroidWorks/Linux`。
+1.	从`[UE4Root]`文件夹内部，通过在终端中输入以下字符串，浏览到CodeWorks for Android 1R6u1二进制文件（**CodeWorksforAndroid-1R6u1-linux-x64.run**）：`cd Engine/Extras/AndroidWorks/Linux`.
 
 	![](LinuxAndroid_Step1.png)(w:900)
 
-1.	在终端中输入 `ls -l`，显示目录的长列表。
+1.	现在，在终端中输入`ls -l`，此时会显示一个很长的目录内容列表。
 
 	![](LinuxAndroid_Step2.png)(w:900)
 
-	文件的许可设置将告知 **CodeWorksforAndroid-1R5-linux-x64.run** 尚未准备好执行。
-	运行 CodeWorks for Android 1R5 二进制之前，需要修改文件的访问权，获得 ‘执行’ 许可。
+	通过文件权限设置，您可知道 **CodeWorksforAndroid-1R6u1-linux-x64.run** 尚未准备好执行。在运行CodeWorks for Android 1R6u1二进制文件之前，必须将文件访问权更改为允许“execute”权限。
 
-1.	在终端中输入 `chmod +x CodeWorksforAndroid-1R5-linux-x64.run`，修改文件的 `CodeWorksforAndroid-1R5-linux-x64.run` 许可设置，使其能够像普通可执行文件一样运行。
+1.	要更改`CodeWorksforAndroid-1R6u1-linux-x64.run`的权限设置，使其能够像一般可执行文件一样运行，请在终端中输入`chmod +x CodeWorksforAndroid-1R6u1-linux-x64.run`。
 	
 	![](LinuxAndroid_Step3.png)(w:900)
 
 	[REGION:tip]
-	如希望了解 `chmod` 命令的更多内容，可在终端中输入 `man chmod`，阅读包含 `chmod` 工作原理的操作页面。
+	如果您想要进一步了解`chmod`命令，请在终端中输入`man chmod`，以阅读包括`chmod`工作方式的手册页面。
 	[/REGION]
 
-1.	现在在终端中输入 `ls -l`。
+1.	现在，在终端中输入`ls -l`。
 
 	![](LinuxAndroid_Step4.png)(w:900)
 
-	上图中框中文件的许可设置说明 CodeWorks for Android 1R5 二进制文件已可执行。
+	图像中高亮显示的文件权限表示，CodeWorks for Android 1R6u1二进制文件已经准备就绪，可以执行。
 
-1.	在终端中输入 `./CodeWorksforAndroid-1R5-linux-x64.run` 即可运行 CodeWorks for Android 二进制文件。
+1.	要运行CodeWorks for Android二进制文件，请在终端中输入`./CodeWorksforAndroid-1R6u1-linux-x64.run`。
 
 	![](LinuxAndroid_Step5.png)(w:900)
 
 	[REGION:warning]
-	请确保电脑的网络连接正常，然后继续下一步。
+	请确保您的计算机具有有效的网络连接，然后再继续下一步。
 	[/REGION]
 
-1.	CodeWorks for Android 1R5 二进制文件解包 **NVIDIA CodeWorks for Android** 安装程序后便会出现 **Installer Welcome** 窗口，弹出 **Next >** 或 **Cancel** 的提示。
+1.	在CodeWorks for Android 1R6u1二进制解包 **NVIDIA CodeWorks for Android** 安装程序后，您会看到 **安装程序欢迎（Installer Welcom）** 窗口，并提示您单击 **下一步（Next）** 或 **取消（Cancel）**。
 
 	![](LinuxAndroid_Step6.png)(w:900)
 
-1.	在 **Installer Welcome** 窗口中点击 **Next >** 按钮开始安装进程。
+1.	从 **安装程序欢迎（Installer Welcom）** 窗口，单击 **下一步（Next）** 按钮以开始安装过程。
 
 	![](LinuxAndroid_Step7.png)(w:900)
 
-1.	现在在 **Android Developer's Welcome 窗口** 中点击 **Next >** 按钮继续安装进程。
+1.	现在，从 **Android开发者欢迎窗口（Android Developer's Welcome Window）**，单击 **下一步（Next）** 按钮以继续安装过程。
 
 	![](LinuxAndroid_Step8.png)(w:900)
 
-1.	指定 CodeWorks for Android 1R5 的下载安装路径。
+1.	指定应安装和下载CodeWorks for Android 1R6u1的目录。
 
 	![](LinuxAndroid_Step9.png)(w:900)
 
-1.	点击 **Next >** 从 NVIDIA 官网下载 CodeWorks for Android 1R5，然后在电脑上安装 CodeWorks。
+1.	单击 **下一步（Next >）** 按钮以从NVIDIA下载CodeWorks for Android 1R6u1，之后在计算机上安装CodeWorks。
 
 	![](LinuxAndroid_Step10.png)(w:900)
 
-1.	确认 **CodeWorks for Android 1R5** 正在安装，然后点击 **Android Component Manager** 窗口中的 **Next >** 按钮。
+1.	现在，确认您确实在安装 **CodeWorks for Android 1R6u1**，然后单击 **Android组件管理器（Android Component Manager）** 窗口中的 **下一步（Next）** 按钮。
 
 	![](LinuxAndroid_Step11.png)(w:900)
 
-1.	**Terms and Conditions** 窗口出现后，请阅读所有 **条款及条件**，然后选择 **Accept All** 勾选框。
+1.	在 **条款与条件（Terms and Conditions）** 窗口出现后，花些时间阅读所有 **条款与条件**，然后再选中 **全部接受（Accept All）** 复选框。
 
 	![](LinuxAndroid_Step12.png)(w:900)
 
-1.	点击 **Accept** 按钮开始安装进程。
+1.	现在，单击 **接受（Accept）** 按钮以开始安装过程。
 
 	![](LinuxAndroid_Step13.png)(w:900)
 
-1.	安装程序完成安装进程后，即可点击 **Next >** 按钮继续。
+1.	安装程序完成安装过程后，单击 **下一步（Next >）** 按钮以继续。
 
 	![](LinuxAndroid_Step14.png)(w:900)
 
-1.	**Installation Complete** 窗口出现后，点击 **Finish** 按钮完成安装。
+1.	在 **安装完成（Installation Complete）** 窗口打开后，单击 **完成（Finish）** 按钮以完成安装。
 
 	![](LinuxAndroid_Step15.png)(w:900)
 
-1.	进入下一步前必须重启电脑。
+1.	确保重启计算机后再进行下一步。
 
 	![](LinuxAndroid_Note16.png)(w:900)
 
 	[REGION:tip]
-	如不希望使用 Ubuntu 的 GUI，可在终端中输入 `sudo reboot` 重启电脑。 
-	[COMMENT:none]
- 
-	![](LinuxAndroid_Step16.png)(w:900)
-	
-[/COMMENT]
+	如果您不想使用Ubuntu's GUI，可以在终端中输入`sudo reboot`来重启计算机。 
 	[/REGION]
 [/EXCERPT:AndroidLinux_1]
 
+(#endresult)
 ## 最终结果
 
-此时您便已安装 Android SDK，这是在 Linux 上用 UE4 进行移动游戏开发的第一步。 
-下一步将为您展示如何在 Android 设备上设置开发环境。 
+进行到本教程的这一步，您已安装了Android SDK，这是在Linux上使用虚幻引擎4开发移动游戏的第一个准备步骤。下一步将向您演示如何在Android设备上设置开发环境。
 
 [nav]

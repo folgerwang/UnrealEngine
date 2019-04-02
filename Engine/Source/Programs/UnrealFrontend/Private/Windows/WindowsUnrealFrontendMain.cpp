@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "UnrealFrontendMain.h"
@@ -30,13 +30,6 @@ int32 WINAPI WinMain( HINSTANCE hInInstance, HINSTANCE hPrevInstance, char* lpCm
 		GAlwaysReportCrash = true;
 	}
 #endif
-
-#if WINVER > 0x502	// Windows Error Reporting is not supported on Windows XP
-	if (FParse::Param(CmdLine, TEXT("useautoreporter")))
-#endif
-	{
-		GUseCrashReportClient = false;
-	}
 
 	int32 ErrorLevel = 0;
 

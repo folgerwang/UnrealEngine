@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Stats/StatsData.h"
 #include "Templates/Greater.h"
@@ -500,16 +500,16 @@ FComplexRawStatStackNode::FComplexRawStatStackNode( const FRawStatStackNode& Oth
 	}
 }
 
-void FComplexRawStatStackNode::MergeAddAndMax( const FRawStatStackNode& Other )
+void FComplexRawStatStackNode::MergeAddAndMinMax( const FRawStatStackNode& Other )
 {
-	FComplexStatUtils::AddAndMax( ComplexStat, Other.Meta, EComplexStatField::IncSum, EComplexStatField::IncMax );
+	FComplexStatUtils::AddAndMinMax( ComplexStat, Other.Meta, EComplexStatField::IncSum, EComplexStatField::IncMax, EComplexStatField::IncMin );
 
 	for (auto It = Other.Children.CreateConstIterator(); It; ++It)
 	{
 		FComplexRawStatStackNode* Child = Children.FindRef(It.Key());
 		if (Child)
 		{
-			Child->MergeAddAndMax(*It.Value());
+			Child->MergeAddAndMinMax(*It.Value());
 		}
 		else
 		{
@@ -809,6 +809,18 @@ void FStatsThreadState::ToggleFindMemoryExtensiveStats()
 {
 	bFindMemoryExtensiveStats = !bFindMemoryExtensiveStats;
 	UE_LOG(LogStats, Log, TEXT("bFindMemoryExtensiveStats is %s now"), bFindMemoryExtensiveStats?TEXT("enabled"):TEXT("disabled"));
+}
+
+void FStatsThreadState::EnableFindMemoryExtensiveStats()
+{
+	bFindMemoryExtensiveStats = true;
+	UE_LOG(LogStats, Log, TEXT("bFindMemoryExtensiveStats is enabled now"));
+}
+
+void FStatsThreadState::DisableFindMemoryExtensiveStats()
+{
+	bFindMemoryExtensiveStats = false;
+	UE_LOG(LogStats, Log, TEXT("bFindMemoryExtensiveStats is disabled now"));
 }
 
 void FStatsThreadState::ProcessNonFrameStats(FStatMessagesArray& Data, TSet<FName>* NonFrameStatsFound)
@@ -2121,14 +2133,23 @@ FString FStatsUtils::ToEscapedFString(const TCHAR* Source)
 }
 
 
-void FComplexStatUtils::AddAndMax( FComplexStatMessage& Dest, const FStatMessage& Item, EComplexStatField::Type SumIndex, EComplexStatField::Type MaxIndex )
+void FComplexStatUtils::AddAndMinMax( FComplexStatMessage& Dest, const FStatMessage& Item, EComplexStatField::Type SumIndex, EComplexStatField::Type MaxIndex, EComplexStatField::Type MinIndex )
 {
 	check(Dest.NameAndInfo.GetRawName() == Item.NameAndInfo.GetRawName());
 
 	// Copy the data type from the other stack node.
 	if( Dest.NameAndInfo.GetField<EStatDataType>() == EStatDataType::ST_None )
 	{
-		Dest.NameAndInfo.SetField<EStatDataType>( Item.NameAndInfo.GetField<EStatDataType>() );
+		const EStatDataType::Type ItemStatDataType = Item.NameAndInfo.GetField<EStatDataType>();
+		Dest.NameAndInfo.SetField<EStatDataType>(ItemStatDataType);
+		if( ItemStatDataType == EStatDataType::ST_int64 )
+		{
+			Dest.GetValue_int64(MinIndex) = INT64_MAX; 
+		}
+		else if( ItemStatDataType == EStatDataType::ST_double )
+		{
+			Dest.GetValue_double(MinIndex) = DBL_MAX;
+		}
 	}
 
 	const EStatDataType::Type StatDataType = Dest.NameAndInfo.GetField<EStatDataType>();
@@ -2146,16 +2167,18 @@ void FComplexStatUtils::AddAndMax( FComplexStatMessage& Dest, const FStatMessage
 		}
 	}
 
-	// Maximum time.
+	// Maximum/Minimum time.
 	if( StatDataType != EStatDataType::ST_None && StatDataType != EStatDataType::ST_FName)
 	{
 		if( StatDataType == EStatDataType::ST_int64 )
 		{
 			FStatsUtils::StatOpMaxVal_Int64( Dest.NameAndInfo, Dest.GetValue_int64(MaxIndex), Item.GetValue_int64() );
+			FStatsUtils::StatOpMinVal_Int64( Dest.NameAndInfo, Dest.GetValue_int64(MinIndex), Item.GetValue_int64() );
 		}
 		else if( StatDataType == EStatDataType::ST_double )
 		{
 			Dest.GetValue_double(MaxIndex) = FMath::Max<double>(Dest.GetValue_double(MaxIndex), Item.GetValue_double());
+			Dest.GetValue_double(MinIndex) = FMath::Min<double>(Dest.GetValue_double(MinIndex), Item.GetValue_double());
 		}
 	}
 }
@@ -2193,7 +2216,7 @@ void FComplexStatUtils::DivideStat( FComplexStatMessage& Dest, uint32 Div, EComp
 	}
 }
 
-void FComplexStatUtils::MergeAddAndMaxArray( TArray<FComplexStatMessage>& Dest, const TArray<FStatMessage>& Source, EComplexStatField::Type SumIndex, EComplexStatField::Type MaxIndex )
+void FComplexStatUtils::MergeAddAndMinMaxArray( TArray<FComplexStatMessage>& Dest, const TArray<FStatMessage>& Source, EComplexStatField::Type SumIndex, EComplexStatField::Type MaxIndex, EComplexStatField::Type MinIndex )
 {
 	TMap<FName, int32> NameToIndex;
 	for( int32 Index = 0; Index < Dest.Num(); Index++ )
@@ -2205,7 +2228,7 @@ void FComplexStatUtils::MergeAddAndMaxArray( TArray<FComplexStatMessage>& Dest, 
 	for( int32 Index = 0; Index < Source.Num(); Index++ )
 	{
 		const int32& DestIndex = NameToIndex.FindChecked( Source[Index].NameAndInfo.GetRawName() );
-		FComplexStatUtils::AddAndMax( Dest[DestIndex], Source[Index], SumIndex, MaxIndex );
+		FComplexStatUtils::AddAndMinMax( Dest[DestIndex], Source[Index], SumIndex, MaxIndex, MinIndex );
 	}
 }
 

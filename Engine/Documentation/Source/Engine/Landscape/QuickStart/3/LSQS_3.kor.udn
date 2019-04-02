@@ -7,7 +7,7 @@ Description:랜드스케이프를 조각하는 법입니다.
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 단계](Engine/Landscape/QuickStart/2 "%Engine/Landscape/QuickStart/2:title%") 
+		[이전 단계](Engine/Landscape/QuickStart/2 "%Engine/Landscape/QuickStart/2:title%") 
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -99,7 +99,7 @@ Description:랜드스케이프를 조각하는 법입니다.
 	![](T_Landscape_Erosion.png)
 	[/REGION]
 
-1. 다음 단계에서는 랜드스케이프에 수성 침식을 조금 추가하여 예전 단계에서 추가된 침식 작용을 한 층 더 강화시키도록 하겠습니다.
+1. 다음 단계에서는 랜드스케이프에 수성 침식을 조금 추가하여 이전 단계에서 추가된 침식 작용을 한 층 더 강화시키도록 하겠습니다.
 **수성 침식 툴** 은 오랜 시간에 걸친 물에 의한 랜드스케이프의 침식 시뮬레이션이므로 침식 툴과는 다릅니다.
 이번 단계에서 사용된 브러시 크기와 세기 세팅은 아래에서 찾을 수 있으며, 완료되면 다음과 같은 모습일 것입니다.
 	|사용 툴| 브러시 크기 | 세기 세팅 |

@@ -1,0 +1,89 @@
+﻿INTSourceChangelist:4687713
+Availability: Public
+Crumbs: 
+Title:4.21物理技术说明
+Description:描述在4.21引擎版本中对物理界面所做的技术更改。 
+Type: 
+Version: 4.21
+Parent: Engine/Physics
+Order: 
+Tags: 
+
+
+[REGION:note]
+本页概括介绍4.21虚幻引擎版本中对物理系统的部分设计修改。
+[/REGION]
+
+在4.21引擎版本中，我们重新设计了物理界面，支持强化的物理对象所有权意识，从高级别视角到更精细级别。由于这些更改，我们停用了 **异步场景**，该功能仅建议用于APEX破坏。您仍可以使用 **同步场景** 来实现相同的视觉效果。
+
+这些更改的另一个结果是重新设计了与C++代码API有关的很多物理。从功能角度而言，API没有改变，您应能够按照目前的方法继续使用。本页概括介绍重新设计的内容以及参考文件链接。 
+
+(#asyncscenedeprecation)
+## 异步场景停用
+
+异步场景推出已有一段时间，用来存放Apex破坏形体。这些形体最多延迟运行一帧，引擎会在下一帧开始时获得结果。
+
+问题在于，需要很多代码来单独处理这个过程（例如，异步执行这个操作，异步不执行那个操作），如果破坏场景中有大量形体，则会影响游戏线程。此外，异步场景中的形体不会与Gameplay或同步场景中的其他形体交互。移除异步场景意味着所有形体都会彼此交互，也会与Gameplay交互。
+
+停用异步场景，并不意味着破坏系统不能工作，而只是不再支持异步场景而已。破坏仍能正常工作，但是，现在会作为主要物理场景的一部分工作。
+
+(#physicsinterface)
+## 物理界面
+
+物理界面有两大功能：
+
+1.  **重组依赖关系**——引擎不再直接调用PhysX。而是，所有与物理有关的调用现在都通过物理界面执行。
+2.  **为物理交互创建常用模型**——物理界面允许物理解决方案使用常用方法来与虚幻互动。
+
+在安装文件夹的 **Engine/Source/Runtime/Engine/Public/Physics** 中，有一些物理界面文件，您可以查看这些文件中的代码更改。**Engine/Source/Runtime/Engine/Public/Physics**/**PhysicsInterfacePhysX** 文件包含虚幻调用PhysX可能需要的每个功能的完整定义。
+
+如果项目不直接使用`FBodyInstance`中的PhysX对象，也不会有任何负面影响。`FBodyinstance`上公开的方法已经使用新界面全部重新进行了实现，用法与先前版本相同。
+
+直接操作PhysX数据/与PhysX类型互动等的代码将需要重新设计才能使用新API。下面是使用`FBodyInstance::SetLinearVelocity`的示例：  
+
+4.20：
+
+~~~
+void FBodyInstance::SetLinearVelocity(const FVector& NewVel, bool bAddToCurrent)
+{
+#if WITH_PHYSX
+    ExecuteOnPxRigidBodyReadWrite(this, [&](PxRigidBody* PRigidBody)
+    {
+        PxVec3 PNewVel = U2PVector(NewVel);
+        if (bAddToCurrent)
+        {
+            const PxVec3 POldVel = PRigidBody->getLinearVelocity();
+            PNewVel += POldVel;
+        }
+        PRigidBody->setLinearVelocity(PNewVel);
+    });
+ #endif // WITH_PHYSX
+ }
+~~~
+
+4.21：
+
+~~~
+void FBodyInstance::SetLinearVelocity(const FVector& NewVel, bool bAddToCurrent, bool bAutoWake)
+{
+    FPhysicsCommand::ExecuteWrite(ActorHandle, [&](const FPhysicsActorHandle& Actor)
+    {
+        if(FPhysicsInterface::IsRigidBody(Actor))
+        {
+            FVector FinalVelocity = NewVel;
+            if(bAddToCurrent)
+            {
+                FinalVelocity += FPhysicsInterface::GetLinearVelocity_AssumesLocked(Actor);
+            }
+            FPhysicsInterface::SetLinearVelocity_AssumesLocked(Actor, FinalVelocity);
+        }
+    });
+}
+~~~
+
+在新版本中，逻辑相同，但代码使用不确定性处理，而不是PhysX类型。
+
+**Engine/Source/Runtime/Engine/Public/Physics/PhysicsInterfaceCore** 文件构建所有不同的受支持界面，**Engine/Source/Runtime/Engine/Public/Physics/PhysicsInterfaceDeclares** 文件包含用于通信的类型。您可以使用简单类型（例如`FPhysicsActorHandle`）来与Actor通信，同时引擎在后台会理解衍生的类型。  
+[REGION:warning]
+目前仅PhysicsInterfacePhysX受支持并正常工作。其他仍视为高度试验阶段，可能不能按预期正常工作。
+[/REGION]

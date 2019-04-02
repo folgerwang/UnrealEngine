@@ -1,4 +1,5 @@
-﻿Availability: Public
+﻿INTSourceChangelist:3782314
+Availability: Public
 Title:1.4 - 骨架网格物体
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/ImportOptions
 Description:骨架网格物体
@@ -11,51 +12,12 @@ Related: Engine/Content/FBX
 Related: Engine/Content/FBX/MorphTargets
 Related: Shared/Editor/FbxErrors
 Related: Engine/Content/FBX/Materials
-
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources\ContentExamples\ImportOptions\1_4:title%](%ROOT%\Resources\ContentExamples\ImportOptions\1_4\fbx_1_4_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\ImportOptions\1_4:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\ImportOptions\1_4:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/ImportOptions/1_4]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources\ContentExamples\ImportOptions\1_4:title%](%ROOT%\Resources\ContentExamples\ImportOptions\1_4\fbx_1_4_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\ImportOptions\1_4:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\ImportOptions\1_4:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/ImportOptions/1_4]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+Version: 4.9
+topic-image:fbx_1_4_topic.png
 
 [REGION:fullwidth]
 ![](CE_1_4_001.png)
 [/REGION]
 
 [INCLUDE:Engine/Content\FBX\SkeletalMeshes#FBX_SkeletalMeshes]
-
 

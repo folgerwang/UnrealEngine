@@ -1,0 +1,96 @@
+Availability: Public
+Crumbs: 
+Title: Datasmith Supported Software and File Types
+Description: Details all the third-party software applications and data formats that Datasmith works with.
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith
+Order: 3
+Tags: Enterprise
+Tags:Unreal Studio
+Tags: Datasmith
+Tags: Manufacturing
+Tags: Reference
+topic-image:Filetypes_topic.jpg
+
+
+This page describes all the third-party software applications and data formats that Datasmith works with.
+
+For each, the **Workflow Type** indicates how you package the information from your design application:
+
+*   **Direct** means that Datasmith reads the application's file format directly.
+*   **Export** means that you need to export the content from your application to a specific file format before Datasmith can import it into Unreal, using an exporter that is already built in to your application.
+*   **Export Plugin** means that you need to install a new plugin into your application in order to export your design data into the format that Datasmith imports into Unreal.
+
+[REGION:note]
+All **Export Plugins**, as well as the Datasmith importer in the Unreal Editor, are only available for Microsoft Windows platforms.
+[/REGION]
+
+The last column, **Importer**, tells you what type of Datasmith importer you need to use to bring in your content. For more on this process, see [Importing Datasmith Content](Enterprise/Datasmith/HowTo/ImportingContent).
+
+## Current Software Application Support
+
+Datasmith currently works with the following software applications and file formats:
+
+  
+| Application or File Format | Supported Extensions | Version | Workflow Type | Facets | Boundary Representation (BREP) | Assemblies | Importer |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| **AxF \*** | 	.axf (Fixed carpaint and SVBRDF models only) | `--` | Direct | `--` | `--` | `--` | MDL |
+| **3D ACIS** | .sat | Up to R21 | Direct | No | Yes | Yes | CAD |
+| **3DXML** | .3dxml | FS 2.0 | Direct | No | No | No | CAD |
+| **Autodesk 3ds Max** | .udatasmith | 2016, 2017, 2018, 2019 | Export Plugin | Yes | No | Yes | Datasmith |
+| **Autodesk Inventor** | .iam, .ipt | Up to 2018 | Direct | No | Yes | No | CAD |
+| **Autodesk VRED \*** | .fbx | VRED Professional 2018 and 2019 | Export Plugin | Yes | No | Yes | VRED Fbx |
+| **CADDS** | .gbf |  4 & 5 | Direct | No | Yes | Yes | CAD |
+| **CATIA V5** | .catpart, .catproduct, .cgr | R10 - R24 | Direct | No | Yes | Yes | CAD |
+| **Deltagen \*** | .fbx (CSB not supported) | 2017, 2018 | Export | Yes | No | Yes | 	Deltagen Fbx |
+| **ESRI CityEngine** | .udatasmith	 | `--` | 	Export Plugin | `--` | `--` | `--` | Datasmith |
+| **I-DEAS** | unv | Up to NX6 | Direct | No | Yes | Yes | CAD |
+| **Initial Graphics Exchange Specification (IGES)** | .iges, .igs	 | 5.2, 5.3 | Direct | No | Yes | Yes | CAD |
+| **JT Open** | .jt | Up to 10 | Direct | Yes | Yes | Yes | CAD |
+| **MDL** | .mdl | 2018 | Direct | `--` | `--` | `--` | MDL |
+| **Parasolid (x_t)** | .x_t | up to 20 | Direct | No | Yes | No | CAD |
+| **PTC Creo (Pro/ENGINEER)** | .asm.1, .neu, .prt.1 | V13 up to Creo 4 | Direct | Yes | Yes | Yes | CAD |
+| **Rhinoceros** | .3dm | 	up to 6 | Direct | No | Yes | No | CAD |
+| **ROBCAD** | .rf | `--` | Direct | Yes | Yes | Yes | CAD |
+| **Siemens NX** | .prt | V11 - NX9 | Direct | No | Yes | Yes | CAD |
+| **Trimble SketchUp Pro** | .udatasmith | 2017, 2018 | Export Plugin | Yes | No | Yes | Datasmith |
+| **SolidWorks** | .sldasm, .sldprt | Up to 2017 | Direct | No | Yes | Yes | CAD |
+| **STEP** | .step | AP203, AP214, AP242 | Direct | Yes | Yes | Yes | CAD |
+
+[REGION:note]
+\* only available to licensees of Datasmith Plus. If you'd like to know more, contact us [here](https://www.unrealengine.com/en-US/enterprise/contact-us).
+[/REGION]
+
+## Planned Software Application Support
+
+This table lists additional software applications and data types that we hope to support with Datasmith in the near to medium term. As always, our priorities are determined by the feedback and needs of the community, so [let us know](https://forums.unrealengine.com/unreal-engine/unreal-studio) what applications and formats are important for you and your organization. 
+
+  
+| File Format | Supported Extensions | Version | Workflow Type | Facets | 	Boundary Representation (BREP) | Assemblies |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Alias Wire \*** | .wire | `--` | 	Direct | Yes | Yes | Yes |
+| **AutoCAD** | .dwg | `--` | Direct | Yes | No | Yes |
+| **Autodesk Maya** | `--` | `--` | `--` | Yes | No | Yes |
+| **Autodesk Revit** | .udatasmith | 2016, 2017, 2018 | Export Plugin |  No | Yes | Yes |
+| **Cinema 4D** | .c4d | `--`| 	Export Plugin | Yes | No | Yes |
+| **STL** | 	.stl | `--` | 	Direct | Yes | No | No |
+| **VRML** | .vrml | 97, 97zip | Direct | Yes | Yes | Yes |
+
+## Formats Supported by Unreal Engine Directly
+
+Unreal Engine offers built-in support for importing and exporting FBX files.
+
+These FBX-based workflows are optimized to support game requirements, which tend to be focused on working with individual objects. Datasmith, by contrast, brings in entire scenes, potentially containing thousands of objects, each with its materials, pivots, scale, hierarchy, and metadata, from a wide range of sources. However, you should feel free to use the FBX import pipeline if it suits your needs. For example, you might use it to import pieces of additional set dressing that you'll use to augment your Datasmith content in your Unreal Level.
+
+For details, you can read about our [FBX Content Pipeline](Engine/Content/FBX).  
+
+[REGION:note]
+Unreal Engine version 4.19 also introduces experimental support for importing the glTF format. This, too, has been optimized for object-based workflows, and has various limitations compared to the scene transfer of Datasmith, but you might find it works for you in select cases. To try it out, go to **Edit > Plugins > Importers**, enable the glTF Importer plugin, and restart the Editor.
+[/REGION]
+
+## Backward Compatibility
+
+While Unreal Studio is in its open beta phase, we may from time to time need to change the Datasmith file format and the behavior of the importer plugins in order to add new features. During this period, we do not guarantee backward compatibility between all versions of Unreal and all versions of the Datasmith export plugins. Although it may work to import a *.udatasmith* file generated with an older version of an export plugin into a newer version of the Unreal Engine, we do not recommend depending on it. 
+
+Always use the version of an export plugin that matches the version of the Unreal Engine and of the Datasmith plugin that you need to use that exported file with. To get the most out of Unreal Studio, and to make sure you benefit from the latest fixes and features in Datasmith, we recommend always using the latest possible version of the export plugins and of the Unreal Engine.

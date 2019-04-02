@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LightMap.h: Light-map definitions.
@@ -21,10 +21,6 @@ class UMapBuildDataRegistry;
 class UPrimitiveComponent;
 struct FQuantizedLightmapData;
 class UVirtualTexture;
-
-// When using virtual textures for the 2D lightmaps, use the 16bbp (1) or 32bbp (0) page table
-// 16bbp is limited to 64*64 pools
-#define LIGHTMAP_VT_16BIT 1
 
 /** Whether to use bilinear filtering on lightmaps */
 extern ENGINE_API bool GUseBilinearLightmaps;
@@ -403,7 +399,7 @@ struct TQuantizedLightSampleBulkData : public FUntypedBulkData
 	 * @param Data			Base pointer to data
 	 * @param ElementIndex	Element index to serialize
 	 */
-	virtual void SerializeElement( FArchive& Ar, void* Data, int32 ElementIndex );
+	virtual void SerializeElement( FArchive& Ar, void* Data, int64 ElementIndex );
 };
 
 /** A 1D array of incident lighting data. */
@@ -609,3 +605,24 @@ void CropUnmappedTexels( const TMappingData& MappingData, int32 SizeX, int32 Siz
 	CroppedRect.Min.X = FMath::Min<int32>(CroppedRect.Min.X, CroppedRect.Max.X);
 	CroppedRect.Min.Y = FMath::Min<int32>(CroppedRect.Min.Y, CroppedRect.Max.Y);
 }
+
+/** 
+ * A bundle of lightmap resources which are referenced by multiple components. 
+ */
+class FLightmapResourceCluster : public FRenderResource
+{
+public:
+
+	ENGINE_API virtual void InitRHI();
+
+	virtual void ReleaseRHI()
+	{
+		UniformBuffer = nullptr;
+	}
+
+	ENGINE_API void UpdateUniformBuffer(ERHIFeatureLevel::Type InFeatureLevel);
+
+	FLightmapClusterResourceInput Input;
+
+	FUniformBufferRHIRef UniformBuffer;
+};

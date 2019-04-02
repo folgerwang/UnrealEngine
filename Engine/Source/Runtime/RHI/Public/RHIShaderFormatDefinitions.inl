@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RHIShaderFormatDefinitions.h: Names for Shader Formats
@@ -44,6 +44,7 @@ static FName NAME_SF_METAL_MACES2(TEXT("SF_METAL_MACES2"));
 static FName NAME_VULKAN_ES3_1_ANDROID(TEXT("SF_VULKAN_ES31_ANDROID"));
 static FName NAME_VULKAN_ES3_1_ANDROID_NOUB(TEXT("SF_VULKAN_ES31_ANDROID_NOUB"));
 static FName NAME_VULKAN_ES3_1_LUMIN(TEXT("SF_VULKAN_ES31_LUMIN"));
+static FName NAME_VULKAN_ES3_1_LUMIN_NOUB(TEXT("SF_VULKAN_ES31_LUMIN_NOUB"));
 static FName NAME_VULKAN_ES3_1(TEXT("SF_VULKAN_ES31"));
 static FName NAME_VULKAN_ES3_1_NOUB(TEXT("SF_VULKAN_ES31_NOUB"));
 static FName NAME_VULKAN_SM4_NOUB(TEXT("SF_VULKAN_SM4_NOUB"));
@@ -51,6 +52,7 @@ static FName NAME_VULKAN_SM4(TEXT("SF_VULKAN_SM4"));
 static FName NAME_VULKAN_SM5_NOUB(TEXT("SF_VULKAN_SM5_NOUB"));
 static FName NAME_VULKAN_SM5(TEXT("SF_VULKAN_SM5"));
 static FName NAME_VULKAN_SM5_LUMIN(TEXT("SF_VULKAN_SM5_LUMIN"));
+static FName NAME_VULKAN_SM5_LUMIN_NOUB(TEXT("SF_VULKAN_SM5_LUMIN_NOUB"));
 
 
 static FName ShaderPlatformToShaderFormatName(EShaderPlatform Platform)
@@ -123,38 +125,31 @@ static FName ShaderPlatformToShaderFormatName(EShaderPlatform Platform)
 		return NAME_VULKAN_ES3_1_ANDROID_NOUB;//NAME_VULKAN_ES3_1_ANDROID;
 
 	case SP_VULKAN_ES3_1_LUMIN:
-		return NAME_VULKAN_ES3_1_LUMIN;
+	{
+		static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
+		return (CVar && CVar->GetValueOnAnyThread() == 0) ? NAME_VULKAN_ES3_1_LUMIN_NOUB : NAME_VULKAN_ES3_1_LUMIN;
+	}
 
 	case SP_VULKAN_PCES3_1:
 	{
-		// If you modify this, make sure to update FWindowsPlatform::UseRealUBsOptimization()
-#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
 		static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
 		return (CVar && CVar->GetValueOnAnyThread() == 0) ? NAME_VULKAN_ES3_1_NOUB : NAME_VULKAN_ES3_1;
-#else
-		return NAME_VULKAN_ES3_1;
-#endif
 	}
 	case SP_VULKAN_SM4:
 	{
-#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
 		static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
 		return (CVar && CVar->GetValueOnAnyThread() == 0) ? NAME_VULKAN_SM4_NOUB : NAME_VULKAN_SM4;
-#else
-		return NAME_VULKAN_SM4;
-#endif
 	}
 	case SP_VULKAN_SM5:
 	{
-#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
 		static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
 		return (CVar && CVar->GetValueOnAnyThread() == 0) ? NAME_VULKAN_SM5_NOUB : NAME_VULKAN_SM5;
-#else
-		return NAME_VULKAN_SM5;
-#endif
 	}
 	case SP_VULKAN_SM5_LUMIN:
-		return NAME_VULKAN_SM5_LUMIN;
+	{
+		static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
+		return (CVar && CVar->GetValueOnAnyThread() == 0) ? NAME_VULKAN_SM5_LUMIN_NOUB : NAME_VULKAN_SM5_LUMIN;
+	}
 
 	default:
 		checkf(0, TEXT("Unknown EShaderPlatform %d!"), (int32)Platform);
@@ -200,6 +195,7 @@ static EShaderPlatform ShaderFormatNameToShaderPlatform(FName ShaderFormat)
 	if (ShaderFormat == NAME_VULKAN_ES3_1_ANDROID)		return SP_VULKAN_ES3_1_ANDROID;
 	if (ShaderFormat == NAME_VULKAN_ES3_1_ANDROID_NOUB)	return SP_VULKAN_ES3_1_ANDROID;
 	if (ShaderFormat == NAME_VULKAN_ES3_1_LUMIN)		return SP_VULKAN_ES3_1_LUMIN;
+	if (ShaderFormat == NAME_VULKAN_ES3_1_LUMIN_NOUB)	return SP_VULKAN_ES3_1_LUMIN;
 	if (ShaderFormat == NAME_VULKAN_ES3_1)				return SP_VULKAN_PCES3_1;
 	if (ShaderFormat == NAME_VULKAN_ES3_1_NOUB)			return SP_VULKAN_PCES3_1;
 	if (ShaderFormat == NAME_VULKAN_SM4_NOUB)			return SP_VULKAN_SM4;
@@ -207,6 +203,7 @@ static EShaderPlatform ShaderFormatNameToShaderPlatform(FName ShaderFormat)
 	if (ShaderFormat == NAME_VULKAN_SM5_NOUB)			return SP_VULKAN_SM5;
 	if (ShaderFormat == NAME_VULKAN_SM5)				return SP_VULKAN_SM5;
 	if (ShaderFormat == NAME_VULKAN_SM5_LUMIN)			return SP_VULKAN_SM5_LUMIN;
+	if (ShaderFormat == NAME_VULKAN_SM5_LUMIN_NOUB)		return SP_VULKAN_SM5_LUMIN;
 
 	return SP_NumPlatforms;
 }

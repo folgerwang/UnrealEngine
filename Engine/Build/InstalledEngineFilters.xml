@@ -200,6 +200,12 @@
 			Engine/Build/BatchFiles/RunUAT.bat
 			Engine/Build/BatchFiles/GetMSBuildPath.bat
 
+			<!-- Build utilities -->
+			Engine/Build/Windows/cl-filter/cl-filter.exe
+
+			<!-- Default resource files -->
+			Engine/Build/Windows/Resources/...
+
 			<!-- Binaries which are explicitly staged by UAT rather than listing runtime dependencies -->
 			Engine/Binaries/ThirdParty/OpenSSL/...
 
@@ -231,6 +237,7 @@
 		Engine/Build/BatchFiles/Mac/FixMonoFiles.sh
 		Engine/Build/BatchFiles/Mac/RunMono.sh
 		Engine/Build/BatchFiles/Mac/RunXBuild.sh
+		Engine/Build/BatchFiles/Mac/XcodeBuild.sh
 		Engine/Build/BatchFiles/RunUAT.command
 		Engine/Build/BatchFiles/RunUAT.sh
 
@@ -291,14 +298,39 @@
 
 	<!-- Win64 -->
 	<Property Name="CopyWin64Filter">
+		<!-- Natvis helpers for live coding -->
+		Engine/Extras/NatvisHelpers/Win64/NatvisHelpers.lib
+
 		<!-- App local dependencies -->
 		Engine/Binaries/ThirdParty/AppLocalDependencies/...
+		
+		<!-- Oculus Libraries & Build Files -->
+		Engine/Source/ThirdParty/Oculus/LibOVRAudio/LibOVRAudio/lib/win64/*.lib
+		Engine/Source/ThirdParty/Oculus/LibOVRAudio/*.tps
+		Engine/Source/ThirdParty/Oculus/LibOVRAvatar/LibOVRAvatar/lib/win64/*.lib
+		Engine/Source/ThirdParty/Oculus/LibOVRAvatar/*.tps
+		Engine/Source/ThirdParty/Oculus/LibOVRPlatform/LibOVRPlatform/lib/*.lib
+		Engine/Source/ThirdParty/Oculus/LibOVRPlatform/*.tps
+		Engine/Source/ThirdParty/Oculus/OVRPlugin/OVRPlugin/lib/Win64/*.lib
+		Engine/Source/ThirdParty/Oculus/OVRPlugin/*.tps
 	</Property>
 	<Property Name="CopyWin64Exceptions">
 	</Property>
 
 	<!-- Win32 -->
 	<Property Name="CopyWin32Filter">
+		<!-- Natvis helpers for live coding -->
+		Engine/Extras/NatvisHelpers/Win32/NatvisHelpers.lib
+		
+		<!-- Oculus Libraries & Build Files -->
+		Engine/Source/ThirdParty/Oculus/LibOVRAudio/LibOVRAudio/lib/win32/*.lib
+		Engine/Source/ThirdParty/Oculus/LibOVRAudio/*.tps
+		Engine/Source/ThirdParty/Oculus/LibOVRAvatar/LibOVRAvatar/lib/win32/*.lib
+		Engine/Source/ThirdParty/Oculus/LibOVRAvatar/*.tps
+		Engine/Source/ThirdParty/Oculus/LibOVRPlatform/LibOVRPlatform/lib/*.lib
+		Engine/Source/ThirdParty/Oculus/LibOVRPlatform/*.tps
+		Engine/Source/ThirdParty/Oculus/OVRPlugin/OVRPlugin/lib/Win32/*.lib
+		Engine/Source/ThirdParty/Oculus/OVRPlugin/*.tps
 	</Property>
 	<Property Name="CopyWin32Exceptions">
 	</Property>
@@ -318,11 +350,22 @@
 		Engine/Source/ThirdParty/GoogleARCore/...
 		Engine/Source/ThirdParty/GoogleVR/...
 		Engine/Source/ThirdParty/GoogleInstantPreview/InstantPreview.apk
-		Engine/Source/ThirdParty/Oculus/LibOVRPlatform/LibOVRPlatform_APL.xml
-		Engine/Source/ThirdParty/Oculus/LibOVRPlatform/lib/*.so
-		Engine/Source/ThirdParty/Oculus/OVRPlugin/...
+		Engine/Source/ThirdParty/Oculus/LibOVRAudio/LibOVRAudio/lib/*/*.so
+		Engine/Source/ThirdParty/Oculus/LibOVRAudio/*.tps
+		Engine/Source/ThirdParty/Oculus/LibOVRAudio/*.xml
+		Engine/Source/ThirdParty/Oculus/LibOVRAvatar/LibOVRAvatar/lib/*/*.so
+		Engine/Source/ThirdParty/Oculus/LibOVRAvatar/*.tps
+		Engine/Source/ThirdParty/Oculus/LibOVRAvatar/*.xml
+		Engine/Source/ThirdParty/Oculus/LibOVRPlatform/LibOVRPlatform/lib/*.so
+		Engine/Source/ThirdParty/Oculus/LibOVRPlatform/*.tps
+		Engine/Source/ThirdParty/Oculus/LibOVRPlatform/*.xml
+		Engine/Source/ThirdParty/Oculus/OVRPlugin/OVRPlugin/lib/*/.so
+		Engine/Source/ThirdParty/Oculus/OVRPlugin/*.tps
+		Engine/Source/ThirdParty/Oculus/OVRPlugin/*.xml
 		Engine/Source/ThirdParty/ResonanceAudioApi/...
 		Engine/Source/ThirdParty/TangoSDK/...
+		Engine/Source/ThirdParty/Vivox/vivox-sdk/Lib/Android/sdk-release.aar
+		Engine/Source/ThirdParty/Vivox/vivox-sdk/VivoxCoreSDK_UPL.xml
 	</Property>
 	
 	<!-- Win64 Specific -->

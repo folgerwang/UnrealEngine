@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 // This code is modified from that in the Mesa3D Graphics library available at
 // http://mesa3d.org/
@@ -1009,7 +1009,7 @@ void ir_validate::validate_ir(ir_instruction *ir, void *data)
 
 	if (hash_table_find(v->ht, ir))
 	{
-		_mesa_glsl_error(v->state, "internal compiler error: instruction node present twice in ir tree\n");
+		_mesa_glsl_error(v->state, "internal compiler error: instruction node %d present twice in ir tree\n", ir->id);
 	}
 	hash_table_insert(v->ht, ir, ir);
 #endif

@@ -1,8 +1,9 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Game/IDisplayClusterGameManager.h"
+#include "Render/IDisplayClusterProjectionScreenDataProvider.h"
 #include "IPDisplayClusterManager.h"
 
 class ADisplayClusterGameMode;
@@ -12,10 +13,12 @@ class ADisplayClusterSettings;
 /**
  * Game manager private interface
  */
-struct IPDisplayClusterGameManager :
-	public IDisplayClusterGameManager,
-	public IPDisplayClusterManager
+class IPDisplayClusterGameManager
+	: public IDisplayClusterGameManager
+	, public IDisplayClusterProjectionScreenDataProvider
+	, public IPDisplayClusterManager
 {
+public:
 	virtual ~IPDisplayClusterGameManager()
 	{ }
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BuildPatchManifest.h: Declares the manifest classes.
@@ -56,6 +56,7 @@ namespace BuildPatchServices
 	class FBuildPatchInstaller;
 	class FManifestBuilder;
 	class FManifestData;
+	class FChunkDeltaOptimiser;
 }
 
 /**
@@ -73,6 +74,7 @@ class FBuildPatchAppManifest
 	friend class FBuildDiffManifests;
 	friend class FManifestUObject;
 	friend class BuildPatchServices::FManifestData;
+	friend class BuildPatchServices::FChunkDeltaOptimiser;
 public:
 
 	/**
@@ -125,6 +127,11 @@ public:
 	virtual void RemoveCustomField(const FString& FieldName) override;
 	virtual IBuildManifestRef Duplicate() const override;
 	// END IBuildManifest Interface
+
+	/**
+	 * @return The unique build id of this manifest.
+	 */
+	virtual const FString& GetBuildId() const;
 
 	/**
 	 * Sets up the internal map from a file
@@ -270,6 +277,13 @@ public:
 	 * @return	true if we had the hash for this chunk
 	 */
 	virtual bool GetChunkShaHash(const FGuid& ChunkGuid, FSHAHash& OutHash) const;
+
+	/**
+	 * Gets the FChunkInfo for a given chunk.
+	 * @param ChunkGuid     The guid of the chunk to get hash for.
+	 * @return ptr to the FChunkInfo or nullptr if not found.
+	 */
+	virtual const BuildPatchServices::FChunkInfo* GetChunkInfo(const FGuid& ChunkGuid) const;
 
 	/**
 	 * Gets the file hash for given file data

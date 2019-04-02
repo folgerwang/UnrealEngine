@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -35,7 +35,7 @@ public:
  *
  * Understands the format <img id="NameOfBrushInTable"></>
  */
-UCLASS(Abstract)
+UCLASS(Abstract, Blueprintable)
 class UMG_API URichTextBlockImageDecorator : public URichTextBlockDecorator
 {
 	GENERATED_BODY()

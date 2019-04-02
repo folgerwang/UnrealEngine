@@ -1,15 +1,14 @@
-﻿INTSourceChangelist:3683933
+INTSourceChangelist:4377213
 Availability: Public
 Title:씬 속도 조정
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
 Description:레벨 시퀀스의 속도를 올리고 낮추는 방법입니다.
-Version: 4.12
+Version: 4.20
 SkillLevel: Beginner
 parent:Engine/Sequencer/HowTo
 order:1
 checkpoint: editorqs
 Related: Engine/Sequencer/Overview
-Related: Engine\Sequencer\ReferenceEditor\
 tags:Sequencer
 type:how-to
 
@@ -26,27 +25,27 @@ type:how-to
 
 1.	메인 툴바의 **시네마틱** 버튼을 클릭한 뒤 **레벨 시퀀스 추가** 를 선택합니다.
 
-	![](PlayRate1.png)
+	![](AddLevelSequence.png)
 
 	애셋 저장 이름과 위치를 선택하면 레벨과 **콘텐츠 브라우저** 에 자동으로 추가됩니다.
 
 1.	시퀀서 에디터 안에서 **추가** 버튼을 클릭하고 **재생 속도 트랙** 을 선택합니다.
 
-	![](PlayRate2.png)
+	![](Speed_Step2.png)
 
 1.	**재생 속도** 트랙을 선택한 뒤 **Enter** 키를 쳐 **0** 마커 위치에 키프레임을 추가합니다.
 
-	![](PlayRate3.png)
+	![](Speed_Step3.png)
 
 	위에서 재생 속도의 기본값을 **1.0** 으로 추가합니다 (보통 재생 속도입니다).
 
 1.	타임라인 마커를 **25** 로 이동한 뒤 재생 속도 값을 **0.25** 로 설정하고 **Enter** 키를 쳐 키를 추가합니다.
 
-	![](PlayRate4.png)
+	![](Speed_Step4.png)
 
 1.	**75** 위치에 값이 **0.25** 인 키를 추가하고, **100** 위치에 값이 **1.0** 인 키를 추가합니다.
 
-	![](PlayRate5.png)
+	![](Speed_Step5.png)
 
 	위에서는 1 에서 0.25 로 내려가다가 몇 프레임 동안 0.25 에 머물고는 다시 1.0 정상 재생 속도로 돌아갑니다.
 
@@ -60,17 +59,17 @@ type:how-to
 
 	이 스켈레탈 메시를 시퀀서에 추가하고 애니메이션을 재생시켜 재생 속도 변환에 영향을 끼치는지 알아보도록 하겠습니다.
 
-1.	레벨에서 **SK_Mannequin** 을 여전히 선택한 채 **시퀀서** 로 돌아와 **추가** 버튼을  눌러 레벨 시퀀스에 추가합빈다.
+1.	레벨에서 **SK_Mannequin** 을 여전히 선택한 채 **시퀀서** 로 돌아와 **+ 트랙** 버튼을  눌러 레벨 시퀀스에 추가합빈다.
 
-	![](PlayRate7.png)(w:640)
+	![](Speed_Step7.png)(w:640)
 
 1.	타임라인 마커를 **0** 으로 되돌린 후, **SK_Mannequin** 아래 **애니메이션** 버튼을 클릭하고 **ThirdPersonWalk** 를 추가합니다.
 
-	![](PlayRate8.png)
+	![](Speed_Step8.png)
 
 1.	오른편에 애니메이션을 으로 끌어놓아 씬 지속기간동안 반복시킵니다.
 
-	![](PlayRate9.png)
+	![](Speed_Step9.png)
 
 1.	레벨 뷰포트의 **프리뷰 플레이** 버튼을 클릭하여 시퀀스를 미리봅니다.
 	
@@ -87,7 +86,7 @@ type:how-to
 360
 [/PARAMLITERAL]
 [PARAMLITERAL:videoid]
-_smGcAw4VK0
+cT4Z7XKnj8g
 [/PARAMLITERAL]
 [/OBJECT]
 

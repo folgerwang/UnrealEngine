@@ -1,0 +1,312 @@
+﻿INTSourceChangelist:4359079
+Availability: Public
+Crumbs: 
+Title: Magic Leap开发
+Description: 虚幻引擎4产品文档，包括如何为Magic Leap进行开发的参考及指南。
+Type: 
+Version: 4.20
+Parent: Platforms/AR
+Order: 3
+Tags: AR
+topic-image:image12-crop700x225.jpg
+Tags: Early Access
+Tags: Landing Page
+
+
+[REGION:note]
+我们提前发布本内容的草稿版以便于您启动和运行。后续更新将很快发布，敬请关注！
+[/REGION]
+
+现已推出对Magic Leap One创造者版本的虚幻引擎支持的技术预览版！包含这项集成的自定义编辑器即日起在Epic Games启动程序和GitHub上即可获取。
+
+![image12](image12-crop700x225.jpg "image12")
+
+**注：**正如大多数抢先集成一样，我们的SDK API也会更改，然后我们会将该技术完全集成到引擎的完全支持构建版（4.20）。因此，其他4.19项目无法直接与该自定义版本兼容，基于该版本构建的项目升级到4.20后将会受到损坏。我们建议您不要使用该版本进行项目的生产开发，而是尝试探索新设备的可能性。
+
+## 设置
+
+### Lumin SDK
+
+首先，我们需要安装 **Lumin SDK**。
+
+1. 从[https://creator.magicleap.com](https://creator.magicleap.com/)下载安装并运行 **Magic Leap Package Manager**。
+2. 使用您注册的电子邮件地址和6位代码登录Magic Leap Package Manager。
+3. Magic Leap软件包的默认目标位置是 **C:\\Users\\you\\MagicLeap**。要更改此位置，单击“设置”，然后在Download/Install目录中指定其他路径。
+4. 从 **“常用软件包（Common Packages）”下面选择Lumin SDK**，然后单击“下载并安装（Download & Install）”。
+5. 在Package Manager底部的确认消息中，单击 **应用（Apply）** 更改。
+
+### 适用于Magic Leap 0.16的虚幻编辑器
+
+前往Epic Games启动程序，找到“资源库（Library）”选项卡，从“添加版本（Add Versions）”下拉列表中选择“Magic Leap 0.16”来获取Magic Leap 0.16编辑器。
+
+![](ML_MagicLeapInstall.png "ML_MagicLeapInstall.png")
+
+安装后，您需要指向Lumin SDK的安装位置。在“项目设置（Project Settings）”菜单中，前往 **平台（Platforms）-> Magic Leap SDK**，并将路径设置为您的Lumin SDK文件夹。(示例：C:\Users\you\MagicLeap\mlsdk\v0.x)
+
+### 系统配置
+
+为了让UE4能够运行该SDK中的命令，您需要在计算机的环境变量中设置一些系统变量（而非用户变量）。要找到该窗口，前往 **控制面板->系统->高级系统设置->环境变量...**
+
+![](image2_Add.png "image2_Add.png")
+
+首先，需要添加一个条目“MLSDK”，其中包含指向上述/mlsdk安装文件夹的路径。
+
+![](image3_Add.png "image3_Add.png")
+
+其次，需要将\%MLSDK%\tools\mldb添加到PATH环境变量。
+
+![](image1_Add.png "image1_Add.png")
+
+最后，重新启动机器。
+
+### 样本项目
+
+作为对Magic Leap头显的早期支持的一部分，我们整理了一些小样本项目和一些示例，以说明虚幻引擎中目前使用了哪些特定于平台的功能。
+
+[下载LuminSample项目](http://epic.gm/psssample)，以便在阅读后续功能文档时，在该自定义编辑器用作参考。
+
+插入设备并开机。请注意，最初启动时，鼻子的位置是设备选择的虚幻引擎中场景的起点，X轴会在设备远离佩戴者时增大。*LuminSample* 项目假设头显起初是面朝用户的，因为所有内容都旋转了180度。 
+
+浏览封装的 *LuminSample* 项目需要控制器。在主菜单上，您将使用触控板来突出显示想要查看的特定示例。高亮显示后，按下触控板可以加载关卡。您可以随时按住扳机并按侧肩按钮来隐藏和显示主菜单。
+
+每个子关卡都是完全独立的，可以在需要时单独加载。
+
+## 功能
+
+### 玩家位置
+
+*示例来自于PlayerLocationAndGaze贴图*
+
+构建混合现实体验时通常使用获取玩家头部位置的功能。我们可以在 *LuminSamplePawn* 中的 *CameraComponent* 上获取调用 *GetWorldTransform* 来访问此功能——与UE4中的任何其他HMD不同。
+
+![image35](image35.png "image35")
+
+*如果您要从头开始构建自己的Pawn，需要添加摄像机组件。*
+
+在 *LuminSample* 中，《Robo Recall》中的Bot将在您绕着场景移动时观察、瞄准并射击您。这里是设置了逻辑的，包括在您移到它后面时告知它停止。Drone也会在您绕着场景移动时跟随您。
+
+[REGION:lightbox]
+[![image7](image7.png "image7")](image7.png)
+[/REGION]
+查看 *Lumin_Biped*、*Lumin_Drone* 和 *LuminSamplePawn* 蓝图以了解这些行为之间的关联。简而言之，我们根据需要面朝玩家和玩家位置的 *Actor* 的 *FindLookRotation* 结果来驱动 *Actor* 旋转或 *动画蓝图*。
+[REGION:lightbox]
+[![image38](image38.png "image38")](image38.png)
+[/REGION]
+如果您不使用眼部跟踪，可以使用 *CameraCompoent* 的向前矢量来估算玩家从这个方向发出的注视和跟踪。通过使用这种方法，Drone会在您注视它时露出一些表情。
+[REGION:lightbox]
+[![image2](image2.png "image2")](image2.png)
+[/REGION][](image2.png)
+
+### 显示场景起点
+
+*示例来自于LuminSamplePawn*
+
+这个示例十分简单，但有助于理解内容“所在位置”。
+
+![image18](image18.png "image18")
+
+了解场景起点可以帮助调试您需要在场景空间中更新的任何内容。如上所述，场景起点在设备首次启动时已经设置妥当，就在鼻子附近的位置。场景起点的默认向前矢量面朝头显，沿着用户注视的方向远去。
+
+在 *LuminSample* 中，我们向 *LuminSamplePawn* 添加了一个布尔变量bShowWorldOrigin，便于您切换有关场景起点的一些简单调试信息。在Pawn中设置该变量的默认值或者在运行时将其打开可以显示场景起点。
+
+![image3](image3.png "image3")
+
+[REGION:lightbox]
+[![image15](image15.png "image15")](image15.png)
+[/REGION]
+
+###姿势和手势跟踪
+
+*示例来自于LuminSamplePawn和GesturesAndTotem贴图*
+
+Magic Leap One支持多种姿势并跟踪手部处于视野当中时特定点的位置。默认情况下，您必须启动想要寻找的姿势。这可以随时使用 *SetConfiguration* 节点进行设置。选择较少姿势有助于设备更准确地集中识别您在意的姿势。我们是在 *LuminSamplePawn* 中进行这项设置的。
+
+![image9](image9.png "image9")
+
+通过调用 *GetCurrentGesture* 并查看枚举返回值，可以获得一只手或两只手的姿势。这项设置也可以在 *LuminSamplePawn* 中找到。
+
+![](image37.png)
+
+您还可以获取手部中心的位置信息，以及用于表示不同手部部位的许多“关键点”（例如指尖或关节）的位置信息。通过使用关键点（*GetGestureKeypointTransform*）和手部中心（*GetHandCenter*），您会获得大量有关用户手部各个部位的位置信息以及手部行为信息。在 *GesturesAndTotem* 贴图中，我们在 *LuminSamplePawn* 上打开了 *bShowGestureDebug*，以逐帧调试手部中心和关键点上的球体。
+
+![](image10.PNG "image10.PNG")
+
+![image19](image19.png "image19")
+
+获得上述信息后，就可以在场景空间中“触碰”物体了。在 *GesturesAndTotem* 贴图中，有一个 *InteractionSphere* 正在寻找重叠，我们在 *LuminPlayerPawn* 上开启 *bTryTouchOverlap* 以重叠双手上的所有关键点。这项功能或许有很多更有效的方法来实现，但我们希望展示触摸虚拟物体时所有可用的选项。
+
+[REGION:lightbox]
+[![image5](image5.png "image5")](image5.png)
+[/REGION]
+
+寻找姿势需要牺牲一定的性能，因此在规划内容时请谨记这一点。
+
+### 控制器输入
+
+![image14](image14.jpg "image14")
+
+*示例来自于LuminSamplePawn和GesturesAndTotem贴图*
+
+对于大多数部分，控制器的工作方式与其他VR运动控制器相同。可以通过检查 *GetMotionController (R) Thumbstick X* 获取左右信息，检查 *GetMotionController (R) Thumbstick Y* 获取上下信息来查询触控板。该触控板也有Z轴值，用于表示压力灵敏度。该值范围是0-1，具体数值取决于用户向下按压触控板的力度。
+
+![image8](image8.png "image8")
+
+扳机的功能也是相同的。您可以查询轴或捕捉事件。寻找 *GetMotionController (R) TriggerAxis* 和 *MotionController (R) TriggerAxis*
+
+![image11](image11.png "image11")
+
+![image27](image27.png "image27")
+
+与其他按钮一样，侧肩按钮也使用 *MotionController (R) Shoulder* 来获取其按下和松开事件。
+
+![image40](image40.png "image40")
+
+在 *LuminSamplePawn* 中可以看到所有这些链接关系。就 *LuminSample* 而言，我们调用可供其他蓝图订阅以在收到输入时采取操作的事件调度器。这是我们在 *GesturesAndTotem* 贴图中的 *GesturesAndTotemContainer* 内部控制 *MainMenuActor* 和 *TotemInputActor* 的方式。
+
+![image34](image34.png "image34")
+
+### 房间扫描和网格化
+
+*示例来自于WorldMeshing贴图和LuminMeshActor*。
+
+Magic Leap One能够扫描房间并提供有关该环境的几何数据。我们已将这项功能集成到适用于该平台的现有 *混合现实网格体（MRMesh）* 系统，这样开发者可以使用查询区域功能并动态地在空间中添加内容。
+
+您只需要一个带有以下两个组件的蓝图Actor——*MRMeshComponent* 和 *MeshTrackerComponent*。
+
+![image39](image39.png "image39")
+
+当您想要扫描场景以获取网格体数据时，需要使用 *ConnectMRMesh* 函数将这两个组件关联起来，其中 *MeshTracker* 连到目标，*MRMesh* 传递到In MRMesh Ptr。
+
+![image30](image30.png "image30")
+
+在 *LuminMeshActor* 上的 *MeshTrackerComponent* 中，我们打开了一些设置以确保在跟踪空间中寻找正确的对象。您可以在细节面板中的“网格化（Meshing）->MagicLeap”部分中看到我们编辑过的以下设置：
+
+*   扫描世界（Scan World）设置为 **true**
+*   网格体类型（Mesh Type）设置为 **块体（Blocks）**
+*   网格化轮询时间（Meshing Poll Time）设置为 **0.5**
+*   包围体（Bounding Volume）设置为 **箱体碰撞（Box Collision）**
+*   忽略包围体（Ignore Bounding Volume）设置为 **true**（以扫描整个房间）
+*   平面化（Planarize）设置为 **true**
+
+![image20](image20.png "image20")
+
+网格体的物理反应与任何其他碰撞物相同。在 *WorldMeshing* 贴图中，按控制器上的侧肩按钮将从HMD向前矢量向场景跟踪进去，并在撞击位置和法线上绘制调试信息。我们在 *LuminSamplePawn* 上打开了 *TestWorldHit* 来完成该操作。
+
+[REGION:lightbox]
+[![image24](image24.png "image24")](image24.png)
+[/REGION]
+
+###麦克风输入
+
+*示例来自于LuminSamplePawn和AudioExamples贴图*
+
+Magic Leap One有一个内置麦克风，让开发者可以捕捉各种使用情况的输入。在 *AudioExamples* 贴图中，我们使用了 *LuminSamplePawn* 中增加的 *AudioCaptureComponent* 来监控游戏功能的麦克风包络值。
+
+![image41](image41.png "image41")
+
+激活后，该组件会发送包含麦克风包络值的事件。您可以添加来自该组件的事件，方法是从组件列表中选择该组件，然后单击“细节（Details）”面板底部的绿色加号框。
+
+![image6](image6.png "image6")
+
+在该示例中，玩家可以吹气来改变风的方向，风筝和男孩就会适应新的风向。我们将自定义事件 *MicInputAudioValue* 绑定到 *OnAudioEnvelopeValue*，以仅在希望听取麦克风声音时从设备麦克风收集信息。
+
+[REGION:lightbox]
+[![image22](image22.png "image22")](image22.png)
+[/REGION]
+[REGION:lightbox]
+[![image29](image29.png "image29")](image29.png)
+[/REGION][]
+
+### 空间化音频
+
+*示例来自于AudioActor_SoundSpawn* 和 *AudioExamples贴图*
+
+在针对ML1开发时，您可以使用针对其他平台编程时所用的相同方法对音频实现空间化。除了该工作流程，我们还使用了专门为创建空间化随机音效而构建的Actor。该Actor可以在下面的样本内容中找到：
+
+.../LuminSampleContent/AudioExample/AudioBlueprints/AudioActor_SoundSpawn
+
+该Actor的目的是让音效设计师能够通过易于理解的参数塑造一个通用的环境音频播放行为。*AudioActor_SoundSpawn* Actor可以配置为在定义的半径范围内生成随机音效，或者在非常具体的位置播放单一音效。在 *AudioExamples* 样本中，我们使用该Actor达到2个特定目的。在场景中，将两个Actor设置为创建随机的呼唤和回应鸟叫声。第三个Actor连接到风筝以创建循环的沙沙声。
+
+鸟设置为 *自动启动（Auto Start）* 并立即开始播放。它们还设置为 *重复（Repeat）*，意味着在完成播放后，会继续使用所设置的配置播放相同的音效。没有任何Actor设置为 *使用重叠（Use Overlaps）*。如果选择该布尔值，Actor会在玩家进入和退出定义的半径范围时开启和关闭。
+
+![image21](image21.png "image21")
+
+Actor内部有一些设置可以使用。这些设置让您可以控制音效产生之间经过的时长、要产生的随机音效数量、音量、音调以及最重要的产生音效的半径范围。当设置该值时，系统将随机在半径范围内的X和Y坐标空间中选择一个位置。如果想要包含随机Z偏移，选中 *B包含高度（B Include Height）*。
+
+![image32](image32.png "image32")
+
+之后在场景中，我们只需将 *关卡蓝图（Level Blueprint）* 中的 *重复（Repeat）* 布尔值设置为false，即可停用鸟叫音效。
+
+![image28](image28.png "image28")
+
+对于风筝闲置音频，我们使用了一个单独的Actor *AudioActor_KiteIdle*，它连接的是 *开始播放（Begin Play）*。
+
+![image31](image31.png "image31")
+
+*AudioActor_KiteIdle* 的配置方式与其他音频Actor有所不同。此处设置中未选中 *自动播放（Auto Start）*，我们使用 *关卡蓝图（Level Blueprint）* 中的 *执行定时器（Execute Timer）* 来激活该音频。
+
+![image1](image1.png "image1")
+
+该Actor还设置了非常低的 *最小定时器（Min Timer）和最大定时器（Max Timer）* 值以便创建快速沙沙声循环。*最小产生（Min Spawns）* 和 *最大产生（Max Spawns）* 设置为1，这样就不会创建重叠音效。
+
+![image4](image4.png "image4")
+
+*产生半径（Spawn Radius）* 设置为1，以确保声音局限在风筝所在位置。
+
+![image23](image23.png "image23")
+
+同样，之后在场景中，将 *关卡蓝图（Level Blueprint）* 中的 *重复（Repeat）* 设置为false即可关闭该声音。
+
+## 引擎设置
+
+### Vulkan和OpenGL
+
+Magic Leap One支持使用OpenGL和Vulkan渲染。您可以在“项目设置（Project Settings）->平台（Platforms）->Magic Leap”中切换这两个选项
+
+![image17](image17.png "image17")
+
+### 渲染器——桌面或移动
+
+年还可以选择桌面或移动渲染途径，方法是在 **项目设置（Project Settings）->平台（Platforms）-> Magic Leap** 中选择“使用移动渲染（Use Mobile Rendering）”
+
+![image33](image33.png "image33")
+
+[REGION:note]
+目前 *仅* 源代码构建支持桌面渲染和Vulkan，二进制（启动程序）构建不支持。我们期待4.20二进制对二者提供完全支持。
+[/REGION]
+
+## 封装、部署、模拟
+
+### 启动
+
+与其他平台一样，您可以从编辑器直接启动到设备，方法是单击“启动（Launch）”旁边的下拉按钮，然后选择您的Magic Leap设备。
+
+![image36](image36.png "image36")
+
+### 封装
+
+您还可以通过工具栏 **文件（File）->封装项目（Package Project）** 来封装.mpk。
+
+![image26](image26.png "image26")
+
+正常而言，启动会直接在设备上运行应用程序。要安装封装项目，打开命令行并运行 *mldb install /yourproject.mpk*
+
+然后，从头显菜单启动您的应用程序，或从命令行运行 *mldb launch*。当然，您需要将com.yourcompany.yourproject替换为您在“项目设置（Project Settings）”中设置的辨识符。
+
+### 模拟
+
+或者，如果您没有设备，可以使用Magic Leap Remote在模拟器中进行迭代。前往 **项目设置（Project Settings）->插件（Plugins）->Magic Leap插件（Magic Leap Plugin）** 并选中 **启用零迭代（Enable Zero Iteration）** 复选框。编辑器启动后，可以选择 **播放（Play）->VR预览（VR Preview）** 在VR预览中播放。
+
+![image16](image16.png "image16")
+
+## 终端命令
+
+以下是我们平时所用的一些有用的MLDK终端命令：
+
+*   *mldb devices* // 显示一列与计算机相连的已识别设备
+*   *mldb packages* // 显示设备上安装的软件包
+*   *mldb uninstall* // 从设备卸载软件包
+*   *mldb launch* // 启动设备上安装的软件包
+*   *mldb terminate* // 终止正在运行的应用程序
+*   *mldb reboot* // 重新启动连接的设备
+*   *mldb shutdown* // 关闭设备

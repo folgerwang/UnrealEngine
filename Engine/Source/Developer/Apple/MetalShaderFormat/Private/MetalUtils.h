@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -154,6 +154,48 @@ struct FBuffers
 
 		return -1;
 	}
+	
+	void Replace(ir_variable* Old, ir_variable* New)
+	{
+		for (int i = 0, n = Buffers.Num(); i < n; ++i)
+		{
+			if (Old == Buffers[i])
+			{
+				Buffers[i] = New;
+				return;
+			}
+		}
+		
+		for (int i = 0, n = Textures.Num(); i < n; ++i)
+		{
+			if (Old == Textures[i])
+			{
+				Textures[i] = New;
+				return;
+			}
+		}
+	}
+	
+	void Remove(ir_variable* Var)
+	{
+		for (int i = 0, n = Buffers.Num(); i < n; ++i)
+		{
+			if (Var == Buffers[i])
+			{
+				Buffers[i] = nullptr;
+				return;
+			}
+		}
+		
+		for (int i = 0, n = Textures.Num(); i < n; ++i)
+		{
+			if (Var == Textures[i])
+			{
+				Textures[i] = nullptr;
+				return;
+			}
+		}
+	}
 
 	void SortBuffers(_mesa_glsl_parse_state* state)
 	{
@@ -244,7 +286,7 @@ struct FBuffers
         for(uint64 i = 0; i < 64ull && !ITextures.empty(); i++)
         {
             check(i < 64);
-            if (!(UAVIndices & (1ull << i)))
+            if (!(UAVIndices & (1ull << i)) || (AllBuffers[i] == (ir_variable*)ITextures.front()->constant_value))
             {
                 // i *must* be less than 8 as we only support indices 0-7 for UAVs and beyond that we can't bind it.
                 if (i >= 8)
@@ -368,18 +410,23 @@ struct FBuffers
 
 const glsl_type* PromoteHalfToFloatType(_mesa_glsl_parse_state* state, const glsl_type* type);
 
-struct FSemanticQualifier
+union FSemanticQualifier
 {
 	struct
 	{
-		bool bIsPatchConstant = false;
-		bool bIsTessellationVSHS = false; // TODO FIXME UGLY UGLY HACK (this is not the right place to put this flag)
+		unsigned bCentroid : 1;
+		unsigned InterpolationMode : 2;
+		unsigned bIsPatchConstant : 1;
+		unsigned bIsTessellationVSHS : 1; // TODO FIXME UGLY UGLY HACK (this is not the right place to put this flag)
 	} Fields;
+	unsigned Packed;
+	
+	FSemanticQualifier() : Packed(0) {}
 };
 
 namespace MetalUtils
 {
-	ir_dereference_variable* GenerateInput(EHlslShaderFrequency Frequency, uint32 bIsDesktop, _mesa_glsl_parse_state* ParseState, const char* InputName, const char* InputSemantic,
+	ir_dereference_variable* GenerateInput(EHlslShaderFrequency Frequency, uint32 bIsDesktop, _mesa_glsl_parse_state* ParseState, const char* InputName, const char* InputSemantic, FSemanticQualifier Qualifier,
 		const glsl_type* InputType, exec_list* DeclInstructions, exec_list* PreCallInstructions);
 
 	ir_dereference_variable* GenerateOutput(EHlslShaderFrequency Frequency, uint32 bIsDesktop, _mesa_glsl_parse_state* ParseState, const char* OutputSemantic,

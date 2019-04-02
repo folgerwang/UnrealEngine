@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 D3D12Stats.h: D3D12 Statistics and Timing Interfaces
@@ -60,6 +60,7 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("WaitForFence time"), STAT_D3D12WaitForFenceTime,
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Used Video Memory"), STAT_D3D12UsedVideoMemory, STATGROUP_D3D12RHI, );
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Available Video Memory"), STAT_D3D12AvailableVideoMemory, STATGROUP_D3D12RHI, );
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Total Video Memory"), STAT_D3D12TotalVideoMemory, STATGROUP_D3D12RHI, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Texture allocator wastage"), STAT_D3D12TextureAllocatorWastage, STATGROUP_D3D12RHI, );
 
 /**
 * Detailed Descriptor heap stats
@@ -159,6 +160,7 @@ public:
 		}
 
 		TRefCountPtr<ID3D12QueryHeap> Heap;
+		FD3D12ResidencyHandle ResidencyHandle;
 	};
 
 	static void CalibrateTimers(FD3D12Adapter* ParentAdapter);
@@ -288,9 +290,6 @@ namespace D3D12RHI
 	*/
 	struct FD3DGPUProfiler : public FGPUProfiler, public FD3D12AdapterChild
 	{
-		/** Used to measure GPU time per frame. */
-		FD3D12BufferedGPUTiming FrameTiming;
-
 		/** GPU hitch profile histories */
 		TIndirectArray<FD3D12EventNodeFrame> GPUHitchEventNodeFrames;
 
@@ -326,5 +325,47 @@ namespace D3D12RHI
 		void BeginFrame(class FD3D12DynamicRHI* InRHI);
 
 		void EndFrame(class FD3D12DynamicRHI* InRHI);
+
+		bool CheckGpuHeartbeat() const;
+
+		/**
+		 * Calculate the amount of GPU idle time between two timestamps
+		 * @param StartTime - start timestamp
+		 * @param EndTime - end timestamp
+		 * @return number of idle GPU clock ticks between or 0 if command list execution time isn't tracked
+		 */
+		uint64 CalculateIdleTime(uint64 StartTime, uint64 EndTime);
+
+#if NV_AFTERMATH
+		virtual void PushEvent(const TCHAR* Name, FColor Color, GFSDK_Aftermath_ContextHandle Context);
+
+		void RegisterCommandList(GFSDK_Aftermath_ContextHandle context);
+		void UnregisterCommandList(GFSDK_Aftermath_ContextHandle context);
+
+		TArray<GFSDK_Aftermath_ContextHandle> AftermathContexts;
+		FCriticalSection AftermathLock;
+
+		TArray<uint32> PushPopStack;
+		TMap<uint32, FString> CachedStrings;
+#endif
+
+		/** Used to measure GPU time per frame. */
+		FD3D12BufferedGPUTiming FrameTiming;
+
+	private:
+		/** Flush existing command lists and start command list execution time tracking */
+		void DoPreProfileGPUWork();
+
+		/** Flush existing command lists and obtain timing results of all tracked command lists */
+		void DoPostProfileGPUWork();
+
+		typedef typename FD3D12CommandListManager::FResolvedCmdListExecTime FResolvedCmdListExecTime;
+
+		/** Timstamps marking the beginning of tracked command lists */
+		TArray<uint64> CmdListStartTimestamps;
+		/** Timstamps marking the end of tracked command lists */
+		TArray<uint64> CmdListEndTimestamps;
+		/** Accumulated idle GPU ticks before each corresponding command list */
+		TArray<uint64> IdleTimeCDF;
 	};
 }

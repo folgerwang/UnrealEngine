@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2996736
+﻿INTSourceChangelist:3683933
 Availability:Public
 Title:淡入/淡出场景
 Crumbs:%ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
@@ -10,12 +10,16 @@ order:1
 checkpoint: editorqs
 Related:Engine/Sequencer/Overview
 Related:Engine\Sequencer\ReferenceEditor\
+tags:Sequencer
+type:how-to
+
 
 
 有时，您可能希望在过场动画内淡入或淡出场景。 
 无论您是选择在开始时淡入还是在结束时淡出，或者在这两者之间淡出镜头，都可以在 Sequencer 中使用 **消退轨道** 来完成。 
 在本指南中，我们将创建一个小场景并使其随着时间推移而淡入，然后在短暂的暂停后让该场景淡出。 
 
+(#Steps)
 ## 步骤
 
 [REGION:note]
@@ -56,6 +60,7 @@ Related:Engine\Sequencer\ReferenceEditor\
 
 1. 	在关卡视口中单击 **播放（Play）**按钮来模拟您的序列。 
 
+(#EndResult)
 ## 最终结果
 
 现在，您将看到样本场景淡入并在淡出前保持点亮。 

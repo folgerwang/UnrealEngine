@@ -1,8 +1,9 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Engine/EngineTypes.h"
+#include "GameFramework/Actor.h"
 #include "ObjectTemplates/DatasmithObjectTemplate.h"
 
 #include "DatasmithActorTemplate.generated.h"
@@ -15,6 +16,10 @@ class DATASMITHCONTENT_API UDatasmithActorTemplate : public UDatasmithObjectTemp
 
 public:
 
+	UDatasmithActorTemplate()
+		: UDatasmithObjectTemplate(true)
+	{}
+	  
 	/** Layers this actor belongs to. (see AActor::Layers) */
 	UPROPERTY()
 	TSet<FName> Layers;
@@ -26,4 +31,29 @@ public:
 	virtual void Apply( UObject* Destination, bool bForce = false ) override;
 	virtual void Load( const UObject* Source ) override;
 	virtual bool Equals( const UDatasmithObjectTemplate* Other ) const override;
+
+	/** Helper function to get the typed Actor from either a component or an actor */
+	template< typename T >
+	static T* GetActor( UObject* Object )
+	{
+		return const_cast< T* >( GetActor< T >( static_cast< const UObject* >( Object ) ) );
+	}
+
+	template< typename T >
+	static const T* GetActor( const UObject* Object )
+	{
+		const UActorComponent* ActorComponent = Cast< UActorComponent >( Object );
+		const UObject* Actor;
+		
+		if ( ActorComponent )
+		{
+			Actor = static_cast< const UObject* >( ActorComponent->GetOwner() );
+		}
+		else
+		{
+			Actor = Object;
+		}
+
+		return Cast< T >( Actor );
+	}
 };

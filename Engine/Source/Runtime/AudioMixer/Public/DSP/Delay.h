@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -33,6 +33,9 @@ namespace Audio
 
 		// Sets the delay line length but using the internal easing function for smooth delay line interpolation.
 		void SetEasedDelayMsec(const float InDelayMsec, const bool bIsInit = false);
+
+		// Sets the easing factor for the delay line's internal exponential interpolator.
+		void SetEaseFactor(const float InEaseFactor);
 
 		// Sets the output attenuation in DB
 		void SetOutputAttenuationDB(const float InDelayAttenDB);

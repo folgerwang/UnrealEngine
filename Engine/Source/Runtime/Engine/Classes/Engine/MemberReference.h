@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -502,7 +502,7 @@ public:
 	}
 
 	template<class TFieldType>
-	static TFieldType* ResolveSimpleMemberReference(const FSimpleMemberReference& Reference)
+	static TFieldType* ResolveSimpleMemberReference(const FSimpleMemberReference& Reference, UClass* SelfScope = nullptr)
 	{
 		FMemberReference TempMemberReference;
 
@@ -511,11 +511,11 @@ public:
 		TempMemberReference.MemberGuid   = Reference.MemberGuid;
 		TempMemberReference.MemberParent = Reference.MemberParent;
 
-		auto Result = TempMemberReference.ResolveMember<TFieldType>();
+		auto Result = TempMemberReference.ResolveMember<TFieldType>(SelfScope);
 		if (!Result && (Name != Reference.MemberName))
 		{
 			TempMemberReference.MemberName = Reference.MemberName;
-			Result = TempMemberReference.ResolveMember<TFieldType>();
+			Result = TempMemberReference.ResolveMember<TFieldType>(SelfScope);
 		}
 
 		return Result;

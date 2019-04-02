@@ -1,0 +1,56 @@
+﻿INTSourceChangelist:4357683
+Availability: Public
+Crumbs: 
+Title: Action RPG のゲームプレイ アビリティ
+Description: ARPG でのゲームプレイ アビリティの使用方法を説明します。
+Type: 
+Version: 4.20
+Parent: Resources/SampleGames/ARPG
+Order: 1
+Tags: 
+
+
+**Action RPG (ARPG)** のサンプルでは **Gameplay Abilities** **プラグイン** を使用して、プレイヤーおよび敵の攻撃の実行を処理し、ヘルスやマナなどのステータス値を変更します。これらのドキュメントの目的は、 [ゲームプレイ アビリティ システム](https://docs.unrealengine.com/en-us/Gameplay/GameplayAbilitySystem) が使用される理由と、 ARPG のゲーム特有の機能を追加するためにどのようにカスタマイズされたかを説明することです。このページには、アビリティ システムを構成する要素ごとに分類されたさまざまなドキュメントへのリンクが記載されています。これらのシステムがどのように連携して機能するのかについて理解を深めるため、このページにあるドキュメントのリストを記載順にお読みになることをお勧めします。 
+
+また、ドキュメントで解説されている機能の一部を説明する、全般的な [アビリティ システム](Gameplay/GameplayAbilitySystem) ドキュメントも用意されています。まずはそのドキュメントを読んで使用されている一般概念について理解し、その後、このドキュメントでアビリティ システムの使用方法の実例について参照することをお勧めします。ARPG に含まれるアビリティ システムをプロジェクトで使用しない場合でも、概念やコードの一部は同様のシステムを構築する上で有用な例として利用できます。
+
+## Action RPG で使用されるアビリティ
+
+アビリティ システムでは数多くの機能が提供されていますが、ARPG では以下の機能のみを使用します。
+
+| **システム** | **説明** |
+| --- | --- |
+| **Attributes** | ヘルスやダメージなどの値で、アビリティ システムを使用する必要があります。|
+| **Gameplay Effects** | アトリビュートがどのように変更されるかを表します。アビリティ システムを使用します。|
+| **Ability System Component** | エフェクトおよびアビリティの適用に使用されるコンポーネントです。アトリビュートを持つすべてのアクタにはこのコンポーネントを含める必要があります。いくつかのゲーム特有のロジックを処理する ActionRPG サブクラスがあります。|
+| **Execution Calculations** | アトリビュートの変更時に、ゲームプレイ エフェクトによって演算バフおよびデバフの適用に使用されます。ARPG ではダメージ計算式に **実行計算** を使用します。|
+| **Abilities** | ゲームプレイの変更を実行する特別なブループリントで、特定のアビリティに対してカスタム ロジックを適用するゲームで有用です。高度なデータ ドリブン ゲームではエフェクトの実行にブループリント以外のものを使用することがありますが、ARPG のようなアクション ゲームではアビリティ ブループリントは十分に機能します。ARPG には、ブループリント アビリティの必須の継承先である **UGameplayAbility** のゲーム特有のサブクラスが含まれます。|
+| **Gameplay Events** | アビリティ システム内で異なる要素間の通信に使用される、オプションのペイロード データを含むゲームプレイ タグです。ARPG では、これらのイベントを使用してモンタージュとアビリティ間で情報をやり取りします。|
+| **Gameplay Cues** | [INCLUDE:#excerpt_0] |
+| **Targeting Actors** | アビリティのターゲットを収集およびレプリケートするためにスポーンされるブループリントです。これらのアクタは非効率的で複雑なため、 ARPG ではデフォルトで簡素化したカスタム システムを使用します。そして、これらのアクタはゲーム特有の大幅なカスタマイズなしに使用することは推奨されませんが、クライアントサーバー ゲームにおいてのターゲット予測の処理方法を知るには良い例となるでしょう。|
+
+[COMMENT:none]
+
+[EXCERPT:excerpt_0]
+
+**ゲームプレイ タグ** をスポーンされたパーティクルまたはサウンドに結び付けるために使用されるアセットです。これらは、クライアント予測の処理、または強度がスケールするビジュアルの作成において役立ちます。
+
+[REGION:note]
+これらは ARPG の初期のリリースでは使用されていませんが、今後のリリースに追加される可能性があります。
+[/REGION]
+
+[/EXCERPT:excerpt_0]
+-
+[/COMMENT]
+
+## Action RPG アビリティ システムの内訳
+
+以下の各セクションでは、アビリティ システムの特定の部分が ARPG でどのように使用されたかを要素別に説明します。以下のトピックを記載順にお読みください。 **「ARPG に含まれるアトリビュートおよびエフェクト」** 、 **「ARPG のメレー アビリティ」** 、 **「ARPG のスキル アビリティ」** 、最後に **「ARPG でアビリティを実行する」** です。
+
+%Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG/AttributesandEffects:topic%
+
+%Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG/MeleeAbilitiesInARPG:topic%
+
+%Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG/SkillAbilitiesInARPG:topic%
+
+%Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG/ExecutingAbilitiesInARPG:topic%

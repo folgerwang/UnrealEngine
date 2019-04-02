@@ -1,8 +1,8 @@
 ﻿INTSourceChangelist:3733053
 Availability:Public
-Title:2. 구글 VR 프로젝트 구성
+Title:2. Google VR 프로젝트 구성
 Crumbs:%ROOT%, Platforms/GoogleVR
-Description:구글 VR 작업용 UE4 프로젝트 구성법입니다.
+Description:Google VR 작업용 UE4 프로젝트 구성법입니다.
 Navigation:platform
 Skilllevel: Intermediate
 Version: 4.17
@@ -14,7 +14,7 @@ tags:Google VR
 Checkpoint: GoogleVRQS
 [NAV]
 
-구글 VR 퀵 스타트 이번 회에서는 구글 VR 을 사용할 수 있도록 UE4 프로젝트를 구성하는 법을 다뤄보겠습니다.
+Google VR 퀵 스타트 이번 회에서는 Google VR 을 사용할 수 있도록 UE4 프로젝트를 구성하는 법을 다뤄보겠습니다.
 
 [region:note]
 Google 에서는 Daydream 을 최대한 활용하기 위해 알아야하는 것들이 총망라된 매우 자세한 문서를 제공하고 있습니다. [공식 Google Daydream Unreal](https://developers.google.com/vr/unreal/) 도움말 사이트에서 문서를 찾아보실 수 있습니다.
@@ -26,7 +26,7 @@ Google 에서는 Daydream 을 최대한 활용하기 위해 알아야하는 것�
 
     ![](GVRQS_Pligin_Menu_00.png)
 
-1. Plugins 메뉴에서 **Virtual Reality** (가상 현실) 섹션으로 가 **Google VR** (구글 VR)이 활성화되어 있는지 확인합니다.
+1. Plugins 메뉴에서 **Virtual Reality** (가상 현실) 섹션으로 가 **Google VR** (Google VR)이 활성화되어 있는지 확인합니다.
 
     [REGION:lightbox]
     [![](GVRQS_Pligin_GVR_Enabled_00.png)(w:500)](GVRQS_Pligin_GVR_Enabled_00.png)
@@ -37,7 +37,7 @@ Google 에서는 Daydream 을 최대한 활용하기 위해 알아야하는 것�
     [/REGION]
 
     [region:note]
-    구글 VR 플러그인은 기본적으로 활성화되어 있을 것입니다. 그렇지 않은 경우, 그 옆의 체크박스를 클릭하면 **Enabled** (활성화)됩니다. 그러면 변경사항 적용을 위해 UE4 에디터를 재시작하라는 창이 뜹니다. 구글 VR 플러그인 활성화 후 UE4 에디터를 재시작하지 않으면 플러그인이 정상 작동하지 않을 수 있습니다.
+    Google VR 플러그인은 기본적으로 활성화되어 있을 것입니다. 그렇지 않은 경우, 그 옆의 체크박스를 클릭하면 **Enabled** (활성화)됩니다. 그러면 변경사항 적용을 위해 UE4 에디터를 재시작하라는 창이 뜹니다. Google VR 플러그인 활성화 후 UE4 에디터를 재시작하지 않으면 플러그인이 정상 작동하지 않을 수 있습니다.
     [/region]
 
 1. 메인 툴바에서 **파일** 옵션을 선택하고 **저장** 옵션을 클릭하면 **다른 이름으로 저장** 창이 뜹니다.
@@ -61,7 +61,7 @@ Google 에서는 Daydream 을 최대한 활용하기 위해 알아야하는 것�
     ![](GVRQS_Target_Hardware_00.png)
 
     [region:note]
-    **Pending Changes** (대기중인 변경사항) 섹션 아래 **Restart Editor** (에디터 재시작) 버튼이 보이면, 눌러서 에디터를 재시작해야 변경사항이 적용됩니다. 그렇게 하지 않으면 프로젝트가 구글 VR 과 정상 작동하지 않을 수 있습니다.
+    **Pending Changes** (대기중인 변경사항) 섹션 아래 **Restart Editor** (에디터 재시작) 버튼이 보이면, 눌러서 에디터를 재시작해야 변경사항이 적용됩니다. 그렇게 하지 않으면 프로젝트가 Google VR 과 정상 작동하지 않을 수 있습니다.
     ![](GVRQS_Target_Hardware_01.png)
     [/region]
 
@@ -89,7 +89,7 @@ Google 에서는 Daydream 을 최대한 활용하기 위해 알아야하는 것�
 		[/PARAMLITERAL]
 	[/OBJECT]
 
-1. **Platforms** (플랫폼) 제목줄 **Android** (안드로이드) 섹션 아래 **APKPackaging** (APK 패키징)과 **Google Play Services** (구글 플레이 서비스) 양쪽의 **Configure Now** (지금 환경설정) 버튼을 눌러 프로젝트가 패키징을 제대로 할 수 있도록 합니다.
+1. **Platforms** (플랫폼) 제목줄 **Android** 섹션 아래 **APKPackaging** (APK 패키징)과 **Google Play Services** 양쪽의 **Configure Now** (지금 환경설정) 버튼을 눌러 프로젝트가 패키징을 제대로 할 수 있도록 합니다.
 
     [REGION:lightbox]
     [![](GVRQS_Config_Now_00.png)(w:500)](GVRQS_Config_Now_00.png)
@@ -143,12 +143,12 @@ Google 에서는 Daydream 을 최대한 활용하기 위해 알아야하는 것�
     [region:note]
     Configure Google VR Deployment Mode 에는 여러가지 옵션이 있으며, 하는 일은 다음과 같습니다.
     * **Cardboard:** Google VR 이 카드보드 전용 모드에서 실행되도록 환경설정합니다.
-    * **Daydream:** Google VR 이 데이드림 전용 모드에서만 실행되도록 환경설정합니다. 이 모드에서는, Daydream 미지원 폰에서 앱이 실행되지 않을 것입니다.
+    * **Daydream:** Google VR 이 Daydream 전용 모드에서만 실행되도록 환경설정합니다. 이 모드에서는, Daydream 미지원 폰에서 앱이 실행되지 않을 것입니다.
     * **Daydream & Cardboard:** Google VR 이 Daydream 지원 폰에서는 Daydream 모드로, Daydream 미지원 폰에서는 카드보드 모드로 실행되도록 환경설정합니다.
 
     [/region]
 
-1. **SDKConfig** (SDK 환경설정) 카테고리 아래 **Android SDK** (안드로이드 SDK) 섹션에서 **SDK API Level** 을 **android-24** 로, **NDK API Level** 을 ** android-19 ** 로 설정하여 프로젝트가 가장 최신의 안드로이드 SDK 로 컴파일되도록 합니다.
+1. **SDKConfig** (SDK 환경설정) 카테고리 아래 **Android SDK** (Android SDK) 섹션에서 **SDK API Level** 을 **android-24** 로, **NDK API Level** 을 ** android-19 ** 로 설정하여 프로젝트가 가장 최신의 Android SDK 로 컴파일되도록 합니다.
 
     ![](GVRQS_Android_SDK_Options_00.png)
 
@@ -163,6 +163,6 @@ Google 에서는 Daydream 을 최대한 활용하기 위해 알아야하는 것�
 
 ## 최종 결과
 
-구글 VR 퀵 스타트 다음 회에서는, UE4 프로젝트를 패키징하고 구글 VR 디바이스에서 실행시키는 법을 알아보도록 하겠습니다.
+Google VR 퀵 스타트 다음 회에서는, UE4 프로젝트를 패키징하고 Google VR 디바이스에서 실행시키는 법을 알아보도록 하겠습니다.
 
 [NAV]

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
@@ -140,7 +140,7 @@ private:
 	{
 		if (!SlateFontServices.IsValid())
 		{
-			const TSharedRef<FSlateFontCache> FontCache = MakeShareable(new FSlateFontCache(MakeShareable(new FSlateNullFontAtlasFactory)));
+			const TSharedRef<FSlateFontCache> FontCache = MakeShareable(new FSlateFontCache(MakeShareable(new FSlateNullFontAtlasFactory), ESlateTextureAtlasThreadId::Game));
 
 			SlateFontServices = MakeShareable(new FSlateFontServices(FontCache, FontCache));
 		}

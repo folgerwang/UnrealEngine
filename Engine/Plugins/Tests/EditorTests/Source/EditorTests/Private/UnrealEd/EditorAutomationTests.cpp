@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "HAL/FileManager.h"
@@ -327,9 +327,8 @@ bool FStaticMeshValidation::RunTest(const FString& Parameters)
 	UWorld* World = FAutomationEditorCommonUtils::CreateNewMap();
 
 	//Adjust camera in viewports
-	for( int32 i = 0; i < GEditor->LevelViewportClients.Num(); i++ )
+	for(FLevelEditorViewportClient* ViewportClient : GEditor->GetLevelViewportClients())
 	{
-		FLevelEditorViewportClient* ViewportClient = GEditor->LevelViewportClients[i];
 		if(!ViewportClient->IsOrtho())
 		{
 			ViewportClient->SetViewLocation( FVector(67, 1169, 1130) );
@@ -458,9 +457,8 @@ bool FConvertToValidation::RunTest(const FString& Parameters)
 	ConvertMeshParameters.ScreenshotName = BaseFileName;
 
 	//Adjust camera in viewports
-	for( int32 i = 0; i < GEditor->LevelViewportClients.Num(); i++ )
+	for(FLevelEditorViewportClient* ViewportClient : GEditor->GetLevelViewportClients())
 	{
-		FLevelEditorViewportClient* ViewportClient = GEditor->LevelViewportClients[i];
 		if(!ViewportClient->IsOrtho())
 		{
 			ViewportClient->SetViewLocation( FVector(190, 590, 360) );
@@ -695,9 +693,8 @@ bool FLightPlacement::RunTest(const FString& Parameters)
 	UWorld* World = FAutomationEditorCommonUtils::CreateNewMap();
 
 	//Move the perspective viewport view to show the test.
-	for (int32 i = 0; i < GEditor->LevelViewportClients.Num(); i++)
+	for(FLevelEditorViewportClient* ViewportClient : GEditor->GetLevelViewportClients())
 	{
-		FLevelEditorViewportClient* ViewportClient = GEditor->LevelViewportClients[i];
 		if (!ViewportClient->IsOrtho())
 		{
 			ViewportClient->SetViewLocation(FVector(890, 70, 280));

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ShadowDepthVertexShader.usf: Vertex shader for writing shadow depth.
@@ -9,22 +9,27 @@
 #define USE_STENCIL_LOD_DITHER	0
 
 #include "Common.ush"
+
+// Reroute SceneTexturesStruct uniform buffer references to the shadow depth pass uniform buffer
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+#define PassStruct ShadowDepthPass
+#define SceneTexturesStruct ShadowDepthPass.SceneTextures 
+#else
+#define PassStruct MobileShadowDepthPass
+#define SceneTexturesStruct MobileShadowDepthPass.SceneTextures 
+#endif
+
 #include "/Engine/Generated/Material.ush"
 #include "/Engine/Generated/VertexFactory.ush"
 #include "ShadowDepthCommon.ush"
 
-float4x4 ProjectionMatrix;
-
-//@todo - make this a bool, bool shader parameters currently do not work in vertex shaders on Xbox 360 (TTP 125134)
-float bClampToNearPlane;
-
 void SetShadowDepthOutputs(float4 WorldPosition, out float4 OutPosition, out float ShadowDepth)
 {
-	OutPosition = mul(WorldPosition, ProjectionMatrix);
+	OutPosition = mul(WorldPosition, PassStruct.ProjectionMatrix);
 
 	// Clamp the vertex to the near plane if it is in front of the near plane
 	// This has problems if some vertices of a triangle get clamped and others do not, also causes artifacts with non-ortho projections
-	if (bClampToNearPlane && OutPosition.z < 0)
+	if (PassStruct.bClampToNearPlane > 0 && OutPosition.z < 0)
 	{
 		OutPosition.z = 0.000001f;
 		OutPosition.w = 1.0f;
@@ -33,8 +38,8 @@ void SetShadowDepthOutputs(float4 WorldPosition, out float4 OutPosition, out flo
 	#if PERSPECTIVE_CORRECT_DEPTH
 		ShadowDepth = OutPosition.z;
 	#else
-		float DepthBias = ShadowParams.x;
-		float InvMaxSubjectDepth = ShadowParams.y;
+		float DepthBias = PassStruct.ShadowParams.x;
+		float InvMaxSubjectDepth = PassStruct.ShadowParams.y;
 
 		// Output linear, normalized depth
 		ShadowDepth = OutPosition.z * InvMaxSubjectDepth + DepthBias;
@@ -44,10 +49,10 @@ void SetShadowDepthOutputs(float4 WorldPosition, out float4 OutPosition, out flo
 
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW
 
-/** View projection matrix for each cube map face. */
-float4x4 ShadowViewProjectionMatrices[6];
-/** Flag indicating which faces of the cube map the object is visible to.  This just needs 6 bits, but there's no int parameter type yet. */
-float4 MeshVisibleToFace[6];
+// Layer Id per draw call for Vertex-Shader-Layer implementation
+#if VERTEXSHADER && USING_VERTEX_SHADER_LAYER
+uint LayerId;
+#endif
 
 struct FShadowDepthGSToPS
 {
@@ -82,40 +87,35 @@ void MainOnePassPointLightGS(triangle FShadowDepthVSToGS Input[3], inout Triangl
 	// Clone the triangle to each face
 	for (int CubeFaceIndex = 0; CubeFaceIndex < 6; CubeFaceIndex++)
 	{
-		BRANCH
-		// Skip this cube face if the object is not visible to it
-		if (MeshVisibleToFace[CubeFaceIndex].x > 0)
+		float4 ClipSpacePositions[3];
+		UNROLL
+		for (int VertexIndex = 0; VertexIndex < 3; VertexIndex++)
 		{
-			float4 ClipSpacePositions[3];
+			// Calculate the clip space position for each cube face
+			ClipSpacePositions[VertexIndex] = mul(Input[VertexIndex].GSPosition, PassStruct.ShadowViewProjectionMatrices[CubeFaceIndex]);
+		}
+		// Frustum culling, saves GPU time with high poly meshes
+		BRANCH
+		if (IsTriangleInFrustum(ClipSpacePositions))
+		{
+			FShadowDepthGSToPS Output;
+			Output.RTIndex = CubeFaceIndex;
+
 			UNROLL
 			for (int VertexIndex = 0; VertexIndex < 3; VertexIndex++)
 			{
-				// Calculate the clip space position for each cube face
-				ClipSpacePositions[VertexIndex] = mul(Input[VertexIndex].GSPosition, ShadowViewProjectionMatrices[CubeFaceIndex]);
-			}
-			// Frustum culling, saves GPU time with high poly meshes
-			BRANCH
-			if (IsTriangleInFrustum(ClipSpacePositions))
-			{
-				FShadowDepthGSToPS Output;
-				Output.RTIndex = CubeFaceIndex;
+				Output.OutPosition = ClipSpacePositions[VertexIndex];
 
-				UNROLL
-				for (int VertexIndex = 0; VertexIndex < 3; VertexIndex++)
-				{
-					Output.OutPosition = ClipSpacePositions[VertexIndex];
-
-					#if INTERPOLATE_VF_ATTRIBUTES
-						Output.PSInputs.FactoryInterpolants = Input[VertexIndex].FactoryInterpolants;
-					#endif
+				#if INTERPOLATE_VF_ATTRIBUTES
+					Output.PSInputs.FactoryInterpolants = Input[VertexIndex].FactoryInterpolants;
+				#endif
 
 #if INTERPOLATE_POSITION
-					Output.PSInputs.PixelPosition = Input[VertexIndex].GSPosition.xyz;
+				Output.PSInputs.PixelPosition = Input[VertexIndex].GSPosition.xyz;
 #endif
-					OutStream.Append(Output);
-				}
-				OutStream.RestartStrip();
+				OutStream.Append(Output);
 			}
+			OutStream.RestartStrip();
 		}
 	}
 }
@@ -131,16 +131,21 @@ struct FShadowDepthVSToDS
 	OPTIONAL_VertexID_VS_To_DS
 #if ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
 	uint LayerIndex : VS_to_DS_RenderTargetArrayIndex;
-	float ClipDistance : VS_to_DS_ClipDistance0;
 #endif
 };
 
 struct FShadowDepthDSToPS : FShadowDepthVSToPS
 {
+#if ONEPASS_POINTLIGHT_SHADOW
+#if USING_VERTEX_SHADER_LAYER
 	float4 Position : SV_POSITION;
-#if ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
+	float4 InterpPosition : TEXCOORD6;
 	uint LayerIndex : SV_RenderTargetArrayIndex;
-	float ClipDistance : SV_ClipDistance2;
+#else
+	float4 Position : TEXCOORD6;
+#endif
+#else
+	float4 Position : SV_POSITION;
 #endif
 };
 
@@ -153,7 +158,6 @@ FShadowDepthVSToDS PassInterpolate(FShadowDepthVSToDS a, float aInterp, FShadowD
 	O.FactoryInterpolants = VertexFactoryInterpolate(a.FactoryInterpolants, aInterp, b.FactoryInterpolants, bInterp);
 #if ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
 	O.LayerIndex = a.LayerIndex;
-	O.ClipDistance = a.ClipDistance;
 #endif
 	return O;
 }
@@ -171,8 +175,7 @@ FShadowDepthDSToPS PassFinalizeTessellationOutput(FShadowDepthVSToDS Interpolant
 	O.Position = WorldPosition;
 #if USING_VERTEX_SHADER_LAYER
 	O.LayerIndex = Interpolants.LayerIndex;
-	O.Position = WorldPosition = mul(WorldPosition, ShadowViewProjectionMatrices[Interpolants.LayerIndex]);
-	O.ClipDistance = Interpolants.ClipDistance;
+	O.Position = WorldPosition = mul(WorldPosition, PassStruct.ShadowViewProjectionMatrices[Interpolants.LayerIndex]);
 #endif
 #else
 
@@ -188,8 +191,13 @@ FShadowDepthDSToPS PassFinalizeTessellationOutput(FShadowDepthVSToDS Interpolant
 		);
 #endif
 
-#if !(ONEPASS_POINTLIGHT_SHADOW || PERSPECTIVE_CORRECT_DEPTH) && COMPILER_SUPPORTS_EMPTY_STRUCTS
+// Conditions below are derived. See struct FShadowDepthVSToPS in ShadowDepthCommon.ush
+#if !PERSPECTIVE_CORRECT_DEPTH && !COMPILER_SUPPORTS_EMPTY_STRUCTS && !ONEPASS_POINTLIGHT_SHADOW
 	O.Dummy = 0;
+#endif
+
+#if INTERPOLATE_POSITION
+	O.PixelPosition = WorldPosition.xyz;
 #endif
 
 	return O;
@@ -207,7 +215,6 @@ void Main(
 	out FShadowDepthVSToGS OutParameters,
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && USING_VERTEX_SHADER_LAYER
 	out uint LayerIndex : SV_RenderTargetArrayIndex,
-	out float ClipDistance : SV_ClipDistance2,
 #endif
 #else
 	out FShadowDepthVSToPS OutParameters,
@@ -232,8 +239,7 @@ void Main(
 	OutParameters.FactoryInterpolants = VertexFactoryGetInterpolantsVSToDS(Input, VFIntermediates, VertexParameters);
 
 	#if ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER && VERTEXSHADER
-		OutParameters.LayerIndex = Input.InstanceId / InstanceCount;
-		OutParameters.ClipDistance = (MeshVisibleToFace[OutParameters.LayerIndex].x > 0) ? 1.0 : -1.0;
+		OutParameters.LayerIndex = LayerId;
 	#endif
 
 #elif ONEPASS_POINTLIGHT_SHADOW
@@ -250,12 +256,11 @@ void Main(
 	#endif
 
 	#if USING_VERTEX_SHADER_LAYER && VERTEXSHADER
-		LayerIndex = Input.InstanceId / InstanceCount;
-		OutPosition = mul(WorldPos, ShadowViewProjectionMatrices[LayerIndex]);
+		LayerIndex = LayerId;
+		OutPosition = mul(WorldPos, PassStruct.ShadowViewProjectionMatrices[LayerIndex]);
 		#if INTERPOLATE_VF_ATTRIBUTES
 			OutParameters.GSPosition = OutPosition;
 		#endif
-		ClipDistance = (MeshVisibleToFace[LayerIndex].x > 0) ? 1.0 : -1.0;
 	#endif
 
 #else
@@ -296,7 +301,6 @@ void MainForGS(
 	out FShadowDepthVSToGS OutParameters,
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && USING_VERTEX_SHADER_LAYER
 	out uint LayerIndex : SV_RenderTargetArrayIndex,
-	out float ClipDistance : SV_ClipDistance2,
 #endif
 #else
 	out FShadowDepthVSToPS OutParameters,
@@ -309,7 +313,7 @@ void MainForGS(
 		OutParameters,
 		OPTIONAL_VertexID_PARAM
 #if !USING_TESSELLATION && (FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER)
-		LayerIndex, ClipDistance,
+		LayerIndex,
 #endif
 		OutPosition);
 }
@@ -321,7 +325,6 @@ void PositionOnlyMain(
 	in FPositionOnlyVertexFactoryInput Input,
 #if USING_ONEPASS_POINT_VERTEX_LAYER
 	out uint LayerIndex : SV_RenderTargetArrayIndex,
-	out float ClipDistance : SV_ClipDistance2,
 #endif
 #if ONEPASS_POINTLIGHT_SHADOW
 	out FShadowDepthVSToGS OutParameters,
@@ -343,12 +346,11 @@ void PositionOnlyMain(
 	OutPosition = OutParameters.GSPosition = WorldPos;
 
 	#if USING_ONEPASS_POINT_VERTEX_LAYER
-		LayerIndex = Input.InstanceId / InstanceCount;
-		OutPosition = mul(WorldPos, ShadowViewProjectionMatrices[LayerIndex]);
+		LayerIndex = LayerId;
+		OutPosition = mul(WorldPos, PassStruct.ShadowViewProjectionMatrices[LayerIndex]);
 		#if INTERPOLATE_VF_ATTRIBUTES
 			OutParameters.GSPosition = OutPosition;
 		#endif
-		ClipDistance = (MeshVisibleToFace[LayerIndex].x > 0) ? 1.0 : -1.0;
 	#endif
 
 #else // #if ONEPASS_POINTLIGHT_SHADOW
@@ -371,7 +373,6 @@ void PositionOnlyMainForGS(
 	in FPositionOnlyVertexFactoryInput Input,
 #if USING_ONEPASS_POINT_VERTEX_LAYER
 	out uint LayerIndex : SV_RenderTargetArrayIndex,
-	out float ClipDistance : SV_ClipDistance2,
 #endif
 #if ONEPASS_POINTLIGHT_SHADOW
 	out FShadowDepthVSToGS OutParameters,
@@ -383,7 +384,7 @@ void PositionOnlyMainForGS(
 {
 	PositionOnlyMain(Input,
 #if USING_ONEPASS_POINT_VERTEX_LAYER
-		LayerIndex, ClipDistance,
+		LayerIndex,
 #endif
 		OutParameters, OutPosition);
 }

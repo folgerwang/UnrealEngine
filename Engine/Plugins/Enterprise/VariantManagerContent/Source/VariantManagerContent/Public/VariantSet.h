@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -21,28 +21,47 @@ public:
 
 	class ULevelVariantSets* GetParent();
 
+	// UObject Interface
+	virtual void Serialize(FArchive& Ar) override;
+	//~ End UObject Interface
+
+	// Sets whether this variant set is expanded or not when displayed
+	// in a variant manager
+	bool IsExpanded();
+	void SetExpanded(bool bInExpanded);
+
 	UFUNCTION(BlueprintCallable, Category="VariantSet")
 	void SetDisplayText(const FText& NewDisplayText);
 
-	UFUNCTION(BlueprintCallable, Category="VariantSet")
+	UFUNCTION(BlueprintPure, Category="VariantSet")
 	FText GetDisplayText() const;
 
 	FString GetUniqueVariantName(const FString& InPrefix);
 
 	void AddVariants(const TArray<UVariant*>& NewVariants, int32 Index = INDEX_NONE);
+	int32 GetVariantIndex(UVariant* Var);
 	const TArray<UVariant*>& GetVariants() const;
 	void RemoveVariants(const TArray<UVariant*>& InVariants);
 
-	UFUNCTION(BlueprintCallable, Category="VariantSet")
+	UFUNCTION(BlueprintPure, Category="VariantSet")
 	int32 GetNumVariants();
 
-	UFUNCTION(BlueprintCallable, Category="VariantSet")
+	UFUNCTION(BlueprintPure, Category="VariantSet")
 	UVariant* GetVariant(int32 VariantIndex);
+
+	UFUNCTION(BlueprintPure, Category="VariantSet")
+	UVariant* GetVariantByName(FString VariantName);
 
 private:
 
+	// The display name used to be a property. Use the non-deprecated, non-property version from now on
 	UPROPERTY()
+	FText DisplayText_DEPRECATED;
+
 	FText DisplayText;
+
+	UPROPERTY()
+	bool bExpanded;
 
 	UPROPERTY()
 	TArray<UVariant*> Variants;

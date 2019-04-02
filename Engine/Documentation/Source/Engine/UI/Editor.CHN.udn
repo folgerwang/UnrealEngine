@@ -1,74 +1,22 @@
-﻿INTSourceChangelist: 2735872
+INTSourceChangelist: 3810557
 Availability:Public
-Title: 虚幻编辑器界面
+Title:虚幻编辑器界面
 Crumbs:%ROOT%, Engine
-Description:虚幻编辑器用户界面的不同部分的分解，以及关于接口如何运作的关键原则。
+Description:虚幻编辑器用户界面的分解说明以及有关编辑器工作原理的关键原则。
 Navigation:topic
 Version: 4.9
 parent:Engine/Editor
 order:1
+topic-image:UserInterfaceTopic.png
+topic-icon:%ROOT%/editor_icon.png
+
 
 [EXCERPT:LevelEditor]
-
-[VAR:Params]
-[PARAM:image]
-	![%Engine/UI:title%](Engine/UI/UserInterfaceTopic.png)(convert:false)
-[/PARAM]
-[PARAM:icon]
-	![](%ROOT%/editor_icon.png)(convert:false)
-[/PARAM]
-[PARAM:title]
-	%Engine/UI:title%
-[/PARAM]
-[PARAM:description]
-	%Engine/UI:description%
-[/PARAM]
-[PARAM:path]
-	[RELATIVE:Engine/UI]
-[/PARAM]
-[/VAR]
-
-[VAR:HomeParams]
-[PARAM:image]
-	![%Engine/UI:title%](Engine/UI/UserInterfaceTopic.png)(convert:false)
-[/PARAM]
-[PARAM:icon]
-	![](%ROOT%/editor_icon.png)(convert:false)
-[/PARAM]
-[PARAM:title]
-	编辑器参考指南
-[/PARAM]
-[PARAM:description]
-	%Engine/UI:description%
-[/PARAM]
-[PARAM:path]
-	[RELATIVE:Engine/UI]
-[/PARAM]
-[/VAR]
-
-[VAR:Topic]
-[OBJECT:Topic]
-%params%
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-%params%
-[/OBJECT]
-[/VAR]
-
-[VAR:Role]
-[OBJECT:Role]
-%homeparams%
-[/OBJECT]
-[/VAR]
+(#thebasics)
+## 简介
 
 
-## 基础信息
-
-
-如果您刚使用编辑器，您可以先熟悉一下用户接口和常用的工作流程的一些基础理念。 如果您刚开始使用编辑器，以下是让您开始熟悉编辑器的一些主要主题。 
+如果您是初次接触该编辑器，熟悉一些有关用户界面和一般工作流程的基本概念将会十分有用。如果您是刚刚开始使用，则下面的一些主要主题能够帮助您进行一些实践操作。 
 
 
 
@@ -82,67 +30,75 @@ order:1
 
 
 
-## 编辑器，浏览器和工具
+(#editors,browsers,andtools)
+## 编辑器、浏览器和工具
 
-虚幻编辑器的每个部分在默认情况下并不都是可见的，因为这样会需要太多屏幕空间来显示所有内容。 一些部分仅在您尝试编辑特定类型的资源时才会显示。 其余部分在您尝试变更属性的特定类型时才可用。 还有一些部分让特定操作的执行更为方便，诸如将资源拉入关卡和环境。
+默认情况下，并不会显示虚幻编辑器的所有部分，因为这样需要太多屏幕空间。在您尝试编辑特定类型的资源时，只会显示某些部分。其他部分会在您尝试更改特定类型的属性时变为可用。还有一些其他属性是为了方便执行某些操作而存在的，例如将资源引入到关卡和环境中。
 
 [REGION:raw]
-![](OpenParticleSystem.png)(w:930)
+[OBJECT:ToggleButtonContent]
+[PARAMLITERAL:category]
+OS
+[/PARAMLITERAL]
+[PARAMLITERAL:id]
+windows
+[/PARAMLITERAL]
+[PARAMLITERAL:active]
+[/PARAMLITERAL]
+[PARAM:content]
+![](OpenParticleSystem_Windows.png)
+[/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+[PARAMLITERAL:category]
+OS
+[/PARAMLITERAL]
+[PARAMLITERAL:id]
+mac
+[/PARAMLITERAL]
+[PARAMLITERAL:active]
+[/PARAMLITERAL]
+[PARAM:content]
+![](OpenParticleSystem_Mac.png)
+[/PARAM]
+[/OBJECT]
 [/REGION]
 
 
-## 项目和资源访问
+(#projectandassetaccess)
+## 项目和资源访问权
 
 [REGION:buttonlist]
-
-		* [项目浏览器](Engine/Basics/Projects/Browser "让您可以访问所有虚幻引擎游戏项目以及创建新项目的浏览器。")
-		* [内容浏览器](Engine/Content/Browser "常用的面板，让您可以在项目中快速搜索和访问所有资源。")
-		* [类浏览器](Engine/UI/ClassViewer "您游戏中所有可用的对象类的层次列表。")
-		* [全局资源选择器](Engine/UI/GlobalAssetPicker "用于直接从视口中放置和编辑您的游戏资源的快速访问工具。")
-	
+* [项目浏览器](Engine/Basics/Projects/Browser "A browser that gives you access to all of your Unreal Engine game projects, as well as the ability to create new ones.")
+* [内容浏览器](Engine/Content/Browser "A frequently used panel that allows you to quickly search for and access all the assets in your project.")
+* [类查看器](Engine/UI/ClassViewer "A hierarchical list of all of the Object classes available for your games.")
+* [全局资源选取器](Engine/UI/GlobalAssetPicker " A fast-access tool for placing and editing your game assets directly from within the Viewport.")
 [/REGION]
 
+(#propertyediting)
 ## 属性编辑
 
 [REGION:buttonlist]
-
-		* [属性矩阵](Engine/UI/PropertyMatrix " 这个面板让您可以在类似于电子表格的格式中同时变更多种网格物体的属性。“)
-		* [颜色选择器](Engine/UI/ColorPicker "用于设置基于颜色的属性和色彩连续性以及使用便利性的一些特殊功能的面板。")
-		* [曲线编辑器](Engine/UI/CurveEditor "这个面板使得对函数曲线的属性调整随时间而变更。")
-	
+* [属性矩阵](Engine/UI/PropertyMatrix "This panel allows you to change the properties on multiple meshes simultaneously in a spreadsheet-like format.")
+* [取色器](Engine/UI/ColorPicker "A panel for setting color-based properties, with a few special features for color continuity and ease of use.")
+* [曲线编辑器](Engine/UI/CurveEditor "This panel makes the adjustment of function curves for properties that change over time.")	
 [/REGION]
 
-## 设置和偏好设置
+(#settingsandpreferences)
+## 设置和首选项
 
 [REGION:buttonlist]
-
-		* [编辑器设置](Engine/UI/EditorSettings "包含对编辑器可用的不同设置的窗口。")
-		* [项目设置](Engine/UI/ProjectSettings "对您特定游戏项目以及如何对其打包的设置。")
-		* [按键绑定](Engine/UI/KeyBindings "让您为编辑器变更和创建热键的面板。")
-	
+* [编辑器设置](Engine/UI/EditorSettings "A window that contains the various settings available to the editor.")
+* [项目设置](Engine/UI/ProjectSettings "Settings for your specific game project and how it will be packaged.")
+* [键绑定](Engine/UI/KeyBindings "A panel allowing you to change and create hotkeys for the editor.")
 [/REGION]
 
-[OBJECT:TopicList]
-	[PARAM:icon]
-		![](%ROOT%/cine_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		视频教程
-	[/PARAM]
-	[PARAM:description]
-	[REGION:topics third]
-	[OBJECT:TopicCompact]
-		[PARAM:image]
-			![](video_splash.png)
-		[/PARAM]
-		[PARAM:title]
-			视频教程
-		[/PARAM]
-		[PARAMLITERAL:path]
-			http://www.youtube.com/watch?v=QMsFxzYzFJ8&list=PLZlv_N0_O1gasd4IcOe9Cx9wHoBB7rxFl
-		[/PARAMLITERAL]
-	[/OBJECT]
-	[/REGION]
-	[/PARAM]
-[/OBJECT]
+(#videotutorials)
+## 视频教程
+
+[DIR(output:"playlist" type:"playlist" playlist_id:"PLZlv_N0_O1gasd4IcOe9Cx9wHoBB7rxFl")]
+
 [/EXCERPT:LevelEditor]
+
+

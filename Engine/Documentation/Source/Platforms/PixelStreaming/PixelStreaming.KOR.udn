@@ -1,0 +1,35 @@
+﻿INTSourceChangelist:4677050
+Availability: Public
+Crumbs: 
+Title: 픽셀 스트리밍
+Description: 언리얼 엔진 응용 프로그램을 클라우드의 서버에서 실행하고, 그 렌더링되는 프레임과 오디오를 WebRTC 를 통해 브라우저와 모바일 디바이스에 스트리밍합니다.
+Type: 
+Version: 4.21
+Parent: Platforms
+Order: 
+topic-image:PixelStreaming_Topic_01.png
+Tags: Early Access
+Tags: Landing Page
+Tags: Pixel Streaming
+Tags: Cloud Platform
+
+
+![](PixelStreaming_Banner_01.png "PixelStreaming_Banner_01.png")
+
+*이미지 제공: McLaren*
+
+Pixel Streaming (픽셀 스트리밍)은 언리얼 엔진 응용 프로그램 패키지를 클라우드의 서버 또는 데스크톱 PC 에서 실행하고, 언리얼 엔진에 포함된 약간의 웹 서비스를 통해 전송합니다. 데스크톱이든 모바일이든 어떤 플랫폼의 최신 웹 브라우저를 통해 접속한 사람에게 언리얼 엔진 응용 프로그램에서 렌더링된 프레임과 오디오를 스트리밍합니다. 사용자는 아무것도 설치하거나 다운로드할 필요가 없습니다. YouTube 또는 Netflix 에서 비디오를 스트리밍하는 것과 똑같습니다. 예외라면 사용자가 키보드, 마우스, 터치 입력, 심지어 플레이어 웹 페이지에서 생성한 커스텀 HTML5 UI 를 통해서도 응용 프로그램과 상호작용할 수도 있다는 점이 다릅니다.
+
+## 시작하기
+
+%Platforms/PixelStreaming/PixelStreamingOverview:topic%
+%Platforms/PixelStreaming/PixelStreamingIntro:topic%
+
+## 가이드
+
+%Platforms/PixelStreaming/CustomPlayer:topic%
+%Platforms/PixelStreaming/Hosting:topic%
+
+## 레퍼런스
+
+%Platforms/PixelStreaming/PixelStreamingReference:topic%

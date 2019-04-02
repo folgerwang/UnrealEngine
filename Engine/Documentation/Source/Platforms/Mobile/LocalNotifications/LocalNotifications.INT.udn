@@ -1,0 +1,374 @@
+Availability: Public
+Crumbs: 
+Title: Local Notification For Android and iOS
+Description: Product documentation including reference and guides for Unreal Engine 4
+Type: 
+Version: 4.21
+Parent: Platforms/Mobile
+Order: 
+Tags: mobileservices, Early Access, Landing Page
+
+
+Local notifications are messages that can be displayed outside of your Unreal Engine 4 (UE4) application, alerting users to changes or updates that have been made.  In the following How-To we will take a look at how to set up local notifications that will work on both Android and iOS devices.
+[REGION:note]
+The current implementation of Local Notifications for both Android and iOS is very simplistic in its setup and execution. This system also will only work with local notifications and not notifications that are sent via a remote server.
+[/REGION]
+
+%Globals:MobileSelect%
+
+## Steps
+
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    Platform
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    android
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    active_button_content
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:#android]
+    [/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    Platform
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    ios
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:#ios]
+    [/PARAM]
+[/OBJECT]
+
+[COMMENT:none]
+[EXCERPT:ios]
+1.  First, create a new C++ based project that has the following options set:
+    *   **Blank**
+    *   **Mobile** / **Tablet**
+    *   **Scalable 3D or 2D**       
+    *   **No Starter Content**
+        [REGION:lightbox]
+        [![](LocalNotification_Project_SettingsiOS.png)(w:500px)](LocalNotification_Project_SettingsiOS.png) 
+        [REGION:caption]
+        Click for full image.
+        [/REGION]
+        [/REGION]
+2.  When the project has opened, go to the **Edit **and then select **Project Settings**.
+3.  From the **Project Settings** menu, click on **All Settings** and then in the search box input **Enable Remote Notifications Support**.  
+    [REGION:lightbox]
+    [![](LocalNotification_EnableRemoteNotiOS-1.png)(w:500px)](LocalNotification_EnableRemoteNotiOS-1.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+    [REGION:note]
+    Enable Remote Notifications Support is only available when using a C++ based project. If you are using a Blueprint based project, this option will be grayed out.
+    [/REGION]
+5.  Once the project has opened, open the **Level Blueprint** by clicking on the **Blueprints** button that is on **Main Toolbar** and then from the displayed list, select the **Open Level Blueprint** option.  
+    [REGION:lightbox]
+    [![](Android&20OSLocalNotification_OpenLevelBlueprint.png)(w:500px)](Android&20OSLocalNotification_OpenLevelBlueprint.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+    [REGION:note]
+    To make this How-To easy to follow along with, we are using the Level Blueprint to set up and call the required Local Notifications Blueprint nodes. While setting up Local Notifications in the Level Blueprint will work, you should consider adding this logic where it makes the most sense for your project.
+    [/REGION]
+6.  In the **Variables** section, create the following three **text variables** so that we can display messages to the user when the local notification is shown:  
+    [REGION:lightbox]
+    [![](LocalNotifications_StingVariables.png)(w:200px)](LocalNotifications_StingVariables.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+
+    | Variable Name | Value |
+    | --- | --- |
+    | **Title** | Title: This is the Title! |
+    | **Body** | Body: This is the body! |
+    | **Action** | Action: I am taking this Action! |
+
+7.  To make sure that the user can see the local notifications when they are called to be displayed, add **Event Begin Play** and **Register for Remote Notifications** nodes to the **Event Graph**.
+    [REGION:lightbox]
+    [![](LocalNotifications_BeginPlayRegisterRemoteNot-1.png)(w:500px)](LocalNotifications_BeginPlayRegisterRemoteNot-1.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+    [REGION:note]
+    When adding this to your UE4 project, make sure that the Register for Remote Notifications node is called right when your project first loads. This way you will not have to worry about calling it again when trying to display notifications.
+    [/REGION]
+8.  To make sure that users can see the notifications when they are fired off, you will need to connect the **output** of the **Event Begin Play** to the input on the **Register for Remote Notifications**. This will make sure that the user gives the operating system (OS) the permission to display the notifications.
+    [REGION:lightbox]
+    [![](LocalNotifications_ConnectBeginPlayRegisterRemoteNot.png)(w:500px)](LocalNotifications_ConnectBeginPlayRegisterRemoteNot.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+9.  Now that we have given the OS permission to display the notification, next we need to set up what will happen when the user clicks on the notification. To handle this type of interaction, add **Get Launch Notification**, **Print String** and **Branch** nodes to the **Event Graph**.  
+    [REGION:lightbox]
+    [![](LocalNotifications_LaucnBrankPrintNodes.png)(w:500px)](LocalNotifications_LaucnBrankPrintNodes.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+10.  Connect the Output of the **Get Launch Notification** node to the input on the **Branch** node and then connect the **True** output of the Branch node to the input on the **Print String** node.  
+    [REGION:lightbox]
+    [![](LocalNotifications_ConnectGetLaunchToPrintAndBranch-2.png)(w:500px)](LocalNotifications_ConnectGetLaunchToPrintAndBranch-2.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+11.  Now, connect the **Notification Launched App** to the **Condition** input on the Branch node and the **Activation Event** to the **In String** on the **Print String** node.
+    [REGION:lightbox]
+    [![](LocalNotifications_ConnectLaunchToBranch.png)(w:500px)](LocalNotifications_ConnectLaunchToBranch.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+    [REGION:note]
+    When adding this to your project you can omit the **Print String** node. This was added to make sure that the correct Activation Event was being used.
+    [/REGION]
+12.  Now, we need to set up what the notification will say and how much time should pass before the notification is displayed. To accomplish this, you will first need to add the following Blueprint nodes to the Event Graph.  
+    *   **Schedule Local Notifications from Now**
+    *   **Delay**
+    *   **Title, Body, and Action Text Variables**  
+        [![](20OSLocalNotification_DelayVarsSchedule.png)(w:500px)](20OSLocalNotification_DelayVarsSchedule.png)  
+        [REGION:caption]
+        Click for full image.
+        [/REGION]
+13.  With the required nodes added to the Event Graph, connect the **Completed** output of the Delay node to the input on the **Schedule Local Notifications from Now**, and then connect each of the **Text** variables to their respective inputs on the **Schedule Local Notifications from Now** node. When completed, your Event Graph should match the image below.  
+    [REGION:lightbox]
+    [![](LocalNotifications_DelayVarSetup.png)(w:500px)](LocalNotifications_DelayVarSetup.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+14.  Set the **Duration** on the Delay node to **five (5)** seconds. This will help make sure that there is enough time to either close the app or put the app in the background before the local notification is called and displayed.  
+    [REGION:lightbox]
+    [![](LocalNotifications_DelayNodeSetup.png)(w:500px)](LocalNotifications_DelayNodeSetup.png) 
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+    [/REGION]
+    [REGION:note]
+    The **Delay** node was only added to ensure that there would be enough time to close the app or send it to the background before the notification went off. When adding this to your project you do not have to use the **Delay** node.
+    [/REGION]
+15.  Next, set the **Seconds from Now** input on the Schedule Local Notifications from Now node to **30** seconds. This will display the notification 30 seconds after this piece of code has been run.  
+    [REGION:lightbox]
+    [![](LocalNotifications_SetSchedualeTime.png)(w:500px)](LocalNotifications_SetSchedualeTime.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+16.  Set the **Activation Event** on the Schedule Local Notifications from Now to a value of **42**.  
+    [REGION:lightbox]
+    [![](LocalNotifications_SetActivationEvent.png)(w:500px)](LocalNotifications_SetActivationEvent.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+    [REGION:note]
+    The Activation Event input enables you to associate a string value that can be used to call a specific notification. This allows you to set up and use different notifications that can be displayed when certain conditions are met.
+    [/REGION]
+17.  With all of the needed nodes for Local Notifications to work now added to the Event graph, the last thing left to do is connect the **False** output of the **Branch** node to the input on the **Delay** node. When completed your Event Graph should look like the following image.  
+    [REGION:lightbox]
+    [![](LocalNotifications_ConnectFalseToDelay.png)(w:500px)](LocalNotifications_ConnectFalseToDelay.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+18.  Press the Compile button to compile the level Blueprint and the Save button to your level.
+19.  Finally, on the **Main Toolbar** click on the **Advanced Options** drop down next to the **Launch** icon and then select the device you want to test this on.  
+    ![](LocalNotifications_LaunchOnIOS.png "LocalNotifications_LaunchOnIOS.png")
+
+[/EXCERPT:ios]
+[EXCERPT:android]
+1.  First, create a new **Blueprint** based project that has the following options set:  
+    *   **Blank**
+    *   **Mobile** / **Tablet**
+    *   **Scalable 3D or 2D**  
+    *   **No Starter Content**
+        [REGION:lightbox]
+        [![](Android&20OSLocalNotification_Project_Settings.png)(w:500px)](Android&20OSLocalNotification_Project_Settings.png) 
+        [REGION:caption]
+        Click for full image.
+        [/REGION]
+        [/REGION]
+2.  Once the project has opened, open the **Level Blueprint** by clicking on the **Blueprints** button that is on **Main Toolbar** and then from the displayed list, select the **Open Level Blueprint** option.  
+    [REGION:lightbox]
+    [![](Android&20OSLocalNotification_OpenLevelBlueprint.png)(w:500px)](Android&20OSLocalNotification_OpenLevelBlueprint.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+    [REGION:note]
+    To make this How-To easy to follow along with, we are using the Level Blueprint to set up and call the required Local Notifications Blueprint nodes. While setting up Local Notifications in the Level Blueprint will work, you should consider adding this logic where it makes the most sense for your project.
+    [/REGION]
+3.  In the **Variables** section, create the following three **text variables** so that we can display messages to the user when the local notification is shown:  
+    [REGION:lightbox]
+    [![](LocalNotifications_StingVariables.png)(w:200px)](LocalNotifications_StingVariables.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+    
+    | Variable Name | Value |
+    | --- | --- |
+    | **Title** | Title: This is the Title! |
+    | **Body** | Body: This is the body! |
+    |  **Action** | Action: I am taking this Action! |
+    
+4.  To make sure that the user can see the local notifications when they are called to be displayed, add **Event Begin Play** and **Register for Remote Notifications** nodes to the **Event Graph**.  
+    [REGION:lightbox]
+    [![](LocalNotifications_BeginPlayRegisterRemoteNot-1.png)(w:500px)](LocalNotifications_BeginPlayRegisterRemoteNot-1.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+    [REGION:note]
+    When adding this to your UE4 project, make sure that the Register for Remote Notifications node is called right when your project first loads. This way you will not have to worry about calling it again when trying to display notifications.
+    [/REGION]
+5.  To make sure that users can see the notifications when they are fired off, you will need to connect the **output** of the **Event Begin Play** to the input on the **Register for Remote Notifications**. This will make sure that the user gives the operating system (OS) the permission to display the notifications.
+    [REGION:lightbox]
+    [![](LocalNotifications_ConnectBeginPlayRegisterRemoteNot.png)(w:500px)](LocalNotifications_ConnectBeginPlayRegisterRemoteNot.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+6.  Now that we have given the OS permission to display the notification, next we need to set up what will happen when the user clicks on the notification. To handle this type of interaction, add **Get Launch Notification**, **Print String** and **Branch** nodes to the **Event Graph**.  
+    [REGION:lightbox]
+    [![](LocalNotifications_LaucnBrankPrintNodes.png)(w:500px)](LocalNotifications_LaucnBrankPrintNodes.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+7.  Connect the Output of the **Get Launch Notification** node to the input on the **Branch** node and then connect the **True** output of the Branch node to the input on the **Print String** node.  
+    [REGION:lightbox]
+    [![](LocalNotifications_ConnectGetLaunchToPrintAndBranch-2.png)(w:500px)](LocalNotifications_ConnectGetLaunchToPrintAndBranch-2.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+8.  Now, connect the **Notification Launched App** to the **Condition** input on the Branch node and the **Activation Event** to the **In String** on the **Print String** node.
+    [REGION:lightbox]
+    [![](LocalNotifications_ConnectLaunchToBranch.png)(w:500px)](LocalNotifications_ConnectLaunchToBranch.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+    [REGION:note]
+    When adding this to your project you can omit the **Print String** node. This was added to make sure that the correct Activation Event was being used.
+    [/REGION]
+9.  Now, we need to set up what the notification will say and how much time should pass before the notification is displayed. To accomplish this, you will first need to add the following Blueprint nodes to the Event Graph.  
+    *   **Schedule Local Notifications from Now**
+    *   **Delay**
+    *   **Title, Body, and Action Text Variables**  
+        [![](20OSLocalNotification_DelayVarsSchedule.png)(w:500px)](20OSLocalNotification_DelayVarsSchedule.png)  
+        [REGION:caption]
+        Click for full image.
+        [/REGION]
+10.  With the required nodes added to the Event Graph, connect the **Completed** output of the Delay node to the input on the **Schedule Local Notifications from Now**, and then connect each of the **Text** variables to their respective inputs on the **Schedule Local Notifications from Now** node. When completed, your Event Graph should match the image below.  
+    [REGION:lightbox]
+    [![](LocalNotifications_DelayVarSetup.png)(w:500px)](LocalNotifications_DelayVarSetup.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+11.  Set the **Duration** on the Delay node to **five (5)** seconds. This will help make sure that there is enough time to either close the app or put the app in the background before the local notification is called and displayed.  
+    [REGION:lightbox]
+    [![](LocalNotifications_DelayNodeSetup.png)(w:500px)](LocalNotifications_DelayNodeSetup.png) 
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+    [/REGION]
+    [REGION:note]
+    The **Delay** node was only added to ensure that there would be enough time to close the app or send it to the background before the notification went off. When adding this to your project you do not have to use the **Delay** node.
+    [/REGION]
+12.  Next, set the **Seconds from Now** input on the Schedule Local Notifications from Now node to **30** seconds. This will display the notification 30 seconds after this piece of code has been run.  
+    [REGION:lightbox]
+    [![](LocalNotifications_SetSchedualeTime.png)(w:500px)](LocalNotifications_SetSchedualeTime.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+13.  Set the **Activation Event** on the Schedule Local Notifications from Now to a value of **42**.  
+    [REGION:lightbox]
+    [![](LocalNotifications_SetActivationEvent.png)(w:500px)](LocalNotifications_SetActivationEvent.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+    [REGION:note]
+    The Activation Event input enables you to associate a string value that can be used to call a specific notification. This allows you to set up and use different notifications that can be displayed when certain conditions are met.
+    [/REGION]
+14.  With all of the needed nodes for Local Notifications to work now added to the Event graph, the last thing left to do is connect the **False** output of the **Branch** node to the input on the **Delay** node. When completed your Event Graph should look like the following image.  
+    [REGION:lightbox]
+    [![](LocalNotifications_ConnectFalseToDelay.png)(w:500px)](LocalNotifications_ConnectFalseToDelay.png)
+    [/REGION]
+    [REGION:caption]
+    Click for full image.
+    [/REGION]
+15.  Press the Compile button to compile the level Blueprint and the Save button to your level.
+16.  Finally, on the **Main Toolbar** click on the **Advanced Options** drop down next to the **Launch** icon and then select the device you want to test this on.  
+    ![](LocalNotifications_LaunchOneDevice.png "LocalNotifications_LaunchOneDevice.png")
+[/EXCERPT:android]
+[/COMMENT]
+## End Result
+
+Once the project has been deployed to your mobile device, you should hear and see a notification pop up five seconds after your app has been opened like in the video below.
+
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    Platform
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    android
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    active_button_content
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [OBJECT:EmbeddedVideo]
+        [PARAMLITERAL:width]
+        640
+        [/PARAMLITERAL]
+        [PARAMLITERAL:height]
+        360
+        [/PARAMLITERAL]
+        [PARAMLITERAL:videoid]
+        f31AOCHte1E
+        [/PARAMLITERAL]
+    [/OBJECT]
+    [/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    Platform
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    ios
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [OBJECT:EmbeddedVideo]
+        [PARAMLITERAL:width]
+        640
+        [/PARAMLITERAL]
+        [PARAMLITERAL:height]
+        360
+        [/PARAMLITERAL]
+        [PARAMLITERAL:videoid]
+        ansRASXRbcQ
+        [/PARAMLITERAL]
+    [/OBJECT]
+    [/PARAM]
+[/OBJECT]

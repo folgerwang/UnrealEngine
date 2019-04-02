@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Transport/UdpMessageBeacon.h"
 #include "UdpMessagingPrivate.h"
@@ -99,8 +99,8 @@ uint32 FUdpMessageBeacon::Run()
 	{
 		FDateTime CurrentTime = FDateTime::UtcNow();
 		Update(CurrentTime, BeaconInterval);
-		// Clamp the wait time to a positive value
-		uint32 WaitTimeMs = (uint32)FMath::Max((NextHelloTime - CurrentTime).GetTotalMilliseconds(), 0.0);
+		// Clamp the wait time to a positive value of at least 100ms.
+		uint32 WaitTimeMs = (uint32)FMath::Max((NextHelloTime - CurrentTime).GetTotalMilliseconds(), 100.0);
 		EndpointLeftEvent->Wait(WaitTimeMs);
 	}
 

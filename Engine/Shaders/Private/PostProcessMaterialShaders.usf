@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessMaterialShaders.usf: Shaders for rendering post process materials
@@ -215,7 +215,11 @@ void MainVS_ES2(
 	UNROLL
 	for (int CoordinateIndex = 0; CoordinateIndex < NUM_MATERIAL_TEXCOORDS; CoordinateIndex++)
 	{
+#if POST_PROCESS_AR_PASSTHROUGH
 		SetUV(Output, CoordinateIndex, OutUV);
+#else
+		SetUV(Output, CoordinateIndex, InPosition.xy);
+#endif
 	}
 	UNROLL
 	for (int CoordinateIndex = NUM_MATERIAL_TEXCOORDS; CoordinateIndex < NUM_TEX_COORD_INTERPOLATORS; CoordinateIndex++)
@@ -262,7 +266,7 @@ void MainPS_ES2(
 #if POST_PROCESS_MATERIAL_BEFORE_TONEMAP
 #if OUTPUT_GAMMA_SPACE
 	FullSceneColor.rgb = sqrt(FullSceneColor.rgb);
-#else
+#elif OUTPUT_MOBILE_HDR
 	FullSceneColor = Encode32BPPHDR(FullSceneColor, SvPosition);
 #endif
 #endif

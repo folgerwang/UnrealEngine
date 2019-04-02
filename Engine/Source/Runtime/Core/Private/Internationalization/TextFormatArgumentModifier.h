@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,7 +22,9 @@ template<typename KeyType, typename ValueType, typename SetAllocator, typename K
 class FTextFormatArgumentModifier_PluralForm : public ITextFormatArgumentModifier
 {
 public:
-	static TSharedPtr<ITextFormatArgumentModifier> Create(const ETextPluralType InPluralType, const FTextFormatString& InArgsString);
+	static TSharedPtr<ITextFormatArgumentModifier> Create(const ETextPluralType InPluralType, const FTextFormatString& InArgsString, const FTextFormatPatternDefinitionConstRef& InPatternDef);
+
+	virtual bool Validate(const FCultureRef& InCulture, TArray<FString>& OutValidationErrors) const override;
 
 	virtual void Evaluate(const FFormatArgumentValue& InValue, const FPrivateTextFormatArguments& InFormatArgs, FString& OutResult) const override;
 
@@ -47,7 +49,9 @@ private:
 class FTextFormatArgumentModifier_GenderForm : public ITextFormatArgumentModifier
 {
 public:
-	static TSharedPtr<ITextFormatArgumentModifier> Create(const FTextFormatString& InArgsString);
+	static TSharedPtr<ITextFormatArgumentModifier> Create(const FTextFormatString& InArgsString, const FTextFormatPatternDefinitionConstRef& InPatternDef);
+
+	virtual bool Validate(const FCultureRef& InCulture, TArray<FString>& OutValidationErrors) const override;
 
 	virtual void Evaluate(const FFormatArgumentValue& InValue, const FPrivateTextFormatArguments& InFormatArgs, FString& OutResult) const override;
 
@@ -73,6 +77,8 @@ class FTextFormatArgumentModifier_HangulPostPositions : public ITextFormatArgume
 {
 public:
 	static TSharedPtr<ITextFormatArgumentModifier> Create(const FTextFormatString& InArgsString);
+
+	virtual bool Validate(const FCultureRef& InCulture, TArray<FString>& OutValidationErrors) const override;
 
 	virtual void Evaluate(const FFormatArgumentValue& InValue, const FPrivateTextFormatArguments& InFormatArgs, FString& OutResult) const override;
 

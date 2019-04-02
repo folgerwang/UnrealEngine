@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -140,4 +140,11 @@ struct MOVIESCENE_API FMovieSceneChannel
 	 */
 	virtual void ClearDefault()
 	{}
+
+	/**
+	 * Perfor a possibly heavy operation after an edit change 
+	 *
+	 */
+	virtual void PostEditChange() {}
+
 };

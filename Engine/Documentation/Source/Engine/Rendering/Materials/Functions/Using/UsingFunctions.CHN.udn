@@ -1,13 +1,15 @@
-﻿INTSourceChangelist:2731709
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:使用材质函数
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials
 Description:如何在材质中使用材质函数。
 Version:4.9
 SkillLevel:Beginner
+tags:Materials
 
 本文档假定您掌握材质函数概念的应用知识。如需更多信息，请参阅[“材质函数概述”页面](Engine/Rendering/Materials/Functions/Overview)。
 
+(#ApplyingMaterialFunctions)
 ## 应用材质函数
 
 创建并编辑材质函数之后，您可通过直接从 [材质编辑器选用板](Engine/Rendering/Materials/Editor/Interface#PalettePanel) 中拖动该函数，或者将该函数从内容浏览器拖到材质编辑器，将该函数添加到现有的材质中。它将包含各种由函数内的输入及输出节点定义的输出及输出。

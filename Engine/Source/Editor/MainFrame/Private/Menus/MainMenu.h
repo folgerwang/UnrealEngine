@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -110,14 +110,5 @@ private:
 	{
 		FModuleManager::Get().LoadModuleChecked<IModuleInterface>("LogVisualizer");
 		FGlobalTabmanager::Get()->InvokeTab(FName(TEXT("VisualLogger")));
-	}
-		
-	/**
-	* Opens the 'Device Output Log' tab.
-	* Remove this when it is no longer experimental.
-	*/
-	static void OpenDeviceOutputLog()
-	{
-		FGlobalTabmanager::Get()->InvokeTab(FName(TEXT("DeviceOutputLog")));
 	}
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SceneUtils.h"
 #include "ProfilingDebugging/CsvProfiler.h"
@@ -60,9 +60,10 @@ void TDrawEvent<TRHICmdList>::Start(TRHICmdList& InRHICmdList, FColor Color, con
 		va_start(ptr, Fmt);
 		TCHAR TempStr[256];
 		// Build the string in the temp buffer
-		FCString::GetVarArgs(TempStr, ARRAY_COUNT(TempStr), ARRAY_COUNT(TempStr) - 1, Fmt, ptr);
+		FCString::GetVarArgs(TempStr, ARRAY_COUNT(TempStr), Fmt, ptr);
 		InRHICmdList.PushEvent(TempStr, Color);
 		RHICmdList = &InRHICmdList;
+		va_end(ptr);
 	}
 }
 
@@ -86,9 +87,10 @@ void FDrawEventRHIExecute::Start(IRHIComputeContext& InRHICommandContext, FColor
 		va_start(ptr, Fmt);
 		TCHAR TempStr[256];
 		// Build the string in the temp buffer
-		FCString::GetVarArgs(TempStr, ARRAY_COUNT(TempStr), ARRAY_COUNT(TempStr) - 1, Fmt, ptr);
+		FCString::GetVarArgs(TempStr, ARRAY_COUNT(TempStr), Fmt, ptr);
 		RHICommandContext = &InRHICommandContext;
 		RHICommandContext->RHIPushEvent(TempStr, Color);
+		va_end(ptr);
 	}
 }
 
@@ -162,6 +164,13 @@ ENGINE_API EMobileHDRMode GetMobileHDRMode()
 	return HDRMode;
 }
 
+ENGINE_API bool IsMobileColorsRGB()
+{
+	static auto* MobileUseHWsRGBEncodingCVAR = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.UseHWsRGBEncoding"));
+	const bool bMobileUseHWsRGBEncoding = (MobileUseHWsRGBEncodingCVAR && MobileUseHWsRGBEncodingCVAR->GetValueOnAnyThread() == 1);
+
+	return !IsMobileHDR() && bMobileUseHWsRGBEncoding;
+}
 
 #if HAS_GPU_STATS
 static const int32 NumGPUProfilerBufferedFrames = 4;
@@ -619,11 +628,12 @@ inline bool AreGPUStatsEnabled()
 		return false;
 	}
 
-	// If stats are off, we only enable GPU stats if the CSV profiler is enabled
-#if !STATS 
-#if !CSV_PROFILER
+#if STATS 
+	return true;
+#elif !CSV_PROFILER
 	return false;
-#endif
+#else
+
 	// If we only have CSV stats, only capture if CSV GPU stats are enabled, and we're capturing
 	if (!CVarGPUCsvStatsEnabled.GetValueOnRenderThread())
 	{
@@ -633,8 +643,9 @@ inline bool AreGPUStatsEnabled()
 	{
 		return false;
 	}
-#endif
+
 	return true;
+#endif
 }
 
 void FRealtimeGPUProfiler::EndFrame(FRHICommandListImmediate& RHICmdList)

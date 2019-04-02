@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SLocalizationTargetStatusButton.h"
 #include "HAL/PlatformProcess.h"
@@ -17,7 +17,6 @@ void SLocalizationTargetStatusButton::Construct(const FArguments& InArgs, ULocal
 		SButton::FArguments()
 		.ButtonStyle( FEditorStyle::Get(), TEXT("HoverHintOnly") )
 		.OnClicked(this, &SLocalizationTargetStatusButton::OnClicked)
-		.ToolTipText(this, &SLocalizationTargetStatusButton::GetToolTipText)
 		);
 
 		ChildSlot
@@ -27,6 +26,7 @@ void SLocalizationTargetStatusButton::Construct(const FArguments& InArgs, ULocal
 				SNew(SImage)
 				.Image(this, &SLocalizationTargetStatusButton::GetImageBrush)
 				.ColorAndOpacity(this, &SLocalizationTargetStatusButton::GetColorAndOpacity)
+				.ToolTipText(this, &SLocalizationTargetStatusButton::GetToolTipText)
 			];
 }
 

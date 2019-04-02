@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -115,7 +115,7 @@ public:
 
 	virtual const TCHAR* GetDescriptiveName() override;
 
-	virtual void Trim() override;
+	virtual void Trim(bool bTrimThreadCaches) override;
 
 	virtual void SetupTLSCachesOnCurrentThread() override;
 

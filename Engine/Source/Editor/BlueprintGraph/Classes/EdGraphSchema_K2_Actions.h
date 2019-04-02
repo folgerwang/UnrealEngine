@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -216,7 +216,7 @@ struct FEdGraphSchemaAction_K2AddComponent : public FEdGraphSchemaAction_K2NewNo
 
 	/** Class of component we want to add */
 	UPROPERTY()
-		TSubclassOf<class UActorComponent> ComponentClass;
+	TSubclassOf<class UActorComponent> ComponentClass;
 
 	/** Option asset to assign to newly created component */
 	UPROPERTY()
@@ -313,7 +313,7 @@ struct FEdGraphSchemaAction_K2AddCallOnActor : public FEdGraphSchemaAction_K2New
 
 	/** Pointer to actors in level we want to call function on */
 	UPROPERTY()
-		TArray<class AActor*> LevelActors;
+	TArray<class AActor*> LevelActors;
 
 	FEdGraphSchemaAction_K2AddCallOnActor()
 		: FEdGraphSchemaAction_K2NewNode()

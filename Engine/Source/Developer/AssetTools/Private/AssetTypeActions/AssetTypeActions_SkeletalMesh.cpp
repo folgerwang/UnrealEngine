@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AssetTypeActions/AssetTypeActions_SkeletalMesh.h"
 #include "Animation/Skeleton.h"
@@ -37,6 +37,9 @@
 #include "Factories/PhysicsAssetFactory.h"
 
 #include "EditorReimportHandler.h"
+#include "Styling/SlateIconFinder.h"
+#include "Widgets/Images/SImage.h"
+#include "Factories/FbxSkeletalMeshImportData.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
@@ -437,6 +440,14 @@ FDlgMergeSkeleton::EResult FDlgMergeSkeleton::ShowModal()
 	return UserResponse;
 }
 
+FAssetTypeActions_SkeletalMesh::FAssetTypeActions_SkeletalMesh()
+: FAssetTypeActions_Base()
+{
+	//No need to remove since the asset registry module clear this multicast delegate when terminating
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::GetModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	AssetRegistryModule.Get().OnAssetRemoved().AddRaw(this, &FAssetTypeActions_SkeletalMesh::OnAssetRemoved);
+}
+
 void FAssetTypeActions_SkeletalMesh::GetActions( const TArray<UObject*>& InObjects, FMenuBuilder& MenuBuilder )
 {
 	auto Meshes = GetTypedWeakObjectPtrs<USkeletalMesh>(InObjects);
@@ -553,6 +564,72 @@ UThumbnailInfo* FAssetTypeActions_SkeletalMesh::GetThumbnailInfo(UObject* Asset)
 	return ThumbnailInfo;
 }
 
+EVisibility FAssetTypeActions_SkeletalMesh::GetThumbnailSkinningOverlayVisibility(const FAssetData AssetData) const
+{
+	//If the asset was delete it will be remove from the list, in that case do not use the
+	//asset since it can be invalid if the GC has collect the object point by the AssetData.
+	if (!ThumbnailSkinningOverlayAssetNames.Contains(AssetData.GetFullName()))
+	{
+		return EVisibility::Collapsed;
+	}
+
+	//Prevent loading all assets when we display the thumbnail
+	//The tags cannot change until the asset is loaded in memory
+	if (!AssetData.IsAssetLoaded())
+	{
+		FAssetDataTagMapSharedView::FFindTagResult Result = AssetData.TagsAndValues.FindTag(GET_MEMBER_NAME_CHECKED(UFbxSkeletalMeshImportData, LastImportContentType));
+		if (Result.IsSet() && Result.GetValue() == TEXT("FBXICT_Geometry"))
+		{
+			//Show the icon
+			return EVisibility::HitTestInvisible;
+		}
+		return EVisibility::Collapsed;
+	}
+
+	//The object is loaded we can use the memory value of the object to set the overlay
+	UObject* Obj = AssetData.GetAsset();
+	USkeletalMesh* SkeletalMesh = CastChecked<USkeletalMesh>(Obj);
+
+	UAssetImportData* GenericImportData = SkeletalMesh->AssetImportData;
+	if (GenericImportData != nullptr)
+	{
+		UFbxSkeletalMeshImportData* ImportData = Cast<UFbxSkeletalMeshImportData>(GenericImportData);
+		if (ImportData != nullptr && ImportData->LastImportContentType == EFBXImportContentType::FBXICT_Geometry)
+		{
+			return EVisibility::HitTestInvisible;
+		}
+	}
+	return EVisibility::Collapsed;
+}
+
+void FAssetTypeActions_SkeletalMesh::OnAssetRemoved(const FAssetData& AssetData)
+{
+	//Remove the object from the list before it get garbage collect
+	if (ThumbnailSkinningOverlayAssetNames.Contains(AssetData.GetFullName()))
+	{
+		ThumbnailSkinningOverlayAssetNames.Remove(AssetData.GetFullName());
+	}
+}
+
+TSharedPtr<SWidget> FAssetTypeActions_SkeletalMesh::GetThumbnailOverlay(const FAssetData& AssetData) const
+{
+	const FSlateBrush* Icon = FEditorStyle::GetBrush("ClassThumbnailOverlays.SkeletalMesh_NeedSkinning");
+
+	ThumbnailSkinningOverlayAssetNames.AddUnique(AssetData.GetFullName());
+
+	return SNew(SBorder)
+		.BorderImage(FEditorStyle::GetNoBrush())
+		.Visibility(this, &FAssetTypeActions_SkeletalMesh::GetThumbnailSkinningOverlayVisibility, AssetData)
+		.Padding(FMargin(0.0f, 3.0f, 3.0f, 0.0f))
+		.HAlign(HAlign_Right)
+		.VAlign(VAlign_Top)
+		[
+			SNew(SImage)
+			.ToolTipText(LOCTEXT("FAssetTypeActions_SkeletalMesh_NeedSkinning_ToolTip", "Asset geometry was imported, the skinning need to be validate"))
+			.Image(Icon)
+		];
+}
+
 void FAssetTypeActions_SkeletalMesh::GetResolvedSourceFilePaths(const TArray<UObject*>& TypeAssets, TArray<FString>& OutSourceFilePaths) const
 {
 	for (auto& Asset : TypeAssets)
@@ -562,13 +639,28 @@ void FAssetTypeActions_SkeletalMesh::GetResolvedSourceFilePaths(const TArray<UOb
 	}
 }
 
+void FAssetTypeActions_SkeletalMesh::GetSourceFileLabels(const TArray<UObject*>& TypeAssets, TArray<FString>& OutSourceFileLabels) const
+{
+	for (auto& Asset : TypeAssets)
+	{
+		const auto SkeletalMesh = CastChecked<USkeletalMesh>(Asset);
+		TArray<FString> SourceFilePaths;
+		SkeletalMesh->AssetImportData->ExtractFilenames(SourceFilePaths);
+		for (int32 SourceIndex = 0; SourceIndex < SourceFilePaths.Num(); ++SourceIndex)
+		{
+			FText SourceIndexLabel = SourceIndex == 0 ? NSSkeletalMeshSourceFileLabels::GeoAndSkinningText() : SourceIndex == 1 ? NSSkeletalMeshSourceFileLabels::GeometryText() : NSSkeletalMeshSourceFileLabels::SkinningText();
+			OutSourceFileLabels.Add(SourceIndexLabel.ToString());
+		}
+	}
+}
+
 void FAssetTypeActions_SkeletalMesh::GetLODMenu(class FMenuBuilder& MenuBuilder,TArray<TWeakObjectPtr<USkeletalMesh>> Objects)
 {
 	check(Objects.Num() > 0);
 	//Use the first object
 	USkeletalMesh* SkeletalMesh = Objects[0].Get();
 	int32 LODMax = SkeletalMesh->GetLODNum();
-	for(int32 LOD = 0; LOD < LODMax; ++LOD)
+	for(int32 LOD = 1; LOD <= LODMax; ++LOD)
 	{
 		const FText Description = FText::Format( LOCTEXT("LODLevel", "LOD {0}"), FText::AsNumber( LOD ) );
 		const FText ToolTip = ( LOD == LODMax ) ? LOCTEXT("NewImportTip", "Import new LOD") : LOCTEXT("ReimportTip", "Reimport over existing LOD");

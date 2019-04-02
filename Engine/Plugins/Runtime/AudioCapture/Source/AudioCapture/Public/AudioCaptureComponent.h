@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -11,6 +11,8 @@ UCLASS(ClassGroup = Synth, meta = (BlueprintSpawnableComponent))
 class AUDIOCAPTURE_API UAudioCaptureComponent : public USynthComponent
 {
 	GENERATED_BODY()
+
+protected:
 
 	UAudioCaptureComponent(const FObjectInitializer& ObjectInitializer);
 
@@ -50,5 +52,5 @@ private:
 	int32 FramesSinceStarting;
 	int32 ReadSampleIndex;
 	FThreadSafeBool bIsDestroying;
-	FThreadSafeBool bIsReadyForForFinishDestroy;
+	FThreadSafeBool bIsNotReadyForForFinishDestroy;
 };

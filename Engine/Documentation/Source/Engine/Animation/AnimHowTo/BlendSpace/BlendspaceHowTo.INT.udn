@@ -1,4 +1,4 @@
-Availability: Docs
+Availability: Public
 Crumbs: %ROOT%, Engine, Engine\Animation, Engine\Animation\AnimHowTo
 Title:Locomotion Based Blending
 Description:Example of a Blend Space used to blend a character's animations from walking and jogging. 

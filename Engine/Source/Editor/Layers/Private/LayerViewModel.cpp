@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LayerViewModel.h"
 #include "Editor/EditorEngine.h"
@@ -90,8 +90,7 @@ void FLayerViewModel::ToggleVisibility()
 		return;
 	}
 
-	const FScopedTransaction Transaction( LOCTEXT("ToggleVisibility", "Toggle Layer Visibility") );
-	WorldLayers->ToggleLayerVisibility( Layer->LayerName );
+	VisibilityToggledEvent.Broadcast( AsShared() );
 }
 
 

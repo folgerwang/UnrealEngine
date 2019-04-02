@@ -1,10 +1,11 @@
-﻿INTSourceChangelist:1635970
+﻿INTSourceChangelist:3782314
+Availability:Public
 Title: 基本控件
 Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor, Engine/UI/LevelEditor/Details
 Description:简单的属性类型，比如数值框、下拉列表、文本框、复选框、单选按钮及组合框。
-Availability:Public
+Version: 4.9
 
-**虚幻编辑器** 有很多种您熟知的控件类型，用于编辑数值、文本等。
+虚幻编辑器有很多种您熟知的控件类型，用于编辑数值、文本等。
 
 | 控件 | 描述|
 | ------- | ----------- |

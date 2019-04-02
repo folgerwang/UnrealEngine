@@ -1,0 +1,42 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+bool GenerateSpotLightOcclusionRay(
+	FLightShaderParameters LightParameters,
+	float3 WorldPosition,
+	float3 WorldNormal,
+	float2 RandSample,
+	out float3 RayOrigin,
+	out float3 RayDirection,
+	out float RayTMin,
+	out float RayTMax
+)
+{
+	if (LightParameters.SourceRadius > 0.0)
+	{
+		float RayPdf = 0.0;
+		GenerateSphereLightOcclusionRay(LightParameters, WorldPosition, WorldNormal, RandSample,
+			RayOrigin, RayDirection, RayTMin, RayTMax, RayPdf);
+	}
+	else
+	{
+		float3 LightDirection = LightParameters.Position - WorldPosition;
+		float RayLength = length(LightDirection);
+		LightDirection /= RayLength;
+
+		// Apply normal perturbation when defining ray
+		RayOrigin = WorldPosition;
+		RayDirection = LightDirection;
+		RayTMin = 0.0;
+		RayTMax = RayLength;
+	}
+
+	// Apply culling
+	float CosAngle = LightParameters.SpotAngles.x;
+	if (dot(RayDirection, LightParameters.Direction) < CosAngle)
+	{
+		return false;
+	}
+	return true;
+}

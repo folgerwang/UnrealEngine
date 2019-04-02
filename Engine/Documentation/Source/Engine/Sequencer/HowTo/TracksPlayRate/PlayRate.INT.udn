@@ -2,13 +2,12 @@ Availability: Public
 Title:Adjusting Speed of a Scene
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
 Description:Illustrates how you can speed up or slow down your Level Sequences. 
-Version: 4.12
+Version: 4.20
 SkillLevel: Beginner
 parent:Engine/Sequencer/HowTo
 order:1
 checkpoint: editorqs
 Related: Engine/Sequencer/Overview
-Related: Engine\Sequencer\ReferenceEditor\
 tags:Sequencer
 type:how-to
 
@@ -25,27 +24,27 @@ For this how-to, we are using the **Blueprint Third Person Template** project wi
 
 1.	From the Main Toolbar click the **Cinematics** button then **Add Level Sequence**. 
 
-	![](PlayRate1.png)
+	![](AddLevelSequence.png)
 
 	Enter a save name and save location for the asset which will automatically be added to the Level and **Content Browser**. 
 
 1.	Inside the Sequencer Editor, click the **Add** button and select the **Play Rate Track**. 
 
-	![](PlayRate2.png)
+	![](Speed_Step2.png)
 
 1.	Select the **Play Rate** track, then press **Enter** to add a keyframe at the **0** marker. 
 
-	![](PlayRate3.png)
+	![](Speed_Step3.png)
 
 	Above we are adding the default value for Play Rate of **1.0** (which means normal Play Back rate). 
 
 1.	Move the Timeline Marker to **25**, then change the Play Rate Value to **0.25** and press **Enter** to add a key. 
 
-	![](PlayRate4.png)
+	![](Speed_Step4.png)
 
 1.	Add a key at **75** with a value of **0.25** and a key at **100** with a value of **1.0**. 
 
-	![](PlayRate5.png)
+	![](Speed_Step5.png)
 
 	Above we are going from 1 to 0.25 then staying at 0.25 for several frames before returning to our normal 1.0 Play Rate. 
 
@@ -59,17 +58,17 @@ For this how-to, we are using the **Blueprint Third Person Template** project wi
 
 	We will add this Skeletal Mesh to Sequencer and tell it to play an animation so we can see it being affected by the Play Rate shift. 
 
-1.	Return to **Sequencer** and with the **SK_Mannequin** still selected in the level, click the **Add** button and add it to the Level Sequence. 
+1.	Return to **Sequencer** and with the **SK_Mannequin** still selected in the level, click the **+ Track** button and add it to the Level Sequence. 
 
-	![](PlayRate7.png)(w:640)
+	![](Speed_Step7.png)(w:640)
 
 1.	Move the Timeline Marker back to **0**, then under the **SK_Mannequin** click the **+ Animation** button and add the **ThirdPersonWalk**. 
 
-	![](PlayRate8.png)
+	![](Speed_Step8.png)
 
 1.	**Left-click** drag the animation to the right to loop it for the duration of the scene. 
 
-	![](PlayRate9.png)
+	![](Speed_Step9.png)
 
 1.	Click the **Preview Play** button in the Level Viewport to preview the sequence. 
 	
@@ -86,7 +85,7 @@ For this how-to, we are using the **Blueprint Third Person Template** project wi
 360
 [/PARAMLITERAL]
 [PARAMLITERAL:videoid]
-_smGcAw4VK0
+cT4Z7XKnj8g
 [/PARAMLITERAL]
 [/OBJECT]
 

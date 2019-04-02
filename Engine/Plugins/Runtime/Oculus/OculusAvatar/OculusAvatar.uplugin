@@ -1,7 +1,7 @@
 {
 	"FileVersion": 3,
 	"Version": 2,
-	"VersionName": "1.12.0",
+	"VersionName": "1.31.0",
 	"FriendlyName": "Oculus Avatar",
 	"Description": "Support for Oculus Avatars",
 	"Category": "Virtual Reality",
@@ -20,7 +20,8 @@
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
 			"WhitelistPlatforms": [
-				"Win64"
+				"Win64",
+				"Android"
 			]
 		}
 	],

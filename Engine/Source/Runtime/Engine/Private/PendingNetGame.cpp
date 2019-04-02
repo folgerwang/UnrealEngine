@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
   PendingNetGame.cpp: Unreal pending net game class.
@@ -167,7 +167,7 @@ void UPendingNetGame::NotifyAcceptedConnection( class UNetConnection* Connection
 }
 bool UPendingNetGame::NotifyAcceptingChannel( class UChannel* Channel )
 {
-	return 0;
+	return false;
 }
 
 void UPendingNetGame::NotifyControlMessage(UNetConnection* Connection, uint8 MessageType, class FInBunch& Bunch)

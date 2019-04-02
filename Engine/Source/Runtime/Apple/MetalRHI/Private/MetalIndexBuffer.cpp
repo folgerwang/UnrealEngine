@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MetalIndexBuffer.cpp: Metal Index buffer RHI implementation.
@@ -12,12 +12,28 @@
 #include "RenderUtils.h"
 #include "HAL/LowLevelMemTracker.h"
 
+static uint32 MetalIndexBufferUsage(uint32 InUsage)
+{
+	uint32 Usage = InUsage;
+	if (RHISupportsTessellation(GMaxRHIShaderPlatform))
+	{
+		Usage |= BUF_ShaderResource;
+	}
+	Usage |= EMetalBufferUsage_GPUOnly|EMetalBufferUsage_LinearTex;
+	return Usage;
+}
+
 /** Constructor */
 FMetalIndexBuffer::FMetalIndexBuffer(uint32 InStride, uint32 InSize, uint32 InUsage)
 	: FRHIIndexBuffer(InStride, InSize, InUsage)
-	, FMetalRHIBuffer(InSize, InUsage|EMetalBufferUsage_GPUOnly|EMetalBufferUsage_LinearTex, RRT_IndexBuffer)
+	, FMetalRHIBuffer(InSize, MetalIndexBufferUsage(InUsage), RRT_IndexBuffer)
 	, IndexType((InStride == 2) ? mtlpp::IndexType::UInt16 : mtlpp::IndexType::UInt32)
 {
+	if (RHISupportsTessellation(GMaxRHIShaderPlatform))
+	{
+		EPixelFormat Format = IndexType == mtlpp::IndexType::UInt16 ? PF_R16_UINT : PF_R32_UINT;
+		CreateLinearTexture(Format, this);
+	}
 }
 
 FMetalIndexBuffer::~FMetalIndexBuffer()
@@ -47,14 +63,14 @@ FIndexBufferRHIRef FMetalDynamicRHI::RHICreateIndexBuffer(uint32 Stride,uint32 S
 	}
 	else if (IndexBuffer->Buffer.GetStorageMode() == mtlpp::StorageMode::Private)
 	{
-		if (IndexBuffer->GetUsage() & (BUF_Dynamic|BUF_Static))
+		if (IndexBuffer->UsePrivateMemory())
 		{
 			LLM_SCOPE(ELLMTag::IndexBuffer);
 			SafeReleaseMetalBuffer(IndexBuffer->CPUBuffer);
 			IndexBuffer->CPUBuffer = nil;
 		}
 
-		if (GMetalBufferZeroFill)
+		if (GMetalBufferZeroFill && !FMetalCommandQueue::SupportsFeature(EMetalFeaturesFences))
 		{
 			GetMetalDeviceContext().FillBuffer(IndexBuffer->Buffer, ns::Range(0, IndexBuffer->Buffer.GetLength()), 0);
 		}
@@ -106,7 +122,7 @@ struct FMetalRHICommandInitialiseIndexBuffer : public FRHICommand<FMetalRHIComma
 		if (Buffer->CPUBuffer)
 		{
 			GetMetalDeviceContext().AsyncCopyFromBufferToBuffer(Buffer->CPUBuffer, 0, Buffer->Buffer, 0, Buffer->Buffer.GetLength());
-			if (Buffer->GetUsage() & (BUF_Dynamic|BUF_Static))
+			if (Buffer->UsePrivateMemory())
 			{
 				LLM_SCOPE(ELLMTag::IndexBuffer);
 				SafeReleaseMetalBuffer(Buffer->CPUBuffer);
@@ -116,7 +132,7 @@ struct FMetalRHICommandInitialiseIndexBuffer : public FRHICommand<FMetalRHIComma
 				Buffer->LastUpdate = GFrameNumberRenderThread;
 			}
 		}
-		else if (GMetalBufferZeroFill)
+		else if (GMetalBufferZeroFill && !FMetalCommandQueue::SupportsFeature(EMetalFeaturesFences))
 		{
 			GetMetalDeviceContext().FillBuffer(Buffer->Buffer, ns::Range(0, Buffer->Buffer.GetLength()), 0);
 		}
@@ -170,7 +186,7 @@ FIndexBufferRHIRef FMetalDynamicRHI::CreateIndexBuffer_RenderThread(class FRHICo
 		}
 		else if (IndexBuffer->Buffer.GetStorageMode() == mtlpp::StorageMode::Private)
 		{
-			if (IndexBuffer->GetUsage() & (BUF_Dynamic|BUF_Static))
+			if (IndexBuffer->UsePrivateMemory())
 			{
 				LLM_SCOPE(ELLMTag::IndexBuffer);
 				SafeReleaseMetalBuffer(IndexBuffer->CPUBuffer);

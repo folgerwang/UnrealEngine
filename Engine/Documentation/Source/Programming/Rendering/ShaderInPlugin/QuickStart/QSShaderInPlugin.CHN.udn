@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3567323
-Availability:Docs
+﻿INTSourceChangelist:3782314
+Availability:Public
 Crumbs: %ROOT%
 Title:将一个新全局着色器创建为插件
 Description:通过插件创建并设置一个新的全局着色器。
@@ -30,15 +30,11 @@ Checkpoint:shaderqs
 
 Shaders in 插件快速入门将指导您创建全局着色器并用作插件。 
 
+(#Steps)
 ## 步骤
 
-[REGION:buttonlist]
-
-	[DIR(output:"checkpoint" parent:"Programming\Rendering\ShaderInPlugin\QuickStart" org:"hierarchy")]
-	
-[/REGION]
-
+[DIR(output:"checkpoint" parent:"Programming\Rendering\ShaderInPlugin\QuickStart" org:"hierarchy")]
 
 [REGION:call_to_action]
-	[Click to Start](Programming\Rendering\ShaderInPlugin\QuickStart\1 "%Programming\Rendering\ShaderInPlugin\QuickStart\1:title%")
+	[点击开始](Programming\Rendering\ShaderInPlugin\QuickStart\1 "%Programming\Rendering\ShaderInPlugin\QuickStart\1:title%")
 [/REGION]

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -263,6 +263,9 @@ protected:
 	/** @return true if show only modified is checked */
 	bool IsShowOnlyModifiedChecked() const { return CurrentFilter.bShowOnlyModifiedProperties; }
 
+	/** @return true if custom filter is checked */
+	bool IsCustomFilterChecked() const { return bCustomFilterActive; }
+
 	/** @return true if show all advanced is checked */
 	bool IsShowAllAdvancedChecked() const { return CurrentFilter.bShowAllAdvanced; }
 
@@ -280,6 +283,9 @@ protected:
 
 	/** Called when show only modified is clicked */
 	void OnShowOnlyModifiedClicked();
+
+	/** Called when custom filter is clicked */
+	void OnCustomFilterClicked();
 
 	/** Called when show all advanced is clicked */
 	void OnShowAllAdvancedClicked();
@@ -304,6 +310,9 @@ protected:
 	/** Called when the filter text changes.  This filters specific property nodes out of view */
 	void OnFilterTextChanged(const FText& InFilterText);
 
+	/** Called when the filter text is cleared. Resets the filters */
+	void OnFilterTextCommitted(const FText& InSearchText, ETextCommit::Type InCommitType);
+
 	/** Called when the list of currently differing properties changes */
 	virtual void UpdatePropertiesWhitelist(const TSet<FPropertyPath> InWhitelistedProperties) override { CurrentFilter.WhitelistedProperties = InWhitelistedProperties; }
 
@@ -323,6 +332,22 @@ protected:
 	/** Called to get the visibility of the filter box */
 	EVisibility GetFilterBoxVisibility() const;
 
+
+	virtual void SetCustomFilterDelegate(FSimpleDelegate InOverride) override
+	{
+		CustomFilterDelegate = InOverride;
+	}
+
+	virtual void SetCustomFilterLabel(FText InText) override
+	{
+		CustomFilterLabel = InText;
+	}
+
+	FText GetCustomFilterLabel() const
+	{
+		return CustomFilterLabel;
+	}
+
 protected:
 	/** The user defined args for the details view */
 	FDetailsViewArgs DetailsViewArgs;
@@ -338,6 +363,8 @@ protected:
 	TSharedPtr<SSearchBox> SearchBox;
 	/** Customization instances that need to be destroyed when safe to do so */
 	TArray< TSharedPtr<IDetailCustomization> > CustomizationClassInstancesPendingDelete;
+	/** Detail layouts that need to be destroyed when safe to do so */
+	TArray< TSharedPtr<FDetailLayoutBuilderImpl> > DetailLayoutsPendingDelete;
 	/** Map of nodes that are requesting an automatic expansion/collapse due to being filtered */
 	TMap< TSharedRef<FDetailTreeNode>, bool > FilteredNodesRequestingExpansionState;
 	/** Current set of expanded detail nodes (by path) that should be saved when the details panel closes */
@@ -396,4 +423,12 @@ protected:
 	bool bDisableCustomDetailLayouts;
 
 	int32 NumVisbleTopLevelObjectNodes;
+
+	/** Delegate for overriding the show modified filter */
+	FSimpleDelegate CustomFilterDelegate;
+
+	/** When overriding show modified, you can't use the filter state to determine what is overridden anymore. Use this variable instead. */
+	bool bCustomFilterActive;
+
+	FText CustomFilterLabel;
 };

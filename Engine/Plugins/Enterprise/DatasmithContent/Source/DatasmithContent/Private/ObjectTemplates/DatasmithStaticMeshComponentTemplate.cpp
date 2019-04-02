@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ObjectTemplates/DatasmithStaticMeshComponentTemplate.h"
 
@@ -19,6 +19,11 @@ void UDatasmithStaticMeshComponentTemplate::Apply( UObject* Destination, bool bF
 	if ( !PreviousStaticMeshTemplate || PreviousStaticMeshTemplate->StaticMesh == StaticMeshComponent->GetStaticMesh() )
 	{
 		StaticMeshComponent->SetStaticMesh( StaticMesh );
+	}
+
+	if ( !PreviousStaticMeshTemplate )
+	{
+		StaticMeshComponent->OverrideMaterials.Empty( OverrideMaterials.Num() );
 	}
 	
 	for ( int32 MaterialIndex = 0; MaterialIndex < OverrideMaterials.Num(); ++MaterialIndex )
@@ -46,6 +51,8 @@ void UDatasmithStaticMeshComponentTemplate::Apply( UObject* Destination, bool bF
 			}
 		}
 	}
+
+	StaticMeshComponent->MarkRenderStateDirty();
 
 	FDatasmithObjectTemplateUtils::SetObjectTemplate( Destination, this );
 #endif // #if WITH_EDITORONLY_DATA

@@ -1,7 +1,8 @@
-﻿Availability: Public
-Title:1.1 - 地貌
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:1.1 - 地形
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Landscapes
-Description:地貌示例关卡概述, 示例1.1: 地貌
+Description:地形示例关卡——示例1.1: 地形概述
 Related: Engine/Landscape/Creation
 Related: Engine/Landscape/Editing
 Related: Engine/Landscape/UI
@@ -9,6 +10,24 @@ Related: Engine/Landscape/Materials
 Related: Engine/Landscape/Editing/Splines
 Related: Engine/Landscape/Editing/Gizmos
 Related: Engine/Landscape/Editing/Brushes
+Version: 4.9
+
+[VAR:Steps]
+[OBJECT:Navigation]
+	[PARAM:previous]
+	[/PARAM]
+	[PARAM:current]
+	[/PARAM]
+	[PARAM:home]
+		[地形首页](Resources/ContentExamples/Landscapes)
+	[/PARAM]
+	[PARAM:next]
+		[下一个示例](Resources/ContentExamples/Landscapes/1_2 "%Resources/ContentExamples/Landscapes/1_2:title%")
+	[/PARAM]
+[/OBJECT]
+[/VAR]
+
+
 
 [VAR:Topic]
 [OBJECT:TopicCompact]

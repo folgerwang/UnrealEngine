@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -74,6 +74,7 @@ struct ENGINE_API FMaterialRelevance
 	uint8 bTranslucentSurfaceLighting : 1;
 	uint8 bUsesSceneDepth : 1;
 	uint8 bHasVolumeMaterialDomain : 1;
+	uint8 bUsesDistanceCullFade : 1;
 
 	/** Default constructor */
 	FMaterialRelevance()
@@ -206,7 +207,7 @@ struct FMaterialTextureInfo
 	ENGINE_API bool IsValid(bool bCheckTextureIndex = false) const; 
 };
 
-UCLASS(abstract, BlueprintType,MinimalAPI)
+UCLASS(abstract, BlueprintType, MinimalAPI, HideCategories = (Thumbnail))
 class UMaterialInterface : public UObject, public IBlendableInterface, public IInterface_AssetUserData
 {
 	GENERATED_UCLASS_BODY()
@@ -225,6 +226,11 @@ protected:
 	UPROPERTY(EditAnywhere, Category=Lightmass)
 	struct FLightmassMaterialInterfaceSettings LightmassSettings;
 
+private:
+	/** Feature levels to force to compile. */
+	uint32 FeatureLevelsToForceCompile;
+
+protected:
 #if WITH_EDITORONLY_DATA
 	/** Because of redirector, the texture names need to be resorted at each load in case they changed. */
 	UPROPERTY(transient)
@@ -261,6 +267,9 @@ public:
 	UPROPERTY()
 	TMap<FString, bool> LayerParameterExpansion;
 
+	UPROPERTY()
+	TMap<FString, bool> ParameterOverviewExpansion;
+
 	/** Importing data and options used for this material */
 	UPROPERTY(EditAnywhere, Instanced, Category = ImportSettings)
 	class UAssetImportData* AssetImportData;
@@ -273,9 +282,6 @@ private:
 #endif // WITH_EDITORONLY_DATA
 
 private:
-	/** Feature levels to force to compile. */
-	uint32 FeatureLevelsToForceCompile;
-
 	/** Feature level bitfield to compile for all materials */
 	static uint32 FeatureLevelsForAllMaterials;
 public:
@@ -336,7 +342,7 @@ public:
 	*						@note: only valid in the editor!
 	* @return	The resource to use for rendering this material instance.
 	*/
-	virtual class FMaterialRenderProxy* GetRenderProxy(bool Selected, bool bHovered=false) const PURE_VIRTUAL(UMaterialInterface::GetRenderProxy,return NULL;);
+	virtual class FMaterialRenderProxy* GetRenderProxy() const PURE_VIRTUAL(UMaterialInterface::GetRenderProxy,return NULL;);
 
 	/**
 	* Return a pointer to the physical material used by this material instance.
@@ -375,7 +381,7 @@ public:
 	/**
 	 * DEPRECATED: Returns default value of the given parameter
 	 */
-	DEPRECATED(4.19, "This function is deprecated. Use GetScalarParameterDefaultValue instead.")
+	UE_DEPRECATED(4.19, "This function is deprecated. Use GetScalarParameterDefaultValue instead.")
 	virtual float GetScalarParameterDefault(const FMaterialParameterInfo& ParameterInfo, ERHIFeatureLevel::Type FeatureLevel)
 	{
 		float Value;
@@ -413,7 +419,7 @@ public:
 	* @param	OutValue		Will contain the value of the parameter if successful
 	* @return					True if successful
 	*/
-	virtual bool GetStaticSwitchParameterValue(const FMaterialParameterInfo& ParameterInfo,bool &OutValue,FGuid &OutExpressionGuid, bool bOveriddenOnly = false) const
+	virtual bool GetStaticSwitchParameterValue(const FMaterialParameterInfo& ParameterInfo,bool &OutValue,FGuid &OutExpressionGuid, bool bOveriddenOnly = false, bool bCheckParent = true) const
 		PURE_VIRTUAL(UMaterialInterface::GetStaticSwitchParameterValue,return false;);
 
 	/**
@@ -423,7 +429,7 @@ public:
 	* @param	R, G, B, A		Will contain the values of the parameter if successful
 	* @return					True if successful
 	*/
-	virtual bool GetStaticComponentMaskParameterValue(const FMaterialParameterInfo& ParameterInfo, bool &R, bool &G, bool &B, bool &A, FGuid &OutExpressionGuid, bool bOveriddenOnly = false) const
+	virtual bool GetStaticComponentMaskParameterValue(const FMaterialParameterInfo& ParameterInfo, bool &R, bool &G, bool &B, bool &A, FGuid &OutExpressionGuid, bool bOveriddenOnly = false, bool bCheckParent = true) const
 		PURE_VIRTUAL(UMaterialInterface::GetStaticComponentMaskParameterValue,return false;);
 
 	/**
@@ -465,7 +471,7 @@ public:
 	* @param	OutValue		Will contain the value of the parameter if successful
 	* @return					True if successful
 	*/
-	virtual bool GetMaterialLayersParameterValue(const FMaterialParameterInfo& ParameterInfo, FMaterialLayersFunctions& OutLayers, FGuid& OutExpressionGuid) const
+	virtual bool GetMaterialLayersParameterValue(const FMaterialParameterInfo& ParameterInfo, FMaterialLayersFunctions& OutLayers, FGuid& OutExpressionGuid, bool bCheckParent = true) const
 		PURE_VIRTUAL(UMaterialInterface::GetMaterialLayersParameterValue,return false;);
 
 	virtual void GetAllScalarParameterInfo(TArray<FMaterialParameterInfo>& OutParameterInfo, TArray<FGuid>& OutParameterIds) const
@@ -723,16 +729,26 @@ public:
 
 	/**
 	 * Re-caches uniform expressions for all material interfaces
+	 * Set bRecreateUniformBuffer to true if uniform buffer layout will change (e.g. FMaterial is being recompiled).
+	 * In that case calling needs to use FMaterialUpdateContext to recreate the rendering state of primitives using this material.
+	 * 
+	 * @param bRecreateUniformBuffer - true forces uniform buffer recreation.
 	 */
-	ENGINE_API static void RecacheAllMaterialUniformExpressions();
+	ENGINE_API static void RecacheAllMaterialUniformExpressions(bool bRecreateUniformBuffer);
 
 	/**
 	 * Re-caches uniform expressions for this material interface                   
+	 * Set bRecreateUniformBuffer to true if uniform buffer layout will change (e.g. FMaterial is being recompiled).
+	 * In that case calling needs to use FMaterialUpdateContext to recreate the rendering state of primitives using this material.
+	 *
+	 * @param bRecreateUniformBuffer - true forces uniform buffer recreation.
 	 */
-	virtual void RecacheUniformExpressions() const {}
+	virtual void RecacheUniformExpressions(bool bRecreateUniformBuffer) const {}
 
+#if WITH_EDITOR
 	/** Clears the shader cache and recompiles the shader for rendering. */
 	ENGINE_API virtual void ForceRecompileForRendering() {}
+#endif // WITH_EDITOR
 
 	/**
 	 * Asserts if any default material does not exist.

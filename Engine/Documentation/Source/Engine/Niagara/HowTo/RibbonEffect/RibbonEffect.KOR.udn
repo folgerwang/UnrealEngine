@@ -1,18 +1,23 @@
-INTSourceChangelist:4301268
+INTSourceChangelist:4703316
 Availability: Public
 Crumbs: 
 Title: 나이아가라에서 리본 이펙트 생성
 Description: 나이아가라를 사용하여 리본 비주얼 이펙트를 만드는 법을 설명합니다.
-Type: how-to
-Version: 4.20
-Parent: Engine/Niagara/HowTo
+Type:how-to
+SkillLevel:Beginner
+Version: 4.21
+Parent:Engine/Niagara/HowTo
 Order: 5
 Tags: Niagara
 Tags: Early Access
-prereqs:Engine/Niagara/HowTo/EnableNiagara
-    
 
-자연 현상 시뮬레이션은 매우 어렵지만, 스프라이트 또는 메시 기반 파티클로 연기나 수증기 흔적을 시뮬레이션하는 것은 특히 더 어렵습니다. **Ribbon Emitter** (리본 이미터)는 이런 오브젝트 시뮬레이션에 훌륭한 솔루션이며, 이 하우투 문서에서는 연속 리본 스타일 파티클 이펙트를 월드로 방출하는 나이아가라 이미터 설정 방법을 배워봅니다.
+전제조건 주제
+
+이 문서는 다음 주제에 대한 사전 지식이 필요합니다. 진행하기 전 확인하세요.
+
+*   [나이아가라 플러그인 활성화](Engine/Niagara/HowTo/EnableNiagara "나이아가라 플러그인 활성화 방법을 설명합니다.")
+
+자연 현상 시뮬레이션은 매우 어렵지만, 스프라이트 또는 메시 기반 파티클로 연기나 수증기 흔적을 시뮬레이션하는 것은 특히 더 어렵습니다. **Ribbon Emitter** (리본 이미터)는 이런 오브젝트 시뮬레이션에 훌륭한 솔루션입니다. 여기서는 연속 리본 스타일 파티클 이펙트를 월드로 방출하는 나이아가라 이미터 설정 방법을 배워봅니다.
 
 ![](Ribbon_Banner_01.png "Ribbon_Banner_01.png")
 
@@ -20,37 +25,42 @@ prereqs:Engine/Niagara/HowTo/EnableNiagara
 
 1.  먼저 리본 이미터의 색으로 쓸 머티리얼을 새로 만들어야 합니다. **콘텐츠 브라우저** 에 우클릭하고 **기본 애셋 생성** 아래 **머티리얼** 을 선택합니다.머티리얼 이름은 **M_Ribbon** 이라 합니다.  
     ![](RE_01.png)
-2.  **M_Ribbon Material** 을 더블클릭하여 엽니다. **3** 키를 누른 채 **머티리얼** 그리드에 좌클릭하여 **Constant 3 Vector Material** 표현식 노드를 추가합니다.  
+1.  **M_Ribbon Material** 을 더블클릭하여 엽니다. **3** 키를 누른 채 **머티리얼** 그리드에 좌클릭하여 **Constant 3 Vector Material** 표현식 노드를 추가합니다.  
     
-3.  노드 오른쪽 작은 원을 클릭한 뒤 끌어 **Constant 3 Vector** 를 오른쪽 M_Ribbon 박스의 **Base Color** (베이스 컬러)와 **Emissive Color** (이미시브 컬러) 입력에 연결합니다.  
-    ![](CreateRibbonBasedEffect_Steps_Step03-ConnectNodes.png)
-4.  **Constant 3 Vector** 를 더블클릭하여 색 선택 툴을 엽니다. **R** 값을 1 로 설정한 뒤 **확인** 을 클릭합니다. 머티리얼이 빨갛게 변합니다.  
-    ![](CreateRibbonBasedEffect_Steps_Step04-PickColor.png)
-5.  그리드를 클릭하여 Constant 3 Vector 에서 포커스를 해제합니다. 그러면 왼쪽의 **디테일** 패널 디스플레이가 바뀌는데, 스크롤을 내려 **Usage** (사용) 섹션을 찾아 클릭하여 펼칩니다. **Used with Niagara Ribbons** (나이아가라 리본에 사용) 박스를 체크합니다.  
-    ![](CreateRibbonBasedEffect_Steps_Step05-DetailsUsage.png)
-6.  **적용**, **저장** 버튼을 눌러 변경 사항을 적용하고 저장합니다.
-7.  이제 **콘텐츠 브라우저** 에 우클릭하고, **FX > 나이아가라 이미터** 를 선택하여 나이아가라 이미터를 새로 만듭니다.  
-    ![](SE_01.png)
-8.  새로 만든 나이아가라 이미터 이름은 **FX_Ribbon** 으로 한 뒤 더블클릭하여 엽니다.  
-    ![](RE_05.png)
-9.  **FX_Ribbon** 이미터의 **Render** (렌더) 섹션을 찾아 **휴지통** 아이콘을 클릭하여 **Sprite Rendering** (스프라이트 렌더링) 모듈을 삭제합니다.  
-    ![CreateRibbonBasedEffect_Steps_Step09-RemoveSpriteRender.png?](CreateRibbonBasedEffect_Steps_Step09-RemoveSpriteRender.png)
-10. 표시되는 목록에서 **더하기** **(+)** 아이콘을 클릭하고 **Niagara Ribbon Renderer** (나이아가라 리본 렌더러) 프로퍼티를 선택합니다.  
-    ![](CreateRibbonBasedEffect_Steps_Step10-AddRibbonRender.png)
-11. 다음, 작은 흰색 삼각형을 클릭하여 **Ribbon Rendering** (리본 렌더링) 섹션을 펼칩니다. **Material** (머티리얼) 섹션에서 드롭다운을 클릭하여 1-5 단계에서 만든 **M_Ribbon** 머티리얼을 선택합니다.  
-    ![](CreateRibbonBasedEffect_Steps_Step11-AddMaterial.jpg)
-[REGION:note]
-(**Emitter Update** (이미터 업데이트) 섹션에 있는) **SpawnRate** 모듈의 값은 기본 **20.0** 으로 설정되어 있습니다. **Spawn Rate** (스폰 속도)는 결과 리본 이펙트의 둥근 정도와 각도에 영향을 줍니다. 값이 낮을 수록 보다 각지거나 다변형 모양 이펙트가 됩니다. 값이 클 수록 보다 둥근 모양 이펙트가 됩니다.
-[/REGION]
+1.  노드 오른쪽 작은 원을 클릭한 뒤 끌어 **Constant 3 Vector** 를 오른쪽 M_Ribbon 박스의 **Base Color** (베이스 컬러)와 **Emissive Color** (이미시브 컬러) 입력에 연결합니다.  
+    ![](CreateRibbonBasedEffect_Steps_Step03-ConnectNodes.png)(w:400)
+1.  **Constant 3 Vector** 를 더블클릭하여 색 선택 툴을 엽니다. **R** 값을 1 로 설정한 뒤 **확인** 을 클릭합니다. 머티리얼이 빨갛게 변합니다.  
+    ![](CreateRibbonBasedEffect_Steps_Step04-PickColor.png)(w:400)
+1.  그리드를 클릭하여 Constant 3 Vector 에서 포커스를 해제합니다. 그러면 왼쪽의 **디테일** 패널 디스플레이가 바뀌는데, 스크롤을 내려 **Usage** (사용) 섹션을 찾아 클릭하여 펼칩니다. **Used with Niagara Ribbons** (나이아가라 리본에 사용) 박스를 체크합니다.  
+    ![](CreateRibbonBasedEffect_Steps_Step05-DetailsUsage.png)(w:300)
+1.  **적용**, **저장** 버튼을 눌러 변경 사항을 적용하고 저장합니다.
+1.  **콘텐츠 브라우저** 에 우클릭하고, **FX > 나이아가라 이미터** 를 선택합니다. 나이아가라 이미터 마법사가 표시됩니다.  
+    ![](SE_01.png)(w:400)
+1.  **Create a new emitter from an emitter template** (이미터 템플릿에서 새 이미터 생성) 옆 동글 버튼을 클릭합니다. **Fountain** (분수) 템플릿을 선택합니다. 그런 다음 **OK** (확인)을 누르면 콘텐츠 브라우저에 이미터가 새로 생깁니다.  
+    ![](NiagaraEmitter_FountainTemplate.png)(w:400)
+1.  새로 만든 나이아가라 이미터 이름은 **FX_Ribbon** 으로 한 뒤 더블클릭하여 엽니다.  
+    ![](NiagaraEmitter_RibbonIcon.png)(w:100)
+1. 나이아가라 이미터가 열렸으면, **FX_Ribbon** 이미터의 **Render** (렌더) 섹션을 찾아 **휴지통** 아이콘을 클릭하여 **Sprite Rendering Properties** (스프라이트 렌더링 프로퍼티) 모듈을 삭제합니다.  
+    ![CreateRibbonBasedEffect_Steps_Step09-RemoveSpriteRender.png?](CreateRibbonBasedEffect_Steps_Step09-RemoveSpriteRender.png)(w:500)
+1. 표시되는 목록에서 **더하기 부호** (**+**) 아이콘을 클릭하고 **Niagara Ribbon Renderer Properties** (나이아가라 리본 렌더러 프로퍼티)를 선택합니다.  
+    ![](CreateRibbonBasedEffect_Steps_Step10-AddRibbonRender.png)(w:500)
+1. 다음, 작은 흰색 삼각형을 클릭하여 **Ribbon Rendering** (리본 렌더링) 섹션을 펼칩니다. **Material** (머티리얼) 섹션에서 드롭다운을 클릭하여 1-5 단계에서 만든 **M_Ribbon** 머티리얼을 선택합니다.  
+    ![](CreateRibbonBasedEffect_Steps_Step11-AddMaterial.jpg)(w:400)
+1.  **Emitter Update** (이미터 업데이트) 섹션을 찾아 펼칩니다.
+1.  **Spawn Rate** (스폰 속도) 모듈의 **Spawn Rate** 를 **100** 으로 설정합니다.
 
-[OBJECT:ComparisonSlider]
+    [REGION:note]
+    **Spawn Rate** 모듈의 값은 기본 **20.0** 으로 설정되어 있습니다. **Spawn Rate** 는 결과 리본 이펙트의 둥근 정도와 각도에 영향을 줍니다. 값이 낮을 수록 보다 각지거나 다변형 모양 이펙트가 됩니다. 값이 클 수록 보다 둥근 모양 이펙트가 됩니다.
+    [/REGION]
+
+    [OBJECT:ComparisonSlider]
     [PARAM:before]
-    ![스폰 속도 값 낮음](CreateRibbonBasedEffect_Steps_Step11a-SpawnRateLow.png) 
+    ![스폰 속도 값 낮음](CreateRibbonBasedEffect_Steps_Step11a-SpawnRateLow.jpg) 
     [/PARAM]
     [PARAM:after]
-    ![스폰 속도 값 높음](CreateRibbonBasedEffect_Steps_Step11b-SpawnRateHigh.png) 
+    ![스폰 속도 값 높음](CreateRibbonBasedEffect_Steps_Step11b-SpawnRateHigh.jpg) 
     [/PARAM]
-[/OBJECT]
+    [/OBJECT]
 
 1.  **Particle Spawn** (파티클 스폰) 섹션을 찾아 펼칩니다.
 1.  **휴지통** 아이콘을 클릭하여 다음 모듈을 삭제합니다.  
@@ -65,35 +75,39 @@ prereqs:Engine/Niagara/HowTo/EnableNiagara
     *   **Particles.SpriteSize**
     
     ![](CreateRibbonBasedEffect_Steps_Step14-RemoveSpriteVariables2.png)
-1.  위 변수를 삭제한 뒤 **Particle Spawn** (파티클 스폰) 옆 **더하기** 부호 (**+**) 아이콘을 클릭하여 옵션 목록을 표시합니다. **Set Specific Parameters** (특정 파라미터 설정)을 펼치고 다음 변수를 추가합니다.
+1.  위 변수를 삭제한 뒤 **Particle Spawn** (파티클 스폰) 옆 **더하기 부호** (**+**) 아이콘을 클릭하여 옵션 목록을 표시합니다. **Set Specific Parameters** (특정 파라미터 설정)을 펼치고 다음 변수를 추가합니다.
     
     *   **Particles.RibbonWidth**
     *   **Particles.Velocity**
     
     ![](CreateRibbonBasedEffect_Steps_Step15-AddParticlesParameters.png)
-1.  **Particle Spawn** (파티클 스폰) 옆 **더하기** 부호 (**+**) 아이콘을 클릭하여 옵션 목록을 표시합니다. **Experimental > Point Spiral Location** (실험단계 > 점 나선 위치)를 선택합니다.
+1.  **Particle Spawn** (파티클 스폰) 옆 **더하기 부호** (**+**) 아이콘을 클릭하여 옵션 목록을 표시합니다. **Experimental > Point Spiral Location** (실험단계 > 점 나선 위치)를 선택합니다.
     [REGION:note]
     이 변수의 **Speed** (속도) 값은 전체 이펙트의 기본 직경을 확장합니다.
     [/REGION]![](CreateRibbonBasedEffect_Steps_Step16-AddPointSpiralLocation.png)
 1.  리본 이미터에 변수를 추가했으면, 다음 변수 값을 다음과 같이 설정합니다.
     
-    | 변수 이름 | 값 |
+    | **변수 이름** | **값** |
     | --- | --- |
     | **Particles.RibbonWidth** | 35.0 |
-    | **Particles.Velocity** | X:1.0, Y: 0, Z: 1.0 |
+    | **Particles.Velocity** | X: 1.0, Y: 0.0, Z: 1.0 |
     | **Point Spiral Location** | Speed: 500.0, RotSpeed: 4.0 |
     | **Particles.Lifetime** | 5.0 |
     
 1.  **Acceleration Force** (가속력) 모듈을 찾아 펼칩니다.
 1.  **Acceleration Z** (Z 가속) 값을 **-100.0** 으로 설정합니다.  
-    ![](CreateRibbonBasedEffect_Steps_Step19-SetAccelerationForce.png)
+    ![](CreateRibbonBasedEffect_Steps_Step19-SetAccelerationForce.png)(w:500)
     [REGION:note]
     **Z** 칸에 음수 값을 넣으면 원뿔형 리본 이펙트가 생깁니다. **Z** 칸에 양수 값을 넣으면 컵을 뒤집은 모양이 생깁니다.
     [/REGION]
 1.  모든 작업을 완료한 후 **컴파일**, **적용**, **저장** 버튼을 눌러 작업 내용을 컴파일하고 저장합니다.  
     ![](ME_09.png)
-1.  이제 **콘텐츠 브라우저** 에 우클릭하고 **FX > 나이아가라 시스템** 을 선택합니다. 새 시스템 이름은 **Ribbon** 이라 합니다.  
-    ![](SE_16.png)
+1.  이제 **콘텐츠 브라우저** 에 우클릭하고 **FX > 나이아가라 시스템** 을 선택합니다. 나이아가라 시스템 마법사가 표시됩니다.  
+    ![](SE_16.png)(w:500)
+1.  **Create an empty system with no emitters** (이미터가 없는 빈 시스템 생성) 옆 동글 버튼을 클릭합니다. 그런 다음 **OK** (확인)을 누르면 콘텐츠 브라우저에 나이아가라 시스템이 새로 생깁니다.  
+    ![](NiagaraSystem_EmptySystem.png)(w:400)
+1.  새 시스템 이름은 **Ribbon** 이라 합니다.  
+    ![](NiagaraSystem_RibbonIcon.png)(w:100)
 1.  리본 나이아가라 시스템을 더블클릭하여 열고, 콘텐츠 브라우저에서 **FX_Ribbon** 나이아가라 이미터를 끌어 **타임라인** 에 놓습니다.  
     ![](CreateRibbonBasedEffect_Steps_Step22-AddtoSystem.png)
 1.  **컴파일**, **저장** 버튼을 눌러 작업 내용을 컴파일 및 저장한 뒤 Ribbon 나이아가라 시스템을 닫습니다. 콘텐츠 브라우저에서 **Ribbon** 나이아가라 시스템을 끌어 레벨 뷰포트에 놓습니다.  
@@ -104,19 +118,13 @@ prereqs:Engine/Niagara/HowTo/EnableNiagara
 작업이 끝나면 레벨에 배치했을 때 다음 비디오처럼 나이아가라 이미터를 재생하는 나이아가라 시스템이 완성되었을 것입니다.
 
 [OBJECT:EmbeddedVideo]
-    [PARAMLITERAL:videoid]
-    pxQEQ4zWLWI
-    [/PARAMLITERAL]
-    [PARAMLITERAL:width]
-    78
-    [/PARAMLITERAL]
-    [PARAMLITERAL:height]
-    56.25
-    [/PARAMLITERAL]
-    [PARAMLITERAL:units]
-    %
-    [/PARAMLITERAL]
-    [PARAMLITERAL:type]
-    simple
-    [/PARAMLITERAL]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ pxQEQ4zWLWI
+ [/PARAMLITERAL]
 [/OBJECT]

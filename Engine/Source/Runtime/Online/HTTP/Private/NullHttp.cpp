@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NullHttp.h"
 #include "HttpManager.h"
@@ -77,6 +77,19 @@ void FNullHttpRequest::SetContentAsString(const FString& ContentString)
 	FTCHARToUTF8 Converter(*ContentString);
 	Payload.SetNum(Converter.Length());
 	FMemory::Memcpy(Payload.GetData(), (uint8*)(ANSICHAR*)Converter.Get(), Payload.Num());
+}
+
+bool FNullHttpRequest::SetContentAsStreamedFile(const FString& Filename)
+{
+	UE_LOG(LogHttp, Warning, TEXT("FNullHttpRequest::SetContentAsStreamedFile is not implemented"));
+	return false;
+}
+
+bool FNullHttpRequest::SetContentFromStream(TSharedRef<FArchive, ESPMode::ThreadSafe> Stream)
+{
+	// TODO: Not implemented.
+	UE_LOG(LogHttp, Warning, TEXT("FNullHttpRequest::SetContentFromStream is not implemented"));
+	return false;
 }
 
 void FNullHttpRequest::SetHeader(const FString& HeaderName, const FString& HeaderValue)

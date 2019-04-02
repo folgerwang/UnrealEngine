@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Perception/AISense_Hearing.h"
 #include "Perception/AIPerceptionSystem.h"
@@ -89,8 +89,9 @@ void UAISense_Hearing::ReportNoiseEvent(UObject* WorldContextObject, FVector Noi
 
 void UAISense_Hearing::OnNewListenerImpl(const FPerceptionListener& NewListener)
 {
-	check(NewListener.Listener.IsValid());
-	const UAISenseConfig_Hearing* SenseConfig = Cast<const UAISenseConfig_Hearing>(NewListener.Listener->GetSenseConfig(GetSenseID()));
+	UAIPerceptionComponent* ListenerPtr = NewListener.Listener.Get();
+	check(ListenerPtr);
+	const UAISenseConfig_Hearing* SenseConfig = Cast<const UAISenseConfig_Hearing>(ListenerPtr->GetSenseConfig(GetSenseID()));
 	check(SenseConfig);
 	const FDigestedHearingProperties PropertyDigest(*SenseConfig);
 	DigestedProperties.Add(NewListener.GetListenerID(), PropertyDigest);
@@ -123,6 +124,7 @@ float UAISense_Hearing::Update()
 {
 	AIPerception::FListenerMap& ListenersMap = *GetListeners();
 	UAIPerceptionSystem* PerseptionSys = GetPerceptionSystem();
+	const float SpeedOfSoundSqScalar = SpeedOfSoundSq > 0.f ? 1.f / SpeedOfSoundSq : 0.f;
 
 	for (AIPerception::FListenerMap::TIterator ListenerIt(ListenersMap); ListenerIt; ++ListenerIt)
 	{
@@ -136,9 +138,8 @@ float UAISense_Hearing::Update()
 
 		const FDigestedHearingProperties& PropDigest = DigestedProperties[Listener.GetListenerID()];
 
-		for (int32 EventIndex = 0; EventIndex < NoiseEvents.Num(); ++EventIndex)
+		for (const FAINoiseEvent& Event : NoiseEvents)
 		{
-			const FAINoiseEvent& Event = NoiseEvents[EventIndex];
 			const float ClampedLoudness = FMath::Max(0.f, Event.Loudness);
 			const float DistToSoundSquared = FVector::DistSquared(Event.NoiseLocation, Listener.CachedLocation);
 			
@@ -158,7 +159,7 @@ float UAISense_Hearing::Update()
 				continue;
 			}
 			// calculate delay and fake it with Age
-			const float Delay = SpeedOfSoundSq > 0.f ? FVector::DistSquared(Event.NoiseLocation, Listener.CachedLocation) / SpeedOfSoundSq : 0;
+			const float Delay = FMath::Sqrt(DistToSoundSquared * SpeedOfSoundSqScalar);
 			// pass over to listener to process 			
 			PerseptionSys->RegisterDelayedStimulus(Listener.GetListenerID(), Delay, Event.Instigator
 				, FAIStimulus(*this, ClampedLoudness, Event.NoiseLocation, Listener.CachedLocation, FAIStimulus::SensingSucceeded, Event.Tag) );

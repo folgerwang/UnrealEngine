@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AudioEditorModule.h"
 #include "Modules/ModuleManager.h"
@@ -36,6 +36,7 @@
 #include "UObject/UObjectIterator.h"
 #include "Styling/SlateStyle.h"
 #include "Styling/SlateStyleRegistry.h"
+#include "SoundFileIO/SoundFileIO.h"
 
 const FName AudioEditorAppIdentifier = FName(TEXT("AudioEditorApp"));
 
@@ -44,6 +45,9 @@ DEFINE_LOG_CATEGORY(LogAudioEditor);
 class FSlateStyleSet;
 struct FGraphPanelPinConnectionFactory;
 
+// Setup icon sizes
+static const FVector2D Icon16 = FVector2D(16.0f, 16.0f);
+static const FVector2D Icon64 = FVector2D(64.0f, 64.0f);
 
 // Preprocessor macro to make defining audio icons simple...
 
@@ -62,6 +66,8 @@ class FAudioEditorModule : public IAudioEditorModule
 public:
 	FAudioEditorModule()
 	{
+		// Create style set for audio asset icons
+		AudioStyleSet = MakeShareable(new FSlateStyleSet("AudioStyleSet"));
 	}
 
 	virtual void StartupModule() override
@@ -85,10 +91,20 @@ public:
 
 		SetupIcons();
 
+#if WITH_SNDFILE_IO
+		if (!Audio::InitSoundFileIOManager())
+		{
+			UE_LOG(LogAudioEditor, Display, TEXT("LibSoundFile failed to load. Importing audio will not work correctly."));
+		}
+#endif // WITH_SNDFILE_IO
 	}
 
 	virtual void ShutdownModule() override
 	{
+#if WITH_SNDFILE_IO
+		Audio::ShutdownSoundFileIOManager();
+#endif // WITH_SNDFILE_IO
+
 		SoundClassExtensibility.Reset();
 		SoundCueExtensibility.Reset();
 		SoundSubmixExtensibility.Reset();
@@ -276,16 +292,6 @@ private:
 
 	void SetupIcons()
 	{
-		// Setup icon sizes
-		FVector2D Icon16 = FVector2D(16.0f, 16.0f);
-		FVector2D Icon64 = FVector2D(64.0f, 64.0f);
-
-		// Setup the audio icon root
-		FString AudioIconRoot = TEXT("Icons/AssetIcons/");
-
-		// Create style set for audio asset icons
-		AudioStyleSet = MakeShareable(new FSlateStyleSet("AudioStyleSet"));
-
 		SET_AUDIO_ICON_SIMPLE(SoundAttenuation);
 		SET_AUDIO_ICON_SIMPLE(AmbientSound);
 		SET_AUDIO_ICON_SIMPLE(SoundClass);
@@ -301,7 +307,8 @@ private:
 		SET_AUDIO_ICON(SoundEffectSourcePreset, SourceEffectPreset);
 		SET_AUDIO_ICON(SoundEffectSourcePresetChain, SourceEffectPresetChain_1);
 		SET_AUDIO_ICON(ModularSynthPresetBank, SoundGenericIcon_2);
-		
+		SET_AUDIO_ICON(TimeSynthClip, SoundGenericIcon_2);
+		SET_AUDIO_ICON(TimeSynthVolumeGroup, SoundGenericIcon_1);
 
 		FSlateStyleRegistry::RegisterSlateStyle(*AudioStyleSet.Get());
 	}

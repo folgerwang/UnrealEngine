@@ -1,32 +1,42 @@
-﻿INTSourceChangelist:0
-Availability: Public
-Title:Add a Custom Trace Type to your Project
+﻿INTSourceChangelist:4649792
+Availability: Docs
+Title:给项目添加自定义追踪类型
 Crumbs: %ROOT%, Engine, Engine/Physics, Engine/Physics/Collision
-Description:Content guide to creating and setting up collision geometry.
+Description:指导您创建和设置碰撞几何体。
+parent:Engine/Physics/Collision/HowTo
+topic-image:Engine/Physics/Collision/Reference/physics_topic.png
+tags:Physics
+tags:Tracing
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Physics/Collision/Reference:title%](Engine/Physics/Collision/Reference/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/Collision:/Reference:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/Collision/Reference:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Physics/Collision/Reference]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+你经常会发现两个默认的 **追踪响应** 通道（“可视性（Visibility）”和“摄像机（Camera）”）无法满足需求，例如，你可能需要一种特殊激光，它需要能够穿过你无法透视或无法让摄像机穿过的特殊不透明对象。遇到此类情况时，你可以按照以下步骤添加自己的自定义 **追踪响应** 通道。
 
+## 步骤
 
+1. 打开项目设置：**“编辑（Edit）”菜单** -> **项目设置（Project Settings）**。
 
+	![](Engine/Physics/Collision/COL_projectSettings_1.png)
 
+1. 在 **引擎（Engine）** 下，选择 **碰撞（Collision）**：
+
+	![](Engine/Physics/Collision/COL_projectSettings_2.png)
+	
+1. 单击 **新建追踪通道...（New Trace Channel...）**：
+
+	![](Engine\Physics\Collision\COL_addTraceChannel.png)
+
+1. 为新 **追踪通道** 命名并设置其 **默认响应（Default Response）**：
+
+	![](newTracePrompt.png)
+
+	**默认响应（Default Response）** 可以为 **阻止（Block）**、**重叠（Overlap）** 或 **忽略（Ignore）**。取决于你的用例，你可能需要谨慎选择，以尽量避免调整Actor的碰撞轮廓的额外工作。
+
+1. 单击 **接受（Accept）**。
+
+1. 要让新追踪通道在所有组件或节点上显示，必须关闭并重新打开 **蓝图编辑器** 中任何已打开的 **蓝图**。
+
+## 结果
+
+你现在拥有新的追踪通道，可在编辑器中的任意位置使用。必须将你希望能够使用新通道追踪的所有Actor或组件设置为阻止新通道。
 
 
 

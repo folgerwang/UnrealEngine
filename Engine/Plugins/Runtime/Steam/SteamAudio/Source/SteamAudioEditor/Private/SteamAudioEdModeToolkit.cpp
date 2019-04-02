@@ -34,7 +34,7 @@ namespace SteamAudio
 		FSteamAudioEditorModule* Module = &FModuleManager::GetModuleChecked<FSteamAudioEditorModule>("SteamAudioEditor");
 		if (Module != nullptr)
 		{
-			UWorld* World = GEditor->LevelViewportClients[0]->GetWorld();
+			UWorld* World = GEditor->GetLevelViewportClients()[0]->GetWorld();
 			FPhononSceneInfo PhononSceneInfo;
 			LoadSceneInfoFromDisk(World, PhononSceneInfo);
 			Module->SetCurrentPhononSceneInfo(PhononSceneInfo);
@@ -189,7 +189,7 @@ namespace SteamAudio
 
 		AsyncTask(ENamedThreads::GameThread, [=]()
 		{
-			UWorld* World = GEditor->LevelViewportClients[0]->GetWorld();
+			UWorld* World = GEditor->GetLevelViewportClients()[0]->GetWorld();
 			AddGeometryComponentsToStaticMeshes(World);
 
 			// Notify UI that we're done
@@ -214,7 +214,7 @@ namespace SteamAudio
 
 		AsyncTask(ENamedThreads::GameThread, [=]()
 		{
-			UWorld* World = GEditor->LevelViewportClients[0]->GetWorld();
+			UWorld* World = GEditor->GetLevelViewportClients()[0]->GetWorld();
 			RemoveGeometryComponentsFromStaticMeshes(World);
 
 			// Notify UI that we're done
@@ -247,7 +247,7 @@ namespace SteamAudio
 		Async<void>(EAsyncExecution::Thread, [&]()
 		{
 			// Export the scene
-			UWorld* World = GEditor->LevelViewportClients[0]->GetWorld();
+			UWorld* World = GEditor->GetLevelViewportClients()[0]->GetWorld();
 			IPLhandle PhononScene = nullptr;
 			TArray<IPLhandle> PhononStaticMeshes;
 			FPhononSceneInfo PhononSceneInfo;
@@ -293,7 +293,7 @@ namespace SteamAudio
 		Async<void>(EAsyncExecution::Thread, [&]()
 		{
 			// Create the scene
-			UWorld* World = GEditor->LevelViewportClients[0]->GetWorld();
+			UWorld* World = GEditor->GetLevelViewportClients()[0]->GetWorld();
 			IPLhandle PhononScene = nullptr;
 			TArray<IPLhandle> PhononStaticMeshes;
 			FPhononSceneInfo PhononSceneInfo;

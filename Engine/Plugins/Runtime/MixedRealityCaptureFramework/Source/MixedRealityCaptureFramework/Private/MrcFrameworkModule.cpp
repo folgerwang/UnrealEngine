@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "IMrcFrameworkModule.h"
 #include "Modules/ModuleManager.h" // for IMPLEMENT_MODULE()
@@ -80,7 +80,7 @@ void FMrcFrameworkModule::ShutdownModule()
 void FMrcFrameworkModule::OnWorldCreated(UWorld* NewWorld)
 {
 #if WITH_EDITORONLY_DATA
-	const bool bIsGameInst = !IsRunningCommandlet() && NewWorld->IsGameWorld();
+	const bool bIsGameInst = !IsRunningCommandlet() && NewWorld && NewWorld->IsGameWorld();
 	if (bIsGameInst)
 #endif 
 	{

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SNewProjectWizard.h"
@@ -1406,6 +1406,7 @@ bool SNewProjectWizard::CreateProject( const FString& ProjectFile )
 	ProjectInfo.TargetedHardware = SelectedHardwareClassTarget;
 	ProjectInfo.DefaultGraphicsPerformance = SelectedGraphicsPreset;
 	ProjectInfo.bIsEnterpriseProject = (SelectedTemplate->Type == FTemplateCategory::EnterpriseCategoryName) || FApp::IsEnterpriseInstalled();
+	ProjectInfo.bForceExtendedLuminanceRange = SelectedTemplate->ProjectFile.IsEmpty();
 
 	if (!GameProjectUtils::CreateProject(ProjectInfo, FailReason, FailLog))
 	{
@@ -1513,8 +1514,7 @@ void SNewProjectWizard::CloseWindowIfAppropriate( bool ForceClose )
 {
 	if ( ForceClose || FApp::HasProjectName() )
 	{
-		FWidgetPath WidgetPath;
-		TSharedPtr<SWindow> ContainingWindow = FSlateApplication::Get().FindWidgetWindow( AsShared(), WidgetPath);
+		TSharedPtr<SWindow> ContainingWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
 
 		if ( ContainingWindow.IsValid() )
 		{

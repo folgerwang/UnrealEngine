@@ -1,0 +1,95 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================================
+PointLight.usf: Light sampling functions for Point light implementation
+===============================================================================================*/
+
+#pragma once
+
+#include "PathTracingLightCommon.ush"
+
+void PointLight_GenerateLightRay(
+	RayDesc Ray,
+	int LightId,
+	float3 LightUV,
+	out RayDesc OutLightRay
+)
+{
+	OutLightRay.Origin = Ray.Origin;
+	OutLightRay.TMin = 0.001;
+	float Radius = GetRadius(LightId);
+	float3 LightDir = GetPosition(LightId) + LightUV * Radius - Ray.Origin;
+	float Length = length(LightDir);
+	OutLightRay.Direction = LightDir / Length;
+	OutLightRay.TMax = Length;
+}
+
+void PointLight_PdfLight(
+	RayDesc Ray,
+	int LightId,
+	float3 LightUV,
+	out float OutPdf
+)
+{
+	OutPdf = 0.0;
+}
+
+void PointLight_EvalLight(
+	int LightId,
+	float3 LightUV,
+	RayDesc Ray,
+	out float3 OutRadiance
+)
+{
+	float3 Color = GetColor(LightId);
+	float Radius = GetRadius(LightId);
+	float3 LightDir = GetPosition(LightId) + LightUV * Radius - Ray.Origin;
+	float DistanceSquared = dot(LightDir, LightDir);
+	float Falloff = ComputeAttenuationFalloff(Ray.TMax, GetAttenuation(LightId));
+	OutRadiance = Color * Falloff / DistanceSquared;
+}
+
+void PointLight_EstimateLight(
+	int LightId,
+	RayDesc Ray,
+	FMaterialClosestHitPayload Payload,
+	out float OutIrradiance
+)
+{
+	// Distance
+	float3 LightDirection = GetPosition(LightId) - Payload.WorldPos;
+	float LightDistanceSquared = dot(LightDirection, LightDirection);
+	LightDirection = normalize(LightDirection);
+
+	// Geometric term
+	float3 SurfaceNormal = Payload.WorldNormal;
+	// dxr_todo: incorporate sphere light radius
+	float NoL = saturate(dot(SurfaceNormal, LightDirection));
+
+	float LightPower = Luminance(GetColor(LightId));
+	float Falloff = ComputeAttenuationFalloff(sqrt(LightDistanceSquared), GetAttenuation(LightId));
+	OutIrradiance = LightPower * Falloff * NoL / LightDistanceSquared;
+}
+
+void PointLight_SampleLight(
+	RayDesc Ray,
+	FMaterialClosestHitPayload Payload,
+	float4 RandSample,
+	int LightId,
+	out float3 OutLightUV,
+	out float OutPdf
+)
+{
+	float Radius = GetRadius(LightId);
+	if (Radius > 0.0)
+	{
+		float4 Result = UniformSampleSphere(RandSample.yz);
+		OutLightUV = Result.xyz;
+		OutPdf = Result.w;
+	}
+	else
+	{
+		OutLightUV = 0.0;
+		OutPdf = 1.0;
+	}
+}

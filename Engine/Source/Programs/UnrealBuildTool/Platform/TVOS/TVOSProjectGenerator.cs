@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -11,14 +11,21 @@ namespace UnrealBuildTool
 {
 	class TVOSProjectGenerator : IOSProjectGenerator
     {
-        /**
-         *	Register the platform with the UEPlatformProjectGenerator class
-         */
-        public override void RegisterPlatformProjectGenerator()
-        {
-            // Register this project generator for TVOS
-            Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.TVOS.ToString());
-            UEPlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.TVOS, this);
-        }
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		/// <param name="Arguments">Command line arguments passed to the project generator</param>
+		public TVOSProjectGenerator(CommandLineArguments Arguments)
+			: base(Arguments)
+		{
+		}
+
+		/// <summary>
+		/// Enumerate all the platforms that this generator supports
+		/// </summary>
+		public override IEnumerable<UnrealTargetPlatform> GetPlatforms()
+		{
+			yield return UnrealTargetPlatform.TVOS;
+		}
     }
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -30,6 +30,14 @@ private:
 	/** Handle the user requesting that the specified index be cleared */
 	FReply OnClearPathClicked(int32 Index) const;
 
+	/** Handle the user requesting that the Path use at Index - 1 will be replace the path at Index */
+	FReply OnPropagateFromAbovePathClicked(int32 Index) const;
+	bool IsPropagateFromAbovePathEnable(int32 Index) const;
+	
+	/** Handle the user requesting that the Path use at Index + 1 will be replace the path at Index */
+	FReply OnPropagateFromBelowPathClicked(int32 Index) const;
+	bool IsPropagateFromBelowPathEnable(int32 Index) const;
+
 	/** Access the struct we are editing */
 	FAssetImportInfo* GetEditStruct() const;
 
@@ -42,6 +50,7 @@ private:
 
 private:
 
+	void PropagatePath(int32 SrcIndex, int32 DstIndex) const;
 	/** Property handle of the property we're editing */
 	TSharedPtr<IPropertyHandle> PropertyHandle;
 };

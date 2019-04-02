@@ -239,7 +239,7 @@ bStatic 플래그가 True 로 설정된 액터가 있는데 그 Physics 는 PHYS
 
 (#LandscapeComponentPostLoad_Warning)
 [EXCERPT:LandscapeComponentPostLoad_Warning]
-**랜드스케이프 ([프록시명]) 의 ([X,Y]) 위치에 겹치는 렌더 컴포넌트가 있습니다.**
+**랜드스케이프 ([프락시명]) 의 ([X,Y]) 위치에 겹치는 렌더 컴포넌트가 있습니다.**
 
 [COMMENT:none]
  TODO 

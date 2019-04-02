@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Class.h: UClass definition.
@@ -11,10 +11,12 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/UObjectGlobals.h"
 #include "UObject/Object.h"
+#include "Misc/FallbackStruct.h"
 #include "Misc/Guid.h"
 #include "Math/RandomStream.h"
 #include "UObject/GarbageCollection.h"
 #include "UObject/CoreNative.h"
+#include "UObject/ReflectedTypeAccessors.h"
 #include "Templates/HasGetTypeHash.h"
 #include "Templates/IsAbstract.h"
 #include "Templates/IsEnum.h"
@@ -209,6 +211,33 @@ class COREUOBJECT_API UField : public UObject
 #endif
 };
 
+#if USTRUCT_FAST_ISCHILDOF_IMPL == USTRUCT_ISCHILDOF_STRUCTARRAY
+class FStructBaseChain
+{
+protected:
+	COREUOBJECT_API FStructBaseChain();
+	COREUOBJECT_API ~FStructBaseChain();
+
+	// Non-copyable
+	FStructBaseChain(const FStructBaseChain&) = delete;
+	FStructBaseChain& operator=(const FStructBaseChain&) = delete;
+
+	COREUOBJECT_API void ReinitializeBaseChainArray();
+
+	FORCEINLINE bool IsChildOfUsingStructArray(const FStructBaseChain& Parent) const
+	{
+		int32 NumParentStructBasesInChainMinusOne = Parent.NumStructBasesInChainMinusOne;
+		return NumParentStructBasesInChainMinusOne <= NumStructBasesInChainMinusOne && StructBaseChainArray[NumParentStructBasesInChainMinusOne] == &Parent;
+	}
+
+private:
+	FStructBaseChain** StructBaseChainArray;
+	int32 NumStructBasesInChainMinusOne;
+
+	friend class UStruct;
+};
+#endif
+
 /*-----------------------------------------------------------------------------
 	UStruct.
 -----------------------------------------------------------------------------*/
@@ -217,6 +246,9 @@ class COREUOBJECT_API UField : public UObject
  * Base class for all UObject types that contain fields.
  */
 class COREUOBJECT_API UStruct : public UField
+#if USTRUCT_FAST_ISCHILDOF_IMPL == USTRUCT_ISCHILDOF_STRUCTARRAY
+	, private FStructBaseChain
+#endif
 {
 	DECLARE_CASTED_CLASS_INTRINSIC(UStruct, UField, CLASS_MatchedSerializers, TEXT("/Script/CoreUObject"), CASTCLASS_UStruct)
 
@@ -327,12 +359,11 @@ public:
 	 */
 	virtual void DestroyStruct(void* Dest, int32 ArrayDim = 1) const;
 
-#if WITH_EDITOR
 public:
+#if WITH_EDITOR
 	/** Used to search for properties in user defined structs */
 	virtual UProperty* CustomFindProperty(const FName InName) const { return nullptr; };
 #endif // WITH_EDITOR
-public:
 
 	/** Serialize an expression to an archive. Returns expression token */
 	virtual EExprToken SerializeExpr(int32& iCode, FArchive& Ar);
@@ -376,16 +407,14 @@ public:
 	}
 
 	/** Returns true if this struct either is SomeBase, or is a child of SomeBase. This will not crash on null structs */
-	bool IsChildOf( const UStruct* SomeBase ) const
+#if USTRUCT_FAST_ISCHILDOF_COMPARE_WITH_OUTERWALK || USTRUCT_FAST_ISCHILDOF_IMPL == USTRUCT_ISCHILDOF_OUTERWALK
+	bool IsChildOf( const UStruct* SomeBase ) const;
+#else
+	bool IsChildOf(const UStruct* SomeBase) const
 	{
-		for (const UStruct* Struct = this; Struct; Struct = Struct->GetSuperStruct())
-		{
-			if (Struct == SomeBase)
-				return true;
-		}
-
-		return false;
+		return (SomeBase ? IsChildOfUsingStructArray(*SomeBase) : false);
 	}
+#endif
 
 	/** Struct this inherits from, may be null */
 	UStruct* GetSuperStruct() const
@@ -398,9 +427,6 @@ public:
 	 * Note that this is not sufficient to actually reparent a struct, it simply sets a pointer.
 	 */
 	virtual void SetSuperStruct(UStruct* NewSuperStruct);
-
-	/** Serializes the SuperStruct pointer */
-	virtual void SerializeSuperStruct(FArchive& Ar);
 
 	/** Returns the a human readable string for a property, overridden for user defined structs */
 	virtual FString PropertyNameToDisplayName(FName InName) const 
@@ -440,6 +466,16 @@ protected:
 	/** Returns if we have access to property guids */
 	virtual bool ArePropertyGuidsAvailable() const { return false; }
 
+private:
+#if USTRUCT_FAST_ISCHILDOF_IMPL == USTRUCT_ISCHILDOF_STRUCTARRAY
+	// For UObjectBaseUtility
+	friend class UObjectBaseUtility;
+	using FStructBaseChain::IsChildOfUsingStructArray;
+	using FStructBaseChain::ReinitializeBaseChainArray;
+
+	friend class FStructBaseChain;
+	friend class FBlueprintCompileReinstancer;
+#endif
 };
 
 enum EStructFlags
@@ -1756,7 +1792,7 @@ public:
 	 */
 	FText GetToolTipTextByIndex(int32 NameIndex) const;
 
-	DEPRECATED(4.16, "GetToolTipText with name index is deprecated, call GetToolTipTextByIndex instead")
+	UE_DEPRECATED(4.16, "GetToolTipText with name index is deprecated, call GetToolTipTextByIndex instead")
 	FText GetToolTipText(int32 NameIndex) const { return GetToolTipTextByIndex(NameIndex); }
 #endif
 
@@ -1854,29 +1890,109 @@ public:
 		out_TextValue = GetDisplayValueAsText( EnumPath, EnumeratorValue);
 	}
 
+	/**
+	 * @param EnumeratorValue  Enumerator Value.
+	 *
+	 * @return the name associated with the enumerator for the specified enum value for the enum specified by the template type.
+	 */
+	template<typename EnumType>
+	FORCEINLINE static FName GetValueAsName(const EnumType EnumeratorValue)
+	{
+		// For the C++ enum.
+		static_assert(TIsEnum<EnumType>::Value, "Should only call this with enum types");
+		UEnum* EnumClass = StaticEnum<EnumType>();
+		check(EnumClass != nullptr);
+		return EnumClass->GetNameByValue((int64)EnumeratorValue);
+	}
+
+	template<typename EnumType>
+	FORCEINLINE static FName GetValueAsName(const TEnumAsByte<EnumType> EnumeratorValue)
+	{
+		return GetValueAsName((int64)EnumeratorValue.GetValue());
+	}
+
+	template<typename EnumType>
+	FORCEINLINE static void GetValueAsName(const EnumType EnumeratorValue, FName& out_NameValue )
+	{
+		out_NameValue = GetValueAsName(EnumeratorValue);
+	}
+
+	/**
+	 * @param EnumeratorValue  Enumerator Value.
+	 *
+	 * @return the string associated with the enumerator for the specified enum value for the enum specified by the template type.
+	 */
+	template<typename EnumType>
+	FORCEINLINE static FString GetValueAsString(const EnumType EnumeratorValue)
+	{
+		// For the C++ enum.
+		static_assert(TIsEnum<EnumType>::Value, "Should only call this with enum types");
+		return GetValueAsName(EnumeratorValue).ToString();
+	}
+
+	template<typename EnumType>
+	FORCEINLINE static FString GetValueAsString(const TEnumAsByte<EnumType> EnumeratorValue)
+	{
+		return GetValueAsString((int64)EnumeratorValue.GetValue());
+	}
+
+	template<typename EnumType>
+	FORCEINLINE static void GetValueAsString(const EnumType EnumeratorValue, FString& out_StringValue )
+	{
+		out_StringValue = GetValueAsString(EnumeratorValue );
+	}
+
+
+	/**
+	 * @param EnumeratorValue  Enumerator Value.
+	 *
+	 * @return the localized display string associated with the specified enum value for the enum specified by the template type.
+	 */
+	template<typename EnumType>
+	FORCEINLINE static FText GetDisplayValueAsText(const EnumType EnumeratorValue )
+	{
+		// For the C++ enum.
+		static_assert(TIsEnum<EnumType>::Value, "Should only call this with enum types");
+		UEnum* EnumClass = StaticEnum<EnumType>();
+		check(EnumClass != nullptr);
+		return EnumClass->GetDisplayNameTextByValue((int64)EnumeratorValue);
+	}
+
+	template<typename EnumType>
+	FORCEINLINE static FText GetDisplayValueAsText(const TEnumAsByte<EnumType> EnumeratorValue)
+	{
+		return GetDisplayValueAsText((int64)EnumeratorValue.GetValue());
+	}
+
+	template<typename EnumType>
+	FORCEINLINE static void GetDisplayValueAsText(const EnumType EnumeratorValue, FText& out_TextValue )
+	{
+		out_TextValue = GetDisplayValueAsText(EnumeratorValue);
+	}
+
 	// Deprecated Functions
-	DEPRECATED(4.16, "FindEnumIndex is deprecated, call GetIndexByName or GetValueByName instead")
+	UE_DEPRECATED(4.16, "FindEnumIndex is deprecated, call GetIndexByName or GetValueByName instead")
 	int32 FindEnumIndex(FName InName) const { return GetIndexByName(InName, EGetByNameFlags::ErrorIfNotFound); }
 
-	DEPRECATED(4.16, "FindEnumRedirects is deprecated, call GetIndexByNameString instead")
+	UE_DEPRECATED(4.16, "FindEnumRedirects is deprecated, call GetIndexByNameString instead")
 	static int32 FindEnumRedirects(const UEnum* Enum, FName EnumEntryName) { return Enum->GetIndexByNameString(EnumEntryName.ToString()); }
 
-	DEPRECATED(4.16, "GetEnum is deprecated, call GetNameByIndex instead")
+	UE_DEPRECATED(4.16, "GetEnum is deprecated, call GetNameByIndex instead")
 	FName GetEnum(int32 InIndex) const { return GetNameByIndex(InIndex); }
 
-	DEPRECATED(4.16, "GetEnumNameStringByValue is deprecated, call GetNameStringByValue instead")
+	UE_DEPRECATED(4.16, "GetEnumNameStringByValue is deprecated, call GetNameStringByValue instead")
 	FString GetEnumNameStringByValue(int64 InValue) const { return GetNameStringByValue(InValue); }
 
-	DEPRECATED(4.16, "GetEnumName is deprecated, call GetNameStringByIndex instead")
+	UE_DEPRECATED(4.16, "GetEnumName is deprecated, call GetNameStringByIndex instead")
 	FString GetEnumName(int32 InIndex) const { return GetNameStringByIndex(InIndex); }
 
-	DEPRECATED(4.16, "GetDisplayNameText with name index is deprecated, call GetDisplayNameTextByIndex instead")
+	UE_DEPRECATED(4.16, "GetDisplayNameText with name index is deprecated, call GetDisplayNameTextByIndex instead")
 	FText GetDisplayNameText(int32 NameIndex) const { return GetDisplayNameTextByIndex(NameIndex); }
 
-	DEPRECATED(4.16, "GetEnumText with name index is deprecated, call GetDisplayNameTextByIndex instead")
+	UE_DEPRECATED(4.16, "GetEnumText with name index is deprecated, call GetDisplayNameTextByIndex instead")
 	FText GetEnumText(int32 NameIndex) const { return GetDisplayNameTextByIndex(NameIndex); }
 
-	DEPRECATED(4.16, "GetEnumTextByValue with name index is deprecated, call GetDisplayNameTextByValue instead")
+	UE_DEPRECATED(4.16, "GetEnumTextByValue with name index is deprecated, call GetDisplayNameTextByValue instead")
 	FText GetEnumTextByValue(int64 Value) { return GetDisplayNameTextByValue(Value);  }
 
 	// UObject interface.
@@ -2041,62 +2157,6 @@ namespace EIncludeSuperFlag
 	};
 }
 
-
-#if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE
-
-	class FFastIndexingClassTreeRegistrar
-	{
-	protected:
-		COREUOBJECT_API FFastIndexingClassTreeRegistrar();
-		COREUOBJECT_API FFastIndexingClassTreeRegistrar(const FFastIndexingClassTreeRegistrar&);
-		COREUOBJECT_API ~FFastIndexingClassTreeRegistrar();
-
-	private:
-		friend class UClass;
-		friend class UObjectBaseUtility;
-		friend class FFastIndexingClassTree;
-
-		FORCEINLINE bool IsAUsingFastTree(const FFastIndexingClassTreeRegistrar& Parent) const
-		{
-			return ClassTreeIndex - Parent.ClassTreeIndex <= Parent.ClassTreeNumChildren;
-		}
-
-		FFastIndexingClassTreeRegistrar& operator=(const FFastIndexingClassTreeRegistrar&) = delete;
-
-		uint32 ClassTreeIndex;
-		uint32 ClassTreeNumChildren;
-	};
-
-#elif UCLASS_FAST_ISA_IMPL == UCLASS_ISA_CLASSARRAY
-
-	class FClassBaseChain
-	{
-	protected:
-		COREUOBJECT_API FClassBaseChain();
-		COREUOBJECT_API ~FClassBaseChain();
-
-		// Non-copyable
-		FClassBaseChain(const FClassBaseChain&) = delete;
-		FClassBaseChain& operator=(const FClassBaseChain&) = delete;
-
-		COREUOBJECT_API void ReinitializeBaseChainArray();
-
-		FORCEINLINE bool IsAUsingClassArray(const FClassBaseChain& Parent) const
-		{
-			int32 NumParentClassBasesInChainMinusOne = Parent.NumClassBasesInChainMinusOne;
-			return NumParentClassBasesInChainMinusOne <= NumClassBasesInChainMinusOne && ClassBaseChainArray[NumParentClassBasesInChainMinusOne] == &Parent;
-		}
-
-	private:
-		FClassBaseChain** ClassBaseChainArray;
-		int32 NumClassBasesInChainMinusOne;
-
-		friend class UClass;
-	};
-
-#endif
-
-
 struct FClassFunctionLinkInfo
 {
 	UFunction* (*CreateFuncPtr)();
@@ -2108,19 +2168,11 @@ struct FClassFunctionLinkInfo
  * An object class.
  */
 class COREUOBJECT_API UClass : public UStruct
-#if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE
-	, private FFastIndexingClassTreeRegistrar
-#elif UCLASS_FAST_ISA_IMPL == UCLASS_ISA_CLASSARRAY
-	, private FClassBaseChain
-#endif
 {
 	DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR(UClass, UStruct, 0, TEXT("/Script/CoreUObject"), CASTCLASS_UClass, NO_API)
 	DECLARE_WITHIN_UPACKAGE()
 
 public:
-#if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE
-	friend class FFastIndexingClassTree;
-#endif
 	friend class FRestoreClassInfo;
 
 	typedef void		(*ClassConstructorType)				(const FObjectInitializer&);
@@ -2151,22 +2203,12 @@ public:
 	/** This is the blueprint that caused the generation of this class, or null if it is a native compiled-in class */
 	UObject* ClassGeneratedBy;
 
-#if USE_UBER_GRAPH_PERSISTENT_FRAME
-	/**
-	 * Property that points to the ubergraph frame, this is a blueprint specific structure that has been hoisted
-	 * to UClass so that the interpreter (ScriptCore.cpp) can access it efficiently. The uber graph frame is a struct
-	 * owned by a UObject but allocated separately that has a layout that corresponds to a specific UFunction (the
-	 * UberGraphFunction) in a blueprint.
-	 */
-	UStructProperty* UberGraphFramePointerProperty;
-#endif //USE_UBER_GRAPH_PERSISTENT_FRAME
-
 #if WITH_EDITOR
 	/**
 	 * Conditionally recompiles the class after loading, in case any dependencies were also newly loaded
 	 * @param ObjLoaded	If set this is the list of objects that are currently loading, usualy GObjLoaded
 	 */
-	virtual void ConditionalRecompileClass(TArray<UObject*>* ObjLoaded) {}
+	virtual void ConditionalRecompileClass(FUObjectSerializeContext* InLoadContext) {}
 	virtual void FlushCompilationQueueForLevel() {}
 #endif //WITH_EDITOR
 
@@ -2346,10 +2388,7 @@ public:
 	}
 
 	/** Clears the function name caches, in case things have changed */
-	void ClearFunctionMapsCaches()
-	{
-		SuperFuncMap.Empty();
-	}
+	void ClearFunctionMapsCaches();
 
 	/** Looks for a given function name */
 	UFunction* FindFunctionByName(FName InName, EIncludeSuperFlag::Type IncludeSuper = EIncludeSuperFlag::IncludeSuper) const;
@@ -2378,7 +2417,6 @@ public:
 	// UStruct interface.
 	virtual void Link(FArchive& Ar, bool bRelinkExistingProperties) override;
 	virtual void SetSuperStruct(UStruct* NewSuperStruct) override;
-	virtual void SerializeSuperStruct(FArchive& Ar) override;
 	// End of UStruct interface.
 
 #if WITH_EDITOR
@@ -2457,6 +2495,12 @@ public:
 	 * @return The name of the CDO
 	 */
 	FName GetDefaultObjectName();
+
+	/** Returns memory used to store temporary data on an instance, used by blueprints */
+	virtual uint8* GetPersistentUberGraphFrame(UObject* Obj, UFunction* FuncToCheck) const
+	{
+		return nullptr;
+	}
 
 	/** Creates memory to store temporary data */
 	virtual void CreatePersistentUberGraphFrame(UObject* Obj, bool bCreateOnlyIfEmpty = false, bool bSkipSuperClass = false, UClass* OldClass = nullptr) const
@@ -2702,20 +2746,6 @@ public:
 	static bool IsSafeToSerializeToStructuredArchives(UClass* InClass);
 
 private:
-	#if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE
-		// For UObjectBaseUtility
-		friend class UObjectBaseUtility;
-		using FFastIndexingClassTreeRegistrar::IsAUsingFastTree;
-	#elif UCLASS_FAST_ISA_IMPL == UCLASS_ISA_CLASSARRAY
-		// For UObjectBaseUtility
-		friend class UObjectBaseUtility;
-		using FClassBaseChain::IsAUsingClassArray;
-		using FClassBaseChain::ReinitializeBaseChainArray;
-
-		friend class FClassBaseChain;
-		friend class FBlueprintCompileReinstancer;
-	#endif
-
 	/** 
 	 * This signature intentionally hides the method declared in UObjectBaseUtility to make it private.
 	 * Call IsChildOf instead; Hidden because calling IsA on a class almost always indicates an error where the caller should use IsChildOf
@@ -3209,7 +3239,6 @@ template<> struct TBaseStructure<FBox2D>
 	COREUOBJECT_API static UScriptStruct* Get();
 };	
 
-struct FFallbackStruct;
 template<> struct TBaseStructure<FFallbackStruct>
 {
 	COREUOBJECT_API static UScriptStruct* Get();
@@ -3241,6 +3270,12 @@ template<> struct TBaseStructure<FFloatInterval>
 };
 
 template<> struct TBaseStructure<FInt32Interval>
+{
+	COREUOBJECT_API static UScriptStruct* Get();
+};
+
+struct FFrameNumber;
+template<> struct TBaseStructure<FFrameNumber>
 {
 	COREUOBJECT_API static UScriptStruct* Get();
 };

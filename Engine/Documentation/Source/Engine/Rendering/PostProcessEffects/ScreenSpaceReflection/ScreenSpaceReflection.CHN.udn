@@ -1,9 +1,17 @@
-﻿INTSourceChangelist:2686770
-Availability:Public
-Title:屏幕空间反射
-Crumbs: %ROOT%, Engine, Engine/Rendering/PostProcessEffects
-Description:可改变材质表面反射的效果。
+﻿INTSourceChangelist:3474032
+Availability: Public
+Crumbs: %ROOT%
+Title: 屏幕空间反射
+Description:可改变场景视图内材质表面反射的效果。
 Version:4.9
+ype: Overview
+SkillLevel:Beginner
+Version:4.16
+Parent:Engine/Rendering/PostProcessEffects
+Order:10
+Tags:Post Process
+Topic-image:SSR_topic.png
+
 
 [REGION:fullwidth]
 ![](GlossyScreenSpaceReflection.png)

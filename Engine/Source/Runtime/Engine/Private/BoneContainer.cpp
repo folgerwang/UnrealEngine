@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "BoneContainer.h"
 #include "Animation/Skeleton.h"
@@ -215,20 +215,18 @@ void FBoneContainer::CacheRequiredAnimCurveUids(const FCurveEvaluationOption& Cu
 			}
 
 			// Get Current Names / UIDs
-			TArray<FName> CurveNames;
-			Mapping->FillNameArray(CurveNames);
+			Mapping->FillUIDToNameArray(UIDToNameLUT);
 
-			// Get UID List
-			TArray<SmartName::UID_Type> UIDList;
-			Mapping->FillUidArray(UIDList);
+			// Get curve types
+			Mapping->FillUIDToCurveTypeArray(UIDToCurveTypeLUT);
 
 			// if the linked joints don't exists in RequiredBones, remove itself
-			if (CurveNames.Num() > 0)
+			if (UIDToNameLUT.Num() > 0)
 			{
 				int32 NumAvailableUIDs = 0;
-				for (int32 CurveNameIndex = CurveNames.Num() - 1; CurveNameIndex >=0 ; --CurveNameIndex)
+				for (int32 CurveNameIndex = UIDToNameLUT.Num() - 1; CurveNameIndex >=0 ; --CurveNameIndex)
 				{
-					const FName& CurveName = CurveNames[CurveNameIndex];
+					const FName& CurveName = UIDToNameLUT[CurveNameIndex];
 					bool bBeingUsed = true;
 					if (!CurveEvalOption.bAllowCurveEvaluation)
 					{
@@ -237,14 +235,18 @@ void FBoneContainer::CacheRequiredAnimCurveUids(const FCurveEvaluationOption& Cu
 					else
 					{
 						// CurveNameIndex shouyld match to UID
-						if (CurveEvalOption.DisallowedList && CurveEvalOption.DisallowedList->Contains(CurveName))
+						if (CurveName == NAME_None)
+						{
+							bBeingUsed = false;
+						}
+						else if (CurveEvalOption.DisallowedList && CurveEvalOption.DisallowedList->Contains(CurveName))
 						{
 							//remove the UID
 							bBeingUsed = false;
 						}
 						else
 						{
-							const FCurveMetaData* CurveMetaData = Mapping->GetCurveMetaData(CurveNames[CurveNameIndex]);
+							const FCurveMetaData* CurveMetaData = Mapping->GetCurveMetaData(UIDToNameLUT[CurveNameIndex]);
 							if (CurveMetaData)
 							{
 								if (CurveMetaData->MaxLOD < CurveEvalOption.LODIndex)
@@ -257,14 +259,18 @@ void FBoneContainer::CacheRequiredAnimCurveUids(const FCurveEvaluationOption& Cu
 									for (int32 LinkedBoneIndex = 0; LinkedBoneIndex < CurveMetaData->LinkedBones.Num(); ++LinkedBoneIndex)
 									{
 										const FBoneReference& BoneReference = CurveMetaData->LinkedBones[LinkedBoneIndex];
-										// this linked bone alkways use skeleton index
-										ensure(BoneReference.bUseSkeletonIndex);
-										// we want to make sure all the joints are removed from RequiredBones before removing this UID
-										if (GetCompactPoseIndexFromSkeletonIndex(BoneReference.BoneIndex) != INDEX_NONE)
+										// when you enter first time, sometimes it does not have all info yet
+										if (BoneReference.BoneIndex != INDEX_NONE && BoneReference.BoneName != NAME_None)
 										{
-											// still has some joint that matters, do not remove
-											bBeingUsed = true;
-											break;
+											// this linked bone alkways use skeleton index
+											ensure(BoneReference.bUseSkeletonIndex);
+											// we want to make sure all the joints are removed from RequiredBones before removing this UID
+											if (GetCompactPoseIndexFromSkeletonIndex(BoneReference.BoneIndex) != INDEX_NONE)
+											{
+												// still has some joint that matters, do not remove
+												bBeingUsed = true;
+												break;
+											}
 										}
 									}
 								}
@@ -274,7 +280,7 @@ void FBoneContainer::CacheRequiredAnimCurveUids(const FCurveEvaluationOption& Cu
 
 					if (bBeingUsed)
 					{
-						UIDToArrayIndexLUT[UIDList[CurveNameIndex]] = NumAvailableUIDs++;
+						UIDToArrayIndexLUT[CurveNameIndex] = NumAvailableUIDs++;
 					}
 				}
 			}

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,10 +7,11 @@
 #include "Math/UnrealMathUtility.h" // ComputeBaryCentric2D
 
 // std
+THIRD_PARTY_INCLUDES_START
 #include <limits>
 #include <array>
 #include <tuple>
-
+THIRD_PARTY_INCLUDES_END
 
 // openvdb
 //#include <openvdb/openvdb.h>
@@ -105,7 +106,7 @@ namespace ProxyLOD
 	*  @param InUVGrid      Rasterization of the UV triangles of the InOutGrid.
 	*  @param OutMaterial   Material that, on return has the Barycenteric-averaged vertex colors. 
 	*/
-	void DebugVertexAndTextureColors(FRawMesh& InOutRawMesh, const ProxyLOD::FRasterGrid& InUVGrid, FFlattenMaterial& OutMaterial);
+	void DebugVertexAndTextureColors(FMeshDescription& InOutRawMesh, const ProxyLOD::FRasterGrid& InUVGrid, FFlattenMaterial& OutMaterial);
 	
 	/**
 	* Two dimensional grid access to a TArray holding FLinearColor.

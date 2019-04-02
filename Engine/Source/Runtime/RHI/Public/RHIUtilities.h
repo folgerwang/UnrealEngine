@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -392,7 +392,33 @@ inline void TransitionSetRenderTargetsHelper(FRHICommandList& RHICmdList, uint32
 	RHICmdList.TransitionResources(EResourceTransitionAccess::EWritable, Transitions, TransitionIndex);
 }
 
+inline void TransitionRenderPassTargets(FRHICommandList& RHICmdList, const FRHIRenderPassInfo& RPInfo)
+{
+	FTextureRHIParamRef Transitions[MaxSimultaneousRenderTargets + 1];
+	int32 TransitionIndex = 0;
+	uint32 NumColorRenderTargets = RPInfo.GetNumColorRenderTargets();
+	for (uint32 Index = 0; Index < NumColorRenderTargets; Index++)
+	{
+		const FRHIRenderPassInfo::FColorEntry& ColorRenderTarget = RPInfo.ColorRenderTargets[Index];
+		if (ColorRenderTarget.RenderTarget != nullptr)
+		{
+			Transitions[TransitionIndex] = ColorRenderTarget.RenderTarget;
+			TransitionIndex++;
+		}
+	}
+
+	const FRHIRenderPassInfo::FDepthStencilEntry& DepthStencilTarget = RPInfo.DepthStencilRenderTarget;
+	if (DepthStencilTarget.DepthStencilTarget != nullptr && RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil.IsDepthWrite())
+	{
+		Transitions[TransitionIndex] = DepthStencilTarget.DepthStencilTarget;
+		TransitionIndex++;
+	}
+
+	RHICmdList.TransitionResources(EResourceTransitionAccess::EWritable, Transitions, TransitionIndex);
+}
+
 /** Helper for the common case of using a single color and depth render target. */
+UE_DEPRECATED(4.22, "SetRenderTargets API is deprecated; please use RHIBegin/EndRenderPass instead.")
 inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef NewRenderTarget, FTextureRHIParamRef NewDepthStencilTarget, bool bWritableBarrier = false)
 {
 	FRHIRenderTargetView RTV(NewRenderTarget, ERenderTargetLoadAction::ELoad);
@@ -403,10 +429,13 @@ inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef New
 	{
 		TransitionSetRenderTargetsHelper(RHICmdList, NewRenderTarget, NewDepthStencilTarget, FExclusiveDepthStencil::DepthWrite_StencilWrite);
 	}
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	RHICmdList.SetRenderTargets(1, &RTV, &DepthRTV, 0, NULL);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 /** Helper for the common case of using a single color and depth render target. */
+UE_DEPRECATED(4.22, "SetRenderTargets API is deprecated; please use RHIBegin/EndRenderPass instead.")
 inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef NewRenderTarget, FTextureRHIParamRef NewDepthStencilTarget, ESimpleRenderTargetMode Mode, FExclusiveDepthStencil DepthStencilAccess = FExclusiveDepthStencil::DepthWrite_StencilWrite, bool bWritableBarrier = false)
 {
 	ERenderTargetLoadAction ColorLoadAction, DepthLoadAction, StencilLoadAction;
@@ -422,10 +451,13 @@ inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef New
 	// now make the FRHISetRenderTargetsInfo that encapsulates all of the info
 	FRHIRenderTargetView ColorView(NewRenderTarget, 0, -1, ColorLoadAction, ColorStoreAction);
 	FRHISetRenderTargetsInfo Info(1, &ColorView, FRHIDepthRenderTargetView(NewDepthStencilTarget, DepthLoadAction, DepthStoreAction, StencilLoadAction, StencilStoreAction, DepthStencilAccess));
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	RHICmdList.SetRenderTargetsAndClear(Info);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 /** Helper for the common case of using a single color and depth render target, with a mip index for the color target. */
+UE_DEPRECATED(4.22, "SetRenderTarget API is deprecated; please use RHIBegin/EndRenderPass instead.")
 inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef NewRenderTarget, int32 MipIndex, FTextureRHIParamRef NewDepthStencilTarget, bool bWritableBarrier = false)
 {
 	FRHIRenderTargetView RTV(NewRenderTarget, ERenderTargetLoadAction::ELoad, MipIndex, -1);
@@ -436,10 +468,13 @@ inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef New
 	{
 		TransitionSetRenderTargetsHelper(RHICmdList, NewRenderTarget, NewDepthStencilTarget, FExclusiveDepthStencil::DepthWrite_StencilWrite);
 	}
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	RHICmdList.SetRenderTargets(1, &RTV, &DepthRTV, 0, nullptr);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 /** Helper for the common case of using a single color and depth render target, with a mip index for the color target. */
+UE_DEPRECATED(4.22, "SetRenderTarget API is deprecated; please use RHIBegin/EndRenderPass instead.")
 inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef NewRenderTarget, int32 MipIndex, int32 ArraySliceIndex, FTextureRHIParamRef NewDepthStencilTarget, bool bWritableBarrier = false)
 {
 	FRHIRenderTargetView RTV(NewRenderTarget, ERenderTargetLoadAction::ELoad, MipIndex, ArraySliceIndex);
@@ -450,10 +485,13 @@ inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef New
 	{
 		TransitionSetRenderTargetsHelper(RHICmdList, NewRenderTarget, NewDepthStencilTarget, FExclusiveDepthStencil::DepthWrite_StencilWrite);
 	}
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	RHICmdList.SetRenderTargets(1, &RTV, &DepthRTV, 0, nullptr);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 /** Helper that converts FTextureRHIParamRef's into FRHIRenderTargetView's. */
+UE_DEPRECATED(4.22, "SetRenderTargets API is deprecated; please use RHIBegin/EndRenderPass instead.")
 inline void SetRenderTargets(
 	FRHICommandList& RHICmdList,
 	uint32 NewNumSimultaneousRenderTargets, 
@@ -478,10 +516,13 @@ inline void SetRenderTargets(
 	}
 
 	FRHIDepthRenderTargetView DepthRTV(NewDepthStencilTargetRHI, ERenderTargetLoadAction::ELoad, ERenderTargetStoreAction::EStore);
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	RHICmdList.SetRenderTargets(NewNumSimultaneousRenderTargets, RTVs, &DepthRTV, NewNumUAVs, UAVs);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 /** Helper that converts FTextureRHIParamRef's into FRHIRenderTargetView's. */
+UE_DEPRECATED(4.22, "SetRenderTargets API is deprecated; please use RHIBegin/EndRenderPass instead.")
 inline void SetRenderTargets(
 	FRHICommandList& RHICmdList,
 	uint32 NewNumSimultaneousRenderTargets,
@@ -510,7 +551,18 @@ inline void SetRenderTargets(
 	}
 
 	FRHIDepthRenderTargetView DepthRTV(NewDepthStencilTargetRHI, DepthLoadAction, DepthStoreAction, StencilLoadAction, StencilStoreAction, DepthStencilAccess);
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	RHICmdList.SetRenderTargets(NewNumSimultaneousRenderTargets, RTVs, &DepthRTV, 0, nullptr);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+}
+
+// Will soon be deprecated as well...
+inline void UnbindRenderTargets(FRHICommandList& RHICmdList)
+{
+	check(RHICmdList.IsOutsideRenderPass());
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	SetRenderTarget(RHICmdList, nullptr, nullptr);
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 /**
@@ -803,7 +855,7 @@ inline uint32 GetVertexCountForPrimitiveCount(uint32 NumPrimitives, uint32 Primi
  * @param VertexData A reference to memory preallocate in RHIBeginDrawPrimitiveUP
  * @param VertexDataStride Size of each vertex
  */
-DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
+UE_DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
 inline void DrawPrimitiveUP(FRHICommandList& RHICmdList, uint32 PrimitiveType, uint32 NumPrimitives, const void* VertexData, uint32 VertexDataStride)
 {
 	check(NumPrimitives > 0);
@@ -816,7 +868,9 @@ inline void DrawPrimitiveUP(FRHICommandList& RHICmdList, uint32 PrimitiveType, u
 	RHIUnlockVertexBuffer(VertexBufferRHI);
 
 	RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
-	RHICmdList.DrawPrimitive(PrimitiveType, 0, NumPrimitives, 1);
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	RHICmdList.DrawPrimitive(0, NumPrimitives, 1);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 	VertexBufferRHI.SafeRelease();
 }
@@ -832,7 +886,7 @@ inline void DrawPrimitiveUP(FRHICommandList& RHICmdList, uint32 PrimitiveType, u
  * @param VertexData The memory preallocate in RHIBeginDrawIndexedPrimitiveUP
  * @param VertexDataStride The size of one vertex
  */
-DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
+UE_DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
 inline void DrawIndexedPrimitiveUP(
 	FRHICommandList& RHICmdList,
 	uint32 PrimitiveType,
@@ -858,7 +912,7 @@ inline void DrawIndexedPrimitiveUP(
 	RHIUnlockIndexBuffer(IndexBufferRHI);
 
 	RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
-	RHICmdList.DrawIndexedPrimitive(IndexBufferRHI, PrimitiveType, MinVertexIndex, 0, NumVertices, 0, NumPrimitives, 1);
+	RHICmdList.DrawIndexedPrimitive(IndexBufferRHI, MinVertexIndex, 0, NumVertices, 0, NumPrimitives, 1);
 
 	IndexBufferRHI.SafeRelease();
 	VertexBufferRHI.SafeRelease();

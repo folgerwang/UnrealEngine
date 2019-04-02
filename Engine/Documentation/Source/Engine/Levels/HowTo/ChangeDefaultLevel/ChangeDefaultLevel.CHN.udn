@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3054319
+﻿INTSourceChangelist:3150518
 Availability:Public
 Title:变更默认关卡
 Crumbs: %ROOT%, Engine
@@ -7,7 +7,7 @@ SkillLevel:Beginner
 Version:4.12
 parent:Engine/Levels
 order:4
-type:howto
+type:how-to
 
 
 在 [](Engine/UI/ProjectSettings) 编辑器中可对一些项目特定设置进行修改。其中包括对项目玩家载入的关卡进行设置。在默认游戏关卡外还可设置一个默认编辑器关卡，即时载入经常使用的关卡，加快工作流程。

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:4223330
+﻿INTSourceChangelist:4322984
 Availability: Public
 Title: 使用Sequencer控制动画实例
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
@@ -86,7 +86,7 @@ type: how-to
 
 [OBJECT:EmbeddedVideo]
     [PARAMLITERAL:videoid]
-    7l9vk4o-diE  <!-- Insert the youtube video link here -->
+    7l9vk4o-diE
     [/PARAMLITERAL]
     [PARAMLITERAL:width]
     78

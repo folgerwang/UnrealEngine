@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -61,12 +61,10 @@ public class FreeType2 : ModuleRules
 			if (Target.Architecture == "-simulator")
 			{
 				PublicLibraryPaths.Add(FreeType2LibPath + "ios/Simulator");
-				PublicAdditionalShadowFiles.Add(Target.UEThirdPartySourceDirectory + "FreeType2/FreeType2-2.4.12/Lib/ios/Simulator/libfreetype2412.a");
 			}
 			else
 			{
 				PublicLibraryPaths.Add(FreeType2LibPath + "ios/Device");
-				PublicAdditionalShadowFiles.Add(Target.UEThirdPartySourceDirectory + "FreeType2/FreeType2-2.4.12/Lib/ios/Device/libfreetype2412.a");
 			}
 
 			PublicAdditionalLibraries.Add("freetype2412");
@@ -76,12 +74,10 @@ public class FreeType2 : ModuleRules
 			if (Target.Architecture == "-simulator")
 			{
 				PublicLibraryPaths.Add(FreeType2LibPath + "TVOS/Simulator");
-				PublicAdditionalShadowFiles.Add(Target.UEThirdPartySourceDirectory + "FreeType2/FreeType2-2.4.12/Lib/TVOS/Simulator/libfreetype2412.a");
 			}
 			else
 			{
 				PublicLibraryPaths.Add(FreeType2LibPath + "TVOS/Device");
-				PublicAdditionalShadowFiles.Add(Target.UEThirdPartySourceDirectory + "FreeType2/FreeType2-2.4.12/Lib/TVOS/Device/libfreetype2412.a");
 			}
 
 			PublicAdditionalLibraries.Add("freetype2412");

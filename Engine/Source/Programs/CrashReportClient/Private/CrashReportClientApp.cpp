@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CrashReportClientApp.h"
 #include "Misc/Parse.h"
@@ -245,7 +245,7 @@ bool RunWithUI(FPlatformErrorReport ErrorReport)
 	// open up the app window	
 	TSharedRef<SCrashReportClient> ClientControl = SNew(SCrashReportClient, CrashReportClient);
 
-	auto Window = FSlateApplication::Get().AddWindow(
+	TSharedRef<SWindow> Window = FSlateApplication::Get().AddWindow(
 		SNew(SWindow)
 		.Title(NSLOCTEXT("CrashReportClient", "CrashReportClientAppName", "Unreal Engine 4 Crash Reporter"))
 		.HasCloseButton(FCrashReportClientConfig::Get().IsAllowedToCloseWithoutSending())
@@ -275,6 +275,12 @@ bool RunWithUI(FPlatformErrorReport ErrorReport)
 			Window->HideWindow();
 		}
 	}
+
+	// Make sure the window is hidden, because it might take a while for the background thread to finish.
+	Window->HideWindow();
+
+	// Stop the background thread
+	CrashReportClient->StopBackgroundThread();
 
 	// Clean up the custom styles
 	FCrashReportClientStyle::Shutdown();

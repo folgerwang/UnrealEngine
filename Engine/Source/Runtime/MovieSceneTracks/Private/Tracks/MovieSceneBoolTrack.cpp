@@ -1,9 +1,14 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieSceneBoolTrack.h"
 #include "MovieSceneCommonHelpers.h"
 #include "Sections/MovieSceneBoolSection.h"
 #include "Evaluation/MovieScenePropertyTemplates.h"
+
+bool UMovieSceneBoolTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneBoolSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneBoolTrack::CreateNewSection()
 {

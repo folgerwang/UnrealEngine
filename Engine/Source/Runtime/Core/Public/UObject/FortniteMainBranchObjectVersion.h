@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreTypes.h"
@@ -58,6 +58,31 @@ struct CORE_API FFortniteMainBranchObjectVersion
 
 		// Migrate Foliage TLazyObjectPtr to TSoftObjectPtr
 		FoliageLazyObjPtrToSoftObjPtr,
+
+		// TimelineTemplates store their derived names instead of dynamically generating
+		// This code tied to this version was reverted and redone at a later date
+		REVERTED_StoreTimelineNamesInTemplate,
+
+		// Added BakePoseOverride for LOD setting
+		AddBakePoseOverrideForSkeletalMeshReductionSetting,
+
+		// TimelineTemplates store their derived names instead of dynamically generating
+		StoreTimelineNamesInTemplate,
+		
+		// New Pose Asset data type
+		WidgetStopDuplicatingAnimations,
+
+		// Allow reducing of the base LOD, we need to store some imported model data so we can reduce again from the same data.
+		AllowSkeletalMeshToReduceTheBaseLOD,
+
+		// Curve Table size reduction
+		ShrinkCurveTableSize,
+
+		// Widgets upgraded with WidgetStopDuplicatingAnimations, may not correctly default-to-self for the widget parameter.
+		WidgetAnimationDefaultToSelfFail,
+
+		// HUDWidgets now require an element tag
+		FortHUDElementNowRequiresTag,
 
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // Copyright 2016 Magic Leap, Inc. All Rights Reserved.
 
 #include "Lumin/LuminPlatformFile.h"
@@ -191,6 +191,32 @@ public:
 			BytesToWrite -= ThisSize;
 		}
 		return true;
+	}
+
+	virtual bool Flush(const bool bFullFlush = false) override
+	{
+		check(IsValid());
+#if MANAGE_FILE_HANDLES
+		if (IsManaged())
+		{
+			return false;
+		}
+#endif
+		return bFullFlush
+			? fsync(FileHandle) == 0
+			: fdatasync(FileHandle) == 0;
+	}
+
+	virtual bool Truncate(int64 NewSize) override
+	{
+		check(IsValid());
+#if MANAGE_FILE_HANDLES
+		if (IsManaged())
+		{
+			return false;
+		}
+#endif
+		return ftruncate(FileHandle, NewSize) == 0;
 	}
 
 	virtual int64 Size() override

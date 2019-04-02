@@ -1,84 +1,24 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Misc/SecureHash.h"
-#include "Common/StatsCollector.h"
 #include "HAL/FileManager.h"
+
+#include "Core/BlockStructure.h"
+#include "Core/Factory.h"
+#include "Core/FileSpan.h"
+#include "Common/StatsCollector.h"
+#include "Installer/ChunkReferenceTracker.h"
+#include "Installer/CloudChunkSource.h"
+#include "BuildPatchManifest.h"
 
 namespace BuildPatchServices
 {
-	struct FFileSpan
-	{
-		FFileSpan(const FString& InFilename, uint64 InSize, uint64 InStartIdx, bool InIsUnixExecutable, const FString& InSymlinkTarget)
-			: Filename(InFilename)
-			, Size(InSize)
-			, StartIdx(InStartIdx)
-			, IsUnixExecutable(InIsUnixExecutable)
-			, SymlinkTarget(InSymlinkTarget)
-		{
-		}
-
-		FFileSpan(const FFileSpan& CopyFrom)
-			: Filename(CopyFrom.Filename)
-			, Size(CopyFrom.Size)
-			, StartIdx(CopyFrom.StartIdx)
-			, SHAHash(CopyFrom.SHAHash)
-			, IsUnixExecutable(CopyFrom.IsUnixExecutable)
-			, SymlinkTarget(CopyFrom.SymlinkTarget)
-		{
-		}
-
-		FFileSpan(FFileSpan&& MoveFrom)
-			: Filename(MoveTemp(MoveFrom.Filename))
-			, Size(MoveTemp(MoveFrom.Size))
-			, StartIdx(MoveTemp(MoveFrom.StartIdx))
-			, SHAHash(MoveTemp(MoveFrom.SHAHash))
-			, IsUnixExecutable(MoveTemp(MoveFrom.IsUnixExecutable))
-			, SymlinkTarget(MoveTemp(MoveFrom.SymlinkTarget))
-		{
-		}
-
-		FFileSpan()
-			: Size(0)
-			, StartIdx(0)
-			, IsUnixExecutable(false)
-		{
-		}
-
-		FORCEINLINE FFileSpan& operator=(const FFileSpan& CopyFrom)
-		{
-			Filename = CopyFrom.Filename;
-			Size = CopyFrom.Size;
-			StartIdx = CopyFrom.StartIdx;
-			SHAHash = CopyFrom.SHAHash;
-			IsUnixExecutable = CopyFrom.IsUnixExecutable;
-			SymlinkTarget = CopyFrom.SymlinkTarget;
-			return *this;
-		}
-
-		FORCEINLINE FFileSpan& operator=(FFileSpan&& MoveFrom)
-		{
-			Filename = MoveTemp(MoveFrom.Filename);
-			Size = MoveTemp(MoveFrom.Size);
-			StartIdx = MoveTemp(MoveFrom.StartIdx);
-			SHAHash = MoveTemp(MoveFrom.SHAHash);
-			IsUnixExecutable = MoveTemp(MoveFrom.IsUnixExecutable);
-			SymlinkTarget = MoveTemp(MoveFrom.SymlinkTarget);
-			return *this;
-		}
-
-		FString Filename;
-		uint64 Size;
-		uint64 StartIdx;
-		FSHAHash SHAHash;
-		bool IsUnixExecutable;
-		FString SymlinkTarget;
-	};
-
-	class FBuildStreamer
+	class IBuildStreamer
 	{
 	public:
+		virtual ~IBuildStreamer() {}
 
 		/**
 		 * Fetches some data from the buffer, also removing it.
@@ -89,6 +29,17 @@ namespace BuildPatchServices
 		 */
 		virtual uint32 DequeueData(uint8* Buffer, uint32 ReqSize, bool WaitForData = true) = 0;
 
+		/**
+		 * Whether there is any more data available to dequeue from the buffer.
+		 * @return true if there is no more data coming in, and the internal buffer is also empty.
+		 */
+		virtual bool IsEndOfData() const = 0;
+	};
+
+	class IDirectoryBuildStreamer
+		: public IBuildStreamer
+	{
+	public:
 		/**
 		 * Retrieves the file details for a specific start index.
 		 * @param   IN  StartingIdx     The data index into the build image.
@@ -111,38 +62,88 @@ namespace BuildPatchServices
 		virtual TArray<FString> GetAllFilenames() const = 0;
 
 		/**
-		 * Whether the read thread has finished reading the build image.
-		 * @return true if there is no more data coming into the buffer.
-		 */
-		virtual bool IsEndOfBuild() const = 0;
-
-		/**
-		 * Whether there is any more data available to dequeue from the buffer.
-		 * @return true if there is no more data coming in, and the internal buffer is also empty.
-		 */
-		virtual bool IsEndOfData() const = 0;
-
-		/**
 		 * Get the total build size that was streamed.
-		 * MUST be called only after IsEndOfBuild returns true.
+		 * MUST be called only after IsEndOfData returns true.
 		 * @return the number of bytes in the streamed build.
 		 */
 		virtual uint64 GetBuildSize() const = 0;
 
 		/**
 		 * Get the list of file spans for each file in the build, including empty files.
-		 * MUST be called only after IsEndOfBuild returns true.
+		 * MUST be called only after IsEndOfData returns true.
 		 * @return the list of files in the build and their details.
 		 */
 		virtual TArray<FFileSpan> GetAllFiles() const = 0;
 	};
 
-	typedef TSharedRef<FBuildStreamer, ESPMode::ThreadSafe> FBuildStreamerRef;
-	typedef TSharedPtr<FBuildStreamer, ESPMode::ThreadSafe> FBuildStreamerPtr;
+	class IManifestBuildStreamer
+		: public IBuildStreamer
+	{
+	public:
+		// Declares types for expected factory dependencies.
+		typedef TArray<FGuid> FCustomChunkReferences;
+		typedef TFactory<IChunkReferenceTracker, FCustomChunkReferences> IChunkReferenceTrackerFactory;
+		typedef TFactory<ICloudChunkSource, IChunkReferenceTracker*> ICloudChunkSourceFactory;
+	public:
+		/**
+		 * Gets the block structure that this streamer was configured with.
+		 * @return the configured DesiredBytes block structure.
+		 */
+		virtual const FBlockStructure& GetBlockStructure() const = 0;
+	};
+
+	// Configuration for constructing a directory build streamer.
+	struct FDirectoryBuildStreamerConfig
+	{
+	public:
+		const FString BuildRoot;
+		const FString InputListFile;
+		const FString IgnoreListFile;
+	};
+
+	// Holds all dependencies for constructing a directory build streamer.
+	struct FDirectoryBuildStreamerDependencies
+	{
+	public:
+		FStatsCollector* const StatsCollector;
+		IFileSystem* const FileSystem;
+	};
+
+	// Configuration for constructing a manifest build streamer.
+	struct FManifestBuildStreamerConfig
+	{
+	public:
+		FString CloudDirectory;
+		FBlockStructure DesiredBytes;
+	};
+
+	// Holds all dependencies for constructing a manifest build streamer.
+	struct FManifestBuildStreamerDependencies
+	{
+	public:
+		IManifestBuildStreamer::IChunkReferenceTrackerFactory* const ChunkReferenceTrackerFactory;
+		IManifestBuildStreamer::ICloudChunkSourceFactory* const CloudChunkSourceFactory;
+		FStatsCollector* const StatsCollector;
+		FBuildPatchAppManifest* const Manifest;
+	};
 
 	class FBuildStreamerFactory
 	{
 	public:
-		static FBuildStreamerRef Create(const FString& BuildRoot, const FString& InputListFile, const FString& IgnoreListFile, const FStatsCollectorRef& StatsCollector, IFileManager* FileManager = &IFileManager::Get());
+		/**
+		 * Factory for constructing a build streamer based on a directory of files.
+		 * @param Config        The configuration struct.
+		 * @param Dependencies  The dependencies struct.
+		 * @return the constructed build streamer.
+		 */
+		static IDirectoryBuildStreamer* Create(FDirectoryBuildStreamerConfig Config, FDirectoryBuildStreamerDependencies Dependencies);
+
+		/**
+		 * Factory for constructing a build streamer based on an existing manifest and block ranges.
+		 * @param Config        The configuration struct.
+		 * @param Dependencies  The dependencies struct.
+		 * @return the constructed build streamer.
+		 */
+		static IManifestBuildStreamer* Create(FManifestBuildStreamerConfig Config, FManifestBuildStreamerDependencies Dependencies);
 	};
 }

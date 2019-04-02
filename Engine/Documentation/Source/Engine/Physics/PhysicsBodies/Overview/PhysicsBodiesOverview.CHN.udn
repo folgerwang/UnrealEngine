@@ -1,55 +1,13 @@
-﻿INTSourceChangelist:0
-Availability: Public
-Title:Physics Bodies Overview
+﻿INTSourceChangelist:4649792
+Availability: Docs
+Title:物理刚体概述
 Crumbs: %ROOT%, Engine, Engine/Physics
-Description:Overview of what a Physics Body, or BodyInstance, is and what it does.
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Physics/PhysicsBodies:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/PhysicsBodies:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/PhysicsBodies:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Physics/PhysicsBodies]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Physics/PhysicsBodies:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/PhysicsBodies:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/PhysicsBodies:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Physics/PhysicsBodies]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+Description:概述什么是物理刚体或BodyInstance以及它的作用。
 
 
 [TOC(start:2)]
 
 
-Overview Text
+概述正文
 
-## Additional Info
-
-
-
+## 其他信息

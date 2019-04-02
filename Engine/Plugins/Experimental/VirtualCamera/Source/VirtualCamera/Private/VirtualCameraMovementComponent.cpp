@@ -1,6 +1,8 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "VirtualCameraMovementComponent.h"
+
+#include "Components/PrimitiveComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 
 // Used to help get stabilization to be more finely tunable
@@ -43,9 +45,9 @@ void UVirtualCameraMovementComponent::AddInputVectorFromController(FVector World
 	}
 
 	WorldVector *= AxisSettings[MovementScaleAxis].MovementScale;
-	ApplyLocationLocks(WorldVector);
 
-	TargetLocation += WorldVector;
+	// For Controller movement, move the RootUpdatedComponent
+	FromControllerTargetLocation += WorldVector;
 }
 
 void UVirtualCameraMovementComponent::ProcessMovementInput(const FVector& TrackerLocation, const FRotator& TrackerRotation)
@@ -64,22 +66,35 @@ void UVirtualCameraMovementComponent::ProcessMovementInput(const FVector& Tracke
 	TargetRotation = TrackerRotation - GetRotationOffset() + GetOwner()->GetActorRotation();
 	PreviousTrackerRotation = TrackerRotation;
 
-	FHitResult OutResult = FHitResult();
-	SafeMoveUpdatedComponent(GetStabilizedDeltaLocation(), GetStabilizedRotation(), false, OutResult);
+	{
+		FHitResult OutResult = FHitResult();
+		SafeMoveUpdatedComponent(GetStabilizedDeltaLocation(), GetStabilizedRotation(), false, OutResult);
+	}
+
+	// Apply the location change for the RootUpdatedComponent
+	if (RootUpdatedComponent)
+	{
+		TGuardValue<USceneComponent*> UpdateComponentGuard(UpdatedComponent, RootUpdatedComponent);
+		TGuardValue<UPrimitiveComponent*> UpdatePrimitiveGuard(UpdatedPrimitive, RootUpdatedPrimitive);
+		FHitResult OutResult = FHitResult();
+		SafeMoveUpdatedComponent(FromControllerTargetLocation, FQuat::Identity, false, OutResult);
+		FromControllerTargetLocation = FVector::ZeroVector;
+	}
 }
 
 bool UVirtualCameraMovementComponent::ToggleAxisLock(const EVirtualCameraAxis AxisToToggle)
 {
-	bool bIsLocked = AxisSettings[AxisToToggle].ToggleLock();
+	const bool WasLocked = IsLocationLockingActive();
+	const bool bIsLocked = AxisSettings[AxisToToggle].ToggleLock();
 
 	if (AxisToToggle == EVirtualCameraAxis::RotationX && bZeroDutchOnLock && bIsLocked)
 	{
 		// This needs to be applied to the lock offset directly to avoid adding to freeze
-		AxisSettings[EVirtualCameraAxis::RotationX].LockOffset = TargetRotation.Roll;
+		AxisSettings[EVirtualCameraAxis::RotationX].LockRotationOffset = TargetRotation.Roll;
 	}
 
 	// Update cached locking axis if coming from completely unlocked state
-	if (bLockRelativeToFirstLockAxis && !IsLocationLockingActive())
+	if (bLockRelativeToFirstLockAxis && !WasLocked)
 	{
 		CachedLockingAxis = UpdatedComponent->GetComponentRotation().Quaternion();
 	}
@@ -89,7 +104,7 @@ bool UVirtualCameraMovementComponent::ToggleAxisLock(const EVirtualCameraAxis Ax
 
 bool UVirtualCameraMovementComponent::ToggleAxisFreeze(const EVirtualCameraAxis AxisToToggle)
 {
-	// Leving this out of header file for the inevitable refactor that will cause this to be more that one line of code.
+	// Leaving this out of header file for the inevitable refactor that will cause this to be more that one line of code.
 	return AxisSettings[AxisToToggle].bIsFrozen = !AxisSettings[AxisToToggle].bIsFrozen;
 }
 
@@ -98,7 +113,7 @@ float UVirtualCameraMovementComponent::SetAxisStabilizationScale(const EVirtualC
 	// Stabilization is applied as an exponential curve defined by STABILIZATION_NRM_EXP
 	// This exponent is less than 1 so value changes at numbers closer to 0 have a greater degree of change than those closer to 1.
 	// This has the effect of stabilization being introduced much faster when it is first applied, and giving a finer degree of control as values increase.
-	// This is necessary because stabilization is not noticable or useful until a certain amount is applied.
+	// This is necessary because stabilization is not noticeable or useful until a certain amount is applied.
 	NewStabilizationAmount = FMath::Clamp<float>(NewStabilizationAmount, 0.0f, .97f);
 	AxisSettings[AxisToAdjust].StabilizationScale = FMath::Pow(NewStabilizationAmount, STABILIZATION_NRM_EXP);
 	AxisSettings[AxisToAdjust].StabilizationScale *= .97f;
@@ -121,12 +136,12 @@ void UVirtualCameraMovementComponent::ResetCameraOffsetsToTracker()
 	UpdatedComponent->SetRelativeRotation(TargetRotation);
 
 	// Clear all locks
-	// ToDo: Do we need to clear freeze states here as well?
 	for (auto Iterator = AxisSettings.CreateIterator(); Iterator; ++Iterator)
 	{
 		Iterator.Value().SetIsLocked(false);
 		Iterator.Value().bIsFrozen = false;
-		Iterator.Value().FreezeOffset = 0.f;
+		Iterator.Value().FreezeRotationOffset = 0.f;
+		Iterator.Value().FreezeLocationOffset = FVector::ZeroVector;
 	}
 
 	OnOffsetReset.Broadcast();
@@ -161,7 +176,7 @@ void UVirtualCameraMovementComponent::OnMoveUp(const float InValue)
 	if (bUseGlobalBoom)
 	{
 		FVector InputVector = FVector(0.f, 0.f, 1.f);
-		AddInputVector(InputVector * InValue);
+		AddInputVectorFromController(InputVector * InValue, EVirtualCameraAxis::LocationZ);
 	}
 	else
 	{
@@ -181,6 +196,18 @@ void UVirtualCameraMovementComponent::Teleport(const FTransform& TargetTransform
 
 	UpdatedComponent->AddLocalOffset(DeltaOffset);
 	TargetLocation += DeltaOffset;
+
+	if (RootUpdatedComponent)
+	{
+		RootUpdatedComponent->SetRelativeLocation(FVector::ZeroVector);
+		FromControllerTargetLocation = FVector::ZeroVector;
+	}
+}
+
+void UVirtualCameraMovementComponent::SetRootComponent(USceneComponent* InFromController)
+{
+	RootUpdatedComponent = InFromController;
+	RootUpdatedPrimitive = Cast<UPrimitiveComponent>(RootUpdatedComponent);
 }
 
 void UVirtualCameraMovementComponent::ApplyLocationLocks(const FVector& InVector)
@@ -189,30 +216,26 @@ void UVirtualCameraMovementComponent::ApplyLocationLocks(const FVector& InVector
 	FVector RightVector;
 	FVector UpVector;
 
-	GetDirectionVectorsForCamera(ForwardVector, RightVector, UpVector);
+	GetDirectionVectorsForCamera(ForwardVector, RightVector, UpVector, true);
 
-	FVector AdjustedVector = InVector;
+	FVector AdjustedVectorX = InVector - FVector::VectorPlaneProject(InVector, ForwardVector);
+	FVector AdjustedVectorY = InVector - FVector::VectorPlaneProject(InVector, RightVector);
+	FVector AdjustedVectorZ = InVector - FVector::VectorPlaneProject(InVector, UpVector);
 
 	if (AxisSettings[EVirtualCameraAxis::LocationX].IsAxisImmobilized())
 	{
-		AdjustedVector = FVector::VectorPlaneProject(AdjustedVector, ForwardVector);
+		AxisSettings[EVirtualCameraAxis::LocationX].AddLocationOffset(AdjustedVectorX);
 	}
 
 	if (AxisSettings[EVirtualCameraAxis::LocationY].IsAxisImmobilized())
 	{
-		AdjustedVector = FVector::VectorPlaneProject(AdjustedVector, RightVector);
+		AxisSettings[EVirtualCameraAxis::LocationY].AddLocationOffset(AdjustedVectorY);
 	}
 
 	if (AxisSettings[EVirtualCameraAxis::LocationZ].IsAxisImmobilized())
 	{
-		AdjustedVector = FVector::VectorPlaneProject(AdjustedVector, UpVector);
+		AxisSettings[EVirtualCameraAxis::LocationZ].AddLocationOffset(AdjustedVectorZ);
 	}
-
-	AdjustedVector = InVector - AdjustedVector;
-
-	AxisSettings[EVirtualCameraAxis::LocationX].AddOffset(AdjustedVector.X);
-	AxisSettings[EVirtualCameraAxis::LocationY].AddOffset(AdjustedVector.Y);
-	AxisSettings[EVirtualCameraAxis::LocationZ].AddOffset(AdjustedVector.Z);
 }
 
 FVector UVirtualCameraMovementComponent::GetStabilizedDeltaLocation() const 
@@ -243,7 +266,7 @@ void UVirtualCameraMovementComponent::ApplyLocationScaling(FVector& VectorToAdju
 	FVector RightVector;
 	FVector UpVector;
 
-	GetDirectionVectorsForCamera(ForwardVector, RightVector, UpVector);
+	GetDirectionVectorsForCamera(ForwardVector, RightVector, UpVector, false);
 
 	// Orient to global Z up, but maintain yaw
 	ForwardVector = FVector::VectorPlaneProject(ForwardVector, FVector::UpVector);
@@ -265,9 +288,9 @@ void UVirtualCameraMovementComponent::ApplyLocationScaling(FVector& VectorToAdju
 void UVirtualCameraMovementComponent::ApplyRotationLocks(const FRotator& InRotation)
 {
 	// The AddOffset function will ignore incoming offsets if the axis is not immobilized
-	AxisSettings[EVirtualCameraAxis::RotationX].AddOffset(InRotation.Roll);
-	AxisSettings[EVirtualCameraAxis::RotationY].AddOffset(InRotation.Pitch);
-	AxisSettings[EVirtualCameraAxis::RotationZ].AddOffset(InRotation.Yaw);
+	AxisSettings[EVirtualCameraAxis::RotationX].AddRotationOffset(InRotation.Roll);
+	AxisSettings[EVirtualCameraAxis::RotationY].AddRotationOffset(InRotation.Pitch);
+	AxisSettings[EVirtualCameraAxis::RotationZ].AddRotationOffset(InRotation.Yaw);
 }
 
 FRotator UVirtualCameraMovementComponent::GetStabilizedRotation() const
@@ -282,10 +305,10 @@ FRotator UVirtualCameraMovementComponent::GetStabilizedRotation() const
 	return UKismetMathLibrary::ComposeRotators(TargetAdjustment, UpdatedComponent->GetComponentRotation());
 }
 
-void UVirtualCameraMovementComponent::GetDirectionVectorsForCamera(FVector& OutForwardVector, FVector& OutRightVector, FVector& OutUpVector) const 
+void UVirtualCameraMovementComponent::GetDirectionVectorsForCamera(FVector& OutForwardVector, FVector& OutRightVector, FVector& OutUpVector, bool bTryLock) const
 {
 	// Break the vector into local components so we can apply individual scaling
-	if (bLockRelativeToFirstLockAxis && IsLocationLockingActive())
+	if (bTryLock && bLockRelativeToFirstLockAxis && IsLocationLockingActive())
 	{
 		// If needed, use the cached axis rather than always using local
 		OutForwardVector = CachedLockingAxis.GetForwardVector();
@@ -306,18 +329,16 @@ void UVirtualCameraMovementComponent::GetDirectionVectorsForCamera(FVector& OutF
 
 FVector UVirtualCameraMovementComponent::GetLocationOffset() const 
 {
-	return FVector(
-		AxisSettings[EVirtualCameraAxis::LocationX].GetOffset(),
-		AxisSettings[EVirtualCameraAxis::LocationY].GetOffset(),
-		AxisSettings[EVirtualCameraAxis::LocationZ].GetOffset()
-	);
+	return AxisSettings[EVirtualCameraAxis::LocationX].GetLocationOffset()
+		+ AxisSettings[EVirtualCameraAxis::LocationY].GetLocationOffset()
+		+ AxisSettings[EVirtualCameraAxis::LocationZ].GetLocationOffset();
 }
 
 FRotator UVirtualCameraMovementComponent::GetRotationOffset() const 
 {
 	return FRotator(
-		AxisSettings[EVirtualCameraAxis::RotationY].GetOffset(),
-		AxisSettings[EVirtualCameraAxis::RotationZ].GetOffset(),
-		AxisSettings[EVirtualCameraAxis::RotationX].GetOffset()
+		AxisSettings[EVirtualCameraAxis::RotationY].GetRotationOffset(),
+		AxisSettings[EVirtualCameraAxis::RotationZ].GetRotationOffset(),
+		AxisSettings[EVirtualCameraAxis::RotationX].GetRotationOffset()
 	);
 }

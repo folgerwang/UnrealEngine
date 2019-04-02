@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CollectionAssetManagement.h"
 #include "ISourceControlProvider.h"
@@ -161,11 +161,22 @@ void FCollectionAssetManagement::UpdateAssetManagementState()
 	if (CurrentAssetPaths.Num() == 1)
 	{
 		TArray<FCollectionNameType> MatchedCollections;
-		CollectionManagerModule.Get().GetCollectionsContainingObject(*CurrentAssetPaths.CreateConstIterator(), MatchedCollections);
+		CollectionManagerModule.Get().GetCollectionsContainingObject(*CurrentAssetPaths.CreateConstIterator(), MatchedCollections, ECollectionRecursionFlags::Self);
 
 		for (const FCollectionNameType& CollectionKey : MatchedCollections)
 		{
 			AssetManagementState.Add(CollectionKey, ECheckBoxState::Checked);
+		}
+
+		MatchedCollections.Reset();
+		CollectionManagerModule.Get().GetCollectionsContainingObject(*CurrentAssetPaths.CreateConstIterator(), MatchedCollections, ECollectionRecursionFlags::Children);
+
+		for (const FCollectionNameType& CollectionKey : MatchedCollections)
+		{
+			if (!AssetManagementState.Contains(CollectionKey))
+			{
+				AssetManagementState.Add(CollectionKey, ECheckBoxState::Undetermined);
+			}
 		}
 	}
 	else

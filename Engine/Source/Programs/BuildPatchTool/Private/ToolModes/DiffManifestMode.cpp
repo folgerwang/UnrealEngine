@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ToolModes/DiffManifestMode.h"
 #include "Interfaces/IBuildPatchServicesModule.h"
@@ -68,8 +68,17 @@ public:
 			CompareTagSets.Add(ProcessTagList(CompareTagsList));
 		}
 
+		// Setup and run.
+		BuildPatchServices::FDiffManifestsConfiguration Configuration;
+		Configuration.ManifestAUri = ManifestA;
+		Configuration.ManifestBUri = ManifestB;
+		Configuration.TagSetA = TagSetA;
+		Configuration.TagSetB = TagSetB;
+		Configuration.CompareTagSets = CompareTagSets;
+		Configuration.OutputFilePath = OutputFile;
+
 		// Run the merge manifest routine.
-		bool bSuccess = BpsInterface.DiffManifests(ManifestA, TagSetA, ManifestB, TagSetB, CompareTagSets, OutputFile);
+		bool bSuccess = BpsInterface.DiffManifests(Configuration);
 		return bSuccess ? EReturnCode::OK : EReturnCode::ToolFailure;
 	}
 
@@ -94,14 +103,14 @@ private:
 			UE_LOG(LogBuildPatchTool, Error, TEXT("ManifestA and ManifestB are required parameters."));
 			return false;
 		}
-		FPaths::NormalizeDirectoryName(ManifestA);
-		FPaths::NormalizeDirectoryName(ManifestB);
+		NormalizeUriFile(ManifestA);
+		NormalizeUriFile(ManifestB);
 
 		// Get optional parameters
 		bHasTagsA = PARSE_SWITCH(InstallTagsA);
 		bHasTagsB = PARSE_SWITCH(InstallTagsB);
 		PARSE_SWITCH(OutputFile);
-		FPaths::NormalizeDirectoryName(OutputFile);
+		NormalizeUriFile(OutputFile);
 
 		ParseSwitches(TEXT("CompareTagSet="), CompareTagsArray, Switches);
 

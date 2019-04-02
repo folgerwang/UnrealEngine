@@ -1,15 +1,17 @@
-﻿INTSourceChangelist:2699877
+﻿INTSourceChangelist:3429254
 Availability: Public
 Title:在蓝图中添加组件
 Crumbs: %ROOT%, Gameplay, Gameplay\HowTo\AddingComponents
 Description:如何在蓝图中添加组件的操作指南。
 Version: 4.9
 SkillLevel: Intermediate
+type:how-to
 
 [TOC (start:2 end:2)]
 
 在该页面上，你将学习如何将**Components**添加到蓝图中，以及如何在蓝图中访问和修改组件。为说明这一点，我们将创建一个简单的燃烧灌木蓝图Actor，它由三个组件组成：**Static Mesh**组件（灌木）、**Audio**组件（火的音效）和**Particle Effect**（可见的火焰效果）。 
 
+(#AddingComponentstoaBlueprint)
 ## 将组件添加到蓝图中
 
  在本例中，我们将使用**Blueprint Third Person Template with Starter Content**。
@@ -77,6 +79,7 @@ SkillLevel: Intermediate
 我们创建了由三个组件组成的蓝图Actor，我们也可以将灌木放置在等级中，然后将音频放入灌木内，然后将火放入灌木内，但创建包含这些组件的蓝图是远比创建单独的组件更易于管理的解决方案。 
 
 
+(#WorkingwithComponentsinBlueprints)
 ## 使用蓝图中的组件
 
 可以从蓝图本身内或从外部蓝图访问并修改每个组件。例如，如果我们有一个汽车蓝图，并有一个引擎蓝图作为组件，我们可以通过调整发动机蓝图内的值来改变汽车运行的方式。 
@@ -92,6 +95,7 @@ SkillLevel: Intermediate
 在这里，我们将启用燃烧灌木蓝图Actor的输入，以便使玩家能通过按键修改它。我们已添加**F**键事件，当按下键时，在解除和激活粒子系统和音频组件（当按下键时开启或关闭它们）间切换。 
 
 
+(#AdditionalResources)
 ## 其它资源
 
 有几个与将组件添加到蓝图相关的概念，而且以下链接提供更多相关信息：

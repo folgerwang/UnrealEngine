@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -221,6 +221,16 @@ public:
 	virtual bool SetNativeVolume(float Volume)
 	{
 		return false;
+	}
+
+	/**
+	 * Notify player of last sample time of audio used.
+	 *
+	 * @param SampleTime The last audio sample dequeued by one of the audio sinks.
+	 */
+	virtual void SetLastAudioRenderedSampleTime(FTimespan SampleTime)
+	{
+		// override in child classes if supported
 	}
 
 	/**

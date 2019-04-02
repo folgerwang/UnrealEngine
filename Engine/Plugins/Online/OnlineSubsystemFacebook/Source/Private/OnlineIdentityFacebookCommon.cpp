@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineIdentityFacebookCommon.h"
 #if USES_RESTFUL_FACEBOOK
@@ -31,12 +31,6 @@ FOnlineIdentityFacebookCommon::FOnlineIdentityFacebookCommon(FOnlineSubsystemFac
 	ProfileFields.AddUnique(TEXT(ME_FIELD_FIRSTNAME));
 	ProfileFields.AddUnique(TEXT(ME_FIELD_LASTNAME));
 	ProfileFields.AddUnique(TEXT(ME_FIELD_PICTURE));
-}
-
-const FUniqueNetId& FOnlineIdentityFacebookCommon::GetEmptyUniqueId()
-{
-	static TSharedRef<const FUniqueNetIdFacebook> EmptyUniqueId = MakeShared<const FUniqueNetIdFacebook>(FString());
-	return *EmptyUniqueId;
 }
 
 TSharedPtr<FUserOnlineAccount> FOnlineIdentityFacebookCommon::GetUserAccount(const FUniqueNetId& UserId) const

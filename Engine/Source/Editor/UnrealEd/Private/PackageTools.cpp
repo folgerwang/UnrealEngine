@@ -1,12 +1,14 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "PackageTools.h"
+#include "BlueprintCompilationManager.h"
 #include "UObject/PackageReload.h"
 #include "Misc/MessageDialog.h"
 #include "Misc/Paths.h"
 #include "Misc/Guid.h"
 #include "Misc/ConfigCacheIni.h"
+#include "Misc/ScopedSlowTask.h"
 #include "Misc/FeedbackContext.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
@@ -29,9 +31,13 @@
 
 #include "ObjectTools.h"
 #include "Kismet2/KismetEditorUtilities.h"
+#include "Kismet2/KismetReinstanceUtilities.h"
 #include "BusyCursor.h"
 
 #include "FileHelpers.h"
+
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #include "AssetRegistryModule.h"
 #include "Logging/MessageLog.h"
@@ -58,7 +64,10 @@ FDelegateHandle UPackageTools::ReachabilityCallbackHandle;
 UPackageTools::UPackageTools(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-
+	if (HasAnyFlags(RF_ClassDefaultObject))
+	{
+		FCoreUObjectDelegates::OnPackageReloaded.AddStatic(&UPackageTools::HandlePackageReloaded);
+	}
 }
 
 	/**
@@ -662,8 +671,10 @@ UPackageTools::UPackageTools(const FObjectInitializer& ObjectInitializer)
 			// Cache the current map build data for the levels of the current world so we can see if they change due to a reload (we can skip this if reloading the current world).
 			else
 			{
-				for (ULevel* Level : CurrentWorldPtr->GetLevels())
+				const TArray<ULevel*>& Levels = CurrentWorldPtr->GetLevels();
+				for (int32 i = Levels.Num() - 1; i >= 0; --i)
 				{
+					ULevel* Level = Levels[i];
 					if (PackagesToReload.Contains(Level->GetOutermost()))
 					{
 						for (ULevelStreaming* StreamingLevel : CurrentWorldPtr->GetStreamingLevels())
@@ -809,6 +820,176 @@ UPackageTools::UPackageTools(const FObjectInitializer& ObjectInitializer)
 		OutErrorMessage = ErrorMessageBuilder.ToText();
 
 		return bResult;
+	}
+
+
+	void UPackageTools::HandlePackageReloaded(const EPackageReloadPhase InPackageReloadPhase, FPackageReloadedEvent* InPackageReloadedEvent)
+	{
+		static TSet<UBlueprint*> BlueprintsToRecompileThisBatch;
+
+		if (InPackageReloadPhase == EPackageReloadPhase::PrePackageFixup)
+		{
+			GEngine->NotifyToolsOfObjectReplacement(InPackageReloadedEvent->GetRepointedObjects());
+
+			// Notify any Blueprint assets that are about to be unloaded.
+			ForEachObjectWithOuter(InPackageReloadedEvent->GetOldPackage(), [&](UObject* InObject)
+			{
+				if (InObject->IsAsset())
+				{
+					// Notify about any BP assets that are about to be unloaded
+					if (UBlueprint* BP = Cast<UBlueprint>(InObject))
+					{
+						BP->ClearEditorReferences();
+					}
+				}
+			}, false, RF_Transient, EInternalObjectFlags::PendingKill);
+		}
+
+		if (InPackageReloadPhase == EPackageReloadPhase::OnPackageFixup)
+		{
+			TMap<UClass*, UClass*> OldClassToNewClass;
+			for (const auto& RepointedObjectPair : InPackageReloadedEvent->GetRepointedObjects())
+			{
+				UObject* OldObject = RepointedObjectPair.Key;
+				UObject* NewObject = RepointedObjectPair.Value;
+
+				if(OldObject && NewObject)
+				{
+					UClass* OldObjectAsClass = Cast<UClass>(OldObject);
+					if(OldObjectAsClass)
+					{
+						UClass* NewObjectAsClass = Cast<UClass>(NewObject);
+						if(ensureMsgf(NewObjectAsClass, TEXT("Class object replaced with non-class object: %s %s"), *(OldObject->GetName()), *(NewObject->GetName())))
+						{
+							OldClassToNewClass.Add(OldObjectAsClass, NewObjectAsClass);
+						}
+					}
+				}
+			}
+
+			FBlueprintCompilationManager::ReparentHierarchies(OldClassToNewClass);
+
+			for (const auto& RepointedObjectPair : InPackageReloadedEvent->GetRepointedObjects())
+			{
+				UObject* OldObject = RepointedObjectPair.Key;
+				UObject* NewObject = RepointedObjectPair.Value;
+
+				if (OldObject->IsAsset())
+				{
+					if (const UBlueprint* OldBlueprint = Cast<UBlueprint>(OldObject))
+					{
+						if (NewObject && CastChecked<UBlueprint>(NewObject)->GeneratedClass)
+						{
+							// Don't change the class on instances that are being thrown away by the reload code. If we update
+							// the class and recompile the old class ::ReplaceInstancesOfClass will experience some crosstalk 
+							// with the compiler (both trying to create objects of the same class in the same location):
+							TArray<UObject*> OldInstances;
+							GetObjectsOfClass(OldBlueprint->GeneratedClass, OldInstances, false);
+							OldInstances.RemoveAllSwap(
+								[](UObject* Obj){ return !Obj->HasAnyFlags(RF_NewerVersionExists); }
+							);
+
+							TSet<UObject*> InstancesToLeaveAlone(OldInstances);
+							FReplaceInstancesOfClassParameters ReplaceInstancesParameters(OldBlueprint->GeneratedClass, CastChecked<UBlueprint>(NewObject)->GeneratedClass);
+							ReplaceInstancesParameters.InstancesThatShouldUseOldClass = &InstancesToLeaveAlone;
+							FBlueprintCompileReinstancer::ReplaceInstancesOfClassEx(ReplaceInstancesParameters);
+						}
+						else
+						{
+							// we failed to load the UBlueprint and/or it's GeneratedClass. Show a notification indicating that maps may need to be reloaded:
+							FNotificationInfo Warning(
+								FText::Format(
+									NSLOCTEXT("UnrealEd", "Warning_FailedToLoadParentClass", "Failed to load ParentClass for {0}"),
+									FText::FromName(OldObject->GetFName())
+								)
+							);
+							Warning.ExpireDuration = 3.0f;
+							FSlateNotificationManager::Get().AddNotification(Warning);
+						}
+					}
+				}
+			}
+		}
+
+		if (InPackageReloadPhase == EPackageReloadPhase::PostPackageFixup)
+		{
+			for (TWeakObjectPtr<UObject> ObjectReferencer : InPackageReloadedEvent->GetObjectReferencers())
+			{
+				UObject* ObjectReferencerPtr = ObjectReferencer.Get();
+				if (!ObjectReferencerPtr)
+				{
+					continue;
+				}
+
+				FPropertyChangedEvent PropertyEvent(nullptr, EPropertyChangeType::Redirected);
+				ObjectReferencerPtr->PostEditChangeProperty(PropertyEvent);
+
+				// We need to recompile any Blueprints that had properties changed to make sure their generated class is up-to-date and has no lingering references to the old objects
+				UBlueprint* BlueprintToRecompile = nullptr;
+				if (UBlueprint* BlueprintReferencer = Cast<UBlueprint>(ObjectReferencerPtr))
+				{
+					BlueprintToRecompile = BlueprintReferencer;
+				}
+				else if (UClass* ClassReferencer = Cast<UClass>(ObjectReferencerPtr))
+				{
+					BlueprintToRecompile = Cast<UBlueprint>(ClassReferencer->ClassGeneratedBy);
+				}
+				else
+				{
+					BlueprintToRecompile = ObjectReferencerPtr->GetTypedOuter<UBlueprint>();
+				}
+
+				if (BlueprintToRecompile)
+				{
+					BlueprintsToRecompileThisBatch.Add(BlueprintToRecompile);
+				}
+			}
+		}
+
+		if (InPackageReloadPhase == EPackageReloadPhase::PreBatch)
+		{
+			// If this fires then ReloadPackages has probably bee called recursively :(
+			check(BlueprintsToRecompileThisBatch.Num() == 0);
+
+			// Flush all pending render commands, as reloading the package may invalidate render resources.
+			FlushRenderingCommands();
+		}
+
+		if (InPackageReloadPhase == EPackageReloadPhase::PostBatchPreGC)
+		{
+			if (GEditor)
+			{
+				// Make sure we don't have any lingering transaction buffer references.
+				GEditor->ResetTransaction(NSLOCTEXT("UnrealEd", "ReloadedPackage", "Reloaded Package"));
+			}
+
+			// Recompile any BPs that had their references updated
+			if (BlueprintsToRecompileThisBatch.Num() > 0)
+			{
+				FScopedSlowTask CompilingBlueprintsSlowTask(BlueprintsToRecompileThisBatch.Num(), NSLOCTEXT("UnrealEd", "CompilingBlueprints", "Compiling Blueprints"));
+
+				for (UBlueprint* BlueprintToRecompile : BlueprintsToRecompileThisBatch)
+				{
+					CompilingBlueprintsSlowTask.EnterProgressFrame(1.0f);
+
+					FKismetEditorUtilities::CompileBlueprint(BlueprintToRecompile, EBlueprintCompileOptions::SkipGarbageCollection);
+				}
+			}
+			BlueprintsToRecompileThisBatch.Reset();
+		}
+
+		if (InPackageReloadPhase == EPackageReloadPhase::PostBatchPostGC)
+		{
+			// Tick some things that aren't processed while we're reloading packages and can result in excessive memory usage if not periodically updated.
+			if (GShaderCompilingManager)
+			{
+				GShaderCompilingManager->ProcessAsyncResults(true, false);
+			}
+			if (GDistanceFieldAsyncQueue)
+			{
+				GDistanceFieldAsyncQueue->ProcessAsyncTasks();
+			}
+		}
 	}
 
 

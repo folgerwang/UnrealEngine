@@ -1,0 +1,51 @@
+﻿INTSourceChangelist:4677192
+Availability: Public
+Crumbs: 
+Title: PSO缓存数据的编译和使用
+Description: 在运行时编译PSO数据的设置指南。
+Type: 
+Version: 4.21
+Parent: Engine/Rendering/PSOCaching
+Order:
+Topic-image:Compiling_&_Using_PSO_Caching_Data_Topic_Image.png
+Tags:
+
+在将 **管线状态对象（Pipeline State Object）**（PSO）缓存数据用于虚幻引擎4项目的运行时版本中时，需要对其进行编译。以下指南将讲述在UE4项目运行时编译PSO数据的两种控制方法。
+
+(#loadingscreens)
+## 加载画面
+只有在显示加载画面时才能配置项目来编译PSO数据。要完成此操作，需新建一个函数，其将在加载画面显示结束之前等候PSO缓存完成编译。以下代码说明了如何完成操作：  
+
+~~~
+ if(FShaderPipelineCache::NumPrecompilesRemaining() > 0)
+    {
+        if (OutDebugReason != nullptr)
+        {
+            *OutDebugReason = FString(TEXT("PC: PSO cache still compiling"));
+        }
+        return true;
+    }
+~~~
+
+[REGION:note]
+这是进行移动平台项目开发时推荐使用的PSO缓存编译方法。
+[/REGION]
+
+(#ui,cutscenes,andpausemenus)
+## UI、过场动画和暂停菜单
+可对PSO缓存编译进行设置，使其只在UI、过场动画和暂停菜单打开时发生。要执行此操作，需要使用PSO缓存系统的 **ResumeBatching** 和 **SetBatchMode** 功能来开始和停止编译。可在下方找到用于完成此操作的所有函数。
+**暂停PSO缓存（Pause PSO Caching） - 暂停PSO缓存编译。**
+
+ FShaderPipelineCache::PauseBatching();
+
+**设置批处理模式速度（Set Batch Mode Speed） - 设置对PSO缓存进行处理的速度。**
+
+ FShaderPipelineCache::SetBatchMode(FShaderPipelineCache::BatchMode::Background);
+
+**继续PSO缓存（Resume PSO Caching） - 在PSO缓存停止或暂停后继续执行。**
+
+ FShaderPipelineCache::ResumeBatching();
+
+[REGION:note]
+关于PSO缓存函数的更多信息，请查看[PSO参考资料](Engine/Rendering/PSOCaching/PSOReference)。
+[/REGION]

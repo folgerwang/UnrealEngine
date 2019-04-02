@@ -1,4 +1,5 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+using System;
 using System.IO;
 using System.Diagnostics;
 using System.Collections.Generic;
@@ -11,56 +12,177 @@ public class Python : ModuleRules
 		Type = ModuleType.External;
 
 		var EngineDir = Path.GetFullPath(Target.RelativeEnginePath);
-		var PythonTPSDir = Path.Combine(EngineDir, "Source", "ThirdParty", "Python");
 
-		string PythonRoot = null;
-		string PythonIncludePath = null;
-		string PythonLibPath = null;
-		string PythonLibName = null;
-		
+		PythonSDKPaths PythonSDK = null;
+
 		if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Mac || Target.Platform == UnrealTargetPlatform.Linux)
 		{
 			// Check for an explicit version before using the auto-detection logic
-			PythonRoot = System.Environment.GetEnvironmentVariable("UE_PYTHON_DIR");
+			var PythonRoot = System.Environment.GetEnvironmentVariable("UE_PYTHON_DIR");
+			if (PythonRoot != null)
+			{
+				PythonSDK = DiscoverPythonSDK(PythonRoot);
+			}
 		}
 
-		// Perform auto-detection to try and find the Python root
-		if (PythonRoot == null)
+		// Perform auto-detection to try and find the Python SDK
+		if (PythonSDK == null)
 		{
-			var KnownPaths = new List<string>();
+			var PythonBinaryTPSDir = Path.Combine(EngineDir, "Binaries", "ThirdParty", "Python");
+			var PythonSourceTPSDir = Path.Combine(EngineDir, "Source", "ThirdParty", "Python");
+
+			var PotentialSDKs = new List<PythonSDKPaths>();
 
 			// todo: This isn't correct for cross-compilation, we need to consider the host platform too
 			if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
 			{
-				KnownPaths.AddRange(
-					new string[] {
-						Path.Combine(PythonTPSDir, Target.Platform == UnrealTargetPlatform.Win32 ? "Win32" : "Win64"),
-						//"C:/Program Files/Python36",
-						"C:/Python27",
+				var PlatformDir = Target.Platform == UnrealTargetPlatform.Win32 ? "Win32" : "Win64";
+
+				PotentialSDKs.AddRange(
+					new PythonSDKPaths[] {
+						new PythonSDKPaths(Path.Combine(PythonBinaryTPSDir, PlatformDir), new List<string>() { Path.Combine(PythonSourceTPSDir, PlatformDir, "include") }, Path.Combine(PythonSourceTPSDir, PlatformDir, "libs"), "python27.lib"),
+						//DiscoverPythonSDK("C:/Program Files/Python36"),
+						DiscoverPythonSDK("C:/Python27"),
 					}
 				);
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Mac)
 			{
-				KnownPaths.AddRange(
-					new string[] {
-						Path.Combine(PythonTPSDir, "Mac"),
-						//"/Library/Frameworks/Python.framework/Versions/3.6",
-						"/Library/Frameworks/Python.framework/Versions/2.7",
-						//"/System/Library/Frameworks/Python.framework/Versions/2.7",
+				PotentialSDKs.AddRange(
+					new PythonSDKPaths[] {
+						new PythonSDKPaths(Path.Combine(PythonBinaryTPSDir, "Mac"), new List<string>() { Path.Combine(PythonSourceTPSDir, "Mac", "include") }, Path.Combine(PythonBinaryTPSDir, "Mac"), "libpython2.7.dylib")
 					}
 				);
 			}
-
-			foreach (var KnownPath in KnownPaths)
+			else if (Target.Platform == UnrealTargetPlatform.Linux)
 			{
-				if (Directory.Exists(KnownPath))
+				if (Target.Architecture.StartsWith("x86_64"))
 				{
-					PythonRoot = KnownPath;
+					var PlatformDir = Target.Platform.ToString();
+
+					PotentialSDKs.AddRange(
+						new PythonSDKPaths[] {
+							new PythonSDKPaths(
+								Path.Combine(PythonBinaryTPSDir, PlatformDir),
+								new List<string>() {
+									Path.Combine(PythonSourceTPSDir, PlatformDir, "include", "python2.7"),
+									Path.Combine(PythonSourceTPSDir, PlatformDir, "include", Target.Architecture)
+								},
+								Path.Combine(PythonSourceTPSDir, PlatformDir, "lib"), "libpython2.7.a"),
+					});
+				}
+			}
+
+			foreach (var PotentialSDK in PotentialSDKs)
+			{
+				if (PotentialSDK.IsValid())
+				{
+					PythonSDK = PotentialSDK;
 					break;
 				}
 			}
 		}
+
+		// Make sure the Python SDK is the correct architecture
+		if (PythonSDK != null)
+		{
+			string ExpectedPointerSizeResult = Target.Platform == UnrealTargetPlatform.Win32 ? "4" : "8";
+
+			// Invoke Python to query the pointer size of the interpreter so we can work out whether it's 32-bit or 64-bit
+			// todo: We probably need to do this for all platforms, but right now it's only an issue on Windows
+			if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
+			{
+				string Result = InvokePython(PythonSDK.PythonRoot, "-c \"import struct; print(struct.calcsize('P'))\"");
+				Result = Result != null ? Result.Replace("\r", "").Replace("\n", "") : null;
+				if (Result == null || Result != ExpectedPointerSizeResult)
+				{
+					PythonSDK = null;
+				}
+			}
+		}
+
+		if (PythonSDK == null)
+		{
+			PublicDefinitions.Add("WITH_PYTHON=0");
+			Console.WriteLine("Python SDK not found");
+		}
+		else
+		{
+			// If the Python install we're using is within the Engine directory, make the path relative so that it's portable
+			string EngineRelativePythonRoot = PythonSDK.PythonRoot;
+			if (EngineRelativePythonRoot.StartsWith(EngineDir))
+			{
+				// Strip the Engine directory and then combine the path with the placeholder to ensure the path is delimited correctly
+				EngineRelativePythonRoot = EngineRelativePythonRoot.Remove(0, EngineDir.Length);
+				foreach(string FileName in Directory.EnumerateFiles(PythonSDK.PythonRoot, "*", SearchOption.AllDirectories))
+				{
+					if(!FileName.EndsWith(".pyc", System.StringComparison.OrdinalIgnoreCase))
+					{
+						RuntimeDependencies.Add(FileName);
+					}
+				}
+				EngineRelativePythonRoot = Path.Combine("{ENGINE_DIR}", EngineRelativePythonRoot); // Can't use $(EngineDir) as the placeholder here as UBT is eating it
+			}
+
+			PublicDefinitions.Add("WITH_PYTHON=1");
+			PublicDefinitions.Add(string.Format("UE_PYTHON_DIR=\"{0}\"", EngineRelativePythonRoot.Replace('\\', '/')));
+
+			// Some versions of Python need this define set when building on MSVC
+			if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
+			{
+				PublicDefinitions.Add("HAVE_ROUND=1");
+			}
+
+			PublicSystemIncludePaths.AddRange(PythonSDK.PythonIncludePath);
+			if (Target.Platform == UnrealTargetPlatform.Mac)
+			{
+				// Mac doesn't understand PublicLibraryPaths
+				PublicAdditionalLibraries.Add(Path.Combine(PythonSDK.PythonLibPath, PythonSDK.PythonLibName));
+			}
+			else if (Target.Platform == UnrealTargetPlatform.Linux)
+			{
+				PublicAdditionalLibraries.Add(Path.Combine(PythonSDK.PythonLibPath, PythonSDK.PythonLibName));
+				RuntimeDependencies.Add("$(EngineDir)/Binaries/ThirdParty/Python/Linux/lib/libpython2.7.so.1.0");
+			}
+			else
+			{
+				PublicLibraryPaths.Add(PythonSDK.PythonLibPath);
+				PublicAdditionalLibraries.Add(PythonSDK.PythonLibName);
+			}
+		}
+	}
+
+	private string InvokePython(string InPythonRoot, string InPythonArgs)
+	{
+		ProcessStartInfo ProcStartInfo = new ProcessStartInfo();
+		ProcStartInfo.FileName = Path.Combine(InPythonRoot, "python");
+		ProcStartInfo.WorkingDirectory = InPythonRoot;
+		ProcStartInfo.Arguments = InPythonArgs;
+		ProcStartInfo.UseShellExecute = false;
+		ProcStartInfo.RedirectStandardOutput = true;
+
+		try
+		{
+			using (Process Proc = Process.Start(ProcStartInfo))
+			{
+				using (StreamReader StdOutReader = Proc.StandardOutput)
+				{
+					return StdOutReader.ReadToEnd();
+				}
+			}
+		}
+		catch
+		{
+			return null;
+		}
+	}
+
+	private PythonSDKPaths DiscoverPythonSDK(string InPythonRoot)
+	{
+		string PythonRoot = InPythonRoot;
+		string PythonIncludePath = null;
+		string PythonLibPath = null;
+		string PythonLibName = null;
 
 		// Work out the include path
 		if (PythonRoot != null)
@@ -131,91 +253,27 @@ public class Python : ModuleRules
 			}
 		}
 
-		// Make sure the Python install is the correct architecture
-		if (PythonRoot != null)
-		{
-			string ExpectedPointerSizeResult = Target.Platform == UnrealTargetPlatform.Win32 ? "4" : "8";
-
-			// Invoke Python to query the pointer size of the interpreter so we can work out whether it's 32-bit or 64-bit
-			// todo: We probably need to do this for all platforms, but right now it's only an issue on Windows
-			if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
-			{
-				string Result = InvokePython(PythonRoot, "-c \"import struct; print(struct.calcsize('P'))\"");
-				Result = Result != null ? Result.Replace("\r", "").Replace("\n", "") : null;
-				if (Result == null || Result != ExpectedPointerSizeResult)
-				{
-					PythonRoot = null;
-				}
-			}
-		}
-
-		if (PythonRoot == null)
-		{
-			PublicDefinitions.Add("WITH_PYTHON=0");
-		}
-		else
-		{
-			// If the Python install we're using is within the Engine directory, make the path relative so that it's portable
-			string EngineRelativePythonRoot = PythonRoot;
-			if (EngineRelativePythonRoot.StartsWith(EngineDir))
-			{
-				// Strip the Engine directory and then combine the path with the placeholder to ensure the path is delimited correctly
-				EngineRelativePythonRoot = EngineRelativePythonRoot.Remove(0, EngineDir.Length);
-				foreach(string FileName in Directory.EnumerateFiles(PythonRoot, "*", SearchOption.AllDirectories))
-				{
-					if(!FileName.EndsWith(".pyc", System.StringComparison.OrdinalIgnoreCase))
-					{
-						RuntimeDependencies.Add(FileName);
-					}
-				}
-				EngineRelativePythonRoot = Path.Combine("{ENGINE_DIR}", EngineRelativePythonRoot); // Can't use $(EngineDir) as the placeholder here as UBT is eating it
-			}
-
-			PublicDefinitions.Add("WITH_PYTHON=1");
-			PublicDefinitions.Add(string.Format("UE_PYTHON_DIR=\"{0}\"", EngineRelativePythonRoot.Replace('\\', '/')));
-
-			// Some versions of Python need this define set when building on MSVC
-			if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
-			{
-				PublicDefinitions.Add("HAVE_ROUND=1");
-			}
-
-			PublicSystemIncludePaths.Add(PythonIncludePath);
-			if (Target.Platform == UnrealTargetPlatform.Mac)
-			{
-				// Mac doesn't understand PublicLibraryPaths
-				PublicAdditionalLibraries.Add(Path.Combine(PythonLibPath, PythonLibName));
-			}
-			else
-			{
-				PublicLibraryPaths.Add(PythonLibPath);
-				PublicAdditionalLibraries.Add(PythonLibName);
-			}
-		}
+		return new PythonSDKPaths(PythonRoot, new List<string>() { PythonIncludePath }, PythonLibPath, PythonLibName);
 	}
 
-	private string InvokePython(string InPythonRoot, string InPythonArgs)
+	private class PythonSDKPaths
 	{
-		ProcessStartInfo ProcStartInfo = new ProcessStartInfo();
-		ProcStartInfo.FileName = Path.Combine(InPythonRoot, "python");
-		ProcStartInfo.WorkingDirectory = InPythonRoot;
-		ProcStartInfo.Arguments = InPythonArgs;
-		ProcStartInfo.UseShellExecute = false;
-		ProcStartInfo.RedirectStandardOutput = true;
+		public PythonSDKPaths(string InPythonRoot, List<string> InPythonIncludePath, string InPythonLibPath, string InPythonLibName)
+		{
+			PythonRoot = InPythonRoot;
+			PythonIncludePath = InPythonIncludePath;
+			PythonLibPath = InPythonLibPath;
+			PythonLibName = InPythonLibName;
+		}
 
-		try
+		public bool IsValid()
 		{
-			using (Process Proc = Process.Start(ProcStartInfo))
-			{
-				using (StreamReader StdOutReader = Proc.StandardOutput)
-				{
-					return StdOutReader.ReadToEnd();
-				}
-			}
+			return PythonRoot != null && Directory.Exists(PythonRoot);
 		}
-		catch
-		{
-			return null;
-		}
-	}
+
+		public string PythonRoot;
+		public List<string> PythonIncludePath;
+		public string PythonLibPath;
+		public string PythonLibName;
+	};
 }

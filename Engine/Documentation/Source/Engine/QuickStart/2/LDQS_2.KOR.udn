@@ -13,7 +13,7 @@ checkpoint: editorqs
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 단계](Engine/QuickStart/1 "%Engine/QuickStart/1:title%")
+		[이전 단계](Engine/QuickStart/1 "%Engine/QuickStart/1:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -32,7 +32,7 @@ checkpoint: editorqs
 
 ![](TableAndChairs.png)(w:720)
 
-뷰포트 안에서 레벨 구성 대부분의 작업이 이루어집니다. 예전 단계에서 선택한 템플릿 프로젝트에는 처음부터 작은 샘플 [레벨](Engine/Levels) 및 애셋이 포함되어 있습니다.
+뷰포트 안에서 레벨 구성 대부분의 작업이 이루어집니다. 이전 단계에서 선택한 템플릿 프로젝트에는 처음부터 작은 샘플 [레벨](Engine/Levels) 및 애셋이 포함되어 있습니다.
 이 작은 방을 기준점으로 해서, 언리얼 엔진 4 의 뷰포트 조작에 흔히 사용되는 방법을 사용하여 [뷰포트 카메라 조작법](Engine/UI/LevelEditor/Viewports/ViewportControls) 을 익히는 시간을 가져보도록 하겠습니다.
 
 

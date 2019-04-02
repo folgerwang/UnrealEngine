@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System.IO;
 
@@ -26,7 +26,8 @@ namespace UnrealBuildTool.Rules
 					"HeadMountedDisplay",
 					"ProceduralMeshComponent",
 					"InputDevice",
-                    "LuminRuntimeSettings"
+                    "LuminRuntimeSettings",
+					"AugmentedReality",
                 }
 			);
 
@@ -41,7 +42,6 @@ namespace UnrealBuildTool.Rules
 					"RHI",
 					"RenderCore",
 					"Renderer",
-					"ShaderCore",
 					"Slate",
 					"SlateCore",
 					"MLSDK",
@@ -51,7 +51,7 @@ namespace UnrealBuildTool.Rules
 					// Public headers of MagicLeapHelperVulkan are protected against Mac so this is fine here.
 					"MagicLeapHelperVulkan",
 					"LuminRuntimeSettings",
-					"MagicLeapSecureStorage"
+					"MagicLeapSecureStorage",
 				}
 			);
 

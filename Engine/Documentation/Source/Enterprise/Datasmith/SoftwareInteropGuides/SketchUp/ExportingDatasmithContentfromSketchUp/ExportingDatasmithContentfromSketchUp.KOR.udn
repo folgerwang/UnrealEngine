@@ -1,0 +1,36 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: SketchUp Pro 에서 데이터스미스 콘텐츠 익스포트
+Description: SketchUp Pro 씬을 언리얼 엔진으로 임포트할 수 있도록 데이터스미스 파일로 익스포트하는 법을 설명합니다.
+Type:how-to
+Version: 4.20
+Parent: Enterprise/Datasmith/SoftwareInteropGuides/SketchUp
+Order: 2
+SkillLevel:Beginner
+Tags: Enterprise
+Tags: how to
+Tags: Datasmith
+Tags: studio
+Tags: SketchUp
+
+
+![](datasmith-setup-export-skp.png)
+
+SketchUp 용 데이터스미스 익스포터 플러그인을 설치했으면, 씬을 익스포트할 때 *.UDATASMITH* 유형 파일이 생깁니다.
+
+SketchUp 에서 이 새 유형 파일을 사용하여 씬을 익스포트하는 방법은 다음과 같습니다.
+
+1.  SketchUp **File** 메뉴에서 **Export > 3D Model** 을 선택합니다.  
+    ![Export 3D Model](sketchup_export_menu.png "Export 3D Model")
+2.  **Export Model** 창의 **Save as type** 드롭다운 리스트에서 **Unreal Datasmith** 를 선택합니다.  
+    ![Set the folder, file name, and type](sketchup_export_model.png "Set the folder, file name, and type")
+3.  새 파일을 저장하려는 위치와 파일 이름을 설정하고 **Export** 를 클릭합니다.
+
+### 최종 결과
+
+이제 새로운 *.udatasmith* 파일을 언리얼 에디터로 임포트할 준비가 되었습니다. [](Enterprise/Datasmith/HowTo/ImportingContent) 문서를 참고하세요.
+
+[REGION:note]
+새로운 *.udatasmith* 파일과 함께, 똑같은 이름 뒤에 *_Assets* 가 붙은 폴더가 보일 것입니다. *.udatasmith* 파일을 새 위치로 옮길 때, 이 파일도 같은 위치로 옮겨야 합니다.
+[/REGION]

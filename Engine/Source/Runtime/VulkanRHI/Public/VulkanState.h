@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanState.h: Vulkan state definitions.
@@ -19,6 +19,7 @@ public:
 	virtual bool IsImmutable() const final override { return bIsImmutable; }
 
 	VkSampler Sampler;
+	uint32 SamplerId;
 
 	static void SetupSamplerCreateInfo(const FSamplerStateInitializerRHI& Initializer, FVulkanDevice& InDevice, VkSamplerCreateInfo& OutSamplerInfo);
 

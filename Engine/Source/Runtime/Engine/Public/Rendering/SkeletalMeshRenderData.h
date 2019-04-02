@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -42,7 +42,7 @@ public:
 	void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize);
 
 	/** Returns true if this resource must be skinned on the CPU for the given feature level. */
-	bool RequiresCPUSkinning(ERHIFeatureLevel::Type FeatureLevel) const;
+	ENGINE_API bool RequiresCPUSkinning(ERHIFeatureLevel::Type FeatureLevel) const;
 
 	/** Returns true if there are more than MAX_INFLUENCES_PER_STREAM influences per vertex. */
 	bool HasExtraBoneInfluences() const;

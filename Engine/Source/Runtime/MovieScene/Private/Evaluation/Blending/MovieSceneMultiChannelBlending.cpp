@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Evaluation/Blending/MovieSceneMultiChannelBlending.h"
 
@@ -9,3 +9,4 @@ template<> FMovieSceneAnimTypeID GetBlendingDataType<FVector>()		{ static FMovie
 template<> FMovieSceneAnimTypeID GetBlendingDataType<FVector4>()	{ static FMovieSceneAnimTypeID TypeID = FMovieSceneAnimTypeID::Unique(); return TypeID; }
 template<> FMovieSceneAnimTypeID GetBlendingDataType<FTransform>()	{ static FMovieSceneAnimTypeID TypeID = FMovieSceneAnimTypeID::Unique(); return TypeID; }
 template<> FMovieSceneAnimTypeID GetBlendingDataType<FEulerTransform>()	{ static FMovieSceneAnimTypeID TypeID = FMovieSceneAnimTypeID::Unique(); return TypeID; }
+template<> FMovieSceneAnimTypeID GetBlendingDataType<FLinearColor>()   { static FMovieSceneAnimTypeID TypeId = FMovieSceneAnimTypeID::Unique(); return TypeId; }

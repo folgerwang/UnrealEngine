@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Windows/WindowsPlatformFile.h"
 #include "CoreTypes.h"
@@ -23,6 +23,7 @@
 #include "Windows/AllowWindowsPlatformTypes.h"
 
 #include "WindowsAsyncIO.h"
+#include "Async/MappedFileHandle.h"
 
 TLockFreePointerListUnordered<void, PLATFORM_CACHE_LINE_SIZE> WindowsAsyncIOEventPool;
 bool GTriggerFailedWindowsRead = false;
@@ -442,6 +443,18 @@ public:
 		check(0 && "This is an async reader only and doesn't support writing");
 		return false;
 	}
+
+	virtual bool Flush(const bool bFullFlush = false) override
+	{
+		// Reader only, so don't need to support flushing
+		return false;
+	}
+
+	virtual bool Truncate(int64 NewSize) override
+	{
+		// Reader only, so don't need to support truncation
+		return false;
+	}
 };
 
 /** 
@@ -510,7 +523,6 @@ public:
 	{
 		check(IsValid());
 		check(NewPosition >= 0);
-		check(NewPosition <= FileSize);
 
 		FilePos = NewPosition;
 		UpdateOverlappedPos();
@@ -577,7 +589,113 @@ public:
 		FileSize = FMath::Max(FilePos, FileSize);
 		return true;
 	}
+	virtual bool Flush(const bool bFullFlush = false) override
+	{
+		check(IsValid());
+		return FlushFileBuffers(FileHandle) != 0;
+	}
+	virtual bool Truncate(int64 NewSize) override
+	{
+		check(IsValid());
+		return Seek(NewSize) && SetEndOfFile(FileHandle) != 0;
+	}
 };
+
+class FMappedFileRegionWindows final : public IMappedFileRegion
+{
+	class FMappedFileHandleWindows* Parent;
+	const uint8* AlignedMappedPtr;
+	size_t AlignedMappedSize;
+public:
+	FMappedFileRegionWindows(const uint8* InMappedPtr, const uint8* InAlignedMappedPtr, size_t InMappedSize, size_t InAlignedMappedSize, const FString& InDebugFilename, size_t InDebugOffsetRelativeToFile, class FMappedFileHandleWindows* InParent)
+		: IMappedFileRegion(InMappedPtr, InMappedSize, InDebugFilename, InDebugOffsetRelativeToFile)
+		, Parent(InParent)
+		, AlignedMappedPtr(InAlignedMappedPtr)
+		, AlignedMappedSize(InAlignedMappedSize)
+	{
+	}
+
+	~FMappedFileRegionWindows();
+
+	virtual void PreloadHint(int64 PreloadOffset = 0, int64 BytesToPreload = MAX_int64) override
+	{
+		// perhaps this could be done with a commit instead
+		int64 Size = GetMappedSize();
+		const uint8* Ptr = GetMappedPtr();
+		int32 FoolTheOptimizer = 0;
+		while (Size > 0)
+		{
+			FoolTheOptimizer += Ptr[0];
+			Size -= 4096;
+			Ptr += 4096;
+		}
+		if (FoolTheOptimizer == 0xbadf00d)
+		{
+			FPlatformProcess::Sleep(0.0f); // this will more or less never happen, but we can't let the optimizer strip these reads
+		}
+	}
+};
+
+class FMappedFileHandleWindows final : public IMappedFileHandle
+{
+	HANDLE Handle;
+	HANDLE MappingHandle;
+	FString DebugFilename;
+	int32 NumOutstandingRegions;
+public:
+	FMappedFileHandleWindows(HANDLE InHandle, HANDLE InMappingHandle, int64 Size, const TCHAR* InDebugFilename)
+		: IMappedFileHandle(Size)
+		, Handle(InHandle)
+		, MappingHandle(InMappingHandle)
+		, DebugFilename(InDebugFilename)
+		, NumOutstandingRegions(0)
+	{
+		check(Size >= 0);
+		check(Handle != INVALID_HANDLE_VALUE);
+	}
+	~FMappedFileHandleWindows()
+	{
+		check(!NumOutstandingRegions); // can't delete the file before you delete all outstanding regions
+		CloseHandle(MappingHandle);
+		CloseHandle(Handle);
+	}
+	virtual IMappedFileRegion* MapRegion(int64 Offset = 0, int64 BytesToMap = MAX_int64, bool bPreloadHint = false) override
+	{
+		check(Offset < GetFileSize()); // don't map zero bytes and don't map off the end of the file
+		BytesToMap = FMath::Min<int64>(BytesToMap, GetFileSize() - Offset);
+		check(BytesToMap > 0); // don't map zero bytes
+
+		DWORD OpenMappingAccess = FILE_MAP_READ;
+
+		int64 AlignedOffset = AlignDown(Offset, 65536);
+		int64 AlignedSize = Align(BytesToMap + Offset - AlignedOffset, 65536);
+
+		ULARGE_INTEGER LI;
+		LI.QuadPart = AlignedOffset;
+
+		const uint8* AlignedMapPtr = (const uint8*)MapViewOfFile(MappingHandle, FILE_MAP_READ, LI.HighPart, LI.LowPart, AlignedSize + AlignedOffset > GetFileSize() ? 0 : AlignedSize);
+		if (!AlignedMapPtr)
+		{
+			return nullptr;
+		}
+		const uint8* MapPtr = AlignedMapPtr + Offset - AlignedOffset;
+		FMappedFileRegionWindows* Result = new FMappedFileRegionWindows(MapPtr, AlignedMapPtr, BytesToMap, AlignedSize, DebugFilename, Offset, this);
+		NumOutstandingRegions++;
+		return Result;
+	}
+
+	void UnMap(FMappedFileRegionWindows* Region)
+	{
+		check(NumOutstandingRegions > 0);
+		NumOutstandingRegions--;
+	}
+};
+
+FMappedFileRegionWindows::~FMappedFileRegionWindows()
+{
+	UnmapViewOfFile((LPVOID)AlignedMappedPtr);
+	Parent->UnMap(this);
+}
 
 /**
  * Windows File I/O implementation
@@ -606,6 +724,10 @@ protected:
 		return FPaths::ConvertRelativePathToFull(Result);
 	}
 public:
+	//~ For visibility of overloads we don't override
+	using IPhysicalPlatformFile::IterateDirectory;
+	using IPhysicalPlatformFile::IterateDirectoryStat;
+
 	virtual bool FileExists(const TCHAR* Filename) override
 	{
 		uint32 Result = GetFileAttributesW(*NormalizeFilename(Filename));
@@ -785,7 +907,7 @@ public:
 
 	virtual IFileHandle* OpenWrite(const TCHAR* Filename, bool bAppend = false, bool bAllowRead = false) override
 	{
-		uint32  Access    = GENERIC_WRITE;
+		uint32  Access    = GENERIC_WRITE | (bAllowRead ? GENERIC_READ : 0);
 		uint32  WinFlags  = bAllowRead ? FILE_SHARE_READ : 0;
 		uint32  Create    = bAppend ? OPEN_ALWAYS : CREATE_ALWAYS;
 		HANDLE Handle    = CreateFileW(*NormalizeFilename(Filename), Access, WinFlags, NULL, Create, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -801,6 +923,30 @@ public:
 		return NULL;
 	}
 
+
+	virtual IMappedFileHandle* OpenMapped(const TCHAR* Filename) override
+	{
+		int64 Size = FileSize(Filename);
+		if (Size < 1)
+		{
+			return nullptr;
+		}
+		uint32  Access = GENERIC_READ;
+		uint32  WinFlags = FILE_SHARE_READ;
+		uint32  Create = OPEN_EXISTING;
+		HANDLE Handle = CreateFileW(*NormalizeFilename(Filename), Access, WinFlags, NULL, Create, FILE_ATTRIBUTE_NORMAL, NULL);
+		if (Handle == INVALID_HANDLE_VALUE)
+		{
+			return nullptr;
+		}
+		HANDLE MappingHandle = CreateFileMapping(Handle, NULL, PAGE_READONLY, 0, 0, NULL);
+		if (MappingHandle == INVALID_HANDLE_VALUE)
+		{
+			CloseHandle(Handle);
+			return nullptr;
+		}
+		return new FMappedFileHandleWindows(Handle, MappingHandle, Size, Filename);
+	}
 	virtual bool DirectoryExists(const TCHAR* Directory) override
 	{
 		// Empty Directory is the current directory so assume it always exists.

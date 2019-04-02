@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Widgets/SWidget.h"
 #include "Types/PaintArgs.h"
@@ -112,6 +112,7 @@ SWidget::SWidget()
 	, bNeedsDesiredSize(true)
 	, bUpdatingDesiredSize(false)
 	, Clipping(EWidgetClipping::Inherit)
+	, FlowDirectionPreference(EFlowDirectionPreference::Inherit)
 	, UpdateFlags(EWidgetUpdateFlags::NeedsTick)
 	, DesiredSize()
 	, PrepassLayoutScaleMultiplier(1.0f)
@@ -159,6 +160,7 @@ void SWidget::Construct(
 	const FName& InTag,
 	const bool InForceVolatile,
 	const EWidgetClipping InClipping,
+	const EFlowDirectionPreference InFlowPreference,
 	const TArray<TSharedRef<ISlateMetaData>>& InMetaData
 )
 {
@@ -187,12 +189,13 @@ void SWidget::Construct(
 	Tag = InTag;
 	bForceVolatile = InForceVolatile;
 	Clipping = InClipping;
+	FlowDirectionPreference = InFlowPreference;
 	MetaData = InMetaData;
 }
 
-void SWidget::SWidgetConstruct(const TAttribute<FText>& InToolTipText, const TSharedPtr<IToolTip>& InToolTip, const TAttribute< TOptional<EMouseCursor::Type> >& InCursor, const TAttribute<bool>& InEnabledState, const TAttribute<EVisibility>& InVisibility, const float InRenderOpacity, const TAttribute<TOptional<FSlateRenderTransform>>& InTransform, const TAttribute<FVector2D>& InTransformPivot, const FName& InTag, const bool InForceVolatile, const EWidgetClipping InClipping, const TArray<TSharedRef<ISlateMetaData>>& InMetaData)
+void SWidget::SWidgetConstruct(const TAttribute<FText>& InToolTipText, const TSharedPtr<IToolTip>& InToolTip, const TAttribute< TOptional<EMouseCursor::Type> >& InCursor, const TAttribute<bool>& InEnabledState, const TAttribute<EVisibility>& InVisibility, const float InRenderOpacity, const TAttribute<TOptional<FSlateRenderTransform>>& InTransform, const TAttribute<FVector2D>& InTransformPivot, const FName& InTag, const bool InForceVolatile, const EWidgetClipping InClipping, const EFlowDirectionPreference InFlowPreference, const TArray<TSharedRef<ISlateMetaData>>& InMetaData)
 {
-	Construct(InToolTipText, InToolTip, InCursor, InEnabledState, InVisibility, InRenderOpacity, InTransform, InTransformPivot, InTag, InForceVolatile, InClipping, InMetaData);
+	Construct(InToolTipText, InToolTip, InCursor, InEnabledState, InVisibility, InRenderOpacity, InTransform, InTransformPivot, InTag, InForceVolatile, InClipping, InFlowPreference, InMetaData);
 }
 
 FReply SWidget::OnFocusReceived(const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent)
@@ -266,7 +269,7 @@ FReply SWidget::OnPreviewMouseButtonDown( const FGeometry& MyGeometry, const FPo
 
 FReply SWidget::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
-	if ( FPointerEventHandler* Event = PointerEvents.Find(NAME_MouseButtonDown) )
+	if (const FPointerEventHandler* Event = GetPointerEvent(NAME_MouseButtonDown))
 	{
 		if ( Event->IsBound() )
 		{
@@ -278,7 +281,7 @@ FReply SWidget::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEve
 
 FReply SWidget::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
-	if ( FPointerEventHandler* Event = PointerEvents.Find(NAME_MouseButtonUp) )
+	if (const FPointerEventHandler* Event = GetPointerEvent(NAME_MouseButtonUp) )
 	{
 		if ( Event->IsBound() )
 		{
@@ -290,7 +293,7 @@ FReply SWidget::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent
 
 FReply SWidget::OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
-	if ( FPointerEventHandler* Event = PointerEvents.Find(NAME_MouseMove) )
+	if (const FPointerEventHandler* Event = GetPointerEvent(NAME_MouseMove) )
 	{
 		if ( Event->IsBound() )
 		{
@@ -302,7 +305,7 @@ FReply SWidget::OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& Mo
 
 FReply SWidget::OnMouseButtonDoubleClick(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
-	if ( FPointerEventHandler* Event = PointerEvents.Find(NAME_MouseDoubleClick) )
+	if ( const FPointerEventHandler* Event = GetPointerEvent(NAME_MouseDoubleClick) )
 	{
 		if ( Event->IsBound() )
 		{
@@ -548,7 +551,6 @@ FVector2D SWidget::GetDesiredSize() const
 	}
 }
 
-#if SLATE_PARENT_POINTERS
 
 void SWidget::AssignParentWidget(TSharedPtr<SWidget> InParent)
 {
@@ -587,7 +589,6 @@ bool SWidget::ConditionallyDetatchParentWidget(SWidget* InExpectedParent)
 	return false;
 }
 
-#endif
 
 void SWidget::LayoutChanged(EInvalidateWidget InvalidateReason)
 {
@@ -595,13 +596,11 @@ void SWidget::LayoutChanged(EInvalidateWidget InvalidateReason)
 	{
 		bNeedsDesiredSize = true;
 
-#if SLATE_PARENT_POINTERS
 		TSharedPtr<SWidget> ParentWidget = ParentWidgetPtr.Pin();
 		if (ParentWidget.IsValid())
 		{
 			ParentWidget->ChildLayoutChanged(InvalidateReason);
 		}
-#endif
 	}
 }
 
@@ -1033,6 +1032,11 @@ int32 SWidget::Paint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, 
 	FSlateDebugging::BeginWidgetPaint.Broadcast(this, UpdatedArgs, AllottedGeometry, CullingBounds, OutDrawElements, LayerId);
 #endif
 
+	// Establish the flow direction if we're changing from inherit.
+	// FOR RB mode, this should first set GSlateFlowDirection to the incoming state that was cached for the widget, then paint
+	// will override it here to reflow is needed.
+	TGuardValue<EFlowDirection> FlowGuard(GSlateFlowDirection, ComputeFlowDirection());
+	
 	// Paint the geometry of this widget.
 	int32 NewLayerID = OnPaint(UpdatedArgs, AllottedGeometry, CullingBounds, OutDrawElements, LayerId, ContentWidgetStyle, bParentEnabled);
 
@@ -1171,24 +1175,49 @@ void SWidget::ExecuteActiveTimers(double CurrentTime, float DeltaTime)
 	}
 }
 
+const FPointerEventHandler* SWidget::GetPointerEvent(const FName EventName) const
+{
+	auto* FoundPair = PointerEvents.FindByPredicate([&EventName](const auto& TestPair) {return TestPair.Key == EventName; });
+	if (FoundPair)
+	{
+		return &FoundPair->Value;
+	}
+	return nullptr;
+}
+
+void SWidget::SetPointerEvent(const FName EventName, FPointerEventHandler& InEvent)
+{
+	// Find the event name and if found, replace the delegate
+	auto* FoundPair = PointerEvents.FindByPredicate([&EventName](const auto& TestPair) {return TestPair.Key == EventName; });
+	if (FoundPair)
+	{
+		FoundPair->Value = InEvent;
+	}
+	else
+	{
+		PointerEvents.Emplace(EventName, InEvent);
+	}
+
+}
+
 void SWidget::SetOnMouseButtonDown(FPointerEventHandler EventHandler)
 {
-	PointerEvents.Add(NAME_MouseButtonDown, EventHandler);
+	SetPointerEvent(NAME_MouseButtonDown, EventHandler);
 }
 
 void SWidget::SetOnMouseButtonUp(FPointerEventHandler EventHandler)
 {
-	PointerEvents.Add(NAME_MouseButtonUp, EventHandler);
+	SetPointerEvent(NAME_MouseButtonUp, EventHandler);
 }
 
 void SWidget::SetOnMouseMove(FPointerEventHandler EventHandler)
 {
-	PointerEvents.Add(NAME_MouseMove, EventHandler);
+	SetPointerEvent(NAME_MouseMove, EventHandler);
 }
 
 void SWidget::SetOnMouseDoubleClick(FPointerEventHandler EventHandler)
 {
-	PointerEvents.Add(NAME_MouseDoubleClick, EventHandler);
+	SetPointerEvent(NAME_MouseDoubleClick, EventHandler);
 }
 
 void SWidget::SetOnMouseEnter(FNoReplyPointerEventHandler EventHandler)

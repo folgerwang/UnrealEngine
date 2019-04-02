@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "WmfMediaSession.h"
 
@@ -47,6 +47,7 @@ FWmfMediaSession::FWmfMediaSession()
 	: CanScrub(false)
 	, Capabilities(0)
 	, CurrentDuration(FTimespan::Zero())
+	, MediaSessionCloseEvent(nullptr)
 	, LastTime(FTimespan::Zero())
 	, PendingChanges(false)
 	, RefCount(0)
@@ -56,6 +57,8 @@ FWmfMediaSession::FWmfMediaSession()
 	, Status(EMediaStatus::None)
 {
 	UE_LOG(LogWmfMedia, Verbose, TEXT("Session %p: Created"), this);
+	MediaSessionCloseEvent = FPlatformProcess::GetSynchEventFromPool();
+	check(MediaSessionCloseEvent != nullptr);
 }
 
 
@@ -63,6 +66,9 @@ FWmfMediaSession::~FWmfMediaSession()
 {
 	check(RefCount == 0);
 	Shutdown();
+
+	FPlatformProcess::ReturnSynchEventToPool(MediaSessionCloseEvent);
+	MediaSessionCloseEvent = nullptr;
 
 	UE_LOG(LogWmfMedia, Verbose, TEXT("Session %p: Destroyed"), this);
 }
@@ -230,11 +236,32 @@ void FWmfMediaSession::Shutdown()
 
 	UE_LOG(LogWmfMedia, Verbose, TEXT("Session: %p: Shutting down"), this);
 
+	{
+		// Scope needed since MediaSession->Close() cannot be locked, see below.
+		FScopeLock Lock(&CriticalSection);
+		DiscardPendingChanges();
+	}
+
+	{
+		// We cannot have a lock here since we are waiting for an event which
+		// will call FWmfMediaSession::Invoke and would cause a deadlock
+
+		HRESULT hr = MediaSession->Close();
+		if (hr == S_OK)
+		{
+			// Wait for close event since Close is asynchronous
+			MediaSessionCloseEvent->Wait();
+
+			UE_LOG(LogWmfMedia, Verbose, TEXT("Session: %p: Close"));
+		}
+		else
+		{
+			UE_LOG(LogWmfMedia, Warning, TEXT("Session: %p: Unable to close"), this);
+		}
+	}
+
 	FScopeLock Lock(&CriticalSection);
 
-	DiscardPendingChanges();
-
-	MediaSession->Close();
 	MediaSession->Shutdown();
 	MediaSession.Reset();
 
@@ -547,6 +574,7 @@ STDMETHODIMP FWmfMediaSession::Invoke(IMFAsyncResult* AsyncResult)
 		break;
 
 	case MESessionClosed:
+		MediaSessionCloseEvent->Trigger();
 		Capabilities = 0;
 		LastTime = FTimespan::Zero();
 		break;
@@ -1139,6 +1167,13 @@ void FWmfMediaSession::UpdateCharacteristics()
 			SUCCEEDED(RateSupport->GetFastestRate(MFRATE_REVERSE, FALSE, &MaxRate)))
 		{
 			UnthinnedRates.Add(TRange<float>::Inclusive(MaxRate, MinRate));
+		}
+
+		// When native out is enabled, the slowest rate will be greater than 0.0f
+		bool SupportsUnthinnedPause = SUCCEEDED(RateSupport->IsRateSupported(FALSE, 0.0f, NULL));
+		if (SupportsUnthinnedPause && !ThinnedRates.Contains(0.0f) && !UnthinnedRates.Contains(0.0f))
+		{
+			UnthinnedRates.Add(TRange<float>::Inclusive(0.0f, 0.0f));
 		}
 	}
 }

@@ -14,7 +14,20 @@
 	"CanContainContent" : false,
 	"IsBetaVersion" : true,
 	"Installed" : false,
+	"SupportedTargetPlatforms": [
+		"Win32",
+		"Win64"
+	],
 	"Modules": [
+		{
+			"Name": "WindowsMixedRealityRuntimeSettings",
+			"Type": "Runtime",
+			"LoadingPhase": "PostConfigInit",
+			"WhitelistPlatforms": [
+				"Win32",
+				"Win64"
+			]
+		},
 		{
 			"Name": "WindowsMixedRealityHMD",
 			"Type": "Runtime",
@@ -32,6 +45,15 @@
 				"Win32",
 				"Win64"
 			]
-		}
+		},
+		{
+			"Name" : "WindowsMixedRealityPlatformEditor",
+			"Type" : "Editor",
+			"LoadingPhase" : "PostEngineInit",
+			"WhitelistPlatforms": [
+				"Win32",
+				"Win64"
+			]
+		},
 	]
 }

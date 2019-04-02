@@ -1,50 +1,13 @@
-﻿INTSourceChangelist:2719359
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title: 在编辑器中进行测试(运行&模拟)
 Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor
 Description: Description: 关于直接在编辑器中测试关卡及游戏性的指南。
 Version: 4.9
+topic-image:InEditorTesting_Topic.png
 
 [TOC(start:2 end:2)]
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](InEditorTesting_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		在编辑器中测试
-	[/PARAM]
-	[PARAM:description]
-		本文介绍了如何在编辑器中进行测试以及如何在视口中直接运行及模拟游戏。
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UI/LevelEditor/InEditorTesting]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](InEditorTesting_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		在编辑器中测试
-	[/PARAM]
-	[PARAM:description]
-		本文介绍了如何在编辑器中进行测试以及如何在视口中直接运行及模拟游戏。
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UI/LevelEditor/InEditorTesting]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [EXCERPT:overview]
 虚幻编辑器允许在关卡中任何地方生成玩家,且可以立即从编辑器中预览游戏，不必等待保存文件。有两种可用的预览模式： **Play In Editor（在编辑器中运行）** (PIE) 功能可以通过位于主工具条上的 **Play（运行）** 按钮直接访问，
@@ -60,6 +23,7 @@ Version: 4.9
 在您结束测试会话后将仍然处于选中状态。这意味着即时您开始在关卡中很远的地方玩游戏了，但是 **详细信息** 面板将仍然显示
 选中的Actor的属性，由于您想改变它的外观或行为。
 
+(#Toolbar)
 ## 工具栏
 
 您可以通过使用适当的 **工具条** 按钮或下拉菜单从 **关卡编辑器** 或 **蓝图编辑器** 中启动 _Simulate In Editor（在编辑器中模拟）_ 或 _Play In Editor（在编辑器中运行）_ 会话。 
@@ -83,23 +47,54 @@ Version: 4.9
 ![](SIE_toolbar.png)
 
 
+(#PlayInEditor)
 ## 在编辑器中运行
 
 在工具条上点击 **Play(运行)** 按钮 (默认按键绑定 **Alt + P** ) 或者在 **视口** 关联菜单中选择  **Play From Here（从这里运行）** 来启动  _Play In Editor（在编辑器中运行）_ 会话。
 _Play In Editor（在编辑器中运行）_ 功能允许您直接从编辑器中运行当前关卡，以便您可以测试游戏功能，包括玩家控制及由玩家动作触发的关卡事件。
 
+(#Modes)
 ### 模式
 使用不同的模式启动游戏预览将会修改使用 **Play（运行）** 按钮激活的默认 "运行" 模式。
 
+(#DisplayTypes)
 #### 显示类型
 
 $ Viewport（视口） : 游戏将显示在激活的关卡编辑器视口中。
 
 	**点击以查看完整尺寸图片:**
 
+	[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
 	[REGION:lightbox]
-	[![](PIE_viewport.png)(w:300)](PIE_viewport.png)
-	[/REGION:lightbox]
+	[![](PIEViewport_Windows.png)(w:500)](PIEViewport_Windows.png)
+	[/REGION]
+	[/PARAM]
+	[/OBJECT]
+
+	[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](PIEViewport_Mac.png)(w:500)](PIEViewport_Mac.png)
+	[/REGION]
+	[/PARAM]
+	[/OBJECT]
 	
 	这是唯一允许通过使用 **Possess（拥有）** 和 **Eject（弹出）** 按钮在 _Play In Editor（在编辑器中运行）_ 和 _Simulate in Editor（在编辑器中模拟）_ 间切换的显示类型。 在 **Viewport（视口）** 模式中，您也可以使用 **Pause（暂停）** 和 **Stop（停止）** 按钮来中断游戏。
 
@@ -124,9 +119,38 @@ $ New Window（新窗口） : 游戏将会显示在新窗口中。要想改变�
 
 	**点击以查看完整尺寸图片:**
 
+	[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
 	[REGION:lightbox]
-	[![](PIE_newwindow.png)(w:300)](PIE_newwindow.png)
-	[/REGION:lightbox]
+	[![](NewWindow_Windows.png)(w:500)](NewWindow_Windows.png)
+	[/REGION]
+	[/PARAM]
+	[/OBJECT]
+
+	[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](NewWindows_Mac.png)(w:500)](NewWindows_Mac.png)
+	[/REGION]
+	[/PARAM]
+	[/OBJECT]
+	
 	
 	当在一个新窗口中播放游戏预览时，您不能切换到  _Simulate In Editor（在编辑器中模拟）_ 会话。   然而，您仍然可以使用工具条按钮来暂停及停止游戏。
 
@@ -138,9 +162,37 @@ $ Standalone Game（独立游戏） : 游戏将会显示在以其自己的进程
 
 	**点击以查看完整尺寸图片:**
 
+	[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
 	[REGION:lightbox]
-	[![](PIE_standalone.png)(w:300)](PIE_standalone.png)
-	[/REGION:lightbox]
+	[![](Standalone_Windows.png)(w:500)](Standalone_Windows.png)
+	[/REGION]
+	[/PARAM]
+	[/OBJECT]
+
+	[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](Standalone_Mac.png)(w:500)](Standalone_Mac.png)
+	[/REGION]
+	[/PARAM]
+	[/OBJECT]
 
 	由于这种显示类型使得游戏以其自己的的进程运行，所以您不能暂停或停止该游戏。您也不能切换到 _Simulate In Editor（在编辑器中模拟）_ 会话。  因此，当您运行独立游戏预览时，工具条按钮不会改变。
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -90,7 +90,6 @@
 #include "Delegates/DelegateSettings.h"
 #include "Delegates/Delegate.h"
 #include "UObject/WeakObjectPtrTemplates.h"
-#include "UObject/AutoPointer.h"
 #include "Delegates/MulticastDelegateBase.h"
 #include "Delegates/DelegateBase.h"
 #include "Delegates/IntegerSequence.h"
@@ -164,7 +163,6 @@
 #include "Math/IntRect.h"
 #include "Misc/MemStack.h"
 #include "Containers/LockFreeFixedSizeAllocator.h"
-#include "GenericPlatform/GenericPlatformCompression.h"
 #include "Modules/ModuleInterface.h"
 #include "Templates/RefCounting.h"
 #include "Async/AsyncWork.h"

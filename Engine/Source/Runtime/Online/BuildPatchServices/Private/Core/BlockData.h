@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "Containers/Array.h"
@@ -76,7 +76,7 @@ namespace BuildPatchServices
 				uint64 FirstByte = 0;
 				while (Block != nullptr)
 				{
-					BlocksToCopy.Add(FBlockToCopy{Block->GetOffset(), FBlockRange(FirstByte, Block->GetSize()), Data.GetData()});
+					BlocksToCopy.Add(FBlockToCopy{Block->GetOffset(), FBlockRange::FromFirstAndSize(FirstByte, Block->GetSize()), Data.GetData()});
 					FirstByte += Block->GetSize();
 					Block = Block->GetNext();
 				}
@@ -84,7 +84,7 @@ namespace BuildPatchServices
 				FirstByte = 0;
 				while (Block != nullptr)
 				{
-					BlocksToCopy.Add(FBlockToCopy{Block->GetOffset(), FBlockRange(FirstByte, Block->GetSize()), NewData});
+					BlocksToCopy.Add(FBlockToCopy{Block->GetOffset(), FBlockRange::FromFirstAndSize(FirstByte, Block->GetSize()), NewData});
 					FirstByte += Block->GetSize();
 					Block = Block->GetNext();
 				}

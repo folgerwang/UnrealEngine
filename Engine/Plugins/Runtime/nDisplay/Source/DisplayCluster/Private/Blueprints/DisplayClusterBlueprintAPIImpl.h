@@ -1,10 +1,12 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Blueprints/IDisplayClusterBlueprintAPI.h"
 #include "DisplayClusterBlueprintAPIImpl.generated.h"
+
+struct FDisplayClusterClusterEvent;
 
 
 /**
@@ -51,6 +53,17 @@ public:
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Get nodes amount"), Category = "DisplayCluster|Cluster")
 	virtual int32 GetNodesAmount() override;
 
+	/** Returns amount of nodes in cluster. */
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Add cluster event listener"), Category = "DisplayCluster|Cluster")
+	virtual void AddClusterEventListener(TScriptInterface<IDisplayClusterClusterEventListener> Listener) override;
+
+	/** Returns amount of nodes in cluster. */
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Remove cluster event listener"), Category = "DisplayCluster|Cluster")
+	virtual void RemoveClusterEventListener(TScriptInterface<IDisplayClusterClusterEventListener> Listener) override;
+
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Emit cluster event"), Category = "DisplayCluster|Cluster")
+	virtual void EmitClusterEvent(const FDisplayClusterClusterEvent& Event, bool MasterOnly) override;
+
 public:
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	// Config API
@@ -66,8 +79,8 @@ public:
 	virtual ADisplayClusterPawn* GetRoot() override;
 
 	// Screens
-	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Get active screen"), Category = "DisplayCluster|Game")
-	virtual UDisplayClusterScreenComponent* GetActiveScreen() override;
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Get active screens"), Category = "DisplayCluster|Game")
+	virtual TArray<UDisplayClusterScreenComponent*> GetActiveScreens() override;
 
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Get screen by ID"), Category = "DisplayCluster|Game")
 	virtual UDisplayClusterScreenComponent* GetScreenById(const FString& id) override;

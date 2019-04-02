@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -58,7 +58,7 @@ struct FLiveLinkInterpolationSettings
 
 #if WITH_EDITORONLY_DATA
 	// Unused
-	//DEPRECATED(4.21, "Please use ULiveLinkSourceSettings::Mode to specify how the source will behave.")
+	//UE_DEPRECATED(4.21, "Please use ULiveLinkSourceSettings::Mode to specify how the source will behave.")
 	UPROPERTY()
 	bool bUseInterpolation_DEPRECATED;
 #endif

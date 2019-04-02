@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -23,7 +23,7 @@ public:
 	static TSharedRef<FHTML5Window> Make();
 
 	
-	virtual void* GetOSWindowHandle() const override { return NULL; } //can be null.
+	virtual void* GetOSWindowHandle() const override { return (void*)"HTML5Window.h"; } // can NOT be NULL
 
 	void Initialize( class FHTML5Application* const Application, const TSharedRef< FGenericWindowDefinition >& InDefinition, const TSharedPtr< FHTML5Window >& InParent, const bool bShowImmediately );
 

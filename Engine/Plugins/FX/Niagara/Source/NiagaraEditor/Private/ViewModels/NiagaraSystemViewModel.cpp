@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ViewModels/NiagaraSystemViewModel.h"
 #include "NiagaraSystem.h"
@@ -983,7 +983,9 @@ void FNiagaraSystemViewModel::ReInitializeSystemInstances()
 {
 	if (Sequencer.IsValid() && Sequencer->GetPlaybackStatus() == EMovieScenePlayerStatus::Playing)
 	{
+		Sequencer->SetPlaybackStatus(EMovieScenePlayerStatus::Stopped);
 		Sequencer->SetGlobalTime(0);
+		Sequencer->SetPlaybackStatus(EMovieScenePlayerStatus::Playing);
 	}
 
 	for (TObjectIterator<UNiagaraComponent> ComponentIt; ComponentIt; ++ComponentIt)

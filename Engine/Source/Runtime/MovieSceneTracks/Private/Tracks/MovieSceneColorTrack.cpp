@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieSceneColorTrack.h"
 #include "MovieSceneCommonHelpers.h"
@@ -11,6 +11,10 @@ UMovieSceneColorTrack::UMovieSceneColorTrack( const FObjectInitializer& ObjectIn
 	SupportedBlendTypes = FMovieSceneBlendTypeField::All();
 }
 
+bool UMovieSceneColorTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneColorSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneColorTrack::CreateNewSection()
 {

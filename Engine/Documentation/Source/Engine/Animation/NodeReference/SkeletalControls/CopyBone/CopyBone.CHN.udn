@@ -1,51 +1,19 @@
-﻿INTSourceChangelist:3020428
+﻿INTSourceChangelist:4426943
 Availability:Public
-Title:复制骨骼（Copy Bone）
+Title:复制骨骼
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
-Description:对 Copy Bone 节点进行说明，此节点可将转换数据或任意骨骼组件从一块骨骼复制到另一块骨骼。 
-version:4.12
+Description:描述将变形（Transform）数据或其任何组件从一个骨骼复制到另一个骨骼的复制骨骼（Copy Bone）节点。 
+version: 4.12
+topic-image:node_copybone.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Animation\NodeReference\SkeletalControls\CopyBone:title%](Engine\Animation\NodeReference\SkeletalControls\CopyBone\node_copybone.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\NodeReference\SkeletalControls\CopyBone:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\NodeReference\SkeletalControls\CopyBone]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\NodeReference\SkeletalControls\CopyBone:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Animation\NodeReference\SkeletalControls\CopyBone:title%](Engine\Animation\NodeReference\SkeletalControls\CopyBone\node_copybone.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\NodeReference\SkeletalControls\CopyBone:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\NodeReference\SkeletalControls\CopyBone]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\NodeReference\SkeletalControls\CopyBone:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-
-**Copy Bone** 控制器可将转换数据或任意骨骼组件（平移、旋转、和/或缩放）从一块骨骼复制到另一块骨骼。
+ **复制骨骼（Copy Bone）** 功能按钮将变形（Transform）数据或其任何组件 - 平移（Translation）、旋转（Rotation）和/或 
+缩放（Scale）- 从一个骨骼复制到另一个骨骼。
 
 ![](node_copybone.png)
 
-下例中，我们使用 [](Engine\Animation\NodeReference\SkeletalControls\ApplyPercentRotation) 节点来驱动角色左侧的其中一个小包。然后使用 **Copy Bone** 获得此包的旋转，并将其应用到另一个包上，使两个包拥有一致的旋转和运动方式。角色左侧的包未应用骨骼控制器，因此它们为静态，不会像角色左边的包一样进行运动。 
+下面，我们使用[](Engine\Animation\NodeReference\SkeletalControls\ApplyPercentRotation)节点驱动角色左侧的一个小包。 
+然后我们使用 **复制骨骼（Copy Bone）** 节点从该包上获取旋转，将其应用到第二个包，使两个包以相同的方式旋转和移动。 
+角色右侧的包上未应用骨架功能按钮（Skeletal Control），因此它们看上去是静态的，不会像角色左侧包那样产生运动。 
 
 [OBJECT:EmbeddedVideo]
 [PARAMLITERAL:width]
@@ -59,19 +27,22 @@ uJUDfCo24ws
 [/PARAMLITERAL]
 [/OBJECT]
 
-**Copy Bone** 骨骼控制器从一块骨骼获取指定的转换，并将其复制到另一块骨骼。选择转换的复选框时请多加留意。例如进行位置复制时，目标骨骼将移动至指定源骨骼的位置。  
+ **复制骨骼（Copy Bone）** 骨架功能按钮获取一个骨骼中的指定变形（Transform），并将其复制到另一个骨骼。 
+选择变形（Transform）的复选框时要注意。例如，如果启用复制位置（Location），目标骨骼（Target Bone）将移至指定源骨骼（Source Bone）的位置（Location）。  
 
-
-| 属性 | 描述 |
+| 属性 | 说明 |
 | -------- | ----------- |
-| [REGION:tablesection]**复制**[/REGION] ||
-| **Target Bone** | 转换复制目标骨骼的名称。|
-| **Source Bone** | 获取转换源骨骼的名称。|
+| [REGION:tablesection]**复制（Copy）**[/REGION] ||
+| **目标骨骼（Target Bone）** | 变形（Transform）要复制到的目标骨骼的名称。|
+| **源骨骼（Source Bone）** | 要从中获取变形（Transform）的源骨骼的名称。|
 
-| 引脚 | 描述 |
+| 引脚 | 说明 |
 | --- | ----------- |
-| [REGION:tablesection]**输入引脚**[/REGION] ||
-| **Copy Translation** | 一个布尔型，指定是否复制源骨骼转换的平移组件。|
-| **Copy Rotation** | 一个布尔型，指定是否复制源骨骼转换的旋转组件。|
-| **Copy Scale** | 一个布尔型，指定是否复制源骨骼转换的缩放组件。|
+| [REGION:tablesection]**输入引脚（Input Pins）**[/REGION] ||
+| **复制平移（Copy Translation）** | 一个布尔值，指定是否复制源骨骼的变形（Transform）的平移（Translation）组件。|
+| **复制旋转（Copy Rotation）** | 一个布尔值，指定是否复制源骨骼的变形（Transform）的旋转（Rotation）组件。|
+| **复制缩放（Copy Scale）** | 一个布尔值，指定是否复制源骨骼的变形（Transform）的缩放（Scale）组件。|
 
+ **复制骨骼（Copy Bone）** 节点还受4.11中介绍的 **LOD阈值（LOD Threshold）** 系统的影响。您可以在 **复制骨骼（Copy Bone）** 节点的 **详细信息面板（Details Panel）** 中找到相关设置。
+
+[INCLUDE:Engine/Animation/NodeReference/SkeletalControls#lodthresh]

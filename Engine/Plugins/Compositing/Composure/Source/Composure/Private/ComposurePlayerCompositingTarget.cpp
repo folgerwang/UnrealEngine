@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ComposurePlayerCompositingTarget.h"
 #include "ComposurePlayerCompositingCameraModifier.h"
@@ -12,7 +12,6 @@
 
 #include "ComposureUtils.h"
 #include "ComposureInternals.h"
-
 
 UComposurePlayerCompositingCameraModifier::UComposurePlayerCompositingCameraModifier(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -120,3 +119,93 @@ void UComposurePlayerCompositingTarget::OverrideBlendableSettings(class FSceneVi
 	// Setup the post process material that dump the render target.
 	ReplaceTonemapperMID->OverrideBlendableSettings(View, Weight);
 }
+
+/* UComposureCompositingTargetComponent
+ *****************************************************************************/
+
+#if WITH_EDITOR
+#include "Camera/CameraTypes.h" // for FMinimalViewInfo
+#include "Engine/World.h"
+#include "EditorSupport/ICompositingEditor.h"
+#include "Engine/Blueprint.h"
+#endif
+
+UComposureCompositingTargetComponent::UComposureCompositingTargetComponent(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	bAutoActivate = true;
+
+#if WITH_EDITOR
+	COMPOSURE_GET_TEXTURE(Texture, CompilerErrImage, "Debug/", "T_CompilerError");
+#endif
+}
+
+void UComposureCompositingTargetComponent::SetDisplayTexture(UTexture* InDisplayTexture)
+{
+	DisplayTexture = InDisplayTexture;
+}
+
+#if WITH_EDITOR
+bool UComposureCompositingTargetComponent::IsPreviewing() const
+{
+	ensure(PreviewCount >= 0);
+	return PreviewCount > 0;
+}
+
+bool UComposureCompositingTargetComponent::GetEditorPreviewInfo(float /*DeltaTime*/, FMinimalViewInfo& ViewOut)
+{
+	if (DisplayTexture != nullptr)
+	{
+		ViewOut.AspectRatio = DisplayTexture->GetSurfaceWidth() / DisplayTexture->GetSurfaceHeight();
+	}
+	ViewOut.bConstrainAspectRatio = true;
+
+	return true;
+}
+
+TSharedPtr<SWidget> UComposureCompositingTargetComponent::GetCustomEditorPreviewWidget()
+{
+	TSharedPtr<SWidget> PreviewWidget;
+	if (ICompositingEditor* CompositingEditor = ICompositingEditor::Get())
+	{
+		PreviewWidget = CompositingEditor->ConstructCompositingPreviewPane(TWeakUIntrfacePtr<ICompEditorImagePreviewInterface>(this));
+	}
+	return PreviewWidget;
+}
+
+void UComposureCompositingTargetComponent::OnBeginPreview()
+{
+	++PreviewCount;
+}
+
+UTexture* UComposureCompositingTargetComponent::GetEditorPreviewImage()
+{
+	UTexture* PreviewImage = DisplayTexture; 
+
+	bool bActorHasCompileError = false;
+	if (AActor* MyOwner = GetOwner())
+	{
+		UClass* ActorClass = MyOwner->GetClass();
+		if (ActorClass && ActorClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint))
+		{
+			if (UBlueprint* Blueprint = Cast<UBlueprint>(ActorClass->ClassGeneratedBy))
+			{
+				if ((bHasCompilerError && Blueprint->Status == EBlueprintStatus::BS_Dirty) || 
+					(Blueprint->Status == EBlueprintStatus::BS_Error || Blueprint->Status == EBlueprintStatus::BS_Unknown))
+				{
+					PreviewImage = CompilerErrImage;
+					bActorHasCompileError = true;
+				}
+			}
+		}
+	}
+	bHasCompilerError = bActorHasCompileError;
+
+	return PreviewImage;
+}
+
+void UComposureCompositingTargetComponent::OnEndPreview()
+{
+	--PreviewCount;
+}
+#endif // WITH_EDITOR

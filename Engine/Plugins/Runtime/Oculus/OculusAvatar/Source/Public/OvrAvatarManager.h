@@ -1,8 +1,13 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
 #pragma once
+
 #include "Containers/Ticker.h"
 #include "OVR_Avatar.h"
 #include "Containers/Map.h"
 #include "Containers/Queue.h"
+#include "UObject/WeakObjectPtr.h"
+#include "UObject/WeakObjectPtrTemplates.h"
 #include "Engine/Texture2D.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAvatars, Log, All);
@@ -33,7 +38,7 @@ public:
 	float GetSDKPacketDuration(ovrAvatarPacket* packet);
 	void FreeSDKPacket(ovrAvatarPacket* packet);
 
-	bool IsOVRPluginValid() const { return OVRPluginHandle != nullptr; }
+	bool IsOVRPluginValid() const;
 	
 	void SetSDKLoggingLevel(ovrAvatarLogLevel level) { ovrAvatar_SetLoggingLevel(level); }
 private:
@@ -49,8 +54,8 @@ private:
 
 	bool IsInitialized = false;
 
-	TMap<uint64_t, TWeakObjectPtr<UTexture>> Textures;
-	TSet<uint64_t> NormalMapIDs;
+	TMap<uint64, TWeakObjectPtr<UTexture>> Textures;
+	TSet<uint64> NormalMapIDs;
 
 	static FOvrAvatarManager* sAvatarManager;
 	const char* AVATAR_APP_ID = nullptr;
@@ -70,6 +75,7 @@ private:
 	TMap<FString, AvatarPacketQueue*> AvatarPacketQueues;
 	
 	void* OVRPluginHandle = nullptr;
+	void* OVRAvatarHandle = nullptr;
 
 	ovrAvatarLogLevel LogLevel = ovrAvatarLogLevel::ovrAvatarLogLevel_Silent;
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "HAL/FileManager.h"
@@ -92,7 +92,7 @@ public:
 			// amortize UBT cost by calling it once for all platforms, rather than once per platform.
 			if (FParse::Param(FCommandLine::Get(), TEXT("Multiprocess"))==false)
 			{
-				FString UBTParams(TEXT("-autosdkonly"));
+				FString UBTParams(TEXT("-Mode=SetupPlatforms"));
 				int32 UBTReturnCode = -1;
 				FString UBTOutput;
 				if (!FDesktopPlatformModule::Get()->InvokeUnrealBuildToolSync(UBTParams, *GLog, true, UBTReturnCode, UBTOutput))
@@ -669,7 +669,7 @@ protected:
 RETRY_SETUPANDVALIDATE:
 					if (SetupAndValidateAutoSDK(Platform->GetPlatformInfo().AutoSDKPath))
 					{
-						UE_LOG(LogTemp, Display, TEXT("Loaded TP %s"), *Modules[Index].ToString());
+						UE_LOG(LogTemp, Display, TEXT("Module '%s' loaded TargetPlatform '%s'"), *Modules[Index].ToString(), *Platform->PlatformName());
 						Platforms.Add(Platform);
 					}
 					else
@@ -685,7 +685,7 @@ RETRY_SETUPANDVALIDATE:
 								goto RETRY_SETUPANDVALIDATE;
 							}
 						}
-						UE_LOG(LogTemp, Display, TEXT("Failed to SetupAndValidateAutoSDK for platform %s"), *Modules[Index].ToString());
+						UE_LOG(LogTemp, Display, TEXT("Module '%s' failed to SetupAndValidateAutoSDK for platform '%s'"), *Modules[Index].ToString(), *Platform->PlatformName());
 					}
 				}
 			}
@@ -933,18 +933,18 @@ RETRY_SETUPANDVALIDATE:
 		{
 			CmdExe = TEXT("/bin/sh");
 			FString ScriptPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Build/BatchFiles/Mac/RunMono.sh"));
-			CommandLine = TEXT("\"") + ScriptPath + TEXT("\" \"") + FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/UnrealBuildTool.exe")) + TEXT("\" -validateplatform");
+			CommandLine = TEXT("\"") + ScriptPath + TEXT("\" \"") + FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/UnrealBuildTool.exe")) + TEXT("\" -Mode=ValidatePlatforms");
 		}
 		else if (PLATFORM_WINDOWS)
 		{
 			CmdExe = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/UnrealBuildTool.exe"));
-			CommandLine = TEXT("-validateplatform");
+			CommandLine = TEXT("-Mode=ValidatePlatforms");
 		}
 		else if (PLATFORM_LINUX)
 		{
 			CmdExe = TEXT("/bin/bash");	// bash and not sh because of pushd
 			FString ScriptPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Build/BatchFiles/Linux/RunMono.sh"));
-			CommandLine = TEXT("\"") + ScriptPath + TEXT("\" \"") + FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/UnrealBuildTool.exe")) + TEXT("\" -validateplatform");
+			CommandLine = TEXT("\"") + ScriptPath + TEXT("\" \"") + FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/UnrealBuildTool.exe")) + TEXT("\" -Mode=ValidatePlatforms");
 		}
 		else
 		{

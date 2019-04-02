@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VolumeLighting.h
@@ -96,7 +96,7 @@ public:
 			SetShaderValue(RHICmdList, ShaderRHI, DepthBiasParameters, FVector2D(ShadowMap->GetShaderDepthBias(), 1.0f / (ShadowMap->MaxSubjectZ - ShadowMap->MinSubjectZ)));
 
 			FTextureRHIParamRef ShadowDepthTextureResource = nullptr;
-			if (LightType == LightType_Point)
+			if (LightType == LightType_Point || LightType == LightType_Rect)
 			{
 				if (GBlackTexture && GBlackTexture->TextureRHI)
 				{
@@ -118,7 +118,7 @@ public:
 				);
 		}
 
-		OnePassShadowParameters.Set(RHICmdList, ShaderRHI, bDynamicallyShadowed && LightType == LightType_Point ? ShadowMap : NULL);
+		OnePassShadowParameters.Set(RHICmdList, ShaderRHI, bDynamicallyShadowed && (LightType == LightType_Point || LightType == LightType_Rect)? ShadowMap : NULL);
 
 		const FStaticShadowDepthMap* StaticShadowDepthMap = LightSceneInfo->Proxy->GetStaticShadowDepthMap();
 		const uint32 bStaticallyShadowedValue = LightSceneInfo->IsPrecomputedLightingValid() && StaticShadowDepthMap && StaticShadowDepthMap->Data && StaticShadowDepthMap->TextureRHI ? 1 : 0;

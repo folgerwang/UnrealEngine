@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "TouchpadGesturesComponent.h"
 #include "IMagicLeapControllerPlugin.h"
@@ -12,19 +12,25 @@ UTouchpadGesturesComponent::UTouchpadGesturesComponent()
 	PrimaryComponentTick.TickGroup = TG_PrePhysics;
 	bAutoActivate = true;
 
-	TSharedPtr<FMagicLeapController> controller = StaticCastSharedPtr<FMagicLeapController>(IMagicLeapControllerPlugin::Get().GetInputDevice());
-	if (controller.IsValid())
+	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		controller->RegisterTouchpadGestureReceiver(this);
-	}	
+		TSharedPtr<FMagicLeapController> controller = StaticCastSharedPtr<FMagicLeapController>(IMagicLeapControllerPlugin::Get().GetInputDevice());
+		if (controller.IsValid())
+		{
+			controller->RegisterTouchpadGestureReceiver(this);
+		}
+	}
 }
 
 UTouchpadGesturesComponent::~UTouchpadGesturesComponent()
 {
-	TSharedPtr<FMagicLeapController> controller = StaticCastSharedPtr<FMagicLeapController>(IMagicLeapControllerPlugin::Get().GetInputDevice());
-	if (controller.IsValid())
+	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		controller->UnregisterTouchpadGestureReceiver(this);
+		TSharedPtr<FMagicLeapController> controller = StaticCastSharedPtr<FMagicLeapController>(IMagicLeapControllerPlugin::Get().GetInputDevice());
+		if (controller.IsValid())
+		{
+			controller->UnregisterTouchpadGestureReceiver(this);
+		}
 	}
 }
 

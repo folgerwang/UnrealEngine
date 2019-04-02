@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Slate/UMGDragDropOp.h"
 #include "Application/SlateApplicationBase.h"
@@ -39,9 +39,9 @@ bool FUMGDragDropOp::AffectedByPointerEvent(const FPointerEvent& PointerEvent)
 
 void FUMGDragDropOp::OnDrop( bool bDropWasHandled, const FPointerEvent& MouseEvent )
 {
-	if (AffectedByPointerEvent(MouseEvent))
+	if ( DragOperation )
 	{
-		if ( bDropWasHandled )
+		if ( bDropWasHandled && MouseEvent.GetPointerIndex() == PointerIndex )
 		{
 			DragOperation->Drop(MouseEvent);
 		}

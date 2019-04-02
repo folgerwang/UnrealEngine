@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AndroidFile.cpp: Android platform implementations of File functions
@@ -349,16 +349,30 @@ public:
 		return bSuccess;
 	}
 
-	virtual void Flush() override
+	virtual bool Flush(const bool bFullFlush = false) override
 	{
 		CheckValid();
 		if (nullptr != File->Asset)
 		{
 			// Can't write to assets.
-			return;
+			return false;
 		}
 
-		fsync(File->Handle);
+		return bFullFlush
+			? fsync(File->Handle) == 0
+			: fdatasync(File->Handle) == 0;
+	}
+
+	virtual bool Truncate(int64 NewSize) override
+	{
+		CheckValid();
+		if (nullptr != File->Asset)
+		{
+			// Can't write to assets.
+			return false;
+		}
+
+		return ftruncate(File->Handle, NewSize) == 0;
 	}
 
 	virtual int64 Size() override
@@ -911,6 +925,10 @@ public:
 	{
 		AssetMgr = AndroidThunkCpp_GetAssetManager();
 	}
+
+	//~ For visibility of overloads we don't override
+	using IAndroidPlatformFile::IterateDirectory;
+	using IAndroidPlatformFile::IterateDirectoryStat;
 
 	// On initialization we search for OBBs that we need to
 	// open to find resources.

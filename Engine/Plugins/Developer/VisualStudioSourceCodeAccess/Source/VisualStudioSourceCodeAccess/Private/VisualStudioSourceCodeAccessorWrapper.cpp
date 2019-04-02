@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "VisualStudioSourceCodeAccessorWrapper.h"
 #include "VisualStudioSourceCodeAccessModule.h"
@@ -76,5 +76,5 @@ bool FVisualStudioSourceCodeAccessorWrapper::SaveAllOpenDocuments() const
 
 void FVisualStudioSourceCodeAccessorWrapper::Tick(const float DeltaTime)
 {
-	// Inner will get this call separately
+	Inner->Tick(DeltaTime);
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "K2Node_DelegateSet.h"
 #include "UObject/UnrealType.h"
@@ -69,7 +69,8 @@ public:
 		// Create a term for this property
 		if( BoundProperty != NULL )
 		{
-			FBPTerminal* Term = new(Context.VariableReferences) FBPTerminal();
+			FBPTerminal* Term = new FBPTerminal();
+			Context.VariableReferences.Add(Term);
 			Term->CopyFromPin(DelegatePin, DelegatePin->PinName);
 			Term->AssociatedVarProperty = BoundProperty;
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "StaticMeshEditableMeshFormat.h"
 #include "EditableMesh.h"
@@ -6,6 +6,16 @@
 #include "Components/StaticMeshComponent.h"
 #include "StaticMeshResources.h"
 #include "EditableStaticMeshAdapter.h"
+
+bool FStaticMeshEditableMeshFormat::HandlesComponentType(class UPrimitiveComponent& Component)
+{
+	return (Cast<const UStaticMeshComponent>(&Component) != nullptr);
+}
+
+bool FStaticMeshEditableMeshFormat::HandlesBones()
+{
+	return false;
+}
 
 
 void FStaticMeshEditableMeshFormat::FillMeshObjectPtr( UPrimitiveComponent& Component, FEditableMeshSubMeshAddress& SubMeshAddress )
@@ -49,10 +59,18 @@ UEditableMesh* FStaticMeshEditableMeshFormat::MakeEditableMesh( UPrimitiveCompon
 	UStaticMesh::RegisterMeshAttributes( *MeshDescription );
 
 	// Register additional attributes required by EditableMesh
+	MeshDescription->EdgeAttributes().RegisterAttribute<bool>( MeshAttribute::Edge::IsUVSeam, 1, false );
+	MeshDescription->PolygonAttributes().RegisterAttribute<FVector>( MeshAttribute::Polygon::Normal, 1, FVector::ZeroVector, EMeshAttributeFlags::Transient );
+	MeshDescription->PolygonAttributes().RegisterAttribute<FVector>( MeshAttribute::Polygon::Tangent, 1, FVector::ZeroVector, EMeshAttributeFlags::Transient );
+	MeshDescription->PolygonAttributes().RegisterAttribute<FVector>( MeshAttribute::Polygon::Binormal, 1, FVector::ZeroVector, EMeshAttributeFlags::Transient );
+	MeshDescription->PolygonAttributes().RegisterAttribute<FVector>( MeshAttribute::Polygon::Center, 1, FVector::ZeroVector, EMeshAttributeFlags::Transient );
 	MeshDescription->PolygonGroupAttributes().RegisterAttribute<FName>( MeshAttribute::PolygonGroup::MaterialAssetName );
+	MeshDescription->PolygonGroupAttributes().RegisterAttribute<bool>( MeshAttribute::PolygonGroup::EnableCollision );
+	MeshDescription->PolygonGroupAttributes().RegisterAttribute<bool>( MeshAttribute::PolygonGroup::CastShadow );
 
 	UEditableStaticMeshAdapter* EditableStaticMesh = NewObject<UEditableStaticMeshAdapter>( EditableMesh );
 	EditableMesh->Adapters.Add( EditableStaticMesh );
+	EditableMesh->PrimaryAdapter = EditableStaticMesh;
 
 	EditableStaticMesh->InitEditableStaticMesh( EditableMesh, Component, SubMeshAddress );
 

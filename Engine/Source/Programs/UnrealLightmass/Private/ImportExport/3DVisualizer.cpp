@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "3DVisualizer.h"
 
@@ -228,7 +228,7 @@ void F3DVisualizer::Export( const TCHAR* Filename, bool bShow/*=false*/ )
 	MeshMaterial.pTextureFilename = NULL;
 
 	D3DXEFFECTINSTANCE EffectInstance;
-	EffectInstance.pEffectFilename = "D3DExport.fx";
+	EffectInstance.pEffectFilename = const_cast<char*>("D3DExport.fx");
 	EffectInstance.NumDefaults = 0;
 	EffectInstance.pDefaults = NULL;
 

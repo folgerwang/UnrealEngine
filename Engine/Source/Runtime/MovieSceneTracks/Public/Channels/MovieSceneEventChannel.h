@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -53,11 +53,11 @@ public:
 private:
 
 	/** Array of times for each key */
-	UPROPERTY()
+	UPROPERTY(meta=(KeyTimes))
 	TArray<FFrameNumber> KeyTimes;
 
 	/** Array of values that correspond to each key time */
-	UPROPERTY()
+	UPROPERTY(meta=(KeyValues))
 	TArray<FMovieSceneEvent> KeyValues;
 
 	FMovieSceneKeyHandleMap KeyHandles;

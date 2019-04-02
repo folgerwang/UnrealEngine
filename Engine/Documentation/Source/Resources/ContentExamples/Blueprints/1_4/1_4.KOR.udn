@@ -16,7 +16,7 @@ Version: 4.9
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 예제](Resources/ContentExamples/Blueprints/1_3 "%Resources/ContentExamples/Blueprints/1_3:title%")
+		[이전 예제](Resources/ContentExamples/Blueprints/1_3 "%Resources/ContentExamples/Blueprints/1_3:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -69,7 +69,7 @@ Version: 4.9
 
 컴포넌트 리스트에서 블루프린트의 컴포넌트 구성을 할 때는, 블루프린트 에디터의 컴포넌트 탭을 사용하여 작업중인 각 컴포넌트의 배치와 조절이 가능합니다. 이 방법은 컴포넌트의 정밀한 배치가 쉽고 직관적인 방식으로 가능합니다. 일반적으로 이러한 유형의 셋업은 미리 어떠한 유형의 컴포넌트가 필요한지 정확히 알고 있을 때 이상적입니다.
 
-블루프린트에 사용되는 컴포넌트를 바꿀 필요가 있을지도 모르겠다 싶은 경우에는, 컨스트럭션 스크립트에서 컴포넌트 셋업을 하는 편이 나을 것입니다. 오른쪽 예제에서는 각각의 컴포넌트를 추가하고, 불리언 값 체크를 통해 컴포넌트 각 유형을 표시/숨김 시스템을 구성하는 데 있어 컨스트럭션 스크립트를 사용했습니다.
+블루프린트에 사용되는 컴포넌트를 바꿀 필요가 있을지도 모르겠다 싶은 경우에는, 컨스트럭션 스크립트에서 컴포넌트 셋업을 하는 편이 나을 것입니다. 오른쪽 예제에서는 각각의 컴포넌트를 추가하고, 부울 값 체크를 통해 컴포넌트 각 유형을 표시/숨김 시스템을 구성하는 데 있어 컨스트럭션 스크립트를 사용했습니다.
 
 [REGION:fullwidth]
 ![](ComponentsDetails.png)

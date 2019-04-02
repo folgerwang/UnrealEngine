@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "VisualTreeCapture.h"
 #include "Debugging/SlateDebugging.h"
@@ -118,6 +118,11 @@ void FVisualTreeCapture::Disable()
 	FSlateDebugging::EndWidgetPaint.RemoveAll(this);
 	FSlateDebugging::ElementAdded.RemoveAll(this);
 #endif
+}
+
+void FVisualTreeCapture::Reset()
+{
+	VisualTrees.Reset();
 }
 
 TSharedPtr<FVisualTreeSnapshot> FVisualTreeCapture::GetVisualTreeForWindow(SWindow* InWindow)

@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2750779
+﻿INTSourceChangelist:3599948
 Availability:Public
 Title:Spawn 模块
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
 Description:Spawn 模块将影响发射器粒子的数量/速率。
 Version:4.9
+tags:Particles
 
 
 **Spawn** 模块将影响发射器粒子的数量/速率。

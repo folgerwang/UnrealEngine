@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -43,6 +43,10 @@ public:
 	virtual void CustomizeChildren( TSharedRef<class IPropertyHandle> StructPropertyHandle, class IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils ) override;
 
 private:
+
+	// Simulate physics toggle
+	void OnSimulatePhysicsChanged();
+
 	// Profile combo related
 	TSharedRef<SWidget> MakeCollisionProfileComboWidget( TSharedPtr<FString> InItem );
 	void OnCollisionProfileChanged( TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo, IDetailGroup* CollisionGroup );
@@ -140,7 +144,6 @@ public:
 private:
 	void UpdateFilters();
 	bool IsSimulatePhysicsEditable() const;
-	bool IsUseAsyncEditable() const;
 
 	TOptional<float> OnGetBodyMass() const;
 	void OnSetBodyMass(float InBodyMass, ETextCommit::Type Commit);

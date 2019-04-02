@@ -1,0 +1,327 @@
+﻿INTSourceChangelist:0
+Availability: Public
+Crumbs: 
+Title: Pixel Streaming Reference
+Description: Supported browsers, networking ports, and configuration options for the components of the Pixel Streaming system.
+Type: 
+Version: 4.21
+Parent: Platforms/PixelStreaming
+Order: 
+topic-image:pixelstreaming-reference-topic.png
+Tags: Reference
+Tags: Early Access
+Tags: Pixel Streaming
+
+This page describes options, settings, and command-line parameters exposed by the various parts of the Pixel Streaming system.
+
+## Supported Graphics Hardware
+
+The computer that runs the Unreal Engine application with the Pixel Streaming Plugin must use NVIDIA GPU hardware that supports Hardware-Accelerated Video Encoding (NVENC). See the [matrix of supported devices](https://developer.nvidia.com/nvidia-video-codec-sdk#NVENCFeatures) from NVIDIA.
+
+[REGION:tip]
+If you receive the error message **Failed to load NvEncode dll** when you try to use the Pixel Streaming Plugin, it is very likely that your GPU does not support NVENC.
+[/REGION]
+
+## Supported Operating Systems
+
+The Pixel Streaming Plugin, the WebRTC Proxy Server, and the Signalling and Web Server have been tested on Windows 8 and Windows 10.
+
+They have not been tested on any other operating systems, including Windows 7.
+
+## Supported Client Browsers
+
+Pixel Streaming playback works on any modern browser that supports the WebRTC protocol. For example, it has been tested and is known to work in recent versions of the following browsers without additional configuration:
+
+*   Google Chrome (desktop and mobile)
+*   Mozilla Firefox (desktop and mobile)
+*   Apple Safari (desktop and mobile)
+
+Other browsers such as Microsoft Edge and Opera may require add-ons or plugins, and may not work on all systems.
+
+## Default Network Ports
+
+The components of the Pixel Streaming system communicate using the default ports specified below. You'll need to make sure that these ports are open on the host that runs each of these components.
+
+| Component | Ports |
+| --- | --- |
+| **Unreal Engine and WebRTC Proxy Server host** | [INCLUDE:#excerpt_3] |
+| **Signaling Server host** | [INCLUDE:#excerpt_5] |
+| **Matchmaker Server host** | [INCLUDE:#excerpt_7] |
+
+[COMMENT:none]
+[EXCERPT:excerpt_7]
+*   **90** \- for all HTTP requests coming from clients.  
+    To change this value, use the **--httpPort** parameter for the Matchmaker Server.
+*   **9999** \- for all messages sent by the Signaling Server.  
+    To change this value, set **both** the **--matchmakerPort** parameter for the Matchmaker Server **and** the **--matchmakerPort** parameter for the Signaling Server.
+[/EXCERPT:excerpt_7]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_5]
+*   **80** \- for all HTTP requests coming from clients.  
+    To change this value, set the **--httpPort** parameter for the Signaling Server.
+*   **443** \- for all HTTPS requests coming from clients, when the Signaling Server is running in HTTPS mode.  
+    To change this value, set the **--httpsPort** parameter for the Signaling Server.
+*   **8888** \- for all incoming connection requests from the WebRTC Proxy Server.  
+    To change this value, set **both** the **--proxyPort** parameter for the Signaling Server **and** the **-Cirrus** parameter for the WebRTC Proxy Server.
+[/EXCERPT:excerpt_5]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_3]
+*   **8124** \- for all communication between the application and the WebRTC Proxy Server.  
+    To change this value, set **both** the **-PixelStreamingPort** command-line parameter when you start your packaged Unreal Engine application **and** the **-UE4Port** parameter for the WebRTC Proxy Server.
+[/EXCERPT:excerpt_3]
+[/COMMENT]
+
+## Unreal Engine Console Commands
+
+**Encoder** commands control the way the Pixel Streaming Plugin encodes the rendered frames from the Unreal Engine into video images. **Streamer** commands control the way the Pixel Streaming Plugin sends those images through the WebRTC Proxy.
+
+| Command | Description |
+| --- | --- |
+| **Encoder.AverageBitrate** | Determines the target bit rate of the encoder, in Mbps (before any reduction to account for bandwidth limitations). |
+| **Encoder.MaxBitrate** | The maximum bitrate allowed, in Mbps (ignoring the values reported by the WebRTC Proxy Server) |
+| **Encoder.TargetSize** | [INCLUDE:#excerpt_15] |
+| **Encoder.UseBackBufferSize** | Makes the encoder use the back buffer size (that is, the size of the rendered game viewport) rather than the custom size set by **Encoder.TargetSize**. |
+| **Encoder.SaveVideoToFile** | [INCLUDE:#excerpt_19] |
+| **Streamer.PrioritiseQuality** | Reduces the frame rate of the Engine automatically for low-bitrate connections. In bad network conditions, this trades frames per second (increasing latency) in order to keep the apparent quality of each video frame higher. |
+| **Streamer.LowBitrate** |The lowest bitrate that the streamer permits when adapting quality for network conditions, in Kbps. |
+| **Streamer.HighBitrate** | The highest bitrate that the streamer permits when adapting quality for network conditions, in Kbps.  |
+| **Streamer.MinFPS** | The lowest number of frames per second that the streamer permits when adapting quality for network conditions. |
+| **Streamer.BitrateReduction** | Determines how the streamer reduces the bitrate reported by WebRTC to handle jitter, expressed as a percentage. |
+
+
+[COMMENT:none]
+[EXCERPT:excerpt_19]
+Saves encoded video into a file named **EncodedVideoFile.h264** in the working directory of your Unreal Engine application.  
+Only works in Development builds of the Unreal Engine, not in Shipping builds.
+[/EXCERPT:excerpt_19]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_15]
+The target resolution size for the encoder, in the format `<width>x<height>`.  
+Also set **Encoder.UseBackBufferSIze** to false in order for the stream to use this custom size.
+[/EXCERPT:excerpt_15]
+[/COMMENT]
+
+## Unreal Engine Command-Line Parameters
+
+Set these properties on the command line when you launch your Unreal Engine application.
+
+| Parameter | Description |
+| --- | --- |
+| **-AllowPixelStreamingCommands** | [INCLUDE:#excerpt_33] |
+| **-AudioMixer** | [INCLUDE:#excerpt_35] |
+| **-PixelStreamingIP=<value>** | [INCLUDE:#excerpt_37] |
+| **-PixelStreamingPort=<value>** | [INCLUDE:#excerpt_39] |
+| **-PixelStreamingKeyFilter="<value>"** | [INCLUDE:#excerpt_41] |
+| **-RenderOffScreen** | [INCLUDE:#excerpt_43] |
+| **-NvEncFrameRateNum=<value>** | [INCLUDE:#excerpt_45] |
+| **-NvEncMaxEncodeWidth=<value>** | [INCLUDE:#excerpt_47] |
+| **-NvEncMaxEncodeHeight=<value>** | [INCLUDE:#excerpt_49] |
+| **-NvEncAverageBitRate=<value>** | If specified, overrides the encoder's default average bitrate. |
+| **-NvEncH264ConfigLevel=<value>** | [INCLUDE:#excerpt_53] |
+
+[COMMENT:none]
+[EXCERPT:excerpt_53]
+Set this parameter to `NV_ENC_LEVEL_H264_52` to make the encoder use H.264 level 5.2. If not set, the encoder uses H.264 level 5.1.  
+This increases the capabilities of the encoder, which might be required in order to handle creating videos at high resolutions such as 3840x2160 (4K). For more information about H.264 levels, see [this page](https://en.wikipedia.org/wiki/H.264/MPEG-4_AVC#Levels).  
+If your Unreal Engine application reports that it **Failed to initialize NvEncoder**, and if you are working at a high output resolution, then you may need to enable this option.
+[/EXCERPT:excerpt_53]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_49]
+The maximum height of a frame that the encoder can encode.  
+The default value is `2160`.
+[/EXCERPT:excerpt_49]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_47]
+The maximum width of a frame that the encoder can encode.  
+The default value is `3840`.
+[/EXCERPT:excerpt_47]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_45]
+If specified, overrides the default encoder frame rate.  
+The default value is set to match `t.MaxFPS`.
+[/EXCERPT:excerpt_45]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_43]
+Run the Unreal Engine application headless, without any visible rendering at all on the local computer. The application will not display any windows, and will not render in full screen.  
+You can use this parameter in conjunction with `-ForceRes` to stop the Unreal Engine from automatically adjusting resolution based on the resolution of the primary display.  
+If you omit this parameter, the Unreal Engine application window will be rendered normally. If this application window is ever minimized, the Pixel Streaming video and input capture will stop working. We therefore recommend always including this parameter, unless you need to be able to see the rendered output from the Unreal Engine application locally on the same computer while it is running.
+[/EXCERPT:excerpt_43]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_41]
+A comma-separated list of keyboard keys that the WebRTC Proxy should filter out from the input that it relays from the player web page to the Unreal Engine. If a user presses one of these keys in the browser, that event will not be relayed to the Unreal Engine's input controller.  
+For example, `-PixelStreamingKeyFilter="F1..F12,W,A,S,D"` filters out all twelve function keys and the movement keys.
+[/EXCERPT:excerpt_41]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_39]
+The port used for communications between the Unreal Engine and the WebRTC Proxy Server.  
+The default value is `8124`.
+[/EXCERPT:excerpt_39]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_37]
+Specifies the IP address the Unreal Engine listens on for incoming connections from the WebRTC Proxy server.  
+The default value is `0.0.0.0`, which includes all internal IP addresses (usually the local machine's own IP address, and `127.0.0.1`).
+[/EXCERPT:excerpt_37]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_35]
+Forces the Unreal Engine to use software mixing for audio, so that the Pixel Streaming Plugin can capture audio.  
+**This parameter is required in order to capture audio from the application and stream it to the browser.**
+[/EXCERPT:excerpt_35]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_33]
+Determines whether the player Web page can use the `emitCommand()` function to execute console commands in the Unreal Engine remotely. Note that this may have security implications, so enable it with care.
+[/EXCERPT:excerpt_33]
+[/COMMENT]
+
+## Signaling Server Configuration Parameters
+
+There are two ways you can set these parameters:
+
+*   On the command line, when you start the Signaling and Web Server by running `run.bat` or `node cirrus.js`. In this case, prefix each parameter name with `--` (two dashes), then follow it with a space, then the value you want to set. For example: `--httpPort 81`.
+*   In a configuration file. By default, the Signaling and Web Server (`cirrus.js`) looks for a file named `config.json` in the same folder. In this case, set each parameter and the value you want to set for it as a key-value pair in the JSON object defined in the file. If you've already started the Signaling and Web Server at least once, see the parameters that are already listed in the `Engine/Source/Programs/PixelStreaming/WebServers/SignallingWebServer/config.json` file for an example.
+
+| Parameter | Description |
+| --- | --- |
+| **publicIp** | The public IP of the computer running the Signaling and Web Server. |
+| **httpPort** | The port that the Signaling and Web Server uses for HTTP connections with client browsers. |
+| **proxyPort** | The port that the Signaling and Web Server listens to for incoming connections from the WebRTC Proxy Server. |
+| **peerConnectionOptions** | [INCLUDE:#excerpt_63] |
+| **HomepageFile** | [INCLUDE:#excerpt_65] |
+| **AdditionalRoutes** | [INCLUDE:#excerpt_67] |
+| **LogToFile** | [INCLUDE:#excerpt_69] |
+| **UseHttps** | [INCLUDE:#excerpt_71] |
+| **httpsPort** | [INCLUDE:#excerpt_73] |
+| **UseMatchmaker** | Determines whether the Signaling and Web Server sends its current status to a Matchmaker Server, in order to help client browsers find a Signaling Server and WebRTC Proxy Server that are not currently in use.|
+| **matchmakerAddress**[ | The IP address of the Matchmaker Server that the Signaling and Web Server should contact. |
+| **matchmakerPort** | The port that the Matchmaker Server listens to for incoming messages from Signaling and Web Servers. |
+| **configFile** | Specifies the path and file name of the configuration file that the Signaling Server should use to retrieve the values of the properties above. Can only be set on the command line. |
+
+[COMMENT:none]
+[EXCERPT:excerpt_73]
+The port to listen to for HTTPS connections. Only used when **UseHttps** is enabled.  
+The default value is 443.
+[/EXCERPT:excerpt_73]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_71]
+Set this parameter to **true** in order to make the Signaling Server accept only HTTPS connections on the **httpsPort**.  
+You will also need to put your *client-key.pem* and *client-cert.pem* files into the *certificates* folder under the Signaling and Web Server's root folder.
+[/EXCERPT:excerpt_71]``
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_69]
+Determines whether the Signaling and Web Server writes log messages to files in the *./logs* folder.  
+The default value is **true**.
+[/EXCERPT:excerpt_69]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_67]
+Specifies additional folders that the Signaling and Web Server should serve.  
+This parameter must be a JSON object, which means you can only provide it in the JSON configuration file, not on the command line.  
+It must be an object in which each key is a part of a URL, and the value of each key is a local path that the server should serve to requesting clients. For example, if you set:  
+`"AdditionalRoutes" = { "/myfolder", "C:\some_local_path" }`  
+then when a client requests `http://server-name/myfolder/index.html` the server will provide the file named `C:\some_local_path\index.html`.
+[/EXCERPT:excerpt_67]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_65]
+The filename of the default page the server will provide to connecting client browsers that do not request a specific URL.  
+The default value is `player.htm`.
+[/EXCERPT:excerpt_65]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_63]
+Specifies the hostnames or IP addresses of any STUN and TURN servers you want the WebRTC Proxy Server and browser to query when they need to discover their own external IP addresses.  
+For more information on STUN and TURN servers, see the [Hosting and Networking Guide](https://docs.unrealengine.com/en-us/Platforms/PixelStreaming/Hosting).  
+This parameter must be a string that lists the server URLs in the order you want them to be contacted. It must have the following format:  
+`"{ \"iceServers\": [{\"urls\": [<url1>,<url2>,<url3>,...]}] }"`  
+For example:  
+`"{ \"iceServers\": [{\"urls\": [\"stun:34.250.222.95:19302\"]}] }"`  
+or  
+`"{ \"iceServers\": [{\"urls\": [\"stun:34.250.222.95:19302\",\"turn:34.250.222.95:19312\"]}] }"`  
+The TURN server implementation that ships with the Unreal Engine requires a user name and password, as follows:  
+`"{\"iceServers\":[{\"urls\":[\"stun: 34.250.222.95:19302\",\"turn: 34.250.222.95:19312\"],\"username\":\"<TURN_Username>\",\"credential\":\"<TURN_Password>\"}]}"`  
+Other STUN and TURN implemetations may have different requirements for their credentials.
+[REGION:note]
+The value must be formatted as a string, even if you use a JSON configuration file to provide the parameter. Always surround it in double-quotes, and use backslashes to escape any quotes inside the string, as shown above.
+[/REGION]
+[/EXCERPT:excerpt_63]
+[/COMMENT]
+
+## WebRTC Proxy Server Command-Line Parameters
+
+You can configure the operation of the WebRTC Proxy Server by providing these parameters on the command line when you run the `WebRTCProxy_x64_<build>.exe` file.
+
+Note that unlike with the Signaling and Web Server above and the Matchmaker Server below, these parameters do not work when you add them to the end of the *.bat* file in the same folder.
+
+| Parameter | Description |
+| --- | --- |
+| **-Cirrus=<value>** | [INCLUDE:#excerpt_85] |
+| **-UE4Port=<value>** | [INCLUDE:#excerpt_87] |
+| **-PlanB** | Switches the WebRTC Proxy Server to use PlanB SDP semantics. |
+| **-LocalTime** | Prints timestamps in log messages using local time instead of UTC. |
+
+[COMMENT:none]
+[EXCERPT:excerpt_87]
+The port that the WebRTC Proxy Server connects to for communication with the Unreal Engine application running on the local host.  
+The default value is `8124`.
+[/EXCERPT:excerpt_87]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_85]
+The IP address of the Signaling Server that the WebRTC Proxy Server connects to.  
+The default value is `127.0.0.1:8888`.
+[/EXCERPT:excerpt_85]
+[/COMMENT]
+
+## Matchmaker Server Command-Line Parameters
+
+Provide these parameters on the command line when you start the Matchmaker Server by running its `run.bat` file, or when you start it by running `node.exe matchmaker.js`.
+
+| Parameter | Description |
+| --- | --- |
+| **--httpPort <value>** | [INCLUDE:#excerpt_95] |
+| **--matchmakerPort <value>** | [INCLUDE:#excerpt_97] |
+
+[COMMENT:none]
+[EXCERPT:excerpt_97]
+Sets the port number that the Matchmaker listens to for incoming messages from Cirrus signaling servers.  
+The default value is `9999`.
+[/EXCERPT:excerpt_97]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_95]
+Sets the port number that the Matchmaker listens to for HTTP connections from clients.  
+The default value is `90`.
+[/EXCERPT:excerpt_95]
+[/COMMENT]

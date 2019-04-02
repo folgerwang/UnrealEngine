@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintDetailsCustomization.h"
 #include "UObject/StructOnScope.h"
@@ -706,7 +706,7 @@ void FBlueprintVarActionDetails::CustomizeDetails( IDetailLayoutBuilder& DetailL
 	];
 
 	ReplicationConditionEnumTypeNames.Empty();
-	UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ELifetimeCondition"), true);
+	UEnum* Enum = StaticEnum<ELifetimeCondition>();
 	check(Enum);
 	
 	for (int32 i = 0; i < Enum->NumEnums(); i++)
@@ -1865,21 +1865,9 @@ EVisibility FBlueprintVarActionDetails::ExposeToCinematicsVisibility() const
 		else
 		{
 			ISequencerModule* SequencerModule = FModuleManager::Get().GetModulePtr<ISequencerModule>("Sequencer");
-			if (SequencerModule->CanAnimateProperty(FAnimatedPropertyKey::FromProperty(VariableProperty)))
+			if (SequencerModule->CanAnimateProperty(VariableProperty))
 			{
 				return EVisibility::Visible;
-			}
-			else if (UObjectProperty* ObjectProperty = Cast<UObjectProperty>(VariableProperty))
-			{
-				UClass* ClassType = ObjectProperty->PropertyClass ? ObjectProperty->PropertyClass->GetSuperClass() : nullptr;
-				while (ClassType)
-				{
-					if (SequencerModule->CanAnimateProperty(FAnimatedPropertyKey::FromObjectType(ClassType)))
-					{
-						return EVisibility::Visible;
-					}
-					ClassType = ClassType->GetSuperClass();
-				}
 			}
 		}
 	}
@@ -2795,7 +2783,7 @@ void FBlueprintGraphArgumentLayout::GenerateChildContent( IDetailChildrenBuilder
 				[
 					SNew(STextBlock)
 					.Text(LOCTEXT("FunctionArgDetailsPassByReference", "Pass-by-Reference"))
-				.ToolTipText(LOCTEXT("FunctionArgDetailsPassByReferenceTooltip", "Pass this paremeter by reference?"))
+				.ToolTipText(LOCTEXT("FunctionArgDetailsPassByReferenceTooltip", "Pass this parameter by reference?"))
 				.Font(IDetailLayoutBuilder::GetDetailFont())
 				]
 			.ValueContent()
@@ -3430,7 +3418,7 @@ void FBlueprintGraphActionDetails::CustomizeDetails( IDetailLayoutBuilder& Detai
 				]
 			];
 		}
-		const bool bShowCallInEditor = IsCustomEvent() || FBlueprintEditorUtils::IsBlutility( GetBlueprintObj() ) || (FunctionEntryNode && FunctionEntryNode->IsEditable());
+		const bool bShowCallInEditor = IsCustomEvent() || FBlueprintEditorUtils::IsEditorUtilityBlueprint( GetBlueprintObj() ) || (FunctionEntryNode && FunctionEntryNode->IsEditable());
 		if( bShowCallInEditor )
 		{
 			Category.AddCustomRow( LOCTEXT( "EditorCallable", "Call In Editor" ) )
@@ -4156,7 +4144,7 @@ bool FBaseBlueprintGraphActionDetails::OnVerifyPinRename(UK2Node_EditablePinBase
 
 	if (InNewName == TEXT("None"))
 	{
-		OutErrorMessage = FText::Format( LOCTEXT("PinNameNone", "'None' is a reserved name"), FText::AsNumber( NAME_SIZE ) );
+		OutErrorMessage = LOCTEXT("PinNameNone", "'None' is a reserved name");
 		return false;
 	}
 

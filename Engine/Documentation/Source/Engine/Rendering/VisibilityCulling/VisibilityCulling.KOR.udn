@@ -1,47 +1,47 @@
-﻿INTSourceChangelist:0
+INTSourceChangelist:3782314
 Availability: Docs
-Title: Visibility Culling
+Title: 비저빌리티 컬링
 Crumbs: %ROOT%, Engine, 
-Description: How Visibility Culling works in your game.
+Description: 게임에서의 비저빌리티 컬링 작동법입니다.
 Version: 4.13
 
 [TOC(start:2 end:2)]
 
-## What is Visibility Culling?
+## 비저빌리티 컬링이란?
 
-Visibility culling uses a process to gather all the Actors in the scene and then will use one of the available culling methods to test whether the Actor is visible or not. The process of checking 
-an Actor's visibility state is used to increase the culling effecitveness by reducing the number of queries to the GPU to test. 
+Visibility Culling (비저빌리티 컬링)은 씬의 모든 액터를 한 데 모아 하나의 컬링 메서드를 사용하여 액터의 가시성을 테스트하는 프로세스를 사용합니다. 액터의 가시성 상태를 검사하는 
+프로세스는 테스트를 위해 GPU 에 보내는 쿼리 수를 줄여 컬링 효율을 높입니다. 
 
-In order to understand how visibility and occlusion culling works it is necessary to first understand how an Actors bounding box and sphere is used to test its visibility state, 
-what the view frustum does, and lastly what makes an Actor an occluder or occludee. 
+비저빌리티 컬링 작동방식을 이해하기 위해서는 먼저 액터의 가시성 상태를 테스트할 때 바운딩 박스와 스피어(sphere, 구체)를 사용하는 방식, 뷰 프러스텀이 하는 일, 마지막으로 무엇이 액터를 
+오클루더(가리는 것) 또는 오클루디(가려지는 것)로 만드는지 이해해야 합니다. 
 
-### Actor Bounds
+### 액터 바운드
 
-Each Actor has its own bounds. These are made up of a bounding box and sphere that surround the geometry of the mesh. The bounds can be edited via the Static Mesh Editor, Persona, or per-instance via the 
-Detail's panel in your scene. For visibility and occlusion culling purposes it is used to test whether an Actor is visible within the Camera's field of view.
+각 액터마다 고유의 bound(경계, 바운드)가 있습니다. 이 바운드가 모여 메시의 지오메트리를 두르는 바운딩 박스 및 스피어를 이룹니다. 바운드는 스태틱 메시 에디터, 페르소나를 통해, 또는 
+씬의 디테일 패널을 통해 인스턴스별로 편집할 수 있습니다. 비저빌리티 및 오클루전 컬링 프로세스의 경우 바운드를 사용하여 액터가 카메라의 시야 내 보이는지 여부를 테스트합니다.
 
 
 ![](BoundsEditorView1.png)(w:350)
 [REGION:caption]
-Actor's bounding box and sphere
+액터의 바운딩 박스 및 스피어
 [/REGION]
 
-##### Setting the Bounds Scale
+##### 바운드 스케일 설정
 
-You can set the Static and Skeletal Meshes bounds by using the following options.
+다음 옵션을 사용하여 스태틱 및 스켈레탈 메시 바운드를 설정할 수 있습니다.
 
 [REGION:imagetable]
 | ![](BoundScaleSetting.png)(w:400) | ![](BoundsScaleSettingSMEditor.png)(w:400) |
 | --- | --- |
-| Scene Per-Instance Detail's panel | Static and Skeletal Mesh Editor Detail's panel | 
+| 씬 인스턴스별 디테일 패널 | 스태틱 및 스켈레탈 메시 에디터의 디테일 패널 | 
 [/REGION]
 
 [REGION:note]
-The per-instance setting for the **Bounds Scale** will use a multiplier that scales evenly for the Actor's bounds, whereas the Static Mesh Editor and Persona will allow you to set specific XYZ coordinate values.
+**Bounds Scale** (바운드 스케일)에 대한 인스턴스별 세팅은 액터의 바운드에 고르게 스케일을 적용하는 배수를 사용하는 반면, 스태틱 메시 에디터와 페르소나에서는 특정 XYZ 좌표 값을 설정할 수 있습니다.
 [/REGION]
 
-To view the bounds of an Actor, you must first go to the viewport and **Show** > **Advanced** > **Bounds** or use the console command `Show Bounds`. Then when you select the Actor in the scene
-to see the bounds visualization.
+액터의 바운드를 확인하려면, 먼저 뷰포트로 이동하여 **표시** > **고급** > **바운드** 를 선택하거나, 콘솔 명령 `Show Bounds` 를 사용해야 합니다. 그런 다음 씬의 액터를 선택하면 
+바운드 시각화가 보입니다.
 
 [OBJECT:ComparisonSlider]
  [PARAM:before]
@@ -52,48 +52,48 @@ to see the bounds visualization.
  [/PARAM]
 [/OBJECT]
 [REGION:caption]
-_Setting the Bounds Scale in the Detail's panel of the selected Actor._
+_선택된 액터의 디테일 패널에서 바운드 스케일을 설정합니다._
 [/REGION]
 
 [REGION:tip]
-When you increase the bounds of an Actor you do not have to increase by whole numbers. You can increase with decimal values incrementally until you get the results you are wanting. For example, 
-increase the Bounds Scale to 1.15 rather than increasing to 2.0. 
+액터의 바운드를 늘릴 때 정수 단위로 늘리지 않아도 됩니다. 원하는 결과를 얻을 때까지 십진수 값을 점차 늘려도 됩니다. 
+예를 들어 바운드 스케일을 늘릴 때 2.0 이 아닌 1.15 여도 됩니다. 
 [/REGION]
 
 
 
-### What is the Camera's View Frustum?
+### 카메라의 뷰 프러스텀이란?
 
-The Camera's view frustum is the viewing area within 3D space that is represented by a pyramidal shape from its viewpoint. 
+카메라의 view frustum(뷰 프러스텀)이란  뷰포트에서 피라미드 모양으로 나타나는 3D 공간 내 시야 영역을 말합니다. 
 
 [REGION:imagetable]
 | [INCLUDE:#cameraview1] |
 | ---------------------- |
-| Camera Field of View (FOV) set to 90 degrees (Default) |
+| 카메라 필드 오브 뷰(FOV) 값을 90 도로 (기본값) 설정했습니다. |
 [REGION:caption]
-_Click images for full size_
+_이미지를 클릭하면 원본을 확인합니다._
 [/REGION]
 [/REGION]
 
-This pyramidal shape represents up our **Field of View** (FOV) as seen from the Camera's perspective. This perspective shows our various Actors in the scene that are within this view.
-The image below contains all the elements that make up the scene above. This can include Actors that are not visibile within the view frustum, like the Spot Light that is lighting the scene, 
-or other Actors not visible within the view frusum.  
+이 피라미드 모양은 카메라의 관점에서 보는 **Field of View** (시야)를 나타냅니다. 이 관점은 이 뷰 안에 있는 씬의 다양한 액터를 보여줍니다.
+아래 그림에는 위 씬을 이루는 모든 요소가 들어있습니다. 여기에는 뷰 프러스텀 내 보이지 않는 액터가 들어있을 수 있습니다. 예를 들면 씬을 밝히는 스포트 라이트나 뷰 프러스텀 안에 보이지 
+않는 다른 액터 등입니다.  
 
 [REGION:imagetable]
 | [INCLUDE:#sceneview1]| 
 | --- |
-| Scene View with Camera Attributes  |
+| 카메라 특성으로 보는 씬 뷰 |
 [/REGION]
 [REGION:caption]
-_Click images for full size_
+_이미지를 클릭하면 원본을 확인합니다._
 [/REGION]
 
-| Number | Description |
+| 번호 | 설명 |
 | ------ | ----------- |
-| **1**  | **Field of View (FOV):** The width of the view angle measured in degrees. |
-| **2**  | **Near Clip Plane:** The nearest point to the camera that will render. |
-| **3**  | **Camera View Frustum:** The area between the near and far clip planes. Anything within this view is considered for rendering. |
-| **4**  | **Far Clip Plane:** The farthest point from the camera that will render. This is controlled by scene depth instead of a set distance that clips the view. |
+| **1**  | **Field of View (FOV):** 필드 오브 뷰 - 각도 단위로 측정한 뷰 앵글의 너비입니다. |
+| **2**  | **Near Clip Plane:** 근거리 클립 면 - 카메라에서 최소 이 지점부터 렌더링합니다. |
+| **3**  | **Camera View Frustum:** 카메라 뷰 프러스텀 - 근거리/원거리 클립 면 사이 영역입니다. 이 뷰 안에 있는 것은 렌더링 대상으로 고려합니다. |
+| **4**  | **Far Clip Plane:** 원거리 클립 면 - 카메라에서 최대 이 지점까지 렌더링합니다. 뷰를 클립하(잘라내)도록 설정한 거리 대신 씬 깊이로 제어합니다. |
 
 [COMMENT:none]
 -
@@ -111,10 +111,10 @@ _Click images for full size_
 -
 [/COMMENT]
 
-The view frustum is controlled by its **Field of View** (FOV). Higher values will give wider viewing angle and a lower value will restrict the available viewing angle.
+뷰 프러스텀은 **Field of View** (FOV)로 제어합니다. 값이 크면 시야각이 넓어지고 낮으면 좁아집니다.
 
 [REGION:note]
-The Camera's view frustum visualization is not enabled by default. You must first go to the Viewport and select **Show** > **Advanced** > **Camera Frustum** to enable it.
+카메라의 뷰 프러스텀 시각화는 기본 활성화되지 않습니다. 뷰포트에서 **표시** > **고급** > **카메라 프러스텀** 으로 활성화해야 합니다.
 [/REGION]
 
 [OBJECT:EmbeddedVideo]
@@ -129,27 +129,27 @@ The Camera's view frustum visualization is not enabled by default. You must firs
  [/PARAMLITERAL]
 [/OBJECT]
 
-For more information on [using and setting up Cameras](Gameplay/HowTo/UsingCameras) you can read about them in this page.
+[카메라 사용 및 설정](Gameplay/HowTo/UsingCameras) 관련 자세한 내용은 문서를 참고하세요.
 
 
-### What is Occlusion?
+### 오클루전이란?
 
-Occlusion happens when you have an Actor that can block or become blocked by another Actor. The Actors are either occluders, occludees, or both. 
- 
-* An occluder is any Actor that can occlude another Actor from being visible to the view frustum.
-* An occludee is any Actor that is occluded by another Actor from being visible to the view frustum. If this Actor is large enough it can also be an occluder for smaller Actors that it blocks from the view frustum.
+Occlusion(오클루전)은 액터가 다른 액터를 가리거나 가려지는 것을 말합니다. 액터는 occluder(가리는 것, 오클루더), occludee(가려지는 것, 오클루디), 또는 둘 다 될 수 있습니다. 
 
-In the example below, the Camera represents the view of the scene. Behind the wall lies two Actors that cannot be seen because they are blocked from the camera view. The statue and barrel both would be occludees since 
-they are being blocked by the wall that is an occluding them. Also, remember that both the barrel and statue could be occluders if they were blocking anything behind them. Every occluder can be an occludee if it is large 
-enough to block another actor.
+* 오클루더는 다른 액터를 가려 뷰 프러스텀에 보이지 않도록 만들 수 있는 액터입니다.
+* 오클루디는 다른 액터에 가려져 뷰 프러스텀에 보이지 않는 액터입니다. 이 액터가 충분히 크면 다른 작은 액터를 뷰 프러스텀에서 가리는 오클루더가 될 수 있습니다.
+
+아래 예제에서, 카메라는 씬의 뷰를 나타냅니다. 벽 뒤에 놓인 두 액터는 벽에 가려져 카메라 뷰에 보이지 않습니다. 
+석상과 통 둘 다 벽에 가려져 있으므로 오클루디입니다. 또한 석상과 통 둘 다 그 뒤에 무언가를 가린다면 오클루더가 될 수 있습니다. 
+모든 오클루더는 다른 액터에 가려진다면 오클루디가 될 수 있습니다.
 
 [REGION:imagetable]
 | [INCLUDE:#OccluderVsOccludee1] | [INCLUDE:#OccluderVsOccludeeCV] |
 | --- | --- | 
-| Occluder = Wall, Occludee = Barrels and Statue  | Camera FOV shows the wall that occludes the barrels and statue. |
+| 오클루더 = 벽, 오클루디 = 석상과 통 | 카메라 시야로 보면 벽이 석상과 통을 가리고 있습니다. |
 [/REGION]
 [REGION:caption]
-_Click images for full size_
+_이미지를 클릭하면 원본을 확인합니다._
 [/REGION]
 
 [COMMENT:none]
@@ -168,52 +168,52 @@ _Click images for full size_
 -
 [/COMMENT]
 
-### Visibility Culling
+### 비저빌리티 컬링
 
-The following types of culling are used to determine the current visibility state of an Actor in the scene.
+현재 씬의 액터 가시성 상태를 결정하는 데 사용되는 컬링 유형은 다음과 같습니다.
 
-| Types of Culling | Description |
+| 컬링 유형 | 설명 |
 | ---------------- | ----------- |
-| **Distance** | The Actor's set distance is used to determine its visibility state. |
-| **View Frustum** | This is used to remove any Actors that do not have its bounds visible within the Camera's view frustum. Anything outside of this viewing area will not be rendered.  |
-| **Occlusion** | This is used to remove any additional Actors that are within the Camera's view frustum that is blocked by another from being viewed. This is done by testing if the Actor is visible within the scene's depth buffer. If it is visible it will be rendered, and if it is not it will be considered occluded and not rendered. |
+| **Distance** | 디스턴스 - 액터에 설정된 거리를 사용하여 가시성 상태를 결정합니다. |
+| **View Frustum** | 뷰 프러스텀 - 카메라 뷰 프러스텀 안에 바운드가 보이지 않는 액터를 제거합니다. 이 가시 영역 밖의 것은 렌더링하지 않습니다.  |
+| **Occlusion** | 오클루전 - 카메라의 뷰 프러스텀 내 다른 액터에 가려져 보이지 않는 액터를 제거합니다. 씬의 뎁스 버퍼 내 액터가 보이는지 테스트하는 식으로 이루어집니다. 보이면 렌더링하고, 보이지 않으면 오클루전 테스트를 하여 렌더링 생략할지 고려합니다. |
 
 
-For more information on [Buffer Visualizations](Engine/UI/LevelEditor/Viewports/ViewModes#buffervisualization) you can read about them on this page.
+[버퍼 시각화](Engine/UI/LevelEditor/Viewports/ViewModes) 관련 자세한 정보는 문서를 참고하세요.
 
-## Visibility Culling Methods
+## 비저빌리티 컬링 메서드
 
-Once the data has been culled from the scene it is tested against the available culling methods that have been implemented to test the visibility state of the Actors. The visibility culling methods work
-together and in the case of mobile offer a solution where dynamic occlusion is not possible.
+데이터를 씬에서 컬링한 이후, 구현한 컬링 메서드로 테스트하여 액터의 가시성 상태를 테스트합니다. 비저빌리티 컬링 메서드는 같이 작동하며, 모바일의 경우 다이내믹 오클루전이 
+불가능한 경우 솔루션을 제공합니다.
 
-These culling methods listed here are in the order they are applied, which is also from least to most expensive in terms of rendering thread cost.
+여기 있는 컬링 메서드는 적용 순서이며, 렌더링 스레드 비용이 가장 낮은 순입니다.
 
-* Distance culling (Per-instance and Cull Distance Volumes)
-* View frustum culling
-* Precomputed occlusion culling
-* Dynamic occlusion culling (hardware occlusion queries)
+* 디스턴스 컬링 (인스턴스별 및 컬 디스턴스 볼륨)
+* 뷰 프러스텀 컬링
+* 프리컴퓨티드 오클루전 컬링
+* 다이내믹 오클루전 컬링 (하드웨어 오클루전 퀴리)
 
 
-#### Distance Culling (Per-instance)
+#### 디스턴스 컬링 (인스턴스별)
 
-Each Actor in the scene can have its own set draw distance that will allows minimum and maximum distance for it to be rendered visible.
+씬의 각 액터는 그리기 거리를 별도로 설정하여 보이는 것으로 렌더링하기 위한 최소 최대 거리를 지정할 수 있습니다.
 
 ![](DistanceCullSettings.png)
 
-| **Property** | **Description** |
+| **프로퍼티** | **설명** |
 | ------------ | --------------- |
-| **Min Draw Distance** | The minimum distance at which the primitive should be rendered. This is measured in world space units from the center of the primitive's bounding sphere to the camera position. |
-| **Desired Max Draw Distance** | The max draw distance exposed to Level Designers. The real max draw distance is the min (disregarding 0) of this and volumes effecting this object. |
-| **Current Max Draw Distance** | This is not an editable property. This field shows the cull distance that is set by the CullDistanceVolume that the primitive is residing inside of. If it is set to 0 no Cull Distance Volume has been set so the value will be 0. |
+| **Min Draw Distance** | 최소 그리기 거리 - 최소 이 거리 이상의 프리미티브를 렌더링합니다. 프리미티브의 바운딩 스피어 중심에서부터 카메라 위치까지 월드 스페이스 유닛 단위로 측정합니다. |
+| **Desired Max Draw Distance** | 원하는 최대 그리기 거리 - 레벨 디자이너에게 노출할 최대 그리기 거리입니다. 실제 최대 그리기 거리는 (0 은 무시하고) 이 값과 이 오브젝트에 영향을 주는 볼륨의 값 중 작은 쪽입니다. |
+| **Current Max Draw Distance** | 현재 최대 그리기 거리 - 편집가능한 프로퍼티가 아닙니다. 이 칸은 프리미티브가 들어있는 컬 디스턴스 볼륨에 설정된 컬 디스턴스 값을 표시합니다. 0 인 경우 컬 디스턴스 볼륨이 없으므로 값은 0 이 됩니다. |
 
-In the examples below, the **Min Draw Distance** and **Desired Max Draw Distance** have been set for the cube. These values determine the closest distance to render the Actor or the farthest distance that 
-the Actor can be rendered from the Camera's view.
+아래 예제에서 **Min Draw Distance** 및 **Desired Max Draw Distance** 를 큐브에 설정했습니다. 이 값이 카메라 뷰에서 액터를 렌더링할 수 있는 
+최소 최대 거리를 결정합니다.
 
 * **Min Draw Distance:** 500
 * **Desired Max Draw Distance:** 1000
 
 [REGION:note]
-Note that the **Desired Max Draw Distance** here will override any higher value set in a Cull Distance Volume. See the [Cull Distance Volume](1_TimH\2_IN_PROGRESS\VisibilityCulling\CullDistanceVolume) page for more information.
+참고로 여기 **Desired Max Draw Distance** 는 컬 디스턴스 볼륨에 높은 값이 설정된 경우 덮어씁니다. 자세한 정보는 컬 디스턴스 볼륨 문서를 참고하세요.
 [/REGION]
 
 [OBJECT:EmbeddedVideo]
@@ -234,17 +234,17 @@ Note that the **Desired Max Draw Distance** here will override any higher value 
 [REGION:imagetable]
 | [INCLUDE:#Units1500] | [INCLUDE:#Units1000] | [INCLUDE:#Units500] |
 | --- | --- | --- |
-| More than Desired Max Draw Distance | Within Range of Min and Max Draw Distance | Less than Min Draw Distance | 
+| Desired Max Draw Distance 이상 | Min / Max Draw Distance 범위 내 | Min Draw Distance 미만 | 
 [/REGION]
 
-To help illustrate what is happening in the video above, the images here show a top-down view and mark the distance from the **Camera** Actor to the center point of the **Cube** Actor. 
-The image directly below the top-down view shows the camera's view.
+위 비디오에 벌어지는 일에 대한 이해를 돕기 위해, 여기 내려보기 이미지에 **카메라** 액터에서 **큐브** 액터 중심까지 거리를 기록해 두었습니다. 
+그 바로 위에는 카메라 뷰입니다.
 
 -
 [/COMMENT]
 
-Since the **Desired Max Draw Distance** is set to 1000 and the **Min Draw Distance** is set to 500 the cube Actor will only be visible when the Camera moves within this distance from the Actor's bounding box
-center. When the Camera moves outside of this space the Actor will no longer be rendered. 
+**Desired Max Draw Distance** 는 1000 으로, **Min Draw Distance** 는 500 으로 설정되었기에 카메라가 액터의 바운딩 박스 중심에서 이 거리 내로 움직일 때만 액터가 보입니다. 
+카메라가 이 공간 밖으로 움직이면 액터는 더이상 렌더링되지 않습니다. 
 
 [COMMENT:none]
 
@@ -269,23 +269,23 @@ center. When the Camera moves outside of this space the Actor will no longer be 
 [/COMMENT]
 
 
-#### Cull Distance Volume
+#### 컬 디스턴스 볼륨
 
-Cull Distance Volumes allow you to specify a set of sizes and distances in an array that will automatically remove any Actor based on its bounds size at the corresponding distance. These volumes are useful
-for large outdoor scenes that have detailed interiors. 
+Cull Distance Volume (컬 디스턴스 볼륨)은 배열에 크기와 거리 세트를 지정하여 일정 거리에서의 바운드 크기에 따라 액터를 자동으로 제거할 수 있습니다. 
+이 볼륨은 디테일한 장식이 있는 커다란 야외 씬에 좋습니다. 
 
-For more information on using and setting up [Cull Distance Volumes](1_TimH\2_IN_PROGRESS\VisibilityCulling\CullDistanceVolume) you can read about it in this page.
+컬 디스턴스 볼륨 설정 관련 자세한 내용은 문서를 참고하세요.
 
 
-#### View Frustum Culling
+#### 뷰 프러스텀 컬링
 
-The Camera's view frustum is used to test whether the culled data from the scene is visible within its viewing area. This process uses the Actor's bounding box and sphere to check if it is visible within the view. If not, the 
-Actor will not be rendered.
+카메라의 뷰 프러스텀은 씬에서 컬링한 데이터가 카메라의 뷰 영역 안에 있는지 테스트할 때 사용합니다. 이 프로세스는 액터의 바운딩 박스와 스피어를 사용하여 뷰 안에 보이는지 검사합니다. 
+보이지 않으면, 액터는 렌더링하지 않습니다.
 
-The following example demonstrates how the view frustum considers Actors that are visible within the viewing area.
+다음 예제는 뷰 프러스텀이 뷰 영역 내 액터의 가시성을 판단하는 방식에 대한 데모입니다.
 
-* Yellow represents FOV of the view frustum and the area that is no occluded by other Actors.
-* Red represents the part of the view frustum that is occluded due to other Actors (ie. walls and large objects).
+* 노랑은 뷰 프러스텀의 FOV 및 다른 액터에 가려지지 않은 영역을 나타냅니다.
+* 빨강은 (벽이나 큰 오브젝트 등) 다른 액터로 인해 가려진 뷰 프러스텀 부분을 나타냅니다.
 
 [REGION:imagetable]
 | [INCLUDE:#Camera1] | [INCLUDE:#Camera2] | [INCLUDE:#Camera3] | [INCLUDE:#Camera4] |
@@ -293,16 +293,16 @@ The following example demonstrates how the view frustum considers Actors that ar
 |          1         |          2         |          3         |          4         | 
 [/REGION]
 
-| **Number** | **Description** |
+| **번호** | **설명** |
 | ---------- | --------------- |
-| **1** | From this perspective there are large walls that act as occluders obstructing all but the view along the hallway. Because of this only the cube is visible. This means that the sphere and cone are occludees of the wall and will not be rendered. |
-| **2** | As the Camera moves forward there is more of the scene that is exposed to the view frustum. The walls no longer fully occlude the sphere and cone now that we can see parts of them around the corners of the wall. This means that they are now being fully rendered even though we can only see a small part of them. |
-| **3** | Next the as the Camera turns to the left we now have the sphere and cube within the view frustum. The cone and walls out of view will no longer be rendered. |
-| **4** | Now as the Camera is turned back to the right the cone and cube are within the view and the walls and sphere that are out of view are no longer being rendered. |
+| **1** | 이 관점에서는 커다란 벽이 오클루더 역할을 하여 통로를 제외한 모든 것을 가리고 있습니다. 그래서 큐브만 보입니다. 즉 구체와 원뿔은 벽의 오클루디라 렌더링하지 않습니다. |
+| **2** | 카메라가 앞으로 이동하면서 뷰 프러스텀에 노출되는 씬 부분이 많아집니다. 이제 벽이 더이상 구체와 원뿔을 완전히 가리지 못해 벽 구석 주변에 일부분 보입니다. 즉 아주 일부만 볼 수 있기는 해도 이제 완전히 렌더링된다는 뜻입니다. |
+| **3** | 카메라가 왼쪽으로 회전하면서 구체와 큐브가 뷰 프러스텀에 잡혔습니다. 원뿔과 벽은 뷰 밖에 있어 더이상 렌더링하지 않습니다. |
+| **4** | 카메라가 오른쪽으로 뒤돌아서 원뿔과 큐브가 뷰 안에 있으며, 벽과 구체는 뷰 밖에 있어 더이상 렌더링하지 않습니다. |
 
 [REGION:note]
-This is a generalized example of how visibility culling works and there is a number of caveats and reasons to how things can be rendered that are not covered here. For additional tips and strategies to use
-with visibility culling see the [Culling Strategies for Best Practices](#cullingstrategiesforbestpractices) section in this page.
+비저빌리티 컬링 작동방식을 일반화시킨 예제로, 여기 다루지는 않았지만, 무언가의 렌더링 방식을 결정할 때는 여기 다루지 않은 주의사항과 이유가 몇 가지 있습니다. 비저빌리티 컬링에 사용할 수 
+있는 추가 팁과 전략에 대해서는 이 글의 [컬링 전략 모범 사례](#컬링전략모범사례) 부분을 참고하세요.
 [/REGION]
 
 [COMMENT:none]
@@ -334,108 +334,108 @@ with visibility culling see the [Culling Strategies for Best Practices](#culling
 [/COMMENT]
 
 
-#### Precomputed Visibility Volume
+#### 프리컴퓨티드 비저빌리티 볼륨
 
 [COMMENT:none]
 -![](PrecomputedVisibilityVolume.png)(w:500)-
 [/COMMENT]
 
-Precomputed Visibility Volumes use visibility cells that are placed on surfaces after a static lighting build. These visibility cells use the Camera view to change the visibility state of an Actor.
-This culling method is good for having visibility culling on mobile devices where hardware occlusion queries cannot be issued to check the visibility state. 
+Precomputed Visibility Volume (프리컴퓨티드 비저빌리티 볼륨)은 스태틱 라이팅 빌드 이후 표면에 배치된 비저빌리티 셀을 사용합니다. 이 비저빌리티 셀은 카메라 뷰를 사용하여 액터의 가시성 상태를 변경합니다.
+이 컬링 메서드는 가시성 상태를 확인하는 데 하드웨어 오클루전 쿼리를 사용할 수 없는 모바일 디바이스에서 비저빌리티 컬링을 하는 데 좋습니다. 
 
-For more information on using and setting up [Precomputed Visibility Volumes](1_TimH\2_IN_PROGRESS\VisibilityCulling\PrecomputedVisibilityVolume) you can read about them in this page.
+프리컴퓨티드 비저빌리티 볼륨 사용 및 설정 관련 자세한 내용은 문서를 참고하세요.
 
-#### Dynamic Occlusion
+#### 다이내믹 오클루전
 
-Dynamic occlusion queries are performed last in the chain of culling methods by only looking at the Actors that have been determined to be within the view frustum of the Camera. The Actors bounds that are 
-within the view frustum are then tested against the Scene Depth Buffer for their visibility by sending them to the GPU and reading them back one frame later. If an Actor's bounds is not visible within the 
-scene depth it will not be rendered. This allows the visibility state for any Actor occluded by another Actor to not be rendered. This method can allow for farther view distances because it relies on appoximate
-distances rather than setting a specific value for the far clip plane's distance.
+다이나믹 오클루전 쿼리는 컬링 메서드 체인 마지막에 이루어지며, 카메라 뷰 프러스텀 내에 있는 것으로 결정된 액터만 살펴봅니다. 
+그런 다음 뷰 프러스텀 안에 있는 액터의 바운드를 씬 뎁스 버퍼와 비교하여 가시성을 테스트합니다. 그 비교는 액터 바운드를 GPU 로 보내고 한 프레임 후 다시 읽어오는 방식입니다. 
+액터의 바운드가 씬 뎁스 안에 보이지 않으면 렌더링하지 않습니다. 이런 식으로 다른 액터에 가려진 액터의 가시성 상태를 렌더링하지 않도록 변경할 수 있습니다. 
+이 메서드는 원거리 클립 면의 거리에 대한 값을 특정하기 보다는 대략의 거리에 의존하므로 먼 뷰 거리에 사용할 수 있습니다.
 
-#### Hierarchical Z Buffer
+#### 계층형 Z 버퍼
 
 [REGION:warning]
-The Hierarchical Z-Buffer occlusion implementation is still considered experimental. There are some known issues that have not yet been addressed, like some meshes being culled when they should not be. 
+Hierarchical Z-Buffer (계층형 Z 버퍼) 오클루전 구현은 아직 실험단계입니다. 컬링하지 말아야 할 메시를 컬링하는 등, 아직 처리하지 못한 알려진 이슈가 몇 가지 있습니다. 
 [/REGION]
 
-The idea behind Hierarchical Z-Buffer occlusion is to represent the depth of the scene with multiple resolutions to determine the visibility of an Actor. This is done by creating mipmapped version 
-of the render target for the scene depth which has texels that identify the depth in the scene for the Actors tested. The Actors can be tested for occlusion by comparing the depth value of the Actor's bounds
-to that in the render target that was captured. By using a lower resolution mip level this will use a more conservative check for the bounds of an Actor which leads to fewer texture fetches when sampling from
-a mip level. 
+Hierarchical Z-Buffer (계층형 Z 버퍼) 오클루전이란 여러 해상도로 씬의 깊이를 표현하여 액터의 가시성을 결정한다는 개념입니다. 
+그 방식은 테스트 대상 액터의 씬 깊이를 알아내기 위한 텍셀이 있는 씬 깊이에 대해 렌더 타겟 밉맵 버전을 만듭니다. 
+액터 바운드의 깊이 값과 캡처된 렌더 타겟의 깊이 값을 비교하는 식으로 액터에 오클루전 테스트를 합니다. 
+낮은 해상도의 밉 레벨을 사용하면 액터 바운드를 보다 보수적으로 검사하게 되므로, 밉 레벨에서 샘플링할 때 텍스처 페치 수가 적어집니다. 
 
 [REGION:note]
-By rendering the scene to a lower resolution than the actual scene resolution you risk falsely culling Actors that should be visible.  
+씬을 실제 씬 해상도보다 낮은 해상도로 렌더링하면 원래는 보여야 할 액터를 잘못 컬링해 낼 위험이 있습니다.  
 [/REGION]
 
-Hierarchical Z-Buffer Occlusion Culling can be enabled by using the following console command: 
+계층형 Z 버퍼 오클루전 컬링을 활성화하는 콘솔 명령은 다음과 같습니다. 
 
 	r.HZBOcclusion
 
-* 0 will disable Hierarchical Z-Buffer occlusion
-* 1 will enable Hierarchical Z-Buffer occlusion
-* 2 will force the Hierarchical Z-Buffer system, which will override any rendering platform preferences
+* 0 은 계층형 Z 버퍼 오클루전을 비활성화합니다.
+* 1 은 계층형 Z 버퍼 오클루전을 활성화합니다.
+* 2 는 계층형 Z 버퍼 시스템을 강제 적용하여, 다른 렌더링 플랫폼 설정을 무시합니다.
 
 
-## Culling Strategies for Best Practices
+## 컬링 전략 모범 사례
 
-Below are some good practices to follow when designing and working with visibility culling for your game.
+게임의 비저빌리티 컬링 디자인 및 작업을 할 때 따르면 좋을 모범 사례는 다음과 같습니다.
 
-### "Popping" in/Lag from GPU Queries of Actors
+### 액터 GPU 쿼리로 인한 랙/갑툭튀 현상
 
-This is a common issue with using visibility culling for the view frustum and hardware occlusion queries since they are being read back from the GPU one frame later. This is often 
-noticeable when turning your player camera very fast or when you come around a corner in darkly lit areas that have a contrasting lit area behind them. 
+비저빌리티 컬링에 뷰 프러스텀 및 하드웨어 오클루전 쿼리를 사용할 때 한 프레임 후 GPU 에서 읽어 오기 때문에 발생하는 일반적인 이슈입니다. 플레이어 카메라를 매우 빨리 회전하거나, 
+플레이어가 라이팅이 어두운 코너를 도는 데 그 뒤의 라이팅이 대조적인 경우 흔히 발생합니다. 
 
-* Use other geometry to help hide this artifact. For something like caves or darkened areas with bright outsides use a large occluder mesh that can sit just outside of these pieces to hide the popping in and block the light that makes it evident.
-* Increase the Bounds Scale of the Actor that is causing the offending behavior. 
-* Build geometry in a way that does not have too many small pieces that need to be assembled. This is especially true for walls, floors, and ceilings.
+* 다른 지오메트리를 사용하면 이 부작용을 숨기는 데 도움이 됩니다. 동굴 등 바깥이 밝은 어두운 지역에는 커다란 오클루더 메시로 외부를 막아 pop in (갑자기 툭 튀어나오는, 갑툭튀) 현상을 막고 빛도 차단하여 명확히 드러나지 않도록 합니다.
+* 문제의 원인이 되는 액터의 바운드 스케일을 높입니다. 
+* 지오메트리를 만들 때 작은 조각을 너무 많이 조립하지 않습니다. 벽, 바닥, 천장이 특히 그렇습니다.
 
-### Large View Distances
+### 큰 뷰 디스턴스
 
-Large view distances can cause an impact on performance due to the number of Actors that need to be rendered. By blocking these large view distances with large occluders you can block Actors that would have been rendered otherwise.
-This can reduce the number of queries that need to be sent to the GPU by having fewer Actors to check. In turn, you get better performance by having fewer Actors to check and render.
+뷰 디스턴스가 크면 렌더링해야 하는 액터 수로 인해 퍼포먼스에 영향을 줄 수 있습니다. 커다란 오클루더로 뷰 디스턴스가 커지지 않도록 하면 액터를 쓸 데 없이 렌더링하지 않을 수 있습니다.
+검사할 액터 수를 줄여 GPU 로 보낼 쿼리 수를 줄일 수 있습니다. 차례로 검사 및 렌더링할 액터 수가 줄어 퍼포먼스가 향상됩니다.
 
-* Use large occluders where possible. 
-* Use Cull Distance Volumes to remove any smaller Actors that will not be easily visible at far distances, even if they are occluded from view.
-* Limit the amount of overdraw you get from Translucent Actors, since they will not occlude.
+* 가급적 큰 오클루더를 사용합니다. 
+* 컬 디스턴스 볼륨을 사용하여 뷰에 가려졌어도 원거리에서 잘 보이지 않는 작은 액터를 제거합니다.
+* 가리지 못하는 반투명 액터의 오버드로 수를 제한합니다.
 
-### Asset Construction
+### 애셋 구성
 
-When creating geometry for your game it is a good idea to break your geometry up into modular pieces for design purposes and reusability. However, it is possible to modularize too much in the design 
-process by using pieces that are too small to make up larger geometry. Because of this, each actor will need to be have its visibility state checked. It's best to find a balance that makes sense
-for your game design and optimize for the best performance. Reducing the number of queries needed to check visibility is key for optimization and to help reduce the "Popping" in that can happen. 
+게임의 지오메트리를 생성할 때, 디자인 목적 및 재사용을 위해 지오메트리를 모듈식 조각으로 분해하는 것이 좋습니다. 
+하지만 디자인 프로세스에서 모듈화가 너무 심하게 하면 너무 작은 조각으로 큰 지오메트리를 만들 수가 있습니다. 그래서 각 액터는 가시성 상태 검사를 해야 합니다. 
+합리적인 게임 디자인과 최고의 퍼포먼스를 내는 최적화 사이 균형을 찾는 것이 가장 좋습니다. 가시성 검사에 필요한 쿼리 수를 줄이는 것이 최적화의 핵심이며 갑툭튀 현상을 줄일 수 있습니다. 
 
-* Use larger geometry when crafting your levels for structural surfaces rather than breaking it up into many smaller pieces. There is more impact on the GPU testing multiple smaller Actors than a single Actor.
-* "Popping" in of Actors is reduced when considering the construction of the mesh.
+* 레벨을 만들 때 구조적 표면에는 작은 조각으로 분해해서 조립하기 보다는 큰 지오메트리를 사용하세요. 하나의 액터가 아닌 작은 액터를 다수 테스트하면 GPU 에 영향이 큽니다.
+* 메시 구조를 고려하면 액터 갑툭튀 현상이 줄어듭니다.
 
 
-### Consider Occlusion vs Distance Culling Cost
+### 오클루전 vs 디스턴스 컬링 비용 고려
 
-Occlusion and visibility culling methods cost much more than distance culling since these require GPU queries, so it is a good idea to setup Cull Distance Volumes for distant stuff even if they will 
-be occluded from a certain part of the scene.
+오클루전 및 비저빌리티 컬링 메서드는 디스턴스 컬링보다 비용이 훨씬 많이 드는데, GPU 쿼리가 필요하기 때문입니다. 즉 원거리 부분은 어차피 씬의 일정 부분에 가려진다 하더라도 
+컬 디스턴스 볼륨을 설정하는 것이 좋습니다.
 
-* Make good use of Cull Distance Volumes to reduce occlusion culling costs.
-* Stream out levels where possible instead of relying on distance or occlusion culling.
-* Use the `Stat Initviews` command to keep performance balance in check.
+* 컬 디스턴스 볼륨을 잘 활용하면 오클루전 컬링 비용을 줄일 수 있습니다.
+* 디스턴스 또는 오클루전 컬링에 의존하기 보다는 가급적 레벨 스트림 아웃이 좋습니다.
+* `Stat Initviews` 명령으로 퍼포먼스 균형을 유지하세요.
 
-For information about [Level Streaming](Engine/LevelStreaming) see how to set this up in this page.
+레벨 스트리밍 관련 정보는 [](Engine/LevelStreaming) 문서를 참고하세요.
 
-## Project Settings
+## 프로젝트 세팅
 
-To open the **Project Settings** you must first go to the main menu and select **Edit** > **Project Settings**. When the window opens you can select the **Rendering** category to see the available
-settings under the section named **Culling**.
+**프로젝트 세팅** 은 메인 메뉴의 **편집** > **프로젝트 세팅** 으로 열 수 있습니다. 창이 열리고 **Rendering** (렌더링) 카테고리를 선택하면 **Culling** (컬링) 섹션 아래 사용할 수 있는 
+세팅이 보입니다.
 
 
 ![](ProjectSettingsCulling.png)
 
-| Setting | Description |
+| 세팅 | 설명 |
 | --- | --- |
-| **Occlusion Culling** | Allows occluded meshes to be culled and not rendered. If this is disabled all occlusion culling will be disabled for the project which can have performance implications. |
-| **Min Screen Radius for EarlyZPass** | Screen radius at which objects are culled for early Z pass. Larger values can improve performance but very large values can degrade performance if large occluders are not rendered. |
-| **Warn about no precomputed visibility** | Displays a warning when no precomputed visibility data is available for the current camera location. This can be helpful if you are making a game that relies on precomputed visibility. |
+| **Occlusion Culling** | 오클루전 컬링 - 가려진 메시를 컬링하여 렌더링에서 제외할 수 있습니다. 이 옵션을 비활성화하면 프로젝트의 모든 오클루전 컬링이 비활성화되어 퍼포먼스 영향이 있을 수 있습니다. |
+| **Min Screen Radius for EarlyZPass** | EarlyZPass 최소 화면 반경 - EarlyZPass 에서 이 화면 반경의 오브젝트를 컬링합니다. 값이 크면 퍼포먼스가 향상될 수 있지만 너무 커서 큰 오클루더가 렌더링되지 않는 경우 오히려 퍼포먼스가 저하될 수 있습니다. |
+| **Warn about no precomputed visibility** | 프리컴퓨티드 비저빌리티 없음 경고 - 현재 카메라 위치에 사용할 수 있는 가시성 미리계산 데이터가 없으면 경고를 표시합니다. 프리컴퓨티드 비저빌리티 기능에 의존하는 게임을 만들 때 좋을 수 있습니다. |
 
 [REGION:tip]
-​If you are developing a mobile game it would be beneficial to enable the option for **Warn about no precomputed visibility** as a good reminder for your Level Designers when developing for mobile, since it does not currently use dynamic 
-occlusion culling.
+모바일 게임을 개발하는 경우 **Warn about no precomputed visibility** 옵션을 켜면 레벨 디자이너에게 좋은 알리미 역할을 해줍니다. 현재 모바일은 다이내믹 오클루전 컬링을 사용하지 
+않기 때문입니다.
 [/REGION]
 
 
@@ -452,19 +452,19 @@ occlusion culling.
 
 [/COMMENT]
 
-## Relevant Stats for Performance
+## 퍼포먼스 관련 통계
 
-In real-time rendering for games, it is important to manage your scene for optimization by keeping check of the stats generated for your scene that are relevant to visibility and occlusion culling.
+게임의 실시간 렌더링에서, 씬의 비저빌리티 및 오클루전 컬링 관련 통계를 계속 검사하여 최적화를 관리하는 것이 중요합니다.
 
-Use the following console command to view the stats relevant to visibility and occlusion culling for your scene: 
+씬의 비저빌리티 및 오클루전 컬링 관련 통계를 확인하는 콘솔 명령은 다음과 같습니다. 
 
-	Stat Initviews
+Stat Initviews
 
 [REGION:warning]
-Keep in mind that when testing visibility and occlusion culling there are a couple of things to be aware of.
+비저빌리티 및 오클루전 컬링 테스트를 할 때는 몇 가지 주의해야 할 것이 있습니다.
 
-* Occlusion culling is disabled in **Wireframe** view mode.
-* Use the console command **Stat Initviews** in PIE or Standalone games for more accurate results, because geometry for editor Actors that represent Lights, Cameras, and so on will be included when calculating visibility and occlusion culling.
+* 오클루전 컬링은 **와이어프레임** 뷰 모드에서 비활성화됩니다.
+* 보다 정확한 결과를 위해서는 PIE 또는 독립형 게임에서 **Stat Initviews** 명령을 사용하세요. 왜냐면 에디터용 지오메트리, 라이트, 카메라를 나타내는 액터 등이 비저빌리티 및 오클루전 컬링 계산에 포함되기 때문입니다.
 [/REGION]
 
 
@@ -472,14 +472,14 @@ Keep in mind that when testing visibility and occlusion culling there are a coup
 ![](StatInitViews.png)
 [/REGION]
 [REGION:caption]
-The scene's stats above were taken from the [Infinity Blade Grasslands](https://www.unrealengine.com/marketplace/infinity-blade-plain-lands) created by EPIC Games and is freely available on the EPIC Games Marketplace.
+위의 씬 통계는 에픽게임즈가 만든 [Infinity Blade Grasslands](https://www.unrealengine.com/marketplace/infinity-blade-plain-lands) 에서 찍은 것입니다. 마켓플레이스에서 받을 수 있습니다.
 [/REGION]
 
-The **Stat Initiviews** window is broken up into two sections for `Cycle Counters` and `Counters`. The Cycle Counter's stats focus on the number of cycles in milliseconds it took to process, while the Counter's stats simply
-add up the primitives that are processed.
+**Stat Initiviews** 창은 `Cycle Counters` (사이클 카운터) 및 `Counters` (카운터), 두 섹션으로 나뉩니다. 사이클 카운터 통계는 밀리초 단위 사이클 수가 중심이고, 카운터 통계는 단순히 
+처리한 프리미티브 누적 수입니다.
 
 [REGION:tip]
-`Visible Static Mesh Elements` is the single biggest contributor to rendering thread time and should be carefully watched and optimized.
+`Visible Static Mesh Elements` (보이는 스태틱 메시 엘리먼트)는 렌더링 스레드 시간에 가장 크게 기여하는 것으로, 주의깊게 감시하고 최적화해야 합니다.
 [/REGION]
 
 | Stat Initviews |  |
@@ -491,62 +491,62 @@ add up the primitives that are processed.
 [COMMENT:none]
 
 [EXCERPT:CycleCounter]
-| Stat | Description|
+| 통계 | 설명 |
 | --- | --- |
-| **View Visibility** | The amount of frame time spent to process Actor visibility queries. |
-| **Occlusion Cull** | The amount of frame time spent to query the scene for Actors within the view frustum that were occluded by other Actors. |
-| **Frustum Cull** | The amount of frame time spent to query if an Actor's bounds were within the view frustum. |
-| **Decompress Occlusion** | The amount of frame time it took to load the precomputed visibility. |
+| **View Visibility** | 뷰 비저빌리티 - 액터 비저빌리티 쿼리를 처리하는 데 걸린 프레임 시간입니다. |
+| **Occlusion Cull** | 오클루전 컬 - 뷰 프러스텀 안에 있는 액터 중 다른 액터에 가려진 액터에 대해 씬 쿼리를 하는 데 걸린 프레임 시간입니다. |
+| **Frustum Cull** | 프러스텀 컬 - 액터의 바운드가 뷰 프러스텀 안에 있는지 쿼리하는 데 걸린 프레임 시간입니다. |
+| **Decompress Occlusion** | 오클루전 압축해제 - 프리컴퓨티드 비저빌리티를 로드하는 데 걸린 프레임 시간입니다. |
 [/EXCERPT:CycleCounter]
 
 [EXCERPT:Counters]
-| Stat | Description|
+| 통계 | 설명 |
 | --- | --- |
-| **Processed Primitives** | This is the total number of Actors that are being processed in the scene.  |
-| **Frustum Culled Primitives** | This is the number of primitives culled when not within the view frustum's FOV. |
-| **Occluded Primitives** | The number of Actors that are occluded by other Actors from within the view frustum's FOV. |
-| **Occlusion Queries** | This is the number of scene occlusion queries sent to the GPU based on the number of Actors visible within the view frustum. |
-| **Visible Dynamic Primitives** | This is the number of dynamic primitives in the scene that have their mobility set to Movable, like Particle Systems and Foliage instances. |
-| **Visible Static Mesh Elements** | This is the number of visible meshes that have their mobility set to Static within the scene. |
+| **Processed Primitives** | 처리한 프리미티브 - 씬에서 처리 중인 액터의 총 수입니다.  |
+| **Frustum Culled Primitives** | 프러스텀 컬링한 프리미티브 - 뷰 프러스텀의 FOV 안에 있지 않을 때 컬링한 프리미티브 수입니다. |
+| **Occluded Primitives** | 가려진 프리미티브 - 뷰 프러스텀의 FOV 안에서 다른 액터에 가려진 액터의 수입니다. |
+| **Occlusion Queries** | 오클루전 쿼리 - 뷰 프러스텀 내 보이는 액터의 수에 따라 GPU 에 전송한 씬 오클루전 쿼리 수입니다. |
+| **Visible Dynamic Primitives** | 보이는 다이내믹 프리미티브 - 씬의 다이내믹 프리미티브 중 모빌리티가 무버블로 설정된 것의 개수로, 파티클 시스템 및 폴리지 인스턴스 등입니다. |
+| **Visible Static Mesh Elements** | 보이는 스태틱 메시 엘리먼트 - 보이는 메시 중 씬에서 모빌리티가 스태틱 설정된 개수입니다. |
 [/EXCERPT:Counters]
 
 [/COMMENT]
 
-## Tips & Tricks
+## 팁 & 트릭
 
-The following Tips & Tricks can be used to help troubleshoot and test your scene when you suspect problem related to visibility or occlusion culling. 
+비저빌리티 또는 오클루전 컬링 관련 문제가 의심될 때 씬의 문제를 테스트하고 해결하는 데 도움이 될 수 있는 팁 & 트릭은 다음과 같습니다. 
 
-##### Visualize Occluded Primitives
+##### 가려진 프리미티브 시각화
 
-This will enable the visualization mode to draw the bounding boxes of any Actors in your scene that are occluded from the Camera view. A green bounding box indicates the Actor is 
-dynamically occluded and a red bounding box indicates that the Actor is statically occluded when using [Precomputed Visibility Volumes](1_TimH\2_IN_PROGRESS\VisibilityCulling\PrecomputedVisibilityVolume). 
+씬에 있는 액터 중 카메라 뷰에서 가려진 액터의 바운딩 박스를 그리는 시각화 모드를 활성화합니다. 빨강은 프리컴퓨티드 비저빌리티 볼륨을 사용했을 때 정적으로 가려졌음을, 
+초록은 동적으로 가려졌음을 나타냅니다. 
 
-Use the following console command to enable this visualization: 
+이 시각화를 활성화하는 콘솔 명령은 다음과 같습니다. 
 
 	r.VisualizeOccludedPrimitives 1
 
 
 [REGION:note]
-This console command will only work while in the editor and not in PIE or Standalone games.
+이 콘솔 명령은 에디터에서만 작동하며, PIE 또는 독립형 게임에서는 작동하지 않습니다.
 [/REGION]
 
-In the example below, the visualization of occluded Actors blocked by the wall is compared to the placement of the Actor's with the wall removed. 
+아래 예제는 벽에 막혀 가려진 액터의 시각화를 벽을 제거한 액터의 배치와 비교한 것입니다. 
 
 [OBJECT:ComparisonSlider]
  [PARAM:before]
- ![Visualize Occluded Primitives Enabled (Green Box)](VisOccludedPrimitives1.png)(w:500)
+ ![Visualize Occluded Primitives 활성화 (초록 박스)](VisOccludedPrimitives1.png)(w:500)
  [/PARAM]
  [PARAM:after]
- ![Actors occluded by the wall](VisOccludedPrimitives2.png)(w:500)
+ ![벽에 가려진 액터](VisOccludedPrimitives2.png)(w:500)
  [/PARAM]
 [/OBJECT]
 
 
-##### Freeze Rendering
+##### 렌더링 고정
 
-This will toggle the rendering state of the scene from the current Camera perspective while allowing you to freely move around the world.
+현재 카메라 시점에서의 씬 렌더링을 고정한 상태에서 월드를 자유롭게 이동하는 기능의 토글입니다.
 
-Use the following console command to toggle this mode:
+이 모드를 토글하는 콘솔 명령은 다음과 같습니다.
 
 	FREEZERENDERING
 
@@ -564,20 +564,19 @@ Use the following console command to toggle this mode:
 [/OBJECT]
 
 
-##### Game View Mode
+##### 게임 뷰 모드
 
-You can use the keyboard shortcut for **G** or use the main **Viewport Options** down-arrow to select **Game View** to be able to work in the editor and switch between what you would see in game. 
-This is helpful when you do not want to PIE or launch a game but need to check what the game would look like. This is ideal for checking [Cull Distance Volumes](1_TimH\2_IN_PROGRESS\VisibilityCulling\CullDistanceVolume) 
-and [Precomputed Visibility Volumes](1_TimH\2_IN_PROGRESS\VisibilityCulling\PrecomputedVisibilityVolume) since these do not work unless you are in game or using the Game View.
+키보드 단축키 **G** 또는 메인 **뷰포트 옵션** 드롭다운에서 **게임 뷰** 를 선택하면 에디터에서 작업하면서 게임에서 실제 보이는 화면을 전환할 수 있습니다. 
+PIE 또는 게임 실행을 하지 않고도 게임이 어때 보이는지 확인할 때 좋습니다. 게임 중이거나 게임 뷰가 아니면 작동하지 않는 컬 디스턴스 볼륨 및 프리컴퓨티드 비저빌리티 볼륨을 확인할 때 
+좋습니다.
 
-For more information on the [Game View](Engine\UI\LevelEditor\Viewports\Basics) mode, you can read about it in this page.
-
-
+[게임 뷰](Engine\UI\LevelEditor\Viewports\Basics) 모드 관련 자세한 정보는 문서를 참고하세요.
 
 
-## Related Links
 
-[REGION:buttonlist]
-  * [](1_TimH\2_IN_PROGRESS\VisibilityCulling\PrecomputedVisibilityVolume)
-  * [](1_TimH\2_IN_PROGRESS\VisibilityCulling\CullDistanceVolume)
-[/REGION]
+
+
+
+
+
+

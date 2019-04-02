@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessMobile.cpp: Uber post for mobile implementation.
@@ -228,36 +228,43 @@ void FRCPassPostProcessBloomSetupES2::Process(FRenderingCompositePassContext& Co
 
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
+	ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::EClear;
+
+	bool bUseClearQuad = (DestRenderTarget.TargetableTexture->GetClearColor() != FLinearColor::Black);
+
 	// OverrideRenderTarget might patch out final render target and we have no control of the clear color anymore
-	if (DestRenderTarget.TargetableTexture->GetClearColor() == FLinearColor::Black)
+	if (bUseClearQuad)
 	{
-		FRHIRenderTargetView View = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, ERenderTargetLoadAction::EClear);
-		FRHISetRenderTargetsInfo Info(1, &View, FRHIDepthRenderTargetView());
-		Context.RHICmdList.SetRenderTargetsAndClear(Info);
-	}
-	else
-	{
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-		DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		LoadAction = ERenderTargetLoadAction::ENoAction;
 	}
 
-	Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f );
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore));
+	
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("PostProcessBloomSetupES2"));
+	{
+		if (bUseClearQuad)
+		{
+			DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		}
 
-	SetShader(Context);
+		Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f);
 
-	TShaderMapRef<FPostProcessBloomSetupVS_ES2> VertexShader(Context.GetShaderMap());
+		SetShader(Context);
 
-	DrawRectangle(
-		Context.RHICmdList,
-		0, 0,
-		DstX, DstY,
-		SrcRect.Min.X, SrcRect.Min.Y,
-		SrcRect.Width(), SrcRect.Height(),
-		DstSize,
-		SrcSize,
-		*VertexShader,
-		EDRF_UseTriangleOptimization);
+		TShaderMapRef<FPostProcessBloomSetupVS_ES2> VertexShader(Context.GetShaderMap());
 
+		DrawRectangle(
+			Context.RHICmdList,
+			0, 0,
+			DstX, DstY,
+			SrcRect.Min.X, SrcRect.Min.Y,
+			SrcRect.Width(), SrcRect.Height(),
+			DstSize,
+			SrcSize,
+			*VertexShader,
+			EDRF_UseTriangleOptimization);
+	}
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
@@ -435,36 +442,43 @@ void FRCPassPostProcessBloomSetupSmallES2::Process(FRenderingCompositePassContex
 	}
 
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
+
+	const bool bUseClearQuad = DestRenderTarget.TargetableTexture->GetClearColor() != FLinearColor::Black;
 	
 	// OverrideRenderTarget might patch out final render target and we have no control of the clear color anymore
-	if (DestRenderTarget.TargetableTexture->GetClearColor() == FLinearColor::Black)
+	ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::EClear;
+
+	if (bUseClearQuad)
 	{
-		FRHIRenderTargetView View = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, ERenderTargetLoadAction::EClear);
-		FRHISetRenderTargetsInfo Info(1, &View, FRHIDepthRenderTargetView());
-		Context.RHICmdList.SetRenderTargetsAndClear(Info);
-	}
-	else
-	{
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-		DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		LoadAction = ERenderTargetLoadAction::ENoAction;
 	}
 
-	Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f );
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore));
+	
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("PostProcessBloomSetupSmallES2"));
+	{
+		if (bUseClearQuad)
+		{
+			DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		}
 
-	SetShader(Context);
+		Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f);
 
-	TShaderMapRef<FPostProcessBloomSetupSmallVS_ES2> VertexShader(Context.GetShaderMap());
-	DrawRectangle(
-		Context.RHICmdList,
-		0, 0,
-		DstX, DstY,
-		SrcRect.Min.X, SrcRect.Min.Y,
-		SrcRect.Width(), SrcRect.Height(),
-		DstSize,
-		SrcSize,
-		*VertexShader,
-		EDRF_UseTriangleOptimization);
+		SetShader(Context);
 
+		TShaderMapRef<FPostProcessBloomSetupSmallVS_ES2> VertexShader(Context.GetShaderMap());
+		DrawRectangle(
+			Context.RHICmdList,
+			0, 0,
+			DstX, DstY,
+			SrcRect.Min.X, SrcRect.Min.Y,
+			SrcRect.Width(), SrcRect.Height(),
+			DstSize,
+			SrcSize,
+			*VertexShader,
+			EDRF_UseTriangleOptimization);
+	}
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
@@ -592,52 +606,58 @@ void FRCPassPostProcessBloomDownES2::Process(FRenderingCompositePassContext& Con
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 	
 	// OverrideRenderTarget might patch out final render target and we have no control of the clear color anymore
-	if (DestRenderTarget.TargetableTexture->GetClearColor() == FLinearColor::Black)
+	const bool bUseClearQuad = DestRenderTarget.TargetableTexture->GetClearColor() != FLinearColor::Black;
+
+	ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::EClear;
+	if (bUseClearQuad)
 	{
-		FRHIRenderTargetView View = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, ERenderTargetLoadAction::EClear);
-		FRHISetRenderTargetsInfo Info(1, &View, FRHIDepthRenderTargetView());
-		Context.RHICmdList.SetRenderTargetsAndClear(Info);
-	}
-	else
-	{
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-		DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		LoadAction = ERenderTargetLoadAction::ENoAction;
 	}
 
-	Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f );
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore));
+	
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("PostProcessBloomDownES2"));
+	{
+		if (bUseClearQuad)
+		{
+			DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		}
 
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f);
 
-	TShaderMapRef<FPostProcessBloomDownVS_ES2> VertexShader(Context.GetShaderMap());
-	TShaderMapRef<FPostProcessBloomDownPS_ES2> PixelShader(Context.GetShaderMap());
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+		TShaderMapRef<FPostProcessBloomDownVS_ES2> VertexShader(Context.GetShaderMap());
+		TShaderMapRef<FPostProcessBloomDownPS_ES2> PixelShader(Context.GetShaderMap());
 
-	SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-	VertexShader->SetVS(Context, Scale);
-	PixelShader->SetPS(Context.RHICmdList, Context);
+		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
 
-	FIntPoint SrcDstSize = PrePostSourceViewportSize/2;
+		VertexShader->SetVS(Context, Scale);
+		PixelShader->SetPS(Context.RHICmdList, Context);
 
-	DrawRectangle(
-		Context.RHICmdList,
-		0, 0,
-		DstX, DstY,
-		0, 0,
-		DstX, DstY,
-		SrcDstSize,
-		SrcDstSize,
-		*VertexShader,
-		EDRF_UseTriangleOptimization);
+		FIntPoint SrcDstSize = PrePostSourceViewportSize / 2;
 
+		DrawRectangle(
+			Context.RHICmdList,
+			0, 0,
+			DstX, DstY,
+			0, 0,
+			DstX, DstY,
+			SrcDstSize,
+			SrcDstSize,
+			*VertexShader,
+			EDRF_UseTriangleOptimization);
+	}
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
@@ -770,55 +790,61 @@ void FRCPassPostProcessBloomUpES2::Process(FRenderingCompositePassContext& Conte
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 	
 	// OverrideRenderTarget might patch out final render target and we have no control of the clear color anymore
-	if (DestRenderTarget.TargetableTexture->GetClearColor() == FLinearColor::Black)
+	const bool bUseClearQuad = DestRenderTarget.TargetableTexture->GetClearColor() != FLinearColor::Black;
+	ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::EClear;
+
+	if (bUseClearQuad)
 	{
-		FRHIRenderTargetView View = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, ERenderTargetLoadAction::EClear);
-		FRHISetRenderTargetsInfo Info(1, &View, FRHIDepthRenderTargetView());
-		Context.RHICmdList.SetRenderTargetsAndClear(Info);
-	}
-	else
-	{
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-		DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		LoadAction = ERenderTargetLoadAction::ENoAction;
 	}
 
-	Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f );
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore));
+		
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("PostProcessBloomUpES2"));
+	{
+		if (bUseClearQuad)
+		{
+			DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		}
 
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f);
 
-	TShaderMapRef<FPostProcessBloomUpVS_ES2> VertexShader(Context.GetShaderMap());
-	TShaderMapRef<FPostProcessBloomUpPS_ES2> PixelShader(Context.GetShaderMap());
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+		TShaderMapRef<FPostProcessBloomUpVS_ES2> VertexShader(Context.GetShaderMap());
+		TShaderMapRef<FPostProcessBloomUpPS_ES2> PixelShader(Context.GetShaderMap());
 
-	SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-	// The 1/8 factor is because bloom is using 8 taps in the filter.
-	VertexShader->SetVS(Context, FVector2D(ScaleAB.X, ScaleAB.Y));
-	FVector4 TintAScaled = TintA * (1.0f/8.0f);
-	FVector4 TintBScaled = TintB * (1.0f/8.0f);
-	PixelShader->SetPS(Context.RHICmdList, Context, TintAScaled, TintBScaled);
+		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
 
-	FIntPoint SrcDstSize = PrePostSourceViewportSize;
+		// The 1/8 factor is because bloom is using 8 taps in the filter.
+		VertexShader->SetVS(Context, FVector2D(ScaleAB.X, ScaleAB.Y));
+		FVector4 TintAScaled = TintA * (1.0f / 8.0f);
+		FVector4 TintBScaled = TintB * (1.0f / 8.0f);
+		PixelShader->SetPS(Context.RHICmdList, Context, TintAScaled, TintBScaled);
 
-	DrawRectangle(
-		Context.RHICmdList,
-		0, 0,
-		DstX, DstY,
-		0, 0,
-		DstX, DstY,
-		SrcDstSize,
-		SrcDstSize,
-		*VertexShader,
-		EDRF_UseTriangleOptimization);
+		FIntPoint SrcDstSize = PrePostSourceViewportSize;
 
+		DrawRectangle(
+			Context.RHICmdList,
+			0, 0,
+			DstX, DstY,
+			0, 0,
+			DstX, DstY,
+			SrcDstSize,
+			SrcDstSize,
+			*VertexShader,
+			EDRF_UseTriangleOptimization);
+	}
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
@@ -848,7 +874,7 @@ FPooledRenderTargetDesc FRCPassPostProcessBloomUpES2::ComputeOutputDesc(EPassOut
 // SUN MASK
 //
 
-template <uint32 UseFetchSunDof, bool bUseDepthTexture> // 0=none, 1=dof, 2=sun, 3=sun&dof, {4,5,6,7}=ES2_USE_FETCH, 8=MSAA-pre-resolve
+template <uint32 UseSunDof, bool bUseDepthTexture> // 0=none, 1=dof, 2=sun, 3=sun&dof
 class FPostProcessSunMaskPS_ES2 : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(FPostProcessSunMaskPS_ES2, Global);
@@ -863,13 +889,9 @@ class FPostProcessSunMaskPS_ES2 : public FGlobalShader
 		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("ES2_USE_DEPTHTEXTURE"), bUseDepthTexture ? (uint32)1 : (uint32)0);
 		CA_SUPPRESS(6313);
-		OutEnvironment.SetDefine(TEXT("ES2_USE_MSAA"), (UseFetchSunDof & 8) ? (uint32)1 : (uint32)0);
+		OutEnvironment.SetDefine(TEXT("ES2_USE_SUN"), (UseSunDof & 2) ? (uint32)1 : (uint32)0);
 		CA_SUPPRESS(6313);
-		OutEnvironment.SetDefine(TEXT("ES2_USE_FETCH"), (UseFetchSunDof & 4) ? (uint32)1 : (uint32)0);
-		CA_SUPPRESS(6313);
-		OutEnvironment.SetDefine(TEXT("ES2_USE_SUN"), (UseFetchSunDof & 2) ? (uint32)1 : (uint32)0);
-		CA_SUPPRESS(6313);
-		OutEnvironment.SetDefine(TEXT("ES2_USE_DOF"), (UseFetchSunDof & 1) ? (uint32)1 : (uint32)0);
+		OutEnvironment.SetDefine(TEXT("ES2_USE_DOF"), (UseSunDof & 1) ? (uint32)1 : (uint32)0);
 	}
 
 	FPostProcessSunMaskPS_ES2() {}
@@ -919,9 +941,7 @@ public:
 	typedef FPostProcessSunMaskPS_ES2<A,false> FPostProcessSunMaskPS_ES2_##A; \
 	IMPLEMENT_SHADER_TYPE(template<>,FPostProcessSunMaskPS_ES2_##A,TEXT("/Engine/Private/PostProcessMobile.usf"),TEXT("SunMaskPS_ES2"), SF_Pixel);
 
-SUNMASK_PS_ES2(0)  SUNMASK_PS_ES2(1)  SUNMASK_PS_ES2(2)  SUNMASK_PS_ES2(3)  SUNMASK_PS_ES2(4)
-SUNMASK_PS_ES2(5)  SUNMASK_PS_ES2(6)  SUNMASK_PS_ES2(7)  SUNMASK_PS_ES2(8)
-
+SUNMASK_PS_ES2(0)  SUNMASK_PS_ES2(1)  SUNMASK_PS_ES2(2)  SUNMASK_PS_ES2(3)
 #undef SUNMASK_PS_ES2
 
 
@@ -962,7 +982,7 @@ public:
 
 IMPLEMENT_SHADER_TYPE(,FPostProcessSunMaskVS_ES2,TEXT("/Engine/Private/PostProcessMobile.usf"),TEXT("SunMaskVS_ES2"),SF_Vertex);
 
-template <uint32 UseFetchSunDof, bool bUseDepthTexture>
+template <uint32 UseSunDof, bool bUseDepthTexture>
 static void SunMask_SetShader(const FRenderingCompositePassContext& Context)
 {
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;
@@ -972,7 +992,7 @@ static void SunMask_SetShader(const FRenderingCompositePassContext& Context)
 	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
 	TShaderMapRef<FPostProcessSunMaskVS_ES2> VertexShader(Context.GetShaderMap());
-	TShaderMapRef<FPostProcessSunMaskPS_ES2<UseFetchSunDof, bUseDepthTexture> > PixelShader(Context.GetShaderMap());
+	TShaderMapRef<FPostProcessSunMaskPS_ES2<UseSunDof, bUseDepthTexture> > PixelShader(Context.GetShaderMap());
 
 	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
 	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
@@ -991,28 +1011,14 @@ void FRCPassPostProcessSunMaskES2::SetShader(const FRenderingCompositePassContex
 	const FViewInfo& View = Context.View;
 	uint32 UseSun = Context.View.bLightShaftUse ? 1 : 0;
 	uint32 UseDof = (GetMobileDepthOfFieldScale(Context.View) > 0.0f) ? 1 : 0;
-	uint32 UseFetch = GSupportsShaderFramebufferFetch ? 1 : 0;
-	uint32 UseFetchSunDof = (UseFetch << 2) + (UseSun << 1) + UseDof;
+	uint32 UseSunDof = (UseSun << 1) + UseDof;
 
-	static const auto CVarMobileMSAA = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileMSAA"));
-	const EShaderPlatform ShaderPlatform = Context.GetShaderPlatform();
-
-	if ((GSupportsShaderFramebufferFetch && (IsMetalMobilePlatform(ShaderPlatform) || IsVulkanMobilePlatform(ShaderPlatform))) && (CVarMobileMSAA ? CVarMobileMSAA->GetValueOnAnyThread() > 1 : false))
-	{
-		UseFetchSunDof = 8;
-	}
-
-	switch(UseFetchSunDof)
+	switch(UseSunDof)
 	{
 		case 0: SunMask_SetShader<0, bUseDepthTexture>(Context); break;
 		case 1: SunMask_SetShader<1, bUseDepthTexture>(Context); break;
 		case 2: SunMask_SetShader<2, bUseDepthTexture>(Context); break;
 		case 3: SunMask_SetShader<3, bUseDepthTexture>(Context); break;
-		case 4: SunMask_SetShader<4, bUseDepthTexture>(Context); break;
-		case 5: SunMask_SetShader<5, bUseDepthTexture>(Context); break;
-		case 6: SunMask_SetShader<6, bUseDepthTexture>(Context); break;
-		case 7: SunMask_SetShader<7, bUseDepthTexture>(Context); break;
-		case 8: SunMask_SetShader<8, bUseDepthTexture>(Context); break;
 	}
 }
 
@@ -1038,35 +1044,6 @@ void FRCPassPostProcessSunMaskES2::Process(FRenderingCompositePassContext& Conte
 	const FViewInfo& View = Context.View;
 
 	TShaderMapRef<FPostProcessSunMaskVS_ES2> VertexShader(Context.GetShaderMap());
-	if(bOnChip)
-	{
-		SrcSize = DstSize;
-		//SrcRect = DstRect;
-		SrcRect = View.ViewRect;
-
-		Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f );
-
-		if (InputDesc != NULL && InputDesc->Format == PF_FloatR11G11B10)
-		{
-			SetShader<true>(Context);
-		}
-		else
-		{
-			SetShader<false>(Context);
-		}
-
-		DrawRectangle(
-			Context.RHICmdList,
-			0, 0,
-			DstX, DstY,
-			SrcRect.Min.X, SrcRect.Min.Y,
-			SrcRect.Width(), SrcRect.Height(),
-			DstSize,
-			SrcSize,
-			*VertexShader,
-			EDRF_UseTriangleOptimization);
-	}
-	else
 	{
 		SrcSize = InputDesc->Extent; //-V595
 		//	uint32 ScaleFactor = View.ViewRect.Width() / SrcSize.X;
@@ -1077,40 +1054,45 @@ void FRCPassPostProcessSunMaskES2::Process(FRenderingCompositePassContext& Conte
 		const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 		
 		// OverrideRenderTarget might patch out final render target and we have no control of the clear color anymore
-		if (DestRenderTarget.TargetableTexture->GetClearColor() == FLinearColor::Black)
+		const bool bUseClearQuad = DestRenderTarget.TargetableTexture->GetClearColor() != FLinearColor::Black;
+		ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::EClear;
+
+		if (bUseClearQuad)
 		{
-			FRHIRenderTargetView RtView = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, ERenderTargetLoadAction::EClear);
-			FRHISetRenderTargetsInfo Info(1, &RtView, FRHIDepthRenderTargetView());
-			Context.RHICmdList.SetRenderTargetsAndClear(Info);
-		}
-		else
-		{
-			SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-			DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+			LoadAction = ERenderTargetLoadAction::ENoAction;
 		}
 
-		Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f );
-
-		if (InputDesc != NULL && InputDesc->Format == PF_FloatR11G11B10)
+		FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore));
+		Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("PostProcessSunMaskES2"));
 		{
-			SetShader<true>(Context);
-		}
-		else
-		{
-			SetShader<false>(Context);
-		}
+			if (bUseClearQuad)
+			{
+				DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+			}
 
-		DrawRectangle(
-			Context.RHICmdList,
-			SrcRect.Min.X, SrcRect.Min.Y,
-			SrcRect.Width(), SrcRect.Height(),
-			SrcRect.Min.X, SrcRect.Min.Y,
-			SrcRect.Width(), SrcRect.Height(),
-			DstSize,
-			SrcSize,
-			*VertexShader,
-			EDRF_UseTriangleOptimization);
+			Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f);
 
+			if (InputDesc != NULL && InputDesc->Format == PF_FloatR11G11B10)
+			{
+				SetShader<true>(Context);
+			}
+			else
+			{
+				SetShader<false>(Context);
+			}
+
+			DrawRectangle(
+				Context.RHICmdList,
+				SrcRect.Min.X, SrcRect.Min.Y,
+				SrcRect.Width(), SrcRect.Height(),
+				SrcRect.Min.X, SrcRect.Min.Y,
+				SrcRect.Width(), SrcRect.Height(),
+				DstSize,
+				SrcSize,
+				*VertexShader,
+				EDRF_UseTriangleOptimization);
+		}
+		Context.RHICmdList.EndRenderPass();
 		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 	}
 }
@@ -1280,36 +1262,41 @@ void FRCPassPostProcessSunAlphaES2::Process(FRenderingCompositePassContext& Cont
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 	
 	// OverrideRenderTarget might patch out final render target and we have no control of the clear color anymore
-	if (DestRenderTarget.TargetableTexture->GetClearColor() == FLinearColor::Black)
+	const bool bUseClearQuad = DestRenderTarget.TargetableTexture->GetClearColor() != FLinearColor::Black;
+	ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::EClear;
+
+	if (bUseClearQuad)
 	{
-		FRHIRenderTargetView View = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, ERenderTargetLoadAction::EClear);
-		FRHISetRenderTargetsInfo Info(1, &View, FRHIDepthRenderTargetView());
-		Context.RHICmdList.SetRenderTargetsAndClear(Info);
-	}
-	else
-	{
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-		DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		LoadAction = ERenderTargetLoadAction::ENoAction;
 	}
 
-	Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f );
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore));
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("PostProcessSunAlphaES2"));
+	{
+		if (bUseClearQuad)
+		{
+			DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		}
 
-	SetShader(Context);
+		Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f);
 
-	FIntPoint SrcDstSize = PrePostSourceViewportSize / 4;
-	TShaderMapRef<FPostProcessSunAlphaVS_ES2> VertexShader(Context.GetShaderMap());
+		SetShader(Context);
 
-	DrawRectangle(
-		Context.RHICmdList,
-		0, 0,
-		DstX, DstY,
-		0, 0,
-		DstX, DstY,
-		SrcDstSize,
-		SrcDstSize,
-		*VertexShader,
-		EDRF_UseTriangleOptimization);
+		FIntPoint SrcDstSize = PrePostSourceViewportSize / 4;
+		TShaderMapRef<FPostProcessSunAlphaVS_ES2> VertexShader(Context.GetShaderMap());
 
+		DrawRectangle(
+			Context.RHICmdList,
+			0, 0,
+			DstX, DstY,
+			0, 0,
+			DstX, DstY,
+			SrcDstSize,
+			SrcDstSize,
+			*VertexShader,
+			EDRF_UseTriangleOptimization);
+	}
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
@@ -1438,52 +1425,56 @@ void FRCPassPostProcessSunBlurES2::Process(FRenderingCompositePassContext& Conte
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 	
 	// OverrideRenderTarget might patch out final render target and we have no control of the clear color anymore
-	if (DestRenderTarget.TargetableTexture->GetClearColor() == FLinearColor::Black)
+	const bool bUseClearQuad = DestRenderTarget.TargetableTexture->GetClearColor() != FLinearColor::Black;
+	ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::EClear;
+	if (bUseClearQuad)
 	{
-		FRHIRenderTargetView View = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, ERenderTargetLoadAction::EClear);
-		FRHISetRenderTargetsInfo Info(1, &View, FRHIDepthRenderTargetView());
-		Context.RHICmdList.SetRenderTargetsAndClear(Info);
-	}
-	else
-	{
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-		DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		LoadAction = ERenderTargetLoadAction::ENoAction;
 	}
 
-	Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f );
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore));
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("SunBlurES2"));
+	{
+		if (bUseClearQuad)
+		{
+			DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		}
 
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f);
 
-	TShaderMapRef<FPostProcessSunBlurVS_ES2> VertexShader(Context.GetShaderMap());
-	TShaderMapRef<FPostProcessSunBlurPS_ES2> PixelShader(Context.GetShaderMap());
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+		TShaderMapRef<FPostProcessSunBlurVS_ES2> VertexShader(Context.GetShaderMap());
+		TShaderMapRef<FPostProcessSunBlurPS_ES2> PixelShader(Context.GetShaderMap());
 
-	SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-	VertexShader->SetVS(Context);
-	PixelShader->SetPS(Context);
+		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
 
-	FIntPoint SrcDstSize = PrePostSourceViewportSize / 4;
+		VertexShader->SetVS(Context);
+		PixelShader->SetPS(Context);
 
-	DrawRectangle(
-		Context.RHICmdList,
-		0, 0,
-		DstX, DstY,
-		0, 0,
-		DstX, DstY,
-		SrcDstSize,
-		SrcDstSize,
-		*VertexShader,
-		EDRF_UseTriangleOptimization);
+		FIntPoint SrcDstSize = PrePostSourceViewportSize / 4;
 
+		DrawRectangle(
+			Context.RHICmdList,
+			0, 0,
+			DstX, DstY,
+			0, 0,
+			DstX, DstY,
+			SrcDstSize,
+			SrcDstSize,
+			*VertexShader,
+			EDRF_UseTriangleOptimization);
+	}
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
@@ -1676,8 +1667,8 @@ void FRCPassPostProcessSunMergeES2::Process(FRenderingCompositePassContext& Cont
 {
 	SCOPED_DRAW_EVENT(Context.RHICmdList, PostProcessSunMerge);
 
-	uint32 DstX = FMath::Max(1, PrePostSourceViewportSize.X/4);
-	uint32 DstY = FMath::Max(1, PrePostSourceViewportSize.Y/4);
+	uint32 DstX = FMath::Max(1, PrePostSourceViewportSize.X / 4);
+	uint32 DstY = FMath::Max(1, PrePostSourceViewportSize.Y / 4);
 
 	FIntRect DstRect;
 	DstRect.Min.X = 0;
@@ -1686,37 +1677,40 @@ void FRCPassPostProcessSunMergeES2::Process(FRenderingCompositePassContext& Cont
 	DstRect.Max.Y = DstY;
 
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
-	
+
 	// OverrideRenderTarget might patch out final render target and we have no control of the clear color anymore
-	if (DestRenderTarget.TargetableTexture->GetClearColor() == FLinearColor::Black)
+	const bool bUseClearQuad = DestRenderTarget.TargetableTexture->GetClearColor() != FLinearColor::Black;
+	ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::EClear;
+	if (bUseClearQuad)
 	{
-		FRHIRenderTargetView View = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, ERenderTargetLoadAction::EClear);
-		FRHISetRenderTargetsInfo Info(1, &View, FRHIDepthRenderTargetView());
-		Context.RHICmdList.SetRenderTargetsAndClear(Info);
+		LoadAction = ERenderTargetLoadAction::ENoAction;
 	}
-	else
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore));
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("SunMergeES2"));
 	{
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-		DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		if (bUseClearQuad)
+		{
+			DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		}
+
+		Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f);
+
+		FShader* VertexShader = SetShader(Context);
+
+		FIntPoint SrcDstSize = PrePostSourceViewportSize / 4;
+
+		DrawRectangle(
+			Context.RHICmdList,
+			0, 0,
+			DstX, DstY,
+			0, 0,
+			DstX, DstY,
+			SrcDstSize,
+			SrcDstSize,
+			VertexShader,
+			EDRF_UseTriangleOptimization);
 	}
-
-	Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f );
-
-	FShader* VertexShader = SetShader(Context);
-
-	FIntPoint SrcDstSize = PrePostSourceViewportSize / 4;
-
-	DrawRectangle(
-		Context.RHICmdList,
-		0, 0,
-		DstX, DstY,
-		0, 0,
-		DstX, DstY,
-		SrcDstSize,
-		SrcDstSize,
-		VertexShader,
-		EDRF_UseTriangleOptimization);
-
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 
 	// Double buffer sun+bloom+vignette composite.
@@ -1889,36 +1883,39 @@ void FRCPassPostProcessSunMergeSmallES2::Process(FRenderingCompositePassContext&
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 	
 	// OverrideRenderTarget might patch out final render target and we have no control of the clear color anymore
-	if (DestRenderTarget.TargetableTexture->GetClearColor() == FLinearColor::Black)
+	const bool bUseClearQuad = DestRenderTarget.TargetableTexture->GetClearColor() != FLinearColor::Black;
+	ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::EClear;
+	if (bUseClearQuad)
 	{
-		FRHIRenderTargetView View = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, ERenderTargetLoadAction::EClear);
-		FRHISetRenderTargetsInfo Info(1, &View, FRHIDepthRenderTargetView());
-		Context.RHICmdList.SetRenderTargetsAndClear(Info);
+		LoadAction = ERenderTargetLoadAction::ENoAction;
 	}
-	else
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore));
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("SunMergeSmallES2"));
 	{
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-		DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		if (bUseClearQuad)
+		{
+			DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		}
+
+		Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f);
+
+		SetShader(Context);
+
+		FIntPoint SrcDstSize = PrePostSourceViewportSize / 4;
+		TShaderMapRef<FPostProcessSunMergeSmallVS_ES2> VertexShader(Context.GetShaderMap());
+
+		DrawRectangle(
+			Context.RHICmdList,
+			0, 0,
+			DstX, DstY,
+			0, 0,
+			DstX, DstY,
+			SrcDstSize,
+			SrcDstSize,
+			*VertexShader,
+			EDRF_UseTriangleOptimization);
 	}
-
-	Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f );
-
-	SetShader(Context);
-
-	FIntPoint SrcDstSize = PrePostSourceViewportSize / 4;
-	TShaderMapRef<FPostProcessSunMergeSmallVS_ES2> VertexShader(Context.GetShaderMap());
-
-	DrawRectangle(
-		Context.RHICmdList, 
-		0, 0,
-		DstX, DstY,
-		0, 0,
-		DstX, DstY,
-		SrcDstSize,
-		SrcDstSize,
-		*VertexShader,
-		EDRF_UseTriangleOptimization);
-
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 
 	// Double buffer sun+bloom+vignette composite.
@@ -2129,35 +2126,38 @@ void FRCPassPostProcessDofDownES2::Process(FRenderingCompositePassContext& Conte
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
 	// OverrideRenderTarget might patch out final render target and we have no control of the clear color anymore
-	if (DestRenderTarget.TargetableTexture->GetClearColor() == FLinearColor::Black)
+	const bool bUseClearQuad = DestRenderTarget.TargetableTexture->GetClearColor() != FLinearColor::Black;
+	ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::EClear;
+	if (bUseClearQuad)
 	{
-		FRHIRenderTargetView View = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, ERenderTargetLoadAction::EClear);
-		FRHISetRenderTargetsInfo Info(1, &View, FRHIDepthRenderTargetView());
-		Context.RHICmdList.SetRenderTargetsAndClear(Info);
+		LoadAction = ERenderTargetLoadAction::ENoAction;
 	}
-	else
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore));
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("DofDownES2"));
 	{
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-		DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		if (bUseClearQuad)
+		{
+			DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		}
+
+		Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f);
+
+		SetShader(Context);
+
+		TShaderMapRef<FPostProcessDofDownVS_ES2> VertexShader(Context.GetShaderMap());
+
+		DrawRectangle(
+			Context.RHICmdList,
+			0, 0,
+			DstX, DstY,
+			SrcRect.Min.X, SrcRect.Min.Y,
+			SrcRect.Width(), SrcRect.Height(),
+			DstSize,
+			SrcSize,
+			*VertexShader,
+			EDRF_UseTriangleOptimization);
 	}
-
-	Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f );
-
-	SetShader(Context);
-
-	TShaderMapRef<FPostProcessDofDownVS_ES2> VertexShader(Context.GetShaderMap());
-
-	DrawRectangle(
-		Context.RHICmdList,
-		0, 0,
-		DstX, DstY,
-		SrcRect.Min.X, SrcRect.Min.Y,
-		SrcRect.Width(), SrcRect.Height(),
-		DstSize,
-		SrcSize,
-		*VertexShader,
-		EDRF_UseTriangleOptimization);
-
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
@@ -2332,36 +2332,39 @@ void FRCPassPostProcessDofNearES2::Process(FRenderingCompositePassContext& Conte
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
 	// OverrideRenderTarget might patch out final render target and we have no control of the clear color anymore
-	if (DestRenderTarget.TargetableTexture->GetClearColor() == FLinearColor::Black)
+	const bool bUseClearQuad = DestRenderTarget.TargetableTexture->GetClearColor() != FLinearColor::Black;
+	ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::EClear;
+	if (bUseClearQuad)
 	{
-		FRHIRenderTargetView View = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, ERenderTargetLoadAction::EClear);
-		FRHISetRenderTargetsInfo Info(1, &View, FRHIDepthRenderTargetView());
-		Context.RHICmdList.SetRenderTargetsAndClear(Info);
+		LoadAction = ERenderTargetLoadAction::ENoAction;
 	}
-	else
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore));
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("DofNearES2"));
 	{
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-		DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		if (bUseClearQuad)
+		{
+			DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		}
+
+		Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f);
+
+		SetShader(Context);
+
+		FIntPoint SrcDstSize = PrePostSourceViewportSize / 4;
+		TShaderMapRef<FPostProcessDofNearVS_ES2> VertexShader(Context.GetShaderMap());
+
+		DrawRectangle(
+			Context.RHICmdList,
+			0, 0,
+			DstX, DstY,
+			0, 0,
+			DstX, DstY,
+			SrcDstSize,
+			SrcSize,
+			*VertexShader,
+			EDRF_UseTriangleOptimization);
 	}
-
-	Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f );
-
-	SetShader(Context);
-
-	FIntPoint SrcDstSize = PrePostSourceViewportSize / 4;
-	TShaderMapRef<FPostProcessDofNearVS_ES2> VertexShader(Context.GetShaderMap());
-
-	DrawRectangle(
-		Context.RHICmdList,
-		0, 0,
-		DstX, DstY,
-		0, 0,
-		DstX, DstY,
-		SrcDstSize,
-		SrcSize,
-		*VertexShader,
-		EDRF_UseTriangleOptimization);
-
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
@@ -2483,52 +2486,55 @@ void FRCPassPostProcessDofBlurES2::Process(FRenderingCompositePassContext& Conte
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 	
 	// OverrideRenderTarget might patch out final render target and we have no control of the clear color anymore
-	if (DestRenderTarget.TargetableTexture->GetClearColor() == FLinearColor::Black)
+	const bool bUseClearQuad = DestRenderTarget.TargetableTexture->GetClearColor() != FLinearColor::Black;
+	ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::EClear;
+	if (bUseClearQuad)
 	{
-		FRHIRenderTargetView View = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, ERenderTargetLoadAction::EClear);
-		FRHISetRenderTargetsInfo Info(1, &View, FRHIDepthRenderTargetView());
-		Context.RHICmdList.SetRenderTargetsAndClear(Info);
+		LoadAction = ERenderTargetLoadAction::ENoAction;
 	}
-	else
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore));
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("DofBlurES2"));
 	{
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-		DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		if (bUseClearQuad)
+		{
+			DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		}
+
+		Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f);
+
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+
+		TShaderMapRef<FPostProcessDofBlurVS_ES2> VertexShader(Context.GetShaderMap());
+		TShaderMapRef<FPostProcessDofBlurPS_ES2> PixelShader(Context.GetShaderMap());
+
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+
+		VertexShader->SetVS(Context);
+		PixelShader->SetPS(Context);
+
+		FIntPoint SrcDstSize = PrePostSourceViewportSize / 2;
+
+		DrawRectangle(
+			Context.RHICmdList,
+			0, 0,
+			DstX, DstY,
+			0, 0,
+			DstX, DstY,
+			SrcDstSize,
+			SrcDstSize,
+			*VertexShader,
+			EDRF_UseTriangleOptimization);
 	}
-
-	Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f );
-
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-
-	TShaderMapRef<FPostProcessDofBlurVS_ES2> VertexShader(Context.GetShaderMap());
-	TShaderMapRef<FPostProcessDofBlurPS_ES2> PixelShader(Context.GetShaderMap());
-
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-	SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
-
-	VertexShader->SetVS(Context);
-	PixelShader->SetPS(Context);
-
-	FIntPoint SrcDstSize = PrePostSourceViewportSize / 2;
-
-	DrawRectangle(
-		Context.RHICmdList,
-		0, 0,
-		DstX, DstY,
-		0, 0,
-		DstX, DstY,
-		SrcDstSize,
-		SrcDstSize,
-		*VertexShader,
-		EDRF_UseTriangleOptimization);
-
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
@@ -2681,36 +2687,39 @@ void FRCPassPostProcessSunAvgES2::Process(FRenderingCompositePassContext& Contex
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 	
 	// OverrideRenderTarget might patch out final render target and we have no control of the clear color anymore
-	if (DestRenderTarget.TargetableTexture->GetClearColor() == FLinearColor::Black)
+	const bool bUseClearQuad = DestRenderTarget.TargetableTexture->GetClearColor() != FLinearColor::Black;
+	ERenderTargetLoadAction LoadAction = ERenderTargetLoadAction::EClear;
+	if (bUseClearQuad)
 	{
-		FRHIRenderTargetView View = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, ERenderTargetLoadAction::EClear);
-		FRHISetRenderTargetsInfo Info(1, &View, FRHIDepthRenderTargetView());
-		Context.RHICmdList.SetRenderTargetsAndClear(Info);
+		LoadAction = ERenderTargetLoadAction::ENoAction;
 	}
-	else
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, MakeRenderTargetActions(LoadAction, ERenderTargetStoreAction::EStore));
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("SunAvgES2"));
 	{
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-		DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		if (bUseClearQuad)
+		{
+			DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+		}
+
+		Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f);
+
+		SetShader(Context);
+
+		FIntPoint SrcDstSize = PrePostSourceViewportSize / 4;
+		TShaderMapRef<FPostProcessSunAvgVS_ES2> VertexShader(Context.GetShaderMap());
+
+		DrawRectangle(
+			Context.RHICmdList,
+			0, 0,
+			DstX, DstY,
+			0, 0,
+			DstX, DstY,
+			SrcDstSize,
+			SrcDstSize,
+			*VertexShader,
+			EDRF_UseTriangleOptimization);
 	}
-
-	Context.SetViewportAndCallRHI(0, 0, 0.0f, DstX, DstY, 1.0f );
-
-	SetShader(Context);
-
-	FIntPoint SrcDstSize = PrePostSourceViewportSize / 4;
-	TShaderMapRef<FPostProcessSunAvgVS_ES2> VertexShader(Context.GetShaderMap());
-
-	DrawRectangle(
-		Context.RHICmdList,
-		0, 0,
-		DstX, DstY,
-		0, 0,
-		DstX, DstY,
-		SrcDstSize,
-		SrcDstSize,
-		*VertexShader,
-		EDRF_UseTriangleOptimization);
-
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
@@ -2933,39 +2942,44 @@ void FRCPassPostProcessAaES2::Process(FRenderingCompositePassContext& Context)
 	
 	check(SrcSize == DestSize);
 
+	ERenderTargetActions LoadStoreAction = ERenderTargetActions::Load_Store;
 	if (Context.View.StereoPass != eSSP_RIGHT_EYE)
 	{
 		// Full clear to avoid restore
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
+		LoadStoreAction = ERenderTargetActions::Clear_Store;
 	}
-	else
+	
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, LoadStoreAction);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("AaES2"));
 	{
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EExistingColorAndDepth);
+		Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f);
+
+		SetShader(Context);
+
+		const bool bIsFinalPass = Context.IsViewFamilyRenderTarget(DestRenderTarget);
+
+		// If final pass then perform simple upscaling
+		const FIntRect& ViewRect = bIsFinalPass ? Context.View.UnscaledViewRect : Context.View.ViewRect;
+
+		float XPos = ViewRect.Min.X;
+		float YPos = ViewRect.Min.Y;
+		float Width = ViewRect.Width();
+		float Height = ViewRect.Height();
+
+		TShaderMapRef<FPostProcessAaVS_ES2> VertexShader(Context.GetShaderMap());
+
+		DrawRectangle(
+			Context.RHICmdList,
+			XPos, YPos,
+			Width, Height,
+			XPos, YPos,
+			Width, Height,
+			DestSize,
+			SrcSize,
+			*VertexShader,
+			EDRF_UseTriangleOptimization);
 	}
-
-	Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f);
-
-	SetShader(Context);
-
-	const FIntRect& ViewRect = Context.View.UnscaledViewRect; // Simple upscaling, ES2 post process does not currently have a specific upscaling pass.
-	float XPos = ViewRect.Min.X;
-	float YPos = ViewRect.Min.Y;
-	float Width = ViewRect.Width();
-	float Height = ViewRect.Height();
-
-	TShaderMapRef<FPostProcessAaVS_ES2> VertexShader(Context.GetShaderMap());
-
-	DrawRectangle(
-		Context.RHICmdList,
-		XPos, YPos,
-		Width, Height,
-		XPos, YPos,
-		Width, Height,
-		DestSize,
-		SrcSize,
-		*VertexShader,
-		EDRF_UseTriangleOptimization);
-
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 
 	if (FSceneRenderer::ShouldCompositeEditorPrimitives(Context.View))

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "Slate/SceneViewport.h"
@@ -233,36 +233,36 @@ void FSceneViewport::UpdateModifierKeys( const FPointerEvent& InMouseEvent )
 	KeyStateMap.Add(EKeys::RightCommand, InMouseEvent.IsRightCommandDown());
 }
 
-void FSceneViewport::ApplyModifierKeys( const FModifierKeysState& InKeysState )
+void FSceneViewport::ApplyModifierKeys(const FModifierKeysState& InKeysState)
 {
-	if( ViewportClient && GetSizeXY() != FIntPoint::ZeroValue )
+	if (ViewportClient && GetSizeXY() != FIntPoint::ZeroValue)
 	{
 		// Switch to the viewport clients world before processing input
-		FScopedConditionalWorldSwitcher WorldSwitcher( ViewportClient );
+		FScopedConditionalWorldSwitcher WorldSwitcher(ViewportClient);
 
-		if ( InKeysState.IsLeftAltDown() )
+		if (InKeysState.IsLeftAltDown())
 		{
-			ViewportClient->InputKey( this, 0, EKeys::LeftAlt, IE_Pressed );
+			ViewportClient->InputKey(FInputKeyEventArgs(this, 0, EKeys::LeftAlt, IE_Pressed));
 		}
-		if ( InKeysState.IsRightAltDown() )
+		if (InKeysState.IsRightAltDown())
 		{
-			ViewportClient->InputKey( this, 0, EKeys::RightAlt, IE_Pressed );
+			ViewportClient->InputKey(FInputKeyEventArgs(this, 0, EKeys::RightAlt, IE_Pressed));
 		}
-		if ( InKeysState.IsLeftControlDown() )
+		if (InKeysState.IsLeftControlDown())
 		{
-			ViewportClient->InputKey( this, 0, EKeys::LeftControl, IE_Pressed );
+			ViewportClient->InputKey(FInputKeyEventArgs(this, 0, EKeys::LeftControl, IE_Pressed));
 		}
-		if ( InKeysState.IsRightControlDown() )
+		if (InKeysState.IsRightControlDown())
 		{
-			ViewportClient->InputKey( this, 0, EKeys::RightControl, IE_Pressed );
+			ViewportClient->InputKey(FInputKeyEventArgs(this, 0, EKeys::RightControl, IE_Pressed));
 		}
-		if ( InKeysState.IsLeftShiftDown() )
+		if (InKeysState.IsLeftShiftDown())
 		{
-			ViewportClient->InputKey( this, 0, EKeys::LeftShift, IE_Pressed );
+			ViewportClient->InputKey(FInputKeyEventArgs(this, 0, EKeys::LeftShift, IE_Pressed));
 		}
-		if ( InKeysState.IsRightShiftDown() )
+		if (InKeysState.IsRightShiftDown())
 		{
-			ViewportClient->InputKey( this, 0, EKeys::RightShift, IE_Pressed );
+			ViewportClient->InputKey(FInputKeyEventArgs(this, 0, EKeys::RightShift, IE_Pressed));
 		}
 	}
 }
@@ -278,6 +278,8 @@ void FSceneViewport::ProcessAccumulatedPointerInput()
 	FScopedConditionalWorldSwitcher WorldSwitcher( ViewportClient );
 
 	const bool bViewportHasCapture = ViewportWidget.IsValid() && ViewportWidget.Pin()->HasMouseCapture();
+
+	ViewportClient->ProcessAccumulatedPointerInput(this);
 
 	if (NumMouseSamplesX > 0 || NumMouseSamplesY > 0)
 	{
@@ -460,7 +462,7 @@ FReply FSceneViewport::OnMouseButtonDown( const FGeometry& InGeometry, const FPo
 			ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CaptureDuringMouseDown ||
 			(ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CaptureDuringRightMouseDown && InMouseEvent.GetEffectingButton() == EKeys::RightMouseButton);
 
-		// Process primary input if we aren't currently a game viewport, we already have capture, or we are permanent capture that dosn't consume the mouse down.
+		// Process primary input if we aren't currently a game viewport, we already have capture, or we are permanent capture that doesn't consume the mouse down.
 		const bool bProcessInputPrimary = !IsCurrentlyGameViewport() || HasMouseCapture() || (ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CapturePermanently_IncludingInitialMouseDown);
 
 		const bool bAnyMenuWasVisible = FSlateApplication::Get().AnyMenusVisible();
@@ -468,7 +470,7 @@ FReply FSceneViewport::OnMouseButtonDown( const FGeometry& InGeometry, const FPo
 		// Process the mouse event
 		if (bTemporaryCapture || bProcessInputPrimary)
 		{
-			if (!ViewportClient->InputKey(this, InMouseEvent.GetUserIndex(), InMouseEvent.GetEffectingButton(), IE_Pressed))
+			if (!ViewportClient->InputKey(FInputKeyEventArgs(this, InMouseEvent.GetUserIndex(), InMouseEvent.GetEffectingButton(), IE_Pressed, 1.0f, InMouseEvent.IsTouchEvent())))
 			{
 				CurrentReplyState = FReply::Unhandled();
 			}
@@ -563,7 +565,7 @@ FReply FSceneViewport::OnMouseButtonUp( const FGeometry& InGeometry, const FPoin
 	
 	if( ViewportClient && GetSizeXY() != FIntPoint::ZeroValue )
 	{
-		if (!ViewportClient->InputKey(this, InMouseEvent.GetUserIndex(), InMouseEvent.GetEffectingButton(), IE_Released))
+		if (!ViewportClient->InputKey(FInputKeyEventArgs(this, InMouseEvent.GetUserIndex(), InMouseEvent.GetEffectingButton(), IE_Released, 1.0f, InMouseEvent.IsTouchEvent())))
 		{
 			CurrentReplyState = FReply::Unhandled(); 
 		}
@@ -683,8 +685,8 @@ FReply FSceneViewport::OnMouseWheel( const FGeometry& InGeometry, const FPointer
 		FKey const ViewportClientKey = InMouseEvent.GetWheelDelta() < 0 ? EKeys::MouseScrollDown : EKeys::MouseScrollUp;
 
 		// Pressed and released should be sent
-		ViewportClient->InputKey(this, InMouseEvent.GetUserIndex(), ViewportClientKey, IE_Pressed);
-		ViewportClient->InputKey(this, InMouseEvent.GetUserIndex(), ViewportClientKey, IE_Released);
+		ViewportClient->InputKey(FInputKeyEventArgs(this, InMouseEvent.GetUserIndex(), ViewportClientKey, IE_Pressed, 1.0f, InMouseEvent.IsTouchEvent()));
+		ViewportClient->InputKey(FInputKeyEventArgs(this, InMouseEvent.GetUserIndex(), ViewportClientKey, IE_Released, 1.0f, InMouseEvent.IsTouchEvent()));
 		ViewportClient->InputAxis(this, InMouseEvent.GetUserIndex(), EKeys::MouseWheelAxis, InMouseEvent.GetWheelDelta(), FApp::GetDeltaTime());
 	}
 	return CurrentReplyState;
@@ -710,7 +712,7 @@ FReply FSceneViewport::OnMouseButtonDoubleClick( const FGeometry& InGeometry, co
 		// Switch to the viewport clients world before processing input
 		FScopedConditionalWorldSwitcher WorldSwitcher( ViewportClient );
 
-		if (!ViewportClient->InputKey(this, InMouseEvent.GetUserIndex(), InMouseEvent.GetEffectingButton(), IE_DoubleClick))
+		if (!ViewportClient->InputKey(FInputKeyEventArgs(this, InMouseEvent.GetUserIndex(), InMouseEvent.GetEffectingButton(), IE_DoubleClick, 1.0f, InMouseEvent.IsTouchEvent())))
 		{
 			CurrentReplyState = FReply::Unhandled(); 
 		}
@@ -959,7 +961,7 @@ FReply FSceneViewport::OnKeyDown( const FGeometry& InGeometry, const FKeyEvent& 
 			// Switch to the viewport clients world before processing input
 			FScopedConditionalWorldSwitcher WorldSwitcher(ViewportClient);
 
-			if (!ViewportClient->InputKey(this, InKeyEvent.GetUserIndex(), Key, InKeyEvent.IsRepeat() ? IE_Repeat : IE_Pressed, 1.0f, Key.IsGamepadKey()))
+			if (!ViewportClient->InputKey(FInputKeyEventArgs(this, InKeyEvent.GetUserIndex(), Key, InKeyEvent.IsRepeat() ? IE_Repeat : IE_Pressed, 1.0f, false)))
 			{
 				CurrentReplyState = FReply::Unhandled();
 			}
@@ -987,7 +989,7 @@ FReply FSceneViewport::OnKeyUp( const FGeometry& InGeometry, const FKeyEvent& In
 			// Switch to the viewport clients world before processing input
 			FScopedConditionalWorldSwitcher WorldSwitcher(ViewportClient);
 
-			if (!ViewportClient->InputKey(this, InKeyEvent.GetUserIndex(), Key, IE_Released, 1.0f, Key.IsGamepadKey()))
+			if (!ViewportClient->InputKey(FInputKeyEventArgs(this, InKeyEvent.GetUserIndex(), Key, IE_Released, 1.0f, false)))
 			{
 				CurrentReplyState = FReply::Unhandled();
 			}
@@ -1231,8 +1233,7 @@ void FSceneViewport::ResizeFrame(uint32 NewWindowSizeX, uint32 NewWindowSizeY, E
 	// Resizing the window directly is only supported in the game
 	if( FApp::IsGame() && NewWindowSizeX > 0 && NewWindowSizeY > 0 )
 	{		
-		FWidgetPath WidgetPath;
-		TSharedPtr<SWindow> WindowToResize = FSlateApplication::Get().FindWidgetWindow( ViewportWidget.Pin().ToSharedRef(), WidgetPath );
+		TSharedPtr<SWindow> WindowToResize = FSlateApplication::Get().FindWidgetWindow( ViewportWidget.Pin().ToSharedRef());
 
 		if( WindowToResize.IsValid() )
 		{
@@ -1396,11 +1397,23 @@ void FSceneViewport::ResizeFrame(uint32 NewWindowSizeX, uint32 NewWindowSizeY, E
 
 void FSceneViewport::SetFixedViewportSize(uint32 NewViewportSizeX, uint32 NewViewportSizeY)
 {
-	bForceViewportSize = true;
-	TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(ViewportWidget.Pin().ToSharedRef());
-	if (Window.IsValid())
+	if (NewViewportSizeX > 0 && NewViewportSizeY > 0)
 	{
-		ResizeViewport(FMath::Max(0U, NewViewportSizeX), FMath::Max(0U, NewViewportSizeY), Window->GetWindowMode());
+		bForceViewportSize = true;
+		TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(ViewportWidget.Pin().ToSharedRef());
+		if (Window.IsValid())
+		{
+			ResizeViewport(NewViewportSizeX, NewViewportSizeY, Window->GetWindowMode());
+		}
+	}
+	else
+	{
+		bForceViewportSize = false;
+		TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(ViewportWidget.Pin().ToSharedRef());
+		if (Window.IsValid())
+		{
+			Window->Invalidate(EInvalidateWidget::PaintAndVolatility);
+		}
 	}
 }
 
@@ -1577,8 +1590,7 @@ void FSceneViewport::UpdateViewportRHI(bool bDestroyed, uint32 NewSizeX, uint32 
 			{
 				// Get the viewport for this window from the renderer so we can render directly to the backbuffer
 				FSlateRenderer* Renderer = FSlateApplication::Get().GetRenderer();
-				FWidgetPath WidgetPath;
-				void* ViewportResource = Renderer->GetViewportResource( *FSlateApplication::Get().FindWidgetWindow( ViewportWidget.Pin().ToSharedRef(), WidgetPath ) );
+				void* ViewportResource = Renderer->GetViewportResource(*FSlateApplication::Get().FindWidgetWindow( ViewportWidget.Pin().ToSharedRef()));
 				if( ViewportResource )
 				{
 					ViewportRHI = *((FViewportRHIRef*)ViewportResource);
@@ -1590,18 +1602,20 @@ void FSceneViewport::UpdateViewportRHI(bool bDestroyed, uint32 NewSizeX, uint32 
 		else
 		{
 			// Enqueue a render command to delete the handle.  It must be deleted on the render thread after the resource is released
-			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(DeleteSlateRenderTarget, TArray<FSlateRenderTargetRHI*>&, BufferedSlateHandles, BufferedSlateHandles,
-																				FSlateRenderTargetRHI*&, RenderThreadSlateTexture, RenderThreadSlateTexture,
-			{
-				for (int32 i = 0; i < BufferedSlateHandles.Num(); ++i)
+			FSlateRenderTargetRHI** RenderThreadSlateTexturePtr = &RenderThreadSlateTexture;
+			TArray<FSlateRenderTargetRHI*>* BufferedSlateHandlesPtr = &BufferedSlateHandles;
+			ENQUEUE_RENDER_COMMAND(DeleteSlateRenderTarget)(
+				[BufferedSlateHandlesPtr, RenderThreadSlateTexturePtr](FRHICommandListImmediate& RHICmdList)
 				{
-					delete BufferedSlateHandles[i];
-					BufferedSlateHandles[i] = nullptr;
+					for (int32 i = 0; i < BufferedSlateHandlesPtr->Num(); ++i)
+					{
+						delete (*BufferedSlateHandlesPtr)[i];
+						(*BufferedSlateHandlesPtr)[i] = nullptr;
+					}
 
-					delete RenderThreadSlateTexture;
-					RenderThreadSlateTexture = nullptr;
-				}						
-			});
+					delete *RenderThreadSlateTexturePtr;
+					*RenderThreadSlateTexturePtr = nullptr;
+				});
 
 		}
 	}
@@ -1646,10 +1660,9 @@ void FSceneViewport::EnqueueBeginRenderFrame(const bool bShouldPresent)
 	{
 		// Get the viewport for this window from the renderer so we can render directly to the backbuffer
 		FSlateRenderer* Renderer = FSlateApplication::Get().GetRenderer();
-		FWidgetPath WidgetPath;
 		if (ViewportWidget.IsValid())
 		{
-			auto WidgetWindow = FSlateApplication::Get().FindWidgetWindow(ViewportWidget.Pin().ToSharedRef(), WidgetPath);
+			auto WidgetWindow = FSlateApplication::Get().FindWidgetWindow(ViewportWidget.Pin().ToSharedRef());
 			if (WidgetWindow.IsValid())
 			{
 				void* ViewportResource = Renderer->GetViewportResource(*WidgetWindow);
@@ -1664,14 +1677,11 @@ void FSceneViewport::EnqueueBeginRenderFrame(const bool bShouldPresent)
 
 	//set the rendertarget visible to the render thread
 	//must come before any render thread frame handling.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		SetRenderThreadViewportTarget,
-		FSceneViewport*, Viewport, this,
-		FTexture2DRHIRef, RT, RenderTargetTextureRHI,		
+	ENQUEUE_RENDER_COMMAND(SetRenderThreadViewportTarget)(
+		[Viewport = this, RT = RenderTargetTextureRHI](FRHICommandListImmediate& RHICmdList) mutable
 		{
-
-		Viewport->SetRenderTargetTextureRenderThread(RT);			
-	});		
+			Viewport->SetRenderTargetTextureRenderThread(RT);			
+		});		
 
 	FViewport::EnqueueBeginRenderFrame(bShouldPresent);
 
@@ -1687,7 +1697,6 @@ void FSceneViewport::BeginRenderFrame(FRHICommandListImmediate& RHICmdList)
 	if (UseSeparateRenderTarget())
 	{		
 		RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, RenderTargetTextureRenderThreadRHI);
-		SetRenderTarget(RHICmdList,  RenderTargetTextureRenderThreadRHI,  FTexture2DRHIRef(), true);
 	}
 	else if( IsValidRef( ViewportRHI ) ) 
 	{
@@ -1714,7 +1723,7 @@ void FSceneViewport::EndRenderFrame(FRHICommandListImmediate& RHICmdList, bool b
 		if (bShouldUnsetTargets)
 		{
 			// Set the active render target(s) to nothing to release references in the case that the viewport is resized by slate before we draw again
-			SetRenderTarget(RHICmdList,  FTexture2DRHIRef(), FTexture2DRHIRef() );
+			UnbindRenderTargets(RHICmdList);
 		}
 		// Note: this releases our reference but does not release the resource as it is owned by slate (this is intended)
 		RenderTargetTextureRenderThreadRHI.SafeRelease();
@@ -1755,8 +1764,7 @@ void FSceneViewport::OnPlayWorldViewportSwapped( const FSceneViewport& OtherView
 	{
 		FSlateRenderer* Renderer = FSlateApplication::Get().GetRenderer();
 
-		FWidgetPath WidgetPath;
-		TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow( PinnedViewport.ToSharedRef(), WidgetPath );
+		TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow( PinnedViewport.ToSharedRef() );
 
 		WindowRenderTargetUpdate( Renderer, Window.Get() );
 	}
@@ -1982,8 +1990,7 @@ void FSceneViewport::InitDynamicRHI()
 	if (PinnedViewport.IsValid())
 	{
 
-		FWidgetPath WidgetPath;
-		TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(PinnedViewport.ToSharedRef(), WidgetPath);
+		TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(PinnedViewport.ToSharedRef());
 		
 		WindowRenderTargetUpdate(Renderer, Window.Get());
 		if (UseSeparateRenderTarget())

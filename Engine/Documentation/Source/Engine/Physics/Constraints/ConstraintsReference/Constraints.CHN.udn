@@ -1,546 +1,427 @@
-﻿INTSourceChangelist:1
+﻿INTSourceChangelist:4649792
 Availability: Public
-Title: 物理约束参考指南
+Title:物理约束参考
 Crumbs: %ROOT%, Engine, Engine/Physics
-Description: 关于虚幻编辑器中物理约束上的所有可用属性的参考指南。
-Version: 4.9
+Description:虚幻编辑器中物理约束上所有可用属性的参考。
+parent:Engine/Physics/Constraints
+order:1
+Version: 4.18
+topic-image:Engine/Physics/physics_topic.png
+tags:Physics
+SkillLevel: Beginner
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Physics/Constraints/ConstraintsReference:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/Constraints/ConstraintsReference:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/Constraints/ConstraintsReference:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Physics/Constraints/ConstraintsReference]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Physics/Constraints/ConstraintsReference:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/Constraints/ConstraintsReference:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/Constraints/ConstraintsReference:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Physics/Constraints/ConstraintsReference]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+[TOC(end:2)]
 
+本参考页面列出了物理约束的属性列表，其按主要类别划分。
 
+(#constraint)
+## 约束
 
-This page contains a reference listing of properties in the Physics Constraints. 
-
-## Properties
-
-Below are the properties for Physics Constraints separated by major category.
-
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
-
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
-
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		cons
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Constraint
-	[/PARAM]
-	[PARAM:content]
-		%p1%
-	[/PARAM]
-[/OBJECT]
-
-[VAR:p1]
-
+[EXCERPT:p1]
 ![](propConstraint.png)
 
 [REGION:raw]
-| Property | %spacer% | Description |
-| --- | :---: | :--- |
-| **约束 Actor 1** || %doxygen:UPhysicsConstraintComponent::ConstraintActor1% |
-| **组件名称 1** || %doxygen:UPhysicsConstraintComponent::ComponentName1% |
-| **约束Actor 2** || %doxygen:UPhysicsConstraintComponent::ConstraintActor2% |
-| **组件名称2** || %doxygen:UPhysicsConstraintComponent::ComponentName2%  |
-| **关节名称** || %doxygen:FConstraintInstance::JointName% |
-| **约束骨骼1** || %doxygen:FConstraintInstance::ConstraintBone1% |
-| **约束骨骼2** || %doxygen:FConstraintInstance::ConstraintBone2% |
-| **禁用碰撞** || %doxygen:FConstraintInstance::bDisableCollision% |
+| 属性  | 描述 |
+| ---  | :--- |
+| **Constraint Actor 1** | 将 **物理约束** 放入关卡编辑器后，必须指定要约束的 **Actor** 。这是2个 **Actor** 中的第一个。 |
+| **Component Name 1** | 要约束的首个目标组件。使用 **Actor** 仅约束特定组件而不约束 **Actor** 根时，可指定该组件。 |
+| **Constraint Actor 2** | 将 **物理约束** 放入关卡编辑器后，必须指定要约束的 **Actor** 。这是2个 **Actor** 中的第二个。 |
+| **Component Name 2** | 要约束的第二个目标组件。使用 **Actor** 仅约束特定组件而非 **Actor** 根时，可指定该组件。  |
+| **Joint Name** | 在 **物理资源工具** 中进行约束时，此为最初约束的骨骼命名。 |
+| **Constraint Bone 1** | 在 **物理资源工具** 中进行约束时，此为要约束的首个关节命名。 |
+| **Constraint Bone 2** | 在 **物理资源工具** 中进行约束时，此为要约束的第二个关节命名。 |
 [/REGION]
+[/EXCERPT:p1]
 
-[/VAR]
+(#constraintbehavior)
+## 约束行为
 
-
-
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		proj
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Projection
-	[/PARAM]
-	[PARAM:content]
-		%p2%
-	[/PARAM]
-[/OBJECT]
-
-[VAR:p2]
-
+[EXCERPT:p2]
 ![](propProjection.png)
 
 [REGION:raw]
-| Property | %spacer% | Description |
-| --- | :---: | :--- |
-| **Enable Projection** || %doxygen:FConstraintInstance::bEnableProjection% |
-| **Projection Linear Tolerance** || %doxygen:FConstraintInstance::ProjectionLinearTolerance% |
-| **Projection Angular Tolerance** || %doxygen:FConstraintInstance::ProjectionAngularTolerance% |
+| 属性  | 描述 |
+| ---  | :--- |
+| **禁用碰撞** | 此操作将禁用约束的组件间的碰撞。 |
+| **启用投射** | 若形体间的距离错误超过 **投射线性容差** 值，或旋转错误超过 **投射角容差**，将投射物理形体修复错误。此操作可修复视觉效果中断的问题，例如单个锁链链接互相断开。
+| **投射线性容差** | 若距离错误超过该数值（以场景单位计量），将投射形体。 |
+| **投射角容差** | 若旋转错误超过该数值（以度计量），将投射形体。 |
+| **父项主导** | 设置后，约束中的父形体将不会被子项的运动所影响。 |
 [/REGION]
+[/EXCERPT]
 
-[/VAR]
+[COMMENT:none]
 
+(#jointpresets)
+## 关节预设
 
-
-
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		join
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Joint Presets
-	[/PARAM]
-	[PARAM:content]
-		%p3%
-	[/PARAM]
-[/OBJECT]
-
-[VAR:p3]
-
+[EXCERPT:p3]
 ![](propJointPresets.png)
 
 [REGION:raw]
-| Property | %spacer% | Description |
-| --- | :---: | :--- |
-| **Hinge（铰链式）** || _锁定_ **线性运动**, _锁定_ **摇动**,并设置 **	角扭动** 为 _自由_ 。经典的门铰链或膝盖关节。|
-| **Prismatic(棱柱式)** || _锁定_  **摇动**, _锁定_ **角扭动**, _锁定_ **线性Y运动** 和 **线性Z 运动**, 并设置 **Linear ZMotion（线性Z运动）** 为 _自由_ 。比如水利活塞。|
-| **Ball and Socket（球窝式）** || _锁定_ 所有 **线性运动** ，设置 **摇动** 和 **扭动** 为 _自由_ 。完全自由地旋转，和沙袋或破碎球。|
+| 属性  | 描述 |
+| ---  | :--- |
+| **枢纽** | 将关节设为枢纽。枢纽关节仅能在一个平面上移动。 |
+| **棱柱** | 将关节设为棱柱。棱柱关节仅能进行线性滑动。 |
+| **球窝** | 将关节设为球窝。球窝关节可绕有共同轴心的不定数轴运动。 |
 [/REGION]
+[/EXCERPT:p3]
 
-[/VAR]
+[/COMMENT]
 
+(#linearlimits)
+## 线性限度
 
-
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		linlim
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Linear Limits
-	[/PARAM]
-	[PARAM:content]
-		%p4%
-	[/PARAM]
-[/OBJECT]
-
-[VAR:p4]
-
+[EXCERPT:p4]
 ![](propLinearLimits.png)
 
 [REGION:raw]
-| Property | %spacer% | Description |
-| --- | :---: | :--- |
-| **Linear XMotion** || %doxygen:FConstraintInstance::LinearXMotion% |
-| **Linear YMotion** || %doxygen:FConstraintInstance::LinearYMotion% |
-| **Linear ZMotion** || %doxygen:FConstraintInstance::LinearZMotion% |
-| **Linear Limit Size** || %doxygen:FConstraintInstance::LinearLimitSize% |
+| 属性  | 描述 |
+| ---  | :--- |
+| **XMotion** | 表明沿X轴应用线性约束。 [INCLUDE:#linearMotionEnum] |
+| **YMotion** | 表明沿Y轴应用线性约束。 [INCLUDE:#linearMotionEnum] |
+| **ZMotion** | 表明沿Z轴应用线性约束。 [INCLUDE:#linearMotionEnum] |
+| **限度** | 两个关节参考帧之间所允许的距离。 |
+| **缩放线性限度** | 若为true，线性限制缩放使用拥有组件的3D缩放绝对最小值。 |
 [/REGION]
 
-### Advanced
+(#advanced)
+### 高级
 
 ![](propLinearLimitsADV.png)
 
 [REGION:raw]
-| Property | %spacer% | Description |
-| --- | :---: | :--- |
-| **Linear Limit Soft** || %doxygen:FConstraintInstance::bLinearLimitSoft% |
-| **Linear Limit Stiffness** || %doxygen:FConstraintInstance::LinearLimitStiffness% |
-| **Linear Limit Damping** || %doxygen:FConstraintInstance::LinearLimitDamping% |
-| **Linear Breakable** || %doxygen:FConstraintInstance::bLinearBreakable% |
-| **Linear Break Threshold** || %doxygen:FConstraintInstance::LinearBreakThreshold% |
+| 属性  | 描述 |
+| ---  | :--- |
+| **软约束** | 是否要使用软约束（弹簧）。 |
+| **刚度** | 软约束的刚度。仅在软约束开启时使用。 |
+| **阻尼** | 软约束的阻尼。 |
+| **恢复** | 控制违反约束时反弹的量。 |
+| **接触距离** | 决定开启关节前接近限度的程度。 |
+| **可打破性线性** | 是否可用线性力打破关节。 |
+| **线性打破阈值** | 打破距离约束所需的力。  |
 [/REGION]
+[/EXCERPT:p4]
 
-[/VAR]
+(#angularlimits)
+## 角限度
 
-
-
-
-
-
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		anglim
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Angular Limits
-	[/PARAM]
-	[PARAM:content]
-		%p5%
-	[/PARAM]
-[/OBJECT]
-
-[VAR:p5]
+[EXCERPT:p5]
 
 ![](propsAngularLimits.png)
 
 [REGION:raw]
-| Property | %spacer% | Description |
-| --- | :---: | :--- |
-| **Angular Swing 1Motion** || %doxygen:FConstraintInstance::AngularSwing1Motion% |
-| **Angular Twist Motion** || %doxygen:FConstraintInstance::AngularTwistMotion% |
-| **Angular Swing 2Motion** || %doxygen:FConstraintInstance::AngularSwing2Motion% |
-| **Swing 1Limit Angle** || %doxygen:FConstraintInstance::Swing1LimitAngle% |
-| **Twist Limit Angle** || %doxygen:FConstraintInstance::TwistLimitAngle% |
-| **Swing 2Limit Angle** || %doxygen:FConstraintInstance::Swing2LimitAngle% |
-| **Angular Rotation Offset** || %doxygen:FConstraintInstance::AngularRotationOffset% |
+| 属性  | 描述 |
+| ---  | :--- |
+| **Swing 1Motion** | 表明是否使用Swing1限度。[INCLUDE:#angularMotionEnum]  |
+| **Swing 2Motion** | 表明是否使用Swing2限度。[INCLUDE:#angularMotionEnum] |
+| **扭转运动** | 表明是否使用扭转限度。[INCLUDE:#angularMotionEnum] |
+| **Swing1 1Limit Angle** | 沿 **XY** 平面移动的角度。|
+| **扭转限角** | 沿 **XZ** 平面移动的角度。|
+| **Swing 2Limit Angle** | 沿X轴的Roll对称角度。
 [/REGION]
 
-### Advanced
+(#advanced)
+### 高级
 
 ![](propsAngularLimitsADV.png)
 
 [REGION:raw]
-| Property | %spacer% | Description |
-| --- | :---: | :--- |
-| **Swing Limit Soft** || %doxygen:FConstraintInstance::bSwingLimitSoft% |
-| **Swing Limit Stiffness** || %doxygen:FConstraintInstance::SwingLimitStiffness% |
-| **Swing Limit Damping** || %doxygen:FConstraintInstance::SwingLimitDamping% |
-| **Twist Limit Soft** || %doxygen:FConstraintInstance::bTwistLimitSoft% |
-| **Twist Limit Stiffness** || %doxygen:FConstraintInstance::TwistLimitStiffness% |
-| **Twist Limit Damping** || %doxygen:FConstraintInstance::TwistLimitDamping% |
-| **Angular Breakable** || %doxygen:FConstraintInstance::bAngularBreakable% |
-| **Angular Break Threshold** || %doxygen:FConstraintInstance::AngularBreakThreshold% |
+| 属性  | 描述 |
+| ---  | :--- |
+| [REGION:tablesection]**摇摆限度**[/REGION] ||
+| **软约束** | 是否要使用软约束（弹簧）。 |
+| **刚度** | 软约束的刚度。仅在软约束开启时使用。 |
+| **阻尼** | 软约束的阻尼。 |
+| **恢复** | 控制违反约束时反弹的量。 |
+| **接触距离** | 决定开启关节前接近限度的程度。 |
+| [REGION:tablesection]**扭转限度**[/REGION] ||
+| **软约束** | 是否要使用软约束（弹簧）。 |
+| **刚度** | 软约束的刚度。仅在软约束开启时使用。 |
+| **阻尼** | 软约束的阻尼。 |
+| **恢复** | 控制违反约束时反弹的量。 |
+| **接触距离** | 决定开启关节前接近限度的程度。 |
+| [REGION:tablesection]**可打破**[/REGION] ||
+| **可打破性角度** | 是否可用角力打破关节。 |
+| **角度打破阈值** | 打破关节所需扭矩。 |
 [/REGION]
 
-[/VAR]
+[/EXCERPT:p5]
 
+(#linearmotor)
+## 线型马达
 
-
-
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		linmot
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Linear Motor
-	[/PARAM]
-	[PARAM:content]
-		%p6%
-	[/PARAM]
-[/OBJECT]
-
-[VAR:p6]
+[EXCERPT:p6]
 
 ![](propLinearMotor.png)
 
 [REGION:raw]
-| Property | %spacer% | Description |
-| --- | :---: | :--- |
-| **Linear Position Drive** || %doxygen:FConstraintInstance::bLinearPositionDrive% |
-| **Linear Position Target** || %doxygen:FConstraintInstance::LinearPositionTarget% |
-| **Linear Position Strength** || %doxygen:FConstraintInstance::LinearDriveSpring% |
-| **Linear Velocity Drive** || %doxygen:FConstraintInstance::bLinearVelocityDrive% |
-| **Linear Velocity Target** || %doxygen:FConstraintInstance::LinearVelocityTarget% |
-| **Linear Velocity Strength** || %doxygen:FConstraintInstance::LinearDriveDamping% |
-| **Max Linear Force** || %doxygen:FConstraintInstance::LinearDriveForceLimit% |
+| 属性 | 描述 |
+| ---  | :--- |
+| **位置目标** | 在一个或多个轴上启用位置线性马达，将本地位置设为理想位置。 |
+| **强度** | 抵达理想位置所应用的力度。 |
+| **速度目标** | 在一个或多个轴上启用速度线性马达，设置理想速度。 |
+| **强度** | 抵达理想位置所应用的速度。 |
 [/REGION]
 
-[/VAR]
 
+(#advanced)
+### 高级
 
+![](PhysCon_MotorADV.png)
 
+[REGION:raw]
+| 属性  | 描述 |
+| ---  | :--- |
+| **最强力量** | 驱动的力量限度。|
+[/REGION]
 
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		angmot
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Angular Motor
-	[/PARAM]
-	[PARAM:content]
-		%p7%
-	[/PARAM]
-[/OBJECT]
+[/EXCERPT:p6]
 
-[VAR:p7]
+(#angularmotor)
+## 角马达
 
 ![](propsAngularMotor.png)
 
 [REGION:raw]
-| Property | %spacer% | Description |
-| --- | :---: | :--- |
-| **Angular Orientation Drive** || %doxygen:FConstraintInstance::bAngularOrientationDrive% |
-| **Angular Orientation Target** || %doxygen:FConstraintInstance::AngularOrientationTarget% |
-| **Angular Orientation Strength** || %doxygen:FConstraintInstance::AngularDriveSpring% |
-| **Angular Velocity Drive** || %doxygen:FConstraintInstance::bAngularVelocityDrive% |
-| **Angular Velocity Target** || %doxygen:FConstraintInstance::AngularVelocityTarget% |
-| **Angular Velocity Strength** || %doxygen:FConstraintInstance::AngularDriveDamping% |
-| **Max Angular Force** || %doxygen:FConstraintInstance::AngularDriveForceLimit% |
-| **Angular Drive Mode** || %doxygen:FConstraintInstance::AngularDriveMode% |
+| 属性  | 描述 |
+| ---  | :--- |
+| **角驱动模式** | [INCLUDE:#AngMotorMode] |
+| **目标朝向** | 相对于形体参考帧的目标prosemtatopm。 |
+| **驱动** | 基于角驱动模式设置，可启动或禁用该模式的不同马达。 |
+| **强度** | 抵达目标朝向所应用的力度。 |
+| **目标速度** | 相对于形体参考帧的目标角速度。
+| **驱动** | 基于角驱动模式设置，可启动或禁用该模式的不同马达。 |
+| **强度** | 抵达目标速度所应用的力度。 |
 [/REGION]
 
-[/VAR]
 
+(#advanced)
+### 高级
+
+![](PhysCon_MotorADV.png)
+
+[REGION:raw]
+| 属性  | 描述 |
+| ---  | :--- |
+| **最强力量** | 驱动的力量限度。|
+[/REGION]
 
 
 [COMMENT:none]
+
+
+[EXCERPT:AngMotorMode]
+
+该角马达是否使用SLERP（球面线性插值），或分解成为摇摆马达和扭转马达（椎体与roll约束）。锁定角约束后SLERP无法正常工作。
+
+| 属性  | 描述 |
+| ---  | :--- |
+| **SLERP** | 将马达设为SLERP（球面线性插值）模式。所将角约束的轴锁定，SLERP模式无法正常工作。 |
+| **扭转与摇摆** | 将马达设为 **扭转与摇摆** （椎体和roll约束）模式。|
+
+[/EXCERPT]
 
 ![](PhysCon_JointPresets.png)(convert:false) 
 
 [INCLUDE:#presetTable]
 
-* 关于应用 **物理约束Actor** 的更多信息, 请参见: [Engine/Physics\Constraints\ConstraintsUserGuide]()
+* 参见: [**%Engine/Physics\Constraints\ConstraintsUserGuide:title%**](Engine/Physics\Constraints\ConstraintsUserGuide)，了解使用 **物理约束Actor** 的详情
 
 [EXCERPT:presetTable]
-| 关节预制 | 描述|
+| 关节预设 | 描述 |
 | --- | ---- |
-| **Hinge（铰链式）** | _锁定_ **线性运动**, _锁定_ **摇动**,并设置 **	角扭动** 为 _自由_ 。经典的门铰链或膝盖关节。|
-| **Prismatic(棱柱式)** | _锁定_  **摇动**, _锁定_ **角扭动**, _锁定_ **线性Y运动** 和 **线性Z 运动**, 并设置 **Linear ZMotion（线性Z运动）** 为 _自由_ 。比如水利活塞。|
-| **Ball and Socket（球窝式）** | _锁定_ 所有 **线性运动** ，设置 **摇动** 和 **扭动** 为 _自由_ 。完全自由地旋转，和沙袋或破碎球。|
+| **枢纽** | _锁定_ **线性运动**，_锁定_ **摇摆运动**，并将 **角扭转运动** 设为 _自由_。此为经典的门铰链或膝盖关节设置。  |
+| **棱柱** | _锁定_ **摇摆运动**，_锁定_ **角扭转运动**，_锁定_ **线性Y** 和 **线性Z运动**，并将 **线性ZMotion** 设为 _自由_。例如液压活塞。 |
+| **球窝** | _锁定_ 所有 **线性运动**，将 **摇摆运动** 和 **扭转运动** 设为 _自由_。可完全自由化转动，与拳击沙袋和破墙锤类似。 |
 [/EXCERPT:presetTable]
 
-[/COMMENT]
 
+(#blueprintconstraint)
 ### 蓝图约束
 
 | 属性 | 描述 |
-| -------- | ----------- |
-|[REGION:tablesection]约束[/REGION]||
-| **组件名称 1** | %doxygen:UPhysicsConstraintComponent::ComponentName1% |
-| **组件名称2** | %doxygen:UPhysicsConstraintComponent::ComponentName2%  |
-| **关节名称** | %doxygen:FConstraintInstance::JointName% |
-| **约束骨骼1** | %doxygen:FConstraintInstance::ConstraintBone1% |
-| **约束骨骼2** | %doxygen:FConstraintInstance::ConstraintBone2% |
-| **禁用碰撞** | %doxygen:FConstraintInstance::bDisableCollision% |
+| ------------ | ------------ |
+| [REGION:tablesection] 约束 [/REGION] ||
+| **组件名1** ||
+| **组件名2** ||
+| **关节名** ||
+| **约束骨骼1** ||
+| **约束骨骼2** ||
+| **禁用碰撞** ||
 
-* 关于使用 **物理约束** 作为蓝图组件的更多信息, 请参见: [**%Engine/Physics\Constraints\ConstraintsBlueprints:title%**](Engine/Physics\Constraints\ConstraintsBlueprints)
+* 参见：[Engine/Physics\Constraints\ConstraintsBlueprints](Engine/Physics\Constraints\ConstraintsBlueprints)，了解将 **物理约束** 用作蓝图组件的详情
 
+(#physicsassettoolconstraint)
 ### 物理资源工具约束
 
 | 属性 | 描述 |
-| -------- | ----------- |
+| ------------ | ------------ |
 |[REGION:tablesection]约束[/REGION]||
-| **关节名称** | %doxygen:FConstraintInstance::JointName% |
-| **约束骨骼1** | %doxygen:FConstraintInstance::ConstraintBone1% |
-| **约束骨骼2** | %doxygen:FConstraintInstance::ConstraintBone2% |
-| **禁用碰撞** | %doxygen:FConstraintInstance::bDisableCollision% |
+| **关节名** |  |
+| **约束骨骼1** |  |
+| **约束骨骼2** |  |
+| **禁用碰撞** |  |
 
-* 关于 **物理资源工具** (**PhAT**)的进一步参考指南, 请参照: [Engine/Physics\PhAT\Reference]()
+* 参见：[Engine/Physics\PhAT\Reference]()，了解 **物理资源工具**（**PhAT**）的更多参考
 
-* 关于在 **物理资源工具** (**PhAT**)中使用 **物理约束** 的更多信息, 请参照: [Engine/Physics\PhAT\UserGuide]()
+* 参见：[Engine/Physics\PhAT\UserGuide]()，了解使用 **物理资源工具**（**PhAT**）中 **物理约束** 的详情
 
-* 关于应用 **物理资源工具** (**PhAT**)的信息，请参照: [**%Engine/Physics\PhAT:title%**](Engine/Physics\PhAT)
+* 参见：[**%Engine/Physics\PhAT:title%**]()，了解使用 **物理资源工具**（**PhAT**）的详情
 
-### 共享的属性
+(#Sharedproperties)
+### 共享属性
 
 | 属性 | 描述 |
-| -------- | ----------- |
-|[REGION:tablesection]线性限制[/REGION]||
-| **Linear XMotion（线性X运动）** | %doxygen:FConstraintInstance::LinearXMotion% |
-| **Linear YMotion(线性Y运动)** | %doxygen:FConstraintInstance::LinearYMotion% |
-| **Linear ZMotion(线性Z运动)** | %doxygen:FConstraintInstance::LinearZMotion% |
-| **Linear Limit Types(线性限制类型)** | [INCLUDE:#linearMotionEnum] |
-| **Linear Limit Size（线性限制大小）** | %doxygen:FConstraintInstance::LinearLimitSize% |
-| **Linear Limit Soft（线性限制柔和度）** | %doxygen:FConstraintInstance::bLinearLimitSoft% |
-| **Linear Limit Stiffness（线性限制强度）** | %doxygen:FConstraintInstance::LinearLimitStiffness% |
-| **Linear Limit Damping（线性限制阻尼）** | %doxygen:FConstraintInstance::LinearLimitDamping% |
-| **Linear Breakable（线性可损坏）** | %doxygen:FConstraintInstance::bLinearBreakable% |
-| **Linear Break Threshold（线性损坏阈值）** | %doxygen:FConstraintInstance::LinearBreakThreshold% |
-|[REGION:tablesection]投影[/REGION]||
-| **Enable Projection（启用投影）** | %doxygen:FConstraintInstance::bEnableProjection% |
-| **Projection Linear Tolerance（投影线性公差值）** | %doxygen:FConstraintInstance::ProjectionLinearTolerance% |
-| **Projection Angular Tolerance（投影角度公差值）** | %doxygen:FConstraintInstance::ProjectionAngularTolerance% |
-|[REGION:tablesection]角限制[/REGION]||
-| **Angular Swing 1Motion(角性摆动 1运动)** | %doxygen:FConstraintInstance::AngularSwing1Motion% |
-| **Angular Swing 2Motion(角性摆动 2运动)** | %doxygen:FConstraintInstance::AngularSwing2Motion% |
-| **Angular Twist Motion（角性扭动）** | %doxygen:FConstraintInstance::AngularTwistMotion% |
-| **Angular Limit Types（角限制类型）** | [INCLUDE:#angularMotionEnum] |
-| **Swing 1Limit Angle（摇动 1限制角度）** | %doxygen:FConstraintInstance::Swing1LimitAngle% |
-| **Swing 2Limit Angle（摇动 2限制角度）** | %doxygen:FConstraintInstance::Swing2LimitAngle% |
-| **Twist Limit Angle（扭动限制角度）** | %doxygen:FConstraintInstance::TwistLimitAngle% |
-| **Swing Limit Soft（摇动限制柔和度）** | %doxygen:FConstraintInstance::bSwingLimitSoft% |
-| **Swing Limit Stiffness（摇动限制强度）** | %doxygen:FConstraintInstance::SwingLimitStiffness% |
-| **Swing Limit Damping（摇动限制阻尼）** | %doxygen:FConstraintInstance::SwingLimitDamping% |
-| **Twist Limit Soft（扭动限制柔和度）** | %doxygen:FConstraintInstance::bTwistLimitSoft% |
-| **Twist Limit Stiffness（扭动限制强度）** | %doxygen:FConstraintInstance::TwistLimitStiffness% |
-| **Twist Limit Damping（扭动限制阻尼）** | %doxygen:FConstraintInstance::TwistLimitDamping% |
-| **Angular Breakable（角性可破坏）** | %doxygen:FConstraintInstance::bAngularBreakable% |
-| **Angular Break Threshold（角性破坏阈值）** | %doxygen:FConstraintInstance::AngularBreakThreshold% |
-|[REGION:tablesection]Linear Motor(线性发动机)[/REGION]||
-| **Linear Position Drive（线性位置驱动）** | %doxygen:FConstraintInstance::bLinearPositionDrive% |
-| **Linear XPosition Drive（线性X位置驱动）** | %doxygen:FConstraintInstance::bLinearXPositionDrive% |
-| **Linear YPosition Drive（线性Y位置驱动）** | %doxygen:FConstraintInstance::bLinearYPositionDrive% |
-| **Linear ZPosition Drive（线性Z位置驱动）** | %doxygen:FConstraintInstance::bLinearZPositionDrive% |
-| **Linear Position Target（线性位置目标）** | %doxygen:FConstraintInstance::LinearPositionTarget% |
-| **Linear Velocity Drive(线性速度驱动)** | %doxygen:FConstraintInstance::bLinearVelocityDrive% |
-| **Linear Velocity Target（线性速度目标）** | %doxygen:FConstraintInstance::LinearVelocityTarget% |
-| **Linear Drive Spring（线性驱动弹簧）** | %doxygen:FConstraintInstance::LinearDriveSpring% |
-| **Linear Drive Damping（线性驱动阻尼）** | %doxygen:FConstraintInstance::LinearDriveDamping% |
-| **Linear Drive Force Limit（线性驱动力限制）** | %doxygen:FConstraintInstance::LinearDriveForceLimit% |
-|[REGION:tablesection]Angular Motor（角发动机）[/REGION]||
-| **Angular Orientation Drive（角方向驱动）** | %doxygen:FConstraintInstance::bAngularOrientationDrive% |
-| **Angular Orientation Target（角方向目标）** | %doxygen:FConstraintInstance::AngularOrientationTarget% |
-| **Angular Velocity Drive（角速度驱动）** | %doxygen:FConstraintInstance::bAngularVelocityDrive% |
-| **Angular Velocity Target（角速度目标）** | %doxygen:FConstraintInstance::AngularVelocityTarget% |
-| **Angular Drive Force Limit（角驱动力限制）** | %doxygen:FConstraintInstance::AngularDriveForceLimit% |
-| **Angular Drive Spring（角驱动弹簧）** | %doxygen:FConstraintInstance::AngularDriveSpring% |
-| **Angular Drive Damping（角驱动阻尼）** | %doxygen:FConstraintInstance::AngularDriveDamping% |
-
-[COMMENT:none]
-
+| ------------ | ------------ |
+|[REGION:tablesection]线性限度[/REGION]||
+| **线性XMotion** |  |
+| **线性YMotion** |  |
+| **线性ZMotion** |  |
+| **线性限度类型** | [INCLUDE:#linearMotionEnum] |
+| **线性限度尺寸** |  |
+| **线性限度软度** |  |
+| **线性限度刚度** |  |
+| **线性限度阻尼** |  |
+| **可打破性线性** |  |
+| **线性打破阈值** |  |
+|[REGION:tablesection]投射[/REGION]||
+| **启用投射** |  |
+| **投射线性容差** |  |
+| **投射角容差** |  |
+|[REGION:tablesection]角限度[/REGION]||
+| **角摇摆1Motion** |  |
+| **角摇摆2Motion** |  |
+| **角扭转运动** |  |
+| **角限度类型** | [INCLUDE:#angularMotionEnum] |
+| **摇摆1Limit角度** |  |
+| **摇摆2Limit角度** |  |
+| **扭转限角** |  |
+| **摇摆限度软度** |  |
+| **摇摆限度刚度** |  |
+| **摇摆限度阻尼** |  |
+| **扭转限度软度** |  |
+| **扭转限度刚度** |  |
+| **扭转限度阻尼** |  |
+| **可打破性角度** |  |
+| **角度打破阈值** |  |
+|[REGION:tablesection]线性马达[/REGION]||
+| **线性位置驱动** |  |
+| **线性XPosition驱动** |  |
+| **线性YPosition驱动** |  |
+| **线性ZPosition驱动** |  |
+| **线性位置目标** |  |
+| **线性位置强度** | 应用至线性驱动的弹簧。  |
+| **线性速度驱动** |  |
+| **线性速度目标** |  |
+| **线性速度强度** | 应用至线性驱动的阻尼。 |
+| **最大线性力** | 线性驱动可应用的力限度。 |
+|[REGION:tablesection]角马达[/REGION]||
+| **角朝向驱动** |  |
+| **角朝向目标** |  |
+| **角位置强度** | 应用至角驱动的弹簧值。 |
+| **角速度驱动** |  |
+| **角速度目标** |  |
+| **角速度强度** | 应用至角驱动的阻尼值。 |
+| **最大角力** | 角驱动可应用的力限度。 |
 
 [EXCERPT:linearMotionEnum]
 | **类型** | **描述** |
 | --- | ---- |
-| **LCM_Limited** | 限制沿此轴的自由移动量。通过 **Linear Limit Size（线性限制大小）** 属性为所有坐标轴定义该限制。|
-| **LCM_Locked** | 沿着该坐标轴进行完全约束。|
-| **LCM_Free** | 沿着该坐标轴没有约束。|
+| **自由** | 沿该轴无约束。 |
+| **受限** | 沿该轴有受限自由。限度由 **线性限度尺寸** 属性定义，适用于所有轴。 |
+| **锁定** | 沿该轴受完全约束。 |
 [/EXCERPT:linearMotionEnum]
 
 [EXCERPT:angularMotionEnum]
 | **类型** | **描述** |
 | --- | ---- |
-| **ACM_Limited** | 围绕该坐标轴所限制的自由度。每个Angular Motion（角运动）的限制由对应的限制属性 **Swing 1Limit Angle** 、 **Swing 2Limit Angle** 和 **Twist Limit Angle** 分别进行控制。|
-| **ACM_Locked** | 围绕该坐标轴进行完全约束。|
-| **ACM_Free** | 沿着该坐标轴没有约束。|
+| **自由** | 绕该轴无约束。 |
+| **受限** | 绕该轴有受限自由。限度属性 **摇摆1Limit角度**、**摇摆2Limit角度** 和 **扭转限角** 单独控制相应各角运动的限度。 |
+| **锁定** | 绕该轴受完全约束。 |
 [/EXCERPT:angularMotionEnum]
 
 
-[/COMMENT]
+(#furtherinformation)
+## 更多信息
 
-## 补充信息
-
+(#jointsetup)
 ### 关节设置
 
-通过使用关节预制，您可以快速地为最常见的关节类型生成基本设置。
+使用关节预设，可快速生成关节多数常用类型的基础设置。
 
 ![](PhysCon_JointPresets.png)
 
-注意，物理约束的图标基于它的关节类型进行改变。
+注意：基于不同的关节类型，物理约束的图标将相应改变。
 
 [REGION:lightbox]
 [![](PhysCon_Hinge.png)(w:300)](PhysCon_Hinge.png) [![](PhysCon_Prismatic.png)(w:300)](PhysCon_Prismatic.png) [![](PhysCon_BallNJoint.png)(w:300)](PhysCon_BallNJoint.png) 
 [/REGION]
 
-_从左到右: 铰链式、棱柱式及球窝式图标。_
+_从左至右：枢纽、棱柱与球窝的图标。_
 
-### 线性自由度和限制
+(#linearfreedomandlimits)
+### 线性自由与限度
 
 ![](PhysCon_LinearProps.png)
 
-在大多数情况下，线性运动的自由度将仍然是保持锁定的。但是，有些时候让一个关节为自由状态或者沿着其中一个线性运动做限制运动是有意义的。这就是如果Linear Motion(线性运动)或运动设置为”限制“和”自由“时， Physics Constraint(物理约束)将会出现的意义所在。
+在多数情况下，线性运动的自由会保持锁定。但当关节是自由的或者沿这些线性运动之一做有限的运动有意义时，将解锁线性运动的自由。以下范例展示的是线性运动或运动设为“受限”和“自由”时，物理约束出现的方式：
 
 [REGION:lightbox]
 [![](PhysCon_Linear_15uu.png)(w:453)](PhysCon_Linear_15uu.png) [![](PhysCon_Linear_Free.png)(w:453)](PhysCon_Linear_Free.png)
 [/REGION]
 
-_从左到右(物理约束放大4倍): 线性运动限制到15个单位，线性运动设置为自由。_
+_从左至右（物理约束上调为4倍）：线性运动限制为15个单位，线性运动设为自由。_
 
-[COMMENT:none]
- 关于线性自由度和限制的所有属性的信息，请参照: [%Engine/Physics\Constraints\ConstraintsReferencetitle%](Engine/Physics\Constraints\ConstraintsReference 
-[/COMMENT]
-
-### 角自由度和限制
+(#angularfreedomandlimits)
+### 角自由与限度
 
 ![](PhysCon_AngularLimitsProps.png)
 
-Physics Constraint(物理约束)可以将其三个可旋转的轴设置为 **锁定** 、 **自由** 或 **限制** 。这将构成一个关节的基础，比如一个铰链式关节仅能在一个坐标轴上旋转90度。Actor的位置决定了关节的位置，因此，它定义了受约束的Actor的旋转点。
+物理约束的三个旋转轴可设为 **锁定**、**自由** 或是 **受限**。此操作可构成枢纽等关节的基础，其仅可在一个轴上旋转90度。Actor的位置定义关节的位置，因此其定义约束的Actor将在之上旋转的点。
 
-物理约束将其摇动运动定义为在Y轴和Z轴上旋转，而扭动是沿着物理约束Actor的X轴旋转，而不是任何一个受约束的Actor。所以旋转物理约束Actor可以大大地改变您的结果。摇动限制将显示为绿色圆锥(或者如果仅使用了一个或者另一个限制为0，则显示为圆弧)，而扭动将显示为围绕X轴的圆弧。
+物理约束将自身的摇摆运动定于为Y何Z轴上的旋转，扭转是沿物理约束Actor X轴的旋转，而非任何约束Actor。因此旋转物理约束Actor将彻底改变结果。摇摆限度将显示为绿色椎体（若仅使用一个或另一个限制为0时，显示为圆柱），而扭转将显示为绕X轴的圆柱。
 
 [REGION:lightbox]
 [![](PhysCon_Swing1_45.png)(w:300)](PhysCon_Swing1_45.png) [![](PhysCon_Swing2_45.png)(w:300)](PhysCon_Swing2_45.png) [![](PhysCon_Twist_135.png)(w:300)](PhysCon_Twist_135.png) 
 [/REGION]
 
-_从左到右: 摇动1 限制为45度，摇动2设置为45度，扭动限制为135度。_
+_从左到右：摇摆1限制为45度，摇摆2限制为45度，扭转限制为135度。_
 
-进一步讲，因为该关节位于物理约束Actor所在处，所以移动它将会产生不同的结果。
+此外，关节位于物理约束Actor所在之处，因此移动关节将得到不同结果。
 
 [REGION:lightbox]
 [![](PhysCon_AngPos1.png)(h:312)](PhysCon_AngPos1.png) [![](PhysCon_AngPos2.png)(h:312)](PhysCon_AngPos2.png) 
 [/REGION]
 
-[COMMENT:none]
- 关于角自由度和限制的所有属性的信息，请参照: [%Engine/Physics\Constraints\ConstraintsReferencetitle%](Engine/Physics\Constraints\ConstraintsReference 
-[/COMMENT]
+(#orientation)
+### 朝向
 
-### 方向
+物理约束Actor轴的旋转与物理约束Actor的一致，同时不与两个物体间对齐。给定理想效果，需要注意约束朝向的方式。
 
-物理约束Actor的坐标轴同物理约束Actor的旋转度一致，而不是排列在两个对象之间。考虑到了您期望的效果后，您将需要意识到如何确定约束的朝向。
-
-至于线性运动，重力将向下拖拽一个受约束的Actor。
+对于线性运动，重力会将约束Actor拉下。 
 
 [REGION:lightbox]
 [![](PhysCon_Flat.png)(w:453)](PhysCon_Flat.png) [![](PhysCon_Angled.png)(w:453)](PhysCon_Angled.png)
 [/REGION]
 
-在任何一个设置中，该物理约束设置他的 Linear XMotion（线性X运动）为自由，约束将被上移以进一步加强该效果。直到外部力量影响蓝色受约束的立方体之前，左侧图片上的设置将仍然保持不动，而右侧上的设置，由于物理约束Actor的朝向关系，重力将立即接管，并且蓝色(受约束的Actor 2)立方体将朝着立方体堆栈沿着X轴向下滑动。
+物理约束的线性XMotion在所有设置中均设为自由，约束将向上移动以加强效果。外部力量开始影响蓝色约束立方体前，左侧的设置保持不变；而在右侧，根据物理约束Actor的朝向，重力将立即生效，蓝色（约束Actor 2）会沿X轴向立方体堆栈下滑。
 
 [REGION:lightbox]
 [![](PhysCon_SimFlat.png)(w:453)](PhysCon_SimFlat.png) [![](PhysCon_SimAngled.png)(w:453)](PhysCon_SimAngled.png)
 [/REGION]
 
-当使用角限制时，则假设扭动轴(正X轴)将沿着指向蓝色受约束Actor(受约束的Actor 2)的方向对齐。
-[COMMENT:none]
--这非常重要，因为 -
-[/COMMENT] 
+使用角限度时，假定扭转轴（正向X轴）将与蓝色约束Actor（约束Actor 2）对齐。 
 
 [REGION:lightbox]
 [![](PhysCon_Angular.png)(w:453)](PhysCon_Angular.png) [![](PhysCon_AngularSim.png)(w:453)](PhysCon_AngularSim.png)
 [/REGION]
 
-同时，当模拟时，您将会注意到代表角限制的椎体随着蓝色的受约束Actor（受约束的Actor 2)旋转。这条黄色的线代表该约束的中间位置，他将仍然位于绿色圆锥内(当启用扭动限制时出现绿色弧线表示)。
+而在模拟时代表角限度的椎体将以蓝色约束Actor（约束Actor 2）进行旋转，而黄线将变为可见（其在编辑器中可见，但绘制于蓝线之后）。该黄线代表约束的中间位置，并保留在绿色椎体中（启用扭转限度时显示绿色圆柱代表形式）。
 
 ![](PhysCon_AngularCone_2.png)(h:300 convert:false) ![](PhysCon_Arc.png)(h:300 convert:false)
 
-[COMMENT:none]
-### 球窝型
-球窝关节是一种简单的关节，它的所有线性部分被锁定且所有角度部分都是自由的。
-
-
-### 铰链型
-与球窝关节一样，一个hinge（铰链）的所有线性部分是锁定的，但是其摆动部分也被锁定，故它仅能绕着它的twist（扭曲）轴旋转。
-
-
-### 棱柱型
-Prismatic（棱柱）关节3个线性自由度中有2个被锁定，且其所有角度自由度也被锁定。这允许沿着一个“轨道”滑动但不能旋转。
-
-
-### 关节摩擦
-您可以使用驱动设置模拟关节摩擦。打开目标速度为零的速度驱动，并使用LinearDriveForceLimit与AngularDriveForceLimit设置控制该关节阻碍运动的强度。
-
-
-### 沙袋
-您可以模拟出类似于Punchbag（沙袋）的东西(它是一个挂在垂直杆上的球状物，可以被敲打)。首先创建一个球窝关节，然后打开swing（摆动）位置驱动并调节 **AngularDriveSpring** 与 **AngularDriveDamping**，直到被推动时顺利地绕着垂直位置摆动为止。您可以设置摆动限制，以确保它不会过度弯曲。
-
-
 [/COMMENT]
-
 
 
 

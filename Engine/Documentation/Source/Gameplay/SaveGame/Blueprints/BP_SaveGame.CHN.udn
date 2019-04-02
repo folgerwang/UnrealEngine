@@ -1,10 +1,11 @@
-﻿INTSourceChangelist:2716169
+﻿INTSourceChangelist:3397556
 Availability:Public
 Title: 使用蓝图保存游戏
 Crumbs:%ROOT%,  Gameplay, Gameplay/SaveGame
 Description:如何使用蓝图保存和加载游戏
 
 
+(# CreateaSaveGameObject)
 ### 创建 SaveGame 对象
 
 若要新建 SaveGame 对象，[新建蓝图类](Engine\Blueprints\UserGuide\Types\ClassBlueprint\Creation)。当弹出 “Pick Parent Class （选取父类）”对话框时，展开 **Custom Classes**  
@@ -24,6 +25,7 @@ Description:如何使用蓝图保存和加载游戏
 完成蓝图的编译后，可为变量设置默认值。 
 
 
+(#SavingaVariable)
 ### 保存变量
 
 **这是整个存盘设置一览。点击下图放大**
@@ -33,9 +35,9 @@ Description:如何使用蓝图保存和加载游戏
 [/REGION]
 
 [REGION:fullwidth]
-首先，使用 **Create Save Game Object** 节点创建 SaveGame 对象的一个实例或副本。务必将 Save Game Class 下拉菜单设置为新 SaveGame 对象蓝图的名称 
-（本例中为 **MySaveGame** ）。由于 Create Save Game 对象节点创建了一个通用 SaveGame 对象副本，您必须从 **Return Value** 针和 **Cast to MySaveGame** 连线出来。将
-铸造的结果保存至变量，以便将来可以方便地重新使用 SaveGame 对象。
+首先，使用 **Create Save Game Object** 节点创建 SaveGame 对象的一个实例或副本。务必将 Save Game Class 下拉菜单设置为新蓝图的名称 
+（本例中为 **MySaveGame** ）。Create Save Game 对象节点会自动改变其输出引脚类型以匹配您为Save Game Class输入指定的类型，让您能够直接使用它，而无需 Cast To 节点。使用 **Promote to Variable** 保存结果对象到变量，以便在之后复用刚刚创建的 MySaveGame 对象。
+
 
 ![](SaveGameBP_1.png)
 
@@ -50,6 +52,7 @@ Description:如何使用蓝图保存和加载游戏
 ![](SaveGameBP_3.png)
 [/REGION]
 
+(#LoadingaVariable)
 ### 加载变量
 
 **这是整个读盘设置一览。点击下图放大**
@@ -65,8 +68,7 @@ Description:如何使用蓝图保存和加载游戏
 
 ![](LoadGameBP_1.png)
 
-您可使用 **Load Game From Slot** 节点创建一个 SaveGame 对象蓝图的实例。就像创建一个用于保存信息的 SaveGame 对象一样， 
-您需要铸造到特定 SaveGame 对象蓝图，以便将结果保存至变量，以供将来存取。
+您可使用 **Load Game From Slot** 节点创建一个 SaveGame 对象蓝图的实例。需要一个 Cast To 节点讲结果对象处理为 MySaveGame，这样才能将其存储在变量中，以方便以后访问。
 
 ![](LoadGameBP_2.png)
 

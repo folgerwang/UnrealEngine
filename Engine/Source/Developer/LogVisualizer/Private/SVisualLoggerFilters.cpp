@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SVisualLoggerFilters.h"
 #include "EngineGlobals.h"
@@ -284,9 +284,8 @@ void SVisualLoggerFilters::InvalidateCanvas()
 	UEditorEngine *EEngine = Cast<UEditorEngine>(GEngine);
 	if (GIsEditor && EEngine != NULL)
 	{
-		for (int32 Index = 0; Index < EEngine->AllViewportClients.Num(); Index++)
+		for (FEditorViewportClient* ViewportClient : EEngine->GetAllViewportClients())
 		{
-			FEditorViewportClient* ViewportClient = EEngine->AllViewportClients[Index];
 			if (ViewportClient)
 			{
 				ViewportClient->Invalidate();

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Toolkits/SGlobalOpenAssetDialog.h"
 #include "AssetData.h"
@@ -28,6 +28,7 @@ void SGlobalOpenAssetDialog::Construct(const FArguments& InArgs, FVector2D InSiz
 	AssetPickerConfig.bShowBottomToolbar = true;
 	AssetPickerConfig.bAutohideSearchBar = false;
 	AssetPickerConfig.bCanShowClasses = false;
+	AssetPickerConfig.bAddFilterUI = true;
 	AssetPickerConfig.SaveSettingsName = TEXT("GlobalAssetPicker");
 
 	ChildSlot

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneCaptureProtocolBase.h"
 #include "CoreMinimal.h"
@@ -6,6 +6,7 @@
 #include "Slate/SceneViewport.h"
 #include "Misc/Paths.h"
 #include "HAL/PlatformFilemanager.h"
+#include "UnrealEngine.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneCaptureProtocol"
 
@@ -14,6 +15,9 @@ UMovieSceneCaptureProtocolBase::UMovieSceneCaptureProtocolBase(const FObjectInit
 {
 	State = EMovieSceneCaptureProtocolState::Idle;
 	CaptureHost = nullptr;
+
+	bFrameRequested[0] = false;
+	bFrameRequested[1] = false;
 }
 
 bool UMovieSceneCaptureProtocolBase::Setup(const FCaptureProtocolInitSettings& InSettings, const ICaptureProtocolHost* Host)
@@ -99,19 +103,21 @@ void UMovieSceneCaptureProtocolBase::CaptureFrame(const FFrameMetrics& FrameMetr
 {
 	if (State == EMovieSceneCaptureProtocolState::Capturing)
 	{
-		bFrameRequested = true;
+		bFrameRequested[GFrameCounter % 2] = true;
 		CaptureFrameImpl(FrameMetrics);
 	}
 }
 
 bool UMovieSceneCaptureProtocolBase::HasFinishedProcessing() const
 {
-	return !bFrameRequested && HasFinishedProcessingImpl();
+	return bFrameRequested[GFrameCounter % 2] == false && HasFinishedProcessingImpl();
 }
 
 void UMovieSceneCaptureProtocolBase::PreTick()
 {
-	bFrameRequested = false;
+	// Reset the frame requested bool for the next frame
+	bFrameRequested[(GFrameCounter + 1) % 2] = false;
+
 	PreTickImpl();
 }
 
@@ -181,12 +187,11 @@ FCaptureProtocolInitSettings FCaptureProtocolInitSettings::FromSlateViewport(TSh
 	Settings.SceneViewport = InSceneViewport;
 	Settings.DesiredSize = InSceneViewport->GetSize();
 
-	// hack for FORT-94554
+	// hack for FORT-94554 -- viewport not yet initialized so pull resolution settings from GSystemResolution
 	if (Settings.DesiredSize == FIntPoint::ZeroValue)
 	{
-        ensureAlwaysMsgf(false, TEXT("Invalid viewport size settings in FCaptureProtocalInitSettings::FromSlateViewport! Using default size! (1920x1080)"));
-		Settings.DesiredSize.X = 1920;
-		Settings.DesiredSize.Y = 1080;
+		Settings.DesiredSize.X = GSystemResolution.ResX;
+		Settings.DesiredSize.Y = GSystemResolution.ResY;
 		InSceneViewport->SetViewportSize(Settings.DesiredSize.X, Settings.DesiredSize.Y);
 	}
 	// end hack

@@ -1,11 +1,13 @@
-﻿INTSourceChangelist:3011129
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:FShaderCache
 Crumbs:%ROOT%, Programming, Programming/Rendering
 Description:FShaderCache 提供的机制可减少游戏中着色器的卡顿。
 Version:4.9
+tags:Rendering
 
 
+(#Overview)
 ## 总览
 FShaderCache 提供的机制可减少游戏中着色器的卡顿。它支持 OpenGLDrv 和 MetalRHI RHIs，可在 Mac、Linux 和 Windows 平台上使用。
 
@@ -36,6 +38,7 @@ FShaderCache 提供的机制可减少游戏中着色器的卡顿。它支持 Ope
 [/COMMENT]
 
 
+(#Use)
 ## 使用
 应在开发机上启用 `r.UseShaderCaching` 和 `r.UseShaderDrawLog` 填充缓存。 
 用户/玩家应启用 `r.UseShaderCaching` 和 `r.UseShaderPredraw` 消耗缓存。 
@@ -54,6 +57,7 @@ FShaderCache 提供的机制可减少游戏中着色器的卡顿。它支持 Ope
 | 分布 | `<Game>/Content/DrawCache.ushadercache, <Game>/Content/ByteCodeCache.ushadercode` |
 
 
+(#IntegrationSteps)
 ### 整合步骤
 
 可通过众多控制台命令减少项目中的卡顿，使用推荐的优先顺序可启用最大化性能的选项，同时避免执行额外的项目工作。 
@@ -74,10 +78,12 @@ FShaderCache 提供的机制可减少游戏中着色器的卡顿。它支持 Ope
 1. 启用 `r.UseAsyncShaderPrecompilation` 后，调用 `FShaderCache::FlushOutstandingBatches` 也将会清空所有未解决的编译请求。
 
 
+(#Handling Updates/Invalidation)
 ## 处理更新/失效
 缓存需要更新且可写入缓存已失效时，游戏应指定一个新的 GameVersion。
 初始化 RHI（它将初始化缓存）之前调用 `FShaderCache::SetGameVersion`。这将导致之前版本生成的缓存内容被无视。当前无法继承之前版本的缓存条目。
 
+(#Region/StreamBatching)
 ## 区域/流送分批
 对流送游戏或缓存极大的内容而言，应根据需求针对当前相关游戏区域/流送等级添加对 `FShaderCache::SetStreamingKey` 含唯一值的调用。录入的绘制状态将被连接到使用的流送键。这将把预绘制限制为之后运行中使用的流送键所要求的绘制状态。
 

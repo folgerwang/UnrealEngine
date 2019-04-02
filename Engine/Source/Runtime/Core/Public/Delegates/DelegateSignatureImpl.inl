@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 // Only designed to be included directly by Delegate.h
 #if !defined( __Delegate_h__ ) || !defined( FUNC_INCLUDING_INLINE_IMPL )
@@ -890,7 +890,10 @@ public:
 	 */
 	void Remove( FDelegateHandle Handle )
 	{
-		RemoveDelegateInstance(Handle);
+		if (Handle.IsValid())
+		{
+			RemoveDelegateInstance(Handle);
+		}
 	}
 
 protected:

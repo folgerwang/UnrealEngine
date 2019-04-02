@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CollisionAnalyzer.h"
 #include "HAL/FileManager.h"
@@ -55,7 +55,9 @@ FArchive& operator << (FArchive& Ar, FCAQuery& Query)
 
 	Ar << Query.Params.TraceTag;
 	Ar << Query.Params.OwnerTag;
-	Ar << Query.Params.bTraceAsyncScene;
+
+	bool bTraceAsyncDeprecated = false;
+	Ar << bTraceAsyncDeprecated;
 	Ar << Query.Params.bTraceComplex;
 	Ar << Query.Params.bFindInitialOverlaps;
 	Ar << Query.Params.bReturnFaceIndex;

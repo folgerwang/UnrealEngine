@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "KeyPropertyParams.h"
 #include "PropertyHandle.h"
@@ -108,6 +108,18 @@ template<> bool FPropertyChangedParams::GetPropertyValueImpl<bool>(void* Data, c
 	else
 	{
 		return *((bool*)Data);
+	}
+}
+
+template<> UObject* FPropertyChangedParams::GetPropertyValueImpl<UObject*>(void* Data, const FPropertyInfo& PropertyInfo)
+{
+	if (const UObjectPropertyBase* ObjectProperty = Cast<const UObjectPropertyBase>(PropertyInfo.Property.Get()))
+	{
+		return ObjectProperty->GetObjectPropertyValue(Data);
+	}
+	else
+	{
+		return *((UObject**)Data);
 	}
 }
 

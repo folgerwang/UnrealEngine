@@ -1,9 +1,9 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Animation/AnimCurveTypes.h"
 #include "UObject/FrameworkObjectVersion.h"
 
-DECLARE_CYCLE_STAT(TEXT("AnimSeq EvalCurveData"), STAT_AnimSeq_EvalCurveData, STATGROUP_Anim);
+DECLARE_CYCLE_STAT(TEXT("EvalRawCurveData"), STAT_EvalRawCurveData, STATGROUP_Anim);
 
 /////////////////////////////////////////////////////
 // FFloatCurve
@@ -92,7 +92,7 @@ void FFloatCurve::GetKeys(TArray<float>& OutTimes, TArray<float>& OutValues)
 	OutValues.Empty(NumKeys);
 	for (auto It = FloatCurve.GetKeyHandleIterator(); It; ++It)
 	{
-		const FKeyHandle KeyHandle = It.Key();
+		const FKeyHandle KeyHandle = *It;
 		const float KeyTime = FloatCurve.GetKeyTime(KeyHandle);
 		const float Value = FloatCurve.Eval(KeyTime);
 
@@ -153,7 +153,7 @@ void FVectorCurve::GetKeys(TArray<float>& OutTimes, TArray<FVector>& OutValues)
 		OutValues.Empty(MaxNumKeys);
 		for (auto It = FloatCurves[UsedCurveIndex].GetKeyHandleIterator(); It; ++It)
 		{
-			const FKeyHandle KeyHandle = It.Key();
+			const FKeyHandle KeyHandle = *It;
 			const float KeyTime = FloatCurves[UsedCurveIndex].GetKeyTime(KeyHandle);
 			const FVector Value = Evaluate(KeyTime, 1.0f);
 
@@ -271,7 +271,7 @@ void FTransformCurve::GetKeys(TArray<float>& OutTimes, TArray<FTransform>& OutVa
 		OutValues.Empty(MaxNumKeys);
 		for (auto It = UsedCurve->FloatCurves[UsedChannelIndex].GetKeyHandleIterator(); It; ++It)
 		{
-			const FKeyHandle KeyHandle = It.Key();
+			const FKeyHandle KeyHandle = *It;
 			const float KeyTime = UsedCurve->FloatCurves[UsedChannelIndex].GetKeyTime(KeyHandle);
 			const FTransform Value = Evaluate(KeyTime, 1.0f);
 
@@ -293,7 +293,7 @@ void FTransformCurve::Resize(float NewLength, bool bInsert/* whether insert or r
 
 void FRawCurveTracks::EvaluateCurveData( FBlendedCurve& Curves, float CurrentTime ) const
 {
-	SCOPE_CYCLE_COUNTER(STAT_AnimSeq_EvalCurveData);
+	SCOPE_CYCLE_COUNTER(STAT_EvalRawCurveData);
 	if (Curves.NumValidCurveCount > 0)
 	{
 		// evaluate the curve data at the CurrentTime and add to Instance
@@ -302,7 +302,8 @@ void FRawCurveTracks::EvaluateCurveData( FBlendedCurve& Curves, float CurrentTim
 			const FFloatCurve& Curve = *CurveIter;
 			if (Curves.IsEnabled(Curve.Name.UID))
 			{
-				Curves.Set(Curve.Name.UID, Curve.Evaluate(CurrentTime));
+				float Value = Curve.Evaluate(CurrentTime);
+				Curves.Set(Curve.Name.UID, Value);
 			}
 		}
 	}

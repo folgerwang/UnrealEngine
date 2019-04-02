@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.Collections.Generic;
@@ -11,7 +11,7 @@ public class UnrealVersionSelectorTarget : TargetRules
 		LinkType = TargetLinkType.Monolithic;
 		LaunchModuleName = "UnrealVersionSelector";
 		
-		bCompileLeanAndMeanUE = true;
+		bBuildDeveloperTools = false;
 		bUseMallocProfiler = false;
 
 		bool bUsingSlate = (Target.Platform == UnrealTargetPlatform.Linux);
@@ -21,9 +21,7 @@ public class UnrealVersionSelectorTarget : TargetRules
 			ExtraModuleNames.Add("EditorStyle");
 		}
 
-		// No editor needed
 		bCompileICU = false;
-		bBuildEditor = false;
 		// Editor-only data, however, is needed
 		bBuildWithEditorOnlyData = bUsingSlate;
 

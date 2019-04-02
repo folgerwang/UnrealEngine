@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealBuildTool.Rules
 {
@@ -21,6 +21,7 @@ namespace UnrealBuildTool.Rules
 					"Slate",
 					"SlateCore",
 					"UnrealEd",
+					"ApplicationCore"
 				}
 			);
 
@@ -28,6 +29,7 @@ namespace UnrealBuildTool.Rules
 				new string[] {
 					"Editor/UndoHistory/Private",
 					"Editor/UndoHistory/Private/Widgets",
+					"Editor/UndoHistory/Private/Classes"
 				}
 			);
 		}

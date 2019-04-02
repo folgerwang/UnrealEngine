@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OculusHMD_TextureSetProxy.h"
 
@@ -22,17 +22,11 @@ FTextureSetProxy::FTextureSetProxy(FTextureRHIParamRef InRHITexture, const TArra
 
 FTextureSetProxy::~FTextureSetProxy()
 {
-	if (InRenderThread())
-	{
-		ExecuteOnRHIThread([this]()
-		{
-			ReleaseResources_RHIThread();
-		});
-	}
-	else
+	check(InRenderThread() || InRHIThread());
+	ExecuteOnRHIThread([this]()
 	{
 		ReleaseResources_RHIThread();
-	}
+	});
 }
 
 

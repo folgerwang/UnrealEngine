@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Rendering/MorphTargetVertexInfoBuffers.h"
 
@@ -42,4 +42,6 @@ void FMorphTargetVertexInfoBuffers::ReleaseRHI()
 	VertexIndicesSRV.SafeRelease();
 	MorphDeltasVB.SafeRelease();
 	MorphDeltasSRV.SafeRelease();
+	MorphPermutationsVB.SafeRelease();
+	MorphPermutationsSRV.SafeRelease();
 }

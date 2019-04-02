@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "LandscapeEditorCommands.h"
@@ -53,6 +53,9 @@ void FLandscapeEditorCommands::RegisterCommands()
 	NameToCommandMap.Add("Tool_Retopologize", RetopologizeTool);
 	UI_COMMAND(VisibilityTool, "Tool - Visibility", "", EUserInterfaceActionType::RadioButton, FInputChord());
 	NameToCommandMap.Add("Tool_Visibility", VisibilityTool);
+
+	UI_COMMAND(BPCustomTool, "Tool - BP Custom", "", EUserInterfaceActionType::RadioButton, FInputChord());
+	NameToCommandMap.Add("Tool_BPCustom", BPCustomTool);
 
 	UI_COMMAND(SelectComponentTool, "Tool - Component Selection", "", EUserInterfaceActionType::RadioButton, FInputChord());
 	NameToCommandMap.Add("Tool_Select", SelectComponentTool);

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -176,7 +176,7 @@ struct TMovieSceneScriptingChannel
 		if (Channel)
 		{
 			using namespace MovieScene;
-			SetDefaultInChannel(ChannelHandle, InDefaultValue);
+			SetChannelDefault(Channel, InDefaultValue);
 			return;
 		}
 		UE_LOG(LogMovieScene, Error, TEXT("Invalid ChannelHandle for MovieSceneScriptingChannel, failed to set default value."));

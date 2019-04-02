@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -9,7 +9,6 @@
 #define DATASMITHCONTENT_MODULE_NAME TEXT("DatasmithContent")
 
 DECLARE_LOG_CATEGORY_EXTERN( LogDatasmithContent, Log, All );
-DECLARE_DELEGATE_OneParam( FOnSpawnDatasmithSceneActors, class ADatasmithSceneActor* );
 
 /**
  * The public interface of the DatasmithContent module

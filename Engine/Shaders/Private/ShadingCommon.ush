@@ -1,0 +1,106 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+//#pragma once
+#ifndef __SHADING_COMMON__
+#define __SHADING_COMMON__
+
+#define SHADINGMODELID_UNLIT				0
+#define SHADINGMODELID_DEFAULT_LIT			1
+#define SHADINGMODELID_SUBSURFACE			2
+#define SHADINGMODELID_PREINTEGRATED_SKIN	3
+#define SHADINGMODELID_CLEAR_COAT			4
+#define SHADINGMODELID_SUBSURFACE_PROFILE	5
+#define SHADINGMODELID_TWOSIDED_FOLIAGE		6
+#define SHADINGMODELID_HAIR					7
+#define SHADINGMODELID_CLOTH				8
+#define SHADINGMODELID_EYE					9
+#define SHADINGMODELID_NUM					10
+#define SHADINGMODELID_MASK					0xF					
+
+// The flags are defined so that 0 value has no effect!
+#define SKIP_CUSTOMDATA_MASK			(1 << 4)	// TODO remove. Can be inferred from shading model.
+#define SKIP_PRECSHADOW_MASK			(1 << 5)
+#define ZERO_PRECSHADOW_MASK			(1 << 6)
+#define SKIP_VELOCITY_MASK				(1 << 7)
+
+uint GetShadingModelID()
+{        
+#if MATERIAL_SHADINGMODEL_UNLIT
+	return SHADINGMODELID_UNLIT;
+#elif MATERIAL_SHADINGMODEL_DEFAULT_LIT
+	return SHADINGMODELID_DEFAULT_LIT;
+#elif MATERIAL_SHADINGMODEL_SUBSURFACE
+	return SHADINGMODELID_SUBSURFACE;
+#elif MATERIAL_SHADINGMODEL_PREINTEGRATED_SKIN
+	return SHADINGMODELID_PREINTEGRATED_SKIN;
+#elif MATERIAL_SHADINGMODEL_SUBSURFACE_PROFILE
+	return SHADINGMODELID_SUBSURFACE_PROFILE;
+#elif MATERIAL_SHADINGMODEL_CLEAR_COAT
+	return SHADINGMODELID_CLEAR_COAT;
+#elif MATERIAL_SHADINGMODEL_TWOSIDED_FOLIAGE
+	return SHADINGMODELID_TWOSIDED_FOLIAGE;
+#elif MATERIAL_SHADINGMODEL_HAIR
+	return SHADINGMODELID_HAIR;
+#elif MATERIAL_SHADINGMODEL_CLOTH
+	return SHADINGMODELID_CLOTH;
+#elif MATERIAL_SHADINGMODEL_EYE
+	return SHADINGMODELID_EYE;
+#else
+	return SHADINGMODELID_MASK;
+#endif
+}
+
+// for debugging and to visualize
+float3 GetShadingModelColor(uint ShadingModelID)
+{
+	// TODO: PS4 doesn't optimize out correctly the switch(), so it thinks it needs all the Samplers even if they get compiled out
+	//	This will get fixed after launch per Sony...
+#if PS4_PROFILE
+		 if (ShadingModelID == SHADINGMODELID_UNLIT) return float3(0.1f, 0.1f, 0.2f); // Dark Blue
+	else if (ShadingModelID == SHADINGMODELID_DEFAULT_LIT) return float3(0.1f, 1.0f, 0.1f); // Green
+	else if (ShadingModelID == SHADINGMODELID_SUBSURFACE) return float3(1.0f, 0.1f, 0.1f); // Red
+	else if (ShadingModelID == SHADINGMODELID_PREINTEGRATED_SKIN) return float3(0.6f, 0.4f, 0.1f); // Brown
+	else if (ShadingModelID == SHADINGMODELID_CLEAR_COAT) return float3(0.1f, 0.4f, 0.4f); 
+	else if (ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE) return float3(0.2f, 0.6f, 0.5f); // Cyan
+	else if (ShadingModelID == SHADINGMODELID_TWOSIDED_FOLIAGE) return float3(0.2f, 0.2f, 0.8f); // Blue
+	else if (ShadingModelID == SHADINGMODELID_HAIR) return float3(0.6f, 0.1f, 0.5f);
+	else if (ShadingModelID == SHADINGMODELID_CLOTH) return float3(0.7f, 1.0f, 1.0f); 
+	else if (ShadingModelID == SHADINGMODELID_EYE) return float3(0.3f, 1.0f, 1.0f); 
+	else return float3(1.0f, 1.0f, 1.0f); // White
+#else
+	switch(ShadingModelID)
+	{
+		case SHADINGMODELID_UNLIT: return float3(0.1f, 0.1f, 0.2f); // Dark Blue
+		case SHADINGMODELID_DEFAULT_LIT: return float3(0.1f, 1.0f, 0.1f); // Green
+		case SHADINGMODELID_SUBSURFACE: return float3(1.0f, 0.1f, 0.1f); // Red
+		case SHADINGMODELID_PREINTEGRATED_SKIN: return float3(0.6f, 0.4f, 0.1f); // Brown
+		case SHADINGMODELID_CLEAR_COAT: return float3(0.1f, 0.4f, 0.4f); // Brown
+		case SHADINGMODELID_SUBSURFACE_PROFILE: return float3(0.2f, 0.6f, 0.5f); // Cyan
+		case SHADINGMODELID_TWOSIDED_FOLIAGE: return float3(0.2f, 0.2f, 0.8f); // Cyan
+		case SHADINGMODELID_HAIR: return float3(0.6f, 0.1f, 0.5f);
+		case SHADINGMODELID_CLOTH: return float3(0.7f, 1.0f, 1.0f);
+		case SHADINGMODELID_EYE: return float3(0.3f, 1.0f, 1.0f);
+		default: return float3(1.0f, 1.0f, 1.0f); // White
+	}
+#endif
+}
+
+
+float DielectricSpecularToF0(float Specular)
+{
+	return 0.08f * Specular;
+}
+
+// [Burley, "Extending the Disney BRDF to a BSDF with Integrated Subsurface Scattering"]
+float DielectricF0ToIor(float F0)
+{
+	return 2.0f / (1.0f - sqrt(F0)) - 1.0f;
+}
+
+float3 ComputeF0(float Specular, float3 BaseColor, float Metallic)
+{
+	return lerp(DielectricSpecularToF0(Specular).xxx, BaseColor, Metallic.xxx);
+}
+
+
+#endif // __SHADING_COMMON__

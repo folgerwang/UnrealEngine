@@ -1,0 +1,144 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+#include "../Common.ush"
+#include "../ShadingCommon.ush"
+#include "RayTracingCommon.ush"
+#include "RayTracingHitGroupCommon.ush"
+
+#include "/Engine/Shared/RayTracingDebugDefinitions.h"
+
+RWTexture2D<float4> Output;
+RaytracingAccelerationStructure TLAS;
+
+uint VisualizationMode;
+
+float3 ReconstructWorldPositionFromDepth(float2 UV, float Depth)
+{
+	float2 ScreenPosition = (UV - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
+	float4 HomogeneousWorldPosition = mul(float4(ScreenPosition * Depth, Depth, 1), View.ScreenToWorld);
+	float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+
+	return WorldPosition;
+}
+
+[shader("raygeneration")]
+void RayTracingDebugMainRGS()
+{
+	uint2 PixelCoord = DispatchRaysIndex().xy;
+
+	float2 RenderTargetUV = (float2(PixelCoord) + .5f) * View.BufferSizeAndInvSize.zw;
+
+	RayDesc Ray;
+
+	Ray.Origin = ReconstructWorldPositionFromDepth(RenderTargetUV, 0.0f);
+	Ray.Direction = normalize(ReconstructWorldPositionFromDepth(RenderTargetUV, 10000.f) - Ray.Origin);
+	Ray.TMin = 0.5f; // 1 unit in UE4 = 1 cm -0> 0.5 ==> 5 mm
+	Ray.TMax = 1e27f;
+
+    FRayCone RayCone = (FRayCone)0;
+	RayCone.SpreadAngle = View.EyeToPixelSpreadAngle;
+
+	uint RayFlags = RAY_FLAG_CULL_BACK_FACING_TRIANGLES;
+
+	FMaterialClosestHitPayload Payload = TraceRayInternal(
+		TLAS,   // AccelerationStructure
+		RayFlags,
+		RAY_TRACING_MASK_ALL,
+		RAY_TRACING_SHADER_SLOT_MATERIAL, // RayContributionToHitGroupIndex
+		RAY_TRACING_NUM_SHADER_SLOTS,     // MultiplierForGeometryContributionToShaderIndex
+		0,      // MissShaderIndex
+		Ray,    // RayDesc
+		RayCone
+	);
+
+	float4 Result = float4(0, 0, 0, 1);
+
+	if (Payload.HitT > 0)
+	{
+		switch (VisualizationMode)
+		{
+		default:
+		case RAY_TRACING_DEBUG_VIZ_RADIANCE:
+			Result = float4(Payload.Radiance, 1.0f);
+			break;
+		case RAY_TRACING_DEBUG_VIZ_WORLD_NORMAL:
+			Result = float4(Payload.WorldNormal * 0.5 + 0.5, 1.0f);
+			break;
+		case RAY_TRACING_DEBUG_VIZ_BASE_COLOR:
+			Result = float4(Payload.BaseColor.rgb, 1.0f);
+			break;
+		case RAY_TRACING_DEBUG_VIZ_DIFFUSE_COLOR:
+			Result = float4(Payload.DiffuseColor.rgb, 1.0f);
+			break;
+		case RAY_TRACING_DEBUG_VIZ_SPECULAR_COLOR:
+			Result = float4(Payload.SpecularColor.rgb, 1.0f);
+			break;
+		case RAY_TRACING_DEBUG_VIZ_OPACITY:
+			Result = float4(Payload.Opacity, Payload.Opacity, Payload.Opacity, 1.0f);
+			break;
+		case RAY_TRACING_DEBUG_VIZ_METALLIC:
+			Result = float4(Payload.Metallic, Payload.Metallic, Payload.Metallic, 1.0f);
+			break;
+		case RAY_TRACING_DEBUG_VIZ_SPECULAR:
+			Result = float4(Payload.Specular, Payload.Specular, Payload.Specular, 1.0f);
+			break;
+		case RAY_TRACING_DEBUG_VIZ_ROUGHNESS:
+			Result = float4(Payload.Roughness, Payload.Roughness, Payload.Roughness, 1.0f);
+			break;
+		case RAY_TRACING_DEBUG_VIZ_IOR:
+			Result = float4(Payload.Ior, Payload.Ior, Payload.Ior, 1.0f);
+			break;
+		case RAY_TRACING_DEBUG_VIZ_SHADING_MODEL:
+            Result = float4(GetShadingModelColor(Payload.ShadingModelID), 1.0f);
+			break;
+		case RAY_TRACING_DEBUG_VIZ_BLENDING_MODE:
+			Result = float4(Payload.BlendingMode, Payload.BlendingMode, Payload.BlendingMode, 1.0f);
+			break;
+		case RAY_TRACING_DEBUG_VIZ_LIGHTING_CHANNEL_MASK:
+			Result = float4(Payload.PrimitiveLightingChannelMask, Payload.PrimitiveLightingChannelMask, Payload.PrimitiveLightingChannelMask, 1.0f);
+			break;
+		case RAY_TRACING_DEBUG_VIZ_CUSTOM_DATA:
+			Result = float4(Payload.CustomData);
+			break;
+		case RAY_TRACING_DEBUG_VIZ_GBUFFER_AO:
+			Result = float4(Payload.GBufferAO, Payload.GBufferAO, Payload.GBufferAO, 1.0f);
+			break;
+		case RAY_TRACING_DEBUG_VIZ_INDIRECT_IRRADIANCE:
+			Result = float4(Payload.IndirectIrradiance, 1.0f);
+			break;
+		case RAY_TRACING_DEBUG_VIZ_WORLD_POSITION:
+			Result = float4(Payload.WorldPos, 1.0f);
+			break;
+		case RAY_TRACING_DEBUG_VIZ_HITKIND:
+			Result = float4(Payload.HitKind, Payload.HitKind, Payload.HitKind, 1.0f);
+			break;
+		}
+	}
+
+	Output[PixelCoord] = Result;
+}
+
+[shader("miss")]
+void RayTracingDebugMainMS(inout FPackedMaterialClosestHitPayload PackedPayload)
+{
+	PackedPayload.HitT = -1;
+}
+
+
+[shader("closesthit")]
+void RayTracingDebugMainCHS(inout FPackedMaterialClosestHitPayload PackedPayload, in FDefaultAttributes Attributes)
+{
+	FMaterialClosestHitPayload Payload = (FMaterialClosestHitPayload)0;
+
+	Payload.HitT = RayTCurrent();
+	Payload.BaseColor = float3(0.2, 0.3, 0.4);
+
+	FTriangleBaseAttributes Triangle = LoadTriangleBaseAttributes(PrimitiveIndex());
+	float3 Edge0 = Triangle.LocalPositions[2] - Triangle.LocalPositions[0];
+	float3 Edge1 = Triangle.LocalPositions[1] - Triangle.LocalPositions[0];
+	float3x3 WorldToLocal = (float3x3)WorldToObject();
+	float3x3 LocalToWorldNormal = transpose(WorldToLocal);
+	Payload.WorldNormal = normalize(mul(LocalToWorldNormal, cross(Edge0, Edge1)));
+
+    PackedPayload = PackRayTracingPayload(Payload, PackedPayload.RayCone);
+}

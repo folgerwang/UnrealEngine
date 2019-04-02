@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3069483
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:2.2 - 设置轴映射
 Crumbs: %ROOT%, Programming, Programming/Tutorials/FirstPersonShooter, Programming/Tutorials/FirstPersonShooter/2
 Description:学习如何设置第一人称射击游戏角色的轴映射。
 SkillLevel:Beginner
-Version:4.11
+Version:4.15
 
 [VAR:Steps]
 [OBJECT:Navigation]
@@ -28,6 +28,7 @@ Version:4.11
 
 在这步中，我们将设置 W、A、S 和 D 键的输入轴映射，实现新建角色在地图中的移动。
 
+(#MoveForwardAxisMapping)
 ## 向前移动轴映射
 
 1.	在 **Edit** 菜单中点击 **Project Settings**。
@@ -56,6 +57,7 @@ Version:4.11
 
 	![](MoveForwardAxisMap_S.png)
 
+(#MoveRightAxisMapping)
 ## 向右移动轴映射
 
 1.	在 **Bindings** 下点击 **Axis Mappings** 旁的加号。

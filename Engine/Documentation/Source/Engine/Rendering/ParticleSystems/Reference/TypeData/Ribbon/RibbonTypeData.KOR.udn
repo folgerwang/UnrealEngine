@@ -28,7 +28,7 @@ topic-image:RibbonSmoke.png
 | **Dead Trails On Deactivate** | 비활성화시 트레일 죽임 - _True_ 면 파티클 시스템이 비활성화될 때 트레일도 죽은 것으로 마트합니다. 즉 트레일이 계속 렌더링되긴 하지만, 파티클 시스템을 다시 활성화시켜도 파티클이 새로 스폰되지는 않는다는 뜻입니다. |
 | **Dead Trails On Source Loss** | 소스 손실시 트레일 죽임 - _True_ 면 트레일 소스를 '잃었을' 때, 즉 소스 파티클이 죽거나 했을 때 트레일을 죽은 것으로 마크합니다. |
 | **Clip Source Segment** | 소스 부분 고정 - _True_ 면 트레일은 소스 위치로 합쳐지지 않습니다. |
-| **Enable Previous Tangent Recalculation** | 예전 탄젠트 재계산 켜기 - _True_ 면 파티클이 새로 스폰될 때마다 예전 탄젠트를 재계산합니다. |
+| **Enable Previous Tangent Recalculation** | 이전 탄젠트 재계산 켜기 - _True_ 면 파티클이 새로 스폰될 때마다 이전 탄젠트를 재계산합니다. |
 | **Tangent Recalculation Every Frame** | 매 프레임마다 탄젠트 재계산 - _True_ 면 속도/가속도 적용을 허용하기 위해 매 프레임마다 모든 탄젠트를 재계산합니다. |
 | **Spawn Initial Particle** | 초기 파티클 스폰 - _True_ 면 리본은 처음 움직일 때 파티클을 스폰합니다. |
 | **Render Axis** | 렌더 축 - 트레일(이 걸쳐있는)용 '렌더' 축입니다. 제공되는 옵션은 다음과 같습니다: [INCLUDE:#RenderAxisOption] |

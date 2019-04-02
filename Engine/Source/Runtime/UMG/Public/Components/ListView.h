@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -89,7 +89,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = ListView)
 	void SetSelectionMode(TEnumAsByte<ESelectionMode::Type> SelectionMode);
 
-	/** @return True if a refresh is pending and the list will be rebuilt on the next tick */
+	/** Returns true if a refresh is pending and the list will be rebuilt on the next tick */
 	UFUNCTION(BlueprintCallable, Category = ListView)
 	bool IsRefreshPending() const;
 
@@ -110,7 +110,7 @@ protected:
 	virtual void HandleListEntryHovered(UUserWidget& EntryWidget) override;
 	virtual void HandleListEntryUnhovered(UUserWidget& EntryWidget) override;
 	
-#if WITH_EDITORONLY_DATA
+#if WITH_EDITOR
 	virtual void OnRefreshDesignerItems() override;
 #endif
 
@@ -126,7 +126,7 @@ protected:
 	template <template<typename> class ListViewT = SListView>
 	TSharedRef<ListViewT<UObject*>> ConstructListView()
 	{
-		MyListView = ITypedUMGListView<UObject*>::ConstructListView<ListViewT>(this, ListItems, SelectionMode, bClearSelectionOnClick, ConsumeMouseWheel);
+		MyListView = ITypedUMGListView<UObject*>::ConstructListView<ListViewT>(this, ListItems, bIsFocusable, SelectionMode, bClearSelectionOnClick, ConsumeMouseWheel, bReturnFocusToSelection);
 		return StaticCastSharedRef<ListViewT<UObject*>>(MyListView.ToSharedRef());
 	}
 
@@ -140,8 +140,14 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = ListView)
 	bool bClearSelectionOnClick = false;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = ListView)
+	bool bIsFocusable = true;
+
 	UPROPERTY(EditAnywhere, Category = ListEntries, meta = (ClampMin = 0))
 	float EntrySpacing = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = ListView)
+	bool bReturnFocusToSelection = false;
 
 	UPROPERTY(Transient)
 	TArray<UObject*> ListItems;

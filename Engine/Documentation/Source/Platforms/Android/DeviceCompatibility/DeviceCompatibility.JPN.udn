@@ -1,0 +1,52 @@
+﻿INTSourceChangelist:4687491
+Availability: Public
+Crumbs: 
+Title:Android デバイスの互換性
+Description:Android 向け開発でのデバイス互換性
+Type: 
+Version:4.21
+Parent:Platforms/Android
+Order: 
+Tags: mobile
+Tags:Android: 
+Tags:Reference
+
+
+Unreal Engine 4 (UE4) は幅広い Android デバイスをサポートしています。広く使用されているデバイスの多くをテストすることを目指していますが、すべてのデバイスが内部でテストされているわけではありません。以下のデバイスプロファイルは参考ガイドラインとして提供しています。
+
+**ベース Android デバイスプロファイル** \- デバイス固有の指定がない場合すべての Android プロファイルで使用される[](Platforms/DeviceProfiles) 。
+
+| **Android デバイス プロファイル**| ------ |
+| --- | |
+| **コンソール変数** | **値** |
+| --- | --- |
+| r.MobileContentScaleFactor | 1 |
+| r.BloomQuality | 0 |
+| r.DepthOfFieldQuality | 0 |
+| r.LightShaftQuality | 0 |
+| r.RefractionQuality | 0 |
+| r.ShadowQuality | 0 |
+| slate.AbsoulteIndices | 1 |
+
+[REGION:note]
+Android デバイス プロファイルは幅広い Android GPU をよりよくカバーするためにバケットに分類されています。これらのバケットの分類はデフォルトとして用意されていて、プロジェクトのニーズを満たすためにカスタム[](Platforms/DeviceProfiles)を作成することが推奨されています。
+[/REGION]  
+
+| **Android_High** | | **Android_Medium** | | **Android_Low** | |
+| --- | --- | --- | --- | --- | --- |
+| **コンソール変数** | **値** | **コンソール変数** | **値** | **コンソール変数** | **値** |
+| --- | --- | --- | --- | --- | --- |
+| r.MobileContentScaleFactor | 1 | r.MobileContentScaleFactor | 0.8 | r.MobileContentScaleFactor | 0.5 |
+| r.BloomQuality | 1 | r.BloomQuality | 1 | r.BloomQuality | 0 |
+| r.DepthOfFieldQuality | 1 | r.DepthOfFieldQuality | 0 | r.DepthOfFieldQuality | 0 |
+| r.LightShaftQuality | 1 | r.LightShaftQuality | 0 | r.LightShaftQuality | 0 |
+| r.RefractionQuality | 1 | r.RefractionQuality | 0 | r.RefractionQuality | 0 |
+| r.ShadowQuality | 2 | r.ShadowQuality | 2 | r.ShadowQuality | 1 |
+
+  
+
+| **デバイス プロファイル** | **GPU** |
+| --- | --- |
+| **Android_High** | Adreno 330-5xx, Mali T7xx, T8xx, Mali G76, Mali G72, Mali G71, Tegra K1 |
+| **Android_Medium** | Adreno 320, Power VR54x, Mali T6xx, Tegra 4 |
+| **Android_Low** | Adreno 2xx, IntelHD, Mali 4xx |

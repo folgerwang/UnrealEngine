@@ -1,0 +1,53 @@
+﻿INTSourceChangelist:4677192
+Availability: Public
+Crumbs: 
+Title: 启用和编译PSO缓存
+Description: 介绍如何设置UE4项目编译PSO数据。
+Type: 
+Version: 4.21
+Parent: Engine/Rendering/PSOCaching
+Order:
+Topic-image:EnablingBuildingPSCaching_Topic_Image.png
+Tags: 
+
+在虚幻引擎4项目中使用 **管线状态对象（PSO）** 缓存之前，首先需要启用数个选项。以下指南将指出需要启用的所有选项，以便生成让PSO缓存正常工作的必需文件。
+
+(#steps)
+## 步骤
+
+[REGION:note]
+**先决条件：** 此指南使用[Action RPG](https://www.unrealengine.com/marketplace/action-rpg)游戏实例项目，可从Epic Games Launcher中下载。
+[/REGION]
+
+1.  在主菜单中选择 **编辑（Edit）** \> **项目设置（Project Settings）** \> **打包（Packaging）** \> **打包（Packaging）**，然后启用以下选项：  
+    *   **共享材质着色器代码（Share Material Shader Code）**
+    *   **共享材质本地库（Shared Material Native Libraries）**  
+        [REGION:lightbox]
+        [![](Enable_PSO_Caching.png)(w:800px)](Enable_PSO_Caching.png)
+        [/REGION]
+        [REGION:caption]
+        点击查看全图。
+        [/REGION]
+2.  然后前往 **窗口（Window）** \> **开发者工具（Developer Tools）** \> **设备描述（Device Profiles）**，打开 **设备描述** 工具。  
+    ![](Open_Device_Manager.png "Open_Device_Manager.png")
+3.  接下来在 **Existing Device Profiles** 输入中找到 **Android** 选项，点击其命名旁边的 **省略号** 将该设备描述打开。  
+    ![](Open_Up_Android_Device_Profile.png)
+4.  在 **控制台变量（Console Variables）** 部分中查找 **渲染（Rendering）**，按下 **加号** 图标公开 **Search** 输入。  
+    ![](Search_For_Command_To_Add.png "Search_For_Command_To_Add.png")
+5.  在 **Search** 输入中找到并点击 **r.ShaderPipelineCache.Enabled**，将其添加到渲染变量的列表。  
+    ![](PSO_Added_To_Device_Profile.png "PSO_Added_To_Device_Profile.png")
+6.  之后将 **r.ShaderPipelineCache.Enabled** 输入的值设为 **1**。  
+    ![](PSO_Caching_Enabled.png "PSO_Caching_Enabled.png")
+    [REGION:note]
+    如项目支持多平台，则在每个平台上重复此操作流程。
+    [/REGION]
+7.  操作完成后，重启虚幻编辑器会话。
+
+(#endresults)
+## 最终结果
+
+启用PSO缓存必需的项目设置后，接下来我们将创建并运行一个项目的特殊版本，其将把必需的PSO数据输出至一个文件。 
+
+[REGION:note]
+如需了解详情，请参阅[PSO数据获取指南](Engine/Rendering/PSOCaching/GatheringPSOData)。
+[/REGION]

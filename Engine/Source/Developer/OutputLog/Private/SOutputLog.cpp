@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SOutputLog.h"
 #include "Framework/Text/TextRange.h"
@@ -241,7 +241,28 @@ void SConsoleInputBox::OnTextChanged(const FText& InText)
 
 			IConsoleManager::Get().ForEachConsoleObjectThatContains(FConsoleObjectVisitor::CreateLambda(OnConsoleVariable), *InputTextStr);
 		}
-		AutoCompleteList.Sort();
+		AutoCompleteList.Sort([InputTextStr](const FString& A, const FString& B)
+		{ 
+			if (A.StartsWith(InputTextStr))
+			{
+				if (!B.StartsWith(InputTextStr))
+				{
+					return true;
+				}
+			}
+			else
+			{
+				if (B.StartsWith(InputTextStr))
+				{
+					return false;
+				}
+			}
+
+			return A < B;
+
+		});
+
+
 		SetSuggestions(AutoCompleteList, FText::FromString(InputTextStr));
 	}
 	else
@@ -304,16 +325,16 @@ FReply SConsoleInputBox::OnPreviewKeyDown(const FGeometry& MyGeometry, const FKe
 			{
 				if (Suggestions.HasSelectedSuggestion())
 				{
-					MarkActiveSuggestion();
-					OnTextCommitted(InputText->GetText(), ETextCommit::OnEnter);
+					Suggestions.StepSelectedSuggestion(KeyEvent.IsShiftDown() ? -1 : +1);
 				}
 				else
 				{
 					Suggestions.SelectedSuggestion = 0;
-					MarkActiveSuggestion();
 				}
+				MarkActiveSuggestion();
 			}
 
+			bConsumeTab = true;
 			return FReply::Handled();
 		}
 		else if (KeyEvent.GetKey() == EKeys::Escape)
@@ -407,6 +428,10 @@ void SConsoleInputBox::SetSuggestions(TArray<FString>& Elements, FText Highlight
 		if (Suggestions.HasSelectedSuggestion())
 		{
 			SuggestionListView->RequestScrollIntoView(Suggestions.GetSelectedSuggestion());
+		}
+		else
+		{
+			SuggestionListView->ScrollToTop();
 		}
 	}
 	else
@@ -547,7 +572,7 @@ TSharedRef<SWidget> SConsoleInputBox::GetCommandExecutorMenuContent()
 					FIsActionChecked::CreateLambda([bIsActiveCmdExec] { return bIsActiveCmdExec; })
 					),
 				NAME_None,
-				EUserInterfaceActionType::RadioButton
+				EUserInterfaceActionType::Check
 			);
 		}
 	}
@@ -575,6 +600,13 @@ FReply SConsoleInputBox::OnKeyCharHandler(const FGeometry& MyGeometry, const FCh
 	// A printable key may be used to open the console, so consume all characters before our first Tick
 	if (!bHasTicked)
 	{
+		return FReply::Handled();
+	}
+
+	// Intercept tab if used for auto-complete
+	if (InCharacterEvent.GetCharacter() == '\t' && bConsumeTab)
+	{
+		bConsumeTab = false;
 		return FReply::Handled();
 	}
 

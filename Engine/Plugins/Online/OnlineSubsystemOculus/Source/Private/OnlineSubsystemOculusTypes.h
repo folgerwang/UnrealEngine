@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -100,6 +100,13 @@ public:
 	friend uint32 GetTypeHash(const FUniqueNetIdOculus& A)
 	{
 		return GetTypeHash((uint64)A.ID);
+	}
+
+	/** global static instance of invalid (zero) id */
+	static const TSharedRef<const FUniqueNetId>& EmptyId()
+	{
+		static const TSharedRef<const FUniqueNetId> EmptyId(MakeShared<FUniqueNetIdOculus>());
+		return EmptyId;
 	}
 };
 

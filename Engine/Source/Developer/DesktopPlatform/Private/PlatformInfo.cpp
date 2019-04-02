@@ -1,14 +1,17 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PlatformInfo.h"
 #include "DesktopPlatformPrivate.h"
 #include "Misc/DataDrivenPlatformInfoRegistry.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
 
 #define LOCTEXT_NAMESPACE "PlatformInfo"
 
 namespace PlatformInfo
 {
 	TArray<FName> AllPlatformGroupNames;
+	TArray<FName> AllVanillaPlatformNames;
 
 namespace
 {
@@ -33,6 +36,11 @@ FPlatformInfo BuildPlatformInfo(const FName& InPlatformInfoName, const FName& In
 		{
 			PlatformInfo.VanillaPlatformName = InPlatformInfoName;
 		}
+	}
+
+	if (PlatformInfo.VanillaPlatformName != NAME_None)
+	{
+		PlatformInfo::AllVanillaPlatformNames.AddUnique(PlatformInfo.VanillaPlatformName);
 	}
 
 	PlatformInfo.DisplayName = InDisplayName;
@@ -82,6 +90,11 @@ static const FString IOSTutorial = TEXT("/Engine/Tutorial/Installation/Installin
 static const bool IsAvailableOnWindows = false;
 static const bool IsAvailableOnMac = false;
 static const bool IsAvailableOnLinux = true;
+static const FString IOSTutorial = TEXT("/Engine/Tutorial/NotYetImplemented");
+#else
+static const bool IsAvailableOnWindows = false;
+static const bool IsAvailableOnMac = false;
+static const bool IsAvailableOnLinux = false;
 static const FString IOSTutorial = TEXT("/Engine/Tutorial/NotYetImplemented");
 #endif
 
@@ -141,8 +154,8 @@ static const FPlatformInfo AllPlatformInfoArray[] = {
 	BuildPlatformInfo(TEXT("Lumin"),					TEXT("Lumin"),				LOCTEXT("Lumin", "Lumin"),										EPlatformType::Game,	EPlatformFlags::None,			FPlatformIconPaths(TEXT("Launcher/LuminTarget/Platform_Lumin_24x"), TEXT("Launcher/Lumin/Platform_Lumin_128x")),					TEXT(""),											TEXT(""),			EPlatformSDKStatus::Unknown,	TEXT("/Engine/Tutorial/Mobile/SettingUpLuminTutorial.SettingUpLuminTutorial"),							IsAvailableOnWindows || IsAvailableOnMac,						TEXT("Lumin"),		TEXT("Lumin"),		false,					true,					false,			TEXT("Lumin"),		TEXT("Mobile")),
 	BuildPlatformInfo(TEXT("LuminClient"),				TEXT("LuminClient"),		LOCTEXT("LuminClient", "Lumin (Client-only)"),					EPlatformType::Client,	EPlatformFlags::None,			FPlatformIconPaths(TEXT("Launcher/LuminTarget/Platform_Lumin_24x"), TEXT("Launcher/Lumin/Platform_Lumin_128x")),					TEXT("-client"),									TEXT(""),			EPlatformSDKStatus::Unknown,	TEXT("/Engine/Tutorial/Mobile/SettingUpLuminTutorial.SettingUpLuminTutorial"),							IsAvailableOnWindows || IsAvailableOnMac,						TEXT("Lumin"),		TEXT("Lumin"),		false,					true,					false,			TEXT("Lumin"),		TEXT("Mobile")),
 
-	BuildPlatformInfo(TEXT("Quail"),					TEXT("Quail"),				LOCTEXT("Quail", "Quail"),										EPlatformType::Game,	EPlatformFlags::None,			FPlatformIconPaths(TEXT("Launcher/Quail/Platform_Quail_24x"), TEXT("Launcher/Quail/Platform_Quail_128x")),							TEXT(""),											TEXT(""),			EPlatformSDKStatus::Unknown,	TEXT(""),																								IsAvailableOnWindows,											TEXT("Quail"),		TEXT("Quail"),		false,					true,					true,			TEXT("Quail"),		TEXT("")),
-	BuildPlatformInfo(TEXT("QuailClient"),				TEXT("QuailClient"),		LOCTEXT("QuailClient", "Quail (Client-only)"),					EPlatformType::Client,	EPlatformFlags::None,			FPlatformIconPaths(TEXT("Launcher/Quail/Platform_Quail_24x"), TEXT("Launcher/Quail/Platform_Quail_128x")),							TEXT("-client -targetplatform=Quail"),				TEXT(""),			EPlatformSDKStatus::Unknown,	TEXT(""),																								IsAvailableOnWindows,											TEXT("Quail"),		TEXT("Quail"),		false,					true,					true,			TEXT("Quail"),		TEXT("")),
+	BuildPlatformInfo(TEXT("Quail"),					TEXT("Quail"),				LOCTEXT("Quail", "Quail"),										EPlatformType::Game,	EPlatformFlags::None,			FPlatformIconPaths(TEXT("Launcher/Quail/Platform_Quail_24x"), TEXT("Launcher/Quail/Platform_Quail_128x")),							TEXT(""),											TEXT(""),			EPlatformSDKStatus::Unknown,	TEXT(""),																								IsAvailableOnWindows,											TEXT("Quail"),		TEXT("Quail"),		false,					false,					true,			TEXT("Quail"),		TEXT("")),
+	BuildPlatformInfo(TEXT("QuailClient"),				TEXT("QuailClient"),		LOCTEXT("QuailClient", "Quail (Client-only)"),					EPlatformType::Client,	EPlatformFlags::None,			FPlatformIconPaths(TEXT("Launcher/Quail/Platform_Quail_24x"), TEXT("Launcher/Quail/Platform_Quail_128x")),							TEXT("-client -targetplatform=Quail"),				TEXT(""),			EPlatformSDKStatus::Unknown,	TEXT(""),																								IsAvailableOnWindows,											TEXT("Quail"),		TEXT("Quail"),		false,					false,					true,			TEXT("Quail"),		TEXT("")),
 
 	// Note: For "AllDesktop" bEnabledForUse value, see SProjectTargetPlatformSettings::Construct !!!! IsAvailableOnWindows || IsAvailableOnMac || IsAvailableOnLinux
 };
@@ -210,13 +223,22 @@ FPlatformEnumerator EnumeratePlatformInfoArray(bool bAccessiblePlatformsOnly)
 
 			for (const FPlatformInfo& PlatformInfo : Enumerator)
 			{
-				if (PlatformInfo.bIsConfidential && ConfidentalPlatforms.Contains(PlatformInfo.IniPlatformName))
+				const FString IniFolderPath = FPaths::RootDir() / TEXT("Engine") / TEXT("Config") / PlatformInfo.IniPlatformName;
+				TArray<FString> FoundFiles;
+				IFileManager::Get().FindFiles(FoundFiles, *IniFolderPath);
+			
+				// We check that the configuration directory exists with actual files in it to include the platform
+				// P4/Git may have filtered out platforms and we don't want to include filtered platform to keep code from trying to load other files that don't exist.
+				if (FoundFiles.Num() > 0)
 				{
-					AccessiblePlatforms.Add(PlatformInfo);
-				}
-				else if(!PlatformInfo.bIsConfidential)
-				{
-					AccessiblePlatforms.Add(PlatformInfo);
+					if (PlatformInfo.bIsConfidential && ConfidentalPlatforms.Contains(PlatformInfo.IniPlatformName))
+					{
+						AccessiblePlatforms.Add(PlatformInfo);
+					}
+					else if (!PlatformInfo.bIsConfidential)
+					{
+						AccessiblePlatforms.Add(PlatformInfo);
+					}
 				}
 			}
 
@@ -232,13 +254,13 @@ FPlatformEnumerator EnumeratePlatformInfoArray(bool bAccessiblePlatformsOnly)
 	}
 }
 
-TArray<FVanillaPlatformEntry> BuildPlatformHierarchy(const EPlatformFilter InFilter)
+TArray<FVanillaPlatformEntry> BuildPlatformHierarchy(const EPlatformFilter InFilter, bool bAccessiblePlatformsOnly)
 {
 	TArray<FVanillaPlatformEntry> VanillaPlatforms;
 
 	// Build up a tree from the platforms we support (vanilla outers, with a list of flavors)
 	// PlatformInfoArray should be ordered in such a way that the vanilla platforms always appear before their flavors
-	for(const FPlatformInfo& PlatformInfo : AllPlatformInfoArray)
+	for (const PlatformInfo::FPlatformInfo& PlatformInfo : EnumeratePlatformInfoArray(bAccessiblePlatformsOnly))
 	{
 		if(PlatformInfo.IsVanilla())
 		{
@@ -270,7 +292,7 @@ TArray<FVanillaPlatformEntry> BuildPlatformHierarchy(const EPlatformFilter InFil
 	return VanillaPlatforms;
 }
 
-FVanillaPlatformEntry BuildPlatformHierarchy(const FName& InPlatformName, const EPlatformFilter InFilter)
+FVanillaPlatformEntry BuildPlatformHierarchy(const FName& InPlatformName, const EPlatformFilter InFilter, bool bAccessiblePlatformsOnly)
 {
 	FVanillaPlatformEntry VanillaPlatformEntry;
 	const FPlatformInfo* VanillaPlatformInfo = FindVanillaPlatformInfo(InPlatformName);
@@ -279,7 +301,7 @@ FVanillaPlatformEntry BuildPlatformHierarchy(const FName& InPlatformName, const 
 	{
 		VanillaPlatformEntry.PlatformInfo = VanillaPlatformInfo;
 		
-		for (const FPlatformInfo& PlatformInfo : AllPlatformInfoArray)
+		for (const PlatformInfo::FPlatformInfo& PlatformInfo : EnumeratePlatformInfoArray(bAccessiblePlatformsOnly))
 		{
 			if (!PlatformInfo.IsVanilla() && PlatformInfo.VanillaPlatformName == VanillaPlatformInfo->PlatformInfoName)
 			{
@@ -330,6 +352,11 @@ EPlatformType EPlatformTypeFromString(const FString& PlatformTypeName)
 const TArray<FName>& GetAllPlatformGroupNames()
 {
 	return PlatformInfo::AllPlatformGroupNames;
+}
+
+const TArray<FName>& GetAllVanillaPlatformNames()
+{
+	return PlatformInfo::AllVanillaPlatformNames;
 }
 
 } // namespace PlatformInfo

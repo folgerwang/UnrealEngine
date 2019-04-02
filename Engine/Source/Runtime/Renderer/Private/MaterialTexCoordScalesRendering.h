@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 MaterialTexCoordScalesRendering.h: Declarations used for the viewmode.
@@ -12,18 +12,20 @@ MaterialTexCoordScalesRendering.h: Declarations used for the viewmode.
 #include "Engine/TextureStreamingTypes.h"
 #include "MeshMaterialShader.h"
 #include "DebugViewModeRendering.h"
+#include "DebugViewModeInterface.h"
 
 class FPrimitiveSceneProxy;
 struct FMeshBatchElement;
 struct FMeshDrawingRenderState;
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
 /**
 * Pixel shader that renders texcoord scales.
 * The shader is only compiled with the local vertex factory to prevent multiple compilation.
 * Nothing from the factory is actually used, but the shader must still derive from FMeshMaterialShader.
-* This is required to call FMeshMaterialShader::SetMesh and bind primitive related data.
 */
-class FMaterialTexCoordScalePS : public FMeshMaterialShader, public IDebugViewModePSInterface
+class FMaterialTexCoordScalePS : public FDebugViewModePS
 {
 	DECLARE_SHADER_TYPE(FMaterialTexCoordScalePS,MeshMaterial);
 
@@ -31,20 +33,17 @@ public:
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform, const FMaterial* Material, const FVertexFactoryType* VertexFactoryType)
 	{
-		return AllowDebugViewPS(DVSM_OutputMaterialTextureScales, Platform) && 
-			Material->GetFriendlyName().Contains(TEXT("FDebugViewModeMaterialProxy")) && 
-			VertexFactoryType == FindVertexFactoryType(FName(TEXT("FLocalVertexFactory"), FNAME_Find));
+		// See FDebugViewModeMaterialProxy::GetFriendlyName()
+		return AllowDebugViewShaderMode(DVSM_OutputMaterialTextureScales, Platform, GetMaxSupportedFeatureLevel(Platform)) && Material->GetFriendlyName().Contains(TEXT("MaterialTexCoordScale"));
 	}
 
 	FMaterialTexCoordScalePS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
-		FMeshMaterialShader(Initializer)
+		FDebugViewModePS(Initializer)
 	{
-		AccuracyColorsParameter.Bind(Initializer.ParameterMap,TEXT("AccuracyColors"));
 		AnalysisParamsParameter.Bind(Initializer.ParameterMap,TEXT("AnalysisParams"));
 		OneOverCPUTexCoordScalesParameter.Bind(Initializer.ParameterMap,TEXT("OneOverCPUTexCoordScales"));
 		TexCoordIndicesParameter.Bind(Initializer.ParameterMap, TEXT("TexCoordIndices"));
 		PrimitiveAlphaParameter.Bind(Initializer.ParameterMap, TEXT("PrimitiveAlpha"));
-		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
 	}
 
 	FMaterialTexCoordScalePS() {}
@@ -52,7 +51,6 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
-		Ar << AccuracyColorsParameter;
 		Ar << AnalysisParamsParameter;
 		Ar << OneOverCPUTexCoordScalesParameter;
 		Ar << TexCoordIndicesParameter;
@@ -70,35 +68,50 @@ public:
 		FMeshMaterialShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
 	}
 
-	virtual void SetParameters(
-		FRHICommandList& RHICmdList, 
-		const FShader* OriginalVS, 
-		const FShader* OriginalPS, 
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FMaterial& Material,
-		const FSceneView& View,
-		const FDrawingPolicyRenderState& DrawRenderState
-		) override;
-
-	virtual void SetMesh(
-		FRHICommandList& RHICmdList, 
-		const FVertexFactory* VertexFactory,
-		const FSceneView& View,
-		const FPrimitiveSceneProxy* Proxy,
+	virtual void GetDebugViewModeShaderBindings(
+		const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
+		const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
+		const FMaterial& RESTRICT Material,
+		EDebugViewShaderMode DebugViewMode,
+		const FVector& ViewOrigin,
 		int32 VisualizeLODIndex,
-		const FMeshBatchElement& BatchElement, 
-		const FDrawingPolicyRenderState& DrawRenderState
-		) override;
-
-	virtual void SetMesh(FRHICommandList& RHICmdList, const FSceneView& View) override { check(false); }
-
-	virtual FShader* GetShader() override { return static_cast<FShader*>(this); }
+		int32 VisualizeElementIndex,
+		int32 NumVSInstructions,
+		int32 NumPSInstructions,
+		int32 ViewModeParam,
+		FName ViewModeParamName,
+		FMeshDrawSingleShaderBindings& ShaderBindings
+	) const override;
 
 private:
 
-	FShaderParameter AccuracyColorsParameter;
 	FShaderParameter AnalysisParamsParameter;
 	FShaderParameter OneOverCPUTexCoordScalesParameter;
 	FShaderParameter TexCoordIndicesParameter;
 	FShaderParameter PrimitiveAlphaParameter;
 };
+
+class FMaterialTexCoordScaleAccuracyInterface : public FDebugViewModeInterface
+{
+public:
+
+	FMaterialTexCoordScaleAccuracyInterface() : FDebugViewModeInterface(TEXT("MaterialTexCoordScale"), false, true, false) {}
+	virtual FDebugViewModePS* GetPixelShader(const FMaterial* InMaterial, FVertexFactoryType* VertexFactoryType) const override 
+	{ 
+		return InMaterial->GetShader<FMaterialTexCoordScalePS>(VertexFactoryType);
+	}
+};
+
+class FOutputMaterialTexCoordScaleInterface : public FDebugViewModeInterface
+{
+public:
+
+	FOutputMaterialTexCoordScaleInterface() : FDebugViewModeInterface(TEXT("MaterialTexCoordScale"), true, true, false) {}
+	virtual FDebugViewModePS* GetPixelShader(const FMaterial* InMaterial, FVertexFactoryType* VertexFactoryType) const override 
+	{ 
+		return InMaterial->GetShader<FMaterialTexCoordScalePS>(VertexFactoryType); 
+	}
+	virtual void SetDrawRenderState(EBlendMode BlendMode, FRenderState& DrawRenderState) const override;
+};
+
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)

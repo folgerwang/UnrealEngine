@@ -1,15 +1,20 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreTypes.h"
 #include "Containers/Array.h"
 #include "Templates/Tuple.h"
 #include "Core/BlockRange.h"
+#include "Core/BlockStructure.h"
+#include "Generation/DataScanner.h"
 
 namespace BuildPatchServices
 {
-	struct FChunkMatch;
-	class FBlockStructure;
+	struct FMatchEntry
+	{
+		FChunkMatch ChunkMatch;
+		FBlockStructure BlockStructure;
+	};
 
 	class IChunkMatchProcessor
 	{
@@ -17,7 +22,7 @@ namespace BuildPatchServices
 		virtual ~IChunkMatchProcessor() {}
 		virtual void ProcessMatch(const int32 Layer, const FChunkMatch& Match, FBlockStructure BuildSpace) = 0;
 		virtual void FlushLayer(const int32 Layer, const uint64 UpToByteOffset) = 0;
-		virtual FBlockRange CollectLayer(const int32 Layer, TArray<TTuple<FChunkMatch, FBlockStructure>>& OutData) = 0;
+		virtual FBlockRange CollectLayer(const int32 Layer, TArray<FMatchEntry>& OutData) = 0;
 	};
 
 	class FChunkMatchProcessorFactory

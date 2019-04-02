@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneCapture.h"
 #include "Dom/JsonValue.h"
@@ -95,6 +95,16 @@ FMovieSceneCaptureSettings::FMovieSceneCaptureSettings()
 	bAllowTurning = false;
 	bShowPlayer = false;
 	bShowHUD = false;
+	bUsePathTracer = false;
+	PathTracerSamplePerPixel = 16;
+
+#if PLATFORM_MAC
+	MovieExtension = TEXT(".mov");
+#elif PLATFORM_UNIX
+	MovieExtension = TEXT(".unsupp");
+#else
+	MovieExtension = TEXT(".avi");
+#endif
 }
 
 UMovieSceneCapture::UMovieSceneCapture(const FObjectInitializer& Initializer)
@@ -231,16 +241,20 @@ void UMovieSceneCapture::Initialize(TSharedPtr<FSceneViewport> InSceneViewport, 
 			Settings.OutputDirectory.Path = OutputPathOverride;
 			FPaths::NormalizeFilename(Settings.OutputDirectory.Path);
 
-			if (!IFileManager::Get().DirectoryExists(*Settings.OutputDirectory.Path))
+			// Only validate the directory if it doesn't contain any format specifiers
+			if (!Settings.OutputDirectory.Path.Contains(TEXT("{")))
 			{
-				if (!IFileManager::Get().MakeDirectory(*Settings.OutputDirectory.Path))
+				if (!IFileManager::Get().DirectoryExists(*Settings.OutputDirectory.Path))
 				{
-					UE_LOG(LogMovieSceneCapture, Error, TEXT("Invalid output directory: %s."), *Settings.OutputDirectory.Path);
+					if (!IFileManager::Get().MakeDirectory(*Settings.OutputDirectory.Path))
+					{
+						UE_LOG(LogMovieSceneCapture, Error, TEXT("Invalid output directory: %s."), *Settings.OutputDirectory.Path);
+					}
 				}
-			}
-			else if (IFileManager::Get().IsReadOnly(*Settings.OutputDirectory.Path))
-			{
-				UE_LOG(LogMovieSceneCapture, Error, TEXT("Read only output directory: %s."), *Settings.OutputDirectory.Path);
+				else if (IFileManager::Get().IsReadOnly(*Settings.OutputDirectory.Path))
+				{
+					UE_LOG(LogMovieSceneCapture, Error, TEXT("Read only output directory: %s."), *Settings.OutputDirectory.Path);
+				}
 			}
 		}
 
@@ -280,6 +294,17 @@ void UMovieSceneCapture::Initialize(TSharedPtr<FSceneViewport> InSceneViewport, 
 			Settings.bCinematicMode = bOverrideCinematicMode;
 		}
 
+		bool bOverridePathTracer;
+		if (FParse::Bool(FCommandLine::Get(), TEXT("-PathTracer="), bOverridePathTracer))
+		{
+			Settings.bUsePathTracer = bOverridePathTracer;
+		}
+
+		uint16 OverridePathTracerSamplePerPixel;
+		if (FParse::Value(FCommandLine::Get(), TEXT("-PathTracerSamplePerPixel="), OverridePathTracerSamplePerPixel))
+		{
+			Settings.PathTracerSamplePerPixel = OverridePathTracerSamplePerPixel;
+		}
 
 		bool bProtocolOverride = false;
 
@@ -358,6 +383,11 @@ void UMovieSceneCapture::Initialize(TSharedPtr<FSceneViewport> InSceneViewport, 
 				UE_LOG(LogMovieSceneCapture, Error, TEXT("Unrecognized capture frame rate: %s."), *FrameRateOverrideString);
 			}
 		}
+	}
+
+	if (!IsRayTracingEnabled())
+	{
+		Settings.bUsePathTracer = false;
 	}
 
 	bFinalizeWhenReady = false;
@@ -502,8 +532,9 @@ void UMovieSceneCapture::CaptureThisFrame(float DeltaSeconds)
 		}
 		UE_LOG(LogMovieSceneCapture, Verbose, TEXT("Captured frame: %d"), CachedMetrics.Frame);
 		++CachedMetrics.Frame;
-		}
+	}
 }
+
 void UMovieSceneCapture::Tick(float DeltaSeconds)
 {
 	if (ImageCaptureProtocol)

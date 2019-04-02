@@ -1,158 +1,63 @@
-﻿INTSourceChangelist:2666135
-Availability:Public
-Title:网格模式
-Crumbs:%ROOT%, Engine, Engine/Animation, Engine/Animation/Persona, Engine/Animation/Persona/Modes
-Description:Persona 动画编辑器中的网格模式的用户指南。
-version:4.9
+﻿INTSourceChangelist:4326187
+Availability: Public
+Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Persona, Engine/Animation/Persona/Modes
+Title:骨架网格体编辑器
+Description:重点介绍虚幻引擎4中骨架网格体编辑器的核心功能。 
+Type: Landing
+version: 4.16
+Parent: Engine/Animation/Persona/Modes
+Order: 1
+tags:Animation
+tags:Skeletal Mesh
+tags:FBX Importing
+tags:Tools
+topic-image:skelMeshEditor_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Animation/Persona/Modes/Mesh:title%](Engine/Animation/animation_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/content_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Animation/Persona/Modes/Mesh:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Animation/Persona/Modes/Mesh:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Animation/Persona/Modes/Mesh]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+[REGION:banner]
+![](SkeletalMeshEditorBanner.png)
+[/REGION]
 
 
 [EXCERPT:Overview]
-**Persona** 动画编辑器的 **网格** 模式（单击 **网格（Mesh）**选项卡即可访问）使用的某些窗口与其他编辑模式下可用的窗口相同，但有两个窗口是 **网格** 模式所特有的（下图中用黄框突出显示）：[网格细节（Mesh Details）](Engine/Animation/Persona\MeshDetails) 和 [变形目标预览器（Morph Target Previewer）](Engine/Animation/Persona\MorphTargetPreviewer). 
+每当您在 **内容浏览器（Content Browser）** 中（或从 **编辑器工具栏（Editor Toolbar）** 中）打开一个 **骨架网格体（Skeletal Mesh）** 资源时，**骨架网格体编辑器（Skeletal Mesh Editor）** 都将打开。 
+此编辑器允许您通过设置骨架网格体的 **材质（Materials）**，添加布料元素，设置LOD和测试任何应用到网格体的变换目标（Morph Target）来对多边形网格体进行更改。 
+此编辑器包括一些可在其他一些动画工具中找到的窗口，例如工具栏/视口（和其他一些默认隐藏的窗口），但您的大部分网格体工作都将在 **资源详细信息（Asset Details）** 和 **变换目标预览（Morph Target Preview）** 窗口中完成。 
+
 [/EXCERPT:Overview]
 
-[REGION:fullwidth]
-![](MeshModeWindows.png)
-[/REGION]
-
-##网格细节（Mesh Details）
-**网格细节（Mesh Details）**允许您修改与骨骼网格相关的属性（例如 **材质**和 **细节水平（LOD）** 设置），指定 **Apex 服装**，向现有网格添加网格，调整 **镜像** 设置或向网格分配 **物理资产**。您还可以 **重新导入** 资产数据，调整 **缩略图轨道** 或 **纹理流** 设置。 
-
-###LOD 设置（LOD Settings）
+有关骨架网格体编辑器（Skeletal Mesh Editor）用户界面的明细情况，请参阅以下各节： 
 
 [REGION:fullwidth]
-![](LOD_Settings.png)
+![](SkeletalMeshEditor.png)
 [/REGION]
 
-在此部分中，您可以对骨骼网格的各个面指定材质，并切换这些材质的阴影设置。 
-
-在 **LOD 信息（LOD Info）**部分，有一些设置允许您修改 LOD 的作用方式： 
-
-| 属性 | 说明 |
-|--- | --- |
-| **显示系数（Display Factor）** | 指示何时使用 LOD。数值越小表示使用 LOD 时的距离越远。|
-| **LOD 滞后（LODHysteresis）** | 用于避免在 LOD 边界上的“闪烁”。系统只会在从复杂转到单一时考虑此项。|
-| **LOD 材质图（LODMaterial Map）** | 指定从 LOD 的材质到 USkeletalMesh 材质阵列的映射表。|
-| **三角排序（Triangle Sorting）** | 设置当前的三角排序方法。|
-| **定制左右轴（Custom Left Right Axis）** | 设置左右轴。|
-| **定制左右骨骼名称（Custom Left Right Bone Name）** | 设置左右骨骼名称。|
-
-###服装（Clothing）
-
-![](AddClothing.png)
-
-**网格细节（Mesh Details）**的这一部分允许您对网格分配 **Apex 服装** 资产并查看关于所分配资产的信息，这里还有可针对分配的每个资产调整的 **物理属性（Physics Properties）**。 
-
-| 属性 | 说明 |
-|--- | --- |
-| **抗弯曲性（Bend Resistance）** | 服装的抗弯刚度，范围是 [0,1]。|
-| **抗剪切性（Shearing Resistance）** | 服装的抗剪刚度，范围 [0,1]。|
-| **拉伸极限（Stretch Limit）** | 降低模拟布料的弹性。设置小于 1 的值会将其关闭。|
-| **摩擦（Friction）** | 摩擦系数，范围是 [0,1]。|
-| **阻尼（Damping）** | 布料的弹簧阻尼，范围是 [0,1]。|
-| **阻力（Drag）** | 阻力系数，范围是 [0,1]。|
-| **比重标度（Gravity Scale）** | 对布料应用的重力大小。|
-| **惯性混合（Inertia Blend）** | 使用局部空间模拟时保持的惯性大小。内容名称为惯性标度。|
-| **自碰撞厚度（Self Collision Thickness）** | 各粒子相互之间保持的最小距离量。|
-
-###附加网格（Additional Meshes）
-
-此部分允许您向现有网格添加网格，或除去已添加的网格。 
-
-###网格（Mesh）
-
-此部分列出用于骨骼网格的骨架及其在 **内容浏览器** 中的位置。 
-
-###骨骼网格（Skeletal Mesh）
-
-![](SkeletalMeshSection.png)
-
-**骨骼网格（Skeletal Mesh）**允许您为现有的任何材质接口定义材质，并定义是否启用从材质投射阴影的功能。还提供了是否 **使用全精度 UV（Use Full Precision UVs）**的设置，如果启用，将使用 32 位 UV；如果禁用，将使用 16 位 UV 以节约内存。 
-
-[COMMENT:none]
-Commenting this section out as it no longer exists as of 4.9 Preview 4 
-###Mirroring
-
-![](MirroringSection.png)
-
-There are two options available inside the **Mirroring** section that can be set: 
-
-| 属性 | 说明 |
-|--- | --- |
-| **Skel Mirror Table** | This lists all the bones that should be mirrored.|
-| **Skel Mirror Axis** | Set the Mirror Axis to X, Y, Z or None.|
-| **Skel Mirror Flip Axis** | Set the Mirror Flip Axis to X, Y, Z or None.|
-[/COMMENT]
-
-###物理（Physics）
-
-在 **物理（Physics）**部分中，您可以对网格指定物理资产。系统还会显示资产在 **内容浏览器** 中的位置（如果适用）。 
-
-###重新导入（Reimport）
-
-![](ReimportSection.png)
-
-此选项允许您重新导入所用资产并调整导入设置（在应用时还会显示当前使用的导入数据和设置）。
-
-| 属性 | 说明 |
-|--- | --- |
-| **更新骨架参考姿势（Update Skeleton Reference Pose）** | 如果启用此选项，会更新（所导入网格的）骨架的参考姿势。|
-| **使用 T0 作为参考姿势（Use T0As Ref Pose）** | 启用此选项将使用第 0 帧作为参考姿势。|
-| **保留平滑组（Preserve Smoothing Groups）** | 如果选中此选项，带有非匹配平滑组的三角形将被物理拆分。|
-| **在骨骼层次结构中导入网格（Import Meshes in Bone Hierarchy）** | 如果选中此选项，嵌套在骨骼层次结构中的网格将被导入而不是转换为骨骼。|
-| **导入变形目标（Import Morph Targets）** | 如果启用此选项，会为导入的网格创建虚幻变形对象。|
-| **导入网格 LOD（Import Mesh LODs）** | 如果启用此选项，会从导入文件中的 LOD 创建虚幻网格的 LOD 模型；如果不启用此选项，将仅导入 LOD 组中的基本网格。|
-| **法线导入方法（Normal Import Method）** | 启用此选项将从 FBX 文件读取切线（切线、副法线、法线）而不是自动生成它们。|
-| **源文件路径（Source File Path）** | 这是指向用于构造静态网格的资源的路径。|
-| **源文件时间戳记（Source File Timestamp）** | 上次导入的文件的日期/时间戳记。|
-
-###缩略图（Thumbnail）
-
-![](ThumbnailSection.png)
-
-**缩略图（Thumbnail）**部分允许您设置围绕资产的摄像机的 **轨道俯仰角（Orbit Pitch）**、**轨道偏航角（Orbit Yaw）**和 **轨道缩放（Orbit Zoom）**。
-
-| 属性 | 说明 |
-|--- | --- |
-| **轨道俯仰角（Orbit Pitch）** | 摄像机围绕资产的轨道的俯仰角。|
-| **轨道偏航角（Orbit Yaw）** | 摄像机围绕资产的轨道的偏航角。|
-| **轨道缩放（Orbit Zoom）** | 相对于资产的界限球体距离的偏移。|
-
-###纹理流（Texture Streaming）
-
-![](TextureStreamingSection.png)
-
-**纹理流（Texture Streaming）**允许美工调整流式切入/切出使用 UV 0 的纹理的距离。
-
-| 属性 | 说明 |
-|--- | --- |
-| **流距离乘数（Streaming Distance Multiplier）** | 1.0 是默认值，增大该值会提高流式切入分辨率。|
 
 
+(#1.toolbar)
+## 1.工具栏
 
-##变形目标预览器（Morph Target Previewer）
+骨架网格体编辑器（Skeletal Mesh Editor）内的[工具栏](Engine/Animation/Persona/Toolbar)为您提供可将任何更改保存到您的动画或在内容浏览器中找到该更改的选项。 
+它允许您在预览的当前姿势中创建一个静态网格体（Static Mesh）。 
+工具栏最右侧是 **编辑器工具栏（Editor Toolbar）**，允许您在虚幻引擎4中的不同动画工具中切换。 
 
-[INCLUDE:Engine/Animation/Persona/MorphTargetPreviewer#Overview]
+(#2.assetdetails)
 
-有关更多信息，请参见 [变形目标预览器](Engine/Animation/Persona/MorphTargetPreviewer/) 文档。 
+## 2.资源详细信息
+
+[资源详细信息](Engine\Animation\Persona\MeshDetails)面板显示有关骨架网格体（Skeletal Mesh）的特定属性，例如应用于表面的材质，以及皮肤和LOD选项。 
+您还可指定和调整APEX布料，或定义和关联骨架网格体（Skeletal Mesh）的 **物理资源（Physics Asset）**，用于创建布娃娃类型的动作。 
+
+(#3.viewport)
+## 3.视口
+
+[视口](Engine/Animation/Persona/Viewport)窗口允许您在资源详细信息（Asset Details）面板中预览您对网格体（Mesh）所做的更改，或预览任何变换目标（Morph Target）设置。 
+从视口（Viewport）中还可分配一个预览动画以供骨架网格体使用，更改照明模式，显示或隐藏骨架的骨骼，调整动画播放速度，甚至将骨架网格体（Skeletal Mesh）设置为在转盘上自动旋转，使您可以从任何角度查看它。 
+
+(#4.morphtargetpreview)
+## 4.变换目标预览
+
+变换目标预览（Morph Target Preview）选项卡允许您预览当前骨架网格体（Skeletal Mesh）可用的任何[变换目标](Engine/Animation/Persona/MorphTargetPreviewer)（或混合形状（Blend Shape）。 
+
+这一部分中还有一个用于[预览设置](Engine\Animation\Persona\PreviewSettings)的选项卡，能够定义视口设置，例如 **动画模式（Animation Mode）** 或 **动画（Animation）** 以用作预览，切换用于预览的 **骨架网格体（Skeletal Meshes）**，以及应用的视口照明和后期处理（Post Process）设置，使您可以预览应用了各种照明的设置。 
 
 

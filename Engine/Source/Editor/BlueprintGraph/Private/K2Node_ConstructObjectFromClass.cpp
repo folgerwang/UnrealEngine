@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "K2Node_ConstructObjectFromClass.h"
 #include "UObject/UnrealType.h"
@@ -396,6 +396,11 @@ bool UK2Node_ConstructObjectFromClass::HasExternalDependencies(TArray<class UStr
 	}
 	const bool bSuperResult = Super::HasExternalDependencies(OptionalOutput);
 	return bSuperResult || bResult;
+}
+
+FText UK2Node_ConstructObjectFromClass::GetKeywords() const
+{
+	return LOCTEXT("ConstructObjectKeywords", "Create New");
 }
 
 #undef LOCTEXT_NAMESPACE

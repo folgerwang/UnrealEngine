@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Curves/NameCurve.h"
 
@@ -36,13 +36,6 @@ FKeyHandle FNameCurve::AddKey(float InTime, const FName& InValue, FKeyHandle Key
 	for(; Index < Keys.Num() && Keys[Index].Time < InTime; ++Index);
 	Keys.Insert(FNameCurveKey(InTime, InValue), Index);
 
-	// update key indices
-	for ( auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
-	{
-		int32& KeyIndex = It.Value();
-		if (KeyIndex >= Index) {++KeyIndex;}
-	}
-
 	KeyHandlesToIndices.Add(KeyHandle, Index);
 
 	return GetKeyHandle(Index);
@@ -56,16 +49,6 @@ void FNameCurve::DeleteKey(FKeyHandle KeyHandle)
 	Keys.RemoveAt(Index);
 
 	KeyHandlesToIndices.Remove(KeyHandle);
-
-	// update key indices
-	for (auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
-	{
-		int32& KeyIndex = It.Value();
-		if (KeyIndex >= Index)
-		{
-			--KeyIndex;
-		}
-	}
 }
 
 
@@ -124,77 +107,21 @@ float FNameCurve::GetKeyTime(FKeyHandle KeyHandle) const
 }
 
 
-FKeyHandle FNameCurve::SetKeyTime(FKeyHandle KeyHandle, float NewTime)
+void FNameCurve::SetKeyTime(FKeyHandle KeyHandle, float NewTime)
 {
-	if (!IsKeyHandleValid(KeyHandle))
+	if (IsKeyHandleValid(KeyHandle))
 	{
-		return KeyHandle;
-	}
+		const FNameCurveKey OldKey = GetKey(KeyHandle);
 
-	FNameCurveKey OldKey = GetKey(KeyHandle);
-	
-	DeleteKey(KeyHandle);
-	AddKey(NewTime, OldKey.Value, KeyHandle);
+		DeleteKey(KeyHandle);
+		AddKey(NewTime, OldKey.Value, KeyHandle);
 
-	// Copy all properties from old key, but then fix time to be the new time
-	GetKey(KeyHandle) = OldKey;
-	GetKey(KeyHandle).Time = NewTime;
-
-	return KeyHandle;
-}
-
-
-void FNameCurve::ShiftCurve(float DeltaTime)
-{
-	TSet<FKeyHandle> KeyHandles;
-	for (auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
-	{
-		FKeyHandle& KeyHandle = It.Key();
-		KeyHandles.Add(KeyHandle);
-	}
-
-	ShiftCurve(DeltaTime, KeyHandles);
-}
-
-
-void FNameCurve::ShiftCurve(float DeltaTime, TSet<FKeyHandle>& KeyHandles)
-{
-	for (auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
-	{
-		const FKeyHandle& KeyHandle = It.Key();
-		if (KeyHandles.Num() != 0 && KeyHandles.Contains(KeyHandle))
-		{
-			SetKeyTime(KeyHandle, GetKeyTime(KeyHandle) + DeltaTime);
-		}
+		// Copy all properties from old key, but then fix time to be the new time
+		FNameCurveKey& NewKey = GetKey(KeyHandle);
+		NewKey = OldKey;
+		NewKey.Time = NewTime;
 	}
 }
-
-
-void FNameCurve::ScaleCurve(float ScaleOrigin, float ScaleFactor)
-{
-	TSet<FKeyHandle> KeyHandles;
-	for (auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
-	{
-		FKeyHandle& KeyHandle = It.Key();
-		KeyHandles.Add(KeyHandle);
-	}
-
-	ScaleCurve(ScaleOrigin, ScaleFactor, KeyHandles);
-}
-
-
-void FNameCurve::ScaleCurve(float ScaleOrigin, float ScaleFactor, TSet<FKeyHandle>& KeyHandles)
-{
-	for (auto It = KeyHandlesToIndices.CreateIterator(); It; ++It)
-	{
-		const FKeyHandle& KeyHandle = It.Key();
-		if (KeyHandles.Num() != 0 && KeyHandles.Contains(KeyHandle))
-		{
-			SetKeyTime(KeyHandle, (GetKeyTime(KeyHandle) - ScaleOrigin) * ScaleFactor + ScaleOrigin);
-		}
-	}
-}
-
 
 FKeyHandle FNameCurve::UpdateOrAddKey(float InTime, const FName& InValue, float KeyTimeTolerance)
 {
@@ -220,23 +147,4 @@ FKeyHandle FNameCurve::UpdateOrAddKey(float InTime, const FName& InValue, float 
 
 	// A key wasnt found, add it now
 	return AddKey(InTime, InValue);
-}
-
-
-int32 FNameCurve::GetNumKeys() const
-{
-	return Keys.Num();
-}
-
-
-bool FNameCurve::IsKeyHandleValid(FKeyHandle KeyHandle) const
-{
-	bool bValid = false;
-
-	if (FIndexedCurve::IsKeyHandleValid(KeyHandle))
-	{
-		bValid = Keys.IsValidIndex(GetIndex(KeyHandle));
-	}
-
-	return bValid;
 }

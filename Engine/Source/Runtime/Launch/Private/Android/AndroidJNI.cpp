@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Android/AndroidJNI.h"
 
@@ -527,7 +527,17 @@ bool AndroidThunkCpp_GetInputDeviceInfo(int32 deviceId, FAndroidInputDeviceInfo 
 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
 	{
 		jobject deviceInfo = (jobject)Env->CallObjectMethod(FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_GetInputDeviceInfo, deviceId);
-		if (deviceInfo != 0)
+		if (Env->ExceptionCheck())
+		{
+			Env->ExceptionDescribe();
+			Env->ExceptionClear();
+
+			if (deviceInfo != 0)
+			{
+				Env->DeleteLocalRef(deviceInfo);
+			}
+		}
+		else if (deviceInfo != 0)
 		{
 			bool bIsOptional = false;
 			results.DeviceId = deviceId;

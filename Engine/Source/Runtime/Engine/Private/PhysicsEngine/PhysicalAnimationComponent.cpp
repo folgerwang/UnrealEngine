@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PhysicsEngine/PhysicalAnimationComponent.h"
 #include "SceneManagement.h"
@@ -263,6 +263,9 @@ void UPhysicalAnimationComponent::UpdateTargetActors(ETeleportType TeleportType)
 	if (PhysAsset && SkeletalMeshComponent->SkeletalMesh)
 	{
 		const FReferenceSkeleton& RefSkeleton = SkeletalMeshComponent->SkeletalMesh->RefSkeleton;
+
+		// Note we use GetEditableComponentSpaceTransforms because we need to update target actors in the midst of the 
+		// various anim ticks, before buffers are flipped (which happens in the skel mesh component's post-physics tick)
 		const TArray<FTransform>& SpaceBases = SkeletalMeshComponent->GetEditableComponentSpaceTransforms();
 
 #if WITH_PHYSX
@@ -327,6 +330,8 @@ void UPhysicalAnimationComponent::UpdatePhysicsEngine()
 		
 		RuntimeInstanceData.AddZeroed(NumData - NumInstances);
 
+		// Note we use GetEditableComponentSpaceTransforms because we need to update target actors in the midst of the 
+		// various anim ticks, before buffers are flipped (which happens in the skel mesh component's post-physics tick)
 		const TArray<FTransform>& SpaceBases = SkeletalMeshComponent->GetEditableComponentSpaceTransforms();
 		const FReferenceSkeleton& RefSkeleton = SkeletalMeshComponent->SkeletalMesh->RefSkeleton;
 
@@ -355,7 +360,7 @@ void UPhysicalAnimationComponent::UpdatePhysicsEngine()
 					int32 ChildBodyIdx = PhysAsset->FindBodyIndex(PhysAnimData.BodyName);
 					if (FBodyInstance* ChildBody = (ChildBodyIdx == INDEX_NONE ? nullptr : SkeletalMeshComponent->Bodies[ChildBodyIdx]))
 					{
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
                         ensure(false);
 #else
 						if (PxRigidActor* PRigidActor = FPhysicsInterface_PhysX::GetPxRigidActor_AssumesLocked(ChildBody->ActorHandle))

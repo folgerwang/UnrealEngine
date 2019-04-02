@@ -1,7 +1,7 @@
-﻿INTSourceChangelist:3665321
+﻿INTSourceChangelist:3763976
 Availability:Public
-Title:Google VR 调试
-Description:对 Google VR 应用程序进行调试的方法。
+Title:Google VR 性能调试
+Description:对 Google VR 应用程序性能进行调试的方法。
 Navigation:platform
 Crumbs:%ROOT%
 Platform:Google VR
@@ -39,6 +39,7 @@ Google Daydream 自带内置性能显示层，启用后即可迅速找到性能�
 * **处理内存使用情况。**
 * **设备距离热量节流的温度（以摄氏度为单位）。**
 
+(#EnablingPerformanceHUD)
 ### 启用 Performance HUD
 
 进行以下操作即可启用 Performance HUD。

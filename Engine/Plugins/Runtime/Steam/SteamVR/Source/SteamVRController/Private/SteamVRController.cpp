@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ISteamVRControllerPlugin.h"
 #include "ISteamVRPlugin.h"
@@ -529,7 +529,7 @@ public:
 #if STEAMVRCONTROLLER_SUPPORTED_PLATFORMS
 	void SendActionInputEvents()
 	{
-		vr::IVRInput* VRInput = GetVRInput();
+		vr::IVRInput* VRInput = vr::VRInput();
 
 		if (VRInput != nullptr)
 		{
@@ -856,16 +856,6 @@ public:
 	static ESteamVRTouchDPadMapping DefaultDPadMapping;
 private:
 
-	inline vr::IVRInput* GetVRInput() const
-	{
-		if (SteamVRPlugin == nullptr)
-		{
-			SteamVRPlugin = &FModuleManager::LoadModuleChecked<ISteamVRPlugin>(TEXT("SteamVR"));
-		}
-
-		return SteamVRPlugin->GetVRInput();
-	}
-
 	inline vr::IVRSystem* GetVRSystem() const
 	{
 		if (SteamVRPlugin == nullptr)
@@ -926,6 +916,8 @@ private:
 			case vr::TrackedDeviceClass_HMD:
 				// falls through
 			case vr::TrackedDeviceClass_TrackingReference:
+				// falls through
+			case vr::TrackedDeviceClass_DisplayRedirect:
 				break;
 			default:
 				UE_LOG(LogSteamVRController, Warning, TEXT("Encountered unsupported device class of %i!"), (int32)DeviceClass);
@@ -1304,7 +1296,7 @@ private:
 	{
 		vr::IVRInput* VRInput;
 
-		if (bEnableVRInput && (VRInput = GetVRInput()) != nullptr)
+		if (bEnableVRInput && (VRInput = vr::VRInput()) != nullptr)
 		{
 			Actions.Empty();
 			auto InputSettings = GetDefault<UInputSettings>();

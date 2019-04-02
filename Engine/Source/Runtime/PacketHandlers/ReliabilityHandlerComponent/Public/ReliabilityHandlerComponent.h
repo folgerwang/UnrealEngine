@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -12,6 +12,8 @@ class RELIABILITYHANDLERCOMPONENT_API ReliabilityHandlerComponent : public Handl
 public:
 	/* Initializes default data */
 	ReliabilityHandlerComponent();
+
+	virtual void CountBytes(FArchive& Ar) const;
 
 	virtual void Initialize() override;
 
@@ -28,7 +30,7 @@ public:
 	/* Queues a packet for resending */
 	void QueuePacketForResending(uint8* Packet, int32 CountBits, FOutPacketTraits& Traits);
 
-	DEPRECATED(4.21, "Use the PacketTraits version for sending packets with additional flags and options")
+	UE_DEPRECATED(4.21, "Use the PacketTraits version for sending packets with additional flags and options")
 	FORCEINLINE void QueueHandlerPacketForResending(HandlerComponent* InComponent, uint8* Packet, int32 CountBits)
 	{
 		FOutPacketTraits EmptyTraits;

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneGeometryCacheTrack.h"
 #include "GeometryCacheComponent.h"
@@ -38,7 +38,8 @@ UMovieSceneSection* UMovieSceneGeometryCacheTrack::AddNewAnimation(FFrameNumber 
 	{
 		FFrameTime AnimationLength = GeomCacheComp->GetDuration()* GetTypedOuter<UMovieScene>()->GetTickResolution();
 		NewSection->InitialPlacementOnRow(AnimationSections, KeyTime, AnimationLength.FrameNumber.Value, INDEX_NONE);
-		NewSection->Params.GeometryCache = GeomCacheComp;
+		
+		NewSection->Params.GeometryCacheAsset = (GeomCacheComp->GetGeometryCache());
 	}
 
 	AddSection(*NewSection);
@@ -71,6 +72,11 @@ const TArray<UMovieSceneSection*>& UMovieSceneGeometryCacheTrack::GetAllSections
 	return AnimationSections;
 }
 
+
+bool UMovieSceneGeometryCacheTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneGeometryCacheSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneGeometryCacheTrack::CreateNewSection()
 {

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LightingSystem.h"
 #include "Exporter.h"
@@ -542,7 +542,8 @@ void FStaticLightingSystem::MultithreadProcess()
 	// Spawn the static lighting threads.
 	for(int32 ThreadIndex = 0;ThreadIndex < NumStaticLightingThreads;ThreadIndex++)
 	{
-		FMappingProcessingThreadRunnable* ThreadRunnable = new(Threads) FMappingProcessingThreadRunnable(this, ThreadIndex, StaticLightingTask_ProcessMappings);
+		FMappingProcessingThreadRunnable* ThreadRunnable = new FMappingProcessingThreadRunnable(this, ThreadIndex, StaticLightingTask_ProcessMappings);
+		Threads.Add(ThreadRunnable);
 		const FString ThreadName = FString::Printf(TEXT("MappingProcessingThread%u"), ThreadIndex);
 		ThreadRunnable->Thread = FRunnableThread::Create(ThreadRunnable, *ThreadName);
 	}
@@ -1358,9 +1359,33 @@ bool FStaticLightingThreadRunnable::CheckHealth(bool bReportError) const
 	return !bTerminatedByError;
 }
 
+void FStaticLightingThreadRunnable::FixThreadGroupAffinity() const
+{
+#if PLATFORM_WINDOWS
+	int NumProcessorGroups = GetActiveProcessorGroupCount();
+	int PrefixSum = 0;
+	for (int GroupIndex = 0; GroupIndex < NumProcessorGroups; GroupIndex++)
+	{
+		int NumProcessorsThisGroup = GetActiveProcessorCount(GroupIndex);
+		if (ThreadIndex < PrefixSum + NumProcessorsThisGroup)
+		{
+			GROUP_AFFINITY GroupAffinity = {};
+			GroupAffinity.Group = GroupIndex;
+			GroupAffinity.Mask = (1ull << NumProcessorsThisGroup) - 1;
+			check(SetThreadGroupAffinity(GetCurrentThread(), &GroupAffinity, NULL));
+
+			break;
+		}
+		PrefixSum += NumProcessorsThisGroup;
+	}
+#endif
+}
+
 uint32 FMappingProcessingThreadRunnable::Run()
 {
 	const double StartThreadTime = FPlatformTime::Seconds();
+
+	FixThreadGroupAffinity();
 #if PLATFORM_WINDOWS
 	if(!FPlatformMisc::IsDebuggerPresent())
 	{

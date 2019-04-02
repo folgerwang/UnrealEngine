@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -63,6 +63,12 @@ struct ENGINE_API FHighResScreenshotConfig
 
 	/** Configure taking a high res screenshot */
 	bool SetResolution(uint32 ResolutionX, uint32 ResolutionY, float ResolutionScale = 1.0f);
+
+	/** Configure screenshot filename */
+	void SetFilename(FString Filename);
+
+	/** Configure screenshot mask is enabled */
+	void SetMaskEnabled(bool bShouldMaskBeEnabled);
 };
 
 ENGINE_API FHighResScreenshotConfig& GetHighResScreenshotConfig();

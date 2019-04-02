@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SourceCodeAccessModule.h"
 #include "Modules/ModuleManager.h"
@@ -69,6 +69,28 @@ bool FSourceCodeAccessModule::CanAccessSourceCode() const
 	return CurrentSourceCodeAccessor->CanAccessSourceCode();
 }
 
+bool FSourceCodeAccessModule::CanCompileSourceCode() const
+{
+#if PLATFORM_WINDOWS
+	// Need to have Visual Studio installed to compile on Windows, regardless of chosen IDE
+	return IsSourceCodeAccessorAvailable("VisualStudio2017") || IsSourceCodeAccessorAvailable("VisualStudio2019");
+#else
+	// Default behavior
+	return CanAccessSourceCode();
+#endif
+}
+
+bool FSourceCodeAccessModule::IsSourceCodeAccessorAvailable(FName Name) const
+{
+	for (ISourceCodeAccessor* Accessor : IModularFeatures::Get().GetModularFeatureImplementations<ISourceCodeAccessor>(SourceCodeAccessorFeatureName))
+	{
+		if (Accessor->GetFName() == Name)
+		{
+			return Accessor->CanAccessSourceCode();
+		}
+	}
+	return false;
+}
 
 ISourceCodeAccessor& FSourceCodeAccessModule::GetAccessor() const
 {

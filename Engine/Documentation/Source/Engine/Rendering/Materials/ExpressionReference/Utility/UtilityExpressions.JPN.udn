@@ -253,7 +253,7 @@ Topic-image:Utility_topic.png
 
 	float Result = sqrt(dot(A-B, A-B))
 
-	[/EXCERPT:Distance]
+[/EXCERPT:Distance]
 
 
 [COMMENT:none]
@@ -657,7 +657,7 @@ Distance To Nearest Surface は、カラー領域に対してのみシーンに�
 | Perlin Gradient | Perlin Noise 関数の勾配を計算します。RGB 出力には勾配ベクターが含まれています。A が Scalar Noise です。命令数は約 106 です。 |
 | Perlin Curl | 3D Curl Noise を計算します。Perlin 3D Noise に Curl Noise を計算して出力します。命令数は約 162 です。 |
 | Voronoi | アルゴリズムと命令数は *Noise* 表現式の Voronoi 関数と同じです。ただし、RGB はそれぞれの Voronoi セル内で最も近いシード ポイントの位置になり、そのシード ポイントまでの距離が A となります。 |
-[/EXCERPT]
+[/EXCERPT:VectorNoiseFunctions]
 
 [/COMMENT]
 

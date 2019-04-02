@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -109,8 +109,10 @@ public:
 	virtual float GetSectionHeight() const override;
 	virtual int32 OnPaintSection(FSequencerSectionPainter& Painter) const override;
 	virtual void Tick(const FGeometry& AllottedGeometry, const FGeometry& ParentGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	virtual void BeginResizeSection() override;
+	virtual void ResizeSection(ESequencerSectionResizeMode ResizeMode, FFrameNumber ResizeTime) override;
 	virtual void BeginSlipSection() override;
-	virtual void SlipSection(double SlipTime) override;
+	virtual void SlipSection(FFrameNumber SlipTime) override;
 	
 private:
 
@@ -127,7 +129,7 @@ private:
 
 	/** Stored data about the waveform to determine when it is invalidated. */
 	TRange<float> StoredDrawRange;
-	float StoredStartOffset;
+	FFrameNumber StoredStartOffset;
 	int32 StoredXOffset;
 	int32 StoredXSize;
 	FColor StoredColor;
@@ -139,8 +141,8 @@ private:
 	TWeakPtr<ISequencer> Sequencer;
 
 	/** Cached start offset value valid only during resize */
-	float InitialStartOffsetDuringResize;
+	FFrameNumber InitialStartOffsetDuringResize;
 	
 	/** Cached start time valid only during resize */
-	double InitialStartTimeDuringResize;
+	FFrameNumber InitialStartTimeDuringResize;
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*==============================================================================
 NiagaraEmitterInstanceBatcher.h: Queueing and batching for Niagara simulation;
@@ -15,57 +15,44 @@ the same VectorVM byte code / compute shader code
 #include "Tickable.h"
 #include "Modules/ModuleManager.h"
 #include "RHIResources.h"
+#include "FXSystem.h"
 
 struct FNiagaraScriptExecutionContext;
 struct FNiagaraComputeExecutionContext;
 
 #define SIMULATION_QUEUE_COUNT 2
 
-class NiagaraEmitterInstanceBatcher : public FTickableGameObject, public FComputeDispatcher
+class NiagaraEmitterInstanceBatcher : public FFXSystemInterface
 {
 public:
 	NiagaraEmitterInstanceBatcher()
 		: CurQueueIndex(0)
 	{
-		IRendererModule *RendererModule = FModuleManager::GetModulePtr<IRendererModule>("Renderer");
-		if (RendererModule)
-		{
-			RendererModule->RegisterPostOpaqueComputeDispatcher(this);
-		}
 	}
 
 	~NiagaraEmitterInstanceBatcher()
 	{
-		IRendererModule *RendererModule = FModuleManager::GetModulePtr<IRendererModule>("Renderer");
-		if (RendererModule)
-		{
-			RendererModule->UnRegisterPostOpaqueComputeDispatcher(this);
-		}
 	}
 
-	static NiagaraEmitterInstanceBatcher *Get()
-	{
-		if (BatcherSingleton == nullptr)
-		{
-			BatcherSingleton = new NiagaraEmitterInstanceBatcher();
-		}
-		return BatcherSingleton;
-	}
+	static const FName Name;
+	virtual FFXSystemInterface* GetInterface(const FName& InName) override;
 
 	void Queue(FNiagaraComputeExecutionContext *InContext);
 
 	void Remove(FNiagaraComputeExecutionContext* InContext);
 
-	virtual ETickableTickType GetTickableTickType() const override
-	{
-		return ETickableTickType::Always;
-	}
+#if WITH_EDITOR
+	virtual void Suspend() override {}
+	virtual void Resume() override {}
+#endif // #if WITH_EDITOR
 
-	virtual TStatId GetStatId() const override
-	{
-		RETURN_QUICK_DECLARE_CYCLE_STAT(NiagaraEmitterInstanceBatcher, STATGROUP_Tickables);
-	}
-
+	virtual void DrawDebug(FCanvas* Canvas) override {}
+	virtual void AddVectorField(UVectorFieldComponent* VectorFieldComponent) override {}
+	virtual void RemoveVectorField(UVectorFieldComponent* VectorFieldComponent) override {}
+	virtual void UpdateVectorField(UVectorFieldComponent* VectorFieldComponent) override {}
+	virtual void PreInitViews() override {}
+	virtual bool UsesGlobalDistanceField() const override { return false; }
+	virtual void PreRender(FRHICommandListImmediate& RHICmdList, const class FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData) override {}
 
 	virtual void Tick(float DeltaTime) override
 	{
@@ -82,9 +69,11 @@ public:
 
 	uint32 GetEventSpawnTotal(const FNiagaraComputeExecutionContext *InContext) const;
 
-	// from FComputeDispatcher; called once per frame by the render thread, swaps buffers and works down 
-	// the queue submitted by the game thread; means we're one frame behind with this; we need a mechanism to determine execution order here.
-	virtual void Execute(FRHICommandList &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer)
+	virtual void PostRenderOpaque(
+		FRHICommandListImmediate& RHICmdList,
+		const FUniformBufferRHIParamRef ViewUniformBuffer,
+		const class FShaderParametersMetadata* SceneTexturesUniformBufferStruct,
+		FUniformBufferRHIParamRef SceneTexturesUniformBuffer) override
 	{
 		CurQueueIndex ^= 0x1;
 
@@ -94,11 +83,14 @@ public:
 	void ExecuteAll(FRHICommandList &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer);
 	void TickSingle(FNiagaraComputeExecutionContext *Context, FRHICommandList &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer) const;
 
+	void ProcessDebugInfo(FRHICommandList &RHICmdList, const FNiagaraComputeExecutionContext *Context) const;
+
 	void SetPrevDataStrideParams(const FNiagaraDataSet *Set, FNiagaraShader *Shader, FRHICommandList &RHICmdList) const;
 
 	void SetupEventUAVs(const FNiagaraComputeExecutionContext *Context, uint32 NumInstances, FRHICommandList &RHICmdList) const;
 	void UnsetEventUAVs(const FNiagaraComputeExecutionContext *Context, FRHICommandList &RHICmdList) const;
-	void SetDataInterfaceParameters(const TArray<UNiagaraDataInterface*> &DataInterfaces, FNiagaraShader *Shader, FRHICommandList &RHICmdList) const;
+	void SetDataInterfaceParameters(const TArray<UNiagaraDataInterface*> &DataInterfaces, FNiagaraShader *Shader, FRHICommandList &RHICmdList, const FNiagaraComputeExecutionContext *Context) const;
+	void UnsetDataInterfaceParameters(const TArray<UNiagaraDataInterface*> &DataInterfaces, FNiagaraShader* Shader, FRHICommandList &RHICmdList, const FNiagaraComputeExecutionContext *Context) const;
 
 	void Run(	const FNiagaraComputeExecutionContext *Context, 
 				uint32 UpdateStartInstance, 
@@ -115,7 +107,6 @@ public:
 	void ResolveDatasetWrites(FRHICommandList &RHICmdList, FNiagaraComputeExecutionContext *Context) const;
 	void ResizeCurrentBuffer(FRHICommandList &RHICmdList, FNiagaraComputeExecutionContext *Context, uint32 NewNumInstances, uint32 PrevNumInstances) const;
 private:
-	static NiagaraEmitterInstanceBatcher* BatcherSingleton;
 
 	uint32 CurQueueIndex;
 	TArray<FNiagaraComputeExecutionContext*> SimulationQueue[SIMULATION_QUEUE_COUNT];

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ExtensionLibraries/MovieSceneSectionExtensions.h"
 #include "SequencerScriptingRange.h"
@@ -15,6 +15,7 @@
 #include "KeysAndChannels/MovieSceneScriptingString.h"
 #include "KeysAndChannels/MovieSceneScriptingEvent.h"
 #include "KeysAndChannels/MovieSceneScriptingActorReference.h"
+#include "Sections/MovieSceneSubSection.h"
 
 
 FSequencerScriptingRange UMovieSceneSectionExtensions::GetRange(UMovieSceneSection* Section)
@@ -23,18 +24,183 @@ FSequencerScriptingRange UMovieSceneSectionExtensions::GetRange(UMovieSceneSecti
 	return FSequencerScriptingRange::FromNative(Section->GetRange(), MovieScene->GetTickResolution());
 }
 
-void UMovieSceneSectionExtensions::SetRange(UMovieSceneSection* Section, const FSequencerScriptingRange& InRange)
+int32 UMovieSceneSectionExtensions::GetStartFrame(UMovieSceneSection* Section)
 {
 	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
-	TRange<FFrameNumber> NewRange = InRange.ToNative(MovieScene->GetTickResolution());
-
-	if (NewRange.GetLowerBound().IsOpen() || NewRange.GetUpperBound().IsOpen() || NewRange.GetLowerBoundValue() <= NewRange.GetUpperBoundValue())
+	if (MovieScene)
 	{
-		Section->SetRange(NewRange);
+		FFrameRate DisplayRate = MovieScene->GetDisplayRate();
+		return ConvertFrameTime(MovieScene::DiscreteInclusiveLower(Section->GetRange()), MovieScene->GetTickResolution(), DisplayRate).FloorToFrame().Value;
 	}
 	else
 	{
-		UE_LOG(LogMovieScene, Error, TEXT("Invalid range specified"));
+		return -1;
+	}
+}
+
+float UMovieSceneSectionExtensions::GetStartFrameSeconds(UMovieSceneSection* Section)
+{
+	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
+	if (MovieScene)
+	{
+		FFrameRate DisplayRate = MovieScene->GetDisplayRate();
+		return DisplayRate.AsSeconds(ConvertFrameTime(MovieScene::DiscreteInclusiveLower(Section->GetRange()), MovieScene->GetTickResolution(), DisplayRate));
+	}
+
+	return -1.f;
+}
+
+int32 UMovieSceneSectionExtensions::GetEndFrame(UMovieSceneSection* Section)
+{
+	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
+	if (MovieScene)
+	{
+		FFrameRate DisplayRate = MovieScene->GetDisplayRate();
+		return ConvertFrameTime(MovieScene::DiscreteExclusiveUpper(Section->GetRange()), MovieScene->GetTickResolution(), DisplayRate).FloorToFrame().Value;
+	}
+	else
+	{
+		return -1;
+	}
+}
+
+float UMovieSceneSectionExtensions::GetEndFrameSeconds(UMovieSceneSection* Section)
+{
+	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
+	if (MovieScene)
+	{
+		FFrameRate DisplayRate = MovieScene->GetDisplayRate();
+		return DisplayRate.AsSeconds(ConvertFrameTime(MovieScene::DiscreteExclusiveUpper(Section->GetRange()), MovieScene->GetTickResolution(), DisplayRate));
+	}
+
+	return -1.f;
+}
+
+void UMovieSceneSectionExtensions::SetRange(UMovieSceneSection* Section, int32 StartFrame, int32 EndFrame)
+{
+	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
+	if (MovieScene)
+	{
+		FFrameRate DisplayRate = MovieScene->GetDisplayRate();
+
+		TRange<FFrameNumber> NewRange;
+		NewRange.SetLowerBound(TRangeBound<FFrameNumber>::Inclusive(ConvertFrameTime(StartFrame, DisplayRate, MovieScene->GetTickResolution()).FrameNumber));
+		NewRange.SetUpperBound(TRangeBound<FFrameNumber>::Exclusive(ConvertFrameTime(EndFrame, DisplayRate, MovieScene->GetTickResolution()).FrameNumber));
+
+		if (NewRange.GetLowerBound().IsOpen() || NewRange.GetUpperBound().IsOpen() || NewRange.GetLowerBoundValue() <= NewRange.GetUpperBoundValue())
+		{
+			Section->SetRange(NewRange);
+		}
+		else
+		{
+			UE_LOG(LogMovieScene, Error, TEXT("Invalid range specified"));
+		}
+	}
+}
+
+void UMovieSceneSectionExtensions::SetRangeSeconds(UMovieSceneSection* Section, float StartTime, float EndTime)
+{
+	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
+	if (MovieScene)
+	{
+		FFrameRate DisplayRate = MovieScene->GetDisplayRate();
+
+		TRange<FFrameNumber> NewRange;
+		NewRange.SetLowerBound((StartTime * MovieScene->GetTickResolution()).RoundToFrame());
+		NewRange.SetUpperBound((EndTime * MovieScene->GetTickResolution()).RoundToFrame());
+
+		if (NewRange.GetLowerBound().IsOpen() || NewRange.GetUpperBound().IsOpen() || NewRange.GetLowerBoundValue() <= NewRange.GetUpperBoundValue())
+		{
+			Section->SetRange(NewRange);
+		}
+		else
+		{
+			UE_LOG(LogMovieScene, Error, TEXT("Invalid range specified"));
+		}
+	}
+}
+
+void UMovieSceneSectionExtensions::SetStartFrame(UMovieSceneSection* Section, int32 StartFrame)
+{
+	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
+	if (MovieScene)
+	{
+		FFrameRate DisplayRate = MovieScene->GetDisplayRate();
+
+		Section->SetStartFrame(ConvertFrameTime(StartFrame, DisplayRate, MovieScene->GetTickResolution()).FrameNumber);
+	}
+}
+
+void UMovieSceneSectionExtensions::SetStartFrameSeconds(UMovieSceneSection* Section, float StartTime)
+{
+	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
+	if (MovieScene)
+	{
+		Section->SetStartFrame((StartTime * MovieScene->GetTickResolution()).RoundToFrame());
+	}
+}
+
+void UMovieSceneSectionExtensions::SetStartFrameBounded(UMovieSceneSection* Section, bool bIsBounded)
+{
+	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
+	if (MovieScene)
+	{
+		if (bIsBounded)
+		{
+			int32 NewFrameNumber = 0;
+			if (!MovieScene->GetPlaybackRange().GetLowerBound().IsOpen())
+			{
+				NewFrameNumber = MovieScene->GetPlaybackRange().GetLowerBoundValue().Value;
+			}
+
+			Section->SectionRange.Value.SetLowerBound(TRangeBound<FFrameNumber>(FFrameNumber(NewFrameNumber)));
+		}
+		else
+		{
+			Section->SectionRange.Value.SetLowerBound(TRangeBound<FFrameNumber>());
+		}
+	}
+}
+
+void UMovieSceneSectionExtensions::SetEndFrame(UMovieSceneSection* Section, int32 EndFrame)
+{
+	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
+	if (MovieScene)
+	{
+		FFrameRate DisplayRate = MovieScene->GetDisplayRate();
+
+		Section->SetEndFrame(ConvertFrameTime(EndFrame, DisplayRate, MovieScene->GetTickResolution()).FrameNumber);
+	}
+}
+
+void UMovieSceneSectionExtensions::SetEndFrameSeconds(UMovieSceneSection* Section, float EndTime)
+{
+	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
+	if (MovieScene)
+	{
+		Section->SetEndFrame((EndTime * MovieScene->GetTickResolution()).RoundToFrame());
+	}
+}
+
+void UMovieSceneSectionExtensions::SetEndFrameBounded(UMovieSceneSection* Section, bool bIsBounded)
+{
+	UMovieScene* MovieScene = Section->GetTypedOuter<UMovieScene>();
+	if (MovieScene)
+	{
+		if (bIsBounded)
+		{
+			int32 NewFrameNumber = 0;
+			if (!MovieScene->GetPlaybackRange().GetUpperBound().IsOpen())
+			{
+				NewFrameNumber = MovieScene->GetPlaybackRange().GetUpperBoundValue().Value;
+			}
+
+			Section->SectionRange.Value.SetUpperBound(TRangeBound<FFrameNumber>(FFrameNumber(NewFrameNumber)));
+		}
+		else
+		{
+			Section->SectionRange.Value.SetUpperBound(TRangeBound<FFrameNumber>());
+		}
 	}
 }
 
@@ -107,4 +273,52 @@ TArray<UMovieSceneScriptingChannel*> UMovieSceneSectionExtensions::FindChannelsB
 
 
 	return Channels;
+}
+
+
+bool GetSubSectionChain(UMovieSceneSubSection* InSubSection, UMovieSceneSequence* ParentSequence, TArray<UMovieSceneSubSection*>& SubSectionChain)
+{
+	UMovieScene* ParentMovieScene = ParentSequence->GetMovieScene();
+	for (UMovieSceneTrack* MasterTrack : ParentMovieScene->GetMasterTracks())
+	{
+		for (UMovieSceneSection* Section : MasterTrack->GetAllSections())
+		{
+			if (Section == InSubSection)
+			{
+				SubSectionChain.Add(InSubSection);
+				return true;
+			}
+			if (Section->IsA(UMovieSceneSubSection::StaticClass()))
+			{
+				UMovieSceneSubSection* SubSection = Cast<UMovieSceneSubSection>(Section);
+				if (GetSubSectionChain(InSubSection, SubSection->GetSequence(), SubSectionChain))
+				{
+					SubSectionChain.Add(SubSection);
+				}
+			}
+		}
+	}
+	return false;
+}
+
+
+int32 UMovieSceneSectionExtensions::GetParentSequenceFrame(UMovieSceneSubSection* InSubSection, int32 InFrame, UMovieSceneSequence* ParentSequence)
+{
+	TArray<UMovieSceneSubSection*> SubSectionChain;
+	GetSubSectionChain(InSubSection, ParentSequence, SubSectionChain);
+		
+	FFrameRate LocalDisplayRate = InSubSection->GetSequence()->GetMovieScene()->GetDisplayRate();
+	FFrameRate LocalTickResolution = InSubSection->GetSequence()->GetMovieScene()->GetTickResolution();
+	FFrameTime LocalFrameTime = ConvertFrameTime(InFrame, LocalDisplayRate, LocalTickResolution);
+		
+	for (int32 SectionIndex = 0; SectionIndex < SubSectionChain.Num(); ++SectionIndex)
+	{
+		LocalFrameTime = LocalFrameTime * SubSectionChain[SectionIndex]->OuterToInnerTransform().Inverse();
+	}
+
+	FFrameRate ParentDisplayRate = ParentSequence->GetMovieScene()->GetDisplayRate();
+	FFrameRate ParentTickResolution = ParentSequence->GetMovieScene()->GetTickResolution();
+
+	LocalFrameTime = ConvertFrameTime(LocalFrameTime, ParentTickResolution, ParentDisplayRate);
+	return LocalFrameTime.GetFrame().Value;
 }

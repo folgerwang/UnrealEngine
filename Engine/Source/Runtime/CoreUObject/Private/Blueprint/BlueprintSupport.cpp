@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Blueprint/BlueprintSupport.h"
 #include "Misc/ScopeLock.h"
@@ -37,6 +37,7 @@ const FName FBlueprintTags::NativeParentClassPath(TEXT("NativeParentClass"));
 const FName FBlueprintTags::ClassFlags(TEXT("ClassFlags"));
 const FName FBlueprintTags::BlueprintType(TEXT("BlueprintType"));
 const FName FBlueprintTags::BlueprintDescription(TEXT("BlueprintDescription"));
+const FName FBlueprintTags::BlueprintDisplayName(TEXT("BlueprintDisplayName"));
 const FName FBlueprintTags::IsDataOnly(TEXT("IsDataOnly"));
 const FName FBlueprintTags::ImplementedInterfaces(TEXT("ImplementedInterfaces"));
 const FName FBlueprintTags::FindInBlueprintsData(TEXT("FiBData"));
@@ -400,8 +401,9 @@ void FBlueprintSupport::ValidateNoExternalRefsToSkeletons()
 UClass* FScopedClassDependencyGather::BatchMasterClass = NULL;
 TArray<UClass*> FScopedClassDependencyGather::BatchClassDependencies;
 
-FScopedClassDependencyGather::FScopedClassDependencyGather(UClass* ClassToGather)
+FScopedClassDependencyGather::FScopedClassDependencyGather(UClass* ClassToGather, FUObjectSerializeContext* InLoadContext)
 	: bMasterClass(false)
+	, LoadContext(InLoadContext)
 {
 	// Do NOT track duplication dependencies, as these are intermediate products that we don't care about
 	if( !GIsDuplicatingClassForReinstancing )
@@ -430,9 +432,9 @@ FScopedClassDependencyGather::~FScopedClassDependencyGather()
 		auto DependencyIter = BatchClassDependencies.CreateIterator();
 		// implemented as a lambda, to prevent duplicated code between 
 		// BatchMasterClass and BatchClassDependencies entries
-		auto RecompileClassLambda = [&DependencyIter](UClass* Class)
+		auto RecompileClassLambda = [&DependencyIter](UClass* Class, FUObjectSerializeContext* InLoadContext)
 		{
-			Class->ConditionalRecompileClass(&FUObjectThreadContext::Get().ObjLoaded);
+			Class->ConditionalRecompileClass(InLoadContext);
 
 			// because of the above call to ConditionalRecompileClass(), the 
 			// specified Class gets "cleaned and sanitized" (meaning its old 
@@ -466,16 +468,16 @@ FScopedClassDependencyGather::~FScopedClassDependencyGather()
 				UClass* Dependency = *DependencyIter;
 				if( Dependency->ClassGeneratedBy != BatchMasterClass->ClassGeneratedBy )
 				{
-					RecompileClassLambda(Dependency);
+					RecompileClassLambda(Dependency, LoadContext);
 				}
 			}
 
 			// Finally, recompile the master class to make sure it gets updated too
-			RecompileClassLambda(BatchMasterClass);
+			RecompileClassLambda(BatchMasterClass, LoadContext);
 		}
 		else
 		{
-			BatchMasterClass->ConditionalRecompileClass(&FUObjectThreadContext::Get().ObjLoaded);
+			BatchMasterClass->ConditionalRecompileClass(LoadContext);
 		}
 
 		BatchMasterClass = NULL;
@@ -727,7 +729,7 @@ bool FLinkerLoad::RegenerateBlueprintClass(UClass* LoadClass, UObject* ExportObj
 			// Preload the blueprint to make sure it has all the data the class needs for regeneration
 			FPreloadMembersHelper::PreloadObject(BlueprintObject);
 
-			UClass* RegeneratedClass = BlueprintObject->RegenerateClass(LoadClass, CurrentCDO, FUObjectThreadContext::Get().ObjLoaded);
+			UClass* RegeneratedClass = BlueprintObject->RegenerateClass(LoadClass, CurrentCDO);
 			if (RegeneratedClass)
 			{
 				BlueprintObject->ClearFlags(RF_BeingRegenerated);
@@ -1261,7 +1263,7 @@ int32 FLinkerLoad::FindCDOExportIndex(UClass* LoadClass)
 	return INDEX_NONE;
 }
 
-UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, FLinkerLoad* ImportLinker, FArchive* InReaderOverride);
+UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, FLinkerLoad* ImportLinker, FArchive* InReaderOverride, FUObjectSerializeContext* InLoadContext);
 
 void FLinkerLoad::ResolveDeferredDependencies(UStruct* LoadStruct)
 {
@@ -1381,7 +1383,7 @@ void FLinkerLoad::ResolveDeferredDependencies(UStruct* LoadStruct)
 			{
 				uint32 InternalLoadFlags = LoadFlags & (LOAD_NoVerify | LOAD_NoWarn | LOAD_Quiet);
 				// make sure LoadAllObjects() is called for this package
-				LoadPackageInternal(/*Outer =*/nullptr, *SourceLinker->Filename, InternalLoadFlags, this, nullptr); //-V595
+				LoadPackageInternal(/*Outer =*/nullptr, *SourceLinker->Filename, InternalLoadFlags, this, nullptr, GetSerializeContext()); //-V595
 			}
 
 			DEFERRED_DEPENDENCY_CHECK(ResolvingPlaceholderStack.Num() == 0);
@@ -2040,7 +2042,7 @@ void FLinkerLoad::ResolveDeferredExports(UClass* LoadClass)
 		for (int32 ExportIndex = 0; ExportIndex < ExportMap.Num(); ++ExportIndex)
 		{
 			FObjectExport& Export = ExportMap[ExportIndex];
-			if((Export.ObjectFlags & RF_DefaultSubObject) != 0 && Export.OuterIndex.ToExport() == DeferredCDOIndex)
+			if((Export.ObjectFlags & RF_DefaultSubObject) != 0 && Export.OuterIndex.IsExport() && Export.OuterIndex.ToExport() == DeferredCDOIndex)
 			{
 				if (Export.Object == nullptr && Export.OuterIndex.IsExport())
 				{
@@ -2066,7 +2068,6 @@ void FLinkerLoad::ResolveDeferredExports(UClass* LoadClass)
 				if (ensure(PlaceholderExport))
 				{
 					// replace the placeholder with the proper object instance
-					PlaceholderExport->SetLinker(nullptr, INDEX_NONE);
 					Export.ResetObject();
 					UObject* ExportObj = CreateExport(ExportIndex);
 
@@ -2833,12 +2834,11 @@ FObjectInitializer* FDeferredObjInitializationHelper::DeferObjectInitializerIfNe
 	UObject* TargetObj = DeferringInitializer.GetObj();
 	if (TargetObj)
 	{
-		FDeferredCdoInitializationTracker& CdoInitDeferalSys = FDeferredCdoInitializationTracker::Get();
-		auto IsSuperCdoReadyToBeCopied = [&CdoInitDeferalSys](const UClass* LoadClass, const UObject* SuperCDO)->bool
+		auto IsSuperCdoReadyToBeCopied = [](FDeferredCdoInitializationTracker& InCdoInitDeferalSys, const UClass* LoadClass, const UObject* SuperCDO)->bool
 		{
 			// RF_WasLoaded indicates that this Super was loaded from disk (and hasn't been regenerated on load)
 			// regenerated CDOs will not have the RF_LoadCompleted
-			const bool bSuperCdoLoadPending = CdoInitDeferalSys.IsInitializationDeferred(SuperCDO) ||
+			const bool bSuperCdoLoadPending = InCdoInitDeferalSys.IsInitializationDeferred(SuperCDO) ||
 				SuperCDO->HasAnyFlags(RF_NeedLoad) || (SuperCDO->HasAnyFlags(RF_WasLoaded) && !SuperCDO->HasAnyFlags(RF_LoadCompleted));
 
 			if (bSuperCdoLoadPending)
@@ -2869,8 +2869,9 @@ FObjectInitializer* FDeferredObjInitializationHelper::DeferObjectInitializerIfNe
 				DEFERRED_DEPENDENCY_CHECK(SuperCDO && SuperCDO->HasAnyFlags(RF_ClassDefaultObject));
 				// use the ObjectArchetype for the super CDO because the SuperClass may have a REINST CDO cached currently
 				SuperClass = SuperCDO->GetClass();
-
-				if (!IsSuperCdoReadyToBeCopied(CdoClass, SuperCDO))
+				
+				FDeferredCdoInitializationTracker& CdoInitDeferalSys = FDeferredCdoInitializationTracker::Get();
+				if (!IsSuperCdoReadyToBeCopied(CdoInitDeferalSys, CdoClass, SuperCDO))
 				{
 					DeferredInitializerCopy = CdoInitDeferalSys.Add(SuperCDO, DeferringInitializer);
 				}
@@ -2895,7 +2896,8 @@ FObjectInitializer* FDeferredObjInitializationHelper::DeferObjectInitializerIfNe
 				// 
 				// So if the super CDO isn't ready, we need to defer this sub-object
 				const UObject* SuperCDO = SuperClass->ClassDefaultObject;
-				if (!IsSuperCdoReadyToBeCopied(OwnerClass, SuperCDO))
+				FDeferredCdoInitializationTracker& CdoInitDeferalSys = FDeferredCdoInitializationTracker::Get();
+				if (!IsSuperCdoReadyToBeCopied(CdoInitDeferalSys, OwnerClass, SuperCDO))
 				{
 					FDeferredSubObjInitializationTracker& SubObjInitDeferalSys = FDeferredSubObjInitializationTracker::Get();
 					DeferredInitializerCopy = SubObjInitDeferalSys.Add(SuperCDO, DeferringInitializer);

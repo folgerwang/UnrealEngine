@@ -1,5 +1,5 @@
-﻿/**
- * Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+/**
+ * Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
  */
 
 using System;
@@ -10,7 +10,6 @@ using System.IO;
 using System.Threading;
 using Ionic.Zip;
 using Ionic.Zlib;
-using RPCUtility;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Reflection;

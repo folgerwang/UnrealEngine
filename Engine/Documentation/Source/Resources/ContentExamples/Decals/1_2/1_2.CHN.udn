@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:1954017
+INTSourceChangelist:3782314
 Availability: Public
-Title:1.2 - 贴花混合模式
-Crumbs:%ROOT%, Resources, Resources/ContentExamples/Decals
-Description:贴花示例关卡概述，示例1.2： 贴花混合模式
+Title:1.2 - 贴花混合模式（Decal Blend Mode）
+Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Decals
+Description:贴花示例关卡概述，示例1.2：贴花混合模式（Decal Blend Mode）
 Related: Engine/Actors/DecalActor
 Related: Engine/Rendering/Materials/PhysicallyBased
 Related: Engine/Rendering/Materials
@@ -11,63 +11,35 @@ Related: Engine/Rendering/Materials/ExpressionReference
 Related: Engine/Rendering/Materials/MaterialInputs
 Related: Engine/Rendering/Materials/LayeredMaterials
 Related: Engine/Rendering/Materials/MaterialInstances
+Version: 4.9
+topic-image:Resources\ContentExamples\Decals\Decals_2.png
 
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/Decals/1_2:title%](Resources\ContentExamples\Decals\Decals_2.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Decals/1_2:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Decals/1_2:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/Decals/1_2]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/Decals/1_2:title%](Resources\ContentExamples\Decals\Decals_2.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Decals/1_2:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Decals/1_2:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/Decals/1_2]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [REGION:fullwidth]
 
 ![%Resources/ContentExamples/Decals/1_1:title%](Resources\ContentExamples\Decals\Decals_2.png)
 
-## 概述
+[/REGION]
 
-本示例演示了贴花可用的混合模式。贴花的不同混合模式对表面的影响方式不同。这是通过在材质内对 **Decal Blend Mode** （贴花混合模式）属性进行设置来完成的。
+
+本示例说明贴花可以使用的 **混合模式（Blend Mode）**。借助不同的混合模式（Blend Mode），你可以更改贴花影响表面的方式。设置混合模式（Blend Mode）的方法是使用“材质（Material）”部分中的 **贴花混合模式（Decal Blend Mode）** 属性。
 
 ![](DecalBlendMode.png)
 
-贴花可用的混合模式共有4种：
+贴花可以使用的混合模式有11种：
 
-* **Translucent** （半透明模式）-该模式下，可使用漫反射，金属感,高光，粗糙度，自发光，不透明和法线。
-* **Stain** (污点模式）-  这是一个漫反射和不透明混合的调制类型。
-* **Normal** （法线模式）-该模式下，可使用不透明通道和法线通道，仅影响其投射的法线贴图层。
-* **Emissive** （自发光模式） - 该模式下，仅使用自发光和不透明
+* **半透明（Translucent）** - 可以使用“弥散（Diffuse）”、“金属感（Metallic）”、“高光度（Specular）”、“粗糙度（Roughness）”、“自发光（Emissive）”、“不透明度（Opacity）”和“法线（Normal）”。 
+* **斑点（Stain）** - 与“弥散（Diffuse）”和“不透明度（Opacity）”混合的调制类型。
+* **法线（Normal）** - 使用“不透明度（Opacity）”和“法线（Normal）”信道，仅影响贴花投射到其上面的法线贴图层。
+* **自发光（Emissive）** - 仅使用“自发光（Emissive）”和“不透明度（Opacity）”。
+* **体积距离函数（Volumetric Distance Function）** - 基于光线矢量（Light Vector）使用“不透明度（Opacity）”中的有向距离输出。
 
+DBuffer贴花可与光照配合使用。默认情况下，这些贴花处于未启用状态，必须在“项目设置（Project Settings）” > “渲染（Rendering）”部分中启用它们。
+* **DBuffer半透明颜色、法线、粗糙度（DBuffer Translucent Color, Normal, Roughness）** - 此为非金属感贴花，将“颜色（Color）”、“不透明度（Opacity）”、“粗糙度（Roughness）”和“法线（Normal）”与烘焙光照配合使用。
+* **DBuffer半透明颜色（DBuffer Translucent Color）** - 此为非金属感贴花，仅将“颜色（Color）”和“不透明度（Opacity）”与烘焙光照配合使用。
+* **DBuffer半透明颜色、法线（DBuffer Translucent Color, Normal）** - 此为非金属感贴花，将“颜色（Color）”和“法线（Normal）”与烘焙光照配合使用。
+* **DBuffer半透明颜色、粗糙度（DBuffer Translucent Color, Roughness）** - 此为非金属感贴花，将“颜色（Color）”和“粗糙度（Roughness）”与烘焙光照配合使用。
+* **DBuffer半透明法线（DBuffer Translucent Normal）** - 此贴花仅将“不透明度（Opacity）”和“法线（Normal）”信道与烘焙光照配合使用。
+* **DBuffer半透明法线、粗糙度（DBuffer Translucent Normal, Roughness）** - 此贴花仅将“粗糙度（Roughness）”、“不透明度（Opacity）”和“法线（Normal）”与烘焙光照配合使用。
+* **DBuffer半透明粗糙度（DBuffer Translucent Roughness）** - 此贴花仅将“粗糙度（Roughness）”和“不透明度（Opacity）”与烘焙光照配合使用。 
 
-[/REGION]

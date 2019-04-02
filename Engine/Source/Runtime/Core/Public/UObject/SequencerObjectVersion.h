@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreTypes.h"
@@ -38,6 +38,12 @@ struct CORE_API FSequencerObjectVersion
 
 		// Finish UMG evaluation on end
 		FinishUMGEvaluation,
+
+		// Manual serialization of float channel
+		SerializeFloatChannel,
+
+		// Change the linear keys so they act the old way and interpolate always.
+		ModifyLinearKeysForOldInterp,
 
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,

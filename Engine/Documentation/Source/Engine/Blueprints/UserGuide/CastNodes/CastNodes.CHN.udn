@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2968923
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:蓝图中的转换
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide
@@ -8,45 +8,9 @@ Related:Engine/Blueprints/HowTo
 version:4.9
 Parent:Engine/Blueprints/Scripting
 tags:Data Types
+tags:Blueprints
 order:2
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\CastNodes:title%](Engine\Blueprints\UserGuide\CastToNode.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\CastNodes:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\CastNodes:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\CastNodes]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\CastNodes:title%](Engine\Blueprints\UserGuide\CastToNode.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\CastNodes:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\CastNodes:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\CastNodes]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:Engine/Blueprints/UserGuide/CastToNode.png
 
 
 [TOC (start:2 end:2)]
@@ -61,25 +25,29 @@ order:2
 
 
 
+(#ExampleUseCases)
 ## 范例使用情况
 
 以下是几个 **蓝图转换** 使用范例：
 
-[INCLUDE:Engine\Blueprints\UserGuide\BlueprintCommsUsage#castusage]
+[INCLUDE:Engine/Blueprints/UserGuide/BlueprintCommsUsage#castusage]
 
+(#SettingUpaCastToExample)
 ## 设置一个 Cast To 范例
 
 下例说明如何使用 Cast To 节点从一个蓝图中访问另一个蓝图。 
 
-[INCLUDE:Engine\Blueprints\UserGuide\BlueprintCommsUsage\BPComHowTo#castexample]
+[INCLUDE:Engine/Blueprints/UserGuide/BlueprintCommsUsage/BPComHowTo#castexample]
 
+(#TargetBlueprintCasting)
 ## 目标蓝图转换
 
-[INCLUDE:Engine\Blueprints\UserGuide\BlueprintCommsUsage\BPComHowTo#targetcasting]
+[INCLUDE:Engine/Blueprints/UserGuide/BlueprintCommsUsage/BPComHowTo#targetcasting]
 
+(#OtherTypesofCasting)
 ## 其他类型的转换
 
-[INCLUDE:Engine\Blueprints\UserGuide\BlueprintCommsUsage\BPComHowTo#othercasting]
+[INCLUDE:Engine/Blueprints/UserGuide/BlueprintCommsUsage/BPComHowTo#othercasting]
 
 
 

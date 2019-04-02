@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,11 +22,13 @@ public:
 	~FMetalRenderPass(void);
 	
 #pragma mark -
-    void Begin(mtlpp::Fence Fence);
+	void SetDispatchType(mtlpp::DispatchType Type);
 	
-	void Wait(mtlpp::Fence Fence);
+    void Begin(FMetalFence* Fence, bool const bParallelBegin = false);
+	
+	void Wait(FMetalFence* Fence);
 
-	void Update(mtlpp::Fence Fence);
+	void Update(FMetalFence* Fence);
 	
     void BeginParallelRenderPass(mtlpp::RenderPassDescriptor RenderPass, uint32 NumParallelContextsInPass);
 
@@ -52,7 +54,7 @@ public:
     
     void DispatchIndirect(FMetalVertexBuffer* ArgumentBufferRHI, uint32 ArgumentOffset);
     
-    mtlpp::Fence EndRenderPass(void);
+    TRefCountPtr<FMetalFence> const& EndRenderPass(void);
     
     void CopyFromTextureToBuffer(FMetalTexture const& Texture, uint32 sourceSlice, uint32 sourceLevel, mtlpp::Origin sourceOrigin, mtlpp::Size sourceSize, FMetalBuffer const& toBuffer, uint32 destinationOffset, uint32 destinationBytesPerRow, uint32 destinationBytesPerImage, mtlpp::BlitOption options);
     
@@ -78,15 +80,17 @@ public:
 	
 	void AsyncGenerateMipmapsForTexture(FMetalTexture const& Texture);
 	
-    mtlpp::Fence Submit(EMetalSubmitFlags SubmissionFlags);
+    TRefCountPtr<FMetalFence> const& Submit(EMetalSubmitFlags SubmissionFlags);
     
-    mtlpp::Fence End(void);
+    TRefCountPtr<FMetalFence> const& End(void);
 	
 	void InsertCommandBufferFence(FMetalCommandBufferFence& Fence, mtlpp::CommandBufferHandler Handler);
 	
 	void AddCompletionHandler(mtlpp::CommandBufferHandler Handler);
 	
 	void AddAsyncCommandBufferHandlers(mtlpp::CommandBufferHandler Scheduled, mtlpp::CommandBufferHandler Completion);
+	
+	void TransitionResources(mtlpp::Resource const& Resource);
 
 #pragma mark - Public Debug Support -
 	
@@ -144,14 +148,17 @@ private:
     void ConditionalSwitchToCompute(void);
 	void ConditionalSwitchToBlit(void);
 	void ConditionalSwitchToAsyncBlit(void);
+	void ConditionalSwitchToAsyncCompute(void);
 	
     void PrepareToRender(uint32 PrimType);
     void PrepareToTessellate(uint32 PrimType);
     void PrepareToDispatch(void);
+	void PrepareToAsyncDispatch(void);
 
     void CommitRenderResourceTables(void);
     void CommitTessellationResourceTables(void);
     void CommitDispatchResourceTables(void);
+	void CommitAsyncDispatchResourceTables(void);
     
     void ConditionalSubmit();
 private:
@@ -161,9 +168,9 @@ private:
     
     // Which of the buffers/textures/sampler slots are bound
     // The state cache is responsible for ensuring we bind the correct 
-    FMetalTextureMask BoundTextures[SF_NumFrequencies];
-    uint32 BoundBuffers[SF_NumFrequencies];
-    uint16 BoundSamplers[SF_NumFrequencies];
+    FMetalTextureMask BoundTextures[SF_NumStandardFrequencies];
+    uint32 BoundBuffers[SF_NumStandardFrequencies];
+    uint16 BoundSamplers[SF_NumStandardFrequencies];
     
     FMetalCommandEncoder CurrentEncoder;
     FMetalCommandEncoder PrologueEncoder;
@@ -171,13 +178,19 @@ private:
 	// To ensure that buffer uploads aren't overwritten before they are used track what is in flight
 	// Disjoint ranges *are* permitted!
 	TMap<id<MTLBuffer>, TArray<NSRange>> OutstandingBufferUploads;
-    
-    FMetalFence PassStartFence;
-    FMetalFence CurrentEncoderFence;
-    FMetalFence PrologueEncoderFence;
+
+	// Fences for the current command encoder chain
+	TRefCountPtr<FMetalFence> PassStartFence;
+	TRefCountPtr<FMetalFence> CurrentEncoderFence;
+	TRefCountPtr<FMetalFence> ParallelPassEndFence;
+
+	// Fences for the prologue command encoder chain
+	TRefCountPtr<FMetalFence> PrologueStartEncoderFence;
+	TRefCountPtr<FMetalFence> PrologueEncoderFence;
     
     mtlpp::RenderPassDescriptor RenderPassDesc;
     
+	mtlpp::DispatchType ComputeDispatchType;
     uint32 NumOutstandingOps;
     bool bWithinRenderPass;
 };

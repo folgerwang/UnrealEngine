@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ViewModels/Stack/NiagaraStackItem.h"
 #include "ViewModels/Stack/NiagaraStackSpacer.h"
@@ -195,7 +195,7 @@ void UNiagaraStackItemContent::SetIsAdvanced(bool bInIsAdvanced)
 bool UNiagaraStackItemContent::FilterAdvancedChildren(const UNiagaraStackEntry& Child) const
 {
 	const UNiagaraStackItemContent* ItemContent = Cast<UNiagaraStackItemContent>(&Child);
-	if (ItemContent == nullptr || ItemContent->GetIsAdvanced() == false)
+	if (ItemContent == nullptr || ItemContent->GetIsAdvanced() == false || ItemContent->GetIsSearchResult())
 	{
 		return true;
 	}

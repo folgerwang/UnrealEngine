@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once 
 
 #include "CoreMinimal.h"
@@ -150,6 +150,13 @@ struct FRecastAreaNavModifierElement
 	TArray<FTransform>	PerInstanceTransform;
 };
 
+enum class ETimeSliceWorkResult : uint8
+{
+	Failed,
+	Succeeded,
+	CallAgain, //this state will only be used if TIME_SLICE_NAV_REGEN != 0
+};
+
 /**
  * Class handling generation of a single tile, caching data that can speed up subsequent tile generations
  */
@@ -161,7 +168,8 @@ public:
 	FRecastTileGenerator(FRecastNavMeshGenerator& ParentGenerator, const FIntPoint& Location);
 	virtual ~FRecastTileGenerator();
 		
-	void DoWork();
+	/** the value will be Suceeded or Failed unless TIME_SLICE_NAV_REGEN != 0*/
+	ETimeSliceWorkResult DoWork();
 
 	FORCEINLINE int32 GetTileX() const { return TileX; }
 	FORCEINLINE int32 GetTileY() const { return TileY; }
@@ -172,6 +180,10 @@ public:
 	FORCEINLINE bool IsFullyRegenerated() const { return bRegenerateCompressedLayers; }
 	/** Whether tile task has anything to build */
 	bool HasDataToBuild() const;
+
+#if TIME_SLICE_NAV_REGEN
+	bool HasDoneWork() const { return bDoneWork; }
+#endif
 
 	const TArray<FNavMeshTileData>& GetCompressedLayers() const { return CompressedLayers; }
 protected:
@@ -191,10 +203,10 @@ public:
 protected:
 	/** Does the actual tile generations. 
 	 *	@note always trigger tile generation only via TriggerAsyncBuild. This is a worker function
-	 *	@return true if new tile navigation data has been generated and is ready to be added to navmesh instance, 
-	 *	false if failed or no need to generate (still valid)
+	 *	@return Suceeded if new tile navigation data has been generated and is ready to be added to navmesh instance, 
+	 *	Failed if failed or no need to generate (still valid). CallAgain will only be used if TIME_SLICE_NAV_REGEN != 0
 	 */
-	bool GenerateTile();
+	ETimeSliceWorkResult GenerateTile();
 
 	void Setup(const FRecastNavMeshGenerator& ParentGenerator, const TArray<FBox>& DirtyAreas);
 	
@@ -234,6 +246,12 @@ protected:
 	uint32 bFullyEncapsulatedByInclusionBounds : 1;
 	uint32 bUpdateGeometry : 1;
 	uint32 bHasLowAreaModifiers : 1;
+
+#if TIME_SLICE_NAV_REGEN
+	uint32 bDoneAsyncDataGathering : 1;
+	uint32 bDoneRegenerateCompressedLayers : 1;
+	uint32 bDoneWork : 1;
+#endif
 	
 	int32 TileX;
 	int32 TileY;
@@ -454,8 +472,12 @@ public:
 	static void ExportAggregatedGeometry(const FKAggregateGeom& AggGeom, TNavStatArray<FVector>& OutConvexVertexBuffer, TNavStatArray<int32>& OutConvexIndexBuffer, TNavStatArray<int32>& OutShapeBuffer, const FTransform& LocalToWorld = FTransform::Identity);
 
 protected:
-	// Performs initial setup of member variables so that generator is ready to do its thing from this point on
-	void Init();
+	// Performs initial setup of member variables so that generator is ready to
+	// do its thing from this point on. Called just after construction by ARecastNavMesh
+	virtual void Init();
+
+	// Used to configure Config. Override to influence build properties
+	virtual void ConfigureBuildProperties(FRecastBuildConfig& OutConfig);
 
 	// Updates cached list of navigation bounds
 	void UpdateNavigationBounds();
@@ -471,9 +493,18 @@ protected:
 	
 	/** Marks grid tiles affected by specified areas as dirty */
 	void MarkDirtyTiles(const TArray<FNavigationDirtyArea>& DirtyAreas);
+
+	void RemoveLayers(const FIntPoint& Tile, TArray<uint32>& UpdatedTiles);
 	
+#if RECAST_ASYNC_REBUILDING
+	/** Processes pending tile generation tasks Async*/
+	TArray<uint32> ProcessTileTasksAsync(const int32 NumTasksToProcess);
+#else
+	/** Processes pending tile generation tasks Sync with option for time slicing*/
+	TArray<uint32> ProcessTileTasksSync(const int32 NumTasksToProcess);
+#endif
 	/** Processes pending tile generation tasks */
-	TArray<uint32> ProcessTileTasks(const int32 NumTasksToSubmit);
+	TArray<uint32> ProcessTileTasks(const int32 NumTasksToProcess);
 
 public:
 	/** Adds generated tiles to NavMesh, replacing old ones */
@@ -504,16 +535,22 @@ protected:
 
 	virtual TSharedRef<FRecastTileGenerator> CreateTileGenerator(const FIntPoint& Coord, const TArray<FBox>& DirtyAreas);
 
+	void SetBBoxGrowth(const FVector& InBBox) { BBoxGrowth = InBBox; }
+
 	//----------------------------------------------------------------------//
 	// debug
 	//----------------------------------------------------------------------//
 	virtual uint32 LogMemUsed() const override;
 
-private:
+protected:
 	friend ARecastNavMesh;
 
 	/** Parameters defining navmesh tiles */
 	FRecastBuildConfig Config;
+
+	/** Used to grow generic element bounds to match this generator's properties
+	 *	(most notably Config.borderSize) */
+	FVector BBoxGrowth;
 	
 	int32 NumActiveTiles;
 	/** the limit to number of asynchronous tile generators running at one time */
@@ -528,6 +565,11 @@ private:
 
 	/** Navigation mesh that owns this generator */
 	ARecastNavMesh*	DestNavMesh;
+
+#if !RECAST_ASYNC_REBUILDING
+	/** This is cached as a member variable as its used if TIME_SLICE_NAV_REGEN != 0 */
+	TSharedPtr<FRecastTileGenerator> TileGeneratorSync;
+#endif
 	
 	/** List of dirty tiles that needs to be regenerated */
 	TNavStatArray<FPendingTileElement> PendingDirtyTiles;			

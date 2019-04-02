@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "BlueprintCompilationManager.h"
@@ -115,6 +115,7 @@
 #include "Styling/SlateIconFinder.h"
 #include "BaseWidgetBlueprint.h"
 #include "Components/Widget.h"
+#include "UObject/UObjectThreadContext.h"
 
 extern COREUOBJECT_API bool GBlueprintUseCompilationManager;
 
@@ -715,7 +716,7 @@ void FBlueprintEditorUtils::PreloadConstructionScript(UBlueprint* Blueprint)
 	}
 }
 
-void FBlueprintEditorUtils::PatchNewCDOIntoLinker(UObject* CDO, FLinkerLoad* Linker, int32 ExportIndex, TArray<UObject*>& ObjLoaded)
+void FBlueprintEditorUtils::PatchNewCDOIntoLinker(UObject* CDO, FLinkerLoad* Linker, int32 ExportIndex, FUObjectSerializeContext* InLoadContext)
 {
 	if( (CDO != nullptr) && (Linker != nullptr) && (ExportIndex != INDEX_NONE) )
 	{
@@ -730,15 +731,15 @@ void FBlueprintEditorUtils::PatchNewCDOIntoLinker(UObject* CDO, FLinkerLoad* Lin
 			// Copy flags from the old CDO.
 			CDO->SetFlags(OldObjectFlags);
 
+			FUObjectSerializeContext* LoadContext = InLoadContext ? InLoadContext : Linker->GetSerializeContext();
+
 			// Make sure the new CDO gets PostLoad called on it, so either add it to ObjLoaded list, or replace it if already present.
-			int32 ObjLoadedIdx = ObjLoaded.Find(OldCDO);
-			if (ObjLoadedIdx != INDEX_NONE)
+			if (LoadContext && !LoadContext->PRIVATE_PatchNewObjectIntoExport(OldCDO, CDO))
 			{
-				ObjLoaded[ObjLoadedIdx] = CDO;
-			}
-			else if (OldObjectFlags & RF_NeedPostLoad)
-			{
-				ObjLoaded.Add(CDO);
+				if (OldObjectFlags & RF_NeedPostLoad)
+				{
+					LoadContext->AddLoadedObject(CDO);
+				}
 			}
 		}
 
@@ -1074,7 +1075,7 @@ struct FRegenerationHelper
 	 * 
 	 * @param  Blueprint	The blueprint whose implemented interfaces you want loaded.
 	 */
-	static void PreloadInterfaces(UBlueprint* Blueprint, TArray<UObject*>& ObjLoaded)
+	static void PreloadInterfaces(UBlueprint* Blueprint)
 	{
 #if WITH_EDITORONLY_DATA // ImplementedInterfaces is wrapped WITH_EDITORONLY_DATA 
 		for (FBPInterfaceDescription const& InterfaceDesc : Blueprint->ImplementedInterfaces)
@@ -1086,14 +1087,14 @@ struct FRegenerationHelper
 				UBlueprint::ForceLoadMembers(InterfaceBlueprint);
 				if (InterfaceBlueprint->HasAnyFlags(RF_BeingRegenerated))
 				{
-					InterfaceBlueprint->RegenerateClass(InterfaceClass, InterfaceClass->ClassDefaultObject, ObjLoaded);
+					InterfaceBlueprint->RegenerateClass(InterfaceClass, InterfaceClass->ClassDefaultObject);
 				}
 			}
 		}
 #endif // #if WITH_EDITORONLY_DATA
 	}
 
-	static void LinkExternalDependencies(UBlueprint* Blueprint, TArray<UObject*>& ObjLoaded)
+	static void LinkExternalDependencies(UBlueprint* Blueprint)
 	{
 		check(Blueprint);
 		const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
@@ -1194,7 +1195,7 @@ struct FRegenerationHelper
 		}
 		PreloadMacroSources(MacroSources);
 
-		PreloadInterfaces(Blueprint, ObjLoaded);
+		PreloadInterfaces(Blueprint);
 	}
 };
 
@@ -1264,7 +1265,7 @@ void FBlueprintEditorUtils::PreloadBlueprintSpecificData(UBlueprint* Blueprint)
 	}
 }
 
-UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, UClass* ClassToRegenerate, UObject* PreviousCDO, TArray<UObject*>& ObjLoaded)
+UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, UClass* ClassToRegenerate, UObject* PreviousCDO)
 {
 	bool bRegenerated = false;
 
@@ -1342,7 +1343,7 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 		const bool bHasCode = !FBlueprintEditorUtils::IsDataOnlyBlueprint(Blueprint) && !bIsMacro;
 
 		// Make sure all used external classes/functions/structures/macros/etc are loaded and linked
-		FRegenerationHelper::LinkExternalDependencies(Blueprint, ObjLoaded);
+		FRegenerationHelper::LinkExternalDependencies(Blueprint);
 
 		bool bSkeletonUpToDate = FKismetEditorUtilities::GenerateBlueprintSkeleton(Blueprint);
 
@@ -1420,20 +1421,9 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 		}
 		else
 		{
-			if (Blueprint->IsGeneratedClassAuthoritative() && (Blueprint->GeneratedClass != nullptr))
+			if (Blueprint->GeneratedClass != nullptr)
 			{
 				RemoveStaleFunctions(Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass), Blueprint);
-
-				check(PreviousCDO != nullptr);
-				check(Blueprint->SkeletonGeneratedClass != nullptr);
-
-				// We now know we're a data-only blueprint on the outer pass (generate class is valid), where generated class is authoritative
-				// If the PreviousCDO is to the skeleton, then it will corrupt data when copied over the AuthoriativeClass later on in this function
-				if (PreviousCDO == Blueprint->SkeletonGeneratedClass->GetDefaultObject())
-				{
-					check(Blueprint->PRIVATE_InnermostPreviousCDO == nullptr);
-					Blueprint->PRIVATE_InnermostPreviousCDO = Blueprint->GeneratedClass->GetDefaultObject();
-				}
 			}
 
 			// No actual compilation work to be done, but try to conform the class and fix up anything that might need to be updated if the native base class has changed in any way
@@ -1453,11 +1443,11 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 		// Patch the new CDOs to the old indices in the linker
 		if( Blueprint->SkeletonGeneratedClass )
 		{
-			PatchNewCDOIntoLinker(Blueprint->SkeletonGeneratedClass->GetDefaultObject(), OldLinker, OldSkelLinkerIdx, ObjLoaded);
+			PatchNewCDOIntoLinker(Blueprint->SkeletonGeneratedClass->GetDefaultObject(), OldLinker, OldSkelLinkerIdx, nullptr);
 		}
 		if( Blueprint->GeneratedClass )
 		{
-			PatchNewCDOIntoLinker(Blueprint->GeneratedClass->GetDefaultObject(), OldLinker, OldGenLinkerIdx, ObjLoaded);
+			PatchNewCDOIntoLinker(Blueprint->GeneratedClass->GetDefaultObject(), OldLinker, OldGenLinkerIdx, nullptr);
 		}
 
 		// Success or failure, there's no point in trying to recompile this class again when other objects reference it
@@ -1470,79 +1460,10 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 
 		if (!FKismetEditorUtilities::IsClassABlueprintSkeleton(ClassToRegenerate))
 		{
-			if (Blueprint->bRecompileOnLoad)
-			{
-				// Verify that we had a skeleton generated class if we had a previous CDO, to make sure we have something to copy into
-				check((Blueprint->BlueprintType == BPTYPE_MacroLibrary) || Blueprint->SkeletonGeneratedClass);
-
-				const bool bPreviousMatchesGenerated = (PreviousCDO == Blueprint->GeneratedClass->GetDefaultObject());
-
-				if (Blueprint->BlueprintType != BPTYPE_MacroLibrary)
-				{
-					UObject* CDOThatKickedOffCOL = PreviousCDO;
-					if (Blueprint->IsGeneratedClassAuthoritative() && !bPreviousMatchesGenerated && Blueprint->PRIVATE_InnermostPreviousCDO)
-					{
-						PreviousCDO = Blueprint->PRIVATE_InnermostPreviousCDO;
-					}
-				}
-
-				// If this is the top of the compile-on-load stack for this object, copy the old CDO properties to the newly created one unless they are the same
-				UClass* AuthoritativeClass = (Blueprint->IsGeneratedClassAuthoritative() ? Blueprint->GeneratedClass : Blueprint->SkeletonGeneratedClass);
-				if (AuthoritativeClass != nullptr && PreviousCDO != AuthoritativeClass->GetDefaultObject())
-				{
-					TGuardValue<bool> GuardTemplateNameFlag(GCompilingBlueprint, true);
-
-					// Make sure the previous CDO has been fully loaded before we use it
-					FBlueprintEditorUtils::PreloadMembers(PreviousCDO);
-
-					// Copy over the properties from the old CDO to the new
-					PropagateParentBlueprintDefaults(AuthoritativeClass);
-					UObject* NewCDO = AuthoritativeClass->GetDefaultObject();
-					{
-						FSaveActorFlagsHelper SaveActorFlags(AuthoritativeClass);
-						UEditorEngine::FCopyPropertiesForUnrelatedObjectsParams CopyDetails;
-						CopyDetails.bAggressiveDefaultSubobjectReplacement = true;
-						CopyDetails.bDoDelta = false;
-						CopyDetails.bCopyDeprecatedProperties = true;
-						CopyDetails.bSkipCompilerGeneratedDefaults = true;
-						UEditorEngine::CopyPropertiesForUnrelatedObjects(PreviousCDO, NewCDO, CopyDetails);
-					}
-
-					if (bRegenerated)
-					{
-						PatchCDOSubobjectsIntoExport(PreviousCDO, NewCDO);
-						// We purposefully do not call post load here, it happens later on in the normal flow
-					}
-
-					// Update the custom property list used in post construction logic to include native class properties for which the regenerated Blueprint CDO now differs from the native CDO.
-					if (UBlueprintGeneratedClass* BPGClass = Cast<UBlueprintGeneratedClass>(AuthoritativeClass))
-					{
-						BPGClass->UpdateCustomPropertyListForPostConstruction();
-					}
-				}
-
-				Blueprint->PRIVATE_InnermostPreviousCDO = nullptr;
-			}
-			else
+			if (!Blueprint->bRecompileOnLoad)
 			{
 				// If we didn't recompile, we still need to propagate flags, and instance components
 				FKismetEditorUtilities::ConformBlueprintFlagsAndComponents(Blueprint);
-			}
-
-			// If this is the top of the compile-on-load stack for this object, copy the old CDO properties to the newly created one
-			if (!Blueprint->IsGeneratedClassAuthoritative() && Blueprint->GeneratedClass != nullptr)
-			{
-				TGuardValue<bool> GuardTemplateNameFlag(GCompilingBlueprint, true);
-
-				UObject* SkeletonCDO = Blueprint->SkeletonGeneratedClass->GetDefaultObject();
-				UObject* GeneratedCDO = Blueprint->GeneratedClass->GetDefaultObject();
-
-				UEditorEngine::FCopyPropertiesForUnrelatedObjectsParams CopyDetails;
-				CopyDetails.bAggressiveDefaultSubobjectReplacement = false;
-				CopyDetails.bDoDelta = false;
-				UEditorEngine::CopyPropertiesForUnrelatedObjects(SkeletonCDO, GeneratedCDO, CopyDetails);
-
-				Blueprint->SetLegacyGeneratedClassIsAuthoritative();
 			}
 
 			// Now that the CDO is valid, update the OwnedComponents, in case we've added or removed native components
@@ -1589,8 +1510,7 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 
 void FBlueprintEditorUtils::LinkExternalDependencies(UBlueprint* Blueprint)
 {
-	TArray<UObject*> Unused;
-	FRegenerationHelper::LinkExternalDependencies(Blueprint, Unused);
+	FRegenerationHelper::LinkExternalDependencies(Blueprint);
 }
 
 void FBlueprintEditorUtils::RecreateClassMetaData(UBlueprint* Blueprint, UClass* Class, bool bRemoveExistingMetaData)
@@ -2808,6 +2728,9 @@ void FBlueprintEditorUtils::RenameGraph(UEdGraph* Graph, const FString& NewNameS
 			}
 		}
 
+		// We should let the blueprint know we renamed a graph, some stuff may need to be fixed up.
+		Blueprint->NotifyGraphRenamed(Graph, OldGraphName, NewGraphName);
+
 		if (!Blueprint->bIsRegeneratingOnLoad && !Blueprint->bBeingCompiled)
 		{
 			FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
@@ -3214,13 +3137,13 @@ bool FBlueprintEditorUtils::IsBlueprintConst(const UBlueprint* Blueprint)
 	return Blueprint && Blueprint->BlueprintType == BPTYPE_Const;
 }
 
-bool FBlueprintEditorUtils::IsBlutility(const UBlueprint* Blueprint)
+bool FBlueprintEditorUtils::IsEditorUtilityBlueprint(const UBlueprint* Blueprint)
 {
 	IBlutilityModule* BlutilityModule = FModuleManager::GetModulePtr<IBlutilityModule>("Blutility");
 
 	if (BlutilityModule)
 	{
-		return BlutilityModule->IsBlutility( Blueprint );
+		return BlutilityModule->IsEditorUtilityBlueprint( Blueprint );
 	}
 	return false;
 }
@@ -3944,7 +3867,7 @@ void FBlueprintEditorUtils::SetBlueprintVariableCategory(UBlueprint* Blueprint, 
 		{
 			if (UTimelineTemplate* Timeline = Blueprint->FindTimelineTemplateByVariableName(TargetProperty->GetFName()))
 			{
-				Timeline->SetMetaData(TEXT("Category"), *SetCategory.ToString());
+				Timeline->SetMetaData(TEXT("Category"), SetCategory.ToString());
 			}
 			else if (UBaseWidgetBlueprint* WidgetBP = Cast<UBaseWidgetBlueprint>(Blueprint))
 			{
@@ -4217,9 +4140,19 @@ void FBlueprintEditorUtils::GetHiddenPinsForFunction(UEdGraph const* Graph, UFun
 
 			const FName& Key = It.Key();
 
-			if (Key == NAME_LatentInfo || Key == NAME_HidePin || Key == FBlueprintMetadata::MD_ExpandEnumAsExecs)
+			if (Key == NAME_LatentInfo || Key == NAME_HidePin)
 			{
 				HiddenPins.Add(*It.Value());
+			}
+			else if (Key == FBlueprintMetadata::MD_ExpandEnumAsExecs)
+			{
+				TArray<FName> EnumPinNames;
+				UK2Node_CallFunction::GetExpandEnumPinNames(Function, EnumPinNames);
+				
+				for (const FName& EnumName : EnumPinNames)
+				{
+					HiddenPins.Add(EnumName);
+				}
 			}
 			else if (Key == FBlueprintMetadata::MD_InternalUseParam)
 			{
@@ -4806,6 +4739,13 @@ void FBlueprintEditorUtils::ChangeMemberVariableType(UBlueprint* Blueprint, cons
 
 				if(bChangeVariableType)
 				{
+					const bool bBecameBoolean = Variable.VarType.PinCategory != UEdGraphSchema_K2::PC_Boolean && NewPinType.PinCategory == UEdGraphSchema_K2::PC_Boolean;
+					const bool bBecameNotBoolean = Variable.VarType.PinCategory == UEdGraphSchema_K2::PC_Boolean && NewPinType.PinCategory != UEdGraphSchema_K2::PC_Boolean;
+					if (bBecameBoolean || bBecameNotBoolean)
+					{
+						Variable.FriendlyName = FName::NameToDisplayString(Variable.VarName.ToString(), bBecameBoolean);
+					}
+
 					Variable.VarType = NewPinType;
 
 					if(Variable.VarType.IsSet() || Variable.VarType.IsMap())
@@ -7111,7 +7051,7 @@ void FBlueprintEditorUtils::RemoveTimeline(UBlueprint* Blueprint, UTimelineTempl
 UK2Node_Timeline* FBlueprintEditorUtils::FindNodeForTimeline(UBlueprint* Blueprint, UTimelineTemplate* Timeline)
 {
 	check(Timeline);
-	const FName TimelineVarName = *UTimelineTemplate::TimelineTemplateNameToVariableName(Timeline->GetFName());
+	const FName TimelineVarName = Timeline->GetVariableName();
 
 	TArray<UK2Node_Timeline*> TimelineNodes;
 	FBlueprintEditorUtils::GetAllNodesOfClass<UK2Node_Timeline>(Blueprint, TimelineNodes);

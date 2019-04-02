@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SplineComponentDetails.h"
 #include "Misc/MessageDialog.h"
@@ -196,7 +196,7 @@ FSplinePointDetails::FSplinePointDetails()
 
 	SplineCurvesProperty = FindField<UProperty>(USplineComponent::StaticClass(), GET_MEMBER_NAME_CHECKED(USplineComponent, SplineCurves));
 
-	UEnum* SplinePointTypeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ESplinePointType"));
+	UEnum* SplinePointTypeEnum = StaticEnum<ESplinePointType::Type>();
 	check(SplinePointTypeEnum);
 	for (int32 EnumIndex = 0; EnumIndex < SplinePointTypeEnum->NumEnums() - 1; ++EnumIndex)
 	{

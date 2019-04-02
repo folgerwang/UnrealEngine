@@ -1,68 +1,34 @@
-﻿INTSourceChangelist:2940199
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:虚拟现实开发
 Crumbs:%ROOT%, Platforms
 Description:在虚拟现实平台上进行开发的信息。
 Navigation:platform
-Version:4.9
-type:landing
+Version: 4.17
+Type:landing
+tags:VR
+tags:Platform
 parent:Platforms
 order:2
+topic-icon:%ROOT%/platform_icon.png
+topic-image:VirtualRealityDevelopment_topic.png
 
-[VAR:Params]
-[PARAM:image]
-	![%Platforms/VR:title%](%ROOT%/placeholder_topic.png)
-[/PARAM]
-[PARAM:icon]
-	![](%ROOT%/platform_icon.png)(convert:false)
-[/PARAM]
-[PARAM:title]
-	%Platforms/VR:title%
-[/PARAM]
-[PARAM:description]
-	%Platforms/VR:description%
-[/PARAM]
-[PARAM:path]
-	[RELATIVE:Platforms/VR]
-[/PARAM]
-[/VAR]
+(#DesktopPlatforms)
+## 台式机平台
 
-[VAR:Topic]
-[OBJECT:Topic]
-%params%
-[/OBJECT]
-[/VAR]
+[DIR(end:"1" output:"topic" type:"landing" tags:"platform" tags:"Desktop VR" parent:"Platforms/VR")]
 
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-%params%
-[/OBJECT]
-[/VAR]
+(#MobilePlatforms)
+## 移动平台
 
-[VAR:Role]
-[OBJECT:Role]
-%params%
-[PARAMLITERAL:id]
-vr
-[/PARAMLITERAL]
-[/OBJECT]
-[/VAR]
+[DIR(end:"1" output:"topic" type:"landing" tags:"platform" tags:"Mobile VR" parent:"Platforms/VR")]
 
+(#GeneralVRDevelopment)
+## 常规VR开发
 
-## 开始
+[DIR(end:"1" output:"topic" parent:"Platforms/VR" type:"overview,reference,how-to")]
 
-[DIR(output:"listbutton" type:"quickstart" tags:"vr")]
-
-## 虚拟现实平台
-
-[DIR(end:"1" output:"listbutton" type:"landing" parent:"Platforms/VR")]
-
-## 虚拟现实要点
-
-[DIR(end:"1" output:"listbutton" type:"overview" parent:"Platforms/VR")]
-
+(#TrainingStreams)
 ## 培训视频
 
-[REGION:topics third]
 [DIR(output:"video" type:"video" tags:"Virtual Reality")]
-[/REGION]

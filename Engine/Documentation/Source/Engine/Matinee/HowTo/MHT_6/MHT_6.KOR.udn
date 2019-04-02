@@ -141,7 +141,7 @@ SkillLevel: Intermediate
 
 	![](MHT6_AddMatineeToBlueprint.png)
 
-1.	**레벨 블루프린트 이벤트 그래프** 창 안에서, **우클릭** 맥락 메뉴의 **MatineeActor 로의 레퍼런스 추가** 를 선택합니다.
+1.	**레벨 블루프린트 이벤트 그래프** 창 안에서, **우클릭** 컨텍스트 메뉴의 **MatineeActor 로의 레퍼런스 추가** 를 선택합니다.
 
 	![](MHT6_AddMatineeReference.png)
 
@@ -155,7 +155,7 @@ SkillLevel: Intermediate
 
 1.	기존 단계를 반복하되, 이번에는 **Add OnActorEndOverlap** 을 선택합니다. 
 
-1.	**MatineeActor** 노드의 출력 핀을 클릭한 뒤 끌어 놓은 다음, 맥락 메뉴에서 **Play** 를 검색 추가합니다.
+1.	**MatineeActor** 노드의 출력 핀을 클릭한 뒤 끌어 놓은 다음, 컨텍스트 메뉴에서 **Play** 를 검색 추가합니다.
 
 	![](MHT6_PlayMatinee.png)
 

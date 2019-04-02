@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PhysicsAssetGraph.h"
 #include "PhysicsAssetGraphNode.h"
@@ -134,7 +134,7 @@ void UPhysicsAssetGraph::SelectObjects(const TArray<USkeletalBodySetup*>& InBodi
 			for (int32 BodyIndex = 0; BodyIndex < PhysicsAsset->SkeletalBodySetups.Num(); ++BodyIndex)
 			{
 				USkeletalBodySetup* CheckBodySetup = PhysicsAsset->SkeletalBodySetups[BodyIndex];
-				if (CheckBodySetup->BoneName == ConstraintInstance.ConstraintBone1 || CheckBodySetup->BoneName == ConstraintInstance.ConstraintBone2)
+				if (CheckBodySetup && (CheckBodySetup->BoneName == ConstraintInstance.ConstraintBone1 || CheckBodySetup->BoneName == ConstraintInstance.ConstraintBone2))
 				{
 					SelectedBodies.AddUnique(CheckBodySetup);
 					break;

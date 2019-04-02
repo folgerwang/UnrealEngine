@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "DeviceProfiles/DeviceProfileManager.h"
 #include "Misc/ConfigCacheIni.h"
@@ -512,19 +512,13 @@ void UDeviceProfileManager::SaveProfiles(bool bSaveToDefaults)
 		}
 		else
 		{
-			TArray< FString > DeviceProfileMapArray;
-
 			for (int32 DeviceProfileIndex = 0; DeviceProfileIndex < Profiles.Num(); ++DeviceProfileIndex)
 			{
 				UDeviceProfile* CurrentProfile = CastChecked<UDeviceProfile>(Profiles[DeviceProfileIndex]);
 				FString DeviceProfileTypeNameCombo = FString::Printf(TEXT("%s,%s"), *CurrentProfile->GetName(), *CurrentProfile->DeviceType);
-				DeviceProfileMapArray.Add(DeviceProfileTypeNameCombo);
 
 				CurrentProfile->SaveConfig(CPF_Config, *DeviceProfileFileName);
 			}
-
-			GConfig->SetArray(TEXT("DeviceProfiles"), TEXT("DeviceProfileNameAndTypes"), DeviceProfileMapArray, DeviceProfileFileName);
-			GConfig->Flush(false, DeviceProfileFileName);
 		}
 
 		ManagerUpdatedDelegate.Broadcast();

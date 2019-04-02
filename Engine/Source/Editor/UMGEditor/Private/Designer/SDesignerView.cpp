@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Designer/SDesignerView.h"
 #include "Rendering/DrawElements.h"
@@ -69,6 +69,7 @@
 #include "UMGEditorProjectSettings.h"
 #include "DeviceProfiles/DeviceProfile.h"
 #include "DeviceProfiles/DeviceProfileManager.h"
+#include "Engine/DPICustomScalingRule.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -335,6 +336,8 @@ void SDesignerView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBluepr
 	SetStartupResolution();
 
 	CachedPreviewDesiredSize = FVector2D(0, 0);
+	HeightReadFromSettings = 0;
+	WidthReadFromSettings = 0;
 
 	ResolutionTextFade = FCurveSequence(0.0f, 1.0f);
 	ResolutionTextFade.Play(this->AsShared());
@@ -466,7 +469,7 @@ void SDesignerView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBluepr
 				.VAlign(VAlign_Fill)
 				[
 					SAssignNew(ExtensionWidgetCanvas, SCanvas)
-					.Visibility(EVisibility::SelfHitTestInvisible)
+					.Visibility(this, &SDesignerView::GetExtensionCanvasVisibility)
 				]
 
 				// Designer overlay UI, toolbar, status messages, zoom level...etc
@@ -492,6 +495,23 @@ void SDesignerView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBluepr
 
 	FCoreDelegates::OnSafeFrameChangedEvent.AddSP(this, &SDesignerView::SwapSafeZoneTypes);
 	//RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SDesignerView::EnsureTick));
+}
+
+EVisibility SDesignerView::GetExtensionCanvasVisibility() const
+{
+	// If any selected widgets are hidden, then don't show widget extensions.
+	// If we want to support extensions on mixed-visibility in the future,
+	// every existing widget extension will probably need to be updated, as
+	// most do not check widget visibility before performing their function.
+	for (const FWidgetReference& Widget : GetSelectedWidgets())
+	{
+		UWidget* Preview = Widget.GetPreview();
+		if (!Preview || !Preview->IsVisibleInDesigner())
+		{
+			return EVisibility::Hidden;
+		}
+	}
+	return EVisibility::SelfHitTestInvisible;
 }
 
 EActiveTimerReturnType SDesignerView::EnsureTick(double InCurrentTime, float InDeltaTime)
@@ -770,7 +790,7 @@ TSharedRef<SWidget> SDesignerView::CreateOverlayUI()
 				SNew(STextBlock)
 				.TextStyle(FEditorStyle::Get(), "Graph.ZoomText")
 				.Text(this, &SDesignerView::GetCurrentDPIScaleText)
-				.ColorAndOpacity(FLinearColor(1, 1, 1, 0.25f))
+				.ColorAndOpacity(this, &SDesignerView::GetCurrentDPIScaleColor)
 			]
 
 			+ SHorizontalBox::Slot()
@@ -1560,6 +1580,7 @@ void SDesignerView::ClearDropPreviews()
 		// it will remain outered to the widget tree and end up as a property in the BP class layout as a result.
 		if (DropPreview.Widget->GetOutermost() != GetTransientPackage())
 		{
+			DropPreview.Widget->SetFlags(RF_NoFlags);
 			DropPreview.Widget->Rename(nullptr, GetTransientPackage());
 		}
 	}
@@ -1754,7 +1775,7 @@ FReply SDesignerView::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointe
 	}
 	else if ( MouseEvent.GetEffectingButton() == EKeys::RightMouseButton )
 	{
-		if ( !bIsPanning && !bIsZoomingWithTrackpad )
+		if ( !bIsPanning && !bIsZooming )
 		{
 			ResolvePendingSelectedWidgets();
 
@@ -2021,7 +2042,7 @@ void SDesignerView::PopulateWidgetGeometryCache_Loop(FArrangedWidget& CurrentWid
 	{
 		bool bRespectLocks = IsRespectingLocks();
 
-		if (!CandidateUWidget->GetVisibilityInDesigner().IsVisible())
+		if (!CandidateUWidget->IsVisibleInDesigner())
 		{
 			bIncludeInHitTestGrid = false;
 		}
@@ -2792,6 +2813,7 @@ void SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, const F
 		{
 			if (Widget->GetOutermost() != GetTransientPackage())
 			{
+				Widget->SetFlags(RF_NoFlags);
 				Widget->Rename(nullptr, GetTransientPackage());
 			}
 		}
@@ -3051,25 +3073,6 @@ FReply SDesignerView::OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& 
 		// Regenerate extension widgets now that we've finished moving or placing the widget.
 		CreateExtensionWidgetsForSelection();
 
-		UPanelSlot* Slot;
-		UWidgetTree* WidgetTree = BP->WidgetTree;
-		if (WidgetTree && SelectedDragDropOp.IsValid())
-		{
-			for (auto& DraggedWidget : SelectedDragDropOp->DraggedWidgets)
-			{
-				FWidgetReference Reference = BlueprintEditor.Pin()->GetReferenceFromTemplate(DraggedWidget.Template);
-				UWidget* LocalPreviewWidget = Reference.GetPreview();
-				if (LocalPreviewWidget && LocalPreviewWidget->GetParent())
-				{
-					Slot = LocalPreviewWidget->GetParent()->GetSlots()[LocalPreviewWidget->GetParent()->GetChildIndex(LocalPreviewWidget)];
-					if (Slot != nullptr)
-					{
-						FWidgetBlueprintEditorUtils::ImportPropertiesFromText(Slot, DraggedWidget.ExportedSlotProperties);
-					}
-				}
-			}
-		}
-
 		DropPreviews.Empty();
 		return FReply::Handled().SetUserFocus(SharedThis(this));
 	}
@@ -3110,8 +3113,35 @@ FText SDesignerView::GetCurrentDPIScaleText() const
 	Options.MaximumFractionalDigits = 2;
 	Options.MinimumFractionalDigits = 1;
 
+	const UUserInterfaceSettings* UISettings = GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass());
+	if (UISettings && UISettings->UIScaleRule == EUIScalingRule::Custom)
+	{
+		UClass* CustomScalingRuleClassInstance = UISettings->CustomScalingRuleClass.TryLoadClass<UDPICustomScalingRule>();
+
+		if (CustomScalingRuleClassInstance == nullptr)
+		{
+			return LOCTEXT("NoCustomRuleWarning", "Warning: Using Custom DPI Rule with no rules class set. Set a class in User Interface Project Settings. ");
+		}
+	}
+
 	FText DPIString = FText::AsNumber(GetPreviewDPIScale(), &Options, I18N.GetInvariantCulture());
 	return FText::Format(LOCTEXT("CurrentDPIScaleFormat", "DPI Scale {0}"), DPIString);
+}
+
+FSlateColor SDesignerView::GetCurrentDPIScaleColor() const
+{
+	const UUserInterfaceSettings* UISettings = GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass());
+	if (UISettings && UISettings->UIScaleRule == EUIScalingRule::Custom)
+	{
+		UClass* CustomScalingRuleClassInstance = UISettings->CustomScalingRuleClass.TryLoadClass<UDPICustomScalingRule>();
+
+		if (CustomScalingRuleClassInstance == nullptr)
+		{
+			return FSlateColor(FLinearColor::Yellow);
+		}
+	}
+
+	return FSlateColor(FLinearColor(1, 1, 1, 0.25f));
 }
 
 FText SDesignerView::GetCurrentScaleFactorText() const
@@ -3223,6 +3253,8 @@ void SDesignerView::HandleOnCommonResolutionSelected(FPlayScreenResolution InRes
 {
 	bSafeZoneFlipped = false;
 	bCanPreviewSwapAspectRatio = InResolution.bCanSwapAspectRatio;
+	WidthReadFromSettings = InResolution.Width;
+	HeightReadFromSettings = InResolution.Height;
 	// Phone/tablet resolutions can be stored in either portrait or landscape mode, and may need to be flipped
 	if (bCanPreviewSwapAspectRatio && ((!bPreviewIsPortrait && InResolution.Width < InResolution.Height) ||
 		(bPreviewIsPortrait && InResolution.Width > InResolution.Height)))
@@ -3310,12 +3342,27 @@ bool SDesignerView::HandleIsCommonResolutionSelected(FPlayScreenResolution InRes
 		}
 	}
 
-	if (!InResolution.ProfileName.IsEmpty())
+	int32 TestHeight = InResolution.Height;
+	int32 TestWidth = InResolution.Width;
+
+	// Swap the width and height to test if the preview is currently flipped
+	if ((InResolution.bCanSwapAspectRatio) && (PreviewWidth > PreviewHeight))
 	{
-		return InResolution.ProfileName.Equals(PreviewOverrideName);
+		TestHeight = InResolution.Width;
+		TestWidth = InResolution.Height;
 	}
 
-	return ((InResolution.Width == PreviewWidth ) && (InResolution.Height == PreviewHeight )) || (InResolution.bCanSwapAspectRatio && (InResolution.Height == PreviewWidth) && (InResolution.Width == PreviewHeight));
+	// Compare to the size in the settings
+	const bool bSizeMatches = (((TestWidth == WidthReadFromSettings) && (TestHeight == HeightReadFromSettings))
+		|| (((bCanPreviewSwapAspectRatio && (PreviewWidth > PreviewHeight)) || InResolution.bCanSwapAspectRatio) && (TestHeight == WidthReadFromSettings) && (TestWidth == HeightReadFromSettings))); // flipped to landscape
+
+	if (!PreviewOverrideName.IsEmpty() || !InResolution.ProfileName.IsEmpty())
+	{
+		// Would have the same r.MobileContentScaleFactor and original size
+		return InResolution.ProfileName.Equals(PreviewOverrideName) && bSizeMatches;
+	}
+
+	return bSizeMatches;
 }
 
 void SDesignerView::AddScreenResolutionSection(FMenuBuilder& MenuBuilder, const TArray<FPlayScreenResolution> Resolutions, const FText SectionName)
@@ -3457,7 +3504,7 @@ TSharedRef<SWidget> SDesignerView::GetScreenSizingFillMenu()
 
 void SDesignerView::CreateScreenFillEntry(FMenuBuilder& MenuBuilder, EDesignPreviewSizeMode SizeMode)
 {
-	const static UEnum* PreviewSizeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EDesignPreviewSizeMode"), true);
+	const static UEnum* PreviewSizeEnum = StaticEnum<EDesignPreviewSizeMode>();
 
 	// Add desired size option
 	FUIAction DesiredSizeAction(
@@ -3471,7 +3518,7 @@ void SDesignerView::CreateScreenFillEntry(FMenuBuilder& MenuBuilder, EDesignPrev
 
 FText SDesignerView::GetScreenSizingFillText() const
 {
-	const static UEnum* PreviewSizeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EDesignPreviewSizeMode"), true);
+	const static UEnum* PreviewSizeEnum = StaticEnum<EDesignPreviewSizeMode>();
 
 	if ( UUserWidget* DefaultWidget = GetDefaultWidget() )
 	{
@@ -3564,16 +3611,24 @@ FReply SDesignerView::HandleZoomToFitClicked()
 FReply SDesignerView::HandleSwapAspectRatioClicked()
 {
 	bSafeZoneFlipped = false;
-	int32 OldPreviewHeight = PreviewHeight;
-	PreviewHeight = PreviewWidth;
-	PreviewWidth = OldPreviewHeight;
+	// If in portrait
+	if (PreviewHeight > PreviewWidth)
+	{
+		PreviewHeight = WidthReadFromSettings;
+		PreviewWidth = HeightReadFromSettings;
+	}
+	else
+	{
+		PreviewHeight = HeightReadFromSettings;
+		PreviewWidth = WidthReadFromSettings;
+	}
 
 	ScaleFactor = 1.0f;
 	ULevelEditorPlaySettings* PlayInSettings = GetMutableDefault<ULevelEditorPlaySettings>();
 	const UDeviceProfile* DeviceProfile = UDeviceProfileManager::Get().FindProfile(PreviewOverrideName, false);
 
 	// Rescale the swapped sizes if we are on Android
-	if (DeviceProfile && DeviceProfile->DeviceType == TEXT("Android"))
+	if (DeviceProfile)
 	{
 		PlayInSettings->RescaleForMobilePreview(DeviceProfile, PreviewWidth, PreviewHeight, ScaleFactor);
 	}

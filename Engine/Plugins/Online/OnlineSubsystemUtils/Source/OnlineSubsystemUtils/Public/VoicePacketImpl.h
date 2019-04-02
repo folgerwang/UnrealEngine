@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -11,7 +11,7 @@
 #define DEBUG_VOICE_PACKET_ENCODING 0
 
 /** Defines the data involved in a voice packet */
-class FVoicePacketImpl : public FVoicePacket
+class ONLINESUBSYSTEMUTILS_API FVoicePacketImpl : public FVoicePacket
 {
 
 PACKAGE_SCOPE:

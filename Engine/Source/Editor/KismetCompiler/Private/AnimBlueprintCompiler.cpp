@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimBlueprintCompiler.h"
 #include "UObject/UObjectHash.h"
@@ -102,8 +102,8 @@ bool FAnimBlueprintCompilerContext::FEffectiveConstantRecord::Apply(UObject* Obj
 //////////////////////////////////////////////////////////////////////////
 // FAnimBlueprintCompiler
 
-FAnimBlueprintCompilerContext::FAnimBlueprintCompilerContext(UAnimBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompileOptions, TArray<UObject*>* InObjLoaded)
-	: FKismetCompilerContext(SourceSketch, InMessageLog, InCompileOptions, InObjLoaded)
+FAnimBlueprintCompilerContext::FAnimBlueprintCompilerContext(UAnimBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompileOptions)
+	: FKismetCompilerContext(SourceSketch, InMessageLog, InCompileOptions)
 	, AnimBlueprint(SourceSketch)
 	, bIsDerivedAnimBlueprint(false)
 {
@@ -239,6 +239,7 @@ void FAnimBlueprintCompilerContext::CreateEvaluationHandlerStruct(UAnimGraphNode
 	// Shouldn't create a handler if there is nothing to work with
 	check(Record.ServicedProperties.Num() > 0);
 	check(Record.NodeVariableProperty != NULL);
+	const UAnimationGraphSchema* AnimGraphDefaultSchema = GetDefault<UAnimationGraphSchema>();
 
 	if (Record.IsFastPath())
 	{
@@ -246,7 +247,7 @@ void FAnimBlueprintCompilerContext::CreateEvaluationHandlerStruct(UAnimGraphNode
 	}
 
 	// Use the node GUID for a stable name across compiles
-	FString FunctionName = FString::Printf(TEXT("%s_%s_%s_%s"), *Record.EvaluationHandlerProperty->GetName(), *VisualAnimNode->GetOuter()->GetName(), *VisualAnimNode->GetClass()->GetName(), *VisualAnimNode->NodeGuid.ToString());
+	FString FunctionName = FString::Printf(TEXT("%s_%s_%s_%s"), *AnimGraphDefaultSchema->DefaultEvaluationHandlerName.ToString(), *VisualAnimNode->GetOuter()->GetName(), *VisualAnimNode->GetClass()->GetName(), *VisualAnimNode->NodeGuid.ToString());
 	Record.HandlerFunctionName = FName(*FunctionName);
 
 	// check function name isnt already used (data exists that can contain duplicate GUIDs) and apply a numeric extension until it is unique
@@ -254,7 +255,7 @@ void FAnimBlueprintCompilerContext::CreateEvaluationHandlerStruct(UAnimGraphNode
 	FName* ExistingName = HandlerFunctionNames.Find(Record.HandlerFunctionName);
 	while(ExistingName != nullptr)
 	{
-		FunctionName = FString::Printf(TEXT("%s_%s_%s_%s_%d"), *Record.EvaluationHandlerProperty->GetName(), *VisualAnimNode->GetOuter()->GetName(), *VisualAnimNode->GetClass()->GetName(), *VisualAnimNode->NodeGuid.ToString(), ExtensionIndex);
+		FunctionName = FString::Printf(TEXT("%s_%s_%s_%s_%d"), *AnimGraphDefaultSchema->DefaultEvaluationHandlerName.ToString(), *VisualAnimNode->GetOuter()->GetName(), *VisualAnimNode->GetClass()->GetName(), *VisualAnimNode->NodeGuid.ToString(), ExtensionIndex);
 		Record.HandlerFunctionName = FName(*FunctionName);
 		ExistingName = HandlerFunctionNames.Find(Record.HandlerFunctionName);
 		ExtensionIndex++;
@@ -369,9 +370,11 @@ void FAnimBlueprintCompilerContext::CreateEvaluationHandlerInstance(UAnimGraphNo
 	check(Record.ServicedProperties.Num() > 0);
 	check(Record.NodeVariableProperty != nullptr);
 	check(Record.bServicesInstanceProperties);
+	
+	const UAnimationGraphSchema* AnimGraphDefaultSchema = GetDefault<UAnimationGraphSchema>();
 
 	// Use the node GUID for a stable name across compiles
-	FString FunctionName = FString::Printf(TEXT("%s_%s_%s_%s"), *Record.EvaluationHandlerProperty->GetName(), *VisualAnimNode->GetOuter()->GetName(), *VisualAnimNode->GetClass()->GetName(), *VisualAnimNode->NodeGuid.ToString());
+	FString FunctionName = FString::Printf(TEXT("%s_%s_%s_%s"), *AnimGraphDefaultSchema->DefaultEvaluationHandlerName.ToString(), *VisualAnimNode->GetOuter()->GetName(), *VisualAnimNode->GetClass()->GetName(), *VisualAnimNode->NodeGuid.ToString());
 	Record.HandlerFunctionName = FName(*FunctionName);
 
 	// check function name isnt already used (data exists that can contain duplicate GUIDs) and apply a numeric extension until it is unique
@@ -379,7 +382,7 @@ void FAnimBlueprintCompilerContext::CreateEvaluationHandlerInstance(UAnimGraphNo
 	FName* ExistingName = HandlerFunctionNames.Find(Record.HandlerFunctionName);
 	while(ExistingName != nullptr)
 	{
-		FunctionName = FString::Printf(TEXT("%s_%s_%s_%s_%d"), *Record.EvaluationHandlerProperty->GetName(), *VisualAnimNode->GetOuter()->GetName(), *VisualAnimNode->GetClass()->GetName(), *VisualAnimNode->NodeGuid.ToString(), ExtensionIndex);
+		FunctionName = FString::Printf(TEXT("%s_%s_%s_%s_%d"), *AnimGraphDefaultSchema->DefaultEvaluationHandlerName.ToString(), *VisualAnimNode->GetOuter()->GetName(), *VisualAnimNode->GetClass()->GetName(), *VisualAnimNode->NodeGuid.ToString(), ExtensionIndex);
 		Record.HandlerFunctionName = FName(*FunctionName);
 		ExistingName = HandlerFunctionNames.Find(Record.HandlerFunctionName);
 		ExtensionIndex++;
@@ -577,13 +580,18 @@ void FAnimBlueprintCompilerContext::ProcessAnimationNode(UAnimGraphNode_Base* Vi
 					// Dynamic value that needs to be wired up and evaluated each frame
 					const FString& EvaluationHandlerStr = SourcePinProperty->GetMetaData(AnimGraphDefaultSchema->NAME_OnEvaluate);
 					FName EvaluationHandlerName(*EvaluationHandlerStr);
-					if (EvaluationHandlerName == NAME_None)
+					if (EvaluationHandlerName != NAME_None)
 					{
-						EvaluationHandlerName = AnimGraphDefaultSchema->DefaultEvaluationHandlerName;
+						// warn that NAME_OnEvaluate is deprecated:
+						MessageLog.Warning(*LOCTEXT("OnEvaluateDeprecated", "OnEvaluate meta data is deprecated, found on @@").ToString(), SourcePinProperty);
 					}
 
-					FEvaluationHandlerRecord& EvalHandler = StructEvalHandlers.FindOrAdd(EvaluationHandlerName);
+					EvaluationHandlerName = AnimGraphDefaultSchema->DefaultEvaluationHandlerName;
 
+					FEvaluationHandlerRecord& EvalHandler = StructEvalHandlers.FindOrAdd(EvaluationHandlerName);
+					
+					ensure(EvalHandler.NodeVariableProperty == nullptr || EvalHandler.NodeVariableProperty == NewProperty);
+					EvalHandler.NodeVariableProperty = NewProperty;
 					EvalHandler.RegisterPin(SourcePin, SourcePinProperty, SourceArrayIndex);
 
 					if(SubInstanceNode)
@@ -615,38 +623,14 @@ void FAnimBlueprintCompilerContext::ProcessAnimationNode(UAnimGraphNode_Base* Vi
 		}
 	}
 
-	// Match the associated property to each evaluation handler
-	for (TFieldIterator<UProperty> NodePropIt(NodeType); NodePropIt; ++NodePropIt)
-	{
-		if (UStructProperty* StructProp = Cast<UStructProperty>(*NodePropIt))
-		{
-			if (StructProp->Struct == FExposedValueHandler::StaticStruct())
-			{
-				// Register this property to the list of pins that need to be updated
-				// (it's OK if there isn't an entry for this handler, it means that the values are static and don't need to be calculated every frame)
-				FName EvaluationHandlerName(StructProp->GetFName());
-
-				FEvaluationHandlerRecord* pRecord = StructEvalHandlers.Find(EvaluationHandlerName);
-
-				if (pRecord)
-				{
-					pRecord->NodeVariableProperty = NewProperty;
-					pRecord->EvaluationHandlerProperty = StructProp;
-				}
-				
-			}
-		}
-	}
-
 	// Generate a new event to update the value of these properties
 	for (auto HandlerIt = StructEvalHandlers.CreateIterator(); HandlerIt; ++HandlerIt)
 	{
 		FName EvaluationHandlerName = HandlerIt.Key();
 		FEvaluationHandlerRecord& Record = HandlerIt.Value();
 
-		if (Record.IsValid())
+		if (Record.NodeVariableProperty)
 		{
-
 			// Disable fast-path generation for nativized anim BPs, we dont run the VM anyways and 
 			// the property names are 'decorated' by the backend, so records dont match.
 			if(Blueprint->NativizationFlag == EBlueprintNativizationFlag::Disabled)
@@ -659,6 +643,10 @@ void FAnimBlueprintCompilerContext::ProcessAnimationNode(UAnimGraphNode_Base* Vi
 				Record.BuildFastPathCopyRecords();
 			}
 
+			NewAnimBlueprintClass->EvaluateGraphExposedInputs.AddDefaulted(StructEvalHandlers.Num());
+			Record.EvaluationHandlerIdx = NewAnimBlueprintClass->EvaluateGraphExposedInputs.Num() - 1;
+
+			// add instance to class:
 			if(Record.bServicesInstanceProperties)
 			{
 				CreateEvaluationHandlerInstance(VisualAnimNode, Record);
@@ -1656,13 +1644,13 @@ void FAnimBlueprintCompilerContext::CopyTermDefaultsToDefaultObject(UObject* Def
 		// If we are a derived animation graph; apply any stored overrides.
 		// Restore values from the root class to catch values where the override has been removed.
 		UAnimBlueprintGeneratedClass* RootAnimClass = NewAnimBlueprintClass;
-		while(UAnimBlueprintGeneratedClass* NextClass = Cast<UAnimBlueprintGeneratedClass>(RootAnimClass->GetSuperClass()))
+		while (UAnimBlueprintGeneratedClass* NextClass = Cast<UAnimBlueprintGeneratedClass>(RootAnimClass->GetSuperClass()))
 		{
 			RootAnimClass = NextClass;
 		}
 		UObject* RootDefaultObject = RootAnimClass->GetDefaultObject();
 
-		for (TFieldIterator<UProperty> It(RootAnimClass) ; It; ++It)
+		for (TFieldIterator<UProperty> It(RootAnimClass); It; ++It)
 		{
 			UProperty* RootProp = *It;
 
@@ -1679,9 +1667,14 @@ void FAnimBlueprintCompilerContext::CopyTermDefaultsToDefaultObject(UObject* Def
 				}
 			}
 		}
+	}
 
+	// Give game-specific logic a chance to replace animations
+	CastChecked<UAnimInstance>(DefaultObject)->ApplyAnimOverridesToCDO(MessageLog);
+
+	if (bIsDerivedAnimBlueprint)
+	{
 		// Patch the overridden values into the CDO
-
 		TArray<FAnimParentNodeAssetOverride*> AssetOverrides;
 		AnimBlueprint->GetAssetOverrides(AssetOverrides);
 		for (FAnimParentNodeAssetOverride* Override : AssetOverrides)
@@ -1754,7 +1747,7 @@ void FAnimBlueprintCompilerContext::CopyTermDefaultsToDefaultObject(UObject* Def
 		Record.ValidateFastPath(DefaultObject->GetClass());
 
 		// patch either fast-path copy records or generated function names into the CDO
-		Record.PatchFunctionNameAndCopyRecordsInto(DefaultObject);
+		Record.PatchFunctionNameAndCopyRecordsInto(NewAnimBlueprintClass->EvaluateGraphExposedInputs[ Record.EvaluationHandlerIdx ]);
 	}
 
 	// And patch in constant values that don't need to be re-evaluated every frame
@@ -1918,7 +1911,7 @@ void FAnimBlueprintCompilerContext::CopyTermDefaultsToDefaultObject(UObject* Def
 			UAnimGraphNode_Base* Node = CastChecked<UAnimGraphNode_Base>(Handler.CopyRecords[0].DestPin->GetOwningNode());
 			UAnimGraphNode_Base* TrueNode = MessageLog.FindSourceObjectTypeChecked<UAnimGraphNode_Base>(Node);	
 
-			FExposedValueHandler* HandlerPtr = EvaluationHandler.EvaluationHandlerProperty->ContainerPtrToValuePtr<FExposedValueHandler>(EvaluationHandler.NodeVariableProperty->ContainerPtrToValuePtr<void>(DefaultAnimInstance));
+			FExposedValueHandler* HandlerPtr = &NewAnimBlueprintClass->EvaluateGraphExposedInputs[ EvaluationHandler.EvaluationHandlerIdx ];
 			TrueNode->BlueprintUsage = HandlerPtr->BoundFunction != NAME_None ? EBlueprintUsage::UsesBlueprint : EBlueprintUsage::DoesNotUseBlueprint; 
 
 #if WITH_EDITORONLY_DATA // ANIMINST_PostCompileValidation
@@ -2042,6 +2035,14 @@ void FAnimBlueprintCompilerContext::SpawnNewClass(const FString& NewClassName)
 	NewClass = NewAnimBlueprintClass;
 }
 
+void FAnimBlueprintCompilerContext::OnPostCDOCompiled()
+{
+	for (UAnimBlueprintGeneratedClass* ClassWithInputHandlers = NewAnimBlueprintClass; ClassWithInputHandlers != nullptr; ClassWithInputHandlers = Cast<UAnimBlueprintGeneratedClass>(ClassWithInputHandlers->GetSuperClass()))
+	{
+		FExposedValueHandler::Initialize(ClassWithInputHandlers->EvaluateGraphExposedInputs, NewAnimBlueprintClass->ClassDefaultObject);
+	}
+}
+
 void FAnimBlueprintCompilerContext::OnNewClassSet(UBlueprintGeneratedClass* ClassToUse)
 {
 	NewAnimBlueprintClass = CastChecked<UAnimBlueprintGeneratedClass>(ClassToUse);
@@ -2063,6 +2064,7 @@ void FAnimBlueprintCompilerContext::CleanAndSanitizeClass(UBlueprintGeneratedCla
 	NewAnimBlueprintClass->RootAnimNodeProperty = NULL;
 	NewAnimBlueprintClass->OrderedSavedPoseIndices.Empty();
 	NewAnimBlueprintClass->AnimNodeProperties.Empty();
+	NewAnimBlueprintClass->EvaluateGraphExposedInputs.Empty();
 
 	// Copy over runtime data from the blueprint to the class
 	NewAnimBlueprintClass->TargetSkeleton = AnimBlueprint->TargetSkeleton;
@@ -2710,10 +2712,10 @@ void FAnimBlueprintCompilerContext::AutoWireAnimGetter(class UK2Node_AnimGetter*
 	}
 }
 
-void FAnimBlueprintCompilerContext::FEvaluationHandlerRecord::PatchFunctionNameAndCopyRecordsInto(UObject* TargetObject) const
+void FAnimBlueprintCompilerContext::FEvaluationHandlerRecord::PatchFunctionNameAndCopyRecordsInto(FExposedValueHandler& Handler) const
 {
-	FExposedValueHandler* HandlerPtr = EvaluationHandlerProperty->ContainerPtrToValuePtr<FExposedValueHandler>(NodeVariableProperty->ContainerPtrToValuePtr<void>(TargetObject));
-	HandlerPtr->CopyRecords.Empty();
+	Handler.CopyRecords.Empty();
+	Handler.ValueHandlerNodeProperty = NodeVariableProperty;
 
 	if (IsFastPath())
 	{
@@ -2740,14 +2742,14 @@ void FAnimBlueprintCompilerContext::FEvaluationHandlerRecord::PatchFunctionNameA
 				  CopyRecord.Size = DestPropertySize;
 				  CopyRecord.PostCopyOperation = PropertyCopyRecord.Operation;
 				  CopyRecord.bInstanceIsTarget = PropertyHandler.bInstanceIsTarget;
-				  HandlerPtr->CopyRecords.Add(CopyRecord);
+				  Handler.CopyRecords.Add(CopyRecord);
 			}
 		}
 	}
 	else
 	{
 		// not all of our pins use copy records so we will need to call our exposed value handler
-		HandlerPtr->BoundFunction = HandlerFunctionName;
+		Handler.BoundFunction = HandlerFunctionName;
 	}
 }
 

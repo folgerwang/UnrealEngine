@@ -1,85 +1,89 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3750348
 Availability:Public
-Title:1 - Required Setup
-Description:In this step we import the required contenet and set up the assets we will use in this guide. 
+Crumbs: %ROOT%
+Title:1 - 必备设置
+Description:在本节中，我们将导入所需的内容并设置本指南中将要用到的资源。
 SkillLevel:Beginner
 Version:4.18
 checkpoint: mediaframeworkqs
-parent:Engine\MediaFramework\QuickStart
+parent:Engine/MediaFramework/QuickStart
+type:quick start
 type:multi-step
 order:1
 tags:Media Framework
  
 [NAV]
 
-In this step we do a bit of project preperation and import and create some of the assets that we will use during this guide. 
+在本步中，我们将进行一些项目准备并导入和创建一些要在本指南中使用的资源。 
 
 [REGION:note]
-For this guide, we are using the **Blueprint Third Person Template** project. You will also need to download/extract these [Sample Assets](Sample_Content.rar) for use with this tutorial.
+在本指南中，我们使用 **蓝图第三人称模板（Blueprint Third Person Template）** 项目。你也需要下载/提取这些要用于本教程的[样本资源](Sample_Content.rar)。
 [/REGION]
 
-## Steps
+## 步骤
 
-1. Inside your project in the **Content Browser**, expand the **Sources** panel then right-click on the **Content** folder and create a new folder called **Movies**. 
+1. 在 **内容浏览器** 中，在项目中展开 **源（Sources）** 面板，然后右键单击 **内容（Content）** 文件夹并创建一个名为 **Movies** 的新文件夹。 
 
 	![](Setup_01.png)
 
-	In order to package or deploy your project and any media files, you **MUST** place your media inside the **Content/Movies** folder of your project. 
+	[REGION:warning]
+	要打包或部署项目和媒体文件，必须将媒体放在项目的 **Content/Movies** 文件夹中。 
+	[/REGION]
 
-1. Right-click on the **Movies** folder then select the **Show in Explorer** option. 
+1. 右键单击 **Movies** 文件夹，然后选择 **在资源管理器中显示（Show in Explorer）** 选项。 
 
 	![](Setup_02.png)
 
-1. Place the sample video inside the **Content/Movies** folder on your computer. 
+1. 将样本视频放到计算机上的 **Content/Movies** 文件夹中。 
 
 	![](Setup_03.png)
 
-	[REGION:warning]
-	If you are using your own video, please visit the [](Engine\MediaFramework\TechReference\) page to ensure it is in the supported video file format. 
+	[REGION:tip]
+	如果要使用你自己的视频，请访问[](Engine\MediaFramework\TechReference)页面以确保它为受支持的视频文件格式。 
 	[/REGION]
 
-1. Right-click in the **Movies** folder, then under **Media**, choose **File Media Source** and name it **Video_01**. 
+1. 在 **Movies** 文件夹中右键单击，然后在 **媒体（Media）** 下，选择 **文件媒体源（File Media Source）** 并将其命名为 **Video_01**。 
 
 	![](Setup_04.png)
 
-	The **File Media Source** asset is used to point to video files that are stored locally on a device (which we will point to our sample file). 
+	**文件媒体源（File Media Source）** 资源用于指向存储在设备上的本地视频文件（我们将指向样本文件）。 
 
-1. Open the **File Media Source** asset, then click the **...** symbol and point to the sample video file on your computer. 
+1. 打开 **文件媒体源（File Media Source）** 资源，然后单击 **...** 符号并指向计算机上的样本视频文件。 
 
 	![](Setup_05.png)
 
-	While we have created a source for playback, we need a **Media Player** asset to actually play our video. 
+	我们已创建了用于播放的源，事实上我们还需要具有用于播放视频的 **媒体播放器（Media Player）** 资源。 
 
-1. Right-click in the **Movies** folder, then under **Media**, choose **Media Player**. 
+1. 在 **Movies** 文件夹中右键单击，然后在 **媒体（Media）** 下，选择 **媒体播放器（Media Player）**。 
 
 	![](Setup_06.png)
 
-1. In the **Create Media Player** dialogue window, enable **Video output Media Texture asset** then click the **OK** button and name it **MediaPlayer_01**. 
+1. 在 **创建媒体播放器（Create Media Player）** 对话窗口中，启用 **视频输出媒体纹理资源（Video output Media Texture asset）**，然后单击 **确定（OK）** 按钮并将其命名为 **MediaPlayer_01**。 
 
 	![](Setup_07.png)
 
-	This will automatically create and assign a **Media Texture** to the Media Player asset which is needed for playing back our video. 
+	这将自动创建并为播放视频所需的“媒体播放器（Media Player）”资源分配 **媒体纹理**。 
 
 	![](Setup_08.png)
 
-1. Open the **MediaPlayer_01** asset, then in the **Details** panel of the **Media Editor**, enable the **Loop** option. 
+1. 打开 **MediaPlayer_01** 资源，然后在 **媒体编辑器（Media Editor）** 的 **细节（Details）** 面板中启用 **循环（Loop）** 选项。 
 
 	![](Setup_09.png)
 
-	Inside the [Media Editor](Engine\MediaFramework\MediaEditorReference\), if you double-click on the **Video_01** file, playback will occur. 
-	In the **Detials** panel we have options to determine how we want to handle playback (in this case, we are setting this video to loop playback). 
-	Another option that is enabled by default is the **Play on Open** which will tell our video to start playing as soon as we open it through Blueprint or C++. 
+	在[媒体编辑器（Media Editor）](Engine\MediaFramework\MediaEditorReference)中，双击 **Video_01** 文件，它将开始播放。在 **细节（Details）** 面板中，具有用于确定如何处理播放的选项（在本示例中，我们将该视频设置为循环播放）。 
+	另一个默认启用的选项是 **打开时播放（Play on Open）**，它将指示视频在我们通过蓝图或C++将其打开时立即开始播放。
 
-1. Inside the **Content Browser**, create a new folder called **TV** and drag the **SM_TV** and **T_TV_M2** files from the Sample Content into your project to **Import All**. 
+1. 在 **内容浏览器** 中，创建一个名为 **TV** 的新文件夹，并将样本内容中的 **SM_TV** 和 **T_TV_M2** 文件拖到项目中并 **全部导入（Import All）**。 
 
 	![](Setup_10.png)	
 		
 
-## End Result
+## 最终结果
 
-The assets needed for our set up are ready and we have created our first few Media Framework assets (the File Media Source, Media Player, and Media Texture assets) which are needed to play back our video.
-We also imported a Static Mesh TV that we will play our video on inside our level and a texture that we will use in setting up our Material for our TV which we will do in the next step.
+设置项目所需的资源已准备就绪，而且我们也创建好了播放视频所需的一些最初的媒体框架资源（文件媒体源、媒体播放器和媒体纹理资源）。
+我们也导入了用于在关卡中充当视频播放载体的静态网格体电视机，以及我们将在下一步中设置电视机的材质时用到的纹理。
 
 [NAV]
+
 
 

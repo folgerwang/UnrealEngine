@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -24,7 +24,7 @@ struct APPLICATIONCORE_API FLuminPlatformApplicationMisc : public FAndroidApplic
 		return false;
 	}
 
-
+	static class GenericApplication* CreateApplication();
 };
 
 typedef FLuminPlatformApplicationMisc FPlatformApplicationMisc;

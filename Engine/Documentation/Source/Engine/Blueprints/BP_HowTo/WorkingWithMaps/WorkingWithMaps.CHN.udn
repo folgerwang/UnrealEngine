@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3489715
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:使用 Map 
 Description:学习如何在蓝图中使用 Map。
@@ -21,10 +21,12 @@ _完成此教程后，您将获得在虚幻引擎4（UE4）中使用 Map 的经�
 
 在[](Engine/Blueprints/UserGuide/Arrays)之后，蓝图 Map 如此受欢迎有其内在原因。因为它支持利用关联键进行高效的值查找和检索。
 
+(#Goal)
 ## 目标
 
 此指南将指导您设置并使用蓝图 Map。
 
+(#Objectives)
 ## 目的
 
 在此教程的学习中您将了解以下内容：
@@ -33,10 +35,11 @@ _完成此教程后，您将获得在虚幻引擎4（UE4）中使用 Map 的经�
 * 如何查询并显示蓝图 Map 中包含的项目。
 * 如何在蓝图 Map 上执行基本操作。
 
+(#Steps)
 ## 步骤
 
 [DIR(output:"checkpoint" parent:"Engine/Blueprints/BP_HowTo/WorkingWithMaps" org:"hierarchy")]
 
 [REGION:call_to_action]
-	[Click to Start](Engine/Blueprints/BP_HowTo/WorkingWithMaps/1 "%Engine/Blueprints/BP_HowTo/WorkingWithMaps/1:title%")
+	[点击开始](Engine/Blueprints/BP_HowTo/WorkingWithMaps/1 "%Engine/Blueprints/BP_HowTo/WorkingWithMaps/1:title%")
 [/REGION]

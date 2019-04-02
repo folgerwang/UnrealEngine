@@ -28,14 +28,22 @@
 			]
     }
   ],
-  "Plugins": [
-    {
-      "Name": "RemoteSession",
-      "Enabled": true
-    },
-    {
-      "Name": "SteamVR",
-      "Enabled":  true
-    }
-  ]
+	"Plugins": [
+		{
+			"Name": "RemoteSession",
+			"Enabled": true
+		},
+		{
+			"Name": "LevelSequenceEditor",
+			"Enabled": true
+		},
+		{
+			"Name": "Takes",
+			"Enabled": true
+		},
+		{
+			"Name": "VirtualProductionUtilities",
+			"Enabled": true
+		}
+	]
 }

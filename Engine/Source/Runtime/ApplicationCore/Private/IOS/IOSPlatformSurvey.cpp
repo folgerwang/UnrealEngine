@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	IOSPlatformSurvey.cpp: HardwareSurvey implementation
@@ -18,7 +18,7 @@ bool FIOSPlatformSurvey::GetSurveyResults(FHardwareSurveyResults& OutResults, bo
 	OutResults.OSBits = 32;
 #endif
 	FCString::Strcpy(OutResults.OSLanguage, *FString([[NSLocale preferredLanguages] objectAtIndex:0]));
-	FCString::Strcpy(OutResults.MultimediaAPI, FPlatformMisc::HasPlatformFeature(TEXT("Metal")) ? TEXT("Metal") : TEXT("ES2"));
+	FCString::Strcpy(OutResults.RenderingAPI, FPlatformMisc::HasPlatformFeature(TEXT("Metal")) ? TEXT("Metal") : TEXT("ES2"));
 	OutResults.CPUCount = FPlatformMisc::NumberOfCores();
 
 	// display 0 is max size

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,8 @@
 #include "MonteCarlo.ush"
 #include "ShadingModels.ush"
 #include "CapsuleLight.ush"
+
+Texture2D DummyRectLightTextureForCapsuleCompilerWarning;
 
 // Should this be SH instead?
 float IntegrateLight( FCapsuleLight Capsule, bool bInverseSquared )
@@ -97,6 +99,7 @@ FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FCapsuleL
 	AreaLight.FalloffColor = 1;
 	AreaLight.Rect = (FRect)0;
 	AreaLight.bIsRect = false;
+	AreaLight.Texture = InitRectTexture(DummyRectLightTextureForCapsuleCompilerWarning);
 
 	return IntegrateBxDF( GBuffer, N, V, L, Falloff, NoL, AreaLight, Shadow );
 }
@@ -194,7 +197,7 @@ FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FCapsuleL
 					uint2 Random = Rand3DPCG16( uint3( SVPos.xy, View.Random + i ) ).xy;
 
 					float3 ToArea = ToLight;
-					float3x3 Basis = GetTangentBasis( LightData.LightTangent );
+					float3x3 Basis = GetTangentBasis( LightData.Tangent );
 					
 					if( ( (float)Random.x / 0xffff ) * SurfaceArea < SphereArea )
 					{
@@ -202,7 +205,7 @@ FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FCapsuleL
 						float3 SpherePos = SourceRadius * UniformSampleSphere( E ).xyz;
 
 						ToArea += mul( SpherePos, Basis );
-						ToArea += LightData.LightTangent * ( SpherePos.z > 0 ? 0.5 * SourceLength : -0.5 * SourceLength;
+						ToArea += LightData.Tangent * ( SpherePos.z > 0 ? 0.5 * SourceLength : -0.5 * SourceLength;
 					}
 					else
 					{
@@ -224,7 +227,7 @@ FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FCapsuleL
 				{
 					uint2 Random = Rand3DPCG16( uint3( SVPos.xy, View.Random + i ) ).xy;
 
-					float3 L01 = LightData.LightTangent * SourceLength;
+					float3 L01 = LightData.Tangent * SourceLength;
 					float3 L0 = ToLight - 0.5 * L01;
 					float3 L1 = ToLight + 0.5 * L01;
 					L = lerp( L0, L1, (float)Random.x / 0xffff );

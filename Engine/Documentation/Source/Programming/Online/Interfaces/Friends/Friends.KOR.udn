@@ -1,16 +1,77 @@
-﻿INTSourceChangelist:3108692
-Availability:Docs
+INTSourceChangelist:4675738
+Availability: Public
+Crumbs: 
 Title: 친구 인터페이스
-Crumbs:%ROOT%, Programming, Programming/Online
-Description:친구 인터페이스 개요입니다.
-
-[TOC(start:2)]
-
-
-
-
-친구 인터페이스 개요
+Description: Friends Interface, 친구 인터페이스 개요입니다.
+Type: 
+Version: 4.21
+Parent: Programming/Online
+Order: 
+Tags: 
 
 
+친구와 게임을 하고 온라인에서 새로운 플레이어를 만나는 것은 많은 온라인 서비스에서 중요한 부분입니다. **Friends Interface** (친구 인터페이스)에는 다른 사용자 추가, 제거, 차단은 물론 사용자의 소셜 친구 목록을 관리하는 기능이 있습니다.
 
+## 친구 관리
 
+친구 목록은 온라인 서비스 서버에 저장되며 친구 추가 또는 제거, 게임과 세션에 들어가고 나가거나 서비스 로그인 / 로그 아웃으로 세션 중에 변경될 수 있습니다. 따라서 이러한 목록을 관리하려면 서버에 최신 정보를 쿼리한 다음 해당 정보를 캐시에 저장하고 게임에서 사용하는 과정이 필요합니다.
+
+### 친구 목록 검색
+
+사용자의 친구 목록을 처리하는 첫 번째 단계는 보통 `ReadFriendsList` 를 호출, 지정된 로컬 사용자에 속한 이름 있는 친구 목록의 최신 버전을 검색하는 것입니다. 유효한 목록 이름은 [`EFriendsList`](http://api.unrealengine.com/INT/API/Plugins/OnlineSubsystem/Interfaces/EFriendsLists__Type/index.html) 열거형에서 찾을 수 있으며, 제공된 `ToString` 함수를 통해 스트링으로 변환할 수 있습니다. 원격 컴퓨터를 쿼리하기 때문에 `ReadFriendsList` 는 비동기 처리되며, 완료되면 `FOnReadFriendsListComplete` 유형 델리게이트를 호출합니다.
+
+[REGION:note]
+성공 시 이 호출은 원격 컴퓨터를 반복적으로 쿼리하거나 개발자가 캐시 코드를 직접 작성하지 않고도 나중에 검토할 수 있도록 목록을 캐시에 저장합니다. 또한 목록에 있는 사용자의 [presense](Programming/Online/PresenceInterface) (현재 상태) 데이터를 업데이트합니다. `FOnReadFriendsListComplete` 에서 반환된 데이터는`ReadFriendsList` 연산의 성공 또는 실패에 관한 정보만을 포함합니다.
+[/REGION]
+
+### 친구 목록 검토
+
+`ReadFriendsList` 에 대한 호출이 성공적으로 끝나면, 개발자는`GetFriendsList` 를 사용하여 리스트 자체의 사본을 얻거나`GetFriend` 를 사용하여 리스트에서 개별 친구를 검색할 수 있습니다. 또한, 알려진 사용자의 `FUniqueNetId` 는 IsFriend 함수에 전달되어 해당 사용자에 대해 지정된 목록을 검사할 수 있습니다.
+
+[REGION:note]
+사용자가 새로운 플레이어를 만나는 게임 내 이벤트든, 별도 시스템에서 계정을 수정하는 게임 외 이벤트든, 친구 목록은 언제든 바뀔 수 있습니다. `ReadFriendsList` 를 호출하여 캐시에 저장된 목록을 최신 상태로 유지할 것을 고려해야 합니다.
+[/REGION]
+
+## 친구 초대
+
+`SendInvite` 함수는 그 사용자의 `FUniqueNetId` 에 의해 식별된 다른 사용자에게 초대장을 보냅니다. 수락하면 그 사용자를 온라인 서비스에 지정된 목록에 추가합니다. 이 작업이 끝나면 `FOnSendInviteComplete` 유형의 델리게이트가 호출됩니다. 그러나 이는 초대 자체를 전송( 또는 실패)했음을 의미할 뿐, 그 수신자가 받았거나 응답했음을 뜻하지는 않습니다. 일부 온라인 서비스에는 초대 전송을 위한 커스텀 유저 인터페이스가 있을 수 있으며, `SendInvite` 가 호출되면 자동으로 열릴 수 있습니다.
+
+[REGION:note]
+모든 `SendInvite` 호출은 결국 `FOnSendInviteComplete` 델리게이트를 트리거합니다. 여기에는 외부 UI 가 열리고 사용자가 이를 취소하는 경우도 포함됩니다.
+[/REGION]
+
+### 초대 수락 또는 거절
+
+다른 사용자의 초대를 받으면 발신자와 수신자의 `FUniqueNetId` 가 포함된 'FOnInviteReceivedDelegate` 유형 델리게이트가 호출됩니다. 그러면 초대된 사용자는 'AcceptInvite` 또는 `RejectInvite` 에 새 친구가 나타날 목록의 이름을 지정하여 호출하는 것으로 응답할 수 있습니다. `AcceptInvite` 는 `FOnAcceptInviteComplete` 유형 델리게이트를 사용하여 연산 결과를 전달하는 반면, `RejectInvite` 는`FOnRejectInviteComplete` 델리게이트를 사용합니다.
+
+### 친구 목록 삭제
+
+온라인 서비스는 비동기식 `DeleteFriendsList` 기능을 통해 친구 목록을 삭제하는 명령을 받을 수 있습니다. 완료되면 `FOnDeleteFriendsListComplete` 유형 델리게이트가 호출됩니다.
+
+### 친구 삭제
+
+로컬 사용자의 목록에서 친구를 삭제하려면 `DeleteFriend` 함수를 호출합니다. 작업이 완료되면 `FOnDeleteFriendComplete` 유형 델리게이트가 호출됩니다. 일부 온라인 서비스에서는 친구가 여러 목록에 존재할 수도 있습니다. 이 경우 이 함수는 지정된 목록의 친구만 제거합니다.
+
+## 온라인에[서 만난 플레이어 처리
+
+온라인 서비스는 종종 공개 게임 세션에서와 같이 사용자가 최근에 만났지만 친구 목록에 추가하거나 차단하지 않은 플레이어 목록을 별도로 유지합니다. 친구 목록과 마찬가지로 최근에 만난 플레이어 목록은 온라인 서비스를 쿼리한 다음 목록을 캐시에 저장하여 처리합니다.
+
+### 최근에 만난 플레이어 목록 검색
+
+`QueryRecentPlayers` 는 온라인 서비스에 대한 비동기 호출을 수행하고, 완료시 `FOnQueryRecentPlayersComplete` 유형 델리게이트를 호출합니다. 성공하면 친구 인터페이스는 목록을 로컬 캐시에 저장합니다.
+
+### 최근에 만난 플레이어 검토
+
+`QueryRecentPlayers` 호출에 성공하여 최근에 만난 플레이어 리스트를 검색했으면, `GetRecentPlayers` 함수는 캐시에 저장된 배열을 반환합니다. 배열의 개별 요소에는 사용자의 데이터는 물론 플레이어의 마지막 온라인 접속 시간을 알려주는 함수가 들어 있습니다.
+
+## 차단 목록 관리
+
+많은 온라인 서비스는 다른 특정 사용자가 연락하거나 같이 플레이할 수 없도록 차단하는 기능을 제공합니다. 친구 인터페이스는 차단된 사용자 목록을 검색하고 캐시에 저장하는 것은 물론, 온라인 서비스의 차단 및 해제 기능을 활용할 수 있습니다.
+
+### 현재 차단된 사용자 나열
+
+차단된 사용자 목록을 가져오려면 `QueryBlockedPlayers` 함수를 호출합니다. 이 함수는 비동기식이며 완료되면 `FOnQueryBlockedPlayersComplete` 유형 델리게이트를 호출합니다. 또한 차단된 사용자 목록에 변경 사항이 있으면 'FOnBlockListChange` 델리게이트를 통해 알립니다.
+
+### 사용자 차단 및 해제
+
+`BlockPlayer` 및 `UnblockPlayer` 함수는 온라인 서비스에 비동기 호출하여, 로컬 플레이어가 `FUniqueNetId` 로 식별되는 특정 플레이어를 차단 또는 해제하도록 요청합니다. 완료되면 각각 `FOnBlockedPlayerComplete` 및 `FOnUnblockedPlayerComplete` 유형 델리게이트를 통해 성공 또는 실패 정보를 반환합니다.

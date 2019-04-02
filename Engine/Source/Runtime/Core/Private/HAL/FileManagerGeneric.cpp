@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	FileManagerGeneric.cpp: Unreal generic file manager support code.
@@ -122,7 +122,7 @@ FArchive* FFileManagerGeneric::CreateFileWriterInternal( const TCHAR* Filename, 
 		}
 		return NULL;
 	}
-	return new FArchiveFileWriterGeneric( Handle, Filename, Handle->Tell(), BufferSize );
+	return new FArchiveFileWriterGeneric(Handle, Filename, Handle->Tell(), BufferSize, Flags);
 }
 
 
@@ -464,7 +464,17 @@ bool FFileManagerGeneric::IterateDirectory(const TCHAR* Directory, IPlatformFile
 	return GetLowLevel().IterateDirectory( Directory, Visitor );
 }
 
+bool FFileManagerGeneric::IterateDirectory(const TCHAR* Directory, IPlatformFile::FDirectoryVisitorFunc Visitor)
+{
+	return GetLowLevel().IterateDirectory( Directory, Visitor );
+}
+
 bool FFileManagerGeneric::IterateDirectoryRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryVisitor& Visitor)
+{
+	return GetLowLevel().IterateDirectoryRecursively( Directory, Visitor );
+}
+
+bool FFileManagerGeneric::IterateDirectoryRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryVisitorFunc Visitor)
 {
 	return GetLowLevel().IterateDirectoryRecursively( Directory, Visitor );
 }
@@ -474,7 +484,17 @@ bool FFileManagerGeneric::IterateDirectoryStat(const TCHAR* Directory, IPlatform
 	return GetLowLevel().IterateDirectoryStat( Directory, Visitor );
 }
 
+bool FFileManagerGeneric::IterateDirectoryStat(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitorFunc Visitor)
+{
+	return GetLowLevel().IterateDirectoryStat( Directory, Visitor );
+}
+
 bool FFileManagerGeneric::IterateDirectoryStatRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor)
+{
+	return GetLowLevel().IterateDirectoryStatRecursively( Directory, Visitor );
+}
+
+bool FFileManagerGeneric::IterateDirectoryStatRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitorFunc Visitor)
 {
 	return GetLowLevel().IterateDirectoryStatRecursively( Directory, Visitor );
 }
@@ -766,8 +786,9 @@ void FArchiveFileReaderGeneric::Serialize( void* V, int64 Length )
 	}
 }
 
-FArchiveFileWriterGeneric::FArchiveFileWriterGeneric( IFileHandle* InHandle, const TCHAR* InFilename, int64 InPos, uint32 InBufferSize )
+FArchiveFileWriterGeneric::FArchiveFileWriterGeneric( IFileHandle* InHandle, const TCHAR* InFilename, int64 InPos, uint32 InBufferSize, uint32 InFlags )
 	: Filename( InFilename )
+	, Flags( InFlags )
 	, Pos( InPos )
 	, BufferCount( 0 )
 	, Handle( InHandle )
@@ -801,7 +822,7 @@ bool FArchiveFileWriterGeneric::SeekLowLevel( int64 InPos )
 int64 FArchiveFileWriterGeneric::TotalSize()
 {
 	// Make sure that all data is written before looking at file size.
-	Flush();
+	FlushBuffer();
 	return Handle->Size();
 }
 
@@ -812,7 +833,7 @@ bool FArchiveFileWriterGeneric::WriteLowLevel( const uint8* Src, int64 CountToWr
 
 void FArchiveFileWriterGeneric::Seek( int64 InPos )
 {
-	Flush();
+	FlushBuffer();
 	if( !SeekLowLevel( InPos ) )
 	{
 		ArIsError = true;
@@ -823,7 +844,7 @@ void FArchiveFileWriterGeneric::Seek( int64 InPos )
 
 bool FArchiveFileWriterGeneric::Close()
 {
-	Flush();
+	FlushBuffer();
 	if( !CloseLowLevel() )
 	{
 		ArIsError = true;
@@ -837,7 +858,7 @@ void FArchiveFileWriterGeneric::Serialize( void* V, int64 Length )
 	Pos += Length;
 	if ( Length >= BufferSize )
 	{
-		Flush();
+		FlushBuffer();
 		if( !WriteLowLevel( (uint8*)V, Length ) )
 		{
 			ArIsError = true;
@@ -854,7 +875,7 @@ void FArchiveFileWriterGeneric::Serialize( void* V, int64 Length )
 			check( BufferCount <= BufferSize && BufferCount >= 0 );
 			Length      -= Copy;
 			V            =( uint8* )V + Copy;
-			Flush();
+			FlushBuffer();
 		}
 		if( Length )
 		{
@@ -867,26 +888,33 @@ void FArchiveFileWriterGeneric::Serialize( void* V, int64 Length )
 
 void FArchiveFileWriterGeneric::Flush()
 {
-	if( BufferCount )
+	if (FlushBuffer() && Handle)
 	{
-		check( BufferCount <= BufferSize && BufferCount > 0 );
-		if( !WriteLowLevel( Buffer, BufferCount ) )
+		Handle->Flush();
+	}
+}
+
+bool FArchiveFileWriterGeneric::FlushBuffer()
+{
+	bool bDidWriteData = false;
+	if (BufferCount)
+	{
+		check(BufferCount <= BufferSize && BufferCount > 0);
+		bDidWriteData = WriteLowLevel(Buffer, BufferCount);
+		if (!bDidWriteData)
 		{
 			ArIsError = true;
 			LogWriteError(TEXT("Error flushing file"));
 		}
 		BufferCount = 0;
 	}
-	if (Handle.IsValid())
-	{
-		Handle->Flush();
-	}
+	return bDidWriteData;
 }
 
 void FArchiveFileWriterGeneric::LogWriteError(const TCHAR* Message)
 {
 	// Prevent re-entry if logging causes another log error leading to a stack overflow
-	if (!bLoggingError)
+	if (!bLoggingError && !IsSilent())
 	{
 		bLoggingError = true;
 		TCHAR ErrorBuffer[1024];

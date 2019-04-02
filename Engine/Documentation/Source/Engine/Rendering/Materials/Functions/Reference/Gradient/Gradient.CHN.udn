@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2735587
+﻿INTSourceChangelist:3242329
 Availability:Public
 title:渐变
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
 Description:以程序方式生成要添加至材质的渐变，从而消除对纹理的需求并节省内存。
 Version:4.9
+tags:Materials
 
 [TOC (start:2 end:3)]
 
@@ -11,10 +12,12 @@ Version:4.9
 
 渐变函数以程序方式生成根据纹理坐标表达式产生的渐变。与创建基于纹理的渐变相比，这些函数可节省内存。
 
+(#GradientFunctions)
 ## 渐变函数
 
 以下是渐变函数的列表。
 
+(#RadialGradientExponential)
 ### 指数径向渐变
 
 **RadialGradientExponential（指数径向渐变）**函数使用 UV 通道 0 来产生径向渐变，同时允许用户调整半径和中心点偏移。
@@ -41,6 +44,7 @@ Version:4.9
 
 
 
+(#DiamondGradient)
 ### 菱形渐变
 
 **DiamondGradient（菱形渐变）**函数使用 UV 通道 0 来产生径向渐变，同时允许用户调整渐变衰减率。
@@ -63,6 +67,7 @@ Version:4.9
 
 
 
+(#LinearGradient)
 ### 线性渐变
 
 **LinearGradient（线性渐变）**函数使用 UV 通道 0 在 U 或 V 方向上产生线性渐变，其中，方向取决于所使用的输出。
@@ -84,6 +89,7 @@ Version:4.9
 [/REGION]
 
 
+(#SmoothCurve)
 ### 平滑曲线
 
 **SmoothCurve（平滑曲线）**函数接收现有的纹理通道或渐变，并使用程序式曲线来控制从暗到亮的过渡。用户可调整此曲线的切线以更改结果。
@@ -107,6 +113,7 @@ Version:4.9
 [/REGION]
 
 
+(#ValueStep)
 ### 值阶
 
 **ValueStep（值阶）**函数接收现有的纹理通道或渐变，并根据用户的输入来输出纯黑白色图像。结果是一个蒙版，它代表与输入值相等的渐变部分。

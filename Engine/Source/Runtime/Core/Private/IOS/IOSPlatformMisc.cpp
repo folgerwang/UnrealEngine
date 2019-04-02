@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	IOSPlatformMisc.mm: iOS implementations of misc functions
@@ -18,6 +18,7 @@
 #include "Misc/CommandLine.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/CoreDelegates.h"
+#include "Misc/ScopeExit.h"
 #include "Apple/ApplePlatformCrashContext.h"
 #include "IOS/IOSPlatformCrashContext.h"
 #if !PLATFORM_TVOS
@@ -34,8 +35,6 @@
 #include "Internationalization/Internationalization.h"
 #include "Internationalization/Culture.h"
 
-#include "FramePro/FrameProProfiler.h"
-
 #if !PLATFORM_TVOS
 #include <AdSupport/ASIdentifierManager.h> 
 #endif
@@ -51,6 +50,10 @@
 #import <UserNotifications/UserNotifications.h>
 #include "Async/TaskGraphInterfaces.h"
 #include "Misc/CoreDelegates.h"
+#endif
+
+#if !defined ENABLE_ADVERTISING_IDENTIFIER
+	#define ENABLE_ADVERTISING_IDENTIFIER 0
 #endif
 
 //#include <libproc.h>
@@ -79,7 +82,7 @@ static int32 GetFreeMemoryMB()
 	vm_statistics Stats;
 	mach_msg_type_number_t StatsSize = sizeof(Stats);
 	host_statistics(mach_host_self(), HOST_VM_INFO, (host_info_t)&Stats, &StatsSize);
-	return (Stats.free_count * PageSize) / 1024 / 1024;
+	return ((Stats.free_count + Stats.inactive_count) * PageSize) / 1024 / 1024;
 }
 
 void FIOSPlatformMisc::PlatformInit()
@@ -113,7 +116,11 @@ void FIOSPlatformMisc::PlatformInit()
 	ResultStr.ReplaceInline(TEXT("../"), TEXT(""));
 	ResultStr.ReplaceInline(TEXT(".."), TEXT(""));
 	ResultStr.ReplaceInline(FPlatformProcess::BaseDir(), TEXT(""));
+#if FILESHARING_ENABLED
+	FString DownloadPath = FString([NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES) objectAtIndex:0]) + TEXT("/");
+#else
 	FString DownloadPath = FString([NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0]) + TEXT("/");
+#endif
 	ResultStr = DownloadPath + ResultStr;
 	NSURL* URL = [NSURL fileURLWithPath : ResultStr.GetNSString()];
 	if (![[NSFileManager defaultManager] fileExistsAtPath:[URL path]])
@@ -149,6 +156,12 @@ void FIOSPlatformMisc::PlatformInit()
 	}
 }
 
+// Defines the PlatformFeatures module name for iOS, used by PlatformFeatures.h.
+const TCHAR* FIOSPlatformMisc::GetPlatformFeaturesModuleName()
+{
+	return TEXT("IOSPlatformFeatures");
+}
+
 void FIOSPlatformMisc::PlatformHandleSplashScreen(bool ShowSplashScreen)
 {
     if (GShowSplashScreen != ShowSplashScreen)
@@ -179,7 +192,11 @@ const TCHAR* FIOSPlatformMisc::GamePersistentDownloadDir()
         Result.ReplaceInline(TEXT("../"), TEXT(""));
         Result.ReplaceInline(TEXT(".."), TEXT(""));
         Result.ReplaceInline(FPlatformProcess::BaseDir(), TEXT(""));
-        FString DownloadPath = FString([NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0]) + TEXT("/");
+#if FILESHARING_ENABLED
+        FString DownloadPath = FString([NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES) objectAtIndex:0]) + TEXT("/");
+#else
+		FString DownloadPath = FString([NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0]) + TEXT("/");
+#endif
         Result = DownloadPath + Result;
         NSURL* URL = [NSURL fileURLWithPath : Result.GetNSString()];
         if (![[NSFileManager defaultManager] fileExistsAtPath:[URL path]])
@@ -188,14 +205,11 @@ const TCHAR* FIOSPlatformMisc::GamePersistentDownloadDir()
         }
         
         // mark it to not be uploaded
-        if ([[NSFileManager defaultManager] fileExistsAtPath:[URL path]])
+        NSError *error = nil;
+        BOOL success = [URL setResourceValue : [NSNumber numberWithBool : YES] forKey : NSURLIsExcludedFromBackupKey error : &error];
+        if (!success)
         {
-            NSError *error = nil;
-            BOOL success = [URL setResourceValue : [NSNumber numberWithBool : YES] forKey : NSURLIsExcludedFromBackupKey error : &error];
-            if (!success)
-            {
-                NSLog(@"Error excluding %@ from backup %@",[URL lastPathComponent], error);
-            }
+            NSLog(@"Error excluding %@ from backup %@",[URL lastPathComponent], error);
         }
     }
     return *GamePersistentDownloadDir;
@@ -357,7 +371,9 @@ FIOSPlatformMisc::EIOSDevice FIOSPlatformMisc::GetIOSDeviceType()
 
 	const FString DeviceIDString = GetIOSDeviceIDString();
 
-	// iPods
+    FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Device Type: %s") LINE_TERMINATOR, *DeviceIDString);
+
+    // iPods
 	if (DeviceIDString.StartsWith(TEXT("iPod")))
 	{
 		// get major revision number
@@ -785,7 +801,7 @@ void FIOSPlatformMisc::RequestStoreReview()
 */
 FString FIOSPlatformMisc::GetUniqueAdvertisingId()
 {
-#if !PLATFORM_TVOS
+#if !PLATFORM_TVOS && ENABLE_ADVERTISING_IDENTIFIER
 	// Check to see if this OS has this function
 	if ([[ASIdentifierManager sharedManager] respondsToSelector:@selector(advertisingIdentifier)])
 	{
@@ -990,6 +1006,63 @@ void FIOSPlatformMisc::ShareURL(const FString& URL, const FText& Description, in
 }
 
 
+FString FIOSPlatformMisc::LoadTextFileFromPlatformPackage(const FString& RelativePath)
+{
+	FString FilePath = FString([[NSBundle mainBundle] bundlePath]) / RelativePath;
+
+	// read in the command line text file (coming from UnrealFrontend) if it exists
+	int32 File = open(TCHAR_TO_UTF8(*FilePath), O_RDONLY);
+	if (File == -1)
+	{
+		LowLevelOutputDebugStringf(TEXT("No file found at %s") LINE_TERMINATOR, *FilePath);
+		return FString();
+	}
+
+	ON_SCOPE_EXIT
+	{
+		close(File);
+	};
+
+	struct stat FileInfo;
+	FileInfo.st_size = -1;
+
+	if (fstat(File, &FileInfo))
+	{
+		LowLevelOutputDebugStringf(TEXT("Failed to determine file size of %s") LINE_TERMINATOR, *FilePath);
+		return FString();
+	}
+
+	if (FileInfo.st_size > MAX_int32 - 1)
+	{
+		LowLevelOutputDebugStringf(TEXT("File too big %s") LINE_TERMINATOR, *FilePath);
+		return FString();
+	}
+
+	LowLevelOutputDebugStringf(TEXT("Found %s file") LINE_TERMINATOR, *RelativePath);
+
+	int32 FileSize = static_cast<int32>(FileInfo.st_size);
+	TArray<char> FileContents;
+	FileContents.AddUninitialized(FileSize + 1);
+	FileContents[FileSize] = 0;
+
+	int32 NumRead = read(File, FileContents.GetData(), FileSize);
+	if (NumRead != FileSize)
+	{
+		LowLevelOutputDebugStringf(TEXT("Failed to read %s") LINE_TERMINATOR, *FilePath);
+		return FString();
+	}
+
+	// chop off trailing spaces
+	int32 Last = FileSize - 1;
+	while (FileContents[0] && isspace(FileContents[Last]))
+	{
+		FileContents[Last] = 0;
+		--Last;
+	}
+
+	return FString(UTF8_TO_TCHAR(FileContents.GetData()));
+}
+
 void FIOSPlatformMisc::EnableVoiceChat(bool bEnable)
 {
 	return [[IOSAppDelegate GetDelegate] EnableVoiceChat:bEnable];
@@ -1002,6 +1075,11 @@ bool FIOSPlatformMisc::IsVoiceChatEnabled()
 
 void FIOSPlatformMisc::RegisterForRemoteNotifications()
 {
+	if (FApp::IsUnattended())
+	{
+		return;
+	}
+
     dispatch_async(dispatch_get_main_queue(), ^{
 #if !PLATFORM_TVOS && NOTIFICATIONS_ENABLED
 #if __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_10_0
@@ -1412,7 +1490,7 @@ static uint32 GIOSStackIgnoreDepth = 6;
 // true system specific crash handler that gets called first
 static void PlatformCrashHandler(int32 Signal, siginfo_t* Info, void* Context)
 {
-    FIOSCrashContext CrashContext;
+    FIOSCrashContext CrashContext(ECrashContextType::Crash, TEXT("Caught signal"));
     CrashContext.IgnoreDepth = GIOSStackIgnoreDepth;
     CrashContext.InitFromSignal(Signal, Info, Context);
     
@@ -1515,55 +1593,6 @@ bool FIOSPlatformMisc::DeleteStoredValue(const FString& InStoreId, const FString
 	return false;
 }
 
-#if STATS || ENABLE_STATNAMEDEVENTS
-
-void FIOSPlatformMisc::BeginNamedEventFrame()
-{
-#if FRAMEPRO_ENABLED
-	FFrameProProfiler::FrameStart();
-#endif // FRAMEPRO_ENABLED
-}
-
-void FIOSPlatformMisc::BeginNamedEvent(const struct FColor& Color, const TCHAR* Text)
-{
-#if FRAMEPRO_ENABLED
-	FFrameProProfiler::PushEvent(Text);
-#endif // FRAMEPRO_ENABLED
-
-	FApplePlatformMisc::BeginNamedEvent(Color, Text);
-}
-
-void FIOSPlatformMisc::BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text)
-{
-#if FRAMEPRO_ENABLED
-	FFrameProProfiler::PushEvent(Text);
-#endif // FRAMEPRO_ENABLED
-
-	FApplePlatformMisc::BeginNamedEvent(Color, Text);
-}
-
-void FIOSPlatformMisc::EndNamedEvent()
-{
-#if FRAMEPRO_ENABLED
-	FFrameProProfiler::PopEvent();
-#endif // FRAMEPRO_ENABLED
-
-	FApplePlatformMisc::EndNamedEvent();
-}
-
-void FIOSPlatformMisc::CustomNamedStat(const TCHAR* Text, float Value, const TCHAR* Graph, const TCHAR* Unit)
-{
-	FRAMEPRO_DYNAMIC_CUSTOM_STAT(TCHAR_TO_WCHAR(Text), Value, TCHAR_TO_WCHAR(Graph), TCHAR_TO_WCHAR(Unit));
-}
-
-void FIOSPlatformMisc::CustomNamedStat(const ANSICHAR* Text, float Value, const ANSICHAR* Graph, const ANSICHAR* Unit)
-{
-	FRAMEPRO_DYNAMIC_CUSTOM_STAT(Text, Value, Graph, Unit);
-}
-
-#endif // STATS || ENABLE_STATNAMEDEVENTS
-
-
 void FIOSPlatformMisc::SetGracefulTerminationHandler()
 {
     struct sigaction Action;
@@ -1625,6 +1654,11 @@ void FIOSPlatformMisc::SetCrashHandler(void (* CrashHandler)(const FGenericCrash
         }
     }
 #endif
+}
+
+FIOSCrashContext::FIOSCrashContext(ECrashContextType InType, const TCHAR* InErrorMessage)
+	: FApplePlatformCrashContext(InType, InErrorMessage)
+{
 }
 
 void FIOSCrashContext::CopyMinidump(char const* OutputPath, char const* InputPath) const
@@ -1859,7 +1893,7 @@ void FIOSCrashContext::GenerateEnsureInfo() const
 static FCriticalSection EnsureLock;
 static bool bReentranceGuard = false;
 
-void NewReportEnsure( const TCHAR* ErrorMessage, int NumStackFramesToIgnore )
+void ReportEnsure( const TCHAR* ErrorMessage, int NumStackFramesToIgnore )
 {
     // Simple re-entrance guard.
     EnsureLock.Lock();
@@ -1880,7 +1914,7 @@ void NewReportEnsure( const TCHAR* ErrorMessage, int NumStackFramesToIgnore )
         Signal.si_code = TRAP_TRACE;
         Signal.si_addr = __builtin_return_address(0);
         
-        FIOSCrashContext EnsureContext;
+        FIOSCrashContext EnsureContext(ECrashContextType::Ensure, ErrorMessage);
         EnsureContext.InitFromSignal(SIGTRAP, &Signal, nullptr);
         EnsureContext.GenerateEnsureInfo();
     }

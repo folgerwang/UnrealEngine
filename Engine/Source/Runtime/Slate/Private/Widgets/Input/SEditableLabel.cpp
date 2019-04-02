@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Widgets/Input/SEditableLabel.h"
 #include "Widgets/SBoxPanel.h"
@@ -12,7 +12,7 @@
 
 /* SEditableLabel interface
  *****************************************************************************/
-
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 void SEditableLabel::Construct(const FArguments& InArgs)
 {
 	CanEditAttribute = InArgs._CanEdit;
@@ -137,5 +137,6 @@ FReply SEditableLabel::HandleTextBlockDoubleClicked()
 	return FReply::Handled().SetUserFocus(EditableText.ToSharedRef(), EFocusCause::Navigation);
 }
 
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 #undef LOCTEXT_NAMESPACE

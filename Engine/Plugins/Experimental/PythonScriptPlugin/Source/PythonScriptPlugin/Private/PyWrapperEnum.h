@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -143,7 +143,7 @@ private:
 	/** Meta-data for this generated enum that is applied to the Python type */
 	FPyWrapperEnumMetaData PyMetaData;
 
-	friend struct FPythonGeneratedEnumUtil;
+	friend class FPythonGeneratedEnumBuilder;
 
 #endif	// WITH_PYTHON
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieScene3DPathTrack.h"
 #include "Sections/MovieScene3DPathSection.h"
@@ -14,6 +14,10 @@ UMovieScene3DPathTrack::UMovieScene3DPathTrack( const FObjectInitializer& Object
 	: Super( ObjectInitializer )
 { }
 
+bool UMovieScene3DPathTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieScene3DPathSection::StaticClass();
+}
 
 FMovieSceneEvalTemplatePtr UMovieScene3DPathTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const
 {

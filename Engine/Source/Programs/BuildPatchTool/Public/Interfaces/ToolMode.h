@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -16,6 +16,38 @@ namespace BuildPatchTool
 
 	public:
 		virtual EReturnCode Execute() = 0;
+
+		/**
+		 * Helper for normalizing a URI referring to a file. We make sure not to cause issues with URIs that separate a protocol and authority with ://
+		 * and windows UNC paths that begin with \\. Windows UNC paths still work in UE4 code with //.
+		 *
+		 * @param UriFile       The file URI to be Normalized.
+		 */
+		void NormalizeUriFile(FString& UriFile)
+		{
+			// Replace all slashes.
+			UriFile.ReplaceInline(TEXT("\\"), TEXT("/"), ESearchCase::CaseSensitive);
+		}
+
+		/**
+		 * Helper for normalizing a URI referring to a path. We make sure not to cause issues with URIs that separate a protocol and authority with ://
+		 * and windows UNC paths that begin with \\. Windows UNC paths still work in UE4 code with //.
+		 *
+		 * @param UriPath       The path URI to be Normalized.
+		 */
+		void NormalizeUriPath(FString& UriPath)
+		{
+			// Fix all slashes.
+			NormalizeUriFile(UriPath);
+			// Remove trailing slashes, unless it is for a windows based drive (e.g. "C:/")
+			int32 TrailingSlashIdx = UriPath.Len() - 1;
+			while (UriPath.EndsWith(TEXT("/"), ESearchCase::CaseSensitive) && !UriPath.EndsWith(TEXT(":/"), ESearchCase::CaseSensitive))
+			{
+				// Overwrite trailing slash with terminator, and trim size.
+				UriPath.GetCharArray()[TrailingSlashIdx--] = 0;
+				UriPath.GetCharArray().SetNum(UriPath.GetCharArray().Num() - 1, false);
+			}
+		}
 
 		/**
 		 * Helper for parsing a switch from an array of switches, usually produced using FCommandLine::Parse(..)

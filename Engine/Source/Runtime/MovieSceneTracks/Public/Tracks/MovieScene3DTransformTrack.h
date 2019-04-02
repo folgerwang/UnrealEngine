@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -62,13 +62,8 @@ public:
 
 	// UMovieSceneTrack interface
 
+	virtual bool SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const override;
 	virtual UMovieSceneSection* CreateNewSection() override;
-
-	/**
-	 * Access the interrogation key for transform data - any interrgation data stored with this key is guaranteed to be of type 'FTransform'
-	 */
-	MOVIESCENETRACKS_API static FMovieSceneInterrogationKey GetInterrogationKey();
-
 
 #if WITH_EDITOR
 

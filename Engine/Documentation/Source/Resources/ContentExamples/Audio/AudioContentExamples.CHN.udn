@@ -1,218 +1,195 @@
-﻿INTSourceChangelist:2712654
+INTSourceChangelist:3782314
 Availability: Public
 Title:音频内容示例
 Crumbs:%ROOT%, Resources, Resources/ContentExamples
-Description:在音频内容示例中提供的实例概述。
+Description:概述音频内容示例中提供的示例。
 Related: Engine/Audio/Overview
 Related: Engine/Audio
 Related: Engine/Audio/SoundCues/Editor
 Related: Engine/Audio/DistanceModelAttenuation
+topic-image:audio_compact.png
 
 [REGION:banner]
 ![](Audio_Header.png)(convert:false)
 [/REGION]
 
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/Audio:title%](audio_compact.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Audio:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Audio:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/Audio]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/Audio:title%](audio_compact.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Audio:title%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/Audio]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[COMMENT:none]
--
-[TOC(start:2 end:2)]
--
-[/COMMENT]
+“内容示例”项目中的 **音频** 图以容易理解的实例来展现所有的音频系统，是了解整个音频系统组合方式的一手来源。此页面将介绍音频内容示例都包含哪些内容，以及如何查找你要使用的音频系统的具体示例。无论你是初次使用虚幻引擎4中的音频还是想要温习巩固，此图都可为你打下良好的基础。
 
 
-## 概述
-
-在 **Content Examples** （内容示例）项目中的 **Audio Map** （音频图）是查看所有的音频系统如何组合到一起，并在比特大小的实际示例中展示它们的一手的出色来源。 本页面旨在让您了解从音频 **内容示例** 中可以了解的内容以及如何基于您想要查看的音频系统来搜寻特定示例。 
-
-
+(#audiomap)
 ## 音频图
 
 ![](contentExamplesStarterMap.png)(w:640)
 
-**音频** 图让您了解在虚幻引擎4中使用音频的核心理念。本图涵盖了许多主题，包括了音频资源的不同类型以及如何使用它们来制作基于您需要的不同特效。 无论您是刚使用虚幻引擎4中的音频，还是需要更新的课程，此图都将为您提供出色的基础。 
-
-| 示例 |  展示的内容 |
+[COMMENT:none]
+-
+通过 **音频** 图你可以了解在虚幻引擎4中使用音频的核心概念。此图涵盖了许多主题，包括不同类型的音频资源以及如何使用这些资源来根据需要制作各种特效。无论你是初次使用虚幻引擎4中的音频还是想要温习巩固，此图都可为你打下良好的基础。 
+-
+[/COMMENT]
+| 示例 | 展示的内容 |
 | ------- | ------------ |
-| **1.1 AmbientSound Actor** （环境声音Actor）| 为只触发一次的事件而播放的音频。 |
-| **1.2 AmbientSound Looping** （环境声音循环）| 音频不断地持续播放，直到被告知停止。 |
-| **1.3 AmbientSound Spatialize** （环境声音空间化）| 自声音位置处播放的音频、 |
-| **1.4 AmbientSound Attenuation** （环境声音衰减）| 自声音位置处播放的音频，并会基于距离声音的距离而变得更响或更柔和。 |
-| **1.5 Attenuation with Low Pass Filter (LPF)** （低通滤波衰减）| 自声音位置处播放的音频，并且会随着玩家距离声音的距离拉远而更低沉。  |
-| **1.6 Attenuation Shapes** （衰减形状）|在指定的形状内（例如球体，胶囊体，盒体或椎体）自声音位置播放的音频。 |
-| **1.7 Shared Attenuation Settings** （共享的衰减设置）| 展示影响多个 **声音Actors** 的 **衰减** 的 **声音衰减** 资源。 |
-| **1.8 AmbientSound Actor using SoundCues** （使用声效的环境声音Actor）| 展示如何使用 **声效** 而非 **声波** 来创建更为复杂的声音或把多个声音混合到一个。 |
-| **1.9 Audio Volume** （音频体积）|音频受 **音频体积** 的影响，其效果仅在玩家位于体积内时才能听到（例如当您在体积内时，您听到的对话播放和声音如同您在礼堂内所听到的那样。 当您在体积外时，对话正常播放）。 |
-| **1.10 Audio Volume using Ambient Zone** （使用环境区域的音频体积）| 两种声音受到 **环境区域** 的影响，一种声音被放置在 **音频体积** 内，而另一种则不是。 体积内的声音在 **音频体积** 外时较轻，但在 **音频体积** 内时较响，而体积外的声音在 **音频体积** 内时较轻，但在 **音频体积** 外时较响（例如，当晚间从内部环境移动到外部环境时的音频）。 |
+| **1.1 环境声Actor（AmbientSound Actor）** | 作为一次性事件播放的音频。|
+| **1.2 环境声循环（AmbientSound Looping）** | 持续播放的音频，直到发出停止播放的指令为止。|
+| **1.3 环境声空间化（AmbientSound Spatialize）** | 自声音位置处播放的音频。|
+| **1.4 环境声衰减（AmbientSound Attenuation）** | 自声音位置处播放并根据距声音的距离而增大或减小音量的音频。|
+| **1.5 低通滤波器衰减（Attenuation with Low Pass Filter (LPF)）** | 自声音位置处播放并随玩家远离声音位置而逐渐变弱的音频。|
+| **1.6 衰减形状（Attenuation Shapes）** | 在指定的形状（如球体、胶囊体、盒体或椎体）内自声音位置播放的音频。|
+| **1.7 共享的衰减设置（Shared Attenuation Settings）** | 展示影响多个声音Actor衰减的声音衰减资源。|
+| **1.8 使用Sound Cue的环境声Actor（AmbientSound Actor using SoundCues）** | 展示如何使用Sound Cue而不是声波来创建更为复杂的声音或将多个声音混合在一起。|
+| **1.9 音频体积（Audio Volume）** | 音频受音频体积的影响，其效果仅在玩家位于体积内时才能听到（例如，在体积内时，你听到的对话播放和声音如同在礼堂内所听到的一样。当你在体积外时，对话正常播放）。|
+| **1.10 使用环境区域的音频体积（Audio Volume using Ambient Zone）** | 受环境区域影响的两种声音，一种声音被放置在音频体积内，而另一种则不是。体积内的声音在音频体积外时较轻，但在音频体积内时较响；而体积外的声音在音频体积内时较轻，但在音频体积外时较响（例如，夜间从室内环境移至室外环境时的音频）。|
 
 [COMMENT:none]
 
-### Sound Cue Node Usage
-The **Sound Cue Node Usage** section covers more in-depth usage of the **Sound Cue Editor** including: combining multiple **Sound Waves**, selective **Attenuation**, **Random** and **Delayed** playback of **Sound Waves**, and **Modulation**. 
+(#soundcuenodeusage)
+### Sound Cue节点的用法
+**Sound Cue节点的用法** 部分深入介绍了 **Sound Cue编辑器** 的用法，包括：组合多个 **声波**、选择性 **衰减**、**声波** 的 **随机** 和 **延迟** 播放以及 **调制**。 
 
-| Example | What's Demonstrated |
+| 示例 | 展示的内容 |
 | ------- | ------------ |
-| **2.1 Mixer** | Two separate sounds fed through a **Mixer** node to produce a combined audio effect (e.g. ambient sounds with dripping water).  |
-| **2.2 Attenuation** | A combination of two sounds with separate **Attenuation** settings where the falloff of each sound is independent of one another (e.g. audio effect from 2.1, however dripping water gets quieter the further you move away while ambient remains). |
-| **2.3 Modulator** | Audio that plays back at a random volume or pitch based on its Min/Max settings (e.g. a dog that barks at a different pitch each time it's triggered). |
-| **2.4 Random** | Randomly select a non-looping sound for playback each time the **Sound Cue** is triggered (e.g. a different bird call is played each time it is triggered). |
-| **2.5 Delay + Looping** | Randomly select a non-looping sound for playback that repeats and has a delay between each playback (e.g. different bird calls are played and looped randomly with a delay between each sound). |
+| **2.1 混音器（Mixer）** | 通过 **混音器** 节点馈送两个单独的声音以生成组合式音频效果（例如，伴有滴水声的环境声）。|
+| **2.2 衰减（Attenuation）** | 两种具有单独 **衰减** 设置的声音的组合，其中每种声音的衰减彼此互相独立（以2.1的音频效果为例，滴水的声音随你的远离变得越来越小，而环境声保持不变）。|
+| **2.3 调制器（Modulator）** | 根据最小/最大设置以随机音量或音高播放的音频（例如，每次触发时狗以不同音高吠叫）。|
+| **2.4 随机（Random）** | 每次触发 **Sound Cue** 时，随机选择非循环声进行播放（例如，每次触发时播放不同的鸟叫声）。|
+| **2.5 延迟 + 循环（Delay + Looping）** | 随机选择用于重复播放的非循环声，且在每次播放之间有延迟（例如，播放不同的鸟叫声并随机循环，每个声音之间有延迟）。|
 
 
-### Reverb + Ambient Zone Usage
-The **Reverb + Ambient Zone Usage** section covers a how to use an **Audio Volume** and **Reverb Effect**, along with sound assets to produce dialogue that sounds as if you are standing in an auditorium. This section also covers how to use **Ambient Zones** and **Sound Classes** to generate interior/exterior sounds that play together where the volumes adjust based on whether you are inside or out. 
+(#reverb+ambientzoneusage)
+### 混响 + 环境区域的用法
+**混响 + 环境区域的用法** 部分介绍了如何使用 **音频体积** 和 **混响效果** 以及声音资源来生成如同在礼堂内所听到的对话。本部分还将介绍如何使用 **环境区域** 和 **声音类** 来生成一起播放的室内/室外声音，其中的音量根据在室内还是室外进行调整。 
 
-| Example | What's Demonstrated |
+| 示例 | 展示的内容 |
 | ------- | ------------ |
-| **3.1 Reverb** | Audio is affected by an **Audio Volume** where its effects can only be heard when the player is inside the volume (e.g. Dialogue plays inside a building and sounds like an auditorium. When outside, dialogue plays normally). |
-| **3.2 Ambient Zone** | Two sounds are affected by an **Ambient Zone** where one sound is placed inside an **Audio Volume** and the other is not. The inside sound is quite while outside the **Audio Volume** but louder when inside, while the outside sound is quite when inside the **Audio Volume** and louder while standing outside it (e.g. audio when moving from an indoor to outdoor environment at night). |
+| **3.1 混响（Reverb）** | 音频受 **音频体积** 的影响，其效果只有在玩家位于体积内时才能听到（例如，在建筑物内播放对话，听起来如同像在礼堂中播放一样。当你在体积外时，对话正常播放）。|
+| **3.2 使用环境区域的音频体积（Audio Volume using Ambient Zone）** | 受 **环境区域** 影响的两种声音，一种声音被放置在 **音频体积** 内，而另一种则不是。体积内的声音在 **音频体积** 外时较轻，但在音频体积内时较响；而体积外的声音在 **音频体积** 内时较轻，但在音频体积外时较响（例如，夜间从室内环境移至室外环境时的音频）。|
 
 
-### Ambient Showcase
-The **Ambient Showcase** provides additional usage examples and illustrates how to use the four **Attenuation Shapes**, using audio in **Blueprints** to create rotating and moving sounds with **Attenuation**, and advanced usages of **Audio Volumes** and **Ambient Zones**. 
+(#ambientshowcase)
+### 环境展示
+**环境展示** 提供了更多的用法示例，介绍了如何使用四种 **衰减形状**，如何在 **蓝图** 中使用音频创建具有 **衰减** 的回旋和移动声音，以及 **音频体积** 和 **环境区域** 的高级用法。 
 
-| Example | What's Demonstrated |
+| 示例 | 展示的内容 |
 | ------- | ------------ |
-| **4.1 Ambient Zone with Box Attenuation** | Showcases audio with **Attenuation** and an **Ambient Zone** inside a box-shaped room (e.g. entering the cockpit of an idle airplane). |
-| **4.2 Rotating Cone Attenuation** | Audio is attached to a rotating object where the sound fades in/out based on it's location to the player (e.g. a rotating scanner device) |
-| **4.3 Moving Sphere Attenuation** | Audio is attached to an object that moves forwards/backwards where the sound fades in/out based on it's location to the player and is adjusted based on that distance (e.g. a swarm of bees moving towards/away from you). |
-| **4.4 Ambient Zone with Sphere Attenuation** | Showcases audio with **Attenuation** and an **Ambient Zone** inside a spherical room (e.g. the ambient machine noise of a mainframe or server room). |
-| **4.5 Ambient Zone with Capsule Attenuation** | Showcases audio with **Attenuation** and an **Ambient Zone** inside a capsule-shaped room (e.g. exiting or entering a moving train car). |
-| **4.6 Reverb + Ambient Zone with Cone Attenuation** | Showcases audio with **Attention**, **Reverb**, and an **Ambient Zone** inside a conical room (e.g. several sounds and dialogue come together to form a science fiction type setting). |
+| **4.1 具有盒体衰减的环境区域（Ambient Zone with Box Attenuation）** | 展示盒体形状房间内具有 **衰减** 和 **环境区域** 的音频（例如，进入闲置飞机的驾驶舱）。|
+| **4.2 旋转锥体衰减（Rotating Cone Attenuation）** | 音频被连接至旋转对象，其中声音根据对象到玩家的距离淡入/淡出（例如，旋转扫描仪设备）。
+| **4.3 移动球体衰减（Moving Sphere Attenuation）** | 音频被连接至向前/向后移动的对象，其中声音根据对象到玩家的距离淡入/淡出并根据该距离进行调整（例如，一群蜜蜂朝向/远离你移动）。|
+| **4.4 具有球体衰减的环境区域（Ambient Zone with Sphere Attenuation）** | 展示球体房间中具有 **衰减** 和 **环境区域** 的音频（例如，主机或服务器机房的环境机器噪音）。|
+| **4.5 具有胶囊体衰减的环境区域（Ambient Zone with Capsule Attenuation）** | 展示胶囊体房间中具有 **衰减** 和 **环境区域** 的音频（例如，离开或进入行驶中的列车车厢）。|
+| **4.6 混响 + 具有锥体衰减的环境区域（Reverb + Ambient Zone with Cone Attenuation）** | 展示锥体房间中具有 **衰减**、**混响** 和 **环境区域** 的音频（例如，若干声音和对话组合在一起形成科幻类型设置）。|
 
 
-## Audio_Advanced Map
+(#audioadvancedmap)
+## 音频_高级图
 
 ![](contentExamplesHeader.png)(w:640)
 
-The **Audio_Advanced** map builds off the examples given in the **Starter Map** and demonstrates how to get the most out of the audio system in Unreal Engine 4. 
-It offers more in-depth coverage of using audio in **Blueprints** and advanced **Sound Cue Node**, **Sound Class**, and **Sound Mix** usage samples. Using audio in **Matinee** and generating **Surface Sounds** are also covered in this map.
+**音频_高级** 图基于 **起步图** 中给出的示例构建，其中展示了如何在虚幻引擎4中充分利用音频系统。 
+它深入介绍了如何在 **蓝图** 中使用音频，以及 **Sound Cue节点**、**声音类** 和 **声音混合** 的高级用法示例。此图中还包括在 **Matinee** 中使用音频和生成 **表面声音**。
 
-### Blueprint Sound Node Usage
-The **Blueprint Sound Node Usage** section covers many topics including how to play a sound at a specific location or attached to an **Actor**, how to start/stop a sound through **Blueprints**, and how to create and add **Reverb** to a sound without using a volume.
+(#blueprintsoundnodeusage)
+### 蓝图声音节点的用法
+**蓝图声音节点的用法** 部分涵盖了许多主题，包括如何在特定位置播放声音或将声音连接到 **Actor**，如何通过 **蓝图** 开始/停止声音，以及如何在不使用体积的情况下为声音创建和添加 **混响**。
 
-| Example | What's Demonstrated |
+| 示例 | 展示的内容 |
 | ------- | ------------ |
-| **1.1 Play Sound at Location** | Audio that plays from a set location (e.g. audio is heard playing from the location of a spark effect). |
-| **1.2 Play Sound Attached** | Audio that plays and is attached to a moving Actor (e.g. audio is heard emitting and attached to a moving chicken). |
-| **1.3 Play/Stop** | Showcases, through **Blueprints**, how to start or stop a looping sound. |
-| **1.4 Fade In/Fade Out** | Showcases, through **Blueprints**, how to add a fade in or fade out effect to a sound. |
-| **1.5 Adjust Volume** | Showcases, through **Blueprints**, how to adjust the volume of a sound that is currently playing. |
-| **1.6 Set Pitch Multiplier** | Showcases, through **Blueprints**, how to change the pitch of a sound that is currently playing. |
-| **1.7 Set Sound** | Showcases, through **Blueprints**, how to change the sound asset assigned to an audio component. |
-| **1.8 Is Playing** | Showcases, through **Blueprints**, how to have an audio component return it's current **Playing** or **Not Playing** condition. |
-| **1.9 Activate/Deactivate Reverb Effect** | Showcases, through **Blueprints**, how to activate **Reverb Effects** without using an **Audio Volume**. |
+| **1.1 在某位置处播放声音（Play Sound at Location）** | 自设定位置播放的音频（例如，自火花效果位置处播放音频）。|
+| **1.2 播放连接声音（Play Sound Attached）** | 播放并连接到移动Actor的音频（例如，听到音频来自移动的小鸡）。|
+| **1.3 播放/停止（Play/Stop）** | 通过 **蓝图** 展示如何开始或停止循环声音。|
+| **1.4 淡入/淡出（Fade In/Fade Out）** | 通过 **蓝图** 展示如何为声音添加淡入或淡出效果。|
+| **1.5 调节体积（Adjust Volume）** | 通过 **蓝图** 展示如何调节当前正在播放的声音的体积。|
+| **1.6 设置音高乘数（Set Pitch Multiplier）** | 通过 **蓝图** 展示如何改变当前正在播放的声音的音高。|
+| **1.7 设置声音（Set Sound）** | 通过 **蓝图** 展示如何更改分配给音频组件的声音资源。|
+| **1.8 正在播放（Is Playing）** | 通过 **蓝图** 展示如何使音频组件返回当前 **播放** 或 **不播放** 状态。|
+| **1.9 激活/停用混响效果（Activate/Deactivate Reverb Effect）** | 通过 **蓝图** 展示如何在不使用 **音频体积** 的情况下激活 **混响效果**。|
 
-### Advanced Sound Cue Node Usage
-The **Advanced Sound Cue Node Usage** demos are setup using **Blueprints** and covers examples on how to have a sound adjust its volume or pitch over time, more advanced cross-fading techniques, using float values to drive effects, using Booleans inside of **Sound Cues**, and **Doppler** effects. 
+(#advancedsoundcuenodeusage)
+### Sound Cue节点的高级用法
+**Sound Cue节点的高级用法** 中的演示使用 **蓝图** 进行设置，包括如何使声音随时间调整音量或音高的示例，更高级的交叉渐变技术，使用浮点值来驱动效果，在 **Sound Cue** 中使用布尔值以及 **多普勒** 效果。 
 
-| Example | What's Demonstrated |
+| 示例 | 展示的内容 |
 | ------- | ------------ |
-| **2.1 Enveloper** | Audio that changes its volume and pitch over time (e.g. a dying police car siren). |
-| **2.2 Oscillator** | Showcases how to have audio that moves back-and-forth between volume, pitch, and frequency settings. |
-| **2.3 Group Control** | Showcases how to play different sounds based on the number of identical **Sound Cues** playing (e.g. one soldier marching versus a platoon of soldiers). |
-| **2.4 Branch** | Showcases how to setup a Boolean inside a **Sound Cue** and play a sound based on its condition (e.g. a police siren that only plays if a revving engine is playing). |
-| **2.5 Wave Param** | Showcases how to specify a sound within a **Sound Cue** that can be swapped out at anytime through **Blueprints**. |
-| **2.6 Continuous Modulator** | Audio that modulates based on an incoming float value (e.g. a car engine that gets louder or softer based on speed). |
-| **2.7 Crossfade By Param** | Showcases how to have multiple sounds that fade in or out based on an incoming float value.  |
-| **2.8 Crossfade By Distance** | Showcases how to play different sounds that fade in or out based on the **Sound Cue's** distance from the player. |
-| **2.9 Doppler** | Showcases how to add a **Doppler** effect to a sound in motion (e.g. a jet engine sound based on distance from the player). |
+| **2.1 包络器（Enveloper）** | 随时间改变音量和音高的音频（例如，逐渐消失的警车警笛声）。|
+| **2.2 振荡器（Oscillator）** | 展示了如何在音量、音高和频率设置之间来回变换音频。|
+| **2.3 组控制（Group Control）** | 展示了如何根据播放的相同 **Sound Cue** 的数量来播放不同的声音（例如，一名士兵行军与一队士兵行军）。|
+| **2.4 分支（Branch）** | 展示了如何在 **Sound Cue** 中设置布尔值并根据其条件播放声音（例如，只在播放引擎发动的声音时才播放警笛声）。|
+| **2.5 波形参数（Wave Param）** | 展示了如何在 **Sound Cue** 中指定可随时通过 **蓝图** 换出的声音。|
+| **2.6 连续调制器（Continuous Modulator）** | 根据输入浮点值进行调制的音频（例如，汽车引擎声音根据速度变大或变小）。|
+| **2.7 按参数交叉渐变（Crossfade By Param）** | 展示了如何根据输入的浮点值使多个声音淡入或淡出。|
+| **2.8 按距离交叉渐变（Crossfade By Distance）** | 展示了如何播放根据 **Sound Cue** 与玩家的距离淡入或淡出的不同声音。|
+| **2.9 多普勒效应（Doppler）** | 展示了如何将 **多普勒** 效应添加到运动中的声音（例如，基于与玩家距离的喷气发动机声音）。|
 
 
-### Sound Class + Sound Mix Usage
-The **Sound Class + Sound Mix Usage** section demonstrates how the two are different as well as how they work together. 
-A prime example is given showing how to use **Sound Mixes** to combine music, audio, and combat sounds as well as how to focus in on sounds by pushing or popping them. 
-There are also examples on **Passive Sound Mixes** which activate and deactivate automatically as well as using Low/High Pass Filters, or how to apply a radio transmission effect to your audio. 
+(#soundclass+soundmixusage)
+### 声音类 + 混音的用法
+**声音类 + 混音的用法** 部分展示了这两者的不同之处，以及它们是如何协同工作的。 
+给出了典型示例来展示如何使用 **混音** 组合音乐、音频和战斗声音，以及如何通过推送或弹出来聚焦于声音。 
+关于 **被动混音** 也给出了一些示例，包括如何自动激活和停用，如何使用低通/高通滤波器，或如何将无线电传输效果应用于音频。 
 
-| Example | What's Demonstrated |
+| 示例 | 展示的内容 |
 | ------- | ------------ |
-| **3.1 Set Base Sound Mix** | Showcases how to set up a **Sound Mix** containing multiple **Sound Cues** (e.g. basic mix of dialogue, music, and background sounds) |
-| **3.2 Dialogue Focused Sound Mix** | While playing audio from 3.1, this illustrates how to push/pop the **Dialogue** so that it is louder/softer than the other sounds. |
-| **3.3 Music Focused Sound Mix** | While playing audio from 3.1, this illustrates how to push/pop the **Music** so that it is louder/softer than the other sounds. |
-| **3.4 Background Focused Sound Mix** | While playing audio from 3.1, this illustrates how to push/pop the **Background** combat sounds so that they are louder/softer than the other sounds. |
-| **3.5 Clear Sound Mix Modifiers** | While playing audio from 3.1 and activating 3.2, 3.3, or 3.4 to focus on a sound, this illustrates how to clear all currently pushed **Sound Mixes**. |
-| **3.6 Passive Sound Mix** | Showcases how to have **Sound Mixes** activate and deactivate automatically based on **Sound Classes* (e.g. whenever a sound is played, other sounds automatically adjust). |
-| **3.7 EQ** | Showcases how to apply equalizer effects to a sound that is playing by using Low/High Pass Filters by pushing/popping them in **Blueprints**. |
-| **3.8 Radio Filter** | Showcases how to apply a radio transmission effect to a sound.  |
+| **3.1 设置基础混音（Set Base Sound Mix）** | 展示了如何设置包含多个 **Sound Cue** 的 **混音** （例如，对话、音乐和背景音的基础混合） |
+| **3.2 聚焦对话的混音（Dialogue Focused Sound Mix）** | 展示了播放3.1中的音频时如何推送/弹出 **对话**，使其比其他声音更大/更小。|
+| **3.3 聚焦音乐的混音（Dialogue Focused Sound Mix）** | 展示了播放3.1中的音频时如何推送/弹出 **音乐**，使其比其他声音更大/更小。|
+| **3.4 聚焦背景的混音（Dialogue Focused Sound Mix）** | 展示了播放3.1中的音频时如何推送/弹出 **背景** 战斗声音，使其比其他声音更大/更小。|
+| **3.5 清除混音修饰符（Clear Sound Mix Modifiers）** | 展示了如何在播放3.1音频并激活3.2、3.3或3.4来聚焦声音时清除所有当前推送的 **混音**。|
+| **3.6 被动混音（Passive Sound Mix）** | 展示了如何根据 **声音类** 自动激活和停用 **混音*（例如，每当播放一种声音，其他声音自动调整）。|
+| **3.7 EQ** | 展示了如何通过在 **蓝图** 中推送/弹出声音对正在使用低/高通滤波器播放的声音应用均衡器效果。|
+| **3.8 无线电滤波器（Radio Filter）** | 展示了如何将无线电传输效果应用于声音。|
 
 
-### Matinee Sound Usage
-The **Matinee Sound Usage** section covers how to use sound within **Matinee** sequences. This includes attaching sounds to Static Meshes or the camera, using the **Sound Track** in **Matinee**, and using **Volume** and **Pitch** curves. 
+(#matineesoundusage)
+### Matinee声音的用法
+**Matinee声音的用法** 部分介绍了如何在 **Matinee** 序列中使用声音。这包括将声音连接到静态网格体或摄像机，在 **Matinee** 中使用 **声音轨迹**，以及使用 **音量** 和 **音高** 曲线。 
 
-| Example | What's Demonstrated |
+| 示例 | 展示的内容 |
 | ------- | ------------ |
-| **4.1 Attach Sound Actor to Static Mesh** | Audio that plays while attached to a Static Mesh Actor that moves around in a **Matinee** sequence. |
-| **4.2 Attach Sound Actor to Camera** | Audio that plays from the location of a camera inside a **Matinee** sequence. |
-| **4.3 Sound Track** | Showcases how to add audio to a **Matinee** by using the **Sound Track** and attach it to an Actor in the scene (e.g. dialogue that plays from the location of a character who walks around in a scene).|
-| **4.4 Volume and Pitch Curves** | Showcases how to fade **Sound Tracks** in and out using **Volume** and **Pitch** curves (e.g. adjusting the music pitch to account for a slow-motion sequence).  |
+| **4.1 将声音Actor连接到静态网格体（Attach Sound Actor to Static Mesh）** | 连接到在 **Matinee** 序列中移动的静态网格Actor时播放的音频。|
+| **4.2 将声音Actor连接到摄像机（Attach Sound Actor to Camera）** | 在 **Matinee** 序列中从摄像机位置播放的音频。|
+| **4.3 声音轨迹（Sound Track）** | 展示了如何使用 **声音轨迹** 将音频添加到 **Matinee** 并将其连接到场景中的Actor（例如，从在场景中走动的角色位置处播放的对话）。|
+| **4.4 音量和音高曲线（Volume and Pitch Curves）** | 展示了如何使用 **音量** 和 **音高** 曲线淡入和淡出 **声音轨迹**（例如，调整音乐的音高以适应慢动作序列）。|
 
 
-### Blueprint Sound Node Showcases
-The **Blueprint Sound Node Showcase** provides more tailored examples of using the audio systems to bring to life effects like fireworks or objects like a flickering fluorescent light. 
-There are also examples showing how to dynamically alter the audio experience based on game events (like triggering an alarm), play sounds at random locations, modifying the pitch of a sound based on its movement, as well as attaching and playing sound from a specific location of a character.
+(#blueprintsoundnodeshowcases)
+### 蓝图声音节点展示
+**蓝图声音节点展示** 包含更多量身定制的示例，展示了如何使用音频系统生成栩栩如生的特效，例如烟花或闪烁的荧光灯等物体。 
+除此之外，还有一些示例展示了如何根据游戏事件动态地改变音频体验（如触发警报）、在随机位置处播放声音、根据声音的移动改变声音的音高，以及从角色特定位置处连接和播放声音。
 
-| Example | What's Demonstrated |
+| 示例 | 展示的内容 |
 | ------- | ------------ |
-| **5.1 Volume Ducking** | Audio that plays inside an encapsulated room. **Reverb** effects are altered based on whether or not the player is inside the room with the door closed or open. |
-| **5.2 Play Sound at Particle Collision** | Audio is played at the location of particle collision (e.g. a bouncing particle effect that emits sound when colliding). |
-| **5.3 Play Sound at Particle Spawn and Particle Death** | Audio that plays at a particle's spawn location with different audio that plays at its destroy location (e.g. fireworks flying in the air then exploding). |
-| **5.4 Set Volume Multiplier With Timeline Driven Float** | Audio that adjusts its volume based on a float value defined by a **Timeline** curve (e.g. a flickering fluorescent light). |
-| **5.5 Play Sounds at Random Locations Around an Object** | Showcases audio that plays randomly around the player pawn. Also shows audio that plays randomly around a **Blueprint** spawn location (e.g. explosions randomly firing off around the player or at a location randomly).  |
-| **5.6 Set Sound Based on Game Events** | Showcases how to completely change audio based on in-game events (e.g. ambient music is changed when triggering an alarm).  |
-| **5.7 Synch Pitch to Moving Object** | Audio that adjusts in pitch automatically based on the location of an object. |
-| **5.8 Play Sound from Bone Location** | Showcases how to attach audio to specific bone locations of a **Skeletal Mesh** and call them via **Anim Sequence** or **Blueprint** (e.g. footstep sounds synched with player movement, fire sounds emitting from the location of a body part, or dialogue sounds that appear to come from a characters mouth). |
+| **5.1 音量调节节制（Volume Ducking）** | 在封装的房间内播放的音频。**混响** 效果根据玩家在门关闭还是打开的房间内而改变。|
+| **5.2 发生粒子碰撞时播放声音（Play Sound at Particle Collision）** | 音频在粒子碰撞的位置处播放（例如，碰撞时发出声音的弹跳粒子效果）。|
+| **5.3 粒子生成和粒子死亡时播放声音（Play Sound at Particle Spawn and Particle Death）** | 在粒子生成位置处播放的音频，与粒子毁灭时播放的音频不同（例如，烟花在空中飞行然后爆炸）。|
+| **5.4 使用时间轴驱动浮点设置音量乘数（Set Volume Multiplier With Timeline Driven Float）** | 根据 **时间轴** 曲线定义的浮点值来调整音量的音频（例如闪烁的荧光灯）。|
+| **5.5 在对象周围的随机位置处播放声音（Play Sounds at Random Locations Around an Object）** | 展示了在玩家Pawn周围随机播放的音频。此外，还展示了在 **蓝图** 生成位置周围随机播放的音频（例如，在玩家周围或随机位置随机触发的爆炸）。|
+| **5.6 根据游戏事件设置声音（Set Sound Based on Game Events）** | 展示了如何根据游戏内事件完全改变音频（例如，当触发警报时会改变环境音乐）。|
+| **5.7 将音高与移动对象同步（Synch Pitch to Moving Object）** | 根据对象的位置自动调整音频的音高。|
+| **5.8 自骨骼位置处播放声音（Play Sound from Bone Location）** | 展示了如何将音频连接到 **骨架网格体** 的特定骨骼位置，并通过 **动画序列** 或 **蓝图** 调用它们（例如，脚步声听起来与玩家移动同步，火焰听起来从身体的某个部位发出，或对话听起来似乎由角色的口中发出）。|
 
 
-### Surface Audio
-The **Surface Audio** section covers how to generate sounds based on different types of **Materials** that you interact with. 
-Whether your walking on wood floors or firing projectiles into glass, this section covers how to set up sounds for these types of scenarios. 
+(#surfaceaudio)
+### 表面音频
+**表面音频** 部分介绍了如何根据与之交互的不同 **材质** 类型来生成声音。 
+从在木地板上行走到将射弹射入玻璃，本部分都将介绍如何为这些类型的场景设置声音。 
 
-| Example | What's Demonstrated |
+| 示例 | 展示的内容 |
 | ------- | ------------ |
-| **6.1 Grass** | Audio sounds when shooting or walking on grass. |
-| **6.2 Water** | Audio sounds when shooting or moving in water. |
-| **6.3 Wood** | Audio sounds when shooting or walking on wood. |
-| **6.4 Concrete** | Audio sounds when shooting or walking on concrete. |
-| **6.5 Metal** | Audio sounds when shooting or walking on metal. |
-| **6.6 Glass** | Audio sounds when shooting or walking on glass. |
+| **6.1 草地（Grass）** | 在草地上射击或行走时发出的声音。|
+| **6.2 水（Water）** | 在水面上射击或行走时发出的声音。|
+| **6.3 木头（Wood）** | 在木面上射击或行走时发出的声音。|
+| **6.4 混凝土（Concrete）** | 在混凝土面上射击或行走时发出的声音。|
+| **6.5 金属（Metal）** | 在金属面上射击或行走时发出的声音。|
+| **6.6 玻璃（Glass）** | 在玻璃面上射击或行走时发出的声音。|
 
 
-## Audio_Speaker_Test Map
+(#audiospeakertestmap)
+## 音频_扬声器_测试贴图
 ![](contentExamples51.png)(w:640)
 
-The **Audio_Speaker_Test** map demonstrates how to setup audio for multichannel usage. 
-In this map, you can test out playing music from the Left Front, Center, Right Front, Left Rear, and Right Rear Speakers as well as from a Subwoofer. 
-You can play them individually or in any combination to hear the different effects. 
+**音频_扬声器_测试** 贴图展示了如何设置音频来用于多信道。 
+在此图中，你可以测试从左前、中央、右前、左后和右后扬声器以及低音扬声器播放出来的音乐。 
+你可以单独或以任意组合方式播放这些音乐，从而聆听不同的效果。 
 
 
 [/COMMENT]

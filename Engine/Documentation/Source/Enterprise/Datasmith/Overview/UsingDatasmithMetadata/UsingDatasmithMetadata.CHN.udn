@@ -1,0 +1,342 @@
+﻿INTSourceChangelist:4523760
+Availability: Public
+Crumbs: 
+Title: 使用Datasmith元数据
+Description: 描述如何将资源的自定义元数据导入虚幻引擎，以及如何使用蓝图和Python脚本同时在编辑器和运行时处理元数据。
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/Overview
+Order: 6
+Tags: Metadata
+Tags: Datasmith
+Tags: Guides
+topic-image:datasmith-metadata-topic.png
+
+
+![使用Datasmith元数据](datasmith_metadata_banner.png "Using Datasmith Metadata")
+
+Datasmith导入工具可以自动导入它所处理的对象的相关 *元数据*：即，您在3D设计或CAD应用程序中为这些对象设置的信息。元数据通常用来存储资源所代表的机械部件或建筑元素的真实世界信息，例如一件物体的成本、制造材料、物理特性（重量、保温效率）或使用信息，如应用于一个部件的最大扭矩。您还可以使用元数据来存储项目所需资源的任何其他类别信息。
+
+虚幻引擎和虚幻编辑器中提供这些元数据对您有两方面的帮助：
+
+*   **在资源管道中** - 您在导入资源并设置关卡时可以使用元数据，以便区分需要进行不同处理的不同类别的资源和Actor。例如：  
+    *   在Datasmith导入流程期间可以使用元数据，以便标识最终场景中不需要的特定类别的资源，这样就可以跳过导入这些资源。
+    *   导入后，可以使用元数据来识别关卡中想要合并、连接、替换或替换其材质的Actor。
+*   **游戏运行时** - 您可以在运行时使用元数据，以向用户显示来自源设计工具的有关Actor的所选信息。例如：
+    *   如果关卡中的对象包含BIM数据，而BIM数据包含结构属性信息，则可能需要在玩家从场景中选择这些对象时，在互动体验中呈现这些信息。
+    *   或者，如果您的项目是一个产品配置器，让玩家可以选择不同的设计方案，则可能需要一个游戏逻辑，以根据分配给可见资源的成本元数据，计算和显示玩家当前选择的总成本。
+
+本页介绍如何通过Datasmith导入流程将元数据导入到虚幻，以及如何在编辑器中和运行时在脚本中访问元数据。
+
+## 元数据来源
+
+Datasmith目前可以从以下设计工具导入元数据：  
+
+*   [Autodesk 3ds Max](#autodesk3dsmax)
+*   [Dassault Systèmes Solidworks](#dassaultsystèmessolidworks)
+*   [Trimble SketchUp Pro](#trimblesketchuppro)
+
+[REGION:note]
+Datasmith目前仅处理有关几何结构的元数据，而不处理其他类别的场景对象的元数据，如照明或摄像机。
+[/REGION]
+
+### Autodesk 3ds Max
+
+在 **对象属性（Object Properties）** 窗口的 **用户定义（User Defined）** 选项卡上，向3ds Max对象添加元数据。
+
+![3ds Max用户定义属性中的元数据](3ds_max_user_defined_properties.png "Metadata in 3ds Max User Defined Properties")
+
+要在3ds Max中访问网格体的这个面板：
+
+1.  在大纲视图或视口中选择网格体。
+2.  单击右键，然后从上下文菜单中选择 **属性（Properties）** 或 **对象属性（Object Properties）**，或者从主菜单中选择 **编辑（Edit）>属性（Properties）**。
+3.  在该面板中以 `键 = 值` 对的形式输入元数据，如上所示。
+    [REGION:note]
+    **确保在 `=` 号两端各保留一个空格。** 如果不留空格，Datasmith将无法识别元数据，也不会正常导入元数据。
+    [/REGION]
+
+[REGION:tip]
+您还可以[使用MAXScript](http://help.autodesk.com/view/3DSMAX/2018/ENU/?guid=__files_GUID_AF1F51D4_449B_4C4D_9F58_85DB145BC0B9_htm)设置用户定义的属性。
+[/REGION]
+[REGION:tip]
+如果您的模型最初是在Revit中创建的，然后导入到3ds Max中，则用户定义的属性应该已经由3ds Max导入工具使用模型的BIM信息预设完毕。
+[/REGION]
+
+### Dassault Systèmes SolidWorks
+
+在导入SolidWorks文件时，Datasmith会向其创建的每个静态网格体Actor添加最少量的预设元数据，以指示该网格体在原始SolidWorks设计中的部件名称和组合件。但是，Datasmith目前不会继承您添加到部件和组合件的任何自定义元数据属性。
+
+### Trimble SketchUp Pro
+
+对于您在SketchUp中创建的每个组件，您可以设置价格、大小和状态等[高级属性](https://help.sketchup.com/es/article/3000124#advanced-attributes)：
+
+![SketchUp Pro高级属性中的元数据](sketchup-advaned-attributes.png "Metadata in SketchUp Pro Advanced Attributes")
+
+Datasmith会将所有这些高级属性导入到元数据，包括“类型（Type）”值（如果有）。
+
+[REGION:note]
+Datasmith元数据可以附加到在场景层级中表示组件的Actor，而不是用于表示该组件几何结构的任何独立的静态网格体Actor。如果这符合您的项目情况，您需要按本页下文所示，调整蓝图和Python示例。
+[/REGION]
+
+## 在虚幻编辑器中查看元数据
+
+Datasmith导入流程完成后，您可以在 **细节（Details）** 面板中的 **资源用户数据（Asset User Data）** 部分下面，查看关卡中任意静态网格体Actor的元数据：
+
+![在虚幻中查看Datasmith元数据](datasmith_metadata_in_editor.png "Viewing Datasmith metadata in Unreal")
+
+Datasmith元数据目前在编辑器中为只读状态。
+
+## 在蓝图和Python中访问元数据
+
+有多种不同的方法可以访问与场景对象关联的元数据。应使用哪种方法取决于是需要在Datasmith导入流程期间访问元数据，还是需要在导入完成后访问。
+
+[REGION:note]
+所有元数据键和值以字符串类型存储在虚幻引擎中，无论其在设计或CAD应用程序中的原始类型为何。例如，如果您在3ds Max中将某个元数据值设置为布尔值，如 `true`，或者设置为 `312` 等数字，当您在虚幻中重新读取这些元数据时，它们都将是字符串类型。如果您需要值是布尔或数字类型，请使用蓝图转换节点，如 **实用程序（Utilities）>字符串（String）>字符串转整数（String to Int）** 或 **字符串转浮点数（String to Float）**，或者内置Python字符串解析函数，如 `int()` 或 `float()`。
+[/REGION]
+
+### 导入期间访问元数据
+
+如果您需要在Datasmith导入流程 *期间* 访问元数据（例如，为了在虚幻为场景生成资源之前识别想要过滤掉的某些网格体），可以从Datasmith场景或Datasmith CAD场景读取元数据。有关如何在输入流程期间运行脚本的背景信息，请参阅[自定义Datasmith导入流程](Enterprise/Datasmith/Overview/CustomizingImportProcess)。
+
+您会发现元数据已经附加到Datasmith场景的 *网格体Actor元素*。
+
+%Globals:BlueprintOrPythonSelectVar%
+
+[OBJECT:ToggleButtonContent]
+​	[PARAMLITERAL:category]
+​	BlueprintOrCPPSelect
+​	[/PARAMLITERAL]
+​	[PARAMLITERAL:id]
+​	blueprintimplementation
+​	[/PARAMLITERAL]
+​	[PARAMLITERAL:active]
+​	active_button_content
+​	[/PARAMLITERAL]
+​	[PARAM:content]
+​	[INCLUDE:Enterprise/Datasmith/Overview/UsingDatasmithMetadata#blueprintContent1]
+​	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+​	[PARAMLITERAL:category]
+​	BlueprintOrCPPSelect
+​	[/PARAMLITERAL]
+​	[PARAMLITERAL:id]
+​	pythonimplementation
+​	[/PARAMLITERAL]
+​	[PARAMLITERAL:active]
+​	[/PARAMLITERAL]
+​	[PARAM:content]
+​	[INCLUDE:Enterprise/Datasmith/Overview/UsingDatasmithMetadata#pythonContent1]
+​	[/PARAM]
+[/OBJECT]
+
+[COMMENT:none]
+[EXCERPT:blueprintContent1]
+您将需要的节点位于 **Datasmith>场景（Scene）** 和 **Datasmith>元素（Element）** 下面。
+
+[REGION:note]
+为访问这些节点，您需要禁用上下文菜单中的 **上下文敏感（Context Sensitive）** 复选框，或者在“选用板（Palette）”中查找您需要的节点。
+[/REGION]
+
+*   您可以检索针对Datasmith场景中的所有对象记录的所有元数据对象数组：  
+    ![获取所有元数据](pre_import_get_all_metadata.png "Get All Metadata")
+*   您可以从键名开始，检索Datasmith场景中拥有这个键的所有对象的列表。您还可以获取在所有这些对象中针对这个键记录的所有值的列表。  
+    ![获取键的所有对象和值](pre_import_get_all_objects_for_key.png "Get All Objects and Values for Key")
+*   从特定对象入手，您可以获取它的所有元数据对象的数组：  
+    ![获取对象的元数据](pre_import_get_for_object.png "Get Metadata for Object")
+*   如果您知道所需键的对象和名称，可以检索其值：  
+    ![获取键的元数据值](pre_import_get_for_key.png "Get Metadata Value For Key")
+*   如果您知道对象和 *值*，但不知道键的名称，可以获取对象上拥有该值的所有键：  
+    ![获取值的元数据键和值](pre_import_get_keys_and_values_for_value.png "Get Metadata Keys and Values for Value")
+
+对于上述返回Datasmith元数据元素对象的节点，您可以使用 **Datasmith>元素（Element）>获取多个属性（Get Properties）**、**获取单个属性（Get Property）** 和 **获取属性计数（Get Property Count）**，从元数据对象获取键和值：
+
+![Datasmith元数据元素](pre_import_get_properties_from_md.png "Datasmith Metadata Element")
+
+**用法示例**
+
+该示例显示了如何使用指定给元数据键的值来识别您知道项目不需要的几何结构，并在为其创建静态网格体资源之前，从Datasmith中将它删除：
+
+[REGION:lightbox]
+[![Datasmith元数据用法示例](pre_import_remove_by_key.png "Datasmith metadata usage example")](pre_import_remove_by_key.png)
+
+*单击查看大图。*
+[/REGION]
+[/EXCERPT:blueprintContent1]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:pythonContent1]
+在Datasmith导入流程期间，您可以通过 `unreal.DatasmithSceneElement` 或 `unreal.DatasmithCADSceneElement` 对象访问有关场景对象的元数据。有关以下函数的详细信息，请参阅[Python API参考](https://api.unrealengine.com/INT/PythonAPI/)。
+
+*   您可以检索针对Datasmith场景中的所有对象记录的所有元数据对象数组：  
+    `get_all_metadata(object_class)`
+*   您可以从键名开始，检索Datasmith场景中拥有这个键的所有对象的列表。您还可以获取在所有这些对象中针对这个键记录的所有值的列表。  
+    `get_all_objects_and_values_for_key(key, object_class)`
+*   从特定对象入手，您可以获取它的所有元数据对象的数组：  
+    `get_metadata_for_object(object)`
+*   如果您知道所需键的对象和名称，可以检索其值：  
+    `get_metadata_value_for_key(object, key)`
+*   如果您知道对象和*值*，但不知道键的名称，可以获取对象上拥有该值的所有键：  
+    `get_metadata_keys_and_values_for_value(object, string_to_match)`
+
+**用法示例**
+
+该示例显示了如何使用指定给元数据键的值来识别您知道项目不需要的几何结构，并在为其创建静态网格体资源之前，从Datasmith中将它删除：
+
+
+	key_name = "name"
+	remove_keyword = "Clutch"
+	meshes_to_skip = set([])
+	# 获取所有拥有“name”键的场景元素。
+	objects_and_values = ds_scene_in_memory.get_all_objects_and_values_for_key(key_name, unreal.DatasmithMeshActorElement)
+	objects = objects_and_values[0]
+	values = objects_and_values[1]
+	# 迭代以查找其值与关键字匹配的对象
+	for index, value in enumerate(values):
+		if remove_keyword in value:
+			print("removing actor named: " + value)
+			# 从场景中移除网格体Actor元素，并将该网格体元素放入列表中以便稍后删除
+			mesh_actor = objects[index]
+			mesh = mesh_actor.get_mesh_element()
+			meshes_to_skip.add(mesh)
+			ds_scene_in_memory.remove_mesh_actor(mesh_actor)
+	# 移除不需要导入的所有网格体。
+	for mesh in meshes_to_skip:
+		mesh_name = mesh.get_element_name()
+		print("removing mesh named " + mesh_name)
+		ds_scene_in_memory.remove_mesh(mesh)
+[/EXCERPT:pythonContent1]
+[/COMMENT]
+
+### 导入后访问元数据
+
+在导入流程完成将Datasmith或CAD场景导入虚幻资源和Actor的操作时，它还会将Datasmith场景中每个网格体元素的元数据应用于关卡中用来表示该静态网格体资源实例的所有Actor。然后，您可以使用蓝图或Python来检索关卡中任何或所有静态网格体Actor的元数据。
+
+%Globals:BlueprintOrPythonSelectVar%
+
+[OBJECT:ToggleButtonContent]
+​	[PARAMLITERAL:category]
+​	BlueprintOrCPPSelect
+​	[/PARAMLITERAL]
+​	[PARAMLITERAL:id]
+​	blueprintimplementation
+​	[/PARAMLITERAL]
+​	[PARAMLITERAL:active]
+​	active_button_content
+​	[/PARAMLITERAL]
+​	[PARAM:content]
+​	[INCLUDE:Enterprise/Datasmith/Overview/UsingDatasmithMetadata#blueprintContent2]
+​	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+​	[PARAMLITERAL:category]
+​	BlueprintOrCPPSelect
+​	[/PARAMLITERAL]
+​	[PARAMLITERAL:id]
+​	pythonimplementation
+​	[/PARAMLITERAL]
+​	[PARAMLITERAL:active]
+​	[/PARAMLITERAL]
+​	[PARAM:content]
+​	[INCLUDE:Enterprise/Datasmith/Overview/UsingDatasmithMetadata#pythonContent2]
+​	[/PARAM]
+[/OBJECT]
+
+[COMMENT:none]
+[EXCERPT:blueprintContent2]
+以下节点访问一个特定Actor的元数据。它们对性能影响极小，因此您可以随时使用，甚至在项目运行时使用。如果想要显示场景中一个或多个所选对象的导入元数据，比如说，插图提示或项目运行时UI中的菜单，那么这些就是您需要在运行时蓝图中使用的节点。
+
+您可以在 **Datasmith用户数据** 类别下面找到它们。 
+
+*   如果您知道想要获取其值的键的名称：  
+    ![获取键的Datasmith用户数据值](post_import_get_for_key.png "Get Datasmith User Data Value for Key")
+*   如果您知道想要查找的 *值*，但不知道键的名称，可以获取Actor上拥有这个值的所有键：  
+    ![获取值的Datasmith用户数据键和值](post_import_get_keys_and_values_for_value.png "Get Datasmith User Data Keys and Values for Value")
+*   或者，您可以检索一个元数据对象，它包含针对该Actor记录的*所有*键/值对，这样您就可以对它们自行迭代：  
+    ![获取Datasmith用户数据](post_import_get_user_data.png "Get Datasmith User Data")
+
+相比之下，以下节点访问当前关卡中所有静态网格体Actor的元数据（或共享指定类的所有Actor）。由于您的关卡可能包含大量Actor，每个Actor有许多属性，因此这些函数可能会占用大量CPU资源，在运行时游戏使用时可能导致性能较差。因此，只能在您在仅限编辑器的蓝图类上创建的图形中使用它们。
+
+您可以在 **编辑器脚本（Editor Scripting）>Datasmith用户数据（Datasmith User Data）** 类别下面找到这些节点。
+
+*   您可以从键名开始，检索在当前关卡中，在其Datasmith元数据中拥有这个键的所有Actor的列表。您还可以获取在所有这些对象中针对这个键记录的所有值的列表。  
+    ![获取键的所有对象和值](post_import_get_all_objects_for_key.png "Get All Objects and Values for Key")
+*   您可以检索当前关卡中所有Actor的所有元数据对象的完整列表：  
+    ![获取所有Datasmith用户数据](post_import_get_all_user_data.png "Get All Datasmith User Data")
+
+上述 **获取Datasmith用户数据** 和 **获取搜有Datasmith用户数据** 节点返回Datasmith用户数据对象引用。该对象有一个您可以访问的变量，名为“元数据”，这是构成该对象Datasmith元数据的所有键/值对的映射。要使用这类对象，从输出引脚拖出引线，并选择 **变量（Variables）> 获取元数据（Get Metadata）**：
+
+![Datasmith用户数据对象引用](post_import_get_metadata_node.png "Datasmith User Data Object References")
+
+这样会以映射形式为您提供键和值。然后，您可以使用 **实用程序（Utilities）>映射（Map）** 类别中的实用程序节点来处理这些数据。例如，该图形逐个迭代所有键，然后检索与每个键关联的值：
+
+[REGION:lightbox]
+[![迭代映射](post_import_iterate_userdata.png "Iterate through the Map")](post_import_iterate_userdata.png)
+
+*单击查看大图。*
+[/REGION]
+
+有关在蓝图中使用映射的更多信息，请参阅[蓝图映射](Engine/Blueprints/UserGuide/Maps)。
+
+**用法示例**
+
+这个部分展示了一个简化示例，说明如何在运行时显示玩家从关卡中选择的对象的资源元数据。
+
+![UMG小部件中的元数据](post_import_bp_result.png "Metadata in a UMG widget")
+
+图上的文字是由包含两个文本字段的UMG小部件编写的，每个字段绑定了一个字符串变量。在该小部件的蓝图图形中，自定义操作会从您传递到自定义事件的Actor抽取两个Datasmith元数据项，并将这两个项保存到绑定的变量。
+
+![UMG小部件事件图形](post_import_bp_ui.png "UMG widget Event Graph")
+
+以下关卡蓝图展示了一个示例，说明如何在开始播放时添加一个这样的小部件，以及如何在用户按下鼠标按钮时，用光标下面的Actor向小部件提供输入。
+
+[REGION:lightbox]
+[![设置并更新UMG小部件](post_import_bp_level.png "Set up and update the UMG widget")](post_import_bp_level.png)
+
+*单击查看大图。*
+[/REGION]
+
+有关在UMG中构建用户界面的更多信息，请参阅[UMG UI设计者快速入门指南](Engine/UMG/QuickStart)和相关部分。
+[/EXCERPT:blueprintContent2]
+[/COMMENT]
+[COMMENT:none]
+[EXCERPT:pythonContent2]
+在Datasmith导入流程完成后，您可以使用`unreal.DatasmithContentLibrary`类访问所有Actor或所选Actor的元数据。有关以下函数的详细信息，请参阅[Python API参考](https://api.unrealengine.com/INT/PythonAPI/)。
+
+*   您可以检索当前关卡中所有Actor的所有元数据对象的完整列表：  
+    `get_all_datasmith_user_data(object_class)`
+*   您可以从键名开始，检索在当前关卡中，在其Datasmith元数据中拥有这个键的所有Actor的列表。您还可以获取在所有这些对象中针对这个键记录的所有值的列表。  
+    `get_all_objects_and_values_for_key(key, object_class)`
+*   如果您已经知道想要检索其元数据的Actor，可以获取特定键的值：  
+    `get_datasmith_user_data(object)`
+*   如果您知道想要查找的 *值*，但不知道键的名称，可以获取Actor上拥有这个值的所有键：  
+    `get_datasmith_user_data_keys_and_values_for_value(object, string_to_match)`
+*   如果您知道对象和 *值*，但不知道键的名称，可以获取对象上拥有该值的所有键：  
+    `get_datasmith_user_data_value_for_key(object, key)`
+
+**用法示例**
+
+在您在虚幻编辑器中运行的Python脚本中，可以在导入后使用Datasmith元数据来识别关卡中想要对其应用特殊处理的静态网格体Actor。
+
+
+	import unreal
+	new_actor_name = "Exterior Walls"
+	metadata_key = "Type"
+	metadata_value = "Wall:Exterior"
+	meshes_to_join = set([])
+	# 迭代当前关卡中的Actor
+	all_actors = unreal.EditorLevelLibrary.get_all_level_actors()
+	for actor in all_actors:
+		# 针对以上设置的键（如果有），检索该Actor的Datasmith元数据的值
+		actor_value = unreal.DatasmithContentLibrary.get_datasmith_user_data_value_for_key(actor, metadata_key)
+		# 如果这个键存在，并且其值包含以上设置的关键字，则将这个Actor添加到列表
+		if actor_value and metadata_value in actor_value:
+			print("found a matching actor:" + actor_value)
+			meshes_to_join.add(actor)
+	# 将以上找到的所有Actor合并到一个包含许多组件的Actor
+	options = unreal.EditorScriptingJoinStaticMeshActorsOptions(destroy_source_actors=True, new_actor_label=new_actor_name, rename_components_from_source=True)
+	unreal.EditorLevelLibrary.join_static_mesh_actors(meshes_to_join, options)
+	print "Merged all actors!"
+[/EXCERPT:pythonContent2]
+[/COMMENT]

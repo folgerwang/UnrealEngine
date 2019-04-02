@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 using UnrealBuildTool;
 using System.IO;
 
@@ -25,7 +25,6 @@ public class libWebSockets : ModuleRules
 
 		case UnrealTargetPlatform.Mac:
         case UnrealTargetPlatform.IOS:
-            PublicAdditionalShadowFiles.Add(Path.Combine(WebsocketPath, "lib", Target.Platform.ToString(), ConfigurationSubdir, "libwebsockets.a"));
             PublicAdditionalLibraries.Add(Path.Combine(WebsocketPath, "lib", Target.Platform.ToString(), ConfigurationSubdir, "libwebsockets.a"));
             break;
 

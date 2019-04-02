@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 /*
 Based on ScopeGuard presented at:
 http://channel9.msdn.com/Shows/Going+Deep/C-and-Beyond-2012-Andrei-Alexandrescu-Systematic-Error-Handling-in-C
@@ -79,7 +79,7 @@ namespace detail
 
 // Note: __COUNTER__ Expands to an integer starting with 0 and incrementing by 1 every time it is used in a source file or included headers of the source file.
 #ifdef __COUNTER__
-	#define ANONYMOUS_VARIABLE(Str) \
+	#define ANONYMOUS_VARIABLE_BypassRedefinition(Str) \
 		CONCATENATE(Str,__COUNTER__)
 #else
 	#define ANONYMOUS_VARIABLE(Str) \
@@ -87,5 +87,5 @@ namespace detail
 #endif
 
 #define SCOPE_EXIT \
-	auto ANONYMOUS_VARIABLE(SCOPE_EXIT_STATE) \
+	auto ANONYMOUS_VARIABLE_BypassRedefinition(SCOPE_EXIT_STATE) \
 	= ::detail::EScopeGuardOnExit() + [&]()

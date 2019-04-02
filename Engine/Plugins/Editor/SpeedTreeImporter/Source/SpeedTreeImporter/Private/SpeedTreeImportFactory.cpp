@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SpeedTreeImportFactory.h"
 #include "Misc/FileHelper.h"
@@ -64,17 +64,10 @@
 
 #if WITH_SPEEDTREE
 
-#ifdef __clang__ // @todo: ThirdParty/SpeedTree/SpeedTreeSDK-v7.0/Include/Core/RenderState_inl.h:52:2: warning: field 'm_eHueVariation' will be initialized after field 'm_eShaderGenerationMode' [-Wreorder]
-	#pragma clang diagnostic push
-	#pragma clang diagnostic ignored "-Wreorder"
-#endif
-
+THIRD_PARTY_INCLUDES_START
 #include "Core/Core.h"
 #include "TreeReader.h"
-
-#ifdef __clang__
-	#pragma clang diagnostic pop
-#endif
+THIRD_PARTY_INCLUDES_END
 
 #endif // WITH_SPEEDTREE
 #include "PhysicsEngine/SphereElem.h"
@@ -1373,8 +1366,8 @@ FVertexInstanceID ProcessTriangleCorner(
 	TVertexInstanceAttributesRef<FVector4> VertexInstanceColors,
 	TVertexInstanceAttributesRef<FVector2D> VertexInstanceUVs)
 {
-	//Speedtree use 8 UVs to store is data
-	check(VertexInstanceUVs.GetNumIndices() == 8);
+	//Speedtree uses 7 or 8 UVs to store is data
+	check(VertexInstanceUVs.GetNumIndices() >= 7);
 
 	SpeedTree::st_float32 Data[ 4 ];
 
@@ -1467,6 +1460,8 @@ FVertexInstanceID ProcessTriangleCorner(
 	}
 	else if( RenderState->m_bLeavesPresent || RenderState->m_bFacingLeavesPresent )
 	{
+		check(VertexInstanceUVs.GetNumIndices() == 8);
+
 		// anchor
 		if( RenderState->m_bFacingLeavesPresent )
 		{
@@ -1492,7 +1487,7 @@ FVertexInstanceID ProcessTriangleCorner(
 
 UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, FFeedbackContext* Warn, bool& bOutOperationCanceled)
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, InClass, InParent, InName, Type);
 
 	TSharedPtr<SWindow> ParentWindow;
 	// Check if the main frame is loaded.  When using the old main frame it may not be.
@@ -1654,7 +1649,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 					{
 						const SpeedTree::SLod* TreeLOD = &SpeedTreeGeometry->m_pLods[LODIndex];
 						FStaticMeshSourceModel& LODModel = StaticMesh->AddSourceModel();
-						FMeshDescription* MeshDescription = StaticMesh->CreateOriginalMeshDescription(LODIndex);
+						FMeshDescription* MeshDescription = StaticMesh->CreateMeshDescription(LODIndex);
 						StaticMesh->RegisterMeshAttributes(*MeshDescription);
 						
 						TVertexAttributesRef<FVector> VertexPositions = MeshDescription->VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
@@ -1788,7 +1783,8 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 							//Create all vertex instance
 							for (int32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
 							{
-								FVertexInstanceID CornerVertexInstanceIDs[3];
+								TArray<FVertexInstanceID> CornerVertexInstanceIDs;
+								CornerVertexInstanceIDs.SetNum(3);
 								FVertexID CornerVertexIDs[3];
 								for (int32 Corner = 0; Corner < 3; ++Corner)
 								{
@@ -1799,33 +1795,8 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 									CornerVertexIDs[Corner] = MeshDescription->GetVertexInstanceVertex(CornerVertexInstanceIDs[Corner]);
 								}
 
-								TArray<FMeshDescription::FContourPoint> Contours;
-								for (int32 Corner = 0; Corner < 3; ++Corner)
-								{
-									int32 ContourPointIndex = Contours.AddDefaulted();
-									FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
-									//Find the matching edge ID
-									uint32 CornerIndices[2];
-									CornerIndices[0] = (Corner + 0) % 3;
-									CornerIndices[1] = (Corner + 1) % 3;
-
-									FVertexID EdgeVertexIDs[2];
-									EdgeVertexIDs[0] = CornerVertexIDs[CornerIndices[0]];
-									EdgeVertexIDs[1] = CornerVertexIDs[CornerIndices[1]];
-
-									FEdgeID MatchEdgeId = MeshDescription->GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-									if (MatchEdgeId == FEdgeID::Invalid)
-									{
-										MatchEdgeId = MeshDescription->CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-										//All edge are smooth
-										EdgeHardnesses[MatchEdgeId] = false;
-										EdgeCreaseSharpnesses[MatchEdgeId] = 0.0f;
-									}
-									ContourPoint.EdgeID = MatchEdgeId;
-									ContourPoint.VertexInstanceID = CornerVertexInstanceIDs[CornerIndices[0]];
-								}
 								// Insert a polygon into the mesh
-								const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(CurrentPolygonGroupID, Contours);
+								const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(CurrentPolygonGroupID, CornerVertexInstanceIDs);
 								//Triangulate the polygon
 								FMeshPolygon& Polygon = MeshDescription->GetPolygon(NewPolygonID);
 								MeshDescription->ComputePolygonTriangulation(NewPolygonID, Polygon.Triangles);
@@ -1839,7 +1810,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 						LODModel.BuildSettings.bUseFullPrecisionUVs = false;
 						LODModel.BuildSettings.bGenerateLightmapUVs = false;
 						LODModel.ScreenSize.Default = 0.1f / FMath::Pow(2.0f, StaticMesh->SourceModels.Num() - 1);
-						StaticMesh->CommitOriginalMeshDescription(LODIndex);
+						StaticMesh->CommitMeshDescription(LODIndex);
 
 						for (int32 MaterialIndex = 0; MaterialIndex < StaticMesh->StaticMaterials.Num(); ++MaterialIndex)
 						{
@@ -1856,7 +1827,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 				{
 					FStaticMeshSourceModel& LODModel = StaticMesh->AddSourceModel();
 					const int32 LODIndex = StaticMesh->SourceModels.Num() - 1;
-					FMeshDescription* MeshDescription = StaticMesh->CreateOriginalMeshDescription(LODIndex);
+					FMeshDescription* MeshDescription = StaticMesh->CreateMeshDescription(LODIndex);
 					StaticMesh->RegisterMeshAttributes(*MeshDescription);
 
 					TVertexAttributesRef<FVector> VertexPositions = MeshDescription->VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
@@ -1943,7 +1914,8 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 						int32 NumTriangles = NumIndices / 3;
 						for (int32 TriangleIndex = 0; TriangleIndex < NumTriangles; ++TriangleIndex)
 						{
-							FVertexInstanceID CornerVertexInstanceIDs[3];
+							TArray<FVertexInstanceID> CornerVertexInstanceIDs;
+							CornerVertexInstanceIDs.SetNum(3);
 							FVertexID CornerVertexIDs[3];
 							for (int32 Corner = 0; Corner < 3; ++Corner)
 							{
@@ -1972,33 +1944,8 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 								CornerVertexIDs[Corner] = VertexID;
 							}
 
-							TArray<FMeshDescription::FContourPoint> Contours;
-							for (int32 Corner = 0; Corner < 3; ++Corner)
-							{
-								int32 ContourPointIndex = Contours.AddDefaulted();
-								FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
-								//Find the matching edge ID
-								uint32 CornerIndices[2];
-								CornerIndices[0] = (Corner + 0) % 3;
-								CornerIndices[1] = (Corner + 1) % 3;
-
-								FVertexID EdgeVertexIDs[2];
-								EdgeVertexIDs[0] = CornerVertexIDs[CornerIndices[0]];
-								EdgeVertexIDs[1] = CornerVertexIDs[CornerIndices[1]];
-
-								FEdgeID MatchEdgeId = MeshDescription->GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-								if (MatchEdgeId == FEdgeID::Invalid)
-								{
-									MatchEdgeId = MeshDescription->CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-									//All edge are smooth
-									EdgeHardnesses[MatchEdgeId] = false;
-									EdgeCreaseSharpnesses[MatchEdgeId] = 0.0f;
-								}
-								ContourPoint.EdgeID = MatchEdgeId;
-								ContourPoint.VertexInstanceID = CornerVertexInstanceIDs[CornerIndices[0]];
-							}
 							// Insert a polygon into the mesh
-							const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(CurrentPolygonGroupID, Contours);
+							const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(CurrentPolygonGroupID, CornerVertexInstanceIDs);
 							//Triangulate the polygon
 							FMeshPolygon& Polygon = MeshDescription->GetPolygon(NewPolygonID);
 							MeshDescription->ComputePolygonTriangulation(NewPolygonID, Polygon.Triangles);
@@ -2012,7 +1959,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 					LODModel.BuildSettings.bUseFullPrecisionUVs = false;
 					LODModel.BuildSettings.bGenerateLightmapUVs = false;
 					LODModel.ScreenSize.Default = 0.1f / FMath::Pow(2.0f, StaticMesh->SourceModels.Num() - 1);
-					StaticMesh->CommitOriginalMeshDescription(LODIndex);
+					StaticMesh->CommitMeshDescription(LODIndex);
 					// Add mesh section info entry for billboard LOD (only one section/material index)
 					FMeshSectionInfo Info = StaticMesh->SectionInfoMap.Get(LODIndex, 0);
 					Info.MaterialIndex = MaterialIndex;
@@ -2055,14 +2002,14 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 		bOutOperationCanceled = true;
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, StaticMesh);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, StaticMesh);
 
 	return StaticMesh;
 }
 
 UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, FFeedbackContext* Warn, bool& bOutOperationCanceled)
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, InClass, InParent, InName, Type);
 
 	TSharedPtr<SWindow> ParentWindow;
 	// Check if the main frame is loaded.  When using the old main frame it may not be.
@@ -2212,7 +2159,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 		{
 			SpeedTree8::CLod LOD = SpeedTree.Lods()[LODIndex];
 			
-			FMeshDescription* MeshDescription = StaticMesh->CreateOriginalMeshDescription(LODIndex);
+			FMeshDescription* MeshDescription = StaticMesh->CreateMeshDescription(LODIndex);
 			StaticMesh->RegisterMeshAttributes(*MeshDescription);
 
 			TVertexAttributesRef<FVector> VertexPositions = MeshDescription->VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
@@ -2282,7 +2229,8 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 				int32 TriangleCount = DrawCall.m_uiIndexCount / 3;
 				for (int32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
 				{
-					FVertexInstanceID CornerVertexInstanceIDs[3];
+					TArray<FVertexInstanceID> CornerVertexInstanceIDs;
+					CornerVertexInstanceIDs.SetNum(3);
 					FVertexID CornerVertexIDs[3];
 					for (int32 Corner = 0; Corner < 3; ++Corner)
 					{
@@ -2380,33 +2328,8 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 						CornerVertexIDs[Corner] = VertexID;
 					}
 
-					TArray<FMeshDescription::FContourPoint> Contours;
-					for (int32 Corner = 0; Corner < 3; ++Corner)
-					{
-						int32 ContourPointIndex = Contours.AddDefaulted();
-						FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
-						//Find the matching edge ID
-						uint32 CornerIndices[2];
-						CornerIndices[0] = (Corner + 0) % 3;
-						CornerIndices[1] = (Corner + 1) % 3;
-
-						FVertexID EdgeVertexIDs[2];
-						EdgeVertexIDs[0] = CornerVertexIDs[CornerIndices[0]];
-						EdgeVertexIDs[1] = CornerVertexIDs[CornerIndices[1]];
-
-						FEdgeID MatchEdgeId = MeshDescription->GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-						if (MatchEdgeId == FEdgeID::Invalid)
-						{
-							MatchEdgeId = MeshDescription->CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-							//All edge are smooth
-							EdgeHardnesses[MatchEdgeId] = false;
-							EdgeCreaseSharpnesses[MatchEdgeId] = 0.0f;
-						}
-						ContourPoint.EdgeID = MatchEdgeId;
-						ContourPoint.VertexInstanceID = CornerVertexInstanceIDs[CornerIndices[0]];
-					}
 					// Insert a polygon into the mesh
-					const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(CurrentPolygonGroupID, Contours);
+					const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(CurrentPolygonGroupID, CornerVertexInstanceIDs);
 					//Triangulate the polygon
 					FMeshPolygon& Polygon = MeshDescription->GetPolygon(NewPolygonID);
 					MeshDescription->ComputePolygonTriangulation(NewPolygonID, Polygon.Triangles);
@@ -2414,7 +2337,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 			}
 
 			//Save the created mesh
-			StaticMesh->CommitOriginalMeshDescription(LODIndex);
+			StaticMesh->CommitMeshDescription(LODIndex);
 		}
 
 		// replace materials if they've been switched out
@@ -2442,7 +2365,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 		}
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, StaticMesh);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, StaticMesh);
 
 	return StaticMesh;
 }

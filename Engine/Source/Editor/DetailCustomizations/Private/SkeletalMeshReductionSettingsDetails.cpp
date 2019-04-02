@@ -1,13 +1,19 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SkeletalMeshReductionSettingsDetails.h"
-#include "PropertyHandle.h"
-#include "Widgets/Text/STextBlock.h"
-#include "Widgets/Input/SSpinBox.h"
-#include "DetailLayoutBuilder.h"
+
+#include "IDetailGroup.h"
 #include "IDetailChildrenBuilder.h"
+#include "IMeshReductionManagerModule.h"
+#include "IMeshReductionInterfaces.h"
+#include "DetailLayoutBuilder.h"
 #include "DetailWidgetRow.h"
+#include "Modules/ModuleManager.h"
+#include "PropertyHandle.h"
 #include "SkeletalMeshReductionSettings.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "Widgets/Text/STextBlock.h"
+#include "SkeletalRenderPublic.h"
 
 #define LOCTEXT_NAMESPACE "SkeletalMeshReductionSettingsDetails"
 
@@ -24,72 +30,281 @@ void FSkeletalMeshReductionSettingsDetails::CustomizeHeader(TSharedRef<IProperty
 		StructPropertyHandle->CreatePropertyNameWidget()
 	];
 }
+
+bool FSkeletalMeshReductionSettingsDetails::UseNativeReductionTool() const
+{
+	if (IMeshReduction* SkeletalReductionModule = FModuleManager::Get().LoadModuleChecked<IMeshReductionManagerModule>("MeshReductionInterface").GetSkeletalMeshReductionInterface())
+	{
+		FString ModuleVersionString = SkeletalReductionModule->GetVersionString();
+
+		TArray<FString> SplitVersionString;
+		ModuleVersionString.ParseIntoArray(SplitVersionString, TEXT("_"), true);
+		return SplitVersionString[0].Equals("QuadricSkeletalMeshReduction");
+	}
+
+	return false;
+}
+
 void FSkeletalMeshReductionSettingsDetails::CustomizeChildren(TSharedRef<IPropertyHandle> StructPropertyHandle, IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils)
 {
 	// here, we have to keep track of customizing properties, so that we don't display twice
-	const TArray<FName> CustomizedProperties = { GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, ReductionMethod), GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, NumOfTrianglesPercentage), 
-		GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, MaxDeviationPercentage)};
+	const TArray<FName> CustomizedProperties = {
+		GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, ReductionMethod),
+		GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, NumOfTrianglesPercentage),
+		GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, MaxDeviationPercentage)
+	};
 
 	ReductionMethodPropertyHandle = StructPropertyHandle->GetChildHandle(CustomizedProperties[0]);
 	NumTrianglesPercentagePropertyHandle = StructPropertyHandle->GetChildHandle(CustomizedProperties[1]);
 	MaxDeviationPercentagePropertyHandle = StructPropertyHandle->GetChildHandle(CustomizedProperties[2]);
 
-	StructBuilder.AddProperty(ReductionMethodPropertyHandle.ToSharedRef());
+	bool bUseThirdPartyUI = !UseNativeReductionTool();
 
-	StructBuilder.AddCustomRow(LOCTEXT("PercentTriangles_Row", "Triangle Percentage"))
-		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FSkeletalMeshReductionSettingsDetails::GetVisibiltyIfCurrentReductionMethodIsNot, SMOT_MaxDeviation)))
-		.NameContent()
-		[
-			SNew(STextBlock)
-			.Font(IDetailLayoutBuilder::GetDetailFont())
+	const int32 LODIndex = [StructPropertyHandle]() -> int32
+	{
+		if (StructPropertyHandle->GetParentHandle().IsValid())
+		{
+			if (StructPropertyHandle->GetParentHandle()->GetProperty()->GetFName() == GET_MEMBER_NAME_CHECKED(FSkeletalMeshObject, LODInfo))
+			{
+				return StructPropertyHandle->GetParentHandle()->GetIndexInArray();
+			}
+		}
+
+		return INDEX_NONE;
+	}();
+
+	auto BaseLODCustomization = [LODIndex, &StructBuilder](TSharedPtr<IPropertyHandle>& BaseLODPropertyHandle)
+	{
+		// Only able to do this for LOD2 and above, so only show the property if this is the case
+		if (LODIndex > 1)
+		{
+			// Add and retrieve the default widgets
+			IDetailPropertyRow& Row = StructBuilder.AddProperty(BaseLODPropertyHandle->AsShared());
+
+			TSharedPtr<SWidget> NameWidget;
+			TSharedPtr<SWidget> ValueWidget;
+			FDetailWidgetRow DefaultWidgetRow;
+			Row.GetDefaultWidgets(NameWidget, ValueWidget, DefaultWidgetRow);
+
+			// Customize the value property to be a spinbox with Max value cap so it is always < CurrentLODIndex
+			Row.CustomWidget()
+				.NameContent()
+				[
+					NameWidget.ToSharedRef()
+				]
+				.ValueContent()
+				.MinDesiredWidth(DefaultWidgetRow.ValueWidget.MinWidth)
+				.MaxDesiredWidth(DefaultWidgetRow.ValueWidget.MaxWidth)
+				[
+					SNew(SSpinBox<int32>)
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+					.MinValue(0)
+					.MaxValue(FMath::Max(LODIndex - 1, 0))
+					.Value_Lambda([BaseLODPropertyHandle]() -> int32
+					{
+						int32 Value = INDEX_NONE;
+						BaseLODPropertyHandle->GetValue(Value);
+						return Value;
+					})					
+					.OnValueChanged_Lambda([BaseLODPropertyHandle](int32 NewValue)
+					{
+						BaseLODPropertyHandle->SetValue(NewValue);
+					})
+				];
+		}
+	};
+	
+	
+	if (bUseThirdPartyUI)
+	{
+		StructBuilder.AddProperty(ReductionMethodPropertyHandle.ToSharedRef());
+
+		StructBuilder.AddCustomRow(LOCTEXT("PercentTriangles_Row", "Triangle Percentage"))
+			.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FSkeletalMeshReductionSettingsDetails::GetVisibiltyIfCurrentReductionMethodIsNot, SMOT_MaxDeviation)))
+			.NameContent()
+			[
+				SNew(STextBlock)
+				.Font(IDetailLayoutBuilder::GetDetailFont())
 			.Text(LOCTEXT("PercentTriangles", "Triangle Percentage"))
 			.ToolTipText(LOCTEXT("PercentTriangles_ToolTip", "The simplification uses this percentage of source mesh's triangle count as a target."))
-		]
+			]
 		.ValueContent()
-		[
-			SNew(SSpinBox<float>)
-			.Font(IDetailLayoutBuilder::GetDetailFont())
+			[
+				SNew(SSpinBox<float>)
+				.Font(IDetailLayoutBuilder::GetDetailFont())
 			.MinValue(0.0f)
 			.MaxValue(100.0f)
 			.Value(this, &FSkeletalMeshReductionSettingsDetails::GetNumTrianglesPercentage)
 			.OnValueChanged(this, &FSkeletalMeshReductionSettingsDetails::SetNumTrianglesPercentage)
-		];
+			];
 
-	StructBuilder.AddCustomRow(LOCTEXT("Accuracy_Row", "Accuracy Percentage"))
-		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FSkeletalMeshReductionSettingsDetails::GetVisibiltyIfCurrentReductionMethodIsNot, SMOT_NumOfTriangles)))
-		.NameContent()
-		[
-			SNew(STextBlock)
-			.Font(IDetailLayoutBuilder::GetDetailFont())
+		StructBuilder.AddCustomRow(LOCTEXT("Accuracy_Row", "Accuracy Percentage"))
+			.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FSkeletalMeshReductionSettingsDetails::GetVisibiltyIfCurrentReductionMethodIsNot, SMOT_NumOfTriangles)))
+			.NameContent()
+			[
+				SNew(STextBlock)
+				.Font(IDetailLayoutBuilder::GetDetailFont())
 			.Text(LOCTEXT("PercentAccuracy", "Accuracy Percentage"))
 			.ToolTipText(LOCTEXT("PercentAccuracy_ToolTip", "The simplification uses this as how much deviate from source mesh. Better works with hard surface meshes."))
-		]
+			]
 		.ValueContent()
-		[
-			SNew(SSpinBox<float>)
-			.Font(IDetailLayoutBuilder::GetDetailFont())
+			[
+				SNew(SSpinBox<float>)
+				.Font(IDetailLayoutBuilder::GetDetailFont())
 			.MinValue(0.0f)
 			// if you set 100% accuracy, which will set 0.f as max deviation, simplygon ignores the value. Considered invalid.
-			.MaxValue(100.f) 
+			.MaxValue(100.f)
 			.Value(this, &FSkeletalMeshReductionSettingsDetails::GetAccuracyPercentage)
 			.OnValueChanged(this, &FSkeletalMeshReductionSettingsDetails::SetAccuracyPercentage)
-		];
+			];
 
-	uint32 NumChildren = 0;
-	
-	if (StructPropertyHandle->GetNumChildren(NumChildren) != FPropertyAccess::Fail)
-	{
-		for (uint32 Index = 0; Index < NumChildren; ++Index)
+		// Parameters not used by simplygon
+		const TArray<FName> CustomSimplifierOnlyProperties = {
+			GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, NumOfVertPercentage),
+			GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, MaxNumOfVerts),
+			GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, MaxNumOfTriangles),
+			GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, TerminationCriterion),
+			GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, bLockEdges),
+			GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, bEnforceBoneBoundaries),
+			GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, VolumeImportance)
+		};
+
+		uint32 NumChildren = 0;
+
+		if (StructPropertyHandle->GetNumChildren(NumChildren) != FPropertyAccess::Fail)
 		{
-			TSharedPtr<IPropertyHandle> ChildHandle = StructPropertyHandle->GetChildHandle(Index);
-			// we don't want to add the things that we added first
-			// maybe we make array later if we have a lot. 
-			if (!CustomizedProperties.Contains(ChildHandle->GetProperty()->GetFName()))
+			for (uint32 Index = 0; Index < NumChildren; ++Index)
 			{
-				StructBuilder.AddProperty(ChildHandle.ToSharedRef());
+				TSharedPtr<IPropertyHandle> ChildHandle = StructPropertyHandle->GetChildHandle(Index);
+				// we don't want to add the things that we added first
+				// maybe we make array later if we have a lot. 
+				FName PropertyName = ChildHandle->GetProperty()->GetFName();
+
+				if (PropertyName == GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, BaseLOD))
+				{
+					BaseLODCustomization(ChildHandle);
+				}
+				else
+				{
+					if (!CustomizedProperties.Contains(PropertyName) && !CustomSimplifierOnlyProperties.Contains(PropertyName))
+					{
+						StructBuilder.AddProperty(ChildHandle.ToSharedRef());
+					}
+				}				
 			}
 		}
 	}
+	else  // Not third party: Using our own skeletal simplifier.
+	{
+		// Store structure's child properties
+		// in Map for later filtering
+
+		uint32 NumChildren;
+		StructPropertyHandle->GetNumChildren(NumChildren);
+		TMap<FName, TSharedPtr< IPropertyHandle > > PropertyHandles;
+		for (uint32 ChildIndex = 0; ChildIndex < NumChildren; ++ChildIndex)
+		{
+			TSharedRef<IPropertyHandle> ChildHandle = StructPropertyHandle->GetChildHandle(ChildIndex).ToSharedRef();
+			const FName PropertyName = ChildHandle->GetProperty()->GetFName();
+			{
+				PropertyHandles.Add(PropertyName, ChildHandle);
+			}
+
+		}
+
+		// Third party only parameters:
+		// E.g. PropertyHandles of parameters our native tool doesn't support
+
+		const TArray<FName> UnWantedPropertyNames = {
+			GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, ReductionMethod),
+			GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, MaxDeviationPercentage),
+			GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, SilhouetteImportance),
+			GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, TextureImportance),
+			GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, NormalsThreshold),
+			GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, ShadingImportance),
+			GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, SkinningImportance),
+			GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, WeldingThreshold),
+			GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, bRecalcNormals),
+		};
+
+		TArray<TSharedPtr<IPropertyHandle>> UnwantedPropertyHandles;
+		for (const auto& UnwantedName : UnWantedPropertyNames)
+		{
+			UnwantedPropertyHandles.Add(PropertyHandles.FindChecked(UnwantedName));
+		}
+
+		// Pull down that selects that termination criterion to use.
+		TerminationCriterionPopertyHandle = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, TerminationCriterion));
+
+		// These may be hidden depending on the termination criterion
+		TSharedPtr<IPropertyHandle> VertPercentPropertyHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, NumOfVertPercentage));
+		TSharedPtr<IPropertyHandle> TriPercentPropertyHandle  = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, NumOfTrianglesPercentage));
+
+		TSharedPtr<IPropertyHandle> MaxNumOfVertsPropertyHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, MaxNumOfVerts));
+		TSharedPtr<IPropertyHandle> MaxNumOfTrisPropertyHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, MaxNumOfTriangles));
+
+		for (auto Iter(PropertyHandles.CreateIterator()); Iter; ++Iter)
+		{
+			if (UnwantedPropertyHandles.Contains(Iter.Value())) 
+			{
+				IDetailPropertyRow& SettingsRow = StructBuilder.AddProperty(Iter.Value().ToSharedRef());
+				SettingsRow.Visibility(TAttribute<EVisibility>(this, &FSkeletalMeshReductionSettingsDetails::GetVisibilityForThirdPartyTool));
+			}
+			else if (Iter.Value()->GetProperty()->GetFName() == GET_MEMBER_NAME_CHECKED(FSkeletalMeshOptimizationSettings, BaseLOD))
+			{
+				BaseLODCustomization(Iter.Value());
+			}
+			else
+			{
+				IDetailPropertyRow& SettingsRow = StructBuilder.AddProperty(Iter.Value().ToSharedRef());
+
+				// depending on the value of the pull down, optionally hide at most one of these.
+				if (Iter.Value() == VertPercentPropertyHandle)
+				{
+					const TArray< SkeletalMeshTerminationCriterion > VizList = {
+					SMTC_NumOfVerts,
+					SMTC_TriangleOrVert
+					};
+
+					// Hide property if using triangle percentage
+					SettingsRow.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FSkeletalMeshReductionSettingsDetails::ShowIfCurrentCriterionIs, VizList)));
+				}
+				else if (Iter.Value() == TriPercentPropertyHandle)
+				{
+					const TArray< SkeletalMeshTerminationCriterion > VizList = 
+					{
+						SMTC_NumOfTriangles,
+						SMTC_TriangleOrVert
+					};
+					// Hide property if using vert percentage
+					SettingsRow.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FSkeletalMeshReductionSettingsDetails::ShowIfCurrentCriterionIs, VizList)));
+				}
+				else if (Iter.Value() == MaxNumOfVertsPropertyHandle)
+				{
+					const TArray< SkeletalMeshTerminationCriterion > VizList = 
+					{
+						SMTC_AbsNumOfVerts,
+						SMTC_AbsTriangleOrVert
+					};
+					// Hide property if using triangle percentage
+					SettingsRow.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FSkeletalMeshReductionSettingsDetails::ShowIfCurrentCriterionIs, VizList)));
+				}
+				else if (Iter.Value() == MaxNumOfTrisPropertyHandle)
+				{
+					const TArray< SkeletalMeshTerminationCriterion > VizList = 
+					{
+						SMTC_AbsNumOfTriangles,
+						SMTC_AbsTriangleOrVert
+					};
+					// Hide property if using triangle percentage
+					SettingsRow.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FSkeletalMeshReductionSettingsDetails::ShowIfCurrentCriterionIs, VizList)));
+				}
+
+			}
+		}
+
+	}
+
 }
 
 float FSkeletalMeshReductionSettingsDetails::ConvertToPercentage(float Input) const
@@ -149,5 +364,39 @@ EVisibility FSkeletalMeshReductionSettingsDetails::GetVisibiltyIfCurrentReductio
 	}
 
 	return EVisibility::Hidden;
+}
+
+EVisibility FSkeletalMeshReductionSettingsDetails::ShowIfCurrentCriterionIs(TArray<SkeletalMeshTerminationCriterion> TerminationCriterionArray) const
+{
+	uint8 CurrentEnum;
+	if (TerminationCriterionPopertyHandle->GetValue(CurrentEnum) != FPropertyAccess::Fail)
+	{
+		enum SkeletalMeshTerminationCriterion CurrentReductionType = (SkeletalMeshTerminationCriterion)CurrentEnum;
+		if (TerminationCriterionArray.Contains(CurrentReductionType))
+		{
+			return EVisibility::Visible;
+		}
+	}
+
+	return EVisibility::Hidden;
+}
+
+bool FSkeletalMeshReductionSettingsDetails::UseNativeLODTool() const
+{
+
+	bool bRequestNative = true;
+	return bRequestNative;
+}
+
+EVisibility FSkeletalMeshReductionSettingsDetails::GetVisibilityForThirdPartyTool() const
+{
+	EVisibility VisiblityValue = EVisibility::Visible;
+
+	if (UseNativeLODTool())
+	{
+		VisiblityValue = EVisibility::Hidden;
+	}
+
+	return VisiblityValue;
 }
 #undef LOCTEXT_NAMESPACE

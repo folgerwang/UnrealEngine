@@ -145,12 +145,12 @@ topic-image:projectsettings_topic.png
 
 | 섹션 | 설명 |
 | ------- | ----------- |
-| **Android** | 안드로이드 - 안드로이드 플랫폼에서의 실행 관련 옵션 설정이 가능합니다. |
-| **Android SDK** | 안드로이드 SDK - 안드로이드 SDK 위치 설정이 들어있습니다. [REGION:note]이 설정은 모든 프로젝트에 적용됩니다.[/REGION] |
+| **Android** | Android - Android 플랫폼에서의 실행 관련 옵션 설정이 가능합니다. |
+| **Android SDK** | Android SDK - Android SDK 위치 설정이 들어있습니다. [REGION:note]이 설정은 모든 프로젝트에 적용됩니다.[/REGION] |
 | **HTML5** | HTML5 - HTML5 플랫폼에서의 실행 관련 옵션 설정이 가능합니다. [REGION:note]이 설정은 모든 프로젝트에 적용됩니다.[/REGION] |
 | **HTML5 SDK** | HTML5 SDK - SDK 경로와 디바이스 설정이 가능합니다. [REGION:note]이 설정은 모든 프로젝트에 적용됩니다.[/REGION] |
 | **iOS** | iOS - iOS 플랫폼에서의 실행 관련 옵션 설정이 가능합니다. |
-| **Windows**| 윈도우 - 윈도우 플랫폼 실행 전용 옵션이 들어있습니다. |
+| **Windows**| Windows - Windows 플랫폼 실행 전용 옵션이 들어있습니다. |
 
 
 ### 플러그인 카테고리

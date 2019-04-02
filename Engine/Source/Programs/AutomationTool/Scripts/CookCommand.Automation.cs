@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -48,7 +48,7 @@ public partial class Project : CommandUtils
 			if (Params.ClientTargetPlatforms.Count > 0)
 			{
 				var LogFolderOutsideOfSandbox = GetLogFolderOutsideOfSandbox();
-				if (!GlobalCommandLine.Installed)
+				if (!CommandUtils.IsEngineInstalled())
 				{
 					// In the installed runs, this is the same folder as CmdEnv.LogFolder so delete only in not-installed
 					DeleteDirectory(LogFolderOutsideOfSandbox);

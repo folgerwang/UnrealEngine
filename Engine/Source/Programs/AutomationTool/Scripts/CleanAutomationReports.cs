@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -50,11 +50,18 @@ namespace AutomationTool
 			List<DirectoryInfo> FoldersToDelete = new List<DirectoryInfo>();
 			foreach (DirectoryInfo BuildDirectory in new DirectoryInfo(ReportDir).EnumerateDirectories())
 			{
-				if(!BuildDirectory.EnumerateFiles("*", SearchOption.AllDirectories).Any(x => x.LastWriteTimeUtc > RetainTime))
+				try
 				{
-					FoldersToDelete.Add(BuildDirectory);
+					if(!BuildDirectory.EnumerateFiles("*", SearchOption.AllDirectories).Any(x => x.LastWriteTimeUtc > RetainTime))
+					{
+						FoldersToDelete.Add(BuildDirectory);
+					}
+					NumFolders++;
 				}
-				NumFolders++;
+				catch(Exception Ex)
+				{
+					CommandUtils.LogWarning("Unable to enumerate {0}: {1}", BuildDirectory.FullName, Ex.ToString());
+				}
 			}
 			CommandUtils.LogInformation("Found {0} builds; {1} to delete.", NumFolders, FoldersToDelete.Count);
 

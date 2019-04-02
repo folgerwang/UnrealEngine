@@ -5,14 +5,13 @@ Title:Vector 表現式
 Description:位置や法線などのベクター値を出力する表現式
 Type:Reference
 Version:4.16
-Parent:Engine/Rendering/Materials
+Parent:Engine/Rendering/Materials/ExpressionReference
 reference-image:PreSkinnedTriPlanar.gif
 reference-image:TriPlanarMaterial.gif
 reference-image:PS_LocalPositionMaterial.gif
 reference-image:PS_DefaultMaterial.gif
 Order:
 Tags:Materials
-topic-image:VectorExpression_Topic.png
 
 
 
@@ -74,19 +73,6 @@ CameraWorldPosition 表現式は、ワールド空間のカメラ位置を表す
 [REGION:warning]
 ライティングの演算はディファードで行われるため、この表現式は非推奨です。
 [/REGION:warning]
-[COMMENT:none]
-
-LightVector 表現式はサーフェスに対するライト方向を表す 3 つのチャンネルのベクター値です。
-
-**使用例：** LightVector はランバート照明モデルのような、カスタムのライティング計算に使用します。
-
-![LightVectorExample.jpg](LightVectorExample.jpg)
-
-[REGION:note]
-	LightVector 表現式は、エミッシブな出力の計算中は無効で、LightFunction または DeferredDecal マテリアルのみに使用できます。
-[/REGION]
-
-[/COMMENT]
 
 
 ## Object Bounds

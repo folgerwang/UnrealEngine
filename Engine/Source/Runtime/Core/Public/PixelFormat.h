@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -78,7 +78,8 @@ enum EPixelFormat
 	PF_PLATFORM_HDR_0		=64,	// Indicates platform-specific HDR output formats
 	PF_PLATFORM_HDR_1		=65,	// Reserved.
 	PF_PLATFORM_HDR_2		=66,	// Reserved.
-	PF_MAX					=PF_PLATFORM_HDR_2+1,
+	PF_NV12					=67,
+	PF_MAX					=68,
 };
 #define FOREACH_ENUM_EPIXELFORMAT(op) \
 	op(PF_Unknown) \
@@ -139,10 +140,14 @@ enum EPixelFormat
 	op(PF_BC6H) \
 	op(PF_BC7) \
 	op(PF_R8_UINT) \
+	op(PF_L8) \
+	op(PF_XGXR8) \
+	op(PF_R8G8B8A8_UINT) \
+	op(PF_R8G8B8A8_SNORM) \
 	op(PF_R16G16B16A16_UNORM) \
 	op(PF_R16G16B16A16_SNORM) \
-	op(PF_L8) \
 	op(PF_PLATFORM_HDR_0) \
 	op(PF_PLATFORM_HDR_1) \
-	op(PF_PLATFORM_HDR_2)
+	op(PF_PLATFORM_HDR_2) \
+	op(PF_NV12)
 

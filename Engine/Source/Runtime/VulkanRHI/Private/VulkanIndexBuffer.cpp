@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanIndexBuffer.cpp: Vulkan Index buffer RHI implementation.
@@ -76,11 +76,13 @@ FVulkanResourceMultiBuffer::FVulkanResourceMultiBuffer(FVulkanDevice* InDevice, 
 		const bool bIsUniformBuffer = (InBufferUsageFlags & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) != 0;
 		const bool bUAV = (InUEUsage & BUF_UnorderedAccess) != 0;
 		const bool bIndirect = (InUEUsage & BUF_DrawIndirect) == BUF_DrawIndirect;
+		const bool bCPUReadable = (UEUsage & BUF_KeepCPUAccessible) != 0;
 
 		BufferUsageFlags |= bVolatile ? 0 : VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 		BufferUsageFlags |= (bShaderResource && !bIsUniformBuffer) ? VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT : 0;
 		BufferUsageFlags |= bUAV ? VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT : 0;
 		BufferUsageFlags |= bIndirect ? VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT : 0;
+		BufferUsageFlags |= bCPUReadable ? (VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT) : 0;
 
 		if (bVolatile)
 		{
@@ -111,6 +113,7 @@ FVulkanResourceMultiBuffer::FVulkanResourceMultiBuffer(FVulkanDevice* InDevice, 
 			}
 
 			Current.SubAlloc = Buffers[DynamicBufferIndex];
+			Current.BufferAllocation = Current.SubAlloc->GetBufferAllocation();
 			Current.Handle = Current.SubAlloc->GetHandle();
 			Current.Offset = Current.SubAlloc->GetOffset();
 
@@ -156,6 +159,7 @@ void* FVulkanResourceMultiBuffer::Lock(bool bFromRenderingThread, EResourceLockM
 	const bool bVolatile = (UEUsage & BUF_Volatile) != 0;
 	const bool bCPUReadable = (UEUsage & BUF_KeepCPUAccessible) != 0;
 	const bool bUAV = (UEUsage & BUF_UnorderedAccess) != 0;
+	const bool bSR = (UEUsage & BUF_ShaderResource) != 0;
 
 	if (bVolatile)
 	{
@@ -169,13 +173,14 @@ void* FVulkanResourceMultiBuffer::Lock(bool bFromRenderingThread, EResourceLockM
 			Device->GetImmediateContext().GetTempFrameAllocationBuffer().Alloc(Size + Offset, 256, VolatileLockInfo);
 			Data = VolatileLockInfo.Data;
 			++VolatileLockInfo.LockCounter;
+			Current.BufferAllocation = VolatileLockInfo.GetBufferAllocation();
 			Current.Handle = VolatileLockInfo.GetHandle();
 			Current.Offset = VolatileLockInfo.GetBindOffset();
 		}
 	}
 	else
 	{
-		check(bStatic || bDynamic || bUAV);
+		check(bStatic || bDynamic || bUAV || bSR);
 
 		if (LockMode == RLM_ReadOnly)
 		{
@@ -186,6 +191,7 @@ void* FVulkanResourceMultiBuffer::Lock(bool bFromRenderingThread, EResourceLockM
 			check(LockMode == RLM_WriteOnly);
 			DynamicBufferIndex = (DynamicBufferIndex + 1) % NumBuffers;
 			Current.SubAlloc = Buffers[DynamicBufferIndex];
+			Current.BufferAllocation = Current.SubAlloc->GetBufferAllocation();
 			Current.Handle = Current.SubAlloc->GetHandle();
 			Current.Offset = Current.SubAlloc->GetOffset();
 
@@ -276,6 +282,7 @@ void FVulkanResourceMultiBuffer::Unlock(bool bFromRenderingThread)
 	const bool bDynamic = (UEUsage & BUF_Dynamic) != 0;
 	const bool bVolatile = (UEUsage & BUF_Volatile) != 0;
 	const bool bCPUReadable = (UEUsage & BUF_KeepCPUAccessible) != 0;
+	const bool bSR = (UEUsage & BUF_ShaderResource) != 0;
 
 	if (bVolatile)
 	{
@@ -285,7 +292,7 @@ void FVulkanResourceMultiBuffer::Unlock(bool bFromRenderingThread)
 	}
 	else
 	{
-		check(bStatic || bDynamic);
+		check(bStatic || bDynamic || bSR);
 
 		const bool bUnifiedMem = Device->HasUnifiedMemory();
 		if (bUnifiedMem)
@@ -315,7 +322,7 @@ void FVulkanResourceMultiBuffer::Unlock(bool bFromRenderingThread)
 			else
 			{
 				check(IsInRenderingThread());
-				new (RHICmdList.AllocCommand<FRHICommandMultiBufferUnlock>()) FRHICommandMultiBufferUnlock(Device, PendingLock, this, DynamicBufferIndex);
+				ALLOC_COMMAND_CL(RHICmdList, FRHICommandMultiBufferUnlock)(Device, PendingLock, this, DynamicBufferIndex);
 			}
 		}
 		else
@@ -347,16 +354,10 @@ void* FVulkanDynamicRHI::RHILockIndexBuffer(FIndexBufferRHIParamRef IndexBufferR
 	return IndexBuffer->Lock(false, LockMode, Size, Offset);
 }
 
-#if 0
-FIndexBufferRHIRef FVulkanDynamicRHI::CreateIndexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo)
-{
-	return new FVulkanIndexBuffer(Device, Stride, Size, InUsage, CreateInfo, &RHICmdList);
-}
-
+#if VULKAN_BUFFER_LOCK_THREADSAFE
 void* FVulkanDynamicRHI::LockIndexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FIndexBufferRHIParamRef IndexBufferRHI, uint32 Offset, uint32 SizeRHI, EResourceLockMode LockMode)
 {
-	FVulkanIndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
-	return IndexBuffer->Lock(true, LockMode, SizeRHI, Offset);
+	return this->RHILockIndexBuffer(IndexBufferRHI, Offset, SizeRHI, LockMode);
 }
 #endif
 
@@ -366,10 +367,9 @@ void FVulkanDynamicRHI::RHIUnlockIndexBuffer(FIndexBufferRHIParamRef IndexBuffer
 	IndexBuffer->Unlock(false);
 }
 
-#if 0
+#if VULKAN_BUFFER_LOCK_THREADSAFE
 void FVulkanDynamicRHI::UnlockIndexBuffer_RenderThread(FRHICommandListImmediate& RHICmdList, FIndexBufferRHIParamRef IndexBufferRHI)
 {
-	FVulkanIndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
-	IndexBuffer->Unlock(true);
+	this->RHIUnlockIndexBuffer(IndexBufferRHI);
 }
 #endif

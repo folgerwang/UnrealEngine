@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -29,6 +29,7 @@ public:
 	// ISourceCodeAccessModule interface
 
 	virtual bool CanAccessSourceCode() const override;
+	virtual bool CanCompileSourceCode() const override;
 	virtual ISourceCodeAccessor& GetAccessor() const override;
 	virtual void SetAccessor(const FName& InName) override;
 	virtual FLaunchingCodeAccessor& OnLaunchingCodeAccessor() override;
@@ -42,6 +43,9 @@ private:
 
 	/** Handle when one of the modular features we are interested in is unregistered */
 	void HandleModularFeatureUnregistered(const FName& Type, IModularFeature* ModularFeature);
+
+	/** Checks if a source code accessor with the given name is available */
+	bool IsSourceCodeAccessorAvailable(FName Name) const;
 
 private:
 

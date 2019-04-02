@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -49,6 +49,11 @@ public:
 	void Add(const ElementType& Element)
 	{
 		Vector.push_back(Element);
+	}
+
+	void PushFront(const ElementType& Element)
+	{
+		Vector.insert(Vector.begin(), Element);
 	}
 
 	int Num() const

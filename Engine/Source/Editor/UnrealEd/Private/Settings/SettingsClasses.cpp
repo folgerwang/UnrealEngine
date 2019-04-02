@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "HAL/FileManager.h"
@@ -45,6 +45,7 @@ UContentBrowserSettings::FSettingChangedEvent UContentBrowserSettings::SettingCh
 
 UContentBrowserSettings::UContentBrowserSettings( const FObjectInitializer& ObjectInitializer )
 	: Super(ObjectInitializer)
+	, bShowFullCollectionNameInToolTip(true)
 {
 }
 
@@ -386,8 +387,6 @@ ULevelEditorPlaySettings::ULevelEditorPlaySettings( const FObjectInitializer& Ob
 	bAutoCompileBlueprintsOnLaunch = true;
 	CenterNewWindow = true;
 
-	bBindSequencerToPIE = false;
-	bBindSequencerToSimulate = true;
 	EnablePIEEnterAndExitSounds = false;
 }
 
@@ -679,10 +678,6 @@ void ULevelEditorViewportSettings::PostEditChangeProperty( struct FPropertyChang
 		GEngine->SetSelectedMaterialColor(bHighlightWithBrackets
 			? FLinearColor::Black
 			: GetDefault<UEditorStyleSettings>()->SelectionColor);
-	}
-	else if (Name == GET_MEMBER_NAME_CHECKED(ULevelEditorViewportSettings, HoverHighlightIntensity))
-	{
-		GEngine->HoverHighlightIntensity = HoverHighlightIntensity;
 	}
 	else if (Name == GET_MEMBER_NAME_CHECKED(ULevelEditorViewportSettings, SelectionHighlightIntensity))
 	{

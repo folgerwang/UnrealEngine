@@ -52,7 +52,7 @@ prereq:Engine/Blueprints/TechnicalGuide/NativizingBlueprints
 
 [PUBLISH:Licensee]
 
-## 윈도우에서 변환된 코드 디버깅
+## Window s에서 변환된 코드 디버깅
 
 C++ 코드가 이미 포함된 프로젝트 작업을 하는 경우, 기존 프로젝트 솔루션을 사용하여 코드를 디버깅하면 됩니다. 하지만 프로젝트가 원래 블루프린트 전용인 경우, `GenerateProjectFiles.bat` 파일을 사용해야 프로젝트가 Visual Studio 솔루션 파일이 생길 것입니다.
 

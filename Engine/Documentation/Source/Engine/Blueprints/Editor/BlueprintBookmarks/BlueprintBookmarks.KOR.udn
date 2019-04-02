@@ -1,0 +1,87 @@
+INTSourceChangelist:4669081
+Availability: Public
+Crumbs: 
+Title: 블루프린트 북마크
+Description: 언리얼 엔진 4 참고서 및 안내서입니다.
+Type: 
+Version: 4.21
+Parent: Blueprints/Editor
+Order: 
+Tags: Blueprint Bookmarks
+
+
+![](BookmarksHeroImage.png)
+
+  
+**Blueprint Bookmarks** (블루프린트 북마크) 기능으로 블루프린트 에디터에서 함수 그래프에 네임드 북마크를 만들 수 있습니다. 이 북마크는 북마크 생성 당시 뷰포트 위치와 줌 레벨 및 보고 있던 활성 탭을 캡처합니다. 북마크는 로컬 머신에 저장되므로 블루프린트 자체에 영향을 주지 않으며, 콘텐츠를 동기화해도 다른 사용자의 북마크와 상관 없습니다.
+
+## 북마크 생성
+
+  
+블루프린트 북마크 생성 방법입니다.
+
+1.  북마크 설정하려는 그래프와 줌 위치에서 그래프 좌상단의 **별** 아이콘을 클릭합니다.  
+    ![](BlueprintBookmarks_Creation_01.png "BlueprintBookmarks_Creation_01.png") 
+1.  **New Bookmark** (새 북마크) 창에서 원하는 이름을 입력하고 **Add** (추가) 버튼을 클릭합니다.   
+    ![](BlueprintBookmarks_Creation_02.png "BlueprintBookmarks_Creation_02.png")  
+      
+    
+
+## 북마크 확인 및 사용
+
+기존 생성한 북마크를 확인 또는 사용하려면, **Windows** (창) > **Bookmarks** (북마크) 를 선택합니다.
+
+![](BlueprintBookmarks_Using_01.png "BlueprintBookmarks_Using_01.png")  
+
+그러면 **북마크** 메뉴가 열려 현재 애셋의 모든 북마크는 물론 [코멘트 노드](Engine/Blueprints/UserGuide/Comments) 가 표시됩니다. 
+
+![](BlueprintBookmarks_Using_02.png "BlueprintBookmarks_Using_02.png")
+
+북마크 창 우상단 **눈 모양** 아이콘을 클릭하면 부가 옵션이 뜹니다. **Show Comment Blocks** (코멘트 블록 표시) 옵션을 끄면 메뉴에 코멘트 노드가 표시되지 않습니다.
+
+![](BlueprintBookmarks_Using_03.png "BlueprintBookmarks_Using_03.png")
+
+**Show Bookmarks for Current Graph Only** (현재 그래프에 대한 북마크만 표시) 옵션을 켜면 활성 그래프의 북마크만, 끄면 어떤 그래프에 있어도 애셋의 모든 북마크를 표시합니다.
+
+창에 표시되는 북마크( 또는 코멘트)에 우클릭하면 부가 옵션이 뜹니다.
+
+![](BlueprintBookmarks_Using_04.png)  
+우클릭 컨텍스트 메뉴에서 **Delete** (삭제) 또는 **Rename** (이름변경)은 물론 선택 북마크( 또는 코멘트)에 바로 점프할 수도 있습니다.
+
+북마크 또는 코멘트 노드 블록을 더블클릭하면 그래프의 해당 섹션으로 점프합니다.
+
+![](BlueprintBookmarks_Using_05.png "BlueprintBookmarks_Using_05.png")
+
+[REGION:note]
+북마크로 점프하면, 그래프 좌상단 **별 모양** 아이콘이 채워져 북마크 위치에 있음을 나타냅니다.
+[/REGION]
+
+## 퀵 점프 북마크
+
+**북마크** 말고도 **Quick Jump Bookmark** (퀵 점프 북마크)를 생성할 수 있습니다. [레벨 에디터 뷰포트](Engine/UI/LevelEditor/Viewports/ViewportOptions) 에서 북마크 작동방식과 비슷합니다. 블루프린트 에디터의 북마크 라벨과 마찬가지로 퀵 점프 북마크도 여러 에디터 세션에 유지되며 생성한 사용자와 그 로컬 머신에만 저장됩니다. 
+
+  
+**퀵 점프 북마크** 할당 및 사용 방법입니다.   
+
+1.  그래프를 열고 **Ctrl + 0-9** (숫자 키)를 누르면 현재 블루프린트, 그래프 위치, 줌 레벨을 기억합니다. 
+2.  그래프에서 **Shift + 0-9** (이전 단계의 숫자 키)를 누르면 그 블루프린트, 그래프 위치, 줌 레벨로 돌아갑니다. 
+
+[REGION:note]
+**퀵 점프 북마크** 는 그 애셋이 열려있지 않아도 됩니다. 자동으로 열고, 줌 레벨과 그래프 위치를 찾아갑니다 (아래 비디오 예제와 같습니다).
+[/REGION]
+
+[OBJECT:EmbeddedVideo]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ NsXnA9KqzQk
+ [/PARAMLITERAL]
+[/OBJECT]
+
+[REGION:warning]
+4.21 버전에서 **퀵 점프 북마크** 는 현재 **북마크** 창에 표시되지 않습니다.
+[/REGION]

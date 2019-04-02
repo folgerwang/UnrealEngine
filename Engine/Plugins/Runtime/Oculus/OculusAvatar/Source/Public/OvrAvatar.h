@@ -1,9 +1,13 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
 #pragma once
 
 #include "GameFramework/Pawn.h"
 #include "OVR_Avatar.h"
 #include "Containers/Set.h"
 #include "Components/ActorComponent.h"
+#include "Engine/SkeletalMesh.h"
+#include "Components/MeshComponent.h"
 #include "OVR_Plugin.h"
 #include "OVR_Plugin_Types.h"
 
@@ -39,7 +43,10 @@ public:
 
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
-	void RequestAvatar(uint64_t userID);
+	void RequestAvatar(
+		uint64_t userID,
+		ovrAvatarAssetLevelOfDetail lod,
+		bool useCombinedBodyMesh);
 
 
 	void HandleAvatarSpecification(const ovrAvatarMessage_AvatarSpecification* message);
@@ -82,10 +89,14 @@ protected:
 	UPoseableMeshComponent* GetMeshComponent(ovrAvatarAssetID id) const;
 	UPoseableMeshComponent* GetDepthMeshComponent(ovrAvatarAssetID id) const;
 
+	void RemoveMeshComponent(ovrAvatarAssetID id);
+	void RemoveDepthMeshComponent(ovrAvatarAssetID id);
+
 	UPoseableMeshComponent* CreateMeshComponent(USceneComponent* parent, ovrAvatarAssetID assetID, const FString& name);
 	UPoseableMeshComponent* CreateDepthMeshComponent(USceneComponent* parent, ovrAvatarAssetID assetID, const FString& name);
 
-	void LoadMesh(USkeletalMesh* SkeletalMesh, const ovrAvatarMeshAssetData* data);
+	template<typename MeshAssetData, typename VertexType>
+	void LoadMesh(USkeletalMesh* SkeletalMesh, const MeshAssetData* data);
 
 	void UpdateSDK(float DeltaTime);
 	void UpdatePostSDK();
@@ -101,11 +112,17 @@ protected:
 	void DebugLogAvatarSDKTransforms(const FString& wrapper);
 	void DebugLogMaterialData(const ovrAvatarMaterialState& material, const FString& name);
 
+	static const FString& GetPBRV2MainMaterialString(bool useCombined);
+	static ovrAvatarControllerType GetControllerTypeByHardware();
+
+	static FColor GetColorFromVertex(const ovrAvatarMeshVertex& vertex);
+	static FColor GetColorFromVertex(const ovrAvatarMeshVertexV2& vertex);
+
 	uint64_t OnlineUserID = 0;
 
-	TSet<ovrAvatarAssetID> AssetIds;
-	TMap<ovrAvatarAssetID, TWeakObjectPtr<UPoseableMeshComponent>> MeshComponents;
-	TMap<ovrAvatarAssetID, TWeakObjectPtr<UPoseableMeshComponent>> DepthMeshComponents;
+	TSet<uint64> AssetIds;
+	TMap<uint64, TWeakObjectPtr<UPoseableMeshComponent>> MeshComponents;
+	TMap<uint64, TWeakObjectPtr<UPoseableMeshComponent>> DepthMeshComponents;
 
 	ovrAvatar* Avatar = nullptr;
 
@@ -127,8 +144,18 @@ protected:
 	TWeakObjectPtr<USceneComponent> AvatarHands[HandType_Count];
 
 	ovrAvatarLookAndFeelVersion LookAndFeel = ovrAvatarLookAndFeelVersion_Two;
+	ovrAvatarAssetLevelOfDetail LevelOfDetail = ovrAvatarAssetLevelOfDetail_Five;
+
 	bool UseV2VoiceVisualization = true;
 	float VoiceVisualValue = 0.f;
-
 	ovrAvatarAssetID BodyMeshID = 0;
+	bool UseCombinedBodyMesh = false;
+	bool AreMaterialsInitialized = false;
+	ovrAvatarControllerType ControllerType = ovrAvatarControllerType_Touch;
+
+#if PLATFORM_ANDROID
+	const bool UseDepthMeshes = false; 
+#else
+	const bool UseDepthMeshes = true;
+#endif
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -63,8 +63,6 @@ protected:
 	EVisibility GetGotoBindingVisibility(TSharedRef<IPropertyHandle> PropertyHandle) const;
 
 	FReply HandleGotoBindingClicked(TSharedRef<IPropertyHandle> PropertyHandle);
-
-	FReply AddOrViewEventBinding(TSharedPtr<FEdGraphSchemaAction> Action);
 
 private:
 

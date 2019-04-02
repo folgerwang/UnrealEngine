@@ -93,7 +93,7 @@ Topic-image:Engine/UMG/UserGuide/WidgetTypeRefTopic.png
 | **Size Box** | 사이즈 박스 - 보고하는 박스에 원하는 크기를 지정할 수 있습니다. 모든 위젯이 실제 원하는 크기의 박스로 보고하지는 않습니다. 위젯을 Size Box 로 감싸면 Size Box 가 특정 크기로 강제시킬 수 있습니다. |
 | **Uniform Grid Panel** | 균등 그리드 패널 - 자손 모두와 남은 공간을 균등하게 나누는 패널입니다. |
 | **Vertical Box** | 세로 박스 - 자손 위젯이 자동으로 세로로 배치되도록 하는 위젯입니다. 위젯끼리 세로 정렬을 유지하면서 서로 쌓이도록 하는 데 좋습니다. |
-| **Widget Switcher** | 위젯 전환기 - 자체적으로 만들 수 있는 탭은 없으나 탭처럼 제어되는 것으로, 이와 함꼐 하여 탭 효과를 낼 수 있습니다. 한 번에 최대 하나의 위젯만 보입니다. |
+| **Widget Switcher** | 위젯 전환기 - 자체적으로 만들 수 있는 탭은 없으나 탭처럼 제어되는 것으로, 이와 함께 하여 탭 효과를 낼 수 있습니다. 한 번에 최대 하나의 위젯만 보입니다. |
 | [**Wrap Box**](Engine\UMG\UserGuide\WidgetTypeReference\WrapBox) | [INCLUDE:Engine\UMG\UserGuide\WidgetTypeReference\WrapBox#desc] |
 
 

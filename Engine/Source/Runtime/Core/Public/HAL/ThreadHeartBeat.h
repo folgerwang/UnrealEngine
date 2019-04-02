@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreTypes.h"
@@ -7,6 +7,10 @@
 #include "HAL/ThreadSafeCounter.h"
 #include "HAL/Runnable.h"
 #include "HAL/ThreadSafeBool.h"
+
+#if PLATFORM_UNIX
+#include "Unix/UnixSignalHeartBeat.h"
+#endif
 
 /**
  * Our own local clock.
@@ -53,6 +57,21 @@ class CORE_API FThreadHeartBeat : public FRunnable
 		int32 SuspendedCount;
 		/** The timeout for this thread */
 		double HangDuration;
+
+		/** Suspends this thread's heartbeat */
+		void Suspend()
+		{
+			SuspendedCount++;
+		}
+		/** Resumes this thread's heartbeat */
+		void Resume(double CurrentTime)
+		{
+			check(SuspendedCount > 0);
+			if (--SuspendedCount == 0)
+			{
+				LastHeartBeatTime = CurrentTime;
+			}
+		}
 	};
 	/** Thread to run the worker FRunnable on */
 	FRunnableThread* Thread;
@@ -77,6 +96,9 @@ class CORE_API FThreadHeartBeat : public FRunnable
 	uint32 LastHangCallstackCRC;
 	/** Id of the last thread that hung */
 	uint32 LastHungThreadId;
+
+	/** Global suspended count */
+	FThreadSafeCounter GlobalSuspendCount;
 
 	FThreadHeartBeatClock Clock;
 
@@ -115,12 +137,14 @@ public:
 	void KillHeartBeat();
 	/** 
 	 * Suspend heartbeat measuring for the current thread if the thread has already had a heartbeat 
+	 * @param bAllThreads If true, suspends heartbeat for all threads, not only the current one
 	 */
-	void SuspendHeartBeat();
+	void SuspendHeartBeat(bool bAllThreads = false);
 	/** 
 	 * Resume heartbeat measuring for the current thread 
+	 * @param bAllThreads If true, resumes heartbeat for all threads, not only the current one
 	 */
-	void ResumeHeartBeat();
+	void ResumeHeartBeat(bool bAllThreads = false);
 
 	/**
 	* Returns true/false if this thread is currently performing heartbeat monitoring
@@ -143,18 +167,22 @@ public:
 /** Suspends heartbeat measuring for the current thread in the current scope */
 struct FSlowHeartBeatScope
 {
-	FORCEINLINE FSlowHeartBeatScope()
+private:
+	bool bSuspendedAllThreads;
+public:
+	FORCEINLINE FSlowHeartBeatScope(bool bAllThreads = false)
+		: bSuspendedAllThreads(bAllThreads)
 	{
 		if (FThreadHeartBeat* HB = FThreadHeartBeat::GetNoInit())
 		{
-			HB->SuspendHeartBeat();
+			HB->SuspendHeartBeat(bSuspendedAllThreads);
 		}
 	}
 	FORCEINLINE ~FSlowHeartBeatScope()
 	{
 		if (FThreadHeartBeat* HB = FThreadHeartBeat::GetNoInit())
 		{
-			HB->ResumeHeartBeat();
+			HB->ResumeHeartBeat(bSuspendedAllThreads);
 		}
 	}
 };
@@ -165,9 +193,9 @@ struct FSlowHeartBeatScope
 #define LOOKUP_SYMBOLS_IN_HITCH_STACK_WALK 0
 #endif
 
-class CORE_API FGameThreadHitchHeartBeat : public FRunnable
+class CORE_API FGameThreadHitchHeartBeatThreaded : public FRunnable
 {
-	static FGameThreadHitchHeartBeat* Singleton;
+	static FGameThreadHitchHeartBeatThreaded* Singleton;
 
 	/** Thread to run the worker FRunnable on */
 	FRunnableThread* Thread;
@@ -182,7 +210,6 @@ class CORE_API FGameThreadHitchHeartBeat : public FRunnable
 
 	double FirstStartTime;
 	double FrameStartTime;
-	double LastReportTime;
 
 	int32 SuspendedCount;
 
@@ -198,8 +225,8 @@ class CORE_API FGameThreadHitchHeartBeat : public FRunnable
 
 	void InitSettings();
 
-	FGameThreadHitchHeartBeat();
-	virtual ~FGameThreadHitchHeartBeat();
+	FGameThreadHitchHeartBeatThreaded();
+	virtual ~FGameThreadHitchHeartBeatThreaded();
 
 public:
 
@@ -210,8 +237,8 @@ public:
 	};
 
 	/** Gets the heartbeat singleton */
-	static FGameThreadHitchHeartBeat& Get();
-	static FGameThreadHitchHeartBeat* GetNoInit();
+	static FGameThreadHitchHeartBeatThreaded& Get();
+	static FGameThreadHitchHeartBeatThreaded* GetNoInit();
 
 	/**
 	* Called at the start of a frame to register the time we are looking to detect a hitch
@@ -231,12 +258,21 @@ public:
 	*/
 	void ResumeHeartBeat();
 
+	// No-op, used in FUnixSignalGameHitchHeartBeat
+	void Restart() {}
+
 	//~ Begin FRunnable Interface.
 	virtual bool Init();
 	virtual uint32 Run();
 	virtual void Stop();
 	//~ End FRunnable Interface
 };
+
+#if PLATFORM_UNIX
+typedef FUnixSignalGameHitchHeartBeat FGameThreadHitchHeartBeat;
+#else
+typedef FGameThreadHitchHeartBeatThreaded FGameThreadHitchHeartBeat;
+#endif
 
 /** Suspends hitch detection in the current scope */
 struct FDisableHitchDetectorScope

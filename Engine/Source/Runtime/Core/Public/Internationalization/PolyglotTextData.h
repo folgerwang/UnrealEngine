@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -119,6 +119,18 @@ public:
 	void ClearLocalizedStrings();
 
 	/**
+	 * Set whether this polyglot data is a minimal patch.
+	 * @see bIsMinimalPatch.
+	 */
+	void IsMinimalPatch(const bool InIsMinimalPatch);
+
+	/**
+	 * Get whether this polyglot data is a minimal patch.
+	 * @see bIsMinimalPatch.
+	 */
+	bool IsMinimalPatch() const;
+
+	/**
 	 * Get the text instance created from this polyglot data.
 	 */
 	FText GetText() const;
@@ -160,7 +172,7 @@ private:
 
 	/**
 	 * The native string for this polyglot data.
-	 * @note This must not be empty.
+	 * @note This must not be empty (it should be the same as the originally authored text you are trying to replace).
 	 */
 	FString NativeString;
 
@@ -169,6 +181,12 @@ private:
 	 * @note The native culture may also have a translation in this map.
 	 */
 	TMap<FString, FString> LocalizedStrings;
+
+	/**
+	 * True if this polyglot data is a minimal patch, and that missing translations should be 
+	 * ignored (falling back to any LocRes data) rather than falling back to the native string.
+	 */
+	bool bIsMinimalPatch = false;
 
 	/**
 	 * Transient cached text instance from registering this polyglot data with the text localization manager.

@@ -1,0 +1,169 @@
+Availability: Public
+Crumbs: 
+Title: About the Datasmith Import Process
+Description: Contains details about specific issues in the way Datasmith imports scenes into Unreal, and next steps you can follow to work with the imported Assets in Unreal.
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/Overview
+Order: 2
+Tags: Datasmith
+Tags: Guides
+Tags: importing
+topic-image:datasmith-about-import-topic.png
+
+
+The following sections provide details about specific issues that Datasmith handles during the scene conversion. Understanding these issues can help you understand the results that Datasmith produces, and to work with your content in the Unreal Editor.
+
+## Units and Scale
+
+In the Unreal Engine, all distances are always measured in centimeters. However, other 3D design applications typically offer a choice of units of measurement. If you use a different unit of measurement in your source application, Datasmith automatically takes care of adjusting the scale of your scene so that your geometry appears at exactly the same real-world size in the Unreal Engine, and at the right locations in 3D space. You don't have to change anything about the way you work in your source application.  
+
+For example, if you use inches as the unit of measurement in your source application, an object that is ten units long in your original scene becomes 25.4 world units long in the Unreal Engine.
+
+![](datasmith-units-1.png)
+
+![](datasmith-units-2.png)
+
+## Names and Labels
+
+Datasmith detects naming information about the geometry in your source application, and reuses this information as much as possible for the Assets and Actors that it creates. The exact process is a little different for each different application or file format, and the results in the Unreal Engine may be slightly different from your source application, but the ultimate goal is to make it possible for you to find and manage your content after import.
+
+For Static Meshes, you'll see that the name of the Asset in the Content Browser, the filename of the Asset on disk, and the name of the Actor in the Level are often different.
+
+*   **Content Browser label -** Datasmith generates the label for each Static Mesh Asset in the Content Browser based on the naming information it finds in your source file, if any.  
+    Some supported applications and file formats allow multiple objects to exist with the same name. If this is the case in your scene, you may find that several Assets in the Content Browser end up with the same label.
+*   **Filename -** However, the file name of each Asset on disk needs to be unique. Therefore, Datasmith names each Asset file using a unique identifier that it extracts from the source application.
+*   **Actor name -** Each time Datasmith places an Actor into a Level, it tries to give that Actor exactly the same name the corresponding object had in your source file, if any.  
+    If it can't find a unique name, it reuses the same label from the Content Browser to name the Actor. If another Actor already exists in the Level with that name, Datasmith makes the Actor name unique by incrementing a numeric suffix.
+
+For example, in the image below, you can see that all names from the source scene are brought in to Unreal as-is, except where multiple objects have the same name.
+
+[REGION:lightbox]
+[![](datasmith-naming-before.png)](datasmith-naming-before.png)
+[/REGION]
+
+Hierarchy in source file
+
+[REGION:lightbox]
+[![](datasmith-naming-after.png)](datasmith-naming-after.png)
+[/REGION]
+
+Hierarchy in Unreal
+
+[REGION:note]
+Note that there is a distinction between the *labels *that you see for Static Mesh Assets in the Content Browser, and the *names *of the files Datasmith generates for those Assets on disk. This should be transparent for most purposes while you're working in the Editor. However, if you want to use Blueprint or Python scripting to work with your Assets or your Datasmith Scene, you may need to be aware of this distinction.
+[/REGION]
+
+## Triangle Facing Direction
+
+In order to achieve the best possible performance at runtime, Unreal Engine culls any triangles that it doesn't expect to be visible, in order to avoid spending GPU cycles rendering them. In particular, the Engine assumes that all objects have a thickness. Any triangles that face away from the camera are assumed to be the back side of that object, and will be hidden from view by the front side of the object. This is called *back-face culling*, and it's an optimization technique that is used extensively in 3D rendering.
+
+However, some design applications do not make the same distinction between the front and back faces of a surface, and may render surfaces regardless of which side you view them from. When working in your design tool, you may not always be aware of the facing direction of a given surface. This can lead to the surface normal, which is the direction perpendicular to the surface, pointing inward, or away from the direction that you need the surface to be viewed. Or, this may lead you to create planar, single-walled geometry without any thickness at all.
+
+After you import your scene, this may cause some parts of your scene to be invisible when viewed from certain angles in the Unreal Engine. It may even look as if those parts of your model were not imported; however, the likelihood is that their surface normals are simply pointing away from the camera you're using to view the scene. If you rotate around the model, you may find that those surfaces suddenly appear.
+
+For example, in the following scene (on the left), the ceiling and the ends of the pipes appear to be missing, even though the geometry was imported correctly. Enabling the Two Sided option for the Materials makes the surfaces appear (see below for details).
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Single sided](datasmith-two-sided-off.png) 
+	[/PARAM]
+	[PARAM:after]
+	![Two Sided](datasmith-two-sided-on.png) 
+	[/PARAM]
+[/OBJECT]
+
+The best way to deal with this situation is in your source application:  
+
+*   We highly recommend modeling all objects with thickness whenever they need to be seen from all sides, and making sure that the normals face outward.
+*   If you know that your object will only need to be viewed from one side, you can fix the missing mesh by flipping the normal of the surface in your source application and re-importing the scene. This leaves the surface as one-sided, but at least inverts the facing direction of the surface so that it appears correctly when viewed in the Unreal Engine from the direction you need.
+
+However, if you want to fix the problem in the Unreal Editor without going back to your source scene, you could also consider the following options:
+
+*   You can flip the orientation of the triangles in the Static Mesh Editor, so that they face the other direction. See [Modifying Static Mesh Geometry](Enterprise/Datasmith/HowTo/ModifyStaticMeshGeometry).  
+    However, the same problem will still remain if those triangles are visible from the other side. This may be a good solution for something like a ceiling that will only be seen from the inside, but not for an interior wall that can be seen from both sides.  
+    Keep in mind that if you ever modify this piece of geometry in your source scene and re-import your Datasmith Scene Asset, you'll lose the changes you made in the Static Mesh Editor. So if you have to go back and modify your geometry for another reason, make sure to go back and fix the orientation of the faces in SketchUp at the same time.
+*   You can make the Material two-sided in the Material Editor. This makes the Engine render the surface when it is seen from either side. Although this sounds at first like a good solution, it tends to produce visual artifacts when used with static or stationary lighting, as both sides of the surface will use the same space in the lightmap texture.  
+    If your Material is a Material Instance, look in the Details panel of the Material Editor for **General > Material Property Overrides > Two Sided**.  
+    ![Two Sided Material Property Override](material-instance-two-sided.png "Two Sided Material Property Override")  
+    Otherwise, look in the **Details** panel of the Material Editor for **Material > Two Sided**:  
+    ![Two Sided Material Property](material-details-two-sided.png "Two Sided Material Property")
+*   If your problem is not with the visibility of the face itself, but only with light coming through the object — such as a ceiling that does not correctly block light from a directional light overhead — you can configure the Static Mesh Actor so that it casts shadows from both sides.  
+    Look in the **Details** panel for the **Lighting > Shadow Two Sided** setting.  
+    ![Shadow Two Sided](staticmeshactor-shadowtwosided.png "Shadow Two Sided")
+
+## Lightmap UVs
+
+Unreal Engine offers multiple ways to light your scene. The method that offers the best runtime performance, and typically the smoothest, most realistic spread of indirect illumination, is *baked* lighting. In this approach, you use a tool called Lightmass to build your lighting in the Unreal Editor. This calculates the light that hits each object in the scene from static and stationary lights, and stores it in a special kind of texture, called a *lightmap*. At runtime, this lighting information is applied from each object's lightmap texture to its surface.
+
+In order for this system to work, every vertex in a Static Mesh needs to be mapped to a unique coordinate in the 2D space of its lightmap texture. This mapping is called a UV set or UV channel. Moreover, this 2D coordinate space needs to be laid out in such a way that no two triangles in the mesh overlap each other in the 2D texture space. If two triangles in the mesh are mapped the same area of the 2D texture, then Lightmass won't be able to store a unique pattern of light and shadow for each of those triangles. This causes odd lighting artifacts at runtime.
+
+To ensure that all your Static Meshes are ready to receive static lighting, Datasmith automatically invokes the Unreal Editor's automatic UV unwrapping system for each Static Mesh it imports. This process adds two new UV sets to each Static Mesh:
+
+*   One is a simple unwrapping of the triangles that make up the mesh into a flat representation in 2D space. This breaks the mesh into multiple smaller "islands" that each represent a connected section of the mesh surface.
+*   The islands in the first lightmap are then rearranged and resized to fit into a layout that avoids any overlap, and that minimizes wasted space around the islands. This is the final layout that will be used for the object's lightmap when you build the lighting for your Level.
+
+Then, Datasmith automatically sets up the Static Mesh Asset to use the second generated UV for storing and applying lightmaps.
+
+[REGION:note]
+If you use 3ds Max, and you have already set up UV channels that you want to use for your lightmaps, see [Using Datasmith with 3ds Max](Enterprise/Datasmith/SoftwareInteropGuides/3dsMax).
+[/REGION]
+
+## Collisions and Physics
+
+By default, Datasmith doesn't set up any physics for the Static Mesh Assets it creates. You can set up physics for your Static Meshes in the Unreal Editor after you import; for details, see [Setting up Collisions With Static Meshes](Engine/Content/Types/StaticMeshes/HowTo/SettingCollision), or [Setting up Collisions With Static Meshes in Blueprint and Python](Engine/Editor/ScriptingAndAutomation/HowTos/CreatingLODs).
+
+If you're working with 3ds Max, you can model your own custom geometry in 3ds Max, and have the Datasmith importer automatically assign that geometry to the Static Mesh Assets it creates. For details, see [Using Datasmith with 3ds Max](Enterprise/Datasmith/SoftwareInteropGuides/3dsMax#customcollisionshapes).
+
+## Materials
+
+As described in the [Datasmith Overview](Enterprise/Datasmith/Overview), the Datasmith import process creates a new Material Asset in the Unreal Engine Project to represent each different set of geometry surface properties it recognizes in the scene it imports. Although the goal of the scene transformation is to carry over surface properties with the best possible fidelity, you'll likely need to tweak these Materials after import.
+
+*    Some source materials are based on a graph that Datasmith can understand and adjust to work with the Unreal Engine — most notably materials that come from 3ds Max. In this case, each Material Asset Datasmith creates has its own internal shader graph that is designed to replicate the effect of your source material inside Unreal's physically based renderer.  
+    When you double-click one of these Material Assets to edit it, you have direct access to its shader graph:  
+    ![Material translated by Datasmith](datasmith-material-translated.png "Material translated by Datasmith")  
+    This approach is good, because you have total control over how the Material interprets textures and settings to create the final surface shading parameters for the physically based renderer. On the other hand, this can be more complex to get started with, and changes you make typically require you to re-compile the shader.  
+    For more information, see the topics under the [Materials](Engine/Rendering/Materials) topic in this documentation, including the [Material Editor Reference](Engine/Rendering/Materials/Editor).
+*   In other cases, each Material that Datasmith creates is an instance of a pre-existing parent Material that comes with the Datasmith plugin. That means that when you edit one of these Materials, you can freely modify a set of pre-defined settings that are exposed in each of the instanced Materials:  
+    ![Material Instance created by Datasmith](datasmith-material-instance.png "Material Instance created by Datasmith")  
+    However, you can't alter the graph that the Material uses to determine how to shade the surface based on those properties unless you dig into the Parent Material that is built in to Datasmith.  
+    For more information on working with these kinds of Materials, see [Instanced Materials](Engine/Rendering/Materials/MaterialInstances) and the [Material Instance Editor User Guide](Engine/Rendering/Materials/MaterialInstances/Editor).  
+    [REGION:note]
+    To find one of these Parent Materials in your Content Browser, you will need to check **Show Plugin Content** in the **View Options** menu. If you want to modify this parent Material's graph, you'll need to duplicate the parent Material into your own Project's Content folder, then modify your duplicate.
+    [/REGION]
+
+Another option, instead of working with the Materials created by Datasmith, is always to completely replace the Material created by Datasmith with another physically based Material. This could be a Material that you create yourself in the Unreal Editor, or from a third-party.
+
+[REGION:tip]
+With your Unreal Studio subscription, you have access to a library of 100 physically based Substance Materials from Allegorithmic. To get started, see [here](https://www.allegorithmic.com/substance-ue4).
+[/REGION]
+
+### The Datasmith Color Material
+
+Many computer-aided design (CAD) applications use simple surface colors to shade geometry. Datasmith typically brings these sufaces into Unreal as Instances of the **Datasmith_Color** Material:
+
+![Datasmith_Color Material Instance](datasmith-color-material.png "Datasmith_Color Material Instance")
+
+*   The color of this Material is typically pre-set to exactly match a color from your source scene.  
+    When you use these Materials in the Unreal Engine, pay particular attention to the brightness of the color values. Design tools sometimes allow very bright surface colors — even including solid white — that are not often found in nature. You may need to tone these values down substantially in order for your lighting to look realistic.
+*   Datasmith is typically able to respect the opacity of your source materials. If a surface color in your source scene is set to be semi-transparent, such as a glass panel, Datasmith brings its opacity into the **Alpha** channel of the Color setting.  
+    If you want to use the Alpha channel to make a previously non-transparent Material become semi-transparent in the Unreal Editor, you'll also have to change the Material's blending mode. In the **General** section, expand the **Material Property Overrides** group, check the **Blend Mode** option, and set its value to **Translucent**. 
+*   The Datasmith_Color parent Material also allows you to use three different kinds of texture maps: a diffuse map that provides the base color of the surface (overriding the Color setting), a normal map that provides fine surface details, and a transparency map that allows different parts of the same surface to have different opacity values.  
+    Datasmith may use these texture map settings if it can export those kinds of texture maps from your source application. If you have a Datasmith_Color Instance with a  flat color, and you want to use texture maps like these in order to increase the realism of your surface, you might want to activate these settings and assign Texture Assets to them.  
+    When you enable one of the Map settings, you're offered a new setting under Texture Parameter Values where you can set the Texture you want to use:  
+    ![Datasmith_Color Instance with a texture map](datasmith-color-map-active.png "Datasmith_Color Instance with a texture map")  
+    However, you might be better off learning how to create your own Material from scratch, so that you can take advantage of other physically based properties of the Unreal Engine renderer that are not exposed by the Datasmith_Color parent Material, such as the Roughness and Metallic properties. See [Physically Based Materials](Engine/Rendering/Materials/PhysicallyBased).
+
+## Layers
+
+If your source application offers the ability to organize your content into layers, or some similar content, Datasmith preserves that organization in the Unreal Editor. You can use the **Layers** window (**Window > Layers**) to show and hide layers, or to quickly find and select all objects in a layer.
+
+![Layers imported by Datasmith](datasmith_overview_layers.png "Layers imported by Datasmith")
+
+However, the Unreal Editor doesn't support *nested* layers. If your source scene uses nested layers, Datasmith automatically flattens the hierarchy of layers into a single list.
+
+For more about how to work with Layers in the Unreal Editor, see the [Layers Panel User Guide](Engine/UI/LevelEditor/Layers).
+
+## Metadata
+
+For some kinds of source file formats, Datasmith imports metadata about the geometry objects in your scene that you set in your source application. You can access this metadata in the Unreal Editor using Blueprint and Python scripts. For details on this system, see [Using Datasmith Metadata](Enterprise/Datasmith/Overview/UsingDatasmithMetadata).

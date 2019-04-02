@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -13,6 +13,7 @@
 #include "GameplayTagsManager.generated.h"
 
 class UGameplayTagsList;
+struct FStreamableHandle;
 
 /** Simple struct for a table row in the gameplay tag table and element in the ini list */
 USTRUCT()
@@ -141,8 +142,8 @@ struct FGameplayTagNode
 	GENERATED_USTRUCT_BODY()
 	FGameplayTagNode(){};
 
-	/** Simple constructor */
-	FGameplayTagNode(FName InTag, TSharedPtr<FGameplayTagNode> InParentNode, bool InIsExplicitTag, bool InIsRestrictedTag, bool InAllowNonRestrictedChildren);
+	/** Simple constructor, passing redundant data for performance */
+	FGameplayTagNode(FName InTag, FName InFullTag, TSharedPtr<FGameplayTagNode> InParentNode, bool InIsExplicitTag, bool InIsRestrictedTag, bool InAllowNonRestrictedChildren);
 
 	/** Returns a correctly constructed container with only this tag, useful for doing container queries */
 	FORCEINLINE const FGameplayTagContainer& GetSingleTagContainer() const { return CompleteTagWithParents; }
@@ -304,6 +305,15 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	 */
 	FGameplayTag RequestGameplayTag(FName TagName, bool ErrorIfNotFound=true) const;
 
+	/** 
+	 * Returns true if this is a valid gameplay tag string (foo.bar.baz). If false, it will fill 
+	 * @param TagString String to check for validity
+	 * @param OutError If non-null and string invalid, will fill in with an error message
+	 * @param OutFixedString If non-null and string invalid, will attempt to fix. Will be empty if no fix is possible
+	 * @return True if this can be added to the tag dictionary, false if there's a syntax error
+	 */
+	bool IsValidGameplayTagString(const FString& TagString, FText* OutError = nullptr, FString* OutFixedString = nullptr);
+
 	/**
 	 *	Searches for a gameplay tag given a partial string. This is slow and intended mainly for console commands/utilities to make
 	 *	developer life's easier. This will attempt to match as best as it can. If you pass "A.b" it will match on "A.b." before it matches "a.b.c".
@@ -413,7 +423,7 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	}
 
 	/** Loads the tag tables referenced in the GameplayTagSettings object */
-	void LoadGameplayTagTables();
+	void LoadGameplayTagTables(bool bAllowAsyncLoad = false);
 
 	/** Helper function to construct the gameplay tag tree */
 	void ConstructGameplayTagTree();
@@ -509,8 +519,12 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	/** Returns "Categories" meta property from given handle, used for filtering by tag widget */
 	FString GetCategoriesMetaFromPropertyHandle(TSharedPtr<class IPropertyHandle> PropertyHandle) const;
 
+	/** Returns "Categories" meta property from given field, used for filtering by tag widget */
+	FString GetCategoriesMetaFromField(UField* Field) const;
+
 	/** Returns "Categories" meta property from given struct, used for filtering by tag widget */
-	FString GetCategoriesMetaFromStruct(UScriptStruct* Struct) const;
+	UE_DEPRECATED(4.22, "Please call GetCategoriesMetaFromField instead.")
+	FString GetCategoriesMetaFromStruct(UScriptStruct* Struct) const { return GetCategoriesMetaFromField(Struct); }
 
 	/** Returns "GameplayTagFilter" meta property from given function, used for filtering by tag widget for any parameters of the function that end up as BP pins */
 	FString GetCategoriesMetaFromFunction(UFunction* Func) const;
@@ -555,7 +569,7 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 
 #endif //WITH_EDITOR
 
-	DEPRECATED(4.15, "Call MatchesTag on FGameplayTag instead")
+	UE_DEPRECATED(4.15, "Call MatchesTag on FGameplayTag instead")
 	FORCEINLINE_DEBUGGABLE bool GameplayTagsMatch(const FGameplayTag& GameplayTagOne, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeOne, const FGameplayTag& GameplayTagTwo, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeTwo) const
 	{
 		SCOPE_CYCLE_COUNTER(STAT_UGameplayTagsManager_GameplayTagsMatch);
@@ -611,7 +625,8 @@ private:
 	/**
 	 * Helper function to insert a tag into a tag node array
 	 *
-	 * @param Tag							Tag to insert
+	 * @param Tag							Short name of tag to insert
+	 * @param FullTag						Full tag, passed in for performance
 	 * @param ParentNode					Parent node, if any, for the tag
 	 * @param NodeArray						Node array to insert the new node into, if necessary (if the tag already exists, no insertion will occur)
 	 * @param SourceName					File tag was added from
@@ -622,7 +637,7 @@ private:
 	 *
 	 * @return Index of the node of the tag
 	 */
-	int32 InsertTagIntoNodeArray(FName Tag, TSharedPtr<FGameplayTagNode> ParentNode, TArray< TSharedPtr<FGameplayTagNode> >& NodeArray, FName SourceName, const FString& DevComment, bool bIsExplicitTag, bool bIsRestrictedTag, bool bAllowNonRestrictedChildren);
+	int32 InsertTagIntoNodeArray(FName Tag, FName FullTag, TSharedPtr<FGameplayTagNode> ParentNode, TArray< TSharedPtr<FGameplayTagNode> >& NodeArray, FName SourceName, const FString& DevComment, bool bIsExplicitTag, bool bIsRestrictedTag, bool bAllowNonRestrictedChildren);
 
 	/** Helper function to populate the tag tree from each table */
 	void PopulateTreeFromDataTable(class UDataTable* Table);
@@ -674,6 +689,9 @@ private:
 	/** True if native tags have all been added and flushed */
 	bool bDoneAddingNativeTags;
 
+	/** String with outlawed characters inside tags */
+	FString InvalidTagCharacters;
+
 #if WITH_EDITOR
 	// This critical section is to handle an editor-only issue where tag requests come from another thread when async loading from a background thread in FGameplayTagContainer::Serialize.
 	// This class is not generically threadsafe.
@@ -685,9 +703,6 @@ private:
 
 	/** Sorted list of nodes, used for network replication */
 	TArray<TSharedPtr<FGameplayTagNode>> NetworkGameplayTagNodeIndex;
-
-	UPROPERTY()
-	TArray<UDataTable*> RestrictedGameplayTagTables;
 
 	/** Holds all of the valid gameplay-related tags that can be applied to assets */
 	UPROPERTY()

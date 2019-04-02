@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleVertexFactory.h: Particle vertex factory definitions.
@@ -41,7 +41,6 @@ public:
 		: FVertexFactory(InFeatureLevel)
 		, LastFrameSetup(MAX_uint32)
 		, LastViewFamily(nullptr)
-		, LastView(nullptr)
 		, LastFrameRealTime(-1.0f)
 		, ParticleFactoryType(Type)
 		, bInUse(false)
@@ -49,9 +48,9 @@ public:
 	{
 	}
 
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment) 
+	static void ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment) 
 	{
-		FVertexFactory::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+		FVertexFactory::ModifyCompilationEnvironment(Type, Platform, Material, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("PARTICLE_FACTORY"),TEXT("1"));
 	}
 
@@ -80,16 +79,15 @@ public:
 
 	ERHIFeatureLevel::Type GetFeatureLevel() const { check(HasValidFeatureLevel());  return FRenderResource::GetFeatureLevel(); }
 
-	bool CheckAndUpdateLastFrame(const FSceneViewFamily& ViewFamily, const FSceneView *View = nullptr) const
+	bool CheckAndUpdateLastFrame(const FSceneViewFamily& ViewFamily) const
 	{
-		if (LastFrameSetup != MAX_uint32 && (&ViewFamily == LastViewFamily) && (View == LastView) && ViewFamily.FrameNumber == LastFrameSetup && LastFrameRealTime == ViewFamily.CurrentRealTime)
+		if (LastFrameSetup != MAX_uint32 && (&ViewFamily == LastViewFamily) && ViewFamily.FrameNumber == LastFrameSetup && LastFrameRealTime == ViewFamily.CurrentRealTime)
 		{
 			return false;
 		}
 		LastFrameSetup = ViewFamily.FrameNumber;
 		LastFrameRealTime = ViewFamily.CurrentRealTime;
 		LastViewFamily = &ViewFamily;
-		LastView = View;
 		return true;
 	}
 
@@ -101,7 +99,6 @@ private:
 	/** Last state where we set this. We only need to setup these once per frame, so detemine same frame by number, time, and view family. */
 	mutable uint32 LastFrameSetup;
 	mutable const FSceneViewFamily *LastViewFamily;
-	mutable const FSceneView *LastView;
 	mutable float LastFrameRealTime;
 
 	/** The type of the vertex factory. */
@@ -116,22 +113,22 @@ private:
 /**
  * Uniform buffer for particle sprite vertex factories.
  */
-BEGIN_UNIFORM_BUFFER_STRUCT( FParticleSpriteUniformParameters, ENGINE_API)
-	UNIFORM_MEMBER_EX( FVector4, AxisLockRight, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( FVector4, AxisLockUp, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( FVector4, TangentSelector, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( FVector4, NormalsSphereCenter, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( FVector4, NormalsCylinderUnitDirection, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( FVector4, SubImageSize, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( FVector, CameraFacingBlend, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( float, RemoveHMDRoll, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER( FVector4, MacroUVParameters )
-	UNIFORM_MEMBER_EX( float, RotationScale, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( float, RotationBias, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( float, NormalsType, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( float, InvDeltaSeconds, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( FVector2D, PivotOffset, EShaderPrecisionModifier::Half )
-END_UNIFORM_BUFFER_STRUCT( FParticleSpriteUniformParameters )
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT( FParticleSpriteUniformParameters, ENGINE_API)
+	SHADER_PARAMETER_EX( FVector4, AxisLockRight, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( FVector4, AxisLockUp, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( FVector4, TangentSelector, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( FVector4, NormalsSphereCenter, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( FVector4, NormalsCylinderUnitDirection, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( FVector4, SubImageSize, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( FVector, CameraFacingBlend, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( float, RemoveHMDRoll, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER( FVector4, MacroUVParameters )
+	SHADER_PARAMETER_EX( float, RotationScale, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( float, RotationBias, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( float, NormalsType, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( float, InvDeltaSeconds, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( FVector2D, PivotOffset, EShaderPrecisionModifier::Half )
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 typedef TUniformBufferRef<FParticleSpriteUniformParameters> FParticleSpriteUniformBufferRef;
 
 /**
@@ -177,7 +174,7 @@ public:
 	/**
 	 * Can be overridden by FVertexFactory subclasses to modify their compile environment just before compilation occurs.
 	 */
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
+	static void ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
 
 	/**
 	 * Set the source vertex buffer that contains particle instance data.
@@ -250,7 +247,7 @@ private:
 	int32 NumVertsInInstanceBuffer;
 
 	/** Uniform buffer with sprite paramters. */
-	FUniformBufferRHIParamRef SpriteUniformBuffer;
+	FUniformBufferRHIRef SpriteUniformBuffer;
 
 	int32 NumCutoutVerticesPerFrame;
 	FShaderResourceViewRHIParamRef CutoutGeometrySRV;

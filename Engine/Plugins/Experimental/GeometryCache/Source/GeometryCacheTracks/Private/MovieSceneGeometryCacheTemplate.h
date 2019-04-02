@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -13,14 +13,14 @@ struct FMovieSceneGeometryCacheSectionTemplateParameters : public FMovieSceneGeo
 {
 	GENERATED_BODY()
 
-	FMovieSceneGeometryCacheSectionTemplateParameters() {}
+		FMovieSceneGeometryCacheSectionTemplateParameters() {}
 	FMovieSceneGeometryCacheSectionTemplateParameters(const FMovieSceneGeometryCacheParams& BaseParams, FFrameNumber InSectionStartTime, FFrameNumber InSectionEndTime)
 		: FMovieSceneGeometryCacheParams(BaseParams)
 		, SectionStartTime(InSectionStartTime)
 		, SectionEndTime(InSectionEndTime)
 	{}
-	virtual ~FMovieSceneGeometryCacheSectionTemplateParameters() {};
-	virtual float MapTimeToAnimation(FFrameTime InPosition, FFrameRate InFrameRate) const;
+
+	float MapTimeToAnimation(float ComponentDuration, FFrameTime InPosition, FFrameRate InFrameRate) const;
 
 	UPROPERTY()
 	FFrameNumber SectionStartTime;
@@ -33,7 +33,7 @@ USTRUCT()
 struct FMovieSceneGeometryCacheSectionTemplate : public FMovieSceneEvalTemplate
 {
 	GENERATED_BODY()
-	
+
 	FMovieSceneGeometryCacheSectionTemplate() {}
 	FMovieSceneGeometryCacheSectionTemplate(const UMovieSceneGeometryCacheSection& Section);
 

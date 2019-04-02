@@ -1,6 +1,5 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "WebRTCProxyPCH.h"
 #include "CirrusConnection.h"
 #include "Logging.h"
 
@@ -9,8 +8,8 @@ using PixelStreamingProtocol::EProxyToCirrusMsg;
 using FMsgSize = uint32_t;
 
 FCirrusConnection::FCirrusConnection(ICirrusConnectionObserver& Observer)
-    : Connection("Cirrus", *this)
-    , Observer(Observer)
+    : Observer(Observer)
+    , Connection("Cirrus", *this)
 {}
 
 void FCirrusConnection::Connect(const std::string& IP, uint16_t Port)
@@ -41,7 +40,7 @@ uint32_t FCirrusConnection::OnRead(const uint8_t* Data, uint32_t Size)
 	Ptr += sizeof(ECirrusToProxyMsg);
 
 	checkf(MsgId < ECirrusToProxyMsg::count,
-		"Invalid message ID received from Cirrus: %u", static_cast<uint32_t>(MsgId));
+		TEXT("Invalid message ID received from Cirrus: %u"), static_cast<uint32_t>(MsgId));
 
 	auto GetString = [&Ptr, Data, Size](std::string& res) -> bool
 	{

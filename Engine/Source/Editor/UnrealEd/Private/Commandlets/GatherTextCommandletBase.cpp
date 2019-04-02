@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Commandlets/GatherTextCommandletBase.h"
 #include "Misc/Paths.h"
@@ -25,15 +25,53 @@ UGatherTextCommandletBase::UGatherTextCommandletBase(const FObjectInitializer& O
 {
 }
 
-void UGatherTextCommandletBase::Initialize( const TSharedPtr< FLocTextHelper >& InGatherManifestHelper, const TSharedPtr< FLocalizationSCC >& InSourceControlInfo )
+void UGatherTextCommandletBase::Initialize( const TSharedRef< FLocTextHelper >& InGatherManifestHelper, const TSharedPtr< FLocalizationSCC >& InSourceControlInfo )
 {
 	GatherManifestHelper = InGatherManifestHelper;
 	SourceControlInfo = InSourceControlInfo;
+
+	// Cache the split platform info
+	SplitPlatforms.Reset();
+	if (InGatherManifestHelper->ShouldSplitPlatformData())
+	{
+		for (const FString& SplitPlatformName : InGatherManifestHelper->GetPlatformsToSplit())
+		{
+			SplitPlatforms.Add(*SplitPlatformName, FString::Printf(TEXT("/%s/"), *SplitPlatformName));
+		}
+		SplitPlatforms.KeySort(TLess<FName>());
+	}
 }
 
 void UGatherTextCommandletBase::CreateCustomEngine(const FString& Params)
 {
 	GEngine = GEditor = NULL;//Force a basic default engine. 
+}
+
+bool UGatherTextCommandletBase::IsSplitPlatformName(const FName InPlatformName) const
+{
+	return SplitPlatforms.Contains(InPlatformName);
+}
+
+bool UGatherTextCommandletBase::ShouldSplitPlatformForPath(const FString& InPath, FName* OutPlatformName) const
+{
+	const FName SplitPlatformName = GetSplitPlatformNameFromPath(InPath);
+	if (OutPlatformName)
+	{
+		*OutPlatformName = SplitPlatformName;
+	}
+	return !SplitPlatformName.IsNone();
+}
+
+FName UGatherTextCommandletBase::GetSplitPlatformNameFromPath(const FString& InPath) const
+{
+	for (const auto& SplitPlatformsPair : SplitPlatforms)
+	{
+		if (InPath.Contains(SplitPlatformsPair.Value))
+		{
+			return SplitPlatformsPair.Key;
+		}
+	}
+	return FName();
 }
 
 bool UGatherTextCommandletBase::GetBoolFromConfig( const TCHAR* Section, const TCHAR* Key, bool& OutValue, const FString& Filename )
@@ -58,23 +96,29 @@ bool UGatherTextCommandletBase::GetStringFromConfig( const TCHAR* Section, const
 	return bSuccess;
 }
 
+void ResolveLocalizationPath(FString& InOutPath)
+{
+	static const bool bIsEngineTarget = FPaths::ProjectDir().IsEmpty();
+	static const FString AbsoluteEnginePath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir()) / FString();
+	static const FString AbsoluteProjectPath = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir()) / FString();
+
+	InOutPath.ReplaceInline(TEXT("%LOCENGINEROOT%"), *AbsoluteEnginePath, ESearchCase::CaseSensitive);
+	InOutPath.ReplaceInline(TEXT("%LOCPROJECTROOT%"), *AbsoluteProjectPath, ESearchCase::CaseSensitive);
+
+	if (FPaths::IsRelative(InOutPath))
+	{
+		InOutPath.InsertAt(0, bIsEngineTarget ? AbsoluteEnginePath : AbsoluteProjectPath);
+	}
+
+	FPaths::CollapseRelativeDirectories(InOutPath);
+}
+
 bool UGatherTextCommandletBase::GetPathFromConfig( const TCHAR* Section, const TCHAR* Key, FString& OutValue, const FString& Filename )
 {
-	bool bSuccess = GetStringFromConfig( Section, Key, OutValue, Filename );
-
-	if( bSuccess )
+	const bool bSuccess = GetStringFromConfig( Section, Key, OutValue, Filename );
+	if (bSuccess)
 	{
-		if (FPaths::IsRelative(OutValue))
-		{
-			if (!FPaths::ProjectDir().IsEmpty())
-			{
-				OutValue = FPaths::Combine( *( FPaths::ProjectDir() ), *OutValue );
-			}
-			else
-			{
-				OutValue = FPaths::Combine( *( FPaths::EngineDir() ), *OutValue );
-			}
-		}
+		ResolveLocalizationPath(OutValue);
 	}
 	return bSuccess;
 }
@@ -94,16 +138,11 @@ int32 UGatherTextCommandletBase::GetPathArrayFromConfig( const TCHAR* Section, c
 {
 	int32 count = GetStringArrayFromConfig( Section, Key, OutArr, Filename );
 
-	for (int32 i = 0; i < count; ++i)
+	for (FString& Path : OutArr)
 	{
-		if (FPaths::IsRelative(OutArr[i]))
-		{
-			const FString ProjectBasePath = FPaths::ProjectDir().IsEmpty() ? FPaths::EngineDir() : FPaths::ProjectDir();
-			OutArr[i] = FPaths::Combine( *ProjectBasePath, *OutArr[i] );
-			OutArr[i] = FPaths::ConvertRelativePathToFull(OutArr[i]);
-		}
-		FPaths::CollapseRelativeDirectories(OutArr[i]);
+		ResolveLocalizationPath(Path);
 	}
+
 	return count;
 }
 

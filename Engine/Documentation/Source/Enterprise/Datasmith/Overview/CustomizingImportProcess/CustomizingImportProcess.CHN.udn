@@ -1,0 +1,267 @@
+﻿INTSourceChangelist:4523174
+Availability: Public
+Crumbs: 
+Title: 自定义Datasmith导入流程
+Description: 描述如何使用蓝图或Python导入Datasmith和CAD文件，以及如何改变场景被转换成虚幻资源及Actor的方式。
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/Overview
+Order: 4
+Tags: Datasmith
+Tags: Guides
+Tags: importing
+topic-image:datasmith-customize-import-topic.png
+
+
+Datasmith导入过程旨在将内容创建工具中设置的一系列3D对象顺利地导入虚幻编辑器。为此，在尽可能尊重设计意图的前提下，它会自动将对象（例如网格体、光源、摄像机和曲面材质）转换为虚幻引擎中对应的对象，并自动使用这些资源的实例填充关卡。有关细节，请参阅[Datasmith概述](Enterprise/Datasmith/Overview)。
+
+但是，有时你可能想要深入到导入过程，更改将原始场景转换为虚幻引擎资源的方式，或者更改处理这些资源的方式。例如，如果事先知道在虚幻引擎项目中不需要原始场景的某些部分，你可能想要在创建资源之前就过滤掉这些对象。这会减少需要在虚幻编辑器中处理的不同内容的数量，可以加速大型场景的导入。  
+
+本页面将介绍如何使用蓝图或Python脚本来控制Datasmith导入过程。
+
+## 了解导入过程
+
+通过Datasmith工具栏中的 **导入（Import）** 按钮导入场景（详见[将Datasmith内容导入虚幻引擎4](Enterprise/Datasmith/HowTo//ImportingContent)）时，导入程序在内部执行一个包含两个步骤的流程，将磁盘上 *.udatasmith*、CAD或其他源文件中的数据转换为虚幻编辑器中的资源和Actor：
+
+1.  导入程序将文件的内容读入名为Datasmith场景的内存中数据结构。这包括3D对象在场景中的表达，它们的关系以及Datasmith能够从原始场景中提取的对象的所有属性。
+2.  Datasmith场景在内存中准备就绪后，导入过程的第二个步骤在内容浏览器中将场景元素最终转化为虚幻引擎资源。Datasmith场景资源准备就绪后，导入过程会在当前关卡中生成Datasmith场景资源。随后又会生成其所有子项：Actor、静态网格体Actor、光源、摄像机等等。
+
+![两步式Datasmith导入过程](datasmith_import_process.png "Two-step Datasmith import process")
+
+## 导入过程自定义选项
+
+如果不使用工具栏中的 **导入（Import）** 按钮，而是使用蓝图或Python脚本启动Datasmith导入过程，你可以解构上述过程，分别执行这两个阶段。这样你就可以插入自己的处理，但必须是在内存中构建Datasmith场景之后，且在将该场景最终转化为资源和Actor之前。
+
+蓝图和Python的整个过程是相同的：
+
+1.  从磁盘上的 *.udatasmith* 或CAD文件位置构造新的内存中Datasmith场景表达。请注意，所用的蓝图节点和Python对象略有不同，具体取决于是要导入 *.udatasmith* 文件还是CAD文件。但是，两个场景表达提供了相同的场景修改功能。
+2.  执行任何其他需要的场景修改，以影响场景转换为虚幻资源的方式。
+    [REGION:tip]
+    利用场景中对象的相关元数据，可轻松识别需要更改的对象。有关如何在Datasmith场景中访问元数据的详细信息，请参阅[使用Datasmith元数据](Enterprise/Datasmith/Overview/UsingDatasmithMetadata)。
+    [/REGION]
+3.  设置导入过程选项。这些选项基本上等同于使用 **导入Datasmith（Import Datasmith）** 按键开始导入时在虚幻编辑器UI中设置的选项。例如，设置导入程序将导入资源放置在项目中的路径，从Datasmith场景创建的对象类型，参数化CAD格式的曲面细分设置等。
+4.  完成导入过程，将Datasmith场景最终转化为虚幻资源。
+5.  如果不再需要上面构建的Datasmith场景，应销毁该场景以清除它占用的内存资源。
+6.  现在导入过程已完成，内容浏览器中已有新的资源，当前关卡中有新的Actor（如果在导入选项中要求添加它们）。如果要对生成的虚幻资源进行额外的 *后期（post）*-处理（例如自动创建碰撞数据或LOD），可以在此时进行。另请参阅[编辑器的脚本与自动化](Engine/Editor/ScriptingAndAutomation)。
+
+[REGION:warning]
+自定义导入过程很可能会对[Datasmith概述](Enterprise/Datasmith/Overview)中描述的重新导入过程产生影响。例如，如果在完成导入过程之前使用脚本从Datasmith场景中删除网格体或光源等元素，然后重新导入Datasmith场景资源，那么在重新导入期间会绕过预处理脚本。这会致使最初从场景中过滤掉的对象被检测为新添加的对象，并添加到项目或关卡中。
+
+目前，我们建议在导入 *后* 使用[编辑器的脚本与自动化](Engine/Editor/ScriptingAndAutomation)中介绍的工具和技巧进行大多数修改。除非完成导入后通过修改资源或Actor无法满足某个特定需求（例如阻止创建某些资源），否则请不要在导入期间修改Datasmith场景。
+[/REGION]
+
+## 开始之前
+
+*   确保在编辑器中已打开Unreal Studio项目。Datasmith导入程序和场景实用程序只有在Unreal Studio项目中才可用。有关细节，请参阅[设置虚幻项目以使用Datasmith](Enterprise/Datasmith/HowTo/SettingUpUnrealProject)。
+*   有关如何在编辑器中使用蓝图和Python脚本的背景信息，请参阅[编辑器的脚本与自动化](Engine/Editor/ScriptingAndAutomation)下的页面。
+
+## 示例
+
+以下示例显示了如何使用蓝图和Python自定义将 *.udatasmith* 文件和CAD文件导入虚幻编辑器的过程。
+
+%Globals:BlueprintOrPythonSelectVar%
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	blueprintimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[INCLUDE:Enterprise/Datasmith/Overview/CustomizingImportProcess#blueprintContent]
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	pythonimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[INCLUDE:Enterprise/Datasmith/Overview/CustomizingImportProcess#pythonContent]
+	[/PARAM]
+[/OBJECT]
+
+[COMMENT:none]
+
+[EXCERPT:blueprintContent]
+
+如果要使用蓝图自定义导入过程，主要会用到 **Datasmith > 场景（Datasmith > Scene）** 和 **Datasmith > 元素（Datasmith > Element）** 类别下的节点。
+
+[REGION:note]
+要访问这些节点，需在情境菜单中禁用 **情境敏感（Context Sensitive）** 复选框，或者也可在“选用板”中查找所需的节点。此外，蓝图类必须派生自Editor-only基类，例如 **PlacedActorUtilityBase**。
+[/REGION]
+
+在蓝图中处理Datasmith文件和CAD文件的主要区别是：
+
+*   某些节点（如 **构建Datasmith场景(Construct Datasmith Scene)** 和 **导入场景(Import Scene)**）具有两个名称相同的不同变体，可用于不同类型的对象。如果要处理Datasmith文件，需小心使用作用于 **Datasmith场景（Datasmith Scene）** 对象的场景节点。如果要处理CAD文件，使用作用于 **Datasmith CAD场景（Datasmith CAD Scene）** 对象的节点。
+*   对于CAD场景，应在构造场景时而不是在完成导入时设置目标目录。
+*   导入选项的设置方式不同。有关详细信息，请参阅以下示例。
+
+在这两种情况下，其他用于处理Datasmith场景和场景内元素的脚本完全相同。
+
+[REGION:note]
+目标文件夹必须以`/Game/`开头。
+[/REGION]
+
+**Datasmith场景**
+
+[REGION:lightbox]
+[![自定义Datasmith场景导入示例](customized-DS-import.png "Customized Datasmith Scene import example")](customized-DS-import.png)
+
+*单击查看大图。*
+[/REGION]
+
+**Datasmith CAD场景**
+
+[REGION:lightbox]
+[![自定义Datasmith CAD场景导入示例](customized-CAD-import.png "Customized Datasmith CAD Scene example")](customized-CAD-import.png)
+
+*单击查看大图。*
+[/REGION]
+
+[/EXCERPT:blueprintContent]
+
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:pythonContent]
+如果要使用Python自定义导入过程，主要从`unreal.DatasmithSceneElement`和`unreal.DatasmithCADSceneElement`类开始。这些类提供了从文件构造场景、处理场景中的元素（通过其共享`unreal.DatasmithSceneElementBase`基类中定义的函数）和完成导入需要的所有函数。
+
+在Python中处理Datasmith文件和CAD文件的主要区别是：
+
+*   起始点可以是`unreal.DatasmithSceneElement`，也可以是`unreal.DatasmithCADSceneElement`。
+*   对于`unreal.DatasmithCADSceneElement`，应在构造场景时而不是在完成导入时设置目标目录。
+*   导入选项的设置方式不同。有关详细信息，请参阅以下示例。
+
+在这两种情况下，用于处理Datasmith场景和场景内元素的API完全相同。
+
+**Datasmith场景**
+
+	ds_file_on_disk = "C:\\scenes\\studio.udatasmith"
+	ds_scene_in_memory = unreal.DatasmithSceneElement.construct_datasmith_scene_from_file(ds_file_on_disk)
+
+	if ds_scene_in_memory is None:
+		print "Scene loading failed."
+		quit()
+
+	# 修改场景中的数据以过滤或组合元素...
+
+	# 删除所有名称中包含特定关键字的网格体。
+	remove_keyword = "exterior"
+	for mesh in ds_scene_in_memory.get_meshes():
+		mesh_name = mesh.get_element_name()
+		if remove_keyword in mesh_name:
+			print("removing mesh named " + mesh_name)
+			ds_scene_in_memory.remove_mesh(mesh)
+
+	# 从场景中删除任何引用上述已删除网格体的网格体Actor。
+	for mesh_actor in ds_scene_in_memory.get_all_mesh_actors():
+		mesh_reference = mesh_actor.get_mesh_element()
+		if mesh_reference is None:
+			print("removing an actor with a missing mesh: " + mesh_actor.get_element_name())
+			ds_scene_in_memory.remove_mesh_actor(mesh_actor)
+
+	# 设置导入选项。
+	options = unreal.DatasmithImportBaseOptions()
+	options.scene_handling = unreal.DatasmithImportScene.NEW_LEVEL
+
+	# 创建资源和Actor以完成流程。
+
+	# 目标文件夹必须以/Game/开头
+	ds_scene_in_memory.import_scene("/Game/MyStudioScene", options)
+
+	# 清理Datasmith场景。
+	ds_scene_in_memory.destroy_scene()
+	print "Custom import process complete!"
+
+**Datasmith CAD场景**
+
+	import unreal
+
+	# 从磁盘上的文件构造Datasmith CAD场景。
+	# 目标文件夹必须以/Game/开头
+	ds_file_on_disk = "C:\\designs\\Clutch assembly.SLDASM"
+	ds_scene_in_memory = unreal.DatasmithCADSceneElement.construct_datasmith_scene_from_file(ds_file_on_disk, "/Game/MyCADScene")
+
+	if ds_scene_in_memory is None:
+		print "Scene loading failed."
+		quit()
+
+	# 修改场景中的数据以过滤或组合元素。
+	remove_keyword = "_BODY"         # 我们将删除所有名称中包含此字符串的Actor。
+	meshes_to_skip = set([])         # 我们将使用此集临时存储不需要的网格体。
+
+	# 从场景中删除名称与上面设置的字符串匹配的所有网格体actor。
+	for mesh_actor in ds_scene_in_memory.get_all_mesh_actors():
+		actor_label = mesh_actor.get_label()
+		if remove_keyword in actor_label:
+			print("removing actor named: " + actor_label)
+			# 将此Actor的网格体资源添加到要跳过的网格体列表中
+			mesh = mesh_actor.get_mesh_element()
+			meshes_to_skip.add(mesh)
+			ds_scene_in_memory.remove_mesh_actor(mesh_actor)
+
+	# 删除所有不需要导入的网格体。
+	for mesh in meshes_to_skip:
+		mesh_name = mesh.get_element_name()
+		print("removing mesh named " + mesh_name)
+		ds_scene_in_memory.remove_mesh(mesh)
+
+	# 设置导入选项。
+	import_options = ds_scene_in_memory.get_import_options()
+	tessellation_options = import_options.tessellation_options
+	tessellation_options.chord_tolerance = 15
+	tessellation_options.max_edge_length = 40
+	tessellation_options.normal_tolerance = 45
+
+	# 创建资源和Actor以完成流程。
+	ds_scene_in_memory.import_scene()
+
+	# 清理Datasmith场景。
+	ds_scene_in_memory.destroy_scene()
+	print "Custom import process complete!"
+
+[/EXCERPT:pythonContent]
+[/COMMENT]
+
+## Datasmith场景简介
+
+要探索在导入前阶段通过Datasmith场景可以做些什么，建议了解一下场景的构造方式。
+
+### 场景内容
+
+Datasmith场景基本上相当于不同类型 *元素* 的容器。每一个元素代表着导入后将在内容浏览器中创建的 *资源*，或者将在关卡中生成的 *Actor*（使用其在3D空间中的特定变形）。
+
+主要的资源元素类型包括：
+
+*   网格体：每个网格体元素代表一个3D几何体块。完成导入后，每个网格体元素最终都会成为Geometry文件夹中独立的静态网格体对象。每个网格体元素都有许多材质插槽，每个插槽通过名称与材质元素相关联。
+*   材质：每个材质元素代表了几何体所需的不同类型的曲面。完成导入后，每个材质元素最终都会成为Materials文件夹下独立的材质对象。
+*   纹理：每个纹理元素代表至少1种材质使用的单个2D图像。完成导入后，每个纹理元素最终都会成为Textures文件夹下独立的纹理对象。
+
+主要的Actor元素类型包括：
+
+*   网格体Actor：每个网格体Actor元素代表着关卡中网格体几何体的实例。完成导入后，每个网格体Actor元素最终都会成为“世界大纲视图”中的静态网格体Actor。
+*   光源Actor：每个光源Actor元素代表着场景中的光源发射器。完成导入后，每个光源Actor元素都会成为关卡中基本虚幻光源类型（如点光源或聚光源）的实例或模拟区域光源的自定义Datasmith Actor。你可以收集和设置这些光源的许多属性，例如它们的强度、颜色、IES描述文件纹理文件等。
+*   摄像机Actor：每个摄像机代表在源场景中设置的视角。完成导入后，每个摄像机Actor元素最终都将成为关卡中的CineCameraActor。你可收集或设置这些摄像机Actor的一些基本属性，例如它们的宽高比。
+
+[REGION:tip]
+内存中Datasmith场景中包含的数据与在打开 *.udatasmith* 文件时显示的数据非常相似。如果使用3ds Max或Sketchup，你可以打开任何导出的 *.udatasmith* 文件，了解Datasmith场景对象的构造方式：
+
+![Datasmith文件XML内容](datasmith_xml.png "Datasmith file XML contents")
+[/REGION]
+
+### Datasmith场景处理
+
+要检索上述元素的列表时，主要与Datasmith场景进行交互。为此，须使用Python中的`DatasmithSceneElementBase`，或蓝图中的 **Datasmith > 场景（Datasmith > Scene）** 节点（如上面的示例所示）。
+
+获得元素列表后，可以迭代列表以检索特定元素。然后，使用该元素的Python API（例如`DatasmithMeshActorElement`）或蓝图中的 **Datasmith > 元素（Datasmith > Element）** 节点，获取和设置有关该特定元素的信息。如果元素是Actor类型，你还可以获取其子Actor元素，从而向下浏览场景层级。
+
+如果要从场景中删除既有元素（如上述示例所示）或添加新元素，你可以通过Python中的`DatasmithSceneElementBase`或蓝图中的 **Datasmith > 场景（Datasmith > Scene）** 节点来完成。例如，你可以删除Actor并将其重新添加到不同的父项下，以重新调整Actor的层级。

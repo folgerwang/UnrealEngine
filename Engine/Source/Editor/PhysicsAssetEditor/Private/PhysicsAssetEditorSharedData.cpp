@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PhysicsAssetEditorSharedData.h"
 #include "PhysicsEngine/PhysicsHandleComponent.h"
@@ -84,7 +84,7 @@ void FPhysicsAssetEditorSharedData::Initialize(const TSharedRef<IPersonaPreviewS
 
 	EditorSkelComp = nullptr;
 	PhysicalAnimationComponent = nullptr;
-	FStringAssetReference PreviewMeshStringRef = PhysicsAsset->PreviewSkeletalMesh.ToSoftObjectPath();
+	FSoftObjectPath PreviewMeshStringRef = PhysicsAsset->PreviewSkeletalMesh.ToSoftObjectPath();
 
 	// Look for body setups with no shapes (how does this happen?).
 	// If we find one- just bang on a default box.
@@ -92,7 +92,7 @@ void FPhysicsAssetEditorSharedData::Initialize(const TSharedRef<IPersonaPreviewS
 	for (int32 i = 0; i <PhysicsAsset->SkeletalBodySetups.Num(); ++i)
 	{
 		UBodySetup* BodySetup = PhysicsAsset->SkeletalBodySetups[i];
-		if (BodySetup->AggGeom.GetElementCount() == 0)
+		if (BodySetup && BodySetup->AggGeom.GetElementCount() == 0)
 		{
 			FKBoxElem BoxElem;
 			BoxElem.SetTransform(FTransform::Identity);
@@ -129,6 +129,10 @@ void FPhysicsAssetEditorSharedData::Initialize(const TSharedRef<IPersonaPreviewS
 		FString BoneNames;
 		for (int32 i = 0; i <PhysicsAsset->SkeletalBodySetups.Num(); ++i)
 		{
+			if (!ensure(PhysicsAsset->SkeletalBodySetups[i]))
+			{
+				continue;
+			}
 			FName BoneName = PhysicsAsset->SkeletalBodySetups[i]->BoneName;
 			int32 BoneIndex = EditorSkelMesh->RefSkeleton.FindBoneIndex(BoneName);
 			if (BoneIndex == INDEX_NONE)
@@ -276,25 +280,28 @@ void FPhysicsAssetEditorSharedData::Mirror()
 				UBodySetup * DestBody = PhysicsAsset->SkeletalBodySetups[MirrorBodyIndex];
 				DestBody->Modify();
 				DestBody->CopyBodyPropertiesFrom(SrcBody);
-				FQuat ArtistMirrorConvention(0,0,1,0);   // how Epic Maya artists rig the right and left orientation differently.  todo: perhaps move to cvar 
+				
+				FQuat ArtistMirrorConvention(1,0,0,0);   //used to be (0 0 1 0)
+														 // how Epic Maya artists rig the right and left orientation differently.  todo: perhaps move to cvar W
+
 				for (FKSphylElem& Sphyl : DestBody->AggGeom.SphylElems)
 				{
-					Sphyl.Rotation	= (ArtistMirrorConvention*Sphyl.Rotation.Quaternion()).Rotator();
-					Sphyl.Center	= ArtistMirrorConvention.RotateVector(Sphyl.Center);
+					Sphyl.Rotation	= (Sphyl.Rotation.Quaternion()*ArtistMirrorConvention).Rotator();
+					Sphyl.Center = -Sphyl.Center;
 				}
 				for (FKBoxElem& Box : DestBody->AggGeom.BoxElems)
 				{
-					Box.Rotation	= (ArtistMirrorConvention*Box.Rotation.Quaternion()).Rotator();
-					Box.Center      = ArtistMirrorConvention.RotateVector(Box.Center);
+					Box.Rotation	= (Box.Rotation.Quaternion()*ArtistMirrorConvention).Rotator();
+					Box.Center      = -Box.Center;
 				}
 				for (FKSphereElem& Sphere : DestBody->AggGeom.SphereElems)
 				{
-					Sphere.Center = ArtistMirrorConvention.RotateVector(Sphere.Center);
+					Sphere.Center = -Sphere.Center;
 				}
 				for (FKTaperedCapsuleElem& TaperedCapsule : DestBody->AggGeom.TaperedCapsuleElems)
 				{
-					TaperedCapsule.Rotation	= (ArtistMirrorConvention*TaperedCapsule.Rotation.Quaternion()).Rotator();
-					TaperedCapsule.Center	= ArtistMirrorConvention.RotateVector(TaperedCapsule.Center);
+					TaperedCapsule.Rotation	= (TaperedCapsule.Rotation.Quaternion()*ArtistMirrorConvention).Rotator();
+					TaperedCapsule.Center	= -TaperedCapsule.Center;
 				}
 				int32 MirrorConstraintIndex = PhysicsAsset->FindConstraintIndex(DestBody->BoneName);
 				if(PhysicsAsset->ConstraintSetup.IsValidIndex(MirrorConstraintIndex) && PhysicsAsset->ConstraintSetup.IsValidIndex(MirrorInfo.ConstraintIndex))
@@ -554,6 +561,10 @@ void FPhysicsAssetEditorSharedData::UpdateNoCollisionBodies()
 	// Query disable table with selected body and every other body.
 	for (int32 i = 0; i <PhysicsAsset->SkeletalBodySetups.Num(); ++i)
 	{
+		if (!ensure(PhysicsAsset->SkeletalBodySetups[i]))
+		{
+			continue;
+		}
 		// Add any bodies with bNoCollision
 		if (PhysicsAsset->SkeletalBodySetups[i]->DefaultInstance.GetCollisionEnabled() == ECollisionEnabled::NoCollision)
 		{
@@ -561,6 +572,10 @@ void FPhysicsAssetEditorSharedData::UpdateNoCollisionBodies()
 		}
 		else if (GetSelectedBody() && i != GetSelectedBody()->Index)
 		{
+			if (!ensure(PhysicsAsset->SkeletalBodySetups[GetSelectedBody()->Index]))
+			{
+				continue;
+			}
 			// Add this body if it has disabled collision with selected.
 			FRigidBodyIndexPair Key(i, GetSelectedBody()->Index);
 
@@ -987,8 +1002,10 @@ void FPhysicsAssetEditorSharedData::MakeNewBody(int32 NewBoneIndex, bool bAutoSe
 	// Find body that currently controls this bone.
 	int32 ParentBodyIndex = PhysicsAsset->FindControllingBodyIndex(EditorSkelMesh, NewBoneIndex);
 
+	const FPhysAssetCreateParams& NewBodyData = GetDefault<UPhysicsAssetGenerationSettings>()->CreateParams;
+
 	// Create the physics body.
-	NewBodyIndex = FPhysicsAssetUtils::CreateNewBody(PhysicsAsset, NewBoneName);
+	NewBodyIndex = FPhysicsAssetUtils::CreateNewBody(PhysicsAsset, NewBoneName, NewBodyData);
 	UBodySetup* BodySetup = PhysicsAsset->SkeletalBodySetups[ NewBodyIndex ];
 	check(BodySetup->BoneName == NewBoneName);
 	
@@ -996,7 +1013,6 @@ void FPhysicsAssetEditorSharedData::MakeNewBody(int32 NewBoneIndex, bool bAutoSe
 
 	bool bCreatedBody = false;
 	// Create a new physics body for this bone.
-	const FPhysAssetCreateParams& NewBodyData = GetDefault<UPhysicsAssetGenerationSettings>()->CreateParams;
 	if (NewBodyData.VertWeight == EVW_DominantWeight)
 	{
 		bCreatedBody = FPhysicsAssetUtils::CreateCollisionFromBone(BodySetup, EditorSkelMesh, NewBoneIndex, NewBodyData, DominantWeightBoneInfos[NewBoneIndex]);

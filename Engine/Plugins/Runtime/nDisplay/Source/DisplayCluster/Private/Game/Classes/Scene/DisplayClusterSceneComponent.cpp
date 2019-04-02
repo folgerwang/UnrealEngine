@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "DisplayClusterSceneComponent.h"
 
@@ -8,7 +8,6 @@
 #include "Misc/DisplayClusterLog.h"
 
 #include "DisplayClusterGlobals.h"
-#include "IPDisplayCluster.h"
 
 
 UDisplayClusterSceneComponent::UDisplayClusterSceneComponent(const FObjectInitializer& ObjectInitializer) :

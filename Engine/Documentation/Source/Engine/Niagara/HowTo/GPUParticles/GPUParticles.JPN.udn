@@ -1,50 +1,72 @@
-﻿INTSourceChangelist:0
-Availability: Docs
-Crumbs: %ROOT%, 
-Title:Create a GPU based effects
-Description:Describes how you can create use your GPU to spawn millions of particles.
-Type: how-to
+﻿INTSourceChangelist:4703316
+Availability:Public
+Crumbs: 
+Title:GPUパーティクルエフェクトの作成
+Description:Description:GPU を使って無数のパーティクルをスポーンする方法を説明します。
+Type:how-to
 SkillLevel:Beginner
-Version: 4.17
-parent:Engine/Niagara/HowTo
-order:5
-tags:Niagara
-topic-image:
+Version:4.21
+Parent:Engine/Niagara/HowTo
+Order:2
+Tags:Niagara
+Tags:Early Access
 
-## Steps
+前提トピックス
 
-## End Result
+このページでは以下のトピックについての知識があることを前提としています。以下のページをあらかじめ確認することをおすすめします。
 
+*   [ナイアガラプラグインを有効にする方法](Engine/Niagara/HowTo/EnableNiagara "ナイアガラプラグインを有効にする方法")
+    
 
+時にはエフェクトで数万ものパーティクルを生成することが必要になることがあります。しかし、通常の CPU でこれだけ多くのパーティクルを生成しようとするとゲームが処理落ちしてしまいます。ここでは CPU の代わりに GPU を使ってパーティクルを生成する方法を説明します。
 
+![](GPU_Banner_01-1.png)
 
+## ステップ
 
+1.  まず コンテンツ ブラウザ を 右クリックして、コンテキスト メニューから **[FX > Niagara Emitter]** を選択して **ナイアガラエミッタ** を作成します。ナイアガラ システム ウィザードが表示されます。  
+    ![](SE_01.png)(w:400)
+2. **[Create a new emitter from an emitter template]** の横にあるラジオボタンをクリックします。 **Fountain** テンプレートを選択します。 **OK** をクリックして、コンテンツ ブラウザで、新規のナイアガラエミッタを作成します。  
+    ![](NiagaraEmitter_FountainTemplate.png)(w:400)
+3. 新規作成したナイアガラエミッタに **FX_GPU** という名前を付けて、その上でダブルクリックして開きます。  
+    ![](CreateGPU_Steps_Step2-CreateEmitter.png)(w:100)
+4. **Emitter Spawn** セクションを展開します。 **Emitter Properties** を見つけて展開します。 **Sim Target** の横のドロップダウンをクリックします。表示されるリストから **[GPUCompute Sim]** オプションを選択します。  
+    ![](CreateGPUParticle_Steps_Step06-ChangeToGPU.png)(w:500)
+[REGION:note]
+この部分でパーティクルシミュレーションが CPU から GPU へ変更されます。これによりパフォーマンスを維持しつつより多くのパーティクルを発生できるようになります。
+[/REGION]
+6. **Emitter Update** セクションを展開します。 **Spawn Rate**  モジュールを見つけます。
+7. 次に [Spawn Rate] モジュールで、**[Spawn Rate]** を値 **5000** に設定します。  
+    ![](CreateGPUParticle_Steps_Step07-SpawnRate.png)(w:500)
+8. 次に、 **Set Variables** モジュールを見つけます。 **Particles.SpriteSize** の **X** と **Y** の値に **5** を設定します。  
+    ![](CreateGPUParticle_SetVariablesParticleSpriteSize.png)(w:500)
+9. **Sphere Location** モジュールで、**Sphere Radius** を **100** に設定します。  
+    ![](CreateGPUParticle_Steps_Step04-SphereRadius.png)(w:500)
+10. **[Compile]**、**[Apply]** ボタンと **[Save]** ボタンをクリックして、コンパイルしてから保存します。そして **FX_GPU** エミッタを閉じます。  
+    ![](ME_09.png)(w:400)
+11. **コンテンツ ブラウザ** を 右クリックして、コンテキスト メニューから **[FX > Niagara System]** を選択します。ナイアガラ システム ウィザードが表示されます。  
+    ![](SE_16.png)(w:400)
+12. **[Create an empty system with no emitters]** の横にあるラジオボタンをクリックします。 **OK** をクリックして、コンテンツ ブラウザで、新規のナイアガラシステムを作成します。  
+    ![](NiagaraSystem_EmptySystem.png)(w:400)
+13. 新規のナイアガラシステムに **GPU** と名前を付けます。   
+    ![](NiagaraSystem_GPUIcon.png)(w:100)
+14. **GPU ナイアガラシステム** をダブルクリックして開きます。開いたら、コンテンツ ブラウザから **FX_GPU** ナイアガラエミッタを **タイムライン** にドラッグします。  
+    ![](CreateGPUParticle_Steps_Step10-AddEmitterToSystem.png)(w:400)
+15. **[Compile]** ボタンと **[Save]** ボタンをクリックし、コンパイルと保存をしてから、GPU ナイアガラシステムを閉じます。**コンテンツ ブラウザ** で **GPU ナイアガラシステム** をレベル ビューポートにドラッグします。完成すると以下の画像のような表示になります。  
+    ![](CreateGPUParticle_Steps_Step11-AddSystemToLevel.png)(w:600)
 
+## 最終結果
 
+これで、CPU を使ったパーティクルエフェクトより大規模で複雑なパーティクルエフェクトを作成できました。以下のビデオをご覧ください。
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    zz3dFQzNQY8
+    [/PARAMLITERAL]
+[/OBJECT]

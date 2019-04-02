@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "D3D12RHIPrivate.h"
 
@@ -37,14 +37,12 @@ FStructuredBufferRHIRef FD3D12DynamicRHI::CreateStructuredBuffer_RenderThread(FR
 	// can be addressed correctly with element based offsets.
 	const uint32 Alignment = ((InUsage & (BUF_ByteAddressBuffer | BUF_DrawIndirect)) == 0) ? Stride : 4;
 
-	FD3D12StructuredBuffer* NewBuffer = GetAdapter().CreateRHIBuffer<FD3D12StructuredBuffer>(&RHICmdList, Desc, Alignment, Stride, Size, InUsage, CreateInfo, false);
+	FD3D12StructuredBuffer* NewBuffer = GetAdapter().CreateRHIBuffer<FD3D12StructuredBuffer>(&RHICmdList, Desc, Alignment, Stride, Size, InUsage, CreateInfo);
 	if (NewBuffer->ResourceLocation.IsTransient())
 	{
 		// TODO: this should ideally be set in platform-independent code, since this tracking is for the high level
 		NewBuffer->SetCommitted(false);
 	}
-
-	UpdateBufferStats(&NewBuffer->ResourceLocation, true, D3D12_BUFFER_TYPE_STRUCTURED);
 
 	return NewBuffer;
 }
@@ -60,21 +58,19 @@ FStructuredBufferRHIRef FD3D12DynamicRHI::RHICreateStructuredBuffer(uint32 Strid
 	// can be addressed correctly with element based offsets.
 	const uint32 Alignment = ((InUsage & (BUF_ByteAddressBuffer | BUF_DrawIndirect)) == 0) ? Stride : 4;
 
-	FD3D12StructuredBuffer* NewBuffer = GetAdapter().CreateRHIBuffer<FD3D12StructuredBuffer>(nullptr, Desc, Alignment, Stride, Size, InUsage, CreateInfo, false);
+	FD3D12StructuredBuffer* NewBuffer = GetAdapter().CreateRHIBuffer<FD3D12StructuredBuffer>(nullptr, Desc, Alignment, Stride, Size, InUsage, CreateInfo);
 	if (NewBuffer->ResourceLocation.IsTransient())
 	{
 		// TODO: this should ideally be set in platform-independent code, since this tracking is for the high level
 		NewBuffer->SetCommitted(false);
 	}
 
-	UpdateBufferStats(&NewBuffer->ResourceLocation, true, D3D12_BUFFER_TYPE_STRUCTURED);
-
 	return NewBuffer;
 }
 
 FD3D12StructuredBuffer::~FD3D12StructuredBuffer()
 {
-	UpdateBufferStats(&ResourceLocation, false, D3D12_BUFFER_TYPE_STRUCTURED);
+	UpdateBufferStats<FD3D12StructuredBuffer>(&ResourceLocation, false);
 }
 
 void FD3D12StructuredBuffer::Rename(FD3D12ResourceLocation& NewLocation)

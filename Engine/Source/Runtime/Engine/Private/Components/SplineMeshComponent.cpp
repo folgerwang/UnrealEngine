@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Components/SplineMeshComponent.h"
 #include "Serialization/MemoryWriter.h"
@@ -16,6 +16,7 @@
 #include "Engine/StaticMesh.h"
 #include "PhysicsEngine/ConvexElem.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "MeshMaterialShader.h"
 
 #if WITH_EDITOR
 #include "IHierarchicalLODUtilities.h"
@@ -56,51 +57,61 @@ void FSplineMeshVertexFactoryShaderParameters::Bind(const FShaderParameterMap& P
 	SplineMeshYParam.Bind(ParameterMap, TEXT("SplineMeshY"), SPF_Mandatory);
 }
 
-void FSplineMeshVertexFactoryShaderParameters::SetMesh(FRHICommandList& RHICmdList, FShader* Shader, const FVertexFactory* VertexFactory, const FSceneView& View, const FMeshBatchElement& BatchElement, uint32 DataFlags) const
+void FSplineMeshVertexFactoryShaderParameters::GetElementShaderBindings(
+	const class FSceneInterface* Scene,
+	const FSceneView* View,
+	const class FMeshMaterialShader* Shader,
+	bool bShaderRequiresPositionOnlyStream,
+	ERHIFeatureLevel::Type FeatureLevel,
+	const FVertexFactory* VertexFactory,
+	const FMeshBatchElement& BatchElement,
+	class FMeshDrawSingleShaderBindings& ShaderBindings,
+	FVertexInputStreamArray& VertexStreams
+	) const 
 {
 	if (BatchElement.bUserDataIsColorVertexBuffer)
 	{
+		const auto* LocalVertexFactory = static_cast<const FLocalVertexFactory*>(VertexFactory);
 		FColorVertexBuffer* OverrideColorVertexBuffer = (FColorVertexBuffer*)BatchElement.UserData;
 		check(OverrideColorVertexBuffer);
-		static_cast<const FLocalVertexFactory*>(VertexFactory)->SetColorOverrideStream(RHICmdList, OverrideColorVertexBuffer);
+
+		if (!LocalVertexFactory->SupportsManualVertexFetch(FeatureLevel))
+		{
+			LocalVertexFactory->GetColorOverrideStream(OverrideColorVertexBuffer, VertexStreams);
+		}	
 	}
 
-	FVertexShaderRHIRef VertexShader = Shader->GetVertexShader();
+	checkSlow(BatchElement.bIsSplineProxy);
+	FSplineMeshSceneProxy* SplineProxy = BatchElement.SplineMeshSceneProxy;
+	FSplineMeshParams& SplineParams = SplineProxy->SplineParams;
 
-	if (VertexShader)
-	{
-		checkSlow(BatchElement.bIsSplineProxy);
-		FSplineMeshSceneProxy* SplineProxy = BatchElement.SplineMeshSceneProxy;
-		FSplineMeshParams& SplineParams = SplineProxy->SplineParams;
+	ShaderBindings.Add(SplineStartPosParam, SplineParams.StartPos);
+	ShaderBindings.Add(SplineStartTangentParam, SplineParams.StartTangent);
+	ShaderBindings.Add(SplineStartRollParam, SplineParams.StartRoll);
+	ShaderBindings.Add(SplineStartScaleParam, SplineParams.StartScale);
+	ShaderBindings.Add(SplineStartOffsetParam, SplineParams.StartOffset);
 
-		SetShaderValue(RHICmdList, VertexShader, SplineStartPosParam, SplineParams.StartPos);
-		SetShaderValue(RHICmdList, VertexShader, SplineStartTangentParam, SplineParams.StartTangent);
-		SetShaderValue(RHICmdList, VertexShader, SplineStartRollParam, SplineParams.StartRoll);
-		SetShaderValue(RHICmdList, VertexShader, SplineStartScaleParam, SplineParams.StartScale);
-		SetShaderValue(RHICmdList, VertexShader, SplineStartOffsetParam, SplineParams.StartOffset);
+	ShaderBindings.Add(SplineEndPosParam, SplineParams.EndPos);
+	ShaderBindings.Add(SplineEndTangentParam, SplineParams.EndTangent);
+	ShaderBindings.Add(SplineEndRollParam, SplineParams.EndRoll);
+	ShaderBindings.Add(SplineEndScaleParam, SplineParams.EndScale);
+	ShaderBindings.Add(SplineEndOffsetParam, SplineParams.EndOffset);
 
-		SetShaderValue(RHICmdList, VertexShader, SplineEndPosParam, SplineParams.EndPos);
-		SetShaderValue(RHICmdList, VertexShader, SplineEndTangentParam, SplineParams.EndTangent);
-		SetShaderValue(RHICmdList, VertexShader, SplineEndRollParam, SplineParams.EndRoll);
-		SetShaderValue(RHICmdList, VertexShader, SplineEndScaleParam, SplineParams.EndScale);
-		SetShaderValue(RHICmdList, VertexShader, SplineEndOffsetParam, SplineParams.EndOffset);
+	ShaderBindings.Add(SplineUpDirParam, SplineProxy->SplineUpDir);
+	ShaderBindings.Add(SmoothInterpRollScaleParam, (int32)SplineProxy->bSmoothInterpRollScale);
 
-		SetShaderValue(RHICmdList, VertexShader, SplineUpDirParam, SplineProxy->SplineUpDir);
-		SetShaderValue(RHICmdList, VertexShader, SmoothInterpRollScaleParam, SplineProxy->bSmoothInterpRollScale);
+	ShaderBindings.Add(SplineMeshMinZParam, SplineProxy->SplineMeshMinZ);
+	ShaderBindings.Add(SplineMeshScaleZParam, SplineProxy->SplineMeshScaleZ);
 
-		SetShaderValue(RHICmdList, VertexShader, SplineMeshMinZParam, SplineProxy->SplineMeshMinZ);
-		SetShaderValue(RHICmdList, VertexShader, SplineMeshScaleZParam, SplineProxy->SplineMeshScaleZ);
-
-		FVector DirMask(0, 0, 0);
-		DirMask[SplineProxy->ForwardAxis] = 1;
-		SetShaderValue(RHICmdList, VertexShader, SplineMeshDirParam, DirMask);
-		DirMask = FVector::ZeroVector;
-		DirMask[(SplineProxy->ForwardAxis + 1) % 3] = 1;
-		SetShaderValue(RHICmdList, VertexShader, SplineMeshXParam, DirMask);
-		DirMask = FVector::ZeroVector;
-		DirMask[(SplineProxy->ForwardAxis + 2) % 3] = 1;
-		SetShaderValue(RHICmdList, VertexShader, SplineMeshYParam, DirMask);
-	}
+	FVector DirMask(0, 0, 0);
+	DirMask[SplineProxy->ForwardAxis] = 1;
+	ShaderBindings.Add(SplineMeshDirParam, DirMask);
+	DirMask = FVector::ZeroVector;
+	DirMask[(SplineProxy->ForwardAxis + 1) % 3] = 1;
+	ShaderBindings.Add(SplineMeshXParam, DirMask);
+	DirMask = FVector::ZeroVector;
+	DirMask[(SplineProxy->ForwardAxis + 2) % 3] = 1;
+	ShaderBindings.Add(SplineMeshYParam, DirMask);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -259,7 +270,7 @@ FVector USplineMeshComponent::GetEndTangent() const
 
 void USplineMeshComponent::SetEndTangent(FVector EndTangent, bool bUpdateMesh)
 {
-	SplineParams.EndTangent = EndTangent;
+	SplineParams.EndTangent = ClampVector(EndTangent, FVector(-WORLD_MAX), FVector(WORLD_MAX));
 	bMeshDirty = true;
 	if (bUpdateMesh)
 	{
@@ -272,7 +283,7 @@ void USplineMeshComponent::SetStartAndEnd(FVector StartPos, FVector StartTangent
 	SplineParams.StartPos = StartPos;
 	SplineParams.StartTangent = StartTangent;
 	SplineParams.EndPos = EndPos;
-	SplineParams.EndTangent = EndTangent;
+	SetEndTangent(EndTangent, false);
 	bMeshDirty = true;
 	if (bUpdateMesh)
 	{
@@ -488,14 +499,8 @@ void USplineMeshComponent::UpdateRenderStateAndCollision_Internal(bool bConcurre
 		float SplineMeshMinZ = 1.f;
 		CalculateScaleZAndMinZ(SplineMeshScaleZ, SplineMeshMinZ);
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_SIXPARAMETER(
-			UpdateSplineParamsRTCommand,
-			FSplineMeshSceneProxy*, SplineProxy, SplineProxy,
-			FSplineMeshParams, SplineParams, SplineParams,
-			TEnumAsByte<ESplineMeshAxis::Type>, ForwardAxis, ForwardAxis,
-			FVector, SplineUpDir, SplineUpDir,
-			float, SplineMeshScaleZ, SplineMeshScaleZ,
-			float, SplineMeshMinZ, SplineMeshMinZ,
+		ENQUEUE_RENDER_COMMAND(UpdateSplineParamsRTCommand)(
+			[SplineProxy, this, SplineMeshScaleZ, SplineMeshMinZ](FRHICommandList&)
 			{
 				SplineProxy->SplineParams = SplineParams;
 				SplineProxy->ForwardAxis = ForwardAxis;
@@ -1101,38 +1106,17 @@ void USplineMeshComponent::RecreateCollision()
 	}
 }
 
-/** Used to store spline mesh data during RerunConstructionScripts */
-class FSplineMeshInstanceData : public FSceneComponentInstanceData
+TStructOnScope<FActorComponentInstanceData> USplineMeshComponent::GetComponentInstanceData() const
 {
-public:
-	explicit FSplineMeshInstanceData(const USplineMeshComponent* SourceComponent)
-		: FSceneComponentInstanceData(SourceComponent)
-	{
-	}
-
-	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
-	{
-		FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
-		CastChecked<USplineMeshComponent>(Component)->ApplyComponentInstanceData(this);
-	}
-
-	FVector StartPos;
-	FVector EndPos;
-	FVector StartTangent;
-	FVector EndTangent;
-};
-
-FActorComponentInstanceData* USplineMeshComponent::GetComponentInstanceData() const
-{
-	FActorComponentInstanceData* InstanceData = nullptr;
+	TStructOnScope<FActorComponentInstanceData> InstanceData;
 	if (bAllowSplineEditingPerInstance)
 	{
-		FSplineMeshInstanceData *SplineMeshInstanceData = new FSplineMeshInstanceData(this);
+		InstanceData.InitializeAs<FSplineMeshInstanceData>(this);
+		FSplineMeshInstanceData *SplineMeshInstanceData = InstanceData.Cast<FSplineMeshInstanceData>();
 		SplineMeshInstanceData->StartPos = SplineParams.StartPos;
 		SplineMeshInstanceData->EndPos = SplineParams.EndPos;
 		SplineMeshInstanceData->StartTangent = SplineParams.StartTangent;
 		SplineMeshInstanceData->EndTangent = SplineParams.EndTangent;
-		InstanceData = SplineMeshInstanceData;
 	}
 	else
 	{
@@ -1150,7 +1134,7 @@ void USplineMeshComponent::ApplyComponentInstanceData(FSplineMeshInstanceData* S
 			SplineParams.StartPos = SplineMeshInstanceData->StartPos;
 			SplineParams.EndPos = SplineMeshInstanceData->EndPos;
 			SplineParams.StartTangent = SplineMeshInstanceData->StartTangent;
-			SplineParams.EndTangent = SplineMeshInstanceData->EndTangent;
+			SetEndTangent(SplineMeshInstanceData->EndTangent, false);
 			UpdateRenderStateAndCollision();
 		}
 	}
@@ -1215,17 +1199,21 @@ float USplineMeshComponent::GetTextureStreamingTransformScale() const
 #if WITH_EDITOR
 void USplineMeshComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-	UStaticMeshComponent::PostEditChangeProperty(PropertyChangedEvent);
 	UProperty* MemberPropertyThatChanged = PropertyChangedEvent.MemberProperty;
-	if (MemberPropertyThatChanged)
+	bool bIsSplineParamsChange = MemberPropertyThatChanged && MemberPropertyThatChanged->GetNameCPP() == TEXT("SplineParams");
+	if (bIsSplineParamsChange)
 	{
-		// If the spline params were changed the actual geometry is, so flag the owning HLOD cluster as dirty
-		if (MemberPropertyThatChanged->GetNameCPP() == TEXT("SplineParams"))
-		{
-			IHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<IHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
-			IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
-			Utilities->HandleActorModified(GetOwner());
-		}
+		SetEndTangent(SplineParams.EndTangent, false);
+	}
+	
+	UStaticMeshComponent::PostEditChangeProperty(PropertyChangedEvent);
+	
+	// If the spline params were changed the actual geometry is, so flag the owning HLOD cluster as dirty
+	if (bIsSplineParamsChange)
+	{
+		IHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<IHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
+		IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
+		Utilities->HandleActorModified(GetOwner());
 	}
 }
 #endif

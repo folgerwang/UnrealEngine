@@ -1,0 +1,23 @@
+Availability: Public
+Crumbs: 
+Title: Executing Abilities In ARPG
+Description: This sections goes over how to execute the abilities that have been created.
+Type: 
+Version: 4.20
+Parent: Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG
+Order: 4
+Tags: 
+
+
+Now that all of the abilities have been created, the last step is actually to execute them. This part will be extremely game specific, and the Action RPG (ARPG) implementation is just one example of how to do this. ARPG uses two methods: **Tags** and **Item Slots**. **Skills** are activated via tags, with the general Engine function **ActivateAbilitiesWithTags**. This works because each skill ability has **Ability.Skill** in the **AbilityTags**. When equipping a Skill item, it ends up calling **AddSlottedGameplayAbilities**, which adds the ability for that skill to the **AbilitySystemComponent**.When calling **ActivateAbilitiesWithTags**, it looks for any abilities tagged with **Ability.Skill** and executes it.  
+
+Weapon and potion abilities are executed using an ARPG specific function, **ActivateAbilitiesWithItemSlot**. When abilities are added in **AddSlottedGameplayAbilities**, it stores their **FGameplayAbilitySpecHandle** into a map indexed by Item Slot. Abilities end up in item slots via two different ways for enemies and players: For enemies, they get added from the **DefaultSlottedAbilities** array, while for players they get filled in from the player’s actual inventory. There is some reasonably complicated logic in **ARPGCharacterBase** to handle adding/removing the right abilities after an inventory or character level change. But, giving the enemies a “fake inventory” enables putting most of the ability logic in a shared base class for both enemy and player characters. The **IRPGInventoryInterface** native interface is used to allow the base class to acquire its slot information from any source, so if we wanted to go back and give NPCs “real inventory” it would not require changing the **ARPGCharacterBase** code at all.
+
+The other part of executing abilities is interacting with the rest of the movement and gameplay systems. For ARPG this is mostly handled via a set of functions like **CanUseAnyAbility** on the **BP_Character** Blueprint. These functions check for global state or currently active abilities and will prevent the player or AI from executing new abilities or doing other things while they should be busy or locked down. Every game will need to implement their own rules for allowing abilities to execute or not, **ActivationRequiredTags** and **ActivationBlockedTags** on ability are often beneficial for this. Finally, the UI will need to query the ability system for execution information. Here is an example from **WB_OnSCreenControls** where it uses **GetCooldownRemainingForTag** to display the cooldown timer after using a skill:
+
+[REGION:lightbox]
+[![](ExecutingAbilitiesIn20ARPG_01.png)(w:900px)](ExecutingAbilitiesIn20ARPG_01.png)
+[/REGION]
+[REGION:caption]
+Click for full image
+[/REGION]

@@ -1,0 +1,39 @@
+﻿INTSourceChangelist:0
+Availability: Public
+Crumbs: 
+Title: PSO Caching
+Description: The Pipeline State Object (PSO) caching tools help reduce the time it takes to reload an Unreal Engine 4 (UE4) level and it's content.
+Type: 
+Version: 4.21
+Parent: Engine/Rendering
+Order: 
+Tags: Rendering
+Tags: Graphics
+
+
+![](PSO_Caching_Header.png "PSO_Caching_Header.png")
+
+The **Pipeline State Object** (PSO) caching tool can be used to help reduce hitching that might happen when an Unreal Engine 4 (UE4) Level loads a piece of content. On the following pages, you will find a wide range of information that relates to building and using PSO data in your UE4 project.
+
+## PSO Caching Overview
+
+PSO caching works by first creating a list of all the needed Shaders that are required by the [Materials](Engine/Rendering/Materials) that are used in your UE4 project. This list is then used to help speed up the compiling process of these Shaders when they are first encountered by your UE4 project. This, in turn, helps reduce any hitches your project might encounter when a Material requires a new Shader to be compiled. Below you will find an infographic that outlines how the PSO Caching system works in UE4.
+
+[REGION:lightbox]
+[![](PSO_Caching_Digramh.jpg)](PSO_Caching_Digramh.jpg)
+[/REGION]
+[REGION:caption]
+Click for full image.
+[/REGION]
+
+## Guides
+
+%Engine/Rendering/PSOCaching/GatheringPSOData:topic%
+%Engine/Rendering/PSOCaching/EnablingBuildingPSOCaching:topic%
+%Engine/Rendering/PSOCaching/CompilingUsingPSOCachingData:topic%
+%Engine/Rendering/PSOCaching/BuildingPSOCache:topic%
+%Engine/Rendering/PSOCaching/BuildingUE4ProjectWithPSOCaching:topic%
+
+## Reference
+
+%Engine/Rendering/PSOCaching/PSOReference:topic%

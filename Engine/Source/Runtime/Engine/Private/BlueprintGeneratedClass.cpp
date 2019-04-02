@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/BlueprintGeneratedClass.h"
 #include "Misc/CoreMisc.h"
@@ -28,12 +28,21 @@
 #endif //WITH_EDITOR
 
 DEFINE_STAT(STAT_PersistentUberGraphFrameMemory);
+DEFINE_STAT(STAT_BPCompInstancingFastPathMemory);
 
 int32 GBlueprintClusteringEnabled = 0;
 static FAutoConsoleVariableRef CVarBlueprintClusteringEnabled(
 	TEXT("gc.BlueprintClusteringEnabled"),
 	GBlueprintClusteringEnabled,
 	TEXT("Whether to allow Blueprint classes to create GC clusters."),
+	ECVF_Default
+);
+
+int32 GBlueprintComponentInstancingFastPathDisabled = 0;
+static FAutoConsoleVariableRef CVarBlueprintComponentInstancingFastPathDisabled(
+	TEXT("bp.ComponentInstancingFastPathDisabled"),
+	GBlueprintComponentInstancingFastPathDisabled,
+	TEXT("Disable the Blueprint component instancing fast path."),
 	ECVF_Default
 );
 
@@ -45,6 +54,7 @@ UBlueprintGeneratedClass::UBlueprintGeneratedClass(const FObjectInitializer& Obj
 {
 	NumReplicatedProperties = 0;
 	bHasNativizedParent = false;
+	bHasCookedComponentInstancingData = false;
 	bCustomPropertyListForPostConstructionInitialized = false;
 }
 
@@ -216,11 +226,11 @@ struct FConditionalRecompileClassHepler
 extern UNREALED_API FSecondsCounterData BlueprintCompileAndLoadTimerData;
 extern COREUOBJECT_API bool GBlueprintUseCompilationManager;
 
-void UBlueprintGeneratedClass::ConditionalRecompileClass(TArray<UObject*>* ObjLoaded)
+void UBlueprintGeneratedClass::ConditionalRecompileClass(FUObjectSerializeContext* InLoadContext)
 {
 	if(GBlueprintUseCompilationManager)
 	{
-		FBlueprintCompilationManager::FlushCompilationQueue(ObjLoaded);
+		FBlueprintCompilationManager::FlushCompilationQueue(InLoadContext);
 		return;
 	}
 	
@@ -255,7 +265,7 @@ void UBlueprintGeneratedClass::ConditionalRecompileClass(TArray<UObject*>* ObjLo
 			}
 			if ((GeneratingBP->Status != BS_Error) && (GeneratingBP->BlueprintType != EBlueprintType::BPTYPE_MacroLibrary))
 			{
-				FKismetEditorUtilities::RecompileBlueprintBytecode(GeneratingBP, ObjLoaded);
+				FKismetEditorUtilities::RecompileBlueprintBytecode(GeneratingBP);
 			}
 
 			GeneratingBP->bIsRegeneratingOnLoad = bWasRegenerating;
@@ -277,7 +287,7 @@ void UBlueprintGeneratedClass::FlushCompilationQueueForLevel()
 	{
 		if(Cast<ULevelScriptBlueprint>(ClassGeneratedBy))
 		{
-			FBlueprintCompilationManager::FlushCompilationQueue();
+			FBlueprintCompilationManager::FlushCompilationQueue(nullptr);
 		}
 	}
 }
@@ -306,8 +316,9 @@ void UBlueprintGeneratedClass::SerializeDefaultObject(UObject* Object, FArchive&
 		// @TODO - Potentially make this serializable (or cooked data) to eliminate the slight load time cost we'll incur below to generate this list in a cooked build. For now, it's not serialized since the raw UProperty references cannot be saved out.
 		UpdateCustomPropertyListForPostConstruction();
 
-		// Generate "fast path" instancing data for inherited SCS node templates.
-		if (InheritableComponentHandler)
+		// Generate "fast path" instancing data for inherited SCS node templates. This data may also be used to support inherited SCS component default value overrides
+		// in a nativized, cooked build, in which this Blueprint class inherits from a nativized Blueprint parent. See CheckAndApplyComponentTemplateOverrides() below.
+		if (InheritableComponentHandler && (bHasCookedComponentInstancingData || bHasNativizedParent))
 		{
 			for (auto RecordIt = InheritableComponentHandler->CreateRecordIterator(); RecordIt; ++RecordIt)
 			{
@@ -318,29 +329,35 @@ void UBlueprintGeneratedClass::SerializeDefaultObject(UObject* Object, FArchive&
 			}
 		}
 
-		// Generate "fast path" instancing data for SCS node templates owned by this Blueprint class.
-		if (SimpleConstructionScript)
+		if (bHasCookedComponentInstancingData)
 		{
-			const TArray<USCS_Node*>& AllSCSNodes = SimpleConstructionScript->GetAllNodes();
-			for (USCS_Node* SCSNode : AllSCSNodes)
+			// Generate "fast path" instancing data for SCS node templates owned by this Blueprint class.
+			if (SimpleConstructionScript)
 			{
-				if (SCSNode->ComponentTemplate && SCSNode->CookedComponentInstancingData.bIsValid)
+				const TArray<USCS_Node*>& AllSCSNodes = SimpleConstructionScript->GetAllNodes();
+				for (USCS_Node* SCSNode : AllSCSNodes)
 				{
-					SCSNode->CookedComponentInstancingData.BuildCachedPropertyDataFromTemplate(SCSNode->ComponentTemplate);
+					if (SCSNode->ComponentTemplate && SCSNode->CookedComponentInstancingData.bIsValid)
+					{
+						SCSNode->CookedComponentInstancingData.BuildCachedPropertyDataFromTemplate(SCSNode->ComponentTemplate);
+					}
 				}
 			}
-		}
 
-		// Generate "fast path" instancing data for UCS/AddComponent node templates.
-		if (CookedComponentInstancingData.Num() > 0)
-		{
-			for (UActorComponent* ComponentTemplate : ComponentTemplates)
+			// Generate "fast path" instancing data for UCS/AddComponent node templates.
+			if (CookedComponentInstancingData.Num() > 0)
 			{
-				if (ComponentTemplate)
+				for (UActorComponent* ComponentTemplate : ComponentTemplates)
 				{
-					if (FBlueprintCookedComponentInstancingData* ComponentInstancingData = CookedComponentInstancingData.Find(ComponentTemplate->GetFName()))
+					if (ComponentTemplate)
 					{
-						ComponentInstancingData->BuildCachedPropertyDataFromTemplate(ComponentTemplate);
+						if (FBlueprintCookedComponentInstancingData* ComponentInstancingData = CookedComponentInstancingData.Find(ComponentTemplate->GetFName()))
+						{
+							if (ComponentInstancingData->bIsValid)
+							{
+								ComponentInstancingData->BuildCachedPropertyDataFromTemplate(ComponentTemplate);
+							}
+						}
 					}
 				}
 			}
@@ -397,7 +414,8 @@ bool UBlueprintGeneratedClass::BuildCustomPropertyListForPostConstruction(FCusto
 				if (UStructProperty* StructProperty = Cast<UStructProperty>(Property))
 				{
 					// Create a new node for the struct property.
-					*CurrentNodePtr = new(CustomPropertyListForPostConstruction) FCustomPropertyListNode(Property, Idx);
+					*CurrentNodePtr = new FCustomPropertyListNode(Property, Idx);
+					CustomPropertyListForPostConstruction.Add(*CurrentNodePtr);
 
 					// Recursively gather up all struct fields that differ and assign to the current node's sub property list.
 					if (BuildCustomPropertyListForPostConstruction((*CurrentNodePtr)->SubPropertyList, StructProperty->Struct, PropertyValue, DefaultPropertyValue))
@@ -417,7 +435,8 @@ bool UBlueprintGeneratedClass::BuildCustomPropertyListForPostConstruction(FCusto
 				else if (UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Property))
 				{
 					// Create a new node for the array property.
-					*CurrentNodePtr = new(CustomPropertyListForPostConstruction) FCustomPropertyListNode(Property, Idx);
+					*CurrentNodePtr = new FCustomPropertyListNode(Property, Idx);
+					CustomPropertyListForPostConstruction.Add(*CurrentNodePtr);
 
 					// Recursively gather up all array item indices that differ and assign to the current node's sub property list.
 					if (BuildCustomArrayPropertyListForPostConstruction(ArrayProperty, (*CurrentNodePtr)->SubPropertyList, PropertyValue, DefaultPropertyValue))
@@ -437,7 +456,8 @@ bool UBlueprintGeneratedClass::BuildCustomPropertyListForPostConstruction(FCusto
 				else if (!Property->Identical(PropertyValue, DefaultPropertyValue))
 				{
 					// Create a new node, link it into the chain and add it into the array.
-					*CurrentNodePtr = new(CustomPropertyListForPostConstruction) FCustomPropertyListNode(Property, Idx);
+					*CurrentNodePtr = new FCustomPropertyListNode(Property, Idx);
+					CustomPropertyListForPostConstruction.Add(*CurrentNodePtr);
 
 					// Advance to the next node ptr.
 					CurrentNodePtr = &(*CurrentNodePtr)->PropertyListNext;
@@ -468,7 +488,8 @@ bool UBlueprintGeneratedClass::BuildCustomArrayPropertyListForPostConstruction(U
 			if (UStructProperty* InnerStructProperty = Cast<UStructProperty>(ArrayProperty->Inner))
 			{
 				// Create a new node for the item value at this index.
-				*CurrentArrayNodePtr = new(CustomPropertyListForPostConstruction) FCustomPropertyListNode(ArrayProperty, ArrayValueIndex);
+				*CurrentArrayNodePtr = new FCustomPropertyListNode(ArrayProperty, ArrayValueIndex);
+				CustomPropertyListForPostConstruction.Add(*CurrentArrayNodePtr);
 
 				// Recursively gather up all struct fields that differ and assign to the array item value node's sub property list.
 				if (BuildCustomPropertyListForPostConstruction((*CurrentArrayNodePtr)->SubPropertyList, InnerStructProperty->Struct, ArrayPropertyValue, DefaultArrayPropertyValue))
@@ -488,7 +509,8 @@ bool UBlueprintGeneratedClass::BuildCustomArrayPropertyListForPostConstruction(U
 			else if (UArrayProperty* InnerArrayProperty = Cast<UArrayProperty>(ArrayProperty->Inner))
 			{
 				// Create a new node for the item value at this index.
-				*CurrentArrayNodePtr = new(CustomPropertyListForPostConstruction) FCustomPropertyListNode(ArrayProperty, ArrayValueIndex);
+				*CurrentArrayNodePtr = new FCustomPropertyListNode(ArrayProperty, ArrayValueIndex);
+				CustomPropertyListForPostConstruction.Add(*CurrentArrayNodePtr);
 
 				// Recursively gather up all array item indices that differ and assign to the array item value node's sub property list.
 				if (BuildCustomArrayPropertyListForPostConstruction(InnerArrayProperty, (*CurrentArrayNodePtr)->SubPropertyList, ArrayPropertyValue, DefaultArrayPropertyValue))
@@ -508,7 +530,8 @@ bool UBlueprintGeneratedClass::BuildCustomArrayPropertyListForPostConstruction(U
 			else if (!ArrayProperty->Inner->Identical(ArrayPropertyValue, DefaultArrayPropertyValue))
 			{
 				// Create a new node, link it into the chain and add it into the array.
-				*CurrentArrayNodePtr = new(CustomPropertyListForPostConstruction) FCustomPropertyListNode(ArrayProperty, ArrayValueIndex);
+				*CurrentArrayNodePtr = new FCustomPropertyListNode(ArrayProperty, ArrayValueIndex);
+				CustomPropertyListForPostConstruction.Add(*CurrentArrayNodePtr);
 
 				// Advance to the next array item node ptr.
 				CurrentArrayNodePtr = &(*CurrentArrayNodePtr)->PropertyListNext;
@@ -974,7 +997,7 @@ void UBlueprintGeneratedClass::CreateTimelineComponent(AActor* Actor, const UTim
 		return;
 	}
 
-	FName NewName(*UTimelineTemplate::TimelineTemplateNameToVariableName(TimelineTemplate->GetFName()));
+	FName NewName = TimelineTemplate->GetVariableName();
 	UTimelineComponent* NewTimeline = NewObject<UTimelineComponent>(Actor, NewName);
 	NewTimeline->CreationMethod = EComponentCreationMethod::UserConstructionScript; // Indicate it comes from a blueprint so it gets cleared when we rerun construction scripts
 	Actor->BlueprintCreatedComponents.Add(NewTimeline); // Add to array so it gets saved
@@ -988,7 +1011,7 @@ void UBlueprintGeneratedClass::CreateTimelineComponent(AActor* Actor, const UTim
 
 	// Find property with the same name as the template and assign the new Timeline to it
 	UClass* ActorClass = Actor->GetClass();
-	UObjectPropertyBase* Prop = FindField<UObjectPropertyBase>(ActorClass, *UTimelineTemplate::TimelineTemplateNameToVariableName(TimelineTemplate->GetFName()));
+	UObjectPropertyBase* Prop = FindField<UObjectPropertyBase>(ActorClass, TimelineTemplate->GetVariableName());
 	if (Prop)
 	{
 		Prop->SetObjectPropertyValue_InContainer(Actor, NewTimeline);
@@ -999,11 +1022,11 @@ void UBlueprintGeneratedClass::CreateTimelineComponent(AActor* Actor, const UTim
 	for (int32 TrackIdx = 0; TrackIdx < TimelineTemplate->EventTracks.Num(); TrackIdx++)
 	{
 		const FTTEventTrack* EventTrackTemplate = &TimelineTemplate->EventTracks[TrackIdx];
-		if (EventTrackTemplate->CurveKeys != NULL)
+		if (EventTrackTemplate->CurveKeys != nullptr)
 		{
 			// Create delegate for all keys in this track
 			FScriptDelegate EventDelegate;
-			EventDelegate.BindUFunction(Actor, TimelineTemplate->GetEventTrackFunctionName(TrackIdx));
+			EventDelegate.BindUFunction(Actor, EventTrackTemplate->GetFunctionName());
 
 			// Create an entry in Events for each key of this track
 			for (auto It(EventTrackTemplate->CurveKeys->FloatCurve.GetKeyIterator()); It; ++It)
@@ -1019,7 +1042,7 @@ void UBlueprintGeneratedClass::CreateTimelineComponent(AActor* Actor, const UTim
 		const FTTFloatTrack* FloatTrackTemplate = &TimelineTemplate->FloatTracks[TrackIdx];
 		if (FloatTrackTemplate->CurveFloat != NULL)
 		{
-			NewTimeline->AddInterpFloat(FloatTrackTemplate->CurveFloat, FOnTimelineFloat(), TimelineTemplate->GetTrackPropertyName(FloatTrackTemplate->TrackName), FloatTrackTemplate->TrackName);
+			NewTimeline->AddInterpFloat(FloatTrackTemplate->CurveFloat, FOnTimelineFloat(), FloatTrackTemplate->GetPropertyName(), FloatTrackTemplate->GetTrackName());
 		}
 	}
 
@@ -1029,7 +1052,7 @@ void UBlueprintGeneratedClass::CreateTimelineComponent(AActor* Actor, const UTim
 		const FTTVectorTrack* VectorTrackTemplate = &TimelineTemplate->VectorTracks[TrackIdx];
 		if (VectorTrackTemplate->CurveVector != NULL)
 		{
-			NewTimeline->AddInterpVector(VectorTrackTemplate->CurveVector, FOnTimelineVector(), TimelineTemplate->GetTrackPropertyName(VectorTrackTemplate->TrackName), VectorTrackTemplate->TrackName);
+			NewTimeline->AddInterpVector(VectorTrackTemplate->CurveVector, FOnTimelineVector(), VectorTrackTemplate->GetPropertyName(), VectorTrackTemplate->GetTrackName());
 		}
 	}
 
@@ -1039,7 +1062,7 @@ void UBlueprintGeneratedClass::CreateTimelineComponent(AActor* Actor, const UTim
 		const FTTLinearColorTrack* LinearColorTrackTemplate = &TimelineTemplate->LinearColorTracks[TrackIdx];
 		if (LinearColorTrackTemplate->CurveLinearColor != NULL)
 		{
-			NewTimeline->AddInterpLinearColor(LinearColorTrackTemplate->CurveLinearColor, FOnTimelineLinearColor(), TimelineTemplate->GetTrackPropertyName(LinearColorTrackTemplate->TrackName), LinearColorTrackTemplate->TrackName);
+			NewTimeline->AddInterpLinearColor(LinearColorTrackTemplate->CurveLinearColor, FOnTimelineLinearColor(), LinearColorTrackTemplate->GetPropertyName(), LinearColorTrackTemplate->GetTrackName());
 		}
 	}
 
@@ -1113,6 +1136,11 @@ void UBlueprintGeneratedClass::CreateComponentsForActor(const UClass* ThisClass,
 			}
 		}
 	}
+}
+
+bool UBlueprintGeneratedClass::UseFastPathComponentInstancing()
+{
+	return bHasCookedComponentInstancingData && FPlatformProperties::RequiresCookedData() && !GBlueprintComponentInstancingFastPathDisabled;
 }
 
 void UBlueprintGeneratedClass::CheckAndApplyComponentTemplateOverrides(UObject* InClassDefaultObject)
@@ -1190,6 +1218,23 @@ void UBlueprintGeneratedClass::CheckAndApplyComponentTemplateOverrides(UObject* 
 			}
 		}
 	}
+}
+
+uint8* UBlueprintGeneratedClass::GetPersistentUberGraphFrame(UObject* Obj, UFunction* FuncToCheck) const
+{
+	if (Obj && UsePersistentUberGraphFrame() && UberGraphFramePointerProperty && UberGraphFunction)
+	{
+		if (UberGraphFunction == FuncToCheck)
+		{
+			FPointerToUberGraphFrame* PointerToUberGraphFrame = UberGraphFramePointerProperty->ContainerPtrToValuePtr<FPointerToUberGraphFrame>(Obj);
+			checkSlow(PointerToUberGraphFrame);
+			ensure(PointerToUberGraphFrame->RawPointer);
+			return PointerToUberGraphFrame->RawPointer;
+		}
+	}
+	UClass* ParentClass = GetSuperClass();
+	checkSlow(ParentClass);
+	return ParentClass->GetPersistentUberGraphFrame(Obj, FuncToCheck);
 }
 
 void UBlueprintGeneratedClass::CreatePersistentUberGraphFrame(UObject* Obj, bool bCreateOnlyIfEmpty, bool bSkipSuperClass, UClass* OldClass) const
@@ -1453,6 +1498,7 @@ void UBlueprintGeneratedClass::PurgeClass(bool bRecompilingOnLoad)
 {
 	Super::PurgeClass(bRecompilingOnLoad);
 
+	UberGraphFramePointerProperty = NULL;
 	UberGraphFunction = NULL;
 #if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
 	UberGraphFunctionKey = 0;
@@ -1587,6 +1633,12 @@ void UBlueprintGeneratedClass::GetLifetimeBlueprintReplicationList(TArray<FLifet
 	}
 }
 
+FBlueprintCookedComponentInstancingData::~FBlueprintCookedComponentInstancingData()
+{
+	DEC_MEMORY_STAT_BY(STAT_BPCompInstancingFastPathMemory, CachedPropertyData.GetAllocatedSize());
+	DEC_MEMORY_STAT_BY(STAT_BPCompInstancingFastPathMemory, CachedPropertyListForSerialization.GetAllocatedSize());
+}
+
 void FBlueprintCookedComponentInstancingData::BuildCachedPropertyList(FCustomPropertyListNode** CurrentNode, const UStruct* CurrentScope, int32* CurrentSourceIdx) const
 {
 	int32 LocalSourceIdx = 0;
@@ -1610,7 +1662,8 @@ void FBlueprintCookedComponentInstancingData::BuildCachedPropertyList(FCustomPro
 		}
 
 		// Create a new node to hold property info.
-		FCustomPropertyListNode* NewNode = new(CachedPropertyListForSerialization) FCustomPropertyListNode(Property, ChangedPropertyInfo.ArrayIndex);
+		FCustomPropertyListNode* NewNode = new FCustomPropertyListNode(Property, ChangedPropertyInfo.ArrayIndex);
+		CachedPropertyListForSerialization.Add(NewNode);
 
 		// Link the new node into the current property list.
 		if (CurrentNode)
@@ -1644,7 +1697,8 @@ void FBlueprintCookedComponentInstancingData::BuildCachedArrayPropertyList(const
 		const FBlueprintComponentChangedPropertyInfo& ChangedArrayPropertyInfo = ChangedPropertyList[(*CurrentSourceIdx)++];
 		UProperty* InnerProperty = ChangedArrayPropertyInfo.PropertyName != NAME_None ? ArrayProperty->Inner : nullptr;
 
-		*ArraySubPropertyNode = new(CachedPropertyListForSerialization) FCustomPropertyListNode(InnerProperty, ChangedArrayPropertyInfo.ArrayIndex);
+		*ArraySubPropertyNode = new FCustomPropertyListNode(InnerProperty, ChangedArrayPropertyInfo.ArrayIndex);
+		CachedPropertyListForSerialization.Add(*ArraySubPropertyNode);
 
 		// If this is a UStruct property, recursively build a sub-property list.
 		if (const UStructProperty* InnerStructProperty = Cast<UStructProperty>(InnerProperty))
@@ -1672,6 +1726,8 @@ const FCustomPropertyListNode* FBlueprintCookedComponentInstancingData::GetCache
 
 		// Kick off construction of the cached property list.
 		BuildCachedPropertyList(&PropertyListRootNode, ComponentTemplateClass);
+
+		INC_MEMORY_STAT_BY(STAT_BPCompInstancingFastPathMemory, CachedPropertyListForSerialization.GetAllocatedSize());
 	}
 	else if (CachedPropertyListForSerialization.Num() > 0)
 	{
@@ -1720,9 +1776,19 @@ void FBlueprintCookedComponentInstancingData::BuildCachedPropertyDataFromTemplat
 			// This will also load the cached property list, if necessary.
 			const FCustomPropertyListNode* PropertyList = GetCachedPropertyList();
 
+			// Make sure we don't have any previously-built data.
+			if (!ensure(CachedPropertyData.Num() == 0))
+			{
+				DEC_MEMORY_STAT_BY(STAT_BPCompInstancingFastPathMemory, CachedPropertyData.GetAllocatedSize());
+
+				CachedPropertyData.Empty();
+			}
+
 			// Write template data out to the "fast path" buffer. All dependencies will be loaded at this point.
 			FBlueprintComponentInstanceDataWriter InstanceDataWriter(CachedPropertyData, PropertyList);
 			SourceTemplate->Serialize(InstanceDataWriter);
+
+			INC_MEMORY_STAT_BY(STAT_BPCompInstancingFastPathMemory, CachedPropertyData.GetAllocatedSize());
 		}
 		else
 		{

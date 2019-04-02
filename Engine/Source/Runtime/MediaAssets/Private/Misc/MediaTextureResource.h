@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -140,6 +140,14 @@ protected:
 	 * @param NewTexture The texture to set.
 	 */
 	void UpdateTextureReference(FRHITexture2D* NewTexture);
+
+	/**
+	 * Create/update output render target as needed
+	 *
+	 * @param InSample Sample to query render target dimension and format from
+	 * @param InParams Parameters containing SrgbOutput and ClearColor
+	 */
+	void CreateOutputRenderTarget(const TSharedPtr<IMediaTextureSample, ESPMode::ThreadSafe>& InSample, const FRenderParams& InParams);
 
 private:
 

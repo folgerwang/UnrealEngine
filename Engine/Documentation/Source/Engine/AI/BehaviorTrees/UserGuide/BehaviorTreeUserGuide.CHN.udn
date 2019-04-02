@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2757389
+﻿INTSourceChangelist:3108692
 Availability:Public
 Title:行为树用户指南
 Crumbs:%ROOT%, Engine, Gameplay, Engine/AI/BehaviorTrees
@@ -9,8 +9,10 @@ version:4.9
 
 该文档中包含使用行为树时常见的工作流程。
 
+(#CreatingBehaviorTreeAssets)
 ## 创建行为树资源
 
+(#CreatingaBehaviorTree)
 ### 创建一个行为树
 
 可使用 **内容浏览器** 创建新行为树。
@@ -22,6 +24,7 @@ version:4.9
 1. 在 **内容浏览器** 中 **左键单击** “New” 按钮。
 1. 在 **Miscellaneous** 类目下选择 **Behavior Tree**。
 
+(#CreatingaBlackboard)
 ### 创建一个黑板
 
 可使用 **内容浏览器** 创建黑板资源。
@@ -38,24 +41,28 @@ version:4.9
 
 ![](NewBBinBTE.png)(w:920 convert:false)
 
+(#CreatingaTask_Blueprint_)
 ### 创建一个 Task（蓝图）
 
 1. 在行为树编辑器中点击 **New Task** 按钮（在行为树编辑模式中）。
 1. 选择需要继承的 **Behavior Tree Task** 类，`BTTask_BlueprintBase` 是默认的“空白”类。
 1. 新 Task 蓝图将创建于行为树资源的相同文件夹中。
 
+(#CreatingaDecorator_Blueprint_)
 ### 创建一个 Decorator（蓝图）
 
 1. 在行为树编辑器中点击 **New Decorator** 按钮（在行为树编辑模式中）。
 1. 选择需要继承的 **Behavior Tree Decorator** 类，`BTDecorator_BlueprintBase` 是默认的“空白”类。
 1. 新 Decorator 蓝图将创建于行为树资源的相同文件夹中。
 
+(#CreatingaService_Blueprint_)
 ### 创建一个 Service（蓝图）
 
 1. 在行为树编辑器中点击 **New Service** 按钮（在行为树编辑模式中）。
 1. 选择需要继承的 **Behavior Tree Service** 类，`BTService_BlueprintBase` 是默认的“空白”类。
 1. 新 Service 蓝图将创建于行为树资源的相同文件夹中。
 
+(#AddKeys)
 ## 编辑黑板
 
 黑板有两种编辑方式。在 **内容浏览器** 中 **双击**，将其在 **行为树编辑器** 中打开：
@@ -66,23 +73,27 @@ version:4.9
 
 ![](blackboardMode.png)(convert:false)
 
+(#AddKeys)
 ### 添加 Keys
 
 1. 点击 **New Key** 按钮。
 1. 选择要添加的 Key 类型。
 1. 修改 Key 名称。
 
+(#RemoveKeys)
 ### 删除 Keys
 
 1. 选择需要删除的 Key。
 1. 按下 **Delete** 键。
 
+(#RenamingKeys)
 ### 重命名 Keys
 
 1. 选择需要重命名的 Key。
 1. **单击右键** 选择 **Rename** （或按 F2 键）。
 1. 为 Key 输入一个新名字。
 
+(#ObjectKeySpecifics)
 ### Object Key 特性
 
 Object Key 的特殊性在于可改变其单独的类型。因此它们能存储从对象（如 Actors）中继承的任意类型数据。
@@ -93,6 +104,7 @@ Object Key 的特殊性在于可改变其单独的类型。因此它们能存储
 1. 在 **Details** 面板中，打开 **Key Type** 属性。
 1. 将 Base Class 属性改为需要的 Object 类型。
 
+(#EditingaBehaviorTree)
 ### 编辑行为树
 
 行为树有两种编辑方式。在 **内容浏览器** 中 **双击**，将其在行为树编辑器中打开：
@@ -103,6 +115,7 @@ Object Key 的特殊性在于可改变其单独的类型。因此它们能存储
 
 ![](Engine/AI/BehaviorTrees/QuickStart/14/btMode.png)(convert:false)
 
+(#SettingtheBlackboardAssettoUse)
 ### 设置使用的黑板资源
 
 1. 在行为树上选择 **Root** 节点（或取消选择所有节点）
@@ -112,6 +125,7 @@ Object Key 的特殊性在于可改变其单独的类型。因此它们能存储
 ![](settingBB.png)
 [/REGION]
 
+(#AddingaNode_CompositesandTasks_)
 ### 添加节点（Composites 和 Tasks）
 
 1. 在行为树图表区域中 **单击右键** 呼出快捷菜单。
@@ -119,16 +133,18 @@ Object Key 的特殊性在于可改变其单独的类型。因此它们能存储
 
 ![](newNode.png)
 
+(#RemovingaNode)
 ### 删除节点
 
 1. 点击左键选择节点。
 1. 按下 **Delete** 键。
 
+(#ConnectingNodes)
 ### 连接节点
 
 在行为树中连接节点的方式和在蓝图中连接引脚的方式颇为相似。然而主要的区别在于起作用连接的方向：只能将输出引脚和输入引脚连接起来。
 
-### 连接节点的步骤：
+连接节点的步骤：
 
 1. 在输出条上 **单击** 并长按鼠标左键。
 1. 将光标拖至输入条。
@@ -136,6 +152,7 @@ Object Key 的特殊性在于可改变其单独的类型。因此它们能存储
 
 ![](Engine/AI/BehaviorTrees/QuickStart/14/connectNodes.png)
 
+(#BreakingConnections)
 ### 断开连接
 
 1. 在连接条上 **单击右键** 呼出快捷菜单。
@@ -147,11 +164,13 @@ Object Key 的特殊性在于可改变其单独的类型。因此它们能存储
 
 1. 在已连接的条上按下 **Alt + 左键单击** 组合键。
 
+(#EditingNodeProperties)
 ### 编辑节点属性
 
 1. **单击左键** 选择一个节点。
 1. 使用 **Details** 面板调整节点属性。
 
+(#AddingDecoratorsandServicestoNodes)
 ### 将 Decorators 和 Services 添加至节点
 
 [REGION:raw]
@@ -164,6 +183,7 @@ Object Key 的特殊性在于可改变其单独的类型。因此它们能存储
 
 1. 选择需要添加至节点的 Decorator 或 Service。
 
+(#RemovingDecoratorsandServicesfromNodes)
 ### 将 Decorators 和 Services 从节点移除
 
 1. **左键单击**，在节点上选择一个 **Decorator** 或 **Service**（Decorator 或 Service 上将出现一个红色边框）。
@@ -172,6 +192,7 @@ Object Key 的特殊性在于可改变其单独的类型。因此它们能存储
 
 1. 按下 **Delete** 键。
 
+(#EditingDecoratorsandServices)
 ### 编辑 Decorators 和 Services
 
 1. **左键单击**，在节点上选择一个 **Decorator** 或 **Service**（Decorator 或 Service 上将出现一个红色边框）。
@@ -182,6 +203,7 @@ Object Key 的特殊性在于可改变其单独的类型。因此它们能存储
 
 	![](details.png)
 
+(#CompositeDecoratorSpecifics)
 ### Composite Decorator 特性
 
 **双击** Composite Decorator 呼出其图表。
@@ -193,18 +215,21 @@ Composite Decorator 图表的工作方式和简单蓝图相似，但仅限于处
 [/REGION]
 
 
+(#EditingaTask_Blueprint_)
 ### 编辑 Task（蓝图）
 
 在行为树编辑器中 **双击** 一个放置好的 Task 节点，使其在蓝图编辑器中打开。
 
 或在 **内容浏览器** 中 **双击** Task。
 
+(#EditingaService_Blueprint_)
 ### 编辑 Service（蓝图）
 
 在行为树编辑器中 **双击** 一个放置好的 Service，使其在蓝图编辑器中打开。
 
 或在 **内容浏览器** 中 **双击** Service。
 
+(#EditingaDecorator_Blueprint_)
 ### 编辑 Decorator（蓝图）
 
 在行为树编辑器中 **双击** 一个放置好的 Decorator，使其在蓝图编辑器中打开。

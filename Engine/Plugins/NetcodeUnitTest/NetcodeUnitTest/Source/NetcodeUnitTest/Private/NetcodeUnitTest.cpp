@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NetcodeUnitTest.h"
 
@@ -100,6 +100,14 @@ public:
 			}
 
 			DumpRPCsHandle = FProcessEventHook::Get().AddGlobalRPCHook(FOnProcessNetEvent::CreateStatic(&FNetcodeUnitTest::DumpRPC));
+		}
+
+		// Add earlier log trace opportunity (execcmds is sometimes too late)
+		FString TraceStr;
+
+		if (FParse::Value(FCommandLine::Get(), TEXT("LogTrace="), TraceStr) && TraceStr.Len() > 0)
+		{
+			GLogTraceManager->AddLogTrace(TraceStr);
 		}
 
 		// Hack-override the log category name

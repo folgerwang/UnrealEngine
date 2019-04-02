@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3721448
 Availability:Public
 Crumbs:%ROOT%, Platforms
-Title:Set Up Motion Controller for Google Daydream VR
-Description: Setting up Google Daydream VR motion controller to work with UE4.
+Title:设置Google Daydream VR运动控制器
+Description: 设置适用于虚幻引擎的Google Daydream VR运动控制器。
 Type:how-to
 SkillLevel:Beginner
 Version:4.17
@@ -14,74 +14,80 @@ topic-image:Platforms\GoogleVR\HowTo\HT_GoogleVR_Camera_Setup_Topic_Image.png
 prereq:Platforms\GoogleVR\QuickStart
 prereq:Platforms\GoogleVR\HowTo\CameraSetup
 
-The Google Daydream Motion Controller allows you to interact with your UE4 project like never before by enabling users to pick up and interact with objects like they would in the real world.  In the following How - To we will take a look at how you can setup your UE4 projects to work with the Google Daydream Motion Controller.
+Google Daydream运动控制器使用户能够以与在真实世界中类似的方式来拾取物体和与之交互，从而以前所未有的方式与虚幻引擎项目进行交互。在以下操作指南中，我们将阐述如何设置虚幻引擎项目以与Google Daydream运动控制器一起使用。
 
 [region:note]
-This How - To will utilize the pawn the that was created in the [Set Up Cameras for Google VR How - To](Platforms\GoogleVR\HowTo\CameraSetup). If you have not completed this How - To it is highly suggested you do before continuing.
+本操作指南利用在[针对GoogleVR设置摄像机操作指南](Platforms\GoogleVR\HowTo\CameraSetup)中创建的Pawn。如果尚未完成该操作指南，我们强烈建议你先完成该操作指南然后再继续。
 [/region]
 
 [region:note]
-Motion Controllers will work only with devices that support Google Daydream.
+仅可在支持Google Daydream SDK的设备上使用运动控制器。  
 [/region]
 
-1. First, open up the player pawn you want to add Motion Controller support to, in this example, our pawn is called **GoogleVR_Pawn_MotionController**, and in the **Components** tab, click on the **Add Component** button and then search for **GoogleVRMotionController**.
+## 步骤
+
+接下来我们将介绍如何为玩家Pawn添加使用Google Daydream运动控制器的能力。
+
+1. 首先，打开要为其添加运动控制器支持的玩家pawn（在此示例中，我们使用的Pawn是 **GoogleVR_Pawn_MotionController**），在 **组件（Components）** 选项卡中，单击 **添加组件（Add Component）** 按钮，然后搜索 **GoogleVRMotionController**。
 
     ![](HTGoogleVR_MC_00.png)
 
-1. Drag the newly added **GoogleVRMotionController** on top of the existing **VRCameraRoot** so that it is a child component like the **VRCamera**.
+1. 将新添加的 **GoogleVRMotionController** 拖到现有的 **VRCameraRoot** 上面，使它像 **VRCamera** 一样成为子组件。
 
     ![](HTGoogleVR_MC_01.png)
 
     [region:note]
-    By default, the Google VR Motion Controller Component **Location** should be set to 0,0,0 when added to your Pawn. If for some reason this is not the case, make sure and set the location to 0,0,0.
+    默认情况下，添加到Pawn时，GoogleVR Motion Controller组件的 **位置（Location）** 应设置为（0, 0, 0）。如果由于某种原因，情况并非如此，请确保将位置设置为（0, 0, 0）。
     [/region]
 
-1. Compile and save the Blueprint and then drag the **GoogleVR_Pawn_MotionController** Pawn from the Content Browser to the level.
+1. 编译并保存蓝图，然后将 **GoogleVR_Pawn_MotionController** Pawn从内容浏览器拖至关卡中。
 
     [REGION:lightbox]
     [![](HTGoogleVR_MC_03.png)(w:660)](HTGoogleVR_MC_03.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    单击查看大图。
     [/REGION]
 
-1. Select the newly added Player Pawn and in the **Details** panel, make sure to set the **Auto Possess Player** to **Player 0** so that we will use this Pawn when the level is running.
+1. 选中新添加的玩家Pawn，然后在 **细节（Details）** 面板中，确保将 **Auto Possess Player** 设置为 **Player 0**，以在关卡运行时使用该Pawn。
 
     ![](HTGoogleVR_MC_02.png)
 
-1. Finally, press the **Launch** button to deploy and run this level on your Google Daydream enabled smartphone.
+1. 最后，按 **启动（Launch）** 按钮以在启用了Google Daydream的智能手机上部署和运行该关卡。
 
     ![](Platforms\GearVR\HowTo\MotionController\HTGearVR_MC_04.png)
 
-1. When your project launches, put your phone in your Google VR headset and pick up your Google VR Daydream Motion Controller. Now when you move the Motion Controller around in the real world, you should see that movement replicated in your UE4 project like in the following video.
+## 最终结果
 
-    [OBJECT:EmbeddedVideo]
-        [PARAMLITERAL:videoid]
-        7728npwW1fQ
-        [/PARAMLITERAL]
-        [PARAMLITERAL:width]
-        100
-        [/PARAMLITERAL]
-        [PARAMLITERAL:height]
-        56.25
-        [/PARAMLITERAL]
-        [PARAMLITERAL:units]
-        %
-        [/PARAMLITERAL]
-        [PARAMLITERAL:type]
-        simple
-        [/PARAMLITERAL]
-    [/OBJECT]
+项目启动后，将手机放进GoogleVR头盔中并拿起GoogleVR Daydream运动控制器。现在当你在真实世界中将运动控制器四处移动时，就会在虚幻引擎项目中看到移动得到再现，如以下视频中所示。
 
-    [region:note]
-    If the Google VR Motion Controller mesh seems to be in the wrong location, hold the Motion Controller out in front of you and then press and hold the **Home** button to re-calibrate the Motion Controller position.
-    [/region]
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    7728npwW1fQ
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    100
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
 
-## UE4 Project Downloads
+[region:note]
+如果GoogleVR运动控制器网格体处在错误的位置，将运动控制器放到自己面前，然后按住 **Home** 按钮来重新校准运动控制器的位置。
+[/region]
 
-Below you will find a link to where you can download the UE4 project that was used to create this example. 
+## 虚幻引擎项目下载
 
-* [**Google VR Motion Controller Example Project**](https://epicgames.box.com/s/ya3fk0zs57ur49npm21ligcgxcve1g6j)
+在下面可以找到一个链接，可供你下载用来创建此示例的虚幻引擎项目。
+
+* [**GoogleVR运动控制器示例项目**](https://epicgames.box.com/s/ya3fk0zs57ur49npm21ligcgxcve1g6j)
 
 

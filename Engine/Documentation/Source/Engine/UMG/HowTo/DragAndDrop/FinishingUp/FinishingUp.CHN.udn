@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3478014
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:5.最后一步
 Crumbs: %ROOT%, Engine, Engine/UMG, Engine/UMG/HowTo
@@ -34,6 +34,7 @@ type:how-to
 
 在最后这步中，我们将配置 **DragWidget**（即为拖拽的可视控件）。之后再告知角色蓝图添加 **HUD** 控件蓝图到视口，并启用鼠标指针，以便查看拖放位置。 
 
+(#Steps)
 ## 步骤
 
 1.	打开 **DragWidget** 控件蓝图并用含子 **Border** 的 **缩放框** 替代 **Canvas Panel**。 
@@ -73,6 +74,7 @@ type:how-to
 1.	**编译**、**保存**，然后点击 **Play** 按钮在编辑器中进行游戏。 
 
 
+(#EndResult)
 ## 最终结果
 
 在编辑器中进行游戏时，可在屏幕上 **点击左键** 拖动体力条并放置到新位置。 

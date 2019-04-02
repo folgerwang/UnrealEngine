@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneBuiltInEasingFunctionCustomization.h"
 #include "Generators/MovieSceneEasingCurves.h"
@@ -153,7 +153,7 @@ void FMovieSceneBuiltInEasingFunctionCustomization::CustomizeDetails(IDetailLayo
 {
 	TypeProperty = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UMovieSceneBuiltInEasingFunction, Type));
 
-	const UEnum* EasingEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EMovieSceneBuiltInEasing"), false);
+	const UEnum* EasingEnum = StaticEnum<EMovieSceneBuiltInEasing>();
 	check(EasingEnum)
 
 	TArray<FGroupedEasing> Groups;

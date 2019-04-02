@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "CoreTypes.h"
@@ -66,6 +66,13 @@ static FAutoConsoleVariableRef CVarTestDontCompleteUntilForAlreadyComplete(
 	TEXT("TaskGraph.TestDontCompleteUntilForAlreadyComplete"),
 	GTestDontCompleteUntilForAlreadyComplete,
 	TEXT("If 1, then we before spawning a gather task, we just check if all of the subtasks are complete, and in that case we can skip the gather.")
+);
+
+CORE_API int32 GEnablePowerSavingThreadPriorityReductionCVar = 0;
+static FAutoConsoleVariableRef CVarEnablePowerSavingThreadPriorityReduction(
+	TEXT("TaskGraph.EnablePowerSavingThreadPriorityReduction"),
+	GEnablePowerSavingThreadPriorityReductionCVar,
+	TEXT("If 1, then high pri thread tasks which are marked EPowerSavingEligibility::Eligible can be dropped to normal priority.")
 );
 
 #if CREATE_HIPRI_TASK_THREADS || CREATE_BACKGROUND_TASK_THREADS
@@ -1210,6 +1217,12 @@ public:
 			{
 				Name = FString::Printf(TEXT("TaskGraphThreadHP %d"), ThreadIndex - (LastExternalThread + 1));
 				ThreadPri = TPri_SlightlyBelowNormal; // we want even hi priority tasks below the normal threads
+
+				// If the platform defines FPlatformAffinity::GetTaskGraphHighPriorityTaskMask then use it
+				if (FPlatformAffinity::GetTaskGraphHighPriorityTaskMask() != 0xFFFFFFFFFFFFFFFF)
+				{
+					Affinity = FPlatformAffinity::GetTaskGraphHighPriorityTaskMask();
+				}
 			}
 			else if (Priority == 2)
 			{
@@ -1449,7 +1462,7 @@ public:
 		}
 	}
 
-	virtual void TriggerEventWhenTasksComplete(FEvent* InEvent, const FGraphEventArray& Tasks, ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread) final override
+	virtual void TriggerEventWhenTasksComplete(FEvent* InEvent, const FGraphEventArray& Tasks, ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread, ENamedThreads::Type TriggerThread = ENamedThreads::AnyHiPriThreadHiPriTask) final override
 	{
 		check(InEvent);
 		bool bAnyPending = true;
@@ -1471,7 +1484,7 @@ public:
 			InEvent->Trigger();
 			return;
 		}
-		TGraphTask<FTriggerEventGraphTask>::CreateTask(&Tasks, CurrentThreadIfKnown).ConstructAndDispatchWhenReady(InEvent);
+		TGraphTask<FTriggerEventGraphTask>::CreateTask(&Tasks, CurrentThreadIfKnown).ConstructAndDispatchWhenReady(InEvent, TriggerThread);
 	}
 
 	virtual void AddShutdownCallback(TFunction<void()>& Callback)

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "UserDefinedStructure/UserDefinedStructEditorData.h"
 #include "Misc/ITransaction.h"
@@ -179,6 +179,12 @@ void UUserDefinedStructEditorData::RecreateDefaultInstance(FString* OutLog)
 {
 	UUserDefinedStruct* ScriptStruct = GetOwnerStruct();
 	ScriptStruct->DefaultStructInstance.Recreate(ScriptStruct);
+	ReinitializeDefaultInstance(OutLog);
+}
+
+void UUserDefinedStructEditorData::ReinitializeDefaultInstance(FString* OutLog)
+{
+	UUserDefinedStruct* ScriptStruct = GetOwnerStruct();
 	uint8* StructData = ScriptStruct->DefaultStructInstance.GetStructMemory();
 	ensure(ScriptStruct->DefaultStructInstance.IsValid() && ScriptStruct->DefaultStructInstance.GetStruct() == ScriptStruct);
 	if (ScriptStruct->DefaultStructInstance.IsValid() && StructData)

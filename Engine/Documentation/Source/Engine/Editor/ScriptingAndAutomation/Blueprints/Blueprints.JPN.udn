@@ -1,0 +1,73 @@
+﻿INTSourceChangelist:4284468
+Availability: Public
+Crumbs: 
+Title: ブループリントを使用したエディタのスクリプティング
+Description: エディタでブループリントを使用して、コンテンツ制作タスクを自動化する方法を説明します。
+Type: 
+Version: 4.20
+Parent: Engine/Editor/ScriptingAndAutomation
+Order: 
+Tags: Blueprints, scripting, editor
+
+
+ブループリントはプロジェクトでランタイムのゲームプレイを作成する際に役立つだけでなく、Unreal Editor 内でのプロジェクト コンテンツとのインタラクションにおいても非常に効果的なツールとして使用できます。エディタではブループリント グラフをオンデマンドで実行できます。これらのグラフは「Blutility (ブループリント ユーティリティの省略形)」とも呼ばれます。ブループリント グラフはアセットと機能し、レベル内のコンテンツのレイアウト、さらにはエディタ UI 自体の制御も可能です。
+
+このページでは、ブループリントを使用したUnreal Editor のスクリプティングおよび自動化に関する基本事項について何点か説明します。
+
+## エディタでブループリントを実行する
+
+ブループリント クラスのイベント グラフ内でカスタム イベント ノードを使用する際は、**[Details]** パネルで **[Graph] > [Call in Editor]** オプションに設定できます。
+
+![Call in Editor](bp-call-in-editor.png "Call in Editor")
+
+カスタム イベントを含むアクタをこのようにレベルに置き、ビューポートまたは **World Outliner** で選択すると、設定した各 Call in Editor イベントのボタンが **[Details]** パネルに表示されます。これらのボタンは **[Default]** セクションに表示されます。さらに、ここではブループリント クラスによって変数も公開されます。このボタンをクリックすると、カスタム イベント ノードのイベント グラフが実行されます。
+
+![[Details] パネル内のカスタム イベント](bp-call-from-level.png "[Details] パネル内のカスタム イベント")
+
+レベルに加えることができるブループリント クラスであればこのように機能します。この機能は、ランタイムのゲームプレイのテストや、エディタのみのコンテンツ管理ツールの構築に使用することができます。
+
+[REGION:note]
+入力値が含まれるカスタム イベントの場合は **[Details]** パネルには表示されません。
+[/REGION]
+
+## エディタのみの機能を使用する
+
+アセット ファイルの変更、またはUnreal Editor の UI との作業が含まれるほとんどの操作は、ランタイム時にはゲームでは機能しません。そのため、ブループリントクラス (エディタのみ) からはエディタのみの機能にアクセスすることしかできません。エディタのみの機能とは、タイプが `Editor` に設定されているモジュールで定義されているすべての関数を指します。
+
+例えば、ベース **Actor** クラスなど、ランタイム時に使用可能な親クラスから派生するブループリント クラスを使用する場合、ブループリント エディタの **[Editor Scripting]** カテゴリには、限定された一連の関数のみが表示されます。ただし、**PlacedEditorUtilityBase** など、エディタのみの親クラスから派生したクラスを使用する場合は、より多くの使用可能な関数が表示されます。
+
+![エディタ スクリプティング ブループリント ノード](bp-editor-scripting-nodes.png "エディタ スクリプティング ブループリント ノード")
+
+[REGION:tip]
+Editor Scripting Utilities プラグインをインストールした場合は、スタティック メッシュおよびその他のアセットとの作業のためにプラグインによって公開される関数がここに表示されます。[「エディタのスクリプティングと自動化」](https://docs.unrealengine.com/en-us/Editor/Scripting-and-Automating-the-Editor)を参照してください。
+[/REGION]
+
+## Blutility クラスおよび Blutility シェルフ
+
+[REGION:note]
+現在、Blutility クラスおよび Blutility シェルフは実験段階にあります。他すべての実験的機能と同様に、これらを本番環境で使用する際は事前に十分に注意してください。これらは、Unreal Engine の将来のバージョンにおいて変更される場合があります。
+[/REGION]
+
+Unreal Editor でアセット作業を自動化するブループリントを作成する際に、作成するグラフに特定のレベルに対する依存関係が含まれない場合があります。この場合、Call in Editor イベントを呼び出すためだけに、ブループリント クラスのインスタンスをレベルに常にドロップしなければならない状況を避けたいことがあります。
+
+このような状況に対処するために、Unreal Editor では、アセット ブラウザまたはカスタム パネルから直接呼出し可能な、エディタのみのブループリント ユーティリティ クラスを作成して管理するための実験的なシステムを用意しています。
+
+以下の方法で使用が可能です。
+
+1. [Editor Preferences] ウィンドウを開いて、**[General] > [Experimental]** カテゴリを表示します。**[Tools]** で **[Editor Utility Blueprints (Blutility)]** オプションをオンにします。
+    ![Editor Utility Blueprints を有効にする](bp-experimental-blutility.png "Editor Utility Blueprints を有効にする")
+2. 新しい Blutility クラスを作成します。コンテンツ ブラウザで、新しいユーティリティ クラスを作成する先のフォルダを右クリックして、コンテキスト メニューから **[Blueprints] > [Blutility]** を選択します。
+    ![新しい Blutility を作成する](bp-blutility-menu.png "新しい Blutility を作成する")
+3. 親クラスとして `GlobalEditorUtilityBase` を選択し、**[Select]** をクリックします。
+    ![GlobalEditorUtilityBase 親クラス](bp-global-editor-utility-base.png "GlobalEditorUtilityBase 親クラス")  
+    
+4. 新しいクラスのブループリント グラフを編集するには、グラフを右クリックしてコンテキスト メニューから **[Edit Blueprint]** を選択します。
+5. イベント グラフ内で新しいカスタム イベントを作成して、上のセクションで示されているように **Call in Editor** 設定を有効にします。ブループリントをコンパイルして保存します。
+6. コンテンツ ブラウザでブループリント クラスをダブルクリックすると、すべての Call in Editor イベントを一覧表示する新しいウィンドウが開きます。
+    ![Blutility イベント](bp-open-blutility.png "Blutility イベント")
+
+[REGION:tip]
+作成したすべての Blutility クラスには **[Blutility Shelf]** パネルからもアクセスすることができます。このパネルを開くには、メイン メニューから **[Window] > [Blutility Shelf]** を選択します。
+
+![Blutility シェルフ](bp-blutility-shelf.png "Blutility Shelf")
+[/REGION]

@@ -1,0 +1,41 @@
+﻿INTSourceChangelist:4675859
+Availability: Public
+Crumbs: 
+Title: 순위표 인터페이스
+Description: Leaderboard Interface, 순위표를 읽어오고 업데이트하는 온라인 서브시스템입니다.
+Type: 
+Version: 4.21
+Parent: Programming/Online
+Order: 
+Tags: online subsyste
+Tags: leaderboards
+
+
+Leaderboard (순위표)는 플레이어가 친구나 전세계 플레이어들과 게임의 최고 점수를 경쟁하도록 하는 수단을 제공합니다. 게임에는 점수가 있는 모드가 다수 있을 수 있으며, 각 모드는 저마다의 순위표가 있을 수 있습니다. 점수 기록 모드에서는 전통적인 점수 기반 게임의 경우 내림차순으로, 시간을 재는 레이싱 게임의 경우 오름차순으로 순위를 매길 수도 있습니다. 순위표 인터페이스는 게임 안에서 순위표를 표시하고 업데이트하는 데 필요한 툴을 제공합니다.
+
+## 점수 획득 방법
+
+순위표에서 점수를 매기는 방법은 세 가지가 있으며, 각각 열거형으로 정의됩니다.
+
+*   [`ELeaderboardSort`](https://api.unrealengine.com/INT/API/Plugins/OnlineSubsystem/ELeaderboardSort__Type/index.html) 는 점수를 정렬할지 나타내며, 정렬한다면 오름차순 또는 내림차순이 됩니다.
+*   [`ELeaderboardFormat`](https://api.unrealengine.com/INT/API/Plugins/OnlineSubsystem/ELeaderboardFormat__Type/index.html) 은 형식을 제어합니다. 점수는 일반 원시 숫자일 수도, 초다 밀리초 단위 시간일 수도 있습니다.
+*   [`ELeaderboardUpdateMethod`](https://api.unrealengine.com/INT/API/Plugins/OnlineSubsystem/ELeaderboardUpdateMethod__Type/index.html) 는 순위표에 플레이어의 현재 점수를 표시할지, 아니면 (정렬 방식에 따른) 최고 점수를 유지할지 나타냅니다.
+
+## 순위표 데이터 검색
+
+순위표 데이터는 상당히 클 수 있습니다. 게임을 한 번이라도 플레이한 적이 있는 사용자 계정 각각에 대해 게임이 지원하는 각 순위표마다 항목이 있을 수 있기 때문입니다. 그래서 검색은 청크 단위로 이루어지며, 게임에서는 몇 가지 방식으로 순위표 일정 부분을 요청할 수 있습니다. 순위표 데이터를 검색하는 모든 방식은 `FOnlineLeaderboardRead` 유형 파라미터를 받습니다 (연관 데이터 유형은 [`FOnlineLeaderboardRead`](https://api.unrealengine.com/INT/API/Plugins/OnlineSubsystem/FOnlineLeaderboardRead/index.html) 참고). 여기에는 온라인 서비스에서 전송받으려는 테이블 정의가 저장되며, `FOnLeaderboardReadComplete` 유형 델리게이트에 완료 시 성공 또는 실패 여부를 나타내는 `bool` 값을 포함하여 호출합니다. 지원되는 쿼리 옵션은 다음과 같습니다.
+
+| 함수 | 쿼리 설명 |
+| --- | --- |
+| `ReadLeaderboards` | 사용자 명시 목록을 (`FUniqueId` 로 지정하여) 받아 해당 사용자에 대한 순위표 점수만 요청합니다. |
+| `ReadLeaderboardsForFriends` | 로컬 유저 인덱스가 지정된 경우, 해당 유저의 [친구](Programming/Online/Interfaces/Friends) 각각에 대한 순위표 점수를 찾습니다. |
+| `ReadLeaderboardsAroundRank` | 순위와 범위를 받으며, 전세계 최상위 플레이어를 검색할 때 좋습니다. 이 요청은 범위로 지정된 순위 이상 또는 이하 순위표 점수를 검색합니다. 예를 들어 순위 100 에 범위 50 은 순위가 50 위에서 150 위 사이인 플레이어의 기록을 요청합니다. |
+| `ReadLeaderboardsAroundUser` | `ReadLeaderboardsAroundRank` 와 비슷하지만 명시된 순위가 사용자의 `FUniqueNetId` 라는 점이 다르며, 해당 사용자 순위의 지정 범위 내 기록을 찾습니다. 이 방식은 호출을 여러번 하지 않고 한 플레이어의 전체 순위를 표시할 때 편리합니다. |
+
+## 순위표 데이터 업로드
+
+개별 플레이어의 점수를 작성하려면 `WriteLeaderboards` 를 사용하여 ([`FOnlineLeaderboardWrite`](https://api.unrealengine.com/INT/API/Plugins/OnlineSubsystem/FOnlineLeaderboardWrite/index.html) 유형) 업데이트를 캐시에 저장한 뒤 나중에 온라인 서비스에 전송합니다. 각 `FOnlineLeaderboardWrite` 오브젝트에는 세션 이름과 (`FUniqueNetId` 로 식별되는) 플레이어가 연결됩니다. 게임이 온라인 서비스의 기록에 세션 데이터를 커밋할 준비가 되면, `FlushLeaderboards` 는 캐시에 저장된 데이터를 전송한 뒤 로컬 시스템에서 지우고, 완료되면 온라인 서브시스템의 `OnLeaderboardFlushComplete` 델리게이트를 호출합니다.
+
+[REGION:note]
+한 번에 `WriteLeaderboards` 로 캐시에 저장할 수 있는 업데이트는 최대 5 개입니다. 초과 업데이트는 버리므로 그 전에 `FlushLeaderboards` 를 호출해야 합니다.
+[/REGION]

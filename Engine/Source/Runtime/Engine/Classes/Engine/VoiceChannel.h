@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 //
 // A channel for exchanging voice data.
@@ -31,7 +31,10 @@ class ENGINE_API UVoiceChannel : public UChannel
 	UVoiceChannel(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get())
 		: UChannel(ObjectInitializer)
 	{
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		ChType = CHTYPE_Voice;
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
+		ChName = NAME_Voice;
 	}
 
 
@@ -40,7 +43,7 @@ protected:
 	/** 
 	 * Cleans up any voice data remaining in the queue 
 	 */
-	virtual bool CleanUp( const bool bForDestroy ) override;
+	virtual bool CleanUp( const bool bForDestroy, EChannelCloseReason CloseReason ) override;
 
 	/**
 	 * Processes the in bound bunch to extract the voice data

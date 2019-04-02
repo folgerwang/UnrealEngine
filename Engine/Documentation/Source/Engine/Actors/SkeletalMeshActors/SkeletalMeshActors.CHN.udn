@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2714898
+﻿INTSourceChangelist:3481084
 Availability:Public
 Title:骨骼网格物体 Actor
 Crumbs: %ROOT%, Engine, Engine/Actors
@@ -6,7 +6,9 @@ Description:骨骼网格物体 Actor 的创建和使用
 Related:Engine/Actors
 Related:Engine/Animation
 version:4.9
-
+Parent:Engine/Actors/Types
+order:3
+type:overview
 
 
 [TOC(start:2 end:3)]
@@ -20,9 +22,11 @@ version:4.9
 本教程的全部内容均选自 Matinee 演示，可通过 Learn（学习）标签免费下载。 
 [/region]
 
+(#WhatisaSkeletalMeshActor)
 ## 骨骼网格物体 Actor 是什么
 骨骼网格物体 Actor 是一种特殊的 Actor，用于显示外部 3D 动画软件中创建的复杂动画数据。骨骼网格物体 Actor 和静态网格物体 Actor 不同，因为骨骼网格物体 Actor 内部有一套复杂的骨骼系统，此系统将移动骨骼网格物体的个体顶点，与当前播放的动画进行匹配。骨骼网格物体 Actor 能使用复杂的骨骼系统，因此他们多用于角色、生物、复杂机器、或其他需要变形和显示复杂动作的物体。在 UE4 中，骨骼网格物体 Actor 不仅可用于角色，还可结合 Matinee 创建动画序列。 
 
+(#PlacingaSkeletalMeshActorinaLevel)
 ## 在关卡中放置骨骼网格物体 Actor
 骨骼网格物体 Actor 在地图中的放置方法与普通 Actor 的放置方法相同；在视口的快捷菜单中 **单击右键**，或从 [内容浏览器](Engine/Content/Browser) 中拖放。
 
@@ -35,7 +39,7 @@ version:4.9
 
 1. 如 **Details（细节）** 面板所示，松开 **鼠标左键** 将网格物体作为骨骼网格物体放置在地图中。   
 
-![](Skeletal_Mesh_Drag_&_Drop.gif)
+![](SkeletalMeshContextMenu.png)
 
 **快捷菜单**
 
@@ -47,11 +51,13 @@ version:4.9
 
 1. 用鼠标选择 **Place Actor:Skeletal Mesh（放置 Actor：骨骼网格物体）** 选项后，选定的骨骼网格物体即被放置于场景中。 
 
-![](Skeletal_Mesh_Context_Menu.gif.gif)
+![](SkeletalMeshDragAndDrop.png)
 
+(#PlayingAnimationonaSkeletalMeshActor)
 ## 在骨骼网格物体 Actor 上播放动画。 
 在 UE4 中，有两种不同方法可以使骨骼网格物体 Actor 在游戏运行时形成动画。可使用 [动画蓝图]( Engine/Animation/AnimBlueprints)，将多个动画一同播放并混合。或使用动画资源播放单个 [动画序列]( Engine/Animation/Sequences)。在此教程中，我们着重讲述使用动画序列在游戏运行时播放动画。 
 
+(#SkeletalMeshActorSetup)
 ### 骨骼网格物体 Actor 设置
 骨骼网格物体 Actor 播放动画的设置较为简易，可利用以下几步实现。
 1. 首先，在 **内容浏览器** 中找到所需的 **骨骼网格物体**。
@@ -59,6 +65,7 @@ version:4.9
 1. 完成后的效果类似于下图。  
 	![](SkeletalMeshActor_Adding_Mesh_To_Scene.png)
 
+(#SkeletalMeshAnimationSetup)
 ### 骨骼网格物体动画设置
 骨骼网格物体 Actor 添加至关卡后，即可通过下列步骤为其添加动画。 
 1. 首先找到一个播放的 **动画序列**。在此例中我们使用 **Trooper_Main** 动画序列。 
@@ -73,6 +80,7 @@ version:4.9
 	
 	![](SkeletalMeshActor_Anim_To_Play.png)
 
+(#PlayingtheSkeletalMeshAnimation)
 ### 播放骨骼网格物体动画	
 
 1. 确保 **Looping（循环）** 和 **Playing（播放）** 已勾选（默认为已勾选），然后按下 **Play Button（播放按钮）**，即可看到动画在游戏中播放。
@@ -80,6 +88,7 @@ version:4.9
 	![](SkeletalMeshActor_Looping_Playing.png)
 
 
+(#MaterialOverride)
 ## 材质覆盖
 有时需要覆盖骨骼网格物体 Actor 上已赋予的材质。可手动将新材质指派给骨骼网格物体 Actor 材质，或在编辑器视口中将材质直接拖放至骨骼网格物体 Actor 上。变更骨骼网格物体 Actor 材质的方法与变更其他 Actor 材质的方法相同。
 [Region:note]
@@ -87,6 +96,7 @@ version:4.9
 ![](SkeletalMeshActor_Material_Usage_Flag.png)
 [/region]
 
+(#Collision)
 ## 碰撞
 普通的碰撞创建与检测无法应用于骨骼网格物体 Actor。如需在骨骼网格物体与关卡物体之间创建碰撞，骨骼网格物体 Actor 需拥有为物体单独创建的物理资源。 
 
@@ -96,10 +106,11 @@ version:4.9
 
 ![](SkeletalMeshActor_Create_Physics_Asset.png)
 
+(#CreatingCollisionforaSkeletalMeshActor)
 ### 指派物理资源
 创建物理资源后，便将其指派给网格物体。将物理资源指派给骨骼网格物体的方法十分简单：打开骨骼网格物体，然后将物理资源指派给 **Physics（物理）** 部分下的 **Physics Asset（物理资源）** 槽。 
 
-![](SkeletalMeshActor_Add_Physics_Assets.png)
+![](SkeletalMeshActor_Assign_Physics_Asset.png)
 
 也可覆盖关卡中的物理资源，方法同样非常简单：选择骨骼网格物体，然后在 **Details（细节）** 面板中 **Physics（物理）** 部分的 **Physics Asset Override（物理资源覆盖）** 子部分下添加一个新的物理资源。
 

@@ -59,6 +59,7 @@ dependencies {
 		<if condition="bSupportAdMob">
 			<true>
 				<insert>
+import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.AdView;
 import com.google.android.gms.ads.AdSize;

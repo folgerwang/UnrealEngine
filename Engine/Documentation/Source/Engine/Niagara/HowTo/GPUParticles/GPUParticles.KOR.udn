@@ -1,71 +1,72 @@
-INTSourceChangelist:4302195
+INTSourceChangelist:4703316
 Availability: Public
 Crumbs: 
 Title: GPU 파티클 이펙트 생성
 Description: GPU 를 사용하여 백만 단위의 파티클을 스폰하는 방법을 설명합니다.
-Type: how-to 
-Version: 4.20
+Type:how-to
+SkillLevel:Beginner
+Version: 4.21
 Parent: Engine/Niagara/HowTo
-Order: 5
+Order: 2
 Tags: Niagara
 Tags: Early Access
-prereqs: Engine/Niagara/HowTo/EnableNiagara
 
+전제조건 주제
+
+이 문서는 다음 주제에 대한 사전 지식을 요합니다. 진행하기 전 확인하세요.
+
+*   [나이아가라 플러그인 활성화](Engine/Niagara/HowTo/EnableNiagara "나이아가라 플러그인 활성화 방법을 설명합니다.")
+    
 
 일부 이펙트의 경우 파티클을 수만 개씩 스폰해야 할 수 있습니다. 하지만 표준 CPU 를 사용하여 그렇게 많은 파티클을 생성하면 게임이 느려질 수 있습니다. 이번 하우투에서는 CPU 대신 GPU 를 사용하여 파티클을 스폰하는 방법을 선보이겠습니다.
 
-![](GPU_Banner_01-1.png "GPU_Banner_01-1.png")
+![](GPU_Banner_01-1.png)
 
 ## 단계
 
-1.  먼저 파티클 이펙트를 만들어야 합니다. **콘텐츠 브라우저** 에 우클릭하면 표시되는 메뉴에서 **FX** > **Niagara Emitter** (나이아가라 이미터)를 선택하여 새로 만듭니다.  
-    ![](SE_01.png)
-1.  새로 만든 나이아가라 이미터 이름은 **FX_GPUParticle** 으로 한 뒤 더블클릭하여 엽니다.  
-    ![](CreateGPU_Steps_Step2-CreateEmitter.png)
-1.  나이아가라 에디터가 열렸으면 **Selected Emitter** (선택된 이미터) 패널에서 **Render** (렌더) 섹션을 찾습니다.
-1.  **Particle Spawn** (파티클 스폰) 섹션을 펼칩니다. **Sphere Location** (구체 위치) 섹션을 찾습니다.
-1.  **Sphere Location** (구체 위치) 섹션에서 **Sphere Radius** (구체 반경) 값을 **100** 으로 설정합니다.  
-    ![CreateGPUParticle_Steps_Step05-SphereRadius.png](CreateGPUParticle_Steps_Step05-SphereRadius.png)
-1.  **Set Variables** (변수 설정) 섹션을 찾아 다음 파라미터를 다음 값으로 설정합니다: ![](CreateGPUParticle_Steps_Step06-SetVariables.png)
-    
-    | 파티클 모듈 이름 | 값 |
-    | --- | --- |
-    | **Particles.Lifetime** | 5 |
-    | **Particles.SpriteSize** | X: 5, Y: 5 |
-    
-1.  **Emitter Properties** (이미터 프로퍼티) 섹션을 찾아 **Sim Target** (심 타깃) 옆 드롭다운을 클릭합니다. 표시되는 목록에서 **GPUCompute Sim** (GPU 계산 심) 옵션을 선택합니다.  
-    ![](CreateGPUParticle_Steps_Step07-ChangeToGPU.png)
+1.  먼저 **콘텐츠 브라우저** 에 우클릭하여 표시되는 메뉴에서 **FX > Niagara Emitter** (FX > 나이아가라 이미터)를 선택합니다. 나이아가라 마법사가 표시됩니다.  
+    ![](SE_01.png)(w:400)
+2.  **Create a new emitter from an emitter template** (이미터 템플릿에서 새 이미터 생성) 옆 동글 버튼을 클릭합니다. **Fountain** (분수) 템플릿을 선택한 다음 **OK** (확인)을 누르면 콘텐츠 브라우저에 나이아가라 이미터가 새로 생깁니다.  
+    ![](NiagaraEmitter_FountainTemplate.png)(w:400)
+3.  새로 생긴 나이아가라 이미터 이름을 **FX_GPU** 라 하고 더블클릭하여 엽니다.  
+    ![](CreateGPU_Steps_Step2-CreateEmitter.png)(w:100)
+4.  **Emitter Spawn** (이미터 스폰) 섹션을 펼칩니다. **Emitter Properties** (이미터 프로퍼티)를 찾아 펼칩니다. **Sim Target** (시뮬 타깃) 옆 드롭다운을 클릭하여 표시되는 메뉴에서 **GPUCompute Sim** (GPU 계산 시뮬) 옵션을 선택합니다.  
+    ![](CreateGPUParticle_Steps_Step06-ChangeToGPU.png)(w:500)
 [REGION:note]
-CPU 에서 GPU 로 바꾸는 곳이 여깁니다. 생성되는 파티클 수의 증가가 보일 것입니다.
-[/REGION]9.  다음 **Spawn Rate** (스폰 속도) 섹션에서 **SpawnRate** (스폰 속도) 값을 **5000** 으로 설정합니다.  
-![](CreateGPUParticle_Steps_Step08-SpawnRate.png)
-1.  **컴파일**, **적용**, **저장** 버튼을 눌러 작업 내용을 컴파일하고 저장합니다. 그런 다음 **FX_GPUParticle** 이미터를 닫습니다.  
-    ![](ME_09.png)
-1.  이제 **콘텐츠 브라우저** 에 우클릭하고, **FX > 나이아가라 이미터** 를 선택한 뒤, **GPUParticle** 라는 이름으로 나이아가라 시스템을 새로 만듭니다.  
-    ![](SE_16.png)
-1.  **GPUParticle** 나이아가라 시스템을 더블클릭하여 엽니다. **FX_GPUParticle** 나이아가라 이미터를 끌어 **타임라인** 에 놓습니다.  
-    ![](CreateGPUParticle_Steps_Step11-AddEmitterToSystem.png)
-1.  **컴파일**, **저장** 버튼을 눌러 작업 내용을 컴파일 및 저장한 뒤 GPUParticle 나이아가라 시스템을 닫습니다. 콘텐츠 브라우저에서 GPUParticle 나이아가라 시스템을 끌어 레벨 뷰포트에 놓습니다.  
-    ![](CreateGPUParticle_Steps_Step12-AddSystemToLevel.png)
+이 세팅은 파티클 시뮬레이션을 CPU 에서 GPU 로 바꿉니다. 엔진이 보다 많은 파티클을 스폰하면서도 성능을 유지할 수 있습니다.
+[/REGION]
+6.  **Emitter Update** (이미터 업데이트) 섹션을 펼칩니다. **Spawn Rate** (스폰 속도) 모듈을 찾습니다.
+7.  스폰 속도 모듈에서 **SpawnRate** (스폰 속도)를 **5000** 으로 설정합니다.  
+    ![](CreateGPUParticle_Steps_Step07-SpawnRate.png)(w:500)
+8.  **Set Variables** (변수 설정) 모듈을 찾습니다. **Particles.SpriteSize X** / **Y** 를 **5** 로 설정합니다.  
+    ![](CreateGPUParticle_SetVariablesParticleSpriteSize.png)(w:500)
+9.  **Sphere Location** (구체 위치) 모듈에서 **Sphere Radius** (구체 반경)을 **100** 으로 설정합니다.  
+    ![](CreateGPUParticle_Steps_Step04-SphereRadius.png)(w:500)
+10.  **컴파일**, **적용**, **저장** 버튼을 클릭하여 컴파일 및 저장합니다. 그런 다음 **FX_GPU** 이미터를 닫습니다.  
+    ![](ME_09.png)(w:400)
+11.  **콘텐츠 브라우저** 에 우클릭하여 표시되는 메뉴에서 **FX > Niagara System** (FX > 나이아가라 시스템)을 선택합니다. 나이아가라 시스템 마법사가 표시됩니다.  
+    ![](SE_16.png)(w:400)
+12.  **Create an empty system with no emitters** (이미터가 없는 빈 시스템 생성) 옆 동글 버튼을 클릭합니다. 그런 다음 **OK** (확인) 버튼을 누르면 콘텐츠 브라우저에 나이아가라 시스템이 새로 생깁니다.  
+    ![](NiagaraSystem_EmptySystem.png)(w:400)
+13.  새 나이아가라 시스템 이름은 **GPU** 라 합니다.   
+    ![](NiagaraSystem_GPUIcon.png)(w:100)
+14.  **GPU 나이아가라 시스템** 을 더블클릭하여 연 다음 콘텐츠 브라우저에서 **FX_GPU** 나이아가라 시스템을 끌어 **타임라인** 에 놓습니다.  
+    ![](CreateGPUParticle_Steps_Step10-AddEmitterToSystem.png)(w:400)
+15.  **컴파일**, **저장** 버튼을 눌러 작업 내용을 컴파일 및 저장한 다음, GPU 나이아가라 시스템을 닫습니다. **콘텐츠 브라우저** 에서 **GPU 나이아가라 시스템** 을 끌어 레벨 뷰포트에 놓습니다. 완료되면 다음 이미지와 같은 것이 보입니다.  
+    ![](CreateGPUParticle_Steps_Step11-AddSystemToLevel.png)(w:600)
 
 ## 최종 결과
 
 작업을 완료하면 CPU 를 사용한 동일 파티클 이펙트보다 훨씬 크고 복잡한 파티클 이펙트가 완성되었을 것입니다. 아래 비디오에서 예제를 확인할 수 있습니다.
 
 [OBJECT:EmbeddedVideo]
-    [PARAMLITERAL:videoid]
-    zz3dFQzNQY8
-    [/PARAMLITERAL]
     [PARAMLITERAL:width]
-    78
+    640
     [/PARAMLITERAL]
     [PARAMLITERAL:height]
-    56.25
+    360
     [/PARAMLITERAL]
-    [PARAMLITERAL:units]
-    %
-    [/PARAMLITERAL]
-    [PARAMLITERAL:type]
-    simple
+    [PARAMLITERAL:videoid]
+    zz3dFQzNQY8
     [/PARAMLITERAL]
 [/OBJECT]

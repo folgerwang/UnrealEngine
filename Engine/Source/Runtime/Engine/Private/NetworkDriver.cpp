@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	NetworkDriver.cpp: Unreal network driver base class.
@@ -62,6 +62,7 @@
 #include "Engine/ReplicationDriver.h"
 #include "ProfilingDebugging/CsvProfiler.h"
 #include "Engine/LevelScriptActor.h"
+#include "Net/NetworkGranularMemoryLogging.h"
 
 #if USE_SERVER_PERF_COUNTERS
 #include "PerfCountersModule.h"
@@ -202,6 +203,12 @@ static TAutoConsoleVariable<int32> CVarActorChannelPool(
 	1,
 	TEXT("If nonzero, actor channels will be pooled to save memory and object creation cost."));
 
+static TAutoConsoleVariable<int32> CVarAllowReliableMulticastToNonRelevantChannels(
+	TEXT("net.AllowReliableMulticastToNonRelevantChannels"),
+	1,
+	TEXT("Allow Reliable Server Multicasts to be sent to non-Relevant Actors, as long as their is an existing ActorChannel.")
+);
+
 /*-----------------------------------------------------------------------------
 	UNetDriver implementation.
 -----------------------------------------------------------------------------*/
@@ -214,6 +221,8 @@ UNetDriver::UNetDriver(const FObjectInitializer& ObjectInitializer)
 ,   ServerConnection(nullptr)
 ,	ClientConnections()
 ,	MappedClientConnections()
+,	RecentlyDisconnectedClients()
+,	RecentlyDisconnectedTrackingTime(0)
 ,	ConnectionlessHandler()
 ,	StatelessConnectComponent()
 ,	AnalyticsProvider()
@@ -246,6 +255,8 @@ UNetDriver::UNetDriver(const FObjectInitializer& ObjectInitializer)
 ,	OutOutOfOrderPackets(0)
 ,	StatUpdateTime(0.0)
 ,	StatPeriod(1.f)
+,	TotalRPCsCalled(0)
+,	OutTotalAcks(0)
 ,	bCollectNetStats(false)
 ,	LastCleanupTime(0.0)
 ,	NetTag(0)
@@ -260,9 +271,11 @@ UNetDriver::UNetDriver(const FObjectInitializer& ObjectInitializer)
 ,	DuplicateLevelID(INDEX_NONE)
 ,	PacketLossBurstEndTime(-1.0f)
 {
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	ChannelClasses[CHTYPE_Control]	= UControlChannel::StaticClass();
 	ChannelClasses[CHTYPE_Actor]	= UActorChannel::StaticClass();
 	ChannelClasses[CHTYPE_Voice]	= UVoiceChannel::StaticClass();
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 void UNetDriver::InitPacketSimulationSettings()
@@ -315,6 +328,54 @@ void UNetDriver::PostInitProperties()
 	
 		OnLevelRemovedFromWorldHandle = FWorldDelegates::LevelRemovedFromWorld.AddUObject(this, &UNetDriver::OnLevelRemovedFromWorld);
 		OnLevelAddedToWorldHandle = FWorldDelegates::LevelAddedToWorld.AddUObject(this, &UNetDriver::OnLevelAddedToWorld);
+
+		LoadChannelDefinitions();
+	}
+}
+
+void UNetDriver::PostReloadConfig(UProperty* PropertyToLoad)
+{
+	Super::PostReloadConfig(PropertyToLoad);
+	LoadChannelDefinitions();
+}
+
+void UNetDriver::LoadChannelDefinitions()
+{
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
+		if (ServerConnection != nullptr)
+		{
+			UE_LOG(LogNet, Warning, TEXT("Loading channel definitions while a server connection is active."));
+		}
+
+		if (ClientConnections.Num() != 0)
+		{
+			UE_LOG(LogNet, Warning, TEXT("Loading channel definitions while client connections are active."));
+		}
+
+		TSet<int32> StaticChannelIndices;
+
+		ChannelDefinitionMap.Reset();
+
+		for (FChannelDefinition& ChannelDef : ChannelDefinitions)
+		{
+			UE_CLOG((ChannelDef.ChannelName.GetComparisonIndex() > MAX_NETWORKED_HARDCODED_NAME), LogNet, Warning, TEXT("Channel name will be serialized as a string: %s"), *ChannelDef.ChannelName.ToString());
+			UE_CLOG(ChannelDefinitionMap.Contains(ChannelDef.ChannelName), LogNet, Error, TEXT("Channel name is defined multiple times: %s"), *ChannelDef.ChannelName.ToString());
+			UE_CLOG(StaticChannelIndices.Contains(ChannelDef.StaticChannelIndex), LogNet, Error, TEXT("Channel static index is already in use: %s %i"), *ChannelDef.ChannelName.ToString(), ChannelDef.StaticChannelIndex);
+
+			ChannelDef.ChannelClass = StaticLoadClass(UChannel::StaticClass(), nullptr, *ChannelDef.ClassName.ToString(), nullptr, LOAD_Quiet);
+			if (ChannelDef.ChannelClass != nullptr)
+			{
+				ChannelDefinitionMap.Add(ChannelDef.ChannelName, ChannelDef);
+			}
+
+			if (ChannelDef.StaticChannelIndex != INDEX_NONE)
+			{
+				StaticChannelIndices.Add(ChannelDef.StaticChannelIndex);
+			}
+		}
+
+		ensureMsgf(IsKnownChannelName(NAME_Control), TEXT("Control channel type is not properly defined."));
 	}
 }
 
@@ -330,7 +391,7 @@ void UNetDriver::AssertValid()
 
 void UNetDriver::AddNetworkActor(AActor* Actor)
 {
-	GetNetworkObjectList().FindOrAdd(Actor, NetDriverName);
+	GetNetworkObjectList().FindOrAdd(Actor, this);
 	if (ReplicationDriver)
 	{
 		ReplicationDriver->AddNetworkActor(Actor);
@@ -340,7 +401,7 @@ void UNetDriver::AddNetworkActor(AActor* Actor)
 FNetworkObjectInfo* UNetDriver::FindOrAddNetworkObjectInfo(const AActor* InActor)
 {
 	bool bWasAdded = false;
-	if (TSharedPtr<FNetworkObjectInfo>* InfoPtr = GetNetworkObjectList().FindOrAdd(const_cast<AActor*>(InActor), NetDriverName, &bWasAdded))
+	if (TSharedPtr<FNetworkObjectInfo>* InfoPtr = GetNetworkObjectList().FindOrAdd(const_cast<AActor*>(InActor), this, &bWasAdded))
 	{
 		if (bWasAdded && ReplicationDriver)
 		{
@@ -429,6 +490,7 @@ bool ShouldEnableScopeSecondsTimers()
 
 void UNetDriver::TickFlush(float DeltaSeconds)
 {
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(NetworkOutgoing);
 	SCOPE_CYCLE_COUNTER(STAT_NetTickFlush);
 	bool bEnableTimer = (NetDriverName == NAME_GameNetDriver) && ShouldEnableScopeSecondsTimers();
 	if (bEnableTimer)
@@ -950,7 +1012,10 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 					}
 					else
 					{
-						UnmappedGuids.Add(NetworkGuid);
+						if (ensure(NetworkGuid.IsValid()))
+						{
+							UnmappedGuids.Add(NetworkGuid);
+						}
 					}
 				}
 
@@ -1042,7 +1107,7 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 	{
 		for ( auto It = RepChangedPropertyTrackerMap.CreateIterator(); It; ++It )
 		{
-			if ( !It.Key().IsValid() )
+			if ( !It.Value().IsObjectValid() )
 			{
 				It.RemoveCurrent();
 			}
@@ -1050,7 +1115,7 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 
 		for ( auto It = ReplicationChangeListMap.CreateIterator(); It; ++It )
 		{
-			if ( !It.Key().IsValid() )
+			if ( !It.Value().IsObjectValid() )
 			{
 				It.RemoveCurrent();
 			}
@@ -1339,7 +1404,7 @@ void UNetDriver::InitConnectionlessHandler()
 		if (ConnectionlessHandler.IsValid())
 		{
 			ConnectionlessHandler->NotifyAnalyticsProvider(AnalyticsProvider, AnalyticsAggregator);
-			ConnectionlessHandler->Initialize(Handler::Mode::Server, MAX_PACKET_SIZE, true);
+			ConnectionlessHandler->Initialize(Handler::Mode::Server, MAX_PACKET_SIZE, true, nullptr, nullptr, NetDriverName);
 
 			// Add handling for the stateless connect handshake, for connectionless packets, as the outermost layer
 			TSharedPtr<HandlerComponent> NewComponent =
@@ -1540,7 +1605,7 @@ struct FRPCCSVTracker
 		FItem(UFunction* Func, double InTime)
 		{
 #if RPC_CSV_TRACKER
-			Stat = FName(*(FString(CSV_STAT_NAME_PREFIX) + Func->GetName()));
+			Stat = FName(*Func->GetName());
 			Time = InTime;
 #endif
 		}
@@ -1579,16 +1644,43 @@ void UNetDriver::TickDispatch( float DeltaTime )
 	// Checks for standby cheats if enabled	
 	UpdateStandbyCheatStatus();
 
-	// Delete any straggler connections.
-	if( !ServerConnection )
+	if (ServerConnection == nullptr)
 	{
-		QUICK_SCOPE_CYCLE_COUNTER(UNetDriver_TickDispatch_CheckClientConnectionCleanup)
-
-		for( int32 i=ClientConnections.Num()-1; i>=0; i-- )
+		// Delete any straggler connections
 		{
-			if( ClientConnections[i]->State==USOCK_Closed )
+			QUICK_SCOPE_CYCLE_COUNTER(UNetDriver_TickDispatch_CheckClientConnectionCleanup)
+
+			for (int32 i=ClientConnections.Num()-1; i>=0; i--)
 			{
-				ClientConnections[i]->CleanUp();
+				if (ClientConnections[i]->State == USOCK_Closed)
+				{
+					ClientConnections[i]->CleanUp();
+				}
+			}
+		}
+
+		// Clean up recently disconnected client tracking
+		if (RecentlyDisconnectedClients.Num() > 0)
+		{
+			int32 NumToRemove = 0;
+
+			for (const FDisconnectedClient& CurElement : RecentlyDisconnectedClients)
+			{
+				if ((CurrentRealtime - CurElement.DisconnectTime) >= RecentlyDisconnectedTrackingTime)
+				{
+					verify(MappedClientConnections.Remove(CurElement.Address) == 1);
+
+					NumToRemove++;
+				}
+				else
+				{
+					break;
+				}
+			}
+
+			if (NumToRemove > 0)
+			{
+				RecentlyDisconnectedClients.RemoveAt(0, NumToRemove);
 			}
 		}
 	}
@@ -1626,7 +1718,7 @@ bool UNetDriver::IsLevelInitializedForActor(const AActor* InActor, const UNetCon
 #endif
 
 	// we can't create channels while the client is in the wrong world
-	const bool bCorrectWorld = (InConnection->GetClientWorldPackageName() == GetWorldPackage()->GetFName() && InConnection->ClientHasInitializedLevelFor(InActor));
+	const bool bCorrectWorld = GetWorldPackage() != nullptr && (InConnection->GetClientWorldPackageName() == GetWorldPackage()->GetFName()) && InConnection->ClientHasInitializedLevelFor(InActor);
 	// exception: Special case for PlayerControllers as they are required for the client to travel to the new world correctly			
 	const bool bIsConnectionPC = (InActor == InConnection->PlayerController);
 	return bCorrectWorld || bIsConnectionPC;
@@ -1636,7 +1728,7 @@ bool UNetDriver::IsLevelInitializedForActor(const AActor* InActor, const UNetCon
 // Internal RPC calling.
 //
 void UNetDriver::InternalProcessRemoteFunction
-	(
+(
 	AActor*			Actor,
 	UObject*		SubObject,
 	UNetConnection*	Connection,
@@ -1645,18 +1737,18 @@ void UNetDriver::InternalProcessRemoteFunction
 	FOutParmRec*	OutParms,
 	FFrame*			Stack,
 	bool			IsServer
-	)
+)
 {
 	// get the top most function
-	while( Function->GetSuperFunction() )
+	while (Function->GetSuperFunction())
 	{
 		Function = Function->GetSuperFunction();
 	}
 
 	// If saturated and function is unimportant, skip it. Note unreliable multicasts are queued at the actor channel level so they are not gated here.
-	if( !(Function->FunctionFlags & FUNC_NetReliable) && (!(Function->FunctionFlags & FUNC_NetMulticast)) && !Connection->IsNetReady(0) )
+	if (!(Function->FunctionFlags & FUNC_NetReliable) && (!(Function->FunctionFlags & FUNC_NetMulticast)) && !Connection->IsNetReady(0))
 	{
-		DEBUG_REMOTEFUNCTION(TEXT("Network saturated, not calling %s::%s"), *Actor->GetName(), *Function->GetName());
+		DEBUG_REMOTEFUNCTION(TEXT("Network saturated, not calling %s::%s"), *GetNameSafe(Actor), *GetNameSafe(Function));
 		return;
 	}
 
@@ -1669,7 +1761,13 @@ void UNetDriver::InternalProcessRemoteFunction
 	// Prevent RPC calls to closed connections
 	if (Connection->State == USOCK_Closed)
 	{
-		DEBUG_REMOTEFUNCTION(TEXT("Attempting to call RPC on a closed connection. Not calling %s::%s"), *Actor->GetName(), *Function->GetName());
+		DEBUG_REMOTEFUNCTION(TEXT("Attempting to call RPC on a closed connection. Not calling %s::%s"), *GetNameSafe(Actor), *GetNameSafe(Function));
+		return;
+	}
+
+	if (World == nullptr)
+	{
+		DEBUG_REMOTEFUNCTION(TEXT("Attempting to call RPC with a null World on the net driver. Not calling %s::%s"), *GetNameSafe(Actor), *GetNameSafe(Function));
 		return;
 	}
 
@@ -1680,7 +1778,7 @@ void UNetDriver::InternalProcessRemoteFunction
 	const FClassNetCache* ClassCache = NetCache->GetClassNetCache( TargetObj->GetClass() );
 	if (!ClassCache)
 	{
-		DEBUG_REMOTEFUNCTION(TEXT("ClassNetCache empty, not calling %s::%s"), *Actor->GetName(), *Function->GetName());
+		DEBUG_REMOTEFUNCTION(TEXT("ClassNetCache empty, not calling %s::%s"), *GetNameSafe(Actor), *GetNameSafe(Function));
 		return;
 	}
 		
@@ -1688,7 +1786,7 @@ void UNetDriver::InternalProcessRemoteFunction
 
 	if ( !FieldCache )
 	{
-		DEBUG_REMOTEFUNCTION(TEXT("FieldCache empty, not calling %s::%s"), *Actor->GetName(), *Function->GetName());
+		DEBUG_REMOTEFUNCTION(TEXT("FieldCache empty, not calling %s::%s"), *GetNameSafe(Actor), *GetNameSafe(Function));
 		return;
 	}
 		
@@ -1706,11 +1804,11 @@ void UNetDriver::InternalProcessRemoteFunction
 
 			if (IsLevelInitializedForActor(Actor, Connection))
 			{
-				Ch = (UActorChannel *)Connection->CreateChannel( CHTYPE_Actor, 1 );
+				Ch = (UActorChannel *)Connection->CreateChannelByName( NAME_Actor, EChannelCreateFlags::OpenedLocally );
 			}
 			else
 			{
-				UE_LOG(LogNet, Verbose, TEXT("Can't send function '%s' on actor '%s' because client hasn't loaded the level '%s' containing it"), *Function->GetName(), *Actor->GetName(), *Actor->GetLevel()->GetName());
+				UE_LOG(LogNet, Verbose, TEXT("Can't send function '%s' on actor '%s' because client hasn't loaded the level '%s' containing it"), *GetNameSafe(Function), *GetNameSafe(Actor), *GetNameSafe(Actor->GetLevel()));
 				return;
 			}
 		}
@@ -2105,16 +2203,136 @@ void UNetDriver::SetAnalyticsProvider(TSharedPtr<IAnalyticsProvider> InProvider)
 	}
 }
 
+
+void UNetDriver::FRepChangedPropertyTrackerWrapper::CountBytes(FArchive& Ar) const
+{
+	if (FRepChangedPropertyTracker const * const LocalTracker = RepChangedPropertyTracker.Get())
+	{
+		LocalTracker->CountBytes(Ar);
+	}
+}
+
+void UNetDriver::FReplicationChangelistMgrWrapper::CountBytes(FArchive& Ar) const
+{
+	if (FReplicationChangelistMgr const * const ChangelistMgr = ReplicationChangelistMgr.Get())
+	{
+		Ar.CountBytes(sizeof(FReplicationChangelistMgr), sizeof(FReplicationChangelistMgr));
+		ChangelistMgr->CountBytes(Ar);
+	}
+}
+
 void UNetDriver::Serialize( FArchive& Ar )
 {
 	Super::Serialize( Ar );
 
-	// Prevent referenced objects from being garbage collected.
-	Ar << ClientConnections << ServerConnection << RoleProperty << RemoteRoleProperty;
-
 	if (Ar.IsCountingMemory())
 	{
-		ClientConnections.CountBytes(Ar);
+		// TODO: We don't currently track:
+		//		StatelessConnectComponents
+		//		PacketHandlers
+		//		Network Address Bytes
+		//		AnalyticsData
+		//		NetworkNotify
+		//		Delegate Handles
+		//		DDoSDetection data
+		// These are probably insignificant, though.
+
+		GRANULAR_NETWORK_MEMORY_TRACKING_INIT(Ar, "UNetDriver::Serialize");
+
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("MappedClientConnection", MappedClientConnections.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("RecentlyDisconnectedClients", RecentlyDisconnectedClients.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("GuidCache",
+			if (FNetGUIDCache const * const LocalGuidCache = GuidCache.Get())
+			{
+				LocalGuidCache->CountBytes(Ar);
+			}
+		);
+		
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("LocalNetCache",
+			if (FClassNetCacheMgr const * const LocalNetCache = NetCache.Get())
+			{
+				LocalNetCache->CountBytes(Ar);
+			}
+		);
+
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("LastPrioritizedActors", LastPrioritizedActors.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("LastRelevantActors", LastRelevantActors.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("LastSentActors", LastSentActors.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("LastNonRelevantActors", LastNonRelevantActors.CountBytes(Ar));
+
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("DestroyedStartupOrDormantActors",
+			DestroyedStartupOrDormantActors.CountBytes(Ar);
+
+			for (const auto& DestroyedStartupOrDormantActorPair : DestroyedStartupOrDormantActors)
+			{
+				if (FActorDestructionInfo const * const DestructionInfo = DestroyedStartupOrDormantActorPair.Value.Get())
+				{
+					Ar.CountBytes(sizeof(FActorDestructionInfo), sizeof(FActorDestructionInfo));
+					DestructionInfo->PathName.CountBytes(Ar);
+				}
+			}
+		);
+
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("RenamedStartupActors", RenamedStartupActors.CountBytes(Ar));
+
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("RepChangedPropertyTrackerMap",
+			RepChangedPropertyTrackerMap.CountBytes(Ar);
+
+			for (const auto& RepChangedPropertyTrackerPair : RepChangedPropertyTrackerMap)
+			{
+				RepChangedPropertyTrackerPair.Value.CountBytes(Ar);
+			}
+		);
+
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("RepLayoutMap",
+			RepLayoutMap.CountBytes(Ar);
+
+			for (const auto& RepLayoutPair : RepLayoutMap)
+			{
+				if (FRepLayout const * const RepLayout = RepLayoutPair.Value.Get())
+				{
+					Ar.CountBytes(sizeof(FRepLayout), sizeof(FRepLayout));
+					RepLayout->CountBytes(Ar);
+				}
+			}
+		);
+
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("ReplicationChangeListMap", 
+			ReplicationChangeListMap.CountBytes(Ar);
+
+			for (const auto& ReplicationChangeListPair : ReplicationChangeListMap)
+			{
+				ReplicationChangeListPair.Value.CountBytes(Ar);
+			}
+		);
+
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("GuidToReplicatorMap", GuidToReplicatorMap.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("UnmappedReplicators", UnmappedReplicators.CountBytes(Ar));
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("AllOwnedReplicators",
+		
+			// AllOwnedReplicators is the superset of all initialized FObjectReplicators,
+			// including DormantReplicators, Replicators on Channels, and UnmappedReplicators.
+			AllOwnedReplicators.CountBytes(Ar);
+			
+			for (FObjectReplicator const * const OwnedReplicator : AllOwnedReplicators)
+			{
+				if (OwnedReplicator)
+				{
+					Ar.CountBytes(sizeof(FObjectReplicator), sizeof(FObjectReplicator));
+					OwnedReplicator->CountBytes(Ar);
+				}
+			}
+		);
+
+		// Replicators are owned by UActorChannels, and so we don't track them here.
+
+		GRANULAR_NETWORK_MEMORY_TRACKING_TRACK("NetworkObjects",
+			if (FNetworkObjectList const * const NetObjList = NetworkObjects.Get())
+			{
+				Ar.CountBytes(sizeof(FNetworkObjectList), sizeof(FNetworkObjectList));
+				NetworkObjects->CountBytes(Ar);
+			}
+		);
 	}
 }
 
@@ -2182,7 +2400,11 @@ bool UNetDriver::HandleSocketsCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 		Ar.Logf( TEXT("   Server %s"), *ServerConnection->LowLevelDescribe() );
 		for( int32 i=0; i<ServerConnection->OpenChannels.Num(); i++ )
 		{
-			Ar.Logf( TEXT("      Channel %i: %s"), ServerConnection->OpenChannels[i]->ChIndex, *ServerConnection->OpenChannels[i]->Describe() );
+			UChannel* const Channel = ServerConnection->OpenChannels[i];
+			if (Channel)
+			{
+				Ar.Logf( TEXT("      Channel %i: %s"), Channel->ChIndex, *Channel->Describe() );
+			}
 		}
 	}
 #if WITH_SERVER_CODE
@@ -2192,7 +2414,11 @@ bool UNetDriver::HandleSocketsCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 		Ar.Logf( TEXT("   Client %s"), *Connection->LowLevelDescribe() );
 		for( int32 j=0; j<Connection->OpenChannels.Num(); j++ )
 		{
-			Ar.Logf( TEXT("      Channel %i: %s"), Connection->OpenChannels[j]->ChIndex, *Connection->OpenChannels[j]->Describe() );
+			UChannel* const Channel = Connection->OpenChannels[j];
+			if (Channel)
+			{
+				Ar.Logf( TEXT("      Channel %i: %s"), Channel->ChIndex, *Channel->Describe() );
+			}
 		}
 	}
 #endif
@@ -2560,6 +2786,8 @@ FActorDestructionInfo* UNetDriver::CreateDestructionInfo( UNetDriver* NetDriver,
 		NewInfo.StreamingLevelName = NAME_None;
 	}
 
+	NewInfo.Reason = EChannelCloseReason::Destroyed;
+
 	return &NewInfo;
 }
 
@@ -2595,7 +2823,7 @@ void UNetDriver::NotifyActorDestroyed( AActor* ThisActor, bool IsSeamlessTravel 
 			{
 				check(Channel->OpenedLocally);
 				Channel->bClearRecentActorRefs = false;
-				Channel->Close();
+				Channel->Close(EChannelCloseReason::Destroyed);
 			}
 			else
 			{
@@ -2856,7 +3084,7 @@ void UNetDriver::ForceActorRelevantNextUpdate(AActor* Actor)
 #if WITH_SERVER_CODE
 	check(Actor);
 	
-	GetNetworkObjectList().ForceActorRelevantNextUpdate(Actor, NetDriverName);
+	GetNetworkObjectList().ForceActorRelevantNextUpdate(Actor, this);
 #endif // WITH_SERVER_CODE
 }
 
@@ -2897,22 +3125,6 @@ void UNetDriver::AddReferencedObjects(UObject* InThis, FReferenceCollector& Coll
 		}
 	}
 
-	for (auto It = This->ReplicationChangeListMap.CreateIterator(); It; ++It)
-	{
-		if (It.Value().IsValid())
-		{
-			FRepChangelistState* const ChangelistState = It.Value()->GetRepChangelistState();
-			if (ChangelistState && ChangelistState->RepLayout.IsValid())
-			{
-				ChangelistState->RepLayout->AddReferencedObjects(Collector);
-			}
-		}
-		else
-		{
-			It.RemoveCurrent();
-		}
-	}
-	
 	for (FObjectReplicator* Replicator : This->AllOwnedReplicators)
 	{
 		Collector.AddReferencedObject(Replicator->ObjectPtr, This);
@@ -2962,6 +3174,9 @@ void FPacketSimulationSettings::LoadConfig(const TCHAR* OptionalQualifier)
 		PktLoss = FMath::Clamp<int32>(PktLoss, 0, 100);
 	}
 	
+	ConfigHelperInt(TEXT("PktLossMinSize"), PktLossMinSize, OptionalQualifier);
+	ConfigHelperInt(TEXT("PktLossMaxSize"), PktLossMaxSize, OptionalQualifier);
+
 	bool InPktOrder = !!PktOrder;
 	ConfigHelperBool(TEXT("PktOrder"), InPktOrder, OptionalQualifier);
 	PktOrder = int32(InPktOrder);
@@ -3070,6 +3285,16 @@ bool FPacketSimulationSettings::ParseSettings(const TCHAR* Cmd, const TCHAR* Opt
 		bParsed = true;
 		PktLoss = FMath::Clamp<int32>( PktLoss, 0, 100 );
 		UE_LOG(LogNet, Log, TEXT("PktLoss set to %d"), PktLoss);
+	}
+	if (ParseHelper(Cmd, TEXT("PktLossMinSize="), PktLossMinSize, OptionalQualifier))
+	{
+		bParsed = true;
+		UE_LOG(LogNet, Log, TEXT("PktLossMinSize set to %d"), PktLossMinSize);
+	}
+	if (ParseHelper(Cmd, TEXT("PktLossMaxSize="), PktLossMaxSize, OptionalQualifier))
+	{
+		bParsed = true;
+		UE_LOG(LogNet, Log, TEXT("PktLossMaxSize set to %d"), PktLossMaxSize);
 	}
 	if( ParseHelper(Cmd, TEXT("PktOrder="), PktOrder, OptionalQualifier) )
 	{
@@ -3575,7 +3800,7 @@ int32 UNetDriver::ServerReplicateActors_PrioritizeActors( UNetConnection* Connec
 					//	This is to give all connections a chance to own it
 					if ( !bHasNullViewTarget && Channel != NULL && Time - Channel->RelevantTime >= RelevantTimeout )
 					{
-						Channel->Close();
+						Channel->Close(EChannelCloseReason::Relevancy);
 					}
 
 					// This connection doesn't own this actor
@@ -3670,7 +3895,7 @@ int32 UNetDriver::ServerReplicateActors_ProcessPrioritizedActors( UNetConnection
 				continue;
 			}
 
-			UActorChannel* Channel = (UActorChannel*)Connection->CreateChannel( CHTYPE_Actor, 1 );
+			UActorChannel* Channel = (UActorChannel*)Connection->CreateChannelByName( NAME_Actor, EChannelCreateFlags::OpenedLocally );
 			if ( Channel )
 			{
 				FinalRelevantCount++;
@@ -3744,7 +3969,7 @@ int32 UNetDriver::ServerReplicateActors_ProcessPrioritizedActors( UNetConnection
 					if ( bLevelInitializedForActor )
 					{
 						// Create a new channel for this actor.
-						Channel = (UActorChannel*)Connection->CreateChannel( CHTYPE_Actor, 1 );
+						Channel = (UActorChannel*)Connection->CreateChannelByName( NAME_Actor, EChannelCreateFlags::OpenedLocally );
 						if ( Channel )
 						{
 							Channel->SetChannelActor( Actor );
@@ -3834,7 +4059,7 @@ int32 UNetDriver::ServerReplicateActors_ProcessPrioritizedActors( UNetConnection
 				if ( !bLevelInitializedForActor || !Actor->IsNetStartupActor() )
 				{
 					UE_LOG( LogNetTraffic, Log, TEXT( "- Closing channel for no longer relevant actor %s" ), *Actor->GetName() );
-					Channel->Close();
+					Channel->Close(Actor->GetTearOff() ? EChannelCloseReason::TearOff : EChannelCloseReason::Relevancy);
 				}
 			}
 		}
@@ -3993,6 +4218,7 @@ struct FScopedNetDriverStats
 int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 {
 	SCOPE_CYCLE_COUNTER(STAT_NetServerRepActorsTime);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(ServerReplicateActors);
 
 #if WITH_SERVER_CODE
 	if ( ClientConnections.Num() == 0 )
@@ -4203,24 +4429,64 @@ int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 #endif // WITH_SERVER_CODE
 }
 
+bool UNetDriver::IsKnownChannelType(int32 Type)
+{
+	FName ChName = NAME_None;
+
+	switch (Type)
+	{
+	case CHTYPE_Control:
+		ChName = NAME_Control;
+		break;
+	case CHTYPE_Actor:
+		ChName = NAME_Actor;
+		break;
+	case CHTYPE_Voice:
+		ChName = NAME_Voice;
+		break;
+	}
+
+	return IsKnownChannelName(ChName);
+}
+
 UChannel* UNetDriver::GetOrCreateChannel(EChannelType ChType)
 {
+	FName ChName = NAME_None;
+
+	switch (ChType)
+	{
+	case CHTYPE_Control:
+		ChName = NAME_Control;
+		break;
+	case CHTYPE_Actor:
+		ChName = NAME_Actor;
+		break;
+	case CHTYPE_Voice:
+		ChName = NAME_Voice;
+		break;
+	}
+
+	return GetOrCreateChannelByName(ChName);
+}
+
+UChannel* UNetDriver::GetOrCreateChannelByName(const FName& ChName)
+{
 	UChannel* RetVal = nullptr;
-	if (ChType == CHTYPE_Actor && CVarActorChannelPool.GetValueOnAnyThread() != 0)
+	if (ChName == NAME_Actor && CVarActorChannelPool.GetValueOnAnyThread() != 0)
 	{
 		while (ActorChannelPool.Num() > 0 && RetVal == nullptr)
 		{
 			RetVal = ActorChannelPool.Pop();
-			if (RetVal && RetVal->GetClass() != ChannelClasses[ChType])
+			if (RetVal && RetVal->GetClass() != ChannelDefinitionMap[ChName].ChannelClass)
 			{
-				// ChannelClasses[ChType] Changed since this channel was added to the pool. Throw it away.
+				// Channel type Changed since this channel was added to the pool. Throw it away.
 				RetVal->MarkPendingKill();
 				RetVal = nullptr;
 			}
 		}
 		if (RetVal)
 		{
-			check(RetVal->GetClass() == ChannelClasses[ChType]);
+			check(RetVal->GetClass() == ChannelDefinitionMap[ChName].ChannelClass);
 			check(!RetVal->IsPendingKill());
 			RetVal->bPooled = false;
 		}
@@ -4228,22 +4494,42 @@ UChannel* UNetDriver::GetOrCreateChannel(EChannelType ChType)
 
 	if (!RetVal)
 	{
-		RetVal = InternalCreateChannel(ChType);
+		RetVal = InternalCreateChannelByName(ChName);
 	}
 
 	return RetVal;
 }
 
-UChannel* UNetDriver::InternalCreateChannel(EChannelType ChType)
+UChannel* UNetDriver::InternalCreateChannel(EChannelType Type)
 {
-	return NewObject<UChannel>(GetTransientPackage(), ChannelClasses[ChType]);
+	FName ChName = NAME_None;
+
+	switch (Type)
+	{
+	case CHTYPE_Control:
+		ChName = NAME_Control;
+		break;
+	case CHTYPE_Actor:
+		ChName = NAME_Actor;
+		break;
+	case CHTYPE_Voice:
+		ChName = NAME_Voice;
+		break;
+	}
+
+	return InternalCreateChannelByName(ChName);
+}
+
+UChannel* UNetDriver::InternalCreateChannelByName(const FName& ChName)
+{
+	return NewObject<UChannel>(GetTransientPackage(), ChannelDefinitionMap[ChName].ChannelClass);
 }
 
 void UNetDriver::ReleaseToChannelPool(UChannel* Channel)
 {
 	check(Channel);
 	check(!Channel->IsPendingKill());
-	if (Channel->ChType == CHTYPE_Actor && CVarActorChannelPool.GetValueOnAnyThread() != 0)
+	if (Channel->ChName == NAME_Actor && CVarActorChannelPool.GetValueOnAnyThread() != 0)
 	{
 		ActorChannelPool.Push(Channel);
 
@@ -4460,7 +4746,22 @@ void UNetDriver::AddClientConnection(UNetConnection * NewConnection)
 
 	if (ConnAddr.IsValid())
 	{
-		MappedClientConnections.Add(ConnAddr.ToSharedRef(), NewConnection);
+		TSharedRef<FInternetAddr> ConnAddrRef = ConnAddr.ToSharedRef();
+
+		MappedClientConnections.Add(ConnAddrRef, NewConnection);
+
+
+		// On the off-chance of the same IP:Port being reused, check RecentlyDisconnectedClients
+		int32 RecentDisconnectIdx = RecentlyDisconnectedClients.IndexOfByPredicate(
+			[&ConnAddrRef](const FDisconnectedClient& CurElement)
+			{
+				return *ConnAddrRef == *CurElement.Address;
+			});
+
+		if (RecentDisconnectIdx != INDEX_NONE)
+		{
+			RecentlyDisconnectedClients.RemoveAt(RecentDisconnectIdx);
+		}
 	}
 
 	if (ReplicationDriver)
@@ -4471,6 +4772,8 @@ void UNetDriver::AddClientConnection(UNetConnection * NewConnection)
 #if USE_SERVER_PERF_COUNTERS
 	PerfCountersIncrement(TEXT("AddedConnections"));
 #endif
+
+	CreateInitialServerChannels(NewConnection);
 
 	// When new connections join, we need to make sure to add all fully dormant actors back to the network list, so they can get processed for the new connection
 	// They'll eventually fall back off to this list when they are dormant on the new connection
@@ -4527,6 +4830,8 @@ void UNetDriver::CreateReplicatedStaticActorDestructionInfo(UNetDriver* NetDrive
 	{
 		NewInfo.StreamingLevelName = NAME_None;
 	}
+
+	NewInfo.Reason = EChannelCloseReason::Destroyed;
 }
 
 void UNetDriver::InitDestroyedStartupActors()
@@ -4551,7 +4856,7 @@ void UNetDriver::InitDestroyedStartupActors()
 
 void UNetDriver::NotifyActorFullyDormantForConnection(AActor* Actor, UNetConnection* Connection)
 {
-	GetNetworkObjectList().MarkDormant(Actor, Connection, IsServer() ? ClientConnections.Num() : 1, NetDriverName);
+	GetNetworkObjectList().MarkDormant(Actor, Connection, IsServer() ? ClientConnections.Num() : 1, this);
 	if (ReplicationDriver)
 	{
 		ReplicationDriver->NotifyActorFullyDormantForConnection(Actor, Connection);
@@ -4566,7 +4871,25 @@ void UNetDriver::RemoveClientConnection(UNetConnection* ClientConnectionToRemove
 
 	if (AddrToRemove.IsValid())
 	{
-		verify(MappedClientConnections.Remove(AddrToRemove.ToSharedRef()) == 1);
+		TSharedRef<FInternetAddr> AddrRef = AddrToRemove.ToSharedRef();
+
+		if (RecentlyDisconnectedTrackingTime > 0)
+		{
+			UNetConnection** FoundVal = MappedClientConnections.Find(AddrRef);
+
+			// Mark recently disconnected clients as nullptr (don't wait for GC), and keep the MappedClientConections entry for a while.
+			// Required for identifying/ignoring packets from recently disconnected clients, with the same performance as for NetConnection's (important for DDoS detection)
+			if (ensure(FoundVal != nullptr))
+			{
+				RecentlyDisconnectedClients.Add(FDisconnectedClient(AddrRef, FPlatformTime::Seconds()));
+
+				*FoundVal = nullptr;
+			}
+		}
+		else
+		{
+			verify(MappedClientConnections.Remove(AddrRef) == 1);
+		}
 	}
 
 	if (ReplicationDriver)
@@ -4596,7 +4919,7 @@ void UNetDriver::SetWorld(class UWorld* InWorld)
 		Notify = InWorld;
 		RegisterTickEvents(InWorld);
 
-		GetNetworkObjectList().AddInitialObjects(InWorld, NetDriverName);
+		GetNetworkObjectList().AddInitialObjects(InWorld, this);
 	}
 
 	if (ReplicationDriver)
@@ -4679,10 +5002,7 @@ void UNetDriver::CleanupWorldForSeamlessTravel()
 				// skips over AWorldSettings actors for an unknown reason.
 				if (Level->GetWorldSettings())
 				{
-					if (ServerConnection != nullptr)
-					{
-						NotifyActorLevelUnloaded(Level->GetWorldSettings());
-					}
+					NotifyActorLevelUnloaded(Level->GetWorldSettings());
 				}
 			}
 		}
@@ -4744,7 +5064,16 @@ static void	DumpRelevantActors( UWorld* InWorld )
 
 TSharedPtr<FRepChangedPropertyTracker> UNetDriver::FindOrCreateRepChangedPropertyTracker(UObject* Obj)
 {
-	TSharedPtr<FRepChangedPropertyTracker> * GlobalPropertyTrackerPtr = RepChangedPropertyTrackerMap.Find( Obj );
+	check(IsServer());
+
+	FRepChangedPropertyTrackerWrapper * GlobalPropertyTrackerPtr = RepChangedPropertyTrackerMap.Find( Obj );
+
+	// Obj can be a new object with a pointer that matches an old, no longer valid, object
+	if ( GlobalPropertyTrackerPtr != nullptr && !GlobalPropertyTrackerPtr->IsObjectValid() )
+	{
+		RepChangedPropertyTrackerMap.Remove(Obj);
+		GlobalPropertyTrackerPtr = nullptr;
+	}
 
 	if ( !GlobalPropertyTrackerPtr ) 
 	{
@@ -4755,10 +5084,10 @@ TSharedPtr<FRepChangedPropertyTracker> UNetDriver::FindOrCreateRepChangedPropert
 
 		GetObjectClassRepLayout( Obj->GetClass() )->InitChangedTracker( Tracker );
 
-		GlobalPropertyTrackerPtr = &RepChangedPropertyTrackerMap.Add( Obj, TSharedPtr<FRepChangedPropertyTracker>( Tracker ) );
+		GlobalPropertyTrackerPtr = &RepChangedPropertyTrackerMap.Add( Obj, FRepChangedPropertyTrackerWrapper( Obj, TSharedPtr<FRepChangedPropertyTracker>( Tracker ) ) );
 	}
 
-	return *GlobalPropertyTrackerPtr;
+	return GlobalPropertyTrackerPtr->RepChangedPropertyTracker;
 }
 
 TSharedPtr<FRepLayout> UNetDriver::GetObjectClassRepLayout( UClass * Class )
@@ -4805,14 +5134,23 @@ TSharedPtr<FRepLayout> UNetDriver::GetStructRepLayout( UStruct * Struct )
 
 TSharedPtr< FReplicationChangelistMgr > UNetDriver::GetReplicationChangeListMgr( UObject* Object )
 {
-	TSharedPtr< FReplicationChangelistMgr >* ReplicationChangeListMgrPtr = ReplicationChangeListMap.Find( Object );
+	check(IsServer());
 
-	if ( !ReplicationChangeListMgrPtr )
+	FReplicationChangelistMgrWrapper* ReplicationChangeListMgrPtr = ReplicationChangeListMap.Find(Object);
+
+	// Object can be a new object with a pointer that matches an old, no longer valid, object
+	if (ReplicationChangeListMgrPtr != nullptr && !ReplicationChangeListMgrPtr->IsObjectValid())
 	{
-		ReplicationChangeListMgrPtr = &ReplicationChangeListMap.Add( Object, TSharedPtr< FReplicationChangelistMgr >( new FReplicationChangelistMgr( this, Object ) ) );
+		ReplicationChangeListMap.Remove(Object);
+		ReplicationChangeListMgrPtr = nullptr;
 	}
 
-	return *ReplicationChangeListMgrPtr;
+	if (!ReplicationChangeListMgrPtr)
+	{
+		ReplicationChangeListMgrPtr = &ReplicationChangeListMap.Add(Object, FReplicationChangelistMgrWrapper(Object, TSharedPtr< FReplicationChangelistMgr >(new FReplicationChangelistMgr(this, Object))));
+	}
+
+	return ReplicationChangeListMgrPtr->ReplicationChangelistMgr;
 }
 
 // This method will be called when Streaming Levels become Visible.
@@ -4946,6 +5284,11 @@ void UNetDriver::ProcessRemoteFunction(class AActor* Actor, UFunction* Function,
 	SCOPE_CYCLE_COUNTER(STAT_NetProcessRemoteFunc);
 	SCOPE_CYCLE_UOBJECT(Function, Function);
 
+	{
+		UObject* TestObject = (SubObject == nullptr) ? Actor : SubObject;
+		ensureMsgf(TestObject->IsSupportedForNetworking() || TestObject->IsNameStableForNetworking(), TEXT("Attempted to call ProcessRemoteFunction with object that is not supported for networking. Object: %s Function: %s"), *TestObject->GetPathName(), *Function->GetName());
+	}
+
 	bool bBlockSendRPC = false;
 
 	SendRPCDel.ExecuteIfBound(Actor, Function, Parameters, OutParms, Stack, SubObject, bBlockSendRPC);
@@ -4956,15 +5299,7 @@ void UNetDriver::ProcessRemoteFunction(class AActor* Actor, UFunction* Function,
 		const bool bIsServer = IsServer();
 		const bool bIsServerMulticast = bIsServer && (Function->FunctionFlags & FUNC_NetMulticast);
 
-		// Replicate any multicast RPCs to the replay net driver so that they can get saved in network replays
-		if (bIsServerMulticast)
-		{
-			UNetDriver* NetDriver = GEngine->FindNamedNetDriver(GetWorld(), NAME_DemoNetDriver);
-			if (NetDriver)
-			{
-				NetDriver->ProcessRemoteFunction(Actor, Function, Parameters, OutParms, Stack, SubObject);
-			}
-		}
+		++TotalRPCsCalled;
 
 		// Forward to replication Driver if there is one
 		if (ReplicationDriver && ReplicationDriver->ProcessRemoteFunction(Actor, Function, Parameters, OutParms, Stack, SubObject))
@@ -4987,13 +5322,18 @@ void UNetDriver::ProcessRemoteFunction(class AActor* Actor, UFunction* Function,
 				{
 					// Only send or queue multicasts if the actor is relevant to the connection
 					FNetViewer Viewer(Connection, 0.f);
-					if (Actor->IsNetRelevantFor(Viewer.InViewer, Viewer.ViewTarget, Viewer.ViewLocation))
-					{
-						if (Connection->GetUChildConnection() != nullptr)
-						{
-							Connection = ((UChildConnection*)Connection)->Parent;
-						}
 
+					if (Connection->GetUChildConnection() != nullptr)
+					{
+						Connection = ((UChildConnection*)Connection)->Parent;
+					}
+
+					// It's possible that an actor is not relevant to a specific connection, but the channel is still alive (due to hysteresis).
+					// However, it's also possible that the Actor could become relevant again before the channel ever closed, and in that case we
+					// don't want to lose Reliable RPCs.
+					if (Actor->IsNetRelevantFor(Viewer.InViewer, Viewer.ViewTarget, Viewer.ViewLocation) ||
+						((Function->FunctionFlags & FUNC_NetReliable) && !!CVarAllowReliableMulticastToNonRelevantChannels.GetValueOnGameThread() && Connection->FindActorChannelRef(Actor)))
+					{
 						// We don't want to call this unless necessary, and it will internally handle being called multiple times before a clear
 						// Builds any shared serialization state for this rpc
 						RepLayout->BuildSharedSerializationForRPC(Parameters);
@@ -5021,6 +5361,59 @@ void UNetDriver::ProcessRemoteFunction(class AActor* Actor, UFunction* Function,
 			UE_LOG(LogNet, Warning, TEXT("UNetDriver::ProcessRemoteFunction: No owning connection for actor %s. Function %s will not be processed."), *Actor->GetName(), *Function->GetName());
 		}
 	}
+}
+
+void UNetDriver::CreateInitialClientChannels()
+{
+	if (ServerConnection != nullptr)
+	{
+		for (const FChannelDefinition& ChannelDef : ChannelDefinitions)
+		{
+			if (ChannelDef.bInitialClient && (ChannelDef.ChannelClass != nullptr))
+			{
+				ServerConnection->CreateChannelByName(ChannelDef.ChannelName, EChannelCreateFlags::OpenedLocally, ChannelDef.StaticChannelIndex);
+			}
+		}
+	}
+}
+
+void UNetDriver::CreateInitialServerChannels(UNetConnection* ClientConnection)
+{
+	if (ClientConnection != nullptr)
+	{
+		for (const FChannelDefinition& ChannelDef : ChannelDefinitions)
+		{
+			if (ChannelDef.bInitialServer && (ChannelDef.ChannelClass != nullptr))
+			{
+				ClientConnection->CreateChannelByName(ChannelDef.ChannelName, EChannelCreateFlags::OpenedLocally, ChannelDef.StaticChannelIndex);
+			}
+		}
+	}
+}
+
+bool UNetDriver::ShouldReplicateFunction(AActor* Actor, UFunction* Function) const
+{
+	return (Actor && Actor->GetNetDriverName() == NetDriverName);
+}
+
+bool UNetDriver::ShouldForwardFunction(AActor* Actor, UFunction* Function, void* Parms) const
+{
+	return !IsServer();
+}
+
+bool UNetDriver::ShouldReplicateActor(AActor* Actor) const
+{
+	return (Actor && Actor->GetNetDriverName() == NetDriverName);
+}
+
+bool UNetDriver::ShouldCallRemoteFunction(UObject* Object, UFunction* Function, const FReplicationFlags& RepFlags) const
+{
+	return ((!IsServer() || RepFlags.bNetOwner) && !RepFlags.bIgnoreRPCs);
+}
+
+bool UNetDriver::ShouldClientDestroyActor(AActor* Actor) const
+{
+	return (Actor && !Actor->IsA(ALevelScriptActor::StaticClass()));
 }
 
 FAutoConsoleCommandWithWorld	DumpRelevantActorsCommand(

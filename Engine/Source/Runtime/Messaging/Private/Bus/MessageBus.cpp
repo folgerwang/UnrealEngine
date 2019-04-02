@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Bus/MessageBus.h"
 #include "HAL/RunnableThread.h"
@@ -193,4 +193,14 @@ void FMessageBus::Unsubscribe(const TSharedRef<IMessageReceiver, ESPMode::Thread
 			Router->RemoveSubscription(Subscriber, MessageType);
 		}
 	}
+}
+
+void FMessageBus::AddNotificationListener(const TSharedRef<IBusListener, ESPMode::ThreadSafe>& Listener)
+{
+	Router->AddNotificationListener(Listener);
+}
+
+void FMessageBus::RemoveNotificationListener(const TSharedRef<IBusListener, ESPMode::ThreadSafe>& Listener)
+{
+	Router->RemoveNotificationListener(Listener);
 }

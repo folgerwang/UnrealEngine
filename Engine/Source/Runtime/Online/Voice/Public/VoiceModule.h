@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -100,6 +100,13 @@ public:
 	virtual TSharedPtr<IVoiceDecoder> CreateVoiceDecoder(int32 SampleRate = UVOIPStatics::GetVoiceSampleRate(), int32 NumChannels = DEFAULT_NUM_VOICE_CHANNELS);
 
 	/**
+	* Checks to see if the current platform supports voice capture.
+	*
+	* @return True if the current platform support voice capture
+	*/
+	virtual bool DoesPlatformSupportVoiceCapture();
+
+	/**
 	 * @return true if voice is enabled
 	 */
 	inline bool IsVoiceEnabled() const
@@ -108,6 +115,9 @@ public:
 	}
 
 private:
+
+	IVoiceEncoder* CreateVoiceEncoderObject(int32 SampleRate, int32 NumChannels, EAudioEncodeHint EncodeHint);
+	IVoiceDecoder* CreateVoiceDecoderObject(int32 SampleRate, int32 NumChannels);
 
 	// IModuleInterface
 

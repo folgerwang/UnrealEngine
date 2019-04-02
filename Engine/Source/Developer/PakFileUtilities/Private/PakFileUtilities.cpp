@@ -1,11 +1,10 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PakFileUtilities.h"
 #include "IPlatformFilePak.h"
 #include "Misc/SecureHash.h"
 #include "Math/BigInt.h"
 #include "SignedArchiveWriter.h"
-#include "KeyGenerator.h"
 #include "Misc/AES.h"
 #include "Templates/UniquePtr.h"
 #include "Serialization/LargeMemoryWriter.h"
@@ -19,6 +18,10 @@
 #include "Misc/ConfigCacheIni.h"
 #include "HAL/PlatformFilemanager.h"
 #include "Async/ParallelFor.h"
+#include "Async/AsyncWork.h"
+#include "Modules/ModuleManager.h"
+
+IMPLEMENT_MODULE(FDefaultModuleImpl, PakFileUtilities);
 
 struct FNamedAESKey
 {
@@ -32,29 +35,159 @@ struct FNamedAESKey
 	}
 };
 
+typedef TMap<FGuid, FNamedAESKey> TKeyChain;
+
+class FMemoryCompressor;
+
+/**
+* AsyncTask for FMemoryCompressor
+* Compress a memory block asynchronously
+*/
+class FBlockCompressTask : public FNonAbandonableTask
+{
+public:
+	friend class FAsyncTask<FBlockCompressTask>;
+	friend class FMemoryCompressor;
+	FBlockCompressTask(void* InUncompressedBuffer, int32 InUncompressedSize, FName InFormat, int32 InBlockSize) :
+		UncompressedBuffer(InUncompressedBuffer),
+		UncompressedSize(InUncompressedSize),
+		Format(InFormat),
+		BlockSize(InBlockSize),
+		Result(false)
+	{
+		// Store buffer size.
+		CompressedSize = FCompression::CompressMemoryBound(Format, BlockSize);
+		CompressedBuffer = FMemory::Malloc(CompressedSize);
+	}
+
+	~FBlockCompressTask()
+	{
+		FMemory::Free(CompressedBuffer);
+	}
+
+	/** Do compress */
+	void DoWork()
+	{
+		// Compress memory block.
+		// Actual size will be stored to CompressedSize.
+		Result = FCompression::CompressMemory(Format, CompressedBuffer, CompressedSize, UncompressedBuffer, UncompressedSize);
+	}
+	
+	FORCEINLINE TStatId GetStatId() const { RETURN_QUICK_DECLARE_CYCLE_STAT(ExampleAsyncTask, STATGROUP_ThreadPoolAsyncTasks); }
+
+private:
+	// Source buffer
+	void* UncompressedBuffer;
+	int32 UncompressedSize;
+
+	// Compress parameters
+	FName Format;
+	int32 BlockSize;
+	int32 BitWindow;
+
+	// Compressed result
+	void* CompressedBuffer;
+	int32 CompressedSize;
+	bool Result;
+};
+
+/**
+* asynchronous memory compressor
+*/
+class FMemoryCompressor
+{
+public:
+	/** Divide into blocks and start compress asynchronously */
+	FMemoryCompressor(uint8* UncompressedBuffer, int32 UncompressedSize, FName Format, int32 CompressionBlockSize) :
+		Index(0)
+	{
+		// Divide into blocks and start compression async tasks.
+		// These blocks must be as same as followed CompressMemory callings.
+		int64 UncompressedBytes = 0;
+		while (UncompressedSize)
+		{
+			int32 BlockSize = (int32)FMath::Min<int64>(UncompressedSize, CompressionBlockSize);
+			auto* AsyncTask = new FAsyncTask<FBlockCompressTask>(UncompressedBuffer + UncompressedBytes, BlockSize, Format, BlockSize);
+			AsyncTask->StartBackgroundTask();
+			BlockCompressAsyncTasks.Add(AsyncTask);
+			UncompressedSize -= BlockSize;
+			UncompressedBytes += BlockSize;
+		}
+	}
+
+	~FMemoryCompressor()
+	{
+		for (auto* AsyncTask : BlockCompressAsyncTasks)
+		{
+			if (!AsyncTask->Cancel())
+			{
+				AsyncTask->EnsureCompletion();
+			}
+			delete AsyncTask;
+		}
+	}
+
+
+	/** Fetch compressed result. Returns true and store CompressedSize if succeeded */
+	bool CompressMemory(FName Format, void* CompressedBuffer, int32& CompressedSize, const void* UncompressedBuffer, int32 UncompressedSize)
+	{
+		// Fetch compressed result from task.
+		// We assume this is called only once, same order, same parameters for
+		// each task.
+		auto* AsyncTask = BlockCompressAsyncTasks[Index++];
+		AsyncTask->EnsureCompletion();
+
+		FBlockCompressTask& Task = AsyncTask->GetTask();
+		check(Task.Format == Format);
+		check(Task.UncompressedBuffer == UncompressedBuffer);
+		check(Task.UncompressedSize == UncompressedSize);
+		check(CompressedSize >= Task.CompressedSize);
+		if (!Task.Result)
+		{
+			return false;
+		}
+		FMemory::Memcpy(CompressedBuffer, Task.CompressedBuffer, Task.CompressedSize);
+		CompressedSize = Task.CompressedSize;
+
+		return true;
+	}
+
+private:
+	TArray<FAsyncTask<FBlockCompressTask>*> BlockCompressAsyncTasks;
+
+	// Fetched task index
+	int32 Index;
+};
+
+
+
+
 struct FPakCommandLineParameters
 {
 	FPakCommandLineParameters()
 		: CompressionBlockSize(64*1024)
-		, CompressionBitWindow(DEFAULT_ZLIB_BIT_WINDOW)
 		, FileSystemBlockSize(0)
 		, PatchFilePadAlign(0)
 		, GeneratePatch(false)
+		, PatchSeekOptMaxGapSize(0)
+		, PatchSeekOptUseOrder(false)
 		, EncryptIndex(false)
 		, UseCustomCompressor(false)
-		, OverridePlatformCompressor(false)
-	{}
+	{
+	}
 
+	TArray<FName> CompressionFormats;
 	int32  CompressionBlockSize;
-	int32  CompressionBitWindow;
 	int64  FileSystemBlockSize;
 	int64  PatchFilePadAlign;
 	bool   GeneratePatch;
 	FString SourcePatchPakFilename;
 	FString SourcePatchDiffDirectory;
+	int64 PatchSeekOptMaxGapSize;
+	bool PatchSeekOptUseOrder;
 	bool EncryptIndex;
 	bool UseCustomCompressor;
-	bool OverridePlatformCompressor;
+	FGuid EncryptionKeyGuid;
 };
 
 struct FPakEntryPair
@@ -111,7 +244,7 @@ struct FCompressedFileBuffer
 
 	}
 
-	void Reinitialize(FArchive* File,ECompressionFlags CompressionMethod,int64 CompressionBlockSize)
+	void Reinitialize(FArchive* File, FName CompressionMethod, int64 CompressionBlockSize)
 	{
 		OriginalSize = File->TotalSize();
 		TotalCompressedSize = 0;
@@ -132,16 +265,41 @@ struct FCompressedFileBuffer
 		}
 	}
 
-	bool CompressFileToWorkingBuffer(const FPakInputPair& InFile,uint8*& InOutPersistentBuffer,int64& InOutBufferSize,ECompressionFlags CompressionMethod,const int32 CompressionBlockSize,const int32 CompressionBitWindow);
+	bool CompressFileToWorkingBuffer(const FPakInputPair& InFile, uint8*& InOutPersistentBuffer, int64& InOutBufferSize, FName CompressionMethod, const int32 CompressionBlockSize);
 
 	int64				OriginalSize;
 	int64				TotalCompressedSize;
 	int32				FileCompressionBlockSize;
-	ECompressionFlags		FileCompressionMethod;
+	FName				FileCompressionMethod;
 	TArray<FPakCompressedBlock>	CompressedBlocks;
 	int64				CompressedBufferSize;
 	TUniquePtr<uint8[]>		CompressedBuffer;
 };
+
+template <class T>
+bool ReadSizeParam(const TCHAR* CmdLine, const TCHAR* ParamStr, T& SizeOut)
+{
+	FString ParamValueStr;
+	if (FParse::Value(CmdLine, ParamStr, ParamValueStr) &&
+		FParse::Value(CmdLine, ParamStr, SizeOut))
+	{
+		if (ParamValueStr.EndsWith(TEXT("GB")))
+		{
+			SizeOut *= 1024 * 1024 * 1024;
+		}
+		else if (ParamValueStr.EndsWith(TEXT("MB")))
+		{
+			SizeOut *= 1024 * 1024;
+		}
+		else if (ParamValueStr.EndsWith(TEXT("KB")))
+		{
+			SizeOut *= 1024;
+		}
+		return true;
+	}
+	return false;
+}
+
 
 FString GetLongestPath(TArray<FPakInputPair>& FilesToAdd)
 {
@@ -201,7 +359,7 @@ FString GetCommonRootPath(TArray<FPakInputPair>& FilesToAdd)
 	return Root;
 }
 
-bool FCompressedFileBuffer::CompressFileToWorkingBuffer(const FPakInputPair& InFile, uint8*& InOutPersistentBuffer, int64& InOutBufferSize, ECompressionFlags CompressionMethod, const int32 CompressionBlockSize, const int32 CompressionBitWindow)
+bool FCompressedFileBuffer::CompressFileToWorkingBuffer(const FPakInputPair& InFile, uint8*& InOutPersistentBuffer, int64& InOutBufferSize, FName CompressionMethod, const int32 CompressionBlockSize)
 {
 	TUniquePtr<FArchive> FileHandle(IFileManager::Get().CreateFileReader(*InFile.Source));
 	if(!FileHandle)
@@ -222,10 +380,13 @@ bool FCompressedFileBuffer::CompressFileToWorkingBuffer(const FPakInputPair& InF
 	// Load to buffer
 	FileHandle->Serialize(InOutPersistentBuffer,FileSize);
 
+	// Start parallel compress
+	FMemoryCompressor MemoryCompressor(InOutPersistentBuffer, FileSize, CompressionMethod, CompressionBlockSize);
+
 	// Build buffers for working
 	int64 UncompressedSize = FileSize;
-	int32 CompressionBufferSize = Align(FCompression::CompressMemoryBound(CompressionMethod,CompressionBlockSize,CompressionBitWindow),FAES::AESBlockSize);
-	EnsureBufferSpace(Align(FCompression::CompressMemoryBound(CompressionMethod,FileSize,CompressionBitWindow),FAES::AESBlockSize));
+	int32 CompressionBufferSize = Align(FCompression::CompressMemoryBound(CompressionMethod, CompressionBlockSize, COMPRESS_NoFlags), FAES::AESBlockSize);
+ 	EnsureBufferSpace(Align(FCompression::CompressMemoryBound(CompressionMethod, FileSize, COMPRESS_NoFlags), FAES::AESBlockSize));
 
 
 	TotalCompressedSize = 0;
@@ -234,11 +395,11 @@ bool FCompressedFileBuffer::CompressFileToWorkingBuffer(const FPakInputPair& InF
 	while(UncompressedSize)
 	{
 		int32 BlockSize = (int32)FMath::Min<int64>(UncompressedSize,CompressionBlockSize);
-		int32 MaxCompressedBlockSize = FCompression::CompressMemoryBound(CompressionMethod, BlockSize, CompressionBitWindow);
+		int32 MaxCompressedBlockSize = FCompression::CompressMemoryBound(CompressionMethod, BlockSize, COMPRESS_NoFlags);
 		int32 CompressedBlockSize = FMath::Max<int32>(CompressionBufferSize, MaxCompressedBlockSize);
 		FileCompressionBlockSize = FMath::Max<uint32>(BlockSize, FileCompressionBlockSize);
 		EnsureBufferSpace(Align(TotalCompressedSize+CompressedBlockSize,FAES::AESBlockSize));
-		if(!FCompression::CompressMemory(CompressionMethod,CompressedBuffer.Get()+TotalCompressedSize,CompressedBlockSize,InOutPersistentBuffer+UncompressedBytes,BlockSize,CompressionBitWindow))
+		if (!MemoryCompressor.CompressMemory(CompressionMethod, CompressedBuffer.Get() + TotalCompressedSize, CompressedBlockSize, InOutPersistentBuffer + UncompressedBytes, BlockSize))
 		{
 			return false;
 		}
@@ -279,7 +440,7 @@ bool PrepareCopyFileToPak(const FString& InMountPoint, const FPakInputPair& InFi
 		OutNewEntry.Info.Offset = 0; // Don't serialize offsets here.
 		OutNewEntry.Info.Size = FileSize;
 		OutNewEntry.Info.UncompressedSize = FileSize;
-		OutNewEntry.Info.CompressionMethod = COMPRESS_None;
+		OutNewEntry.Info.CompressionMethodIndex = 0;
 		OutNewEntry.Info.SetEncrypted( InFile.bNeedEncryption && InEncryptionKey.IsValid() );
 		OutNewEntry.Info.SetDeleteRecord(false);
 
@@ -300,7 +461,7 @@ bool PrepareCopyFileToPak(const FString& InMountPoint, const FPakInputPair& InFi
 				{
 					// Fill the trailing buffer with bytes from file. Note that this is now from a fixed location
 					// rather than a random one so that we produce deterministic results
-					InOutPersistentBuffer[FillIndex] = InOutPersistentBuffer[FillIndex % FileSize];
+					InOutPersistentBuffer[FillIndex] = InOutPersistentBuffer[(FillIndex - FileSize)%FileSize];
 				}
 
 				//Encrypt the buffer before writing it to disk
@@ -318,12 +479,12 @@ bool PrepareCopyFileToPak(const FString& InMountPoint, const FPakInputPair& InFi
 	return bFileExists;
 }
 
-void FinalizeCopyCompressedFileToPak(FArchive& InPak, const FCompressedFileBuffer& CompressedFile, FPakEntryPair& OutNewEntry)
+void FinalizeCopyCompressedFileToPak(FPakInfo& InPakInfo, const FCompressedFileBuffer& CompressedFile, FPakEntryPair& OutNewEntry)
 {
 	check(CompressedFile.TotalCompressedSize != 0);
 
 	check(OutNewEntry.Info.CompressionBlocks.Num() == CompressedFile.CompressedBlocks.Num());
-	check(OutNewEntry.Info.CompressionMethod == CompressedFile.FileCompressionMethod);
+	check(OutNewEntry.Info.CompressionMethodIndex == InPakInfo.GetCompressionMethodIndex(CompressedFile.FileCompressionMethod));
 
 	int64 TellPos = OutNewEntry.Info.GetSerializedSize(FPakInfo::PakFile_Version_Latest);
 	const TArray<FPakCompressedBlock>& Blocks = CompressedFile.CompressedBlocks;
@@ -334,14 +495,14 @@ void FinalizeCopyCompressedFileToPak(FArchive& InPak, const FCompressedFileBuffe
 	}
 }
 
-bool PrepareCopyCompressedFileToPak(const FString& InMountPoint, const FPakInputPair& InFile, const FCompressedFileBuffer& CompressedFile, FPakEntryPair& OutNewEntry, uint8*& OutDataToWrite, int64& OutSizeToWrite, const FNamedAESKey& InEncryptionKey)
+bool PrepareCopyCompressedFileToPak(const FString& InMountPoint, FPakInfo& Info, const FPakInputPair& InFile, const FCompressedFileBuffer& CompressedFile, FPakEntryPair& OutNewEntry, uint8*& OutDataToWrite, int64& OutSizeToWrite, const FNamedAESKey& InEncryptionKey)
 {
 	if (CompressedFile.TotalCompressedSize == 0)
 	{
 		return false;
 	}
 
-	OutNewEntry.Info.CompressionMethod = CompressedFile.FileCompressionMethod;
+	OutNewEntry.Info.CompressionMethodIndex = Info.GetCompressionMethodIndex(CompressedFile.FileCompressionMethod);
 	OutNewEntry.Info.CompressionBlocks.AddZeroed(CompressedFile.CompressedBlocks.Num());
 
 	if (InFile.bNeedEncryption && InEncryptionKey.IsValid())
@@ -379,7 +540,7 @@ void PrepareDeleteRecordForPak(const FString& InMountPoint, const FPakInputPair 
 	OutNewEntry.Info.SetDeleteRecord(true);
 }
 
-bool ProcessOrderFile(const TCHAR* ResponseFile, TMap<FString, uint64>& OrderMap)
+bool ProcessOrderFile(const TCHAR* ResponseFile, TMap<FString, uint64>& OrderMap, bool bSecondaryOrderFile = false, int32 OrderOffset = 0)
 {
 	// List of all items to add to pak file
 	FString Text;
@@ -418,7 +579,11 @@ bool ProcessOrderFile(const TCHAR* ResponseFile, TMap<FString, uint64>& OrderMap
 				OpenOrderNumber += (1 << 30);
 			}
 #endif
-			OrderMap.Add(Path, OpenOrderNumber);
+			if (bSecondaryOrderFile && OrderMap.Contains(Path) )
+			{
+				continue;
+			}
+			OrderMap.Add(Path, OpenOrderNumber + OrderOffset);
 		}
 		UE_LOG(LogPakFile, Display, TEXT("Finished loading pak order file %s."), ResponseFile);
 		return true;
@@ -444,45 +609,6 @@ static void CommandLineParseHelper(const TCHAR* InCmdLine, TArray<FString>& Toke
 			new(Tokens)FString(NextToken);
 		}
 	}
-}
-
-void PreProcessCommandline(const TCHAR* CmdLine, FPakCommandLineParameters& CmdLineParameters)
-{
-
-	FString CompressorFileName;
-	if (FParse::Value(CmdLine, TEXT("customcompressor="), CompressorFileName))
-	{
-		FPlatformProcess::AddDllDirectory(*FPaths::GetPath(CompressorFileName));
-
-		void* CustomCompressorDll = FPlatformProcess::GetDllHandle(*CompressorFileName);
-		if (CustomCompressorDll == nullptr)
-		{
-			UE_LOG(LogPakFile, Error, TEXT("Unable to load custom compressor from %s"), *CompressorFileName);
-			return;
-		}
-
-		UE_LOG(LogPakFile, Display, TEXT("Loaded custom compressor from %s."), *CompressorFileName);
-
-		static const TCHAR* CreateCustomCompressorExport = TEXT("CreateCustomCompressor");
-		typedef ICustomCompressor* (CreateCustomCompressorFunc)(const TCHAR*);
-		CreateCustomCompressorFunc* CreateCustomCompressor = reinterpret_cast<CreateCustomCompressorFunc*>(FPlatformProcess::GetDllExport(CustomCompressorDll, CreateCustomCompressorExport));
-		if (CreateCustomCompressor == nullptr)
-		{
-			UE_LOG(LogPakFile, Error, TEXT("Unable to find exported symbol '%s' in '%s'"), CreateCustomCompressorExport, *CompressorFileName);
-			return;
-		}
-
-		ICustomCompressor* Compressor = (*CreateCustomCompressor)(CmdLine);
-		if (Compressor == nullptr)
-		{
-			UE_LOG(LogPakFile, Error, TEXT("Failed to create custom compressor from '%s'"), *CompressorFileName);
-			return;
-		}
-
-		IModularFeatures::Get().RegisterModularFeature(CUSTOM_COMPRESSOR_FEATURE_NAME, Compressor);
-		CmdLineParameters.UseCustomCompressor = true;
-	}
-
 }
 
 void ProcessCommandLine(const TCHAR* CmdLine, const TArray<FString>& NonOptionArguments, TArray<FPakInputPair>& Entries, FPakCommandLineParameters& CmdLineParameters)
@@ -522,11 +648,6 @@ void ProcessCommandLine(const TCHAR* CmdLine, const TArray<FString>& NonOptionAr
 		}
 	}
 
-	if (!FParse::Value(CmdLine, TEXT("-bitwindow="), CmdLineParameters.CompressionBitWindow))
-	{
-		CmdLineParameters.CompressionBitWindow = DEFAULT_ZLIB_BIT_WINDOW;
-	}
-
 	if (!FParse::Value(CmdLine, TEXT("-patchpaddingalign="), CmdLineParameters.PatchFilePadAlign))
 	{
 		CmdLineParameters.PatchFilePadAlign = 0;
@@ -537,16 +658,45 @@ void ProcessCommandLine(const TCHAR* CmdLine, const TArray<FString>& NonOptionAr
 		CmdLineParameters.EncryptIndex = true;
 	}
 
-	if (FParse::Param(CmdLine, TEXT("overrideplatformcompressor")))
+	FString EncryptionKeyGuid;
+	if (FParse::Value(CmdLine, TEXT("EncryptionKeyOverrideGuid="), EncryptionKeyGuid))
 	{
-		CmdLineParameters.OverridePlatformCompressor = true;
+		FGuid::Parse(EncryptionKeyGuid, CmdLineParameters.EncryptionKeyGuid);
 	}
+
+	FString DesiredCompressionFormats;
+	// look for -compressionformats or -compressionformat on the commandline
+	if (FParse::Value(CmdLine, TEXT("-compressionformats="), DesiredCompressionFormats) || FParse::Value(CmdLine, TEXT("-compressionformat="), DesiredCompressionFormats))
+	{
+		TArray<FString> Formats;
+		DesiredCompressionFormats.ParseIntoArray(Formats, TEXT(","));
+		for (FString& Format : Formats)
+		{
+			// look until we have a valid format
+			FName FormatName = *Format;
+
+			if (FCompression::IsFormatValid(FormatName))
+			{
+				CmdLineParameters.CompressionFormats.Add(FormatName);
+				break;
+			}
+		}
+	}
+
+	// make sure we can always fallback to zlib, which is guaranteed to exist
+	CmdLineParameters.CompressionFormats.AddUnique(NAME_Zlib);
 
 	if (FParse::Value(CmdLine, TEXT("-create="), ResponseFile))
 	{
 		TArray<FString> Lines;
 
 		CmdLineParameters.GeneratePatch = FParse::Value(CmdLine, TEXT("-generatepatch="), CmdLineParameters.SourcePatchPakFilename);
+
+		if (CmdLineParameters.GeneratePatch)
+		{
+			ReadSizeParam(CmdLine, TEXT("-patchSeekOptMaxGapSize="), CmdLineParameters.PatchSeekOptMaxGapSize);
+			CmdLineParameters.PatchSeekOptUseOrder = FParse::Param(CmdLine, TEXT("patchSeekOptUseOrder"));
+		}
 
 		bool bCompress = FParse::Param(CmdLine, TEXT("compress"));
 		bool bEncrypt = FParse::Param(CmdLine, TEXT("encrypt"));
@@ -658,6 +808,59 @@ void ProcessCommandLine(const TCHAR* CmdLine, const TArray<FString>& NonOptionAr
 	UE_LOG(LogPakFile, Display, TEXT("Added %d entries to add to pak file."), Entries.Num());
 }
 
+FString RemapLocalizationPathIfNeeded(const FString& PathLower, FString& OutRegion)
+{
+	static const TCHAR* L10NPrefix = (const TCHAR*)TEXT("/content/l10n/");
+	static const int32 L10NPrefixLength = FCString::Strlen(L10NPrefix);
+	int32 FoundIndex = PathLower.Find(L10NPrefix, ESearchCase::CaseSensitive);
+	if (FoundIndex > 0)
+	{
+		// Validate the content index is the first one
+		int32 ContentIndex = PathLower.Find(TEXT("/content/"), ESearchCase::CaseSensitive);
+		if (ContentIndex == FoundIndex)
+		{
+			int32 EndL10NOffset = ContentIndex + L10NPrefixLength;
+			int32 NextSlashIndex = PathLower.Find(TEXT("/"), ESearchCase::CaseSensitive, ESearchDir::FromStart, EndL10NOffset);
+			int32 RegionLength = NextSlashIndex - EndL10NOffset;
+			if (RegionLength >= 2)
+			{
+				FString NonLocalizedPath = PathLower.Mid(0, ContentIndex) + TEXT("/content") + PathLower.Mid(NextSlashIndex);
+				OutRegion = PathLower.Mid(EndL10NOffset, RegionLength);
+				return NonLocalizedPath;
+			}
+		}
+	}
+	return PathLower;
+}
+
+uint64 GetFileOrder(const FString Path, const TMap<FString, uint64>& OrderMap)
+{
+	FString RegionStr;
+	FString NewPath = RemapLocalizationPathIfNeeded(Path.ToLower(), RegionStr);
+	const uint64* FoundOrder = OrderMap.Find(NewPath);
+	if (FoundOrder == nullptr)
+	{
+		return MAX_uint64;
+	}
+
+	// Optionally offset based on region, so multiple files in different regions don't get the same order.
+	// I/O profiling suggests this is slightly worse, so leaving this disabled for now
+#if 0
+	if (RegionStr.Len() > 0)
+	{
+		uint64 RegionOffset = 0;
+		for (int i = 0; i < RegionStr.Len(); i++)
+		{
+			int8 Letter = (int8)(RegionStr[i] - TEXT('a'));
+			RegionOffset |= (uint64(Letter) << (i*5));
+		}
+		return *FoundOrder + (RegionOffset << 16);
+	}
+#endif
+	return *FoundOrder;
+}
+
+
 void CollectFilesToAdd(TArray<FPakInputPair>& OutFilesToAdd, const TArray<FPakInputPair>& InEntries, const TMap<FString, uint64>& OrderMap)
 {
 	UE_LOG(LogPakFile, Display, TEXT("Collecting files to add to pak file..."));
@@ -694,10 +897,11 @@ void CollectFilesToAdd(TArray<FPakInputPair>& OutFilesToAdd, const TArray<FPakIn
 				FileInput.Source = FoundFiles[FileIndex];
 				FPaths::MakeStandardFilename(FileInput.Source);
 				FileInput.Dest = FileInput.Source.Replace(*Directory, *Input.Dest, ESearchCase::IgnoreCase);
-				const uint64* FoundOrder = OrderMap.Find(FileInput.Dest.ToLower());
-				if(FoundOrder)
+				
+				uint64 FileOrder = GetFileOrder(FileInput.Dest, OrderMap);
+				if(FileOrder != MAX_uint64)
 				{
-					FileInput.SuggestedOrder = *FoundOrder;
+					FileInput.SuggestedOrder = FileOrder;
 				}
 				else
 				{
@@ -706,18 +910,18 @@ void CollectFilesToAdd(TArray<FPakInputPair>& OutFilesToAdd, const TArray<FPakIn
 					// if this is a cook order or an old order it will not have uexp files in it, so we put those in the same relative order after all of the normal files, but before any ubulk files
 					if (FileInput.Dest.EndsWith(TEXT("uexp")) || FileInput.Dest.EndsWith(TEXT("ubulk")))
 					{
-						FoundOrder = OrderMap.Find(FPaths::GetBaseFilename(FileInput.Dest.ToLower(), false) + TEXT(".uasset"));
-						if (!FoundOrder)
+						FileOrder = GetFileOrder(FPaths::GetBaseFilename(FileInput.Dest, false) + TEXT(".uasset"), OrderMap);
+						if (FileOrder == MAX_uint64)
 						{
-							FoundOrder = OrderMap.Find(FPaths::GetBaseFilename(FileInput.Dest.ToLower(), false) + TEXT(".umap"));
+							FileOrder = GetFileOrder(FPaths::GetBaseFilename(FileInput.Dest, false) + TEXT(".umap"), OrderMap);
 						}
 						if (FileInput.Dest.EndsWith(TEXT("uexp")))
 						{
-							FileInput.SuggestedOrder = (FoundOrder ? *FoundOrder : 0) + (1 << 29);
+							FileInput.SuggestedOrder = ((FileOrder != MAX_uint64) ? FileOrder : 0) + (1 << 29);
 						}
 						else
 						{
-							FileInput.SuggestedOrder = (FoundOrder ? *FoundOrder : 0) + (1 << 30);
+							FileInput.SuggestedOrder = ((FileOrder != MAX_uint64) ? FileOrder : 0) + (1 << 30);
 						}
 					}
 				}
@@ -745,10 +949,10 @@ void CollectFilesToAdd(TArray<FPakInputPair>& OutFilesToAdd, const TArray<FPakIn
 			FileInput.Source = Input.Source;
 			FPaths::MakeStandardFilename(FileInput.Source);
 			FileInput.Dest = FileInput.Source.Replace(*Directory, *Input.Dest, ESearchCase::IgnoreCase);
-			const uint64* FoundOrder = OrderMap.Find(FileInput.Dest.ToLower());
-			if (FoundOrder)
+			uint64 FileOrder = GetFileOrder(FileInput.Dest, OrderMap);
+			if (FileOrder != MAX_uint64)
 			{
-				FileInput.SuggestedOrder = *FoundOrder;
+				FileInput.SuggestedOrder = FileOrder;
 			}
 			FileInput.bNeedEncryption = bEncryption;
 			FileInput.bNeedsCompression = bCompression;
@@ -781,7 +985,7 @@ void CollectFilesToAdd(TArray<FPakInputPair>& OutFilesToAdd, const TArray<FPakIn
 	UE_LOG(LogPakFile, Display, TEXT("Collected %d files in %.2lfs."), OutFilesToAdd.Num(), FPlatformTime::Seconds() - StartTime);
 }
 
-bool BufferedCopyFile(FArchive& Dest, FArchive& Source, const FPakEntry& Entry, void* Buffer, int64 BufferSize, const FNamedAESKey& Key)
+bool BufferedCopyFile(FArchive& Dest, FArchive& Source, const FPakFile& PakFile, const FPakEntry& Entry, void* Buffer, int64 BufferSize, const TKeyChain& KeyChain)
 {	
 	// Align down
 	BufferSize = BufferSize & ~(FAES::AESBlockSize-1);
@@ -795,7 +999,9 @@ bool BufferedCopyFile(FArchive& Dest, FArchive& Source, const FPakEntry& Entry, 
 		Source.Serialize(Buffer,SizeToRead);
 		if (Entry.IsEncrypted())
 		{
-			FAES::DecryptData((uint8*)Buffer, SizeToRead, Key.Key);
+			const FNamedAESKey* Key = KeyChain.Find(PakFile.GetInfo().EncryptionKeyGuid);
+			check(Key);
+			FAES::DecryptData((uint8*)Buffer, SizeToRead, Key->Key);
 		}
 		Dest.Serialize(Buffer, SizeToCopy);
 		RemainingSizeToCopy -= SizeToRead;
@@ -803,7 +1009,7 @@ bool BufferedCopyFile(FArchive& Dest, FArchive& Source, const FPakEntry& Entry, 
 	return true;
 }
 
-bool UncompressCopyFile(FArchive& Dest, FArchive& Source, const FPakEntry& Entry, uint8*& PersistentBuffer, int64& BufferSize, const FNamedAESKey& Key, const FPakFile& PakFile)
+bool UncompressCopyFile(FArchive& Dest, FArchive& Source, const FPakEntry& Entry, uint8*& PersistentBuffer, int64& BufferSize, const TKeyChain& KeyChain, const FPakFile& PakFile)
 {
 	if (Entry.UncompressedSize == 0)
 	{
@@ -813,7 +1019,8 @@ bool UncompressCopyFile(FArchive& Dest, FArchive& Source, const FPakEntry& Entry
 	// The compression block size depends on the bit window that the PAK file was originally created with. Since this isn't stored in the PAK file itself,
 	// we can use FCompression::CompressMemoryBound as a guideline for the max expected size to avoid unncessary reallocations, but we need to make sure
 	// that we check if the actual size is not actually greater (eg. UE-59278).
-	int32 MaxCompressionBlockSize = FCompression::CompressMemoryBound((ECompressionFlags)Entry.CompressionMethod, Entry.CompressionBlockSize);
+	FName EntryCompressionMethod = PakFile.GetInfo().GetCompressionMethod(Entry.CompressionMethodIndex);
+	int32 MaxCompressionBlockSize = FCompression::CompressMemoryBound(EntryCompressionMethod, Entry.CompressionBlockSize);
 	for (const FPakCompressedBlock& Block : Entry.CompressionBlocks)
 	{
 		MaxCompressionBlockSize = FMath::Max<int32>(MaxCompressionBlockSize, Block.CompressedEnd - Block.CompressedStart);
@@ -838,10 +1045,12 @@ bool UncompressCopyFile(FArchive& Dest, FArchive& Source, const FPakEntry& Entry
 
 		if (Entry.IsEncrypted())
 		{
-			FAES::DecryptData(PersistentBuffer, SizeToRead, Key.Key);
+			const FNamedAESKey* Key = KeyChain.Find(PakFile.GetInfo().EncryptionKeyGuid);
+			check(Key);
+			FAES::DecryptData(PersistentBuffer, SizeToRead, Key->Key);
 		}
 
-		if(!FCompression::UncompressMemory((ECompressionFlags)Entry.CompressionMethod,UncompressedBuffer,UncompressedBlockSize,PersistentBuffer,CompressedBlockSize))
+		if (!FCompression::UncompressMemory(EntryCompressionMethod, UncompressedBuffer, UncompressedBlockSize, PersistentBuffer, CompressedBlockSize))
 		{
 			return false;
 		}
@@ -867,9 +1076,37 @@ TEncryptionInt ParseEncryptionIntFromJson(TSharedPtr<FJsonObject> InObj, const T
 	}
 }
 
-void PrepareEncryptionAndSigningKeysFromCryptoKeyCache(const FString& InFilename, FKeyPair& OutSigningKey, FNamedAESKey& OutAESKey, TArray<FNamedAESKey>& OutSecondaryEncryptionKeys)
+FRSA::TKeyPtr ParseRSAKeyFromJson(TSharedPtr<FJsonObject> InObj)
+{
+	TSharedPtr<FJsonObject> PublicKey = InObj->GetObjectField(TEXT("PublicKey"));
+	TSharedPtr<FJsonObject> PrivateKey = InObj->GetObjectField(TEXT("PrivateKey"));
+
+	FString PublicExponentBase64, PrivateExponentBase64, PublicModulusBase64, PrivateModulusBase64;
+
+	if (   PublicKey->TryGetStringField("Exponent", PublicExponentBase64)
+		&& PublicKey->TryGetStringField("Modulus", PublicModulusBase64)
+		&& PrivateKey->TryGetStringField("Exponent", PrivateExponentBase64)
+		&& PrivateKey->TryGetStringField("Modulus", PrivateModulusBase64))
+	{
+		check(PublicModulusBase64 == PrivateModulusBase64);
+
+		TArray<uint8> PublicExponent, PrivateExponent, Modulus;
+		FBase64::Decode(PublicExponentBase64, PublicExponent);
+		FBase64::Decode(PrivateExponentBase64, PrivateExponent);
+		FBase64::Decode(PublicModulusBase64, Modulus);
+
+		return FRSA::CreateKey(PublicExponent, PrivateExponent, Modulus);
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+
+void PrepareEncryptionAndSigningKeysFromCryptoKeyCache(const FString& InFilename, FRSA::TKeyPtr& OutSigningKey, TKeyChain& OutKeyChain)
 {
 	FArchive* File = IFileManager::Get().CreateFileReader(*InFilename);
+	UE_CLOG(File == nullptr, LogPakFile, Fatal, TEXT("Specified crypto keys cache '%s' does not exist!"), *InFilename);
 	TSharedPtr<FJsonObject> RootObject;
 	TSharedRef<TJsonReader<char>> Reader = TJsonReaderFactory<char>::Create(File);
 	if (FJsonSerializer::Deserialize(Reader, RootObject))
@@ -889,7 +1126,11 @@ void PrepareEncryptionAndSigningKeysFromCryptoKeyCache(const FString& InFilename
 						TArray<uint8> Key;
 						FBase64::Decode(EncryptionKeyBase64, Key);
 						check(Key.Num() == sizeof(FAES::FAESKey::Key));
-						FMemory::Memcpy(OutAESKey.Key.Key, &Key[0], sizeof(FAES::FAESKey::Key));
+						FNamedAESKey NewKey;
+						NewKey.Name = TEXT("Default");
+						NewKey.Guid = FGuid();
+						FMemory::Memcpy(NewKey.Key.Key, &Key[0], sizeof(FAES::FAESKey::Key));
+						OutKeyChain.Add(NewKey.Guid, NewKey);
 					}
 				}
 			}
@@ -900,13 +1141,7 @@ void PrepareEncryptionAndSigningKeysFromCryptoKeyCache(const FString& InFilename
 				const TSharedPtr<FJsonObject>* SigningKey = nullptr;
 				if (bEnablePakSigning && RootObject->TryGetObjectField(TEXT("SigningKey"), SigningKey))
 				{
-					TSharedPtr<FJsonObject> PublicKey = (*SigningKey)->GetObjectField(TEXT("PublicKey"));
-					TSharedPtr<FJsonObject> PrivateKey = (*SigningKey)->GetObjectField(TEXT("PrivateKey"));
-					OutSigningKey.PublicKey.Exponent = ParseEncryptionIntFromJson(PublicKey, TEXT("Exponent"));
-					OutSigningKey.PublicKey.Modulus = ParseEncryptionIntFromJson(PublicKey, TEXT("Modulus"));
-					OutSigningKey.PrivateKey.Exponent = ParseEncryptionIntFromJson(PrivateKey, TEXT("Exponent"));
-					OutSigningKey.PrivateKey.Modulus = ParseEncryptionIntFromJson(PrivateKey, TEXT("Modulus"));
-					check(OutSigningKey.PublicKey.Modulus == OutSigningKey.PrivateKey.Modulus);
+					OutSigningKey = ParseRSAKeyFromJson(*SigningKey);
 				}
 			}
 		}
@@ -914,11 +1149,9 @@ void PrepareEncryptionAndSigningKeysFromCryptoKeyCache(const FString& InFilename
 		const TArray<TSharedPtr<FJsonValue>>* SecondaryEncryptionKeyArray = nullptr;
 		if (RootObject->TryGetArrayField(TEXT("SecondaryEncryptionKeys"), SecondaryEncryptionKeyArray))
 		{
-			OutSecondaryEncryptionKeys.Empty(SecondaryEncryptionKeyArray->Num());
-
 			for (TSharedPtr<FJsonValue> EncryptionKeyValue : *SecondaryEncryptionKeyArray)
 			{
-				FNamedAESKey& NewKey = OutSecondaryEncryptionKeys[OutSecondaryEncryptionKeys.Add(FNamedAESKey())];
+				FNamedAESKey NewKey;
 				TSharedPtr<FJsonObject> SecondaryEncryptionKeyObject = EncryptionKeyValue->AsObject();
 				FGuid::Parse(SecondaryEncryptionKeyObject->GetStringField(TEXT("Guid")), NewKey.Guid);
 				NewKey.Name = SecondaryEncryptionKeyObject->GetStringField(TEXT("Name"));
@@ -928,27 +1161,26 @@ void PrepareEncryptionAndSigningKeysFromCryptoKeyCache(const FString& InFilename
 				FBase64::Decode(KeyBase64, Key);
 				check(Key.Num() == sizeof(FAES::FAESKey::Key));
 				FMemory::Memcpy(NewKey.Key.Key, &Key[0], sizeof(FAES::FAESKey::Key));
+
+				check(!OutKeyChain.Contains(NewKey.Guid) || OutKeyChain[NewKey.Guid].Key == NewKey.Key);
+				OutKeyChain.Add(NewKey.Guid, NewKey);
 			}
 		}
 	}
 	delete File;
 }
 
-void PrepareEncryptionAndSigningKeys(const TCHAR* CmdLine, FKeyPair& OutSigningKey, FNamedAESKey& OutEncryptionKey)
+void PrepareEncryptionAndSigningKeys(const TCHAR* CmdLine, FRSA::TKeyPtr& OutSigningKey, TKeyChain& OutKeyChain)
 {
-	OutSigningKey.PrivateKey.Exponent.Zero();
-	OutSigningKey.PrivateKey.Modulus.Zero();
-	OutSigningKey.PublicKey.Exponent.Zero();
-	OutSigningKey.PublicKey.Modulus.Zero();
-	OutEncryptionKey.Key.Reset();
-	TArray<FNamedAESKey> SecondaryEncryptionKeys;
+	OutSigningKey.Reset();
+	OutKeyChain.Empty();
 
 	// First, try and parse the keys from a supplied crypto key cache file
 	FString CryptoKeysCacheFilename;
 	if (FParse::Value(CmdLine, TEXT("cryptokeys="), CryptoKeysCacheFilename))
 	{
 		UE_LOG(LogPakFile, Display, TEXT("Parsing crypto keys from a crypto key cache file"));
-		PrepareEncryptionAndSigningKeysFromCryptoKeyCache(CryptoKeysCacheFilename, OutSigningKey, OutEncryptionKey, SecondaryEncryptionKeys);
+		PrepareEncryptionAndSigningKeysFromCryptoKeyCache(CryptoKeysCacheFilename, OutSigningKey, OutKeyChain);
 	}
 	else if (FParse::Param(CmdLine, TEXT("encryptionini")))
 	{
@@ -958,6 +1190,8 @@ void PrepareEncryptionAndSigningKeys(const TCHAR* CmdLine, FKeyPair& OutSigningK
 			&& FParse::Value(CmdLine, TEXT("enginedir="), EngineDir, false)
 			&& FParse::Value(CmdLine, TEXT("platform="), Platform, false))
 		{
+			UE_LOG(LogPakFile, Warning, TEXT("A legacy command line syntax is being used for crypto config. Please update to using the -cryptokey parameter as soon as possible as this mode is deprecated"));
+
 			FConfigFile EngineConfig;
 
 			FConfigCacheIni::LoadExternalIniFile(EngineConfig, TEXT("Engine"), *FPaths::Combine(EngineDir, TEXT("Config\\")), *FPaths::Combine(ProjectDir, TEXT("Config/")), true, *Platform);
@@ -1001,10 +1235,7 @@ void PrepareEncryptionAndSigningKeys(const TCHAR* CmdLine, FKeyPair& OutSigningK
 					FBase64::Decode(PrivateExpBase64, PrivateExp);
 					FBase64::Decode(ModulusBase64, Modulus);
 
-					OutSigningKey.PrivateKey.Exponent = TEncryptionInt((uint32*)&PrivateExp[0]);
-					OutSigningKey.PrivateKey.Modulus = TEncryptionInt((uint32*)&Modulus[0]);
-					OutSigningKey.PublicKey.Exponent = TEncryptionInt((uint32*)&PublicExp[0]);
-					OutSigningKey.PublicKey.Modulus = OutSigningKey.PrivateKey.Modulus;
+					OutSigningKey = FRSA::CreateKey(PublicExp, PrivateExp, Modulus);
 
 					UE_LOG(LogPakFile, Display, TEXT("Parsed signature keys from config files."));
 				}
@@ -1019,7 +1250,11 @@ void PrepareEncryptionAndSigningKeys(const TCHAR* CmdLine, FKeyPair& OutSigningK
 						TArray<uint8> Key;
 						FBase64::Decode(EncryptionKeyString, Key);
 						check(Key.Num() == sizeof(FAES::FAESKey::Key));
-						FMemory::Memcpy(OutEncryptionKey.Key.Key, &Key[0], sizeof(FAES::FAESKey::Key));
+						FNamedAESKey NewKey;
+						NewKey.Name = TEXT("Default");
+						NewKey.Guid = FGuid();
+						FMemory::Memcpy(NewKey.Key.Key, &Key[0], sizeof(FAES::FAESKey::Key));
+						OutKeyChain.Add(NewKey.Guid, NewKey);
 						UE_LOG(LogPakFile, Display, TEXT("Parsed AES encryption key from config files."));
 					}
 				}
@@ -1041,10 +1276,11 @@ void PrepareEncryptionAndSigningKeys(const TCHAR* CmdLine, FKeyPair& OutSigningK
 					ConfigFile.GetString(SectionName, TEXT("rsa.privateexp"), RSAPrivateExp);
 					ConfigFile.GetString(SectionName, TEXT("rsa.modulus"), RSAModulus);
 
-					OutSigningKey.PrivateKey.Exponent.Parse(RSAPrivateExp);
-					OutSigningKey.PrivateKey.Modulus.Parse(RSAModulus);
-					OutSigningKey.PublicKey.Exponent.Parse(RSAPublicExp);
-					OutSigningKey.PublicKey.Modulus = OutSigningKey.PrivateKey.Modulus;
+
+					//OutSigningKey.PrivateKey.Exponent.Parse(RSAPrivateExp);
+					//OutSigningKey.PrivateKey.Modulus.Parse(RSAModulus);
+					//OutSigningKey.PublicKey.Exponent.Parse(RSAPublicExp);
+					//OutSigningKey.PublicKey.Modulus = OutSigningKey.PrivateKey.Modulus;
 
 					UE_LOG(LogPakFile, Display, TEXT("Parsed signature keys from config files."));
 				}
@@ -1053,14 +1289,16 @@ void PrepareEncryptionAndSigningKeys(const TCHAR* CmdLine, FKeyPair& OutSigningK
 				{
 					FString EncryptionKeyString;
 					ConfigFile.GetString(SectionName, TEXT("aes.key"), EncryptionKeyString);
-
+					FNamedAESKey NewKey;
+					NewKey.Name = TEXT("Default");
+					NewKey.Guid = FGuid();
 					if (EncryptionKeyString.Len() == 32 && TCString<TCHAR>::IsPureAnsi(*EncryptionKeyString))
 					{
 						for (int32 Index = 0; Index < 32; ++Index)
 						{
-							OutEncryptionKey.Key.Key[Index] = (uint8)EncryptionKeyString[Index];
+							NewKey.Key.Key[Index] = (uint8)EncryptionKeyString[Index];
 						}
-
+						OutKeyChain.Add(NewKey.Guid, NewKey);
 						UE_LOG(LogPakFile, Display, TEXT("Parsed AES encryption key from config files."));
 					}
 				}
@@ -1076,7 +1314,12 @@ void PrepareEncryptionAndSigningKeys(const TCHAR* CmdLine, FKeyPair& OutSigningK
 
 		if (EncryptionKeyString.Len() > 0)
 		{
-			const uint32 RequiredKeyLength = sizeof(OutEncryptionKey.Key);
+			UE_LOG(LogPakFile, Warning, TEXT("A legacy command line syntax is being used for crypto config. Please update to using the -cryptokey parameter as soon as possible as this mode is deprecated"));
+
+			FNamedAESKey NewKey;
+			NewKey.Name = TEXT("Default");
+			NewKey.Guid = FGuid();
+			const uint32 RequiredKeyLength = sizeof(NewKey.Key);
 
 			// Error checking
 			if (EncryptionKeyString.Len() < RequiredKeyLength)
@@ -1097,97 +1340,34 @@ void PrepareEncryptionAndSigningKeys(const TCHAR* CmdLine, FKeyPair& OutSigningK
 
 			ANSICHAR* AsAnsi = TCHAR_TO_ANSI(*EncryptionKeyString);
 			check(TCString<ANSICHAR>::Strlen(AsAnsi) == RequiredKeyLength);
-			FMemory::Memcpy(OutEncryptionKey.Key.Key, AsAnsi, RequiredKeyLength);
+			FMemory::Memcpy(NewKey.Key.Key, AsAnsi, RequiredKeyLength);
+			OutKeyChain.Add(NewKey.Guid, NewKey);
 			UE_LOG(LogPakFile, Display, TEXT("Parsed AES encryption key from command line."));
 		}
+	}
+}
 
-		FString KeyFilename;
-		if (FParse::Value(CmdLine, TEXT("sign="), KeyFilename, false))
-		{
-			if (KeyFilename.StartsWith(TEXT("0x")))
-			{
-				TArray<FString> KeyValueText;
-				int32 NumParts = KeyFilename.ParseIntoArray(KeyValueText, TEXT("+"), true);
-				if (NumParts == 3)
-				{
-					OutSigningKey.PrivateKey.Exponent.Parse(KeyValueText[0]);
-					OutSigningKey.PrivateKey.Modulus.Parse(KeyValueText[1]);
-					OutSigningKey.PublicKey.Exponent.Parse(KeyValueText[2]);
-					OutSigningKey.PublicKey.Modulus = OutSigningKey.PrivateKey.Modulus;
-
-					UE_LOG(LogPakFile, Display, TEXT("Parsed signature keys from command line."));
-				}
-				else
-				{
-					UE_LOG(LogPakFile, Error, TEXT("Expected 3, got %d, when parsing %s"), KeyValueText.Num(), *KeyFilename);
-					OutSigningKey.PrivateKey.Exponent.Zero();
-				}
-			}
-			else if (!ReadKeysFromFile(*KeyFilename, OutSigningKey))
-			{
-				UE_LOG(LogPakFile, Error, TEXT("Unable to load signature keys %s."), *KeyFilename);
-			}
-		}
+void ApplyKeyChain(const TKeyChain& KeyChain)
+{
+	if (KeyChain.Contains(FGuid()))
+	{
+		FAES::FAESKey DefaultKey = KeyChain[FGuid()].Key;
+		FCoreDelegates::GetPakEncryptionKeyDelegate().BindLambda([DefaultKey](uint8 OutKey[32]) { FMemory::Memcpy(OutKey, DefaultKey.Key, sizeof(DefaultKey.Key)); });
 	}
 
-	if (OutSigningKey.IsValid())
+	for (const TKeyChain::ElementType& Key : KeyChain)
 	{
-		if (!TestKeys(OutSigningKey))
+		if (Key.Key.IsValid())
 		{
-			UE_LOG(LogPakFile, Fatal, TEXT("Pak signing keys are invalid"));
-			OutSigningKey.PrivateKey.Exponent.Zero();
+			FCoreDelegates::GetRegisterEncryptionKeyDelegate().ExecuteIfBound(Key.Key, Key.Value.Key);
 		}
-	}
-
-	FString MasterEncryptionKeyOverrideGuidString;
-	if (FParse::Value(CmdLine, TEXT("-EncryptionKeyOverrideGuid="), MasterEncryptionKeyOverrideGuidString))
-	{
-		FGuid MasterEncryptionKeyOverrideGuid;
-		if (FGuid::Parse(MasterEncryptionKeyOverrideGuidString, MasterEncryptionKeyOverrideGuid))
-		{
-			for (FNamedAESKey& NamedKey : SecondaryEncryptionKeys)
-			{
-				if (NamedKey.Guid == MasterEncryptionKeyOverrideGuid)
-				{
-					OutEncryptionKey = NamedKey;
-					UE_LOG(LogPakFile, Display, TEXT("Using encryption key override from command line (%s [%s])"), *NamedKey.Name, *MasterEncryptionKeyOverrideGuidString);
-					break;
-				}
-			}
-
-			if (OutEncryptionKey.Guid != MasterEncryptionKeyOverrideGuid)
-			{
-				UE_LOG(LogPakFile, Fatal, TEXT("Failed to find specified encryption key override guid (%s)"), *MasterEncryptionKeyOverrideGuidString);
-			}
-		}
-		else
-		{
-			UE_LOG(LogPakFile, Fatal, TEXT("Failed to parse encryption key override guid from command line (%s)"), *MasterEncryptionKeyOverrideGuidString);
-		}
-	}
-	else
-	{
-		if (OutEncryptionKey.IsValid())
-		{
-			UE_LOG(LogPakFile, Display, TEXT("Using embedded encryption key"));
-		}
-	}
-	
-	if (OutEncryptionKey.IsValid())
-	{
-		FCoreDelegates::GetPakEncryptionKeyDelegate().BindLambda([OutEncryptionKey](uint8 OutKey[32]) { FMemory::Memcpy(OutKey, OutEncryptionKey.Key.Key, sizeof(OutEncryptionKey.Key)); });
-	}
-
-	for (const FNamedAESKey& Key : SecondaryEncryptionKeys)
-	{
-		FCoreDelegates::GetRegisterEncryptionKeyDelegate().ExecuteIfBound(Key.Guid, Key.Key);
 	}
 }
 
 /**
  * Creates a pak file writer. This can be a signed writer if the encryption keys are specified in the command line
  */
-FArchive* CreatePakWriter(const TCHAR* Filename, const FKeyPair& SigningKey)
+FArchive* CreatePakWriter(const TCHAR* Filename, FRSA::TKeyPtr SigningKey)
 {
 	FArchive* Writer = IFileManager::Get().CreateFileWriter(Filename);
 	FString KeyFilename;
@@ -1198,14 +1378,14 @@ FArchive* CreatePakWriter(const TCHAR* Filename, const FKeyPair& SigningKey)
 		if (SigningKey.IsValid())
 		{
 			UE_LOG(LogPakFile, Display, TEXT("Creating signed pak %s."), Filename);
-			Writer = new FSignedArchiveWriter(*Writer, Filename, SigningKey.PublicKey, SigningKey.PrivateKey);
+			Writer = new FSignedArchiveWriter(*Writer, Filename, SigningKey);
 		}
 	}
 
 	return Writer;
 }
 
-bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, const FPakCommandLineParameters& CmdLineParameters, const FKeyPair& SigningKey, const FNamedAESKey& EncryptionKey)
+bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, const FPakCommandLineParameters& CmdLineParameters, FRSA::TKeyPtr SigningKey, const TKeyChain& KeyChain)
 {	
 	const double StartTime = FPlatformTime::Seconds();
 
@@ -1218,14 +1398,27 @@ bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, con
 	}
 
 	FPakInfo Info;
-	Info.bEncryptedIndex = (EncryptionKey.IsValid() && CmdLineParameters.EncryptIndex);
-	Info.EncryptionKeyGuid = EncryptionKey.Guid;
+	FNamedAESKey MasterKey;
+	if (const FNamedAESKey* MasterKeyLookup = KeyChain.Find(CmdLineParameters.EncryptionKeyGuid))
+	{
+		MasterKey = *MasterKeyLookup;
+	}
+	Info.bEncryptedIndex = (MasterKey.IsValid() && CmdLineParameters.EncryptIndex);
+	Info.EncryptionKeyGuid = MasterKey.Guid;
+
+	if (CmdLineParameters.EncryptionKeyGuid.IsValid())
+	{
+		UE_LOG(LogPakFile, Display, TEXT("Encrypting using key '%s' [%s]"), *MasterKey.Name, *MasterKey.Guid.ToString());
+	}
+	else
+	{
+		UE_LOG(LogPakFile, Display, TEXT("Encrypting using embedded key"));
+	}
 
 	TArray<FPakEntryPair> Index;
 	FString MountPoint = GetCommonRootPath(FilesToAdd);
 	uint8* ReadBuffer = NULL;
 	int64 BufferSize = 0;
-	ECompressionFlags CompressionMethod = COMPRESS_None;
 	FCompressedFileBuffer CompressedFileBuffer;
 
 	uint8* PaddingBuffer = nullptr;
@@ -1252,6 +1445,15 @@ bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, con
 	uint64 TotalRequestedEncryptedFiles = 0;
 	uint64 TotalEncryptedFiles = 0;
 	uint64 TotalEncryptedDataSize = 0;
+
+	TArray<FString> ExtensionsToNotUsePluginCompression;
+	GConfig->GetArray(TEXT("Pak"), TEXT("ExtensionsToNotUsePluginCompression"), ExtensionsToNotUsePluginCompression, GEngineIni);
+	TSet<FString> NoPluginCompressionExtensions;
+	for (const FString& Ext : ExtensionsToNotUsePluginCompression)
+	{
+		NoPluginCompressionExtensions.Add(Ext);
+	}
+
 
 	for (int32 FileIndex = 0; FileIndex < FilesToAdd.Num(); FileIndex++)
 	{
@@ -1283,59 +1485,70 @@ bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, con
 		//  Remember the offset but don't serialize it with the entry header.
 		int64 NewEntryOffset = PakFileHandle->Tell();
 		FPakEntryPair NewEntry;
+		FName CompressionMethod = NAME_None;
 
 		if (!bDeleted)
 		{
 			//check if this file requested to be compression
 			int64 OriginalFileSize = IFileManager::Get().FileSize(*FilesToAdd[FileIndex].Source);
 			int64 RealFileSize = OriginalFileSize + NewEntry.Info.GetSerializedSize(FPakInfo::PakFile_Version_Latest);
+
 			if (FilesToAdd[FileIndex].bNeedsCompression && OriginalFileSize > 0)
 			{
-				if (CmdLineParameters.UseCustomCompressor)
+				bool bSomeCompressionSucceeded = false;
+				for (int32 MethodIndex = 0; MethodIndex < CmdLineParameters.CompressionFormats.Num(); MethodIndex++)
 				{
-					CompressionMethod = COMPRESS_Custom;
-				}
-				else
-				{
-					CompressionMethod = COMPRESS_Default;
+					CompressionMethod = CmdLineParameters.CompressionFormats[MethodIndex];
+
+					// because compression is a plugin, certain files need to be loadable out of pak files before plugins are loadable
+					// (like .uplugin files). for these, we enforce a non-plugin compression - zlib
+					bool bForceCompressionFormat = false;
+					if (NoPluginCompressionExtensions.Find(FPaths::GetExtension(FilesToAdd[FileIndex].Source)) != nullptr)
+					{
+						CompressionMethod = NAME_Zlib;
+						bForceCompressionFormat = true;
+					}
+
+					// attempt to compress the data
+					if (CompressedFileBuffer.CompressFileToWorkingBuffer(FilesToAdd[FileIndex], ReadBuffer, BufferSize, CompressionMethod, CmdLineParameters.CompressionBlockSize))
+					{
+						// Check the compression ratio, if it's too low just store uncompressed. Also take into account read size
+						// if we still save 64KB it's probably worthwhile compressing, as that saves a file read operation in the runtime.
+								// TODO: drive this threshold from the command line
+						float PercentLess = ((float)CompressedFileBuffer.TotalCompressedSize / (OriginalFileSize / 100.f));
+						if (PercentLess > 90.f && (OriginalFileSize - CompressedFileBuffer.TotalCompressedSize) < 65536)
+						{
+							// compression did not succeed, we can try the next format, so do nothing here
+						}
+						else
+						{
+							NewEntry.Info.CompressionMethodIndex = Info.GetCompressionMethodIndex(CompressionMethod);
+							NewEntry.Info.CompressionBlocks.AddUninitialized(CompressedFileBuffer.CompressedBlocks.Num());
+							RealFileSize = CompressedFileBuffer.TotalCompressedSize + NewEntry.Info.GetSerializedSize(FPakInfo::PakFile_Version_Latest);
+							NewEntry.Info.CompressionBlocks.Reset();
+
+							// at this point, we have successfully compressed the file, no need to continue
+							bSomeCompressionSucceeded = true;
+						}
+					}
+
+					// if we successfully compressed it, or we only wanted a single format, then we are done!
+					if (bSomeCompressionSucceeded || bForceCompressionFormat)
+					{
+						break;
+					}
 				}
 
-				if (CmdLineParameters.OverridePlatformCompressor)
+				// If no compression was able to make it small enough, or compress at all, don't compress it
+				if (!bSomeCompressionSucceeded)
 				{
-					CompressionMethod = (ECompressionFlags)(CompressionMethod | COMPRESS_OverridePlatform);
+					UE_LOG(LogPakFile, Log, TEXT("File \"%s\" did not get small enough from compression, or compression failed."), *FilesToAdd[FileIndex].Source);
+					CompressionMethod = NAME_None;
 				}
 			}
 			else
 			{
-				CompressionMethod = COMPRESS_None;
-			}
-
-			if (CompressionMethod != COMPRESS_None)
-			{
-				if (CompressedFileBuffer.CompressFileToWorkingBuffer(FilesToAdd[FileIndex], ReadBuffer, BufferSize, CompressionMethod, CmdLineParameters.CompressionBlockSize, CmdLineParameters.CompressionBitWindow))
-				{
-					// Check the compression ratio, if it's too low just store uncompressed. Also take into account read size
-					// if we still save 64KB it's probably worthwhile compressing, as that saves a file read operation in the runtime.
-					// TODO: drive this threashold from the command line
-					float PercentLess = ((float)CompressedFileBuffer.TotalCompressedSize / (OriginalFileSize / 100.f));
-					if (PercentLess > 90.f && (OriginalFileSize - CompressedFileBuffer.TotalCompressedSize) < 65536)
-					{
-						CompressionMethod = COMPRESS_None;
-					}
-					else
-					{
-						NewEntry.Info.CompressionMethod = CompressionMethod;
-						NewEntry.Info.CompressionBlocks.AddUninitialized(CompressedFileBuffer.CompressedBlocks.Num());
-						RealFileSize = CompressedFileBuffer.TotalCompressedSize + NewEntry.Info.GetSerializedSize(FPakInfo::PakFile_Version_Latest);
-						NewEntry.Info.CompressionBlocks.Reset();
-					}
-				}
-				else
-				{
-					// Compression failed. Include file uncompressed and warn the user.
-					UE_LOG(LogPakFile, Warning, TEXT("File \"%s\" failed compression. File will be saved uncompressed."), *FilesToAdd[FileIndex].Source);
-					CompressionMethod = COMPRESS_None;
-				}
+				CompressionMethod = NAME_None;
 			}
 
 			// Account for file system block size, which is a boundary we want to avoid crossing.
@@ -1384,14 +1597,14 @@ bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, con
 			// Directly add the new entry to the index, no more work to do
 			Index.Add(NewEntry);
 		}
-		else if (FilesToAdd[FileIndex].bNeedsCompression && CompressionMethod != COMPRESS_None)
+		else if (FilesToAdd[FileIndex].bNeedsCompression && CompressionMethod != NAME_None)
 		{
-			bCopiedToPak = PrepareCopyCompressedFileToPak(MountPoint, FilesToAdd[FileIndex], CompressedFileBuffer, NewEntry, DataToWrite, SizeToWrite, EncryptionKey);
+			bCopiedToPak = PrepareCopyCompressedFileToPak(MountPoint, Info, FilesToAdd[FileIndex], CompressedFileBuffer, NewEntry, DataToWrite, SizeToWrite, MasterKey);
 			DataToWrite = CompressedFileBuffer.CompressedBuffer.Get();
 		}
 		else
 		{
-			bCopiedToPak = PrepareCopyFileToPak(MountPoint, FilesToAdd[FileIndex], ReadBuffer, BufferSize, NewEntry, DataToWrite, SizeToWrite, EncryptionKey);
+			bCopiedToPak = PrepareCopyFileToPak(MountPoint, FilesToAdd[FileIndex], ReadBuffer, BufferSize, NewEntry, DataToWrite, SizeToWrite, MasterKey);
 			DataToWrite = ReadBuffer;
 		}		
 
@@ -1454,9 +1667,9 @@ bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, con
 					ContiguousFilesSmallerThanBlockSize++;				
 				}
 			}
-			if (FilesToAdd[FileIndex].bNeedsCompression && CompressionMethod != COMPRESS_None)
+			if (FilesToAdd[FileIndex].bNeedsCompression && CompressionMethod != NAME_None)
 			{
-				FinalizeCopyCompressedFileToPak(*PakFileHandle, CompressedFileBuffer, NewEntry);
+				FinalizeCopyCompressedFileToPak(Info, CompressedFileBuffer, NewEntry);
 			}
 
 			// Write to file
@@ -1476,7 +1689,7 @@ bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, con
 			{
 				TotalRequestedEncryptedFiles++;
 
-				if (EncryptionKey.IsValid())
+				if (MasterKey.IsValid())
 				{
 					TotalEncryptedFiles++;
 					TotalEncryptedDataSize += SizeToWrite;
@@ -1484,18 +1697,18 @@ bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, con
 				}
 			}
 
-			if (FilesToAdd[FileIndex].bNeedsCompression && CompressionMethod != COMPRESS_None)
+			if (FilesToAdd[FileIndex].bNeedsCompression && CompressionMethod != NAME_None)
 			{
 				TotalCompressedSize += NewEntry.Info.Size;
 				TotalUncompressedSize += NewEntry.Info.UncompressedSize;
 				float PercentLess = ((float)NewEntry.Info.Size / (NewEntry.Info.UncompressedSize / 100.f));
 				if (FilesToAdd[FileIndex].SuggestedOrder < MAX_uint64)
 				{
-					UE_LOG(LogPakFile, Log, TEXT("Added compressed %sfile \"%s\", %.2f%% of original size. Compressed Size %lld bytes, Original Size %lld bytes (order %llu)."), EncryptedString, *NewEntry.Filename, PercentLess, NewEntry.Info.Size, NewEntry.Info.UncompressedSize, FilesToAdd[FileIndex].SuggestedOrder);
+					UE_LOG(LogPakFile, Log, TEXT("Added compressed %sfile \"%s\", %.2f%% of original size. Compressed with %s, Size %lld bytes, Original Size %lld bytes (order %llu)."), EncryptedString, *NewEntry.Filename, PercentLess, *CompressionMethod.ToString(), NewEntry.Info.Size, NewEntry.Info.UncompressedSize, FilesToAdd[FileIndex].SuggestedOrder);
 				}
 				else
 				{
-					UE_LOG(LogPakFile, Log, TEXT("Added compressed %sfile \"%s\", %.2f%% of original size. Compressed Size %lld bytes, Original Size %lld bytes (no order given)."), EncryptedString, *NewEntry.Filename, PercentLess, NewEntry.Info.Size, NewEntry.Info.UncompressedSize);
+					UE_LOG(LogPakFile, Log, TEXT("Added compressed %sfile \"%s\", %.2f%% of original size. Compressed with %s, Size %lld bytes, Original Size %lld bytes (no order given)."), EncryptedString, *NewEntry.Filename, PercentLess, *CompressionMethod.ToString(), NewEntry.Info.Size, NewEntry.Info.UncompressedSize);
 				}
 			}
 			else
@@ -1575,7 +1788,8 @@ bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, con
 
 	if (Info.bEncryptedIndex)
 	{
-		FAES::EncryptData(IndexData.GetData(), IndexData.Num(), EncryptionKey.Key);
+		FNamedAESKey MasterEncryptionKey = KeyChain[CmdLineParameters.EncryptionKeyGuid];
+		FAES::EncryptData(IndexData.GetData(), IndexData.Num(), MasterEncryptionKey.Key);
 		TotalEncryptedDataSize += IndexData.Num();
 	}
 
@@ -1675,17 +1889,21 @@ bool ListFilesInPak(const TCHAR * InPakFilename, int64 SizeFilter, bool bInclude
 			
 			TArray<FString> Lines;
 			Lines.Empty(Records.Num()+2);
-			Lines.Add(TEXT("Filename, Offset, Size, Hash, Deleted"));
+			Lines.Add(TEXT("Filename, Offset, Size, Hash, Deleted, Compressed, CompressionMethod"));
 			for (auto It : Records)
 			{
 				const FPakEntry& Entry = It.Info();
 
+				bool bWasCompressed = Entry.CompressionMethodIndex != 0;
+
 				Lines.Add( FString::Printf(
-					TEXT("%s%s, %d, %d, %s, %s"),
+					TEXT("%s%s, %d, %d, %s, %s, %s, %d"),
 					*MountPoint, *It.Filename(),
 					Entry.Offset, Entry.Size,
 					*BytesToHex(Entry.Hash, sizeof(Entry.Hash)),
-					Entry.IsDeleteRecord() ? TEXT("true") : TEXT("false")) );
+					Entry.IsDeleteRecord() ? TEXT("true") : TEXT("false"),
+					bWasCompressed ? TEXT("true") : TEXT("false"),
+					Entry.CompressionMethodIndex) );
 			}
 
 			if (FFileHelper::SaveStringArrayToFile(Lines, *CSVFilename) == false)
@@ -1698,18 +1916,70 @@ bool ListFilesInPak(const TCHAR * InPakFilename, int64 SizeFilter, bool bInclude
 			}
 		}
 
+		TSet<int32> InspectChunks;
+		FString InspectChunkString;
+		FParse::Value(FCommandLine::Get(), TEXT("InspectChunk="), InspectChunkString, false);
+		TArray<FString> InspectChunkRanges;
+		if (InspectChunkString.TrimStartAndEnd().ParseIntoArray(InspectChunkRanges, TEXT(",")))
+		{
+			for (const FString& InspectChunkRangeString : InspectChunkRanges)
+			{
+				TArray<FString> RangeLimits;
+				if (InspectChunkRangeString.TrimStartAndEnd().ParseIntoArray(RangeLimits, TEXT("-")))
+				{
+					if (RangeLimits.Num() == 1)
+					{
+						int32 Chunk = -1;
+						LexFromString(Chunk, *InspectChunkRangeString);
+						if (Chunk != -1)
+						{
+							InspectChunks.Add(Chunk);
+						}
+					}
+					else if (RangeLimits.Num() == 2)
+					{
+						int32 FirstChunk = -1;
+						int32 LastChunk = -1;
+						LexFromString(FirstChunk, *RangeLimits[0]);
+						LexFromString(LastChunk, *RangeLimits[1]);
+						if (FirstChunk != -1 && LastChunk != -1)
+						{
+							for (int32 Chunk = FirstChunk; Chunk <= LastChunk; ++Chunk)
+							{
+								InspectChunks.Add(Chunk);
+							}
+						}
+					}
+					else
+					{
+						UE_LOG(LogPakFile, Error, TEXT("Error parsing inspect chunk range '%s'"), *InspectChunkRangeString);
+					}
+				}
+			}
+		}
 		for (auto It : Records)
 		{
 			const FPakEntry& Entry = It.Info();
-			if (Entry.IsDeleteRecord())
-			{
-				UE_LOG(LogPakFile, Display, TEXT("\"%s%s\" deleted."), *MountPoint, *It.Filename());
-				continue;
-			}
 			if (Entry.Size >= SizeFilter)
 			{
-				UE_LOG(LogPakFile, Display, TEXT("\"%s%s\" offset: %lld, size: %d bytes, sha1: %s."), *MountPoint, *It.Filename(), Entry.Offset, Entry.Size, *BytesToHex(Entry.Hash, sizeof(Entry.Hash)));
-				FilteredSize += Entry.Size;
+				if (InspectChunkRanges.Num() > 0)
+				{
+					int32 FirstChunk = Entry.Offset / (64 * 1024);
+					int32 LastChunk = (Entry.Offset + Entry.Size) / (64 * 1024);
+
+					for (int32 Chunk = FirstChunk; Chunk <= LastChunk; ++Chunk)
+					{
+						if (InspectChunks.Contains(Chunk))
+						{
+							UE_LOG(LogPakFile, Display, TEXT("[%d - %d] \"%s%s\" offset: %lld, size: %d bytes, sha1: %s, compression: %s."), FirstChunk, LastChunk, *MountPoint, *It.Filename(), Entry.Offset, Entry.Size, *BytesToHex(Entry.Hash, sizeof(Entry.Hash)), *PakFile.GetInfo().GetCompressionMethod(Entry.CompressionMethodIndex).ToString());
+							break;
+						}
+					}
+				}
+				else
+				{
+					UE_LOG(LogPakFile, Display, TEXT("\"%s%s\" offset: %lld, size: %d bytes, sha1: %s, compression: %s."), *MountPoint, *It.Filename(), Entry.Offset, Entry.Size, *BytesToHex(Entry.Hash, sizeof(Entry.Hash)), *PakFile.GetInfo().GetCompressionMethod(Entry.CompressionMethodIndex).ToString());
+				}
 			}
 			FileSize += Entry.Size;
 			FileCount++;
@@ -1770,7 +2040,7 @@ int32 GetPakChunkIndexFromFilename( const FString& PakFilePath )
 	return PakChunkIndex;
 }
 
-bool AuditPakFiles( const FString& InputPath, bool bOnlyDeleted, const FString& CSVFilename, bool bSigned )
+bool AuditPakFiles( const FString& InputPath, bool bOnlyDeleted, const FString& CSVFilename, bool bSigned, const TMap<FString, uint64>& OrderMap, bool bSortByOrdering )
 {
 	//collect all pak files
 	FString PakFileDirectory;
@@ -1801,6 +2071,7 @@ bool AuditPakFiles( const FString& InputPath, bool bOnlyDeleted, const FString& 
 	};
 	TMap<FString, FFilePakRevision> FileRevisions;
 	TMap<FString, FFilePakRevision> DeletedRevisions;
+	TMap<FString, FString> PakFilenameToPatchDotChunk;
 	int32 HighestPakPriority = -1;
 
 	//build lookup tables for the newest revision of all files and all deleted files
@@ -1841,6 +2112,17 @@ bool AuditPakFiles( const FString& InputPath, bool bOnlyDeleted, const FString& 
 					AppropriateRevisions[AssetName] = Revision;
 				}
 			}
+
+
+			//build "patch.chunk" string
+			FString PatchDotChunk;
+			PatchDotChunk += FString::Printf( TEXT("%d."), PakPriority+1 );
+			int32 ChunkIndex = GetPakChunkIndexFromFilename( PakFilename );
+			if( ChunkIndex != -1 )
+			{
+				PatchDotChunk += FString::Printf( TEXT("%d"), ChunkIndex );
+			}
+			PakFilenameToPatchDotChunk.Add( PakFileList[PakFileIndex], PatchDotChunk );
 		}
 		else
 		{
@@ -1848,6 +2130,8 @@ bool AuditPakFiles( const FString& InputPath, bool bOnlyDeleted, const FString& 
 			return false;
 		}
 	}
+
+	bool bHasOpenOrder = (OrderMap.Num() > 0);
 
 	//open CSV file, if requested
 	FArchive* CSVFileWriter = nullptr;
@@ -1874,22 +2158,90 @@ bool AuditPakFiles( const FString& InputPath, bool bOnlyDeleted, const FString& 
 		}
 	};
 
-	//log every file, sorted alphabetically
-	FileRevisions.KeySort([]( const FString& A, const FString& B )
+	//cache open order for faster lookup
+	TMap<FString,uint64> CachedOpenOrder;
+	if( bHasOpenOrder )
 	{
-		return A.Compare(B, ESearchCase::IgnoreCase) < 0;
-	});
-	DeletedRevisions.KeySort([]( const FString& A, const FString& B )
-	{
-		return A.Compare(B, ESearchCase::IgnoreCase) < 0;
-	});
+		UE_LOG(LogPakFile, Display, TEXT("Checking open order data") );
+		for (auto Itr : FileRevisions)
+		{
+			const FString& AssetPath = Itr.Key;
+			FString OpenOrderAssetName = FString::Printf( TEXT("../../../%s"), *AssetPath );
+			FPaths::NormalizeFilename(OpenOrderAssetName);
+			OpenOrderAssetName.ToLowerInline();
 
-	WriteCSVLine( TEXT("AssetName,State,Pak,Prev.Pak,Rev,Prev.Rev,Size,AssetPath") );
+			if( const uint64* OrderIndexPtr = OrderMap.Find( OpenOrderAssetName ) )
+			{
+				CachedOpenOrder.Add( AssetPath, *OrderIndexPtr );
+			}
+		}
+	}
+
+	//helper lambda to look up cached open order
+	auto FindOpenOrder = [&]( const FString& AssetPath )
+	{
+		if( const uint64* OrderIndexPtr = CachedOpenOrder.Find( AssetPath ) )
+		{
+			return (*OrderIndexPtr);
+		}
+
+		return uint64(UINT64_MAX);
+	};
+
+	//log every file, sorted alphabetically
+	if( bSortByOrdering && bHasOpenOrder )
+	{
+		UE_LOG(LogPakFile, Display, TEXT("Sorting pak audit data by open order") );
+		FileRevisions.KeySort([&]( const FString& A, const FString& B )
+		{
+			return FindOpenOrder(A) < FindOpenOrder(B);
+		});
+		DeletedRevisions.KeySort([&]( const FString& A, const FString& B )
+		{
+			return FindOpenOrder(A) < FindOpenOrder(B);
+		});
+	}
+	else
+	{
+		UE_LOG(LogPakFile, Display, TEXT("Sorting pak audit data by name") );
+		FileRevisions.KeySort([]( const FString& A, const FString& B )
+		{
+			return A.Compare(B, ESearchCase::IgnoreCase) < 0;
+		});
+		DeletedRevisions.KeySort([]( const FString& A, const FString& B )
+		{
+			return A.Compare(B, ESearchCase::IgnoreCase) < 0;
+		});
+	}
+
+	FString PreviousPatchDotChunk;
+	int NumSeeks = 0;
+	int NumReads = 0;
+
+	UE_CLOG((CSVFileWriter!=nullptr),LogPakFile, Display, TEXT("Writing pak audit CSV file %s..."), *CSVFilename );
+	WriteCSVLine( TEXT("AssetName,State,Pak,Prev.Pak,Rev,Prev.Rev,Size,AssetPath,Patch.Chunk,OpenOrder" ) );
 	for (auto Itr : FileRevisions)
 	{
 		const FString& AssetPath = Itr.Key;
 		const FString AssetName = FPaths::GetCleanFilename(AssetPath);
 		const FFilePakRevision* DeletedRevision = DeletedRevisions.Find(AssetPath);
+
+		//look up the open order for this file
+		FString OpenOrderText = "";
+		uint64 OpenOrder = FindOpenOrder(AssetPath);
+		if( OpenOrder != UINT64_MAX )
+		{
+			OpenOrderText = FString::Printf( TEXT("%llu"), OpenOrder );
+		}
+
+		//lookup patch.chunk value
+		FString PatchDotChunk = "";
+		if( const FString* PatchDotChunkPtr = PakFilenameToPatchDotChunk.Find(Itr.Value.PakFilename) )
+		{
+			PatchDotChunk = *PatchDotChunkPtr;
+		}
+
+		bool bFileExists = true;
 		if (DeletedRevision == nullptr)
 		{
 			if (bOnlyDeleted)
@@ -1898,24 +2250,35 @@ bool AuditPakFiles( const FString& InputPath, bool bOnlyDeleted, const FString& 
 			}
 			else if (Itr.Value.PakPriority == HighestPakPriority)
 			{
-				WriteCSVLine( FString::Printf( TEXT("%s,Fresh,%s,,%d,,%d,%s"), *AssetName, *Itr.Value.PakFilename, Itr.Value.PakPriority, Itr.Value.Size, *AssetPath ) );
+				WriteCSVLine( FString::Printf( TEXT("%s,Fresh,%s,,%d,,%d,%s,%s,%s"), *AssetName, *Itr.Value.PakFilename, Itr.Value.PakPriority, Itr.Value.Size, *AssetPath, *PatchDotChunk, *OpenOrderText ) );
 			}
 			else
 			{
-				WriteCSVLine( FString::Printf( TEXT("%s,Inherited,%s,,%d,,%d,%s"), *AssetName, *Itr.Value.PakFilename, Itr.Value.PakPriority, Itr.Value.Size, *AssetPath ) );
+				WriteCSVLine( FString::Printf( TEXT("%s,Inherited,%s,,%d,,%d,%s,%s,%s"), *AssetName, *Itr.Value.PakFilename, Itr.Value.PakPriority, Itr.Value.Size, *AssetPath, *PatchDotChunk, *OpenOrderText  ) );
 			}
 		}
 		else if (DeletedRevision->PakPriority == Itr.Value.PakPriority)
 		{
-			WriteCSVLine( FString::Printf( TEXT("%s,Moved,%s,%s,%d,,%d,%s"), *AssetName, *Itr.Value.PakFilename, *DeletedRevision->PakFilename, Itr.Value.PakPriority, Itr.Value.Size, *AssetPath ) );
+			WriteCSVLine( FString::Printf( TEXT("%s,Moved,%s,%s,%d,,%d,%s,%s,%s"), *AssetName, *Itr.Value.PakFilename, *DeletedRevision->PakFilename, Itr.Value.PakPriority, Itr.Value.Size, *AssetPath, *PatchDotChunk, *OpenOrderText ) );
 		}
 		else if (DeletedRevision->PakPriority > Itr.Value.PakPriority)
 		{
-			WriteCSVLine( FString::Printf( TEXT("%s,Deleted,%s,%s,%d,%d,,%s"), *AssetName, *DeletedRevision->PakFilename, *Itr.Value.PakFilename, DeletedRevision->PakPriority, Itr.Value.PakPriority, *AssetPath ) );
+			WriteCSVLine( FString::Printf( TEXT("%s,Deleted,%s,%s,%d,%d,,%s,%s,%s"), *AssetName, *DeletedRevision->PakFilename, *Itr.Value.PakFilename, DeletedRevision->PakPriority, Itr.Value.PakPriority, *AssetPath, *PatchDotChunk, *OpenOrderText ) );
+			bFileExists = false;
 		}
 		else if (DeletedRevision->PakPriority < Itr.Value.PakPriority)
 		{
-			WriteCSVLine( FString::Printf( TEXT("%s,Restored,%s,%s,%d,%d,%d,%s"), *AssetName, *Itr.Value.PakFilename, *DeletedRevision->PakFilename, Itr.Value.PakPriority, DeletedRevision->PakPriority, Itr.Value.Size, *AssetPath ) );
+			WriteCSVLine( FString::Printf( TEXT("%s,Restored,%s,%s,%d,%d,%d,%s,%s,%s"), *AssetName, *Itr.Value.PakFilename, *DeletedRevision->PakFilename, Itr.Value.PakPriority, DeletedRevision->PakPriority, Itr.Value.Size, *AssetPath, *PatchDotChunk, *OpenOrderText ) );
+		}
+
+		if( bFileExists && bSortByOrdering && bHasOpenOrder )
+		{
+			NumReads++;
+			if( PreviousPatchDotChunk != PatchDotChunk )
+			{ 
+				PreviousPatchDotChunk = PatchDotChunk;
+				NumSeeks++;
+			}
 		}
 	}
 
@@ -1926,8 +2289,23 @@ bool AuditPakFiles( const FString& InputPath, bool bOnlyDeleted, const FString& 
 		const FFilePakRevision* Revision = FileRevisions.Find(AssetPath);
 		if (Revision == nullptr)
 		{
+			//look up the open order for this file
+			FString OpenOrderText = "";
+			uint64 OpenOrder = FindOpenOrder(AssetPath);
+			if( OpenOrder != UINT64_MAX )
+			{
+				OpenOrderText = FString::Printf( TEXT("%llu"), OpenOrder );
+			}
+
+			//lookup patch.chunk value
+			FString PatchDotChunk = "";
+			if( const FString* PatchDotChunkPtr = PakFilenameToPatchDotChunk.Find(Itr.Value.PakFilename) )
+			{
+				PatchDotChunk = *PatchDotChunkPtr;
+			}
+
 			const FString AssetName = FPaths::GetCleanFilename(AssetPath);
-			WriteCSVLine( FString::Printf( TEXT("%s,Deleted,%s,Error,%d,,,%s"), *AssetName, *Itr.Value.PakFilename, Itr.Value.PakPriority, *AssetPath ) );
+			WriteCSVLine( FString::Printf( TEXT("%s,Deleted,%s,Error,%d,,,%s,%s,%s"), *AssetName, *Itr.Value.PakFilename, Itr.Value.PakPriority, *AssetPath, *PatchDotChunk, *OpenOrderText ) );
 		}
 	}
 
@@ -1937,6 +2315,13 @@ bool AuditPakFiles( const FString& InputPath, bool bOnlyDeleted, const FString& 
 		CSVFileWriter->Close();
 		delete CSVFileWriter;
 		CSVFileWriter = NULL;
+	}
+
+
+	//write seek summary
+	if( bSortByOrdering && bHasOpenOrder && NumReads > 0 )
+	{
+		UE_LOG( LogPakFile, Display, TEXT("%d guaranteed seeks out of %d files read (%.2f%%) with the given open order"), NumSeeks, NumReads, (NumSeeks*100.0f)/NumReads );
 	}
 
 	return true;
@@ -1993,6 +2378,62 @@ bool ListFilesAtOffset( const TCHAR* InPakFileName, const TArray<int64>& InOffse
 	return true;
 }
 
+bool GeneratePIXMappingFile(const TArray<FString> InPakFileList, const FString& OutputPath)
+{
+	if (!InPakFileList.Num())
+	{
+		UE_LOG(LogPakFile, Error, TEXT("Pak file list can not be empty."));
+		return false;
+	}
+
+	if (!FPaths::DirectoryExists(OutputPath))
+	{
+		UE_LOG(LogPakFile, Error, TEXT("Output path doesn't exist.  Create %s."), *OutputPath);
+		FPlatformFileManager::Get().GetPlatformFile().CreateDirectoryTree(*OutputPath);
+	}
+
+	bool bPakFileSigned = FParse::Param(FCommandLine::Get(), TEXT("signed"));
+
+	for (const FString& PakFileName : InPakFileList)
+	{
+		// open CSV file, if requested
+		FArchive* CSVFileWriter = nullptr;
+		FString OutputMappingFilename = OutputPath / FPaths::GetBaseFilename(PakFileName) + TEXT(".csv");
+		if (!OutputMappingFilename.IsEmpty())
+		{
+			CSVFileWriter = IFileManager::Get().CreateFileWriter(*OutputMappingFilename);
+			if (CSVFileWriter == nullptr)
+			{
+				UE_LOG(LogPakFile, Error, TEXT("Unable to open csv file \"%s\"."), *OutputMappingFilename);
+				return false;
+			}
+		}
+
+		FPakFile PakFile(&FPlatformFileManager::Get().GetPlatformFile(), *PakFileName, bPakFileSigned);
+		if (!PakFile.IsValid())
+		{
+			UE_LOG(LogPakFile, Error, TEXT("Failed to open %s"), *PakFileName);
+			return false;
+		}
+
+		CSVFileWriter->Logf(TEXT("%s"), *PakFileName);
+
+		const FString PakFileMountPoint = PakFile.GetMountPoint();
+		FArchive& PakReader = *PakFile.GetSharedReader(NULL);
+		for (FPakFile::FFileIterator It(PakFile); It; ++It)
+		{
+			const FPakEntry& Entry = It.Info();
+
+			CSVFileWriter->Logf(TEXT("0x%010llx,0x%08llx,%s"), Entry.Offset, Entry.Size, *(PakFileMountPoint / It.Filename()));
+		}
+
+		CSVFileWriter->Close();
+		delete CSVFileWriter;
+		CSVFileWriter = nullptr;
+	}
+
+	return true;
+}
 
 struct FFileInfo
 {
@@ -2003,7 +2444,7 @@ struct FFileInfo
 	uint8 Hash[16];
 };
 
-bool ExtractFilesFromPak(const TCHAR* InPakFilename, TMap<FString, FFileInfo>& InFileHashes, const TCHAR* InDestPath, bool bUseMountPoint, const FNamedAESKey& InEncryptionKey, bool bSigned, TArray<FPakInputPair>* OutEntries = nullptr, TArray<FPakInputPair>* OutDeletedEntries = nullptr, TMap<FString, uint64>* OutOrderMap = nullptr)
+bool ExtractFilesFromPak(const TCHAR* InPakFilename, TMap<FString, FFileInfo>& InFileHashes, const TCHAR* InDestPath, bool bUseMountPoint, const TKeyChain& InKeyChain, bool bSigned, const FString* InFilter, TArray<FPakInputPair>* OutEntries = nullptr, TArray<FPakInputPair>* OutDeletedEntries = nullptr, TMap<FString, uint64>* OutOrderMap = nullptr)
 {
 	// Gather all patch versions of the requested pak file and run through each separately
 	TArray<FString> PakFileList;
@@ -2061,6 +2502,11 @@ bool ExtractFilesFromPak(const TCHAR* InPakFilename, TMap<FString, FFileInfo>& I
 						continue;
 					}
 
+					if (InFilter && (!It.Filename().MatchesWildcard(*InFilter)))
+					{
+						continue;
+					}
+
 					PakReader.Seek(Entry.Offset);
 					uint32 SerializedCrcTest = 0;
 					FPakEntry EntryInfo;
@@ -2070,13 +2516,13 @@ bool ExtractFilesFromPak(const TCHAR* InPakFilename, TMap<FString, FFileInfo>& I
 						TUniquePtr<FArchive> FileHandle(IFileManager::Get().CreateFileWriter(*DestFilename));
 						if (FileHandle)
 						{
-							if (Entry.CompressionMethod == COMPRESS_None)
+							if (Entry.CompressionMethodIndex == 0)
 							{
-								BufferedCopyFile(*FileHandle, PakReader, Entry, Buffer, BufferSize, InEncryptionKey);
+								BufferedCopyFile(*FileHandle, PakReader, PakFile, Entry, Buffer, BufferSize, InKeyChain);
 							}
 							else
 							{
-								UncompressCopyFile(*FileHandle, PakReader, Entry, PersistantCompressionBuffer, CompressionBufferSize, InEncryptionKey, PakFile);
+								UncompressCopyFile(*FileHandle, PakReader, Entry, PersistantCompressionBuffer, CompressionBufferSize, InKeyChain, PakFile);
 							}
 							UE_LOG(LogPakFile, Display, TEXT("Extracted \"%s\" to \"%s\"."), *It.Filename(), *DestFilename);
 							ExtractedCount++;
@@ -2097,7 +2543,7 @@ bool ExtractFilesFromPak(const TCHAR* InPakFilename, TMap<FString, FFileInfo>& I
 								FPaths::NormalizeFilename(Input.Dest);
 								FPakFile::MakeDirectoryFromPath(Input.Dest);
 
-								Input.bNeedsCompression = Entry.CompressionMethod != 0;
+								Input.bNeedsCompression = Entry.CompressionMethodIndex != 0;
 								Input.bNeedEncryption = Entry.IsEncrypted();
 	
 								OutEntries->Add(Input);
@@ -2141,7 +2587,7 @@ void CreateDiffRelativePathMap(TArray<FString>& FileNames, const FString& RootPa
 	}
 }
 
-bool DiffFilesInPaks(const FString& InPakFilename1, const FString& InPakFilename2, const bool bLogUniques1, const bool bLogUniques2, const FNamedAESKey& InEncryptionKey, const bool bSigned)
+bool DiffFilesInPaks(const FString& InPakFilename1, const FString& InPakFilename2, const bool bLogUniques1, const bool bLogUniques2, const TKeyChain& InKeyChain, const bool bSigned)
 {
 	int32 NumUniquePAK1 = 0;
 	int32 NumUniquePAK2 = 0;
@@ -2218,22 +2664,22 @@ bool DiffFilesInPaks(const FString& InPakFilename1, const FString& InPakFilename
 				FLargeMemoryWriter PAKWriter1(EntryInfo1.UncompressedSize);
 				FLargeMemoryWriter PAKWriter2(EntryInfo2.UncompressedSize);
 
-				if (EntryInfo1.CompressionMethod == COMPRESS_None)
+				if (EntryInfo1.CompressionMethodIndex == 0)
 				{
-					BufferedCopyFile(PAKWriter1, PakReader1, Entry1, Buffer, BufferSize, InEncryptionKey);
+					BufferedCopyFile(PAKWriter1, PakReader1, PakFile1, Entry1, Buffer, BufferSize, InKeyChain);
 				}
 				else
 				{
-					UncompressCopyFile(PAKWriter1, PakReader1, Entry1, PersistantCompressionBuffer, CompressionBufferSize, InEncryptionKey, PakFile1);
+					UncompressCopyFile(PAKWriter1, PakReader1, Entry1, PersistantCompressionBuffer, CompressionBufferSize, InKeyChain, PakFile1);
 				}
 
-				if (EntryInfo2.CompressionMethod == COMPRESS_None)
+				if (EntryInfo2.CompressionMethodIndex == 0)
 				{
-					BufferedCopyFile(PAKWriter2, PakReader2, Entry2, Buffer, BufferSize, InEncryptionKey);
+					BufferedCopyFile(PAKWriter2, PakReader2, PakFile2, Entry2, Buffer, BufferSize, InKeyChain);
 				}
 				else
 				{
-					UncompressCopyFile(PAKWriter2, PakReader2, Entry2, PersistantCompressionBuffer, CompressionBufferSize, InEncryptionKey, PakFile2);
+					UncompressCopyFile(PAKWriter2, PakReader2, Entry2, PersistantCompressionBuffer, CompressionBufferSize, InKeyChain, PakFile2);
 				}
 
 				if (FMemory::Memcmp(PAKWriter1.GetData(), PAKWriter2.GetData(), EntryInfo1.UncompressedSize) != 0)
@@ -2313,9 +2759,9 @@ bool GenerateHashForFile( FString Filename, FFileInfo& FileHash)
 	return true;
 }
 
-bool GenerateHashesFromPak(const TCHAR* InPakFilename, const TCHAR* InDestPakFilename, TMap<FString, FFileInfo>& FileHashes, bool bUseMountPoint, const FNamedAESKey& InEncryptionKey, int32& OutLowestSourcePakVersion, const bool bSigned )
+bool GenerateHashesFromPak(const TCHAR* InPakFilename, const TCHAR* InDestPakFilename, TMap<FString, FFileInfo>& FileHashes, bool bUseMountPoint, const TKeyChain& InKeyChain, int32& OutLowestSourcePakVersion, const bool bSigned )
 {
-	OutLowestSourcePakVersion = FPakInfo::PakFile_Version_Initial-1;
+	OutLowestSourcePakVersion = FPakInfo::PakFile_Version_Invalid;
 
 	TArray<FString> FoundFiles;
 	IFileManager::Get().FindFiles(FoundFiles, InPakFilename, true, false);
@@ -2351,7 +2797,7 @@ bool GenerateHashesFromPak(const TCHAR* InPakFilename, const TCHAR* InDestPakFil
 			int32 FileCount = 0;
 
 			//remember the lowest pak version for any patch paks
-			if( PakChunkIndex != -1 )
+			if( PakPriority != -1 )
 			{
 				OutLowestSourcePakVersion = FMath::Min( OutLowestSourcePakVersion, PakFile.GetInfo().Version );
 			}
@@ -2393,13 +2839,13 @@ bool GenerateHashesFromPak(const TCHAR* InPakFilename, const TCHAR* InDestPakFil
 					    FArchive* FileHandle = &MemoryFile;
 					    // if (FileHandle.IsValid())
 					    {
-						    if (Entry.CompressionMethod == COMPRESS_None)
+							if (Entry.CompressionMethodIndex == 0)
 						    {
-							    BufferedCopyFile(*FileHandle, PakReader, Entry, Buffer, BufferSize, InEncryptionKey);
+							    BufferedCopyFile(*FileHandle, PakReader, PakFile, Entry, Buffer, BufferSize, InKeyChain);
 						    }
 						    else
 						    {
-							    UncompressCopyFile(*FileHandle, PakReader, Entry, PersistantCompressionBuffer, CompressionBufferSize, InEncryptionKey, PakFile);
+							    UncompressCopyFile(*FileHandle, PakReader, Entry, PersistantCompressionBuffer, CompressionBufferSize, InKeyChain, PakFile);
 						    }
     
 						    UE_LOG(LogPakFile, Display, TEXT("Generated hash for \"%s\""), *FullFilename);
@@ -2451,10 +2897,15 @@ bool GenerateHashesFromPak(const TCHAR* InPakFilename, const TCHAR* InDestPakFil
 	return true;
 }
 
-bool FileIsIdentical(FString SourceFile, FString DestFilename, const FFileInfo* Hash)
+bool FileIsIdentical(FString SourceFile, FString DestFilename, const FFileInfo* Hash, int64* DestSizeOut = nullptr)
 {
 	int64 SourceTotalSize = Hash ? Hash->FileSize : IFileManager::Get().FileSize(*SourceFile);
 	int64 DestTotalSize = IFileManager::Get().FileSize(*DestFilename);
+
+	if (DestSizeOut != nullptr)
+	{
+		*DestSizeOut = DestTotalSize;
+	}
 
 	if (SourceTotalSize != DestTotalSize)
 	{
@@ -2500,7 +2951,23 @@ bool FileIsIdentical(FString SourceFile, FString DestFilename, const FFileInfo* 
 	return true;
 }
 
-void RemoveIdenticalFiles( TArray<FPakInputPair>& FilesToPak, const FString& SourceDirectory, const TMap<FString, FFileInfo>& FileHashes )
+int32 CountBitToggles(const TBitArray<>& BitArray)
+{
+	int32 ChangeCount = 0;
+	bool bPrevBit = false;
+	for (int i = 0; i < BitArray.Num(); i++)
+	{
+		bool bCurrentBit = BitArray[i];
+		if (i == 0 || bCurrentBit != bPrevBit)
+		{
+			ChangeCount++;
+		}
+		bPrevBit = bCurrentBit;
+	}
+	return ChangeCount;
+}
+
+void RemoveIdenticalFiles( TArray<FPakInputPair>& FilesToPak, const FString& SourceDirectory, const TMap<FString, FFileInfo>& FileHashes, int64 SeekOptMaxGapSizeBytes, bool bSeekOptUseOrder)
 {
 	FString HashFilename = SourceDirectory / TEXT("Hashes.txt");
 
@@ -2510,18 +2977,50 @@ void RemoveIdenticalFiles( TArray<FPakInputPair>& FilesToPak, const FString& Sou
 		FFileHelper::LoadFileToString(EntireFile, *HashFilename);
 	}
 
-	TArray<FString> FilesToRemove;
+	TBitArray<> IncludeFilesMask;
+	IncludeFilesMask.Add(true, FilesToPak.Num());
 
-	for ( int I = FilesToPak.Num()-1; I >= 0; --I )
+	TMap<FString, int32> SourceFileToIndex;
+	for (int i = 0; i < FilesToPak.Num(); i++)
 	{
-		const auto& NewFile = FilesToPak[I]; 
+		SourceFileToIndex.Add(FilesToPak[i].Source, i);
+	}
+
+	// Generate the index mapping from UExp to corresponding UAsset (and vice versa)
+	TArray<int32> UAssetToUexpMapping;
+	UAssetToUexpMapping.Empty(FilesToPak.Num());
+	for (int i = 0; i<FilesToPak.Num(); i++)
+	{
+		UAssetToUexpMapping.Add(-1);
+	}
+	for (int i = 0; i<FilesToPak.Num(); i++)
+	{
+		const auto& NewFile = FilesToPak[i];
+		FString Ext(FPaths::GetExtension(FilesToPak[i].Source));
+		if (Ext.Equals("uasset", ESearchCase::IgnoreCase) || Ext.Equals("umap", ESearchCase::IgnoreCase))
+		{
+			FString UexpDestFilename = FPaths::ChangeExtension(NewFile.Source, "uexp");
+			int32 *UexpIndexPtr = SourceFileToIndex.Find(UexpDestFilename);
+			if (UexpIndexPtr)
+			{
+				UAssetToUexpMapping[*UexpIndexPtr] = i;
+				UAssetToUexpMapping[i] = *UexpIndexPtr;
+			}
+		}
+	}
+	TArray<int64> FileSizes;
+	FileSizes.AddDefaulted(FilesToPak.Num());
+
+    // Mark files to remove if they're unchanged
+	for (int i= 0; i<FilesToPak.Num(); i++)
+	{
+		const auto& NewFile = FilesToPak[i];
 		if( NewFile.bIsDeleteRecord )
 		{
 			continue;
 		}
-
 		FString SourceFileNoMountPoint =  NewFile.Dest.Replace(TEXT("../../../"), TEXT(""));
-		FString SourceFilename = SourceDirectory / NewFile.Dest.Replace(TEXT("../../../"), TEXT(""));
+		FString SourceFilename = SourceDirectory / SourceFileNoMountPoint;
 		
 		const FFileInfo* FoundFileHash = FileHashes.Find(SourceFileNoMountPoint);
 		if (!FoundFileHash)
@@ -2535,59 +3034,168 @@ void RemoveIdenticalFiles( TArray<FPakInputPair>& FilesToPak, const FString& Sou
  		}
  
 		// uexp files are always handled with their corresponding uasset file
+		bool bForceInclude = false;
 		if (!FPaths::GetExtension(SourceFilename).Equals("uexp", ESearchCase::IgnoreCase))
 		{
-			bool bForceInclude = FoundFileHash && FoundFileHash->bForceInclude;
+			bForceInclude = FoundFileHash && FoundFileHash->bForceInclude;
+		}
 
 			FString DestFilename = NewFile.Source;
-			if (!bForceInclude && FileIsIdentical(SourceFilename, DestFilename, FoundFileHash))
+		if (!bForceInclude && FileIsIdentical(SourceFilename, DestFilename, FoundFileHash, &FileSizes[i]))
+		{
+			UE_LOG(LogPakFile, Display, TEXT("Source file %s matches dest file %s and will not be included in patch"), *SourceFilename, *DestFilename);
+			// remove from the files to pak list
+			IncludeFilesMask[i] = false;
+		}
+	}
+
+	// Add corresponding UExp/UBulk files to the patch if one is included but not the other (uassets and uexp files must be in the same pak)
+	for (int i = 0; i < FilesToPak.Num(); i++)
+	{
+		int32 CounterpartFileIndex= UAssetToUexpMapping[i];
+		if (CounterpartFileIndex != -1)
+		{
+			if (IncludeFilesMask[i] != IncludeFilesMask[CounterpartFileIndex])
 			{
-				// Check for uexp files only for uasset files
-				FString Ext(FPaths::GetExtension(SourceFilename));
-				if (Ext.Equals("uasset", ESearchCase::IgnoreCase) || Ext.Equals("umap", ESearchCase::IgnoreCase))
-				{
-					FString UexpSourceFilename = FPaths::ChangeExtension(SourceFilename, "uexp");
-					FString UexpSourceFileNoMountPoint = FPaths::ChangeExtension(SourceFileNoMountPoint, "uexp");
-
-					const FFileInfo* UexpFoundFileHash = FileHashes.Find(UexpSourceFileNoMountPoint);
-					if (!UexpFoundFileHash)
-					{
-						UexpFoundFileHash = FileHashes.Find(FPaths::ChangeExtension(NewFile.Dest, "uexp"));
-					}
-
-					if (!UexpFoundFileHash)
-					{
-						UE_LOG(LogPakFile, Display, TEXT("Didn't find hash for %s No mount %s"), *UexpSourceFilename, *UexpSourceFileNoMountPoint);
-					}
-
-					if (UexpFoundFileHash || IFileManager::Get().FileExists(*UexpSourceFilename))
-					{
-
-						FString UexpDestFilename = FPaths::ChangeExtension(NewFile.Source, "uexp");
-						if (!FileIsIdentical(UexpSourceFilename, UexpDestFilename, UexpFoundFileHash))
-						{
-							UE_LOG(LogPakFile, Display, TEXT("%s not identical for %s. Including both files in patch."), *UexpSourceFilename, *SourceFilename);
-							continue;
-						}
-						// Add this file to the list to be removed from FilesToPak after we finish processing (since this file was found at random within 
-						// the list we cannot remove it or we'll mess up our containing for loop)
-						FilesToRemove.Add(UexpDestFilename);
-					}
-				}
-
-				UE_LOG(LogPakFile, Display, TEXT("Source file %s matches dest file %s and will not be included in patch"), *SourceFilename, *DestFilename);
-				// remove from the files to pak list
-				FilesToPak.RemoveAt(I);
+				UE_LOG(LogPakFile, Display, TEXT("One of %s and %s is different from source, so both will be included in patch"), *FilesToPak[i].Source, *FilesToPak[CounterpartFileIndex].Source);
+				IncludeFilesMask[i] = true;
+				IncludeFilesMask[CounterpartFileIndex] = true;
 			}
 		}
 	}
 
-	// Clean up uexp files that were marked for removal, assume files may only be listed one in FilesToPak
-	for (int FileIndexToRemove = 0; FileIndexToRemove < FilesToRemove.Num(); FileIndexToRemove++)
-	{
-		const FPakInputPair FileSourceToRemove(FilesToRemove[FileIndexToRemove], "");
-		FilesToPak.RemoveSingle(FileSourceToRemove);
+	if (SeekOptMaxGapSizeBytes > 0)
+				{
+		UE_LOG(LogPakFile, Display, TEXT("Patch seek optimization - filling gaps up to %dKB"), SeekOptMaxGapSizeBytes/1024);
+
+		int32 PatchContiguousBlockCountOriginal = CountBitToggles(IncludeFilesMask);
+		int64 MaxGapSizeBytes = 0;
+		int64 OriginalPatchSize = 0;
+		int64 SizeIncrease = 0;
+		int64 CurrentOffset = 0;
+		int64 CurrentPatchOffset = 0;
+		int64 CurrentGapSize = 0;
+		bool bPrevKeepFile = false;
+		uint64 PrevOrder=MAX_uint64;
+		int32 OriginalKeepCount = 0;
+		int32 LastKeepIndex = -1;
+		bool bCurrentGapIsUnbroken = true;
+		int32 PatchFilesAddedCount = 0;
+		int32 OriginalPatchFileCount = 0;
+		for (int i = 0; i < FilesToPak.Num(); i++)
+					{
+			bool bKeepFile = IncludeFilesMask[i];
+			uint64 Order = FilesToPak[i].SuggestedOrder;
+			if (bKeepFile)
+			{
+				OriginalPatchFileCount++;
+				OriginalPatchSize += FileSizes[i];
+					}
+
+			if (Order == MAX_uint64)
+			{
+				// Skip unordered files
+				continue;
+			}
+			CurrentOffset += FileSizes[i];
+			if (bKeepFile)
+					{
+				OriginalKeepCount++;
+				CurrentPatchOffset = CurrentOffset;
+			}
+			else
+			{
+				if (OriginalKeepCount > 0)
+				{
+					CurrentGapSize = CurrentOffset - CurrentPatchOffset;
+				}
+					}
+
+			// Detect gaps in the file order. No point in removing those gaps because it won't affect seeks
+			if (bCurrentGapIsUnbroken && Order != PrevOrder + 1)
+					{
+				bCurrentGapIsUnbroken = false;
+			}
+
+			// If we're keeping this file but not the last one, check if the gap size is small enough to bring over unchanged assets
+			if (bKeepFile && !bPrevKeepFile && CurrentGapSize > 0 )
+			{
+				if ( CurrentGapSize <= SeekOptMaxGapSizeBytes)
+				{
+					if (bCurrentGapIsUnbroken || bSeekOptUseOrder==false)
+					{
+						// Mark the files in the gap to keep, even though they're unchanged
+						for (int j = LastKeepIndex + 1; j < i; j++)
+						{
+							IncludeFilesMask[j] = true;
+							SizeIncrease += FileSizes[j];
+							PatchFilesAddedCount++;
+						}
+					}
+				}
+				bCurrentGapIsUnbroken = true;
+			}
+			bPrevKeepFile = bKeepFile;
+			if (bKeepFile)
+			{
+				LastKeepIndex = i;
+			}
+			PrevOrder = Order;
+		}
+
+		// Add corresponding UExp/UBulk files to the patch if either is included but not the other
+		for (int i = 0; i < FilesToPak.Num(); i++)
+		{
+			int32 CounterpartFileIndex = UAssetToUexpMapping[i];
+			if (CounterpartFileIndex != -1)
+			{
+				if (IncludeFilesMask[i] != IncludeFilesMask[CounterpartFileIndex])
+				{
+					if ( !IncludeFilesMask[i] )
+					{
+						IncludeFilesMask[i] = true;
+						SizeIncrease += FileSizes[i];
+					}
+					else
+						{
+						IncludeFilesMask[CounterpartFileIndex] = true;
+						SizeIncrease += FileSizes[CounterpartFileIndex];
+					}
+					PatchFilesAddedCount++;
+						}
+					}
+				}
+
+		double OriginalSizeMB = double(OriginalPatchSize) / 1024.0 / 1024.0;
+		double SizeIncreaseMB = double(SizeIncrease) / 1024.0 / 1024.0;
+		double TotalSizeMB = OriginalSizeMB + SizeIncreaseMB;
+		double SizeIncreasePercent = 100.0 * SizeIncreaseMB / OriginalSizeMB;
+		if (PatchFilesAddedCount == 0)
+		{
+			UE_LOG(LogPakFile, Display, TEXT("Patch seek optimization did not modify patch pak size (no additional files added)"), OriginalSizeMB, TotalSizeMB, SizeIncreasePercent);
+			}
+		else
+		{
+			UE_LOG(LogPakFile, Display, TEXT("Patch seek optimization increased estimated patch pak size from %.2fMB to %.2fMB (+%.1f%%)"), OriginalSizeMB, TotalSizeMB, SizeIncreasePercent);
+			UE_LOG(LogPakFile, Display, TEXT("Total files added : %d (of %d)"), PatchFilesAddedCount, OriginalPatchFileCount + PatchFilesAddedCount);
+		}
+		UE_LOG(LogPakFile, Display, TEXT("Contiguous block count pre-optimization: %d"), PatchContiguousBlockCountOriginal);
+
+		int32 PatchContiguousBlockCountFinal = CountBitToggles(IncludeFilesMask);
+		UE_LOG(LogPakFile, Display, TEXT("Contiguous block count final: %d"), PatchContiguousBlockCountFinal);
 	}
+
+	// Compress the array while preserving the order, removing the files we marked to remove
+	int32 WriteIndex = 0;
+	for ( int ReadIndex=0; ReadIndex<IncludeFilesMask.Num(); ReadIndex++)
+	{
+		if (IncludeFilesMask[ReadIndex])
+	{
+			FilesToPak[WriteIndex++] = FilesToPak[ReadIndex];
+	}
+}
+	int NumToRemove = FilesToPak.Num() - WriteIndex;
+	FilesToPak.RemoveAt(WriteIndex, NumToRemove, true);
 }
 
 void ProcessLegacyFileMoves( TArray<FPakInputPair>& InDeleteRecords, TMap<FString, FFileInfo>& InExistingPackagedFileHashes, const FString& InInputPath, const TArray<FPakInputPair>& InFilesToPak, int32 CurrentPatchChunkIndex, bool bSigned )
@@ -2790,7 +3398,7 @@ FString GetPakPath(const TCHAR* SpecifiedPath, bool bIsForCreation)
 	return PakFilename;
 }
 
-bool Repack(const FString& InputPakFile, const FString& OutputPakFile, const FPakCommandLineParameters& CmdLineParameters, const FKeyPair& SigningKey, const FNamedAESKey& InEncryptionKey, bool bIncludeDeleted, bool bSigned)
+bool Repack(const FString& InputPakFile, const FString& OutputPakFile, const FPakCommandLineParameters& CmdLineParameters, FRSA::TKeyPtr SigningKey, const TKeyChain& KeyChain, bool bIncludeDeleted, bool bSigned)
 {
 	bool bResult = false;
 
@@ -2800,7 +3408,7 @@ bool Repack(const FString& InputPakFile, const FString& OutputPakFile, const FPa
 	TArray<FPakInputPair> DeletedEntries;
 	TMap<FString, uint64> OrderMap;
 	FString TempDir = FPaths::EngineIntermediateDir() / TEXT("UnrealPak") / TEXT("Repack") / FPaths::GetBaseFilename(InputPakFile);
-	if (ExtractFilesFromPak(*InputPakFile, Hashes, *TempDir, false, InEncryptionKey, bSigned, &Entries, &DeletedEntries, &OrderMap))
+	if (ExtractFilesFromPak(*InputPakFile, Hashes, *TempDir, false, KeyChain, bSigned, nullptr, &Entries, &DeletedEntries, &OrderMap))
 	{
 		TArray<FPakInputPair> FilesToAdd;
 		CollectFilesToAdd(FilesToAdd, Entries, OrderMap);
@@ -2822,7 +3430,7 @@ bool Repack(const FString& InputPakFile, const FString& OutputPakFile, const FPa
 
 		// Create the new pak file
 		UE_LOG(LogPakFile, Display, TEXT("Creating %s..."), *OutputPakFile);
-		if (CreatePakFile(*TempOutputPakFile, FilesToAdd, CmdLineParameters, SigningKey, InEncryptionKey))
+		if (CreatePakFile(*TempOutputPakFile, FilesToAdd, CmdLineParameters, SigningKey, KeyChain))
 		{
 			IFileManager::Get().Move(*OutputPakFile, *TempOutputPakFile);
 
@@ -2855,10 +3463,6 @@ bool Repack(const FString& InputPakFile, const FString& OutputPakFile, const FPa
  *   -Sign=filename use the key pair in filename to sign a pak file, or: -sign=key_hex_values_separated_with_+, i.e: -sign=0x123456789abcdef+0x1234567+0x12345abc
  *    where the first number is the private key exponend, the second one is modulus and the third one is the public key exponent.
  *   -Signed use with -extract and -test to let the code know this is a signed pak
- *   -GenerateKeys=filename generates encryption key pair for signing a pak file
- *   -P=prime will use a predefined prime number for generating encryption key file
- *   -Q=prime same as above, P != Q, GCD(P, Q) = 1 (which is always true if they're both prime)
- *   -GeneratePrimeTable=filename generates a prime table for faster prime number generation (.inl file)
  *   -TableMax=number maximum prime number in the generated table (default is 10000)
  *
  * @param	ArgC	Command-line argument count
@@ -2877,9 +3481,10 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 		}
 	}
 
-	FKeyPair SigningKey;
-	FNamedAESKey EncryptionKey;
-	PrepareEncryptionAndSigningKeys(CmdLine, SigningKey, EncryptionKey);
+	FRSA::TKeyPtr SigningKey;
+	TKeyChain KeyChain;
+	PrepareEncryptionAndSigningKeys(CmdLine, SigningKey, KeyChain);
+	ApplyKeyChain(KeyChain);
 
 	FString BatchFileName;
 	if (FParse::Value(CmdLine, TEXT("-Batch="), BatchFileName))
@@ -2891,30 +3496,15 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 			return false;
 		}
 
+		UE_LOG(LogPakFile, Display, TEXT("Running UnrealPak in batch mode with commands:"));
+		for (int i = 0; i < Commands.Num(); i++)
+		{
+			UE_LOG(LogPakFile, Display, TEXT("[%d] : %s"), i, *Commands[i]);
+		}
+
 		TAtomic<bool> Result(true);
 		ParallelFor(Commands.Num(), [&Commands, &Result](int32 Idx) { if (!ExecuteUnrealPak(*Commands[Idx])) { Result = false; } });
 		return Result;
-	}
-
-	FString KeyFilename;
-	if (FParse::Value(CmdLine, TEXT("GenerateKeys="), KeyFilename, false))
-	{
-		return GenerateKeys(*KeyFilename);
-	}
-
-	if (FParse::Value(CmdLine, TEXT("GeneratePrimeTable="), KeyFilename, false))
-	{
-		int64 MaxPrimeValue = 10000;
-		FParse::Value(CmdLine, TEXT("TableMax="), MaxPrimeValue);
-		GeneratePrimeNumberTable(MaxPrimeValue, *KeyFilename);
-		return true;
-	}
-
-	if (FParse::Param(CmdLine, TEXT("TestEncryption")))
-	{
-		void TestEncryption();
-		TestEncryption();
-		return true;
 	}
 
 	if (FParse::Param(CmdLine, TEXT("Test")))
@@ -2932,6 +3522,10 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 
 	if (FParse::Param(CmdLine, TEXT("List")))
 	{
+		TArray<FPakInputPair> Entries;
+		FPakCommandLineParameters CmdLineParameters;
+		ProcessCommandLine(CmdLine, NonOptionArguments, Entries, CmdLineParameters);
+
 		if (NonOptionArguments.Num() != 1)
 		{
 			UE_LOG(LogPakFile, Error, TEXT("Incorrect arguments. Expected: -List <PakFile> [-SizeFilter=N] [-Signed]"));
@@ -2972,11 +3566,15 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 
 		const bool bSigned = FParse::Param(CmdLine, TEXT("signed"));
 
-		return DiffFilesInPaks(PakFilename1, PakFilename2, bLogUniques1, bLogUniques2, EncryptionKey, bSigned);
+		return DiffFilesInPaks(PakFilename1, PakFilename2, bLogUniques1, bLogUniques2, KeyChain, bSigned);
 	}
 
 	if (FParse::Param(CmdLine, TEXT("Extract")))
 	{
+		TArray<FPakInputPair> Entries;
+		FPakCommandLineParameters CmdLineParameters;
+		ProcessCommandLine(CmdLine, NonOptionArguments, Entries, CmdLineParameters);
+	
 		if (NonOptionArguments.Num() != 2)
 		{
 			UE_LOG(LogPakFile, Error, TEXT("Incorrect arguments. Expected: -Extract <PakFile> <OutputPath>"));
@@ -2986,29 +3584,47 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 		FString PakFilename = GetPakPath(*NonOptionArguments[0], false);
 		bool bSigned = FParse::Param(CmdLine, TEXT("signed"));
 
+		bool bUseFilter = false;
+		FString Filter;
 		FString DestPath = NonOptionArguments[1];
+
+		bUseFilter = FParse::Value(CmdLine, TEXT("Filter="), Filter);
 		bool bExtractToMountPoint = FParse::Param(CmdLine, TEXT("ExtractToMountPoint"));
 		TMap<FString, FFileInfo> EmptyMap;
-		return ExtractFilesFromPak(*PakFilename, EmptyMap, *DestPath, bExtractToMountPoint, EncryptionKey, bSigned);
+		return ExtractFilesFromPak(*PakFilename, EmptyMap, *DestPath, bExtractToMountPoint, KeyChain, bSigned, bUseFilter ? &Filter : nullptr);
 	}
 
 	if (FParse::Param(CmdLine, TEXT("AuditFiles")))
 	{
 		if (NonOptionArguments.Num() != 1)
 		{
-			UE_LOG(LogPakFile, Error, TEXT("Incorrect arguments. Expected: -AuditFiles <PakFile> -CSV=<OutputPath> [-OnlyDeleted]"));
+			UE_LOG(LogPakFile, Error, TEXT("Incorrect arguments. Expected: -AuditFiles <PakFolder> -CSV=<OutputPath> [-OnlyDeleted] [-Order=<OrderingFile>] [-SortByOrdering]"));
 			return false;
 		}
 		
-		FString PakFilename = GetPakPath(*NonOptionArguments[0], false);
+		FString PakFilenames = *NonOptionArguments[0];
+		FPaths::MakeStandardFilename(PakFilenames);
 		
 		FString CSVFilename;
 		FParse::Value( CmdLine, TEXT("CSV="), CSVFilename );
 
 		bool bOnlyDeleted = FParse::Param( CmdLine, TEXT("OnlyDeleted") );
 		bool bSigned = FParse::Param(CmdLine, TEXT("signed"));
+		bool bSortByOrdering = FParse::Param(CmdLine, TEXT("SortByOrdering"));
 
-		return AuditPakFiles(*PakFilename, bOnlyDeleted, CSVFilename, bSigned);
+		TMap<FString, uint64> OrderMap;
+		FString ResponseFile;
+		if (FParse::Value(CmdLine, TEXT("-order="), ResponseFile) && !ProcessOrderFile(*ResponseFile, OrderMap))
+		{
+			return false;
+		}
+		FString SecondaryResponseFile;
+		if (FParse::Value(CmdLine, TEXT("-secondaryOrder="), SecondaryResponseFile) && !ProcessOrderFile(*SecondaryResponseFile, OrderMap, true, OrderMap.Num()))
+		{
+			return false;
+		}
+
+		return AuditPakFiles(*PakFilenames, bOnlyDeleted, CSVFilename, bSigned, OrderMap, bSortByOrdering );
 	}
 	
 	if (FParse::Param(CmdLine, TEXT("WhatsAtOffset")))
@@ -3035,6 +3651,33 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 		return ListFilesAtOffset( *PakFilename, Offsets, bSigned );
 	}
 	
+	if (FParse::Param(CmdLine, TEXT("GeneratePIXMappingFile")))
+	{
+		if (NonOptionArguments.Num() != 1)
+		{
+			UE_LOG(LogPakFile, Error, TEXT("Incorrect arguments. Expected: -GeneratePIXMappingFile <PakFile> [-OutputPath=<OutputPath>]"));
+			return false;
+		}
+
+		TArray<FString> PakFileList;
+		const FString& PakFolderName = NonOptionArguments[0];
+		if (FPaths::DirectoryExists(PakFolderName))
+		{
+			TArray<FString> PakFilesInFolder;
+			IFileManager::Get().FindFiles(PakFilesInFolder, *PakFolderName, TEXT(".pak"));
+			for (const FString& PakFile : PakFilesInFolder)
+			{
+				FString FullPakFileName = PakFolderName / PakFile;
+				FullPakFileName.ReplaceInline(TEXT("/"), TEXT("\\"));
+				PakFileList.AddUnique(GetPakPath(*FullPakFileName, false));
+			}
+		}
+
+		FString OutputPath;
+		FParse::Value(CmdLine, TEXT("OutputPath="), OutputPath);
+		return GeneratePIXMappingFile(PakFileList, OutputPath);
+	}
+
 	if (FParse::Param(CmdLine, TEXT("Repack")))
 	{
 		if (NonOptionArguments.Num() != 1)
@@ -3045,7 +3688,6 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 
 		TArray<FPakInputPair> Entries;
 		FPakCommandLineParameters CmdLineParameters;
-		PreProcessCommandline(CmdLine, CmdLineParameters);
 		ProcessCommandLine(CmdLine, NonOptionArguments, Entries, CmdLineParameters);
 
 		// Find all the input pak files
@@ -3098,7 +3740,7 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 		for (int Idx = 0; Idx < InputPakFiles.Num(); Idx++)
 		{
 			UE_LOG(LogPakFile, Display, TEXT("Repacking %s into %s"), *InputPakFiles[Idx], *OutputPakFiles[Idx]);
-			if (!Repack(InputPakFiles[Idx], OutputPakFiles[Idx], CmdLineParameters, SigningKey, EncryptionKey, !bExcludeDeleted, bSigned))
+			if (!Repack(InputPakFiles[Idx], OutputPakFiles[Idx], CmdLineParameters, SigningKey, KeyChain, !bExcludeDeleted, bSigned))
 			{
 				return false;
 			}
@@ -3125,6 +3767,12 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 			return false;
 		}
 
+		FString SecondaryResponseFile;
+		if (FParse::Value(CmdLine, TEXT("-secondaryOrder="), SecondaryResponseFile) && !ProcessOrderFile(*SecondaryResponseFile, OrderMap, true, OrderMap.Num()))
+		{
+			return false;
+		}
+
 		if (Entries.Num() == 0)
 		{
 			UE_LOG(LogPakFile, Error, TEXT("No files specified to add to pak file."));
@@ -3147,19 +3795,20 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 			// Check command line for the "patchcryptokeys" param, which will tell us where to look for the encryption keys that
 			// we need to access the patch reference data
 			FString PatchReferenceCryptoKeysFilename;
-			FNamedAESKey PatchReferenceEncryptionKey = EncryptionKey;
-			if (FParse::Value(CmdLine, TEXT("PatchCryptoKeys="), PatchReferenceCryptoKeysFilename))
+			TKeyChain PatchKeyChain = KeyChain;
+
+			if (FParse::Value(FCommandLine::Get(), TEXT("PatchCryptoKeys="), PatchReferenceCryptoKeysFilename))
 			{
-				FKeyPair UnusedSigningKey;
-				TArray<FNamedAESKey> UnusedSecondaryEncryptionKeys;
-				PrepareEncryptionAndSigningKeysFromCryptoKeyCache(PatchReferenceCryptoKeysFilename, UnusedSigningKey, PatchReferenceEncryptionKey, UnusedSecondaryEncryptionKeys);
+				FRSA::TKeyPtr UnusedSigningKey;
+				PrepareEncryptionAndSigningKeysFromCryptoKeyCache(PatchReferenceCryptoKeysFilename, UnusedSigningKey, PatchKeyChain);
+				ApplyKeyChain(PatchKeyChain);
 			}
 
 			UE_LOG(LogPakFile, Display, TEXT("Generating patch from %s."), *CmdLineParameters.SourcePatchPakFilename, true );
 
-			if (!GenerateHashesFromPak(*CmdLineParameters.SourcePatchPakFilename, *PakFilename, SourceFileHashes, true, PatchReferenceEncryptionKey, /*Out*/LowestSourcePakVersion, bSigned))
+			if (!GenerateHashesFromPak(*CmdLineParameters.SourcePatchPakFilename, *PakFilename, SourceFileHashes, true, PatchKeyChain, /*Out*/LowestSourcePakVersion, bSigned ))
 			{
-				if (ExtractFilesFromPak(*CmdLineParameters.SourcePatchPakFilename, SourceFileHashes, *OutputPath, true, PatchReferenceEncryptionKey, bSigned) == false)
+				if (ExtractFilesFromPak(*CmdLineParameters.SourcePatchPakFilename, SourceFileHashes, *OutputPath, true, PatchKeyChain, bSigned, nullptr) == false)
 				{
 					UE_LOG(LogPakFile, Warning, TEXT("Unable to extract files from source pak file for patch"));
 				}
@@ -3168,6 +3817,8 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 					CmdLineParameters.SourcePatchDiffDirectory = OutputPath;
 				}
 			}
+
+			ApplyKeyChain(KeyChain);
 		}
 
 
@@ -3194,11 +3845,11 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 			FilesToAdd.Append(DeleteRecords);
 
 			// if we are generating a patch here we remove files which are already shipped...
-			RemoveIdenticalFiles(FilesToAdd, CmdLineParameters.SourcePatchDiffDirectory, SourceFileHashes);
+			RemoveIdenticalFiles(FilesToAdd, CmdLineParameters.SourcePatchDiffDirectory, SourceFileHashes, CmdLineParameters.PatchSeekOptMaxGapSize, CmdLineParameters.PatchSeekOptUseOrder);
 		}
 
 
-		bool bResult = CreatePakFile(*PakFilename, FilesToAdd, CmdLineParameters, SigningKey, EncryptionKey);
+		bool bResult = CreatePakFile(*PakFilename, FilesToAdd, CmdLineParameters, SigningKey, KeyChain);
 
 		if (CmdLineParameters.GeneratePatch)
 		{
@@ -3214,15 +3865,14 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFilename> -Test"));
 	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFilename> -List [-ExcludeDeleted]"));
 	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFilename> <GameUProjectName> <GameFolderName> -ExportDependencies=<OutputFileBase> -NoAssetRegistryCache -ForceDependsGathering"));
-	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFilename> -Extract <ExtractDir>"));
+	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFilename> -Extract <ExtractDir> [-Filter=<filename>]"));
 	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFilename> -Create=<ResponseFile> [Options]"));
 	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFilename> -Dest=<MountPoint>"));
 	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFilename> -Repack [-Output=Path] [-ExcludeDeleted] [Options]"));
-	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak GenerateKeys=<KeyFilename>"));
-	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak GeneratePrimeTable=<KeyFilename> [-TableMax=<N>]"));
 	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFilename1> <PakFilename2> -diff"));
-	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFolder> -AuditFiles [-OnlyDeleted] [-CSV=<filename>]"));
+	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFolder> -AuditFiles [-OnlyDeleted] [-CSV=<filename>] [-order=<OrderingFile>] [-SortByOrdering]"));
 	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFilename> -WhatsAtOffset [offset1] [offset2] [offset3] [...]"));
+	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFolder> -GeneratePIXMappingFile -OutputPath=<Path>"));
 	UE_LOG(LogPakFile, Error, TEXT("  UnrealPak -TestEncryption"));
 	UE_LOG(LogPakFile, Error, TEXT("  Options:"));
 	UE_LOG(LogPakFile, Error, TEXT("    -blocksize=<BlockSize>"));
@@ -3236,7 +3886,6 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 	UE_LOG(LogPakFile, Error, TEXT("    -encryptionini (specify ini base name to gather encryption settings from)"));
 	UE_LOG(LogPakFile, Error, TEXT("    -extracttomountpoint (Extract to mount point path of pak file)"));
 	UE_LOG(LogPakFile, Error, TEXT("    -encryptindex (encrypt the pak file index, making it unusable in unrealpak without supplying the key)"));
-	UE_LOG(LogPakFile, Error, TEXT("    -compressor=<DllPath> (register a custom compressor)"))
-	UE_LOG(LogPakFile, Error, TEXT("    -overrideplatformcompressor (override the native platform compressor)"))
+	UE_LOG(LogPakFile, Error, TEXT("    -compressionformat[s]=<Format[,format2,...]> (set the format(s) to compress with, falling back on failures)"));
 	return false;
 }

@@ -1,13 +1,13 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "OneColorShader.h"
 
-BEGIN_UNIFORM_BUFFER_STRUCT(FClearShaderUB, )
-	UNIFORM_MEMBER_ARRAY(FVector4, DrawColorMRT, [8] )
-END_UNIFORM_BUFFER_STRUCT(FClearShaderUB)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FClearShaderUB, )
+	SHADER_PARAMETER_ARRAY(FVector4, DrawColorMRT, [8] )
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FClearShaderUB, TEXT("ClearShaderUB"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FClearShaderUB, "ClearShaderUB");
 
 void FOneColorPS::SetColors(FRHICommandList& RHICmdList, const FLinearColor* Colors, int32 NumColors)
 {

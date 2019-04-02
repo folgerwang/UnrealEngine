@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -48,7 +48,7 @@ class UK2Node_ExecutionSequence : public UK2Node, public IK2Node_AddPinInterface
 	/**
 	 * Adds a new execution pin to an execution node
 	 */
-	DEPRECATED(4.17, "Use AddInputPin instead.")
+	UE_DEPRECATED(4.17, "Use AddInputPin instead.")
 	BLUEPRINTGRAPH_API void AddPinToExecutionNode() { AddInputPin(); }
 
 	/**

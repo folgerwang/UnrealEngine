@@ -1,0 +1,78 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	RayTracingDynamicMesh.usf
+=============================================================================*/
+
+#include "/Engine/Private/Common.ush"
+#include "/Engine/Generated/Material.ush"
+#include "/Engine/Generated/VertexFactory.ush"
+ 
+struct FRayTracingDynamicMeshVSToGS
+{
+	float4 WorldPosition : SV_POSITION;
+};
+
+void RayTracingDynamicMeshVS(
+	FVertexFactoryInput Input,
+	out FRayTracingDynamicMeshVSToGS Output
+	)
+{
+	ResolvedView = ResolveView();
+
+	FVertexFactoryIntermediates VFIntermediates = GetVertexFactoryIntermediates(Input);
+	Output.WorldPosition = VertexFactoryGetWorldPosition(Input, VFIntermediates) - float4(ResolvedView.PreViewTranslation, 0.0f);
+}
+
+// Must match GetUniformMeshStreamOutLayout and TRIANGLE_VERTEX_DATA_STRIDE
+struct FRayTracingDynamicMeshVertex
+{
+	float4 WorldPosition : SV_POSITION;
+};
+
+[maxvertexcount(3)]
+void RayTracingDynamicMeshGS(triangle FRayTracingDynamicMeshVSToGS Inputs[3], inout TriangleStream<FRayTracingDynamicMeshVertex> OutStream)
+{ 
+	for (int i = 0; i < 3; i++)
+	{
+		FRayTracingDynamicMeshVSToGS Input = Inputs[i];
+
+		FRayTracingDynamicMeshVertex Vertex;
+		Vertex.WorldPosition = Input.WorldPosition;
+
+		OutStream.Append(Vertex);
+	}
+}
+
+#if COMPUTESHADER
+uint NumMaxVertices;
+uint NumCPUVertices;
+RWBuffer<float> RWVertexPositions;
+
+[numthreads(256, 1, 1)]
+void RayTracingDynamicGeometryConverterCS(uint3 DispatchThreadId : SV_DispatchThreadID)
+{ 
+	ResolvedView = ResolveView();
+
+	uint VertexIndex = DispatchThreadId.x;
+	
+	if (VertexIndex >= NumMaxVertices) return;
+
+	uint NumActualVertices = NumCPUVertices > 0 ? NumCPUVertices : GetNumRayTracingDynamicMeshVerticesIndirect();
+	if (VertexIndex < NumActualVertices)
+	{
+		FVertexFactoryInput Input = LoadVertexFactoryInput(VertexIndex / 3, VertexIndex % 3);
+		FVertexFactoryIntermediates VFIntermediates = GetVertexFactoryIntermediates(Input);
+		float3 WorldPosition = (VertexFactoryGetWorldPosition(Input, VFIntermediates) - float4(ResolvedView.PreViewTranslation, 0.0f)).xyz;
+		RWVertexPositions[VertexIndex * 3 + 0] = WorldPosition.x;
+		RWVertexPositions[VertexIndex * 3 + 1] = WorldPosition.y;
+		RWVertexPositions[VertexIndex * 3 + 2] = WorldPosition.z;
+	}
+	else
+	{
+		RWVertexPositions[VertexIndex * 3 + 0] = asfloat(0xFFFFFFFF);
+		RWVertexPositions[VertexIndex * 3 + 1] = 0;
+		RWVertexPositions[VertexIndex * 3 + 2] = 0;
+	}
+}
+#endif

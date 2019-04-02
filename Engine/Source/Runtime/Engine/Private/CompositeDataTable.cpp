@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/CompositeDataTable.h"
 #include "Serialization/PropertyLocalizationDataGathering.h"
@@ -41,8 +41,6 @@ void UCompositeDataTable::PostLoad()
 	bIsLoading = false;
 
 	Super::PostLoad();
-
-	OnParentTablesUpdated();
 }
 
 #if WITH_EDITORONLY_DATA
@@ -60,7 +58,17 @@ void UCompositeDataTable::UpdateCachedRowMap()
 	// Throw up an error message and stop if any loops are found
 	if (const UCompositeDataTable* LoopTable = FindLoops(TArray<const UCompositeDataTable*>()))
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(LOCTEXT("FoundLoopError", "Cyclic dependency found. Table {0} depends on itself. Please fix your data"), FText::FromString(LoopTable->GetPathName())));
+		const FText ErrorMsg = FText::Format(LOCTEXT("FoundLoopError", "Cyclic dependency found. Table {0} depends on itself. Please fix your data"), FText::FromString(LoopTable->GetPathName()));
+#if WITH_EDITOR
+		if (!bIsLoading)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, ErrorMsg);
+		}
+		else
+#endif
+		{
+			UE_LOG(LogDataTable, Warning, TEXT("%s"), *ErrorMsg.ToString());
+		}
 		bLeaveEmpty = true;
 
 		// if the rowmap is empty, stop. We don't need to do the pre and post change since no changes will actually be done
@@ -108,8 +116,18 @@ void UCompositeDataTable::UpdateCachedRowMap()
 
 		if (bParentsHaveDifferentRowStruct)
 		{
-			// warn in editor
-			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("ParentsIncludesOtherRowStructError", "Parent tables must have the same row struct as this table. Please fix your data. See log for details."));
+			const FText ErrorMsg = FText::Format(LOCTEXT("ParentsIncludesOtherRowStructError", "Composite table '{0}' must have the same row struct as it's parent tables. See output log for list of invalid rows."),
+				FText::FromString(GetName()));
+#if WITH_EDITOR
+			if (!bIsLoading)
+			{
+				FMessageDialog::Open(EAppMsgType::Ok, ErrorMsg);
+			}
+			else
+#endif
+			{
+				UE_LOG(LogDataTable, Warning, TEXT("%s"), *ErrorMsg.ToString());
+			}
 		}
 	}
 #if WITH_EDITOR
@@ -182,6 +200,23 @@ void UCompositeDataTable::Serialize(FArchive& Ar)
 	}
 
 	Super::Serialize(Ar); // When loading, this should load our RowStruct!	
+
+	if (Ar.IsLoading())
+	{
+		for (UDataTable* ParentTable : ParentTables)
+		{
+			if (ParentTable && ParentTable->HasAnyFlags(RF_NeedLoad))
+			{
+				FLinkerLoad* ParentTableLinker = ParentTable->GetLinker();
+				if (ParentTableLinker)
+				{
+					ParentTableLinker->Preload(ParentTable);
+				}
+			}
+		}
+
+		OnParentTablesUpdated();
+	}
 }
 
 #if WITH_EDITOR

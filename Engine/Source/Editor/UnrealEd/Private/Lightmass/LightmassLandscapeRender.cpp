@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Lightmass/LightmassLandscapeRender.h"
 #include "RHI.h"
@@ -15,7 +15,6 @@
 #include "LocalVertexFactory.h"
 #include "CanvasTypes.h"
 #include "MeshBatch.h"
-#include "DrawingPolicy.h"
 
 #include "LandscapeProxy.h"
 #include "LandscapeInfo.h"
@@ -24,6 +23,7 @@
 #include "EngineModule.h"
 #include "LandscapeEdit.h"
 #include "DynamicMeshBuilder.h"
+#include "MeshPassProcessor.h"
 
 void RenderLandscapeMaterialForLightmass(const FLandscapeStaticLightingMesh* LandscapeMesh, FMaterialRenderProxy* MaterialProxy, const FRenderTarget* RenderTarget)
 {
@@ -70,7 +70,7 @@ void RenderLandscapeMaterialForLightmass(const FLandscapeStaticLightingMesh* Lan
 			                                    (SubsectionY >= 0 && SubsectionY < NumSubsections ? 1 : 0));
 
 			const FVector2D BasePosition = PatchExpandOffset + FVector2D(SubsectionX, SubsectionY) * PositionScale;
-			const FVector2D BaseLayerCoords = FVector2D(UVSubsection) * LayerScale;
+			const FVector2D BaseLayerCoords = FVector2D(LandscapeComponent->SectionBaseX, LandscapeComponent->SectionBaseY) + FVector2D(UVSubsection) * LayerScale;
 			const FVector2D BaseWeightmapCoords = WeightmapBias + FVector2D(UVSubsection) * WeightmapSubsection;
 
 			int32 Index = Vertices.Add(FDynamicMeshVertex(FVector(BasePosition /*FVector2D(0, 0) * PositionScale*/, 0), FVector(BaseLayerCoords /*FVector2D(0, 0) * UVScale * LayerScale*/, 0), BaseWeightmapCoords /*FVector2D(0, 0) * UVScale * WeightmapScale*/));
@@ -123,22 +123,26 @@ void RenderLandscapeMaterialForLightmass(const FLandscapeStaticLightingMesh* Lan
 			{
 				// Set the RHI render target.
 				RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, RenderTarget->GetRenderTargetTexture());
-				::SetRenderTarget(RHICmdList, RenderTarget->GetRenderTargetTexture(), FTextureRHIRef());
 
-				const FIntRect RTViewRect = FIntRect(0, 0, RenderTarget->GetRenderTargetTexture()->GetSizeX(), RenderTarget->GetRenderTargetTexture()->GetSizeY());
+				FRHIRenderPassInfo RPInfo(RenderTarget->GetRenderTargetTexture(), ERenderTargetActions::Load_Store);
+				RHICmdList.BeginRenderPass(RPInfo, TEXT("CanvasFlushSetup"));
+				{
+					const FIntRect RTViewRect = FIntRect(0, 0, RenderTarget->GetRenderTargetTexture()->GetSizeX(), RenderTarget->GetRenderTargetTexture()->GetSizeY());
 
-				// set viewport to RT size
-				RHICmdList.SetViewport(RTViewRect.Min.X, RTViewRect.Min.Y, 0.0f, RTViewRect.Max.X, RTViewRect.Max.Y, 1.0f);
+					// set viewport to RT size
+					RHICmdList.SetViewport(RTViewRect.Min.X, RTViewRect.Min.Y, 0.0f, RTViewRect.Max.X, RTViewRect.Max.Y, 1.0f);
 
-				FSceneView View(ViewInitOptions);
+					FSceneView View(ViewInitOptions);
 
-				FDrawingPolicyRenderState DrawRenderState(View);
+					FMeshPassProcessorRenderState DrawRenderState(View);
 
-				// disable depth test & writes
-				DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
+					// disable depth test & writes
+					DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
 
-				//SCOPED_DRAW_EVENT(RHICmdList, RenderLandscapeMaterialToTexture);
-				GetRendererModule().DrawTileMesh(RHICmdList, DrawRenderState, View, Mesh, false, FHitProxyId());
+					//SCOPED_DRAW_EVENT(RHICmdList, RenderLandscapeMaterialToTexture);
+					GetRendererModule().DrawTileMesh(RHICmdList, DrawRenderState, View, Mesh, false, FHitProxyId());
+				}
+				RHICmdList.EndRenderPass();
 			}
 		});
 	FlushRenderingCommands();

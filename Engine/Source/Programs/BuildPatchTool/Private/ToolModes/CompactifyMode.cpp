@@ -1,10 +1,11 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ToolModes/CompactifyMode.h"
 #include "Interfaces/IBuildPatchServicesModule.h"
 #include "BuildPatchTool.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
+#include "BuildPatchSettings.h"
 
 using namespace BuildPatchTool;
 
@@ -47,11 +48,14 @@ public:
 		}
 
 		// Grab options
-		float DataAgeThresholdFloat = TCString<TCHAR>::Atod(*DataAgeThreshold);
-		ECompactifyMode::Type CompactifyMode = bPreview ? ECompactifyMode::Preview : ECompactifyMode::Full;
+		BuildPatchServices::FCompactifyConfiguration Configuration;
+		Configuration.CloudDirectory = CloudDir;
+		Configuration.DataAgeThreshold = TCString<TCHAR>::Atod(*DataAgeThreshold);
+		Configuration.DeletedChunkLogFile = DeletedChunkLogFile;
+		Configuration.bRunPreview = bPreview;
 
 		// Run the compactify routine
-		bool bSuccess = BpsInterface.CompactifyCloudDirectory(CloudDir, DataAgeThresholdFloat, CompactifyMode, DeletedChunkLogFile);
+		bool bSuccess = BpsInterface.CompactifyCloudDirectory(Configuration);
 		return bSuccess ? EReturnCode::OK : EReturnCode::ToolFailure;
 	}
 
@@ -76,7 +80,7 @@ private:
 			UE_LOG(LogBuildPatchTool, Error, TEXT("CloudDir and DataAgeThreshold are required parameters"));
 			return false;
 		}
-		FPaths::NormalizeDirectoryName(CloudDir);
+		NormalizeUriPath(CloudDir);
 
 		// Check required numeric values
 		if (!DataAgeThreshold.IsNumeric())
@@ -87,6 +91,7 @@ private:
 
 		// Get optional parameters
 		PARSE_SWITCH(DeletedChunkLogFile);
+		NormalizeUriFile(DeletedChunkLogFile);
 		bPreview = ParseOption(TEXT("preview"), Switches);
 
 		return true;

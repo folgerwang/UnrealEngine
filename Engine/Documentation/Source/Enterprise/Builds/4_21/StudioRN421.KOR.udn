@@ -1,0 +1,219 @@
+INTSourceChangelist:4548908
+Availability: Public
+Crumbs: 
+Title: 언리얼 스튜디오 4.21 릴리즈 노트
+Description: 언리얼 스튜디오 4.21 릴리즈 관련 새 소식입니다.
+Type: 
+Version: 4.21
+Parent: Enterprise
+Order: 1
+Tags: Unreal Studio
+Tags: Release Notes
+reference-image:product_viewer_explode.gif
+reference-image:product_viewer_parenting.gif
+
+
+이번 릴리즈에는 사용자 피드백과 제안 기반 워크플로 개선을 포함해서 언리얼 스튜디오 가입자에게만 제공되는 몇 가지 주요 신기능이 포함되어 있습니다. 관련해서 새 소식을 안내합니다.
+
+## 데이터스미스를 사용한 Autodesk Revit 에서의 임포트 (얼리 액세스)
+
+이제 데이터스미스를 사용하여 Revit 의 전체 씬을 언리얼로 신속하게 반복해서 가져올 수 있습니다.
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![Revit](image2.png)(convert:false)
+ [/PARAM]
+ [PARAM:after]
+ ![언리얼 엔진](image3.png)(convert:false)
+ [/PARAM]
+[/OBJECT]
+
+Revit 사용자는 이제 데이터스미스가 3ds Max 나 SketchUp 과 같은 다른 포맷에 이미 제공하는 것과 똑같은 [임포트](https://docs.unrealengine.com/en-us/Studio/Datasmith/Overview) 및 [리임포트](https://docs.unrealengine.com/en-us/Studio/Datasmith/Overview/ReimportWorkflow) 워크플로를 사용할 수 있습니다.
+
+1.  Revit 용 [데이터스미스 익스포터 플러그인을 설치](https://docs.unrealengine.com/en-us/Studio/Datasmith/SoftwareInteropGuides/Revit/InstallingExporterPlugin) 합니다.
+2.  Revit 에서 [3D 뷰를 익스포트](https://docs.unrealengine.com/Studio/Datasmith/SoftwareInteropGuides/Revit/ExportingDatasmithContentfromRevit) 합니다.
+3.  그런 다음 [데이터스미스 임포터를 사용](https://docs.unrealengine.com/en-us/Studio/Datasmith/HowTo/ImportingContent) 하여 3D 뷰 콘텐츠를 언리얼 엔진 프로젝트로 가져옵니다.
+
+임포트 프로세스에는 인스턴스 프로퍼티도 포함되어, 데이터스미스 메타데이터로 자동 변환됩니다. 언리얼 에디터에서 이 메타데이터에 액세스할 수 있어, 애셋 관리와 레벨 준비 관련 스크립팅과 자동화에 도움이 됩니다. 런타임 UI 위젯과 블루프린트 게임플레이 스크립트에서 액세스하여 시청자에게 표시하고 상호작용 요소로 사용할 수 있습니다. [데이터스미스 메타데이터 사용법](https://docs.unrealengine.com/en-us/Studio/Datasmith/Overview/UsingDatasmithMetadata) 문서를 참고하세요.
+
+변환 프로세스 관련 자세한 정보는 [데이터스미스에 Revit 사용](https://docs.unrealengine.com/en-us/Studio/Datasmith/SoftwareInteropGuides/Revit) 문서를 참고하세요.
+
+*이미지 제공: Turbosquid*
+
+## 멀티 유저 디자인 리뷰 템플릿
+
+여럿이 한 데 모여 디자인 콘텐츠로 만든 하나의 인터랙티브 체험을 공유하세요. 플레이어 사이 네트워크 연동, 데이터 리플리케이션에 필요한 모든 것을 템플릿으로 엮어 두었으니, 콘텐츠와 비주얼 제작에만 집중하시면 됩니다.
+
+![Multi-User Viewer Template](image12.png)(convert:false)
+
+세션 참여자 각각은 레벨에 돌아다니는 다른 사람의 아바타를 색으로 구분할 수 있습니다. 표준 키마 아니면 VR 헤드셋/컨트롤러로 씬을 돌아다니면서 관심 지점을 짚어볼 수 있습니다.
+
+시작하려면 [멀티 유저 뷰어 템플릿](https://docs.unrealengine.com/en-us/Studio/UnrealStudioProjectTemplates/MultiUserViewer) 문서를 확인하세요.
+
+## 3ds Max 머티리얼 결과 개선
+
+언리얼 엔진에서 데이터스미스를 사용하여 3ds Max 씬을 임포트할 때 바로 얻을 수 있는 충실도와 시각 결과물 품질이 크게 향상되었습니다.
+
+*이미지 제공: Neoscape*
+
+### 머티리얼 인스턴스
+
+이제 데이터스미스는 가급적 3ds Max 에서 임포트한 표면 유형 각각에 대해 부모 머티리얼을 생성하여 Master 서브 폴더에 넣습니다. 스태틱 메시의 마스터 머티리얼 각각을 적용할 때는 머티리얼 인스턴스를 사용합니다.
+
+![Master Materials](image1.png)(convert:false)
+*Master 폴더의 부모 머티리얼*
+
+![Material Instances](image18.png)(convert:false)
+*Materials 폴더의 머티리얼 인스턴스*
+
+### V-Ray 머티리얼 변환 개선
+
+3ds Max 에서 언리얼 엔진으로 임포트한 V-Ray 머티리얼, 특히 IOR, Metalness, 범프 맵이 있는 표면의 경우 그 결과물 예측가능성과 일관성이 향상됩니다.
+
+[OBJECT:ComparisonSlider]
+[PARAM:before]
+![4.20: 조각상의 평면 셰이딩 부분을 주목하세요.](image7.png)(convert:false)
+[/PARAM]
+[PARAM:after]
+![4.21: 범프맵과 반사도가 개선됩니다.](image9.png)(convert:false)
+[/PARAM]
+[/OBJECT]
+
+### 머티리얼 그래프 일관성 향상
+
+이전 버전에서는, 3ds Max 의 비교적 단순한 프로퍼티도 언리얼 엔진 머티리얼에서 불필요하게 복잡한 노드 체인으로 변환되곤 했었습니다. 이번 버전에서는, 3ds Max 머티리얼에서 복잡도가 비슷한 것을 재현하는 경우라면 언리얼 엔진 머티리얼 그래프도 여전히 복잡할 수 있지만, 일관성과 향상되고 최적화가 더욱 잘 됩니다.  
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![4.20](image5.png)(convert:false)
+ [/PARAM]
+ [PARAM:after]
+ ![4.21](image10.png)(convert:false)
+ [/PARAM]
+[/OBJECT]
+
+### 맵 유형 추가
+
+이번 버전은 여러가지 다양한 3ds Max 맵을 지원합니다. 예로 감쇠, 믹스, 색 보정, 합성, 타일 등입니다.
+
+## UE4 에서 메시 및 어셈블리 단순화
+
+언리얼 엔진으로 임포트하는 지오메트리와 어셈블리가 항상 처음부터 실시간 렌더링의 엄격한 퍼포먼스 요구사항을 염두에 두고 모델링되는 것은 아닙니다. 제조 공정의 구동을 위해 지오메트리에 높은 정밀도가 필요한 경우는 더욱 그렇습니다.
+
+이번 버전은 임포트한 지오메트리에서 불필요한 트라이앵글을 제거하는 새로운 툴을 두 가지 제공하여, 렌더링 속도와 퍼포먼스 향상을 꾀합니다. 바로 [defeaturing(디피처링)](#디피처링) 및 [jacketing(재키팅)](#재키팅) 입니다.
+
+### 디피처링
+
+defeaturing(디피처링)은 지오메트리의 작은 돌기, 구멍, 자국을 자동 제거하여 스태틱 메시에서 부드러운 표면은 놔두고 불필요한 트라이앵글을 제거하는 툴입니다.
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![트라이앵글 2만 이상](image14.png)(convert:false)
+ [/PARAM]
+ [PARAM:after]
+ ![구멍을 메우니 트라이앵글 11,500](image11.png)(convert:false)
+ [/PARAM]
+[/OBJECT]
+
+사물의 특징을 자세하게 표현할 필요가 없을 때 좋습니다. 예를 들면 스피커 그릴처럼 지오메트리에 반복되는 부분이 수백 수천 번은 있는 경우입니다. 지오메트리의 최고 LOD 에서만 식별할 수 있는 부분을 제거함으로써, 해당 지오메트리의 LOD 를 훨씬 깔끔하게 만들 수도 있습니다.
+
+자세한 내용은 [디피처링으로 스태틱 메시 단순화](https://docs.unrealengine.com/en-us/Studio/Datasmith/HowTo/Defeaturing) 문서를 참고하세요.
+
+### 재키팅
+
+Jacketing(재키팅)은 뷰에서 항상 가려지는(오클루전) 스태틱 메시 액터와 개별 트라이앵글을 식별합니다. 가려진 액터에 태그를 적용하고 새 레이어로 옮긴 뒤 레벨에서 제거하거나, 심지어 원래 스태틱 메시 애셋에서 가려진 트라이앵글 전부를 완전 삭제할 수도 있습니다.
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![전체 엔진, 액터 542 개](image15.png)(convert:false)
+ [/PARAM]
+ [PARAM:after]
+ ![완전히 은폐되어 제거할 수 있는 액터 321 개](image19.png)(convert:false)
+ [/PARAM]
+[/OBJECT]
+
+내부 파츠가 있는 어셈블리를 임포트할 때 종종 발생할 수 있는 상황입니다. 내부 파츠는 케이스 내부에 있을 때는 절대 보이지 않으므로, 레벨에서 제거하면 퍼포먼스와 렌더링 속도를 향상시킬 수 있습니다.
+
+자세한 내용은 [완전 가려진 메시 찾아 제거하기](https://docs.unrealengine.com/en-us/Studio/Datasmith/HowTo/Jacketing) 문서를 참고하세요.
+
+## 프로덕트 뷰어에서 어셈블리 폭발
+
+이제 프로덕트 뷰어 템플릿에 레벨의 액터가 두 위치 사이를 부드럽게 움직이도록 만드는 블루프린트 클래스가 들어있습니다. 어셈블리의 파츠를 폭발 및 접어서 결합 방식을 보여줄 때 특히 유용합니다.
+
+![](product_viewer_explode.gif)(convert:false)
+
+추가로 이제 런타임 앱에서 스태틱 메시 액터를 선택하고 움직이면 레벨의 그 오브젝트 부모 관계를 따릅니다. 부모 액터를 움직이면 모든 자손 액터도 따라 움직여, 부모와의 현재 공간 관계를 유지합니다. 자손 액터만 별개로 움직일 수도 있습니다.
+
+![](product_viewer_parenting.gif)(convert:false)
+
+자세한 내용은 [언리얼 스튜디오 프로덕트 뷰어 템플릿](https://docs.unrealengine.com/en-us/Studio/UnrealStudioProjectTemplates/Studio-Product-Viewer) 문서를 참고하세요.
+
+## 새로운 스태틱 메시 편집 옵션
+
+스태틱 메시 에디터의 메시 편집 컨트롤을 새로운 툴바로 옮기고, 언리얼 에디터 안에서 지오메트리를 빠르게 수정할 수 있는 몇 가지 컨트롤도 새로 추가했습니다.
+
+*   스무딩 그룹으로 트라이앵글을 선택할 수 있습니다.
+*   노멀을 통일할 수 있습니다. 인접 트라이앵글이 향하는 방향을 현재 선택한 트라이앵글 방향에 맞도록 뒤집습니다.
+*   유용한 새로운 키보드 단축키: **+** / **-** 는 선택 영역 확대 축소, **F** 는 뷰포트의 모든 선택 트라이앵글 맞춤, **Delete** 는 선택 트라이앵글 삭제 입니다.
+*   박스 선택: 뷰포트 좌클릭 드래그 박스 안에 들어간 모든 교차 면을 선택합니다.
+
+![New Static Mesh editing options](image13.png)(convert:false)
+
+메시 편집 관련 자세한 정보는 [스태틱 메시 지오메트리 수정](https://docs.unrealengine.com/en-us/Studio/Datasmith/HowTo/ModifyStaticMeshGeometry) 문서를 참고하세요.
+
+## 데이터스미스 리임포트 워크플로 개선
+
+이번 버전에서 [데이터스미스 리임포트 워크플로](https://docs.unrealengine.com/en-us/Studio/Datasmith/Overview/ReimportWorkflow) 를 약간 부드럽게 개선시킨 사항은 다음과 같습니다.
+
+*   이제 원본 위치의 데이터스미스 씬 원본 파일을 항상 덮어쓰는 대신, 컴퓨터의 다른 파일 위치에서 리임포트할 수 있습니다. 임포트한 씬의 다양한 버전을 전부 유지하기가, 씬을 원래 임포트했던 컴퓨터와 다른 컴퓨터에서 리임포트하기가 쉬워집니다.  
+    [소스 파일 위치 설정](https://docs.unrealengine.com/en-us/Studio/Datasmith/HowTo/ReimportingContent#settingthesourcefilelocation) 문서를 참고하세요.
+*   이제 데이터스미스는 액터 태그와 레이어를 오버라이드로 추적합니다. 예를 들어 스태틱 메시 액터에 할당한 액터 태그를 변경하거나, 스태틱 메시 액터를 다른 레이어로 이동하면, 리임포트해도 그 변경사항을 잃지 않습니다.
+*   이제 리임포트 프로세스가 액터를 서브레벨로 이동해도 퍼시스턴트 레벨에 있는 것처럼 인식합니다. 이제 액터를 서브레벨로 자유롭게 이동해도 데이터스미스 씬 애셋을 리임포트할 때 변경사항을 잃지 않습니다.
+
+## 새로운 데이터스미스 임포트 포맷 (실험단계)
+
+데이터스미스 CAD 임포터에 새로 지원되는 포맷은 다음과 같습니다.
+
+*   Autodesk AutoCAD *.dwg*
+*   Autodesk Alias *.wire*
+
+위 포맷 지원은 실험단계이며, 아직 제작 단계에서 사용하기에 완전하지 않습니다. 시험해 보신 뒤 프로젝트와 워크플로에서 잘 되는 부분과 안 되는 부분 [피드백 남겨 주시면(영문)](http://forums.unrealengine.com/unreal-engine/unreal-studio) 감사하겠습니다.
+
+지원하는 모든 포맷 전체 표는 [데이터스미스 지원 소프트웨어 및 파일 유형](https://docs.unrealengine.com/en-us/Studio/Datasmith/SupportedSoftwareAndFileTypes) 문서를 참고하세요.
+
+## 베리언트 관리 (실험단계)
+
+종종 실시간 디자인 시각화는 보는 사람에게 여러가지 다양한 베리언트와 옵션을 선택할 수 있도록 해줘야 합니다. 예를 들어 차량 컨피겨레이터는 테두리에 선루프가 있는 것과 없는 것, 스포일러가 있는 것과 없는 것, 마감재 선택과 같은 옵션을 제공할 수 있습니다. 이 경우 베리언트 구성 및 관리를 위한 새로운 실험단계 방식을 도입했습니다.
+
+![Set up variant sets and variants](image4.png)(convert:false)
+
+**Level Variant Sets** (레벨 베리언트 세트) 애셋을 생성하고 (**고급 애셋 생성 > 기타 > 레벨 베리언트 세트**), 여러가지 다양한 베리언트를 구성합니다. 각 베리언트는 하나 이상의 스태틱 메시 액터에 링크되며, 그 스태틱 메시 액터의 프로퍼티 하나 이상을 제어합니다. 예를 들어 베리언트 하나는 스포일러 가시성, 다른 하나는 브레이크 칼리퍼의 머티리얼을 교체하는 데 사용할 수 있습니다.
+
+모든 베리언트를 미리 구성해 뒀으면, 새로운 **LevelVariantsSetsActor** 클래스에 제공되는 블루프린트 함수를 사용하여 런타임 경험에서 그 베리언트를 켜고 끌 수 있습니다.
+
+![Use Blueprints to switch variants](image17.png)(convert:false)
+
+## 단순화된 MDL/AxF 임포트
+
+MDL 및 AxF 파일이 표준 언리얼 에디터 임포트 프로세스에 통합되었습니다. 툴바의 **데이터스미스 임포트** 버튼을 이전 버전 그대로 사용하는 대신, 콘텐츠 브라우저의 **임포트** 버튼에서 MDL 및 AxF 파일을 임포트할 수 있습니다.
+
+![Import MDL and AxF files in the Content Browser](image6.png)(convert:false)
+
+## 모두를 위한 데이터스미스 플러스!
+
+이제 데이터스미스 플러그인을 설치한 모든 언리얼 스튜디오 가입자는 기존 "데이터스미스 플러스" 특수 자격 사용자만 사용할 수 있었던 기능을 전부 사용할 수 있습니다. 그 기능은 다음과 같습니다.
+
+*   Autodesk VRED 및 Deltagen 에서 씬 임포트.
+*   AxF 파일에서 머티리얼 임포트. 
+
+## 코어 엔진의 관심 기능
+
+여기서 간단히 설명한 언리얼 스튜디오 가입자 전용 기능에 추가로, 언리얼 엔진 이번 버전에서 사용자 관심을 끌만한 여러가지 기능은 다음과 같습니다.
+
+*   픽셀 스트리밍
+*   지리적으로 정확한 태양 위치
+*   쿠커 퍼포먼스 향상
+*   스태틱 메시 프로세싱 및 에디터 스크립팅
+*   WMR 지원 및 XR 업데이트
+
+엔진의 모든 신기능 관련 자세한 내용은 [언리얼 엔진 4.21 릴리즈 노트](Support/Builds/ReleaseNotes/4_21) 를 참고하세요.

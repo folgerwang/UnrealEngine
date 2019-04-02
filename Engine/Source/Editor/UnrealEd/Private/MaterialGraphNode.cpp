@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MaterialGraphNode.cpp
@@ -29,6 +29,7 @@
 #include "Materials/MaterialExpressionVectorParameter.h"
 #include "Materials/MaterialExpressionViewProperty.h"
 #include "Materials/MaterialExpressionMaterialLayerOutput.h"
+#include "Materials/MaterialExpressionTextureObjectParameter.h"
 
 #include "MaterialEditorUtilities.h"
 #include "MaterialEditorActions.h"
@@ -36,6 +37,7 @@
 #include "GraphEditorSettings.h"
 #include "Framework/Commands/GenericCommands.h"
 #include "ScopedTransaction.h"
+
 
 
 #define LOCTEXT_NAMESPACE "MaterialGraphNode"
@@ -145,13 +147,16 @@ bool UMaterialGraphNode::CanPasteHere(const UEdGraph* TargetGraph) const
 FText UMaterialGraphNode::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
 	TArray<FString> Captions;
-	MaterialExpression->GetCaption(Captions);
+	if (MaterialExpression)
+	{
+		MaterialExpression->GetCaption(Captions);
+	}
 
 	if (TitleType == ENodeTitleType::EditableTitle)
 	{
 		return FText::FromString(GetParameterName());
 	}
-	else if (TitleType == ENodeTitleType::ListView || TitleType == ENodeTitleType::MenuTitle)
+	else if (MaterialExpression && (TitleType == ENodeTitleType::ListView || TitleType == ENodeTitleType::MenuTitle))
 	{
 		return FText::FromString(MaterialExpression->GetClass()->GetDescription());
 	}
@@ -159,18 +164,20 @@ FText UMaterialGraphNode::GetNodeTitle(ENodeTitleType::Type TitleType) const
 	{
 		// More useful to display multi line parameter captions in reverse order
 		// TODO: May have to choose order based on expression type if others need correct order
-		int32 CaptionIndex = Captions.Num() -1;
+		int32 CaptionIndex = Captions.Num() - 1;
 
 		FTextBuilder NodeTitle;
-		NodeTitle.AppendLine(Captions[CaptionIndex]);
-
+		if (Captions.IsValidIndex(CaptionIndex))
+		{
+			NodeTitle.AppendLine(Captions[CaptionIndex]);
+		}
 		for (; CaptionIndex > 0; )
 		{
 			CaptionIndex--;
 			NodeTitle.AppendLine(Captions[CaptionIndex]);
 		}
 
-		if ( MaterialExpression->bShaderInputData && (MaterialExpression->bHidePreviewWindow || MaterialExpression->bCollapsed))
+		if (MaterialExpression && MaterialExpression->bShaderInputData && (MaterialExpression->bHidePreviewWindow || MaterialExpression->bCollapsed))
 		{
 			if (MaterialExpression->IsA<UMaterialExpressionTextureProperty>())
 			{
@@ -330,7 +337,7 @@ void UMaterialGraphNode::GetContextMenuActions(const FGraphNodeContextMenuBuilde
 				// Add a 'Convert To Texture' option for convertible types
 				Context.MenuBuilder->BeginSection("MaterialEditorMenu0");
 				{
-					if ( MaterialExpression->IsA(UMaterialExpressionTextureSample::StaticClass()))
+					if ( MaterialExpression->IsA(UMaterialExpressionTextureSample::StaticClass()) && !MaterialExpression->HasAParameterName())
 					{
 						Context.MenuBuilder->AddMenuEntry(FMaterialEditorCommands::Get().ConvertToTextureObjects);
 					}
@@ -347,7 +354,8 @@ void UMaterialGraphNode::GetContextMenuActions(const FGraphNodeContextMenuBuilde
 				|| MaterialExpression->IsA(UMaterialExpressionConstant2Vector::StaticClass())
 				|| MaterialExpression->IsA(UMaterialExpressionConstant3Vector::StaticClass())
 				|| MaterialExpression->IsA(UMaterialExpressionConstant4Vector::StaticClass())
-				|| MaterialExpression->IsA(UMaterialExpressionTextureSample::StaticClass())
+				|| (MaterialExpression->IsA(UMaterialExpressionTextureSample::StaticClass()) && !MaterialExpression->HasAParameterName())
+				|| MaterialExpression->IsA(UMaterialExpressionTextureObject::StaticClass())
 				|| MaterialExpression->IsA(UMaterialExpressionComponentMask::StaticClass())
 				|| MaterialExpression->IsA(UMaterialExpressionMaterialFunctionCall::StaticClass()))
 			{
@@ -360,7 +368,8 @@ void UMaterialGraphNode::GetContextMenuActions(const FGraphNodeContextMenuBuilde
 
 			// Add a 'Convert To Constant' option for convertible types
 			if (MaterialExpression->IsA(UMaterialExpressionScalarParameter::StaticClass())
-				|| MaterialExpression->IsA(UMaterialExpressionVectorParameter::StaticClass()))
+				|| MaterialExpression->IsA(UMaterialExpressionVectorParameter::StaticClass())
+				|| MaterialExpression->IsA(UMaterialExpressionTextureObjectParameter::StaticClass()))
 			{
 				Context.MenuBuilder->BeginSection("MaterialEditorMenu1");
 				{
@@ -416,6 +425,24 @@ void UMaterialGraphNode::GetContextMenuActions(const FGraphNodeContextMenuBuilde
 			Context.MenuBuilder->AddMenuEntry(FMaterialEditorCommands::Get().SelectUpstreamNodes);
 		}
 		Context.MenuBuilder->EndSection();
+
+		Context.MenuBuilder->AddSubMenu(LOCTEXT("AlignmentHeader", "Alignment"), FText(), FNewMenuDelegate::CreateLambda([](FMenuBuilder& InMenuBuilder) {
+
+			InMenuBuilder.BeginSection("EdGraphSchemaAlignment", LOCTEXT("AlignHeader", "Align"));
+			InMenuBuilder.AddMenuEntry(FGraphEditorCommands::Get().AlignNodesTop);
+			InMenuBuilder.AddMenuEntry(FGraphEditorCommands::Get().AlignNodesMiddle);
+			InMenuBuilder.AddMenuEntry(FGraphEditorCommands::Get().AlignNodesBottom);
+			InMenuBuilder.AddMenuEntry(FGraphEditorCommands::Get().AlignNodesLeft);
+			InMenuBuilder.AddMenuEntry(FGraphEditorCommands::Get().AlignNodesCenter);
+			InMenuBuilder.AddMenuEntry(FGraphEditorCommands::Get().AlignNodesRight);
+			InMenuBuilder.AddMenuEntry(FGraphEditorCommands::Get().StraightenConnections);
+			InMenuBuilder.EndSection();
+
+			InMenuBuilder.BeginSection("EdGraphSchemaDistribution", LOCTEXT("DistributionHeader", "Distribution"));
+			InMenuBuilder.AddMenuEntry(FGraphEditorCommands::Get().DistributeNodesHorizontally);
+			InMenuBuilder.AddMenuEntry(FGraphEditorCommands::Get().DistributeNodesVertically);
+			InMenuBuilder.EndSection();
+		}));
 
 		Context.MenuBuilder->BeginSection("MaterialEditorMenuDocumentation");
 		{
@@ -562,6 +589,10 @@ void UMaterialGraphNode::CreateOutputPins()
 				else if (!ExpressionOutput.MaskR && !ExpressionOutput.MaskG && !ExpressionOutput.MaskB &&  ExpressionOutput.MaskA)
 				{
 					PinSubCategory = UMaterialGraphSchema::PSC_Alpha;
+				}
+				else if (ExpressionOutput.MaskR && ExpressionOutput.MaskG && ExpressionOutput.MaskB &&  ExpressionOutput.MaskA)
+				{
+					PinSubCategory = UMaterialGraphSchema::PSC_RGBA;
 				}
 			}
 		}

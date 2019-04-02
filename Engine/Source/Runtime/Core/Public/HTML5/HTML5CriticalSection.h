@@ -1,11 +1,23 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "GenericPlatform/GenericPlatformCriticalSection.h"
 
+#ifdef __EMSCRIPTEN_PTHREADS__
+
+#include "HAL/PThreadCriticalSection.h"
+#include "HAL/PThreadRWLock.h"
+
+typedef FPThreadsCriticalSection FCriticalSection;
+typedef FSystemWideCriticalSectionNotImplemented FSystemWideCriticalSection;
+// typedef FPThreadsRWLock FRWLock; // TODO: Replace the line below with this - using the generic platform rw lock for now to keep it simple.
+typedef TGenericPlatformRWLock<FPThreadsCriticalSection> FRWLock;
+
+#else
+
 /**
- * @todo html5 threads: Dummy critical section
+ * html5 threads: Dummy critical section
  */
 class FHTML5CriticalSection
 {
@@ -45,3 +57,5 @@ private:
 typedef FHTML5CriticalSection FCriticalSection;
 typedef FSystemWideCriticalSectionNotImplemented FSystemWideCriticalSection;
 typedef TGenericPlatformRWLock<FHTML5CriticalSection> FRWLock;
+
+#endif

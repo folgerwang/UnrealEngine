@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LwsWebSocket.h"
 
@@ -351,6 +351,14 @@ int FLwsWebSocket::LwsCallback(lws* Instance, lws_callback_reasons Reason, void*
 				State = EState::Closed;
 				ClosedReason.bWasClean = false;
 				ClosedReason.CloseStatus = LWS_CLOSE_STATUS_ABNORMAL_CLOSE;
+			}
+			else if (State == EState::ClosingByRequest)
+			{
+				FScopeLock ScopeLock(&StateLock);
+				State = EState::Closed;
+				ClosedReason.Reason = TEXT("Successfully closed connection to our peer");
+				ClosedReason.CloseStatus = LWS_CLOSE_STATUS_NORMAL;
+				ClosedReason.bWasClean = true;
 			}
 			UE_LOG(LogWebSockets, Verbose, TEXT("FLwsWebSocket[%d]::LwsCallback: Received LWS_CALLBACK_WSI_DESTROY, State=%s"), Identifier, ToString(State));
 		}

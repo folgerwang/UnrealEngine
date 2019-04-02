@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -14,6 +14,9 @@
 #include "Engine/World.h"
 #include "Misc/BufferedOutputDevice.h"
 #include "Misc/FrameRate.h"
+#include "Subsystems/SubsystemCollection.h"
+#include "Subsystems/EngineSubsystem.h"
+
 #include "Engine.generated.h"
 
 #define WITH_DYNAMIC_RESOLUTION (!UE_SERVER)
@@ -637,7 +640,7 @@ class ENGINE_API UEngine
 {
 	GENERATED_UCLASS_BODY()
 
-	DEPRECATED(4.17, "UEngine::OnPostEngineInit is deprecated, bind to FCoreDelegates::OnPostEngineInit instead, which will also be called for commandlets")
+	UE_DEPRECATED(4.17, "UEngine::OnPostEngineInit is deprecated, bind to FCoreDelegates::OnPostEngineInit instead, which will also be called for commandlets")
 	static FSimpleMulticastDelegate OnPostEngineInit;
 
 private:
@@ -1056,6 +1059,10 @@ public:
 	/** Material that 'fakes' lighting, used for arrows, widgets. */
 	UPROPERTY()
 	class UMaterial* ArrowMaterial;
+
+	/** Arrow material instance with yellow color. */
+	UPROPERTY()
+	class UMaterialInstanceDynamic* ArrowMaterialYellow;
 
 	/** @todo document */
 	UPROPERTY(globalconfig)
@@ -1570,17 +1577,9 @@ public:
 	UPROPERTY(transient)
 	float SelectionHighlightIntensity;
 
-	/** Used to alter the intensity level of the selection highlight on selected mesh sections in mesh editors */
-	UPROPERTY(transient)
-	float SelectionMeshSectionHighlightIntensity;
-
 	/** Used to alter the intensity level of the selection highlight on selected BSP surfaces */
 	UPROPERTY(transient)
 	float BSPSelectionHighlightIntensity;
-
-	/** Used to alter the intensity level of the selection highlight on hovered objects */
-	UPROPERTY(transient)
-	float HoverHighlightIntensity;
 
 	/** Used to alter the intensity level of the selection highlight on selected billboard objects */
 	UPROPERTY(transient)
@@ -2005,7 +2004,6 @@ public:
 	bool HandleProfileGPUHitchesCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleShaderComplexityCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleFreezeRenderingCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
-	bool HandleShowSelectedLightmapCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleStartFPSChartCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleStopFPSChartCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
 	bool HandleDumpLevelScriptActorsCommand( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar );
@@ -2476,7 +2474,7 @@ public:
 	/** 
 	 * This function is deprecated
 	 */
-	DEPRECATED(4.17, "GetWorldFromContextObject(Object) and GetWorldFromContextObject(Object, boolean) are replaced by GetWorldFromContextObject(Object, Enum) or GetWorldFromContextObjectChecked(Object)")
+	UE_DEPRECATED(4.17, "GetWorldFromContextObject(Object) and GetWorldFromContextObject(Object, boolean) are replaced by GetWorldFromContextObject(Object, Enum) or GetWorldFromContextObjectChecked(Object)")
 	UWorld* GetWorldFromContextObject(const UObject* Object, bool bChecked = true) const
 	{
 		// Note: The behavior in 4.16 and before was similar to Assert if bChecked was true, but almost no callers actually wanted to pass in bChecked=true
@@ -2749,6 +2747,10 @@ public:
 	UPROPERTY()
 	TArray<FString> RuntimeServerActors;
 
+	/** Amount of time in seconds between network error logging */
+	UPROPERTY(globalconfig)
+	float NetErrorLogInterval;
+
 	/** Spawns all of the registered server actors */
 	virtual void SpawnServerActors(UWorld *World);
 
@@ -2861,7 +2863,7 @@ public:
 #if WITH_SERVER_CODE
 	virtual bool HandleServerTravelCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
 
-	DEPRECATED(4.14, "Say Command moved to GameMode as an exec function")
+	UE_DEPRECATED(4.14, "Say Command moved to GameMode as an exec function")
 	virtual bool HandleSayCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
 #endif
 
@@ -3169,6 +3171,38 @@ public:
 	virtual int32 EndTransaction() { return INDEX_NONE; }
 	virtual void CancelTransaction(int32 Index) { }
 #endif
+
+public:
+	/**
+	 * Get an Engine Subsystem of specified type
+	 */
+	UEngineSubsystem* GetEngineSubsystemBase(TSubclassOf<UEngineSubsystem> SubsystemClass) const
+	{
+		checkSlow(this != nullptr);
+		return EngineSubsystemCollection.GetSubsystem<UEngineSubsystem>(SubsystemClass);
+	}
+
+	/**
+	 * Get an Engine Subsystem of specified type
+	 */
+	template <typename TSubsystemClass>
+	TSubsystemClass* GetEngineSubsystem() const
+	{
+		checkSlow(this != nullptr);
+		return EngineSubsystemCollection.GetSubsystem<TSubsystemClass>(TSubsystemClass::StaticClass());
+	}
+
+	/**
+	 * Get all Engine Subsystem of specified type, this is only necessary for interfaces that can have multiple implementations instanced at a time.
+	 */
+	template <typename TSubsystemClass>
+	const TArray<TSubsystemClass*>& GetEngineSubsystemArray() const
+	{
+		return EngineSubsystemCollection.GetSubsystemArray<TSubsystemClass>(TSubsystemClass::StaticClass());
+	}
+
+private:
+	FSubsystemCollection<UEngineSubsystem> EngineSubsystemCollection;
 
 public:
 	/**

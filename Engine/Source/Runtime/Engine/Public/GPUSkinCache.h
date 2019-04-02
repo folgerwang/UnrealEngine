@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // Copyright (C) Microsoft. All rights reserved.
 
 /*=============================================================================
@@ -39,7 +39,7 @@
 #include "ShaderParameters.h"
 #include "UniformBuffer.h"
 #include "GPUSkinPublicDefs.h"
-
+#include "VertexFactory.h"
 
 class FGPUSkinPassthroughVertexFactory;
 class FGPUBaseSkinVertexFactory;
@@ -112,6 +112,16 @@ public:
 		class FShader* Shader, const FGPUSkinPassthroughVertexFactory* VertexFactory,
 		uint32 BaseVertexIndex, FShaderResourceParameter PreviousStreamBuffer);
 
+	static void GetShaderBindings(
+		FGPUSkinCacheEntry* Entry,
+		int32 Section,
+		const FShader* Shader,
+		const FGPUSkinPassthroughVertexFactory* VertexFactory,
+		uint32 BaseVertexIndex,
+		FShaderResourceParameter GPUSkinCachePreviousPositionBuffer,
+		class FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams);
+
 	static void Release(FGPUSkinCacheEntry*& SkinCacheEntry);
 
 	static inline FGPUSkinBatchElementUserData* GetFactoryUserData(FGPUSkinCacheEntry* Entry, int32 Section)
@@ -122,6 +132,8 @@ public:
 		}
 		return nullptr;
 	}
+
+	static void CreateMergedPositionVertexBuffer(FRHICommandList& RHICmdList, FGPUSkinCacheEntry* SkinCacheEntry, FVertexBufferRHIRef OutVertexBuffer);
 
 	static bool IsEntryValid(FGPUSkinCacheEntry* SkinCacheEntry, int32 Section);
 
@@ -268,8 +280,22 @@ public:
 
 	ENGINE_API void TransitionAllToReadable(FRHICommandList& RHICmdList);
 
+#if RHI_RAYTRACING
+	void AddRayTracingGeometryToUpdate(FRayTracingGeometry* RayTracingGeometry)
+	{
+		FAccelerationStructureUpdateParams Params;
+		Params.Geometry     = RayTracingGeometry->RayTracingGeometryRHI;
+		Params.VertexBuffer = RayTracingGeometry->Initializer.PositionVertexBuffer;
+
+		RayTracingGeometriesToUpdate.Add(Params);
+	}
+
+	void CommitRayTracingGeometryUpdates(FRHICommandList& RHICmdList);
+#endif // RHI_RAYTRACING
+
 protected:
 	TArray<FUnorderedAccessViewRHIParamRef> BuffersToTransition;
+	TArray<FAccelerationStructureUpdateParams> RayTracingGeometriesToUpdate;
 
 	TArray<FRWBuffersAllocation*> Allocations;
 	TArray<FGPUSkinCacheEntry*> Entries;
@@ -279,7 +305,6 @@ protected:
 	void DispatchUpdateSkinning(FRHICommandListImmediate& RHICmdList, FGPUSkinCacheEntry* Entry, int32 Section, uint32 RevisionNumber);
 
 	void Cleanup();
-
 	static void ReleaseSkinCacheEntry(FGPUSkinCacheEntry* SkinCacheEntry);
 	static FGPUSkinBatchElementUserData* InternalGetFactoryUserData(FGPUSkinCacheEntry* Entry, int32 Section);
 	void InvalidateAllEntries();

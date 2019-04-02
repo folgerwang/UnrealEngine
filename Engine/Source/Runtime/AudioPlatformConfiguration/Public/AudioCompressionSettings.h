@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 #include "CoreMinimal.h"
 #include "AudioCompressionSettings.generated.h"
@@ -31,9 +31,13 @@ struct FPlatformAudioCookOverrides
 	// Scales all compression qualities when cooking to this platform. For example, 0.5 will halve all compression qualities, and 1.0 will leave them unchanged.
 	float CompressionQualityModifier;
 
+	// When set to any platform > 0.0, this will automatically set any USoundWave beyond this value to be streamed from disk.
+	float AutoStreamingThreshold;
+
 	FPlatformAudioCookOverrides()
 		: bResampleForDevice(false)
 		, CompressionQualityModifier(1.0f)
+		, AutoStreamingThreshold(0.0f)
 	{
 		PlatformSampleRates.Add(ESoundwaveSampleRateSettings::Max, 48000);
 		PlatformSampleRates.Add(ESoundwaveSampleRateSettings::High, 32000);
@@ -43,7 +47,6 @@ struct FPlatformAudioCookOverrides
 	}
 
 	// This is used to invalidate compressed audio for a specific platform
-
 	static void GetHashSuffix(const FPlatformAudioCookOverrides* InOverrides, FString& OutSuffix)
 	{
 		if (InOverrides == nullptr)
@@ -53,6 +56,9 @@ struct FPlatformAudioCookOverrides
 
 		int32 CompressionQualityHash = FMath::FloorToInt(InOverrides->CompressionQualityModifier * 100.0f);
 		OutSuffix.AppendInt(CompressionQualityHash);
+
+		int32 AutoStreamingThresholdHash = FMath::FloorToInt(InOverrides->AutoStreamingThreshold * 100.0f);
+		OutSuffix.AppendInt(AutoStreamingThresholdHash);
 
 		int32 ResampleBoolHash = (int32)InOverrides->bResampleForDevice;
 		OutSuffix.AppendInt(ResampleBoolHash);

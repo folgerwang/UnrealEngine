@@ -1,0 +1,144 @@
+INTSourceChangelist:4285161
+Availability: Public
+Crumbs: 
+Title: マテリアルの Curve Atlas
+Description: Curve Atlas には、マテリアルを通して カーブ リニア カラーのデータにアクセスできる Curve アセットの組み合わせが格納されています。
+Version: 4.20
+Parent: Engine/Rendering/Materials
+Order: 6
+
+
+![](MaterialGradientCurvesBanner.png "MaterialGradientCurvesBanner.png")
+
+Curve Atlases には、マテリアルを通して カーブ リニア カラーのデータにアクセスできる [Curve](Engine/UI/CurveEditor) アセットの組み合わせが格納されています。Curve Atlas は、 [ マテリアル ](Engine/Rendering/Materials) で使用できるテクスチャに任意の数の Curve を格納します。ブループリントを使用して [ マテリアル インスタンス ](Engine/Rendering/Materials/MaterialInstances) を作成し、 [ Material Instance Dynamics ](Engine/Rendering/Materials/MaterialInstances#マテリアルインスタンスダイナミクス) （ MID ）を変更すると、オーバーライドとしてカーブを設定できます。そのため、ベース マテリアルを変更せずに RGBA カーブ値を迅速にイテレーションし変更できます。
+
+## カーブ リニア カラー アセット
+
+** カーブ リニア カラー ** アセットは、一定範囲を評価され補間された RGBA ポイントを保存するために使用され、マテリアルで使用できるカラー グラデーションを生成します。
+![](CurveGradient.png)
+
+[REGION:caption]
+カーブ リニア カラー アセットで作成されたカーブ グラディエントの例
+[/REGION]
+
+** コンテンツ ブラウザ ** でカーブアセットを作成します。 ** [Add New] > [Miscellaneous] > [Curve] ** から選択して使用できます。
+
+[REGION:lightbox]
+[![](Create_Curve.png)(w:350)](Create_Curve.png)
+[/REGION]
+[REGION:caption]
+クリックしてフルサイズ表示
+[/REGION]
+
+次に、 ** Pick Curve Class ** ウィンドウから ** CurveLinearColor ** を選択します。
+![](PickCurveClassWindow.png)
+
+新しいカーブ リニア カラー アセットがコンテンツ ブラウザに追加され、現在のグラデーションのプレビューが表示されます。カーブ アセット エディタを開くと、グラフ内の個々の RGBA カーブにキーを加算、調整、減算することができます。
+![](MyCurveAsset.png)
+
+アセット エディタでカーブを開くと、個々の RGBA カーブを設定したり、カーブのカラー値を調整したり、カーブグラデーション結果をプレビューできます。
+
+[REGION:lightbox]
+[![](CurveAssetEditor.png)](CurveAssetEditor.png)
+[/REGION]
+[REGION:caption]
+クリックしてフルサイズ表示
+[/REGION]
+
+[REGION:caption]
+1. ** カーブ グラフ ** では、個々の RGBA カーブの任意のキーを調整、加算、減算します。
+2. ** Color ** パネルでは、すべてのキーに影響を与えるカラー値を調整します。
+3. ** Curve Gradient Result ** には、結果のグラデーションが表示されます。
+
+[REGION:note]
+Shift キーを押しながら個々のカーブをクリックし単一のキーを追加することで、カーブにキーを追加できます。空のグラフをクリックすると、クリックしたポイントのすべてのカーブに新しいキーが追加されます。
+[/REGION]
+[/REGION]
+
+## Curve Atlas アセット
+
+ ** Curve Atlas ** アセットは、複数の Curve アセットを格納したりアクセスするために使われます。それにより、グラデーション ルックアップ テーブル（LUT）の管理が可能になります。Curve Atlas アセット エディタはテクスチャ エディタと似ており、輝度、彩度、色調などの調整が可能です。
+![](CurveAtlas.png)(w:200 h:200)
+
+[REGION:caption]
+Curve Atlas LUT の例
+[/REGION]
+
+曲線アトラスに割り当てられた曲線が ** グラデーション カーブ ** としてアトラスを構成します。マテリアル グラフは、作成されたテクスチャを使用して、アクタに適用されたマテリアルのルックアップを実行します。
+
+** コンテンツ ブラウザ ** で ** [Add New] > [Miscellaneous] > [Curve Atlas] ** を選択して Curve Atlas アセットを作成します。
+
+[REGION:lightbox]
+[![](Create_CurveAtlas.png)(w:350)](Create_CurveAtlas.png)
+[/REGION]
+[REGION:caption]
+クリックしてフルサイズ表示 
+[/REGION]
+
+アセット エディタで Curve Atlas を開くと、テクスチャ エディタの機能と同様に、保存できるカーブの数を設定したり、カーブを割り当てたり、割り当てられたすべてのカーブのカラー値を調整することができます。
+
+[REGION:lightbox]
+[![](CurveAtlasAssetEditor_1.png)](CurveAtlasAssetEditor_1.png)
+[/REGION]
+[REGION:caption]
+クリックしてフルサイズ表示 
+[/REGION]
+
+1. メイン ビューポートには、 ** Curve Atlas ** LUT が表示されます。そこには、適用される ** テキスチャ サイズ ** に割り当てられたすべての ** グラデーション カーブ ** が表示されています。
+2. ** [Curves] ** パネルでは、必要とされる ** グラデーション カーブ ** の数の ** テクスチャ サイズ ** を設定します。デフォルト値は 256 です。
+3. ** [Adjustments] ** パネルでは、 Curve Atlas に割り当てられたすべての ** グラデーション カーブ ** に対してテクスチャが調整されます。
+
+[REGION:note]
+テクスチャ効率を最大にするには、 ** 「2の累乗」 ** （32、64、128など）の値の使用をお勧めします。ここでのテクスチャ サイズはデモ用となっており、エディタのインタフェース全体を含みます。
+[/REGION]
+[REGION:warning]
+使用する ** テキスチャ サイズ ** によりグラデーションの忠実度が影響を受ける可能性があるため、複雑なカーブには小さなアトラス サイズを使用しないことをお勧めします。ただし、シンプルなカーブのセットに小さなアトラスを使用することで、テクスチャサイズを節約することもできます。
+[/REGION]
+
+Curve Atlas に新しいグラデーション カーブを追加するには、 ** プラス ** （ ** + ** ）アイコンをクリックしてください。それにより、配列要素を加えられます。また、 ** [ゴミ箱] ** アイコンをクリックして、要素を削除できます。
+![](CurveAtlasAssetEditor_AddRemove.png)
+
+## マテリアルと一緒に Curve Atlas を使用する
+
+カーブを作成して Curve Atlas に適用した後は、 Curve Atlas を参照したマテリアルと、アトラスに割り当てられたカーブを作成できます。
+
+アトラスからカーブをサンプリングするには、新しいマテリアルを作成し、グラフ内で右クリックして ** [Curve Atlas Row Parameter] ** ノードを追加します。
+![](CurveAtlasRowParameter.png)
+
+[REGION:note]
+このノードは、アトラス UV の V 軸に対してブループリントが使用可能な [ Material Instance Dynamics ](Engine/Rendering/Materials/MaterialInstances#マテリアルインスタンスダイナミクス) （MID）上で作業できるという点でスカラーパラメータに似ています。ただし、ノードはサンプリングを行い、 R 、 G 、 B 、 A 、マスクと一緒に Vector 3 を返します。
+[/REGION]
+
+ノードを選択すると、 ** [Details] ** パネルで、このアトラスから ** アトラス ** とデフォルトの ** カーブ ** を割り当てて、このマテリアルで使用することができます。
+![](MatDetails_AtlasAndCurveAssignment.png)
+
+Curve Atlas はコンパイル時にベイク処理を行います。つまり、実行時にアトラスに格納されている内容や、アトラスに格納されているカーブ データを変更するためのランタイム サポートはありません。ただし、大量のデータを1つの Curve Atlas に保存し、ブループリント を使用して、マテリアル インスタンスからサンプリングされたカーブをオーバーライドすることができます。
+
+例として、 Curve Atlas に割り当て済みの複数のカーブを使用している「 Rock 」マテリアルを紹介します。
+
+[REGION:lightbox]
+[![](RockMaterialSetup_2.png)](RockMaterialSetup_2.png)
+[/REGION]
+[REGION:caption]
+ クリックしてフルサイズ表示
+[/REGION]
+
+次に、 ** マテリアル インスタンス ** を作成するときにスカラー パラメータを変更することで、メッシュに適用されている ** Curve Atlas ** によって参照される ** カーブ ** アセットを選択することができます。
+
+[REGION:imagetable]
+この例では、適用されたマテリアル インスタンスと、 Curve Atlas から参照されているカーブを示しています。
+| ![](Curve_Base.png)(w:250) | ![](Curve_1.png)(w:250) | ![](Curve_2.png)(w:250) | ![](Curve_3.png)(w:250) |
+| --- | --- | --- | --- |
+| ベース | カーブ 1 | カーブ 2 | カーブ 3 |
+[/REGION]
+
+### ブループリントによる Curve Atlas へのアクセス
+
+ブループリントでは、 ** [Get Curve Position] ** ノードを使用して、動的マテリアル インスタンスにスカラー パラメータ値を設定できます。[Get Curve Position] は、Curve Atlas を入力として受け取り、スカラー値を ** [Set Scalar Parameter Value] ** に渡し、カーブがアトラス内で見つかったかどうかを Boolean 値で返します。
+
+[REGION:lightbox]
+[![](BlueprintCurve.png)](BlueprintCurve.png)
+[/REGION]
+[REGION:caption]
+クリックしてフルサイズ表示
+[/REGION]

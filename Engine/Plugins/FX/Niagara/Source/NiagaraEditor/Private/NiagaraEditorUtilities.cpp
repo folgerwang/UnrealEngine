@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraEditorUtilities.h"
 #include "NiagaraEditorModule.h"
@@ -89,7 +89,10 @@ void FNiagaraEditorUtilities::InitializeParameterInputNode(UNiagaraNodeInput& In
 	if (Type.GetScriptStruct() != nullptr)
 	{
 		ResetVariableToDefaultValue(InputNode.Input);
-		InputNode.SetDataInterface(nullptr);
+		if (InputNode.GetDataInterface() != nullptr)
+		{
+			InputNode.SetDataInterface(nullptr);
+		}
 	}
 	else
 	{
@@ -287,7 +290,7 @@ void FNiagaraEditorUtilities::GatherChangeIds(UNiagaraEmitter& Emitter, TMap<FGu
 				FString KeyString;
 				Id.AppendKeyString(KeyString);
 
-				UEnum* FoundEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ENiagaraScriptUsage"), true);
+				UEnum* FoundEnum = StaticEnum<ENiagaraScriptUsage>();
 
 				FString ResultsEnum = TEXT("??");
 				if (FoundEnum)
@@ -608,56 +611,7 @@ void TraverseGraphFromOutputDepthFirst(const UEdGraphSchema_Niagara* Schema, UNi
 
 void FixUpNumericPinsVisitor(const UEdGraphSchema_Niagara* Schema, UNiagaraNode* Node)
 {
-	// Fix up numeric input pins and keep track of numeric types to decide the output type.
-	TArray<FNiagaraTypeDefinition> InputTypes;
-	TArray<UEdGraphPin*> InputPins;
-	Node->GetInputPins(InputPins);
-	for (UEdGraphPin* InputPin : InputPins)
-	{
-		if (InputPin->PinType.PinCategory == UEdGraphSchema_Niagara::PinCategoryType)
-		{
-			FNiagaraTypeDefinition InputPinType = Schema->PinToTypeDefinition(InputPin);
-
-			// If the input pin is the generic numeric type set it to the type of the linked output pin which should have been processed already.
-			if (InputPinType == FNiagaraTypeDefinition::GetGenericNumericDef() && InputPin->LinkedTo.Num() == 1)
-			{
-				UEdGraphPin* InputPinLinkedPin = UNiagaraNode::TraceOutputPin(InputPin->LinkedTo[0]);
-				FNiagaraTypeDefinition InputPinLinkedPinType = Schema->PinToTypeDefinition(InputPinLinkedPin);
-				if (InputPinLinkedPinType.IsValid())
-				{
-					// Only update the input pin type if the linked pin type is valid.
-					InputPin->PinType = Schema->TypeDefinitionToPinType(InputPinLinkedPinType);
-					InputPinType = InputPinLinkedPinType;
-				}
-			}
-
-			if (InputPinType == FNiagaraTypeDefinition::GetGenericNumericDef())
-			{
-				UE_LOG(LogNiagaraEditor, Error, TEXT("Unable to deduce type for numeric input pin. Node: %s Pin: %s"), *Node->GetName(), *InputPin->GetName());
-			}
-
-			InputTypes.Add(InputPinType);
-		}
-	}
-
-	// Fix up numeric outputs based on the inputs.
-	if (InputTypes.Num() > 0 && Node->GetNumericOutputTypeSelectionMode() != ENiagaraNumericOutputTypeSelectionMode::None)
-	{
-		FNiagaraTypeDefinition OutputNumericType = FNiagaraTypeDefinition::GetNumericOutputType(InputTypes, Node->GetNumericOutputTypeSelectionMode());
-		if (OutputNumericType != FNiagaraTypeDefinition::GetGenericNumericDef())
-		{
-			TArray<UEdGraphPin*> OutputPins;
-			Node->GetOutputPins(OutputPins);
-			for (UEdGraphPin* OutputPin : OutputPins)
-			{
-				FNiagaraTypeDefinition OutputPinType = Schema->PinToTypeDefinition(OutputPin);
-				if (OutputPinType == FNiagaraTypeDefinition::GetGenericNumericDef())
-				{
-					OutputPin->PinType = Schema->TypeDefinitionToPinType(OutputNumericType);
-				}
-			}
-		}
-	}
+	Node->ResolveNumerics(Schema, true, nullptr);
 }
 
 void FNiagaraEditorUtilities::FixUpNumericPins(const UEdGraphSchema_Niagara* Schema, UNiagaraNode* Node)
@@ -816,6 +770,66 @@ void FNiagaraEditorUtilities::PreprocessFunctionGraph(const UEdGraphSchema_Niaga
 
 	FNiagaraEditorUtilities::FixUpNumericPins(Schema, OutputNode);
 
+}
+
+void FNiagaraEditorUtilities::GetFilteredScriptAssets(FGetFilteredScriptAssetsOptions InFilter, TArray<FAssetData>& OutFilteredScriptAssets)
+{
+	FARFilter ScriptFilter;
+	ScriptFilter.ClassNames.Add(UNiagaraScript::StaticClass()->GetFName());
+
+	const UEnum* NiagaraScriptUsageEnum = FindObjectChecked<UEnum>(ANY_PACKAGE, TEXT("ENiagaraScriptUsage"), true);
+	const FString QualifiedScriptUsageString = NiagaraScriptUsageEnum->GetNameStringByValue(static_cast<uint8>(InFilter.ScriptUsageToInclude));
+	int32 LastColonIndex;
+	QualifiedScriptUsageString.FindLastChar(TEXT(':'), LastColonIndex);
+	const FString UnqualifiedScriptUsageString = QualifiedScriptUsageString.RightChop(LastColonIndex + 1);
+	ScriptFilter.TagsAndValues.Add(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Usage), UnqualifiedScriptUsageString);
+
+	const FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	AssetRegistryModule.Get().GetAssets(ScriptFilter, OutFilteredScriptAssets);
+
+	// We remove deprecated scripts separately as FARFilter does not support filtering by non-string tags.
+	if (InFilter.bIncludeDeprecatedScripts == false)
+	{
+		bool bScriptIsDeprecated = false;
+		bool bFoundDeprecatedTag = false;
+		for (int i = OutFilteredScriptAssets.Num() - 1; i >= 0; --i)
+		{
+			bFoundDeprecatedTag = OutFilteredScriptAssets[i].GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, bDeprecated), bScriptIsDeprecated);
+			// If the asset does not have the metadata tag, check if it is loaded and if so check the bDeprecated value directly
+			if (bFoundDeprecatedTag == false)
+			{
+				if (OutFilteredScriptAssets[i].IsAssetLoaded())
+				{
+					UNiagaraScript* Script = static_cast<UNiagaraScript*>(OutFilteredScriptAssets[i].GetAsset());
+					if (Script != nullptr)
+					{
+						bScriptIsDeprecated = Script->bDeprecated;
+					}
+				}
+			}
+			if (bScriptIsDeprecated)
+			{
+				OutFilteredScriptAssets.RemoveAt(i);
+			}
+		}
+	}
+	// We remove scripts with non matching usage bitmasks separately as FARFilter does not support filtering by non-string tags.
+	if (InFilter.TargetUsageToMatch.IsSet())
+	{
+		FString BitfieldTagValue;
+		int32 BitfieldValue, TargetBit;
+		for (int i = OutFilteredScriptAssets.Num() - 1; i >= 0; --i)
+		{
+			BitfieldTagValue = OutFilteredScriptAssets[i].GetTagValueRef<FString>(GET_MEMBER_NAME_CHECKED(UNiagaraScript, ModuleUsageBitmask));
+			BitfieldValue = FCString::Atoi(*BitfieldTagValue);
+
+			TargetBit = (BitfieldValue >> (int32)InFilter.TargetUsageToMatch.GetValue()) & 1;
+			if (TargetBit != 1)
+			{
+				OutFilteredScriptAssets.RemoveAt(i);
+			}
+		}
+	}
 }
 
 UNiagaraNodeOutput* FNiagaraEditorUtilities::GetScriptOutputNode(UNiagaraScript& Script)

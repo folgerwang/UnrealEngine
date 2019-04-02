@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UObjectHash.h: Unreal object name hashes
@@ -124,6 +124,11 @@ void HashObject(class UObjectBase* Object);
  * @param	Object		Object to remove from the hash tables
  */
 void UnhashObject(class UObjectBase* Object);
+
+/**
+* Shrink the UObject hash tables
+*/
+COREUOBJECT_API void ShrinkUObjectHashTables();
 
 /**
  * Logs out information about the object hash for debug purposes

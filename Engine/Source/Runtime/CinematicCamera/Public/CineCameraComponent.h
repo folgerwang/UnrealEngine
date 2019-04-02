@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -138,7 +138,7 @@ struct FCameraTrackingFocusSettings
 
 	/** Focus distance will be tied to this actor's location. */
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = "Tracking Focus")
-	AActor* ActorToTrack;
+	TSoftObjectPtr<AActor> ActorToTrack;
 
 	/** Offset from actor position to track. Relative to actor if tracking an actor, relative to world otherwise. */
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = "Tracking Focus")
@@ -149,8 +149,7 @@ struct FCameraTrackingFocusSettings
 	uint8 bDrawDebugTrackingFocusPoint : 1;
 
 	FCameraTrackingFocusSettings()
-		: ActorToTrack(nullptr),
-		RelativeOffset(ForceInitToZero),
+		: RelativeOffset(ForceInitToZero),
 		bDrawDebugTrackingFocusPoint(false)
 	{}
 };
@@ -255,6 +254,9 @@ public:
 	UPROPERTY(VisibleAnywhere, Category = "Current Camera Settings")
 	float CurrentHorizontalFOV;
 #endif
+
+	/** Override setting FOV to manipulate Focal Length. */
+	virtual void SetFieldOfView(float InFieldOfView) override;
 	
 	/** Returns the horizonal FOV of the camera with current settings. */
 	UFUNCTION(BlueprintCallable, Category = "Cine Camera")

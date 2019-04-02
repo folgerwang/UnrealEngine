@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BrushComponent.cpp: Unreal brush component implementation
@@ -246,7 +246,7 @@ public:
 						if(BodySetup != NULL)
 						{
 							auto SolidMaterialInstance = new FColoredMaterialRenderProxy(
-								GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(IsSelected(), IsHovered()),
+								GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(),
 								DrawColor
 								);
 
@@ -264,7 +264,7 @@ public:
 						if(WireIndexBuffer.GetNumEdges() && VertexBuffers.PositionVertexBuffer.GetNumVertices())
 						{
 							auto WireframeMaterial = new FColoredMaterialRenderProxy(
-								GEngine->LevelColorationUnlitMaterial->GetRenderProxy(IsSelected(), IsHovered()),
+								GEngine->LevelColorationUnlitMaterial->GetRenderProxy(),
 								GetViewSelectionColor(DrawColor, *View, !(GIsEditor && (View->Family->EngineShowFlags.Selection)) || IsSelected(), IsHovered(), false, IsIndividuallySelected() )
 								);
 
@@ -275,7 +275,6 @@ public:
 							BatchElement.IndexBuffer = &WireIndexBuffer;
 							Mesh.VertexFactory = &VertexFactory;
 							Mesh.MaterialRenderProxy = WireframeMaterial;
-							BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
 							BatchElement.FirstIndex = 0;
 							BatchElement.NumPrimitives = WireIndexBuffer.GetNumEdges();
 							BatchElement.MinVertexIndex = 0;

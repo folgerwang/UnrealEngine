@@ -26,13 +26,13 @@ Github: [https://github.com/EpicGames/UnrealEngine/tree/4.5.1-release](https://g
 
 * XCode 에서 핫 리로드를 사용할 때의 오류를 고쳤습니다.
 
-* 리눅스 OS 에서 프로젝트 패키지를 만들 때의 오류를 고쳤습니다.
+* Linux OS 에서 프로젝트 패키지를 만들 때의 오류를 고쳤습니다.
 
 * 10.10 Yosemite 에서 Nvidia 디바이스에 발생하던 버그를 잡았습니다.
 
-* 리눅스 OS 에서 Shootergame 경기 참가를 시도할 때 발생하던 오류를 고쳤습니다.
+* Linux OS 에서 Shootergame 경기 참가를 시도할 때 발생하던 오류를 고쳤습니다.
 
-* Shootergame 의 UI 가 리눅스 OS 에서 제대로 마스킹되도록 수정했습니다.
+* Shootergame 의 UI 가 Linux OS 에서 제대로 마스킹되도록 수정했습니다.
 
 * Material Parameter Collection 이 이제 블루프린트를 통해 호출해도 정상 작동합니다.
 
@@ -48,5 +48,5 @@ Github: [https://github.com/EpicGames/UnrealEngine/tree/4.5.1-release](https://g
 
 * iTunes 가 설치되지 않아 iOS 에서 실행 또는 패키지 옵션을 사용할 수 없도록 에디터에서 잘못 감지되는 이슈에 대한 픽스입니다.
 
-[윈도우 다운로드](https://s3.amazonaws.com/unrealengine/qfe/QFE-FromCL-2370532.exe](https://s3.amazonaws.com/unrealengine/qfe/QFE-FromCL-2370532.exe) 
+[Windows 다운로드](https://s3.amazonaws.com/unrealengine/qfe/QFE-FromCL-2370532.exe](https://s3.amazonaws.com/unrealengine/qfe/QFE-FromCL-2370532.exe) 
 

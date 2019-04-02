@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -145,7 +145,7 @@ class HEADMOUNTEDDISPLAY_API UHeadMountedDisplayFunctionLibrary : public UBluepr
 	static void SetClippingPlanes(float Near, float Far);
 
 	/** DEPRECATED - Use GetPixelDensity */
-	DEPRECATED(4.19, "Use GetPixelDensity instead")
+	UE_DEPRECATED(4.19, "Use GetPixelDensity instead")
 	UFUNCTION(BlueprintPure, Category = "Input|HeadMountedDisplay", meta = (DeprecatedFunction, DeprecationMessage = "Use GetPixelDensity instead"))
 	static float GetScreenPercentage();
 

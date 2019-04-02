@@ -1,11 +1,11 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:4320499
 Availability: Public
 Crumbs:
-Title: Mixed Reality Capture Overview
-Description: Product documentation including reference and guides for Unreal Engine 4 
+Title: 混合现实捕捉概述
+Description: 包含参考及指南的虚幻引擎4产品文档 
 Version: 4.20
 Parent: Platforms/MR
-Order: 1
+Order:1
 Tags: GettingStarted
 Tags: MR
 Tags: landingpage
@@ -13,14 +13,14 @@ Tags: Early Access
 topic-image:MR_RoboRecall.png
 reference-image:MR_RoboRecall.gif
 
-The Mixed Reality Capture (MRC) framework makes it easy for users to composite real players into a virtual play space so that observing XR experiences is more compelling.
+混合现实捕捉（MRC）框架使用户可以更轻松地将真实玩家合成到虚拟游戏空间中，使监视XR体验变得更加真实。
 
 [REGION:asyncgif]
-![image alt text](MR_RoboRecall.gif)(w:653 convert:false)
+![image alt text](MR_RoboRecall.gif)(w:653)
 [/REGION]
 
-Mixed Reality Capture support has three components: video input, calibration, and in-game compositing. We have a list of supported [webcams and HDMI capture devices](Platforms/MR/MRSupportedVideoDevices) that enable you to pull real world green screened video into the Unreal Engine from a variety of sources. If you have a separate tracking device, Mixed Reality Capture can match your camera location to the in-game camera to make shots more dynamic and interesting. Setup and calibration is done through a standalone calibration tool. Once you set up and calibrate your filming location, you can reuse those calibration settings across Unreal applications.
+混合现实捕捉支持具有三个组成部分：视频输入、校准和游戏内合成。我们支持一系列的[网络摄像头和HDMI捕捉设备](Platforms/MR/MRSupportedVideoDevices)，使您能够从各种各样的源将真实世界绿幕视频拉取到虚幻引擎中。如果具有单独的追踪设备，混合现实捕捉可以将摄像机位置与游戏内摄像机进行匹配，以使镜头更加动态和有趣。设置和校准通过独立的校准设备进行。设置并校准好摄制位置后，可以在虚幻应用程序中重复使用这些校准设置。
 
-While feature support is in early access, we’re looking forward to getting feedback as we continue to improve the framework. 
+虽然功能支持已进入抢先体验阶段，我们仍然期待收到反馈，以帮助我们持续改善该框架。 
 
-Get started using Mixed Reality Capture by following the [Mixed Reality Quick Start](Platforms/MR/MRQuickStart).
+遵循[混合现实快速入门](Platforms/MR/MRQuickStart)中的步骤开始使用混合现实捕捉。

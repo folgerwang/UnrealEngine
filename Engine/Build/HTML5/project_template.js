@@ -36,6 +36,8 @@ if ( AudioContext ) {
 // low enough that they do not strictly require WebGL 2.
 const requiredWebGLVersion = 1;
 
+const targetOffscreenCanvas = %OFFSCREENCANVAS%;
+
 // Add ?webgl1 GET param to explicitly test the WebGL 1 fallback version even if browser does support WebGL 2.
 const explicitlyUseWebGL1 = (location.search.indexOf('webgl1') != -1);
 
@@ -51,6 +53,9 @@ const serveCompressedAssets = %SERVE_COMPRESSED%;
 // file to IndexedDB, whereas gzip compressing to disk has the advantage of starting up the page slightly faster.
 // If true, serve out 'UE4Game.data.gz', if false, serve out 'UE4Game.data'.
 //const dataFileIsGzipCompressed = false;
+
+console.log("Emscripten version: %EMSDK_VERSION%");
+console.log("Emscripten configuration: %EMSDK_CONFIG%");
 
 
 
@@ -120,6 +125,21 @@ window.onerror = function(e) {
 }
 
 
+// ----------------------------------------
+// ----------------------------------------
+// detect wasm-threads
+ function detectWasmThreads() {
+	return WebAssembly.validate(new Uint8Array([
+		0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x04, 0x01, 0x60,
+		0x00, 0x00, 0x03, 0x02, 0x01, 0x00, 0x05, 0x04, 0x01, 0x03, 0x01, 0x01,
+		0x0a, 0x0b, 0x01, 0x09, 0x00, 0x41, 0x01, 0xfe, 0x10, 0x02, 0x00, 0x1a,
+		0x0b
+	]));
+}
+
+Module['UE4_MultiThreaded'] = %MULTITHREADED% && detectWasmThreads();
+
+
 // ================================================================================
 // ================================================================================
 // emscripten memory system
@@ -142,48 +162,23 @@ var pageSize = 64 * 1024;
 var heuristic64BitBrowser = heuristicIs64Bit('browser');
 function alignPageUp(size) { return pageSize * Math.ceil(size / pageSize); }
 
-// The application should not be able to allocate more than MAX bytes of memory. If the application
-// attempts to allocate any more, it will be forbidden. Use this field to defensively impose a
-// strict limit to an application to keep it from going rogue with its memory usage beyond some
-// undesired limit. The absolute maximum that is possible is one memory page short of 2GB.
-var MAX_MEMORY_64BIT = Infinity;
-var MAX_MEMORY_32BIT = 512*1024*1024;
-var MAX_MEMORY = Math.min(alignPageUp(heuristic64BitBrowser ? MAX_MEMORY_64BIT : MAX_MEMORY_32BIT), 2048 * 1024 * 1024 - pageSize);
+// The absolute maximum that is possible is one memory page short of 2GB.
+var MAX_MEMORY = Module['UE4_MultiThreaded']
+					? 512 * 1024 * 1024					// multi  threaded - non-growable
+					: 2048 * 1024 * 1024 - pageSize;	// single threaded - growable
 
-// The application needs at least this much memory to run. If the browser can't provide this,
-// the page startup should be aborted in an out-of-memory exception.
-var MIN_MEMORY = Math.min(alignPageUp(32 * 1024 * 1024), MAX_MEMORY);
+// note: 32-bit browsers (single threaded) needs to start at 32MB
+var MIN_MEMORY = Module['UE4_MultiThreaded']
+					? 512 * 1024 * 1024		// multi  threaded - non-growable
+					:  32 * 1024 * 1024;	// single threaded - growable
 
-// As a hint to the implementation, the application would prefer to reserve this much address
-// space at startup, and the browser will attempt its best to satisfy this. If this is not
-// possible, the browser will attempt to allocate anything as close to this IDEAL amount as
-// possible, but at least MIN bytes.
-var IDEAL_MEMORY_64BIT = %HEAPSIZE%;
-var IDEAL_MEMORY_32BIT = %HEAPSIZE%;
-var IDEAL_MEMORY = Math.min(Math.max(alignPageUp(heuristic64BitBrowser ? IDEAL_MEMORY_64BIT : IDEAL_MEMORY_32BIT), MIN_MEMORY), MAX_MEMORY);
-
-// If true, assume the application will have most of its memory allocation pressure inside the
-// application heap, so reserve address space there up front. If false, assume that the memory
-// allocation pressure is outside the heap, so avoid reserving memory up front, until needed.
-var RESERVE_MAX_64BIT = true;
-var RESERVE_MAX_32BIT = false;
-var RESERVE_MAX = heuristic64BitBrowser ? RESERVE_MAX_64BIT : RESERVE_MAX_32BIT;
-
-function MB(x) { return (x/1024/1024) + 'MB'; }
 function allocateHeap() {
-	// Try to get as much memory close to IDEAL, but at least MIN.
-	for(var mem = IDEAL_MEMORY; mem >= MIN_MEMORY; mem -= pageSize) {
-		try {
-			if (RESERVE_MAX)
-				Module['wasmMemory'] = new WebAssembly.Memory({ initial: mem / pageSize, maximum: MAX_MEMORY / pageSize });
-			else
-				Module['wasmMemory'] = new WebAssembly.Memory({ initial: mem / pageSize });
-			Module['buffer'] = Module['wasmMemory'].buffer;
-			if (Module['buffer'].byteLength != mem) throw 'Out of memory';
-			break;
-		} catch(e) { /*nop*/ }
+	Module['wasmMemory'] = new WebAssembly.Memory({ initial: MIN_MEMORY / pageSize, maximum: MAX_MEMORY / pageSize });
+	if (!Module['wasmMemory']||!Module['wasmMemory'].buffer) {
+		throw 'Out of memory';
 	}
-	if (!Module['buffer'] || !(Module['buffer'].byteLength >= MIN_MEMORY)) {
+	Module['buffer'] = Module['wasmMemory'].buffer;
+	if (Module['buffer'].byteLength < MIN_MEMORY) {
 		delete Module['buffer'];
 		throw 'Out of memory';
 	}
@@ -191,7 +186,10 @@ function allocateHeap() {
 }
 allocateHeap();
 Module['MAX_MEMORY'] = MAX_MEMORY;
-console.log('Initial memory size: ' + MB(Module['TOTAL_MEMORY']) + ' (MIN_MEMORY: ' + MB(MIN_MEMORY) + ', IDEAL_MEMORY: ' + MB(IDEAL_MEMORY) + ', MAX_MEMORY: ' + MB(MAX_MEMORY) + ', RESERVE_MAX: ' + RESERVE_MAX + ', heuristic64BitBrowser: ' + heuristic64BitBrowser + ', heuristic64BitOS: ' + heuristicIs64Bit('os') + ')');
+
+function MB(x) { return (x/1024/1024) + 'MB'; }
+console.log('Initial memory size: ' + MB(Module['TOTAL_MEMORY']) + ' (MIN_MEMORY: ' + MB(MIN_MEMORY) + ', MAX_MEMORY: ' + MB(MAX_MEMORY) + ', heuristic64BitBrowser: ' + heuristic64BitBrowser + ', heuristic64BitOS: ' + heuristicIs64Bit('os') + ')');
+
 
 
 
@@ -218,7 +216,7 @@ function getGpuInfo() {
 }
 
 function detectWebGL() {
-	var canvas = Module['canvas'] || document.createElement("canvas");
+	var canvas = targetOffscreenCanvas ? document.createElement("canvas") : (Module['canvas'] || document.createElement("canvas"));
 	// If you run into problems with WebGL 2, or for quick testing purposes, you can disable UE4
 	// from using WebGL 2 and revert back to WebGL 1 by setting the following flag to true.
 	var disableWebGL2 = false;
@@ -255,6 +253,9 @@ function detectWebGL() {
 		}
 	} finally {
 		canvas.removeEventListener("webglcontextcreationerror", testError, false);
+		if ( targetOffscreenCanvas ) {
+			delete canvas;
+		}
 	}
 	return 0;
 }
@@ -342,8 +343,11 @@ function resizeCanvas(aboutToEnterFullscreen) {
 	cssWidth = canvasWindowedUseHighDpi ? (newRenderTargetWidth / window.devicePixelRatio) : newRenderTargetWidth;
 	cssHeight = canvasWindowedUseHighDpi ? (newRenderTargetHeight / window.devicePixelRatio) : newRenderTargetHeight;
 
-	Module['canvas'].width = newRenderTargetWidth;
-	Module['canvas'].height = newRenderTargetHeight;
+	// Resize the actual Canvas element. Since this can either be a regular Canvas or an OffscreenCanvas, use an Emscripten API to
+	// do the resizing, since it needs to be multithreading aware if an OffscreenCanvas is being used. In the case of an OffscreenCanvas,
+	// the resizing may happen asynchronously.
+	_emscripten_set_canvas_element_size(Module['canvas'].id, newRenderTargetWidth, newRenderTargetHeight);
+//	emscripten_set_canvas_element_size_js(Module['canvas'].id, newRenderTargetWidth, newRenderTargetHeight);
 
 	Module['canvas'].style.width = cssWidth + 'px';
 	Module['canvas'].style.height = mainArea.style.height = cssHeight + 'px';
@@ -354,6 +358,19 @@ function resizeCanvas(aboutToEnterFullscreen) {
 	if (UE_JSlib.UE_CanvasSizeChanged) UE_JSlib.UE_CanvasSizeChanged();
 }
 Module['UE4_resizeCanvas'] = resizeCanvas;
+
+// Input event hooks: UE4 calls these functions for all input events it receives prior to handling the input event itself.
+// Use these functions if you need to override or hook into input handling on JavaScript side.
+// Possible return values from these functions:
+// 0: UE4 should process this input event, and use the default choice whether to suppress browser default navigation for the event.
+// 1: UE4 should process this input event, but not suppress browser default navigation for the event.
+// 2: UE4 should process this input event, and suppress browser default navigation for the event.
+// 3: UE4 should discard this input event, and use the default choice whether to suppress browser default navigation for the event.
+// 4: UE4 should discard this input event, but not suppress browser default navigation for the event.
+// 5: UE4 should discard this input event, and suppress browser default navigation for the event.
+Module['UE4_keyEvent'] = function(eventType, key, virtualKeyCode, domPhysicalKeyCode, keyEventStruct) { return 0; }
+Module['UE4_mouseEvent'] = function(eventType, x, y, button, buttons, mouseEventStruct) { return 0; }
+Module['UE4_wheelEvent'] = function(eventType, x, y, button, buttons, deltaX, deltaY, wheelEventStruct) { return 0; }
 
 
 // ----------------------------------------
@@ -514,7 +531,9 @@ function fetchOrDownloadAndStore(db, url, responseType) {
 				/*return*/ storeToIndexedDB(db, url, data)
 				.then(function() { return resolve(data); })
 				.catch(function(error) {
-					console.error('Failed to store download to IndexedDB! ' + error);
+					if ( enableReadFromIndexedDB || enableWriteToIndexedDB ) {
+						console.error('Failed to store download to IndexedDB! ' + error);
+					}
 					return resolve(data); // succeeded download, but failed to store - ignore failure in that case and just proceed to run by calling the success handler.
 				})
 			})
@@ -589,7 +608,7 @@ Module['instantiateWasm'] = function(info, receiveInstance) {
 			var module = output.module;
 			taskFinished(TASK_COMPILING);
 			Module['wasmInstantiateActionResolve'](instance);
-			receiveInstance(instance);
+			receiveInstance(instance, module);
 
 			// After a successful instantiation, attempt to save the compiled Wasm Module object to IndexedDB.
 			if (!downloadResults.fromIndexedDB) {
@@ -1009,8 +1028,8 @@ $(document).ready(function() {
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	// memory heap
-	if (!Module['buffer'] && allocateHeapUpFront) {
-		showErrorDialog('Failed to allocate ' + MB(MIN_MEMORY) + ' of linear memory for the ' + 'WebAssembly' + ' heap!');
+	if (!Module['buffer']) {
+		showErrorDialog('Failed to allocate ' + MB(MIN_MEMORY) + ' of linear memory for the WebAssembly heap!');
 		return;
 	}
 
@@ -1034,6 +1053,10 @@ $(document).ready(function() {
 		} else {
 			showWarningRibbon('The current browser does not support WebGL 2. This affects graphics performance and quality.<br>Please try updating your browser (and/or video drivers).  NOTE: old hardware might have been blacklisted by this browser -- you may need to use a different browser.<br>Error reason: ' + (Module['webGLErrorReason'] || 'Unknown') + '<br>Current renderer: ' + getGpuInfo());
 		}
+	}
+
+	if (typeof OffscreenCanvas === 'undefined' && targetOffscreenCanvas) {
+		showWarningRibbon('This is an experimental UE4 build that uses OffscreenCanvas, but your browser does not seem to support it. Try out Firefox Nightly or Chrome Canary, and in Firefox, set pref gfx.offscreencanvas.enabled;true in about:config, and on Chrome Canary, Enable "Experimental canvas features" in chrome://flags. Continuing without OffscreenCanvas, but performance can be severely affected, and rendering might not look correct.');
 	}
 
 	// The following WebGL 1.0 extensions are available in core WebGL 2.0 specification, so they are no longer shown in the extensions list.
@@ -1081,6 +1104,10 @@ $(document).ready(function() {
 		showWarningRibbon('Your browser or graphics card does not support the WebGL extension ' + unsupportedWebGLExtensions[0] + '. This can impact UE4 graphics performance and quality.');
 	}
 
+	if (targetOffscreenCanvas) {
+		Module['preinitializedWebGLContext'] = null; // TODO: Currently can't preinitialize a context when OffscreenCanvas is used.
+	}
+
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	// browser 64bit vs 32bit check
 	if (!heuristicIs64Bit('browser')) {
@@ -1117,7 +1144,8 @@ $(document).ready(function() {
 
 		// ----------------------------------------
 		// MAIN JS
-		var mainJsDownload = fetchOrDownloadAndStore(db, Module.locateFile('%UE4GAMENAME%.js')).then(function(data) {
+		var mainJsDownload = fetchOrDownloadAndStore(db, Module.locateFile('%UE4GAMENAME%.js'), 'blob').then(function(data) {
+				Module['mainScriptUrlOrBlob'] = data;
 				return addScriptToDom(data).then(function() {
 					addRunDependency('wait-for-compiled-code');
 				});
@@ -1174,7 +1202,9 @@ $(document).ready(function() {
 	// ----------------------------------------
 	// GO !
 	openIndexedDB(Module['UE4_indexedDBName'], Module['UE4_indexedDBVersion'] || 1).then(withIndexedDB).catch(function(e) {
-		console.error('Failed to openIndexedDB, proceeding without reading or storing contents to IndexedDB! Error: ');
+		if ( enableReadFromIndexedDB || enableWriteToIndexedDB ) {
+			console.error('Failed to openIndexedDB, proceeding without reading or storing contents to IndexedDB! Error: ');
+		}
 		console.error(e);
 		withIndexedDB(null);
 	});

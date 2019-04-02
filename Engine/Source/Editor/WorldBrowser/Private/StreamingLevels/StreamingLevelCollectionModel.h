@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -76,8 +76,8 @@ private:
 	/** Removes selected levels from world */
 	void RemoveInvalidSelectedLevels_Executed();
 	
-	/** Creates a new empty Level; prompts for level save location */
-	void CreateEmptyLevel_Executed();
+	/** Creates a new level; prompts for level save location */
+	void CreateNewLevel_Executed();
 
 	/** Calls AddExistingLevel which adds an existing level; prompts for path */
 	void AddExistingLevel_Executed();
@@ -105,6 +105,9 @@ private:
 
 	/** Checks if the passed in streaming method is the current streaming method */
 	bool IsStreamingMethodChecked(UClass* InClass) const;
+
+	/** @return	whether the selected levels are allowed to be removed from the world */
+	bool AreAllSelectedLevelsRemovable() const;
 
 	/** Changes the streaming method for the selected levels. */
 	void SetStreamingLevelsClass_Executed(UClass* InClass);

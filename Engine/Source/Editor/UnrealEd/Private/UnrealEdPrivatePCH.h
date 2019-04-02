@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -98,7 +98,6 @@
 #include "Internationalization/TextLocalizationManager.h"
 #include "Delegates/Delegate.h"
 #include "UObject/WeakObjectPtrTemplates.h"
-#include "UObject/AutoPointer.h"
 #include "Delegates/MulticastDelegateBase.h"
 #include "Delegates/IDelegateInstance.h"
 #include "Delegates/DelegateSettings.h"
@@ -198,7 +197,6 @@
 #include "Misc/IQueuedWork.h"
 #include "Misc/QueuedThreadPool.h"
 #include "GenericPlatform/GenericPlatformAffinity.h"
-#include "GenericPlatform/GenericPlatformCompression.h"
 #include "Math/TransformCalculus.h"
 #include "Math/TransformCalculus2D.h"
 #include "Templates/RefCounting.h"
@@ -378,7 +376,6 @@
 #include "Rendering/SlateRenderer.h"
 #include "Application/SlateApplicationBase.h"
 #include "Layout/WidgetPath.h"
-#include "Logging/IEventLogger.h"
 #include "Types/SlateConstants.h"
 #include "Fonts/FontProviderInterface.h"
 
@@ -445,15 +442,13 @@
 #include "UniformBuffer.h"
 #include "PackedNormal.h"
 #include "RenderUtils.h"
-
-// From Messaging:
-#include "IMessageContext.h"
-
-// From ShaderCore:
 #include "ShaderParameters.h"
 #include "ShaderCore.h"
 #include "Shader.h"
 #include "VertexFactory.h"
+
+// From Messaging:
+#include "IMessageContext.h"
 
 // From AssetRegistry:
 #include "AssetData.h"

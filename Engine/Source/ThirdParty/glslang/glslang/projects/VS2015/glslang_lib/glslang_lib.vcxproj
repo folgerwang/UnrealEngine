@@ -13,6 +13,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\src\glslang_lib\glslang\GenericCodeGen\CodeGen.cpp" />
     <ClCompile Include="..\..\..\src\glslang_lib\glslang\GenericCodeGen\Link.cpp" />
+    <ClCompile Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\attribute.cpp" />
     <ClCompile Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\Constant.cpp" />
     <ClCompile Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\glslang_tab.cpp" />
     <ClCompile Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\InfoSink.cpp" />
@@ -72,6 +73,7 @@
     <ClInclude Include="..\..\..\src\glslang_lib\glslang\Include\revision.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\glslang\Include\ShHandle.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\glslang\Include\Types.h" />
+    <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\attribute.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\glslang_tab.cpp.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\gl_types.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\Initialize.h" />
@@ -106,6 +108,7 @@
     <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\disassemble.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\doc.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\GLSL.ext.AMD.h" />
+    <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\GLSL.ext.EXT.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\GLSL.ext.KHR.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\GLSL.std.450.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\GlslangToSpv.h" />
@@ -118,6 +121,7 @@
     <ClInclude Include="spirv_common.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\..\src\glslang_lib\glslang\Include\revision.template" />
     <None Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\glslang.y" />
     <None Include="..\..\..\src\glslang_lib\README.md" />
   </ItemGroup>
@@ -167,7 +171,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN64;WIN32;_DEBUG;_LIB;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>AMD_EXTENSIONS;WIN64;WIN32;_DEBUG;_LIB;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -190,7 +194,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN64;WIN32;NDEBUG;_LIB;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>AMD_EXTENSIONS;WIN64;WIN32;NDEBUG;_LIB;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <TreatWarningAsError>true</TreatWarningAsError>

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Animation/AnimationAsset.h"
 #include "Engine/AssetUserData.h"
@@ -567,6 +567,22 @@ const TArray<UAssetUserData*>* UAnimationAsset::GetAssetUserDataArray() const
 {
 	return &AssetUserData;
 }
+
+#if WITH_EDITOR
+void UAnimationAsset::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	for (UAssetUserData* Datum : AssetUserData)
+	{
+		if (Datum != nullptr)
+		{
+			Datum->PostEditChangeOwner();
+		}
+	}
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+#endif
+
 ///////////////////////////////////////////////////////////////////////////////////////
 //
 // FBlendSampleData

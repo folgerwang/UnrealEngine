@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -15,6 +15,20 @@ struct FImageStreamEndpoint;
  */
 struct IMAGEWRITEQUEUE_API FImagePixelPipe
 {
+	/**
+	 * Default constructor (an empty pipe)
+	 */
+	FImagePixelPipe()
+	{}
+
+	/**
+	 * Define a new pipe with a single initial endpoint
+	 */
+	FImagePixelPipe(const TFunction<void(TUniquePtr<FImagePixelData>&&)>& InEndpoint)
+	{
+		AddEndpoint(InEndpoint);
+	}
+
 	/**
 	 * Push the specified pixel data onto this pipe
 	 *

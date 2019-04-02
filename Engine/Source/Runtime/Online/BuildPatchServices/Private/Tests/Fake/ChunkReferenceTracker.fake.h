@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "Installer/ChunkReferenceTracker.h"
@@ -45,6 +45,16 @@ namespace BuildPatchServices
 				{
 					--Count;
 				}
+				return bSelected;
+			});
+		}
+
+		virtual TArray<FGuid> SelectFromNextReferences(int32 Count, const TFunction<bool(const FGuid&)>& SelectPredicate) const override
+		{
+			return NextReferences.FilterByPredicate([&Count, &SelectPredicate](const FGuid& Element)
+			{
+				bool bSelected = (Count > 0) && SelectPredicate(Element);
+				--Count;
 				return bSelected;
 			});
 		}

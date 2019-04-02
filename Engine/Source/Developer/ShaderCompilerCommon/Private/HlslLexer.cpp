@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	HlslLexer.cpp - Implementation for scanning & tokenizing hlsl
@@ -945,7 +945,7 @@ namespace CrossCompiler
 	void FHlslScanner::Clear(const FString& Filename)
 	{
 		Tokens.Empty();
-		new (SourceFilenames) FString(Filename);
+		SourceFilenames.Add(new FString(Filename));
 	}
 
 	bool FHlslScanner::Lex(const FString& String, const FString& Filename)
@@ -965,7 +965,7 @@ namespace CrossCompiler
 				FTokenizer::ProcessDirective(Tokenizer, CompilerMessages, *this);
 				if (Tokenizer.Filename != SourceFilenames.Last())
 				{
-					new(SourceFilenames) FString(Tokenizer.Filename);
+					SourceFilenames.Add(new FString(Tokenizer.Filename));
 				}
 			}
 			else

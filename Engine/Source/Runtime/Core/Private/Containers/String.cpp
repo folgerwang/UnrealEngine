@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreTypes.h"
 #include "Misc/AssertionMacros.h"
@@ -257,6 +257,7 @@ void FString::RemoveSpacesInline()
 	if (CopyToIndex <= StringLength)
 	{
 		RawData[CopyToIndex] = '\0';
+		Data.SetNum(CopyToIndex + 1, false);
 	}
 }
 
@@ -422,10 +423,25 @@ void FString::PathAppend(const TCHAR* Str, int32 StrLength)
 			}
 		}
 
-		Data.Reserve(DataNum + StrLength + 1);
+		Reserve(DataNum + StrLength);
 		Data.Append(Str, StrLength);
 		Data.Add(TEXT('\0'));
 	}
+}
+
+void FString::ReplaceCharInlineCaseSensitive(const TCHAR SearchChar, const TCHAR ReplacementChar)
+{
+	for (TCHAR& Character : Data)
+	{
+		Character = Character == SearchChar ? ReplacementChar : Character;
+	}
+}
+
+void FString::ReplaceCharInlineIgnoreCase(const TCHAR SearchChar, const TCHAR ReplacementChar)
+{
+	TCHAR OtherCaseSearchChar = TChar<TCHAR>::IsUpper(SearchChar) ? TChar<TCHAR>::ToLower(SearchChar) : TChar<TCHAR>::ToUpper(SearchChar);
+	ReplaceCharInlineCaseSensitive(OtherCaseSearchChar, ReplacementChar);
+	ReplaceCharInlineCaseSensitive(SearchChar, ReplacementChar);
 }
 
 FString FString::Trim()
@@ -647,8 +663,9 @@ void FString::AppendInt( int32 InNum )
 	int64 Num						= InNum; // This avoids having to deal with negating -MAX_int32-1
 	const TCHAR* NumberChar[11]		= { TEXT("0"), TEXT("1"), TEXT("2"), TEXT("3"), TEXT("4"), TEXT("5"), TEXT("6"), TEXT("7"), TEXT("8"), TEXT("9"), TEXT("-") };
 	bool bIsNumberNegative			= false;
-	TCHAR TempNum[16];				// 16 is big enough
-	int32 TempAt					= 16; // fill the temp string from the top down.
+	const int32 TempBufferSize		= 16; // 16 is big enough
+	TCHAR TempNum[TempBufferSize];				
+	int32 TempAt					= TempBufferSize; // fill the temp string from the top down.
 
 	// Correctly handle negative numbers and convert to positive integer.
 	if( Num < 0 )
@@ -672,7 +689,9 @@ void FString::AppendInt( int32 InNum )
 		TempNum[--TempAt] = *NumberChar[10];
 	}
 
-	*this += TempNum + TempAt;
+	const TCHAR* CharPtr = TempNum + TempAt;
+	const int32 NumChars = TempBufferSize - TempAt - 1;
+	Append(CharPtr, NumChars);
 }
 
 
@@ -1380,25 +1399,25 @@ FArchive& operator<<( FArchive& Ar, FString& A )
 		bool LoadUCS2Char = SaveNum < 0;
 		if (LoadUCS2Char)
 		{
+			// If SaveNum cannot be negated due to integer overflow, Ar is corrupted.
+			if (SaveNum == MIN_int32)
+			{
+				Ar.ArIsError = 1;
+				Ar.ArIsCriticalError = 1;
+				UE_LOG(LogCore, Error, TEXT("Archive is corrupted"));
+				return Ar;
+			}
+
 			SaveNum = -SaveNum;
 		}
 
-		// If SaveNum is still less than 0, they must have passed in MIN_INT. Archive is corrupted.
-		if (SaveNum < 0)
-		{
-			Ar.ArIsError = 1;
-			Ar.ArIsCriticalError = 1;
-			UE_LOG(LogNetSerialization, Error, TEXT("Archive is corrupted"));
-			return Ar;
-		}
-
-		auto MaxSerializeSize = Ar.GetMaxSerializeSize();
+		int32 MaxSerializeSize = Ar.GetMaxSerializeSize();
 		// Protect against network packets allocating too much memory
 		if ((MaxSerializeSize > 0) && (SaveNum > MaxSerializeSize))
 		{
 			Ar.ArIsError         = 1;
 			Ar.ArIsCriticalError = 1;
-			UE_LOG( LogNetSerialization, Error, TEXT( "String is too large" ) );
+			UE_LOG(LogCore, Error, TEXT("String is too large (Size: %i, Max: %i)"), SaveNum, MaxSerializeSize);
 			return Ar;
 		}
 

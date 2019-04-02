@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,8 +6,12 @@
 #include "CoreTypes.h"
 #include "EngineUtils.h"
 
+#include "DisplayClusterGlobals.h"
 #include "DisplayClusterStrings.h"
 
+#include "Cluster/IPDisplayClusterClusterManager.h"
+#include "Config/IPDisplayClusterConfigManager.h"
+#include "Config/DisplayClusterConfigTypes.h"
 #include "Misc/DisplayClusterTypesConverter.h"
 
 #include "Interfaces/IPv4/IPv4Address.h"
@@ -32,12 +36,35 @@ namespace DisplayClusterHelpers
 			return (bVal ? StrTrue : StrFalse);
 		}
 
+		template<typename T>
+		static FString ArrayToStr(const TArray<T>& Data)
+		{
+			static const auto Quotes = TEXT("\"");
+			FString tmp = Quotes;
+			const uint32 Count = Data.Num();
+
+			for (uint32 i = 0; i < Count; ++i)
+			{
+				tmp += FDisplayClusterTypesConverter::ToString(Data[i]);
+				if (i < (Count - 1))
+				{
+					tmp += DisplayClusterStrings::strArrayValSeparator;
+				}
+			}
+
+			tmp += Quotes;
+
+			return tmp;
+		}
+
 		static void DustCommandLineValue(FString& val, bool bTrimQuotes = true)
 		{
 			val.RemoveFromStart(DisplayClusterStrings::strKeyValSeparator);
 			
-			if(bTrimQuotes)
+			if (bTrimQuotes)
+			{
 				val = val.TrimQuotes();
+			}
 
 			val.TrimStartAndEndInline();
 		}
@@ -46,12 +73,32 @@ namespace DisplayClusterHelpers
 		static bool ExtractCommandLineValue(const FString& line, const FString& argName, T& argVal)
 		{
 			FString tmp;
-			if (FParse::Value(*line, *argName, tmp, false))
+
+			// This is fix for quoted arguments. Normally this should be performed in the FParse::Value
+			// but we need to make it work right now. So use this workaround;
+			const FString FixedArgName = argName + DisplayClusterStrings::strKeyValSeparator;
+
+			if (FParse::Value(*line, *FixedArgName, tmp, false))
 			{
 				DustCommandLineValue(tmp, false);
 				argVal = FDisplayClusterTypesConverter::FromString<T>(tmp);
 				return true;
 			}
+
+			return false;
+		}
+
+		template<typename T>
+		static bool ExtractCommandLineArray(const FString& line, const FString& argName, TArray<T>& argVal)
+		{
+			FString tmp;
+			if (ExtractCommandLineValue(line, argName, tmp))
+			{
+				DustCommandLineValue(tmp, true);
+				tmp.ParseIntoArray(argVal, DisplayClusterStrings::strArrayValSeparator, true);
+				return true;
+			}
+
 			return false;
 		}
 
@@ -59,7 +106,9 @@ namespace DisplayClusterHelpers
 		{
 			// Extract device address
 			if (!FParse::Value(*source, *param, value, false))
+			{
 				return false;
+			}
 
 			DisplayClusterHelpers::str::DustCommandLineValue(value, bTrimQuotes);
 
@@ -201,6 +250,109 @@ namespace DisplayClusterHelpers
 					Out.Add(Actor);
 				}
 			}
+		}
+	}
+
+	//////////////////////////////////////////////////////////////////////////////////////////////
+	// Config helpers
+	//////////////////////////////////////////////////////////////////////////////////////////////
+	namespace config
+	{
+		static bool GetLocalClusterNode(FDisplayClusterConfigClusterNode& LocalClusterNode)
+		{
+			if (!GDisplayCluster || (GDisplayCluster->GetOperationMode() == EDisplayClusterOperationMode::Disabled))
+			{
+				return false;
+			}
+
+			const IPDisplayClusterClusterManager* const ClusterMgr = GDisplayCluster->GetPrivateClusterMgr();
+			if (!ClusterMgr)
+			{
+				return false;
+			}
+
+			const FString LocalNodeId = ClusterMgr->GetNodeId();
+			const IPDisplayClusterConfigManager* const ConfigMgr = GDisplayCluster->GetPrivateConfigMgr();
+			if (!ConfigMgr)
+			{
+				return false;
+			}
+
+			return ConfigMgr->GetClusterNode(LocalNodeId, LocalClusterNode);
+		}
+
+		static bool GetLocalWindow(FDisplayClusterConfigWindow& LocalWindow)
+		{
+			FDisplayClusterConfigClusterNode LocalClusterNode;
+			if (!GetLocalClusterNode(LocalClusterNode))
+			{
+				return false;
+			}
+
+			const IPDisplayClusterConfigManager* const ConfigMgr = GDisplayCluster->GetPrivateConfigMgr();
+			if (!ConfigMgr)
+			{
+				return false;
+			}
+
+			return ConfigMgr->GetWindow(LocalClusterNode.WindowId, LocalWindow);
+		}
+
+		static TArray<FDisplayClusterConfigViewport> GetLocalViewports()
+		{
+			TArray<FDisplayClusterConfigViewport> LocalViewports;
+
+			FDisplayClusterConfigWindow LocalWindow;
+			if (!GetLocalWindow(LocalWindow))
+			{
+				return LocalViewports;
+			}
+
+			const IPDisplayClusterConfigManager* const ConfigMgr = GDisplayCluster->GetPrivateConfigMgr();
+			if (!ConfigMgr)
+			{
+				return LocalViewports;
+			}
+
+			LocalViewports = ConfigMgr->GetViewports().FilterByPredicate([&LocalWindow](const FDisplayClusterConfigViewport& ItemViewport)
+			{
+				return LocalWindow.ViewportIds.ContainsByPredicate([ItemViewport](const FString& ItemId)
+				{
+					return ItemViewport.Id.Compare(ItemId, ESearchCase::IgnoreCase) == 0;
+				});
+			});
+
+			return LocalViewports;
+		}
+
+		static TArray<FDisplayClusterConfigScreen> GetLocalScreens()
+		{
+			TArray<FDisplayClusterConfigScreen>   LocalScreens;
+			TArray<FDisplayClusterConfigViewport> LocalViewports = GetLocalViewports();
+
+			const IPDisplayClusterConfigManager* const ConfigMgr = GDisplayCluster->GetPrivateConfigMgr();
+			if (!ConfigMgr)
+			{
+				return LocalScreens;
+			}
+
+			LocalScreens = ConfigMgr->GetScreens().FilterByPredicate([&LocalViewports](const FDisplayClusterConfigScreen& ItemScreen)
+			{
+				return LocalViewports.ContainsByPredicate([&ItemScreen](const FDisplayClusterConfigViewport& Viewport)
+				{
+					return ItemScreen.Id.Compare(Viewport.ScreenId, ESearchCase::IgnoreCase) == 0;
+				});
+			});
+
+			return LocalScreens;
+		}
+
+		static bool IsLocalScreen(const FString& ScreenId)
+		{
+			return nullptr != GetLocalScreens().FindByPredicate([ScreenId](const FDisplayClusterConfigScreen& Screen)
+			{
+				return Screen.Id == ScreenId;
+			});
 		}
 	}
 };

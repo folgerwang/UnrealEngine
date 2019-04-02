@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2680673
+﻿INTSourceChangelist:3244370
 Availability:Public
 Title:事件分配器
 Crumbs: %ROOT%, Engine, Engine\Blueprints, Engine\Blueprints\BP_HowTo
@@ -8,6 +8,7 @@ Related:Engine/Blueprints/UserGuide/BlueprintCommsUsage
 Related:Engine/Blueprints/UserGuide
 version:4.9
 skilllevel:Advanced
+tags:Blueprints
 
 [事件分配器](Engine/Blueprints/UserGuide/EventDispatcher) 被调用时，也将执行实施事件且事件与事件分配器绑定的全部蓝图。换言之，事件分配器被调用时，与其绑定的所有事件也将被调用，以便从单一源同时执行多个事件。 
 

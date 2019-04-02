@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -61,12 +61,14 @@ class UMovieSceneSequence;
 class UMovieSceneSubSection;
 class USequencerSettings;
 class UMovieSceneCopyableBinding;
+class UMovieSceneCopyableTrack;
 struct FMovieSceneTimeController;
 struct FMovieScenePossessable;
 struct FSequencerTemplateStore;
 struct FTransformData;
 struct ISequencerHotspot;
 struct FKeyAttributes;
+struct FNotificationInfo;
 
 enum class EMapChangeType : uint8;
 
@@ -167,7 +169,7 @@ public:
 	void SetPlaybackRangeEnd()
 	{
 		TRange<FFrameNumber> PlayRange = GetPlaybackRange();
-		SetPlaybackRange(TRange<FFrameNumber>(PlayRange.GetLowerBound(), TRangeBound<FFrameNumber>::Inclusive(GetLocalTime().Time.FrameNumber)));
+		SetPlaybackRange(TRange<FFrameNumber>(PlayRange.GetLowerBound(), TRangeBound<FFrameNumber>::Exclusive(GetLocalTime().Time.FrameNumber)));
 	}
 
 	/**
@@ -263,8 +265,12 @@ public:
 	}
 
 public:
+
+	/** @return The set of vertical frames */
+	TSet<FFrameNumber> GetVerticalFrames() const;
+
 	/** @return The set of marked frames */
-	TSet<FFrameNumber> GetMarkedFrames() const;
+	TArray<FMovieSceneMarkedFrame> GetMarkedFrames() const;
 
 protected:
 
@@ -457,20 +463,32 @@ public:
 	void AssignActor(FMenuBuilder& MenuBuilder, FGuid ObjectBinding);
 	FGuid DoAssignActor(AActor*const* InActors, int32 NumActors, FGuid ObjectBinding);
 
+	/** Called when a user executes the assign selected to track menu item */
+	void AddActorsToBinding(FGuid ObjectBinding, const TArray<AActor*>& InActors);
+	void ReplaceBindingWithActors(FGuid ObjectBinding, const TArray<AActor*>& InActors);
+	void RemoveActorsFromBinding(FGuid ObjectBinding, const TArray<AActor*>& InActors);
+	void RemoveAllBindings(FGuid ObjectBinding);
+	void RemoveInvalidBindings(FGuid ObjectBinding);
+
 	/** Called when a user executes the delete node menu item */
 	void DeleteNode(TSharedRef<FSequencerDisplayNode> NodeToBeDeleted);
 	void DeleteSelectedNodes();
 
 	/** Called when a user executes the copy track menu item */
-	void CopySelectedObjects(TArray<TSharedPtr<FSequencerObjectBindingNode>>& ObjectNodes);
-	void CopySelectedTracks(TArray<TSharedPtr<FSequencerTrackNode>>& TrackNodes);
-	void ExportTracksToText(TArray<UMovieSceneTrack*> TrackToExport, /*out*/ FString& ExportedText);
+	void CopySelectedObjects(TArray<TSharedPtr<FSequencerObjectBindingNode>>& ObjectNodes, /*out*/ FString& ExportedText);
+	void CopySelectedTracks(TArray<TSharedPtr<FSequencerTrackNode>>& TrackNodes, /*out*/ FString& ExportedText);
+	void ExportObjectsToText(TArray<UObject*> ObjectsToExport, /*out*/ FString& ExportedText);
 
 	/** Called when a user executes the paste track menu item */
 	bool CanPaste(const FString& TextToImport);
-	void PasteCopiedTracks();
-	void ImportTracksFromText(const FString& TextToImport, /*out*/ TArray<UMovieSceneTrack*>& ImportedTrack);
-	void ImportObjectsFromText(const FString& TextToImport, /*out*/ TArray<UMovieSceneCopyableBinding*>& ImportedObjects);
+	void DoPaste();
+	bool PasteTracks(const FString& TextToImport, TArray<FNotificationInfo>& PasteErrors);
+	bool PasteSections(const FString& TextToImport, TArray<FNotificationInfo>& PasteErrors);
+	bool PasteObjectBindings(const FString& TextToImport, TArray<FNotificationInfo>& PasteErrors);
+
+	void ImportTracksFromText(const FString& TextToImport, /*out*/ TArray<UMovieSceneCopyableTrack*>& ImportedTracks);
+	void ImportSectionsFromText(const FString& TextToImport, /*out*/ TArray<UMovieSceneSection*>& ImportedSections);
+	void ImportObjectBindingsFromText(const FString& TextToImport, /*out*/ TArray<UMovieSceneCopyableBinding*>& ImportedObjects);
 
 	/** Called when a user executes the active node menu item */
 	void ToggleNodeActive();
@@ -537,6 +555,12 @@ public:
 	/** Copy the selected keys to the clipboard, then delete them as part of an undoable transaction */
 	void CutSelectedKeys();
 
+	/** Copy the selected sections to the clipboard */
+	void CopySelectedSections();
+
+	/** Copy the selected sections to the clipboard, then delete them as part of an undoable transaction */
+	void CutSelectedSections();
+
 	/** Get the in-memory clipboard stack */
 	const TArray<TSharedPtr<FMovieSceneClipboard>>& GetClipboardStack() const;
 
@@ -598,7 +622,10 @@ public:
 	/**
 	 * Update auto-scroll mechanics as a result of a new time position
 	 */
-	void UpdateAutoScroll(double NewTime);
+	void UpdateAutoScroll(double NewTime, float ThresholdPercentage = 0.025f);
+
+	/** Autoscrub to destination time */
+	void AutoScrubToTime(FFrameTime DestinationTime);
 
 public:
 
@@ -623,7 +650,7 @@ public:
 	virtual TSharedRef<SWidget> GetSequencerWidget() const override;
 	virtual FMovieSceneSequenceIDRef GetRootTemplateID() const override { return ActiveTemplateIDs[0]; }
 	virtual FMovieSceneSequenceIDRef GetFocusedTemplateID() const override { return ActiveTemplateIDs.Top(); }
-	virtual bool GetFocusedSequenceIsActive() const override { return ActiveTemplateStates.Top(); }
+	virtual UMovieSceneSubSection* FindSubSection(FMovieSceneSequenceID SequenceID) const override;
 	virtual UMovieSceneSequence* GetRootMovieSceneSequence() const override;
 	virtual UMovieSceneSequence* GetFocusedMovieSceneSequence() const override;
 	virtual FMovieSceneRootEvaluationTemplateInstance& GetEvaluationTemplate() override { return RootTemplateInstance; }
@@ -655,7 +682,7 @@ public:
 	virtual void EnterSilentMode() override { ++SilentModeCount; }
 	virtual void ExitSilentMode() override { --SilentModeCount; ensure(SilentModeCount >= 0); }
 	virtual bool IsInSilentMode() const override { return SilentModeCount != 0; }
-	virtual FGuid GetHandleToObject(UObject* Object, bool bCreateHandleIfMissing = true) override;
+	virtual FGuid GetHandleToObject(UObject* Object, bool bCreateHandleIfMissing = true, const FName& CreatedFolderName = NAME_None) override;
 	virtual ISequencerObjectChangeListener& GetObjectChangeListener() override;
 protected:
 	virtual void NotifyMovieSceneDataChangedInternal() override;
@@ -665,7 +692,7 @@ public:
 	virtual void UpdatePlaybackRange() override;
 	virtual void SetPlaybackSpeed(float InPlaybackSpeed) override { PlaybackSpeed = InPlaybackSpeed; }
 	virtual float GetPlaybackSpeed() const override { return PlaybackSpeed; }
-	virtual TArray<FGuid> AddActors(const TArray<TWeakObjectPtr<AActor> >& InActors) override;
+	virtual TArray<FGuid> AddActors(const TArray<TWeakObjectPtr<AActor> >& InActors, bool bSelectActors = true) override;
 	virtual void AddSubSequence(UMovieSceneSequence* Sequence) override;
 	virtual bool CanKeyProperty(FCanKeyPropertyParams CanKeyPropertyParams) const override;
 	virtual void KeyProperty(FKeyPropertyParams KeyPropertyParams) override;
@@ -705,12 +732,14 @@ public:
 	virtual void Pause() override;
 	virtual TSharedRef<SWidget> MakeTimeRange(const TSharedRef<SWidget>& InnerContent, bool bShowWorkingRange, bool bShowViewRange, bool bShowPlaybackRange) override;
 	virtual UObject* FindSpawnedObjectOrTemplate(const FGuid& BindingId) override;
-	virtual FGuid MakeNewSpawnable(UObject& SourceObject, UActorFactory* ActorFactory = nullptr) override;
+	virtual FGuid MakeNewSpawnable(UObject& SourceObject, UActorFactory* ActorFactory = nullptr, bool bSetupDefaults = true) override;
 	virtual bool IsReadOnly() const override;
 	virtual void ExternalSelectionHasChanged() override { SynchronizeSequencerSelectionWithExternalSelection(); }
 	/** Access the user-supplied settings object */
 	virtual USequencerSettings* GetSequencerSettings() override { return Settings; }
+	virtual void SetSequencerSettings(USequencerSettings* InSettings) override { Settings = InSettings; }
 	virtual TSharedPtr<class ITimeSlider> GetTopTimeSliderWidget() const override;
+	virtual void ResetTimeController() override;
 
 public:
 
@@ -902,17 +931,26 @@ protected:
 	/** Internal conversion function that doesn't perform expensive reset/update tasks */
 	FMovieScenePossessable* ConvertToPossessableInternal(FGuid SpawnableGuid);
 
+	/** Recurses through a folder to replace converted GUID with new GUID */
+	bool ReplaceFolderBindingGUID(UMovieSceneFolder *Folder, FGuid Original, FGuid Converted);
+
 	/** Internal function to render movie for a given start/end time */
 	void RenderMovieInternal(TRange<FFrameNumber> Range, bool bSetFrameOverrides = false) const;
 
 	/** Handles adding a new folder to the outliner tree. */
 	void OnAddFolder();
 
+	/** Handles loading in previously recorded data. */
+	void OnLoadRecordedData();
+
 	/** Handles adding a newly created track to the outliner tree by assigning it into a folder and selecting it. */
 	void OnAddTrack(const TWeakObjectPtr<UMovieSceneTrack>& InTrack);
 
 	/** Determines the selected parent folders and returns the node path to the first folder. Also expands the first folder. */
 	void CalculateSelectedFolderAndPath(TArray<UMovieSceneFolder*>& OutSelectedParentFolders, FString& OutNewNodePath);
+
+	/** Returns the tail folder from the given Folder Path, creating each folder if needed. */
+	UMovieSceneFolder* CreateFoldersRecursively(const TArray<FString>& FolderPaths, int32 FolderPathIndex, UMovieScene* OwningMovieScene, UMovieSceneFolder* ParentFolder, const TArray<UMovieSceneFolder*>& FoldersToSearch);
 
 	/** Create set playback start transport control */
 	TSharedRef<SWidget> OnCreateTransportSetPlaybackStart();
@@ -958,8 +996,6 @@ protected:
 
 public:
 
-	/** Reset the timing manager to the clock source specified by the root movie scene */
-	void ResetTimeController();
 
 	/** Helper function which returns how many frames (in tick resolution) one display rate frame represents. */
 	double GetDisplayRateDeltaFrameCount() const;
@@ -1030,6 +1066,19 @@ private:
 
 	/** The amount of autoscrub offset that is currently being applied */
 	TOptional<float> AutoscrubOffset;
+
+	struct FAutoScrubTarget
+	{
+		FAutoScrubTarget(FFrameTime InDestinationTime, FFrameTime InSourceTime, double InStartTime)
+			: DestinationTime(InDestinationTime)
+			, SourceTime(InSourceTime)
+			, StartTime(InStartTime) {}
+		FFrameTime DestinationTime;
+		FFrameTime SourceTime;
+		double StartTime;
+	};
+
+	TOptional<FAutoScrubTarget> AutoScrubTarget;
 
 	/** Zoom smoothing curves */
 	FCurveSequence ZoomAnimation;
@@ -1177,9 +1226,6 @@ private:
 	TUniquePtr<FSequencerKeyCollection> SelectedKeyCollection;
 
 	TSharedPtr<FCurveEditor> CurveEditorModel;
-
-	bool bCachedBindSequencerToPIE;
-	bool bCachedBindSequencerToSimulate;
 
 	/** A signature that will suppress auto evaluation when it is the only change dirtying the template. */
 	TOptional<TTuple<TWeakObjectPtr<UMovieSceneSequence>, FGuid>> SuppressAutoEvalSignature;

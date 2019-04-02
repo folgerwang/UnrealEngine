@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AnimSequence.cpp: Skeletal mesh animation functions.
@@ -19,8 +19,11 @@
 #include "Animation/AnimCompress.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Animation/AnimNotifies/AnimNotify.h"
+#include "Animation/BlendSpaceBase.h"
 #include "Animation/Rig.h"
 #include "Animation/AnimationSettings.h"
+#include "Animation/AnimCurveCompressionCodec.h"
+#include "Animation/AnimCurveCompressionSettings.h"
 #include "EditorFramework/AssetImportData.h"
 #include "Logging/TokenizedMessage.h"
 #include "Logging/MessageLog.h"
@@ -32,15 +35,117 @@
 #include "Widgets/Notifications/SNotificationList.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "ProfilingDebugging/CsvProfiler.h"
-
+#include "HAL/PlatformApplicationMisc.h"
+#include "DeviceProfiles/DeviceProfileManager.h"
+#include "DeviceProfiles/DeviceProfile.h"
 #define USE_SLERP 0
 #define LOCTEXT_NAMESPACE "AnimSequence"
 
-CSV_DEFINE_CATEGORY(Animation, true);
+CSV_DEFINE_CATEGORY(Animation, (!UE_BUILD_SHIPPING));
 
 DECLARE_CYCLE_STAT(TEXT("AnimSeq GetBonePose"), STAT_AnimSeq_GetBonePose, STATGROUP_Anim);
+DECLARE_CYCLE_STAT(TEXT("AnimSeq EvalCurveData"), STAT_AnimSeq_EvalCurveData, STATGROUP_Anim);
 DECLARE_CYCLE_STAT(TEXT("Build Anim Track Pairs"), STAT_BuildAnimTrackPairs, STATGROUP_Anim);
 DECLARE_CYCLE_STAT(TEXT("Extract Pose From Anim Data"), STAT_ExtractPoseFromAnimData, STATGROUP_Anim);
+
+int32 GPerformFrameStripping = 0;
+
+static const TCHAR* StripFrameCVarName = TEXT("a.StripFramesOnCompression");
+
+static FAutoConsoleVariableRef CVarAnimStripFramesOnCompression(
+	StripFrameCVarName,
+	GPerformFrameStripping,
+	TEXT("1 = Strip every other frame on animations that have an even number of frames. 0 = off"));
+
+void OnCVarsChanged()
+{
+	static bool bCompressionFrameStrip = (GPerformFrameStripping == 1);
+	static TArray<UAnimSequence*> SequenceCache;
+	static FString OutputMessage;
+
+	const bool bCurrentFrameStrip = (GPerformFrameStripping == 1);
+	if (bCompressionFrameStrip != bCurrentFrameStrip)
+	{
+		bCompressionFrameStrip = bCurrentFrameStrip;
+
+		SequenceCache.Reset();
+
+		for (TObjectIterator<UAnimSequence> It; It; ++It)
+		{
+			SequenceCache.Add(*It);
+		}
+
+		TArray< TPair<int32, UAnimSequence*> > Sizes;
+		
+		// Rebake/compress the animations
+		for (UAnimSequence* Seq : SequenceCache)
+		{
+			Seq->RequestSyncAnimRecompression();
+
+			if (!bCurrentFrameStrip || Seq->GetCompressedNumberOfFrames() != Seq->GetRawNumberOfFrames())
+			{
+				Sizes.Emplace(Seq->GetApproxCompressedSize(), Seq);
+			}
+		}
+
+		Sizes.Sort([](const TPair<int32, UAnimSequence*>& A, const TPair<int32, UAnimSequence*>& B)
+		{
+			return A.Key > B.Key;
+		});
+
+		OutputMessage.Reset();
+
+		int32 TotalSize = 0;
+		int32 NumAnimations = 0;
+		for (const TPair<int32, UAnimSequence*>& Pair : Sizes)
+		{
+			OutputMessage += FString::Printf(TEXT("%s - %.1fK\n"), *Pair.Value->GetPathName(), (float)Pair.Key / 1000.f);
+			TotalSize += Pair.Key;
+			NumAnimations++;
+		}
+		FPlatformApplicationMisc::ClipboardCopy(*OutputMessage);
+	}
+}
+
+FAutoConsoleVariableSink AnimationCVarSink(FConsoleCommandDelegate::CreateStatic(&OnCVarsChanged));
+
+/////////////////////////////////////////////////////
+// FRequestAnimCompressionParams
+FRequestAnimCompressionParams::FRequestAnimCompressionParams(bool bInAsyncCompression, bool bInAllowAlternateCompressor, bool bInOutput)
+	: bAsyncCompression(bInAsyncCompression)
+	, CompressContext(MakeShared<FAnimCompressContext>(bInAllowAlternateCompressor, bInOutput))
+{
+	InitFrameStrippingFromCVar();
+}
+
+FRequestAnimCompressionParams::FRequestAnimCompressionParams(bool bInAsyncCompression, TSharedPtr<FAnimCompressContext> InCompressContext)
+	: bAsyncCompression(bInAsyncCompression)
+	, CompressContext(InCompressContext)
+{
+	InitFrameStrippingFromCVar();
+}
+
+void FRequestAnimCompressionParams::InitFrameStrippingFromCVar()
+{
+	bPerformFrameStripping = (GPerformFrameStripping == 1);
+}
+
+void FRequestAnimCompressionParams::InitFrameStrippingFromPlatform(const class ITargetPlatform* TargetPlatform)
+{
+#if WITH_EDITOR
+	bPerformFrameStripping = false;
+
+	if (UDeviceProfile* DeviceProfile = UDeviceProfileManager::Get().FindProfile(TargetPlatform->IniPlatformName()))
+	{
+		// if we don't prune, we assume all detail modes
+		int32 CVarPlatformFrameStrippingValue = 0;
+		if (DeviceProfile->GetConsolidatedCVarValue(StripFrameCVarName, CVarPlatformFrameStrippingValue))
+		{
+			bPerformFrameStripping = CVarPlatformFrameStrippingValue == 1;
+		}
+	}
+#endif
+}
 
 /////////////////////////////////////////////////////
 // FRawAnimSequenceTrackNativeDeprecated
@@ -145,7 +250,11 @@ UAnimSequence::UAnimSequence(const FObjectInitializer& ObjectInitializer)
 #if WITH_EDITORONLY_DATA
 	ImportFileFramerate = 0.0f;
 	ImportResampleFramerate = 0;
+	bAllowFrameStripping = true;
+
 #endif
+
+	InitCurveCompressionScheme();
 }
 
 void UAnimSequence::PostInitProperties()
@@ -175,9 +284,24 @@ void UAnimSequence::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) con
 	Super::GetAssetRegistryTags(OutTags);
 }
 
+void UAnimSequence::AddReferencedObjects(UObject* This, FReferenceCollector& Collector)
+{
+	Super::AddReferencedObjects(This, Collector);
+
+	UAnimSequence* AnimSeq = CastChecked<UAnimSequence>(This);
+	Collector.AddReferencedObject(AnimSeq->CurveCompressionCodec);
+}
+
 int32 UAnimSequence::GetUncompressedRawSize() const
 {
-	return ((sizeof(FVector) + sizeof(FQuat) + sizeof(FVector)) * RawAnimationData.Num() * NumFrames);
+	int32 BoneRawSize = ((sizeof(FVector) + sizeof(FQuat) + sizeof(FVector)) * RawAnimationData.Num() * NumFrames);
+	int32 CurveRawSize = 0;
+	for (const FFloatCurve& Curve : RawCurveData.FloatCurves)
+	{
+		CurveRawSize += sizeof(FFloatCurve);
+		CurveRawSize += sizeof(FRichCurveKey) * Curve.FloatCurve.Keys.Num();
+	}
+	return BoneRawSize + CurveRawSize;
 }
 
 int32 UAnimSequence::GetApproxRawSize() const
@@ -191,13 +315,19 @@ int32 UAnimSequence::GetApproxRawSize() const
 			sizeof( FQuat ) * RawTrack.RotKeys.Num() + 
 			sizeof( FVector ) * RawTrack.ScaleKeys.Num(); 
 	}
+	for (const FFloatCurve& Curve : RawCurveData.FloatCurves)
+	{
+		Total += sizeof(FFloatCurve);
+		Total += sizeof(FRichCurveKey) * Curve.FloatCurve.Keys.Num();
+	}
 	return Total;
 }
 
 int32 UAnimSequence::GetApproxCompressedSize() const
 {
-	const int32 Total = sizeof(int32)*CompressedTrackOffsets.Num() + CompressedByteStream.Num() + CompressedScaleOffsets.GetMemorySize() + sizeof(FCompressedSegment)*CompressedSegments.Num();
-	return Total;
+	int32 BoneTotal = sizeof(int32)*CompressedTrackOffsets.Num() + CompressedByteStream.Num() + CompressedScaleOffsets.GetMemorySize() + sizeof(FCompressedSegment)*CompressedSegments.Num();
+	int32 CurveTotal = CompressedCurveByteStream.Num();
+	return BoneTotal + CurveTotal;
 }
 
 /**
@@ -220,6 +350,25 @@ static void LoadOldCompressedTrack(FArchive& Ar, FCompressedTrack& Dst, int32 By
 	// Serialize mins and ranges.
 	Ar << Dst.Mins[0] << Dst.Mins[1] << Dst.Mins[2];
 	Ar << Dst.Ranges[0] << Dst.Ranges[1] << Dst.Ranges[2];
+}
+
+void UAnimSequence::InitCurveCompressionScheme()
+{
+	// Do this is serialize as if the default animation curve compression asset isn't loaded it will
+// fire a warning if we try and load it in post load
+
+	bool bCurveCompressionSettingsValid = CurveCompressionSettings != nullptr;
+#if WITH_EDITOR
+	bCurveCompressionSettingsValid = bCurveCompressionSettingsValid && CurveCompressionSettings->AreSettingsValid();
+#endif
+	if (!bCurveCompressionSettingsValid
+#if WITH_HOT_RELOAD
+		&& (GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint) || !HasAnyFlags(RF_ClassDefaultObject) || !GIsHotReload) // Don't do this to native CDOs during Hot-Reload
+#endif
+		)
+	{
+		CurveCompressionSettings = FAnimationUtils::GetDefaultAnimationCurveCompressionSettings();
+	}
 }
 
 void UAnimSequence::Serialize(FArchive& Ar)
@@ -342,6 +491,8 @@ void UAnimSequence::Serialize(FArchive& Ar)
 		SourceFileTimestamp_DEPRECATED = TEXT("");
 	}
 
+	InitCurveCompressionScheme();
+
 #endif // WITH_EDITORONLY_DATA
 
 	AddAnimLoadingDebugEntry(TEXT("PostSerialize"));
@@ -388,9 +539,19 @@ void UAnimSequence::PreSave(const class ITargetPlatform* TargetPlatform)
 
 	if (DoesNeedRecompress())
 	{
-		RequestSyncAnimRecompression();
+		RequestSyncAnimRecompression(); // Update Normal data
+
 		ensureAlwaysMsgf(!bUseRawDataOnly,  TEXT("Animation : %s failed to compress"), *GetName());
 	}
+
+	if (TargetPlatform)
+	{
+		// Update compressed data for platform
+		FRequestAnimCompressionParams Params(false, false, false);
+		Params.InitFrameStrippingFromPlatform(TargetPlatform);
+		RequestAnimCompression(Params);
+	}
+
 #endif
 
 	Super::PreSave(TargetPlatform);
@@ -542,7 +703,10 @@ void UAnimSequence::PostLoad()
 
 	if (USkeleton* CurrentSkeleton = GetSkeleton())
 	{
-		VerifyCurveNames<FFloatCurve>(*CurrentSkeleton, USkeleton::AnimCurveMappingName, CompressedCurveData.FloatCurves);
+		for (FSmartName& CurveName : CompressedCurveNames)
+		{
+			CurrentSkeleton->VerifySmartName(USkeleton::AnimCurveMappingName, CurveName);
+		}
 
 #if WITH_EDITOR
 		VerifyCurveNames<FTransformCurve>(*CurrentSkeleton, USkeleton::AnimTrackCurveMappingName, RawCurveData.TransformCurves);
@@ -554,18 +718,6 @@ void UAnimSequence::PostLoad()
 #endif
 	}
 
-#if WITH_EDITOR
-
-	// Compressed curve flags are not authoritative (they come from the DDC). Keep them up to date with
-	// actual anim flags 
-	for (FFloatCurve& Curve : RawCurveData.FloatCurves)
-	{
-		if (FAnimCurveBase* CompressedCurve = CompressedCurveData.GetCurveData(Curve.Name.UID))
-		{
-			CompressedCurve->SetCurveTypeFlags(Curve.GetCurveTypeFlags());
-		}
-	}
-#endif // WITH_EDITOR
 	AddAnimLoadingDebugEntry(TEXT("PostLoadEnd"));
 }
 
@@ -733,10 +885,17 @@ void UAnimSequence::PostEditChangeProperty(FPropertyChangedEvent& PropertyChange
 		}
 		
 	}
+
 	// @Todo fix me: This is temporary fix to make sure they always have compressed data
 	if (RawAnimationData.Num() > 0 && (!IsCompressedDataValid() || bAdditiveSettingsChanged))
 	{
 		PostProcessSequence();
+	}
+
+	UProperty* Property = PropertyChangedEvent.Property;
+	if (Property != nullptr && Property->GetFName() == GET_MEMBER_NAME_CHECKED(UAnimSequence, CurveCompressionSettings))
+	{
+		RequestSyncAnimRecompression(false);
 	}
 }
 
@@ -1349,6 +1508,7 @@ void UAnimSequence::BuildPoseFromRawData(const TArray<FRawAnimSequenceTrack>& In
 void UAnimSequence::GetBonePose(FCompactPose& OutPose, FBlendedCurve& OutCurve, const FAnimExtractContext& ExtractionContext, bool bForceUseRawData) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_AnimSeq_GetBonePose);
+	CSV_SCOPED_TIMING_STAT(Animation, AnimSeq_GetBonePose);
 
 	const FBoneContainer& RequiredBones = OutPose.GetBoneContainer();
 	const bool bUseRawDataForPoseExtraction = bForceUseRawData || UseRawDataForPoseExtraction(RequiredBones);
@@ -1528,7 +1688,7 @@ void UAnimSequence::GetBonePose(FCompactPose& OutPose, FBlendedCurve& OutCurve, 
 		{
 			// get the remaining bone atoms
 			FTransformArray LocalBones;
-			OutPose.CopyBonesTo(LocalBones);
+			OutPose.MoveBonesTo(LocalBones);
 
 			AnimationFormat_GetAnimationPose(
 				LocalBones,
@@ -1537,7 +1697,7 @@ void UAnimSequence::GetBonePose(FCompactPose& OutPose, FBlendedCurve& OutCurve, 
 				RotationScalePairs,
 				EvalDecompContext);
 
-			OutPose.CopyBonesFrom(LocalBones);
+			OutPose.MoveBonesFrom(MoveTemp(LocalBones));
 		}
 	}
 
@@ -1624,6 +1784,31 @@ void UAnimSequence::GetBonePose(FCompactPose& OutPose, FBlendedCurve& OutCurve, 
 }
 
 #if WITH_EDITORONLY_DATA
+void UAnimSequence::UpdateCompressedCurveNames()
+{
+	// Copy our curve names to the compressed array
+	const int32 NumCurves = RawCurveData.FloatCurves.Num();
+	CompressedCurveNames.Reset(NumCurves);
+	CompressedCurveNames.AddUninitialized(NumCurves);
+	for (int32 CurveIndex = 0; CurveIndex < NumCurves; ++CurveIndex)
+	{
+		const FFloatCurve& Curve = RawCurveData.FloatCurves[CurveIndex];
+		CompressedCurveNames[CurveIndex] = Curve.Name;
+	}
+}
+
+void UAnimSequence::UpdateCompressedCurveName(SmartName::UID_Type CurveUID, const struct FSmartName& NewCurveName)
+{
+	for (FSmartName& CurveName : CompressedCurveNames)
+	{
+		if (CurveName.UID == CurveUID)
+		{
+			CurveName = NewCurveName;
+			break;
+		}
+	}
+}
+
 int32 UAnimSequence::AddNewRawTrack(FName TrackName, FRawAnimSequenceTrack* TrackData)
 {
 	const int32 SkeletonIndex = GetSkeleton() ? GetSkeleton()->GetReferenceSkeleton().FindBoneIndex(TrackName) : INDEX_NONE;
@@ -2294,13 +2479,7 @@ void UAnimSequence::FlipRotationWForNonRoot(USkeletalMesh * SkelMesh)
 }
 #endif 
 
-void UAnimSequence::RequestAnimCompression(bool bAsyncCompression, bool bAllowAlternateCompressor, bool bOutput)
-{
-	TSharedPtr<FAnimCompressContext> CompressContext = MakeShareable(new FAnimCompressContext(bAllowAlternateCompressor, bOutput));
-	RequestAnimCompression(bAsyncCompression, CompressContext);
-}
-
-void UAnimSequence::RequestAnimCompression(bool bAsyncCompression, TSharedPtr<FAnimCompressContext> CompressContext)
+void UAnimSequence::RequestAnimCompression(FRequestAnimCompressionParams Params)
 {
 	AddAnimLoadingDebugEntry(TEXT("RequestAnimCompression"));
 
@@ -2310,6 +2489,12 @@ void UAnimSequence::RequestAnimCompression(bool bAsyncCompression, TSharedPtr<FA
 	{
 		bUseRawDataOnly = true;
 		return;
+	}
+
+	if (GetOutermost() == GetTransientPackage())
+	{
+		bUseRawDataOnly = true;
+		return; // Skip transient animations, they are most likely the leftovers of previous compression attempts.
 	}
 
 	if (FPlatformProperties::RequiresCookedData())
@@ -2322,12 +2507,17 @@ void UAnimSequence::RequestAnimCompression(bool bAsyncCompression, TSharedPtr<FA
 		CompressionScheme = FAnimationUtils::GetDefaultAnimationCompressionAlgorithm();
 	}
 
+	if (CurveCompressionSettings == nullptr || !CurveCompressionSettings->AreSettingsValid())
+	{
+		CurveCompressionSettings = FAnimationUtils::GetDefaultAnimationCurveCompressionSettings();
+	}
+
 	if (!RawDataGuid.IsValid())
 	{
 		RawDataGuid = GenerateGuidFromRawData();
 	}
 
-	bAsyncCompression = false; //Just get sync working first
+	Params.bAsyncCompression = false; //Just get sync working first
 	bUseRawDataOnly = true;
 
 	TGuardValue<bool> CompressGuard(bCompressionInProgress, true);
@@ -2338,13 +2528,15 @@ void UAnimSequence::RequestAnimCompression(bool bAsyncCompression, TSharedPtr<FA
 	VerifyCurveNames<FFloatCurve>(*CurrentSkeleton, USkeleton::AnimCurveMappingName, RawCurveData.FloatCurves);
 	VerifyTrackMap(CurrentSkeleton);
 
-	if (bAsyncCompression)
+	if (Params.bAsyncCompression)
 	{
 	}
 	else
 	{
+		const bool bPerformFrameStripping = Params.bPerformFrameStripping && bAllowFrameStripping;
+
 		TArray<uint8> OutData;
-		FDerivedDataAnimationCompression* AnimCompressor = new FDerivedDataAnimationCompression(this, CompressContext, bDoCompressionInPlace);
+		FDerivedDataAnimationCompression* AnimCompressor = new FDerivedDataAnimationCompression(this, Params.CompressContext, bDoCompressionInPlace, bPerformFrameStripping);
 		// For debugging DDC/Compression issues		
 		const bool bSkipDDC = false;
 		if (bSkipDDC || (CompressCommandletVersion == INDEX_NONE))
@@ -2418,9 +2610,10 @@ void UAnimSequence::SerializeCompressedData(FArchive& Ar, bool bDDCData)
 	Ar << CompressedSegments;
 
 	Ar << CompressedTrackToSkeletonMapTable;
-	Ar << CompressedCurveData;
+	Ar << CompressedCurveNames;
 
 	Ar << CompressedRawDataSize;
+	Ar << CompressedNumFrames;
 
 	if (Ar.IsLoading())
 	{
@@ -2443,6 +2636,18 @@ void UAnimSequence::SerializeCompressedData(FArchive& Ar, bool bDDCData)
 		// and then use the codecs to byte swap
 		check(RotationCodec != NULL);
 		((AnimEncoding*)RotationCodec)->ByteSwapIn(*this, MemoryReader);
+
+		FString CurveCodecPath;
+		Ar << CurveCodecPath;
+
+		CurveCompressionCodec = CurveCompressionSettings->GetCodec(CurveCodecPath);
+
+		int32 NumCurveBytes;
+		Ar << NumCurveBytes;
+
+		CompressedCurveByteStream.Empty(NumCurveBytes);
+		CompressedCurveByteStream.AddUninitialized(NumCurveBytes);
+		Ar.Serialize(CompressedCurveByteStream.GetData(), NumCurveBytes);
 	}
 	else if (Ar.IsSaving() || Ar.IsCountingMemory())
 	{
@@ -2469,6 +2674,15 @@ void UAnimSequence::SerializeCompressedData(FArchive& Ar, bool bDDCData)
 
 		// Count compressed data.
 		Ar.CountBytes(SerializedData.Num(), SerializedData.Num());
+
+
+		FString CurveCodecPath = CurveCompressionCodec->GetPathName();
+		Ar << CurveCodecPath;
+
+
+		int32 NumCurveBytes = CompressedCurveByteStream.Num();
+		Ar << NumCurveBytes;
+		Ar.Serialize(CompressedCurveByteStream.GetData(), NumCurveBytes);
 	}
 
 #if WITH_EDITOR
@@ -2481,8 +2695,14 @@ void UAnimSequence::SerializeCompressedData(FArchive& Ar, bool bDDCData)
 		{
 			if(USkeleton* CurrentSkeleton = GetSkeleton())
 			{
-				VerifyCurveNames<FFloatCurve>(*CurrentSkeleton, USkeleton::AnimCurveMappingName, CompressedCurveData.FloatCurves);
-				bUseRawDataOnly = !IsCompressedDataValid();
+				// Refresh the compressed curve names since the IDs might have changed since
+				for (FSmartName& CurveName : CompressedCurveNames)
+				{
+					CurrentSkeleton->VerifySmartName(USkeleton::AnimCurveMappingName, CurveName);
+				}
+
+				bUseRawDataOnly = !IsCompressedDataValid() || !IsCurveCompressedDataValid();
+
 				ensureMsgf(!bUseRawDataOnly, TEXT("Anim Compression failed for Sequence '%s' Guid:%s CompressedDebugData:\n\tOriginal Anim:%s\n\tAdditiveSetting:%i\n\tCompression Scheme:%s\n\tRawDataGuid:%s"),
 					*GetFullName(),
 					*RawDataGuid.ToString(),
@@ -2604,7 +2824,7 @@ public:
 
 	FByFramePoseEvalContext(const UAnimSequence* InAnimToEval)
 		: AnimToEval(InAnimToEval)
-		, IntervalTime(InAnimToEval->SequenceLength / ((float)InAnimToEval->NumFrames - 1))
+		, IntervalTime(InAnimToEval->SequenceLength / ((float)InAnimToEval->GetRawNumberOfFrames() - 1))
 	{
 		// Initialize RequiredBones for pose evaluation
 		RequiredBones.SetUseRAWData(true);
@@ -2704,6 +2924,30 @@ bool IsRawTrackValidForRemoval(const FRawAnimSequenceTrack& Track)
 	return	IsKeyArrayValidForRemoval(Track.PosKeys) &&
 			IsKeyArrayValidForRemoval(Track.RotKeys) &&
 			IsKeyArrayValidForRemoval(Track.ScaleKeys);
+}
+
+void UAnimSequence::TestEvalauteAnimation() const
+{
+	FMemMark Mark(FMemStack::Get());
+	FByFramePoseEvalContext EvalContext(this);
+	EvalContext.RequiredBones.SetUseRAWData(false);
+
+	FCompactPose Pose;
+	Pose.SetBoneContainer(&EvalContext.RequiredBones);
+
+	FAnimExtractContext ExtractContext;
+
+	for (int Frame = 0; Frame < NumFrames; ++Frame)
+	{
+		// Initialise curve data from Skeleton
+		FBlendedCurve Curve;
+		Curve.InitFrom(EvalContext.RequiredBones);
+
+		//Grab pose for this frame
+		const float CurrentFrameTime = Frame * EvalContext.IntervalTime;
+		ExtractContext.CurrentTime = CurrentFrameTime;
+		GetAnimationPose(Pose, Curve, ExtractContext);
+	}
 }
 
 void UAnimSequence::BakeOutAdditiveIntoRawData()
@@ -2890,12 +3134,14 @@ void UAnimSequence::RecycleAnimSequence()
 	CompressedSegments.Empty(0);
 	SourceRawAnimationData.Empty(0);
 	RawCurveData.Empty();
-	CompressedCurveData.Empty();
+	CompressedCurveByteStream.Empty(0);
+	CompressedCurveNames.Empty(0);
 	AuthoredSyncMarkers.Empty();
 	UniqueMarkerNames.Empty();
 	Notifies.Empty();
 	AnimNotifyTracks.Empty();
 	CompressionScheme = nullptr;
+	CurveCompressionCodec = nullptr;
 	TranslationCompressionFormat = RotationCompressionFormat = ScaleCompressionFormat = ACF_None;
 #endif // WITH_EDITORONLY_DATA
 }
@@ -2949,7 +3195,7 @@ bool UAnimSequence::CopyAnimSequenceProperties(UAnimSequence* SourceAnimSeq, UAn
 }
 
 
-bool UAnimSequence::CopyNotifies(UAnimSequence* SourceAnimSeq, UAnimSequence* DestAnimSeq)
+bool UAnimSequence::CopyNotifies(UAnimSequence* SourceAnimSeq, UAnimSequence* DestAnimSeq, bool bShowDialogs /*= true */)
 {
 #if WITH_EDITOR
 	// Abort if source == destination.
@@ -2961,13 +3207,13 @@ bool UAnimSequence::CopyNotifies(UAnimSequence* SourceAnimSeq, UAnimSequence* De
 	// If the destination sequence is shorter than the source sequence, we'll be dropping notifies that
 	// occur at later times than the dest sequence is long.  Give the user a chance to abort if we
 	// find any notifies that won't be copied over.
-	if( DestAnimSeq->SequenceLength < SourceAnimSeq->SequenceLength )
+	if(bShowDialogs && DestAnimSeq->SequenceLength < SourceAnimSeq->SequenceLength)
 	{
 		for(int32 NotifyIndex=0; NotifyIndex<SourceAnimSeq->Notifies.Num(); ++NotifyIndex)
 		{
 			// If a notify is found which occurs off the end of the destination sequence, prompt the user to continue.
 			const FAnimNotifyEvent& SrcNotifyEvent = SourceAnimSeq->Notifies[NotifyIndex];
-			if( SrcNotifyEvent.DisplayTime_DEPRECATED > DestAnimSeq->SequenceLength )
+			if( SrcNotifyEvent.GetTriggerTime() > DestAnimSeq->SequenceLength )
 			{
 				const bool bProceed = EAppReturnType::Yes == FMessageDialog::Open( EAppMsgType::YesNo, NSLOCTEXT("UnrealEd", "SomeNotifiesWillNotBeCopiedQ", "Some notifies will not be copied because the destination sequence is not long enough.  Proceed?") );
 				if( !bProceed )
@@ -2984,7 +3230,7 @@ bool UAnimSequence::CopyNotifies(UAnimSequence* SourceAnimSeq, UAnimSequence* De
 
 	// If the destination sequence contains any notifies, ask the user if they'd like
 	// to delete the existing notifies before copying over from the source sequence.
-	if( DestAnimSeq->Notifies.Num() > 0 )
+	if(bShowDialogs && DestAnimSeq->Notifies.Num() > 0)
 	{
 		const bool bDeleteExistingNotifies = EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, FText::Format(
 			NSLOCTEXT("UnrealEd", "DestSeqAlreadyContainsNotifiesMergeQ", "The destination sequence already contains {0} notifies.  Delete these before copying?"), FText::AsNumber(DestAnimSeq->Notifies.Num())) );
@@ -2996,7 +3242,6 @@ bool UAnimSequence::CopyNotifies(UAnimSequence* SourceAnimSeq, UAnimSequence* De
 	}
 
 	// Do the copy.
-	TArray<int32> NewNotifyIndices;
 	int32 NumNotifiesThatWereNotCopied = 0;
 
 	for(int32 NotifyIndex=0; NotifyIndex<SourceAnimSeq->Notifies.Num(); ++NotifyIndex)
@@ -3004,32 +3249,29 @@ bool UAnimSequence::CopyNotifies(UAnimSequence* SourceAnimSeq, UAnimSequence* De
 		const FAnimNotifyEvent& SrcNotifyEvent = SourceAnimSeq->Notifies[NotifyIndex];
 
 		// Skip notifies which occur at times later than the destination sequence is long.
-		if( SrcNotifyEvent.DisplayTime_DEPRECATED > DestAnimSeq->SequenceLength )
+		if( SrcNotifyEvent.GetTriggerTime() > DestAnimSeq->SequenceLength )
 		{
+			++NumNotifiesThatWereNotCopied;
 			continue;
 		}
 
-		// Do a linear-search through existing notifies to determine where
-		// to insert the new notify.
-		int32 NewNotifyIndex = 0;
-		while( NewNotifyIndex < DestAnimSeq->Notifies.Num()
-			&& DestAnimSeq->Notifies[NewNotifyIndex].DisplayTime_DEPRECATED <= SrcNotifyEvent.DisplayTime_DEPRECATED )
+		// Copy notify tracks from src to dest if they are missing
+		if (SrcNotifyEvent.TrackIndex >= DestAnimSeq->AnimNotifyTracks.Num())
 		{
-			++NewNotifyIndex;
+			for (int32 TrackIndex = DestAnimSeq->AnimNotifyTracks.Num(); TrackIndex <= SrcNotifyEvent.TrackIndex; ++TrackIndex)
+			{
+				DestAnimSeq->AnimNotifyTracks.Add(FAnimNotifyTrack(SourceAnimSeq->AnimNotifyTracks[TrackIndex].TrackName, SourceAnimSeq->AnimNotifyTracks[TrackIndex].TrackColor));
+			}
 		}
 
 		// Track the location of the new notify.
-		NewNotifyIndices.Add(NewNotifyIndex);
-
-		// Create a new empty on in the array.
-		DestAnimSeq->Notifies.InsertZeroed(NewNotifyIndex);
-
-		// Copy time and comment.
-		FAnimNotifyEvent& Notify = DestAnimSeq->Notifies[NewNotifyIndex];
-		Notify.DisplayTime_DEPRECATED = SrcNotifyEvent.DisplayTime_DEPRECATED;
-		Notify.TriggerTimeOffset = GetTriggerTimeOffsetForType( DestAnimSeq->CalculateOffsetForNotify(Notify.DisplayTime_DEPRECATED));
-		Notify.NotifyName = SrcNotifyEvent.NotifyName;
-		Notify.Duration = SrcNotifyEvent.Duration;
+		int32 NewNotifyIndex = DestAnimSeq->Notifies.AddDefaulted();
+		FAnimNotifyEvent& NotifyEvent = DestAnimSeq->Notifies[NewNotifyIndex];
+		
+		// Copy properties of the NotifyEvent
+		NotifyEvent.TrackIndex = SrcNotifyEvent.TrackIndex;
+		NotifyEvent.NotifyName = SrcNotifyEvent.NotifyName;
+		NotifyEvent.Duration = SrcNotifyEvent.Duration;
 
 		// Copy the notify itself, and point the new one at it.
 		if( SrcNotifyEvent.Notify )
@@ -3038,7 +3280,7 @@ bool UAnimSequence::CopyNotifies(UAnimSequence* SourceAnimSeq, UAnimSequence* De
 		}
 		else
 		{
-			DestAnimSeq->Notifies[NewNotifyIndex].Notify = NULL;
+			DestAnimSeq->Notifies[NewNotifyIndex].Notify = nullptr;
 		}
 
 		if( SrcNotifyEvent.NotifyStateClass )
@@ -3047,18 +3289,23 @@ bool UAnimSequence::CopyNotifies(UAnimSequence* SourceAnimSeq, UAnimSequence* De
 		}
 		else
 		{
-			DestAnimSeq->Notifies[NewNotifyIndex].NotifyStateClass = NULL;
+			DestAnimSeq->Notifies[NewNotifyIndex].NotifyStateClass = nullptr;
 		}
+		
+		// Copy notify timing
+		NotifyEvent.LinkSequence(DestAnimSeq, SrcNotifyEvent.GetTriggerTime());
+		NotifyEvent.TriggerTimeOffset = GetTriggerTimeOffsetForType(DestAnimSeq->CalculateOffsetForNotify(NotifyEvent.GetTriggerTime()));
 
 		// Make sure editor knows we've changed something.
 		DestAnimSeq->MarkPackageDirty();
+		DestAnimSeq->RefreshCacheData();
 	}
 
 	// Inform the user if some notifies weren't copied.
-	if( SourceAnimSeq->Notifies.Num() > NewNotifyIndices.Num() )
+	if(bShowDialogs && NumNotifiesThatWereNotCopied > 0)
 	{
 		FMessageDialog::Open( EAppMsgType::Ok, FText::Format(
-			NSLOCTEXT("UnrealEd", "SomeNotifiesWereNotCopiedF", "Because the destination sequence was shorter, {0} notifies were not copied."), FText::AsNumber(SourceAnimSeq->Notifies.Num() - NewNotifyIndices.Num())) );
+			NSLOCTEXT("UnrealEd", "SomeNotifiesWereNotCopiedF", "Because the destination sequence was shorter, {0} notifies were not copied."), FText::AsNumber(NumNotifiesThatWereNotCopied)) );
 	}
 #endif // WITH_EDITOR
 
@@ -4860,26 +5107,54 @@ void UAnimSequence::RefreshCacheData()
 
 void UAnimSequence::EvaluateCurveData(FBlendedCurve& OutCurve, float CurrentTime, bool bForceUseRawData) const
 {
-	if (bUseRawDataOnly || bForceUseRawData)
+	SCOPE_CYCLE_COUNTER(STAT_AnimSeq_EvalCurveData);
+
+	if (OutCurve.NumValidCurveCount == 0)
 	{
-		Super::EvaluateCurveData(OutCurve, CurrentTime);
+		return;
+	}
+
+	if (bUseRawDataOnly || bForceUseRawData || !IsCurveCompressedDataValid())
+	{
+		Super::EvaluateCurveData(OutCurve, CurrentTime, bForceUseRawData);
 	}
 	else
 	{
-		CompressedCurveData.EvaluateCurveData(OutCurve, CurrentTime);
+		CSV_SCOPED_TIMING_STAT(Animation, EvaluateCurveData);
+		CurveCompressionCodec->DecompressCurves(*this, OutCurve, CurrentTime);
 	}
 }
 
-const FRawCurveTracks& UAnimSequence::GetCurveData() const
+float UAnimSequence::EvaluateCurveData(SmartName::UID_Type CurveUID, float CurrentTime, bool bForceUseRawData) const
 {
-	if (bUseRawDataOnly)
+	SCOPE_CYCLE_COUNTER(STAT_AnimSeq_EvalCurveData);
+
+	if (bUseRawDataOnly || bForceUseRawData || !IsCurveCompressedDataValid())
 	{
-		return Super::GetCurveData();
+		return Super::EvaluateCurveData(CurveUID, CurrentTime, bForceUseRawData);
 	}
 	else
 	{
-		return CompressedCurveData;
+		return CurveCompressionCodec->DecompressCurve(*this, CurveUID, CurrentTime);
 	}
+}
+
+bool UAnimSequence::HasCurveData(SmartName::UID_Type CurveUID, bool bForceUseRawData) const
+{
+	if (bUseRawDataOnly || bForceUseRawData || !IsCurveCompressedDataValid())
+	{
+		return Super::HasCurveData(CurveUID, bForceUseRawData);
+	}
+
+	for (const FSmartName& CurveName : CompressedCurveNames)
+	{
+		if (CurveName.UID == CurveUID)
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 void UAnimSequence::RefreshSyncMarkerDataFromAuthored()
@@ -4904,6 +5179,19 @@ void UAnimSequence::RefreshSyncMarkerDataFromAuthored()
 	{
 		UniqueMarkerNames.Empty();
 	}
+
+#if WITH_EDITOR
+	check(IsInGameThread());
+
+	// Update blend spaces that may be referencing us
+	for(TObjectIterator<UBlendSpaceBase> It; It; ++It)
+	{
+		if(!It->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad))
+		{
+			It->RuntimeValidateMarkerData();
+		}
+	}
+#endif
 }
 
 bool IsMarkerValid(const FAnimSyncMarker* Marker, bool bLooping, const TArray<FName>& ValidMarkerNames)
@@ -4915,7 +5203,7 @@ void UAnimSequence::AdvanceMarkerPhaseAsLeader(bool bLooping, float MoveDelta, c
 {
 	check(MoveDelta != 0.f);
 	const bool bPlayingForwards = MoveDelta > 0.f;
-	float CurrentMoveDelta = MoveDelta * RateScale;
+	float CurrentMoveDelta = MoveDelta;
 
 	bool bOffsetInitialized = false;
 	float MarkerTimeOffset = 0.f;
@@ -5607,19 +5895,42 @@ void UAnimSequence::OnRawDataChanged()
 	CompressedTrackOffsets.Empty();
 	CompressedScaleOffsets.Empty();
 	CompressedByteStream.Empty();
+	CompressedSegments.Empty();
 	bUseRawDataOnly = true;
 
 	RequestSyncAnimRecompression(false);
 	//MDW - Once we have async anim ddc requests we should do this too
 	//RequestDependentAnimRecompression();
 }
-
 #endif
 
 bool UAnimSequence::IsCompressedDataValid() const
 {
 	return CompressedByteStream.Num() > 0 || RawAnimationData.Num() == 0 ||
 		   (TranslationCompressionFormat == ACF_Identity && RotationCompressionFormat == ACF_Identity && ScaleCompressionFormat == ACF_Identity);
+}
+
+bool UAnimSequence::IsCurveCompressedDataValid() const
+{
+	if (CurveCompressionCodec == nullptr)
+	{
+		// No codec
+		return false;
+	}
+
+	if (CompressedCurveByteStream.Num() == 0 && RawCurveData.FloatCurves.Num() != 0)
+	{
+		// No compressed data but we have raw data
+		if (!IsValidAdditive())
+		{
+			return false;
+		}
+
+		// Additive sequences can have raw curves that all end up being 0.0 (e.g. they 100% match the base sequence curves)
+		// in which case there will be no compressed curve data.
+	}
+
+	return true;
 }
 
 /*-----------------------------------------------------------------------------
@@ -5702,7 +6013,7 @@ void GatherAnimSequenceStats(FOutputDevice& Ar)
 
 		Ar.Logf(TEXT(" %60s, %3i, %3i,%3i,%3i, %3i,%3i,%3i, %10i,%10i,%10i, %s, %d"),
 			*Seq->GetName(),
-			Seq->NumFrames,
+			Seq->GetRawNumberOfFrames(),
 			NumTransTracks, NumRotTracks, NumScaleTracks,
 			NumTransTracksWithOneKey, NumRotTracksWithOneKey, NumScaleTracksWithOneKey,
 			TotalNumTransKeys, TotalNumRotKeys, TotalNumScaleKeys,

@@ -1,9 +1,10 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "IMediaTextureSample.h"
 #include "MediaObjectPool.h"
+#include "Misc/FrameRate.h"
 
 /**
  * Implements the IMediaTextureSample/IMediaPoolable interface.
@@ -19,35 +20,65 @@ public:
 	/**
 	 * Initialize the sample.
 	 *
-	 * @param InVideoBuffer The audio frame data.
+	 * @param InVideoBuffer The video frame data.
 	 * @param InBufferSize The size of the video buffer.
 	 * @param InStride The number of channel of the video buffer.
 	 * @param InWidth The sample rate of the video buffer.
 	 * @param InHeight The sample rate of the video buffer.
 	 * @param InSampleFormat The sample format of the video buffer.
 	 * @param InTime The sample time (in the player's own clock).
+	 * @param InFrameRate The framerate of the media that produce the sample.
 	 * @param InTimecode The sample timecode if available.
 	 */
-	bool Initialize(const void* InVideoBuffer, uint32 InBufferSize, uint32 InStride, uint32 InWidth, uint32 InHeight, EMediaTextureSampleFormat InSampleFormat, FTimespan InTime, const TOptional<FTimecode>& InTimecode);
+	bool Initialize(const void* InVideoBuffer, uint32 InBufferSize, uint32 InStride, uint32 InWidth, uint32 InHeight, EMediaTextureSampleFormat InSampleFormat, FTimespan InTime, const FFrameRate& InFrameRate, const TOptional<FTimecode>& InTimecode);
 
 	/**
 	 * Initialize the sample.
 	 *
-	 * @param InVideoBuffer The audio frame data.
+	 * @param InVideoBuffer The video frame data.
 	 * @param InStride The number of channel of the video buffer.
 	 * @param InWidth The sample rate of the video buffer.
 	 * @param InHeight The sample rate of the video buffer.
 	 * @param InSampleFormat The sample format of the video buffer.
 	 * @param InTime The sample time (in the player's own clock).
+	 * @param InFrameRate The framerate of the media that produce the sample.
 	 * @param InTimecode The sample timecode if available.
 	 */
-	bool Initialize(TArray<uint8> InVideoBuffer, uint32 InStride, uint32 InWidth, uint32 InHeight, EMediaTextureSampleFormat InSampleFormat, FTimespan InTime, const TOptional<FTimecode>& InTimecode);
+	bool Initialize(TArray<uint8> InVideoBuffer, uint32 InStride, uint32 InWidth, uint32 InHeight, EMediaTextureSampleFormat InSampleFormat, FTimespan InTime, const FFrameRate& InFrameRate, const TOptional<FTimecode>& InTimecode);
+
+	/**
+	 * Initialize the sample.
+	 *
+	 * @param InVideoBuffer The video frame data.
+	 * @param InBufferSize The size of the video buffer.
+	 */
+	bool SetBuffer(const void* InVideoBuffer, uint32 InBufferSize);
+
+	/**
+	 * Set the sample buffer.
+	 *
+	 * @param InVideoBuffer The video frame data.
+	 */
+	bool SetBuffer(TArray<uint8> InVideoBuffer);
+
+	/**
+	 * Set the sample properties.
+	 *
+	 * @param InStride The number of channel of the video buffer.
+	 * @param InWidth The sample rate of the video buffer.
+	 * @param InHeight The sample rate of the video buffer.
+	 * @param InSampleFormat The sample format of the video buffer.
+	 * @param InTime The sample time (in the player's own clock).
+	 * @param InFrameRate The framerate of the media that produce the sample.
+	 * @param InTimecode The sample timecode if available.
+	 */
+	bool SetProperties(uint32 InStride, uint32 InWidth, uint32 InHeight, EMediaTextureSampleFormat InSampleFormat, FTimespan InTime, const FFrameRate& InFrameRate, const TOptional<FTimecode>& InTimecode);
 
 	/**
 	 * Initialize the sample with half it's original height and take only the odd or even line.
 	 *
 	 * @param bUseEvenLine Should use the Even or the Odd line from the video buffer.
-	 * @param InVideoBuffer The audio frame data.
+	 * @param InVideoBuffer The video frame data.
 	 * @param InStride The number of channel of the video buffer.
 	 * @param InWidth The sample rate of the video buffer.
 	 * @param InHeight The sample rate of the video buffer.
@@ -55,7 +86,27 @@ public:
 	 * @param InTime The sample time (in the player's own clock).
 	 * @param InTimecode The sample timecode if available.
 	 */
-	bool InitializeWithEvenOddLine(bool bUseEvenLine, const void* InVideoBuffer, uint32 InBufferSize, uint32 InStride, uint32 InWidth, uint32 InHeight, EMediaTextureSampleFormat InSampleFormat, FTimespan InTime, const TOptional<FTimecode>& InTimecode);
+	bool InitializeWithEvenOddLine(bool bUseEvenLine, const void* InVideoBuffer, uint32 InBufferSize, uint32 InStride, uint32 InWidth, uint32 InHeight, EMediaTextureSampleFormat InSampleFormat, FTimespan InTime, const FFrameRate& InFrameRate, const TOptional<FTimecode>& InTimecode);
+
+	/**
+	 * Set the sample buffer with half it's original height and take only the odd or even line.
+	 *
+	 * @param bUseEvenLine Should use the Even or the Odd line from the video buffer.
+	 * @param InVideoBuffer The video frame data.
+	 * @param InBufferSize The size of the video buffer.
+	 * @param InStride The number of channel of the video buffer.
+	 * @param InHeight The sample rate of the video buffer.
+	 */
+	bool SetBufferWithEvenOddLine(bool bUseEvenLine, const void* InVideoBuffer, uint32 InBufferSize, uint32 InStride, uint32 InHeight);
+
+	/**
+	 * Request an uninitialized sample buffer.
+	 * Should be used when the buffer could be filled by something else.
+	 * SetProperties should still be called after.
+	 *
+	 * @param InBufferSize The size of the video buffer.
+	 */
+	virtual void* RequestBuffer(uint32 InBufferSize);
 
 public:
 	//~ IMediaTextureSample interface
@@ -67,12 +118,26 @@ public:
 
 	virtual FIntPoint GetDim() const override
 	{
-		return FIntPoint(Width, Height);
+		switch(GetFormat())
+		{
+		case EMediaTextureSampleFormat::CharAYUV:
+		case EMediaTextureSampleFormat::CharNV12:
+		case EMediaTextureSampleFormat::CharNV21:
+		case EMediaTextureSampleFormat::CharUYVY:
+		case EMediaTextureSampleFormat::CharYUY2:
+		case EMediaTextureSampleFormat::CharYVYU:
+			return FIntPoint(Width / 2, Height);
+		case EMediaTextureSampleFormat::YUVv210:
+			// Padding aligned on 48 (16 and 6 at the same time)
+			return FIntPoint((((Width + 47) / 48) * 48) / 6, Height);
+		default:
+			return FIntPoint(Width, Height);
+		}
 	}
 
 	virtual FTimespan GetDuration() const override
 	{
-		return FTimespan(ETimespan::TicksPerSecond / 60);
+		return Duration;
 	}
 
 	virtual EMediaTextureSampleFormat GetFormat() const override

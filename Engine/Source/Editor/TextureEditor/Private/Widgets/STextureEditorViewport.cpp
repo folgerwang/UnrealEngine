@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Widgets/STextureEditorViewport.h"
 #include "Framework/Application/SlateApplication.h"
@@ -334,7 +334,6 @@ void STextureEditorViewport::Tick( const FGeometry& AllottedGeometry, const doub
 	if (bIsRenderingEnabled)
 	{
 		Viewport->Invalidate();
-		Viewport->InvalidateDisplay();
 	}
 }
 
@@ -355,7 +354,7 @@ EVisibility STextureEditorViewport::HandleExposureBiasWidgetVisibility( ) const
 {
 	UTexture* Texture = ToolkitPtr.Pin()->GetTexture();
 
-	if ((Texture != NULL) && (Texture->CompressionSettings == TC_HDR))
+	if ((Texture != NULL) && (Texture->CompressionSettings == TC_HDR || Texture->CompressionSettings == TC_HDR_Compressed))
 	{
 		return EVisibility::Visible;
 	}

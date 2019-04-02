@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MaterialPropertyHelpers.h"
 #include "Misc/MessageDialog.h"
@@ -101,7 +101,14 @@ EVisibility FMaterialPropertyHelpers::ShouldShowExpression(UDEditorParameterValu
 
 	ShowHiddenDelegate.ExecuteIfBound(bShowHidden);
 
-	return (bShowHidden || MaterialEditorInstance->VisibleExpressions.Contains(Parameter->ParameterInfo))? EVisibility::Visible: EVisibility::Collapsed;
+	const bool bShouldShowExpression = (bShowHidden || MaterialEditorInstance->VisibleExpressions.Contains(Parameter->ParameterInfo));
+
+	if (MaterialEditorInstance->bShowOnlyOverrides)
+	{
+		return (IsOverriddenExpression(Parameter) && bShouldShowExpression) ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+
+	return bShouldShowExpression ? EVisibility::Visible: EVisibility::Collapsed;
 }
 
 void FMaterialPropertyHelpers::OnMaterialLayerAssetChanged(const struct FAssetData& InAssetData, int32 Index, EMaterialParameterAssociation MaterialType, TSharedPtr<class IPropertyHandle> InHandle, FMaterialLayersFunctions* InMaterialFunction)
@@ -109,9 +116,7 @@ void FMaterialPropertyHelpers::OnMaterialLayerAssetChanged(const struct FAssetDa
 	const FScopedTransaction Transaction(LOCTEXT("SetLayerorBlendAsset", "Set Layer or Blend Asset"));
 	InHandle->NotifyPreChange();
 	const FName FilterTag = FName(TEXT("MaterialFunctionUsage"));
-	const FString* MaterialFunctionUsage = InAssetData.TagsAndValues.Find(FilterTag);
-	FString CompareString;
-	if (MaterialFunctionUsage || InAssetData.AssetName == NAME_None)
+	if (InAssetData.TagsAndValues.Contains(FilterTag) || InAssetData.AssetName == NAME_None)
 	{
 		switch (MaterialType)
 		{
@@ -152,21 +157,22 @@ bool FMaterialPropertyHelpers::FilterLayerAssets(const struct FAssetData& InAsse
 	bool ShouldAssetBeFilteredOut = false;
 	const FName FilterTag = FName(TEXT("MaterialFunctionUsage"));
 	const FName BaseTag = FName(TEXT("Base"));
-	const FString* MaterialFunctionUsage = InAssetData.TagsAndValues.Find(FilterTag);
+	FAssetDataTagMapSharedView::FFindTagResult MaterialFunctionUsage = InAssetData.TagsAndValues.FindTag(FilterTag);
+
 	FName BaseClassName;
 	FName InstanceClassName;
 
 	FString CompareString;
-	if (MaterialFunctionUsage)
+	if (MaterialFunctionUsage.IsSet())
 	{
-		FString* Base = const_cast<FString*>(InAssetData.TagsAndValues.Find(BaseTag));
+		FAssetDataTagMapSharedView::FFindTagResult Base = InAssetData.TagsAndValues.FindTag(BaseTag);
 
 		FString BaseString;
 		FString DiscardString;
 		FString CleanString;
-		if (Base != nullptr)
+		if (Base.IsSet())
 		{
-			BaseString = *Base;
+			BaseString = Base.GetValue();
 			BaseString.Split(".", &DiscardString, &CleanString);
 			CleanString.Split("'", &CleanString, &DiscardString);
 		}
@@ -216,7 +222,7 @@ bool FMaterialPropertyHelpers::FilterLayerAssets(const struct FAssetData& InAsse
 		break;
 		}
 
-		if (*MaterialFunctionUsage != CompareString)
+		if (MaterialFunctionUsage.GetValue() != CompareString)
 		{
 
 			ShouldAssetBeFilteredOut = true;
@@ -579,7 +585,7 @@ FReply FMaterialPropertyHelpers::OnClickedSaveNewFunctionInstance(class UMateria
 }
 
 
-FReply FMaterialPropertyHelpers::OnClickedSaveNewLayerInstance(class UMaterialFunctionInterface* Object, TSharedPtr<FStackSortedData> InSortedData)
+FReply FMaterialPropertyHelpers::OnClickedSaveNewLayerInstance(class UMaterialFunctionInterface* Object, TSharedPtr<FSortedParamData> InSortedData)
 {
 	const FString DefaultSuffix = TEXT("_Inst");
 	TArray<FEditorParameterGroup> ParameterGroups;
@@ -588,7 +594,7 @@ FReply FMaterialPropertyHelpers::OnClickedSaveNewLayerInstance(class UMaterialFu
 	{
 		FunctionPreviewMaterial = Object->GetPreviewMaterial();
 	}
-	for (TSharedPtr<FStackSortedData> Group : InSortedData->Children)
+	for (TSharedPtr<FSortedParamData> Group : InSortedData->Children)
 	{
 		FEditorParameterGroup DuplicatedGroup = FEditorParameterGroup();
 		DuplicatedGroup.GroupAssociation = Group->Group.GroupAssociation;
@@ -850,7 +856,7 @@ void FMaterialPropertyHelpers::ResetLayerAssetToDefault(TSharedPtr<IPropertyHand
 	
 }
 
-bool FMaterialPropertyHelpers::ShouldLayerAssetShowResetToDefault(TSharedPtr<IPropertyHandle> PropertyHandle, TSharedPtr<FStackSortedData> InParameterData, UMaterialInterface* InMaterial)
+bool FMaterialPropertyHelpers::ShouldLayerAssetShowResetToDefault(TSharedPtr<IPropertyHandle> PropertyHandle, TSharedPtr<FSortedParamData> InParameterData, UMaterialInterface* InMaterial)
 {
 	if (!InParameterData->Parameter)
 	{
@@ -1024,7 +1030,7 @@ FEditorParameterGroup&  FMaterialPropertyHelpers::GetParameterGroup(UMaterial* I
 
 void FMaterialPropertyHelpers::GetVectorChannelMaskComboBoxStrings(TArray<TSharedPtr<FString>>& OutComboBoxStrings, TArray<TSharedPtr<SToolTip>>& OutToolTips, TArray<bool>& OutRestrictedItems)
 {
-	const UEnum* ChannelEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EChannelMaskParameterColor"));
+	const UEnum* ChannelEnum = StaticEnum<EChannelMaskParameterColor::Type>();
 	check(ChannelEnum);
 
 	// Add RGBA string options (Note: Exclude the "::Max" entry)
@@ -1044,7 +1050,7 @@ FString FMaterialPropertyHelpers::GetVectorChannelMaskValue(UDEditorParameterVal
 	UDEditorVectorParameterValue* VectorParam = Cast<UDEditorVectorParameterValue>(InParameter);
 	check(VectorParam && VectorParam->bIsUsedAsChannelMask);
 
-	const UEnum* ChannelEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EChannelMaskParameterColor"));
+	const UEnum* ChannelEnum = StaticEnum<EChannelMaskParameterColor::Type>();
 	check(ChannelEnum);
 
 	// Convert from vector to RGBA string
@@ -1075,7 +1081,7 @@ void FMaterialPropertyHelpers::SetVectorChannelMaskValue(const FString& StringVa
 	UDEditorVectorParameterValue* VectorParam = Cast<UDEditorVectorParameterValue>(InParameter);
 	check(VectorParam && VectorParam->bIsUsedAsChannelMask);
 
-	const UEnum* ChannelEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EChannelMaskParameterColor"));
+	const UEnum* ChannelEnum = StaticEnum<EChannelMaskParameterColor::Type>();
 	check(ChannelEnum);
 
 	// Convert from RGBA string to vector

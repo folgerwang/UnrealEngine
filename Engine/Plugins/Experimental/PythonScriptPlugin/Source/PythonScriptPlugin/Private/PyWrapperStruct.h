@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -397,7 +397,7 @@ private:
 	/** Meta-data for this generated struct that is applied to the Python type */
 	FPyWrapperStructMetaData PyMetaData;
 
-	friend struct FPythonGeneratedStructUtil;
+	friend class FPythonGeneratedStructBuilder;
 
 #endif	// WITH_PYTHON
 };

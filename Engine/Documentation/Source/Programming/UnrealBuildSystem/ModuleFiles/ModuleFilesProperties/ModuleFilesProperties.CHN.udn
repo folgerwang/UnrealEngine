@@ -1,93 +1,111 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:4241091
 Availability: NoPublish
-Title: Build Configuration Properties Page
+Title: 构建配置属性页面
 Crumbs:
-Description: This is a procedurally generated markdown page.
-Version: 4.16
+Description: 此为程序化生成的markdown页面。
+Version: 4.21
 
-### Read/Write Properties
-$ Type (ModuleType): Type of module
+### 读/写属性
+$ Type (ModuleType): 模块类型
 
-$ BinariesSubFolder (String): Subfolder of Binaries/PLATFORM folder to put this module in when building DLLs. This should only be used by modules that are found via searching like the TargetPlatform or ShaderFormat modules. If FindModules is not used to track them down, the modules will not be found.
+$ BinariesSubFolder (String): 它是Binaries/PLATFORM文件夹的子文件夹，用于在构建DLL时放入此模块。它仅用于可搜索的模块，例如TargetPlatform或ShaderFormat。如果未将FindModules用于这些搜索，则不会找到任何模块。
 
-$ OptimizeCode (CodeOptimization): When this module's code should be optimized.
+$ OptimizeCode (CodeOptimization): 指定何时优化此模块的代码。
 
-$ PrivatePCHHeaderFile (String): Explicit private PCH for this module. Implies that this module will not use a shared PCH.
+$ PrivatePCHHeaderFile (String): 此模块的显式私有PCH。这意味着该模块不使用共享PCH。
 
-$ SharedPCHHeaderFile (String): Header file name for a shared PCH provided by this module.  Must be a valid relative path to a public C++ header file. This should only be set for header files that are included by a significant number of other C++ modules.
+$ SharedPCHHeaderFile (String): 此模块提供的共享PCH的标头文件名。它必须是公用C++标头文件的有效相对路径。它仅适用于许多其他C++模块中包含的标头文件。
 
-$ PCHUsage (PCHUsageMode): Precompiled header usage for this module
+$ ShortName (String): 为此模块指定中间文件的中间目录，并为该文件指定其他名称。当存在路径长度限制时，这很有用。
 
-$ bUseRTTI (Boolean): Use run time type information
+$ PCHUsage (PCHUsageMode): 此模块使用预编译标头
 
-$ bUseAVX (Boolean): Use AVX instructions
+$ bTreatAsEngineModule (Boolean): 此模块是否应视为引擎模块（例如，使用引擎定义、PCH、在DebugGame配置中启用优化的情况下编译等）。根据用于生成的汇编规则初始化为默认值。
 
-$ bEnableBufferSecurityChecks (Boolean): Enable buffer security checks.  This should usually be enabled as it prevents severe security risks.
+$ bUseBackwardsCompatibleDefaults (Boolean): 是否使用此模块的向后兼容默认值。默认情况下，引擎模块始终使用最新的默认设置，而项目模块不使用默认设置（以便更轻松地迁移）。
 
-$ bEnableExceptions (Boolean): Enable exception handling
+$ bUseRTTI (Boolean): 使用运行时类型信息
 
-$ bEnableShadowVariableWarnings (Boolean): Enable warnings for shadowed variables
+$ bUseAVX (Boolean): 使用AVX指令
 
-$ bEnableUndefinedIdentifierWarnings (Boolean): Enable warnings for using undefined identifiers in #if expressions
+$ bEnableBufferSecurityChecks (Boolean): 启用缓冲区安全检查。通常应启用此属性，因为它可以防止严重的安全风险。
 
-$ bFasterWithoutUnity (Boolean): If true and unity builds are enabled, this module will build without unity.
+$ bEnableExceptions (Boolean): 启用异常处理
 
-$ MinSourceFilesForUnityBuildOverride (Int32): The number of source files in this module before unity build will be activated for that module.  If set to anything besides -1, will override the default setting which is controlled by MinGameModuleSourceFilesForUnityBuild
+$ bEnableObjCExceptions (Boolean): 启用objective C异常处理
 
-$ MinFilesUsingPrecompiledHeaderOverride (Int32): Overrides BuildConfiguration.MinFilesUsingPrecompiledHeader if non-zero.
+$ bEnableShadowVariableWarnings (Boolean): 启用阴影变量的警告
 
-$ bBuildLocallyWithSNDBS (Boolean): Module uses a #import so must be built locally when compiling with SN-DBS
+$ bEnableUndefinedIdentifierWarnings (Boolean): 在#if表达式中启用使用未定义辨识符的警告
 
-$ IsRedistributableOverride (Nullable&lt;Boolean&gt;): Redistribution override flag for this module.
+$ bFasterWithoutUnity (Boolean): 如果设置为True并启用Unity构建，则此模块将在没有Unity的情况下构建。
 
-$ bOutputPubliclyDistributable (Boolean): Whether the output from this module can be publicly distributed, even if it has code/ dependencies on modules that are not (i.e. CarefullyRedist, NotForLicensees, NoRedist). This should be used when you plan to release binaries but not source.
+$ MinSourceFilesForUnityBuildOverride (Int32): 在为该模块启用Unity构建之前，此模块中的源文件数。如果设置为-1以外的任何值，则会覆盖由由MinGameModuleSourceFilesForUnityBuild控制的默认设置
 
-$ WhitelistRestrictedFolders (List&lt;String&gt;): List of folders which are whitelisted to be referenced when compiling this binary, without propagating restricted folder names
+$ MinFilesUsingPrecompiledHeaderOverride (Int32): 如果它不为零，则覆盖BuildConfiguration.MinFilesUsingPrecompiledHeader。
 
-$ bEnforceIWYU (Boolean): Enforce "include what you use" rules when PCHUsage is set to ExplicitOrSharedPCH; warns when monolithic headers (Engine.h, UnrealEd.h, etc...) are used, and checks that source files include their matching header first.
+$ bBuildLocallyWithSNDBS (Boolean): 模块使用#import，因此必须在编译时使用SN-DBS在本地构建
 
-$ PublicIncludePathModuleNames (List&lt;String&gt;): List of modules names (no path needed) with header files that our module's public headers needs access to, but we don't need to "import" or link against.
+$ IsRedistributableOverride (Nullable&lt;Boolean&gt;): 此模块的重新分发覆盖标志。
 
-$ PublicDependencyModuleNames (List&lt;String&gt;): List of public dependency module names (no path needed) (automatically does the private/public include). These are modules that are required by our public source files.
+$ bOutputPubliclyDistributable (Boolean): 即使模块上的代码/依赖项（即CarefullyRedist、NotForLicensees、NoRedist）不公开，此模块的输出是否可以公开分发。当要分发二进制文件而不是源代码时才应使用它。
 
-$ PrivateIncludePathModuleNames (List&lt;String&gt;): List of modules name (no path needed) with header files that our module's private code files needs access to, but we don't need to "import" or link against.
+$ WhitelistRestrictedFolders (List&lt;String&gt;): 在编译此二进制文件时可以引用但不传播受限文件夹名称的文件夹列表
 
-$ PrivateDependencyModuleNames (List&lt;String&gt;): List of private dependency module names.  These are modules that our private code depends on but nothing in our public include files depend on.
+$ bEnforceIWYU (Boolean): 将PCHUsage设置为ExplicitOrSharedPCH时强制实施“包括你使用的内容”规则。使用单块标头（例如Engine.h、UnrealEd.h等）将发出警告并检查是否首先包含与源文件匹配的标头。
 
-$ CircularlyReferencedDependentModules (List&lt;String&gt;): Only for legacy reason, should not be used in new code. List of module dependencies that should be treated as circular references.  This modules must have already been added to either the public or private dependent module list.
+$ bAddDefaultIncludePaths (Boolean): 是否添加模块的所有默认包含路径（例如Source/Public的Source/Classes文件夹、子文件夹）。
 
-$ PublicSystemIncludePaths (List&lt;String&gt;): List of system/library include paths - typically used for External (third party) modules.  These are public stable header file directories that are not checked when resolving header dependencies.
+$ bPrecompile (Boolean): 是否预编译此模块。默认值为目标的bPrecompile标志。清除此标志可防止预编译该模块。
 
-$ PublicIncludePaths (List&lt;String&gt;): (This setting is currently not need as we discover all files from the 'Public' folder) List of all paths to include files that are exposed to other modules
+$ bUsePrecompiled (Boolean): 此模块是否使用预编译数据。对于从已安装的程序集创建的模块始终设置为True。
 
-$ PrivateIncludePaths (List&lt;String&gt;): List of all paths to this module's internal include files, not exposed to other modules (at least one include to the 'Private' path, more if we want to avoid relative paths)
+$ PublicIncludePathModuleNames (List&lt;String&gt;): 带有标头文件的模块名称列表（无需路径），需要由模块的公共标头访问，但不需要再“导入”或链接。
 
-$ PublicLibraryPaths (List&lt;String&gt;): List of system/library paths (directory of .lib files) - typically used for External (third party) modules
+$ PublicDependencyModuleNames (List&lt;String&gt;): 公共依赖性模块名称列表（不需要路径）（自动包含私有/公共）。这些是公共源文件所需的模块。
 
-$ PublicAdditionalLibraries (List&lt;String&gt;): List of additional libraries (names of the .lib files including extension) - typically used for External (third party) modules
+$ PrivateIncludePathModuleNames (List&lt;String&gt;): 带有标头文件的模块名称列表（无需路径），需要由模块的私有代码文件访问，但不需要再“导入”或链接。
 
-$ PublicFrameworks (List&lt;String&gt;): List of XCode frameworks (iOS and MacOS)
+$ PrivateDependencyModuleNames (List&lt;String&gt;): 私有依赖性模块名称列表。这些是私有代码所依赖的模块，但公共include文件中没有任何依赖。
 
-$ PublicWeakFrameworks (List&lt;String&gt;): List of weak frameworks (for OS version transitions)
+$ CircularlyReferencedDependentModules (List&lt;String&gt;): 它是遗留的，因此不会在新代码中使用。视为循环引用的模块依赖项列表。此模块必须已添加到公共或私有依赖模块列表中。
 
-$ PublicAdditionalFrameworks (List&lt;UEBuildFramework&gt;): List of addition frameworks - typically used for External (third party) modules on Mac and iOS
+$ PublicSystemIncludePaths (List&lt;String&gt;): 系统/库include路径列表，通常用于外部（第三方）模块。在解析标头依赖项时未检查的公共稳定标头文件目录。
 
-$ AdditionalBundleResources (List&lt;UEBuildBundleResource&gt;): List of addition resources that should be copied to the app bundle for Mac or iOS
+$ PublicIncludePaths (List&lt;String&gt;): （当前不需要此设置，因为可以从“Public”文件夹中搜索所有文件）公开给其他模块的include文件的所有路径列表
 
-$ PublicAdditionalShadowFiles (List&lt;String&gt;): For builds that execute on a remote machine (e.g. iOS), this list contains additional files that need to be copied over in order for the app to link successfully.  Source/header files and PCHs are automatically copied.  Usually this is simply a list of precompiled third party library dependencies.
+$ PrivateIncludePaths (List&lt;String&gt;): 此模块内部include文件的所有路径的列表，未公开给其他模块（至少有一个包含在“私有”路径中，如果要避免相对路径，可以添加更多）
 
-$ PublicDelayLoadDLLs (List&lt;String&gt;): List of delay load DLLs - typically used for External (third party) modules
+$ PublicLibraryPaths (List&lt;String&gt;): 系统/库路径列表（.lib文件的目录），通常用于外部（第三方）模块
 
-$ Definitions (List&lt;String&gt;): Additional compiler definitions for this module
+$ PublicAdditionalLibraries (List&lt;String&gt;): 其他库的列表（包括扩展名的.lib文件的名称），通常用于外部（第三方）模块
 
-$ DynamicallyLoadedModuleNames (List&lt;String&gt;): Addition modules this module may require at run-time
+$ PublicFrameworks (List&lt;String&gt;): XCode框架列表（iOS和MacOS）
 
-$ PlatformSpecificDynamicallyLoadedModuleNames (List&lt;String&gt;): Extra modules this module may require at run time, that are on behalf of another platform (i.e. shader formats and the like)
+$ PublicWeakFrameworks (List&lt;String&gt;): 弱框架列表（用于OS版本转换）
 
-$ RuntimeDependencies (RuntimeDependencyList): List of files which this module depends on at runtime. These files will be staged along with the target.
+$ PublicAdditionalFrameworks (List&lt;UEBuildFramework&gt;): 其他框架的列表，通常用于Mac和iOS上的外部（第三方）模块
 
-$ AdditionalPropertiesForReceipt (List&lt;ReceiptProperty&gt;): List of additional properties to be added to the build receipt
+$ AdditionalBundleResources (List&lt;UEBuildBundleResource&gt;): 应复制到Mac或iOS应用捆绑包的其他资源的列表
 
-$ PrecompileForTargets (PrecompileTargetsType): Which targets this module should be precompiled for
+$ PublicAdditionalShadowFiles (List&lt;String&gt;): 对于在远程计算机（例如iOS）上运行的构建，此列表包含为了可以成功链接应用程序而需要复制的其他文件。源/标头文件和PCH会自动复制。它通常只是预编译的第三方库依赖项列表。
+
+$ PublicDelayLoadDLLs (List&lt;String&gt;): 延迟加载DLL列表，通常用于外部（第三方）模块
+
+$ PrivateDefinitions (List&lt;String&gt;): 此模块的私有编译器定义
+
+$ PublicDefinitions (List&lt;String&gt;): 此模块的公共编译器定义
+
+$ DynamicallyLoadedModuleNames (List&lt;String&gt;): 此模块在运行时可能需要的附加模块
+
+$ RuntimeDependencies (RuntimeDependencyList): 此模块在运行时依赖的文件列表。这些文件将与目标一起暂存。
+
+$ AdditionalPropertiesForReceipt (ReceiptPropertyList): 应添加到构建回执的其他属性的列表
+
+$ PrecompileForTargets (PrecompileTargetsType): 此模块预编译用于的目标
+
+$ ExternalDependencies (List&lt;String&gt;): 受到修改就会使makefile失效的外部文件。相对路径是相对于.build.cs文件解析的。
+
+$ bLegacyPublicIncludePaths (Nullable&lt;Boolean&gt;): 此模块是否相对于“公共”文件夹的根目录限定来自其他模块的包含标头。该设置会减少必须传递给编译器的搜索路径数量，从而提高性能并缩短编译器命令行长度。
 
 

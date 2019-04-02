@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Components/WrapBox.h"
 #include "Components/WrapBoxSlot.h"
@@ -55,6 +55,11 @@ void UWrapBox::OnSlotRemoved(UPanelSlot* InSlot)
 }
 
 UWrapBoxSlot* UWrapBox::AddChildWrapBox(UWidget* Content)
+{
+	return AddChildToWrapBox(Content);
+}
+
+UWrapBoxSlot* UWrapBox::AddChildToWrapBox(UWidget* Content)
 {
 	return Cast<UWrapBoxSlot>(Super::AddChild(Content));
 }

@@ -1,0 +1,262 @@
+﻿INTSourceChangelist:4677968
+Availability: Public
+Crumbs: 
+Title: 스크린 퍼센티지와 템포럴 업샘플
+Description: 언리얼 엔진 4 의 Screen Percentage, 스크린 퍼센티지와 Temporal Upsample, 템포럴 업샘플에 대한 개요입니다.
+Type: 
+Version: 
+Parent: Engine/Rendering
+Order: 
+Tags: Rendering
+Tags: Graphics
+
+
+[REGION:note]
+언리얼 엔진 4.19 릴리즈에 Screen Percentage (스크린 퍼센티지) 작동방식이 크게 변경되었습니다. 대부분 가상 현실(VR) 프로젝트 개발에 직접 영향을 주며, 거의 하위 호환성을 잃게됩니다.
+[/REGION]
+
+**Screen Percentage** (스크린 퍼센티지)는 해상도 스케일 조절 기술로, 이미지의 실제 표현 해상도보다 높이거나 낮춰 렌더링하는 것입니다. 스크린 퍼센티지를 조절할 수 있으면 게임의 퍼포먼스와 이미지 해상도 퀄리티 사이 균형을 유지할 수 있습니다.
+
+언리얼 엔진 4 (UE4) 4.19 이전에는 스크린 퍼센티지만 변경해야 했지만, 이제 렌더링 파이프라인 도중 두 가지 유형의 스케일로 분리되었습니다. Primary / Secondary Spatial Upscaling (1차 / 2차 공간 업스케일)입니다.
+
+*   **Primary Spatial Upscaling** (1차 공간 업스케일)은 기존에 사용되던 스크린 퍼센티지와 같습니다. 더 낮은 해상도로 프레임을 렌더링한 뒤 스케일을 올린 다음 유저 인터페이스(UI)를 그린다는 개념입니다.
+*   **Secondary Spatial Upscaling** (2차 공간 업스케일)은 1차 업스케일 패스와 상관없이 이루어지는 2차 최종 공간 업스케일 패스입니다.
+
+## 1차 스크린 퍼센티지
+
+**Primary Spatial Upscale** (1차 공간 업스케일, 또는 1차 스크린 퍼센티지)는 화면을 일정 백분율로 렌더링한 뒤 현재 화면 해상도에 맞게 스케일을 조절하는 식으로 작동합니다. 스크린 퍼센티지( 또는 해상도)를 낮춘 뒤 스케일을 높이는 것을 **upsampling** (업샘플링)이라 합니다. 또는 스크린 퍼센티지를 높인 (더 높은 해상도로 렌더링한) 뒤 현재 화면 해상도에 맞춰 스케일을 낮추는 것을 **super sampling** (수퍼 샘플링)이라 합니다. 이 모든 작업은 UI 를 그리기 전에 일어나며, 퍼포먼스에 영향을 줄 수 있습니다.
+
+GPU 한 프레임동안 화면에 렌더링되는 이미지를 이루는 모든 버퍼 렌더 타깃에 스크린 퍼센티지가 어떻게 작동하는지 개념적으로 살펴보면 다음과 같습니다.
+
+![](NoUpscaling.png "NoUpscaling.png")
+
+각 GPU 프레임에 대해, 모든 렌더 타깃은 파이프라인 전반에 전체 해상도를 사용합니다.  
+
+![](SpatialUpscale.png "SpatialUpscale.png")
+
+Spatial Upscaling (공간 업스케일)로 UI 전에 그리는 것은 무엇이든 사용된 Screen Percentage (스크린 퍼센티지)에 따라 낮거나 높은 해상도로 그립니다. (UI 이전 렌더 타깃이 좁은 것으로 보아) 스크린 퍼센티지를 낮춰 렌더 타깃에 저해상도 이미지를 만듭니다. 공간 업스케일은 UI 이전에 발생하여 이미지 스케일을 출력할 화면 해상도에 맞춥니다. 예를 들어, 현재 해상도가 1920x1080 이고 스크린 퍼센티지가 83% 인 경우, 렌더 타깃 해상도를 약 1600x900 으로 조절했다가 다시 1920x1080 으로 업스케일합니다.
+
+### 공간 업스케일 퀄리티
+
+렌더 타깃을 업스케일할 때의 퀄리티를 정의하는 콘솔 명령은 다음과 같습니다.
+
+    r.Upscale.Quality
+
+스크린 퍼센티지와 Windowed Fullscreen (전체화면 창) 모드의 3D 렌더링 스케일 조절 정도를 제어합니다.
+
+| 업샘플 퀄리티 값 | 업샘플 결과 |
+| --- | --- |
+| **1** | 가장 가까운 필터링입니다. |
+| **2** | 단순 바이리니어 필터입니다. |
+| **3** | 디렉셔널 블러에 선명하지 않은 마스크 업샘플을 적용합니다. |
+| **4** | 5-tap Catmull-Rom 바이큐빅으로, Lanczos 2 근사값입니다. (기본) |
+| **5** | 13-tap Lanczos 3 입니다. |
+| **6** | 36-tap Gaussian 필터 적용 선명하지 않은 마스크입니다 (매우 비싸지만, 극한 업샘플링에 좋습니다). |
+
+다른 방법으로, 톤매퍼 패스 처리 방식을 제어하는 콘솔 명령은 다음과 같습니다.
+
+    r.Tonemapper.MergeWithUpscale.Mode
+
+톤매퍼는 **1** 값으로 활성화하면 퍼포먼스상의 이유로 단순 바이리니어 컬러 스페이스 공간 업스케일을 통합합니다. 하지만 톤매퍼 이후 포스트 프로세스 머티리얼을 삽입한 경우, 톤매퍼는 업스케일을 하지 않습니다. 비활성화한 것처럼 예전 1차 공간 업스케일 방식으로 돌아갑니다.
+
+## 템포럴 안티에일리어싱 업샘플
+
+1차 공간 업스케일 외에, 1차 스크린 퍼센티지에 Temporal Upsample (템포럴 업샘플)이라는 2차 업스케일 기법도 지원됩니다. 템포럴 안티에일리어싱(TAA) 으로 임시 통합한 뒤 1차 공간 업스케일을 하는 대신, 템포럴 안티에일리어싱 업샘플 (TAAU) 셰이더에서 둘 다 동시에 하는 것입니다. 공간 업스케일만 했을 때보다 선명한 이미지를 얻을 수 있지만, 다수의 고해상도 포스트 프로세스때문에 비용이 높아집니다. 또한 동적 해상도로 1차 스크린 퍼센티지 변경사항을 숨겨 자주 바꾸면서 GPU 예산에 최대한 맞출 수 있습니다.
+
+![](SpatialAndTemporalUpsample.png "SpatialAndTemporalUpsample.png")
+
+[REGION:caption]
+TAAU 는 파이프라인 초기에 발생해서 이후 패스는 더 높은 해상도로 렌더링하게 되므로, 비용은 높아지고 이미지는 선명해집니다.
+[/REGION]
+
+템포럴 업샘플을 사용하면, TAAU 가 단순히 TAA 를 대체할 뿐, 여러 포스트 프로세스의 순서가 바뀌지는 않습니다. 이제 그 차이점은 TAAU 이전 프로세스는 저해상도를 사용하다가 TAAU 패스 이후 업샘플링하게 됩니다. 4.19 이전에는 포스트 프로세싱 모든 곳에 해상도가 같다 가정했습니다.
+
+[REGION:note]
+1차 스크린 퍼센티지가 감소할 수록, 깨끗한 전체 해상도 출력물로 수렴합니다. 따라서 기존 TAA 부작용 중 일부가 눈에 더 잘 띄게됩니다. 예를 들어 매우 얇은 지오메트리는 1차 스크린 퍼센티지를 낮추면서 지오메트리 디테일이 손실될 확률이 높아져 에일리어싱 문제가 생길 수 있습니다.
+[/REGION]
+
+### 템포럴 업샘플 활성화
+
+템포럴 안티에일리어싱 업샘플을 사용하려면, 프로젝트 세팅에서 **Temporal Upsampling** (템포럴 업샘플)을 활성화하거나 그냥 다음 콘솔 명령을 사용하면 됩니다.
+
+    r.TemporalAA.Upsampling 1
+
+1차 스크린 퍼센티지를 낮추고 공간 업스케일을 사용하면 해상도가 낮을 때 디테일 손실이 클 수 있습니다. 예를 들어 체인 링크 펜스나 자동차 정면의 그릴과 같은 경우, 템포럴 안티에일리어싱을 사용하면 먼 거리에서 디테일이 잘 보이지 않습니다. TAAU 를 활성화하면 낮은 스크린 퍼센티지를 사용해도 이런 현상이 줄어들 수 있습니다.
+
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![스크린 퍼센티지: 70 | 템포럴 업샘플: 비활성화](TemporalUpsample_Before1-1.jpg) 
+    [/PARAM]
+    [PARAM:after]
+    ![스크린 퍼센티지: 70 | 템포럴 업샘플: 활성화](TemporalUpsample_After1-1.jpg) 
+    [/PARAM]
+[/OBJECT]
+
+비교에서 1차 스크린 퍼센티지를 **70** 으로 설정하고 카메라를 충분히 멀리 움직이면 지그재그가 심한 지오메트리와 머티리얼에 TAA 가 실제로 미치는 영향을 확인할 수 있습니다. 템포럴 업샘플을 사용하면 이 디테일을 볼 수 있으며, 저해상도를 사용할 때도 디테일이 최대한 유지됩니다.
+
+### 추가 예제
+
+첫 비교 세트에서는, 스크린 퍼센티지만 낮춘 기본 씬을 똑같은 상태에서 템포럴 업샘플만 활성화한 씬과 비교합니다. 이 스크린샷에서는 차이가 잘 보이지 않을 수 있지만 큰 화면에서 보면, 집 위 펜스나 나뭇 잎사귀처럼 지오메트리가 빽빽하거나 텍스처 지그재그가 심한 부분에 잃었던 디테일이 살아나는 것을 볼 수 있습니다.
+
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![스크린 퍼센티지: 70 | 템포럴 업샘플: 비활성화](Shot3a-1.jpg) 
+    [/PARAM]
+    [PARAM:after]
+    ![스크린 퍼센티지: 70 | 템포럴 업샘플: 활성화](Shot2a-2.jpg) 
+    [/PARAM]
+[/OBJECT]
+
+기본 스크린 퍼센티지 100 에 템포럴 업샘플을 사용하지 않은 것과 스크린 퍼센티지를 낮추고 템포럴 업샘플을 사용한 것의 비교입니다. 일부 스페큘러 하이라이트와 머티리얼 디테일은 잃었지만, 템포럴 엄샘플 효과가 정말 뛰어나 스크린 퍼센티지를 낮췄어도 지오메트리 디테일은 유지되어 있습니다.
+
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![스크린 퍼센티지: 70 | 템포럴 업샘플: 활성화](Shot2a-5.jpg) 
+    [/PARAM]
+    [PARAM:after]
+    ![스크린 퍼센티지: 100 | 템포럴 업샘플: 비활성화](Shot1a-1.jpg) 
+    [/PARAM]
+[/OBJECT]
+
+### 자동 뷰 텍스처 밉 바이어스
+
+스크린 퍼센티지로 인해 지오메트리가 낮은 픽셀 밀도로 렌더링될 수 있으므로, 템포럴 업샘플은 **표면** 및 **디퍼드 데칼** 머티리얼에서 더 많은 텍스처 정보를 얻어야 동일한 출력 선명도를 유지할 수 있습니다. 이를 위해 Texture Sample 표현식은 기본적으로 **Automatic View Mip Bias** (자동 뷰 밉 바이어스) 옵션을 사용할 수 있습니다.
+
+Texture Sample 표현식은 **Automatic View Mip Bias** 옵션으로 텍스처를 샘플링할 때 뷰별 밉 바이어스를 사용하는 기능을 토글하여 템포럴 안티에일리어싱에 더욱 선명한 결과물을 얻을 수 있습니다.
+
+![](AutomaticViewMipBias.png "AutomaticViewMipBias.png")
+
+지그재그가 심한 (위 예제같은) 텍스처의 경우, 낮은 스크린 퍼센티지에서 자동 밉 바이어스가 문제될 수 있습니다.
+
+![](HFtexture.png "HFtexture.png")
+
+이 경우, 밉 바이어스 입력으로 보정하거나 **Automatic View Mip Bias** 옵션을 끄면 됩니다.  
+
+![](AutomaticViewMipBiasUnchecked.png "AutomaticViewMipBiasUnchecked.png")
+
+[REGION:note]
+**Automatic View Mip Bias** 옵션은 TAAU 가 활성화되었을 때만 사용할 수 있습니다. 일반 (TAA, MSAA, FXAA) 안티에일리어싱 메서드는 이 옵션을 사용할 수 없습니다.
+[/REGION]
+
+### 안티에일리어싱 퀄리티를 위한 셰이더 퍼포먼스 퍼뮤테이션
+
+TAA 처럼 템포럴 업샘플에도 Post Process Quality(포스트 프로세스 퀄리티) 3 및 4 로 빠른 셰이더 퍼뮤테이션이 가능합니다. 셰이더 퍼뮤테이션은 콘솔에서 60Hz 로 타이틀을 출시하기 위해 어느 정도 퀄리티를 희생하는 것입니다. 퀄리티 세팅은 이미 포스트 프로세스 퀄리티를 설정할 때 사용한 것과 비슷합니다. 또 TAAU 는 TAA 보다 작업량이 많은데, TAAU 패스에 따르는 포스트 프로세스와 함께 고해상도로 실행되기 때문입니다.
+
+포스트 프로세스 퀄리티를 조절하는 콘솔 변수는 다음과 같습니다.
+
+    r.PostProcessAAQuality
+
+템포럴 업샘플 이후 포스트 프로세스는 전체 해상도로 실행되므로, TAA 를 사용하지 않으면 저해상도로 실행 후 마지막에 공간 업스케일을 적용하여 결국 포스트 프로세싱이 빨라집니다. `profileGPU` 명령을 사용해서 패스별 GPU 퍼포먼스, 사용 중인 패스, 예산이 가장 많이 소모되는 부분을 조사할 수 있습니다.
+
+아래 표는 1차 스크린 퍼센티지 값 범위에 따라 기대할 수 있는 것을 나타냅니다.
+
+| 화면 범위 | 퍼센티지 | 주 |
+| --- | --- | --- |
+| 50% | 71% | 메모리에 로컬 데이터 스토리지(LDS) 타일을 작게 사용하므로 퍼포먼스가 가장 빠른 방법입니다. 데스크톱 및 콘솔에서는 템포럴 업샘플 목표를 4K 로 하는 것이 이상적입니다. |
+| 71% | 100% | 데스크톱 및 콘솔의 일반 DPI (인치당 도트 수) 렌더링에 이상적입니다. |
+| 100% | 200% | 렌더 타깃을 위한 GPU 메모리가 제한되지 않는다면 이론적으로 [동적 해상도](Engine/Rendering/DynamicResolution) 를 100% 이상 올리는 데 이상적입니다. |
+
+### 머티리얼 개선
+
+머티리얼이 Scene Texture 표현식을 사용해서 씬을 샘플링하는 방식에 약간의 개선이 있었습니다. View Size (뷰 크기)가 항상 사용 중인 Render Target Size (렌더 타깃 크기)와 같도록 단순화시켰습니다. Screen Position (스크린 포지션) 표현식에 출력이 새로 생겨 뷰 크기 내 정확한 픽셀 위치를 구할 수 있습니다. TAAU 이후 포스트 프로세스 머티리얼을 사용할 때 추가로 고려할 사항도 나열해 두었습니다.
+
+#### 뷰 크기와 렌더 타깃 크기
+
+이제 뷰 크기는 항상 머티리얼의 렌더 타깃 크기와 같습니다. UE4 4.19 이전 씬 텍스처를 샘플링할 때, 머티리얼은 뷰포트 UV 와 씬 텍스처 UV 가 다른 복잡성을 처리해야 했습니다. 예를 들어 Screen Position 표현식은 이 두 값을 모두 출력하는데 View Property (뷰 프로퍼티)는 뷰 크기와 반드시 같지 않은 렌더 타깃 크기를 노출하곤 했습니다. 렌더러가 실제로 더 큰 렌더 타깃에서 뷰포트를 렌더링하기 때문입니다.
+[REGION:lightbox]
+[![](ViewportVsRenderTargetResolution-1.jpg "ViewportVsRenderTargetResolution-1.jpg")(w:500)](ViewportVsRenderTargetResolution-1.jpg)
+[/REGION]
+[REGION:caption]
+이미지를 클릭하면 원본을 확인합니다.
+[/REGION]
+
+그 복잡성을 제거하면, 머티리얼은 항상 렌더 타깃 크기가 뷰 크기와 같은 것처럼 작동할 것입니다. 이제 Screen Position 표현식은 항상 뷰포트 뷰포트 UV 를 반환하고, Scene Texture 표현식은 뷰포트 UV 를 입력으로 받습니다.  
+
+![](ScreenPosViewportUVMat.png "ScreenPosViewportUVMat.png")
+
+[REGION:caption]
+Screen Position 이 Scene Texture 표현식에 **뷰포트 UV** 크기를 반환하는 설정 예제입니다.
+[/REGION]
+
+#### Screen Position 의 고정밀 Pixel Position 출력
+
+Screen Position 표현식은 이제 뷰포트 UV 에 패스 크기를 곱한 픽셀 위치에 대한 2차 입력을 포함합니다. 뷰 프로퍼티의 뷰 크기는 항상 TAAU 이전 해상도를 반환하며, [TAAU 이후 실행되는 포스트 프로세스 머티리얼](Engine/Rendering/ScreenPercentage) 에서도 마찬가지입니다.
+
+Pixel Position 은 머티리얼에 뷰 크기 내 가장 정확한 픽셀 위치를 지정하는 데 쓰이는데, TAA 와 동기화되는 커스텀 픽셀 디더링과 같은 이펙트에 중요합니다. 다음은 뷰포트 UV 계산 방법 예제입니다.
+
+![](ViewportUV-1.png "ViewportUV-1.png")
+
+#### 톤매퍼 업샘플 이후 포스트 프로세스 머티리얼
+
+포스트 프로세스 머티리얼을 생성할 때, 사용할 Blendable Location (블렌더블 위치)를 선택할 수 있습니다. 파이프라인에서 **After Tonemapping** (돈매핑 이후) 및 **Replacing the Tonemapper** (톤매퍼 대체) 위치는 TAAU 다음으로, 실제 전체 해상도로 실행되며 뷰 크기와 다르다는 뜻입니다.
+
+![](BlendableLocation.png "BlendableLocation.png")
+
+View Property 표현식의 View Size 및 Render Target Size 는 계속 TAAU 이후 일어나긴 하지만 이전 해상도를 반환합니다.TAAU 이후 뷰 크기와 텍셀 UV 크기를 알아내려면, PostProcessInput0 을 사용하는 Scene Texture 에서 **Size** 및 **InvSize** 출력을 사용할 수 있습니다.
+
+![](ViewProperty.png "ViewProperty.png")
+
+Pixel Position 에서의 Viewport UV 재계산 방법은 다음과 같습니다.
+
+![](ScreenPosFromPixelPos.png "ScreenPosFromPixelPos.png")
+
+Scene Texture 표현식이 Viewport UV 만 받으므로, UV 뷰포트 변환을 하면서도 오류 걱정 없이 임의 씬 텍스처를 샘플링할 수 있습니다.
+
+## 2차 공간 업스케일
+
+1차 공간 업스케일 외에도 TAAU 패스 이후 **Secondary Spatial Upscale** (2차 공간 업스케일)이 일어납니다. DPI 가 높은 모니터에서는 더 높은 해상도로 렌더링되는 씬 복잡도에 따라 GPU 가 따라가지 못하는 문제가 생길 수 있습니다. 그래서 렌더러는 2차 최종 업스케일 패스를 구동하는 2차 스크린 퍼센티지를 지원합니다. 이 패스는 1차 스크린 퍼센티지와 별개입니다.
+[REGION:note]
+참고로 1차 공간 업스케일과 달리, 2차 공간 업스케일은 정적이며 게임 내에서 동적으로 변경할 수 없습니다.
+[/REGION]
+
+  
+
+![](PrimaryAndSecondaryScreenPercentageUpscale.png "PrimaryAndSecondaryScreenPercentageUpscale.png")
+
+2차 스크린 퍼센티지를 설정은 구성 (.ini) 파일에서 다음 콘솔 변수를 사용합니다.
+
+    r.SecondaryScreenPercentage.GameViewport
+
+백버퍼 해상도가 1080p 임을 안다면, 2차 스크린 퍼센티지를 적절히 입력하여 900p 해상도로 낮출 수 있습니다.
+
+    목표 해상도 / 현재 설정 해상도 * 100 = 2차 스크린 퍼센티지
+    900 / 1080 * 100 = 0.8333 * 100 = 83.33
+
+예를 들어 83.33 값을 사용하여 포트나이트 배틀 로얄 Xbox One 버전을 60hz 목표로 삼는 경우, 다음과 같이 합니다.
+
+    [XboxOne_60 DeviceProfile]
+    DeviceType=XboxOne
+    BaseProfileName=XboxOne
+    +CVars=r.SecondaryScreenPercentage.GameViewport=83.33
+
+[REGION:note]
+구성 파일에 2차 스크린 퍼센티지를 추가하면 에디터와 설정 대상 플랫폼을 덮어씁니다. 또 `r.SetRes` 콘솔 변수를 사용하면 백버퍼 해상도를 제어한다는 점도 명심하세요. UI 가 항상 대상 플랫폼의 기본 해상도로 렌더링되도록 1080p 또는 4k 로 놔두는 것이 가장 좋습니다.
+[/REGION]
+
+### DPI 에디터 뷰포트 스케일링
+
+에디터 작업을 할 때, 모든 뷰포트는 운영 체제(OS)의 DPI 스케일로 나눈 2차 스크린 퍼센티지로 렌더링합니다. 2차 스크린 퍼센티지를 구하는 공식은 다음과 같습니다.  
+
+    2차 스크린 퍼센티지 = 100 / OS 의 DPI 스케일
+
+높은 DPI 모니터에는 씬 스케일( 또는 퀄리티) 조정을 통해 매우 큰 렌더 타깃에 일관된 퍼포먼스를 내도록 합니다. 또한 중간 렌더 타깃 할당이 시스템 GPU 에 비해 너무 커져 발생할 수 있는 에디터 크래시 및 작업 내용 손실을 방지할 수도 있습니다. 기본적으로 에디터는 높은 DPI 모니터에 대해 씬 스케일을 조절하여 매우 높은 픽셀 밀도로 일관된 퍼포먼스를 보장합니다. 하지만 이 세팅은 커스터마이징 가능한데, 에디터 개인설정의 **Disable DPI Based Editor Viewport Scaling** (DPI 기반 에디터 뷰포트 스케일 비활성화) 옵션을 사용하면 됩니다. 2차 스크린 퍼센티지 기본값을 100 으로 설정하여, 모든 에디터 뷰포트에서 전체 해상도로 렌더링합니다.
+
+![](DPIEditorViewportScaling.png "DPIEditorViewportScaling.png")
+
+이 옵션을 변경하면 에디터에만 영향을 줄 뿐, 게임 빌드의 2차 스크린 퍼센티지는 기본으로 100% 와 같습니다.
+
+## VR 픽셀 밀도
+
+UE4 4.19 이전에는 스크린 퍼센티지 콘솔 명령을 사용하여 머리 장착 디스플레이(HMD) 화면에 VR 프로젝트를 렌더링할 해상도를 결정했습니다. 보통 프로젝트에 사용되는 HMD 에 따라 조정( 및 기억)해야 하는 "마법의" 수치가 있었습니다.
+
+이제 화면 해상도는 Pixel Density (픽셀 밀도)로 제어합니다. 스크린 퍼센티지에 "마법의" 수치를 사용할 필요가 없어져, 여러 HMD 용으로 개발하는 것이 쉬워집니다. 기본적으로 각 눈의 뷰는 HMD 권장 해상도로 렌더링하여, 보통 흐려짐의 원인이 되는 업스케일 작업을 HMD 컴포지터가 하지 않도록 합니다. 화면 권장 해상도보다 높거나 낮은 픽셀 밀도를 지정하는 콘솔 명령은 다음과 같습니다.
+
+    vr.PixelDensity
+
+![](VRPixelDensity.png "VRPixelDensity.png")
+
+이 다이어그램에서는 이상적인 HMD 해상도를 사용하고, VR 픽셀 밀도에 임의 수치를 사용하여 필요에 따라 이상적인 HMD 해상도를 높이고 낮추는 것을 볼 수 있습니다. 이 변화로 1차 스크린 퍼센티지를 독립적으로 제어하여 이 파이프라인에서 HMD 컴포지터로 전송되는 뷰 해상도에 템포럴 업스케일을 적용할 수 있습니다.
+
+[REGION:note]
+자세한 내용은 [VR Pixel Density](https://www.unrealengine.com/en-US/blog/significant-changes-coming-to-vr-resolution-settings-in-4-19) 글을 참고하세요.
+[/REGION]

@@ -1,28 +1,14 @@
-﻿INTSourceChangelist:3721613
-
-Availability: Docs
-
-Crumbs: %ROOT%
-
+﻿INTSourceChangelist:4293098
+Availability: Public
+Crumbs: 
 Title: 从Cascade到Niagara
-
 Description: 展示Cascade与Niagara间的异同点
-
-Type: Overview
-
-SkillLevel: Beginner
-
-Version: 4.18
-
+Version: 4.20
 Parent: Engine/Niagara
-
-Order: 1
-
-Tags: Cascade
-
+Order: 0
 Tags: Getting Started
-
-topic-image:NiagaraToCascadeTopicImage.png
+Tags: Cascade
+Tags: Early Access
 
 
 
@@ -38,32 +24,26 @@ topic-image:NiagaraToCascadeTopicImage.png
 
 
 
-Niagara是虚幻引擎的新一代视觉效果系统。它可以完全取代Cascade，二者将共存一段时间，直到Niagara功能确定能够完全取代Cascade的功能为止。
+Niagara是虚幻引擎的新一代视觉效果系统。它可以完全取代Cascade，二者将共存一段时间，直到Niagara功能确定能够完全取代Cascade的功能为止。下图为一个详细图解，涵盖了Niagara是如何UE4协同运作的。
 
 
+![CascadeVS Niagara.png](CascadeVS20Niagara.png "CascadeVS Niagara.png")
 
-## Niagara为什么优于Cascade？
+
+## Niagara与Cascade有何不同？
 
 
 
 Niagara的根本功能是无论用户使用何种查看方式，都能够分享任意角度的粒子数据。这样可以让用户自己设计行为，而无需代码干预来创建新的硬编码功能。在Cascade中，粒子模拟由硬编码模块控制，每个模块提供一组特定的功能来修改粒子属性。相反，Niagara模拟由美术可以创建和编辑的节点图形控制。
 
 
-
 [OBJECT:ComparisonSlider]
- 
-    [PARAM:before]
-
-    ![Cascade](Cascade.png)(w:1000)
-
-    [/PARAM]
-
-    [PARAM:after]
-
-    ![Niagara](Ninagra.png)
-
-    [/PARAM]
-
+	[PARAM:before]
+	![Cascade](Cascade.png)(w:800)
+	[/PARAM]
+	[PARAM:after]
+	![Niagara](Ninagra.png)(w:800)
+	[/PARAM]
 [/OBJECT]
 
 
@@ -81,31 +61,22 @@ Niagara优于Cascade的另一个原因是Niagara的节点图形采用字节代�
 
 
 * 实时3D视口，用于在创建效果时显示效果。
-
-
-
+ 
 * 曲线编辑器，用于调整R、G、B和Alpha值。
+ 
 
 
 
 * 细节面板，用于调整各种属性。
 
 
-
 [OBJECT:ComparisonSlider]
-
-    [PARAM:before]
-
-    ![Cascade](CTN_Cas_VFX.png)(w:1000)
-
-    [/PARAM]
-
-    [PARAM:after]
-
-    ![Niagara](CTN_Nia_VFX.png)
-
-    [/PARAM]
-
+	[PARAM:before]
+	![Cascade](CTN_Cas_VFX.png)(w:800)
+	[/PARAM]
+	[PARAM:after]
+	![Niagara](CTN_Nia_VFX.png)(w:800) 
+	[/PARAM]
 [/OBJECT]
 
 
@@ -123,6 +94,7 @@ Cascade和Niagara的最大差异之一是发射器的构建方式。在使用Cas
     ![](CTN_NiagaraEmitters.png)
 
  
+
 * **Niagara系统：** 包含完成最终效果所需的全部效果。继续以上述火焰示例为例，该系统将成为完整的火焰效果，其中包含烟、火、变形和灰烬。
 
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System;
@@ -54,6 +54,17 @@ public class Core : ModuleRules
 				"IntelTBB",
 				"IntelVTune"
 				);
+
+			if(Target.Platform == UnrealTargetPlatform.Win64 && Target.WindowsPlatform.bUseBundledDbgHelp)
+			{
+				PublicDelayLoadDLLs.Add("DBGHELP.DLL");
+				PrivateDefinitions.Add("USE_BUNDLED_DBGHELP=1");
+				RuntimeDependencies.Add("$(EngineDir)/Binaries/ThirdParty/DbgHelp/dbghelp.dll");
+			}
+			else
+			{
+				PrivateDefinitions.Add("USE_BUNDLED_DBGHELP=0");
+			}
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
 		{
@@ -197,5 +208,8 @@ public class Core : ModuleRules
 
         PublicDefinitions.Add("WITH_MALLOC_STOMP=" + (bWithMallocStomp ? "1" : "0"));
 
+		PrivateDefinitions.Add("PLATFORM_COMPILER_OPTIMIZATION_LTCG=" + (Target.bAllowLTCG ? "1" : "0"));
+		PrivateDefinitions.Add("PLATFORM_COMPILER_OPTIMIZATION_PG=" + (Target.bPGOOptimize ? "1" : "0"));
+		PrivateDefinitions.Add("PLATFORM_COMPILER_OPTIMIZATION_PG_PROFILING=" + (Target.bPGOProfile ? "1" : "0"));
     }
 }

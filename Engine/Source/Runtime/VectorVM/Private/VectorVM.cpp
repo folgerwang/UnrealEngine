@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "VectorVM.h"
 #include "Modules/ModuleManager.h"
@@ -13,7 +13,8 @@ IMPLEMENT_MODULE(FDefaultModuleImpl, VectorVM);
 
 
 DECLARE_STATS_GROUP(TEXT("VectorVM"), STATGROUP_VectorVM, STATCAT_Advanced);
-DECLARE_CYCLE_STAT(TEXT("Execution"), STAT_VVMExec, STATGROUP_VectorVM);
+DECLARE_CYCLE_STAT(TEXT("VVM Execution"), STAT_VVMExec, STATGROUP_VectorVM);
+DECLARE_CYCLE_STAT(TEXT("VVM Chunk"), STAT_VVMExecChunk, STATGROUP_VectorVM);
 
 DEFINE_LOG_CATEGORY_STATIC(LogVectorVM, All, All);
 
@@ -1375,6 +1376,30 @@ struct FVectorIntKernelMultiply : TBinaryVectorIntKernel<FVectorIntKernelMultipl
 	}
 };
 
+//divi,
+struct FVectorIntKernelDivide : TBinaryVectorIntKernel<FVectorIntKernelDivide>
+{
+	static void VM_FORCEINLINE DoKernel(FVectorVMContext& Context, VectorRegisterInt* Dst, VectorRegisterInt Src0, VectorRegisterInt Src1)
+	{
+		int32 TmpA[4];
+		VectorIntStore(Src0, TmpA);
+
+		int32 TmpB[4];
+		VectorIntStore(Src1, TmpB);
+
+		// No intrinsics exist for integer divide. Since div by zero causes crashes, we must be safe against that.
+
+		int32 TmpDst[4];
+		TmpDst[0] = TmpB[0] != 0 ? (TmpA[0] / TmpB[0]) : 0;
+		TmpDst[1] = TmpB[1] != 0 ? (TmpA[1] / TmpB[1]) : 0;
+		TmpDst[2] = TmpB[2] != 0 ? (TmpA[2] / TmpB[2]) : 0;
+		TmpDst[3] = TmpB[3] != 0 ? (TmpA[3] / TmpB[3]) : 0;
+
+		*Dst = MakeVectorRegisterInt(TmpDst[0], TmpDst[1], TmpDst[2], TmpDst[3]);
+	}
+};
+
+
 //clampi,
 struct FVectorIntKernelClamp : TTrinaryVectorIntKernel<FVectorIntKernelClamp>
 {
@@ -1531,6 +1556,46 @@ struct FVectorIntKernelBitNot : TUnaryVectorIntKernel<FVectorIntKernelBitNot>
 	}
 };
 
+// bit_lshift
+struct FVectorIntKernelBitLShift : TBinaryVectorIntKernel<FVectorIntKernelBitLShift>
+{
+	static void VM_FORCEINLINE DoKernel(FVectorVMContext& Context, VectorRegisterInt* Dst, VectorRegisterInt Src0,  VectorRegisterInt Src1)
+	{
+		int32 TmpA[4];
+		VectorIntStore(Src0, TmpA);
+
+		int32 TmpB[4];
+		VectorIntStore(Src1, TmpB);
+
+		int32 TmpDst[4];
+		TmpDst[0] = (TmpA[0] << TmpB[0]);
+		TmpDst[1] = (TmpA[1] << TmpB[1]);
+		TmpDst[2] = (TmpA[2] << TmpB[2]);
+		TmpDst[3] = (TmpA[3] << TmpB[3]);
+		*Dst = MakeVectorRegisterInt(TmpDst[0], TmpDst[1], TmpDst[2], TmpDst[3] );
+	}
+};
+
+// bit_rshift
+struct FVectorIntKernelBitRShift : TBinaryVectorIntKernel<FVectorIntKernelBitRShift>
+{
+	static void VM_FORCEINLINE DoKernel(FVectorVMContext& Context, VectorRegisterInt* Dst, VectorRegisterInt Src0, VectorRegisterInt Src1)
+	{
+		int32 TmpA[4];
+		VectorIntStore(Src0, TmpA);
+
+		int32 TmpB[4];
+		VectorIntStore(Src1, TmpB);
+
+		int32 TmpDst[4];
+		TmpDst[0] = (TmpA[0] >> TmpB[0]);
+		TmpDst[1] = (TmpA[1] >> TmpB[1]);
+		TmpDst[2] = (TmpA[2] >> TmpB[2]);
+		TmpDst[3] = (TmpA[3] >> TmpB[3]);
+		*Dst = MakeVectorRegisterInt(TmpDst[0], TmpDst[1], TmpDst[2], TmpDst[3]);
+	}
+};
+
 //"Boolean" ops. Currently handling bools as integers.
 //logic_and,
 struct FVectorIntKernelLogicAnd : TBinaryVectorIntKernel<FVectorIntKernelLogicAnd>
@@ -1635,8 +1700,8 @@ void VectorVM::Init()
 	static bool Inited = false;
 	if (Inited == false)
 	{
-		g_VectorVMEnumStateObj = FindObject<UEnum>(ANY_PACKAGE, TEXT("EVectorVMOp"), true);
-		g_VectorVMEnumOperandObj = FindObject<UEnum>(ANY_PACKAGE, TEXT("EVectorVMOperandLocation"), true);
+		g_VectorVMEnumStateObj = StaticEnum<EVectorVMOp>();
+		g_VectorVMEnumOperandObj = StaticEnum<EVectorVMOperandLocation>();
 
 		// random noise
 		float TempTable[17][17][17];
@@ -1749,12 +1814,14 @@ void VectorVM::Exec(
 	}
 
 	int32 NumChunks = (NumInstances / InstancesPerChunk) + 1;
-	int32 ChunksPerBatch = GbParallelVVM != 0 ? GParallelVVMChunksPerBatch : NumChunks;
+	int32 ChunksPerBatch = (GbParallelVVM != 0 && FApp::ShouldUseThreadingForPerformance()) ? GParallelVVMChunksPerBatch : NumChunks;
 	int32 NumBatches = FMath::DivideAndRoundUp(NumChunks, ChunksPerBatch);
 	bool bParallel = NumBatches > 1;
 
 	auto ExecChunkBatch = [&](int32 BatchIdx)
-	{		
+	{
+		SCOPE_CYCLE_COUNTER(STAT_VVMExecChunk);
+
 		FVectorVMContext& Context = FVectorVMContext::Get();
 		Context.PrepareForExec(InputRegisters, OutputRegisters, NumInputRegisters, NumOutputRegisters, ConstantTable, DataSetIndexTable.GetData(), DataSetOffsetTable.GetData(), DataSetOffsetTable.Num(),
 			ExternalFunctionTable, UserPtrTable, DataSetMetaTable
@@ -1834,6 +1901,7 @@ void VectorVM::Exec(
 				case EVectorVMOp::addi: FVectorIntKernelAdd::Exec(Context); break;
 				case EVectorVMOp::subi: FVectorIntKernelSubtract::Exec(Context); break;
 				case EVectorVMOp::muli: FVectorIntKernelMultiply::Exec(Context); break;
+				case EVectorVMOp::divi: FVectorIntKernelDivide::Exec(Context); break;
 				case EVectorVMOp::clampi: FVectorIntKernelClamp::Exec(Context); break;
 				case EVectorVMOp::mini: FVectorIntKernelMin::Exec(Context); break;
 				case EVectorVMOp::maxi: FVectorIntKernelMax::Exec(Context); break;
@@ -1851,6 +1919,8 @@ void VectorVM::Exec(
 				case EVectorVMOp::bit_or: FVectorIntKernelBitOr::Exec(Context); break;
 				case EVectorVMOp::bit_xor: FVectorIntKernelBitXor::Exec(Context); break;
 				case EVectorVMOp::bit_not: FVectorIntKernelBitNot::Exec(Context); break;
+				case EVectorVMOp::bit_lshift: FVectorIntKernelBitLShift::Exec(Context); break;
+				case EVectorVMOp::bit_rshift: FVectorIntKernelBitRShift::Exec(Context); break;
 				case EVectorVMOp::logic_and: FVectorIntKernelLogicAnd::Exec(Context); break;
 				case EVectorVMOp::logic_or: FVectorIntKernelLogicOr::Exec(Context); break;
 				case EVectorVMOp::logic_xor: FVectorIntKernelLogicXor::Exec(Context); break;

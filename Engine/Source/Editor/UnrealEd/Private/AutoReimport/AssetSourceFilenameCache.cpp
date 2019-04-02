@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AutoReimport/AssetSourceFilenameCache.h"
 #include "Misc/Paths.h"
@@ -56,19 +56,24 @@ TOptional<FAssetImportInfo> FAssetSourceFilenameCache::ExtractAssetImportInfo(co
 {
 	static const FName LegacySourceFilePathName("SourceFile");
 
-	if (const FString* ImportDataString = AssetData.TagsAndValues.Find(UObject::SourceFileTagName()))
+	FAssetDataTagMapSharedView::FFindTagResult Result = AssetData.TagsAndValues.FindTag(UObject::SourceFileTagName());
+	if (Result.IsSet())
 	{
-		return FAssetImportInfo::FromJson(*ImportDataString);
-	}
-	else if (const FString* LegacyFilename = AssetData.TagsAndValues.Find(LegacySourceFilePathName))
-	{
-		FAssetImportInfo Legacy;
-		Legacy.Insert(*LegacyFilename);
-		return Legacy;
+		return FAssetImportInfo::FromJson(Result.GetValue());
 	}
 	else
 	{
-		return TOptional<FAssetImportInfo>();
+		FAssetDataTagMapSharedView::FFindTagResult ResultLegacy = AssetData.TagsAndValues.FindTag(LegacySourceFilePathName);
+		if (ResultLegacy.IsSet())
+		{
+			FAssetImportInfo Legacy;
+			Legacy.Insert(ResultLegacy.GetValue());
+			return Legacy;
+		}
+		else
+		{
+			return TOptional<FAssetImportInfo>();
+		}
 	}
 }
 

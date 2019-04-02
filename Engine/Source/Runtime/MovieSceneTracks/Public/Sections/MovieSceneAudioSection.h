@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -24,16 +24,20 @@ class MOVIESCENETRACKS_API UMovieSceneAudioSection
 public:
 
 	/** Sets this section's sound */
+	UFUNCTION(BlueprintCallable, Category="Movie Scene")
 	void SetSound(class USoundBase* InSound) {Sound = InSound;}
 
 	/** Gets the sound for this section */
+	UFUNCTION(BlueprintPure, Category = "Movie Scene")
 	class USoundBase* GetSound() const {return Sound;}
 
 	/** Set the offset into the beginning of the audio clip */
-	void SetStartOffset(float InStartOffset) {StartOffset = InStartOffset;}
+	UFUNCTION(BlueprintCallable, Category = "Movie Scene")
+	void SetStartOffset(FFrameNumber InStartOffset) {StartFrameOffset = InStartOffset;}
 
 	/** Get the offset into the beginning of the audio clip */
-	float GetStartOffset() const {return StartOffset;}
+	UFUNCTION(BlueprintPure, Category = "Movie Scene")
+	FFrameNumber GetStartOffset() const {return StartFrameOffset;}
 
 	/**
 	 * Gets the sound volume curve
@@ -153,7 +157,10 @@ private:
 
 	/** The offset into the beginning of the audio clip */
 	UPROPERTY(EditAnywhere, Category="Audio")
-	float StartOffset;
+	FFrameNumber StartFrameOffset;
+
+	/** The offset into the beginning of the audio clip */
+	float StartOffset_DEPRECATED;
 
 	/** The absolute time that the sound starts playing at */
 	UPROPERTY( )

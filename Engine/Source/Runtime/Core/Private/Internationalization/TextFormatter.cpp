@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Internationalization/TextFormatter.h"
 #include "Misc/ScopeLock.h"
@@ -18,38 +18,6 @@ DECLARE_CYCLE_STAT(TEXT("TextFormatData Compile"), STAT_TextFormatData_Compile, 
 
 namespace TextFormatTokens
 {
-
-const TCHAR EscapeChar			= TEXT('`');		// Character representing the start of an escape token
-const TCHAR ArgStartChar		= TEXT('{');		// Character representing the start of a format argument token
-const TCHAR ArgEndChar			= TEXT('}');		// Character representing the end of a format argument token
-const TCHAR ArgModChar			= TEXT('|');		// Character representing the start of a format argument modifier token
-const TCHAR ValidEscapeChars[]	= TEXT("{}`|");		// Characters that an escape token may escape
-const TCHAR LiteralBreakChars[] = TEXT("{`");		// Characters that should cause a literal string token to break parsing
-
-FORCEINLINE bool ContainsChar(const TCHAR InChar, const TCHAR* InStr)
-{
-	if (InChar)
-	{
-		while (*InStr)
-		{
-			if (*InStr++ == InChar)
-			{
-				return true;
-			}
-		}
-	}
-	return false;
-}
-
-FORCEINLINE bool IsValidEscapeChar(const TCHAR InChar)
-{
-	return ContainsChar(InChar, ValidEscapeChars);
-}
-
-FORCEINLINE bool IsLiteralBreakChar(const TCHAR InChar)
-{
-	return ContainsChar(InChar, LiteralBreakChars);
-}
 
 /** Token representing a literal string inside the text */
 struct FStringLiteral
@@ -138,12 +106,12 @@ struct FEscapedCharacter
 	TCHAR Character;
 };
 
-TOptional<FExpressionError> ParseArgument(FExpressionTokenConsumer& Consumer)
+TOptional<FExpressionError> ParseArgument(const FTextFormatPatternDefinition& InPatternDef, FExpressionTokenConsumer& Consumer)
 {
 	// An argument token looks like {ArgName}
 	FTokenStream& Stream = Consumer.GetStream();
 
-	TOptional<FStringToken> OpeningChar = Stream.ParseSymbol(ArgStartChar);
+	TOptional<FStringToken> OpeningChar = Stream.ParseSymbol(InPatternDef.ArgStartChar);
 	if (!OpeningChar.IsSet())
 	{
 		return TOptional<FExpressionError>();
@@ -152,9 +120,9 @@ TOptional<FExpressionError> ParseArgument(FExpressionTokenConsumer& Consumer)
 	FStringToken& EntireToken = OpeningChar.GetValue();
 
 	// Parse out the argument name
-	TOptional<FStringToken> Identifier = Stream.ParseToken([](TCHAR InC)
+	TOptional<FStringToken> Identifier = Stream.ParseToken([&InPatternDef](TCHAR InC)
 	{
-		if (InC == ArgEndChar)
+		if (InC == InPatternDef.ArgEndChar)
 		{
 			return EParseState::StopBefore;
 		}
@@ -164,7 +132,7 @@ TOptional<FExpressionError> ParseArgument(FExpressionTokenConsumer& Consumer)
 		}
 	}, &EntireToken);
 
-	if (!Identifier.IsSet() || !Stream.ParseSymbol(ArgEndChar, &EntireToken).IsSet())
+	if (!Identifier.IsSet() || !Stream.ParseSymbol(InPatternDef.ArgEndChar, &EntireToken).IsSet())
 	{
 		return TOptional<FExpressionError>();
 	}
@@ -175,12 +143,12 @@ TOptional<FExpressionError> ParseArgument(FExpressionTokenConsumer& Consumer)
 	return TOptional<FExpressionError>();
 }
 
-TOptional<FExpressionError> ParseArgumentModifier(FExpressionTokenConsumer& Consumer)
+TOptional<FExpressionError> ParseArgumentModifier(const FTextFormatPatternDefinition& InPatternDef, FExpressionTokenConsumer& Consumer)
 {
 	// An argument modifier token looks like |keyword(args, ...)
 	FTokenStream& Stream = Consumer.GetStream();
 
-	TOptional<FStringToken> PipeToken = Stream.ParseSymbol(ArgModChar);
+	TOptional<FStringToken> PipeToken = Stream.ParseSymbol(InPatternDef.ArgModChar);
 	if (!PipeToken.IsSet())
 	{
 		return TOptional<FExpressionError>();
@@ -264,7 +232,7 @@ TOptional<FExpressionError> ParseArgumentModifier(FExpressionTokenConsumer& Cons
 
 	// Compile the parameters for this argument modifier
 	FStringToken& ParametersValue = Parameters.GetValue();
-	TSharedPtr<ITextFormatArgumentModifier> CompiledTextArgumentModifier = CompileTextArgumentModifierFunc(FTextFormatString::MakeReference(ParametersValue.GetTokenStartPos(), ParametersValue.GetTokenEndPos() - ParametersValue.GetTokenStartPos()));
+	TSharedPtr<ITextFormatArgumentModifier> CompiledTextArgumentModifier = CompileTextArgumentModifierFunc(FTextFormatString::MakeReference(ParametersValue.GetTokenStartPos(), ParametersValue.GetTokenEndPos() - ParametersValue.GetTokenStartPos()), InPatternDef.AsShared());
 	if (!CompiledTextArgumentModifier.IsValid())
 	{
 		return TOptional<FExpressionError>();
@@ -275,11 +243,11 @@ TOptional<FExpressionError> ParseArgumentModifier(FExpressionTokenConsumer& Cons
 	return TOptional<FExpressionError>();
 }
 
-TOptional<FExpressionError> ParseEscapedChar(FExpressionTokenConsumer& Consumer)
+TOptional<FExpressionError> ParseEscapedChar(const FTextFormatPatternDefinition& InPatternDef, FExpressionTokenConsumer& Consumer)
 {
 	FTokenStream& Stream = Consumer.GetStream();
 
-	TOptional<FStringToken> Token = Stream.ParseSymbol(EscapeChar);
+	TOptional<FStringToken> Token = Stream.ParseSymbol(InPatternDef.EscapeChar);
 	if (!Token.IsSet())
 	{
 		return TOptional<FExpressionError>();
@@ -296,7 +264,7 @@ TOptional<FExpressionError> ParseEscapedChar(FExpressionTokenConsumer& Consumer)
 
 	// Check for a valid escape character
 	const TCHAR Character = *EscapedChar->GetTokenStartPos();
-	if (IsValidEscapeChar(Character))
+	if (InPatternDef.IsValidEscapeChar(Character))
 	{
 		// Add the token to the consumer - this moves the read position in the stream to the end of the token.
 		Consumer.Add(TokenValue, FEscapedCharacter(Character));
@@ -305,7 +273,7 @@ TOptional<FExpressionError> ParseEscapedChar(FExpressionTokenConsumer& Consumer)
 	return TOptional<FExpressionError>();
 }
 
-TOptional<FExpressionError> ParseLiteral(FExpressionTokenConsumer& Consumer)
+TOptional<FExpressionError> ParseLiteral(const FTextFormatPatternDefinition& InPatternDef, FExpressionTokenConsumer& Consumer)
 {
 	FTokenStream& Stream = Consumer.GetStream();
 
@@ -320,7 +288,7 @@ TOptional<FExpressionError> ParseLiteral(FExpressionTokenConsumer& Consumer)
 				bFirstChar = false;
 				return EParseState::Continue;
 			}
-			else if (!IsLiteralBreakChar(C))
+			else if (!InPatternDef.IsLiteralBreakChar(C))
 			{
 				return EParseState::Continue;
 			}
@@ -341,8 +309,6 @@ TOptional<FExpressionError> ParseLiteral(FExpressionTokenConsumer& Consumer)
 }
 
 } // namespace TextFormatTokens
-
-#undef USE_LEGACY_ESCAPE_TOKEN_RULES
 
 DEFINE_EXPRESSION_NODE_TYPE(TextFormatTokens::FStringLiteral, 0x595A123B, 0x9418491F, 0xB416E9DB, 0xD2127828)
 DEFINE_EXPRESSION_NODE_TYPE(TextFormatTokens::FArgumentTokenSpecifier, 0x5FD9EF1A, 0x9D484D65, 0x92065566, 0xD3542547)
@@ -375,13 +341,13 @@ public:
 	 * Construct an instance from an FText.
 	 * The text will be immediately compiled. 
 	 */
-	explicit FTextFormatData(FText&& InText);
+	FTextFormatData(FText&& InText, FTextFormatPatternDefinitionConstRef InPatternDef);
 
 	/**
 	 * Construct an instance from an FString.
 	 * The string will be immediately compiled. 
 	 */
-	explicit FTextFormatData(FString&& InString);
+	FTextFormatData(FString&& InString, FTextFormatPatternDefinitionConstRef InPatternDef);
 
 	/**
 	 * Test to see whether this instance contains valid compiled data.
@@ -390,6 +356,16 @@ public:
 	{
 		FScopeLock Lock(&CompiledDataCS);
 		return IsValid_NoLock();
+	}
+
+	/**
+	 * Validate the format pattern is valid based on the rules of the given culture (or null to use the current language).
+	 * @return true if the pattern is valid, or false if not (false may also fill in OutValidationErrors).
+	 */
+	FORCEINLINE bool ValidatePattern(const FCulturePtr& InCulture, TArray<FString>& OutValidationErrors)
+	{
+		FScopeLock Lock(&CompiledDataCS);
+		return ValidatePattern_NoLock(InCulture, OutValidationErrors);
 	}
 
 	/**
@@ -437,6 +413,14 @@ public:
 		return CompiledExpressionType;
 	}
 
+	/**
+	 * Get the format pattern definition being used.
+	 */
+	FORCEINLINE FTextFormatPatternDefinitionConstRef GetPatternDefinition() const
+	{
+		return PatternDef;
+	}
+
 private:
 	/**
 	 * Test to see whether this instance contains valid compiled data.
@@ -455,6 +439,12 @@ private:
 	 * Internal version that doesn't lock, so the calling code must handle that!
 	 */
 	void ConditionalCompile_NoLock();
+
+	/**
+	 * Validate the format pattern is valid based on the rules of the given culture (or null to use the current language).
+	 * Internal version that doesn't lock, so the calling code must handle that!
+	 */
+	bool ValidatePattern_NoLock(const FCulturePtr& InCulture, TArray<FString>& OutValidationErrors);
 
 	/**
 	 * Produce a formatted string using the given argument look-up.
@@ -478,6 +468,11 @@ private:
 	 * Type of source we're using (FText or FString).
 	 */
 	ESourceType SourceType;
+
+	/**
+	 * Definition of the pattern used during a text format.
+	 */
+	FTextFormatPatternDefinitionConstRef PatternDef;
 
 	/**
 	 * Source localized text that is used as the format specifier.
@@ -517,6 +512,12 @@ private:
 	FTextFormat::EExpressionType CompiledExpressionType;
 
 	/**
+	 * Holds the last compilation error (if any, when CompiledExpressionType == Invalid).
+	 * Concurrent access protected by CompiledDataCS.
+	 */
+	FString LastCompileError;
+
+	/**
 	 * The base length of the string that will go into the formatted string (no including any argument substitutions.
 	 * Concurrent access protected by CompiledDataCS.
 	 */
@@ -531,28 +532,43 @@ private:
 
 
 FTextFormat::FTextFormat()
-	: TextFormatData(new FTextFormatData(FText(FText::GetEmpty())))
+	: TextFormatData(new FTextFormatData(FText(), FTextFormatPatternDefinition::GetDefault()))
 {
 }
 
 FTextFormat::FTextFormat(const FText& InText)
-	: TextFormatData(new FTextFormatData(FText(InText)))
+	: TextFormatData(new FTextFormatData(CopyTemp(InText), FTextFormatPatternDefinition::GetDefault()))
 {
 }
 
-FTextFormat::FTextFormat(FString&& InString)
-	: TextFormatData(new FTextFormatData(MoveTemp(InString)))
+FTextFormat::FTextFormat(const FText& InText, FTextFormatPatternDefinitionConstRef InCustomPatternDef)
+	: TextFormatData(new FTextFormatData(CopyTemp(InText), MoveTemp(InCustomPatternDef)))
+{
+}
+
+FTextFormat::FTextFormat(FString&& InString, FTextFormatPatternDefinitionConstRef InCustomPatternDef)
+	: TextFormatData(new FTextFormatData(MoveTemp(InString), MoveTemp(InCustomPatternDef)))
 {
 }
 
 FTextFormat FTextFormat::FromString(const FString& InString)
 {
-	return FTextFormat(FString(InString));
+	return FTextFormat(CopyTemp(InString), FTextFormatPatternDefinition::GetDefault());
 }
 
 FTextFormat FTextFormat::FromString(FString&& InString)
 {
-	return FTextFormat(MoveTemp(InString));
+	return FTextFormat(MoveTemp(InString), FTextFormatPatternDefinition::GetDefault());
+}
+
+FTextFormat FTextFormat::FromString(const FString& InString, FTextFormatPatternDefinitionConstRef InCustomPatternDef)
+{
+	return FTextFormat(CopyTemp(InString), MoveTemp(InCustomPatternDef));
+}
+
+FTextFormat FTextFormat::FromString(FString&& InString, FTextFormatPatternDefinitionConstRef InCustomPatternDef)
+{
+	return FTextFormat(MoveTemp(InString), MoveTemp(InCustomPatternDef));
 }
 
 bool FTextFormat::IsValid() const
@@ -575,21 +591,33 @@ FTextFormat::EExpressionType FTextFormat::GetExpressionType() const
 	return TextFormatData->GetExpressionType();
 }
 
+FTextFormatPatternDefinitionConstRef FTextFormat::GetPatternDefinition() const
+{
+	return TextFormatData->GetPatternDefinition();
+}
+
+bool FTextFormat::ValidatePattern(const FCulturePtr& InCulture, TArray<FString>& OutValidationErrors) const
+{
+	return TextFormatData->ValidatePattern(InCulture, OutValidationErrors);
+}
+
 void FTextFormat::GetFormatArgumentNames(TArray<FString>& OutArgumentNames) const
 {
 	TextFormatData->GetFormatArgumentNames(OutArgumentNames);
 }
 
 
-FTextFormatData::FTextFormatData(FText&& InText)
+FTextFormatData::FTextFormatData(FText&& InText, FTextFormatPatternDefinitionConstRef InPatternDef)
 	: SourceType(ESourceType::Text)
+	, PatternDef(MoveTemp(InPatternDef))
 	, SourceText(MoveTemp(InText))
 {
 	Compile_NoLock();
 }
 
-FTextFormatData::FTextFormatData(FString&& InString)
+FTextFormatData::FTextFormatData(FString&& InString, FTextFormatPatternDefinitionConstRef InPatternDef)
 	: SourceType(ESourceType::String)
+	, PatternDef(MoveTemp(InPatternDef))
 	, SourceExpression(MoveTemp(InString))
 {
 	Compile_NoLock();
@@ -614,7 +642,7 @@ void FTextFormatData::Compile_NoLock()
 	BaseFormatStringLength = 0;
 	FormatArgumentEstimateMultiplier = 1;
 
-	TValueOrError<TArray<FExpressionToken>, FExpressionError> Result = ExpressionParser::Lex(*SourceExpression, FTextFormatter::Get().GetTextFormatDefinitions());
+	TValueOrError<TArray<FExpressionToken>, FExpressionError> Result = ExpressionParser::Lex(*SourceExpression, PatternDef->GetTextFormatDefinitions());
 	bool bValidExpression = Result.IsValid();
 	if (bValidExpression)
 	{
@@ -671,7 +699,7 @@ void FTextFormatData::Compile_NoLock()
 	{
 		LexedExpression.Reset();
 		CompiledExpressionType = FTextFormat::EExpressionType::Invalid;
-		UE_LOG(LogTextFormatter, Warning, TEXT("Failed to compile text format string '%s': %s"), *SourceExpression, *Result.GetError().Text.ToString());
+		LastCompileError = Result.GetError().Text.ToString();
 	}
 }
 
@@ -698,6 +726,37 @@ void FTextFormatData::ConditionalCompile_NoLock()
 	{
 		Compile_NoLock();
 	}
+}
+
+bool FTextFormatData::ValidatePattern_NoLock(const FCulturePtr& InCulture, TArray<FString>& OutValidationErrors)
+{
+	ConditionalCompile_NoLock();
+
+	if (CompiledExpressionType == FTextFormat::EExpressionType::Invalid)
+	{
+		if (!LastCompileError.IsEmpty())
+		{
+			OutValidationErrors.Add(LastCompileError);
+		}
+		return false;
+	}
+
+	if (CompiledExpressionType != FTextFormat::EExpressionType::Complex)
+	{
+		return true;
+	}
+
+	const FCultureRef ResolvedCulture = InCulture ? InCulture.ToSharedRef() : FInternationalization::Get().GetCurrentLanguage();
+
+	bool bIsValidPattern = true;
+	for (const FExpressionToken& Token : LexedExpression)
+	{
+		if (const auto* ArgumentModifierToken = Token.Node.Cast<TextFormatTokens::FArgumentModifierTokenSpecifier>())
+		{
+			bIsValidPattern &= ArgumentModifierToken->TextFormatArgumentModifier->Validate(ResolvedCulture, OutValidationErrors);
+		}
+	}
+	return bIsValidPattern;
 }
 
 FString FTextFormatData::Format_NoLock(const FPrivateTextFormatArguments& InFormatArgs)
@@ -752,16 +811,16 @@ FString FTextFormatData::Format_NoLock(const FPrivateTextFormatArguments& InForm
 			}
 			else
 			{
-				ResultString.AppendChar(TextFormatTokens::ArgStartChar);
+				ResultString.AppendChar(PatternDef->ArgStartChar);
 				ResultString.AppendChars(ArgumentToken->ArgumentNameStartPos, ArgumentToken->ArgumentNameLen);
-				ResultString.AppendChar(TextFormatTokens::ArgEndChar);
+				ResultString.AppendChar(PatternDef->ArgEndChar);
 			}
 		}
 		else if (const auto* ArgumentModifierToken = Token.Node.Cast<TextFormatTokens::FArgumentModifierTokenSpecifier>())
 		{
 			// If we find an argument modifier token on its own then it means an argument value failed to evaluate (likely due to InFormatArgs.GetArgumentValue returning null)
 			// In this case we just write the literal value of the argument modifier back into the final string...
-			ResultString.AppendChar(TextFormatTokens::ArgModChar);
+			ResultString.AppendChar(PatternDef->ArgModChar);
 			ResultString.AppendChars(ArgumentModifierToken->ModifierPatternStartPos, ArgumentModifierToken->ModifierPatternLen);
 		}
 	}
@@ -802,17 +861,32 @@ void FTextFormatData::GetFormatArgumentNames_NoLock(TArray<FString>& OutArgument
 }
 
 
+FTextFormatPatternDefinition::FTextFormatPatternDefinition()
+{
+	TextFormatDefinitions.DefineToken([this](FExpressionTokenConsumer& Consumer) { return TextFormatTokens::ParseArgument(*this, Consumer); });
+	TextFormatDefinitions.DefineToken([this](FExpressionTokenConsumer& Consumer) { return TextFormatTokens::ParseArgumentModifier(*this, Consumer); });
+	TextFormatDefinitions.DefineToken([this](FExpressionTokenConsumer& Consumer) { return TextFormatTokens::ParseEscapedChar(*this, Consumer); });
+	TextFormatDefinitions.DefineToken([this](FExpressionTokenConsumer& Consumer) { return TextFormatTokens::ParseLiteral(*this, Consumer); });
+}
+
+FTextFormatPatternDefinitionConstRef FTextFormatPatternDefinition::GetDefault()
+{
+	static FTextFormatPatternDefinitionConstRef DefaultFormatPatternDefinition = MakeShared<FTextFormatPatternDefinition, ESPMode::ThreadSafe>();
+	return DefaultFormatPatternDefinition;
+}
+
+const FTokenDefinitions& FTextFormatPatternDefinition::GetTextFormatDefinitions() const
+{
+	return TextFormatDefinitions;
+}
+
+
 FTextFormatter::FTextFormatter()
 {
-	TextFormatDefinitions.DefineToken([](FExpressionTokenConsumer& Consumer) { return TextFormatTokens::ParseArgument(Consumer); });
-	TextFormatDefinitions.DefineToken([](FExpressionTokenConsumer& Consumer) { return TextFormatTokens::ParseArgumentModifier(Consumer); });
-	TextFormatDefinitions.DefineToken([](FExpressionTokenConsumer& Consumer) { return TextFormatTokens::ParseEscapedChar(Consumer); });
-	TextFormatDefinitions.DefineToken([](FExpressionTokenConsumer& Consumer) { return TextFormatTokens::ParseLiteral(Consumer); });
-
-	TextArgumentModifiers.Add(FTextFormatString::MakeReference(TEXT("plural")),  [](const FTextFormatString& InArgsString) { return FTextFormatArgumentModifier_PluralForm::Create(ETextPluralType::Cardinal, InArgsString); });
-	TextArgumentModifiers.Add(FTextFormatString::MakeReference(TEXT("ordinal")), [](const FTextFormatString& InArgsString) { return FTextFormatArgumentModifier_PluralForm::Create(ETextPluralType::Ordinal, InArgsString); });
-	TextArgumentModifiers.Add(FTextFormatString::MakeReference(TEXT("gender")),  [](const FTextFormatString& InArgsString) { return FTextFormatArgumentModifier_GenderForm::Create(InArgsString); });
-	TextArgumentModifiers.Add(FTextFormatString::MakeReference(TEXT("hpp")),     [](const FTextFormatString& InArgsString) { return FTextFormatArgumentModifier_HangulPostPositions::Create(InArgsString); });
+	TextArgumentModifiers.Add(FTextFormatString::MakeReference(TEXT("plural")),  [](const FTextFormatString& InArgsString, const FTextFormatPatternDefinitionConstRef& InPatternDef) { return FTextFormatArgumentModifier_PluralForm::Create(ETextPluralType::Cardinal, InArgsString, InPatternDef); });
+	TextArgumentModifiers.Add(FTextFormatString::MakeReference(TEXT("ordinal")), [](const FTextFormatString& InArgsString, const FTextFormatPatternDefinitionConstRef& InPatternDef) { return FTextFormatArgumentModifier_PluralForm::Create(ETextPluralType::Ordinal, InArgsString, InPatternDef); });
+	TextArgumentModifiers.Add(FTextFormatString::MakeReference(TEXT("gender")),  [](const FTextFormatString& InArgsString, const FTextFormatPatternDefinitionConstRef& InPatternDef) { return FTextFormatArgumentModifier_GenderForm::Create(InArgsString, InPatternDef); });
+	TextArgumentModifiers.Add(FTextFormatString::MakeReference(TEXT("hpp")),     [](const FTextFormatString& InArgsString, const FTextFormatPatternDefinitionConstRef& InPatternDef) { return FTextFormatArgumentModifier_HangulPostPositions::Create(InArgsString); });
 }
 
 FTextFormatter& FTextFormatter::Get()
@@ -837,11 +911,6 @@ FTextFormatter::FCompileTextArgumentModifierFuncPtr FTextFormatter::FindTextArgu
 {
 	FScopeLock Lock(&TextArgumentModifiersCS);
 	return TextArgumentModifiers.FindRef(InKeyword);
-}
-
-const FTokenDefinitions& FTextFormatter::GetTextFormatDefinitions() const
-{
-	return TextFormatDefinitions;
 }
 
 FText FTextFormatter::Format(FTextFormat&& InFmt, FFormatNamedArguments&& InArguments, const bool bInRebuildText, const bool bInRebuildAsSource)
@@ -961,24 +1030,7 @@ FString FTextFormatter::FormatStr(const FTextFormat& InFmt, const TArray<FFormat
 		{
 			if (ArgumentToken.ArgumentNameLen == Arg.ArgumentName.Len() && FCString::Strncmp(ArgumentToken.ArgumentNameStartPos, *Arg.ArgumentName, ArgumentToken.ArgumentNameLen) == 0)
 			{
-				switch (Arg.ArgumentValueType)
-				{
-				case EFormatArgumentType::Int:
-					(*TmpArgumentValuePtr) = FFormatArgumentValue(Arg.ArgumentValueInt);
-					break;
-				case EFormatArgumentType::Float:
-					(*TmpArgumentValuePtr) = FFormatArgumentValue(Arg.ArgumentValueFloat);
-					break;
-				case EFormatArgumentType::Text:
-					(*TmpArgumentValuePtr) = FFormatArgumentValue(Arg.ArgumentValue);
-					break;
-				case EFormatArgumentType::Gender:
-					(*TmpArgumentValuePtr) = FFormatArgumentValue(Arg.ArgumentValueGender);
-					break;
-				default:
-					(*TmpArgumentValuePtr) = FFormatArgumentValue();
-					break;
-				}
+				(*TmpArgumentValuePtr) = Arg.ToArgumentValue();
 				return TmpArgumentValuePtr;
 			}
 		}
@@ -1003,7 +1055,7 @@ FString FTextFormatter::Format(const FTextFormat& InFmt, const FPrivateTextForma
 			FmtText.Rebuild();
 		}
 
-		FmtPattern = FTextFormat(FmtText.BuildSourceString());
+		FmtPattern = FTextFormat(FmtText.BuildSourceString(), FmtPattern.GetPatternDefinition());
 	}
 
 	return FmtPattern.TextFormatData->Format(InFormatArgs);

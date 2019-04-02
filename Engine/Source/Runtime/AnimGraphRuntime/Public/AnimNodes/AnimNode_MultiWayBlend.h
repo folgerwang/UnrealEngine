@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,14 +22,18 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings, meta=(PinShownByDefault))
 	TArray<float> DesiredAlphas;
 
+private:
+	TArray<float> CachedAlphas;
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings)
+	FInputScaleBias AlphaScaleBias;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
 	bool bAdditiveNode;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
 	bool bNormalizeAlpha;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings)
-	FInputScaleBias AlphaScaleBias;
 
 public:
 	FAnimNode_MultiWayBlend()
@@ -48,7 +52,7 @@ public:
 
 	int32 AddPose()
 	{
-		Poses.AddZeroed();
+		Poses.AddDefaulted();
 		DesiredAlphas.AddZeroed();
 
 		return Poses.Num();
@@ -80,7 +84,5 @@ private:
 
 	// process new weights and then return out
 	void UpdateCachedAlphas();
-
-	TArray<float> CachedAlphas;
 };
 

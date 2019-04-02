@@ -1,8 +1,9 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "VoiceModule.h"
 #include "Misc/ConfigCacheIni.h"
 #include "VoicePrivate.h"
+#include "VoiceCodecOpus.h"
 
 IMPLEMENT_MODULE(FVoiceModule, Voice);
 
@@ -28,8 +29,6 @@ DEFINE_STAT(STAT_Decode_OutSize);
 extern bool InitVoiceCapture();
 extern void ShutdownVoiceCapture();
 extern IVoiceCapture* CreateVoiceCaptureObject(const FString& DeviceName, int32 SampleRate, int32 NumChannels);
-extern IVoiceEncoder* CreateVoiceEncoderObject(int32 SampleRate, int32 NumChannels, EAudioEncodeHint EncodeHint);
-extern IVoiceDecoder* CreateVoiceDecoderObject(int32 SampleRate, int32 NumChannels);
 #endif
 
 void FVoiceModule::StartupModule()
@@ -87,28 +86,61 @@ TSharedPtr<IVoiceCapture> FVoiceModule::CreateVoiceCapture(const FString& Device
 
 TSharedPtr<IVoiceEncoder> FVoiceModule::CreateVoiceEncoder(int32 SampleRate, int32 NumChannels, EAudioEncodeHint EncodeHint)
 {
-#if PLATFORM_SUPPORTS_VOICE_CAPTURE
 	if (bEnabled)
 	{
 		// Create the platform specific instance
 		return TSharedPtr<IVoiceEncoder>(CreateVoiceEncoderObject(SampleRate, NumChannels, EncodeHint));
 	}
-#endif
 
 	return nullptr;
 }
 
+IVoiceEncoder* FVoiceModule::CreateVoiceEncoderObject(int32 SampleRate, int32 NumChannels, EAudioEncodeHint EncodeHint)
+{
+#if PLATFORM_SUPPORTS_OPUS_CODEC
+	FVoiceEncoderOpus* NewEncoder = new FVoiceEncoderOpus;
+	if (!NewEncoder->Init(SampleRate, NumChannels, EncodeHint))
+	{
+		delete NewEncoder;
+		NewEncoder = nullptr;
+	}
+
+	return NewEncoder;
+#else
+	return nullptr;
+#endif
+}
+
 TSharedPtr<IVoiceDecoder> FVoiceModule::CreateVoiceDecoder(int32 SampleRate, int32 NumChannels)
 {
-#if PLATFORM_SUPPORTS_VOICE_CAPTURE
 	if (bEnabled)
 	{
 		// Create the platform specific instance
 		return TSharedPtr<IVoiceDecoder>(CreateVoiceDecoderObject(SampleRate, NumChannels));
 	}
-#endif
 
 	return nullptr;
+}
+
+IVoiceDecoder* FVoiceModule::CreateVoiceDecoderObject(int32 SampleRate, int32 NumChannels)
+{
+#if PLATFORM_SUPPORTS_OPUS_CODEC
+	FVoiceDecoderOpus* NewDecoder = new FVoiceDecoderOpus;
+	if (!NewDecoder->Init(SampleRate, NumChannels))
+	{
+		delete NewDecoder;
+		NewDecoder = nullptr;
+	}
+
+	return NewDecoder;
+#else
+	return nullptr;
+#endif
+}
+
+bool FVoiceModule::DoesPlatformSupportVoiceCapture()
+{
+	return PLATFORM_SUPPORTS_VOICE_CAPTURE;
 }
 
 

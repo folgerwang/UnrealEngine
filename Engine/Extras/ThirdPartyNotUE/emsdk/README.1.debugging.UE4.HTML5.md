@@ -10,7 +10,7 @@ while most browser have a pretty nice debugger -- it is essentially un-usable wh
 
 - before, when the build would output to javascript -- there was no way to put breakpoints if the JS was smash into one line
 	- yes, there's a code beautifier button -- but, the debuggers would choke when trying to keep the (back then) giant 100+MB of code in the scroll window
-- and now, with wasm -- there doesn't seem to be any UE4 code visible (just the JS plumbing code)
+- and now, with wasm -- there doesn't seem to be any UE4 code visible (just the JS plumbing code and web "assembler" instructions)
 
 so, I mostly just print stuff to the console window for logic debugging.
 

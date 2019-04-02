@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ProfilerClientManager.h"
 #include "HAL/FileManager.h"
@@ -768,7 +768,7 @@ void FProfilerClientManager::DecompressDataAndSendToGame(FProfilerServiceData2* 
 	UncompressedData.Reset(ToProcess->UncompressedSize);
 	UncompressedData.AddUninitialized(ToProcess->UncompressedSize);
 
-	bool bResult = FCompression::UncompressMemory(COMPRESS_ZLIB, UncompressedData.GetData(), ToProcess->UncompressedSize, CompressedData.GetData(), ToProcess->CompressedSize);
+	bool bResult = FCompression::UncompressMemory(NAME_Zlib, UncompressedData.GetData(), ToProcess->UncompressedSize, CompressedData.GetData(), ToProcess->CompressedSize);
 	check(bResult);
 
 	// Send to the game thread. Connections is not thread-safe, so we cannot add the data here.

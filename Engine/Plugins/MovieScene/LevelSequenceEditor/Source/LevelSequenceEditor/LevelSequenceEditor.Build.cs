@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -54,6 +54,7 @@ public class LevelSequenceEditor : ModuleRules
 
         PrivateIncludePaths.AddRange(
             new string[] {
+            	"LevelSequenceEditor/Public",
 				"LevelSequenceEditor/Private",
 				"LevelSequenceEditor/Private/AssetTools",
 				"LevelSequenceEditor/Private/Factories",

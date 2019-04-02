@@ -1,0 +1,76 @@
+﻿INTSourceChangelist:4404731
+Availability: Public
+Crumbs: 
+Title: Live Link プラグイン の開発
+Description: プラグインの開発方法と Live Link の UE4 への統合方法について説明します。
+Type: 
+Version: 4.19
+Parent: Engine/Animation/LivelinkPlugin
+Order: 3
+Tags: Animation, Live Link
+
+
+Live Link の統合には 2 つの方法があります。 
+
+* Live Link へ新しいソースを公開する Unreal Engine のプラグインを構築する。
+
+ストリーミング プロトコルが既にある場合に推奨されるアプローチです。
+
+* サードパーティのソフトウェアに メッセージ バス のエンドポイントを統合して、ビルトインの メッセージ バス ソースのデータ トランスミッターとして機能させる。
+
+Maya と Motionbuilder のプラグインで採用しているアプローチです。
+
+## Live Link ソース
+
+Live Link ソースは Live Link クライアントにアニメーション データを提供します。ソース プラグインで提供する必要があるものは次のとおりです。
+
+* ソース ファクトリー `Base Class ULiveLinkSourceFactory`
+
+Live Link が使用可能なソースを知るために使用されます。ソース ファクトリーは UObject で ULiveLinkSourceFactory から派生する必要があります。ファクトリーはソースを作成したり、ソース作成のためのカスタム エディタ UI を作成する関数を提供します。ソース ファクトリー はクライアントによって自動的に取得されます (手動で登録する方法はありません)。
+
+ソース ファクトリーは以下の関数をオーバーライドする必要があります。
+
+* `GetSourceDisplayName` - ソース名のローカライズした文字列を返します
+* `GetSourceTooltip` - ソース UI ツールチップのローカライズした文字列を返します
+* `CreateSourceCreationPanel` - ソースの作成に使用されるスレート ウィジェットへの参照を返します
+* `OnSourceCreationPanelClosed` - クライアントがソース作成ウィジェットを完了したときに呼び出されます。bCreateSource パラメーターはソース ファクトリーに UI のコンテンツを使用してソースを作成すべきか否かについて指定します。
+
+* ソース オブジェクト (ベース クラス ILiveLinkSource)
+
+外部からクライアントへのデータ転送を管理するオブジェクトです。ソースは ILiveLinkSource から派生させる必要があります。ソース ファクトリーによって作成され、アニメーション データのクライアントへの受渡しおよび、データ接続の期限の管理を担当します。
+
+ソース は以下の関数をオーバーライドする必要があります。
+
+* `ReceiveClient` - ソースの作成時に呼び出されます。
+* `IsSourceStillValid`
+* `RequestSourceShutdown` - ソースのクローズ依頼時に呼び出されます。通常ここで接続のクリーンナップが行われます。接続のクローズのクリーンにより多くの時間が掛かる場合に false を返すようにすることもできます。
+
+クライアント UI は以下のものを使用します。
+
+* `GetSourceType` - ソース タイプを表す、ローカライズされた文字列を返す
+* `GetSourceMachineName` - ソース ident を表す文字列を返す (マシン名、 IP アドレスなど)
+* `GetSourceStatus` - ソース ステータスのローカライズされた文字列を返す
+
+## メッセージ バス ソース
+
+新しいソースを作成するために必要な内容の例はエディタにあります。/Engine/Plugins/Animation/LiveLink/Source/LiveLink の以下のクラスを確認してください。
+
+* `FLiveLinkMessageBusSource`
+* `ULiveLinkMessageBusSourceFactory`
+* `SLiveLinkMessageBusSourceEditor`
+
+これらのクラスは、Live Link プラグインに構築される メッセージ バス Live Link のソースを構成します。メッセージ バス ソースは、カスタム メッセージ バス プロトコルを使用するとで、サード パーティのアプリケーションがアニメーション データをエンジンに転送できるようにします。
+
+### Live Link メッセージ バス フレームワークの使用
+
+Live Link バス フレームワーク (Maya や MotionBuilder のプラグインなど) を利用するには、ソフトウェアに Unreal Engine のコア ライブラリ を含めて LiveLinkProvider を作成する必要があります。 
+
+    TSharedPtr<ILiveLinkProvider> LiveLinkProvider;
+    LiveLinkProvider = ILiveLinkProvider::CreateLiveLinkProvider(TEXT("Maya"));
+
+これにより、1 つ以上の Unreal Engine のインスタンスとのコミュニケーションが自動的に処理されます。次にソフトウェアは以下 2 つの関数を使用してプロバイダにストリーミングされたデータについて情報提供するだけです。
+
+* `UpdateSubject` - サブジェクトの説明を Live Link に提供します (名前とジョイント階層)。
+* `UpdateSubjectFrame` - Live Link の対象に関するついてのデータのフレームを提供します (現在のトランスフォーム、関連付けたい任意の名前が付いた浮動パラメータ、時間/フレーム 番号)
+
+このアプローチによるサンプルが「 Engine\Source\Programs\MayaLiveLinkPlugin\ 」にあります。

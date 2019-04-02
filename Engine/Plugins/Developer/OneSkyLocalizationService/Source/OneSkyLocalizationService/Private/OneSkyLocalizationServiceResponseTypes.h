@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -15,25 +15,25 @@ struct FOneSkyListProjectGroupsResponseMeta
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-		int32 status;
+	int32 status;
 
 	UPROPERTY()
-		int32 record_count;
+	int32 record_count;
 
 	UPROPERTY()
-		int32 page_count;
+	int32 page_count;
 
 	UPROPERTY()
-		FString next_page;
+	FString next_page;
 
 	UPROPERTY()
-		FString prev_page;
+	FString prev_page;
 
 	UPROPERTY()
-		FString first_page;
+	FString first_page;
 
 	UPROPERTY()
-		FString last_page;
+	FString last_page;
 
 	/** Default constructor. */
 	FOneSkyListProjectGroupsResponseMeta()
@@ -57,10 +57,10 @@ struct FOneSkyListProjectGroupsResponseDataItem
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-		FString id;
+	FString id;
 
 	UPROPERTY()
-		FString name;
+	FString name;
 
 	/** Default constructor. */
 	FOneSkyListProjectGroupsResponseDataItem()
@@ -82,10 +82,10 @@ struct FOneSkyListProjectGroupsResponse
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-		FOneSkyListProjectGroupsResponseMeta meta;
+	FOneSkyListProjectGroupsResponseMeta meta;
 
 	UPROPERTY()
-		TArray<FOneSkyListProjectGroupsResponseDataItem> data;
+	TArray<FOneSkyListProjectGroupsResponseDataItem> data;
 
 	/** Default constructor. */
 	FOneSkyListProjectGroupsResponse()
@@ -107,8 +107,8 @@ struct FOneSkyShowProjectGroupResponseMeta
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		int32 status;
+	UPROPERTY()
+	int32 status;
 
 	/** Default constructor. */
 	FOneSkyShowProjectGroupResponseMeta()
@@ -125,16 +125,16 @@ struct FOneSkyShowProjectGroupResponseData
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-		FString id;
+	FString id;
 
 	UPROPERTY()
-		FString name;
+	FString name;
 
 	UPROPERTY()
-		int32 description;
+	int32 description;
 
 	UPROPERTY()
-		FString project_count;
+	FString project_count;
 
 	/** Default constructor. */
 	FOneSkyShowProjectGroupResponseData()
@@ -157,11 +157,11 @@ struct FOneSkyShowProjectGroupResponse
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		FOneSkyShowProjectGroupResponseMeta meta;
+	UPROPERTY()
+	FOneSkyShowProjectGroupResponseMeta meta;
 
 	UPROPERTY()
-		FOneSkyShowProjectGroupResponseData data;
+	FOneSkyShowProjectGroupResponseData data;
 
 	/** Default constructor. */
 	FOneSkyShowProjectGroupResponse()
@@ -183,8 +183,8 @@ struct FOneSkyCreateProjectGroupResponseMeta
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		int32 status;
+	UPROPERTY()
+	int32 status;
 
 	/** Default constructor. */
 	FOneSkyCreateProjectGroupResponseMeta()
@@ -200,20 +200,20 @@ struct FOneSkyCreateProjectGroupResponseBaseLanguage
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		FString code;
+	UPROPERTY()
+	FString code;
 
 	UPROPERTY()
-		FString english_name;
+	FString english_name;
 
 	UPROPERTY()
-		FString local_name;
+	FString local_name;
 
 	UPROPERTY()
-		FString locale;
+	FString locale;
 
 	UPROPERTY()
-		FString region;
+	FString region;
 
 	/** Default constructor. */
 	FOneSkyCreateProjectGroupResponseBaseLanguage()
@@ -233,14 +233,14 @@ struct FOneSkyCreateProjectGroupResponseData
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		int32 id;
+	UPROPERTY()
+	int32 id;
 
 	UPROPERTY()
-		FString name;
+	FString name;
 
 	UPROPERTY()
-		FOneSkyCreateProjectGroupResponseBaseLanguage base_language;
+	FOneSkyCreateProjectGroupResponseBaseLanguage base_language;
 
 	/** Default constructor. */
 	FOneSkyCreateProjectGroupResponseData()
@@ -262,11 +262,11 @@ struct FOneSkyCreateProjectGroupResponse
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		FOneSkyCreateProjectGroupResponseMeta meta;
+	UPROPERTY()
+	FOneSkyCreateProjectGroupResponseMeta meta;
 
 	UPROPERTY()
-		FOneSkyCreateProjectGroupResponseData data;
+	FOneSkyCreateProjectGroupResponseData data;
 
 	/** Default constructor. */
 	FOneSkyCreateProjectGroupResponse()
@@ -288,11 +288,11 @@ struct FOneSkyListProjectGroupLanguagesResponseMeta
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		int32 status;
+	UPROPERTY()
+	int32 status;
 
 	UPROPERTY()
-		int32 record_count;
+	int32 record_count;
 
 	/** Default constructor. */
 	FOneSkyListProjectGroupLanguagesResponseMeta()
@@ -309,23 +309,23 @@ struct FOneSkyListProjectGroupLanguagesResponseDataItem
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		FString code;
+	UPROPERTY()
+	FString code;
 
 	UPROPERTY()
-		FString english_name;
+	FString english_name;
 
 	UPROPERTY()
-		FString local_name;
+	FString local_name;
 
 	UPROPERTY()
-		FString locale;
+	FString locale;
 
 	UPROPERTY()
-		FString region;
+	FString region;
 
 	UPROPERTY()
-		bool is_base_language;
+	bool is_base_language;
 
 	/** Default constructor. */
 	FOneSkyListProjectGroupLanguagesResponseDataItem()
@@ -350,11 +350,11 @@ struct FOneSkyListProjectGroupLanguagesResponse
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		FOneSkyListProjectGroupLanguagesResponseMeta meta;
+	UPROPERTY()
+	FOneSkyListProjectGroupLanguagesResponseMeta meta;
 
 	UPROPERTY()
-		TArray<FOneSkyListProjectGroupLanguagesResponseDataItem> data;
+	TArray<FOneSkyListProjectGroupLanguagesResponseDataItem> data;
 
 	/** Default constructor. */
 	FOneSkyListProjectGroupLanguagesResponse()
@@ -376,11 +376,11 @@ struct FOneSkyListProjectsInGroupResponseMeta
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		int32 status;
+	UPROPERTY()
+	int32 status;
 
 	UPROPERTY()
-		int32 record_count;
+	int32 record_count;
 
 	/** Default constructor. */
 	FOneSkyListProjectsInGroupResponseMeta()
@@ -398,10 +398,10 @@ struct FOneSkyListProjectsInGroupResponseDataItem
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-		int32 id;
+	int32 id;
 
 	UPROPERTY()
-		FString name;
+	FString name;
 
 	/** Default constructor. */
 	FOneSkyListProjectsInGroupResponseDataItem()
@@ -426,7 +426,7 @@ struct FOneSkyListProjectsInGroupResponse
 	FOneSkyListProjectsInGroupResponseMeta meta;
 
 	UPROPERTY()
-		TArray<FOneSkyListProjectsInGroupResponseDataItem> data;
+	TArray<FOneSkyListProjectsInGroupResponseDataItem> data;
 
 	/** Default constructor. */
 	FOneSkyListProjectsInGroupResponse()
@@ -448,8 +448,8 @@ struct FOneSkyShowProjectResponseMeta
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		int32 status;
+	UPROPERTY()
+	int32 status;
 
 	/** Default constructor. */
 	FOneSkyShowProjectResponseMeta()
@@ -466,11 +466,11 @@ struct FOneSkyShowProjectResponseProjectType
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		FString code;
+	UPROPERTY()
+	FString code;
 
 	UPROPERTY()
-		FString name;
+	FString name;
 
 	/** Default constructor. */
 	FOneSkyShowProjectResponseProjectType()
@@ -488,22 +488,22 @@ struct FOneSkyShowProjectResponseData
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-		int32 id;
+	int32 id;
 
 	UPROPERTY()
-		FString name;
+	FString name;
 
 	UPROPERTY()
-		FString description;
+	FString description;
 
 	UPROPERTY()
-		FOneSkyShowProjectResponseProjectType project_type;
+	FOneSkyShowProjectResponseProjectType project_type;
 
 	UPROPERTY()
-		int32 string_count;
+	int32 string_count;
 
 	UPROPERTY()
-		int32 word_count;
+	int32 word_count;
 
 	/** Default constructor. */
 	FOneSkyShowProjectResponseData()
@@ -527,11 +527,11 @@ struct FOneSkyShowProjectResponse
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		FOneSkyShowProjectResponseMeta meta;
+	UPROPERTY()
+	FOneSkyShowProjectResponseMeta meta;
 
 	UPROPERTY()
-		FOneSkyShowProjectResponseData data;
+	FOneSkyShowProjectResponseData data;
 
 	/** Default constructor. */
 	FOneSkyShowProjectResponse()
@@ -554,7 +554,7 @@ struct FOneSkyCreateProjectResponseMeta
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-		int32 status;
+	int32 status;
 
 	/** Default constructor. */
 	FOneSkyCreateProjectResponseMeta()
@@ -572,10 +572,10 @@ struct FOneSkyCreateProjectResponseProjectType
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-		FString code;
+	FString code;
 
 	UPROPERTY()
-		FString name;
+	FString name;
 
 	/** Default constructor. */
 	FOneSkyCreateProjectResponseProjectType()
@@ -593,16 +593,16 @@ struct FOneSkyCreateProjectResponseData
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-		int32 id;
+	int32 id;
 
 	UPROPERTY()
-		FString name;
+	FString name;
 
 	UPROPERTY()
-		FString description;
+	FString description;
 
 	UPROPERTY()
-		FOneSkyShowProjectResponseProjectType project_type;
+	FOneSkyShowProjectResponseProjectType project_type;
 
 	/** Default constructor. */
 	FOneSkyCreateProjectResponseData()
@@ -651,10 +651,10 @@ struct FOneSkyListProjectLanguagesResponseMeta
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-		int32 status;
+	int32 status;
 
 	UPROPERTY()
-		int32 record_count;
+	int32 record_count;
 
 	/** Default constructor. */
 	FOneSkyListProjectLanguagesResponseMeta()
@@ -671,29 +671,29 @@ struct FOneSkyListProjectLanguagesResponseDataItem
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		FString code;
+	UPROPERTY()
+	FString code;
 
 	UPROPERTY()
-		FString english_name;
+	FString english_name;
 
 	UPROPERTY()
-		FString local_name;
+	FString local_name;
 
 	UPROPERTY()
-		FString locale;
+	FString locale;
 
 	UPROPERTY()
-		FString region;
+	FString region;
 
 	UPROPERTY()
-		bool is_base_language;
+	bool is_base_language;
 
 	UPROPERTY()
-		bool is_ready_to_publish;
+	bool is_ready_to_publish;
 
 	UPROPERTY()
-		FString translation_progress;
+	FString translation_progress;
 
 	/** Default constructor. */
 	FOneSkyListProjectLanguagesResponseDataItem()
@@ -721,10 +721,10 @@ struct FOneSkyListProjectLanguagesResponse
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-		FOneSkyListProjectLanguagesResponseMeta meta;
+	FOneSkyListProjectLanguagesResponseMeta meta;
 
 	UPROPERTY()
-		TArray<FOneSkyListProjectLanguagesResponseDataItem> data;
+	TArray<FOneSkyListProjectLanguagesResponseDataItem> data;
 
 	/** Default constructor. */
 	FOneSkyListProjectLanguagesResponse()
@@ -746,8 +746,8 @@ struct FOneSkyTranslationStatusResponseMeta
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		int32 status;
+	UPROPERTY()
+	int32 status;
 
 	/** Default constructor. */
 	FOneSkyTranslationStatusResponseMeta()
@@ -765,19 +765,19 @@ struct FOneSkyTranslationStatusResponseLocale
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-		FString code;
+	FString code;
 
 	UPROPERTY()
-		FString english_name;
+	FString english_name;
 
 	UPROPERTY()
-		FString local_name;
+	FString local_name;
 
 	UPROPERTY()
-		FString locale;
+	FString locale;
 
 	UPROPERTY()
-		FString region;
+	FString region;
 
 	/** Default constructor. */
 	FOneSkyTranslationStatusResponseLocale()
@@ -798,19 +798,19 @@ struct FOneSkyTranslationStatusResponseData
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-		FString file_name;
+	FString file_name;
 
 	UPROPERTY()
-		FOneSkyTranslationStatusResponseLocale locale;
+	FOneSkyTranslationStatusResponseLocale locale;
 
 	UPROPERTY()
-		FString progress;
+	FString progress;
 
 	UPROPERTY()
-		int32 string_count;
+	int32 string_count;
 
 	UPROPERTY()
-		int32 word_count;
+	int32 word_count;
 
 	/** Default constructor. */
 	FOneSkyTranslationStatusResponseData()
@@ -835,10 +835,10 @@ struct FOneSkyTranslationStatusResponse
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-		FOneSkyTranslationStatusResponseMeta meta;
+	FOneSkyTranslationStatusResponseMeta meta;
 
 	UPROPERTY()
-		FOneSkyTranslationStatusResponseData data;
+	FOneSkyTranslationStatusResponseData data;
 
 	/** Default constructor. */
 	FOneSkyTranslationStatusResponse()
@@ -860,26 +860,26 @@ struct FOneSkyListUploadedFilesResponseMeta
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		int32 status;
+	UPROPERTY()
+	int32 status;
 
 	UPROPERTY()
-		int32 record_count;
+	int32 record_count;
 
 	UPROPERTY()
-		int32 page_count;
+	int32 page_count;
 
 	UPROPERTY()
-		FString next_page;
+	FString next_page;
 
 	UPROPERTY()
-		FString prev_page;
+	FString prev_page;
 
 	UPROPERTY()
-		FString first_page;
+	FString first_page;
 
 	UPROPERTY()
-		FString last_page;
+	FString last_page;
 
 	/** Default constructor. */
 	FOneSkyListUploadedFilesResponseMeta()
@@ -902,10 +902,10 @@ struct FOneSkyListUploadedFilesResponseLastImport
 	GENERATED_USTRUCT_BODY()
 
 		UPROPERTY()
-		int32 id;
+	int32 id;
 
 	UPROPERTY()
-		FString status;
+	FString status;
 
 	/** Default constructor. */
 	FOneSkyListUploadedFilesResponseLastImport()
@@ -924,19 +924,19 @@ struct FOneSkyListUploadedFilesResponseDataItem
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-		FString file_name;
+	FString file_name;
 
 	UPROPERTY()
-		int32 string_count;
+	int32 string_count;
 
 	UPROPERTY()
-		FOneSkyListUploadedFilesResponseLastImport last_import;
+	FOneSkyListUploadedFilesResponseLastImport last_import;
 
 	UPROPERTY()
-		FString uploaded_at;
+	FString uploaded_at;
 
 	UPROPERTY()
-		int32 uploaded_at_timestamp;
+	int32 uploaded_at_timestamp;
 
 	/** Default constructor. */
 	FOneSkyListUploadedFilesResponseDataItem()
@@ -960,11 +960,11 @@ struct FOneSkyListUploadedFilesResponse
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		FOneSkyListUploadedFilesResponseMeta meta;
+	UPROPERTY()
+	FOneSkyListUploadedFilesResponseMeta meta;
 
 	UPROPERTY()
-		TArray<FOneSkyListUploadedFilesResponseDataItem> data;
+	TArray<FOneSkyListUploadedFilesResponseDataItem> data;
 
 	/** Default constructor. */
 	FOneSkyListUploadedFilesResponse()
@@ -986,7 +986,7 @@ struct FOneSkyUploadFileResponseMeta
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-		int32 status;
+	int32 status;
 
 	/** Default constructor. */
 	FOneSkyUploadFileResponseMeta()
@@ -1003,20 +1003,20 @@ struct FOneSkyUploadFileResponseLanguage
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		FString code;
+	UPROPERTY()
+	FString code;
 
 	UPROPERTY()
-		FString english_name;
+	FString english_name;
 
 	UPROPERTY()
-		FString local_name;
+	FString local_name;
 
 	UPROPERTY()
-		FString locale;
+	FString locale;
 
 	UPROPERTY()
-		FString region;
+	FString region;
 
 	/** Default constructor. */
 	FOneSkyUploadFileResponseLanguage()
@@ -1037,13 +1037,13 @@ struct FOneSkyUploadedFileResponseImport
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-		int32 id;
+	int32 id;
 
 	UPROPERTY()
-		FString created_at;
+	FString created_at;
 
 	UPROPERTY()
-		int32 created_at_timestamp;
+	int32 created_at_timestamp;
 
 	/** Default constructor. */
 	FOneSkyUploadedFileResponseImport()
@@ -1061,17 +1061,17 @@ struct FOneSkyUploadFileResponseData
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		FString name;
+	UPROPERTY()
+	FString name;
 
 	UPROPERTY()
-		FString format;
+	FString format;
 
 	UPROPERTY()
-		FOneSkyUploadFileResponseLanguage language;
+	FOneSkyUploadFileResponseLanguage language;
 
 	UPROPERTY()
-		FOneSkyUploadedFileResponseImport import;
+	FOneSkyUploadedFileResponseImport import;
 
 	/** Default constructor. */
 	FOneSkyUploadFileResponseData()
@@ -1098,7 +1098,7 @@ struct FOneSkyUploadFileResponse
 	FOneSkyUploadFileResponseMeta meta;
 
 	UPROPERTY()
-		FOneSkyUploadFileResponseData data;
+	FOneSkyUploadFileResponseData data;
 
 	/** Default constructor. */
 	FOneSkyUploadFileResponse()
@@ -1120,26 +1120,26 @@ struct FOneSkyListPhraseCollectionsResponseMeta
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		int32 status;
+	UPROPERTY()
+	int32 status;
 
 	UPROPERTY()
-		int32 record_count;
+	int32 record_count;
 
 	UPROPERTY()
-		int32 page_count;
+	int32 page_count;
 
 	UPROPERTY()
-		FString next_page;
+	FString next_page;
 
 	UPROPERTY()
-		FString prev_page;
+	FString prev_page;
 
 	UPROPERTY()
-		FString first_page;
+	FString first_page;
 
 	UPROPERTY()
-		FString last_page;
+	FString last_page;
 
 	/** Default constructor. */
 	FOneSkyListPhraseCollectionsResponseMeta()
@@ -1161,14 +1161,14 @@ struct FOneSkyListPhraseCollectionsResponseDataItem
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		FString key;
+	UPROPERTY()
+	FString key;
 
 	UPROPERTY()
-		FString created_at;
+	FString created_at;
 
 	UPROPERTY()
-		int32 created_at_timestamp;
+	int32 created_at_timestamp;
 
 	/** Default constructor. */
 	FOneSkyListPhraseCollectionsResponseDataItem()
@@ -1190,11 +1190,11 @@ struct FOneSkyListPhraseCollectionsResponse
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		FOneSkyListPhraseCollectionsResponseMeta meta;
+	UPROPERTY()
+	FOneSkyListPhraseCollectionsResponseMeta meta;
 
 	UPROPERTY()
-		TArray<FOneSkyListPhraseCollectionsResponseDataItem> data;
+	TArray<FOneSkyListPhraseCollectionsResponseDataItem> data;
 
 	/** Default constructor. */
 	FOneSkyListPhraseCollectionsResponse()
@@ -1237,16 +1237,16 @@ struct FOneSkyShowImportTaskResponseLocale
 	FString code;
 
 	UPROPERTY()
-		FString english_name;
+	FString english_name;
 
 	UPROPERTY()
-		FString local_name;
+	FString local_name;
 
 	UPROPERTY()
-		FString locale;
+	FString locale;
 
 	UPROPERTY()
-		FString region;
+	FString region;
 
 	/** Default constructor. */
 	FOneSkyShowImportTaskResponseLocale()

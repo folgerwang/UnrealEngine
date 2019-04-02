@@ -67,11 +67,11 @@ $ bCompileICU (Boolean): Core 의 ICU 유니코드/i18n 지원 여부입니다.
 
 $ bCompileCEF3 (Boolean): CEF3 지원 컴파일 여부입니다.
 
-$ bBuildEditor (Boolean): 에디터 컴파일 여부입니다. 데스크톱 플랫폼만 (윈도우 또는 맥) 이를 사용하며, 다른 플랫폼에서는 강제 false 설정됩니다.
+$ bBuildEditor (Boolean): 에디터 컴파일 여부입니다. 데스크톱 플랫폼만 (Windows 또는 Mac) 이를 사용하며, 다른 플랫폼에서는 강제 false 설정됩니다.
 
 $ bBuildRequiresCookedData (Boolean): 애셋 빌드 관련 코드 컴파일 여부입니다. 콘솔은 보통 애셋을 빌드할 수 없습니다. 데스크톱 플랫폼은 보통 할 수 있습니다.
 
-$ bBuildWithEditorOnlyData (Boolean): WITH_EDITORONLY_DATA 비활성화된 것의 컴파일 여부입니다. 윈도우에서만 이를 사용하며, 다른 플랫폼에서는 강제로 false 설정됩니다.
+$ bBuildWithEditorOnlyData (Boolean): WITH_EDITORONLY_DATA 비활성화된 것의 컴파일 여부입니다. Windows에서만 이를 사용하며, 다른 플랫폼에서는 강제로 false 설정됩니다.
 
 $ bBuildDeveloperTools (Boolean): 개발자 툴 컴파일 여부입니다.
 
@@ -221,7 +221,7 @@ $ bCheckLicenseViolations (Boolean): UBT 가 현재 빌드중인 모듈이 EULA 
 
 $ bBreakBuildOnLicenseViolation (Boolean): UBT 더러 현재 빌드 중인 모듈이 EULA 를 침해하는지 여부를 검사하도록 합니다.
 
-$ bUseFastPDBLinking (Nullable&lt;Boolean&gt;): 윈도우에서 로컬 PDB 생성을 위해 /DEBUG 로 빌드 시 :FASTLINK 옵션 사용 여부입니다. 빠르지만, 현재 디버거에서 심볼을 찾는 데 문제가 있는 것 같습니다.
+$ bUseFastPDBLinking (Nullable&lt;Boolean&gt;): Windows에서 로컬 PDB 생성을 위해 /DEBUG 로 빌드 시 :FASTLINK 옵션 사용 여부입니다. 빠르지만, 현재 디버거에서 심볼을 찾는 데 문제가 있는 것 같습니다.
 
 $ bCreateMapFile (Boolean): 맵 파일을 빌드의 일부로 출력합니다.
 
@@ -263,9 +263,9 @@ $ ExtraModuleNames (List&lt;String&gt;): 타깃에 컴파일시킬 부가 모듈
 
 $ BuildEnvironment (TargetBuildEnvironment): 이 타깃에 대한 빌드 환경을 지정합니다. 사용 가능 옵션에 대한 상세 정보는 TargetBuildEnvironment 를 참고하세요.
 
-$ PreBuildSteps (List&lt;String&gt;): 이 타깃을 빌드하기 전, 호스트 플랫폼의 셸 맥락에서 실행해야 하는 스텝 목록을 지정합니다. 실행 전 다음 변수가 확장됩니다: $(EngineDir), $(ProjectDir), $(TargetName), $(TargetPlatform), $(TargetConfiguration), $(TargetType), $(ProjectFile).
+$ PreBuildSteps (List&lt;String&gt;): 이 타깃을 빌드하기 전, 호스트 플랫폼의 셸 컨텍스트에서 실행해야 하는 스텝 목록을 지정합니다. 실행 전 다음 변수가 확장됩니다: $(EngineDir), $(ProjectDir), $(TargetName), $(TargetPlatform), $(TargetConfiguration), $(TargetType), $(ProjectFile).
 
-$ PostBuildSteps (List&lt;String&gt;): 이 타깃을 빌드한 후, 호스트 플랫폼의 셸 맥락에서 실행해야 하는 스텝 목록을 지정합니다. 실행 전 다음 변수가 확장됩니다: $(EngineDir), $(ProjectDir), $(TargetName), $(TargetPlatform), $(TargetConfiguration), $(TargetType), $(ProjectFile).
+$ PostBuildSteps (List&lt;String&gt;): 이 타깃을 빌드한 후, 호스트 플랫폼의 셸 컨텍스트에서 실행해야 하는 스텝 목록을 지정합니다. 실행 전 다음 변수가 확장됩니다: $(EngineDir), $(ProjectDir), $(TargetName), $(TargetPlatform), $(TargetConfiguration), $(TargetType), $(ProjectFile).
 
 $ AdditionalCompilerArguments (String): 컴파일러에 전달할 부가 인수입니다.
 

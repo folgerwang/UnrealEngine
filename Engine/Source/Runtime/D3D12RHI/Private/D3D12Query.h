@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 D3D12Query.h: Implementation of D3D12 Query
@@ -78,7 +78,6 @@ private:
 	{
 	public:
 		uint32 StartElement;    // The first element in the batch (inclusive)
-		uint32 EndElement;      // The last element in the batch (inclusive)
 		uint32 ElementCount;    // The number of elements in the batch
 		bool bOpen;             // Is the batch still open for more begin/end queries?
 		
@@ -95,7 +94,6 @@ private:
 		inline void Clear()
 		{
 			StartElement = 0;
-			EndElement = 0;
 			ElementCount = 0;
 			bOpen = false;
 			RenderQueries.Reset();
@@ -127,12 +125,8 @@ private:
 	void StartQueryBatch(); // Start tracking a new batch of begin/end query calls that will be resolved together
 
 	uint32 GetNextElement(uint32 InElement); // Get the next element, after the specified element. Handles overflow.
-	uint32 GetPreviousElement(uint32 InElement); // Get the previous element, before the specified element. Handles underflow.
-	bool IsHeapFull();
-	bool IsHeapEmpty() const { return ActiveAllocatedElementCount == 0; }
 
 	uint32 GetNextBatchElement(uint32 InBatchElement);
-	uint32 GetPreviousBatchElement(uint32 InBatchElement);
 
 	void CreateQueryHeap();
 	void CreateResultBuffer();
@@ -147,8 +141,6 @@ private:
 	const uint32 MaxActiveBatches;                      // The max number of query batches that will be held.
 	uint32 LastBatch;                                   // The index of the newest batch.
 
-	uint32 HeadActiveElement;                   // The oldest element that is in use (Active). The data for this element is being used.
-	uint32 TailActiveElement;                   // The most recent element that is in use (Active). The data for this element is being used.
 	uint32 ActiveAllocatedElementCount;         // The number of elements that are in use (Active). Between the head and the tail.
 
 	uint32 LastAllocatedElement;                // The last element that was allocated for BeginQuery
@@ -156,6 +148,87 @@ private:
 	D3D12_QUERY_HEAP_DESC QueryHeapDesc;        // The description of the current query heap
 	D3D12_QUERY_TYPE QueryType;
 	TRefCountPtr<ID3D12QueryHeap> QueryHeap;    // The query heap where all elements reside
+	FD3D12ResidencyHandle QueryHeapResidencyHandle;
 	TRefCountPtr<FD3D12Resource> ResultBuffer;  // The buffer where all query results are stored
 	void* pResultData;
+};
+
+/**
+ * A simple linear query allocator.
+ * Never resolve or cleanup until results are explicitly requested.
+ * Begin/EndQuery are thread-safe but other methods are not. Make sure no thread may
+ * call Begin/EndQuery before calling FlushAndGetResults.
+ * Only used in ProfileGPU to hold command list start/end timestamp queries currently
+ */
+class FD3D12LinearQueryHeap final : public FD3D12DeviceChild, public FD3D12SingleNodeGPUObject
+{
+public:
+	enum EHeapState
+	{
+		HS_Open,
+		HS_Closed
+	};
+
+	FD3D12LinearQueryHeap(class FD3D12Device* InParent, D3D12_QUERY_HEAP_TYPE InHeapType, int32 GrowCount);
+	~FD3D12LinearQueryHeap();
+
+	/**
+	 * Allocate a slot on query heap and queue a BeginQuery command to the given list
+	 * @param CmdListHandle - a handle to the command list where BeginQuery will be called
+	 * @return index of the allocated query
+	 */
+	int32 BeginQuery(FD3D12CommandListHandle CmdListHandle);
+
+	/**
+	* Allocate a slot on query heap and queue an EndQuery command to the given list
+	* @param CmdListHandle - a handle to the command list where EndQuery will be called
+	* @return index of the allocated query
+	*/
+	int32 EndQuery(FD3D12CommandListHandle CmdListHandle);
+
+	/** Get results of all allocated queries and reset */
+	void FlushAndGetResults(TArray<uint64>& QueryResults, bool bReleaseResources = true);
+
+private:
+	struct FChunk
+	{
+		TRefCountPtr<ID3D12QueryHeap> QueryHeap;
+		FD3D12ResidencyHandle QueryHeapResidencyHandle;
+	};
+
+	static D3D12_QUERY_TYPE HeapTypeToQueryType(D3D12_QUERY_HEAP_TYPE HeapType);
+
+	/** Release all allocated query */
+	void Reset();
+
+	/** Returns an index to the allocated heap slot */
+	int32 AllocateQueryHeapSlot();
+	
+	/** Grow the allocator's backing memory */
+	void Grow();
+
+	/** Helper to create a new query heap */
+	void CreateQueryHeap(int32 NumQueries, ID3D12QueryHeap** OutHeap, FD3D12ResidencyHandle& OutResidencyHandle);
+
+	/** Helper to create a readback buffer used to hold query results */
+	void CreateResultBuffer(uint64 SizeInBytes, FD3D12Resource** OutBuffer);
+
+	/** Release all allocated query heaps and detach them from residency manager */
+	void ReleaseResources();
+
+	/** This allocator can allocate up to (MaxNumChunks * GrowNumQueries) queries before a manual flush is needed */
+	static constexpr int32 MaxNumChunks = 8;
+	/** Size in bytes of a single query result */
+	static constexpr SIZE_T ResultSize = sizeof(uint64);
+
+	const D3D12_QUERY_HEAP_TYPE QueryHeapType;
+	const D3D12_QUERY_TYPE QueryType;
+	const int32 GrowNumQueries;
+	const int32 SlotToHeapIdxShift;
+	EHeapState HeapState;
+	volatile int32 NextFreeIdx;
+	volatile int32 CurMaxNumQueries;
+	volatile int32 NextChunkIdx;
+	FChunk AllocatedChunks[MaxNumChunks];
+	FCriticalSection CS;
 };

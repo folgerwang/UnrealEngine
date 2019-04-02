@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Input/Reply.h"
 
@@ -26,4 +26,20 @@ FReply& FReply::ClearUserFocus(EFocusCause ReasonFocusIsChanging, bool bInAllUse
 	this->bSetUserFocus = false;
 	this->bAllUsers = bInAllUsers;
 	return Me();
+}
+
+FString FReply::ToString()
+{
+	FString HandledStr = IsEventHandled() ? TEXT("Handled") : TEXT("Unhandled");
+
+	if (bReleaseMouseCapture)
+	{
+		HandledStr += TEXT("+ReleaseMouseCapture");
+	}
+	if (bSetUserFocus)
+	{
+		HandledStr += TEXT("+SetUserFocus");
+	}
+
+	return HandledStr;
 }

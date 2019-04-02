@@ -1,77 +1,53 @@
-﻿INTSourceChangelist:3076265
+﻿INTSourceChangelist:3782314
 Availability: Public
-Title:安卓快速入门
+Title:Android快速入门
 Crumbs:%ROOT%, Platforms, Platforms/Android
-Description:Setting up for development for the Android platform.
-Version:4.12
+Description:进行Android平台的开发设置。
+Version:4.17
 Skilllevel:Intermediate
 tags:Android
 tags:Mobile
-type:quickstart
+type:quick start
 parent:Platforms/Android
 order:1
 Checkpoint:AndroidQS
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](AndroidTopic.jpg)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Android/GettingStarted:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Android/GettingStarted]
-	[/PARAM]
-	[PARAM:description]
-	%Platforms/Android/GettingStarted:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](AndroidTopic.jpg)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Android/GettingStarted:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Android/GettingStarted]
-	[/PARAM]
-	[PARAM:description]
-	%Platforms/Android/GettingStarted:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:AndroidTopic.jpg
 
 ![](AndroidTopic.jpg)
 
-“安卓快速入门”将指导您设置计算机和安卓设备以便进行部署，以及使用启动和打包功能将模板游戏放入您的设备。
+虚幻引擎 4（UE4）使用的是特殊版本的 Android 软件开发套件（SDK），名为 **CodeWorks for Android 1R6u1**。设置用 UE4 开发 Android 项目所需的 SDK 和原生开发套件（NDK）时，使用该版本的CodeWorks for Android最为便利。虽然当前使用的是1R6u1版本，但之后将使用CodeWorks的更新版本。如果已安装Android SDK的其他版本（或CodeWorks for Android的更早版本），建议您将其卸载，使用UE4自带的CodeWorks for Android安装程序来进行安装。 
+
+[region:note]
+我们已将CodeWorks for Android安装程序和UE4绑定，确保Android SDK与虚幻引擎相互兼容。 
+在虚幻引擎4.18版本中，Gradle编译系统默认启用。但需要在 **项目设置（Project Settings）** > **Android** 中接受SDK授权协议（如之前已接受协议，则按钮被禁用）。按下按钮、阅读协议，然后选择接受协议。操作完成后按钮将变成灰色。取消勾选 **启用Gradle替代Ant（Enable Gradle instead of Ant）** 后，即可在4.18版本中继续使用Ant编译系统。
+
+![](AQS_AcceptSDKLicense.png)
+[/region]
 
 
-## 目的
 
-这篇安卓快速入门旨在帮助用户完成最基础的 PC 或者 Mac 的设置，以便使用虚幻引擎 4 来进行安卓的开发。
+
+
+(#goals)
 
 ## 目标
 
-* 安装并设置 Android SDK。
-* 将安卓设备为开发做好准备。
-* 为安卓平台开发创建项目。
-* 如何将一个关卡场景部署到安卓设备上。
-* 如何面向发行版本打包游戏。
+此Android快速入门指南重在介绍如何对计算机进行设置，以便用虚幻引擎4进行Android开发。
+此指南还将说明如何利用虚幻编辑器的启动和打包功能将游戏模板导入Android设备。
+
+(#objectives)
+
+## 任务
+
+* 安装并设置Android SDK。
+* 设置用于开发的Android设备。
+* 针对Android移动开发创建一个项目。
+* 如何将关卡部署到Android设备上。
+* 如何打包游戏进行发布。
 
 [DIR(output:"checkpoint" parent:"Platforms/Android/GettingStarted")]
-
-[region:note]
-虚幻引擎 4（UE4）现在使用一个特别的 Android SDK 版本，叫做 **Android Works**。
-这一版本为 UE4 的安卓项目开发做好了准备，如果安装有其他 Android SDK 的话，我们 **强烈建议** 先将它们卸载，然后使用 UE4 中自带的 Android Works 重新安装 Android SDK。
-如此来确保当前使用的 Android SDK 能够和 UE4 很好的兼容。
-[/region]
 
 [REGION:call_to_action]
  [点击开始](Platforms/Android/GettingStarted/1 "%Platforms/Android/GettingStarted/1:title%")
 [/REGION]
+

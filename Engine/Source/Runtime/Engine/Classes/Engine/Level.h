@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -472,15 +472,6 @@ public:
 	/** Fence used to track when the rendering thread has finished referencing this ULevel's resources. */
 	FRenderCommandFence							RemoveFromSceneFence;
 
-	/** 
-	 * Whether the level is a lighting scenario.  Lighting is built separately for each lighting scenario level with all other scenario levels hidden. 
-	 * Only one lighting scenario level should be visible at a time for correct rendering, and lightmaps from that level will be used on the rest of the world.
-	 * Note: When a lighting scenario level is present, lightmaps for all streaming levels are placed in the scenario's _BuildData package.  
-	 *		This means that lightmaps for those streaming levels will not be streamed with them.
-	 */
-	UPROPERTY()
-	bool bIsLightingScenario;
-
 	/** Identifies map build data specific to this level, eg lighting volume samples. */
 	UPROPERTY()
 	FGuid LevelBuildDataId;
@@ -495,6 +486,15 @@ public:
 	/** Level offset at time when lighting was built */
 	UPROPERTY()
 	FIntVector LightBuildLevelOffset;
+
+	/** 
+	 * Whether the level is a lighting scenario.  Lighting is built separately for each lighting scenario level with all other scenario levels hidden. 
+	 * Only one lighting scenario level should be visible at a time for correct rendering, and lightmaps from that level will be used on the rest of the world.
+	 * Note: When a lighting scenario level is present, lightmaps for all streaming levels are placed in the scenario's _BuildData package.  
+	 *		This means that lightmaps for those streaming levels will not be streamed with them.
+	 */
+	UPROPERTY()
+	uint8 bIsLightingScenario:1;
 
 	/** Whether components are currently registered or not. */
 	uint8										bAreComponentsCurrentlyRegistered:1;
@@ -536,8 +536,10 @@ public:
 	uint8										bAlreadyUpdatedComponents:1;
 	/** Whether we already associated streamable resources.									*/
 	uint8										bAlreadyAssociatedStreamableResources:1;
-	/** Whether we already initialized network actors.											*/
+	/** Whether we already initialized network actors.										*/
 	uint8										bAlreadyInitializedNetworkActors:1;
+	/** Whether we already cleared AActor::bActorSeamlessTraveled.							*/
+	uint8										bAlreadyClearedActorsSeamlessTravelFlag:1;
 	/** Whether we already routed initialize on actors.										*/
 	uint8										bAlreadyRoutedActorInitialize:1;
 	/** Whether we already sorted the actor list.											*/
@@ -565,7 +567,7 @@ public:
 
 
 	/** Whether the level is currently pending being made visible.							*/
-	DEPRECATED(4.15, "Use HasVisibilityChangeRequestPending")
+	UE_DEPRECATED(4.15, "Use HasVisibilityChangeRequestPending")
 	bool HasVisibilityRequestPending() const;
 
 	/** Whether the level is currently pending being made invisible or visible.				*/
@@ -750,6 +752,8 @@ public:
 
 	/** Handles network initialization for actors in this level */
 	void InitializeNetworkActors();
+
+	void ClearActorsSeamlessTraveledFlag();
 
 	/** Initializes rendering resources for this level. */
 	ENGINE_API void InitializeRenderingResources();

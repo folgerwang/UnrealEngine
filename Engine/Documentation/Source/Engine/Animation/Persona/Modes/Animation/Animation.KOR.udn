@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3484673
-Availability: Docs
+﻿INTSourceChangelist:4326187
+Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Persona, Engine/Animation/Persona/Modes
 Title:애니메이션 에디터
 Description:언리얼 엔진 4 의 애니메이션 에디터 핵심 기능에 대한 개요입니다.
@@ -53,7 +53,7 @@ topic-image:animEditor_topic.png
 
 ## 5. 애셋 에디터
 
-[애셋 에디터](Engine/Animation/Persona/AssetEditor) 는 열린 애니메이션 애셋의 유형에 따라 인터페이스 레이아웃 및 옵션이 변하는 맥락 의존적 에디터입니다. 이 창 안에서 애님 시퀀스, 블렌드 스페이스, 애님 몽타주, 기타 애니메이션 애셋의 변경은 물론 하단에 위치한 툴바에서 애니메이션 재생( 또는 새 애니메이션 녹화)도 가능합니다.
+[애셋 에디터](Engine/Animation/Persona/AssetEditor) 는 열린 애니메이션 애셋의 유형에 따라 인터페이스 레이아웃 및 옵션이 컨텍스트에 따라 바뀌는 에디터입니다. 이 창 안에서 애님 시퀀스, 블렌드 스페이스, 애님 몽타주, 기타 애니메이션 애셋의 변경은 물론 하단에 위치한 툴바에서 애니메이션 재생( 또는 새 애니메이션 녹화)도 가능합니다.
 
 ## 6. 애셋 브라우저
 

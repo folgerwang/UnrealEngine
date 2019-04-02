@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 D3D12Texture.h: Implementation of D3D12 Texture
@@ -12,7 +12,8 @@ void SafeCreateTexture2D(FD3D12Device* pDevice,
 	FD3D12ResourceLocation* OutTexture2D, 
 	uint8 Format, 
 	uint32 Flags,
-	D3D12_RESOURCE_STATES InitialState);
+	D3D12_RESOURCE_STATES InitialState,
+	const TCHAR* Name);
 
 
 /** Texture base class. */
@@ -91,7 +92,23 @@ public:
 	FD3D12BaseShaderResource* GetBaseShaderResource() const { return BaseShaderResource; }
 	void SetShaderResourceView(FD3D12ShaderResourceView* InShaderResourceView) { ShaderResourceView = InShaderResourceView; }
 
+	static inline bool ShouldDeferCmdListOperation(FRHICommandList* RHICmdList)
+	{
+		if (RHICmdList == nullptr)
+		{
+			return false;
+		}
+
+		if (RHICmdList->Bypass() || !IsRunningRHIInSeparateThread())
+		{
+			return false;
+		}
+
+		return true;
+	}
+
 	void UpdateTexture(const D3D12_TEXTURE_COPY_LOCATION& DestCopyLocation, uint32 DestX, uint32 DestY, uint32 DestZ, const D3D12_TEXTURE_COPY_LOCATION& SourceCopyLocation);
+	void InitializeTextureData(class FRHICommandListImmediate* RHICmdList, const void* InitData, uint32 InitDataSize, uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint32 NumSlices, uint32 NumMips, EPixelFormat Format, D3D12_RESOURCE_STATES DestinationState);
 
 	/**
 	* Get the render target view for the specified mip and array slice.
@@ -252,21 +269,6 @@ public:
 
 	//* Update the contents of the Texture2D using a Copy command */
 	void UpdateTexture2D(class FRHICommandListImmediate* RHICmdList, uint32 MipIndex, const struct FUpdateTextureRegion2D& UpdateRegion, uint32 SourcePitch, const uint8* SourceData);
-
-	inline bool ShouldDeferCmdListOperation(FRHICommandList* RHICmdList)
-	{
-		if (RHICmdList == nullptr)
-		{
-			return false;
-		}
-
-		if (RHICmdList->Bypass() || !IsRunningRHIInSeparateThread())
-		{
-			return false;
-		}
-
-		return true;
-	}
 
 	// Accessors.
 	FD3D12Resource* GetResource() const { return (FD3D12Resource*)FD3D12TextureBase::GetResource(); }

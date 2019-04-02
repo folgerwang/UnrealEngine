@@ -1,9 +1,13 @@
-﻿INTSourceChangelist:1950578
+﻿INTSourceChangelist:3467293
 Availability:Public
 Title: 时间轴
-Crumbs: %ROOT%, Engine/Blueprints, Engine/Blueprints/UserGuide
+Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide
 Description: 本文概述了虚幻引擎4 的蓝图中的时间轴方面的内容。
 version: 4.9
+Parent:Engine/Blueprints
+type:overview
+tags:Blueprints
+topic-image:timeline_topic.png
 
 ![k2_timeline_demo.png](k2_timeline_demo.png)
 
@@ -74,6 +78,7 @@ version: 4.9
 [/OBJECT]
 [/REGION]
 
+(#InputsandOutputs)
 ## 输入和输出
 
 ![k2_timeline_node.png](k2_timeline_node.png)
@@ -100,6 +105,7 @@ version: 4.9
 [/REGION]
 
 
+(#TimelineExamples)
 ## 时间轴示例
 
 [REGION:topics fourth]

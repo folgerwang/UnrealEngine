@@ -1,17 +1,16 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-
-#include "DisplayClusterClusterNodeCtrlMaster.h"
+#include "Cluster/Controller/DisplayClusterClusterNodeCtrlMaster.h"
 
 #include "Config/IPDisplayClusterConfigManager.h"
 #include "Network/Service/ClusterSync/DisplayClusterClusterSyncService.h"
 #include "Network/Service/SwapSync/DisplayClusterSwapSyncService.h"
-
-#include "Misc/DisplayClusterLog.h"
-#include "DisplayClusterGlobals.h"
-#include "IPDisplayCluster.h"
+#include "Network/Service/ClusterEvents/DisplayClusterClusterEventsService.h"
 
 #include "Misc/App.h"
+#include "Misc/DisplayClusterLog.h"
+
+#include "DisplayClusterGlobals.h"
 
 
 FDisplayClusterClusterNodeCtrlMaster::FDisplayClusterClusterNodeCtrlMaster(const FString& ctrlName, const FString& nodeName) :
@@ -34,6 +33,14 @@ void FDisplayClusterClusterNodeCtrlMaster::GetTimecode(FTimecode& timecode, FFra
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
+// IPDisplayClusterClusterEventsProtocol
+//////////////////////////////////////////////////////////////////////////////////////////////
+void FDisplayClusterClusterNodeCtrlMaster::EmitClusterEvent(const FDisplayClusterClusterEvent& Event)
+{
+	UE_LOG(LogDisplayClusterCluster, Warning, TEXT("This should never be called!"));
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////
 // IPDisplayClusterNodeController
 //////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -48,6 +55,12 @@ void FDisplayClusterClusterNodeCtrlMaster::GetSyncData(FDisplayClusterMessage::D
 }
 
 void FDisplayClusterClusterNodeCtrlMaster::GetInputData(FDisplayClusterMessage::DataType& data)
+{
+	// Override slave implementation with empty one.
+	// There is no need to sync on master side since it have source data being synced.
+}
+
+void FDisplayClusterClusterNodeCtrlMaster::GetEventsData(FDisplayClusterMessage::DataType& data)
 {
 	// Override slave implementation with empty one.
 	// There is no need to sync on master side since it have source data being synced.
@@ -80,12 +93,26 @@ bool FDisplayClusterClusterNodeCtrlMaster::InitializeServers()
 	}
 
 	// Instantiate node servers
-	UE_LOG(LogDisplayClusterCluster, Log, TEXT("Servers: addr %s, port_cs %d, port_ss %d"), *masterCfg.Addr, masterCfg.Port_CS, masterCfg.Port_SS);
+	UE_LOG(LogDisplayClusterCluster, Log, TEXT("Servers: addr %s, port_cs %d, port_ss %d, port_ce %d"), *masterCfg.Addr, masterCfg.Port_CS, masterCfg.Port_SS, masterCfg.Port_CE);
 	ClusterSyncServer.Reset(new FDisplayClusterClusterSyncService(masterCfg.Addr, masterCfg.Port_CS));
 	SwapSyncServer.Reset(new FDisplayClusterSwapSyncService(masterCfg.Addr, masterCfg.Port_SS));
+	ClusterEventsServer.Reset(new FDisplayClusterClusterEventsService(masterCfg.Addr, masterCfg.Port_CE));
 
-	return ClusterSyncServer.IsValid() && SwapSyncServer.IsValid();
+	return ClusterSyncServer.IsValid() && SwapSyncServer.IsValid() && ClusterEventsServer.IsValid();
 }
+
+
+
+#define SERVER_START(SRV, RESULT) \
+	if (SRV->Start()) \
+	{ \
+		UE_LOG(LogDisplayClusterCluster, Log, TEXT("%s started"), *SRV->GetName()); \
+	} \
+	else \
+	{ \
+		UE_LOG(LogDisplayClusterCluster, Error, TEXT("%s failed to start"), *SRV->GetName()); \
+		RESULT = false; \
+	} \
 
 bool FDisplayClusterClusterNodeCtrlMaster::StartServers()
 {
@@ -96,29 +123,17 @@ bool FDisplayClusterClusterNodeCtrlMaster::StartServers()
 
 	UE_LOG(LogDisplayClusterCluster, Log, TEXT("%s - starting master servers..."), *GetControllerName());
 
-	// CS server start
-	if (ClusterSyncServer->Start())
-	{
-		UE_LOG(LogDisplayClusterCluster, Log, TEXT("%s started"), *ClusterSyncServer->GetName());
-	}
-	else
-	{
-		UE_LOG(LogDisplayClusterCluster, Error, TEXT("%s failed to start"), *ClusterSyncServer->GetName());
-	}
-
-	// SS server start
-	if (SwapSyncServer->Start())
-	{
-		UE_LOG(LogDisplayClusterCluster, Log, TEXT("%s started"), *SwapSyncServer->GetName());
-	}
-	else
-	{
-		UE_LOG(LogDisplayClusterCluster, Error, TEXT("%s failed to start"), *SwapSyncServer->GetName());
-	}
+	bool Result = true;
+	SERVER_START(ClusterSyncServer, Result);
+	SERVER_START(SwapSyncServer, Result);
+	SERVER_START(ClusterEventsServer, Result);
 
 	// Start the servers
-	return ClusterSyncServer->IsRunning() && SwapSyncServer->IsRunning();
+	return Result;
 }
+
+#undef SERVER_START
+
 
 void FDisplayClusterClusterNodeCtrlMaster::StopServers()
 {
@@ -126,6 +141,7 @@ void FDisplayClusterClusterNodeCtrlMaster::StopServers()
 
 	ClusterSyncServer->Shutdown();
 	SwapSyncServer->Shutdown();
+	ClusterEventsServer->Shutdown();
 }
 
 bool FDisplayClusterClusterNodeCtrlMaster::InitializeClients()

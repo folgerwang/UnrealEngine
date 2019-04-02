@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "BoneControllers/AnimNode_TwoBoneIK.h"
 #include "Engine/Engine.h"
@@ -17,20 +17,22 @@ DECLARE_CYCLE_STAT(TEXT("TwoBoneIK Eval"), STAT_TwoBoneIK_Eval, STATGROUP_Anim);
 // FAnimNode_TwoBoneIK
 
 FAnimNode_TwoBoneIK::FAnimNode_TwoBoneIK()
-	: bAllowStretching(false)
-	, StartStretchRatio(1.f)
+	: StartStretchRatio(1.f)
 	, MaxStretchScale(1.2f)
+#if WITH_EDITORONLY_DATA
 	, StretchLimits_DEPRECATED(FVector2D::ZeroVector)
+	, bNoTwist_DEPRECATED(false)
+#endif
+	, EffectorLocation(FVector::ZeroVector)
+	, CachedUpperLimbIndex(INDEX_NONE)
+	, JointTargetLocation(FVector::ZeroVector)
+	, CachedLowerLimbIndex(INDEX_NONE)
+	, EffectorLocationSpace(BCS_ComponentSpace)
+	, JointTargetLocationSpace(BCS_ComponentSpace)
+	, bAllowStretching(false)
 	, bTakeRotationFromEffectorSpace(false)
 	, bMaintainEffectorRelRot(false)
-	, EffectorLocationSpace(BCS_ComponentSpace)
-	, EffectorLocation(FVector::ZeroVector)
-	, JointTargetLocationSpace(BCS_ComponentSpace)
-	, JointTargetLocation(FVector::ZeroVector)
 	, bAllowTwist(true)
-	, bNoTwist_DEPRECATED(false)
-	, CachedUpperLimbIndex(INDEX_NONE)
-	, CachedLowerLimbIndex(INDEX_NONE)
 {
 }
 
@@ -258,7 +260,7 @@ void FAnimNode_TwoBoneIK::ConditionalDebugDraw(FPrimitiveDrawInterface* PDI, USk
 	WorldPosition[2] = LocalToWorld.TransformPosition(CachedJoints[2]);
 	const FVector JointTargetInWorld = LocalToWorld.TransformPosition(CachedJointTargetPos);
 
-	DrawTriangle(PDI, WorldPosition[0], WorldPosition[1], WorldPosition[2], GEngine->DebugEditorMaterial->GetRenderProxy(false), SDPG_World);
+	DrawTriangle(PDI, WorldPosition[0], WorldPosition[1], WorldPosition[2], GEngine->DebugEditorMaterial->GetRenderProxy(), SDPG_World);
 	PDI->DrawLine(WorldPosition[0], JointTargetInWorld, FLinearColor::Red, SDPG_Foreground);
 	PDI->DrawLine(WorldPosition[1], JointTargetInWorld, FLinearColor::Red, SDPG_Foreground);
 	PDI->DrawLine(WorldPosition[2], JointTargetInWorld, FLinearColor::Red, SDPG_Foreground);

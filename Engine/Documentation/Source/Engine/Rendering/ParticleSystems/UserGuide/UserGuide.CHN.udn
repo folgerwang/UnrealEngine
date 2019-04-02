@@ -1,39 +1,30 @@
-﻿INTSourceChangelist:2750870
+﻿INTSourceChangelist:3750407
 Availability:Public
 Title:粒子系统用户指南
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems
 Description:粒子系统和级联的常规用法。
 Version:4.9
-SkillLevel:Intermediate
+SkillLevel: Intermediate
+tags:Particles
+topic-image:ParticleSystemUserGuide_topic.png
 
 [TOC(start:2 end:3)]
 
 该文档涵盖粒子系统和粒子系统编辑器 **级联（Cascade）** 的常规使用工作流。细节文档的链接将随后奉上。
 
 
+(#CreatingaParticleSystem)
 ## 创建粒子系统
-
-![](new1.png)(w:450) ![](new2.png)(w:450)
-
-[OBJECT:topiclistnotitle]
-	[PARAM:icon]
-		![](renameIt.png)(convert:false)
-	[/PARAM]
-	[PARAM:description]
-		[INCLUDE:#blank]
-	[/PARAM]
-[/OBJECT]
 
 如需创建 **粒子系统**，在 **Content Browser** 上 **左键单击** **Add New** 按钮，然后选择 **Particle System**， 或在 Content Browser 的 Asset View 中 **单击右键**，在快捷菜单中选择 **Particle System**。
 
+![](new1.png)(w:450) ![](new2.png)(w:450)
+
 完成创建后，新建粒子系统的名称将被高亮，以便进行重命名。输入一个新名称后，或点击别处，粒子系统图表将更新为一个“No Image”缩略图。可在虚幻引擎 4 粒子编辑器级联中生成缩略图。
 
-[EXCERPT:blank]
+![](renameIt.png)(convert:false)
 
-[/EXCERPT:blank]
-
-
-
+(#EditingaParticleSystem)
 ## 编辑粒子系统
 
 在 **Content Browser** 中 **双击** 一个粒子系统，将其在级联中打开。
@@ -42,6 +33,7 @@ SkillLevel:Intermediate
 ![](editSystem.png)
 [/REGION]
 
+(#AddingEmitters)
 ## 添加发射器
 
 [REGION:raw]
@@ -50,6 +42,7 @@ SkillLevel:Intermediate
 
 
 
+(#EditingEmitters)
 ## 编辑发射器
 
 **左键单击** 发射器，其属性将显示在 **Details 面板** 中。发射器属性不多，较大的属性为 **Name**、**Detail Mode**、**Medium Detail Spawn Rate Scale**。
@@ -59,6 +52,7 @@ SkillLevel:Intermediate
 [/REGION]
 
 
+(#ReorderingEmitters)
 ## 发射器排序
 
 选择一个发射器，使用 **左方向键** 和 **右方向键** 在粒子系统中改变发射器的排序。
@@ -68,6 +62,7 @@ SkillLevel:Intermediate
 [/REGION]
 
 
+(#SoloMode)
 ## Solo 模式
 
 [REGION:raw]
@@ -82,6 +77,7 @@ SkillLevel:Intermediate
 
 
 
+(#AddingModules)
 ## 添加模块
 
 模块会对粒子生成位置、运动方式、色彩以及其他诸多属性产生影响。在粒子发射器上 **单击右键**，即可在快捷菜单中添加这些属性。
@@ -94,6 +90,7 @@ SkillLevel:Intermediate
 
 
 
+(#EditingModules)
 ## 编辑模块
 
 [REGION:raw]
@@ -119,6 +116,7 @@ Distributions 是一组灵活的数据类型，包括固定值、一段范围内
 
 
 
+(#Curves)
 ## 曲线
 
 利用 **Curve Editor** 可将 Distributions 可视化为曲线，特定模块的曲线可点击模块上的微型图表图标 ![](graph_button.png) 访问。
@@ -147,6 +145,7 @@ Distributions 是一组灵活的数据类型，包括固定值、一段范围内
 
 
 
+(#TypeData)
 ## 类型数据
 
 **类型数据** 模块专用于对粒子发射器的外观和功能进行重大改变。一个发射器只可应用一个 **类型数据** 模块。该模块显示于发射器叠列中发射器模块和其他模块之间的黑色区域内。
@@ -158,6 +157,7 @@ Distributions 是一组灵活的数据类型，包括固定值、一段范围内
 如需可用类型数据模块的更多信息，请查阅 [粒子参考文档：类型数据模块](Engine/Rendering/ParticleSystems/Reference)。
 
 
+(#DeletingEmittersandModules)
 ## 删除发射器和模块
 
 **右键单击** 发射器或模块并选择 delete 选项即可将其删除。发射器删除选项在 **Emitter** 扩展菜单中。而模块的删除选项直接显示在右键菜单中。
@@ -170,6 +170,7 @@ Distributions 是一组灵活的数据类型，包括固定值、一段范围内
 
 
 
+(#QuickLODSetup)
 ## 细节级别（LOD）快速设置
 
 [REGION:note]

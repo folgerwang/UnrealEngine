@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Editor/EditorPerformanceSettings.h"
 #include "EditorViewportClient.h"
@@ -37,7 +37,7 @@ void UEditorPerformanceSettings::PostEditChangeProperty(FPropertyChangedEvent& P
 	if (PropertyChangedEvent.Property && (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UEditorPerformanceSettings, bOverrideDPIBasedEditorViewportScaling)))
 	{
 		// Tell all viewports to refresh their screen percentage when the dpi scaling override changes
-		for (FEditorViewportClient* Client : GEditor->AllViewportClients)
+		for (FEditorViewportClient* Client : GEditor->GetAllViewportClients())
 		{
 			if (Client)
 			{

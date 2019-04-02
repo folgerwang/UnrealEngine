@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "Kismet2/DebuggerCommands.h"
@@ -62,6 +62,12 @@
 #include "DesktopPlatformModule.h"
 #include "IAndroidDeviceDetectionModule.h"
 #include "IAndroidDeviceDetection.h"
+#include "CookerSettings.h"
+#include "HAL/PlatformFilemanager.h"
+#include "SourceControlHelpers.h"
+#include "ISourceControlModule.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 
 #define LOCTEXT_NAMESPACE "DebuggerCommands"
@@ -340,7 +346,7 @@ void FPlayWorldCommands::RegisterCommands()
 	UI_COMMAND( TogglePlayPauseOfPlaySession, "Toggle Play/Pause", "Resume playing if paused, or pause if playing", EUserInterfaceActionType::Button, FInputChord( EKeys::Pause ) );
 	UI_COMMAND( PossessEjectPlayer, "Possess or Eject Player", "Possesses or ejects the player from the camera", EUserInterfaceActionType::Button, FInputChord( EKeys::F8 ) );
 	UI_COMMAND( ShowCurrentStatement, "Find Node", "Show the current node", EUserInterfaceActionType::Button, FInputChord() );
-	UI_COMMAND( StepInto, "Step Into", "Step Into the next node to be executed", EUserInterfaceActionType::Button, FInputChord(EKeys::F11) );
+	UI_COMMAND( StepInto, "Step Into", "Step Into the next node to be executed", EUserInterfaceActionType::Button, PLATFORM_MAC ? FInputChord(EModifierKey::Control, EKeys::F11) : FInputChord(EKeys::F11) );
 	UI_COMMAND( StepOver, "Step Over", "Step to the next node to be executed in the current graph", EUserInterfaceActionType::Button, FInputChord(EKeys::F10) );
 	UI_COMMAND( StepOut, "Step Out", "Step Out to the next node to be executed in the parent graph", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Alt|EModifierKey::Shift, EKeys::F11) );
 
@@ -1164,6 +1170,66 @@ TSharedRef< SWidget > FPlayWorldCommands::GenerateLaunchMenuContent( TSharedRef<
 			}
 		}
 	}
+	MenuBuilder.EndSection();
+
+	MenuBuilder.BeginSection("CookerSettings");
+	
+	UCookerSettings* CookerSettings = GetMutableDefault<UCookerSettings>();
+
+	{
+		FUIAction UIAction;
+		UIAction.ExecuteAction = FExecuteAction::CreateLambda([CookerSettings]
+			{
+				CookerSettings->bCookOnTheFlyForLaunchOn = !CookerSettings->bCookOnTheFlyForLaunchOn;
+				CookerSettings->Modify(true);
+
+				// Update source control
+
+				FString ConfigPath = FPaths::ConvertRelativePathToFull(CookerSettings->GetDefaultConfigFilename());
+
+				if (FPlatformFileManager::Get().GetPlatformFile().FileExists(*ConfigPath))
+				{
+					if (ISourceControlModule::Get().IsEnabled())
+					{
+						FText ErrorMessage;
+
+						if (!SourceControlHelpers::CheckoutOrMarkForAdd(ConfigPath, FText::FromString(ConfigPath), NULL, ErrorMessage))
+						{
+							FNotificationInfo Info(ErrorMessage);
+							Info.ExpireDuration = 3.0f;
+							FSlateNotificationManager::Get().AddNotification(Info);
+						}
+					}
+					else
+					{
+						if (!FPlatformFileManager::Get().GetPlatformFile().SetReadOnly(*ConfigPath, false))
+						{
+							FNotificationInfo Info(FText::Format(LOCTEXT("FailedToMakeWritable", "Could not make {0} writable."), FText::FromString(ConfigPath)));
+							Info.ExpireDuration = 3.0f;
+							FSlateNotificationManager::Get().AddNotification(Info);
+						}
+					}
+				}
+
+				// Save settings
+				CookerSettings->UpdateSinglePropertyInConfigFile(CookerSettings->GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UCookerSettings, bCookOnTheFlyForLaunchOn)), CookerSettings->GetDefaultConfigFilename());
+			});
+
+		UIAction.GetActionCheckState = FGetActionCheckState::CreateLambda([CookerSettings]
+			{
+				return CookerSettings->bCookOnTheFlyForLaunchOn ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+			});
+
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("CookOnTheFlyOnLaunch", "Enable cooking on the fly"),
+			LOCTEXT("CookOnTheFlyOnLaunchDescription", "Cook on the fly instead of cooking upfront when launching"),
+			FSlateIcon(),
+			UIAction,
+			NAME_None,
+			EUserInterfaceActionType::ToggleButton
+		);
+	}
+
 	MenuBuilder.EndSection();
 
 	if (PlatformsWithNoDevices.Num() > 0)

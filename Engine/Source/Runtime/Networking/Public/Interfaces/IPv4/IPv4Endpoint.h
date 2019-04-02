@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -107,6 +107,31 @@ public:
 		TSharedRef<FInternetAddr> InternetAddr = CachedSocketSubsystem->CreateInternetAddr();
 		{
 			InternetAddr->SetIp(Address.Value);
+			InternetAddr->SetPort(Port);
+		}
+
+		return InternetAddr;
+	}
+
+	/**
+	 * Converts this endpoint to an FInternetAddr object.
+	 *
+	 * Note: this method will be removed after the socket subsystem is refactored.
+	 *
+	 * @return Internet address object representing this endpoint.
+	 */
+	TSharedRef<FInternetAddr> ToInternetAddrIPV4() const
+	{
+		check(CachedSocketSubsystem != nullptr && "Networking module not loaded and initialized");
+
+		TSharedRef<FInternetAddr> InternetAddr = CachedSocketSubsystem->CreateInternetAddr();
+		{
+			TArray<uint8> RawAddress;
+			RawAddress.Add(Address.A);
+			RawAddress.Add(Address.B);
+			RawAddress.Add(Address.C);
+			RawAddress.Add(Address.D);
+			InternetAddr->SetRawIp(RawAddress);
 			InternetAddr->SetPort(Port);
 		}
 

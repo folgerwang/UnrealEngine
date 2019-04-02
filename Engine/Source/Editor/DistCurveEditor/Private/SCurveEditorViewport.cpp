@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SCurveEditorViewport.h"
 #include "Widgets/SBoxPanel.h"
@@ -63,10 +63,22 @@ void SCurveEditorViewport::Construct(const FArguments& InArgs)
 	AdjustScrollBar();
 }
 
+void SCurveEditorViewport::DrawViewport()
+{
+	if (Viewport.IsValid())
+	{
+		Viewport->Draw();
+	}
+
+	if (ViewportClient.IsValid())
+	{
+		ViewportClient->SetNeedsRedraw(false);
+	}
+}
+
 void SCurveEditorViewport::RefreshViewport()
 {
 	Viewport->Invalidate();
-	Viewport->InvalidateDisplay();
 }
 
 void SCurveEditorViewport::SetVerticalScrollBarPosition(float Position)

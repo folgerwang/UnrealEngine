@@ -1,0 +1,95 @@
+﻿INTSourceChangelist:4506246
+Availability: Public
+Crumbs: 
+Title: 将Datasmith内容重新导入虚幻引擎4
+Description: 详细描述了更新已导入虚幻的Datasmith内容的各种方法，以跟进源素材的修改。
+Type:how-to
+SkillLevel:Beginner
+Version: 4.20
+Parent: Enterprise/Datasmith/HowTo
+Order: 4
+Tags: Enterprise, how to, Unreal Studio, Datasmith, beginner
+
+
+本页面介绍如何将Datasmith内容重新导入到虚幻编辑器中，以及如何控制同步到关卡中的Actor的内容。
+
+有关背景信息，包括重新导入过程对项目中的资源和关卡中的Actor的处理方式概述，请参阅[Datasmith重新导入工作流介绍](Enterprise/Datasmith/Overview/ReimportWorkflow)。
+
+## 导出或保存源文件
+
+要顺利更新已导入的Datasmith场景，你必须将新版本的源文件放在计算机上与创建Datasmith场景资源时原先已导入的文件 *相同* 的位置上。
+
+如果不知道要重新导入的Datasmith场景资源的原始源路径，可以通过查看其“细节（Details）”面板来了解：
+
+1.  在内容浏览器中双击该 **Datasmith场景** 资源，以在 **资源编辑器** 中将其打开。
+2.  如果 **细节（Details）** 面板处于隐藏状态，可以在主菜单中选择 **窗口（Window） > 细节（Details）** 让其显示出来。
+3.  找到 **文件路径（File Path） > 源文件（Source File）** 设置：  
+    ![Datasmith场景源文件](datasmith-reimport-scene-asset-details.png "Datasmith Scene source file")
+
+除此之外，应确保已保存（已导出）的文件包含要包含在虚幻编辑器的Datasmith场景中的所有内容，而非仅包含刚刚在源应用程序中修改的对象。如果拥有仅导出场景的已选择部分的选项，请勿使用该选项。如若不然，重新导入之后，虚幻编辑器中的Datasmith内容将仅限于那些已导出的对象。
+
+(#reimportingthedatasmithsceneasset)
+## 重新导入Datasmith场景资源
+
+要从新版本的源文件重新导入Datasmith场景资源：
+
+1.  在内容浏览器中右键单击 **Datasmith场景** 资源，然后从情境菜单中选择 **重新导入（Reimport）**。  
+    ![重新导入Datasmith场景资源](datasmith-reimport-datasmith-scene.png "Reimport the Datasmith Scene Asset")
+2.  引擎将提示你指定一些重新导入选项。除增加的选项以外，这些选项与原先导入时设置的选项相同。  
+    新选项位于 **同步当前关卡Actor（Sync Current Level Actors）** 下，它们将确定是否应将对Datasmith场景资源的更新也应用给当前关卡中之前从更新前的资源创建的Datasmith场景Actor。  
+    ![重新导入选项](datasmith-reimport-sync-level-actors.png "Reimport options")  
+    如果不希望立即同步Actor，也可以稍后再同步。请参阅下面的[使Datasmith场景Actor与其资源保持同步](#synchronizingadatasmithsceneactorwithitsasset)。  
+    有关其他导入选项的更多信息，请参阅[Datasmith导入选项](Enterprise/Datasmith/ImportOptions)。
+3.  设置希望导入程序使用的选项，然后单击 **导入（Import）**。 
+
+[REGION:warning]
+重新导入过程可能会覆盖内容浏览器中的几何体、材质和纹理。有关细节，请参阅[Datasmith重新导入工作流介绍](Enterprise/Datasmith/Overview/ReimportWorkflow)
+[/REGION]
+
+(#synchronizingadatasmithsceneactorwithitsasset)
+## 使Datasmith场景Actor与其资源保持同步
+
+可通过两种方法将关卡中的Datasmith场景Actor与其对应的Datasmith场景资源重新同步。
+
+**选项1。**
+
+在重新导入Datasmith场景资源时重新同步：
+
+1.  打开包含Datasmith场景Actor的关卡。
+2.  按照上面[重新导入Datasmith场景资源](#reimportingthedatasmithsceneasset)下的说明重新导入Datasmith场景资源。
+3.  在 **导入选项（Import Options）** 对话框中，找到 **同步当前关卡Actor（Sync Current Level Actors）** 部分。请确保选中 **Datasmith场景Actor（Datasmith Scene Actors）** 复选框。  
+    如果要将之前已删除的Actor重新添加到关卡中，也请选中 **重新生成已删除的Actor（Re-Spawn Deleted Actors）** 选项。  
+    ![同步关卡Actor](datasmith-reimport-sync-level-actors.png "Sync Level Actors")
+4.  单击 **导入（Import）**。
+
+**选项2。**
+
+在重新导入资源之后的任何时间重新同步：
+
+1.  打开包含Datasmith场景Actor的关卡。
+2.  在 **世界大纲视图** 中选中Datasmith场景Actor。  
+    ![选中Datasmith场景Actor](datasmith-reimport-select-scene-actor.png "Select Datasmith Scene Actor")
+3.  在 **细节（Details）** 面板中，找到 **Datasmith** 部分。  
+    ![从场景更新Actor（Update Actors from Scene）](datasmith-reimport-sync-details.png "Update Actors from Scene")
+4.  如果要将之前已删除的Actor重新添加到关卡中，选中 **重新生成已删除的Actor（Respawn deleted actors）** 选项。
+5.  单击 **从场景更新Actor（Update actors from Scene）**。
+
+## 重新导入单个资源
+
+除了可以重新导入整个Datasmith场景资源，你还可以选取单个静态网格体、材质和纹理资源来进行更新。
+
+要重新导入单个资源：
+
+1.  在内容浏览器中右键单击资源，然后从情境菜单中选择 **重新导入（Reimport）**。  
+    ![重新导入静态网格体资源](datasmith-reimport-asset.png "Reimport Static Mesh Asset")  
+    对于材质资源，选择 **Datasmith > 重新导入材质（Reimport Material）**。  
+    ![重新导入材质资源](datasmith-reimport-material.png "Reimport Material Asset")
+    [REGION:note]
+    仅对于Datasmith从头创建以匹配源文件中的材质定义的材质资源，你才会看到 **Datasmith > 重新导入材质（Reimport Material）** 选项（从3ds Max导入材质时，通常就是这样）。但是，对于那些是内置在Datasmith中的材质的实例的材质资源，该选项不会显示（从CAD文件或SketchUp导入材质时，通常就是这样）。
+    [/REGION]
+2.  引擎将提示你为资源指定一些重新导入选项。  
+    这些选项与原先导入时设置的选项相同。有关所有这些选项的更多信息，请参阅[Datasmith导入选项](Enterprise/Datasmith/ImportOptions)。
+
+[REGION:note]
+重新导入单个资源时，没有同步关卡Actor的选项。项目中对资源的每个引用都将自动使用资源的更新后的版本。请参阅[Datasmith重新导入工作流介绍](Enterprise/Datasmith/Overview/ReimportWorkflow)。
+[/REGION]

@@ -1,0 +1,17 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+#include "../Common.ush"
+#include "../DeferredShadingCommon.ush"
+
+Texture2D<float4> TranslucencyTexture;
+
+SamplerState TranslucencyTextureSampler;
+
+void CompositeTranslucencyPS(
+	in noperspective float2 UV : TEXCOORD0,
+	out float4 OutColor : SV_Target0
+)
+{
+	float4 Translucency = TranslucencyTexture.Sample(TranslucencyTextureSampler, UV);
+	OutColor = Translucency;
+}

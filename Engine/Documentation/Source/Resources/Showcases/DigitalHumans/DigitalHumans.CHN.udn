@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:4547030
 Availability: Public
 Crumbs: 
-Title: Digital Humans
-Description: Creating believable characters using high-quality character shader techniques, data scans of Actors, and improved geometry workflow
+Title: 数字人类
+Description: 使用高品质的角色着色器技术、演员数据扫描、改进的几何体工作流程创建可信的角色。
 Version: 4.20
 Parent: Resources/Showcases
 Order: 1
@@ -13,20 +13,20 @@ Tags: showcases
 ![](DigitalHumans.png "DigitalHumans.png")
 
 [REGION:caption]
-Images and characters provided by [3Lateral](http://www.3lateral.com) for Siren, Andy Serkis, and Osiris Black©.
+[3Lateral](http://www.3lateral.com)为Siren、Andy Serkis和Osiris Black©提供的图像和角色。
 [/REGION]
 
-Previously we demonstrated approaches to characters, like the ones used in Epic’s own game Paragon, with the [Photorealistic Character](Resources/Showcases/PhotorealisticCharacter) example. Since that time, we’ve explored and improved on how we can design more believable characters through our approach to high-quality character shader techniques, using data scans of Actors, improving our geometry workflow, and ultimately improving Unreal Engine 4’s (UE4) rendering capabilities.   
+之前，我们已经通过[照片级真实的角色](Resources/Showcases/PhotorealisticCharacter)示例演示了角色方法，例如Epic自家出品的游戏《虚幻争霸》中的角色。之后，我们探索并改进了如何通过一系列措施来设计更让人信服的角色：利用高品质角色着色方法，使用演员的数据扫描，改进几何体工作流程，最终改进虚幻引擎4（UE4）的渲染能力。   
 
-As part of our character explorations, we developed several Digital Humans (and a Non-Human) to drive our workflow and rendering improvements to produce highly realistic and believable characters. Below you’ll find high-level overviews of our workflow processes and newly implemented features.
+作为角色探索的一部分，我们开发了若干数字人类（和一个非人类）来驱动工作流程和渲染改进，以产生高度逼真、高度可信的角色。下面将全面介绍我们的工作流程和新实施的功能。
 [REGION:tip]
-Also keep in mind that these features and techniques are not explicitly limited to only high-end machines. They can be applied to many real-time games and projects with good quality and FPS achievable.
+此外，请记住这些功能和方法并未明确限制于只能在高端机器上使用。它们可以应用于许多品质良好且可实现FPS的实时游戏和项目。
 [/REGION]
 [REGION:note]
-To take a look at some of these improvements yourself, you can download the Digital Humans project from the Epic Games Launcher under the Learn tab. This project includes the original Photorealistic Character bust from Paragon along with the Mike Seymour Digital Human first shown at SIGGRAPH 2017.
+如需自行查看部分改进，可以从Epic Games启动程序的“学习（Learn）”选项卡中下载“数字人类（Digital Humans）”项目。该项目包含了《虚幻争霸》中的原始照片级真实的角色半身像以及SIGGRAPH 2017首次亮相的Mike Seymour数字人类。
 [/REGION]
 
-## Digital Human Performances
+## 数字人类表演
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
 	6MIkoLBWRv0
@@ -81,171 +81,174 @@ To take a look at some of these improvements yourself, you can download the Digi
     [/PARAMLITERAL]
 [/OBJECT]
 
-## Improved Character Rendering Features
+## 改进的角色渲染功能
 
-Over the course of development of Digital Human characters, Epic has developed or improved the following features: 
+在开发数字人类角色的过程中，Epic开发或改进了以下功能： 
 
-*   Using a new specular model.
-*   Light Transmission using Backscatter.
-*   Better contact shadowing for Subsurface Profiles.
-*   Short Distance Dynamic Irradiance for Screen Space Indirect Bounce approximation through Post Process Materials.
-*   Added detail for eyes using a separate normal map for the Iris.
+*   使用新的高光模型。
+*   使用反向散射的光线传输。
+*   次表面轮廓的接触阴影改进。
+*   通过材质后期处理实现对屏幕空间间接反射近似值的短距离动态辐照度。
+*   对虹膜使用单独的法线贴图，增加眼部细节。
 
-Each of the sections below gives detail for these newly developed features or improvements with their own sections for Skin, Hair, and Eyes.   
+下面每一节通过相应的皮肤、毛发和眼部部分详细介绍这些新开发的功能或改进。   
 
-### Skin Shading
+### 皮肤着色
 
-The character's skin uses UE4's [Subsurface Profile shading model](Engine/Rendering/Materials/LightingModels/SubSurfaceProfile). 
+角色皮肤使用UE4的[次表面轮廓着色模型](Engine/Rendering/Materials/LightingModels/SubSurfaceProfile)。 
 
 ![](SkinShading_ProfileView.jpg "SkinShading_ProfileView.jpg")
 
-Note that these projects use [Material Functions](Engine/Rendering/Materials/Functions) to set up the base for the skin material. There are a couple of reasons for taking this approach:it provides reusable authoring for materials, and we can use masks to blend animations with the material as it changes. With Material Functions, artists can standardize their approach to development because when a change is made to a single function, all Materials that use that function automatically reflect the change.
+请注意，这些项目使用[材质函数](Engine/Rendering/Materials/Functions)来设置皮肤材质的基础。采用这种方法有如下几个原因：它提供了一种可反复使用的材质编写方法，我们可以使用遮罩，随着材质的变化在材质中融入动画。通过材质函数，美术可以采用标准化开发方法，因为当一个函数发生更改时，使用该函数的所有材质都会自动反映出这项更改。
 
 [REGION:note]
-You can take a look at some of the Material Functions for the Mike Seymour bust in **/Content/Characters/Mike/Functions**.
+您可以在 **/Content/Characters/Mike/Functions** 中查看Mike Seymour半身人像的一些材质函数。
 [/REGION]
 
-#### Skin Shading Techniques
+#### 皮肤着色方法
 
-To maintain believability and high-quality realism, the Digital Humans all use 4K texture resolution produced from facial scans of the subject, in this particular example, Mike Seymour. After acquiring the digital scans, the textures are cleaned up, tweaked, or generated by Artists at Epic.
+为保持可信度和高品质的逼真度，数字人类全部使用从本体（即本示例中的Mike Seymour）面部扫描产生的4K纹理分辨率。在获取数字扫描后，Epic的美术已经对纹理进行了清理、调整或生成操作。
 
-The skin setup for characters can use various textures along with masks to achieve the desired look. The textures shown here are the core textures used to achieve the look of our Digital Humans: diffuse (albedo), roughness, specularity, scatter, and normal maps.
+角色的皮肤设置可以使用各种纹理和遮罩来实现所需的面貌。这里显示的纹理是用于实现我们的数字人类面貌的核心纹理：漫射（反射）、粗糙度、高光度、散射和法线贴图。
 
-| **Texture** | **Name** | **Description** |
+| **纹理** | **名称** | **说明** |
 | --- | --- | --- |
-| ![](Head_Diffuse.png "Head_Diffuse.png") | **Diffuse** | The Diffuse map supplies the Base Color for the Material. At a 4K texture resolution, you can see the tiny capillaries just underneath the surface of the skin. Any darkening of wrinkles will accentuate the texture supplied by the Normal map. (T_head_diffuse_neutral) |
-| ![](Head_Roughness.png "Head_Roughness.png") | **Roughness** | [INCLUDE:#excerpt_5] |
-| ![](Head_Specular.png "Head_Specular.png") | **Specular** | The Specular map scales the amount of specular highlight visible across the surface of the skin. It is important to note that the default value for specularity is 0.5. This map boosts specularity in areas where the skin may be stretched a bit tighter or dampens it in areas where we don’t want to see reflection, such as the center of the pores and within wrinkles. (Mike_T_specular_neutral) |
-| ![](Head_Scatter.png "Head_Scatter.png") | **Scatter** | [INCLUDE:#excerpt_8] |
-| ![](Head_Normal.png "Head_Normal.png") | **Normal** | [INCLUDE:#excerpt_10] |
+| ![](Head_Diffuse.png "Head_Diffuse.png") | **漫射** | 漫射贴图提供材质的底色。在4K纹理分辨率下，您会看到表层皮肤下面的细小毛细血管。任何变暗的皱纹都会突出法线贴图提供的纹理。(T_head_diffuse_neutral) |
+| ![](Head_Roughness.png "Head_Roughness.png") | **粗糙度** | [INCLUDE:#excerpt_5] |
+| ![](Head_Specular.png "Head_Specular.png") | **高光度** | 高光度贴图用于调节皮肤表面上可见的镜面高光亮度。必须注意的是，高光度的默认值是0.5。在皮肤可能会拉紧一点的地方，该贴图可以增强高光度，而在我们不希望看到反射的地方会减弱高光度，例如毛孔中心和皱纹里面。(Mike_T_specular_neutral) |
+| ![](Head_Scatter.png "Head_Scatter.png") | **散射** | [INCLUDE:#excerpt_8] |
+| ![](Head_Normal.png "Head_Normal.png") | **法线** | [INCLUDE:#excerpt_10] |
 
 [COMMENT:none]
 [EXCERPT:excerpt_10]
-The Normal map works by supplying the tactile texture to the surface by perturbing pixel normals. For our Digital Humans, there are several normal maps that are blended between and combined in the Material setup to capture the medium-sized and micro-sized detail of the skin.  
-See [Normal Maps](Resources/Showcases/DigitalHumans#normalmaps) below for additional information about how we use those and blend between different ones for different animation poses of the face. (head_normal_map_001)
+法线贴图通过扰乱像素法线为表面提供触感纹理。在我们的数字人类中，我们在材质设置中混合和组合了多种法线贴图，以捕捉普通和微观级别的皮肤细节。  
+请参阅下面的[法线贴图](Resources/Showcases/DigitalHumans#normalmaps)，以进一步了解如何使用并混合不同的法线贴图来实现不同的面部动画表情。(head_normal_map_001)
 [/EXCERPT]
 [/COMMENT]
 
 [COMMENT:none]
 [EXCERPT:excerpt_8]
-The Scatter map controls how much light is going to be scattered through the surface of the skin. Areas that are dark will exhibit very little scatter, such as the cheeks, while lighter areas will have higher amounts of perceived scatter, such as the nose, eyes, and ears. You’ll notice that this is a simple mask to for areas around the ears, eyes, nose, and lips that we want to have the most amount of scattering. Other areas are darker but still light enough to have scattered, like real-world skin.
-The color of the scatter is managed by your [Subsurface Profile](Engine/Rendering/Materials/LightingModels/SubSurfaceProfile)[](Engine/Rendering/Materials/LightingModels/SubSurfaceProfile) asset assigned to your Skin material. (T_head_sss_ao_mask)
+散射贴图控制散射到皮肤表面的光线数量。较暗的地方展现出非常少的散射，例如面颊，而较亮的地方将获得更多的感知散射，例如鼻子、眼部和耳朵。您会注意到这其实是一个简易型面罩，在耳朵、眼部、鼻子和嘴部附近，我们希望获得最多的散射光线。其他区域虽然较暗，但足以获得散射效果，就像真实世界的皮肤一样。
+散射颜色由指定给皮肤材质的[次表面轮廓](Engine/Rendering/Materials/LightingModels/SubSurfaceProfile)[](Engine/Rendering/Materials/LightingModels/SubSurfaceProfile)资源管理。(T_head_sss_ao_mask)
 [/EXCERPT]
 [/COMMENT]
 
 [COMMENT:none]
 [EXCERPT:excerpt_5]
-The Roughness map is not painted by an Artist. Instead, we’re using a process in UE4 to convert the normal to roughness. (Toksvig_MikeMesoNormal)  
-See [Roughness Maps](Resources/Showcases/DigitalHumans#roughnessmaps) below for additional information about this process and how it benefits our animated digital humans.
+粗糙度贴图并不是由美术绘制的。而是使用UE4中的一个流程将法线转换为粗糙度。(Toksvig_MikeMesoNormal)  
+请参阅下面的[粗糙度贴图](Resources/Showcases/DigitalHumans#roughnessmaps)，进一步了解该流程以及它对动画数字人类的好处。
 [/EXCERPT]
 [/COMMENT]
 
-#### Dual Lobe Specular
+#### 双镜叶高光（Dual Lobe Specular）
 
-The **Dual Lobe Specularity** provides roughness values for two separate specular lobes that are combined for the final result. When these are combined these provide nice subpixel micro-frequencies in the skin for a natural look.  
+**双镜叶高光度** 为两个独立的高光镜叶提供粗糙度值，二者组合后形成最终结果。当二者组合后，会为皮肤提供非常出色的亚像素微频效果，呈现出一种自然面貌。  
 
 [REGION:lightbox]
 [![](DoubleBeckman_1-1.png)](DoubleBeckman_1-1.png)
 [/REGION]
 
-Softer Lobe
+较柔和镜叶
 
 [REGION:lightbox]
 [![](DoubleBeckman_2-1.png)](DoubleBeckman_2-1.png)
 [/REGION]
 
-Tighter Lobe
+较紧致镜叶
 
 [REGION:lightbox]
 [![](DoubleBeckman_Combined-1.png)](DoubleBeckman_Combined-1.png)
 [/REGION]
 
-Combined Lobes
+组合镜叶
 
 [REGION:note]
-This view is using a single Light with a Black base color plugged into to see blended Lobes.
-[/REGION]In the [Subsurface Profile](Engine/Rendering/Materials/LightingModels/SubSurfaceProfile) Asset under the **Dual Specular** section, you can adjust the roughness of each specular lobe and how much they should mix.
+该视图使用单一光源和黑色底色以呈现混合镜叶效果。
+[/REGION]在 **双镜叶（Dual Specular）** 部分下面的[次表面轮廓](Engine/Rendering/Materials/LightingModels/SubSurfaceProfile)资源中，您可以调节每个高光镜叶的粗糙度和二者的混合比例。
 
 ![](DualLobe_SSS_Settings.png "DualLobe_SSS_Settings.png")
 
-#### Light Transmission using Back Scatter (Forward Scatter)
+#### 使用反向散射（正向散射）的光线传输
 
-Lights now support **Transmission** through surfaces. This has been referred to as backscatter because it’s a backlight effect. However, it’s actually a “forward scatter” because the light is being scattered toward the view. We use a single scatter approach that samples depth from shadow maps with exponential falloff. Then a Henyey Greenstein phase function is used with the index of refraction (IOR) from the surface on that function to add a little more shaping to the scatter.
+光线现在支持在表面上 **传输**。这称为反向散射，因为这是一种背光源效果。但是，实际上却是一种“正向散射”，因为光线是朝向视野方向散射的。我们使用单一散射方法，利用指数衰减从阴影贴图采集深度样本。然后，使用Henyey Greenstein相位函数和该函数上的表面折射率（IOR）为散射增加一点形状。
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Light Transmission Disabled](Backscatter_disabled.png) 
+	![禁用光线传输](Backscatter_disabled.png) 
 	[/PARAM]
 	[PARAM:after]
-	![Light Transmission Enabled](Backscatter_enabled.png) 
+	![启用光线传输](Backscatter_enabled.png) 
 	[/PARAM]
 [/OBJECT]
 
-Once you’ve set up your Subsurface Scattering profile and assigned it to your Material, you can enable **Transmission** on a Light to have a backlit effect by looking under the **Light** section in the **Advanced** rollout properties and enabling **Transmission**.
+当您设置好次表面散射轮廓并指定给材质后，可以对光线启用 **传输** 以增加背光源效果，具体方法是在 **高级（Advanced）** 卷栏属性中的 **光线（Light）** 部分中启用 **传输（Transmission）**。
 
 ![](Transmission_EnableOnLight.png "Transmission_EnableOnLight.png")
 
-You can use masks in your Material to control how much transmission is allowed for scattering by blocking similarly to how you would use a mask for opacity or roughness areas. Then, in your Subsurface Scattering profile, you can control transmission with these properties:
+您可以在材质中使用遮罩，通过阻挡来控制允许散射的传输量，类似于不透明度或粗糙度区域的遮罩用法。然后，在次表面散射轮廓中，可以通过以下属性控制传输：
 
 ![](Transmission_SSS_Settings.png "Transmission_SSS_Settings.png")
 
-#### Boundary Color Bleed
+#### 边界溢色（Boundary Color Bleed）
 
-For areas around the mouth and eyes where we use scattering for the teeth and eyeballs, we use a new property called **Boundary Bleed Color**. It defines how one subsurface material blends into another one.
+在对牙齿和眼球使用散射的嘴部和眼部周围的区域中，我们使用一个新属性 **边界溢色**。它定义一个次表面材质与另一个材质的混合程度。
 
 [OBJECT:ComparisonSlider]
     [PARAM:before]
-    ![Without Boundary Bleed Color](BoundaryBleedColor_Disabled.png) 
+    ![未使用边界溢色](BoundaryBleedColor_Disabled.png) 
     [/PARAM]
     [PARAM:after]
-    ![With Boundary Bleed Color](BoundaryBleedColor_Enabled.png) 
+    ![使用了边界溢色](BoundaryBleedColor_Enabled.png) 
     [/PARAM]
 [/OBJECT]
 
-Subsurface scattering is a screen space effect that would often cause halo-type artifacts in areas with other subsurface materials, similar to the example above where some light areas from the lips blend into areas around the teeth.
+次表面散射是一种屏幕空间效果，通常会在包含其他次表面材质的区域引起光晕式瑕疵，类似于上面的示例，来自嘴唇的部分光线混合到了牙齿周围的区域。
 
 ![](BoundaryBleedColor_SSS_Settings-1.png "BoundaryBleedColor_SSS_Settings-1.png")  
 
-#### Short Distance Dynamic Irradiance
+#### 短距离动态辐照度
 
-Another improvement for digital human characters was to reduce the amount of darkened colors (blacks and grays) there were in corners around the nose and eye sockets. To make the look more natural, a screen space indirect bounce approximation technique was used. A Post Process Material is used for short distance dynamic global illumination, improving the lighting and believability by capturing the indirect bounce from the cheeks to the nose to the corners of the eyes. 
+另一个数字人类角色改进是减少鼻子和眼眶周围角落区域的深色（黑色和灰色）颜色量。为了让面貌更加自然，使用了屏幕空间间接反射近似值方法。材质后期处理用于实现短距离动态全局光照，通过采集从面颊间接反射到鼻子再到眼部角落的光线，改善照明和可信性。 
 
 [OBJECT:ComparisonSlider]
     [PARAM:before]
-    ![Without Screen Space Irradiance](SPI_Disabled.png) 
+    ![没有使用屏幕空间辐照度](SPI_Disabled.png) 
     [/PARAM]
     [PARAM:after]
-    ![With Screen Space Irradiance](SPI_Enabled.png) 
+    ![使用了屏幕空间辐照度](SPI_Enabled.png) 
     [/PARAM]
 [/OBJECT]
 
-Screen Space Irradiance is set up as a Post Process Material, so it can be used for anything it affects (see example below). You can take a look at the Material in the Digital Humans project located in **Content\Shared\UtilityMaterials** in the **ScreenSpaceRealIrr** Material.
+屏幕空间辐照度设置为后期处理材质，因此可以用于它影响的任何对象（请参见以下示例）。您可以在位于数字人类项目 **Content\Shared\UtilityMaterials** 中的 **ScreenSpaceRealIrr** 材质中查看该材质。
 
 ![](SPI_Example.png "SPI_Example.png")
 
 [REGION:caption]
-Screen Space Irradiance Post Process Material casting short distance dynamic global illumination from emissive materials.
+从自发光材质投射短距离动态全局光照的屏幕空间辐照度材质后期处理。
 [/REGION]
 
-### Hair Shading
+### 毛发着色
 
-Hair shading is handled by way of UE4’s **Hair** Shading Model. This shader is a physically-based shading model based on research by [Eugene d'Eon, Steve Marschner, and Johannes Hanika](http://www.eugenedeon.com/project/importance-sampling-for-physically-based-hair-fiber-models)and currently used by [Weta Digital](http://www.eugenedeon.com/project/importance-sampling-for-physically-based-hair-fiber-models/). The shader approximates the reflection of light from the surface of the hair with anisotropic specularity, the refraction of light through the surface, and the scatter of light through multiple strands. 
+毛发着色通过UE4 **毛发** 着色模型方法处理。该着色器是一个物理着色模型，基于[Eugene d'Eon、Steve Marschner和Johannes Hanika](http://www.eugenedeon.com/project/importance-sampling-for-physically-based-hair-fiber-models)的研究，目前已被[Weta Digital](http://www.eugenedeon.com/project/importance-sampling-for-physically-based-hair-fiber-models/)采用。该着色器通过非匀质高光度、通过表面的光线折射和通过多条发束的光线散射来估算从毛发表面反射的光线。 
 
-To use the UE4 Hair shader, set the **Shading Model** property of your Material to **Hair**.
+要使用UE4的毛发着色器，请将材质的 **着色模型（Shading Model）** 属性设置为 **毛发（Hair）**。
 
 ![](HairSM.png "HairSM.png")
 
-#### Hair and Specularity
+#### 毛发和高光度
 
-In the real world, hair tends to have multiple specular highlights: one representing the color of the light and another that is a mix of hair color and light color. For sake of this document, we will refer to these as primary and secondary specular highlights. The Hair shader approximates the same effects with highly realistic results.
+在真实的世界中，毛发往往有多种高光效果：一种表示光线颜色，一种表示毛发显色和光线颜色的混合。在本文中，为方便说明，我们将它们分别称为主高光和次高光。毛发着色器利用高度逼真的结果估算相同的效果。
 
 ![](Hair_Specularity.png "Hair_Specularity.png")
 
-1.  The brighter brown hair represents the secondary specular highlight.
-2.  The lighter hair represents the primary specular highlight. 
+1. 较亮的棕色头发表示次高光。
+2. 较浅的头发表示主高光。 
 
-The approximation algorithm used in UE4’s hair shader creates these effects similarly to how they are made in the real-world. As light strikes the surface of a hair, it does not simply bounce off. Hair is translucent, allowing some light to pass through it, to potentially bounce around inside it, then exit. The hair shader approximates this with three possible paths for the light to travel as it interacts with the hair, as shown in the diagram below:
+UE4中的近似值算法以真实世界为样本创建了这些类似效果。光线照射到毛发表面时，不仅仅是反射而已。毛发是半透明的，因此部分光线可以穿透毛发，在毛发内部多次反射后照射出来。毛发着色器按照光线与头发交互可能形成的三种路线对此进行估算，如下图所示：
 
+[INCLUDE:#DH_Hair_ImageSequenceSlider]
+
+[COMMENT:none]
 [EXCERPT:DH_Hair_ImageSequenceSlider]
 [OBJECT:SliderSequence]
 	[PARAMLITERAL:max]
@@ -258,7 +261,8 @@ The approximation algorithm used in UE4’s hair shader creates these effects si
 	DH_Hair_ImageSequence
 	[/PARAMLITERAL]
     [PARAM:caption]
-    Cross section of single hair strand showing how the Hair shader approximates interaction with light, demonstrating the three primary types of paths light will take. See the table below for descriptions of each part of the process	[/PARAM]
+    单条发束的交叉部分显示毛发着色器如何估算与光线的交互，演示光线可能产生的三种主要路线。请参阅下表以了解对该过程每个部分的说明。
+	[/PARAM]
     [PARAM:image_list]
     ![](HairDiagram_1.png)
     ![](HairDiagram_2.png)
@@ -266,143 +270,144 @@ The approximation algorithm used in UE4’s hair shader creates these effects si
 	[/PARAM]
 [/OBJECT]
 [/EXCERPT:DH_Hair_ImageSequenceSlider]
+[/COMMENT]
 
   
-| **Number** | **Description** |
+| **编号** | **说明** |
 | --- | --- |
-| **0** | The growth (root to tip) direction of the hair follicle. |
-| **1** | Reflection-only path, with light bouncing off the surface of the hair. This produces the Primary specular highlight. |
-| **2** | Transmission-Transmission path, in which light passes into the hair follicle and back out the other side. This is how light scatters within a volume of hair. |
-| **3** | Transmission-Reflection-Transmission path, in which light enters the hair follicle, reflects off the inside boundary of the surface and then exits. This produces the Secondary specular highlight. |
+| **0** | 毛囊生长方向（发根到发尖）。|
+| **1** | 仅反射路线，光线从毛发表面反射出去。这样产生的是主高光。|
+| **2** | 传输-传输路线，光线照射并穿透毛囊，然后从另一边照射出去。这是光线在一定发量中的散射过程。|
+| **3** | 传输-反射-传输路线，光线进入毛囊，从内表面边界反射出来，然后再照射出来。这样产生的是次高光。|
 
-As shown in the diagram, a strand of hair is not a perfect cylinder or tube. In actuality, hair appears more as a series of stacked cones. This means light bouncing off the surface of the hair will be scattered differently than it would be if the hair were perfectly smooth. Further, because each strand of hair is generally pointing in a different direction, the specular highlight will not be unified but will be independently placed based on the direction the hair is pointing. This is often referred to as **anisotropic specularity**, which is also supported by the UE4 Hair shader.
+如图所示，一条发束并不是完美的圆柱体或管道。在现实中，毛发更像是一堆堆的圆锥体叠加而成。这意味着，从毛发表面反射出来的光线与绝对光滑的毛发相比，将有不同的散射方式。此外，由于每条发束通常都指向不同的方向，因此高光也不是统一的，而是根据头发的指向独立产生。这通常称为 **非匀质高光度**，UE4的毛发着色器也支持这一功能。
 
-### Eye Shading
+### 眼部着色
 
 ![](EyeShading_MikeExample.png "EyeShading_MikeExample.png")
 
-Eyes are often referred to as “the windows to the soul.” Few aspects of a character have as much influence on the viewer’s perception of a character as a real person as the character’s eyes. The Eye shader in UE4 is designed to bring realistic rendering of an eye surface, exposing artistic control over each of the biological parts of the eye itself.
+人们通常将眼睛比作“心灵之窗”。观看者是否能将一个角色看作真人，极大程度上取决于角色的眼睛。UE4中的眼部着色器是专为眼睛表面带来逼真的渲染效果而设计的，从美术角度授予用户对眼球各个生理部分的完全掌控权。
 
 [REGION:warning]
-The Eye shader in UE4 is highly technical and has been developed such that there are **very strong** **dependencies** between the shader code, the Material, the shape of the geometry, and the geometry’s UV layout. Building an eye from scratch using this shader is **not** recommended without extensive experience in shader development. To that end, we strongly recommend, for those creating realistic humanoid eyes, that you extract the eye geometry from this example and use the eye Material **as-is**, replacing the necessary textures to suit your purpose.
+UE4中的眼部着色器技术性较强，在其设计中，着色器代码、材质、几何体形状和几何体UV布局之间有着 **非常强烈的** **依赖关系**。如果没有丰富的着色器开发经验，**不建议** 使用该着色器从头开始构建眼部结构。为此，我们强烈建议创建真实人类眼睛的用户，从该示例获取眼部几何体，并 **原样** 使用该眼部材质，替换必要的纹理来达到您的目的。
 [/REGION]
 [REGION:tip]
-Located within the Photoreal Character Project is a Static Mesh named PhotorealEyeGeo. This can be exported from the project into the DCC app of your choice via FBX to be used in your own projects.
+照片级真实角色项目使用的是静态网格体PhotorealEyeGeo。您可以通过FBX从该项目中将该网格体导出到您选择的DCC应用，以在您自己的项目中使用。
 [/REGION]
 
 ![](Eye_ShaderModel.png "Eye_ShaderModel.png")
 
-#### Eye Biology
+#### 眼睛生物学
 
-In order to fully understand the features of the eye, it is best to know a little bit of eye biology. Each of the parts you see here is represented in the eye setup, and all can be modified in some way using the exposed parameters in the Material Instance applied to the example character’s eyes (MI\_EyeRefractive\_Bust).  
+为了充分理解眼睛的功能，最好稍微学习一些眼睛生物学知识。您在这里看到的每个部分在眼睛设置中都有相应表示，所有部分都可以使用应用于示例角色眼睛的材质实例（MI\_EyeRefractive\_Bust）中的公开参数进行修改。  
   
-Here’s a quick refresher:  
+下面是一个快速知识点复习：  
   
 ![](EyeDiagram.png "EyeDiagram.png")
 
-| **Number** | **Name** | **Description** |
+| **编号** | **名称** | **说明** |
 | --- | --- | --- |
-| **1** | Sclera | The sclera is also known as the “white of the eye.” This area of the eye is generally very wet and has a slight amount of tactile textures. |
-| **2** | Limbus | The limbus is the dark ring that is present between the iris and the sclera. It is more dominant in some eyes than others, and it will tend to fade away when viewed from edge-on. |
-| **3** | Iris | The iris is the ring of color around the center of the eye. When one is said to have “green” eyes, it is because their iris is predominantly green. In a real eye, the iris is a ring of muscle-like fibers that expand and contract, allowing more light into – or closing light out of – the pupil. It is also worth noting that in the real world, the iris is actually more of a disc or cone shape, and does not bulge outward with the rest of the eye. |
-| **4** | Pupil | The pupil is the dark spot at the center of the eye. It is the hole through which light passes so it can be picked up by the rods and cones of the retina. |
-| **5** | Cornea | The cornea is the clear, fluid-filled dome that rests over the surface of the iris. |
+| **1** | 巩膜 | 巩膜也称为“眼白”。眼睛的这一部分通常非常湿润，包含少量的触感纹理。|
+| **2** | 角膜缘 | 角膜缘存在于虹膜和巩膜之间的深色环形。有些眼睛中的角膜缘更为明显，从侧面看时往往会消退。|
+| **3** | 虹膜 | 虹膜是围绕在眼睛中心周围的一圈色环。如果某个人有“绿”眼睛，就是因为虹膜主要是绿色的。在真实的眼睛中，虹膜是类似肌肉的纤维结构，有扩张和收缩功能，以让更多光线进入瞳孔或者不让光线进入瞳孔。还需要注意的是，在真实世界中，虹膜实际上更像是圆盘或锥形，不会向眼部其余部分突出。|
+| **4** | 瞳孔 | 瞳孔是眼睛中心的黑点。这是一个孔，光线穿过这个孔后才会被视网膜的视杆和视锥捕捉到。|
+| **5** | 角膜 | 角膜是位于虹膜表面上的一层透明的、充满液体的圆顶结构。|
 
-#### Refraction within the Eye - Then and Now
+#### 眼睛中的折射——演变
 
-Because the eyeball is filled with fluid, it is given to refracting any light that passes through it. This can be seen in the real world when looking at an eye from multiple angles. The iris and pupil will be distorted by refraction as they are viewed through the cornea. The traditional approach to solving this for games and film has been to create two separate eye surfaces; one that supplied the sclera, iris, and pupil; and another surface on top that supplied the cornea and overall wetness of the eye. This allowed for refraction as the underlying surface was viewed through the wet layer shell. Such an approach was used in Epic’s A Boy and His Kite tech demo on the boy’s eyes. The diagram below shows a representation of the two surfaces.
+由于眼球充满了液体，因此会折射照射进来的任何光线。在真实世界中从多个角度观察眼球时就会看到这种效果。虹膜和瞳孔会因为折射而变形，因为它们是透过角膜观看的。游戏和电影中用来解决这个问题的传统方法是创建两层独立的眼睛表面，一层提供巩膜、虹膜和瞳孔，另一层位于顶部，提供角膜和眼睛的总体湿润度。这样底层表面透过湿润层观看时就会产生折射。Epic在技术演示《A Boy and His Kite》中的男孩眼睛中采用的就是这种方法。下图显示了两层表面的示意图。
 
 ![](KiteBoyEyes.png "KiteBoyEyes.png")
 
-By using the Eye shading model, an even more realistic effect can be achieved with a single surface. The refraction of light through the surface of the cornea is now handled entirely within the shader, alleviating the need for underlying geometry. You can experiment with this yourself by opening M_EyeRefractive Material Instance and adjusting the **Refraction On/Off** property.
+通过使用眼部着色模型，利用一层表面甚至可以实现更真实的效果。通过角膜表面实现光线折射完全在着色器内部处理，因此而不再需要底层几何体。您可以打开M_EyeRefractive材质实例并调整 **折射开/关（Refraction On/Off）** 属性来自行实验。
 
-#### Eye Shader Parameters
+#### 眼部着色器参数
 
-Due to the complexity of the Eye shader and our recommendation to use it as-is, we have included a breakdown of the artistic parameters that are built into the Material. The following are the eye shader parameters that can be tweaked from within MI\_EyeRefractiveMike\_R Material Instances. Wherever possible, we will also include suggested parameter ranges.
+眼部着色器较为复杂，而且我们建议原样使用，为此我们包含了对该材质中构建的美术参数的详细分解说明。下面是MI\_EyeRefractiveMike\_R材质实例中可以调整的眼部着色器参数。我们也尽量包含了一些建议的参数范围。
 
 ![](EyeShaderProperties.png "EyeShaderProperties.png")
 
-| **Name** | **Description** ||
+| **名称** | **说明** ||
 | --- | --- | --- |
-| **Static Switch Parameter Values** |||
-| **Use Eye Bulge** | Adjusts the refraction properties of the shader based on whether or not the eyeball geometry uses a physically modeled bulge for the cornea. ||
-| **Vector Parameter Values** |||
-| **Eye Corner Darkness Color** | Sets a color value for the eye color darkness, which is controlled using the scalar variables for **Shadow Hardness** and **Shadow Radius**. ||
-| **Scalar Parameter Values** |||
-| **Depth Scale** | This controls the depth of the refraction of the iris underneath the cornea. ||
-| **Flatten Normal** | This value controls how much flattening of the eye's normal map is taking place, focused particularly on the sclera. ||
-| **Index of Refraction (IOR)** | Index of refraction of the fluids underneath the cornea. Controls how much refraction takes place. ||
-| **Iris Concavity Power** | Used alongside *Iris Concavity Scale* to control the shape and amount of light caustics that are calculated on the surface of the iris as light passes through the cornea. This will generally only be visible in an actual lit scene, and can be difficult to visualize within the Material Instance Editor. ||
-| **Iris Concavity Scale** | Used alongside *Iris Concavity Power* to control the shape and amount of light caustics that are calculated on the surface of the iris as light passes through the cornea. This will generally only be visible in an actual lit scene, and can be difficult to visualize within the Material Instance Editor. ||
-| **Iris UV Radius** | Controls the overall size of the iris on the eyeball. ||
-| **Iris Brightness** | Controls the brightness of the iris. ||
-| **IrisDispScaleUV** | Scales the displacement of the iris when using an iris normal map. ||
-| **Iris** **Roughness** | This value drives how shiny the cornea is (the surface directly over the iris). ||
-| **Limbus Dark Scale** | Controls the size of the darkening ring of the limbus. ||
-| **Limbus Power** | Controls the overall darkening of the limbus area. Overdriven values will darken the entire corneal area. ||
-| **Limbus UV Width Color** | Controls the sample size for the limbus, or how much of the eye surface will be alloted for showing the limbus. This is a fairly delicate setting and should be adjusted with care. ||
-| **Limbus UV Width Shading** | Controls how much light will affect the shading of the limbus. Very delicate setting, adjust with care. ||
-| **Normal UV Scale** | Controls the scale of the normal map texture used across the surface of the eye. ||
-| **Pupil Scale** | Controls the size of the pupil. This is the setting you would use to dilate the eyes. ||
-| **Refraction On/Off** | Blends between refracting and non-refracting versions of the shader. ||
-| **Scale By Center** | Adjusts the scale of the entire iris/pupil area from its center. ||
-| **Sclera Brightness** | Controls the brightness of the sclera, or white of the eye. ||
-| **Sclera Roughness** | Controls the Material Roughness value of the sclera. ||
-| **Shadow Hardness** | Controls the sharpness of the blend between the sclera inner and outer color. Used with Shadow Radius to help drive shading across the surface of the sclera, approximating the effect of the eyelid casting subsurface scattered shadows across the surface of the eyeball. ||
-| **Shadow Radius** | Controls the size of the blend between the inner and outer colors of the sclera. Used with **Shadow Hardness**. ||
-| **Specularity Iris** | Controls specularity level across the cornea (iris and pupil). ||
-| **Specularity Sclera** | Controls the specularity level across the sclera. ||
-| **Texture Parameter Values** |||
-| **Iris Color** | See [Eye Textures](Resources/Showcases/DigitalHumans#eyetextures) below. ||
-| **Iris Normal Map** | See [Eye Textures](Resources/Showcases/DigitalHumans#eyetextures) below. ||
-| **Sclera Color** | See [Eye Textures](Resources/Showcases/DigitalHumans#eyetextures) below. ||
+| **静态开关参数值** |||
+| **使用眼部突出（Use Eye Bulge）** | 根据眼球几何体是否使用物理建模的角膜突出来调整着色器的折射属性。||
+| **矢量参数值** |||
+| **眼角深色** | 为眼睛颜色的黑暗度设置颜色值，可以使用 **阴影硬度（Shadow Hardness）** 和 **阴影半径（Shadow Radius）** 的标量变量控制。||
+| **标量参数值** |||
+| **深度标尺（Depth Scale）** | 用于控制角膜下方的虹膜折射深度。||
+| **扁平法线（Flatten Normal）** | 该值控制眼睛法线贴图的扁平程度，主要集中于巩膜。||
+| **折射率（IOR）** | 角膜下面的液体的折射率。控制折射程度。||
+| **虹膜凹度指数（Iris Concavity Power）** | 与 *虹膜凹度标尺（Iris Concavity Scale）* 结合使用，控制光线通过角膜时在虹膜表面上计算出的光线焦散的形态和量。在通常只在实际照亮的场景中可见，难以在材质实例编辑器中显现。||
+| **虹膜凹度标尺（Iris Concavity Scale）** | 与 *虹膜凹度指数（Iris Concavity Power）* 结合使用，控制光线通过角膜时在虹膜表面上计算出的光线焦散的形态和量。在通常只在实际照亮的场景中可见，难以在材质实例编辑器中显现。||
+| **虹膜UV半径（Iris UV Radius）** | 控制眼球虹膜的整体大小。||
+| **虹膜亮度（Iris Brightness）** | 控制虹膜亮度。||
+| **虹膜置换标尺UV（IrisDispScaleUV）** | 使用虹膜法线贴图时调节虹膜置换。||
+| **虹膜粗糙度** **（Iris Roughness）** | 该值决定角膜（即紧靠虹膜的上表面）上的亮度。||
+| **角膜缘深色标尺（Limbus Dark Scale）** | 控制角膜缘深色环状区的大小。||
+| **角膜缘指数（Limbus Power）** | 控制角膜缘区域的整体暗度。过高的数值将使整个角膜缘区域变暗。||
+| **角膜缘UV宽度颜色（Limbus UV Width Color）** | 控制角膜缘的取样大小，或用于显示角膜缘所分配的眼睛表面的量。这是一个十分精妙的设置，调整时需深思熟虑。||
+| **角膜缘UV宽度着色（Limbus UV Width Shading）** | 控制光线对角膜缘着色影响的程度。这是一个十分精妙的设置，调整时需深思熟虑。||
+| **法线UV标尺（Normal UV Scale）** | 控制眼睛表面所用的法线贴图纹理的大小。||
+| **瞳孔标尺（Pupil Scale）** | 控制瞳孔大小。这是用于扩大眼睛的设置。||
+| **折射开/关（Refraction On/Off）** | 在着色器的折射和非折射版本之间进行混合。||
+| **围绕中心缩放（Scale By Center）** | 从中心调整整个虹膜/瞳孔区域的大小。||
+| **巩膜亮度（Sclera Brightness）** | 控制巩膜（即眼白）的明亮度。||
+| **巩膜粗糙度（Sclera Roughness）** | 控制巩膜的材质粗糙度值。||
+| **阴影硬度（Shadow Hardness）** | 控制巩膜内外颜色之间混合的锐度。与阴影半径（Shadow Radius）搭配使用可以决定巩膜表面的着色，估算出眼睑在眼球表面投射次表面散射阴影的效果。||
+| **阴影半径（Shadow Radius）** | 控制巩膜内外颜色之间混的大小。与 **阴影硬度（Shadow Hardness）** 搭配使用。||
+| **高光度虹膜（Specularity Iris）** | 控制角膜上（虹膜和瞳孔）的高光度水平。||
+| **高光度巩膜（Specularity Sclera）** | 控制巩膜上的高光度水平。||
+| **纹理参数值** |||
+| **虹膜颜色（Iris Color）** | 请参阅下文的[眼部纹理](Resources/Showcases/DigitalHumans#eyetextures)。||
+| **虹膜法线贴图（Iris Normal Map）** | 请参阅下文的[眼部纹理](Resources/Showcases/DigitalHumans#eyetextures)。||
+| **巩膜颜色（Sclera Color）** | 请参阅下文的[眼部纹理](Resources/Showcases/DigitalHumans#eyetextures)。||
 
-#### Eye Iris Normal
+#### 眼睛虹膜法线
 
-For eyes, there is now support for a Dual Normal to add additional detail and light directionality to the eye through the **Iris Normal**.
+对于眼睛，目前提供了双法线支持，通过 **虹膜法线（Iris Normal）** 可以丰富眼睛细节，增加光线方向性。
 
 [OBJECT:ComparisonSlider]
     [PARAM:before]
-    ![Iris Normal Disabled](Iris_DualNormal_Disabled.png) 
+    ![禁用虹膜法线](Iris_DualNormal_Disabled.png) 
     [/PARAM]
     [PARAM:after]
-    ![Iris Normal Enabled](Iris_DualNormal_Enabled.png) 
+    ![启用虹膜法线](Iris_DualNormal_Enabled.png) 
     [/PARAM]
 [/OBJECT]
 
 [REGION:note]
-The eye in this shot is also using Boundary Bleed Color improvements to soften the illumination and light leaking between materials.
+这张照片中的眼睛还使用了边界溢色改进，以减轻材质之间的漏光现象。
 [/REGION]
 
-The iris normal can be enabled by adding the following console variable to your `DefaultEngine.ini`:  
+要启用虹膜法线，可以将下列控制台变量添加到`DefaultEngine.ini`：  
 
 r.IrisNormal=1
 
-The normal for the iris is fed into the **Clear Coat Bottom Normal **node in the Material. 
+虹膜法线会输入到材质中的 **透明涂层底部法线（Clear Coat Bottom Normal）** 节点。 
 
 [REGION:lightbox]
 [![](IrisNormal_ClearCoatBottomNormal.png "IrisNormal_ClearCoatBottomNormal.png")](IrisNormal_ClearCoatBottomNormal.png)
 [/REGION]
 [REGION:caption]
-Click image for full size.
+单击查看大图。
 [/REGION]
 
-#### Eye Textures
+#### 眼部纹理
 
-Many of the textures you’ll create for the eyes will be based on the UV layout created above, with the exception of the Iris map. The list of primary editable textures includes:
+您为眼部创建的许多纹理都将基于上述创建的UV布局，但虹膜法线例外。主要可编辑的纹理列表包括：
 
-| **Texture** | **Name** | **Description** |
+| **纹理** | **名称** | **说明** |
 | --- | --- | --- |
-| ![](ScleraMap.png "ScleraMap.png") | **Sclera Map** | [INCLUDE:#excerpt_52] |
-| ![](MidPlaneDisplacementMap.png "MidPlaneDisplacementMap.png") | **Mid Plane Displacement Map** | [INCLUDE:#excerpt_54] |
-| ![](IrisNormalMap.png "IrisNormalMap.png") | **Normal Map** | [INCLUDE:#excerpt_56] |
-| ![](TangentMap.png "TangentMap.png") | **Tangent Map** | [INCLUDE:#excerpt_58] |
-| ![](IrisMap.png "IrisMap.png") | **Iris Map** | [INCLUDE:#excerpt_60] |
+| ![](ScleraMap.png "ScleraMap.png") | **巩膜贴图（Sclera Map）** | [INCLUDE:#excerpt_52] |
+| ![](MidPlaneDisplacementMap.png "MidPlaneDisplacementMap.png") | **中平面置换贴图（Mid Plane Displacement Map）** | [INCLUDE:#excerpt_54] |
+| ![](IrisNormalMap.png "IrisNormalMap.png") | **法线贴图（Normal Map）** | [INCLUDE:#excerpt_56] |
+| ![](TangentMap.png "TangentMap.png") | **切线贴图（Tangent Map）** | [INCLUDE:#excerpt_58] |
+| ![](IrisMap.png "IrisMap.png") | **虹膜贴图（Iris Map）** | [INCLUDE:#excerpt_60] |
 
 [COMMENT:none]
 
 [EXCERPT:excerpt_60]
-The iris texture is unique in that it does not match the UV layout. Instead, the texture fills the entirety of the resolution. UVs and Alpha masks control the overall iris size, as well as the size of the pupil. If making your own iris maps, try to keep the pupil size reasonably close to the proportions in the supplied texture.
+虹膜纹理较为独特，它与UV布局不相符。相反，这种纹理将填充整个分辨率。UV和透明遮罩用于控制整体虹膜大小以及瞳孔大小。如果您自建虹膜贴图，尽量使瞳孔大小接近所提供纹理的比例。
 
 (eye\_iris\_clr)
 [/EXCERPT]
@@ -410,7 +415,7 @@ The iris texture is unique in that it does not match the UV layout. Instead, the
 
 [COMMENT:none]
 [EXCERPT:excerpt_58]
-The tangent map is used to control the direction the surface is flowing in tangent space. In the case of the example character’s eye setup, this is used to accentuate the change in direction where the cornea meets the sclera.
+切线贴图用于控制表面在切线空间中流动的方向。在示例角色的眼睛设置中，它用于突出角膜与巩膜相交方向的变化。
 
 (T\_Eye\_N)
 [/EXCERPT]
@@ -419,7 +424,7 @@ The tangent map is used to control the direction the surface is flowing in tange
 [COMMENT:none]
 
 [EXCERPT:excerpt_56]
-The normal map does the same job as normal maps in all shaders – it supplies tactile texture variation. In the case of the example character eye setup, it produces tiny lumps and bumps along the wet surface of the eye.
+法线贴图的作用与所有着色器中法线贴图的作用相同——提供触觉纹理变化。在示例角色的眼睛设置中，它在眼睛的湿润表面上生成凹凸感。
 
 (iris08\_leftEye\_nml)
 [/EXCERPT]
@@ -428,7 +433,7 @@ The normal map does the same job as normal maps in all shaders – it supplies
 [COMMENT:none]
 
 [EXCERPT:excerpt_54]
-The mid-plane displacement map is used to lock down a plane that cuts through the center of the eye, and is used as a basis for offsetting the depth of the iris.
+中平面置换贴图用于锁定穿透眼睛中心的平面，并用作虹膜深度偏移调节的基础。
 
 (T_EyeMidPlaneDisplacement)
 [/EXCERPT]
@@ -436,400 +441,400 @@ The mid-plane displacement map is used to lock down a plane that cuts through th
 
 [COMMENT:none]
 [EXCERPT:excerpt_52]
-The sclera map controls the colors of the eye whites, as well as the vein and tissue color that will be present at the edges of the eye. If you wanted your character to be able to have bloodshot eyes, for example, this is the texture you would modify.
+巩膜贴图控制眼白的颜色，以及眼睛边缘呈现的静脉和组织颜色。例如，如果需要角色的眼睛布满血丝，则需要修改的就是这个纹理。
 
 (Sclera\_Tweak\_R)
 [/EXCERPT]
 [/COMMENT]
 
 [REGION:warning]
-Note that the Tangent map is not fed directly into the Normal map input. Instead, it is connected to the Tangent Output node which must be created separately, as seen in the master Material.
+请注意，切线贴图不直接连到法线贴图输入。而是连接到一个必须单独创建的切线输出节点，如主材质所示。
 [/REGION]
 
 ![](TangentOutput.png "TangentOutput.png")
 
-#### Eye Soft Ambient Shadowing
+#### 眼部柔和环境阴影
 
-There are two ways to approach soft ambient shadowing for the eye so that it feels natural and believable. In the real world – wherever you eye comes in contact with other tissues, such as the eyelid or the tear duct (caruncle) – you will see very soft shadowing. This softness is due to the fact that the eye itself is translucent, allowing light to scatter through it. To help simulate this effect, you can use one of the following methods using a thin piece of geometry under the eyelid or enable contact shadowing for translucent materials. You may find that one method works better than the other depending on your own characters and the look you are developing.  
+有两种方法可以实现眼部柔和环境阴影，让眼部看起来自然可信。在真实世界中，眼睛与眼睑或泪腺（泪阜）等其他组织接触时将出现十分柔和的阴影。这种柔和的原因是眼睛自身为半透明，光线将散射穿过眼睛。为模拟这种效果，您可以使用下面的其中一种方法：在眼睑下使用一片薄薄的几何体，或为半透明材质启用接触阴影。根据您自己的角色和想要实现的外观，您可能会发现一种方法比另一种效果更好。  
 
-Note that both of these methods use [Boundary Bleed Color](Resources/Showcases/DigitalHumans#boundarycolorbleed) to soften areas around the eye - just like the mouth - to reduce haloing artifacts from subsurface scattering screen space limitations.
+请注意，这两种方法均使用[边界溢色](Resources/Showcases/DigitalHumans#boundarycolorbleed)来柔化眼周区域（就像嘴部区域一样），以减少次表面散射屏幕空间限制引起的光晕式瑕疵。
 
-##### Eye Ambient Occlusion
+##### 眼部环境光遮蔽
 
-One way to help simulate realistic shadowing for the eye is to place a thin sheet of geometry that covers the eye. It provides approximated occlusion, creating a richer degree of realism across the eye.
+帮助模拟眼部逼真阴影效果的方法是放置一片薄薄的几何体来盖住眼睛。它提供近似遮蔽，在眼睛上创造出一种更深层次的真实感。
 
-The Material applied to this sheet is named MI\_Eye\_Occlusion_Mike and can be found in Material Element 17 slot of the example character model.  
+应用于这个薄片的材质名为MI\_Eye\_Occlusion_Mike，可以在示例角色模型的材质元素17插槽中找到。  
 
 [REGION:note]
-Note that we did not use this method with Mike’s bust. Instead we developed and used Contact Shadows for Translucent Materials, which we felt worked better for this character. You can enable Contact Shadows by applying a value to the variable **Shadow Amount** in the Material Instance.
+请注意，我们没有在Mike的半身人像中使用这种方法。而是开发并使用了适合于半透明材质的接触阴影，我们觉得这种方法更适于此角色。您可以在材质实例中对变量 **阴影量（Shadow Amount）** 应用值来启用接触阴影。
 [/REGION]
 
 ![](AOSheetMaya.png "AOSheetMaya.png")
 
 [REGION:caption]
-The eye geometry used for ambient shadowing.
+用于环境阴影的眼部几何体。
 [/REGION]
 [REGION:note]
-If authoring your own content for character eyes, you will very likely need to build this piece of geometry yourself. Note that it should be made to fit the area of the open eyelid and that its UVs should cleanly fill the 0-1 UV space in your 3D modeling application.
+如果您要自己为角色眼睛编写内容，很可能需要自行构建这部分几何体。需要注意的是，它应该恰好填充到睁开眼睑的区域，并且其UV应恰好填充3D建模应用程序中的0-1 UV空间。
 [/REGION]
 
-##### Contact Shadows for Translucent Materials
+##### 适合于半透明材质的接触阴影
 
-Translucent Materials can enable **Contact Shadows**. This uses similar functionality as the Contact Shadows for Lights but it's not linked to the light's contact shadow parameter. This is a screen space effect and can be used in addition to or in place of geometry to make the eye feel seated in the socket for believability. 
+半透明材质可以启用 **接触阴影**。此功能使用类似于光源接触阴影的功能，但不会链接到光源接触阴影参数。这是屏幕空间效果，可以作为几何体的补充，也可以取代几何体，让眼睛看起来牢牢地长在眼眶中，提高可信度。 
 
 [OBJECT:ComparisonSlider]
     [PARAM:before]
-    ![Translucent Contact Shadows: Disabled](ContactShadows_Disabled.png) 
+    ![半透明接触阴影：禁用](ContactShadows_Disabled.png) 
     [/PARAM]
     [PARAM:after]
-    ![Translucent Contact Shadows: Enabled](ContactShadows_Enabled.png) 
+    ![半透明接触阴影：启用](ContactShadows_Enabled.png) 
     [/PARAM]
 [/OBJECT]
 
-You can enable Contact Shadows in your material **Details** panel under the main Material node's**Translucency** tab:  
+您可以在材质的 **细节（Details）** 面板中，主材质节点的 **半透明度（Translucency）** 选项卡下启用接触阴影：  
 
 ![](EnableContactShadows-2.png "EnableContactShadows-2.png")
 
-## Material Techniques
+## 材质方法
 
-Below are some key takeaways that we learned while working on creating the look of our digital humans. 
+下面是我们在创建数字人类的过程中学习到的一些关键知识点。 
 
-### Normal Maps
+### 法线贴图
 
-There are two types of Normal maps used to create the look of realistic and believable skin for characters; Meso (or medium-sized) normals and Micro normals.
+用于为角色创建照片级真实的可信皮肤的法线贴图有两种类型：中等（即中型）法线和微观法线。
 
-#### Meso Normals
+#### 中等法线
 
-Meso normals represent the medium-sized details of the skin like the primary wrinkles around the eyes, lips, and forehead. Multiple meso normals are used and animated with different animated poses.  
+中等法线表示皮肤的中等程度细节，例如眼周、嘴唇和前额的明显皱纹。需要使用多个中等法线，并以不同的动画姿势为其制作动画。  
   
 
 ![](Normals_Mike.png "Normals_Mike.png")
 
-The poses are split into several different normal maps (see below). They are driven by the animation so that when the subject is acting or running an animation, the correct normal is triggered and blended between the different poses. This helps to create a realistic and believable result in the process. 
+姿势拆分为多个不同的法线贴图（请参见下图）。它们受动画驱动，因此当主体产生动作或奔跑时，将触发相应的法线并在不同的姿势中进行混合。这有助于在处理当中创建真实可信的结果。 
 
 ![](MesoAnimatedNormalWithPoses.jpg "MesoAnimatedNormalWithPoses.jpg")
 
 ![](MesoNormlAnimatedwithPoses_Character.gif "MesoNormlAnimatedwithPoses_Character.gif")
 
 [REGION:caption]
-The poses and masked normal maps driven by Andy Serkis’ facial capture performance.
+Andy Serkis面部捕捉表演驱动的动作和遮罩法线贴图。
 [/REGION]
 
-#### Micro Normals
+#### 微观法线
 
-Micro Normals represent the small details of the skin such as pores and small imperfections. These details are extracted in one of two ways: from scan data of the subject, or from the Specular map.
+微观法线表示皮肤的微小细节，例如毛孔和小瑕疵。这些细节来源于两个途径，一是主体的扫描数据，一是高光度贴图。
 
 ![](MicroNormals.jpg "MicroNormals.jpg")
 
-### Roughness Maps
+### 粗糙度贴图
 
-The Roughness map was generated from the Normal map, using a technique called "Normal to Roughness." Inside the Texture Editor, you can apply any texture to the Composite Texture slot and set the mode of the texture so that it becomes the basis for the roughness.
+粗糙度贴图是使用“法线转粗糙度”方法根据法线贴图生成的。在纹理编辑器内部，您可以将任意纹理应用于复合纹理插槽，并设置纹理模式以使其成为粗糙度的基础。
 
 ![](NormalToRoughness_2.png "NormalToRoughness_2.png")
 
 ![](NormalToRoughness_CompositeTextureSlot.png "NormalToRoughness_CompositeTextureSlot.png")
 
-In this example, we applied the Normal to the meso normal texture named Toksvig_mesoNormal to generate a roughness texture from the Green channel instead of hand painting roughness. By using this method and also having animated normals, we get the basis for all roughness maps for the micro and meso normals that are being animated. The animated normals also help with the transitions of roughness amounts while the skin is stretching or contracting in different animated poses, again adding to believability and realism of the character.
+在该示例中，我们对名为Toksvig_mesoNormal的中等法线纹理应用了这种法线，从绿色通道生成了粗糙度纹理，取代了手绘粗糙度。通过使用这种方法和带动画的法线，我们获得了要制作动画的微观和中等法线的所有粗糙度贴图基础。带动画的法线还有助于皮肤在不同动画姿势中展开或收缩所引起的粗糙度量的转变，再次提高了角色的可信度和真实感。
 
-#### Fresnel Edge Roughness
+#### 菲涅尔边缘粗糙度
 
-To soften the edges of the Roughness maps, a Fresnel is used on the edges to approximate peach fuzz on the face.  
+为柔化粗糙度贴图的边缘，在边缘上使用菲涅尔来近似出面部绒毛。  
   
-Example of how we control the edge roughness we used a Scalar Parameter that could be controlled through a Material Instance.  
+下面的示例演示了我们如何使用通过材质实例控制的标量参数来控制边缘粗糙度。  
 
 ![](FresnelEdgeRoughnessMaterial.jpg "FresnelEdgeRoughnessMaterial.jpg")
 
 [OBJECT:ComparisonSlider]
     [PARAM:before]
-    ![Edge Roughness: 0.25 (Default)](RoughnessEdge_0_25.png.png) 
+    ![边缘粗糙度：0.25（默认值）](RoughnessEdge_0_25.png.png) 
     [/PARAM]
     [PARAM:after]
-    ![Edge Roughness: 0](RoughnessEdge_0.png) 
+    ![边缘粗糙度：0](RoughnessEdge_0.png) 
     [/PARAM]
 [/OBJECT]
 
-#### Region Masks for Roughness
+#### 粗糙度边缘遮罩
 
-For roughness variations in the skin that couldn’t be captured with a camera, we created painted region masks for these nano-variations. Part of this involved studying the capture information and using artistic license to match the roughness to the reference.
+对于无法通过摄像头捕捉到的皮肤粗糙度变化，我们为这些纳米级变化创建了绘制区域遮罩。其中涉及了研究捕捉信息，以及具有一定的艺术资质才能将粗糙度与参照匹配起来。
 
-### Skin Specular Based on IOR Constant
+### 基于IOR常量的皮肤高光度
 
-The specularity of skin uses a constant value based on the index of refraction (IOR) for the skin. We use this because painted specular is not physically accurate.
+皮肤高光度使用的常量值基于皮肤的折射率（IOR）。我们使用它的原因是绘制高光度实际上并不准确。
 
-#### Cavity Map
+#### 腔洞贴图
 
-Because we can’t raytrace every single displacement of the skin, we exclude that specular to break up the result by generating the map from displacement maps of the subject. It works as specular occlusion with the effect being reduced at Fresnel edges.
+由于我们不能对皮肤的每一个置换进行光线追踪，因此排除了这种高光度，根据主体置换贴图生成贴图来分解结果。其作用与高光度遮蔽类似，菲涅尔边缘处的效果会减弱。
 
 [OBJECT:ComparisonSlider]
     [PARAM:before]
-    ![Specular: 0.4 (Default)](CavityMap_0_4.png) 
+    ![高光度：0.4（默认值）](CavityMap_0_4.png) 
     [/PARAM]
     [PARAM:after]
-    ![Specular: 0](CavityMap_0.png) 
+    ![高光度：0](CavityMap_0.png) 
     [/PARAM]
 [/OBJECT]
 
-#### Scalp and Hair Occlusion
+#### 头皮和头发遮蔽
 
-In addition to using a cavity map, the hair has to be baked into the specular map since our digital human characters are using splines to represent hair instead of cards. Rendering hair splines is very costly for a significant amount of geometry, so the hair in UE4 isn’t as thick, causing some light to get through. Using an occlusion mask prevents some (or possibly all) of the light leaks from happening.
+除了使用腔洞贴图，头发也必须烘焙到高光度贴图中，因为我们的数字人类角色使用样条来表示头发，而不是卡片。对于大量几何体而言，渲染头发样条开销极大，因此UE4中的头发没有那么厚，这样可以让一些光线穿射过去。使用遮蔽遮罩可以防止发生一些漏光（甚至可能防止所有漏光）。
 
 ![](ScalpAndHairOcclusion_Mike.png "ScalpAndHairOcclusion_Mike.png")
 
-The occlusion is baked into the Specular map since we cannot (for cost reasons) raytrace every possible occlusion point. The comparison example (see below), shows a very subtle difference in the amount of occlusion that happens. Depending on your model and how the hair is setup, you can see different results with more or less light leak.
+由于我们无法对每个可能的遮蔽点实现光线追踪（开销原因），因此这种遮蔽会烘焙到高光度贴图中。对比示例（请参见下文）显示了所发生遮蔽量极其细微的差异。根据您的模型和头发的设置方式，可以看到存在较多或较少漏光现象的不同结果。
 
 [OBJECT:ComparisonSlider]
     [PARAM:before]
-    ![With Scalp Occlusion Mask](ScalpOcclusion_WithMask.png) 
+    ![使用头皮遮蔽遮罩](ScalpOcclusion_WithMask.png) 
     [/PARAM]
     [PARAM:after]
-    ![Without Scalp Occlusion Mask](ScalpOcclusion_WithoutMask.png) 
+    ![未使用头皮遮蔽遮罩](ScalpOcclusion_WithoutMask.png) 
     [/PARAM]
 [/OBJECT]
 
-### Hair
+### 头发
 
-For the majority of digital humans we’ve created, we use poly strips which enables us to do painted hair and procedural hair. Because the UVs are laid out in a specific way with this method, an artist can paint the hair as needed on the scalp in an application like Maya. We also add a per-hair noise variation to vary the length of each hair strand, and to vary the roughness and color along the length of the strand.   
+对于我们创建的大部分数字人类，我们都使用了多边形样条，这样就可以制作绘制头发和系统生成头发。由于这种方法的UV布局方式独特，因此美术可以根据需要使用Maya等应用程序在头皮上绘制头发。我们还添加了每根头发的噪点变化来呈现不同发束的长短，同时也为了显现出发束长度上的粗糙度和颜色变化。   
   
-Since hair is not a perfect cylinder, we want to vary the tangents along the length to add some “scraggle” to the hair.  
+由于头发并不是完美的圆柱体，因此我们想在发束长度上采用不同的切线，为头发增加一些“扭曲度”。  
 
 ![](Hair_Scraggle.png "Hair_Scraggle.png")
 
 [REGION:caption]
-Final result of the “scraggle” hair in the UE4.
+UE4中“扭曲”头发的最终结果。
 [/REGION]
 
-#### Hair Fuzz
+#### 绒毛
 
-To simulate the short hair fuzz found on skin, the fuzz needs to be really subtle.
-
-[OBJECT:ComparisonSlider]
-    [PARAM:before]
-    ![Without Hair Fuzz](HairFuzz_UsingHairShader_noHair.png) 
-    [/PARAM]
-    [PARAM:after]
-    ![With Hair Fuzz](HairFuzz_UsingTranslucentShader_Enabled.png) 
-    [/PARAM]
-[/OBJECT]
-
-To create the effect, we used a Translucent shader model with an emissive material. We did not use the Hair shading model, because using a Hair shading model's specular is very difficult to match meaning that it's too bright or too dark all over in a lot of cases. By using a Translucent Emissive shader, we started with the base color, then added variation by darkening, brightening the tips, and sampling the surface normal to add subtle Fresnel edges.
-
-#### Using Pixel Depth Offset
-
-**Pixel Depth Offset** (PDO) is not a property unique to the Hair shading model. For Hair, we use PDO to blend the edges of the hairline to not look so harsh. Pixel Depth Offset causes pixels to look recessed away from the camera, creating an artificial sense of depth along the surface. Since hair is made up of simple sheets of geometry, the use of PDO can provide a triangle sense of depth to the hair shape as a whole. It also breaks up the intersection point where a plane of the hair geometry contacts the scalp (shown below).
+为了模拟皮肤上的短绒毛，绒毛需要极其精细。
 
 [OBJECT:ComparisonSlider]
     [PARAM:before]
-    ![Pixel Depth Offset: Disabled](PDO_off.png) 
+    ![没有绒毛](HairFuzz_UsingHairShader_noHair.png) 
     [/PARAM]
     [PARAM:after]
-    ![Pixel Depth Offset: Enabled](PDO_On.png) 
+    ![有绒毛](HairFuzz_UsingTranslucentShader_Enabled.png) 
     [/PARAM]
 [/OBJECT]
 
-## Data Acquisition and Character Modeling Approaches
+为创造出这种效果，我们结合使用了半透明着色器模型与自发光材质。我们没有使用毛发着色模型，因为使用毛发着色模型的高光度难以匹配，即在许多情况下不是太亮就是太暗。通过使用半透明自发光着色器，我们从底色入手，然后通过加深、提亮尖部和表面法线取样来增加一些变化，从而增加细致的菲涅尔边缘。
 
-Another significant part of getting the look and feel of the characters correct was in how our subject was captured and to do this, we partnered with [3Lateral](http://www.3lateral.com/) to capture these high-quality results. These capture techniques and processes are similar to what is used for performance capture in modern day movies.
+#### 使用像素深度偏移（Pixel Depth Offset）
 
-We achieved our result by using a combination of the following:
+**像素深度偏移**（PDO）不是特定于毛发着色模型的属性。对于毛发，我们使用PDO来混合发际线边缘，使其看起来不那么粗糙。像素深度偏移会让像素看起来远离摄像机而退去，沿着表面创造出一种人造深度感。由于头发是由一些简单的几何体构成的，因此使用PDO可以为头发整体形状提供一种三角形的深度感。它还会打破头发几何体平面与头皮接触的相交点（请参见下图）。
 
-*   Detailed Facial Scans
-*   Dental Molds
-*   Performance Capture with Mult-Camera Setups
-*   Sensors that closely captures Actor's Likeness
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![像素深度偏移：禁用](PDO_off.png) 
+    [/PARAM]
+    [PARAM:after]
+    ![像素深度偏移：启用](PDO_On.png) 
+    [/PARAM]
+[/OBJECT]
 
-The scan data is the closest thing you’ll get to a ground truth for the subject in 3D. Any adjustment or cleanup pass performed on the modeling side is going to be an interpretation of how it “should be” and will affect animation and material comparisons from that point forward. Part of the artist’s job when looking at this scan data is to maintain the integrity of the scan data. This includes supplementing, or even correcting, areas where the system can't capture accurate detail, like areas in the mouth, around the upper eyelid, or the ears. This often requires good artistry with a deep understanding of anatomy, but most of all, the reference captures are critical here to recreate an accurate representation of the subject.  
+## 数据采集和角色建模方法
+
+获得正确的角色外观的另一个重要部分是如何捕捉主体信息以及主体的行为方式，我们与[3Lateral](http://www.3lateral.com/)合作采集了这些高品质结果。这些捕捉技巧和流程类似于当代电影中使用的表演捕捉方法。
+
+我们使用下列组合实现了我们的结果：
+
+*   详细的面部扫描
+*   牙科模具
+*   通过多镜头设置捕捉表演
+*   紧贴捕捉演员肖像的传感器
+
+扫描数据是最接近3D中主体真实面貌的信息。在建模端执行的任何调整或清理操作都会用来解释它“应该是怎样的”，并会影响从这一刻开始的动画和材质比较。美术在查看这些扫描数据时，其一部分工作是保持扫描数据的完整性。这包括补充甚至更正系统无法捕捉准确细节的地方，例如嘴部、上眼睑周围或耳朵。这通常需要具备良好的艺术技巧，深刻理解解剖学（但不必掌握所有相关知识），参考捕捉十分重要，是精确重现主体必不可少的。  
 
 ![](AndyRetopologized-1.png "AndyRetopologized-1.png")
 
 [REGION:caption]
-(Left to Right) Raw Scan Data, New Topology with scan details projected, and Displacement added on top of the center topology.
+（从左到右）原始扫描数据、投射了扫描细节的新拓扑、在中间拓扑基础上增加了置换。
 [/REGION]
 
   
-In this example, you can see how the original scan data was taken, retopologized, and cleaned up to accurately reflect the subject, in this case, Andy Serkis.
+在该示例中，您会看到原始扫描数据是如何获取、重新拓扑并清理以准确反应主体（即本例中的Andy Serkis）的。
 
-### Facial Capture
+### 面部捕捉
 
-Through the process of capturing an Actor’s performance, we captured 50 different [FACS](https://en.wikipedia.org/wiki/Facial_Action_Coding_System) (Facial Animation Coding System) poses where each pose helps isolate different muscle groups in the face. This information enabled us to create physically accurate data for different textures, such as the Diffuse, Normal, Specular, Ambient Occlusion, and Translucency.
+通过捕捉演员表演的过程，我们捕捉了50种不同的[FACS](https://en.wikipedia.org/wiki/Facial_Action_Coding_System)（面部动画编码系统）姿势，每一种姿势都有助于明确面部的不同肌肉群。该信息让我们能够为不同纹理创建物理上精准的数据，例如漫射、法线、高光度、环境光遮蔽和半透明度。
 
-### Microgeometry
+### 微观几何体
 
-The minute details of the face, such as pores and minor imperfections, are captured from every pose the actor performed. This detail is the basis for blending the animated poses of the actor using these [Micro Normal](Resources/Showcases/DigitalHumans#micronormals) maps to provide accurate detail for how the shape of the face and wrinkles change during performance.
+面部极其细微的细节（如毛孔和小瑕疵）是根据演员表演的每个动作捕捉到的。该细节是使用[微观法线](Resources/Showcases/DigitalHumans#micronormals)贴图混合带动画的演员姿势的基础，以提供表演期间面部形状和皱纹变化的精准细节。
 
-### Displacement Map
+### 置换贴图
 
-The Displacement map is created from tertiary normal information during the scan process with the normals being captured from multiple lighting directions. Once we have that map, we can apply it in a sculpting application, like ZBrush or Mudbox. The accuracy of scan forms the macro details (or the ground truth) of the capture. However, the intensity of those tertiary details is arbitrary and needs to be matched by eye from reference shots of the subject.
+置换贴图是扫描期间使用从多个照明方向采集的法线根据三级法线信息创建的。当我们获得该贴图后，就可以将其应用于造型应用程序，例如ZBrush或Mudbox。扫描的精准度构成了捕捉的宏观细节（或真实状况）。但是，这些三级细节的强度并不是固定的，需要根据主体的参考照片用肉眼观察匹配。
 
-### Various Texture Maps
+### 多种纹理贴图
 
-The texture maps created for use with our digital human characters are a combination of Artist created ones and ones generated from the original scan data. Below are some details on how we captured a few of the different types of textures.
+为用于数字人类角色而创建的纹理贴图是美术创建的纹理贴图和根据原始扫描数据创建的纹理贴图的组合版。下面是有关我们如何采集不同类型纹理的一些详细说明。
 
-*   **Albedo (Diffuse)**
-    *   This was captured during scan-time with the hair being projected onto the scalp. Artists would clean up any areas of the texture that required it.
+*   **反射（漫射）**
+    *   该纹理是在扫描时将头发投射到头皮而采集的。美术将根据需要清理该纹理的任何区域。
         ![](Texture_Albedo_HeadHairSkin.png "Texture_Albedo_HeadHairSkin.png")
-*   **Normals**
-    *   These consisted of two maps: a base map baked from the high-poly model, and a micro normal that captures the detailed micro-structure of the skin.   
+*   **法线**
+    *   这包括两种贴图，一种根据高多边形模型烘焙的基本贴图，一种采集皮肤详细微观结构的微观法线。   
         ![](Comparison_MesoMicroNormals-1.png "Comparison_MesoMicroNormals-1.png")
-    *   A mask is also created to remove micro detail in some areas where it gives too much break-up, like around the tip of the nose where it gets too tight, or around the eyes for the tear duct and inner eyelid.
+    *   创建遮罩也是为了从分解过多的部分区域剔除微观细节，例如变得过于紧致的鼻尖周围，或者泪腺和内眼睑的眼周附近。
 
-In addition to these specific maps, we also used some painted regional masks to control the look of the character. For hair, we used scalp and cavity ambient occlusion maps, and to better control subsurface scattering we used some masks for thickness to control the amount of [light transmission](Resources/Showcases/DigitalHumans#LightTransmissionusingBackScatter_ForwardScatter_).
+除了这些具体的贴图之外，我们还使用了一些绘制的区域性遮罩来控制角色面貌。对于头发，我们使用了头皮和腔洞遮蔽贴图，为了更好地控制次表面散射，我们使用了一些厚度遮罩来控制[光线传输](Resources/Showcases/DigitalHumans#LightTransmissionusingBackScatter_ForwardScatter_)量。
 
-### Mouth and Eye Setup
+### 嘴部和眼部设置
 
-For the mouth and eyes, we used an approach that was similar to how the Photorealistic Character was set up with the exception that we use some additional geometry around the eyes and mouth to better blend materials or to provide better contact shadowing.
+对于嘴部和眼部，我们使用的方法类似于照片级真实角色的设置方法，唯一不同的是我们在眼部和嘴部周围额外使用了一些几何体，以便更好地混合材质或提供更好的接触阴影。
  
-Here is an example of the geometry setup we use for our digital human characters.  
+以下是我们用于四个数字人类角色的几何体设置示例。  
 
 ![EyeTeethMeshGeoSetup.png](EyeTeethMeshGeoSetup-resize471x504.png "EyeTeethMeshGeoSetup.png")
 
-1.  Lacrimal Meniscus (tear duct)
-1.  Caruncle Blend Mesh
-1.  Eyelid Occlusion and Blur Mesh
-1.  Eyeball
-1.  Gums
-1.  Teeth/Gum Blur Mesh
-1.  Teeth
-1.  Saliva Bubbles
-1.  Tongue 
+1. 泪腺弯液面（泪腺）
+1. 泪阜混合网格体
+1. 眼睑遮蔽和模糊网格体
+1. 眼球
+1. 牙龈
+1. 牙齿/牙龈模糊网格体
+1. 牙齿
+1. 喷溅唾液
+1. 舌头 
 
-The combination of this and supporting geometry translates to the believability of our characters.
+这种设置与支持几何体的结合就打造了角色的可信度。
 
-#### Eye Authoring Techniques
+#### 眼部编写方法
 
-While developing our digital human characters, we improved the fidelity of our character's eyes using some different techniques in the model and with Materials. As we warned above, a lot of the eyes setup is inter-dependent on the Material setup and the reference material captured. We strongly recommend using our eye setup to at least get you started. The following is an overview of what we did to achieve a realistic looking result:
+在开发数字人类角色时，我们在模型中使用了一些不同方法和材质提升了角色眼部的逼真度。如上所述，许多眼部设置与材质设置和采集的参考资料之间存在着相互依赖的关系。我们强烈建议使用我们的眼部设置作为您的起点。以下概括了我们为实现照片级真实面貌结果所做的操作：
 
 [REGION:tip]
-When building your own eyes, we strongly recommend that you start using the actual eye geometry and Material provided in this project. Most of the information here will be based on this particular eye geometry and Material. The **PhotorealEyeGeo** mesh can be exported from the project as an FBX and imported into your modeling application of choice in order to be used with your own characters and projects.
+在构建您自己的眼部时，我们强烈建议您使用该项目中提供的实际眼部几何体和材质。此处的大多数信息都将基于该具体的眼部几何体和材质。**PhotorealEyeGeo** 网格体可以作为FBX文件从项目中导出，然后导入到您选择的建模应用程序，以便用于您自己的角色和项目。
 [/REGION]
 
-##### Shape and UV Layout
+##### 形状和UV布局
 
-Much like the human eye of the real world, the eye mesh is not modeled to be perfectly spherical. It has a distinct dome at the front to represent the cornea, giving the eye an almost egg-like shape.  
+与真实世界的人类眼部十分相似，眼部网格体也没有建模成一个完美的球体。它前面是一个独特的圆顶，用于表示角膜，让眼睛呈现一个鸡蛋形状。  
 
 ![EyeGeometry.png](EyeGeometry-resize344x308.png "EyeGeometry.png")
 
 [REGION:caption]
-In this image, you can see the side view of the eye geometry. Note the raised area of the cornea at the front.
-[/REGION]The UV layout for the eye is also critical since it is from this layout that proportions of each eye texture are produced. Fortunately, the UV layout that works best with the Eye shading model is relatively basic: a planar projection along the front axis of the eye. The inclusion of backfaces is not extremely important since they’re hidden behind the eye anyway.
+在该图中，您可以看到眼部几何体的侧视图。请注意前面的角膜隆起区域。
+[/REGION]眼部UV布局也十分重要，因为每个眼部纹理的比例就是根据该布局生成的。幸运的是，最合适眼部着色模型的UV布局相当基础：延眼部前轴的平面投影。包括背面并不是十分重要，因为它们是隐藏在眼睛后面的。
 
 ![EyeUVs.png](EyeUVs-resize345x347.png "EyeUVs.png")
 
 [REGION:caption]
-The UV layout is centered within the 0-1 UV space with the projection looking directly into the cornea of the eye.
+UV布局位于0-1 UV空间中间，投影方向是直接看向眼睛角膜中。
 [/REGION]
 
-##### Additional Eye Notes
+##### 有关眼部的附加提示
 
-Below are some additional details about the eye geometry and material techniques used.
+以下是有关所用眼部几何体和材质方法的一些额外详细信息。
 
-###### Eyeball Geometry
+###### 眼球几何体
 
-In addition to the bulge of the eye geometry built in for the cornea, we also include a bulge near the nasal side of the eye, which is based off the detailed eye scan data we acquired of the subject's eyes.
+除了为角膜内置的眼部几何体的突出之外，我们还在眼部靠近鼻子的附近增加了一个突出，这基于我们获取的主体眼睛详细扫描数据。
 
-###### Caruncle Blend Geometry
+###### 泪阜混合几何体
 
-This geometry is used to soften the transition of the head geometry to the eyeball geometry. 
-
-[OBJECT:ComparisonSlider]
-    [PARAM:before]
-    ![Caruncle Blend Geometry: Disabled](Eye_CarcuncleBlend_Disabled.png) 
-    [/PARAM]
-    [PARAM:after]
-    ![Caruncle Blend Geometry: Enabled](Eye_CarcuncleBlend_Enabled.png) 
-    [/PARAM]
-[/OBJECT]
-
-###### Lacrimal Fluid Geometry
-
-This represents the wetness that gathers underneath the eye and the lower eyelid. 
+该几何体用于柔化头部几何体向眼球几何体的过渡。 
 
 [OBJECT:ComparisonSlider]
     [PARAM:before]
-    ![Lacrimal Fluid Geometry: Disabled](Eye_LacrimalFluid_Disabled.png) 
+    ![泪阜混合几何体：禁用](Eye_CarcuncleBlend_Disabled.png) 
     [/PARAM]
     [PARAM:after]
-    ![Lacrimal Fluid Geometry: Enabled](Eye_LacrimalFluid_Enabled.png) 
+    ![泪阜混合几何体：启用](Eye_CarcuncleBlend_Enabled.png) 
     [/PARAM]
 [/OBJECT]
 
-###### Occlusion and Blur Geometry
+###### 泪腺液体几何体
 
-This geometry is used to better seat the eye into the head. 
+这表示聚集在眼睛下面和下眼睑处的湿润度。 
 
 [OBJECT:ComparisonSlider]
     [PARAM:before]
-    ![Occlusion and Blur Geometry: Disabled](Eye_OcclusionBlend_Disabled.png) 
+    ![泪腺液体几何体：禁用](Eye_LacrimalFluid_Disabled.png) 
     [/PARAM]
     [PARAM:after]
-    ![Occlusion and Blur Geometry: Enabled](Eye_OcclusionBlend_Enabled.png) 
+    ![泪腺液体几何体：启用](Eye_LacrimalFluid_Enabled.png) 
     [/PARAM]
 [/OBJECT]
 
-#### Mouth Authoring Techniques
+###### 遮蔽和模糊几何体
 
-For areas around the mouth, we used techniques similar to those we used for the eyes. For the gums and teeth, we use a blur mesh around the teeth and gums to blend them more realistically. We added saliva bubbles in some of the characters to add to believability.  
+该几何体用于让眼睛更好地与头部结合在一起。 
 
-These parts of the Mike Seymour head are not readily visible since this is Static Mesh. Also, it does not include some geometry, like the blur mesh for the gums or saliva bubbles that our later digital humans do have. See how the eye blur meshes were set up to blend between the eye and the head to get an idea of how to set it up on your own.
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![遮蔽和模糊几何体：禁用](Eye_OcclusionBlend_Disabled.png) 
+    [/PARAM]
+    [PARAM:after]
+    ![遮蔽和模糊几何体：启用](Eye_OcclusionBlend_Enabled.png) 
+    [/PARAM]
+[/OBJECT]
 
-### Hair Authoring Techniques
+#### 嘴部编写方法
 
-We use a combination of techniques when authoring hair for digital humans such as using both cards and splines to achieve the look of a realistic, believable digital human. In creating all of the hair for our characters, we used XGen for Maya to interactively groom a character’s hair, as was the case with Mike Seymour, or we use Guide Curves to position the hair, as was done with Siren. After that, Arnold for Maya was used to render out any textures we required for the hair to be later used in UE4’s Materials.
+对于嘴部周围的区域，我们使用的方法类似于眼部。对于牙龈和牙齿，我们在牙齿和牙龈周围使用了模糊网格体来更真实地将它们混合起来。我们在某些角色中增加了喷溅唾液来提高可信度。  
 
-In the example of Siren (seen in the image below), we used both hair cards and hair splines layered over the cards to produce her hair. This enabled us to reduce the geometry due to her hair length and use what works best with both techniques: reducing the light leaks with splines due to hair thickness, and reducing the amount of cost associated with rendering the hair in realtime.
+Mike Seymour头部的这些部位还不能用于呈现，因为这是静态网格体。此外，它还不包括某些几何体，例如用于牙龈或喷溅唾液的模糊网格体，我们后续的数字人类将包含这些几何体。请查看如何设置眼部模糊网格体以将眼部和头部融合起来，以此了解您自己该如何设置。
+
+### 毛发编写方法
+
+我们在为数字人类编写毛发时结合使用了多种方法，例如使用卡片和样条来实现极具真实感和可信度的数字人类面貌。在创建角色的所有毛发时，我们使用了Maya XGen以交互方式整饰角色的毛发（Mike Seymour），或者使用导向曲线来确定毛发位置（Siren）。之后，使用了Maya Arnold来渲染出稍后要在UE4材质中使用所需的任何纹理。
+
+在Siren的示例（下图）中，我们使用了毛发卡片和层叠于卡片之上的毛发样条来产生她的头发。这让我们能够减少因其头发长度而需要的几何体，并使用最合适两种方法的方式：减少因其头发厚度而引起的漏光现象，减少与实时渲染其毛发关联的开销。
 
 ![](Hair_Siren_ComboSplinesAndCards.png "Hair_Siren_ComboSplinesAndCards.png")
 
 [REGION:caption]
-Siren's hair layers (from left to right) hair cards, hair splines, and additional short hair splines.
+Siren的毛发层（从左到右）毛发卡片、毛发样条和额外短毛发样条。
 [/REGION]
 
-#### Hair Splines
+#### 毛发样条
 
-We converted hair splines to thin poly strips (or billboards). When this was done with XGen, it would make the billboards camera-facing. Before exporting from XGen, we’d make sure this was disabled so that it works well with UE4.
+我们将毛发样条转换为薄多边形样条（或锚床）。当使用XGen完成这个操作后，锚床会面朝摄像机。在从XGen导出之前，我们确保它是禁用的，以便能够顺利地在UE4中使用。
 
 ![](Hair_Siren.jpg "Hair_Siren.jpg")
 
 [REGION:caption]
-Spline hair that is layered over hair cards.
+层叠于毛发卡片之上的样条毛发。
 [/REGION]
 
-Since the hair was converted to poly strips, we would use three UV sets: one to control the hair root, tip, and color, another for regional masking, and a final one to store bake hair ambient occlusion.
+由于毛发已经转换为多边形样条，我们将使用三个UV集：一个控制发根、发尖和发色，一个控制区域性遮罩，一个存储烘焙毛发环境光遮蔽。
 
 ![](Hair_Model_UVStrips.png "Hair_Model_UVStrips.png")
 
 *   **UV 1**
-    *   This UV is auto-generated by XGen when the tiling option is turned off. Each UV shell is overlapping for all the hair strands, which we then use to globally control the root and tip width along with the color of the hair.
+    *   该UV是在关闭平铺选项时由XGen自动生成的。对于所有发束，每个UV壳都是重叠的，然后用来全局控制发根和发尖宽度以及发色。
 *   **UV 2**
-    *   This UV set enables regional control for things like hand painted masks, or if we wanted to add noise for color variations, it could be done here.
-    *   UV maps were generated using some tricks that mimic the scalp.
-        *   The groomed XGen primitives were converted to geometry using the default UV settings.
-        *   We re-selected the XGen groom and added an XGen modifier to shrink the hairs down to be very short (similar to stubble). And because XGen doesn’t change its topology order based on vertex color or length, a blend shape can be created later. The shortened hair is once again converted to poly strips using default settings.
-        *   We then create a second UV based on the shortened hair and transfer the scalp geometry and transfer the UVs in world space.
-        *   Finally, we create a blend with the overlapping hair UVs and the scalp-type layout that gives us one hair mesh with two UV sets with one being global and another that gives you granular control over its look.
+    *   该UV集为手绘遮罩等启用区域性控制，或者如果想要为颜色变化增加噪点，也可以在此完成。
+    *   UV贴图是使用模拟头皮的一些技巧生成的。
+        *   整饰过的XGen Primitives使用默认UV设置转换为几何体。
+        *   我们重新选择了XGen整饰并添加了XGen修饰符，将毛发缩减到非常短（类似于发茬）。由于XGen不会根据顶点颜色或长度更改其拓扑顺序，因此可以稍后创建混合形状。缩短的毛发再次使用默认设置转换为多边形样条。
+        *   然后，我们使用基于缩短后毛发的第二个UV并传输头皮几何体，之后将这些UV传输到场景空间。
+        *   最后，我们用重叠毛发UV和头皮式布局创建了混合，这样我们就有了带两个UV集的一个毛发网格体，其中一个UV集是全局的，另一个提供对其外观的精细控制。
 *   **UV 3**
-    *   This UV is used for baked hair ambient occlusion by laying out all the poly strips flat in a single texture. The only caveat here was that the map had to be fairly large to capture the pixels that were affected to appropriately display the AO.
+    *   该UV用于通过在单一纹理中平铺所有多边形样条来实现烘焙毛发环境光遮蔽。这里唯一需要注意的是，该贴图必须足够大才能捕捉受影响的像素，以便正确显示AO。
 
-#### Hair Cards
+#### 毛发卡片
 
-In creating hair cards for our characters to get the correct look, XGen was used for the hair and we rendered out different textures using Arnold.
+在为角色创建毛发卡片以获得正确外观时，对毛发使用了XGen，我们使用了Arnold渲染出不同的纹理。
 
 ![](Hair_CardsOnSlant.png "Hair_CardsOnSlant.png")
 
 [REGION:caption]
-Example of hair rendered to a texture sheet.
+渲染到纹理层的毛发示例。
 [/REGION]
 
 [REGION:tip]
-To mimic the slope of the skull and avoid doll-like looking hair, we used a slanted plane as the surface for the hair to break up the roots of the texture so that they are not all the same length. You can see this in various roots of the hair, especially in the examples in the middle (see above).
+为模拟头骨的倾斜度，避免毛发看起来像玩偶毛发，我们使用了倾斜平面作为毛发的表面，以分解纹理根部，让它们拥有不一样的长度。您可以各种发根中看到这种效果，尤其是中间的示例（参见上图）。
 [/REGION]
 
-The Diffuse texture was rendered out using Arnold, which is mostly flat with minor strand variations added in, an Ambient Occlusion texture that is used for specular occlusion, and a root/tip gradient that is used for blending the hair to the scalp. Any specularity in the hair was handled using UE4’s own Hair shading model in the material.
+漫射纹理是使用Arnold渲染出来的，它主要是平坦的，增加了小幅光线变化、用于高光度遮蔽的环境光遮蔽纹理和用于将头发与头皮混合的发根/发尖渐变。头发中的任何高光度都是使用UE4自己的材质毛发着色模型处理的。
 
-We preferred placing hair cards by hand to produce the result we wanted. Using a procedural method or instancing typically required more time to clean up.
+我们倾向于手动放置毛发卡片来产生所需的结果。使用系统生成方法或实例化通常需要更多的时间进行清理。
 
-## Additional Information
+## 附加信息
 
-If you’d like additional details of how we achieved and created our Digital Human characters, you can check out the videos below from our various talks at SIGGRAPH and GDC.
+如果您需要进一步了解我们是如何实现和创建数字人类角色的，可以在下面观看我们在SIGGRAPH和GDC发表的各种演讲的视频。
 
 [OBJECT:EmbeddedVideo]
     [PARAMLITERAL:videoid]
@@ -867,12 +872,12 @@ If you’d like additional details of how we achieved and created our Digital Hu
     [/PARAMLITERAL]
 [/OBJECT]
 
-## Contributing Partners
+## 参与的合作伙伴
 
 ![](logo-alt.png "logo-alt.png")
 
-[3Lateral](http://www.3lateral.com/) worked closely with our teams here at Epic Games and provided detailed scanning data, animated maps, rigging, and more for our digital human demos and "A Boy and His Kite" open world demo.
+[3Lateral](http://www.3lateral.com/)与Epic Games团队紧密合作，并为我们的数字人类演示和“A Boy and His Kite”开放世界演示提供了详细的扫描数据、动画贴图、设备等。
 
-*   For [Andy Serkis and Osiris Black©](http://www.3lateral.com/projects/Digital-Andy-Serkis-and-Osiris-Black), 3D Scanning, Character, Concept, Creature, Face, Film, Games, and Motion were provided. 
-*   For [Siren](http://www.3lateral.com/projects/siren), 3D Scanning, Face, and Motion capture were provided. 
-*   For [The Kid](http://www.3lateral.com/projects/unreal-engine-demo-the-kid), Concept, and Motion were provided.
+*   对于[Andy Serkis和Osiris Black©](http://www.3lateral.com/projects/Digital-Andy-Serkis-and-Osiris-Black)，提供了3D扫描、角色、概念、生物、面部、电影、游戏和动作。 
+*   对于[Siren](http://www.3lateral.com/projects/siren)，提供了3D扫描、面部和动作捕捉。 
+*   对于[The Kid](http://www.3lateral.com/projects/unreal-engine-demo-the-kid)，提供了概念和动作。

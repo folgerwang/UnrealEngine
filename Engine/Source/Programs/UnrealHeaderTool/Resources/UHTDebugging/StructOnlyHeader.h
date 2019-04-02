@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -12,4 +12,10 @@ struct FSomeStruct
 	GENERATED_BODY()
 
 #pragma endregion X
+};
+
+USTRUCT()
+struct alignas(8) FAlignedStruct
+{
+	GENERATED_BODY()
 };

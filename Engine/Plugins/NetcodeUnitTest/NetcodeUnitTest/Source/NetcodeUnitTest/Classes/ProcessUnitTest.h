@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -239,9 +239,11 @@ protected:
 	 *
 	 * @param InCommandline		The commandline that the child process should use
 	 * @param bMinimized		Starts the process with the window minimized
+	 * @param Type				If we are not in Dev Editor mode, the Game/Server processes are separate - specify which here
 	 * @return					Returns a pointer to the new processes handling struct
 	 */
-	virtual TWeakPtr<FUnitTestProcess> StartUE4UnitTestProcess(FString InCommandline, bool bMinimized=true);
+	virtual TWeakPtr<FUnitTestProcess> StartUE4UnitTestProcess(FString InCommandline, bool bMinimized=true,
+																EBuildTargets::Type Type=EBuildTargets::Game);
 
 	/**
 	 * Shuts-down/cleans-up a child process tied to the unit test

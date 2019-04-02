@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -132,9 +132,7 @@ public:
 	 */
 	void SetActiveWidgetIndex( int32 Index );
 
-#if SLATE_PARENT_POINTERS
 	virtual bool ValidatePathToChild(SWidget* InChild) override;
-#endif
 
 public:
 
@@ -170,28 +168,5 @@ private:
 	TPanelChildren<FSlot> AllChildren;
 
 	/** Required to implement GetChildren() in a way that can dynamically return the currently active child. */
-	class SLATE_API FOneDynamicChild : public FChildren
-	{
-	public:
-
-		FOneDynamicChild(SWidget* InOwner, TPanelChildren<FSlot>* InAllChildren, const TAttribute<int32>* InWidgetIndex )
-			: FChildren(InOwner)
-			, AllChildren( InAllChildren )
-			, WidgetIndex( InWidgetIndex )
-		{ }
-		
-		virtual int32 Num() const override { return AllChildren->Num() > 0 ? 1 : 0; }
-		
-		virtual TSharedRef<SWidget> GetChildAt( int32 Index ) override { check(Index == 0); return AllChildren->GetChildAt(WidgetIndex->Get()); }
-		
-		virtual TSharedRef<const SWidget> GetChildAt( int32 Index ) const override { check(Index == 0); return AllChildren->GetChildAt(WidgetIndex->Get()); }
-		
-	private:
-
-		virtual const FSlotBase& GetSlotAt(int32 ChildIndex) const override { return (*AllChildren)[ChildIndex]; }
-
-		TPanelChildren<FSlot>* AllChildren;
-		const TAttribute<int32>* WidgetIndex;
-
-	} OneDynamicChild;
+	TOneDynamicChild<FSlot> OneDynamicChild;
 };

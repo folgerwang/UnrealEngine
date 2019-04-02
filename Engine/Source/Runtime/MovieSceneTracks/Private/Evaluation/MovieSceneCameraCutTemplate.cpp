@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Evaluation/MovieSceneCameraCutTemplate.h"
 #include "Sections/MovieSceneCameraCutSection.h"
@@ -103,12 +103,6 @@ struct FCameraCutExecutionToken : IMovieSceneExecutionToken
 	/** Execute this token, operating on all objects referenced by 'Operand' */
 	virtual void Execute(const FMovieSceneContext& Context, const FMovieSceneEvaluationOperand& Operand, FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) override
 	{
-		if (!Player.CanUpdateCameraCut())
-		{
-			Player.UpdateCameraCut(nullptr, nullptr);
-			return;
-		}
-
 		MOVIESCENE_DETAILED_SCOPE_CYCLE_COUNTER(MovieSceneEval_CameraCutTrack_TokenExecute)
 
 		FMovieSceneSequenceID SequenceID = Operand.SequenceID;

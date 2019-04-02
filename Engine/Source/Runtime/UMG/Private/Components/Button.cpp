@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Components/Button.h"
 #include "Widgets/SNullWidget.h"
@@ -44,6 +44,7 @@ TSharedRef<SWidget> UButton::RebuildWidget()
 		.ButtonStyle(&WidgetStyle)
 		.ClickMethod(ClickMethod)
 		.TouchMethod(TouchMethod)
+		.PressMethod(PressMethod)
 		.IsFocusable(IsFocusable)
 		;
 

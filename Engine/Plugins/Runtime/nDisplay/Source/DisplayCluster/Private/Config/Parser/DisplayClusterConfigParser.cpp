@@ -1,6 +1,6 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "DisplayClusterConfigParser.h"
+#include "Config/Parser/DisplayClusterConfigParser.h"
 
 
 FDisplayClusterConfigParser::FDisplayClusterConfigParser(IDisplayClusterConfigParserListener* pListener) :
@@ -24,57 +24,77 @@ bool FDisplayClusterConfigParser::ParseFile(const FString& path)
 //////////////////////////////////////////////////////////////////////////////////////////////
 // IDisplayClusterConfigParserListener
 //////////////////////////////////////////////////////////////////////////////////////////////
-void FDisplayClusterConfigParser::AddClusterNode(const FDisplayClusterConfigClusterNode& node)
+void FDisplayClusterConfigParser::AddInfo(const FDisplayClusterConfigInfo& InCfgInfo)
 {
-	ConfigParserListener->AddClusterNode(node);
+	ConfigParserListener->AddInfo(InCfgInfo);
 }
 
-void FDisplayClusterConfigParser::AddScreen(const FDisplayClusterConfigScreen& screen)
+void FDisplayClusterConfigParser::AddClusterNode(const FDisplayClusterConfigClusterNode& InCfgCNode)
 {
-	ConfigParserListener->AddScreen(screen);
+	ConfigParserListener->AddClusterNode(InCfgCNode);
 }
 
-void FDisplayClusterConfigParser::AddViewport(const FDisplayClusterConfigViewport& viewport)
+void FDisplayClusterConfigParser::AddWindow(const FDisplayClusterConfigWindow& InCfgWindow)
 {
-	ConfigParserListener->AddViewport(viewport);
+	ConfigParserListener->AddWindow(InCfgWindow);
 }
 
-void FDisplayClusterConfigParser::AddCamera(const FDisplayClusterConfigCamera& camera)
+void FDisplayClusterConfigParser::AddScreen(const FDisplayClusterConfigScreen& InCfgScreen)
 {
-	ConfigParserListener->AddCamera(camera);
+	ConfigParserListener->AddScreen(InCfgScreen);
 }
 
-void FDisplayClusterConfigParser::AddSceneNode(const FDisplayClusterConfigSceneNode& node)
+void FDisplayClusterConfigParser::AddViewport(const FDisplayClusterConfigViewport& InCfgViewport)
 {
-	ConfigParserListener->AddSceneNode(node);
+	ConfigParserListener->AddViewport(InCfgViewport);
 }
 
-void FDisplayClusterConfigParser::AddGeneral(const FDisplayClusterConfigGeneral& general)
+void FDisplayClusterConfigParser::AddCamera(const FDisplayClusterConfigCamera& InCfgCamera)
 {
-	ConfigParserListener->AddGeneral(general);
+	ConfigParserListener->AddCamera(InCfgCamera);
 }
 
-void FDisplayClusterConfigParser::AddRender(const FDisplayClusterConfigRender& render)
+void FDisplayClusterConfigParser::AddSceneNode(const FDisplayClusterConfigSceneNode& InCfgSNode)
 {
-	ConfigParserListener->AddRender(render);
+	ConfigParserListener->AddSceneNode(InCfgSNode);
 }
 
-void FDisplayClusterConfigParser::AddStereo(const FDisplayClusterConfigStereo& stereo)
+void FDisplayClusterConfigParser::AddGeneral(const FDisplayClusterConfigGeneral& InCfgGeneral)
 {
-	ConfigParserListener->AddStereo(stereo);
+	ConfigParserListener->AddGeneral(InCfgGeneral);
 }
 
-void FDisplayClusterConfigParser::AddDebug(const FDisplayClusterConfigDebug& debug)
+void FDisplayClusterConfigParser::AddRender(const FDisplayClusterConfigRender& InCfgRender)
 {
-	ConfigParserListener->AddDebug(debug);
+	ConfigParserListener->AddRender(InCfgRender);
 }
 
-void FDisplayClusterConfigParser::AddInput(const FDisplayClusterConfigInput& input)
+void FDisplayClusterConfigParser::AddNetwork(const FDisplayClusterConfigNetwork& InCfgNetwork)
 {
-	ConfigParserListener->AddInput(input);
+	ConfigParserListener->AddNetwork(InCfgNetwork);
 }
 
-void FDisplayClusterConfigParser::AddCustom(const FDisplayClusterConfigCustom& custom)
+void FDisplayClusterConfigParser::AddStereo(const FDisplayClusterConfigStereo& InCfgStereo)
 {
-	ConfigParserListener->AddCustom(custom);
+	ConfigParserListener->AddStereo(InCfgStereo);
+}
+
+void FDisplayClusterConfigParser::AddDebug(const FDisplayClusterConfigDebug& InCfgDebug)
+{
+	ConfigParserListener->AddDebug(InCfgDebug);
+}
+
+void FDisplayClusterConfigParser::AddInput(const FDisplayClusterConfigInput& InCfgInput)
+{
+	ConfigParserListener->AddInput(InCfgInput);
+}
+
+void FDisplayClusterConfigParser::AddInputSetup(const FDisplayClusterConfigInputSetup& InCfgInputSetup)
+{
+	ConfigParserListener->AddInputSetup(InCfgInputSetup);
+}
+
+void FDisplayClusterConfigParser::AddCustom(const FDisplayClusterConfigCustom& InCfgCustom)
+{
+	ConfigParserListener->AddCustom(InCfgCustom);
 }

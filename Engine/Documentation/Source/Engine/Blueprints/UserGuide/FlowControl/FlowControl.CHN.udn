@@ -1,49 +1,58 @@
-﻿INTSourceChangelist:1948699
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:流程控制
-Crumbs: %ROOT%, Engine/Blueprints, Engine/Blueprints/UserGuide
+Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/Scripting
 Description:基于不同情况而控制执行流程的节点
+version: 4.9
+Parent:Engine/Blueprints/Scripting
+tags:Execution Flow
+tags:Blueprints
+tags:Special Nodes
+topic-image:FlowControl.png
+
 
 [TOC (start:2 end:3)]
 
-## 概述
-
 [EXCERPT:Intro]
 
-[INCLUDE:Shared/Glossary/F/#Glossary_Flow_Control]
+[INCLUDE:Shared/Glossary/F#Glossary_Flow_Control]
 
 [/EXCERPT:Intro]
 
 
+(#SwitchNodes)
 ## 开关节点
 
 开关节点读取数据输入，并会基于该输入值来从匹配的（或可选的默认）执行输出中发送执行流程。 可用的开关有以下几种类型： **Int** (整型），**String** （字符串型）， **Name** （名称型），以及 **Enum** （枚举型）。
 
 一般而言，开关节点会根据其估算的数据类型拥有执行输入以及数据输入。 输出均为执行输出。 **Enum** 开关会自动从 **Enum** 属性中生成输出执行引脚，而 **Int**, **String** 及 **Name** 开关拥有可自定义的输出执行引脚。
 
+(#EditingSwitchNodes)
 ## 编辑开关节点
 
-当 **Int**, **String**, 或 **Name** 开关节点被添加到 _蓝图_ 时，唯一可用的输出执行引脚为 **Default** （默认）引脚。 如输入未能匹配定义的任意其它指定输出引脚，则 **Default** （默认）输出执行引脚将会被触发。  我们可以通过在引脚上点击右键并选择 **Remove Execution Pin** （移除执行引脚）或通过对开关节点的 **Details** （细节）选项卡取消勾选 **Has Default Pin** （拥有默认引脚）选项来实现对它的移除。
+当 **Int**, **String**, 或 **Name** 开关节点被添加到蓝图时，唯一可用的输出执行引脚为 **Default** （默认）引脚。 如输入未能匹配定义的任意其它指定输出引脚，则 **Default** （默认）输出执行引脚将会被触发。  我们可以通过在引脚上点击 **右键** 并选择 **Remove Execution Pin** （移除执行引脚）或通过对开关节点的 **Details** （细节）选项卡取消勾选 **Has Default Pin** （拥有默认引脚）选项来实现对它的移除。
 
 ![](NewSwitchOnInt.png)
 
-#### 编辑 **Int** 类型的开关：
+(#EditinganIntSwitch:)
+#### 编辑Int类型的开关：
 
 1. 选择 **Graph** （图表）选项卡的开关节点从而在 **Details** （细节）选项卡中打开其属性。
 
 1. 变更 **Start Index** （开始索引）为您想要比对的最低整数值。
 
-![](SwitchOnInt_StartIndex.png)
+	![](SwitchOnInt_StartIndex.png)
 
 1. 点击开关节点的 **Add Pin** （添加引脚）来对您的 **Start Index** （开始索引）值添加引脚。  
 
-![](SwitchOnInt_AddPin.png)
+	![](SwitchOnInt_AddPin.png)
 
-进一步点击 **Add Pin** （添加节点）将会添加更多引脚，每次对引脚数量值加1。  如需删除执行引脚，对引脚右键点击并选择 **Remove Execution Pin** （移除执行引脚）。 请注意如移除 **Switch on Int** 节点的一个输出引脚，将会导致任意拥有更高值的引脚的值降低1，从而来填充间隔。
+	进一步点击 **Add Pin** （添加节点）将会添加更多引脚，每次对引脚数量值加1。如需删除执行引脚，对引脚 **右键点击** 并选择 **Remove Execution Pin** （移除执行引脚）。请注意如移除 **Switch on Int** 节点的一个输出引脚，将会导致任意拥有更高值的引脚的值降低1，从而来填充间隔。
 
 
 
-#### 编辑 **Name** 或 **String** 类型的开关：
+(#EditingaNameorStringSwitch:)
+#### 编辑Name或String类型的开关：
 
 1. 选择 **Graph** （图表）选项卡的开关节点从而在 **Details** （细节）选项卡中打开其属性。
 
@@ -51,12 +60,12 @@ Description:基于不同情况而控制执行流程的节点
 
 1. 在出现的文本框中输入您想要 **String** 或 **Name** 类型的值与其进行比对的值。
 
-![](SwitchOnString_NamePin.png)
+	![](SwitchOnString_NamePin.png)
 
-![](SwitchOnString_WithPin.png)
+	![](SwitchOnString_WithPin.png)
 
 
-对其它您想要添加的引脚重复该过程。引脚也可通过在 **Details** （细节）选项卡中点击![Pin Options](PinOptionsButton.png)按钮来复制，插入或删除。   如需删除执行引脚，您也可以对引脚右键点击并选择 **Remove Execution Pin** （移除执行引脚）。
+对其它您想要添加的引脚重复该过程。引脚也可通过在 **Details** （细节）选项卡中点击![Pin Options](PinOptionsButton.png)按钮来复制，插入或删除。   如需删除执行引脚，您也可以对引脚 **右键点击** 并选择 **Remove Execution Pin** （移除执行引脚）。
 
 ## 标准流程控制节点
 
@@ -65,11 +74,11 @@ Description:基于不同情况而控制执行流程的节点
 ![FlowControlExpanded.png](FlowControlExpanded.png)
 
 ### Branch
-
+[EXCERPT:Branch]
 ![Branch_Example.png](Branch_Example.png)
 
 
-在面对单个 _True_/_False_ 判定的情况下，Branch(分支)节点是一种创建基于判断的流程的简单方式。 
+在面对单个 _True_/_False_ 判定的情况下，**Branch(分支)** 节点是一种创建基于判断的流程的简单方式。 
 在执行后，分支节点会查找附加的布尔变量的输入值，并在合适的输出节点下方来输出执行脉冲值。
 
 在下图这个简单的示例中，分支节点会查找布尔变量的当前状态。 如该值为 _true_ ，则其会将光照的颜色设置为红色。 如其为 _false_ ，则设置为蓝色。
@@ -87,14 +96,14 @@ Description:基于不同情况而控制执行流程的节点
 | [REGION:tablesection]输出引脚[/REGION] ||
 | **True** | 如输入的状态为 *true* ，则输出执行脉冲。 |
 | **False** | 如输入的状态为 *false* ，则输出执行脉冲。 |
-
+[/EXCERPT:Branch]
 
 ### DoN
 
 ![DoN Example](do_n.png)
 
 
-DoN节点将会 **N** 次触发执行脉冲。 在达到限制后，它将会停止所有的输出执行，直到脉冲被传入其 **Reset** （重置）输入。 
+**DoN** 节点将会 **N** 次触发执行脉冲。 在达到限制后，它将会停止所有的输出执行，直到脉冲被传入其 **Reset** （重置）输入。 
 
 例如，您可以启动车辆20次，然后在绑定到 **Reset** （重置）输入的加油事件被激活前，无法再次启动车辆。   
 
@@ -120,7 +129,7 @@ DoN节点将会 **N** 次触发执行脉冲。 在达到限制后，它将会停
 ![DoOnce_Example.png](DoOnce_Example.png)
 
 
-DoOnce节点-正如名称所显示的-将会仅仅触发执行脉冲一次。 在之后，它将会停止所有的输出执行，直到脉冲被传入其 **Reset** （重置）输入。 该节点等同于DoN节点中 **N = 1** 的情况。
+**DoOnce** 节点-正如名称所显示的-将会仅仅触发执行脉冲一次。 在之后，它将会停止所有的输出执行，直到脉冲被传入其 **Reset** （重置）输入。 该节点等同于DoN节点中 **N = 1** 的情况。
 
 我们举例来说，您可以对一扇开启的门的节点网络设置DoOnce，这样这扇门将仅仅开启一次。 不过您可以绑定一个触发事件到Reset（重置）输入，这样会导致在触发器被激活时，门会再次打开。
 
@@ -140,10 +149,10 @@ DoOnce节点-正如名称所显示的-将会仅仅触发执行脉冲一次。 �
 
 
 ### FlipFlop
-
+[EXCERPT:Flipflop]
 ![FlipFlop_Example.png](FlipFlop_Example.png)
 
-FlipFlop节点取入执行输出并在两个执行输出间切换。 其第一次被调用时，将会输出A。 第二次被调用时，将会输出B，然后再是A，然后又是B，循环往复。 该节点同时有布尔变量输出，使您可以追溯输出A何时被调用。
+**FlipFlop** 节点取入执行输出并在两个执行输出间切换。 其第一次被调用时，将会输出A。 第二次被调用时，将会输出B，然后再是A，然后又是B，循环往复。 该节点同时有布尔变量输出，使您可以追溯输出A何时被调用。
 
 **点击以获得更大的视图**
 
@@ -159,13 +168,13 @@ FlipFlop节点取入执行输出并在两个执行输出间切换。 其第一�
 | **A** | 该输出引脚在首次及之后FlipFlop被触发的每个奇数次被调用。 |
 | **B** | 该输出引脚在第二次及之后FlipFlop被触发的每个偶数次被调用。 |
 | **Is A** | 输出布尔变量值，以表明输出A是否被触发。 这个函数生效后，将会在每次FlipFlop节点被触发后，在 *true* 和 *false* 间切换。 |
-
+[/EXCERPT:Flipflop]
 
 ### ForLoop
-
+[EXCERPT:Forloop]
 ![ForLoop_Example.png](ForLoop_Example.png)
 
-ForLoop节点的工作原理等同于标准的代码循环，将会在开始和结束之间的每个索引触发执行脉冲。 
+**ForLoop** 节点的工作原理等同于标准的代码循环，将会在开始和结束之间的每个索引触发执行脉冲。 
 
 在此简单示例中，当玩家触碰简单的关卡触发器时，将会触发循环。 该循环将会迭代10次，每次都会调用Print String(输出字符串），它会记录前缀信息以及当前迭代信息。
 
@@ -179,8 +188,6 @@ ForLoop节点的工作原理等同于标准的代码循环，将会在开始和�
 [![ForLoop_Network.png](ForLoop_Network.png)(w:600)](ForLoop_Network.png)
 [/REGION]
 
-
-
 | 项目 | 描述 |
 | -------- | ----------- |
 | [REGION:tablesection]输入引脚[/REGION] ||
@@ -192,14 +199,14 @@ ForLoop节点的工作原理等同于标准的代码循环，将会在开始和�
 | **Index** | 输出循环的当前索引。 |
 | **Completed** | 当循环完成时，触发标准的执行输出引脚。 |
 
-
+[/EXCERPT:Forloop]
 
 
 ### ForLoopWithBreak
 
 ![ForLoopWithBreak_Example.png](ForLoopWithBreak_Example.png)
 
-ForLoopWithBreak节点包含了能中断循环的输入引脚，除此之外，它运行的方式与ForLoop节点非常相似。
+**ForLoopWithBreak** 节点包含了能中断循环的输入引脚，除此之外，它运行的方式与ForLoop节点非常相似。
 
 在此简单示例中，当玩家触碰简单的关卡触发器时，将会触发循环。 该循环会迭代1000次，每次都会触发分支，该分支会检查循环是否达到了500次迭代。 
 如果没有达到，屏幕上会出现当前迭代次数的信息。 在其超过500次后，分支会调用Custom Event（自定义事件），该值将会中断循环。 Custom Event（自定义事件）用来让整体更容易看懂，从而不需要把线重新拉回Break（中断）输入引脚附近。 
@@ -235,9 +242,9 @@ ForLoopWithBreak节点包含了能中断循环的输入引脚，除此之外，�
 
 ![Gate_Example.png](Gate_Example.png)
 
-Gate(门）节点用来开启和关闭执行流。 简单来说，Enter输入取入执行脉冲，同时门的当前状态（开启或关闭）将会决定这些脉冲是否从Exit输出中传出。 
+**Gate（门）** 节点用来开启和关闭执行流。 简单来说，Enter输入取入执行脉冲，同时门的当前状态（开启或关闭）将会决定这些脉冲是否从Exit输出中传出。 
 
-在此简单示例中，一条没有轨迹的时间轴， **with both auto-play and looping activated** （同时启用了自动播放并激活了循环），将对门节点的Enter输入引脚进行更新。 关卡中有两个触发器。 一个触发器开门，另一个关门。 
+在此简单示例中，一条没有轨迹的时间轴， 同时启用了自动播放并激活了循环，将对门节点的Enter输入引脚进行更新。 关卡中有两个触发器。 一个触发器开门，另一个关门。 
 如门为开启状态，执行脉冲会离开Exit引脚，此时Print String（输出字符串）被调用，它会登记一条信息到屏幕上。 当玩家触碰Close（关闭）触发器时，门会关闭并且信息会停止显示。 如果随后触碰Open（开启）触发器，该信息会再次出现。
 
 **点击以获得更大的视图**
@@ -262,7 +269,7 @@ Gate(门）节点用来开启和关闭执行流。 简单来说，Enter输入取
 
 ![MultiGate_Example.png](MultiGate_Example.png)
 
-MultiGate取入单个数据脉冲并将其传送到任意数量的潜在输出。 这个过程随机按顺序发生，可能会循环。 
+**MultiGate** 节点取入单个数据脉冲并将其传送到任意数量的潜在输出。 这个过程随机按顺序发生，可能会循环。 
 
 在本例中，一个简单的循环及自动播放的时间轴每隔半秒输出脉冲。 
 该脉冲到达MultiGate并做相应传送，触发一系列Print String（输出字符串）节点中的一个，而此系列节点如按顺序播放，会展示一条特殊信息。
@@ -283,14 +290,14 @@ MultiGate取入单个数据脉冲并将其传送到任意数量的潜在输出�
 | **Start Index** | 取入一个整数值来表示MultiGate应首先使用的输出索引值。 -1在这里表示未指定起始点。 |
 | [REGION:tablesection]输出引脚[/REGION] ||
 | **Out #** | 每个输出引脚代表了MultiGate节点可用来发送脉冲的可能输出引脚。 |
-| **Add pin** | 尽管算不上真正的输出引脚，此按钮使您能够添加您想要的任意数量的输出。 如需移除输出引脚，可通过右键点击并选择Remove Output Pin（移除输出引脚）来执行。 |
+| **Add pin** | 尽管算不上真正的输出引脚，此按钮使您能够添加您想要的任意数量的输出。 如需移除输出引脚，可通过 **右键点击** 并选择Remove Output Pin（移除输出引脚）来执行。 |
 
 
 ### Sequence
-
+[EXCERPT:Sequence]
 ![Sequence_Example.png](Sequence_Example.png)
 
-Sequence （序列）节点使得单个执行脉冲能按顺序触发一系列事件。 节点可能有任意数量的输出，所有的输出引脚都会在序列节点一获得输入时就被调用。 它们将总是按顺序被调用，但不会有任何延迟。 对一般用户来说，输出引脚看起来好像被同时触发了一样。
+**Sequence （序列）** 节点使得单个执行脉冲能按顺序触发一系列事件。 节点可能有任意数量的输出，所有的输出引脚都会在序列节点一获得输入时就被调用。 它们将总是按顺序被调用，但不会有任何延迟。 对一般用户来说，输出引脚看起来好像被同时触发了一样。
 
 本例中，序列节点在关卡的起始处被调用。 然后它按顺序触发5个Print String（输出字符串）节点。 但是，由于没有延迟，这些信息看起来是同时出现的。
 
@@ -305,15 +312,16 @@ Sequence （序列）节点使得单个执行脉冲能按顺序触发一系列�
 | **(Unlabeled)** | 取入任意需经过此Sequence(序列）的脉冲的主输入。 |
 | [REGION:tablesection]输出引脚[/REGION] ||
 | **Out #** | 每个输出引脚代表了Sequence（序列）节点可用来发送脉冲的可能输出引脚。 |
-| **Add pin** | 尽管算不上真正的输出引脚，此按钮使您能够添加您想要的任意数量的输出。 如需移除输出引脚，可通过右键点击并选择Remove Output Pin（移除输出引脚）来执行。 |
+| **Add pin** | 尽管算不上真正的输出引脚，此按钮使您能够添加您想要的任意数量的输出。 如需移除输出引脚，可通过 **右键点击** 并选择Remove Output Pin（移除输出引脚）来执行。 |
+[/EXCERPT:Sequence]
 
 ### WhileLoop
 
 ![WhileLoop_Example.png](WhileLoop_Example.png)
 
-只要特定值为 *true* ，则WhileLoop节点将会输出一个结果。 在循环的每个迭代中，它会查看其输入布尔值的当前状态。 一旦它读取到 *false* ，该循环中断。
+只要特定值为 *true* ，则 **WhileLoop** 节点将会输出一个结果。 在循环的每个迭代中，它会查看其输入布尔值的当前状态。 一旦它读取到false ，该循环中断。
 
-在本例中，WhileLoop与整数型迭代网络一起被使用，从而计算循环已经运行的次数。 当它到达第10次迭代时，测试布尔变量被设置为 *false* ，从而终止循环的行为。
+在本例中，WhileLoop与整数型迭代网络一起被使用，从而计算循环已经运行的次数。 当它到达第10次迭代时，测试布尔变量被设置为false ，从而终止循环的行为。
 
 [REGION:warning]
 	在对While loops进行编程时，要尤其注意防止其无限循环。

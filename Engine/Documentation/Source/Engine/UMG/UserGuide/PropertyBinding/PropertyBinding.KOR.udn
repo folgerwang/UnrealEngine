@@ -46,7 +46,7 @@ Topic-Image:Engine/UMG/UserGuide/PropertyBindingTopic.png
 
 ![](Property2.png)
 
-이 위젯 블루프린트에 대한 **그래프** 탭에서 **불리언** 변수를 만들 수 있으며, 생성된 이후에는 바인드 버튼을 통해 할당 가능합니다 (아래에 **DoesSaveExist?** 라는 불리언을 만들었습니다). 
+이 위젯 블루프린트에 대한 **그래프** 탭에서 **부울** 변수를 만들 수 있으며, 생성된 이후에는 바인드 버튼을 통해 할당 가능합니다 (아래에 **DoesSaveExist?** 라는 부울을 만들었습니다). 
 
 ![](Property3.png)
 

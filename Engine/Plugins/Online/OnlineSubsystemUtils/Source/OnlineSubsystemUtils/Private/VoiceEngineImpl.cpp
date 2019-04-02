@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "VoiceEngineImpl.h"
 #include "Components/AudioComponent.h"
@@ -8,6 +8,7 @@
 #include "Sound/SoundWaveProcedural.h"
 #include "OnlineSubsystemUtils.h"
 #include "GameFramework/GameSession.h"
+#include "OnlineSubsystemBPCallHelper.h"
 
 /** Largest size allowed to carry over into next buffer */
 #define MAX_VOICE_REMAINDER_SIZE 4 * 1024
@@ -32,6 +33,22 @@ FRemoteTalkerDataImpl::FRemoteTalkerDataImpl() :
 	{
 		FScopeLock ScopeLock(&QueueLock);
 		UncompressedDataQueue.Empty(MaxUncompressedDataQueueSize);
+	}
+}
+
+FRemoteTalkerDataImpl::FRemoteTalkerDataImpl(const FRemoteTalkerDataImpl& Other)
+{
+	LastSeen = Other.LastSeen;
+	NumFramesStarved = Other.NumFramesStarved;
+	VoipSynthComponent = Other.VoipSynthComponent;
+	VoiceDecoder = Other.VoiceDecoder;
+	MaxUncompressedDataSize = Other.MaxUncompressedDataSize;
+	MaxUncompressedDataQueueSize = Other.MaxUncompressedDataQueueSize;
+	CurrentUncompressedDataQueueSize = Other.CurrentUncompressedDataQueueSize;
+
+	{
+		FScopeLock ScopeLock(&Other.QueueLock);
+		UncompressedDataQueue = Other.UncompressedDataQueue;
 	}
 }
 
@@ -107,6 +124,20 @@ void FRemoteTalkerDataImpl::Cleanup()
 	VoipSynthComponent = nullptr;
 }
 
+FVoiceEngineImpl ::FVoiceEngineImpl() :
+	OnlineSubsystem(nullptr),
+	VoiceCapture(nullptr),
+	VoiceEncoder(nullptr),
+	OwningUserIndex(INVALID_INDEX),
+	UncompressedBytesAvailable(0),
+	CompressedBytesAvailable(0),
+	AvailableVoiceResult(EVoiceCaptureState::UnInitialized),
+	bPendingFinalCapture(false),
+	bIsCapturing(false),
+	SerializeHelper(nullptr)
+{
+}
+
 FVoiceEngineImpl::FVoiceEngineImpl(IOnlineSubsystem* InSubsystem) :
 	OnlineSubsystem(InSubsystem),
 	VoiceCapture(nullptr),
@@ -139,7 +170,7 @@ FVoiceEngineImpl::~FVoiceEngineImpl()
 
 void FVoiceEngineImpl::VoiceCaptureUpdate() const
 {
-	if (bPendingFinalCapture)
+	if (bPendingFinalCapture && VoiceCapture.IsValid())
 	{
 		uint32 CompressedSize;
 		const EVoiceCaptureState::Type RecordingState = VoiceCapture->GetCaptureState(CompressedSize);
@@ -282,6 +313,28 @@ uint32 FVoiceEngineImpl::StopLocalVoiceProcessing(uint32 LocalUserNum)
 	}
 
 	return Return;
+}
+
+uint32 FVoiceEngineImpl::RegisterLocalTalker(uint32 LocalUserNum)
+{
+	if (OwningUserIndex == INVALID_INDEX)
+	{
+		OwningUserIndex = LocalUserNum;
+		return ONLINE_SUCCESS;
+	}
+
+	return ONLINE_FAIL;
+}
+
+uint32 FVoiceEngineImpl::UnregisterLocalTalker(uint32 LocalUserNum)
+{
+	if (IsOwningUser(LocalUserNum))
+	{
+		OwningUserIndex = INVALID_INDEX;
+		return ONLINE_SUCCESS;
+	}
+
+	return ONLINE_FAIL;
 }
 
 uint32 FVoiceEngineImpl::UnregisterRemoteTalker(const FUniqueNetId& UniqueId)
@@ -454,10 +507,7 @@ uint32 FVoiceEngineImpl::SubmitRemoteVoiceData(const FUniqueNetIdWrapper& Remote
 	// Generate a streaming wave audio component for voice playback
 	if (QueuedData.VoipSynthComponent == nullptr || QueuedData.VoipSynthComponent->IsPendingKill())
 	{
-		if (SerializeHelper == nullptr)
-		{
-			SerializeHelper = new FVoiceSerializeHelper(this);
-		}
+		CreateSerializeHelper();
 
 		QueuedData.VoipSynthComponent = CreateVoiceSynthComponent(UVOIPStatics::GetVoiceSampleRate());
 		if (QueuedData.VoipSynthComponent)
@@ -478,6 +528,8 @@ uint32 FVoiceEngineImpl::SubmitRemoteVoiceData(const FUniqueNetIdWrapper& Remote
 			UVOIPTalker* OwningTalker = nullptr;
 
 			OwningTalker = UVOIPStatics::GetVOIPTalkerForPlayer(RemoteTalkerId, InSettings);
+
+			GetVoiceSettingsOverride(RemoteTalkerId, InSettings);
 
 			ApplyVoiceSettings(QueuedData.VoipSynthComponent, InSettings);
 
@@ -542,7 +594,10 @@ void FVoiceEngineImpl::TickTalkers(float DeltaTime)
 void FVoiceEngineImpl::Tick(float DeltaTime)
 {
 	// Check available voice once a frame, this value changes after calling GetVoiceData()
-	AvailableVoiceResult = VoiceCapture->GetCaptureState(UncompressedBytesAvailable);
+	if (VoiceCapture.IsValid())
+	{
+		AvailableVoiceResult = VoiceCapture->GetCaptureState(UncompressedBytesAvailable);
+	}
 
 	TickTalkers(DeltaTime);
 }
@@ -699,4 +754,15 @@ bool FVoiceEngineImpl::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar
 	return bWasHandled;
 }
 
+int32 FVoiceEngineImpl::GetMaxVoiceRemainderSize()
+{
+	return MAX_VOICE_REMAINDER_SIZE;
+}
 
+void FVoiceEngineImpl::CreateSerializeHelper()
+{
+	if (SerializeHelper == nullptr)
+	{
+		SerializeHelper = new FVoiceSerializeHelper(this);
+	}
+}

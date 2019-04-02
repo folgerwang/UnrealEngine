@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessEyeAdaptation.h: Post processing eye adaptation implementation.
@@ -13,6 +13,26 @@
 #include "PostProcess/RenderingCompositionGraph.h"
 
 #define EYE_ADAPTATION_PARAMS_SIZE 4
+
+FORCEINLINE float EV100ToLuminance(float EV100)
+{
+	return 1.2 * FMath::Pow(2.0f, EV100);
+}
+
+FORCEINLINE float EV100ToLog2(float EV100)
+{
+	return EV100 + 0.263f; // Where .263 is log2(1.2)
+}
+
+FORCEINLINE float LuminanceToEV100(float Luminance)
+{
+	return FMath::Log2(Luminance / 1.2f);
+}
+
+FORCEINLINE float Log2ToEV100(float Log2)
+{
+	return Log2 - 0.263f; // Where .263 is log2(1.2)
+}
 
 // Computes the eye-adaptation from HDRHistogram.
 // ePId_Input0: HDRHistogram or nothing

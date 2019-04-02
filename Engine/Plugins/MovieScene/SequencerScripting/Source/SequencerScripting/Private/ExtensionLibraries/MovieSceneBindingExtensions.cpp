@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ExtensionLibraries/MovieSceneBindingExtensions.h"
 #include "ExtensionLibraries/MovieSceneSequenceExtensions.h"
@@ -215,4 +215,18 @@ FSequencerBindingProxy UMovieSceneBindingExtensions::GetParent(const FSequencerB
 		}
 	}
 	return FSequencerBindingProxy();
+}
+
+
+void UMovieSceneBindingExtensions::SetParent(const FSequencerBindingProxy& InBinding, const FSequencerBindingProxy& InParentBinding)
+{
+	UMovieScene* MovieScene = InBinding.GetMovieScene();
+	if (MovieScene)
+	{
+		FMovieScenePossessable* Possessable = MovieScene->FindPossessable(InBinding.BindingID);
+		if (Possessable)
+		{
+			Possessable->SetParent(InParentBinding.BindingID);
+		}
+	}
 }

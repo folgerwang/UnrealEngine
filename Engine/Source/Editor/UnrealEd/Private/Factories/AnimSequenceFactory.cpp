@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AnimSequenceFactory.cpp: Factory for AnimSequence
@@ -72,7 +72,7 @@ UObject* UAnimSequenceFactory::FactoryCreateNew(UClass* Class, UObject* InParent
 
 		// @todo I think this will crash, we should support differentoptions
 		AnimSequence->SequenceLength = 0.f;
-		AnimSequence->NumFrames = 0;
+		AnimSequence->SetRawNumberOfFrame(0);
 		
 		AnimSequence->SetSkeleton( TargetSkeleton );
 		if (PreviewSkeletalMesh)

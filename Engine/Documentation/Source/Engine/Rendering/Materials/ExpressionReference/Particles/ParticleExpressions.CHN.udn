@@ -1,77 +1,84 @@
-﻿INTSourceChangelist:2690214
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:粒子表达式
-Crumbs:%ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/ExpressionReference
-Description:这些表达式用于创建要应用于粒子系统中的发射器的材质。
-Version:4.9
+Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/ExpressionReference
+Description:用于创建要应用于粒子系统中的发射器的材质表达式。
+Version: 4.9
+tags:Materials
 
 [EXCERPT:TOC]
 [TOC(start:2)]
 [/EXCERPT:TOC]
 
-(#DynamicParameter)
-## DynamicParameter（动态参数）
+(#dynamicparameter)
+
+## 动态参数
 
 
 [INCLUDE:Engine/Rendering/Materials/ExpressionReference/Parameters#DynamicParameter]
 
 
 [EXCERPT:ParticleColor]
-(#ParticleColor)
-## ParticleColor（粒子颜色）
+(#particlecolor)
 
-**ParticleColor（粒子颜色）**表达式根据 **Cascade** 内定义的任何粒子颜色数据与给定粒子的当前颜色相关联。此表达式必须连接到适当的通道，即“自发光颜色”（Emissive Color）。
+## 粒子颜色
+
+基于在 **级联（Cascade）** 中定义的任何每粒子颜色数据，**粒子颜色（ParticleColor）** 表达式绑定到给定粒子的当前颜色。这必须插入到适当的信道（自发光颜色）。
 
 | 项目 | 说明 |
 |----|----|
 | [REGION:tablesection]输出[/REGION] ||
-| **RGB** | 输出组合的 RGB 矢量数据。|
-| **R** | 输出红色通道数据。|
-| **G** | 输出绿色通道数据。|
-| **B** | 输出蓝色通道数据。|
-| **A** | 输出阿尔法通道数据。|
+| **RGB** | 输出组合的RGB矢量数据。|
+| **R** | 输出红色信道数据。|
+| **G** | 输出绿色信道数据。|
+| **B** | 输出蓝色信道数据。|
+| **A** | 输出alpha信道数据。|
 
 ![ParticleColorExample.png](ParticleColorExample.png)(w:900)
 
-在此示例中，您可看到 ParticleColor（粒子颜色）表达式向粒子提供粒子系统内定义的颜色。
+在这个例子中，您可以看到粒子颜色（ParticleColor）表达式为粒子提供了粒子系统中定义的颜色。
 
 [/EXCERPT:ParticleColor]
 
 
 
 [EXCERPT:ParticleDirection]
-(#ParticleDirection)
-## ParticleDirection（粒子方向）
+(#particledirection)
 
-**ParticleDirection（粒子方向）**表达式逐个粒子地输出 Vector3 (RGB) 数据，此数据代表给定粒子的当前行进方向。 
+## 粒子方向
+
+ **粒子方向（ParticleDirection）** 表达式逐个粒子输出Vector3(RGB)数据，表示给定粒子当前运动的方向。 
 
 
 ![ParticleDirectionExample.png](ParticleDirectionExample.png)(w:900)
 
 
-在此图中，您可看到粒子颜色根据每个例子的当前进行方向而变化。
+在这幅图中您可以看到粒子的颜色是如何根据每个粒子当前的运动方向而变化的。
 
 [/EXCERPT:ParticleDirection]
 
-(#ParticleMacroUV)
-## ParticleMacroUV（粒子宏 UV）
 
-**ParticleMacroUV（粒子宏 UV）**表达式输出 UV 纹理坐标，这些坐标可用于将任何 2D 纹理连续地映射到整个粒子系统，这意味着粒子无缝地组成纹理。这些 UV 将以 MacroUVPosition（即“宏 UV 位置”，在粒子系统上的 Cascade 中的“宏 UV”（MacroUV）类别下指定）为中心居中，并且 MacroUVRadius（宏 UV 半径）确定 UV 应采用的全局空间平铺半径。ParticleMacroUV（粒子宏 UV）节点适用于将连续的噪声映射到粒子，以分解通过将纹理映射到每个具有正常纹理坐标的粒子而引入的模式。
+(#particlemacrouv)
+
+## ParticleMacroUV
+
+ **ParticleMacroUV** 表达式输出UV纹理坐标，可用于以连续的方式将任何二维纹理映射到整个粒子系统，这意味着纹理将在粒子之间无缝连接。UV将以MacroUVPosition为中心（在ParticleSystem上的级联（Cascade）中指定，属于MacroUV类别），MacroUVRadius决定UV应该平铺在的世界场景空间半径。ParticleMacroUV节点可用于将连续噪声映射到粒子上，从而打破通过将纹理映射到带法线纹理坐标的各个粒子所引入的模式。
 
 | 项目 | 说明 |
 | -------- | ----------- |
 | [REGION:tablesection]属性[/REGION] ||
-| **使用视图空间（Use View Space）** | 如果为 _true_，那么实际上将根据每个精灵的深度来使坐标发生偏移并产生视差效果，这对于使爆炸具有径向模糊外观非常有用 |
+| **使用视图空间（Use View Space）** | 如果是_真（true）_，根据每个sprite的深度有效地偏移坐标，并创建视差效果，这对于给爆炸一个径向模糊的外观很有用 |
 
 [REGION:fullwidth]
 ![ParticleMacroUVExample.png](ParticleMacroUVExample.png)
 [/REGION]
 
 [EXCERPT:ParticleMotionBlurFade]
-(#ParticleMotionBlurFade)
-## ParticleMotionBlurFade（粒子运动模糊消退）
+(#particlemotionblurfade)
 
-**ParticleMotionBlurFade（粒子运动模糊消退）**表达式输出一个值，该值代表因为运动模糊而在粒子上产生的消退量。值 1 代表不模糊，而黑色代表完全模糊。
+## 粒子动态模糊淡出
+
+ **粒子动态模糊淡出（ParticleMotionBlurFade）** 表达式输出一个值，该值表示由于动态模糊导致的粒子上的淡出量。值为1表示无模糊，黑色代表完全模糊。
 
 ![ParticleMotionBlurFade.png](ParticleMotionBlurFade.png)(w:900)
 
@@ -80,57 +87,61 @@ Version:4.9
 
 
 [EXCERPT:ParticlePositionWS]
-(#ParticlePositionWS)
-## ParticlePositionWS（粒子全局空间位置）
+(#particlepositionws)
 
-**ParticlePositionWS（粒子全局空间位置）**表达式输出 Vector3 (RGB) 数据，该数据代表每个粒子在全局空间中的位置。
+## 粒子位置WS
+
+ **粒子位置WS（ParticlePositionWS）** 表达式输出代表世界场景空间中每个单独粒子位置的Vector3(RGB)数据。
 
 
 ![ParticlePositionWS.png](ParticlePositionWSExample.png)(w:900)
 
 
 
-在此图中，将 ParticlePositionWS（粒子全局空间位置）输送到自发光颜色，以将数据可视化。粒子系统已按比例放大，以显示颜色根据位置而变化的情况。
+在这幅图像中，粒子位置WS（ParticlePositionWS）被馈送到自发光颜色中来显示数据。粒子系统被放大以显示颜色是如何根据位置变化的。
 
 [/EXCERPT:ParticlePositionWS]
 
 
 
 [EXCERPT:ParticleRadius]
-(#ParticleRadius)
-## ParticleRadius（粒子半径）
+(#particleradius)
 
-**ParticleRadius（粒子半径）**表达式输出每个粒子的半径（以 Unreal 单位计）。例如，这使您能够在半径达到特定程度后对材质进行更改。
+## 粒子半径
+
+ **粒子半径（ParticleRadius）** 表达式单独输出每个粒子的半径（采用虚幻单位）。例如，一旦半径达到某个点，就可以对材质进行更改。
 
 [REGION:fullwidth]
-![ParticleRadiusExample.png](ParticleRadiusExample.png)(w:1000 h:448)
+![ParticleRadiusExample.png](ParticleRadiusExample.png)(w:1000)
 [/REGION]
 
-在此图中，粒子在其半径超过 7 个单位时从绿色转变为红色。
+在这幅图中，当粒子半径超过7个单位时，它们从绿色变成红色。
 
 [/EXCERPT:ParticleRadius]
 
 
 
 [EXCERPT:ParticleRelativetime]
-(#ParticleRelativeTime)
-## ParticleRelativeTime（粒子相对时间）
+(#particlerelativetime)
 
-**ParticleRelativeTime（粒子相对时间）**表达式输出介于 0 与 1 之间的数值，该数值代表粒子的年龄，其中 0 是生成时刻，而 1 是消亡时刻。
+## 粒子相对时间
+
+ **粒子相对时间（ParticleRelativeTime）** 表达式输出0到1之间的数字，表示粒子的年龄，0表示出生时刻，1表示死亡时刻。
 
 [REGION:fullwidth]
 ![ParticleRelativeTimeExample.png](ParticleRelativeTimeExample.png)(w:900)
 [/REGION]
 
-在此示例中，您可看到粒子相对时间输送到自发光颜色，这导致生成时显示为黑色的粒子逐渐消退，直至其接近消亡时显示为白色。
+在本例中，您可以看到粒子的相对时间被馈送到自发光颜色中，导致粒子从出生时的黑色逐渐变淡到死亡时的白色。
 
 [/EXCERPT:ParticleRelativetime]
 
 [EXCERPT:ParticleSize]
-(#ParticleSize)
-## ParticleSize（粒子大小）
+(#particlesize)
 
-**ParticleSize（粒子大小）**表达式输出粒子精灵的 X 和 Y 大小。此表达式可用来驱动材质的某些方面。
+## 粒子大小
+
+ **粒子大小（Particle Size）** 表达式输出粒子sprite的X和Y大小。这可以用来驱动材质的某些方面。
 
 ![](ParticleSize.png)(w:480) 
 
@@ -138,44 +149,47 @@ Version:4.9
 [![](ParticleSizeNetwork.png)(w:480)](ParticleSizeNetwork.png)
 [/REGION]
 
-_单击查看大图。_
+_单击图像显示完整视图。_
 
-在以上示例中，将 ParticleSize（粒子大小）与 ParticleColor（粒子颜色）相乘。请注意，我们屏蔽了输出，以便仅使用绿色通道，该通道对应于 Y 轴，即粒子的高度。这表示当粒子伸展时，它们的颜色会变亮。当它们收缩时，颜色将变暗。
+在上面的例子中，粒子大小（Particle Size）被增加并扩展为粒子颜色（Particle Color）。注意我们屏蔽了输出，所以我们只使用绿色信道，它对应于Y轴，或者粒子的长度。这意味着随着粒子的伸展，它们的颜色会变得更亮。当它们收缩时，它们会变暗。
 
 [/EXCERPT:ParticleSize]
 
 [EXCERPT:ParticleSpeed]
-(#ParticleSpeed)
-## ParticleSpeed（粒子速度）
 
-**ParticleSpeed（粒子速度）**输出每个粒子的当前行进速度（以每秒 Unreal 单位数计）。
+(#particlespeed)
+
+## 粒子速度
+
+ **粒子速度（ParticleSpeed）** 输出正在运动的每个粒子的当前速度，单位为每秒虚幻单位。
 
 [REGION:fullwidth]
-![ParticleSpeedExample.png](ParticleSpeedExample.png)(w:1000 h:448)
+![ParticleSpeedExample.png](ParticleSpeedExample.png)(w:1000)
 [/REGION]
 
-在此示例中，将粒子速度输送到粒子颜色，然后除以 10，以提供更有意义的结果。当粒子速度变慢时，它们将变为黑色。
+在本例中，粒子速度馈送粒子颜色，再除以10得到更有意义的结果。粒子减速时变黑。
 
 
 [/EXCERPT:ParticleSpeed]
 
-(#SphericalParticleOpacity)
-## SphericalParticleOpacity（球形粒子不透明度）
+(#sphericalparticleopacity)
 
-**SphericalParticleOpacity（球形粒子不透明度）**表达式创建过程式不透明贴图，以使精灵粒子呈球形显示。与必须创建导入纹理贴图以实现类似的效果相比，使用此表达式要简单得多。
+## 球形粒子不透明度
+
+ **球形粒子不透明度（SphericalParticleOpacity）** 表达式创建程序不透明映射，以使sprite粒子呈现球形。这比创建一个类似效果的纹理地图要简单得多。
 
 | 项目 | 说明 |
 | -------- | ----------- |
-| [REGION:tablesection]输入[/REGION] ||
-| **密度（Density）** | 这个 0 到 1 的值控制球面贴图的密度。较小的值将产生更加透明的球体。默认值为 1。|
+| [REGION:tablesection]Inputs[/REGION] ||
+| **密度（Density）** | 此0-1值控制球体地图的密度。值越低，球体越透明。默认为1。|
 
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![之前](SPO_Before.png)(w:350)
+	![Before](SPO_Before.png)(w:350)
 	[/PARAM]
 	[PARAM:after]
-	![之后](SPO_After.png)(w:350)
+	![After](SPO_After.png)(w:350)
 	[/PARAM]
 [/OBJECT]
 
@@ -194,26 +208,27 @@ _单击查看大图。_
 
 
 [EXCERPT:ParticleSubUV]
-(#ParticleSubUV)
-## ParticleSubUV（粒子子 UV）
+(#particlesubuv)
 
-**ParticleSubUV（粒子子 UV）**表达式用来将纹理的子图像渲染到粒子。ParticleSubUV（粒子子 UV）类似于图像序列视图，只不过 ParticleSubUV（粒子子 UV）允许在 Cascade 中操作纹理动画。
+## ParticleSubUV
+
+ **ParticleSubUV** 表达式用于将纹理的子图像渲染到粒子。ParticleSubUV类似于flipbook，不同的是ParticleSubUV允许在级联（Cascade）中操作纹理动画。
 
 | 项目 | 说明 |
 | -------- | ----------- |
 | [REGION:tablesection]属性[/REGION] ||
-| **混合（Blend）** | 将 SubUV（子 UV）精灵布局的每个帧混合，而不是从一个帧立即“跳跃”到下一个帧。|
+| **混合（Blend）** | 将SubUV sprite布局的每一帧都混合在一起，而不是立即从一个帧“弹出”到下一个。|
 | **纹理（Texture）** | 指定要使用的纹理。|
-| **取样类型（Sampler Type）** | 此节点所要取样并输出的数据类型。|
-| **Mip 值模式（MipValueMode）** | 对纹理应用一个将会影响外观及性能的噪声值。|
-| [REGION:tablesection]输入[/REGION] ||
-| **UVs** | UV 输入将被忽略，不起任何作用。|
+| **采样器类型（Sampler Type）** | 将从节点取样和输出的数据类型。|
+| **MipValueMode** | 选择如何从默认计算的硬件自定义示例的mip级别或导数。影响外观和性能。|
+| [REGION:tablesection]Inputs[/REGION] ||
+| **UVs** | UV输入被忽略，不执行任何操作。|
 | [REGION:tablesection]输出[/REGION] ||
-| **RGB** | 输出颜色的三通道 RGB 矢量值。|
-| **R** | 输出颜色的红色通道。|
-| **G** | 输出颜色的绿色通道。|
-| **B** | 输出颜色的蓝色通道。|
-| **A** | 输出颜色的阿尔法通道。如果纹理未包含阿尔法通道，那么将“阿尔法”通道连接到任何内容（虽然在技术上不合法）的结果将始终为零（黑色）。|
+| **RGB** | 输出颜色的三信道RGB矢量值。|
+| **R** | 输出颜色的红色信道。|
+| **G** | 输出颜色的绿色信道。|
+| **B** | 输出颜色的蓝色信道。|
+| **A** | 输出颜色的alpha信道。如果纹理不包含alpha信道，将“alpha”信道连接到某物上，虽然从技术上讲不违法，但总是会得到0（黑色）。|
 
 
 ![ParticleSubUVExample.png](ParticleSubUVExample.png)
@@ -223,28 +238,29 @@ _单击查看大图。_
 
 
 [EXCERPT:TextureSampleParameterSubUV]
-(#TextureSampleParameterSubUV)
-## TextureSampleParameterSubUV（纹理取样参数子 UV）
+(#texturesampleparametersubuv)
 
-**TextureSampleParameterSubUV（纹理取样参数子 UV）**表达式与 [ParticleSubUV（粒子子 UV）](Engine/Rendering/Materials/ExpressionReference/Particles#ParticleSubUV) 完全相同，只不过它是可在材质实例中以及通过代码来修改的参数。
+## TextureSampleParameterSubUV
+
+ **TextureSampleParameterSubUV** 表达式与[ParticleSubUV](Engine/Rendering/Materials/ExpressionReference/Particles#ParticleSubUV)一致，除了它是一个参数，可以在材质实例中修改，也可以通过代码修改。
 
 | 项目 | 说明 |
 | -------- | ----------- |
 | [REGION:tablesection]属性[/REGION] ||
 | **参数名称（Parameter Name）** | [INCLUDE:Engine/Rendering/Materials/ExpressionReference/Parameters#ParameterNameDefinition] |
 | **组（Group）**| [INCLUDE:Engine/Rendering/Materials/ExpressionReference/Parameters#GroupDefinition] |
-| **混合（Blend）** | 将 SubUV（子 UV）精灵布局的每个帧混合，而不是从一个帧立即“跳跃”到下一个帧。|
-| **纹理（Texture）** | 指定表达式所取样的纹理。|
-| **取样类型（Sampler Type）** | 此节点所要取样并输出的数据类型。|
-| **Mip 值模式（MipValueMode）** | 对纹理应用一个将会影响外观及性能的噪声值。|
-| [REGION:tablesection]输入[/REGION] ||
-| **UVs** | UV 输入将被忽略，不起任何作用。|
+| **混合（Blend）** | 将SubUV sprite布局的每一帧都混合在一起，而不是立即从一个帧“弹出”到下一个。|
+| **纹理（Texture）** | 指定表达式采样的纹理。|
+| **采样器类型（Sampler Type）** | 将从节点取样和输出的数据类型。|
+| **MipValueMode** | 选择如何从默认计算的硬件自定义示例的mip级别或导数。影响外观和性能。|
+| [REGION:tablesection]Inputs[/REGION] ||
+| **UVs** | UV输入被忽略，不执行任何操作。|
 | [REGION:tablesection]输出[/REGION] ||
-| **RGB** | 输出颜色的三通道 RGB 矢量值。|
-| **R** | 输出颜色的红色通道。|
-| **G** | 输出颜色的绿色通道。|
-| **B** | 输出颜色的蓝色通道。|
-| **A** | 输出颜色的阿尔法通道。如果纹理未包含阿尔法通道，那么将“阿尔法”通道连接到任何内容（虽然在技术上不合法）的结果将始终为零（黑色）。|
+| **RGB** | 输出颜色的三信道RGB矢量值。|
+| **R** | 输出颜色的红色信道。|
+| **G** | 输出颜色的绿色信道。|
+| **B** | 输出颜色的蓝色信道。|
+| **A** | 输出颜色的alpha信道。如果纹理不包含alpha信道，将“alpha”信道连接到某物上，虽然从技术上讲不违法，但总是会得到0（黑色）。|
 [/EXCERPT:TextureSampleParameterSubUV]
 
 

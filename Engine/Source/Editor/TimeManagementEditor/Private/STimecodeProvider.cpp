@@ -1,54 +1,38 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "STimecodeProvider.h"
 
+#include "EditorFontGlyphs.h"
 #include "EditorStyleSet.h"
 #include "Engine/Engine.h"
 #include "Misc/App.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/SNullWidget.h"
-#include "Widgets/SOverlay.h"
 #include "Widgets/STimecode.h"
 #include "Widgets/Images/SImage.h"
-#include "Widgets/Images/SThrobber.h"
 #include "Widgets/Text/STextBlock.h"
 
 void STimecodeProvider::Construct(const FArguments& InArgs)
 {
 	OverrideTimecodeProvider = InArgs._OverrideTimecodeProvider;
 
-	TSharedRef<SWidget> StateWidget = InArgs._DisplaySynchronizationState ? SNew(SOverlay)
-		+ SOverlay::Slot()
-		.HAlign(HAlign_Center)
-		.VAlign(VAlign_Center)
-		[
-			SNew(SThrobber)
-			.Animate(SThrobber::VerticalAndOpacity)
-			.NumPieces(1)
-			.Visibility(this, &STimecodeProvider::HandleThrobberVisibility)
-		]
-		+ SOverlay::Slot()
-		.HAlign(HAlign_Center)
-		.VAlign(VAlign_Center)
-		[
-			SNew(SImage)
-			.ColorAndOpacity(this, &STimecodeProvider::HandleIconColorAndOpacity)
-			.Image(this, &STimecodeProvider::HandleIconImage)
-			.Visibility(this, &STimecodeProvider::HandleImageVisibility)
-		]
+	TSharedRef<SWidget> StateWidget = InArgs._DisplaySynchronizationState ? SNew(STextBlock)
+		.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.11"))
+		.Text(this, &STimecodeProvider::HandleStateText)
+		.ColorAndOpacity(this, &STimecodeProvider::HandleIconColorAndOpacity)
 		: SNullWidget::NullWidget;
 
-		TSharedRef<SWidget> FrameRateWidget = InArgs._DisplayFrameRate ? SNew(STextBlock)
-			.Text(MakeAttributeLambda([this]
+	TSharedRef<SWidget> FrameRateWidget = InArgs._DisplayFrameRate ? SNew(STextBlock)
+		.Text(MakeAttributeLambda([this]
+		{
+			if (const UTimecodeProvider* TimecodeProviderPtr = GetTimecodeProvider())
 			{
-				if (const UTimecodeProvider* TimecodeProviderPtr = GetTimecodeProvider())
-				{
-					return TimecodeProviderPtr->GetFrameRate().ToPrettyText();
-				}
-				return GEngine->DefaultTimecodeFrameRate.ToPrettyText();
-			}))
-			.Font(InArgs._TimecodeProviderFont)
-			.ColorAndOpacity(InArgs._TimecodeProviderColor)
+				return TimecodeProviderPtr->GetFrameRate().ToPrettyText();
+			}
+			return GEngine->DefaultTimecodeFrameRate.ToPrettyText();
+		}))
+		.Font(InArgs._TimecodeProviderFont)
+		.ColorAndOpacity(InArgs._TimecodeProviderColor)
 		: SNullWidget::NullWidget;
 
 	ChildSlot
@@ -60,6 +44,7 @@ void STimecodeProvider::Construct(const FArguments& InArgs)
 		[
 			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot()
+			.Padding(0.f, 0.f, 4.f, 0.f)
 			.VAlign(VAlign_Center)
 			.AutoWidth()
 			[
@@ -131,61 +116,32 @@ FSlateColor STimecodeProvider::HandleIconColorAndOpacity() const
 		{
 		case ETimecodeProviderSynchronizationState::Closed:
 		case ETimecodeProviderSynchronizationState::Error:
-			Result = FLinearColor::Red;
-			break;
+			return FLinearColor::Red;
 		case ETimecodeProviderSynchronizationState::Synchronized:
-			Result = FLinearColor::Green;
-			break;
+			return FLinearColor::Green;
 		case ETimecodeProviderSynchronizationState::Synchronizing:
-			Result = FLinearColor::Yellow;
-			break;
+			return FLinearColor::Yellow;
 		}
 	}
-	return Result;
+	return FSlateColor::UseForeground();
 }
 
-const FSlateBrush* STimecodeProvider::HandleIconImage() const
+FText STimecodeProvider::HandleStateText() const
 {
-	const FSlateBrush* Result = nullptr;
-
 	if (const UTimecodeProvider* TimecodeProviderPtr = GetTimecodeProvider())
 	{
 		ETimecodeProviderSynchronizationState State = TimecodeProviderPtr->GetSynchronizationState();
 		switch (State)
 		{
 		case ETimecodeProviderSynchronizationState::Error:
-			Result = FEditorStyle::GetBrush("Icons.Error");
-			break;
 		case ETimecodeProviderSynchronizationState::Closed:
-			Result = FEditorStyle::GetBrush("Icons.Cross");
-			break;
+			return FEditorFontGlyphs::Ban;
 		case ETimecodeProviderSynchronizationState::Synchronized:
-			Result = FEditorStyle::GetBrush("Symbols.Check");
-			break;
-		}
-	}
-	else
-	{
-		Result = FEditorStyle::GetBrush("Symbols.Check");
-	}
-	return Result;
-}
-
-EVisibility STimecodeProvider::HandleImageVisibility() const
-{
-	return (HandleThrobberVisibility() == EVisibility::Hidden) ? EVisibility::Visible : EVisibility::Hidden;
-}
-
-EVisibility STimecodeProvider::HandleThrobberVisibility() const
-{
-	if (const UTimecodeProvider* TimecodeProviderPtr = GetTimecodeProvider())
-	{
-		ETimecodeProviderSynchronizationState State = TimecodeProviderPtr->GetSynchronizationState();
-		if (State == ETimecodeProviderSynchronizationState::Synchronizing)
-		{
-			return EVisibility::Visible;
+			return FEditorFontGlyphs::Clock_O;
+		case ETimecodeProviderSynchronizationState::Synchronizing:
+			return FEditorFontGlyphs::Hourglass_O;
 		}
 	}
 
-	return EVisibility::Hidden;
+	return FEditorFontGlyphs::Exclamation;
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -10,13 +10,17 @@
 #include "WidgetAnimation.generated.h"
 
 class UMovieScene;
+class UUserWidget;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnWidgetAnimationPlaybackStatusChanged);
+
+DECLARE_DYNAMIC_DELEGATE(FWidgetAnimationDynamicEvent);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FWidgetAnimationDynamicEvents);
 
 /**
  * 
  */
-UCLASS(BlueprintType, MinimalAPI, DefaultToInstanced)
+UCLASS(BlueprintType, MinimalAPI)
 class UWidgetAnimation : public UMovieSceneSequence
 {
 	GENERATED_UCLASS_BODY()
@@ -62,13 +66,39 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Animation")
 	UMG_API float GetEndTime() const;
 
+#if WITH_EDITORONLY_DATA
 	/** Fires when the widget animation starts playing. */
-	UPROPERTY(BlueprintAssignable, Category="Animation")
-	FOnWidgetAnimationPlaybackStatusChanged OnAnimationStarted;
+	UPROPERTY()
+	FOnWidgetAnimationPlaybackStatusChanged OnAnimationStarted_DEPRECATED;
 
 	/** Fires when the widget animation is finished. */
-	UPROPERTY(BlueprintAssignable, Category="Animation")
-	FOnWidgetAnimationPlaybackStatusChanged OnAnimationFinished;
+	UPROPERTY()
+	FOnWidgetAnimationPlaybackStatusChanged OnAnimationFinished_DEPRECATED;
+#endif
+
+	// These animation binding functions were added so that we could cleanly upgrade assets
+	// from before animation sharing, they don't actually modify the animation, they just pipe
+	// through to the UUserWidget.  If we didn't put the functions here, it would be much more
+	// difficult to upgrade users who were taking advantage of the Many-To-1, blueprint having
+	// many animations binding to the same delegate.
+
+	UFUNCTION(BlueprintCallable, Category = Animation, meta=(BlueprintInternalUseOnly = "TRUE"))
+	void BindToAnimationStarted(UUserWidget* Widget, FWidgetAnimationDynamicEvent Delegate);
+
+	UFUNCTION(BlueprintCallable, Category = Animation, meta = (BlueprintInternalUseOnly = "TRUE"))
+	void UnbindFromAnimationStarted(UUserWidget* Widget, FWidgetAnimationDynamicEvent Delegate);
+
+	UFUNCTION(BlueprintCallable, Category = Animation, meta = (BlueprintInternalUseOnly = "TRUE"))
+	void UnbindAllFromAnimationStarted(UUserWidget* Widget);
+
+	UFUNCTION(BlueprintCallable, Category = Animation, meta = (BlueprintInternalUseOnly = "TRUE"))
+	void BindToAnimationFinished(UUserWidget* Widget, FWidgetAnimationDynamicEvent Delegate);
+
+	UFUNCTION(BlueprintCallable, Category = Animation, meta = (BlueprintInternalUseOnly = "TRUE"))
+	void UnbindFromAnimationFinished(UUserWidget* Widget, FWidgetAnimationDynamicEvent Delegate);
+
+	UFUNCTION(BlueprintCallable, Category = Animation, meta = (BlueprintInternalUseOnly = "TRUE"))
+	void UnbindAllFromAnimationFinished(UUserWidget* Widget);
 
 public:
 

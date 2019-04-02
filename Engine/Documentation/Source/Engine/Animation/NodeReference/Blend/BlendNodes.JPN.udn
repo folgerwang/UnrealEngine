@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3056363
+﻿INTSourceChangelist:4105127
 Availability:Public
 Title:Blend ノード
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference
@@ -115,7 +115,7 @@ version:4.9
 
 **Slot** ノードは、任意のアニメーション スロットから結果として得られるアニメーションを再生します。 
 
-[INCLUDE:Engine/Animation/AnimMontage#slots]
+
 
 アニメーション モンタージュ システムでスロットを使用する詳細情報については、[](Engine/Animation/AnimMontage) を参照してください。
 

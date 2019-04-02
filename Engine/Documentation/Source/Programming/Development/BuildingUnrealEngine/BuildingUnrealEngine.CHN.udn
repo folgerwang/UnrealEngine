@@ -1,22 +1,26 @@
-﻿INTSourceChangelist:2944238
+﻿INTSourceChangelist:3810557
 Availability:Public
-Title:从源码起构建虚幻引擎
+Title:从源代码构建虚幻引擎
 Crumbs: %ROOT%, Programming, Programming/Development
-Description:从源码起编译虚幻引擎。
+Description:从源代码构建虚幻引擎
 Prereq: GettingStarted/DownloadingUnrealEngine
 Related: GettingStarted
 Related: Engine/Content/QuickStart
 Related: Programming/QuickStart
 Related: Engine/QuickStart
-Related: Support/Builds
-Version: 4.9
+Related: Programming/UnrealBuildSystem
+Version: 4.11
 SkillLevel: Advanced
+topic-image:topic_buildingUE.png
+tags:Programming
+tags:Unreal Build System
 
 %Globals:osselect_linux%
 
 [TOC (start:2 end:3)]
 
-## 从源码起构建虚幻引擎
+(#buildingunrealenginefromsource)
+## 从源代码构建虚幻引擎
 
 [EXCERPT:Main]
 [OBJECT:ToggleButtonContent]
@@ -60,141 +64,150 @@ SkillLevel: Advanced
 	[/PARAM]
 [/OBJECT]
 
+(#runningtheeditor)
+## 运行编辑器
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+		[INCLUDE:#windowsrun]
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+		[INCLUDE:#macrun]
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	linux
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+		[INCLUDE:#linuxrun]
+	[/PARAM]
+[/OBJECT]
+
+(#gettingstartedwithunrealengine)
+## 开始虚幻引擎之旅
+
+要了解如何使用虚幻引擎，请参阅[](GettingStarted)文档！
+
+如果希望快速上手使用UE4，请参阅以下教程：
+*	[](Engine/Content/QuickStart)
+*	[](Programming/QuickStart)
+*	[](Engine/QuickStart)
+
+
+[REGION:note]
+UE4的编辑器内帮助功能能够回答您的一些问题。
+[/REGION]
+
+[/EXCERPT:Main]
+
 [COMMENT:none]
 
 [EXCERPT:windowscompile]
 
-[REGION:note]
-在继续前请确认您使用的是Microsoft Visual Studio 2015。
-[/REGION]
+确保已安装好Microsoft Visual Studio 2015，然后再从源代码构建虚幻引擎。此外，根据系统配置，可能需要10-40分钟来编译引擎。
 
-1.	在根目录下，运行 **GenerateProjectFiles.bat** 用于设置项目文件。
+1.	在根目录中，运行 **GenerateProjectFiles.bat** 来设置项目文件。
 
 	[REGION:warning]
-	所有的项目文件都是中间生成文件 (`[UE4Root]\Engine\Intermediate\ProjectFiles`)。每次同步更新一个新版本后都必须重新生成项目设置文件，以确保它们都能被正确的更新。如果删除了 `Intermediate` 目录的话，则必须使用 'GenerateProjectFiles' 来重新生成项目设置文件。
+	所有项目文件都是中间文件（`[UE4Root]\Engine\Intermediate\ProjectFiles`）。每次同步新构建时都必须生成项目文件，以确保它们是最新文件。如果您删除了`Intermediate`文件夹，必须使用“GenerateProjectFiles”批处理文件来重新生成项目文件。
 	[/REGION]
 
-1.	**双击 UE4.sln** 文件，在 Visual Studio 中加载所有项目。
+1.	**双击UE4.sln** 将项目加载到Visual Studio。
 
-1.	将方案的配置选为 **Development Editor**。
+1.	将解决方案配置设置为 **开发编辑器（Development Editor）**。
 
 	![](configMenu_updated.png)
 
-1.	将方案的平台选为 **Win64**.
+1.	将解决方案平台设置为 **Win64**。
 
 	![](platform_menu_updated.png)
 
-1.	**右键点击** UE4 并选择 **Build**
+1.	**右键单击** UE4目标并选择 **构建（Build）**。
 
 	![](BuildUE4.png)
-
-	[REGION:note]
-	根据不同机器配置，从源码编译引擎将会花费 10 分钟至 40 分钟不等的时间。
-	[/REGION]
-
-1.	引擎编译完成后，将默认启动项目设置为 **UE4**。
-
-	![](SetUE4_StartPrj.png)
-
-1.	**右键点击** **UE4** 项目，**鼠标移至 'Debug'** 并选择 **'Start New Instance'** 来启动编辑器。
-
-	![](RunCompiledWindowsEditor.png)
-
-	[REGION:tip]
-	另外，可以使用键盘上的 **F5** 来启动编辑器。
-	[/REGION]
-
-1.	大功告成！已经完成了从源码构建引擎并启动的步骤了。
-
-	![](CompiledEditor_Windows.png)
 
 [/EXCERPT:windowscompile]
 
 [EXCERPT:maccompile]
-[REGION:note]
-在继续前请确认您使用的是最新的 XCode。
-[/REGION]
-		
-1.	运行位于根目录的 `GenerateProjectFiles.command` 用于设置项目文件。
-		
-1.	**双击 UE4.xcodeproj** 在 XCode 中加载项目。
 
-1.	要设置构建目标的话，在标题栏处为 **My Mac** 选择 **UE4Editor - Mac**。
+确保已安装好Microsoft Visual Studio 2015，然后再从源代码构建虚幻引擎。此外，根据系统配置，可能需要10-40分钟来编译引擎。
+		
+1.	在根目录中，运行 **GenerateProjectFiles.command** 来设置项目文件。
+		
+1.	**双击UE4.xcodeproj** 将项目加载到XCode。
+
+1.	要设置构建目标，从标题栏中的 **My Mac** 下选择 **UE4Editor - Mac**。
 
 	![](SettingMacTarget.png)
 
-1.	要构建项目，选择 **Product > Build**。
+1.	要构建项目，选择 **产品（Product）>构建（Build）**。
 
 	![](BuildingMacEditor.png)
-
-	[REGION:note]
-	根据不同机器配置，从源码编译引擎将会花费 15 分钟至 40 分钟不等的时间。
-	[/REGION]
-		
-1.	引擎编译完成后，选择 **Product > Run** 开启编辑器。
-		
-	![](RunningMacEditor.png)
-
-1.	大功告成！已经完成了从源码构建引擎并启动的步骤了。
-
-	![](CompiledEditor_Mac.png)
+	
 [/EXCERPT:maccompile]
 
 [EXCERPT:linuxcompile]
-[REGION:warning]
-我们开发和支持团队目前使用最新版本的 Ubuntu，目前我们无法对其他 Linux 发行版本做更好的支持（包括 Ubuntu 的其他版本）。
-[/REGION]
-		
-1.  在根目录中，从终端运行 **Setup.sh** 为生成项目文件做准备。
+
+我们的开发和支持团队目前使用最新版Ubuntu；因此，我们可能无法提供对其他Linux分发版的支持（包括其他版本的Ubuntu）。此外，请确保系统包含至少10GB磁盘空间，然后 
+再执行以下步骤。
+
+1.  在根目录中，从终端运行 **Setup.sh** 以设置生成项目文件所需的文件。
 
 	![](RunSetupShellScript_Linux.png)
 
-1.	在根目录中，从终端运行 **GenerateProjectFiles.sh** 生成项目文件。
+1.	现在，从终端运行 **GenerateProjectFiles.sh** 以生成项目文件。 
 
 	![](RunGenPrjFilesShellScript_Linux.png)
 
-1.	从终端运行 **make** 以构建项目。
+1.	要构建项目，从终端运行 **make**。
 
 	![](RunMakeFile_Linux.png)
 
-	[REGION:tip]
-	也可以使用 QtCreator，CodeLite，KDevelop，和 CMake 来构建引擎。
-	[/REGION]
+根据系统配置，编译引擎可能需要花费十分钟到超过一个小时不等的时间。如果要缩短从源代码编译引擎花费的时间，我们建议您在 
+RAM至少为8GB且处理器至少为8核（包括超线程）的机器上编译源代码。
 
-1.	引擎编译完成后，去到编辑器的二进制文件路径，终端的命令是 **cd Engine/Binaries/Linux/**。
-
-1.	运行 **UE4Editor** 来启动编辑器。
-
-	![](RunUE4Editor_Linux.png)
-
-	[REGION:warning]
-	如果无法创建 OpenGL Context 的话，可能需要更新显卡驱动（请参考 Ubuntu 的文档）。我们推荐使用 NVidia 的二进制驱动版本（343.xx 或更高的版本）。
-  	[/REGION]
-
-1.	大功告成！已经完成了从源码构建引擎并启动的步骤了。
-
-	![](CompiledEditor_Linux.png)
 [/EXCERPT:linuxcompile]
-
-[/COMMENT]
-
-[COMMENT:none]
 
 [EXCERPT:windowsrun]
 
-1.	Set your startup project to **UE4**.
+1.	将启动项目设置为 **UE4**。
 
 	![](SetUE4_StartPrj.png)
 
-1.	**Right-click** the **UE4** project, **hover over 'Debug'** and **click 'Start New Instance'** to launch the editor.
+1.	**右键单击** **UE4** 项目，**将鼠标悬停于“Debug”** 上，然后 **单击“启动新实例（Start New Instance）”** 以启动编辑器。
 
 	![](RunCompiledWindowsEditor.png)
 
 	[REGION:tip]
-	Alternatively, you can **press the F5 key** on your keyboard to start a new instance of the editor.
+	或者，您可以按键盘上的 **F5键** 来启动编辑器的新实例。
 	[/REGION]
 
-1.	Congratulations! You've compiled and launched the engine from source.
+1.	恭喜！您已经从源代码编译并启动了引擎。
 
 	![](CompiledEditor_Windows.png)
 
@@ -202,11 +215,11 @@ SkillLevel: Advanced
 
 [EXCERPT:macrun]
 		
-1.	Select **Product > Run** to launch the editor.
+1.	选择 **产品（Product）>运行（Run）** 以启动编辑器。
 		
 	![](RunningMacEditor.png)
 
-1.	Congratulations! You've compiled and launched the engine from source.
+1.	恭喜！您已经从源代码编译并启动了引擎。
 
 	![](CompiledEditor_Mac.png)
 [/EXCERPT:macrun]
@@ -214,206 +227,18 @@ SkillLevel: Advanced
 [EXCERPT:linuxrun]
 
 [REGION:note]		
-If you're unable to create an OpenGL context as you're working through these steps, you may need to update your graphics drivers (refer to our documentation on [](Platforms/Linux/BeginnerLinuxDeveloper/SupportedGfxDrivers)).
+如果您在完成上述步骤的过程中无法创建OpenGL环境，可能需要更新图形驱动器（请参考我们的[](Platforms/Linux/BeginnerLinuxDeveloper/SupportedGfxDrivers)文档）。
 [/REGION]
 
-1.	Navigate to the editor's binary path by entering `cd Engine/Binaries/Linux/` into the terminal.
+1.	在终端中输入`cd Engine/Binaries/Linux/`来导航到编辑器的二进制路径。
 
-1.	Run **UE4Editor** to launch the editor.
+1.	运行 **UE4Editor** 来启动编辑器。
 
 	![](RunUE4Editor_Linux.png)
 
-1.	Congratulations! You've compiled and launched the engine from source.
+1.	恭喜！您已经从源代码编译并启动了引擎。
 
 	![](CompiledEditor_Linux.png)
 [/EXCERPT:linuxrun]
-
-[/COMMENT]
-
-## 开始使用虚幻引擎
-
-学习如何使用虚幻引擎，可以先参考 [](GettingStarted) 文档！
-
-如果想要快速使用虚幻 4 进行制作，请参考以下教程：
-*	[](Engine/Content/QuickStart)
-*	[](Programming/QuickStart)
-*	[](Engine/QuickStart)
-
-
-[REGION:note]
-虚幻 4 编辑器内的帮助功能，在有疑问时也是获取答案的极佳的手段。
-[/REGION]
-
-[/EXCERPT:Main]
-
-[COMMENT:none]
-Currently deprecated for the 'Building from Source' version
-
-## 编译虚幻引擎
-
-虚幻引擎 4 通过 UnrealBuildTool 来使用自定义版本模式。此工具处理所有编译引擎的复杂操作及所有相关操作。
-
-### 编译配置
-
-[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	windows
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	active_button_content
-	[/PARAMLITERAL]
-	[PARAM:content]
-		默认情况下不会出现所有配置文件。编辑主虚幻引擎4目录的[GenerateProjectFiles.bat](Programming/UnrealBuildSystem/ProjectFileGenerator)文件来生成项目文件以获得所需的额外配置。
-
-		虚幻引擎4和UnrealBuildTool使用不同的版本配置来决定引擎如何被编译。使用何种配置将会由您创建版本的目的来决定。
-
-		可用的配置有：
-
-		|编译配置 | 描述 |
-		|-------------|-------------|
-		| **Debug** （调试）| 该配置在调试模式中同时编译引擎和游戏代码。|
-		| **DebugGame** （调试游戏）| 该配置按最优方式编译引擎，但游戏代码可被调试。此配置对于仅使用调试的游戏模块是非常有用的。|
-		| **Development** (开发）| 该配置等同于发布。引擎和游戏代码都将在此配置中被编译。|
-		| **Shipping** （发行)|该配置在设置后可达到最佳性能并能发行您的游戏。此配置剥离了控制台命令行，统计数据和分析工具。|
-		| **Test** (测试）| 该配置就是启用了一些控制台命令，统计数据和分析工具后的 **Shipping** （发行）配置。|
-
-		编译配置可在Visual Studio工具条中进行设置。
-
-		![UE4 Solution - Configuration Menu](configuration_menu.png)
-	[/PARAM]
-[/OBJECT]
-[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	mac
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	[/PARAMLITERAL]
-	[PARAM:content]
-		可用的配置有：
-
-		| 编译配置 | 描述 |
-		| ------------------- | ----------- |
-		| **Product（产品） > Build For（编译） > Running（运行）**| 该配置在调试模式中同时编译引擎和游戏代码。|
-		| **Product（产品） > Build For （编译）> Profiling（分析）**| 该配置等同于发布。引擎和游戏代码都将在此配置中被编译。|
-		
-	[/PARAM]
-[/OBJECT]
-
-### 目标平台
-
-虚幻引擎 4 当前支持以下平台：
-
-[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	windows
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	active_button_content
-	[/PARAMLITERAL]
-	[PARAM:content]
-		* **Windows 32 位**
-		* **Windows 64 位**
-
-
-		在构建引擎时，您将使用 **Win64** 平台。
-
-		![UE4 Solution - Platform Menu](platform_menu.png)
-	[/PARAM]
-[/OBJECT]
-[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	mac
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	[/PARAMLITERAL]
-	[PARAM:content]
-		* **Mac 64 位**
-		* **iOS 设备**
-
-
-		在构建引擎时，您将使用 **Mac64 位** 平台。
-	[/PARAM]
-[/OBJECT]
-
-(#BinaryNamingConvention)
-### 二进制文件命名规则
-
-根据编译时使用的配置不同，生成的二进制名称也不同。一般的命名规则是：
-
-| 引擎模式 | 命名规则 |
-|----------- | ------------------|
-| Editor	  | UE4Editor-Platform-Configuration.extension |
-| Uncooked Game | UE4-Platform-Configuration.extension |
-
-这个准则的例外情况是PC平台，在编译开发配置时，会省略平台和配置。举例来说，为Win64平台生成的编辑器可执行文件的名称包括：
-
-| 配置 | EXE 名称 |
-| ------------- | -------- |
-| Debug | UE4Editor-Win64-Debug.exe |
-| DebugGame | UE4Editor-Win64-DebugGame.exe |
-| Development | UE4Editor.exe |
-
-
-### 编译引擎
-
-[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	windows
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	active_button_content
-	[/PARAMLITERAL]
-	[PARAM:content]
-		1.	设置 **Build Configuration** （编译配置文件）为您想要编译的配置。在本示例中，它被设置为 **Development** （开发）。请参照 [编译配置](#编译配置) 章节以获得每个可用配置的描述。
-
-			![UE4 Solution - Set Configuration to Development](config_development_menu.png)
-
-		1.	**右击** **UE4** 项目: 
-
-			1. 选择 **清除** 来移除任意已编译或临时文件。这样将可以确保下一个版本为完全的重新编译版本。
-
-			1.	选择 **重新编译** 来重新编译引擎。
-
-		或者，如果 **UE4** 项目仍被设置为您的启动项目：
-
-		1. 设置 **Build Configuration** （编译配置）。
-
-		1. 在 **Build** （编译）菜单：
-
-			1. **Clean UE4** （清除UE4）。
-	
-			1. **Rebuild UE4** （重新编译UE4）。
-	[/PARAM]
-[/OBJECT]
-[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	mac
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	[/PARAMLITERAL]
-	[PARAM:content]
-		1. 请确认当前激活的模式为 **UE4Editor - Mac > My Mac 64-bit** 。
-
-		1. 在 **product** （产品）菜单，选择 **Build For > Running** （编译 > 运行）。
-	[/PARAM]
-[/OBJECT]
 
 [/COMMENT]

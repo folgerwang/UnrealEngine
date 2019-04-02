@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -48,6 +48,7 @@ DECLARE_MULTICAST_DELEGATE( FOnWindowDeactivatedEvent );
 
 /** Notification that a window is about to be closed */
 DECLARE_DELEGATE_OneParam( FOnWindowClosed, const TSharedRef<SWindow>& );
+DECLARE_MULTICAST_DELEGATE_OneParam( FOnWindowClosedEvent, const TSharedRef<SWindow>& );
 
 /** Notification that a window has been moved */
 DECLARE_DELEGATE_OneParam( FOnWindowMoved, const TSharedRef<SWindow>& );
@@ -207,7 +208,7 @@ public:
 		/** Should this window be focused immediately after it is shown? */
 		SLATE_ARGUMENT( bool, FocusWhenFirstShown )
 
-		DEPRECATED(4.16, "ActivateWhenFirstShown(bool) is deprecated. Please use ActivationPolicy(EWindowActivationPolicy) instead")
+		UE_DEPRECATED(4.16, "ActivateWhenFirstShown(bool) is deprecated. Please use ActivationPolicy(EWindowActivationPolicy) instead")
 		FArguments& ActivateWhenFirstShown(bool bActivateWhenFirstShown)
 		{
 			// Previously ActivateWhenFirstShown was being used as always activating, so we use Always here to ensure same behavior.
@@ -426,6 +427,15 @@ public:
 	/** Flashed the window, used for drawing attention to modal dialogs */
 	void FlashWindow();
 
+	/**
+	 * Attempts to draw the user's attention to this window in whatever way is
+	 * appropriate for the platform if this window is not the current active
+	 *
+	 * @param Parameters The parameters for bouncing. Depending on the
+	 *        platform, not all parameters may be supported.
+	 */
+	void DrawAttention(const FWindowDrawAttentionParameters& Parameters);
+
 	/** 
 	 * Bring the window to the front 
 	 *
@@ -555,6 +565,9 @@ public:
 	 */
 	bool HasFullWindowOverlayContent() const;
 
+	/** Shows or hides native window buttons on platforms that use them */
+	void SetNativeWindowButtonsVisibility(bool bVisible);
+
 	/** @return should this window show up in the taskbar */
 	bool AppearsInTaskbar() const;
 
@@ -566,6 +579,9 @@ public:
 
 	/** Sets the delegate to execute right before the window is closed */
 	void SetOnWindowClosed( const FOnWindowClosed& InDelegate );
+
+	/** Gets the multicast delegate to execute right before the window is closed */
+	FOnWindowClosedEvent& GetOnWindowClosedEvent() { return WindowClosedEvent; }
 
 	/** Sets the delegate to execute right after the window has been moved */
 	void SetOnWindowMoved( const FOnWindowMoved& InDelegate);
@@ -642,7 +658,7 @@ public:
 		WidgetToFocusOnActivate = InWidget;
 	}
 
-	DEPRECATED(4.16, "ActivateWhenFirstShown() is deprecated. Please use ActivationPolicy() instead.")
+	UE_DEPRECATED(4.16, "ActivateWhenFirstShown() is deprecated. Please use ActivationPolicy() instead.")
 	bool ActivateWhenFirstShown() const
 	{
 		return ActivationPolicy() != EWindowActivationPolicy::Never;
@@ -1095,6 +1111,7 @@ protected:
 
 	/** Invoked when the window is about to be closed. */
 	FOnWindowClosed OnWindowClosed;
+	FOnWindowClosedEvent WindowClosedEvent;
 
 	/** Invoked when the window is moved */
 	FOnWindowMoved OnWindowMoved;

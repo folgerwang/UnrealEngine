@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Linux/LinuxCursor.h"
 
@@ -215,7 +215,10 @@ void FLinuxCursor::SetPosition( const int32 X, const int32 Y )
 		// Get top-left.
 		if(LinuxApplication)
 		{
-			LinuxApplication->GetWindowPositionInEventLoop(WndFocus, &WndX, &WndY);
+			FLinuxApplication::FWindowProperties Props;
+			LinuxApplication->GetWindowPropertiesInEventLoop(WndFocus, Props);
+			WndX = static_cast<int>(Props.Location.X);
+			WndY = static_cast<int>(Props.Location.Y);
 		}
 		else
 		{

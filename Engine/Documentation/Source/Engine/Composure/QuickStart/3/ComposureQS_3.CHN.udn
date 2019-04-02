@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3587677
-Availability:Docs
+﻿INTSourceChangelist:3728507
+Availability:Public
 Title:3 - 创建 Composure 关卡序列
 Crumbs:%ROOT%
 Description:设置 Composure 的关卡序列。
@@ -15,6 +15,7 @@ tags:Composure
 
 在这部分中，我们将新建并设置一个关卡序列，其中包括创建 demo 序列中第三个镜头所需要的全部数据。
 
+(#Steps)
 ## 步骤
 
 1. 点击 **工具栏** 中的 **Cinematics** 按钮，然后从显示的列表中选择 **Add Level Sequence** 选项。
@@ -48,6 +49,7 @@ tags:Composure
         [/PARAM]
     [/OBJECT]
 
+(#EndResult)
 ## 最终结果
 
 关卡序列创建后，下一部分我们将添加并设置 Composure 所需的 Actor 和蓝图。 

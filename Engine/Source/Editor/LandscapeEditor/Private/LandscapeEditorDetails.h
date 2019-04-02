@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -9,6 +9,8 @@
 #include "UnrealClient.h"
 #include "IDetailCustomization.h"
 #include "Editor/LandscapeEditor/Private/LandscapeEditorDetailCustomization_Base.h"
+#include "LandscapeEditorDetailCustomization_ProceduralLayers.h"
+#include "LandscapeEditorDetailCustomization_ProceduralBrushStack.h"
 
 class FLandscapeEditorDetailCustomization_AlphaBrush;
 class FLandscapeEditorDetailCustomization_CopyPaste;
@@ -61,4 +63,6 @@ protected:
 	TSharedPtr<FLandscapeEditorDetailCustomization_MiscTools> Customization_MiscTools;
 	TSharedPtr<FLandscapeEditorDetailCustomization_AlphaBrush> Customization_AlphaBrush;
 	TSharedPtr<FLandscapeEditorDetailCustomization_TargetLayers> Customization_TargetLayers;
+	TSharedPtr<FLandscapeEditorDetailCustomization_ProceduralLayers> Customization_ProceduralLayers;
+	TSharedPtr<FLandscapeEditorDetailCustomization_ProceduralBrushStack> Customization_ProceduralBrushStack;
 };

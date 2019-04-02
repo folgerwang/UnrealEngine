@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LinuxTargetPlatform.h: Declares the FLinuxTargetPlatform class.
@@ -116,11 +116,6 @@ public:
 		{
 			OutDevices.Add(DeviceIter.Value);
 		}
-	}
-
-	virtual ECompressionFlags GetBaseCompressionMethod( ) const override
-	{
-		return COMPRESS_ZLIB;
 	}
 
 	virtual bool GenerateStreamingInstallManifest(const TMultiMap<FString, int32>& ChunkMap, const TSet<int32>& ChunkIDsInUse) const override

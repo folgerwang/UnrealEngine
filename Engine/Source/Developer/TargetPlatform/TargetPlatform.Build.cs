@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -8,8 +8,11 @@ public class TargetPlatform : ModuleRules
 	public TargetPlatform(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PrivateDependencyModuleNames.Add("Core");
-        PublicDependencyModuleNames.Add("AudioPlatformConfiguration");
-        PublicDependencyModuleNames.Add("DesktopPlatform");
+		PrivateDependencyModuleNames.Add("SlateCore");
+		PrivateDependencyModuleNames.Add("Slate");
+		PrivateDependencyModuleNames.Add("EditorStyle");
+		PublicDependencyModuleNames.Add("AudioPlatformConfiguration");
+		PublicDependencyModuleNames.Add("DesktopPlatform");
 		PublicDependencyModuleNames.Add("LauncherPlatform");
 
 		PrivateIncludePathModuleNames.Add("Engine");
@@ -24,10 +27,7 @@ public class TargetPlatform : ModuleRules
 
 			if ((Target.Platform == UnrealTargetPlatform.Win64) || (Target.Platform == UnrealTargetPlatform.Win32))
 			{
-				if (Target.bCompileLeanAndMeanUE == false)
-				{
-					DynamicallyLoadedModuleNames.Add("TextureFormatIntelISPCTexComp");
-				}
+				DynamicallyLoadedModuleNames.Add("TextureFormatIntelISPCTexComp");
 			}
 
 			if (Target.Platform == UnrealTargetPlatform.Win32 ||
@@ -38,12 +38,9 @@ public class TargetPlatform : ModuleRules
 				DynamicallyLoadedModuleNames.Add("ShaderFormatD3D");
 				DynamicallyLoadedModuleNames.Add("MetalShaderFormat");
 
-				if (Target.bCompileLeanAndMeanUE == false)
-				{
-					DynamicallyLoadedModuleNames.Add("TextureFormatDXT");
-					DynamicallyLoadedModuleNames.Add("TextureFormatPVR");
-					DynamicallyLoadedModuleNames.Add("TextureFormatASTC");
-				}
+				DynamicallyLoadedModuleNames.Add("TextureFormatDXT");
+				DynamicallyLoadedModuleNames.Add("TextureFormatPVR");
+				DynamicallyLoadedModuleNames.Add("TextureFormatASTC");
 
 				DynamicallyLoadedModuleNames.Add("TextureFormatUncompressed");
 
@@ -68,12 +65,9 @@ public class TargetPlatform : ModuleRules
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Mac)
 			{
-				if (Target.bCompileLeanAndMeanUE == false)
-				{
-					DynamicallyLoadedModuleNames.Add("TextureFormatDXT");
-					DynamicallyLoadedModuleNames.Add("TextureFormatPVR");
-					DynamicallyLoadedModuleNames.Add("TextureFormatASTC");
-				}
+				DynamicallyLoadedModuleNames.Add("TextureFormatDXT");
+				DynamicallyLoadedModuleNames.Add("TextureFormatPVR");
+				DynamicallyLoadedModuleNames.Add("TextureFormatASTC");
 
 				DynamicallyLoadedModuleNames.Add("TextureFormatUncompressed");
 
@@ -94,12 +88,9 @@ public class TargetPlatform : ModuleRules
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Linux)
 			{
-				if (Target.bCompileLeanAndMeanUE == false)
-				{
-					DynamicallyLoadedModuleNames.Add("TextureFormatDXT");
-					DynamicallyLoadedModuleNames.Add("TextureFormatPVR");
-					DynamicallyLoadedModuleNames.Add("TextureFormatASTC");
-				}
+				DynamicallyLoadedModuleNames.Add("TextureFormatDXT");
+				DynamicallyLoadedModuleNames.Add("TextureFormatPVR");
+				DynamicallyLoadedModuleNames.Add("TextureFormatASTC");
 
 				DynamicallyLoadedModuleNames.Add("TextureFormatUncompressed");
 

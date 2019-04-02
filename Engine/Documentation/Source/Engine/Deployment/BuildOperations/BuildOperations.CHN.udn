@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3801260
 Availability:Docs
 Crumbs: %ROOT%
-Title: Build Operations: Cook, Package, Deploy, & Run
-Description: An overview of the available Build Operations (cook, package, run, and deploy) that can be for Unreal Engine 4 projects.
+Title: 构建操作：烘焙、打包、部署与运行
+Description: 概述了可用于虚幻引擎4项目的构建操作（烘焙、打包、运行与部署）。
 Type: Overview
 SkillLevel:Intermediate
 Version:4.18
@@ -14,213 +14,211 @@ Topic-image:BuildOps_Topic.png
 [TOC(start:2 end:3)]
 
 
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
+在封装过程中使用的 [自动化工具](Programming/Automation)（有时缩写为UAT，代表虚幻自动化工具（Unreal Automation Tool））用于通过一系列实用程序脚本来处理虚幻引擎4（UE4）项目。对于封装过程，自动化工具使用特定的命令 **BuildCookRun**。这些构建操作针对平台转化内容，将其封装成平台自己的文件格式，部署到设备并自动运行项目（若条件允许）。该过程使你能够在开发过程中的任何时候将内容部署到给定的平台上进行测试、调试甚至完整分发项目。
+
+
+以下是封装流程的不同阶段，它们也是UAT中 **BuildCookRun** 命令的组成部分：
+
+* **构建（Build）：**该阶段将为所选择的平台编译可执行文件。
+* **转化（Cook）：**该阶段通过在特殊模式下执行编辑器来转化内容。
+* **暂存（Stage）：**该阶段将可执行文件和内容复制到暂存区，它是开发目录以外的独立目录。
+* **归档（Archive）：**该阶段创建特定于平台的应用程序包，例如，在Android上为APK文件，在PlayStation 4上为PKG文件。
+* **部署（Deploy）：**该阶段将构建版本部署到目标设备。
+* **运行（Run）：**该阶段在目标平台上启动已封装的项目。
 
 
 
+## 封装方法
 
-As part of the packaging process, the [Automation Tool](Programming/Automation) (sometimes abbreviated as UAT for Unreal Automation Tool) is used to work through a set of utility scripts for manipulating Unreal Engine 4 (UE4) projects. For the packaging process, the Automation Tool uses a particular command called **BuildCookRun**. These build operations cook content for a platform, package it up into the platforms own file format, deploys it to the device, and automatically runs the project (where applicable). This process enables you to deploy content to a given platform at any point during development for testing, debugging, and even full distribution of a project.
+由于你可以采用多种不同的方式将内容部署到目标平台上以进行测试、调试或准备发布成果，可以使用以下方法来测试程序包： 
 
+* 你可以使用 [启动（Launch On）](#launchon) 来快速测试部分当前已加载的关卡并进行调试。
+* 你可以使用 [项目启动程序（Project Launcher）](#projectlauncher) 来使用默认配置文件或创建自定义的配置文件来针对项目的最新构建版本执行分析或调试等操作。
+* 或者可以将已封装的游戏部署到主机或移动设备等平台。
 
-As part of the **BuildCookRun** command in UAT, the following stages outline the different stages of the packaging pipeline:
-
-* **Build:** This stage compiles the executeables for the selected platform.
-* **Cook:** This stage cooks content by executing the Editor in a special mode.
-* **Stage:** This stage copies the executables and content to a staging area; a standalone directory outside of the development directory.
-* **Archive:** This stage creates platform-specific application bundles, such as APK files on Android or PKG files on PlayStation 4.
-* **Deploy:** This stage deploys the build to a target device.
-* **Run:** This stage starts the packaged project on the target platform.
+以下各部分将更加详细地介绍这些封装方法以及如何使用这些方法封装游戏。
 
 
+### “文件（File）”菜单 
 
-## Packaging Methods
-
-Becasuse you can deploy content in several different ways to a target platform for testing, debugging, or in preparation to release a produce, the following ways can be employeed to test your packages: 
-
-* You can use [Launch On](#launchon) to quickly test a part of your currently loaded level for testing and debugging.
-* You can use the [Project Launcher](#projectlauncher) to use a default profile or create a custom one to perform actions like profiling or debugging for your project's latest build.
-* Or you can take an already packaged game and deploy it to a platform, such as a console or mobile device.
-
-Use the following sections to learn more about these packaging methods and how you can package your games using them.
-
-
-### File Menu 
-
-The **File** menu can be used to select a platform to package your project for. When you package a project using this option, it will save the packaged project to a folder that you select but will not deploy it to the device.
+可使用 **文件（File）** 菜单来选择要针对其封装项目的平台。使用该选项封装项目时，它会将封装好的项目保存到你选择的文件夹，但是不会将它部署到设备上。
 
 ![](FilePackageMenu.png)
 
-From this menu under **Package Project**, you can perform the following actions:
+在该菜单的 **封装项目（Package Project）** 下，你可以执行以下操作：
 
-* Build a project for a selected **Platform**
-* Choose a Build Configuration; **Development** or **Shipping**
-* Access the Packaging Settings and Support Platforms located in the **Project Settings**
+* 为所选择的 **平台** 构建项目
+* 选择 **开发（Development）** 或 **发布（Shipping）** 构建配置
+* 访问位于 **项目设置（Project Settings）** 中的“封装设置（Packaging Settings）”和“支持的平台（Support Platforms）”
 
 
-### Launch On
+(#launchon)
+### 启动
 
-Using the **Launch** button in the main toolbar enables you to quickly test your project with a single click by building and deploying the currently loaded level for testing. 
+借助主工具栏中的 **启动（Launch）** 按钮，你可以构建和部署当前已加载的关卡来轻松快速地测试项目。 
 
 ![](LaunchToolbar.png)
 
-Use the drop-down arrow next to the **Launch** button to select from the list of available devices to deploy a build to.
+使用 **启动（Launch）** 按钮旁的下拉箭头从可用设备列表中选择要将构建版本部署到的设备。
 
 ![](ToolbarLaunchButtonMenu.png)
 
-When clicked, the launch process automatically Cooks the necessary content, build code, and launch on the selected platform. The build is a quick way to test functionality during active development without the need to compile and run the entirety of the project every time you need to test something.
+单击后，启动过程将自动转化必需的内容，构建代码，并在所选择的平台上启动。该构建版本使你能够快速测试仍在积极开发过程中的功能，而不必在每次需要进行测试时都编译和运行整个项目。
 
 
-#### Platform Selection
+#### 平台选择
 
-If you do not see the platform you want to deploy to or it is grayed out in this menu, here are some things you can check:
+如果未看到希望将构建版本部署到的平台或者在该菜单中要选择的平台显示为灰色，你可以检查以下内容：
 
-* Make sure that you have the correct SDK installed for that platform (if required) and that it is supported by the Engine version you are currently using. Often, this can be checked in the platform's **UEBuild.cs** file located in **Engine/Source/Programmings/UnrealBuiltTools/Platforms**. For example, if you needed to see which SDK is supported for Android, you could look in the **UEBuildAndroid.cs** file.
-* Be sure that any Visual Studio extensions or necessary files are installed.
-* Some platforms (like console) require external tools to connect the device. Make sure this is working properly, and the device is detected.
-* Use the **Device Manager** in UE4 to "claim" any devices as needed, which ensures it can only be used for your local machine. 
-
-
-
-### Project Launcher
-
-The [Project Launcher](Engine/Deployment/Releasing) affords you the ability to deploy for different platforms all from one location and even from a single launch profile. 
+* 请确保已为该平台安装了正确的SDK（如需）并且确保它受你当前正在使用的引擎版本支持。通常，可在平台的 **UEBuild.cs** 文件（位于 **Engine/Source/Programmings/UnrealBuiltTools/Platforms** 下）中检查。例如，如果希望查看哪些 SDK 可以支持Android，可以在 **UEBuildAndroid.cs** 文件中查看。
+* 请确保已安装所有Visual Studio扩展程序或必需的文件。
+* 部分平台（例如，主机）要求使用外部工具来连接设备。请确保外部工具可正常工作并且可以检测到设备。
+* 使用UE4中的 **设备管理器（Device Manager）** 按照需要“声明”设备，这将确保它仅可用于本地计算机。 
 
 
-Each platform that is deployed to has its own default launch profile (listed in the main window). You can also choose to create a custom one that enables you to build a project in a specific way with many advanced settings. These include being able to apply command line arguments, test downloadable content (DLC) and patching releases, and much more.
+
+(#projectlauncher) 
+### 项目启动程序（Project Launcher）
+
+[项目启动程序（Project Launcher）](Engine/Deployment/Releasing) 使你能够从单个位置甚至单个启动配置文件针对不同的平台进行部署。 
+
+
+部署的每个平台都具有其自己的默认启动配置文件（在主窗口中列出）。你也可以选择创建一个具有很多高级设置且使你能够按照特定方式构建项目的自定义启动配置文件。其中包括应用命令行参数，测试可下载内容（DLC）以及修补发行版等。
 
 
 
 ![](Engine\Deployment\ProjectLauncher\ProjectLauncher.png)
 
 [REGION:note]
-For additional information, see the [Project Launcher](Engine/Deployment/ProjectLauncher) reference page.
+有关更多信息，请参阅[项目启动程序（Project Launcher）](Engine/Deployment/ProjectLauncher)参考页面。
 [/REGION]
 
 
-#### Custom Launch Profile
+(#customlaunchprofile)
+#### 自定义启动配置文件
 
-From the Project Launcher, you can create a **Custom Launch Profile** that can be used on all platforms or even just the ones you specify. These profiles enable you to build your content in specific ways by setting how it is cooked, packaged, and deployed using the available build operations. 
+从“项目启动程序（Project Launcher）”，你可以创建可在所有平台或仅在你指定的平台上使用的 **自定义启动配置文件**。通过在配置文件中设置使用可用的构建操作转化、封装和部署内容的方式，你可以按照特定的方式构建内容。 
 
-To add your own Custom Launch Profile, click the **plus** (**+**) sign on the right side of the window.
+要添加你自己的自定义启动配置文件，请单击窗口右侧的 **加**（**+**）号。
 
 ![](AddCustomProfile.png)(w:950)
 
-After doing so, the custom launch profile is immediately open. Be sure to give it a **Name** and **Description** so that you can quickly identify it later.
+单击之后，自定义启动配置文件将立即打开。请务必为它赋予一个 **名称** 和 **描述**，便于以后快速识别它。
 
 ![](CustomLaunchProfile.png)(w:950)
 
 
 
-### Command Line
+(#commandline)
+### 命令行
 
-The [Automation Tool](Programming/Automation) enables you to cook and package your game using command line, and since all build operations are performed by UAT, it can be run directly on the command line with **RunUAT.bat** file when provided with valid arguments. 
+[自动化工具](Programming/Automation) 使你能够使用命令行转化和封装游戏，而且由于所有构建操作都由UAT执行，如果提供有效的参数，可以使用 **RunUAT.bat** 文件直接在命令行中运行它。 
 
-A basic cook can be performed using the following command line arguments following either the **UE4Editor.exe** or **UE4Editor-cmd.exe** files:
+可以使用以下命令行参数遵循 **UE4Editor.exe** 或 **UE4Editor-cmd.exe** 文件执行基本转化：
 
 	UE4Editor.exe [GameName or .uproject] -run=cook -targetplatform=[Platform] -cookonthefly -iterate -map=[Map Name]
 
-The commandlet must be specified via **-run=cook** and a platform to cook for must be specified. It will generate the cooked data for the platform that is specified and saves it to the following location:
+必须通过 **-run=cook** 指定commandlet，而且必须指定要针对其进行转化的平台。它将为指定的平台生成转化后的数据并将其保存到以下位置：
 
 	[UE4 Project]/Saved/Sandboxes/Cooked-[Platform]
 
-Authoring your command line arguments by hand can be quite involved and has more potential for accidently errors. Because of this, it is recommended to use a [Custom Launch Profile](#customlaunchprofile) to accurately generate a command line for your build. Any parameters entered automatically generate via command line in the **Output Log** window. Any text that follows **BuildCookRun** onwards can be directly passed as your command line arguments using **RunUAT.bat**.
+手动编写命令行参数可能比较耗时而且非常容易出错。因此，我们建议你使用 [自定义启动配置文件](#customlaunchprofile) 来准确地为你的构建版本生成命令行。任何输入的参数将通过命令行在 **输出日志（Output Log）** 窗口中自动生成。从 **BuildCookRun** 起的任何文本都可以作为命令行参数使用 **RunUAT.bat** 直接传递。
 
-The following is an example of the generated output from the Project Launcher and the equivalent command line that would need to be manually authored to use for **RunUAT.bat**:
+以下是从“项目启动程序（Project Launcher）”生成的输出以及需要手动编写以用于 **RunUAT.bat** 的等效命令行的示例：
 
-* **Project Launcher Log Window**
+* **“项目启动程序（Project Launcher）”日志窗口**
 
-		Automation.ParseCommandLine: Parsing command line: -ScriptsForProject=MyProject.uproject BuildCookRun -project=MyProject.uproject -clientconfig=Development
+		Automation.ParseCommandLine:Parsing command line:-ScriptsForProject=MyProject.uproject BuildCookRun -project=MyProject.uproject -clientconfig=Development
 
-* **Manually Authored**
+* **手动编写**
 
 		[UE4Root]/Engine/Build/BatchFiles/RunUAT.bat BuildCookRun -project=MyProject.uproject -clientconfig=Development
 
 [REGION:note]
-For additional information, see the [Content Cooking](Engine/Deployment/Cooking) page.
+有关更多信息，请参阅[内容转化](Engine/Deployment/Cooking)页面。
 [/REGION]
 
 
-## Content Cooking
+## 内容转化
 
-In Unreal Engine, content is stored in particular formats that are supported (png for textures data or WAV for audio) for a platform. However, this content may not be in a format that can be used by the platform you are developing for. The process of **Cooking** converts assets used by the Engine into ones that can be read on the platforms being deployed to. In some cases, the cooked content is converted to a proprietary format (like with console) that can only be read by by that platform.
+在虚幻引擎中，内容以受支持的特定格式针对平台存储（png格式用于存储纹理数据，WAV格式用于存储音频）。但是，该内容的格式可能是你的开发目标平台无法使用的格式。**转化** 过程将引擎使用的资源转换成可以在要部署到的平台上读取的资源。在某些情况下，转化的内容将被转换成仅可由目标平台读取的专有格式（例如，主机）。
 
-Cooking content for different platforms can be done by using [Command Line](#commandline) or by using the [Project Launcher](#projectlauncher), and its in-Editor interface. For some platforms, all content must be cooked before it can be used on the device for it to work correctly. You may need to check with the platform you are developing for if this is the case. 
+可以通过使用 [命令行](#commandline) 或通过使用 [项目启动程序（Project Launcher）](#projectlauncher) 及其编辑器界面为不同的平台转化内容。对于部分平台，必须首先转化所有内容，然后才能在设备上正常使用内容。你可能需要确认你针对其进行开发的目标平台是否属于这种情况。 
 
-There are two ways to cook content for your projects; **by the book** and **on the fly**.
+为项目转化内容的方法有两种：**按常规（By the book）** 和 **动态（On the fly）**。
 
 ![](ContentCooking.png)
 
 
 
-### Cook by the book
+### 按常规转化
 
-Cook **by the book** performs the entirety of the cook process ahead of time allowing for the build to deploy the cooked assets all at once rather than as needed while playing the level (if you were using a cook server). This option is useful for developers who are not iterating on individual assets or for those who want the game to perform at full-speed without waiting for a server to deliver the necessary cooked content. Typically, performance testing and playtests will want to use this method. 
+**按常规（By the book）** 转化方法提前执行整个转化过程，以使构建版本能够一次性部署转化后的资源，而非在运行关卡时按需部署（如果使用转化服务器）。如果开发者不对单个资源进行迭代，或希望游戏能够全速运行而不必等待服务器交付必需的转化后内容，该选项非常有用。通常需要在性能测试和可玩性测试中使用该方法。 
 
-When performing a cook by the book, there is no extra setup required for the build. Use the Project Launcher to [create a Custom Launch Profile](#customlaunchprofile) and in the **Cook** section, use the drop-down selection to choose **by the book**.
+按常规执行转化时，无需对构建版本进行额外的设置。使用“项目启动程序（Project Launcher）”来 [创建自定义启动配置文件](#customlaunchprofile)，然后在 **转化（Cook）** 部分中使用下拉菜单来选择 **按常规（By the book）**。
 
 ![](CookByTheBookSettings.png)(w:950)
 
-If you have any game-specific command lines to add, you can expand the **Advanced Settings** and add the arguments to the **Additional Cooker Options**.
+如果要添加特定于游戏的命令行，可以展开 **高级设置（Advanced Settings）** 并向 **附加转化程序选项（Additional Cooker Options）** 中添加参数。
 
 ![](AdditionalCookerOptions.png)(w:950)
 
-An example would be:
+例如：
 
 	-nomcp
 
 
 [REGION:note]
-For additional information about this cook method and its available settings, refer to the [Project Launcher](Engine/Deployment/ProjectLauncher#bythebook) reference page.
+有关该转化方法及其可用设置的更多信息，请参阅 [项目启动程序（Project Launcher）](Engine/Deployment/ProjectLauncher#bythebook) 参考页面。
 [/REGION]
 
 
-### Cook on the fly
+### 动态转化
 
 ![](CookOnTheFlySettings.png)(w:950)
 
-When you choose to cook content **on the fly** (COTF), it will delay cooking it until after the game has been deployed to the platform. Only the executeable and some other basic files are installed, which use network communication with a **Cook Server** to make requests on-demand as the content is needed. COTF allows for faster iteration for developers who will be making changes to content regularly or those who will only be exploring sections of the game.
+选择 **动态（On the fly）** 转化内容（COTF）时，会将转化推迟至游戏被部署到平台之后。这种情况下仅安装可执行文件和部分其他基本文件，并使用与 **转化服务器** 之间的网络通信在需要内容时按需请求。COTF使定期更改内容或仅探索游戏的一些片段的开发者能够更加快速地进行迭代。
 
-To cook on the fly, you will first need to start a Cook Server on a machine which has the full project available to it. This can be either your local machine or a remote server which performs the cook. The Cook Server can be run by starting the Editor in command line mode using the following arguments with the **UE4Editor-cmd.exe**:
+要进行动态转化，首先需要在有完整项目可用的计算机上启动转化服务器。该计算机可以是本地计算机或执行转化的远程服务器。运行转化服务器的方法是：对 **UE4Editor-cmd.exe** 使用以下参数，在命令行模式下启动编辑器：
 
 		UE4Editor-cmd.exe [FullAbsolutePathToProject.uproject]-run=cook -targetplatform=Windows -cookonthefly
 
-On the developer's local machine, access a [Custom Launch Profile](#customlaunchprofile) from the Project Launcher and in the **Deploy** Section, set the method to **File Server**. Optionally, you can use the **Default Deploy Platform** to select a single platform or use the toggles to enable multiple platforms to build and deploy to.
+在开发者的本地计算机上，访问“项目启动程序（Project Launcher）”中的[自定义启动配置文件](#customlaunchprofile)，然后在 **部署（Deploy）** 部分中，将部署方法设置为 **文件服务器（File Server）**。或者，可以使用 **默认部署平台（Default Deploy Platform）** 来选择单个平台或使用切换键来启用多个平台，以用于构建和部署构建版本。
 
 ![](Deploy_01.png)(w:950)
 
-For the executable to know where to load content from, it needs to be made aware of the IP address of the machine that is running the Cook Server. To do this, you will need to pass the following command line argument on the client's command line (where x.x.x.x represents your host's IPs):
+要使可执行文件知道从何处加载内容，需要让它知道运行转化服务器的计算机的IP地址。为此，你需要在客户端命令行中传递以下命令行参数，其中x.x.x.x代表主机的IP：
 
 	-filehostip=123.456.78.90
 
-The argument can be specified in your custom launch profile under the **Launch** section in the **Additional Command Line Parameters** text box. If the IP address is left unspecified, the build will load from existing local files and not attempt to connect to the Cook Server. 
+可在自定义启动配置文件的 **启动（Launch）** 部分下的 **附加命令行参数（Additional Command Line Parameters）** 文本框中指定该参数。如果不指定IP地址，构建版本将从现有本地文件加载，而且将不尝试连接到转化服务器。 
 
 
 ![](FileHostIP.png)(w:950)
 
 
 [REGION:note]
-For additional information about this cook method and its available settings, refer to the [Project Launcher](Engine/Deployment/ProjectLauncher#onthefly) reference page.
+有关该转化方法及其可用设置的更多信息，请参阅 [项目启动程序（Project Launcher）](Engine/Deployment/ProjectLauncher#onthefly) 参考页面。
 [/REGION]
 
 
 
-## Deploying a Build
+## 部署构建版本
 
-To deploy a build from the Project Launcher, you must have a project that cooked and packaged. There are a couple of ways you can deploy this type of build to a platform. In your [Custom Launch Profile](#customlaunchprofile) under the **Deploy** section, set the way you want to deploy the build. 
+要从“项目启动程序（Project Launcher）”部署构建版本，你必须具有已转化和封装的项目。可通过多种方法将这种类型的构建版本部署到平台。请在 [自定义启动配置文件](#customlaunchprofile) 下的 **部署（Deploy）** 部分中设置希望用于部署构建版本的方式。 
 
 ![](DeployBuildTypes.png)(w:950)
 
 [EXCERPT:deployingABuild]
-* **File Server** will cook and deploy the content at runtime as it is needed to the device.
-* **Copy to Device** will copy the entire cooked build to the device.
-* **Do Not Deploy** will not deploy the build to any device once the cook and package complete.
-* **Copy Repository** will copy a build from a specified file location to deploy to any device.
+* **文件服务器（File Server）** 将转化内容并在运行时按照需要将内容部署到设备。
+* **复制到设备（Copy to Device）** 会将整个转化后的构建版本复制到设备。
+* **不部署（Do Not Deploy）** 将不会在转化和封装完成后将构建版本部署到任何设备。
+* **复制元库（Copy Repository）** 将从指定的文件位置复制构建版本并将它部署到任何设备。
 [/EXCERPT:deployingABuild]
 
 
 [REGION:note]
-For additional information about this deployment methods and their available settings, refer to the [Project Launcher](Engine/Deployment/ProjectLauncher#deploy) reference page.
+有关该部署方法及其可用设置的更多信息，请参阅 [项目启动程序（Project Launcher）](Engine/Deployment/ProjectLauncher#deploy) 参考页面。
 [/REGION]
 
 

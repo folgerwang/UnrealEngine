@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Customizations/MediaIOConfigurationCustomization.h"
 
@@ -67,7 +67,7 @@ TSharedRef<SWidget> FMediaIOConfigurationCustomization::HandleSourceComboButtonM
 	{
 		if (UniquePermutationsForThisColumn.Num() > 0)
 		{
-			return UniquePermutationsForThisColumn[0].MediaConnection.TransportType == EMediaIOSDITransportType::QuadLink;
+			return UniquePermutationsForThisColumn[0].MediaConnection.TransportType == EMediaIOTransportType::QuadLink;
 		}
 		return false;
 	};

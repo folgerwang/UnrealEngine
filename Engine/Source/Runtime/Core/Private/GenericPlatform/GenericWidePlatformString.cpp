@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GenericPlatform/GenericWidePlatformString.h"
 #include "HAL/UnrealMemory.h"
@@ -13,21 +13,21 @@ DEFINE_LOG_CATEGORY_STATIC(LogStandardPlatformString, Log, All);
 WIDECHAR* FGenericWidePlatformString::Strcpy(WIDECHAR* Dest, SIZE_T DestCount, const WIDECHAR* Src)
 {
 	TCHAR *BufPtr = Dest;
-
+	
 	while (*Src && --DestCount)
 	{
 		*BufPtr++ = *Src++;
 	}
-
+	
 	*BufPtr = 0;
-
+	
 	return Dest;
 }
 
 WIDECHAR* FGenericWidePlatformString::Strncpy(WIDECHAR* Dest, const WIDECHAR* Src, SIZE_T MaxLen)
 {
 	TCHAR *BufPtr = Dest;
-
+	
 	// the spec says that strncpy should fill the buffer with zeroes
 	// we break the spec by enforcing a trailing zero, so we do --MaxLen instead of MaxLen--
 	bool bFillWithZero = false;
@@ -46,38 +46,38 @@ WIDECHAR* FGenericWidePlatformString::Strncpy(WIDECHAR* Dest, const WIDECHAR* Sr
 			*BufPtr++ = *Src++;
 		}
 	}
-
+	
 	// always have trailing zero
 	*BufPtr = 0;
-
+	
 	return Dest;
 }
 
 WIDECHAR* FGenericWidePlatformString::Strcat(WIDECHAR* Dest, SIZE_T DestCount, const WIDECHAR* Src)
 {
 	TCHAR *String = Dest;
-
+	
 	while (*String != 0 && DestCount > 1)
 	{
 		String++;
 		// remove how much we can copy in the lower loop
 		DestCount--;
 	}
-
+	
 	while (*Src != 0 && DestCount > 1)
 	{
 		*String++ = *Src++;
 		DestCount--;
 	}
-
-	//	// rewind 1 for trailing zero
-	//	String--;
+	
+//	// rewind 1 for trailing zero
+//	String--;
 	*String = 0;
-
+	
 	return Dest;
 }
 
-int32 FGenericWidePlatformString::Strtoi(const WIDECHAR* Start, WIDECHAR** End, int32 Base)
+int32 FGenericWidePlatformString::Strtoi( const WIDECHAR* Start, WIDECHAR** End, int32 Base )
 {
 	if (End == nullptr)
 	{
@@ -88,19 +88,19 @@ int32 FGenericWidePlatformString::Strtoi(const WIDECHAR* Start, WIDECHAR** End, 
 	// make sure we aren't using high byte characters
 	// @todo this!
 #endif
-
+	
 	// convert to ANSI, and remember the end to get an offset
 	auto Ansi = StringCast<ANSICHAR>(Start);
 	ANSICHAR* AnsiEnd;
 	int32 Result = Strtoi(Ansi.Get(), &AnsiEnd, Base);
-
+	
 	// the end is the offset from
 	*End = const_cast<WIDECHAR*>(Start) + (AnsiEnd - Ansi.Get());
 
 	return Result;
 }
 
-int64 FGenericWidePlatformString::Strtoi64(const WIDECHAR* Start, WIDECHAR** End, int32 Base)
+int64 FGenericWidePlatformString::Strtoi64( const WIDECHAR* Start, WIDECHAR** End, int32 Base )
 {
 	if (End == nullptr)
 	{
@@ -111,19 +111,19 @@ int64 FGenericWidePlatformString::Strtoi64(const WIDECHAR* Start, WIDECHAR** End
 	// make sure we aren't using high byte characters
 	// @todo this!
 #endif
-
+	
 	// convert to ANSI, and remember the end to get an offset
 	auto Ansi = StringCast<ANSICHAR>(Start);
 	ANSICHAR* AnsiEnd;
 	int64 Result = Strtoi64(Ansi.Get(), &AnsiEnd, Base);
-
+	
 	// the end is the offset from
 	*End = const_cast<WIDECHAR*>(Start) + (AnsiEnd - Ansi.Get());
 
 	return Result;
 }
 
-uint64 FGenericWidePlatformString::Strtoui64(const WIDECHAR* Start, WIDECHAR** End, int32 Base)
+uint64 FGenericWidePlatformString::Strtoui64( const WIDECHAR* Start, WIDECHAR** End, int32 Base )
 {
 	if (End == nullptr)
 	{
@@ -134,12 +134,12 @@ uint64 FGenericWidePlatformString::Strtoui64(const WIDECHAR* Start, WIDECHAR** E
 	// make sure we aren't using high byte characters
 	// @todo this!
 #endif
-
+	
 	// convert to ANSI, and remember the end to get an offset
 	auto Ansi = StringCast<ANSICHAR>(Start);
 	ANSICHAR* AnsiEnd;
 	uint64 Result = Strtoui64(Ansi.Get(), &AnsiEnd, Base);
-
+	
 	// the end is the offset from
 	*End = const_cast<WIDECHAR*>(Start) + (AnsiEnd - Ansi.Get());
 
@@ -213,9 +213,10 @@ static const int OUTPUT_SIZE = 256;
 int32 TestGetVarArgs(WIDECHAR* OutputString, const WIDECHAR* Format, ...)
 {
 	va_list ArgPtr;
-	va_start(ArgPtr, Format);
-
-	return FGenericWidePlatformString::GetVarArgs(OutputString, OUTPUT_SIZE, OUTPUT_SIZE - 1, Format, ArgPtr);
+	va_start( ArgPtr, Format );
+	int32 Result = FGenericWidePlatformString::GetVarArgs(OutputString, OUTPUT_SIZE, Format, ArgPtr);
+	va_end(ArgPtr);
+	return Result;
 }
 
 void RunGetVarArgsTests()
@@ -242,11 +243,99 @@ void RunGetVarArgsTests()
 }
 #endif
 
-int32 FGenericWidePlatformString::GetVarArgs(WIDECHAR* Dest, SIZE_T DestSize, int32 Count, const WIDECHAR*& Fmt, va_list ArgPtr)
+namespace
+{
+	// Output iterator which will not overflow the destination buffer but will keep track of how many characters have been written.
+	// It will also null terminate the output when destructed.
+	struct FSafeDestIterator
+	{
+		// Non-copyable
+		FSafeDestIterator(const FSafeDestIterator&) = delete;
+		FSafeDestIterator& operator=(const FSafeDestIterator&) = delete;
+
+		explicit FSafeDestIterator(WIDECHAR* InPtr, SIZE_T InEnd)
+			: NumCharsWritten(0)
+			, Ptr            (InPtr)
+			, EndMinusOne    (InPtr + InEnd - 1)
+		{
+			check(InPtr);
+		}
+
+		FORCENOINLINE ~FSafeDestIterator()
+		{
+			// Auto-terminate buffer
+			*Ptr = 0;
+		}
+
+		// Writes Count instances of Ch to the destination buffer
+		FORCENOINLINE FSafeDestIterator& Write(TCHAR Ch, int32 Count = 1)
+		{
+			// Ensure we're not in the error state
+			if (EndMinusOne)
+			{
+				NumCharsWritten += Count;
+
+				int32 NumToWrite = FPlatformMath::Min(Count, (int32)(EndMinusOne - Ptr));
+				for (int32 Val = NumToWrite; Val; --Val)
+				{
+					*Ptr++ = Ch;
+				}
+
+				if (NumToWrite != Count)
+				{
+					EndMinusOne = 0;
+				}
+			}
+
+			return *this;
+		}
+
+		// Writes Count characters from Src to the destination buffer
+		template <typename CharType>
+		FORCENOINLINE FSafeDestIterator& Write(const CharType* Src, int32 Count)
+		{
+			// Ensure we're not in the error state
+			if (EndMinusOne)
+			{
+				NumCharsWritten += Count;
+
+				int32 NumToWrite = FPlatformMath::Min(Count, (int32)(EndMinusOne - Ptr));
+				for (int32 Val = NumToWrite; Val; --Val)
+				{
+					*Ptr++ = *Src++;
+				}
+
+				if (NumToWrite != Count)
+				{
+					EndMinusOne = 0;
+				}
+			}
+
+			return *this;
+		}
+
+		explicit operator bool() const
+		{
+			return !!EndMinusOne;
+		}
+
+		int32 GetNumCharsWritten() const
+		{
+			return NumCharsWritten;
+		}
+
+	private:
+		int32     NumCharsWritten;
+		WIDECHAR* Ptr;
+		WIDECHAR* EndMinusOne; // when null, this means the iterator has already moved past the writable area of the buffer
+	};
+}
+
+int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, const WIDECHAR*& Fmt, va_list ArgPtr )
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	static bool bTested = false;
-	if (!bTested)
+	if(!bTested)
 	{
 		bTested = true;
 		RunGetVarArgsTests();
@@ -262,19 +351,17 @@ int32 FGenericWidePlatformString::GetVarArgs(WIDECHAR* Dest, SIZE_T DestSize, in
 		return 0;
 	}
 
-	int FmtLen = FPlatformMath::Min(Count, Strlen(Fmt));
 	const TCHAR *Src = Fmt;
 
-	TCHAR *Dst = Dest;
-	TCHAR *EndDst = Dst + (DestSize - 1);
-
-	while ((*Src) && (Dst < EndDst))
+	FSafeDestIterator DestIter(Dest, DestSize);
+	while (*Src)
 	{
 		if (*Src != '%')
 		{
-			*Dst = *Src;
-			Dst++;
-			Src++;
+			if (!DestIter.Write(*Src++))
+			{
+				return -1;
+			}
 			continue;
 		}
 
@@ -286,8 +373,10 @@ int32 FGenericWidePlatformString::GetVarArgs(WIDECHAR* Dest, SIZE_T DestSize, in
 
 		while (*Src == ' ')
 		{
-			*Dst = ' ';
-			Dst++;
+			if (!DestIter.Write(' '))
+			{
+				return -1;
+			}
 			Src++;
 		}
 
@@ -338,190 +427,248 @@ int32 FGenericWidePlatformString::GetVarArgs(WIDECHAR* Dest, SIZE_T DestSize, in
 
 		switch (*Src)
 		{
-		case '%':
-		{
-			Src++;
-			*Dst = '%';
-			Dst++;
-			break;
-		}
-
-		case 'c':
-		{
-			TCHAR Val = (TCHAR) va_arg(ArgPtr, int);
-			Src++;
-			*Dst = Val;
-			Dst++;
-			break;
-		}
-
-		case 'd':
-		case 'i':
-		case 'X':
-		case 'x':
-		case 'u':
-		{
-			Src++;
-			int Val = va_arg(ArgPtr, int);
-			ANSICHAR AnsiNum[64];
-			ANSICHAR FmtBuf[30] = {0};
-
-			// limit width to the buffer size
-			FieldLen = FMath::Min(static_cast<int>(sizeof(AnsiNum)) - 1, FieldLen);
-
-			// Yes, this is lame.
-			int CpyIdx = 0;
-			while (Percent < Src && CpyIdx < ARRAY_COUNT(FmtBuf))
+			case '%':
 			{
-				if (LIKELY(*Percent != '*'))
+				Src++;
+				if (!DestIter.Write('%'))
 				{
-					FmtBuf[CpyIdx] = (ANSICHAR) *Percent;
-					++CpyIdx;
+					return -1;
 				}
-				else
+				break;
+			}
+
+			case 'c':
+			{
+				TCHAR Val = (TCHAR) va_arg(ArgPtr, int);
+				Src++;
+				if (!DestIter.Write(Val))
 				{
-					snprintf(&FmtBuf[CpyIdx], sizeof(FmtBuf) - CpyIdx, "%d", FieldLen);
-					while (CpyIdx < ARRAY_COUNT(FmtBuf) && FmtBuf[CpyIdx] != 0)
-					{
-						++CpyIdx;
-					}
+					return -1;
 				}
-				++Percent;
+				break;
 			}
-			FmtBuf[CpyIdx] = 0;
 
-			int RetCnt = snprintf(AnsiNum, sizeof(AnsiNum), FmtBuf, Val);
-			if ((Dst + RetCnt) > EndDst)
+			case 'd':
+			case 'i':
+			case 'X':
+			case 'x':
+			case 'u':
 			{
-				return -1;	// Fail - the app needs to create a larger buffer and try again
-			}
-			for (int i = 0; i < RetCnt; i++)
-			{
-				*Dst = (TCHAR) AnsiNum[i];
-				Dst++;
-			}
-			break;
-		}
-
-		case 'z':
-		case 'Z':
-		{
-			Src += 2;
-
-			size_t Val = va_arg(ArgPtr, size_t);
-
-			ANSICHAR AnsiNum[64];
-			ANSICHAR FmtBuf[30] = {0};
-
-			// limit width to the buffer size
-			FieldLen = FMath::Min(static_cast<int>(sizeof(AnsiNum)) - 1, FieldLen);
-
-			// Yes, this is lame.
-			int CpyIdx = 0;
-			while (Percent < Src && CpyIdx < ARRAY_COUNT(FmtBuf))
-			{
-				if (LIKELY(*Percent != '*'))
-				{
-					FmtBuf[CpyIdx] = (ANSICHAR) *Percent;
-					++CpyIdx;
-				}
-				else
-				{
-					snprintf(&FmtBuf[CpyIdx], sizeof(FmtBuf) - CpyIdx, "%d", FieldLen);
-					while (CpyIdx < ARRAY_COUNT(FmtBuf) && FmtBuf[CpyIdx] != 0)
-					{
-						++CpyIdx;
-					}
-				}
-				++Percent;
-			}
-			FmtBuf[CpyIdx] = 0;
-
-			int RetCnt = snprintf(AnsiNum, sizeof(AnsiNum), FmtBuf, Val);
-			if ((Dst + RetCnt) > EndDst)
-			{
-				return -1;	// Fail - the app needs to create a larger buffer and try again
-			}
-			for (int i = 0; i < RetCnt; i++)
-			{
-				*Dst = (TCHAR) AnsiNum[i];
-				Dst++;
-			}
-			break;
-		}
-
-		case 'p':
-		{
-			Src++;
-			void* Val = va_arg(ArgPtr, void*);
-			ANSICHAR AnsiNum[30];
-			ANSICHAR FmtBuf[30];
-
-			// Yes, this is lame.
-			int CpyIdx = 0;
-			while (Percent < Src && CpyIdx < ARRAY_COUNT(FmtBuf))
-			{
-				FmtBuf[CpyIdx] = (ANSICHAR) *Percent;
-				Percent++;
-				CpyIdx++;
-			}
-			FmtBuf[CpyIdx] = 0;
-
-			int RetCnt = snprintf(AnsiNum, sizeof(AnsiNum), FmtBuf, Val);
-			if ((Dst + RetCnt) > EndDst)
-			{
-				return -1;	// Fail - the app needs to create a larger buffer and try again
-			}
-			for (int i = 0; i < RetCnt; i++)
-			{
-				*Dst = (TCHAR) AnsiNum[i];
-				Dst++;
-			}
-			break;
-		}
-
-		case 'l':
-		case 'I':
-		case 'h':
-		{
-			int RemainingSize = Strlen(Src);
-
-			// treat %ld as %d. Also shorts for %h will be promoted to ints
-			if (RemainingSize >= 2 && ((Src[0] == 'l' && Src[1] == 'd') || Src[0] == 'h'))
-			{
-				Src += 2;
+				Src++;
 				int Val = va_arg(ArgPtr, int);
-				ANSICHAR AnsiNum[30];
-				ANSICHAR FmtBuf[30];
+				ANSICHAR AnsiNum[64];
+				ANSICHAR FmtBuf[30] = {0};
+
+				// limit width to the buffer size
+				FieldLen = FMath::Min(static_cast<int>(sizeof(AnsiNum)) - 1, FieldLen);
 
 				// Yes, this is lame.
 				int CpyIdx = 0;
 				while (Percent < Src && CpyIdx < ARRAY_COUNT(FmtBuf))
 				{
-					FmtBuf[CpyIdx] = (ANSICHAR) *Percent;
-					Percent++;
-					CpyIdx++;
+					if (LIKELY(*Percent != '*'))
+					{
+						FmtBuf[CpyIdx] = (ANSICHAR) *Percent;
+						++CpyIdx;
+					}
+					else
+					{
+						snprintf(&FmtBuf[CpyIdx], sizeof(FmtBuf) - CpyIdx, "%d", FieldLen);
+						while (CpyIdx < ARRAY_COUNT(FmtBuf) && FmtBuf[CpyIdx] != 0)
+						{
+							++CpyIdx;
+						}
+					}
+					++Percent;
 				}
 				FmtBuf[CpyIdx] = 0;
 
 				int RetCnt = snprintf(AnsiNum, sizeof(AnsiNum), FmtBuf, Val);
-				if ((Dst + RetCnt) > EndDst)
+				if (!DestIter.Write(AnsiNum, RetCnt))
 				{
-					return -1;	// Fail - the app needs to create a larger buffer and try again
-				}
-				for (int i = 0; i < RetCnt; i++)
-				{
-					*Dst = (TCHAR) AnsiNum[i];
-					Dst++;
+					return -1;
 				}
 				break;
 			}
-			// Treat %lf as a %f
-			else if (RemainingSize >= 2 && Src[0] == 'l' && Src[1] == 'f')
+
+			case 'z':
+			case 'Z':
 			{
 				Src += 2;
-				double Val = va_arg(ArgPtr, double);
+
+				size_t Val = va_arg(ArgPtr, size_t);
+
+				ANSICHAR AnsiNum[64];
+				ANSICHAR FmtBuf[30] = {0};
+
+				// limit width to the buffer size
+				FieldLen = FMath::Min(static_cast<int>(sizeof(AnsiNum)) - 1, FieldLen);
+
+				// Yes, this is lame.
+				int CpyIdx = 0;
+				while (Percent < Src && CpyIdx < ARRAY_COUNT(FmtBuf))
+				{
+					if (LIKELY(*Percent != '*'))
+					{
+						FmtBuf[CpyIdx] = (ANSICHAR) *Percent;
+						++CpyIdx;
+					}
+					else
+					{
+						snprintf(&FmtBuf[CpyIdx], sizeof(FmtBuf) - CpyIdx, "%d", FieldLen);
+						while (CpyIdx < ARRAY_COUNT(FmtBuf) && FmtBuf[CpyIdx] != 0)
+						{
+							++CpyIdx;
+						}
+					}
+					++Percent;
+				}
+				FmtBuf[CpyIdx] = 0;
+
+				int RetCnt = snprintf(AnsiNum, sizeof(AnsiNum), FmtBuf, Val);
+				if (!DestIter.Write(AnsiNum, RetCnt))
+				{
+					return -1;
+				}
+				break;
+			}
+
+			case 'p':
+			{
+				Src++;
+				void* Val = va_arg(ArgPtr, void*);
 				ANSICHAR AnsiNum[30];
+				ANSICHAR FmtBuf[30];
+
+				// Yes, this is lame.
+				int CpyIdx = 0;
+				while (Percent < Src && CpyIdx < ARRAY_COUNT(FmtBuf))
+				{
+					FmtBuf[CpyIdx] = (ANSICHAR)*Percent;
+					Percent++;
+					CpyIdx++;
+				}
+				FmtBuf[CpyIdx] = 0;
+
+				int RetCnt = snprintf(AnsiNum, sizeof(AnsiNum), FmtBuf, Val);
+				if (!DestIter.Write(AnsiNum, RetCnt))
+				{
+					return -1;
+				}
+				break;
+			}
+
+			case 'l':
+			case 'I':
+			case 'h':
+			{
+				int RemainingSize = Strlen(Src);
+
+				// treat %ld as %d. Also shorts for %h will be promoted to ints
+				if (RemainingSize >= 2 && ((Src[0] == 'l' && Src[1] == 'd') || Src[0] == 'h'))
+				{
+					Src+=2;
+					int Val = va_arg(ArgPtr, int);
+					ANSICHAR AnsiNum[30];
+					ANSICHAR FmtBuf[30];
+
+					// Yes, this is lame.
+					int CpyIdx = 0;
+					while (Percent < Src && CpyIdx < ARRAY_COUNT(FmtBuf))
+					{
+						FmtBuf[CpyIdx] = (ANSICHAR)*Percent;
+						Percent++;
+						CpyIdx++;
+					}
+					FmtBuf[CpyIdx] = 0;
+
+					int RetCnt = snprintf(AnsiNum, sizeof(AnsiNum), FmtBuf, Val);
+					if (!DestIter.Write(AnsiNum, RetCnt))
+					{
+						return -1;
+					}
+					break;
+				}
+				// Treat %lf as a %f
+				else if (RemainingSize >= 2 && Src[0] == 'l' && Src[1] == 'f')
+				{
+					Src += 2;
+					double Val = va_arg(ArgPtr, double);
+					ANSICHAR AnsiNum[30];
+					ANSICHAR FmtBuf[30];
+
+					// Yes, this is lame.
+					int CpyIdx = 0;
+					while (Percent < Src && CpyIdx < ARRAY_COUNT(FmtBuf))
+					{
+						FmtBuf[CpyIdx] = (ANSICHAR) *Percent;
+						Percent++;
+						CpyIdx++;
+					}
+					FmtBuf[CpyIdx] = 0;
+
+					int RetCnt = snprintf(AnsiNum, sizeof(AnsiNum), FmtBuf, Val);
+					if (!DestIter.Write(AnsiNum, RetCnt))
+					{
+						return -1;
+					}
+					break;
+				}
+
+				if (RemainingSize >= 2 && (Src[0] == 'l' && Src[1] != 'l' && Src[1] != 'u' && Src[1] != 'x'))
+				{
+					printf("Unknown percent [%lc%lc] in FGenericWidePlatformString::GetVarArgs() [%s]\n.", Src[0], Src[1], TCHAR_TO_ANSI(Fmt));
+					Src++;  // skip it, I guess.
+					break;
+				}
+				else if (RemainingSize >= 3 && Src[0] == 'I' && (Src[1] != '6' || Src[2] != '4'))
+				{
+					printf("Unknown percent [%lc%lc%lc] in FGenericWidePlatformString::GetVarArgs() [%s]\n.", Src[0], Src[1], Src[2], TCHAR_TO_ANSI(Fmt));
+					Src++;  // skip it, I guess.
+					break;
+				}
+
+				// Yes, this is lame.
+				int CpyIdx = 0;
+				unsigned long long Val = va_arg(ArgPtr, unsigned long long);
+				ANSICHAR AnsiNum[60];
+				ANSICHAR FmtBuf[30];
+				if (Src[0] == 'l')
+				{
+					Src += 3;
+				}
+				else
+				{
+					Src += 4;
+					strcpy(FmtBuf, "%L");
+					Percent += 4;
+					CpyIdx = 2;
+				}
+
+				while (Percent < Src && CpyIdx < ARRAY_COUNT(FmtBuf))
+				{
+					FmtBuf[CpyIdx] = (ANSICHAR) *Percent;
+					Percent++;
+					CpyIdx++;
+				}
+				FmtBuf[CpyIdx] = 0;
+
+				int RetCnt = snprintf(AnsiNum, sizeof(AnsiNum), FmtBuf, Val);
+				if (!DestIter.Write(AnsiNum, RetCnt))
+				{
+					return -1;
+				}
+				break;
+			}
+
+			case 'f':
+			case 'e':
+			case 'g':
+			{
+				Src++;
+				double Val = va_arg(ArgPtr, double);
+				// doubles in the form of 1e+9999 can get quite large, make sure we have enough room for them
+				ANSICHAR AnsiNum[48];
 				ANSICHAR FmtBuf[30];
 
 				// Yes, this is lame.
@@ -534,167 +681,57 @@ int32 FGenericWidePlatformString::GetVarArgs(WIDECHAR* Dest, SIZE_T DestSize, in
 				}
 				FmtBuf[CpyIdx] = 0;
 
-				int RetCnt = snprintf(AnsiNum, sizeof(AnsiNum), FmtBuf, Val);
-				if ((Dst + RetCnt) > EndDst)
+				int RetCnt = snprintf(AnsiNum, sizeof (AnsiNum), FmtBuf, Val);
+				if (RetCnt >= ARRAY_COUNT(AnsiNum))
 				{
-					return -1;	// Fail - the app needs to create a larger buffer and try again
+					// We should print what we have written into AnsiNum but ensure we null terminate before printing
+					AnsiNum[ARRAY_COUNT(AnsiNum) - 1] = '\0';
+					checkf(0, TEXT("Attempting to read past the size our buffer. Buffer Size: %d Size to read: %d. Current contents: '%s'\n"), ARRAY_COUNT(AnsiNum), RetCnt, UTF8_TO_TCHAR(AnsiNum));
 				}
-				for (int i = 0; i < RetCnt; i++)
+				if (!DestIter.Write(AnsiNum, RetCnt))
 				{
-					*Dst = (TCHAR) AnsiNum[i];
-					Dst++;
+					return -1;
 				}
 				break;
 			}
 
-			if (RemainingSize >= 2 && (Src[0] == 'l' && Src[1] != 'l' && Src[1] != 'u' && Src[1] != 'x'))
+			case 's':
 			{
-				printf("Unknown percent [%lc%lc] in FGenericWidePlatformString::GetVarArgs() [%s]\n.", Src[0], Src[1], TCHAR_TO_ANSI(Fmt));
-				Src++;  // skip it, I guess.
+				Src++;
+				static const TCHAR* Null = TEXT("(null)");
+				const TCHAR *Val = va_arg(ArgPtr, TCHAR *);
+				if (Val == nullptr)
+				{
+					Val = Null;
+				}
+
+				int RetCnt = Strlen(Val);
+				int Spaces = FPlatformMath::Max(FPlatformMath::Abs(FieldLen) - RetCnt, 0);
+				if (Spaces > 0 && FieldLen > 0)
+				{
+					DestIter.Write(TEXT(' '), Spaces);
+				}
+				DestIter.Write(Val, RetCnt);
+				if (Spaces > 0 && FieldLen < 0)
+				{
+					DestIter.Write(TEXT(' '), Spaces);
+				}
+				if (!DestIter)
+				{
+					return -1;
+				}
 				break;
 			}
-			else if (RemainingSize >= 3 && Src[0] == 'I' && (Src[1] != '6' || Src[2] != '4'))
-			{
-				printf("Unknown percent [%lc%lc%lc] in FGenericWidePlatformString::GetVarArgs() [%s]\n.", Src[0], Src[1], Src[2], TCHAR_TO_ANSI(Fmt));
-				Src++;  // skip it, I guess.
+
+			default:
+				printf("Unknown percent [%%%c] in FGenericWidePlatformString::GetVarArgs().\n", *Src);
+				Src++;  // skip char, I guess.
 				break;
-			}
-
-			// Yes, this is lame.
-			int CpyIdx = 0;
-			unsigned long long Val = va_arg(ArgPtr, unsigned long long);
-			ANSICHAR AnsiNum[60];
-			ANSICHAR FmtBuf[30];
-			if (Src[0] == 'l')
-			{
-				Src += 3;
-			}
-			else
-			{
-				Src += 4;
-				strcpy(FmtBuf, "%L");
-				Percent += 4;
-				CpyIdx = 2;
-			}
-
-			while (Percent < Src && CpyIdx < ARRAY_COUNT(FmtBuf))
-			{
-				FmtBuf[CpyIdx] = (ANSICHAR) *Percent;
-				Percent++;
-				CpyIdx++;
-			}
-			FmtBuf[CpyIdx] = 0;
-
-			int RetCnt = snprintf(AnsiNum, sizeof(AnsiNum), FmtBuf, Val);
-			if ((Dst + RetCnt) > EndDst)
-			{
-				return -1;	// Fail - the app needs to create a larger buffer and try again
-			}
-			for (int i = 0; i < RetCnt; i++)
-			{
-				*Dst = (TCHAR) AnsiNum[i];
-				Dst++;
-			}
-			break;
-		}
-
-		case 'f':
-		case 'e':
-		case 'g':
-		{
-			Src++;
-			double Val = va_arg(ArgPtr, double);
-			// doubles in the form of 1e+9999 can get quite large, make sure we have enough room for them
-			ANSICHAR AnsiNum[48];
-			ANSICHAR FmtBuf[30];
-
-			// Yes, this is lame.
-			int CpyIdx = 0;
-			while (Percent < Src && CpyIdx < ARRAY_COUNT(FmtBuf))
-			{
-				FmtBuf[CpyIdx] = (ANSICHAR) *Percent;
-				Percent++;
-				CpyIdx++;
-			}
-			FmtBuf[CpyIdx] = 0;
-
-			int RetCnt = snprintf(AnsiNum, sizeof(AnsiNum), FmtBuf, Val);
-			if ((Dst + RetCnt) > EndDst)
-			{
-				return -1;	// Fail - the app needs to create a larger buffer and try again
-			}
-			if (RetCnt >= ARRAY_COUNT(AnsiNum))
-			{
-				// We should print what we have written into AnsiNum but ensure we null terminate before printing
-				AnsiNum[ARRAY_COUNT(AnsiNum) - 1] = '\0';
-				checkf(0, TEXT("Attempting to read past the size our buffer. Buffer Size: %d Size to read: %d. Current contents: '%s'\n"), ARRAY_COUNT(AnsiNum), RetCnt, UTF8_TO_TCHAR(AnsiNum));
-			}
-			for (int i = 0; i < RetCnt; i++)
-			{
-				*Dst = (TCHAR) AnsiNum[i];
-				Dst++;
-			}
-			break;
-		}
-
-		case 's':
-		{
-			Src++;
-			static const TCHAR* Null = TEXT("(null)");
-			const TCHAR *Val = va_arg(ArgPtr, TCHAR *);
-			if (Val == nullptr)
-			{
-				Val = Null;
-			}
-
-			int RetCnt = Strlen(Val);
-			int Spaces = FPlatformMath::Max(FPlatformMath::Abs(FieldLen) - RetCnt, 0);
-			if ((Dst + RetCnt + Spaces) > EndDst)
-			{
-				return -1;	// Fail - the app needs to create a larger buffer and try again
-			}
-			if (Spaces > 0 && FieldLen > 0)
-			{
-				for (int i = 0; i < Spaces; i++)
-				{
-					*Dst = TEXT(' ');
-					Dst++;
-				}
-			}
-			for (int i = 0; i < RetCnt; i++)
-			{
-				*Dst = *Val;
-				Dst++;
-				Val++;
-			}
-			if (Spaces > 0 && FieldLen < 0)
-			{
-				for (int i = 0; i < Spaces; i++)
-				{
-					*Dst = TEXT(' ');
-					Dst++;
-				}
-			}
-			break;
-		}
-
-		default:
-			printf("Unknown percent [%%%c] in FGenericWidePlatformString::GetVarArgs().\n", *Src);
-			Src++;  // skip char, I guess.
-			break;
 		}
 	}
 
-	// Check if we were able to finish the entire format string
-	// If not, the app needs to create a larger buffer and try again
-	if (*Src)
-	{
-		return -1;
-	}
-
-	*Dst = 0;  // null terminate the new string.
-	return Dst - Dest;
+	int32 Result = DestIter.GetNumCharsWritten();
+	return Result;
 }
 
 #endif
-

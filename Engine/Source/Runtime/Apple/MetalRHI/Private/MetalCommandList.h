@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -71,7 +71,7 @@ public:
 	 * True iff the command-list is part of an MTLParallelRenderCommandEncoder pass.
 	 * @returns True iff the command-list is part of an MTLParallelRenderCommandEncoder pass, false for immediate and parallel-command-buffer contexts.
 	 */
-	bool IsParallel(void) const { return !bImmediate && Num > 0 && !IsRHIDeviceNVIDIA(); }
+	bool IsParallel(void) const { return !bImmediate && Num > 0 && FMetalCommandQueue::SupportsFeature(EMetalFeaturesParallelRenderEncoders); }
 	
 
 	/**

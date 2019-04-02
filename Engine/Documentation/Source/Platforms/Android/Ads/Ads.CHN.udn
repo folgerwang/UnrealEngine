@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2945303
+﻿INTSourceChangelist:3782314
 Title:在安卓上使用 Ad Mob 游戏内置广告
 Description:在安卓上使用 AdMob 游戏内置广告系统。
 Crumbs:
@@ -7,44 +7,12 @@ version:4.10
 Parent:Platforms/Android
 tags:Mobile
 tags:Android
-type:howto
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Platforms/Mobile/Ads:title%](Platforms/Mobile/Ads/ads_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Mobile/Ads:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Mobile/Ads:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Mobile/Ads]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Platforms/Mobile/Ads:title%](Platforms/Mobile/Ads/ads_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Mobile/Ads:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Mobile/Ads:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Mobile/Ads]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+type:how-to
+topic-image:ads_topic.png
 
 ![](Platforms/Mobile/Ads/AdMob.png)(w:240)
 
+(#Configuration)
 ## 配置
 
 配置安卓项目，使用 AdMob 游戏内置广告系统的步骤：
@@ -69,6 +37,7 @@ type:howto
 
 	![](extraPermissions.png)
 
+(#C++Projects)
 ### C++ 项目
 
 如项目为 C++ 项目，则需要为 Target.cs 文件添加合适的模块，例如：

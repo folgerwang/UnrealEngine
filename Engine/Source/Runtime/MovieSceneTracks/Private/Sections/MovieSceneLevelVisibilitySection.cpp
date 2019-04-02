@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Sections/MovieSceneLevelVisibilitySection.h"
 #include "Evaluation/MovieSceneLevelVisibilityTemplate.h"
@@ -20,12 +20,6 @@ ELevelVisibility UMovieSceneLevelVisibilitySection::GetVisibility() const
 void UMovieSceneLevelVisibilitySection::SetVisibility( ELevelVisibility InVisibility )
 {
 	Visibility = InVisibility;
-}
-
-
-TArray<FName>* UMovieSceneLevelVisibilitySection::GetLevelNames()
-{
-	return &LevelNames;
 }
 
 

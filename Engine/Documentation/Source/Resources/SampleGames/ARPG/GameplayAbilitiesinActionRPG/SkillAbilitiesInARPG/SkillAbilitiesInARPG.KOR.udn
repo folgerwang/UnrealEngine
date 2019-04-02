@@ -1,0 +1,25 @@
+INTSourceChangelist:4381297
+Availability: Public
+Crumbs: 
+Title: ARPG 의 스킬 어빌리티
+Description: ARPG 의 스킬 구성 및 작동 방식을 설명합니다.
+Type: 
+Version: 4.20
+Parent: Resrouces/SampleGames/ARPG/GameplayAbilitiesinActionRPG
+Order: 3
+Tags: 
+
+
+Action RPG (ARPG) 의 스킬은 밀리 어트리뷰트와 비슷하지만 타기팅 및 비용에 다른 로직을 사용합니다. 파이어볼을 제외한 모든 스킬과 무기 부 공격은 밀리 어빌리티와 비슷한 블루프린트 로직을 사용하지만, 실제 타기팅은 블루프린트에서 일어납니다. **TargetTypes** 는 **인스턴스가 아닌 const 블루프린트** (또는 네이티브 클래스)로 콜리전 트레이스 로직 실행이 가능합니다. 구체적으로, **TargetType_SphereTrace** 의 블루프린트 서브클래스를 사용하여 구체 충돌 모양을 사용한 트레이스 시리즈를 실행합니다. 범위와 반경이 각기 다른 스킬마다 **TargetType_SphereTrace** 서브클래스를 생성한 뒤 각자의 **EffectContainerMap** 에서 그 서브클래스를 사용합니다. **TargetTypes** 는 ARPG 전용 클래스로 예측이 없는 게임에서의 타기팅 방법 예제입니다. 대부분의 게임은 타기팅이 보다 복잡할 것이고 퍼포먼스 때문에 전부 네이티브 코드로 구현하는 것이 좋습니다.  
+
+스킬 역시 대미지 이펙트에 추가로 Cooldown (쿨다운) 및 Cost (비용)이 있습니다. 예를 들어 **GA_PlayerSkillFireWave** 어빌리티는 **GE_PlayerSkillFireWave** 대미지 이펙트를 가리키고, **GE_PlayerSkillManaCost** 이펙트로 마나 사용 처리, **GE_PlayerSkillCooldown** 이펙트로 쿨다운을 관리합니다. 비용 이펙트는 마나를 감소시키는 단순한 즉시 모디파이어지만, 비용을 감당할 수 없으면 어빌리티 실행을 막습니다. 쿨다운은 시전 도중 게임플레이 태그를 적용하는 지속 게임플레이 이펙트입니다. 어빌리티 시스템 컴포넌트에 이 **GameplayTag** 가 활성 상태면 쿨다운 태그가 같은 어빌리티 시전을 막습니다. 이로써 여러 어빌리티 사이 쿨다운을 공유하고 UI 시스템에서 쿨다운 쿼리를 할 수 있습니다.
+
+**GA_PlayerSkillFireball** 어빌리티는 보다 복잡한 어빌리티로 어빌리티 시스템을 사용하는 발사체 구현 방법 예제입니다. **GA_SpawnProjectileBase** 의 어빌리티 블루프린트 로직입니다.
+
+[REGION:lightbox]
+[![](ARPG_Skill_Abilities_01.png)(w:800px)](ARPG_Skill_Abilities_01.png)
+[/REGION]
+
+클릭하면 이미지 원본을 확인합니다.
+
+로직 대부분은 **GA_MeleeBase** 와 같지만, 이벤트를 받으면 이펙트를 즉시 적용하는 대신 **EffectContainerSpec** 를 생성한 뒤 스폰된 **BP_AbilityProjectileBase** 블루프린트에 전달합니다. 그 발사체가 이동하면서 겹치는 액터를 찾습니다. 액터에 겹치면 전달받은 **EffectContainerSpec** 를 새 타기팅 정보로 수정한 뒤 적용합니다. 그래서 전의 **ApplyEffectContainer** 함수를 반으로 나눈 것입니다. 이런 식으로 하면 발사체 자체에 별도의 어빌리티 시스템 컴포넌트 또는 어트리뷰트를 만들 필요 없이 원래 어빌리티를 실행한 것의 어트리뷰트를 사용할 수 있습니다.

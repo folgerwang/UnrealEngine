@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -28,7 +28,6 @@ public class HeadMountedDisplay : ModuleRules
 				"SlateCore",
                 "RHI",
                 "Renderer",
-                "ShaderCore",
                 "RenderCore",
                 "UtilityShaders",
                 "Analytics",
@@ -36,7 +35,13 @@ public class HeadMountedDisplay : ModuleRules
             }
         );
 
-		if (Target.bBuildEditor == true)
+        PublicDependencyModuleNames.AddRange(
+            new string[] {
+                "AugmentedReality"
+            }
+        );
+
+        if (Target.bBuildEditor == true)
 		{
 			PrivateDependencyModuleNames.AddRange(
 				new string[]

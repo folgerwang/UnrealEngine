@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3473611
+﻿INTSourceChangelist:3801260
 Availability:Public
 Crumbs:
 Title:高动态范围显示输出
@@ -20,15 +20,14 @@ Social-image:HDRDisplayOutput_Social.png
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Low Dynamic Range (LDR) ](LDR.png)(w:700)
+	![低动态范围 (LDR) ](LDR.png)(w:700)
 	[/PARAM]
 	[PARAM:after]
-	![High Dynamic Range (HDR) ](HDR.png)(w:700)
+	![高动态范围 (HDR) ](HDR.png)(w:700)
 	[/PARAM]
 [/OBJECT]
-[REGION:caption] [COMMENT:none]
-- Spacer -
-[/COMMENT]
+[REGION:caption]
+
 [/REGION]
 [REGION:caption]
 此范例为模拟，仅限展示之用。在 LDR 屏幕上无法表达出 HDR 的差异。 

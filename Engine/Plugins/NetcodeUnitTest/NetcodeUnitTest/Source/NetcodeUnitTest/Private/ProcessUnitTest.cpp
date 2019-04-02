@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ProcessUnitTest.h"
 #include "Containers/ArrayBuilder.h"
@@ -77,7 +77,7 @@ TWeakPtr<FUnitTestProcess> UProcessUnitTest::StartUnitTestProcess(FString Path, 
 
 	verify(FPlatformProcess::CreatePipe(ReturnVal->ReadPipe, ReturnVal->WritePipe));
 
-	UNIT_LOG(ELogType::StatusImportant, TEXT("Starting process with parameters: %s"), *InCommandline);
+	UNIT_LOG(ELogType::StatusImportant, TEXT("Starting process '%s' with parameters: %s"), *Path, *InCommandline);
 
 	ReturnVal->ProcessHandle = FPlatformProcess::CreateProc(*Path, *InCommandline, true, bMinimized, false, &ReturnVal->ProcessID,
 															0, NULL, ReturnVal->WritePipe);
@@ -91,16 +91,32 @@ TWeakPtr<FUnitTestProcess> UProcessUnitTest::StartUnitTestProcess(FString Path, 
 	}
 	else
 	{
-		UNIT_LOG(ELogType::StatusFailure, TEXT("Failed to start process"));
+		UNIT_LOG(ELogType::StatusFailure, TEXT("Failed to start process: %s (%s)"), *Path, *InCommandline);
 	}
 
 	return ReturnVal;
 }
 
-TWeakPtr<FUnitTestProcess> UProcessUnitTest::StartUE4UnitTestProcess(FString InCommandline, bool bMinimized/*=true*/)
+TWeakPtr<FUnitTestProcess> UProcessUnitTest::StartUE4UnitTestProcess(FString InCommandline, bool bMinimized/*=true*/,
+																		EBuildTargets::Type Type/*=EBuildTargets::Game*/)
 {
-	TWeakPtr<FUnitTestProcess> ReturnVal = NULL;
-	FString GamePath = FPlatformProcess::GenerateApplicationPath(FApp::GetName(), FApp::GetBuildConfiguration());
+	TWeakPtr<FUnitTestProcess> ReturnVal = nullptr;
+	FString TargetExecutable = FApp::GetName();
+
+#if UE_BUILD_DEVELOPMENT && !WITH_EDITOR
+	// Development modes other than Dev Editor, must target the separate Server process
+	if (Type == EBuildTargets::Server)
+	{
+		TargetExecutable = TargetExecutable.Replace(TEXT("Game"), TEXT("Server"));
+
+		UNIT_LOG(, TEXT("Targeting server process '%s'. If this fails, make sure you compiled Development Server and cooked it in UnrealFrontend."),
+					*TargetExecutable);
+	}
+
+	FString GamePath = FPaths::Combine(FPlatformMisc::ProjectDir(), TEXT("Binaries"), FPlatformProcess::GetBinariesSubdirectory(), TargetExecutable);
+#else
+	FString GamePath = FPlatformProcess::GenerateApplicationPath(TargetExecutable, FApp::GetBuildConfiguration());
+#endif
 
 	ReturnVal = StartUnitTestProcess(GamePath, InCommandline, bMinimized);
 

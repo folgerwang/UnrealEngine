@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -28,7 +28,8 @@ namespace EThreePlayerSplitScreenType
 	{
 		FavorTop,
 		FavorBottom,
-		Vertical
+		Vertical,
+		Horizontal
 	};
 }
 
@@ -36,7 +37,8 @@ UENUM()
 enum class EFourPlayerSplitScreenType : uint8
 {
 	Grid,
-	Vertical
+	Vertical,
+	Horizontal
 };
 
 /** Helper structure, used to associate GameModes with shortcut names. */
@@ -52,6 +54,16 @@ struct FGameModeName
 	/** GameMode class to load */
 	UPROPERTY(EditAnywhere, Category = DefaultModes, meta = (MetaClass = "GameModeBase"))
 	FSoftClassPath GameMode;
+};
+
+UENUM()
+enum class ESubLevelStripMode : uint8
+{
+	// The class of the sub level actor must be exactly this class
+	ExactClass,
+
+	// Any child class of this class will be stripped, this is more expensive than ExactClass
+	IsChildOf
 };
 
 UCLASS(config=Engine, defaultconfig)

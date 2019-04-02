@@ -120,7 +120,7 @@ version: 4.9
 	// "bOverrideLightmapRes" 프로퍼티로의 핸들을 구합니다.
 	TSharedPtr<IPropertyHandle> OverrideLightmapRes = LightingCategory.GetProperty( "bOverrideLightmapRes" );
 
-이제 불리언 프로퍼티 `bOverrideLightmapRes` 에 대한 핸들이 생깁니다.
+이제 부울 프로퍼티 `bOverrideLightmapRes` 에 대한 핸들이 생깁니다.
 
 여기서 그 프로퍼티 값을 읽고 쓰고/또는 그 값을 슬레이트 위젯에 전달하여 커스터마이징 합니다.
 

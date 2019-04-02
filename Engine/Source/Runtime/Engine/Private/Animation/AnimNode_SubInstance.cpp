@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Animation/AnimNode_SubInstance.h"
 #include "Animation/AnimClassInterface.h"
@@ -28,18 +28,13 @@ void FAnimNode_SubInstance::CacheBones_AnyThread(const FAnimationCacheBonesConte
 void FAnimNode_SubInstance::Update_AnyThread(const FAnimationUpdateContext& Context)
 {
 	InPose.Update(Context);
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 
 	if(InstanceToRun)
 	{
 		FAnimInstanceProxy& Proxy = InstanceToRun->GetProxyOnAnyThread<FAnimInstanceProxy>();
 
-		// Only update if we've not had a single-threaded update already
-		if(InstanceToRun->bNeedsUpdate)
-		{
-			Proxy.UpdateAnimation();
-		}
-
+		// First copy properties
 		check(InstanceProperties.Num() == SubInstanceProperties.Num());
 		for(int32 PropIdx = 0; PropIdx < InstanceProperties.Num(); ++PropIdx)
 		{
@@ -57,6 +52,12 @@ void FAnimNode_SubInstance::Update_AnyThread(const FAnimationUpdateContext& Cont
 
 				CallerProperty->CopyCompleteValue(DestPtr, SrcPtr);
 			}
+		}
+
+		// Only update if we've not had a single-threaded update already
+		if(InstanceToRun->bNeedsUpdate)
+		{
+			Proxy.UpdateAnimation();
 		}
 	}
 }
@@ -76,7 +77,7 @@ void FAnimNode_SubInstance::Evaluate_AnyThread(FPoseContext& Output)
 			InputNode->InputCurve.CopyFrom(Output.Curve);
 		}
 
-		InstanceToRun->ParallelEvaluateAnimation(false, nullptr, BoneTransforms, BlendedCurve, Output.Pose);
+		InstanceToRun->ParallelEvaluateAnimation(false, nullptr, BlendedCurve, Output.Pose);
 
 		Output.Curve.CopyFrom(BlendedCurve);
 	}
@@ -106,28 +107,6 @@ void FAnimNode_SubInstance::GatherDebugData(FNodeDebugData& DebugData)
 	InPose.GatherDebugData(DebugData.BranchFlow(1.0f));
 }
 
-bool FAnimNode_SubInstance::HasPreUpdate() const
-{
-	return true;
-}
-
-void FAnimNode_SubInstance::PreUpdate(const UAnimInstance* InAnimInstance)
-{
-	AllocateBoneTransforms(InAnimInstance);
-}
-
-void FAnimNode_SubInstance::AllocateBoneTransforms(const UAnimInstance* InAnimInstance)
-{
-	if(USkeletalMeshComponent* SkelComp = InAnimInstance->GetSkelMeshComponent())
-	{
-		USkeletalMesh* SkelMesh = SkelComp->SkeletalMesh;
-
-		const int32 NumTransforms = SkelComp->GetComponentSpaceTransforms().Num();
-		BoneTransforms.Empty(NumTransforms);
-		BoneTransforms.AddZeroed(NumTransforms);
-	}
-}
-
 void FAnimNode_SubInstance::OnInitializeAnimInstance(const FAnimInstanceProxy* InProxy, const UAnimInstance* InAnimInstance)
 {
 	if(*InstanceClass)
@@ -147,9 +126,6 @@ void FAnimNode_SubInstance::OnInitializeAnimInstance(const FAnimInstanceProxy* I
 		// We use the tag to name the object, but as we verify there are no duplicates in the compiler we
 		// dont need to verify it is unique here.
 		InstanceToRun = NewObject<UAnimInstance>(MeshComp, InstanceClass, Tag);
-
-		// Set up bone transform array
-		AllocateBoneTransforms(InstanceToRun);
 
 		// Initialize the new instance
 		InstanceToRun->InitializeAnimation();

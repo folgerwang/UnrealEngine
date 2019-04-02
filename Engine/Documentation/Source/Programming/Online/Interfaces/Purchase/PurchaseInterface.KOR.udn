@@ -1,0 +1,46 @@
+﻿INTSourceChangelist:4675775
+Availability: Public
+Crumbs: 
+Title: 구매 인터페이스
+Description: Purchase Interface, 게임 내 구매 실행을 위한 온라인 서브시스템입니다.
+Type: 
+Version: 4.21
+Parent: Programming/Online
+Order: 
+Tags: Online Subsystem
+Tags: purchase
+Tags: purchase interface
+Tags: in-game purchase
+Tags: in-app purchase
+Tags: real money
+
+
+게임에서 사용자 구매를 지원하는 두 가지 인터페이스 중 **Store Interface** (스토어 인터페이스)는 사용자에게 특정 항목을 제안하며, **Purchase Interface** (구매 인터페이스)는 사용자가 그 제안을 수락할 수 있도록 해줍니다. 구매 인터페이스로 할 수 있는 작업은 다음과 같습니다.
+
+*   사용자가 구매 가능한지 확인합니다.
+*   구매 프로세스를 시작합니다.
+*   과거 구매 내역을 확인합니다.
+
+사용자가 구매할 수도 있는 제안 목록을 검색하거나 필터를 적용하려면, [Store Interface](Programming/Online/Interfaces/Store) (스토어 인터페이스)를 사용하세요.
+
+## 게임 내 구매
+
+(구매 인터페이스 관점에서) Purchase, 구매란 (게임내 통화가 아닌) 실제 통화로 게임 내 아이템 또는 콘텐츠를 액세스할 수 있도록 하는 것입니다. 그러나 구매 인터페이스 자체가 신용 카드 정보를 받거나 자녀 보호 기능을 설정하는 것과 같은 금전적 세부 정보를 처리하지는 않습니다. 이러한 세부 정보는 온라인 서비스에 맡깁니다. 구매 인터페이스가 하는 역할은 사용자가 구매를 할 수 있는지 확인하고, 구매 프로세스를 시작하며, 기존 구매 내역을 온라인 서비스에 확인합니다.
+
+### 구매 능력
+
+구매 시도에 앞서, 사용자가 실제 구매할 수 있는지 확인할 수 있습니다. 일부 온라인 서비스에는 자녀 보호 기능처럼 사용자의 구매를 금지하는 제한 기능이 있습니다. 사용자에게 제안을 표시하기 전 이 정보를 확인하여 유저 인터페이스의 버튼을 숨기거나 변경할 수도 있고, 구매 능력이 없는 데도 무언가를 구매하려는 경우 오류 메시지를 표시할 수도 있습니다. 사용자의 구매 능력을 확인하기 위해서는 `IsAllowedToPurchase` 함수를 사용합니다. 온라인 서브시스템은 이 정보를 이미 캐시에 저장해 두었을 것이므로, 이 함수는 델리게이트를 사용하기 보다는 바로 `bool` 값을 반환합니다.
+
+### 구매하기
+
+구매할 준비가 되고, ([스토어 인터페이스](Programming/Online/Interfaces/Store) 에 정의된 대로) 제안을 선택했으면, `FPurchaseCheckoutRequest` 요청으로 `Checkout` 함수를 호출합니다. 그러면 일반적으로 온라인 서비스 전용 유저 인터페이스를 띄우고, 결국 제공된 `FOnPurchaseCheckoutComplete` 유형 델리게이트를 호출합니다. 델리게이트에는 성공 또는 실패 정보가, 구매에 성공한 경우에는 구매 영수증도 (`FPurchaseReceipt` 클래스) 포함됩니다.
+
+구매 영수증에는 사용자가 구매한 제안(들)이 포함되며, `FReceiptOfferEntry` 데이터 구조체를 사용합니다. 각 `FReceiptOfferEntry` 내에는 (FLineItemInfo 유형) 아이템이 한 줄 이상 있으며, 각각에는 온라인 서비스가 생성한 불투명 스트링 한 줄과, 일어난 특정 거래 하나에 대한 레퍼런스가 포함됩니다. 아이템이 잠금 해제되어 사용자 소유가 되든 게임에서 어떤 일이 발생하든, `FinalizePurchase` 에 이 ID 스트링을 붙여 호출하면 온라인 서비스는 그 구매 사실을 확인하고 자금을 이체합니다.
+
+[REGION:warning]
+`FinalizePurchase` 호출 이전 해당 아이템이 사용자에게 지급되었고 계정에 (적합한 방식으로) 저장되었는지 확인하세요. 일부 플랫폼에서 그렇게 하지 않으면 받지 못한 아이템에 실제 요금이 부과되는 경우가 생길 수 있습니다.
+[/REGION]
+
+### 과거 구매 검토
+
+과거 구매는 사용자 영수증을 통해 검토할 수 있습니다. `QueryReceipts` 를 호출하면 특정 사용자의 영수증을 요청합니다. 완료되면, `FOnQueryReceiptsComplete` 유형 사용자 제공 델리게이트가 성공 또는 실패 정보 결과를 받습니다. 성공 시 사용자 계정에 대한 영수증은 로컬에 캐시 저장되어 `GetReceipts` 함수로 `FPurchaseReceipt` 배열의 요소 형태로 액세스할 수 있습니다. 이 목록에는 비소모성 구매 전부는 물론 소모성 구매 보류 목록이 포함됩니다.

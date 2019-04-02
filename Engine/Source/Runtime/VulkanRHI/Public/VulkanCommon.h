@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanCommon.h: Common definitions used for both runtime and compiling shaders.
@@ -25,17 +25,15 @@ namespace ShaderStage
 		Vertex			= 0,
 		Pixel			= 1,
 
-#if PLATFORM_ANDROID && !PLATFORM_LUMIN && !PLATFORM_LUMINGL4
+#if !VULKAN_SUPPORTS_GEOMETRY_SHADERS
 		NumStages		= 2,
 
 		MaxNumSets		= 4,
 #else
-		// We don't support tessellation on desktop currently
-		//Hull			= 3,
-		//Domain		= 4,
 		Geometry		= 2,
-
-		NumStages		= 3,
+		Hull			= 3,
+		Domain			= 4,
+		NumStages,
 
 		MaxNumSets		= 8,
 #endif
@@ -51,11 +49,11 @@ namespace ShaderStage
 		switch (Stage)
 		{
 		case SF_Vertex:		return Vertex;
-		//case SF_Hull:		return Hull;
-		//case SF_Domain:		return Domain;
 		case SF_Pixel:		return Pixel;
 #if VULKAN_SUPPORTS_GEOMETRY_SHADERS
 		case SF_Geometry:	return Geometry;
+		case SF_Hull:		return Hull;
+		case SF_Domain:		return Domain;
 #endif
 		case SF_Compute:	return Compute;
 		default:
@@ -71,11 +69,11 @@ namespace ShaderStage
 		switch (Stage)
 		{
 		case EStage::Vertex:	return SF_Vertex;
-		//case EStage::Hull:		return SF_Hull;
-		//case EStage::Domain:	return SF_Domain;
 		case EStage::Pixel:		return SF_Pixel;
 #if VULKAN_SUPPORTS_GEOMETRY_SHADERS
 		case EStage::Geometry:	return SF_Geometry;
+		case EStage::Hull:		return SF_Hull;
+		case EStage::Domain:	return SF_Domain;
 #endif
 		default:
 			checkf(0, TEXT("Invalid shader Stage %d"), (int32)Stage);

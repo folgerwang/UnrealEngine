@@ -1,124 +1,217 @@
-﻿INTSourceChangelist:2744744
-Availability:Public
-Title:移动设备性能指南
-Crumbs:%ROOT%, Platforms, Platforms/Mobile
-Description:Optimizing content and features for mobile games.
-Platform:Mobile
+﻿INTSourceChangelist:3807090
+Availability: Public
+Crumbs: %ROOT%
+Title: 移动设备性能指南
+Description: 优化移动游戏的内容和功能。 
+Type: Overview
+SkillLevel:Intermediate
+Version:4.17
+Parent:Platforms/Mobile
+Order:6
+Tags:mobile
 
-[TOC(start:2)]
 
-## 概述
+[TOC(start:2 end:2)]
 
-以下是有关如何设置内容以便最优化移动平台性能 
-的注意事项与建议。这些事项按照最严重到最不严重的顺序排列。
+在为移动平台进行开发的过程中，当针对特定设备时您应该牢记一些事项，或者根据您想要发布标题的设备列表， 
+应该牢记一些通用的良好做法。这包括使用特定照明层进行开发以最大限度地利用设备上的性能，
+以及特定照明层可能最适合您的目标受众的原因。您还会找到一些建议来记住您所从事的任何 
+会使用移动平台进行开发的项目。
 
-* 务必在设备上运行之前，先构建光照。
-* 务必禁用大多数后处理功能。实际上，可用于 iPad4 的功能只有 Temporal AA 和胶片设置，包括装饰图案。默认状态下，会启用一系列极其耗内存的功能，如 Bloom 和 DOF，因为 PC 和移动设备之间具有相同设置。在使用默认设置的情况下，后处理功能很容易就会消耗 60+ms。我们希望在更高端设备上使用 Bloom、DOF 和光束。  `show postprocessing` （显示后处理）可用于设备上切换 PP，并查看其消耗内存量。
-* 务必正确设置预计算的可视性。为此，您需要在玩家走动的位置附近放置 PrecomputedVisibilityVolumes，并构建光照。您必须确保构建光照和运行游戏时使用相同的 P 等级（亦自己不会构建子等级）。可通过在设备上输入 `stat initviews` 或在预览器中确认该设置是否起效，并确保 `Statically occluded primitives` > 0。使用 `r.ShowPrecomputedVisibilityCells 1` 可使编辑器中的单元可视化。
-* 谨慎使用屏蔽且半透明的材料，只在覆盖小部分屏幕的地方使用。  iOS 设备非常适合对不透明表面着色，因为在大部分情况下，它们只对每个像素着色一次。但是，对于屏蔽和半透明材料，必须对每个层都进行着色。通过过度绘制，可方便地使一帧的总 GPU 时间达到两倍以上。在移动预览器中使用着色器复杂度查看模式查看热点。
-* 在任何视图下，整个场景的描绘调用应为 &lt;= 700。蔽塞性较差的区域，如横向纵览的风景，对此将是一个极大的挑战。在设备上使用 `stat openglrhi`，以及在 PC 上的 ES2 预览器中使用 `stat d3d11rhi` 可查看效果。
-* 在任何视图下，整个场景的三角形计数应为 &lt;= 500k。必须达到这个水平，iPad4 和 iPad Air 上的多边形计数才能达到 30fps。在设备上使用 `stat openglrhi`，以及在 PC 上的 ES2 预览器中使用 `stat d3d11rhi` 可查看效果。
-* 使用材料时，应尽量少用纹理查询和指令。可用的纹理采样器有 5 个，但是如果全部使用，则材料将消耗相当多内存。现在，可使用 PC 指令计数来进行优化，并使用 ES2 预览器着色器复杂度来查看总内存消耗量。
-* 在材料中只能使用独立纹理攫取。这就是说，不能以任何形式操控像素着色器（基本颜色和粗糙度等），例如缩放。可改用新的 CustomizedUVs 功能在顶点着色器中执行缩放。某些特殊功能（如环境映射）需要在 UV 上加上数学函数，在特殊情况下这样做也没问题。 
-* 尽量采用正方形纹理，因为它们消耗的内存量较小，尺寸应始终使用 2 的次方（512, 1024, 2048）。在 ES2 预览器中使用 `listtextures` 来查看所有纹理所占用的内存情况。 
 
-## 性能层级
 
-UE4 支持在移动设备上使用各种光照功能。使用这些功能将影响系统性能，可能会导致游戏在速度较慢的移动设备上运行效果差。如果可混合和匹配大多数 UE4 移动光照功能，则将这些功能归类到以下等级会比较有用。在构建移动游戏时，您应根据游戏所需的图形质量和支持的设备类型来决定使用哪些功能。可在 [iOS 开发](Platforms/iOS/DeviceCompatibility) and [Android Development](Platforms/Android/DeviceCompatibility)下的设备兼容性页面中，查看 Epic 已测试过的设备以及我们认为最合适的层级的详细说明。
+(#performancetiers)
+## 性能层
 
+虚幻引擎4(UE4)支持移动设备上的各种照明功能。使用这些功能会降低性能，并且可能导致您的游戏在较慢的移动设备上表现不佳。虽然 
+可以混合和匹配UE4的大多数移动照明功能，但是将这些功能划分为以下几层是很有用的。在构建移动游戏时，您应该基于游戏所需要的
+图像质量以及您需要支持的设备类型来决定使用哪些功能。查看[iOS开发](Platforms/iOS/DeviceCompatibility)和[Android 开发](Platforms/Android/DeviceCompatibility)下的兼容性页面，
+以了解更多关于在Epic测试过的设备以及我们认为最适合该设备的层。
+
+(#ldr(lowdynamicrange))
 ### LDR（低动态范围）
 
-低动态范围（LDR）模式是 UE4 支持的最高性能层级，推荐用于不需要光照或后处理功能的游戏。若要使用此模式，您必须在 [项目设置编辑器](Engine/UI/ProjectSettings) 的“渲染”部分中位启用项目的 `Mobile HDR` 设置。 
+ **低动态范围（Low Dynamic Range）** (LDR)模式是UE4中支持的最低性能层，推荐用于不需要照明或后期处理功能的游戏。 
 
-**Advantages**
+要使用此模式，您必须在[项目设置（Project Settings）](Engine/UI/ProjectSettings)中的渲染（Rendering）部分下禁用 **移动HDR（Mobile HDR）**。   
 
-* 这是移动设备上最快，也是间接消耗最低的模式。该模式允许您的游戏即使在较慢的移动设备上也能流畅运行。
-* 仍然对“材料”编辑器提供完全访问，以定义定制着色器，甚至执行简单着色以模拟光照。
+![](DisableMobileHDR.png)
 
+[REGION:simpletable]
+| 优点 | 缺点 | 建议 |
+| --- | --- | --- |
+| [INCLUDE:#ldradvantages] | [INCLUDE:#ldrlimitations] | [INCLUDE:#ldrreccommendations] |
+[/REGION]
 
-**Limitations**
+[COMMENT:none]
+- EXCERPTS LDR
 
-* 场景颜色写入到伽马空间，每个颜色通道固定在范围 [0,1] 之内。
-* 半透明原色在伽马空间中调色。在大多数情况下，这要求您编写的半透明纹理和材料要不同于 HDR 或普通 PC 游戏。
-* 在此模式中，不可使用后处理功能。
+[INCLUDE:#ldrreccommendations]
 
+[EXCERPT:ldradvantages]
+* 为移动设备提供最快和最低的可用系统占用模式，使您的游戏能够在较慢的移动设备上运行良好。
+* 仍提供对材质编辑器的完全访问，用于定义自定义着色器甚至执行可用于假照明的简单着色。
+[/EXCERPT:ldradvantages]
 
-**Recommendations**
+[EXCERPT:ldrlimitations]
+* 场景的颜色在伽玛空间中写出，且每个种颜色通道固定[0,1]的范围内。
+* 半透明原语混合在伽马空间中。在大多数情况下，这需要您制作的半透明纹理和材质不同于您在HDR中的或适用于普通的PC标题。
+* 在此模式下，后期处理（Post Processing）功能不可用。
+[/EXCERPT:ldrlimitations]
 
-* 确保将所有材料的着色模型设置为不点亮，以获得最高性能。
-* 请勿在场景中放置灯光，或者依赖光照以获得最佳性能。
-* 在材料的顶点着色器中考虑执行尽量多的操作。要达到上述目的，可启用定制的 UV，将节点连接到定制 UV 上，然后使用纹理坐标节点在像素着色器中读取它们。
+[EXCERPT:ldrreccommendations]
+* 确保您所有材质的着色模型都设置为 **无光照（Unlit）**，以获得最大性能。
+* 当依靠最大性能时，不应在场景中使用设置的照明。
+* 考虑在材质 **顶点着色器（Vertex Shader）** 中执行尽可能多的操作。您可以通过启用 **自定义UV（Customized UV） **，将节点连接到它们，然后在像素着色器中使用 **纹理坐标（Texture Coordinate）** 节点锁定自定义UV，来做到这一点。
+[/EXCERPT:ldrreccommendations]
 
-
-### 基本光照
-
-在此层级中，可利用静态光照和完全粗糙材料创建具有有趣光照的场景，同时使性能最大化，以便在更大范围移动设备上使用。
-
-**Advantages**
-
-* 可使用静态光照和全局照明功能。
-* 全 HDR 管道，可使用色调映射等后处理功能。
-* 在线性空间内调色半透明，使您可像任何其他 UE4 游戏一样编写内容。
-
-
-**Limitations**
-
-* 由于您将所有材料标记为完全粗糙，因此材料上就不会产生有趣的镜面反射。
-* 如果您还选择禁用光线贴图方向性，普通贴图不会有影响。
-
-
-**Recommendations**
-
-* 使用完全粗糙标记集编写所有材料。
-* 考虑在材料中禁用光线贴图的方向性，以提高性能。
-* 在贴图中只能使用静态光线。
-* 禁用 bloom 和消除锯齿。还要遵照胶片和其他颜色的基本设置。有关详情，请参见 [移动后处理](Platforms/Mobile/PostProcessEffects)
+-
+[/COMMENT]
 
 
-### 全 HDR 光照
 
-在此层级中，您可利用 UE4 中可用于移动端的大多数 HDR 光照功能，以及某些后处理功能。使用这些功能需求用较多的内存性能来换取高品质光照功能。
+(#basiclighting)
+### 基本照明
 
-**Advantages**
+在这一层，您将利用静态照明和完全粗糙的材质创建包含有趣照明的场景，同时将性能最大化，以覆盖更广泛的移动设备。 
 
-* 可使用静态光照和全局照明功能。
-* 全 HDR 管道，可使用某些后处理功能。
-* 在线性空间内调色半透明，使您可像任何其他 UE4 游戏一样编写内容。
-* 逼真的表面镜面反射，支持各种粗糙度。
-* 完全支持普通贴图表面，允许使用有趣的表面细节，也不会在网格中加入许多多边形。
+要使用此模式，您必须在[项目设置（Project Settings）](Engine/UI/ProjectSettings)中的渲染（Rendering）部分下禁用 **移动HDR（Mobile HDR）**。 
+
+![](DisableMobileHDR.png)
 
 
-**Recommendations**
+[REGION:simpletable]
+| 优点 | 缺点 | 建议 |
+| --- | --- | --- |
+| [INCLUDE:#BLadvantages] | [INCLUDE:#BLlimitations] | [INCLUDE:#BLreccommendations] |
+[/REGION]
 
-* 考虑启用 bloom 以充分利用 HDR 光照管道。
-* 逼真的镜面反射与 HDR 光照相结合，可导致高光混叠。您应充分利用粗糙度功能的普通贴图，以帮助减少由于普通贴图中的高频信息导致的高光混叠。您也可在后处理量中考虑启用消除锯齿，以帮助减少这种现象的发生。
-* 有效放置放射捕捉，以获得最佳效果。
-* 在场景中只使用静态光线。
+[COMMENT:none]
+- EXCERPTS Basic Lighting
+
+[INCLUDE:#BLreccommendations]
+
+[EXCERPT:BLadvantages]
+* 访问静态照明（Static Lighting）和全局照明（Global Illumination）功能。
+* 全HDR管道，包含对色调映射（Tone Mapping）等一些后期处理（Post Processing）功能的访问。
+* 半透明混合在线性空间中，使您可以像平常为桌面创作一样创作内容。
+[/EXCERPT:BLadvantages]
+
+[EXCERPT:BLlimitations]
+* 因为所有材质都需要标注为 **完全粗糙（Fully Rough）**，所以您的材质不会有有趣的镜面反射。
+* 如果您选择禁用 **光照图方向性（Lightmap Directionality）**，法线贴图将没有效果。
+[/EXCERPT:BLlimitations]
+
+[EXCERPT:BLreccommendations]
+* 创作所有材质时设置 **完全粗糙（Fully Rough）** 标记。
+* 考虑禁用材质中 **光照图方向性（Lightmap Directionality）** 的标记，以获得更高的性能。
+* 在图上只使用静态照明。
+* 禁用 **泛光（Bloom）** 等一些后期处理（Post Processing）功能。另外，应仅使用薄膜和颜色控制的基本集。请参阅[移动后期处理](Platforms/Mobile/PostProcessEffects)了解更多详细信息。
+[/EXCERPT:BLreccommendations]
+
+-
+[/COMMENT]
 
 
-### 全 HDR 光照，每个像素都带有来自太阳的光线
-
-在此层级中，您可利用 UE4 中可用于移动端的所有 HDR 光照功能。此层级与“全 HDR 光照”层级相同，具有相同的优势与推荐，除了单方向光线的渲染质量更高。
-
-**Advantages**
-
-* 全 HDR 光照层级的所有功能和优势。
-* 基于每个像素的散射和镜面光照适用于单方向光线。
-* 高品质预计算距离为单方向光线提供阴影。
 
 
-**Recommendations**
 
-* 全 HDR 光照层级的所有推荐都适用于此处。
-* 在场景中只能使用静态光线，除了对于单方向光线，应将静态光线设为静止。
+
+(#fullhdr_highdynamicrange_lighting)
+### 全HDR（高动态范围）照明
+
+在这一层中，您可以利用UE4中适合移动的大多数HDR照明功能，以及一些后期处理（Post Processing）功能。使用这些功能需要相当大的性能， 
+以换取高质量的照明功能。 
+
+要使用此模式，您必须在[项目设置（Project Settings）](Engine/UI/ProjectSettings)中的渲染（Rendering）部分下启用 **移动HDR（Mobile HDR）**。 
+
+![](EnableMobileHDR.png)
+
+
+[REGION:simpletable]
+| 优点 | 建议 |
+| --- | --- | 
+| [INCLUDE:#HDRadvantages] | [INCLUDE:#HDRreccommendations] |
+[/REGION]
+
+[COMMENT:none]
+- EXCERPTS Basic Lighting
+
+[INCLUDE:#HDRreccommendations]
+
+[EXCERPT:HDRadvantages]
+* 访问静态照明（Static Lighting）和全局照明（Global Illumination）功能。
+* 全HDR管道，包含对一些后期处理（Post Processing）功能的访问。
+* 半透明混合在线性空间中，使您可以像平常为桌面创作一样创作内容。 
+* 表面逼真的镜面反射，支持各种粗糙度。
+[/EXCERPT:HDRadvantages]
+
+
+[EXCERPT:HDRreccommendations]
+* 考虑启用 **泛光（Bloom）** 以充分利用HDR照明管道。
+* 逼真的镜面反射结合HDR照明可能会导致镜面失真。为了减少这种影响，为 **Normal Curvature to Roughness** 启用此材质属性，以减少由于法线贴图中的高频信息而造成的镜面失真。您还可以考虑通过 **项目设置（Project Settings）> 渲染（Rendering）** 启用抗锯齿，以帮助减少穿帮。
+* 花些时间考虑反射采集Actor的位置，以获得最佳结果。请参阅[反射：放置反射采集](Resources/Showcases/Reflections/#placingreflectioncaptures)了解更多信息。
+* 在场景中仅使用静态照明（Static Light）和光照图（Lightmap）以获得最好的效果。
+[/EXCERPT:HDRreccommendations]
+
+-
+[/COMMENT]
+
+
+
+(#fullhdrlightingwithper-pixellightingfromthesun)
+### 包含来自太阳的逐像素照明的全HDR照明 
+
+在这一层中，您可以利用UE4中适合移动的所有HDR照明功能。这一层与[全HDR照明](#fullhdr_highdynamicrange_lighting)相同，具有相同的优点 
+和建议，不同的是在此处您可以在场景中添加一个定向光源，定向光源会自动使用逐像素光源从而提高质量。
+
+要使用此模式，您必须在[项目设置（Project Settings）](Engine/UI/ProjectSettings)中的渲染（Rendering）部分下启用 **移动HDR（Mobile HDR）**。 
+
+![](EnableMobileHDR.png)
+
+[REGION:simpletable]
+| 优点 | 建议 |
+| --- | --- | 
+| [INCLUDE:#HDRSunadvantages] | [INCLUDE:#HDRSunreccommendations] |
+[/REGION]
+
+[COMMENT:none]
+- EXCERPTS Basic Lighting
+
+[INCLUDE:#HDRreccommendations]
+
+[EXCERPT:HDRSunadvantages]
+* 为[全HDR](#fullhdr_highdynamicrange_lighting)层列示的所有功能和优点。
+* 单个定向光源的逐像素漫反射和镜面照明。 
+* 单个定向光源的高质量预计算距离场阴影。 
+[/EXCERPT:HDRSunadvantages]
+
+
+[EXCERPT:HDRSunreccommendations]
+* [全HDR](#fullhdr_highdynamicrange_lighting)层的所有建议和优点。
+* 除单个定向光源（应设置为固定）之外，仅使用静态光源。 
+[/EXCERPT:HDRSunreccommendations]
+
+-
+[/COMMENT]
 
  
-## 着色器复杂度查看模式
+(#shadercomplexityviewmode)
 
-您可在 PC ES2 预览器中，使用着色器复杂度查看模式来查看材料成本。若要使用该模式， 
-只需在 PC ES2 预览器的控制台中输入 `viewmode shadercomplexity`。以 SM5 着色器复杂度为例， 
-绿色代表性能良好，亮红色表示内存消耗非常大，白色或粉色表示内存消耗极大。以下是来自 
-移动端案例展示的一些示例：
+## 着色器复杂性视图模式
+
+[移动预览器](Platforms/Mobile/Previewer)中的[着色器复杂性](https://docs.unrealengine.com/latest/INT/Engine/UI/LevelEditor/Viewports/ViewModes/index.html#shadercomplexity)视图模式， 
+用于了解您所针对的特定设备的材质成本是多少。屏幕上显示的颜色会告诉您这种材质对于您的目标设备有多贵；绿色表示性能好， 
+鲜红色表示非常贵，白色或粉色表示材质非常贵。 
+
+要使用它，在主视口中单击 **视图模式（View Modes）** 列表，选择 **优化视图模式（Optimization Viewmodes）**，选择 **着色器复杂性（Shader Complexity）**，或者使用键盘快捷键 **Alt + 8**。 
+
+[REGION:lightbox]
+[![](EnableShaderComplexityViewMode.png)(w:358)](EnableShaderComplexityViewMode.png)
+[/REGION]
+[REGION:caption] 单击显示全图。[/REGION]
+
+下面是一些来自移动太阳神庙（Mobile Sun Temple）的例子，当您使用着色器复杂性查看时，这些例子可以让您对材质成本有一个概念：
 
 [REGION:imagetable]
 | ![](1.png)(w:310) | ![](2.png)(w:310) | ![](3.png)(w:310) |
@@ -129,57 +222,405 @@ UE4 支持在移动设备上使用各种光照功能。使用这些功能将影�
 [COMMENT:none]
 
 [EXCERPT:Image1]
-柱子材料在这里相当耗内存，半透明体积贴片也很耗内存。在此场景中，我让他们把透明贴片移除，因为他们太消耗内存了。 
+支柱材质在这里相当昂贵，半透明的体积片 **极为** 昂贵。在这个场景中，我要求去掉半透明片，因为它们太贵了。 
 [/EXCERPT:Image1]
 [EXCERPT:Image2]
-此处的柱子很耗内存，因为他们使用了全部 5 种纹理查询，还加了许多层叠。否则，这些场景只够使用 30fps。
+这里的柱子是相当昂贵的，因为它们使用所有五个纹理查找并且做相当多的分层。否则，这对于30fps来说已经足够有效了。
 [/EXCERPT:Image2]
 [EXCERPT:Image3]
-此处的树使得像素极其消耗内存。如果玩家离得更近一些，或者用该材料覆盖了他的屏幕，则会极大地消耗内存。
+这里，树导致像素 **极其** 昂贵。如果玩家能够近距离接触或用这种材质覆盖屏幕，成本将是巨大的。
 [/EXCERPT:Image3]
 
 [/COMMENT]
 
-## 移动内容缩放系数 
-移动内容缩放系数是一种缩放项目分辨率的方式，以便最佳匹配用于查看项目的移动设备的屏幕分辨率。 
-您可创建并存储多个设备的配置文件，方法是在项目配置文件夹中新建一个名为 **DefaultDeviceProfiles.INI** 的 .INI 文件。 
-在这个文件内，您可通过输入以下命令来指定对项目分辨率所作的更改。 
+(#mobilecontentscalefactor)
 
-	 r.MobileContentScaleFactor = 
+## 移动内容缩放因子 
 
-在下图中，您可看到使用上述命令对移动内容缩放系数进行设置的示例。
+ **移动内容缩放因子（Mobile Content Scale Factor）** 是一种缩放项目分辨率的方法，以最佳地契合用于查看项目的移动设备屏幕分辨率。 
+您可以通过在您的项目配置文件夹中创建一个名为 **DefaultDeviceProfiles.ini** 的新配置(.ini)文件来[创建和存储多个设备配置文件](Platforms/DeviceProfiles) 
+。
 
-![](T_MCF_INI_File.png)
+在这个文件中，您可以通过输入以下命令，后跟以下iOS和Android部分中的一个值，以指定特定设备的项目分辨率将发生什么情况：
 
-上图截取自 UE4 Tappy Chicken 项目，显示了在各种移动设备上游戏时 Tappy Chicken 项目分辨率的变化。
-文件上部用于处理 iOS 设备的分辨率缩放，文件下部用于处理安卓设备的分辨率缩放。
-请务必注意每个 **r.MobileContentScaleFactor** 的后面都带有一个数字。
-这个数字用在命令后面，用于决定应将项目分辨率放大还是缩小。
+	r.MobileContentScaleFactor
+
+在下图中，您可以看到在配置文件中设置移动内容缩放因子的示例：
+
+[REGION:lightbox]
+[![](T_MCF_INI_File.png)(w:358)](T_MCF_INI_File.png)
+[/REGION]
+[REGION:caption]
+单击显示全图。
+[/REGION]
+
+这个特定配置文件来自Tappy Chicken项目，它显示了在各种移动设备上游玩Tappy Chicken时会对分辨率产生什么影响。该文件的顶部部分
+处理iOS设备的分辨率缩放，底部部分处理Android设备的分辨率缩放。注意每个 **r.MobileContentScaleFactor** 后面有一个数字。该数字
+用于命令之后，以确定项目的分辨率应该放大还是缩小。 
 
 
-## iOS 的移动内容缩放系数
-在对 iOS 设备使用移动内容缩放系数时，在 r.MobileContentScaleFactor 后面输入以下数字将产生以下结果。
-请注意：任何非 0 缩放系数的实际分辨率都将被修正，以匹配屏幕纵横比，并固定至原始分辨率。
+(#mobilecontentscalefactorforios)
+
+### iOS的移动内容缩放因子
+
+对于iOS设备，输入以下数字将产生以下结果：
+ 
+[REGION:note]
+iOS的缩放因子与Apple的缩放因子系统直接相关，除0.0外的任何缩放因子的实际分辨率都将被校正，以匹配屏幕的纵横比并限制到 
+设备的本机分辨率。
+[/REGION]
+
+[REGION:simpletable]
+| 值 | 结果 |
+|------ | ------ |
+| **0.0** | 这将使用设备的本机分辨率。|
+| **1.0** | 视网膜设备上的是非视网膜分辨率。|
+| **2.0** | iPhone 5S、iPad Air等的全本机分辨率。|
+| **3.0** | iPhone 6+的全本机分辨率。|
+[/REGION]
+
+
+
+(#mobilecontentscalefactorforandroid)
+
+### Android的移送内容缩放因子
+
+对于Android设备，输入以下数字将产生以下结果： 
+
+[REGION:note]
+请注意，如果输入的值不是0.0，则将根据设备的方向使用该值作为标准1280x720或720x1280分辨率的缩放因子。 
+[/REGION]
+
+[REGION:simpletable]
+| 值 | 结果 |
+| ----- | ------ |
+| **0.0** | 这将使用设备的本机分辨率。|
+| **1.0** | 这将尝试给您一个横向1280 x 720和纵向720 x 1280的分辨率。|
+| **2.0** | 这将尝试给您一个横向2560 x 1440和纵向1440 x 2560的分辨率。|
+[/REGION]
+
+(#mobilematerialqualitysettings)
+
+## 移动材质质量设置
+
+当为一个将在低端和高端移动设备上运行的UE4项目构建内容时，您经常会遇到这样的问题：某个功能或您的作品只在一组设备上工作， 
+而无法在另一组设备上工作。虽然有很多方法可以解决这类问题，但其中许多方法都是时间和资源密集型的，有时容易出错。要解决这些类型的问题
+UE4拥有 **材质质量水平（Material Quality Level）** 系统。该系统使您能够构建一个单一材质，然后可以在广泛的设备上使用， 
+使您能够完全控制哪些设备使用哪些功能。 
+
+在下面的部分中，我们将介绍这些系统以及如何在您自己的UE4项目中使用它们：
+
+(#previewingmaterialqualitylevel)
+
+### 预览材质质量水平
+
+您可以在编辑器中查看不同的材质质量水平（Material Quality Level）设置，方法是打开 **主工具栏（Main Toolbar）**，然后 选择 **设置（Settings）** > **材质质量水平（Material Quality Level）**，
+选择要预览的水平。
+
+[REGION:lightbox]
+[![](MQS_Material_Preview_Level.png)(w:332)](MQS_Material_Preview_Level.png)
+[/REGION]
+[REGION:caption]
+单击显示全图。
+[/REGION]
+
+下面的图片显示了当材质质量水平（Material Quality Level）设置为低（Low）、中（Medium）、高（High）时材质的外观。
+
+[REGION:fullwidth]
+[INCLUDE:Platforms\Mobile\Performance\#MMQ]
+[/REGION]
+
+(#settingmaterialqualitylevel)
+
+### 设置材质质量水平
+
+要为您的设备设置材质质量水平（Material Quality Level），您可以采用以下方法： 
+
+(#fromtheconsole)
+
+##### 从控制台 
+
+按 **`**（反引号）键并输入 **r.MaterialQualityLevel**，后跟以下值，以调出控制台：
+
+![](Platforms\Mobile\Performance\MQS_Console_Command.png)
+
+[REGION:simpletable]
+|材质质量水平编号| 设置|
+|-----------------------------|----------|
+| **0** |低|
+| **1** |高|
+| **2** |中|
+[/REGION]
 
 [region:note]
-iOS 缩放系数直接与苹果的缩放系数系统相关。
+请注意，1代表高，2代表中，这是正确的，不是打印错误。
 [/region]
 
-**r.MobileContentScaleFactor 0.0**：将使用设备的原始分辨率。
+(#fromdeviceprofiles)
 
-**r.MobileContentScaleFactor 1.0**：在 Retina 设备上采用非 Retina 分辨率。
+##### 从设备配置文件
 
-**r.MobileContentScaleFactor 2.0**：在 iPhone 5S 和 iPad Air 等设备上采用全原始分辨率。
+通过使用配置(.ini)文件，您可以在编辑器中使用以下方法为计划目标设备设置材质质量：
 
-**r.MobileContentScaleFactor 3.0**：iPhone 6+ 的全原始分辨率。
+1. 从主工具栏（Main Toolbar）转到 **Windows** > **开发人员工具（Developer Tool）**，然后单击 **设备配置文件（Device Profiles）**。  
+	[REGION:lightbox]
+	[![](MQS_Device_Profiles.png)(w:217)](MQS_Device_Profiles.png)
+	[/REGION]
+	[REGION:caption]
+	单击显示全图。
+	[/REGION]
 
-## 安卓的移动内容缩放系数
-在对安卓设备使用移动内容缩放系数时，在 r.MobileContentScaleFactor 后面输入以下数字将产生以下结果。
-请注意：任何非 0 缩放系数的实际分辨率都将被修正，以匹配屏幕纵横比，并固定至原始分辨率。
+1. 在设备配置文件中找到 **Android_Low** 配置文件，单击第一个 **扳手** 图标打开配置文件选项。 
+	
+	![](MQS_Edit_Profile.png)
 
-**r.MobileContentScaleFactor 0.0**：将使用设备的原始分辨率。
+1. 在 **渲染（Rendering）** 选项下的 **控制台变量（Console Variables）** 部分中，单击 **加号** 图标，在弹出的输入窗口中输入 **R.MaterialQualityLevel**，然后按回车（Enter）键将该命令添加到列表中。 
 
-**r.MobileContentScaleFactor 1.0**：将尝试为您提供横向 1280 x 720 分辨率，纵向 720 x 1280 分辨率。
+	[REGION:lightbox]
+	[![](MQS_Set_Con_Var.png)(w:505)](MQS_Set_Con_Var.png)
+	[/REGION]
+	[REGION:caption]
+	单击显示全图。
+	[/REGION]
 
-**r.MobileContentScaleFactor 2.0**：将尝试为您提供横向 2560 x 1440 分辨率，纵向 1440 x 2560 分辨率。
+1. 添加新条目后，将默认值从 **1** 更改为 **0**，以便在低端Android设备上查看此项目时使用尽可能快的材质（Material）设置。
+
+	[REGION:lightbox]
+	[![](MQS_Set_Quality_Level.png)(w:505)](MQS_Set_Quality_Level.png)
+	[/REGION]
+	[REGION:caption]
+	单击显示全图。
+	[/REGION]
+
+(#previewingdifferentqualitylevels)
+### 预览不同质量关卡
+
+通过调整 **预览渲染关卡**，您可以使用虚幻引擎4编辑器查看项目在不同硬件上运行时的外观。您可以通过切换到 
+ **主工具栏（Main Toolbar）**，然后选择 **设置（Settings）** > **预览渲染关卡（Preview Rendering Level）**，并选择您想要使用的预览关卡来进行调整。
+
+[REGION:lightbox]
+[![](MQS_Material_Quality_Level.png)(w:332)](MQS_Material_Quality_Level.png)
+[/REGION]
+[REGION:caption]
+单击显示全图。
+[/REGION]
+
+(#materialqualitylevelswitch)
+
+### 材质质量水平开关
+
+ **质量开关（Quality Switch）** 材质表达式允许您在单个材质中定义不同的复杂性水平。例如，如果您有一个要在高端而非低端移动设备上运行的复杂数学运算， 
+或者大量的纹理读取作业。您可以使用此节点指定要在低端移动设备上显示的简化版本，这些设备没有能力显示高端图形。 
+
+![](image08.png)
+
+要在材质中使用质量开关，首先需要将 **质量开关材质表达式（Quality Switch Material Expression）** 节点添加到材质图表中，然后将其输出插入到主材质（Main Material）节点上的任何输入
+中。在下图中，设置M_Brick_Clay_Old材质（可以在初学者内容包中找到），这样在切换质量水平时，材质的复杂性就会降低。
+
+[REGION:lightbox]
+[![](MQS_Material_Setup.png)(w:789)](MQS_Material_Setup.png)
+[/REGION]
+[REGION:caption]
+单击显示全图。
+[/REGION]
+
+(#mobilematerialoptions)
+
+### 移动材质选项 
+
+如果您打开任何 **材质（Material）** 并单击主材质（Main Material）节点，然后查看 **移动（Mobile）** 部分下的细节（Details）面板，您将发现以下两个属性：
+
+[REGION:simpletable]
+| 属性 | 设置 |
+| -------- | ------- |
+| **完全粗糙（Fully Rough）** | 强制一个材质完全粗糙，节省大量的指令和单个纹理采样器。|
+| **使用光照图方向性（Use Lightmap Directionality）** | 使用光照图方向性和每像素法线。如果禁用，光照图看起来更平坦，而使用起来更便宜。|
+[/REGION]
+
+
+[REGION:lightbox]
+[![](MQS_Mobile_Material_Options.png)(w:556)](MQS_Mobile_Material_Options.png)
+[/REGION]
+[REGION:caption]
+单击显示全图。
+[/REGION]
+
+可以启用这两个属性，以通过完全消除这些功能的渲染路径，在功能不太强大的移动设备上查看时帮助降低该材质的渲染成本。 
+然而，这是一个全有或全无的选项，因为您要么在所有设备上为该材质启用这些选项，要么全部禁用。
+
+
+(#mobilematerialrenderingoverrides)
+
+### 移动材质渲染覆盖
+
+通过调整位于 **项目设置（Project Settings）**>**平台（Platforms）** 下的不同目标设备的材质质量（Material Quality）设置，您可以覆盖平台将使用的可用渲染选项。
+
+
+![](PS_QualityLevels.png)
+
+
+ **Android：**
+* 打开GLES 2
+* 打开GLES 3.1
+* Vulkan 
+
+ **iOS：**
+* 打开GLES 2
+* Metal
+
+您可以通过调整列出的 **质量选项（Quality Options）** 来覆盖平台将使用的可用渲染选项。为了使用覆盖，您必须首先单击 **启用质量覆盖（Enable Quality Overrides）** 选项，
+然后为给定的质量水平选择要覆盖的选项。 
+
+![](EnableQualityLevelOverrides.png)
+
+一旦您想要的所有选项都被选中，按 **更新预览着色器（Update Preview Shaders）** 按钮来重新编译所有的材质以使用指定的选项。
+
+![](QualityLevelsUpdateShaders.png)
+
+
+
+(#mobilerenderingoptions)
+
+## 移动渲染选项
+
+在 **渲染（Rendering）** 部分下的 **项目设置（Project's Settings）** 菜单中，您会发现许多属性， 
+用于控制如何在您的移动项目中处理照明和优化。在下面的部分中，我们将了解这些设置以及它们对项目的影响。 
+
+(#accessingyourproject'ssettings)
+
+### 访问您的项目设置
+要访问项目设置，首先需要转到 **主工具栏（Main Toolbar）**，然后选择 **编辑（Edit）**>**项目设置（Project Settings）**。 
+
+![](MRO_Project_Settings.png)
+
+打开项目设置（Project Settings）菜单后，找到 **引擎（Engine）** 部分，然后单击 **渲染（Rendering）** 类别。使用以下部分调整下面的设置： 
+
+* 移动（Mobile）
+* 照明（Lighting）
+* 移动着色器置换（Mobile Shader Permutation）
+
+[REGION:lightbox]
+[![](MRO_Rendering_Settings.png)(w:625)](MRO_Rendering_Settings.png)
+[/REGION]
+
+[REGION:caption]
+单击显示全图。
+[/REGION]
+
+(#mobilerenderingoptions)
+
+### 移动渲染选项
+
+在 **移动（Mobile）** 类别下，您可以设置直接影响您的移动项目的照明和外观的属性。请阅读下面的文章，为您自己的项目探索这些设置。
+
+![](MRO_Mobile_Settings.png)
+
+|属性名称| 说明|
+|--------------------|-------|
+| **移动HDR（Mobile HDR）** |如果为真（true），移动在全HDR中渲染。如果游戏在慢速设备上不需要照明功能以获得更好的性能，则禁用此设置。|
+| **在移动着色器中禁用顶点雾化（Disable Vertex Fogging in mobile shaders）** | 如果为真（true），顶点雾化将从所有移动着色器中忽略。如果您的游戏不使用雾化，你应该选择这个设置来增加着色效果。|
+| **要渲染的CSM级联的最大数量（Maximum number of CSM cascades to render）** | 使用移动渲染器时用于渲染动态定向光源阴影的级联的最大数量。|
+| **移动MSAA（Mobile MSAA）** | 这是移动设备上使用的多样本抗锯齿(MSAA)设置。MSAA目前在iOS上支持使用Metal，在Android设备上支持使用ES2或ES 3.1。如果MSAA不可用，将使用当前默认的AA方法。|
+
+[COMMENT:none]
+---
+[EXCERPT:MMQ]
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:max]
+	3
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	MMQ
+	[/PARAMLITERAL]
+	[PARAM:caption]
+	拖动滑块将显示当材质质量水平从低（Low）到中（Medium）到高（High）时发生了什么变化 
+	[/PARAM]
+	[PARAM:image_list]
+	![](MMQ_1.png)
+	![](MMQ_2.png)
+	![](MMQ_3.png)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:MMQ]
+
+[/COMMENT]
+
+
+(#shaderreductionsettingsformobile)
+
+## 移动着色器减少设置
+
+在 **照明（Lighting）** 和 **移动着色器置换减少（Mobile Shader Permutation Reduction）** 部分下，您会发现有很多不同的选项可以被启用或禁用来影响为材质生成的着色器，
+这反过来会减少应用程序的大小，节省内存并加快加载速度。 
+
+
+![](MobileOptimizations.png)
+
+[REGION:raw]
+|属性名称| 说明|
+|------------ | -------|
+| **照明（Lighting）** | 项目设置（Project Settings）中 **照明（Lighting）** 部分下列出的选项应该根据移动性能进行调整。[INCLUDE:#lighting] |
+| **移动着色器置换减少（Mobile Shader Permutation Reduction）** | 在 **移动着色器置换减少（Mobile Shader Permutation Reduction）** 下找到的列示选项应该根据移动性能进行调整。[INCLUDE:#shaderpermutations] |
+[/REGION]
+
+[COMMENT:none]
+- EXCERPTS ---
+
+[INCLUDE:#shaderpermutations]
+
+[EXCERPT:lighting]
+[REGION:simpletable]
+|--------------------| -------|
+| **允许静态照明（Allow Static Lighting）** | 是否允许生成和使用任何静态照明，如光照图和阴影贴图。只使用动态照明或无光照的游戏应设置为0，以节省一些静态照明系统占用。|
+[/REGION]
+[/EXCERPT:lighting]
+
+[EXCERPT:shaderpermutations]
+[REGION:simpletable]
+| ------------------ | -------|
+| **支持静态和CSM组合阴影（Support Combined Static and CSM Shadowing）** | 允许原语从固定光源接收静态和CSM阴影。禁用将释放一个移动纹理采样器。|
+| **支持距离场阴影（Support Distance Field Shadowing）** | 为原语生成着色器以接收来自固定定向光源的距离场阴影。|
+| **支持可移动定向光源（Support Movable Directional Light）** | 为原语生成着色器以接收可移动定向光源。|
+| **最大可移动点光源数（Max Movable Point Lights）** | 移动设备上支持的动态点光源数量。对于不需要动态点光源的游戏，将其设置为0将减少生成着色器的数量。|
+| **使用共享可移动点光源着色器（Use Shared Movable Point Light Shaders）** | 如果这个设置被启用，相同的着色器将用于任何数量的触及一个表面的动态点光源（直到上面指定的最大值）。这会稍微慢一些，但是减少了生成着色器的数量。|
+
+[/REGION]
+[/EXCERPT:shaderpermutations]
+
+---
+[/COMMENT]
+
+[REGION:note]
+更改这些设置中的任何一个都需要重新启动编辑器才能生效。 
+[/REGION]
+
+[REGION:warning]
+如果您禁用了照明设置需要的某个着色器置换，您的照明或阴影将不会正确渲染，并且屏幕上将显示消息， 
+表明该设置需要重新启用，使其正常工作。
+[/REGION]
+
+
+
+(#additionalsuggestions)
+
+## 其他建议
+
+以下建议将帮助您在移动平台上设置内容以获得最佳性能。排列顺序为从影响最大到影响最小。 
+
+
+
+* 在设备上运行之前，请确保已经构建了照明。
+* 大多数后期处理功能在移动平台上是禁用的，因为它们太昂贵了，比如晕映或屏幕空间反射。一些GPU密集型功能，如泛光（Bloom）和景深（Depth of Field），在默认情况下是启用的，这样PC和移动设备看起来是一样的，但在某些设备上，许多功能的默认设置可能需要耗费60毫秒甚至更长时间。控制台命令 **showflag.PostProcessing 0** 可以用来关闭这些功能，从而大致了解它们的成本。
+* 确保使用预计算可视性（Precomputed Visibility）并正确设置它。为此，将 **预计算可视性体积（Precomputed Visibility Volumes）** 放置在玩家可以行走或跳跃的区域周围，然后构建照明。您需要确保将它们放置在构建照明和运行游戏时使用的固定关卡中，因此不要自己构建子关卡。通过在设备上或关卡预览器中输入控制台命令 **Stat Initviews**，并确保 **静态遮挡的原语（Statically Occluded Primitives）** 大于0，可以验证预计算可视性（Precomputed Visibility）是否正常工作。使用控制台命令 **r.ShowPrecomputedVisibilityCells 1** 在编辑器中可视化单元格。 
+* 尽量少用遮罩和透明材质。只在覆盖屏幕一小部分的地方使用它们。iOS设备在对不透明表面进行遮光处理方面是非常理想的，因为它们只对每个像素进行一次遮光处理，但是对于遮罩和半透明，每一层都必须进行遮光处理。通过过度绘制，帧的总GPU时间可以增加一倍或更多。使用 **着色器复杂性（Shader Complexity）** 视图模式来调查任何热点。
+* 对于任何单个视图，整个场景的绘制调用应该为&lt;=700。遮挡程度较差的地区，比如俯瞰大片地形，将是最大的挑战。这可以在设备上的 **Stat OpenGLRHI** 或PC上的预览器中的 **Stat D3D11RHI** 中看到。
+* 对于任何视图，整个场景的三角形计数应为&lt;=500k。这已经被确定为在iPad4和iPad Air上都可达到30fps的最大多边形计数。这可以在设备上的 **Stat OpenGLRHI** 或PC上的预览器中的 **Stat D3D11RHI** 中看到。
+* 材质应该使用尽可能少的纹理查找和指令。您有五个纹理采样器可用，但使用所有这些采样器相当于使用相当昂贵的材质。现在，使用PC指令计数来优化，
+使用预览器着色器复杂性来可视化总成本。 
+* 仅在材质中使用独立纹理获取。这意味着像素着色器中的UV（基本颜色（BaseColor）、粗糙度（Roughness）等）不能以任何方式操纵，比如缩放。使用 **自定义UV（CustomizedUV）** 功能在顶点着色器中进行缩放。一些特殊的功能，比如环境映射，需要在UV上进行数学运算，这对于特殊情况来说是可行的。 
+* 建议使用正方形纹理，因为它们浪费的内存更少。始终对其使用二维的幂（256x256、512x512、1024x1024）。在预览器中使用控制台命令 **列出纹理（ListTextures）** 查看所有纹理内存的去向。 
+
 

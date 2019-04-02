@@ -1,42 +1,52 @@
-﻿INTSourceChangelist:3169600
+INTSourceChangelist:3782314
 Availability:Public
-Title:创建动作资源
+Title:创建姿势资源
 Crumbs: %ROOT%, Engine, Engine\Animation, Engine\Animation\AnimHowTo
-Description:如何使用 Persona 生成一个单帧动作资源。
-version:4.13
-skilllevel:Intermediate
+Description:如何使用动画编辑器生成单帧姿势资源。
+version: 4.14
+skilllevel: Intermediate
+tags:Pose Assets
 
-虽然您已经可以从动画序列中提取动画单帧，但仍然只能自行设置混合。在 4.13 版本中，**动作资源** 带来了改变。这些资源实现后可支持面部动画。在面部动画中，FACS（面部动作编码系统）或视位曲线可驱动动作。然而，您可使用此系统混合多个动作，创建新动画。支持骨骼变形和 blendshape。 
+虽然您有时能够从动画序列抽取单帧动画，但您得自己设置混合。 
+通过使用 **姿势资源** 改变了这一行为，实施此类资源是为了支持可由FACS（面部行为编码系统）或视位曲线驱动姿势的面部动画。 
+但是，您可以使用该系统，通过混合多个姿势来驱动和创建新动画。姿势资源还支持骨骼变换以及混合空间，因此是极为灵活的资源。
 
-此指南将为您说明 **动作资源** 的创建方法。
+本操作指南将为您介绍创建 **姿势资源** 的过程。
 
+(#steps)
 ## 步骤
 
-1. 在 Content Browser 中右键点击一个 **动画序列** 并创建一个 **动作资源**：
+1. 要从单一动画创建一系列姿势资源，从内容浏览器中，右键单击 **动画序列（Animation Sequence）**，并根据它创建 **姿势资源（Pose Asset）**：
 
 	[REGION:raw]
 	![](PoseAsset1.png)
 	[/REGION]
-	
+		
 
-1. 或者在 Persona 中使用 **Create Asset** -> **Create PoseAsset** -> **From Current Pose** 或 **Animation** 函数：
 
-	![](PoseAsset2.png)
-
-1. 动作资源创建完成后，命名将默认自动生成。可对每个动作进行重命名，或从剪切板进行粘贴。 
+1. 创建姿势资源后，默认情况下会自动生成名称。您可以重命名每个姿势，也可以从剪贴板粘贴。 
 
 	![](PoseAsset3.png)
 
-1. 在 **FacePose** 面板中改变每个动作的权重即可查看其效果。
+1. 然后，在 **面部姿势（FacePose）** 面板中更改权重值即可看到每个姿势的效果。
 
 	![](PoseAsset4.png)
 
+(#result)
 ## 结果
 
-现在您便拥有了一个可在动画中使用的新 **动作资源**。如需进行查看，将 **Preview Post Asset** 设为您的 **动作资源**，然后为需要 **动作资源** 数据的动画添加一个 **变量曲线**。
+现在，您有了新的 **姿势资源** 可以在动画中使用。 
+
+要进行预览，确保 **预览姿势资源（Preview Pose Asset）** 设置为您的 **姿势资源**，然后向需要该 **姿势资源** 数据的动画添加 **变量曲线（Variable Curve）**。
 
 ![](PoseAsset5.png)
 
-在运行时进行使用需要在动画蓝图中添加 **PoseAsset** 节点。
+然后，您可以向该变量曲线添加关键帧以驱动姿势权重的值，从而影响动画。
+
+对于在运行时工作的用户，您还需要在[动画蓝图](Engine\Animation\AnimBlueprints)中包含**姿势资源**。
 
 ![](PoseAsset6.png)
+
+还需要注意的是，可以在 **动画编辑器** 中创建 **姿势资源** 。您可以使用 **创建资源（Create Asset）**->**创建姿势资源（Create PoseAsset）**->**从当前姿势（From Current Pose）** 或 **动画（Animation）** 选项：
+
+![](PoseAsset2.png)

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ReplicationGraphTypes.h"
 
@@ -58,6 +58,15 @@ struct TActorListAllocator
 	/** Logs details about a specific list */
 	void LogDetails(int32 PoolSize, int32 BlockIdx, int32 ListIdx, FOutputDevice& Ar=*GLog);
 
+	void CountBytes(FArchive& Ar) const
+	{
+		PoolTable.CountBytes(Ar);
+		for (const FPool& Pool : PoolTable)
+		{
+			Pool.CountBytes(Ar);
+		}
+	}
+
 private:
 
 	/** A pool of lists of the same (max) size. Starts with a single FBlock of NumListsPerBlock lists. More blocks allocated as needed.  */
@@ -112,6 +121,26 @@ private:
 				return Next.Get();
 			}
 			
+			void CountBytes(FArchive& Ar) const
+			{
+				// TIndirectArrays are stored as TArray<void*, Allocator> which means that just calling CountBytes
+				// may cause a pretty significant undercount.
+				Lists.CountBytes(Ar);
+				Ar.CountBytes(sizeof(FActorRepList) * NumListsPerBlock, sizeof(FActorRepList) * NumListsPerBlock);
+				for (int32 i = 0; i < NumListsPerBlock; ++i)
+				{
+					Lists[i].CountBytes(Ar);
+				}
+
+				UsedListsBitArray.CountBytes(Ar);
+
+				if (Next.IsValid())
+				{
+					Ar.CountBytes(sizeof(FBlock), sizeof(FBlock));
+					Next->CountBytes(Ar);
+				}
+			}
+
 			/** Pointers to all the lists we have allocated. This will free allocated FActorRepLists when it is destroyed */
 			TIndirectArray<FActorRepList, TFixedAllocator<NumListsPerBlock>>	Lists;
 
@@ -137,6 +166,11 @@ private:
 				CurrentBlock = CurrentBlock->GetNext(ListSize);
 				NumLists -= NumListsPerBlock;
 			}
+		}
+
+		void CountBytes(FArchive& Ar) const
+		{
+			Block.CountBytes(Ar);
 		}
 	};
 
@@ -279,11 +313,30 @@ void PreAllocateRepList(int32 ListSize, int32 NumLists)
 	GActorListAllocator.PreAllocateLists(ListSize, NumLists);
 }
 
+void CountReplicationGraphSharedBytes_Private(FArchive& Ar)
+{
+	GActorListAllocator.CountBytes(Ar);
+}
+
 // --------------------------------------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------------------------------------
 // Stats, Logging, Debugging
 // --------------------------------------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------------------------------------
+
+
+#if WITH_EDITOR
+void ForEachClientPIEWorld(TFunction<void(UWorld*)> Func)
+{
+	for (TObjectIterator<UWorld> It; It; ++It)
+	{
+		if (It->WorldType == EWorldType::PIE && It->GetNetMode() != NM_DedicatedServer)
+		{
+			Func(*It);
+		}
+	}
+}
+#endif
 
 void LogListDetails(FActorRepList& RepList, FOutputDevice& Ar)
 {

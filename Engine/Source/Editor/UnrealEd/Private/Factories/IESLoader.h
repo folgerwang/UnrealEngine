@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -6,6 +6,8 @@
 #include "CoreMinimal.h"
 
 class Error;
+
+enum class EIESPhotometricType;
 
 /**
  * To load the IES file image format. IES files exist for many real world lights. The file stores how much light is emitted in a specific direction.
@@ -39,6 +41,9 @@ private:
 
 	/** used by ComputeFullIntegral(), integrated over the unit sphere, to avoid computing it twice, -1 if not computed yet */
 	float CachedIntegral;
+
+	/** The photometric type associated with the IES file being loaded */
+	EIESPhotometricType PhotometricType;
 
 	// will set Error to 0 on success
 	void Load(const uint8* Buffer);

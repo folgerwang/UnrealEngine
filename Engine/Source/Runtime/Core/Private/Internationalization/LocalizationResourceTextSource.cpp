@@ -1,7 +1,8 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Internationalization/LocalizationResourceTextSource.h"
 #include "Internationalization/TextLocalizationResource.h"
+#include "HAL/PlatformProperties.h"
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
 #include "Misc/CoreDelegates.h"
@@ -39,11 +40,13 @@ void FLocalizationResourceTextSource::GetLocalizedCultureNames(const ELocalizati
 	}
 
 	TArray<FString> LocalizedCultureNames = TextLocalizationResourceUtil::GetLocalizedCultureNames(LocalizationPaths);
-	OutLocalizedCultureNames.Append(LocalizedCultureNames);
+	OutLocalizedCultureNames.Append(MoveTemp(LocalizedCultureNames));
 }
 
-void FLocalizationResourceTextSource::LoadLocalizedResources(const ELocalizationLoadFlags InLoadFlags, TArrayView<const FString> InPrioritizedCultures, FTextLocalizationResource& InOutNativeResource, FTextLocalizationResources& InOutLocalizedResources)
+void FLocalizationResourceTextSource::LoadLocalizedResources(const ELocalizationLoadFlags InLoadFlags, TArrayView<const FString> InPrioritizedCultures, FTextLocalizationResource& InOutNativeResource, FTextLocalizationResource& InOutLocalizedResource)
 {
+	const int32 BaseResourcePriority = GetPriority() * -1; // Flip the priority as larger text source priorities are more important, but smaller text resource priorities are more important
+
 	// Collect the localization paths to load from.
 	TArray<FString> GameNativePaths;
 	TArray<FString> GameLocalizationPaths;
@@ -112,27 +115,39 @@ void FLocalizationResourceTextSource::LoadLocalizedResources(const ELocalization
 		}
 	}
 
+	static const FString PlatformLocalizationFolderName = FPaths::GetPlatformLocalizationFolderName();
+	static const FString PlatformName = ANSI_TO_TCHAR(FPlatformProperties::IniPlatformName());
+	auto LoadLocalizationResourcesForCulture = [](FTextLocalizationResource& InOutLocRes, const FString& InLocalizationPath, const FString& InCulture, const FString& InLocResFilename, const int32 InLocResPriority)
+	{
+		const FString PlatformAgnosticLocResFilename = InLocalizationPath / InCulture / InLocResFilename;
+		InOutLocRes.LoadFromFile(PlatformAgnosticLocResFilename, InLocResPriority);
+
+		const FString PlatformSpecificLocResFilename = InLocalizationPath / PlatformLocalizationFolderName / PlatformName / InCulture / InLocResFilename;
+		if (FPaths::FileExists(PlatformSpecificLocResFilename))
+		{
+			InOutLocRes.LoadFromFile(PlatformSpecificLocResFilename, InLocResPriority);
+		}
+	};
+
 	// Load the native texts first to ensure we always apply translations to a consistent base
 	if (PrioritizedNativePaths.Num() > 0)
 	{
 		for (const FString& LocalizationPath : PrioritizedNativePaths)
 		{
-			TArray<FString> LocMetaFilenames;
-			IFileManager::Get().FindFiles(LocMetaFilenames, *(LocalizationPath / TEXT("*.locmeta")), true, false);
-
-			// There should only be zero or one LocMeta file
-			check(LocMetaFilenames.Num() <= 1);
-
-			if (LocMetaFilenames.Num() == 1)
+			if (!IFileManager::Get().DirectoryExists(*LocalizationPath))
 			{
-				FTextLocalizationMetaDataResource LocMetaResource;
-				if (LocMetaResource.LoadFromFile(LocalizationPath / LocMetaFilenames[0]))
+				continue;
+			}
+
+			const FString LocMetaFilename = FPaths::GetBaseFilename(LocalizationPath) + TEXT(".locmeta");
+
+			FTextLocalizationMetaDataResource LocMetaResource;
+			if (LocMetaResource.LoadFromFile(LocalizationPath / LocMetaFilename))
+			{
+				// We skip loading the native text if we're transitioning to the native culture as there's no extra work that needs to be done
+				if (!InPrioritizedCultures.Contains(LocMetaResource.NativeCulture))
 				{
-					// We skip loading the native text if we're transitioning to the native culture as there's no extra work that needs to be done
-					if (!InPrioritizedCultures.Contains(LocMetaResource.NativeCulture))
-					{
-						InOutNativeResource.LoadFromFile(LocalizationPath / LocMetaResource.NativeLocRes);
-					}
+					LoadLocalizationResourcesForCulture(InOutNativeResource, LocalizationPath, LocMetaResource.NativeCulture, FPaths::GetCleanFilename(LocMetaResource.NativeLocRes), BaseResourcePriority);
 				}
 			}
 		}
@@ -144,25 +159,34 @@ void FLocalizationResourceTextSource::LoadLocalizedResources(const ELocalization
 		const FString NativeGameCulture = TextLocalizationResourceUtil::GetNativeProjectCultureName();
 		if (!NativeGameCulture.IsEmpty())
 		{
-			TSharedRef<FTextLocalizationResource> TextLocalizationResource = InOutLocalizedResources.EnsureResource(InPrioritizedCultures[0]);
 			for (const FString& LocalizationPath : GameNativePaths)
 			{
-				const FString CulturePath = LocalizationPath / NativeGameCulture;
-				TextLocalizationResource->LoadFromDirectory(CulturePath);
+				if (!IFileManager::Get().DirectoryExists(*LocalizationPath))
+				{
+					continue;
+				}
+
+				const FString LocResFilename = FPaths::GetBaseFilename(LocalizationPath) + TEXT(".locres");
+				LoadLocalizationResourcesForCulture(InOutLocalizedResource, LocalizationPath, NativeGameCulture, LocResFilename, BaseResourcePriority);
 			}
 		}
 	}
 
 	// Read culture localization resources.
-	for (const FString& PrioritizedCultureName : InPrioritizedCultures)
+	if (PrioritizedLocalizationPaths.Num() > 0)
 	{
-		if (PrioritizedLocalizationPaths.Num() > 0)
+		for (int32 CultureIndex = 0; CultureIndex < InPrioritizedCultures.Num(); ++CultureIndex)
 		{
-			TSharedRef<FTextLocalizationResource> TextLocalizationResource = InOutLocalizedResources.EnsureResource(PrioritizedCultureName);
+			const FString& PrioritizedCultureName = InPrioritizedCultures[CultureIndex];
 			for (const FString& LocalizationPath : PrioritizedLocalizationPaths)
 			{
-				const FString CulturePath = LocalizationPath / PrioritizedCultureName;
-				TextLocalizationResource->LoadFromDirectory(CulturePath);
+				if (!IFileManager::Get().DirectoryExists(*LocalizationPath))
+				{
+					continue;
+				}
+
+				const FString LocResFilename = FPaths::GetBaseFilename(LocalizationPath) + TEXT(".locres");
+				LoadLocalizationResourcesForCulture(InOutLocalizedResource, LocalizationPath, PrioritizedCultureName, LocResFilename, BaseResourcePriority + CultureIndex);
 			}
 		}
 	}

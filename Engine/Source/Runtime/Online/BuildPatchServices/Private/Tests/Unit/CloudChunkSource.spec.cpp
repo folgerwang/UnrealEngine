@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Misc/AutomationTest.h"
 #include "Misc/OutputDeviceRedirector.h"
@@ -274,7 +274,9 @@ void FCloudChunkSourceSpec::Define()
 		{
 			BeforeEach([this]()
 			{
-				MockManifest->ChunkShaHashes.Add(SomeChunk, SomeShaData);
+				FChunkInfo ChunkInfo;
+				ChunkInfo.ShaHash = SomeShaData;
+				MockManifest->ChunkInfos.Add(SomeChunk, ChunkInfo);
 				FakeDownloadService->StartService();
 				MakeUnit(EmptyInitialDownloadSet);
 			});

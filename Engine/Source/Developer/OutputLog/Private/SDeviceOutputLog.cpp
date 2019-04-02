@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SDeviceOutputLog.h"
 #include "Framework/Text/TextLayout.h"
@@ -220,10 +220,19 @@ void SDeviceOutputLog::HandleTargetPlatformDeviceDiscovered(ITargetDeviceRef Dis
 	if (DeviceList.IsValidIndex(ExistingEntryIdx))
 	{
 		DeviceList[ExistingEntryIdx]->DeviceWeakPtr = DiscoveredDevice;
-		
-		if (CurrentDevicePtr.IsValid() && CurrentDevicePtr->DeviceId.GetDeviceName() == DeviceList[ExistingEntryIdx]->DeviceId.GetDeviceName())
+		if (CurrentDevicePtr == DeviceList[ExistingEntryIdx])
 		{
-			CurrentDeviceOutputPtr = DiscoveredDevice->CreateDeviceOutputRouter(this);
+			if (!CurrentDeviceOutputPtr.IsValid())
+			{
+				if (CurrentDevicePtr.IsValid())
+				{
+					ITargetDevicePtr PinnedPtr = CurrentDevicePtr->DeviceWeakPtr.Pin();
+					if (PinnedPtr.IsValid() && PinnedPtr->IsConnected())
+					{
+						CurrentDeviceOutputPtr = PinnedPtr->CreateDeviceOutputRouter(this);
+					}
+				}
+			}
 		}
 	}
 	else

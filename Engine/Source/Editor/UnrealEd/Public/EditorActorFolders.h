@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -85,6 +85,9 @@ struct UNREALED_API FActorFolders : public FGCObject
 	
 	/** Get a new default folder name that would apply to the current selection */
 	FName GetDefaultFolderNameForSelection(UWorld& InWorld);
+
+	/** Get folder name that is unique under specified parent path */
+	FName GetFolderName(UWorld& InWorld, FName ParentPath, FName FolderName);
 
 	/** Create a new folder in the specified world, of the specified path */
 	void CreateFolder(UWorld& InWorld, FName Path);

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ModelRender.cpp: Unreal model rendering
@@ -204,7 +204,7 @@ public:
 		CollisionResponse(InComponent->GetCollisionResponseToChannels())
 #if WITH_EDITOR
 		, CollisionMaterialInstance(GEngine->ShadedLevelColorationUnlitMaterial
-			? GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(false, false)
+			? GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy()
 			: nullptr,
 			FColor(157,149,223,255))
 #endif
@@ -240,7 +240,7 @@ public:
 		for(int32 ElementIndex = 0;ElementIndex < SourceElements.Num();ElementIndex++)
 		{
 			const FModelElement& SourceElement = SourceElements[ElementIndex];
-			FElementInfo* Element = new(Elements) FElementInfo(SourceElement, VertexFactory.GetType());
+			FElementInfo* Element = new(Elements) FElementInfo(SourceElement, &VertexFactory, ElementIndex);
 			MaterialRelevance |= Element->GetMaterial()->GetRelevance(GetScene().GetFeatureLevel());
 		}
 
@@ -350,7 +350,8 @@ public:
 
 						if (TotalIndices > 0)
 						{
-							FGlobalDynamicIndexBuffer::FAllocation IndexAllocation = FGlobalDynamicIndexBuffer::Get().Allocate<uint32>(TotalIndices);
+							FGlobalDynamicIndexBuffer& DynamicIndexBuffer = Collector.GetDynamicIndexBuffer();
+							FGlobalDynamicIndexBuffer::FAllocation IndexAllocation = DynamicIndexBuffer.Allocate<uint32>(TotalIndices);
 
 							if (IndexAllocation.IsValid())
 							{
@@ -436,13 +437,13 @@ public:
 												FMeshBatchElement& BatchElement = MeshElement.Elements[0];
 												BatchElement.IndexBuffer = IndexAllocation.IndexBuffer;
 												MeshElement.VertexFactory = &VertexFactory;
-												MeshElement.MaterialRenderProxy = (MatProxyOverride != nullptr) ? MatProxyOverride : ProxyElementInfo.GetMaterial()->GetRenderProxy(bOnlySelectedSurfaces, bOnlyHoveredSurfaces);
+												MeshElement.MaterialRenderProxy = (MatProxyOverride != nullptr) ? MatProxyOverride : ProxyElementInfo.GetMaterial()->GetRenderProxy();
 												MeshElement.LCI = &ProxyElementInfo;
-												BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
 												BatchElement.FirstIndex = FirstIndex;
 												BatchElement.NumPrimitives = NumIndices / 3;
 												BatchElement.MinVertexIndex = MinVertexIndex;
 												BatchElement.MaxVertexIndex = MaxVertexIndex;
+												BatchElement.VertexFactoryUserData = ProxyElementInfo.GetVertexFactoryUniformBuffer();
 												MeshElement.Type = PT_TriangleList;
 												MeshElement.DepthPriorityGroup = DepthPriorityGroup;
 												MeshElement.bCanApplyViewModeOverrides = true;
@@ -472,13 +473,13 @@ public:
 								FMeshBatchElement& BatchElement = MeshElement.Elements[0];
 								BatchElement.IndexBuffer = ModelElement.IndexBuffer;
 								MeshElement.VertexFactory = &VertexFactory;
-								MeshElement.MaterialRenderProxy = (MatProxyOverride != nullptr) ? MatProxyOverride : Elements[ElementIndex].GetMaterial()->GetRenderProxy(false);
+								MeshElement.MaterialRenderProxy = (MatProxyOverride != nullptr) ? MatProxyOverride : Elements[ElementIndex].GetMaterial()->GetRenderProxy();
 								MeshElement.LCI = &Elements[ElementIndex];
-								BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
 								BatchElement.FirstIndex = ModelElement.FirstIndex;
 								BatchElement.NumPrimitives = ModelElement.NumTriangles;
 								BatchElement.MinVertexIndex = ModelElement.MinVertexIndex;
 								BatchElement.MaxVertexIndex = ModelElement.MaxVertexIndex;
+								BatchElement.VertexFactoryUserData = Elements[ElementIndex].GetVertexFactoryUniformBuffer();
 								MeshElement.Type = PT_TriangleList;
 								MeshElement.DepthPriorityGroup = DepthPriorityGroup;
 								MeshElement.bCanApplyViewModeOverrides = true;
@@ -504,6 +505,8 @@ public:
 			// Determine the DPG the primitive should be drawn in.
 			uint8 PrimitiveDPG = GetStaticDepthPriorityGroup();
 
+			PDI->ReserveMemoryForMeshes(Elements.Num());
+
 			for(int32 ElementIndex = 0;ElementIndex < Elements.Num();ElementIndex++)
 			{
 				const FModelElement& ModelElement = Component->GetElements()[ElementIndex];
@@ -513,13 +516,13 @@ public:
 					FMeshBatchElement& BatchElement = MeshElement.Elements[0];
 					BatchElement.IndexBuffer = ModelElement.IndexBuffer;
 					MeshElement.VertexFactory = &VertexFactory;
-					MeshElement.MaterialRenderProxy = Elements[ElementIndex].GetMaterial()->GetRenderProxy(false);
+					MeshElement.MaterialRenderProxy = Elements[ElementIndex].GetMaterial()->GetRenderProxy();
 					MeshElement.LCI = &Elements[ElementIndex];
-					BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
 					BatchElement.FirstIndex = ModelElement.FirstIndex;
 					BatchElement.NumPrimitives = ModelElement.NumTriangles;
 					BatchElement.MinVertexIndex = ModelElement.MinVertexIndex;
 					BatchElement.MaxVertexIndex = ModelElement.MaxVertexIndex;
+					BatchElement.VertexFactoryUserData = Elements[ElementIndex].GetVertexFactoryUniformBuffer();
 					MeshElement.Type = PT_TriangleList;
 					MeshElement.DepthPriorityGroup = PrimitiveDPG;
 					MeshElement.LODIndex = 0;
@@ -654,8 +657,8 @@ private:
 	public:
 
 		/** Initialization constructor. */
-		FElementInfo(const FModelElement& InModelElement, const FVertexFactoryType* VertexFactoryType)
-			: FLightCacheInterface(NULL, NULL)
+		FElementInfo(const FModelElement& InModelElement, const FLocalVertexFactory* InVertexFactory, int32 InElementIndex)
+			: FLightCacheInterface()
 			, Bounds(InModelElement.BoundingBox)
 		{
 			const FMeshMapBuildData* MapBuildData = InModelElement.GetMeshMapBuildData();
@@ -664,6 +667,7 @@ private:
 			{
 				SetLightMap(MapBuildData->LightMap);
 				SetShadowMap(MapBuildData->ShadowMap);
+				SetResourceCluster(MapBuildData->ResourceCluster);
 				IrrelevantLights = MapBuildData->IrrelevantLights;
 			}
 
@@ -672,7 +676,7 @@ private:
 			// Determine the material applied to the model element.
 			Material = InModelElement.Material;
 
-			if (RequiresAdjacencyInformation(Material, VertexFactoryType, InModelElement.Component->GetScene()->GetFeatureLevel()))
+			if (RequiresAdjacencyInformation(Material, InVertexFactory->GetType(), InModelElement.Component->GetScene()->GetFeatureLevel()))
 			{
 				UE_LOG(LogModelComponent, Warning, TEXT("Material %s requires adjacency information because of Crack Free Displacement or PN Triangle Tesselation, which is not supported with model components. Falling back to DefaultMaterial."), *Material->GetName());
 				Material = nullptr;
@@ -682,6 +686,17 @@ private:
 			if(!Material || (bHasStaticLighting && !Material->CheckMaterialUsage(MATUSAGE_StaticLighting)))
 			{
 				Material = UMaterial::GetDefaultMaterial(MD_Surface);
+			}
+
+			if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
+			{
+				TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters>* UniformBufferPtr = &VertexFactoryUniformBuffer;
+
+				ENQUEUE_RENDER_COMMAND(FElementInfoCreateLocalVFUniformBuffer)(
+					[UniformBufferPtr, VertexFactory = InVertexFactory, ElementIndex = InElementIndex](FRHICommandListImmediate& RHICmdList)
+				{
+					*UniformBufferPtr = CreateLocalVFUniformBuffer(VertexFactory, ElementIndex, nullptr, 0);
+				});
 			}
 		}
 		
@@ -709,10 +724,15 @@ private:
 		// Accessors.
 		UMaterialInterface* GetMaterial() const { return Material; }
 
+		FUniformBufferRHIParamRef GetVertexFactoryUniformBuffer() const { return VertexFactoryUniformBuffer; }
+
 	private:
 
 		/** The element's material. */
 		UMaterialInterface* Material;
+
+		/** Vertex factory uniform buffer. Needs to be per model element, so every element can have it's unique LODLightmapDataIndex. */
+		TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters> VertexFactoryUniformBuffer;
 
 		/** The statically irrelevant lights for this element. */
 		TArray<FGuid> IrrelevantLights;
@@ -785,6 +805,13 @@ public:
 
 void UModelComponent::CreateRenderState_Concurrent()
 {
+	for (int32 ElementIndex = 0; ElementIndex < Elements.Num(); ElementIndex++)
+	{
+		FModelElement& Element = Elements[ElementIndex];
+		TUniquePtr<FRawIndexBuffer16or32>* IndexBufferRef = Model->MaterialIndexBuffers.Find(Element.Material);
+		Element.IndexBuffer = IndexBufferRef ? IndexBufferRef->Get() : nullptr;
+	}
+
 	if (GetModel())
 	{
 		++GetModel()->VertexBuffer.RefCount;

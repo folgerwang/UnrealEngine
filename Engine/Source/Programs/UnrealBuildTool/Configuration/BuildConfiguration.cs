@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.IO;
@@ -9,6 +9,9 @@ using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {
+	/// <summary>
+	/// Global settings for building. Should not contain any target-specific settings.
+	/// </summary>
 	class BuildConfiguration
 	{
 		/// <summary>
@@ -19,13 +22,6 @@ namespace UnrealBuildTool
 		/// </summary>
 		[XmlConfigFile]
 		public bool bIgnoreOutdatedImportLibraries = true;
-
-		/// <summary>
-		/// Whether to generate command line dependencies for compile actions when requested
-		/// </summary>
-		[XmlConfigFile]
-		[CommandLine("-SkipActionHistory", Value = "false")]
-		public bool bUseActionHistory = true;
 
 		/// <summary>
 		/// Use existing static libraries for all engine modules in this target.
@@ -40,22 +36,16 @@ namespace UnrealBuildTool
 		public bool bPrintDebugInfo = false;
 
 		/// <summary>
-		/// Specifies the file to use for logging
-		/// </summary>
-		[XmlConfigFile]
-		public string LogFileName = "../Programs/UnrealBuildTool/Log.txt";
-
-		/// <summary>
-		/// Prints performance diagnostics about include dependencies and other bits
-		/// </summary>
-		[XmlConfigFile]
-		public bool bPrintPerformanceInfo = false;
-
-		/// <summary>
 		/// Whether to log detailed action stats. This forces local execution.
 		/// </summary>
 		[XmlConfigFile]
 		public bool bLogDetailedActionStats = false;
+
+		/// <summary>
+		/// Whether the hybrid executor will be used (a remote executor and local executor)
+		/// </summary>
+		[XmlConfigFile]
+		public bool bAllowHybridExecutor = false;
 
 		/// <summary>
 		/// Whether XGE may be used.
@@ -65,42 +55,10 @@ namespace UnrealBuildTool
 		public bool bAllowXGE = true;
 
 		/// <summary>
-		/// Whether we should just export the XGE XML and pretend it succeeded
-		/// </summary>
-		public bool bXGEExport;
-
-		/// <summary>
 		/// Whether SN-DBS may be used.
 		/// </summary>
 		[XmlConfigFile]
 		public bool bAllowSNDBS = true;
-
-		/// <summary>
-		/// Whether we should export a JSON file containing detailed target information.
-		/// </summary>
-		[XmlConfigFile]
-		[CommandLine("-JsonExport")]
-		public string JsonExportFile = null;
-
-		/// <summary>
-		/// Skip building; just do setup and terminate.
-		/// </summary>
-		[CommandLine("-SkipBuild")]
-		public bool bSkipBuild = false;
-
-		/// <summary>
-		/// Whether the dependency cache includes pre-resolved include locations so UBT doesn't have to re-resolve each include location just to check the timestamp.
-		/// This is technically not fully correct because the dependency cache is global and each module could have a different set of include paths that could cause headers
-		/// to resolve files differently. In practice this is not the case, and significantly speeds up UBT when nothing is to be done.
-		/// </summary>
-		[XmlConfigFile]
-		public bool bUseIncludeDependencyResolveCache = true;
-
-		/// <summary>
-		/// Used to test the dependency resolve cache. This will verify the resolve cache has no conflicts by resolving every time and checking against any previous resolve attempts.
-		/// </summary>
-		[XmlConfigFile]
-		public bool bTestIncludeDependencyResolveCache = false;
 
 		/// <summary>
 		/// Enables support for very fast iterative builds by caching target data.  Turning this on causes Unreal Build Tool to emit
@@ -141,35 +99,6 @@ namespace UnrealBuildTool
 		public bool bAllowParallelExecutor = true;
 
 		/// <summary>
-		/// If specified, we will only build this particular source file, ignore all other outputs.  Useful for testing non-Unity builds.
-		/// </summary>
-		public string SingleFileToCompile = null;
-
-		/// <summary>
-		/// Whether to skip checking for files identified by the junk manifest
-		/// </summary>
-		[XmlConfigFile]
-		public bool bIgnoreJunk = false;
-
-		/// <summary>
-		/// Whether to generate a manifest file that contains the files to add to Perforce
-		/// </summary>
-		[CommandLine("-GenerateManifest")]
-		public bool bGenerateManifest = false;
-
-		/// <summary>
-		/// Whether to 'clean' the given project
-		/// </summary>
-		[CommandLine("-Clean")]
-		public bool bCleanProject = false;
-
-		/// <summary>
-		/// If we are just running the deployment step, specifies the path to the given deployment settings
-		/// </summary>
-		[CommandLine("-Deploy")]
-		public FileReference DeployTargetFile = null;
-
-		/// <summary>
 		/// If true, force header regeneration. Intended for the build machine
 		/// </summary>
 		[CommandLine("-ForceHeaderGeneration")]
@@ -193,8 +122,8 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// True if hot-reload from IDE is allowed
 		/// </summary>
+		[CommandLine("-NoHotReloadFromIDE", Value="false")]
 		[XmlConfigFile(Category = "UEBuildConfiguration")]
-		[ConfigFile(ConfigHierarchyType.Engine, "BuildConfiguration")]
 		public bool bAllowHotReloadFromIDE = true;
 
 		/// <summary>
@@ -204,24 +133,9 @@ namespace UnrealBuildTool
 		public bool bForceDebugUnrealHeaderTool = false;
 
 		/// <summary>
-		/// Compiler arguments to be forwarded to UnrealHeaderTool
+		/// Whether to skip compiling rules assemblies and just assume they are valid
 		/// </summary>
-		[CommandLine("-2015", Value = "-2015")]
-		[CommandLine("-2017", Value = "-2017")]
-		public string CompilerArgumentForUnrealHeaderTool = null;
-
-		/// <summary>
-		/// When true, the targets won't execute their link actions if there was nothing to compile
-		/// </summary>
-		[CommandLine("-CanSkipLink")]
-		public bool bSkipLinkingWhenNothingToCompile = false;
-
-		/// <summary>
-		/// Default constructor. Reads settings from the XmlConfig files.
-		/// </summary>
-		public BuildConfiguration()
-		{
-			XmlConfig.ApplyTo(this);
-		}
+		[CommandLine("-SkipRulesCompile")]
+		public bool bSkipRulesCompile = false;
 	}
 }

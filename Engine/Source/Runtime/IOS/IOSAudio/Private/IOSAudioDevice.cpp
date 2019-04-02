@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
  	IOSAudioDevice.cpp: Unreal IOSAudio audio interface object.
@@ -142,9 +142,7 @@ bool FIOSAudioDevice::InitializeHardware()
 
 	// Setup audio output unit
 	UnitDescription.componentType         = kAudioUnitType_Output;
-    
-    // tmeporarily set the audio unit to voice processing so we can use VOIP, there probably is a better way to do this going forward
-	UnitDescription.componentSubType      = FPlatformMisc::IsVoiceChatEnabled() ? kAudioUnitSubType_VoiceProcessingIO : kAudioUnitSubType_RemoteIO;
+	UnitDescription.componentSubType      = kAudioUnitSubType_RemoteIO;
 	UnitDescription.componentManufacturer = kAudioUnitManufacturer_Apple;
 	UnitDescription.componentFlags        = 0;
 	UnitDescription.componentFlagsMask    = 0;

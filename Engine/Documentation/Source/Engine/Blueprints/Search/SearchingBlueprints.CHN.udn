@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3011129
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:蓝图搜索
 Crumbs: %ROOT%, Engine, Engine/Blueprints
@@ -6,8 +6,10 @@ Description:从所有蓝图编入索引到高级搜索语法，充分利用蓝�
 version:4.11
 parent:Engine/Blueprints/Workflow
 order:2
+tags:Blueprints
 
 
+(#SearchingBlueprints)
 ## 搜索蓝图
 
 在蓝图编辑器中时，可点击 **工具栏** 中的 **Search** 或使用 **Ctrl+F** 呼出 [搜索结果（Find Results）](Engine/Blueprints/Editor/UIComponents/FindResults) 窗口。可在此处搜索蓝图中匹配搜寻条件的节点、引脚、引脚值、图表、变量和变量值。也可搜索动画图表。 
@@ -28,6 +30,7 @@ order:2
 ![](IndexingWarning.png)
 
 
+(#AdvancedSearchSyntax)
 ## 高级搜索语法
 
 过滤器是一项高级搜索功能，可针对蓝图中特定的数据子集进行搜索。例如，可将拥有特定命名节点的蓝图或带特定名称和标记集的属性单独隔离出来。它们可被嵌套和组合，形成每个特定需求的高级查询。部分过滤器只能在其他过滤器中使用，但所有过滤器均可用作起始点。以下是搜索标记的非详尽列表，以及用作的数据类型。无需使用过滤器便可对所有标记进行搜索。
@@ -111,6 +114,7 @@ order:2
  PinCategory 是引脚的类型，“布尔”、“字符串”、“Actor”、“MyBlueprint”。ObjectClass 是引脚/变量/组件所代表的结构体或对象。
 [/REGION]
 
+(#TheAllSubfilter)
 ### All 子过滤器
 
 `All` 是一个特殊的子过滤器。嵌套在另一个过滤器中时，它可使其中的数据对通过过滤器的对象的所有子类进行测试。

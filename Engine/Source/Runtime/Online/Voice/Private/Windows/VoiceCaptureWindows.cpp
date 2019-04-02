@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "VoiceCaptureWindows.h"
 #include "VoicePrivate.h"
@@ -104,11 +104,6 @@ bool FVoiceCaptureWindows::Init(const FString& DeviceName, int32 SampleRate, int
 		return false;
 	}
 	
-	if (DeviceName.IsEmpty())
-	{
-		return CreateCaptureBuffer(VoiceDev->DefaultVoiceCaptureDevice.DeviceName, SampleRate, NumChannels);
-	}
-
    	// init the sample counter to 0 on init
 	SampleCounter = 0; 
 	CachedSampleStart = 0;
@@ -127,7 +122,7 @@ bool FVoiceCaptureWindows::Init(const FString& DeviceName, int32 SampleRate, int
 
 	bIsMicActive = false;
 
-	return CreateCaptureBuffer(DeviceName, SampleRate, NumChannels);
+	return CreateCaptureBuffer(DeviceName.IsEmpty() ? VoiceDev->DefaultVoiceCaptureDevice.DeviceName : DeviceName, SampleRate, NumChannels);
 }
 
 bool FVoiceCaptureWindows::CreateCaptureBuffer(const FString& DeviceName, int32 SampleRate, int32 NumChannels)
@@ -668,6 +663,7 @@ bool FVoiceCaptureWindows::Tick(float DeltaTime)
 
 void FVoiceCaptureWindows::DumpState() const
 {
+#if !NO_LOGGING
 	if (CV)
 	{
 		extern FString PrintMSGUID(LPGUID Guid);
@@ -704,6 +700,7 @@ void FVoiceCaptureWindows::DumpState() const
 	{
 		UE_LOG(LogVoiceCapture, Display, TEXT("No capture device to dump state"));
 	}
+#endif // !NO_LOGGING
 }
 
 #include "Windows/HideWindowsPlatformTypes.h"

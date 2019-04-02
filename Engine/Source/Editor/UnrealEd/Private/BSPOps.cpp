@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "BSPOps.h"
@@ -1127,6 +1127,13 @@ int32	FBSPOps::bspAddNode( UModel* Model, int32 iParent, ENodePlace NodePlace, u
 
 		Surf->Actor	 		= EdPoly->Actor;
 		Surf->iBrushPoly	= EdPoly->iBrushPoly;
+		
+		if (EdPoly->Actor)
+		{
+			Surf->bHiddenEdTemporary = EdPoly->Actor->IsTemporarilyHiddenInEditor();
+			Surf->bHiddenEdLevel = EdPoly->Actor->bHiddenEdLevel;
+			Surf->bHiddenEdLayer = EdPoly->Actor->bHiddenEdLayer;
+		}
 
 		Surf->Plane			= FPlane(EdPoly->Vertices[0],EdPoly->Normal);
 	}

@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3477699
-Availability:Docs
+﻿INTSourceChangelist:4326187
+Availability:Public
 Crumbs: %ROOT%, Engine, Engine\Animation, Engine\Animation\AnimHowTo
 Title:ロコモーション ベースのブレンド
 Description:キャラクター アニメーションを歩行からジョギングへとブレンドするために使うブレンドスペースの例。 

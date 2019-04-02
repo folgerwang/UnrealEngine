@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System.IO;
 using System.Collections.Generic;
@@ -20,8 +20,8 @@ namespace UnrealBuildTool.Rules
             }
 
             List<string> DependenciesToAdd = new List<string>();
-            DependenciesToAdd.AddRange(Directory.GetFiles(WebRTCProxyDir, "*Development.exe"));
-            DependenciesToAdd.AddRange(Directory.GetFiles(WebRTCProxyDir, "*Development.pdb"));
+            DependenciesToAdd.AddRange(Directory.GetFiles(WebRTCProxyDir, "WebRTCProxy.exe"));
+            DependenciesToAdd.AddRange(Directory.GetFiles(WebRTCProxyDir, "WebRTCProxy.pdb"));
             DependenciesToAdd.AddRange(Directory.GetFiles(WebRTCProxyDir, "*.bat"));
             DependenciesToAdd.AddRange(Directory.GetFiles(WebRTCProxyDir, "*.ps1"));
             
@@ -122,7 +122,6 @@ namespace UnrealBuildTool.Rules
                     "InputDevice",
 					"Json",
 					"RenderCore",
-                    "ShaderCore",
                     "AnimGraphRuntime",
                     "RHI",
 					"Slate",
@@ -145,9 +144,16 @@ namespace UnrealBuildTool.Rules
             if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
             {
                 PrivateDependencyModuleNames.AddRange(new string[] { "D3D11RHI" });
-            }
+				PrivateIncludePaths.AddRange(
+					new string[] {
+					"../../../../Source/Runtime/Windows/D3D11RHI/Private",
+					"../../../../Source/Runtime/Windows/D3D11RHI/Private/Windows",
+					});
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "IntelMetricsDiscovery");
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "NVAftermath");
+			}
 
-            AddWebRTCProxy();
+			AddWebRTCProxy();
             AddSignallingServer();
             AddMatchmakingServer();
             AddWebRTCServers();

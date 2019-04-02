@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #include "FindInBlueprints.h"
 #include "Layout/WidgetPath.h"
 #include "Framework/Application/MenuStack.h"
@@ -606,122 +606,126 @@ void SFindInBlueprints::Construct( const FArguments& InArgs, TSharedPtr<FBluepri
 	}
 
 	bIsInFindWithinBlueprintMode = BlueprintEditorPtr.IsValid();
-	bHasGlobalSearchResults = !bIsInFindWithinBlueprintMode;
 
 	const bool bHostFindInBlueprintsInGlobalTab = GetDefault<UBlueprintEditorSettings>()->bHostFindInBlueprintsInGlobalTab;
 	
 	this->ChildSlot
+	[
+		SAssignNew(MainVerticalBox, SVerticalBox)
+		+SVerticalBox::Slot()
+		.AutoHeight()
 		[
-			SAssignNew(MainVerticalBox, SVerticalBox)
-			+SVerticalBox::Slot()
-			.AutoHeight()
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.FillWidth(1)
 			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.FillWidth(1)
-				[
-					SAssignNew(SearchTextField, SSearchBox)
-					.HintText(LOCTEXT("BlueprintSearchHint", "Enter function or event name to find references..."))
-					.OnTextChanged(this, &SFindInBlueprints::OnSearchTextChanged)
-					.OnTextCommitted(this, &SFindInBlueprints::OnSearchTextCommitted)
-					.Visibility(InArgs._bHideSearchBar? EVisibility::Collapsed : EVisibility::Visible)
-				]
-				+SHorizontalBox::Slot()
-				.Padding(4.f, 0.f, 2.f, 0.f)
-				.AutoWidth()
-				[
-					SNew(SButton)
-					.OnClicked(this, &SFindInBlueprints::OnOpenGlobalFindResults)
-					.Visibility(BlueprintEditorPtr.IsValid() && bHostFindInBlueprintsInGlobalTab ? EVisibility::Visible : EVisibility::Collapsed)
-					.ToolTipText(LOCTEXT("OpenInGlobalFindResultsButtonTooltip", "Find in all Blueprints"))
-					[
-						SNew(STextBlock)
-						.TextStyle(FEditorStyle::Get(), "FindResults.FindInBlueprints")
-						.Text(FText::FromString(FString(TEXT("\xf1e5"))) /*fa-binoculars*/)
-					]
-				]
-				+SHorizontalBox::Slot()
-				.Padding(2.f, 0.f)
-				.AutoWidth()
-				[
-					SNew(SCheckBox)
-					.OnCheckStateChanged(this, &SFindInBlueprints::OnFindModeChanged)
-					.IsChecked(this, &SFindInBlueprints::OnGetFindModeChecked)
-					.Visibility(InArgs._bHideSearchBar || bHostFindInBlueprintsInGlobalTab ? EVisibility::Collapsed : EVisibility::Visible)
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("BlueprintSearchModeChange", "Find In Current Blueprint Only"))
-					]
-				]
-				+SHorizontalBox::Slot()
-				.AutoWidth()
-				.VAlign(VAlign_Center)
-				[
-					SNew(SButton)
-					.VAlign(EVerticalAlignment::VAlign_Center)
-					.ButtonStyle(FEditorStyle::Get(), "FlatButton")
-					.ContentPadding(FMargin(1, 0))
-					.OnClicked(this, &SFindInBlueprints::OnLockButtonClicked)
-					.Visibility(!InArgs._bHideSearchBar && !BlueprintEditorPtr.IsValid() ? EVisibility::Visible : EVisibility::Collapsed)
-					[
-						SNew(SImage)
-						.Image(this, &SFindInBlueprints::OnGetLockButtonImage)
-					]
-				]
+				SAssignNew(SearchTextField, SSearchBox)
+				.HintText(LOCTEXT("BlueprintSearchHint", "Enter function or event name to find references..."))
+				.OnTextChanged(this, &SFindInBlueprints::OnSearchTextChanged)
+				.OnTextCommitted(this, &SFindInBlueprints::OnSearchTextCommitted)
+				.Visibility(InArgs._bHideSearchBar? EVisibility::Collapsed : EVisibility::Visible)
 			]
-			+SVerticalBox::Slot()
-			.FillHeight(1.0f)
-			.Padding(0.f, 4.f, 0.f, 0.f)
+			+SHorizontalBox::Slot()
+			.Padding(4.f, 0.f, 2.f, 0.f)
+			.AutoWidth()
 			[
-				SNew(SBorder)
-				.BorderImage(FEditorStyle::GetBrush("Menu.Background"))
-				[
-					SAssignNew(TreeView, STreeViewType)
-					.ItemHeight(24)
-					.TreeItemsSource( &ItemsFound )
-					.OnGenerateRow( this, &SFindInBlueprints::OnGenerateRow )
-					.OnGetChildren( this, &SFindInBlueprints::OnGetChildren )
-					.OnMouseButtonDoubleClick(this,&SFindInBlueprints::OnTreeSelectionDoubleClicked)
-					.SelectionMode( ESelectionMode::Multi )
-					.OnContextMenuOpening(this, &SFindInBlueprints::OnContextMenuOpening)
-				]
-			]
-
-			+SVerticalBox::Slot()
-				.AutoHeight()
-			[
-				SNew(SHorizontalBox)
-
-				// Text
-				+SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(0, 2)
+				SNew(SButton)
+				.OnClicked(this, &SFindInBlueprints::OnOpenGlobalFindResults)
+				.Visibility(BlueprintEditorPtr.IsValid() && bHostFindInBlueprintsInGlobalTab ? EVisibility::Visible : EVisibility::Collapsed)
+				.ToolTipText(LOCTEXT("OpenInGlobalFindResultsButtonTooltip", "Find in all Blueprints"))
 				[
 					SNew(STextBlock)
-					.Font( FEditorStyle::GetFontStyle("AssetDiscoveryIndicator.MainStatusFont") )
-					.Text( LOCTEXT("SearchResults", "Searching...") )
-					.Visibility(this, &SFindInBlueprints::GetSearchbarVisiblity)
-				]
-
-				// Progress bar
-				+SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					.Padding(2.0f, 3.0f, 0.0f, 0.0f)
-				[
-					SNew(SProgressBar)
-						.Visibility(this, &SFindInBlueprints::GetSearchbarVisiblity).Percent( this, &SFindInBlueprints::GetPercentCompleteSearch )
+					.TextStyle(FEditorStyle::Get(), "FindResults.FindInBlueprints")
+					.Text(FText::FromString(FString(TEXT("\xf1e5"))) /*fa-binoculars*/)
 				]
 			]
-		];
+			+SHorizontalBox::Slot()
+			.Padding(2.f, 0.f)
+			.AutoWidth()
+			[
+				SNew(SCheckBox)
+				.OnCheckStateChanged(this, &SFindInBlueprints::OnFindModeChanged)
+				.IsChecked(this, &SFindInBlueprints::OnGetFindModeChecked)
+				.Visibility(InArgs._bHideSearchBar || bHostFindInBlueprintsInGlobalTab ? EVisibility::Collapsed : EVisibility::Visible)
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("BlueprintSearchModeChange", "Find In Current Blueprint Only"))
+				]
+			]
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			[
+				SNew(SButton)
+				.VAlign(EVerticalAlignment::VAlign_Center)
+				.ButtonStyle(FEditorStyle::Get(), "FlatButton")
+				.ContentPadding(FMargin(1, 0))
+				.OnClicked(this, &SFindInBlueprints::OnLockButtonClicked)
+				.Visibility(!InArgs._bHideSearchBar && !BlueprintEditorPtr.IsValid() ? EVisibility::Visible : EVisibility::Collapsed)
+				[
+					SNew(SImage)
+					.Image(this, &SFindInBlueprints::OnGetLockButtonImage)
+				]
+			]
+		]
+		+SVerticalBox::Slot()
+		.FillHeight(1.0f)
+		.Padding(0.f, 4.f, 0.f, 0.f)
+		[
+			SNew(SBorder)
+			.BorderImage(FEditorStyle::GetBrush("Menu.Background"))
+			[
+				SAssignNew(TreeView, STreeViewType)
+				.ItemHeight(24)
+				.TreeItemsSource( &ItemsFound )
+				.OnGenerateRow( this, &SFindInBlueprints::OnGenerateRow )
+				.OnGetChildren( this, &SFindInBlueprints::OnGetChildren )
+				.OnMouseButtonDoubleClick(this,&SFindInBlueprints::OnTreeSelectionDoubleClicked)
+				.SelectionMode( ESelectionMode::Multi )
+				.OnContextMenuOpening(this, &SFindInBlueprints::OnContextMenuOpening)
+			]
+		]
+
+		+SVerticalBox::Slot()
+			.AutoHeight()
+		[
+			SNew(SHorizontalBox)
+
+			// Text
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(0, 2)
+			[
+				SNew(STextBlock)
+				.Font( FEditorStyle::GetFontStyle("AssetDiscoveryIndicator.MainStatusFont") )
+				.Text( LOCTEXT("SearchResults", "Searching...") )
+				.Visibility(this, &SFindInBlueprints::GetSearchbarVisiblity)
+			]
+
+			// Progress bar
+			+SHorizontalBox::Slot()
+				.FillWidth(1.0f)
+				.Padding(2.0f, 3.0f, 0.0f, 0.0f)
+			[
+				SNew(SProgressBar)
+					.Visibility(this, &SFindInBlueprints::GetSearchbarVisiblity).Percent( this, &SFindInBlueprints::GetPercentCompleteSearch )
+			]
+		]
+	];
+
+	// Include the cache progress bar if we're in global find mode and an active cache operation is still in progress.
+	if (!bIsInFindWithinBlueprintMode && IsCacheInProgress())
+	{
+		ConditionallyAddCacheBar();
+	}
 }
 
 void SFindInBlueprints::ConditionallyAddCacheBar()
 {
-	FFindInBlueprintSearchManager& FindInBlueprintManager = FFindInBlueprintSearchManager::Get();
-
-	// Do not add a second cache bar and do not add it when there are no uncached Blueprints
-	if(FindInBlueprintManager.GetNumberUncachedAssets() > 0 || FindInBlueprintManager.GetFailedToCacheCount() > 0)
+	// Do not add when it should not be visible
+	if(GetCachingBarVisibility() == EVisibility::Visible)
 	{
+		// Do not add a second cache bar
 		if(MainVerticalBox.IsValid() && !CacheBarSlot.IsValid())
 		{
 			// Create a single string of all the Blueprint paths that failed to cache, on separate lines
@@ -788,7 +792,7 @@ void SFindInBlueprints::ConditionallyAddCacheBar()
 							.AutoWidth()
 							[
 								SNew(STextBlock)
-								.Text(this, &SFindInBlueprints::GetUncachedAssetWarningText)
+								.Text(this, &SFindInBlueprints::GetUnindexedAssetWarningText)
 								.ColorAndOpacity( FCoreStyle::Get().GetColor("ErrorReporting.ForegroundColor") )
 							]
 
@@ -800,8 +804,8 @@ void SFindInBlueprints::ConditionallyAddCacheBar()
 								[
 									SNew(SButton)
 									.Text(LOCTEXT("IndexAllBlueprints", "Index All"))
-									.OnClicked( this, &SFindInBlueprints::OnCacheAllBlueprints )
-									.Visibility( this, &SFindInBlueprints::GetCacheAllButtonVisibility )
+									.OnClicked( this, &SFindInBlueprints::OnCacheAllUnindexedBlueprints )
+									.Visibility( this, &SFindInBlueprints::GetCacheAllUnindexedButtonVisibility )
 									.ToolTip(IDocumentation::Get()->CreateToolTip(
 									LOCTEXT("IndexAlLBlueprints_Tooltip", "Loads all non-indexed Blueprints and saves them with their search data. This can be a very slow process and the editor may become unresponsive."),
 									NULL,
@@ -844,7 +848,7 @@ void SFindInBlueprints::ConditionallyAddCacheBar()
 									SNew(SButton)
 									.Text(LOCTEXT("CancelCacheAll", "Cancel"))
 									.OnClicked( this, &SFindInBlueprints::OnCancelCacheAll )
-									.Visibility( this, &SFindInBlueprints::GetCachingProgressBarVisiblity )
+									.Visibility( this, &SFindInBlueprints::GetCacheAllCancelButtonVisibility )
 									.ToolTipText( LOCTEXT("CancelCacheAll_Tooltip", "Stops the caching process from where ever it is, can be started back up where it left off when needed.") )
 								]
 
@@ -885,8 +889,9 @@ void SFindInBlueprints::ConditionallyAddCacheBar()
 								.AutoHeight()
 								[
 									SNew(STextBlock)
-									.Text(LOCTEXT("FiBUnresponsiveEditorWarning", "NOTE: the editor may become unresponsive for some time!"))
+									.Text(LOCTEXT("FiBUnresponsiveEditorWarning", "NOTE: The editor may become unresponsive while these assets are loaded for indexing. This may take some time!"))
 									.TextStyle(&FCoreStyle::Get().GetWidgetStyle<FTextBlockStyle>( "SmallText" ))
+									.Visibility(this, &SFindInBlueprints::GetUnresponsiveEditorWarningVisibility)
 								]
 							]
 					]
@@ -918,7 +923,11 @@ SFindInBlueprints::~SFindInBlueprints()
 		StreamSearch->EnsureCompletion();
 	}
 
-	FFindInBlueprintSearchManager::Get().CancelCacheAll(this);
+	// Only cancel unindexed (slow) caching operations upon destruction
+	if (FFindInBlueprintSearchManager::Get().IsUnindexedCacheInProgress())
+	{
+		FFindInBlueprintSearchManager::Get().CancelCacheAll(this);
+	}
 }
 
 EActiveTimerReturnType SFindInBlueprints::UpdateSearchResults( double InCurrentTime, float InDeltaTime )
@@ -1033,7 +1042,11 @@ void SFindInBlueprints::MakeSearchQuery(FString InSearchString, bool bInIsFindWi
 
 	if (InSearchString.Len() > 0)
 	{
-		OnRemoveCacheBar();
+		// Remove the cache bar unless an active cache is in progress (so that we still show the status). It's ok to proceed with the new search while this is ongoing.
+		if (!IsCacheInProgress())
+		{
+			OnRemoveCacheBar();
+		}
 
 		TreeView->RequestTreeRefresh();
 		HighlightText = FText::FromString( InSearchString );
@@ -1090,8 +1103,6 @@ void SFindInBlueprints::MakeSearchQuery(FString InSearchString, bool bInIsFindWi
 		{
 			LaunchStreamThread(InSearchString, InSearchFilterForImaginaryDataReturn, InMinimiumVersionRequirement, InOnSearchComplete);
 		}
-
-		bHasGlobalSearchResults = !bInIsFindWithinBlueprint;
 	}
 }
 
@@ -1254,24 +1265,23 @@ EVisibility SFindInBlueprints::GetSearchbarVisiblity() const
 	return StreamSearch.IsValid()? EVisibility::Visible : EVisibility::Collapsed;
 }
 
-void SFindInBlueprints::CacheAllBlueprints(FSimpleDelegate InOnFinished/* = FSimpleDelegate()*/, EFiBVersion InMinimiumVersionRequirement/* = EFiBVersion::FIB_VER_LATEST*/)
+void SFindInBlueprints::CacheAllBlueprints(const FFindInBlueprintCachingOptions& InOptions)
 {
-	OnCacheAllBlueprints(InOnFinished, InMinimiumVersionRequirement);
+	OnCacheAllBlueprints(InOptions);
 }
 
-FReply SFindInBlueprints::OnCacheAllBlueprints()
+FReply SFindInBlueprints::OnCacheAllUnindexedBlueprints()
 {
-	return OnCacheAllBlueprints(FSimpleDelegate(), LastSearchedFiBVersion);
+	FFindInBlueprintCachingOptions CachingOptions;
+	CachingOptions.OpType = EFiBCacheOpType::CacheUnindexedAssets;
+	return OnCacheAllBlueprints(CachingOptions);
 }
 
-FReply SFindInBlueprints::OnCacheAllBlueprints(FSimpleDelegate InOnFinished/* = FSimpleDelegate()*/, EFiBVersion InMinimiumVersionRequirement/* = EFiBVersion::FIB_VER_LATEST*/)
+FReply SFindInBlueprints::OnCacheAllBlueprints(const FFindInBlueprintCachingOptions& InOptions)
 {
 	if(!FFindInBlueprintSearchManager::Get().IsCacheInProgress())
 	{
-		// Request from the SearchManager a delegate to use for ticking the cache system.
-		FWidgetActiveTimerDelegate WidgetActiveTimer;
-		FFindInBlueprintSearchManager::Get().CacheAllUncachedAssets(SharedThis(this), WidgetActiveTimer, InOnFinished, InMinimiumVersionRequirement);
-		RegisterActiveTimer(0.f, WidgetActiveTimer);
+		FFindInBlueprintSearchManager::Get().CacheAllAssets(SharedThis(this), InOptions);
 	}
 
 	return FReply::Handled();
@@ -1302,15 +1312,24 @@ EVisibility SFindInBlueprints::GetCachingProgressBarVisiblity() const
 	return IsCacheInProgress()? EVisibility::Visible : EVisibility::Hidden;
 }
 
-EVisibility SFindInBlueprints::GetCacheAllButtonVisibility() const
+EVisibility SFindInBlueprints::GetCacheAllUnindexedButtonVisibility() const
 {
 	return IsCacheInProgress()? EVisibility::Collapsed : EVisibility::Visible;
 }
 
+EVisibility SFindInBlueprints::GetCacheAllCancelButtonVisibility() const
+{
+	// The cancel button is visible only if we're doing an unindexed caching operation (slow) and this is the initiating widget
+	const bool bIsUnindexedCacheInProgress = FFindInBlueprintSearchManager::Get().IsUnindexedCacheInProgress();
+	TWeakPtr<SFindInBlueprints> SourceWidgetPtr = FFindInBlueprintSearchManager::Get().GetSourceCachingWidget();
+	return bIsUnindexedCacheInProgress && SourceWidgetPtr.Pin() == SharedThis(this) ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
 EVisibility SFindInBlueprints::GetCachingBarVisibility() const
 {
+	const bool bIsPIESimulating = (GEditor->bIsSimulatingInEditor || GEditor->PlayWorld);
 	FFindInBlueprintSearchManager& FindInBlueprintManager = FFindInBlueprintSearchManager::Get();
-	return (FindInBlueprintManager.GetNumberUncachedAssets() > 0 || FindInBlueprintManager.GetFailedToCacheCount())? EVisibility::Visible : EVisibility::Collapsed;
+	return (FindInBlueprintManager.GetNumberUncachedAssets() > 0 || (!bIsPIESimulating && (FindInBlueprintManager.GetNumberUnindexedAssets() > 0 || FindInBlueprintManager.GetFailedToCacheCount())))? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 EVisibility SFindInBlueprints::GetCachingBlueprintNameVisiblity() const
@@ -1321,6 +1340,12 @@ EVisibility SFindInBlueprints::GetCachingBlueprintNameVisiblity() const
 EVisibility SFindInBlueprints::GetFailedToCacheListVisibility() const
 {
 	return FFindInBlueprintSearchManager::Get().GetFailedToCacheCount()? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+EVisibility SFindInBlueprints::GetUnresponsiveEditorWarningVisibility() const
+{
+	// Show the "editor may be unresponsive" note if we're doing an unindexed caching operation, which can block the UI due to file I/O
+	return !IsCacheInProgress() || FFindInBlueprintSearchManager::Get().IsUnindexedCacheInProgress() ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 bool SFindInBlueprints::IsCacheInProgress() const
@@ -1340,36 +1365,35 @@ FSlateColor SFindInBlueprints::GetCachingBarColor() const
 	return ReturnColor;
 }
 
-FText SFindInBlueprints::GetUncachedAssetWarningText() const
+FText SFindInBlueprints::GetUnindexedAssetWarningText() const
 {
 	FFindInBlueprintSearchManager& FindInBlueprintManager = FFindInBlueprintSearchManager::Get();
 
-	int32 FailedToCacheCount = FindInBlueprintManager.GetFailedToCacheCount();
-
-	// The number of unindexed Blueprints is the total of those that failed to cache and those that haven't been attempted yet.
 	FFormatNamedArguments Args;
-	Args.Add(TEXT("Count"), FindInBlueprintManager.GetNumberUncachedAssets() + OutOfDateWithLastSearchBPCount);
-
 	FText ReturnDisplayText;
 	if(IsCacheInProgress())
 	{
 		Args.Add(TEXT("CurrentIndex"), FindInBlueprintManager.GetCurrentCacheIndex());
+		Args.Add(TEXT("Count"), FindInBlueprintManager.GetNumberUncachedAssets());
 
 		ReturnDisplayText = FText::Format(LOCTEXT("CachingBlueprints", "Indexing Blueprints... {CurrentIndex}/{Count}"), Args);
 	}
 	else
 	{
-		Args.Add(TEXT("UnindexedCount"), FindInBlueprintManager.GetNumberUncachedAssets());
+		const int32 UnindexedCount = FindInBlueprintManager.GetNumberUnindexedAssets();
+		Args.Add(TEXT("UnindexedCount"), UnindexedCount);
 		Args.Add(TEXT("OutOfDateCount"), OutOfDateWithLastSearchBPCount);
+		Args.Add(TEXT("Count"), UnindexedCount + OutOfDateWithLastSearchBPCount);
 
-		ReturnDisplayText = FText::Format(LOCTEXT("UncachedAssets", "Search incomplete. {Count} ({UnindexedCount} Unindexed/{OutOfDateCount} Out-of-Date) Blueprints need to be indexed!"), Args);
+		ReturnDisplayText = FText::Format(LOCTEXT("UncachedAssets", "Search incomplete. {Count} ({UnindexedCount} non-indexed/{OutOfDateCount} out-of-date) Blueprints need to be loaded and indexed!"), Args);
 
+		const int32 FailedToCacheCount = FindInBlueprintManager.GetFailedToCacheCount();
 		if (FailedToCacheCount > 0)
 		{
 			FFormatNamedArguments ArgsWithCacheFails;
-			Args.Add(TEXT("BaseMessage"), ReturnDisplayText);
-			Args.Add(TEXT("CacheFails"), FailedToCacheCount);
-			ReturnDisplayText = FText::Format(LOCTEXT("UncachedAssetsWithCacheFails", "{BaseMessage} {CacheFails} Blueprints failed to cache."), Args);
+			ArgsWithCacheFails.Add(TEXT("BaseMessage"), ReturnDisplayText);
+			ArgsWithCacheFails.Add(TEXT("CacheFails"), FailedToCacheCount);
+			ReturnDisplayText = FText::Format(LOCTEXT("UncachedAssetsWithCacheFails", "{BaseMessage} {CacheFails} Blueprints failed to cache."), ArgsWithCacheFails);
 		}
 	}
 
@@ -1381,10 +1405,32 @@ FText SFindInBlueprints::GetCurrentCacheBlueprintName() const
 	return FText::FromName(FFindInBlueprintSearchManager::Get().GetCurrentCacheBlueprintName());
 }
 
-void SFindInBlueprints::OnCacheComplete()
+void SFindInBlueprints::OnCacheStarted(EFiBCacheOpType InOpType, EFiBCacheOpFlags InOpFlags)
 {
-	// Resubmit the last search, which will also remove the bar if needed
-	OnSearchTextCommitted(SearchTextField->GetText(), ETextCommit::OnEnter);
+	const bool bIsCacheBarAdded = CacheBarSlot.IsValid();
+	const bool bShowProgress = EnumHasAnyFlags(InOpFlags, EFiBCacheOpFlags::ShowProgress);
+
+	// Ensure that the cache bar is visible to show progress
+	if (!bIsCacheBarAdded && bShowProgress)
+	{
+		ConditionallyAddCacheBar();
+	}
+}
+
+void SFindInBlueprints::OnCacheComplete(EFiBCacheOpType InOpType)
+{
+	TWeakPtr<SFindInBlueprints> SourceCachingWidgetPtr = FFindInBlueprintSearchManager::Get().GetSourceCachingWidget();
+	if (InOpType == EFiBCacheOpType::CacheUnindexedAssets
+		&& SourceCachingWidgetPtr.IsValid() && SourceCachingWidgetPtr.Pin() == SharedThis(this))
+	{
+		// Resubmit the last search, which will also remove the bar if needed
+		OnSearchTextCommitted(SearchTextField->GetText(), ETextCommit::OnEnter);
+	}
+	else if (CacheBarSlot.IsValid())
+	{
+		// Remove the cache bar
+		OnRemoveCacheBar();
+	}
 }
 
 TSharedPtr<SWidget> SFindInBlueprints::OnContextMenuOpening()

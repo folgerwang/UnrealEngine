@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Components/Image.h"
 #include "Slate/SlateBrushAsset.h"
@@ -44,7 +44,9 @@ void UImage::ReleaseSlateResources(bool bReleaseChildren)
 
 TSharedRef<SWidget> UImage::RebuildWidget()
 {
-	MyImage = SNew(SImage);
+	MyImage = SNew(SImage)
+			.FlipForRightToLeftFlowDirection(bFlipForRightToLeftFlowDirection);
+
 	return MyImage.ToSharedRef();
 }
 
@@ -135,7 +137,7 @@ void UImage::SetBrushFromAsset(USlateBrushAsset* Asset)
 {
 	if(!Asset || Brush != Asset->Brush)
 	{
-		CancelTextureStreaming();
+		CancelImageStreaming();
 		Brush = Asset ? Asset->Brush : FSlateBrush();
 
 		if (MyImage.IsValid())
@@ -148,7 +150,7 @@ void UImage::SetBrushFromAsset(USlateBrushAsset* Asset)
 
 void UImage::SetBrushFromTexture(UTexture2D* Texture, bool bMatchSize)
 {
-	CancelTextureStreaming();
+	CancelImageStreaming();
 
 	if(Brush.GetResourceObject() != Texture)
 	{
@@ -184,7 +186,7 @@ void UImage::SetBrushFromAtlasInterface(TScriptInterface<ISlateTextureAtlasInter
 {
 	if(Brush.GetResourceObject() != AtlasRegion.GetObject())
 	{
-		CancelTextureStreaming();
+		CancelImageStreaming();
 		Brush.SetResourceObject(AtlasRegion.GetObject());
 
 		if (bMatchSize)
@@ -212,7 +214,7 @@ void UImage::SetBrushFromTextureDynamic(UTexture2DDynamic* Texture, bool bMatchS
 {
 	if(Brush.GetResourceObject() != Texture)
 	{
-		CancelTextureStreaming();
+		CancelImageStreaming();
 		Brush.SetResourceObject(Texture);
 
 		if (bMatchSize && Texture)
@@ -233,7 +235,7 @@ void UImage::SetBrushFromMaterial(UMaterialInterface* Material)
 {
 	if(Brush.GetResourceObject() != Material)
 	{
-		CancelTextureStreaming();
+		CancelImageStreaming();
 		Brush.SetResourceObject(Material);
 
 		//TODO UMG Check if the material can be used with the UI
@@ -246,29 +248,96 @@ void UImage::SetBrushFromMaterial(UMaterialInterface* Material)
 	}
 }
 
-void UImage::CancelTextureStreaming()
+void UImage::CancelImageStreaming()
 {
 	if (StreamingHandle.IsValid())
 	{
 		StreamingHandle->CancelHandle();
 		StreamingHandle.Reset();
 	}
+
+	StreamingObjectPath.Reset();
+}
+
+void UImage::RequestAsyncLoad(TSoftObjectPtr<UObject> SoftObject, TFunction<void()>&& Callback)
+{
+	RequestAsyncLoad(SoftObject, FStreamableDelegate::CreateLambda(MoveTemp(Callback)));
+}
+
+void UImage::RequestAsyncLoad(TSoftObjectPtr<UObject> SoftObject, FStreamableDelegate DelegateToCall)
+{
+	CancelImageStreaming();
+
+	if (UObject* StrongObject = SoftObject.Get())
+	{
+		DelegateToCall.ExecuteIfBound();
+		return;  // No streaming was needed, complete immediately.
+	}
+
+	OnImageStreamingStarted(SoftObject);
+
+	TWeakObjectPtr<UImage> WeakThis(this);
+	StreamingObjectPath = SoftObject.ToSoftObjectPath();
+	StreamingHandle = UAssetManager::GetStreamableManager().RequestAsyncLoad(
+		StreamingObjectPath,
+		[WeakThis, DelegateToCall, SoftObject]() {
+			if (UImage* StrongThis = WeakThis.Get())
+			{
+				// If the object paths don't match, then this delegate was interrupted, but had already been queued for a callback
+				// so ignore everything and abort.
+				if (StrongThis->StreamingObjectPath != SoftObject.ToSoftObjectPath())
+				{
+					return; // Abort!
+				}
+
+				// Call the delegate to do whatever is needed, probably set the new image.
+				DelegateToCall.ExecuteIfBound();
+
+				// Note that the streaming has completed.
+				StrongThis->OnImageStreamingComplete(SoftObject);
+			}
+		},
+		FStreamableManager::AsyncLoadHighPriority);
+}
+
+void UImage::OnImageStreamingStarted(TSoftObjectPtr<UObject> SoftObject)
+{
+	// No-Op
+}
+
+void UImage::OnImageStreamingComplete(TSoftObjectPtr<UObject> LoadedSoftObject)
+{
+	// No-Op
 }
 
 void UImage::SetBrushFromSoftTexture(TSoftObjectPtr<UTexture2D> SoftTexture, bool bMatchSize)
 {
-	CancelTextureStreaming();
-
 	TWeakObjectPtr<UImage> WeakThis(this); // using weak ptr in case 'this' has gone out of scope by the time this lambda is called
 
-	StreamingHandle =
-		UAssetManager::GetStreamableManager().RequestAsyncLoad(SoftTexture.ToSoftObjectPath(),
-			[WeakThis, SoftTexture, bMatchSize]() {
-				if (WeakThis.IsValid())
-				{
-					WeakThis->SetBrushFromTexture(SoftTexture.Get(), bMatchSize);
-				}
-			}, FStreamableManager::AsyncLoadHighPriority);
+	RequestAsyncLoad(SoftTexture,
+		[WeakThis, SoftTexture, bMatchSize]() {
+			if (UImage* StrongThis = WeakThis.Get())
+			{
+				ensureMsgf(SoftTexture.Get(), TEXT("Failed to load %s"), *SoftTexture.ToSoftObjectPath().ToString());
+				StrongThis->SetBrushFromTexture(SoftTexture.Get(), bMatchSize);
+			}
+		}
+	);
+}
+
+void UImage::SetBrushFromSoftMaterial(TSoftObjectPtr<UMaterialInterface> SoftMaterial)
+{
+	TWeakObjectPtr<UImage> WeakThis(this); // using weak ptr in case 'this' has gone out of scope by the time this lambda is called
+
+	RequestAsyncLoad(SoftMaterial,
+		[WeakThis, SoftMaterial]() {
+			if (UImage* StrongThis = WeakThis.Get())
+			{
+				ensureMsgf(SoftMaterial.Get(), TEXT("Failed to load %s"), *SoftMaterial.ToSoftObjectPath().ToString());
+				StrongThis->SetBrushFromMaterial(SoftMaterial.Get());
+			}
+		}
+	);
 }
 
 UMaterialInstanceDynamic* UImage::GetDynamicMaterial()

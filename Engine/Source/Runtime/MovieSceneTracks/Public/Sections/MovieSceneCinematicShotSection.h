@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -25,12 +25,14 @@ class MOVIESCENETRACKS_API UMovieSceneCinematicShotSection
 public:
 
 	/** @return The shot display name */
+	UFUNCTION(BlueprintPure, Category = "Movie Scene Section")
 	FString GetShotDisplayName() const
 	{
 		return ShotDisplayName;
 	}
 
 	/** Set the shot display name */
+	UFUNCTION(BlueprintCallable, Category = "Movie Scene Section")
 	void SetShotDisplayName(const FString& InShotDisplayName)
 	{
 		if (TryModify())

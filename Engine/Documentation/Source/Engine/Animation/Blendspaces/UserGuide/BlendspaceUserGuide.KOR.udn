@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3477699
-Availability: Docs
+﻿INTSourceChangelist:4326187
+Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Blendspaces
 Title: 블렌드 스페이스 사용하기
 Description:애니메이션 블루프린트에서 블렌드 스페이스를 사용하여 출력 포즈를 만드는 방법 설명서입니다.
@@ -46,7 +46,7 @@ Blend Space (블렌드 스페이스)는 [애니메이션 블루프린트](Engine
 	![](BlendSpaceNodeAdded.png)
 
 
-**맥락 메뉴로 블렌드 스페이스 노드 놓기:**
+**컨텍스트 메뉴로 블렌드 스페이스 노드 놓기:**
 
 1. **애님 그래프** 에 **우클릭** 하고 **블렌드 스페이스** 를 펼쳐 샘플링하고자 하는 블렌드 스페이스를 선택합니다.
 

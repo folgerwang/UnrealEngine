@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -38,6 +38,11 @@ enum class EPSCPoolMethod : uint8
 	Special entry allowing manual release PSCs to be manually released but wait until completion to be returned to the pool.
 	*/
 	ManualRelease_OnComplete UMETA(Hidden),
+
+	/**
+	Special entry that marks a PSC as having been returned to the pool. All PSCs currently in the pool are marked this way.
+	*/
+	FreeInPool UMETA(Hidden),
 };
 
 USTRUCT()

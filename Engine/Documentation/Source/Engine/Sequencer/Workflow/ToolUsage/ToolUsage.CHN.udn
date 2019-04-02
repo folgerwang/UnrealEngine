@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3009005
+﻿INTSourceChangelist:3244012
 Availability:Public
 Title:工作流程考虑事项
 Crumbs:%ROOT%, Engine
@@ -10,11 +10,13 @@ Version:4.12
 Related:Engine\Sequencer\Overview
 Related:Engine\Sequencer\ReferenceEditor
 Related:Engine\Sequencer\HowTo
+tags:Sequencer
 
 根据您的团队需求，您可能需要考虑下列某些 Sequencer 工作流程。 
 
 [TOC(start:2 end:2)]
 
+(#LinearWorkflow)
 ## 线性工作流程
 
 在这种工作流程中，使用一个关卡序列，在其中制作过场动画的所有内容。这种工作流程可能最适合独自处理自己的项目而不需要与他人就过场动画进行协作的人。 
@@ -26,6 +28,7 @@ Related:Engine\Sequencer\HowTo
 * 在关卡序列中添加音频，并进行各种润色。 
 
 
+(#Non-LinearWorkflow)
 ## 非线性工作流程
 
 在非线性工作流程中，内容被分到多个关卡序列中，然后这些关卡序列被添加到另一个“主”关卡序列。 
@@ -51,6 +54,7 @@ Related:Engine\Sequencer\HowTo
 [/REGION]
 
 	
+(#CollaborativeWorkflow)
 ## 协作式工作流程
 
 在协作式工作流程中，您可以采用非线性工作流程的概念，而且能让多个人同时处理相同的场景而不影响各自的工作。 
@@ -72,6 +76,7 @@ Related:Engine\Sequencer\HowTo
 [/REGION]
 
 
+(#MasterSequenceWorkflow)
 ## 主序列工作流程
 
 此工作流程与上文中提到的非线性工作流程的相似之处在于，您将有一个“主”关卡序列，其中包含组成过场动画的“镜头”。 

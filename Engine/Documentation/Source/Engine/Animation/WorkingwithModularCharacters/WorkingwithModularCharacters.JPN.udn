@@ -1,0 +1,383 @@
+﻿INTSourceChangelist:4385465
+Availability: Public
+Crumbs: 
+Title: モジュラー キャラクターで作業する
+Description: 複数のスケルタル メッシュで構成されるモジュラー キャラクターを作成するさまざまな方法について説明します。
+Type: 
+Version: 4.20 
+Parent: Engine/Animation
+Order: 2
+Tags: undefined
+
+
+![](ModularBanner.png)
+
+プレーヤーによるキャラクターのカスタマイズ、さまざまな頭部やボディーのタイプ、クロスやその他のオプションなどの異なるパーツの入れ替えを可能にするシステムを構築する際は、キャラクターをモジュラーで作成することをお勧めします。キャラクター全体に対して 1 つのスケルタル メッシュをインポートするのではなく、スケルタル メッシュを胴、脚、頭部など複数のセクションに分けて、エンジンにインポートします。次に、このページに記載されているいくつかの方法で、これらを組み立ててアニメーションすることができます。これにより、さまざまなキャラクターの生成において柔軟性が高まるだけでなく、パフォーマンスも向上します。 
+
+## マスター ポーズ コンポーネント
+
+**マスター ポーズ コンポーネント** とは、 **Skinned Mesh Component オブジェクト** を、マスターとして考慮される別の Skinned Mesh Component オブジェクトの子として設定することができる、ブループリントで呼び出し可能な関数です。例えば、Torso (胴) をマスター ポーズ コンポーネントとして定義し、その Torso にアニメーションを割り当てて、そのアニメーションに従う足、脚、手および頭部を子として追加します。 
+
+バックグラウンドでは、これらの子は Bone Transform Buffer をまったく使用せず、アニメーションが設定されている場合であってもアニメーションを実行することはありません。レンダリング時には Torso の Bone Transform Buffer のみが使用されるため、非常に軽量なアタッチメント システムとなります。アニメーションを実行する必要がある唯一のコンポーネントは Torso であり、アタッチされたすべてのコンポーネントは Torso の Bone Transform を使用します。下の図は、アニメーションを Torso に割り当てた設定の例です。 
+
+![](SetMasterPoseComponentImage.png)
+
+*上の図では、**Construction Script** をブループリント内で使用して、Torso スケルタル メッシュを **Master Bone Component** として設定し、モジュール キャラクターのその他の部分を子として設定します。*
+
+[REGION:note]
+**Set Master Pose Component** 関数には、**Force Update** と呼ばれる Boolean タイプの 2 番目の引数があります。Force Update を false に設定すると、入力マスター コンポーネントとランタイム情報が同じである場合はすべてのランタイム情報の更新がスキップされます (有効な場合は、ランタイム情報が強制的に更新されます)。これがあてはまるのはシリアライズ可能な登録時のみで、すべてのランタイム データを更新する必要があります。
+[/REGION]
+
+キャラクターの各部分は、別の **スケルタル メッシュ コンポーネント** との交換が可能なスケルタル メッシュです。 
+
+![](HiddenComponents.png)
+
+*上の図では、Torso と Feet の表示を切り替えました (これらを、同じスケルタル階層に従う異なるスケルタル メッシュと交換することも可能です)。*
+
+  
+ただし、 **マスター ポーズ コンポーネント** を使用する際は、マスター ポーズ コンポーネントによりゲーム スレッド負荷は軽減されますが、レンダリング負荷は軽減されないことを考慮する必要があります。同じ数のコンポーネントを個別にレンダリングすることに変わりはありませんが、コンポーネントごとの追加のセクションによってより多くの描画呼び出しが生じることに留意してください。 
+
+[REGION:note]
+また、Master Bone の子は完全に一致する構造を持つサブセットである必要があるという制限があるため、その他の追加のジョイントを含めたり、ジョイントをスキップしたりすることはできません。追加のジョイントについては Bone Buffer データは存在しないため、参照ポーズを使用してレンダリングされます。また、子ではその他のアニメーションや物理を実行することはできません。
+[/REGION]
+
+## Copy Pose From Mesh
+
+**Copy Pose From Mesh** は、**スケルタル メッシュ コンポーネント** からのアニメーション ポーズのコピーを可能にする子の、 **Animation ブループリント** で使用できる **AnimGraph** ノードです。   
+  
+[REGION:lightbox]
+[![CopyPoseFromMesh.png](CopyPoseFromMesh.png)(w:900)](CopyPoseFromMesh.png)
+[/REGION]
+
+[REGION:caption]
+画像をクリックしてフルサイズで表示
+[/REGION]
+ 
+*Copy Pose From Mesh では一致するボーンのみがコピーされ、その他すべてでは参照ポーズが使用されます。ただし、上の図のように、コピーされたトランスフォームの一番上にあるアニメーションを再生することはできます。*
+
+[Copy Pose From Mesh](Engine/Animation/AnimHowTo/CopyPose) を使用する際は、コピー元のスケルタル メッシュ コンポーネントがティック済みであることを確認することを推奨します。ティックしていない場合、最後のフレームのアニメーションをコピーすることになります (Body からコピーしているが、Head は子である場合など)。Body がティック済みであることを確実にするには、Head を Body にアタッチします。これで、子の前に親が最初にティックします。 
+
+[REGION:note]
+この関係性はコードでも設定することができます。前提条件として設定することで、現在のコンポーネントの前にこれらがティックされることを確実にすることができます。詳細については、[「ティックの依存関係」](Programming/UnrealArchitecture/Actors/Ticking)ページを参照してください。
+[/REGION]
+
+Copy Pose From Mesh を使用する際に考慮すべき事項として、Copy Pose From Mesh ではそれぞれの子でアニメーションを実行するため、マスター ポーズ コンポーネントより負荷が高くなることが挙げられます。さらに、子に対して物理を使用する場合は、代わりに [Rigid Body](Engine/Animation/NodeReference/SkeletalControls/RigidBody) または [AnimDynamics](Engine/Animation/NodeReference/SkeletalControls/AnimDynamics) スケルタル制御ノードを使用することを推奨します。
+
+アニメーション エディタでアニメーションをプレビューする際は、Copy Pose From Mesh を自動的に使用する追加のメッシュを割り当てることができます。キャラクターのコンポーネントなど、共にアニメートされる関連スケルタル メッシュのコレクションを構築する際に使用可能な、カスタム **プレビュー メッシュ コレクション** を作成することもできます。次のビデオでは、異なるスケルタル メッシュを変更してプレビューに割り当てる方法を示し、キャラクターにさまざまな頭部を適用できるようにしています。 
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:width]
+	640
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	360
+	[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	-a_GC1y2SA0
+	[/PARAMLITERAL]
+[/OBJECT]
+
+## スケルタル メッシュのマージ
+
+ランタイム時には、`FSkeletalMeshMerge` を含むコードを介して複数のスケルタル メッシュを 1 つにマージすることができます。スケルタル メッシュの作成にかかる初期負荷は高くなりますが、複数のメッシュではなく 1 つのスケルタル メッシュのみをレンダリングすることになるため、レンダリング負荷は低くなります。例えば、3 つのコンポーネント (頭部、ボディ、脚) で構成されるキャラクターが画面上に 50 体ある場合、これは **50 件の描画呼び出し** となります。スケルタル メッシュをマージしないと、それぞれのコンポーネントでの描画呼び出しにより各キャラクターで 3 回の呼び出しが行われるため、合計で **150 件の描画呼び出し** が生じます。 
+
+`FSkeletalMeshMerge` の使用時には、マージされたメッシュでは、アニメートするすべてのジョイントを含み、設定されているスケルトンのみを使用するため、メインの「ボディ」にはすべてのアニメーションが含まれている必要があります。特定のボディ部分に追加のジョイントがある場合も、ボディにすべてのアニメーションを含める必要があります。その他の考慮事項として、マージされたメッシュでは 1 つのアニメーションのみを実行できることと、マージされたメッシュへのモーフ ターゲットの移行はサポートされていないことが挙げられます。ただし、`FSkeletalMeshMerge::GenerateLODModel` の場合、スケルタル メッシュがあれば、ベース メッシュとモーフの間の `FMorphTargetDelta` を計算することで、モーフ ターゲットを作成することができます。 
+
+さらに、`FSkeletalMeshMerge` を使用する際は、ほとんどの場合コンテンツを最初から特定の方法で構築する必要があります。テクスチャを切り取って貼り合わせて新しいものを作成し、キャラクター全体を 1 つのセクションとしてレンダリングできるようにするために、1 つの共通マテリアルを作成して、テクスチャのアトラスで決定 (ブーツやグローブが適用される領域など) することをお勧めします。 
+
+### メッシュのマージ例
+
+下記の例では、メッシュ マージ コードを使用して、複数のスケルタル メッシュをランタイム時に組み立てます。 
+
+![](Individual_Meshes.png)
+
+上の図では、ランタイム時に 1 つのスケルタル メッシュに結合させる複数のスケルタル メッシュが示されています。この例では、**Mesh Merge** と呼ばれる、コードを介してブループリントで呼び出し可能な関数を作成します。この関数により、マージするメッシュを定義することができます。まず最初に、ブループリントからの関数の呼び出しを可能にする [Blueprint Function Library](Programming/BlueprintFunctionLibraries) に基づいて C++ クラスを作成し、**「MeshMergeFunctionLibrary」**と名前を付けます。 
+
+![](Blueprint_FunctionLibrary.png)
+
+以下には、 **ヘッダ** および **ソース** ファイル内で使用できる一連のサンプル コードが示されています。 
+
+**.h コードの例**
+
+	// [Project Settings] の [Description] ページに著作権情報を入力します。
+	#pragma once
+	#include "CoreMinimal.h"
+	#include "Kismet/BlueprintFunctionLibrary.h"
+	#include "UObject/NoExportTypes.h"
+	#include "MeshMergeFunctionLibrary.generated.h"
+	/**
+	* FSkeleMeshMergeSectionMapping と等価なブループリント
+	* 1 つのソース スケルタル メッシュのすべてのセクションを、マージされたスケルタル メッシュへの
+	最終的なセクション エントリにマップするための情報です。
+	*/
+	USTRUCT(BlueprintType)
+	struct PROJECTNAME_API FSkelMeshMergeSectionMapping_BP
+	{
+		GENERATED_BODY()
+			/** マージされたスケルタル メッシュの最終的なセクション エントリへのインデックス */
+			UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh Merge Params")
+			TArray SectionIDs;
+	};
+	/**
+	* 1 つのメッシュに対する一連の UV トランスフォームのラップに使用されます。
+	*/
+	USTRUCT(BlueprintType)
+	struct PROJECTNAME_API FSkelMeshMergeUVTransform
+	{
+		GENERATED_BODY()
+			/** 任意のメッシュにおける UV の変換方法のリストです。ここでは、インデックスは特定の UV チャンネルを表します。*/
+			UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh Merge Params")
+			TArray UVTransforms;
+	};
+	/**
+	* FSkelMeshMergeUVTransforms と等価なブループリント
+	* UV の変換方法に関するすべてのセクションをマップするための情報
+	*/
+	USTRUCT(BlueprintType)
+	struct PROJECTNAME_API FSkelMeshMergeUVTransformMapping
+	{
+		GENERATED_BODY()
+			/** それぞれのメッシュの各 UV チャンネルについて、UVS の変換方法を示します。*/
+			UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh Merge Params")
+			TArray UVTransformsPerMesh;
+	};
+	/**
+	* スケルタル メッシュのマージを実行する際に使用されるすべての引数を含む Struct です。
+	*/
+	USTRUCT(BlueprintType)
+	struct PROJECTNAME_API FSkeletalMeshMergeParams
+	{
+		GENERATED_BODY()
+			FSkeletalMeshMergeParams()
+		{
+			MeshSectionMappings = TArray();
+			UVTransformsPerMesh = TArray();
+			StripTopLODS = 0;
+			bNeedsCpuAccess = false;
+			bSkeletonBefore = false;
+			Skeleton = nullptr;
+		}
+		// ソース メッシュのセクションを、マージされたセクション エントリにマップするためのオプションの配列
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			TArray MeshSectionMappings;
+		// 各メッシュ内の UV を変換するためのオプションの配列
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			TArray UVTransformsPerMesh;
+		// マージするスケルタル メッシュのリストです。
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			TArray MeshesToMerge;
+		// 入力メッシュから削除する高 LOD の数
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			int32 StripTopLODS;
+		// スポーン パーティクル エフェクトなどの理由で、マージ後のメッシュへの CPU によるアクセスが必要かどうかを設定します。
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			uint32 bNeedsCpuAccess :1;
+		// マージ前にスケルトンを更新するかどうか。1でない場合、マージ後に更新を行います。
+		// スケルトンも提供する必要があります。
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			uint32 bSkeletonBefore :1;
+		// マージされたメッシュで使用されるスケルトンです。
+		// 生成されたスケルトンを使用する場合は空のままにします。
+		UPROPERTY(EditAnywhere, BlueprintReadOnly)
+			class USkeleton* Skeleton;
+	};
+	/**
+	*
+	*/
+	UCLASS()
+	class PROJECTNAME_API UMeshMergeFunctionLibrary :public UBlueprintFunctionLibrary
+	{
+		GENERATED_BODY()
+	public:
+		/**
+		* 提供された複数のメッシュを 1 つのメッシュにマージします。
+		* マージされたメッシュが返されます (マージに失敗した場合は無効になります)。
+		*/
+		UFUNCTION(BlueprintCallable, Category = "Mesh Merge", meta = (UnsafeDuringActorConstruction = "true"))
+			static class USkeletalMesh* MergeMeshes(const FSkeletalMeshMergeParams& Params);
+	};
+	~~~
+
+ヘッダ内ではすべての **PROJECTNAME_API** 参照をユーザーの実際のプロジェクト名に変更する必要があります。例えば、「MyProject」という名前のプロジェクトの場合、コードを機能させるには、すべてのインスタンスで **MYPROJECT_API** を使用する必要があります。 
+
+**.cpp コードの例**
+
+	// [Project Settings] の [Description] ページに著作権情報を入力します。
+	#include "MeshMergeFunctionLibrary.h"
+	#include "SkeletalMeshMerge.h"
+	#include "Engine/SkeletalMeshSocket.h"
+	#include "Engine/SkeletalMesh.h"
+	#include "Animation/Skeleton.h"
+	static void ToMergeParams(const TArray<FSkelMeshMergeSectionMapping_BP>& InSectionMappings, TArray<FSkelMeshMergeSectionMapping>& OutSectionMappings)
+	{
+		if (InSectionMappings.Num() > 0)
+		{
+			OutSectionMappings.AddUninitialized(InSectionMappings.Num());
+			for (int32 i = 0; i < InSectionMappings.Num(); ++i)
+			{
+				OutSectionMappings[i].SectionIDs = InSectionMappings[i].SectionIDs;
+			}
+		}
+	}
+	static void ToMergeParams(const TArray<FSkelMeshMergeUVTransformMapping>& InUVTransformsPerMesh, TArray<FSkelMeshMergeUVTransforms>& OutUVTransformsPerMesh)
+	{
+		if (InUVTransformsPerMesh.Num() > 0)
+		{
+			OutUVTransformsPerMesh.Empty();
+			OutUVTransformsPerMesh.AddUninitialized(InUVTransformsPerMesh.Num());
+			for (int32 i = 0; i < InUVTransformsPerMesh.Num(); ++i)
+			{
+				TArray<TArray<FTransform>>& OutUVTransforms = OutUVTransformsPerMesh[i].UVTransformsPerMesh;
+				const TArray<FSkelMeshMergeUVTransform>& InUVTransforms = InUVTransformsPerMesh[i].UVTransformsPerMesh;
+				if (InUVTransforms.Num() > 0)
+				{
+					OutUVTransforms.Empty();
+					OutUVTransforms.AddUninitialized(InUVTransforms.Num());
+					for (int32 j = 0; j < InUVTransforms.Num(); j++)
+					{
+						OutUVTransforms[i] = InUVTransforms[i].UVTransforms;
+					}
+				}
+			}
+		}
+	}
+	USkeletalMesh* UMeshMergeFunctionLibrary::MergeMeshes(const FSkeletalMeshMergeParams& Params)
+	{
+		TArray<USkeletalMesh*> MeshesToMergeCopy = Params.MeshesToMerge;
+		MeshesToMergeCopy.RemoveAll([](USkeletalMesh* InMesh)
+		{
+			return InMesh == nullptr;
+		});
+		if (MeshesToMergeCopy.Num() <= 1)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Must provide multiple valid Skeletal Meshes in order to perform a merge."));
+			return nullptr;
+		}
+		EMeshBufferAccess BufferAccess = Params.bNeedsCpuAccess ?
+			EMeshBufferAccess::ForceCPUAndGPU :
+			EMeshBufferAccess::Default;
+		TArray<FSkelMeshMergeSectionMapping> SectionMappings;
+		TArray<FSkelMeshMergeUVTransforms> UvTransforms;
+		ToMergeParams(Params.MeshSectionMappings, SectionMappings);
+		ToMergeParams(Params.UVTransformsPerMesh, UvTransforms);
+		bool bRunDuplicateCheck = false;
+		USkeletalMesh* BaseMesh = NewObject<USkeletalMesh>();
+		if (Params.Skeleton && Params.bSkeletonBefore)
+		{
+			BaseMesh->Skeleton = Params.Skeleton;
+			bRunDuplicateCheck = true;
+			for (USkeletalMeshSocket* Socket :BaseMesh->GetMeshOnlySocketList())
+			{
+				if (Socket)
+				{
+					UE_LOG(LogTemp, Warning, TEXT("SkelMeshSocket:%s"), *(Socket->SocketName.ToString()));
+				}
+			}
+			for (USkeletalMeshSocket* Socket :BaseMesh->Skeleton->Sockets)
+			{
+				if (Socket)
+				{
+					UE_LOG(LogTemp, Warning, TEXT("SkelSocket:%s"), *(Socket->SocketName.ToString()));
+				}
+			}
+		}
+		FSkeletalMeshMerge Merger(BaseMesh, MeshesToMergeCopy, SectionMappings, Params.StripTopLODS, BufferAccess, UvTransforms.GetData());
+		if (!Merger.DoMerge())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Merge failed!"));
+			return nullptr;
+		}
+		if (Params.Skeleton && !Params.bSkeletonBefore)
+		{
+			BaseMesh->Skeleton = Params.Skeleton;
+		}
+		if (bRunDuplicateCheck)
+		{
+			TArray<FName> SkelMeshSockets;
+			TArray<FName> SkelSockets;
+			for (USkeletalMeshSocket* Socket :BaseMesh->GetMeshOnlySocketList())
+			{
+				if (Socket)
+				{
+					SkelMeshSockets.Add(Socket->GetFName());
+					UE_LOG(LogTemp, Warning, TEXT("SkelMeshSocket:%s"), *(Socket->SocketName.ToString()));
+				}
+			}
+			for (USkeletalMeshSocket* Socket :BaseMesh->Skeleton->Sockets)
+			{
+				if (Socket)
+				{
+					SkelSockets.Add(Socket->GetFName());
+					UE_LOG(LogTemp, Warning, TEXT("SkelSocket:%s"), *(Socket->SocketName.ToString()));
+				}
+			}
+			TSet<FName> UniqueSkelMeshSockets;
+			TSet<FName> UniqueSkelSockets;
+			UniqueSkelMeshSockets.Append(SkelMeshSockets);
+			UniqueSkelSockets.Append(SkelSockets);
+			int32 Total = SkelSockets.Num() + SkelMeshSockets.Num();
+			int32 UniqueTotal = UniqueSkelMeshSockets.Num() + UniqueSkelSockets.Num();
+			UE_LOG(LogTemp, Warning, TEXT("SkelMeshSocketCount:%d | SkelSocketCount:%d | Combined: %d"), SkelMeshSockets.Num(), SkelSockets.Num(), Total);
+			UE_LOG(LogTemp, Warning, TEXT("SkelMeshSocketCount:%d | SkelSocketCount:%d | Combined: %d"), UniqueSkelMeshSockets.Num(), UniqueSkelSockets.Num(), UniqueTotal);
+			UE_LOG(LogTemp, Warning, TEXT("Found Duplicates:%s"), *((Total != UniqueTotal) ?FString("True") :FString("False")));
+		}
+		return BaseMesh;
+	}
+
+
+エディタ内でコードをコンパイルすると、**スケルタル メッシュ コンポーネント** と、**Skeletal Mesh Parameters** タイプの公開された変数を使用して ActorBlueprint を作成できます。この変数では、マージするスケルタル メッシュだけでなく、これらのメッシュのマージ方法と追加のオプションを定義するいくつかのプロパティが提供されます。
+
+![](SkelMeshParams.png)
+
+スケルタル メッシュのマージ方法の定義に使用できるオプションは次の通りです。 
+
+| プロパティ | 説明 |
+| --- | --- |
+| **Mesh Section Mappings** | ソース メッシュのセクションを、マージされたセクション エントリにマップするためのオプションの配列です。|
+| **UVTransforms Per Mesh** |	各メッシュ内の UV の変換に使用するオプションの配列です。|
+| **Meshes to Merge** | マージされるスケルタル メッシュです。|
+| **Strip Top LODs** |	入力メッシュから削除するトップ LOD の数です。|
+| **Needs Cpu Access** | スポーン パーティクル エフェクトなどの理由で、マージ後のメッシュへの CPU によるアクセスが必要かどうかを設定します。|
+| **Skeleton Before** | マージ前または後にスケルトンを更新するかどうかを設定します (スケルトンを提供する必要があります)。|
+| **Skeleton** | マージしたメッシュで使用されるスケルトンです。生成されたスケルトンを使用する場合は空のままにします。|
+
+**イベント グラフ** 内で、 **Event Begin Play** で下のノード ネットワークを使用します。   
+  
+[REGION:lightbox]
+[![](MeshMergeBPScript.png)(w:900)](MeshMergeBPScript.png)
+[/REGION]
+
+画像をクリックしてフルサイズで表示
+  
+新しく作成したブループリント関数 **Merge Meshes** を使用して、Skeletal Mesh オブジェクト参照を返して Mesh Merge Parameters に渡すことができます。ブループリントに追加された **スケルタル メッシュ コンポーネント** は、使用する新しいスケルタル メッシュの設定においてターゲットとして使用することができ、Merge Meshes 関数呼び出しの戻り値にポイントできます。上記の例では、個別のメッシュがすべてマージされたときに再生するよう、スケルタル メッシュに対して Idleanimation を割り当てています。   
+
+Mesh Merge ブループリントをレベルに追加すると、**[Details]** パネル内で、使用する **Meshes to Use** や **Skeleton** アセットなどの **Mesh Merge Parameters** を定義できます。   
+  
+
+![](AssignedDetails-1.png)
+
+ランタイム時には、定義されたメッシュに基づいて、Mesh Merge 関数が実行されてスケルタル メッシュが組み立てられます。
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:width]
+	640
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	360
+	[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	N4dri0RLZFg
+	[/PARAMLITERAL]
+[/OBJECT]
+
+## 比較表
+
+**マスター ポーズ コンポーネント** 、**Copy Pose from Mesh** 、 **Skeletal Mesh Merge** のいずれの方法にも長所と短所があります。以下の表では、それぞれの方法に関連する設定とパフォーマンスにかかる負荷、さらに追加機能のサポート状況を比較します。
+
+| | マスター | Copy Pose | Mesh Merge |
+| --- | --- | --- | --- |
+| **設定負荷** | 最小 | 中 | 高 |
+| **ゲーム スレッド負荷** | 最小 | 高 | 中 |
+| **レンダー スレッド負荷** | 高 | 高 | 低 |
+| **物理** | なし | AnimDynamics または RigidBody | あり |
+| **モーフ ターゲット** | あり | あり | なし |

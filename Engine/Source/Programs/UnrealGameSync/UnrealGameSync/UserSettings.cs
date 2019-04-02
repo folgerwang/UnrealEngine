@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace UnrealGameSync
 {
@@ -39,6 +40,13 @@ namespace UnrealGameSync
 		Local
 	}
 
+	enum FilterType
+	{
+		None,
+		Code,
+		Content
+	}
+
 	class UserSelectedProjectSettings
 	{
 		public readonly string ServerAndPort;
@@ -67,6 +75,12 @@ namespace UnrealGameSync
 				if(String.IsNullOrWhiteSpace(ServerAndPort))
 				{
 					ServerAndPort = null;
+				}
+
+				// Fixup for code that was saving server host name rather than DNS entry
+				if(ServerAndPort != null && ServerAndPort.Equals("p4-nodeb.epicgames.net:1666", StringComparison.OrdinalIgnoreCase))
+				{
+					ServerAndPort = "perforce:1666";
 				}
 
 				string UserName = Object.GetValue("UserName", null);
@@ -160,11 +174,14 @@ namespace UnrealGameSync
 		public Guid[] SyncIncludedCategories;
 		public Guid[] SyncExcludedCategories;
 		public bool? bSyncAllProjects;
+		public bool? bIncludeAllProjectsInSolution;
 	}
 
 	class UserProjectSettings
 	{
 		public List<ConfigObject> BuildSteps = new List<ConfigObject>();
+		public FilterType FilterType;
+		public HashSet<string> FilterBadges = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 	}
 
 	class UserSettings
@@ -191,12 +208,15 @@ namespace UnrealGameSync
 		public string[] SyncView;
 		public Guid[] SyncExcludedCategories;
 		public bool bSyncAllProjects;
+		public bool bIncludeAllProjectsInSolution;
 		public LatestChangeType SyncType;
 		public BuildConfig CompiledEditorBuildConfig; // NB: This assumes not using precompiled editor. See CurrentBuildConfig.
 		public TabLabels TabLabels;
 
 		// Window settings
 		public bool bWindowVisible;
+		public FormWindowState WindowState;
+		public Rectangle? WindowBounds;
 		
 		// Schedule settings
 		public bool bScheduleEnabled;
@@ -292,6 +312,7 @@ namespace UnrealGameSync
 			SyncView = ConfigFile.GetValues("General.SyncFilter", new string[0]);
 			SyncExcludedCategories = ConfigFile.GetGuidValues("General.SyncExcludedCategories", new Guid[0]);
 			bSyncAllProjects = ConfigFile.GetValue("General.SyncAllProjects", false);
+			bIncludeAllProjectsInSolution = ConfigFile.GetValue("General.IncludeAllProjectsInSolution", false);
 			if(!Enum.TryParse(ConfigFile.GetValue("General.SyncType", ""), out SyncType))
 			{
 				SyncType = LatestChangeType.Good;
@@ -332,6 +353,11 @@ namespace UnrealGameSync
 
 			// Window settings
 			bWindowVisible = ConfigFile.GetValue("Window.Visible", true);
+			if(!Enum.TryParse(ConfigFile.GetValue("Window.State", ""), true, out WindowState))
+			{
+				WindowState = FormWindowState.Normal;
+			}
+			WindowBounds = ParseRectangleValue(ConfigFile.GetValue("Window.Bounds", ""));
 
 			// Schedule settings
 			bScheduleEnabled = ConfigFile.GetValue("Schedule.Enabled", false);
@@ -359,6 +385,37 @@ namespace UnrealGameSync
 			{
 				SyncOptions.TcpBufferSize = 0;
 			}
+		}
+
+		static Rectangle? ParseRectangleValue(string Text)
+		{
+			ConfigObject Object = new ConfigObject(Text);
+
+			int X = Object.GetValue("X", -1);
+			int Y = Object.GetValue("Y", -1);
+			int W = Object.GetValue("W", -1);
+			int H = Object.GetValue("H", -1);
+
+			if(X == -1 || Y == -1 || W == -1 || H == -1)
+			{
+				return null;
+			}
+			else
+			{
+				return new Rectangle(X, Y, W, H);
+			}
+		}
+
+		static string FormatRectangleValue(Rectangle Value)
+		{
+			ConfigObject Object = new ConfigObject();
+
+			Object.SetValue("X", Value.X);
+			Object.SetValue("Y", Value.Y);
+			Object.SetValue("W", Value.Width);
+			Object.SetValue("H", Value.Height);
+
+			return Object.ToString();
 		}
 
 		public UserWorkspaceSettings FindOrAddWorkspace(string ClientBranchPath)
@@ -423,6 +480,7 @@ namespace UnrealGameSync
 					CurrentWorkspace.SyncIncludedCategories = new Guid[0];
 					CurrentWorkspace.SyncExcludedCategories = new Guid[0];
 					CurrentWorkspace.bSyncAllProjects = null;
+					CurrentWorkspace.bIncludeAllProjectsInSolution = null;
 				}
 				else
 				{
@@ -458,6 +516,9 @@ namespace UnrealGameSync
 					int SyncAllProjects = WorkspaceSection.GetValue("SyncAllProjects", -1);
 					CurrentWorkspace.bSyncAllProjects = (SyncAllProjects == 0)? (bool?)false : (SyncAllProjects == 1)? (bool?)true : (bool?)null;
 
+					int IncludeAllProjectsInSolution = WorkspaceSection.GetValue("IncludeAllProjectsInSolution", -1);
+					CurrentWorkspace.bIncludeAllProjectsInSolution = (IncludeAllProjectsInSolution == 0)? (bool?)false : (IncludeAllProjectsInSolution == 1)? (bool?)true : (bool?)null;
+
 					string[] BisectEntries = WorkspaceSection.GetValues("Bisect", new string[0]);
 					foreach(string BisectEntry in BisectEntries)
 					{
@@ -489,6 +550,11 @@ namespace UnrealGameSync
 	
 				ConfigSection ProjectSection = ConfigFile.FindOrAddSection(ClientProjectFileName);
 				CurrentProject.BuildSteps.AddRange(ProjectSection.GetValues("BuildStep", new string[0]).Select(x => new ConfigObject(x)));
+				if(!Enum.TryParse(ProjectSection.GetValue("FilterType", ""), true, out CurrentProject.FilterType))
+				{
+					CurrentProject.FilterType = FilterType.None;
+				}
+				CurrentProject.FilterBadges.UnionWith(ProjectSection.GetValues("FilterBadges", new string[0]));
 			}
 			return CurrentProject;
 		}
@@ -519,6 +585,7 @@ namespace UnrealGameSync
 			GeneralSection.SetValues("SyncFilter", SyncView);
 			GeneralSection.SetValues("SyncExcludedCategories", SyncExcludedCategories);
 			GeneralSection.SetValue("SyncAllProjects", bSyncAllProjects);
+			GeneralSection.SetValue("IncludeAllProjectsInSolution", bIncludeAllProjectsInSolution);
 			GeneralSection.SetValue("SyncType", SyncType.ToString());
 
 			// Build configuration
@@ -549,6 +616,11 @@ namespace UnrealGameSync
 			ConfigSection WindowSection = ConfigFile.FindOrAddSection("Window");
 			WindowSection.Clear();
 			WindowSection.SetValue("Visible", bWindowVisible);
+			WindowSection.SetValue("State", WindowState.ToString());
+			if(WindowBounds != null)
+			{
+				WindowSection.SetValue("Bounds", FormatRectangleValue(WindowBounds.Value));
+			}
 
 			// Current workspace settings
 			foreach(KeyValuePair<string, UserWorkspaceSettings> Pair in WorkspaceKeyToSettings)
@@ -585,6 +657,10 @@ namespace UnrealGameSync
 				{
 					WorkspaceSection.SetValue("SyncAllProjects", CurrentWorkspace.bSyncAllProjects.Value);
 				}
+				if(CurrentWorkspace.bIncludeAllProjectsInSolution.HasValue)
+				{
+					WorkspaceSection.SetValue("IncludeAllProjectsInSolution", CurrentWorkspace.bIncludeAllProjectsInSolution.Value);
+				}
 
 				List<ConfigObject> BisectEntryObjects = new List<ConfigObject>();
 				foreach(KeyValuePair<int, BisectState> BisectPair in CurrentWorkspace.ChangeNumberToBisectState)
@@ -606,6 +682,11 @@ namespace UnrealGameSync
 				ConfigSection ProjectSection = ConfigFile.FindOrAddSection(CurrentProjectKey);
 				ProjectSection.Clear();
 				ProjectSection.SetValues("BuildStep", CurrentProject.BuildSteps.Select(x => x.ToString()).ToArray());
+				if(CurrentProject.FilterType != FilterType.None)
+				{
+					ProjectSection.SetValue("FilterType", CurrentProject.FilterType.ToString());
+				}
+				ProjectSection.SetValues("FilterBadges", CurrentProject.FilterBadges.ToArray());
 			}
 
 			// Perforce settings

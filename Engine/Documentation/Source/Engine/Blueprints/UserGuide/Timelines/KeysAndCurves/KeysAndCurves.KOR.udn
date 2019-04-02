@@ -74,7 +74,7 @@ tags:Blueprints
 | ![](external_curve_browse_button.png)| 콘텐츠 브라우저에서 이 트랙에 사용할 커브를 선택합니다. |
 | ![](external_curve_internal_button.png)| 키와 커브를 편집할 수 있도록 임포트된 외부 커브를 내부 커브로 변환합니다. |
 
-그러나 (최소 하나의 키를 선택한 상태로) 커브에 우클릭한 뒤 **Create External Curve** (외부 커브 생성)을 선택할 수도 있습니다. 그러면 맥락 창이 떠서 커브 애셋을 저장할 경로를 수정할 수 있습니다. 그렇게 하면 이 커브를 다른 타임라인에서 다시 사용해도 됩니다.
+그러나 (최소 하나의 키를 선택한 상태로) 커브에 우클릭한 뒤 **Create External Curve** (외부 커브 생성)을 선택할 수도 있습니다. 그러면 컨텍스트 창이 떠서 커브 애셋을 저장할 경로를 수정할 수 있습니다. 그렇게 하면 이 커브를 다른 타임라인에서 다시 사용해도 됩니다.
 
 ![k2_timeline_createExternalCurve.png](k2_timeline_createExternalCurve.png)
 

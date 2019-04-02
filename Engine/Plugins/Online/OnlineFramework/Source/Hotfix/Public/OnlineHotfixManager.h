@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -141,8 +141,6 @@ protected:
 	TArray<FString> MountedPakFiles;
 	/** Backup copies of INI files that change during hotfixing so they can be undone afterward */
 	TArray<FConfigFileBackup> IniBackups;
-	/** Holds the game localization resource name that we should search for */
-	FString GameLocName;
 	/** Used to match any PAK files for this platform */
 	FString PlatformPrefix;
 	/** Used to match any server-only hotfixes */
@@ -233,6 +231,14 @@ protected:
 	 */
 	virtual bool ApplyHotfixProcessing(const FCloudFileHeader& FileHeader);
 	/**
+	* Called prior to reading the file data.
+	*
+	* @param FileData - byte data of the hotfix file
+	*
+	* @return whether the file was successfully preprocessed
+	*/
+	virtual bool PreProcessDownloadedFileData(TArray<uint8>& FileData) const { return true;	}
+	/**
 	 * Override this to change the default INI file handling (merge delta INI changes into the config cache)
 	 *
 	 * @param FileName - the name of the INI being merged into the config cache
@@ -241,14 +247,6 @@ protected:
 	 * @return whether the merging was successful or not
 	 */
 	virtual bool HotfixIniFile(const FString& FileName, const FString& IniData);
-	/**
-	 * Override this to change the default loc file handling:
-	 *
-	 * @param FileName - the name of the loc file being merged into the loc manager
-	 *
-	 * @return whether the mounting of the PAK file was successful or not
-	 */
-	virtual void HotfixLocFile(const FCloudFileHeader& FileHeader);
 	/**
 	 * Override this to change the default PAK file handling:
 	 *		- mount PAK file immediately

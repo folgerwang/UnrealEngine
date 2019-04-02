@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*================================================================================
 	MacPlatform.h: Setup for the Mac platform
@@ -46,6 +46,10 @@ typedef FMacPlatformTypes FPlatformTypes;
 #define PLATFORM_RHITHREAD_DEFAULT_BYPASS			WITH_EDITOR
 
 #define PLATFORM_ENABLE_POPCNT_INTRINSIC 1
+
+#define PLATFORM_BREAK()							__asm__("int $3")
+
+#define PLATFORM_CODE_SECTION(Name)					__attribute__((section("__TEXT,__" Name ",regular,pure_instructions")))
 
 #if __has_feature(cxx_decltype_auto)
 	#define PLATFORM_COMPILER_HAS_DECLTYPE_AUTO 1

@@ -1,0 +1,79 @@
+﻿INTSourceChangelist:4687457
+Availability: Public
+Crumbs: 
+Title: iOS 디바이스 호환성
+Description: iOS 로 개발할 때의 디바이스 호환성입니다.
+Type: 
+Version: 4.21
+Parent: Platforms/iOS
+Order: 
+Tags: mobile
+Tags: iOS
+Tags: Reference
+
+
+언리얼 엔진 4 (UE4)는 현재 **iOS 10.0** 이상을 지원합니다. 다음 차트는 엔진 기능에 대한 디바이스 별 호환성 정보를 제공합니다. 
+
+[REGION:note]
+아직 모든 iOS 디바이스를 테스트하지는 않았지만 이 표를 통해 각 디바이스에서 어떤 기능이 제대로 작동할지 예측할 수 있습니다. 새 디바이스 출시에 따라 이 섹션을 개정하고 내부적으로 테스트를 마친 디바이스 목록을 넓혀갈 계획입니다.
+[/REGION]
+
+| **기능** | **콘솔 변수** | **콘솔 변수가 기본 활성화된 디바이스** |
+| --- | --- | --- |
+| 블룸 | r.BloomQuality | [INCLUDE:#excerpt_0] |
+| 뎁스 오브 필드 | r.DepthOfFieldQuality | [INCLUDE:#excerpt_1] |
+| 라이트 섀프트 | r.LightShaftQuality | [INCLUDE:#excerpt_2] |
+| 리프랙션 | r.RefractionQuality | [INCLUDE:#excerpt_3] |
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_3]
+iPhone 5s 이상  
+iPad Air 2 이상
+[/EXCERPT:excerpt_3]
+-
+[/COMMENT]
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_2]
+iPhone 5s 이상  
+iPad Air 2 이상
+[/EXCERPT:excerpt_2]
+-
+[/COMMENT]
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_1]
+iPhone 5s 이상  
+iPad Air 2 이상
+[/EXCERPT:excerpt_1]
+-
+[/COMMENT]
+
+[COMMENT:none]
+-
+[EXCERPT:excerpt_0]
+iPhone 5s 이상  
+iPad Air 2 이상
+[/EXCERPT:excerpt_0]
+-
+[/COMMENT]
+
+
+**Mobile Content Scale Factor** (모바일 콘텐츠 스케일 인수)를 통해 프로젝트를 보는 데 사용하고 있는 모바일 디바이스의 화면 해상도에 가장 잘 맞도록 프로젝트의 해상도 스케일을 조절할 수 있습니다. 프로젝트의 config 폴더에 **DefaultDeviceProfiles.ini** 라는 구성 (.ini) 파일을 새로 만들어 [다수의 디바이스 프로파일 생성 및 저장](Platforms/DeviceProfiles) 이 가능합니다.
+
+  
+
+| **디바이스** | **스케일 인수** | **기본 해상도** | **게임내 해상도** |
+| --- | --- | --- | --- |
+| iPhone 5s, iPhone SE, iPod Touch 6 | 2 | 1136x640 | 1136x640 |
+| iPhone 6, iPhone 6s, iPhone 7, iPhone 8 | 2 | 1134x750 | 1136x750 |
+| iPhone 6 Plus, iPhone 7 Plus, iPhone 8 Plus | 2 | 1920x1080 | 1920x1080 |
+| iPhone X | 3 | 2436x1125 | 2436x1125 |
+| iPhone XR | 2 | 1792x828 | 1792x828 |
+| iPhone XS | 3 | 2436x1125 | 2436x1125 |
+| iPhone XS Max | 3 | 2688x1242 | 2688x1242 |
+| iPad Pro | 2 | 2732x2048 | 2732x2048 |
+

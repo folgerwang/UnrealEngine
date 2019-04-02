@@ -1,0 +1,21 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: Datasmith软件交互指南
+Description: 描述了您在使用Datasmith将内容从不同的源应用程序导入虚幻时应该了解的特别事项。
+Type:landing
+Version: 4.20
+Parent: Enterprise/Datasmith
+Order: 2
+Tags: Unreal Studio
+Tags: Datasmith
+
+
+Datasmith的一个目的是支持在建筑、工程、建造和制造等各行各业使用的最广泛行业标准3D设计应用程序。大体上，Datasmith对每种受支持软件应用程序和文件格式的处理方式类似，并产生类似的结果，如[Datasmith概述](Enterprise/Datasmith/Overview)页面所述。
+
+但是，每个受支持的应用程序和文件格式的导入流程都有不同的挑战和机遇。下面所列指南详细说明了每种不同的数据源特有的额外注意事项。
+
+%Enterprise/Datasmith/SoftwareInteropGuides/3dsMax:topic%
+%Enterprise/Datasmith/SoftwareInteropGuides/SketchUp:topic%
+%Enterprise/Datasmith/SoftwareInteropGuides/CAD:topic%
+%Enterprise/Datasmith/SoftwareInteropGuides/Rhino:topic%

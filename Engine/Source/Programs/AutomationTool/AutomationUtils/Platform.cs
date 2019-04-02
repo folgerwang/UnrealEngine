@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -511,7 +511,7 @@ namespace AutomationTool
 			}
 		}
 
-		public virtual bool PublishSymbols(DirectoryReference SymbolStoreDirectory, List<FileReference> Files, string Product)
+		public virtual bool PublishSymbols(DirectoryReference SymbolStoreDirectory, List<FileReference> Files, string Product, string BuildVersion = null)
 		{
 			CommandUtils.LogWarning("PublishSymbols() has not been implemented for {0}", PlatformType.ToString());
 			return false;
@@ -525,6 +525,15 @@ namespace AutomationTool
 		public virtual string[] SymbolServerDirectoryStructure
 		{
 			get { return null; }
+		}
+
+		/// <summary>
+		/// When overridden to return true, allows the AgeStoreTask to delete individual files in a single symbol folder,
+		/// rather than requiring all files in a symbol folder to be out of date before deleting the entire directory.
+		/// </summary>
+		public virtual bool SymbolServerDeleteIndividualFiles
+		{
+			get { return false; }
 		}
 
 		/// <summary>

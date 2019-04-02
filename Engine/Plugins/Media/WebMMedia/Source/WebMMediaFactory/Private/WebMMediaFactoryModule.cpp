@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "WebMMediaFactoryPrivate.h"
 
@@ -115,6 +115,9 @@ public:
 
 		// if the module got built and run succesfully on this platform, it means it's supported
 		SupportedPlatforms.Add(FPlatformMisc::GetUBTPlatform());
+		
+		// Extra care to support windows, because platform name is Win64
+		SupportedPlatforms.Add("Windows");
 
 		// supported schemes
 		SupportedUriSchemes.Add(TEXT("file"));

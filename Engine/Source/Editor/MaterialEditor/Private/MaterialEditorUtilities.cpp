@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MaterialEditorUtilities.h"
 #include "UObject/UObjectHash.h"
@@ -705,7 +705,7 @@ void FMaterialEditorUtilities::BuildTextureStreamingData(UMaterialInterface* Upd
 		};
 
 		// Here we need a full rebuild since the shader changed. Although don't wait for previous shaders to fasten the process.
-		if (CompileDebugViewModeShaders(DVSM_OutputMaterialTextureScales, QualityLevel, FeatureLevel, true, false, Materials, SlowTask))
+		if (CompileDebugViewModeShaders(DVSM_OutputMaterialTextureScales, QualityLevel, FeatureLevel, true, false, Materials, &SlowTask))
 		{
 			FMaterialUtilities::FExportErrorManager ExportErrors(FeatureLevel);
 			for (UMaterialInterface* MaterialInterface : Materials)

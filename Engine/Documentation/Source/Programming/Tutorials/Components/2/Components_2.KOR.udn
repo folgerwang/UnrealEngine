@@ -8,7 +8,7 @@ version:4.9
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 단계](Programming\Tutorials\Components\1 "%Programming\Tutorials\Components\1:title%")
+		[이전 단계](Programming\Tutorials\Components\1 "%Programming\Tutorials\Components\1:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]

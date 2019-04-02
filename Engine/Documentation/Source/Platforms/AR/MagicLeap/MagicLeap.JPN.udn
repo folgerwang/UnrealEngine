@@ -1,0 +1,321 @@
+﻿INTSourceChangelist:4359079
+Availability: Public
+Crumbs: 
+Title: Magic Leap の開発
+Description: Unreal Engine 4 向け Magic Leap の開発に関する製品ドキュメント (リファレンスおよびガイドを含む)です。
+Type: 
+Version: 4.20
+Parent: Platforms/AR
+Order: 3
+Tags: AR
+topic-image:image12-crop700x225.jpg
+Tags: Early Access
+Tags: Landing Page
+
+
+[REGION:note]
+アーリーアクセス版のドラフトという形で、このコンテンツを使用することができます。今後のアップデートをお待ちください！
+[/REGION]
+
+現在、 Magic Leap One 、 Creator Edition の Unreal Engine テクニカル プレビューが利用可能です。統合されたカスタム エディタは、 Epic Games launcher と GitHub の両方で入手できます。
+
+![image12](image12-crop700x225.jpg "image12")
+
+**注：** ほとんどの早期インテグレーションがそうであるように、完全なサポートが提供されるリリース ビルド (4.20) に移行する前に、 SDK の API は変更される予定です。したがって、他の 4.19 で作られたプロジェクトは、このカスタム バージョンと直接的に互換性がありません。そのため、 このバージョンで作成されたプロジェクトを 4.20 にアップグレードした場合、プロジェクトが破損することになります。なので、このビルドをプロジェクトのプロダクション開発への使用というより、新しいデバイスの可能性を探るために使用することをお勧めします。
+
+## セットアップ
+
+### Lumin SDK
+
+まず、 **Lumin SDK** をインストールする必要があります。
+
+1. **Magic Leap Package Manager** を [https://creator.magicleap.com](https://creator.magicleap.com/) からダウンロードし、インストールして実行します。
+2. 登録済みのメールアドレスと、6桁のコードで Magic Leap Package Manager にサインインします。
+3. Magic Leap パッケージのデフォルトの出力先は **C:\\Users\\you\\MagicLeap** です。出力先を変更するには、 [Settings] をクリックし、 [Download/Install Directory] で別のパスを指定します。
+4. **[Common Packages] の [Lumin SDK]** を選択し、[Download & Install] をクリックします。
+5. Package Manager の下部にある確認メッセージで、 **[Apply]** をクリックします。
+
+### Magic Leap 0.16 用 Unreal Editor
+
+Epic Games launcher の Magic Leap 0.16 エディターを [Library] タブに移動し、 [Add Versions] ドロップダウンから [Magic Leap 0.16] を選択してください。
+
+![](ML_MagicLeapInstall.png "ML_MagicLeapInstall.png")
+
+インストールが完了したら、 Luminium SDK がインストールされている場所を指定しておきます。プロジェクト設定メニューで、 **[Platforms] -> [Magic Leap SDK]** に進み、 Lumin SDK フォルダへのパスを設定します。(例： C:\Users\you\MagicLeap\mlsdk\v0.x)
+
+### システム設定
+
+UE4 が SDK からコマンドを実行するには、コンピュータの環境変数にいくつかの（ユーザ変数ではない）システム変数を設定する必要があります。このウィンドウは、 **[ コントロールパネル ] - > [ システム ] - > [ システムの詳細設定 ] - > [ 環境変数 ]** にあります。
+
+![](image2_Add.png "image2_Add.png")
+
+まず、「 MLSDK 」というエントリを追加する必要があります。このエントリは、上記でインストールした /mlsdk を含むフォルダへのパスが含まれています。
+
+![](image3_Add.png "image3_Add.png")
+
+次に、 \%MLSDK%\tools\mldb を PATH 環境変数に追加します。
+
+![](image1_Add.png "image1_Add.png")
+
+最後に、マシンを再起動します。
+
+### サンプル プロジェクト
+
+Magic Leap ヘッドセットの早期サポートの一環として、 Unreal Engine で使用されているプラ​​ットフォームのユニークな機能を使用している小さなサンプル プロジェクトをまとめました。
+
+[LuminSample プロジェクトをダウンロードします。](http://epic.gm/psssample) これを、次の機能に関するドキュメントを読む際に、カスタム エディターを使用しながら参照してください。
+
+デバイスを接続して電源を入れます。初回起動時、デバイスが Unreal Engine のワールド基点として選択したものが鼻の位置となり、その X 軸は装着者から離れるにつれて大きくなります。*LuminSample* プロジェクトでは、すべてのコンテンツが 180 度回転しているため、ヘッドセットがユーザー側に向いた状態で開始されます。 
+
+パッケージ化された  *LuminSample* プロジェクトをナビゲートするにはコントローラーが必要です。メインメニューでは、タッチパッドを使用して、チェックする特定の例をハイライトできます。ハイライトされたら、タッチパッドを押してレベルをロードします。トリガーを押下中に ショルダー ボタンを押すと、いつでもメインメニューを非表示にすることができます。
+
+各サブレベルは完全に独立しており、必要に応じて個別にロードすることができます。
+
+## 機能
+
+### プレイヤーの位置
+
+
+*PlayerLocationAndGaze マップで例をご覧頂けます。 *
+
+Mixed Reality 体験を作成中、しばしばプレイヤーの頭の位置を取得して使用します。UE4 の他の HMD と違い、  *LuminSamplePawn* 内の  *CameraComponent* の  *GetWorldTransform* を呼び出すことで、これにアクセスすることができます。
+
+![image35](image35.png "image35")
+
+
+*独自のポーンを一から構築する場合は、カメラ コンポーネントを追加する必要があります。*
+
+ *LuminSample* では、ユーザーがシーンの周りを移動するときに、Robo Recall の Bot がその動き検知し照準を合わせて撮影します。ユーザーが Bot の後ろに回った場合には Bot を停止する、といったような設定もできます。ドローンもユーザーの周りを移動しながら、ユーザーについていきます。
+
+[REGION:lightbox]
+[![image7](image7.png "image7")](image7.png)
+[/REGION]
+ *Lumin_Biped* 、  *Lumin_Drone* 、  *LuminSamplePawn* ブループリントで、これらの動作がどのように接続されているかを確認してください。これは、プレイヤーの方に向く必要がある  *アクタ* の  *FindLookRotation* とプレイヤーの位置の結果に基づいて、  *アクタ* の回転または  *Anim Blueprints* を操作しています。
+[REGION:lightbox]
+[![image38](image38.png "image38")](image38.png)
+[/REGION]
+アイ トラッキングを使用していない場合は、 CameraCompoent のフォワード ベクターを利用して、プレーヤーの視線を推定し、その方向からトレースすることができます。この技術を使用すると、ユーザーが視線を集中させることで、ドローンはエモートできます。
+[REGION:lightbox]
+[![image2](image2.png "image2")](image2.png)
+[/REGION][](image2.png)
+
+### ワールド基点の表示
+
+
+* 例は LuminSamplePawn にあります *
+
+シンプルなことですが、コンテンツがどこにあるのかを知れるので便利です。
+
+![image18](image18.png "image18")
+
+ワールド基点の場所がわかると、ワールド空間で何をアップデートする必要があるのか、デバッグする際に役立ちます。上述のように、ワールド基点はデバイス初回起動したときに設定されます。位置は鼻の右側周辺となります。ワールド基点のデフォルトのフォワード ベクターは、ユーザーの視線の方向で、ヘッドセットに背を向けています。
+
+LuminSample* に、  *LuminSamplePawn* に対応する Boolean 変数 bShowWorldOrigin が追加されました。ワールド基点がどこにあるかについての簡単なデバッグ情報を切り替えることができます。この変数のデフォルト値をポーンに設定するか、実行時に切り替えてワールド基点を表示します。
+
+![image3](image3.png "image3")
+
+[REGION:lightbox]
+[![image15](image15.png "image15")](image15.png)
+[/REGION]
+
+### ジェスチャーとハンド トラッキング
+
+
+*例は LuminSamplePawn と GesturesAndTotem マップ にあります*
+
+Magic Leap One は、多くのジェスチャーをサポートしており、視野に入っているときに手の特定のポイントの位置を追跡します。デフォルトでは、探したいジェスチャーを有効にする必要があります。 これを設定するには、  *SetConfiguration* ノードを使用してください。 必要なジェスチャーの数を少数に絞ることで、それらをより正確に認識できるようになります。 これは  *LuminSamplePawn* で行います。
+
+![image9](image9.png "image9")
+
+ *GetCurrentGesture* を呼び出して列挙型の戻り値をチェックできます。それにより、片手両手に関わらず手のジェスチャーの情報を得ることができます。これは、 *LuminSamplePawn* にもあります。
+
+
+![](image37.png)
+
+手の詳細な部分を表す多くの「キーポイント」(指先や第一関節など)だけでなく、手の中心の位置情報も取得できます。キーポイント (*GetGestureKeypointTransform*) と手の中心 (*GetHandCenter*) を使用すると、「ユーザーの手の各部分がどこにあるか」といった事や、「何をしているか」といった多くの情報が得られます。*GesturesAndTotem* マップでは、フレームごとに手の中心やキーポイントにデバッグ球体を描画するために、  *LuminSamplePawn* にある  *bShowGestureDebug* を切り替えられます。
+
+![](image10.PNG "image10.PNG")
+
+![image19](image19.png "image19")
+
+上記の情報を参考にして、ワールド空間にあるものに「触れる」ことが可能です。*GesturesAndTotem* マップには、オーバーラップを探す  *InteractionSphere* があります。この例では、  *LuminPlayerPawn* にある  *bTryTouchOverlap* で、両手のすべてのキーポイントでオーバーラップするように切り替えています。おそらくもっと多くの方法がありますが、この例では、仮想オブジェクトに触れるときに利用可能なすべてのオプションを表示しています。
+
+[REGION:lightbox]
+[![image5](image5.png "image5")](image5.png)
+[/REGION]
+
+ジェスチャーを探すにはパフォーマンスコストがかかります。なので、コンテンツを考えるときはそのことを念頭に置いてください。
+
+### コントローラー入力
+
+![image14](image14.jpg "image14")
+
+
+*例は LuminSamplePawn と GesturesAndTotem マップ にあります*
+
+ほとんどの場合、コントローラーは他の VR モーションコントローラーと同じように動作します。タッチパッドは、左右に  *GetMotionController (R) Thumbstick X* 、上下に  *GetMotionController (R) Thumbstick Y* を適用することでポーリングできます。また、タッチパッドには、圧力感度用に Z 軸値があります。これは、ユーザーのタッチパッドを押す強さに基づいて、 0-1 の範囲でスケールされます。
+
+![image8](image8.png "image8")
+
+トリガーも同じように動作します。軸をポーリングしたり、イベントを取得できます。*GetMotionController (R) TriggerAxis* と  *MotionController (R) TriggerAxis* を探してみてください。
+
+![image11](image11.png "image11")
+
+![image27](image27.png "image27")
+
+他のものと同様に、 ショルダー ボタンは、  *MotionController (R) Shoulder* を使用して、イベントを押すことでリリースします。
+
+![image40](image40.png "image40")
+
+これらのすべては、  *LuminSamplePawn* で接続を確認できます。*LuminSample* の場合、イベント ディスパッチャーを呼び出して、入力を受け取ったときに他のブループリントがサブスクライブすることができます。これは、  *GesturesAndTotem* マップの  *GesturesAndTotemContainer* 内の、  *MainMenuActor* と  *TotemInputActor* を制御する方法です。
+
+![image34](image34.png "image34")
+
+### 部屋のスキャンとメッシュ化
+
+
+*例は WorldMeshing マップと LuminMeshActor にあります。*
+
+Magic Leap One には、部屋をスキャンして環境に関するジオメトリ データを提供する機能があります。これを既存の  *Mixed Reality Mesh (MRMesh)* システムに組み込みました。デベロッパーがそのエリアにクエリを使用し、その空間に動的にコンテンツを追加することができます。
+
+そのときユーザーに必要なのは、 2 つのコンポーネント  *MRMeshComponent* と  *MeshTrackerComponent*) を持つブループリント アクタです。
+
+![image39](image39.png "image39")
+
+メッシュ データを取得するためにワールドをスキャンしたい場合、  *ConnectMRMesh* 関数を使用してこれらの 2 つのコンポーネントを相互に関連付ける必要があります。ここでは、  *MeshTracker* はターゲットであり、  *MRMesh* は In MRMesh Ptr として渡されます。
+
+![image30](image30.png "image30")
+
+この  *LuminMeshActor* の  *MeshTrackerComponent* では、トラッキングされた場所で適切なものを探せるように、いくつかの設定を切り替えています。[details] パネルの [Meshing] -> [MagicLeap] セクションでは、次のように編集しています。
+
+*   [Scan World] を **true**
+*   [Mesh Type] を **Blocks**
+*   [Meshing Poll Time] を **0.5**
+*   [Bounding Volume] を **Box Collision**
+*   [Ignore Bounding Volume] を **true** (部屋全体をスキャンするため)
+*   [Planarize] を **true**
+
+![image20](image20.png "image20")
+
+メッシュは他の衝突物と同じ方法で物理に反応します。*WorldMeshing* マップでは、コントローラー上の ショルダーボタンを押すことで、 HMD のフォワード ベクターからワールドへトレースし、衝撃位置と通常のデバッグ情報を描画します。これを処理するには、  *LuminSamplePawn* に  *TestWorldHit* を切り替えます。
+
+[REGION:lightbox]
+[![image24](image24.png "image24")](image24.png)
+[/REGION]
+
+### マイクの入力
+
+
+*例は LuminSamplePawn と AudioExamples マップ にあります*
+
+Magic Leap One には、マイクが内蔵されており、入力をキャプチャして、さまざまな用途に使用できます。*AudioExamples* マップでは、  *LuminSamplePawn* に  *AudioCaptureComponent* を追加して、ゲームプレイ機能のマイクのエンベロープ値をモニタできます。
+
+![image41](image41.png "image41")
+
+アクティブになると、コンポーネントはマイクのエンベロープ値とイベントを送信します。コンポーネントからイベントを追加するには、コンポーネント リストからイベントを選択し、 [Details] パネルの下部にある緑色の「＋」が書いてあるボックスをクリックします。
+
+![image6](image6.png "image6")
+
+この例では、プレイヤーは風を吹くことができます。それにより、風の方向、凧の方向、少年の方向を変えることができ、それらは新しい風の方向に適応します。カスタムイベントの  *MicInputAudioValue* を  *OnAudioEnvelopeValue* にバインドすることで、マイクからの情報を必要な時のみ収集します。
+
+[REGION:lightbox]
+[![image22](image22.png "image22")](image22.png)
+[/REGION]
+[REGION:lightbox]
+[![image29](image29.png "image29")](image29.png)
+[/REGION][]
+
+### 空間化されたオーディオ
+
+*例は AudioActor_SoundSpawn* * と AudioExamples マップ にあります*
+
+ML1 用に開発するときは、他のプラットフォーム用にオーサリングする場合と同じテクニックを使用して、オーディオを空間化できます。このワークフローに加えて、空間的にランダムなサウンドを作成するために特別に作られたアクタを使用します。このアクタは次のサンプル コンテンツにあります。
+
+.../LuminSampleContent/AudioExample/AudioBlueprints/AudioActor_SoundSpawn
+
+このアクタの意図は、サウンド デザイナーが理解しやすいパラメータを使用することで、共通した環境音再生動作を作れるようにすることです。*AudioActor_SoundSpawn* アクタは、定義された半径内でランダムなサウンドを生成したり、ある特定の場所で単一のサウンドを再生するように設定できます。*AudioExamples* サンプルでは、​​このアクタを 2 つの特定の目的で使用しています。このシーンでは、 2 つのアクタが鳥のさえずりに対して、ランダムに呼びかけたり反応するように設定されています。3 つめのアクタは、凧にからまってごそごそした音を出しています。
+
+鳥は  *[Auto Start]* に設定されており、すぐに再生を開始します。*[Repeat]* にも設定されています。つまり、再生が完了した後、同じ設定で同じサウンドを再生し続けます。いずれのアクタも、  *[Use Overlaps]* は設定されていません。これにチェックを入れると、プレイヤーが定義された半径に入ったり出たりするときに、アクタのオンオフを切り替えできます。
+
+![image21](image21.png "image21")
+
+アクタ内部の動作について、設定がいくつかあります。この設定では、サウンドの発生間隔、スポーンさせるサウンドのランダム数、音量、ピッチ、サウンドがスポーンされる半径について制御することができます。この値を設定すると、半径内の X 座標空間と Y 座標空間内の位置がランダムに選択されます。ランダム Z オフセットを含める場合は、  *[B Include Height]* にチェックを入れます。
+
+![image32](image32.png "image32")
+
+シーンでは、シンプルに  *[Level Blueprint]* の  *[Repeat]* を設定しており、後半で鳥の音声を無効にしています。
+
+![image28](image28.png "image28")
+
+凧のアイドル オーディオでは、  *AudioActor_KiteIdle* という別のアクタを使用しています。このファイルは、  *Begin Play* にアタッチされています。
+
+![image31](image31.png "image31")
+
+
+*AudioActor_KiteIdle* は、他のオーディオ アクタとは異なる設定になっています。ここでは、設定で  *[Auto Start]* のチェックボックスがオフになっており、  *[Level Blueprint] * の  *[Execute Timer]* を使用してオーディオを手動で有効にしています。
+
+![image1](image1.png "image1")
+
+このアクタには、  *[Min and Max Timer]* の値があります。それを非常に低く設定して、カサカサ揺れるような音のループを作成することもできます。*[Min]* と  *[Max Spawns]* は 1 に設定されており、オーバーラップするサウンドはありません。
+
+![image4](image4.png "image4")
+
+ *[Spawn Radius]* も 1 に設定され、サウンドが凧の位置にローカライズされていることを確認します。
+
+![image23](image23.png "image23")
+
+また、シーンの後半で、  *[Level Blueprint]* の  *[Repeat]* を false に設定することで、サウンドがオフになります。
+
+## エンジンの設定
+
+### Vulkan と OpenGL
+
+Magic Leap One は、レンダリングを目的として OpenGL と Vulkan の両方をサポートしています。 [Project Settings]  - > [Platforms]  - > [Magic Leap] の 2 つのオプションを切り替えることができます
+
+![image17](image17.png "image17")
+
+### レンダラー (デスクトップ、モバイル)
+
+**[Project Settings] -> [Platforms] -> [Magic Leap]** にある「 Use Mobile Rendering 」を選択して、デスクトップとモバイルのレンダリングパスを選択することもできます。
+
+![image33](image33.png "image33")
+
+[REGION:note]
+デスクトップ レンダリングと Vulkan は現在、ソースのビルドで *のみ*  サポートされており、バイナリ(ランチャー) ビルドではサポートされていません。両方とも 4.20 バイナリで完全にサポートされる予定です。
+[/REGION]
+
+## パッケージ化、デプロイ、シミュレート
+
+### 起動
+
+他のプラットフォームと同様に、 [Launch] の横にあるドロップダウンをクリックしてから、 Magic Leap デバイスを選択して、エディタからデバイスに直接起動することができます。
+
+![image36](image36.png "image36")
+
+### パッケージ化
+
+**[File]->[Package Project]** の下にあるツールバーから .mpk をパッケージ化することもできます。
+
+![image26](image26.png "image26")
+
+[Launch] はデバイス上でアプリケーションを想定通りに直接実行します。パッケージ化したプロジェクトをインストールするには、コマンドラインを開いて  *mldb install /yourproject.mpk* を実行します。
+
+その後、ヘッドセットのメニューからアプリケーションを起動するか、コマンドラインで  *mldb launch* を実行します。そして、 com.yourcompany.yourproject を [Project Settings] で設定した識別子に置き換えます。
+
+### シミュレートする
+
+また、デバイスを持っていない場合は、シミュレータで Magic Leap Remote をイテレーションに使用することもできます。**[Project Settings]->[Plugins]->[Magic Leap Plugin]** で、 **Enable Zero Iteration** にチェックを入れます。**[Play]->[VR Preview]** を選択して、エディタを再起動すると VR プレビューで再生できます。
+
+![image16](image16.png "image16")
+
+## ターミナル コマンド
+
+以下は、よく使用される便利な MLDK ターミナル コマンドです。
+
+*   *mldb devices*  // コンピュータに接続されている認識されたデバイスのリストを表示します
+*   *mldb packages* // デバイスにインストールされているパッケージを表示します
+*   *mldb uninstall* // デバイスからパッケージをアンインストールします
+*   *mldb launch* // デバイスにパッケージがインストールされている場合は、それを起動します
+*   *mldb terminate* // アプリケーションが実行中の場合は、それを強制終了します
+*   *mldb reboot* // 接続されているデバイスを再起動します
+*   *mldb shutdown* // デバイスをシャットダウンします

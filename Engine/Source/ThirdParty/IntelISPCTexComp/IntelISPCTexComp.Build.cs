@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -34,7 +34,6 @@ public class IntelISPCTexComp : ModuleRules
             string LibraryFilePath = BinaryLibraryFolder + "/libispc_texcomp.dylib";
             PublicAdditionalLibraries.Add(LibraryFilePath);
             PublicDelayLoadDLLs.Add(LibraryFilePath);
-            PublicAdditionalShadowFiles.Add(LibraryFilePath);
             RuntimeDependencies.Add(LibraryFilePath);
         }
         else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) && Target.Architecture.StartsWith("x86_64"))

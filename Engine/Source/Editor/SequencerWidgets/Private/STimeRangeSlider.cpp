@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "STimeRangeSlider.h"
 #include "Rendering/DrawElements.h"
@@ -198,11 +198,21 @@ FReply STimeRangeSlider::OnMouseMove( const FGeometry& MyGeometry, const FPointe
 			if (bLeftHandleDragged)
 			{
 				NewIn = MouseDownViewRange.GetLowerBoundValue() + DragDelta;
-				NewOut = MouseDownViewRange.GetUpperBoundValue() - DragDelta;
+				
+				NewOut = MouseDownViewRange.GetUpperBoundValue();
+				if (MouseEvent.IsShiftDown()) 
+				{
+					NewOut -= DragDelta;
+				}
 			}
 			else
 			{
-				NewIn = MouseDownViewRange.GetLowerBoundValue() - DragDelta;
+				NewIn = MouseDownViewRange.GetLowerBoundValue();
+				if (MouseEvent.IsShiftDown())
+				{
+ 					NewIn -= DragDelta;
+				}
+
 				NewOut = MouseDownViewRange.GetUpperBoundValue() + DragDelta;
 			}
 

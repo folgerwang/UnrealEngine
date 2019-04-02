@@ -1,0 +1,195 @@
+Availability: Public
+Crumbs: 
+Title: Connecting Unreal Engine 4 to Maya with Live Link
+Description: Describes how you can connect Unreal Engine 4 (UE4) to a version of Maya which enables you to preview content from Maya inside UE4 in real-time. 
+Type:how-to
+Version: 4.19
+Parent: Engine/Animation/LiveLinkPlugin
+Order: 2
+Tags: Animation, Maya, Live Link
+
+In this How-to, we use the Live Link Plugin to connect Unreal Engine 4 (UE4) to Maya which enables us to control our Skeletal Mesh and animations inside Maya while live previewing them on a rendered Skeletal Mesh in UE4 in real-time.
+
+Using the Live Link Plugin can speed up your animation workflow as you no longer need to export your content and import it into UE4 to see how it looks, you can work directly inside Maya and through Live Link, preview what it will look like inside the Engine in real-time. In this How-to, we go through the process of getting Live Link set up for Maya and control a Skeletal Mesh animation in Maya while previewing it in UE4.
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    pe9WGDbJrv0
+    [/PARAMLITERAL]
+[/OBJECT]
+
+[REGION:note]
+For this guide we are using the Blueprint Third Person Template Project and Maya 2017. Live Link works with other versions of Maya and other DDC tools, for more information, please refer to the [Live Link Plugin](Engine/Animation/LiveLinkPlugin) documentation pages.
+[/REGION]
+
+## 1 - Enabling the Live Link Plugin
+
+1. Inside your project, from the **Menu Bar** under **Edit**, select **Plugins**.
+
+![](Step_01-1.png)
+
+2. Under the **Animation** section, click **Enabled** for **Live Link** and **Yes** on the confirmation window, then restart the Editor.
+
+![](Step_02-3.png)
+
+This will enable the Live Link plugin which can be used to connect to external DDC tools. In order for your DDC tool to connect to UE4, you will need to enable the corresponding plugin. For this How-to, we are focusing on Maya and need to enable the plugin inside Maya.
+
+Pre-built binaries of the Maya Live Link plugin are supplied with the Engine and can be found in your UE4 installation folder.
+
+3. Navigate to your UE4 installation folder, then under the **Engine\Extras\MayaLiveLink** folder, unzip the **LiveLinkMaya.zip** file.
+
+[REGION:warning]
+When 4.19 was deployed, the Maya Live Link plugin was not included in the Engine\Extras\MayaLiveLink folder as it should have been. Until a hotfix has been deployed to address this, you can use [THIS LINK](https://epicgames.app.box.com/s/awdz97dguh6k61opwy66ovfhn3gpk1hg) to download the content.
+[/REGION]
+
+![](Step_03-1.png)
+
+4. Copy the folder for your version of **Maya**, then navigation to your **Maya** installation folder and paste it in the **plug-ins** folder.
+
+![](Step_04-1.png)
+
+In the next step, we will enable the Live Link plugin inside of Maya and open the Maya Live Link UI window which enables you to see the connection status to a running version of the UE4 Editor.
+
+## 2 - Enabling Maya Live Link
+
+1. Open **Maya**, then under **Windows** and **Settings/Preferences**, select **Plug-in Manager**.
+
+    ![](Step_05-1.png)
+
+1. Click the **Browse** button, and then navigate to the copied MayaLiveLink folder and add the **.py** file.
+
+    ![](Step_06-1.png)
+
+1. Repeat the previous step and add the **.mll** file from the **Plug-in Manager**.
+
+    ![](Step_07-2.png)
+
+    Once added, you will see the plugins inside the Plug-in Manager as Loaded.
+
+1. In the **MEL** console in the lower-left of Maya, enter **MayaLiveLinkUI** then press **Enter**.
+
+    ![](Step_08-2.png)
+
+This will open the Maya Live Link UI Connection Status window.
+
+![](Step_09-1.png)
+
+In the upper-right of the window, the connection status is displayed to indicate if you are connected to a running version of the UE4 Editor. The lower window enables you to name and add/remove **Subjects** that you wish to stream to UE4 which we will do later in this guide.
+
+For now, we are not connected, however in the next step we will establish a connection to UE4, export an animation asset and Skeletal Mesh that we can use to work with in Maya and add it as a Subject to stream back to UE4 for live previewing.
+
+## 3 - Establishing a Connection to UE4
+
+1. Inside the UE4 Editor, from the **Menu Bar** under **Window**, select **Live Link**.
+
+    ![](Step_10-1.png)
+
+1. In the **Live Link** window, click the **Add** button, then under **Message Bus Source**, select your **Maya Live Link** source and click **Ok**.
+
+    ![](Step_11-2.png)
+
+    If you return to Maya, the Maya Live Link Connection Status window will update to reflect the new connection status.
+
+    ![](Step_11b-1.png)
+
+    Now that we are connected, we need a Subject to preview and test the connection.
+
+1. Inside UE4 in the **Content/Mannequin/Animations** folder, open the **ThirdPersonRun** asset.
+
+1. From the Toolbar, click **Export Asset** and select **Preview Mesh**.
+
+    ![](Step_12-1.png)
+
+1. Select **Yes** to export the Skeletal Mesh and choose an export location, then select **Export** at the **FBX Export Options** window
+
+    ![](Step_13-1.png)
+
+1. Inside Maya, under **File** select **Import** and import the FBX asset from the previous step.
+
+    ![](Step_14-1.png)
+
+1. Switch to **Animation** mode, and then select the **Root** bone for the character.
+
+    ![](Step_15-1.png)
+
+1. In the **Maya Live Link UI** window, click the **Add Subject** button.
+
+    ![](Step_16-2.png)
+
+    This will add the selection as the **Subject** to stream to UE4.
+
+    ![](Step_17-1.png)
+
+    The plugin knows that this is a joint hierarchy and labels the Subject as a Character. The name **Maya** is the name of the Subject which you can change in the text entry box. This name is important to remember as you will need to provide this inside UE4 as the Subject Name.
+
+Maya is now set up to stream our Subject to the UE4 Editor, in the next step, we will set up UE4 to receive the streamed Subject so that we can start to live preview the content from Maya inside UE4.
+
+## 4 - Live Link Preview Controller
+
+1. Inside UE4 under the **Content/Mannequin/Character/Mesh** folder, open the **SK_Mannequin** asset.
+
+1. Click the **Preview Scene Settings** tab, and then under **Preview Controller**, select **Live Link Preview Controller**.
+
+    ![](Step_18-1.png)
+
+1. Under **Subject Name** enter the name **Maya** and press **Enter**.
+
+    ![](Step_19-1.png)
+
+    If you entered your own name instead of the default name, you will need to enter that instead. The viewport will update and the character will enter the pose that the character is using inside Maya.
+
+    The character is rotated 90 degrees in this example due to the method in which this Skeletal Mesh was imported into the engine originally. We’ll fix this inside Maya in a moment.
+
+1. Enable the **Enable Camera Sync** option.
+
+    ![](Step_20-1.png)
+
+    This will sync UE4’s camera to the last viewport camera used inside Maya. Anytime you move the camera in Maya, UE4’s camera will update to match.
+
+1. Go to your **Editor Preferences**, and under **Performance**, disable the **Use Less CPU when in Background** option.
+
+    ![](DisableUseLessCPU-1.png)
+
+    This option throttles background performance on the Editor and stops the Editor from rendering while Maya has focus which will prevent us from seeing the updates in real time.
+
+1. Return to **Maya** and scrub the animation or move the camera in the viewport.
+
+## 5 - End Result
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    _ku41AVH16g
+    [/PARAMLITERAL]
+[/OBJECT]
+
+As you scrub the animation in Maya or move the camera, the character and camera movement in UE4 will update to match what you see in Maya. In this example, as previously noted, when this Skeletal Mesh was originally imported into UE4, the up axis is different so the character is rotated in UE4.
+
+For testing purposes, we added 90 to the Rotate X value and keyframed it at the start of the animation. A typical workflow would be to author your content in Maya, export the Skeletal Mesh and import it into UE4, follow the connection setup steps outlined in this guide to establish a connection, then preview animations authored in Maya on the Live Link Subject in UE4.
+
+You can also make changes to your animations and those will be reflected in real-time inside UE4 on the Live Link Subject.
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    pe9WGDbJrv0
+    [/PARAMLITERAL]
+[/OBJECT]
+
+Above we re-key the position of the head so the character is looking up while running and see what it would look like inside UE4. While this is a simplistic example of how to use the Live Link Plugin, there are much more advantages to this feature which you can find on the Live Link Plugin documentation page.

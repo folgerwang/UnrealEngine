@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2701255
+﻿INTSourceChangelist:3429254
 Availability: Public
 Title:在蓝图中同步 Actor
 Crumbs: %ROOT%, Gameplay, Gameplay\HowTo\Networking/ReplicateActor
@@ -7,6 +7,7 @@ Related: Engine/Blueprints
 Related: Resources/ContentExamples/Networking
 Version: 4.9
 SkillLevel: Advanced
+type:how-to
 
 [TOC (start:2 end:2)]
 
@@ -14,6 +15,7 @@ SkillLevel: Advanced
 在列举的两个示例中，**同步 Actors** 示例介绍了如何将 Actor 设置为同步以及同步和非同步的 Actor 之间的区别。
 第二个示例说明了如何通过使用 **Switch Has Authority** 节点（此节点检查当前正在运行蓝图脚本的是服务器还是客户端）动态生成和控制 Actor 的显示位置。 
 
+(#ReplicatingActors)
 ## 同步 Actor
 
  _在此示例中，我们使用的是 **含有起始资源的第三人称模板创建项目的蓝图**。_
@@ -68,6 +70,7 @@ SkillLevel: Advanced
 	当您在编辑器中开始游戏且打开新的客户端窗口时，您应注意到 Fire_NoReplicate 蓝图在服务器上显示，而未在客户端上显示。然而，如上所示，Fire_Replicate 蓝图同时显示在客户端和服务器上。 
 
 
+(#DynamicallySpawningReplicatedActors)
 ## 动态创建同步的 Actor
 
  _在此示例中，我们将继续以上 **Replicating Actors** 示例。_

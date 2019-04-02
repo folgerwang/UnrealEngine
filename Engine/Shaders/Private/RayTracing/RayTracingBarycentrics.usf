@@ -1,0 +1,75 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+#include "../Common.ush"
+#include "RayTracingCommon.ush"
+
+RWTexture2D<float4> Output;
+RaytracingAccelerationStructure TLAS;
+
+float3 ReconstructWorldPositionFromDepth(float2 UV, float Depth)
+{
+	float2 ScreenPosition = (UV - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
+	float4 HomogeneousWorldPosition = mul(float4(ScreenPosition * Depth, Depth, 1), View.ScreenToWorld);
+	float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+
+	return WorldPosition;
+}
+
+struct FBarycentricsPayload
+{
+	float2 Barycentrics;
+	bool Hit;
+};
+
+
+[shader("raygeneration")]
+void RayTracingBarycentricsMainRGS()
+{
+	uint2 PixelCoord = DispatchRaysIndex().xy;
+
+	float2 RenderTargetUV = (float2(PixelCoord) + .5f) * View.BufferSizeAndInvSize.zw;
+
+	RayDesc Ray;
+
+	Ray.Origin = ReconstructWorldPositionFromDepth(RenderTargetUV, 0.0f);
+	Ray.Direction = normalize(ReconstructWorldPositionFromDepth(RenderTargetUV, 10000.f) - Ray.Origin);
+	Ray.TMin = 0.5f; // 1 unit in UE4 = 1 cm -0> 0.5 ==> 5 mm
+	Ray.TMax = 1e27f;
+
+	uint RayFlags = 0
+	              | RAY_FLAG_CULL_BACK_FACING_TRIANGLES      // use back face culling
+	              | RAY_FLAG_FORCE_OPAQUE;                   // don't run anyhit shader
+
+	FBarycentricsPayload Payload = (FBarycentricsPayload)0;
+
+	TraceRay(
+		TLAS,   // AccelerationStructure
+		RayFlags,
+		RAY_TRACING_MASK_ALL,             // InstanceInclusionMask
+		RAY_TRACING_SHADER_SLOT_MATERIAL, // RayContributionToHitGroupIndex
+		RAY_TRACING_NUM_SHADER_SLOTS,     // MultiplierForGeometryContributionToShaderIndex
+		0,      // MissShaderIndex
+		Ray,    // RayDesc
+		Payload // Payload
+	);
+
+	float4 Result = float4(0, 0, 0, 1);
+	if (Payload.Hit)
+	{
+		Result = float4(Payload.Barycentrics, 1.0f - Payload.Barycentrics.x - Payload.Barycentrics.y, 1.0f);
+	}
+	Output[PixelCoord] = Result;
+}
+
+[shader("miss")]
+void RayTracingBarycentricsMainMS(inout FBarycentricsPayload Payload)
+{
+	Payload.Hit = false;
+}
+
+[shader("closesthit")]
+void RayTracingBarycentricsMainCHS(inout FBarycentricsPayload Payload, in FDefaultAttributes Attributes)
+{
+	Payload.Barycentrics = Attributes.Barycentrics;
+	Payload.Hit = true;
+}

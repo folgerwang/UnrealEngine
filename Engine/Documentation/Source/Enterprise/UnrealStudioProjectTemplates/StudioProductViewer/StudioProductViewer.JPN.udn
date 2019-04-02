@@ -1,0 +1,216 @@
+﻿INTSourceChangelist:4399490
+Availability: Public
+Crumbs: 
+Title: Unreal Studio Product Viewer テンプレート
+Description: Product Viewer テンプレートを使用して、PC および VR 用のインタラクティブな製品ビジュアライゼーションを作成する方法について説明します。
+Type:how-to
+Version: 4.20
+Parent: Enterprise/UnrealStudioProjectTemplates
+Order: 1
+Tags: Enterprise
+Tags: template
+Tags: studio
+reference-image:product_viewer.gif
+topic-image:studio-product-viewer-template-topic.png
+
+
+![Unreal Studio Product Viewer テンプレート](studio-product-viewer-template-banner.png "Unreal Studio Product Viewer Template")
+
+Product Viewer テンプレートは、デスクトップおよび VR デバイスで、すぐに使えるインタラクティブな製品ビジュアライゼーション体験を提供します。ビルトインのナビゲーション制御を使用して、モデルとやり取りし、構成要素を動かし、構成要素を透明化し、シーンをあちこちに移動することができます。
+
+インタラクションとナビゲーションのすべての制御は、プロジェクト内のブループリントによって提供されているため、それらをカスタマイズしたり、そこから学んだり、自分のプロジェクトにコピーしたりできます。
+
+このページでは、Product Viewer テンプレートの使用を開始するため、およびそれを自分のモデルで使用するために知っておくべきことをすべて説明します。
+
+## プロジェクトの再生
+
+Product Viewer にはいくつかのビルトイン モデルが付属しているため、新規プロジェクトを作成したらすぐにエディタで動かしてみることができます。
+
+[REGION:asyncgif]
+![](product_viewer.gif)(w:620 convert:false)
+[/REGION]
+
+[REGION:note]
+プロジェクトを VR で試してみる場合は、後述の「[エディタでの VR のテスト](#エディタでのVRのテスト)」を参照してください。
+[/REGION]
+
+### シーンのナビゲーション
+
+Product Viewer では、デスクトップ用と VR 用のさまざまなナビゲーション モードが提供されています。
+
+#### デスクトップ軌道モード (マウス ナビゲーション)
+
+デスクトップ表示でのデフォルトのナビゲーション モードは **軌道モード** です。このモードでは、カメラの中心は常に 3D ワールドでの特定のスポットにあります。
+
+| 目的...| 操作...|
+| ---| ---|
+| 現在の注視点の周りで回転する| 右クリックしてドラッグ|
+| 現在のズーム レベルを維持したまま、カメラの注視点を新しい場所に変更する| 左クリック|
+| カメラの注視点を新しい場所に変更し、ビューポートで新しいオブジェクトに合わせてズームする| 中ボタンをクリック|
+| カメラを横向き、上向き、または下向きにパンする| 中ボタンをクリックしてドラッグ|
+| 現在の注視点にズームインまたはズームアウトする| マウス ホイールを使用|
+
+[REGION:tip]
+軌道モードでシーン内のオブジェクトを注視点として選択できるようにするには、そのオブジェクトがインタラクティブ オブジェクトまたはテレポート可能サーフェスのいずれかとして設定されている必要があります。後述の「[独自コンテンツの追加](#独自コンテンツの追加)」を参照してください。
+[/REGION]
+
+#### デスクトップ飛行モード (キーボード ナビゲーション)
+
+**飛行モード** ナビゲーションでは、キーボードを使いシーンの周りでカメラを移動できます。
+
+| 目的...| 操作...|
+| ---| ---|
+| カメラが面している軸に沿ってカメラを前後に動かす| 	W キーおよび S キー|
+| カメラが面している軸に垂直にカメラを左右に動かす| A キーおよび D キー|
+| ワールドの Z 軸に沿ってカメラを上下に動かす| E キーおよび Q キー|
+| 新しい方向にカメラを回転する| 右クリックしてドラッグ|
+
+[REGION:note]
+飛行モードでは、オブジェクトを選択するインタラクション制御、オブジェクトの移動、および X-Ray の制御は無効になります。
+[/REGION]
+
+Product Viewer を飛行モードを使用するように切り替えるには、以下の操作を行います。
+
+1. **[ワールド アウトライナー]** パネルで **[ProductViewer_Collector]** アクタを見つけて選択します。
+    ![Product Viewer Collector を選択](studio-template-product-viewer-collector_world_outliner.png "Select the Product Viewer Collector")
+2. **[詳細]** パネルの **[Product Viewer]** セクションで、**[ナビゲーション モード]** 設定を [Flying Mode (飛行モード)] に変更します。
+    ![飛行モードの設定](studio-template-product-viewer-collector-details-navigation.png "Flying Mode settings")
+3. デフォルトでは、飛行モードの間は、コリジョン メッシュがセットアップされているオブジェクトであっても、シーン内のすべてのオブジェクトを通過できます。コリジョン メッシュのあるオブジェクトを通過できないようにする場合は、**[No Collision on Flying Mode (飛行モードでのコリジョンなし)]** チェックボックスをオフにします。
+
+#### VR テレポート モード
+
+Product Viewer を VR で実行している場合、シーンでのビューポイントはヘッドセットと VR シーンでの位置によって制御されています。シーン内の別の位置に移動する必要がある場合は、左側のコントローラーを使用して自身をテレポートします。
+
+1. 左側のコントローラーのサムスティック ボタンをクリックします。地面に重ね合わされたターゲット マーカーが現れます。
+    ![Product Viewer のテレポート](VRController.png "Product Viewer teleport")
+2. ターゲット マーカーが VR シーン内の移動したい場所に現れるまで、左側のコントローラーを空間内で動かします。
+3. 左側のコントローラーのサムスティックを前後に押すと、ターゲット マーカーが回転して、テレポート後の面方向が示されます。
+4. ターゲット マーカーが移動先の位置にあって右方向を指しているときに、サムスティック ボタンを放します。
+
+[REGION:tip]
+デフォルトでは、テレポートできるのはフロアだけです。独自コンテンツを追加している場合は、テレポート先のサーフェスを正確に指定できます。後述の「[独自コンテンツの追加](#独自コンテンツの追加)」を参照してください。
+[/REGION]
+
+### オブジェクトの選択と移動
+
+インタラクティブとして識別されている、シーン内のあらゆる可動オブジェクトを選択して移動できます。
+
+[REGION:tip]
+どのオブジェクトがインタラクティブかを定義する手順については、後述の「[独自コンテンツの追加](#独自コンテンツの追加)」を参照してください。
+[/REGION]
+
+#### デスクトップ
+
+| 目的...| 操作...|
+| ---| ---|
+| オブジェクトをシーン内の新しい位置に移動する| オブジェクトを左クリックしてドラッグ|
+| オブジェクトを元の位置にスナップして戻す| オブジェクトを右クリック|
+
+#### VR
+
+VR では、右側のコントローラーを使用してオブジェクトを選択および移動します。
+
+| 目的...| 操作...|
+| ---| ---|
+| オブジェクトをハイライトする| 右側のコントローラーのレーザー セレクタでオブジェクトをポイントする|
+| オブジェクトをつかむ| 	オブジェクトをハイライトしてから右側のトリガー ボタンを押す|
+| オブジェクトを動かす| リアルワールド空間でオブジェクトをつかんでから右側のコントローラーを動かす|
+| 新しい位置でオブジェクトを放す| 右側のコントローラーのトリガー ボタンを放す|
+| オブジェクトを開始位置にスナップして戻す| オブジェクトをハイライトしてから右側のコントローラーのグリップ ボタンを押す|
+
+### X-Ray モードの使用
+
+X-Ray モードを使用して、Product Viewer でインタラクティブなオブジェクトを作成できます。X-Ray モードでは、オブジェクトはほぼ透明であり、一時的にインタラクティブではなくなります。これにより、その背後のオブジェクトを確認およびやり取りできるようになります。
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![X-Ray オフ](studio-template-product-viewer-xray-off.png)
+ [/PARAM]
+ [PARAM:after]
+ ![X-Ray オン](studio-template-product-viewer-xray-on.png)
+ [/PARAM]
+[/OBJECT]
+
+[X-Ray] メニューから以下のオプションを選択できます。
+
+| メニュー項目| エフェクト|
+| ---| ---|
+| Apply X-ray (X-Ray を適用)| ハイライトされているオブジェクトを X-Ray モードに切り替える|
+| Isolate X-ray (X-Ray を分離)| ハイライトされているオブジェクトは不透明のままで、他のすべてのオブジェクトを X-Ray モードに切り替える|
+| Clear All X-ray (すべての X-Ray をクリア)| シーン内のすべてのオブジェクトを元のマテリアルにリセットする|
+
+#### デスクトップ
+
+[X-Ray] メニューを開くには、インタラクティブなオブジェクトにカーソルを合わせてスペース キーを押します。
+
+#### VR
+
+VR で [X-Ray] メニューを開いてオプションを選択するには、右側のコントローラーのサムスティックを前または後に押します。サムスティック ボタンを押して、現在の選択を確定します。
+
+![VR での Product Viewer メニュー](studio-template-product-viewer-xray-vr.png "Product Viewer menu in VR")
+
+  
+
+### エディタでの VR のテスト
+
+VR がセットアップされているコンピューターで、クックしたバージョンまたはスタンドアローン バージョンの Product Viewer を起動すると、スプラッシュ画面でデスクトップ制御または VR 制御のどちらを使用して起動するかを選択できます。
+
+![Product Viewer のスプラッシュ画面](studio-template-product-viewer-startup-vr.png "Product Viewer splash screen")
+
+ただし、VR 制御を使用してエディタで Product Viewer をテストする場合は、以下のステップに従う必要があります。
+
+1. **[ワールド アウトライナー]** パネルで **[ProductViewer_Collector]** アクタを見つけて選択します。
+    ![Product Viewer Collector を選択](studio-template-product-viewer-collector_world_outliner.png "Select the Product Viewer Collector")
+1. **[詳細]** パネルの **[Product Viewer]** セクションで、**[VR Preview (VR プレビュー)]** オプションを選択します。
+    ![Product Viewer の VR プレビューの設定](studio-template-product-viewer-collector-details-vrpreview.png "Product Viewer VR Preview setting")
+1. プレビューを起動するには、ツールバーの **[再生]** ボタンの横にあるドロップダウンの矢印を使用して **[VR Preview (VR プレビュー)]** を選択します。
+   ![ツールバーにある VR Preview (VR プレビュー)](studio-template-product-viewer-vr-preview.png "VR Preview in the Toolbar")
+
+[REGION:note]
+ゲームをクックする前に、この設定をオフに戻すことを忘れないでください。そうしないと、生成されたパッケージは想定どおりに動作しません。
+[/REGION]
+
+## 独自コンテンツの追加
+
+ビルトイン コンテンツを使用して Product Viewer がどのように動作するかを確認したら、独自のモデルに取り込んで、それを実際に動作させてみます。
+
+1. 自分のコンテンツをプロジェクトにインポートします。コンテンツをプロジェクトに取り込むには、FBX としてインポート、[Datasmith](https://docs.unrealengine.com/en-us/Studio/Datasmith) を使用してインポート、マーケットプレイスまたは別の機能やコンテンツ パックから追加などの方法を使用できます。
+1. 検討するモデルをデフォルトの **ProductViewer/Levels/ProductViewer** レベルに追加します。
+1. 実行時に動かすことができるようにするすべてのスタティック メッシュ アクタの **[可動性]** オプションが **[可動]** に設定されていることを **[詳細]** パネルで確認します。
+    [REGION:lightbox]
+    [![アクタの可動性の設定](studio-template-accumulator-mobility.png "Actor Mobility setting")](studio-template-accumulator-mobility.png) *クリックしてフルサイズで表示*
+    [/REGION]
+1. **[ワールド アウトライナー]** パネルで **[ProductViewer_Collector]** アクタを選択します。
+    ![Product Viewer Collector を選択](studio-template-product-viewer-collector_world_outliner.png "Select the Product Viewer Collector")
+1. **[詳細]** パネルで **[Product Viewer]** セクションを探します。
+    ![Product Viewer のインタラクティブ ルートとテレポート サーフェス ルート](studio-template-product-viewer-collector-details-rootlists.png "Product Viewer interactive root and teleport surface root")
+
+ProductViewer_Collector アクタには上記の 2 つの主要な設定があります。
+
+*   **[Interactive Root (インタラクティブ ルート)]** は、シーン内でプレイヤーがやり取りできるオブジェクトのリストです。
+*   **[Teleport Surface Root (テレポート サーフェス ルート)]** は、VR モードのシーン内でプレイヤーがテレポート先として使用できるオブジェクトのリストです。
+
+プレイヤーがやり取りまたはテレポートできるようにする各独自モデルをこれらのリストに追加できます。
+
+[REGION:tip]
+Datasmith を使用してコンテンツをインポートした場合、レベル内の Datasmith シーン アクタはすでにインポートしたすべてのスタティック メッシュ アクタの親になっています。**[Interactive Root (インタラクティブ ルート)]** リストに新規エントリを追加し、それが Datasmith シーン アクタを指すように設定すると、そのすべての子は自動的にインタラクティブになります。
+[/REGION]
+
+あるいは、インタラクティブにするか、またはすでにリスト内にある別のオブジェクトにテレポートできるようにするスタティック メッシュ アクタを親にすることもできます。たとえば、デフォルトでは ProductViewer_Collector の **[Interactive Root (インタラクティブ ルート)]** リストには `Interactive_Root` という名前のアクタのエントリ 1 つだけがあります。そのアクタを **[ワールド アウトライナー]** で見つけると、そのアクタがギア、ボール、および懐中電灯を表す多数の子アクタの親であることがわかります。
+
+![Interactive_Root アクタ](studio-template-product-viewer-interactive-root.png "Interactive_Root Actor")
+
+**[Interactive Root (インタラクティブ ルート)]** リスト内のすべての子アクタも自動的にインタラクティブとしてマークされます。そのため、ユーザーは既存の `Interactive_Root` アクタ内で独自モデルを親を変更するだけで済みます。**[ワールド アウトライナー]** 内で独自モデルをドラッグ＆ドロップすることによって親を変更できます。
+
+## 別のプロジェクトへの Product Viewer の追加
+
+自分のコンテンツが別のプロジェクトにある場合は、ナビゲーションおよびインタラクションの制御を Product Viewer から別のプロジェクトに追加できます。
+
+1. Product Viewer の制御を使用して機能強化するプロジェクトとレベルを開きます。
+1. [コンテンツ ブラウザ] で **[新規追加] > [機能またはコンテンツ パックの追加]** を選択します。
+    ![](studio-template-product-viewer-add-feature.png "studio-template-product-viewer-add-feature.png")
+1. **[Add Content to the Project (プロジェクトにコンテンツを追加)]** ウィンドウで **[Unreal Studio Feature (Unreal Studio の機能)]** タブを開きます。**[Product Viewer]** のサムネイルをクリックし、**[\+ Add to Project (\+ プロジェクトに追加)]** をクリックします。
+    ![](studio-template-product-viewer-add-content-window.png "studio-template-product-viewer-add-content-window.png")
+1. **[X]** をクリックして **[Add Content to the Project (プロジェクトにコンテンツを追加)]** ウィンドウを閉じます。
+1. [コンテンツ ブラウザ] で **[ProductViewer/Blueprints/ProductViewer_Collector]** ブループリント アクタを見つけて、それをレベル ビューポートにドラッグ＆ドロップします。
+1. 最後に、上記の「[独自コンテンツの追加](#独自コンテンツの追加)」の手順に従って、レベル内の ProductViewer_Collector アクタをセットアップします。

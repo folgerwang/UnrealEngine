@@ -1,6 +1,6 @@
 ﻿INTSourceChangelist:3807090
-Title: 안드로이드 Vulkan 모바일 렌더러
-Description:Vulkan 모바일 렌더러 작업이 가능한 UE4 안드로이드 프로젝트 구성 방법입니다.
+Title: Android Vulkan 모바일 렌더러
+Description:Vulkan 모바일 렌더러 작업이 가능한 UE4 Android 프로젝트 구성 방법입니다.
 Crumbs:
 Availability:Public
 version:4.12
@@ -13,7 +13,7 @@ type:reference
 
 [TOC(start:2)]
 
-언리얼 엔진 4 (UE4) 에는 **Vulkan** 그래픽 API 지원이 내장되어 있습니다. Vulkan 은 부하가 적은 크로스 플랫폼 3D 그래픽 라이브러리로, 안드로이드 기반 모바일 프로젝트에서 GPU 에 대한 보다 세밀한 제어 및 CPU 사용량을 낮출 수 있습니다. 여기서는 UE4 안드로이드 프로젝트에서 Vulkan 을 켜고 사용하는 법을 다루겠습니다.
+언리얼 엔진 4 (UE4) 에는 **Vulkan** 그래픽 API 지원이 내장되어 있습니다. Vulkan 은 부하가 적은 크로스 플랫폼 3D 그래픽 라이브러리로, Android 기반 모바일 프로젝트에서 GPU 에 대한 보다 세밀한 제어 및 CPU 사용량을 낮출 수 있습니다. 여기서는 UE4 Android 프로젝트에서 Vulkan 을 켜고 사용하는 법을 다루겠습니다.
 
 [region:warning]
 Vulkan 은 현재 많은 부분이 개발중이며, 현 단계에서는 **실험단계 기능** 으로 간주해야 할 것입니다. Vulkan 을 사용한 모바일 프로젝트를 빌드하여 디플로이하려면, UE4 GitHub 브랜치에서 UE4 4.12 버전 이상을 다운로드하여 컴파일해야 합니다.
@@ -38,7 +38,7 @@ Vulkan 은 현재 많은 부분이 개발중이며, 현 단계에서는 **실험
 ## Vulkan 용 빌드하기
 Vulkan API 가 지원되는 UE4 프로젝트를 빌드하는 방법은 다음과 같습니다:
 
-1. 시작하기에 앞서, 안드로이드 스마트폰이 개발 PC 에 USB 로 연결되어 있는지, 스마트폰의 개발자 모드가 켜져있는지 확인해 주시기 바랍니다.
+1. 시작하기에 앞서, Android 스마트폰이 개발 PC 에 USB 로 연결되어 있는지, 스마트폰의 개발자 모드가 켜져있는지 확인해 주시기 바랍니다.
 
 1. 다음, UE4 GitHub 브랜치에서 UE4 최신 버전을 다운로드하여 컴파일합니다. 런처의 바이너리 버전은 Vulkan 빌드가 불가능하기 때문입니다.
 
@@ -103,7 +103,7 @@ Vulkan API 가 지원되는 UE4 프로젝트를 빌드하는 방법은 다음과
 	클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1. 다음, **플랫폼** 아래 **Android** (안드로이드) 섹션을 찾습니다.
+1. 다음, **플랫폼** 아래 **Android** 섹션을 찾습니다.
 	
 	[REGION:lightbox]
 	[![](VMP_Android_Settings_00.png)(w:639)](VMP_Android_Settings_00.png)
@@ -113,7 +113,7 @@ Vulkan API 가 지원되는 UE4 프로젝트를 빌드하는 방법은 다음과
 	클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1. **APKPackaging** (APK 패키징) 아래 안드로이드 섹션에서 **Minimum SDK Version** (최소 SDK 버전)을 **19**, **Target SDK Version** (대상 SDK 버전)을 **19** 로 설정합니다. 
+1. **APKPackaging** (APK 패키징) 아래 Android 섹션에서 **Minimum SDK Version** (최소 SDK 버전)을 **19**, **Target SDK Version** (대상 SDK 버전)을 **19** 로 설정합니다. 
 
 	[REGION:lightbox]
 	[![](VMP_Android_Settings_01.png)(w:639)](VMP_Android_Settings_01.png)
@@ -137,7 +137,7 @@ Vulkan API 가 지원되는 UE4 프로젝트를 빌드하는 방법은 다음과
 	클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1. **Android SDK** (안드로이드 SDK) 섹션에서 **SDKConfig** (SDK 환경설정) 경로가 개발 PC 의 SDK 경로로 맞게 되어있는지 확인합니다.
+1. **Android SDK** (Android SDK) 섹션에서 **SDKConfig** (SDK 환경설정) 경로가 개발 PC 의 SDK 경로로 맞게 되어있는지 확인합니다.
 
 	[REGION:lightbox]
 	[![](VMP_Android_Settings_03.png)(w:639)](VMP_Android_Settings_03.png)
@@ -147,7 +147,7 @@ Vulkan API 가 지원되는 UE4 프로젝트를 빌드하는 방법은 다음과
 	클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1. 메뉴 바에서 **파일** > **패키지 프로젝트** > **안드로이드** 에서 **안드로이드 (ASTC)** 옵션을 선택합니다.
+1. 메뉴 바에서 **파일** > **패키지 프로젝트** > **Android** 에서 **Android (ASTC)** 옵션을 선택합니다.
 	
 	[REGION:lightbox]
 	[![](VMP_Package_Game.png)(w:329)](VMP_Package_Game.png)
@@ -157,7 +157,7 @@ Vulkan API 가 지원되는 UE4 프로젝트를 빌드하는 방법은 다음과
 	클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1. 안드로이드 빌드를 저장할 위치를 선택한 뒤 **확인** 버튼을 눌러 패키지 프로세스를 시작합니다.
+1. Android 빌드를 저장할 위치를 선택한 뒤 **확인** 버튼을 눌러 패키지 프로세스를 시작합니다.
 
 	[REGION:lightbox]
 	[![](VMP_Save_Build_Location.png)(w:245)](VMP_Save_Build_Location.png)

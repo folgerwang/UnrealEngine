@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:4320148
 Availability: Public
 Crumbs: %ROOT%, Platforms
-Title: Mixed Reality Development
-Description: Mixed Reality Development
+Title: 混合现实开发
+Description: 混合现实开发
 Platform: Mixed Reality
 Version: 4.20
 Parent: Platforms
@@ -12,15 +12,15 @@ Tags: Early Access
 Tags: Landing Page
 
 
-The Mixed Reality Capture (MRC) framework makes it easy for users to composite real players into a virtual play space.
+混合现实捕捉（MRC）框架使用户可以更轻松地将真实玩家合成到虚拟游戏空间中。
 
-## Getting Started
+## 入门
 
 %Platforms/MR/MROverview:topic%
 %Platforms/MR/MRQuickStart:topic%
 %Platforms/MR/MRHowToCaptureCalibrationTool:topic%
 
-## Reference
+## 参考
 
 %Platforms/MR/MRSupportedVideoDevices:topic%
 %Platforms/MR/MRTroubleshooting:topic%

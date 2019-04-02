@@ -1,0 +1,74 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================================
+PathTracingSpecularTransmission.usf: Pure specular transmission BTDF sampling functions
+===============================================================================================*/
+
+#pragma once
+
+void SpecularRefraction_SampleMaterial(
+	float3 RayDirection,
+	FMaterialClosestHitPayload Payload,
+	float4 RandSample,
+	out float3 OutDirection,
+	out float3 OutThroughput,
+	out float OutPdf,
+	out float OutPositionBiasSign)
+{
+	float3 N_World = GetWorldNormal(Payload);
+	float3 SpecularColor = GetSpecularColor(Payload);
+
+	float3 V_World = normalize(-RayDirection);
+	float3 V_Local = WorldToTangent(V_World, N_World);	
+	const bool bIsEntering = V_Local.z >= 0.0;
+
+	// Should be an input to this function, using a stack of medium. How to handle non-water tight geometry?
+	const float IorI = 1;
+	const float IorT = Payload.Ior;
+
+	const float3 F = FresnelDielectric(V_Local.z, IorI, IorT);
+    const float Favg = (F.x + F.y + F.z) / 3.0f;
+	const bool bIsReflected = RandSample.x < F.x;
+	
+	float3 L_Local;
+	if (bIsReflected)
+	{
+        L_Local = float3(-V_Local.x, -V_Local.y, V_Local.z);
+
+		OutThroughput =  F / abs(L_Local.z);
+        OutPdf = 1.0f / Favg;
+		OutPositionBiasSign = bIsEntering ? 1 : -1;
+	}
+	else
+	{
+		const float Eta = bIsEntering ? IorI / IorT : IorT / IorI;
+		const float3 N = float3(0.0, 0.0, bIsEntering ? 1.0f : -1.0f);
+		const bool bIsTIR = !BSDF_Refract(V_Local, N, Eta, L_Local);
+		if (bIsTIR)
+		{
+			OutThroughput = 1;
+			OutPdf = 1;
+			OutPositionBiasSign = bIsEntering ? 1 : -1;
+		}
+		else
+		{
+			float SqrRatio = 1.0; // (IorI * IorI) / (IorT * IorT);	// SqrRatio is 1 for light rays	
+			OutThroughput = SqrRatio * (1 - F) / abs(L_Local.z);
+			OutPdf = 1.0f / (1.0f - Favg);
+			OutPositionBiasSign = bIsEntering ? -1 : 1;
+		}
+	}
+
+	OutDirection = TangentToWorld(L_Local, N_World);
+} 
+
+float SpecularTransmission_Pdf()
+{
+	return 0.0;
+}
+
+void SpecularTransmission_EvalMaterial(out float3 OutThroughput, out float OutPdf)
+{
+	OutThroughput = float3(0.0, 0.0, 0.0);
+	OutPdf = SpecularTransmission_Pdf();
+}

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -33,6 +33,9 @@ public:
 
 	// Collision Handling...
 	virtual bool ParticleLineCheck(FHitResult& Hit, AActor* SourceActor, const FVector& End, const FVector& Start, const FVector& Extent, const FCollisionObjectQueryParams&) override;
+
+	virtual bool Editor_CanBeTickManaged()const { return false; }
+
 protected:
 	virtual void UpdateLODInformation() override;
 };

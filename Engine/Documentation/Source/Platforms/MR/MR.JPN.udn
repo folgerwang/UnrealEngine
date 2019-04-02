@@ -1,0 +1,26 @@
+﻿INTSourceChangelist:4320148
+Availability:Public
+Crumbs: %ROOT%, Platforms
+Title:Mixed Reality 開発
+Description:Mixed Reality 開発
+Platform:Mixed Reality
+Version:4.20
+Parent:Platforms
+Order:0
+Tags:MR
+Tags:Early Access
+Tags:Landing Page
+
+
+Mixed Reality Capture (MRC) フレームワークは現実世界のプレイヤーをバーチャルゲーム空間にコンポジットすることを簡単にします。
+
+## はじめよう
+
+%Platforms/MR/MROverview:topic%
+%Platforms/MR/MRQuickStart:topic%
+%Platforms/MR/MRHowToCaptureCalibrationTool:topic%
+
+## リファレンス
+
+%Platforms/MR/MRSupportedVideoDevices:topic%
+%Platforms/MR/MRTroubleshooting:topic%

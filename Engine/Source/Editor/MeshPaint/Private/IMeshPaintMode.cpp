@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "IMeshPaintMode.h"
 #include "SceneView.h"
@@ -80,7 +80,7 @@ void IMeshPaintEdMode::Enter()
 	FEditorDelegates::PostSaveWorld.AddSP(this, &IMeshPaintEdMode::OnPostSaveWorld);
 
 	// Catch assets if they are about to be (re)imported
-	FEditorDelegates::OnAssetPostImport.AddSP(this, &IMeshPaintEdMode::OnPostImportAsset);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetPostImport.AddSP(this, &IMeshPaintEdMode::OnPostImportAsset);
 	FReimportManager::Instance()->OnPostReimport().AddSP(this, &IMeshPaintEdMode::OnPostReimportAsset);
 
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
@@ -172,7 +172,7 @@ void IMeshPaintEdMode::Exit()
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	AssetRegistryModule.Get().OnAssetRemoved().RemoveAll(this);
 	FReimportManager::Instance()->OnPostReimport().RemoveAll(this);
-	FEditorDelegates::OnAssetPostImport.RemoveAll(this);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetPostImport.RemoveAll(this);
 	FEditorDelegates::PreSaveWorld.RemoveAll(this);
 	FEditorDelegates::PostSaveWorld.RemoveAll(this);
 	GEditor->OnObjectsReplaced().RemoveAll(this);
@@ -182,13 +182,13 @@ void IMeshPaintEdMode::Exit()
 	FEdMode::Exit();
 }
 
-bool IMeshPaintEdMode::CapturedMouseMove( FEditorViewportClient* InViewportClient, FViewport* InViewport, int32 InMouseX, int32 InMouseY )
+bool IMeshPaintEdMode::ProcessCapturedMouseMoves( FEditorViewportClient* InViewportClient, FViewport* InViewport, const TArrayView<FIntPoint>& CapturedMouseMoves)
 {
 	// We only care about perspective viewpo1rts
 	bool bPaintApplied = false;
 	if( InViewportClient->IsPerspective() )
 	{
-		if( MeshPainter->IsPainting() )
+		if( MeshPainter->IsPainting() && CapturedMouseMoves.Num() > 0 )
 		{
 			// Compute a world space ray from the screen space mouse coordinates
 			FSceneViewFamilyContext ViewFamily( FSceneViewFamily::ConstructionValues( 
@@ -197,9 +197,18 @@ bool IMeshPaintEdMode::CapturedMouseMove( FEditorViewportClient* InViewportClien
 				InViewportClient->EngineShowFlags)
 				.SetRealtimeUpdate( InViewportClient->IsRealtime() ));
 			FSceneView* View = InViewportClient->CalcSceneView( &ViewFamily );
-			FViewportCursorLocation MouseViewportRay( View, (FEditorViewportClient*)InViewport->GetClient(), InMouseX, InMouseY );
+
+			TArray<TPair<FVector, FVector>> Rays;
+			Rays.Reserve(CapturedMouseMoves.Num());
+
+			FEditorViewportClient* Client = (FEditorViewportClient*)InViewport->GetClient();
+			for (int32 i = 0; i < CapturedMouseMoves.Num(); ++i)
+			{
+				FViewportCursorLocation MouseViewportRay(View, Client, CapturedMouseMoves[i].X, CapturedMouseMoves[i].Y);
+				Rays.Emplace(TPair<FVector, FVector>(MouseViewportRay.GetOrigin(), MouseViewportRay.GetDirection()));
+			}
 			 					
-			bPaintApplied = MeshPainter->Paint(InViewport, View->ViewMatrices.GetViewOrigin(), MouseViewportRay.GetOrigin(), MouseViewportRay.GetDirection());
+			bPaintApplied = MeshPainter->Paint(InViewport, View->ViewMatrices.GetViewOrigin(), Rays);
 		}
 	}
 
@@ -349,9 +358,8 @@ void IMeshPaintEdMode::OnObjectsReplaced(const TMap<UObject*, UObject*>& OldToNe
 void IMeshPaintEdMode::OnResetViewMode()
 {
 	// Reset viewport color mode for all active viewports
-	for (int32 ViewIndex = 0; ViewIndex < GEditor->AllViewportClients.Num(); ++ViewIndex)
+	for(FEditorViewportClient* ViewportClient : GEditor->GetAllViewportClients())
 	{
-		FEditorViewportClient* ViewportClient = GEditor->AllViewportClients[ViewIndex];
 		if (!ViewportClient || ViewportClient->GetModeTools() != GetModeManager())
 		{
 			continue;
@@ -381,13 +389,13 @@ void IMeshPaintEdMode::Render( const FSceneView* View, FViewport* Viewport, FPri
 		/** If we are currently painting with a VR interactor, apply paint for the current vr interactor state/position */
 		if (PaintingWithInteractorInVR != nullptr)
 		{
-			UVREditorInteractor* VRInteractor = Cast<UVREditorInteractor>(PaintingWithInteractorInVR);
+			UVREditorInteractor* VREditorInteractor = Cast<UVREditorInteractor>(PaintingWithInteractorInVR);
 			FVector LaserPointerStart, LaserPointerEnd;
-			if (VRInteractor->GetLaserPointer( /* Out */ LaserPointerStart, /* Out */ LaserPointerEnd))
+			if (VREditorInteractor->GetLaserPointer( /* Out */ LaserPointerStart, /* Out */ LaserPointerEnd))
 			{
 				const FVector LaserPointerDirection = (LaserPointerEnd - LaserPointerStart).GetSafeNormal();
 				UVREditorMode* VREditorMode = Cast<UVREditorMode>(GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions(GetWorld())->FindExtension(UVREditorMode::StaticClass()));
-				MeshPainter->PaintVR(Viewport, VREditorMode->GetHeadTransform().GetLocation(), LaserPointerStart, LaserPointerDirection, VRInteractor);
+				MeshPainter->PaintVR(Viewport, VREditorMode->GetHeadTransform().GetLocation(), LaserPointerStart, LaserPointerDirection, VREditorInteractor);
 			}
 		}
 		else if (MeshPainter->GetBrushSettings()->bEnableFlow)
@@ -456,18 +464,18 @@ void IMeshPaintEdMode::OnVRAction( class FEditorViewportClient& ViewportClient, 
 	const FViewportActionKeyInput& Action, bool& bOutIsInputCaptured, bool& bWasHandled )
 {
 	UVREditorMode* VREditorMode = Cast<UVREditorMode>(GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions(GetWorld())->FindExtension(UVREditorMode::StaticClass()));
-	UVREditorInteractor* VRInteractor = Cast<UVREditorInteractor>(Interactor);
-	if (VREditorMode != nullptr && VREditorMode->IsActive() && VRInteractor != nullptr && VRInteractor->GetDraggingMode() == EViewportInteractionDraggingMode::Nothing)
+	UVREditorInteractor* VREditorInteractor = Cast<UVREditorInteractor>(Interactor);
+	if (VREditorMode != nullptr && VREditorMode->IsActive() && VREditorInteractor != nullptr && VREditorInteractor->GetDraggingMode() == EViewportInteractionDraggingMode::Nothing)
 	{
 		if (Action.ActionType == ViewportWorldActionTypes::SelectAndMove)
 		{
-			if (!MeshPainter->IsPainting() && Action.Event == IE_Pressed && !VRInteractor->IsHoveringOverPriorityType())
+			if (!MeshPainter->IsPainting() && Action.Event == IE_Pressed && !VREditorInteractor->IsHoveringOverPriorityType())
 			{
 				// Check to see that we're clicking on a selected object.  You can only paint on selected things.  Otherwise,
 				// we'll fall through to the normal interaction code which might cause the object to become selected.
 				bool bIsClickingOnSelectedObject = false;
 				{
-					FHitResult HitResult = VRInteractor->GetHitResultFromLaserPointer();
+					FHitResult HitResult = VREditorInteractor->GetHitResultFromLaserPointer();
 					if( HitResult.Actor.IsValid() )
 					{
 						UViewportWorldInteraction& WorldInteraction = VREditorMode->GetWorldInteraction();
@@ -504,10 +512,10 @@ void IMeshPaintEdMode::OnVRAction( class FEditorViewportClient& ViewportClient, 
 						const FVector LaserPointerDirection = ( LaserPointerEnd - LaserPointerStart ).GetSafeNormal();
 
 						/** Apply painting using the current state/position of the VR interactor */
-						const bool bAnyPaintableActorsUnderCursor = MeshPainter->PaintVR( ViewportClient.Viewport, VREditorMode->GetHeadTransform().GetLocation(), LaserPointerStart, LaserPointerDirection, VRInteractor);
+						const bool bAnyPaintableActorsUnderCursor = MeshPainter->PaintVR( ViewportClient.Viewport, VREditorMode->GetHeadTransform().GetLocation(), LaserPointerStart, LaserPointerDirection, VREditorInteractor);
 						if (bAnyPaintableActorsUnderCursor)
 						{
-							PaintingWithInteractorInVR = VRInteractor;
+							PaintingWithInteractorInVR = VREditorInteractor;
 							ViewportClient.bLockFlightCamera = true;
 						}
 					}

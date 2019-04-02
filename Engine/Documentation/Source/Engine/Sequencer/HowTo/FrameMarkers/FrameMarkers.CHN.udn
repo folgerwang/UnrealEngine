@@ -1,0 +1,68 @@
+﻿INTSourceChangelist:4677954
+Availability: Public
+Crumbs: 
+Title:在Sequencer中使用帧标记
+Description:说明如何在Sequencer中使用帧标记在过场动画序列中表示特殊帧。 
+Type: 
+Version: 4.21
+Parent: Engine/SEquencer/HowTo
+Order: 
+Tags: Sequencer
+Tags: Frame Markers
+
+
+偶尔在使用Sequencer时，过场动画中可能会有一些您想要跟踪的帧。或许您稍后想回到这里进行一些更改，又或许想要在过场动画的特定时间处插入不同的内容。无论哪种情况，都可以使用 **帧标记** 在所需时间处向序列添加标记，使您可以一眼看到定义的“兴趣点”。   
+
+在本操作指南中，我们将向您介绍如何添加、切换和移除帧标记，以及在标记之间跳转的快捷方式。 
+
+(#steps)
+## 步骤
+
+1.  在任何项目和序列中，将时间轴移到任意位置，并按 **M** 键来添加标记。   
+    [REGION:lightbox]
+    [![](MarkedFrame_01-2.png)(w:900)](MarkedFrame_01-2.png)
+    [/REGION]
+    [REGION:caption]
+    单击查看大图。
+    [/REGION]
+    深青色标记表示添加了一个标记（参见上图，第15帧处）。
+2.  向前拉动时间轴并单击右键，然后从快捷菜单中选择 **添加标记（Add Mark）** 来添加标记。  
+    [REGION:lightbox]
+    [![](MarkedFrame_01b.png)(w:900)](MarkedFrame_01b.png)
+    [/REGION]
+    [REGION:caption]
+    单击查看大图。
+    [/REGION]
+    您可以按 **M** 或从快捷菜单中选择 **添加标记（Add Mark）** 选项来添加标记。
+    [REGION:note]
+    您可以按 **CTRL + SHIFT + ,（逗号）** 来跳转到上一个标记，按 **CTRL + SHIFT + .（句点）** 跳转到下一个标记。
+    [/REGION]
+3.  右键单击时间轴调出快捷菜单，并选择 **清除所有标记（Clear All Marks）**。   
+    [REGION:lightbox]
+    [![](MarkedFrame_02.png)(w:900)](MarkedFrame_02.png)
+    [/REGION]
+    [REGION:caption]
+    单击查看大图。
+    [/REGION]
+    这样会清除您添加到序列的所有标记。如果您想要清除特定标记，移到该标记，并按 **M** 键来关闭该标记。   
+    
+5.  添加标记和关键帧属性，然后将关键帧属性滑到这个帧的位置。 
+
+(#endresult)
+## 最终结果
+
+[OBJECT:EmbeddedVideo]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ yHKKtjxlGfk
+ [/PARAMLITERAL]
+[/OBJECT]
+
+在以上视频中，我们创建了几个关键帧，让摄像机从一个位置移到另一个。由于我们已经设置了标记，因此将关键帧移到我们定义为摄像机移动理想位置的标记处。 
+
+通过拖放来重设关键帧位置时，如果为关键帧和分段启用了对齐选项，则关键帧将沿着关键帧和分段与标记帧对齐。通过使用 **CTRL + SHIFT + ,（逗号）** 和 **CTRL + SHIFT + .（句点）** 浏览标记，可以在起点和终点标记之间快速跳转。

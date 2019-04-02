@@ -1,0 +1,48 @@
+Availability: Public
+Crumbs: 
+Title: Presence Interface
+Description: Overview of the presence interface.
+Type: 
+Version: 4.21
+Parent: Programming/Online
+Order: 
+Tags: Online Subsystem
+Tags: presence
+
+
+When logged into an online service, users can often see information about their friends and other users they've met online, such as whether these users are online, what they're doing, if they're available to join matches, and so on. The **Presence Interface** provides the Online Subsystem with access to these features.
+
+## Presence Status
+
+Most online servies recognize several basic presence states for each user, such as "online", "offline", and "away", as well as game-specific states like "In the lobby" or "Playing a match on (Map)". However, these settings are not always visible, or may be visible to some users but not others, due to service-specific privacy policies and account settings. The Online Subsystem does not interact with these policies or settings, but the information that it retrieves will be affected by them.
+
+### Defining Presence
+
+The [`FOnlineUserPresence`](https://api.unrealengine.com/INT/API/Plugins/OnlineSubsystem/Interfaces/FOnlineUserPresence/index.html) class contains all information related to a user's presence. In addition to basic information like whether or not the user is currently online, and whether or not the user is playing a game, the user's presence (using the [`FOnlineUserPresenceStatus`](https://api.unrealengine.com/INT/API/Plugins/OnlineSubsystem/Interfaces/FOnlineUserPresenceStatus/index.html) class) stores more in-depth information. This generally includes a localized string for display, an enumerated value (of type [`EOnlinePresenceState`](https://api.unrealengine.com/INT/API/Plugins/OnlineSubsystem/Interfaces/EOnlinePresenceState__Type/index.html)) to describe the user's basic state, and a set of key-value pairs to hold any game-specific custom data, which can be used when building the exact presence display message.
+
+#### Presence Data on Xbox Live
+
+On Microsoft's Xbox Live service (for the Xbox One), developers can go through the Xbox Developer Portal site's "Rich Presence Strings" section to set up localized status strings and get keys for those strings. To use a string you've set up as your presence status, visible to other users online, put that key into the `StatusStr` variable within the `FOnlineUserPresence` parameter that the `SetPresence` function accepts. These strings support the insertion of variables, indicated by braces. For example, the English-language version of a string might be "Playing a match on {current\_map}", where "current\_map" is a variable that the game can update when setting presence. To set a variable, add an element to the `Properties` array of your `FOnlinePresence` which you pass to `SetPresence`. In our example, the element would contain the key "Event\_current\_map" and a value that represents the map name in English, as it should appear in the message, such as "Forest Map".
+
+#### Presence Data on PlayStation Network
+
+On Sony's Playstation Network, developers can put a non-localized string into the `StatusStr` variable within the `FOnlineUserPresence` parameter that the `SetPresence` function accepts. If this variable is left empty, the `Properties` variable will be checked for an entry with a key value of "DefaultPresenceKey" to use instead. Other users will see this string when they successfully query your presence status. There is also a hidden string, available by setting up a custom property in your `FOnlineUserPresenceStatus` parameter with the "CustomData" key (or the `CustomPresenceDataKey` constant) that will be received by other users running the same game. This string will not be displayed, but can be used for any purpose the developer chooses.
+
+[REGION:note]
+Regardless of whether the status string is sent through the variable or the "DefaultPresenceKey" entry in the `Properties` variable, it will be stored in the "DefaultPresenceKey" entry in the `Properties` variable on other users' machines.
+[/REGION]
+[REGION:tip]
+The [Friends interface](Programming/Online/Interfaces/Friends) has access to some presence information, such as session ID keys, that are not available through the Presence interface on PlayStation Network.
+[/REGION]
+
+### Retrieving Information About Other Users
+
+The basic flow for collecting presence information about a specific user begins with making a request to the online service through `QueryPresence`, specifying that user by `FUniqueNetId`. Once that operation finishes, the provided `FOnPresenceTaskCompleteDelegate` will be called, indicating the user and whether the request succeeded or failed. If successful, the local presence information cache will contain up-to-date presence information, which is available through the `GetCachedPresence` function.
+
+[REGION:tip]
+Some online services proactively notify the Online Subsystem about user presence. On these services, although you don't actually have to call `QueryPresence` or wait for its delegate, the usual code flow should remain unchanged so that it will work across multiple services.
+[/REGION]
+
+### Setting a User's Presence
+
+The `SetPresence` function sets the presence status of a local user through the online service. This is an asynchronous call due to the need to verify the new status with the online service, and a delegate of type `FOnPresenceTaskCompleteDelegate` will be called upon completion. Presence status itself is described by the FOnlineUserPresenceStatus class.

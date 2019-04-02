@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
  	CoreAudioSource.cpp: Unreal CoreAudio source interface object.
@@ -165,11 +165,11 @@ bool FCoreAudioSoundSource::ReadMorePCMData( const int32 BufferIndex, EDataReadM
 		if (DataReadMode == EDataReadMode::Synchronous)
 		{
 			++NumActiveBuffers;
-			return CoreAudioBuffer->ReadCompressedData( CoreAudioBuffers[BufferIndex].AudioData, WaveInstance->LoopingMode != LOOP_Never );
+			return CoreAudioBuffer->ReadCompressedData( CoreAudioBuffers[BufferIndex].AudioData, MONO_PCM_BUFFER_SAMPLES, WaveInstance->LoopingMode != LOOP_Never );
 		}
 		else
 		{
-			RealtimeAsyncTask = new FAsyncRealtimeAudioTask(CoreAudioBuffer, (uint8*)CoreAudioBuffers[BufferIndex].AudioData, WaveInstance->LoopingMode != LOOP_Never, DataReadMode == EDataReadMode::AsynchronousSkipFirstFrame);
+			RealtimeAsyncTask = new FAsyncRealtimeAudioTask(CoreAudioBuffer, (uint8*)CoreAudioBuffers[BufferIndex].AudioData, WaveInstance->WaveData->NumPrecacheFrames, WaveInstance->LoopingMode != LOOP_Never, DataReadMode == EDataReadMode::AsynchronousSkipFirstFrame);
 			RealtimeAsyncTask->StartBackgroundTask();
 			return false;
 		}

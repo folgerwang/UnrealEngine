@@ -1,0 +1,66 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: SketchUp Pro 용 데이터스미스 익스포터 플러그인 설치
+Description: SketchUp Pro 용 데이터스미스 익스포터 플러그인을 설치 및 해제하는 법을 설명합니다.
+Type:how-to
+Version: 4.20
+SkillLevel:Beginner
+Parent: Enterprise/Datasmith/SoftwareInteropGuides/SketchUp
+Order: 3
+Tags: Enterprise
+Tags:how to
+Tags: Datasmith
+Tags: studio
+Tags: SketchUp
+
+
+![](datasmith-setup-install-skp.png)
+
+언리얼 엔진에서 SketchUp 콘텐츠를 가지고 작업을 시작하기에 앞서, SketchUp 용 언리얼 데이터스미스 익스포터 플러그인을 설치해야 합니다.
+
+익스포터 플러그인이 현재 지원하는 SketchUp Pro 버전을 확인하려면 [](Enterprise/Datasmith/SupportedSoftwareAndFileTypes) 문서를 참고하세요.
+
+[REGION:tip]
+데이터스미스 익스포트 플러그인 다운로드 링크는 조직 내외부에 얼마든지 공유해도 좋습니다. 언리얼 스튜디오 자격이 있어야 데이터스미스 익스포터 플러그인을 다운로드하여 사용할 수 있습니다. 하지만 데이터스미스 익스포터 플러그인을 자체 배포하는 것은 허용되지 않습니다.
+[/REGION]
+
+## SketchUp 용 데이터스미스 익스포터 설치
+
+컴퓨터에 설치된 SketchUp 지원 버전에 대한 데이터스미스 익스포터 플러그인을 설치하는 방법은 다음과 같습니다.
+
+1.  컴퓨터에 실행 중인 SketchUp 인스턴스를 닫습니다. 실행 중인 인스턴스가 있으면 설치가 실패합니다.
+1.  데이터스미스 익스포터 플러그인 구버전이 설치되어 있는 경우, 먼저 설치해제할 것을 권장합니다. 자세한 내용은 아래 SketchUp 용 데이터스미스 익스포터 제거 부분을 참고하세요.
+1.  [데이터스미스 익스포트 플러그인 다운로드](https://www.unrealengine.com/studio/downloads) 페이지 또는 에픽게임즈 런처에서 익스포터 플러그인을 다운로드합니다.
+1.  다운로드가 완료되면, 설치 프로그램을 실행하고, 사용권 계약에 동의한 다음 지시를 따릅니다.  
+    ![Datasmith Exporter installer wizard](sketchup_installer.png "Datasmith Exporter installer wizard")
+1.  플러그인 설치 프로그램이 Microsoft 에 등록되지 않았다는 보안 경고가 표시될 수 있습니다. **More info** (추가 정보)를 클릭합니다.  
+    ![More info](unnamed-image-resize546x189.png "More info")  
+    그런 다음 **Run Anyway** (그래도 실행)을 클릭합니다.  
+    ![Run Anyway](unnamed-image-resize549x190.png "Run Anyway")
+1.  설치 관리자는 시스템에 설치된 SketchUp Pro 버전을 자동 감지합니다. 데이터스미스로 익스포트하려는 각 버전의 박스를 체크하고 **Install** (설치)를 클릭합니다.  
+    ![SketchUp installer versions](sketchup_installer_versions.png "SketchUp installer versions")
+
+### 최종 결과
+
+데이터스미스 익스포터 플러그인이 설치되었으면, SketchUp 의 씬을 *.udatasmith* 파일로 익스포트하면 됩니다. [](Enterprise/Datasmith/SoftwareInteropGuides/SketchUp/ExportingDatasmithContentfromSketchUp) 문서를 참고하세요.
+
+## SketchUp 용 데이터스미스 익스포터 제거
+
+표준 Windows 제어판에서 **Unreal Datasmith Exporter for SketchUp** 을 찾아 시스템에서 제거합니다.
+
+예로 Windows 10 에서 **Apps & features** (앱 & 기능) 제어판을 사용할 수 있습니다. 목록에서 데이터스미스 익스포터 플러그인 항목을 클릭한 다음 **Uninstall** (설치 해제)를 클릭합니다.
+
+[REGION:lightbox]
+[![](uninstall-datasmith-sketchup-plugin-appsfeatures-1.png)](uninstall-datasmith-sketchup-plugin-appsfeatures-1.png) 
+
+*클릭하면 이미지 원본을 확인합니다.*
+[/REGION]
+
+또는 **Uninstall or change a program** (프로그램 설치 해제 또는 변경) 제어판을 사용합니다. 데이터스미스 익스포터 플러그인 항목에 우클릭하고 컨텍스트 메뉴에서 **Uninstall** (설치 해제)를 클릭합니다.
+
+[REGION:lightbox]
+[![](uninstall-datasmith-sketchup-plugin-uninstallchange.png "uninstall-datasmith-sketchup-plugin-uninstallchange.png")](uninstall-datasmith-sketchup-plugin-uninstallchange.png)
+
+*클릭하면 이미지 원본을 확인합니다.*
+[/REGION]

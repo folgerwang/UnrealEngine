@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
@@ -317,21 +317,38 @@ void UArrayProperty::ExportTextItem( FString& ValueStr, const void* PropertyValu
 	}
 
 	FScriptArrayHelper ArrayHelper(this, PropertyValue);
-	FScriptArrayHelper DefaultArrayHelper(this, DefaultValue);
+
+	int32 DefaultSize = 0;
+	if (DefaultValue)
+	{
+		FScriptArrayHelper DefaultArrayHelper(this, DefaultValue);
+		DefaultSize = DefaultArrayHelper.Num();
+		DefaultValue = DefaultArrayHelper.GetRawPtr(0);
+	}
+
+	ExportTextInnerItem(ValueStr, Inner, ArrayHelper.GetRawPtr(0), ArrayHelper.Num(), DefaultValue, DefaultSize, Parent, PortFlags, ExportRootScope);
+}
+
+void UArrayProperty::ExportTextInnerItem(FString& ValueStr, UProperty* Inner, const void* PropertyValue, int32 PropertySize, const void* DefaultValue, int32 DefaultSize, UObject* Parent, int32 PortFlags, UObject* ExportRootScope)
+{
+	checkSlow(Inner);
 
 	uint8* StructDefaults = NULL;
 	UStructProperty* StructProperty = dynamic_cast<UStructProperty*>(Inner);
-	if ( StructProperty != NULL )
+	// ArrayProperties only export a diff because array entries are cleared and recreated upon import. Static arrays are overwritten when importing,
+	// so we export the entire struct to ensure all data is copied over correctly. Behavior is currently inconsistent when copy/pasting between the two types.
+	// In the future, static arrays could export diffs if the property being imported to is reset to default before the import.
+	if ( StructProperty != NULL && Inner->ArrayDim == 1 )
 	{
 		checkSlow(StructProperty->Struct);
-		StructDefaults = (uint8*)FMemory::Malloc(StructProperty->Struct->GetStructureSize());
+		StructDefaults = (uint8*)FMemory::Malloc(StructProperty->Struct->GetStructureSize() * Inner->ArrayDim);
 		StructProperty->InitializeValue(StructDefaults);
 	}
 
 	const bool bReadableForm = (0 != (PPF_BlueprintDebugView & PortFlags));
 
 	int32 Count = 0;
-	for( int32 i=0; i<ArrayHelper.Num(); i++ )
+	for( int32 i=0; i<PropertySize; i++ )
 	{
 		++Count;
 		if(!bReadableForm)
@@ -354,11 +371,21 @@ void UArrayProperty::ExportTextItem( FString& ValueStr, const void* PropertyValu
 			ValueStr += FString::Printf(TEXT("[%i] "), i);
 		}
 
-		uint8* PropData = ArrayHelper.GetRawPtr(i);
+		uint8* PropData = (uint8*)PropertyValue + i * Inner->ElementSize;
 
 		// Always use struct defaults if the inner is a struct, for symmetry with the import of array inner struct defaults
-		uint8* PropDefault = ( StructProperty != NULL ) ? StructDefaults :
-			( ( DefaultValue && DefaultArrayHelper.Num() > i ) ? DefaultArrayHelper.GetRawPtr(i) : NULL );
+		uint8* PropDefault = nullptr;
+		if (StructProperty)
+		{
+			PropDefault = StructDefaults;
+		}
+		else
+		{
+			if (DefaultValue && DefaultSize > i)
+			{
+				PropDefault = (uint8*)DefaultValue + i * Inner->ElementSize;
+			}
+		}
 
 		Inner->ExportTextItem( ValueStr, PropData, PropDefault, Parent, PortFlags|PPF_Delimited, ExportRootScope );
 	}
@@ -374,17 +401,25 @@ void UArrayProperty::ExportTextItem( FString& ValueStr, const void* PropertyValu
 	}
 }
 
-const TCHAR* UArrayProperty::ImportText_Internal( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText ) const
+const TCHAR* UArrayProperty::ImportText_Internal(const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* OwnerObject, FOutputDevice* ErrorText) const
+{
+	FScriptArrayHelper ArrayHelper(this, Data);
+
+	return ImportTextInnerItem(Buffer, Inner, Data, PortFlags, OwnerObject, &ArrayHelper, ErrorText);
+}
+
+const TCHAR* UArrayProperty::ImportTextInnerItem( const TCHAR* Buffer, UProperty* Inner, void* Data, int32 PortFlags, UObject* Parent, FScriptArrayHelper* ArrayHelper, FOutputDevice* ErrorText )
 {
 	checkSlow(Inner);
-
-	FScriptArrayHelper ArrayHelper(this, Data);
 
 	// If we export an empty array we export an empty string, so ensure that if we're passed an empty string
 	// we interpret it as an empty array.
 	if (*Buffer == TCHAR('\0') || *Buffer == TCHAR(')') || *Buffer == TCHAR(','))
 	{
-		ArrayHelper.EmptyValues();
+		if (ArrayHelper)
+		{
+			ArrayHelper->EmptyValues();
+		}
 		return Buffer;
 	}
 
@@ -393,21 +428,24 @@ const TCHAR* UArrayProperty::ImportText_Internal( const TCHAR* Buffer, void* Dat
 		return NULL;
 	}
 
-	ArrayHelper.EmptyValues();
+	if (ArrayHelper)
+	{
+		ArrayHelper->EmptyValues();
+		ArrayHelper->ExpandForIndex(0);
+	}
 
 	SkipWhitespace(Buffer);
 
 	int32 Index = 0;
-
-	ArrayHelper.ExpandForIndex(0);
 	while (*Buffer != TCHAR(')'))
 	{
 		SkipWhitespace(Buffer);
 
 		if (*Buffer != TCHAR(','))
 		{
+			uint8* Address = ArrayHelper ? ArrayHelper->GetRawPtr(Index) : ((uint8*)Data + Inner->ElementSize * Index);
 			// Parse the item
-			Buffer = Inner->ImportText(Buffer, ArrayHelper.GetRawPtr(Index), PortFlags | PPF_Delimited, Parent, ErrorText);
+			Buffer = Inner->ImportText(Buffer, Address, PortFlags | PPF_Delimited, Parent, ErrorText);
 
 			if(!Buffer)
 			{
@@ -422,7 +460,15 @@ const TCHAR* UArrayProperty::ImportText_Internal( const TCHAR* Buffer, void* Dat
 		{
 			Buffer++;
 			Index++;
-			ArrayHelper.ExpandForIndex(Index);
+			if (ArrayHelper)
+			{
+				ArrayHelper->ExpandForIndex(Index);
+			}
+			else if (Index >= Inner->ArrayDim)
+			{
+				UE_LOG(LogProperty, Warning, TEXT("%s is a fixed-sized array of %i values. Additional data after %i has been ignored during import."), *Inner->GetName(), Inner->ArrayDim, Inner->ArrayDim);
+				break;
+			}
 		}
 		else
 		{

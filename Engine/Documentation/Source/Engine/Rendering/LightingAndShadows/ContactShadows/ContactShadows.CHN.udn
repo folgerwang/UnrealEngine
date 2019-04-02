@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3275206
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:接触阴影（Contact Shadows）
 Crumbs: 
@@ -69,7 +69,7 @@ topic-image:ContactShadow_Topic.png
 1.	点击新建点光源组件的展开箭头，展开 **Details** 面板的 **Light** 部分。
 
 	[REGION:lightbox]
-	[![](CastShadows_Step2.png)(w:360 h:640)](CastShadows_Step2.png)
+	[![](CastShadows_Step2.png)(w:360)](CastShadows_Step2.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -79,7 +79,7 @@ topic-image:ContactShadow_Topic.png
 1.	将 **Contact Shadow Length** 设为大于零的值即可启用接触阴影。
 
 	[REGION:lightbox]
-	[![](CastShadows_Step3.png)(w:360 h:640)](CastShadows_Step3.png)
+	[![](CastShadows_Step3.png)(w:360)](CastShadows_Step3.png)
 	[/REGION]
 
 	[REGION:caption]

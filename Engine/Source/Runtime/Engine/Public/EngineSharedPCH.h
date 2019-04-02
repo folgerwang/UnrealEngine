@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -89,7 +89,6 @@
 #include "GenericPlatform/GenericPlatformTLS.h"
 #include "Delegates/Delegate.h"
 #include "UObject/WeakObjectPtrTemplates.h"
-#include "UObject/AutoPointer.h"
 #include "Delegates/MulticastDelegateBase.h"
 #include "Delegates/IDelegateInstance.h"
 #include "Delegates/DelegateSettings.h"
@@ -208,7 +207,6 @@
 #include "Misc/IQueuedWork.h"
 #include "Misc/QueuedThreadPool.h"
 #include "Async/AsyncWork.h"
-#include "GenericPlatform/GenericPlatformCompression.h"
 #include "Serialization/BufferReader.h"
 #include "Containers/StaticArray.h"
 #include "Misc/SecureHash.h"
@@ -391,7 +389,6 @@
 #include "Application/SlateApplicationBase.h"
 #include "Application/ThrottleManager.h"
 #include "Layout/WidgetPath.h"
-#include "Logging/IEventLogger.h"
 #include "Types/SlateConstants.h"
 
 // From Slate:
@@ -448,8 +445,6 @@
 #include "UniformBuffer.h"
 #include "PackedNormal.h"
 #include "RenderUtils.h"
-
-// From ShaderCore:
 #include "ShaderParameters.h"
 #include "ShaderCore.h"
 #include "Shader.h"

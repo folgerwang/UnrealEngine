@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2706343
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title: 1.必要项目设置
 Crumbs:%ROOT%, Engine, Engine/UMG, Engine/UMG/QuickStart
 Description: 我们将于此处创建一个用于 HUD 的控件蓝图，并设置角色，将信息传达给 HUD。 
 version:4.9
+tags:UMG UI Designer
 
 [VAR:Steps]
 [OBJECT:Navigation]
@@ -96,6 +97,7 @@ version:4.9
 
 	正如节点名所示，这样做会把指定为目标的控件蓝图添加到玩家窗口中，把它拖动到屏幕上。 
 
+(#AdjustingCharacterVariables)
 ## 调整角色变量
 
 在开始生成实际 HUD 之前，需要完成的最后一项工作是为角色变量提供一种变更方式。 

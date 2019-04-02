@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SNewClassDialog.h"
@@ -1588,8 +1588,7 @@ void SNewClassDialog::SetupParentClassItems(const TArray<FNewClassInfo>& UserSpe
 
 void SNewClassDialog::CloseContainingWindow()
 {
-	FWidgetPath WidgetPath;
-	TSharedPtr<SWindow> ContainingWindow = FSlateApplication::Get().FindWidgetWindow( AsShared(), WidgetPath);
+	TSharedPtr<SWindow> ContainingWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
 
 	if ( ContainingWindow.IsValid() )
 	{

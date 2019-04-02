@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -23,6 +23,10 @@
 #include "Settings/LevelEditorPlaySettings.h"
 #include "Settings/LevelEditorViewportSettings.h"
 #include "Misc/CompilationResult.h"
+
+#include "EditorSubsystem.h"
+#include "Subsystems/SubsystemCollection.h"
+
 #include "EditorEngine.generated.h"
 
 class AMatineeActor;
@@ -455,7 +459,7 @@ public:
 	uint32 bEnableLODLocking:1;
 
 	/** If true, actors can be grouped and grouping rules will be maintained. When deactivated, any currently existing groups will still be preserved.*/
-	DEPRECATED(4.17, "bGroupingActive has been deprecated.  Use UActorGroupingUtils::IsGroupingActive instead")
+	UE_DEPRECATED(4.17, "bGroupingActive has been deprecated.  Use UActorGroupingUtils::IsGroupingActive instead")
 	uint32 bGroupingActive:1;
 
 	UPROPERTY(config)
@@ -634,6 +638,13 @@ public:
 	/** The feature level we should use when loading or creating a new world */
 	ERHIFeatureLevel::Type DefaultWorldFeatureLevel;
 
+	/** The feature level we should use when loading or creating a new world */
+	ERHIFeatureLevel::Type PreviewFeatureLevel;
+
+	/** A delegate that is called when the preview feature level changes. Primarily used to switch a viewport's feature level. */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FPreviewFeatureLevelChanged, ERHIFeatureLevel::Type);
+	FPreviewFeatureLevelChanged PreviewFeatureLevelChanged;
+
 	/** Whether or not the editor is currently compiling */
 	bool bIsCompiling;
 
@@ -666,10 +677,37 @@ public:
 	TSharedPtr< class ILayers >				Layers;
 
 	/** List of all viewport clients */
-	TArray<class FEditorViewportClient*>	AllViewportClients;
+	const TArray<class FEditorViewportClient*>& GetAllViewportClients() { return AllViewportClients; }
+	const TArray<class FEditorViewportClient*>& GetAllViewportClients() const { return AllViewportClients; }
+
+	/** Called when the viewport clients list changed */
+	DECLARE_EVENT(UEditorEngine, FViewportClientListChangedEvent);
+	FViewportClientListChangedEvent& OnViewportClientListChanged() { return ViewportClientListChangedEvent; }
+
+	/**
+	 * Add a viewport client.
+	 * @return Index to the new item
+	 */
+	int32 AddViewportClients(FEditorViewportClient* ViewportClient);
+
+	/** Remove a viewport client */
+	void RemoveViewportClients(FEditorViewportClient* ViewportClient);
 
 	/** List of level editor viewport clients for level specific actions */
-	TArray<class FLevelEditorViewportClient*> LevelViewportClients;
+	const TArray<class FLevelEditorViewportClient*>& GetLevelViewportClients() { return LevelViewportClients; }
+	const TArray<class FLevelEditorViewportClient*>& GetLevelViewportClients() const { return LevelViewportClients; }
+
+	/**
+	 * Add a viewport client.
+	 * @return Index to the new item
+	 */
+	int32 AddLevelViewportClients(FLevelEditorViewportClient* ViewportClient);
+
+	/** Remove a level editor viewport client */
+	void RemoveLevelViewportClients(FLevelEditorViewportClient* ViewportClient);
+
+	/** Called when the level editor viewport clients list changed */
+	FViewportClientListChangedEvent& OnLevelViewportClientListChanged() { return LevelViewportClientListChangedEvent; }
 
 	/** Annotation to track which PIE/SIE (PlayWorld) UObjects have counterparts in the EditorWorld **/
 	class FUObjectAnnotationSparseBool ObjectsThatExistInEditorWorld;
@@ -712,6 +750,7 @@ public:
 
 	/** Called when an object is reimported. */
 	DECLARE_EVENT_OneParam( UEditorEngine, FObjectReimported, UObject* );
+	UE_DEPRECATED(4.22, "Use the ImportSubsystem instead. GEditor->GetEditorSubsystem<UImportSubsystem>()")
 	FObjectReimported& OnObjectReimported() { return ObjectReimportedEvent; }
 
 	/** Editor-only event triggered before an actor or component is moved, rotated or scaled by an editor system */
@@ -753,11 +792,11 @@ public:
 
 	/** Editor-only event triggered when a HLOD Actor is marked dirty */
 	DECLARE_EVENT_OneParam(UEngine, FHLODActorMarkedDirtyEvent, class ALODActor*);
-	DEPRECATED(4.20, "This function is no longer used.")
+	UE_DEPRECATED(4.20, "This function is no longer used.")
 	FHLODActorMarkedDirtyEvent& OnHLODActorMarkedDirty() { return HLODActorMarkedDirtyEvent; }
 
 	/** Called by internal engine systems after a HLOD Actor is marked dirty */
-	DEPRECATED(4.20, "This function is no longer used.")
+	UE_DEPRECATED(4.20, "This function is no longer used.")
 	void BroadcastHLODActorMarkedDirty(class ALODActor* InActor) { HLODActorMarkedDirtyEvent.Broadcast(InActor); }
 
 	/** Editor-only event triggered when a HLOD Actor is marked dirty */
@@ -1834,6 +1873,11 @@ public:
 	TSharedRef<class FTimerManager> GetTimerManager() { return TimerManager.ToSharedRef(); }
 
 	/**
+	 *  Returns true if the editors timer manager is valid (may not be during early startup);
+	 */
+	bool IsTimerManagerValid() { return TimerManager.IsValid(); }
+
+	/**
 	*  Returns the Editors world manager instance.
 	*/
 	UEditorWorldExtensionManager* GetEditorWorldExtensionsManager() { return EditorWorldExtensionsManager; }
@@ -1933,7 +1977,7 @@ public:
 	 *
 	 * @param	InLevel		The destination level.
 	 */
-	DEPRECATED(4.17, "MoveSelectedActorsToLevel has been deprecated.  Use UEditorLevelUtils::MoveSelectedActorsToLevel instead")
+	UE_DEPRECATED(4.17, "MoveSelectedActorsToLevel has been deprecated.  Use UEditorLevelUtils::MoveSelectedActorsToLevel instead")
 	void MoveSelectedActorsToLevel( ULevel* InLevel );
 
 	/**
@@ -2653,7 +2697,7 @@ private:
 	/**
 	 * Called via a delegate to toggle between the editor and pie world
 	 */
-	void OnSwitchWorldsForPIE( bool bSwitchToPieWorld );
+	void OnSwitchWorldsForPIE( bool bSwitchToPieWorld, UWorld* OverrideWorld = nullptr );
 
 	/**
 	 * Gives focus to the server or first PIE client viewport
@@ -2781,6 +2825,18 @@ private:
 		FTransactionDeltaContext() = default;
 	};
 	FTransactionDeltaContext CurrentUndoRedoContext;
+
+	/** List of all viewport clients */
+	TArray<class FEditorViewportClient*> AllViewportClients;
+
+	/** List of level editor viewport clients for level specific actions */
+	TArray<class FLevelEditorViewportClient*> LevelViewportClients;
+
+	/** Delegate broadcast when the viewport client list changed */
+	FViewportClientListChangedEvent ViewportClientListChangedEvent;
+
+	/** Delegate broadcast when the level editor viewport client list changed */
+	FViewportClientListChangedEvent LevelViewportClientListChangedEvent;
 
 	/** Delegate broadcast just before a blueprint is compiled */
 	FBlueprintPreCompileEvent BlueprintPreCompileEvent;
@@ -2946,11 +3002,8 @@ protected:
 	// Handle requests from slate application to open assets.
 	bool HandleOpenAsset(UObject* Asset);
 
-	// Handles a package being reloaded.
-	void HandlePackageReloaded(const EPackageReloadPhase InPackageReloadPhase, FPackageReloadedEvent* InPackageReloadedEvent);
-
 public:
-	DEPRECATED(4.17, "IsUsingWorldAssets is now always true, remove any code that assumes it could be false")
+	UE_DEPRECATED(4.17, "IsUsingWorldAssets is now always true, remove any code that assumes it could be false")
 	static bool IsUsingWorldAssets() { return true; }
 
 private:
@@ -2988,17 +3041,29 @@ public:
 	void OnSceneMaterialsModified();
 
 	/** Call this function to change the feature level and to override the material quality platform of the editor and PIE worlds */
-	void SetPreviewPlatform(const FName MaterialQualityPlatform, const ERHIFeatureLevel::Type PreviewFeatureLevel, const bool bSaveSettings = true);
+	void SetPreviewPlatform(const FName MaterialQualityPlatform, ERHIFeatureLevel::Type InPreviewFeatureLevel, const bool bSaveSettings = true);
+
+	/** Toggle the feature level preview */
+	void ToggleFeatureLevelPreview();
+
+	/** Return whether the feature level preview is able to be enabled */
+	bool IsFeatureLevelPreviewEnabled() const;
+
+	/** Return whether the feature level preview is currently active */
+	bool IsFeatureLevelPreviewActive() const;
+
+	/** Return the delegate that is called when the preview feature level changes */
+	FPreviewFeatureLevelChanged& OnPreviewFeatureLevelChanged() { return PreviewFeatureLevelChanged; }
 
 protected:
 	/** Call this function to change the feature level of the editor and PIE worlds */
 	void SetFeatureLevelPreview(const ERHIFeatureLevel::Type InPreviewFeatureLevel);
 
 	/** call this function to change the feature level for all materials */
-	void SetMaterialsFeatureLevel(const ERHIFeatureLevel::Type InFeatureLevel);
+	void SetMaterialsFeatureLevel(const ERHIFeatureLevel::Type InPreviewFeatureLevel);
 
 	/** call this to recompile the materials */
-	void AllMaterialsCacheResourceShadersForRendering();
+	void AllMaterialsCacheResourceShadersForRendering(ERHIFeatureLevel::Type InPreviewFeatureLevel);
 
 	/** Function pair used to save and restore the global feature level */
 	void LoadEditorFeatureLevel();
@@ -3029,6 +3094,41 @@ private:
 
 	/** Delegate handle for game viewport close requests in PIE sessions. */
 	FDelegateHandle ViewportCloseRequestedDelegateHandle;
+
+public:
+	/**
+	 * Get a Subsystem of specified type
+	 */
+	UEditorSubsystem* GetEditorSubsystemBase(TSubclassOf<UEditorSubsystem> SubsystemClass) const
+	{
+		checkSlow(this != nullptr);
+		return EditorSubsystemCollection.GetSubsystem<UEditorSubsystem>(SubsystemClass);
+	}
+
+	/**
+	 * Get a Subsystem of specified type
+	 */
+	template <typename TSubsystemClass>
+	TSubsystemClass* GetEditorSubsystem() const
+	{
+		checkSlow(this != nullptr);
+		return EditorSubsystemCollection.GetSubsystem<TSubsystemClass>(TSubsystemClass::StaticClass());
+	}
+
+	/**
+	 * Get all Subsystem of specified type, this is only necessary for interfaces that can have multiple implementations instanced at a time.
+	 *
+	 * Do not hold onto this Array reference unless you are sure the lifetime is less than that of UGameInstance
+	 */
+	template <typename TSubsystemClass>
+	const TArray<TSubsystemClass*>& GetEditorSubsystemArray() const
+	{
+		return EditorSubsystemCollection.GetSubsystemArray<TSubsystemClass>(TSubsystemClass::StaticClass());
+	}
+
+private:
+	FSubsystemCollection<UEditorSubsystem> EditorSubsystemCollection;
+
 };
 
 //////////////////////////////////////////////////////////////////////////

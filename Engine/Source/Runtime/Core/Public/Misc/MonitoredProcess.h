@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -40,8 +40,20 @@ public:
 	 * @param InURL The URL of the executable to launch.
 	 * @param InParams The command line parameters.
 	 * @param InHidden Whether the window of the process should be hidden.
+	 * @param InCreatePipes Whether the output should be redirected to the caller.
 	 */
 	FMonitoredProcess( const FString& InURL, const FString& InParams, bool InHidden, bool InCreatePipes = true );
+
+	/**
+	* Creates a new monitored process.
+	*
+	* @param InURL The URL of the executable to launch.
+	* @param InParams The command line parameters.
+	* @param InHidden Whether the window of the process should be hidden.
+	* @param InWorkingDir The URL of the working dir where the executable should launch.
+	* @param InCreatePipes Whether the output should be redirected to the caller.
+	*/
+	FMonitoredProcess( const FString& InURL, const FString& InParams, const FString& InWorkingDir, bool InHidden, bool InCreatePipes = true );
 
 	/** Destructor. */
 	~FMonitoredProcess();
@@ -71,7 +83,7 @@ public:
 	 *
 	 * @return true if the process is running, false otherwise.
 	 */
-	DEPRECATED(4.16, "IsRunning() is deprecated because it doesn't support -nothreading. Please use Update()")
+	UE_DEPRECATED(4.16, "IsRunning() is deprecated because it doesn't support -nothreading. Please use Update()")
 	bool IsRunning() const
 	{
 		return bIsRunning;
@@ -215,6 +227,9 @@ private:
 
 	// Holds the URL of the executable to launch. */
 	FString URL;
+
+	// Holds the URL of the working dir for the process. */
+	FString WorkingDir;
 
 	// Holds the write pipe. */
 	void* WritePipe;

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "StaticMeshEditor.h"
 #include "AssetData.h"
@@ -139,7 +139,7 @@ FStaticMeshEditor::~FStaticMeshEditor()
 	FReimportManager::Instance()->OnPostReimport().RemoveAll(this);
 
 	GEditor->UnregisterForUndo( this );
-	GEditor->OnObjectReimported().RemoveAll(this);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetReimport.RemoveAll(this);
 }
 
 void FStaticMeshEditor::InitStaticMeshEditor( const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UStaticMesh* ObjectToEdit )
@@ -155,7 +155,7 @@ void FStaticMeshEditor::InitStaticMeshEditor( const EToolkitMode::Type Mode, con
 	FStaticMeshEditorCommands::Register();
 
 	// Register to be notified when an object is reimported.
-	GEditor->OnObjectReimported().AddSP(this, &FStaticMeshEditor::OnObjectReimported);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetReimport.AddSP(this, &FStaticMeshEditor::OnObjectReimported);
 
 	BindCommands();
 
@@ -504,8 +504,10 @@ TSharedRef<SDockTab> FStaticMeshEditor::SpawnTab_SecondaryToolbar( const FSpawnT
 {
 	check( Args.GetTabId() == SecondaryToolbarTabId );
 
+	FText TabLabel = !SecondaryToolbarDisplayName.IsEmpty() ? SecondaryToolbarDisplayName : LOCTEXT("SecondaryToolbar_TabTitle", "Secondary Toolbar");
+
 	TSharedRef<SDockTab> SpawnedTab = SNew(SDockTab)
-		.Label( LOCTEXT("SecondaryToolbar_TabTitle", "Secondary Toolbar") )
+		.Label( TabLabel )
 		.Icon( FEditorStyle::GetBrush("LevelEditor.Tabs.Toolbar") )
 		.ShouldAutosize( true )
 		[
@@ -782,9 +784,7 @@ void FStaticMeshEditor::SetSelectedSocket(UStaticMeshSocket* InSelectedSocket)
 
 UStaticMeshSocket* FStaticMeshEditor::GetSelectedSocket() const
 {
-	check(SocketManager.IsValid());
-
-	return SocketManager->GetSelectedSocket();
+	return SocketManager.IsValid() ? SocketManager->GetSelectedSocket() : nullptr;
 }
 
 void FStaticMeshEditor::DuplicateSelectedSocket()
@@ -1375,7 +1375,8 @@ void FStaticMeshEditor::HandleReimportAllMesh()
 				{
 					continue;
 				}
-				bool bHasBeenSimplified = SourceModels[LodIndex].RawMeshBulkData->IsEmpty() || SourceModels[LodIndex].ReductionSettings.PercentTriangles < 1.0f || SourceModels[LodIndex].ReductionSettings.MaxDeviation > 0.0f;
+
+				bool bHasBeenSimplified = StaticMesh->GetMeshDescription(LodIndex) == nullptr || StaticMesh->IsReductionActive(LodIndex);
 				if (!bHasBeenSimplified)
 				{
 					FbxMeshUtils::ImportMeshLODDialog(StaticMesh, LodIndex);

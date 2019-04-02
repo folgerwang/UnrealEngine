@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -20,7 +20,6 @@ public class UMG : ModuleRules
                 "InputCore",
 				"Slate",
 				"SlateCore",
-                "ShaderCore",
 				"RenderCore",
 				"RHI",
 			}
@@ -57,15 +56,6 @@ public class UMG : ModuleRules
 				    "SlateRHIRenderer",
 			    }
             );
-		}
-
-		if (Target.Type == TargetType.Editor)
-		{
-			PublicDependencyModuleNames.AddRange(
-				new string[] {
-					"UnrealEd",
-				}
-			);
 		}
 	}
 }

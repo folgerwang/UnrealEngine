@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "NiagaraDataInterfaceMeshCommon.h"
@@ -325,6 +325,19 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Skeleton")
 	TArray<FName> SpecificSockets;
 	
+
+	/** Whether any triangle sampling function is bound. Only used in game. */
+	UPROPERTY()
+	bool bUseTriangleSampling;
+
+	/** Whether any vertex sampling function is bound. Only used in game. */
+	UPROPERTY()
+	bool bUseVertexSampling;
+
+	/** Whether any skeleton sampling function is bound. Only used in game. */
+	UPROPERTY()
+	bool bUseSkeletonSampling;
+
 	/** Cached change id off of the data interface.*/
 	uint32 ChangeId;
 

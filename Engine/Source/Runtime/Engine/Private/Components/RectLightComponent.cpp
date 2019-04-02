@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PointLightComponent.cpp: PointLightComponent implementation.
@@ -10,91 +10,22 @@
 #include "Engine/Texture2D.h"
 #include "SceneManagement.h"
 #include "PointLightSceneProxy.h"
+#include "RectLightSceneProxy.h"
+
+#include "RHIUtilities.h"
+#include "GlobalShader.h"
+#include "ShaderParameterUtils.h"
 
 extern int32 GAllowPointLightCubemapShadows;
 
-class FRectLightSceneProxy : public FLocalLightSceneProxy
+float GetRectLightBarnDoorMaxAngle()
 {
-public:
-	float		SourceWidth;
-	float		SourceHeight;
-	UTexture*	SourceTexture;
-
-	FRectLightSceneProxy(const URectLightComponent* Component)
-	:	FLocalLightSceneProxy(Component)
-	,	SourceWidth(Component->SourceWidth)
-	,	SourceHeight(Component->SourceHeight)
-	,	SourceTexture(Component->SourceTexture)
-	{}
-
-	virtual bool IsRectLight() const override
-	{
-		return true;
-	}
-
-	virtual bool HasSourceTexture() const override
-	{
-		return SourceTexture != nullptr;
-	}
-
-	/** Accesses parameters needed for rendering the light. */
-	virtual void GetParameters(FLightParameters& LightParameters) const override
-	{
-		LightParameters.LightPositionAndInvRadius = FVector4(
-			GetOrigin(),
-			InvRadius);
-
-		FLinearColor LightColor = GetColor();
-		LightColor /= 0.5f * SourceWidth * SourceHeight;
-		
-		LightParameters.LightColorAndFalloffExponent = FVector4(
-			LightColor.R,
-			LightColor.G,
-			LightColor.B,
-			0.0f);
-
-		const FVector ZAxis(WorldToLight.M[0][2], WorldToLight.M[1][2], WorldToLight.M[2][2]);
-
-		LightParameters.NormalizedLightDirection = -GetDirection();
-		LightParameters.NormalizedLightTangent = ZAxis;
-		LightParameters.SpotAngles = FVector2D( -2.0f, 1.0f );
-		LightParameters.SpecularScale = SpecularScale;
-		LightParameters.LightSourceRadius = SourceWidth * 0.5f;
-		LightParameters.LightSoftSourceRadius = 0.0f;
-		LightParameters.LightSourceLength = SourceHeight * 0.5f;
-		LightParameters.SourceTexture = SourceTexture ? SourceTexture->Resource : GWhiteTexture;
-	}
-
-	/**
-	 * Sets up a projected shadow initializer for shadows from the entire scene.
-	 * @return True if the whole-scene projected shadow should be used.
-	 */
-	virtual bool GetWholeSceneProjectedShadowInitializer(const FSceneViewFamily& ViewFamily, TArray<FWholeSceneProjectedShadowInitializer, TInlineAllocator<6> >& OutInitializers) const
-	{
-		if (ViewFamily.GetFeatureLevel() >= ERHIFeatureLevel::SM4
-			&& GAllowPointLightCubemapShadows != 0)
-		{
-			FWholeSceneProjectedShadowInitializer& OutInitializer = *new(OutInitializers) FWholeSceneProjectedShadowInitializer;
-			OutInitializer.PreShadowTranslation = -GetLightToWorld().GetOrigin();
-			OutInitializer.WorldToLight = GetWorldToLight().RemoveTranslation();
-			OutInitializer.Scales = FVector(1, 1, 1);
-			OutInitializer.FaceDirection = FVector(0,0,1);
-			OutInitializer.SubjectBounds = FBoxSphereBounds(FVector(0, 0, 0),FVector(Radius,Radius,Radius),Radius);
-			OutInitializer.WAxis = FVector4(0,0,1,0);
-			OutInitializer.MinLightW = 0.1f;
-			OutInitializer.MaxDistanceToCastInLightW = Radius;
-			OutInitializer.bOnePassPointLightShadow = true;
-			OutInitializer.bRayTracedDistanceField = UseRayTracedDistanceFieldShadows() && DoesPlatformSupportDistanceFieldShadowing(ViewFamily.GetShaderPlatform());
-			return true;
-		}
-		
-		return false;
-	}
-};
-
+	return 88.f;
+}
 
 URectLightComponent::URectLightComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, RayTracingData(new FRectLightRayTracingData())
 {
 #if WITH_EDITORONLY_DATA
 	if (!IsRunningCommandlet())
@@ -112,11 +43,26 @@ URectLightComponent::URectLightComponent(const FObjectInitializer& ObjectInitial
 	SourceWidth = 64.0f;
 	SourceHeight = 64.0f;
 	SourceTexture = nullptr;
+	BarnDoorAngle = GetRectLightBarnDoorMaxAngle();
+	BarnDoorLength = 20.0f;
+	// RayTracingData will be initialised on the render thread.
 }
 
 FLightSceneProxy* URectLightComponent::CreateSceneProxy() const
 {
 	return new FRectLightSceneProxy(this);
+}
+
+void URectLightComponent::SetSourceTexture(UTexture* NewValue)
+{
+	if (AreDynamicDataChangesAllowed()
+		&& SourceTexture != NewValue)
+	{
+		SourceTexture = NewValue;
+
+		// This will trigger a recreation of the LightSceneProxy and update RayTracingData accordingly if the texture has changed.
+		MarkRenderStateDirty();
+	}
 }
 
 void URectLightComponent::SetSourceWidth(float NewValue)
@@ -135,6 +81,27 @@ void URectLightComponent::SetSourceHeight(float NewValue)
 		&& SourceHeight != NewValue)
 	{
 		SourceHeight = NewValue;
+		MarkRenderStateDirty();
+	}
+}
+
+void URectLightComponent::SetBarnDoorLength(float NewValue)
+{
+	if (AreDynamicDataChangesAllowed()
+		&& BarnDoorLength != NewValue)
+	{
+		BarnDoorLength = FMath::Max(NewValue, 0.1f);
+		MarkRenderStateDirty();
+	}
+}
+
+void URectLightComponent::SetBarnDoorAngle(float NewValue)
+{
+	if (AreDynamicDataChangesAllowed()
+		&& BarnDoorAngle != NewValue)
+	{
+		const float MaxAngle = GetRectLightBarnDoorMaxAngle();
+		BarnDoorAngle = FMath::Clamp(NewValue, 0.f, MaxAngle);
 		MarkRenderStateDirty();
 	}
 }
@@ -200,6 +167,18 @@ float URectLightComponent::GetUniformPenumbraSize() const
 	}
 }
 
+void URectLightComponent::BeginDestroy()
+{
+	FRectLightRayTracingData* DeletedRenderData = RayTracingData;
+	RayTracingData = nullptr;
+	ENQUEUE_RENDER_COMMAND(DeleteBuildRectLightMipTree)(
+		[DeletedRenderData](FRHICommandListImmediate& RHICmdList)
+	{
+		delete DeletedRenderData;
+	});
+	Super::BeginDestroy();
+}
+
 #if WITH_EDITOR
 /**
  * Called after property has changed via e.g. property window or set command.
@@ -214,3 +193,75 @@ void URectLightComponent::PostEditChangeProperty(FPropertyChangedEvent& Property
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 #endif // WITH_EDITOR
+
+FRectLightSceneProxy::FRectLightSceneProxy(const URectLightComponent* Component)
+	: FLocalLightSceneProxy(Component)
+	, SourceWidth(Component->SourceWidth)
+	, SourceHeight(Component->SourceHeight)
+	, BarnDoorAngle(FMath::Clamp(Component->BarnDoorAngle, 0.f, GetRectLightBarnDoorMaxAngle()))
+	, BarnDoorLength(FMath::Max(0.1f, Component->BarnDoorLength))
+	, RayTracingData(Component->RayTracingData)
+	, SourceTexture(Component->SourceTexture)
+{
+}
+
+FRectLightSceneProxy::~FRectLightSceneProxy() {}
+
+bool FRectLightSceneProxy::IsRectLight() const
+{
+	return true;
+}
+
+bool FRectLightSceneProxy::HasSourceTexture() const
+{
+	return SourceTexture != nullptr;
+}
+
+/** Accesses parameters needed for rendering the light. */
+void FRectLightSceneProxy::GetLightShaderParameters(FLightShaderParameters& LightParameters) const
+{
+	FLinearColor LightColor = GetColor();
+	LightColor /= 0.5f * SourceWidth * SourceHeight;
+
+	LightParameters.Position = GetOrigin();
+	LightParameters.InvRadius = InvRadius;
+	LightParameters.Color = FVector(LightColor.R, LightColor.G, LightColor.B);
+	LightParameters.FalloffExponent = 0.0f;
+
+	LightParameters.Direction = -GetDirection();
+	LightParameters.Tangent = FVector(WorldToLight.M[0][2], WorldToLight.M[1][2], WorldToLight.M[2][2]);
+	LightParameters.SpotAngles = FVector2D(-2.0f, 1.0f);
+	LightParameters.SpecularScale = SpecularScale;
+	LightParameters.SourceRadius = SourceWidth * 0.5f;
+	LightParameters.SoftSourceRadius = 0.0f;
+	LightParameters.SourceLength = SourceHeight * 0.5f;
+	LightParameters.SourceTexture = SourceTexture ? SourceTexture->Resource->TextureRHI : GWhiteTexture->TextureRHI;
+	LightParameters.RectLightBarnCosAngle = FMath::Cos(FMath::DegreesToRadians(BarnDoorAngle));
+	LightParameters.RectLightBarnLength = BarnDoorLength;
+}
+
+/**
+* Sets up a projected shadow initializer for shadows from the entire scene.
+* @return True if the whole-scene projected shadow should be used.
+*/
+bool FRectLightSceneProxy::GetWholeSceneProjectedShadowInitializer(const FSceneViewFamily& ViewFamily, TArray<FWholeSceneProjectedShadowInitializer, TInlineAllocator<6> >& OutInitializers) const
+{
+	if (ViewFamily.GetFeatureLevel() >= ERHIFeatureLevel::SM4
+		&& GAllowPointLightCubemapShadows != 0)
+	{
+		FWholeSceneProjectedShadowInitializer& OutInitializer = *new(OutInitializers) FWholeSceneProjectedShadowInitializer;
+		OutInitializer.PreShadowTranslation = -GetLightToWorld().GetOrigin();
+		OutInitializer.WorldToLight = GetWorldToLight().RemoveTranslation();
+		OutInitializer.Scales = FVector(1, 1, 1);
+		OutInitializer.FaceDirection = FVector(0, 0, 1);
+		OutInitializer.SubjectBounds = FBoxSphereBounds(FVector(0, 0, 0), FVector(Radius, Radius, Radius), Radius);
+		OutInitializer.WAxis = FVector4(0, 0, 1, 0);
+		OutInitializer.MinLightW = 0.1f;
+		OutInitializer.MaxDistanceToCastInLightW = Radius;
+		OutInitializer.bOnePassPointLightShadow = true;
+		OutInitializer.bRayTracedDistanceField = UseRayTracedDistanceFieldShadows() && DoesPlatformSupportDistanceFieldShadowing(ViewFamily.GetShaderPlatform());
+		return true;
+	}
+
+	return false;
+}

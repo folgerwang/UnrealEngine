@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -360,7 +360,7 @@ struct FBaseBlendedCurve
 	/** Get Array Index by UID */
 	int32 GetArrayIndexByUID(USkeleton::AnimCurveUID InUid) const
 	{
-		int32 ArrayIndex = (*UIDToArrayIndexLUT)[InUid];
+		int32 ArrayIndex = (*UIDToArrayIndexLUT).IsValidIndex(InUid) ? (*UIDToArrayIndexLUT)[InUid] : MAX_uint16;
 		if (ArrayIndex != MAX_uint16)
 		{
 			return ArrayIndex;
@@ -373,7 +373,7 @@ struct FBaseBlendedCurve
 	{
 		check(bInitialized);
 
-		return ((*UIDToArrayIndexLUT)[InUid] != MAX_uint16);
+		return (GetArrayIndexByUID(InUid) != INDEX_NONE);
 	}
 	
 	/** Get Valid Element Count from given UIDToArrayIndexLUT */
@@ -519,13 +519,39 @@ struct FBaseBlendedCurve
 	}
 
 	/**
-	 * Override with inupt curve 
+	 * Override with input curve 
 	 */
 	void Override(const FBaseBlendedCurve& CurveToOverrideFrom)
 	{
-		InitFrom(CurveToOverrideFrom);
-		Elements.Reset();
-		Elements.Append(CurveToOverrideFrom.Elements);
+		// make sure this doesn't happen
+		if (ensure(&CurveToOverrideFrom != this))
+		{
+			check(CurveToOverrideFrom.UIDToArrayIndexLUT != nullptr);
+			UIDToArrayIndexLUT = CurveToOverrideFrom.UIDToArrayIndexLUT;
+			NumValidCurveCount = GetValidElementCount(UIDToArrayIndexLUT);
+			Elements.Reset();
+			Elements.Append(CurveToOverrideFrom.Elements);
+			bInitialized = true;
+		}
+	}
+
+	/**
+	 * Override with input curve, leaving input curve invalid
+	 */
+	void OverrideMove(FBaseBlendedCurve& CurveToOverrideFrom)
+	{
+		// make sure this doesn't happen
+		if (ensure(&CurveToOverrideFrom != this))
+		{
+			check(CurveToOverrideFrom.UIDToArrayIndexLUT != nullptr);
+			UIDToArrayIndexLUT = CurveToOverrideFrom.UIDToArrayIndexLUT;
+			CurveToOverrideFrom.UIDToArrayIndexLUT = nullptr;
+			NumValidCurveCount = GetValidElementCount(UIDToArrayIndexLUT);
+			CurveToOverrideFrom.NumValidCurveCount = 0;
+			Elements = MoveTemp(CurveToOverrideFrom.Elements);
+			bInitialized = true;
+			CurveToOverrideFrom.bInitialized = false;
+		}
 	}
 
 	/** Return number of elements */
@@ -555,6 +581,19 @@ struct FBaseBlendedCurve
 			bInitialized = true;
 		}
 	}
+
+	/** Once moved, source is invalid */
+	void MoveFrom(FBaseBlendedCurve<Allocator>& CurveToMoveFrom)
+	{
+		UIDToArrayIndexLUT = CurveToMoveFrom.UIDToArrayIndexLUT;
+		CurveToMoveFrom.UIDToArrayIndexLUT = nullptr;
+		NumValidCurveCount = CurveToMoveFrom.NumValidCurveCount;
+		CurveToMoveFrom.NumValidCurveCount = 0;
+		Elements = MoveTemp(CurveToMoveFrom.Elements);
+		bInitialized = true;
+		CurveToMoveFrom.bInitialized = false;
+	}
+
 	/** Empty */
 	void Empty()
 	{
@@ -576,24 +615,12 @@ struct FBaseBlendedCurve
 	}
 };
 
-struct FBlendedHeapCurve;
-
 struct ENGINE_API FBlendedCurve : public FBaseBlendedCurve<FAnimStackAllocator>
 {
 };
 
 struct ENGINE_API FBlendedHeapCurve : public FBaseBlendedCurve<FDefaultAllocator>
 {
-	/** Once moved, source is invalid */
-	void MoveFrom(FBlendedHeapCurve& CurveToMoveFrom)
-	{
-		UIDToArrayIndexLUT = CurveToMoveFrom.UIDToArrayIndexLUT;
-		CurveToMoveFrom.UIDToArrayIndexLUT = nullptr;
-		Elements = MoveTemp(CurveToMoveFrom.Elements);
-		bInitialized = true;
-		CurveToMoveFrom.bInitialized = false;
-	}
-
 };
 
 UENUM()
@@ -629,7 +656,7 @@ struct FRawCurveTracks
 	 **/
 	UPROPERTY()
 	TArray<FTransformCurve>	TransformCurves;
-#endif // #if WITH_EDITOR_DATA
+#endif // #if WITH_EDITORONLY_DATA
 
 	/**
 	 * Evaluate curve data at the time CurrentTime, and add to Instance. It only evaluates Float Curve for now

@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -45,18 +45,6 @@ extern gvr_context* GVRAPI;
 #endif
 
 #endif //GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
-
-#if GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
-
-#import <GVRSDK/GVROverlayView.h>
-
-@class FOverlayViewDelegate;
-@interface FOverlayViewDelegate : UIResponder<GVROverlayViewDelegate>
-{
-}
-@end
-
-#endif //GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
 
 // Forward decl
 class FGoogleVRHMD;
@@ -398,11 +386,6 @@ private:
 	FIndexBufferRHIRef DistortionMeshIndices;
 	FVertexBufferRHIRef DistortionMeshVerticesLeftEye;
 	FVertexBufferRHIRef DistortionMeshVerticesRightEye;
-
-#if GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
-	GVROverlayView* OverlayView;
-	FOverlayViewDelegate* OverlayViewDelegate;
-#endif
 
 	// Cached data that should only be updated once per frame
 	mutable uint32		LastUpdatedCacheFrame;

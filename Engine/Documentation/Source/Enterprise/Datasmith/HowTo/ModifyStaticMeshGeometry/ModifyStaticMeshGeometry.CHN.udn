@@ -1,0 +1,98 @@
+﻿INTSourceChangelist:4506072
+Availability: Public
+Crumbs: 
+Title: 修改静态网格体几何体
+Description: 描述如何使用静态网格体编辑器内的编辑模式修改静态网格体资源的几何体。
+Type:how-to
+SkillLevel:Beginner
+Version: 4.20
+Parent: Enterprise/Datasmith/HowTo
+Order: 1
+Tags: Static Mesh
+Tags: how to
+Tags: Datasmith
+Tags: beginner
+
+
+在将静态网格体导入到虚幻之后，有时可能会发现静态网格体的几何体存在一些小问题。例如，这些问题可能包括：
+
+*   在运行时实际并不需要的额外三角形，可删除它们以便优化模型。
+*   意外朝向错误方向的三角形，由于背面剔除，它们会突然消失。
+
+解决此类问题的一种方法是返回到设计工具，在其中更正这些问题，重新导出模型，然后重新将它导入到虚幻中。但是，此过程可能会消耗大量时间。而且，如果静态网格体资源最初是直接以CAD格式导入到虚幻中的，这可能意味着要向流程中添加全新的设计工具。
+
+为了方便你不必离开虚幻编辑器就可轻松修复此类小问题，静态网格体编辑器中包含了一个基本几何体编辑工具小型套件。
+
+本页面介绍如何使用这些工具略微编辑项目中的静态网格体资源。
+
+[REGION:note]
+*   这些网格体编辑操作会修改静态网格体的原始几何体，但不会立即更新基于该几何体的任何其他数据。例如，已删除的三角形仍会在自动生成的光照贴图UV布局中占用空间，而且仍会出现在分配给静态网格体的质量较低的细节层次级别（LOD）中。根据对几何体进行的更改的种类，可能需要重新创建这类数据，重新构建关卡的照明等操作。
+*   本页面介绍的静态网格体编辑模式当前仅适用于Unreal Studio项目。有关创建Unreal Studio项目或转换现有项目的细节，请参阅[设置虚幻项目以使用Datasmith](Enterprise/Datasmith/HowTo/SettingUpUnrealProject)。
+[/REGION]
+
+## 编辑工作流
+
+![静态网格体编辑概览](mesh_editing.gif "Static Mesh editing overview")
+
+1.  在静态网格体编辑器中打开要修改的静态网格体资源。  
+    你可以通过在 **内容浏览器** 中双击它来将其打开，或者通过在关卡视口中右键单击静态网格体对象并从情境菜单中选择 **编辑（Edit）**来将其打开。
+2.  单击静态网格体编辑器工具栏中的 **编辑模式（Edit Mode）** 图标。  
+    ![编辑模式（Edit Mode）](mesh-editing-toggle-editing-mode.png "Edit Mode")  
+    处在编辑模式下时，在视口中模型将覆盖有线框，该线框会显示摄像机可见的所有三角形的轮廓。
+3.  选择一个或多个要修改的三角形。请参阅下面的[选择要编辑的几何面](#selectingfacestoedit)。
+4.  选择要应用的几何面编辑操作。请参阅下面的[几何面编辑操作](#faceeditingoperations)。
+5.  要退出编辑模式，再次单击工具栏中的 **编辑模式（Edit Mode）** 按钮。
+6.  要保留修改，先保存静态网格体资源，然后再关闭虚幻编辑器。
+
+(#selectingfacestoedit)
+## 选择要编辑的几何面
+
+将鼠标悬停在静态网格体中的三角形上时，鼠标光标下的三角形会以黄色突出显示。
+
+*   单击鼠标左键来清除当前选择，并基于突出显示的三角形和当前的选择模式重新开始选择。
+*   按住Ctrl键的同时单击鼠标左键来向当前选择中添加新的三角形，或者来从当前选择中移除已选择的三角形。
+
+已选择的几何面渲染为橙色：
+
+![选择几何面](mesh-editing-selections.png "Selecting faces")
+
+工具栏中有三种不同的选择模式可供选择。
+
+| 图标 | 含义 | 说明 |
+| --- | --- | --- |
+| ![单个几何面选择模式（Single face selection mode）](mesh-editing-selection-single.png "Single face selection mode") | 单个几何面 | 仅选择或取消选择当前突出显示的三角形。|
+| ![材质选择模式（Material selection mode）](mesh-editing-selection-material.png "Material selection mode") | 按材质 | 选择或取消选择静态网格体中与当前突出显示的三角形具有相同材质的所有三角形，无论它们是否与突出显示的三角形相连接。|
+| ![按几何面选择模式（By faces selection mode）](mesh-editing-selection-element.png "By faces selection mode") | 按相连接的几何面 | 选择或取消选择与当前突出显示的三角形相连接的所有三角形，无论它们是否具有相同的材质。|
+
+
+[REGION:tip]
+可在某个选择处于活动状态时切换模式。因此，你可以使用“相连接的几何面”模式来选择静态网格体某个给定部分中的所有相连接的三角形，然后切换回“单个几何面”模式并按住Ctrl键来单独取消选择某些三角形。
+[/REGION]
+
+(#faceeditingoperations)
+## 几何面编辑操作
+
+静态网格体编辑器提供以下可用来修改模型中已选择的三角形的操作。
+
+### 删除（Delete）
+
+![删除（Delete）](mesh-editing-delete-faces.png "Delete")
+
+从静态网格体将所有已选择的三角形全部删除。
+
+### 翻转（Flip）
+
+![翻转（Flip）](mesh-editing-flip-faces.png "Flip")
+
+翻转所有已选择的三角形，以使它们都朝向相反的方向。对于每个三角形：
+
+*   法线将翻转，它从三角形的相反几何面进行指向。
+*   三角形顶点的回转方向将翻转。
+
+### 指定新材质
+
+![指定材质](mesh-editing-assign-materials-faces.png "Assign Material")
+
+为所有已选择的三角形指定新材质。该操作会在静态网格体中为这些三角形创建新的材质插槽。
+
+如果已在 **内容浏览器** 中选择某个材质，将自动将该材质指定给该新材质插槽。如果未选择，可通过在 **细节（Details）** 面板中将新材质指定给新材质插槽来为这些三角形设置新材质。

@@ -13,7 +13,7 @@ skilllevel: Advanced
 이 절차를 통해 딱 업데이트된 콘텐츠만 들어있는 훨씬 작은 pak 파일 생성이 가능합니다.
 
 [REGION:warning]
-현재 패치 배포는 모든 플랫폼에 적용되지 않습니다. 여기서는 윈도우에서의 패키지 파일 테스트와 아울러 패치 패키지 파일 제작법을 안내해 
+현재 패치 배포는 모든 플랫폼에 적용되지 않습니다. 여기서는 Windows에서의 패키지 파일 테스트와 아울러 패치 패키지 파일 제작법을 안내해 
 드리겠습니다.
 [/REGION]
 
@@ -56,7 +56,7 @@ skilllevel: Advanced
 
 ### 쿠킹
 1. 드롭다운 메뉴에서 쿠킹 메서드로 **By the Book** 을 선택합니다.
-1. 콘텐츠 쿠킹 대상 플랫폼에 대한 박스를 전부 체크합니다. 이 예제는 윈도우 테스트 용이므로, **WindowsNoEditor** 를 선택했습니다.
+1. 콘텐츠 쿠킹 대상 플랫폼에 대한 박스를 전부 체크합니다. 이 예제는 Windows 테스트 용이므로, **WindowsNoEditor** 를 선택했습니다.
 1. 현지화 쿠킹 대상 컬처에 대한 박스를 전부 체크합니다.
 1. 쿠킹할 맵에 대한 박스를 체크합니다.
 	[Region:tip]
@@ -93,7 +93,7 @@ skilllevel: Advanced
 	![](12.png)
 
 
-**윈도우에서의 패치 테스트 방법:**
+**Windows에서의 패치 테스트 방법:**
 
 1. pak 파일을 `ShooterGame\Releases\1.0\WindowsNoEditor` 에서 `ShooterGame\Saved\StagedBuilds\WindowsNoEditor\ShooterGame\Content\Paks` 로 복사합니다.
 1. `ShooterGame.exe` 를 `ShooterGame\Saved\StagedBuilds\WindowsNoEditor` 에서 실행합니다.
@@ -101,7 +101,7 @@ skilllevel: Advanced
 ## 패치 설치
 
 패치 프로세스는 `[ProjectName]\Saved\StagedBuilds\[PlatformName]\[ProjectName]\Content\Paks` 에 pak 파일을 생성합니다. 이 pak 파일이 바로 사용자에게 배포할 패치 파일입니다.
-예를 들어 윈도우에서, pak 파일을 사용자의 `[ProjectName]\Releases\[VersionNumber]\[PlatformName]` 폴더에, 원본 콘텐츠 pak 파일 옆에 복사하는 
+예를 들어 Windows에서, pak 파일을 사용자의 `[ProjectName]\Releases\[VersionNumber]\[PlatformName]` 폴더에, 원본 콘텐츠 pak 파일 옆에 복사하는 
 인스톨러를 만들면 됩니다.
 
 디바이스에서 `FPakPlatformFile::GetPakFolders` 에 설정된 pak 검색 디렉터리 중 한 곳에 패치 pak 파일이 있으면 자동으로 마운트됩니다.

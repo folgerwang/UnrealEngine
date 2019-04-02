@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Math/RandomStream.h"
@@ -28,6 +28,7 @@
 #include "Engine/CullDistanceVolume.h"
 #include "Engine/SimpleConstructionScript.h"
 #include "Components/ChildActorComponent.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
@@ -710,7 +711,7 @@ bool AActor::ExecuteConstruction(const FTransform& Transform, const FRotationCon
 			}
 
 			// Prevent user from spawning actors in User Construction Script
-			TGuardValue<bool> AutoRestoreISCS(GetWorld()->bIsRunningConstructionScript, true);
+			FGuardValue_Bitfield(GetWorld()->bIsRunningConstructionScript, true);
 			for (int32 i = ParentBPClassStack.Num() - 1; i >= 0; i--)
 			{
 				const UBlueprintGeneratedClass* CurrentBPGClass = ParentBPClassStack[i];
@@ -930,6 +931,7 @@ static FName FindFirstFreeName(UObject* Outer, FName BaseName)
 UActorComponent* AActor::CreateComponentFromTemplate(UActorComponent* Template, FName InName)
 {
 	SCOPE_CYCLE_COUNTER(STAT_InstanceActorComponent);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(InstanceActorComponent);
 
 	UActorComponent* NewActorComp = nullptr;
 	if (Template != nullptr)
@@ -968,6 +970,7 @@ UActorComponent* AActor::CreateComponentFromTemplate(UActorComponent* Template, 
 UActorComponent* AActor::CreateComponentFromTemplateData(const FBlueprintCookedComponentInstancingData* TemplateData, FName InName)
 {
 	SCOPE_CYCLE_COUNTER(STAT_InstanceActorComponent);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(InstanceActorComponent);
 
 	// Component instance data loader implementation.
 	class FBlueprintComponentInstanceDataLoader : public FObjectReader
@@ -1041,7 +1044,8 @@ UActorComponent* AActor::CreateComponentFromTemplateData(const FBlueprintCookedC
 
 UActorComponent* AActor::AddComponent(FName TemplateName, bool bManualAttachment, const FTransform& RelativeTransform, const UObject* ComponentTemplateContext)
 {
-	if (GetWorld()->bIsTearingDown)
+	UWorld* World = GetWorld();
+	if (World->bIsTearingDown)
 	{
 		UE_LOG(LogActor, Warning, TEXT("AddComponent failed because we are in the process of tearing down the world"));
 		return nullptr;
@@ -1056,12 +1060,13 @@ UActorComponent* AActor::AddComponent(FName TemplateName, bool bManualAttachment
 		if (UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(TemplateOwnerClass))
 		{
 			// Use cooked instancing data if available (fast path).
-			if (FPlatformProperties::RequiresCookedData())
+			if (BPGC->UseFastPathComponentInstancing())
 			{
 				TemplateData = BPGC->CookedComponentInstancingData.Find(TemplateName);
 			}
 			
-			if (!TemplateData || !TemplateData->bIsValid)
+			if (!TemplateData || !TemplateData->bIsValid
+				|| !ensureMsgf(TemplateData->ComponentTemplateClass != nullptr, TEXT("AddComponent fast path (%s.%s): Cooked data is valid, but runtime support data is not initialized. Using the slow path instead."), *BPGC->GetName(), *TemplateName.ToString()))
 			{
 				Template = BPGC->FindComponentTemplateByName(TemplateName);
 			}
@@ -1111,7 +1116,6 @@ UActorComponent* AActor::AddComponent(FName TemplateName, bool bManualAttachment
 			NewActorComp->RegisterComponent();
 		}
 
-		UWorld* World = GetWorld();
 		if (!bRunningUserConstructionScript && World && bIsSceneComponent)
 		{
 			UPrimitiveComponent* NewPrimitiveComponent = Cast<UPrimitiveComponent>(NewActorComp);

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+# Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 # Certain versions of mono can crash while running GitDependencies
 # This script checks if that happened and simply re-runs the tool.
@@ -19,7 +19,7 @@ BASE_PATH="`dirname "$SCRIPT_PATH"`"
 cd ../../../..
 RESULT=0
 
-source "$BASE_PATH/SetupMono.sh" "$BASE_PATH"
+source "$BASE_PATH/SetupMono.sh" $BASE_PATH
 
 while : ; do
         mono Engine/Binaries/DotNET/GitDependencies.exe $ARGS

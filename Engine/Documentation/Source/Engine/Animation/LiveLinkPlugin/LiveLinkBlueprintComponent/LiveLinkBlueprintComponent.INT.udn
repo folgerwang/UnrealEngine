@@ -1,0 +1,220 @@
+Availability: Public
+Crumbs: 
+Title: Live Link in Blueprints
+Description: Describes how to work with the Live Link Component in Blueprints granting the ability to establish connections at run-time or in packaged projects. 
+Type: 
+Version: 4.20
+Parent: 
+Order: 
+Tags: Live Link
+
+In order to make the **Live Link** feature more accessible, you can add a **Live Link Component** to an **Actor Blueprint** which will enable you to find and establish Live Link Sources automatically both in Editor and at run-time. You can also retrieve Subjects and information about those Subjects or perform a number of other functions through Blueprint. 
+
+This page outlines how to add and work with the Live Link Component as well as the available functions you can call. 
+
+## Live Link Component
+
+When you add a Live Link Component to an Actor Blueprint from the **Components** panel, it doesn’t get parented to other Components, it just sits inside your Blueprint and gives you access to the **On Live Link Updated Event**. 
+
+![](OnLiveLinkUpdatedComponent.png)
+
+On Live Link Updated is triggered any time new Live Link data is available, including inside the Editor.
+
+![](LiveLinkUpdated.png)
+
+The On Live Link Updated node effectively takes the place of your **Tick Event** but it runs inside the Editor as well. For example, if you want to drive some data live inside the Editor, this node will support that. 
+
+Below we drive the transform of a camera in the editor through Live Link which is being streamed from Maya's Editor Active Camera. 
+
+[OBJECT:EmbeddedVideo]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ uPG4MKaVyFU
+ [/PARAMLITERAL]
+[/OBJECT]
+
+[REGION:note]
+For the On Live Link Updated event to work in the Editor, enable the **Realtime** option in the **Viewport Options** menu.
+
+![](ViewportOptions.png)
+[/REGION]
+
+When using a Live Link Component inside an Actor Blueprint that contains a Skeletal Mesh, the Live Link Component will automatically set the Skeletal Mesh to be evaluated in-Editor.
+
+![](SkeletalMeshExample.png)
+
+Above we have a Skeletal Mesh Component called **SK_Mannequin** and assigned an Animation Blueprint that uses the Live Link Pose node to stream in animation data. Typically, if you have things like a Camera, Lights or other Skeletal or Static Meshes that you want to animate properties externally and stream in, you would do this inside a Blueprint. Any animation data that you want to stream in is best handled through an Animation Blueprint and the Live Link Pose node. 
+
+### Get Subject Data
+
+Using the Live Link Component, you can call the **Get Subject Data** function which enables you to get the Live Link data associated with the provided Subject Name. This function will give you a boolean result for whether a frame was found or not as well as a **Subject Frame Handle**.
+
+![](GetSubjectData.png)
+
+The Subject Frame Handle is purely just a handle to the frame, as the frame still lives in C++. This is just a Blueprint wrapper around it that contains additional functions you can call to get data out of it.
+
+![](SubjectHandleFunctions.png)
+
+#### Get Curves
+
+This function enables you to get all the Blend Shapes or Animated Curves and returns a Map of the Name to Value for each entry.
+
+![](GetCurves.png)
+
+You could use a **Find** and enter a Name to retrieve the value of a curve (or use the boolean to determine if it was found or not).  
+
+![](FindMapLeftEyeOpen.png)
+
+#### Get Metadata
+
+This function returns the Subject Metadata structure stored in the Subject Frame which you can break apart to retrieve information: 
+
+![](GetMetadata.png)
+
+String Metadata is a Map to named strings on the subject, for example you may want to pass through the type of an object being streamed as a named string. Also included with the metadata is the Scene Timecode and Scene Framerate which you can break the structures to obtain the information you need.
+
+| Output | Description |
+| --- | --- |
+| **String Metadata** | A map of named strings used to provide additional information about a frame or subject, for example “Type”: “Camera”. |
+| **Scene Timecode** | Timecode value associated with the current frame. [INCLUDE:#excerpt1]|
+| **Scene Framerate** | Corresponding Framerate to the Scene Timecode. |
+
+[COMMENT: none]
+[EXCERPT:Excerpt1]
+[REGION:note]
+This is not guaranteed to be unique, for example editing a single frame in MotionBuilder will result in that frame’s timecode being sent for multiple frames.
+[/REGION]
+[/EXCERPT]
+[/COMMENT]
+
+#### Get Root Transform
+
+This function will return the Root Transform for the Subject Frame as a Live Link Transform (or the identity if there are no transforms).
+
+![](RootTransformLiveLink.png)
+
+This returns a Live Link Transform instead of standard Transform as you can call the additional functions on it (outlined below): 
+
+| Function | Description |
+| --- | --- |
+| **Child Count** | Returns the number of Children for a given Live Link Transform. |
+| **Component Space Transform** | Returns the Transform value in Root Space for a given Live Link Transform (relative to the root of your model). |
+| **Get Children** | Returns an array of Child Live Link Transforms for a given Live Link Transform. |
+| **Get Parent** | Returns the Parent Live Link Transform if one exists or an Identity Transform if no Parent exists. |
+| **Has Parent** | Returns whether a given Live Link Transform has a Parent Transform. |
+| **Parent Bone Space Transform** | Returns the Transform value in Parent Space for a given Live Link Transform (how it's stored internally and relative to whatever the Parent bone is). |
+| **Transform Name** | Returns the Name of a given Live Link Transform. |
+
+#### Get Transform By Index
+
+Returns the Live Link Transform stored in a Subject Frame at a specified index (returns an Identity Transform if Transform Index is invalid).
+
+![](LiveLinkTransformIndex.png)
+
+#### Number of Transforms
+
+This returns the number of Transforms within the Subject Frame.
+
+![](LiveLinkNumOfTransforms.png)
+
+One use case for this would be to use it in conjunction with the **Get Transform By Index** to loop through and retrieve each of your Live Link Transforms (similar to below):
+
+[REGION:lightbox]
+[![](LoopingThroughTransforms-1.png)(w:900)](LoopingThroughTransforms-1.png)
+[/REGION]
+[REGION:caption]
+Click image for full view.
+[/REGION]
+
+#### Get Transform Names
+
+The **Get Transform Names** function returns an array of names for all the transforms in a frame. 
+
+![](GetTransformNames.png)
+
+#### Get Transform by Name
+
+The **Get Transform by Name** function is similar to **Get Transform by Index** but takes in Transform Name data.
+
+![](GetTransformByName.png)
+
+### Get Available Subject Names
+
+Off the Live Link Component, you can use the **Get Available Subject Names** function to return an array of names for which calling **Get Subject Data** with that name is valid. 
+
+![](GetAvailableSubjectNames.png)
+
+## Message Bus Finder
+
+The following Blueprint nodes can be used to locate and establish a connection via Message Bus Source. 
+
+### Construct Message Bus Finder
+
+The **Construct Message Bus Finder** node enables you to detect any available Message Bus Providers on the network. 
+
+![](ConstructMessageBusFinder.png)
+
+This function returns a **Live Link Message Bus Finder Object Reference** type which you can use to call **Get Available Providers.**
+
+### Get Available Providers
+
+The Get Available Providers node broadcasts a message to the network, then returns an array of all **Available Providers** who replied within the specified amount of time defined under **Duration**. 
+
+![](GetAvailableProviders-1.png)
+
+[REGION:note]
+Get Available Providers behaves like a **Delay** node and does not block.
+[/REGION]
+
+It targets a Live Link Message Bus Finder, an example of which can be seen in the image below: 
+
+![](ExampleGetAvailProviders.png)
+
+Above, on **Begin Play** we use the **Construct Message Bus Finder** and store that as a variable which we then use to call the **Get Available Providers** and retrieve the list of available providers we can connect to. 
+
+### Connect to Provider
+
+This node enables you to connect to a specified Message Bus Provider and returns a handle to the created Live Link Source. 
+
+![](ConnectToProvider.png)
+
+Once you have retrieved the available providers with a **Get Available Providers** function call, you can target and connect to the desired provider using this node. 
+
+The example below demonstrates how you could automatically find a Message Bus Source, Get the Available Providers and connect to the first one in the list if one is found using this node. 
+
+[REGION:lightbox]
+[![](AutoConnectToProviders.png)(w:900)](AutoConnectToProviders.png)
+[/REGION]
+
+Click image for full view.
+
+The Connect to Provider node returns a **Source Handle** you can use to query info about the Live Link Source that was created.
+
+![](ProviderSourceHandle-1.png)
+
+These functions include:
+
+| Function | Description |
+| --- | --- |
+| **Get Source Machine Name** | Gets the machine name of a Live Link Source via its Handle. |
+| **Get Source Status** | Gets the text status of a Live Link Source via its Handle. |
+| **Get Source Type** | Gets the type of a Live Link Source via its Handle. |
+| **Is Source Still Valid** | Checks whether the Live Link Source is valid via its Handle (if not you can use Request Shutdown). |
+| **Request Shutdown** | Requests the given Live Link Source to shut down via its Handle. |
+
+Whenever you use the Connect to Provider node, it's a good practice to cache the **Source Handle**. Upon **Event End Play** you can use **Request Shutdown** to terminate the connection (as seen below). Every time you connect to the provider without terminating the connection, you establish a new connection while the old connection remains (which will appear in the Live Link UI window)
+
+![](RequestShutdown.png)
+
+## Live Link in Packaged Projects
+
+Using the Blueprint functions **Construct Message Bus Finder**, **Get Available Providers**, and **Connect to Provider** will enable you to not only automatically detect any Message Bus Sources and connect to them at run-time, but you can also connect to those sources in packaged projects.
+
+[REGION:warning]
+If you package your project and your node network works at run-time but does not work in your packaged project, for it to work in your packaged project, you may need to enter the command line argument `- Messaging` flag. This is one of the limitations of using Message Bus because it won't run without this flag
+[/REGION]

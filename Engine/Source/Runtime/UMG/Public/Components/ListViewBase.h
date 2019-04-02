@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -19,7 +19,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnListEntryReleasedDynamic, UUserWi
 //////////////////////////////////////////////////////////////////////////
 
 /**
- * Mirrored SListView<T> API for easier interaction with a bound UListViewBase widget that isn't based on UObject* items
+ * Mirrored SListView<T> API for easier interaction with a bound UListViewBase widget
  * See declarations on SListView for more info on each function and event
  *
  * Note that, being a template class, this is not a UClass and therefore cannot be exposed to Blueprint.
@@ -27,6 +27,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnListEntryReleasedDynamic, UUserWi
  * Otherwise, it is up to the child class to propagate events and/or expose functions to BP as needed
  *
  * Use the IMPLEMENT_TYPED_UMG_LIST() macro for the implementation boilerplate in your implementing class.
+ * @see UListView for an implementation example.
  */
 template <typename ItemType>
 class ITypedUMGListView
@@ -207,18 +208,22 @@ protected:
 
 	template <template<typename> class ListViewT = SListView, typename UListViewBaseT>
 	static TSharedRef<ListViewT<ItemType>> ConstructListView(UListViewBaseT* Implementer,
-		TArray<ItemType>& ListItems,
+		const TArray<ItemType>& ListItems,
+		bool bAllowFocus = true,
 		ESelectionMode::Type SelectionMode = ESelectionMode::Single,
 		bool bClearSelectionOnClick = false,
-		EConsumeMouseWheel ConsumeMouseWheel = EConsumeMouseWheel::WhenScrollingPossible)
+		EConsumeMouseWheel ConsumeMouseWheel = EConsumeMouseWheel::WhenScrollingPossible,
+		bool bReturnFocusToSelection = false)
 	{
 		static_assert(TIsDerivedFrom<ListViewT<ItemType>, SListView<ItemType>>::IsDerived, "ConstructListView can only construct instances of SListView classes");
 		return SNew(ListViewT<ItemType>)
 			.HandleGamepadEvents(true)
 			.ListItemsSource(&ListItems)
+			.IsFocusable(bAllowFocus)
 			.ClearSelectionOnClick(bClearSelectionOnClick)
 			.ConsumeMouseWheel(ConsumeMouseWheel)
 			.SelectionMode(SelectionMode)
+			.ReturnFocusToSelection(bReturnFocusToSelection)
 			.OnGenerateRow_UObject(Implementer, &UListViewBaseT::HandleGenerateRow)
 			.OnSelectionChanged_UObject(Implementer, &UListViewBaseT::HandleSelectionChanged)
 			.OnRowReleased_UObject(Implementer, &UListViewBaseT::HandleRowReleased)
@@ -229,7 +234,7 @@ protected:
 
 	template <template<typename> class TileViewT = STileView, typename UListViewBaseT>
 	static TSharedRef<TileViewT<ItemType>> ConstructTileView(UListViewBaseT* Implementer,
-		TArray<ItemType>& ListItems,
+		const TArray<ItemType>& ListItems,
 		EListItemAlignment TileAlignment,
 		TAttribute<float> TileHeight,
 		TAttribute<float> TileWidth,
@@ -259,7 +264,7 @@ protected:
 
 	template <template<typename> class TreeViewT = STreeView, typename UListViewBaseT>
 	static TSharedRef<TreeViewT<ItemType>> ConstructTreeView(UListViewBaseT* Implementer,
-		TArray<ItemType>& ListItems,
+		const TArray<ItemType>& ListItems,
 		ESelectionMode::Type SelectionMode = ESelectionMode::Single,
 		bool bClearSelectionOnClick = false,
 		EConsumeMouseWheel ConsumeMouseWheel = EConsumeMouseWheel::WhenScrollingPossible)
@@ -407,7 +412,7 @@ public:
 
 #if WITH_EDITOR
 	virtual const FText GetPaletteCategory() override;
-	virtual void ValidateCompiledDefaults(FCompilerResultsLog& CompileLog) const override;
+	virtual void ValidateCompiledDefaults(IWidgetCompilerLog& CompileLog) const override;
 #endif
 
 	TSubclassOf<UUserWidget> GetEntryWidgetClass() const { return EntryWidgetClass; }
@@ -436,6 +441,8 @@ public:
 
 	DECLARE_EVENT_OneParam(UListView, FOnEntryWidgetReleased, UUserWidget&);
 	FOnEntryWidgetReleased& OnEntryWidgetReleased() { return OnEntryWidgetReleasedEvent; }
+
+	void SetScrollbarVisibility(ESlateVisibility InVisibility);
 
 protected:
 	virtual TSharedRef<SWidget> RebuildWidget() override final;
@@ -469,7 +476,7 @@ protected:
 		WidgetEntryT* ListEntryWidget = EntryWidgetPool.GetOrCreateInstance<WidgetEntryT>(*WidgetClass,
 			[this, &OwnerTable] (UUserWidget* WidgetObject, TSharedRef<SWidget> Content)
 			{
-				return SNew(ObjectTableRowT, OwnerTable, *WidgetObject)
+				return SNew(ObjectTableRowT, OwnerTable, *WidgetObject, this)
 					.OnHovered_UObject(this, &UListViewBase::HandleListEntryHovered)
 					.OnUnhovered_UObject(this, &UListViewBase::HandleListEntryUnhovered)
 					[
@@ -483,7 +490,7 @@ protected:
 		return *ListEntryWidget;
 	}
 
-#if WITH_EDITORONLY_DATA
+#if WITH_EDITOR
 	/**
 	 * Called during design time to allow lists to generate preview entries via dummy data.
 	 * Since that data could be of any type, the child has to be the one to generate them.

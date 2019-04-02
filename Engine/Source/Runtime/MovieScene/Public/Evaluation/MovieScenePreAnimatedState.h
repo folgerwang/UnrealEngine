@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -137,6 +137,12 @@ struct MOVIESCENE_API TMovieSceneSavedTokens
 	bool RestoreEntity(IMovieScenePlayer& Player, FMovieSceneEvaluationKey EntityKey, TOptional<TFunctionRef<bool(FMovieSceneAnimTypeID)>> InFilter = TOptional<TFunctionRef<bool(FMovieSceneAnimTypeID)>>());
 
 	/**
+	 * Discard any tokens that relate to entity animation (ie sections or tracks) without restoring the values.
+	 * Any global pre-animated state tokens (that reset the animation when saving a map, for instance) will remain.
+	 */
+	void DiscardEntityTokens();
+
+	/**
 	 * Reset all containers without applying or restoring any tokens
 	 */
 	void Reset();
@@ -262,6 +268,12 @@ public:
 	MOVIESCENE_API void RestorePreAnimatedState(IMovieScenePlayer& Player, UObject& Object);
 
 	MOVIESCENE_API void RestorePreAnimatedState(IMovieScenePlayer& Player, UObject& Object, TFunctionRef<bool(FMovieSceneAnimTypeID)> InFilter);
+
+	/**
+	 * Discard any tokens that relate to entity animation (ie sections or tracks) without restoring the values.
+	 * Any global pre-animated state tokens (that reset the animation when saving a map, for instance) will remain.
+	 */
+	MOVIESCENE_API void DiscardEntityTokens();
 
 public:
 

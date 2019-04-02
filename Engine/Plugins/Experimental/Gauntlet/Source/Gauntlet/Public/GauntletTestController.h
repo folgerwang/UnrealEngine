@@ -1,10 +1,11 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "GauntletModule.h"
 #include "GauntletTestController.generated.h"
 
+class APlayerController;
 
 /**
  *	Base class for games to implement test controllers that use the Gauntlet native
@@ -55,6 +56,16 @@ public:
 	 *	GetCurrentState() == OldState until this function returns
 	 */
 	virtual void	OnStateChange(FName OldState, FName NewState) {}
+
+	/**
+	 * Return the current world
+	 */
+	UWorld* GetWorld() const override;
+
+	/**
+	 *	Helper function that returns the first player controller in the world (may be null depending on when called).
+	 */
+	APlayerController* GetFirstPlayerController() const;
 
 protected:
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 
@@ -43,7 +43,9 @@ public:
 
 	// Mesh toolbar Commands
 	TSharedPtr< FUICommandInfo > ReimportMesh;
+	TSharedPtr< FUICommandInfo > ReimportMeshWithNewFile;
 	TSharedPtr< FUICommandInfo > ReimportAllMesh;
+	TSharedPtr< FUICommandInfo > ReimportAllMeshWithNewFile;
 
 	// View Menu Commands
 	TSharedPtr< FUICommandInfo > SetShowNormals;

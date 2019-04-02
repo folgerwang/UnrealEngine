@@ -1,20 +1,21 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Input/IDisplayClusterInputManager.h"
-#include "IPDisplayClusterManager.h"
-
 #include "Network/DisplayClusterMessage.h"
+
+#include "IPDisplayClusterManager.h"
 
 
 /**
  * Input manager private interface
  */
-struct IPDisplayClusterInputManager
+class IPDisplayClusterInputManager
 	: public IDisplayClusterInputManager
 	, public IPDisplayClusterManager
 {
+public:
 	virtual ~IPDisplayClusterInputManager()
 	{ }
 

@@ -1,117 +1,158 @@
-﻿Availability:Public
-Title: 主菜单栏
+﻿INTSourceChangelist:3810467
+Availability:Public
+Title:主菜单栏
 Crumbs:%ROOT%, Engine, Engine/UI
-Description: 主菜单中包含了在使用编辑器时要用的通用工具和命令。
+Description:包含在编辑器中工作时所用通用工具和命令的菜单。
+Version: 4.9
 
 [EXCERPT:Intro]
-编辑器的 **菜单栏** 对于每个曾经使用过Windows应用程序的人应该都是很熟悉的。 它提供了在编辑器中处理关卡时所需的通用工具及命令。
+任何使用过Windows应用程序的人都应当会很熟悉编辑器中的 **菜单栏（Menu Bar）**。它提供了对编辑器中处理关卡时所用通用工具和命令的访问权限。
 [/EXCERPT:Intro]
 
-![](MainMenubar.png)
+[OBJECT:ToggleButtonContent]
+[PARAMLITERAL:category]
+操作系统
+[/PARAMLITERAL]
+[PARAMLITERAL:id]
+windows
+[/PARAMLITERAL]
+[PARAMLITERAL:active]
+[/PARAMLITERAL]
+[PARAM:content]
+[REGION:lightbox]
+![](MenuBar_Windows.png)
+[/REGION]
+[/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+[PARAMLITERAL:category]
+操作系统
+[/PARAMLITERAL]
+[PARAMLITERAL:id]
+mac
+[/PARAMLITERAL]
+[PARAMLITERAL:active]
+[/PARAMLITERAL]
+[PARAM:content]
+[REGION:lightbox]
+![](MenuBar_Mac.png)
+[/REGION]
+[/PARAM]
+[/OBJECT]
+
+(#file)
 
 ## 文件
 
-| 命令 | 描述 |
+| 命令 | 说明 |
 | ------- | ----------- |
-| [REGION:tablesection]**加载及保存**[/REGION] ||
-| **新建关卡** | 创建一个新关卡，或者选择一个关卡模板作为起点。 |
-| **打开关卡** | 载入已存关卡。 |
-| **保存** | 保存当前关卡到磁盘中。 |
-| **另存为** | 使用特定名称保存当前的永久地图。 |
-| **保存所有关卡** | 保存所有未保存的已加载关卡，包括动态载入关卡。 |
-| **打开资源** | 调出资源选择器。 |
-| **保存所有** | 保存所有未保存的关卡及资源。 |
-| **选择文件进行保存** | 打开一个具有关卡及内容保存选项的对话框。 |
-| **提交到源码控制** | 对内容和关卡打开带迁入选项的对话框。 |
-| [REGION:tablesection]**项目**[/REGION] ||
-| **新建项目** | 打开对话框以创建新游戏项目。 |
-| **打开项目** |打开对话框以选择待打开的游戏项目。 |
-| **添加代码到项目** | 添加C++代码到项目。 该代码仅当您安装了Visual Studio才能编译。 |
-| **烘焙内容** |针对特定平台烘焙您的项目内容。 如果您从Visual Studio中运行基于代码的项目，这是有用的。 |
-| **打包项目** |编译、烘焙并打包您的项目及其内容以进行发布。 |
-| **打开Visual Studio** | 在Visual Studio中打开您的C++代码。 |
-| **刷新Visual Studio项目** | 在Visual Studio中刷新您的C++代码项目。 |
-| [REGION:tablesection]**Actors**[/REGION] ||
-| **导入** | 从一个T3D格式的文件中导入对象及Actors到当前关卡中。 |
-| **导出所有内容** | 将整个关卡导出到磁盘上的文件中 (支持多种格式。) |
-| **导出选择内容** | 将当前选中的所有对象导出到磁盘上的文件中 (支持多种格式。) |
-| [REGION:tablesection]**应用程序**[/REGION] ||
-| **添加关卡到收藏夹** | 设置当前加载的关卡是否出现在收藏的关卡的列表中。 |
-| **最近关卡** |选择要加载的关卡。 |
-| **最近项目** | 选择您想要切换到的项目。 |
-| **推出** |退出该应用程序。 |
+| [REGION:tablesection]**加载并保存（Load and Save）**[/REGION] ||
+| **新关卡（New Level）** | 创建新关卡，或选择要从其开始着手的关卡模板。|
+| **打开关卡（Open Level）** | 加载一个现有关卡。|
+| **保存（Save）** | 将当前关卡保存到磁盘。|
+| **另存为（Save As）** | 用给定名称保存当前永久性地图。|
+| **保存所有关卡（Save All Levels）** | 保存所有未保存的已加载关卡，包括流送关卡。|
+| **打开资源（Open Asset）** | 召唤一个资源选取器。|
+| **全部保存（Save All）** | 保存所有未保存的关卡和资源。|
+| **选择要保存的文件（Choose Files to Save）** | 打开一个带关卡和内容的保存选项的对话框。|
+| **提交到源控件（Submit to Source Control）** | 打开一个带内容和关卡相关选取选项的对话框。|
+| [REGION:tablesection]**项目（Project）**[/REGION] ||
+| **新项目（New Project）** | 打开一个对话框以创建新的游戏项目。|
+| **打开项目（Open Project）** | 打开一个对话框以选择要打开的游戏项目。|
+| **将代码添加到项目（Add Code To Project）** | 将C++代码添加到项目。只有安装了Visual Studio，才能编译代码。|
+| **烘焙内容（Cook Content）** | 为特定平台烘焙项目内容。如果您在Visual Studio中运行基于代码的项目，此命令将非常有用。|
+| **打包项目（Package Project）** | 编译、烘焙和打包您的项目及其内容，以便分发。|
+| **打开Visual Studio（Open Visual Studio）** | 在Visual Studio中打开您的C++代码。|
+| **刷新Visual Studio项目（Refresh Visual Studio Project）** | 在Visual Studio中刷新您的C++代码项目。|
+| [REGION:tablesection]**Actor**[/REGION] ||
+| **导入（Import）** | 将对象和Actor从T3D格式导入到当前关卡。|
+| **全部导出（Export All）** | 将整个关卡导出到磁盘上的文件（支持多种格式）。|
+| **导出选定项（Export Selected）** | 将当前选择的对象导出到磁盘上的文件（支持多种格式）。|
+| [REGION:tablesection]**应用程序（Application）**[/REGION] ||
+| **将关卡添加到收藏夹（Add Level To Favorites）** | 设置当前加载的关卡是否会出现在收藏夹关卡列表中。|
+| **最近的关卡（Recent Levels）** | 选择要加载的关卡。|
+| **最近的项目（Recent Projects）** | 选择要切换至的项目。|
+| **退出（Exit）** | 退出应用程序。|
+
+(#edit)
 
 ## 编辑
 
 [VAR:EditHistory]
-| [REGION:tablesection]**历史记录**[/REGION] ||
-| **取消** | 取消上一次完成的操作。 |
-| **重复** |重复执行上一次取消的操作。 |
+| [REGION:tablesection]**历史记录（History）**[/REGION] ||
+| **撤销（Undo）** | 撤销上一次完成的操作。|
+| **重做（Redo）** | 重做上一次撤销的操作。|
 [/VAR]
 
 [VAR:EditConfig]
-| [REGION:tablesection]**设置**[/REGION] ||
-|**编辑器偏好设置**| 配置此编辑器的行为和功能。 请参阅[](Engine/UI/EditorSettings)以获得详细信息。 |
-|**项目设置**|变更当前加载项目的设置。 请参阅[](Engine/UI/ProjectSettings)以获得详细信息。 |
+| [REGION:tablesection]**配置（Configuration）**[/REGION] ||
+|**编辑器首选项（Editor Preferences）**| 配置此编辑器的行为和功能。有关详细信息，请参阅 **[](Engine/UI/EditorSettings)**。|
+|**项目设置（Project Settings）**| 更改当前加载项目的设置。有关详细信息，请参阅 **[](Engine/UI/ProjectSettings)**。|
+|**插件（Plugins）**| 此命令将打开插件浏览器，可以在其中为当前项目启用或禁用这些插件。|
 [/VAR]
 
 
-| 命令 | 描述 |
+| 命令 | 说明 |
 | ------- | ----------- |
 %edithistory%
-| [REGION:tablesection]**编辑**[/REGION] ||
-| **剪切** | 剪切选中项。 |
-| **复制** | 复制选中项。 |
-| **黏贴** | 黏贴剪切板内容。 |
-| **克隆** | 克隆选中项。 |
-| **删除** | 删除当前选项。 |
+| [REGION:tablesection]**编辑（Edit）**[/REGION] ||
+| **剪切（Cut）** | 剪切选定项。|
+| **复制（Copy）** | 复制选定项。|
+| **粘贴（Paste）** | 粘贴剪贴板内容。|
+| **重复（Duplicate）** | 重复选定项。|
+| **删除（Delete）** | 删除当前选择。|
 %editconfig%
+
+(#window)
 
 ## 窗口
 
-| 命令 | 描述 |
+| 命令 | 说明 |
 | ------- | ----------- |
-|**详细信息**| 显示 **详细信息** 面板，它让我们对选定对象访问其不同属性。 您可以同时显示最多4个 **详细信息** 面板。|
-|**视口**| 显示视口，它是您在游戏中的3D世界的视图。 您可以同时显示最多4个视口。|
-|**构建和提交**| 打开 **构建和提交** 面板，它可以让您为关卡构建光照，保存关卡，然后提交到源控制。|
-| **图层** | 打开 **图层** 面板，在此处您可以将您的关卡分为一系列可视图层。|
-| **关卡** | 打开 **关卡** ，将显示永久关卡及所有动态载入关卡。 |
-| **模式** | 显示 **模式** 面板， 它可以访问诸如地貌和植被的特殊关卡编辑工具。 |
-| **场景大纲视图** | 打开 **场景大纲视图**，这是当前在关卡中所有Actors的层次化细分。|
-| **统计数据** | 显示 **统计数据** 面板， 它提供对关卡的一系列性能统计的访问。|
-| **工具条** | 显示工具条，它包含了一系列您将要在关卡编辑中执行的常见函数。|
-| **世界设置** | 显示 **世界设置** 面板， 您可以找到适用于您当前正在编辑的关卡的特定设置。|
+| **细节（Details）** | 显示 **细节（Details）** 面板，该面板使您能够访问所选对象的各种属性。最多可以同时显示4个 **细节（Details）** 面板。|
+| **视口（Viewports）** | 显示视口，即您在游戏三维世界中的视图。最多可以同时显示4个视口。|
+| **层级LOD大纲视图（Hierarchical LOD Outliner）** | 此命令将显示HLOD设置并允许生成群集。|
+| **图层（Layers）** | 打开 **图层（Layers）** 面板，您可以在其中将您的关卡划分为一系列的可见层。|
+| **关卡（Levels）** | 打开显示永久性关卡和所有流送关卡的 **关卡（Levels）** 面板。|
+| **模式（Modes）** | 显示 **模式（Modes）** 面板，您可从该面板访问特殊的关卡编辑工具，例如地形（Landscape）和植物（Foliage）。|
+| **世界场景大纲视图（World Outliner）** | 打开 **世界场景大纲视图（World Outliner）**，即关卡中当前所有Actor的层级明细。
+| **统计数据（Statistics）** | 显示了 **统计数据（Statistics）** 面板，该面板使您能够访问关卡的各种性能统计数据。|
+| **工具栏（Toolbar）** | 显示工具栏（Toolbar），其中包含在关卡编辑期间将执行的各种常见功能。|
+| **世界场景设置（World Settings）** | 显示 **世界场景设置（World Settings）** 面板，可在其中查找特定于您当前正在编辑的关卡的设置。|
 %commonwindowmenu%
 
 [VAR:CommonWindowMenu]
-| [REGION:tablesection]** **[/REGION] ||
-| **内容浏览器** | 打开任意到最多4个单独的[内容浏览器](Engine/Content/Browser)来与内容资源共同使用。 |
-| **开发者工具** | 为使用引擎和编辑器的程序员提供了各种有用的工具。 |
-| **蓝图调试器** | 打开[](Engine/Blueprints/UserGuide/Debugging)面板。 |
-| **类别查看器** | 打开[](Engine/UI/ClassViewer)以便向地图中添加 **Actors** 实例及创建 **蓝图** 。 |
-| **消息日志** | 打开包含各种特定信息日志的 **消息日志** 。 任何给定时间，仅可以存在一个 **消息日志** 。 |
-| **输出日志** | 打开一个新建 **输出日志** 。 任何给定时间，仅可以存在一个 **输出日志** 。 |
-| **插件** | 打开插件浏览器选项卡。 |
-| [REGION:tablesection]**虚幻前端**[/REGION] ||
-| **设备管理器** | 打开 **设备管理器** 选项卡。 |
-| **对话前端** | 打开[](Engine/Deployment/UnrealFrontend)工具，使您可以访问[自动化系统](Programming/Automation)、虚幻控制台，等等。 |
-| [REGION:tablesection]**布局**[/REGION] ||
-| **重设布局** | 对您的用户设置进行备份并重设布局自定义。 |
-| **保存布局** | 保存当前用户界面布局。 |
-| **启用全屏** | 在全屏和普通模式间切换编辑器。 |
+| [REGION:tablesection] [/REGION] ||
+| **内容浏览器（Content Browser）** | 打开最多4个单独的[**内容浏览器（Content Browsers）**](Engine/Content/Browser)以处理内容资源。|
+| **开发人员工具（Developer Tools）** | 使得使用引擎和编辑器的程序员能够访问各种有用的 **[](Engine\Tools\DevTools)**。|
+| **蓝图调试器（Blueprint Debugger）** | 打开 **[](Engine/Blueprints/UserGuide/Debugging)** 面板。|
+| **类查看器（Class Viewer）** | 打开 **[](Engine/UI/ClassViewer)** 以将 **Actor** 实例添加到地图并创建 **蓝图（Blueprints）**。|
+| **消息日志（Message Log）** | 打开 **消息日志（Message Log）**，其中包含各种专业信息日志。任何给定时间都仅存在一个 **消息日志（Message Log）**。|
+| **输出日志（Output Log）** | 打开一个新的 **输出日志（Output Log）**。任何给定时间都仅存在一个 **输出日志（Output Log）**。|
+| **插件（Plugins）** | 打开插件浏览器（Plugins Browser）选项卡。|
+| [REGION:tablesection]**虚幻前端（Unreal Frontend）**[/REGION] ||
+| **设备管理器（Device Manager）** | 打开 **设备管理器（Device Manager）** 选项卡。|
+| **会话前端（Session Frontend）** | 打开 **[](Engine/Deployment/UnrealFrontend)** 工具，此工具使您能够访问[**自动化系统（Automation System）**](Programming/Automation)、虚幻控制台等。|
+| [REGION:tablesection]**布局（Layout）**[/REGION] ||
+| **重置布局（Reset Layout）** | 备份用户设置并重置布局自定义。|
+| **保存布局（Save Layout）** | 保存当前用户界面布局。|
+| **启用全屏（Enable Fullscreen）** | 在全屏模式和普通模式之间切换编辑器。|
 [/VAR]
+
+(#help)
 
 ## 帮助
 
-| 命令 | 描述 |
+| 命令 | 说明 |
 | ------- | ----------- |
-| [REGION:tablesection]**浏览**[/REGION] ||
-| **文档** |打开主要文档页面。 |
-| **API参考** | 打开API参考文档。 |
-| **视口控制** | 打开视口操作速查表. |
-| [REGION:tablesection]**教程**[/REGION] ||
-| 打开使用虚幻引擎4编辑器的基础性内容的介绍性教程。 ||
-| [REGION:tablesection]**在线帮助**[/REGION] ||
-| 包含了到Epic Games和虚幻引擎支持网站的链接。 ||
-| [REGION:tablesection]**应用程序**[/REGION] ||
-| **关于虚幻编辑器** | 打开About（关于）对话框，显示引擎版本信息。 |
+| [REGION:tablesection]**浏览（Browse）**[/REGION] ||
+| **文档（Documentation）** | 打开主文档页面。|
+| **API参考（API Reference）** | 打开API参考文档。|
+| **视口控件（Viewport Controls）** | 打开视口控件备忘单。|
+| [REGION:tablesection]**教程（Tutorials）**[/REGION] ||
+| 打开介绍教程，它们将介绍有关如何使用虚幻引擎4编辑器的基本知识。||
+| [REGION:tablesection]**在线（Online）**[/REGION] ||
+| 包含Epic Games和虚幻引擎支持站点的链接。||
+| [REGION:tablesection]**应用程序（Application）**[/REGION] ||
+| **关于虚幻编辑器（About Unreal Editor）** | 打开关于（About）对话框，显示有关引擎版本的信息。|

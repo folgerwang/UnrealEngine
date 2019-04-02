@@ -1,29 +1,31 @@
-﻿INTSourceChangelist:0
-Availability: Public
+﻿INTSourceChangelist:3692730
+Availability: NoPublish
 Crumbs: %ROOT%
-Title: Mobile Virtual Reality Development
-Description: Information over developing for mobile based virtual reality platforms.
+Title: 移动设备虚拟现实开发
+Description: 为基于移动设备的虚拟现实平台进行开发的相关信息。
 Type: Landing
 Version: 4.16
-Parent: Platforms
+Parent: Platforms/VR
 Order: 1
+tags:Platform
+tags:VR
 topic-icon:%ROOT%/platform_icon.png
 
 ![](Platforms\VR\DesktopVR\Header_00.png)
 
-Unreal Engine 4 (UE4) supports a wide range of mobile based Virtual Reality (VR) Head Mounted Displays (HMD's), Motion Controllers and their corresponding Software Development kits. Contained with the pages linked below you will find a multitude of different documents that can help you get any of the supported mobile VR HMD's working with your UE4 project.
+虚幻引擎4（UE4）支持广泛的基于移动平台的虚拟现实（VR）头戴式显示器（HMD）、运动控制器及其对应的软件开发套件。以下链接页面包含许多不同的文档，可以帮助您将任何受支持的移动VR HMD与UE4项目搭配使用。
 
-## Supported Mobile VR Head Mounted Displays
+## 支持的移动VR头戴式显示器
 
-UE4 natively supports the following mobile based VR HMD's: 
+UE4原生支持的移动式VR HMD包括： 
 
-* **Samsung Gear VR**
-* **Google Cardboard & Daydream** 
+* **三星Gear VR**
+* **Google Cardboard和Daydream** 
 
 
-The fact that UE4 natively supports the above mobile HMD's means that you do not need to do any additional downloading or compiling to view your UE4 project in VR. Below you will find links to documentation that will explain how to get your UE4 project to work with the supported mobile HMD of your choice.
+UE4为上述移动HMD提供原生支持，因此您无需进行任何额外下载或编译操作，即可在VR中查看您的UE4项目。下面提供了一些文档链接，分别解释了如何让您的UE4项目通过所选的受支持移动HMD运行。
 
-## Samsung Gear VR
+## 三星Gear VR
 
 [DIR(end:"1" output:"topic" type:"landing" tags:"GearVR" parent:"Platforms/GearVR")]
 

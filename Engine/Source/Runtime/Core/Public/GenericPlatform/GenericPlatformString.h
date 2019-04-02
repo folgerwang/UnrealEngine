@@ -1,15 +1,16 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreTypes.h"
 #include "Templates/EnableIf.h"
+#include "GenericPlatform/GenericPlatformStricmp.h"
 
 
 /**
  * Generic string implementation for most platforms
  */
-struct FGenericPlatformString
+struct FGenericPlatformString : public FGenericPlatformStricmp
 {
 	/**
 	 * Tests whether a particular character is a valid member of its encoding.

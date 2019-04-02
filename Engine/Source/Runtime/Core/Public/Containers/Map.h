@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -282,7 +282,7 @@ public:
 	 * @param Ar The archive to use.
 	 * @see GetAllocatedSize
 	 */
-	FORCEINLINE void CountBytes(FArchive& Ar)
+	FORCEINLINE void CountBytes(FArchive& Ar) const
 	{
 		Pairs.CountBytes(Ar);
 	}
@@ -784,15 +784,15 @@ public:
 		return TConstKeyIterator(*this, InKey);
 	}
 
-private:
+public:
 	/**
 	 * DO NOT USE DIRECTLY
 	 * STL-like iterators to enable range-based for loop support.
 	 */
-	FORCEINLINE friend TRangedForIterator      begin(      TMapBase& MapBase) { return TRangedForIterator     (begin(MapBase.Pairs)); }
-	FORCEINLINE friend TRangedForConstIterator begin(const TMapBase& MapBase) { return TRangedForConstIterator(begin(MapBase.Pairs)); }
-	FORCEINLINE friend TRangedForIterator      end  (      TMapBase& MapBase) { return TRangedForIterator     (end  (MapBase.Pairs)); }
-	FORCEINLINE friend TRangedForConstIterator end  (const TMapBase& MapBase) { return TRangedForConstIterator(end  (MapBase.Pairs)); }
+	FORCEINLINE TRangedForIterator      begin()       { return TRangedForIterator     (Pairs.begin()); }
+	FORCEINLINE TRangedForConstIterator begin() const { return TRangedForConstIterator(Pairs.begin()); }
+	FORCEINLINE TRangedForIterator      end  ()       { return TRangedForIterator     (Pairs.end());   }
+	FORCEINLINE TRangedForConstIterator end  () const { return TRangedForConstIterator(Pairs.end());   }
 };
 
 
@@ -1362,7 +1362,7 @@ public:
 
 struct FScriptMapLayout
 {
-	int32 KeyOffset;
+	// int32 KeyOffset; // is always at zero offset from the TPair - not stored here
 	int32 ValueOffset;
 
 	FScriptSetLayout SetLayout;
@@ -1380,9 +1380,11 @@ public:
 
 		// TPair<Key, Value>
 		FStructBuilder PairStruct;
-		Result.KeyOffset   = PairStruct.AddMember(KeySize,   KeyAlignment);
+		int32 KeyOffset    = PairStruct.AddMember(KeySize,   KeyAlignment);
 		Result.ValueOffset = PairStruct.AddMember(ValueSize, ValueAlignment);
 		Result.SetLayout   = FScriptSet::GetScriptLayout(PairStruct.GetSize(),  PairStruct.GetAlignment());
+
+		checkf(KeyOffset == 0, TEXT("The key inside the TPair is expected to be at the start of the struct"));
 
 		return Result;
 	}
@@ -1456,7 +1458,7 @@ public:
 				GetKeyHash, // We 'know' that the implementation of Find doesn't call GetKeyHash on anything except Key
 				[KeyEqualityFn, MapLayout](const void* InKey, const void* InPair )
 				{
-					return KeyEqualityFn(InKey, (uint8*)InPair + MapLayout.KeyOffset);
+					return KeyEqualityFn(InKey, (uint8*)InPair);
 				}
 			);
 		}
@@ -1497,13 +1499,13 @@ public:
 			KeyEqualityFn,
 			[KeyConstructAndAssignFn, ValueConstructAndAssignFn, Layout](void* NewPair)
 			{
-				KeyConstructAndAssignFn((uint8*)NewPair + Layout.KeyOffset);
+				KeyConstructAndAssignFn((uint8*)NewPair);
 				ValueConstructAndAssignFn((uint8*)NewPair + Layout.ValueOffset);
 			},
 			[DestructKeyFn, DestructValueFn, Layout](void* NewPair)
 			{
 				DestructValueFn((uint8*)NewPair + Layout.ValueOffset);
-				DestructKeyFn((uint8*)NewPair + Layout.KeyOffset);
+				DestructKeyFn((uint8*)NewPair);
 			}
 		);
 	}

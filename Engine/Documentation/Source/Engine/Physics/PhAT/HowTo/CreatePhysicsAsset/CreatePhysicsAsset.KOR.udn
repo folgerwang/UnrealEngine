@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3211040
+﻿INTSourceChangelist:4649792
 Availability: Public
 Title:새 피직스 애셋 생성
 Crumbs: %ROOT%, Engine
@@ -10,7 +10,7 @@ related:Engine/Physics/PhAT/HowTo/EditPhysicsAsset
 skilllevel:Beginner
 topic-image:Engine/Physics/physics_topic.png
 
-**피직스 애셋** 을 새로 만드는 방법은 두 가지입니다. 하나는 임포트를 통한 방법, 다른 하나는 **콘텐츠 브라우저** 의 맥락 메뉴를 통한 방법입니다. 각 방법의 인터페이스 및 단계별 설명은 다음과 같습니다.
+**피직스 애셋** 을 새로 만드는 방법은 두 가지입니다. 하나는 임포트를 통한 방법, 다른 하나는 **콘텐츠 브라우저** 의 컨텍스트 메뉴를 통한 방법입니다. 각 방법의 인터페이스 및 단계별 설명은 다음과 같습니다.
 
 ## 단계
 
@@ -25,7 +25,7 @@ topic-image:Engine/Physics/physics_topic.png
 
 1. **콘텐츠 브라우저** 에서 피직스 애셋을 추가하고자 하는 스켈레탈 메시 애셋을 
 찾습니다.
-1. 콘텐츠 브라우저에서 스켈레탈 메시에 **우클릭** 하여 **맥락 메뉴** > **생성** > **피직스 애셋 생성** 을 선택합니다.
+1. 콘텐츠 브라우저에서 스켈레탈 메시에 **우클릭** 하여 **컨텍스트 메뉴** > **생성** > **피직스 애셋 생성** 을 선택합니다.
 1. 원하는 대로 세팅을 조절합니다.
 
 	![](Shared/PhAT/PhAT_restetDefault.png)

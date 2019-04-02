@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,12 +6,10 @@
 #include "ProxyLODMeshTypes.h"
 #include "ProxyLODMeshConvertUtils.h"
 
+THIRD_PARTY_INCLUDES_START
 #include <openvdb/openvdb.h>
-
-
-
 #include <openvdb/tools/VolumeToMesh.h> // for VolumeToMesh
-
+THIRD_PARTY_INCLUDES_END
 
 namespace ProxyLOD
 {
@@ -28,11 +26,11 @@ namespace ProxyLOD
 	*
 	* @retun 'true' is success, 'false' will generally be an out of memory error.
 	*/
-	bool MeshArrayToSDFVolume( const FRawMeshArrayAdapter& InMeshAdapter,
+	bool MeshArrayToSDFVolume( const FMeshDescriptionArrayAdapter& InMeshAdapter,
 	                           openvdb::FloatGrid::Ptr& OutSDFGrid,
 		                       openvdb::Int32Grid* OutPolyIndexGrid = nullptr);
 
-	bool MeshArrayToSDFVolume( const FRawMeshAdapter& InMeshAdapter,
+	bool MeshArrayToSDFVolume( const FMeshDescriptionAdapter& InMeshAdapter,
 		                       openvdb::FloatGrid::Ptr& OutSDFGrid,
 		                       openvdb::Int32Grid* OutPolyIndexGrid = nullptr);
 
@@ -111,7 +109,7 @@ template <typename DstMeshType>
 void ProxyLOD::SDFVolumeToMesh(const openvdb::FloatGrid::ConstPtr SDFVolume, const double IsoValue, const double Adaptivity, DstMeshType& OutMesh)
 {
 
-	// we should be generating a new FRawMesh.
+	// we should be generating a new FMeshDescription.
 
 	OutMesh.Empty();
 

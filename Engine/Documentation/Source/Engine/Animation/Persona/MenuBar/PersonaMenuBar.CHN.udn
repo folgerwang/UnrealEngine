@@ -1,135 +1,138 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3108692
 Availability:NoPublish
-Title:Persona Menu Bar
+Title:Persona菜单栏
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Persona
-Description:User guide for the Menu Bar in the Persona animation editor.
+Description:Persona动画编辑器菜单栏的使用指南。
+version: 4.9
 
-
-## Overview
 
 ![](PersonaMenuBar.png)
 
 
-The menu is displayed at the top of the Window. It is important to note that not all menu options are available at all times. Availability will depend on the type of asset being edited. In this document, we are listing everything as if you have opened an **Animation Blueprint**. 
+菜单显示在窗口顶部。需要注意的是，并不是所有菜单选项都始终可用。是否可用取决于所编辑的资源类型。在本文中，我们将列出打开动画蓝图时的所有可用选项。 
 
 [REGION:note]
-If you are editing animation assets such as _Skeletal Meshes_ or _Animation Sequences_, you will see fewer menus.
+如果您正在编辑骨架网格体或动画序列等动画资源，看到的菜单会减少。
 [/REGION]
 
-## File
+## 文件
 
-| Command | Description |
+| 命令 | 说明 |
 | ------- | ----------- |
-| [REGION:tablesection]**Load and Save**[/REGION] ||
-| **Save** | Saves the current animation asset being edited. |
-| **Save All** | Saves all assets. |
-| **Choose Files to Save** | Opens a dialog with save options for assets. |
-| **Connect to Source Control** | Connects to a source control server, such as Perforce. See [](Engine/UI/SourceControl) documentation for details. |
-| [REGION:tablesection]Blueprint - This section is only available when Persona is opened via an _Animation Blueprint_[/REGION] ||
-| **Compile** | Compiles the animation Blueprint. |
-| **Refresh All Nodes** | Refreshes all nodes in the Blueprint to account for external changes. |
-| **Reparent Blueprint** | Allows you to change the parent of the Blueprint. |
-| **Diff** | Runs a source control diff operation to find any discrepancies between the current version and any previous version. Nonfunctional if not connected to source control.|
-|**Developer**|Contains options which allow you to recompile the C++ code for Persona or various modules within it.
+| [REGION:tablesection]**加载和保存**[/REGION] ||
+| **保存（Save）** | 保存当前编辑的动画资源。|
+| **全部保存（Save All）** | 保存所有资源。|
+| **选择要保存的文件（Choose Files to Save）** | 打开一个包含资源保存选项的对话框。|
+| **连接到源代码控制（Connect to Source Control）** | 连接到源代码控制服务器，如Perforce。请参阅[](Engine/UI/SourceControl)文档以了解详细信息。|
+| [REGION:tablesection]蓝图 - 该部分仅在通过动画蓝图打开“人物”时可用[/REGION] ||
+| **编译（Compile）** | 编译动画蓝图。|
+| **刷新所有节点（Refresh All Nodes）** | 刷新蓝图中的所有节点以将外部更改更新进来。|
+| **重设蓝图父代（Reparent Blueprint）** | 允许您更改蓝图的父代。|
+| **对比（Diff）** | 运行源代码控制对比运算，以查找当前版本和任何先前版本之间的任何差异。如果未连接到源代码控制则不起作用。|
+|**开发者（Developer）**|包含的选项用于重新编译“人物”或其中的各种模块的C++代码。
 
 
-### Edit
+### 编辑
 
 
-| Command | Description |
+| 命令 | 说明 |
 | ------- | ----------- |
 %Engine/UI/LevelEditor/MenuBar:edithistory%
-| [REGION:tablesection]**Search** - Only available if editing an Animation Blueprint [/REGION]||
+| [REGION:tablesection]**搜索** - 仅在编辑动画蓝图时可用[/REGION]||
 %Engine/Blueprints/Editor/UIComponents/Menu:blueprintsearch%
 %Engine/UI/LevelEditor/MenuBar:editconfig%
 
 
-### Asset
-| Command | Description |
+### 资源
+| 命令 | 说明 |
 | ------- | ----------- |
-| [REGION:tablesection]**Actions**[/REGION] ||
-| **Find in Content Browser** | Summons the Content Browser and navigates to the selected asset. |
-| **View References** | Launches the reference viewer showing the selected assets' references. |
-| [REGION:tablesection]**Animation**[/REGION] ||
-| **Reimport** | Reimports the FBX file for the Skeletal Mesh currently being edited. |
-| **Set Preview Mesh as Default** | Changes the skeletons default preview mesh to the current open preview mesh. The skeleton will require saving after this action. |
-| **Remove Unused Bones from Skeleton** | Removes any bones from the skeleton that are not used by any of its meshes. The skeleton and associated animations will require saving after this action.  |
-| **Record to new Animation** | Create a new animation from the currently playing animation. |
-| [REGION:tablesection]**The following section applies only if Persona was opened via an _Animation_** asset[/REGION] ||
-| **Reimport** (Animation) | Reimports the AnimationSequence. |
-| **Apply Compression** | Apply compression to the current animation. |
-| **Export to FBX** | Export the current animation to an FBX. |
-| **Add Looping Interpolation** | Add an extra first frame at the end of the animation to create interpolation when looping. |
+| [REGION:tablesection]**操作**[/REGION] ||
+| **在内容浏览器中查找（Find in Content Browser）** | 调出内容浏览器并导航到所选资源。|
+| **查看引用（View References）** | 启动引用查看器，其中显示了所选资源的引用。|
+| [REGION:tablesection]**动画**[/REGION] ||
+| **重新导入（Reimport）** | 重新导入当前正在编辑的所选骨架网格体的FBX文件。|
+| **将预览网格体设置为默认（Set Preview Mesh as Default）** | 将骨架默认预览网格体更改为当前打开的预览网格体。在进行此操作后需要保存骨架。|
+| **从骨架移除未使用的骨骼（Remove Unused Bones from Skeleton）** | 从骨架移除未被其任何网格体使用的任何骨骼。在进行此操作后需要保存骨架和关联动画。|
+| **记录到新动画（Record to new Animation）** | 根据当前正在播放的动画创建新动画。|
+| [REGION:tablesection]**以下部分仅适用于通过动画资源打开了“人物”的情况**[/REGION] ||
+| **重新导入（Reimport）**（Animation）| 重新导入动画序列（AnimationSequence）。|
+| **应用压缩（Apply Compression）** | 对当前动画应用压缩。|
+| **导出到FBX（Export to FBX）** | 将当前动画导出到FBX。|
+| **添加循环插值（Add Looping Interpolation）** | 在动画结束时添加一个额外的第一帧，以在循环时创建插值。|
 
 
-### View
+### 视图
 
-The View menu is only available when editing an Animation Blueprint.
+**视图（View）** 菜单仅在编辑动画蓝图时可用。
 
-| Command | Description |
+| 命令 | 说明 |
 | ------- | ----------- |
-| [REGION:tablesection]**Pin Visibility**[/REGION] ||
-| **Show All Pins** | Shows all pins on all nodes. |
-| **Hide Unused Pins** | Hides all pins with no connections and no default values. |
-| **Hide Unconnected Pins** | Hides all pins with no connections. This option will hide input pins for inputs that have been set directly on the node. |
-| [REGION:tablesection]**Zoom**[/REGION] ||
-| **Zoom to Graph Extents** | Fit the current view to the entire graph. |
-| **Zoom to Selection** | Fit the current view to the selection.  |
+| [REGION:tablesection]**引脚可视性**[/REGION] ||
+| **显示所有引脚（Show All Pins）**| 在所有节点上显示所有引脚。|
+| **隐藏未使用引脚（Hide Unused Pins）** | 隐藏没有连接也没有默认值的所有引脚。|
+| **隐藏未连接引脚（Hide Unconnected Pins）** | 隐藏没有连接的所有引脚。该选项将隐藏已经在节点上直接设置的输入的输入引脚。|
+| [REGION:tablesection]**缩放**[/REGION] ||
+| **缩放到图像范围（Zoom to Graph Extents）** | 让当前视图适应整个图形。|
+| **缩放到所选范围（Zoom to Selection）** | 让当前视图适应所选范围。|
 
 
 
-### Debug
+### 调试
 
-The Debug menu is only available when editing an Animation Blueprint.
+**调试（Debug）** 菜单仅在编辑动画蓝图时可用。
 
-| Command | Description |
+| 命令 | 说明 |
 | ------- | ----------- |
-| [REGION:tablesection]**Breakpoints**[/REGION] ||
-| **Disable all Breakpoints** | Deactivates all [breakpoints](Engine/Blueprints\UserGuide\Debugging#Breakpoints) on your Blueprint; they will not halt execution. |
-| **Enable all Breakpoints** | Activates all [breakpoints](Engine/Blueprints\UserGuide\Debugging#Breakpoints) so that they will once again pause execution for debugging. |
-| **Delete all Breakpoints** | Removes all [breakpoints](Engine/Blueprints\UserGuide\Debugging#Breakpoints) from throughout the Blueprint. |
-|| [REGION:tablesection]**Watches**[/REGION] ||
-| **Delete all Watches** | Removes all [watches](Engine/Blueprints\UserGuide\Debugging#WatchValues) from throughout the Blueprint. |
+| [REGION:tablesection]**断点**[/REGION] ||
+| **禁用所有断点（Disable all Breakpoints）** | 停用蓝图上的所有[断点](Engine/Blueprints\UserGuide\Debugging#Breakpoints)；它们将不会执行。|
+| **启用所有断点（Enable all Breakpoints）** | 激活所有[断点](Engine/Blueprints\UserGuide\Debugging#Breakpoints)，这样它们会再次暂停执行以进行调试。|
+| **删除所有断点（Delete all Breakpoints）** | 移除蓝图中的所有[断点](Engine/Blueprints\UserGuide\Debugging#Breakpoints)。|
+|| [REGION:tablesection]**手表**[/REGION] ||
+| **删除所有手表（Delete all Watches）** | 移除蓝图中的所有[手表](Engine/Blueprints\UserGuide\Debugging#WatchValues)。|
 
 
 
-### Window
+### 窗口
 
 [REGION:note]
-The panels available in the **Window** menu, as well as their order of appearance, will vary depending on the current mode of Persona.
+**窗口（Window）** 菜单中提供的面板以及它们的出现顺序取决于“人物”的当前模式。
 [/REGION]
 
-| Command | Description |
+| 命令 | 说明 |
 | ------- | ----------- |
-| **Toolbar** |Opens the Toolbar, which provides a horizontal array of shortcut buttons for common operations.|
-| **Skeleton Tree** | Opens the **Skeleton Tree** window, showing the character's skeleton in a hierarchical list. |
-| **Asset Browser** | Opens the **Asset Browser**, which lists all the Animations, Blendspaces, and other animation assets associated with this skeletal mesh. |
-| **Viewport** | Opens the **Viewport**, where you can see the skeletal mesh animating. |
-| **Morph Target Previewer** | Opens the **Morph Target Previewer**, which allows you to test any Morph Targets associated with the mesh.|
-| **Animation Notifies** | Opens the **Animation Notifies**  panel, which lists off all Animation Notifies on the mesh and with what animations each notify is associated. |
-| **Retarget Source Manager** | Opens the **Retarget Source Manager**, which is useful for correctly [retargeting](Engine/Animation/AnimationRetargeting) animation between meshes with different builds, such as from a fat to a skinny character.|
-| **Details** | Shows the **Details** window, where properties of various nodes can be edited. |
-| **Mesh Details**  _(Mesh mode)_ | Opens the **Mesh Details** panel, where you can change aspects of the mesh including Material applications, LODs, Physics Assets, and more. |
-| **Anim Asset Details** _(Animation mode)_ | Opens the **Anim Asset Details** panel, where you perform most of the necessary edits to Animation Sequences, Blend Spaces, Animation Montages, and Aim Offsets. |
-| **Anim Blueprint Editor** _(Animation Blueprint)_| Opens the **Anim Blueprint Editor** panel if it is not already open, where you can set the default values for all variables in your Blueprint or change the values of the preview instance, depending on mode. |
-| **Asset Override Editor** _(Animation Blueprint)_| Opens the **Asset Override Editor** panel if it is not already open. This editor is for overriding the animation assets referenced by the parent animation graph. |
-| **Animation SlotName** | Opens the **Animation SlotName** panel and allows you to modify custom animation SlotNames. |
-| **Animation Slot Group Name** | Opens the **Animation Slot Group Name** panel which lets you modify custom animation Slot Group Names. |
-| **Debug** | Opens the **Debug** window, which shows all breakpoints throughout the Blueprint. |
-| **Class Defaults** | Shows the **Class Defaults** window, where variable defaults can be set. |
-| **Palette** | Opens the **Palette** window, which is a listing of all available nodes. |
-| **My Blueprint** | Shows the **My Blueprint** window, which is similar to the Explorer, but gives a listing all nodes, functions, and variables in the Blueprint. |
-| **Compiler Results** | Opens the **Compiler Results** window, which shows any Blueprint compiler errors. |
-| **Find Results** | This opens the **Find Results** panel, which serves as a search mechanism to help you look through your Animation Blueprints.|
+| **工具栏（Toolbar）** | 打开为常用操作提供水平快捷按钮组的 **工具栏**。|
+| **骨架树（Skeleton Tree）** | 打开 **骨架树** 窗口，它在层级列表中显示角色的骨架。|
+| **资源浏览器（Asset Browser）** | 打开 **资源浏览器**，其中列出与该骨架网格体关联的动画、混合空间和其他动画资源。|
+| **视口（Viewport）** | 打开供您查看骨架网格体动画的 **视口**。|
+| **变形目标预览器（Morph Target Previewer）** | 打开 **变形目标预览器**，让您可以测试与网格体关联的任意变形目标。|
+| **动画通知（Animation Notifies）** | 打开 **动画通知** 面板，其中列出了网格体上的所有动画通知，以及每个通知与哪个动画关联。|
+| **重定位源管理器（Retarget Source Manager）** | 打开 **重定位源管理器**，这对于在有不同结构的网格体之间正确[重定位](Engine/Animation/AnimationRetargeting)动画十分有用，例如从肥胖角色到纤瘦角色。|
+| **细节（Details）** | 显示 **细节** 窗口，在该窗口中，您可以编辑各个节点的属性。|
+| **网格体细节（Mesh Details）**（网格体模式）| 打开 **网格体细节** 面板，在该面板中，您可以更改网格体的多个方面，如材质应用、LOD、物理资源等。|
+| **动画资源细节（Anim Asset Details）**（动画模式）| 打开 **动画资源细节** 面板，在这里可以对动画序列、混合空间、动画蒙太奇和动画偏移进行大部分必要编辑。|
+| **动画蓝图编辑器（Anim Blueprint Editor）**（动画蓝图）| 打开 **动画蓝图编辑器** 面板（如果尚未打开），在这里可以根据模式，设置蓝图中所有变量的默认值或者更改预览实例的值。|
+| **资源覆盖编辑器（Asset Override Editor）**（动画蓝图）| 打开 **资源覆盖编辑器** 面板（如果尚未打开）。该编辑器用于覆盖父动画图形引用的动画资源。|
+| **动画插槽名称（Animation SlotName）** | 打开 **动画插槽名称** 面板并允许您修改自定义动画插槽名称。|
+| **动画插槽组名称（Animation Slot Group Name）** | 打开 **动画插槽组名称** 面板，在这里可以修改动画插槽组名称。|
+| **调试（Debug）** | 打开 **调试** 窗口，其中显示蓝图中的所有断点。|
+| **类默认值（Class Defaults）** | 显示 **类默认值** 窗口，在这里可以设置变量默认值。|
+| **选用板（Palette）** | 打开 **选用板** 窗口，这是所有可用节点的列表。|
+| **我的蓝图（My Blueprint）** | 显示 **我的蓝图** 窗口，该窗口类似于资源管理器，但提供蓝图中的所有节点、函数和变量的列表。|
+| **编译器结果（Compiler Results）** | 打开 **编译器结果** 窗口，其中显示任意蓝图编译器错误。|
+| **查找结果（Find Results）** | 这样会打开 **查找结果** 面板，这个面板可以作为搜索机制，帮助您在动画蓝图中进行查找。
 %Engine/UI/LevelEditor/MenuBar:commonwindowmenu%
 
-### Help
+### 帮助
 
-| Command | Description |
+| 命令 | 说明 |
 | ------- | ----------- |
-| [REGION:tablesection]**Browse**[/REGION] ||
-| **Documentation** | Opens the Unreal Engine 4 documentation. |
-| [REGION:tablesection]**Online**[/REGION] ||
-| Contains links to the Epic Games and Unreal Engine support sites. ||
-| [REGION:tablesection]**Application**[/REGION] ||
-| **About Unreal Editor** | Opens the About dialog displaying information about the engine version. |
+| [REGION:tablesection]**浏览**[/REGION] ||
+| **浏览人物文档（Browse Persona Documentation）** | 打开虚幻引擎4文档。|
+| [REGION:tablesection]**联机**[/REGION] ||
+| **论坛...（Forums...）**| 包含指向虚幻引擎论坛的链接。||
+| **Answerhub...**| 包含指向虚幻引擎Answerhub的链接。||
+| **Wiki...**| 包含指向虚幻引擎wiki的链接。||
+| **访问UnrealEngine.com...（Visit UnrealEngine.com...）**| 包含指向UnrealEngine.com的链接。||
+| **制作方名单（Credits）** | 显示制作方名单窗口。||
+| [REGION:tablesection]**应用程序**[/REGION] ||
+| **关于虚幻编辑器（About Unreal Editor）** | 打开“关于”对话框，其中显示有关虚幻版本的信息。|

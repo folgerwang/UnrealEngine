@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2679100
+﻿INTSourceChangelist:3244370
 Availability:Public
 Title:使用宏库
 Crumbs: %ROOT%, Engine, Engine\Blueprints, Engine\Blueprints\BP_HowTo
@@ -8,6 +8,7 @@ Related:Engine/Blueprints/UserGuide/Types/MacroLibrary
 Related:Engine/Blueprints
 version:4.8
 skilllevel:Advanced
+tags:Blueprints
 
 **宏库** 是一个容器，存放大量宏或自含式图表（可作为节点放置到其他蓝图中）。它们保存常用节点顺序（包括执行和数据传输的输入和输出），因此可有效节约时间。
 

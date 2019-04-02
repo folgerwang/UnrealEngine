@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "HttpModule.h"
 #include "Misc/ConfigCacheIni.h"
@@ -153,7 +153,34 @@ bool FHttpModule::HandleHTTPCommand(const TCHAR* Cmd, FOutputDevice& Ar)
 	{
 		GetHttpManager().Flush(false);
 	}
-	return true;	
+#if !UE_BUILD_SHIPPING
+	else if (FParse::Command(&Cmd, TEXT("FILEUPLOAD")))
+	{
+		FString UploadUrl, UploadFilename;
+		bool bIsCmdOk = FParse::Token(Cmd, UploadUrl, false);
+		bIsCmdOk &= FParse::Token(Cmd, UploadFilename, false);
+		if (bIsCmdOk)
+		{
+			FString HttpMethod;
+			if (!FParse::Token(Cmd, HttpMethod, false))
+			{
+				HttpMethod = TEXT("PUT");
+			}
+
+			TSharedRef<IHttpRequest> Request = CreateRequest();
+			Request->SetURL(UploadUrl);
+			Request->SetVerb(HttpMethod);
+			Request->SetHeader(TEXT("Content-Type"), TEXT("application/x-uehttp-upload-test"));
+			Request->SetContentAsStreamedFile(UploadFilename);
+			Request->ProcessRequest();
+		}
+		else
+		{
+			UE_LOG(LogHttp, Warning, TEXT("Command expects params <upload url> <upload filename> [http verb]"))
+		}
+	}
+#endif
+	return true;
 }
 
 bool FHttpModule::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)

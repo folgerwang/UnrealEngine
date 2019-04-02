@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -125,7 +125,7 @@ protected:
 	//----------------------------------------------------------------------//
 	// DEPRECATED
 	//----------------------------------------------------------------------//
-	DEPRECATED(4.12, "This function is deprecated, please use InitializeParentLink instead.")
+	UE_DEPRECATED(4.12, "This function is deprecated, please use InitializeParentLink instead.")
 	void InitializeDecorator(uint8 InChildIndex);
 };
 

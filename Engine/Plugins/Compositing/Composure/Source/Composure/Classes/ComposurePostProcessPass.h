@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -54,28 +54,29 @@ public:
 	void SetOutputRenderTarget(UTextureRenderTarget2D* RenderTarget);
 	
 
-	// Begins UActorComponent
-	virtual void InitializeComponent() override;
-	virtual void UninitializeComponent() override;
-	// Ends UActorComponent
+public:
+	//~ UActorComponent interface
+	virtual void Activate(bool bReset = false) override;
+	virtual void Deactivate() override;
+	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
 
 
 protected:
 	// Underlying scene capture.
-	UPROPERTY(Transient)
+	UPROPERTY(Transient, NonTransactional)
 	USceneCaptureComponent2D* SceneCapture;
 
 	// Blendable interface to intercept the OverrideBlendableSettings.
-	UPROPERTY(Transient)
+	UPROPERTY(Transient, NonTransactional)
 	UComposurePostProcessBlendable* BlendableInterface;
 
 	// Setup post process material.
-	UPROPERTY(Transient)
+	UPROPERTY(Transient, NonTransactional)
 	UMaterialInterface* SetupMaterial;
 
 	// Internal material that replace the tonemapper to output linear color space.
-	UPROPERTY(Transient)
-	UMaterialInstanceDynamic* TonemapperReplacingMID;
+	UPROPERTY(Transient, NonTransactional)
+	UMaterialInterface* TonemapperReplacement;
 
 	// Called by UComposurePostProcessBlendable::OverrideBlendableSettings.
 	void OverrideBlendableSettings(class FSceneView& View, float Weight) const;

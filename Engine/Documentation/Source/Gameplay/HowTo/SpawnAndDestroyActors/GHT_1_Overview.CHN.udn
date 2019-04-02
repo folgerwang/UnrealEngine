@@ -1,27 +1,20 @@
-﻿INTSourceChangelist:2735872
+﻿INTSourceChangelist:3810557
 Availability: Public
-Title:生成/摧毁 Actor 概述
+Title:生成/销毁Actor总览
 Crumbs: %ROOT%, Gameplay
-Description:关于如何在虚幻引擎 4 中生成 Actor 的操作指南。 
+Description:在虚幻引擎4中生成Actor的指南。 
 Version: 4.9
 Parent:Gameplay
-type:how-to
+type:overview
 order:1
-skilllevel:Beginner
+SkillLevel:Intermediate
 
-您经常需要在您的游戏中向关卡内动态添加物品，这被称为“生成 Actor”。
-您想生成的物品可以是任何东西，如其他玩家或敌人，或是生命值、武器、奖励之类的拾取物品。
-在本页中，您将了解如何通过蓝图来生成 Actor。[COMMENT:none]
- as well as other information regarding **Actor Spawning** and links to more documentation.
-[/COMMENT] 
+使用者有时会在游戏时动态地将项目添加到游戏关卡中，即生成Actor。从其他玩家或敌人，到生命值、武器或奖励等拾取物，可生成项目的范围十分广泛。本页将介绍关于利用蓝图生成Actor的信息。
 
-## 设置
+(#implementationguides)
+## 实现指南
 
-关于使用蓝图生成/摧毁 Actor 的详细信息，请访问以下链接：
-
-[REGION:buttonlist]
-* [](Gameplay\HowTo\SpawnAndDestroyActors\Blueprints)
-[/REGION]
+[DIR(output:"role" parent:"Gameplay/HowTo/SpawnAndDestroyActors" org:"hierarchy" end:"1")]
 
 
 

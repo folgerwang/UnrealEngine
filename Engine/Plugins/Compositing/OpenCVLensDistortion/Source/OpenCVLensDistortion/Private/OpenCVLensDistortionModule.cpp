@@ -1,10 +1,11 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "IOpenCVLensDistortionModule.h"
 
 #include "Interfaces/IPluginManager.h"
 #include "Logging/LogMacros.h"
 #include "Misc/Paths.h"
+#include "Interfaces/IPluginManager.h"
 #include "ShaderCore.h"
 
 
@@ -28,3 +29,8 @@ public:
 IMPLEMENT_MODULE(FOpenCVLensDistortionModule, OpenCVLensDistortion);
 
 
+void IOpenCVLensDistortionModule::StartupModule()
+{
+	FString PluginShaderDir = FPaths::Combine(IPluginManager::Get().FindPlugin(TEXT("OpenCVLensDistortion"))->GetBaseDir(), TEXT("Shaders"));
+	AddShaderSourceDirectoryMapping(TEXT("/Plugin/OpenCVLensDistortion"), PluginShaderDir);
+}

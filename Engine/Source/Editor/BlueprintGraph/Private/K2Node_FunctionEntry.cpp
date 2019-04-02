@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "K2Node_FunctionEntry.h"
@@ -41,7 +41,8 @@ public:
 	void RegisterFunctionInput(FKismetFunctionContext& Context, UEdGraphPin* Net, UFunction* Function)
 	{
 		// This net is a parameter into the function
-		FBPTerminal* Term = new (Context.Parameters) FBPTerminal();
+		FBPTerminal* Term = new FBPTerminal();
+		Context.Parameters.Add(Term);
 		Term->CopyFromPin(Net, Net->PinName);
 
 		// Flag pass by reference parameters specially
@@ -111,7 +112,8 @@ public:
 						// node wired into our function graph, know that it
 						// will first check to see if this already exists 
 						// for it to use (rather than creating one of its own)
-						FBPTerminal* ResultTerm = new (Context.Results) FBPTerminal();
+						FBPTerminal* ResultTerm = new FBPTerminal();
+						Context.Results.Add(ResultTerm);
 						ResultTerm->Name = ParamName;
 
 						ResultTerm->Type = ParamType;
@@ -248,6 +250,7 @@ void UK2Node_FunctionEntry::Serialize(FArchive& Ar)
 			if (!LocalVariable.DefaultValue.IsEmpty())
 			{
 				// If looking for references during save, expand any default values on the local variables
+				// This is only reliable when saving in the editor, the cook case is handled below
 				if (Ar.IsObjectReferenceCollector() && LocalVariable.VarType.PinCategory == UEdGraphSchema_K2::PC_Struct && LocalVariable.VarType.PinSubCategoryObject.IsValid())
 				{
 					UScriptStruct* Struct = Cast<UScriptStruct>(LocalVariable.VarType.PinSubCategoryObject.Get());
@@ -332,6 +335,24 @@ void UK2Node_FunctionEntry::Serialize(FArchive& Ar)
 
 						LocalVar.DefaultValue.Reset();
 					}
+				}
+			}
+		}
+
+		// In editor, fixup soft object ptrs on load on to handle redirects and finding refs for cooking
+		// We're not handling soft object ptrs inside FStructs because it's a rare edge case and would be a performance hit on load
+		if (GIsEditor)
+		{
+			FSoftObjectPathSerializationScope SetPackage(GetOutermost()->GetFName(), NAME_None, ESoftObjectPathCollectType::AlwaysCollect, ESoftObjectPathSerializeType::SkipSerializeIfArchiveHasSize);
+
+			for (FBPVariableDescription& LocalVariable : LocalVariables)
+			{
+				if (!LocalVariable.DefaultValue.IsEmpty() && (LocalVariable.VarType.PinCategory == UEdGraphSchema_K2::PC_SoftObject || LocalVariable.VarType.PinCategory == UEdGraphSchema_K2::PC_SoftClass))
+				{
+					FSoftObjectPath TempRef(LocalVariable.DefaultValue);
+					TempRef.PostLoadPath(&Ar);
+					TempRef.PreSavePath();
+					LocalVariable.DefaultValue = TempRef.ToString();
 				}
 			}
 		}

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,7 @@
 #include "OnlineSubsystem.h"
 
 #include "OnlineSessionSettings.h"
+#include "Interfaces/OnlineChatInterface.h"
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "Interfaces/OnlineFriendsInterface.h"
 #include "Interfaces/OnlineEventsInterface.h"
@@ -19,14 +20,23 @@
 #include "Interfaces/OnlineEntitlementsInterface.h"
 #include "Interfaces/OnlineUserCloudInterface.h"
 #include "Interfaces/OnlineUserInterface.h"
+#include "Interfaces/OnlineStatsInterface.h"
 
 /** Macro to handle the boilerplate of accessing the proper online subsystem and getting the requested interface */
 #define IMPLEMENT_GET_INTERFACE(InterfaceType) \
-	static IOnline##InterfaceType##Ptr Get##InterfaceType##Interface(const FName SubsystemName = NAME_None) \
+static IOnline##InterfaceType##Ptr Get##InterfaceType##Interface(const FName SubsystemName = NAME_None) \
 { \
 	IOnlineSubsystem* OSS = IOnlineSubsystem::Get(SubsystemName); \
 	return (OSS == NULL) ? NULL : OSS->Get##InterfaceType##Interface(); \
-}
+} \
+static IOnline##InterfaceType##Ptr Get##InterfaceType##InterfaceChecked(const FName SubsystemName = NAME_None) \
+{ \
+	IOnlineSubsystem* OSS = IOnlineSubsystem::Get(SubsystemName); \
+	check(OSS); \
+	IOnline##InterfaceType##Ptr InterfacePtr = OSS->Get##InterfaceType##Interface(); \
+	check(InterfacePtr.IsValid()); \
+	return InterfacePtr; \
+} 
 
 /** Helpers for accessing all the online features available in the online subsystem */
 namespace Online
@@ -147,6 +157,13 @@ namespace Online
 	 * @return Interface pointer for the appropriate service
 	 */
 	IMPLEMENT_GET_INTERFACE(Presence);
+
+	/**
+	 * Get the interface for accessing the stats services
+	 * @param SubsystemName - Name of the requested online service
+	 * @return Interface pointer for the appropriate party service
+	 */
+	IMPLEMENT_GET_INTERFACE(Stats);
 };
 
 #undef IMPLEMENT_GET_INTERFACE

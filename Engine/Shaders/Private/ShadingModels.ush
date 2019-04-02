@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -56,7 +56,7 @@ struct FAreaLight
 	float3		FalloffColor;
 
 	FRect		Rect;
-	Texture2D	Texture;
+	FRectTexture Texture;
 	bool		bIsRect;
 };
 
@@ -186,10 +186,24 @@ FDirectLighting ClearCoatBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, 
 
 #if 1
 	BxDFContext Context;
-	Init( Context, N, V, L );
+	
+	half3 Nspec = N;
+	float NoLSpec = NoL;
+
+	if( CLEAR_COAT_BOTTOM_NORMAL )
+	{
+		Nspec = GBuffer.WorldNormal;
+	}
+	
+	Init( Context, Nspec, V, L );
 	SphereMaxNoH( Context, AreaLight.SphereSinAlpha, CLEAR_COAT_BOTTOM_NORMAL == 0 );
 	Context.NoV = saturate( abs( Context.NoV ) + 1e-5 );
 	Context.VoH = AreaLight.bIsRect ? Context.NoV : Context.VoH;
+	
+	if( CLEAR_COAT_BOTTOM_NORMAL )
+	{
+		NoLSpec =  saturate( Context.NoL + 1e-5 );
+	}
 	
 	// F_Schlick
 	float F0 = 0.04;
@@ -201,7 +215,7 @@ FDirectLighting ClearCoatBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, 
 
 	if( AreaLight.bIsRect )
 	{
-		Lighting.Specular = RectGGXApproxLTC( ClearCoatRoughness, F0, N, V, AreaLight.Rect, AreaLight.Texture );
+		Lighting.Specular = ClearCoat * RectGGXApproxLTC( ClearCoatRoughness, F0, Nspec, V, AreaLight.Rect, AreaLight.Texture );
 	}
 	else
 	{
@@ -210,16 +224,13 @@ FDirectLighting ClearCoatBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, 
 
 		// Generalized microfacet specular
 		float D = D_GGX( a2, Context.NoH ) * Energy;
-		float Vis = Vis_Kelemen( Context.VoH );
+		float Vis = Vis_SmithJointApprox( a2, Context.NoV, NoLSpec );
 		
-		Lighting.Specular = AreaLight.FalloffColor * (Falloff * NoL) * D * Vis * F;
+		Lighting.Specular = AreaLight.FalloffColor * (Falloff * NoLSpec) * D * Vis * F;
 	}
 
 	if( CLEAR_COAT_BOTTOM_NORMAL )
 	{
-		const float2 oct1 = float2(GBuffer.CustomData.a, GBuffer.CustomData.z) * 2 - (256.0/255.0) + UnitVectorToOctahedron(GBuffer.WorldNormal);
- 		N = OctahedronToUnitVector(oct1);
-
 		Init( Context, N, V, L );
 		SphereMaxNoH( Context, AreaLight.SphereSinAlpha, true );
 		Context.NoV = saturate( abs( Context.NoV ) + 1e-5 );
@@ -250,7 +261,7 @@ FDirectLighting ClearCoatBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, 
 
 	// Generalized microfacet specular
 	float D = D_GGX( ClearCoatRoughness, NoH ) * LobeEnergy[0];
-	float Vis = Vis_Kelemen( VoH );
+	float Vis = Vis_SmithJointApprox( a2, Context.NoV, NoL );
 	
 	// F_Schlick
 	float F0 = 0.04;
@@ -326,6 +337,7 @@ float ApproximateHG(float cosJ, float g)
 
 void GetProfileDualSpecular(FGBufferData GBuffer, out float AverageToRoughness0, out float AverageToRoughness1, out float LobeMix)
 {
+#if !FORWARD_SHADING
 	// 0..255, which SubSurface profile to pick
 	uint SubsurfaceProfileInt = ExtractSubsurfaceProfileInt(GBuffer);
 
@@ -333,6 +345,12 @@ void GetProfileDualSpecular(FGBufferData GBuffer, out float AverageToRoughness0,
 	AverageToRoughness0 = Data.x * SSSS_MAX_DUAL_SPECULAR_ROUGHNESS;
 	AverageToRoughness1 = Data.y * SSSS_MAX_DUAL_SPECULAR_ROUGHNESS;
 	LobeMix = Data.z;
+#else
+	// Disable dual lobe, as subsurface profile doesn't work with forward.
+	AverageToRoughness0 = 1.f;
+	AverageToRoughness1 = 1.f;
+	LobeMix = 0.f;
+#endif
 }
 
 FDirectLighting SubsurfaceProfileBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, float Falloff, float NoL, FAreaLight AreaLight, FShadowTerms Shadow )
@@ -878,7 +896,7 @@ FDirectLighting EyeBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, float 
 
 		// Generalized microfacet specular
 		float D = D_GGX( a2, Context.NoH ) * Energy;
-		float Vis = Vis_Kelemen( Context.VoH );
+		float Vis = Vis_SmithJointApprox( a2, Context.NoV, NoL );
 		
 		Lighting.Specular = AreaLight.FalloffColor * (Falloff * NoL) * D * Vis * F;
 	}
@@ -943,6 +961,7 @@ FDirectLighting EvaluateBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, f
 	AreaLight.FalloffColor = 1;
 	AreaLight.Rect = (FRect)0;
 	AreaLight.bIsRect = false;
+    AreaLight.Texture = InitRectTexture(LTCAmpTexture); // Dummy
 
 	return IntegrateBxDF( GBuffer, N, V, L, 1, NoL, AreaLight, Shadow );
 }

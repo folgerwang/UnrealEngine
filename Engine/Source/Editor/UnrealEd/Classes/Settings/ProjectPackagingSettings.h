@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -149,7 +149,7 @@ public:
 	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category = Blueprints)
 	bool bExcludeMonolithicEngineHeadersInNativizedCode;
 
-	/** If enabled, all content will be put into a single .pak file instead of many individual files (default = enabled). */
+	/** If enabled, all content will be put into a one or more .pak files instead of many individual files (default = enabled). */
 	UPROPERTY(config, EditAnywhere, Category=Packaging)
 	bool UsePakFile;
 
@@ -167,11 +167,25 @@ public:
 	bool bGenerateNoChunks;
 
 	/**
-	* Normally during chunk generation all dependencies of a package in a chunk will be pulled into that package's chunk.
-	* If this is enabled then only hard dependencies are pulled in. Soft dependencies stay in their original chunk.
-	*/
+	 * Normally during chunk generation all dependencies of a package in a chunk will be pulled into that package's chunk.
+	 * If this is enabled then only hard dependencies are pulled in. Soft dependencies stay in their original chunk.
+	 */
 	UPROPERTY(config, EditAnywhere, Category = Packaging)
 	bool bChunkHardReferencesOnly;
+
+	/**
+	 * If true, individual files are only allowed to be in a single chunk and it will assign it to the lowest number requested
+	 * If false, it may end up in multiple chunks if requested by the cooker
+	 */
+	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay)
+	bool bForceOneChunkPerFile;
+
+	/**
+	 * If > 0 this sets a maximum size per chunk. Chunks larger than this size will be split into multiple pak files such as pakchunk0_s1
+	 * This can be set in platform specific game.ini files
+	 */
+	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay)
+	int64 MaxChunkSize;
 
 	/** 
 	 * If enabled, will generate data for HTTP Chunk Installer. This data can be hosted on webserver to be installed at runtime. Requires "Generate Chunks" enabled.
@@ -184,6 +198,19 @@ public:
 	 */	
 	UPROPERTY(config, EditAnywhere, Category = Packaging)
 	FDirectoryPath HttpChunkInstallDataDirectory;
+
+	/**
+	 * A comma separated list of formats to use for .pak file compression. If more than one is specified, the list is in order of priority, with fallbacks to other formats
+	 * in case of errors or unavailability of the format (plugin not enabled, etc).
+	 */
+	UPROPERTY(config, EditAnywhere, Category = Packaging, meta = (DisplayName = "Pak File Compression Format(s)"))
+	FString PakFileCompressionFormats;
+
+	/**
+	 * A generic setting for allowing a project to control compression settings during .pak file compression. For instance, if using the Oodle plugin, you could use -oodlemethod=Selkie -oodlelevel=Optimal1
+	 */
+	UPROPERTY(config, EditAnywhere, Category = Packaging, meta = (DisplayName = "Pak File Compression Commandline Options"))
+	FString PakFileAdditionalCompressionOptions;
 
 	/** 
 	 * Version name for HTTP Chunk Install Data.
@@ -266,18 +293,54 @@ public:
 	*/
 	UPROPERTY(config)
 	bool bEncryptPakIndex_DEPRECATED;
+
+	/**
+	 * Enable the early downloader pak file pakearly.txt
+	 * This has been superseded by the functionality in DefaultPakFileRules.ini
+	 */
+	UPROPERTY(config)
+	bool GenerateEarlyDownloaderPakFile_DEPRECATED;
 	
 	/**
-	* Don't include content in any editor folders when cooking.  This can cause issues with missing content in cooked games if the content is being used. 
-	*/
+	 * Don't include content in any editor folders when cooking.  This can cause issues with missing content in cooked games if the content is being used. 
+	 */
 	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay, meta = (DisplayName = "Exclude editor content when cooking"))
 	bool bSkipEditorContent;
 
 	/**
-	 * Don't include movies when staging/packaging
+	 * Don't include movies by default when staging/packaging
+	 * Specific movies can be specified below, and this can be in a platform ini
 	 */
 	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay, meta = (DisplayName = "Exclude movie files when staging"))
 	bool bSkipMovies;
+
+	/**
+	 * If SkipMovies is true, these specific movies will still be added to the .pak file (if using a .pak file; otherwise they're copied as individual files)
+	 * This should be the name with no extension
+	 */
+	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay, meta = (DisplayName = "Specific movies to Package"))
+	TArray<FString> UFSMovies;
+
+	/**
+	 * If SkipMovies is true, these specific movies will be copied when packaging your project, but are not supposed to be part of the .pak file
+	 * This should be the name with no extension
+	 */
+	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay, meta = (DisplayName = "Specific movies to Copy"))
+	TArray<FString> NonUFSMovies;
+
+	/**
+	 * If set, only these specific pak files will be compressed. This should take the form of "*pakchunk0*"
+	 * This can be set in a platform-specific ini file
+	 */
+	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay)
+	TArray<FString> CompressedChunkWildcard;
+
+	/**
+	 * List of specific files to include with GenerateEarlyDownloaderPakFile
+	 */
+	UPROPERTY(config)
+	TArray<FString> EarlyDownloaderPakFileFiles_DEPRECATED;
+
 
 	/**
 	 * List of maps to include when no other map list is specified on commandline

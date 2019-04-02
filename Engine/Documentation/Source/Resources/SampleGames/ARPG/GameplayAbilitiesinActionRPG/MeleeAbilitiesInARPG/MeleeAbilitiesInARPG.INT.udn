@@ -1,0 +1,35 @@
+Availability: Public
+Crumbs: 
+Title: Melee Abilities In ARPG
+Description: Going over how Melee Abilities are setup in ARPG.
+Type: 
+Version: 4.20
+Parent: Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG
+Order: 2
+Tags: 
+
+
+There are two main types of abilities in Action RPG (ARPG), **Melee** and **Skills**. While both abilities are similar, they do have some differences. For example, Melee abilities activate when the character’s weapon overlaps an enemy, while Skill abilities use skill-specific line trace checks. The following image shows the Blueprint graph for **GA_MeleeBase** which is the base for all the Melee abilities:  
+
+[REGION:lightbox]
+[![](ARPG_Melee20_Abilities_01.png)(w:800px)](ARPG_Melee20_Abilities_01.png)
+[/REGION]
+[REGION:caption]
+Click for full image.
+[/REGION]
+
+**ActivateAbility** is called when an ability starts, and **CommitAbility** is used to commit the **Cost** (Mana for ARPG generally) and **Cooldown** for an ability. **EndAbility** is called to tell the system that the ability is done executing. The other two nodes are specific to ARPG, and it is expected that each game will add new functions and nodes as needed.  
+
+**PlayMontageandWaitForEvent** is an **AbilityTask** node, and corresponds to **URPGAbilityTask_PlayMontageAndWaitForEvent**. AbilityTasks are special objects that define a set of static functions to create the task (PlayMontageAndWaitForEvent in this case), variables and functions used to execute the task. There is also a set of dynamic/Blueprint delegates that are activated from the task. Each output execution pin (besides the top, which always activates immediately) corresponds to one of these delegates, and the output data pins match the signature of the delegate. This specific task is a combination of **UAbilityTask_PlayMontageAndWait** and **UAbilityTask_WaitGameplayEvent**, with some game-specific tweaks and comments. Your game will likely need to implement several new gameplay tasks, so this task is an excellent example of how to set this up.
+
+The way these tasks work is by first playing a Montage and then listening for a Gameplay Event to be emitted from the **AbilitySystemComponent**. If an emitted Gameplay Event matches the passed in **EventTags** it will activate the **EventReceived** execution pin with a tag and a payload that will then call the **ApplyEffectContainer** function. When the Montage blends out, is interrupted, or canceled, the ability ends. The actual gameplay events are emitted from the **WeaponActor** Blueprint, using the following logic:  
+
+![ARPG_Melee_Abilities_02.png](ARPG_Melee20_Abilities_02.png "ARPG_Melee_Abilities_02.png")
+
+This is triggered when the weapon actor overlaps a character. When it does, it constructs a **GameplayEventData** payload and passes in a **Target Actor + Instigator.** It then sends a gameplay event using a tag set by an **Anim Notify** state placed in a Montage. So when that event is triggered, the ability graph will then activate the **EventReceived** execution pin. The **ApplyEffectContainer** node corresponds to **URPGGameplayAbility::ApplyEffectContainer**, which applies a set of gameplay effects. Each URPGGameplayAbility has a map of tags to **FRPGGameplayEffectContainer** structures, which contain target information and a list of Gameplay Effects to apply. Here is an example of that map from **GA_PlayerAxeMelee**:  
+
+![ARPG_Melee_Abilities_03.png](ARPG_Melee20_Abilities_03.png "ARPG_Melee_Abilities_03.png")
+
+When the **AM_Attack_Axe** montage is executed, it indicates that when the **Event.Montage.Shared.WeaponHit GameplayEvent** is emitted it will execute the **GE_PlayerAxeMelee** effect, using the targeting class **RPGTargetType_UseEventData**. That target type is implemented in native C++ in the **RPGTargetType****.cpp** file and extracts the target Actors and the hit results from the passed in **EventData**. The second element in that map executes the **BurstPound** special attack, which is a skill that will be described later.  
+
+The **ApplyEffectContainer** does two things: First, it looks for a **FRPGGameplayEffectContainer** inside this map that matches the passed in tag. If it finds one, it creates a **FRPGGameplayEffectContainerSpec** containing **TargetData** and a list of **EffectSpecs**. Then, it applies that **ContainerSpec**, which will do the actual damage to the target. Target data is a **FGameplayAbilityTargetDataHandle** that points to an array of polymorphic target structures that contain hit results, Actors, or something else that is game specific. EffectSpecs is an array of **FGameplayEffectSpecHandle** that point to an effect to apply plus a list of captured attribute values. Once the effects and target data has been captured, it can then be passed around, modified, and executed at a later point. But, in the case of melee, it is executed immediately after being captured. Each game using the Ability System will probably want to implement a system similar to **ApplyEffectContainer**, because it makes it easy to put Blueprint logic in a parent ability while placing the list of effects to execute in child Blueprints. However, each game will be slightly different, and if your game includes client prediction targeting it will be much more complicated than the version used in ARPG.

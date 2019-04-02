@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2945303
+﻿INTSourceChangelist:3782314
 Title:使用 Google Play 成就
 Description:利用 Google Play 成就提升玩家粘着度。 
 Crumbs:
@@ -7,45 +7,13 @@ version:4.10
 Parent:Platforms/Android
 tags:Mobile
 tags:Android
-type:howto
+type:how-to
+topic-image:topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Platforms/Android/Achievements:title%](Platforms/Mobile/Achievements/topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Android/Achievements:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Android/Achievements:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Android/Achievements]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Platforms/Android/Achievements:title%](Platforms/Mobile/Achievements/topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Android/Achievements:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Android/Achievements:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Android/Achievements]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-![](Platforms\Mobile\Achievements\androidAchievements.png)(w:320 convert:false)
+![](Platforms/Mobile/Achievements/androidAchievements.png)(w:320 convert:false)
 
 
+(#Configuration)
 ## 配置
 
 在 [成就 | Play Games Services | Google 开发者](https://developers.google.com/games/services/common/concepts/achievements) 中可查阅应用程序 Google Play Games Services 设置的内容。
@@ -66,7 +34,7 @@ type:howto
 
 1. 在 **Achievement Map** 中，需要输入仅用于虚幻项目的 **Name** 和在 Google Play Services 中设置的 **Achievement ID**。
 
-	![](Platforms\Mobile\Achievements\androidSetup.png)
+	![](Platforms/Mobile/Achievements/androidSetup.png)
 
 	应用程序和 Game Services 的这些数值保存在 Google Play Developer Console 中。
 

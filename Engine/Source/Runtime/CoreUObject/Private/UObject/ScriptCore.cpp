@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ScriptCore.cpp: Kismet VM execution and support code.
@@ -49,22 +49,6 @@ static FAutoConsoleVariableRef CVarVerboseScriptStats(
 	TEXT("Create additional stats for Blueprint execution.\n"),
 	ECVF_Default
 );
-
-#if USE_UBER_GRAPH_PERSISTENT_FRAME
-// Mirror definition of FPointerToUberGraphFrame, it is a UStruct and
-// we cannot easily generate its reflection data here in CoreUObject. The
-// builtins pattern we use for FVector, FQuat etc cannot be used because
-// our only member is a raw pointer and it cannot be a UProperty. This
-// creates difficulty in determining the correct size for the UStruct
-struct FPointerToUberGraphFrameCoreUObject
-{
-	uint8* RawPointer;
-
-#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
-	uint32 UberGraphFunctionKey;
-#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
-};
-#endif //USE_UBER_GRAPH_PERSISTENT_FRAME
 
 /*-----------------------------------------------------------------------------
 	Globals.
@@ -324,33 +308,6 @@ FString UnicodeToCPPIdentifier(const FString& InName, bool bDeprecated, const TC
 
 	return bDeprecated ? Ret + TEXT("_DEPRECATED") : Ret;
 }
-
-#if USE_UBER_GRAPH_PERSISTENT_FRAME
-/** Returns memory used to store temporary data on an instance, used by blueprints */
-static uint8* GetPersistentUberGraphFrameUnchecked(const UFunction* ForFn, UObject* Obj)
-{
-	const UClass* FromClass = ForFn->GetOuterUClassUnchecked();
-	checkSlow(ForFn->HasAnyFunctionFlags(FUNC_UbergraphFunction));
-	checkSlow(Obj->IsA(FromClass));
-	checkSlow(FromClass->UberGraphFramePointerProperty);
-	FPointerToUberGraphFrameCoreUObject* PointerToUberGraphFrame =
-		FromClass->UberGraphFramePointerProperty->ContainerPtrToValuePtr<FPointerToUberGraphFrameCoreUObject>(
-			(void*)Obj
-		);
-	checkSlow(PointerToUberGraphFrame);
-	checkSlow(PointerToUberGraphFrame->RawPointer);
-	return PointerToUberGraphFrame->RawPointer;
-}
-
-uint8* GetPersistentUberGraphFrame(const UFunction* ForFn, UObject* Obj)
-{
-	if (ForFn->HasAnyFunctionFlags(FUNC_UbergraphFunction))
-	{
-		return GetPersistentUberGraphFrameUnchecked(ForFn, Obj);
-	}
-	return nullptr;
-}
-#endif //USE_UBER_GRAPH_PERSISTENT_FRAME
 
 /*-----------------------------------------------------------------------------
 	FFrame implementation.
@@ -731,6 +688,137 @@ void UObject::SkipFunction(FFrame& Stack, RESULT_DECL, UFunction* Function)
 #pragma warning (disable : 4750) // warning C4750: function with _alloca() inlined into a loop
 #endif
 
+// Helper function to set up a script function, and then execute it using ExecFtor. This is 
+// a template function because we use alloca to allocate space for parameters and results,
+// but we also have two hotpaths: normal function calls which must call GetFunctionCallspace,
+// and normal bytecode functions that are local only!
+template<typename Exec>
+void ProcessScriptFunction(UObject* Context, UFunction* Function, FFrame& Stack, RESULT_DECL, Exec ExecFtor)
+{
+	check(!Function->HasAnyFunctionFlags(FUNC_Native));
+
+	// Allocate any temporary memory the script may need via AllocA. This AllocA dependency, along with
+	// the desire to inline calls to our Execution function are the reason for this template function:
+	uint8* FrameMemory = nullptr;
+	FFrame NewStack(Context, Function, nullptr, &Stack, Function->Children);
+#if USE_UBER_GRAPH_PERSISTENT_FRAME
+	FrameMemory = Function->GetOuterUClassUnchecked()->GetPersistentUberGraphFrame(Context, Function);
+#endif
+	bool bUsePersistentFrame = (nullptr != FrameMemory);
+	if (!bUsePersistentFrame)
+	{
+		FrameMemory = (uint8*)FMemory_Alloca(Function->PropertiesSize);
+		FMemory::Memzero(FrameMemory, Function->PropertiesSize);
+	}
+
+	/* 
+		Allocate space for return value bookkeeping - rarely used by bytecode functions, 
+		but necessary in cases where a bytecode function's signature needs to match 
+		a native function:
+	 */
+  	if( Function->ReturnValueOffset != MAX_uint16 )
+ 	{
+		UProperty* ReturnProperty = Function->GetReturnProperty();
+		if(ensure(ReturnProperty))
+		{
+ 			FOutParmRec* RetVal = (FOutParmRec*)FMemory_Alloca(sizeof(FOutParmRec));
+
+ 			/* Our context should be that we're in a variable assignment to the return value, so ensure that we have a valid property to return to */
+ 			check(RESULT_PARAM != NULL);
+ 			RetVal->PropAddr = (uint8*)RESULT_PARAM;
+ 			RetVal->Property = ReturnProperty;
+			NewStack.OutParms = RetVal;
+		}
+ 	}
+	
+	NewStack.Locals = FrameMemory;
+	FOutParmRec** LastOut = &NewStack.OutParms;
+		
+	for (UProperty* Property = (UProperty*)Function->Children; *Stack.Code != EX_EndFunctionParms; Property = (UProperty*)Property->Next)
+	{
+		checkfSlow(Property, TEXT("NULL Property in Function %s"), *Function->GetPathName()); 
+
+		Stack.MostRecentPropertyAddress = NULL;
+			
+		// Skip the return parameter case, as we've already handled it above
+		const bool bIsReturnParam = ((Property->PropertyFlags & CPF_ReturnParm) != 0);
+		if( bIsReturnParam )
+		{
+			continue;
+		}
+
+		if (Property->PropertyFlags & CPF_OutParm)
+		{
+			// evaluate the expression for this parameter, which sets Stack.MostRecentPropertyAddress to the address of the property accessed
+			Stack.Step(Stack.Object, NULL);
+
+			CA_SUPPRESS(6263)
+			FOutParmRec* Out = (FOutParmRec*)FMemory_Alloca(sizeof(FOutParmRec));
+			// set the address and property in the out param info
+			// warning: Stack.MostRecentPropertyAddress could be NULL for optional out parameters
+			// if that's the case, we use the extra memory allocated for the out param in the function's locals
+			// so there's always a valid address
+			ensure(Stack.MostRecentPropertyAddress); // possible problem - output param values on local stack are neither initialized nor cleaned.
+			Out->PropAddr = (Stack.MostRecentPropertyAddress != NULL) ? Stack.MostRecentPropertyAddress : Property->ContainerPtrToValuePtr<uint8>(NewStack.Locals);
+			Out->Property = Property;
+
+			// add the new out param info to the stack frame's linked list
+			if (*LastOut)
+			{
+				(*LastOut)->NextOutParm = Out;
+				LastOut = &(*LastOut)->NextOutParm;
+			}
+			else
+			{
+				*LastOut = Out;
+			}
+		}
+		else
+		{
+			// copy the result of the expression for this parameter into the appropriate part of the local variable space
+			uint8* Param = Property->ContainerPtrToValuePtr<uint8>(NewStack.Locals);
+			checkSlow(Param);
+
+			Property->InitializeValue_InContainer(NewStack.Locals);
+
+			Stack.Step(Stack.Object, Param);
+		}
+	}
+	Stack.Code++;
+	// set the next pointer of the last item to NULL to mark the end of the list
+	if (*LastOut)
+	{
+		(*LastOut)->NextOutParm = NULL;
+	}
+
+	if (!bUsePersistentFrame)
+	{
+		// Initialize any local struct properties with defaults
+		for (UProperty* LocalProp = Function->FirstPropertyToInit; LocalProp != NULL; LocalProp = (UProperty*)LocalProp->Next)
+		{
+			LocalProp->InitializeValue_InContainer(NewStack.Locals);
+		}
+	}
+
+	if( Function->Script.Num() > 0)
+	{
+		// Execute the code.
+		ExecFtor( Context, NewStack, RESULT_PARAM );
+	}
+
+	if (!bUsePersistentFrame)
+	{
+		// destruct properties on the stack, except for out params since we know we didn't use that memory
+		for (UProperty* Destruct = Function->DestructorLink; Destruct; Destruct = Destruct->DestructorLinkNext)
+		{
+			if (!Destruct->HasAnyPropertyFlags(CPF_OutParm))
+			{
+				Destruct->DestroyValue_InContainer(NewStack.Locals);
+			}
+		}
+	}
+}
+
 DEFINE_FUNCTION(UObject::execCallMathFunction)
 {
 	UFunction* Function = (UFunction*)Stack.ReadObject();
@@ -823,131 +911,7 @@ void UObject::CallFunction( FFrame& Stack, RESULT_DECL, UFunction* Function )
 	}
 	else
 	{
-		uint8* Frame = NULL;
-#if USE_UBER_GRAPH_PERSISTENT_FRAME
-		Frame = GetPersistentUberGraphFrame(Function, this);
-#endif
-		const bool bUsePersistentFrame = (NULL != Frame);
-		if (!bUsePersistentFrame)
-		{
-			Frame = (uint8*)FMemory_Alloca(Function->PropertiesSize);
-			FMemory::Memzero(Frame, Function->PropertiesSize);
-		}
-		FFrame NewStack( this, Function, Frame, &Stack, Function->Children );
-		FOutParmRec** LastOut = &NewStack.OutParms;
-		UProperty* Property;
-
-  		// Check to see if we need to handle a return value for this function.  We need to handle this first, because order of return parameters isn't always first.
- 		if( Function->HasAnyFunctionFlags(FUNC_HasOutParms) )
- 		{
- 			// Iterate over the function parameters, searching for the ReturnValue
- 			for( TFieldIterator<UProperty> ParmIt(Function); ParmIt; ++ParmIt )
- 			{
- 				Property = *ParmIt;
- 				if( Property->HasAnyPropertyFlags(CPF_ReturnParm) )
- 				{
-					CA_SUPPRESS(6263)
- 					FOutParmRec* RetVal = (FOutParmRec*)FMemory_Alloca(sizeof(FOutParmRec));
- 
- 					// Our context should be that we're in a variable assignment to the return value, so ensure that we have a valid property to return to
- 					check(RESULT_PARAM != NULL);
- 					RetVal->PropAddr = (uint8*)RESULT_PARAM;
- 					RetVal->Property = Property;
-					NewStack.OutParms = RetVal;
- 
- 					// A function can only have one return value, so we can stop searching
- 					break;
- 				}
- 			}
- 		}
-		
-		for (Property = (UProperty*)Function->Children; *Stack.Code != EX_EndFunctionParms; Property = (UProperty*)Property->Next)
-		{
-			checkfSlow(Property, TEXT("NULL Property in Function %s"), *Function->GetPathName()); 
-
-			Stack.MostRecentPropertyAddress = NULL;
-			
-			// Skip the return parameter case, as we've already handled it above
-			const bool bIsReturnParam = ((Property->PropertyFlags & CPF_ReturnParm) != 0);
-			if( bIsReturnParam )
-			{
-				continue;
-			}
-
-			if (Property->PropertyFlags & CPF_OutParm)
-			{
-				// evaluate the expression for this parameter, which sets Stack.MostRecentPropertyAddress to the address of the property accessed
-				Stack.Step(Stack.Object, NULL);
-
-				CA_SUPPRESS(6263)
-				FOutParmRec* Out = (FOutParmRec*)FMemory_Alloca(sizeof(FOutParmRec));
-				// set the address and property in the out param info
-				// warning: Stack.MostRecentPropertyAddress could be NULL for optional out parameters
-				// if that's the case, we use the extra memory allocated for the out param in the function's locals
-				// so there's always a valid address
-				ensure(Stack.MostRecentPropertyAddress); // possible problem - output param values on local stack are neither initialized nor cleaned.
-				Out->PropAddr = (Stack.MostRecentPropertyAddress != NULL) ? Stack.MostRecentPropertyAddress : Property->ContainerPtrToValuePtr<uint8>(NewStack.Locals);
-				Out->Property = Property;
-
-				// add the new out param info to the stack frame's linked list
-				if (*LastOut)
-				{
-					(*LastOut)->NextOutParm = Out;
-					LastOut = &(*LastOut)->NextOutParm;
-				}
-				else
-				{
-					*LastOut = Out;
-				}
-			}
-			else
-			{
-				// copy the result of the expression for this parameter into the appropriate part of the local variable space
-				uint8* Param = Property->ContainerPtrToValuePtr<uint8>(NewStack.Locals);
-				checkSlow(Param);
-
-				Property->InitializeValue_InContainer(NewStack.Locals);
-
-				Stack.Step(Stack.Object, Param);
-			}
-		}
-		Stack.Code++;
-#if UE_BUILD_DEBUG
-		// set the next pointer of the last item to NULL so we'll properly assert if something goes wrong
-		if (*LastOut)
-		{
-			(*LastOut)->NextOutParm = NULL;
-		}
-#endif
-
-		if (!bUsePersistentFrame)
-		{
-			// Initialize any local struct properties with defaults
-			for (UProperty* LocalProp = Function->FirstPropertyToInit; LocalProp != NULL; LocalProp = (UProperty*)LocalProp->Next)
-			{
-				LocalProp->InitializeValue_InContainer(NewStack.Locals);
-			}
-		}
-
-		const bool bIsValidFunction = (Function->FunctionFlags & FUNC_Native) || (Function->Script.Num() > 0);
-
-		// Execute the code.
-		if( bIsValidFunction )
-		{
-			ProcessInternal( this, NewStack, RESULT_PARAM );
-		}
-
-		if (!bUsePersistentFrame)
-		{
-			// destruct properties on the stack, except for out params since we know we didn't use that memory
-			for (UProperty* Destruct = Function->DestructorLink; Destruct; Destruct = Destruct->DestructorLinkNext)
-			{
-				if (!Destruct->HasAnyPropertyFlags(CPF_OutParm))
-				{
-					Destruct->DestroyValue_InContainer(NewStack.Locals);
-				}
-			}
-		}
+		ProcessScriptFunction(this, Function, Stack, RESULT_PARAM, ProcessInternal);
 	}
 }
 
@@ -968,6 +932,106 @@ void ClearReturnValue(UProperty* ReturnProp, RESULT_DECL)
 	}
 }
 
+void ProcessLocalScriptFunction(UObject* Context, FFrame& Stack, RESULT_DECL)
+{
+	UFunction* Function = (UFunction*)Stack.Node;
+	// No POD struct can ever be stored in this buffer. 
+	MS_ALIGN(16) uint8 Buffer[MAX_SIMPLE_RETURN_VALUE_SIZE] GCC_ALIGN(16);
+
+#if DO_BLUEPRINT_GUARD
+	FBlueprintExceptionTracker& BpET = FBlueprintExceptionTracker::Get();
+	if(BpET.bRanaway)
+	{
+		// If we have a return property, return a zeroed value in it, to try and save execution as much as possible
+		UProperty* ReturnProp = (Function)->GetReturnProperty();
+		ClearReturnValue(ReturnProp, RESULT_PARAM);
+		return;
+	}
+	else if (++BpET.Recurse == RECURSE_LIMIT)
+	{
+		// If we have a return property, return a zeroed value in it, to try and save execution as much as possible
+		UProperty* ReturnProp = (Function)->GetReturnProperty();
+		ClearReturnValue(ReturnProp, RESULT_PARAM);
+
+		// Notify anyone who cares that we've had a fatal error, so we can shut down PIE, etc
+		FBlueprintExceptionInfo InfiniteRecursionExceptionInfo(
+			EBlueprintExceptionType::InfiniteLoop, 
+			FText::Format(
+				LOCTEXT("InfiniteLoop", "Infinite script recursion ({0} calls) detected - see log for stack trace"), 
+				FText::AsNumber(RECURSE_LIMIT)
+			)
+		);
+		FBlueprintCoreDelegates::ThrowScriptException(Context, Stack, InfiniteRecursionExceptionInfo);
+
+		// This flag prevents repeated warnings of infinite loop, script exception handler 
+		// is expected to have terminated execution appropriately:
+		BpET.bRanaway = true;
+
+		return;
+	}
+#endif
+	// Execute the bytecode
+	while (*Stack.Code != EX_Return)
+	{
+#if DO_BLUEPRINT_GUARD
+		if(BpET.Runaway > GMaximumScriptLoopIterations )
+		{
+			// If we have a return property, return a zeroed value in it, to try and save execution as much as possible
+			UProperty* ReturnProp = (Function)->GetReturnProperty();
+			ClearReturnValue(ReturnProp, RESULT_PARAM);
+
+			// Notify anyone who cares that we've had a fatal error, so we can shut down PIE, etc
+			FBlueprintExceptionInfo RunawayLoopExceptionInfo(
+				EBlueprintExceptionType::InfiniteLoop, 
+				FText::Format(
+					LOCTEXT("RunawayLoop", "Runaway loop detected (over {0} iterations) - see log for stack trace"),
+					FText::AsNumber(GMaximumScriptLoopIterations)
+				)
+			);
+
+			// Need to reset Runaway counter BEFORE throwing script exception, because the exception causes a modal dialog,
+			// and other scripts running will then erroneously think they are also "runaway".
+			BpET.Runaway = 0;
+
+			FBlueprintCoreDelegates::ThrowScriptException(Context, Stack, RunawayLoopExceptionInfo);
+			return;
+		}
+#endif
+
+		Stack.Step(Stack.Object, Buffer);
+	}
+
+	// Step over the return statement and evaluate the result expression
+	Stack.Code++;
+
+	if (*Stack.Code != EX_Nothing)
+	{
+		Stack.Step(Stack.Object, RESULT_PARAM);
+	}
+	else
+	{
+		Stack.Code++;
+	}
+
+#if DO_BLUEPRINT_GUARD
+	--BpET.Recurse;
+#endif
+}
+
+void ProcessLocalFunction(UObject* Context, UFunction* Fn, FFrame& Stack, RESULT_DECL)
+{
+	checkSlow(Fn);
+	if(Fn->HasAnyFunctionFlags(FUNC_Native))
+	{
+		FScopeCycleCounterUObject NativeContextScope(GVerboseScriptStats ? Context : nullptr);
+		Fn->Invoke(Context, Stack, RESULT_PARAM);
+	}
+	else
+	{
+		ProcessScriptFunction(Context, Fn, Stack, RESULT_PARAM, ProcessLocalScriptFunction);
+	}
+}
+
 DEFINE_FUNCTION(UObject::ProcessInternal)
 {
 #if DO_BLUEPRINT_GUARD
@@ -983,7 +1047,6 @@ DEFINE_FUNCTION(UObject::ProcessInternal)
 #endif
 
 	UFunction* Function = (UFunction*)Stack.Node;
-
 	int32 FunctionCallspace = P_THIS->GetFunctionCallspace(Function, Stack.Locals, NULL);
 	if (FunctionCallspace & FunctionCallspace::Remote)
 	{
@@ -992,87 +1055,7 @@ DEFINE_FUNCTION(UObject::ProcessInternal)
 
 	if (FunctionCallspace & FunctionCallspace::Local)
 	{
-		// No POD struct can ever be stored in this buffer. 
-		MS_ALIGN(16) uint8 Buffer[MAX_SIMPLE_RETURN_VALUE_SIZE] GCC_ALIGN(16);
-
-#if DO_BLUEPRINT_GUARD
-		FBlueprintExceptionTracker& BpET = FBlueprintExceptionTracker::Get();
-		if(BpET.bRanaway)
-		{
-			// If we have a return property, return a zeroed value in it, to try and save execution as much as possible
-			UProperty* ReturnProp = (Function)->GetReturnProperty();
-			ClearReturnValue(ReturnProp, RESULT_PARAM);
-			return;
-		}
-		else if (++BpET.Recurse == RECURSE_LIMIT)
-		{
-			// If we have a return property, return a zeroed value in it, to try and save execution as much as possible
-			UProperty* ReturnProp = (Function)->GetReturnProperty();
-			ClearReturnValue(ReturnProp, RESULT_PARAM);
-
-			// Notify anyone who cares that we've had a fatal error, so we can shut down PIE, etc
-			FBlueprintExceptionInfo InfiniteRecursionExceptionInfo(
-				EBlueprintExceptionType::InfiniteLoop, 
-				FText::Format(
-					LOCTEXT("InfiniteLoop", "Infinite script recursion ({0} calls) detected - see log for stack trace"), 
-					FText::AsNumber(RECURSE_LIMIT)
-				)
-			);
-			FBlueprintCoreDelegates::ThrowScriptException(P_THIS, Stack, InfiniteRecursionExceptionInfo);
-
-			// This flag prevents repeated warnings of infinite loop, script exception handler 
-			// is expected to have terminated execution appropriately:
-			BpET.bRanaway = true;
-
-			return;
-		}
-#endif
-		// Execute the bytecode
-		while (*Stack.Code != EX_Return)
-		{
-#if DO_BLUEPRINT_GUARD
-			if(BpET.Runaway > GMaximumScriptLoopIterations )
-			{
-				// If we have a return property, return a zeroed value in it, to try and save execution as much as possible
-				UProperty* ReturnProp = (Function)->GetReturnProperty();
-				ClearReturnValue(ReturnProp, RESULT_PARAM);
-
-				// Notify anyone who cares that we've had a fatal error, so we can shut down PIE, etc
-				FBlueprintExceptionInfo RunawayLoopExceptionInfo(
-					EBlueprintExceptionType::InfiniteLoop, 
-					FText::Format(
-						LOCTEXT("RunawayLoop", "Runaway loop detected (over {0} iterations) - see log for stack trace"),
-						FText::AsNumber(GMaximumScriptLoopIterations)
-					)
-				);
-
-				// Need to reset Runaway counter BEFORE throwing script exception, because the exception causes a modal dialog,
-				// and other scripts running will then erroneously think they are also "runaway".
-				BpET.Runaway = 0;
-
-				FBlueprintCoreDelegates::ThrowScriptException(P_THIS, Stack, RunawayLoopExceptionInfo);
-				return;
-			}
-#endif
-
-			Stack.Step(Stack.Object, Buffer);
-		}
-
-		// Step over the return statement and evaluate the result expression
-		Stack.Code++;
-
-		if (*Stack.Code != EX_Nothing)
-		{
-			Stack.Step(Stack.Object, RESULT_PARAM);
-		}
-		else
-		{
-			Stack.Code++;
-		}
-
-#if DO_BLUEPRINT_GUARD
-		--BpET.Recurse;
-#endif
+		ProcessLocalScriptFunction(Context, Stack, RESULT_PARAM);
 	}
 	else
 	{
@@ -1404,7 +1387,10 @@ void UObject::ProcessEvent( UFunction* Function, void* Parms )
 	{
 		uint8* Frame = NULL;
 #if USE_UBER_GRAPH_PERSISTENT_FRAME
-		Frame = GetPersistentUberGraphFrame(Function, this);
+		if (Function->HasAnyFunctionFlags(FUNC_UbergraphFunction))
+		{
+			Frame = Function->GetOuterUClassUnchecked()->GetPersistentUberGraphFrame(this, Function);
+		}
 #endif
 		const bool bUsePersistentFrame = (NULL != Frame);
 		if (!bUsePersistentFrame)
@@ -1455,13 +1441,11 @@ void UObject::ProcessEvent( UFunction* Function, void* Parms )
 				}
 			}
 
-#if UE_BUILD_DEBUG
-			// set the next pointer of the last item to NULL so we'll properly assert if something goes wrong
+			// set the next pointer of the last item to NULL to mark the end of the list
 			if (*LastOut)
 			{
 				(*LastOut)->NextOutParm = NULL;
 			}
-#endif
 		}
 
 		if (!bUsePersistentFrame)
@@ -1940,7 +1924,7 @@ DEFINE_FUNCTION(UObject::execLetValueOnPersistentFrame)
 	checkSlow(DestProperty);
 	UFunction* UberGraphFunction = CastChecked<UFunction>(DestProperty->GetOwnerStruct());
 	checkSlow(Stack.Object->GetClass()->IsChildOf(UberGraphFunction->GetOuterUClassUnchecked()));
-	uint8* FrameBase = GetPersistentUberGraphFrameUnchecked(UberGraphFunction, Stack.Object);
+	uint8* FrameBase = UberGraphFunction->GetOuterUClassUnchecked()->GetPersistentUberGraphFrame(Stack.Object, UberGraphFunction);
 	checkSlow(FrameBase);
 	uint8* DestAddress = DestProperty->ContainerPtrToValuePtr<uint8>(FrameBase);
 
@@ -2442,6 +2426,20 @@ DEFINE_FUNCTION(UObject::execFinalFunction)
 	P_THIS->CallFunction( Stack, RESULT_PARAM, (UFunction*)Stack.ReadObject() );
 }
 IMPLEMENT_VM_FUNCTION( EX_FinalFunction, execFinalFunction );
+
+DEFINE_FUNCTION(UObject::execLocalVirtualFunction)
+{
+	// Call the virtual function.
+	ProcessLocalFunction(Context, P_THIS->FindFunctionChecked(Stack.ReadName()), Stack, RESULT_PARAM);
+}
+IMPLEMENT_VM_FUNCTION( EX_LocalVirtualFunction, execLocalVirtualFunction );
+
+DEFINE_FUNCTION(UObject::execLocalFinalFunction)
+{
+	// Call the final function.
+	ProcessLocalFunction(Context, (UFunction*)Stack.ReadObject(), Stack, RESULT_PARAM);
+}
+IMPLEMENT_VM_FUNCTION( EX_LocalFinalFunction, execLocalFinalFunction );
 
 class FCallDelegateHelper
 {

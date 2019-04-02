@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3477699
-Availability:Docs
+﻿INTSourceChangelist:4326187
+Availability:Public
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Blendspaces
 Title:ブレンドスペースの使用方法
 Description:Animation ブループリント内でブレンドスペースを使って出力ポーズを作ります。 

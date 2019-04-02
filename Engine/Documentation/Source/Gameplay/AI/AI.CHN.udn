@@ -1,45 +1,31 @@
-﻿INTSourceChangelist:2709798
+﻿INTSourceChangelist:4372182
 Availability:Public
-Title: AI 及行为树（Behavior Tree）
+Title:AI和行为树
 Crumbs:%ROOT%, Engine, Gameplay
-Description:人工智能信息，包括了行为树和导航网格物体的使用。
+Description:与人工智能相关的信息，包括行为树和寻路网格体的使用。
 version: 4.9
 
 [COMMENT:none]
  Q:\Daniel.Broder\BT Docs 
 [/COMMENT]
 
-## [](Engine/AI/BehaviorTrees "%Engine/AI/BehaviorTrees:description%")
+(#behaviortree)
+
+## 行为树
 
 [REGION:buttonlist]
-
-	* [](Engine/AI/BehaviorTrees/QuickStart "%Engine/AI/BehaviorTrees/QuickStart:description%")
-	* [](Engine/AI/BehaviorTrees/UserGuide "%Engine/AI/BehaviorTrees/UserGuide:description%")
-	* [](Engine/AI/BehaviorTrees/NodeReference "%Engine/AI/BehaviorTrees/NodeReference:description%")
-	* [](Engine/AI/BehaviorTrees/HowUE4BehaviorTreesDiffer "%Engine/AI/BehaviorTrees/HowUE4BehaviorTreesDiffer:description%")
-	
+* [](Engine/AI/BehaviorTrees/QuickStart "%Engine/AI/BehaviorTrees/QuickStart:description%")
+* [](Engine/AI/BehaviorTrees/UserGuide "%Engine/AI/BehaviorTrees/UserGuide:description%")
+* [](Engine/AI/BehaviorTrees/NodeReference "%Engine/AI/BehaviorTrees/NodeReference:description%")
+* [](Engine/AI/BehaviorTrees/HowUE4BehaviorTreesDiffer "%Engine/AI/BehaviorTrees/HowUE4BehaviorTreesDiffer:description%")
 [/REGION]
 
-## [](Engine/AI/EnvironmentQuerySystem "Engine/AI/EnvironmentQuerySystem:description")
+(#environmentquerysystem)
+
+## 环境查询系统
 
 [REGION:buttonlist]
-
-	* [](Engine/AI/EnvironmentQuerySystem/UserGuide "%Engine/AI/EnvironmentQuerySystem/UserGuide:description%")
-	* [](Engine/AI/EnvironmentQuerySystem/EQSPawn "%Engine/AI/EnvironmentQuerySystem/EQSPawn:description%")
-	* [](Engine/AI/EnvironmentQuerySystem/NodeReference "%Engine/AI/EnvironmentQuerySystem/NodeReference:description%")
-	[COMMENT:none]
-* [](Engine/AI/EnvironmentQuerySystem/AskingSmartQuestions "%Engine/AI/EnvironmentQuerySystem/AskingSmartQuestions:description%")
-[/COMMENT]
-	
+* [](Engine/AI/EnvironmentQuerySystem/UserGuide "%Engine/AI/EnvironmentQuerySystem/UserGuide:description%")
+* [](Engine/AI/EnvironmentQuerySystem/EQSPawn "%Engine/AI/EnvironmentQuerySystem/EQSPawn:description%")
+* [](Engine/AI/EnvironmentQuerySystem/NodeReference "%Engine/AI/EnvironmentQuerySystem/NodeReference:description%")
 [/REGION]
-
-[COMMENT:none]
--
-* [](Engine/AI/EnvironmentQuerySystem/QuickStart "%Engine/AI/EnvironmentQuerySystem/QuickStart:description%")
--
-[/COMMENT]
-
-
-
-
-

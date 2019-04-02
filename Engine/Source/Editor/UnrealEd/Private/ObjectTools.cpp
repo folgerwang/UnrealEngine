@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "ObjectTools.h"
@@ -59,6 +59,7 @@
 #include "Dialogs/Dialogs.h"
 #include "UnrealEdGlobals.h"
 #include "PackageTools.h"
+#include "Internationalization/TextPackageNamespaceUtil.h"
 #include "Framework/Application/SlateApplication.h"
 
 #include "BusyCursor.h"
@@ -90,6 +91,7 @@
 #include "Templates/UniquePtr.h"
 #include "Engine/MapBuildDataRegistry.h"
 #include "HAL/PlatformApplicationMisc.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogObjectTools, Log, All);
 
@@ -621,11 +623,10 @@ namespace ObjectTools
 	 * @param bWarnAboutRootSet		If True a message will be displayed to a user asking them if they would like to remove the rootset flag from objects which have it set.  
 									If False, the message will not be displayed and rootset is automatically removed 
 	 */
-	static void ForceReplaceReferences( UObject* ObjectToReplaceWith, TArray<UObject*>& ObjectsToReplace, FForceReplaceInfo& OutInfo, bool bWarnAboutRootSet = true)				
+	void ForceReplaceReferences( UObject* ObjectToReplaceWith, TArray<UObject*>& ObjectsToReplace, TSet<UObject*>& ObjectsToReplaceWithin, FForceReplaceInfo& OutInfo, bool bWarnAboutRootSet = true)
 	{
 		FPropertyEditorModule& PropertyEditorModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 		PropertyEditorModule.RemoveDeletedObjects( ObjectsToReplace );
-
 		TSet<UObject*> RootSetObjects;
 
 		GWarn->StatusUpdate( 0, 0, NSLOCTEXT("UnrealEd", "ConsolidateAssetsUpdate_RootSetCheck", "Checking Assets for Root Set...") );
@@ -661,10 +662,10 @@ namespace ObjectTools
 				FText Message = FText::Format( MessageFormatting, Arguments );
 
 				// Prompt the user to see if they'd like to remove the root set flag from the assets and attempt to replace them
-				EAppReturnType::Type UserRepsonse = OpenMsgDlgInt( EAppMsgType::YesNo, EAppReturnType::No, Message, NSLOCTEXT("ObjectTools", "ConsolidateAssetsRootSetDlg_Title", "Failed to Consolidate Assets") );
+				EAppReturnType::Type UserResponse = OpenMsgDlgInt( EAppMsgType::YesNo, EAppReturnType::No, Message, NSLOCTEXT("ObjectTools", "ConsolidateAssetsRootSetDlg_Title", "Failed to Consolidate Assets") );
 
 				// The user elected to not remove the root set flag, so cancel the replacement
-				if ( UserRepsonse == EAppReturnType::No )
+				if (UserResponse == EAppReturnType::No )
 				{
 					return;
 				}
@@ -672,6 +673,7 @@ namespace ObjectTools
 
 			for ( FObjectIterator ObjIter; ObjIter; ++ObjIter )
 			{
+				// Always clear the root set flags
 				UObject* CurrentObject = *ObjIter;
 				if ( CurrentObject )
 				{
@@ -764,8 +766,13 @@ namespace ObjectTools
 		{
 			UObject* CurObject = *ObjIter;
 
+			if (ObjectsToReplaceWithin.Num() > 0 && !ObjectsToReplaceWithin.Contains(CurObject))
+			{
+				CurObject = nullptr;
+			}
+
 			// Unless the "object to replace with" is null, ignore any of the objects to replace to themselves
-			if ( ObjectToReplaceWith == NULL || !ReplacementMap.Find( CurObject ) )
+			if (CurObject && ( ObjectToReplaceWith == NULL || !ReplacementMap.Find( CurObject ) ))
 			{
 				// Find the referencers of the objects to be replaced
 				FFindReferencersArchive FindRefsArchive( CurObject, OutInfo.ReplaceableObjects );
@@ -823,6 +830,20 @@ namespace ObjectTools
 			}
 		}
 
+		if(ObjectsToReplaceWithin.Num() > 0)
+		{
+			for (UObject* CurObject : ObjectsToReplaceWithin)
+			{
+				UBlueprint* BPObjectToUpdate = Cast<UBlueprint>(CurObject);
+				if (BPObjectToUpdate)
+				{
+					FArchiveReplaceObjectRef<UObject> ReplaceAr(BPObjectToUpdate->GeneratedClass->ClassDefaultObject, ReplacementMap, false, true, false);
+				}
+				FArchiveReplaceObjectRef<UObject> ReplaceAr(CurObject, ReplacementMap, false, true, false);
+			}
+		}
+		else
+		{
 		// Iterate over the map of referencing objects/changed properties, forcefully replacing the references and
 		int32 NumObjsReplaced = 0;
 		for (int32 Index = 0; Index < ReferencingPropertiesMapKeys.Num(); Index++)
@@ -834,7 +855,7 @@ namespace ObjectTools
 
 			FArchiveReplaceObjectRef<UObject> ReplaceAr( CurReplaceObj, ReplacementMap, false, true, false );
 		}
-
+		}
 		// Now alter the referencing objects the change has completed via PostEditChange, 
 		// this is done in a separate loop to prevent reading of data that we want to overwrite
 		int32 NumObjsPostEdited = 0;
@@ -871,22 +892,28 @@ namespace ObjectTools
 		}
 	}
 
-	FConsolidationResults ConsolidateObjects( UObject* ObjectToConsolidateTo, TArray<UObject*>& ObjectsToConsolidate, bool bShowDeleteConfirmation )
+	/**
+	 * Forcefully replaces references to passed in objects
+	 *
+	 * @param ObjectToReplaceWith	Any references found to 'ObjectsToReplace' will be replaced with this object.  If the object is NULL references will be nulled.
+	 * @param ObjectsToReplace		An array of objects that should be replaced with 'ObjectToReplaceWith'
+	 * @param OutInfo				FForceReplaceInfo struct containing useful information about the result of the call to this function
+	 * @param bWarnAboutRootSet		If True a message will be displayed to a user asking them if they would like to remove the rootset flag from objects which have it set.
+									If False, the message will not be displayed and rootset is automatically removed
+	 */
+	static void ForceReplaceReferences(UObject* ObjectToReplaceWith, TArray<UObject*>& ObjectsToReplace, FForceReplaceInfo& OutInfo, bool bWarnAboutRootSet = true)
+	{
+		TSet<UObject*> InObjectsToReplaceWithin;
+		ForceReplaceReferences(ObjectToReplaceWith, ObjectsToReplace, InObjectsToReplaceWithin, OutInfo, bWarnAboutRootSet);
+	}
+
+	FConsolidationResults ConsolidateObjects( UObject* ObjectToConsolidateTo, TArray<UObject*>& ObjectsToConsolidate, TSet<UObject*>& ObjectsToConsolidateWithin, TSet<UObject*>& ObjectsToNotConsolidateWithin, bool bShouldDeleteAfterConsolidate)
 	{
 		FConsolidationResults ConsolidationResults;
 
 		// Ensure the consolidation is headed toward a valid object and this isn't occurring in game
 		if ( ObjectToConsolidateTo )
 		{
-			// Confirm that the consolidate was intentional
-			if ( bShowDeleteConfirmation )
-			{
-				if ( !ShowDeleteConfirmationDialog( ObjectsToConsolidate ) )
-				{
-					return ConsolidationResults;
-				}
-			}
-
 			// Close all editors to avoid changing references to temporary objects used by the editor
 			if ( !FAssetEditorManager::Get().CloseAllAssetEditors() )
 			{
@@ -1043,7 +1070,7 @@ namespace ObjectTools
 					}
 				}
 
-				ForceReplaceReferences(ObjectToConsolidateTo, ObjectsToConsolidate, ReplaceInfo);
+				ForceReplaceReferences(ObjectToConsolidateTo, ObjectsToConsolidate, ObjectsToConsolidateWithin, ReplaceInfo);
 
 				if (UBlueprint* ObjectToConsolidateTo_BP = Cast<UBlueprint>(ObjectToConsolidateTo))
 				{
@@ -1067,7 +1094,7 @@ namespace ObjectTools
 						}
 					}
 
-					ForceReplaceReferences(ObjectToConsolidateTo_BP->GeneratedClass, ObjectsToConsolidate_BP, GeneratedClassReplaceInfo);
+					ForceReplaceReferences(ObjectToConsolidateTo_BP->GeneratedClass, ObjectsToConsolidate_BP, ObjectsToConsolidateWithin, GeneratedClassReplaceInfo);
 
 					// Repair the references of GeneratedClass on the object being consolidated so they can be properly disposed of upon deletion.
 					for (int32 Index = 0, MaxIndex = ObjectsToConsolidate.Num(); Index < MaxIndex; ++Index)
@@ -1100,7 +1127,9 @@ namespace ObjectTools
 						// then repair the references on the object being consolidated so those objects can be properly disposed of upon deletion.
 						UClass* OldClass = BlueprintToConsolidate->GeneratedClass;
 						UClass* OldSkeletonClass = BlueprintToConsolidate->SkeletonGeneratedClass;
-						FBlueprintCompileReinstancer::ReplaceInstancesOfClass(OldClass, BlueprintToConsolidateTo->GeneratedClass, nullptr, nullptr, true );
+
+
+						FBlueprintCompileReinstancer::ReplaceInstancesOfClass(OldClass, BlueprintToConsolidateTo->GeneratedClass, nullptr, &ObjectsToNotConsolidateWithin, true);
 						BlueprintToConsolidate->GeneratedClass = OldClass;
 						BlueprintToConsolidate->SkeletonGeneratedClass = OldSkeletonClass;
 					}
@@ -1118,6 +1147,8 @@ namespace ObjectTools
 
 			TSet<FString> AlreadyMappedObjectPaths;
 
+			if (bShouldDeleteAfterConsolidate)
+			{
 			// With all references to the objects to consolidate to eliminated from objects that are currently loaded, it should now be safe to delete
 			// the objects to be consolidated themselves, leaving behind a redirector in their place to fix up objects that were not currently loaded at the time
 			// of this operation.
@@ -1190,10 +1221,6 @@ namespace ObjectTools
 
 			CleanupAfterSuccessfulDelete(PotentialPackagesToDelete);
 
-			// Empty the provided array so it's not full of pointers to deleted objects
-			ObjectsToConsolidate.Empty();
-			ConsolidatedObjects.Empty();
-
 			// Now that the old objects have been garbage collected, give the redirectors a proper name
 			for (TMap<UObjectRedirector*, FName>::TIterator RedirectIt(RedirectorToObjectNameMap); RedirectIt; ++RedirectIt)
 			{
@@ -1212,6 +1239,11 @@ namespace ObjectTools
 					CriticalFailureObjects.AddUnique(Redirector);
 				}
 			}
+			}
+
+			// Empty the provided array so it's not full of pointers to deleted objects
+			ObjectsToConsolidate.Empty();
+			ConsolidatedObjects.Empty();
 
 			GWarn->EndSlowTask();
 
@@ -1265,6 +1297,44 @@ namespace ObjectTools
 		}
 
 		return ConsolidationResults;
+	}
+
+	FConsolidationResults ConsolidateObjects(UObject* ObjectToConsolidateTo, TArray<UObject*>& ObjectsToConsolidate, bool bShowDeleteConfirmation)
+	{
+		FConsolidationResults ConsolidationResults;
+
+		// Ensure the consolidation is headed toward a valid object and this isn't occurring in game
+		if (ObjectToConsolidateTo)
+		{
+			// Confirm that the consolidate was intentional
+			if (bShowDeleteConfirmation)
+			{
+				if (!ShowDeleteConfirmationDialog(ObjectsToConsolidate))
+				{
+					return ConsolidationResults;
+				}
+			}
+			TSet<UObject*> ObjectsToConsolidateWithin;
+			TSet<UObject*> ObjectsToNotConsolidateWithin;
+			return ConsolidateObjects(ObjectToConsolidateTo, ObjectsToConsolidate, ObjectsToConsolidateWithin, ObjectsToNotConsolidateWithin, true);
+		}
+
+		return ConsolidationResults;
+	}
+
+	void CompileBlueprintsAfterRefUpdate(TArray<UObject*>& ObjectsConsolidatedWithin)
+	{
+		for (UObject* CurObject : ObjectsConsolidatedWithin)
+		{
+			if (CurObject)
+			{
+				UBlueprint* BPObjectToUpdate = Cast<UBlueprint>(CurObject);
+				if (BPObjectToUpdate)
+				{
+					FKismetEditorUtilities::CompileBlueprint(BPObjectToUpdate);
+				}
+			}
+		}
 	}
 
 	/**
@@ -2235,6 +2305,19 @@ namespace ObjectTools
 			return 0;
 		}
 
+		{
+			// Force delete is a dangerous operation, add some fingerprints to the log:
+			FString Msg;
+			Msg.Append(FString::Printf(TEXT("Force Deleting %d Package(s):"), ShownObjectsToDelete.Num()));
+			const int32 MAX_PACKAGES_TO_LOG = 10;
+			for(int32 I = 0; I < ShownObjectsToDelete.Num() && I < MAX_PACKAGES_TO_LOG; ++I)
+			{
+				Msg.Append(TEXT("\n"));
+				Msg.Append(FString::Printf(TEXT("\tAsset Name: %s"), *GetPathNameSafe(ShownObjectsToDelete[I])));
+			}
+			UE_LOG(LogUObjectGlobals, Log, TEXT("%s"), *Msg);
+		}
+
 		GWarn->BeginSlowTask( NSLOCTEXT("UnrealEd", "Deleting", "Deleting"), true );
 
 		struct FSCSNodeToDelete
@@ -2547,8 +2630,11 @@ namespace ObjectTools
 
 		GWarn->EndSlowTask();
 
-		// Redraw viewports
-		GUnrealEd->RedrawAllViewports();
+		if (GUnrealEd)
+		{
+			// Redraw viewports
+			GUnrealEd->RedrawAllViewports();
+		}
 
 		return NumDeletedObjects;
 	}	
@@ -2660,7 +2746,7 @@ namespace ObjectTools
 		}
 
 		// If the target package already exists, check for name clashes and find a unique name
-		if ( InOutInfo.bOkToAll || bUniqueDefaultName )
+		if ( bUniqueDefaultName )
 		{
 			UPackage* NewPackage = FindPackage(NULL, *PackageName);
 
@@ -2735,7 +2821,7 @@ namespace ObjectTools
 			}
 		}
 
-		if( !InOutInfo.bOkToAll )
+		if( !InOutInfo.bOkToAll && InOutInfo.bPromptForRenameOnConflict )
 		{
 			// Present the user with a rename dialog for each asset.
 			FDlgMoveAsset MoveDialog(/*bIsLegacyOrMapPackage*/ false, PackageName, GroupName, ObjectName, DialogTitle);
@@ -3037,7 +3123,7 @@ namespace ObjectTools
 								Path = FPaths::Combine(*FPaths::ProjectDir(), TEXT("Content"), TEXT("Sounds"), *LanguageExt, *(FPackageName::GetLongPackageAssetName(NewPackageName) + FPackageName::GetAssetPackageExtension()));
 
 								// Move the package into the correct file location by saving it
-								GUnrealEd->Exec( NULL, *FString::Printf(TEXT("OBJ SAVEPACKAGE PACKAGE=\"%s\" FILE=\"%s\""), *NewPackageName, *Path) );
+								GEditor->Exec( NULL, *FString::Printf(TEXT("OBJ SAVEPACKAGE PACKAGE=\"%s\" FILE=\"%s\""), *NewPackageName, *Path) );
 							}
 						}
 						else
@@ -3108,6 +3194,10 @@ namespace ObjectTools
 
 			if (OldPackage && OldPackage->MetaData)
 			{
+				// Migrate the localization ID to the new package
+				TextNamespaceUtil::ForcePackageNamespace(NewPackage, TextNamespaceUtil::GetPackageNamespace(OldPackage));
+				TextNamespaceUtil::ClearPackageNamespace(OldPackage);
+
 				// Remove any metadata from old package pointing to moved objects
 				OldPackage->MetaData->RemoveMetaDataOutsidePackage();
 			}
@@ -3774,8 +3864,7 @@ namespace ThumbnailTools
 
 
 		// Get the rendering info for this object
-		FThumbnailRenderingInfo* RenderInfo =
-			GUnrealEd->GetThumbnailManager()->GetRenderingInfo( InObject );
+		FThumbnailRenderingInfo* RenderInfo = GUnrealEd ? GUnrealEd->GetThumbnailManager()->GetRenderingInfo( InObject ) : nullptr;
 
 		// Wait for all textures to be streamed in before we render the thumbnail
 		// @todo CB: This helps but doesn't result in 100%-streamed-in resources every time! :(
@@ -3858,16 +3947,15 @@ namespace ThumbnailTools
 
 
 			{
-				ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-					UpdateThumbnailRTCommand,
-					FTextureRenderTargetResource*, RenderTargetResource, RenderTargetResource,
-				{
-					// Copy (resolve) the rendered thumbnail from the render target to its texture
-					RHICmdList.CopyToResolveTarget(
-						RenderTargetResource->GetRenderTargetTexture(),		// Source texture
-						RenderTargetResource->TextureRHI,					// Dest texture
-						FResolveParams() );									// Resolve parameters
-				});
+				ENQUEUE_RENDER_COMMAND(UpdateThumbnailRTCommand)(
+					[RenderTargetResource](FRHICommandListImmediate& RHICmdList)
+					{
+						// Copy (resolve) the rendered thumbnail from the render target to its texture
+						RHICmdList.CopyToResolveTarget(
+							RenderTargetResource->GetRenderTargetTexture(),		// Source texture
+							RenderTargetResource->TextureRHI,					// Dest texture
+							FResolveParams() );									// Resolve parameters
+					});
 
 				if(OutThumbnail)
 				{
@@ -3891,7 +3979,7 @@ namespace ThumbnailTools
 	FObjectThumbnail* GenerateThumbnailForObjectToSaveToDisk( UObject* InObject )
 	{
 		// Does the object support thumbnails?
-		FThumbnailRenderingInfo* RenderInfo = GUnrealEd->GetThumbnailManager()->GetRenderingInfo( InObject );
+		FThumbnailRenderingInfo* RenderInfo = GUnrealEd ? GUnrealEd->GetThumbnailManager()->GetRenderingInfo( InObject ) : nullptr;
 		if( RenderInfo != NULL && RenderInfo->Renderer != NULL )
 		{
 			// Set the size of cached thumbnails

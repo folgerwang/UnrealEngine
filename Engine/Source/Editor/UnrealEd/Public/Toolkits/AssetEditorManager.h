@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,8 +7,8 @@
 #include "Containers/Ticker.h"
 #include "Framework/Docking/TabManager.h"
 #include "Toolkits/IToolkit.h"
-#include "IMessageContext.h"
 
+class IMessageContext;
 class FMessageEndpoint;
 class IToolkitHost;
 struct FAssetEditorRequestOpenAsset;
@@ -56,6 +56,9 @@ public:
 
 	/** Called when the editor is exiting to shutdown the manager */
 	void OnExit();
+
+	/** Opens an asset by path */
+	void OpenEditorForAsset(const FString& AssetPathName);
 
 	/** 
 	 * Tries to open an editor for the specified asset.  Returns true if the asset is open in an editor.
@@ -139,9 +142,6 @@ private:
 
 	/** Handles FAssetEditorRequestOpenAsset messages. */
 	void HandleRequestOpenAssetMessage(const FAssetEditorRequestOpenAsset& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
-
-	/** Opens an asset by path */
-	void OpenEditorForAsset(const FString& AssetPathName);
 
 	/** Handles ticks from the ticker. */
 	bool HandleTicker( float DeltaTime );

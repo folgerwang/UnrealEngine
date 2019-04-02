@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -71,6 +71,11 @@ namespace UnrealBuildTool
 			/// Default: Engine modules use shared PCHs, game modules do not
 			/// </summary>
 			Default,
+
+			/// <summary>
+			/// Never use any PCHs.
+			/// </summary>
+			NoPCHs,
 
 			/// <summary>
 			/// Never use shared PCHs.  Always generate a unique PCH for this module if appropriate
@@ -260,6 +265,110 @@ namespace UnrealBuildTool
 			public void Add(ReceiptProperty InReceiptProperty)
 			{
 				Inner.Add(InReceiptProperty);
+			}
+		}
+
+		/// <summary>
+		/// Stores information about a framework on IOS or MacOS
+		/// </summary>
+		public class Framework
+		{
+			/// <summary>
+			/// Name of the framework
+			/// </summary>
+			internal string Name;
+
+			/// <summary>
+			/// For non-system frameworks, specifies the path to a zip file that contains it.
+			/// </summary>
+			internal string ZipPath;
+
+			/// <summary>
+			/// 
+			/// </summary>
+			internal string CopyBundledAssets = null;
+
+			/// <summary>
+			/// Constructor
+			/// </summary>
+			/// <param name="Name">Name of the framework</param>
+			/// <param name="ZipPath">Path to a zip file containing the framework. May be null.</param>
+			/// <param name="CopyBundledAssets"></param>
+			public Framework(string Name, string ZipPath = null, string CopyBundledAssets = null)
+			{
+				this.Name = Name;
+				this.ZipPath = ZipPath;
+				this.CopyBundledAssets = CopyBundledAssets;
+			}
+		}
+
+		/// <summary>
+		/// Deprecated; wrapper for Framework.
+		/// </summary>
+		[Obsolete("The UEBuildFramework class has been deprecated in UE 4.22. Please use the Framework class instead.")]
+		public class UEBuildFramework : Framework
+		{
+			/// <summary>
+			/// Constructor
+			/// </summary>
+			/// <param name="Name">Name of the framework</param>
+			/// <param name="ZipPath">Path to a zip file containing the framework. May be null.</param>
+			/// <param name="CopyBundledAssets"></param>
+			public UEBuildFramework(string Name, string ZipPath = null, string CopyBundledAssets = null)
+				: base(Name, ZipPath, CopyBundledAssets)
+			{
+			}
+		}
+
+		/// <summary>
+		/// 
+		/// </summary>
+		public class BundleResource
+		{
+			/// <summary>
+			/// 
+			/// </summary>
+			public string ResourcePath = null;
+
+			/// <summary>
+			/// 
+			/// </summary>
+			public string BundleContentsSubdir = null;
+
+			/// <summary>
+			/// 
+			/// </summary>
+			public bool bShouldLog = true;
+
+			/// <summary>
+			/// Constructor
+			/// </summary>
+			/// <param name="ResourcePath"></param>
+			/// <param name="BundleContentsSubdir"></param>
+			/// <param name="bShouldLog"></param>
+			public BundleResource(string ResourcePath, string BundleContentsSubdir = "Resources", bool bShouldLog = true)
+			{
+				this.ResourcePath = ResourcePath;
+				this.BundleContentsSubdir = BundleContentsSubdir;
+				this.bShouldLog = bShouldLog;
+			}
+		}
+
+		/// <summary>
+		/// Deprecated; wrapper for BundleResource.
+		/// </summary>
+		[Obsolete("The UEBuildBundleResource class has been deprecated in UE 4.22. Please use the BundleResource class instead.")]
+		public class UEBuildBundleResource : BundleResource
+		{
+			/// <summary>
+			/// Constructor
+			/// </summary>
+			/// <param name="InResourcePath"></param>
+			/// <param name="InBundleContentsSubdir"></param>
+			/// <param name="bInShouldLog"></param>
+			public UEBuildBundleResource(string InResourcePath, string InBundleContentsSubdir = "Resources", bool bInShouldLog = true)
+				: base(InResourcePath, InBundleContentsSubdir, bInShouldLog)
+			{
 			}
 		}
 
@@ -510,18 +619,19 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// List of addition frameworks - typically used for External (third party) modules on Mac and iOS
 		/// </summary>
-		public List<UEBuildFramework> PublicAdditionalFrameworks = new List<UEBuildFramework>();
+		public List<Framework> PublicAdditionalFrameworks = new List<Framework>();
 
 		/// <summary>
 		/// List of addition resources that should be copied to the app bundle for Mac or iOS
 		/// </summary>
-		public List<UEBuildBundleResource> AdditionalBundleResources = new List<UEBuildBundleResource>();
+		public List<BundleResource> AdditionalBundleResources = new List<BundleResource>();
 
 		/// <summary>
 		/// For builds that execute on a remote machine (e.g. iOS), this list contains additional files that
 		/// need to be copied over in order for the app to link successfully.  Source/header files and PCHs are
 		/// automatically copied.  Usually this is simply a list of precompiled third party library dependencies.
 		/// </summary>
+		[Obsolete("To specify files to be transferred to a remote Mac for compilation, create a [Project]/Build/Rsync/RsyncProject.txt file. See https://linux.die.net/man/1/rsync for more information about Rsync filter rules.")]
 		public List<string> PublicAdditionalShadowFiles = new List<string>();
 
 		/// <summary>
@@ -583,10 +693,21 @@ namespace UnrealBuildTool
 		public List<string> ExternalDependencies = new List<string>();
 
 		/// <summary>
+		/// Whether this module requires the IMPLEMENT_MODULE macro to be implemented. Most UE4 modules require this, since we use the IMPLEMENT_MODULE macro
+		/// to do other global overloads (eg. operator new/delete forwarding to GMalloc).
+		/// </summary>
+		public bool? bRequiresImplementModule;
+
+		/// <summary>
 		/// Whether this module qualifies included headers from other modules relative to the root of their 'Public' folder. This reduces the number
 		/// of search paths that have to be passed to the compiler, improving performance and reducing the length of the compiler command line.
 		/// </summary>
 		public bool? bLegacyPublicIncludePaths;
+
+		/// <summary>
+		/// Which stanard to use for compiling this module
+		/// </summary>
+		public CppStandardVersion CppStandard = CppStandardVersion.Default;
 
 		/// <summary>
 		/// The current engine directory
@@ -674,28 +795,47 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Setup this module for physics support (based on the settings in UEBuildConfiguration)
 		/// </summary>
+		public void EnableMeshEditorSupport(ReadOnlyTargetRules Target)
+		{
+			if (Target.bEnableMeshEditor == true)
+			{
+				PublicDefinitions.Add("ENABLE_MESH_EDITOR=1");
+			}
+			else
+			{
+				PublicDefinitions.Add("ENABLE_MESH_EDITOR=0");
+			}
+		}
+
+		/// <summary>
+		/// Setup this module for physics support (based on the settings in UEBuildConfiguration)
+		/// </summary>
 		public void SetupModulePhysicsSupport(ReadOnlyTargetRules Target)
 		{
-            bool bUseNonPhysXInterface = Target.bUseApeiron == true || Target.bCompileImmediatePhysics == true;
+            bool bUseNonPhysXInterface = Target.bUseChaos == true || Target.bCompileImmediatePhysics == true;
 
             // 
-            if (Target.bCompileApeiron == true || Target.bUseApeiron == true)
+            if (Target.bCompileChaos == true || Target.bUseChaos == true)
             {
-                PublicDefinitions.Add("INCLUDE_APEIRON=1");
+                PublicDefinitions.Add("INCLUDE_CHAOS=1");
                 PublicIncludePathModuleNames.AddRange(
                     new string[] {
-                        "Apeiron",
+                        "Chaos",
+						"ChaosSolvers",
+						"FieldSystemCore",
                     }
                 );
                 PublicDependencyModuleNames.AddRange(
                   new string[] {
-                        "Apeiron",
+                        "Chaos",
+						"ChaosSolvers",
+						"FieldSystemCore"
                   }
                 );
             }
             else
             {
-                PublicDefinitions.Add("INCLUDE_APEIRON=0");
+                PublicDefinitions.Add("INCLUDE_CHAOS=0");
             }
             // definitions used outside of PhysX/APEX need to be set here, not in PhysX.Build.cs or APEX.Build.cs, 
             // since we need to make sure we always set it, even to 0 (because these are Private dependencies, the
@@ -713,7 +853,7 @@ namespace UnrealBuildTool
 			if(!bUseNonPhysXInterface)
 			{
 				// Disable non-physx interfaces
-				PublicDefinitions.Add("WITH_APEIRON=0");
+				PublicDefinitions.Add("WITH_CHAOS=0");
 				PublicDefinitions.Add("PHYSICS_INTERFACE_LLIMMEDIATE=0");
 
 				if (Target.bCompilePhysX)
@@ -772,26 +912,26 @@ namespace UnrealBuildTool
 				PublicDefinitions.Add(string.Format("WITH_PHYSX_COOKING={0}", Target.bBuildEditor && Target.bCompilePhysX ? 1 : 0));  // without APEX, we only need cooking in editor builds
 				PublicDefinitions.Add("WITH_NVCLOTH=0");
 
-				if(Target.bUseApeiron)
+				if(Target.bUseChaos)
 				{
-					PublicDefinitions.Add("WITH_APEIRON=1");
+					PublicDefinitions.Add("WITH_CHAOS=1");
 					PublicDefinitions.Add("COMPILE_ID_TYPES_AS_INTS=0");
 					
 					PublicIncludePathModuleNames.AddRange(
 						new string[] {
-						"Apeiron",
+						"Chaos",
 						}
 					);
 
 					PublicDependencyModuleNames.AddRange(
 						new string[] {
-						"Apeiron",
+						"Chaos",
 						}
 					);
 				}
 				else
 				{
-					PublicDefinitions.Add("WITH_APEIRON=0");
+					PublicDefinitions.Add("WITH_CHAOS=0");
 				}
 
 				if(Target.bCompileImmediatePhysics)
@@ -803,6 +943,15 @@ namespace UnrealBuildTool
 				{
 					PublicDefinitions.Add("PHYSICS_INTERFACE_LLIMMEDIATE=0");
 				}
+			}
+
+			if(Target.bCustomSceneQueryStructure)
+			{
+				PublicDefinitions.Add("WITH_CUSTOM_SQ_STRUCTURE=1");
+			}
+			else
+			{
+				PublicDefinitions.Add("WITH_CUSTOM_SQ_STRUCTURE=0");
 			}
 
 			// Unused interface
@@ -823,7 +972,7 @@ namespace UnrealBuildTool
 					case ModuleRules.PrecompileTargetsType.None:
 						return false;
 					case ModuleRules.PrecompileTargetsType.Default:
-						return !RulesFile.IsUnderDirectory(UnrealBuildTool.EngineSourceDeveloperDirectory) || Target.Type == TargetType.Editor;
+						return (Target.Type == TargetType.Editor || !RulesFile.IsUnderDirectory(UnrealBuildTool.EngineSourceDeveloperDirectory) || Plugin != null);
 					case ModuleRules.PrecompileTargetsType.Game:
 						return (Target.Type == TargetType.Client || Target.Type == TargetType.Server || Target.Type == TargetType.Game);
 					case ModuleRules.PrecompileTargetsType.Editor:

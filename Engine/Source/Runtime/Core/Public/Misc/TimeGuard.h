@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -132,7 +132,7 @@ protected:
 	double			StartTime;
 };
 
-DEPRECATED(4.21, "FLightweightTimeGuard has been renamed to FTimeGuard.")
+UE_DEPRECATED(4.21, "FLightweightTimeGuard has been renamed to FTimeGuard.")
 typedef FTimeGuard FLightweightTimeGuard;
 
 #define SCOPE_TIME_GUARD(name) \

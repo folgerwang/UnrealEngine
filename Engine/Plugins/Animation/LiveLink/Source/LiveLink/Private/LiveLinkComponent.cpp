@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LiveLinkComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -84,6 +84,11 @@ void ULiveLinkComponent::GetSubjectData(const FName SubjectName, bool& bSuccess,
 }
 
 void ULiveLinkComponent::GetSubjectDataAtWorldTime(const FName SubjectName, const float WorldTime, bool& bSuccess, FSubjectFrameHandle& SubjectFrameHandle)
+{
+	GetSubjectDataAtTime(SubjectName, (double)WorldTime, bSuccess, SubjectFrameHandle);
+}
+
+void ULiveLinkComponent::GetSubjectDataAtTime(const FName SubjectName, const double WorldTime, bool& bSuccess, FSubjectFrameHandle& SubjectFrameHandle)
 {
 	bSuccess = false;
 	if (HasLiveLinkClient())

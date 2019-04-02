@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -24,6 +24,8 @@ struct FDynamicEmitterDataBase;
 struct FDynamicEmitterReplayDataBase;
 struct FParticleEmitterInstance;
 enum class EParticleSignificanceLevel : uint8;
+struct FPSCTickData;
+class FParticleSystemWorldManager;
 
 //
 // Forward declarations.
@@ -328,6 +330,8 @@ struct FParticleEventKismetData : public FParticleEventData
 UCLASS(ClassGroup=(Rendering, Common), hidecategories=Object, hidecategories=Physics, hidecategories=Collision, showcategories=Trigger, editinlinenew, meta=(BlueprintSpawnableComponent))
 class ENGINE_API UParticleSystemComponent : public UPrimitiveComponent
 {
+	friend class FParticleSystemWorldManager;
+
 	GENERATED_UCLASS_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Particles)
@@ -361,6 +365,9 @@ public:
 
 	/** If true, someone has requested this component reset. */
 	uint8 bResetTriggered : 1;
+
+	/** If true, someone has requested this component deactivate. */
+	uint8 bDeactivateTriggered : 1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Particles)
 	uint8 bResetOnDetach:1;
@@ -437,13 +444,39 @@ private:
 
 	/** If true, it means the ASync work is done and the finalize is not */
 	uint8 bNeedsFinalize:1;
-	/** If true, it means the Async work is in process and not yet completed */
-	uint8 bAsyncWorkOutstanding:1;
+	
+	/** If true, it means the Async work is in process and not yet completed. */
+	volatile bool bAsyncWorkOutstanding;
 	
 	/** Restore relative transform from auto attachment and optionally detach from parent (regardless of whether it was an auto attachment). */
 	void CancelAutoAttachment(bool bDetachFromParent);
 
+	/** Handle into the FParticleSystemWorldManager. INDEX_NONE if this component does not have managed ticks. */
+	int32 ManagerHandle : 30;
+	/** Flag denoting we are currently in the pending queue to be added to the manager. */
+	int32 bPendingManagerAdd : 1;
+	/** Flag denoting we have been unregistered and are awaiting removal from the managers arrays. */
+	int32 bPendingManagerRemove : 1;
+
 public:
+
+#if WITH_EDITOR
+	virtual bool Editor_CanBeTickManaged()const { return true; }
+#endif
+	bool ShouldBeTickManaged()const;
+
+	FORCEINLINE bool IsTickManaged()const { return ManagerHandle != INDEX_NONE && !IsPendingManagerRemove(); }
+	FORCEINLINE int32 GetManagerHandle()const { return ManagerHandle; }
+	FORCEINLINE void SetManagerHandle(int32 InHandle) { ManagerHandle = InHandle; }
+
+	FORCEINLINE int32 IsPendingManagerAdd()const { return bPendingManagerAdd; }
+	FORCEINLINE void SetPendingManagerAdd(bool bValue) { bPendingManagerAdd = bValue; }
+	FORCEINLINE int32 IsPendingManagerRemove()const { return bPendingManagerRemove; }
+	FORCEINLINE void SetPendingManagerRemove(bool bValue) { bPendingManagerRemove = bValue; }
+
+	FPSCTickData& GetManagerTickData();
+	FParticleSystemWorldManager* GetWorldManager()const;
+
 
 	/** If this PSC is pooling. */
 	EPSCPoolMethod PoolingMethod;
@@ -462,6 +495,11 @@ public:
 	void ResetNextTick()
 	{
 		bResetTriggered = true;
+	}
+
+	void DeactivaateNextTick()
+	{
+		bDeactivateTriggered = true;
 	}
 
 	/**
@@ -658,7 +696,7 @@ private:
 	FVector SavedAutoAttachRelativeScale3D;
 
 public:
-	class FFXSystemInterface* FXSystem;
+	class FFXSystem* FXSystem;
 
 	// Called when the particle system is done
 	UPROPERTY(BlueprintAssignable)
@@ -697,6 +735,8 @@ public:
 	
 	/** True if this component can be considered invisible and potentially culled. */
 	bool CanConsiderInvisible()const;
+
+	bool CanSkipTickDueToVisibility();
 
 	/** true if this component can be occluded. */
 	bool CanBeOccluded()const;
@@ -1094,6 +1134,9 @@ public:
 	static FOnSystemPreActivationChange OnSystemPreActivationChange;
 
 private:
+	/** In some cases the async work for this PSC can be created externally by the manager. */
+	FORCEINLINE void SetAsyncWork(FGraphEventRef& InAsyncWork) { AsyncWork = InAsyncWork; }
+
 	/** Cached copy of the transform for async work */
 	FTransform AsyncComponentToWorld;
 
@@ -1121,6 +1164,13 @@ public:
 	{
 		return Template;
 	}
+	virtual void SetComponentTickEnabled(bool bEnabled)override;
+	virtual bool IsComponentTickEnabled() const override;
+
+	virtual void OnAttachmentChanged()override;
+	virtual void OnChildAttached(USceneComponent* ChildComponent)override;
+	virtual void OnChildDetached(USceneComponent* ChildComponent)override;
+
 protected:
 	virtual void CreateRenderState_Concurrent() override;
 	virtual void SendRenderTransform_Concurrent() override;
@@ -1158,6 +1208,9 @@ public:
 	/** After the possibly parallel phase of TickComponent, we fire events, etc **/
 	void FinalizeTickComponent();
 
+	void ForceReset();
+
+	void MarshalParamsForAsyncTick();
 private:
 	/** Wait on the async task and call finalize on the tick **/
 	void WaitForAsyncAndFinalize(EForceAsyncWorkCompletion Behavior, bool bDefinitelyGameThread = true) const;
@@ -1171,7 +1224,6 @@ public:
 	virtual void PostLoad() override;
 	virtual void BeginDestroy() override;
 	virtual void FinishDestroy() override;
-	virtual void NotifyObjectReferenceEliminated() const override;
 #if WITH_EDITOR
 	virtual void PreEditChange(UProperty* PropertyThatWillChange) override;
 	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
@@ -1228,12 +1280,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Rendering|Material")
 	virtual class UMaterialInstanceDynamic* CreateNamedDynamicMaterialInstance(FName InName, class UMaterialInterface* SourceMaterial = NULL);
 
+	virtual void SetMaterialByName(FName MaterialSlotName, class UMaterialInterface* SourceMaterial) override;
+
 	/** Returns a named material. If this named material is not found, returns NULL. */
 	UFUNCTION(BlueprintCallable, Category = "Rendering|Material")
 	virtual class UMaterialInterface* GetNamedMaterial(FName InName) const;
 
 	/** Returns the index into the EmitterMaterials array for this named. If there are no named material slots or this material is not found, INDEX_NONE is returned. */
 	virtual int32 GetNamedMaterialIndex(FName InName) const;
+
+	/** returns the name associated with the passed in material, returns NAME_None if it is not found */
+	virtual FName GetNameForMaterial(UMaterialInterface* InMaterial) const;
 
 	/** Returns an approximate memory usage value for this component. */
 	uint32 GetApproxMemoryUsage()const;

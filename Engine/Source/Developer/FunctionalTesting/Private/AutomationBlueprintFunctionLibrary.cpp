@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AutomationBlueprintFunctionLibrary.h"
 #include "HAL/IConsoleManager.h"
@@ -13,6 +13,11 @@
 #include "Engine/Engine.h"
 #if WITH_EDITOR
 #include "Editor/EditorEngine.h"
+#include "Editor.h"
+#include "HighResScreenshot.h"
+#include "LevelEditor.h"
+#include "ILevelViewport.h"
+#include "LevelEditorViewport.h"
 #endif
 #include "Tests/AutomationCommon.h"
 #include "Logging/MessageLog.h"
@@ -790,6 +795,45 @@ float UAutomationBlueprintFunctionLibrary::GetStatCallCount(FName StatName)
 bool UAutomationBlueprintFunctionLibrary::AreAutomatedTestsRunning()
 {
 	return GIsAutomationTesting;
+}
+
+bool UAutomationBlueprintFunctionLibrary::TakeHighResScreenshot(int32 ResX, int32 ResY, FString Filename, ACameraActor* Camera, bool bMaskEnabled, bool bCaptureHDR)
+{
+#if WITH_EDITOR
+	if (FModuleManager::Get().IsModuleLoaded("LevelEditor"))
+	{
+		FHighResScreenshotConfig& HighResScreenshotConfig = GetHighResScreenshotConfig();
+		if (HighResScreenshotConfig.SetResolution(ResX, ResY))
+		{
+			HighResScreenshotConfig.SetFilename(Filename);
+			HighResScreenshotConfig.SetMaskEnabled(bMaskEnabled);
+			HighResScreenshotConfig.SetHDRCapture(bCaptureHDR);
+
+			FLevelEditorModule& LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor");
+			ILevelViewport* LevelViewport = LevelEditor.GetFirstActiveViewport().Get();
+
+			// Move Viewport to Camera
+			if (Camera)
+			{
+				FLevelEditorViewportClient& LevelViewportClient = LevelViewport->GetLevelViewportClient();
+				// We set the actor lock (pilot mode) and force the viewport to match the camera now.
+				// Then we unset the actor lock to avoid users to move their asset through the viewport unwantedly.
+				LevelViewportClient.SetActorLock(Camera);
+				LevelViewportClient.MoveCameraToLockedActor();
+				LevelViewportClient.SetActorLock(nullptr);
+			}
+
+			FinishLoadingBeforeScreenshot();
+
+			LevelViewport->GetActiveViewport()->TakeHighResScreenShot();
+
+			return true;
+		}
+
+		UE_LOG(AutomationFunctionLibrary, Error, TEXT("Screenshot size exceeds the maximum allowed texture size (%d x %d)"), GetMax2DTextureDimension(), GetMax2DTextureDimension());
+	}
+#endif
+	return false;
 }
 
 FAutomationScreenshotOptions UAutomationBlueprintFunctionLibrary::GetDefaultScreenshotOptionsForGameplay(EComparisonTolerance Tolerance, float Delay)

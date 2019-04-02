@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -224,6 +224,11 @@ public:
 
 	/** Flush this cache */
 	void FlushCache();
+
+	/**
+	 * Gets the allocated font data for a font data asset
+	 */
+	uint32 GetFontDataAssetResidentMemory(const UObject* FontDataAsset) const;
 
 private:
 	/** Get the cached composite font data for the given composite font */

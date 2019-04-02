@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ActorSequenceComponent.h"
 #include "ActorSequence.h"
@@ -6,7 +6,6 @@
 
 UActorSequenceComponent::UActorSequenceComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, bAutoPlay(false)
 {
 	PrimaryComponentTick.bCanEverTick = true;
 
@@ -31,7 +30,7 @@ void UActorSequenceComponent::BeginPlay()
 		SequencePlayer = NewObject<UActorSequencePlayer>(this, "SequencePlayer");
 		SequencePlayer->Initialize(Sequence, PlaybackSettings);
 
-		if (bAutoPlay)
+		if (PlaybackSettings.bAutoPlay)
 		{
 			SequencePlayer->Play();
 		}

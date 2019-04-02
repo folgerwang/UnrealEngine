@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D11Commands.cpp: D3D RHI commands implementation.
@@ -40,7 +40,7 @@ DECLARE_ISBOUNDSHADER(DomainShader)
 DECLARE_ISBOUNDSHADER(ComputeShader)
 
 
-#if DO_CHECK
+#if DO_GUARD_SLOW
 #define VALIDATE_BOUND_SHADER(s) ValidateBoundShader(StateCache, s)
 #else
 #define VALIDATE_BOUND_SHADER(s)
@@ -159,6 +159,7 @@ void FD3D11DynamicRHI::RHISetStreamSource(uint32 StreamIndex, FVertexBufferRHIPa
 	FD3D11VertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
 
 	ID3D11Buffer* D3DBuffer = VertexBuffer ? VertexBuffer->Resource : NULL;
+	TrackResourceBoundAsVB(VertexBuffer, StreamIndex);
 	StateCache.SetStreamSource(D3DBuffer, StreamIndex, Offset);
 }
 
@@ -279,9 +280,6 @@ void FD3D11DynamicRHI::RHISetScissorRect(bool bEnable,uint32 MinX,uint32 MinY,ui
 */
 void FD3D11DynamicRHI::RHISetBoundShaderState( FBoundShaderStateRHIParamRef BoundShaderStateRHI)
 {
-	// Non-PSO
-	PSOPrimitiveType = PT_Num;
-
 	FD3D11BoundShaderState* BoundShaderState = ResourceCast(BoundShaderStateRHI);
 
 	StateCache.SetStreamStrides(BoundShaderState->StreamStrides);
@@ -319,7 +317,7 @@ void FD3D11DynamicRHI::RHISetBoundShaderState( FBoundShaderStateRHIParamRef Boun
 	// Shader changed.  All UB's must be reset by high level code to match other platforms anway.
 	// Clear to catch those bugs, and bugs with stale UB's causing layout mismatches.
 	// Release references to bound uniform buffers.
-	for (int32 Frequency = 0; Frequency < SF_NumFrequencies; ++Frequency)
+	for (int32 Frequency = 0; Frequency < SF_NumStandardFrequencies; ++Frequency)
 	{
 		for (int32 BindIndex = 0; BindIndex < MAX_UNIFORM_BUFFERS_PER_SHADER_STAGE; ++BindIndex)
 		{
@@ -445,7 +443,7 @@ void FD3D11DynamicRHI::RHISetUAVParameter(FComputeShaderRHIParamRef ComputeShade
 
 	if(UAV)
 	{
-		ConditionalClearShaderResource(UAV->Resource);		
+		ConditionalClearShaderResource(UAV->Resource, true);		
 
 		//check it's safe for r/w for this UAV
 		const EResourceTransitionAccess CurrentUAVAccess = UAV->Resource->GetCurrentGPUAccess();
@@ -470,7 +468,7 @@ void FD3D11DynamicRHI::RHISetUAVParameter(FComputeShaderRHIParamRef ComputeShade
 	
 	if(UAV)
 	{
-		ConditionalClearShaderResource(UAV->Resource);
+		ConditionalClearShaderResource(UAV->Resource, true);
 
 		//check it's safe for r/w for this UAV
 		const EResourceTransitionAccess CurrentUAVAccess = UAV->Resource->GetCurrentGPUAccess();
@@ -972,7 +970,7 @@ void FD3D11DynamicRHI::RHISetRenderTargets(
 		DepthStencilView = NewDepthStencilTarget->GetDepthStencilView(CurrentDSVAccessType);
 
 		// Unbind any shader views of the depth stencil target that are bound.
-		ConditionalClearShaderResource(NewDepthStencilTarget);
+		ConditionalClearShaderResource(NewDepthStencilTarget, false);
 	}
 
 	// Check if the depth stencil target is different from the old state.
@@ -1053,7 +1051,7 @@ void FD3D11DynamicRHI::RHISetRenderTargets(
 #endif
 			
 			// Unbind any shader views of the render target that are bound.
-			ConditionalClearShaderResource(NewRenderTarget);
+			ConditionalClearShaderResource(NewRenderTarget, false);
 
 #if UE_BUILD_DEBUG	
 			// A check to allow you to pinpoint what is using mismatching targets
@@ -1119,7 +1117,7 @@ void FD3D11DynamicRHI::RHISetRenderTargets(
 			}
 
 			// Unbind any shader views of the UAV's resource.
-			ConditionalClearShaderResource(RHIUAV->Resource);
+			ConditionalClearShaderResource(RHIUAV->Resource, true);
 		}
 
 		if(CurrentUAVs[UAVIndex] != UAV)
@@ -1205,7 +1203,7 @@ void FD3D11DynamicRHI::RHISetRenderTargetsAndClear(const FRHISetRenderTargetsInf
 
 // Primitive drawing.
 
-static D3D11_PRIMITIVE_TOPOLOGY GetD3D11PrimitiveType(uint32 PrimitiveType, bool bUsingTessellation)
+static D3D11_PRIMITIVE_TOPOLOGY GetD3D11PrimitiveType(EPrimitiveType PrimitiveType, bool bUsingTessellation)
 {
 	if(bUsingTessellation)
 	{
@@ -1278,10 +1276,6 @@ static D3D11_PRIMITIVE_TOPOLOGY GetD3D11PrimitiveType(uint32 PrimitiveType, bool
 	return D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 }
 
-static inline void VerifyPrimitiveType(EPrimitiveType PSOPrimitiveType, uint32 PrimitiveType)
-{
-	ensureAlwaysMsgf(PSOPrimitiveType == PT_Num || (EPrimitiveType)PrimitiveType == PSOPrimitiveType, TEXT("PSO was created using PrimitiveType %d, but the Draw call is using %d! This will break D3D12, Metal and Vulkan"), (uint32)PSOPrimitiveType, (uint32)PrimitiveType);
-}
 
 void FD3D11DynamicRHI::CommitNonComputeShaderConstants()
 {
@@ -1527,7 +1521,7 @@ void FD3D11DynamicRHI::SetResourcesFromTables(const ShaderType* RESTRICT Shader)
 				FString ResourcesString;
 				for (int32 Index = 0; Index < BufferLayout.Resources.Num(); ++Index)
 				{
-					ResourcesString += FString::Printf(TEXT("%d "), BufferLayout.Resources[Index]);
+					ResourcesString += FString::Printf(TEXT("%d "), BufferLayout.Resources[Index].MemberType);
 				}
 				UE_LOG(LogD3D11RHI, Error, TEXT("Layout CB Size %d %d Resources: %s"), BufferLayout.ConstantBufferSize, BufferLayout.Resources.Num(), *ResourcesString);
 #else
@@ -1585,7 +1579,7 @@ void FD3D11DynamicRHI::CommitComputeResourceTables(FD3D11ComputeShader* InComput
 	SetResourcesFromTables(ComputeShader);
 }
 
-void FD3D11DynamicRHI::RHIDrawPrimitive(uint32 PrimitiveType,uint32 BaseVertexIndex,uint32 NumPrimitives,uint32 NumInstances)
+void FD3D11DynamicRHI::RHIDrawPrimitive(uint32 BaseVertexIndex,uint32 NumPrimitives,uint32 NumInstances)
 {
 	RHI_DRAW_CALL_STATS(PrimitiveType,NumInstances*NumPrimitives);
 
@@ -1595,7 +1589,6 @@ void FD3D11DynamicRHI::RHIDrawPrimitive(uint32 PrimitiveType,uint32 BaseVertexIn
 	uint32 VertexCount = GetVertexCountForPrimitiveCount(NumPrimitives,PrimitiveType);
 
 	GPUProfilingData.RegisterGPUWork(NumPrimitives * NumInstances, VertexCount * NumInstances);
-	VerifyPrimitiveType(PSOPrimitiveType, PrimitiveType);
 	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType,bUsingTessellation));
 	if(NumInstances > 1)
 	{
@@ -1607,7 +1600,7 @@ void FD3D11DynamicRHI::RHIDrawPrimitive(uint32 PrimitiveType,uint32 BaseVertexIn
 	}
 }
 
-void FD3D11DynamicRHI::RHIDrawPrimitiveIndirect(uint32 PrimitiveType,FVertexBufferRHIParamRef ArgumentBufferRHI,uint32 ArgumentOffset)
+void FD3D11DynamicRHI::RHIDrawPrimitiveIndirect(FVertexBufferRHIParamRef ArgumentBufferRHI,uint32 ArgumentOffset)
 {
 	FD3D11VertexBuffer* ArgumentBuffer = ResourceCast(ArgumentBufferRHI);
 
@@ -1618,12 +1611,11 @@ void FD3D11DynamicRHI::RHIDrawPrimitiveIndirect(uint32 PrimitiveType,FVertexBuff
 	CommitGraphicsResourceTables();
 	CommitNonComputeShaderConstants();
 
-	VerifyPrimitiveType(PSOPrimitiveType, PrimitiveType);
 	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType,bUsingTessellation));
 	Direct3DDeviceIMContext->DrawInstancedIndirect(ArgumentBuffer->Resource,ArgumentOffset);
 }
 
-void FD3D11DynamicRHI::RHIDrawIndexedIndirect(FIndexBufferRHIParamRef IndexBufferRHI, uint32 PrimitiveType, FStructuredBufferRHIParamRef ArgumentsBufferRHI, int32 DrawArgumentsIndex, uint32 NumInstances)
+void FD3D11DynamicRHI::RHIDrawIndexedIndirect(FIndexBufferRHIParamRef IndexBufferRHI, FStructuredBufferRHIParamRef ArgumentsBufferRHI, int32 DrawArgumentsIndex, uint32 NumInstances)
 {
 	FD3D11IndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
 	FD3D11StructuredBuffer* ArgumentsBuffer = ResourceCast(ArgumentsBufferRHI);
@@ -1639,8 +1631,8 @@ void FD3D11DynamicRHI::RHIDrawIndexedIndirect(FIndexBufferRHIParamRef IndexBuffe
 	uint32 SizeFormat = sizeof(DXGI_FORMAT);
 	const DXGI_FORMAT Format = (IndexBuffer->GetStride() == sizeof(uint16) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT);
 
+	TrackResourceBoundAsIB(IndexBuffer);
 	StateCache.SetIndexBuffer(IndexBuffer->Resource, Format, 0);
-	VerifyPrimitiveType(PSOPrimitiveType, PrimitiveType);
 	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType,bUsingTessellation));
 
 	if(NumInstances > 1)
@@ -1653,7 +1645,7 @@ void FD3D11DynamicRHI::RHIDrawIndexedIndirect(FIndexBufferRHIParamRef IndexBuffe
 	}
 }
 
-void FD3D11DynamicRHI::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef IndexBufferRHI,uint32 PrimitiveType,int32 BaseVertexIndex,uint32 FirstInstance,uint32 NumVertices,uint32 StartIndex,uint32 NumPrimitives,uint32 NumInstances)
+void FD3D11DynamicRHI::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef IndexBufferRHI,int32 BaseVertexIndex,uint32 FirstInstance,uint32 NumVertices,uint32 StartIndex,uint32 NumPrimitives,uint32 NumInstances)
 {
 	FD3D11IndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
 
@@ -1678,8 +1670,8 @@ void FD3D11DynamicRHI::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef IndexBuff
 	checkf((StartIndex + IndexCount) * IndexBuffer->GetStride() <= IndexBuffer->GetSize(), 		
 		TEXT("Start %u, Count %u, Type %u, Buffer Size %u, Buffer stride %u"), StartIndex, IndexCount, PrimitiveType, IndexBuffer->GetSize(), IndexBuffer->GetStride());
 
+	TrackResourceBoundAsIB(IndexBuffer);
 	StateCache.SetIndexBuffer(IndexBuffer->Resource, Format, 0);
-	VerifyPrimitiveType(PSOPrimitiveType, PrimitiveType);
 	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType,bUsingTessellation));
 
 	if (NumInstances > 1 || FirstInstance != 0)
@@ -1694,7 +1686,7 @@ void FD3D11DynamicRHI::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef IndexBuff
 	}
 }
 
-void FD3D11DynamicRHI::RHIDrawIndexedPrimitiveIndirect(uint32 PrimitiveType,FIndexBufferRHIParamRef IndexBufferRHI,FVertexBufferRHIParamRef ArgumentBufferRHI,uint32 ArgumentOffset)
+void FD3D11DynamicRHI::RHIDrawIndexedPrimitiveIndirect(FIndexBufferRHIParamRef IndexBufferRHI,FVertexBufferRHIParamRef ArgumentBufferRHI,uint32 ArgumentOffset)
 {
 	FD3D11IndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
 	FD3D11VertexBuffer* ArgumentBuffer = ResourceCast(ArgumentBufferRHI);
@@ -1709,8 +1701,8 @@ void FD3D11DynamicRHI::RHIDrawIndexedPrimitiveIndirect(uint32 PrimitiveType,FInd
 	// Set the index buffer.
 	const uint32 SizeFormat = sizeof(DXGI_FORMAT);
 	const DXGI_FORMAT Format = (IndexBuffer->GetStride() == sizeof(uint16) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT);
+	TrackResourceBoundAsIB(IndexBuffer);
 	StateCache.SetIndexBuffer(IndexBuffer->Resource, Format, 0);
-	VerifyPrimitiveType(PSOPrimitiveType, PrimitiveType);
 	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType,bUsingTessellation));
 	Direct3DDeviceIMContext->DrawIndexedInstancedIndirect(ArgumentBuffer->Resource,ArgumentOffset);
 }
@@ -1723,12 +1715,11 @@ void FD3D11DynamicRHI::RHIDrawIndexedPrimitiveIndirect(uint32 PrimitiveType,FInd
  * @param VertexDataStride Size of each vertex 
  * @param OutVertexData Reference to the allocated vertex memory
  */
-void FD3D11DynamicRHI::RHIBeginDrawPrimitiveUP( uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData)
+void FD3D11DynamicRHI::RHIBeginDrawPrimitiveUP(uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData)
 {
 	checkSlow( PendingNumVertices == 0 );
 
 	// Remember the parameters for the draw call.
-	PendingPrimitiveType = PrimitiveType;
 	PendingNumPrimitives = NumPrimitives;
 	PendingNumVertices = NumVertices;
 	PendingVertexDataStride = VertexDataStride;
@@ -1742,9 +1733,9 @@ void FD3D11DynamicRHI::RHIBeginDrawPrimitiveUP( uint32 PrimitiveType, uint32 Num
  */
 void FD3D11DynamicRHI::RHIEndDrawPrimitiveUP()
 {
-	RHI_DRAW_CALL_STATS(PendingPrimitiveType,PendingNumPrimitives);
+	RHI_DRAW_CALL_STATS(PrimitiveType,PendingNumPrimitives);
 
-	checkSlow(!bUsingTessellation || PendingPrimitiveType == PT_TriangleList);
+	checkSlow(!bUsingTessellation || PrimitiveType == PT_TriangleList);
 
 	GPUProfilingData.RegisterGPUWork(PendingNumPrimitives,PendingNumVertices);
 
@@ -1755,13 +1746,12 @@ void FD3D11DynamicRHI::RHIEndDrawPrimitiveUP()
 	// Issue the draw call.
 	CommitGraphicsResourceTables();
 	CommitNonComputeShaderConstants();
+	TrackResourceBoundAsVB(nullptr, 0);
 	StateCache.SetStreamSource(D3DBuffer, 0, PendingVertexDataStride, VBOffset);
-	VerifyPrimitiveType(PSOPrimitiveType, PendingPrimitiveType);
-	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PendingPrimitiveType,bUsingTessellation));
+	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType,bUsingTessellation));
 	Direct3DDeviceIMContext->Draw(PendingNumVertices,0);
 
 	// Clear these parameters.
-	PendingPrimitiveType = 0;
 	PendingNumPrimitives = 0;
 	PendingNumVertices = 0;
 	PendingVertexDataStride = 0;
@@ -1779,12 +1769,11 @@ void FD3D11DynamicRHI::RHIEndDrawPrimitiveUP()
  * @param IndexDataStride Size of each index (either 2 or 4 bytes)
  * @param OutIndexData Reference to the allocated index memory
  */
-void FD3D11DynamicRHI::RHIBeginDrawIndexedPrimitiveUP( uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData)
+void FD3D11DynamicRHI::RHIBeginDrawIndexedPrimitiveUP(uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData)
 {
 	checkSlow((sizeof(uint16) == IndexDataStride) || (sizeof(uint32) == IndexDataStride));
 
 	// Store off information needed for the draw call.
-	PendingPrimitiveType = PrimitiveType;
 	PendingNumPrimitives = NumPrimitives;
 	PendingMinVertexIndex = MinVertexIndex;
 	PendingIndexDataStride = IndexDataStride;
@@ -1803,9 +1792,9 @@ void FD3D11DynamicRHI::RHIBeginDrawIndexedPrimitiveUP( uint32 PrimitiveType, uin
 void FD3D11DynamicRHI::RHIEndDrawIndexedPrimitiveUP()
 {
 	// tessellation only supports trilists
-	checkSlow(!bUsingTessellation || PendingPrimitiveType == PT_TriangleList);
+	checkSlow(!bUsingTessellation || PrimitiveType == PT_TriangleList);
 
-	RHI_DRAW_CALL_STATS(PendingPrimitiveType,PendingNumPrimitives);
+	RHI_DRAW_CALL_STATS(PrimitiveType,PendingNumPrimitives);
 
 	GPUProfilingData.RegisterGPUWork(PendingNumPrimitives,PendingNumVertices);
 
@@ -1817,14 +1806,14 @@ void FD3D11DynamicRHI::RHIEndDrawIndexedPrimitiveUP()
 	// Issue the draw call.
 	CommitGraphicsResourceTables();
 	CommitNonComputeShaderConstants();
+	TrackResourceBoundAsVB(nullptr, 0);
+	TrackResourceBoundAsIB(nullptr);
 	StateCache.SetStreamSource(VertexBuffer, 0, PendingVertexDataStride, VBOffset);
 	StateCache.SetIndexBuffer(IndexBuffer, PendingIndexDataStride == sizeof(uint16) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, 0);
-	VerifyPrimitiveType(PSOPrimitiveType, PendingPrimitiveType);
-	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PendingPrimitiveType, bUsingTessellation));
+	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType, bUsingTessellation));
 	Direct3DDeviceIMContext->DrawIndexed(PendingNumIndices,0,PendingMinVertexIndex);
 
 	// Clear these parameters.
-	PendingPrimitiveType = 0;
 	PendingNumPrimitives = 0;
 	PendingMinVertexIndex = 0;
 	PendingIndexDataStride = 0;
@@ -1937,27 +1926,41 @@ void FD3D11DynamicRHI::EnableDepthBoundsTest(bool bEnable,float MinDepth,float M
 
 	if (IsRHIDeviceNVIDIA())
 	{
-		auto result = NvAPI_D3D11_SetDepthBoundsTest( Direct3DDevice, bEnable, MinDepth, MaxDepth );
-		if(result != NVAPI_OK)
+		auto Result = NvAPI_D3D11_SetDepthBoundsTest( Direct3DDevice, bEnable, MinDepth, MaxDepth );
+		if (Result != NVAPI_OK)
 		{
 			static bool bOnce = false;
 			if (!bOnce)
 			{
 				bOnce = true;
-				UE_LOG(LogD3D11RHI, Error,TEXT("NvAPI_D3D11_SetDepthBoundsTest(%i,%f, %f) returned error code %i. **********PLEASE UPDATE YOUR VIDEO DRIVERS*********"),bEnable,MinDepth,MaxDepth,(unsigned int)result);
+				if (bRenderDoc)
+				{
+					UE_LOG(LogD3D11RHI, Error, TEXT("NvAPI is not available under RenderDoc"));
+				}
+				else
+				{
+					UE_LOG(LogD3D11RHI, Error, TEXT("NvAPI_D3D11_SetDepthBoundsTest(%i,%f, %f) returned error code %i. **********PLEASE UPDATE YOUR VIDEO DRIVERS*********"), bEnable, MinDepth, MaxDepth, (unsigned int)Result);
+				}
 			}
 		}
 	}
 	else if (IsRHIDeviceAMD())
 	{
-		auto result = agsDriverExtensionsDX11_SetDepthBounds( AmdAgsContext, bEnable, MinDepth, MaxDepth );
-		if(result != AGS_SUCCESS)
+		auto Result = agsDriverExtensionsDX11_SetDepthBounds( AmdAgsContext, bEnable, MinDepth, MaxDepth );
+		if(Result != AGS_SUCCESS)
 		{
 			static bool bOnce = false;
 			if (!bOnce)
 			{
 				bOnce = true;
-				UE_LOG(LogD3D11RHI, Error,TEXT("agsDriverExtensionsDX11_SetDepthBounds(%i,%f, %f) returned error code %i. **********PLEASE UPDATE YOUR VIDEO DRIVERS*********"),bEnable,MinDepth,MaxDepth,(unsigned int)result);
+				if (bRenderDoc)
+				{
+					UE_LOG(LogD3D11RHI, Error, TEXT("AGS is not available under RenderDoc"));
+				}
+				else
+				{
+					UE_LOG(LogD3D11RHI, Error, TEXT("agsDriverExtensionsDX11_SetDepthBounds(%i,%f, %f) returned error code %i. **********PLEASE UPDATE YOUR VIDEO DRIVERS*********"), bEnable, MinDepth, MaxDepth, (unsigned int)Result);
+				}
 			}
 		}
 	}
@@ -2152,34 +2155,58 @@ void FD3D11DynamicRHI::RHIFlushComputeShaderCache()
 	EndUAVOverlap();
 }
 
-//*********************** StagingBuffer Implementation ***********************//
-
-FStagingBufferRHIRef FD3D11DynamicRHI::RHICreateStagingBuffer(FVertexBufferRHIParamRef VertexBufferRHI)
+FD3D11DynamicRHI::FD3D11LockTracker& FD3D11DynamicRHI::GetThreadLocalLockTracker()
 {
-	return new FD3D11StagingBuffer(VertexBufferRHI);
+#if EXPERIMENTAL_D3D11_RHITHREAD
+	if (IsInRHIThread())
+	{
+		return LockTrackers[1];
+	}
+	else
+#endif
+	{
+		return LockTrackers[0];
+	}
 }
 
-void FD3D11DynamicRHI::RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBufferRHI, FGPUFenceRHIParamRef Fence, uint32 Offset, uint32 NumBytes)
+//*********************** StagingBuffer Implementation ***********************//
+
+FStagingBufferRHIRef FD3D11DynamicRHI::RHICreateStagingBuffer()
 {
+	return new FD3D11StagingBuffer();
+}
+
+void FD3D11DynamicRHI::RHICopyToStagingBuffer(FVertexBufferRHIParamRef SourceBufferRHI, FStagingBufferRHIParamRef StagingBufferRHI, uint32 Offset, uint32 NumBytes, FGPUFenceRHIParamRef FenceRHI)
+{
+	FD3D11VertexBuffer* SourceBuffer = ResourceCast(SourceBufferRHI);
 	FD3D11StagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);
 	if (StagingBuffer)
 	{
-		FD3D11VertexBuffer* VertexBuffer = ResourceCast(StagingBuffer->GetBackingBuffer());
-		if (VertexBuffer)
+		ensureMsgf(!StagingBuffer->bIsLocked, TEXT("Attempting to Copy to a locked staging buffer. This may have undefined behavior"));
+		if (SourceBuffer)
 		{
-			// Free previously allocated buffer.
-			StagingBuffer->StagedRead.SafeRelease();
+			if (!StagingBuffer->StagedRead || StagingBuffer->ShadowBufferSize < NumBytes)
+			{
+				// Free previously allocated buffer.
+				if (StagingBuffer->StagedRead)
+				{
+					StagingBuffer->StagedRead.SafeRelease();
+				}
 
-			// If the static buffer is being locked for reading, create a staging buffer.
-			D3D11_BUFFER_DESC StagedReadDesc;
-			ZeroMemory(&StagedReadDesc, sizeof(D3D11_BUFFER_DESC));
-			StagedReadDesc.ByteWidth = NumBytes;
-			StagedReadDesc.Usage = D3D11_USAGE_STAGING;
-			StagedReadDesc.BindFlags = 0;
-			StagedReadDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-			StagedReadDesc.MiscFlags = 0;
-			TRefCountPtr<ID3D11Buffer> StagingVertexBuffer;
-			VERIFYD3D11RESULT_EX(Direct3DDevice->CreateBuffer(&StagedReadDesc, NULL, StagingBuffer->StagedRead.GetInitReference()), Direct3DDevice);
+				// Allocate a new one with enough space.
+				// @todo-mattc I feel like we should allocate more than NumBytes to handle small reads without blowing tons of space. Need to pool this.
+				D3D11_BUFFER_DESC StagedReadDesc;
+				ZeroMemory(&StagedReadDesc, sizeof(D3D11_BUFFER_DESC));
+				StagedReadDesc.ByteWidth = NumBytes;
+				StagedReadDesc.Usage = D3D11_USAGE_STAGING;
+				StagedReadDesc.BindFlags = 0;
+				StagedReadDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+				StagedReadDesc.MiscFlags = 0;
+				TRefCountPtr<ID3D11Buffer> StagingVertexBuffer;
+				VERIFYD3D11RESULT_EX(Direct3DDevice->CreateBuffer(&StagedReadDesc, NULL, StagingBuffer->StagedRead.GetInitReference()), Direct3DDevice);
+				StagingBuffer->ShadowBufferSize = NumBytes;
+				StagingBuffer->Context = Direct3DDeviceIMContext;
+			}
 
 			// Copy the contents of the vertex buffer to the staging buffer.
 			D3D11_BOX SourceBox;
@@ -2187,38 +2214,29 @@ void FD3D11DynamicRHI::RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBuf
 			SourceBox.right = NumBytes;
 			SourceBox.top = SourceBox.front = 0;
 			SourceBox.bottom = SourceBox.back = 1;
-			Direct3DDeviceIMContext->CopySubresourceRegion(StagingBuffer->StagedRead, 0, 0, 0, 0, VertexBuffer->Resource, 0, &SourceBox);
+			Direct3DDeviceIMContext->CopySubresourceRegion(StagingBuffer->StagedRead, 0, 0, 0, 0, SourceBuffer->Resource, 0, &SourceBox);
 		}
 	}
 
+	// @todo-staging Implement real fences for D3D11
+	// D3D11 only has the generic fence for now.
+	FGenericRHIGPUFence* Fence = ResourceCast(FenceRHI);
+
 	if (Fence)
 	{
-		Fence->Write();
+		Fence->WriteInternal();
 	}
 }
 
 void* FD3D11DynamicRHI::RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI, uint32 Offset, uint32 SizeRHI)
 {
+	check(StagingBufferRHI);
 	FD3D11StagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);
-	if (StagingBuffer && StagingBuffer->StagedRead)
-	{
-		// Map the staging buffer's memory for reading.
-		D3D11_MAPPED_SUBRESOURCE MappedSubresource;
-		VERIFYD3D11RESULT_EX(Direct3DDeviceIMContext->Map(StagingBuffer->StagedRead ,0,D3D11_MAP_READ,0,&MappedSubresource), Direct3DDevice);
-
-		return (void*)((uint8*)MappedSubresource.pData + Offset);
-	}
-	else
-	{
-		return nullptr;
-	}
+	return StagingBuffer->Lock(Offset, SizeRHI);
 }
 
 void FD3D11DynamicRHI::RHIUnlockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI)
 {
 	FD3D11StagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);
-	if (StagingBuffer && StagingBuffer->StagedRead)
-	{
-		Direct3DDeviceIMContext->Unmap(StagingBuffer->StagedRead,0);
-	}
+	StagingBuffer->Unlock();
 }

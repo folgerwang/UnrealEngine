@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OculusHMDPrivate.h"
 #include "RHICommandList.h"
@@ -64,6 +64,24 @@ bool InRHIThread()
 	{
 		return InGameThread();
 	}
+}
+
+bool ConvertPose_Internal(const FPose& InPose, FPose& OutPose, const FQuat BaseOrientation, const FVector BaseOffset, float WorldToMetersScale)
+{
+	// apply base orientation correction
+	OutPose.Orientation = BaseOrientation.Inverse() * InPose.Orientation;
+	OutPose.Orientation.Normalize();
+
+	// correct position according to BaseOrientation and BaseOffset.
+	OutPose.Position = (InPose.Position - BaseOffset) * WorldToMetersScale;
+	OutPose.Position = BaseOrientation.Inverse().RotateVector(OutPose.Position);
+
+	return true;
+}
+
+bool ConvertPose_Internal(const ovrpPosef& InPose, FPose& OutPose, const FQuat BaseOrientation, const FVector BaseOffset, float WorldToMetersScale)
+{
+	return ConvertPose_Internal(FPose(ToFQuat(InPose.Orientation), ToFVector(InPose.Position)), OutPose, BaseOrientation, BaseOffset, WorldToMetersScale);
 }
 
 #if OCULUS_HMD_SUPPORTED_PLATFORMS

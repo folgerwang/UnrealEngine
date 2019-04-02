@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -208,7 +208,7 @@ public:
 		// Reregister all components of the templated type.
 		for(TObjectIterator<ComponentType> ComponentIt;ComponentIt;++ComponentIt)
 		{
-			new(ComponentContexts) FComponentReregisterContext(*ComponentIt);
+			ComponentContexts.Add(new FComponentReregisterContext(*ComponentIt));
 		}
 	}
 

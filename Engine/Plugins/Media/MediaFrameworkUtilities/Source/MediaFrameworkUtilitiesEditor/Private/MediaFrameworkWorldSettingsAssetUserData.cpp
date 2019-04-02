@@ -1,7 +1,14 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaFrameworkWorldSettingsAssetUserData.h"
 #include "UObject/EnterpriseObjectVersion.h"
+
+
+FMediaFrameworkCaptureCurrentViewportOutputInfo::FMediaFrameworkCaptureCurrentViewportOutputInfo()
+	: MediaOutput(nullptr)
+	, ViewMode(VMI_Unknown)
+{
+}
 
 
 FMediaFrameworkCaptureCameraViewportCameraOutputInfo::FMediaFrameworkCaptureCameraViewportCameraOutputInfo()
@@ -9,6 +16,20 @@ FMediaFrameworkCaptureCameraViewportCameraOutputInfo::FMediaFrameworkCaptureCame
 	, ViewMode(VMI_Unknown)
 {
 }
+
+
+FMediaFrameworkCaptureRenderTargetCameraOutputInfo::FMediaFrameworkCaptureRenderTargetCameraOutputInfo()
+	: RenderTarget(nullptr)
+	, MediaOutput(nullptr)
+{
+}
+
+
+UMediaFrameworkWorldSettingsAssetUserData::UMediaFrameworkWorldSettingsAssetUserData()
+{
+	CurrentViewportMediaOutput.CaptureOptions.bResizeSourceBuffer = true;
+}
+
 
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
 void UMediaFrameworkWorldSettingsAssetUserData::Serialize(FArchive& Ar)

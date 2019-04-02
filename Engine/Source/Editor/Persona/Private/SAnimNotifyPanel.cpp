@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SAnimNotifyPanel.h"
@@ -262,6 +262,7 @@ struct FNotifyNodeInterface : public INodeObjectInterface
 			if (NotifyEvent == &(Seq->Notifies[I]))
 			{
 				Seq->Notifies.RemoveAt(I);
+				Seq->PostEditChange();
 				Seq->MarkPackageDirty();
 				break;
 			}
@@ -338,6 +339,7 @@ struct FSyncMarkerNodeInterface : public INodeObjectInterface
 				if (SyncMarker == &(Seq->AuthoredSyncMarkers[I]))
 				{
 					Seq->AuthoredSyncMarkers.RemoveAt(I);
+					Seq->PostEditChange();
 					Seq->MarkPackageDirty();
 					break;
 				}
@@ -1078,7 +1080,9 @@ public:
 				Node->DropCancelled();
 			}
 
+			Sequence->PostEditChange();
 			Sequence->MarkPackageDirty();
+			
 			OnUpdatePanel.ExecuteIfBound();
 		}
 		
@@ -1959,6 +1963,9 @@ FReply SAnimNotifyNode::OnMouseButtonUp( const FGeometry& MyGeometry, const FPoi
 		GEditor->EndTransaction();
 		DragMarkerTransactionIdx = INDEX_NONE;
 
+		Sequence->PostEditChange();
+		Sequence->MarkPackageDirty();
+
 		return FReply::Handled().ReleaseMouseCapture();
 	}
 
@@ -2367,6 +2374,12 @@ void SAnimNotifyTrack::MakeNewNotifyPicker(FMenuBuilder& MenuBuilder, bool bIsRe
 		UAnimSequenceBase* Sequence;
 	};
 
+	// MenuBuilder always has a search widget added to it by default, hence if larger then 1 then something else has been added to it
+	if (MenuBuilder.GetMultiBox()->GetBlocks().Num() > 1)
+	{
+		MenuBuilder.AddMenuSeparator();
+	}
+
 	FClassViewerInitializationOptions InitOptions;
 	InitOptions.Mode = EClassViewerMode::ClassPicker;
 	InitOptions.bShowObjectRootClass = false;
@@ -2374,8 +2387,9 @@ void SAnimNotifyTrack::MakeNewNotifyPicker(FMenuBuilder& MenuBuilder, bool bIsRe
 	InitOptions.bShowNoneOption = false;
 	InitOptions.bEnableClassDynamicLoading = true;
 	InitOptions.bExpandRootNodes = true;
-	InitOptions.bShowDisplayNames = true;
+	InitOptions.NameTypeToDisplay = EClassViewerNameTypeToDisplay::DisplayName;
 	InitOptions.ClassFilter = MakeShared<FNotifyStateClassFilter>(Sequence);
+	InitOptions.bShowBackgroundBorder = false;
 
 	FClassViewerModule& ClassViewerModule = FModuleManager::LoadModuleChecked<FClassViewerModule>("ClassViewer");
 	MenuBuilder.AddWidget(
@@ -2572,6 +2586,7 @@ FAnimNotifyEvent& SAnimNotifyTrack::CreateNewNotify(FString NewNotifyName, UClas
 		NewEvent.NotifyStateClass->OnAnimNotifyCreatedInEditor(NewEvent);
 	}
 
+	Sequence->PostEditChange();
 	Sequence->MarkPackageDirty();
 
 	return NewEvent;
@@ -2603,6 +2618,9 @@ void SAnimNotifyTrack::CreateNewSyncMarkerAtCursor(FString NewSyncMarkerName, UC
 	SyncMarker.MarkerName = FName(*NewSyncMarkerName);
 	SyncMarker.TrackIndex = TrackIndex;
 	SyncMarker.Time = LastClickedTime;
+
+	Seq->PostEditChange();
+	Seq->MarkPackageDirty();
 	OnUpdatePanel.ExecuteIfBound();
 
 	UBlendSpaceBase::UpdateBlendSpacesUsingAnimSequence(Seq);
@@ -3617,6 +3635,7 @@ void SAnimNotifyTrack::PasteSingleNotify(FString& NotifyString, float PasteTime)
 	}
 
 	OnDeselectAllNotifies.ExecuteIfBound();
+	Sequence->PostEditChange();
 	Sequence->MarkPackageDirty();
 	OnUpdatePanel.ExecuteIfBound();
 }
@@ -3653,6 +3672,7 @@ void SAnimNotifyTrack::PasteSingleSyncMarker(FString& MarkerString, float PasteT
 		UBlendSpaceBase::UpdateBlendSpacesUsingAnimSequence(Sequence);
 
 		OnDeselectAllNotifies.ExecuteIfBound();
+		Sequence->PostEditChange();
 		Sequence->MarkPackageDirty();
 		OnUpdatePanel.ExecuteIfBound();
 	}
@@ -4028,6 +4048,7 @@ FReply SAnimNotifyPanel::InsertTrack(int32 TrackIndexToInsert)
 	NewItem.TrackColor = FLinearColor::White;
 
 	Sequence->AnimNotifyTracks.Insert(NewItem, TrackIndexToInsert);
+	Sequence->PostEditChange();
 	Sequence->MarkPackageDirty();
 
 	Update();
@@ -4070,6 +4091,7 @@ FReply SAnimNotifyPanel::DeleteTrack(int32 TrackIndexToDelete)
 			}
 
 			Sequence->AnimNotifyTracks.RemoveAt(TrackIndexToDelete);
+			Sequence->PostEditChange();
 			Sequence->MarkPackageDirty();
 			Update();
 		}
@@ -4465,6 +4487,9 @@ void SAnimNotifyPanel::OnReplaceSelectedWithNotify(FString NewNotifyName, UClass
 			EAnimLinkMethod::Type LinkMethod = OldEvent->GetLinkMethod();
 			EAnimLinkMethod::Type EndLinkMethod = OldEvent->EndLink.GetLinkMethod();
 
+			FColor OldColor = OldEvent->NotifyColor;
+			UAnimNotify* OldEventPayload = OldEvent->Notify;
+
 			// Delete old one before creating new one to avoid potential array re-allocation when array temporarily increases by 1 in size
 			NodeObject->Delete(Sequence);
 			FAnimNotifyEvent& NewEvent = NotifyAnimTracks[TargetTrackIndex]->CreateNewNotify(NewNotifyName, NewNotifyClass, BeginTime);
@@ -4473,6 +4498,14 @@ void SAnimNotifyPanel::OnReplaceSelectedWithNotify(FString NewNotifyName, UClass
 			NewEvent.ChangeSlotIndex(SlotIndex);
 			NewEvent.SetSegmentIndex(SegmentIndex);
 			NewEvent.ChangeLinkMethod(LinkMethod);
+			NewEvent.NotifyColor = OldColor;
+
+			// Copy what we can across from the payload
+			if ((OldEventPayload != nullptr) && (NewEvent.Notify != nullptr))
+			{
+				UEngine::FCopyPropertiesForUnrelatedObjectsParams CopyParams;
+				UEngine::CopyPropertiesForUnrelatedObjects(OldEventPayload, NewEvent.Notify, CopyParams);
+			}
 
 			// For Anim Notify States, handle the end time and link
 			if (NewEvent.NotifyStateClass != nullptr)
@@ -4493,6 +4526,10 @@ void SAnimNotifyPanel::OnReplaceSelectedWithNotify(FString NewNotifyName, UClass
 	OnSelectionChanged.ExecuteIfBound(Objects);
 	// TODO: set selection to new notifies?
 	// update the panel
+
+	Sequence->PostEditChange();
+	Sequence->MarkPackageDirty();
+
 	Update();
 }
 

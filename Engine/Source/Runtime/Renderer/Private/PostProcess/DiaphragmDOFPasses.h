@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DiaphragmDOFPasses.h: Passes of diaphragm DOF.
@@ -379,6 +379,9 @@ public:
 		// High quality accumulator with hybrid scatter occlusion buffer output.
 		// TODO: distinct shader permutation dimension for hybrid scatter occlusion?
 		HighQualityWithHybridScatterOcclusion,
+
+		// High quality accumulator, with layered full disks and hybrid scatter occlusion.
+		Cinematic,
 
 		MAX,
 	};

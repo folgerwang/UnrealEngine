@@ -64,9 +64,23 @@ namespace ansel
     //
     struct UserControlInfo
     {
+        // Any ID user wants
         uint32_t userControlId;
+        // A type of the user control (slider, boolean)
         UserControlType userControlType;
+        // A value - boolean or float, depending on the control type
+        // Needs to be casted to the apropriate type and dereferenced 
         const void* value;
+        // User defined pointer which is then passed to all the callbacks (nullptr by default)
+        void* userPointer;
+
+        UserControlInfo()
+        {
+            userControlId = 0;
+            userControlType = UserControlType::kUserControlBoolean;
+            value = nullptr;
+            userPointer = nullptr;
+        }
     };
 
     typedef void(*UserControlCallback)(const UserControlInfo& info);
@@ -81,6 +95,12 @@ namespace ansel
         const char* labelUtf8; 
         UserControlCallback callback;
         UserControlInfo info;
+
+        UserControlDesc()
+        {
+            labelUtf8 = nullptr;
+            callback = nullptr;
+        }
     };
 
     // This function adds a user control defined with the UserControlDesc object

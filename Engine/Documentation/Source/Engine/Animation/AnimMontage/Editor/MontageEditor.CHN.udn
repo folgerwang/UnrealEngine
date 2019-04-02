@@ -1,278 +1,258 @@
-﻿INTSourceChangelist:0
-Availability: Docs
-Crumbs: %ROOT%, Engine, Engine/Animation, Engine\Animation\AnimMontage
-Title: Editing an Animation Montage
-Description:Outlines how you can edit and set up the parameters that drive your Animation Montage asset.
-Type: Reference
-SkillLevel: Intermediate
-Version: 4.16
-Parent: Engine\Animation\AnimMontage
-Order: 1
+﻿INTSourceChangelist:4675677
+Availability: Public
+Crumbs: 
+Title:编辑动画蒙太奇
+Description:概括说明如何编辑和设置参数来驱动动画蒙太奇资源。
+Type: 
+Version: 4.21
+Parent: Engine/animation/animmontage
+Order: 
 Tags: Animation
 Tags: Animation Montage
-Tags: Animation Assets
-topic-image:EditTopic.png
-Related: Engine/Content/Types/SkeletalMeshes
-Related: Engine/Animation/Sequences
-Related: Engine/Animation/Persona/Modes/Animation
-Related: Engine/Animation/StateMachines
-Related: Engine/Animation/AnimBlueprints
 
-[REGION:prereq]
-If you are new to **Animation Montages**, it is recommended that you read the [](Engine\Animation\AnimMontage\Overview) before proceeding. 
-[/REGION]
 
-[TOC (start:2 end:2)]
+如果初次使用 **动画蒙太奇（Animation Montages）**，建议在开始前先阅读[动画蒙太奇概述](Engine/Animation/AnimMontage/Overview)。
 
-This page covers how to set up an **Animation Montage** and the options within the Montage Editor. 
+本页面介绍了如何设置 **动画蒙太奇（Animation Montage）** 及蒙太奇编辑器中的选项。
 
-## Adding Animations to a Montage
+(#addinganimationstoamontage)
+## 将动画添加到蒙太奇
 
-To get started, the first thing you will need to do is add the **Animation Sequences** that will comprise the Montage inside the **Montage** area. 
+在开始之前，首先需要添加构成 **蒙太奇（Montage）** 区域中蒙太奇的 **动画序列（Animation Sequences）**。
 
-To do this, inside the **Asset Browser** window drag-and-drop an Animation Sequence into the Montage **Slot** track. 
+要执行此操作，请从 **资源浏览器（Asset Browser）** 窗口，将动画序列拖放到蒙太奇 **插槽（Slot）** 轨迹。
 
 ![](DragAndDropAnim.png)
 
-Once you drop the animation on the Slot track, the animation will be added. 
+在插槽轨迹上放置动画后，就会添加该动画。
 
 ![](AnimationAdded.png)
 
-You can drag-and-drop additional animations that you want to add to the Montage onto the Slot track and they will be added sequentially. 
+如果要将更多动画添加到蒙太奇，请将其拖动到插槽轨迹，它们将按顺序添加。
 
 ![](MontageAnimationsSet.png)
 
-Animations will automatically alternate between the top and lower Slot tracks to help distinguish where each animation starts and stops. 
+动画会自动在第一和第二个插槽之间切换，以帮助区分每个动画何时开始和停止。
 
-You can also left-click and drag-and-drop the animations on the Slot track to re-order them. 
+你还可在插槽轨迹单击鼠标左键并拖放动画来更改它们的顺序。
 
 ![](ReOrderAnimations.png)
 
-Right-clicking on an animation in the Montage area provides the following context menu. 
+右键单击蒙太奇区域中的动画，将显示以下情境菜单。
 
 ![](MontageAreaContextMenu.png)
 
-|---|---|
-|**Delete Segment**| Deletes the selected animation. |
-|**Open Asset**| Opens the selected animation. |
-|**New Montage Section**| Adds a new Montage Section. |
-|**New Slot**| Adds a new Slot.  |
-|**Delete Slot**| Deletes selected Slot. |
-|**Duplicate Slot**| Duplicates the Slot and creates a new Slot. |
-|**Set Elements to...**| Sets all Montage elements (Sections, Notifies) to **Absolute**, **Relative** or **Proportional** values.  |
+| 菜单选项 | 说明 |
+| --- | --- |
+| **删除片段（Delete Segment）** | 删除选中的动画。|
+| **打开资源（Open Asset）** | 打开选中的动画。|
+| **新建蒙太奇片段（New Montage Section）** | 添加新的蒙太奇片段。|
+| **新建插槽（New Slot）** | 添加新的插槽。|
+| **删除插槽（Delete Slot）** | 删除选中的插槽。|
+| **复制插槽（Duplicate Slot）** | 复制插槽以创建新插槽。|
+| **将元素设置为...（Set Elements to...）**| 将所有蒙太奇元素（片段、通知）设置为 **绝对（Absolute）**、**相对（Relative）** 或 **比例（Proportional）** 值。|
 
-## Creating Montage Sections
 
-In order to define relationships between Sections in the Sections area, you must first create the Sections that you want to work with inside the Montage area. 
+(#creatingmontagesections)
+## 创建蒙太奇片段
 
-To create a Section, right-click on the Slot track or the Section track and select **New Montage Section**.
+要定义片段区域中的片段之间的关系，必须首先创建要在蒙太奇区域中使用的片段。
+
+要创建片段，请右键单击插槽轨迹或片段轨迹，然后选择 **新建蒙太奇片段（New Montage Section）**。
 
 ![](SelectNewMontageSection.png)
 
-When prompted, enter your desired Section name.
+出现提示时，输入想用的片段名称。
 
 ![](EnterSectionName.png)
 
-When adding a new Section, it will be added to the Sections track as well as inside the Section area.
+添加新片段时，会将其添加到片段轨迹以及片段区域。
 
 ![](SectionAdded.png)
 
 [REGION:note]
-By default, all Animation Montages include a **Default** Section that when used by itself will play the entire Montage back in its entirety. 
+默认情况下，所有动画蒙太奇都包含 **默认（Default）** 片段，该片段自动使用时会播放整个蒙太奇。
 [/REGION]
 
-You can move Sections around by left-clicking and dragging the Section to the desired location. 
+你可以左键单击并拖动片段，将该片段移动到所需位置。
 
 ![](ExampleSectionMovement.png)
 
 [REGION:caption]
-Above we have moved our **Start** Section to the start of the Montage and moved the **Default** Section over or we can delete it.
+在上图中，我们将 **开始（Start）** 片段移动到蒙太奇的起始点并移动了 **默认（Default）** 片段，或者我们也可以删除此片段。
 [/REGION]
 
-Below we add two more Sections to our Montage for a reloading Montage with a **Start**, **Loop** and **End** to correspond with our animations. 
+在下图中，我们为蒙太奇添加了两个额外的片段以便重新加载，其中为动画设置了 **开始（Start）**、**循环（Loop）** 和 **结束（End）**。
 
 ![](MontageSectionComplete.png)
 
-## Creating Montage Slots
+(#creatingmontageslots)
+## 创建蒙太奇插槽
 
-With Slots, you can take a group of related animations (such as reloading while standing, reloading while crouched and reloading while prone) and assign them to different Slots within the Montage. 
-Through Blueprint or C++, you can then tell one of the Slots to play the animations it contains based on whether a character is standing, crouched or prone as they all exist within the same Reload Montage. 
+使用插槽，你可以设置一组相关的动画（例如站立时重新加载、下蹲时重新加载、匍匐时重新加载），并将它们分配给蒙太奇中的不同插槽。你可以使用蓝图或C++指示其中一个插槽播放它包含的动画，具体取决于角色是站立、下蹲还是匍匐，因为它们都存在于同一个重新加载蒙太奇中。
 
-To add a Slot in the Montage area, you can use the right-click context menu and select **New Slot**. 
+要向蒙太奇区域添加插槽，请使用右键单击情境菜单并选择 **新建插槽（New Slot）**。
 
 ![](NewSlot.png)
 
-This will create an empty Slot track to which you can add new animations to. 
+这会创建一个空白插槽轨迹，你可以向其添加新动画。
 
 ![](EmptySlot.png)
 
-Selecting **Duplicate Slot** will copy all animation segments into a new Slot track. 
+选择 **复制插槽（Duplicate Slot）** 将所有动画片段复制到新的插槽轨迹中。
 
 ![](DuplicatedSlot.png)
 
-When adding or duplicating a Slot, you will see a warning at the top of the Montage indicating that the current Slot name is already in use and that all Slots must be unique. 
-This because the new Slot track will be set by default to use the **Default Group** and **Default Slot** that are created when the Montage was created. 
-You can change which **Anim Group** you are in and **Slot** you are using from the drop-down menu to the right of the Slot track. 
+添加或复制插槽时，蒙太奇顶部会显示一条警告，指出当前插槽名称已被使用，所有插槽名称必须是唯一的。这是因为新插槽轨迹设置为默认使用创建蒙太奇时创建的 **默认组（Default Group）** 和 **默认插槽（Default Slot）**。你可以使用插槽轨迹右侧的下拉菜单更改要用的 **动画组（Anim Group）** 和 **插槽（Slot）**。
 
 ![](ChangeSlotButton.png)
 
-You may need to create a new Slot which you can do from the **Anim Slot Manager** by clicking the ![](AnimSlotButton.png) button which will open the Anim Slot Manager panel. 
+如果需要创建新的插槽，请单击 **动画插槽管理器（Anim Slot Manager）** 中的 **放大镜** 按钮。该按钮将打开 **动画插槽管理器（Anim Slot Manager）** 面板。
 
 ![](AnimSlotManager.png)
 
-Click the **Add Slot** button (or **Add Group** button based on your needs) and assign a new unique name. 
+单击 **添加插槽（Add Slot）** 按钮（或根据需要单击 **添加组（Add Group）** 按钮），指定新的唯一名称。
 
 ![](ProneSlotAdded.png)
 
 [REGION:caption]
-Above we created a new Slot called **Prone** which we can add our prone reloading animations to. 
+在上图中，我们创建了名为 **Prone** 的新插槽。我们可以在此添加匍匐重新加载动画。
 [/REGION]
 
-You can right-click a Slot or Group in the Anim Slot Manager to access a context menu with additional options. 
+右键单击动画插槽管理器中的“插槽（Slot）”或“组（Group）”，可以显示带有其他选项的情境菜单。
 
 ![](SlotManagerContextMenu.png)
 
-|---|---|
-|**Set Slot**| Enables you to move the selected Slot to a different Anim Group.  |
-|**Rename Slot**| Enables you to rename the currently selected Slot. |
-|**Delete Slot**| Deletes the currently selected Slot. |
-|**Add Slot**| Adds a new Slot.  |
-|**Add Group**| Adds a new Anim Group. |
+| 菜单选项 | 说明 |
+| --- | --- |
+| **设置插槽（Set Slot）**| 你可以将选中的插槽移动到另一个动画组。|
+| **重命名插槽（Rename Slot）**| 你可以重命名当前选中的插槽。|
+| **删除插槽（Delete Slot）**| 删除当前选中的插槽。|
+| **添加插槽（Add Slot）**| 添加新的插槽。|
+| **添加组（Add Group）**| 添加新的动画组。|
 
-Below we have renamed the **Default Slot** to **Standing** and assigned both the Standing and Prone Slots in the Montage area. 
+
+在下图中，我们将 **默认插槽（Default Slot）** 重命名为 **Standing**，并在蒙太奇区域中指定Standing和Prone插槽。
 
 ![](AssignedNewSlots.png)
 
+(#usingmultipleslots)
+## 使用多个插槽
 
-## Using Multiple Slots
-
-Whenever you are using multiple Slots, for the best results you will want to ensure that the timing of each of your animations is the same. 
-In the image below, the arrows indicate that the timing of our Prone Reload animations does not match up with our Standing Reloading animations which will cause problems when we playback the Prone Slot of our Montage. 
+使用多个插槽时最好保持每个动画的时间设置相同，以获得最佳效果。在下图中，箭头指出了“匍匐重新加载”动画的时间设置与“站立重新加载”动画不匹配。当我们播放蒙太奇的匍匐插槽时，这会导致出现问题。
 
 ![](BadTiming.png)
 
-If we were to call the Loop section of this Montage, while it would play fine in our Standing Reload, in our Prone Reload it would start midway through the animation and would also start to loop reloading before actually reaching the Loop Section. 
-Ideally, when creating our reloading animations we would use the same timing and frame range so that when we call the Loop Section in either the Standing or Prone Slots, it starts at the start of the animation without any issues. 
+如果要调用这个蒙太奇的循环片段，“站立重新加载”可以正常播放，但在“匍匐重新加载”中，就会从动画中间开始播放。它还会没有真正达到循环片段时就开始循环重新加载。理想情况下，在创建重新加载动画时，应该使用相同的时间设置和帧范围，使得在站立或匍匐插槽中调用循环片段时，该片段可以顺利地从动画的起始点开始播放。
 
 ![](BetterTiming.png)
 
 [REGION:caption]
-Above, our timing of our Standing and Prone Reloading animations are the same which will give us better results when we call either Slot to play. 
+在上图中，站立和匍匐重新加载动画的时间设置是相同的，这样我们在调用任一插槽进行播放时才能获得最好的效果。
 [/REGION]
 
+(#sectionrelationships)
+## 片段关系
 
-## Section Relationships
-
-After you have created the Sections for your Montage in the Montage area, in the Sections area you can define their relationship between one another. 
+在“蒙太奇（Montage）”区域中为蒙太奇创建片段后，可以在“片段（Sections）”区域中定义片段之间的关系。
 
 ![](SectionsDefault.png)
 
-By default, all Sections are set to play sequentially indicated by the single Section track containing each of the Sections. 
+默认情况下，所有片段都设置为按顺序播放，如包含每个片段的单个片段轨迹所示。
 
 ![](SingleSectionTrack.png)
 
-Pressing the **Clear** button will assign a single track for each Section you have created. 
+按 **清除（Clear）** 按钮，可为创建的每个片段分配一个轨迹。
 
 ![](IndividualTracks.png)
 
 [REGION:tip]
-Pressing **Create Default** will return all Sections to the single Section track. 
+按 **创建默认（Create Default）**，所有片段都将返回到单个片段轨迹。
 [/REGION]
 
-In our example, we have a Start, Loop, and an End and we want the Montage to play the Start section immediately followed by the Loop section. 
-Once we get to the Loop section, we want to keep looping that Section until the End Section is told to play through Blueprint or C++. 
+在我们的示例中，我们有一个“开始（Start）”、一个“循环（Loop）”和一个“结束（End）”。我们希望蒙太奇立即播放“开始（Start）”片段，然后是“循环（Loop）”片段。到达“循环（Loop）”片段后，我们希望继续循环该片段，直到指示通过蓝图或C++播放“结束（End）”片段为止。
 
-To do this, we first click on the Start Section in the Section Track. 
+为此，首先单击片段轨迹中的 **开始（Start）片段**。
 
 ![](StartClicked.png)
 
-We can now define what Section should follow the Start Section, so we click the Loop button at the top of the Section area.
+现在，我们可以单击“片段（Section）”区域顶部的“循环（Loop）”按钮，定义“开始（Start）”片段后面的片段。
 
 ![](LoopClicked.png)
 
-When we do this, Loop is added to and follows Start on the first track. When we click Loop on the track, then click the Loop button at the top, Loop will now turn blue. 
+执行此操作，将在第一条轨迹上添加跟在“开始（Start）”之后的“循环（Loop）”。单击轨迹上的“循环（Loop）”，然后单击顶部的“循环（Loop）”按钮，“循环（Loop）”将变为蓝色。
 
 ![](LoopNowLoops.png)
 
-Since we associated Loop with itself, the system knows that we want this Section to loop. 
+由于我们将“循环（Loop）”与其自身相关联，系统会识别出我们要循环执行此片段。
 
-We can preview this by clicking the **Preview** button on the track we want to preview and the **Play** button from the toolbar at the bottom. 
+单击要预览的轨迹上的 **预览（Preview）** 按钮和底部工具栏上的 **播放（Play）** 按钮，可以进行预览。
 
 [OBJECT:EmbeddedVideo]
-	[PARAMLITERAL:videoid]
-	QovIb9Tslr8
-	[/PARAMLITERAL]
-	[PARAMLITERAL:width]
-	100
-	[/PARAMLITERAL]
-	[PARAMLITERAL:height]
-	56.25
-	[/PARAMLITERAL]
-	[PARAMLITERAL:units]
-	%
-	[/PARAMLITERAL]
-	[PARAMLITERAL:type]
-	simple
-	[/PARAMLITERAL]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ QovIb9Tslr8
+ [/PARAMLITERAL]
 [/OBJECT]
 
-In this example, whenever we call the Start section to play in either the Standing or Prone Slots, it will play the assigned Start animation before moving onto and looping the assigned Loop animation. 
-This enables us to play the animation of reloading as many times as we need to based on gameplay variables such as whether the player is performing a full or partial reload. 
-We can then call the End Section to play and return to an idle pose whenever we have determined that we are finished reloading. 
+在此示例中，每次在“站立”或“俯卧”插槽中调用“开始（Start）”片段播放时，将播放指定的“开始”动画，然后移动到指定的“循环”动画进行循环。这使我们能够根据Gameplay变量（例如玩家是执行全部还是部分重新加载）来按照需要多次播放重新加载动画。如果我们认为已完成重新加载，可以调用“结束（End）”片段播放并返回闲散姿势。
 
-If you want to remove a relationship for a Section, click the **X** button next to the item.
+要删除片段的关系，只需单击该项旁边的 **X** 按钮即可。
 
 ![](DeleteSection.png)
 
-Removing the relationship for the Loop section causes it to no longer loop.
+如果删除“循环（Loop）”片段的关系，将会停止循环。
 
 ![](NoLoops.png)
 
-## Additional Options
+(#additionaloptions)
+## 其他选项
 
-The **Element Timing** area is used for informational purposes and is covered on the [](Engine\Animation\AnimMontage\Overview) page, in short, it enables you to see at a glance the sequential playback order of any Sections, Notifies or other Events. 
-[Animation Notifies](Engine/Animation/Sequences/Notifies) enable you to set up events to occur at specific points in the animation while [](Engine/Animation/Sequences/Curves) provide a way to change the value of a Material parameter or a Morph Target while the animation is playing back. 
+**单元定时（Element Timing）** 区域用于参考，在[动画蒙太奇概述](Engine/Animation/AnimMontage/Overview)页面上有相应说明，简而言之，它可以让您速览任何片段、通知和其他事件的有序播放顺序。[动画通知](Engine/Animation/Sequences/Notifies)使您可以设置事件以在动画中的特定时间点播放，[动画曲线](Engine/Animation/Sequences/Curves)允许在动画播放期间更改材质参数或变形目标的值。
 
-The [Timeline](https://docs.unrealengine.com/latest/INT/Engine/Animation/Sequences/Editor/#timeline) at the bottom of the Montage Editor enables you to playback the Montage, step forward or backward through the Montage, loop the preview playback or create a new animation object by recording Bone manipulation from the viewport. 
+使用蒙太奇编辑器底部的[时间轴](Engine/Animation/Sequences/Editor/#timeline)，你可以播放蒙太奇、向前或向后拉动蒙太奇，循环预览播放，或通过从视口录制骨骼操控来创建新的动画对象。
 
-## Montage Properties
+(#montageproperties)
+## 蒙太奇属性
 
-The following is a breakdown of the Montage asset properties available from the [Asset Details](Engine/Animation/Persona/AnimAssetDetails) window. 
+以下是[资源细节（Asset Details）](Engine/Animation/Persona/AnimAssetDetails)窗口中可用的蒙太奇资源属性的明细：  
 
-![](AssetDetails.png)
+![](MontageProperties_AssetDetails.png "MontageProperties_AssetDetails.png")
 
-|Montage Properties||
-|---|---|
-|[REGION:tablesection]Animation[/REGION]||
-|**Preview Pose Asset**| Points to a [Pose Asset](Engine/Animation/AnimPose) that can be used to preview any Morph Target or Curves. |
-|**Rate Scale**|A multiplier value for how fast the Montage will play back. Default is 1.0.|
-|**Skeleton**|Contains the skeleton associated with this Montage. Cannot be changed in the editor.|
-|**Parent Asset**|During cooking, this data will be used to bake out to Normal Asset. Cannot be changed in the editor.|
-|**Asset Mapping Table**|This is used when Parent Asset is set and works with Asset User Data mapping table. Cannot be changed in the editor.|
-|**Asset User Data**|Array of user defined data stored with the asset.|
-|[REGION:tablesection]Blend Option[/REGION]||
-|**Blend In**| The amount of time at the beginning of Montage playback, during which the character will blend in from its current pose. You can also set the [Blend Option](Engine/Animation/NonLinearBlends) or add a **Custom Curve**. |
-|**Blend Out**|The amount of time at the end of Montage playback, during which the character will blend back to its original pose. You can also set the [Blend Option](Engine/Animation/NonLinearBlends) or add a **Custom Curve**.|
-|**Blend Out Trigger Time**| Time from the Sequence End to trigger blend out. If the value specified is greater than zero, this means Blend Out will finish as the Montage ends. If the value specified is less than or equal to zero, this means it will take the end of the sequence minus the specified value to trigger the Blend Out. |
-|[REGION:tablesection]Sync Group[/REGION]||
-|**Sync Group**| Where you can define the [Sync Group](Engine/Animation/SyncGroups) for the Montage. |
-|**Sync Slot Index**| Defines the index to use for the Sync Group. |
-|[REGION:tablesection]Additive Settings[/REGION]||
-|**Preview Base Pose**|Sets a base preview pose used for additive Blend Spaces.|
-|[REGION:tablesection]Meta Data[/REGION]||
-|**Meta Data**| This is Meta Data that can be saved with the asset. The metadata is a Blueprintable class derived from the Anim MetaData class. This allows you to add custom metadata to animation assets (Anim Sequence, Anim Montage, Anim Composite, and Blendspace are all supported). You can query the data from an animation asset in C++ by calling the `GetMetaData()` method, or by using `GetSectionMetaData()` on Anim Montages. |
-|[REGION:tablesection]Thumbnail[/REGION]||
-|**Orbit Pitch**| The pitch of the orbit camera around the asset. |
-|**Orbit Yaw**| The yaw of the orbit camera around the asset. |
-|**Orbit Zoom**| The offset from the bounds sphere distance from the asset.|
-
-
-
-
-
-
-
-
-
-
+| 蒙太奇属性 ||
+| --- | --- |
+| [REGION:tablesection]Animation[/REGION] ||
+| **预览姿势资源（Preview Pose Asset）** | 指向可用于预览任何变形目标或曲线的[姿势资源](Engine/Animation/AnimPose)。|
+| **速度比例（Rate Scale）** |决定蒙太奇播放速度的乘数值。默认值为 1.0。|
+| **骨架（Skeleton）** |包含与此蒙太奇关联的骨架。不能在编辑器中更改。|
+| **父资源（Parent Asset）** | 在烘焙过程中，此数据用于烘焙到法线资源。不能在编辑器中更改。|
+| **资源映射表（Asset Mapping Table）** | 用于设置父资源，可以配合资源用户数据映射表使用。不能在编辑器中更改。|
+| **资源用户数据（Asset User Data）** | 随资源存储的用户定义数据数组。|
+| [REGION:tablesection]Blend Option[/REGION] ||
+| **混入（Blend In）** | 蒙太奇开始播放时角色从其当前姿势混入所用的时间。你也可以设置[混合选项](Engine/Animation/NonLinearBlends)或添加 **自定义曲线（Custom Curve）**。|
+| **混出（Blend Out）** | 蒙太奇结束播放时角色重新混合到其原始姿势所用的时间。你也可以设置[混合选项](Engine/Animation/NonLinearBlends)或添加 **自定义曲线（Custom Curve）**。|
+| **混出触发时间（Blend Out Trigger Time）** | 从序列结束到触发混出的时间。如果指定的值大于零，表示混出将在蒙太奇结束时完成。如果指定的值小于或等于零，则表示在序列末尾减去指定值时触发混出。|
+| **启用自动混出（Enable Auto Blend Out）** | 启用该选项（默认为启用）将自动混出蒙太奇，而禁用该选项将保持最后的姿势。|
+| [REGION:tablesection]Sync Group[/REGION] ||
+| **同步组（Sync Group）** | 你可以在这里定义蒙太奇的[同步组](Engine/Animation/SyncGroups)。|
+| **同步插槽索引（Sync Slot Index）** | 定义同步组使用的索引。|
+| [REGION:tablesection]Additive Settings[/REGION] ||
+| **预览基本姿势（Preview Base Pose）** | 设置一个用于附加混合空间的基本预览姿势。|
+| [REGION:tablesection]Time Stretch Curve[/REGION] ||
+| **采样率（Sampling Rate）** | 以下曲线所需的采样率。该值会进行四舍五入计算，这样我们就可以固定时间步长来对整个曲线采样。|
+| **曲线值最小精度（Curve Value Min Precision）** | 连续采样片段之间允许的最小差量。如果低于该值，片段将会合并以优化标记数量。|
+| **标记（Markers）** | 添加的标记的优化列表。|
+| **按C I加总D T（Sum D T I by C I）** | 启用缓存的Sum。|
+| **时间拉伸曲线名称（Time Stretch Curve Name）** | 要在蒙太奇中查找的可选TimeStretchCurveName的名称。|
+| [REGION:tablesection] Meta Data [/REGION] ||
+| **元数据（Meta Data）**| 这是可以随资源保存的元数据。元数据是从Anim MetaData类衍生的Blueprintable类。这允许你将定制元数据添加到动画资源（动画序列、动画蒙太奇、动画合成和混合空间都受到支持）。在C++中可以通过调用`GetMetaData()`方法或对动画蒙太奇使用`GetSectionMetaData()`来查询动画资源中的数据。|
+| [REGION:tablesection]Thumbnail[/REGION] ||
+| **轨迹俯仰角（Orbit Pitch）**| 摄像机围绕对象的轨迹的俯仰角。|
+| **轨迹偏航角（Orbit Yaw）**| 摄像机围绕对象的轨迹的偏航角。|
+| **轨迹缩放（Orbit Zoom）**| 相对于资源的界限球体距离的偏移。|
 

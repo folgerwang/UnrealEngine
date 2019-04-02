@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MathStructProxyCustomizations.h"
 #include "Framework/Commands/UIAction.h"
@@ -688,7 +688,11 @@ bool FQuatStructCustomization::FlushValues(TWeakPtr<IPropertyHandle> PropertyHan
 			
 			const FQuat NewValue = Rotation.Quaternion();
 
-			if (!bNotifiedPreChange && (!QuatValue->Equals(NewValue, 0.0f) || (!bIsUsingSlider && bIsInteractiveChangeInProgress)))
+			// In some cases the FQuat pointed to in RawData is no longer aligned to 16 bytes.
+			// Make a local copy to guarantee the alignment criterions of the vector intrinsics inside FQuat::Equals
+			const FQuat AlignedQuatValue = *QuatValue; 
+
+			if (!bNotifiedPreChange && (!AlignedQuatValue.Equals(NewValue, 0.0f) || (!bIsUsingSlider && bIsInteractiveChangeInProgress)))
 			{
 				if (!bIsInteractiveChangeInProgress)
 				{

@@ -1,9 +1,15 @@
-﻿INTSourceChangelist:2729971
+﻿INTSourceChangelist:3726228
 Availability:Public
-title:支点描画器
+title:支点描画器工具 1.0 材质函数
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
 Description:这些函数使您能够利用支点描画器 MAXScript。
 Version:4.9
+Parent:Engine/Rendering/Materials/Functions/Reference
+Related:Engine/Content/Tools/PivotPainter
+Related:Engine/Content/Tools/PivotPainter/PivotPainter1
+Topic-Image:PivotPainterMF_Topic.png
+tags:Materials
+tags:Pivot Painter
 
 [TOC (start:2 end:3)]
 
@@ -12,10 +18,10 @@ Version:4.9
 [REGION:header_img]
 [OBJECT:EmbeddedVideo]
 [PARAMLITERAL:width]
-640
+960
 [/PARAMLITERAL]
 [PARAMLITERAL:height]
-360
+540
 [/PARAMLITERAL]
 [PARAMLITERAL:videoid]
 G3vUj7c5gUM
@@ -27,13 +33,17 @@ G3vUj7c5gUM
 
 虽然没有这些函数也可以利用支点描画器所提供的数据，但这些函数确实让使用过程更为简单。
 
+(#PivotPainterFunctions)
 ## 支点描画器函数
 
-以下是“支点描画器”类别下所有函数的列表。
+以下是“支点描画器”类别下所有函数的列表。 
 
+这些函数可以处理并组织支点描画器 MAXScript 存储在模型 UV 中的全局位置及角度信息。
+
+(#PivotPainter_HierarchyData)
 ### PivotPainter_HierarchyData（支点描画器_层次结构数据）
 
-处理并组织支点描画器 MAXScript 存储在模型 UV 中的全局位置及角度信息。这个特定的函数专门用来处理对象层次结构。
+这个特定的函数专门用来处理对象层次结构。
 
 | 项目 | 说明 |
 | -------- | -------- |
@@ -57,9 +67,10 @@ G3vUj7c5gUM
 [/REGION]
 
 
+(#PivotPainter_PerObjectData)
 ### PivotPainter_PerObjectData（支点描画器_每个对象的数据）
 
-处理并组织支点描画器 MAXScript 存储在模型 UV 中的全局位置及角度信息。这个特定的函数设计成逐个对象地进行处理。
+这个特定的函数设计成逐个对象地进行处理。
 
 | 项目 | 说明 |
 | -------- | -------- |
@@ -73,9 +84,10 @@ G3vUj7c5gUM
 
 ![PerObjectData（每个对象的数据）](PerObjectData.png)
 
+(#PivotPainter_PerObjectFoliageData)
 ### PivotPainter_PerObjectFoliageData（支点描画器_每个对象的植物叶子数据）
 
-处理并组织支点描画器 MAXScript 存储在模型 UV 中的全局位置及角度信息。此函数专门用于处理个别植物叶子对象。
+此函数专门用于处理个别植物叶子对象。
 
 
 | 项目 | 说明 |
@@ -99,9 +111,10 @@ G3vUj7c5gUM
 
 ![PerObjectFoliageData（每个对象的植物叶子数据）](PerObjectFoliageData.png)
 
+(#PivotPainter_TreeData)
 ### PivotPainter_TreeData（支点描画器_树数据）
 
-处理并组织支点描画器脚本存储在模型 UV 中的全局位置及角度信息。以 *树（tree）*开头的输出用于处理由支点描画器 MAXScript 存储的模型 UV 信息。以 *叶（Leaf）*开头的输出用于处理由脚本中每个对象的支点描画部分存储的 UV 信息。
+以 *树（tree）*开头的输出用于处理由支点描画器 MAXScript 存储的模型 UV 信息。以 *叶（Leaf）*开头的输出用于处理由脚本中每个对象的支点描画部分存储的 UV 信息。
 
 | 项目 | 说明 |
 | -------- | -------- |

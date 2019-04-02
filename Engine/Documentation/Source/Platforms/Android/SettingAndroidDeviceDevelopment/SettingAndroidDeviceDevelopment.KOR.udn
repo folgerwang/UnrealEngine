@@ -1,0 +1,190 @@
+﻿INTSourceChangelist:4674424
+Availability: Public
+Crumbs: 
+Title: 개발용 Android 디바이스 준비
+Description: UE4 로 개발에 사용할 Android 디바이스를 준비하기 위해 해야 하는 작업을 알아봅니다.
+Type: 
+Version: 4.19
+Parent: Platforms/Mobile/Android
+Order: 
+Tags: mobile
+Tags: Android
+Tags: StartingOut
+Tags: PreRec
+
+여기서는 UE4 프로젝트를 실행하는 데 사용할 수 있도록 Android 디바이스를 준비하는 데 알아야 하는 모든 사항을 다룹니다.
+
+## 단계
+
+1.  먼저 Android 디바이스를 USB 케이블로 개발 PC 에 연결합니다.
+
+2.  일단 PC에 연결되면 장치 드라이버 소프트웨어가 자동으로 설치되지만 그렇지 않은 경우 [Android OEM USB Drivers] (http://developer.android.com/tools/extras/oem-usb.html) 페이지를 방문하여 자세한 내용을 확인하십시오. 드라이버 설치 링크 및 추가 정보를 제공합니다.
+
+3.  Android 디바이스의 **Settings** (설정) 앱을 엽니다.
+
+4.  **Developer Options** (개발자 옵션)을 탭하여 개발자 옵션 메뉴를 엽니다.
+
+    [REGION:tip]
+    이 항목이 보이지 않는 경우, 디바이스의 개발자 옵션을 활성화해야 합니다. 개발자 옵션 관련 자세한 내용은 [Android's Using Hardware Devices](http://developer.android.com/tools/device.html) 페이지를 참고하세요.
+    [/REGION]
+
+5.  화면을 내려 **About Phone** (폰 관련 정보)를 선택합니다. 디바이스에 따라 About Device, About Tablet, About Shield 라고 나올 수도 있습니다.
+
+    [REGION:note]
+    Android 최신 버전에서는 **More** 섹션에 있을 수 있습니다.
+    [/REGION]
+
+6.  **Build Number** (빌드 번호)를 7 번 탭하면 개발자 모드가 활성화됩니다.
+
+    [REGION:lightbox]
+    [![](Enable_Dev_Mode.png)(w:200px)](Enable_Dev_Mode.png)
+    [/REGION]
+
+7.  몇 번 탭하다 보면 "You are now # steps away from becoming a developer" 같은 메시지가 나타납니다.
+
+8.  개발자 모드가 활성화되면, 아래와 같은 성공 메시지가 화면에 표시됩니다.
+
+    ![](Dev_Mode_Active.png)
+
+9.  설정 메뉴로 돌아가 보면 이제 **Developer Options** (개발자 옵션) 메뉴를 선택할 수 있습니다. 
+
+    [REGION:lightbox]
+    [![](Dev_Options_Enabled.png)(w:200px)](Dev_Options_Enabled.png)
+    [/REGION]
+
+10. 개발자 옵션 메뉴에서 **USB debugging** (USB 디버깅)을 탭하여 활성화합니다. 
+
+    [REGION:lightbox]
+    [![](Enable_USB_Debugging.png)(w:200px)](Enable_USB_Debugging.png)
+    [/REGION]
+
+11. 확인창이 뜨면 **OK** 버튼을 누릅니다.
+
+    [![](Enable_USB_Debugging_Warning.png)(w:200px)](Enable_USB_Debugging_Warning.png)
+
+12.  Android 디바이스가 연결된 USB 를 뽑은 뒤 바로 다시 연결합니다. PC 가 디바이스를 인식하면 Android 디바이스에 이 PC 와 통신하겠냐고 묻는 메시지가 다음과 같이 표시됩니다. 연결된 USB 를 통해 어떤 작업을 할지 묻는 창이 뜹니다. **Always allow from this computer** (이 컴퓨터의 연결을 항상 허용) 박스를 체크한 뒤 **OK** 버튼을 누릅니다.
+
+    [![](PC_RSA_Fingerprint.png)(w:200px)](PC_RSA_Fingerprint.png)
+
+## 최종 결과
+
+모두 정상 설치되었는지, Android 디바이스를 UE4 개발에 사용할 준비가 되었는지 확인하는 방법은 다음과 같습니다.
+
+1.  먼저 **Windows Command Prompt** 를 엽니다. **Windows + R** 키를 누른 뒤 **Run** 대화창을 열면 됩니다.
+
+2.  **Open** 칸에 **cmd** 라 입력한 뒤 **OK** 버튼을 누르면 Windows Command Prompt 가 열립니다.
+
+    ![](Windows_Run_Command.png)
+
+3.  Command Prompt 에서 **adb devices** 라 입력한 뒤 **ENTER** 키를 누르면 연결된 모든 Android 디바이스가 표시됩니다.
+
+    ![](ADB_Devices.png)
+
+`adb devices` 명령을 입력해도 디바이스가 보이지 않을 때 해볼 수 있는 작업은 다음과 같습니다.
+
+*   디바이스가 보이긴 하지만 그 이름 옆에 **Unauthorized** 라고 나오는 경우, 개발 PC 컴퓨터의 RSA 키 핑거프린트를 수락하지 않았다는 뜻입니다. 
+*   디바이스를 연결하고 설치를 마쳤는데도 표시되자 않는다면, Windows Command Prompt 에 다음 순서대로 입력한 뒤 **Android Debug Bridge** 또는 (ADB) 서비스를 재시작합니다.
+[REGION:MyTableInList] 
+| **프로퍼티 이름** | **설명** |
+| --- | --- |
+| **ADB kill - server** | ADB 서비스를 중단합니다. |
+| **ADB start - server** | ADB 서비스를 시작합니다. |
+[/REGION]  
+*   경우에 따라 제대로 구성된 Android 디바이스도 **Media Device (MTP)** 로 연결된 경우 표시되지 않을 수 있습니다. 이 경우 USB 사용 옵션에서 Camera (PTP) 를 선택하여 **Camera (PTP)** 로 연결해 봅니다.
+
+완료되면 이제 이 Android 기반 스마트폰에서 UE4 프로젝트를 디플로이하고 실행할 수 있습니다.
+
+## 단계
+
+1.  Android 디바이스를 USB 케이블로 Mac 에 연결합니다.
+2.  일단 PC에 연결되면 장치 드라이버 소프트웨어가 자동으로 설치되지만 그렇지 않은 경우 [Android OEM USB Drivers] (http://developer.android.com/tools/extras/oem-usb.html) 페이지를 방문하여 자세한 내용을 확인하십시오. 드라이버 설치 링크 및 추가 정보를 제공합니다.
+3.  Android 디바이스의 **Settings** (설정) 앱을 엽니다.
+4.  **Developer Options** (개발자 옵션)을 탭하여 개발자 옵션 메뉴를 엽니다.
+    [REGION:tip]
+    이 항목이 보이지 않는 경우, 디바이스의 개발자 옵션을 활성화해야 합니다. 개발자 옵션 관련 자세한 내용은 [Android's Using Hardware Devices](http://developer.android.com/tools/device.html) 페이지를 참고하세요.
+    [/REGION]
+5.  화면을 내려 **About Phone** (폰 관련 정보)를 선택합니다. 디바이스에 따라 About Device, About Tablet, About Shield 라고 나올 수도 있습니다.
+    [REGION:note]
+    Android 최신 버전에서는 **More** 섹션에 있을 수 있습니다.
+    [/REGION]
+6.  **Build Number** (빌드 번호)를 7 번 탭하면 개발자 모드가 활성화됩니다.
+    [REGION:lightbox]
+    [![](Enable_Dev_Mode.png)(w:200px)](Enable_Dev_Mode.png)
+    [/REGION]
+7.  몇 번 탭하다 보면 "You are now # steps away from becoming a developer" 같은 메시지가 나타납니다.
+8.  개발자 모드가 활성화되면, 아래와 같은 성공 메시지가 화면에 표시됩니다.  
+    ![](Dev_Mode_Active.png)
+9.  설정 메뉴로 돌아가 보면 이제 **Developer Options** (개발자 옵션) 메뉴를 선택할 수 있습니다.  
+    [REGION:lightbox]
+    [![](Dev_Options_Enabled.png)(w:200px)](Dev_Options_Enabled.png)
+    [/REGION]
+10. 개발자 옵션 메뉴에서 **USB debugging** (USB 디버깅)을 탭하여 활성화합니다.  
+    [REGION:lightbox]
+    [![](Enable_USB_Debugging.png)(w:200px)](Enable_USB_Debugging.png)
+    [/REGION]
+11. 확인창이 뜨면 **OK** 버튼을 누릅니다.  
+    [![](Enable_USB_Debugging_Warning.png)(w:200px)](Enable_USB_Debugging_Warning.png)
+12. Android 디바이스가 연결된 USB 를 뽑은 뒤 바로 다시 연결합니다. Mac 이 디바이스를 인식하면 Android 디바이스에 이 PC 와 통신하겠냐고 묻는 메시지가 다음과 같이 표시됩니다. 연결된 USB 를 통해 어떤 작업을 할지 묻는 창이 뜹니다. **Always allow from this computer** (이 컴퓨터의 연결을 항상 허용) 박스를 체크한 뒤 **OK** 버튼을 누릅니다.  
+    [![](PC_RSA_Fingerprint.png)(w:200px)](PC_RSA_Fingerprint.png)
+
+## 최종 결과
+
+*   디바이스가 제대로 설정되었는지 확인하려면 /Applications/Utilities 에서 Terminal 앱을 엽니다.  
+    ![](MAC_Terminal_Activate.png)
+
+명령줄에 "ADB devices" 라 입력하면 Mac 에 연결된 모든 디바이스가 표시됩니다.  
+![](MAC_Checking_ADB_Devices.png)
+
+`adb devices` 명령을 입력해도 디바이스가 보이지 않을 때 해볼 수 있는 작업은 다음과 같습니다.
+
+*   디바이스가 보이긴 하지만 그 이름 옆에 **Unauthorized** 라 표시되는 경우, 개발 컴퓨터의 RSA 키 핑거프린트를 수락하지 않았다는 뜻입니다.
+*   디바이스를 연결하고 설치를 마쳤는데도 표시되지 않는 경우, 명령줄에 다음 순서대로 명령을 입력한 뒤 **Android Debug Bridge** 또는 (ADB) 서비스를 재시작합니다.
+
+[REGION:MyTableInList] 
+| **프로퍼티 이름** | **설명** |
+| --- | --- |
+| **ADB kill - server** | ADB 서비스를 중단합니다. |
+| **ADB start - server** | ADB 서비스를 시작합니다. |
+[/REGION]  
+
+*   경우에 따라 제대로 구성된 Android 디바이스도 **Media Device (MTP)** 로 연결된 경우 표시되지 않을 수 있습니다. 이 경우 USB 사용 옵션에서 Camera (PTP) 를 선택하여 **Camera (PTP)** 로 연결해 봅니다.
+
+완료되면 이제 이 Android 기반 스마트폰에서 UE4 프로젝트를 디플로이하고 실행할 수 있습니다.
+
+## 단계
+
+1.  Android 디바이스를 USB 케이블로 Linux 컴퓨터에 연결합니다.
+2.  Android 디바이스의 Settings (설정) 앱을 엽니다.  
+    [![](LinuxAndroid_Step17.png)](http://dnnrz1gqa.evoqondemand.com/en-us/Platforms/Android/GettingStarted/LinuxAndroid_Step17.png)
+3.  Developer Options (개발자 옵션)을 탭하여 개발자 옵션 메뉴를 엽니다.  
+    [![](LinuxAndroid_Step18.png)](http://dnnrz1gqa.evoqondemand.com/en-us/Platforms/Android/GettingStarted/LinuxAndroid_Step18.png)
+    [REGION:note]
+    이 항목이 보이지 않는 경우, 디바이스의 개발자 옵션을 활성화해야 합니다. 개발자 옵션을 활성화하려면 설정 앱을 연 뒤 화면을 내려 **About Phone** (폰 관련 정보)를 선택합니다. 폰 관련 정보를 선택한 뒤 맨 아래로 스크롤하고 Build number 를 7 번 탭합니다. Android 디바이스에서 개발자 옵션을 활성화하는 방법 안내는 Android 사용자 가이드를 참고하세요.
+    [/REGION]
+
+## USB 디버깅 활성화
+
+1.  **Developer Options** (개발자 옵션) 메뉴에서 **USB debugging** (USB 디버깅)을 활성화합니다.  
+    [![](LinuxAndroid_Step19.png)](http://dnnrz1gqa.evoqondemand.com/en-us/Platforms/Android/GettingStarted/LinuxAndroid_Step19.png)
+2.  USB 디버깅을 활성화했는지 확인하는 창이 나타납니다. 확인 창의 **OK** 버튼을 누릅니다.  
+    [![](LinuxAndroid_Step20.png)](http://dnnrz1gqa.evoqondemand.com/en-us/Platforms/Android/GettingStarted/LinuxAndroid_Step20.png)
+3.  USB 디버깅이 활성화되었습니다.  
+    ![](LinuxAndroid_Step20Note.png)
+4.  이제 Android 디바이스가 연결된 USB 를 뽑고 몇 초 후 다시 연결합니다. Android 4.2.2 이상의 디바이스를 연결한 경우 Linux 컴퓨터를 통한 디버깅을 허용하는 RSA 키 수락 확인 창이 다음과 같이 표시됩니다. **Always allow from this computer** (이 컴퓨터의 연결을 항상 허용) 옆 박스를 체크한 뒤 **OK** 버튼을 누릅니다.  
+    [![](LinuxAndroid_Step21.png)](http://dnnrz1gqa.evoqondemand.com/en-us/Platforms/Android/GettingStarted/LinuxAndroid_Step21.png)
+
+## 최종 결과
+
+`adb devices` 명령을 입력해도 디바이스가 보이지 않을 때 해볼 수 있는 작업은 다음과 같습니다.
+*   디바이스가 보이긴 하지만 그 이름 옆에 **Unauthorized** 라고 나오는 경우, 개발 PC 컴퓨터의 RSA 키 핑거프린트를 수락하지 않았다는 뜻입니다.
+*   디바이스를 연결하고 설치를 마쳤는데도 표시되자 않는다면, Windows Command Prompt 에 다음 순서대로 입력한 뒤 **Android Debug Bridge** 또는 (ADB) 서비스를 재시작합니다.
+
+[REGION:MyTableInList] 
+| **프로퍼티 이름** | **설명** |
+| --- | --- |
+| **ADB kill - server** | ADB 서비스를 중단합니다. |
+| **ADB start - server** | ADB 서비스를 시작합니다. |
+[/REGION] 
+
+*   경우에 따라 제대로 구성된 Android 디바이스도 **Media Device (MTP)** 로 연결된 경우 표시되지 않을 수 있습니다. 이 경우 USB 사용 옵션에서 Camera (PTP) 를 선택하여 **Camera (PTP)** 로 연결해 봅니다.
+완료되면 이제 이 Android 기반 스마트폰에서 UE4 프로젝트를 디플로이하고 실행할 수 있습니다.

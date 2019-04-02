@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Components/TextBlock.h"
 #include "UObject/ConstructorHelpers.h"
@@ -7,6 +7,8 @@
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/SInvalidationPanel.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Widgets/SOverlay.h"
+#include "Widgets/Images/SImage.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -92,6 +94,15 @@ void UTextBlock::SetFont(FSlateFontInfo InFontInfo)
 	}
 }
 
+void UTextBlock::SetStrikeBrush(FSlateBrush InStrikeBrush)
+{
+	StrikeBrush = InStrikeBrush;
+	if (MyTextBlock.IsValid())
+	{
+		MyTextBlock->SetStrikeBrush(&StrikeBrush);
+	}
+}
+
 void UTextBlock::SetJustification( ETextJustify::Type InJustification )
 {
 	Justification = InJustification;
@@ -170,14 +181,43 @@ TSharedRef<SWidget> UTextBlock::RebuildWidget()
  		TSharedPtr<SWidget> RetWidget = SNew(SInvalidationPanel)
  		[
  			SAssignNew(MyTextBlock, STextBlock)
+			.SimpleTextMode(bSimpleTextMode)
  		];
  		return RetWidget.ToSharedRef();
  	}
  	else
 	{
-		MyTextBlock = SNew(STextBlock);
+		MyTextBlock =
+			SNew(STextBlock)
+			.SimpleTextMode(bSimpleTextMode);
+
+		//if (IsDesignTime())
+		//{
+		//	return SNew(SOverlay)
+
+		//	+ SOverlay::Slot()
+		//	[
+		//		MyTextBlock.ToSharedRef()
+		//	]
+
+		//	+ SOverlay::Slot()
+		//	.VAlign(VAlign_Top)
+		//	.HAlign(HAlign_Right)
+		//	[
+		//		SNew(SImage)
+		//		.Image(FCoreStyle::Get().GetBrush("Icons.Warning"))
+		//		.Visibility_UObject(this, &ThisClass::GetTextWarningImageVisibility)
+		//		.ToolTipText(LOCTEXT("TextNotLocalizedWarningToolTip", "This text is marked as 'culture invariant' and won't be gathered for localization.\nYou can change this by editing the advanced text settings."))
+		//	];
+		//}
+		
 		return MyTextBlock.ToSharedRef();
 	}
+}
+
+EVisibility UTextBlock::GetTextWarningImageVisibility() const
+{
+	return Text.IsCultureInvariant() ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 void UTextBlock::OnBindingChanged(const FName& Property)
@@ -220,11 +260,11 @@ void UTextBlock::SynchronizeProperties()
 	{
 		MyTextBlock->SetText( TextBinding );
 		MyTextBlock->SetFont( Font );
+		MyTextBlock->SetStrikeBrush( &StrikeBrush );
 		MyTextBlock->SetColorAndOpacity( ColorAndOpacityBinding );
 		MyTextBlock->SetShadowOffset( ShadowOffset );
 		MyTextBlock->SetShadowColorAndOpacity( ShadowColorAndOpacityBinding );
 		MyTextBlock->SetMinDesiredWidth( MinDesiredWidth );
-
 		Super::SynchronizeTextLayoutProperties( *MyTextBlock );
 	}
 }
@@ -285,6 +325,28 @@ const FText UTextBlock::GetPaletteCategory()
 void UTextBlock::OnCreationFromPalette()
 {
 	Text = LOCTEXT("TextBlockDefaultValue", "Text Block");
+}
+
+bool UTextBlock::CanEditChange(const UProperty* InProperty) const
+{
+	if(bSimpleTextMode && InProperty)
+	{
+		static TArray<FName> InvalidPropertiesInSimpleMode =
+		{
+			GET_MEMBER_NAME_CHECKED(UTextBlock, ShapedTextOptions),
+			GET_MEMBER_NAME_CHECKED(UTextBlock, Justification),
+			GET_MEMBER_NAME_CHECKED(UTextBlock, WrappingPolicy),
+			GET_MEMBER_NAME_CHECKED(UTextBlock, AutoWrapText),
+			GET_MEMBER_NAME_CHECKED(UTextBlock, WrapTextAt),
+			GET_MEMBER_NAME_CHECKED(UTextBlock, Margin),
+			GET_MEMBER_NAME_CHECKED(UTextBlock, LineHeightPercentage),
+			GET_MEMBER_NAME_CHECKED(UTextBlock, AutoWrapText),
+		};
+
+		return !InvalidPropertiesInSimpleMode.Contains(InProperty->GetFName());
+	}
+
+	return true;
 }
 
 #endif

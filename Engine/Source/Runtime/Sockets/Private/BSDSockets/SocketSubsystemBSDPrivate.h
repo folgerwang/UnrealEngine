@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -75,7 +75,7 @@ inline int TranslateFlags(ESocketReceiveFlags::Type Flags)
 /**
  * Standard BSD specific socket subsystem implementation (common to both IPv4 and IPv6)
  */
-class DEPRECATED(4.21, "Use FSocketSubsystemBSD.") FSocketSubsystemBSDCommon
+class UE_DEPRECATED(4.21, "Use FSocketSubsystemBSD.") FSocketSubsystemBSDCommon
 	: public ISocketSubsystem
 {
 protected:

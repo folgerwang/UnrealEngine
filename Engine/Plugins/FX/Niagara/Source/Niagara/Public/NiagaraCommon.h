@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "NiagaraTypes.h"
 #include "UObject/SoftObjectPath.h"
+#include "RHI.h"
 #include "NiagaraCommon.generated.h"
 
 class UNiagaraSystem;
@@ -187,7 +188,7 @@ struct FNiagaraScriptDataUsageInfo
 
 	/** If true, this script reads attribute data. */
 	UPROPERTY()
-		bool bReadsAttributeData;
+	bool bReadsAttributeData;
 };
 
 
@@ -341,9 +342,6 @@ public:
 
 	/** Would this data interface work on the target execution type? Only call this on the game thread.*/
 	bool CanExecuteOnTarget(ENiagaraSimTarget SimTarget) const;
-
-	/** Would this data interface force a system script to be solo? Only call this on the game thread.*/
-	bool IsSystemSolo() const;
 
 	/** Note that this is the CDO for this type of data interface, as we often cannot guarantee that the same instance of the data interface we compiled with is the one the user ultimately executes.  Only call this on the game thread.*/
 	UNiagaraDataInterface* GetDefaultDataInterface() const;
@@ -511,6 +509,21 @@ struct FNiagaraVariableAttributeBinding
 	FNiagaraVariable DefaultValueIfNonExistent;
 };
 
+USTRUCT()
+struct FNiagaraVariableDataInterfaceBinding
+{
+	GENERATED_USTRUCT_BODY();
+
+	FNiagaraVariableDataInterfaceBinding() {}
+	FNiagaraVariableDataInterfaceBinding(const FNiagaraVariable& InVar) : BoundVariable(InVar)
+	{
+		check(InVar.IsDataInterface() == true);
+	}
+
+	UPROPERTY()
+	FNiagaraVariable BoundVariable;
+};
+
 
 namespace FNiagaraUtilities
 {
@@ -521,6 +534,29 @@ namespace FNiagaraUtilities
 	FNiagaraVariable NIAGARA_API ConvertVariableToRapidIterationConstantName(FNiagaraVariable InVar, const TCHAR* InEmitterName, ENiagaraScriptUsage InUsage);
 
 	void CollectScriptDataInterfaceParameters(const UObject& Owner, const TArray<UNiagaraScript*>& Scripts, FNiagaraParameterStore& OutDataInterfaceParameters);
+
+	inline bool SupportsNiagaraRendering(ERHIFeatureLevel::Type FeatureLevel)
+	{
+		return FeatureLevel == ERHIFeatureLevel::SM4 || FeatureLevel == ERHIFeatureLevel::SM5 || FeatureLevel == ERHIFeatureLevel::ES3_1;
+	}
+
+	inline bool SupportsNiagaraRendering(EShaderPlatform ShaderPlatform)
+	{
+		// Note:
+		// IsFeatureLevelSupported does a FeatureLevel < MaxFeatureLevel(ShaderPlatform) so checking ES3.1 support will return true for SM4. I added it explicitly to be clear what we are doing.
+		return IsFeatureLevelSupported(ShaderPlatform, ERHIFeatureLevel::SM5) || IsFeatureLevelSupported(ShaderPlatform, ERHIFeatureLevel::ES3_1) || IsFeatureLevelSupported(ShaderPlatform, ERHIFeatureLevel::SM4);
+	}
+
+	inline bool SupportsGPUParticles(ERHIFeatureLevel::Type FeatureLevel)
+	{
+		EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[FeatureLevel];
+		return RHISupportsComputeShaders(ShaderPlatform);
+	}
+
+	inline bool SupportsGPUParticles(EShaderPlatform ShaderPlatform)
+	{
+		return RHISupportsComputeShaders(ShaderPlatform);
+	}
 
 #if WITH_EDITORONLY_DATA
 	/**

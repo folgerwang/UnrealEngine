@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Lightmass.h: lightmass import/export implementation.
@@ -2087,10 +2087,26 @@ void FLightmassExporter::SetVolumetricLightmapSettings(Lightmass::FVolumetricLig
 
 	const float TargetDetailCellSize = WorldInfoSettings.VolumetricLightmapDetailCellSize;
 
-	const FIntVector FullGridSize(
+	FIntVector FullGridSize(
 		FMath::TruncToInt(RequiredVolumeSize.X / TargetDetailCellSize) + 1,
 		FMath::TruncToInt(RequiredVolumeSize.Y / TargetDetailCellSize) + 1,
 		FMath::TruncToInt(RequiredVolumeSize.Z / TargetDetailCellSize) + 1);
+
+	if (FullGridSize.GetMax() > 800)
+	{
+		UE_LOG(LogLightmassSolver, Warning, 
+			TEXT("Volumetric lightmap grid size is too large which can cause potential crashes or long build time, clamping from (%d, %d, %d) to (%d, %d, %d)"),
+			FullGridSize.X,
+			FullGridSize.Y,
+			FullGridSize.Z,
+			FMath::Min(FullGridSize.X, 800),
+			FMath::Min(FullGridSize.Y, 800),
+			FMath::Min(FullGridSize.Z, 800)
+			);
+		FullGridSize.X = FMath::Min(FullGridSize.X, 800);
+		FullGridSize.Y = FMath::Min(FullGridSize.Y, 800);
+		FullGridSize.Z = FMath::Min(FullGridSize.Z, 800);
+	}
 
 	const int32 BrickSizeLog2 = FMath::FloorLog2(OutSettings.BrickSize);
 	const int32 DetailCellsPerTopLevelBrick = 1 << (OutSettings.MaxRefinementLevels * BrickSizeLog2);
@@ -2507,11 +2523,11 @@ void FLightmassExporter::WriteDebugInput( Lightmass::FDebugLightingInputData& In
 	InputData.MappingSizeX = GCurrentSelectedLightmapSample.MappingSizeX;
 	InputData.MappingSizeY = GCurrentSelectedLightmapSample.MappingSizeY;
 	FVector4 ViewPosition(0, 0, 0, 0);
-	for (int32 ViewIndex = 0; ViewIndex < GEditor->LevelViewportClients.Num(); ViewIndex++)
+	for (FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients())
 	{
-		if (GEditor->LevelViewportClients[ViewIndex]->IsPerspective())
+		if (LevelVC->IsPerspective())
 		{
-			ViewPosition = GEditor->LevelViewportClients[ViewIndex]->GetViewLocation();
+			ViewPosition = LevelVC->GetViewLocation();
 		}
 	}
 	InputData.CameraPosition = ViewPosition;
@@ -2844,6 +2860,40 @@ void FLightmassProcessor::IssueStaticShadowDepthMapTask(const ULightComponent* L
 	}
 }
 
+// Helper class for creating a list of paths relative to the engine directory, which can be queried as a list of raw strings.
+class FEngineDependencyPaths
+{
+public:
+	FEngineDependencyPaths(std::initializer_list<const TCHAR*> Paths)
+	{
+		Strings.Reserve(Paths.size());
+		for(const TCHAR* Path : Paths)
+		{
+			Strings.Add(FPaths::EngineDir() / Path);
+		}
+
+		RawStrings.Reserve(Strings.Num());
+		for(const FString& String : Strings)
+		{
+			RawStrings.Add(*String);
+		}
+	}
+
+	const TCHAR** GetArray() const
+	{
+		return const_cast<const TCHAR**>(RawStrings.GetData());
+	}
+
+	int32 Num() const
+	{
+		return RawStrings.Num();
+	}
+
+private:
+	TArray<FString> Strings;
+	TArray<const TCHAR*> RawStrings;
+};
+
 bool FLightmassProcessor::BeginRun()
 {
 	{
@@ -2871,94 +2921,84 @@ bool FLightmassProcessor::BeginRun()
 	}
 
 	// Setup dependencies for 32bit.
-	const TCHAR* LightmassExecutable32 = TEXT("../Win32/UnrealLightmass.exe");
-	const TCHAR* RequiredDependencyPaths32[] =
+	static const FString LightmassExecutable32 = FPaths::EngineDir() / TEXT("Binaries/Win32/UnrealLightmass.exe");
+	static const FEngineDependencyPaths RequiredDependencyPaths32 =
 	{
-		TEXT("../DotNET/SwarmInterface.dll"),
-		TEXT("../Win32/AgentInterface.dll"),
-		TEXT("../Win32/UnrealLightmass-SwarmInterface.dll"),
-		TEXT("../Win32/UnrealLightmass-ApplicationCore.dll"),
-		TEXT("../Win32/UnrealLightmass-Core.dll"),
-		TEXT("../Win32/UnrealLightmass-CoreUObject.dll"),
-		TEXT("../Win32/UnrealLightmass-Projects.dll"),
-		TEXT("../Win32/UnrealLightmass-Json.dll"),
-		TEXT("../Win32/UnrealLightmass-BuildSettings.dll")
+		TEXT("Binaries/DotNET/SwarmInterface.dll"),
+		TEXT("Binaries/Win32/AgentInterface.dll"),
+		TEXT("Binaries/Win32/UnrealLightmass-SwarmInterface.dll"),
+		TEXT("Binaries/Win32/UnrealLightmass-ApplicationCore.dll"),
+		TEXT("Binaries/Win32/UnrealLightmass-Core.dll"),
+		TEXT("Binaries/Win32/UnrealLightmass-CoreUObject.dll"),
+		TEXT("Binaries/Win32/UnrealLightmass-Projects.dll"),
+		TEXT("Binaries/Win32/UnrealLightmass-Json.dll"),
+		TEXT("Binaries/Win32/UnrealLightmass-BuildSettings.dll")
 	};
-	const int32 RequiredDependencyPaths32Count = ARRAY_COUNT(RequiredDependencyPaths32);
 
 	// Setup dependencies for 64bit.
 #if PLATFORM_WINDOWS
-	const TCHAR* LightmassExecutable64 = TEXT("../Win64/UnrealLightmass.exe");
-	const TCHAR* RequiredDependencyPaths64[] =
+	static const FString LightmassExecutable64 = FPaths::EngineDir() / TEXT("Binaries/Win64/UnrealLightmass.exe");
+	static const FEngineDependencyPaths RequiredDependencyPaths64 =
 	{
-		TEXT("../DotNET/SwarmInterface.dll"),
-		TEXT("../Win64/AgentInterface.dll"),
-		TEXT("../Win64/UnrealLightmass-SwarmInterface.dll"),
-		TEXT("../Win64/UnrealLightmass-ApplicationCore.dll"),
-		TEXT("../Win64/UnrealLightmass-Core.dll"),
-		TEXT("../Win64/UnrealLightmass-CoreUObject.dll"),
-		TEXT("../Win64/UnrealLightmass-Projects.dll"),
-		TEXT("../Win64/UnrealLightmass-Json.dll"),
-		TEXT("../Win64/UnrealLightmass-BuildSettings.dll"),
-		TEXT("../Win64/embree.dll"),
-		TEXT("../Win64/tbb.dll"),
-		TEXT("../Win64/tbbmalloc.dll")
+		TEXT("Binaries/DotNET/SwarmInterface.dll"),
+		TEXT("Binaries/Win64/AgentInterface.dll"),
+		TEXT("Binaries/Win64/UnrealLightmass-SwarmInterface.dll"),
+		TEXT("Binaries/Win64/UnrealLightmass-ApplicationCore.dll"),
+		TEXT("Binaries/Win64/UnrealLightmass-Core.dll"),
+		TEXT("Binaries/Win64/UnrealLightmass-CoreUObject.dll"),
+		TEXT("Binaries/Win64/UnrealLightmass-Projects.dll"),
+		TEXT("Binaries/Win64/UnrealLightmass-Json.dll"),
+		TEXT("Binaries/Win64/UnrealLightmass-BuildSettings.dll"),
+		TEXT("Binaries/Win64/embree.dll"),
+		TEXT("Binaries/Win64/tbb.dll"),
+		TEXT("Binaries/Win64/tbbmalloc.dll")
 	};
 #elif PLATFORM_MAC
-	const TCHAR* LightmassExecutable64 = TEXT("../Mac/UnrealLightmass");
-	const TCHAR* RequiredDependencyPaths64[] =
+	static const FString LightmassExecutable64 = FPaths::EngineDir() / TEXT("Binaries/Mac/UnrealLightmass");
+	static const FEngineDependencyPaths RequiredDependencyPaths64 =
 	{
-		TEXT("../DotNET/Mac/AgentInterface.dll"),
-		TEXT("../Mac/UnrealLightmass-ApplicationCore.dylib"),
-		TEXT("../Mac/UnrealLightmass-Core.dylib"),
-		TEXT("../Mac/UnrealLightmass-CoreUObject.dylib"),
-		TEXT("../Mac/UnrealLightmass-Json.dylib"),
-		TEXT("../Mac/UnrealLightmass-Projects.dylib"),
-		TEXT("../Mac/UnrealLightmass-SwarmInterface.dylib"),
-		TEXT("../Mac/UnrealLightmass-BuildSettings.dylib"),
-		TEXT("../Mac/libembree.2.dylib"),
-		TEXT("../Mac/libtbb.dylib"),
-		TEXT("../Mac/libtbbmalloc.dylib")
+		TEXT("Binaries/DotNET/Mac/AgentInterface.dll"),
+		TEXT("Binaries/Mac/UnrealLightmass-ApplicationCore.dylib"),
+		TEXT("Binaries/Mac/UnrealLightmass-Core.dylib"),
+		TEXT("Binaries/Mac/UnrealLightmass-CoreUObject.dylib"),
+		TEXT("Binaries/Mac/UnrealLightmass-Json.dylib"),
+		TEXT("Binaries/Mac/UnrealLightmass-Projects.dylib"),
+		TEXT("Binaries/Mac/UnrealLightmass-SwarmInterface.dylib"),
+		TEXT("Binaries/Mac/UnrealLightmass-BuildSettings.dylib"),
+		TEXT("Binaries/Mac/libembree.2.dylib"),
+		TEXT("Binaries/Mac/libtbb.dylib"),
+		TEXT("Binaries/Mac/libtbbmalloc.dylib")
 	};
 #elif PLATFORM_LINUX
-	const TCHAR* LightmassExecutable64 = TEXT("../Linux/UnrealLightmass");
-	const TCHAR* RequiredDependencyPaths64[] =
+	static const FString LightmassExecutable64 = FPaths::EngineDir() / TEXT("Binaries/Linux/UnrealLightmass");
+	static const FEngineDependencyPaths RequiredDependencyPaths64 =
 	{
-		TEXT("../DotNET/Linux/AgentInterface.dll"),
-		TEXT("../Linux/libUnrealLightmass-ApplicationCore.so"),
-		TEXT("../Linux/libUnrealLightmass-Core.so"),
-		TEXT("../Linux/libUnrealLightmass-CoreUObject.so"),
-		TEXT("../Linux/libUnrealLightmass-Json.so"),
-		TEXT("../Linux/libUnrealLightmass-Projects.so"),
-		TEXT("../Linux/libUnrealLightmass-SwarmInterface.so"),
-		TEXT("../Linux/libUnrealLightmass-Networking.so"),
-		TEXT("../Linux/libUnrealLightmass-Messaging.so"),
-		TEXT("../Linux/libUnrealLightmass-BuildSettings.so"),
-		TEXT("../../Plugins/Messaging/UdpMessaging/Binaries/Linux/libUnrealLightmass-UdpMessaging.so")
+		TEXT("Binaries/DotNET/Linux/AgentInterface.dll"),
+		TEXT("Binaries/Linux/libUnrealLightmass-ApplicationCore.so"),
+		TEXT("Binaries/Linux/libUnrealLightmass-Core.so"),
+		TEXT("Binaries/Linux/libUnrealLightmass-CoreUObject.so"),
+		TEXT("Binaries/Linux/libUnrealLightmass-Json.so"),
+		TEXT("Binaries/Linux/libUnrealLightmass-Projects.so"),
+		TEXT("Binaries/Linux/libUnrealLightmass-SwarmInterface.so"),
+		TEXT("Binaries/Linux/libUnrealLightmass-Networking.so"),
+		TEXT("Binaries/Linux/libUnrealLightmass-Messaging.so"),
+		TEXT("Binaries/Linux/libUnrealLightmass-BuildSettings.so"),
+		TEXT("Plugins/Messaging/UdpMessaging/Binaries/Linux/libUnrealLightmass-UdpMessaging.so")
 	};
 #else // PLATFORM_LINUX
 #error "Unknown Lightmass platform"
 #endif
-	const int32 RequiredDependencyPaths64Count = ARRAY_COUNT(RequiredDependencyPaths64);
 
 	// Set up optional dependencies.  These might not exist in Launcher distributions, for example.
-	const TCHAR* OptionalDependencyPaths32[] =
+	const FEngineDependencyPaths OptionalDependencyPaths32 =
 	{
-		TEXT("../Win32/UnrealLightmass.pdb"),
-		TEXT("../DotNET/AutoReporter.exe"),
-		TEXT("../DotNET/AutoReporter.exe.config"),
-		TEXT("../DotNET/AutoReporter.XmlSerializers.dll"),
+		TEXT("Binaries/Win32/UnrealLightmass.pdb")
 	};
-	const int32 OptionalDependencyPaths32Count = ARRAY_COUNT(OptionalDependencyPaths32);
 
-	const TCHAR* OptionalDependencyPaths64[] =
+	const FEngineDependencyPaths OptionalDependencyPaths64 =
 	{
-		TEXT("../Win64/UnrealLightmass.pdb"),
-		TEXT("../DotNET/AutoReporter.exe"),
-		TEXT("../DotNET/AutoReporter.exe.config"),
-		TEXT("../DotNET/AutoReporter.XmlSerializers.dll"),
+		TEXT("Binaries/Win64/UnrealLightmass.pdb")
 	};
-	const int32 OptionalDependencyPaths64Count = ARRAY_COUNT(OptionalDependencyPaths64);
 
 	// Set up the description for the Job
 	const TCHAR* DescriptionKeys[] =
@@ -2993,7 +3033,7 @@ bool FLightmassProcessor::BeginRun()
 	
 	Statistics.SwarmJobOpenTime += FPlatformTime::Seconds() - SwarmJobStartTime;
 	
-	UE_LOG(LogLightmassSolver, Log,  TEXT("Swarm launching: %s %s"), bUse64bitProcess ? LightmassExecutable64 : LightmassExecutable32, *Exporter->SceneGuid.ToString() );
+	UE_LOG(LogLightmassSolver, Log,  TEXT("Swarm launching: %s %s"), bUse64bitProcess ? *LightmassExecutable64 : *LightmassExecutable32, *Exporter->SceneGuid.ToString() );
 
 	SwarmJobStartTime = FPlatformTime::Seconds();
 
@@ -3042,14 +3082,14 @@ bool FLightmassProcessor::BeginRun()
 	NSwarm::FJobSpecification JobSpecification32, JobSpecification64;
 	if ( !bUse64bitProcess )
 	{
-		JobSpecification32 = NSwarm::FJobSpecification( LightmassExecutable32, *CommandLineParameters, ( NSwarm::TJobTaskFlags )JobFlags );
-		JobSpecification32.AddDependencies( RequiredDependencyPaths32, RequiredDependencyPaths32Count, OptionalDependencyPaths32, OptionalDependencyPaths32Count );
+		JobSpecification32 = NSwarm::FJobSpecification( *LightmassExecutable32, *CommandLineParameters, ( NSwarm::TJobTaskFlags )JobFlags );
+		JobSpecification32.AddDependencies( RequiredDependencyPaths32.GetArray(), RequiredDependencyPaths32.Num(), OptionalDependencyPaths32.GetArray(), OptionalDependencyPaths32.Num() );
 		JobSpecification32.AddDescription( DescriptionKeys, DescriptionValues, ARRAY_COUNT(DescriptionKeys) );
 	}
 	else
 	{
-		JobSpecification64 = NSwarm::FJobSpecification( LightmassExecutable64, *CommandLineParameters, ( NSwarm::TJobTaskFlags )JobFlags );
-		JobSpecification64.AddDependencies( RequiredDependencyPaths64, RequiredDependencyPaths64Count, OptionalDependencyPaths64, OptionalDependencyPaths64Count );
+		JobSpecification64 = NSwarm::FJobSpecification( *LightmassExecutable64, *CommandLineParameters, ( NSwarm::TJobTaskFlags )JobFlags );
+		JobSpecification64.AddDependencies( RequiredDependencyPaths64.GetArray(), RequiredDependencyPaths64.Num(), OptionalDependencyPaths64.GetArray(), OptionalDependencyPaths64.Num() );
 		JobSpecification64.AddDescription( DescriptionKeys, DescriptionValues, ARRAY_COUNT(DescriptionKeys) );
 	}
 	int32 ErrorCode = Swarm.BeginJobSpecification( JobSpecification32, JobSpecification64 );
@@ -3816,11 +3856,12 @@ void FLightmassProcessor::ApplyPrecomputedVisibility()
 						int32 CompressedSize = TempCompressionOutput.Num();
 						verify(FCompression::CompressMemory(
 							// Using zlib since it is supported on all platforms, otherwise we would need to compress on cook
-							(ECompressionFlags)(COMPRESS_ZLIB | COMPRESS_BiasMemory), 
+							NAME_Zlib, 
 							TempCompressionOutput.GetData(), 
 							CompressedSize, 
 							UncompressedVisibilityData.GetData(), 
-							UncompressedVisibilityData.Num()));
+							UncompressedVisibilityData.Num(),
+							COMPRESS_BiasMemory));
 
 						OutputBucket.CellDataChunks.AddZeroed();
 						FCompressedVisibilityChunk& NewChunk = OutputBucket.CellDataChunks.Last();
@@ -4444,7 +4485,7 @@ bool FLightmassProcessor::ImportLightMapData2DData(int32 Channel, FQuantizedLigh
 	Swarm.ReadChannel(Channel, CompressedBuffer, CompressedSize);
 
 	// decompress the temp buffer into another temp buffer 
-	if (!FCompression::UncompressMemory(COMPRESS_ZLIB, DataBuffer, UncompressedSize, CompressedBuffer, CompressedSize))
+	if (!FCompression::UncompressMemory(NAME_Zlib, DataBuffer, UncompressedSize, CompressedBuffer, CompressedSize))
 	{
 		checkf(false, TEXT("Uncompress failed, which is unexpected"));
 	}
@@ -4488,7 +4529,7 @@ bool FLightmassProcessor::ImportSignedDistanceFieldShadowMapData2D(int32 Channel
 		Swarm.ReadChannel(Channel, CompressedBuffer, CompressedSize);
 
 		// Decompress the temp buffer into another temp buffer 
-		if (!FCompression::UncompressMemory(COMPRESS_ZLIB, DataBuffer, UncompressedSize, CompressedBuffer, CompressedSize))
+		if (!FCompression::UncompressMemory(NAME_Zlib, DataBuffer, UncompressedSize, CompressedBuffer, CompressedSize))
 		{
 			checkf(false, TEXT("Uncompress failed, which is unexpected"));
 		}

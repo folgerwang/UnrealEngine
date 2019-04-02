@@ -1,12 +1,11 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
-#include "IDisplayClusterSessionListener.h"
-
-#include "DisplayClusterSession.h"
-#include "DisplayClusterTcpListener.h"
+#include "Network/Session/IDisplayClusterSessionListener.h"
+#include "Network/Session/DisplayClusterSessionBase.h"
+#include "Network/DisplayClusterTcpListener.h"
 
 
 struct FIPv4Endpoint;
@@ -19,7 +18,7 @@ class FDisplayClusterServer
 	: public IDisplayClusterSessionListener
 {
 public:
-	FDisplayClusterServer(const FString& name, const FString& addr, const int32 port);
+	FDisplayClusterServer(const FString& InName, const FString& InAddr, const int32 InPort);
 	virtual ~FDisplayClusterServer();
 
 public:
@@ -47,18 +46,20 @@ protected:
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	// IDisplayClusterSessionListener
 	//////////////////////////////////////////////////////////////////////////////////////////////
-	virtual void NotifySessionOpen(FDisplayClusterSession* pSession) override;
-	virtual void NotifySessionClose(FDisplayClusterSession* pSession) override;
-	virtual FDisplayClusterMessage::Ptr ProcessMessage(FDisplayClusterMessage::Ptr msg) = 0;
-
+	virtual void NotifySessionOpen(FDisplayClusterSessionBase* InSession) override;
+	virtual void NotifySessionClose(FDisplayClusterSessionBase* InSession) override;
+	
 protected:
 	// Ask concrete server implementation if connection is allowed
-	virtual bool IsConnectionAllowed(FSocket* pSock, const FIPv4Endpoint& ep)
+	virtual bool IsConnectionAllowed(FSocket* InSock, const FIPv4Endpoint& InEP)
 	{ return true; }
+
+	// Allow to specify custom session class
+	virtual FDisplayClusterSessionBase* CreateSession(FSocket* InSock, const FIPv4Endpoint& InEP) = 0;
 
 private:
 	// Handles incoming connections
-	bool ConnectionHandler(FSocket* pSock, const FIPv4Endpoint& ep);
+	bool ConnectionHandler(FSocket* InSock, const FIPv4Endpoint& InEP);
 
 private:
 	// Server data
@@ -74,6 +75,6 @@ private:
 	FCriticalSection InternalsSyncScope;
 
 	// Active sessions
-	TArray<TUniquePtr<FDisplayClusterSession>> Sessions;
+	TArray<FDisplayClusterSessionBase*> Sessions;
 };
 

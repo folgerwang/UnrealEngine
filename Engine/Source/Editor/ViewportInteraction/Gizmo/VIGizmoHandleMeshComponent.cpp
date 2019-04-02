@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "VIGizmoHandleMeshComponent.h"
 #include "StaticMeshResources.h"
@@ -44,7 +44,7 @@ public:
 								const bool bIsHovered = false;
 								FMeshBatch& MeshElement = Collector.AllocateMesh();
 
-								if (GetMeshElement(LODIndex, BatchIndex, SectionIndex, SDPG_World, bSectionIsSelected, bIsHovered, true, MeshElement))
+								if (GetMeshElement(LODIndex, BatchIndex, SectionIndex, SDPG_World, bSectionIsSelected, true, MeshElement))
 								{
 									Collector.AddMesh(ViewIndex, MeshElement);
 								}

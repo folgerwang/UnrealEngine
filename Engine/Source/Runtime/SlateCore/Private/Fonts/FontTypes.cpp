@@ -1,10 +1,10 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Fonts/FontTypes.h"
 
 
 FSlateFontAtlas::FSlateFontAtlas( uint32 InWidth, uint32 InHeight )
-	: FSlateTextureAtlas( InWidth, InHeight, sizeof(uint8), ESlateTextureAtlasPaddingStyle::PadWithZero )
+	: FSlateTextureAtlas( InWidth, InHeight, sizeof(uint8), ESlateTextureAtlasPaddingStyle::PadWithZero, true )
 {
 }
 
@@ -26,7 +26,7 @@ const FAtlasedTextureSlot* FSlateFontAtlas::AddCharacter( const FCharacterRender
 void FSlateFontAtlas::Flush()
 {
 	// Empty the atlas
-	Empty();
+	EmptyAtlasData();
 
 	// Recreate the data
 	InitAtlasData();

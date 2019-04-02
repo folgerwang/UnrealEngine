@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ClothPainter.h"
 #include "MeshPaintSettings.h"
@@ -67,7 +67,7 @@ void FClothPainter::Init()
 	Widget = SNew(SClothPaintWidget, this);
 }
 
-bool FClothPainter::PaintInternal(const FVector& InCameraOrigin, const FVector& InRayOrigin, const FVector& InRayDirection, EMeshPaintAction PaintAction, float PaintStrength)
+bool FClothPainter::PaintInternal(const FVector& InCameraOrigin, const TArrayView<TPair<FVector, FVector>>& Rays, EMeshPaintAction PaintAction, float PaintStrength)
 {
 	bool bApplied = false;
 
@@ -75,12 +75,16 @@ bool FClothPainter::PaintInternal(const FVector& InCameraOrigin, const FVector& 
 	{
 		USkeletalMesh* SkelMesh = SkeletalMeshComponent->SkeletalMesh;
 
-		const FHitResult& HitResult = GetHitResult(InRayOrigin, InRayDirection);
-
-		if (HitResult.bBlockingHit)
+		for (const TPair<FVector, FVector>& Ray : Rays)
 		{
-			// Generic per-vertex painting operations
-			if(!IsPainting())
+			const FVector& InRayOrigin = Ray.Key;
+			const FVector& InRayDirection = Ray.Value;
+			const FHitResult& HitResult = GetHitResult(InRayOrigin, InRayDirection);
+
+			if (HitResult.bBlockingHit)
+			{
+				// Generic per-vertex painting operations
+				if (!IsPainting())
 				{
 					BeginTransaction(LOCTEXT("MeshPaint", "Painting Cloth Property Values"));
 					bArePainting = true;
@@ -89,21 +93,22 @@ bool FClothPainter::PaintInternal(const FVector& InCameraOrigin, const FVector& 
 
 				const FMeshPaintParameters Parameters = CreatePaintParameters(HitResult, InCameraOrigin, InRayOrigin, InRayDirection, PaintStrength);
 
-			FPerVertexPaintActionArgs Args;
-			Args.Adapter = Adapter.Get();
-			Args.CameraPosition = InCameraOrigin;
-			Args.HitResult = HitResult;
-			Args.BrushSettings = GetBrushSettings();
-			Args.Action = PaintAction;
+				FPerVertexPaintActionArgs Args;
+				Args.Adapter = Adapter.Get();
+				Args.CameraPosition = InCameraOrigin;
+				Args.HitResult = HitResult;
+				Args.BrushSettings = GetBrushSettings();
+				Args.Action = PaintAction;
 
-			if(SelectedTool->IsPerVertex())
-			{
-				bApplied = MeshPaintHelpers::ApplyPerVertexPaintAction(Args, GetPaintAction(Parameters));
-			}
-			else
-			{
-				bApplied = true;
-				GetPaintAction(Parameters).ExecuteIfBound(Args, INDEX_NONE);
+				if (SelectedTool->IsPerVertex())
+				{
+					bApplied |= MeshPaintHelpers::ApplyPerVertexPaintAction(Args, GetPaintAction(Parameters));
+				}
+				else
+				{
+					bApplied = true;
+					GetPaintAction(Parameters).ExecuteIfBound(Args, INDEX_NONE);
+				}
 			}
 		}
 	}
@@ -214,10 +219,12 @@ void FClothPainter::RecalculateAutoViewRange()
 	{
 		if(PainterSettings->bAutoViewRange && CurrentMask)
 		{
-			CurrentMask->CalcRanges();
+			float MinValue = MAX_flt;
+			float MaxValue = -MinValue;
+			CurrentMask->CalcRanges(MinValue, MaxValue);
 
-			PainterSettings->AutoCalculatedViewMin = CurrentMask->MinValue;
-			PainterSettings->AutoCalculatedViewMax = CurrentMask->MaxValue;
+			PainterSettings->AutoCalculatedViewMin = MinValue;
+			PainterSettings->AutoCalculatedViewMax = MaxValue;
 		}
 		else
 		{

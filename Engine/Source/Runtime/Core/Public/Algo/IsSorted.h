@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -64,7 +64,7 @@ namespace Algo
 	 * @return true if the range is sorted, false otherwise.
 	 */
 	template <typename T>
-	DEPRECATED(4.16, "IsSorted taking a pointer and size has been deprecated - please pass a TArrayView instead")
+	UE_DEPRECATED(4.16, "IsSorted taking a pointer and size has been deprecated - please pass a TArrayView instead")
 	FORCEINLINE bool IsSorted(const T* Array, int32 ArraySize)
 	{
 		return AlgoImpl::IsSortedBy(Array, ArraySize, FIdentityFunctor(), TLess<>());
@@ -80,7 +80,7 @@ namespace Algo
 	 * @return true if the range is sorted, false otherwise.
 	 */
 	template <typename T, typename PredType>
-	DEPRECATED(4.16, "IsSorted taking a pointer and size has been deprecated - please pass a TArrayView instead")
+	UE_DEPRECATED(4.16, "IsSorted taking a pointer and size has been deprecated - please pass a TArrayView instead")
 	FORCEINLINE bool IsSorted(const T* Array, int32 ArraySize, PredType Pred)
 	{
 		return AlgoImpl::IsSortedBy(Array, ArraySize, FIdentityFunctor(), MoveTemp(Pred));

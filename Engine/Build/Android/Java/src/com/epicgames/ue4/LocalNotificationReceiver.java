@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
  package com.epicgames.ue4;
  
@@ -56,6 +56,7 @@
 			.setContentTitle(title);
 		if (android.os.Build.VERSION.SDK_INT >= 21)
 		{
+			builder.setContentText(details);
 			builder.setColor(0xff0e1e43);
 		}
 

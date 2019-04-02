@@ -1,0 +1,344 @@
+﻿INTSourceChangelist:4684167
+Availability: Public
+Crumbs: 
+Title:像素流送参考
+Description: 像素流送系统组件支持的浏览器、网络端口和配置选项。
+Type: 
+Version: 4.21
+Parent: Platforms/PixelStreaming
+Order: 
+topic-image:pixelstreaming-reference-topic.png
+Tags: Reference
+Tags: Early Access
+Tags: Pixel Streaming
+
+此页面将讲述像素流送系统诸多部分所公开的选项、设置和命令行参数。
+
+(#supportedgraphicshardware)
+
+## 支持的图形硬件
+
+用像素流送插件运行虚幻引擎应用程序的电脑必须使用支持硬件加速视频编码（NVENC）的NVIDIA GPU硬件。请参见NVIDIA文档[matrix of supported devices](https://developer.nvidia.com/nvidia-video-codec-sdk#NVENCFeatures)。
+
+[REGION:tip]
+如尝试使用像素流送插件时收到错误消息 **未能加载NvEncode dll（Failed to load NvEncode dll）**，原因很可能是GPU不支持NVENC。
+[/REGION]
+
+(#supportedoperatingsystems)
+
+## 支持的操作系统
+
+像素流送插件、WebRTC代理服务器、信令和Web服务器已在Windows 8和Windows 10上进行测试。
+
+其尚未在其他操作系统上进行测试，包括Windows 7。
+
+(#supportedclientbrowsers)
+
+## 支持的客户端浏览器
+
+像素流送播放可在支持WebRTC协议上的主流浏览器上使用。举例而言，经过测试，其无需额外配置便可兼容以下浏览器的最新版本：
+
+*   Google Chrome（桌面版和移动版）
+*   Mozilla Firefox（桌面版和移动版）
+*   Apple Safari（桌面版和移动版）
+
+其他浏览器（如Microsoft Edge和Opera）则需要附件组件或插件，并且可能无法用于所有系统。
+
+(#defaultnetworkports)
+
+## 默认网络端口
+
+像素流送系统的组件使用如下所述的默认端口进行通信。需要确认这些端口已在运行每个组件的主机上打开。
+
+| 组件 | 端口 |
+| --- | --- |
+| `Unreal Engine and WebRTC Proxy Server host` | [INCLUDE:#excerpt_3] |
+| `Signaling Server host` | [INCLUDE:#excerpt_5] |
+| `Matchmaker Server host` | [INCLUDE:#excerpt_7] |
+
+[COMMENT:none]
+[EXCERPT:excerpt_7]
+*   **90** \-用于来自客户端的所有HTTP请求。  
+    使用配对服务器的 **--httpPort** 参数即可修改此值。
+*   **9999** \-用于信令服务器发送的所有消息。  
+    如要修改此值，须对配对服务器的 **--matchmakerPort** 参数 **和** 信令服务器的 **--matchmakerPort** 参数进行设置。
+[/EXCERPT:excerpt_7]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_5]
+*   **80** \-用于来自客户端的所有HTTP请求。  
+    设置信令服务器的 **--httpPort** 参数即可修改此值。
+*   **443** \-用于信令服务器运行HTTPS模式时来自客户端的所有HTTPS请求。  
+    设置信令服务器的 **--httpsPort** 参数即可修改此值。
+*   **8888** \-用于来自WebRTC代理服务器的所有传入连接请求。  
+    如要修改此值，须对信令服务器的 **--proxyPort** 参数 **和** WebRTC代理服务器的 **--Cirrus** 参数进行设置。
+[/EXCERPT:excerpt_5]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_3]
+*   **8124** \-用于应用程序和WebRTC代理服务器之间的所有连线。  
+    如要修改此值，须对启动虚幻引擎打包应用程序时的 **-PixelStreamingPort** 命令行参数 **和** WebRTC代理服务器的 **-UE4Port** 参数进行设置。
+[/EXCERPT:excerpt_3]
+[/COMMENT]
+
+(#unrealengineconsolecommands)
+
+## 虚幻引擎控制台命令
+
+**Encoder** 命令控制像素流送插件将虚幻引擎渲染帧编码为视频帧的方式。**Streamer** 命令控制像素流送插件通过WebRTC代理发送这些图像的方式。
+
+| 命令 | 描述 |
+| --- | --- |
+| `Encoder.AverageBitrate` | 确定编码器的目标比特率，以Mbps为单位（在降低来满足带宽限制之前的比特率）。|
+| `Encoder.MaxBitrate` | 允许的最大比特率，以Mbps为单位（无视WebRTC代理服务器报告的值）|
+| `Encoder.TargetSize` | [INCLUDE:#excerpt_15] |
+| `Encoder.UseBackBufferSize` | 让编码器使用后置缓冲大小（即为渲染游戏视口的代销），而非 **Encoder.TargetSize** 设置的自定义大小。 |
+| `Encoder.SaveVideoToFile` | [INCLUDE:#excerpt_19] |
+| `Streamer.PrioritiseQuality` | 在连接的比特率低时自动降低引擎的帧率。在较差的网络条件下，这将牺牲每秒帧率（增加延迟）来维持每个视频帧的更高质量。|
+| `Streamer.LowBitrate` | 根据网络条件采用质量时流送器所允许的最低比特率（以Kbps为单位）。 |
+| `Streamer.HighBitrate` | 根据网络条件采用质量时流送器所允许的最高比特率（以Kbps为单位）。|
+| `Streamer.MinFPS` | 根据网络条件采用质量时流送器所允许的每秒最低帧数。|
+| `Streamer.BitrateReduction` | 确定流送器如何降低WebRTC报告的比特率来处理抖动，以百分比显示。|
+
+
+[COMMENT:none]
+[EXCERPT:excerpt_19]
+将编码的视频在虚幻引擎应用程序的工作目录中保存为一个名为 **EncodedVideoFile.h264** 的文件。  
+只在虚幻引擎的开发版本中可用，在发布版本中不可用。
+[/EXCERPT:excerpt_19]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_15]
+编码器的目标分辨率大小，格式为 `<width>x<height>`。  
+并将 **Encoder.UseBackBufferSIze** 设为false，以便让流送使用此自定义大小。
+[/EXCERPT:excerpt_15]
+[/COMMENT]
+
+(#unrealenginecommand-lineparameters)
+
+## 虚幻引擎命令行参数
+
+启动虚幻引擎应用程序时在命令行上设置这些属性。
+
+| 参数 | 描述 |
+| --- | --- |
+| `-AllowPixelStreamingCommands` | [INCLUDE:#excerpt_33] |
+| `-AudioMixer` | [INCLUDE:#excerpt_35] |
+| `-PixelStreamingIP=<value>` | [INCLUDE:#excerpt_37] |
+| `-PixelStreamingPort=<value>` | [INCLUDE:#excerpt_39] |
+| `-PixelStreamingKeyFilter="<value>"` | [INCLUDE:#excerpt_41] |
+| `-RenderOffScreen` | [INCLUDE:#excerpt_43] |
+| `-NvEncFrameRateNum=<value>` | [INCLUDE:#excerpt_45] |
+| `-NvEncMaxEncodeWidth=<value>` | [INCLUDE:#excerpt_47] |
+| `-NvEncMaxEncodeHeight=<value>` | [INCLUDE:#excerpt_49] |
+| `-NvEncAverageBitRate=<value>` | 指定后，覆盖编码器的默认平均比特率。|
+| `-NvEncH264ConfigLevel=<value>` | [INCLUDE:#excerpt_53] |
+
+[COMMENT:none]
+[EXCERPT:excerpt_53]
+将此参数设为 `NV_ENC_LEVEL_H264_52` 可使编码器使用H.264等级5.2。如未设置，编码器将使用H.264等级5.1。  
+这将提升编码器的能力，在处理高分辨率（如3840x2160）视频的创建时可能会用到，如需了解H.264等级的更多内容，请参阅[此页面](https://en.wikipedia.org/wiki/H.264/MPEG-4_AVC#Levels)。  
+如果虚幻引擎应用程序报告其 **未能初始化NvEncoder**，且正在处理高分辨率输出，则可能需要启用此选项。
+[/EXCERPT:excerpt_53]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_49]
+编码器可编码的帧的最大高度。  
+默认值为 `2160`。
+[/EXCERPT:excerpt_49]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_47]
+编码器可编码的帧的最大宽度。  
+默认值为 `3840`。
+[/EXCERPT:excerpt_47]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_45]
+指定后，覆盖默认的编码器帧率。  
+默认值设为匹配 `t.MaxFPS`。
+[/EXCERPT:excerpt_45]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_43]
+以headless模式运行虚幻引擎应用程序，本地机上不带任何可见的渲染。应用程序不会显示任何窗口，也不会以全屏渲染。  
+可使用此参数结合 `-ForceRes` 使虚幻引擎停止基于主显示分辨率自动调整分辨率。  
+如遗漏此参数，虚幻引擎应用程序窗口将正常渲染。如果此应用程序窗口被最小化，像素流送视频和输入采集将停止工作。因此我们推荐固定包含此参数，除非需要在运行时在同一台电脑上本地查看虚幻引擎应用程序的渲染输出。
+[/EXCERPT:excerpt_43]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_41]
+WebRTC代理应从播放器网页中继至虚幻引擎的输入中过滤掉的键盘键的列表，以逗号分隔。如果在浏览器中按下其中一个键，此事件将不会被中继至虚幻引擎的输入控制器。  
+举例而言，`-PixelStreamingKeyFilter="F1..F12,W,A,S,D"` 将过滤掉所有12个功能键和移动键。
+[/EXCERPT:excerpt_41]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_39]
+用于虚幻引擎和WebRTC代理服务器之间通信的端口。  
+默认值为 `8124`。
+[/EXCERPT:excerpt_39]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_37]
+指定虚幻引擎的IP地址聆听来自WebRTC代理服务器的传入连接。  
+默认值为 `0.0.0.0`，其包含所有内部IP地址（通常是本地机自身的IP地址和 `127.0.0.1`）。
+[/EXCERPT:excerpt_37]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_35]
+强制虚幻引擎使用软件混合音频，以便像素流送插件采集音频。  
+**从应用程序采集音频并流送到浏览器需要用到此参数。**
+[/EXCERPT:excerpt_35]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_33]
+决定播放器网页是否能使用 `emitCommand()` 函数在虚幻引擎中远程执行控制台命令。注意这可能涉及安全问题，请谨慎处理。
+[/EXCERPT:excerpt_33]
+[/COMMENT]
+
+(#signalingserverconfigurationparameters)
+
+## 信令服务器配置参数
+
+设置这些参数的方法有两种：
+
+*   运行 `run.bat` 或 `node cirrus.js` 启动信令和Web服务器时在命令行上进行设置。在此情况中，在每个参数前添加 `--` 前缀，然后在其后添加空格，然后再加上需要设置的值。例如 `--httpPort 81`。
+*   在配置文件中设置。信令和Web服务器（`cirrus.js`）默认在同个文件夹中查找一个名为 `config.json` 的文件。在此情况中，将把需要对其进行设置的每个参数和值设为文件中定义的JSON对象中的一个键值对。如果已启动信令和Web服务器至少一次，则参数已列出在 `Engine/Source/Programs/PixelStreaming/WebServers/SignallingWebServer/config.json` 文件中。
+
+| 参数 | 描述 |
+| --- | --- |
+| `publicIp` | 运行信令和Web服务器的电脑的公开IP。|
+| `httpPort` | 信令和Web服务器用于与客户端浏览器进行HTTP连接的端口。|
+| `proxyPort` | 信令和Web服务器上聆听来自WebRTC代理服务器传入连接的端口。|
+| `peerConnectionOptions` | [INCLUDE:#excerpt_63] |
+| `HomepageFile` | [INCLUDE:#excerpt_65] |
+| `AdditionalRoutes` | [INCLUDE:#excerpt_67] |
+| `LogToFile` | [INCLUDE:#excerpt_69] |
+| `UseHttps` | [INCLUDE:#excerpt_71] |
+| `httpsPort` | [INCLUDE:#excerpt_73] |
+| `UseMatchmaker` | 确定信令和Web服务器是否将其当前状态发送到配对服务器，以帮助客户端浏览器寻找当前未使用的信令服务器和WebRTC代理服务器。|
+| `matchmakerAddress` | 信令和Web服务器应接触的配对服务器的IP地址。|
+| `matchmakerPort` | 配对服务器聆听来自信令和Web服务器消息的端口。|
+| `configFile` | 指定配置文件的路径和文件名（信令服务器将把此文件用于获取上述属性的值）。只能在命令行上进行设置。|
+
+[COMMENT:none]
+[EXCERPT:excerpt_73]
+聆听HTTPS连接的端口。只在 **UseHttps** 启用时使用。  
+默认值为443。
+[/EXCERPT:excerpt_73]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_71]
+将此参数设为 **true**，使信令服务器仅接受 **httpsPort** 上的HTTPS连接。  
+还需要将 **client-key.pem** 和 **client-cert.pem** 文件放入信令和Web服务器根文件夹下的 **certificates** 文件夹。
+[/EXCERPT:excerpt_71]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_69]
+决定信令和Web服务器是否将日志消息写入 **./logs** 文件夹中的文件。  
+默认值为 **true**。
+[/EXCERPT:excerpt_69]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_67]
+指定信令和Web服务器应服务的额外文件夹。  
+此参数必须是一个JSON对象，这意味着只能在JSON配置文件中提供它，而不能在命令行上提供。  
+其必须是一个对象，在这个对象中每个键均是URL的一部分，每个键的值均是服务器应服务请求客户端的一个本地路径。举例而言，如果设置：`"AdditionalRoutes" = { "/myfolder", "C:\some_local_path" }` 则客户端请求 `http://server-name/myfolder/index.html` 时，服务器将提供命名为 `C:\some_local_path\index.html` 的文件。
+[/EXCERPT:excerpt_67]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_65]
+服务器将提供的默认页面的文件名，以连接不请求特定URL的客户端浏览器。  
+默认值为 `player.htm`。
+[/EXCERPT:excerpt_65]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_63]
+指定WebRTC代理服务器和浏览器需要了解自身外部IP地址时进行查询的所有STUN和TURN服务器的主机名或IP地址。  
+如需了解STUN和TURN服务器的更多信息，请参阅[创建主机和网络连接指南](https://docs.unrealengine.com/en-us/Platforms/PixelStreaming/Hosting)。  
+此参数必须为一个字符串，其将以进行接触的顺序列出服务器URL。格式必须如下：  
+`"{ \"iceServers\": [{\"urls\": [<url1>,<url2>,<url3>,...]}] }"`  
+例如：  
+`"{ \"iceServers\": [{\"urls\": [\"stun:34.250.222.95:19302\"]}] }"`  
+或  
+`"{ \"iceServers\": [{\"urls\": [\"stun:34.250.222.95:19302\",\"turn:34.250.222.95:19312\"]}] }"`  
+虚幻引擎自带的TURN服务器实现需要以下用户名和密码：  
+`"{\"iceServers\":[{\"urls\":[\"stun: 34.250.222.95:19302\",\"turn: 34.250.222.95:19312\"],\"username\":\"<TURN_Username>\",\"credential\":\"<TURN_Password>\"}]}"`  
+其他STUN和TURN实现的登陆信息要求可能有所不同。
+[REGION:note]
+值的格式必须为一个字符串，即使使用JSON配置文件来提供参数也同样如此。前后必须使用双引号，在字符串中使用反斜杠来断开引用。如下所示：
+[/REGION]
+[/EXCERPT:excerpt_63]
+[/COMMENT]
+
+(#webrtcproxyservercommand-lineparameters)
+
+## WebRTC代理服务器命令行参数
+
+可在运行 `WebRTCProxy_x64_<build>.exe` 文件时在命令行上提供这些参数，以配置WebRTC代理服务器的操作。
+
+注意：与上方的信令和Web服务器和下方的配对服务器不同，将这些参数添加到相同文件夹中的 *.bat* 文件的末尾时其没有作用。
+
+| 参数 | 描述 |
+| --- | --- |
+| `-Cirrus=<value>` | [INCLUDE:#excerpt_85] |
+| `-UE4Port=<value>` | [INCLUDE:#excerpt_87] |
+| `-PlanB` | 切换WebRTC代理服务器使用PlanB SDP语意。|
+| `-LocalTime` | 在日志消息中打印时间戳时使用本地时间，而非协调世界时。|
+
+
+[COMMENT:none]
+[EXCERPT:excerpt_87]
+WebRTC代理服务器连接的端口，以便与本地主机上运行的虚幻引擎应用程序进行通信。  
+默认值为 `8124`。
+[/EXCERPT:excerpt_87]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_85]
+WebRTC代理服务器连接到的信令服务器的IP地址。  
+默认值为 `127.0.0.1:8888`。
+[/EXCERPT:excerpt_85]
+[/COMMENT]
+
+(#matchmakerservercommand-lineparameters)
+
+## 配对服务器命令行参数
+
+运行服务器的 `run.bat` 文件、或运行 `node.exe matchmaker.js` 启动配对服务器，在命令行上提供这些参数。
+
+| 参数 | 描述 |
+| --- | --- |
+| `--httpPort <value>` | [INCLUDE:#excerpt_95] |
+| `--matchmakerPort <value>` | [INCLUDE:#excerpt_97] |
+
+[COMMENT:none]
+[EXCERPT:excerpt_97]
+设置聆听来自Cirrus信令服务器的传入消息的配对服务器端口数量。  
+默认值为 `9999`。
+[/EXCERPT:excerpt_97]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_95]
+设置聆听来自客户端HTTP连接的配对服务器端口数量。  
+默认值为 `90`。
+[/EXCERPT:excerpt_95]
+[/COMMENT]

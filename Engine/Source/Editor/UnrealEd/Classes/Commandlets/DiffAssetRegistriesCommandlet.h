@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -140,8 +140,10 @@ private:
 
 	bool	IsInRelevantChunk(FAssetRegistryState& InRegistryState, FName InAssetPath);
 
-	void	LogChangedFiles();
+	void	LogChangedFiles(FArchive *CSVFile, const FString &OldPath, const FString &NewPath);
+	void	SummarizeDeterminism();
 
+	void	PopulateChangelistMap(const FString &Branch, const FString &CL, bool bEnginePackages);
 	void	FillChangelists(FString Branch, FString CL, FString BasePath, FString AssetPath);
 	bool	LaunchP4(const FString& Args, TArray<FString>& Output, int32& OutReturnCode) const;
 
@@ -162,6 +164,12 @@ private:
 	// Warn when any class of assets has changed by this amount (0=disabled)
 	int32				WarnPercentage;
 
+	// Don't warn any class of assets with a total change size lower than this amount (0=disabled)
+	int32				WarnSizeMinMB;
+
+	// Warn when the total changes are greater than this amount (0=disabled)
+	int32				WarnTotalChangedSizeMB;
+
 	// Platform we're working on, only used for reporting clarity
 	FString				TargetPlatform;
 
@@ -172,10 +180,13 @@ private:
 	SortOrder			ReportedFileOrder;
 
 	FChangeInfo					ChangeSummary;
+	FChangeInfo					NondeterministicSummary;
+	FChangeInfo					IndirectNondeterministicSummary;
 	TMap<FName, FChangeInfo>	ChangeSummaryByClass;
 	TMap<FName, FChangeInfo>	ChangeInfoByAsset;
+	TMap<int32, FChangeInfo>	ChangeSummaryByChangelist;
 	TMap<FName, FName>			AssetPathToClassName;
-	TMap<FName, int64>			AssetPathToChangelist;
+	TMap<FString, int32>		AssetPathToChangelist;
 	TMap<FName, int32>			AssetPathFlags;
 
 	UPROPERTY(config)

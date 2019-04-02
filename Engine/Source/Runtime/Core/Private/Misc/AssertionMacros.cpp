@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Misc/AssertionMacros.h"
 #include "Misc/VarArgs.h"
@@ -113,14 +113,15 @@ FORCENOINLINE void StaticFailDebug( const TCHAR* Error, const ANSICHAR* File, in
 	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("%s") FILE_LINE_DESC TEXT("\n%s\n"), Error, ANSI_TO_TCHAR(File), Line, Description);
 
 	// Copy the detailed error into the error message.
-	if (FCString::Snprintf( GErrorMessage, ARRAY_COUNT( GErrorMessage ), TEXT( "%s" ) FILE_LINE_DESC TEXT( "\n%s\n" ), Error, ANSI_TO_TCHAR( File ), Line, DescriptionAndTrace) < 0)
+	TCHAR ErrorMessage[4096];
+	if (FCString::Snprintf( ErrorMessage, ARRAY_COUNT( ErrorMessage ), TEXT( "%s" ) FILE_LINE_DESC TEXT( "\n%s\n" ), Error, ANSI_TO_TCHAR( File ), Line, DescriptionAndTrace) < 0)
 	{
 		// Description and callstack was too long to fit in GErrorMessage. Use only description
-		FCString::Snprintf( GErrorMessage, ARRAY_COUNT( GErrorMessage ), TEXT( "%s" ) FILE_LINE_DESC TEXT( "\n%s\n<< callstack too long >>" ), Error, ANSI_TO_TCHAR( File ), Line, Description);
+		FCString::Snprintf( ErrorMessage, ARRAY_COUNT( ErrorMessage ), TEXT( "%s" ) FILE_LINE_DESC TEXT( "\n%s\n<< callstack too long >>" ), Error, ANSI_TO_TCHAR( File ), Line, Description);
 	}
 
 	// Copy the error message to the error history.
-	FCString::Strncpy( GErrorHist, GErrorMessage, ARRAY_COUNT( GErrorHist ) );
+	FCString::Strncpy( GErrorHist, ErrorMessage, ARRAY_COUNT( GErrorHist ) );
 	FCString::Strncat( GErrorHist, TEXT( "\r\n\r\n" ), ARRAY_COUNT( GErrorHist ) );
 }
 
@@ -212,11 +213,19 @@ void FDebug::LogFormattedMessageWithCallstack(const FName& LogName, const ANSICH
 
 FORCENOINLINE void FDebug::LogAssertFailedMessageImpl(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Fmt, ...)
 {
+	va_list Args;
+	va_start(Args, Fmt);
+	LogAssertFailedMessageImplV(Expr, File, Line, Fmt, Args);
+	va_end(Args);
+}
+
+void FDebug::LogAssertFailedMessageImplV(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Fmt, va_list Args)
+{
 	// Ignore this assert if we're already forcibly shutting down because of a critical error.
 	if( !GIsCriticalError )
 	{
 		TCHAR DescriptionString[4096];
-		GET_VARARGS( DescriptionString, ARRAY_COUNT( DescriptionString ), ARRAY_COUNT( DescriptionString ) - 1, Fmt, Fmt );
+		FCString::GetVarArgs( DescriptionString, ARRAY_COUNT(DescriptionString), Fmt, Args );
 
 		TCHAR ErrorString[MAX_SPRINTF];
 		FCString::Sprintf( ErrorString, TEXT( "Assertion failed: %s" ), ANSI_TO_TCHAR( Expr ) );
@@ -247,7 +256,7 @@ FORCENOINLINE void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* Fi
 	if( bShouldCrash )
 	{
 		// Just trigger a regular assertion which will crash via GError->Logf()
-		FDebug::LogAssertFailedMessage( Expr, File, Line, TEXT("%s"), Msg );
+		FDebug::LogAssertFailedMessageImpl( Expr, File, Line, TEXT("%s"), Msg );
 		return;
 	}
 
@@ -261,7 +270,7 @@ FORCENOINLINE void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* Fi
 	StaticFailDebug( ErrorString, File, Line, Msg, true, NumStackFramesToIgnore + 1 );
 
 	// Is there a debugger attached?  If not we'll submit an error report.
-	if (FPlatformMisc::IsDebuggerPresent())
+	if (FPlatformMisc::IsDebuggerPresent() && !GAlwaysReportCrash)
 	{
 #if !NO_LOGGING
 		UE_LOG(LogOutputDevice, Error, TEXT("%s") FILE_LINE_DESC TEXT("\n%s\n"), ErrorString, ANSI_TO_TCHAR(File), Line, Msg);
@@ -272,21 +281,21 @@ FORCENOINLINE void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* Fi
 		// If we determine that we have not sent a report for this ensure yet, send the report below.
 		bool bShouldSendNewReport = false;
 
+		// Create a final string that we'll output to the log (and error history buffer)
+		TCHAR ErrorMsg[16384];
+		FCString::Snprintf(ErrorMsg, ARRAY_COUNT(ErrorMsg), TEXT("Ensure condition failed: %s [File:%s] [Line: %i]") LINE_TERMINATOR TEXT("%s") LINE_TERMINATOR TEXT("Stack: ") LINE_TERMINATOR, ANSI_TO_TCHAR(Expr), ANSI_TO_TCHAR(File), Line, Msg);
+
 		// No debugger attached, so generate a call stack and submit a crash report
 		// Walk the stack and dump it to the allocated memory.
 		const SIZE_T StackTraceSize = 65535;
 		ANSICHAR* StackTrace = (ANSICHAR*)FMemory::SystemMalloc(StackTraceSize);
 		if (StackTrace != NULL)
 		{
-			// Stop checking heartbeat for this thread. Ensure can take a lot of time (when stackwalking)
-			// Thread heartbeat will be resumed the next time this thread calls FThreadHeartBeat::Get().HeartBeat();
-			// The reason why we don't call HeartBeat() at the end of this function is that maybe this thread
-			// Never had a heartbeat checked and may not be sending heartbeats at all which would later lead to a false positives when detecting hangs.
-			FThreadHeartBeat::Get().KillHeartBeat();
-			if (IsInGameThread())
-			{
-				FGameThreadHitchHeartBeat::Get().FrameStart(true);
-			}
+			// Stop checking heartbeat for this thread (and stop the gamethread hitch detector if we're the game thread).
+			// Ensure can take a lot of time (when stackwalking), so we don't want hitches/hangs firing.
+			// These are no-ops on threads that didn't already have a heartbeat etc.
+			FSlowHeartBeatScope SuspendHeartBeat;
+			FDisableHitchDetectorScope SuspendGameThreadHitch;
 
 			{
 #if STATS
@@ -296,10 +305,6 @@ FORCENOINLINE void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* Fi
 				StackTrace[0] = 0;
 				FPlatformStackWalk::StackWalkAndDumpEx(StackTrace, StackTraceSize, NumStackFramesToIgnore + 1, FGenericPlatformStackWalk::EStackWalkFlags::FlagsUsedWhenHandlingEnsure);
 			}
-
-			// Create a final string that we'll output to the log (and error history buffer)
-			TCHAR ErrorMsg[16384];
-			FCString::Snprintf(ErrorMsg, ARRAY_COUNT(ErrorMsg), TEXT("Ensure condition failed: %s [File:%s] [Line: %i]") LINE_TERMINATOR TEXT("%s") LINE_TERMINATOR TEXT("Stack: ") LINE_TERMINATOR, ANSI_TO_TCHAR(Expr), ANSI_TO_TCHAR(File), Line, Msg);
 
 			// Also append the stack trace
 			FCString::Strncat(ErrorMsg, ANSI_TO_TCHAR(StackTrace), ARRAY_COUNT(ErrorMsg) - 1);
@@ -381,10 +386,9 @@ FORCENOINLINE void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* Fi
 #if PLATFORM_DESKTOP
 			FScopeLock Lock(&FailDebugCriticalSection);
 
-			NewReportEnsure(GErrorMessage, NumStackFramesToIgnore + 1);
+			ReportEnsure(ErrorMsg, NumStackFramesToIgnore + 1);
 
 			GErrorHist[0] = 0;
-			GErrorMessage[0] = 0;
 			GErrorExceptionDescription[0] = 0;
 #endif
 		}
@@ -392,6 +396,25 @@ FORCENOINLINE void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* Fi
 
 
 	FPlatformAtomics::InterlockedDecrement(&ActiveEnsureCount);
+}
+
+void FORCENOINLINE FDebug::CheckVerifyFailedImpl(
+	const ANSICHAR* Expr,
+	const ANSICHAR* File,
+	const int Line,
+	const TCHAR* Format,
+	...)
+{
+	va_list Args;
+	va_start(Args, Format);
+	FDebug::LogAssertFailedMessageImplV(Expr, File, Line, Format, Args);
+	va_end(Args);
+
+	if (!FPlatformMisc::IsDebuggerPresent())
+	{
+		FPlatformMisc::PromptForRemoteDebugging(false);
+		FDebug::AssertFailed(Expr, File, Line);
+	}
 }
 
 #endif // DO_CHECK || DO_GUARD_SLOW

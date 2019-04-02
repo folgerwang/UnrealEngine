@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	StaticMeshEdit.cpp: Static mesh edit functions.
@@ -18,7 +18,6 @@
 #include "Editor.h"
 #include "StaticMeshResources.h"
 #include "BSPOps.h"
-#include "RawMesh.h"
 #include "PhysicsEngine/ConvexElem.h"
 #include "PhysicsEngine/BoxElem.h"
 #include "PhysicsEngine/SphereElem.h"
@@ -34,6 +33,10 @@
 #include "Settings/EditorExperimentalSettings.h"
 #include "MeshDescription.h"
 #include "MeshAttributes.h"
+
+#include "Modules/ModuleManager.h"
+#include "IMeshReductionManagerModule.h"
+#include "IMeshReductionInterfaces.h"
 
 
 bool GBuildStaticMeshCollision = 1;
@@ -585,7 +588,7 @@ void AddConvexGeomFromVertices( const TArray<FVector>& Verts, FKAggregateGeom* A
 /**
  * Creates a static mesh object from raw triangle data.
  */
-UStaticMesh* CreateStaticMesh(struct FRawMesh& RawMesh,TArray<FStaticMaterial>& Materials,UObject* InOuter,FName InName)
+UStaticMesh* CreateStaticMesh(FMeshDescription& RawMesh,TArray<FStaticMaterial>& Materials,UObject* InOuter,FName InName)
 {
 	// Create the UStaticMesh object.
 	FStaticMeshComponentRecreateRenderStateContext RecreateRenderStateContext(FindObject<UStaticMesh>(InOuter,*InName.ToString()));
@@ -593,7 +596,9 @@ UStaticMesh* CreateStaticMesh(struct FRawMesh& RawMesh,TArray<FStaticMaterial>& 
 
 	// Add one LOD for the base mesh
 	FStaticMeshSourceModel& SrcModel = StaticMesh->AddSourceModel();
-	SrcModel.SaveRawMesh(RawMesh);
+	FMeshDescription* MeshDescription = StaticMesh->CreateMeshDescription(0);
+	*MeshDescription = RawMesh;
+	StaticMesh->CommitMeshDescription(0);
 	StaticMesh->StaticMaterials = Materials;
 
 	int32 NumSections = StaticMesh->StaticMaterials.Num();
@@ -757,7 +762,9 @@ void GetBrushMesh(ABrush* Brush, UModel* Model, FMeshDescription& MeshDescriptio
 			}
 
 			//Create the vertex instances
-			FVertexInstanceID VertexInstanceIDs[3];
+			TArray<FVertexInstanceID> VertexInstanceIDs;
+			VertexInstanceIDs.SetNum(3);
+
 			for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
 			{
 				if (VertexID[CornerIndex] == FVertexID::Invalid)
@@ -773,32 +780,13 @@ void GetBrushMesh(ABrush* Brush, UModel* Model, FMeshDescription& MeshDescriptio
 
 			// Create a polygon with the 3 vertex instances
 			
-			TArray<FMeshDescription::FContourPoint> Contours;
-			for (uint32 TriangleEdgeNumber = 0; TriangleEdgeNumber < 3; ++TriangleEdgeNumber)
+			TArray<FEdgeID> NewEdgeIDs;
+			const FPolygonID NewPolygonID = MeshDescription.CreatePolygon(CurrentPolygonGroupID, VertexInstanceIDs, &NewEdgeIDs);
+			for (const FEdgeID NewEdgeID : NewEdgeIDs)
 			{
-				int32 ContourPointIndex = Contours.AddDefaulted();
-				FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
-				//Find the matching edge ID
-				uint32 CornerIndices[2];
-				CornerIndices[0] = (TriangleEdgeNumber + 0) % 3;
-				CornerIndices[1] = (TriangleEdgeNumber + 1) % 3;
-
-				FVertexID EdgeVertexIDs[2];
-				EdgeVertexIDs[0] = VertexID[CornerIndices[0]];
-				EdgeVertexIDs[1] = VertexID[CornerIndices[1]];
-
-				FEdgeID MatchEdgeId = MeshDescription.GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-				if (MatchEdgeId == FEdgeID::Invalid)
-				{
-					MatchEdgeId = MeshDescription.CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
-				}
-				ContourPoint.EdgeID = MatchEdgeId;
-				ContourPoint.VertexInstanceID = VertexInstanceIDs[CornerIndices[0]];
 				//All edge are hard for BSP
-				EdgeHardnesses[MatchEdgeId] = true;
+				EdgeHardnesses[NewEdgeID] = true;
 			}
-			// Insert a polygon into the mesh
-			const FPolygonID NewPolygonID = MeshDescription.CreatePolygon(CurrentPolygonGroupID, Contours);
 			int32 NewTriangleIndex = MeshDescription.GetPolygonTriangles(NewPolygonID).AddDefaulted();
 			FMeshTriangle& NewTriangle = MeshDescription.GetPolygonTriangles(NewPolygonID)[NewTriangleIndex];
 			for (int32 TriangleVertexIndex = 0; TriangleVertexIndex < 3; ++TriangleVertexIndex)
@@ -807,89 +795,6 @@ void GetBrushMesh(ABrush* Brush, UModel* Model, FMeshDescription& MeshDescriptio
 				NewTriangle.SetVertexInstanceID(TriangleVertexIndex, VertexInstanceID);
 			}
 		}
-	}
-}
-
-void GetBrushMesh(ABrush* Brush,UModel* Model,struct FRawMesh& OutMesh,TArray<FStaticMaterial>& OutMaterials)
-{
-	// Calculate the local to world transform for the source brush.
-
-	FMatrix	ActorToWorld = Brush ? Brush->ActorToWorld().ToMatrixWithScale() : FMatrix::Identity;
-	bool	ReverseVertices = 0;
-	FVector4	PostSub = Brush ? FVector4(Brush->GetActorLocation()) : FVector4(0,0,0,0);
-
-
-	int32 NumPolys = Model->Polys->Element.Num();
-
-	// For each polygon in the model...
-	TArray<FVector> TempPositions;
-	for( int32 PolygonIndex = 0; PolygonIndex < NumPolys; ++PolygonIndex )
-	{
-		FPoly& Polygon = Model->Polys->Element[PolygonIndex];
-
-		UMaterialInterface*	Material = Polygon.Material;
-
-		// Find a material index for this polygon.
-
-		int32 MaterialIndex = OutMaterials.AddUnique(FStaticMaterial(Material));
-
-		// Cache the texture coordinate system for this polygon.
-
-		FVector	TextureBase = Polygon.Base - (Brush ? Brush->GetPivotOffset() : FVector::ZeroVector),
-				TextureX = Polygon.TextureU / UModel::GetGlobalBSPTexelScale(),
-				TextureY = Polygon.TextureV / UModel::GetGlobalBSPTexelScale();
-
-		// For each vertex after the first two vertices...
-		for(int32 VertexIndex = 2;VertexIndex < Polygon.Vertices.Num();VertexIndex++)
-		{
-			// Create a triangle for the vertex.
-			OutMesh.FaceMaterialIndices.Add(MaterialIndex);
-
-			// Generate different smoothing mask for each poly to give the mesh hard edges.  Note: only 32 smoothing masks supported.
-			OutMesh.FaceSmoothingMasks.Add(1<<(PolygonIndex%32));
-
-			FVector Positions[3];
-			FVector2D UVs[3];
-
-
-			Positions[ReverseVertices ? 0 : 2] = ActorToWorld.TransformPosition(Polygon.Vertices[0]) - PostSub;
-			UVs[ReverseVertices ? 0 : 2].X = (Positions[ReverseVertices ? 0 : 2] - TextureBase) | TextureX;
-			UVs[ReverseVertices ? 0 : 2].Y = (Positions[ReverseVertices ? 0 : 2] - TextureBase) | TextureY;
-
-			Positions[1] = ActorToWorld.TransformPosition(Polygon.Vertices[VertexIndex - 1]) - PostSub;
-			UVs[1].X = (Positions[1] - TextureBase) | TextureX;
-			UVs[1].Y = (Positions[1] - TextureBase) | TextureY;
-
-			Positions[ReverseVertices ? 2 : 0] = ActorToWorld.TransformPosition(Polygon.Vertices[VertexIndex]) - PostSub;
-			UVs[ReverseVertices ? 2 : 0].X = (Positions[ReverseVertices ? 2 : 0] - TextureBase) | TextureX;
-			UVs[ReverseVertices ? 2 : 0].Y = (Positions[ReverseVertices ? 2 : 0] - TextureBase) | TextureY;
-
-			for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
-			{
-				TempPositions.Add(Positions[CornerIndex]);
-				OutMesh.WedgeTexCoords[0].Add(UVs[CornerIndex]);
-			}
-		}
-	}
-
-	// Merge vertices within a certain distance of each other.
-	for (int32 i = 0; i < TempPositions.Num(); ++i)
-	{
-		FVector Position = TempPositions[i];
-		int32 FinalIndex = INDEX_NONE;
-		for (int32 VertexIndex = 0; VertexIndex < OutMesh.VertexPositions.Num(); ++VertexIndex)
-		{
-			if (FVerticesEqual(Position, OutMesh.VertexPositions[VertexIndex]))
-			{
-				FinalIndex = VertexIndex;
-				break;
-			}
-		}
-		if (FinalIndex == INDEX_NONE)
-		{
-			FinalIndex = OutMesh.VertexPositions.Add(Position);
-		}
-		OutMesh.WedgeIndices.Add(FinalIndex);
 	}
 }
 
@@ -909,7 +814,7 @@ UStaticMesh* CreateStaticMeshFromBrush(UObject* Outer, FName Name, ABrush* Brush
 	// Add one LOD for the base mesh
 	FStaticMeshSourceModel& SrcModel = StaticMesh->AddSourceModel();
 	const int32 LodIndex = StaticMesh->SourceModels.Num() - 1;
-	FMeshDescription* MeshDescription = StaticMesh->CreateOriginalMeshDescription(LodIndex);
+	FMeshDescription* MeshDescription = StaticMesh->CreateMeshDescription(LodIndex);
 	UStaticMesh::RegisterMeshAttributes(*MeshDescription);
 
 	// Fill out the mesh description and materials from the brush geometry
@@ -917,7 +822,7 @@ UStaticMesh* CreateStaticMeshFromBrush(UObject* Outer, FName Name, ABrush* Brush
 	GetBrushMesh(Brush, Model, *MeshDescription, Materials);
 
 	// Commit mesh description and materials list to static mesh
-	StaticMesh->CommitOriginalMeshDescription(LodIndex);
+	StaticMesh->CommitMeshDescription(LodIndex);
 	StaticMesh->StaticMaterials = Materials;
 
 	// Set up the SectionInfoMap to enable collision
@@ -1064,7 +969,6 @@ struct ExistingLODMeshData
 {
 	FMeshBuildSettings				ExistingBuildSettings;
 	FMeshReductionSettings			ExistingReductionSettings;
-	FRawMesh						ExistingRawMesh;
 	TUniquePtr<FMeshDescription>	ExistingMeshDescription;
 	TArray<FStaticMaterial>			ExistingMaterials;
 	FPerPlatformFloat				ExistingScreenSize;
@@ -1148,7 +1052,20 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, Un
 		ExistingMeshDataPtr->UseMaterialNameSlotWorkflow = IsUsingMaterialSlotNameWorkflow(ExistingMesh->AssetImportData);
 
 		FMeshSectionInfoMap OldSectionInfoMap = ExistingMesh->SectionInfoMap;
-		
+
+		bool bIsReimportCustomLODOverGeneratedLOD = ExistingMesh->SourceModels.IsValidIndex(LodIndex) &&
+			(ExistingMesh->SourceModels[LodIndex].IsRawMeshEmpty() || !(ExistingMesh->IsReductionActive(LodIndex) && ExistingMesh->SourceModels[LodIndex].ReductionSettings.BaseLODModel != LodIndex));
+
+		//We need to reset some data in case we import a custom LOD over a generated LOD
+		if (bIsReimportCustomLODOverGeneratedLOD)
+		{
+			//Reset the section info map for this LOD
+			for (int32 SectionIndex = 0; SectionIndex < ExistingMesh->GetNumSections(LodIndex); ++SectionIndex)
+			{
+				OldSectionInfoMap.Remove(LodIndex, SectionIndex);
+			}
+		}
+
 		ExistingMeshDataPtr->ExistingMaterials.Empty();
 		if (bSaveMaterials)
 		{
@@ -1176,7 +1093,7 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, Un
 				ExistingMesh->SectionInfoMap.Remove(LodIndex, SectionIndex);
 			}
 		}
-		int32 TotalMaterialIndex=0;
+		int32 TotalMaterialIndex = ExistingMeshDataPtr->ExistingMaterials.Num();
 		for(int32 i=0; i<ExistingMesh->SourceModels.Num(); i++)
 		{
 			//If the last import was exceeding the maximum number of LOD the source model will contain more LOD so just break the loop
@@ -1219,16 +1136,21 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, Un
 
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings = ExistingMesh->SourceModels[i].BuildSettings;
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings = ExistingMesh->SourceModels[i].ReductionSettings;
+			if (bIsReimportCustomLODOverGeneratedLOD && (i == LodIndex))
+			{
+				//Reset the reduction
+				ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings.PercentTriangles = 1.0f;
+				ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings.PercentVertices = 1.0f;
+				ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings.MaxDeviation = 0.0f;
+			}
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize = ExistingMesh->SourceModels[i].ScreenSize.Default;
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingSourceImportFilename = ExistingMesh->SourceModels[i].SourceImportFilename;
 
-			const FMeshDescription* MeshDescription = ExistingMesh->GetOriginalMeshDescription(i);
+			const FMeshDescription* MeshDescription = ExistingMesh->GetMeshDescription(i);
 			if (MeshDescription)
 			{
 				ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription = MakeUnique<FMeshDescription>(*MeshDescription);
 			}
-
-			ExistingMesh->SourceModels[i].RawMeshBulkData->LoadRawMesh(ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh);
 		}
 
 		ExistingMeshDataPtr->ExistingSockets = ExistingMesh->Sockets;
@@ -1281,6 +1203,23 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, Un
 	return ExistingMeshDataPtr;
 }
 
+// Helper to find if some reduction settings are active
+bool IsReductionActive(const FMeshReductionSettings& ReductionSettings)
+{
+	bool bUseQuadricSimplier = true;
+	{
+		// Are we using our tool, or simplygon?  The tool is only changed during editor restarts
+		IMeshReduction* ReductionModule = FModuleManager::Get().LoadModuleChecked<IMeshReductionManagerModule>("MeshReductionInterface").GetStaticMeshReductionInterface();
+		FString VersionString = ReductionModule->GetVersionString();
+		TArray<FString> SplitVersionString;
+		VersionString.ParseIntoArray(SplitVersionString, TEXT("_"), true);
+		bUseQuadricSimplier = SplitVersionString[0].Equals("QuadricMeshReduction");
+	}
+	const bool bVertTermination = (bUseQuadricSimplier) && (ReductionSettings.TerminationCriterion != EStaticMeshReductionTerimationCriterion::Triangles) && (ReductionSettings.PercentVertices < 1.0f);
+	const bool bTriTermination = ReductionSettings.TerminationCriterion != EStaticMeshReductionTerimationCriterion::Vertices && (ReductionSettings.PercentTriangles < 1.0f);
+	return bTriTermination || bVertTermination || (ReductionSettings.MaxDeviation > 0.0f);
+}
+
 /* This function is call before building the mesh when we do a re-import*/
 void RestoreExistingMeshSettings(ExistingStaticMeshData* ExistingMesh, UStaticMesh* NewMesh, int32 LODIndex)
 {
@@ -1313,8 +1252,10 @@ void RestoreExistingMeshSettings(ExistingStaticMeshData* ExistingMesh, UStaticMe
 			{
 				NewMesh->AddSourceModel();
 			}
-			bool bSwapFromGeneratedToImported = !ExistingMesh->ExistingLODData[i].ExistingRawMesh.IsValid() && !NewMesh->SourceModels[i].RawMeshBulkData->IsEmpty();
-			bool bWasReduced = ExistingMesh->ExistingLODData[i].ExistingReductionSettings.PercentTriangles < 1.0f || ExistingMesh->ExistingLODData[i].ExistingReductionSettings.MaxDeviation > 0.0f;
+			FMeshDescription* LODMeshDescription = NewMesh->GetMeshDescription(i);
+			bool bSwapFromGeneratedToImported = !ExistingMesh->ExistingLODData[i].ExistingMeshDescription.IsValid() && (LODMeshDescription && LODMeshDescription->Polygons().Num() > 0);
+			bool bWasReduced = IsReductionActive(ExistingMesh->ExistingLODData[i].ExistingReductionSettings);
+
 			if (!bSwapFromGeneratedToImported && bWasReduced)
 			{
 				NewMesh->SourceModels[i].ReductionSettings = ExistingMesh->ExistingLODData[i].ExistingReductionSettings;
@@ -1329,8 +1270,9 @@ void RestoreExistingMeshSettings(ExistingStaticMeshData* ExistingMesh, UStaticMe
 		//Just set the old configuration for the desired LODIndex
 		if(LODIndex >= 0 && LODIndex < CurrentNumLods && LODIndex < ExistingNumLods)
 		{
-			bool bSwapFromGeneratedToImported = !ExistingMesh->ExistingLODData[LODIndex].ExistingRawMesh.IsValid() && !NewMesh->SourceModels[LODIndex].RawMeshBulkData->IsEmpty();
-			bool bWasReduced = ExistingMesh->ExistingLODData[LODIndex].ExistingReductionSettings.PercentTriangles < 1.0f || ExistingMesh->ExistingLODData[LODIndex].ExistingReductionSettings.MaxDeviation > 0.0f;
+			FMeshDescription* LODMeshDescription = NewMesh->GetMeshDescription(LODIndex);
+			bool bSwapFromGeneratedToImported = !ExistingMesh->ExistingLODData[LODIndex].ExistingMeshDescription.IsValid() && (LODMeshDescription && LODMeshDescription->Polygons().Num() > 0);
+			bool bWasReduced = IsReductionActive(ExistingMesh->ExistingLODData[LODIndex].ExistingReductionSettings);
 			if (!bSwapFromGeneratedToImported && bWasReduced)
 			{
 				NewMesh->SourceModels[LODIndex].ReductionSettings = ExistingMesh->ExistingLODData[LODIndex].ExistingReductionSettings;
@@ -1528,9 +1470,10 @@ void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStati
 	for(int32 i=0; i<NumCommonLODs; i++)
 	{
 		NewMesh->SourceModels[i].BuildSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings;
+		FMeshDescription* LODMeshDescription = NewMesh->GetMeshDescription(i);
 		//Restore the reduction settings only if the existing data was a using reduction. Because we can set some value if we reimport from existing rawmesh to auto generated.
-		bool bSwapFromGeneratedToImported = !ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh.IsValid() && !NewMesh->SourceModels[i].RawMeshBulkData->IsEmpty();
-		bool bWasReduced = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings.PercentTriangles < 1.0f || ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings.MaxDeviation > 0.0f;
+		bool bSwapFromGeneratedToImported = !ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription.IsValid() && (LODMeshDescription && LODMeshDescription->Polygons().Num() > 0);
+		bool bWasReduced = IsReductionActive(ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings);
 		if ( !bSwapFromGeneratedToImported && bWasReduced)
 		{
 			NewMesh->SourceModels[i].ReductionSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings;
@@ -1544,13 +1487,10 @@ void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStati
 		FStaticMeshSourceModel& SrcModel = NewMesh->AddSourceModel();
 		if (ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription.IsValid())
 		{
-			FMeshDescription* MeshDescription = NewMesh->CreateOriginalMeshDescription(i);
+			FMeshDescription* MeshDescription = NewMesh->CreateMeshDescription(i);
 			*MeshDescription = MoveTemp(*ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription);
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription.Reset();
-		}
-		if (ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh.IsValidOrFixable())
-		{
-			SrcModel.RawMeshBulkData->SaveRawMesh(ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh);
+			NewMesh->CommitMeshDescription(i);
 		}
 		SrcModel.BuildSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings;
 		SrcModel.ReductionSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings;
@@ -1575,7 +1515,7 @@ void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStati
 			}
 
 			//When re-importing the asset, do not touch the LOD that was imported from file, the material array is keep intact so the section should still be valid.
-			bool NoRemapForThisLOD = LodLevel == INDEX_NONE && i != 0 && NewMesh->SourceModels[i].ReductionSettings.PercentTriangles >= 1.0f  && NewMesh->SourceModels[i].ReductionSettings.MaxDeviation <= 0.0f;
+			bool NoRemapForThisLOD = LodLevel == INDEX_NONE && i != 0 && !IsReductionActive(NewMesh->SourceModels[i].ReductionSettings);
 
 			FStaticMeshLODResources& LOD = NewMesh->RenderData->LODResources[i];
 			

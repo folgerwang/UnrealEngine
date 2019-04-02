@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /** 
  * ChartCreation
@@ -21,6 +21,10 @@
 #include "HAL/LowLevelMemTracker.h"
 #include "ProfilingDebugging/CsvProfiler.h"
 #include "DeviceProfiles/DeviceProfileManager.h"
+
+#ifndef FPS_CHART_SUPPORT_CSV_PROFILE
+#define FPS_CHART_SUPPORT_CSV_PROFILE (CSV_PROFILER && !UE_BUILD_SHIPPING)
+#endif // FPS_CHART_SUPPORT_CSV_PROFILE
 
 DEFINE_LOG_CATEGORY_STATIC(LogChartCreation, Log, All);
 
@@ -45,11 +49,16 @@ static TAutoConsoleVariable<int32> GFPSChartOpenFolderOnDump(
 	TEXT("Should we explore to the folder that contains the .log / etc... when a dump is finished?  This can be disabled for automated testing\n")
 	TEXT(" default: 1"));
 
+#if FPS_CHART_SUPPORT_CSV_PROFILE
+/** Are we recording a CSV profile? */
+static bool GFPSChartCSVProfileActive = false;
+
 static TAutoConsoleVariable<int32> GFPSChartDoCsvProfile(
 	TEXT("t.FPSChart.DoCsvProfile"),
 	0,
 	TEXT("Whether to record a CSV profile when recording FPSChart data\n")
 	TEXT(" default: 0"));
+#endif // FPS_CHART_SUPPORT_CSV_PROFILE
 
 float GMaximumFrameTimeToConsiderForHitchesAndBinning = 10.0f;
 
@@ -73,9 +82,6 @@ static TAutoConsoleVariable<FString> GFPSChartInterestingFramerates(
 TArray<int32> GTargetFrameRatesForSummary;
 
 TWeakObjectPtr<UDeviceProfileManager> GDeviceProfileManager = nullptr;
-
-/** Are we recording a CSV profile? */
-static bool GFPSChartCSVProfileActive = false;
 
 //////////////////////////////////////////////////////////////////////
 // FDumpFPSChartToEndpoint
@@ -650,6 +656,7 @@ void FPerformanceTrackingChart::Reset(const FDateTime& InStartTime)
 	StartBatteryLevel = -1;
 	StopBatteryLevel = -1;
 	DeviceProfileName = UDeviceProfileManager::GetActiveProfileName();
+	bIsChartingPaused = false;
 }
 
 
@@ -697,12 +704,23 @@ void FPerformanceTrackingChart::StartCharting()
 	StartTemperatureLevel = FPlatformMisc::GetDeviceTemperatureLevel();
 	StartBatteryLevel = FPlatformMisc::GetBatteryLevel();
 	DeviceProfileName = UDeviceProfileManager::GetActiveProfileName();
+	bIsChartingPaused = false;
 }
 
 void FPerformanceTrackingChart::StopCharting()
 {
 	StopTemperatureLevel = FPlatformMisc::GetDeviceTemperatureLevel();
 	StopBatteryLevel = FPlatformMisc::GetBatteryLevel();
+}
+
+void FPerformanceTrackingChart::PauseCharting()
+{
+	bIsChartingPaused = true;
+}
+
+void FPerformanceTrackingChart::ResumeCharting()
+{
+	bIsChartingPaused = false;
 }
 
 void FPerformanceTrackingChart::OnDeviceProfileManagerUpdated()
@@ -721,7 +739,7 @@ void FPerformanceTrackingChart::ProcessFrame(const FFrameData& FrameData)
 	AccumulatedChartTime += FrameData.TrueDeltaSeconds;
 
 	// if we aren't binning this frame (it took too long) then don't update anything but the relevant disregard stats.
-	if (FrameData.bBinThisFrame)
+	if (FrameData.bBinThisFrame && !bIsChartingPaused)
 	{
 		// Handle the frame time histogram
 		FrametimeHistogram.AddMeasurement(FrameData.DeltaSeconds);
@@ -1193,19 +1211,10 @@ IPerformanceDataConsumer::FFrameData FPerformanceTrackingSystem::AnalyzeFrame(fl
 
 	// determine which pipeline time is the greatest (between game thread, render thread, and GPU)
 	const float EpsilonCycles = 0.250f;
-	uint32 MaxThreadTimeValue = FMath::Max3<uint32>( LocalRenderThreadTime, GGameThreadTime, LocalGPUFrameTime );
+	uint32 MaxThreadTimeValue = FMath::Max(TArray<uint32> {LocalRenderThreadTime, GGameThreadTime, LocalGPUFrameTime, LocalRHIThreadTime});
 	const float FrameTime = FPlatformTime::ToSeconds(MaxThreadTimeValue);
 
 	const float EngineTargetMS = FEnginePerformanceTargets::GetTargetFrameTimeThresholdMS();
-
-	// Try to estimate a GPU time even if the current platform does not support GPU timing
-	uint32 PossibleGPUTime = LocalGPUFrameTime;
-	if (PossibleGPUTime == 0)
-	{
-		// if we are over
-		PossibleGPUTime = static_cast<uint32>(FMath::Max( FrameTime, DeltaSeconds ) / FPlatformTime::GetSecondsPerCycle() );
-		MaxThreadTimeValue = FMath::Max3<uint32>( GGameThreadTime, LocalRenderThreadTime, PossibleGPUTime );
-	}
 
 	FrameData.IdleSeconds = FApp::GetIdleTime();
 	FrameData.GameThreadTimeSeconds = FPlatformTime::ToSeconds(GGameThreadTime);
@@ -1230,31 +1239,23 @@ IPerformanceDataConsumer::FFrameData FPerformanceTrackingSystem::AnalyzeFrame(fl
 		const float TargetThreadTimeSeconds = EngineTargetMS * MSToSeconds;
 		if (DeltaSeconds > TargetThreadTimeSeconds)
 		{
-			// If GPU time is inferred we can only determine GPU > threshold if we are GPU bound.
-			bool bAreWeGPUBoundIfInferred = true;
-
 			if (FrameData.GameThreadTimeSeconds >= TargetThreadTimeSeconds)
 			{
 				FrameData.bGameThreadBound = true;
-				bAreWeGPUBoundIfInferred = false;
 			}
 
 			if (FrameData.RenderThreadTimeSeconds >= TargetThreadTimeSeconds)
 			{
 				FrameData.bRenderThreadBound = true;
-				bAreWeGPUBoundIfInferred = false;
 			}
 
 			if (FrameData.RHIThreadTimeSeconds >= TargetThreadTimeSeconds)
 			{
 				FrameData.bRHIThreadBound = true;
-				bAreWeGPUBoundIfInferred = false;
 			}
 
 			// Consider this frame GPU bound if we have an actual measurement which is over the limit,
-			if (((LocalGPUFrameTime != 0) && (FrameData.GPUTimeSeconds >= TargetThreadTimeSeconds)) ||
-				// Or if we don't have a measurement but neither of the other threads were the slowest
-				((LocalGPUFrameTime == 0) && bAreWeGPUBoundIfInferred && (PossibleGPUTime == MaxThreadTimeValue)))
+			if (FrameData.GPUTimeSeconds >= TargetThreadTimeSeconds)
 			{
 				FrameData.bGPUBound = true;
 			}
@@ -1302,7 +1303,7 @@ IPerformanceDataConsumer::FFrameData FPerformanceTrackingSystem::AnalyzeFrame(fl
 						// Bound by RHI thread
 						FrameData.HitchStatus = EFrameHitchType::RHIThread;
 					}
-					else if (PossibleGPUTime == MaxThreadTimeValue)
+					else if (LocalGPUFrameTime >= (MaxThreadTimeValue - EpsilonCycles))
 					{
 						// Bound by GPU
 						FrameData.HitchStatus = EFrameHitchType::GPU;
@@ -1454,7 +1455,7 @@ void UEngine::StartFPSChart(const FString& Label, bool bRecordPerFrameTimes)
 	}
 #endif
 
-#if CSV_PROFILER
+#if FPS_CHART_SUPPORT_CSV_PROFILE
 	if (GFPSChartDoCsvProfile.GetValueOnGameThread())
 	{
 		if (!FCsvProfiler::Get()->IsCapturing())
@@ -1463,7 +1464,7 @@ void UEngine::StartFPSChart(const FString& Label, bool bRecordPerFrameTimes)
 			FString OutputDirectory = FPerformanceTrackingSystem::CreateOutputDirectory(CaptureStartTime);
 			const FString PlatformName = FPlatformProperties::PlatformName();
 			FString CsvProfileFilename = TEXT("CsvProfile-") + CaptureStartTime.ToString() + TEXT("-") + PlatformName + TEXT(".csv");
-			FCsvProfiler::Get()->BeginCapture(-1, OutputDirectory, CsvProfileFilename, FString(), false);
+			FCsvProfiler::Get()->BeginCapture(-1, OutputDirectory, CsvProfileFilename);
 		}
 	}
 #endif
@@ -1491,7 +1492,7 @@ void UEngine::StopFPSChart(const FString& InMapName)
 	}
 #endif
 
-#if CSV_PROFILER
+#if FPS_CHART_SUPPORT_CSV_PROFILE
 	if (GFPSChartCSVProfileActive)
 	{
 		GFPSChartCSVProfileActive = false;

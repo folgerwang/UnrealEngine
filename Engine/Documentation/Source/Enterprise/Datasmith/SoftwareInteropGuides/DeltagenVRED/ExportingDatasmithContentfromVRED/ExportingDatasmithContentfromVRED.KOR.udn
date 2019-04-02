@@ -1,0 +1,54 @@
+INTSourceChangelist:4501274
+Availability: Public
+Crumbs: 
+Title: VRED 에서 데이터스미스 콘텐츠 익스포트
+Description: Autodesk VRED 용 익스포트 플러그인 스크립트를 설치하고, 데이터스미스가 언리얼로 임포트할 수 있도록 VRED 씬을 FBX 로 익스포트하는 법을 설명합니다.
+Type: 
+Version: 4.20
+SkillLevel:Beginner
+Parent: Enterprise/Datasmith/SoftwareInteropGuides/DeltagenVRED
+Order: 2
+Tags: Enterprise
+Tags: how to
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: Experimental
+Tags: VRED
+
+
+![](datasmith-setup-vred.png)
+
+[TOC(start:2 end:2)]
+
+## 익스포터 플러그인 스크립트 설치
+
+언리얼 엔진에서 VRED 콘텐츠 작업을 시작하기 이전 VRED 플러그인 스크립트를 설치해야 합니다.
+
+익스포터 플러그인이 현재 지원하는 VRED Professional 버전을 확인하려면 [](Enterprise/Datasmith/SupportedSoftwareandFileTypes) 문서를 참고하세요.
+
+아래 방법대로 컴퓨터에 설치된 VRED 지원 버전에 맞는 데이터스미스 익스포터 플러그인 스크립트를 설치하세요.
+
+1.  언리얼 엔진 설치 폴더 아래 *Enterprise\\Plugins\\Editor\\DatasmithFBXImporter\\Extras\\VREDPlugin* 폴더에서 *vrDatasmithExporter.py* 스크립트를 찾으세요.
+2.  설치된 VRED 가 플러그인을 검색할 폴더에 이 스크립트를 복사합니다.  
+    자세한 내용은 [VRED 문서(영문)](http://help.autodesk.com/view/VREDPRODUCTS/2018/ENU/?guid=GUID-C085B3DC-A66C-48EB-8FE4-43E4383AC46E) 을 확인하세요.
+3.  VRED 를 재시작합니다.
+
+## 데이터스미스로 익스포트
+
+원하는 대로 VRED 씬을 구성했고 변수(variant)를 등록했으면 씬을 FBX 로 익스포트합니다.
+
+1.  VRED 의 메인 메뉴에서 다음과 같이 선택합니다.
+    *   **File > Export > Export to Datasmith...** (VRED 2018 의 경우)
+    *   **File > Export Scene Data > Export to Datasmith...** (VRED 2019 의 경우)  
+        ![VRED 에서 데이터스미스 익스포트](datasmith-vred-export.png "Datasmith export from VRED")
+2.  폴더를 찾아 파일 이름을 선택하세요.
+
+익스포터가 선택한 위치에 *.FBX* 파일을 만듭니다.
+
+### 최종 결과
+
+이제 새로운 *.FBX* 파일을 언리얼 에디터로 임포트할 준비가 되었습니다. [](Enterprise/Datasmith/HowTo/ImportingContent) 문서를 참고하세요.  
+
+[REGION:note]
+익스포터는 *.FBX* 파일 옆에 다른 파일도 추가로 만듭니다. *.lights* 파일에는 씬의 라이트 관련 추가 정보가, *.var* 파일에는 등록된 변수 관련 정보가 들어있습니다. 데이터스미스 임포터에 필요한 정보입니다. *.FBX* 파일을 새 위치로 이동하는 경우, 같은 상대 경로에 위의 추가 파일도 같이 이동해야 합니다.
+[/REGION]

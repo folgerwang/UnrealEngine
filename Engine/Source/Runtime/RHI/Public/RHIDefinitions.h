@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RHIDefinitions.h: Render Hardware Interface definitions
@@ -11,6 +11,14 @@
 #include "PixelFormat.h"
 #include "HAL/IConsoleManager.h"
 
+#ifndef RHI_RAYTRACING
+#if (PLATFORM_WINDOWS && PLATFORM_64BITS)
+	#define RHI_RAYTRACING 1
+#else
+	#define RHI_RAYTRACING 0
+#endif
+#endif
+
 enum EShaderFrequency
 {
 	SF_Vertex			= 0,
@@ -20,9 +28,15 @@ enum EShaderFrequency
 	SF_Geometry			= 4,
 	SF_Compute			= 5,
 
-	SF_NumFrequencies	= 6,
+	// Number of standard SM5-style graphics pipeline shader frequencies
+	SF_NumStandardFrequencies = 6,
 
-	SF_NumBits			= 3,
+	SF_RayGen			= 6,
+	SF_RayMiss			= 7,
+	SF_RayHitGroup		= 8,
+
+	SF_NumFrequencies	= 9,
+	SF_NumBits			= 4,
 };
 static_assert(SF_NumFrequencies <= (1 << SF_NumBits), "SF_NumFrequencies will not fit on SF_NumBits");
 
@@ -353,6 +367,7 @@ enum EVertexElementType
 	VET_UShort2N,		// 16 bit word normalized to (value/65535.0,value/65535.0,0,0,1)
 	VET_UShort4N,		// 4 X 16 bit word unsigned, normalized 
 	VET_URGB10A2N,		// 10 bit r, g, b and 2 bit a normalized to (value/1023.0f, value/1023.0f, value/1023.0f, value/3.0f)
+	VET_UInt,
 	VET_MAX,
 
 	VET_NumBits = 5,
@@ -380,22 +395,50 @@ enum EUniformBufferUsage
 	UniformBuffer_MultiFrame,
 };
 
+enum class EUniformBufferValidation
+{
+	None,
+	ValidateResources
+};
+
 /** The base type of a value in a uniform buffer. */
-enum EUniformBufferBaseType
+enum EUniformBufferBaseType : uint8
 {
 	UBMT_INVALID,
+
+	// Parameter types.
 	UBMT_BOOL,
 	UBMT_INT32,
 	UBMT_UINT32,
 	UBMT_FLOAT32,
-	UBMT_STRUCT,
-	UBMT_SRV,
-	UBMT_UAV,
-	UBMT_SAMPLER,
+
+	// RHI resources not tracked by render graph.
 	UBMT_TEXTURE,
+	UBMT_SRV,
+	UBMT_SAMPLER,
+
+	// Resources tracked by render graph.
+	UBMT_RDG_TEXTURE,
+	UBMT_RDG_TEXTURE_SRV,
+	UBMT_RDG_TEXTURE_UAV,
+	UBMT_RDG_BUFFER,
+	UBMT_RDG_BUFFER_SRV,
+	UBMT_RDG_BUFFER_UAV,
+
+	// Nested structure.
+	UBMT_NESTED_STRUCT,
+
+	// Structure that is nested on C++ side, but included on shader side.
+	UBMT_INCLUDED_STRUCT,
+
+	// GPU Indirection reference of struct, like is currently named Uniform buffer.
+	UBMT_REFERENCED_STRUCT,
+
+	// Structure dedicated to setup render targets for a rasterizer pass.
+	UBMT_RENDER_TARGET_BINDING_SLOTS,
 
 	EUniformBufferBaseType_Num,
-	EUniformBufferBaseType_NumBits = 4,
+	EUniformBufferBaseType_NumBits = 5,
 };
 static_assert(EUniformBufferBaseType_Num <= (1 << EUniformBufferBaseType_NumBits), "EUniformBufferBaseType_Num will not fit on EUniformBufferBaseType_NumBits");
 
@@ -603,6 +646,13 @@ enum EBufferUsageFlags
 	/** Buffer that should be accessed one byte at a time. */
 	BUF_UINT8             = 0x4000,
 
+	/**
+	 * Buffer contains opaque ray tracing acceleration structure data.
+	 * Resources with this flag can't be bound directly to any shader stage and only can be used with ray tracing APIs.
+	 * This flag is mutually exclusive with all other buffer flags except BUF_Static.
+	*/
+	BUF_AccelerationStructure = 0x8000,
+
 	// Helper bit-masks
 	BUF_AnyDynamic = (BUF_Dynamic | BUF_Volatile),
 };
@@ -655,13 +705,14 @@ enum ETextureCreateFlags
 	TexCreate_DepthStencilTargetable= 1<<2,
 	// Texture can be used as a shader resource.
 	TexCreate_ShaderResource		= 1<<3,
-
 	// Texture is encoded in sRGB gamma space
 	TexCreate_SRGB					= 1<<4,
 	// Texture data is writable by the CPU
 	TexCreate_CPUWritable			= 1<<5,
 	// Texture will be created with an un-tiled format
 	TexCreate_NoTiling				= 1<<6,
+	// Texture will be used for video decode on Switch
+	TexCreate_VideoDecode			= 1<<7,
 	// Texture that may be updated every frame
 	TexCreate_Dynamic				= 1<<8,
 	// Texture will be used as a render pass attachment that will be read from
@@ -674,6 +725,8 @@ enum ETextureCreateFlags
 	TexCreate_GenerateMipCapable	= 1<<12,
 	// The texture can be partially allocated in fastvram
 	TexCreate_FastVRAMPartialAlloc  = 1<<13,
+	// Do not create associated shader resource view, only applicable to D3D11 and D3D12
+	TexCreate_DisableSRVCreation = 1 << 14,
 	// UnorderedAccessView (DX11 only)
 	// Warning: Causes additional synchronization between draw calls when using a render target allocated with this flag, use sparingly
 	// See: GCNPerformanceTweets.pdf Tip 37
@@ -951,6 +1004,7 @@ inline ERHIFeatureLevel::Type GetMaxSupportedFeatureLevel(EShaderPlatform InShad
 	}
 }
 
+/* Returns true if the shader platform Platform is used to simulate a mobile feature level on a PC platform. */
 inline bool IsSimulatedPlatform(EShaderPlatform Platform)
 {
 	switch (Platform)
@@ -1018,7 +1072,7 @@ inline bool RHINeedsToSwitchVerticalAxis(EShaderPlatform Platform)
 inline bool RHISupportsSeparateMSAAAndResolveTextures(const EShaderPlatform Platform)
 {
 	// Metal mobile devices, Vulkan and Android ES2/3.1 need to handle MSAA and resolve textures internally (unless RHICreateTexture2D was changed to take an optional resolve target)
-	const bool bMobileMetalDevice = (Platform == SP_METAL || Platform == SP_METAL_TVOS || Platform == SP_METAL_MRT || Platform == SP_METAL_MRT_TVOS);
+	const bool bMobileMetalDevice = (Platform == SP_METAL || Platform == SP_METAL_TVOS);
 	return !bMobileMetalDevice && !IsVulkanPlatform(Platform) && !IsAndroidOpenGLESPlatform(Platform);
 }
 
@@ -1037,11 +1091,6 @@ inline bool RHIHasTiledGPU(const EShaderPlatform Platform)
 {
 	// @todo MetalMRT Technically we should include (Platform == SP_METAL_MRT) but this would disable depth-pre-pass which is currently required.
 	return Platform == SP_METAL || Platform == SP_METAL_TVOS || Platform == SP_OPENGL_ES2_IOS || Platform == SP_OPENGL_ES2_ANDROID || Platform == SP_OPENGL_ES3_1_ANDROID;
-}
-
-inline bool RHISupportsVertexShaderLayer(const EShaderPlatform Platform)
-{
-	return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) && IsPCPlatform(Platform) && IsMetalPlatform(Platform);
 }
 
 inline bool RHISupportsMobileMultiView(const EShaderPlatform Platform)
@@ -1092,9 +1141,42 @@ inline int32 GetFeatureLevelMaxNumberOfBones(ERHIFeatureLevel::Type FeatureLevel
 	return 0;
 }
 
-inline bool IsUniformBufferResourceType(EUniformBufferBaseType BaseType)
+/** Returns whether the shader parameter type is a reference onto a RDG resource. */
+inline bool IsRDGResourceReferenceShaderParameterType(EUniformBufferBaseType BaseType)
 {
-	return BaseType == UBMT_SRV || BaseType == UBMT_UAV || BaseType == UBMT_SAMPLER || BaseType == UBMT_TEXTURE;
+	return
+		BaseType == UBMT_RDG_TEXTURE ||
+		BaseType == UBMT_RDG_TEXTURE_SRV ||
+		BaseType == UBMT_RDG_TEXTURE_UAV ||
+		BaseType == UBMT_RDG_BUFFER ||
+		BaseType == UBMT_RDG_BUFFER_SRV ||
+		BaseType == UBMT_RDG_BUFFER_UAV;
+}
+
+/** Returns whether the shader parameter type needs to be passdown to RHI through FRHIUniformBufferLayout when creating an uniform buffer. */
+inline bool IsShaderParameterTypeForUniformBufferLayout(EUniformBufferBaseType BaseType)
+{
+	return
+		// RHI resource referenced in shader parameter structures.
+		BaseType == UBMT_TEXTURE ||
+		BaseType == UBMT_SRV ||
+		BaseType == UBMT_SAMPLER ||
+
+		// RHI is able to dereference the RHI resource allocated in FRDGResource::CachedRHI to avoid pain in the high level to passdown.
+		IsRDGResourceReferenceShaderParameterType(BaseType) ||
+
+		// #yuriy_todo: RHI is able to dereference uniform buffer in root shader parameter structures
+		// BaseType == UBMT_REFERENCED_STRUCT ||
+
+		// Render graph uses FRHIUniformBufferLayout to walk pass' parameters.
+		BaseType == UBMT_RENDER_TARGET_BINDING_SLOTS;
+}
+
+/** Returns whether the shader parameter type in FRHIUniformBufferLayout is actually ignored by the RHI. */
+inline bool IsShaderParameterTypeIgnoredByRHI(EUniformBufferBaseType BaseType)
+{
+	// Render targets bindings slots needs to be in FRHIUniformBufferLayout for render graph, but the RHI does not actually need to know about it.
+	return BaseType == UBMT_RENDER_TARGET_BINDING_SLOTS;
 }
 
 inline const TCHAR* GetShaderFrequencyString(EShaderFrequency Frequency, bool bIncludePrefix = true)
@@ -1108,7 +1190,11 @@ inline const TCHAR* GetShaderFrequencyString(EShaderFrequency Frequency, bool bI
 	case SF_Geometry:		String = TEXT("SF_Geometry"); break;
 	case SF_Pixel:			String = TEXT("SF_Pixel"); break;
 	case SF_Compute:		String = TEXT("SF_Compute"); break;
-	default:				
+	case SF_RayGen:			String = TEXT("SF_RayGen"); break;
+	case SF_RayMiss:		String = TEXT("SF_RayMiss"); break;
+	case SF_RayHitGroup:	String = TEXT("SF_RayHitGroup"); break;
+
+	default:
 		checkf(0, TEXT("Unknown ShaderFrequency %d"), (int32)Frequency);
 		break;
 	}

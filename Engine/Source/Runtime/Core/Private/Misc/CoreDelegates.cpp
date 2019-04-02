@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 // Core includes.
 #include "Misc/CoreDelegates.h"
@@ -96,6 +96,7 @@ FCoreDelegates::FApplicationLifetimeDelegate FCoreDelegates::ApplicationShouldUn
 FCoreDelegates::FApplicationStartupArgumentsDelegate FCoreDelegates::ApplicationReceivedStartupArgumentsDelegate;
 
 FCoreDelegates::FUserMusicInterruptDelegate FCoreDelegates::UserMusicInterruptDelegate;
+FCoreDelegates::FAudioRouteChangedDelegate FCoreDelegates::AudioRouteChangedDelegate;
 FCoreDelegates::FAudioMuteDelegate FCoreDelegates::AudioMuteDelegate;
 FCoreDelegates::FApplicationRequestAudioState FCoreDelegates::ApplicationRequestAudioState;
 
@@ -181,12 +182,12 @@ FSimpleMulticastDelegate& FCoreDelegates::GetOutOfMemoryDelegate()
 
 FCoreDelegates::FGetOnScreenMessagesDelegate FCoreDelegates::OnGetOnScreenMessages;
 
-typedef void(*TSigningKeyFunc)(uint8[64], uint8[64]);
+typedef void(*TSigningKeyFunc)(TArray<uint8>&, TArray<uint8>&);
 typedef void(*TEncryptionKeyFunc)(unsigned char[32]);
 
 void RegisterSigningKeyCallback(TSigningKeyFunc InCallback)
 {
-	FCoreDelegates::GetPakSigningKeysDelegate().BindLambda([InCallback](uint8 OutExponent[64], uint8 OutModulus[64])
+	FCoreDelegates::GetPakSigningKeysDelegate().BindLambda([InCallback](TArray<uint8>& OutExponent, TArray<uint8>& OutModulus)
 	{
 		InCallback(OutExponent, OutModulus);
 	});
@@ -199,3 +200,4 @@ void RegisterEncryptionKeyCallback(TEncryptionKeyFunc InCallback)
 		InCallback(OutKey);
 	});
 }
+

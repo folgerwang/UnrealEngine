@@ -1,9 +1,9 @@
-﻿INTSourceChangelist:3457813
+﻿INTSourceChangelist:3736300
 Availability:Public
 Title:2 - 设置 Android 设备
 Crumbs:%ROOT%
 Description: 学习如何启用 Android 的开发环境。
-Version:4.14
+Version:4.17
 type:quick start
 parent:Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux
 order:2
@@ -20,6 +20,7 @@ Contributor:yaakuro
 执行以下步骤前先准备一条 USB 线。
 [/REGION]
 
+(#EnablingAndroid'sDeveloperOptions)
 ## 启用 Android 的开发者选项
 [EXCERPT:AndroidLinux_2]
 1.	用 USB 线将 Android 设备和 Linux 电脑连接。
@@ -50,6 +51,7 @@ Contributor:yaakuro
 	可访问 [Android 用户指南](https://developer.android.com/studio/debug/dev-options.html)，了解在 Android 设备上启用开发者选项的更多说明。
 	[/REGION]
 
+(#EnablingUSBDebugging)
 ## 启用 USB 调试
 
 1.	在 **Developer Options** 菜单中启用 **USB debugging**。
@@ -86,6 +88,7 @@ Contributor:yaakuro
 	[/REGION]
 [/EXCERPT:AndroidLinux_2]
 
+(#EndResult)
 ## 最终结果
 
 此时即可验证设备是否能在 Linux 电脑上进行调试。如需验证设备已正确设置，打开终端并输入 `adb devices`。

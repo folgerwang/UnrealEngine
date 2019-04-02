@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Evaluation/MovieSceneAudioTemplate.h"
 
@@ -18,6 +18,7 @@
 
 
 DECLARE_CYCLE_STAT(TEXT("Audio Track Evaluate"), MovieSceneEval_AudioTrack_Evaluate, STATGROUP_MovieSceneEval);
+DECLARE_CYCLE_STAT(TEXT("Audio Track Tear Down"), MovieSceneEval_AudioTrack_TearDown, STATGROUP_MovieSceneEval);
 DECLARE_CYCLE_STAT(TEXT("Audio Track Token Execute"), MovieSceneEval_AudioTrack_TokenExecute, STATGROUP_MovieSceneEval);
 
 
@@ -164,6 +165,20 @@ struct FCachedAudioTrackData : IPersistentEvaluationData
 		for (TMap<FObjectKey, TWeakObjectPtr<UAudioComponent>>& Map : AudioComponentsByRow)
 		{
 			for (auto& Pair : Map)
+			{
+				if (UAudioComponent* AudioComponent = Pair.Value.Get())
+				{
+					AudioComponent->Stop();
+				}
+			}
+		}
+	}
+
+	void StopSoundsOnRow(int32 RowIndex)
+	{
+		if (RowIndex >= 0 && RowIndex < AudioComponentsByRow.Num())
+		{
+			for (auto& Pair : AudioComponentsByRow[RowIndex])
 			{
 				if (UAudioComponent* AudioComponent = Pair.Value.Get())
 				{
@@ -330,8 +345,11 @@ void FMovieSceneAudioSectionTemplateData::EnsureAudioIsPlaying(UAudioComponent& 
 			AudioComponent.bIsUISound = false;
 		}
 
-		const float AudioTime = (Context.GetTime() / Context.GetFrameRate()) - SectionStartTimeSeconds + FMath::Max(AudioStartOffset, 0.f);
-		AudioComponent.Play(AudioTime);
+		const float AudioTime = (Context.GetTime() / Context.GetFrameRate()) - SectionStartTimeSeconds + (float)Context.GetFrameRate().AsSeconds(AudioStartOffset);
+		if (AudioTime >= 0.f && AudioTime < AudioComponent.Sound->GetDuration())
+		{
+			AudioComponent.Play(AudioTime);
+		}
 
 		if (Context.GetStatus() == EMovieScenePlayerStatus::Scrubbing)
 		{
@@ -384,12 +402,12 @@ void FMovieSceneAudioSectionTemplate::Evaluate(const FMovieSceneEvaluationOperan
 
 void FMovieSceneAudioSectionTemplate::TearDown(FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) const
 {
-	MOVIESCENE_DETAILED_SCOPE_CYCLE_COUNTER(MovieSceneEval_AudioTrack_Teardown)
+	MOVIESCENE_DETAILED_SCOPE_CYCLE_COUNTER(MovieSceneEval_AudioTrack_TearDown)
 
 	if (GEngine && GEngine->UseSound())
 	{
 		FCachedAudioTrackData& TrackData = PersistentData.GetOrAddTrackData<FCachedAudioTrackData>();
 
-		TrackData.StopAllSounds();
+		TrackData.StopSoundsOnRow(AudioData.RowIndex);
 	}
 }

@@ -1,10 +1,7 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-
-/*=============================================================================
-	BuildPatchServicesModule.cpp: Implements the FBuildPatchServicesModule class.
-=============================================================================*/
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "BuildPatchServicesModule.h"
+
 #include "Containers/Ticker.h"
 #include "Algo/Transform.h"
 #include "Misc/ConfigCacheIni.h"
@@ -17,20 +14,21 @@
 #include "Modules/ModuleManager.h"
 #include "HttpModule.h"
 #include "HttpManager.h"
+
+#include "Compactify/PatchDataCompactifier.h"
 #include "Data/ManifestData.h"
+#include "Diffing/DiffManifests.h"
+#include "Enumeration/PatchDataEnumeration.h"
+#include "Generation/ChunkDeltaOptimiser.h"
+#include "Generation/PackageChunkData.h"
 #include "Installer/BuildStatistics.h"
 #include "Installer/MachineConfig.h"
-#include "BuildPatchCompactifier.h"
-#include "BuildPatchDataEnumeration.h"
 #include "BuildPatchMergeManifests.h"
-#include "BuildPatchDiffManifests.h"
 #include "BuildPatchHash.h"
 #include "BuildPatchGeneration.h"
 #include "BuildPatchServicesPrivate.h"
-#include "BuildPatchPackageChunkData.h"
 #include "BuildPatchVerifyChunkData.h"
 #include "BuildPatchServicesSingleton.h"
-
 
 using namespace BuildPatchServices;
 
@@ -223,6 +221,8 @@ IBuildInstallerRef FBuildPatchServicesModule::StartBuildInstall(BuildPatchServic
 	Installer->StartInstallation();
 	BuildPatchInstallers.Add(Installer);
 	BuildPatchInstallerInterfaces.Add(Installer);
+
+	OnStartBuildInstall().Broadcast();
 	return Installer;
 }
 
@@ -266,20 +266,30 @@ bool FBuildPatchServicesModule::Tick(float Delta)
 	return true;
 }
 
-bool FBuildPatchServicesModule::GenerateChunksManifestFromDirectory(const BuildPatchServices::FGenerationConfiguration& Settings)
+bool FBuildPatchServicesModule::ChunkBuildDirectory(const BuildPatchServices::FChunkBuildConfiguration& Configuration)
 {
-	return FBuildDataGenerator::GenerateChunksManifestFromDirectory( Settings );
+	return FBuildDataGenerator::ChunkBuildDirectory(Configuration);
 }
 
-bool FBuildPatchServicesModule::CompactifyCloudDirectory(const FString& CloudDirectory, float DataAgeThreshold, ECompactifyMode::Type Mode, const FString& DeletedChunkLogFile)
+bool FBuildPatchServicesModule::OptimiseChunkDelta(const BuildPatchServices::FChunkDeltaOptimiserConfiguration& Configuration)
 {
-	const bool bPreview = Mode == ECompactifyMode::Preview;
-	return FBuildDataCompactifier::CompactifyCloudDirectory(CloudDirectory, DataAgeThreshold, bPreview, DeletedChunkLogFile);
+	using namespace BuildPatchServices;
+	TUniquePtr<IChunkDeltaOptimiser> ChunkDeltaOptimiser(FChunkDeltaOptimiserFactory::Create(Configuration));
+	return ChunkDeltaOptimiser->Run();
 }
 
-bool FBuildPatchServicesModule::EnumeratePatchData(const FString& InputFile, const FString& OutputFile, bool bIncludeSizes)
+bool FBuildPatchServicesModule::CompactifyCloudDirectory(const BuildPatchServices::FCompactifyConfiguration& Configuration)
 {
-	return FBuildDataEnumeration::EnumeratePatchData(InputFile, OutputFile, bIncludeSizes);
+	using namespace BuildPatchServices;
+	TUniquePtr<IPatchDataCompactifier> PatchDataCompactifier(FPatchDataCompactifierFactory::Create(Configuration));
+	return PatchDataCompactifier->Run();
+}
+
+bool FBuildPatchServicesModule::EnumeratePatchData(const BuildPatchServices::FPatchDataEnumerationConfiguration& Configuration)
+{
+	using namespace BuildPatchServices;
+	TUniquePtr<IPatchDataEnumeration> PatchDataEnumeration(FPatchDataEnumerationFactory::Create(Configuration));
+	return PatchDataEnumeration->Run();
 }
 
 bool FBuildPatchServicesModule::VerifyChunkData(const FString& SearchPath, const FString& OutputFile)
@@ -287,9 +297,11 @@ bool FBuildPatchServicesModule::VerifyChunkData(const FString& SearchPath, const
 	return FBuildVerifyChunkData::VerifyChunkData(SearchPath, OutputFile);
 }
 
-bool FBuildPatchServicesModule::PackageChunkData(const FString& ManifestFilePath, const FString& PrevManifestFilePath, const TArray<TSet<FString>>& TagSetArray, const FString& OutputFile, const FString& CloudDir, uint64 MaxOutputFileSize, const FString& ResultDataFilePath)
+bool FBuildPatchServicesModule::PackageChunkData(const BuildPatchServices::FPackageChunksConfiguration& Configuration)
 {
-	return FBuildPackageChunkData::PackageChunkData(ManifestFilePath, PrevManifestFilePath, TagSetArray, OutputFile, CloudDir, MaxOutputFileSize, ResultDataFilePath);
+	using namespace BuildPatchServices;
+	TUniquePtr<IPackageChunks> PackageChunks(FPackageChunksFactory::Create(Configuration));
+	return PackageChunks->Run();
 }
 
 bool FBuildPatchServicesModule::MergeManifests(const FString& ManifestFilePathA, const FString& ManifestFilePathB, const FString& ManifestFilePathC, const FString& NewVersionString, const FString& SelectionDetailFilePath)
@@ -297,9 +309,16 @@ bool FBuildPatchServicesModule::MergeManifests(const FString& ManifestFilePathA,
 	return FBuildMergeManifests::MergeManifests(ManifestFilePathA, ManifestFilePathB, ManifestFilePathC, NewVersionString, SelectionDetailFilePath);
 }
 
-bool FBuildPatchServicesModule::DiffManifests(const FString& ManifestFilePathA, const TSet<FString>& TagSetA, const FString& ManifestFilePathB, const TSet<FString>& TagSetB, const TArray<TSet<FString>>& CompareTagSets, const FString& OutputFilePath)
+bool FBuildPatchServicesModule::DiffManifests(const BuildPatchServices::FDiffManifestsConfiguration& Configuration)
 {
-	return FBuildDiffManifests::DiffManifests(ManifestFilePathA, TagSetA, ManifestFilePathB, TagSetB, CompareTagSets, OutputFilePath);
+	using namespace BuildPatchServices;
+	TUniquePtr<IDiffManifests> DiffManifests(FDiffManifestsFactory::Create(Configuration));
+	return DiffManifests->Run();
+}
+
+FBuildPatchServicesModule::FSimpleEvent& FBuildPatchServicesModule::OnStartBuildInstall()
+{
+	return OnStartBuildInstallEvent;
 }
 
 void FBuildPatchServicesModule::SetStagingDirectory( const FString& StagingDir )

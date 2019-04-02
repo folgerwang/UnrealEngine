@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Stack/SNiagaraStackFunctionInputValue.h"
 #include "ViewModels/Stack/NiagaraStackFunctionInput.h"
@@ -23,6 +23,8 @@
 #include "IStructureDetailsView.h"
 #include "SDropTarget.h"
 #include "Modules/ModuleManager.h"
+#include "AssetRegistryModule.h"
+#include "NiagaraParameterCollection.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraStackFunctionInputValue"
 
@@ -95,6 +97,7 @@ void SNiagaraStackFunctionInputValue::Construct(const FArguments& InArgs, UNiaga
 						SNew(STextBlock)
 						.TextStyle(FNiagaraEditorStyle::Get(), "NiagaraEditor.ParameterText")
 						.Text(this, &SNiagaraStackFunctionInputValue::GetLinkedValueHandleText)
+						.OnDoubleClicked(this, &SNiagaraStackFunctionInputValue::OnLinkedInputDoubleClicked)
 					]
 				]
 
@@ -220,6 +223,15 @@ void SNiagaraStackFunctionInputValue::Construct(const FArguments& InArgs, UNiaga
 			]
 		]
 	];
+}
+
+void SNiagaraStackFunctionInputValue::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+{
+	if (FunctionInput->GetIsDynamicInputScriptReassignmentPending())
+	{
+		FunctionInput->SetIsDynamicInputScriptReassignmentPending(false);
+		ShowReassignDynamicInputScriptMenu();
+	}
 }
 
 bool SNiagaraStackFunctionInputValue::GetInputEnabled() const
@@ -413,6 +425,29 @@ FReply SNiagaraStackFunctionInputValue::DynamicInputTextDoubleClicked()
 	return FReply::Unhandled();
 }
 
+FReply SNiagaraStackFunctionInputValue::OnLinkedInputDoubleClicked()
+{
+	FString ParamCollection;
+	FString ParamName;
+	FunctionInput->GetLinkedValueHandle().GetName().ToString().Split(TEXT("."), &ParamCollection, &ParamName);
+
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	TArray<FAssetData> CollectionAssets;
+	AssetRegistryModule.Get().GetAssetsByClass(UNiagaraParameterCollection::StaticClass()->GetFName(), CollectionAssets);
+
+	for (FAssetData& CollectionAsset : CollectionAssets)
+	{
+		UNiagaraParameterCollection* Collection = CastChecked<UNiagaraParameterCollection>(CollectionAsset.GetAsset());
+		if (Collection && Collection->GetNamespace() == *ParamCollection)
+		{
+			FAssetEditorManager::Get().OpenEditorForAsset(Collection);
+			return FReply::Handled();
+		}
+	}
+
+	return FReply::Unhandled();
+}
+
 TSharedRef<SExpanderArrow> SNiagaraStackFunctionInputValue::CreateCustomNiagaraFunctionInputActionExpander(const FCustomExpanderData& ActionMenuData)
 {
 	return SNew(SNiagaraFunctionInputActionMenuExpander, ActionMenuData);
@@ -497,6 +532,7 @@ void SNiagaraStackFunctionInputValue::CollectAllActions(FGraphActionListBuilderB
 	TArray<FNiagaraParameterHandle> AvailableHandles;
 	FunctionInput->GetAvailableParameterHandles(AvailableHandles);
 
+	TArray<FNiagaraParameterHandle> ParameterCollectionHandles;
 	TArray<FNiagaraParameterHandle> UserHandles;
 	TArray<FNiagaraParameterHandle> EngineHandles;
 	TArray<FNiagaraParameterHandle> SystemHandles;
@@ -505,7 +541,11 @@ void SNiagaraStackFunctionInputValue::CollectAllActions(FGraphActionListBuilderB
 	TArray<FNiagaraParameterHandle> OtherHandles;
 	for (const FNiagaraParameterHandle AvailableHandle : AvailableHandles)
 	{
-		if (AvailableHandle.IsUserHandle())
+		 if (AvailableHandle.IsParameterCollectionHandle())
+		{
+			ParameterCollectionHandles.Add(AvailableHandle);
+		}
+		else if (AvailableHandle.IsUserHandle())
 		{
 			UserHandles.Add(AvailableHandle);
 		}
@@ -546,6 +586,7 @@ void SNiagaraStackFunctionInputValue::CollectAllActions(FGraphActionListBuilderB
 			}
 		};
 
+		AddMenuItemsForHandleList(ParameterCollectionHandles, LOCTEXT("NPC", "Parameter Collections"));
 		AddMenuItemsForHandleList(UserHandles, LOCTEXT("UserSection", "User Exposed"));
 		AddMenuItemsForHandleList(EngineHandles, LOCTEXT("EngineSection", "Engine"));
 		AddMenuItemsForHandleList(SystemHandles, LOCTEXT("SystemSection", "System"));
@@ -764,6 +805,51 @@ bool SNiagaraStackFunctionInputValue::OnFunctionInputAllowDrop(TSharedPtr<FDragD
 	}
 
 	return false;
+}
+
+void ReassignDynamicInputScript(UNiagaraStackFunctionInput* FunctionInput, UNiagaraScript* NewDynamicInputScript)
+{
+	FunctionInput->ReassignDynamicInputScript(NewDynamicInputScript);
+}
+
+void CollectDynamicInputActions(FGraphActionListBuilderBase& DynamicInputActions, UNiagaraStackFunctionInput* FunctionInput)
+{
+	const FText CategoryName = LOCTEXT("DynamicInputValueCategory", "Dynamic Inputs");
+	TArray<UNiagaraScript*> DynamicInputScripts;
+	FunctionInput->GetAvailableDynamicInputs(DynamicInputScripts);
+	for (UNiagaraScript* DynamicInputScript : DynamicInputScripts)
+	{
+		const FText DynamicInputText = FText::FromString(FName::NameToDisplayString(DynamicInputScript->GetName(), false));
+		const FText Tooltip = FNiagaraEditorUtilities::FormatScriptAssetDescription(DynamicInputScript->Description, *DynamicInputScript->GetPathName());
+		TSharedPtr<FNiagaraMenuAction> DynamicInputAction(new FNiagaraMenuAction(CategoryName, DynamicInputText, Tooltip, 0, DynamicInputScript->Keywords,
+			FNiagaraMenuAction::FOnExecuteStackAction::CreateStatic(&ReassignDynamicInputScript, FunctionInput, DynamicInputScript)));
+		DynamicInputActions.AddAction(DynamicInputAction);
+	}
+}
+
+void SNiagaraStackFunctionInputValue::ShowReassignDynamicInputScriptMenu()
+{
+	TSharedRef<SBorder> MenuWidget = SNew(SBorder)
+		.BorderImage(FEditorStyle::GetBrush("Menu.Background"))
+		.Padding(5)
+		[
+			SNew(SBox)
+			.WidthOverride(300)
+			.HeightOverride(400)
+			[
+				SNew(SGraphActionMenu)
+				.OnActionSelected(this, &SNiagaraStackFunctionInputValue::OnActionSelected)
+				.OnCollectAllActions_Static(CollectDynamicInputActions, FunctionInput)
+				.AutoExpandActionMenu(true)
+				.ShowFilterTextBox(true)
+				.OnCreateCustomRowExpander_Static(&CreateCustomNiagaraFunctionInputActionExpander)
+			]
+		];
+
+	FGeometry ThisGeometry = GetCachedGeometry();
+	bool bAutoAdjustForDpiScale = false; // Don't adjust for dpi scale because the push menu command is expecting an unscaled position.
+	FVector2D MenuPosition = FSlateApplication::Get().CalculatePopupWindowPosition(ThisGeometry.GetLayoutBoundingRect(), MenuWidget->GetDesiredSize(), bAutoAdjustForDpiScale);
+	FSlateApplication::Get().PushMenu(AsShared(), FWidgetPath(), MenuWidget, MenuPosition, FPopupTransitionEffect::ContextMenu);
 }
 
 #undef LOCTEXT_NAMESPACE

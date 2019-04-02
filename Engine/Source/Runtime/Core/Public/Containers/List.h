@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -459,7 +459,17 @@ public:
 			return NextNode;
 		}
 
+		const TDoubleLinkedListNode* GetNextNode() const
+		{
+			return NextNode;
+		}
+
 		TDoubleLinkedListNode* GetPrevNode()
+		{
+			return PrevNode;
+		}
+
+		const TDoubleLinkedListNode* GetPrevNode() const
 		{
 			return PrevNode;
 		}

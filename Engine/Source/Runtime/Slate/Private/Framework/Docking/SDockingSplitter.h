@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -75,6 +75,9 @@ public:
 	
 	/** Recursively searches through all children looking for child tabs */
 	virtual TArray< TSharedRef<SDockTab> > GetAllChildTabs() const override;
+
+	/** Should this node auto-size or be a percentage of its parent size */
+	virtual SSplitter::ESizeRule GetSizeRule() const override;
 
 	/** Gets the size coefficient of a given child dock node */
 	float GetSizeCoefficientForSlot(int32 Index) const;

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Framework/Application/AnalogCursor.h"
 #include "InputCoreTypes.h"
@@ -280,7 +280,7 @@ void FAnalogCursor::UpdateCursorPosition(FSlateApplication& SlateApp, TSharedRef
 
 		//create a new mouse event
 		FPointerEvent MouseEvent(
-			0,
+			SlateApp.CursorPointerIndex,
 			UpdatedPosition,
 			OldPosition,
 			SlateApp.GetPressedMouseButtons(),

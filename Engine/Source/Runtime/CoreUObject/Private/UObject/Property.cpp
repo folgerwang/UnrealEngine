@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Property.cpp: UProperty implementation
@@ -352,6 +352,13 @@ struct TStructOpsTypeTraits<FPrimaryAssetId> : public TStructOpsTypeTraitsBase2<
 	};
 };
 IMPLEMENT_STRUCT(PrimaryAssetId);
+
+template<>
+struct TStructOpsTypeTraits<FFallbackStruct> : public TStructOpsTypeTraitsBase2<FFallbackStruct>
+{
+};
+IMPLEMENT_STRUCT(FallbackStruct);
+
 /*-----------------------------------------------------------------------------
 	Helpers.
 -----------------------------------------------------------------------------*/
@@ -366,17 +373,24 @@ const TCHAR* UPropertyHelpers::ReadToken( const TCHAR* Buffer, FString& String, 
 		int32 NumCharsRead = 0;
 		if (!FParse::QuotedString(Buffer, String, &NumCharsRead))
 		{
-			UE_LOG(LogProperty, Warning, TEXT("ReadToken: Bad quoted string") );
+			UE_LOG(LogProperty, Warning, TEXT("ReadToken: Bad quoted string: %s"), Buffer );
 			return nullptr;
 		}
 		Buffer += NumCharsRead;
 	}
 	else if( FChar::IsAlnum( *Buffer ) || (DottedNames && (*Buffer==TCHAR('/'))) || (*Buffer > 255) )
 	{
+		const TCHAR* StartIdentifier = Buffer;
 		// Get identifier.
 		while ((FChar::IsAlnum(*Buffer) || (*Buffer > 255) || *Buffer == TCHAR('_') || *Buffer == TCHAR('-') || *Buffer == TCHAR('+') || (DottedNames && (*Buffer == TCHAR('.') || *Buffer == TCHAR('/') || *Buffer == SUBOBJECT_DELIMITER_CHAR))))
 		{
-			String += *Buffer++;
+			Buffer++;
+		}
+
+		if (StartIdentifier != Buffer)
+		{
+			// Efficiently copy/allocate
+			String.AppendChars(StartIdentifier, Buffer - StartIdentifier);
 		}
 	}
 	else

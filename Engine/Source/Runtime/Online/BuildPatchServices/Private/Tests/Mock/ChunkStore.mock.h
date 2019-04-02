@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "Installer/ChunkStore.h"
@@ -15,7 +15,7 @@ namespace BuildPatchServices
 		typedef TTuple<double, FGuid> FPut;
 		typedef TTuple<double, IChunkDataAccess*, FGuid> FGet;
 		typedef TTuple<double, FGuid> FRemove;
-		typedef TTuple<double, int32> FGetSlack;
+		typedef TTuple<double, int32> FGetSize;
 
 	public:
 		virtual void Put(const FGuid& DataId, TUniquePtr<IChunkDataAccess> ChunkData) override
@@ -35,9 +35,9 @@ namespace BuildPatchServices
 			return TUniquePtr<IChunkDataAccess>();
 		}
 
-		virtual int32 GetSlack() const
+		virtual int32 GetSize() const override
 		{
-			RxGetSlack.Emplace(FStatsCollector::GetSeconds(), INDEX_NONE);
+			RxGetSize.Emplace(FStatsCollector::GetSeconds(), INDEX_NONE);
 			return INDEX_NONE;
 		}
 
@@ -50,7 +50,7 @@ namespace BuildPatchServices
 		mutable TArray<FPut> RxPut;
 		mutable TArray<FGet> RxGet;
 		mutable TArray<FRemove> RxRemove;
-		mutable TArray<FGetSlack> RxGetSlack;
+		mutable TArray<FGetSize> RxGetSize;
 	};
 }
 

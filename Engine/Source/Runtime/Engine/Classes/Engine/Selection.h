@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /**
  * Manages selections of objects.  Used in the editor for selecting
@@ -317,7 +317,7 @@ public:
 	 *
 	 * @return			The selected class at the specified index.
 	 */
-	DEPRECATED(4.14, "GetSelectedClass is deprecated.  Use IsClassSelected or a class iterator to search through classes")
+	UE_DEPRECATED(4.14, "GetSelectedClass is deprecated.  Use IsClassSelected or a class iterator to search through classes")
 	UClass* GetSelectedClass(int32 InIndex) const
 	{
 		FSetElementId Id = FSetElementId::FromInteger(InIndex);

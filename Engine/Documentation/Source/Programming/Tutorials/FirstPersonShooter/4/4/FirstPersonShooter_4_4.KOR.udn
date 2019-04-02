@@ -9,7 +9,7 @@ Version: 4.15
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 단계](Programming/Tutorials/FirstPersonShooter/4/3)
+		[이전 단계](Programming/Tutorials/FirstPersonShooter/4/3)
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -32,7 +32,7 @@ Version: 4.15
 *	JumpEnd (점프 끝)
 *	JumpLoop (점프 반복)
 
-1.	그래프에 **우클릭** 한 다음 맥락 메뉴에서 **Add State...** (스테이트 머신 새로 추가)를 선택합니다.
+1.	그래프에 **우클릭** 한 다음 컨텍스트 메뉴에서 **Add State...** (스테이트 머신 새로 추가)를 선택합니다.
 
 	![](AddState.png)
 
@@ -40,7 +40,7 @@ Version: 4.15
 
 1.	스테이트를 더블클릭하여 편집을 시작합니다.
 
-1.	그래프 영역에 **우클릭** 한 다음 **맥락 메뉴** 에서 Idle 을 검색합니다.
+1.	그래프 영역에 **우클릭** 한 다음 **컨텍스트 메뉴** 에서 Idle 을 검색합니다.
 
 1.	**Play FPP_Idle** 를 **클릭** 하여 노드를 삽입합니다.
 

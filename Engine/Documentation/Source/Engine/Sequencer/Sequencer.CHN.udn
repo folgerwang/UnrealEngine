@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3429248
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Sequencer 编辑器
 Crumbs: %ROOT%, Engine
@@ -24,14 +24,12 @@ tags:Sequencer
 
 可在 Epic Games Launcher 的 Learn 标签中下载的 Sequencer Subway 项目范例将为您展示如何使用虚幻引擎 4 的 Sequencer 编辑器创建电影级的动画序列。 
 
+(#StartingOut)
 ## 开始
 
-[DIR(output:"topic" parent:"Engine/Sequencer" org:"hierarchy" end:"1" tags:"Getting Started")]
+[DIR(output:"topic" parent:"Engine/Sequencer" org:"hierarchy" end:"1" type:"landing,overview,reference,quick start")]
 
-## 概要
-
-[DIR(output:"topic" parent:"Engine/Sequencer" org:"hierarchy" tags:"!Getting Started" path:"!Engine/Sequencer/HowTo")]
-
+(#Guides)
 ## 指南
 
 [DIR(output:"fancy" parent:"Engine/Sequencer/HowTo" org:"hierarchy" skill_Level:"Beginner")]
@@ -39,14 +37,7 @@ tags:Sequencer
 [DIR(output:"fancy" parent:"Engine/Sequencer/HowTo" org:"hierarchy" skill_Level:"Advanced")]
 
 
+(#Samples)
 ## 示例
 
 [DIR(output:"topiccompact" parent:"Resources/Showcases" tags:"Sequencer")]
-
-[COMMENT:none]
- Killing this for now while the current does get updates instead.
-* [](Engine\Sequencer\QuickStart "%Engine\Sequencer\QuickStart:description%")
-
-[/COMMENT]
-
-

@@ -1,13 +1,14 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
-#include "DisplayClusterClusterNodeCtrlBase.h"
+#include "Cluster/Controller/DisplayClusterClusterNodeCtrlBase.h"
 #include "Network/DisplayClusterMessage.h"
 
 class FDisplayClusterClusterSyncClient;
 class FDisplayClusterSwapSyncClient;
+class FDisplayClusterClusterEventsClient;
 
 
 /**
@@ -39,12 +40,19 @@ public:
 	virtual void GetTimecode(FTimecode& timecode, FFrameRate& frameRate) override;
 	virtual void GetSyncData(FDisplayClusterMessage::DataType& data)  override;
 	virtual void GetInputData(FDisplayClusterMessage::DataType& data) override;
+	virtual void GetEventsData(FDisplayClusterMessage::DataType& data) override;
 
 public:
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	// IPDisplayClusterSwapSyncProtocol
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	virtual void WaitForSwapSync(double* pThreadWaitTime, double* pBarrierWaitTime) override final;
+
+public:
+	//////////////////////////////////////////////////////////////////////////////////////////////
+	// IPDisplayClusterClusterEventsProtocol
+	//////////////////////////////////////////////////////////////////////////////////////////////
+	virtual void EmitClusterEvent(const FDisplayClusterClusterEvent& Event) override;
 
 protected:
 	//////////////////////////////////////////////////////////////////////////////////////////////
@@ -60,7 +68,8 @@ protected:
 
 private:
 	// Cluster node clients
-	TUniquePtr<FDisplayClusterClusterSyncClient> ClusterSyncClient;
-	TUniquePtr<FDisplayClusterSwapSyncClient>    SwapSyncClient;
+	TUniquePtr<FDisplayClusterClusterSyncClient>   ClusterSyncClient;
+	TUniquePtr<FDisplayClusterSwapSyncClient>      SwapSyncClient;
+	TUniquePtr<FDisplayClusterClusterEventsClient> ClusterEventsClient;
 };
 

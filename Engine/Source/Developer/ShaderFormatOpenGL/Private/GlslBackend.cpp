@@ -1,4 +1,5 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// .
 
 // This code is largely based on that in ir_print_glsl_visitor.cpp from
 // glsl-optimizer.
@@ -1658,15 +1659,15 @@ class ir_gen_glsl_visitor : public ir_visitor
 		{
 			if (bIsStructured)
 			{
-				if (src)
-				{
-					src->accept(this);
-					ralloc_asprintf_append(buffer, " = ");
-				}
 				deref->image->accept(this);
 				ralloc_asprintf_append(buffer, "[");
 				deref->image_index->accept(this);
 				ralloc_asprintf_append(buffer, "]");
+				if (src)
+				{
+					ralloc_asprintf_append(buffer, " = ");
+					src->accept(this);
+				}
 			}
 			else
 			{
@@ -4709,9 +4710,7 @@ void GenShaderOutputForVariable(
 	FSemanticQualifier OutputQualifier,
 	ir_dereference* OutputVariableDeref,
 	exec_list* DeclInstructions,
-	exec_list* PostCallInstructions,
-	int SemanticArraySize,
-	int SemanticArrayIndex
+	exec_list* PostCallInstructions
 	)
 {
 	const glsl_type* OutputType = OutputVariableDeref->type;
@@ -4771,9 +4770,7 @@ void GenShaderOutputForVariable(
 					Qualifier,
 					FieldDeref,
 					DeclInstructions,
-					PostCallInstructions,
-					SemanticArraySize,
-					SemanticArrayIndex
+					PostCallInstructions
 					);
 			}
 			else
@@ -4812,9 +4809,7 @@ void GenShaderOutputForVariable(
 					OutputQualifier,
 					ArrayDeref,
 					DeclInstructions,
-					PostCallInstructions,
-					SemanticArraySize,
-					SemanticArrayIndex
+					PostCallInstructions
 					);
 			}
 		}
@@ -4930,9 +4925,7 @@ static ir_dereference_variable* GenShaderOutput(
 		OutputQualifier,
 		TempVariableDeref,
 		DeclInstructions,
-		PostCallInstructions,
-		0,
-		0
+		PostCallInstructions
 		);
 	return TempVariableDeref;
 }
@@ -4975,9 +4968,7 @@ static void GenerateAppendFunctionBody(
 		OutputQualifier,
 		TempVariableDeref,
 		DeclInstructions,
-		&sig->body,
-		0,
-		0
+		&sig->body
 		);
 
 	// If the output structure type contains a SV_RenderTargetArrayIndex semantic, add a custom user output semantic.
@@ -5021,9 +5012,7 @@ static void GenerateAppendFunctionBody(
 			Qualifier,
 			new(ParseState)ir_dereference_record(var, new_output_type->fields.structure[indexof_RenderTargetArrayIndex].name),
 			DeclInstructions,
-			&sig->body,
-			0,
-			0
+			&sig->body
 			);
 	}
 

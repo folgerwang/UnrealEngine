@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Audio.h: Unreal base audio.
@@ -427,6 +427,9 @@ public:
 	/** The absolute position of the wave instance relative to forward vector of listener. */
 	float AbsoluteAzimuth; 
 
+	/** The playback time of the wave instance. Updated from active sound. */
+	float PlaybackTime;
+
 	/** The reverb send method to use. */
 	EReverbSendMethod ReverbSendMethod;
 
@@ -489,6 +492,9 @@ public:
 
 	/** Returns the distance attenuation of the source voice. */
 	float GetDistanceAttenuation() const;
+
+	/** Returns the dynamic volume of the sound */
+	float GetDynamicVolume() const;
 
 	/** Returns the volume of the wave instance (ignoring application muting) */
 	float GetVolume() const;
@@ -558,7 +564,7 @@ public:
 	virtual bool ReadCompressedInfo(USoundWave* SoundWave) { return true; }
 
 	/** Reads the next compressed data chunk */
-	virtual bool ReadCompressedData(uint8* Destination, bool bLooping) { return true; }
+	virtual bool ReadCompressedData(uint8* Destination, int32 NumFramesToDecode, bool bLooping) { return true; }
 	
 	/** Seeks the buffer to the given seek time */
 	virtual void Seek(const float SeekTime) {}
@@ -842,7 +848,6 @@ protected:
 	friend class FAudioDevice;
 	friend struct FActiveSound;
 };
-
 
 /*-----------------------------------------------------------------------------
 	FWaveModInfo. 

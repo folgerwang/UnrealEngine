@@ -15,7 +15,7 @@ checkpoint: editorqs
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-	[예전 단계](GettingStarted\HowTo\DetailsPanel\Materials "%GettingStarted\HowTo\DetailsPanel\Materials:title%")
+	[이전 단계](GettingStarted\HowTo\DetailsPanel\Materials "%GettingStarted\HowTo\DetailsPanel\Materials:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]

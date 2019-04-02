@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SAnimationSequenceBrowser.h"
@@ -1168,11 +1168,9 @@ bool SAnimationSequenceBrowser::OnVisualizeAssetToolTip(const TSharedPtr<SWidget
 		// one viewport between all of the assets in the sequence browser.
 		UAnimationAsset* Asset = StaticCast<UAnimationAsset*>(AssetData.GetAsset());
 		USkeleton* Skeleton = Asset->GetSkeleton();
-		if (Skeleton)
-		{
-			MeshToUse = Skeleton->GetAssetPreviewMesh(Asset);
-		}
-		 
+		
+		MeshToUse = Skeleton->GetAssetPreviewMesh(Asset);
+		
 		if(MeshToUse)
 		{
 			if(PreviewComponent->SkeletalMesh != MeshToUse)

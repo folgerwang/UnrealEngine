@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -162,6 +162,10 @@ public:
 	virtual void OnAssignPolygonsToPolygonGroups( const UEditableMesh* EditableMesh, const TArray<FPolygonGroupForPolygon>& PolygonGroupForPolygons ) override;
 	virtual void OnRetriangulatePolygons( const UEditableMesh* EditableMesh, const TArray<FPolygonID>& PolygonIDs ) override;
 
+#if WITH_EDITOR
+	virtual void GeometryHitTest(const FHitParamsIn& InParams, FHitParamsOut& OutParams) override;
+#endif // WITH_EDITOR
+
 
 private:
 
@@ -216,4 +220,7 @@ private:
 	/** Cached bounding box for the static mesh.  This bounds can be (temporarily) larger than the actual mesh itself as
 	    an optimization. */
 	FBoxSphereBounds CachedBoundingBoxAndSphere;
+
+	/** Flag to indicate if a modification requires regenerating collision */
+	bool bUpdateCollisionNeeded;
 };

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "EditorModeManager.h"
 #include "Engine/Selection.h"
@@ -743,6 +743,18 @@ bool FEditorModeTools::CapturedMouseMove( FEditorViewportClient* InViewportClien
 	return bHandled;
 }
 
+/** Notifies all active modes of all captured mouse movement */	
+bool FEditorModeTools::ProcessCapturedMouseMoves( FEditorViewportClient* InViewportClient, FViewport* InViewport, const TArrayView<FIntPoint>& CapturedMouseMoves )
+{
+	bool bHandled = false;
+	for( int32 ModeIndex = 0; ModeIndex < Modes.Num(); ++ModeIndex )
+	{
+		const TSharedPtr<FEdMode>& Mode = Modes[ ModeIndex ];
+		bHandled |= Mode->ProcessCapturedMouseMoves( InViewportClient, InViewport, CapturedMouseMoves );
+	}
+	return bHandled;
+}
+
 /** Notifies all active modes of keyboard input */
 bool FEditorModeTools::InputKey(FEditorViewportClient* InViewportClient, FViewport* Viewport, FKey Key, EInputEvent Event)
 {
@@ -765,6 +777,20 @@ bool FEditorModeTools::InputAxis(FEditorViewportClient* InViewportClient, FViewp
 		bHandled |= Mode->InputAxis( InViewportClient, Viewport, ControllerId, Key, Delta, DeltaTime );
 	}
 	return bHandled;
+}
+
+bool FEditorModeTools::GetPivotForOrbit( FVector& Pivot ) const
+{
+	// Just return the first pivot point specified by a mode
+	for( int32 ModeIndex = 0; ModeIndex < Modes.Num(); ++ModeIndex )
+	{
+		const TSharedPtr<FEdMode>& Mode = Modes[ ModeIndex ];
+		if ( Mode->GetPivotForOrbit( Pivot ) )
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 bool FEditorModeTools::MouseEnter( FEditorViewportClient* InViewportClient, FViewport* Viewport, int32 X, int32 Y )
@@ -904,9 +930,8 @@ bool FEditorModeTools::GetCursor(EMouseCursor::Type& OutCursor) const
 void FEditorModeTools::CycleWidgetMode (void)
 {
 	//make sure we're not currently tracking mouse movement.  If we are, changing modes could cause a crash due to referencing an axis/plane that is incompatible with the widget
-	for(int32 ViewportIndex = 0;ViewportIndex < GEditor->LevelViewportClients.Num();ViewportIndex++)
+	for (FLevelEditorViewportClient* ViewportClient : GEditor->GetLevelViewportClients())
 	{
-		FEditorViewportClient* ViewportClient = GEditor->LevelViewportClients[ ViewportIndex ];
 		if (ViewportClient->IsTracking())
 		{
 			return;

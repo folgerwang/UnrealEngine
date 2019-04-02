@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -96,16 +96,16 @@ public:
 	////////////////
 	// FMaterialRenderProxy interface.
 
-	virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type FeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const FMaterial*& OutMaterial) const override
+	virtual const FMaterial& GetMaterialWithFallback(ERHIFeatureLevel::Type FeatureLevel, const FMaterialRenderProxy*& OutFallbackMaterialRenderProxy) const override
 	{
 		if(GetRenderingThreadShaderMap())
 		{
-			OutMaterialRenderProxy = this;
-			OutMaterial = this;
+			return *this;
 		}
 		else
 		{
-			UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(false)->GetMaterialWithFallback(FeatureLevel, OutMaterialRenderProxy, OutMaterial);
+			OutFallbackMaterialRenderProxy = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
+			return OutFallbackMaterialRenderProxy->GetMaterialWithFallback(FeatureLevel, OutFallbackMaterialRenderProxy);
 		}
 	}
 
@@ -113,7 +113,7 @@ public:
 	{
 		if (Expression.IsValid() && Expression->Material)
 		{
-			return Expression->Material->GetRenderProxy(0)->GetVectorValue(ParameterInfo, OutValue, Context);
+			return Expression->Material->GetRenderProxy()->GetVectorValue(ParameterInfo, OutValue, Context);
 		}
 		return false;
 	}
@@ -122,7 +122,7 @@ public:
 	{
 		if (Expression.IsValid() && Expression->Material)
 		{
-			return Expression->Material->GetRenderProxy(0)->GetScalarValue(ParameterInfo, OutValue, Context);
+			return Expression->Material->GetRenderProxy()->GetScalarValue(ParameterInfo, OutValue, Context);
 		}
 		return false;
 	}
@@ -131,7 +131,7 @@ public:
 	{
 		if (Expression.IsValid() && Expression->Material)
 		{
-			return Expression->Material->GetRenderProxy(0)->GetTextureValue(ParameterInfo, OutValue, Context);
+			return Expression->Material->GetRenderProxy()->GetTextureValue(ParameterInfo, OutValue, Context);
 		}
 		return false;
 	}
@@ -500,6 +500,18 @@ protected:
 	/** Called to redo the last undone action */
 	void RedoGraphAction();
 
+	void OnAlignTop();
+	void OnAlignMiddle();
+	void OnAlignBottom();
+	void OnAlignLeft();
+	void OnAlignCenter();
+	void OnAlignRight();
+
+	void OnStraightenConnections();
+
+	void OnDistributeNodesH();
+	void OnDistributeNodesV();
+
 private:
 	/** Builds the toolbar widget for the material editor */
 	void ExtendToolbar();
@@ -712,15 +724,13 @@ private:
 	TSharedRef<SDockTab> SpawnTab_LayerProperties(const FSpawnTabArgs& Args);
 
 	void OnFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent);
+	void OnFinishedChangingParametersFromOverview(const FPropertyChangedEvent& PropertyChangedEvent);
 private:
 	/** List of open tool panels; used to ensure only one exists at any one time */
 	TMap< FName, TWeakPtr<class SDockableTab> > SpawnedToolPanels;
 
 	/** Property View */
 	TSharedPtr<class IDetailsView> MaterialDetailsView;
-
-	/** Parameters View */
-	TSharedPtr<class IDetailsView> MaterialParametersView;
 
 	/** New Graph Editor */
 	TSharedPtr<class SGraphEditor> GraphEditor;
@@ -743,6 +753,9 @@ private:
 
 	/** Find results log as well as the search filter */
 	TSharedPtr<class SFindInMaterial> FindResults;
+
+	/** Parameter overview list View */
+	TSharedPtr<class SMaterialParametersOverviewPanel> MaterialParametersOverviewWidget;
 
 	/** Layer Properties View */
 	TSharedPtr<class SMaterialLayersFunctionsMaterialWrapper> MaterialLayersFunctionsInstance;

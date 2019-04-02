@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/CanvasRenderTarget2D.h"
 #include "Misc/App.h"
@@ -65,33 +65,31 @@ void UCanvasRenderTarget2D::RepaintCanvas()
 
 	// Create the FCanvas which does the actual rendering.
 	const UWorld* WorldPtr = World.Get();
-	const ERHIFeatureLevel::Type FeatureLevel = WorldPtr != nullptr ? World->FeatureLevel : GMaxRHIFeatureLevel;
-	FCanvas RenderCanvas(GameThread_GetRenderTargetResource(), nullptr, FApp::GetCurrentTime() - GStartTime, FApp::GetDeltaTime(), FApp::GetCurrentTime() - GStartTime, FeatureLevel);
+	const ERHIFeatureLevel::Type FeatureLevel = WorldPtr != nullptr ? World->FeatureLevel.GetValue() : GMaxRHIFeatureLevel;
 
+	// NOTE: This texture may be null when this is invoked through blueprint from a cmdlet or server.
+	FTextureRenderTarget2DResource* TextureRenderTarget = (FTextureRenderTarget2DResource*) GameThread_GetRenderTargetResource();
+
+	FCanvas RenderCanvas(TextureRenderTarget, nullptr, FApp::GetCurrentTime() - GStartTime, FApp::GetDeltaTime(), FApp::GetCurrentTime() - GStartTime, FeatureLevel);
 	Canvas->Init(GetSurfaceWidth(), GetSurfaceHeight(), nullptr, &RenderCanvas);
 
-	// Enqueue the rendering command to set up the rendering canvas.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER
-	(
-		CanvasRenderTargetMakeCurrentCommand,
-		FTextureRenderTarget2DResource*,
-		TextureRenderTarget,
-		(FTextureRenderTarget2DResource*)GameThread_GetRenderTargetResource(),
-		bool,
-		bClearRenderTarget,
-		bShouldClearRenderTargetOnReceiveUpdate,
+	if (TextureRenderTarget)
+	{
+		// Enqueue the rendering command to set up the rendering canvas.
+		bool bClearRenderTarget = bShouldClearRenderTargetOnReceiveUpdate;
+		ENQUEUE_RENDER_COMMAND(CanvasRenderTargetMakeCurrentCommand)(
+			[TextureRenderTarget, bClearRenderTarget](FRHICommandListImmediate& RHICmdList)
 		{
-			RHICmdList.SetViewport(0, 0, 0.0f, TextureRenderTarget->GetSizeXY().X, TextureRenderTarget->GetSizeXY().Y, 1.0f);
+			RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, TextureRenderTarget->GetRenderTargetTexture());
+
 			if (bClearRenderTarget)
 			{
-				SetRenderTarget(RHICmdList, TextureRenderTarget->GetRenderTargetTexture(), FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorExistingDepth, FExclusiveDepthStencil::DepthWrite_StencilWrite, true);
+				FRHIRenderPassInfo RPInfo(TextureRenderTarget->GetRenderTargetTexture(), ERenderTargetActions::Clear_Store);
+				RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearUCanvas"));
+				RHICmdList.EndRenderPass();
 			}
-			else
-			{
-				SetRenderTarget(RHICmdList, TextureRenderTarget->GetRenderTargetTexture(), FTexture2DRHIRef(), true);
-			}
-		}
-	);
+		});
+	}
 
 	if (!IsPendingKill() && OnCanvasRenderTargetUpdate.IsBound())
 	{
@@ -102,7 +100,11 @@ void UCanvasRenderTarget2D::RepaintCanvas()
 
 	// Clean up and flush the rendering canvas.
 	Canvas->Canvas = nullptr;
-	RenderCanvas.Flush_GameThread();
+
+	if (TextureRenderTarget)
+	{
+		RenderCanvas.Flush_GameThread();
+	}
 
 	UpdateResourceImmediate(false);
 }

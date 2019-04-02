@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -9,10 +9,6 @@
 enum EMetalPipelineFlags
 {
 	EMetalPipelineFlagPipelineState = 1 << 0,
-    EMetalPipelineFlagVertexBuffers = 1 << 1,
-    EMetalPipelineFlagPixelBuffers = 1 << 2,
-    EMetalPipelineFlagDomainBuffers = 1 << 3,
-    EMetalPipelineFlagComputeBuffers = 1 << 4,
     EMetalPipelineFlagComputeShader = 1 << 5,
     EMetalPipelineFlagRasterMask = 0xF,
     EMetalPipelineFlagComputeMask = 0x30,
@@ -74,17 +70,19 @@ public:
 	 * @param Offset The offset in the buffer or 0 when Buffer is nil.
 	 * @param Offset The length of data (caller accounts for Offset) in the buffer or 0 when Buffer is nil.
 	 * @param Index The index to modify.
+	 * @param Usage The resource usage flags.
 	 * @param Format The UAV pixel format.
 	 */
-	void SetShaderBuffer(EShaderFrequency const Frequency, FMetalBuffer const& Buffer, FMetalBufferData* const Bytes, NSUInteger const Offset, NSUInteger const Length, NSUInteger const Index, EPixelFormat const Format = PF_Unknown);
+	void SetShaderBuffer(EShaderFrequency const Frequency, FMetalBuffer const& Buffer, FMetalBufferData* const Bytes, NSUInteger const Offset, NSUInteger const Length, NSUInteger const Index, mtlpp::ResourceUsage const Usage, EPixelFormat const Format = PF_Unknown);
 	
 	/*
 	 * Set a global texture for the specified shader frequency at the given bind point index.
 	 * @param Frequency The shader frequency to modify.
 	 * @param Texture The texture to bind or nil to clear.
 	 * @param Index The index to modify.
+	 * @param Usage The resource usage flags.
 	 */
-	void SetShaderTexture(EShaderFrequency const Frequency, FMetalTexture const& Texture, NSUInteger const Index);
+	void SetShaderTexture(EShaderFrequency const Frequency, FMetalTexture const& Texture, NSUInteger const Index, mtlpp::ResourceUsage const Usage);
 	
 	/*
 	 * Set a global sampler for the specified shader frequency at the given bind point index.
@@ -112,7 +110,7 @@ public:
 	
 	void CommitResourceTable(EShaderFrequency const Frequency, mtlpp::FunctionType const Type, FMetalCommandEncoder& CommandEncoder);
 	
-	bool PrepareToRestart(void);
+	bool PrepareToRestart(bool const bCurrentApplied);
 	
 	FMetalShaderParameterCache& GetShaderParameters(uint32 const Stage) { return ShaderParameters[Stage]; }
 	FLinearColor const& GetBlendFactor() const { return BlendFactor; }
@@ -141,9 +139,7 @@ public:
 	mtlpp::RenderPassDescriptor GetRenderPassDescriptor(void) const { return RenderPassDesc; }
 	uint32 GetSampleCount(void) const { return SampleCount; }
     bool IsLinearBuffer(EShaderFrequency ShaderStage, uint32 BindIndex);
-	bool ValidateBufferFormat(EShaderFrequency ShaderStage, uint32 BindIndex, EPixelFormat Format);
-    FMetalShaderPipeline* GetPipelineState(uint32 V, uint32 F, uint32 C, EPixelFormat const* const VS, EPixelFormat const* const PS, EPixelFormat const* const DS) const { return GraphicsPSO->GetPipeline(GetIndexType(), V, F, C, VS, PS, DS); }
-    FMetalShaderPipeline* GetPipelineState(void) const { return GraphicsPSO->GetPipeline(GetIndexType(), ShaderBuffers[SF_Vertex].FormatHash, ShaderBuffers[SF_Pixel].FormatHash, ShaderBuffers[SF_Domain].FormatHash, nullptr, nullptr, nullptr); }
+    FMetalShaderPipeline* GetPipelineState(void) const { return GraphicsPSO->GetPipeline(GetIndexType()); }
 	EPrimitiveType GetPrimitiveType() { check(IsValidRef(GraphicsPSO)); return GraphicsPSO->GetPrimitiveType(); }
 	
 	FTexture2DRHIRef CreateFallbackDepthStencilSurface(uint32 Width, uint32 Height);
@@ -181,7 +177,7 @@ private:
 #pragma mark - Private Type Declarations -
 	struct FMetalBufferBinding
 	{
-		FMetalBufferBinding() : Bytes(nil), Offset(0), Length(0) {}
+		FMetalBufferBinding() : Bytes(nil), Offset(0), Length(0), Usage((mtlpp::ResourceUsage)0) {}
 		/** The bound buffers or nil. */
 		ns::AutoReleased<FMetalBuffer> Buffer;
 		/** Optional bytes buffer used instead of an FMetalBuffer */
@@ -190,18 +186,18 @@ private:
 		NSUInteger Offset;
 		/** The bound buffer lengths or 0. */
 		NSUInteger Length;
+		/** The bound buffer usage or 0 */
+		mtlpp::ResourceUsage Usage;
 	};
 	
 	/** A structure of arrays for the current buffer binding settings. */
 	struct FMetalBufferBindings
 	{
-		FMetalBufferBindings() : FormatHash(0), Bound(0) {}
+		FMetalBufferBindings() : Bound(0) {}
 		/** The bound buffers/bytes or nil. */
 		FMetalBufferBinding Buffers[ML_MaxBuffers];
 		/** The pixel formats for buffers bound so that we emulate [RW]Buffer<T> type conversion */
 		EPixelFormat Formats[ML_MaxBuffers];
-		/** The hash of the pixel formats for the formats above */
-		uint32 FormatHash;
 		/** A bitmask for which buffers were bound by the application where a bit value of 1 is bound and 0 is unbound. */
 		uint32 Bound;
 	};
@@ -209,9 +205,11 @@ private:
 	/** A structure of arrays for the current texture binding settings. */
 	struct FMetalTextureBindings
 	{
-		FMetalTextureBindings() : Bound(0) {}
+		FMetalTextureBindings() : Bound(0) { FMemory::Memzero(Usage); }
 		/** The bound textures or nil. */
 		ns::AutoReleased<FMetalTexture> Textures[ML_MaxTextures];
+		/** The bound texture usage or 0 */
+		mtlpp::ResourceUsage Usage[ML_MaxTextures];
 		/** A bitmask for which textures were bound by the application where a bit value of 1 is bound and 0 is unbound. */
 		FMetalTextureMask Bound;
 	};
@@ -225,8 +223,6 @@ private:
 		/** A bitmask for which samplers were bound by the application where a bit value of 1 is bound and 0 is unbound. */
 		uint16 Bound;
 	};
-	
-    EMetalBufferType GetShaderBufferBindingType(FMetalBufferBindings& BufferBindings, uint32 BoundBuffers, uint32 ShaderBindingHash);
     
 private:
 	FMetalShaderParameterCache ShaderParameters[CrossCompiler::NUM_SHADER_STAGES];
@@ -235,18 +231,18 @@ private:
 	uint32 SampleCount;
 
 	TSet<TRefCountPtr<FRHIUniformBuffer>> ActiveUniformBuffers;
-	FRHIUniformBuffer* BoundUniformBuffers[SF_NumFrequencies][ML_MaxBuffers];
+	FRHIUniformBuffer* BoundUniformBuffers[SF_NumStandardFrequencies][ML_MaxBuffers];
 	
 	/** Bitfield for which uniform buffers are dirty */
-	uint32 DirtyUniformBuffers[SF_NumFrequencies];
+	uint32 DirtyUniformBuffers[SF_NumStandardFrequencies];
 	
 	/** Vertex attribute buffers */
 	FMetalBufferBinding VertexBuffers[MaxVertexElementCount];
 	
 	/** Bound shader resource tables. */
-	FMetalBufferBindings ShaderBuffers[SF_NumFrequencies];
-	FMetalTextureBindings ShaderTextures[SF_NumFrequencies];
-	FMetalSamplerBindings ShaderSamplers[SF_NumFrequencies];
+	FMetalBufferBindings ShaderBuffers[SF_NumStandardFrequencies];
+	FMetalTextureBindings ShaderTextures[SF_NumStandardFrequencies];
+	FMetalSamplerBindings ShaderSamplers[SF_NumStandardFrequencies];
 	
 	mtlpp::StoreAction ColorStore[MaxSimultaneousRenderTargets];
 	mtlpp::StoreAction DepthStore;

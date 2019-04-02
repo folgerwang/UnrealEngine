@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3126630
+﻿INTSourceChangelist:3356804
 Availability:Public
 Title:BuildGraph 脚本类型
 Crumbs:
@@ -6,6 +6,7 @@ Description:学习 BuildGraph 属性的有效数据类型。
 version:4.13
 parent:Programming/Development/BuildGraph
 type:Reference
+tags:Programming
 tags:BuildGraph
 
 [VAR:TopicCompact]
@@ -30,6 +31,7 @@ tags:BuildGraph
 
 [EXCERPT:BuildGraphScriptTypes]
 
+(#Types)
 ## 类型
 
 下表包含 BuildGraph 属性所容纳的有效数据类型：

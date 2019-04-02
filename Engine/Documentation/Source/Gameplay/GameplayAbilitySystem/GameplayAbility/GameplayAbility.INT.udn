@@ -1,0 +1,68 @@
+Availability: Public
+Crumbs: 
+Title: Gameplay Ability
+Description: Overview of the Gameplay Ability class.
+Version: 4.20
+Parent: Gameplay/GameplayAbilitySystem
+Order: 2 
+Tags: Gameplay Ability System, Abilities
+
+
+![](GameplayAbilityTopicImage_01.png "GameplayAbilityTopicImage_01.png")
+
+A **Gameplay Ability**, derived from the `UGameplayAbility` class, defines what an in-game ability does, what (if anything) it costs to use, when or under what conditions it can be used, and so on. Because Gameplay Abilities are capable of existing as instanced objects running asynchronously, you can run specialized, multi-stage tasks involving character animation, particle and sound effects, and even branching based on player input or character interactions that occur during execution. Gameplay Abilities can replicate themselves across the network, run on client or server machines (including client-side prediction support), and even sync variables and make Remote Procedure Calls (RPCs). Gameplay Abilities also provide flexibility in terms of how the Engine implements them during a game session, such as extensible functionality to implement cooldown and usage costs, player input, animation with Anim Montages, and reacting to the Ability itself being granted to an Actor.
+
+## Basic Usage
+
+A Gameplay Ability's basic execution lifecycle, after being granted to an Actor's Ability System Component, looks like this:  
+
+1.  The `TryActivateAbility` function will call `CanActivateAbility` to determine whether or not the Ability is able to be run immediately, and do so if possible. `CanActivateAbility` can be called on its own if the game needs to know if an Ability can be executed without actually trying to execute it, for reasons such as graying out or hiding an icon that represents the Ability.
+2.  `CallActivateAbility` executes the game code that the Ability is meant to perform, and will be called by `TryActivateAbility`. It can also be called directly, if the `CanActivateAbility` check is not desired.
+    *   The main code that users need to override with their Ability's custom functionality is either the C++ function called `ActivateAbility`, or the Blueprint Event called Activate Ability.
+    *   Gameplay Abilities do not carry out their primary work in a "tick" function like Actors and Components do. Instead, they launch Ability Tasks during activation which do most of the work asynchronously, and then handle the output of those Tasks by hooking into Delegates (in C++) or connecting nodes to output execution pins (in Blueprints).
+    *   The `CommitAbility` function, if called from within Activate, will apply the cost of executing the Ability, such as by subtracting resources from Gameplay Attributes (such as "magic points", "stamina", or whatever fits your game's systems) and applying cooldowns.
+    *   `CancelAbility` provides a mechanism to cancel the Ability, although the Ability's `CanBeCanceled` function can reject the request. Unlike `CommitAbility`, this function is available for callers outside of the Ability itself. A successful cancelation will broadcast to On Gameplay Ability Cancelled before going through the standard code path for ending the Ability, giving the Ability a chance to run special cleanup code or otherwise behave differently when canceled than it would if it had ended on its own terms.
+3.  The Ability must call the `EndAbility` C++ function or the End Ability node in order to shut down properly. If the Ability was canceled, this function will be called automatically by `UGameplayAbility` code as part of the cancelation process. Failing to end the ability properly will result in the Gameplay Ability System believing that the Ability is still running, and can have effects such as preventing future use of the Ability or any Ability that it blocks. For example, if your game has a "Drink Health Potion" Gameplay Ability that doesn't end properly, you will be unable to take any action that cannot be taken while drinking a health potion, such as drinking another potion, sprinting, climbing ladders, and so on, indefinitely, as the Gameplay Ability System will think that you haven't finished drinking yet.
+
+[REGION:note]
+To see how this could be setup in a UE4 project, check out the [Gameplay Abilities in Action RPG](Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG) documents.
+[/REGION]
+
+## Tags
+
+[Gameplay Tags](Gameplay/Tags) can help to determine how Gameplay Abilities interact with each other. Each Ability possesses a set of Tags that identify and categorize it in ways that can affect its behavior, as well as Gameplay Tag Containers and Gameplay Tag Queries to support these interactions with other Abilities.
+
+| Gameplay Tag Variable(s) | Purpose |
+| --- | --- |
+| Cancel Abilities With Tag | Cancels any already-executing Ability with Tags matching the list provided while this Ability is executing. |
+| Block Abilities With Tag | Prevents execution of any other Ability with a matching Tag while this Ability is executing. |
+| Activation Owned Tags | While this Ability is executing, the owner of the Ability will be granted this set of Tags. |
+| Activation Required Tags | The Ability can only be activated if the activating Actor or Component has all of these Tags. |
+| Activation Blocked Tags | The Ability can only be activated if the activating Actor or Component does not have any of these Tags |
+| Target Required Tags | The Ability can only be activated if the targeted Actor or Component has all of these Tags. |
+| Target Blocked Tags | The Ability can only be activated if the targeted Actor or Component does not have any of these Tags. |
+
+## Replication
+
+Gameplay Abilities support replication of internal state and [Gameplay Events](Gameplay/GameplayAbilitySystem/GameplayAbility#triggeringwithgameplayevents), or to turn replication off and save network bandwidth and CPU cycles. The Ability's **Gameplay Ability Replication Policy** can be set to "Yes" or "No", and this will control whether the Ability replicates instances of itself, makes state updates, or sends Gameplay Events across the network. For multiplayer games with Abilities that do replicate, there are a few options for how replication is handled, known as the **Gameplay Net Execution Policy**:
+
+1.  **Local Predicted:** This option provides a good balance of responsiveness and accuracy. The Ability will run on the local client immediately upon the client issuing the command, but the server will have the final word, and can override the client in terms of what the Ability's actual impact was. The client is effectively asking permission from the server to execute the Ability, but also proceeding locally as if the server is expected to agree with the client's view of the outcome. Because the client is locally predicting the behavior of the Ability, it will feel perfectly smooth and lag-free as long as the client's prediction is not contradicted by the server.
+2.  **Local Only:** The client simply runs the Ability locally. There is no replication to the server, although the Ability will run on the server if the client using it is the host (playing on the physical server machine), or if this is a single-player game. This does not apply to dedicated-server games, as there is never a client playing on the server machine. Anything the client affects with this Ability will be subject to normal replication rules, including potentially receiving corrections from the server.
+3.  **Server Initiated:** Abilities that initiate on the server will be propagated to clients. These are often more accurate, from the client's perspective, to what is actually happening on the server, but the client using the Ability will observe a delay due to the lack of local prediction. While this delay should be very short, some types of Abilities, especially rapidly-performed actions in a pressured situation, will not feel as smooth as they would in Local Predicted mode.
+4.  **Server Only:** "Server Only" Abilities will run on the server, and will not replicate to clients. Any variables affected by these Abilities will replicate as they normally do, meaning that server-authoritative data can be affected by the Ability and will be passed to the clients, although the Ability itself will only run on the server.
+
+## Instancing Policy
+
+When a Gameplay Ability executes, a new Object (of the Ability's type) will usually spawn to track the Ability in progress. Since Abilities can execute very frequently in some cases, such as battles between a hundred or more players and AI characters in Battle Royale, MOBA, MMO, or RTS games, there may be cases where rapid creation of Abiltiy Objects can negatively impact performance. To address this, Abilities have a choice of three different instantiantion policies, offering tradeoffs between efficiency and functionality. The three instancing types supported are:
+
+*   **Instanced per Execution:** A copy of the Ability's Object will spawn each time the Ability runs. The advantage to this is that Blueprint graphs and member variables can be used freely, and everything will be initialized to default values at the beginning of the execution. While this is the simplest instancing policy to implement, it should be used only for Abilities that run infrequently. For example, an "Ultimate" in a MOBA would be a reasonable use case, as there tends to be a long cooldown (usually 60-90 seconds) between executions, and there are only a few characters (usually about ten) who can use these Abilities at all. A basic attack Ability used by the computer-controlled "minions" would be a poor candidate, as there may be hundreds of them at a time, and each can issue basic attacks fairly frequently, causing rapid creation (and possibly replication) of new Objects.
+*   **Instanced per Actor:** Each Actor will spawn one instance of this Ability when the Ability is first executed, and that Object will be reused in future executions. This creates the requirement to clean up member variables between executions of the Ability, but also makes it possible to save information across multiple executions. Per-Actor is ideal for replication, as the Ability has a replicated Object that can handle variable changes and RPCs, but does not waste network bandwidth and CPU time spawning a new Object every time it runs. In larger-scale situations, this policy performs well, since large numbers of Actors using the Ability (for example, in a big battle) will only spawn Objects on their first Ability use.
+*   **Non-Instanced:** This is the most efficient instancing policy in all categories. The Ability will not spawn any Object when it runs, and will instead use the [Class Default Object](Programming/UnrealArchitecture/Objects). However, this efficiency introduces several restrictions. First, this policy uniquely requires that the Ability is written entirely in C++, as Blueprint Graphs cannot be created without an Object instance. Blueprint classes of a non-instanced Ability can be created, but they can only be used to change the default values of exposed Properties. Further, no member variables can be changed, even in native C++ code, during the execution of the Ability, Delegates cannot be bound, and the Ability cannot replicate variables or handle RPCs. This should be used only for Abilities that require no internal variable storage (although setting Attributes on the user of the Ability is possible) and don't need to replicate any data. It is especially well-suited to Abilities that run frequently and are used by many characters, such as the basic attack used by units in a large-scale RTS or MOBA title.
+
+## Triggering with Gameplay Events
+
+**Gameplay Events** are data structures that can be passed around to trigger Gameplay Abilities directly, sending a data payload for context, without going through the normal channels. The usual way to do this is by calling Send Gameplay Event To Actor and providing an Actor that implements the `IAbilitySystemInterface` interface and the contextual information that Gameplay Events require, but it is also possible to call Handle Gameplay Event directly on an Ability System Component. Because this isn't the normal path to calling Gameplay Abilities, context information that the Ability may need will be passed in through the `FGameplayEventData` data structure. This structure is generic and will not be extended for any specific Gameplay Event or Ability, but should be sufficient for any use case. The polymorphic `ContextHandle` field will provide support for additional information as needed.
+
+[REGION:note]
+When a Gameplay Ability is triggered by a Gameplay Event, it will not run through the Activate Ability code path, but will instead use Activate Ability From Event, which provides the additional context data as a parameter. Be sure to handle this code path if you want your Ability to respond to Gameplay Events, but also be aware that, once implemented in your Gameplay Ability's Blueprint, Activate Ability From Event will replace Activate Ability, taking all activation traffic through itself.
+[/REGION]

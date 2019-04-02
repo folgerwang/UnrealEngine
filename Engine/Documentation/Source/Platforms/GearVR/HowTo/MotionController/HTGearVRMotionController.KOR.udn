@@ -1,8 +1,8 @@
 ﻿INTSourceChangelist:3739387
 Availability: Public
 Crumbs: %ROOT%, Platforms
-Title: 기어 VR 용 모션 컨트롤러 구성
-Description: 기어 VR 모션 컨트롤러를 UE4 에서 사용할 수 있도록 구성하는 법입니다.
+Title: Gear VR 용 모션 컨트롤러 구성
+Description: Gear VR 모션 컨트롤러를 UE4 에서 사용할 수 있도록 구성하는 법입니다.
 Type: how-to
 SkillLevel:Beginner
 Version: 4.17
@@ -14,7 +14,7 @@ prereq: Platforms\GearVR\Prerequisites
 prereq: Platforms\GearVR\QuickStart
 prereq: Platforms\GearVR\HowTo\CameraSetup
 
-기어 VR 의 모션 컨트롤러를 활용하면 전에 없던 수준의 UE4 프로젝트 상호작용이 가능합니다. 사용자가 현실에서처럼 오브젝트를 집어들고 상호작용할 수 있도록 해주기 때문입니다. 여기서는 기어 VR 모션 컨트롤러를 사용할 수 있도록 UE4 프로젝트를 구성하는 방법을 살펴보겠습니다.
+Gear VR 의 모션 컨트롤러를 활용하면 전에 없던 수준의 UE4 프로젝트 상호작용이 가능합니다. 사용자가 현실에서처럼 오브젝트를 집어들고 상호작용할 수 있도록 해주기 때문입니다. 여기서는 Gear VR 모션 컨트롤러를 사용할 수 있도록 UE4 프로젝트를 구성하는 방법을 살펴보겠습니다.
 
 ## 단계
 
@@ -64,7 +64,7 @@ prereq: Platforms\GearVR\HowTo\CameraSetup
 
 ## 최종 결과
 
-프로젝트가 실행되면, 기어 VR 헤드셋에 폰을 넣고 기어 VR 모션 컨트롤러를 집어듭니다. 이제 현실에서 모션 컨트롤러를 움직이면, 다음 비디오처럼 UE4 프로젝트에서도 움직임이 복제되는 것이 보일 것입니다.
+프로젝트가 실행되면, Gear VR 헤드셋에 폰을 넣고 Gear VR 모션 컨트롤러를 집어듭니다. 이제 현실에서 모션 컨트롤러를 움직이면, 다음 비디오처럼 UE4 프로젝트에서도 움직임이 복제되는 것이 보일 것입니다.
 
 [OBJECT:EmbeddedVideo]
     [PARAMLITERAL:videoid]

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title: 2.将材质应用于 Actor
 Crumbs:%ROOT%, Gameplay, GettingStarted\HowTo, GettingStarted\HowTo\DetailsPanel
@@ -31,6 +31,7 @@ checkpoint: editorqs
 一旦关卡中有了要处理的 Actor，您就可以通过 **细节（Details）**面板更改该 Actor 的 [材质](Engine/Rendering/Materials)，快速更改其外观。 
 在此步骤中，我们将通过“细节”（Details）面板中的“材质”（Material）属性指定材质，以及从 **内容浏览器** 中指定材质。 
 
+(#Steps)
 ## 步骤
 
 1. 	在 **细节（Details）**面板中，向下滚动到 **材质（Materials）**部分，并单击 **选择材质（Select Material）**下拉框。 
@@ -76,6 +77,7 @@ checkpoint: editorqs
 	当您在某个属性旁看到此图标时，您可以在 **内容浏览器** 中选择某些内容，然后单击它以将其指派给该属性。 
 
 
+(#EndResult)
 ## 最终结果
 
 我们已了解如何通过“细节”（Details）面板中 Actor 的“材质”（Material）属性值将材质指定给 Actor，并已了解一种在内容浏览器中找到已指派给属性的项目的方法。我们还已了解如何通过单击指派快捷方式将内容浏览器中的项目直接指派给属性。 

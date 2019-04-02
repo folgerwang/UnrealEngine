@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -184,6 +184,29 @@ namespace UnrealBuildTool
         public ConfigHierarchy(IEnumerable<ConfigFile> Files)
 		{
 			this.Files = Files.ToArray();
+		}
+
+		/// <summary>
+		/// Names of all sections in all config files
+		/// </summary>
+		/// <returns></returns>
+		public HashSet<string> SectionNames
+		{
+			get
+			{
+				HashSet<string> Result = new HashSet<string>();
+				foreach (ConfigFile File in Files)
+				{
+					foreach (string SectionName in File.SectionNames)
+					{
+						if ( !Result.Contains(SectionName) )
+						{
+							Result.Add(SectionName);
+						}
+					}
+				}
+				return Result;
+			}
 		}
 
 		/// <summary>
@@ -826,6 +849,48 @@ namespace UnrealBuildTool
 			if (ProjectDir != null)
 			{
 				yield return FileReference.Combine(ProjectDir, "Config", "User" + BaseIniName + ".ini");
+			}
+
+			// Get the generated config file too. EditorSettings overrides this from 
+			if(Type == ConfigHierarchyType.EditorSettings)
+			{
+				yield return FileReference.Combine(GetGameAgnosticSavedDir(), "Config", PlatformName, BaseIniName + ".ini");
+			}
+			else
+			{
+				yield return FileReference.Combine(GetGeneratedConfigDir(ProjectDir), PlatformName, BaseIniName + ".ini");
+			}
+		}
+
+		/// <summary>
+		/// Determines the path to the generated config directory (same as FPaths::GeneratedConfigDir())
+		/// </summary>
+		/// <returns></returns>
+		public static DirectoryReference GetGeneratedConfigDir(DirectoryReference ProjectDir)
+		{
+			if(ProjectDir == null)
+			{
+				return DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Saved", "Config");
+			}
+			else
+			{
+				return DirectoryReference.Combine(ProjectDir, "Saved", "Config");
+			}
+		}
+
+		/// <summary>
+		/// Determes the path to the game-agnostic saved directory (same as FPaths::GameAgnosticSavedDir())
+		/// </summary>
+		/// <returns></returns>
+		public static DirectoryReference GetGameAgnosticSavedDir()
+		{
+			if(UnrealBuildTool.IsEngineInstalled())
+			{
+				return DirectoryReference.Combine(Utils.GetUserSettingDirectory(), "UnrealEngine", String.Format("{0}.{1}", ReadOnlyBuildVersion.Current.MajorVersion, ReadOnlyBuildVersion.Current.MinorVersion), "Saved");
+			}
+			else
+			{
+				return DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Saved");
 			}
 		}
 

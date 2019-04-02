@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -93,8 +93,8 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	/** Toggles maximize mode in the viewport */
 	TSharedPtr< FUICommandInfo > ToggleMaximize;
 
-	/** Creates a cameraActor at current perspective viewport position */
-	TSharedPtr< FUICommandInfo > CreateCamera;
+	/** Creates a subclass of ACameraActor at current perspective viewport position */
+	TArray< TSharedPtr< FUICommandInfo > > CreateCameras;
 
 	/** Opens the control panel for high resolution screenshots */
 	TSharedPtr< FUICommandInfo > HighResScreenshot;
@@ -151,7 +151,7 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	TArray< TSharedPtr< FUICommandInfo > > ClearBookmarkCommands;
 	TSharedPtr< FUICommandInfo > CompactBookmarks;
 
-	DEPRECATED(4.21, "Please use the version of the member with corrected spelling (ClearAllBookmarks).")
+	UE_DEPRECATED(4.21, "Please use the version of the member with corrected spelling (ClearAllBookmarks).")
 	TSharedPtr< FUICommandInfo > ClearAllBookMarks;
 
 	TSharedPtr< FUICommandInfo > ClearAllBookmarks;

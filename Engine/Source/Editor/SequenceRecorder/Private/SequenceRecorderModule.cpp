@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Misc/CoreMisc.h"
@@ -44,6 +44,8 @@
 #include "WorkflowOrientedApp/WorkflowTabManager.h"
 #include "Framework/Docking/LayoutExtender.h"
 #include "MovieSceneTimeHelpers.h"
+#include "SequenceRecorderUtils.h"
+#include "Animation/AnimSequence.h"
 
 #define LOCTEXT_NAMESPACE "SequenceRecorder"
 
@@ -154,8 +156,7 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 			// register standalone UI
 			auto RegisterTabSpawner = []()
 			{
-				FLevelEditorModule& LocalLevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
-				LocalLevelEditorModule.GetLevelEditorTabManager()->RegisterTabSpawner(SequenceRecorderTabName, FOnSpawnTab::CreateStatic(&FSequenceRecorderModule::SpawnSequenceRecorderTab))
+				FGlobalTabmanager::Get()->RegisterNomadTabSpawner(SequenceRecorderTabName, FOnSpawnTab::CreateStatic(&FSequenceRecorderModule::SpawnSequenceRecorderTab))
 				.SetGroup(WorkspaceMenu::GetMenuStructure().GetLevelEditorCategory())
 				.SetDisplayName(LOCTEXT("SequenceRecorderTabTitle", "Sequence Recorder"))
 				.SetTooltipText(LOCTEXT("SequenceRecorderTooltipText", "Open the Sequence Recorder tab."))
@@ -196,7 +197,7 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 
 			if (FSlateApplication::IsInitialized())
 			{
-				FGlobalTabmanager::Get()->UnregisterTabSpawner(SequenceRecorderTabName);
+				FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(SequenceRecorderTabName);
 			}
 
 			if(FModuleManager::Get().IsModuleLoaded(TEXT("LevelEditor")))
@@ -772,6 +773,11 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 				SequenceRecorderTabPtr->SetContent(SNew(SSequenceRecorder));
 			}
 		}
+	}
+
+	virtual bool RecordSingleNodeInstanceToAnimation(USkeletalMeshComponent* PreviewComponent, UAnimSequence* NewAsset) override
+	{
+		return SequenceRecorderUtils::RecordSingleNodeInstanceToAnimation(PreviewComponent, NewAsset);
 	}
 
 #if WITH_EDITOR

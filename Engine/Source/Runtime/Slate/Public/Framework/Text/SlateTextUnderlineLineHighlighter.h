@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -14,21 +14,21 @@ class FSlateWindowElementList;
 struct FGeometry;
 struct FTextBlockStyle;
 
-/** Run highlighter used to draw underlines */
-class SLATE_API FSlateTextUnderlineLineHighlighter : public ISlateLineHighlighter
+/** Run highlighter used to draw lines */
+class SLATE_API ISlateTextLineHighlighter : public ISlateLineHighlighter
 {
 public:
-	static TSharedRef<FSlateTextUnderlineLineHighlighter> Create(const FSlateBrush& InUnderlineBrush, const FSlateFontInfo& InFontInfo, const FSlateColor InColorAndOpacity, const FVector2D InShadowOffset, const FLinearColor InShadowColorAndOpacity);
-
 	virtual int32 OnPaint(const FPaintArgs& Args, const FTextLayout::FLineView& Line, const float OffsetX, const float Width, const FTextBlockStyle& DefaultStyle, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
 
 	static const int32 DefaultZIndex = 1;
 
 protected:
-	FSlateTextUnderlineLineHighlighter(const FSlateBrush& InUnderlineBrush, const FSlateFontInfo& InFontInfo, const FSlateColor InColorAndOpacity, const FVector2D InShadowOffset, const FLinearColor InShadowColorAndOpacity);
+	ISlateTextLineHighlighter(const FSlateBrush& InLineBrush, const FSlateFontInfo& InFontInfo, const FSlateColor InColorAndOpacity, const FVector2D InShadowOffset, const FLinearColor InShadowColorAndOpacity);
 
-	/** Brush used to draw the underline */
-	FSlateBrush UnderlineBrush;
+	virtual void GetLineMetrics(const float InFontScale, int16& OutLinePos, int16& OutLineThickness) const = 0;
+
+	/** Brush used to draw the line */
+	FSlateBrush LineBrush;
 
 	/** Font the underline is associated with */
 	FSlateFontInfo FontInfo;
@@ -41,4 +41,28 @@ protected:
 
 	/** The color to draw the shadow */
 	FLinearColor ShadowColorAndOpacity;
+};
+
+/** Run highlighter used to draw underlines */
+class SLATE_API FSlateTextUnderlineLineHighlighter : public ISlateTextLineHighlighter
+{
+public:
+	static TSharedRef<FSlateTextUnderlineLineHighlighter> Create(const FSlateBrush& InUnderlineBrush, const FSlateFontInfo& InFontInfo, const FSlateColor InColorAndOpacity, const FVector2D InShadowOffset, const FLinearColor InShadowColorAndOpacity);
+
+protected:
+	FSlateTextUnderlineLineHighlighter(const FSlateBrush& InUnderlineBrush, const FSlateFontInfo& InFontInfo, const FSlateColor InColorAndOpacity, const FVector2D InShadowOffset, const FLinearColor InShadowColorAndOpacity);
+
+	virtual void GetLineMetrics(const float InFontScale, int16& OutLinePos, int16& OutLineThickness) const override;
+};
+
+/** Run highlighter used to draw strikes */
+class SLATE_API FSlateTextStrikeLineHighlighter : public ISlateTextLineHighlighter
+{
+public:
+	static TSharedRef<FSlateTextStrikeLineHighlighter> Create(const FSlateBrush& InUnderlineBrush, const FSlateFontInfo& InFontInfo, const FSlateColor InColorAndOpacity, const FVector2D InShadowOffset, const FLinearColor InShadowColorAndOpacity);
+
+protected:
+	FSlateTextStrikeLineHighlighter(const FSlateBrush& InStrikeBrush, const FSlateFontInfo& InFontInfo, const FSlateColor InColorAndOpacity, const FVector2D InShadowOffset, const FLinearColor InShadowColorAndOpacity);
+
+	virtual void GetLineMetrics(const float InFontScale, int16& OutLinePos, int16& OutLineThickness) const override;
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -77,6 +77,14 @@ class ENGINE_API ULightComponentBase : public USceneComponent
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Light, AdvancedDisplay)
 	uint32 bCastVolumetricShadow : 1;
 
+	/** Whether the light shadows are computed with shadow-mapping or ray-tracing (when available). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Light, AdvancedDisplay)
+	uint32 bCastRaytracedShadow : 1;
+
+	/** Whether the light affects objects in reflections, when ray-traced reflection is enabled. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Light, AdvancedDisplay)
+	uint32 bAffectReflection : 1;
+
 	/** 
 	 * Scales the indirect lighting contribution from this light. 
 	 * A value of 0 disables any GI from this light. Default is 1.
@@ -87,6 +95,10 @@ class ENGINE_API ULightComponentBase : public USceneComponent
 	/** Intensity of the volumetric scattering from this light.  This scales Intensity and LightColor. */
 	UPROPERTY(BlueprintReadOnly, interp, Category=Light, meta=(UIMin = "0.25", UIMax = "4.0"))
 	float VolumetricScatteringIntensity;
+
+	/** Samples per pixel for ray tracing */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = RayTracing)
+	int SamplesPerPixel;
 
 #if WITH_EDITORONLY_DATA
 	/** Sprite for static light in the editor. */
@@ -116,6 +128,15 @@ class ENGINE_API ULightComponentBase : public USceneComponent
 
 	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Light")
 	void SetCastVolumetricShadow(bool bNewValue);
+
+	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Light")
+	void SetAffectReflection(bool bNewValue);
+
+	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Light")
+	void SetCastRaytracedShadow(bool bNewValue);
+
+	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Light")
+	void SetSamplesPerPixel(int NewValue);
 
 	virtual void Serialize(FArchive& Ar) override;
 

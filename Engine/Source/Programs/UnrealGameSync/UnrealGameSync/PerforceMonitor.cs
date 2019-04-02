@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Concurrent;
@@ -29,6 +29,8 @@ namespace UnrealGameSync
 			}
 		}
 
+		public int InitialMaxChangesValue = 100;
+
 		PerforceConnection Perforce;
 		readonly string BranchClientPath;
 		readonly string SelectedClientFileName;
@@ -43,6 +45,7 @@ namespace UnrealGameSync
 		BoundedLogWriter LogWriter;
 		bool bIsEnterpriseProject;
 		bool bDisposing;
+		string CacheFolder;
 		List<KeyValuePair<string, DateTime>> LocalConfigFiles;
 
 		public event Action OnUpdate;
@@ -50,18 +53,24 @@ namespace UnrealGameSync
 		public event Action OnStreamChange;
 		public event Action OnLoginExpired;
 
-		public PerforceMonitor(PerforceConnection InPerforce, string InBranchClientPath, string InSelectedClientFileName, string InSelectedProjectIdentifier, string InLogPath, bool bInIsEnterpriseProject, ConfigFile InProjectConfigFile, List<KeyValuePair<string, DateTime>> InLocalConfigFiles)
+		public TimeSpan ServerTimeZone
+		{
+			get;
+			private set;
+		}
+
+		public PerforceMonitor(PerforceConnection InPerforce, string InBranchClientPath, string InSelectedClientFileName, string InSelectedProjectIdentifier, string InLogPath, bool bInIsEnterpriseProject, ConfigFile InProjectConfigFile, string InCacheFolder, List<KeyValuePair<string, DateTime>> InLocalConfigFiles)
 		{
 			Perforce = InPerforce;
 			BranchClientPath = InBranchClientPath;
 			SelectedClientFileName = InSelectedClientFileName;
 			SelectedProjectIdentifier = InSelectedProjectIdentifier;
-			PendingMaxChangesValue = 100;
+			PendingMaxChangesValue = InitialMaxChangesValue;
 			LastChangeByCurrentUser = -1;
 			LastCodeChangeByCurrentUser = -1;
-			OtherStreamNames = new List<string>();
 			bIsEnterpriseProject = bInIsEnterpriseProject;
 			LatestProjectConfigFile = InProjectConfigFile;
+			CacheFolder = InCacheFolder;
 			LocalConfigFiles = InLocalConfigFiles;
 
 			LogWriter = new BoundedLogWriter(InLogPath);
@@ -116,18 +125,19 @@ namespace UnrealGameSync
 			set { lock(this){ if(value != PendingMaxChangesValue){ PendingMaxChangesValue = value; RefreshEvent.Set(); } } }
 		}
 
-		public IReadOnlyList<string> OtherStreamNames
-		{
-			get;
-			private set;
-		}
-
 		void PollForUpdates()
 		{
 			string StreamName;
 			if(!Perforce.GetActiveStream(out StreamName, LogWriter))
 			{
 				StreamName = null;
+			}
+
+			// Get the perforce server settings
+			PerforceInfoRecord PerforceInfo;
+			if(Perforce.Info(out PerforceInfo, LogWriter))
+			{
+				ServerTimeZone = PerforceInfo.ServerTimeZone;
 			}
 
 			// Try to update the zipped binaries list before anything else, because it causes a state change in the UI
@@ -153,17 +163,6 @@ namespace UnrealGameSync
 						if(Perforce.GetActiveStream(out NewStreamName, LogWriter) && NewStreamName != StreamName)
 						{
 							OnStreamChange();
-						}
-
-						// Update the stream list
-						if(StreamName != null)
-						{
-							List<string> NewOtherStreamNames;
-							if(!Perforce.FindStreams(PerforceUtils.GetClientOrDepotDirectoryName(StreamName) + "/*", out NewOtherStreamNames, LogWriter))
-							{
-								NewOtherStreamNames = new List<string>();
-							}
-							OtherStreamNames = NewOtherStreamNames;
 						}
 
 						// Check for any p4 changes
@@ -365,6 +364,12 @@ namespace UnrealGameSync
 			{
 				string[] CodeExtensions = { ".cs", ".h", ".cpp", ".inl", ".usf", ".ush", ".uproject", ".uplugin" };
 
+				// Skip this stuff if the user wants us to query for more changes
+				if(PendingMaxChanges > CurrentMaxChanges)
+				{
+					break;
+				}
+
 				// If there's something to check for, find all the content changes after this changelist
 				PerforceDescribeRecord DescribeRecord;
 				if(Perforce.Describe(QueryChangeNumber, out DescribeRecord, LogWriter))
@@ -517,57 +522,62 @@ namespace UnrealGameSync
 		void UpdateProjectConfigFile()
 		{
 			LocalConfigFiles.Clear();
-			LatestProjectConfigFile = ReadProjectConfigFile(Perforce, BranchClientPath, SelectedClientFileName, LocalConfigFiles, LogWriter);
+			LatestProjectConfigFile = ReadProjectConfigFile(Perforce, BranchClientPath, SelectedClientFileName, CacheFolder, LocalConfigFiles, LogWriter);
 		}
 
-		public static ConfigFile ReadProjectConfigFile(PerforceConnection Perforce, string BranchClientPath, string SelectedClientFileName, List<KeyValuePair<string, DateTime>> LocalConfigFiles, TextWriter Log)
+		public static ConfigFile ReadProjectConfigFile(PerforceConnection Perforce, string BranchClientPath, string SelectedClientFileName, string CacheFolder, List<KeyValuePair<string, DateTime>> LocalConfigFiles, TextWriter Log)
 		{
 			List<string> ConfigFilePaths = Utility.GetConfigFileLocations(BranchClientPath, SelectedClientFileName, '/');
 
-			List<PerforceFileRecord> OpenFiles;
-			Perforce.GetOpenFiles(String.Format("{0}/....ini", BranchClientPath), out OpenFiles, Log);
-
 			ConfigFile ProjectConfig = new ConfigFile();
-			foreach(string ConfigFilePath in ConfigFilePaths)
-			{
-				List<string> Lines = null;
 
-				// If this file is open for edit, read the local version
-				if(OpenFiles != null && OpenFiles.Any(x => x.ClientPath.Equals(ConfigFilePath, StringComparison.InvariantCultureIgnoreCase)))
+			List<PerforceFileRecord> FileRecords;
+			if(Perforce.Stat("-Ol", ConfigFilePaths, out FileRecords, Log))
+			{
+				foreach(PerforceFileRecord FileRecord in FileRecords)
 				{
-					try
+					List<string> Lines = null;
+
+					// Skip file records which are still in the workspace, but were synced from a different branch. For these files, the action seems to be empty, so filter against that.
+					if(FileRecord.Action == null)
 					{
-						string LocalFileName;
-						if(Perforce.ConvertToLocalPath(ConfigFilePath, out LocalFileName, Log))
+						continue;
+					}
+
+					// If this file is open for edit, read the local version
+					string LocalFileName = FileRecord.ClientPath;
+					if(LocalFileName != null && File.Exists(LocalFileName) && (File.GetAttributes(LocalFileName) & FileAttributes.ReadOnly) == 0)
+					{
+						try
 						{
 							DateTime LastModifiedTime = File.GetLastWriteTimeUtc(LocalFileName);
 							LocalConfigFiles.Add(new KeyValuePair<string, DateTime>(LocalFileName, LastModifiedTime));
 							Lines = File.ReadAllLines(LocalFileName).ToList();
 						}
+						catch(Exception Ex)
+						{
+							Log.WriteLine("Failed to read local config file for {0}: {1}", LocalFileName, Ex.ToString());
+						}
 					}
-					catch(Exception Ex)
-					{
-						Log.WriteLine("Failed to read local config file for {0}: {1}", ConfigFilePath, Ex.ToString());
-					}
-				}
 
-				// Otherwise try to get it from perforce
-				if(Lines == null)
-				{
-					Perforce.Print(ConfigFilePath, out Lines, Log);
-				}
-
-				// Merge the text with the config file
-				if(Lines != null)
-				{
-					try
+					// Otherwise try to get it from perforce
+					if(Lines == null)
 					{
-						ProjectConfig.Parse(Lines.ToArray());
-						Log.WriteLine("Read config file from {0}", ConfigFilePath);
+						Utility.TryPrintFileUsingCache(Perforce, FileRecord.DepotPath, CacheFolder, FileRecord.Digest, out Lines, Log);
 					}
-					catch(Exception Ex)
+
+					// Merge the text with the config file
+					if(Lines != null)
 					{
-						Log.WriteLine("Failed to read config file from {0}: {1}", ConfigFilePath, Ex.ToString());
+						try
+						{
+							ProjectConfig.Parse(Lines.ToArray());
+							Log.WriteLine("Read config file from {0}", FileRecord.DepotPath);
+						}
+						catch(Exception Ex)
+						{
+							Log.WriteLine("Failed to read config file from {0}: {1}", FileRecord.DepotPath, Ex.ToString());
+						}
 					}
 				}
 			}

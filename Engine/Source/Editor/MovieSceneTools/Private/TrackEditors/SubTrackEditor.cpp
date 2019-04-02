@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "TrackEditors/SubTrackEditor.h"
 #include "Rendering/DrawElements.h"
@@ -202,14 +202,34 @@ public:
 				);
 			}
 
+			FMargin ContentPadding = GetContentPadding();
+
 			int32 NumTracks = MovieScene->GetPossessableCount() + MovieScene->GetSpawnableCount() + MovieScene->GetMasterTracks().Num();
+
+			FVector2D TopLeft = InPainter.SectionGeometry.AbsoluteToLocal(InPainter.SectionClippingRect.GetTopLeft()) + FVector2D(1.f, -1.f);
+
+			FSlateFontInfo FontInfo = FEditorStyle::GetFontStyle("NormalFont");
+
+			TSharedRef<FSlateFontCache> FontCache = FSlateApplication::Get().GetRenderer()->GetFontCache();
+
+			auto GetFontHeight = [&]
+			{
+				return FontCache->GetMaxCharacterHeight(FontInfo, 1.f) + FontCache->GetBaseline(FontInfo, 1.f);
+			};
+			while (GetFontHeight() > InPainter.SectionGeometry.Size.Y && FontInfo.Size > 11)
+			{
+				FontInfo.Size = FMath::Max(FMath::FloorToInt(FontInfo.Size - 6.f), 11);
+			}
 
 			FSlateDrawElement::MakeText(
 				InPainter.DrawElements,
 				++LayerId,
-				InPainter.SectionGeometry.ToOffsetPaintGeometry(FVector2D(11.0f, 32.0f)),
+				InPainter.SectionGeometry.MakeChild(
+					FVector2D(InPainter.SectionGeometry.Size.X, GetFontHeight()),
+					FSlateLayoutTransform(TopLeft + FVector2D(ContentPadding.Left, ContentPadding.Top) + FVector2D(11.f, GetFontHeight()*2.f))
+				).ToPaintGeometry(),
 				FText::Format(LOCTEXT("NumTracksFormat", "{0} track(s)"), FText::AsNumber(NumTracks)),
-				FEditorStyle::GetFontStyle("NormalFont"),
+				FontInfo,
 				DrawEffects,
 				FColor(200, 200, 200)
 			);
@@ -278,28 +298,71 @@ public:
 			FNewMenuDelegate::CreateLambda([=](FMenuBuilder& InMenuBuilder){ AddTakesMenu(InMenuBuilder); }));
 	}
 
-	virtual void BeginSlipSection() override
+	void BeginResizeSection()
 	{
-		InitialStartOffsetDuringResize = SectionObject.Parameters.GetStartFrameOffset();
-		InitialStartTimeDuringResize   = ( SectionObject.HasStartFrame() ? SectionObject.GetInclusiveStartFrame() : 0 ) / SectionObject.GetTypedOuter<UMovieScene>()->GetTickResolution();
+		InitialStartOffsetDuringResize = SectionObject.Parameters.StartFrameOffset;
+		InitialStartTimeDuringResize = SectionObject.HasStartFrame() ? SectionObject.GetInclusiveStartFrame() : 0;
 	}
 
-	virtual void SlipSection(double SlipTime) override
+	void ResizeSection(ESequencerSectionResizeMode ResizeMode, FFrameNumber ResizeTime)
+	{
+		UMovieSceneSequence* InnerSequence = SectionObject.GetSequence();
+
+		// Adjust the start offset when resizing from the beginning
+		if (ResizeMode == SSRM_LeadingEdge && InnerSequence)
+		{
+			const FFrameRate    OuterFrameRate   = SectionObject.GetTypedOuter<UMovieScene>()->GetTickResolution();
+			const FFrameRate    InnerFrameRate   = InnerSequence->GetMovieScene()->GetTickResolution();
+			const FFrameNumber  ResizeDifference = ResizeTime - InitialStartTimeDuringResize;
+			const FFrameTime    InnerFrameTime   = ConvertFrameTime(ResizeDifference, OuterFrameRate, InnerFrameRate);
+			FFrameNumber		NewStartOffset   = FFrameTime::FromDecimal(InnerFrameTime.AsDecimal() * SectionObject.Parameters.TimeScale).FrameNumber;
+
+			NewStartOffset += InitialStartOffsetDuringResize;
+
+			// Ensure start offset is not less than 0
+			if (NewStartOffset < 0)
+			{
+				FFrameTime OuterFrameTimeOver = ConvertFrameTime(FFrameTime::FromDecimal(NewStartOffset.Value/SectionObject.Parameters.TimeScale), InnerFrameRate, OuterFrameRate);
+				ResizeTime = ResizeTime - OuterFrameTimeOver.GetFrame(); 
+				NewStartOffset = 0;
+			}
+
+			SectionObject.Parameters.StartFrameOffset = FFrameNumber(NewStartOffset);
+		}
+
+		ISequencerSection::ResizeSection(ResizeMode, ResizeTime);
+	}
+
+	virtual void BeginSlipSection() override
+	{
+		InitialStartOffsetDuringResize = SectionObject.Parameters.StartFrameOffset;
+		InitialStartTimeDuringResize = SectionObject.HasStartFrame() ? SectionObject.GetInclusiveStartFrame() : 0;
+	}
+
+	virtual void SlipSection(FFrameNumber SlipTime) override
 	{
 		UMovieSceneSequence* InnerSequence = SectionObject.GetSequence();
 
 		// Adjust the start offset when resizing from the beginning
 		if (InnerSequence)
 		{
+			const FFrameRate    OuterFrameRate   = SectionObject.GetTypedOuter<UMovieScene>()->GetTickResolution();
 			const FFrameRate    InnerFrameRate   = InnerSequence->GetMovieScene()->GetTickResolution();
-			const double        ResizeDifference = SlipTime - InitialStartTimeDuringResize;
-			const int32         NewStartOffset   = ( (ResizeDifference * SectionObject.Parameters.TimeScale) * InnerFrameRate ).FrameNumber.Value;
+			const FFrameNumber  ResizeDifference = SlipTime - InitialStartTimeDuringResize;
+			const FFrameTime    InnerFrameTime = ConvertFrameTime(ResizeDifference, OuterFrameRate, InnerFrameRate);
+			const int32         NewStartOffset = FFrameTime::FromDecimal(InnerFrameTime.AsDecimal() * SectionObject.Parameters.TimeScale).FrameNumber.Value;
 
 			// Ensure start offset is not less than 0
-			SectionObject.Parameters.SetStartFrameOffset(FMath::Max(NewStartOffset, 0));
+			SectionObject.Parameters.StartFrameOffset = FFrameNumber(FMath::Max(NewStartOffset, 0));
 		}
 
 		ISequencerSection::SlipSection(SlipTime);
+	}
+
+	virtual bool IsReadOnly() const override
+	{
+		// Overridden to false regardless of movie scene section read only state so that we can double click into the sub section
+		return false;
 	}
 
 private:
@@ -336,10 +399,10 @@ private:
 	TWeakPtr<FSubTrackEditor> SubTrackEditor;
 
 	/** Cached start offset value valid only during resize */
-	int32 InitialStartOffsetDuringResize;
+	FFrameNumber InitialStartOffsetDuringResize;
 
 	/** Cached start time valid only during resize */
-	double InitialStartTimeDuringResize;
+	FFrameNumber InitialStartTimeDuringResize;
 };
 
 
@@ -376,7 +439,7 @@ TSharedPtr<SWidget> FSubTrackEditor::BuildOutlinerEditWidget(const FGuid& Object
 	.AutoWidth()
 	.VAlign(VAlign_Center)
 	[
-		FSequencerUtilities::MakeAddButton(LOCTEXT("SubText", "Sequence"), FOnGetContent::CreateSP(this, &FSubTrackEditor::HandleAddSubSequenceComboButtonGetMenuContent, Track), Params.NodeIsHovered)
+		FSequencerUtilities::MakeAddButton(LOCTEXT("SubText", "Sequence"), FOnGetContent::CreateSP(this, &FSubTrackEditor::HandleAddSubSequenceComboButtonGetMenuContent, Track), Params.NodeIsHovered, GetSequencer())
 	];
 }
 
@@ -687,9 +750,10 @@ FKeyPropertyResult FSubTrackEditor::AddKeyInternal(FFrameNumber KeyTime, UMovieS
 	{
 		UMovieSceneSubTrack* SubTrack = Cast<UMovieSceneSubTrack>(InTrack);
 
+		const FFrameRate TickResolution = InMovieSceneSequence->GetMovieScene()->GetTickResolution();
 		const FQualifiedFrameTime InnerDuration = FQualifiedFrameTime(
 			MovieScene::DiscreteSize(InMovieSceneSequence->GetMovieScene()->GetPlaybackRange()),
-			InMovieSceneSequence->GetMovieScene()->GetTickResolution());
+			TickResolution);
 
 		const FFrameRate OuterFrameRate = SubTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 		const int32      OuterDuration  = InnerDuration.ConvertTo(OuterFrameRate).FrameNumber.Value;
@@ -700,6 +764,13 @@ FKeyPropertyResult FSubTrackEditor::AddKeyInternal(FFrameNumber KeyTime, UMovieS
 		GetSequencer()->EmptySelection();
 		GetSequencer()->SelectSection(NewSection);
 		GetSequencer()->ThrobSectionSelection();
+
+		if (TickResolution != OuterFrameRate)
+		{
+			FNotificationInfo Info(FText::Format(LOCTEXT("TickResolutionMismatch", "The parent sequence has a different tick resolution {0} than the newly added sequence {1}"), OuterFrameRate.ToPrettyText(), TickResolution.ToPrettyText()));
+			Info.bUseLargeFont = false;
+			FSlateNotificationManager::Get().AddNotification(Info);
+		}
 
 		return KeyPropertyResult;
 	}
@@ -717,9 +788,10 @@ FKeyPropertyResult FSubTrackEditor::HandleSequenceAdded(FFrameNumber KeyTime, UM
 
 	auto SubTrack = FindOrCreateMasterTrack<UMovieSceneSubTrack>().Track;
 
+	const FFrameRate TickResolution = Sequence->GetMovieScene()->GetTickResolution();
 	const FQualifiedFrameTime InnerDuration = FQualifiedFrameTime(
 		MovieScene::DiscreteSize(Sequence->GetMovieScene()->GetPlaybackRange()),
-		Sequence->GetMovieScene()->GetTickResolution());
+		TickResolution);
 
 	const FFrameRate OuterFrameRate = SubTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
 	const int32      OuterDuration  = InnerDuration.ConvertTo(OuterFrameRate).FrameNumber.Value;
@@ -730,6 +802,13 @@ FKeyPropertyResult FSubTrackEditor::HandleSequenceAdded(FFrameNumber KeyTime, UM
 	GetSequencer()->EmptySelection();
 	GetSequencer()->SelectSection(NewSection);
 	GetSequencer()->ThrobSectionSelection();
+
+	if (TickResolution != OuterFrameRate)
+	{
+		FNotificationInfo Info(FText::Format(LOCTEXT("TickResolutionMismatch", "The parent sequence has a different tick resolution {0} than the newly added sequence {1}"), OuterFrameRate.ToPrettyText(), TickResolution.ToPrettyText()));
+		Info.bUseLargeFont = false;
+		FSlateNotificationManager::Get().AddNotification(Info);
+	}
 
 	return KeyPropertyResult;
 }
@@ -790,10 +869,10 @@ void FSubTrackEditor::SwitchTake(uint32 TakeNumber)
 		{
 			UMovieSceneSequence* MovieSceneSequence = CastChecked<UMovieSceneSequence>(TakeObject);
 
-			UMovieSceneSubTrack* SubTrack = FindOrCreateMasterTrack<UMovieSceneSubTrack>().Track;
-		
+			UMovieSceneSubTrack* SubTrack = CastChecked<UMovieSceneSubTrack>(Section->GetOuter());
+
 			TRange<FFrameNumber> NewShotRange         = Section->GetRange();
-			int32                NewShotStartOffset   = Section->Parameters.GetStartFrameOffset();
+			FFrameNumber		 NewShotStartOffset   = Section->Parameters.StartFrameOffset;
 			float                NewShotTimeScale     = Section->Parameters.TimeScale;
 			int32                NewShotPrerollFrames = Section->GetPreRollFrames();
 			int32                NewRowIndex          = Section->GetRowIndex();
@@ -808,7 +887,7 @@ void FSubTrackEditor::SwitchTake(uint32 TakeNumber)
 				SubTrack->RemoveSection(*Section);
 
 				NewShot->SetRange(NewShotRange);
-				NewShot->Parameters.SetStartFrameOffset(NewShotStartOffset);
+				NewShot->Parameters.StartFrameOffset = NewShotStartOffset;
 				NewShot->Parameters.TimeScale = NewShotTimeScale;
 				NewShot->SetPreRollFrames(NewShotPrerollFrames);
 				NewShot->SetRowIndex(NewShotRowIndex);

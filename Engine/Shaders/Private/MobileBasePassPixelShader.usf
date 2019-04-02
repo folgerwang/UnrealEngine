@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MobileBasePassPixelShader.usf: Base pass pixel shader used with forward shading
@@ -31,6 +31,12 @@ int NumDynamicPointLights;
 #endif
 float4 LightPositionAndInvRadius[MAX_DYNAMIC_POINT_LIGHTS];
 float4 LightColorAndFalloffExponent[MAX_DYNAMIC_POINT_LIGHTS];
+float4 SpotLightAngles[MAX_DYNAMIC_POINT_LIGHTS];
+float4 SpotLightDirection[MAX_DYNAMIC_POINT_LIGHTS]; 
+#endif
+
+#ifndef PROJECT_MOBILE_ENABLE_MOVABLE_SPOTLIGHTS
+#define PROJECT_MOBILE_ENABLE_MOVABLE_SPOTLIGHTS 0
 #endif
 
 #ifndef MOBILE_QL_FORCE_FULLY_ROUGH
@@ -61,8 +67,8 @@ float4 LightColorAndFalloffExponent[MAX_DYNAMIC_POINT_LIGHTS];
 #if !FULLY_ROUGH
 	TextureCube ReflectionCubemap;
 	SamplerState ReflectionCubemapSampler;
-	float3 InvReflectionCubemapAverageBrightness;
-	float4 MobileSkyReflectionParams;
+	// x,y,z - inverted average brightness, w - max sky cube mip
+	float4 MobileReflectionParams;
 	#if HQ_REFLECTIONS
 	#define MAX_HQ_REFLECTIONS 3
 
@@ -202,7 +208,7 @@ half3 BlendReflectionCapture(FMaterialPixelParameters MaterialParameters, half R
 	float4 Reflection = ReflectionCube.SampleLevel(ReflectionSampler, ProjectedCaptureVector.xyz, MipLevel);
 	half3 SpecularIBL = RGBMDecode(Reflection, 16.0f);
 
-#if MOVABLE_DIRECTIONAL_LIGHT
+#if !LQ_TEXTURE_LIGHTMAP && !CACHED_POINT_INDIRECT_LIGHTING
 	// ignore average brightness for non-lightmap use case.
 	InvReflectionCubemapAverageBrightness = 1.0f;
 #endif
@@ -221,9 +227,9 @@ half3 BlendReflectionCaptures(FMaterialPixelParameters MaterialParameters, half 
 	half3 SpecularIBL = half3(0, 0, 0);
 	half BlendFactor = 1;
 
-	SpecularIBL += BlendReflectionCapture(MaterialParameters, Roughness, ReflectionCubemap, ReflectionCubemapSampler, AbsoluteSpecularMip, 0, InvReflectionCubemapAverageBrightness.x, BlendFactor);
-	SpecularIBL += BlendReflectionCapture(MaterialParameters, Roughness, ReflectionCubemap1, ReflectionCubemapSampler1, AbsoluteSpecularMip, 1, InvReflectionCubemapAverageBrightness.y, BlendFactor);
-	SpecularIBL += BlendReflectionCapture(MaterialParameters, Roughness, ReflectionCubemap2, ReflectionCubemapSampler2, AbsoluteSpecularMip, 2, InvReflectionCubemapAverageBrightness.z, BlendFactor);
+	SpecularIBL += BlendReflectionCapture(MaterialParameters, Roughness, ReflectionCubemap, ReflectionCubemapSampler, AbsoluteSpecularMip, 0, MobileReflectionParams.x, BlendFactor);
+	SpecularIBL += BlendReflectionCapture(MaterialParameters, Roughness, ReflectionCubemap1, ReflectionCubemapSampler1, AbsoluteSpecularMip, 1, MobileReflectionParams.y, BlendFactor);
+	SpecularIBL += BlendReflectionCapture(MaterialParameters, Roughness, ReflectionCubemap2, ReflectionCubemapSampler2, AbsoluteSpecularMip, 2, MobileReflectionParams.z, BlendFactor);
 
 	return SpecularIBL;
 }
@@ -231,7 +237,7 @@ half3 BlendReflectionCaptures(FMaterialPixelParameters MaterialParameters, half 
 
 float4 GetPlanarReflection(float3 WorldPosition, float3 WorldNormal, float Roughness)
 {
-	float4 PlanarReflection = ComputePlanarReflections(WorldPosition, WorldNormal, Roughness, PlanarReflectionSampler);
+	float4 PlanarReflection = ComputePlanarReflections(WorldPosition, WorldNormal, Roughness, PlanarReflectionStruct.PlanarReflectionSampler);
 #if OUTPUT_GAMMA_SPACE
 	// the capture will also be in gamma space, convert to linear:
 	PlanarReflection.rgb *= PlanarReflection.rgb;
@@ -251,8 +257,8 @@ half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameter
 
 	half3 ProjectedCaptureVector = MaterialParameters.ReflectionVector;	
 
-	half UsingSkyReflection = MobileSkyReflectionParams.x > 0;
-	half CubemapMaxMip = UsingSkyReflection ? MobileSkyReflectionParams.x : ResolvedView.ReflectionCubemapMaxMip;
+	half UsingSkyReflection = MobileReflectionParams.w > 0;
+	half CubemapMaxMip = UsingSkyReflection ? MobileReflectionParams.w : ResolvedView.ReflectionCubemapMaxMip;
 
 	// Compute fractional mip from roughness
 	half AbsoluteSpecularMip = ComputeReflectionCaptureMipFromRoughness(Roughness, CubemapMaxMip);
@@ -271,7 +277,7 @@ half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameter
 		SpecularIBL = SpecularIBL * SpecularIBL;
 		#if LQ_TEXTURE_LIGHTMAP || CACHED_POINT_INDIRECT_LIGHTING
 			// divide by average brightness for lightmap use cases only.
-			SpecularIBL *= InvReflectionCubemapAverageBrightness.x;
+			SpecularIBL *= MobileReflectionParams.x;
 		#endif
 	}
 
@@ -312,12 +318,21 @@ half3 FrameBufferBlendOp(half4 Source)
 #endif
 }
 
+
+void ApplyPixelDepthOffsetForMobileBasePass(inout FMaterialPixelParameters MaterialParameters, FPixelMaterialInputs PixelMaterialInputs, out float OutDepth)
+{
+    float PixelDepthOffset = ApplyPixelDepthOffsetToMaterialParameters(MaterialParameters, PixelMaterialInputs, OutDepth);
+}
+
 void Main( 
 	FVertexFactoryInterpolantsVSToPS Interpolants
 	, FMobileBasePassInterpolantsVSToPS BasePassInterpolants
 	, in float4 SvPosition : SV_Position
 	OPTIONAL_IsFrontFace
 	, out half4 OutColor	: SV_Target0
+#if OUTPUT_PIXEL_DEPTH_OFFSET
+    , out float OutDepth : SV_Depth
+#endif
 	)
 {
 #if MOBILE_MULTI_VIEW
@@ -335,7 +350,7 @@ void Main(
 	VertexFactoryUnpackInterpolants(Interpolants, PackedInterpolants);
 #endif
 
-#if (COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1 || COMPILER_GLSL_ES3_1_EXT) && OUTPUT_GAMMA_SPACE && !MOBILE_EMULATION
+#if (COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1 || COMPILER_GLSL_ES3_1_EXT) && !OUTPUT_MOBILE_HDR && !MOBILE_EMULATION
 	// LDR ES2 needs screen vertical flipped
 	SvPosition.y = ResolvedView.BufferSizeAndInvSize.y - SvPosition.y - 1;
 #endif
@@ -357,6 +372,10 @@ void Main(
 		MaterialParameters.ReflectionVector = ReflectionAboutCustomWorldNormal(MaterialParameters, MaterialParameters.WorldNormal, false);
 #endif
 	}
+
+#if OUTPUT_PIXEL_DEPTH_OFFSET
+	ApplyPixelDepthOffsetForMobileBasePass(MaterialParameters, PixelMaterialInputs, OutDepth);
+#endif
 	  
 	//Clip if the blend mode requires it.
 	GetMaterialCoverageAndClipping(MaterialParameters, PixelMaterialInputs);
@@ -410,27 +429,28 @@ void Main(
 
 	#if LQ_TEXTURE_LIGHTMAP
 		float2 LightmapUV0, LightmapUV1;
-		GetLightMapCoordinates(Interpolants, LightmapUV0, LightmapUV1);
+		uint LightmapDataIndex;
+		GetLightMapCoordinates(Interpolants, LightmapUV0, LightmapUV1, LightmapDataIndex);
 
-		half4 LightmapColor = GetLightMapColorLQ( LightmapUV0, LightmapUV1, MaterialParameters.WorldNormal );
-		Color += LightmapColor.rgb * DiffuseColor;
+		half4 LightmapColor = GetLightMapColorLQ( LightmapUV0, LightmapUV1, LightmapDataIndex, MaterialParameters.WorldNormal );
+		Color += LightmapColor.rgb * DiffuseColor * View.IndirectLightingColorScale;
 		IndirectIrradiance = LightmapColor.a;
 	#elif CACHED_POINT_INDIRECT_LIGHTING
 		#if MATERIALBLENDING_MASKED || MATERIALBLENDING_SOLID
 
 			// Take the normal into account for opaque
 			FThreeBandSHVectorRGB PointIndirectLighting;
-			PointIndirectLighting.R.V0 = PrecomputedLightingBuffer.IndirectLightingSHCoefficients0[0];
-			PointIndirectLighting.R.V1 = PrecomputedLightingBuffer.IndirectLightingSHCoefficients1[0];
-			PointIndirectLighting.R.V2 = PrecomputedLightingBuffer.IndirectLightingSHCoefficients2[0];
+			PointIndirectLighting.R.V0 = IndirectLightingCache.IndirectLightingSHCoefficients0[0];
+			PointIndirectLighting.R.V1 = IndirectLightingCache.IndirectLightingSHCoefficients1[0];
+			PointIndirectLighting.R.V2 = IndirectLightingCache.IndirectLightingSHCoefficients2[0];
 
-			PointIndirectLighting.G.V0 = PrecomputedLightingBuffer.IndirectLightingSHCoefficients0[1];
-			PointIndirectLighting.G.V1 = PrecomputedLightingBuffer.IndirectLightingSHCoefficients1[1];
-			PointIndirectLighting.G.V2 = PrecomputedLightingBuffer.IndirectLightingSHCoefficients2[1];
+			PointIndirectLighting.G.V0 = IndirectLightingCache.IndirectLightingSHCoefficients0[1];
+			PointIndirectLighting.G.V1 = IndirectLightingCache.IndirectLightingSHCoefficients1[1];
+			PointIndirectLighting.G.V2 = IndirectLightingCache.IndirectLightingSHCoefficients2[1];
 
-			PointIndirectLighting.B.V0 = PrecomputedLightingBuffer.IndirectLightingSHCoefficients0[2];
-			PointIndirectLighting.B.V1 = PrecomputedLightingBuffer.IndirectLightingSHCoefficients1[2];
-			PointIndirectLighting.B.V2 = PrecomputedLightingBuffer.IndirectLightingSHCoefficients2[2];
+			PointIndirectLighting.B.V0 = IndirectLightingCache.IndirectLightingSHCoefficients0[2];
+			PointIndirectLighting.B.V1 = IndirectLightingCache.IndirectLightingSHCoefficients1[2];
+			PointIndirectLighting.B.V2 = IndirectLightingCache.IndirectLightingSHCoefficients2[2];
 
 			FThreeBandSHVector DiffuseTransferSH = CalcDiffuseTransferSH3(MaterialParameters.WorldNormal, 1);
 
@@ -438,19 +458,17 @@ void Main(
 			half3 DiffuseGI = max(half3(0,0,0), DotSH3(PointIndirectLighting, DiffuseTransferSH));
 
 			IndirectIrradiance = Luminance(DiffuseGI);
-			Color += DiffuseColor * DiffuseGI;			
-
-
+			Color += DiffuseColor * DiffuseGI * View.IndirectLightingColorScale;			
 		#else 
 			
 			// Non-directional for translucency
 			// Ambient terms packed in xyz
 			// Already divided by PI and SH ambient on CPU
-			half3 PointIndirectLighting = PrecomputedLightingBuffer.IndirectLightingSHSingleCoefficient;
+			half3 PointIndirectLighting = IndirectLightingCache.IndirectLightingSHSingleCoefficient;
 			half3 DiffuseGI = PointIndirectLighting;
 
 			IndirectIrradiance = Luminance(DiffuseGI);
-			Color += DiffuseColor * DiffuseGI;
+			Color += DiffuseColor * DiffuseGI * View.IndirectLightingColorScale;
 
 		#endif
 	#endif
@@ -521,7 +539,7 @@ void Main(
 
 		float NoL = max(0, dot(float3(MaterialParameters.WorldNormal), float3(MobileDirectionalLight.DirectionalLightDirectionAndShadowTransition.xyz)));
 		float RoL = max(0, dot(float3(MaterialParameters.ReflectionVector), float3(MobileDirectionalLight.DirectionalLightDirectionAndShadowTransition.xyz)));
-		float3 H = normalize(MaterialParameters.CameraVector + MobileDirectionalLight.DirectionalLightDirectionAndShadowTransition.xyz);
+		float3 H = normalize(float3(MaterialParameters.CameraVector) + float3(MobileDirectionalLight.DirectionalLightDirectionAndShadowTransition.xyz));
 		float NoH = max(0,dot(MaterialParameters.WorldNormal, H));
 
 		#if FULLY_ROUGH
@@ -533,7 +551,7 @@ void Main(
 
 			#if MATERIAL_PLANAR_FORWARD_REFLECTIONS
 				BRANCH
-				if (abs(dot(ReflectionPlane.xyz, 1)) > .0001f)
+				if (abs(dot(PlanarReflectionStruct.ReflectionPlane.xyz, 1)) > .0001f)
 				{
 					half4 PlanarReflection = GetPlanarReflection(MaterialParameters.AbsoluteWorldPosition, MaterialParameters.WorldNormal, Roughness);
 					// Planar reflections win over reflection environment
@@ -589,6 +607,13 @@ void Main(
 				{
 					Attenuation = RadialAttenuation(ToLight * LightPositionAndInvRadius[i].w, LightColorAndFalloffExponent[i].w);		
 				}
+				
+				#if PROJECT_MOBILE_ENABLE_MOVABLE_SPOTLIGHTS
+				if(SpotLightAngles[i].w > 0.0)
+				{
+					Attenuation *= SpotAttenuation(L, -SpotLightDirection[i].xyz, SpotLightAngles[i].xy);
+				}
+				#endif
 
 				#if !FULLY_ROUGH
 					Color += min(65000.0, (Attenuation * PointNoL) * LightColorAndFalloffExponent[i].rgb * (1.0/PI) * (DiffuseColor + SpecularColor * CalcSpecular(Roughness, PointRoL, PointNoH, H, MaterialParameters.WorldNormal)));
@@ -636,7 +661,7 @@ void Main(
 		// Scene color alpha is not used yet so we set it to 0
 		OutColor.a = 0.0;
 
-		#if !OUTPUT_GAMMA_SPACE 
+		#if OUTPUT_MOBILE_HDR 
 			if (GetHDR32bppEncodeMode() == HDR_ENCODE_NONE)
 			{
 				// FP16 HDR stores Z in framebuffer alpha
@@ -645,7 +670,7 @@ void Main(
 		#endif
 	#endif
 
-	#if !MATERIALBLENDING_MODULATE && OUTPUT_GAMMA_SPACE
+	#if !MATERIALBLENDING_MODULATE && !OUTPUT_MOBILE_HDR
 		// MobileHDR applies PreExposure in tonemapper
 		OutColor.rgb *= ResolvedView.PreExposure;
 	#endif
@@ -659,7 +684,7 @@ void Main(
 	#endif
 	clip(OutColor.a - GetMaterialOpacityMaskClipValue());
 #else
-	#if ES2_PROFILE && !OUTPUT_GAMMA_SPACE && !MATERIALDOMAIN_UI
+	#if ES2_PROFILE && OUTPUT_MOBILE_HDR && !MATERIALDOMAIN_UI
 		half Mode = GetHDR32bppEncodeMode();
 		if (Mode == HDR_ENCODE_RGBE)
 		{
@@ -673,15 +698,6 @@ void Main(
 	#endif
 	#if OUTPUT_GAMMA_SPACE
 		OutColor.rgb = sqrt(OutColor.rgb);
-	#endif
-
-	// We write to alpha here for mono far field mask computation
-	#if MONOSCOPIC_FAR_FIELD
-		#if MATERIALBLENDING_ANY_TRANSLUCENT
-			OutColor.a = Opacity;
-		#else
-			OutColor.a = 1.0;
-		#endif
 	#endif
 #endif
 }

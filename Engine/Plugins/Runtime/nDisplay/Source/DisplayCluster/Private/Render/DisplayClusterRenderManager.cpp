@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Render/DisplayClusterRenderManager.h"
 #include "Config/IPDisplayClusterConfigManager.h"
@@ -6,11 +6,12 @@
 #include "Engine/GameViewportClient.h"
 #include "Engine/GameEngine.h"
 #include "Misc/DisplayClusterLog.h"
+
+#include "DisplayClusterGlobals.h"
 #include "DisplayClusterStrings.h"
 #include "DisplayClusterOperationMode.h"
 
 #include "Render/Devices/DisplayClusterNativePresentHandler.h"
-#include "Render/Devices/Debug/DisplayClusterDeviceDebug.h"
 #include "Render/Devices/Monoscopic/DisplayClusterDeviceMonoscopicOpenGL.h"
 #include "Render/Devices/Monoscopic/DisplayClusterDeviceMonoscopicD3D11.h"
 #include "Render/Devices/Monoscopic/DisplayClusterDeviceMonoscopicD3D12.h"
@@ -50,7 +51,7 @@ void FDisplayClusterRenderManager::Release()
 {
 	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterRender);
 
-	//@note: No need to release our device. It will be released in safe way by TSharedPtr.
+	//@note: No need to release our StereoDevice. It will be released in safe way by TSharedPtr.
 }
 
 bool FDisplayClusterRenderManager::StartSession(const FString& configPath, const FString& nodeId)
@@ -74,27 +75,18 @@ bool FDisplayClusterRenderManager::StartSession(const FString& configPath, const
 	if (pDev)
 	{
 		// Store ptr for internal usage
-		Device = static_cast<IDisplayClusterStereoDevice*>(pDev);
+		StereoDevice = static_cast<IDisplayClusterStereoRendering*>(pDev);
 		// Set new device in the engine
 		GEngine->StereoRenderingDevice = TSharedPtr<IStereoRendering, ESPMode::ThreadSafe>(static_cast<IStereoRendering*>(pDev));
 	}
 
 	// When session is starting in Editor the device won't be initialized so we avoid nullptr access here.
-	return (Device ? static_cast<FDisplayClusterDeviceBase*>(Device)->Initialize() : true);
+	return (StereoDevice ? static_cast<FDisplayClusterDeviceBase*>(StereoDevice)->Initialize() : true);
 }
 
 void FDisplayClusterRenderManager::EndSession()
 {
 	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterRender);
-}
-
-
-//////////////////////////////////////////////////////////////////////////////////////////////
-// IDisplayClusterRenderManager
-//////////////////////////////////////////////////////////////////////////////////////////////
-IDisplayClusterStereoDevice* FDisplayClusterRenderManager::GetStereoDevice() const
-{
-	return Device;
 }
 
 
@@ -119,14 +111,8 @@ FDisplayClusterDeviceBase* FDisplayClusterRenderManager::CreateStereoDevice()
 		const FString RHIName = GDynamicRHI->GetName();
 		UE_LOG(LogDisplayClusterRender, Log, TEXT("Running %s RHI"), *RHIName);
 
-		// Debug stereo device is RHI agnostic
-		if (FParse::Param(FCommandLine::Get(), DisplayClusterStrings::args::dev::Debug))
-		{
-			UE_LOG(LogDisplayClusterRender, Log, TEXT("Instantiating debug stereo device..."));
-			pDevice = new FDisplayClusterDeviceDebug;
-		}
 		// Side-by-side device is RHI agnostic
-		else if (FParse::Param(FCommandLine::Get(), DisplayClusterStrings::args::dev::SbS))
+		if (FParse::Param(FCommandLine::Get(), DisplayClusterStrings::args::dev::SbS))
 		{
 			UE_LOG(LogDisplayClusterRender, Log, TEXT("Instantiating side-by-side stereo device..."));
 			pDevice = new FDisplayClusterDeviceSideBySide;
@@ -268,6 +254,130 @@ void FDisplayClusterRenderManager::PreTick(float DeltaSeconds)
 				UE_LOG(LogDisplayClusterRender, Error, TEXT("Wrong window pos/size arguments"));
 			}
 		}
+	}
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+// IDisplayClusterRenderManager
+//////////////////////////////////////////////////////////////////////////////////////////////
+void FDisplayClusterRenderManager::AddViewport(const FString& ViewportId, IDisplayClusterProjectionScreenDataProvider* DataProvider)
+{
+	if (StereoDevice)
+	{
+		StereoDevice->AddViewport(ViewportId, DataProvider);
+	}
+}
+
+void FDisplayClusterRenderManager::RemoveViewport(const FString& ViewportId)
+{
+	if (StereoDevice)
+	{
+		StereoDevice->RemoveViewport(ViewportId);
+	}
+}
+
+void FDisplayClusterRenderManager::RemoveAllViewports()
+{
+	if (StereoDevice)
+	{
+		StereoDevice->RemoveAllViewports();
+	}
+}
+
+void FDisplayClusterRenderManager::SetDesktopStereoParams(float FOV)
+{
+	if (StereoDevice)
+	{
+		StereoDevice->SetDesktopStereoParams(FOV);
+	}
+}
+
+void FDisplayClusterRenderManager::SetDesktopStereoParams(const FVector2D& screenSize, const FIntPoint& screenRes, float screenDist)
+{
+	if (StereoDevice)
+	{
+		StereoDevice->SetDesktopStereoParams(screenSize, screenRes, screenDist);
+	}
+}
+
+void  FDisplayClusterRenderManager::SetInterpupillaryDistance(float dist)
+{
+	if (StereoDevice)
+	{
+		StereoDevice->SetInterpupillaryDistance(dist);
+	}
+}
+
+float FDisplayClusterRenderManager::GetInterpupillaryDistance() const
+{
+	if (StereoDevice)
+	{
+		return StereoDevice->GetInterpupillaryDistance();
+	}
+
+	return 0.f;
+}
+
+void FDisplayClusterRenderManager::SetEyesSwap(bool swap)
+{
+	if (StereoDevice)
+	{
+		StereoDevice->SetEyesSwap(swap);
+	}
+}
+
+bool FDisplayClusterRenderManager::GetEyesSwap() const
+{
+	if (StereoDevice)
+	{
+		return StereoDevice->GetEyesSwap();
+	}
+
+	return false;
+}
+
+bool FDisplayClusterRenderManager::ToggleEyesSwap()
+{
+	if (StereoDevice)
+	{
+		return StereoDevice->ToggleEyesSwap();
+	}
+
+	return false;
+}
+
+void FDisplayClusterRenderManager::SetSwapSyncPolicy(EDisplayClusterSwapSyncPolicy policy)
+{
+	if (StereoDevice)
+	{
+		StereoDevice->SetSwapSyncPolicy(policy);
+	}
+}
+
+EDisplayClusterSwapSyncPolicy FDisplayClusterRenderManager::GetSwapSyncPolicy() const
+{
+	if (StereoDevice)
+	{
+		return StereoDevice->GetSwapSyncPolicy();
+	}
+
+	return EDisplayClusterSwapSyncPolicy::None;
+}
+
+void FDisplayClusterRenderManager::GetCullingDistance(float& NearDistance, float& FarDistance) const
+{
+	if (StereoDevice)
+	{
+		StereoDevice->GetCullingDistance(NearDistance, FarDistance);
+	}
+}
+
+void FDisplayClusterRenderManager::SetCullingDistance(float NearDistance, float FarDistance)
+{
+	if (StereoDevice)
+	{
+		StereoDevice->SetCullingDistance(NearDistance, FarDistance);
 	}
 }
 

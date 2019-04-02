@@ -184,21 +184,7 @@ tags:Materials
 		[RELATIVE:Engine/Rendering/Materials/ExpressionReference/Particles]
 	[/PARAM]
 [/OBJECT]
-[COMMENT:none]
--
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/Materials/ExpressionReference/Parameters:title%](exp_parameter.png)
-	[/PARAM]
-	[PARAM:title]
-		SpeedTree (スピードツリー)
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/Materials/ExpressionReference/SpeedTree]
-	[/PARAM]
-[/OBJECT]
--
-[/COMMENT]
+
 [OBJECT:TopicCompact]
 	[PARAM:image]
 		![%Engine/Rendering/Materials/ExpressionReference/Landscape:title%](exp_landscape.png)
@@ -421,14 +407,7 @@ tags:Materials
 * [ParticleSubUV](Engine/Rendering/Materials\ExpressionReference\Particles#ParticleSubUV)
 * [TextureSampleParameterSubUV](Engine/Rendering/Materials\ExpressionReference\Particles#TextureSampleParameterSubUV)
 [/REGION]
-[COMMENT:none]
--
-[**SpeedTree**](Engine/Rendering/Materials\ExpressionReference\SpeedTree)
-[REGION:indentedlist]
-* [SpeedTree](Engine/Rendering/Materials\ExpressionReference\SpeedTree#SpeedTree)
-[/REGION]
--
-[/COMMENT]
+
 [**Terrain**](Engine/Rendering/Materials\ExpressionReference\Landscape)
 [REGION:indentedlist]
 * [LanscapeLayerBlend](Engine/Rendering/Materials\ExpressionReference\Landscape#LandscapeLayerBlend)

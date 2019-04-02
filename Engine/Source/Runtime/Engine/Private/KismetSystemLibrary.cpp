@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Kismet/KismetSystemLibrary.h"
 #include "HAL/IConsoleManager.h"
@@ -81,6 +81,11 @@ FString UKismetSystemLibrary::GetDisplayName(const UObject* Object)
 FString UKismetSystemLibrary::GetClassDisplayName(UClass* Class)
 {
 	return Class ? Class->GetName() : FString();
+}
+
+UObject* UKismetSystemLibrary::GetOuterObject(const UObject* Object)
+{
+	return Object ? Object->GetOuter() : nullptr;
 }
 
 FString UKismetSystemLibrary::GetEngineVersion()
@@ -296,14 +301,19 @@ void UKismetSystemLibrary::SetWindowTitle(const FText& Title)
 void UKismetSystemLibrary::ExecuteConsoleCommand(UObject* WorldContextObject, const FString& Command, APlayerController* Player)
 {
 	// First, try routing through the primary player
-	APlayerController* TargetPC = Player ? Player : UGameplayStatics::GetPlayerController(WorldContextObject, 0);
-	if( TargetPC )
+	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::ReturnNull);
+	APlayerController* TargetPC = Player || !World ? Player : World->GetFirstPlayerController();
+	if (TargetPC)
 	{
 		TargetPC->ConsoleCommand(Command, true);
 	}
+	else
+	{
+		GEngine->Exec(World, *Command);
+	}
 }
 
-float UKismetSystemLibrary::GetConsoleVariableFloatValue(UObject* WorldContextObject, const FString& VariableName)
+float UKismetSystemLibrary::GetConsoleVariableFloatValue(const FString& VariableName)
 {
 	float Value = 0.0f;
 
@@ -320,7 +330,7 @@ float UKismetSystemLibrary::GetConsoleVariableFloatValue(UObject* WorldContextOb
 	return Value;
 }
 
-int32 UKismetSystemLibrary::GetConsoleVariableIntValue(UObject* WorldContextObject, const FString& VariableName)
+int32 UKismetSystemLibrary::GetConsoleVariableIntValue(const FString& VariableName)
 {
 	int32 Value = 0;
 
@@ -337,7 +347,10 @@ int32 UKismetSystemLibrary::GetConsoleVariableIntValue(UObject* WorldContextObje
 	return Value;
 }
 
-
+bool UKismetSystemLibrary::GetConsoleVariableBoolValue(const FString& VariableName)
+{
+	return (GetConsoleVariableIntValue(VariableName) != 0);
+}
 
 
 void UKismetSystemLibrary::QuitGame(UObject* WorldContextObject, class APlayerController* SpecificPlayer, TEnumAsByte<EQuitPreference::Type> QuitPreference, bool bIgnorePlatformRestrictions)
@@ -789,6 +802,18 @@ void UKismetSystemLibrary::SetIntPropertyByName(UObject* Object, FName PropertyN
 	}
 }
 
+void UKismetSystemLibrary::SetInt64PropertyByName(UObject* Object, FName PropertyName, int64 Value)
+{
+	if (Object != NULL)
+	{
+		UInt64Property* IntProp = FindField<UInt64Property>(Object->GetClass(), PropertyName);
+		if (IntProp != NULL)
+		{
+			IntProp->SetPropertyValue_InContainer(Object, Value);
+		}
+	}
+}
+
 void UKismetSystemLibrary::SetBytePropertyByName(UObject* Object, FName PropertyName, uint8 Value)
 {
 	if(Object != NULL)
@@ -926,6 +951,11 @@ FSoftObjectPath UKismetSystemLibrary::MakeSoftObjectPath(const FString& PathStri
 void UKismetSystemLibrary::BreakSoftObjectPath(FSoftObjectPath InSoftObjectPath, FString& PathString)
 {
 	PathString = InSoftObjectPath.ToString();
+}
+
+TSoftObjectPtr<UObject> UKismetSystemLibrary::Conv_SoftObjPathToSoftObjRef(const FSoftObjectPath& SoftObjectPath)
+{
+	return TSoftObjectPtr<UObject>(SoftObjectPath);
 }
 
 FSoftClassPath UKismetSystemLibrary::MakeSoftClassPath(const FString& PathString)
@@ -1131,7 +1161,6 @@ bool UKismetSystemLibrary::SphereOverlapComponents(UObject* WorldContextObject, 
 
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(SphereOverlapComponents), false);
 	Params.AddIgnoredActors(ActorsToIgnore);
-	Params.bTraceAsyncScene = true;
 	TArray<FOverlapResult> Overlaps;
 
 	FCollisionObjectQueryParams ObjectParams;
@@ -1184,7 +1213,6 @@ bool UKismetSystemLibrary::BoxOverlapComponents(UObject* WorldContextObject, con
 	OutComponents.Empty();
 
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(BoxOverlapComponents), false);
-	Params.bTraceAsyncScene = true;
 	Params.AddIgnoredActors(ActorsToIgnore);
 
 	TArray<FOverlapResult> Overlaps;
@@ -1237,7 +1265,6 @@ bool UKismetSystemLibrary::CapsuleOverlapComponents(UObject* WorldContextObject,
 	OutComponents.Empty();
 
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(CapsuleOverlapComponents), false);
-	Params.bTraceAsyncScene = true;
 	Params.AddIgnoredActors(ActorsToIgnore);
 
 	TArray<FOverlapResult> Overlaps;
@@ -1292,7 +1319,6 @@ bool UKismetSystemLibrary::ComponentOverlapComponents(UPrimitiveComponent* Compo
 	if(Component != nullptr)
 	{
 		FComponentQueryParams Params(SCENE_QUERY_STAT(ComponentOverlapComponents));
-		Params.bTraceAsyncScene = true;
 		Params.AddIgnoredActors(ActorsToIgnore);
 
 		TArray<FOverlapResult> Overlaps;
@@ -2406,6 +2432,11 @@ bool UKismetSystemLibrary::IsControllerAssignedToGamepad(int32 ControllerId)
 	return FPlatformApplicationMisc::IsControllerAssignedToGamepad(ControllerId);
 }
 
+FString UKismetSystemLibrary::GetGamepadControllerName(int32 ControllerId)
+{
+	return FPlatformApplicationMisc::GetGamepadControllerName(ControllerId);
+}
+
 void UKismetSystemLibrary::SetSuppressViewportTransitionMessage(UObject* WorldContextObject, bool bState)
 {
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull);
@@ -2516,6 +2547,11 @@ void UKismetSystemLibrary::LoadAsset(UObject* WorldContextObject, TSoftObjectPtr
 		FLoadAssetAction* NewAction = new FLoadAssetAction(Asset.ToSoftObjectPath(), OnLoaded, LatentInfo);
 		LatentManager.AddNewAction(LatentInfo.CallbackTarget, LatentInfo.UUID, NewAction);
 	}
+}
+
+UObject* UKismetSystemLibrary::LoadAsset_Blocking(TSoftObjectPtr<UObject> Asset)
+{
+	return Asset.ToSoftObjectPath().TryLoad();
 }
 
 void UKismetSystemLibrary::LoadAssetClass(UObject* WorldContextObject, TSoftClassPtr<UObject> AssetClass, UKismetSystemLibrary::FOnAssetClassLoaded OnLoaded, FLatentActionInfo LatentInfo)

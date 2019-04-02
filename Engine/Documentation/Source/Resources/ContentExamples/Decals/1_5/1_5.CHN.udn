@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:1954017
+INTSourceChangelist:3782314
 Availability: Public
-Title:1.5 -关闭贴花
-Crumbs:%ROOT%, Resources, Resources/ContentExamples/Decals
-Description:贴花示例关卡概述，示例1.5： 关闭贴花
+Title:1.5 - 关闭“接收贴花（Receives Decals）”
+Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Decals
+Description:贴花示例关卡概述，示例1.5：关闭“接收贴花（Receives Decals）”
 Related: Engine/Actors/DecalActor
 Related: Engine/Rendering/Materials/PhysicallyBased
 Related: Engine/Rendering/Materials
@@ -11,62 +11,24 @@ Related: Engine/Rendering/Materials/ExpressionReference
 Related: Engine/Rendering/Materials/MaterialInputs
 Related: Engine/Rendering/Materials/LayeredMaterials
 Related: Engine/Rendering/Materials/MaterialInstances
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/Decals/1_5:title%](Resources\ContentExamples\Decals\Decals_5.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Decals/1_5:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Decals/1_5:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/Decals/1_5]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/Decals/1_5:title%](Resources\ContentExamples\Decals\Decals_5.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Decals/1_5:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Decals/1_5:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/Decals/1_5]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+Version: 4.9
+topic-image:Resources/ContentExamples/Decals/Decals_5.png
 
 [REGION:fullwidth]
 
-![%Resources/ContentExamples/Decals/1_1:title%](Resources\ContentExamples\Decals\Decals_5.png)
+![%Resources/ContentExamples/Decals/1_1:title%](Resources/ContentExamples/Decals/Decals_5.png)
 
-## 概述
+[/REGION]
 
-
-本例展示了您如何通过Rendering（渲染）分类下的 **Receive Decals** （采用贴花）属性来对特定网格物体关闭贴花。请注意您必须点击分类的扩展箭头以查看此属性。
+本示例展示如何使用 **渲染（Rendering）** 类别下的 **接收贴花（Receives Decals）** 属性关闭特定网格体上的贴花。请注意，必须点击该类别的展开箭头才能看到此属性。
 
 ![](ReceivesDecals.png)
 
-您可以通过Buffer Visualization(缓冲可视化)下的 **Decal Mask** （贴花蒙板）View Mode(查看模式)来查看哪些网格物体关闭了贴花。
+你可以使用 **缓冲区可视化（Buffer Visualization）** 下的 **贴花遮罩（Decal Mask）** 视图模式查看哪些网格体没有接收贴花。
 
 ![](DecalMaskViewMode.png)
 
-从下图中您可以看到对比效果：
+在下列两张图中，你可以看到该视图模式的作用方式：
 
 [VAR:DecalViewMode]
 w:450
@@ -75,8 +37,7 @@ w:450
 [REGION:imagetable]
 |![](DecalMaskOFF.png)(%DecalViewMode%)|![](DecalMaskON.png)(%DecalViewMode%)|
 |---|---|
-| 贴花蒙板查看模式 _关闭_ | 贴花蒙板查看模式 _启用_ |
+|“贴花遮罩（Decal Mask）”视图模式 _关闭_ | “贴花遮罩（Decal Mask）”视图模式 _打开_|
 [/REGION]
 
 
-[/REGION]

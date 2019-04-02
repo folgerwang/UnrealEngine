@@ -1,0 +1,78 @@
+﻿INTSourceChangelist:0
+Availability: Public
+Crumbs: 
+Title: Using the Geometry Cache Track
+Description: Describes how you can add and use the Geometry Cache Track to scrub through and utilize Geometry Cache assets within Sequencer. 
+Type: 
+Version: 4.21
+Parent: 
+Order: 
+Tags: Sequencer
+Tags: Experimental
+Tags: Landing Page
+Tags: Geometry Cache
+Tags: Alembic
+
+
+The new (and experimental) **Geometry Cache Track** enables you to scrub through a **Geometry Cache** and render it out with frame accuracy. Once you have imported your Alembic file into Unreal Engine 4 (UE4) and added it to a Level, you can add it to a **Level Sequence** and add the **Geometry Cache Track** to play back your content.
+
+[OBJECT:EmbeddedVideo]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ hGKjgV5eE6k
+ [/PARAMLITERAL]
+[/OBJECT]
+
+## Steps
+
+[REGION:note]
+For this How-to guide, we are using the **Blueprint Third Person **template project. You will also need an Alembic file to import into the Engine. If you do not have your own Asset, download this [Sample File](https://epicgames.box.com/s/l74nagy14ttaium5j41gu61ljz4v5rul).
+[/REGION]
+
+2.  Import your Alembic file(s) into UE4  [as a Geometry Cache](https://docs.unrealengine.com/en-us/Engine/Content/AlembicImporter#importasgeometrycache) and define your desired settings.  
+    ![](GeoCache_01-2.png "GeoCache_01-2.png")
+
+5.  Place your **Geometry Cache** in the Level, then create a **Level Sequence** and add it to **Sequencer** with the **\+ Track** button.   
+    ![](GeoCache_02.png "GeoCache_02.png")
+
+8.  Click the **\+ Track **button for the newly created Track and select **Geometry Cache **from the **Tracks **menu.   
+    ![](GeoCache_03.png "GeoCache_03.png")
+
+11.  Scrub the **Timeline** to view a playback.  
+    [REGION:note]
+    You can also set the **Level Sequence** to **Auto Play** before selecting Play in the Level.
+    [/REGION]
+
+## End Result
+
+With the **Geometry Cache ****Track **set, you can scrub through your content or it will play back automatically when your Level Sequence plays. 
+
+[OBJECT:EmbeddedVideo]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ hGKjgV5eE6k
+ [/PARAMLITERAL]
+[/OBJECT]
+
+You can access the properties of the Geometry Cache by right-clicking on the Track in the **Tracks Window**. From the properties menu, you can change which **Geometry Cache **asset is being used, add a **Start **or **End ****Offset**, or adjust the **Play Rate**. The ability to adjust **Section **options and whether to play the animation in **Reverse** are available.   
+
+![](GeoCache_04.png "GeoCache_04.png")
+
+The following properties are available for Geometry Cache tracks from the right-click context menu, under **Properties**: 
+
+| Property | Description |
+| --- | --- |
+| **Geometry Cache** | Specifies the Geometry Cache asset to play. |
+| **Start Offset** | Number of frames to offset into the beginning of the animation clip. |
+| **End Offset** | Number of frames to offset into the end of the animation clip. |
+| **Play Rate** | Defines the playback rate of the animation clip (lower to slow down, increase to speed up). |

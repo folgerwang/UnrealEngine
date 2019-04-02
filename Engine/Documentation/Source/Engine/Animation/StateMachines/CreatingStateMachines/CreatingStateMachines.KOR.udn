@@ -13,7 +13,7 @@ type:how-to
 
 스테이트 머신은 **애니메이션 블루프린트 에디터** 의 **애님 그래프** 안에서 **New State Machine** (새 스테이트 머신)으로 만들 수 있습니다.
 
-[애니메이션 블루프린트](Engine\Animation\AnimBlueprints) 의 애님 그래프 안에 우클릭한 다음 맥락 메뉴에서 **State Machines > New State Machine** (스테이트 머신 > 새 스테이트 머신)을 선택하면 됩니다.
+[애니메이션 블루프린트](Engine\Animation\AnimBlueprints) 의 애님 그래프 안에 우클릭한 다음 컨텍스트 메뉴에서 **State Machines > New State Machine** (스테이트 머신 > 새 스테이트 머신)을 선택하면 됩니다.
 
 	![](CreateNewStateMachine.png)
 
@@ -37,11 +37,11 @@ type:how-to
 
 스테이트를 새로 만드는 것은 블루프린트에서 노드를 새로 만드는 것과 비슷합니다. 
 
-1. 우선 우클릭 맥락 메뉴에서 만드는 방법이 있습니다.
+1. 우선 우클릭 컨텍스트 메뉴에서 만드는 방법이 있습니다.
 
 	![](AddState_CM.png)
 
-	또는 그래프의 빈 부분으로 선을 끌어 놓아 뜨는 맥락 메뉴를 통해 만드는 방법도 있습니다.
+	또는 그래프의 빈 부분으로 선을 끌어 놓아 뜨는 컨텍스트 메뉴를 통해 만드는 방법도 있습니다.
 
 	![](AddStateDragWire.png)
 
@@ -73,6 +73,6 @@ type:how-to
 
 ![](TranstionRule.png)
 
-위에서 **IsSecondaryAttacking?** 불리언이 **True** 인 경우, 새로운 스테이트로의 트랜지션이 발생할 수 있습니다.
+위에서 **IsSecondaryAttacking?** 부울이 **True** 인 경우, 새로운 스테이트로의 트랜지션이 발생할 수 있습니다.
 
 

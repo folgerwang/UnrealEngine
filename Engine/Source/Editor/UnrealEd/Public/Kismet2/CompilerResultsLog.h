@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -235,6 +235,26 @@ public:
 		Tokenize(Format, *Line, SourceNodes, args...);
 		PotentialMessages.FindOrAdd(Source).Add(Line);
 		return Line;
+	}
+
+	/**
+	 * Store an already tokenized message.
+	 */
+	void AddTokenizedMessage(TSharedRef<FTokenizedMessage> InMessage)
+	{
+		switch (InMessage->GetSeverity())
+		{
+		case EMessageSeverity::Error:
+		case EMessageSeverity::CriticalError:
+			++NumErrors;
+			break;
+		case EMessageSeverity::Warning:
+		case EMessageSeverity::PerformanceWarning:
+			++NumWarnings;
+			break;
+		}
+
+		Messages.Add(InMessage);
 	}
 
 	/**

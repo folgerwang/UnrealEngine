@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -10,7 +10,7 @@
 /**
  * Represents a generic action
 */
-USTRUCT()
+USTRUCT( BlueprintType )
 struct VIEWPORTINTERACTION_API FViewportActionKeyInput
 {
 	GENERATED_BODY()
@@ -28,11 +28,11 @@ struct VIEWPORTINTERACTION_API FViewportActionKeyInput
 	{}
 
 	/** The name of this action */
-	UPROPERTY()
+	UPROPERTY( BlueprintReadOnly, Category = Action )
 	FName ActionType;
 
 	/** Input event */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, Category = Action)
 	TEnumAsByte<EInputEvent> Event;
 
 	/** True if this action owned by an interactor is "captured" for each possible action type, meaning that only the active captor should 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "PostProcess/PostProcessCompositeEditorPrimitives.h"
@@ -8,10 +8,13 @@
 #include "SceneRenderTargetParameters.h"
 #include "BasePassRendering.h"
 #include "MobileBasePassRendering.h"
-#include "PostProcess/RenderTargetPool.h"
+#include "RenderTargetPool.h"
 #include "DynamicPrimitiveDrawing.h"
 #include "ClearQuad.h"
 #include "PipelineStateCache.h"
+#include "VisualizeTexture.h"
+#include "MeshPassProcessor.inl"
+#include "EditorPrimitivesRendering.h"
 
 #if WITH_EDITOR
 
@@ -149,6 +152,7 @@ class FPostProcessComposeEditorPrimitivesPS : public FGlobalShader
 	{
 		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
 		OutEnvironment.SetDefine( TEXT("MSAA_SAMPLE_COUNT"), MSAASampleCount);
+		OutEnvironment.SetDefine( TEXT("OUTPUT_SRGB_BUFFER"), IsMobileColorsRGB() && IsMobilePlatform(Parameters.Platform));
 	}
 
 	FPostProcessComposeEditorPrimitivesPS() {}
@@ -297,9 +301,7 @@ static void SetPopulateSceneDepthForEditorPrimitivesShaderTempl(const FRendering
 	PixelShader->SetParameters(Context);
 }
 
-
-template<typename TBasePass>
-static void RenderEditorPrimitives(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FDrawingPolicyRenderState& DrawRenderState)
+static void RenderEditorPrimitives(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FMeshPassProcessorRenderState& DrawRenderState)
 {
 	// Always depth test against other editor primitives
 	DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<
@@ -308,36 +310,49 @@ static void RenderEditorPrimitives(FRHICommandListImmediate& RHICmdList, const F
 		false, CF_Always, SO_Keep, SO_Keep, SO_Keep,
 		0xFF, GET_STENCIL_BIT_MASK(RECEIVE_DECAL, 1) | STENCIL_LIGHTING_CHANNELS_MASK(0x7)>::GetRHI());
 
+	DrawDynamicMeshPass(View, RHICmdList,
+		[&View, &DrawRenderState](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
+	{
+		FEditorPrimitivesBasePassMeshProcessor PassMeshProcessor(
+			View.Family->Scene->GetRenderScene(),
+			View.GetFeatureLevel(),
+			&View,
+			DrawRenderState,
+			false,
+			DynamicMeshPassContext);
+
+		const uint64 DefaultBatchElementMask = ~0ull;
+		const int32 NumDynamicEditorMeshBatches = View.DynamicEditorMeshElements.Num();
+
+		for (int32 MeshIndex = 0; MeshIndex < NumDynamicEditorMeshBatches; MeshIndex++)
+		{
+			const FMeshBatchAndRelevance& MeshAndRelevance = View.DynamicEditorMeshElements[MeshIndex];
+			check(!MeshAndRelevance.Mesh->bRequiresPerElementVisibility);
+
+			if (MeshAndRelevance.GetHasOpaqueOrMaskedMaterial() || View.Family->EngineShowFlags.Wireframe)
+			{
+				PassMeshProcessor.AddMeshBatch(*MeshAndRelevance.Mesh, DefaultBatchElementMask, MeshAndRelevance.PrimitiveSceneProxy);
+			}
+		}
+
+		for (int32 MeshIndex = 0; MeshIndex < View.ViewMeshElements.Num(); MeshIndex++)
+		{
+			const FMeshBatch& MeshBatch = View.ViewMeshElements[MeshIndex];
+			PassMeshProcessor.AddMeshBatch(MeshBatch, DefaultBatchElementMask, nullptr);
+		}
+	});
+
+	View.EditorSimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::OpaqueAndMasked, SDPG_World);
+
 	const auto FeatureLevel = View.GetFeatureLevel();
 	const auto ShaderPlatform = GShaderPlatformForFeatureLevel[FeatureLevel];
 	const bool bNeedToSwitchVerticalAxis = RHINeedsToSwitchVerticalAxis(ShaderPlatform);
-
-	typename TBasePass::ContextType Context;
-
-	for (int32 MeshBatchIndex = 0; MeshBatchIndex < View.DynamicEditorMeshElements.Num(); MeshBatchIndex++)
-	{
-		const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicEditorMeshElements[MeshBatchIndex];
-
-		if (MeshBatchAndRelevance.GetHasOpaqueOrMaskedMaterial() || View.Family->EngineShowFlags.Wireframe)
-		{
-			const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
-			TBasePass::DrawDynamicMesh(RHICmdList, View, Context, MeshBatch, true, DrawRenderState, MeshBatchAndRelevance.PrimitiveSceneProxy, MeshBatch.BatchHitProxyId);
-		}
-	}
-
-	View.EditorSimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::OpaqueAndMasked);
-
-	// Draw the base pass for the view's batched mesh elements.
-	//DrawViewElements<TBasePass>(RHICmdList, View, DrawRenderState, Context, SDPG_World, false);
-	DrawViewElements<TBasePass>(RHICmdList, View, DrawRenderState, Context, SDPG_World, false);
 
 	// Draw the view's batched simple elements(lines, sprites, etc).
 	View.BatchedViewElements.Draw(RHICmdList, DrawRenderState, FeatureLevel, bNeedToSwitchVerticalAxis, View, false, 1.0f);
 }
 
-
-template<typename TBasePass>
-static void RenderForegroundEditorPrimitives(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FDrawingPolicyRenderState& DrawRenderState, bool bIgnoreExistingDepth)
+static void RenderForegroundEditorPrimitives(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FMeshPassProcessorRenderState& DrawRenderState)
 {
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
@@ -346,23 +361,63 @@ static void RenderForegroundEditorPrimitives(FRHICommandListImmediate& RHICmdLis
 	const bool bNeedToSwitchVerticalAxis = RHINeedsToSwitchVerticalAxis(ShaderPlatform);
 
 	// Draw a first time the foreground primitive without depth test to over right depth from non-foreground editor primitives.
-	if (bIgnoreExistingDepth)
 	{
 		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_Always>::GetRHI());
-		DrawViewElements<TBasePass>(RHICmdList, View, DrawRenderState,
-			typename TBasePass::ContextType(), SDPG_Foreground, false);
+
+		View.EditorSimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::OpaqueAndMasked, SDPG_Foreground);
+
+		DrawDynamicMeshPass(View, RHICmdList,
+				[&View, &DrawRenderState](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
+			{
+				FEditorPrimitivesBasePassMeshProcessor PassMeshProcessor(
+					View.Family->Scene->GetRenderScene(),
+					View.GetFeatureLevel(),
+					&View,
+					DrawRenderState,
+					false,
+					DynamicMeshPassContext);
+
+				const uint64 DefaultBatchElementMask = ~0ull;
+
+				for (int32 MeshIndex = 0; MeshIndex < View.TopViewMeshElements.Num(); MeshIndex++)
+				{
+					const FMeshBatch& MeshBatch = View.TopViewMeshElements[MeshIndex];
+					PassMeshProcessor.AddMeshBatch(MeshBatch, DefaultBatchElementMask, nullptr);
+				}
+			});
+
 		View.TopBatchedViewElements.Draw(RHICmdList, DrawRenderState, FeatureLevel, bNeedToSwitchVerticalAxis, View, false);
 	}
 
 	// Draw a second time the foreground primitive with depth test to have proper depth test between foreground primitives.
 	{
 		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual>::GetRHI());
-		DrawViewElements<TBasePass>(RHICmdList, View, DrawRenderState,
-			typename TBasePass::ContextType(), SDPG_Foreground, false);
+
+		View.EditorSimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::OpaqueAndMasked, SDPG_Foreground);
+
+		DrawDynamicMeshPass(View, RHICmdList,
+				[&View, &DrawRenderState](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
+			{
+				FEditorPrimitivesBasePassMeshProcessor PassMeshProcessor(
+					View.Family->Scene->GetRenderScene(),
+					View.GetFeatureLevel(),
+					&View,
+					DrawRenderState,
+					false,
+					DynamicMeshPassContext);
+
+				const uint64 DefaultBatchElementMask = ~0ull;
+
+				for (int32 MeshIndex = 0; MeshIndex < View.TopViewMeshElements.Num(); MeshIndex++)
+				{
+					const FMeshBatch& MeshBatch = View.TopViewMeshElements[MeshIndex];
+					PassMeshProcessor.AddMeshBatch(MeshBatch, DefaultBatchElementMask, nullptr);
+				}
+			});
+
 		View.TopBatchedViewElements.Draw(RHICmdList, DrawRenderState, FeatureLevel, bNeedToSwitchVerticalAxis, View, false);
 	}
 }
-
 
 template <uint32 MSAASampleCount>
 static void SetCompositePrimitivesShaderTempl(const FRenderingCompositePassContext& Context, bool bComposeAnyNonNullDepth)
@@ -435,98 +490,115 @@ void FRCPassPostProcessCompositeEditorPrimitives::Process(FRenderingCompositePas
 		FBox VolumeBounds[TVC_MAX];
 		EditorView.SetupUniformBufferParameters(SceneContext, VolumeBounds, TVC_MAX,*EditorView.CachedViewUniformShaderParameters);
 		EditorView.CachedViewUniformShaderParameters->NumSceneColorMSAASamples = MSAASampleCount;
-		EditorView.ViewUniformBuffer = TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(*EditorView.CachedViewUniformShaderParameters, UniformBuffer_SingleFrame);
+
+		FScene* Scene = Context.View.Family->Scene->GetRenderScene();
+		Scene->UniformBuffers.ViewUniformBuffer.UpdateUniformBufferImmediate(*EditorView.CachedViewUniformShaderParameters);
+		EditorView.ViewUniformBuffer = Scene->UniformBuffers.ViewUniformBuffer;
 	}
 
 	const FPooledRenderTargetDesc* InputDesc = GetInputDesc(ePId_Input0);
 	FIntPoint SrcSize = InputDesc->Extent;
 
+	// Editor primitive is used when rendering VMI_WIREFRAME in order to use MSAA.
+	// This mean we might not actually want to render composite editor primitives here.
+	if (Context.View.Family->EngineShowFlags.CompositeEditorPrimitives)
 	{
-		ESimpleRenderTargetMode RTMode = bClearIsNeeded ? ESimpleRenderTargetMode::EClearColorAndDepth : ESimpleRenderTargetMode::EExistingColorAndDepth;
-
-		SetRenderTarget(Context.RHICmdList, EditorColorTarget, EditorDepthTarget, RTMode);
-		Context.SetViewportAndCallRHI(ViewRect);
-
-		// Populate depth from scene depth.
+		FRHIRenderPassInfo RPInfo;
+		RPInfo.ColorRenderTargets[0].RenderTarget = EditorColorTarget;
+		RPInfo.DepthStencilRenderTarget.DepthStencilTarget = EditorDepthTarget;
+		RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthWrite_StencilWrite;
 		if (bClearIsNeeded)
 		{
-			SCOPED_DRAW_EVENTF(Context.RHICmdList, TemporalAA, TEXT("PopulateEditorPrimitivesDepthBuffer %dx%d msaa=%d"),
-				ViewRect.Width(), ViewRect.Height(), MSAASampleCount);
-
-			if (MSAASampleCount == 1)
-			{
-				SetPopulateSceneDepthForEditorPrimitivesShaderTempl<1>(Context);
-			}
-			else
-			{
-				SetPopulateSceneDepthForEditorPrimitivesShaderTempl<2>(Context);
-			}
-
-			TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
-
-			// Draw a quad mapping our render targets to the view's render target
-			DrawRectangle(
-				Context.RHICmdList,
-				0, 0,
-				ViewRect.Width(), ViewRect.Height(),
-				Context.View.ViewRect.Min.X, Context.View.ViewRect.Min.Y,
-				Context.View.ViewRect.Width(), Context.View.ViewRect.Height(),
-				ViewRect.Size(),
-				SrcSize,
-				*VertexShader,
-				EDRF_UseTriangleOptimization);
-		}
-
-		TUniformBufferRef<FOpaqueBasePassUniformParameters> OpaqueBasePassUniformBuffer;
-		TUniformBufferRef<FMobileBasePassUniformParameters> MobileBasePassUniformBuffer;
-		FUniformBufferRHIParamRef BasePassUniformBuffer = nullptr;
-
-		if (bDeferredBasePass)
-		{
-			CreateOpaqueBasePassUniformBuffer(Context.RHICmdList, EditorView, nullptr, OpaqueBasePassUniformBuffer);
-			BasePassUniformBuffer = OpaqueBasePassUniformBuffer;
+			RPInfo.ColorRenderTargets[0].Action = ERenderTargetActions::Clear_Store;
+			RPInfo.DepthStencilRenderTarget.Action = EDepthStencilTargetActions::ClearDepthStencil_StoreDepthStencil;
 		}
 		else
 		{
-			CreateMobileBasePassUniformBuffer(Context.RHICmdList, EditorView, true, MobileBasePassUniformBuffer);
-			BasePassUniformBuffer = MobileBasePassUniformBuffer;
+			RPInfo.ColorRenderTargets[0].Action = ERenderTargetActions::Load_Store;
+			RPInfo.DepthStencilRenderTarget.Action = EDepthStencilTargetActions::LoadDepthStencil_StoreDepthStencil;
 		}
 
-		FDrawingPolicyRenderState DrawRenderState(EditorView, BasePassUniformBuffer);
-		DrawRenderState.SetDepthStencilAccess(FExclusiveDepthStencil::DepthWrite_StencilWrite);
-		DrawRenderState.SetBlendState(TStaticBlendStateWriteMask<CW_RGBA>::GetRHI());
-
-		// Draw editor primitives.
+		// It's possible to have no depth target here.
+		if (!EditorDepthTarget)
 		{
-			SCOPED_DRAW_EVENTF(Context.RHICmdList, TemporalAA, TEXT("RenderViewEditorPrimitives %dx%d msaa=%d"),
-				ViewRect.Width(), ViewRect.Height(), MSAASampleCount);
-				
+			RPInfo.DepthStencilRenderTarget.Action = EDepthStencilTargetActions::DontLoad_DontStore;
+			RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthNop_StencilNop;
+		}
+
+		Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("CompositeEditorPrimitives"));
+		{
+			Context.SetViewportAndCallRHI(ViewRect);
+
+			// Populate depth from scene depth.
+			if (bClearIsNeeded)
+			{
+				SCOPED_DRAW_EVENTF(Context.RHICmdList, TemporalAA, TEXT("PopulateEditorPrimitivesDepthBuffer %dx%d msaa=%d"),
+					ViewRect.Width(), ViewRect.Height(), MSAASampleCount);
+
+				if (MSAASampleCount == 1)
+				{
+					SetPopulateSceneDepthForEditorPrimitivesShaderTempl<1>(Context);
+				}
+				else
+				{
+					SetPopulateSceneDepthForEditorPrimitivesShaderTempl<2>(Context);
+				}
+
+				TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
+
+				// Draw a quad mapping our render targets to the view's render target
+				DrawRectangle(
+					Context.RHICmdList,
+					0, 0,
+					ViewRect.Width(), ViewRect.Height(),
+					Context.View.ViewRect.Min.X, Context.View.ViewRect.Min.Y,
+					Context.View.ViewRect.Width(), Context.View.ViewRect.Height(),
+					ViewRect.Size(),
+					SrcSize,
+					*VertexShader,
+					EDRF_UseTriangleOptimization);
+			}
+
+			TUniformBufferRef<FOpaqueBasePassUniformParameters> OpaqueBasePassUniformBuffer;
+			TUniformBufferRef<FMobileBasePassUniformParameters> MobileBasePassUniformBuffer;
+			FUniformBufferRHIParamRef BasePassUniformBuffer = nullptr;
+
 			if (bDeferredBasePass)
 			{
-				RenderEditorPrimitives<FBasePassOpaqueDrawingPolicyFactory>(Context.RHICmdList, EditorView, DrawRenderState);
+				CreateOpaqueBasePassUniformBuffer(Context.RHICmdList, EditorView, nullptr, OpaqueBasePassUniformBuffer);
+				BasePassUniformBuffer = OpaqueBasePassUniformBuffer;
 			}
 			else
 			{
-				RenderEditorPrimitives<FMobileBasePassOpaqueDrawingPolicyFactory>(Context.RHICmdList, EditorView, DrawRenderState);
+				CreateMobileBasePassUniformBuffer(Context.RHICmdList, EditorView, true, MobileBasePassUniformBuffer);
+				BasePassUniformBuffer = MobileBasePassUniformBuffer;
+			}
+
+			FMeshPassProcessorRenderState DrawRenderState(EditorView, BasePassUniformBuffer);
+			DrawRenderState.SetDepthStencilAccess(FExclusiveDepthStencil::DepthWrite_StencilWrite);
+			DrawRenderState.SetBlendState(TStaticBlendStateWriteMask<CW_RGBA>::GetRHI());
+
+			RenderEditorPrimitives(Context.RHICmdList, EditorView, DrawRenderState);
+
+			// Draw editor primitives.
+			{
+				SCOPED_DRAW_EVENTF(Context.RHICmdList, TemporalAA, TEXT("RenderViewEditorPrimitives %dx%d msaa=%d"),
+					ViewRect.Width(), ViewRect.Height(), MSAASampleCount);
+
+				RenderEditorPrimitives(Context.RHICmdList, EditorView, DrawRenderState);
+			}
+
+			// Draw foreground editor primitives.
+			{
+				SCOPED_DRAW_EVENTF(Context.RHICmdList, TemporalAA, TEXT("RenderViewEditorForegroundPrimitives %dx%d msaa=%d"),
+					ViewRect.Width(), ViewRect.Height(), MSAASampleCount);
+
+				RenderForegroundEditorPrimitives(Context.RHICmdList, EditorView, DrawRenderState);
 			}
 		}
+		Context.RHICmdList.EndRenderPass();
 
-		// Draw foreground editor primitives.
-		{
-			SCOPED_DRAW_EVENTF(Context.RHICmdList, TemporalAA, TEXT("RenderViewEditorForegroundPrimitives %dx%d msaa=%d"),
-				ViewRect.Width(), ViewRect.Height(), MSAASampleCount);
-
-			if (bDeferredBasePass)
-			{
-				RenderForegroundEditorPrimitives<FBasePassOpaqueDrawingPolicyFactory>(Context.RHICmdList, EditorView, DrawRenderState, /* bIgnoreExistingDepth = */ true);
-			}
-			else
-			{
-				RenderForegroundEditorPrimitives<FMobileBasePassOpaqueDrawingPolicyFactory>(Context.RHICmdList, EditorView, DrawRenderState, /* bIgnoreExistingDepth = */ true);
-			}
-		}
-
-		GRenderTargetPool.VisualizeTexture.SetCheckPoint(Context.RHICmdList, SceneContext.EditorPrimitivesColor);
+		GVisualizeTexture.SetCheckPoint(Context.RHICmdList, SceneContext.EditorPrimitivesColor);
 
 		FTextureRHIParamRef EditorRenderTargets[2];
 		EditorRenderTargets[0] = EditorColorTarget;
@@ -547,54 +619,56 @@ void FRCPassPostProcessCompositeEditorPrimitives::Process(FRenderingCompositePas
 		FIntRect DestRect = Context.GetSceneColorDestRect(DestRenderTarget);
 
 		// Set the view family's render target/viewport.
-		SetRenderTarget(Context.RHICmdList, DestRenderTargetSurface, FTextureRHIRef());
-
-		Context.SetViewportAndCallRHI(DestRect);
-
-		// If clear is not needed, that mean already have something in MSAA buffers. Because not populating scene depth buffer
-		// into MSAA depth buffer, then force to compose any sample that have non null depth as if alpha channel was 1.
-		bool bComposeAnyNonNullDepth = !bClearIsNeeded;
-
-		if (!bDeferredBasePass)
+		FRHIRenderPassInfo RPInfo(DestRenderTargetSurface, ERenderTargetActions::Load_Store);
+		Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("ComposeEditorPrimitives"));
 		{
-			SetCompositePrimitivesShaderTempl<0>(Context, bComposeAnyNonNullDepth);
-		}
-		else if (MSAASampleCount == 1)
-		{
-			SetCompositePrimitivesShaderTempl<1>(Context, bComposeAnyNonNullDepth);
-		}
-		else if (MSAASampleCount == 2)
-		{
-			SetCompositePrimitivesShaderTempl<2>(Context, bComposeAnyNonNullDepth);
-		}
-		else if (MSAASampleCount == 4)
-		{
-			SetCompositePrimitivesShaderTempl<4>(Context, bComposeAnyNonNullDepth);
-		}
-		else if (MSAASampleCount == 8)
-		{
-			SetCompositePrimitivesShaderTempl<8>(Context, bComposeAnyNonNullDepth);
-		}
-		else
-		{
-			// not supported, internal error
-			check(0);
-		}
+			Context.SetViewportAndCallRHI(DestRect);
 
-		TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
+			// If clear is not needed, that mean already have something in MSAA buffers. Because not populating scene depth buffer
+			// into MSAA depth buffer, then force to compose any sample that have non null depth as if alpha channel was 1.
+			bool bComposeAnyNonNullDepth = !bClearIsNeeded;
 
-		// Draw a quad mapping our render targets to the view's render target
-		DrawRectangle(
-			Context.RHICmdList,
-			0, 0,
-			DestRect.Width(), DestRect.Height(),
-			ViewRect.Min.X, ViewRect.Min.Y,
-			ViewRect.Width(), ViewRect.Height(),
-			DestRect.Size(),
-			SrcSize,
-			*VertexShader,
-			EDRF_UseTriangleOptimization);
+			if (!bDeferredBasePass)
+			{
+				SetCompositePrimitivesShaderTempl<0>(Context, bComposeAnyNonNullDepth);
+			}
+			else if (MSAASampleCount == 1)
+			{
+				SetCompositePrimitivesShaderTempl<1>(Context, bComposeAnyNonNullDepth);
+			}
+			else if (MSAASampleCount == 2)
+			{
+				SetCompositePrimitivesShaderTempl<2>(Context, bComposeAnyNonNullDepth);
+			}
+			else if (MSAASampleCount == 4)
+			{
+				SetCompositePrimitivesShaderTempl<4>(Context, bComposeAnyNonNullDepth);
+			}
+			else if (MSAASampleCount == 8)
+			{
+				SetCompositePrimitivesShaderTempl<8>(Context, bComposeAnyNonNullDepth);
+			}
+			else
+			{
+				// not supported, internal error
+				check(0);
+			}
 
+			TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
+
+			// Draw a quad mapping our render targets to the view's render target
+			DrawRectangle(
+				Context.RHICmdList,
+				0, 0,
+				DestRect.Width(), DestRect.Height(),
+				ViewRect.Min.X, ViewRect.Min.Y,
+				ViewRect.Width(), ViewRect.Height(),
+				DestRect.Size(),
+				SrcSize,
+				*VertexShader,
+				EDRF_UseTriangleOptimization);
+		}
+		Context.RHICmdList.EndRenderPass();
 		Context.RHICmdList.CopyToResolveTarget(DestRenderTargetSurface, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 	}
 
@@ -613,3 +687,4 @@ FPooledRenderTargetDesc FRCPassPostProcessCompositeEditorPrimitives::ComputeOutp
 }
 
 #endif
+

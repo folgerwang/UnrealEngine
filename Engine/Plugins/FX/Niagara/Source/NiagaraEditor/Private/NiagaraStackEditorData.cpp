@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraStackEditorData.h"
 
@@ -24,6 +24,20 @@ void UNiagaraStackEditorData::SetStackEntryIsExpanded(const FString& StackEntryK
 	if (ensureMsgf(StackEntryKey.IsEmpty() == false, TEXT("Can not set the expanded state with an empty key")))
 	{
 		StackEntryKeyToExpandedMap.FindOrAdd(StackEntryKey) = bIsExpanded;
+	}
+}
+
+bool UNiagaraStackEditorData::GetStackEntryWasExpandedPreSearch(const FString& StackEntryKey, bool bWasExpandedPreSearchDefault) const
+{
+	const bool* bWasExpandedPreSearchPtr = StackEntryKeyToPreSearchExpandedMap.Find(StackEntryKey);
+	return bWasExpandedPreSearchPtr != nullptr ? *bWasExpandedPreSearchPtr : bWasExpandedPreSearchDefault;
+}
+
+void UNiagaraStackEditorData::SetStackEntryWasExpandedPreSearch(const FString& StackEntryKey, bool bWasExpandedPreSearch)
+{
+	if (ensureMsgf(StackEntryKey.IsEmpty() == false, TEXT("Can not set the pre-search expanded state with an empty key")))
+	{
+		StackEntryKeyToPreSearchExpandedMap.FindOrAdd(StackEntryKey) = bWasExpandedPreSearch;
 	}
 }
 
@@ -59,6 +73,16 @@ bool UNiagaraStackEditorData::GetShowOutputs() const
 void UNiagaraStackEditorData::SetShowOutputs(bool bInShowOutputs)
 {
 	bShowOutputs = bInShowOutputs;
+}
+
+bool UNiagaraStackEditorData::GetShowLinkedInputs() const
+{
+	return bShowLinkedInputs;
+}
+
+void UNiagaraStackEditorData::SetShowLinkedInputs(bool bInShowLinkedInputs)
+{
+	bShowLinkedInputs = bInShowLinkedInputs;
 }
 
 double UNiagaraStackEditorData::GetLastScrollPosition() const

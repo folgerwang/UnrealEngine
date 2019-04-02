@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -42,7 +42,7 @@ public:
 	static UDragDropOperation* CreateDragDropOperation(TSubclassOf<UDragDropOperation> OperationClass);
 	
 	/** Setup an input mode that allows only the UI to respond to user input. */
-	DEPRECATED(4.13, "Locking the mouse to the viewport is now controlled by an enum. Call SetInputMode_UIOnlyEx instead")
+	UE_DEPRECATED(4.13, "Locking the mouse to the viewport is now controlled by an enum. Call SetInputMode_UIOnlyEx instead")
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "Input", meta = (DeprecatedFunction, DeprecationMessage = "Use the new version of Set Input Mode UI Only instead"), DisplayName = "Set Input Mode UI Only (Deprecated)")
 	static void SetInputMode_UIOnly(APlayerController* Target, UWidget* InWidgetToFocus = nullptr, bool bLockMouseToViewport = false);
 
@@ -51,7 +51,7 @@ public:
 	static void SetInputMode_UIOnlyEx(APlayerController* PlayerController, UWidget* InWidgetToFocus = nullptr, EMouseLockMode InMouseLockMode = EMouseLockMode::DoNotLock);
 
 	/** Setup an input mode that allows only the UI to respond to user input, and if the UI doesn't handle it player input / player controller gets a chance. */
-	DEPRECATED(4.13, "Locking the mouse to the viewport is now controlled by an enum. Call SetInputMode_GameAndUIEx instead")
+	UE_DEPRECATED(4.13, "Locking the mouse to the viewport is now controlled by an enum. Call SetInputMode_GameAndUIEx instead")
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "Input", meta = (DeprecatedFunction, DeprecationMessage = "Use the new version of Set Input Mode Game And UI instead"), DisplayName = "Set Input Mode Game And UI (Deprecated)")
 	static void SetInputMode_GameAndUI(APlayerController* Target, UWidget* InWidgetToFocus = nullptr, bool bLockMouseToViewport = false, bool bHideCursorDuringCapture = true);
 
@@ -76,21 +76,23 @@ public:
 	 *
 	 * @param PositionA		Starting position of the line in local space.
 	 * @param PositionB		Ending position of the line in local space.
-	 * @param Thickness		How many pixels thick this line should be.
 	 * @param Tint			Color to render the line.
+	 * @param bAntialias	Whether the line should be antialiased.
+	 * @param Thickness		How many pixels thick this line should be.
 	 */
-	UFUNCTION(BlueprintCallable, meta=( AdvancedDisplay = "4" ), Category="Painting" )
-	static void DrawLine(UPARAM(ref) FPaintContext& Context, FVector2D PositionA, FVector2D PositionB, FLinearColor Tint = FLinearColor::White, bool bAntiAlias = true);
+	UFUNCTION(BlueprintCallable, meta = (AdvancedDisplay = "4"), Category = "Painting")
+	static void DrawLine(UPARAM(ref) FPaintContext& Context, FVector2D PositionA, FVector2D PositionB, FLinearColor Tint = FLinearColor::White, bool bAntiAlias = true, float Thickness = 1.0f);
 
 	/**
 	 * Draws several line segments.
 	 *
 	 * @param Points		Line pairs, each line needs to be 2 separate points in the array.
-	 * @param Thickness		How many pixels thick this line should be.
 	 * @param Tint			Color to render the line.
+	 * @param bAntialias	Whether the line should be antialiased.
+	 * @param Thickness		How many pixels thick this line should be.
 	 */
-	UFUNCTION(BlueprintCallable, meta=( AdvancedDisplay = "3" ), Category="Painting" )
-	static void DrawLines(UPARAM(ref) FPaintContext& Context, const TArray<FVector2D>& Points, FLinearColor Tint = FLinearColor::White, bool bAntiAlias = true);
+	UFUNCTION(BlueprintCallable, meta = (AdvancedDisplay = "3"), Category = "Painting")
+	static void DrawLines(UPARAM(ref) FPaintContext& Context, const TArray<FVector2D>& Points, FLinearColor Tint = FLinearColor::White, bool bAntiAlias = true, float Thickness = 1.0f);
 
 	/**
 	 * Draws text.
@@ -295,7 +297,7 @@ public:
 	* @param TopLevelOnly Only the widgets that are direct children of the viewport will be returned.
 	*/
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Widget", meta = (WorldContext = "WorldContextObject", DeterminesOutputType = "WidgetClass", DynamicOutputParam = "FoundWidgets"))
-	static void GetAllWidgetsWithInterface(UObject* WorldContextObject, TSubclassOf<UInterface> Interface, TArray<UUserWidget*>& FoundWidgets, bool TopLevelOnly);
+	static void GetAllWidgetsWithInterface(UObject* WorldContextObject, TArray<UUserWidget*>& FoundWidgets, TSubclassOf<UInterface> Interface, bool TopLevelOnly);
 
 	UFUNCTION(BlueprintPure, Category="Widget", meta = (CompactNodeTitle = "->", BlueprintAutocast))
 	static FInputEvent GetInputEventFromKeyEvent(const FKeyEvent& Event);
@@ -317,6 +319,16 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Widget|Safe Zone", meta=( WorldContext="WorldContextObject" ))
 	static void GetSafeZonePadding(UObject* WorldContextObject, FVector4& SafePadding, FVector2D& SafePaddingScale, FVector4& SpillOverPadding);
+
+	/**
+	* Apply color deficiency correction settings to the game window 
+	* @param Type The type of color deficiency correction to apply.
+	* @param Severity Intensity of the color deficiency correction effect, from 0 to 1.
+	* @param CorrectDeficiency Shifts the color spectrum to the visible range based on the current deficiency type.
+	* @param ShowCorrectionWithDeficiency If you're correcting the color deficiency, you can use this to visualize what the correction looks like with the deficiency.
+	*/
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "Widget|Accessibility", meta = (AdvancedDisplay = "3"))
+	static void SetColorVisionDeficiencyType(EColorVisionDeficiency Type, float Severity, bool CorrectDeficiency, bool ShowCorrectionWithDeficiency);
 
 	/**
 	 * Loads or sets a hardware cursor from the content directory in the game.

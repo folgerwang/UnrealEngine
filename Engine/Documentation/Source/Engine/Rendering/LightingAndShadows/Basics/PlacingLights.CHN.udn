@@ -1,47 +1,11 @@
-﻿INTSourceChangelist:1944055
+﻿INTSourceChangelist:3782314
 Availability: Public
-Title:放置光源
-Crumbs: %ROOT%, Engine, Engine/Rendering, Engine/Rendering/LightingAndShadows
-Description:关于向关卡中放置光源的基本信息。
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/Basics:title%](PL_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/Basics:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/Basics:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/Basics]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/Basics:title%](PL_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/Basics:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/Basics:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/Basics]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+Title:光照基础
+Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows
+Description:将光源放置到关卡中并进行设置的基础要点。
+SkillLevel: Beginner
+Version: 4.9
+topic-image:PL_Topic.png
 
 [REGION:fullwidth raw]
 ![](PL_Banner.png)(convert:false)
@@ -49,90 +13,105 @@ Description:关于向关卡中放置光源的基本信息。
 
 [TOC(start:2)]
 
-## 概述
 
-在虚幻引擎4中，有很多种把光源放置到场景中的方法，还有一些会对世界中的光照产生巨大影响的关键属性。
+
+在虚幻引擎4中，将光源添加到场景的方法有多种，数个关键属性会对场景中的光照产生较大影响。
+
+(#placinglights)
 
 ## 放置光源
 
-有很多种把光源放置到场景中的方法：
+将光源放置在场景中的方法有以下几种：
 
-1. 从内容浏览器中拖拽光源到场景中。
+1. 将光源从 **模式** 窗口拖入 **放置模式**。
 
-	![](LI_ContentDrag.png)(w:600)
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:width]
+		640
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		360
+		[/PARAMLITERAL]
+		[PARAMLITERAL:videoid]
+		Kb8lDTPUVxg
+		[/PARAMLITERAL]
+	[/OBJECT]
 
-	**内容浏览器** 中的光源可以在 **Classes(类)** 文件夹中找到，通过简单的搜索“light”，您便可以找到所有光源。
+	在 **模式** 菜单的 **光源** 选项卡中，**左键点击** 光源并将其拖放到关卡中 
+	
 
-或者
+也可从 **关卡视口** 窗口直接添加一个光源。 
 
-1. 在"放置模式"中，从工具窗口拖拽光源到场景中。
+1. 在视口中 **点击右键**，选择 **放置Actor（Place Actor）**，然后选择一个光源：
 
-	![](LI_placementDrag.png)
+	![](LI_RCPlace.png)(w:420)
 
-	在 **放置模式** 中，最右侧的图标是“显示您的项目中所有可放置的内容“，通过在搜索框内输入"light"，您将会找到您的项目中的所有默认光源。
 
-或者
-1. 在视口中 **右击** ， 选择 **添加Actor**，然后选择一个光源：
+添加光源后，便能使用与其他对象类似的位置（**W**）和旋转（**E**）控件来调整光源的位置和旋转。
 
-	![](LI_RCPlace.png)(w:600)
-
-1. 然后，和其他对象一样，可以使用位置和旋转控件来调整光源的位置和旋转度。
-
+![](MoveRotateLights.png)
+	
+光源由编辑器中的这些sprite所代表。从左至右为：**点光源**、**聚光源** 和 **定向光源**。
 
 ![](LI_Sprites.png)
 
-_光源在编辑器中是使用这些精灵图标表示的。从右到左，依次是： 点光源、聚光源和定向光源_ 。
+(#intensity)
 
-## 亮度
+## 强度
 
 ![](LI_brightness.png)
 
-亮度，正如它的意思一样： 表示您想让该光源有多亮。它直接受到半径、衰减、 **平方反比衰减（inverse squared falloff）** 及颜色的影响，同时如果启用了 **Eye Adaptation（人眼调节）** ，它还会受到其他光源的亮度的间接影响。
+**强度** 决定着光线输出到场景中的能量。  
 
-## 颜色
+对 **点光源** 和 **聚光源** 而言，这以流明为单位，1700流明则相当于一个100W的电灯泡。 
+
+(#lightcolor)
+
+## 光源颜色
 
 ![](LO_HowTo_color.png)
 
-该项属性将会调整光源颜色，并且编辑器中代表该光源的精灵图标的颜色也会随之改变其颜色来进行匹配。
+**光源颜色** 将调整光源的颜色，编辑器中代表光源的sprite也将调整颜色进行匹配。
 
-![](LI_color.png)(w:900)
-
-[COMMENT:none]
+![](LI_color.png)(w:720)
 
 
-## 半径
+(#attenuationradius)
 
-光源的 **半径** 执行以下几个主要的工作：
-1. 设置光源的触及范围。
-1. 定义它所影响的对象。
-1. 当计算光源的衰减情况时，他可以作为外边界。
+## 衰减半径
 
-[REGION:lightbox]
-[![](IL_1024.png)(w:300)](IL_1024.png) [![](IL_4096.png)(w:300)](IL_4096.png) [![](IL_8192.png)(w:300)](IL_8192.png)
-[/REGION]
+光源的 **衰减半径** 执行以下几项功能：
+1. 设置光线可达的范围。
+1. 定义光线影响的对象。
+1. 计算光源衰减时将其用作外边界。
 
-光源 **半径** 可能会严重地影响性能，光源应该仅照亮他需要照亮的物体，应该尽可能少地使用很大的、影响全景的光源。
+![](Attenuation_Radius.png)(w:720)
+
+_上图中从左至右设置的 **衰减半径** 值：**200**、**400** 和 **800**。_
+
+光源 **衰减半径** 会对性能产生严重影响，所以要尽量少使用较大的半径值。
 
 
-[/COMMENT]
+(#sourceradiusandlength)
 
-## 光源半径和长度
+## 源半径和长度
 
 ![](LI_sourceRadius.png)
 
-这两个属性值得特别一提，因为它们定义了表面上的高光的大小。
+**源半径（Source Radius）** 和 **源长度（Source Length）** 需要特别关注，因为它们将定义表面上反射高光的大小。
 
 ![](LI_lightSourceRadiusEffect.png)(w:500)
 
-如果您想减轻这种效果，可以取消选中光源上的 **Min Roughness（最小粗糙度）** 属性。
+如要减轻此效果，则查看光源上的 **最小粗糙度（Min Roughness）** 属性。
 
 ![](LI_MinRoughness.png)(w:500)
 
-_最小粗糙度的值分别为0.3、0.2和0.1_
+_0.3、0.2和0.1的最小粗糙度值_
 
-它们具有的最后一个影响是在渲染光照贴图时在Lightmass中的影响。半径越大的光源投射的阴影越柔和(和大部分主要3D制作包中的区域光源类似)。因为这是由Lightmass处理的，所以仅 **固定光源** 和 **静态光源** 会受到影响。
+渲染光照贴图时它们还在 **Lightmass** 中存在影响。较大半径的光源将投射更柔和的阴影（例如多数主要3D制作包中的区域光源）。因其由 **Lightmass** 进行处理，所以只有 **静态** 光源将获得效果。
 
-![](LI_lightRadiusShadows.png)
+![](LI_lightRadiusShadows.png)(w:720)
 
-_红色光源的 **Source Radius（光源半径）** 是0, 而绿色光源的 **Source Radius（光源半径）** 是150，注意看绿色光源投射了柔和的阴影。_
+_红色光源的 **源半径** 为0，而绿色光源的 **源半径** 为150；可以看到绿色光源投射出了柔和的阴影。_
+
 

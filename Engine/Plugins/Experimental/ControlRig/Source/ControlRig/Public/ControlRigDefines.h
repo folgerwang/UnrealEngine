@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -21,6 +21,14 @@ enum class ETransformSpaceMode : uint8
 	BaseJoint,
 
 	/** MAX - invalid */
+	Max UMETA(Hidden),
+};
+
+UENUM()
+enum class ETransformGetterType : uint8
+{
+	Initial,
+	Current,
 	Max UMETA(Hidden),
 };
 

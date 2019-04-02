@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -46,9 +46,6 @@ public:
 	}
 		SLATE_DEFAULT_SLOT(FArguments, Content)
 	SLATE_END_ARGS()
-
-	DEPRECATED(4.17, "You should just make any widget .Clipping(EWidgetClipping::ClipToBounds), instead of using this box.")
-	SScissorRectBox();
 
 	void Construct( const FArguments& InArgs );
 

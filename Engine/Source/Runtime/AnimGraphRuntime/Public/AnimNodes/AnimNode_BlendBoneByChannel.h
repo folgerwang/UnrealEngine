@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -55,37 +55,37 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Links)
 	FPoseLink B;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinShownByDefault))
-	mutable float Alpha;
+	UPROPERTY(EditAnywhere, Category = Blend, meta = (DisplayAfter = "AlphaScaleBias"))
+	TArray<FBlendBoneByChannelEntry> BoneDefinitions;
 
+private:
+	// Array of bone entries, that has been validated to be correct at runtime.
+	// So we don't have to perform validation checks per frame.
+	TArray<FBlendBoneByChannelEntry> ValidBoneEntries;
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinShownByDefault, DisplayAfter = "B"))
+	float Alpha;
+
+private:
+	float InternalBlendAlpha;
+
+public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
 	FInputScaleBias AlphaScaleBias;
-
-	UPROPERTY(EditAnywhere, Category = Blend)
-	TArray<FBlendBoneByChannelEntry> BoneDefinitions;
 
 	/** Space to convert transforms into prior to copying channels */
 	UPROPERTY(EditAnywhere, Category = Blend)
 	TEnumAsByte<EBoneControlSpace> TransformsSpace;
 
-protected:
-	UPROPERTY(Transient)
-	mutable float InternalBlendAlpha;
-
-	UPROPERTY(Transient)
-	mutable bool bBIsRelevant;
-
 private:
-	// Array of bone entries, that has been validated to be correct at runtime.
-	// So we don't have to perform validation checks per frame.
-	UPROPERTY(Transient)
-	TArray<FBlendBoneByChannelEntry> ValidBoneEntries;
+	bool bBIsRelevant;
 
 public:
 	FAnimNode_BlendBoneByChannel()
 		: Alpha(0.0f)
-		, TransformsSpace(EBoneControlSpace::BCS_BoneSpace)
 		, InternalBlendAlpha(0.0f)
+		, TransformsSpace(EBoneControlSpace::BCS_BoneSpace)
 		, bBIsRelevant(false)
 	{
 	}

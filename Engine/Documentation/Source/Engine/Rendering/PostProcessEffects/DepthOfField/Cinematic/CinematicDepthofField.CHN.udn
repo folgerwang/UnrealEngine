@@ -1,6 +1,6 @@
-﻿INTSourceChangelist:0
-title:Cinematic Depth of Field
-description:The following depth of field methods provides a cinematic look that closely resembles photography and film for desktop and console platforms using the Deferred rendering path.
+﻿INTSourceChangelist:4314037
+title:影视级景深
+description:以下景深方法具有影视级视觉效果，十分接近使用延迟渲染路径的PC及主机平台上照片和电影的效果。
 crumbs:
 availability:Public
 version:4.20
@@ -11,92 +11,91 @@ tags:Post Process
 tags:Depth of Field
 topic-image:DOF_Cine_Topic.png
 
-The following depth of field method provides a cinematic look that closely resembles photography and film for desktop and console platforms using the Deferred Shading renderer and Clustered Forward renderer.
+以下景深方法具有影视级视觉效果，十分接近使用延迟着色渲染器和群集前向渲染器的PC及主机平台上照片和电影的效果。
 
-## Cinematic
+## 影视级
 
 [REGION:note]
-This depth of field method replaces **Circle** DOF as the default cinematic method used in Unreal Engine 4, version 4.20. It is enabled by default on supported hardware.
+该景深方法用于替代虚幻引擎4（4.20 版本）中使用的默认影视级景深方法 **圆圈（Circle）** 景深。在支持的硬件上，该方法默认处于启用状态。
 [/REGION]
 
-**Cinematic** DOF closely matches real-world cameras, similarly to Circle and Bokeh DOF, you can see circular shaped Bokeh with sharp [High Dynamic Range](Engine/Rendering/HDRDisplayOutput) (HDR) content. This method uses a procedural Bokeh simulation that provides dynamic resolution stability and alpha channel support while being faster, scalable, and optimized for projects developing on desktop and consoles.
+与圆圈景深和散景景深一样，**影视级** 景深的效果跟物理相机不相上下，您可以在锐化 [高动态范围](Engine/Rendering/HDRDisplayOutput) (HDR)内容中看到圆形遮光散景。此方法使用程序化散景模拟技术，具有动态分辨率稳定性和阿尔法通道支持，在桌面和控制台上开发的项目还具有更快速、可扩展和性能优化等特性。
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Depth of Field Disabled](image_0.png)
+	![已禁用景深](image_0.png)
 	[/PARAM]
 	[PARAM:after]
-	![Cinematic Depth of Field](image_1.png)
+	![影视级景深](image_1.png)
 	[/PARAM]
 	[PARAMLITERAL:position]
 	bottom
 	[/PARAMLITERAL]
 [/OBJECT]
 
-### Focusing the Subject of the Shot
+### 对焦拍摄对象
 
-The key to achieving an aesthetically pleasing depth of field effect is all in how the subject(s) of the shot is focused. There are three core factors that affect setting up Depth of Field for any given shot:
+实现美学意义上完美景深效果的关键在于对焦拍摄对象。对于特定拍摄情形，影响景深设置的核心因素有三个：
 
-* Decide on the **Focal Length** of the lens.
+* 确定镜头的 **焦距（Focal Length）**。
 
-* Choose an appropriate **Aperture** (f-stop number).
+* 选择合适的 **孔径（Aperture）**（F值）。
 
-* Choose a **Distance to your Subject(s) **from the camera.
+* 选择拍摄对象与相机之间的 **对象距离（Distance to your Subject）**。
 
-Let's break down the elements that make up the camera and scene being captured in order to understand what's going on when we adjust these settings:
+为了理解调整这些设置时会产生怎样的效果，我们来分析一下构成相机和拍摄场景的各个要素：
 
 ![image_2.png](image_2.png)
 
-1. Points in the Scene
+1.场景中的各个点
 
-    1. Red = Out of Focus
+    1.红点 = 未对焦
 
-    2. Blue = Perfectly in Focus
+    2.蓝点 = 正好对焦
 
-    3. Green = Marginally in Focus
+    3.绿点 = 未完全对焦
 
-2. Focus Distance to Subject of the Shot (Blue Dot)
+2.到拍摄对象的对焦距离（蓝点）
 
-3. Lens of the camera
+3.相机镜头
 
-4. Diaphragm of the Lens measured in F-stop
+4.镜头光圈（F值）
 
-5. Focal Length of the Lens
+5.镜头焦距
 
-6. Filmback / Image Sensor
+6.胶片背板/图像传感器
 
-7. Rendered Image Result
-
+7.渲染后的图像结果
 
 [REGION:note]
-Take note that the rendered image on the right is inverted through the lens of the camera.
+注意：右侧的渲染图像已通过相机镜头反转。
 [/REGION]
 
-Here we have the multiple points (1) representing objects captured by the camera to a defined **Focus Distance** (2), in this case, the blue subject. The **Aperture** (4) defines how blurred objects in the foreground and background will be that are not in focus, and, finally, the **Focal Length** (5) of the lens controls the field of view, or how zoomed in the image will be. 
+上面的几个点 (1) 分别代表相机在既定 **对焦距离** (2) 下拍摄的对象，即本例中的蓝色对象。**孔径** (4) 定义如何呈现前景和后景中离焦的模糊对象，最后，镜头的 **焦距** (5) 用于控制视野或图像大小。
 
-#### Aperture
+#### 孔径
 
-The **Aperture** defines how sharp or blurred the foreground and background are based on the diameter of the **Diaphragm** which is controlled in f-stop. 
+**孔径** 根据 **光圈** 直径（由F值控制）确定前景和后景的锐化和虚化程度。
 
 ![image_3.png](image_3.png)
 
-1. Lens of the Camera
+1.相机镜头
 
-2. Aperture Diaphragm of the Lens measured in F-stop
+2.镜头的孔径光圈（以 F值 计）
 
-This diagram demonstrates the Diaphragm (2) blocking light passing through the Lens (1). The size of the Aperture (or f-stop number) sets how much light passes through the Lens in turn controlling how much the foreground and background is blurred  based on the Focus Distance of the shot. 
+上图演示了阻挡光线通过镜头 (1) 的光圈 (2)。孔径（或F值）大小确定可通过镜头的光线数量，既而根据拍摄焦距控制前景和后景虚化程度。
 
-There are two elements that make up the Aperture; the **F-stop** number and the **Diaphragm**.
+孔径由两个因素确定：**F值** 和 **光圈**。
 
 ![image_4.png](image_4.png)
 
-1. The** Aperture** is the diameter of the opening through which light passes. The Aperture is defined by Focal Length divided by an F-stop number.
+1.** 孔径** 是光线可通过的开口直径。焦距除以F值就是孔径。
 
-2. The **Diaphragm** is the mechanical structure made up of multiple blades used to block light. It opens and closes based on the supplied F-stop.
+2.**光圈** 是由用于阻挡光线的多个叶片构成的机械结构。它根据提供的F值开关叶片。
 
-The len's Aperture is defined by the diameter of the Diaphragm which decreases as the F-stop number increases controlling how shallow or wide the depth of field effect is. See Focus Distance for a diagram showing this effect. 
+镜头的孔径由光圈直径确定，随着F值增加，孔径减小，从而控制景深效果的深度和宽度。查看"对焦距离"中对该效果的图解。
 
-To demonstrate how the Aperture works, drag the slider to change the F-stop number between 1.4, 2.8, and 5.6. Smaller F-stop numbers create a shallower DOF with more background and foreground blur. Larger F-stops increase the depth of DOF with less blur. Note that only the F-stop is being changed here, the Focus Distance and Focal Length remain constant at 7m and 75mm, respectively.
+为了演示孔径的工作原理，请拖动滑块来改变 F 值，分别为1.4、2.8和5.6。F值越小，景深越浅，后景和前景就越模糊。F值越大，景深越深，后景和前景锐化程度就越高。注意，此处只改变了F值，对焦距离和焦距保持不变，分别为 7 米和 75 毫米。
 
 [OBJECT:SliderSequence]
 	[PARAMLITERAL:id]
@@ -106,7 +105,7 @@ To demonstrate how the Aperture works, drag the slider to change the F-stop numb
 	2
 	[/PARAMLITERAL]
 	[PARAMLITERAL:caption]
-	Drag the slider to change the Aperture F-stop.
+	拖动滑块来改变孔径F值。
 	[/PARAMLITERAL]
 	[PARAMLITERAL:ext]
 	jpg
@@ -118,24 +117,23 @@ To demonstrate how the Aperture works, drag the slider to change the F-stop numb
 	[/PARAM]
 [/OBJECT]
 
-
 [REGION:note]
-Normally when you would adjust the Aperture settings of a real camera, you'd have to also adjust the Exposure settings at the same time to maintain same light intensity received by the filmback / image sensor. However, in UE4, this is not a real camera, so adjusting the F-stop and Diaphragm does not control the light intensity. 
+通常，当您调整物理相机的孔径设置时，必须同时调整曝光设置才能让胶片背板/图像传感器收到相同的光强度。但是，虚幻引擎4 中的相机并不是物理相机，所以调整F值和光圈并不会控制光强度。
 [/REGION]
 
-#### Focal Length
+#### 焦距
 
-The **Focal Length** is the distance from the center of the lens to the **Filmback** (or image sensor) measured in millimeters (mm). The focal length of the lens your image: if the filmback grows, the field of view (FOV) will grow with it. If you were to decrease the Focal Length, the FOV would increase too. 
+**焦距** 是指从镜头中心到 **胶片背板**（或图像传感器）的距离（以毫米计）。改变镜头的焦距对图像的影响：如果胶片背板扩大，视野 (FOV) 也会扩大。如果焦距缩短，视野也会变大。
 
 ![image_8.png](image_8.png)
 
-1. Lens of the camera.
+1.相机镜头。
 
-2. Focal Length
+2.焦距
 
-To demonstrate how this works, drag the slider to change the Focal Length of the lens between 50mm, 75mm, and 100mm. Take notice of how effectively it changes the Field of View (FOV) of the shot; as the focal length increase, the FOV decreases. You can think of the focal length as being similar to zooming in except you also zoom in on the out-of-focus areas of the shot as well, increasing the blur for the foreground and background areas of the image. 
+为了演示焦距的工作原理，请拖动滑块来改变镜头的焦距，分别为50毫米、75毫米和100毫米。请注意它是如何有效地改变拍摄视野 (FOV) ；随着焦距增大，视野会变小。焦距增大就像放大一样，只不过您还要放大拍摄的离焦区域，增强图像前景和后景区域的虚化程度。
 
-Note that only the Focal Length is being changed here, the Focus Distance and F-stop remain constant at 7m and f/2.8, respectively.
+注意，此处只改变了焦距，对焦距离和F值保持不变，分别为 7 米和 f/2.8。
 
 [OBJECT:SliderSequence]
 	[PARAMLITERAL:id]
@@ -154,52 +152,49 @@ Note that only the Focal Length is being changed here, the Focus Distance and F-
 	[/PARAM]
 [/OBJECT]
 
-
 [REGION:note]
-Note that the FOV of the camera is controllable from the Cine Camera Actor through the filmback and focal length, since this is a physically accurate camera. However, from the Camera Actor you can directly control the FOV angle in degrees since it does not have a Focal Length setting. The focal length used for DOF is automatically derived by the renderer from the FOV angle, and the filmback setting.
+注意，通过Cine Camera Actor的胶片背板和焦距可以控制相机视野，因为这是具有物理精确度的相机。不过，通过Camera Actor可以直接控制镜头视角的角度，因为它并没有焦距设置。景深使用的焦距通过渲染器自动从视角和胶片背板设置生成。
 [/REGION]
 
-#### Focus Distance
+#### 对焦距离
 
-The **Focus Distance** is the distance from the center of the camera lens to the subject of the shot that is put into focus, creating a focal plane. The closer the camera is to the subject, the more the background will end up out-of-focus. 
+**对焦距离** 是指从相机镜头中心到对焦的拍摄对象的距离，二者形成一个聚焦平面。相机离拍摄对象越近，位于焦点外的后景区域就越大。
 
 ![image_12.png](image_12.png)
 
-1. Points in the Scene
+1.场景中的各个点
 
-    1. Red = Out of Focus
+    1.红点 = 未对焦
 
-    2. Blue = Perfectly in Focus
+    2.蓝点 = 正好对焦
 
-    3. Green = Marginally in Focus
+    3.绿点 = 未完全对焦
 
-2. Focus Distance to Subject (Blue Dot)
+2.到拍摄对象（蓝点）的对焦距离
 
-3. Lens of the Camera
+3.相机镜头
 
-This diagram demonstrates the different object of the scene (1) that make up the scene; background, subject(s), and foreground. The distance from the Lens (3) to the focal subject (3) - in this case the blue dot - is the Focus Distance. Areas in the background and foreground are blurred depending on the F-stop used and the Focal Length of the camera. 
+上图展示了组成场景的 (1) 各个不同对象：后景、拍摄对象和前景。从镜头 (3) 到聚焦对象 (3) 的距离（即本例中的蓝点）就是对焦距离。后景和前景中的区域的虚化程度取决于相机的F值和焦距设置。
 
-We can visualize the DOF Layers by using the **Show** dropdown in the Viewport to select **Advanced > Depth of Field Layers**. In this instance, Green represents the foreground objects, Black is the area where objects are focused, and Blue the background objects.
+使用视口（Viewport）中的 **显示（Show）** 下拉菜单，选择 **高级（Advanced）> 景深层（Depth of Field Layers）**，可以获得可视化景深层图像。在本例中，绿色代表前景对象，黑色代表聚焦对象的区域，蓝色代表后景对象。
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Rendered Scene](image_13.png)
+	![渲染的场景](image_13.png)
 	[/PARAM]
 	[PARAM:after]
-	![Depth of Field Layers Visualization](image_14.png)
+	![景深层可视化图像](image_14.png)
 	[/PARAM]
 	[PARAMLITERAL:position]
 	bottom
 	[/PARAMLITERAL]
 [/OBJECT]
 
+为了演示对焦距离的工作原理，请拖动滑块来改变对焦距离，分别为4米、7米和10米。调整对焦距离也会改变场景的聚焦平面（紫色虚线），它用于指示拍摄的聚焦区域位置。图中的蓝色参考点使用角色作为这里的聚焦对象。随着相机和示意图变换焦点，前景和后景中的对象位置也会发生改变。
 
+最初，对焦距离为 4 米时，前景中的警车正好处于对焦区域，而后景中的角色处于离焦区域。图中的蓝色参考点在胶片背板前交叉形成焦点，说明了这一点。当对焦距离为 7 米时，角色正好处于对焦区域，而后景和前景对象处于离焦区域。当对焦距离为 10 米时，路障正好处于对焦区域，而前景中的角色和警车处于离焦区域。图中的蓝色参考点说明了这一点，因为交叉点位于胶片背板后。
 
-To demonstrate how this works, drag the slider to change the Focus Distance between 4m, 7m, and 10m. Adjusting the Focus Distance adjusts the Focal Plane (purple dotted line) in the scene, indicating where the in focus region of the shot is. The blue reference point in the diagram uses the Character as the focal subject here. As camera and diagram shift focus, objects in the foreground and background will shift too. 
-
-Starting with 4m, the Police car in the foreground is in sharp focus and the character is out of focus in the background. The blue reference in the diagram indicates this with its focal point intersection in front of the filmback. At 7m, the character is completely in focus with background and foreground objects out of focus. At 10m, the construction barriers are in sharp focus and the character and Police car are out of focus in the foreground. The blue reference in the diagram indicates this since the intersection point extends beyond the filmback. 
-
-Through all these Focus Distance changes, the DOF effect increases or decreases depending on an object being in the foreground or background. Note that the Focus Distance is being changed here, the F-stop and Focal Length remain constant at f/1.4 and 75mm, respectively.  
+通过这样改变对焦距离，景深效果会增强或减弱，具体取决于对象位于前景还是后景中。注意，此处只改变了对焦距离，F值和焦距保持不变，分别为 f/1.4 和 75 毫米。
 
 [OBJECT:SliderSequence]
 	[PARAMLITERAL:id]
@@ -218,21 +213,19 @@ Through all these Focus Distance changes, the DOF effect increases or decreases 
 	[/PARAM]
 [/OBJECT]
 
+### 程序化光圈模拟
 
-### Procedural Diaphragm Simulation
-
-The job of Depth of Field is to apply focal importance to a subject(s) in your scene. Just as importantly, areas that are out-of-focus can be as important. Unreal Engine 4's depth of field simulates the lens diaphragm by enabling you to aesthetically control the shape of the Bokeh (out-of-focus areas) by adjusting the number and curvature of diaphragm blades. 
+景深的作用是突出场景中对焦对象的重要性。但离焦区域同样很重要。通过调整光圈叶片的数量和曲度，您可以从美学意义上控制散景（离焦区域）形状，从而让虚幻引擎4 的景深模拟镜头光圈。
 
 ![image_18.png](image_18.png)
 
-
 [REGION:note]
-For performance reasons, the diaphragm simulation is only supported on Engine Scalability settings of **Epic **and **Cinematic**. Lower quality settings will fall back to circle Bokeh shapes of equal area to ensure similar behavior with auto exposure functionality, in turn disabling the diaphragm blade simulation. 
+出于性能考虑，当引擎可扩展性（Engine Scalability）设置为 **Epic** 和 **影视级（Cinematic）** 时才支持光圈模拟。低质量设置会导致回退到同等面积的圆形散景形状，以确保实现自动曝光功能之类的行为，反之会禁用光圈叶片模拟。
 [/REGION]
 
-#### Number of Diaphragm Blades
+#### 光圈叶片数量
 
-The **Diaphragm **(or Iris) is the mechanism made up of blades that can adjust to aesthetically inform the look of Bokeh shapes. Using a lower number of blades will result in a polygon-shaped diaphragm whereas a higher number of blades improves the curvature of the diaphragm to appear more natural with rounded out-of-focus Bokeh. 
+**光圈**（虹膜）是由叶片组成的一种机制，通过调整叶片可以从美学上体现散景形状的效果。使用的叶片数量太少会产生多边形光圈，反之，使用的叶片数量较多则可以改善光圈曲度，让离焦散景显得更加圆滑，呈现更自然的效果。
 
 [OBJECT:SliderSequence]
 	[PARAMLITERAL:id]
@@ -252,8 +245,7 @@ The **Diaphragm **(or Iris) is the mechanism made up of blades that can adjust t
 	[/PARAM]
 [/OBJECT]
 
-
-The number of diaphragm blades directly influences the shape of the Bokeh when the** **[Maximum Aperture](http://www.LinkToMaxApertureSectionOfPage.com) is increased (minimum F-stop number is decreased).
+当 **最大孔径** 增大时（最小F值减小），光圈叶片的数量会直接影响散景的形状。
 
 [OBJECT:SliderSequence]
 	[PARAMLITERAL:id]
@@ -273,16 +265,15 @@ The number of diaphragm blades directly influences the shape of the Bokeh when t
 	[/PARAM]
 [/OBJECT]
 
+#### 孔径和最大孔径
 
-#### Aperture and Max Aperture
+**孔径** 是镜头的开口大小，由 **光圈** 直径（以 **F值** 计）控制。允许通过镜头的光线数量由孔径大小进行控制。调整孔径大小可以设置对焦平面，从而调整聚焦区域外区域的对焦或不对焦。
 
-The **Aperture** is the opening of the lens controlled by the diameter of the **Diaphragm** which is measured in **f-stops**. The amount of light allowed to pass through the lens is controlled by the size of the aperture. Adjusting the size of the aperture sets the focal plane to adjust how in focus or out of focus areas outside of the focal region are. 
-
-The following chart shows the correlation between aperture size (f-stop number), max aperture (min f-stop number) and depth of field effects. 
+下图展示了孔径大小（F值）、最大孔径（最小F值）与景深效果之间的关系。
 
 ![image_27.png](image_27.png)
 
-A larger aperture (lower f-stop number) has a shallow focal region, causing the foreground and background to become more out-of-focus. A small aperture (higher f-stop number) has a wider focal region that includes more objects in focus in the foreground and background.
+大孔径（小F值）的对焦区域较浅，导致前景和后景的离焦效果更强烈。小孔径（大F值）的对焦区域更宽，因此可将更多对象囊括在前景和后景中。
 
 [OBJECT:SliderSequence]
 	[PARAMLITERAL:id]
@@ -292,7 +283,7 @@ A larger aperture (lower f-stop number) has a shallow focal region, causing the 
 	5
 	[/PARAMLITERAL]
 	[PARAMLITERAL:caption]
-	Aperture F-stops: 1.4, 2.0, 2.8, 4.0, 5.6, 8.0
+	孔径F值：1.4, 2.0, 2.8, 4.0, 5.6, 8.0
 	[/PARAMLITERAL]
 	[PARAMLITERAL:ext]
 	jpg
@@ -307,7 +298,7 @@ A larger aperture (lower f-stop number) has a shallow focal region, causing the 
 	[/PARAM]
 [/OBJECT]
 
-While the Aperture can be as small as you'd like, it can only ever be as large as the maximum size of the lens. The **Maximum Aperture** (measured in f-stop) defines how large the lens can be. This also defines the curvature of the blades that make up the diaphragm by limiting the size that the aperture can open; limiting the size of the aperture shortens the effective focal region which limits how out-of-focus areas can be. 
+孔径的最小尺寸并无限制，但最大只能达到镜头的最大尺寸大小。**最大孔径（Maximum Aperture）**（以F值计）可确定镜头的大小。同时，它通过限制孔径可打开的大小，确定了组成光圈的叶片的曲度。限制孔径的大小会缩小有效对焦区域，从而限制离焦区域的范围。
 
 [OBJECT:SliderSequence]
 	[PARAMLITERAL:id]
@@ -317,7 +308,7 @@ While the Aperture can be as small as you'd like, it can only ever be as large a
 	3
 	[/PARAMLITERAL]
 	[PARAMLITERAL:caption]
-	5 Diaphragm Blades with Different Max Aperture Values
+	最大孔径值不同的 5 个光圈叶片
 	[/PARAMLITERAL]
 	[PARAMLITERAL:ext]
 	jpg
@@ -330,172 +321,161 @@ While the Aperture can be as small as you'd like, it can only ever be as large a
 	[/PARAM]
 [/OBJECT]
 
+在本例中，**光圈叶片数量（Number of Diaphragm Blades）** 设置为 5。孔径值越小，散景形状中的光圈叶片显得越明显。孔径值越大（F值= 最小F值），散景形状就会变得越圆滑。
 
-In this example, the **Number of Diaphragm Blades** is set to 5. With a smaller Aperture, the blades of the diaphragm become more visible in the Bokeh shapes. Using a larger Aperture (f-stop = minimal f-stop) the Bokeh shapes will begin to become circular.
+在本例中，Cine Camera Actor的各值设置如下：
 
-In this example, a Cine Camera Actor is being used with following values:
+* **最小F值（Min FStop）**：1.4
+* **最大F值（Max FStop）**：4.0
+* **光圈叶片数（Diaphragm Blade Count）**：5
+* **当前孔径（Current Aperture）**：1.4 - 4.0
 
-* **Min FStop: **1.4
-* **Max FStop:** 4.0
-* **Diaphragm Blade Count**: 5
-* **Current Aperture**: 1.4 - 4.0
-
-
-With these values, the F-stop can only accept values between **1.4** and **4.0**. As the depth of field effect is widened with a larger F-stop (smaller aperture), the diaphragm blades become more visible in the Bokeh shapes.
-
+在设置为这些值的情况下，F值只能接受 **1.4** 和 **4.0** 。由于F值越大（孔径越小），景深效果越宽，所以散景形状中的光圈叶片越明显。
 
 [REGION:note]
-Keep in mind that the aperture is not controlling the light intensity. This choice has been made so that you don't have to continually adjust the exposure at the same time like with a real camera. 
+注意，孔径并不能控制光强度。该选择已确定，所以您不必像使用物理相机一样频繁地调整曝光值。
 [/REGION]
 
-### Available Settings
+### 可用设置
 
-#### Cinematic Camera
+#### 影视级相机
 
-The following settings are specific to the Cinematic Camera Actor. Note that you have access to the Camera and Depth of Field settings as well. 
+以下设置仅适用于 Cinematic Camera Actor。请注意，您还可以访问相机（Camera）和景深（Depth of Field）设置。
 
-
-| Property | Description |
+| 属性 | 描述 |
 | --- | --- |
-| Filmback Settings |  |
-| Sensor Width | Sets the horizontal size of the filmback or digital sensor (measured in millimeters (mm)). |
-| Lens Settings |  |
-| Min Focal Length | Sets the minimum focal length for the lens (measured in millimeters (mm)). |
-| Max Focal Length | Sets the maximum focal length for the lens (measured in millimeters (mm)). |
-| Min FStop | The maximum aperture for this lens. For example, 2.8 for an f/2.8 lens. This will also define the curvature of the blades of the diaphragm. |
-| Max FStop | The minimum aperture for this lens. For example, 8.0 for an f/8.0 lens.  |
-| Diaphragm Blade Count | The number of blades that make up the diaphragm mechanism.  |
-| Focus Settings |  |
-| Focus Method | Select the type of focus method to use to control camera focus; None, Manual, or Tracking. |
-| Manual Focus Distance | Set the manually-controlled focus distance. This is only available when the Focus Method is set to Manual.  |
-| Draw Debug Focus Plane | Enable to draw a translucent plane at the current focus depth. This enables a visual way to track where focus is for the shot.  |
-| Debug Focus Plane Color | Set a color for Draw Debug Focus Plane when it is enabled.  |
-| Smooth Focus Changes | Enable this to use interpolation to smooth out changes in focus distance. When disabled, the focus changes will be instantaneous.  |
-| Focus Smoothing Interp Speed | Controls the interpolation speed when smoothing focus distance changes. This option is ignored if Smooth Focus Changes is not enabled. |
-| Focus Offset | This adds additional offset to focus depth which can be used to manually tweak focus if the chosen focus method needs adjustment.  |
-| Current Focal Length | Controls the current focal length of the camera which controls the field of view (FoV) and zoom. |
-| Current Aperture | Sets the current aperture size based on an f-stop number. Note that this setting only accepts values that are within the Min FStop and Max FStop range. |
-| Current Focal Distance | Displays a read-only value that is used by the Focus Settings. |
-| Current Horizontal FOV | Displays a read-only value that is used by Current Focal Length and Filmback Settings.  |
+| 胶片背板设置（Filmback Settings） | |
+| 传感器宽度（Sensor Width） | 设置胶片背板或数字传感器的水平尺寸（以毫米计）。|
+| 镜头设置（Lens Settings） | |
+| 最小焦距（Min Focal Length） | 设置镜头的最小焦距（以毫米计）。|
+| 最大焦距（Max Focal Length） | 设置镜头的最大焦距（以毫米计）。|
+| 最小F值（Min FStop） | 镜头的最大孔径。例如，f/2.8 镜头的最大孔径为 2.8。此设置还可以确定光圈叶片的曲度。|
+| 最大F值（Max FStop） | 镜头的最小孔径。例如，f/8.0 镜头的最大孔径为 8.0。|
+| 光圈叶片数（Diaphragm Blade Count） | 组成光圈机制的叶片数量。|
+| 对焦设置（Focus Settings） | |
+| 对焦方式（Focus Method） | 选择对焦方式的类型，以便控制相机焦点：无（None）、手动（Manual）或跟踪（Tracking）。|
+| 手动对焦距离（Manual Focus Distance） | 设置手动控制的对焦距离。只有当对焦方式（Focus Method）设置为手动（Manual）时才能使用此选项。|
+| 绘制调试聚焦平面（Draw Debug Focus Plane） | 启用后可在当前聚焦深度绘制一个半透明平面。这样就能以可视化方式来跟踪拍摄的焦点。|
+| 调试对焦平面颜色（Debug Focus Plane Color） | 启用后可设置绘制调试对焦平面（Draw Debug Focus Plane）的颜色。|
+| 平滑对焦变化（Smooth Focus Changes） | 启用后可使用插值来消除对焦距离的变化。如果禁用，对焦变化将在瞬间完成。|
+| 对焦平滑插值速度（Focus Smoothing Interp Speed） | 控制平滑处理对焦距离时的插值速度。若未启用平滑对焦变化（Smooth Focus Changes），则忽略此选项。|
+| 对焦偏差（Focus Offset） | 此设置可以额外增加对焦深度偏差，可用于在选定的对焦方式需要调整时进行手动调整。|
+| 当前焦距（Current Focal Length） | 控制相机的当前焦距，以便控制视野 (FoV) 和缩放。|
+| 当前孔径（Current Aperture） | 设置当前孔径大小（基于F值）。注意，此设置仅接受最小F值（Min FStop）到最大F值（Max FStop）范围内的值。|
+| 当前对焦距离（Current Focal Distance） | 显示对焦设置（Focus Settings）使用的一个只读值。|
+| 当前水平视野（Current Horizontal FOV） | 显示当前焦距（Current Focal Length）和胶片背板设置（Filmback Settings）使用的一个只读值。|
 
+#### 后期处理体积和 Camera Actor
 
+以下设置在 Cine Camera、相机（Camera）和后期处理体积（Post Process Volumes）中可用。
 
-#### Post Process Volume and Camera Actor
-
-The following settings are available with the Cine Camera, Camera, and Post Process Volumes.
-
-
-| Property | Description |
+| 属性 | 描述 |
 | --- | --- |
-| Camera Settings |  |
-| Aperture (F-stop) | Defines the opening of the camera lens. Aperture is 1/f-stop with typical lens' going down to f/1.2 (larger opening). Larger numbers will reduce the DoF effect. |
-| Maximum Aperture (minimum f-stop) | Defines the maximum opening of the camera lens to control the curvature of the diaphragm. Set this to 0 to get straight blades.  |
-| Number of Diaphragm Blades | Defines the number of blades of the diaphragm within the lens. Values between 4 and 16 can be used.  |
-| Depth of Field Settings |  |
-| Focal Distance | The distance in which the depth of field effect should be sharp. This value is measured in Unreal Units (cm). |
-| Depth Blur km for 50% | Defines the distance at which the pixel is is blurred with a radius half of Depth blur Radius. This is particularly useful to emulate cheaply atmospheric scattering. |
-| Depth Blur Radius | Radius in pixels at 1080p resolution to apply according to distance from camera to emulate atmospheric scattering. |
+| 相机设置（Camera Settings） | |
+| 孔径（F值） | 定义相机镜头的开口大小。一般镜头的孔径为 1/f-stop 到 f/1.2（开口更大）。级数越大，景深效果越差。|
+| 最大孔径（Maximum Aperture）（最小F值） | 定义相机镜头的最大开口大小，用以控制光圈曲度。将该值设置为 0 可得到直叶片。|
+| 光圈叶片数（Number of Diaphragm Blades） | 定义镜头中光圈叶片的数量。可使用 4 到 16 之间的值。|
+| 景深设置（Depth of Field Settings） | |
+| 对焦距离（Focal Distance） | 景深效果锐化的距离。该值以虚幻单位（厘米）衡量。|
+| 50% 景深虚化半径（Depth Blur km for 50%） | 定义以景深虚化半径的一半对像素进行虚化处理的距离。该设置在模拟廉价的大气散射时特别有效。|
+| 景深虚化半径（Depth Blur Radius） | 半径像素为 1080p，可根据与相机的距离进行应用，从而模拟大气散射。|
 
+### 对优化有用的控制台变量
 
+景深的问题在于内容不同以及它的使用在艺术上的重要程度不同，它的值就会不同。为此，景深实现提供了许多可根据平台进行自定义的控制台变量，以便让您根据优先级，对弱平台上项目的预算分配进行控制。
 
-### Useful Console Variables for Optimization
+下面是可用于绑定影视级景深性能的部分控制台变量。注意，以下示例只是为了带您入门，其他控制台变量可在 r.DOF.* 下找到。
 
-The challenge of DOF is it may varies according to your content and how important artistically it has been used. For that purpose, the DOF implementation offers a variety of console variables ready to be customised per platforms, for you to control the budget you would like to allocate to your project on weaker platforms according to your priorities.
+* r.DOF.Kernel.MaxBackgroundRadius——水平屏幕空间中后景虚化半径的最大大小。
+* r.DOF.Kernel.MaxForegroundRadius——水平屏幕空间中前景虚化半径的最大大小。
+* r.DOF.Scatter.MaxSpriteRatio——作为平面粒子的散射像素块的最大比例。可用于控制景深的散射上边界。
 
-Below are some console variables that can be useful for binding Cinematic DoF performance. Note that these are a good starting point and additional console variables can be found under r.DOF.*.
-
-* r.DOF.Kernel.MaxBackgroundRadius - The maximum size of the background blurring radius in horizontal screen space. 
-* r.DOF.Kernel.MaxForegroundRadius - The maximum size of the foreground blurring radius in horizontal screen space. 
-* r.DOF.Scatter.MaxSpriteRatio - The maximum ratio of scattered pixel quads as sprites. Useful to control DOF's scattering upperbound. 
-
-
-## Bokeh DOF method (Legacy)
+## 散景景深方式（延迟）
 
 [REGION:warning]
-This depth of field method will be deprecated in a future release.
+此后的版本将弃用此景深方式。
 [/REGION]
 
 [EXCERPT:DepthOfField_Bokeh]
-**Bokeh** DOF refers to the name of the shape that can be seen in photos or movies when objects are out of focus. This method renders a textured quad for each pixel using a user-specified texture to define a shape with which to reproduce the effect of a camera lens. 
+**散景** 景深是指当对象未对焦时，照片或电影中可看到的形状的名称。此方法使用用户制定的纹理为每个像素渲染一个纹理块，从而定义用于重现相机镜头效果的形状。
 
-The implementation used only uses half-resolution to perform this intensive effect. It attempts to save render performance in areas where the effect is not noticeable by using Adaptive Depth of Field. Bokeh DOF is more costly than other DOF methods available in UE4, making this a prime candidate for cinematics and showcases where appealing visuals often outweigh any performance concerns in those situations. 
+该实现仅使用一半分辨率来执行这一密集效果。它通过使用自适应景深（Adaptive Depth of Field），在不太关注效果的区域尽量节省渲染性能。散景景深比虚幻引擎4 中的其他景深方式成本更高，这使其成为电影制片和作品展示的首选方式，因为在这些情形下，赏心悦目的视觉效果往往比性能更加重要。
 [/EXCERPT:DepthOfField_Bokeh]
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Depth of Field Disabled](image_38.png)
+	![已禁用景深](image_38.png)
 	[/PARAM]
 	[PARAM:after]
-	![Bokeh Depth of Field](image_39.png)
+	![散景景深](image_39.png)
 	[/PARAM]
 	[PARAMLITERAL:position]
 	bottom
 	[/PARAMLITERAL]
 [/OBJECT]
 
+### 散景景深的自适应景深
 
-### Adaptive Depth of Field for Bokeh DOF
-
-When using [Bokeh DOF](http://LINKSomewhereInPage.com), it renders at quarter-resolution (half-resolution in each direction) by default for performance reasons. The downsampling that happens is barely noticeable, in most cases, and is perfectly acceptable; however, it can lead to artifacts and unwanted results in some situations. **Adaptive Depth of Field** resolves these types of artifacts where possible.  
+当使用散景景深时，出于性能考虑，它默认以四分之一的分辨率（每个方向均采用一半分辨率）进行渲染。这种向下采样实际上很难被发现，大多数情况下都是完全可以接受的；但是，在某些情况下也可能产生瑕疵或意外的结果。**自适应景深（Adaptive Depth of Field）** 可以解决可能产生的这些瑕疵。
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Adaptive DOF without Downsampling](image_40.png)
+	![无向下采样的自适应景深](image_40.png)
 	[/PARAM]
 	[PARAM:after]
-	![Adaptive DOF with Downsampling](image_41.png)
+	![带向下采样的自适应景深](image_41.png)
 	[/PARAM]
 	[PARAMLITERAL:position]
 	bottom
 	[/PARAMLITERAL]
 [/OBJECT]
 
-The characters being blurred in the background appear blocky when using only the downsampled DOF technique. Also, some artifacts appear around the horns of the character in the foreground. Adaptive DOF eliminates these types of artifacts, and the background characters have a much smoother appearance. 
+如果只使用向下采样景深技术，后景中虚化的角色会出现锯齿。同时，前景中角色的犄角周围也会出现瑕疵。自适应景深可消除这些瑕疵，让后景角色的外观显示更加平滑。
 
-Adaptive DOF can be visualized by using the **Adaptive Depth of Field** show flag in the Level Viewport under **Show > Visualize**. When enabled, an overlay is shown where the downsampled effect is being used (green) and where the full resolution effect is being used (red). The regular scene color is shown where no blurring is being applied. 
+通过在关卡视口（Level Viewport）中的 **显示（Show）> 可视化（Visualize）** 下使用 **自适应景深（Adaptive Depth of Field）** 来显示标记，可让自适应景深可视化。一旦启用，将显示一个覆层以提示使用了向下采样效果（绿色）的区域以及使用全分辨率效果的区域（红色）。常规场景颜色显示在未应用虚化效果的位置。
 
 ![image_42.png](image_42.png)
 
-In general, you want the Adaptive DOF to display all green. The more red shown by the visualization, the more expensive the scene is to render each frame.
+通常，您会希望自适应景深全部显示为绿色。可视化中显示的红色区域越大，场景中每一帧的渲染成本就越高。
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Adaptive DOF mostly optimized](image_43.png)
+	![大部分优化了的自适应景深](image_43.png)
 	[/PARAM]
 	[PARAM:after]
-	![Adaptive DOF unoptimized](image_44.png)
+	![未优化的自适应景深](image_44.png)
 	[/PARAM]
 	[PARAMLITERAL:position]
 	bottom
 	[/PARAMLITERAL]
 [/OBJECT]
 
-### Available Settings
+### 可用设置
 
-The following settings are available with the Cine Camera, Camera, and Post Process Volumes, located under the **Lens** tab in the **Depth of Field** section.
+以下是 Cine Camera、相机（Camera）和后期处理体积（Post Process Volumes）中可用的设置，可在 **景深（Depth of Field）** 部分的 **镜头（Lens）** 选项卡中找到。
 
-
-| Property | Description |
+| 属性 | 描述 |
 | --- | --- |
-| Focal Distance | The distance in which the depth of field effect should be sharp. This value is measured in Unreal Units (cm). |
-| Near Transition Region | The distance in Unreal Units from the focal region on the side nearer to the camera over which the scene transitions from focused to blurred when using Bokeh or Gaussian DOF. |
-| Far Transition Region | The distance in Unreal units from the focal region on the side farthest from the camera over which the scene transitions from focused to blurred when using Bokeh or Gaussian DOF.  |
-| Scale | An overall scaling factor for Bokeh-based blurring.  |
-| Max Bokeh Size | The maximum size (in percent of the view width) of the blur for the Bokeh-based DOF. Note that performance scales with the size. |
-| Shape Texture | A texture that defines the shape of the Bokeh when objects get out of focus. Note that these cannot be blended with other Post Process Volumes.  |
-| Occlusion | Controls how much the blurred geometry extends beyond its usual silhouette and its opacity. A value of 0.18 gives a fairly natural occlusion result. A value of 0.4 may be necessary to solve layer color leaking issues. Very small values (less than 0.18) generally result in negating the blur effect, though can work well when objects are very near to the camera.  |
-| Color Threshold | Controls the threshold where adaptive DOF switches to using full-resolution based on color. Smaller values cause more of the scene to use full-resolution processing.  |
-| Size Threshold | Controls the threshold where adaptive DOF switches to using full-resolution based on size. Larger values cause more of the scene to use full-resolution processing.  |
+| 对焦距离（Focal Distance） | 景深效果锐化的距离。该值以虚幻单位（厘米）衡量。|
+| 近过渡区（Near Transition Region） | 从对焦区域较近一边到相机之间的距离（以虚幻单位计）。当使用散景或高斯景深时，场景将从对焦状态过渡到虚化状态。|
+| 远过渡区（Far Transition Region） | 从对焦区域较远一边到相机之间的距离（以虚幻单位计）。当使用散景或高斯景深时，场景将从对焦状态过渡到虚化状态。|
+| 比例（Scale） | 基于散景的虚化的整体比例因数。|
+| 最大散景尺寸（Max Bokeh Size） | 基于散景的景深虚化的最大尺寸（以视图宽度的百分比计）。注意：性能随尺寸变化。|
+| 形状纹理（Shape Texture） | 当对象未对焦时，定义散景形状的纹理。注意，这些设置不能与其他后期处理体积混合。|
+| 遮挡（Occlusion） | 控制模糊几何体常规轮廓和不透明度的延伸量。将数值设置为 0.18 即可获得十分自然的遮挡效果。将数值设为 0.4 可解决图层颜色泄露问题。数值太小（小于 0.18）通常会弱化虚化效果，当物体十分靠近相机时很有效。|
+| 颜色阈值（Color Threshold） | 控制该阈值，使自适应景深基于颜色切换使用全分辨率。值越小，使用全分辨率处理的场景部分越多。|
+| 尺寸阈值（Size Threshold） | 控制该阈值，使自适应景深基于尺寸切换使用全分辨率。值越大，使用全分辨率处理的场景部分越多。|
+
+## 资源
+
+* [光圈（光学）](http://en.wikipedia.org/wiki/Diaphragm_(optics))
 
 
+* [孔径](http://en.wikipedia.org/wiki/Aperture)
 
-## Resources
 
-* *[Diaphragm (Optics*)](http://en.wikipedia.org/wiki/Diaphragm_(optics))
+* [F 值](http://en.wikipedia.org/wiki/F-number)
 
-* *[Apertur*e](http://en.wikipedia.org/wiki/Aperture)
 
-* *[F-Numbe*r](http://en.wikipedia.org/wiki/F-number)
-
-* ["Understanding the Factors That Affect Depth of Field." ](http://photography.tutsplus.com/articles/understanding-the-factors-that-affect-depth-of-field--photo-6844)*[Photo & Video Envato Tut*s](http://photography.tutsplus.com/articles/understanding-the-factors-that-affect-depth-of-field--photo-6844)[.](http://photography.tutsplus.com/articles/understanding-the-factors-that-affect-depth-of-field--photo-6844)
+* [了解影响景深的因素](http://photography.tutsplus.com/articles/understanding-the-factors-that-affect-depth-of-field--photo-6844)
 

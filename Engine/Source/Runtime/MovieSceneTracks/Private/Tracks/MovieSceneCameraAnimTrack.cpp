@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieSceneCameraAnimTrack.h"
 #include "Sections/MovieSceneCameraAnimSection.h"
@@ -44,6 +44,10 @@ const TArray<UMovieSceneSection*>& UMovieSceneCameraAnimTrack::GetAllSections() 
 	return CameraAnimSections;
 }
 
+bool UMovieSceneCameraAnimTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneCameraAnimSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneCameraAnimTrack::CreateNewSection()
 {

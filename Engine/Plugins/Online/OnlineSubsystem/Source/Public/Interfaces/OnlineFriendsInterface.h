@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -104,6 +104,12 @@ struct FReportPlayedWithUser
  */
 DECLARE_MULTICAST_DELEGATE(FOnFriendsChange);
 typedef FOnFriendsChange::FDelegate FOnFriendsChangeDelegate;
+
+/**
+ * Delegate used in outgoing invite list change notifications
+ */
+DECLARE_MULTICAST_DELEGATE(FOnOutgoingInviteSent);
+typedef FOnOutgoingInviteSent::FDelegate FOnOutgoingInviteSentDelegate;
 
 /**
  * Delegate used when the friends read request has completed
@@ -224,6 +230,15 @@ typedef FOnQueryRecentPlayersComplete::FDelegate FOnQueryRecentPlayersCompleteDe
 DECLARE_DELEGATE_TwoParams(FOnAddRecentPlayersComplete, const FUniqueNetId& /*UserId*/, const FOnlineError& /*Error*/);
 
 /**
+ * Delegate used when recent players have been added
+ *
+ * @param UserId the id of the user recieving new recent players
+ * @param AddedPlayers players that were added to the recent players list
+ */
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnRecentPlayersAdded, const FUniqueNetId& /*UserId*/, const TArray<TSharedRef<FOnlineRecentPlayer>>& /*AddedPlayers*/);
+typedef FOnRecentPlayersAdded::FDelegate FOnRecentPlayersAddedDelegate;
+
+/**
  * Delegate used when the query for blocked players has completed
  *
  * @param UserId the id of the user that made the request
@@ -232,6 +247,24 @@ DECLARE_DELEGATE_TwoParams(FOnAddRecentPlayersComplete, const FUniqueNetId& /*Us
  */
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnQueryBlockedPlayersComplete, const FUniqueNetId& /*UserId*/, bool /*bWasSuccessful*/, const FString& /*Error*/);
 typedef FOnQueryBlockedPlayersComplete::FDelegate FOnQueryBlockedPlayersCompleteDelegate;
+
+/**
+ * Delegate used when the query for friends settings has completed
+ *
+ * @param UserId the id of the user that made the request
+ * @param bWasSuccessful true if the async action completed without error, false if there was an error
+ * @param ErrorStr string representing the error condition
+ */
+DECLARE_DELEGATE_ThreeParams(FOnQueryFriendSettingsComplete, const FUniqueNetId&, bool, const FString&);
+
+/**
+* Delegate used when the query for friends settings has completed
+*
+* @param UserId the id of the user that made the request
+* @param bWasSuccessful true if the async action completed without error, false if there was an error
+* @param ErrorStr string representing the error condition
+*/
+DECLARE_DELEGATE_ThreeParams(FOnSetFriendSettingsComplete, const FUniqueNetId&, bool, const FString&);
 
 /**
  * Delegate called when remote friend sends an invite
@@ -305,6 +338,11 @@ public:
      * Delegate used in friends list change notifications
      */
 	DEFINE_ONLINE_PLAYER_DELEGATE(MAX_LOCAL_PLAYERS, OnFriendsChange);
+
+	/**
+	 * Delegate used in outgoing invite list change notifications
+	 */
+	DEFINE_ONLINE_PLAYER_DELEGATE(MAX_LOCAL_PLAYERS, OnOutgoingInviteSent);
 
 	/**
 	 * Delegate called when remote friend sends an invite
@@ -548,6 +586,14 @@ public:
 	 * Dump state information about blocked players
 	 */
 	virtual void DumpRecentPlayers() const = 0;
+	
+	/**
+	 * Delegate used when recent players have been added
+	 *
+	 * @param UserId the id of the user recieving new recent players
+	 * @param AddedPlayers players that were added to the recent players list
+	 */
+	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnRecentPlayersAdded, const FUniqueNetId& /*UserId*/, const TArray<TSharedRef<FOnlineRecentPlayer>>& /*AddedPlayers*/);
 
 	/**
 	 * Block a player
@@ -594,25 +640,55 @@ public:
 	virtual void DumpBlockedPlayers() const = 0;
 
 	/**
-	* Query the current friend settings
+	 * Query the current friend settings
 	 *
-	 * @param PlayerId user to retrieve friend settings for
+	 * @param LocalUserId user to retrieve friend settings for
 	 * @param Delegate Delegate to call when operation has been completed
 	 *
-	*/
-	virtual void QueryFriendSettings(const FUniqueNetId& PlayerId, FOnSettingsOperationComplete Delegate) { check(false) }
+	 */
+	virtual void QueryFriendSettings(const FUniqueNetId& LocalUserId, FOnSettingsOperationComplete Delegate) { check(false) }
 
 	/**
-	* Update the current friend settings
+	 * Update the current friend settings
 	 *
-	 * @param PlayerId user to retrieve friend settings for
+	 * @param LocalUserId user to retrieve friend settings for
 	 * @param NewSettings Settings to be saved
 	 * @param Delegate Delegate to call when operation has been completed
 	 *
-	*/
-	virtual void UpdateFriendSettings(const FUniqueNetId& PlayerId, const FFriendSettings& NewSettings, FOnSettingsOperationComplete Delegate) { check(false) }
+	 */
+	virtual void UpdateFriendSettings(const FUniqueNetId& LocalUserId, const FFriendSettings& NewSettings, FOnSettingsOperationComplete Delegate) { check(false) }
+
+	/**
+	 * Queries the settings we have stored for a third party source
+	 *
+	 * @param UserId user to retrieve settings for
+	 * @param The source the settings relate to i.e. steam
+	 *
+	 * @return true if query was started
+	 */
+	virtual bool QueryFriendSettings(const FUniqueNetId& UserId, const FString& Source, const FOnQueryFriendSettingsComplete& Delegate = FOnQueryFriendSettingsComplete()) { check(false); return false; }
+
+	/**
+	 * Gets the cached information we have stored from a third party source
+	 *
+	 * @param UserId user to retrieve settings for
+	 * @param OutSettings [out] Map that receives the copied data
+	 *
+	 * @return true if blocked players list was found for the given user
+	 */
+	virtual bool GetFriendSettings(const FUniqueNetId& UserId, TMap<FString, TSharedRef<FOnlineFriendSettingsSourceData> >& OutSettings) { check(false); return false; }
+
+	/**
+	 * Set information we want to store for a third party source
+	 *
+	 * @param UserId user to retrieve settings for
+	 * @param The source the settings relate to i.e. steam
+	 * @param bNeverShowAgain A bool for if we should stop showing call outs for this source, (currently the only setting we store)
+	 *
+	 * @return true if query was started
+	 */
+	virtual bool SetFriendSettings(const FUniqueNetId& UserId, const FString& Source, bool bNeverShowAgain, const FOnSetFriendSettingsComplete& Delegate = FOnSetFriendSettingsComplete()) { check(false); return false; }
 
 };
 
 typedef TSharedPtr<IOnlineFriends, ESPMode::ThreadSafe> IOnlineFriendsPtr;
-

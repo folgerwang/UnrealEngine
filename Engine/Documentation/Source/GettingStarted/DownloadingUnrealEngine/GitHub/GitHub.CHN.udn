@@ -1,20 +1,22 @@
-﻿INTSourceChangelist:2744667
-Availability:Public
-Title:在 GitHub 上获取虚幻引擎
+﻿INTSourceChangelist:3810467
+Availability:NoPublish
+Title:从GitHUb分叉和复制
 Crumbs:%ROOT%, GettingStarted, GettingStarted/DownloadingUnrealEngine
-Description: 从 GitHub 获取虚幻引擎源码。
+Description:从GitHub分叉和复制虚幻引擎源代码。
 Prereq: GettingStarted/DownloadingUnrealEngine
 Related: Programming/Development/BuildingUnrealEngine
-Version: 4.8
+Parent:GettingStarted
+Order:
+Version: 4.16
 SkillLevel: Advanced
 
-在 GitHub 上对我们的源码进行 Fork 和 Clone 是一个开始使用虚幻的好方式。
+从GitHub分叉并复制源代码是虚幻引擎入门的好方法。
 
 %Globals:osselect_linux%
 
 [OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
-	OS
+	操作系统
 	[/PARAMLITERAL]
 	[PARAMLITERAL:id]
 	windows
@@ -23,31 +25,31 @@ SkillLevel: Advanced
 	active_button_content
 	[/PARAMLITERAL]
 	[PARAM:content]
-	1.	安装 [Windows 版本的 GitHub](https://windows.github.com/)。
-	1.	**Fork** 并 **Clone** 我们的 [repository](https://github.com/EpicGames/UnrealEngine)。
+	1.	安装[Windows版GitHub](https://windows.github.com/)。 
+	1.	分叉并复制[元库](https://github.com/EpicGames/UnrealEngine)。 
+
 		![](UnrealRepo.png)
 		[REGION:tip]
-		*	参考 GitHub 的 [Forking Projects Guide](https://guides.github.com/activities/forking/) 来了解如何 Fork 并 Clone 我们的库。
-		*	要在命令行中使用 Git，参考 GitHub 的文章 [Setting-up Git](https://help.github.com/articles/set-up-git/) 以及 [Forking a Repository](https://help.github.com/articles/fork-a-repo/).
+		*	参考GitHub的[分叉项目指南](https://guides.github.com/activities/forking/)了解如何分叉并复制元库。 
+		*	要通过命令行使用Git，请参考GitHub文章[设置Git](https://help.github.com/articles/set-up-git/)和[分叉元库](https://help.github.com/articles/fork-a-repo/)。 
 		[/REGION]
-	1.	如果还没有安装 Visual Studio 2013 的话要先安装它。MFC 在 Visual Studio 的默认安装设置中已经涵盖了，不过最好还是在安装时确认一下以保证能够支持 ATL 特性。
+	1.	如尚未安装，请提前安装Visual Studio 2013。虽然MFC库包含在Visual Studio的默认安装设置中，但仍必须包含MFC库，以便支持ATL。 
 		[REGION:note]
-		*	开发者可以用任意的 Visual Studio 版本来构建虚幻 4，包括微软免费的 ([Visual Studio Community 2013](https://www.visualstudio.com/products/visual-studio-community-vs)) 版本。
-		*	虚幻 4.10 及以后的版本对应的 Visual Studio 已更新到 Visual Studio 2015。
+		UE4开发者版本包含Visual Studio的所有桌面版本，包括微软的免费版（[Visual Studio Community 2013](https://www.visualstudio.com/products/visual-studio-community-vs)）。 
 		[/REGION]
-	1.	在资源管理器中打开源代码的目录，并运行 **Setup.bat**。
+	1.	在浏览器中打开源文件夹并运行 **Setup.bat**。 
 		[REGION:note]
-		这个 Setup 批处理文件会下载引擎所需要的二进制内容，安装前置软件，并设置虚幻文件的关联属性。下载引擎二进制文件可能会需要花费一些时间，目前这些文件大约需要占用 3~4 GB 的硬盘空间。随后的其他内容通常下载起来需要的时间则少得多。
+		设置批处理文件下载引擎的二进制内容，安装必需内容，并设置虚幻文件关联。下载引擎二进制文件可能耗时较长，因为当前其占据了3到4GB的硬盘空间。后续迁出的下载时间通常更短。 
 		[/REGION]
 		[REGION:warning]
-		在 Windows 8 上可能会有一个来自 SmartScreen 的警告。**点击 'More Info'**，并 **点击 '总是运行'** 来继续执行 Setup 批处理文件。
+		Windows 8上可能出现关于智能屏幕的警告。**点击 ‘更多信息'**，然后 **点击 ‘仍然运行'** 来继续运行设置批处理文件。
 		[/REGION]
 	[/PARAM]
 [/OBJECT]
 
 [OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
-	OS
+	操作系统
 	[/PARAMLITERAL]
 	[PARAMLITERAL:id]
 	mac
@@ -56,25 +58,26 @@ SkillLevel: Advanced
 	active_button_content
 	[/PARAMLITERAL]
 	[PARAM:content]
-	1.	安装 [Mac 版本的 GitHub](https://mac.github.com/)。
-	1.	**Fork** 并 **Clone** 我们的 [repository](https://github.com/EpicGames/UnrealEngine)。
+	1.	安装[Mac版GitHub](https://mac.github.com/)。 
+	1.	分叉并复制[元库](https://github.com/EpicGames/UnrealEngine)。
+	 
 		![](UnrealRepo.png)
 		[REGION:tip]
-		*	参考 GitHub 的 [Forking Projects Guide](https://guides.github.com/activities/forking/) 来了解如何 Fork 并 Clone 我们的库。
-		*	要在命令行中使用 Git，参考 GitHub 的文章 [Setting-up Git](https://help.github.com/articles/set-up-git/) 以及 [Forking a Repository](https://help.github.com/articles/fork-a-repo/).
+		*	参考GitHub的[分叉项目指南](https://guides.github.com/activities/forking/)了解如何分叉并复制元库。
+		*	要通过命令行使用Git，请参考GitHub文章[设置Git](https://help.github.com/articles/set-up-git/)和[分叉元库](https://help.github.com/articles/fork-a-repo/)。 
 		[/REGION]
-	1.	如果还没有安装最新的 [Xcode](https://itunes.apple.com/us/app/xcode/id497799835) 的话，要先安装它。
-	1.	在 Finder 中打开源代码目录，并运行**Setup.command**.
+	1.	如尚未安装，请安装最新版本的[Xcode](https://itunes.apple.com/us/app/xcode/id497799835)。 
+	1.	在查找器中打开源文件夹并运行 **Setup.command**。 
 		[REGION:note]
-		*	我们的设置过程下载引擎所需要的二进制内容，安装前置软件，并设置虚幻文件的关联属性。下载引擎二进制文件可能会需要花费一些时间，目前这些文件大约需要占用 3~4 GB 的硬盘空间。随后的其他内容通常下载起来需要的时间则少得多。
-		*	在 **Setup.command** 完成引擎二进制内容的下载，安装前置需求并设置虚幻文件关联后，关闭终端窗口。
+		*	设置命令文件下载引擎的二进制内容，安装必需内容，并设置虚幻文件关联。下载引擎二进制文件可能耗时较长，因为当前其占据了3到4GB的硬盘空间。后续迁出的下载时间通常更短。  
+		*	在 **Setup.command** 下载引擎的二进制内容后关闭终端窗口，安装必需内容，并设置虚幻文件关联。
 		[/REGION]
 	[/PARAM]
 [/OBJECT]
 
 [OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
-	OS
+	操作系统
 	[/PARAMLITERAL]
 	[PARAMLITERAL:id]
 	linux
@@ -85,128 +88,124 @@ SkillLevel: Advanced
 	[PARAM:content]
 
 	[REGION:warning]
-	我们的开发人员和支持团队在使用最新的 Ubuntu 版本，因此我们可能无法为其他 Linux 的发行版本提供支持（包括其他 Ubuntu 版本）。
+	Epic的开发者和支持团队当前使用的是最新版本的Ubuntu；因此，我们可能无法提供对其他Linux发布版本的支持（包括Ubuntu的其他版本）。
 	[/REGION]
 
-	1.	设置 [Git](https://help.github.com/articles/set-up-git/).
-	1.	**Fork** 并 **Clone** 我们的 [repository](https://help.github.com/articles/fork-a-repo/).
+	1.	设置[Git](https://help.github.com/articles/set-up-git/)。 
+	1.	分叉并复制[元库](https://help.github.com/articles/fork-a-repo/)。 
+
 		![](UnrealRepo.png)
-	1.	在根目录上，从终端运行 **Setup.sh** 来下载引擎的二进制内容。
-
+		[REGION:tip]
+		*	参考GitHub的[分叉项目指南](https://guides.github.com/activities/forking/)了解如何分叉并复制元库。 
+		*	要通过命令行使用Git，请参考GitHub文章[设置Git](https://help.github.com/articles/set-up-git/)和[分叉元库](https://help.github.com/articles/fork-a-repo/)。 
+		[/REGION]
+	1.	在根文件夹中，从终端运行 **Setup.sh**，以下载引擎的二进制内容。 
 		![](RunSetupShellScript_Linux.png)
-
 		[REGION:note]
-		*	我们的 Setup 脚本运行时会下载引擎所需要的二进制内容，安装前置软件，并设置虚幻文件的关联属性。下载引擎二进制文件可能会需要花费一些时间，目前这些文件大约需要占用 3~4 GB 的硬盘空间。随后的其他内容通常下载起来需要的时间则少得多。
-		*	如果在运行结束后没有看到 ** \*\*SUCCESS\*\* ** 消息的话，请检查 **'BuildThirdParty.log'** 查看更多信息。 **'BuildThirdParty.log'** 位于 `[UE4Root]/Engine/Build/BatchFiles/Linux` 目录。
+		*	设置shell脚本下载引擎的二进制内容，并安装必需内容。下载引擎二进制文件可能耗时较长，因为当前其占据了3到4GB的硬盘空间。后续迁出的下载时间通常更短。  
+		*	如果运行此步骤后未出现 **\*\*成功\*\*** 消息，则请参见 **'BuildThirdParty.log'** 文件的详细信息。**'BuildThirdParty.log'** 存放在 `[UE4Root]/Engine/Build/BatchFiles/Linux` 目录中。
 		[/REGION]
 	[/PARAM]
 [/OBJECT]
 
-## 下一步
+## 更多步骤
 
-当完成下载并且设置了虚幻引擎后，就已经为 [从源代码来编译构建引擎](Programming/Development/BuildingUnrealEngine) 做好准备了。
+下载并设置虚幻引擎后，即可[从源编译引擎](Programming/Development/BuildingUnrealEngine)。
 
 [COMMENT:none]
 
 
-从 Github 获得虚幻引擎源码有两种方式：
+从GitHub获取虚幻引擎源代码的方法有两种：
 
-* 创建一个库分支或克隆库。
-* 下载源码，并将其解压到一个文件夹中。
+* 创建一个分叉并复制元库。 
+* 下载源代码并将其解压到一个文件夹。
 
+## 分叉并复制
 
-## 分支和克隆
+对虚幻引擎元库进行分叉后，即可在GitHub上拥有自己专属的虚幻引擎元库，可进行复制、修改等操作。这是使用虚幻引擎源代码的优选方案。此外，其可让使用者利用这些功能，例如在提交更新时收到虚幻引擎元库修改的通知、便利地拉入这些更新、将代码提交回给Epic等诸多操作。
 
-创建虚幻引擎库的分支，可以在Github上为您提供一个您自己的虚幻引擎库，您可以克隆这个库，并且可以 
-对其进行修改等操作。这是应用虚幻引擎源码的推荐方法。另外， 
-这使您可以获得一些功能，比如在我们提交更新时会向您提供虚幻引擎库的变更通知， 
-使您可以轻松地获得这些更新，提交代码给Epic等。
+**分叉元库的方法：**
 
-**要想创建库分支:**
+1. 前往GitHub上的[EpicGames/虚幻引擎元库](https://github.com/EpicGames/UnrealEngine)。
 
-1. 在GitHub上，跳转到[EpicGames/UnrealEngine repository](https://github.com/EpicGames/UnrealEngine)。
+1. 点击![Fork](button_fork_main.png)按钮。
 
-1. 点击 ![Fork](button_fork_main.png) 按钮。
-
-1. 在弹出的界面中选择您的账号。
+1. 在弹出窗口中选择您的账户。
 
 
-第一步是创建库的分支，但是该分支目前仅存在于GitHub上。要想真正地应用源码 
-，您需要将该库克隆到您的电脑中。这实际上是创建一个本地工作版本， 
-使您稍后可以在其上面进行修改，并可以将这些修改提交到您在Github上的库中。
+分叉元库是第一步，但此时分叉只存在于GitHub上。要实际使用源代码，需要将元库复制到电脑上。此操作将形成一个可修改的本地工作副本，完成修改后再将其提交回GitHub上的元库中。
 
-**要想克隆您的库:**
+**复制元库的步骤：**
 
-1. 跳转到GitHub上的您虚幻引擎库。它应该是 [YourGitHubUsername]/UnrealEngine。
+1. 前往GitHub上的虚幻引擎元库。路径应为[您的GitHub用户名]/UnrealEngine。
 
-1. 点击![Clone in Dekstop](button_clone.png) 按钮。
+1.	点击![Clone in Dekstop](button_clone.png)按钮。
 
-	如果您还没有安装GitHub客户端，那么这将会带您跳转到GitHub客户端安装页面。安装该客户端 
-	继续操作。
+	如果尚未安装GitHub客户端，此操作将会跳转至GitHub客户端安装页面。 
+	安装客户端并继续。
 
-1. 在GitHub客户端中，选择克隆该库：
+1. 在GitHub客户端中选择复制元库：
 
 	![](client_clone.png)
 
 	[REGION:note]
-	您可以选择要将该库克隆到的位置：
+	可选择将元库复制到的位置：
 	
-	1. 从‘工具’菜单中选择  **Options（选项）** ： 
+	1. 从“工具”菜单中选择 **选项**：
 
 		![](tools_options.png)
 
-	1. 设置要将库克隆到的默认目录：
+	1. 设置将元库复制到的默认目录：
 
 		![](repo_directory.png)
 	[/REGION]
 
-1. 这将在您本地机器上创建一个UnrealEngine文件夹，里面包含了库中的所有源码。
+1. 这将在使用者的本地电脑上创建一个虚幻引擎文件夹，其中包含来自元库的所有源代码。
 
 [REGION:warning]
-如果您要克隆库，那么请不要忘了切换到这个发布版本的正确分支上! ('主' 分支的代码是不稳定的， 
-所以您一定要确保选择一个发布版本分支。)
+如要进行复制，请先切换到此版本的正确分支！（'master’ 分支的代码不够稳定， 
+因此需要选择一个发布分支。）
 [/REGION]
 
-请参照[创建库分支](https://help.github.com/articles/fork-a-repo)页面获得关于在GitHub 
-创建分支库的详细信息。
+参见[分叉元库](https://help.github.com/articles/fork-a-repo)，了解在GitHub上分叉元库的 
+完整说明。
 
-## 下载源码存档
+(#downloadsourcearchive)
+## 下载源代码档案
 
-您可以从库所在页面或者从[发布版本](https://github.com/EpicGames/UnrealEngine/releases)页面直接下载 
-当前发布版本的源码存档。这是获得源码的一种 
-简单方法，但是这意味着您仅使用GitHub作为下载源码的方法，会使您失去在GitHub上存放源码 
-相关的所有非常酷的功能，比如源码库变更通知、 
-提交代码给Epic、以及涉及到社区方面的所有功能。
+使用者可直接从元库页面或[版本](https://github.com/EpicGames/UnrealEngine/releases)页面下载当前版本源代码的档案。这是获取源代码的简单方法，但同时也意味着您只将GitHub用作了一种下载源代码的方法，而失去了将源代码留在GitHub上的美妙功能，例如在源代码元库修改时收到通知、将代码提交回给Epic等社区相关的方面。
 
-下载以下文件的其中一个：
+下载以下一项：
 
 * 下载ZIP
-* 源码 (zip)
-* 源码(tar.gz)
+* 源代码（zip）
+* 源代码（tar.gz）
 
 
-将下载的存档解压到您在电脑上选择的位置处。
+将下载的档案解压到电脑上您选择的路径中。
 
-## 安装依赖
+(#nextsteps)
+## 剩余步骤
 
-除了源码，要想编译及运行引擎，还需要安装一些依赖 
-项。这些依赖项一般是二进制文件、内容资源及外部库。您可以从[发布版本](https://github.com/EpicGames/UnrealEngine/releases)页面 
-中的一系列.zip文件中下载这些内容。
-
-下载最新发布版本所需的依赖文件 (Unreal Engine %Globals:current_release_number%): 
-
-%Globals:current_release_dependencies%
-
-将这些依赖文件解压到源码所在的UnrealEngine文件夹中。请仔细确保这些文件夹 
-正确地混合到一起。
-
-[REGION:tip]
-在Mac上，我们推荐使用“Option + 拖拽压缩文件到 UnrealEngine文件夹”操作，然后如果有提示，则选择 
-Keep Newer（保留较新版本）。
-[/REGION]
-
-## Next Steps
-
-After installing the dependencies, you're ready to [build the engine](Programming/Development/BuildingUnrealEngine).
+现在即可[编译引擎](Programming/Development/BuildingUnrealEngine)。
 
 [/COMMENT]
+[COMMENT:none]
+ 从虚幻引擎4.8版本起，此章节便被废弃。
+(#installingdependencies)
+## 安装依赖性
+
+除源代码外，还需要安装依赖性才能编译和运行引擎。它们多数为二进制文件、内容资源和第三方库。 
+
+解压源代码后即可拥有一个命名为 `Setup.bat` 的文件。运行此文件将安装所需的依赖性。
+
+[REGION:tip]
+在4.5.1及之前的版本中，`Setup.bat` 并不存在，必须单独下载依赖性。它们在[releases](https://github.com/EpicGames/UnrealEngine/releases)页面中的“Required_1of2”和“Required_2of2”部分。它们必须被解压到虚幻引擎文件夹中。
+[/REGION]
+
+(#nextsteps)
+## 剩余步骤
+
+安装依赖性后即可[编译引擎](Programming/Development/BuildingUnrealEngine)。
+
+[/COMMENT][/COMMENT]

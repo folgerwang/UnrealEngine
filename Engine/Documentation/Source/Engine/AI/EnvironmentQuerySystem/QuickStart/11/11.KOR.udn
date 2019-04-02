@@ -8,7 +8,7 @@ version: 4.9
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 단계](Engine/AI/EnvironmentQuerySystem/QuickStart/10 "%Engine/AI/EnvironmentQuerySystem/QuickStart/10:title%")
+		[이전 단계](Engine/AI/EnvironmentQuerySystem/QuickStart/10 "%Engine/AI/EnvironmentQuerySystem/QuickStart/10:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -45,7 +45,7 @@ version: 4.9
 
 	인바이런먼트 쿼리 에디터는 비헤이비어 트리 에디터와 거의 똑같이 작동합니다.
 
-1. **그래프 업데이트** 영역에 우클릭, 맥락 메뉴에서 **ActorsOfClass** 를 선택합니다:
+1. **그래프 업데이트** 영역에 우클릭, 컨텍스트 메뉴에서 **ActorsOfClass** 를 선택합니다:
 
 	![](createGetActors.png)
 

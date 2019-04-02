@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SteamVRHMD.h"
 #include "SteamVRPrivate.h"
@@ -152,9 +152,9 @@ public:
 		return VRSystem;
 	}
 	
-	virtual vr::IVRInput* GetVRInput() const override
+	virtual vr::IVRCompositor* GetVRCompositor() const override
 	{
-		return vr::VRInput();
+		return VRCompositor;
 	}
 
 	bool LoadOpenVRModule()
@@ -653,7 +653,7 @@ bool FSteamVRHMD::GetCurrentPose(int32 DeviceId, FQuat& CurrentOrientation, FVec
 
 void FSteamVRHMD::UpdatePoses()
 {
-	if (VRSystem == nullptr)
+	if (!VRSystem || !VRCompositor)
 	{
 		return;
 	}
@@ -1351,6 +1351,9 @@ bool FSteamVRHMD::EnableStereo(bool bStereo)
 			}
 			else
 			{
+				//flush all commands that might call GetStereoProjectionMatrix or other functions that rely on bStereoEnabled 
+				FlushRenderingCommands();
+
 				// Note: Setting before resize to ensure we don't try to allocate a new vr rt.
 				bStereoEnabled = bStereoDesired;
 
@@ -1419,7 +1422,7 @@ void FSteamVRHMD::CalculateStereoViewOffset(const enum EStereoscopicPass StereoP
 
 FMatrix FSteamVRHMD::GetStereoProjectionMatrix(const enum EStereoscopicPass StereoPassType) const
 {
-	check(IsStereoEnabled());
+	check(IsStereoEnabled() || IsHeadTrackingEnforced());
 
 	vr::Hmd_Eye HmdEye = (StereoPassType == eSSP_LEFT_EYE) ? vr::Eye_Left : vr::Eye_Right;
 	float Left, Right, Top, Bottom;
@@ -1549,6 +1552,7 @@ bool FSteamVRHMD::NeedReAllocateViewportRenderTarget(const FViewport& Viewport)
 }
 
 FSteamVRHMD::FSteamVRHMD(const FAutoRegister& AutoRegister, ISteamVRPlugin* InSteamVRPlugin) :
+	FHeadMountedDisplayBase(nullptr),
 	FSceneViewExtensionBase(AutoRegister), 
 	bHmdEnabled(true),
 	HmdWornState(EHMDWornState::Unknown),
@@ -1567,12 +1571,10 @@ FSteamVRHMD::FSteamVRHMD(const FAutoRegister& AutoRegister, ISteamVRPlugin* InSt
 	bShouldCheckHMDPosition(false),
 	RendererModule(nullptr),
 	SteamVRPlugin(InSteamVRPlugin),
-	VRSystem(vr::VRSystem()),
-	VRCompositor(vr::VRCompositor()),
+	VRSystem(InSteamVRPlugin->GetVRSystem()),
+	VRCompositor(InSteamVRPlugin->GetVRCompositor()),
 	VROverlay(vr::VROverlay()),
-	VRChaperone(vr::VRChaperone()),
-	VRRenderModels(vr::VRRenderModels()),
-	VRInput(vr::VRInput())
+	VRChaperone(vr::VRChaperone())
 {
 	Startup();
 }
@@ -1584,7 +1586,7 @@ FSteamVRHMD::~FSteamVRHMD()
 
 bool FSteamVRHMD::IsInitialized() const
 {
-	return (VRSystem != nullptr);
+	return (VRSystem != nullptr) && (VRCompositor != nullptr);
 }
 
 bool FSteamVRHMD::Startup()
@@ -1593,8 +1595,17 @@ bool FSteamVRHMD::Startup()
 	static const FName RendererModuleName("Renderer");
 	RendererModule = FModuleManager::GetModulePtr<IRendererModule>(RendererModuleName);
 
-	ensure(VRSystem && VRCompositor);
-	if (VRSystem != nullptr && VRCompositor != nullptr)
+	// Re-initialize the plugin if we're canceling the shutdown
+	if (!IsInitialized())
+	{
+		SteamVRPlugin->Initialize();
+		VRSystem = SteamVRPlugin->GetVRSystem();
+		VRCompositor = SteamVRPlugin->GetVRCompositor();
+		VROverlay = vr::VROverlay();
+		VRChaperone = vr::VRChaperone();
+	}
+
+	if (ensure(IsInitialized()))
 	{
 		// grab info about the attached display
 		FString DriverId = GetFStringTrackedDeviceProperty(VRSystem, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String);
@@ -1713,9 +1724,7 @@ void FSteamVRHMD::Shutdown()
 		// shut down our headset
 		VRSystem = nullptr;
 		VRCompositor = nullptr;
-		VROverlay = nullptr;
 		VRChaperone = nullptr;
-		VRRenderModels = nullptr;
 
 		SteamVRPlugin->Reset();
 	}

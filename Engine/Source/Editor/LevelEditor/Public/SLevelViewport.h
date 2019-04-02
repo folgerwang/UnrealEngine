@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -62,6 +62,9 @@ public:
 	 * Constructs the widgets for the viewport overlay
 	 */
 	void ConstructViewportOverlayContent();
+
+	TSharedRef<SWidget> GenerateLevelMenu() const;
+	FReply OnMenuClicked();
 
 	/**
 	 * Constructs the level editor viewport client
@@ -289,14 +292,14 @@ public:
 	/** Called to get the screen percentage preview text */
 	FText GetCurrentScreenPercentageText(bool bDrawOnlyLabel) const;
 
-	/** Called to get the feature level preview text */
-	FText GetCurrentFeatureLevelPreviewText( bool bDrawOnlyLabel ) const;
-	
 	/** @return The visibility of the current level text display */
 	virtual EVisibility GetCurrentLevelTextVisibility() const;
 
-	/** @return The visibility of the current feature level preview text display */
-	EVisibility GetCurrentFeatureLevelPreviewTextVisibility() const;
+	/** @return The visibility of the current level text display */
+	virtual EVisibility GetSelectedActorsCurrentLevelTextVisibility() const;
+
+	/** Called to get the text for the level the currently selected actor or actors are in. */
+	FText GetSelectedActorsCurrentLevelText(bool bDrawOnlyLabel) const;
 
 	/** @return The visibility of the current screen percentage text display */
 	EVisibility GetCurrentScreenPercentageVisibility() const;
@@ -336,6 +339,12 @@ public:
 	/** Checks if the specified layout type matches our current viewport type. */
 	bool IsViewportTypeWithinLayoutEqual(FName InLayoutType);
 
+	/** For the specified actor, See if we're forcing a preview */
+	bool IsActorAlwaysPreview(TWeakObjectPtr<AActor> Actor) const;
+
+	/** For the specified actor, toggle Pinned/Unpinned of it's ActorPreview */
+	void SetActorAlwaysPreview(TWeakObjectPtr<AActor> PreviewActor, bool bAlwaysPreview = true);
+
 	/** For the specified actor, toggle Pinned/Unpinned of it's ActorPreview */
 	void ToggleActorPreviewIsPinned(TWeakObjectPtr<AActor> PreviewActor);
 
@@ -372,7 +381,7 @@ public:
 	 */
 	void OnClearBookmark( int32 BookmarkIndex );
 
-	DEPRECATED(4.21, "Please use the version with corrected spelling (OnClearBookmark)")
+	UE_DEPRECATED(4.21, "Please use the version with corrected spelling (OnClearBookmark)")
 	void OnClearBookMark( int32 BookmarkIndex );
 
 	/**
@@ -380,7 +389,7 @@ public:
 	 */
 	void OnClearAllBookmarks();
 
-	DEPRECATED(4.21, "Please use the version with corrected spelling (OnClearAllBookmarks)")
+	UE_DEPRECATED(4.21, "Please use the version with corrected spelling (OnClearAllBookmarks)")
 	void OnClearAllBookMarks();
 
 	/**
@@ -402,6 +411,9 @@ protected:
 	virtual EVisibility OnGetViewportContentVisibility() const override;
 	virtual void BindCommands() override;
 private:
+	/** Flag to know if we need to update the previews which is handled in the tick. */
+	bool bNeedToUpdatePreviews;
+
 	/** Loads this viewport's config from the ini file */
 	FLevelEditorViewportInstanceSettings LoadLegacyConfigFromIni(const FString& ConfigKey, const FLevelEditorViewportInstanceSettings& InDefaultSettings);
 
@@ -434,7 +446,7 @@ private:
 	/**
 	 * Called to create a cameraActor in the currently selected perspective viewport
 	 */
-	void OnCreateCameraActor();
+	void OnCreateCameraActor(UClass *InClass);
 
 	/**
 	 * Called to bring up the screenshot UI
@@ -640,7 +652,7 @@ private:
 	 *
 	 * @param PreviewIndex Array index of the preview to remove.
 	 */
-	void RemoveActorPreview( int32 PreviewIndex, const bool bRemoveFromDesktopViewport = true);
+	void RemoveActorPreview( int32 PreviewIndex, AActor* Actor = nullptr, const bool bRemoveFromDesktopViewport = true);
 	
 	/** Returns true if this viewport is the active viewport and can process UI commands */
 	bool CanProduceActionForCommand(const TSharedRef<const FUICommandInfo>& Command) const;
@@ -683,6 +695,12 @@ private:
 
 	/** Check whether we should display the full toolbar or not */
 	bool ShouldShowFullToolbar() const { return bShowFullToolbar; }
+
+	/** Handle any level viewport changes on entering PIE or simulate */
+	void TransitionToPIE(bool bIsSimulating);
+
+	/** Handle any level viewport changes on leaving PIE or simulate */
+	void TransitionFromPIE(bool bIsSimulating);
 
 private:
 	/** Tab which this viewport is located in */
@@ -817,6 +835,9 @@ private:
 	/** List of actor preview objects */
 	TArray< FViewportActorPreview > ActorPreviews;
 
+	/** Storage for actors we always want to preview.  This comes from MU transactions .*/
+	TSet<TWeakObjectPtr<AActor>> AlwaysPreviewActors;
+
 	/** The slot index in the SOverlay for the PIE mouse control label */
 	int32 PIEOverlaySlotIndex;
 
@@ -834,6 +855,8 @@ private:
 
 	/** Whether to show a full toolbar, or a compact one */
 	bool bShowFullToolbar;
+
+	TSharedPtr<class SMenuAnchor> LevelMenuAnchor;
 
 protected:
 	void LockActorInternal(AActor* NewActorToLock);

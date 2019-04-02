@@ -1,0 +1,111 @@
+﻿INTSourceChangelist:4499768
+Availability: Public
+Crumbs: 
+Title: 使用安装构建版本
+Description: 本页讲述了安装构建版本的过程，包括如何撰写安装构建脚本。
+Type: 
+Version: 4.13
+Parent: Programming/Deployment
+Order: 2
+Tags: 
+
+
+开发者一直在寻找能够高效交付适用于各种硬件配置文件和操作系统的构建解决方案的方法。**安装构建版本** 是一个全功能引擎构建版本，你可以快速重新分发它，以为团队启动和运行引擎。从技术角度来看，安装构建版本包含适用于虚幻编辑器的预编译二进制文件和适用于开发中的每个目标平台和发布配置的静态库。
+
+安装构建版本过程自动处理生成虚幻引擎4（UE4）的安装构建版本所需的构建版本包和工具。总的来说，生成安装构建版本是设置默认目标平台，使用其工具和编辑器编译UE4，运行测试，以及将UE4的安装构建版本部署到目标平台的过程。
+
+[REGION:note]
+除生成你自己的构建版本之外，你还可以从我们的启动程序下载UE4。
+[/REGION]
+
+## 生成安装构建版本
+
+你可以将 [BuildGraph](Programming/Development/BuildGraph) 脚本系统与位于 `[UE4Root]/Engine/Build/InstalledBuild.xml` 中的安装构建版本脚本结合使用，创建安装构建版本。  
+
+**要创建安装构建版本：**
+
+1.  运行安装构建版本脚本，方法是使用以下命令行调用 **AutomationTool**，并将 `[PLATFORM]` 替换为 `Win64` 或 `Mac`。  
+      
+    BuildGraph -target="Make Installed Build \[PLATFORM\]" -script=Engine/Build/InstalledEngineBuild.xml -clean  
+
+1.  浏览至虚幻引擎目录中的 `LocalBuilds/Engine/` 文件夹，查看你创建的安装构建版本。如果指定了不同的发布目录，请浏览至该目录。
+
+使用以下安装构建版本脚本选项配置构建版本：
+
+## 安装构建版本脚本选项
+
+安装构建版本是由 `InstalledEngineBuild.xml` 脚本在启用所有默认选项和平台的情况下生成的；但是，你可以使用一组指定的选项对它进行配置，这样你就可以指定要包含的目标平台以及要将构建版本发布到的位置等选项。通过向脚本传入 `-listonly` 选项，你可以查看用于自定义构建过程的一组可用选项以及将构建的一组节点。
+
+可用选项包括：
+
+| 选项 | 默认 | 说明 |
+| --- | --- | --- |
+| `-set:HostPlatformOnly=[true/false]` | false | 辅助选项，用于仅为主机平台生成安装构建版本，从而使你不必分别禁用每个平台。|
+| `-set:WithWin64=[true/false]` | true | 包括Win64目标平台。|
+| `-set:WithWin32=[true/false]` | true | 包括Win32目标平台。|
+| `-set:WithMac=[true/false]` | true | 包括Mac目标平台。|
+| `-set:WithAndroid=[true/false]` | true | 包括Android目标平台。|
+| `-set:WithIOS=[true/false]` | true | [INCLUDE:#excerpt_0] |
+| `-set:WithTVOS=[true/false]` | true | [INCLUDE:#excerpt_1] |
+| `-set:WithLinux=[true/false]` | true | 包括Linux目标平台。|
+| `-set:WithHTML5=[true/false]` | true | 包括HTML5目标平台。|
+| `-set:WithPS4=[true/false]` | false | [INCLUDE:#excerpt_2] |
+| `-set:WithXboxOne=[true/false]` | false | [INCLUDE:#excerpt_3] |
+| `-set:WithDDC=[true/false]` | true | [INCLUDE:#excerpt_4] |
+| `-set:WithFullDebugInfo=[true/false]` | false | 为二进制编辑器和封装的应用程序构建版本生成完整的调试信息。|
+| `-set:SignExecutables=[true/false]` | false | 如果必须在构建过程中将计算机设置为签名可执行文件，则对生成的可执行文件进行签名。|
+| `-set:AnalyticsTypeOverride=[ID]` | N/A | 辨识符，供分析事件发送。|
+| `-set:GameConfigurations=[Configurations]` | Development;Shipping | 为封装的应用程序指定配置。|
+
+[COMMENT:none]
+
+[EXCERPT:excerpt_0]
+包括iOS目标平台。
+[REGION:note]要启用该选项，需要将Mac设置为允许远程构建。[/REGION]
+[/EXCERPT:excerpt_0]
+
+[EXCERPT:excerpt_1]
+包括tvOS目标平台。
+[REGION:note]要启用该选项，需要将Mac设置为允许远程构建。[/REGION]
+[/EXCERPT:excerpt_1]
+
+[EXCERPT:excerpt_2]
+包括PS4目标平台。
+[REGION:note]需要具有PS4 SDK才能启用该选项。[/REGION]
+[/EXCERPT:excerpt_2]
+
+[EXCERPT:excerpt_3]
+包括XBoxOne目标平台。
+[REGION:note]需要具有Xbox One SDK才能启用该选项。[/REGION]
+[/EXCERPT:excerpt_3]
+
+[EXCERPT:excerpt_4]
+为引擎内容和模板构建独立衍生数据缓存。
+[REGION:note]为引擎和模板内容构建独立 [衍生数据缓存（DDC）](Engine/Basics/DerivedDataCache) 可能是构建过程中最耗时的部分。如不需要独立DDC，可通过在命令行后添加“-set:WithDDC=false”来跳过该步骤。[/REGION]
+[/EXCERPT:excerpt_4]
+
+[/COMMENT]
+### 包括额外文件
+
+RuntimeDependencies（针对每个模块，在 `build.cs` 文件中设置）自动对照并确定要在安装构建版本中包括哪些文件。但是，无法通过这种方式包括某些必需文件，因此需要在 `[UE4Root]/Engine/Build/InstalledEngineFilters.xml` 中定义它们。`InstalledEngineFilters` XML 文件也会列出应从该构建版本中排除的文件模式，确定需要剥离或签名的文件类型以及要为哪些项目构建DDC。如果需要在安装构建版本中包括额外文件，可以首先考虑 `InstalledEngineFilters` XML 文件。
+
+## 注册安装构建版本
+
+UE4具有“外部”项目和“非外部”项目的概念。外部项目是存储在非引擎目录树中的项目，非外部项目是存储在引擎根的子目录中的项目（通过 `UE4Games.uprojectdirs` 扩展名引用）。
+
+`.uproject` 文件中的“EngineAssociation”字段可标识哪个编辑器版本可打开项目。对于非外部项目，它为空白，因为“非外部”暗示在（已知的）相对位置中存在编辑器（在项目目录层级的高处）。对于使用由启动程序安装的引擎构建版本的外部项目，该字段中会包含正式版本号（例如“4.19”），启动程序可基于其已安装的应用程序列表查找相应的编辑器二进制文件（假定已安装）。对于使用通过启动程序以外的其他方式分发的引擎构建版本的外部项目，可以使用引擎构建版本随机唯一辨识符，通过可全局访问的数据元库（具体来说，Windows上的注册表或Mac上的库文件夹中的文件）查找安装目录。如果找不到已安装编辑器构建版本的关联，将提示用户选择版本，然后，将使用所选择的版本更新 `.uproject` 文件。
+
+向团队分发安装构建版本时，请确保每个人的构建版本辨识符都相同。这将阻止编辑器提示用户选择版本，然后使用本地生成的唯一辨识符更新 `.uproject` 文件。可按照以下方法设置自定义辨识符：
+
+*   在 **Windows** 中，向将你的辨识符用作其项的HKEY\_CURRENT\_USER\\\SOFTWARE\\\Epic Games\\UnrealEngine\\Builds添加注册表项，并将引擎路径作为其值。例如，项可以是“MyCustom419”，值可以是“D:\\CustomUE4”。
+*   在 **Mac** 中，打开/Users/MyName/Library/Application Support/Epic/UnrealEngine/Install.ini，然后向将你的辨识符用作项的“\[Installations\]”部分添加条目，并将引擎路径作为值。例如：
+    
+    
+    [Installations]
+    MyCustom419 = /Users/MyName/CustomUE4
+
+## 选择该部署方法
+
+如果你极少需要更改引擎，而且在寻找能够快速高效交付适用于各种硬件配置文件和操作系统的构建解决方案的方法，可以部署UE4的安装构建版本，或者从我们的启动程序下载引擎。 
+
+但请注意，如果你不是在寻找可安装在C:\\Program Files下的UE4只读分发，那么该方法并不适合你，主要原因在于它是为了创建独立、只读的引擎内容、源代码和第三方库而设计的。虽然我们通过Epic Games启动程序免费提供安装的引擎构建版本，但是我们内部的游戏团队并不使用该方法。另外，我们将其视作独立的部署产品。

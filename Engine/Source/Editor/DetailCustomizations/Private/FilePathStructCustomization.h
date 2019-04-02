@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -44,4 +44,7 @@ private:
 	/** Pointer to the string that will be seet when changing the path */
 	TSharedPtr<IPropertyHandle> PathStringProperty;
 	bool bLongPackageName;
+	
+	/** Whether the output file path tries to be relative to the project directory */
+	bool bRelativeToGameDir;
 };

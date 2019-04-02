@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "BoneControllers/AnimNode_SkeletalControlBase.h"
 #include "Animation/AnimInstanceProxy.h"
@@ -81,7 +81,7 @@ void FAnimNode_SkeletalControlBase::Update_AnyThread(const FAnimationUpdateConte
 	ActualAlpha = 0.f;
 	if (IsLODEnabled(Context.AnimInstanceProxy))
 	{
-		EvaluateGraphExposedInputs.Execute(Context);
+		GetEvaluateGraphExposedInputs().Execute(Context);
 
 		// Apply the skeletal control if it's valid
 		switch (AlphaInputType)
@@ -141,8 +141,11 @@ void FAnimNode_SkeletalControlBase::EvaluateComponentSpace_AnyThread(FComponentS
 	// save current pose before applying skeletal control to compute the exact gizmo location in AnimGraphNode
 	ForwardedPose.CopyPose(Output.Pose);
 #endif // #if WITH_EDITORONLY_DATA
+
+#if DO_CHECK
 	// this is to ensure Source data does not contain NaN
 	ensure(Output.ContainsNaN() == false);
+#endif
 
 	// Apply the skeletal control if it's valid
 	if (FAnimWeight::IsRelevant(ActualAlpha) && IsValidToEvaluate(Output.AnimInstanceProxy->GetSkeleton(), Output.AnimInstanceProxy->GetRequiredBones()))

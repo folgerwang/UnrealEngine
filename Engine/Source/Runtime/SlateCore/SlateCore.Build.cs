@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -24,7 +24,6 @@ public class SlateCore : ModuleRules
 				"Runtime/SlateCore/Private/Fonts",
 				"Runtime/SlateCore/Private/Input",
 				"Runtime/SlateCore/Private/Layout",
-				"Runtime/SlateCore/Private/Logging",
 				"Runtime/SlateCore/Private/Rendering",
 				"Runtime/SlateCore/Private/Sound",
 				"Runtime/SlateCore/Private/Styling",
@@ -32,8 +31,6 @@ public class SlateCore : ModuleRules
 				"Runtime/SlateCore/Private/Types",
 				"Runtime/SlateCore/Private/Widgets",
 			});
-
-        PublicDefinitions.Add("SLATE_PARENT_POINTERS=1");
 
         if (Target.Type != TargetType.Server)
 		{

@@ -1,6 +1,6 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "Sections/MovieScenePropertyRecorder.h"
+#include "MovieScenePropertyRecorder.h"
 #include "MovieScene.h"
 #include "Sections/MovieSceneBoolSection.h"
 #include "Tracks/MovieSceneBoolTrack.h"
@@ -306,18 +306,19 @@ UMovieSceneSection* FMovieScenePropertyRecorder<FColor>::AddSection(UObject* InO
 		Section->TimecodeSource = SequenceRecorderUtils::GetTimecodeSource();
 
 		TArrayView<FMovieSceneFloatChannel*> FloatChannels = Section->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
+		const float InvColor = 1.0f / 255.0f;
 
 		FloatChannels[0]->SetDefault(PreviousValue.R);
-		FloatChannels[0]->AddCubicKey(CurrentFrame, PreviousValue.R, RCTM_Break);
+		FloatChannels[0]->AddCubicKey(CurrentFrame, PreviousValue.R * InvColor, RCTM_Break);
 
 		FloatChannels[1]->SetDefault(PreviousValue.G);
-		FloatChannels[1]->AddCubicKey(CurrentFrame, PreviousValue.G, RCTM_Break);
+		FloatChannels[1]->AddCubicKey(CurrentFrame, PreviousValue.G * InvColor, RCTM_Break);
 
 		FloatChannels[2]->SetDefault(PreviousValue.B);
-		FloatChannels[2]->AddCubicKey(CurrentFrame, PreviousValue.B, RCTM_Break);
+		FloatChannels[2]->AddCubicKey(CurrentFrame, PreviousValue.B * InvColor, RCTM_Break);
 
 		FloatChannels[3]->SetDefault(PreviousValue.A);
-		FloatChannels[3]->AddCubicKey(CurrentFrame, PreviousValue.A, RCTM_Break);
+		FloatChannels[3]->AddCubicKey(CurrentFrame, PreviousValue.A * InvColor, RCTM_Break);
 
 		Track->AddSection(*Section);
 
@@ -330,11 +331,12 @@ UMovieSceneSection* FMovieScenePropertyRecorder<FColor>::AddSection(UObject* InO
 template <>
 void FMovieScenePropertyRecorder<FColor>::AddKeyToSection(UMovieSceneSection* InSection, const FPropertyKey<FColor>& InKey)
 {
+	static const float InvColor = 1.0f / 255.0f;
 	TArrayView<FMovieSceneFloatChannel*> FloatChannels = InSection->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
-	FloatChannels[0]->AddCubicKey(InKey.Time, InKey.Value.R);
-	FloatChannels[1]->AddCubicKey(InKey.Time, InKey.Value.G);
-	FloatChannels[2]->AddCubicKey(InKey.Time, InKey.Value.B);
-	FloatChannels[3]->AddCubicKey(InKey.Time, InKey.Value.A);
+	FloatChannels[0]->AddCubicKey(InKey.Time, InKey.Value.R * InvColor, RCTM_Break);
+	FloatChannels[1]->AddCubicKey(InKey.Time, InKey.Value.G * InvColor, RCTM_Break);
+	FloatChannels[2]->AddCubicKey(InKey.Time, InKey.Value.B * InvColor, RCTM_Break);
+	FloatChannels[3]->AddCubicKey(InKey.Time, InKey.Value.A * InvColor, RCTM_Break);
 }
 
 template <>

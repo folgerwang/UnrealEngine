@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidMediaPlayer.h"
 #include "AndroidMediaPrivate.h"
@@ -16,6 +16,9 @@
 #include "UObject/Class.h"
 #include "UObject/UObjectGlobals.h"
 #include "ExternalTexture.h"
+#include "HAL/FileManager.h"
+#include "HAL/PlatformFilemanager.h"
+#include "IPlatformFilePak.h"
 
 #include "Android/AndroidJavaMediaPlayer.h"
 #include "AndroidMediaTextureSample.h"
@@ -35,9 +38,9 @@ FAndroidMediaPlayer::FAndroidMediaPlayer(IMediaEventSink& InEventSink)
 	, bLooping(false)
 	, EventSink(InEventSink)
 #if WITH_ENGINE
-	, JavaMediaPlayer(MakeShared<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe>(false, FAndroidMisc::ShouldUseVulkan()))
+	, JavaMediaPlayer(MakeShared<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe>(false, FAndroidMisc::ShouldUseVulkan(), true))
 #else
-	, JavaMediaPlayer(MakeShared<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe>(true, FAndroidMisc::ShouldUseVulkan()))
+	, JavaMediaPlayer(MakeShared<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe>(true, FAndroidMisc::ShouldUseVulkan(), true))
 #endif
 	, Samples(MakeShared<FMediaSamples, ESPMode::ThreadSafe>())
 	, SelectedAudioTrack(INDEX_NONE)
@@ -75,14 +78,14 @@ FAndroidMediaPlayer::~FAndroidMediaPlayer()
 
 			FReleaseVideoResourcesParams ReleaseVideoResourcesParams = { VideoTexture, PlayerGuid };
 
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AndroidMediaPlayerWriteVideoSample,
-				FReleaseVideoResourcesParams, Params, ReleaseVideoResourcesParams,
+			ENQUEUE_RENDER_COMMAND(AndroidMediaPlayerWriteVideoSample)(
+				[ReleaseVideoResourcesParams](FRHICommandListImmediate& RHICmdList)
 				{
 					#if ANDROIDMEDIAPLAYER_USE_NATIVELOGGING
-						FPlatformMisc::LowLevelOutputDebugStringf(TEXT("~FAndroidMediaPlayer: Unregister Guid: %s"), *Params.PlayerGuid.ToString());
+						FPlatformMisc::LowLevelOutputDebugStringf(TEXT("~FAndroidMediaPlayer: Unregister Guid: %s"), *ReleaseVideoResourcesParams.PlayerGuid.ToString());
 					#endif
 
-					FExternalTextureRegistry::Get().UnregisterExternalTexture(Params.PlayerGuid);
+					FExternalTextureRegistry::Get().UnregisterExternalTexture(ReleaseVideoResourcesParams.PlayerGuid);
 
 					// @todo: this causes a crash
 //					Params.VideoTexture->Release();
@@ -260,38 +263,90 @@ bool FAndroidMediaPlayer::Open(const FString& Url, const IMediaOptions* /*Option
 		// make sure that file exists
 		if (!PlatformFile.FileExists(*FilePath))
 		{
-			UE_LOG(LogAndroidMedia, Warning, TEXT("File doesn't exist %s."), *FilePath);
+			// possible it is in a PAK file
+			FPakPlatformFile* PakPlatformFile = (FPakPlatformFile*)(FPlatformFileManager::Get().FindPlatformFile(FPakPlatformFile::GetTypeName()));
 
-			return false;
-		}
-
-		// get information about media
-		int64 FileOffset = PlatformFile.FileStartOffset(*FilePath);
-		int64 FileSize = PlatformFile.FileSize(*FilePath);
-		FString FileRootPath = PlatformFile.FileRootPath(*FilePath);
-
-		// play movie as a file or asset
-		if (PlatformFile.IsAsset(*FilePath))
-		{
-			if (!JavaMediaPlayer->SetDataSource(PlatformFile.GetAssetManager(), FileRootPath, FileOffset, FileSize))
+			FPakFile* PakFile = NULL;
+			FPakEntry FileEntry;
+			if (!PakPlatformFile->FindFileInPakFiles(*FilePath, &PakFile, &FileEntry))
 			{
-				UE_LOG(LogAndroidMedia, Warning, TEXT("Failed to set data source for asset %s"), *FilePath);
+				UE_LOG(LogAndroidMedia, Warning, TEXT("File doesn't exist %s."), *FilePath);
 				return false;
+			}
+
+			// is it a simple case (can just use file datasource)?
+			if (FileEntry.CompressionMethodIndex == 0 && !FileEntry.IsEncrypted())
+			{
+				FString PakFilename = PakFile->GetFilename();
+				int64 PakHeaderSize = FileEntry.GetSerializedSize(PakFile->GetInfo().Version);
+				int64 OffsetInPak = FileEntry.Offset + PakHeaderSize;
+				int64 FileSize = FileEntry.Size;
+
+				//UE_LOG(LogAndroidMedia, Warning, TEXT("not compressed or encrypted PAK: Filename for PAK is: %s"), *PakFilename);
+				//UE_LOG(LogAndroidMedia, Warning, TEXT("PAK Offset: %lld,  Size: %lld (header=%lld)"), OffsetInPak, FileSize, PakHeaderSize);
+
+				int64 FileOffset = PlatformFile.FileStartOffset(*PakFilename) + OffsetInPak;
+				FString FileRootPath = PlatformFile.FileRootPath(*PakFilename);
+
+				//UE_LOG(LogAndroidMedia, Warning, TEXT("Final Offset: %lld in %s"), FileOffset, *FileRootPath);
+
+				if (!JavaMediaPlayer->SetDataSource(FileRootPath, FileOffset, FileSize))
+				{
+					UE_LOG(LogAndroidMedia, Warning, TEXT("Failed to set data source for file in PAK %s"), *FilePath);
+					return false;
+				}
+			}
+			else
+			{
+				// only support media data source on Android 6.0+
+				if (FAndroidMisc::GetAndroidBuildVersion() < 23)
+				{
+					UE_LOG(LogAndroidMedia, Warning, TEXT("File cannot be played on this version of Android due to PAK file with compression or encryption: %s."), *FilePath);
+					return false;
+				}
+
+				TSharedRef<FArchive, ESPMode::ThreadSafe> Archive = MakeShareable(IFileManager::Get().CreateFileReader(*FilePath));
+				if (!JavaMediaPlayer->SetDataSource(Archive))
+				{
+					UE_LOG(LogAndroidMedia, Warning, TEXT("Failed to set data source for archive %s"), *FilePath);
+					return false;
+				}
 			}
 		}
 		else
 		{
-			if (!JavaMediaPlayer->SetDataSource(FileRootPath, FileOffset, FileSize))
+			// get information about media
+			int64 FileOffset = PlatformFile.FileStartOffset(*FilePath);
+			int64 FileSize = PlatformFile.FileSize(*FilePath);
+			FString FileRootPath = PlatformFile.FileRootPath(*FilePath);
+
+			// play movie as a file or asset
+			if (PlatformFile.IsAsset(*FilePath))
 			{
-				UE_LOG(LogAndroidMedia, Warning, TEXT("Failed to set data source for file %s"), *FilePath);
-				return false;
+				if (!JavaMediaPlayer->SetDataSource(PlatformFile.GetAssetManager(), FileRootPath, FileOffset, FileSize))
+				{
+					UE_LOG(LogAndroidMedia, Warning, TEXT("Failed to set data source for asset %s"), *FilePath);
+					return false;
+				}
+			}
+			else
+			{
+				if (!JavaMediaPlayer->SetDataSource(FileRootPath, FileOffset, FileSize))
+				{
+					UE_LOG(LogAndroidMedia, Warning, TEXT("Failed to set data source for file %s"), *FilePath);
+					return false;
+				}
 			}
 		}
 	}
 	else
 	{
 		// open remote media
-		JavaMediaPlayer->SetDataSource(Url);
+		if (!JavaMediaPlayer->SetDataSource(Url))
+		{
+			UE_LOG(LogAndroidMedia, Warning, TEXT("Failed to set data source for URL %s"), *Url);
+			return false;
+		}
 	}
 
 	// prepare media
@@ -318,9 +373,65 @@ bool FAndroidMediaPlayer::Open(const FString& Url, const IMediaOptions* /*Option
 }
 
 
-bool FAndroidMediaPlayer::Open(const TSharedRef<FArchive, ESPMode::ThreadSafe>& /*Archive*/, const FString& /*OriginalUrl*/, const IMediaOptions* /*Options*/)
+bool FAndroidMediaPlayer::Open(const TSharedRef<FArchive, ESPMode::ThreadSafe>& Archive, const FString& OriginalUrl, const IMediaOptions* /*Options*/)
 {
-	return false; // @todo AndroidMedia: implement opening media from FArchive
+#if ANDROIDMEDIAPLAYER_USE_NATIVELOGGING
+	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidMedia::OpenArchive(%s) - %s"), *OriginalUrl, *PlayerGuid.ToString());
+#endif
+
+	if (CurrentState == EMediaState::Error)
+	{
+		return false;
+	}
+
+	if (Archive->TotalSize() == 0)
+	{
+		UE_LOG(LogAndroidMedia, Verbose, TEXT("Player %p: Cannot open media from archive (archive is empty)"), this);
+		return false;
+	}
+
+	if (OriginalUrl.IsEmpty())
+	{
+		UE_LOG(LogAndroidMedia, Verbose, TEXT("Player %p: Cannot open media from archive (no original URL provided)"), this);
+		return false;
+	}
+
+	Close();
+
+	// only support media data source on Android 6.0+
+	if (FAndroidMisc::GetAndroidBuildVersion() < 23)
+	{
+		UE_LOG(LogAndroidMedia, Warning, TEXT("File cannot be played on this version of Android due to PAK file with compression or encryption: %s."), *OriginalUrl);
+		return false;
+	}
+
+	if (!JavaMediaPlayer->SetDataSource(Archive))
+	{
+		UE_LOG(LogAndroidMedia, Warning, TEXT("Failed to set data source for archive %s"), *OriginalUrl);
+		return false;
+	}
+
+	// prepare media
+	MediaUrl = OriginalUrl;
+
+#if ANDROIDMEDIAPLAYER_USE_PREPAREASYNC
+	if (!JavaMediaPlayer->PrepareAsync())
+	{
+		UE_LOG(LogAndroidMedia, Warning, TEXT("Failed to prepare media source %s"), *OriginalUrl);
+		return false;
+	}
+
+	CurrentState = EMediaState::Preparing;
+	return true;
+#else
+	if (!JavaMediaPlayer->Prepare())
+	{
+		UE_LOG(LogAndroidMedia, Warning, TEXT("Failed to prepare media source %s"), *OriginalUrl);
+		return false;
+	}
+
+	return InitializePlayer();
+#endif
 }
 
 
@@ -558,10 +669,10 @@ void FAndroidMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan /*Timecode*/)
 			TSharedRef<FAndroidMediaTextureSample, ESPMode::ThreadSafe> VideoSample;
 			int32 SampleCount;
 		}
-		WriteVideoSampleParams = { JavaMediaPlayer, Samples, VideoSample, (int32)(VideoTrack.Dimensions.X * VideoTrack.Dimensions.Y * sizeof(int32)) };
+		Params = { JavaMediaPlayer, Samples, VideoSample, (int32)(VideoTrack.Dimensions.X * VideoTrack.Dimensions.Y * sizeof(int32)) };
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AndroidMediaPlayerWriteVideoSample,
-			FWriteVideoSampleParams, Params, WriteVideoSampleParams,
+		ENQUEUE_RENDER_COMMAND(AndroidMediaPlayerWriteVideoSample)(
+			[Params](FRHICommandListImmediate& RHICmdList)
 			{
 				auto PinnedJavaMediaPlayer = Params.JavaMediaPlayerPtr.Pin();
 				auto PinnedSamples = Params.SamplesPtr.Pin();
@@ -603,10 +714,10 @@ void FAndroidMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan /*Timecode*/)
 			FGuid PlayerGuid;
 		};
 
-		FWriteVideoSampleParams WriteVideoSampleParams = { JavaMediaPlayer, PlayerGuid };
+		FWriteVideoSampleParams Params = { JavaMediaPlayer, PlayerGuid };
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AndroidMediaPlayerWriteVideoSample,
-			FWriteVideoSampleParams, Params, WriteVideoSampleParams,
+		ENQUEUE_RENDER_COMMAND(AndroidMediaPlayerWriteVideoSample)(
+			[Params](FRHICommandListImmediate& RHICmdList)
 			{
 				if (IsRunningRHIInSeparateThread())
 				{
@@ -660,10 +771,10 @@ void FAndroidMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan /*Timecode*/)
 			TWeakPtr<FMediaSamples, ESPMode::ThreadSafe> SamplesPtr;
 			TSharedRef<FAndroidMediaTextureSample, ESPMode::ThreadSafe> VideoSample;
 		}
-		WriteVideoSampleParams = { JavaMediaPlayer, Samples, VideoSample };
+		Params = { JavaMediaPlayer, Samples, VideoSample };
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AndroidMediaPlayerWriteVideoSample,
-			FWriteVideoSampleParams, Params, WriteVideoSampleParams,
+		ENQUEUE_RENDER_COMMAND(AndroidMediaPlayerWriteVideoSample)(
+			[Params](FRHICommandListImmediate& RHICmdList)
 			{
 				if (IsRunningRHIInSeparateThread())
 				{
@@ -698,10 +809,10 @@ void FAndroidMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan /*Timecode*/)
 		int32 SampleCount;
 	};
 
-	FWriteVideoSampleParams WriteVideoSampleParams = { JavaMediaPlayer, Samples, VideoSample, (int32)(VideoTrack.Dimensions.X * VideoTrack.Dimensions.Y * sizeof(int32)) };
+	FWriteVideoSampleParams Params = { JavaMediaPlayer, Samples, VideoSample, (int32)(VideoTrack.Dimensions.X * VideoTrack.Dimensions.Y * sizeof(int32)) };
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AndroidMediaPlayerWriteVideoSample,
-		FWriteVideoSampleParams, Params, WriteVideoSampleParams,
+	ENQUEUE_RENDER_COMMAND(AndroidMediaPlayerWriteVideoSample)(
+		[Params](FRHICommandListImmediate& RHICmdList)
 		{
 			if (IsRunningRHIInSeparateThread())
 			{

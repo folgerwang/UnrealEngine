@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -23,7 +23,7 @@ public:
 protected:
 	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
 
-	virtual void GetAdditionalSearchItemsInternal(TArray<FStackSearchItem>& SearchItems) const override;
+	virtual void GetSearchItems(TArray<FStackSearchItem>& SearchItems) const override;
 
 private:
 	TSharedPtr<IDetailTreeNode> DetailTreeNode;

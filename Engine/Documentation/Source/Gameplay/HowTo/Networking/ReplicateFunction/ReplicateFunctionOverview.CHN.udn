@@ -1,11 +1,12 @@
-﻿INTSourceChangelist:2735882
+﻿INTSourceChangelist:3429254
 Availability: Public
 Title:远程调用函数（Replicating Functions）
 Crumbs: %ROOT%, Gameplay
 Description:在多人游戏中远程调用函数的指南。 
 Version: 4.9
 Parent:Gameplay
-type:how-to
+SkillLevel: Advanced
+type:overview
 order:16
 
 **Function Replication**（远程过程调用或 RPC）是在本地调用但在其他机器（不同于执行调用的机器）上远程执行的函数。RPC 函数非常有用，可允许客户端或服务器通过网络连接相互发送消息。
@@ -18,13 +19,10 @@ order:16
 服务器和客户端复制函数存在一些限制，其中一条是它们仅可在具有 **Net Owner** 的 Actor 上使用。如果 Actor 为玩家控制器或归玩家控制器所有，则其具有 Net Owner。
 例如，玩家控制器拥有的 Pawn 可在其上执行服务器或客户端远程调用函数。 
 
-## 设置
+(#ImplementationGuides)
+## 实现指南
 
-关于使用蓝图设置远程调用函数的详细信息，请访问以下链接：
-
-[REGION:buttonlist]
-* [](Gameplay\HowTo\Networking\ReplicateFunction\Blueprints)
-[/REGION]
+[DIR(output:"role" parent:"Gameplay/HowTo/Networking/ReplicateFunction" org:"hierarchy" end:"1")]
 
 
 

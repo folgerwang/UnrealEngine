@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -114,7 +114,7 @@ struct FStreamedAudioPlatformData
 	 *						either be NULL or have enough space for the chunk
 	 * @returns true if requested chunk has been loaded.
 	 */
-	bool TryLoadChunk(int32 ChunkIndex, uint8** OutChunkData);
+	bool TryLoadChunk(int32 ChunkIndex, uint8** OutChunkData, bool bMakeSureChunkIsLoaded = false);
 
 	/** Serialization. */
 	void Serialize(FArchive& Ar, class USoundWave* Owner);
@@ -128,6 +128,108 @@ struct FStreamedAudioPlatformData
 #endif
 
 };
+
+// Struct used to retrieve the spectral magnitude of an audio signal at a given frequency to BP
+USTRUCT(BlueprintType)
+struct FSoundWaveSpectralData
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The frequency hz of the spectrum value
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpectralData|Foo")
+	float FrequencyHz;
+
+	// The magnitude of the spectrum at this frequency
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpectralData|Bar")
+	float Magnitude;
+
+	// The normalized magnitude of the spectrum at this frequency
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpectralData|Bar")
+	float NormalizedMagnitude;
+
+	FSoundWaveSpectralData()
+		: FrequencyHz(0.0f)
+		, Magnitude(0.0f)
+		, NormalizedMagnitude(0.0f)
+	{}
+};
+
+// Sort predicate for sorting spectral data by frequency (lowest first)
+struct FCompareSpectralDataByFrequencyHz
+{
+	FORCEINLINE bool operator()(const FSoundWaveSpectralData& A, const FSoundWaveSpectralData& B) const
+	{
+		return A.FrequencyHz < B.FrequencyHz;
+	}
+};
+
+
+// Struct used to store spectral data with time-stamps
+USTRUCT()
+struct FSoundWaveSpectralDataEntry
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The magnitude of the spectrum at this frequency
+	UPROPERTY()
+	float Magnitude;
+
+	// The normalized magnitude of the spectrum at this frequency
+	UPROPERTY()
+	float NormalizedMagnitude;
+};
+
+
+// Struct used to store spectral data with time-stamps
+USTRUCT()
+struct FSoundWaveSpectralTimeData
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The spectral data at the given time. The array indices correspond to the frequencies set to analyze.
+	UPROPERTY()
+	TArray<FSoundWaveSpectralDataEntry> Data;
+
+	// The timestamp associated with this spectral data
+	UPROPERTY()
+	float TimeSec;
+
+	FSoundWaveSpectralTimeData()
+		: TimeSec(0.0f)
+	{}
+};
+
+// Struct used to store time-stamped envelope data
+USTRUCT()
+struct FSoundWaveEnvelopeTimeData
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The normalized linear amplitude of the audio
+	UPROPERTY()
+	float Amplitude;
+
+	// The timestamp of the audio
+	UPROPERTY()
+	float TimeSec;
+
+	FSoundWaveEnvelopeTimeData()
+		: Amplitude(0.0f)
+		, TimeSec(0.0f)
+	{}
+};
+
+// The FFT size (in audio frames) to use for baked FFT analysis
+UENUM(BlueprintType)
+enum class ESoundWaveFFTSize : uint8
+{
+	VerySmall_64,
+	Small_256,
+	Medium_512,
+	Large_1024,
+	VeryLarge_2048,
+};
+
 
 UCLASS(hidecategories=Object, editinlinenew, BlueprintType)
 class ENGINE_API USoundWave : public USoundBase
@@ -196,9 +298,59 @@ class ENGINE_API USoundWave : public USoundBase
 	uint8 bIsAmbisonics : 1;
 
 	/** Whether this SoundWave was decompressed from OGG. */
-	uint8 bDecompressedFromOgg:1;
+	uint8 bDecompressedFromOgg : 1;
+
+#if WITH_EDITORONLY_DATA
+	/** Whether or not to enable cook-time baked FFT analysis. */
+	UPROPERTY(EditAnywhere, Category = "Analysis|FFT")
+	uint8 bEnableBakedFFTAnalysis : 1;
+
+	/** Whether or not to enable cook-time amplitude envelope analysis. */
+	UPROPERTY(EditAnywhere, Category = "Analysis|Envelope")
+	uint8 bEnableAmplitudeEnvelopeAnalysis : 1;
+
+	/** The FFT window size to use for fft analysis. */
+	UPROPERTY(EditAnywhere, Category = "Analysis|FFT", meta = (EditCondition = "bEnableBakedFFTAnalysis"))
+	ESoundWaveFFTSize FFTSize;
+
+	/** How many audio frames analyze at a time. */
+	UPROPERTY(EditAnywhere, Category = "Analysis|FFT", meta = (EditCondition = "bEnableAmplitudeEnvelopeAnalysis", ClampMin = "512", UIMin = "512"))
+	int32 FFTAnalysisFrameSize;
+
+	/** How many audio frames to average a new envelope value. Larger values use less memory for audio envelope data but will result in lower envelope accuracy. */
+	UPROPERTY(EditAnywhere, Category = "Analysis|Envelope", meta = (EditCondition = "bEnableAmplitudeEnvelopeAnalysis", ClampMin = "512", UIMin = "512"))
+	int32 EnvelopeFollowerFrameSize;
+
+	/** How quickly the envelope analyzer responds to increasing amplitudes. */
+	UPROPERTY(EditAnywhere, Category = "Analysis|Envelope", meta = (EditCondition = "bEnableAmplitudeEnvelopeAnalysis", ClampMin = "0", UIMin = "0"))
+	int32 EnvelopeFollowerAttackTime;
+
+	/** How quickly the envelope analyzer responds to decreasing amplitudes. */
+	UPROPERTY(EditAnywhere, Category = "Analysis|Envelope", meta = (EditCondition = "bEnableAmplitudeEnvelopeAnalysis", ClampMin = "0", UIMin = "0"))
+	int32 EnvelopeFollowerReleaseTime;
+#endif
+
+	/** The frequencies (in hz) to analyze when doing baked FFT analysis. */
+	UPROPERTY(EditAnywhere, Category = "Analysis|FFT", meta = (EditCondition = "bEnableBakedFFTAnalysis"))
+	TArray<float> FrequenciesToAnalyze;
+
+	/** The cooked spectral time data. */
+	UPROPERTY()
+	TArray<FSoundWaveSpectralTimeData> CookedSpectralTimeData;
+
+	/** The cooked cooked envelope data. */
+	UPROPERTY()
+	TArray<FSoundWaveEnvelopeTimeData> CookedEnvelopeTimeData;
+
+	/** Helper function to get interpolated cooked FFT data for a given time value. */
+	bool GetInterpolatedCookedFFTDataForTime(float InTime, uint32& InOutLastIndex, TArray<FSoundWaveSpectralData>& OutData, bool bLoop);
+	bool GetInterpolatedCookedEnvelopeDataForTime(float InTime, uint32& InOutLastIndex, float& OutAmplitude, bool bLoop);
 
 private:
+
+	/** Helper functions to search analysis data. Takes starting index to start query. Returns which data index the result was found at. Returns INDEX_NONE if not found. */
+	uint32 GetInterpolatedCookedFFTDataForTimeInternal(float InTime, uint32 StartingIndex, TArray<FSoundWaveSpectralData>& OutData, bool bLoop);
+	uint32 GetInterpolatedCookedEnvelopeDataForTimeInternal(float InTime, uint32 StartingIndex, float& OutAmplitude, bool bLoop);
 
 #if !WITH_EDITOR
 	// This is set to false on initialization, then set to true on non-editor platforms when we cache appropriate sample rate.
@@ -215,7 +367,7 @@ private:
 		Freed
 	};
 
-	ESoundWaveResourceState ResourceState;
+	volatile ESoundWaveResourceState ResourceState;
 
 	/** What state the precache decompressor is in. */
 	FThreadSafeCounter PrecacheState;
@@ -280,12 +432,6 @@ public:
 
 #endif // WITH_EDITORONLY_DATA
 
-	/**
-	 * The array of the subtitles for each language. Generated at cook time.
-	 */
-	UPROPERTY()
-	TArray<struct FLocalizedSubtitle> LocalizedSubtitles;
-
 #if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	FString SourceFilePath_DEPRECATED;
@@ -317,27 +463,30 @@ private:
 public:	
 	/** Async worker that decompresses the audio data on a different thread */
 	typedef FAsyncTask< class FAsyncAudioDecompressWorker > FAsyncAudioDecompress;	// Forward declare typedef
-	FAsyncAudioDecompress*		AudioDecompressor;
+	FAsyncAudioDecompress* AudioDecompressor;
 
 	/** Pointer to 16 bit PCM data - used to avoid synchronous operation to obtain first block of the realtime decompressed buffer */
-	uint8*						CachedRealtimeFirstBuffer;
+	uint8* CachedRealtimeFirstBuffer;
+	
+	/** The number of frames which have been precached for this sound wave. */
+	int32 NumPrecacheFrames;
 
 	/** Pointer to 16 bit PCM data - used to decompress data to and preview sounds */
-	uint8*						RawPCMData;
+	uint8* RawPCMData;
 
 	/** Size of RawPCMData, or what RawPCMData would be if the sound was fully decompressed */
-	int32						RawPCMDataSize;
+	int32 RawPCMDataSize;
 
 	/** Memory containing the data copied from the compressed bulk data */
-	uint8*						ResourceData;
+	uint8* ResourceData;
 
 	/** Uncompressed wav data 16 bit in mono or stereo - stereo not allowed for multichannel data */
-	FByteBulkData				RawData;
+	FByteBulkData RawData;
 
 	/** GUID used to uniquely identify this node so it can be found in the DDC */
-	FGuid						CompressedDataGuid;
+	FGuid CompressedDataGuid;
 
-	FFormatContainer			CompressedFormatData;
+	FFormatContainer CompressedFormatData;
 
 #if WITH_EDITORONLY_DATA
 	TMap<FName, uint32> AsyncLoadingDataFormats;
@@ -384,6 +533,9 @@ public:
 	virtual float GetDuration() override;
 	virtual float GetSubtitlePriority() const override;
 	virtual bool IsAllowedVirtual() const override;
+	virtual bool GetSoundWavesWithCookedAnalysisData(TArray<USoundWave*>& OutSoundWaves) override;
+	virtual bool HasCookedFFTData() const override;
+	virtual bool HasCookedAmplitudeEnvelopeData() const override;
 	//~ End USoundBase Interface.
 
 	// Called  when the procedural sound wave begins on the render thread. Only used in the audio mixer and when bProcedural is true.
@@ -482,8 +634,18 @@ public:
 
 	virtual bool HasCompressedData(FName Format, ITargetPlatform* TargetPlatform = GetRunningPlatform()) const;
 
+#if WITH_EDITOR
+	/** Utility which returns imported PCM data and the parsed header for the file. Returns true if there was data, false if there wasn't. */
+	bool GetImportedSoundWaveData(TArray<uint8>& OutRawPCMData, uint32& OutSampleRate, uint16& OutNumChannels);
+#endif
+
 private:
 	FName GetPlatformSpecificFormat(FName Format, const FPlatformAudioCookOverrides* CompressionOverrides);
+
+#if WITH_EDITOR
+	void BakeFFTAnalysis();
+	void BakeEnvelopeAnalysis();
+#endif
 
 public:
 	virtual void BeginGetCompressedData(FName Format, const FPlatformAudioCookOverrides* CompressionOverrides);
@@ -527,9 +689,9 @@ public:
 #endif
 
 	/**
-	 * Checks whether sound has been categorised as streaming
+	 * Checks whether sound has been categorised as streaming.
 	 */
-	bool IsStreaming() const;
+	bool IsStreaming(const FPlatformAudioCookOverrides* Overrides = nullptr) const;
 
 	/**
 	 * Attempts to update the cached platform data after any changes that might affect it
@@ -612,7 +774,7 @@ public:
 	 * @param ChunkIndex	The Chunk index to cache.
 	 * @param OutChunkData	Address of pointer that will store data.
 	 */
-	bool GetChunkData(int32 ChunkIndex, uint8** OutChunkData);
+	bool GetChunkData(int32 ChunkIndex, uint8** OutChunkData, bool bMakeSureChunkIsLoaded = false);
 
 	void SetPrecacheState(ESoundWavePrecacheState InState)
 	{
@@ -623,6 +785,7 @@ public:
 	{
 		return (ESoundWavePrecacheState)PrecacheState.GetValue();
 	}
+
 };
 
 

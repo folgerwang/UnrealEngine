@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -14,6 +14,7 @@ class FSteamAuthHandlerComponent : public HandlerComponent
 public:
 	FSteamAuthHandlerComponent();
 	virtual ~FSteamAuthHandlerComponent();
+	virtual void CountBytes(FArchive& Ar) const override;
 	virtual void Initialize() override;
 	virtual void NotifyHandshakeBegin() override;
 

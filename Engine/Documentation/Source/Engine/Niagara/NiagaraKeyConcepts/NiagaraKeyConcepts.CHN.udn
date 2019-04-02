@@ -1,81 +1,70 @@
-﻿INTSourceChangelist:3669916
-Availability:Docs
-Crumbs: %ROOT%
-Title: Niagara重要概念
-Description:在虚幻以及粒子编辑器Niagara中制作处理粒子的重要概念。
-Type: Overview
-SkillLevel:Beginner
-Version: 4.17
-Parent:Engine/Niagara 
-Order: 2
-Tags:Getting Started
-topic-image:Engine\Niagara\NiagaraSocial.png
+﻿INTSourceChangelist:4691509
+Availability: Public
+Crumbs: 
+Title:Niagara核心概念
+Description:在虚幻和Niagara粒子编辑器中处理粒子的关键概念。
+Type: 
+Version: 4.21
+Parent: 
+Order: 
+Tags: Getting Started
+Tags: Early Access
 
-[TOC(start:2 end:2)]
 
-Niagara编辑器让用户能够实时创建多种多样的视觉效果以满足任何虚幻引擎4（UE4）项目的需要。从玩家效果到环境效果，Niagara都具备足够的灵活性和能力来处理项目所需的视觉效果。在以下文档中，我们将全面介绍Niagara与Cascade的不同之处，以及Niagara编辑器的各个组件如何配合工作。 
+Niagara编辑器可以用于创建各种视觉效果，以满足任何虚幻引擎项目的需求。Niagara具备足够的灵活性和能力来处理项目所需的任何视觉效果类型。本文将概述Niagara与Cascade的不同之处，以及Niagara编辑器的各个组件如何配合工作。
 
+(#amodularapproachtoparticleeffects)
 ## 用于实现粒子效果的模块化方法
 
-Cascade最初的超范围概念是尽可能将模块化融入到效果创建中。其实现方法是在创建任何新效果时提供一组默认模块，然后让效果美术添加更多模块，或者添加全新的发射器，这取决于需要实现的效果。虽然该系统多年以来效果非凡，但仍存在一些小问题，导致一些任务执行时间较长，而且易于出错，例如在效果之间分享效果数据或者一次性更新许多效果。 
+Cascade的基本理念是，尽可能使用模块化方法来创建效果。为了实现此目的，在创建任何新效果时，Cascade会提供一组默认模块，以及用于添加更多模块或全新发射器的工具，具体取决于美术师需要实现的效果。虽然该系统多年来效果良好，但仍存在一些小问题，导致一些任务执行时间较长，而且易于出错，例如在几种效果之间共享数据或者一次性更新许多效果。
 
 [REGION:lightbox]
 [![](NKC_00.png)(w:764)](NKC_00.png)
 [/REGION]
-
 [REGION:caption]
-该图显示了由发射器集合组成的 **Cascade粒子系统**。
+**Cascade粒子系统** 由多个发射器组成。
 [/REGION]
 
-为解决这些问题，Niagara完全接纳了模块化理念，但剔除了构成粒子系统的独立发射器的设计。为取代让粒子系统包含各个发射器的想法，**Niagara系统** 由多个独立的 **Niagara发射器** 组成。每个Niagara发射器包含一种效果，而该效果由您所熟悉的各种模块控制，例如 **寿命**、**位置** 和 **大小**，可以调整粒子的行为和外观。但是，由于这些Niagara发射器是保存在内容浏览器中的独立演算体（Actor），因此它们可以更新并与您想要创建的任何Niagara系统共享，这样您无需花费大量时间，即可对发射器进行大幅修改。
+为解决这些问题，Niagara完全采用了模块化的方法。Niagara将构成粒子系统的各个发射器分隔成独立的单元。**Niagara系统** 没有让粒子系统包含各个发射器，而是由许多个独立的 **Niagara发射器** 组成。每个Niagara发射器包含一种效果，而该效果由你所熟悉的各种模块控制。例如，**寿命**、**位置** 和 **大小**，这些模块可以调整粒子的行为和外观。但是，由于这些Niagara发射器是存储在内容浏览器中的独立actor，它们可以更新并与你想要创建的任何Niagara系统共享。这样你无需花费大量时间，即可对发射器进行修改。
 
-[REGION:lightbox]
-[![](NKC_01.png)(w:764)](NKC_01.png)
-[/REGION]
-
+![](NiagaraSystemWithEmitters.jpg)
 [REGION:caption]
-该图显示了由 **Niagara发射器** 集合组成的 **Niagara系统**。
+**Niagara系统** 由多个 **Niagara发射器**组成。
 [/REGION]
 
+(#niagaraemitter)
 ## Niagara发射器
 
-在您创建或打开Niagara发射器时，其自带一些默认模块，可以在 **所选发射器（Selected Emitter）** 选项卡中找到。在该选项卡中，您会看到可以展开和编辑的以下五个选项。以下每个部分都会影响发射器终生的产生和行为方式。
+Niagara发射器包含用于为项目创建所需特效的各种设置。本文中的“Niagara发射器向导”部分介绍了该向导，并展示了创建发射器的各种选项。本文中的“Niagara发射器模块”部分列出了“所选发射器（Selected Emitters）”面板的默认部分，并介绍了每个部分的执行时间及其作用。
+
+(#niagarasystem)
+## Niagara系统
+
+要在项目中使用Niagara发射器，必须将该发射器放入 **Niagara系统** 中。Niagara系统用于显示为制造效果而创建的各个Niagara发射器。这也使我们很容易就能混合和匹配不同的Niagara发射器，或者仅使用现有的发射器创建全新的效果。
 
 [REGION:lightbox]
-[![](NKC_02.png)(w:620)](NKC_02.png)
+[![](NiagaraEmitter2.png)(w:700)](NiagaraEmitter2.png)
 [/REGION]
 
-* **发射器产生（Emitter Spawn）**
-    * 发射器产生（Emitter Spawn）部分在发射器启动时运行。这类似于蓝图的构造脚本，它会进行一次性设置以在后续脚本中使用。它无法引用单个粒子，但可以用于设置发射器变量，运行发射器模块，并设置将在粒子脚本中使用的变量。
-* **发射器更新（Emitter Update）**
-    * 发射器更新（Emitter Update）部分在发射器保持活跃期间每帧运行一次。用户将在这里确定要产生的粒子数，计算要在粒子更新脚本中使用的常量值，以及实现发射器的其他每帧“tick”逻辑。在该部分中包含“发射器生命周期”（Emitter Lifecycle）模块非常重要，这样可以确保为每个发射器执行所有生命周期逻辑，让系统能够正常关闭。
-* **粒子产生（Particle Spawn）**
-    * 粒子产生（Particle Spawn）部分每次在粒子产生时运行一次。用户将使用该部分设置粒子的初始状态。如果发射器没有设置为使用“内插产生”（Interpolated Spawn），则该部分输出将定义渲染第一帧时的粒子状态。如果确实发生了内插产生，则粒子将均匀地分散到自前一帧开始的时间范围内（如果不是瞬时爆发），更新脚本将针对每个粒子运行，运行时间为自创建以来经过的少量帧数。这样用户可以实现流畅的轨迹，还可以让粒子更新脚本定义渲染第一帧时的粒子状态。如果您需要随机性来区分每个粒子，最好在产生脚本中选择随机值，并存储该值以在每个后续更新“tick”中使用。
-* **粒子更新（Particle Update）**
-    * 粒子更新（Particle Update）部分控制单个粒子的终生行为模式。物理模拟属性、渲染属性等更改可以在该部分中完成。如果用户希望将数据传播到其他发射器，可以在该部分中使用能够发出事件的模块。在该部分中包含“更新年龄”（Update Age）模块十分重要，这样可以确保每个粒子会持续老化，最终在寿命结束时消亡。
-* **添加事件处理程序（Add Event Handler）**
-    * 添加事件处理程序（Add Event Handler）部分确定该发射器如何响应来自碰撞或其他发射器的事件。 
+要创建Niagara系统，你会用到Niagara系统向导。该向导中列出了多个选项。使用这些选项，你可以更轻松地创建最适合你的项目的Niagara系统。
 
-## Niagara系统（Niagara System） 
+*   你可以使用模板列表创建系统。这些模板提供了多种常用的系统。如果你在大型开发工作室工作，这些模板可由美工负责人策划，从而确保在模板中使用最佳实践。如果这是你第一次使用虚幻引擎，那么这些模板是一个很好的起点。  
+    ![](NiagaraSystem_TemplateOptions.png)(w:400)
+*   你可以使用任何已创建的发射器来创建新系统。如果你已经创建了所需的发射器，请使用此选项。  
+    ![](NiagaraSystem_CreateFromEmitter.png)(w:400)
+*   你可以复制项目中已存在的系统。  
+    ![](NiagaraSystem_CopyFromExisting.png)(w:400)
+*   你可以创建一个空系统。  
+    ![](NiagaraSystem_BlankSystem.png)(w:400)
 
-要在项目中使用Niagara发射器，则首先需要将该发射器放入到 **Niagara系统（Niagara System）** 中。Niagara系统用于显示为制造效果而创建的各个Niagara发射器。这样也非常易于将不同的Niagara发射器混合和匹配起来，以仅使用现有发射器创建全新的效果。
+要将 **Niagara发射器** 添加到 **Niagara系统**，需要将Niagara发射器从内容浏览器拖放到 **时间轴（Timeline）** 的 **轨迹（Track）** 部分。
 
 [REGION:lightbox]
-[![](NKC_08.png)(w:620)](NKC_08.png)
+[![](AddEmittertoSystem.png)(w:400)](AddEmittertoSystem.png)
 [/REGION]
 
-要将Niagara发射器添加到Niagara系统，您需要将Niagara发射器从内容浏览器拖放到 **时间轴（Timeline）** 的 **轨迹（Track）** 部分。 
+将发射器添加到系统后，可以更改属性。在时间轴中查找并选择发射器，**所选发射器（Selected Emitter）** 面板将显示发射器的模块及其属性。在这里，你可以调整发射器的属性。
 
 [REGION:lightbox]
-[![](NKC_07.png)(w:600)](NKC_07.png)
+[![](SelectedEmittersPanel.png)(w:800)](SelectedEmittersPanel.png)
 [/REGION]
-
-您可以调整放入时间轴（Timeline）的Niagara发射器的属性，方法是选择一个发射器，然后转至 **所选发射器（Selected Emitter）** 面板，并调整所需属性。
-
-[REGION:lightbox]
-[![](NKC_09.png)(w:250)](NKC_09.png)
-[/REGION]
-
-
-
-

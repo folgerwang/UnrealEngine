@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -33,7 +33,7 @@ public:
 
 	void Construct(const FArguments& InArgs);
 
-	void SetContent(const TSharedRef<SWidget>& InWidget);
+	void SetContent(TSharedPtr<SWidget> InWidget);
 
 private:
 	virtual void OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const override;

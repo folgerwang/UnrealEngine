@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AbilitySystemGlobals.h"
 #include "Abilities/GameplayAbilityTypes.h"
@@ -340,7 +340,7 @@ void UAbilitySystemGlobals::InitAttributeDefaults()
 #if WITH_EDITOR
 		if (GIsEditor && !RegisteredReimportCallback)
 		{
-			GEditor->OnObjectReimported().AddUObject(this, &UAbilitySystemGlobals::OnTableReimported);
+			GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetReimport.AddUObject(this, &UAbilitySystemGlobals::OnTableReimported);
 			RegisteredReimportCallback = true;
 		}
 #endif

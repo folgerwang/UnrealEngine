@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -69,17 +69,16 @@ public:
 	void Add( const FKeyHandle& InHandle, int32 InIndex );
 	void Empty();
 	void Remove( const FKeyHandle& InHandle );
-	const int32* Find( const FKeyHandle& InHandle ) const;
+	const int32* Find(const FKeyHandle& InHandle) const { return KeyHandlesToIndices.Find(InHandle); }
 	const FKeyHandle* FindKey( int32 KeyIndex ) const;
-	int32 Num() const;
-	TMap<FKeyHandle, int32>::TConstIterator CreateConstIterator() const;
-	TMap<FKeyHandle, int32>::TIterator CreateIterator();
+	int32 Num() const { return KeyHandlesToIndices.Num(); }
+	TArray<FKeyHandle>::TConstIterator CreateConstIterator() const { return KeyHandles.CreateConstIterator(); }
 	const TMap<FKeyHandle, int32>& GetMap() const { return KeyHandlesToIndices; }
 
 	/** ICPPStructOps implementation */
 	bool Serialize(FArchive& Ar);
-	bool operator==(const FKeyHandleMap& Other) const;
-	bool operator!=(const FKeyHandleMap& Other) const;
+	bool operator==(const FKeyHandleMap& Other) const { return KeyHandles == Other.KeyHandles; }
+	bool operator!=(const FKeyHandleMap& Other) const { return !(*this==Other); }
 
 	friend FArchive& operator<<(FArchive& Ar,FKeyHandleMap& P)
 	{
@@ -96,6 +95,7 @@ public:
 private:
 
 	TMap<FKeyHandle, int32> KeyHandlesToIndices;
+	TArray<FKeyHandle> KeyHandles;
 };
 
 
@@ -125,7 +125,7 @@ public:
 	 * Get the index that corresponds to the specified key handle
 	 *
 	 * @param KeyHandle		The key handle to retrieve an up to date index for
-	 * @retrun The index that corresponds to this key handle, or INDEX_NONE if the key handle is invalid
+	 * @return The index that corresponds to this key handle, or INDEX_NONE if the key handle is invalid
 	 */
 	ENGINE_API int32 GetIndex(FKeyHandle KeyHandle);
 
@@ -133,7 +133,7 @@ public:
 	 * Attempt to find the handle for the specified index, or allocate a new one if it doesn't have one
 	 *
 	 * @param Index			The index to find or allocate a handle for
-	 * @retrun A valid key handle for the specified index
+	 * @return A valid key handle for the specified index
 	 */
 	ENGINE_API FKeyHandle FindOrAddKeyHandle(int32 Index);
 

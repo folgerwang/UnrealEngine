@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -10,23 +10,29 @@
 #include "Widgets/SCompoundWidget.h"
 
 #include "Camera/CameraActor.h"
+#include "EditorViewportClient.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "Materials/Material.h"
 #include "MediaCapture.h"
 #include "MediaOutput.h"
+#include "ShowFlags.h"
 #include "UObject/WeakObjectPtrTemplates.h"
 #include "UObject/StrongObjectPtr.h"
+
 
 class FLevelEditorViewportClient;
 class FSceneViewport;
 struct FSlateBrush;
+class ILevelViewport;
 class SViewport;
 class SMediaFrameworkCapture;
+
 
 namespace MediaFrameworkUtilities
 {
 	class FMediaFrameworkCaptureLevelEditorViewportClient;
 }
+
 
 /*
  * SMediaFrameworkCaptureOutputWidget definition
@@ -35,8 +41,9 @@ class SMediaFrameworkCaptureOutputWidget : public SCompoundWidget
 {
 public:
 	SLATE_BEGIN_ARGS(SMediaFrameworkCaptureOutputWidget) {}
-	SLATE_ARGUMENT(TWeakPtr<SMediaFrameworkCapture>, Owner)
-	SLATE_ARGUMENT(TWeakObjectPtr<UMediaOutput>, MediaOutput)
+		SLATE_ARGUMENT(TWeakPtr<SMediaFrameworkCapture>, Owner)
+		SLATE_ARGUMENT(TWeakObjectPtr<UMediaOutput>, MediaOutput)
+		SLATE_ARGUMENT(FMediaCaptureOptions, CaptureOptions)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
@@ -44,15 +51,20 @@ public:
 
 	virtual void StopOutput();
 
-	TSharedRef<SWidget> BuildBaseWidget(TSharedRef<SWidget> InnerWidget);
+	TSharedRef<SWidget> BuildBaseWidget(TSharedRef<SWidget> InnerWidget, const FString& CaptureType);
 
 	FSlateColor HandleIconColorAndOpacity() const;
 	const FSlateBrush* HandleIconImage() const;
-	EVisibility HandleThrobberVisibility() const;
+	FText HandleIconText() const;
 	virtual bool IsValid() const;
+
+	virtual void OnPrePIE() {};
+	virtual void OnPostPIEStarted() {};
+	virtual void OnPrePIEEnded() {};
 
 	TWeakPtr<SMediaFrameworkCapture> Owner;
 	TWeakObjectPtr<UMediaOutput> MediaOutput;
+	FMediaCaptureOptions CaptureOptions;
 
 	TStrongObjectPtr<UMediaCapture> MediaCapture;
 };
@@ -67,10 +79,11 @@ private:
 
 public:
 	SLATE_BEGIN_ARGS(SMediaFrameworkCaptureCameraViewportWidget) { }
-	SLATE_ARGUMENT(TWeakPtr<SMediaFrameworkCapture>, Owner)
-	SLATE_ARGUMENT(TWeakObjectPtr<UMediaOutput>, MediaOutput)
-	SLATE_ARGUMENT(TArray<TWeakObjectPtr<AActor>>, PreviewActors)
-	SLATE_ARGUMENT(EViewModeIndex, ViewMode)
+		SLATE_ARGUMENT(TWeakPtr<SMediaFrameworkCapture>, Owner)
+		SLATE_ARGUMENT(TWeakObjectPtr<UMediaOutput>, MediaOutput)
+		SLATE_ARGUMENT(FMediaCaptureOptions, CaptureOptions)
+		SLATE_ARGUMENT(TArray<TWeakObjectPtr<AActor>>, PreviewActors)
+		SLATE_ARGUMENT(EViewModeIndex, ViewMode)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
@@ -78,10 +91,10 @@ public:
 
 	void StartOutput();
 
-private:
-	void OnPostPIEStarted(bool bWasSimulatingInEditor);
-	void OnPrePIEEnded(bool bWasSimulatingInEditor);
+	virtual void OnPostPIEStarted() override;
+	virtual void OnPrePIEEnded() override;
 
+private:
 	void SetActorLock(int32 CameraIndex);
 	void UpdateActivePreviewList(bool bIsPIE);
 
@@ -105,13 +118,13 @@ private:
 
 public:
 	SLATE_BEGIN_ARGS(SMediaFrameworkCaptureRenderTargetWidget) {}
-	SLATE_ARGUMENT(TWeakPtr<SMediaFrameworkCapture>, Owner)
-	SLATE_ARGUMENT(TWeakObjectPtr<UMediaOutput>, MediaOutput)
-	SLATE_ARGUMENT(TWeakObjectPtr<UTextureRenderTarget2D>, RenderTarget)
+		SLATE_ARGUMENT(TWeakPtr<SMediaFrameworkCapture>, Owner)
+		SLATE_ARGUMENT(TWeakObjectPtr<UMediaOutput>, MediaOutput)
+		SLATE_ARGUMENT(FMediaCaptureOptions, CaptureOptions)
+		SLATE_ARGUMENT(TWeakObjectPtr<UTextureRenderTarget2D>, RenderTarget)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
-	virtual ~SMediaFrameworkCaptureRenderTargetWidget();
 
 	void StartOutput();
 
@@ -121,4 +134,54 @@ private:
 	TWeakObjectPtr<UTextureRenderTarget2D> RenderTarget;
 	TStrongObjectPtr<UMaterial> ImageMaterial;
 	TSharedPtr<FSlateBrush> ImageMaterialBrush;
+};
+
+/*
+ * SMediaFrameworkCaptureCurrentViewportWidget definition
+ */
+class SMediaFrameworkCaptureCurrentViewportWidget : public SMediaFrameworkCaptureOutputWidget
+{
+private:
+	using Super = SMediaFrameworkCaptureOutputWidget;
+
+public:
+	SLATE_BEGIN_ARGS(SMediaFrameworkCaptureCurrentViewportWidget) {}
+		SLATE_ARGUMENT(TWeakPtr<SMediaFrameworkCapture>, Owner)
+		SLATE_ARGUMENT(TWeakObjectPtr<UMediaOutput>, MediaOutput)
+		SLATE_ARGUMENT(FMediaCaptureOptions, CaptureOptions)
+		SLATE_ARGUMENT(EViewModeIndex, ViewMode)
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs);
+	virtual void StopOutput() override;
+
+	void StartOutput();
+
+	virtual void OnPrePIE() override;
+	virtual void OnPrePIEEnded() override;
+
+	struct FPreviousViewportClientFlags
+	{
+		FPreviousViewportClientFlags();
+		bool bRealTime;
+		bool bSetListenerPosition;
+		bool bDrawAxes;
+		bool bDisableInput;
+		bool bAllowCinematicControl;
+		FEngineShowFlags EngineShowFlags;
+		FEngineShowFlags LastEngineShowFlags;
+		FViewportStateGetter VisibilityDelegate;
+	};
+
+private:
+	void ShutdownViewport();
+	void OnLevelViewportClientListChanged();
+	void OnMediaCaptureStateChanged();
+
+private:
+	TWeakPtr<FSceneViewport> EditorSceneViewport;
+	TWeakPtr<ILevelViewport> LevelViewport;
+	FPreviousViewportClientFlags ViewportClientFlags;
+
+	EViewModeIndex ViewMode;
 };

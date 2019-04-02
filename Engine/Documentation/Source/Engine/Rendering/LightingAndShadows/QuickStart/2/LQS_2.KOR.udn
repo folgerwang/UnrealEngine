@@ -10,7 +10,7 @@ SkillLevel: Beginner
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 단계](Engine/Rendering/LightingAndShadows/QuickStart/1 "%Engine/Rendering/LightingAndShadows/QuickStart/1:title%")
+		[이전 단계](Engine/Rendering/LightingAndShadows/QuickStart/1 "%Engine/Rendering/LightingAndShadows/QuickStart/1:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -25,7 +25,7 @@ SkillLevel: Beginner
 
 
 
-예전 단계에서 기본 아파트 구성이 완료되었으니, 전체적인 레벨 라이팅을 추가하도록 하겠습니다.
+이전 단계에서 기본 아파트 구성이 완료되었으니, 전체적인 레벨 라이팅을 추가하도록 하겠습니다.
 
 1. 먼저 **와이어프레임** 모드를 (활성화되어 있다면) 비활성화시키고 **라이팅포함** 모드로 돌아옵니다 (**Alt+4**).
 

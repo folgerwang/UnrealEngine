@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -18,7 +18,7 @@ static void ConvertGeometryCollection(const FPhysicsGeometryCollection& GeomColl
 	OutQueryShape = ECAQueryShape::Capsule;
 	OutDims = FVector(0, 0, 0);
 	
-#if WITH_APEIRON || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || PHYSICS_INTERFACE_LLIMMEDIATE
     ensure(false);
 #else
 	switch (GeomCollection.GetType())

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -7,6 +7,38 @@
 #include "UObject/ObjectMacros.h"
 #include "Components/SceneComponent.h"
 #include "ExponentialHeightFogComponent.generated.h"
+
+/**
+*	Data for an individual fog line integral.
+*	This is the data which is not shared between fogs when multiple fogs are set up on a single UExponentialHeightFogComponent
+*/
+USTRUCT(BlueprintType)
+struct FExponentialHeightFogData
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** Global density factor for this fog. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, interp, Category=ExponentialHeightFogComponent, meta = (UIMin = "0", UIMax = ".05"))
+	float FogDensity = 0.02f;
+
+	/**
+	* Height density factor, controls how the density increases as height decreases.
+	* Smaller values make the visible transition larger.
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, interp, Category=ExponentialHeightFogComponent, meta = (UIMin = "0.001", UIMax = "2"))
+	float FogHeightFalloff = 0.2f;
+
+	/** Height offset, relative to the actor position Z. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, interp, Category=ExponentialHeightFogComponent)
+	float FogHeightOffset = 0.0f;
+
+	/** Clamp to valid ranges. This might be different from the UI clamp. */
+	void ClampToValidRanges()
+	{
+		FogDensity = FMath::Clamp(FogDensity, 0.0f, 10.0f);
+		FogHeightFalloff = FMath::Clamp(FogHeightFalloff, 0.0f, 2.0f);
+	}
+};
 
 /**
  *	Used to create fogging effects such as clouds but with a density that is related to the height of the fog.
@@ -19,6 +51,17 @@ class ENGINE_API UExponentialHeightFogComponent : public USceneComponent
 	/** Global density factor. */
 	UPROPERTY(BlueprintReadOnly, interp, Category=ExponentialHeightFogComponent, meta=(UIMin = "0", UIMax = ".05"))
 	float FogDensity;
+
+	/**
+	 * Height density factor, controls how the density increases as height decreases.
+	 * Smaller values make the visible transition larger.
+	 */
+	UPROPERTY(BlueprintReadOnly, interp, Category = ExponentialHeightFogComponent, meta = (UIMin = "0.001", UIMax = "2"))
+	float FogHeightFalloff;
+
+	/** Settings for the second fog. Setting the density of this to 0 means it doesn't have any influence. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=ExponentialHeightFogComponent)
+	FExponentialHeightFogData SecondFogData;
 
 	UPROPERTY(BlueprintReadOnly, interp, Category=ExponentialHeightFogComponent)
 	FLinearColor FogInscatteringColor;
@@ -66,13 +109,6 @@ class ENGINE_API UExponentialHeightFogComponent : public USceneComponent
 	 */
 	UPROPERTY(BlueprintReadOnly, interp, Category=DirectionalInscattering)
 	FLinearColor DirectionalInscatteringColor;
-
-	/** 
-	 * Height density factor, controls how the density increases as height decreases.  
-	 * Smaller values make the visible transition larger.
-	 */
-	UPROPERTY(BlueprintReadOnly, interp, Category=ExponentialHeightFogComponent, meta=(UIMin = "0.001", UIMax = "2"))
-	float FogHeightFalloff;
 
 	/** 
 	 * Maximum opacity of the fog.  
@@ -175,7 +211,7 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|ExponentialHeightFog")
 	void SetFogHeightFalloff(float Value);
-	
+
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|ExponentialHeightFog")
 	void SetFogMaxOpacity(float Value);
 	

@@ -337,7 +337,7 @@ Loading Screen 이 표시된 이후, 스크립트는 **HostGameEvent** 와 **Cre
 
 그리고 **Find Sessions** (2) 노드를 사용하여 존재하는 세션을 발견합니다 (**Results** 값으로 출력됩니다). 또 이 노드에서, **Max Results** (반환할 검색 결과 수)를 설정할 수 있습니다. **Find Sessions** 쿼리 결과가 **Found Sessions** (3) 라는 배열 변수에 할당 및 저장됩니다. 그런 다음 **Branch** (4) 를 통해 **Results** 를 검사하고, 0 이면 **True** (아니면, **False**) 핀을 실행합니다. 어떤 이유로든 **Find Sessions** 노드를 사용하는 데 실패했다면, **OnFailure** 이벤트를 호출하여 **Search failed** (5) 에 표시되는 **Status Text** 를 변경, 사용자에게 세션 검색이 완료되지 않았음을 알립니다.
 
-**Branch** (예전 그림에서 4) 에서, **True** 면 (즉 찾은 세션이 없으면) **Status Text** 를 **No sessions found** (아래 7) 로 설정하고 **Refresh Button Enabled** 변수를 **True** (8) 로 설정하여 플레이어가 **Refresh** 버튼을 눌러 세션 검색을 다시 시도할 수 있도록 합니다.
+**Branch** (이전 그림에서 4) 에서, **True** 면 (즉 찾은 세션이 없으면) **Status Text** 를 **No sessions found** (아래 7) 로 설정하고 **Refresh Button Enabled** 변수를 **True** (8) 로 설정하여 플레이어가 **Refresh** 버튼을 눌러 세션 검색을 다시 시도할 수 있도록 합니다.
 
 ![](Findgames6.png)
 

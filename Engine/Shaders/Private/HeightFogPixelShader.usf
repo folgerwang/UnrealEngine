@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	HeightFogPixelShader.usf: Scene fogging pixel shader.
@@ -9,6 +9,8 @@
 #include "SHCommon.ush"
 #include "HeightFogCommon.ush"
 
+float bOnlyOnRenderedOpaque;
+
 Texture2D OcclusionTexture;
 SamplerState OcclusionSampler;
 
@@ -18,8 +20,18 @@ void ExponentialPixelMain(
 	float4 SVPos : SV_POSITION,
 	out float4 OutColor : SV_Target0
 	)
-{ 
-	float SceneDepth = CalcSceneDepth(TexCoord);
+{
+	#if SCENE_TEXTURES_DISABLED
+		float SceneDepth = SCENE_TEXTURES_DISABLED_SCENE_DEPTH_VALUE;
+	#else
+		float DeviceZ = Texture2DSampleLevel(SceneTexturesStruct.SceneDepthTexture, SceneTexturesStruct.SceneDepthTextureSampler, TexCoord, 0).r;
+
+		// Fetch the depth buffer Z / W value, solve for W
+		float SceneDepth = ConvertFromDeviceZ(DeviceZ);
+	#endif
+
+	bool bIsRendered = (DeviceZ != 0.0);
+
 	float3 WorldPositionRelativeToCamera = ScreenVector.xyz * SceneDepth;
 
 	float ZSlice = log2(SceneDepth * View.VolumetricFogGridZParams.x + View.VolumetricFogGridZParams.y) * View.VolumetricFogGridZParams.z * View.VolumetricFogInvGridSize.z;
@@ -34,6 +46,12 @@ void ExponentialPixelMain(
 #if USE_PREEXPOSURE 
 	FogInscatteringAndOpacity.rgb *= View.PreExposure;
 #endif
+
+	if (bOnlyOnRenderedOpaque > 0.0 && !bIsRendered)
+	{
+		FogInscatteringAndOpacity.rgb = 0;
+		FogInscatteringAndOpacity.a = 1;
+	}
 
 	OutColor = RETURN_COLOR(float4(FogInscatteringAndOpacity.rgb, FogInscatteringAndOpacity.w));
 }

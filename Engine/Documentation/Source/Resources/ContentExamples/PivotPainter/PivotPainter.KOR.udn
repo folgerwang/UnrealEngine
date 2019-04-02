@@ -45,7 +45,7 @@ topic-image:pivotPainter_compact.png
 | **1.15. Improve the animation using distance to pivot falloff offsets** | 피벗 감쇠 오프셋까지의 거리를 사용하여 애니메이션 개선 - 예제 14 와 비슷하지만, Falloff Offsets 를 사용하여 움직임을 제어하여 좀 더 자연스러운 움직임이 적용됩니다. |
 | **1.16. Improve the animation using randomization** | 난수를 사용한 애니메이션 개선 - 예제 15 와 비슷하지만, 랜덤 Falloff Offsets 를 사용하여 좀 더 사실적인 움직임을 내고 있습니다. |
 | **1.17. Animate with a texture** | 텍스처 포함 애니메이션 - 텍스처를 사용한 바람에 따른 오브젝트 애니메이션입니다 (DirectX 10 이상 필수). |
-| **1.18. Use a texture and the previous animation offset techniques** | 텍스처 및 예전 애니메이션 오프셋 기법 사용 - 예제 10 에서 17 까지의 기법을 조합하여 바람에 반응하는 텍스처 애니메이션 오브젝트를 만듭니다. |
+| **1.18. Use a texture and the previous animation offset techniques** | 텍스처 및 이전 애니메이션 오프셋 기법 사용 - 예제 10 에서 17 까지의 기법을 조합하여 바람에 반응하는 텍스처 애니메이션 오브젝트를 만듭니다. |
 | **1.19. Combine multiple rotations** | 다수의 로테이션 결합 - 버텍스 셰이더 안에서 동시에 다수의 로테이션을 올바르게 처리하는 법을 보여줍니다. |
 | **1.20. Ambient Creatures** | 배경 생물 - 플레이어와의 거리에 따라 반응하는 배경 생물입니다 (예: 플레이어가 가까이 오면 놀랍니다). |
 | **1.21. Advanced Grass** | 고급 풀밭 - 바람에 따라 움직이면서 플레이어 접촉에도 반응하는, 게임에서 바로 사용할 수도 있는 텍스처 입힌 풀밭 예제입니다. |

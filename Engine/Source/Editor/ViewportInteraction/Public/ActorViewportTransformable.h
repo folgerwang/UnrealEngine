@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -25,6 +25,7 @@ public:
 	virtual void ApplyTransform( const FTransform& NewTransform, const bool bSweep ) override;
 	virtual FBox BuildBoundingBox( const FTransform& BoundingBoxToWorld ) const override;
 	virtual bool IsPhysicallySimulated() const override;
+	virtual bool ShouldBeCarried() const override;
 	virtual void SetLinearVelocity( const FVector& NewVelocity ) override;
 	virtual FVector GetLinearVelocity() const override;
 	virtual void UpdateIgnoredActorList( TArray<class AActor*>& IgnoredActors ) override;

@@ -14,8 +14,8 @@ State Machine, [스테이트 머신](Engine\Animation\StateMachines\Overview) �
 | **노드** | **목적** |
 | --- | --- |
 | **State** | 스테이트 - 포즈 또는 애니메이션 결과를 출력합니다. |
-| **Transition Rule** | 트랜지션 룰 - 애니메이션이 한 상태에서 다른 상태로 흐르도록 할 것인지를 관장합니다. 불리언 값을 사용하여 트랜지션 여부를 결정합니다. |
-| **Conduit** | 컨듀잇 - 역시 애니메이션의 흐름을 관장하되, 다양한 스테이트에 트랜지션 원인을 공유할 수 있습니다. 불리언 값을 사용하여 트랜지션 여부를 결정합니다. |
+| **Transition Rule** | 트랜지션 룰 - 애니메이션이 한 상태에서 다른 상태로 흐르도록 할 것인지를 관장합니다. 부울 값을 사용하여 트랜지션 여부를 결정합니다. |
+| **Conduit** | 컨듀잇 - 역시 애니메이션의 흐름을 관장하되, 다양한 스테이트에 트랜지션 원인을 공유할 수 있습니다. 부울 값을 사용하여 트랜지션 여부를 결정합니다. |
 
 이 점을 염두에 두면 스테이트 머신의 각 부분 속에 어떤 유형의 노드를 놓을 것인지 결정하기가 훨씬 쉬워집니다.
 
@@ -38,7 +38,7 @@ State Machine, [스테이트 머신](Engine\Animation\StateMachines\Overview) �
 ![](PlayBlendAnimation.png)
 
 [REGION:caption]
-위에서는 Is In Air 불리언 값에 따라 다른 애님 시퀀스를 선택하고 있습니다.
+위에서는 Is In Air 부울 값에 따라 다른 애님 시퀀스를 선택하고 있습니다.
 [/REGION]
 
 
@@ -48,7 +48,7 @@ State Machine, [스테이트 머신](Engine\Animation\StateMachines\Overview) �
 
 ![](DragDropAnimSeqState.png)(w:800)
 
-우클릭한 뒤 맥락 메뉴에서 애니메이션을 선택하면 됩니다:
+우클릭한 뒤 컨텍스트 메뉴에서 애니메이션을 선택하면 됩니다:
 
 ![](ContextMenuAnimSeqState.png)
 

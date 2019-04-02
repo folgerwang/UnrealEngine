@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,7 +7,7 @@
 #include "Widgets/SWidget.h"
 #include "IPropertyTypeCustomization.h"
 #include "PropertyHandle.h"
-#include "MathStructCustomizations.h"
+#include "Customizations/MathStructCustomizations.h"
 
 class FDetailWidgetRow;
 class IPropertyUtilities;

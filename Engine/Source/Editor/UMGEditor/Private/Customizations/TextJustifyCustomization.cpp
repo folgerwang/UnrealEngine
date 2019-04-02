@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Customizations/TextJustifyCustomization.h"
 #include "Widgets/Images/SImage.h"
@@ -13,7 +13,9 @@ void FTextJustifyCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> Prop
 	const FMargin OuterPadding(2);
 	const FMargin ContentPadding(2);
 
+	
 	HeaderRow
+	.IsEnabled(TAttribute<bool>(PropertyHandle, &IPropertyHandle::IsEditable))
 	.NameContent()
 	[
 		PropertyHandle->CreatePropertyNameWidget()

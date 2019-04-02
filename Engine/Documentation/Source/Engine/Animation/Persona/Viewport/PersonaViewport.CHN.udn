@@ -1,295 +1,313 @@
-﻿INTSourceChangelist:2714483
+﻿INTSourceChangelist:3810557
 Availability:Public
-Title: Persona 窗口
+Title:动画视口
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Persona
-Description: 关于角色动画编辑器中的视口预览的用户指南。
-version: 4.9
+Description:对每个动画工具中所显示之视口的概述。 
+Parent:Engine/Animation/Persona
+Related: Engine\Animation\Persona\Modes\Skeleton
+Related: Engine\Animation\Persona\Modes\Mesh
+Related: Engine\Animation\Persona\Modes\Animation
+Related: Engine\Animation\Persona\Modes\Graph
+version: 4.18
+Order:
+type:reference
+topic-image:viewportsmall.png
+tags:animation
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Animation/Persona/Viewport:title%](Engine/Animation/animation_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/content_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Animation/Persona/Viewport:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Animation/Persona/Viewport:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Animation/Persona/Viewport]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+
+[COMMENT:none]
 
 [TOC (start:2 end:3)]
 
-
+[/COMMENT]
 [EXCERPT:Overview]
-**视口** 面板允许在特定的骨架网格物体上预览动画序列、混合空间及动画蓝图的其他方面内容。该面板由一个3D透视口和一个工具条组成，工具条内包含了用于控制该预览的动画播放的按钮。
+每个动画工具都包含一个 **视口（Viewport）** 窗口，它允许您预览动画资源的播放。 
 [/EXCERPT:Overview]
+![](viewport01.png)
 
-![Viewport Panel with Callouts](ViewportPanel.png)(w:720)
+该视口（Viewport）包括一个 **视图选项（View Options）** 工具栏(1)，一个 **移动（Movement）** 工具栏(2)，和一个当前所选骨架网格体（Skeletal Mesh）资源(3)的三维透视图视口。 
 
-1. 移动工具栏
-1. 显示选项工具栏
-1. 视口
-1. 时间进度条及控制工具栏
 
-## 移动工具栏
-[EXCERPT:movement]
-**移动工具栏** 包含了一组工具，用于对骨骼的移动、旋转或缩放，并通过步进或网格吸附的设置来定义如何移动旋转缩放。工具栏内还提供了一个用于选择使用世界坐标系还是相对坐标系的选项，并还有一个用于设置摄像机在这个窗口中移动速度的选项。
+(#Viewoptionstoolbar)
 
-| 选项 | 描述 |
-| ------ | ----------- |
-| ![](Persona_Translate.png)| 移动骨架中的骨骼。 |
-| ![](Persona_Rotate.png)| 旋转骨架中的骨骼。 |
-| ![](Persona_Scale.png) | 最后一个选项是缩放骨架中的骨骼。（仅在可用时，默认灰度禁用）。 |
-| ![](button_Persona_Local.png) ![](Persona_World.png)| 设置移动或旋转时使用的相对坐标系（**世界坐标** 或 **局部坐标**）。 |
-| ![](Persona_GridSnap.png) | 启用或禁用移动位置时的吸附功能，以及设置吸附步进的数值。 |
-| ![](Persona_RotationSnap.png)| 启用或禁用旋转角度时的吸附功能，以及设置吸附步进的数值。 |
-| ![](Persona_ScaleSnapping.png) | 启用或禁用缩放时的吸附功能，以及设置吸附步进的数值。 |
-| ![](Persona_CameraMoveSpeed.png) | 调整摄像机在本窗口内的移动速度。 |
-
-[/EXCERPT:movement]
-
-## 显示选项工具栏
+## 视图选项工具栏
 
 [EXCERPT:viewoptions]
-**显示选项工具栏** 包含了一系列按钮，涵盖了各种用于控制如何窗口如何显示内容的选项。
+ **视图选项工具栏（View Options Toolbar）** 包含一系列按钮，这些按钮对应于有关视口中所显示之内容（以及显示方式）的选项。
 
-### 预览模式
+(#scenesetup)
 
-**预览** 模式按钮 ![](Persona_PreviewMode1.png) 提供以下选项：
+### 场景设置
 
-| 选项 | 描述 |
+ **场景设置（Scene Setup）** 按钮提供以下选项： 
+
+![](SceneSetup.png)
+
+| 选项 | 说明 |
 | ------ | ----------- |
-| **Auto** | 预览当前处于激活状态的内容。 |
-| **Lock** | 锁定当前窗口的预览。该选项能够提供预览一个内容的同时编辑或检查其他内容。 |
-| **Camera Follow** | 跟随模型的范围。 |
-| **In-game Bound** | 使用预览模型的游戏内的边界设置。 |
+| [REGION:tablesection] 场景设置（Scene Setup） [/REGION] ||
+| **预览场景设置（Preview Scene Settings）** | 允许您更改视口的照明和后期处理设置。|
+| **地面高度偏移（Floor Height Offset）** | 地面网格体的高度偏移。此高度偏移按网格体存储。|
+| **自动将地面与网格体对齐（Auto Align Floor to Mesh）** | 此选项自动地将地板网格体与网格体边界对齐。|
+| [REGION:tablesection] 摄像机（Camera） [/REGION] ||
+| **摄像机跟随（Camera Follow）** | 跟随网格体的边界。|
+| **聚焦所选项（Focus Selected）** | 将摄像机移至选定项的前面。|
+| **视野（Field of View）** | 调整视口的视野。|
+| [REGION:tablesection] 默认摄像机（Default Camera） [/REGION] ||
+| **跳转到默认摄像机（Jump to Default Camera）** | 如果设置了默认摄像机，则将跳转到其当前位置。|
+| **将摄像机保存为默认设置（Save Camera as Default）** | 将当前摄像机保存为该网格体的默认摄像机。|
+| **清除默认摄像机（Clear Default Camera）** | 清除保存为该网格体默认摄像机的摄像机。|
 
-### 透视
+(#perspective)
 
-**透视** 按钮 ![](Persona_Perspective.png) 提供以下选项：
+### 透视图
 
-| 选项 | 描述 |
+ **透视图（Perspective）** 按钮提供以下选项： 
+
+![](perspectivemode.png)
+
+| 选项 | 说明 |
 | ------ | ----------- |
-| **Perspective** | 将视口切换到透视视图（这也是默认设置）。 |
-| **Top** | 将视口切换到顶视图。 |
-| **Side** | 将视口切换到侧视图。 |
-| **Front** | 将视口切换到前视图。 |
+| **透视图（Perspective）** | 将视口切换为透视图视图（这是默认设置）。|
+| **顶部（Top）** | 将视口切换为顶部正视图。|
+| **底部（Bottom）** | 将视口切换为底部正视图。|
+| **左侧（Left）** | 将视口切换为左侧正视图。|
+| **右侧（Right）** | 将视口切换为右侧正视图。|
+| **正面（Front）** | 将视口切换为正面正视图。|
+| **背面（Back）** | 将视口切换为背面正视图。|
 
+
+(#viewmode)
 
 ### 视图模式
 
-**视图** 模式按钮 ![](Persona_LitOptions.png) 提供以下选项：
+ **视图（View）** 模式按钮提供以下选项：
 
-| 选项 | 描述 |
+![](viewmodebutton.png) 
+
+| 选项 | 说明 |
 | ------ | ----------- |
-| **Lit** | 以正常光照渲染画面（默认模式）。 |
-| **Unlit** | 以无光模式渲染画面 |
-| **Wireframe** | 以线框模式渲染画面。 |
-| **Detail Lighting** | 仅用默认光照渲染画面。 |
-| **Lighting Only** | 仅用光照，无贴图信息的渲染画面。 |
-| **Light Complexity** | 用光照复杂度的可视化效果渲染画面。 |
-| **Shader Complexity** | 以着色器复杂度的可视化效果来渲染画面。 |
-| **Stationary Light Overlap** | 对固定光照的光源可视化重叠度。 |
-| **Lightmap Density** | 用光照贴图密度的可视化效果渲染画面。 |
-| **Reflections** | 仅用反射来渲染画面。 |
-| **Exposure** | 应用自动曝光或者手动设置固定曝光参数。 |
+| **光照（Lit）** | 用正常的灯光渲染场景（此为默认设置）。|
+| **无光照（Unlit）** | 不用灯光渲染场景。|
+| **线框（Wireframe）** | 在笔刷线框中渲染场景。|
+| **细节光照（Detail Lighting）** | 仅用细节光照渲染场景。|
+| **仅光照（Lighting Only）** | 仅用光照渲染场景，不用纹理。|
+| **反射（Reflections）** | 仅用反射渲染场景。|
+| **优化视图模式（Optimization View Modes）** | 允许您从不同的优化可视化工具中作出选择。|
+| **曝光（Exposure）** | 使用自动曝光或设置固定曝光值。|
 
+(#show)
 
 ### 显示
 
-**显示** 按钮 ![](Persona_Show.png) 提供以下选项：
+**显示（Show）** 按钮提供以下选项： 
 
-| 选项 | 描述 |
+![](showmenu.png)
+
+| 选项 | 说明 |
 | ------ | ----------- |
-| **Field of View** | 调整视口的 FOV 值。 |
-| **Mute Audio** | 对预览窗口静音。 |
-| **Reference Pose** | 用预览模型显示参考姿势。 |
-| **Bound** | 显示预览模型的边界框。 |
-| **Mesh** | 显示预览模型 |
-| **Uncompressed Animation** | 用未压缩动画数据展示模型。 |
-| **NonRetargeted Animation** | 用未重定向的动画数据展示模型。 |
-| **Additive Base** | 在一个附加姿势上显示骨架。 |
-| **Sockets** | 显示插糟位置。 |
-| **Bones** | 在视窗中显示骨架。 |
-| **Bone Names** | 在视窗的骨架上显示每个骨骼的名称。 |
-| **View Selected Bone Weight** | 在视窗中显示选中骨骼的权重。 |
-| **Display Info** | 在视窗中显示当前模型的信息。 |
+| [REGION:tablesection] 一般显示标记（General Show Flags） [/REGION] ||
+| **网格（Grid）** | 切换网格体是否应该显示在视口中。|
+| [REGION:tablesection] 物理渲染（Physics Rendering） [/REGION] ||
+| **质量属性（Mass Properties）** | 显示启用 **模拟（Simulate）** 时物理实体的质量属性。|
+| **网格体（Mesh）** | 设置在编辑和模拟时应如何绘制网格体。|
+| **实体（Bodies）** | 显示物理实体相关选项。[INCLUDE:#bodies] |
+| **约束（Constraints）** | 显示约束相关选项。[INCLUDE:#constraints] |
+| [REGION:tablesection] 场景元素（Scene Elements） [/REGION] ||
+| **网格体（Mesh）** | 显示网格体相关选项。[INCLUDE:#mesh] |
+| **动画（Animation）** | 显示动画相关选项。[INCLUDE:#animation] |
+| **骨骼（Bones）** | 显示骨骼相关选项。[INCLUDE:#bones] |
+| **布料（Clothing）** | 显示布料相关选项。[INCLUDE:#clothing] |
+| **高级（Advanced）** | 显示高级相关选项。[INCLUDE:#advanced]  |
+| [REGION:tablesection] 其他标记（Other Flags） [/REGION] ||
+| **静音（Mute Audio）** | 使预览静音。|
+| **使用音频衰减（Use Audio Attenuation）** | 在预览中播放音频时使用音频衰减。|
 
-**场景设置**
+(#physics)
 
-| 选项 | 描述 |
+### 物理
+
+ **物理（Physics）** 按钮提供以下选项： 
+
+![](PhysicsMenu.png)
+
+| 选项 | 说明 |
 | ------ | ----------- |
-| **Floor** | 地面是否显示开关。 |
-| **Sky** | 天空是否显示开关。 |
-| **Floor Height Offset** | 地面的高度偏移（基于每个模型保存）。 |
-| **Grid** | 网格是否显示开关。 |
-| **Highlight Origin** | 在网格显示中高亮原始线条。 |
-| **Background Brightness** | 修改背景颜色，并设置亮度值。 |
+| [REGION:tablesection] 动画（Anim） [/REGION] ||
+| **物理弯曲（Physics Bend）** | 让您手动控制物理和动画。|
+| **从动画中更新关节（Update Joint from Animations）** | 启用此选项后，任何关节都会在模拟时从动画中更新。|
+| **物理更新模式（Physics Update Mode）** | 确定根主体的模拟是否也更新组件变形。|
+| **拨动暂停时间（Poke Pause Time）** | 拨动布娃娃与开始混合回来之间的间隔时间。|
+| **拨动混合时间（Poke Blend Time）** | 从物理混合到动画所需的时间。|
+| [REGION:tablesection] 模拟（Simulation） [/REGION] ||
+| **重力比例（Grav Scale）** | 模拟时使用的重力比例系数。|
+| **最大FPS（Max FPS）** | 物理资源编辑器（Physics Asset Editor）中用于模拟的每秒最大帧数(FPS)。这有助于定位与您的游戏相同的FPS。值为-1将禁用设置的最大FPS（Max FPS）。|
+| [REGION:tablesection] 鼠标弹簧（Mouse Spring） [/REGION] ||
+| **手柄线性阻尼（Handle Linear Damping）** | 鼠标弹力的线性阻尼。|
+| **手柄线性刚度（Handle Linear Stiffness）** | 鼠标弹力的线性刚度。|
+| **手柄角度阻尼（Handle Angular Damping）** | 鼠标弹力的角度阻尼。|
+| **手柄角度刚度（Handle Angular Stiffness）** | 鼠标弹力的角度刚度。|
+| **插值速度（Interpolation Speed）** | 对鼠标弹力的物理目标变形进行插值的速度有多快。|
+| [REGION:tablesection] 拨动（Poking）[/REGION] ||
+| **拨动强度（Poke Strength）** | 用鼠标左键拨动时使用的脉冲强度。|
 
-**高级**
 
-| 选项 | 描述 |
+(#previewlods)
+
+### 预览LOD
+
+ **预览LOD（Preview LODs）** 按钮提供以下选项： 
+
+![](lodmenu.png)
+
+| 选项 | 说明 |
 | ------ | ----------- |
-| **UV Visualization** | 对模型上的特定通道的 UV 显示开关。 |
-| **Normals** | 在预览面板中模型的法线向量显示的开关。 |
-| **Tangents** | 在预览面板中模型的切线向量显示的开关。 |
-| **Binormals** | 在预览面板中模型的双向量（正交的法线和切线）显示开关。 |
-| **Hierarchy Local Axes** | 显示或隐藏骨骼的本地坐标轴（全部，当前选中骨骼及依赖骨骼，或者 无）。 |
+| **LOD自动（LOD Auto）** | 自动选择细节级别(LOD)（此为默认设置）。|
+| **LOD 0** | 选择LOD 0作为LOD。|
 
+(#playbackspeed)
 
-[COMMENT:none]
+### 播放速度
 
-[EXCERPT:ShowBones]
-[REGION:imagetable]
-| ![](viewport_wire.png)(h:256 convert:false) | ![](viewport_wire_show_bones.png)(h:256) |
-| ------ | ------ |
-| Wireframe Without Bones Displayed | Wireframe With Bones Displayed |
-[/REGION]
-[/EXCERPT:ShowBones]
+ **播放速度（Playback Speed）** 按钮提供以下选项： 
 
-[EXCERPT:Lit]
-![](viewport_lit.png)(h:256)
-[/EXCERPT:Lit]
+![](playbackspeed.png)
 
-[EXCERPT:Unlit]
-![](viewport_unlit.png)(h:256)
-[/EXCERPT:Unlit]
-
-[EXCERPT:Wireframe]
-![](viewport_wire.png)(h:256)
-[/EXCERPT:Wireframe]
-
-[/COMMENT]
-
-### 预览 LOD
-
-**预览 LOD** 按钮 ![](Persona_LODAuto.png) 提供以下选项：
-
-| 选项 | 描述 |
+| 选项 | 说明 |
 | ------ | ----------- |
-| **LOD Auto** | 自动选择细节等级（Level Of Detail，LOD）（此设置为默认设置）。 |
-| **LOD 0** | 选用 LOD 0 为 LOD。 |
-[COMMENT:none]
-| **Level of Detail Settings** | Opens a dialog box in where you can adjust LOD Settings (pictured below). |
-
-![](LODSettingsMenu.png)
-
-The LOD Settings menu contains two sections, the first section **Current LODs** displays information about the currently applied LODs or allows for importing of FBX assets for the LOD. 
-
-The second section **Generate LOD Chain** allows you to generate an LOD (or chain generate multiple LODs) by adjusting settings pertaining to the LOD. 
-
-When an LOD is applied, either through the **Import LOD** option or through the **Generate LOD** option, they will be added to the **Current LODs** section as pictured below. 
-
-![](LODAdded.png)
-
-_The added LOD(s) can either be removed or an FBX asset can be imported for the LOD._
-
-[/COMMENT]
-
-### 回放速度
-
-**回放速度** 按钮 ![](Persona_PlaybackSpeed.png) 提供以下选项：
-
-| 选项 | 描述 |
-| ------ | ----------- |
-| **x0.1** | 将回放速度设置为 0.1。|
-| **x0.25** | 将回放速度设置为 0.25。 |
-| **x0.5** | 将回放速度设置为 0.5。 |
-| **x1.0** | 将回放速度设置为 1.0 （此设置为默认设置）。|
-| **x2.0** | 将回放速度设置为 2.0。 |
-| **x5.0** | 将回放速度设置为 5.0。 |
-| **x10.0** | 将回放速度设置为 10.0。 |
+| **x0.1** | 将播放速度设置为0.1。|
+| **x0.25** | 将播放速度设置为0.25。|
+| **x0.5** | 将播放速度设置为0.5。|
+| **x1.0** | 将播放速度设置为1.0（此为默认设置）。|
+| **x2.0** | 将播放速度设置为2.0。|
+| **x5.0** | 将播放速度设置为5.0。|
+| **x10.0** | 将播放速度设置为10.0。|
 [/EXCERPT:viewoptions]
 
-### 旋转速度表格
+[COMMENT:none]
+[INCLUDE:#advanced]
 
-**旋转速度** 按钮 ![](Persona_TurnTableSpeed.png) 提供以下选项：
-
-| 选项 | 描述 |
+[EXCERPT:Animation]
 | ------ | ----------- |
-| **Play** | 以当前选中速度播放旋转表单（转动骨架网格体） |
-| **Pause** | 以当前方向暂停旋转表单 |
-| **Stop** | 停止旋转表单，并重置角度至初始方向 |
-| **x0.1** | 将旋转表单的速度设置为 0.1。 |
-| **x0.25** | 将旋转表单的速度设置为 0.25。 |
-| **x0.5** | 将旋转表单的速度设置为 0.5。 |
-| **x1.0** | 将旋转表单的速度设置为 1.0 （这是默认设置）。 |
-| **x2.0** | 将旋转表单的速度设置为 2.0。 |
-| **x5.0** | 将旋转表单的速度设置为 5.0。 |
-| **x10.0** | 将旋转表单的速度设置为 10.0。 |
+| **根运动（Root Motion）** | 根据动画的根运动移动预览。|
+| **未压缩动画（Uncompressed Animation）** | 用未压缩的动画数据显示骨架。|
+| **非重定向动画（NonRetargeted Animation）** | 用非重定向动画数据显示骨架。|
+| **附加基础（Additive Base）** | 以附加基础姿势显示骨架。|
+| **源动画（Source Animation）** | 用未压缩动画数据显示骨架。|
+| **已烘焙动画（Baked Animation）** | 用非重定向动画数据显示骨架。|
+[/EXCERPT:Animation]
+
+[EXCERPT:Bones]
+| ------ | ----------- |
+| **套接字（Sockets）** | 显示套接字生命值。|
+| **骨骼名称（Bone Names）** | 在视口中显示骨架的骨骼名称。|
+| **骨骼绘图（Bone Drawing）** | 用于显示预览网格体上的骨骼加权（Bone Weighting）或变换目标顶点（Morph Target Vertice）。|
+[/EXCERPT:Bones]
+
+[EXCERPT:Clothing]
+| ------ | ----------- |
+| **禁用布料模拟（Disable Cloth Simulation）** | 禁用布料模拟并显示未模拟的网格体。|
+| **应用风吹（Apply Wind）** | 将风吹应用到衣服模拟。|
+| **风吹强度（Wind Strength）** | 启用 **应用风吹（Apply Wind）** 后，设置风吹的强度。|
+| **重力比例（Gravity Scale）** | 设置应用到衣服以进行模拟的重力比例。|
+| **与布料子项碰撞（Collide with Cloth Children）** | 启用在基本网格体中碰撞基元与预览场景中任何附件上布料之间的碰撞检测。|
+| **暂停动画（Pause with Animation）** | 启用后，使用面板暂停动画时，衣服模拟将暂停。|
+| **部分显示模式（Sections Display Mode）** | 设置衣服在视口中应采用的显示方式。|
+| **可视化（Visualizations）** | 启用不同衣服属性的可视化。|
+[/EXCERPT:Clothing]
+
+[EXCERPT:Advanced]
+| ------ | ----------- |
+| **UV** | 切换指定信道的网格体的UV显示。|
+| **皮肤（Skinning）** | 切换CPU皮肤在视口中的显示。|
+| **顶点法线可视化（Vertex Normal Visualization）** | 允许在视口中显示顶点法线、切线和副法线。|
+| **层级局部轴（Hierarchy Local Axes）** | 为骨骼设置层级局部轴应采用的显示方式；全部显示，仅显示选中部分，或不显示。|
+[/EXCERPT:Advanced]
+
+[EXCERPT:bodies]
+| ------ | ----------- |
+| **仅选定固体（Only Selected Solid）** | 只有选中的碰撞体才会显示为“固体”。|
+| **碰撞不透明度（Collision Opacity）** | 允许调整碰撞体的透明度。|
+| **实体绘图（Body Drawing）** | 设置在视口中编辑或在模拟时应如何绘制碰撞体。|
+[/EXCERPT:bodies]
+
+[EXCERPT:constraints]
+| ------ | ----------- |
+| **将约束绘制为点（Draw Constraints As Points）** | 启用后，约束将作为视口中的点来绘制。|
+| **约束比例（Constraint Scale）** | 缩放视口中的约束。|
+| **约束绘制（Constraint Drawing）** | 设置应如何在视口中绘制约束；无、限制或位置。|
+[/EXCERPT:constraints]
+
+[EXCERPT:mesh]
+| ------ | ----------- |
+| **重定向基本姿势（Retarget Base Pose）** | 在预览网格体上显示重定向基本姿势。|
+| **边界（Bound）** | 显示预览网格体上的边界体积。|
+| **游戏内边界（In-Game Bound）** | 是否在预览网格体上使用游戏中的边界。|
+| **网格体（Mesh）** | 显示预览网格体。|
+| **变换目标（MorphTargets）** | 是否在预览网格体上显示任何应用的变换目标。|
+| **顶点颜色（Vertex Colors）** | 是否在预览网格体上显示任何绘制的顶点颜色。|
+| **网格体信息（Mesh Info）** | 应如何在视口中显示网格体信息。|
+| **网格体覆层绘制（Mesh Overlay Drawing）** | 应如何在视口中显示网格体。|
+[/EXCERPT:mesh]
+[/COMMENT]
+
+(#movementtoolbar)
+
+## 移动工具栏
+
+[EXCERPT:movement]
+ **移动工具栏（Movement Toolbar）** 包含一组用于移动、旋转或缩放骨骼的工具，以及如何使用网格捕捉（Grid Snapping）移动、旋转或缩放骨骼。该工具栏还提供了一个用于设置移动或旋转的相对坐标系的选项，以及一个用于设置相机在视口中移动时的移动速度的选项。 
+
+| 选项 | 说明 |
+| ------ | ----------- |
+| ![](Persona_Translate.png)| 平移骨架骨骼。|
+| ![](Persona_Rotate.png)| 旋转骨架骨骼。|
+| ![](Persona_Scale.png) | 最后一个选项缩放骨架骨骼（如果适用）。|
+| ![](Persona_World.png) ![](button_Persona_Local.png)| 设置用于移动和旋转网格体的相对坐标系（**世界场景（World）** 或 **局部（Local）**）。|
+| ![](Persona_GridSnap.png) | 启用或禁用在四处拖动对象时捕捉网格和位置网格捕捉（Position Grid Snap）值。|
+| ![](Persona_GridSnap.png) | 启用或禁用在四处旋转对象时捕捉网格和旋转网格捕捉（Rotation Grid Snap）值。|
+| ![](Persona_ScaleSnapping.png) | 启用或禁用在缩放对象时捕捉网格和缩放网格捕捉（Scale Grid Snap）值。|
+| ![](Persona_CameraMoveSpeed.png) | 调整摄像机在视口中移动时的速度。|
+[/EXCERPT:movement]
+
+
+
+(#viewport)
 
 ## 视口
 
-**视口** 显示了骨架网格体的预览，以及当前工具栏和菜单的设置项，并播放任何当前选中的动画。
+ **视口（Viewport）** 显示骨架网格体的预览和视口选项（Viewport Options）工具栏中设置的任何选项。 
 
 ![Viewport Panel](ViewportPanel_Viewport.png)
+
+[COMMENT:none]
+ 不再包含在视口中，如果它包含在另一个页面中，则暂时离开。 
+(#timelineandcontrolbar)
 
 ## 时间轴和控制栏
 
 [EXCERPT:PreviewControls]
-**时间轴** 和 **控制栏** 包含以下功能：
+ **时间轴（Timeline）** 和 **控制栏（Control bar）** 包含以下功能按钮：
 
-| 控件 | 描述|
+| 功能按钮 | 说明 |
 | ------- | ----------- |
-| ![Control bar - Timeline（控件条-时间轴）](CE_button_timeline.png) | 时间轴显示了 _动画序列_ 或 _混合空间_ 的帧，并允许滑过帧来进行预览。在当前位置显示了一个红条。**左击该红条并进行拖拽** 就可以浏览帧。|
-| ![Control bar - Skip to Beginning（控制条 - 跳转到开头）](CE_button_beginning.png) | 跳转到 _动画序列_ 或 _混合空间_ 的第一帧。|
-| ![Control bar - Step Backward（控制条 - 逐帧倒放）](CE_button_step_back.png) |跳转到  _动画序列_ 或 _混合空间_ 中的前一帧。|
-| ![Control bar - Play in Reverse(控制条- 反向播放)](CE_button_play_back.png) ![Control bar - Pause](CE_button_pause.png) | 开始反向播放 _动画序列_ 或 _混合空间_ 。当播放动画时，会显示暂停按钮。|
-| ![Control bar - Play Forward（控制条- 正向播放）](CE_button_play_forward.png) ![Control bar - Pause](CE_button_pause.png) | 开始正向播放 _动画序列_ 或 _混合空间_ 。当播放动画时，会显示暂停按钮。|
-| ![Control bar - Step Forward（控制条 - 逐帧向前播放）](CE_button_step_forward.png) | 跳转到 _动画序列_ 或 _混合空间_ 的下一帧。|
-| ![Control bar - Skip to End（控制条 -跳转到结尾处）](CE_button_end.png) | 跳转到 _动画序列_ 或 _混合空间_ 的最后一帧。|
-| ![Control bar - Enable Looping(控制条 - 启用循环)](CE_button_loop.png) ![Control bar - Disable Looping](CE_button_loop_enabled.png) | 在播放一次和循环播放之间进行切换。当启用循环播放时，该按钮变为红色。|
+| ![Control bar - Timeline](CE_button_timeline.png) | 时间轴。它显示并允许整理做完的动画序列（AnimationSequence）或动画蒙太奇（AnimationMontage）的帧。当前位置处显示了一个红色条。**拖动（Drag）** 该红色条即可进行整理。|
+| ![Control bar - Skip to Beginning](CE_button_beginning.png) | 跳转到动画序列（AnimationSequence）或动画蒙太奇（AnimationMontage）的第一帧。|
+| ![Control bar - Step Backward](CE_button_step_back.png) | 跳转到动画序列（AnimationSequence）或动画蒙太奇（AnimationMontage）的前一帧。|
+| ![Control bar - Play in Reverse](CE_button_play_back.png) ![Control bar - Pause](CE_button_pause.png) | 开始以相反顺序播放动画序列（AnimationSequence）或动画蒙太奇（AnimationMontage）。播放时，显示暂停键。|
+| ![Control bar - Play Forward](CE_button_play_forward.png) ![Control bar - Pause](CE_button_pause.png) | 开始播放动画序列（AnimationSequence）或动画蒙太奇（AnimationMontage）。播放时，显示暂停键。|
+| ![Control bar - Step Forward](CE_button_step_forward.png) | 跳转到动画序列（AnimationSequence）或动画蒙太奇（AnimationMontage）的下一帧。|
+| ![Control bar - Skip to End](CE_button_end.png) | 跳转到动画序列（AnimationSequence）或动画蒙太奇（AnimationMontage）的最后一帧。|
+| ![Control bar - Enable Looping](CE_button_loop.png) ![Control bar - Disable Looping](CE_button_loop_enabled.png) | 在播放一次和循环播放之间切换。启用循环播放时，按钮变为红色。|
 
 [REGION:note]
-如果打开一个混合空间资源或者动画偏移资源，如果预览开启的话，该动画会自动播放。如果在 AnimationSequence 或是 AnimationMontage 中暂停或禁用循环播放选项并此时打开混合空间或动画偏移的话，动画将不会自动播放。如果需要自动播放的话则需启用 播放/循环 的选项。
+当打开混合空间（Blend Space）或目标偏移（Aim Offset）时，如果启用 **预览（Preview）**，动画将自动播放。如果在动画序列（AnimationSequence）或动画蒙太奇（AnimationMontage）中暂停或禁用循环选项，然后打开混合空间（Blend Space）或目标偏移（Aim Offset），动画将不会自动播放。您需要设置一个要播放/循环播放的动画，才能在打开混合空间（Blend Space）或目标偏移（Aim Offset）时自动开始播放。 
 [/REGION]
 
 [/EXCERPT:PreviewControls]
 
-[COMMENT:none]
-
-## 显示标志
-
-该视口包含一个具有各种选项的菜单，用于指定视口的行为。
-
-| 选项 | 描述|
-| ------ | ----------- |
-| [REGION:tablesection]预览模式[/REGION] ||
-|  |  |
-
-## 控件
-
-[EXCERPT:PreviewControls]
-这个控制条包含了以下控件：
-
-| 控件 | 描述|
-| ------- | ----------- |
-| ![Control bar - Timeline（控件条-时间轴）](CE_button_timeline.png) | 时间轴显示了 _动画序列_ 或 _混合空间_ 的帧，并允许滑过帧来进行预览。在当前位置显示了一个红条。**左击该红条并进行拖拽** 就可以浏览帧。|
-| ![Control bar - Skip to Beginning（控制条 - 跳转到开头）](CE_button_beginning.png) | 跳转到 _动画序列_ 或 _混合空间_ 的第一帧。|
-| ![Control bar - Step Backward（控制条 - 逐帧倒放）](CE_button_step_back.png) |跳转到  _动画序列_ 或 _混合空间_ 中的前一帧。|
-| ![Control bar - Play in Reverse(控制条- 反向播放)](CE_button_play_back.png) ![Control bar - Pause](CE_button_pause.png) | 开始反向播放 _动画序列_ 或 _混合空间_ 。当播放动画时，会显示暂停按钮。|
-| ![Control bar - Play Forward（控制条- 正向播放）](CE_button_play_forward.png) ![Control bar - Pause](CE_button_pause.png) | 开始正向播放 _动画序列_ 或 _混合空间_ 。当播放动画时，会显示暂停按钮。|
-| ![Control bar - Step Forward（控制条 - 逐帧向前播放）](CE_button_step_forward.png) | 跳转到 _动画序列_ 或 _混合空间_ 的下一帧。|
-| ![Control bar - Skip to End（控制条 -跳转到结尾处）](CE_button_end.png) | 跳转到 _动画序列_ 或 _混合空间_ 的最后一帧。|
-| ![Control bar - Enable Looping(控制条 - 启用循环)](CE_button_loop.png) ![Control bar - Disable Looping](CE_button_loop_enabled.png) | 在播放一次和循环播放之间进行切换。当启用循环播放时，该按钮变为红色。|
-[/EXCERPT:PreviewControls]
-
-## 动画预览设置面板
-
-![Persona: Anim Preview Setup Panel](CE_anim_preview_setup_panel.png)
-
-**动画预览设置** 面板用于配置预览视口。它显示了应用骨架的骨架网格物体的列表，此骨架创建了正在编辑的 _VimBlueprint_  
-。要想在把一个网格物体设置为 
-在预览视口中使用的预览网格物体，请在列表中选中该网格物体并点击 **用作为预览网格物体** 。
-要想删除预览视口中当前正在使用的网格物体，那么请点击 **Clear preview（清除预览）** 按钮。您可以使用骨架网格物体列表上方的文本框过滤 
-该列表。
 
 [/COMMENT]
+
+
+

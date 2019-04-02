@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -8,12 +8,6 @@ public class TimecodeSynchronizerEditor : ModuleRules
 	{
 		PrivateIncludePaths.Add("TimecodeSynchronizerEditor/Private");
 
-		PublicDependencyModuleNames.AddRange(
-			new string[] {
-				"MediaAssets",
-				"TimecodeSynchronizer",
-			});
-			
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"AssetTools",
@@ -22,10 +16,13 @@ public class TimecodeSynchronizerEditor : ModuleRules
 				"Engine",
 				"EditorStyle",
 				"InputCore",
-				"PropertyEditor",
-				"SlateCore",
+                "MediaAssets",
+                "MediaPlayerEditor",
+                "PropertyEditor",
+                "SlateCore",
 				"Slate",
-				"UnrealEd",
+                "TimecodeSynchronizer",
+                "UnrealEd",
 			});
 	}
 }

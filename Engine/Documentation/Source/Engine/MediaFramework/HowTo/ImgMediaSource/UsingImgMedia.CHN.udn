@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3726075
 Availability:Public
-Title: Play an Image Sequence
+Title: 播放图像序列
 Crumbs:%ROOT%, Engine
-Description:Example of how you can use playback an Image Sequence with the Image Media Source asset. 
+Description:示范如何使用图像媒体源资源播放图像序列。 
 Type: how-to
 SkillLevel: Beginner
 Version: 4.18
@@ -15,149 +15,149 @@ Related: Engine\MediaFramework
 Related: Engine\MediaFramework\TechReference
 Related: Engine\MediaFramework\MediaEditorReference
 
-The **Image Media Source** asset provides a way for you play back Image Sequences inside Unreal Engine 4 as part of the Media Framework tools. 
-Image Media Source assets are similar to the **File Media Source** in that you specify a path to your Image Sequence files so it knows where the images are and can play them back. 
-Naming conventions are important and recommended that you follow a sequentially based system for your images, for example, _Image_01_, _Image_02_, _Image_03_ so they play back correctly in order. 
+作为媒体框架工具的一部分，**图像媒体源（Image Media Source）** 资源提供了一种在虚幻引擎4（UE4）中播放图像序列的方法。 
+图像媒体源（Image Media Source）类似于[文件媒体源（File Media Source）](Engine/MediaFramework/HowTo/FileMediaSource)，您可以指定图像序列文件的路径以便进行播放，而不是指向视频的链接。 
+命名约定十分重要，建议您按图像顺序进行命名，如_Image_01_、_Image_02_、_Image_03_，确保它们按正确顺序播放。 
 
-In this how-to, we apply and use the Image Media Source to play an Image Sequence on a Static Mesh inside the level. 
+在本操作指南中，我们将应用并使用图像媒体源（Image Media Source），以在关卡中的静态网格体上播放图像序列。 
 
 ![](ImageMediaHero.png)
 
-## Steps
+## 步骤
 
 [REGION:note]
-For this how-to we are using the **Blueprint Third Person Template** project with **Starter Content** enabled.
+在本操作指南中，我们使用启用了 **初学者内容包** 的 **蓝图第三人称模板（Blueprint Third Person Template）** 项目。
+您还需要一个图像序列，如果您没有，可以单击右键并下载本教程中使用的[样本图像序列](UE4_Images.rar)。
 [/REGION]
 
-1.	In the **Content Browser** expand the **Sources Panel** and create a new folder called **Movies** inside the **Content** folder.
+1.	在 **内容浏览器** 中，展开 **源（Sources）** 面板，然后在 **内容（Content）** 下面，创建一个新文件夹 **电影（Movies）**。 
 
 	![](IMGSequence_01.png)
 	
-1.	Right-click on the **Movies** folder, then select **Show in Explorer**. 
+1.	右键单击 **电影（Movies）** 文件夹，然后选择 **在资源管理器中显示（Show in Explorer）**。 
 
 	![](IMGSequence_02.png)
 
-	In order to package and deploy your media with your project correctly it is recommended you place it inside **Content/Movies** folder. 
+	[REGION:note]
+	虽然不是强制性要求，但为了正确打包项目并部署媒体文件，建议您将媒体文件放在 **Content/Movies** 文件夹中。 
+	[/REGION]
 
-1.	Place the images from your Image Sequence inside the **Content/Movies** folder. 
+1.	将图像序列的图像放在 **Content/Movies** 文件夹中。 
 
 	![](IMGSequence_03.png)
 
-	In the image above, we have created a new folder within **Content/Movies** called **UE4_Images** and within it, placed our PNG images. 
-	We also created another folder called **lowres** that contains lower resolution versions of the images in our sequence. 
-	The Media Framework tools provide a way for you to work with (typically) lower resolution versions of your images through media source proxies during development. 
-	This is more efficient and will help minimize any performance issues when working with larger image sequences and file sizes. 
+	在上图中，我们在 **Content/Movies** 中创建了一个新文件夹，名为 **UE4_Images**，并在其中放置了PNG图像。 
+	我们还创建了另一个文件夹，名为 **lowres**，其中包含序列中图像的较低分辨率版本。 
+	媒体框架工具为您提供了一种方法，供您在开发期间通过媒体源代理处理（通常）较低分辨率版本的图像。 
+	这样效率更高，并可以尽量减少在处理较大图像序列和文件大小时的性能问题。 
 	
-	[REGION:note]
-	If you do not have your own image sequence, you can download and use this [Sample Image Sequence](UE4_Images.rar) for this tutorial. 
-	[/REGION]
-	
-1.	Click **Don't Import** on the **Auto-Import** dialog window inside your Unreal Engine 4 project. 
+1.	返回到 **编辑器（Editor）**，在虚幻引擎4项目内部，单击 **自动导入（Auto-Import）** 对话框上的 **不导入（Don't Import）** 按钮。 
 
 	![](IMGSequence_03b.png)
 
-	We do not want to import the images into our project and only want a reference to where they are located in our project directory. 
+	无需将图像导入到项目中，因为我们可以指向它们在项目目录中的位置。 
 
-1.	Right-click in your **Content/Movies** folder and under **Media**, select **Img Media Source** and call it **MyImageSequence**. 
+1.	右键单击 **Content/Movies** 文件夹，然后在 **媒体（Media）** 下面，选择 **图像媒体源（Img Media Source）**，并命名为 **MyImageSequence**。 
 
 	![](IMGSequence_04.png)
 
-1.	Inside the new **MyImageSequence** asset, click the **...** button next to **Sequence Path** and point it to the first image in your image sequence. 
+1.	在新的 **MyImageSequence** 资源中，单击 **序列路径（Sequence Path）** 旁边的 **...** 按钮，并将其指向图像序列中的第一个图像。 
 
 	![](IMGSequence_05.png)
 
-1.	Click the **Advanced Options** rollout button to expand the **Sequence** options and under **Proxy Override**, enter **lowres**. 
+1.	单击 **高级选项（Advanced Options）** 滑出按钮来展开 **序列（Sequence）** 选项，并在 **代理覆盖（Proxy Override）** 下面输入 **lowres**。 
 
 	![](IMGSequence_06.png)
 
-	Here we are pointing to a folder called **lowres** containing our lower resolution images that we will use for development. 
+	这里我们指向名为 **lowres** 的文件夹，这个文件夹包含用于开发的较低分辨率图像。 
+	使用较低分辨率图像将减少内存需要，并提供优于完整分辨率文件的体验。 
 
 	[REGION:warning]
-	The Proxy Override path must point to a folder of the same name, in the same directory structure as your full resolution images order to locate it. 
+	“代理覆盖（Proxy Override）”路径必须指向与完整分辨率图像相同目录结构中的同名文件夹才能找到它。 
 	[/REGION]
 
-1.	Right-click in the **Content/Movies** folder and under **Media**, select **Media Player**. 
+1.	在 **Content/Movies** 文件夹中单击右键，然后在 **媒体（Media）** 下面选择 **媒体播放器（Media Player）**。 
 
 	![](IMGSequence_07.png)
 
-	The Media Player asset is what we will use to play back our image sequence we have created. 
+	媒体播放器（Media Player）资源将用来播放我们所创建的图像序列。 
 
-1.	In the **Create Media Player** window, enable the **Video output Media Texture asset** option, then click the **OK** button. 
+1.	在 **创建媒体播放器（Create Media Player）** 窗口中，启用 **视频输出媒体纹理资源（Video output Media Texture asset）** 选项，然后单击 **确定（OK）** 按钮。 
 
 	![](IMGSequence_08.png)
 
-	This will create and automatically assign a **Media Texture** asset that is associated with this Media Player that will be used for playing our image sequence. 
+	这样将创建并自动指定 **媒体纹理（Media Texture）** 资源，这个资源与将用来播放图像序列的这个媒体播放器关联。 
 
-1.	Name the **Media Player** asset **MyPlayer** (which will automatically name the Media Texture) and double-click to open it. 
+1.	将 **媒体播放器（Media Player）** 资源命名为 **MyPlayer**（将自动命名媒体纹理）并双击以将其打开。 
 
 	![](IMGSequence_09.png)
 
-1.	Inside the **Media Editor**, in the **Details** panel, enable the **Loop** option. 
+1.	在 **媒体编辑器（Media Editor）** 中，在 **细节（Details）** 面板中，启用 **循环（Loop）** 选项。 
 
 	![](IMGSequence_09b.png)
 
-	Enabling this option will cause the Media Player to continually loop playback of our image sequence. 
+	启用该选项将使媒体播放器持续循环播放图像序列。 
 
-1.	Double-click on the **MyImageSequence** asset to start playing the image sequence. 
+1.	双击 **MyImageSequence** 资源以开始播放图像序列。 
 
 	![](IMGSequence_10.png)
 
-	Your image sequence will start to play inside the Media Editor and if you click on the **Info** tab, you will see information about the image sequence that is playing. 
-	In our example, we can see that the **Dimension** for our image sequence is **640 x 360** as we are currently set to use our **lowres** images. 
+	您的图像序列将开始在媒体编辑器中播放，如果您单击 **信息（Info）** 选项卡，将看到有关所播放图像序列的信息。 
+	在我们的示例中，我们可以看到图像序列的 **尺寸（Dimension）** 是 **640 x 360**，因为我们目前使用的是 **lowres** 图像。 
 
-1.	In the **Content Browser**, open the **MyImageSequence** asset and clear out the **Proxy Override** section. 
+1.	在 **内容浏览器** 中，打开 **MyImageSequence** 资源，清空 **代理覆盖（Proxy Override）** 部分。 
 
 	![](IMGSequence_11.png)
 
-	This enables us to switch to our full resolution images, where if we open the Media Player asset and play our image sequence again, the **Dimension** values are different. 
+	这样我们就可以切换到完整分辨率图像，如果再次打开媒体播放器资源并播放图像序列，**尺寸（Dimension）** 值就会有所不同。 
 
 	![](IMGSequence_12.png)
 
 	[REGION:note]
-	The **Image Cache** progress bar at the bottom of the Player window reflects the amount of content cached in memory (green means fully ready and loaded, yellow is currently being loaded, gray means it's being scheduled for loading). 
-	Based on your system hardware, the amount of caching and colors displayed may vary. See the Image Media section of the [](Engine\MediaFramework\Overview\) for more information. 
+	播放器窗口底部的 **图像缓存（Image Cache）** 进度条反映的是内存中缓存的内容量（绿色表示完全就绪并已加载，黄色表示当前正在加载，灰色表示正在计划加载）。 
+	根据系统硬件，缓存量和颜色可能有所不同。有关更多信息，请参阅[](Engine\MediaFramework\Overview\)的“图像媒体”部分。 
 	[/REGION]
 
-1.	From the Main Editor, in the **Modes** panel under **Basic**, drag a **Plane** into the level and resize and position as desired. 
+1.	从主编辑器的 **模式（Modes）** 面板中的 **基本（Basic）** 下面，将 **平面（Plane）** 拖到关卡中并根据需要调节大小和位置。 
 
 	![](IMGSequence_14.png)
 
-	You can use the [Transform Tools](GettingStarted/HowTo/ManipulatingActors) to move, rotate or scale the plane as you would like. 
+	您可以使用[变换工具](GettingStarted/HowTo/ManipulatingActors)根据需要来移动、旋转或伸缩平面。 
 
-1.	From the **Content Browser**, drag the **MyPlayer_Video** Media Texture asset on top of the **Plane** in the level. 
+1.	从 **内容浏览器**，将 **MyPlayer_Video** 媒体纹理资源拖到关卡中的 **平面（Plane）** 上面。 
 
 	![](IMGSequence_14b.png)
 
-	This will automatically create and apply a **Material** using the Media Texture to the Plane in the level, which our image sequence will play back on. 
+	这样将自动使用该媒体纹理创建 **材质** 并将其应用于关卡中的这个平面上，继而将用来播放我们的图像序列。 
 
-1.	From the Main Toolbar, click the **Blueprints** button then select **Open Level Blueprint**. 
+1.	从主工具栏，单击 **蓝图（Blueprints）** 按钮，然后选择 **打开关卡蓝图（Open Level Blueprint）**。 
 
 	![](IMGSequence_15.png)
 
-	Before we can test, we will use [Blueprint](Engine/Blueprints) to tell our Media Player to open our Image Media Source asset at the start of gameplay so it can start playing. 
+	在开始测试之前，将使用[蓝图](Engine/Blueprints)告诉我们的媒体播放器，在游戏开始时打开图像媒体源资源以便开始播放。 
 
-1.	In the **MyBlueprint** panel, create a variable called **MediaPlayer** of the **Media Player Reference** type and assign **MyPlayer** as the **Media Player**. 
+1.	在 **我的蓝图（MyBlueprint）** 面板中，创建 **媒体播放器引用（Media Player Reference）** 类型的变量并命名为 **MediaPlayer**，然后将 **MyPlayer** 指定为 **媒体播放器（Media Player）**。 
 
 	![](IMGSequence_16.png)
 
 	[REGION:note]
-	You may need to click **Compile** after creating your variable in order to assign the **Default Value** for the **Media Player**. 
+	创建变量后，需要单击 **编译（Compile）** 来为 **媒体播放器（Media Player）** 指定 **默认值（Default Value）**。 
 	[/REGION]
 
-1.	Hold **Ctrl** and drag the **MediaPlayer** variable into the graph, then right-click and create an **Event Begin Play** node. 
+1.	按住 **Ctrl** 键并将 **媒体播放器（MediaPlayer）** 变量拖到图形上，然后单击右键并创建 **事件开始播放（Event Begin Play）** 节点。 
 
 	![](IMGSequence_17.png)
 
-1.	Drag off the **Media Player** variable and use the **Open Source** node and set **Media Source** to **MyImageSequence** and connect as shown. 
+1.	从 **媒体播放器（Media Player）** 变量拖出引线，使用 **打开源（Open Source）** 节点，将 **媒体源（Media Source）** 设置为 **MyImageSequence** 并按图所示进行连接。 
 
 	![](IMGSequence_18.png)
 
-1.	**Compile** and **Save**, then from the Main Editor click the **Play** button to play inside the editor. 
+1.	**编译（Compile）** 并 **保存（Save）**，然后从主编辑器，单击 **播放（Play）** 按钮来在编辑器内部播放。 
 	
 	
-## End Result
+## 最终结果
 
-After playing in the editor, the image sequence will start to play on the Static Mesh in the level and loop playing. 
+在编辑器中播放后，图像序列将开始在关卡中的静态网格体播放并循环播放。 
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -177,7 +177,7 @@ After playing in the editor, the image sequence will start to play on the Static
 	[/PARAMLITERAL]
 [/OBJECT]
 
-This example used PNG files, however, you can use any image files that are of the [supported file type](Engine\MediaFramework\TechReference) within an Image Media Source. 
+该示例使用的是PNG文件，但您可以使用图像媒体源中[支持的文件类型](Engine\MediaFramework\TechReference)的任何图像文件。 
 
 
 

@@ -1082,7 +1082,7 @@ cleanup:
 PLCR_EXPORT int plcrashreporter_backtrace(void** Backtrace, int Depth)
 {
     plframe_cursor_t FrameCursor;
-    uint32 Frame = 0;
+    unsigned Frame = 0;
     plframe_error_t Err = plframe_cursor_init(&FrameCursor, mach_task_self(), &signal_crashed_thread_state, &shared_image_list);
     if (Err == PLFRAME_ESUCCESS)
     {

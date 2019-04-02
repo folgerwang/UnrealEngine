@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AudioCurveSourceComponent.h"
 #include "Sound/SoundWave.h"
@@ -44,10 +44,9 @@ void UAudioCurveSourceComponent::CacheCurveData()
 
 		// cache audio sync curve
 		static const FName AudioSyncCurve(TEXT("Audio"));
-		FRichCurve** RichCurvePtr = CurveData->RowMap.Find(AudioSyncCurve);
-		if (RichCurvePtr != nullptr && *RichCurvePtr != nullptr)
+		if (FRealCurve* Curve = CurveData->FindCurve(AudioSyncCurve, FString(), false))
 		{
-			CachedSyncPreRoll = (*RichCurvePtr)->GetFirstKey().Time;
+			CachedSyncPreRoll = Curve->GetKeyTime(Curve->GetFirstKeyHandle());
 		}
 
 		CachedDuration = Sound->Duration;
@@ -158,10 +157,9 @@ float UAudioCurveSourceComponent::GetCurveValue_Implementation(FName CurveName) 
 		UCurveTable* CurveTable = CachedCurveTable.Get();
 		if (CurveTable)
 		{
-			FRichCurve** Curve = CurveTable->RowMap.Find(CurveName);
-			if (Curve != nullptr && *Curve != nullptr)
+			if (FRealCurve* Curve = CurveTable->FindCurve(CurveName, FString(), false))
 			{
-				return (*Curve)->Eval(CachedCurveEvalTime);
+				return Curve->Eval(CachedCurveEvalTime);
 			}
 		}
 	}
@@ -176,15 +174,15 @@ void UAudioCurveSourceComponent::GetCurves_Implementation(TArray<FNamedCurveValu
 		UCurveTable* CurveTable = CachedCurveTable.Get();
 		if (CurveTable)
 		{
-			OutCurve.Reset(CurveTable->RowMap.Num());
+			OutCurve.Reset(CurveTable->GetRowMap().Num());
 
 			if (bCachedLooping && CachedSyncPreRoll > 0.0f && Delay >= CachedSyncPreRoll && CachedCurveEvalTime >= CachedDuration - CachedSyncPreRoll)
 			{
 				// if we are looping and we have some preroll delay, we need to evaluate the curve twice
 				// as we need to incorporate the preroll in the loop
-				for (auto Iter = CurveTable->RowMap.CreateConstIterator(); Iter; ++Iter)
+				for (auto Iter = CurveTable->GetRowMap().CreateConstIterator(); Iter; ++Iter)
 				{
-					FRichCurve* Curve = Iter.Value();
+					FRealCurve* Curve = Iter.Value();
 
 					float StandardValue = Curve->Eval(CachedCurveEvalTime);
 					float LoopedValue = Curve->Eval(FMath::Fmod(CachedCurveEvalTime, CachedDuration));
@@ -194,7 +192,7 @@ void UAudioCurveSourceComponent::GetCurves_Implementation(TArray<FNamedCurveValu
 			}
 			else
 			{
-				for (auto Iter = CurveTable->RowMap.CreateConstIterator(); Iter; ++Iter)
+				for (auto Iter = CurveTable->GetRowMap().CreateConstIterator(); Iter; ++Iter)
 				{
 					OutCurve.Add({ Iter.Key(), Iter.Value()->Eval(CachedCurveEvalTime) });
 				}

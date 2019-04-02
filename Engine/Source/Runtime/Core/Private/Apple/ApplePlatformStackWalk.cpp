@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ApplePlatformStackWalk.mm: Apple implementations of stack walk functions
@@ -7,10 +7,12 @@
 #include "Apple/ApplePlatformStackWalk.h"
 #include "Apple/ApplePlatformSymbolication.h"
 #include "Containers/StringConv.h"
+#include "Apple/PreAppleSystemHeaders.h"
 #include <execinfo.h>
 #include <dlfcn.h>
 #include <mach-o/dyld.h>
 #include <cxxabi.h>
+#include "Apple/PostAppleSystemHeaders.h"
 #include "CoreGlobals.h"
 
 #if PLATFORM_MAC
@@ -43,7 +45,12 @@ int32 GetModuleImageSize( const struct mach_header* Header )
 			struct segment_command *SegmentCommand = (struct segment_command *) CurrentCommand;
 			ModuleSize += SegmentCommand->vmsize;
 		}
-		
+		else if( CurrentCommand->cmd == LC_SEGMENT_64 )
+		{
+			struct segment_command_64 *SegmentCommand = (struct segment_command_64 *) CurrentCommand;
+			ModuleSize += SegmentCommand->vmsize;
+		}
+
 		CurrentCommand = (struct load_command *)( (char *)CurrentCommand + CurrentCommand->cmdsize );
 	}
 	
@@ -112,7 +119,7 @@ static void AsyncSafeProgramCounterToSymbolInfo( uint64 ProgramCounter, FProgram
 	// Increased the size of the demangle destination to reduce the chances that abi::__cxa_demangle will allocate
 	// this causes the app to hang as malloc isn't signal handler safe. Ideally we wouldn't call this function in a handler.
 	size_t DemangledNameLen = 65536;
-	ANSICHAR DemangledNameBuffer[65536]= {0};
+	static ANSICHAR DemangledNameBuffer[65536]= {0};
 	DemangledName = abi::__cxa_demangle(DylibInfo.dli_sname, DemangledNameBuffer, &DemangledNameLen, &Status);
 	
 	if (DemangledName)

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Misc/Paths.h"
@@ -8,6 +8,7 @@
 #include "IMagicLeapMediaModule.h"
 #include "MagicLeapMediaFactoryPrivate.h"
 #include "IMediaPlayerFactory.h"
+#include "Misc/ConfigCacheIni.h"
 
 #define LOCTEXT_NAMESPACE "FMagicLeapCameraPreviewFactoryModule"
 
@@ -27,8 +28,23 @@ public:
 
 	virtual TSharedPtr<IMediaPlayer, ESPMode::ThreadSafe> CreatePlayer(IMediaEventSink& EventSink) override
 	{
-		auto MagicLeapMediaModule = FModuleManager::LoadModulePtr<IMagicLeapMediaModule>("MagicLeapMedia");
-		return (MagicLeapMediaModule != nullptr) ? MagicLeapMediaModule->CreateCameraPreviewPlayer(EventSink) : nullptr;
+		// Disable camera preview on Vulkan until we are able to get it working.
+		// Can't call FLuminPlatformMisc::ShouldUseVulkan from here ...
+		bool bUseVulkan = false;
+		if (GConfig != nullptr)
+		{
+			GConfig->GetBool(TEXT("/Script/LuminRuntimeSettings.LuminRuntimeSettings"), TEXT("bUseVulkan"), bUseVulkan, GEngineIni);
+		}
+		
+		if (!bUseVulkan)
+		{
+			auto MagicLeapMediaModule = FModuleManager::LoadModulePtr<IMagicLeapMediaModule>("MagicLeapMedia");
+			if (MagicLeapMediaModule != nullptr)
+			{
+				return MagicLeapMediaModule->CreateCameraPreviewPlayer(EventSink);
+			}
+		}
+		return nullptr;
 	}
 
 	virtual FText GetDisplayName() const override

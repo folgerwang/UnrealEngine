@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -181,6 +181,10 @@ public:
 	FRenamedRequestEvent& OnRenamedRequest() { return RenamedRequestEvent; }
 	void BroadcastRenameRequest() { RenamedRequestEvent.Broadcast(); }
 
+	/** Broadcasts whenever a layer visibility toggle is requested */
+	DECLARE_EVENT_OneParam( FLayerViewModel, FVisibilityToggledEvent, const TSharedPtr<FLayerViewModel>& )
+	FVisibilityToggledEvent& OnVisibilityToggled() { return VisibilityToggledEvent; }
+
 private:
 
 	/**
@@ -228,4 +232,7 @@ private:
 
 	/** Broadcasts whenever a rename is requested */
 	FRenamedRequestEvent RenamedRequestEvent;
+
+	/** Broadcasts whenever a layer visibility toggle is requested */
+	FVisibilityToggledEvent VisibilityToggledEvent;
 };

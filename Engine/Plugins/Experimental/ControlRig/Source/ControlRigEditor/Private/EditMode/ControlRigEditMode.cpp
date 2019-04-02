@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigEditMode.h"
 #include "ControlRigEditModeToolkit.h"
@@ -57,7 +57,7 @@ FControlRigEditMode::FControlRigEditMode()
 	, bSelectingByPath(false)
 	, PivotTransform(FTransform::Identity)
 {
-	Settings = NewObject<UControlRigEditModeSettings>(GetTransientPackage(), *LOCTEXT("SettingsName", "Settings").ToString());
+	Settings = NewObject<UControlRigEditModeSettings>(GetTransientPackage(), TEXT("Settings"));
 
 	OnControlsSelectedDelegate.AddRaw(this, &FControlRigEditMode::HandleSelectionChanged);
 

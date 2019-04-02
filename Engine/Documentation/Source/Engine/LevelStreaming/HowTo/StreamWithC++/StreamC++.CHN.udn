@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3075225
+﻿INTSourceChangelist:3238697
 Availability:Public
 Title:使用 C++ 加载和卸载关卡
 Crumbs:%ROOT%, Engine, Engine/UI/LevelEditor
 Description:如何使用 C++ 中创建的自定义流送 Actor 进行关卡流送。
 parent:Engine/LevelStreaming/HowTo
-type:howto
+type:how-to
 order:3
 tags:Level Streaming
 
@@ -13,6 +13,7 @@ tags:Level Streaming
 [INCLUDE:Engine/LevelStreaming/HowTo#levelstreamscenario]
 
 
+(#StreamingInLevelswithC++)
 ## 使用 C++ 流入关卡
 
 1. 打开 **Content Browser**，新建一个 **C++ 类**。此类将基于 **Actor**，因此选择 **Actor** 并点击 **Next**。
@@ -46,14 +47,11 @@ tags:Level Streaming
 
 		#include "Kismet/GameplayStatics.h"
 		
-1. 现在即可开始创建 OverlapBegins 功能。在 `LevelStreamerActor.cpp` 中开始定义函数。添加一个 if 语句确定是否拥有一个世界场景，以便我们获取并检查角色。可使用 GameplayStatics 函数 `GetPlayerCharacter` 获得索引 0 处的角色。 
+1. 现在即可开始创建 OverlapBegins 功能。在 `LevelStreamerActor.cpp` 中开始定义函数。您可以使用 GameplayStatics 函数 `GetPlayerCharacter` 来获取索引 0 处的角色。 
 
 		void ALevelStreamerActor::OverlapBegins(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult)
 		{
-			if(GWorld)
-			{
 				ACharacter* MyCharacter = UGameplayStatics::GetPlayerCharacter(this, 0);			
-			}
 		}
 
 1. 获得 MyCharacter 后，将其针对和 BoxComponent 发生重叠的 OtherActor 进行检查。并确认 LevelToLoad 不为空，然后调用 LoadStreamLevel。 
@@ -83,14 +81,14 @@ tags:Level Streaming
 		public:	
 			// 设置该 actor 属性的默认值
 			ALevelStreamerActor();
-
-			// 游戏开始时或生成时调用
-			virtual void BeginPlay() override;
 			
 			// 每帧调用
 			virtual void Tick( float DeltaSeconds ) override;
 
 		protected:
+
+			// 游戏开始或生成时调用
+			virtual void BeginPlay() override;
 			
 			UFUNCTION()
 			void OverlapBegins(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult);
@@ -138,15 +136,12 @@ tags:Level Streaming
 
 		void ALevelStreamerActor::OverlapBegins(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult)
 		{
-			if(GWorld)
-			{
 				ACharacter* MyCharacter = UGameplayStatics::GetPlayerCharacter(this, 0);
 				if (OtherActor == MyCharacter && LevelToLoad != "")
 				{
 					FLatentActionInfo LatentInfo;
 					UGameplayStatics::LoadStreamLevel(this, LevelToLoad, true, true, LatentInfo);
 				}
-			}
 		}
 1. 编译代码，然后切回编辑器。
 
@@ -171,15 +166,12 @@ tags:Level Streaming
 
 	void ALevelStreamerActor::OverlapEnds(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 	{
-		if (GWorld)
-		{
 			ACharacter* MyCharacter = UGameplayStatics::GetPlayerCharacter(this, 0);
 			if (OtherActor == MyCharacter && LevelToLoad != "")
 			{
 				FLatentActionInfo LatentInfo;
 				UGameplayStatics::UnloadStreamLevel(this, LevelToLoad, LatentInfo);
 			}
-		}
 	}
 
 在构造函数中：

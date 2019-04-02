@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -43,6 +43,7 @@ CORE_API FString ExtractPackageNamespace(const FString& InTextNamespace);
  * @return The namespace stripped of any package namespace component.
  */
 CORE_API FString StripPackageNamespace(const FString& InTextNamespace);
+CORE_API void StripPackageNamespaceInline(FString& InOutTextNamespace);
 
 #if USE_STABLE_LOCALIZATION_KEYS
 

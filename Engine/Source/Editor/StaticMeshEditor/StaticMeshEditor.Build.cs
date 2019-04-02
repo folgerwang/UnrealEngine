@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -28,7 +28,6 @@ public class StaticMeshEditor : ModuleRules
 				"Slate",
 				"SlateCore",
                 "EditorStyle",
-				"ShaderCore",
 				"RenderCore",
 				"RHI",
 				"UnrealEd",

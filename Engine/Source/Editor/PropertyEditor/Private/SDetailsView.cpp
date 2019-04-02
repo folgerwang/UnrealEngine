@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SDetailsView.h"
@@ -72,6 +72,24 @@ void SDetailsView::Construct(const FArguments& InArgs)
 				),
 				NAME_None,
 				EUserInterfaceActionType::ToggleButton 
+			);
+		}
+
+		if (DetailsViewArgs.bShowCustomFilterOption)
+		{
+			TAttribute<FText> CustomFilterLabelDelegate;
+			CustomFilterLabelDelegate.BindRaw(this, &SDetailsView::GetCustomFilterLabel);
+			DetailViewOptions.AddMenuEntry(
+				CustomFilterLabelDelegate,
+				FText(),
+				FSlateIcon(),
+				FUIAction(
+					FExecuteAction::CreateSP(this, &SDetailsView::OnCustomFilterClicked),
+					FCanExecuteAction(),
+					FIsActionChecked::CreateSP(this, &SDetailsView::IsCustomFilterChecked)
+				),
+				NAME_None,
+				EUserInterfaceActionType::ToggleButton
 			);
 		}
 
@@ -179,20 +197,21 @@ void SDetailsView::Construct(const FArguments& InArgs)
 		[
 			SNew(SOverlay)
 			+SOverlay::Slot()
-			.Padding(2.0f, 0.0f, 0.0f, 0.0f)
+			.Padding(0.0f, 0.0f, 0.0f, 0.0f)
 			[
 				SNew(SImage)
 				.Image(FEditorStyle::GetBrush("Searching.SearchActiveTab"))
 				.Visibility_Lambda([&](){ return this->bHasActiveFilter ? EVisibility::Visible : EVisibility::Collapsed; })
 			]
 			+SOverlay::Slot()
-			.Padding(4.0f, 2.0f)
+			.Padding(2.f, 2.0f, 4.f, 2.f)
 			.VAlign( VAlign_Center )
 			[
 				// Create the search box
 				SAssignNew(SearchBox, SSearchBox)
 				.HintText(LOCTEXT("SearchDetailsHint", "Search Details"))
 				.OnTextChanged(this, &SDetailsView::OnFilterTextChanged)
+				.OnTextCommitted(this, &SDetailsView::OnFilterTextCommitted)
 				.AddMetaData<FTagMetaData>(TEXT("Details.Search"))
 			]
 		];
@@ -317,6 +336,7 @@ TSharedRef<SDetailTree> SDetailsView::ConstructTreeView( TSharedRef<SScrollBar>&
 		.OnExpansionChanged(this, &SDetailsView::OnItemExpansionChanged)
 		.SelectionMode(ESelectionMode::None)
 		.HandleDirectionalNavigation(false)
+		.AllowOverscroll(DetailsViewArgs.bShowScrollBar ? EAllowOverscroll::Yes : EAllowOverscroll::No)
 		.ExternalScrollbar(ScrollBar);
 }
 

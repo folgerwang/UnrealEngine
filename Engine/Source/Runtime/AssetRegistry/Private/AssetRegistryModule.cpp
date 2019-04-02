@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "AssetRegistryModule.h"
@@ -29,7 +29,8 @@ void FAssetRegistryModule::ShutdownModule()
 
 IAssetRegistry& FAssetRegistryModule::Get() const
 {
-	check(AssetRegistry.IsValid());
-	return *AssetRegistry;
+	UAssetRegistryImpl* AssetRegistryPtr = AssetRegistry.Get();
+	check(AssetRegistryPtr);
+	return *AssetRegistryPtr;
 }
 

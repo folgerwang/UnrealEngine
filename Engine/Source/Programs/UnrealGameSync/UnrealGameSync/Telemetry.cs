@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Concurrent;
@@ -176,6 +176,11 @@ namespace UnrealGameSync
 
 		bool SendTimingData(TelemetryTimingData Data, string Version, string IpAddress)
 		{
+			if(!DeploymentSettings.bSendTelemetry)
+			{
+				return true;
+			}
+
 			try
 			{
 				Stopwatch Timer = Stopwatch.StartNew();

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2999481
+﻿INTSourceChangelist:3683933
 Availability:Public
 Title:使用关卡可见性轨道
 Crumbs:%ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
@@ -10,12 +10,15 @@ order:1
 checkpoint: editorqs
 Related:Engine/Sequencer/Overview
 Related:Engine\Sequencer\ReferenceEditor\
+tags:Sequencer
+type:how-to
 
 在序列中有时您可能希望切换整个 [**关卡**](Engine/Levels/) 的可见性。您可以通过在 Sequencer 中使用 **关卡可见性轨道** 将关卡设置为 **可见** 或 **隐藏** 来实现这一点。 
 此操作不会流式切入/切出关卡，而会将关卡中的所有内容设置为可见或隐藏。 
 
 在本示例中我们创建两个含有独特内容的非常小的关卡，然后在我们的过场动画中切换这些关卡的可见性。 
 
+(#Steps)
 ## 步骤
 
 [REGION:note]
@@ -119,6 +122,7 @@ Related:Engine\Sequencer\ReferenceEditor\
 1. 	使用序列编辑器的预览 **播放（Play）**按钮来播放关卡序列。 
 
 
+(#EndResult)
 ## 最终结果
 
 放在 Level 01 中的项目将在持久关卡中先出现，然后消失，同时放在 Level 02 关卡中的项目会出现。 

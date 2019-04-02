@@ -1,11 +1,11 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "Features/IModularFeature.h"
 #include "XRTrackingSystemBase.h"
 #include "ARTypes.h"
 #include "ARSessionConfig.h"
+#include "Engine/Engine.h" // for FWorldContext
 
 class UARPin;
 class UARTrackedGeometry;
@@ -14,12 +14,10 @@ class UARTextureCameraImage;
 class UARTextureCameraDepth;
 struct FARTraceResult;
 
-DECLARE_MULTICAST_DELEGATE(FARSystemOnSessionStarted);
-DECLARE_MULTICAST_DELEGATE_OneParam(FARSystemOnAlignmentTransformUpdated, const FTransform&);
 
 /**
  * Implement IARSystemSupport for any platform that wants to be an Unreal Augmented Reality System. e.g. AppleARKit, GoogleARCore.
- * This interface is included as part of the abstract class \c FARSystemBase. The functions you must override
+ * This interface is included as part of the abstract class \c FARSupportInterface . The functions you must override
  * are coalesced here for clarity.
  * 
  *  Augmented Reality Spaces
@@ -50,6 +48,8 @@ class AUGMENTEDREALITY_API IARSystemSupport
 public:
 	/** Invoked after the base AR system has been initialized. */
 	virtual void OnARSystemInitialized(){};
+
+	virtual bool OnStartARGameFrame(FWorldContext& WorldContext) { return false;  };
 
 	/** @return the tracking quality; if unable to determine tracking quality, return EARTrackingQuality::NotAvailable */
 	virtual EARTrackingQuality OnGetTrackingQuality() const = 0;
@@ -87,7 +87,8 @@ public:
 	 * @return a list of all the geometries that were hit, sorted by distance
 	 */
 	virtual TArray<FARTraceResult> OnLineTraceTrackedObjects( const FVector2D ScreenCoord, EARLineTraceChannels TraceChannels ) = 0;
-	
+	virtual TArray<FARTraceResult> OnLineTraceTrackedObjects( const FVector Start, const FVector End, EARLineTraceChannels TraceChannels ) = 0;
+
 	/** @return a TArray of all the tracked geometries known to your ar system */
 	virtual TArray<UARTrackedGeometry*> OnGetAllTrackedGeometries() const = 0;
 	
@@ -134,127 +135,21 @@ public:
 	
 	/** @return The list of supported video formats for this device and session type */
 	virtual TArray<FARVideoFormat> OnGetSupportedVideoFormats(EARSessionType SessionType) const = 0;
-	
+
 	/** @return the current point cloud data for the ar scene */
 	virtual TArray<FVector> OnGetPointCloud() const = 0;
-	
+
+	/** Add candidate image at runtime @return True if it added the iamge successfully */
+	virtual bool OnAddRuntimeCandidateImage(UARSessionConfig* SessionConfig, UTexture2D* CandidateTexture, FString FriendlyName, float PhysicalWidth) = 0;
+
+	virtual void* GetARSessionRawPointer() = 0;
+	virtual void* GetGameThreadARFrameRawPointer() = 0;
+
+
 public:
 	virtual ~IARSystemSupport(){}
 };
 
-class AUGMENTEDREALITY_API FARSystemBase : public IARSystemSupport, public FXRTrackingSystemBase, public FGCObject, public TSharedFromThis<FARSystemBase, ESPMode::ThreadSafe>
-{
-public:
-	//
-	// MODULAR FEATURE SUPPORT
-	//
-	
-	/**
-	 * Part of the pattern for supporting modular features.
-	 *
-	 * @return the name of the feature.
-	 */
-	static FName GetModularFeatureName()
-	{
-		static const FName ModularFeatureName = FName(TEXT("ARSystem"));
-		return ModularFeatureName;
-	}
 
-public:
-	/** Control the construction of AR Systems. \see NewARSystem() */
-	FARSystemBase();
-	void InitializeARSystem();
-	virtual ~FARSystemBase();
-
-public:	
-	/** \see UARBlueprintLibrary::GetTrackingQuality() */
-	EARTrackingQuality GetTrackingQuality() const;
-	/** \see UARBlueprintLibrary::StartARSession() */
-	void StartARSession(UARSessionConfig* InSessionConfig);
-	/** \see UARBlueprintLibrary::PauseARSession() */
-	void PauseARSession();
-	/** \see UARBlueprintLibrary::StopARSession() */
-	void StopARSession();
-	/** \see UARBlueprintLibrary::GetARSessionStatus() */
-	FARSessionStatus GetARSessionStatus() const;
-	/** \see UARBlueprintLibrary::IsSessionTypeSupported() */
-	bool IsSessionTypeSupported(EARSessionType SessionType) const;
-	
-	/**
-	 * \see UARBlueprintLibrary::SetAlignmentTransform()
-	 * \see IARSystemSupport
-	 * To understand the various spaces involved in Augmented Reality system, \see IARSystemSupport.
-	 */
-	void SetAlignmentTransform( const FTransform& InAlignmentTransform );
-	
-	/** \see UARBlueprintLibrary::LineTraceTrackedObjects() */
-	TArray<FARTraceResult> LineTraceTrackedObjects( const FVector2D ScreenCoords, EARLineTraceChannels TraceChannels );
-	/** \see UARBlueprintLibrary::GetAllTrackedGeometries() */
-	TArray<UARTrackedGeometry*> GetAllTrackedGeometries() const;
-	/** \see UARBlueprintLibrary::GetAllPins() */
-	TArray<UARPin*> GetAllPins() const;
-	/** \see UARBlueprintLibrary::GetCameraImage() */
-	UARTextureCameraImage* GetCameraImage();
-	/** \see UARBlueprintLibrary::GetCameraDepth() */
-	UARTextureCameraDepth* GetCameraDepth();
-	/**\see UARBlueprintLibrary::IsEnvironmentCaptureSupported() */
-	bool IsEnvironmentCaptureSupported() const;
-	/**\see UARBlueprintLibrary::AddEnvironmentCaptureProbe() */
-	bool AddManualEnvironmentCaptureProbe(FVector Location, FVector Extent);
-	/** Creates an async task that will perform the work in the background */
-	TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> GetCandidateObject(FVector Location, FVector Extent) const;
-	/** Creates an async task that will perform the work in the background */
-	TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe> SaveWorld() const;
-	/** @return the current mapping status */
-	EARWorldMappingState GetWorldMappingStatus() const;
-
-	/** \see UARBlueprintLibrary::GetCurrentLightEstimate() */
-	UARLightEstimate* GetCurrentLightEstimate() const;
-	
-	/** \see UARBlueprintLibrary::PinComponent() */
-	UARPin* PinComponent( USceneComponent* ComponentToPin, const FTransform& PinToWorldTransform, UARTrackedGeometry* TrackedGeometry = nullptr, const FName DebugName = NAME_None );
-	/** \see UARBlueprintLibrary::PinComponentToTraceResult() */
-	UARPin* PinComponent( USceneComponent* ComponentToPin, const FARTraceResult& HitResult, const FName DebugName = NAME_None );
-	/** \see UARBlueprintLibrary::RemovePin() */
-	void RemovePin( UARPin* PinToRemove );
-
-	/** \see UARBlueprintLibrary::GetSupportedVideoFormats() */
-	TArray<FARVideoFormat> GetSupportedVideoFormats(EARSessionType SessionType = EARSessionType::World) const;
-	
-	/** \see UARBlueprintLibrary::GetPointCloud() */
-	TArray<FVector> GetPointCloud() const;
-
-	virtual void* GetARSessionRawPointer() = 0;
-	virtual void* GetGameThreadARFrameRawPointer() = 0;
-	
-public:
-	const FTransform& GetAlignmentTransform() const;
-	const UARSessionConfig& GetSessionConfig() const;
-	UARSessionConfig& AccessSessionConfig();
-
-	FARSystemOnSessionStarted OnARSessionStarted;
-	FARSystemOnAlignmentTransformUpdated OnAlignmentTransformUpdated;
-
-protected:
-	void SetAlignmentTransform_Internal(const FTransform& NewAlignmentTransform);
-
-	//~ FGCObject
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
-	//~ FGCObject
-
-private:
-	/** Alignment transform between AR System's tracking space and Unreal's World Space. Useful in static lighting/geometry scenarios. */
-	FTransform AlignmentTransform;
-
-	UARSessionConfig* ARSettings;
-};
-
-template<class T, typename... ArgTypes>
-TSharedRef<T, ESPMode::ThreadSafe> NewARSystem( ArgTypes&&... Args )
-{
-	auto NewARSystem = MakeShared<T, ESPMode::ThreadSafe>( Forward<ArgTypes>(Args)... );
-	NewARSystem->InitializeARSystem();
-	return NewARSystem;
-}
 
 

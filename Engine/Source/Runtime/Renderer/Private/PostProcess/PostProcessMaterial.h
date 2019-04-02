@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessMaterial.h: Post processing Material
@@ -17,7 +17,8 @@ class UMaterialInterface;
 // ePId_Input1: optional, depends on EBlendableLocation
 // ePId_Input2: optional, depends on EBlendableLocation
 // ePId_Input3: optional, depends on EBlendableLocation
-class FRCPassPostProcessMaterial : public TRenderingCompositePassBase<4,1>
+// ePId_Input4: optional, always velocity (if required by the material)
+class FRCPassPostProcessMaterial : public TRenderingCompositePassBase<5,1>
 {
 public:
 	// constructor

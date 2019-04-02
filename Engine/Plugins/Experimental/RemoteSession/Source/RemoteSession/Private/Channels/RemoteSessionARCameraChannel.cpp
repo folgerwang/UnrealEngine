@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Channels/RemoteSessionARCameraChannel.h"
 #include "RemoteSession.h"
@@ -38,6 +38,7 @@
 
 #include "IImageWrapper.h"
 #include "IImageWrapperModule.h"
+#include "CommonRenderResources.h"
 
 #define CAMERA_MESSAGE_ADDRESS TEXT("/ARCamera")
 
@@ -60,7 +61,6 @@ TAutoConsoleVariable<int32> CVarJPEGGpu(
 	ECVF_Default);
 
 /** Shaders to render our post process material */
-template <bool bIsMobileRenderer>
 class FRemoteSessionARCameraVS :
 	public FMaterialShader
 {
@@ -70,14 +70,7 @@ public:
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform, const FMaterial* Material)
 	{
-		if (bIsMobileRenderer)
-		{
-			return Material->GetMaterialDomain() == MD_PostProcess && IsMobilePlatform(Platform);
-		}
-		else
-		{
-			return Material->GetMaterialDomain() == MD_PostProcess && !IsMobilePlatform(Platform);
-		}
+		return Material->GetMaterialDomain() == MD_PostProcess && !IsMobilePlatform(Platform);
 	}
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const class FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
@@ -85,6 +78,7 @@ public:
 		FMaterialShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("POST_PROCESS_MATERIAL"), 1);
 		OutEnvironment.SetDefine(TEXT("POST_PROCESS_MATERIAL_BEFORE_TONEMAP"), (Material->GetBlendableLocation() != BL_AfterTonemapping) ? 1 : 0);
+		OutEnvironment.SetDefine(TEXT("POST_PROCESS_AR_PASSTHROUGH"), 1);
 	}
 
 	FRemoteSessionARCameraVS() { }
@@ -106,8 +100,7 @@ public:
 	}
 };
 
-IMPLEMENT_MATERIAL_SHADER_TYPE(template<>, FRemoteSessionARCameraVS<true>, TEXT("/Engine/Private/PostProcessMaterialShaders.usf"), TEXT("MainVS_ES2"), SF_Vertex);
-IMPLEMENT_MATERIAL_SHADER_TYPE(template<>, FRemoteSessionARCameraVS<false>, TEXT("/Engine/Private/PostProcessMaterialShaders.usf"), TEXT("MainVS"), SF_Vertex);
+IMPLEMENT_MATERIAL_SHADER_TYPE(, FRemoteSessionARCameraVS, TEXT("/Engine/Private/PostProcessMaterialShaders.usf"), TEXT("MainVS_VideoOverlay"), SF_Vertex);
 
 class FRemoteSessionARCameraPS :
 	public FMaterialShader
@@ -118,14 +111,14 @@ public:
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform, const FMaterial* Material)
 	{
-		return Material->GetMaterialDomain() == MD_PostProcess;
+		return Material->GetMaterialDomain() == MD_PostProcess && !IsMobilePlatform(Platform);
 	}
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const class FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		FMaterialShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("POST_PROCESS_MATERIAL"), 1);
-		OutEnvironment.SetDefine(TEXT("OUTPUT_GAMMA_SPACE"), IsMobileHDR() ? 0 : 1);
+		OutEnvironment.SetDefine(TEXT("OUTPUT_MOBILE_HDR"), IsMobileHDR() ? 1 : 0);
 		OutEnvironment.SetDefine(TEXT("POST_PROCESS_MATERIAL_BEFORE_TONEMAP"), (Material->GetBlendableLocation() != BL_AfterTonemapping) ? 1 : 0);
 	}
 
@@ -171,7 +164,7 @@ private:
 	FShaderResourceParameter PostprocessInputParameterSampler[ePId_Input_MAX];
 };
 
-IMPLEMENT_MATERIAL_SHADER_TYPE(, FRemoteSessionARCameraPS, TEXT("/Engine/Private/PostProcessPassThrough.usf"), TEXT("MainPS"), SF_Pixel);
+IMPLEMENT_MATERIAL_SHADER_TYPE(, FRemoteSessionARCameraPS, TEXT("/Engine/Private/PostProcessMaterialShaders.usf"), TEXT("MainPS_VideoOverlay"), SF_Pixel);
 
 class FARCameraSceneViewExtension :
 	public FSceneViewExtensionBase
@@ -288,11 +281,12 @@ void FARCameraSceneViewExtension::PostRenderViewFamily_RenderThread(FRHICommandL
 
 void FARCameraSceneViewExtension::RenderARCamera_RenderThread(FRHICommandListImmediate& RHICmdList, const FSceneView& InView)
 {
-#if 0 // Removing until I can figure out the linking problem on PC
+#if PLATFORM_DESKTOP
 	const auto FeatureLevel = InView.GetFeatureLevel();
+
 	IRendererModule& RendererModule = GetRendererModule();
 
-	const FMaterial* const CameraMaterial = PPMaterial->GetRenderProxy(false)->GetMaterial(FeatureLevel);
+	const FMaterial* const CameraMaterial = PPMaterial->GetRenderProxy()->GetMaterial(FeatureLevel);
 	const FMaterialShaderMap* const MaterialShaderMap = CameraMaterial->GetRenderingThreadShaderMap();
 
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;
@@ -302,25 +296,14 @@ void FARCameraSceneViewExtension::RenderARCamera_RenderThread(FRHICommandListImm
 	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
 	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI();
 	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule.GetFilterVertexDeclaration().VertexDeclarationRHI;
+	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
 
-	const bool bIsMobileRenderer = FeatureLevel <= ERHIFeatureLevel::ES3_1;
-	FMaterialShader* VertexShader = nullptr;
-	FMaterialShader* PixelShader = nullptr;
-	if (bIsMobileRenderer)
-	{
-		VertexShader = MaterialShaderMap->GetShader<FRemoteSessionARCameraVS<true>>();
-		PixelShader = MaterialShaderMap->GetShader<FRemoteSessionARCameraPS>();
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(reinterpret_cast<FRemoteSessionARCameraVS<true>*>(VertexShader));
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(reinterpret_cast<FRemoteSessionARCameraPS*>(PixelShader));
-	}
-	else
-	{
-		VertexShader = MaterialShaderMap->GetShader<FRemoteSessionARCameraVS<false>>();
-		PixelShader = MaterialShaderMap->GetShader<FRemoteSessionARCameraPS>();
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(reinterpret_cast<FRemoteSessionARCameraVS<false>*>(VertexShader));
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(reinterpret_cast<FRemoteSessionARCameraPS*>(PixelShader));
-	}
+	FRemoteSessionARCameraVS* VertexShader = MaterialShaderMap->GetShader<FRemoteSessionARCameraVS>();
+	FRemoteSessionARCameraPS* PixelShader = MaterialShaderMap->GetShader<FRemoteSessionARCameraPS>();
+	check(PixelShader != nullptr && VertexShader != nullptr);
+
+	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(VertexShader);
+	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(PixelShader);
 
 	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
@@ -332,27 +315,15 @@ void FARCameraSceneViewExtension::RenderARCamera_RenderThread(FRHICommandListImm
 			1.0f / ViewSize.X, 1.0f / ViewSize.Y,
 			1.0f, 1.0f);
 
-	if (bIsMobileRenderer)
-	{
-		FRemoteSessionARCameraVS<true>* const VertexShaderPtr = reinterpret_cast<FRemoteSessionARCameraVS<true>*>(VertexShader);
-		SetUniformBufferParameterImmediate(RHICmdList, VertexShaderPtr->GetVertexShader(), VertexShaderPtr->GetUniformBufferParameter<FDrawRectangleParameters>(), Parameters);
-		VertexShaderPtr->SetParameters(RHICmdList, InView);
-		reinterpret_cast<FRemoteSessionARCameraPS*>(PixelShader)->SetParameters(RHICmdList, InView, PPMaterial->GetRenderProxy(false));
-	}
-	else
-	{
-		FRemoteSessionARCameraVS<false>* const VertexShaderPtr = reinterpret_cast<FRemoteSessionARCameraVS<false>*>(VertexShader);
-		SetUniformBufferParameterImmediate(RHICmdList, VertexShaderPtr->GetVertexShader(), VertexShaderPtr->GetUniformBufferParameter<FDrawRectangleParameters>(), Parameters);
-		VertexShaderPtr->SetParameters(RHICmdList, InView);
-		reinterpret_cast<FRemoteSessionARCameraPS*>(PixelShader)->SetParameters(RHICmdList, InView, PPMaterial->GetRenderProxy(false));
-	}
+	SetUniformBufferParameterImmediate(RHICmdList, VertexShader->GetVertexShader(), VertexShader->GetUniformBufferParameter<FDrawRectangleParameters>(), Parameters);
+	VertexShader->SetParameters(RHICmdList, InView);
+	PixelShader->SetParameters(RHICmdList, InView, PPMaterial->GetRenderProxy());
 
 	if (VertexBufferRHI && IndexBufferRHI.IsValid())
 	{
 		RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
 		RHICmdList.DrawIndexedPrimitive(
 				IndexBufferRHI,
-				PT_TriangleList,
 				/*BaseVertexIndex=*/ 0,
 				/*MinIndex=*/ 0,
 				/*NumVertices=*/ 4,
@@ -366,7 +337,7 @@ void FARCameraSceneViewExtension::RenderARCamera_RenderThread(FRHICommandListImm
 
 bool FARCameraSceneViewExtension::IsActiveThisFrame(FViewport* InViewport) const
 {
-	return Channel.GetPostProcessMaterial() != nullptr;
+	return PLATFORM_DESKTOP && Channel.GetPostProcessMaterial() != nullptr;
 }
 
 static FName CameraImageParamName(TEXT("CameraImage"));
@@ -378,13 +349,13 @@ FRemoteSessionARCameraChannel::FRemoteSessionARCameraChannel(ERemoteSessionChann
 	, Connection(InConnection)
 	, Role(InRole)
 {
-	
-	static bool OnceTimeARInit = false;
-	if (!OnceTimeARInit && InRole == ERemoteSessionChannelMode::Write)
+	if (InRole == ERemoteSessionChannelMode::Write)
 	{
-		UARSessionConfig* Config = NewObject<UARSessionConfig>();
-		UARBlueprintLibrary::StartARSession(Config);
-		OnceTimeARInit = true;
+		if (UARBlueprintLibrary::GetARSessionStatus().Status != EARSessionStatus::Running)
+		{
+			UARSessionConfig* Config = NewObject<UARSessionConfig>();
+			UARBlueprintLibrary::StartARSession(Config);
+		}
 	}
 	
 	RenderingTextures[0] = nullptr;
@@ -550,7 +521,7 @@ void FRemoteSessionARCameraChannel::ReceiveARCameraImage(FBackChannelOSCMessage&
 	}
 	DecompressionTaskCount.Increment();
 
-	TSharedPtr<FDeompressedImage, ESPMode::ThreadSafe> DecompressedImage = MakeShareable(new FDeompressedImage());
+	TSharedPtr<FDecompressedImage, ESPMode::ThreadSafe> DecompressedImage = MakeShareable(new FDecompressedImage());
 	Message << DecompressedImage->Width;
 	Message << DecompressedImage->Height;
 	Message << DecompressedImage->ImageData;
@@ -578,7 +549,7 @@ void FRemoteSessionARCameraChannel::ReceiveARCameraImage(FBackChannelOSCMessage&
 
 void FRemoteSessionARCameraChannel::UpdateRenderingTexture()
 {
-	TSharedPtr<FDeompressedImage, ESPMode::ThreadSafe> DecompressedImage;
+	TSharedPtr<FDecompressedImage, ESPMode::ThreadSafe> DecompressedImage;
 	{
 		FScopeLock sl(&DecompressionQueueLock);
 		if (DecompressionQueue.Num())

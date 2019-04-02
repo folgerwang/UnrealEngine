@@ -1,62 +1,13 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PyReferenceCollector.h"
 #include "PyWrapperBase.h"
 #include "PyWrapperDelegate.h"
 #include "UObject/UnrealType.h"
 #include "UObject/UObjectHash.h"
+#include "UObject/PurgingReferenceCollector.h"
 
 #if WITH_PYTHON
-
-/** Reference collector that will purge (null) any references to the given set of objects (as if they'd bee marked PendingKill) */
-class FPyPurgingReferenceCollector : public FReferenceCollector
-{
-public:
-	bool HasObjectToPurge() const
-	{
-		return ObjectsToPurge.Num() > 0;
-	}
-
-	void AddObjectToPurge(const UObject* Object)
-	{
-		ObjectsToPurge.Add(Object);
-	}
-
-	virtual bool IsIgnoringArchetypeRef() const override
-	{
-		return false;
-	}
-
-	virtual bool IsIgnoringTransient() const override
-	{
-		return false;
-	}
-
-protected:
-	virtual void HandleObjectReference(UObject*& Object, const UObject* ReferencingObject, const UProperty* ReferencingProperty) override
-	{
-		ConditionalPurgeObject(Object);
-	}
-
-	virtual void HandleObjectReferences(UObject** InObjects, const int32 ObjectNum, const UObject* InReferencingObject, const UProperty* InReferencingProperty) override
-	{
-		for (int32 ObjectIndex = 0; ObjectIndex < ObjectNum; ++ObjectIndex)
-		{
-			UObject*& Object = InObjects[ObjectIndex];
-			ConditionalPurgeObject(Object);
-		}
-	}
-
-	void ConditionalPurgeObject(UObject*& Object)
-	{
-		if (ObjectsToPurge.Contains(Object))
-		{
-			Object = nullptr;
-		}
-	}
-
-	TSet<const UObject*> ObjectsToPurge;
-};
 
 FPyReferenceCollector& FPyReferenceCollector::Get()
 {
@@ -93,7 +44,7 @@ void FPyReferenceCollector::PurgeUnrealObjectReferences(const UObject* InObject,
 
 void FPyReferenceCollector::PurgeUnrealObjectReferences(const TArrayView<const UObject*>& InObjects, const bool bIncludeInnerObjects)
 {
-	FPyPurgingReferenceCollector PurgingReferenceCollector;
+	FPurgingReferenceCollector PurgingReferenceCollector;
 
 	for (const UObject* Object : InObjects)
 	{

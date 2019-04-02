@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2688591
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:大气表达式
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/ExpressionReference
 Description:影响雾和其他大气级效果的表达式。
 Version:4.9
+tags:Materials
 
 [EXCERPT:contents]
 [TOC(start:2 end:2)]

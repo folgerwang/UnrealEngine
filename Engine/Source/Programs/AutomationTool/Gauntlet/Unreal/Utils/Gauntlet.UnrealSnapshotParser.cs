@@ -1,3 +1,5 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -40,9 +42,9 @@ namespace Gauntlet
 			if (ProfileLength > 0)
 			{
 				SB.AppendFormat("Snapshot {0}\n", Name);
-				SB.AppendFormat("Duration {0}\n", ProfileLength);
+				SB.AppendFormat("Duration\t{0}\n", ProfileLength);
 
-				SB.AppendFormat("Memory:\t{0} MB\n", CpuUsedMemory);
+				SB.AppendFormat("Memory:\t\t{0} MB\n", CpuUsedMemory);
 				SB.AppendFormat("MVP:\t\t{0:0.00}\n", MVP);
 				SB.AppendFormat("AvgFps:\t\t{0:0.00}\n", AvgFps);
 				SB.AppendFormat("HPM:\t\t{0:0.00}\n", Hitches);
@@ -58,7 +60,7 @@ namespace Gauntlet
 			}
 			else
 			{
-				SB.Append("No info");
+				SB.Append("No info\n");
 			}
 			return SB.ToString();
 		}
@@ -83,7 +85,7 @@ namespace Gauntlet
 				PhysicalPeakMemory += Convert.ToSingle(Groups[2]);
 			});
 
-			RegexUtil.MatchAndApplyGroups(InContent, @"MeasuredPerfTime\s(\d.+) Secs", (Groups) =>
+			RegexUtil.MatchAndApplyGroups(InContent, @"MeasuredPerfTime:\s(\d.+) S", (Groups) =>
 			{
 				ProfileLength += Convert.ToSingle(Groups[1]);
 			});
@@ -191,7 +193,7 @@ namespace Gauntlet
 			try
 			{
 				// Find all end of match reports
-				string[] SessionSnapshots = Parser.GetGroupsOfLinesStartingWith(InTitle, 16);
+				string[] SessionSnapshots = Parser.GetGroupsOfLinesStartingWith(InTitle, 20);
 
 				SampleCount = SessionSnapshots.Length;
 				SessionTime = 0;

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -85,6 +85,10 @@ public:
 	/** End location of cable, relative to AttachEndTo (or AttachEndToSocketName) if specified, otherwise relative to cable component. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Cable", meta=(MakeEditWidget=true))
 	FVector EndLocation;
+
+	/** Attaches the end of the cable to a specific Component **/
+	UFUNCTION(BlueprintCallable, Category = "Cable")
+	void SetAttachEndToComponent(USceneComponent* Component, FName SocketName = NAME_None);
 
 	/** Attaches the end of the cable to a specific Component within an Actor **/
 	UFUNCTION(BlueprintCallable, Category = "Cable")

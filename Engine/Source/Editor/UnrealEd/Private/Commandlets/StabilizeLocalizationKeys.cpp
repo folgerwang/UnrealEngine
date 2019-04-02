@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Commandlets/StabilizeLocalizationKeys.h"
 #include "HAL/FileManager.h"
@@ -102,9 +102,9 @@ public:
 					if (StructVariableDesc.Category == TextCategory)
 					{
 						FText StructVariableValue;
-						if (FTextStringHelper::ReadFromString(*StructVariableDesc.DefaultValue, StructVariableValue) && KeyText(StructVariableValue))
+						if (FTextStringHelper::ReadFromBuffer(*StructVariableDesc.DefaultValue, StructVariableValue) && KeyText(StructVariableValue))
 						{
-							FTextStringHelper::WriteToString(StructVariableDesc.DefaultValue, StructVariableValue);
+							FTextStringHelper::WriteToBuffer(StructVariableDesc.DefaultValue, StructVariableValue);
 						}
 					}
 				}

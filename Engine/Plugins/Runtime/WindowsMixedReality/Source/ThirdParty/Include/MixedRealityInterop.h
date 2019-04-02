@@ -68,6 +68,7 @@ namespace WindowsMixedReality
 
 		enum class HMDInputControllerAxes
 		{
+			SelectValue,
 			ThumbstickX,
 			ThumbstickY,
 			TouchpadX,
@@ -80,7 +81,7 @@ namespace WindowsMixedReality
 		UINT64 GraphicsAdapterLUID();
 
 		void Initialize(ID3D11Device* device, float nearPlane = 0.001f, float farPlane = 100000.0f);
-		void Dispose();
+		void Dispose(bool force = false);
 		bool IsStereoEnabled();
 		bool IsTrackingAvailable();
 		void ResetOrientationAndPosition();
@@ -97,8 +98,7 @@ namespace WindowsMixedReality
 
 		void CreateHiddenVisibleAreaMesh();
 
-		int GetDisplayWidth();
-		int GetDisplayHeight();
+		bool GetDisplayDimensions(int& width, int& height);
 		const wchar_t* GetDisplayName();
 
 		// Get the latest pose information from our tracking frame.
@@ -134,16 +134,10 @@ namespace WindowsMixedReality
 
 		void SubmitHapticValue(HMDHand hand, float value);
 
-	private:
-		bool CreateInteropDevice(ID3D11Device* device);
-
-		void StereoCopy(
-			ID3D11DeviceContext* D3D11Context,
-			const float viewportScale,
-			ID3D11Texture2D* src,
-			ID3D11Texture2D* dst);
-
-		bool bInitialized;
+		// Remoting
+		void ConnectToRemoteHoloLens(ID3D11Device* device, const wchar_t* ip, int bitrate);
+		void DisconnectFromRemoteHoloLens();
+		bool IsRemoting();
 	};
 }
 

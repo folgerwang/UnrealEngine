@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -158,7 +158,15 @@ static IOnline##InterfaceType##Ptr Get##InterfaceType##Interface(const UWorld* W
 { \
 	IOnlineSubsystem* OSS = Online::GetSubsystem(World, SubsystemName); \
 	return (OSS == NULL) ? NULL : OSS->Get##InterfaceType##Interface(); \
-}
+} \
+static IOnline##InterfaceType##Ptr Get##InterfaceType##InterfaceChecked(const UWorld* World, const FName SubsystemName = NAME_None) \
+{ \
+	IOnlineSubsystem* OSS = Online::GetSubsystem(World, SubsystemName); \
+	check(OSS); \
+	IOnline##InterfaceType##Ptr InterfacePtr = OSS->Get##InterfaceType##Interface(); \
+	check(InterfacePtr.IsValid()); \
+	return InterfacePtr; \
+} 
 
 namespace Online
 {
@@ -216,7 +224,7 @@ namespace Online
 	}
 
 	/** 
-	 * Determine if the subsystem for a given interface is already loaded
+	 * Determine if the subsystem module for a given interface is already loaded.  Note that modules do not typically initialize the subsystem when the module is loaded.
 	 *
 	 * @param World the world to use for context
 	 * @param SubsystemName name of the requested online service
@@ -241,7 +249,34 @@ namespace Online
 		return IOnlineSubsystem::IsLoaded(SubsystemName);
 #endif
 	}
-
+	
+	/**
+	 * Determine if the subsystem for a given interface has been instanced
+	 *
+	 * @param World the world to use for context
+	 * @param SubsystemName name of the requested online service
+	 *
+	 * @return true if the subsystem has been instanced
+	 */
+	static bool DoesInstanceExist(const UWorld* World, const FName& SubsystemName = NAME_None)
+	{
+#if UE_EDITOR // at present, multiple worlds are only possible in the editor
+		FName Identifier = SubsystemName;
+		if (World != NULL)
+		{
+			FWorldContext& CurrentContext = GEngine->GetWorldContextFromWorldChecked(World);
+			if (CurrentContext.WorldType == EWorldType::PIE)
+			{
+				Identifier = FName(*FString::Printf(TEXT("%s:%s"), SubsystemName != NAME_None ? *SubsystemName.ToString() : TEXT(""), *CurrentContext.ContextHandle.ToString()));
+			}
+		}
+		
+		return IOnlineSubsystem::DoesInstanceExist(SubsystemName);
+#else
+		return IOnlineSubsystem::DoesInstanceExist(SubsystemName);
+#endif
+	}
+	
 	/** Reimplement all the interfaces of Online.h with support for UWorld accessors */
 	IMPLEMENT_GET_INTERFACE(Session);
 	IMPLEMENT_GET_INTERFACE(Party);

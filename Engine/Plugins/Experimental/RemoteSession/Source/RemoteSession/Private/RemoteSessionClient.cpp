@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "RemoteSessionClient.h"
 #include "BackChannel/Transport/IBackChannelTransport.h"
@@ -102,15 +102,11 @@ void FRemoteSessionClient::CheckConnection()
 
 	// success indicates that our check was successful, if our connection was successful then
 	// the delegate code is called
-	bool Success = Connection->WaitForConnection(0, [this](auto InConnection) {
-		int32 WantedSize = 4 * 1024 * 1024;
-		int32 ActualSize(0);
-
-		Connection->GetSocket()->SetReceiveBufferSize(WantedSize, ActualSize);
-
+	bool Success = Connection->WaitForConnection(0, [this](auto InConnection)
+	{
 		CreateOSCConnection(Connection.ToSharedRef());
 		
-		UE_LOG(LogRemoteSession, Log, TEXT("Connected to host at %s (ReceiveSize=%dkb)"), *HostAddress, ActualSize / 1024);
+		UE_LOG(LogRemoteSession, Log, TEXT("Connected to host at %s"), *HostAddress);
 
 		IsConnecting = false;
 

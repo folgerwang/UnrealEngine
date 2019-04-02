@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ShaderCompilerCommon.h"
 #include "Misc/Paths.h"
@@ -107,7 +107,7 @@ bool BuildResourceTableMapping(
 			if (!ParameterMap.FindParameterAllocation(*Entry.UniformBufferName, UniformBufferIndex, UBBaseIndex, UBSize))
 			{
 				UniformBufferIndex = UsedUniformBufferSlots.FindAndSetFirstZeroBit();
-				ParameterMap.AddParameterAllocation(*Entry.UniformBufferName,UniformBufferIndex,0,0);
+				ParameterMap.AddParameterAllocation(*Entry.UniformBufferName,UniformBufferIndex,0,0,EShaderParameterType::UniformBuffer);
 			}
 
 			// Mark used UB index
@@ -131,15 +131,19 @@ bool BuildResourceTableMapping(
 			switch( Entry.Type )
 			{
 			case UBMT_TEXTURE:
+			case UBMT_RDG_TEXTURE:
 				OutSRT.TextureMap.Add(ResourceMap);
 				break;
 			case UBMT_SAMPLER:
 				OutSRT.SamplerMap.Add(ResourceMap);
 				break;
 			case UBMT_SRV:
+			case UBMT_RDG_TEXTURE_SRV:
+			case UBMT_RDG_BUFFER_SRV:
 				OutSRT.ShaderResourceViewMap.Add(ResourceMap);
 				break;
-			case UBMT_UAV:
+			case UBMT_RDG_TEXTURE_UAV:
+			case UBMT_RDG_BUFFER_UAV:
 				OutSRT.UnorderedAccessViewMap.Add(ResourceMap);
 				break;
 			default:
@@ -428,6 +432,248 @@ TCHAR* FindNextUniformBufferReference(TCHAR* SearchPtr, const TCHAR* SearchStrin
 }
 
 
+void MoveShaderParametersToRootConstantBuffer(const FShaderCompilerInput& CompilerInput, FString& PreprocessedShaderSource)
+{
+	check(CompilerInput.RootParameterBindings.Num());
+
+	TMap<FString, FString> ShaderParameterTypes;
+	ShaderParameterTypes.Reserve(CompilerInput.RootParameterBindings.Num());
+
+	// Prepare the set of parameter to look for.
+	for (const auto& Member : CompilerInput.RootParameterBindings)
+	{
+		ShaderParameterTypes.Add(Member.Name, FString());
+	}
+
+
+	// Browse the code for global shader parameter, Save their type and erase them white spaces.
+	{
+		int32 TypeStartPos = -1;
+		int32 TypeEndPos = -1;
+		int32 NameStartPos = -1;
+		int32 NameEndPos = -1;
+		int32 ScopeIndent = 0;
+		bool bGoToNextSemicolon = false;
+		bool bGoToNextLine = false;
+
+		for (int32 Cursor = 0; Cursor < PreprocessedShaderSource.Len(); Cursor++)
+		{
+			TCHAR Char = PreprocessedShaderSource[Cursor];
+
+			const TCHAR* UpComing = (*PreprocessedShaderSource) + Cursor;
+
+			// Go to the next line if this is a preprocessor macro.
+			if (bGoToNextLine)
+			{
+				if (Char == '\n')
+				{
+					bGoToNextLine = false;
+				}
+				continue;
+			}
+			else if (Char == '#')
+			{
+				bGoToNextLine = true;
+				continue;
+			}
+
+			// If within a scope, just carry on until outside the scope.
+			if (ScopeIndent > 0 || Char == '{')
+			{
+				if (Char == '{')
+				{
+					ScopeIndent++;
+				}
+				else if (Char == '}')
+				{
+					ScopeIndent--;
+					if (ScopeIndent == 0)
+					{
+						TypeStartPos = -1;
+						TypeEndPos = -1;
+						NameStartPos = -1;
+						NameEndPos = -1;
+						bGoToNextSemicolon = false;
+					}
+				}
+				continue;
+			}
+
+			// If need to go to next global semicolon and reach it. Resume browsing.
+			if (bGoToNextSemicolon)
+			{
+				if (Char == ';')
+				{
+					bGoToNextSemicolon = false;
+				}
+				continue;
+			}
+
+			// Found something interesting...
+			if ((Char >= 'a' && Char <= 'z') ||
+				(Char >= 'A' && Char <= 'Z') ||
+				(Char >= '0' && Char <= '9') ||
+				Char == '<' || Char == '>' || Char == '_')
+			{
+				if (TypeStartPos == -1)
+				{
+					TypeStartPos = Cursor;
+				}
+				else if (TypeEndPos != -1 && NameStartPos == -1)
+				{
+					NameStartPos = Cursor;
+				}
+				else if (NameEndPos != -1)
+				{
+					TypeStartPos = -1;
+					TypeEndPos = -1;
+					NameStartPos = -1;
+					NameEndPos = -1;
+					bGoToNextSemicolon = true;
+					continue;
+				}
+
+				continue;
+			}
+
+			// If this is white space, just carry on.
+			if (Char == ' ' || Char == '\t' || Char == '\r' || Char == '\n')
+			{
+				if (TypeStartPos != -1 && TypeEndPos == -1)
+				{
+					// Just finished browsing what might be a type.
+					TypeEndPos = Cursor - 1;
+				}
+				else if (NameStartPos != -1 && NameEndPos == -1)
+				{
+					// Just finished browsing what might be shader parameter name.
+					NameEndPos = Cursor - 1;
+				}
+				continue;
+			}
+			else if (Char == ';')
+			{
+				if (NameStartPos != -1 && NameEndPos == -1)
+				{
+					// Just finished browsing what is a shader parameter name.
+					NameEndPos = Cursor - 1;
+				}
+				else if (NameEndPos != -1)
+				{
+					// Greate we found something, so fall through.
+				}
+				else
+				{
+					// No idea what it was, reset...
+					TypeStartPos = -1;
+					TypeEndPos = -1;
+					NameStartPos = -1;
+					NameEndPos = -1;
+					continue;
+				}
+			}
+			else if (Char == ':' && NameStartPos != -1)
+			{
+				// Just finished browsing what might be shader parameter name.
+				if (NameEndPos != -1)
+				{
+					NameEndPos = Cursor - 1;
+				}
+				continue;
+			}
+			else
+			{
+				// No idea what it was, reset and go to next semicolon...
+				TypeStartPos = -1;
+				TypeEndPos = -1;
+				NameStartPos = -1;
+				NameEndPos = -1;
+				bGoToNextSemicolon = true;
+				continue;
+			}
+
+			check(Char == ';');
+
+			// A shader parameter has been found.
+			{
+				FString Type = PreprocessedShaderSource.Mid(TypeStartPos, TypeEndPos - TypeStartPos + 1);
+				FString Name = PreprocessedShaderSource.Mid(NameStartPos, NameEndPos - NameStartPos + 1);
+
+				if (ShaderParameterTypes.Contains(Name))
+				{
+					ensureMsgf(ShaderParameterTypes.FindChecked(Name).IsEmpty(), TEXT("Looks %s like shader parameter was duplicated."), *Name);
+					ShaderParameterTypes[Name] = Type;
+
+					// Erases this shader parameter conserving the same line numbers.
+					for (int32 j = TypeStartPos; j <= Cursor; j++)
+					{
+						if (PreprocessedShaderSource[j] != '\r' && PreprocessedShaderSource[j] != '\n')
+							PreprocessedShaderSource[j] = ' ';
+					}
+				}
+
+				// And reset.
+				TypeStartPos = -1;
+				TypeEndPos = -1;
+				NameStartPos = -1;
+				NameEndPos = -1;
+				bGoToNextSemicolon = false;
+			}
+		}
+	}
+
+	// Generate the root cbuffer content.
+	FString RootCBufferContent;
+	for (const auto& Member : CompilerInput.RootParameterBindings)
+	{
+		const FString& Type = ShaderParameterTypes[Member.Name];
+		if (Type.IsEmpty())
+		{
+			continue;
+		}
+
+		FString HLSLOffset;
+		{
+			int32 ByteOffset = int32(Member.ByteOffset);
+			HLSLOffset = FString::FromInt(ByteOffset / 16);
+			
+			switch (ByteOffset % 16)
+			{
+			case 0:
+				break;
+			case 4:
+				HLSLOffset.Append(TEXT(".y"));
+				break;
+			case 8:
+				HLSLOffset.Append(TEXT(".z"));
+				break;
+			case 12:
+				HLSLOffset.Append(TEXT(".w"));
+				break;
+			}
+		}
+
+		RootCBufferContent.Append(FString::Printf(
+			TEXT("%s %s : packoffset(c%s);\r\n"),
+			*Type,
+			*Member.Name,
+			*HLSLOffset));
+		ShaderParameterTypes.Add(Member.Name, FString());
+	}
+
+	FString NewShaderCode = FString::Printf(
+		TEXT("cbuffer %s\r\n")
+		TEXT("{\r\n")
+		TEXT("%s")
+		TEXT("}\r\n\r\n%s"),
+		FShaderParametersMetadata::kRootUniformBufferBindingName,
+		*RootCBufferContent,
+		*PreprocessedShaderSource);
+
+	PreprocessedShaderSource = MoveTemp(NewShaderCode);
+}
+
+
 // The cross compiler doesn't yet support struct initializers needed to construct static structs for uniform buffers
 // Replace all uniform buffer struct member references (View.WorldToClip) with a flattened name that removes the struct dependency (View_WorldToClip)
 void RemoveUniformBuffersFromSource(const FShaderCompilerEnvironment& Environment, FString& PreprocessedShaderSource)
@@ -517,7 +763,7 @@ void RemoveUniformBuffersFromSource(const FShaderCompilerEnvironment& Environmen
 	}
 }
 
-FString CreateShaderCompilerWorkerDirectCommandLine(const FShaderCompilerInput& Input)
+FString CreateShaderCompilerWorkerDirectCommandLine(const FShaderCompilerInput& Input, uint32 CCFlags)
 {
 	FString Text(TEXT("-directcompile -format="));
 	Text += Input.ShaderFormat.GetPlainNameString();
@@ -531,7 +777,12 @@ FString CreateShaderCompilerWorkerDirectCommandLine(const FShaderCompilerInput& 
 	case SF_Geometry:	Text += TEXT(" -gs"); break;
 	case SF_Pixel:		Text += TEXT(" -ps"); break;
 	case SF_Compute:	Text += TEXT(" -cs"); break;
-	default: ensure(0); break;
+#if RHI_RAYTRACING
+	case SF_RayGen:			Text += TEXT(" -rgs"); break;
+	case SF_RayMiss:		Text += TEXT(" -rms"); break;
+	case SF_RayHitGroup:	Text += TEXT(" -rhs"); break;
+#endif // RHI_RAYTRACING
+	default: break;
 	}
 	if (Input.bCompilingForShaderPipeline)
 	{
@@ -562,6 +813,11 @@ FString CreateShaderCompilerWorkerDirectCommandLine(const FShaderCompilerInput& 
 	{
 		Text += TEXT(" -cflags=");
 		Text += FString::Printf(TEXT("%llu"), CFlags);
+	}
+	if (CCFlags)
+	{
+		Text += TEXT(" -hlslccflags=");
+		Text += FString::Printf(TEXT("%llu"), CCFlags);
 	}
 	// When we're running in directcompile mode, we don't to spam the crash reporter
 	Text += TEXT(" -nocrashreports");
@@ -647,6 +903,8 @@ void CompileOfflineMali(const FShaderCompilerInput& Input, FShaderCompilerOutput
 
 		FString CompilerPath = Input.ExtraSettings.OfflineCompilerPath;
 
+		FString CompilerCommand = "";
+
 		// add process and thread ids to the file name to avoid collision between workers
 		auto ProcID = FPlatformProcess::GetCurrentProcessId();
 		auto ThreadID = FPlatformTLS::GetCurrentThreadId();
@@ -658,27 +916,27 @@ void CompileOfflineMali(const FShaderCompilerInput& Input, FShaderCompilerOutput
 		{
 			case SF_Vertex:
 				GLSLSourceFile += TEXT(".vert");
-				CompilerPath += TEXT(" -v");
+				CompilerCommand += TEXT(" -v");
 			break;
 			case SF_Pixel:
 				GLSLSourceFile += TEXT(".frag");
-				CompilerPath += TEXT(" -f");
+				CompilerCommand += TEXT(" -f");
 			break;
 			case SF_Geometry:
 				GLSLSourceFile += TEXT(".geom");
-				CompilerPath += TEXT(" -g");
+				CompilerCommand += TEXT(" -g");
 			break;
 			case SF_Hull:
 				GLSLSourceFile += TEXT(".tesc");
-				CompilerPath += TEXT(" -t");
+				CompilerCommand += TEXT(" -t");
 			break;
 			case SF_Domain:
 				GLSLSourceFile += TEXT(".tese");
-				CompilerPath += TEXT(" -e");
+				CompilerCommand += TEXT(" -e");
 			break;
 			case SF_Compute:
 				GLSLSourceFile += TEXT(".comp");
-				CompilerPath += TEXT(" -C");
+				CompilerCommand += TEXT(" -C");
 			break;
 
 			default:
@@ -688,11 +946,11 @@ void CompileOfflineMali(const FShaderCompilerInput& Input, FShaderCompilerOutput
 
 		if (bVulkanSpirV)
 		{
-			CompilerPath += TEXT(" -p");
+			CompilerCommand += TEXT(" -p");
 		}
 		else
 		{
-			CompilerPath += TEXT(" -s");
+			CompilerCommand += TEXT(" -s");
 		}
 
 		FArchive* Ar = IFileManager::Get().CreateFileWriter(*GLSLSourceFile, FILEWRITE_EvenIfReadOnly);
@@ -710,8 +968,21 @@ void CompileOfflineMali(const FShaderCompilerInput& Input, FShaderCompilerOutput
 		FString StdErr;
 		int32 ReturnCode = 0;
 
-		// Run Mali shader compiler and wait for completion
-		FPlatformProcess::ExecProcess(*CompilerPath, *GLSLSourceFile, &ReturnCode, &StdOut, &StdErr);
+		// Since v6.2.0, Mali compiler needs to be started in the executable folder or it won't find "external/glslangValidator" for Vulkan
+		FString CompilerWorkingDirectory = FPaths::GetPath(CompilerPath);
+
+		if (!CompilerWorkingDirectory.IsEmpty() && FPaths::DirectoryExists(CompilerWorkingDirectory))
+		{
+			// compiler command line contains flags and the GLSL source file name
+			CompilerCommand += " " + FPaths::ConvertRelativePathToFull(GLSLSourceFile);
+
+			// Run Mali shader compiler and wait for completion
+			FPlatformProcess::ExecProcess(*CompilerPath, *CompilerCommand, &ReturnCode, &StdOut, &StdErr, *CompilerWorkingDirectory);
+		}
+		else
+		{
+			StdErr = "Couldn't find Mali offline compiler at " + CompilerPath;
+		}
 
 		// parse Mali's output and extract instruction count or eventual errors
 		ShaderOutput.bSucceeded = (ReturnCode >= 0);
@@ -920,7 +1191,10 @@ namespace CrossCompiler
 		TEXT("Domain"),
 		TEXT("Pixel"),
 		TEXT("Geometry"),
-		TEXT("Compute")
+		TEXT("Compute"),
+		TEXT("RayGen"),
+		TEXT("RayMiss"),
+		TEXT("RayHitGroup"),
 	};
 
 	/** Compile time check to verify that the GL mapping tables are up-to-date. */

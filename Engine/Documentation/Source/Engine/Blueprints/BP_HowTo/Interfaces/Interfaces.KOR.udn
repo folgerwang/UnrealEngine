@@ -95,7 +95,7 @@ tags:Blueprints
 	여기서는 IsDestructible? 함수를 실행하고, 그 인터페이스와 함수를 구현하는 블루프린트도 전부 실행됩니다.
 
 	[REGION:note]
-	노드가 보이지 않는 경우, 맥락 메뉴 우상단의 **맥락 의존적** 옵션 체크를 해제하면 됩니다.
+	노드가 보이지 않는 경우, 컨텍스트 메뉴 우상단의 **컨텍스트에 따라** 옵션 체크를 해제하면 됩니다.
 	[/REGION]
 
 1.	**Branch** (분기)의 **False** 핀에서 **IsDestructible?** 노드를 연결하고 **Other** 와 **HitLocation** 핀을 연결합니다.

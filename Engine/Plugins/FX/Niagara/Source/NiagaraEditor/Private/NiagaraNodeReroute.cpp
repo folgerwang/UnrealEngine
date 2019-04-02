@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraNodeReroute.h"
 #include "NiagaraEditorUtilities.h"
@@ -22,6 +22,12 @@ void UNiagaraNodeReroute::PostEditChangeProperty(FPropertyChangedEvent& Property
 	{
 		ReallocatePins();
 	}
+}
+
+
+ENiagaraNumericOutputTypeSelectionMode UNiagaraNodeReroute::GetNumericOutputTypeSelectionMode() const
+{
+	return ENiagaraNumericOutputTypeSelectionMode::Largest;
 }
 
 void UNiagaraNodeReroute::PostLoad()

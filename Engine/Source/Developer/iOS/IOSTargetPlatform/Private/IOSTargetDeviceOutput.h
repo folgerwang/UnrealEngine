@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -24,7 +24,7 @@ public:
 	virtual uint32 Run(void) override;
 
 private:
-	bool StartDSProcess(void);
+	bool StartDSCommander();
 
 private:
 	// > 0 if we've been asked to abort work in progress at the next opportunity
@@ -35,7 +35,7 @@ private:
 	
 	void*				DSReadPipe;
 	void*				DSWritePipe;
-	FProcHandle			DSProcHandle;
+	FTcpDSCommander*		DSCommander;
 };
 
 /**
@@ -45,6 +45,8 @@ class FIOSTargetDeviceOutput : public ITargetDeviceOutput
 {
 public:
 	bool Init(const FIOSTargetDevice& TargetDevice, FOutputDevice* Output);
+
+	static int ExecuteDSCommand(const char *CommandLine, FString* OutStdOut);
 	
 private:
 	TUniquePtr<FRunnableThread>						DeviceOutputThread;

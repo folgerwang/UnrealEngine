@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "InMemoryNetworkReplayStreaming.h"
 #include "Serialization/MemoryReader.h"
@@ -444,6 +444,8 @@ void FInMemoryNetworkReplayStreamer::GotoCheckpointIndexInternal(int32 Checkpoin
 		FileAr->Seek(0);
 		Result.ExtraTimeMS = ExtraSkipTimeInMS;
 		Result.Result = EStreamingOperationResult::Success;
+		Result.CheckpointInfo.CheckpointIndex = FReplayCheckpointInfo::NO_CHECKPOINT;
+		Result.CheckpointInfo.CheckpointStartTime = FReplayCheckpointInfo::NO_CHECKPOINT;
 	}
 	else
 	{
@@ -455,11 +457,14 @@ void FInMemoryNetworkReplayStreamer::GotoCheckpointIndexInternal(int32 Checkpoin
 		}
 		else
 		{
-			CheckpointAr.Reset(new FMemoryReader(FoundReplay->Checkpoints[CheckpointIndex].Data));
+			const FInMemoryReplay::FCheckpoint& Checkpoint = FoundReplay->Checkpoints[CheckpointIndex];
+			CheckpointAr.Reset(new FMemoryReader(Checkpoint.Data));
 
-			FileAr->Seek(FoundReplay->Checkpoints[CheckpointIndex].StreamByteOffset);
+			FileAr->Seek(Checkpoint.StreamByteOffset);
 			Result.ExtraTimeMS = ExtraSkipTimeInMS;
 			Result.Result = EStreamingOperationResult::Success;
+			Result.CheckpointInfo.CheckpointIndex = CheckpointIndex;
+			Result.CheckpointInfo.CheckpointStartTime = Checkpoint.TimeInMS;
 		}
 	}
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimNode_LiveLinkPose.h"
 #include "ILiveLinkClient.h"
@@ -30,7 +30,7 @@ void FAnimNode_LiveLinkPose::Initialize_AnyThread(const FAnimationInitializeCont
 
 void FAnimNode_LiveLinkPose::Update_AnyThread(const FAnimationUpdateContext & Context)
 {
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 
 	// Accumulate Delta time from update
 	CachedDeltaTime += Context.GetDeltaTime();
@@ -56,8 +56,6 @@ void FAnimNode_LiveLinkPose::Evaluate_AnyThread(FPoseContext& Output)
 	{
 		return;
 	}
-
-	
 
 	if(const FLiveLinkSubjectFrame* Subject = LiveLinkClient->GetSubjectData(SubjectName))
 	{

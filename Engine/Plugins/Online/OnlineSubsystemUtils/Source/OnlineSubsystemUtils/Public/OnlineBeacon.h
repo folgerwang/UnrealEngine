@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -110,6 +110,9 @@ protected:
 	EBeaconState::Type BeaconState;
 	/** Handle to the registered HandleNetworkFailure delegate */
 	FDelegateHandle HandleNetworkFailureDelegateHandle;
+
+	/** Name of definition to use when creating the net driver */
+	FName NetDriverDefinitionName;
 
 	/** Common initialization for all beacon types */
 	virtual bool InitBase();

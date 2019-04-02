@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimNodes/AnimNode_BlendListBase.h"
 #include "AnimationRuntime.h"
@@ -73,7 +73,7 @@ void FAnimNode_BlendListBase::CacheBones_AnyThread(const FAnimationCacheBonesCon
 
 void FAnimNode_BlendListBase::Update_AnyThread(const FAnimationUpdateContext& Context)
 {
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 
 	const int NumPoses = BlendPose.Num();
 	checkSlow((BlendTime.Num() == NumPoses) && (BlendWeights.Num() == NumPoses));
@@ -225,8 +225,8 @@ void FAnimNode_BlendListBase::Evaluate_AnyThread(FPoseContext& Output)
 			FPoseLink& CurrentPose = BlendPose[PoseIndex];
 			CurrentPose.Evaluate(EvaluateContext);
 
-			FilteredPoses[i].CopyBonesFrom(EvaluateContext.Pose);
-			FilteredCurve[i] = EvaluateContext.Curve;
+			FilteredPoses[i].MoveBonesFrom(EvaluateContext.Pose);
+			FilteredCurve[i].MoveFrom(EvaluateContext.Curve);
 		}
 
 		// Use the calculated blend sample data if we're blending per-bone

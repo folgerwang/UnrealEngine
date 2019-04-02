@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Misc/FbxErrors.h"
 	
@@ -53,6 +53,10 @@ FName FFbxErrors::Generic_Mesh_TooManyLODs(TEXT("Generic_Mesh_TooManyLODs"));
 
 FName FFbxErrors::Generic_Mesh_TangentsComputeError(TEXT("Generic_Mesh_TangentsComputeError"));
 
+FName FFbxErrors::Generic_Mesh_NoReductionModuleAvailable(TEXT("Generic_Mesh_NoReductionModuleAvailable"));
+
+FName FFbxErrors::Generic_Mesh_TooMuchUVChannels(TEXT("Generic_Mesh_TooMuchUVChannels"));
+
 /** Static Mesh **/
 FName FFbxErrors::StaticMesh_TooManyMaterials(TEXT("StaticMesh_TooManyMaterials"));
 
@@ -63,6 +67,8 @@ FName FFbxErrors::StaticMesh_NoTriangles(TEXT("StaticMesh_NoTriangles"));
 FName FFbxErrors::StaticMesh_BuildError(TEXT("StaticMesh_BuildError"));
 
 FName FFbxErrors::StaticMesh_AllTrianglesDegenerate(TEXT("StaticMesh_AllTrianglesDegenerate"));
+
+FName FFbxErrors::StaticMesh_AdjacencyOptionForced(TEXT("StaticMesh_AdjacencyOptionForced"));
 
 /** SkeletalMesh **/
 FName FFbxErrors::SkeletalMesh_DifferentRoots(TEXT("SkeletalMesh_DifferentRoot"));

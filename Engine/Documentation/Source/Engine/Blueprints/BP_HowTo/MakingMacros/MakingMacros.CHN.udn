@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2680777
+﻿INTSourceChangelist:3244370
 Availability:Public
 Title:创建宏
 Crumbs: %ROOT%, Engine, Engine\Blueprints, Engine\Blueprints\BP_HowTo
@@ -8,9 +8,11 @@ Related:Engine/Blueprints/UserGuide/Types/MacroLibrary
 Related:Engine/Blueprints
 version:4.9
 skilllevel:Advanced
+tags:Blueprints
 
 本质上来说，**宏** 和节点的重叠图表原理相同。他们都有通道节点设计的进入点和离开点。每个通道可拥有任意数量的执行或数据引脚。在其他蓝图和图表上使用时，这些引脚在宏节点上均为可见。
 
+(#CreatingMacros)
 ## 创建宏
 
 在本例中，我们将创建一个 **宏**，用于检查确定玩家角色是否拥有足够能量执行跳跃。如能量足够，将扣除相应能量值，显示当前数值到屏幕上，然后允许玩家执行跳跃。如能量不足，屏幕上将显示玩家能量不足，无法跳跃。 

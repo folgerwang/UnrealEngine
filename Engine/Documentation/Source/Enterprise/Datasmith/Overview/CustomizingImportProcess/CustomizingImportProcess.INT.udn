@@ -1,0 +1,266 @@
+Availability: Public
+Crumbs: 
+Title: Customizing the Datasmith Import Process
+Description: Describes how to import Datasmith and CAD files using Blueprint or Python, and how to change the way your scene is transformed into Unreal Assets and Actors.
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/Overview
+Order: 4
+Tags: Datasmith
+Tags: Guides
+Tags: importing
+topic-image:datasmith-customize-import-topic.png
+
+
+The goal of the Datasmith import process is to bring a set of 3D objects that you've set up in a content creation tool smoothly into the Unreal Editor. To do this, it automatically translates objects such as meshes, lights, cameras and surface materials into their Unreal Engine equivalents while doing its best to respect the intent of your design, and it automatically populates a Level with instances of these Assets for you. For details, see the [Datasmith Overview](Enterprise/Datasmith/Overview).
+
+Sometimes, however, you may want to get inside the import process and change the way it translates your original scene into Unreal Engine Assets, or to change what it does with those Assets. For example, if there are parts of your original scene that you know you won't need in your Unreal Engine Project, you might want to filter those objects out before creating your Assets. This reduces the number of different pieces of content you have to deal with in the Unreal Editor, and can speed up the import for large scenes.  
+
+This page shows how you can use Blueprint or Python scripting to take control of the Datasmith import process.
+
+## Understanding the Import Process
+
+When you import a scene with Datasmith using the **Import** button in the toolbar, as described in [Importing Datasmith Content into Unreal Engine 4](Enterprise/Datasmith/HowTo//ImportingContent), the importer internally performs a two-step process to take your data from a *.udatasmith,* CAD, or other source file on disk and turn it into Assets and Actors in the Unreal Editor:
+
+1.  The importer reads the contents of the file into an in-memory data structure called a Datasmith Scene. This contains a representation of the 3D objects in the scene, their relationships, and all the properties of those objects that Datasmith was able to extract from your original scene.
+2.  When the Datasmith Scene is ready in memory, a second stage of the import process finalizes the scene elements into Unreal Engine Assets in the Content Browser. When the Datasmith Scene Asset is ready, the import process spawns it in the current Level. This in turn spawns all of its children: Actors, Static Mesh Actors, Lights, Cameras, and so on.
+
+![Two-step Datasmith import process](datasmith_import_process.png "Two-step Datasmith import process")
+
+## Options for Customizing the Import Process
+
+If you use a Blueprint or Python script to launch the Datasmith import process instead of using the **Import** button in the toolbar, you can de-construct the process above and carry out each of the two stages separately. This allows you to insert your own processing after you construct the Datasmith Scene in memory, but before you finalize that scene into Assets and Actors.
+
+The overall process is the same for both Blueprints and Python:
+
+1.  Construct a new in-memory Datasmith Scene representation from the location of a *.udatasmith* or CAD file on disk. Note that the Blueprint nodes and Python objects you use are slightly different depending on whether you are importing a *.udatasmith* file or a CAD file. However, both scene representations offer the same capabilities for modifying the scene.
+2.  Do any additional scene modifications that you want to affect the way your scene is transformed into Unreal Assets.
+    [REGION:tip]
+    One way you can make it easier to identify what objects you need to change is to take advantage of metadata about the objects in your scene. For details on how to access metadata in the Datasmith Scene, see [Using Datasmith Metadata](Enterprise/Datasmith/Overview/UsingDatasmithMetadata).
+    [/REGION]
+3.  Set up options for the import process. These options are essentially equivalent to the ones you set up in the Unreal Editor UI when you use the **Import Datasmith** button to start the import. For example, you set the path where the importer should place your imported assets within your project, what types of objects it should create from the Datasmith Scene, tessellation settings for parametric CAD formats, etc.
+4.  Complete the import process to finalize your Datasmith Scene into Unreal Assets.
+5.  When you no longer need the Datasmith Scene that you constructed above, you should destroy the scene in order to clear the memory resources it uses.
+6.  Now that the import process is done, your new Assets are available in the Content Browser, and your new Actors are available in the current Level (if you requested them to be added in your import options). If you want to do additional *post*-processing on the generated Unreal Assets, like creating collision data or LODs automatically, this is a great time to do that. See also [Scripting and Automating the Editor](Engine/Editor/ScriptingAndAutomation).
+
+[REGION:warning]
+Customizing the import process is very likely to have an effect on the re-import process outlined in [Datasmith Overview](Enterprise/Datasmith/Overview). For example, if you use a script to remove elements such as meshes or lights from the Datasmith Scene before you complete the import process, then you re-import the Datasmith Scene Asset, your pre-processing script is bypassed during the re-import. The result is that the objects you originally filtered out from the scene are detected as newly added, and are added to your Project or Level.
+
+For now, we recommend doing most modifications *after* import, using the tools and techniques described under  [Scripting and Automating the Editor](Engine/Editor/ScriptingAndAutomation). Modify the Datasmith Scene during import only if you have a particular need that you can't fulfill by modifying Assets and Actors after you finalize the import, such as preventing the creation of certain Assets.
+[/REGION]
+
+## Before you Start
+
+*   Make sure that you have an Unreal Studio Project open in the Editor. The Datasmith importer and scene utilities are only available in Unreal Studio Projects. For details, see [Setting Up an Unreal Project to Use Datasmith](Enterprise/Datasmith/HowTo/SettingUpUnrealProject).
+*   For background information on how to use Blueprint and Python scripts within the Editor, see the pages under [Scripting and Automating the Editor](Engine/Editor/ScriptingAndAutomation).
+
+## Examples
+
+The following examples show how to use Blueprints and Python to customize the process of importing a *.udatasmith* file and a CAD file into the Unreal Editor.
+
+%Globals:BlueprintOrPythonSelectVar%
+
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    BlueprintOrCPPSelect
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    blueprintimplementation
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    active_button_content
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:Enterprise/Datasmith/Overview/CustomizingImportProcess#blueprintContent]
+    [/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    BlueprintOrCPPSelect
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    pythonimplementation
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:Enterprise/Datasmith/Overview/CustomizingImportProcess#pythonContent]
+    [/PARAM]
+[/OBJECT]
+
+[COMMENT:none]
+
+[EXCERPT:blueprintContent]
+
+If you want to use Blueprints to customize the import process, you'll mainly be using nodes from the **Datasmith > Scene** and **Datasmith > Element** categories.
+
+[REGION:note]
+To reach these nodes, you need to disable the **Context Sensitive** checkbox in the contextual menu, or find the nodes you need in the Palette. In addition, you'll need to make your Blueprint class derive from an Editor-only base class, such as **PlacedActorUtilityBase**.
+[/REGION]
+
+The main differences between working with Datasmith files and CAD files in Blueprints are:
+
+*   Some nodes, like **Construct Datasmith Scene** and **Import Scene**, have two different variants with the same name that work on different types of objects. If you're working with Datasmith files, you need to be careful to use scene nodes that act on **Datasmith Scene** objects. If you're working with CAD files, use nodes that act on **Datasmith CAD Scene** objects.
+*   For CAD scenes, you provide the destination directory when you construct the scene instead of when you finalize the import.
+*   You set up the import options in a different way. See the examples below for details.
+
+In both cases, the rest of the script for working with the Datasmith Scene and the elements inside the scene is exactly the same.
+
+[REGION:note]
+Your destination folder must start with `/Game/`.
+[/REGION]
+
+**Datasmith Scene**
+
+[REGION:lightbox]
+[![Customized Datasmith Scene import example](customized-DS-import.png "Customized Datasmith Scene import example")](customized-DS-import.png)
+
+*Click for full image.*
+[/REGION]
+
+**Datasmith CAD Scene**
+
+[REGION:lightbox]
+[![Customized Datasmith CAD Scene example](customized-CAD-import.png "Customized Datasmith CAD Scene example")](customized-CAD-import.png)
+
+*Click for full image.*
+[/REGION]
+
+[/EXCERPT:blueprintContent]
+
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:pythonContent]
+If you want to use Python to customize the import process, your main starting point will be the `unreal.DatasmithSceneElement` and `unreal.DatasmithCADSceneElement` classes. These classes offer you all the functions you need to construct a scene from a file, work with the elements in that scene (through the functions defined in their shared base `unreal.DatasmithSceneElementBase` class), and finalize the import.
+
+The main differences between working with Datasmith files and CAD files in Python are:
+
+*   Your starting point is either `unreal.DatasmithSceneElement` or `unreal.DatasmithCADSceneElement`.
+*   For `unreal.DatasmithCADSceneElement`, you provide the destination directory when you construct the scene instead of when you finalize the import.
+*   You set up the import options in a different way. See the examples below for details.
+
+In both cases the API for working with the Datasmith Scene and the elements inside the scene are exactly the same.
+
+**Datasmith Scene**
+
+    ds_file_on_disk = "C:\\scenes\\studio.udatasmith"
+    ds_scene_in_memory = unreal.DatasmithSceneElement.construct_datasmith_scene_from_file(ds_file_on_disk)
+
+    if ds_scene_in_memory is None:
+        print "Scene loading failed."
+        quit()
+
+    # Modify the data in the scene to filter out or combine elements...
+
+    # Remove any mesh whose name includes a certain keyword.
+    remove_keyword = "exterior"
+    for mesh in ds_scene_in_memory.get_meshes():
+        mesh_name = mesh.get_element_name()
+        if remove_keyword in mesh_name:
+            print("removing mesh named " + mesh_name)
+            ds_scene_in_memory.remove_mesh(mesh)
+
+    # Remove from the scene any mesh actors that refer to a mesh we removed above.
+    for mesh_actor in ds_scene_in_memory.get_all_mesh_actors():
+        mesh_reference = mesh_actor.get_mesh_element()
+        if mesh_reference is None:
+            print("removing an actor with a missing mesh: " + mesh_actor.get_element_name())
+            ds_scene_in_memory.remove_mesh_actor(mesh_actor)
+
+    # Set import options.
+    options = unreal.DatasmithImportBaseOptions()
+    options.scene_handling = unreal.DatasmithImportScene.NEW_LEVEL
+
+    # Finalize the process by creating assets and actors.
+
+    # Your destination folder must start with /Game/
+    ds_scene_in_memory.import_scene("/Game/MyStudioScene", options)
+
+    # Clean up the Datasmith Scene.
+    ds_scene_in_memory.destroy_scene()
+    print "Custom import process complete!"
+
+**Datasmith CAD Scene**
+
+    import unreal
+
+    # Construct the Datasmith CAD Scene from a file on disk.
+    # Your destination folder must start with /Game/
+    ds_file_on_disk = "C:\\designs\\Clutch assembly.SLDASM"
+    ds_scene_in_memory = unreal.DatasmithCADSceneElement.construct_datasmith_scene_from_file(ds_file_on_disk, "/Game/MyCADScene")
+
+    if ds_scene_in_memory is None:
+        print "Scene loading failed."
+        quit()
+
+    # Modify the data in the scene to filter out or combine elements.
+    remove_keyword = "_BODY"         # we'll remove any actors with this string in their names.
+    meshes_to_skip = set([])         # we'll use this set to temporarily store the meshes we don't need.
+
+    # Remove from the scene any mesh actors whose names match the string set above.
+    for mesh_actor in ds_scene_in_memory.get_all_mesh_actors():
+        actor_label = mesh_actor.get_label()
+        if remove_keyword in actor_label:
+            print("removing actor named: " + actor_label)
+            # add this actor's mesh asset to the list of meshes to skip
+            mesh = mesh_actor.get_mesh_element()
+            meshes_to_skip.add(mesh)
+            ds_scene_in_memory.remove_mesh_actor(mesh_actor)
+
+    # Remove all the meshes we don't need to import.
+    for mesh in meshes_to_skip:
+        mesh_name = mesh.get_element_name()
+        print("removing mesh named " + mesh_name)
+        ds_scene_in_memory.remove_mesh(mesh)
+
+    # Set import options.
+    import_options = ds_scene_in_memory.get_import_options()
+    tessellation_options = import_options.tessellation_options
+    tessellation_options.chord_tolerance = 15
+    tessellation_options.max_edge_length = 40
+    tessellation_options.normal_tolerance = 45
+
+    # Finalize the process by creating assets and actors.
+    ds_scene_in_memory.import_scene()
+
+    # Clean up the Datasmith Scene.
+    ds_scene_in_memory.destroy_scene()
+    print "Custom import process complete!"
+
+[/EXCERPT:pythonContent]
+[/COMMENT]
+
+## About the Datasmith Scene
+
+In order to explore what you're able to do with the Datasmith scene during the pre-import phase, it helps to know a little about how the scene is constructed.
+
+### Scene Contents
+
+A Datasmith Scene is mostly a container for different types of *elements*. Each of these elements represents either an *asset* that will be created in your Content Browser after import, or an *Actor* that will be spawned in your Level with its own particular transform in 3D space.
+
+The main asset element types include:
+
+*   Meshes: Each mesh element represents a block of 3D geometry. When you complete the import, each mesh element ends up as a separate Static Mesh object under the Geometry folder. Each mesh element has a number of material slots, each of which is associated by name with material elements.
+*   Materials: Each material element represents a distinct type of surface that is needed for your geometries. When you complete the import, each material element ends up as a separate Material object under the Materials folder.
+*   Textures: Each texture element represents a single 2D image that is used by at least one of your Materials. When you complete the import, each texture element ends up as a separate Texture object under the Textures folder.
+
+The main actor element types include:
+
+*   Mesh actors: Each mesh actor element represents an instance of a mesh geometry in your Level. When you complete the import, each mesh actor element ends up as a Static Mesh Actor in your World Outliner.
+*   Light actors: Each light actor element represents a light emitter in your scene. When you complete the import, each light actor element ends up in your Level as an instance of a base Unreal light type, such as a Point Light or Spot Light, or as a custom Datasmith Actor that simulates an Area light. You can get and set a number of properties on these lights, such as their intensity, color, IES profile texture files, etc.
+*   Camera actors: Each camera represents a point of view set up in your source scene. When you complete the import, each camera actor element ends up in your Level as a CineCameraActor. You can get and set some basic properties on these camera actors, such as their aspect ratios.
+
+[REGION:tip]
+The data contained in the Datasmith Scene in memory is very similar to what you see in a *.udatasmith* file if you open it up. If you're using 3ds Max or Sketchup, you can open any exported *.udatasmith* file to get an idea of how the Datasmith Scene object is constructed:
+
+![Datasmith file XML contents](datasmith_xml.png "Datasmith file XML contents")
+[/REGION]
+
+### Working with the Datasmith Scene
+
+You'll mainly interact with the Datasmith Scene in order to retrieve lists of the elements outlined above. To do this, you'll use the `DatasmithSceneElementBase` in Python, or the **Datasmith > Scene** nodes in Blueprint as shown in the examples above.
+
+Once you have a list of elements, you can iterate through the list to retrieve a particular element. Then, use the Python API for that element (such as `DatasmithMeshActorElement`), or the **Datasmith > Element** nodes in Blueprint, to get and set information about that particular element. If your element is an Actor type, you can also get its child actor elements, which lets you browse downward through the scene hierarchy.
+
+If you want to remove existing elements from the scene (as shown in the examples above), or add new elements, you can do this through the `DatasmithSceneElementBase` in Python, or the **Datasmith > Scene** nodes in Blueprint. For example, you could re-shuffle the hierarchy of Actors by removing them and re-adding them under different parents.

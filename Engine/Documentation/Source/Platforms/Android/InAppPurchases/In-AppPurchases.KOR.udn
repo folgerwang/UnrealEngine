@@ -1,6 +1,6 @@
 ﻿INTSourceChangelist:3150518
-Title: 안드로이드에서 앱 내 구매 사용법
-Description: 앱 내 구매를 통해 안드로이드 게임에 부가 유료 콘텐츠를 제공하는 법입니다.
+Title: Android에서 앱 내 구매 사용법
+Description: 앱 내 구매를 통해 Android 게임에 부가 유료 콘텐츠를 제공하는 법입니다.
 Crumbs:
 Availability:Public
 version:4.10
@@ -15,7 +15,7 @@ Related:Platforms/Mobile/InAppPurchases/
 1. Google Play 에서 앱 내 구매 구성법:
 
     [REGION:note]
-	Google Play 의 id 는 모두 소문자여야 하며, 블루프린트 구성 편의를 위해 iOS 와 안드로이드 양쪽의 ID 가 일치되도록 하는 것이 좋습니다.
+	Google Play 의 id 는 모두 소문자여야 하며, 블루프린트 구성 편의를 위해 iOS 와 Android 양쪽의 ID 가 일치되도록 하는 것이 좋습니다.
 	[/REGION]
 	
 	![image alt text](image_0.png)
@@ -30,7 +30,7 @@ Related:Platforms/Mobile/InAppPurchases/
 			DynamicallyLoadedModuleNames.Add("OnlineSubsystemGooglePlay");
 		}
 
-1. **프로젝트 세팅 > 플랫폼 > 안드로이드** 에서 Advanced APKPackaging 섹션을 찾습니다.
+1. **프로젝트 세팅 > 플랫폼 > Android** 에서 Advanced APKPackaging 섹션을 찾습니다.
 
 1. ExtraPermissions 에 "com.android.vending.BILLING" 라는 엘리먼트를 추가합니다.
 	
@@ -48,7 +48,7 @@ Related:Platforms/Mobile/InAppPurchases/
 
 ## 테스팅
 
-안드로이드에서의 테스트는, Google Play 에 패키징된 APK 를 업로드하고, 올바른 테스팅 프로파일 구성도 해 줘야 합니다. 커스텀 키 스토어도 필요합니다.
+Android에서의 테스트는, Google Play 에 패키징된 APK 를 업로드하고, 올바른 테스팅 프로파일 구성도 해 줘야 합니다. 커스텀 키 스토어도 필요합니다.
 
 ## 유용한 링크
 

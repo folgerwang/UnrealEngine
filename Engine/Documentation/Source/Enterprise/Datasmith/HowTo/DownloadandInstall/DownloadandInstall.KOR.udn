@@ -1,0 +1,85 @@
+INTSourceChangelist:4501284
+Availability: Public
+Crumbs: 
+Title: 언리얼 엔진 4 다운로드와 데이터스미스 설치
+Description: 에픽 계정을 만들고, 언리얼 엔진과 데이터스미스를 컴퓨터에 설치합니다.
+Type:how-to
+Version: 4.20
+Parent: Enterprise/Datasmith/HowTo
+Order: 1
+SkillLevel:Beginner
+Tags: Enterprise
+Tags: Getting Started
+Tags: how to
+Tags: Datasmith
+Tags: Manufacturing
+Tags: overview
+Tags: beginner
+topic-image:datasmith-download-install-topic.png
+
+![](datasmith-setup-install-engine.png)
+
+[TOC]
+
+[REGION:note]
+이 단계 중 일부를 이미 완료했다면 아래 관련 부분을 건너뛸 수 있습니다.
+[/REGION]
+
+## 언리얼 엔진 4 설치
+
+1.  언리얼 엔진 4 설치 시작은 [](GettingStarted/Installation) 문서의 안내를 따르면 됩니다. 안내하는 내용은 다음과 같습니다.
+
+1.  에픽게임즈 계정을 (이미 없다면) 생성합니다.
+1.  인스톨러를 다운로드하여 실행합니다 (에픽게임즈 런처 셋업 프로그램)
+1.  에픽게임즈 런처에 로그인합니다.
+
+1.  언리얼 엔진 4 설치 준비가 되면, 에픽게임즈 런처의 **라이브러리** 탭으로 이동합니다.  
+    ![](datasmith-launcher-learn-tab.png)
+1.  **엔진 버전** 제목 옆 **+** 버튼을 클릭합니다.  
+    ![](datasmith-add-engine-version.png)
+1.  **엔진 버전** 제목 아래 새로 생긴 버전 슬롯에 언리얼 엔진 4 최신 주요 릴리즈 버전이 나타납니다.  
+    ![](datasmith-new-version-slot.png)  
+    [REGION:tip]
+    데이터스미스 베타가 항상 언리얼 엔진 4 최신 주요 릴리즈 버전에만 국한되는 것은 아닙니다. 언리얼 엔진 **Preview** (프리뷰) 릴리즈를 사용할 수도 있습니다. 엔진 버전 숫자 옆 화살표를 클릭하고 최신 프리뷰 릴리즈를 선택하여 설치할 수 있습니다.  
+    ![](datasmith-choose-version.png)
+    [/REGION]
+1.  **설치** 를 클릭하고 위치를 선택합니다.  
+    ![](datasmith-install-version.png)  
+    [REGION:tip]
+    저장 공간이 문제가 되는 경우 설치 위치를 선택할 때 **옵션** 메뉴를 선택하고 필요치 않은 엔진 부분을 해제하면 됩니다. 예를 들어 **Target Platforms** (대상 플랫폼) 중 개발 대상이 아닌 플랫폼을 선택하지 않으면 공간을 추가로 절약할 수 있습니다.
+    [REGION:lightbox]
+    [![](Install_OptionalTargetPlatforms.png)(w:300)](Install_OptionalTargetPlatforms.png)  
+    *클릭하면 이미지 원본을 확인합니다.*
+    [/REGION]
+    [/REGION]
+
+## 데이터스미스 자격 활성화 확인
+
+언리얼 엔진 4.19 릴리즈부터 데이터스미스 플러그인 전달 프로세스가 바뀌었습니다. 언리얼 스튜디오 자격이 "Active" (활성)인 경우 (아래 참고), 데이터스미스를 엔진과 함께 자동 설치할 수 있고 그렇게 될 것입니다.
+
+에픽게임즈 런처 왼쪽 패널에 보면 언리얼 스튜디오 가입 상태가 보입니다.
+
+[REGION:lightbox]
+[![](UnrealStudioSubscriptionStatus.png)(w:100)](UnrealStudioSubscriptionStatus.png)   
+*클릭하면 이미지 원본을 확인합니다.*
+[/REGION]
+
+강조 표시된 영역이 보이지 않으면, 이 계정에는 자격이 활성화되지 않았을 수 있으니, 언리얼 스튜디오가 활성화된 계정으로 로그인했는지 확인하세요. 데이터스미스 자격 관련 추가 정보는 [언리얼 스튜디오 지식 베이스](https://unrealstudiohelp.epicgames.com/s/article/What-are-Datasmith-Entitlements) 를 참고하세요.
+
+## 데이터스미스 설치 유효성 검사
+
+1.  언리얼 엔진 4 설치를 완료했으면, 엔진 버전 아래 **설치된 플러그인** 부분을 클릭하면 언리얼 데이터스미스 플러그인이 설치되었는지 확인할 수 있습니다.  
+    ![](datasmith-verify-installed-plugin.png)
+
+## 데이터스미스 플러그인 수동 설치
+
+데이터스미스 플러그인은 언리얼 스튜디오 자격이 있는 경우 언리얼 엔진 4 를 새로 설치할 때 자동으로 같이 설치됩니다. 하지만 엔진을 이미 설치했거나 UE4 해당 버전의 **설치된 플러그인** 아래 플러그인 목록이 보이지 않는 경우, 다음과 같은 방법으로 에픽게임즈 런처의 **라이브러리** 에서 플러그인을 수동 설치할 수 있습니다.
+
+1.  이미 선택하지 않은 경우 에픽게임즈 런처에서 **라이브러리** 탭을 선택합니다.  
+    ![](datasmith-launcher-library-tab.png)
+2.  페이지의 **언리얼 스튜디오 베타** 섹션 아래 **Unreal Datasmith** (언리얼 데이터스미스) 플러그인을 검색합니다. **엔진에 설치** 를 클릭합니다.  
+    ![](datasmith-launcher-unrealdatasmith.png)
+3.  플러그인을 설치하려는 엔진 버전을 선택한 다음 **설치** 를 클릭합니다.  
+    ![](datasmith-install-plugin-version.png)
+4.  설치가 끝난 후, 엔진 버전 아래 **설치된 플러그인** 링크를 클릭하면 플러그인이 제대로 설치되었는지 확인할 수 있습니다.  
+    ![](datasmith-verify-installed-plugin.png)

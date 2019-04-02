@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "FlipbookEditor/FlipbookEditor.h"
 #include "EditorViewportClient.h"
@@ -414,12 +414,7 @@ FText FFlipbookEditor::GetBaseToolkitName() const
 
 FText FFlipbookEditor::GetToolkitName() const
 {
-	const bool bDirtyState = FlipbookBeingEdited->GetOutermost()->IsDirty();
-
-	FFormatNamedArguments Args;
-	Args.Add(TEXT("FlipbookName"), FText::FromString(FlipbookBeingEdited->GetName()));
-	Args.Add(TEXT("DirtyState"), bDirtyState ? FText::FromString( TEXT( "*" ) ) : FText::GetEmpty());
-	return FText::Format(LOCTEXT("FlipbookEditorToolkitName", "{FlipbookName}{DirtyState}"), Args);
+	return FText::FromString(FlipbookBeingEdited->GetName());
 }
 
 FText FFlipbookEditor::GetToolkitToolTipText() const

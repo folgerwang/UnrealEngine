@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealBuildTool.Rules
 {
@@ -22,7 +22,7 @@ namespace UnrealBuildTool.Rules
 			if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 				(Target.Platform == UnrealTargetPlatform.Win32))
 			{
-				if (Target.bCompileLeanAndMeanUE == false)
+				if (Target.bBuildDeveloperTools)
 				{
 					AddEngineThirdPartyPrivateStaticDependencies(Target, "DirectShow");
 				}

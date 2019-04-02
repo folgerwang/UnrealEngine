@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // Modified version of Recast/Detour's source file
 
 //
@@ -2683,7 +2683,7 @@ void dtTileCacheLogContext::dtLog(const char* format, ...)
 	char msg[MSG_SIZE];
 	va_list ap;
 	va_start(ap, format);
-	int len = FCStringAnsi::GetVarArgs(msg, MSG_SIZE, MSG_SIZE - 1, format, ap);
+	int len = FCStringAnsi::GetVarArgs(msg, MSG_SIZE, format, ap);
 	if (len >= MSG_SIZE)
 	{
 		len = MSG_SIZE - 1;

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SControlRigUnitCombo.h"
 #include "Widgets/Input/SSearchBox.h"
@@ -15,7 +15,7 @@
 #include "EditorStyleSet.h"
 #include "ControlRigBlueprintUtils.h"
 #include "SGraphEditorActionMenu.h"
-#include "ControlRigGraph.h"
+#include "Graph/ControlRigGraph.h"
 
 #define LOCTEXT_NAMESPACE "SControlRigUnitCombo"
 

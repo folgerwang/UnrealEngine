@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections;
@@ -116,6 +116,8 @@ namespace UnrealBuildTool
 		/// </summary>
 		private List<string> CommonRsyncArguments;
 
+		private string IniBundleIdentifier = "";
+
 		/// <summary>
 		/// Constructor
 		/// </summary>
@@ -192,6 +194,8 @@ namespace UnrealBuildTool
 				}
 			}
 
+			Ini.GetString("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "BundleIdentifier", out IniBundleIdentifier);
+
 			// If it's not set, look in the standard locations. If that fails, spawn the batch file to generate one.
 			if (SshPrivateKey == null && !TryGetSshPrivateKey(out SshPrivateKey))
 			{
@@ -209,7 +213,7 @@ namespace UnrealBuildTool
 				CommandLine.AppendFormat(" \"{0}\"", UnrealBuildTool.EngineDirectory);
 				CommandLine.Append("\"");
 
-				using(Process ChildProcess = Process.Start("C:\\Windows\\System32\\Cmd.exe", CommandLine.ToString()))
+				using(Process ChildProcess = Process.Start(BuildHostPlatform.Current.Shell.FullName, CommandLine.ToString()))
 				{
 					ChildProcess.WaitForExit();
 				}
@@ -247,6 +251,7 @@ namespace UnrealBuildTool
 			CommonRsyncArguments.Add("--delete"); // Delete anything not in the source directory
 			CommonRsyncArguments.Add("--delete-excluded"); // Delete anything not in the source directory
 			CommonRsyncArguments.Add("--times"); // Preserve modification times
+			CommonRsyncArguments.Add("--omit-dir-times"); // Ignore modification times for directories
 			CommonRsyncArguments.Add("--prune-empty-dirs"); // Remove empty directories from the file list
 
 			// Get the remote base directory
@@ -332,6 +337,44 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Returns true if the remote executor supports this target platform
+		/// </summary>
+		/// <param name="Platform">The platform to check</param>
+		/// <returns>True if the remote mac handles this target platform</returns>
+		public static bool HandlesTargetPlatform(UnrealTargetPlatform Platform)
+		{
+			return BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64 && (Platform == UnrealTargetPlatform.Mac || Platform == UnrealTargetPlatform.IOS || Platform == UnrealTargetPlatform.TVOS);
+		}
+
+		/// <summary>
+		/// Clean a target remotely
+		/// </summary>
+		/// <param name="TargetDesc">Descriptor for the target to build</param>
+		/// <returns>True if the build succeeded, false otherwise</returns>
+		public bool Clean(TargetDescriptor TargetDesc)
+		{
+			// Translate all the arguments for the remote
+			List<string> RemoteArguments = GetRemoteArgumentsForTarget(TargetDesc, null);
+			RemoteArguments.Add("-Clean");
+		
+			// Upload the workspace
+			DirectoryReference TempDir = CreateTempDirectory(TargetDesc);
+			UploadWorkspace(TempDir);
+
+			// Execute the compile
+			Log.TraceInformation("[Remote] Executing clean...");
+
+			StringBuilder BuildCommandLine = new StringBuilder("Engine/Build/BatchFiles/Mac/Build.sh");
+			foreach(string RemoteArgument in RemoteArguments)
+			{
+				BuildCommandLine.AppendFormat(" {0}", EscapeShellArgument(RemoteArgument));
+			}
+
+			int Result = Execute(GetRemotePath(UnrealBuildTool.RootDirectory), BuildCommandLine.ToString());
+			return Result == 0;
+		}
+
+		/// <summary>
 		/// Build a target remotely
 		/// </summary>
 		/// <param name="TargetDesc">Descriptor for the target to build</param>
@@ -340,10 +383,9 @@ namespace UnrealBuildTool
 		public bool Build(TargetDescriptor TargetDesc, FileReference RemoteLogFile)
 		{
 			// Get the directory for working files
-			DirectoryReference BaseDir = DirectoryReference.FromFile(TargetDesc.ProjectFile) ?? UnrealBuildTool.EngineDirectory;
-			DirectoryReference TempDir = DirectoryReference.Combine(BaseDir, "Intermediate", "Remote", TargetDesc.Name, TargetDesc.Platform.ToString(), TargetDesc.Configuration.ToString());
-			DirectoryReference.CreateDirectory(TempDir);
+			DirectoryReference TempDir = CreateTempDirectory(TargetDesc);
 
+			// Map the path containing the remote log file
 			bool bLogIsMapped = false;
 			foreach (RemoteMapping Mapping in Mappings)
 			{
@@ -362,7 +404,7 @@ namespace UnrealBuildTool
 			RulesAssembly RulesAssembly = RulesCompiler.CreateTargetRulesAssembly(TargetDesc.ProjectFile, TargetDesc.Name, false, false, TargetDesc.ForeignPlugin);
 
 			// Create the target rules
-			TargetRules Rules = RulesAssembly.CreateTargetRules(TargetDesc.Name, TargetDesc.Platform, TargetDesc.Configuration, TargetDesc.Architecture, TargetDesc.ProjectFile, new ReadOnlyBuildVersion(BuildVersion.ReadDefault()), new string[0]);
+			TargetRules Rules = RulesAssembly.CreateTargetRules(TargetDesc.Name, TargetDesc.Platform, TargetDesc.Configuration, TargetDesc.Architecture, TargetDesc.ProjectFile, TargetDesc.AdditionalArguments);
 
 			// Check if we need to enable a nativized plugin, and compile the assembly for that if we do
 			FileReference NativizedPluginFile = Rules.GetNativizedPlugin();
@@ -378,54 +420,9 @@ namespace UnrealBuildTool
 			FileReference RemoteManifestFile = FileReference.Combine(TempDir, "Manifest.xml");
 
 			// Prepare the arguments we will pass to the remote build
-			List<string> RemoteArguments = new List<string>();
-			RemoteArguments.Add(TargetDesc.Name);
-			RemoteArguments.Add(TargetDesc.Platform.ToString());
-			RemoteArguments.Add(TargetDesc.Configuration.ToString());
-			RemoteArguments.Add("-SkipRulesCompile"); // Use the rules assembly built locally
-			RemoteArguments.Add(String.Format("-XmlConfigCache={0}", GetRemotePath(XmlConfig.CacheFile))); // Use the XML config cache built locally, since the remote won't have it
+			List<string> RemoteArguments = GetRemoteArgumentsForTarget(TargetDesc, LocalManifestFiles);
 			RemoteArguments.Add(String.Format("-Log={0}", GetRemotePath(RemoteLogFile)));
 			RemoteArguments.Add(String.Format("-Manifest={0}", GetRemotePath(RemoteManifestFile)));
-
-			if(TargetDesc.ProjectFile != null)
-			{
-				RemoteArguments.Add(String.Format("-Project={0}", GetRemotePath(TargetDesc.ProjectFile)));
-			}
-
-			foreach(string LocalArgument in TargetDesc.AdditionalArguments)
-			{
-				int EqualsIdx = LocalArgument.IndexOf('=');
-				if(EqualsIdx == -1)
-				{
-					RemoteArguments.Add(LocalArgument);
-					continue;
-				}
-
-				string Key = LocalArgument.Substring(0, EqualsIdx);
-				string Value = LocalArgument.Substring(EqualsIdx + 1);
-
-				if(Key.Equals("-Log", StringComparison.InvariantCultureIgnoreCase))
-				{
-					// We are already writing to the local log file. The remote will produce a different log (RemoteLogFile)
-					continue;
-				}
-				if(Key.Equals("-Manifest", StringComparison.InvariantCultureIgnoreCase))
-				{
-					LocalManifestFiles.Add(new FileReference(Value));
-					continue;
-				}
-
-				string RemoteArgument = LocalArgument;
-				foreach(RemoteMapping Mapping in Mappings)
-				{
-					if(Value.StartsWith(Mapping.LocalDirectory.FullName, StringComparison.InvariantCultureIgnoreCase))
-					{
-						RemoteArgument = String.Format("{0}={1}", Key, GetRemotePath(Value));
-						break;
-					}
-				}
-				RemoteArguments.Add(RemoteArgument);
-			}
 
 			// Handle any per-platform setup that is required
 			if(TargetDesc.Platform == UnrealTargetPlatform.IOS || TargetDesc.Platform == UnrealTargetPlatform.TVOS)
@@ -437,7 +434,7 @@ namespace UnrealBuildTool
 				RemoteArguments.Add("-NoUBTMakefiles");
 
 				// Get the provisioning data for this project
-				IOSProvisioningData ProvisioningData = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(TargetDesc.Platform)).ReadProvisioningData(TargetDesc.ProjectFile);
+				IOSProvisioningData ProvisioningData = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(TargetDesc.Platform)).ReadProvisioningData(TargetDesc.ProjectFile, TargetDesc.AdditionalArguments.HasOption("-distribution"), IniBundleIdentifier);
 				if(ProvisioningData == null || ProvisioningData.MobileProvisionFile == null)
 				{
 					throw new BuildException("Unable to find mobile provision for {0}. See log for more information.", TargetDesc.Name);
@@ -503,9 +500,6 @@ namespace UnrealBuildTool
 			// Upload the workspace files
 			UploadWorkspace(TempDir);
 
-			// Fixup permissions on any shell scripts
-			Execute(RemoteBaseDir, String.Format("chmod +x {0}/Build/BatchFiles/Mac/*.sh", EscapeShellArgument(GetRemotePath(UnrealBuildTool.EngineDirectory))));
-
 			// Execute the compile
 			Log.TraceInformation("[Remote] Executing build");
 
@@ -526,43 +520,110 @@ namespace UnrealBuildTool
 				return false;
 			}
 
-			// Don't download anything if we're just doing a clean
-			if(!RemoteArguments.Contains("-Clean", StringComparer.OrdinalIgnoreCase))
+			// Download the manifest
+			Log.TraceInformation("[Remote] Downloading {0}", RemoteManifestFile);
+			DownloadFile(RemoteManifestFile);
+
+			// Convert the manifest to local form
+			BuildManifest Manifest = Utils.ReadClass<BuildManifest>(RemoteManifestFile.FullName);
+			for(int Idx = 0; Idx < Manifest.BuildProducts.Count; Idx++)
 			{
-				// Download the manifest
-				Log.TraceInformation("[Remote] Downloading {0}", RemoteManifestFile);
-				DownloadFile(RemoteManifestFile);
-
-				// Convert the manifest to local form
-				BuildManifest Manifest = Utils.ReadClass<BuildManifest>(RemoteManifestFile.FullName);
-				for(int Idx = 0; Idx < Manifest.BuildProducts.Count; Idx++)
-				{
-					Manifest.BuildProducts[Idx] = GetLocalPath(Manifest.BuildProducts[Idx]).FullName;
-				}
-
-				// Download the files from the remote
-				if(TargetDesc.AdditionalArguments.Any(x => x.Equals("-GenerateManifest", StringComparison.InvariantCultureIgnoreCase)))
-				{
-					LocalManifestFiles.Add(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", "Manifest.xml"));
-				}
-				else
-				{
-					Log.TraceInformation("[Remote] Downloading build products");
-
-					List<FileReference> FilesToDownload = new List<FileReference>();
-					FilesToDownload.Add(RemoteLogFile);
-					FilesToDownload.AddRange(Manifest.BuildProducts.Select(x => new FileReference(x)));
-					DownloadFiles(FilesToDownload);
-				}
-
-				// Write out all the local manifests
-				foreach(FileReference LocalManifestFile in LocalManifestFiles)
-				{
-					Log.TraceInformation("[Remote] Writing {0}", LocalManifestFile);
-					Utils.WriteClass<BuildManifest>(Manifest, LocalManifestFile.FullName, "");
-				}
+				Manifest.BuildProducts[Idx] = GetLocalPath(Manifest.BuildProducts[Idx]).FullName;
 			}
+
+			// Download the files from the remote
+			Log.TraceInformation("[Remote] Downloading build products");
+
+			List<FileReference> FilesToDownload = new List<FileReference>();
+			FilesToDownload.Add(RemoteLogFile);
+			FilesToDownload.AddRange(Manifest.BuildProducts.Select(x => new FileReference(x)));
+			DownloadFiles(FilesToDownload);
+
+			// Copy remote FrameworkAssets directory as it could contain resource bundles that must be packaged locally.
+			DirectoryReference BaseDir = DirectoryReference.FromFile(TargetDesc.ProjectFile) ?? UnrealBuildTool.EngineDirectory;
+			DirectoryReference FrameworkAssetsDir = DirectoryReference.Combine(BaseDir, "Intermediate", TargetDesc.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS", "FrameworkAssets");
+
+			Log.TraceInformation("[Remote] Downloading {0}", FrameworkAssetsDir);
+			DownloadDirectory(FrameworkAssetsDir);
+
+			// Write out all the local manifests
+			foreach(FileReference LocalManifestFile in LocalManifestFiles)
+			{
+				Log.TraceInformation("[Remote] Writing {0}", LocalManifestFile);
+				Utils.WriteClass<BuildManifest>(Manifest, LocalManifestFile.FullName, "");
+			}
+
 			return true;
+		}
+
+		/// <summary>
+		/// Creates a temporary directory for the given target
+		/// </summary>
+		/// <param name="TargetDesc">The target descriptor</param>
+		/// <returns>Directory to use for temporary files</returns>
+		static DirectoryReference CreateTempDirectory(TargetDescriptor TargetDesc)
+		{
+			DirectoryReference BaseDir = DirectoryReference.FromFile(TargetDesc.ProjectFile) ?? UnrealBuildTool.EngineDirectory;
+			DirectoryReference TempDir = DirectoryReference.Combine(BaseDir, "Intermediate", "Remote", TargetDesc.Name, TargetDesc.Platform.ToString(), TargetDesc.Configuration.ToString());
+			DirectoryReference.CreateDirectory(TempDir);
+			return TempDir;
+		}
+
+		/// <summary>
+		/// Translate the arguments for a target descriptor for the remote machine
+		/// </summary>
+		/// <param name="TargetDesc">The target descriptor</param>
+		/// <param name="LocalManifestFiles">Manifest files to be output from this target</param>
+		/// <return>List of remote arguments</return>
+		List<string> GetRemoteArgumentsForTarget(TargetDescriptor TargetDesc, List<FileReference> LocalManifestFiles)
+		{
+			List<string> RemoteArguments = new List<string>();
+			RemoteArguments.Add(TargetDesc.Name);
+			RemoteArguments.Add(TargetDesc.Platform.ToString());
+			RemoteArguments.Add(TargetDesc.Configuration.ToString());
+			RemoteArguments.Add("-SkipRulesCompile"); // Use the rules assembly built locally
+			RemoteArguments.Add(String.Format("-XmlConfigCache={0}", GetRemotePath(XmlConfig.CacheFile))); // Use the XML config cache built locally, since the remote won't have it
+
+			if(TargetDesc.ProjectFile != null)
+			{
+				RemoteArguments.Add(String.Format("-Project={0}", GetRemotePath(TargetDesc.ProjectFile)));
+			}
+
+			foreach (string LocalArgument in TargetDesc.AdditionalArguments)
+			{
+				int EqualsIdx = LocalArgument.IndexOf('=');
+				if(EqualsIdx == -1)
+				{
+					RemoteArguments.Add(LocalArgument);
+					continue;
+				}
+
+				string Key = LocalArgument.Substring(0, EqualsIdx);
+				string Value = LocalArgument.Substring(EqualsIdx + 1);
+
+				if(Key.Equals("-Log", StringComparison.InvariantCultureIgnoreCase))
+				{
+					// We are already writing to the local log file. The remote will produce a different log (RemoteLogFile)
+					continue;
+				}
+				if(Key.Equals("-Manifest", StringComparison.InvariantCultureIgnoreCase) && LocalManifestFiles != null)
+				{
+					LocalManifestFiles.Add(new FileReference(Value));
+					continue;
+				}
+
+				string RemoteArgument = LocalArgument;
+				foreach(RemoteMapping Mapping in Mappings)
+				{
+					if(Value.StartsWith(Mapping.LocalDirectory.FullName, StringComparison.InvariantCultureIgnoreCase))
+					{
+						RemoteArgument = String.Format("{0}={1}", Key, GetRemotePath(Value));
+						break;
+					}
+				}
+				RemoteArguments.Add(RemoteArgument);
+			}
+			return RemoteArguments;
 		}
 
 		/// <summary>
@@ -827,6 +888,9 @@ namespace UnrealBuildTool
 				Log.TraceInformation("[Remote] Uploading project files...");
 				UploadDirectory(ProjectFile.Directory, GetRemotePath(ProjectFile.Directory), ProjectFilters);
 			}
+
+			// Fixup permissions on any shell scripts
+			Execute(RemoteBaseDir, String.Format("chmod +x {0}/Build/BatchFiles/Mac/*.sh", EscapeShellArgument(GetRemotePath(UnrealBuildTool.EngineDirectory))));
 		}
 
 		/// <summary>
@@ -892,6 +956,28 @@ namespace UnrealBuildTool
 						throw new BuildException("Unable to download files from remote Mac (exit code {0})", Result);
 					}
 				}
+			}
+		}
+
+		/// <summary>
+		/// Download a directory from the remote Mac
+		/// </summary>
+		/// <param name="LocalDirectory">Directory to download</param>
+		private void DownloadDirectory(DirectoryReference LocalDirectory)
+		{
+			DirectoryReference.CreateDirectory(LocalDirectory);
+
+			string RemoteDirectory = GetRemotePath(LocalDirectory);
+
+			List<string> Arguments = new List<string>(CommonRsyncArguments);
+			Arguments.Add(String.Format("--rsync-path=\"[ ! -d {0} ] || rsync\"", EscapeShellArgument(RemoteDirectory)));
+			Arguments.Add(String.Format("\"{0}@{1}\":'{2}/'", UserName, ServerName, RemoteDirectory));
+			Arguments.Add(String.Format("\"{0}/\"", GetLocalCygwinPath(LocalDirectory)));
+
+			int Result = Rsync(String.Join(" ", Arguments));
+			if (Result != 0)
+			{
+				throw new BuildException("Unable to download '{0}' from the remote Mac (exit code {1}).", LocalDirectory, Result);
 			}
 		}
 

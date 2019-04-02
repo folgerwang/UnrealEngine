@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "CoreMinimal.h"
@@ -287,6 +287,8 @@ void FTransaction::FObjectRecord::Finalize( FTransaction* Owner, TSharedPtr<ITra
 			{
 				Diff(Owner, SerializedObjectSnapshot, CurrentSerializedObject, DeltaChange);
 			}
+
+			SerializedObjectFlip.Swap(CurrentSerializedObject);
 		}
 
 		// Clear out any snapshot data now as we won't be getting any more snapshot requests once finalized
@@ -334,12 +336,12 @@ void FTransaction::FObjectRecord::Snapshot( FTransaction* Owner )
 		// Notify any listeners of this change
 		if (SnapshotDeltaChange.HasChanged() || ChangedObjectTransactionAnnotation.IsValid())
 		{
-			CurrentObject->PostTransacted(FTransactionObjectEvent(Owner->GetId(), Owner->GetOperationId(), ETransactionObjectEventType::Snapshot, SnapshotDeltaChange, ChangedObjectTransactionAnnotation, InitialSerializedObject.ObjectName, InitialSerializedObject.ObjectPathName, InitialSerializedObject.ObjectOuterPathName));
+			CurrentObject->PostTransacted(FTransactionObjectEvent(Owner->GetId(), Owner->GetOperationId(), ETransactionObjectEventType::Snapshot, SnapshotDeltaChange, ChangedObjectTransactionAnnotation, InitialSerializedObject.ObjectName, InitialSerializedObject.ObjectPathName, InitialSerializedObject.ObjectOuterPathName, InitialSerializedObject.ObjectClassPathName));
 		}
 	}
 }
 
-void FTransaction::FObjectRecord::Diff( FTransaction* Owner, const FSerializedObject& OldSerializedObject, const FSerializedObject& NewSerializedObject, FTransactionObjectDeltaChange& OutDeltaChange )
+void FTransaction::FObjectRecord::Diff( const FTransaction* Owner, const FSerializedObject& OldSerializedObject, const FSerializedObject& NewSerializedObject, FTransactionObjectDeltaChange& OutDeltaChange )
 {
 	auto AreObjectPointersIdentical = [&OldSerializedObject, &NewSerializedObject](const FName InPropertyName)
 	{
@@ -526,7 +528,7 @@ bool FTransaction::IsObjectTransacting(const UObject* Object) const
 {
 	// This function is meaningless when called outside of a transaction context. Without this
 	// ensure clients will commonly introduced bugs by having some logic that runs during
-	// the transacting and some logic that does not, yielding assymetrical results.
+	// the transacting and some logic that does not, yielding asymmetrical results.
 	ensure(GIsTransacting);
 	ensure(ChangedObjects.Num() != 0);
 	return ChangedObjects.Contains(Object);
@@ -870,7 +872,7 @@ void FTransaction::Apply()
 		if (DeltaChange.HasChanged() || ChangedObjectTransactionAnnotation.IsValid())
 		{
 			const FObjectRecord::FSerializedObject& InitialSerializedObject = ChangedObjectRecord.SerializedObject;
-			ChangedObject->PostTransacted(FTransactionObjectEvent(Id, OperationId, ETransactionObjectEventType::UndoRedo, DeltaChange, ChangedObjectTransactionAnnotation, InitialSerializedObject.ObjectName, InitialSerializedObject.ObjectPathName, InitialSerializedObject.ObjectOuterPathName));
+			ChangedObject->PostTransacted(FTransactionObjectEvent(Id, OperationId, ETransactionObjectEventType::UndoRedo, DeltaChange, ChangedObjectTransactionAnnotation, InitialSerializedObject.ObjectName, InitialSerializedObject.ObjectPathName, InitialSerializedObject.ObjectOuterPathName, InitialSerializedObject.ObjectClassPathName));
 		}
 	}
 
@@ -938,9 +940,9 @@ void FTransaction::Finalize()
 		if (DeltaChange.HasChanged() || ChangedObjectTransactionAnnotation.IsValid())
 		{
 			UObject* ChangedObject = ChangedObjectIt.Key;
-
+			
 			const FObjectRecord::FSerializedObject& InitialSerializedObject = ChangedObjectRecord.SerializedObject;
-			ChangedObject->PostTransacted(FTransactionObjectEvent(Id, OperationId, ETransactionObjectEventType::Finalized, DeltaChange, ChangedObjectTransactionAnnotation, InitialSerializedObject.ObjectName, InitialSerializedObject.ObjectPathName, InitialSerializedObject.ObjectOuterPathName));
+			ChangedObject->PostTransacted(FTransactionObjectEvent(Id, OperationId, ETransactionObjectEventType::Finalized, DeltaChange, ChangedObjectTransactionAnnotation, InitialSerializedObject.ObjectName, InitialSerializedObject.ObjectPathName, InitialSerializedObject.ObjectOuterPathName, InitialSerializedObject.ObjectClassPathName));
 		}
 	}
 
@@ -973,6 +975,37 @@ void FTransaction::GetTransactionObjects(TArray<UObject*>& Objects) const
 			Objects.AddUnique(Obj);
 		}
 	}
+}
+
+FTransactionDiff FTransaction::GenerateDiff() const
+{
+	FTransactionDiff TransactionDiff{Id, Title.ToString()};
+	
+	// Only generate diff if the transaction is finalized.
+	if (ChangedObjects.Num() == 0)
+	{
+		// For each record, create a diff 
+		for (int32 i = 0; i < Records.Num(); ++i)
+		{
+			const FObjectRecord& ObjectRecord = Records[i];
+			if (UObject* TransactedObject = ObjectRecord.Object.Get())
+			{
+				// The last snapshot object is reset so we can only diff against the initial object for the moment.
+				FTransactionObjectDeltaChange RecordDeltaChange;
+				FObjectRecord::Diff(this, ObjectRecord.SerializedObject, ObjectRecord.SerializedObjectFlip, RecordDeltaChange);
+
+				// TODO: Add annotation
+				if (RecordDeltaChange.HasChanged())
+				{
+					// Since this transaction is not currently in an undo operation, generate a valid Guid.
+					FGuid Guid = FGuid::NewGuid();
+					TransactionDiff.DiffMap.Emplace(FName(*TransactedObject->GetPathName()), MakeShared<FTransactionObjectEvent>(this->GetId(), Guid, ETransactionObjectEventType::Finalized, RecordDeltaChange, ObjectRecord.SerializedObject.ObjectAnnotation, ObjectRecord.SerializedObject.ObjectName, ObjectRecord.SerializedObject.ObjectPathName, ObjectRecord.SerializedObject.ObjectOuterPathName, ObjectRecord.SerializedObject.ObjectClassPathName));
+				}
+			}
+		}
+	}
+
+	return TransactionDiff;
 }
 
 
@@ -1249,6 +1282,19 @@ bool UTransBuffer::CanRedo( FText* Text )
 		return 0;
 	}
 	return 1;
+}
+
+
+int32 UTransBuffer::FindTransactionIndex(const FGuid & TransactionId) const
+{
+	for (int32 Index = 0; Index < UndoBuffer.Num(); ++Index)
+	{
+		if (UndoBuffer[Index]->GetId() == TransactionId)
+		{
+			return Index;
+		}
+	}
+	return INDEX_NONE;
 }
 
 

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Concurrent;
@@ -171,34 +171,6 @@ namespace GitDependencies
 
 			// Parse all the default exclude filters
 			HashSet<string> ExcludeFolders = new HashSet<string>(StringComparer.CurrentCultureIgnoreCase);
-			if(!ParseSwitch(ArgsList, "-all"))
-			{
-				if(Environment.OSVersion.Platform != PlatformID.Win32NT)
-				{
-					ExcludeFolders.Add("Win32");
-					ExcludeFolders.Add("Win64");
-				}
-				if(Environment.OSVersion.Platform != PlatformID.MacOSX && !(Environment.OSVersion.Platform == PlatformID.Unix && Directory.Exists("/Applications") && Directory.Exists("/System")))
-				{
-					ExcludeFolders.Add("Mac");
-				}
-				if(Environment.GetEnvironmentVariable("NDKROOT") == null && Environment.GetEnvironmentVariable("MLSDK") == null)
-				{
-					ExcludeFolders.Add("Android");
-				}
-				if(Environment.OSVersion.Platform == PlatformID.Win32NT && (Environment.GetEnvironmentVariable("LINUX_ROOT") == null && Environment.GetEnvironmentVariable("LINUX_MULTIARCH_ROOT") == null))
-				{
-					ExcludeFolders.Add("Linux");
-				}
-			}
-
-			// Parse all the explicit include filters
-			foreach(string IncludeFolder in ParseParameters(ArgsList, "-include="))
-			{
-				ExcludeFolders.Remove(IncludeFolder.Replace('\\', '/').TrimEnd('/'));
-			}
-
-			// Parse all the explicit exclude filters
 			foreach(string ExcludeFolder in ParseParameters(ArgsList, "-exclude="))
 			{
 				ExcludeFolders.Add(ExcludeFolder.Replace('\\', '/').TrimEnd('/'));

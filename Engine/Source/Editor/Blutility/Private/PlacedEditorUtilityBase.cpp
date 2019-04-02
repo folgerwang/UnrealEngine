@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PlacedEditorUtilityBase.h"
 #include "Engine/Selection.h"
@@ -45,7 +45,7 @@ bool APlacedEditorUtilityBase::GetLevelViewportCameraInfo(FVector& CameraLocatio
 	CameraRotation = FRotator::ZeroRotator;
 
 #if WITH_EDITOR
-	for (FLevelEditorViewportClient* LevelVC : GEditor->LevelViewportClients)
+	for (FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients())
 	{
 		if (LevelVC && LevelVC->IsPerspective())
 		{
@@ -66,7 +66,7 @@ void APlacedEditorUtilityBase::SetLevelViewportCameraInfo(FVector CameraLocation
 {
 
 #if WITH_EDITOR
-	for (FLevelEditorViewportClient* LevelVC : GEditor->LevelViewportClients)
+	for (FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients())
 	{
 		if (LevelVC && LevelVC->IsPerspective())
 		{

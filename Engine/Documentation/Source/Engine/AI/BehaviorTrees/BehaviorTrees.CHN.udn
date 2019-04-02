@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3178047
+﻿INTSourceChangelist:3750351
 Availability:Public
 Title:行为树
 Crumbs:%ROOT%, Engine, Gameplay/AI
@@ -18,14 +18,5 @@ topic-image:AI_topic.png
 
 以下是文档中有关行为树使用章节的链接。[快速入门指南](Engine/AI/BehaviorTrees/QuickStart) 讲述如何让 AI 追逐玩家。[用户指南](Engine/AI/BehaviorTrees/UserGuide) 中包含使用行为树执行常见任务的说明。[节点参考](Engine/AI/BehaviorTrees/NodeReference) 包含行为树编辑器中所有可用节点，以及其作用和各种属性的列表。[虚幻引擎 4 行为树的不同之处](Engine/AI/BehaviorTrees/HowUE4BehaviorTreesDiffer) 是为已经了解其他行为树工作方式的读者准备的文档。
 
-## 行为树主题
-
-[REGION:buttonlist]
-
-* [](Engine/AI/BehaviorTrees/QuickStart "%Engine/AI/BehaviorTrees/QuickStart:description%")
-* [](Engine/AI/BehaviorTrees/UserGuide "%Engine/AI/BehaviorTrees/UserGuide:description%")
-* [](Engine/AI/BehaviorTrees/NodeReference "%Engine/AI/BehaviorTrees/NodeReference:description%")
-* [](Engine/AI/BehaviorTrees/HowUE4BehaviorTreesDiffer "%Engine/AI/BehaviorTrees/HowUE4BehaviorTreesDiffer:description%")
-	
-[/REGION]
+[DIR(output:"topic" parent:"Engine/AI/BehaviorTrees" org:"hierarchy" end:"1")]
 

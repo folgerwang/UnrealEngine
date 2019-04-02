@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "LevelEditorViewport.h"
@@ -192,6 +192,35 @@ static FVector4 AttemptToSnapLocationToOriginPlane( const FViewportCursorLocatio
 	}
 
 	return Location;
+}
+
+namespace LevelEditorViewportClientHelper
+{
+	UProperty* GetEditTransformProperty(FWidget::EWidgetMode WidgetMode)
+	{
+		UProperty* ValueProperty = nullptr;
+		switch (WidgetMode)
+		{
+		case FWidget::WM_Translate:
+			ValueProperty = FindField<UProperty>(USceneComponent::StaticClass(), GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeLocation));
+			break;
+		case FWidget::WM_Rotate:
+			ValueProperty = FindField<UProperty>(USceneComponent::StaticClass(), GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeRotation));
+			break;
+		case FWidget::WM_Scale:
+			ValueProperty = FindField<UProperty>(USceneComponent::StaticClass(), GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeScale3D));
+			break;
+		case FWidget::WM_TranslateRotateZ:
+			ValueProperty = FindField<UProperty>(USceneComponent::StaticClass(), GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeLocation));
+			break;
+		case FWidget::WM_2D:
+			ValueProperty = FindField<UProperty>(USceneComponent::StaticClass(), GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeLocation));
+			break;
+		default:
+			break;
+		}
+		return ValueProperty;
+	}
 }
 
 TArray<AActor*> FLevelEditorViewportClient::TryPlacingActorFromObject( ULevel* InLevel, UObject* ObjToUse, bool bSelectActors, EObjectFlags ObjectFlags, UActorFactory* FactoryToUse, const FName Name )
@@ -1607,11 +1636,12 @@ FLevelEditorViewportClient::FLevelEditorViewportClient(const TSharedPtr<SLevelVi
 	, SoundShowFlags(ESoundShowFlags::Disabled)
 	, bEditorCameraCut(false)
 	, bWasEditorCameraCut(false)
+	, bApplyCameraSpeedScaleByDistance(true)
 {
 	// By default a level editor viewport is pointed to the editor world
 	SetReferenceToWorldContext(GEditor->GetEditorWorldContext());
 
-	GEditor->LevelViewportClients.Add(this);
+	GEditor->AddLevelViewportClients(this);
 
 	// The level editor fully supports mode tools and isn't doing any incompatible stuff with the Widget
 	ModeTools->SetWidgetMode(FWidget::WM_Translate);
@@ -1653,7 +1683,7 @@ FLevelEditorViewportClient::~FLevelEditorViewportClient()
 		// make sure all actors have this view removed from their visibility bits
 		GEditor->Layers->RemoveViewFromActorViewVisibility(this);
 
-		GEditor->LevelViewportClients.Remove(this);
+		GEditor->RemoveLevelViewportClients(this);
 
 		GetMutableDefault<ULevelEditorViewportSettings>()->OnSettingChanged().RemoveAll(this);
 
@@ -1696,10 +1726,8 @@ FSceneView* FLevelEditorViewportClient::CalcSceneView(FSceneViewFamily* ViewFami
 	// unless another viewport already set me this frame (otherwise they fight)
 	if (GEditor->bEnableLODLocking)
 	{
-		for (int32 ViewportIndex = 0; ViewportIndex < GEditor->LevelViewportClients.Num(); ViewportIndex++)
+		for (FLevelEditorViewportClient* ViewportClient : GEditor->GetLevelViewportClients())
 		{
-			FLevelEditorViewportClient* ViewportClient = GEditor->LevelViewportClients[ViewportIndex];
-
 			//only change camera for a viewport that is looking at the same scene
 			if (ViewportClient == NULL || GetScene() != ViewportClient->GetScene())
 			{
@@ -1742,6 +1770,11 @@ FSceneView* FLevelEditorViewportClient::CalcSceneView(FSceneViewFamily* ViewFami
 	View->SpriteCategoryVisibility = SpriteCategoryVisibility;
 	View->bCameraCut = bEditorCameraCut;
 	View->bHasSelectedComponents = GEditor->GetSelectedComponentCount() > 0;
+
+#if RHI_RAYTRACING
+	View->SetupRayTracedRendering();
+#endif
+
 	return View;
 
 }
@@ -1809,6 +1842,17 @@ void FLevelEditorViewportClient::BeginCameraMovement(bool bHasMovement)
 			if (!bIsCameraMovingOnTick && ActorLock)
 			{
 				GEditor->BroadcastBeginCameraMovement(*ActorLock);
+				// consider modification from piloting as relative location changes
+				UProperty* TransformProperty = LevelEditorViewportClientHelper::GetEditTransformProperty(FWidget::WM_Translate);
+				if (TransformProperty)
+				{
+					// Create edit property event
+					FEditPropertyChain PropertyChain;
+					PropertyChain.AddHead(TransformProperty);
+
+					// Broadcast Pre Edit change notification, we can't call PreEditChange directly on Actor or ActorComponent from here since it will unregister the components until PostEditChange
+					FCoreUObjectDelegates::OnPreObjectPropertyChanged.Broadcast(ActorLock, PropertyChain);
+				}
 			}
 			bIsCameraMoving = true;
 		}
@@ -1827,6 +1871,12 @@ void FLevelEditorViewportClient::EndCameraMovement()
 		if (AActor* ActorLock = GetActiveActorLock().Get())
 		{
 			GEditor->BroadcastEndCameraMovement(*ActorLock);
+			// Create post edit property change event, consider modification from piloting as relative location changes
+			UProperty* TransformProperty = LevelEditorViewportClientHelper::GetEditTransformProperty(FWidget::WM_Translate);
+			FPropertyChangedEvent PropertyChangedEvent(TransformProperty, EPropertyChangeType::ValueSet);
+
+			// Broadcast Post Edit change notification, we can't call PostEditChangeProperty directly on Actor or ActorComponent from here since it wasn't pair with a proper PreEditChange
+			FCoreUObjectDelegates::OnObjectPropertyChanged.Broadcast(ActorLock, PropertyChangedEvent);
 		}
 	}
 }
@@ -2196,7 +2246,7 @@ void FLevelEditorViewportClient::UpdateViewForLockedActor(float DeltaTime)
 			if (bLockedCameraView)
 			{
 				// If this is a camera actor, then inherit some other settings
-				USceneComponent* const ViewComponent = FindViewComponentForActor(Actor);
+				UActorComponent* const ViewComponent = FindViewComponentForActor(Actor);
 				if (ViewComponent != nullptr)
 				{
 					if ( ensure(ViewComponent->GetEditorPreviewInfo(DeltaTime, ControllingActorViewInfo)) )
@@ -2458,8 +2508,10 @@ bool FLevelEditorViewportClient::InputWidgetDelta(FViewport* InViewport, EAxisLi
 
 				if( IsShiftPressed() )
 				{
+					bApplyCameraSpeedScaleByDistance = false;
 					FVector CameraDelta( Drag );
 					MoveViewportCamera( CameraDelta, FRotator::ZeroRotator );
+					bApplyCameraSpeedScaleByDistance = true;
 				}
 
 				TArray<FEdMode*> ActiveModes; 
@@ -2477,6 +2529,11 @@ bool FLevelEditorViewportClient::InputWidgetDelta(FViewport* InViewport, EAxisLi
 	}
 
 	return bHandled;
+}
+
+bool FLevelEditorViewportClient::ShouldScaleCameraSpeedByDistance() const
+{
+	return bApplyCameraSpeedScaleByDistance && FEditorViewportClient::ShouldScaleCameraSpeedByDistance();
 }
 
 TSharedPtr<FDragTool> FLevelEditorViewportClient::MakeDragTool( EDragTool::Type DragToolType )
@@ -2670,6 +2727,16 @@ void FLevelEditorViewportClient::TrackingStarted( const FInputEventState& InInpu
 
 	const bool bIsDraggingComponents = GEditor->GetSelectedComponentCount() > 0;
 	PreDragActorTransforms.Empty();
+
+
+	// Create edit property event
+	FEditPropertyChain PropertyChain;
+	UProperty* TransformProperty = LevelEditorViewportClientHelper::GetEditTransformProperty(GetWidgetMode());
+	if (TransformProperty)
+	{
+		PropertyChain.AddHead(TransformProperty);
+	}
+
 	if (bIsDraggingComponents)
 	{
 		if (bIsDraggingWidget)
@@ -2683,6 +2750,12 @@ void FLevelEditorViewportClient::TrackingStarted( const FInputEventState& InInpu
 				{
 					// Notify that this component is beginning to move
 					GEditor->BroadcastBeginObjectMovement(*SceneComponent);
+
+					// Broadcast Pre Edit change notification, we can't call PreEditChange directly on Actor or ActorComponent from here since it will unregister the components until PostEditChange
+					if (TransformProperty)
+					{
+						FCoreUObjectDelegates::OnPreObjectPropertyChanged.Broadcast(SceneComponent, PropertyChain);
+					}
 				}
 			}
 		}
@@ -2698,6 +2771,12 @@ void FLevelEditorViewportClient::TrackingStarted( const FInputEventState& InInpu
 			{
 				// Notify that this actor is beginning to move
 				GEditor->BroadcastBeginObjectMovement(*Actor);
+
+				// Broadcast Pre Edit change notification, we can't call PreEditChange directly on Actor or ActorComponent from here since it will unregister the components until PostEditChange
+				if (TransformProperty)
+				{
+					FCoreUObjectDelegates::OnPreObjectPropertyChanged.Broadcast(Actor, PropertyChain);
+				}
 			}
 
 			Widget->SetSnapEnabled(true);
@@ -2778,12 +2857,22 @@ void FLevelEditorViewportClient::TrackingStarted( const FInputEventState& InInpu
 					TrackingTransaction.BeginPending(TrackingDescription);
 				}
 			}
-
-			if(TrackingTransaction.IsActive() || TrackingTransaction.IsPending())
+		}
+		else
+		{
+			AActor* ActiveActorLock = GetActiveActorLock().Get();
+			if (ActiveActorLock && !ActiveActorLock->bLockLocation && TrackingTransaction.TransCount == 0)
 			{
-				// Suspend actor/component modification during each delta step to avoid recording unnecessary overhead into the transaction buffer
-				GEditor->DisableDeltaModification(true);
+				// Open a tracking transaction to contain the locked actor changes
+				TrackingTransaction.TransCount++;
+				TrackingTransaction.Begin(LOCTEXT("PilotTransaction", "Pilot Actor"));
 			}
+		}
+
+		if (TrackingTransaction.IsActive() || TrackingTransaction.IsPending())
+		{
+			// Suspend actor/component modification during each delta step to avoid recording unnecessary overhead into the transaction buffer
+			GEditor->DisableDeltaModification(true);
 		}
 	}
 
@@ -2833,6 +2922,10 @@ void FLevelEditorViewportClient::TrackingStopped()
 	// Don't do this if AddDelta was never called.
 	if( bDidAnythingActuallyChange && MouseDeltaTracker->HasReceivedDelta() )
 	{
+		// Create post edit property change event
+		UProperty* TransformProperty = LevelEditorViewportClientHelper::GetEditTransformProperty(GetWidgetMode());
+		FPropertyChangedEvent PropertyChangedEvent(TransformProperty, EPropertyChangeType::ValueSet);
+		
 		for (FSelectionIterator It(GEditor->GetSelectedActorIterator()); It; ++It) 
 		{
 			AActor* Actor = static_cast<AActor*>( *It );
@@ -2895,6 +2988,8 @@ void FLevelEditorViewportClient::TrackingStopped()
 				// Now actually apply the delta to the appropriate component(s)
 				for (USceneComponent* SceneComp : ComponentsToMove)
 				{
+					// Broadcast Post Edit change notification, we can't call PostEditChangeProperty directly on Actor or ActorComponent from here since it wasn't pair with a proper PreEditChange
+					FCoreUObjectDelegates::OnObjectPropertyChanged.Broadcast(SceneComp, PropertyChangedEvent);
 					SceneComp->PostEditComponentMove(true);
 
 					GEditor->BroadcastEndObjectMovement(*SceneComp);
@@ -2905,6 +3000,8 @@ void FLevelEditorViewportClient::TrackingStopped()
 				
 			if (!bComponentsMoved)
 			{
+				// Broadcast Post Edit change notification, we can't call PostEditChangeProperty directly on Actor or ActorComponent from here since it wasn't pair with a proper PreEditChange
+				FCoreUObjectDelegates::OnObjectPropertyChanged.Broadcast(Actor, PropertyChangedEvent);
 				Actor->PostEditMove(true);
 	
 				GEditor->BroadcastEndObjectMovement(*Actor);
@@ -3222,19 +3319,29 @@ FMatrix FLevelEditorViewportClient::GetWidgetCoordSystem() const
 void FLevelEditorViewportClient::MoveLockedActorToCamera()
 {
 	// If turned on, move any selected actors to the cameras location/rotation
-	TWeakObjectPtr<AActor> ActiveActorLock = GetActiveActorLock();
-	if( ActiveActorLock.IsValid() )
+	AActor* ActiveActorLock = GetActiveActorLock().Get();
+	if (ActiveActorLock)
 	{
-		if ( !ActiveActorLock->bLockLocation )
+		if (!ActiveActorLock->bLockLocation)
 		{
+			if (TrackingTransaction.TransCount > 0)
+			{
+				SnapshotTransactionBuffer(ActiveActorLock);
+
+				USceneComponent* ActiveActorLockComponent = ActiveActorLock->GetRootComponent();
+				if (ActiveActorLockComponent && !ActiveActorLockComponent->IsCreatedByConstructionScript())
+				{
+					SnapshotTransactionBuffer(ActiveActorLockComponent);
+				}
+			}
+
 			ActiveActorLock->SetActorLocation(GCurrentLevelEditingViewportClient->GetViewLocation(), false);
 			ActiveActorLock->SetActorRotation(GCurrentLevelEditingViewportClient->GetViewRotation());
 		}
 
-		ABrush* Brush = Cast< ABrush >( ActiveActorLock.Get() );
-		if( Brush )
+		if (ABrush* Brush = Cast<ABrush>(ActiveActorLock))
 		{
-			Brush->SetNeedRebuild( Brush->GetLevel() );
+			Brush->SetNeedRebuild(Brush->GetLevel());
 		}
 
 		FScopedLevelDirtied LevelDirtyCallback;
@@ -3246,7 +3353,7 @@ void FLevelEditorViewportClient::MoveLockedActorToCamera()
 
 bool FLevelEditorViewportClient::HaveSelectedObjectsBeenChanged() const
 {
-	return ( TrackingTransaction.TransCount > 0 || TrackingTransaction.IsActive() ) && MouseDeltaTracker->HasReceivedDelta();
+	return (TrackingTransaction.TransCount > 0 || TrackingTransaction.IsActive()) && (MouseDeltaTracker->HasReceivedDelta() || MouseDeltaTracker->WasExternalMovement());
 }
 
 void FLevelEditorViewportClient::MoveCameraToLockedActor()
@@ -3260,18 +3367,23 @@ void FLevelEditorViewportClient::MoveCameraToLockedActor()
 	}
 }
 
-USceneComponent* FLevelEditorViewportClient::FindViewComponentForActor(AActor const* Actor)
+UActorComponent* FLevelEditorViewportClient::FindViewComponentForActor(AActor const* Actor)
 {
-	USceneComponent* PreviewComponent = nullptr;
-	if (Actor)
+	TSet<AActor const*> CheckedActors;
+	return FindViewComponentForActor(Actor, CheckedActors);
+}
+
+UActorComponent* FLevelEditorViewportClient::FindViewComponentForActor(AActor const* Actor, TSet<AActor const*>& CheckedActors)
+{
+	UActorComponent* PreviewComponent = nullptr;
+	if (Actor && !CheckedActors.Contains(Actor))
 	{
-		
+		CheckedActors.Add(Actor);
 		// see if actor has a component with preview capabilities (prioritize camera components)
-		TArray<USceneComponent*> SceneComps;
-		Actor->GetComponents<USceneComponent>(SceneComps);
+		const TSet<UActorComponent*>& Comps = Actor->GetComponents();
 
 		bool bChoseCamComponent = false;
-		for (USceneComponent* Comp : SceneComps)
+		for (UActorComponent* Comp : Comps)
 		{
 			FMinimalViewInfo DummyViewInfo;
 			if (Comp->bIsActive && Comp->GetEditorPreviewInfo(/*DeltaTime =*/0.0f, DummyViewInfo))
@@ -3301,14 +3413,13 @@ USceneComponent* FLevelEditorViewportClient::FindViewComponentForActor(AActor co
 
 		// now see if any actors are attached to us, directly or indirectly, that have an active camera component we might want to use
 		// we will just return the first one.
-		// #note: assumption here that attachment cannot be circular
 		if (PreviewComponent == nullptr)
 		{
 			TArray<AActor*> AttachedActors;
 			Actor->GetAttachedActors(AttachedActors);
 			for (AActor* AttachedActor : AttachedActors)
 			{
-				USceneComponent* const Comp = FindViewComponentForActor(AttachedActor);
+				UActorComponent* const Comp = FindViewComponentForActor(AttachedActor, CheckedActors);
 				if (Comp)
 				{
 					PreviewComponent = Comp;
@@ -3352,9 +3463,8 @@ bool FLevelEditorViewportClient::IsAnyActorLocked() const
 void FLevelEditorViewportClient::UpdateLockedActorViewports(const AActor* InActor, const bool bCheckRealtime)
 {
 	// Loop through all the other viewports, checking to see if the camera needs updating based on the locked actor
-	for( int32 ViewportIndex = 0; ViewportIndex < GEditor->LevelViewportClients.Num(); ++ViewportIndex )
+	for (FLevelEditorViewportClient* Client : GEditor->GetLevelViewportClients())
 	{
-		FLevelEditorViewportClient* Client = GEditor->LevelViewportClients[ViewportIndex];
 		if( Client && Client != this )
 		{
 			Client->UpdateLockedActorViewport(InActor, bCheckRealtime);
@@ -4094,9 +4204,8 @@ void FLevelEditorViewportClient::Draw(const FSceneView* View,FPrimitiveDrawInter
 	// volume previs is enabled in some viewport
 	if ( !bRenderViewFrustum && IsOrtho() )
 	{
-		for ( int32 ViewportClientIndex = 0; ViewportClientIndex < GEditor->LevelViewportClients.Num(); ++ViewportClientIndex )
+		for (FLevelEditorViewportClient* CurViewportClient : GEditor->GetLevelViewportClients())
 		{
-			const FLevelEditorViewportClient* CurViewportClient = GEditor->LevelViewportClients[ ViewportClientIndex ];
 			if ( CurViewportClient && IsPerspective() && GetDefault<ULevelEditorViewportSettings>()->bLevelStreamingVolumePrevis )
 			{
 				bRenderViewFrustum = true;
@@ -4230,7 +4339,7 @@ void FLevelEditorViewportClient::DrawBrushDetails(const FSceneView* View, FPrimi
 				}
 
 				// Allocate the material proxy and register it so it can be deleted properly once the rendering is done with it.
-				FDynamicColoredMaterialRenderProxy* MaterialProxy = new FDynamicColoredMaterialRenderProxy(GEngine->EditorBrushMaterial->GetRenderProxy(false), Brush->GetWireColor());
+				FDynamicColoredMaterialRenderProxy* MaterialProxy = new FDynamicColoredMaterialRenderProxy(GEngine->EditorBrushMaterial->GetRenderProxy(), Brush->GetWireColor());
 				PDI->RegisterDynamicResource(MaterialProxy);
 
 				// Flush the mesh triangles.
@@ -4474,9 +4583,9 @@ void FLevelEditorViewportClient::UpdateLinkedOrthoViewports( bool bInvalidate )
 		int32 NextViewportIndexToDraw = INDEX_NONE;
 
 		// Search through all viewports for orthographic ones
-		for( int32 ViewportIndex = 0; ViewportIndex < GEditor->LevelViewportClients.Num(); ++ViewportIndex )
+		for( int32 ViewportIndex = 0; ViewportIndex < GEditor->GetLevelViewportClients().Num(); ++ViewportIndex )
 		{
-			FLevelEditorViewportClient* Client = GEditor->LevelViewportClients[ViewportIndex];
+			FLevelEditorViewportClient* Client = GEditor->GetLevelViewportClients()[ViewportIndex];
 			check(Client);
 
 			// Only update other orthographic viewports viewing the same scene
@@ -4510,7 +4619,7 @@ void FLevelEditorViewportClient::UpdateLinkedOrthoViewports( bool bInvalidate )
 		if( NextViewportIndexToDraw != INDEX_NONE )
 		{
 			// Force this viewport to redraw.
-			GEditor->LevelViewportClients[NextViewportIndexToDraw]->bNeedsLinkedRedraw = true;
+			GEditor->GetLevelViewportClients()[NextViewportIndexToDraw]->bNeedsLinkedRedraw = true;
 		}
 	}
 }
@@ -4710,16 +4819,71 @@ void FLevelEditorViewportClient::RemoveReferenceToWorldContext(FWorldContext& Wo
 void FLevelEditorViewportClient::SetIsSimulateInEditorViewport( bool bInIsSimulateInEditorViewport )
 { 
 	bIsSimulateInEditorViewport = bInIsSimulateInEditorViewport; 
+}
 
-	if (bInIsSimulateInEditorViewport)
+bool FLevelEditorViewportClient::GetPivotForOrbit(FVector& Pivot) const
+{
+	if (FEditorViewportClient::GetPivotForOrbit(Pivot))
 	{
-		TSharedRef<FPhysicsManipulationEdModeFactory> Factory = MakeShareable( new FPhysicsManipulationEdModeFactory );
-		FEditorModeRegistry::Get().RegisterMode( FBuiltinEditorModes::EM_Physics, Factory );
+		return true;
 	}
-	else
+
+	FBox BoundingBox(ForceInit);
+	int32 NumValidComponents = 0;
+	for (FSelectionIterator It(GEditor->GetSelectedComponentIterator()); It; ++It)
 	{
-		FEditorModeRegistry::Get().UnregisterMode( FBuiltinEditorModes::EM_Physics );
+		// Allow orbiting on selected SceneComponents
+		USceneComponent* Component = Cast<USceneComponent>(*It);
+		if (Component && Component->IsRegistered())
+		{
+			// It's possible that it doesn't have a bounding box, so just take its position in that case
+			FBox ComponentBBox = Component->Bounds.GetBox();
+			if (ComponentBBox.GetVolume() != 0)
+			{
+				BoundingBox += ComponentBBox;
+			}
+			else
+			{
+				BoundingBox += Component->GetComponentLocation();
+			}
+			++NumValidComponents;
+		}
 	}
+
+	if (NumValidComponents > 0)
+	{
+		Pivot = BoundingBox.GetCenter();
+		return true;
+	}
+
+	// Use the center of the bounding box of the current selected actors, if any, as the pivot point for orbiting the camera
+	int32 NumSelectedActors = 0;
+	for (FSelectionIterator It(GEditor->GetSelectedActorIterator()); It; ++It)
+	{
+		if (AActor* Actor = Cast<AActor>(*It))
+		{
+			TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents(Actor);
+
+			for(int32 ComponentIndex = 0; ComponentIndex < PrimitiveComponents.Num(); ++ComponentIndex)
+			{
+				UPrimitiveComponent* PrimitiveComponent = PrimitiveComponents[ComponentIndex];
+
+				if (PrimitiveComponent->IsRegistered())
+				{
+					BoundingBox += PrimitiveComponent->Bounds.GetBox();
+					++NumSelectedActors;
+				}
+			}
+		}
+	}
+
+	if (NumSelectedActors > 0)
+	{
+		Pivot = BoundingBox.GetCenter();
+		return true;
+	}
+
+	return false;
 }
 
 #undef LOCTEXT_NAMESPACE

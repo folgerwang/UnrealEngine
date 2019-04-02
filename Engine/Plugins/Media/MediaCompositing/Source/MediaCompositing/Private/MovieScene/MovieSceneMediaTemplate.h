@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -40,6 +40,9 @@ struct FMovieSceneMediaSectionParams
 
 	UPROPERTY()
 	bool bLooping;
+	
+	UPROPERTY()
+	FFrameNumber StartFrameOffset;
 
 	FMovieSceneMediaSectionParams()
 		: MediaSoundComponent(nullptr)

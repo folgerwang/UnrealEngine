@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3514628
+﻿INTSourceChangelist:3626467
 Availability:Public
 Crumbs: %ROOT%
 Title:NVIDIA SLI 交替帧渲染
@@ -22,6 +22,7 @@ topic-image:AFR_topic.png
 
 如需了解更多详情，可在此处 [SLI 模式，特别说明交替帧渲染](https://docs.nvidia.com/gameworks/content/technologies/desktop/sli.htm) 阅读 NVIDIA 官方文档。
 
+(#ForceEnablingAFR)
 ## 强制启用 AFR
 
 在部分应用程序中，用户可通过 NVIDIA 控制面板添加程序，使 SLI 渲染模式强制启用 AFR。执行以下步骤即可完成此操作：

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -14,7 +14,6 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Animation/AnimNotifyQueue.h"
 #include "Animation/AnimNotifies/AnimNotify.h"
-// #include "Engine/Canvas.h"
 #include "AnimInstance.generated.h"
 
 // Post Compile Validation requires WITH_EDITOR
@@ -30,19 +29,10 @@ struct FAnimNode_AssetPlayerBase;
 struct FAnimNode_StateMachine;
 struct FAnimNode_SubInput;
 struct FBakedAnimationStateMachine;
+class FCompilerResultsLog;
 struct FBoneContainer;
 
 typedef TArray<FTransform> FTransformArrayA2;
-
-UENUM()
-enum class EAnimCurveType : uint8 
-{
-	AttributeCurve,
-	MaterialCurve, 
-	MorphTargetCurve, 
-	// make sure to update MaxCurve 
-	MaxAnimCurveType UMETA(Hidden)
-};
 
 UENUM()
 enum class EMontagePlayReturnType : uint8
@@ -194,6 +184,17 @@ struct FSlotEvaluationPose
 		, Weight(InWeight)
 	{
 	}
+
+	FSlotEvaluationPose(FSlotEvaluationPose&& InEvaluationPose)
+		: AdditiveType(InEvaluationPose.AdditiveType)
+		, Weight(InEvaluationPose.Weight)
+	{
+		Pose.MoveBonesFrom(InEvaluationPose.Pose);
+		Curve.MoveFrom(InEvaluationPose.Curve);
+	}
+
+	FSlotEvaluationPose(const FSlotEvaluationPose& InEvaluationPose) = default;
+	FSlotEvaluationPose& operator=(const FSlotEvaluationPose& InEvaluationPose) = default;
 };
 
 /** Helper struct to store a Queued Montage BlendingOut event. */
@@ -379,7 +380,7 @@ class ENGINE_API UAnimInstance : public UObject
 	 * - All access of variables in the blend tree should be a direct access of a member variable
 	 * - No BlueprintUpdateAnimation event should be used (i.e. the event graph should be empty). Only native update is permitted.
 	 */
-	DEPRECATED(4.15, "This variable is no longer used. Use bUseMultiThreadedAnimationUpdate on the UAnimBlueprint to control this.")
+	UE_DEPRECATED(4.15, "This variable is no longer used. Use bUseMultiThreadedAnimationUpdate on the UAnimBlueprint to control this.")
 	UPROPERTY()
 	uint8 bRunUpdatesInWorkerThreads_DEPRECATED : 1;
 
@@ -390,7 +391,7 @@ class ENGINE_API UAnimInstance : public UObject
 	 * - Use of BlueprintUpdateAnimation
 	 * - Use of non 'fast-path' EvaluateGraphExposedInputs in the node graph
 	 */
-	DEPRECATED(4.15, "This variable is no longer used. Use bUseMultiThreadedAnimationUpdate on the UAnimBlueprint to control this.")
+	UE_DEPRECATED(4.15, "This variable is no longer used. Use bUseMultiThreadedAnimationUpdate on the UAnimBlueprint to control this.")
 	UPROPERTY()
 	uint8 bCanUseParallelUpdateAnimation_DEPRECATED : 1;
 
@@ -399,7 +400,7 @@ class ENGINE_API UAnimInstance : public UObject
 	 * Selecting this option will cause the compiler to emit warnings whenever a call into Blueprint
 	 * is made from the animation graph. This can help track down optimizations that need to be made.
 	 */
-	DEPRECATED(4.15, "This variable is no longer used. Use bWarnAboutBlueprintUsage on the UAnimBlueprint to control this.")
+	UE_DEPRECATED(4.15, "This variable is no longer used. Use bWarnAboutBlueprintUsage on the UAnimBlueprint to control this.")
 	UPROPERTY()
 	uint8 bWarnAboutBlueprintUsage_DEPRECATED : 1;
 #endif
@@ -533,7 +534,7 @@ public:
 
 	/** DEPRECATED. Use PlaySlotAnimationAsDynamicMontage instead, it returns the UAnimMontage created instead of time, allowing more control */
 	/** Play normal animation asset on the slot node. You can only play one asset (whether montage or animsequence) at a time. */
-	DEPRECATED(4.9, "This function is deprecated, please use PlaySlotAnimationAsDynamicMontage instead.")
+	UE_DEPRECATED(4.9, "This function is deprecated, please use PlaySlotAnimationAsDynamicMontage instead.")
 	UFUNCTION(BlueprintCallable, Category="Animation")
 	float PlaySlotAnimation(UAnimSequenceBase* Asset, FName SlotNodeName, float BlendInTime = 0.25f, float BlendOutTime = 0.25f, float InPlayRate = 1.f, int32 LoopCount = 1);
 
@@ -677,7 +678,7 @@ public:
 	FAnimMontageInstance* GetActiveMontageInstance() const;
 
 	/** Get Active FAnimMontageInstance for given Montage asset. Will return NULL if Montage is not currently Active. */
-	DEPRECATED(4.13, "Please use GetActiveInstanceForMontage(const UAnimMontage* Montage)")
+	UE_DEPRECATED(4.13, "Please use GetActiveInstanceForMontage(const UAnimMontage* Montage)")
 	FAnimMontageInstance* GetActiveInstanceForMontage(UAnimMontage const& Montage) const;
 
 	/** Get Active FAnimMontageInstance for given Montage asset. Will return NULL if Montage is not currently Active. */
@@ -939,10 +940,21 @@ public:
 	virtual bool PCV_ShouldWarnAboutNodesNotUsingFastPath() const { return false; }
 	virtual bool PCV_ShouldNotifyAboutNodesNotUsingFastPath() const { return false; }
 
+	// Called on the newly created CDO during anim blueprint compilation to allow subclasses a chance to replace animations (experimental)
+	virtual void ApplyAnimOverridesToCDO(FCompilerResultsLog& MessageLog) {}
 #endif // WITH_EDITORONLY_DATA
 
+	/** Called when skipping an animation update because of URO. */
 	virtual void OnUROSkipTickAnimation() {}
+
+	UE_DEPRECATED(4.22, "This function is deprecated, please use OnUROPreInterpolation_AnyThread")
 	virtual void OnUROPreInterpolation() {}
+
+	/** 
+	 * Called before URO interpolation is performed. Useful for modifying bone space transforms etc. before interpolation is performed.
+	 * Note that this can be called on a worker thread. 
+	 */
+	virtual void OnUROPreInterpolation_AnyThread(FAnimationEvaluationContext& InOutContext) {}
 
 	// Animation phase trigger
 	// start with initialize
@@ -966,13 +978,13 @@ public:
 	bool ParallelCanEvaluate(const USkeletalMesh* InSkeletalMesh) const;
 
 	/** Perform evaluation. Can be called from worker threads. */
+	void ParallelEvaluateAnimation(bool bForceRefPose, const USkeletalMesh* InSkeletalMesh, FBlendedHeapCurve& OutCurve, FCompactPose& OutPose);
+
+	UE_DEPRECATED(4.32, "Please use ParallelEvaluateAnimation without passing OutBoneSpaceTransforms.")
 	void ParallelEvaluateAnimation(bool bForceRefPose, const USkeletalMesh* InSkeletalMesh, TArray<FTransform>& OutBoneSpaceTransforms, FBlendedHeapCurve& OutCurve, FCompactPose& OutPose);
 
 	void PostEvaluateAnimation();
 	void UninitializeAnimation();
-
-	/** Called on the CDO to pre-init cached UFunctions */
-	void PreInitializeRootNode();
 
 	// the below functions are the native overrides for each phase
 	// Native initialization override point
@@ -983,7 +995,7 @@ public:
 	// Native update override point. Can be called from a worker thread. This is a good place to do any
 	// heavy lifting (as opposed to NativeUpdateAnimation_GameThread()).
 	// This function should not be used. Worker thread updates should be performed in the FAnimInstanceProxy attached to this instance.
-	DEPRECATED(4.15, "This function is only called for backwards-compatibility. It is no longer called on a worker thread.")
+	UE_DEPRECATED(4.15, "This function is only called for backwards-compatibility. It is no longer called on a worker thread.")
 	virtual void NativeUpdateAnimation_WorkerThread(float DeltaSeconds);
 	// Native Post Evaluate override point
 	virtual void NativePostEvaluateAnimation();
@@ -1022,7 +1034,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Animation", meta = (NotBlueprintThreadSafe))
 	void ResetDynamics(ETeleportType InTeleportType);
 
-	DEPRECATED(4.20, "Please use ResetDynamics with a ETeleportType argument")
+	UE_DEPRECATED(4.20, "Please use ResetDynamics with a ETeleportType argument")
 	void ResetDynamics();
 
 	/** 
@@ -1041,6 +1053,9 @@ public:
 	const FBoneContainer& GetRequiredBones() const;
 	const FBoneContainer& GetRequiredBonesOnAnyThread() const;
 
+	/** Pending teleport type, set in ResetDynamics and cleared in UpdateAnimation */
+	ETeleportType PendingDynamicResetTeleportType;
+
 	/** Animation Notifies that has been triggered in the latest tick **/
 	UPROPERTY(transient)
 	FAnimNotifyQueue NotifyQueue;
@@ -1052,16 +1067,19 @@ public:
 	TArray<FAnimNotifyEvent> ActiveAnimNotifyState;
 
 private:
-	/** This is if you want to separate to another array**/
-	TMap<FName, float>	AnimationCurves[(uint8)EAnimCurveType::MaxAnimCurveType];
-
 	/** Reset Animation Curves */
 	void ResetAnimationCurves();
 
-	/** Material parameters that we had been changing and now need to clear */
-	TArray<FName> MaterialParamatersToClear;
-
 public: 
+	/** Pushes blended heap curve to output curves in the proxy using required bones cached data */
+	void UpdateCurvesToEvaluationContext(const FAnimationEvaluationContext& InOutContext);
+
+	/** Update curves once evaluation has taken place. Mostly pushes curves to materials/morphs */
+	void UpdateCurvesPostEvaluation();
+
+	/** Swap curves out for evaluation */
+	void SwapCurveWithEvaluationContext(FAnimationEvaluationContext& InOutContext);
+
 	/** Update all internal curves from Blended Curve */
 	void UpdateCurves(const FBlendedHeapCurve& InCurves);
 
@@ -1083,7 +1101,7 @@ public:
 	void AppendAnimationCurveList(EAnimCurveType Type, TMap<FName, float>& InOutCurveList) const;
 
 
-	DEPRECATED(4.19, "This function is deprecated. Use AppendAnimationCurveList instead.")
+	UE_DEPRECATED(4.19, "This function is deprecated. Use AppendAnimationCurveList instead.")
 	void GetAnimationCurveList(EAnimCurveType Type, TMap<FName, float>& InOutCurveList) const;
 	/**
 	 *	Return the list of curves that are specified by type 
@@ -1131,6 +1149,9 @@ public:
 	/** Add curve float data using a curve Uid, the name of the curve will be resolved from the skeleton **/
 	void AddCurveValue(const USkeleton::AnimCurveUID Uid, float Value);
 
+	/** Add curve float data using a curve Uid, the name of the curve will be resolved from the skeleton. This uses an already-resolved proxy and mapping table for efficency **/
+	void AddCurveValue(const FSmartNameMapping& Mapping, const FName& CurveName, float Value);
+
 	/** Given a machine index, record a state machine weight for this frame */
 	void RecordMachineWeight(const int32 InMachineClassIndex, const float InMachineWeight);
 	/** 
@@ -1147,6 +1168,9 @@ protected:
 	// Returns true if a snapshot is being played back and the remainder of Update should be skipped.
 	bool UpdateSnapshotAndSkipRemainingUpdate();
 #endif
+
+	/** Implementable custom function to handle notifies */
+	virtual bool HandleNotify(const FAnimNotifyEvent& AnimNotifyEvent);
 
 	// Root Motion
 public:

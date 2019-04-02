@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -19,7 +19,7 @@
 
 #ifndef AUDIO_MIXER_ENABLE_DEBUG_MODE
 // This define enables a bunch of more expensive debug checks and logging capabilities that are intended to be off most of the time even in debug builds of game/editor.
-#if (UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if (UE_BUILD_SHIPPING || UE_BUILD_TEST || UE_BUILD_DEVELOPMENT)
 #define AUDIO_MIXER_ENABLE_DEBUG_MODE 0
 #else
 #define AUDIO_MIXER_ENABLE_DEBUG_MODE 1
@@ -78,8 +78,6 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("HRTF"), STAT_AudioMixerHRTF, STATGROUP_AudioMixe
 #define AUDIO_MIXER_CHECK_AUDIO_PLAT_THREAD(_MixerDevice)
 #endif
 
-#define AUDIO_MIXER_MIN_PITCH						0.1f
-#define AUDIO_MIXER_MAX_PITCH						4.0f
 #define AUDIO_MIXER_MAX_OUTPUT_CHANNELS				8			// Max number of speakers/channels supported (7.1)
 
 #define AUDIO_MIXER_DEFAULT_DEVICE_INDEX			INDEX_NONE

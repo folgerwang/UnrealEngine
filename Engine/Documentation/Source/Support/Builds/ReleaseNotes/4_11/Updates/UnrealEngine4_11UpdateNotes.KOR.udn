@@ -22,7 +22,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/tree/4.11.1-release](https://
 
 픽스:
 
-*  UEBP-140	오큘러스 통합: 1.3 SDK, 자동화 기능, 어댑터 지원
+*  UEBP-140	Oculus 통합: 1.3 SDK, 자동화 기능, 어댑터 지원
 
 *  UE-28961	UnrealLightMass 가 VS2015 Update 2 에서 컴파일 실패
 
@@ -126,11 +126,11 @@ Github: [https://github.com/EpicGames/UnrealEngine/tree/4.11.2-release](https://
 
 *  UE-29194	Shipping 빌드 서미션 타임스탬프 배열에 PS4 메모리 누수
 
-*  UE-29390	윈도우에서 Html 5 실행 실패
+*  UE-29390	Windows에서 Html 5 실행 실패
 
 *  UE-29392	HTML5 에서 로드/저장 깨짐
 
-*  UE-28874	새로운 써드 파티 플러그인이 맥과 리눅스에서 컴파일되지 않아 프로젝트가 열리지 않음
+*  UE-28874	새로운 써드 파티 플러그인이 Mac과 Linux에서 컴파일되지 않아 프로젝트가 열리지 않음
 
 *  UE-29158	4.11 퇴보: 스테이셔너리 스카이라이트가 더이상 라이팅 빌드 이후 반사광을 받지 않음
 
@@ -150,4 +150,4 @@ Github: [https://github.com/EpicGames/UnrealEngine/tree/4.11.2-release](https://
 
 * Visual Studio 2015 Update 3 사용 시도 시 컴파일 문제를 해결합니다.
 
-[윈도우 다운로드](https://s3.amazonaws.com/unrealengine/qfe/QFE-FromCL-3044413.exe](https://s3.amazonaws.com/unrealengine/qfe/QFE-FromCL-3044413.exe) 
+[Windows 다운로드](https://s3.amazonaws.com/unrealengine/qfe/QFE-FromCL-3044413.exe](https://s3.amazonaws.com/unrealengine/qfe/QFE-FromCL-3044413.exe) 

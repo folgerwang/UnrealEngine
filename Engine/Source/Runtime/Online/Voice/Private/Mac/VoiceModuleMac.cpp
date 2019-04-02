@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "VoiceCodecOpus.h"
 #include "Voice.h"
@@ -597,28 +597,4 @@ IVoiceCapture* CreateVoiceCaptureObject(const FString& DeviceName, int32 SampleR
 		Capture = nullptr;
 	}
 	return Capture;
-}
-
-IVoiceEncoder* CreateVoiceEncoderObject(int32 SampleRate, int32 NumChannels, EAudioEncodeHint EncodeHint)
-{
-	FVoiceEncoderOpus* NewEncoder = new FVoiceEncoderOpus;
-	if (!NewEncoder->Init(SampleRate, NumChannels, EncodeHint))
-	{
-		delete NewEncoder;
-		NewEncoder = nullptr;
-	}
-	
-	return NewEncoder;
-}
-
-IVoiceDecoder* CreateVoiceDecoderObject(int32 SampleRate, int32 NumChannels)
-{
-	FVoiceDecoderOpus* NewDecoder = new FVoiceDecoderOpus;
-	if (!NewDecoder->Init(SampleRate, NumChannels))
-	{
-		delete NewDecoder;
-		NewDecoder = nullptr;
-	}
-	
-	return NewDecoder;
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieSceneCinematicShotTrack.h"
 #include "MovieSceneSequence.h"
@@ -53,6 +53,11 @@ void UMovieSceneCinematicShotTrack::AddSection(UMovieSceneSection& Section)
 	{
 		Sections.Add(&Section);
 	}
+}
+
+bool UMovieSceneCinematicShotTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneCinematicShotSection::StaticClass();
 }
 
 
@@ -158,5 +163,10 @@ FText UMovieSceneCinematicShotTrack::GetDefaultDisplayName() const
 	return LOCTEXT("TrackName", "Shots");
 }
 #endif
+
+void UMovieSceneCinematicShotTrack::SortSections()
+{
+	MovieSceneHelpers::SortConsecutiveSections(Sections);
+}
 
 #undef LOCTEXT_NAMESPACE

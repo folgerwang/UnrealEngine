@@ -30,7 +30,7 @@ tags:Unreal Build System
 이게 끝입니다! Visual Studio 개발자의 경우 이렇게 하면 같은 디렉터리에 UE4.sln 파일이 생깁니다. 이 솔루션 파일을 사용하여 언리얼 엔진 4 게임과 프로그램을 빌드하고 실행시킵니다. (처음 컴파일하는 경우에는 Win64 플랫폼에서 Development 환경설정을 사용하여 빌드할 것을 추천합니다!)
 
 [REGION:note]
-	기본적으로 감지된 SDK 에 대해 사용가능한 모든 플랫폼용 빌드가능 프로젝트를 생성하므로, 모바일 플랫폼용으로도 빌드하고 콘솔 디버깅도 가능합니다. (윈도우처럼) 현재 실행중인 플랫폼 전용 프로젝트를 생성하려는 경우, `GenerateProjectFiles.bat` 에 '-CurrentPlatform' 인수를 붙여 실행합니다. 프로젝트 파일이 조금 가벼워 집니다.
+	기본적으로 감지된 SDK 에 대해 사용가능한 모든 플랫폼용 빌드가능 프로젝트를 생성하므로, 모바일 플랫폼용으로도 빌드하고 콘솔 디버깅도 가능합니다. (Windows처럼) 현재 실행중인 플랫폼 전용 프로젝트를 생성하려는 경우, `GenerateProjectFiles.bat` 에 '-CurrentPlatform' 인수를 붙여 실행합니다. 프로젝트 파일이 조금 가벼워 집니다.
 [/REGION]
 
 **중요**:  기억하실 것은 소스 컨트롤에서 새로 변경된 코드를 동기화시킨 다음 `GenerateProjectFiles.bat` 를 재실행해 줘야 합니다. 깜빡하시면 게임 컴파일이나 실행시 문제가 생길 확률이 높습니다.
@@ -53,7 +53,7 @@ Visual Studio 용 [](Programming/Development/VisualStudioSetup/UnrealVS) 에는 
 
 | 옵션 | 설명 ||
  ---- | ---- |
--CurrentPlatform   |  감지된 타깃 플랫폼 전부가 아닌, 현재 데스크톱 플랫폼용 프로젝트만 생성합니다 (윈도우 또는 맥). |
+-CurrentPlatform   |  감지된 타깃 플랫폼 전부가 아닌, 현재 데스크톱 플랫폼용 프로젝트만 생성합니다 (Windows 또는 Mac). |
 -2015              |  Visual Studio 2015 네이티브 포맷으로 프로젝트를 생성합니다. 이 옵션 사용시 Visual C++ 2015 컴파일러가 사용됩니다. |
 -2017              |  VS 2017 원래 포맷으로 프로젝트를 생성합니다. 이 옵션을 설정하면 Visual C++ 2017 컴파일러를 사용합니다. |
 -ThirdParty        |  헤더와 써드 파티 라이브러리의 파일을 프로젝트에 추가합니다. PhysX, Steamworks, Bink 등에 대한 심볼과 파일을 Visual Assist 에서 확인하고자 할 때 좋을 수 있습니다. 그러나 프로젝트 파일 로드 시간이 길어질 수 있습니다! |

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "BrainComponent.h"
 #include "UObject/Package.h"
@@ -195,7 +195,7 @@ UBrainComponent::UBrainComponent(const FObjectInitializer& ObjectInitializer) : 
 #if ENABLE_VISUAL_LOG
 void UBrainComponent::DescribeSelfToVisLog(FVisualLogEntry* Snapshot) const
 {
-	const static UEnum* PriorityEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EAIRequestPriority"));
+	const static UEnum* PriorityEnum = StaticEnum<EAIRequestPriority::Type>();
 
 	if (IsPendingKill())
 	{

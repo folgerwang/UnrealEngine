@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #ifndef declare_h
 #define declare_h
@@ -179,6 +179,7 @@ enum MTLTessellationFactorStepFunction : NSUInteger;
 enum MTLVertexStepFunction : NSUInteger;
 enum MTLVertexFormat : NSUInteger;
 enum MTLMultisampleDepthResolveFilter : NSUInteger;
+enum MTLDispatchType : NSUInteger;
 
 struct MTLPPOrigin
 {

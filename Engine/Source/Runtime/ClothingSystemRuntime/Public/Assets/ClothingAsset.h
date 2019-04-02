@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -50,8 +50,8 @@ struct CLOTHINGSYSTEMRUNTIME_API FClothParameterMask_PhysMesh
 	FClothParameterMask_PhysMesh()
 		: MaskName(NAME_None)
 		, CurrentTarget(MaskTarget_PhysMesh::None)
-		, MaxValue(-MAX_flt)
-		, MinValue(MAX_flt)
+		, MaxValue_DEPRECATED(0.0)
+		, MinValue_DEPRECATED(100.0)
 		, bEnabled(false)
 	{}
 
@@ -87,15 +87,7 @@ struct CLOTHINGSYSTEMRUNTIME_API FClothParameterMask_PhysMesh
 	const TArray<float>& GetValueArray() const;
 
 	/** Calculates Min/Max values based on values. */
-	void CalcRanges();
-
-#if WITH_EDITOR
-	/** 
-	 * Get a value represented as a preview color for painting
-	 * @param InVertexIndex the value/vertex index to retrieve
-	 */
-	FColor GetValueAsColor(int32 InVertexIndex) const;
-#endif
+	void CalcRanges(float& MinValue, float& MaxValue);
 
 	/** 
 	 * Apply the mask to the provided mesh (if compatible)
@@ -113,11 +105,11 @@ struct CLOTHINGSYSTEMRUNTIME_API FClothParameterMask_PhysMesh
 
 	/** The maximum value currently in the mask value array */
 	UPROPERTY()
-	float MaxValue;
+	float MaxValue_DEPRECATED;
 
 	/** The maximum value currently in the mask value array */
 	UPROPERTY()
-	float MinValue;
+	float MinValue_DEPRECATED;
 
 	/** The actual values stored in the mask */
 	UPROPERTY()

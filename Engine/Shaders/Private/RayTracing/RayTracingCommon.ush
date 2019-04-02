@@ -1,0 +1,268 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	RayTracingCommon.ush: common header used in multiple ray generation shaders
+=============================================================================*/
+
+#pragma once
+
+#ifndef RAYTRACINGCOMMON_USH_INCLUDED
+#define RAYTRACINGCOMMON_USH_INCLUDED // Workarround for UE-66460
+
+// Make sure we recompile ray tracing shaders if the main shader version changes
+#include "/Engine/Public/ShaderVersion.ush"
+
+#include "../ShadingCommon.ush"
+#include "/Engine/Shared/RayTracingDefinitions.h"
+
+struct FBasicRayData
+{
+	float3 Origin;
+	uint Mask;
+	float3 Direction;
+	float TFar;
+};
+
+struct FBasicRayIntersectionData
+{
+	float  Distance;
+	uint   PrimitiveIndex; // 0xFFFFFFFF if no intersection if found
+	uint   InstanceIndex;  // 0xFFFFFFFF if no intersection if found
+	float2 Barycentrics;
+};
+
+struct FOcclusionPayload
+{
+	bool Hit;
+};
+
+struct FDefaultPayload
+{
+	float2 Barycentrics;
+	uint   InstanceID;
+	uint   InstanceIndex;
+	uint   PrimitiveIndex;
+	float  HitT;
+	float2 Padding;
+};
+
+#define RAY_TRACING_DEFERRED_MATERIAL_KEY_INVALID   0xFFFFFFFF
+#define RAY_TRACING_DEFERRED_MATERIAL_KEY_RAY_MISS  0xFFFFFFFE
+
+struct FDeferredMaterialPayload
+{
+	uint   SortKey;          // MaterialID by default
+	uint   PixelCoordinates; // X in low 16 bits, Y in high 16 bits
+	float  HitT;
+};
+
+struct FDefaultAttributes
+{
+	float2 Barycentrics;
+};
+
+struct FRayCone
+{
+	float Width;
+	float SpreadAngle;
+};
+
+FRayCone PropagateRayCone(in FRayCone Cone, in float SurfaceSpreadAngle, in float  HitT)
+{
+	FRayCone NewCone;
+	NewCone.Width = Cone.SpreadAngle * HitT + Cone.Width;
+	NewCone.SpreadAngle = Cone.SpreadAngle + SurfaceSpreadAngle;
+	return NewCone;
+}
+
+#define RAY_TRACING_BLEND_MODE_OPAQUE				0
+#define RAY_TRACING_BLEND_MODE_ALPHA_COMPOSITE		1
+#define RAY_TRACING_BLEND_MODE_TRANSLUCENT			2
+#define RAY_TRACING_BLEND_MODE_ADDITIVE				3
+#define RAY_TRACING_BLEND_MODE_MODULATE				4
+
+struct FMaterialClosestHitPayload
+{
+										// Unpacked  Packed
+										// offset    bytes
+	FRayCone RayCone;					// 8         8       64bits
+	float HitT;							// 12        4       32bits
+
+	float3 Radiance;					// 24        6       48bits
+	float3 WorldNormal;					// 36        6       48bits
+	float3 BaseColor;					// 48        6       48bits
+	float3 DiffuseColor;				// 60        0       (derived)
+	float3 SpecularColor;				// 72        0       (derived)
+	float Opacity;						// 76        2       16bits
+	float Metallic;						// 80        1       8bits
+	float Specular;						// 84        1       8bits
+	float Roughness;					// 88        2       16bits
+	float Ior;							// 92        2       16bits
+	uint ShadingModelID;				// 96        1       4bits
+	uint BlendingMode;					// 100       0       4bits (packed with ShadingModelID)
+	uint PrimitiveLightingChannelMask;	// 104       0       (removed)
+	float4 CustomData;					// 120       4       32bits -- only xy are packed at the moment
+	float GBufferAO;					// 124       0       (removed)
+	float3 IndirectIrradiance;			// 136       0       48bits -- gbuffer only has float payload and there are truncation HLSL warnings
+
+	// Quite some code assume FRayHitInfo has a WorldPos
+	// So keep it here and force to re-construct it in Unpack call using ray information.
+	// It is not packed in FRayHitInfoPacked
+	float3 WorldPos;					// 148       0       (derived)
+
+	uint HitKind;						// 152       0       1bit (packed)
+};
+
+#define USE_PACKED_PAYLOAD 1
+
+#if !COMPUTESHADER
+#if USE_PACKED_PAYLOAD
+struct FPackedMaterialClosestHitPayload
+{
+	float HitT;                                         // 4  bytes
+	FRayCone RayCone;                                   // 8  bytes
+	int RadianceAndNormal[3];                           // 12 bytes
+	int BaseColorAndOpacity[2];                         // 8  bytes
+	int MetallicAndSpecularAndRoughness;                // 4  bytes
+	int IorAndShadingModelIDAndBlendingModeAndHitKind;  // 4  bytes
+	int IndirectIrradiance[2];                          // 8  bytes
+	int CustomData;                                     // 4  bytes
+};                                                      // 52 bytes total
+
+FPackedMaterialClosestHitPayload PackRayTracingPayload(FMaterialClosestHitPayload Input, in FRayCone RayCone)
+{
+	FPackedMaterialClosestHitPayload Output = (FPackedMaterialClosestHitPayload)0;
+	Output.HitT = Input.HitT;
+	Output.RayCone = RayCone; 
+	Output.RadianceAndNormal[0]  = f32tof16(Input.Radiance.x);
+	Output.RadianceAndNormal[0] |= f32tof16(Input.Radiance.y) << 16;
+	Output.RadianceAndNormal[1]  = f32tof16(Input.Radiance.z);
+	Output.RadianceAndNormal[1] |= f32tof16(Input.WorldNormal.x) << 16;
+	Output.RadianceAndNormal[2]  = f32tof16(Input.WorldNormal.y);
+	Output.RadianceAndNormal[2] |= f32tof16(Input.WorldNormal.z) << 16;
+	Output.BaseColorAndOpacity[0]  = f32tof16(Input.BaseColor.x);
+	Output.BaseColorAndOpacity[0] |= f32tof16(Input.BaseColor.y) << 16;
+	Output.BaseColorAndOpacity[1]  = f32tof16(Input.BaseColor.z);
+	Output.BaseColorAndOpacity[1] |= f32tof16(Input.Opacity) << 16;
+	Output.MetallicAndSpecularAndRoughness  = (uint(round(Input.Metallic * 255.0f)) & 0xFF);
+	Output.MetallicAndSpecularAndRoughness |= (uint(round(Input.Specular * 255.0f)) & 0xFF) << 8;
+	Output.MetallicAndSpecularAndRoughness |= f32tof16(Input.Roughness) << 16;
+	Output.IorAndShadingModelIDAndBlendingModeAndHitKind  = f32tof16(Input.Ior);
+	Output.IorAndShadingModelIDAndBlendingModeAndHitKind |= (Input.ShadingModelID & 0xF) << 16;
+	Output.IorAndShadingModelIDAndBlendingModeAndHitKind |= (Input.BlendingMode & 0x7) << 20;
+	Output.IorAndShadingModelIDAndBlendingModeAndHitKind |= (Input.HitKind & 0x1) << 31;
+	Output.IndirectIrradiance[0] = f32tof16(Input.IndirectIrradiance.x);
+	Output.IndirectIrradiance[0] |= f32tof16(Input.IndirectIrradiance.y) << 16;
+	Output.IndirectIrradiance[1] = f32tof16(Input.IndirectIrradiance.z);
+	Output.CustomData = f32tof16(Input.CustomData.x) | (f32tof16(Input.CustomData.y) << 16);
+
+	return Output;
+}
+
+float3 UnpackRayTracingNormal(FPackedMaterialClosestHitPayload Input)
+{
+	float3 OutWorldNormal;
+	OutWorldNormal.x = f16tof32(Input.RadianceAndNormal[1] >> 16);
+	OutWorldNormal.y = f16tof32(Input.RadianceAndNormal[2]);
+	OutWorldNormal.z = f16tof32(Input.RadianceAndNormal[2] >> 16);
+	return OutWorldNormal;
+}
+
+FMaterialClosestHitPayload UnpackRayTracingPayload(FPackedMaterialClosestHitPayload Input, RayDesc Ray)
+{
+	FMaterialClosestHitPayload Output = (FMaterialClosestHitPayload)0;
+	Output.HitT = Input.HitT;
+	Output.RayCone = Input.RayCone; 
+	Output.Radiance.x = f16tof32(Input.RadianceAndNormal[0]);
+	Output.Radiance.y = f16tof32(Input.RadianceAndNormal[0] >> 16);
+	Output.Radiance.z = f16tof32(Input.RadianceAndNormal[1]);
+	Output.WorldNormal.x = f16tof32(Input.RadianceAndNormal[1] >> 16);
+	Output.WorldNormal.y = f16tof32(Input.RadianceAndNormal[2]);
+	Output.WorldNormal.z = f16tof32(Input.RadianceAndNormal[2] >> 16);
+	Output.BaseColor.x = f16tof32(Input.BaseColorAndOpacity[0]);
+	Output.BaseColor.y = f16tof32(Input.BaseColorAndOpacity[0] >> 16);
+	Output.BaseColor.z = f16tof32(Input.BaseColorAndOpacity[1]);
+	Output.Opacity	   = f16tof32(Input.BaseColorAndOpacity[1] >> 16);
+	Output.Metallic	   = float(Input.MetallicAndSpecularAndRoughness & 0xFF) / 255.0f;
+    Output.Specular	   = float((Input.MetallicAndSpecularAndRoughness >> 8) & 0xFF) / 255.0f;
+    Output.Roughness   = f16tof32(Input.MetallicAndSpecularAndRoughness >> 16);
+	Output.Ior			  = f16tof32(Input.IorAndShadingModelIDAndBlendingModeAndHitKind);
+	Output.ShadingModelID = (Input.IorAndShadingModelIDAndBlendingModeAndHitKind >> 16) & 0xF;
+	Output.BlendingMode	  = (Input.IorAndShadingModelIDAndBlendingModeAndHitKind >> 20) & 0x7;
+	Output.HitKind		  = (Input.IorAndShadingModelIDAndBlendingModeAndHitKind >> 31);
+	Output.IndirectIrradiance.x	= f16tof32(Input.IndirectIrradiance[0]);
+	Output.IndirectIrradiance.y	= f16tof32(Input.IndirectIrradiance[0] >> 16);
+	Output.IndirectIrradiance.z	= f16tof32(Input.IndirectIrradiance[1]);
+	Output.CustomData.x = f16tof32(Input.CustomData.x & 0xFFFF);
+	Output.CustomData.y = f16tof32(Input.CustomData.x >> 16);
+	Output.CustomData.zw = 0;
+
+	Output.DiffuseColor  = Output.BaseColor - Output.BaseColor * Output.Metallic;
+	Output.SpecularColor = ComputeF0(Output.Specular, Output.BaseColor, Output.Metallic);
+	Output.WorldPos		 = Ray.Origin + Output.HitT * Ray.Direction;
+	return Output;
+}
+
+#else // USE_PACKED_PAYLOAD
+
+typedef FMaterialClosestHitPayload FPackedMaterialClosestHitPayload;
+
+FPackedMaterialClosestHitPayload PackRayTracingPayload(FMaterialClosestHitPayload Input, in FRayCone RayCone)
+{
+	return Input;
+}
+
+FMaterialClosestHitPayload UnpackRayTracingPayload(FPackedMaterialClosestHitPayload Input, RayDesc Ray)
+{
+	return Input;
+}
+
+#endif // USE_PACKED_PAYLOAD
+
+FMaterialClosestHitPayload TraceRayInternal(in RaytracingAccelerationStructure TLAS,
+											in uint RayFlags,
+											in uint InstanceInclusionMask,
+											in uint RayContributionToHitGroupIndex,
+											in uint MultiplierForGeometryContributionToShaderIndex,
+											in uint MissShaderIndex,
+											in RayDesc Ray,
+											inout FRayCone RayCone)
+{
+	FPackedMaterialClosestHitPayload Payload = (FPackedMaterialClosestHitPayload)0;
+	Payload.RayCone = RayCone;
+
+	TraceRay
+	(
+			TLAS,
+			RayFlags,
+			InstanceInclusionMask,
+			RayContributionToHitGroupIndex,
+			MultiplierForGeometryContributionToShaderIndex,
+			MissShaderIndex,
+			Ray,
+			Payload
+	);
+
+	RayCone = Payload.RayCone;
+	return UnpackRayTracingPayload(Payload, Ray);
+}
+
+// WorldNormal is the vector towards which the ray position will be offseted.
+void ApplyPositionBias(inout RayDesc Ray, const float3 WorldNormal, const float MaxNormalBias)
+{
+	// Apply normal perturbation when defining ray to:
+	// * avoid self intersection with current underlying triangle
+	// * hide mismatch between shading surface & geometric surface
+	//
+	// While using shading normal is not correct (we should use the 
+	// geometry normal, but it is not available atm/too costly to compute), 
+	// it is good enough for a cheap solution
+	const float MinBias = 0.01f;
+	const float MaxBias = max(MinBias, MaxNormalBias);
+	const float NormalBias = lerp(MaxBias, MinBias, saturate(dot(WorldNormal, Ray.Direction)));
+
+	Ray.Origin += WorldNormal * NormalBias;
+}
+#endif // !COMPUTESHADER
+
+#endif // RAYTRACINGCOMMON_USH_INCLUDED // Workarround for UE-66460

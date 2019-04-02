@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieSceneCameraShakeTrack.h"
 #include "Sections/MovieSceneCameraShakeSection.h"
@@ -50,6 +50,11 @@ FText UMovieSceneCameraShakeTrack::GetDisplayName() const
 const TArray<UMovieSceneSection*>& UMovieSceneCameraShakeTrack::GetAllSections() const
 {
 	return CameraShakeSections;
+}
+
+bool UMovieSceneCameraShakeTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneCameraShakeSection::StaticClass();
 }
 
 

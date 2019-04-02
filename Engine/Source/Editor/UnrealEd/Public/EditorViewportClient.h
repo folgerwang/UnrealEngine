@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -278,6 +278,16 @@ public:
 	FEditorViewportClient& operator=(const FEditorViewportClient&) = delete;
 
 	/**
+	 * Retrieves the FPreviewScene used by this instance of FEditorViewportClient.
+	 *
+	 * @return		The internal FPreviewScene pointer.
+	 */
+	FPreviewScene* GetPreviewScene()
+	{
+		return PreviewScene;
+	}
+
+	/**
 	 * Toggles whether or not the viewport updates in realtime and returns the updated state.
 	 *
 	 * @return		The current state of the realtime flag.
@@ -474,6 +484,7 @@ public:
 	virtual void MouseLeave( FViewport* Viewport ) override;
 	virtual EMouseCursor::Type GetCursor(FViewport* Viewport,int32 X,int32 Y) override;
 	virtual void CapturedMouseMove( FViewport* InViewport, int32 InMouseX, int32 InMouseY ) override;
+	virtual void ProcessAccumulatedPointerInput(FViewport* InViewport) override;
 	virtual bool IsOrtho() const override;
 	virtual void LostFocus(FViewport* Viewport) override;
 	virtual FStatUnitData* GetStatUnitData() const override;
@@ -729,6 +740,13 @@ public:
 	/** Sets whether or not this viewport is allowed to be possessed by cinematic/scrubbing tools */
 	void SetAllowCinematicControl( bool bInAllowCinematicControl) { bAllowCinematicControl = bInAllowCinematicControl; }
 
+	/** 
+	 * Normally we disable all viewport rendering when the editor is minimized, but the 
+	 * render commands may need to be processed regardless (like if we were outputting to a monitor via capture card). 
+	 * This provides the viewport a way to keep rendering, regardless of the editor's window status.
+	 */
+	virtual bool WantsDrawWhenAppIsHidden() const { return false; }
+
 public:
 	/** True if the window is maximized or floating */
 	bool IsVisible() const;
@@ -908,7 +926,13 @@ public:
 	 */
 	void MoveViewportCamera( const FVector& InDrag, const FRotator& InRot, bool bDollyCamera = false );
 
-	
+	/** 
+	 * Get the custom pivot point around which the camera should orbit for this viewport
+	 * @param	OutPivot	The custom pivot point specified by the viewport
+	 * @return	true if a custom pivot point was specified, false otherwise.
+	 */
+	virtual bool GetPivotForOrbit(FVector& OutPivot) const;
+
 	// Utility functions to return the modifier key states
 	bool IsAltPressed() const;
 	bool IsCtrlPressed() const;
@@ -1098,7 +1122,22 @@ public:
 	 * @return	true if the supplied buffer visualization mode is checked
 	 */
 	bool IsBufferVisualizationModeSelected( FName InName ) const;
-	
+
+	/**
+	 * Changes the ray tracing debug visualization mode for this viewport
+	 *
+	 * @param InName	The ID of the required ray tracing debug visualization mode
+	 */
+	void ChangeRayTracingDebugVisualizationMode(FName InName);
+
+	/**
+	 * Checks if a ray tracing debug visualization mode is selected
+	 *
+	 * @param InName	The ID of the required ray tracing debug visualization mode
+	 * @return	true if the supplied ray tracing debug visualization mode is checked
+	 */
+	bool IsRayTracingDebugVisualizationModeSelected(FName InName) const;
+
 	/** @return True if PreviewResolutionFraction is supported. */
 	bool SupportsPreviewResolutionFraction() const;
 
@@ -1118,7 +1157,13 @@ public:
 	void SetLowDPIPreview(bool LowDPIPreview);
 	
 	/** Mouse info is usually transformed to gizmo space before FEdMode handles it, this allows raw delta X and Y access */
-	FMouseDeltaTracker* GetMouseDeltaTracker() { return  MouseDeltaTracker; }
+	FMouseDeltaTracker* GetMouseDeltaTracker() const { return  MouseDeltaTracker; }
+
+	virtual uint32 GetCachedMouseX() const { return CachedMouseX; }
+	virtual uint32 GetCachedMouseY() const { return CachedMouseY; }
+
+	/** @return True if the camera speed should be scaled by its view distance. */
+	virtual bool ShouldScaleCameraSpeedByDistance() const;
 	
 protected:
 	/** Invalidates the viewport widget (if valid) to register its active timer */
@@ -1379,6 +1424,8 @@ public:
 
 	FName CurrentBufferVisualizationMode;
 
+	FName CurrentRayTracingDebugVisualizationMode;
+
 	/** The number of frames since this viewport was last drawn.  Only applies to linked orthographic movement. */
 	int32 FramesSinceLastDraw;
 
@@ -1630,6 +1677,8 @@ private:
 	 */
 	FSceneView* DragStartView;
 	FSceneViewFamily *DragStartViewFamily;
+
+	TArray<FIntPoint> CapturedMouseMoves;
 };
 
 

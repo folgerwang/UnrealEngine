@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Evaluation/MovieSceneSkeletalAnimationTemplate.h"
 
@@ -79,6 +79,9 @@ struct FPreAnimatedAnimationTokenProducer : IMovieScenePreAnimatedTokenProducer
 				// Cache this object's current update flag and animation mode
 				VisibilityBasedAnimTickOption = InComponent->VisibilityBasedAnimTickOption;
 				AnimationMode = InComponent->GetAnimationMode();
+#if WITH_EDITOR
+				bUpdateAnimationInEditor = InComponent->GetUpdateAnimationInEditor();
+#endif
 			}
 
 			virtual void RestoreState(UObject& ObjectToRestore, IMovieScenePlayer& Player)
@@ -101,10 +104,16 @@ struct FPreAnimatedAnimationTokenProducer : IMovieScenePreAnimatedTokenProducer
 					// if we're using same anim blueprint, we don't want to keep reinitializing it. 
 					Component->SetAnimationMode(AnimationMode);
 				}
+#if WITH_EDITOR
+				Component->SetUpdateAnimationInEditor(bUpdateAnimationInEditor);
+#endif
 			}
 
 			EVisibilityBasedAnimTickOption VisibilityBasedAnimTickOption;
 			EAnimationMode::Type AnimationMode;
+#if WITH_EDITOR
+			bool bUpdateAnimationInEditor;
+#endif
 		};
 
 		return FToken(CastChecked<USkeletalMeshComponent>(&Object));
@@ -114,7 +123,7 @@ struct FPreAnimatedAnimationTokenProducer : IMovieScenePreAnimatedTokenProducer
 
 struct FMinimalAnimParameters
 {
-	FMinimalAnimParameters(UAnimSequenceBase* InAnimation, float InEvalTime, float InBlendWeight, const FMovieSceneEvaluationScope& InScope, FName InSlotName, FObjectKey InSection, bool InSkipAnimationNotifiers)
+	FMinimalAnimParameters(UAnimSequenceBase* InAnimation, float InEvalTime, float InBlendWeight, const FMovieSceneEvaluationScope& InScope, FName InSlotName, FObjectKey InSection, bool InSkipAnimationNotifiers, bool InForceCustomMode)
 		: Animation(InAnimation)
 		, EvalTime(InEvalTime)
 		, BlendWeight(InBlendWeight)
@@ -122,6 +131,7 @@ struct FMinimalAnimParameters
 		, SlotName(InSlotName)
 		, Section(InSection)
 		, bSkipAnimNotifiers(InSkipAnimationNotifiers)
+		, bForceCustomMode(InForceCustomMode)
 	{}
 	
 	UAnimSequenceBase* Animation;
@@ -131,6 +141,7 @@ struct FMinimalAnimParameters
 	FName SlotName;
 	FObjectKey Section;
 	bool bSkipAnimNotifiers;
+	bool bForceCustomMode;
 };
 
 /** Montage player per section data */
@@ -188,12 +199,11 @@ namespace MovieScene
 			{
 				return;
 			}
-
 			OriginalStack.SavePreAnimatedState(Player, *SkeletalMeshComponent, GetAnimControlTypeID(), FPreAnimatedAnimationTokenProducer());
 
-			const UAnimInstance* ExistingAnimInstance = SkeletalMeshComponent->GetAnimInstance();
+			UAnimInstance* ExistingAnimInstance = SkeletalMeshComponent->GetAnimInstance();
 
-			const UAnimSequencerInstance* SequencerInstance = UAnimCustomInstance::BindToSkeletalMeshComponent<UAnimSequencerInstance>(SkeletalMeshComponent);
+			UAnimSequencerInstance* SequencerInstance = UAnimCustomInstance::BindToSkeletalMeshComponent<UAnimSequencerInstance>(SkeletalMeshComponent);
 
 			const bool bPreviewPlayback = ShouldUsePreviewPlayback(Player, *SkeletalMeshComponent);
 
@@ -212,6 +222,25 @@ namespace MovieScene
 										(DeltaTime == 0.0f && PlayerStatus != EMovieScenePlayerStatus::Stopped); 
 		
 			static const bool bLooping = false;
+			//Need to zero all weights first since we may be blending animation that are keeping state but are no longer active.
+			
+			if(SequencerInstance)
+			{
+				SequencerInstance->ResetNodes();
+			}
+			else if (ExistingAnimInstance)
+			{
+				for (const TPair<FObjectKey, FMontagePlayerPerSectionData >& Pair : MontageData)
+				{
+					int32 InstanceId = Pair.Value.MontageInstanceId;
+					FAnimMontageInstance* MontageInstanceToUpdate = ExistingAnimInstance->GetMontageInstanceForID(InstanceId);
+					if (MontageInstanceToUpdate)
+					{
+						MontageInstanceToUpdate->SetDesiredWeight(0.0f);
+						MontageInstanceToUpdate->SetWeight(0.0f);
+					}
+				}
+			}
 			for (const FMinimalAnimParameters& AnimParams : InFinalValue.AllAnimations)
 			{
 				Player.PreAnimatedState.SetCaptureEntity(AnimParams.EvaluationScope.Key, AnimParams.EvaluationScope.CompletionMode);
@@ -220,20 +249,23 @@ namespace MovieScene
 				{
 					PreviewSetAnimPosition(PersistentData, Player, SkeletalMeshComponent,
 						AnimParams.SlotName, AnimParams.Section, AnimParams.Animation, AnimParams.EvalTime, AnimParams.BlendWeight,
-						bLooping, bFireNotifies && !AnimParams.bSkipAnimNotifiers, DeltaTime, Player.GetPlaybackStatus() == EMovieScenePlayerStatus::Playing, bResetDynamics);
+						bLooping, bFireNotifies && !AnimParams.bSkipAnimNotifiers, DeltaTime, Player.GetPlaybackStatus() == EMovieScenePlayerStatus::Playing, 
+						bResetDynamics, AnimParams.bForceCustomMode);
 				}
 				else
 				{
 					SetAnimPosition(PersistentData, Player, SkeletalMeshComponent,
 						AnimParams.SlotName, AnimParams.Section, AnimParams.Animation, AnimParams.EvalTime, AnimParams.BlendWeight,
-						bLooping, Player.GetPlaybackStatus() == EMovieScenePlayerStatus::Playing, bFireNotifies && !AnimParams.bSkipAnimNotifiers);
+						bLooping, Player.GetPlaybackStatus() == EMovieScenePlayerStatus::Playing, bFireNotifies && !AnimParams.bSkipAnimNotifiers,
+						AnimParams.bForceCustomMode
+					);
 				}
 			}
 
 			// If the skeletal component has already ticked this frame because tick prerequisites weren't set up yet or a new binding was created, forcibly tick this component to update.
 			// This resolves first frame issues where the skeletal component ticks first, then the sequencer binding is resolved which sets up tick prerequisites
 			// for the next frame.
-			if (SkeletalMeshComponent->PoseTickedThisFrame() || SequencerInstance != ExistingAnimInstance)
+			if (SkeletalMeshComponent->PoseTickedThisFrame() || (SequencerInstance && SequencerInstance != ExistingAnimInstance))
 			{
 				SkeletalMeshComponent->TickAnimation(0.f, false);
 
@@ -265,13 +297,16 @@ namespace MovieScene
 			return nullptr;
 		}
 
-		void SetAnimPosition(FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player, USkeletalMeshComponent* SkeletalMeshComponent, FName SlotName, FObjectKey Section, UAnimSequenceBase* InAnimSequence, float InPosition, float Weight, bool bLooping, bool bPlaying, bool bFireNotifies)
+		void SetAnimPosition(FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player, USkeletalMeshComponent* SkeletalMeshComponent, FName SlotName, FObjectKey Section, UAnimSequenceBase* InAnimSequence, float InPosition, float Weight, bool bLooping, bool bPlaying, bool bFireNotifies, bool bForceCustomMode)
 		{
 			if (!CanPlayAnimation(SkeletalMeshComponent, InAnimSequence))
 			{
 				return;
 			}
-
+			if (bForceCustomMode)
+			{
+				SkeletalMeshComponent->SetAnimationMode(EAnimationMode::AnimationCustomMode);
+			}
 			UAnimSequencerInstance* SequencerInst = Cast<UAnimSequencerInstance>(SkeletalMeshComponent->GetAnimInstance());
 			if (SequencerInst)
 			{
@@ -287,7 +322,7 @@ namespace MovieScene
 				FMontagePlayerPerSectionData* SectionData = MontageData.Find(Section);
 
 				int32 InstanceId = (SectionData) ? SectionData->MontageInstanceId : INDEX_NONE;
-				TWeakObjectPtr<UAnimMontage> Montage = FAnimMontageInstance::SetSequencerMontagePosition(SlotName, SkeletalMeshComponent, InstanceId, InAnimSequence, InPosition, Weight, bLooping);
+				TWeakObjectPtr<UAnimMontage> Montage = FAnimMontageInstance::SetSequencerMontagePosition(SlotName, SkeletalMeshComponent, InstanceId, InAnimSequence, InPosition, Weight, bLooping, bPlaying);
 
 				if (Montage.IsValid())
 				{
@@ -305,13 +340,16 @@ namespace MovieScene
 			}
 		}
 
-		void PreviewSetAnimPosition(FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player, USkeletalMeshComponent* SkeletalMeshComponent, FName SlotName, FObjectKey Section, UAnimSequenceBase* InAnimSequence, float InPosition, float Weight, bool bLooping, bool bFireNotifies, float DeltaTime, bool bPlaying, bool bResetDynamics)
+		void PreviewSetAnimPosition(FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player, USkeletalMeshComponent* SkeletalMeshComponent, FName SlotName, FObjectKey Section, UAnimSequenceBase* InAnimSequence, float InPosition, float Weight, bool bLooping, bool bFireNotifies, float DeltaTime, bool bPlaying, bool bResetDynamics, bool bForceCustomMode)
 		{
 			if (!CanPlayAnimation(SkeletalMeshComponent, InAnimSequence))
 			{
 				return;
 			}
-
+			if (bForceCustomMode)
+			{
+				SkeletalMeshComponent->SetAnimationMode(EAnimationMode::AnimationCustomMode);
+			}
 			UAnimSequencerInstance* SequencerInst = Cast<UAnimSequencerInstance>(SkeletalMeshComponent->GetAnimInstance());
 			if (SequencerInst)
 			{
@@ -327,7 +365,7 @@ namespace MovieScene
 				FMontagePlayerPerSectionData* SectionData = MontageData.Find(Section);
 
 				int32 InstanceId = (SectionData)? SectionData->MontageInstanceId : INDEX_NONE;
-				TWeakObjectPtr<UAnimMontage> Montage = FAnimMontageInstance::PreviewSequencerMontagePosition(SlotName, SkeletalMeshComponent, InstanceId, InAnimSequence, InPosition, Weight, bLooping, bFireNotifies);
+				TWeakObjectPtr<UAnimMontage> Montage = FAnimMontageInstance::PreviewSequencerMontagePosition(SlotName, SkeletalMeshComponent, InstanceId, InAnimSequence, InPosition, Weight, bLooping, bFireNotifies, bPlaying);
 
 				if (Montage.IsValid())
 				{
@@ -379,7 +417,7 @@ void FMovieSceneSkeletalAnimationSectionTemplate::Evaluate(const FMovieSceneEval
 
 		const float Weight = ManualWeight * EvaluateEasing(Context.GetTime());
 
-		FOptionalMovieSceneBlendType BlendType = SourceSection->GetBlendType();
+		FOptionalMovieSceneBlendType BlendType = GetSourceSection()->GetBlendType();
 		check(BlendType.IsValid());
 
 		// Ensure the accumulator knows how to actually apply component transforms
@@ -392,7 +430,8 @@ void FMovieSceneSkeletalAnimationSectionTemplate::Evaluate(const FMovieSceneEval
 
 		// Add the blendable to the accumulator
 		FMinimalAnimParameters AnimParams(
-			Params.Animation, EvalTime, Weight, ExecutionTokens.GetCurrentScope(), Params.SlotName, GetSourceSection(), Params.bSkipAnimNotifiers
+			Params.Animation, EvalTime, Weight, ExecutionTokens.GetCurrentScope(), Params.SlotName, GetSourceSection(), Params.bSkipAnimNotifiers, 
+			Params.bForceCustomMode
 		);
 		ExecutionTokens.BlendToken(ActuatorTypeID, TBlendableToken<MovieScene::FBlendedAnimation>(AnimParams, BlendType.Get(), 1.f));
 	}
@@ -401,21 +440,21 @@ void FMovieSceneSkeletalAnimationSectionTemplate::Evaluate(const FMovieSceneEval
 float FMovieSceneSkeletalAnimationSectionTemplateParameters::MapTimeToAnimation(FFrameTime InPosition, FFrameRate InFrameRate) const
 {
 	InPosition = FMath::Clamp(InPosition, FFrameTime(SectionStartTime), FFrameTime(SectionEndTime-1));
-
-	const float SectionPlayRate = PlayRate;
+	
+	const float SectionPlayRate = PlayRate * Animation->RateScale;
 	const float AnimPlayRate = FMath::IsNearlyZero(SectionPlayRate) ? 1.0f : SectionPlayRate;
 
-	const float SeqLength = GetSequenceLength() - (StartOffset + EndOffset);
+	const float SeqLength = GetSequenceLength() - InFrameRate.AsSeconds(StartFrameOffset + EndFrameOffset);
 
 	float AnimPosition = FFrameTime::FromDecimal((InPosition - SectionStartTime).AsDecimal() * AnimPlayRate) / InFrameRate;
 	if (SeqLength > 0.f)
 	{
 		AnimPosition = FMath::Fmod(AnimPosition, SeqLength);
 	}
-	AnimPosition += StartOffset;
+	AnimPosition += InFrameRate.AsSeconds(StartFrameOffset);
 	if (bReverse)
 	{
-		AnimPosition = (SeqLength - (AnimPosition - StartOffset)) + StartOffset;
+		AnimPosition = (SeqLength - (AnimPosition - InFrameRate.AsSeconds(StartFrameOffset))) + InFrameRate.AsSeconds(StartFrameOffset);
 	}
 
 	return AnimPosition;

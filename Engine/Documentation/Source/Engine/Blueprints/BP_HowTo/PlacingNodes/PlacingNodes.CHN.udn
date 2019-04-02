@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2680801
+﻿INTSourceChangelist:3244370
 Availability:Public
 Title:放置节点
 Crumbs: %ROOT%, Engine, Engine\Blueprints, Engine\Blueprints\BP_HowTo
@@ -9,14 +9,16 @@ Related:Engine/Blueprints/UserGuide
 version:4.9
 skilllevel:Beginner
 parent:Engine/Blueprints/BP_HowTo
-type:howto
+type:how-to
 order:2
+tags:Blueprints
 
 
 在本页中您将学习到如何在蓝图中的图表上放置节点。 
 
 [TOC(start:2)]
 
+(#Drag-and-Drop)
 ## 拖放
 
 第一种方法是 **拖放**，从 **MyBlueprint** 窗口将节点拖放到图表上。举例而言，在下图中可将 **PlayerHealth** 变量拖入几个变量中并放置在图表上，以便在脚本中使用。 
@@ -44,6 +46,7 @@ order:2
 查看 [](Engine/Blueprints/UserGuide/EventDispatcher) 中的详细内容。 
 
 
+(#ContextMenuSearch)
 ## 快捷菜单搜索
 
 [EXCERPT:context]
@@ -78,6 +81,7 @@ order:2
 
 [/EXCERPT:context]
 
+(#KeyboardShortcuts)
 ## 快捷键
 
 也可使用 **快捷键** 替代（和使用）节点，提升工作效率。 

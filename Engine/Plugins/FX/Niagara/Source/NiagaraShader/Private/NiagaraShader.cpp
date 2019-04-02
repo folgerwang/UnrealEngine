@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraShader.h"
 #include "NiagaraShared.h"
@@ -32,6 +32,13 @@ static FAutoConsoleVariableRef CVarCreateNiagaraShadersOnLoad(
 	TEXT("Whether to create Niagara's simulation shaders on load, which can reduce hitching, but use more memory.  Otherwise they will be created as needed.")
 	);
 
+int32 GNiagaraSkipVectorVMBackendOptimizations = 0;
+static FAutoConsoleVariableRef CVarNiagaraSkipVectorVMBackendOptimizations(
+	TEXT("fx.SkipVectorVMBackendOptimizations"),
+	GNiagaraSkipVectorVMBackendOptimizations,
+	TEXT("If 1, skip HLSLCC's backend optimization passes during VectorVM compilation. \n"),
+	ECVF_Default
+);
 
 #if ENABLE_COOK_STATS
 namespace NiagaraShaderCookStats
@@ -275,7 +282,7 @@ void FNiagaraShaderType::CacheUniformBufferIncludes(TMap<const TCHAR*, FCachedUn
 	{
 		FCachedUniformBufferDeclaration& BufferDeclaration = It.Value();
 
-		for (TLinkedList<FUniformBufferStruct*>::TIterator StructIt(FUniformBufferStruct::GetStructList()); StructIt; StructIt.Next())
+		for (TLinkedList<FShaderParametersMetadata*>::TIterator StructIt(FShaderParametersMetadata::GetStructList()); StructIt; StructIt.Next())
 		{
 			if (It.Key() == StructIt->GetShaderVariableName())
 			{
@@ -310,7 +317,7 @@ void FNiagaraShaderType::AddReferencedUniformBufferIncludes(FShaderCompilerEnvir
 			*FString::Printf(TEXT("/Engine/Generated/UniformBuffers/%s.ush"), It.Key()), *Declaration
 		);
 
-		for (TLinkedList<FUniformBufferStruct*>::TIterator StructIt(FUniformBufferStruct::GetStructList()); StructIt; StructIt.Next())
+		for (TLinkedList<FShaderParametersMetadata*>::TIterator StructIt(FShaderParametersMetadata::GetStructList()); StructIt; StructIt.Next())
 		{
 			if (It.Key() == StructIt->GetShaderVariableName())
 			{
@@ -681,13 +688,11 @@ void FNiagaraShaderMap::LoadForRemoteRecompile(FArchive& Ar, EShaderPlatform Sha
 					MaterialResource->SetGameThreadShaderMap(LoadedShaderMap);
 					MaterialResource->RegisterInlineShaderMap();
 
-					ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-						FSetShaderMapOnMaterialResources,
-						FMaterial*,MaterialResource,MaterialResource,
-						FNiagaraShaderMap*,LoadedShaderMap,LoadedShaderMap,
-					{
-						MaterialResource->SetRenderingThreadShaderMap(LoadedShaderMap);
-					});
+					ENQUEUE_RENDER_COMMAND(FSetShaderMapOnMaterialResources)(
+						[MaterialResource,LoadedShaderMap](FRHICommandListImmediate& RHICmdList)
+						{
+							MaterialResource->SetRenderingThreadShaderMap(LoadedShaderMap);
+						});
 				}
 			}
 		}
@@ -835,7 +840,8 @@ FShader* FNiagaraShaderMap::ProcessCompilationResultsForSingleJob(FShaderCommonC
 	bCompiledSuccessfully = CurrentJob.bSucceeded;
 
 	FNiagaraShader *NiagaraShader = static_cast<FNiagaraShader*>(Shader);
-	check(Shader);
+	// UE-67395 - we had a case where we polluted the DDC with a shader containing no bytecode.
+	check(Shader && Shader->GetCode().Num() > 0);
 	check(!HasShader(NiagaraShaderType, /* PermutationId = */ 0));
 	AddShader(NiagaraShaderType, /* PermutationId = */ 0, Shader);
 
@@ -1334,29 +1340,19 @@ void FNiagaraDataInterfaceParamRef::ConstructParameters()
 	Parameters = CastChecked<UNiagaraDataInterfaceBase>(DIClass->GetDefaultObject())->ConstructComputeParameters();
 }
 
-// Temporary fix for 4.21.1. More permanent fix is in 4.22. 
-extern  NIAGARACORE_API TMap<FString, UClass*> FNiagaraDataInterfaceParamRefKnownClasses;
-
 void FNiagaraDataInterfaceParamRef::InitDIClass()
 {
-	// Note that this implementation is temporary and has been replaced in 4.22. However, since this was found post release of 4.21, the following
-	// changes were needed to preserve API backwards compatibility.
-	// Any DataInterface derived class will need to register itself with this global map in 4.21.1.
-	UClass** FoundClass = FNiagaraDataInterfaceParamRefKnownClasses.Find(*ParameterInfo.DIClassName);
-	DIClass = FoundClass != nullptr ? *FoundClass : nullptr;
-	if (DIClass == nullptr)
+	INiagaraShaderModule* Module = INiagaraShaderModule::Get();
+	check(Module != nullptr);
+	
+	// Getting the base here in hopes that in the future we would just reference it directly rather than going through
+	// the class intermediary.
+	UNiagaraDataInterfaceBase* Base = Module->RequestDefaultDataInterface(ParameterInfo.DIClassName);
+	if (Base)
 	{
-		FCoreRedirectObjectName OldObjName;
-		OldObjName.ObjectName = *ParameterInfo.DIClassName;
-		FCoreRedirectObjectName NewObjName = FCoreRedirects::GetRedirectedName(ECoreRedirectFlags::Type_Class, OldObjName);
-		if (NewObjName.IsValid())
-		{
-			FoundClass = FNiagaraDataInterfaceParamRefKnownClasses.Find(*NewObjName.ObjectName.ToString());
-			DIClass = FoundClass != nullptr ? *FoundClass : nullptr;
-		}
-
+		DIClass = Base->GetClass();
 	}
-	ensureMsgf(DIClass, TEXT("Failed to load class for FNiagaraDataInterfaceParamRef: %s. Perhaps this wasn't registered properly?"), *ParameterInfo.DIClassName);
+	ensureMsgf(DIClass, TEXT("Failed to load class for FNiagaraDataInterfaceParamRef. %s"), *ParameterInfo.DIClassName);
 }
 
 void FNiagaraDataInterfaceParamRef::Bind(const class FShaderParameterMap& ParameterMap)

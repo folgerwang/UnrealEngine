@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SDeviceProfileEditor.h"
 #include "Widgets/Text/STextBlock.h"
@@ -363,7 +363,10 @@ TSharedPtr< SWidget > SDeviceProfileEditor::CreateMainDeviceProfilePanel()
 			SNew( SBorder )
 			.BorderImage( FEditorStyle::GetBrush( "Docking.Tab.ContentAreaBrush" ) )
 			[
-				SNew( SDeviceProfileCreateProfilePanel, DeviceProfileManager )
+				SNew( STextBlock )
+				.AutoWrapText(true)
+				.Text(LOCTEXT("CreateDeviceProfile", "To create a device profile, edit your project's DefaultDeviceProfiles.ini file. "
+					"Make sure add to or create a section called [DeviceProfileNameAndTypes]. See Engine/Config/BaseDeviceProfiles.ini for examples."))
 			]
 		];
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -28,7 +28,6 @@ private:
 
 	void AddObjectSubMenu(FMenuBuilder& MenuBuilder);
 	TSharedRef<SWidget> GenerateMenuContent();
-	FText GetMenuLabel();
 	void OpenCurrentTimecodeSynchronizer();
 	void CreateNewTimecodeSynchronizer();
 	void NewTimecodeSynchronizerSelected(const FAssetData& AssetData);

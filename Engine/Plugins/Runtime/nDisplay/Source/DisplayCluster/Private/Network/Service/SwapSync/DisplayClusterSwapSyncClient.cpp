@@ -1,7 +1,7 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "DisplayClusterSwapSyncClient.h"
-#include "DisplayClusterSwapSyncMsg.h"
+#include "Network/Service/SwapSync/DisplayClusterSwapSyncClient.h"
+#include "Network/Service/SwapSync/DisplayClusterSwapSyncMsg.h"
 
 #include "Misc/DisplayClusterLog.h"
 
@@ -11,8 +11,8 @@ FDisplayClusterSwapSyncClient::FDisplayClusterSwapSyncClient() :
 {
 }
 
-FDisplayClusterSwapSyncClient::FDisplayClusterSwapSyncClient(const FString& name) :
-	FDisplayClusterClient(name)
+FDisplayClusterSwapSyncClient::FDisplayClusterSwapSyncClient(const FString& InName) :
+	FDisplayClusterClient(InName)
 {
 }
 
@@ -20,24 +20,24 @@ FDisplayClusterSwapSyncClient::FDisplayClusterSwapSyncClient(const FString& name
 //////////////////////////////////////////////////////////////////////////////////////////////
 // IPDisplayClusterSwapSyncProtocol
 //////////////////////////////////////////////////////////////////////////////////////////////
-void FDisplayClusterSwapSyncClient::WaitForSwapSync(double* pThreadWaitTime, double* pBarrierWaitTime)
+void FDisplayClusterSwapSyncClient::WaitForSwapSync(double* ThreadWaitTime, double* BarrierWaitTime)
 {
 	static const TSharedPtr<FDisplayClusterMessage> request(new FDisplayClusterMessage(FDisplayClusterSwapSyncMsg::WaitForSwapSync::name, FDisplayClusterSwapSyncMsg::TypeRequest, FDisplayClusterSwapSyncMsg::ProtocolName));
 	TSharedPtr<FDisplayClusterMessage> response = SendRecvMsg(request);
 
 	if (response.IsValid())
 	{
-		if (pThreadWaitTime)
+		if (ThreadWaitTime)
 		{
-			if (!response->GetArg(FString(FDisplayClusterSwapSyncMsg::WaitForSwapSync::argThreadTime), *pThreadWaitTime))
+			if (!response->GetArg(FString(FDisplayClusterSwapSyncMsg::WaitForSwapSync::argThreadTime), *ThreadWaitTime))
 			{
 				UE_LOG(LogDisplayClusterNetwork, Error, TEXT("Argument %s not available"), FDisplayClusterSwapSyncMsg::WaitForSwapSync::argThreadTime);
 			}
 		}
 
-		if (pBarrierWaitTime)
+		if (BarrierWaitTime)
 		{
-			if (!response->GetArg(FString(FDisplayClusterSwapSyncMsg::WaitForSwapSync::argBarrierTime), *pBarrierWaitTime))
+			if (!response->GetArg(FString(FDisplayClusterSwapSyncMsg::WaitForSwapSync::argBarrierTime), *BarrierWaitTime))
 			{
 				UE_LOG(LogDisplayClusterNetwork, Error, TEXT("Argument %s not available"), FDisplayClusterSwapSyncMsg::WaitForSwapSync::argBarrierTime);
 			}

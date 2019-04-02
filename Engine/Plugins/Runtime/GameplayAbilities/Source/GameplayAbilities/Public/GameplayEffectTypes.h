@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -487,7 +487,8 @@ struct GAMEPLAYABILITIES_API FGameplayEffectContext
 	/** Returns debug string */
 	virtual FString ToString() const
 	{
-		return Instigator.IsValid() ? Instigator->GetName() : FString(TEXT("NONE"));
+		const AActor* InstigatorPtr = Instigator.Get();
+		return (InstigatorPtr ? InstigatorPtr->GetName() : FString(TEXT("NONE")));
 	}
 
 	/** Returns the actual struct used for serialization, subclasses must override this! */
@@ -917,7 +918,7 @@ struct FGameplayEffectRemovalInfo
 
 
 /** Metadata about a gameplay cue execution */
-USTRUCT(BlueprintType)
+USTRUCT(BlueprintType, meta = (HasNativeBreak = "GameplayAbilities.AbilitySystemBlueprintLibrary.BreakGameplayCueParameters", HasNativeMake = "GameplayAbilities.AbilitySystemBlueprintLibrary.MakeGameplayCueParameters"))
 struct GAMEPLAYABILITIES_API FGameplayCueParameters
 {
 	GENERATED_USTRUCT_BODY()

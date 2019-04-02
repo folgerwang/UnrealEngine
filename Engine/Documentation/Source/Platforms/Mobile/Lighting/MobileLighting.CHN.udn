@@ -1,37 +1,272 @@
-﻿INTSourceChangelist:2796753
-Availability:Public
-Title:移动平台的光照
-Crumbs:%ROOT%, Platforms, Platforms/Mobile
-Description:Setting up lighting for mobile games.
-Platform:Mobile
-
-## 所支持功能
-
-移动平台支持下列功能：
-
-* 线性 HDR 光照。
-* 定向光照贴图（正常情况应予以考虑）。
-* 距离场阴影 + 解析日光镜面反射。
-* 基于映像的镜面反射光照 – 最近的反射捕捉应用到每个对象，而不进行视差校正。因此，对象之间可能有缝。
-* 动态对象正确接收光照，但不投射阴影。
-
-## 所支持光源类型
-
-移动平台仅支持虚幻引擎中提供的光源类型的一个子集。这些类型包括：
-
-|类型|附加信息|
-| ---- | --------------- |
-|固定定向光源|具备 **Mobility = Stationary** 的定向光源。最佳品质。|
-|静态定向光源|具备 **Mobility = Static** 的定向光源。最佳性能（无距离场阴影或日光镜面反射）。|
-|静态点光源|具备 **Mobility = Static** 的点光源。|
-|静态聚光源|具备 **Mobility = Static** 的聚光源。|
+﻿INTSourceChangelist:4552867
+Availability: Public
+Crumbs: 
+Title:移动平台的照明
+Description:设置手游照明。
+Type: 
+Version: 4.20
+Parent: Platforms/Mobile
+Order: 
+Tags: mobile
 
 
+当您在UE4中的移动平台上使用光源时，必须遵守某些警告和限制，以确保UE4项目在众多不同的移动设备上以适当的帧速运行。在下面的文档中，我们将介绍这些警告和限制，以及如何避开或绕过它们。
+
+(#supportedfeatures)
+## 支持的功能
+
+移动平台支持以下列出的功能：
+
+*   线性 HDR 照明。
+    
+*   定向光照图（考虑法线）。
+    
+*   距离场阴影 + 太阳的分析镜面反射
+    
+*   基于图像的镜面反射照明 - 最近[反射采集](Engine/Rendering/LightingAndShadows/ReflectionEnvironment)应用于每个对象，无视差纠正。因此，对象之间可能有缝隙。
+    
+*   动态对象可以正确接收照明，但不能投射阴影。
+    
+
+(#supportedlighttypes)
+## 支持的光源类型
+
+移动平台仅支持虚幻引擎中可用的部分光源类型。它们是：
+
+| 类型 | 附加信息 |
+| --- | --- |
+| 静止定向光源（Stationary Directional Light）| 定向光源，其中 **移动性（Mobility）= 静止（Stationary）**。最佳质量。|
+| 静态定向光源（Static Directional Light）| 定向光源，其中 **移动性（Mobility）= 静态（Static）**。最佳性能（无距离场阴影或太阳镜面反射）。|
+| 静态点光源（Static Point Light）| 点光源，其中 **移动性（Mobility）= 静态（Static）**。|
+| 静态聚光光源（Static Spot Light）| 聚光光源，其中 **移动性（Mobility）= 静态（Static）**。|
+
+(#reflections)
 ## 反射
 
-1. 禁用后处理卷中的任何环境立方体贴图（将强度设置为 0）。
-2. 将 SphereReflectionCaptures 放置在您希望捕捉光照的区域。您不必对许多区域执行此操作，只需在具有独特环境光照情况的区域放置即可。
-3. 确保您设置好用于反射的材料：有趣的法线贴图、不同的粗糙度、镜面中无插入且金属色为 1 或 0。
+虽然反射可以有助于在移动项目中注入生机和可信度，但在移动设备上使用反射时，您需要注意一些警告。下表列出了您需要执行的一些事项，以确保反射在目标移动设备上有效。
+
+*   通过将 **强度（Intensity）** 设置为 **0**，禁用您在后期处理体积中设置的所有环境立方体贴图（Ambient Cubemap）。![](PP_Settings.png)
+
+*   将[**球体反射采集**](Engine/Rendering/LightingAndShadows/ReflectionEnvironment/#sphereshape) Actor放置于想要采集反射照明的区域。
+    
+	[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![球体反射采集关闭](Reflection_Probes_Off.png)(w:800)
+	[/PARAM]
+	[PARAM:after]
+	![球体反射采集打开](Reflection_Probes_On.png)(w:800)
+	[/PARAM]
+	[/OBJECT]
+    
+*   使材质支持反射时，请记住以下信息。
+
+	*   确保法线贴图设置了大量高频和低频细节，因为这有助于打破反射，使其在视觉上更具吸引力。
+        
+		[OBJECT:ComparisonSlider]
+		[PARAM:before]
+		![平滑的法线贴图 ](Interesting_Normal_Map_00.png)(w:800)
+                平滑的法线贴图
+		[/PARAM]
+		[PARAM:after]
+		![粗糙的法线贴图](Interesting_Normal_Map_01.png)(w:800)
+                粗糙的法线贴图
+		[/PARAM]
+		[/OBJECT]
+
+        
+	*   确保粗糙贴图有不同强度的白色和黑色，因为这会有助于提供不同程度的闪亮反射和暗淡反射。
+        
+		[OBJECT:ComparisonSlider]
+		[PARAM:before]
+		![变化粗糙度 ](Interesting_Roughness_Map_00.png)
+		[/PARAM]
+		[PARAM:after]
+		![平滑粗糙度](Interesting_Roughness_Map_01.png)
+		[/PARAM]
+		[/OBJECT]
 
 
-现在，每个网格组件均被分配到最近的反射捕捉。这意味着对象之间的反射有缝，而且有时大网格将使用恰好接近该网格中心的不必要的反射捕捉。 
+	*   根据表面类型，金属感输入应为 1 或 0。
+        
+		[OBJECT:ComparisonSlider]
+		[PARAM:before]
+		![金属感关闭](Metallic_Off.png)
+                金属感关闭
+		[/PARAM]
+		[PARAM:after]
+		![金属感打开](Metallic_On.png)
+                金属感关闭
+		[/PARAM]
+		[/OBJECT]
+        
+
+注意，每个静态网格体组件被分配到最近的[**反射采集** ](Engine/Rendering/LightingAndShadows/ReflectionEnvironment)。这意味着对象之间的反射会有缝隙，有时大型网格体会使用网格体中心附近出现的不必要反射采集。
+
+(#skylightreflectionsonmobile)
+## 移动的天空光照反射
+
+当没有相关的反射采集Actor（Reflection Capture Actor）时，移动渲染器（Mobile Render）也可以使用天空光照立方体贴图以进行镜面反射。若要实现这一点，您需要做的是删除所有反射采集Actor并确保已禁用屏幕空间反射（Screen Space Reflections）。您可以在下面的图像对比中看到其示例。
+
+[OBJECT:ComparisonSlider]
+[PARAM:before]
+![Skylight Reflections PC](SkyLightReflections_Default.png) 
+[/PARAM]
+[PARAM:after]
+![Skylight Reflections Mobile](SkyLightReflections_ES3.png) 
+[/PARAM]
+[/OBJECT]
+
+(#specularlightingformobile)
+## 移动设备的镜面照明
+
+移动镜面反射（Mobile Specular）响应已经更改为默认使用[**GGX照明**](https://www.cs.cornell.edu/~srm/publications/EGSR07-btdf.pdf)模型。这提高了移动设备上的镜面反射质量，从而有助于其更好地匹配着色器模型5(SM5)。启用这一功能会在着色器处理时间上增加些许开销。如果这一新的更改影了响项目照明的观感，则之前的球形高斯镜面反射（Spherical Gaussian Specular）模型仍可访问。若要重新启用之前的球形高斯镜面反射模型，您需要执行以下操作：
+
+1. 前往 **项目设置（Project Settings）** > **渲染（Rendering）** > **移动（Mobile）**。
+2. 选中 **使用旧版着色模型（Use Legacy Shading Model）** 旁边的复选框。 
+   ![](UseOLDLegacyShadingModel.png "UseOLDLegacyShadingModel.png")
+
+下面的图像比较滑块显示了当前镜面反射着色模型与使用旧版着色模型（Use Legacy Shading Model）选项之间的区别。
+
+[OBJECT:ComparisonSlider]
+[PARAM:before]
+![Legacy Shading Model](ES3_Legacy_Disabled.png) 
+[/PARAM]
+[PARAM:after]
+![New Shading Model](ES3_New.png) 
+[/PARAM]
+[/OBJECT]
+
+(#modulatedshadowing)
+## 调制阴影
+
+全动态阴影有助于为移动项目增加生机和真实性。然而，在一些移动设备上，由于硬件限制以及动态阴影需要大量资源来进行渲染，全动态阴影并非可取选项。为了解决这个问题，UE4引入了一种新的、更便宜的动态阴影类型，此阴影被称为 **调制阴影（Modulated Shadow）**。有关如何设置调制阴影的更多信息，请查看使用[**调制阴影**](Platforms/Mobile/Lighting/HowTo/ModulatedShadows)。
+
+(#dynamiccascadedshadowmaps)
+
+## 动态级联阴影贴图
+
+静止定向光源可用于为场景中的动态对象投射全景动态级联阴影贴图(CSM)阴影。使用CSM阴影的好处之一是，它们将与场景中静态对象投射的预先计算的阴影正确混合。CSM阴影也不显示使用调制阴影时出现的双重阴影，而且在为多个对象投射动态阴影时速度更快。有关如何设置级联阴影的更多信息，请查看使用\[**级联阴影**\](Platforms\\Mobile\\Lighting\\HowTo\\CascadedShadow)。
+
+(#modulatedshadowingvsdynamicshadowing)
+
+## 调制阴影与动态阴影
+
+虽然调制阴影和动态阴影在外观和行为上彼此非常相似，但它们本质上截然不同。这是因为调制阴影有许多动态阴影所没有的约束条件和硬性限制，它们让调制阴影能够在具有有限硬件能力的移动设备上更好地执行。在下图中，您可以看到动态阴影和调制阴影之间的比较。
+
+[OBJECT:ComparisonSlider]
+[PARAM:before]
+![Dynamic Shadows](Dynamic_Shadows.png) 
+[/PARAM]
+[PARAM:after]
+![Modulated Shadows](Modulated_Shadows.png) 
+[/PARAM]
+[/OBJECT]
+
+下面的列表强调了调制阴影在UE4项目中使用时可以提供的一些功能和限制。
+
+*   **更改阴影颜色：**您可以通过调整定向光源的 **光源（Light）** 部分中的 **调制阴影颜色（Modulated Shadow Color）** 选项来更改投射的调制阴影的颜色。如果您想要为游戏玩法或出于艺术原因而调整阴影的颜色，该功能对您大有帮助。
+    
+    [REGION:lightbox]
+    [![](Change_Mod_Shadow_Color.png)(w:771)](Change_Mod_Shadow_Color.png)
+    [/REGION]
+    [REGION:caption]
+    单击显示全图。
+    [/REGION]
+
+*   **阴影混合：**与动态阴影不同，无论您在项目中看到的其他阴影是烘焙阴影还是动态阴影，调制阴影都不能与之混合。这意味着，当一个调制阴影位于另一个阴影之上时，两个阴影都将显示出来，而不是显示混合在一起的单个阴影。
+    
+	[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Dynamic Shadows](Dyn_Shadow_Stacking.png) 
+	[/PARAM]
+	[PARAM:after]
+	![Modulated Shadows](Mod_Shadow_Stacking.png) 
+	[/PARAM]
+	[/OBJECT]
+    
+
+(#workingwithmodulatedanddynamicshadows)
+
+## 使用调制阴影和动态阴影 
+
+当使用调制阴影和动态阴影时，可以使用一些控制台和.INI设置来调整阴影的外观和性能。在下一部分，我们将介绍这些设置，以及可如何将它们应用于UE4项目。
+
+[REGION:note]
+调制阴影尽可能地与现有阴影技术共享代码。这意味着，可以与其他阴影方法一起使用的许多阴影cvar和.INI设置也将适用于调制阴影和动态阴影。
+[/REGION]
+
+*   **阴影质量：**当您第一次在移动设备上查看动态阴影时，调制阴影的清晰度和质量可能会略低于预期。为了解决这一问题，您可以通过打开虚幻控制台，使用撇号`键，并输入以下命令 **r.shadowquality** 后跟一个数字，来调整阴影质量。输入的数字越高，调制阴影的视觉质量将更好，但需要以牺牲FPS为代价。在下图中，r.shadowquality的值被分别设置为 **0**、**1**、**2**、**3**、**4** 和 **5**，以显示对调制阴影质量有何影响。
+	[REGION:fullwidth]
+	[INCLUDE:#sq]
+	[/REGION]
+
+[COMMENT:none]
+[EXCERPT:SQ]
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:max]
+	6
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	FS
+	[/PARAMLITERAL]
+	[PARAM:caption]
+	**在此处添加说明**
+	[/PARAM]
+	[PARAM:image_list]
+	![](SQ_1.png)
+	![](SQ_2.png)
+	![](SQ_3.png)
+	![](SQ_4.png)
+	![](SQ_5.png)
+	![](SQ_6.png)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:SQ]
+[/COMMENT]
+
+
+*   **自阴影：**虽然调制阴影将在字符、图案等动态对象上提供自阴影，但在默认情况下，该功能处于禁用状态，以确保调制阴影能尽可能好地执行。如果您的项目能够负担自阴影的额外成本，您可以通过将 **r.Shadow.EnableModulatedSelfShadow 1** 输入UE4控制台中来启用它。若要禁用自阴影，请将 **r.Shadow.EnableModulatedSelfShadow 0** 输入UE4控制台中。
+    
+	[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Self Shadow On](SS_On.png) 
+	[/PARAM]
+	[PARAM:after]
+	![Self Shadow Off](SS_Off.png) 
+	[/PARAM]
+	[/OBJECT]
+    
+*   **阴影深度：**使用命令 **r.Shadow.CSMDepthBias**，可以偏移阴影开始渲染的位置。在下图中，您可以看到当 r.Shadow.CSMDepthBias 保留为默认值 **0** 时以及将值设置为 **10**、**100**、**500**、**1000** 和 **1500** 时调制阴影发生的情况。
+	[REGION:fullwidth]
+	[INCLUDE:#sd]
+	[/REGION]
+
+[COMMENT:none]
+[EXCERPT:SD]
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:max]
+	6
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	FS
+	[/PARAMLITERAL]
+	[PARAM:caption]
+	**在此处添加说明**
+	[/PARAM]
+	[PARAM:image_list]
+	![](SD_1.png)
+	![](SD_2.png)
+	![](SD_3.png)
+	![](SD_4.png)
+	![](SD_5.png)
+	![](SD_6.png)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:SD]
+[/COMMENT]

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealBuildTool.Rules
 {
@@ -17,10 +17,15 @@ namespace UnrealBuildTool.Rules
 				new string[] {
 					"Core",
 					"CoreUObject",
-					"MediaUtils",
+					"D3D11RHI",
+                    "Engine",
+                    "MediaUtils",
+					"Projects",
 					"RenderCore",
-					"WmfMediaFactory",
-				});
+                    "RHI",
+					"UtilityShaders",
+                    "WmfMediaFactory",
+                });
 
 			PrivateIncludePathModuleNames.AddRange(
 				new string[] {
@@ -32,7 +37,12 @@ namespace UnrealBuildTool.Rules
 					"WmfMedia/Private",
 					"WmfMedia/Private/Player",
 					"WmfMedia/Private/Wmf",
-				});
+                    "../../../../Source/Runtime/Windows/D3D11RHI/Private",
+                    "../../../../Source/Runtime/Windows/D3D11RHI/Private/Windows",
+                });
+
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "IntelMetricsDiscovery");
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "NVAftermath");
 
 			if (Target.bCompileAgainstEngine)
 			{

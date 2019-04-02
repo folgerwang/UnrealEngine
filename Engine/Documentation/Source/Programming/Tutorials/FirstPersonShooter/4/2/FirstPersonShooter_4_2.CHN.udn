@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3069483
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:4.2 - 设置事件图表
 Crumbs: %ROOT%, Programming, Programming/Tutorials, Programming/Tutorials/FirstPersonShooter, Programming/Tutorials/FirstPersonShooter/4
 Description:学习如何设置第一人称射击游戏角色的事件图表。
 SkillLevel:Beginner
-Version:4.11
+Version:4.15
 
 [VAR:Steps]
 [OBJECT:Navigation]
@@ -26,6 +26,7 @@ Version:4.11
 
 在这步中，我们将编辑动画的事件图表，确保游戏运行时动画转换变量正确发出。
 
+(#UpdatingyourStateVariables)
 ## 更新状态变量
 
 1.	双击 **My Blueprint** 标签中的 **EventGraph** 打开事件图表。
@@ -63,12 +64,14 @@ Version:4.11
 
 	![](GetMovementMode.png)
 
+(#QueryingCharacterMovement)
 ## 查询角色移动
 
 1.	从 **Movement Mode** 输出引脚连出引线并选择 **Equal (Enum)**。
 
 	![](EqualEnumNode.png)
 
+(#DeterminingiftheCharacterisFalling)
 ## 确定角色是否处于下落状态
 
 1.	将 **Equal (Enum)** 节点上的下拉值设为 **Falling**。
@@ -83,6 +86,7 @@ Version:4.11
 
 	![](ConnectedIsFalling.png)
 
+(#DeterminingiftheCharacterisRunning)
 ## 确定角色是否处于奔跑状态
 
 1.	返回 **Cast To Character** 节点，再次从 **As Character** 引脚连出引线。选择 **Get Velocity** 节点。

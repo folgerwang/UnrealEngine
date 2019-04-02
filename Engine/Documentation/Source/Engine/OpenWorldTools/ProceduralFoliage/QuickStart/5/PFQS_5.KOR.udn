@@ -10,7 +10,7 @@ Version: 4.8
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-	[예전 단계](Engine\OpenWorldTools\ProceduralFoliage\QuickStart\4 "%Engine\OpenWorldTools\ProceduralFoliage\QuickStart\4:title%") 
+	[이전 단계](Engine\OpenWorldTools\ProceduralFoliage\QuickStart\4 "%Engine\OpenWorldTools\ProceduralFoliage\QuickStart\4:title%") 
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -27,7 +27,7 @@ Version: 4.8
 **Procedural Foliage Blocking Volume** 은 레벨에 배치하여 원하는 대로 크기를 조절할 수 있는 볼륨 액터로, 
 이 경계 안에는 폴리지 액터를 스폰하지 않습니다.
 다음 섹션에서는 레벨에 **Procedural Foliage Blocking Volume** 을 추가하는 법과, 그것을 사용해서 폴리지 메시 스폰을 막는 법을 알아보겠습니다.
-예전 단계에서 사용된 **PFT_00** 레벨 작업을 계속하겠습니다.
+이전 단계에서 사용된 **PFT_00** 레벨 작업을 계속하겠습니다.
 
 1. 먼저 **모드** 패널에서 **Proc** 로 검색하여 **Procedural Foliage Blocking Volume** 을 찾습니다.
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	NiagaraShared.h: Shared Niagara definitions.
@@ -121,7 +121,7 @@ public:
 
 	FNiagaraShaderMapId()
 		: CompilerVersionID()
-		, FeatureLevel(ERHIFeatureLevel::SM5)
+		, FeatureLevel(GMaxRHIFeatureLevel) 
 		, BaseScriptID(0, 0, 0, 0)
 	{ }
 
@@ -466,7 +466,7 @@ public:
 	FNiagaraShaderScript() :
 		GameThreadShaderMap(NULL),
 		RenderingThreadShaderMap(NULL),
-		FeatureLevel(ERHIFeatureLevel::SM4),
+		FeatureLevel(GMaxRHIFeatureLevel),
 		bLoadedCookedShaderMapId(false)
 	{}
 

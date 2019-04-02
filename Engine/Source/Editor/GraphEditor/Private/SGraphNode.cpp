@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SGraphNode.h"
 #include "EdGraph/EdGraph.h"
@@ -1554,4 +1554,16 @@ EGraphRenderingLOD::Type SGraphNode::GetCurrentLOD() const
 void SGraphNode::RefreshErrorInfo()
 {
 	SetupErrorReporting();
+}
+
+void SGraphNode::InvalidateGraphData()
+{
+	for (TSharedRef<SGraphPin>& Pin : InputPins)
+	{
+		Pin->InvalidateGraphData();
+	}
+	for (TSharedRef<SGraphPin>& Pin : OutputPins)
+	{
+		Pin->InvalidateGraphData();
+	}
 }

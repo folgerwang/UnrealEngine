@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,6 +7,9 @@
 #include "EdGraphSchema_K2.h"
 #include "WidgetGraphSchema.generated.h"
 
+class UK2Node;
+class UK2Node_CallFunction;
+
 UCLASS(MinimalAPI)
 class UWidgetGraphSchema : public UEdGraphSchema_K2
 {
@@ -14,4 +17,15 @@ class UWidgetGraphSchema : public UEdGraphSchema_K2
 
 public:
 	virtual void BackwardCompatibilityNodeConversion(UEdGraph* Graph, bool bOnlySafeChanges) const override;
+
+private:
+	void ConvertAnimationEventNodes(UEdGraph* Graph) const;
+
+	void ConvertAddAnimationDelegate(UEdGraph* Graph) const;
+	void ConvertRemoveAnimationDelegate(UEdGraph* Graph) const;
+	void ConvertClearAnimationDelegate(UEdGraph* Graph) const;
+
+	void ReplaceAnimationFunctionAndAllocateDefaultPins(UEdGraph* Graph, UK2Node* OldNode, UK2Node_CallFunction* NewFunctionNode) const;
+
+	void FixDefaultToSelfForAnimation(UEdGraph* Graph) const;
 };

@@ -1,7 +1,7 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:3782314
 Availability:Public
 Crumbs: %ROOT%
-Title:씬 프린지 (Scene Fringe)
+Title:씬 프린지
 Description:실제 카메라 렌즈의 가장자리 부근에서 색이 전환되는 것을 시뮬레이션하는 색수차 효과입니다.
 Type: Overview
 SkillLevel:Beginner

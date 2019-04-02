@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -97,9 +97,6 @@ public:
 	TSharedPtr< FUICommandInfo > ShowOverlayNone;
 	TSharedPtr< FUICommandInfo > ShowBoneWeight;
 	TSharedPtr< FUICommandInfo > ShowMorphTargetVerts;
-
-	/** Show mesh vertex colors */
-	TSharedPtr< FUICommandInfo > ShowVertexColors;
 
 	/** Show socket hit point diamonds */
 	TSharedPtr< FUICommandInfo > ShowSockets;

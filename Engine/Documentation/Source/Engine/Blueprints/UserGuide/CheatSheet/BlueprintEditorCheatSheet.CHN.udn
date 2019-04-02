@@ -1,44 +1,13 @@
-﻿INTSourceChangelist:2968923
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:蓝图编辑器速查表
 Crumbs: %ROOT%, Engine, Engine/Blueprints
 Description:蓝图相关的快捷方式及有用操作的参考指南。
 version: 4.9
-parent:Engine/Blueprints/Workflow
 order:1
+tags:Blueprints
+topic-image:Engine/Blueprints/blueprintcheatsheet.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-	![%Engine\Blueprints\UserGuide\CheatSheet:title%](Engine/Blueprints/blueprintcheatsheet.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\CheatSheet:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\CheatSheet:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Engine\Blueprints\UserGuide\CheatSheet]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-	![%Engine\Blueprints\UserGuide\CheatSheet:title%](Engine/Blueprints/blueprintcheatsheet.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\CheatSheet:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\CheatSheet:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Engine\Blueprints\UserGuide\CheatSheet]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [TOC(start:2 end:2)]
 
@@ -46,6 +15,7 @@ order:1
 
 点击下载： [彩色版本](BlueprintCheatSheet-1989117414.pdf) | [黑白版本](BlueprintCheatSheet_BlackAndWhite-1276559864.pdf)
 
+(#GraphActions)
 ## 图表操作
 
 [REGION:fullwidth]
@@ -57,6 +27,7 @@ order:1
 | 图表操作菜单 |在图表上 **右击**  |
 
 
+(#Selection)
 ## 选择
 
 [REGION:fullwidth]
@@ -73,6 +44,7 @@ order:1
 | 区域选择(删除) | **Ctrl + 鼠标左键** 拖拽|
 
 
+(#Navigation)
 ## 导航
 [REGION:fullwidth]
 ![Navigation.png](Navigation.png)
@@ -88,6 +60,7 @@ order:1
 | 进入到子图表 | **下一页按键** |
 | 进入到父项图表 | **上一页按键** |
 
+(#GenericCommands)
 ## 通用命令
 [REGION:fullwidth]
 ![GenericCommands.png](GenericCommands.png)
@@ -104,6 +77,7 @@ order:1
 | 编译蓝图 | **F7** |
 
 
+(#VariableActions_My Blueprint_)
 ## 变量操作(我的蓝图)
 [REGION:fullwidth]
 ![VariableActions.png](VariableActions.png)
@@ -119,6 +93,7 @@ order:1
 | 修改类目或重新排序 |在我的蓝图中使用 **鼠标左键** 拖拽 |
 
 
+(#NodeActions)
 ## 节点操作
 [REGION:fullwidth]
 ![NodeActions.png](NodeActions.png)
@@ -142,6 +117,7 @@ order:1
 | 围绕选中项添加注释 | **C** |
 
 
+(#PinActions)
 ## 引脚操作
 [EXCERPT:PinActions]
 [REGION:fullwidth]
@@ -159,6 +135,7 @@ order:1
 
 [/EXCERPT:PinActions]
 
+(#CreationShortcuts)
 ## 创建相关的快捷方式
 [REGION:fullwidth]
 ![CreationShortcuts.png](CreationShortcuts.png)

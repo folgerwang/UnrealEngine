@@ -59,7 +59,7 @@ Related: Engine\MediaFramework\HowTo
 **Img Media Source** (이미지 미디어 소스) 애셋은 공유 로컬 네트워크나 디바이스에 저장된 이미지 시퀀스를 재생하는 데 사용됩니다. **Sequence Path** (시퀀스 경로) 칸은 시퀀스의 첫 이미지를 레퍼런싱하는 데 사용됩니다.
 이미지는 반드시 지원되는 순차 포맷이어야 (예: _MyImage01.exr_ 또는 _MyImage_01.exr_) 엔진에서 시퀀스의 나머지 이미지를 발견해 채울 수 있습니다.
 
-시퀀스의 이미지의 경우 고급 옵션의 일부로 **Frames Per Second Override** (초당 프레임 수 대체값)과 **Proxy Overrides** (프록시 대체값)을 지정할 수 있습니다. 다른 소스 애셋과 마찬가지로, **Player Overrides** (플레이어 대체값) 섹션에서 미디어 재생 플랫폼 유형에 따라 플레이어 플러그인을 정의할 수 있습니다.
+시퀀스의 이미지의 경우 고급 옵션의 일부로 **Frames Per Second Override** (초당 프레임 수 대체값)과 **Proxy Overrides** (프락시 대체값)을 지정할 수 있습니다. 다른 소스 애셋과 마찬가지로, **Player Overrides** (플레이어 대체값) 섹션에서 미디어 재생 플랫폼 유형에 따라 플레이어 플러그인을 정의할 수 있습니다.
 
 [REGION:note]
 이미지 미디어 소스 애셋 작업 관련 안내는 [](Engine\MediaFramework\HowTo\ImgMediaSource) 문서를 참고하세요.
@@ -83,7 +83,7 @@ Related: Engine\MediaFramework\HowTo
 ![](MediaSource_Platform.png)
 
 **Platform Media Source** (플랫폼 미디어 소스) 애셋은 미디어 소스를 플랫폼 단위로 덮어쓰는 기능을 지원합니다.
-예를 들어 안드로이드 디바이스나 PS4 에서만 특정 비디오를 재생하고 싶다 칩시다. 
+예를 들어 Android 디바이스나 PS4 에서만 특정 비디오를 재생하고 싶다 칩시다. 
 **Media Sources** (미디어 소스) 섹션에서 어느 플랫폼에서 어떤 비디오를 재생할지 지정할 수 있습니다. 
 플랫폼 미디어 소스를 사용할 때는, 모든 플랫폼에 미디어 소스를 선택해야 합니다.
 
@@ -242,7 +242,7 @@ Related: Engine\MediaFramework\HowTo
 
 여러가지 재생 (예를 들어 일시정지 또는 종료와 같은) 상태에 미디어 플레이어 레퍼런스가 있는 다른 함수를 바인딩할 수 있습니다.
 미디어 플레이어 레퍼런스로부터 여러가지 다른 함수를 호출할 수도 있습니다. 예로, 비디오 일시정지가 가능한지, 재생중인지, 재생 속도 정보 접근 등입니다.
-이 옵션들은 미디어 플레이어 레퍼런스를 끌어놓은 뒤 블루프린트 맥락 메뉴의 **Media Player** (미디어 플레이어) 섹션에서 확인할 수 있습니다.
+이 옵션들은 미디어 플레이어 레퍼런스를 끌어놓은 뒤 블루프린트 컨텍스트 메뉴의 **Media Player** (미디어 플레이어) 섹션에서 확인할 수 있습니다.
 
 ![](MediaPlayerNodes.png)
 

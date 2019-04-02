@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieScene/MovieSceneComposurePostMoveSettingsTrack.h"
 #include "MovieScene/MovieSceneComposurePostMoveSettingsSection.h"
@@ -12,6 +12,11 @@ UMovieSceneComposurePostMoveSettingsTrack::UMovieSceneComposurePostMoveSettingsT
 	TrackTint = FColor(48, 227, 255, 65);
 #endif
 	SupportedBlendTypes = FMovieSceneBlendTypeField::All();
+}
+
+bool UMovieSceneComposurePostMoveSettingsTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneComposurePostMoveSettingsSection::StaticClass();
 }
 
 UMovieSceneSection* UMovieSceneComposurePostMoveSettingsTrack::CreateNewSection()

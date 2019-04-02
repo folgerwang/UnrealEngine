@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -63,6 +63,8 @@ private:
 
 	/** Flag used to track validity of pin tooltips, when tooltips are invalid they will be refreshed before being displayed */
 	mutable bool bPinTooltipsValid;
+
+	TArray<UEdGraphPin*> ExpandAsEnumPins;
 
 public:
 
@@ -198,6 +200,8 @@ public:
 
 	/** */
 	static FSlateIcon GetPaletteIconForFunction(UFunction const* Function, FLinearColor& OutColor);
+
+	static void GetExpandEnumPinNames(const UFunction* Function, TArray<FName>& EnumNamesToCheck);
 
 private: 
 	/* Looks at function metadata and properties to determine if this node should be using enum to exec expansion */

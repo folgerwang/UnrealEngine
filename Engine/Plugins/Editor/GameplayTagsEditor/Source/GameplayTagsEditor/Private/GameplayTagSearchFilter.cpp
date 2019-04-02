@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GameplayTagSearchFilter.h"
 #include "Framework/Commands/UIAction.h"
@@ -206,27 +206,23 @@ bool FFrontendFilter_GameplayTags::ProcessProperty(void* Data, UProperty* Prop) 
 
 bool FFrontendFilter_GameplayTags::PassesFilter(FAssetFilterType InItem) const
 {
-	if (InItem.IsAssetLoaded())
+	if (UObject* Object = InItem.FastGetAsset(false))
 	{
-		if (UObject* Object = InItem.GetAsset())
+		if (UBlueprint* Blueprint = Cast<UBlueprint>(Object))
 		{
-			if (UBlueprint* Blueprint = Cast<UBlueprint>(Object))
-			{
-				return ProcessStruct(Blueprint->GeneratedClass->GetDefaultObject(), Blueprint->GeneratedClass);
+			return ProcessStruct(Blueprint->GeneratedClass->GetDefaultObject(), Blueprint->GeneratedClass);
 
-				//@TODO: Check blueprint bytecode!
-			}
-			else if (UClass* Class = Cast<UClass>(Object))
-			{
-				return ProcessStruct(Class->GetDefaultObject(), Class);
-			}
-			else
-			{
-				return ProcessStruct(Object, Object->GetClass());
-			}
+			//@TODO: Check blueprint bytecode!
+		}
+		else if (UClass* Class = Cast<UClass>(Object))
+		{
+			return ProcessStruct(Class->GetDefaultObject(), Class);
+		}
+		else
+		{
+			return ProcessStruct(Object, Object->GetClass());
 		}
 	}
-
 	return false;
 }
 

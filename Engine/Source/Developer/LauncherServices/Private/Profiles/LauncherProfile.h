@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -1746,10 +1746,11 @@ public:
 			}
 		}
 
-		if (LAUNCHERSERVICES_SHAREABLEPROJECTPATHS)
+		// if (Version >= LAUNCHERSERVICES_SHAREABLEPROJECTPATHS) Always true due to early out at top of function
 		{
 			FullProjectPath = FPaths::ConvertRelativePathToFull(FPaths::RootDir(), ShareableProjectPath);
 		}
+
 		if (DefaultDeployPlatform != NAME_None)
 		{
 			SetDefaultDeployPlatform(DefaultDeployPlatform);
@@ -1864,6 +1865,20 @@ public:
 			if (EditorExe.EndsWith(".exe", ESearchCase::IgnoreCase) && !FPaths::GetBaseFilename(EditorExe).EndsWith("-cmd", ESearchCase::IgnoreCase))
 			{
 				FString NewExeName = EditorExe.Left(EditorExe.Len() - 4) + "-Cmd.exe";
+				if (FPaths::FileExists(NewExeName))
+				{
+					EditorExe = NewExeName;
+				}
+				else
+				{
+					EditorExe.Empty();
+				}
+			}
+#elif PLATFORM_MAC
+			// turn UE4editor into UE4editor-cmd
+			if (!FPaths::GetBaseFilename(EditorExe).EndsWith("-cmd", ESearchCase::IgnoreCase))
+			{
+				FString NewExeName = EditorExe + "-Cmd";
 				if (FPaths::FileExists(NewExeName))
 				{
 					EditorExe = NewExeName;

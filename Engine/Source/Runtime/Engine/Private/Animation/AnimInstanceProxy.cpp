@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Animation/AnimInstanceProxy.h"
 #include "Animation/AnimNodeBase.h"
@@ -137,7 +137,7 @@ void FAnimInstanceProxy::Initialize(UAnimInstance* InAnimInstance)
 		RootNode = (FAnimNode_Base*) GetCustomRootNode();
 	}
 
-#if !NO_LOGGING
+#if ENABLE_ANIM_LOGGING
 	ActorName = GetNameSafe(InAnimInstance->GetOwningActor());
 #endif
 
@@ -173,12 +173,6 @@ void FAnimInstanceProxy::InitializeRootNode()
 		auto InitializeNode = [this](FAnimNode_Base* AnimNode)
 		{
 			AnimNode->OnInitializeAnimInstance(this, CastChecked<UAnimInstance>(GetAnimInstanceObject()));
-
-			// Force our functions to be re-evaluated - this reinitialization may have been a 
-			// consequence of our class being recompiled and functions will be invalid in that
-			// case.
-			AnimNode->EvaluateGraphExposedInputs.bInitialized = false;
-			AnimNode->EvaluateGraphExposedInputs.Initialize(AnimNode, AnimInstanceObject);
 
 			if (AnimNode->HasPreUpdate())
 			{
@@ -257,7 +251,7 @@ FGuid MakeGuidForMessage(const FText& Message)
 
 void FAnimInstanceProxy::LogMessage(FName InLogType, EMessageSeverity::Type InSeverity, const FText& InMessage)
 {
-#if !NO_LOGGING
+#if ENABLE_ANIM_LOGGING
 	FGuid CurrentMessageGuid = MakeGuidForMessage(InMessage);
 	if(!PreviouslyLoggedMessages.Contains(CurrentMessageGuid))
 	{
@@ -274,6 +268,8 @@ void FAnimInstanceProxy::Uninitialize(UAnimInstance* InAnimInstance)
 {
 	MontageEvaluationData.Reset();
 	SubInstanceInputNode = nullptr;
+	ResetAnimationCurves();
+	MaterialParametersToClear.Reset();
 }
 
 void FAnimInstanceProxy::PreUpdate(UAnimInstance* InAnimInstance, float DeltaSeconds)
@@ -312,7 +308,7 @@ void FAnimInstanceProxy::PreUpdate(UAnimInstance* InAnimInstance, float DeltaSec
 	QueuedDrawDebugItems.Reset();
 #endif
 
-#if !NO_LOGGING
+#if ENABLE_ANIM_LOGGING
 	//Reset logged update messages
 	LoggedMessagesMap.FindOrAdd(NAME_Update).Reset();
 #endif
@@ -442,7 +438,7 @@ void FAnimInstanceProxy::PostUpdate(UAnimInstance* InAnimInstance) const
 	}
 #endif
 
-#if !NO_LOGGING
+#if ENABLE_ANIM_LOGGING
 	FMessageLog MessageLog(NAME_AnimBlueprintLog);
 	const TArray<FLogMessageEntry>* Messages = LoggedMessagesMap.Find(NAME_Update);
 	if (ensureMsgf(Messages, TEXT("PreUpdate isn't called. This could potentially cause other issues.")))
@@ -459,7 +455,7 @@ void FAnimInstanceProxy::PostEvaluate(UAnimInstance* InAnimInstance)
 {
 	ClearObjects();
 
-#if !NO_LOGGING
+#if ENABLE_ANIM_LOGGING
 	FMessageLog MessageLog(NAME_AnimBlueprintLog);
 	if(const TArray<FLogMessageEntry>* Messages = LoggedMessagesMap.Find(NAME_Evaluate))
 	{
@@ -1115,7 +1111,7 @@ void FAnimInstanceProxy::UpdateAnimation()
 void FAnimInstanceProxy::PreEvaluateAnimation(UAnimInstance* InAnimInstance)
 {
 	InitializeObjects(InAnimInstance);
-#if !NO_LOGGING
+#if ENABLE_ANIM_LOGGING
 	LoggedMessagesMap.FindOrAdd(NAME_Evaluate).Reset();
 #endif
 }
@@ -1231,11 +1227,11 @@ void FAnimInstanceProxy::SlotEvaluatePose(const FName& SlotNodeName, const FComp
 #endif // DEBUG_MONTAGEINSTANCE_WEIGHT
 			if (AdditiveAnimType == AAT_None)
 			{
-				NonAdditivePoses.Add(NewPose);
+				NonAdditivePoses.Add(FSlotEvaluationPose(MoveTemp(NewPose)));
 			}
 			else
 			{
-				AdditivePoses.Add(NewPose);
+				AdditivePoses.Add(FSlotEvaluationPose(MoveTemp(NewPose)));
 			}
 		}
 	}
@@ -1353,7 +1349,7 @@ void FAnimInstanceProxy::GetSlotWeight(const FName& SlotNodeName, float& out_Slo
 #if DEBUGMONTAGEWEIGHT			
 				TotalDesiredWeight += EvalState->DesiredWeight;
 #endif
-#if !NO_LOGGING
+#if ENABLE_ANIM_LOGGING
 			UE_LOG(LogAnimation, Verbose, TEXT("GetSlotWeight : Owner: %s, AnimMontage: %s,  (DesiredWeight:%0.2f, Weight:%0.2f)"),
 						*GetActorName(), *EvalState.Montage->GetName(), EvalState.DesiredWeight, EvalState.MontageWeight);
 #endif
@@ -2179,7 +2175,7 @@ void FAnimInstanceProxy::RegisterWatchedPose(const FCSPose<FCompactPose>& Pose, 
 			if (PoseWatch.NodeID == LinkID)
 			{
 				FCompactPose TempPose;
-				Pose.ConvertToLocalPoses(TempPose);
+				FCSPose<FCompactPose>::ConvertComponentPosesToLocalPoses(Pose, TempPose);
 				PoseWatch.PoseInfo->CopyBonesFrom(TempPose);
 				break;
 			}
@@ -2191,6 +2187,147 @@ void FAnimInstanceProxy::RegisterWatchedPose(const FCSPose<FCompactPose>& Pose, 
 const FPoseSnapshot* FAnimInstanceProxy::GetPoseSnapshot(FName SnapshotName) const
 {
 	return PoseSnapshots.FindByPredicate([SnapshotName](const FPoseSnapshot& PoseData) { return PoseData.SnapshotName == SnapshotName; });
+}
+
+void FAnimInstanceProxy::ResetAnimationCurves()
+{
+	for (uint8 Index = 0; Index < (uint8)EAnimCurveType::MaxAnimCurveType; ++Index)
+	{
+		AnimationCurves[Index].Reset();
+	}
+}
+
+void FAnimInstanceProxy::UpdateCurvesToEvaluationContext(const FAnimationEvaluationContext& InContext)
+{
+	SCOPE_CYCLE_COUNTER(STAT_UpdateCurvesToEvaluationContext);
+
+	// Track material params we set last time round so we can clear them if they aren't set again.
+	MaterialParametersToClear.Reset();
+	for(auto Iter = AnimationCurves[(uint8)EAnimCurveType::MaterialCurve].CreateConstIterator(); Iter; ++Iter)
+	{
+		MaterialParametersToClear.Add(Iter.Key());
+	}
+
+	ResetAnimationCurves();
+
+	if(InContext.Curve.UIDToArrayIndexLUT != nullptr)
+	{
+		const TArray<uint16>& UIDToArrayIndexLookupTable = RequiredBones.GetUIDToArrayLookupTable();
+		const TArray<FName>& UIDToNameLookupTable = RequiredBones.GetUIDToNameLookupTable();
+		const TArray<FAnimCurveType>& UIDToCurveTypeLookupTable = RequiredBones.GetUIDToCurveTypeLookupTable();
+	
+		check(UIDToArrayIndexLookupTable.Num() == InContext.Curve.UIDToArrayIndexLUT->Num());
+
+		for (int32 CurveUID = 0; CurveUID < UIDToArrayIndexLookupTable.Num(); ++CurveUID)
+		{
+			uint16 ArrayIndex = UIDToArrayIndexLookupTable[CurveUID];
+		
+			if (ArrayIndex != MAX_uint16 && 
+				ensureAlwaysMsgf(InContext.Curve.Elements.IsValidIndex(ArrayIndex), TEXT("%s Animation Instance contains out of bound UIDList."), *AnimInstanceObject->GetClass()->GetName()) &&
+				InContext.Curve.Elements[ArrayIndex].IsValid())
+			{
+				const FName& CurveName = UIDToNameLookupTable[CurveUID];
+				const FAnimCurveType& CurveType = UIDToCurveTypeLookupTable[CurveUID];
+				const float Value = InContext.Curve.Elements[ArrayIndex].Value;
+
+				AnimationCurves[(uint8)EAnimCurveType::AttributeCurve].Add(CurveName, Value);
+
+				if(CurveType.bMorphtarget)
+				{
+					AnimationCurves[(uint8)EAnimCurveType::MorphTargetCurve].Add(CurveName, Value);
+				}
+
+				if(CurveType.bMaterial)
+				{
+					MaterialParametersToClear.Remove(CurveName);
+					AnimationCurves[(uint8)EAnimCurveType::MaterialCurve].Add(CurveName, Value);
+				}
+			}
+		}
+	}
+}
+
+void FAnimInstanceProxy::UpdateCurvesPostEvaluation(USkeletalMeshComponent* SkelMeshComp)
+{
+	SCOPE_CYCLE_COUNTER(STAT_UpdateCurvesPostEvaluation);
+
+	// Add curves to reset parameters that we have previously set but didn't tick this frame.
+	for(FName MaterialParameterToClear : MaterialParametersToClear)
+	{
+		// when reset, we go back to default value
+		float DefaultValue = SkelMeshComp->GetScalarParameterDefaultValue(MaterialParameterToClear);
+		AnimationCurves[(uint8)EAnimCurveType::MaterialCurve].Add(MaterialParameterToClear, DefaultValue);
+	}
+
+	// update curves to component
+	SkelMeshComp->ApplyAnimationCurvesToComponent(&AnimationCurves[(uint8)EAnimCurveType::MaterialCurve], &AnimationCurves[(uint8)EAnimCurveType::MorphTargetCurve]);
+
+	// Remove cleared params now they have been pushed to the mesh
+	for(FName MaterialParameterToClear : MaterialParametersToClear)
+	{
+		AnimationCurves[(uint8)EAnimCurveType::MaterialCurve].Remove(MaterialParameterToClear);
+	}
+}
+
+bool FAnimInstanceProxy::HasActiveCurves() const
+{
+	for(const TMap<FName, float>& AnimationCurveMap : AnimationCurves)
+	{
+		if(AnimationCurveMap.Num() > 0)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+void FAnimInstanceProxy::AddCurveValue(const FSmartNameMapping& Mapping, const FName& CurveName, float Value)
+{
+	// save curve value, it will overwrite if same exists, 
+	//CurveValues.Add(CurveName, Value);
+	float* CurveValPtr = AnimationCurves[(uint8)EAnimCurveType::AttributeCurve].Find(CurveName);
+	if ( CurveValPtr )
+	{
+		// sum up, in the future we might normalize, but for now this just sums up
+		// this won't work well if all of them have full weight - i.e. additive 
+		*CurveValPtr = Value;
+	}
+	else
+	{
+		AnimationCurves[(uint8)EAnimCurveType::AttributeCurve].Add(CurveName, Value);
+	}
+
+	const FCurveMetaData* CurveMetaData = Mapping.GetCurveMetaData(CurveName);
+	if (CurveMetaData)
+	{
+		if (CurveMetaData->Type.bMorphtarget)
+		{
+			CurveValPtr = AnimationCurves[(uint8)EAnimCurveType::MorphTargetCurve].Find(CurveName);
+			if (CurveValPtr)
+			{
+				// sum up, in the future we might normalize, but for now this just sums up
+				// this won't work well if all of them have full weight - i.e. additive 
+				*CurveValPtr = Value;
+			}
+			else
+			{
+				AnimationCurves[(uint8)EAnimCurveType::MorphTargetCurve].Add(CurveName, Value);
+			}
+		}
+		if (CurveMetaData->Type.bMaterial)
+		{
+			MaterialParametersToClear.RemoveSwap(CurveName);
+			CurveValPtr = AnimationCurves[(uint8)EAnimCurveType::MaterialCurve].Find(CurveName);
+			if (CurveValPtr)
+			{
+				*CurveValPtr = Value;
+			}
+			else
+			{
+				AnimationCurves[(uint8)EAnimCurveType::MaterialCurve].Add(CurveName, Value);
+			}
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

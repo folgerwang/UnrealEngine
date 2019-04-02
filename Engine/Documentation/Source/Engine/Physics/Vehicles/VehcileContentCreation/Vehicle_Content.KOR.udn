@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:4649792
 Availability:Public
 Title:비히클 아트 셋업
 Crumbs:%ROOT%
@@ -22,7 +22,7 @@ topic-image:vehicleArt_topic.png
 
 ![](wheelRadius.png)
 
-위 그림에서는 마야의 Distance Measurement (거리 측정) 툴을 사용하여 휠 서로 반대편의 두 버텍스 사이의 거리에 따라 휠의 지름을 측정합니다. 
+위 그림에서는 Maya의 Distance Measurement (거리 측정) 툴을 사용하여 휠 서로 반대편의 두 버텍스 사이의 거리에 따라 휠의 지름을 측정합니다. 
 휠의 반경은 이 값의 절반이 됩니다.
 
 3DsMax 의 경우 Helpers 섹션에도 비슷한 툴이 있습니다.
@@ -42,7 +42,7 @@ topic-image:vehicleArt_topic.png
 
 ## 바인딩
 
-마야의 경우 표준 스무드 바인드고, 3DS Max 의 경우 스킨 모디파이어 입니다. 휠은 하나의 조인트에만 웨이팅이 있어야 이상한 변형 없이 자유로운 스핀이 가능합니다. 
+Maya의 경우 표준 스무드 바인드고, 3DS Max 의 경우 스킨 모디파이어 입니다. 휠은 하나의 조인트에만 웨이팅이 있어야 이상한 변형 없이 자유로운 스핀이 가능합니다. 
 쇼크 앱소버와 스트럿 서스펜션의 경우 복잡한 스키닝으로 해도 가능하지만, 언리얼 에디터 측에서는 좀 더 생각을 많이 해야 할 것입니다.
 
 

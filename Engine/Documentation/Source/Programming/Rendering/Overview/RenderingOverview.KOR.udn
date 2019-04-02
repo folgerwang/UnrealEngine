@@ -41,7 +41,7 @@ UE4 에는 수많은 렌더링 코드가 있어, 하이 레벨 관점에서 어�
 |-d3ddebug|D3D11 디버그 레이어를 켭니다. API 오류를 잡는 데 좋습니다.|
 |-sm4|D3D11 RHI 를 가지고 피처 레벨 SM4 사용을 강제합니다.|
 |-opengl3 / -opengl4|지정된 피처 레벨의 OpenGL RHI 사용을 강제합니다.|
-|-dx11 | 현재 윈도우 기본입니다. |
+|-dx11 | 현재 Windows 기본입니다. |
 |-dx12 | 실험단계 입니다. |
 |-featureleveles2 | 에디터 실행시 무시되는데, UI 를 사용해야 합니다. |
 |-featureleveles31 | 실험단계로, 에디터 실행시 무시되는데, 에디터 개인설정 / 실험단계 / 렌더링 에서 켜줘야 합니다. |
@@ -109,7 +109,7 @@ UE4 에는 게임 스레드와 병렬 처리되는 [렌더링 스레드](Program
 |**UMaterialInstanceConstant **| 에디터에서만 변경 가능한 UMaterialInstance 입니다. 스칼라, 벡터, 텍스처, 스태틱 스위치 파라미터를 제공할 수 있습니다.|
 |**UMaterialInstanceDynamic **|  실행시간에 변경할 수 있는 UMaterialInstance 입니다. 스칼라, 벡터, 텍스처 파라미터를 제공할 수 있습니다. 스태틱 스위치 파라미터는 제공할 수 없으며, 다른 UMaterialInstance 의 부모가 될 수 없습니다.|
 
-#### 프리미티브 컴포넌트와 프록시
+#### 프리미티브 컴포넌트와 프락시
 
 프리미티브 컴포넌트는 표시여부 및 연관성 결정에 있어서 기본적인 단위입니다. 예를 들어 오클루전 및 프러스텀 컬링은 프리미티브 단위에서 일어납니다. 그러므로 시스템을 디자인할 때는 컴포넌트를 얼마나 크게 만들지 생각해 보는 것이 중요합니다. 각 컴포넌트에는 컬링, 그림자 드리우기, 빛 영향력 결정과 같은 다양한 연산에 사용되는 바운드가 있습니다.
 
@@ -123,8 +123,8 @@ FPrimitiveSceneProxy 는 컴포넌트 유형에 따라 서브클래싱하도록 
 |함수| 설명|
 |--|--|
 |GetViewRelevance|프레임 시작시 InitViews 에서 호출되어, 채워진 FPrimitiveViewRelevance 를 반환합니다.|
-|DrawDynamicElements|프록시가 관련이 있는 패스(pass)에서 프록시를 그리기 위해 호출됩니다. 프록시가 동적인 연관성이 있다고 표시한 경우에만 호출됩니다.|
-|DrawStaticElements|프리미티브가 게임 스레드에 어태치중일 때 프록시에 대한 스태틱 메시 요소를 제출하기 위해 호출됩니다. 프록시가 동적인 연관성이 있다고 표시한 경우에만 호출됩니다.|
+|DrawDynamicElements|프락시가 관련이 있는 패스(pass)에서 프락시를 그리기 위해 호출됩니다. 프락시가 동적인 연관성이 있다고 표시한 경우에만 호출됩니다.|
+|DrawStaticElements|프리미티브가 게임 스레드에 어태치중일 때 프락시에 대한 스태틱 메시 요소를 제출하기 위해 호출됩니다. 프락시가 동적인 연관성이 있다고 표시한 경우에만 호출됩니다.|
 
 #### 씬 렌더링 순서
 
@@ -153,12 +153,12 @@ FPrimitiveViewRelevance 는 bStaticRelevance 및 bDynamicRelevance 으로 프리
 UE4 에는 좀 더 미세한 제어가 가능하지만 횡단이 느린 동적인 패스와, 씬 횡단을 가급적 RHI 수준에 가깝게 캐시하는 정적인 렌더링 패스가 있습니다. 차이점은 거의 높은 레벨에 있는데, 둘 다 가장 낮은 레벨에서는 드로잉 폴리시를 사용하기 때문입니다. 각 렌더링 패스(pass, 드로잉 폴리시)는 필요한 경우 두 렌더링 패스 모두 처리하도록 해 줘야 합니다.
 #### 동적인 렌더링 패스
 
-동적인 렌더링 패스는 TDynamicPrimitiveDrawer 를 사용하고 렌더링할 프리미티브 씬 프록시마다 DrawDynamicElements 를 호출합니다. 렌더링하기 위해 동적인 경로를 사용해야 하는 프리미티브 세트는 FViewInfo::VisibleDynamicPrimitives 에 의해 추적됩니다. 각 렌더링 패스(pass)는 이 배열을 대상으로 반복처리한 다음, 각 프리미티브의 프록시에서 DrawDynamicElements 를 호출해야 합니다. 그러면 그 프록시의 DrawDynamicElements 는 필요한 만큼의 FMeshElements 를 조합하여 DrawRichMesh 나 TDynamicPrimitiveDrawer::DrawMesh 로 제출해야 합니다. 이는 결국 새로운 임시 드로잉 폴리시를 만드는데, CreateBoundShaderState, DrawShared, SetMeshRenderState, 마지막으로 DrawMesh 를 호출합니다.
+동적인 렌더링 패스는 TDynamicPrimitiveDrawer 를 사용하고 렌더링할 프리미티브 씬 프락시마다 DrawDynamicElements 를 호출합니다. 렌더링하기 위해 동적인 경로를 사용해야 하는 프리미티브 세트는 FViewInfo::VisibleDynamicPrimitives 에 의해 추적됩니다. 각 렌더링 패스(pass)는 이 배열을 대상으로 반복처리한 다음, 각 프리미티브의 프락시에서 DrawDynamicElements 를 호출해야 합니다. 그러면 그 프락시의 DrawDynamicElements 는 필요한 만큼의 FMeshElements 를 조합하여 DrawRichMesh 나 TDynamicPrimitiveDrawer::DrawMesh 로 제출해야 합니다. 이는 결국 새로운 임시 드로잉 폴리시를 만드는데, CreateBoundShaderState, DrawShared, SetMeshRenderState, 마지막으로 DrawMesh 를 호출합니다.
 
-동적인 렌더링 패스는 유연성이 높은데, 각 프록시마다 DrawDynamicElements 안에 각 컴포넌트 유형에 대한 로직을 실행할 수 있는 콜백이 있기 때문입니다. 삽입 비용은 최소이지만 횡단 비용은 높은데, 스테이트 소팅이 없고 캐시되는 것이 없기 때문입니다.
+동적인 렌더링 패스는 유연성이 높은데, 각 프락시마다 DrawDynamicElements 안에 각 컴포넌트 유형에 대한 로직을 실행할 수 있는 콜백이 있기 때문입니다. 삽입 비용은 최소이지만 횡단 비용은 높은데, 스테이트 소팅이 없고 캐시되는 것이 없기 때문입니다.
 #### 스태틱 렌더링 패스
 
-스태틱 렌더링 패스는 스태틱 드로 리스트를 통해 구현됩니다. 메시는 씬에 어태치할 때 드로 리스트에 삽입합니다. 이 삽입 도장 프록시에서 DrawStaticElements 가 호출되어 FStaticMeshElements 를 모읍니다. 그러면 드로잉 폴리시 인스턴스를 생성하고 CreateBoundShaderState 결과와 함께 저장합니다. 새로운 드로잉 폴리시는 Compare 와 Matches 함수에 따라 소팅한 다음 드로 리스트의 적합한 곳에 삽입합니다 (TStaticMeshDrawList::AddMesh 참고). InitViews 에서 스태틱 드로 리스트에 대한 비저빌리티 데이터를 담고 있는 비트배열이 초기화되어 TStaticMeshDrawList::DrawVisible 속에 전달되는데, 여기서 드로 리스트가 실제로 그려집니다. DrawShared 는 서로 일치하는 드로잉 폴리시 전체에 대해 딱 한 번만 호출되는 반면, SetMeshRenderState 와 DrawMesh 는 각 FStaticMeshElement 마다 호출됩니다 (TStaticMeshDrawList::DrawElement 참고).
+스태틱 렌더링 패스는 스태틱 드로 리스트를 통해 구현됩니다. 메시는 씬에 어태치할 때 드로 리스트에 삽입합니다. 이 삽입 도장 프락시에서 DrawStaticElements 가 호출되어 FStaticMeshElements 를 모읍니다. 그러면 드로잉 폴리시 인스턴스를 생성하고 CreateBoundShaderState 결과와 함께 저장합니다. 새로운 드로잉 폴리시는 Compare 와 Matches 함수에 따라 소팅한 다음 드로 리스트의 적합한 곳에 삽입합니다 (TStaticMeshDrawList::AddMesh 참고). InitViews 에서 스태틱 드로 리스트에 대한 비저빌리티 데이터를 담고 있는 비트배열이 초기화되어 TStaticMeshDrawList::DrawVisible 속에 전달되는데, 여기서 드로 리스트가 실제로 그려집니다. DrawShared 는 서로 일치하는 드로잉 폴리시 전체에 대해 딱 한 번만 호출되는 반면, SetMeshRenderState 와 DrawMesh 는 각 FStaticMeshElement 마다 호출됩니다 (TStaticMeshDrawList::DrawElement 참고).
 
 스태틱 렌더링 패스는 많은 작업을 어태치 시간으로 이동시켜, 렌더링 시간에서의 씬 횡단 속도를 크게 향상시킵니다. 스태틱 드로 리스트 렌더링은 스태틱 메시에 대한 렌더링 스레드에서는 약 3 배 빨라, 씬에 더 많은 수의 스태틱 메시를 그릴 수 있습니다. 스태틱 드로 리스트는 어태치 시간에 데이터를 캐시하므로, 뷰 독립적 스테이트만 캐시 가능합니다. 리어태치는 거의 하지 않으나 자주 렌더링되는 프리미티브라면 스태틱 드로 리스트에 넣기에 좋은 후보입니다.
 

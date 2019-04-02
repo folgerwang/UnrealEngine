@@ -1,43 +1,71 @@
-﻿INTSourceChangelist:2087389
-Availability:Docs
-Title:Skeleton Mode
-Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Persona
-Description:
+﻿INTSourceChangelist:4326187
+Availability: Public
+Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Persona, Engine/Animation/Persona/Modes
+Title:骨架编辑器
+Description:重点介绍虚幻引擎4中骨架编辑器的核心功能。 
+Type: Landing
+version: 4.16
+Parent: Engine/Animation/Persona/Modes
+Order: 1
+tags:Skeleton
+tags:Skeletal Mesh
+tags:Animation
+tags:Tools
+topic-image:skeletonEdtior_topic.png
 
-## Overview
+[REGION:banner]
+![](BannerImage2.png)
+[/REGION]
+
 
 [EXCERPT:Overview]
-**Skeleton mode** allows for visualization and control over those aspects of a character or Skeletal Mesh involving its bone or joint hierarchy. Example uses include:
-
-* Creating [Sockets](Engine/Content\Types\SkeletalMeshes\Sockets) to attach items to a Skeletal Mesh
-* Editing the relative position and rotation for each [Sockets](Engine/Content\Types\SkeletalMeshes\Sockets)
-* Establishing animation retargeting relationships
-
+ **骨架编辑器（Skeleton Editor）** 是一种用于处理虚幻引擎4中的[](Engine/Animation/Skeleton)的工具。 
+此编辑器可实现对与骨架网格体（Skeletal Mesh）关联的骨骼或关节层级的可视化和控制。 
+在此编辑器中，您可以创建[骨架网格体套接字](Engine/Content\Types\SkeletalMeshes\Sockets)以将项目附加到骨架网格体（Skeletal Mesh），预览[](Engine/Animation/Sequences/Curves)并跟踪与骨架关联的相关[](Engine/Animation/Sequences/Notifies)。 
+在此编辑器中，您还可设置您的[](Engine/Animation/AnimationRetargeting)选项并使用[重定向管理器.](Engine/Animation/Persona/BasePoseManager/)管理您的重定向源。 
 [/EXCERPT:Overview]
+
+有关骨架编辑器（Skeletal Editor）用户界面的明细情况，请参阅以下各节： 
 
 [REGION:fullwidth]
 ![](Persona_MODE_Skeleton_Large.png)
-
-
-[INCLUDE:Engine/Animation/Persona#skeletonui]
-
-
 [/REGION]
-[COMMENT:none]
+
+(#1.toolbar)
+
+## 1.工具栏
+
+骨架编辑器（Skeletal Editor）内的[工具栏](Engine/Animation/Persona/Toolbar)为您提供可将任何更改保存到骨架或在内容浏览器中找到该更改的选项。 
+您可以查看 **动画通知（Anim Notifies）**，打开 **重定向管理器（Retarget Manager）**，导入新的骨架网格体（Skeletal Mesh），以与骨架关联并用预览的当前姿势创建一个静态网格体（Static Mesh）。 
+工具栏最右侧是 **编辑器工具栏（Editor Toolbar）**，允许您在虚幻引擎4中的不同动画工具中切换。 
+
+(#2.skeletontree)
+
+## 2.骨架树
+
+[](Engine/Animation/Persona/SkeletonTree)显示当前骨架资源的骨架层级，并可在其中创建和编辑套接字，预览资源和控制动画重定向选项。 
+
+(#3.viewport)
+
+## 3.视口
+
+[视口](Engine/Animation/Persona/Viewport)窗口允许您预览您所做的更改，并调整套接字位置或预览任何动画曲线。 
+从视口（Viewport）中还可分配一个预览动画以供骨架网格体使用，更改照明模式，显示或隐藏骨架的骨骼，调整动画播放速度，甚至将骨架网格体（Skeletal Mesh）设置为在转盘上自动旋转，使您可以从任何角度查看它。 
+
+(#4.details/previewsettings)
+
+## 4.详细信息/预览设置
+
+[详细信息](Engine/UI/LevelEditor/Details)面板类似于主编辑器（Main Editor），主要用于修改套接字（Socket）等新增元素的属性。 
+例如，当您将一个套接字（Socket）添加到骨架（Skeleton）时，单击骨架树（Skeleton Tree）中的套接字（Socket）将用与套接字（Socket）使用方式相关的选项填充详细信息（Details）面板。 
+
+这一部分中还有一个用于[预览设置](Engine\Animation\Persona\PreviewSettings)的选项卡，能够定义视口设置，例如 **动画模式（Animation Mode）** 或 **动画（Animation）** 以用作预览，切换用于预览的 **骨架网格体（Skeletal Meshes）**，以及应用的视口照明和后期处理（Post Process）设置，使您可以预览应用了各种照明的设置。 
+
+(#5.animcurves/animationnotifies)
+
+## 5.动画曲线/动画通知
+
+[动画曲线](Engine/Animation/Persona/AnimCurves)查看器允许您在视口（Viewport）中查看当前网格体可用的任何动画曲线。 
+[动画通知](Engine/Animation/Persona/AnimationNotifies)窗口允许您修改您自定义创建的与该骨架（Skeleton）资源关联的动画通知（Animation Notifies）。 
 
 
-[EXCERPT:SkeletonUses]
-
-[/EXCERPT:SkeletonUses]
-
-
-[EXCERPT:SkeletonUI]
-
-[/EXCERPT:SkeletonUI]
-
-
-
-
-
-
-[/COMMENT]

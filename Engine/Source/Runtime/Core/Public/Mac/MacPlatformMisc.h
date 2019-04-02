@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================================
 	MacPlatformMisc.h: Mac platform misc functions
@@ -29,7 +29,7 @@ struct CORE_API FMacPlatformMisc : public FApplePlatformMisc
 		return TEXT(":");
 	}
 
-	DEPRECATED(4.14, "GetMacAddress is deprecated. It is not reliable on all platforms")
+	UE_DEPRECATED(4.14, "GetMacAddress is deprecated. It is not reliable on all platforms")
 	static TArray<uint8> GetMacAddress();
 
 	static void RequestExit(bool Force);
@@ -93,6 +93,8 @@ struct CORE_API FMacPlatformMisc : public FApplePlatformMisc
 	 * Returns whether the platform is running on battery power or not.
 	 */
 	static bool IsRunningOnBattery();
+
+	static IPlatformChunkInstall* GetPlatformChunkInstall();
 
 	/**
 	 * Returns whether the Mac OS X version is 10.9.x or not.

@@ -36,6 +36,7 @@ namespace ansel
         kBufferTypeHDR = 0,
         kBufferTypeDepth,
         kBufferTypeHUDless,
+        kBufferTypeFinalColor,
         kBufferTypeCount
     };
 

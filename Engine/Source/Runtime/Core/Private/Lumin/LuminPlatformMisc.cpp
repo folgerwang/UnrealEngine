@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Lumin/LuminPlatformMisc.h"
 #include "Lumin/LuminLifecycle.h"
@@ -142,6 +142,15 @@ bool FLuminPlatformMisc::ShouldUseDesktopVulkan()
 	GConfig->GetBool(TEXT("/Script/LuminRuntimeSettings.LuminRuntimeSettings"), TEXT("bUseMobileRendering"), bUseMobileRendering, GEngineIni);
 
 	return ShouldUseVulkan() && !bUseMobileRendering;
+}
+
+const TCHAR* FLuminPlatformMisc::GetDefaultDeviceProfileName()
+{
+	if (ShouldUseDesktopVulkan() || ShouldUseDesktopOpenGL())
+	{
+		return TEXT("Lumin_Desktop");
+	}
+	return TEXT("Lumin");
 }
 
 bool FLuminPlatformMisc::ShouldUseDesktopOpenGL()

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Mac/MacErrorOutputDevice.h"
 #include "Misc/App.h"
@@ -6,6 +6,9 @@
 #include "Misc/ConfigCacheIni.h"
 #include "HAL/FeedbackContextAnsi.h"
 #include "Mac/CocoaThread.h"
+#include "HAL/ExceptionHandling.h"
+
+extern CORE_API bool GIsGPUCrashed;
 
 FMacErrorOutputDevice::FMacErrorOutputDevice()
 :	ErrorPos(0)
@@ -46,7 +49,16 @@ void FMacErrorOutputDevice::Serialize( const TCHAR* Msg, ELogVerbosity::Type Ver
 #if PLATFORM_EXCEPTIONS_DISABLED
 		UE_DEBUG_BREAK();
 #endif
-		FPlatformMisc::RaiseException( 1 );
+		const int32 NumStackFramesToIgnore = 0;
+
+		if (GIsGPUCrashed)
+		{
+			ReportGPUCrash(Msg, NumStackFramesToIgnore);
+		}
+		else
+		{
+			ReportAssert(Msg, NumStackFramesToIgnore);
+		}
 	}
 	else
 	{

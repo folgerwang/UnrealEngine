@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Generation/ChunkMatchProcessor.h"
 #include "Templates/Tuple.h"
@@ -12,7 +12,6 @@ namespace BuildPatchServices
 	struct FChunkMatchProcessor
 		: public IChunkMatchProcessor
 	{
-		typedef TTuple<FChunkMatch, FBlockStructure> FMatchEntry;
 		typedef TArray<FMatchEntry> FMatchQueue;
 	public:
 		FChunkMatchProcessor()
@@ -32,11 +31,11 @@ namespace BuildPatchServices
 
 			// When processing a piece that is added earlier, we have to re-evaluate existing rejected pieces.
 			TArray<FMatchEntry> PiecesToProcess;
-			PiecesToProcess.Add(FMatchEntry(InNewMatch, MoveTemp(InNewBuildSpace)));
+			PiecesToProcess.Add(FMatchEntry{InNewMatch, MoveTemp(InNewBuildSpace)});
 			while (PiecesToProcess.Num() > 0)
 			{
 				// Some variables to help make code easy to read.
-				const FChunkMatch& NewMatch = PiecesToProcess[0].Get<0>();
+				const FChunkMatch& NewMatch = PiecesToProcess[0].ChunkMatch;
 				const uint64 NewMatchFirst = NewMatch.DataOffset;
 				const uint64 NewMatchSize = NewMatch.WindowSize;
 				const uint64 NewMatchLast = (NewMatchFirst + NewMatchSize) - 1;
@@ -51,7 +50,7 @@ namespace BuildPatchServices
 					bool bRejected = false;
 					for (int32 MatchesIdx = SearchIdx; MatchesIdx < Matches.Num(); ++MatchesIdx)
 					{
-						const FChunkMatch& Match = Matches[MatchesIdx].Get<0>();
+						const FChunkMatch& Match = Matches[MatchesIdx].ChunkMatch;
 
 						// Some variables to help make code easy to read.
 						const uint64 ThisMatchFirst = Match.DataOffset;
@@ -80,7 +79,9 @@ namespace BuildPatchServices
 								{
 									PiecesToProcess.Add(MoveTemp(Matches[MatchIdxToPop]));
 								}
-								Matches.SetNum(NewMatchesArraySize, false);
+								checkf(NewMatchesArraySize <= Matches.Num(), TEXT("Matches array should never grow uninitialised."));
+								const bool bAllowAllocationShrinking = false;
+								Matches.SetNumUninitialized(NewMatchesArraySize, bAllowAllocationShrinking);
 								// Since we adjusted the history, we need to replay the rejected matches too.
 								PiecesToProcess.Append(MoveTemp(Rejects));
 							}
@@ -98,9 +99,12 @@ namespace BuildPatchServices
 							// We just slipped into an empty gap.
 							Matches.Insert(MoveTemp(PiecesToProcess[0]), MatchesIdx);
 							PiecesToProcess.RemoveAt(0);
+							bAccepted = true;
+							// Break from match loop.
+							break;
 						}
 						// Unreachable code.
-						check(false);
+						checkf(false, TEXT("NewMatchFirst:%llu NewMatchSize:%llu NewMatchLast:%llu ThisMatchFirst:%llu ThisMatchSize:%llu ThisMatchLast:%llu"), NewMatchFirst, NewMatchSize, NewMatchLast, ThisMatchFirst, ThisMatchSize, ThisMatchLast);
 					}
 					// If we made no decision, it means NewMatch comes after all current matches.
 					if (!bAccepted && !bRejected)
@@ -114,7 +118,7 @@ namespace BuildPatchServices
 					Matches.Add(MoveTemp(PiecesToProcess[0]));
 					PiecesToProcess.RemoveAt(0);
 				}
-				Algo::SortBy(PiecesToProcess, [](const FMatchEntry& MatchEntry) { return MatchEntry.Get<0>().DataOffset; });
+				Algo::SortBy(PiecesToProcess, [](const FMatchEntry& MatchEntry) { return MatchEntry.ChunkMatch.DataOffset; });
 			}
 		}
 
@@ -126,16 +130,17 @@ namespace BuildPatchServices
 			FMatchQueue& Rejects = LayerRejects[Layer];
 			int32& FlushedMatch = LayerFlushedMatch[Layer];
 			uint64& FlushedSize = LayerFlushedSize[Layer];
-
+			const uint64 PrevFlushedSize = FlushedSize;
 			// Mark flushed size for when there are no matches within the range.
 			FlushedSize = SafeByteSize;
+			check(FlushedSize >= PrevFlushedSize);
 
 			// Count flushed matches.
 			for (int32 MatchesIdx = FlushedMatch + 1; MatchesIdx < Matches.Num(); ++MatchesIdx)
 			{
 				// Some variables to help make code easy to read.
-				const FChunkMatch& Match = Matches[MatchesIdx].Get<0>();
-				const FBlockRange ThisRange(Match.DataOffset, Match.WindowSize);
+				const FChunkMatch& Match = Matches[MatchesIdx].ChunkMatch;
+				const FBlockRange ThisRange = FBlockRange::FromFirstAndSize(Match.DataOffset, Match.WindowSize);
 
 				// Stop when we skipped over the safe byte. (Last safe byte is SafeByteSize-1, which we can include).
 				if (ThisRange.GetFirst() >= SafeByteSize)
@@ -149,6 +154,7 @@ namespace BuildPatchServices
 				{
 					// Mark flushed size as this first byte which we cannot flush past.
 					FlushedSize = ThisRange.GetFirst();
+					check(FlushedSize >= PrevFlushedSize);
 					break;
 				}
 
@@ -157,12 +163,12 @@ namespace BuildPatchServices
 			}
 
 			// Discard rejects no longer needed.
-			Algo::SortBy(Rejects, [](const FMatchEntry& MatchEntry) { return MatchEntry.Get<0>().DataOffset; });
+			Algo::SortBy(Rejects, [](const FMatchEntry& MatchEntry) { return MatchEntry.ChunkMatch.DataOffset; });
 			int32 RemoveCount = INDEX_NONE;
 			for (int32 RejectsIdx = 0; RejectsIdx < Rejects.Num(); ++RejectsIdx)
 			{
-				const FChunkMatch& Reject = Rejects[RejectsIdx].Get<0>();
-				const FBlockRange ThisRange(Reject.DataOffset, Reject.WindowSize);
+				const FChunkMatch& Reject = Rejects[RejectsIdx].ChunkMatch;
+				const FBlockRange ThisRange = FBlockRange::FromFirstAndSize(Reject.DataOffset, Reject.WindowSize);
 
 				// We can keep rejects that are still entirely past the flushed size.
 				if (ThisRange.GetFirst() >= FlushedSize)
@@ -176,20 +182,22 @@ namespace BuildPatchServices
 			Rejects.RemoveAt(0, RemoveCount + 1, false);
 		}
 
-		virtual FBlockRange CollectLayer(const int32 Layer, TArray<TTuple<FChunkMatch, FBlockStructure>>& OutData)
+		virtual FBlockRange CollectLayer(const int32 Layer, TArray<FMatchEntry>& OutData)
 		{
 			InitLayer(Layer);
 			FMatchQueue& Matches = LayerMatches[Layer];
 			int32& FlushedMatch = LayerFlushedMatch[Layer];
 			uint64& CollectedSize = LayerCollectedSize[Layer];
 			const uint64& FlushedSize = LayerFlushedSize[Layer];
-			const FBlockRange ReturnedRange(CollectedSize, FlushedSize - CollectedSize);
+			check(FlushedSize >= CollectedSize);
+			const FBlockRange ReturnedRange = FBlockRange::FromFirstAndSize(CollectedSize, FlushedSize - CollectedSize);
 
 			// Copy out flushed matches.
 			OutData.Reserve(FlushedMatch + 1);
 			for (int32 MatchesIdx = 0; MatchesIdx <= FlushedMatch; ++MatchesIdx)
 			{
-				OutData.Add(MoveTemp(Matches[MatchesIdx]));
+				FMatchEntry& MatchToMove = Matches[MatchesIdx];
+				OutData.Add(FMatchEntry{MatchToMove.ChunkMatch, MoveTemp(MatchToMove.BlockStructure)});
 			}
 
 			// Remove copied out matches.
@@ -235,7 +243,7 @@ namespace BuildPatchServices
 			if (LastMatchIdx >= 0)
 			{
 				// Find search location
-				while (MatchQueue[SearchIdx].Get<0>().DataOffset > ChunkMatch.DataOffset)
+				while (MatchQueue[SearchIdx].ChunkMatch.DataOffset > ChunkMatch.DataOffset)
 				{
 					--SearchIdx;
 					if (SearchIdx < 0)

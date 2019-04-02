@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -18,7 +18,7 @@ class UGameplayTasksComponent;
 
 /**
  *	TODO:
- *		-Implement replicated time so that this can work as a simulated task for Join In Prgorss clients.
+ *		-Implement replicated time so that this can work as a simulated task for Join In Progress clients.
  */
 
 

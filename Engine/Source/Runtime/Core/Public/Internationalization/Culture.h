@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreTypes.h"
@@ -51,6 +51,8 @@ public:
 
 	static TArray<FString> GetPrioritizedParentCultureNames(const FString& LanguageCode, const FString& ScriptCode, const FString& RegionCode);
 
+	static FString CreateCultureName(const FString& LanguageCode, const FString& ScriptCode, const FString& RegionCode);
+
 	static FString GetCanonicalName(const FString& Name);
 
 	const FString& GetName() const;
@@ -94,6 +96,12 @@ public:
 	ETextPluralForm GetPluralForm(uint32 Val,	const ETextPluralType PluralType) const;
 	ETextPluralForm GetPluralForm(uint64 Val,	const ETextPluralType PluralType) const;
 	ETextPluralForm GetPluralForm(long Val,		const ETextPluralType PluralType) const;
+
+	/**
+	 * Get the plural forms supported by this culture
+	 * @param PluralType The type of plural form to get (cardinal or ordinal)
+	 */
+	const TArray<ETextPluralForm>& GetValidPluralForms(const ETextPluralType PluralType) const;
 
 	void HandleCultureChanged();
 

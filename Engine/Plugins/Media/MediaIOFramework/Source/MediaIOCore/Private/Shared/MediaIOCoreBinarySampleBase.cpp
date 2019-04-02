@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaIOCoreBinarySampleBase.h"
 
@@ -8,28 +8,71 @@ FMediaIOCoreBinarySampleBase::FMediaIOCoreBinarySampleBase()
 { }
 
 
-bool FMediaIOCoreBinarySampleBase::Initialize(const uint8* InBinaryBuffer, uint32 InBufferSize, FTimespan InTime, const TOptional<FTimecode>& InTimecode)
+bool FMediaIOCoreBinarySampleBase::Initialize(const uint8* InBinaryBuffer, uint32 InBufferSize, FTimespan InTime, const FFrameRate& InFrameRate, const TOptional<FTimecode>& InTimecode)
+{
+	FreeSample();
+
+	if (!SetProperties(InTime, InFrameRate, InTimecode))
+	{
+		return false;
+	}
+
+	return SetBuffer(InBinaryBuffer, InBufferSize);
+}
+
+
+bool FMediaIOCoreBinarySampleBase::Initialize(TArray<uint8> InBinaryBuffer, FTimespan InTime, const FFrameRate& InFrameRate, const TOptional<FTimecode>& InTimecode)
+{
+	FreeSample();
+
+	if (!SetProperties(InTime, InFrameRate, InTimecode))
+	{
+		return false;
+	}
+
+	return SetBuffer(InBinaryBuffer);
+}
+
+
+bool FMediaIOCoreBinarySampleBase::SetBuffer(const uint8* InBinaryBuffer, uint32 InBufferSize)
 {
 	if (InBinaryBuffer == nullptr)
 	{
-		Buffer.Reset();
 		return false;
 	}
 
 	Buffer.Reset(InBufferSize);
 	Buffer.Append(InBinaryBuffer, InBufferSize);
-	Time = InTime;
-	Timecode = InTimecode;
 
 	return true;
 }
 
 
-bool FMediaIOCoreBinarySampleBase::Initialize(TArray<uint8> InBinaryBuffer, FTimespan InTime, const TOptional<FTimecode>& InTimecode)
+bool FMediaIOCoreBinarySampleBase::SetBuffer(TArray<uint8> InBinaryBuffer)
 {
+	if (InBinaryBuffer.Num() == 0)
+	{
+		return false;
+	}
+
 	Buffer = MoveTemp(InBinaryBuffer);
-	Time = InTime;
-	Timecode = InTimecode;
 
 	return true;
+}
+
+
+bool FMediaIOCoreBinarySampleBase::SetProperties(FTimespan InTime, const FFrameRate& InFrameRate, const TOptional<FTimecode>& InTimecode)
+{
+	Time = InTime;
+	Duration = FTimespan(ETimespan::TicksPerSecond * InFrameRate.AsInterval());
+	Timecode = InTimecode;
+	return true;
+}
+
+
+void* FMediaIOCoreBinarySampleBase::RequestBuffer(uint32 InBufferSize)
+{
+	FreeSample();
+	Buffer.SetNumUninitialized(InBufferSize); // Reset the array without shrinking (Does not destruct items, does not de-allocate memory).
+	return Buffer.GetData();
 }

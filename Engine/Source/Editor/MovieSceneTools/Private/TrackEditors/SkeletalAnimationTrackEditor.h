@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -96,11 +96,12 @@ public:
 	virtual UMovieSceneSection* GetSectionObject() override;
 	virtual FText GetSectionTitle() const override;
 	virtual float GetSectionHeight() const override;
+	virtual FMargin GetContentPadding() const override;
 	virtual int32 OnPaintSection( FSequencerSectionPainter& Painter ) const override;
 	virtual void BeginResizeSection() override;
 	virtual void ResizeSection(ESequencerSectionResizeMode ResizeMode, FFrameNumber ResizeTime) override;
 	virtual void BeginSlipSection() override;
-	virtual void SlipSection(double SlipTime) override;
+	virtual void SlipSection(FFrameNumber SlipTime) override;
 	virtual void BuildSectionContextMenu(FMenuBuilder& MenuBuilder, const FGuid& InObjectBinding) override;
 
 private:
@@ -117,7 +118,7 @@ private:
 	TWeakPtr<ISequencer> Sequencer;
 
 	/** Cached start offset value valid only during resize */
-	float InitialStartOffsetDuringResize;
+	FFrameNumber InitialStartOffsetDuringResize;
 	
 	/** Cached start time valid only during resize */
 	FFrameNumber InitialStartTimeDuringResize;

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealBuildTool.Rules
 {
@@ -29,7 +29,6 @@ namespace UnrealBuildTool.Rules
                     "RHI",
                     "Engine",
                     "RenderCore",
-                    "ShaderCore",
 					// ... add other public dependencies that you statically link with here ...
 				}
 				);

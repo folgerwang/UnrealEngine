@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 TextureStreamingHelpers.cpp: Definitions of classes used for texture streaming.
@@ -312,9 +312,6 @@ void FTextureStreamingSettings::Update()
 		ExtraIOLatency = 0;
     }
 }
-
-
-extern ENGINE_API UPrimitiveComponent* GDebugSelectedComponent;
 
 /** the float table {-1.0f,1.0f} **/
 float ENGINE_API GNegativeOneOneTable[2] = {-1.0f,1.0f};

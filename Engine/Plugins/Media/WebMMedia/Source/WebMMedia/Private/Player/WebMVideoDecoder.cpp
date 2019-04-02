@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "WebMVideoDecoder.h"
 
@@ -7,8 +7,8 @@
 #include "WebMMediaPrivate.h"
 #include "WebMMediaFrame.h"
 #include "WebMMediaTextureSample.h"
+#include "WebMSamplesSink.h"
 #include "MediaShaders.h"
-#include "MediaSamples.h"
 #include "PipelineStateCache.h"
 #include "RHIStaticStates.h"
 #include "Containers/DynamicRHIResourceArray.h"
@@ -34,7 +34,7 @@ namespace
 			uint16 Stride = sizeof(FMediaElementVertex);
 			Elements.Add(FVertexElement(0, STRUCT_OFFSET(FMediaElementVertex, Position), VET_Float4, 0, Stride));
 			Elements.Add(FVertexElement(0, STRUCT_OFFSET(FMediaElementVertex, TextureCoordinate), VET_Float2, 1, Stride));
-			VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
+			VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(Elements);
 
 			TResourceArray<FMediaElementVertex> Vertices;
 			Vertices.AddUninitialized(4);
@@ -61,9 +61,9 @@ namespace
 	TGlobalResource<FMoviePlaybackResources> GMoviePlayerResources;
 }
 
-FWebMVideoDecoder::FWebMVideoDecoder(TSharedPtr<FMediaSamples, ESPMode::ThreadSafe> InSamples)
-	: Samples(InSamples)
-	, VideoSamplePool(new FWebMMediaTextureSamplePool)
+FWebMVideoDecoder::FWebMVideoDecoder(IWebMSamplesSink& InSamples)
+	: VideoSamplePool(new FWebMMediaTextureSamplePool)
+	, Samples(InSamples)
 	, bTexturesCreated(false)
 	, bIsInitialized(false)
 {
@@ -80,7 +80,6 @@ bool FWebMVideoDecoder::Initialize(const char* CodecName)
 
 	const int32 NumOfThreads = 1;
 	const vpx_codec_dec_cfg_t CodecConfig = { NumOfThreads, 0, 0 };
-
 	if (FCStringAnsi::Strcmp(CodecName, "V_VP8") == 0)
 	{
 		verify(vpx_codec_dec_init(&Context, vpx_codec_vp8_dx(), &CodecConfig, /*VPX_CODEC_USE_FRAME_THREADING*/ 0) == 0);
@@ -133,14 +132,14 @@ void FWebMVideoDecoder::DoDecodeVideoFrames(const TArray<TSharedPtr<FWebMFrame>>
 		const void* ImageIter = nullptr;
 		while (const vpx_image_t* Image = vpx_codec_get_frame(&Context, &ImageIter))
 		{
+			FWebMVideoDecoder* Self = this;
 			if (!bTexturesCreated)
 			{
 				// First creation of conversion textures
 
 				bTexturesCreated = true;
-
-				ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(WebMMediaPlayerCreateTextures,
-					FWebMVideoDecoder*, Self, this, const vpx_image_t*, Image, Image,
+				ENQUEUE_RENDER_COMMAND(WebMMediaPlayerCreateTextures)(
+					[Self, Image](FRHICommandListImmediate& RHICmdList)
 					{
 						Self->CreateTextures(Image);
 					});
@@ -148,14 +147,13 @@ void FWebMVideoDecoder::DoDecodeVideoFrames(const TArray<TSharedPtr<FWebMFrame>>
 
 			TSharedRef<FWebMMediaTextureSample, ESPMode::ThreadSafe> VideoSample = VideoSamplePool->AcquireShared();
 
-			VideoSample->Initialize(FIntPoint(Image->d_w, Image->d_h), FIntPoint(Image->d_w, Image->d_h), VideoFrame->Time);
+			VideoSample->Initialize(FIntPoint(Image->d_w, Image->d_h), FIntPoint(Image->d_w, Image->d_h), VideoFrame->Time, VideoFrame->Duration);
 
 			FConvertParams Params;
 			Params.VideoSample = VideoSample;
 			Params.Image = Image;
-
-			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(WebMMediaPlayerConvertYUVToRGB,
-				FWebMVideoDecoder*, Self, this, FConvertParams, Params, Params,
+			ENQUEUE_RENDER_COMMAND(WebMMediaPlayerConvertYUVToRGB)(
+				[Self, Params](FRHICommandListImmediate& RHICmdList)
 				{
 					Self->ConvertYUVToRGBAndSubmit(Params);
 				});
@@ -180,7 +178,13 @@ void FWebMVideoDecoder::Close()
 	}
 
 	// Make sure all compute shader decoding is done
-	FlushRenderingCommands();
+	//
+	// This function can also be called on a rendering thread (the streamer is ticked there during a startup movie, and decoder gets deleted on StartNextMovie()
+	// if there are >1 movie queued). In this case we will ensure that the resources survive for one more frame after use by other means.
+	if (IsInGameThread())
+	{
+		FlushRenderingCommands();
+	}
 
 	if (bIsInitialized)
 	{
@@ -242,36 +246,39 @@ void FWebMVideoDecoder::ConvertYUVToRGBAndSubmit(const FConvertParams& Params)
 		}
 
 		FRHITexture* RenderTarget = VideoSample->GetTexture();
-		SetRenderTargets(CommandList, 1, &RenderTarget, nullptr, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthNop_StencilNop);
-
-		// configure media shaders
-		auto ShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
-
-		TShaderMapRef<FYUVConvertPS> PixelShader(ShaderMap);
-		TShaderMapRef<FMediaShadersVS> VertexShader(ShaderMap);
-
-		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		FRHIRenderPassInfo RPInfo(RenderTarget, ERenderTargetActions::Load_Store);
+		CommandList.BeginRenderPass(RPInfo, TEXT("ConvertYUVtoRGBA"));
 		{
-			CommandList.ApplyCachedRenderTargets(GraphicsPSOInit);
-			GraphicsPSOInit.BlendState = TStaticBlendStateWriteMask<CW_RGBA, CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE>::GetRHI();
-			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GMoviePlayerResources.VertexDeclarationRHI;
-			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-			GraphicsPSOInit.PrimitiveType = PT_TriangleStrip;
+			// configure media shaders
+			auto ShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
+
+			TShaderMapRef<FYUVConvertPS> PixelShader(ShaderMap);
+			TShaderMapRef<FMediaShadersVS> VertexShader(ShaderMap);
+
+			FGraphicsPipelineStateInitializer GraphicsPSOInit;
+			{
+				CommandList.ApplyCachedRenderTargets(GraphicsPSOInit);
+				GraphicsPSOInit.BlendState = TStaticBlendStateWriteMask<CW_RGBA, CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE, CW_NONE>::GetRHI();
+				GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+				GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+				GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GMoviePlayerResources.VertexDeclarationRHI;
+				GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+				GraphicsPSOInit.PrimitiveType = PT_TriangleStrip;
+			}
+
+			SetGraphicsPipelineState(CommandList, GraphicsPSOInit);
+			PixelShader->SetParameters(CommandList, DecodedY->GetTexture2D(), DecodedU->GetTexture2D(), DecodedV->GetTexture2D(), FIntPoint(Image->d_w, Image->d_h), MediaShaders::YuvToSrgbDefault, MediaShaders::YUVOffset8bits, true);
+
+			// draw full-size quad
+			CommandList.SetViewport(0, 0, 0.0f, Image->w, Image->d_h, 1.0f);
+			CommandList.SetStreamSource(0, GMoviePlayerResources.VertexBufferRHI, 0);
+			CommandList.DrawPrimitive(0, 2, 1);
 		}
-
-		SetGraphicsPipelineState(CommandList, GraphicsPSOInit);
-		PixelShader->SetParameters(CommandList, DecodedY->GetTexture2D(), DecodedU->GetTexture2D(), DecodedV->GetTexture2D(), FIntPoint(Image->d_w, Image->d_h), MediaShaders::YuvToSrgbDefault, true);
-
-		// draw full-size quad
-		CommandList.SetViewport(0, 0, 0.0f, Image->d_w, Image->d_h, 1.0f);
-		CommandList.SetStreamSource(0, GMoviePlayerResources.VertexBufferRHI, 0);
-		CommandList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+		CommandList.EndRenderPass();
 		CommandList.CopyToResolveTarget(RenderTarget, RenderTarget, FResolveParams());
 
-		Samples->AddVideo(VideoSample.ToSharedRef());
+		Samples.AddVideoSampleFromDecodingThread(VideoSample.ToSharedRef());
 	}
 }
 

@@ -1,0 +1,90 @@
+﻿INTSourceChangelist:4320159
+Availability: Public
+Crumbs: %ROOT%, Platforms, Platforms/MR
+Title: Mixed Reality クイック スタート
+Description: Mixed Reality クイック スタート
+Version: 4.20
+Parent: Platforms/MR 
+Order: 2
+Tags: GettingStarted
+Tags: MR
+Tags: landingpage
+Tags: Early Access
+reference-image:AdjustingAlignmentStep.gif
+reference-image:MR_ApplyingCalibData.gif
+reference-image:Platforms/MR/MROverview/MR_RoboRecall.gif
+
+
+
+![](MR_RoboRecall.png "MR_RoboRecall.png")
+
+このチュートリアルを完了すると、システムを Mixed Reality Capture (MRC) に対して設定、キャリブレーションできるようになります。
+
+## 1. グリーン スクリーンとカメラを設定する
+
+キャプチャを始める前に、作業用の適切な装置が必要です。必要な装置の概要と、設定方法のヒントを簡単に示します。
+
+![](MR_GreenScreenSetup.png "MR_GreenScreenSetup.png")
+
+1. **ビデオ カメラ**
+    UE4 がサポートするのは、特定のビデオ キャプチャ デバイスのみです。現在サポートされているデバイスのリストについては、[「サポートされているビデオ デバイス」](Platforms/MR/MRSupportedVideoDevices)を参照してください。リストにあるデバイスを使用して、ストリーミング用の PC に接続します。
+2. **クロマ バックドロップ**
+    クロマ キーイングでは、一般にグリーン スクリーンを使用します。グリーン スクリーンをセットアップするときは、ピンと張った状態にして、特に対象者の背後はしわを最小限に抑える必要があります。ライティングを設定する場合は、対象者の背後に直接影がかからないようにする必要があります。色に濃淡がないようにすることも必要です。バックドロップ全体に緑のグラデーションが強く現れると、クロマキーが難しくなります。対象者がバックドロップからできるだけ離れるとうまくいきます。対象者の足を撮影する予定の場合は、床にもグリーン スクリーンを敷く必要があります。
+3. **カメラ マウント**
+    初期設定 (キャリブレーション) では、カメラを固定する必要があります。ウェブカメラを使用している場合は、簡単に机やモニタに取り付けられます。カメラを三脚に取り付ける方法もあります。
+4. **マルチマウント + トラッカー (オプション)**
+    撮影中にカメラを移動する計画がある場合、HTC Vive Tracker などのトラッキング デバイスをカメラに取り付ける必要があります。さらに、カメラとトラッカーを[マルチマウント](https://www.bhphotovideo.com/c/product/1062513-REG/desmond_d3d_1_stereo_camera_bracket.html)でつなげます。これにより 2 つのデバイスが一体化されます。
+
+## 2. 物理カメラとバーチャル カメラのキャリブレーション
+
+物理的なスペースと装置のセットアップが完了したら、キャリブレーションを実行する準備は完了です。ランタイム時に、ゲームではバーチャル シーンに対してカメラがどこにあるのかを把握する必要があります。コンフィギュレーションはセットアップごとに異なります。キャリブレーション プロセスを一通り実行する必要があるのは、このためです。キャリブレーションが簡単に行えるよう、スタンドアロン キャリブレーション ツール (MRCalibration.exe) を用意しています。[ここ](http://epic.gm/mrccal)からダウンロードしてください。 
+
+[REGION:tip]
+キャリブレーション プロセスは複雑なため、個別に[「Mixed Reality Capture Calibration Tool の使用方法」](Platforms/MR/MRHowToCaptureCalibrationTool)のトピックがあり、キャリブレーション ツールを使用したときの詳細な手順が記載されています。
+[/REGION]
+
+[REGION:asyncgif]
+![image alt text](AdjustingAlignmentStep.gif)(w:653)
+[/REGION]
+
+キャリブレーション プロセスが完了すると、キャリブレーション ツールはキャリブレーション設定ファイル「MrcCalibration.sav」を生成します。キャリブレーション設定ファイル「MrcCalibration.sav」はキャリブレーション ツールの *「/Saved/SaveGames/」* フォルダにあります。この設定ファイルは Mixed Reality キャプチャを開始するときにゲームで使用されます。 物理的な設定が変わらない限り、キャリブレーション プロセスを再実行する必要はありません。複数のゲーム間で同じキャリブレーション設定ファイルを使用できます。
+
+[REGION:tip]
+ズーム レンズの付いたカメラの場合、キャリブレーションを完了した後に、ズームを調整しないように注意してください。ズームを調整すると、視野角 (FOV) は変わりますが、バーチャル カメラでは変わりません。バーチャル カメラはキャリブレーション中に使用した FOV を使用します。キャリブレーション後にカメラのズームを調整する場合、キャリブレーション プロセスをやり直す必要があります。
+[/REGION]
+
+## 3. キャリブレーション ファイルのゲーム プロジェクトへの追加
+
+最終手順で、MRC Calibration Tool を使用して、 *「MrcCalibration.sav」* ファイルを生成する方法について説明しています。 *「MrcCalibration.sav」* ファイルを生成したら、ゲームの *「/Saved/SaveGames/」*フォルダにコピーします。ゲームに「SaveGames」ディレクトリがまだない場合は、手動で作成する必要があります。
+
+Mixed Reality Capture Framework プラグインがゲームで有効な場合、スタートアップ時にキャリブレーション設定ファイルがチェックされます。
+
+## 4. Mixed Reality Capture Framework プラグインを有効にする
+
+Mixed Reality Capture (MRC) フレームワークをプロジェクトに統合することは、Mixed Reality Capture フレームワーク プラグインを有効にするのと同様に簡単です。MRC プラグインが有効で、キャリブレーション設定ファイルがあると、ゲームは MRC モードで開始され、Spectator Screen に合成されたシーンが表示されます。
+デフォルトでは、MRC ブロードキャスティングは、[VR Spectator Screen](Platforms/VR/VRSpectatorScreen) を使用し、合成されたシーンを表示します。ゲームが VR モードではない場合、Mixed Reality キャプチャは表示されません。MRC プラグインはキャプチャしていますが、表示されないだけです。
+[REGION:tip]
+Mixed Reality キャプチャはエディタ (VR PIE) およびパッケージ プロジェクトの両方でサポートされます。ただし MRC プラグインが有効である場合に限ります。
+[/REGION]
+
+[REGION:asyncgif]
+![image alt text](MR_ApplyingCalibData.gif)(w:653)
+[/REGION]
+
+#### MRC モードで開始する
+
+スタートアップ時には、MRC プラグインはゲームの *「/Saved/SaveGames/」* フォルダにあるキャリブレーション設定ファイル「MrcCalibration.sav」をチェックします。MRC プラグインがキャリブレーション設定ファイルを見つけられない場合、MRC モードで開始されません。ゲームを MRC モードで開始するかどうかを決定する方法について、以下の図で示します。
+
+![](image3.png)(w:800 convert:false)
+
+## 5. Mixed Reality Capture を録画する
+
+MRC フレームワークはキャプチャのビデオを録画しません。MRC フレームワークはシーンの合成を処理し、表示ウィンドウにそれを出力するだけです。[OBS](https://obsproject.com/) または [Nvidia ShadowPlay](https://www.nvidia.com/en-us/geforce/geforce-experience/shadowplay/) などのサードパーティ製ソフトウェアを使用して、キャプチャを録画する必要があります。
+
+[REGION:asyncgif]
+![image alt text](Platforms/MR/MROverview/MR_RoboRecall.gif)(w:653)
+[/REGION]
+
+## 6. ここからはご自由に！
+
+Mixed Reality Capture の作成で最も難しい部分は、正しくキャリブレーションすることです。一度完了すると (セットアップを変更しない限り)、キャリブレーション ファイルはそのまま再利用できます。ファイルをコピーして実行するだけで簡単に使用できます！

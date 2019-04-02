@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
@@ -63,6 +63,21 @@ EConvertFromTypeResult UObjectProperty::ConvertFromType(const FPropertyTag& Tag,
 		// Validate the type is proper
 		CheckValidObject(GetPropertyValuePtr_InContainer(Data, Tag.ArrayIndex));
 
+		return EConvertFromTypeResult::Converted;
+	}
+	else if (Tag.Type == NAME_InterfaceProperty)
+	{
+		UObject* ObjectValue;
+		Slot << ObjectValue;
+
+		if (ObjectValue && !ObjectValue->IsA(PropertyClass))
+		{
+			UE_LOG(LogClass, Warning, TEXT("Failed to convert interface property %s of %s from Interface to %s"), *this->GetName(), *Slot.GetUnderlyingArchive().GetArchiveName(), *PropertyClass->GetName());
+			return EConvertFromTypeResult::CannotConvert;
+		}
+
+		SetPropertyValue_InContainer(Data, ObjectValue, Tag.ArrayIndex);
+		CheckValidObject(GetPropertyValuePtr_InContainer(Data, Tag.ArrayIndex));
 		return EConvertFromTypeResult::Converted;
 	}
 

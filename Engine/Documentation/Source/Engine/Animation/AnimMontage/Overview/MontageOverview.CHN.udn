@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
-Availability: Docs
+﻿INTSourceChangelist:4326187
+Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine\Animation\AnimMontage
-Title: Animation Montage Overview
-Description:Describes how Animation Montage assets work and what they can be used for.
+Title: 动画蒙太奇综述
+Description:描述了动画蒙太奇资源的运作原理及作用。
 Type: Overview
 SkillLevel: Intermediate
 Version: 4.16
@@ -20,13 +20,13 @@ Related: Engine/Animation/AnimBlueprints
 
 [TOC (start:2 end:2)]
 
-An **Animation Montage** (or **Montage** for short) provides a way for you to control an animation asset directly through **Blueprints** or through C++ code. 
-With an Animation Montage, you can combine several different [](Engine/Animation/Sequences) into a single asset that you can break up into **Sections** and can selectively play back any or all of the sections. 
-You can also fire off **Events** within the Montage and they also provide a way to replicate [](Engine\Animation\RootMotion\) across networked games if your animation has Root Motion enabled. 
+**动画蒙太奇（Animation Montage）**（简称 **蒙太奇(Montage)**）提供了一种直接通过 **蓝图（Blueprints）** 或C++代码控制动画资源的途径。
+你可以使用动画蒙太奇将多个不同[](Engine/Animation/Sequences)组合成一个资源。你可以将该资源分成若干 **片段（Sections）**，选择播放其中的个别片段，或者选择播放所有片段。
+你可以触发蒙太奇中的 **事件（Events）** 以执行各种本地或复制任务，例如播放Sound Cue或粒子效果，更改玩家数值（如弹药数量）等，甚至在动画启用“根运动”时复制联网游戏中的[](Engine\Animation\RootMotion\)。
 
-## Example Montage
+## 蒙太奇示例
 
-To demonstrate a practical usage case for Montages, take for example the Animation Sequence below of a character reloading a shotgun. 
+以下角色给散弹枪装弹的动画序列是蒙太奇的一个实际用例：
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -46,18 +46,18 @@ To demonstrate a practical usage case for Montages, take for example the Animati
 	[/PARAMLITERAL]
 [/OBJECT]
 
-In the video above, the character reaches for a clip, reloads and then returns to an idle pose. 
-While this is perfectly fine to use as a reload animation, a Montage will provide much more control. 
-For example, suppose you wanted the character to reload a variable amount of bullets instead always the same amount. 
-By splitting this animation up into three parts: grabbing a clip, reloading and returning to idle and combining them inside a Montage, you could section them off and selectively play any or all of those sections. 
+在上面的视频中，角色拿起弹夹，开始装弹，然后返回闲散姿势。 
+它作为装弹动画是没有问题的，但使用蒙太奇可以更精细地控制。 
+例如，假设你希望角色不是每次装入相同数量的子弹，而是每次装入不同数量的子弹。 
+你可以将该动画分成三部分（拿起弹夹、开始装弹，返回闲散姿势），并将它们组合在蒙太奇中。你可以将它们分段，然后选择播放其中的个别片段，或者播放所有片段。 
 
-Below is an example Montage used to handle the reloading of a shotgun and we've sectioned it off into three parts: _Start_, _Loop_, and _End_. 
+以下是一个给散弹枪装弹的蒙太奇示例，分为_开始（Start）_、_循环（Loop）_ 和 _结束（End）_ 三个部分。 
 
 ![](MontageExample.png)
 
-With Blueprint or C++, we can define that when the player presses a button, the animation is played and it begins at the _Start_ section. 
-The looping middle section called _Loop_, immediately follows the _Start_ section and is set within the Montage to repeat indefinitely.
-If the player releases the reload button or they've filled the shotgun with bullets, the animation will stop looping and can be set to jump to the _End_ section to transition out of the animation as seen in the video below.
+借助蓝图或C++，我们可以定义当玩家按下按钮时，动画从 _开始_ 片段开始播放。
+名为 _循环_ 的循环中间片段紧跟在 _开始_ 片段之后，在蒙太奇中设置为永久循环。
+如下面的视频所示，如果玩家松开装弹按钮，或已给散弹枪装满子弹，动画将停止循环，并跳转到 _结束_ 片段以退出动画。
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -77,167 +77,167 @@ If the player releases the reload button or they've filled the shotgun with bull
 	[/PARAMLITERAL]
 [/OBJECT]
 
-The reload motion is a little bit faster than the baked sequence, however, we could adjust the play rate of our looping animation if desired as well but this gives us the ability to control when we want to break out of our reloading motion and return back to an idle pose. 
-A similar usage example could be that a character jumps in the air, loops an animation of being in the air or falling, then plays a landing sequence. The amount of time in the air could be a variable that we want to break out of at any point which we could do with a Montage. 
+装弹动作比烘焙序列略快。但是，我们可以根据需要调整循环动画的播放速度。这样我们就可以控制何时中断装弹动作以及何时返回到闲散姿势。 
+有一个类似的用例是，角色在空中跳跃，循环播放在空中或掉落的动画，然后再播放着陆序列。在空中的时间可以变化，以便随时从蒙太奇的某个部分中断。
 
-Some additional uses for Montages include:
-* The ability to play an animation from within the **Event Graph** of an **Animation Blueprint**.
-* Chaining together a complex sequence of animations that you want to think of as a single animation.
-* Looping only a specific portion of animation (or animations) based on code, or a Blueprint script.
-* Handling event-based switching of multiple animations based on code, or a Blueprint script.
-* The ability to assign complex animation sequences to named slots that can be switched between in code, or with Blueprints.
-* Precise switching between various AnimSequences based on code, or with a Blueprint script.
+蒙太奇的部分其他用途包括：
+* 可以在 **动画蓝图（Animation Blueprint）** 的 **事件图（Event Graph）** 中播放动画。
+* 将复杂的动画序列串联起来，让它们成为一个动画。
+* 根据代码或蓝图脚本仅循环一个或多个动画中的特定部分。
+* 根据代码或蓝图脚本处理多个动画的基于事件的切换。
+* 将复杂的动画序列分配到可在代码或蓝图中切换的指定槽中。
+* 根据代码或蓝图脚本在各种动画序列之间精确切换。
 
 
-## Montage UI
+## 蒙太奇UI
 
-After [creating a Montage](Engine\Animation\AnimMontage\Creation) and opening it inside the [](Engine/Animation/Persona/Modes/Animation), you can use the **Asset Editor** section to define how your Montage functions. 
+[创建蒙太奇](Engine\Animation\AnimMontage\Creation)并在[](Engine/Animation/Persona/Modes/Animation)中将其打开。你可以使用 **资源编辑器（Asset Editor）** 部分来定义蒙太奇的工作方式。 
 
 ![](MontageWindow.png)
 
-The Asset Editor panel of a Montage is broken up into the following primary areas: 
+蒙太奇的“资源编辑器”面板分为以下几个主要区域： 
 
-1.	Montage
-1.	Sections
-1.	Element Timing
-1.	Notifies
-1.	Curves
+1.	蒙太奇（Montage）
+1.	片段（Sections）
+1.	元素计时（Element Timing）
+1.	通知（Notifies）
+1.	曲线（Curves）
 
 
-### Montage
+### 蒙太奇（Montage）
 
-The Montage area breaks down as follows: 
+“蒙太奇”（Montage）区域的组成如下： 
 
 ![](MontageArea.png)
 
-1.	**Sections** - Shows any Sections that have been created within the Montage. 
-1.	**Slot** - Shows the animations that have been added to the current Slot. 
-1.	**Group/Slot** - Shows the currently selected Anim Group and Slot. 
+1.	**片段（Sections）** - 显示在蒙太奇中创建的任何片段。
+1.	**插槽（Slot）** - 显示添加到当前插槽的动画。
+1.	**组/插槽（Group/Slot）** - 显示当前选定的动画组和插槽。
 
-#### Sections
+#### 片段
 
-Creating **Sections** provides a way to break a Slot into multiple portions of animation. Each Section has a name and location in the Slot's timeline. 
-Using the name, you can either jump directly to a particular Section or queue it up to play next when the current section is complete. 
-In **Blueprint**, you can query the current Section, jump to a Section, or set the next Section that will play. 
+通过创建 **片段（Sections）**，可将一个插槽分解为多个动画部分。每个片段都有一个名称，并且在槽的时间轴中有自己的位置。
+你可以使用该名称直接跳转到某个特定片段，或将某个片段安排为接在当前片段结束时播放。
+在 **蓝图（Blueprint）** 中，你可以查询当前片段，跳转到某个片段，或设置将要播放的下一个片段。
 
-Another way to think of Sections is like songs in a music playlist with Slots being the album. 
-You may be currently playing a section (song) but you can queue up or jump to another section within the slot (album) when the current section finishes or just jump to the one you want to play right now. 
+你可以把片段想象成音乐播放列表中的歌曲，而插槽就是音乐专辑。
+你正在播放某个片段（歌曲）时，可以排队或在当前片段结束后跳转到插槽（专辑）中的另一片段，或者直接跳转到想要立即播放的片段。
 
-#### Slot
+#### 插槽
 
-Within a Montage, a **Slot** is just a single track that can hold any number of animations. You can pick any name for a Slot and then use that name to blend to the animations within. 
-Going back to the reload Montage example, we could have different versions of the reload for when the player is standing versus when they are prone. 
-In this case, we could place animations for each within separate Slots in our Montage (below) and use the **Slot** node in the **AnimGraph** of our **Animation Blueprint** to determine which set of animations to use based on whether the character is standing or prone. 
+在蒙太奇中，一个 **插槽（Slot）** 就是一条轨迹，其中可容纳任意数量的动画。你可以任意命名插槽，并使用该名称混合到其中的动画中。 
+回到装弹蒙太奇的例子，我们可以针对玩家站立时或匍匐时创建不同的装弹版本。 
+在这种情况下，我们将每个版本的动画单独放置到蒙太奇（如下）中的各个插槽，并使用 **动画蓝图（Animation Blueprint）** 的 **动画图（AnimGraph）** 中的 **插槽（Slot）** 节点来决定使用哪个动画集，具体取决于角色是站着还是匍匐。 
 
 ![](MultipleSlots.png)
 
 [REGION:caption]
-Above we use the **DefaultProne** slot for when our character is standing and reloading and the **Prone** slot for when our character is reloading while prone. 
+在上图中，我们在角色站立装弹时使用 **DefaultProne** 插槽，在角色匍匐装弹时使用 **Prone** 插槽。 
 [/REGION]
 
-When multiple Slots are assigned, you can click the ![](PreviewButton.png) preview button for the Slot you want to preview in the editor. 
+如果指定了多个插槽，可单击要在编辑器中预览的插槽的![](PreviewButton.png)预览按钮进行预览。 
 
-[REGION:tip]
-For the best results when using multiple Slots, try to ensure that the timing of animations involved from end-to-end is the same length.
+[REGION:提示]
+为了在使用多个插槽时获得最佳效果，请确保所涉及的多个动画的时间从头到尾长度相同。
 [/REGION]
 
-#### Groups / Slots
+#### 组/插槽
 
-**Groups** are a collection of **Slots** and you can only play a single Montage per group. If you want to play another Montage at the same time, you can create a new Group for it. 
-Anim Groups and Slots are centralized within the **Anim Slot Manager** tab which you can open by clicking the ![](AnimSlotManagerButton.png) icon and you can use the drop-down menu to select between valid slots. 
-When creating a new Montage, Slot nodes start out with a single **Default Slot** so that they are immediately functional. 
+**组（Groups）** 是一系列的 **插槽（Slots）**，每组只能播放一个蒙太奇。如果要同时播放另一个蒙太奇，可以为其创建一个新的组。
+动画组和插槽集中在 **Anim Slot Manager** 选项卡中。要打开它，请单击![](AnimSlotManagerButton.png)图标。使用下拉菜单从可用插槽中进行选择。
+在创建新的蒙太奇时，插槽节点在最初有一条 **默认槽（Default Slot）**，这样它们就能立即发挥作用。
 
-### Sections
+### 片段
 
-The **Sections** area is where you can establish relationships between the Sections you define in the Montage area. 
+在 **片段（Sections）** 区域中，你可以为在蒙太奇区域中定义的片段建立相互关系。 
 
 ![](SectionsUI.png)
 
-1.	**Create Default / Clear** - Create Default creates the default associations between all Sections, stringing them together one after another while Clear wipes out all associations. 
-1.	**Section Buttons** - In this area, you will see a button for each of the Sections you define in the Montage area that you can assign for Section Association. 
-1.	**Section Association Tracks** - Here you can visualize the relationships between animation Sections by clicking Preview All Sections or individual tracks by clicking Preview. 
+1.	**创建默认/清除（Create Default/Clear）** - “创建默认”在所有片段之间创建默认关联，并在“清除”将所有关联清除时将它们逐一串联起来。 
+1.	**片段按钮（Section Buttons）** - 在此区域中，显示“蒙太奇”（Montage）区域中定义的每个片段对应的按钮。你可以将其分配给片段关联。 
+1.	**片段关联轨迹（Section Association Tracks）** - 在这里，单击“预览所有片段”（Preview All Sections）可将动画片段之间的关系可视化，单击“预览”（Preview）可将各个轨迹可视化。 
 
-#### Looping
+#### 循环播放
 
-Sections can be set up to loop indefinitely, which is extremely useful for any action that you need to repeat. 
-By associating the same Section more than once in a Section Association Track, you cause that association to run in a loop. 
-The section will turn blue to show this. As an example, consider the animation in which a character is reloading a shotgun, one shell at a time. 
-You could take just the section in which the character inserts a shell, and loop it. 
-Then, by using **Notifies**, you could create Notify Events in Blueprint that increment the ammo count each time the animation plays through. 
-Once that count reaches a set number (full ammo), you could then switch to an animation of the character closing the receiver and returning to idle.
+可以将片段设置为无限循环播放，这对于任何需要重复的动作极为有用。 
+在一条片段关联轨迹中多次关联同一片段就可以使该关联循环运行。 
+片段将变为蓝色以表示循环。例如，假设一个动画中角色在给散弹枪装弹，一次装一发。 
+你可以提取出角色塞弹入膛的片段，让它循环播放。 
+然后，你可以使用 **通知（Notifies）** 在蓝图中创建通知事件，每当该动画播放一次就使弹药计数加一。 
+一旦该计数达到设定的数字（装弹已满），你就可以切换到角色关闭装弹口并恢复闲散姿态的动画。
 
-### Element Timing
+### 元素计时
 
-The **Element Timing** track takes information from the Montage and Notifies areas to help with the timing of different sections. 
+**元素计时（Element Timing）** 轨迹从“蒙太奇”（Montage）和“通知”（Notifies）区域提取信息，以帮助设定不同片段的时间。 
 
 ![](ElementTimingTrack.png)
 
-Each node in the track is given a number denoting the trigger order of that object within the Montage and is color coded: 
+轨迹中的每个节点都有一个号码，表示该对象在蒙太奇中的触发顺序，并按以下规则显示颜色：
 
-* **Red** - This denotes Notifies, Notify States and Notify State ending markers. 
-* **Light Blue** - This denotes Branching Points. 
-* ** Green** - This denotes a Montage Section. 
+* **红色** - 表示通知、通知状态和通知状态结束标记。
+* **浅蓝色** - 表示分支点。
+* **绿色** - 表示蒙太奇片段。
 
-Clicking the ![](ElementOptions.png) button on the Element Timing track presents you with options for showing/hiding additional information. 
+单击元素计时轨迹上的![](ElementOptions.png)按钮，将出现显示/隐藏其他信息的选项。 
 
-### Notifies
+### 通知
 
 ![](NotifiesSection.png)
 
-[Animation Notifies](Engine/Animation/Sequences/Notifies) (or **Notifies** for short) are a way to set up events to occur at specific points in the animation. 
-For example, in the image above, we have placed Notifies to play sounds in our Reload Montage for grabbing a clip and each time the reload animation plays. 
-We also call a custom event called **SpawnClip** that we can use to spawn a mesh in the world representing an ammo clip. 
-Finally, we use a Branch event during the looping portion to determine if we should exit the loop and move on to the End section of our animation where the character returns to an idle. 
+[动画通知](Engine/Animation/Sequences/Notifies)（简称 **通知(Notifies)**）可以将事件设置为在动画中的特定点发生。 
+例如，在上图中，我们将通知设置为每次播放装弹动画时，在装弹蒙太奇中播放拿起弹夹的声音。 
+我们还调用了一个名为 **SpawnClip** 的自定义事件。它可以用来生成代表弹药夹场景的网格体。 
+最后，在循环部分中使用“分支”事件，决定是否退出循环并前进到动画的结束片段。角色在结束片段会返回闲散姿态。 
 
-### Curves
+### 曲线
 
 ![](CurvesArea.png)
 
-[](Engine/Animation/Sequences/Curves) provide a way to change the value of a Material parameter or a Morph Target while an animation is playing back. 
-Their workflow requires that you designate the asset you want to modify (either a Material or a Morph Target), name the curve accordingly, and then adjust keyframe values across the duration of an animation.
+[](Engine/Animation/Sequences/Curves)提供了一种在动画播放期间更改材质参数或变形目标值的方法。 
+这样便可指定要更改的资源（材质或变形目标），相应地命名曲线，并在动画持续时间内调整关键帧值。
 
-## Playing Montages
+## 播放蒙太奇
 
-Montage assets can be played in a few different ways based on your needs. 
-If you want a Skeletal Mesh to just play the Montage automatically, you can assign it as the **Anim to Play** for the Skeletal Mesh. 
-If however you only want your Montage to play when specific criteria are met, you may want to create **Blueprint** script that calls for the Montage or Sections within the Montage to play using the **Play Montage** node. 
-You can also tell Montages to play through C++ code based on your defined criteria. 
+蒙太奇资源可以根据需要以各种不同的方式播放。 
+如果希望骨架网格体自动播放蒙太奇，可将其指定为骨架网格体的 **要播放的动画（Anim to Play）**。 
+但是，如果只想在满足某些特定条件时播放蒙太奇，可创建 **蓝图（Blueprint）** 脚本，使用 **播放蒙太奇（Play Montage）** 节点调用蒙太奇或蒙太奇中的片段。 
+你还可以使用C++代码让蒙太奇根据指定的条件播放。 
 
 [REGION:note]
-See the [](Engine\Animation\AnimMontage\UserGuide) page for more information. 
+有关更多信息，请参阅[](Engine\Animation\AnimMontage\UserGuide)页面。 
 [/REGION]
 
-## Child Montages
-**Child Montages** provide a convenient way to create animation variants without affecting gameplay, and without needing to recreate and maintain Notifies (or other details) across multiple assets. 
-An example use case for this might be varying the auto-attack animations on units in a real-time strategy (RTS) game, or changing a character's idle animation in a role-playing game (RPG), or an action game, based on what kind of weapons or armor they are holding or wearing. 
-A Child Animation Montage can be created from an existing Animation Montage via the **Create Child Montage** context-menu option when right-clicking on an Animation Montage in the **Content Browser**. 
+## 子蒙太奇
+**子蒙太奇（Child Montages）** 可以方便地创建千变万化的动画，而且不会影响Gameplay，也无需为多个资源重新创建或维护通知（或其他细节）。 
+例如，在实时策略（RTS）游戏中，你可以为单位制作各种自动攻击动画；或者在角色扮演游戏（RPG）或动作游戏中，根据角色手持的武器或佩戴的盔甲，更改角色的闲散动画。 
+在 **内容浏览器（Content Browser）** 中右键单击动画蒙太奇并使用 **创建子蒙太奇（Create Child Montage）** 情境菜单选项，可从现有动画蒙太奇创建子动画蒙太奇。 
 
 ![](ChildMontageOption.png)
 
-The new montage will have the same name as the original, but with "_Child" added to the end.
+新蒙太奇与原蒙太奇的名称相同，但最后添加了“_Child”。
 
 ![](NewChildMontage.png)
 
-When opening a Child Montage, all elements within the Montage will be grayed out and text will appear at the top indicating that it is a child. 
+当打开子蒙太奇时，蒙太奇中的所有元素都将显示为灰色，并在顶部显示说明其为子蒙太奇的文本。 
 
 ![](GrayedOut.png)
 
-The **Anim Segment** in the **Slot Track** can be right-clicked and overridden with a new animation. 
+右键单击 **插槽轨迹（Slot Track）** 中的 **动画片段（Anim Segment）**，可使用新动画将其覆盖。 
 
 ![](RightClickChange.png)
 
-In the **Slot Track** it is possible to substitute any animation for any other, even if they are of different lengths. 
-The engine will automatically adjust the play rate, start time, and end time, of the replacement animation so that it uses the equivalent portion and runs at the same time as the original. 
-Animations that have not been changed from the parent will be shown in green and animations that have been overridden will be shown in yellow.
+你可以使用其他动画替换 **插槽轨迹（Slot Track）** 中的任何动画，即使长度不同也无妨。 
+引擎会自动调整替换动画的播放速率、开始时间和结束时间，这样它就可使用与原始动画等效的部分，按照原始动画的播放时间进行播放。 
+与父级相同的动画显示为绿色，被覆盖的动画显示为黄色。
 
 ![](ReplacedMontage.png)
 
 [REGION:caption]
-Above we have replaced our attack animation with a different attack animation. 
+在上图中，我们用另一个攻击动画替换了原来的攻击动画。 
 [/REGION]
 
 [REGION:note]
-Child Montages cannot be used as parents for other Child Montages.
+子蒙太奇不能用作其他子蒙太奇的父级。
 [/REGION]
 
 

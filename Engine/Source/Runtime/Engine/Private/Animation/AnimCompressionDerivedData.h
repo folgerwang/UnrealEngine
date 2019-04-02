@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -30,8 +30,11 @@ private:
 	// Whether to do compression work on original animation or duplicate it first.
 	bool bDoCompressionInPlace;
 
+	// Whether we should frame strip (remove every other frame from even frames animations)
+	bool bPerformStripping;
+
 public:
-	FDerivedDataAnimationCompression(UAnimSequence* InAnimSequence, TSharedPtr<FAnimCompressContext> InCompressContext, bool bInDoCompressionInPlace);
+	FDerivedDataAnimationCompression(UAnimSequence* InAnimSequence, TSharedPtr<FAnimCompressContext> InCompressContext, bool bInDoCompressionInPlace, bool bInTryFrameStripping);
 	virtual ~FDerivedDataAnimationCompression();
 
 	virtual const TCHAR* GetPluginName() const override
@@ -44,7 +47,7 @@ public:
 		// This is a version string that mimics the old versioning scheme. If you
 		// want to bump this version, generate a new guid using VS->Tools->Create GUID and
 		// return it here. Ex.
-		return TEXT("EFEE430B29384DD38AD512590E2C4821");
+		return TEXT("4C392450C4D7407A90CC2B2BE9813EEA");
 	}
 
 	virtual FString GetPluginSpecificCacheKeySuffix() const override;

@@ -38,7 +38,7 @@ namespace ansel
         bool isRotationAllowed;
         // FoV can be modified during session
         bool isFovChangeAllowed;
-        // Game is paused during session
+        // Game is paused during capture
         bool isPauseAllowed;
         // Game allows highres capture during session
         bool isHighresAllowed;
@@ -89,10 +89,11 @@ namespace ansel
         CaptureType captureType;
     };
 
-    typedef StartSessionStatus(*StartSessionCallback)(SessionConfiguration& settings, void* userPointer);
-    typedef void(*StopSessionCallback)(void* userPointer);
-    typedef void(*StartCaptureCallback)(const CaptureConfiguration&, void* userPointer);
-    typedef void(*StopCaptureCallback)(void* userPointer);
+    typedef StartSessionStatus(__cdecl *StartSessionCallback)(SessionConfiguration& settings, void* userPointer);
+    typedef void(__cdecl *StopSessionCallback)(void* userPointer);
+    typedef void(__cdecl *StartCaptureCallback)(const CaptureConfiguration&, void* userPointer);
+    typedef void(__cdecl *StopCaptureCallback)(void* userPointer);
+    typedef void(__cdecl *ChangeQualityCallback)(bool isHighQuality, void* userPointer);
 
     // Starts a session if there is not one already active. This function can be used to trigger
     // Ansel via any method that the game chooses (key combination, controller input, etc)

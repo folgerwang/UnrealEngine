@@ -1,11 +1,13 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3750348
 Availability:Public
-Title:2 - Setting up the Media Texture and Material
-Description:In this step we set up our Media Texture and Material that will be used for video playback. 
+Crumbs: %ROOT%
+Title:2 - 设置媒体纹理及材质
+Description:在本节中，我们要设置将用于视频播放的媒体纹理和材质。 
 SkillLevel:Beginner
 Version:4.18
 checkpoint: mediaframeworkqs
-parent:Engine\MediaFramework\QuickStart
+parent:Engine/MediaFramework/QuickStart
+type:quick start
 type:multi-step
 order:2
 tags:Media Framework
@@ -13,65 +15,62 @@ tags:Materials
  
 [NAV]
 
-In the previous step, we imported content and created some of the assets that we will use for this guide, up next we will create our Material that we will use to play our video. 
-This requires us to incorporate our Media Texture inside a [Material](Engine/Rendering/Materials) and a little bit of work to get the content to fit on our TV's screen correctly.
+在上一步中，我们导入了内容并创建了一些将用于本指南的资源，接下来我们将创建将用于播放视频的材质。这要求我们在[材质](Engine/Rendering/Materials)中融入媒体纹理并执行一些步骤以使内容正确地显示在电视机屏幕上。
 
-## Steps
+## 步骤
 
-1.	In the **TV** folder, open the **M_TV_Inst** Material and delete the **Vector Parameter** node attached to the **Base Color** pin of the **M_TV_Inst** node. 
+1.	在 **TV** 文件夹中，打开 **M_TV_Inst** 材质并删除连接到 **M_TV_Inst** 节点的 **底色（Base Color）** 引脚的 **矢量参数（Vector Parameter）** 节点。
 
-1.	Right-click in the graph and add a **Texture Sample** node, then in the **Details** panel change the **Sampler Type** to **External**. 
+1.	在图中右键单击并添加一个 **纹理取样（Texture Sample）** 节点。然后在 **细节（Details）** 面板中，将 **取样类型器（Sampler Type）** 更改为 **外部（External）**。
 
 	![](TVMaterial_01.png)
 
-	The **Texture** field we can leave empty for now as we are going to populate it with a **Texture Object Parameter** allowing us to override what Media Texture to sample from through Blueprint. 
-	The **Sampler Type** field needs to be set to **External** for Media Textures as this optimization allows for more efficient video playback and decoding and uses a new External Texture API. 
+	我们可以暂时将 **纹理（Texture）** 字段保留为空，因为我们将使用 **纹理对象参数（Texture Object Parameter）** 填充它。这使我们能够通过蓝图来覆盖 **媒体纹理** 取样。 
+	对于媒体纹理，需要将 **取样类型（Sampler Type）** 字段设置为 **外部（External）**，因为此优化有助于提高视频播放和解码的效率。 
 
-1.	Right-click in the graph and add a **Param Tex Object** node, connect it to the **Tex** pin of the **Texture Sample** node. 
+1.	在图中右键单击并添加一个 **Param Tex Object** 节点，然后将该节点连接到 **纹理取样（Texture Sample）** 节点的 **Tex** 引脚。
 
-1.	On the **Param Tex Object** node, use **TV_Texture** as the **Parameter Name** and set the **Texture** field to **MediaPlayer_01_Video**. 
+1.	在 **Param Tex Object** 节点上，使用 **TV_Texture** 作为 **参数名称（Parameter Name）**，并将 **纹理（Texture）** 字段设置为 **MediaPlayer_01_Video**。
 
 	![](TVMaterial_02.png)
 
-	When setting the Texture field to use our Media Texture, the **Sampler Type** field will automatically change to **External**. 
+	将“纹理（Texture）”字段设置为使用媒体纹理时，**取样器类型（Sampler Type）** 字段将自动更改为 **外部（External）**。
 
-1.	Right-click in the graph and add a **TexCoord** node and connect it to the **UVs** pin of the **Texture Sample**, then set the **VTiling** property to **2.0**. 
+1.	在图中右键单击并添加一个 **TexCoord** 节点，然后将该节点连接到 **纹理取样（Texture Sample）** 的 **UVs** 引脚。将 **VTiling** 属性设置为 **2.0**。
 
 	![](TVMaterial_03.png)
 
-	The values used for the [TexCoord](https://docs.unrealengine.com/latest/INT/Engine/Rendering/Materials/ExpressionReference/Coordinates/#texturecoordinate) may vary based on the mesh you plan to apply this Material to
-	(after some experimenting, we found these values to be sufficient).
+	用于 [TexCoord](https://docs.unrealengine.com/latest/INT/Engine/Rendering/Materials/ExpressionReference/Coordinates/#texturecoordinate) 的值可能会因计划将该材质应用到的网格体而异。经过多次试验后，我们发现对于本示例而言这些值就足够了。
 
-1.	Right-click and add another **Texture Sample** node and set the **Texture** property to the **T_TV_M2** texture. 
+1.	右键单击，然后再添加一个 **纹理取样（Texture Sample）** 节点，并将 **纹理（Texture）** 属性设置为 **T_TV_M2** 纹理。 
 
 	![](TVMaterial_04.png)
 
-1.	Off the **Green** channel of the new **Texture Sample**, use a **LinearInterpolate** node and connect it to the **Alpha** channel. 
+1.	在新 **纹理取样（Texture Sample）** 的 **绿色** 通道的输出引脚处，使用 **LinearInterpolate** 节点并将引线连接到 **阿尔法（Alpha）** 通道。 
 
 	![](TVMaterial_05.png)
 
-	We are going to use this texture to separate the screen of our TV with the rest of the mesh so that we can apply the video to just the screen. 
+	我们将使用该纹理来将电视机的屏幕与该网格体的其他部分进行区分，以便仅将视频应用到屏幕。 
 
-1.	Hold the **1** key and left-click to add a constant node and connect it to the **B** pin of the **Lerp** node, then connect the remaining nodes as shown. 
+1.	按住 **1** 键并单击鼠标左键来添加一个常量节点，并将该节点连接到 **插值（Lerp）** 节点的 **B** 引脚，然后按下图中所示连接剩余的节点。 
 
 	![](TVMaterial_06.png)
 
 	
-## End Result
+## 最终结果
 
-Our TV Material is set up and ready to play our video. If you open the **SM_TV** Static Mesh, you may notice the screen is white. 
+我们设置好了电视机材质并使其可用于播放视频。如果打开 **SM_TV** 静态网格体，会发现屏幕是白色的。 
 
 ![](TVMaterial_07.png)(w:740)
 
-Not to worry, once you open the **Media Player** asset and play the video then re-open the **SM_TV** Static Mesh, the TV will be playing your video. 
+如果在打开 **媒体播放器（Media Player）** 资源并播放视频之后重新打开 **SM_TV** 静态网格体，电视机上将会播放视频。 
 
 ![](TVMaterial_08.png)(w:740)
 
-While the TV plays our content inside the editor, if we were to drop this Static Mesh inside the level and play the game, our content would not play on the TV at runtime. 
-We need a way to tell our content to open at runtime to start playback which is what we will do a little later in this guide. 
-Before we can do that, we need to set up our Blueprint that we will use to enable the player to press a button and turn on/off our TV as well as provide a way for us as the level designer to specify the content that will appear on the TV from within the editor. 
+尽管电视机在编辑器中可以播放内容，但是如果把该静态网格体放置到关卡中并运行游戏，在运行时内容将无法在电视机上播放。 
+在下一步中，我们将指示内容在运行时打开并开始播放。 
+但是，我们需要先设置用于使玩家通过按下按钮可以打开/关闭电视机的蓝图，然后才能实现这一目的。 
+我们也将介绍在编辑器中指定将在电视机上显示的内容的方法。
 
 [NAV]
-
-
 

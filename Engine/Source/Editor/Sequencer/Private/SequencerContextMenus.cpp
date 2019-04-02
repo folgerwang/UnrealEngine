@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerContextMenus.h"
 #include "Modules/ModuleManager.h"
@@ -21,7 +21,6 @@
 #include "IStructureDetailsView.h"
 #include "PropertyEditorModule.h"
 #include "Sections/MovieSceneSubSection.h"
-#include "Sections/MovieSceneCinematicShotSection.h"
 #include "Curves/IntegralCurve.h"
 #include "Editor.h"
 #include "SequencerUtilities.h"
@@ -41,6 +40,8 @@
 #include "MovieSceneSequence.h"
 #include "MovieScene.h"
 #include "Channels/MovieSceneChannel.h"
+#include "Tracks/MovieScenePropertyTrack.h"
+
 
 #define LOCTEXT_NAMESPACE "SequencerContextMenus"
 
@@ -316,9 +317,9 @@ void FSectionContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 				LOCTEXT("PrimeForRecordingTooltip", "Prime this track for recording a new sequence."),
 				FSlateIcon(),
 				FUIAction(
-					FExecuteAction::CreateLambda([=]{ return Shared->TogglePrimeForRecording(); }),
+					FExecuteAction::CreateLambda([=] { return Shared->TogglePrimeForRecording(); }),
 					FCanExecuteAction(),
-					FGetActionCheckState::CreateLambda([=]{ return Shared->IsPrimedForRecording() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; })),
+					FGetActionCheckState::CreateLambda([=] { return Shared->IsPrimedForRecording() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; })),
 				NAME_None,
 				EUserInterfaceActionType::ToggleButton
 			);
@@ -330,7 +331,7 @@ void FSectionContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 				LOCTEXT("SelectAllKeys", "Select All Keys"),
 				LOCTEXT("SelectAllKeysTooltip", "Select all keys in section"),
 				FSlateIcon(),
-				FUIAction(FExecuteAction::CreateLambda([=]{ return Shared->SelectAllKeys(); }))
+				FUIAction(FExecuteAction::CreateLambda([=] { return Shared->SelectAllKeys(); }))
 			);
 
 			MenuBuilder.AddMenuEntry(
@@ -344,19 +345,19 @@ void FSectionContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 		MenuBuilder.AddSubMenu(
 			LOCTEXT("EditSection", "Edit"),
 			LOCTEXT("EditSectionTooltip", "Edit section"),
-			FNewMenuDelegate::CreateLambda([=](FMenuBuilder& InMenuBuilder){ Shared->AddEditMenu(InMenuBuilder); }));
+			FNewMenuDelegate::CreateLambda([=](FMenuBuilder& InMenuBuilder) { Shared->AddEditMenu(InMenuBuilder); }));
 
 		MenuBuilder.AddSubMenu(
 			LOCTEXT("OrderSection", "Order"),
 			LOCTEXT("OrderSectionTooltip", "Order section"),
-			FNewMenuDelegate::CreateLambda([=](FMenuBuilder& SubMenuBuilder){ Shared->AddOrderMenu(SubMenuBuilder); }));
+			FNewMenuDelegate::CreateLambda([=](FMenuBuilder& SubMenuBuilder) { Shared->AddOrderMenu(SubMenuBuilder); }));
 
 		if (GetSupportedBlendTypes().Num() > 1)
 		{
 			MenuBuilder.AddSubMenu(
 				LOCTEXT("BlendTypeSection", "Blend Type"),
 				LOCTEXT("BlendTypeSectionTooltip", "Change the way in which this section blends with other sections of the same type"),
-				FNewMenuDelegate::CreateLambda([=](FMenuBuilder& SubMenuBuilder){ Shared->AddBlendTypeMenu(SubMenuBuilder); }));
+				FNewMenuDelegate::CreateLambda([=](FMenuBuilder& SubMenuBuilder) { Shared->AddBlendTypeMenu(SubMenuBuilder); }));
 		}
 
 		MenuBuilder.AddMenuEntry(
@@ -364,9 +365,9 @@ void FSectionContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 			LOCTEXT("ToggleSectionActiveTooltip", "Toggle section active/inactive"),
 			FSlateIcon(),
 			FUIAction(
-				FExecuteAction::CreateLambda([=]{ Shared->ToggleSectionActive(); }),
+				FExecuteAction::CreateLambda([=] { Shared->ToggleSectionActive(); }),
 				FCanExecuteAction(),
-				FIsActionChecked::CreateLambda([=]{ return Shared->IsSectionActive(); })),
+				FIsActionChecked::CreateLambda([=] { return Shared->IsSectionActive(); })),
 			NAME_None,
 			EUserInterfaceActionType::ToggleButton
 		);
@@ -376,9 +377,9 @@ void FSectionContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 			NSLOCTEXT("Sequencer", "ToggleSectionLockedTooltip", "Toggle section locked/unlocked"),
 			FSlateIcon(),
 			FUIAction(
-				FExecuteAction::CreateLambda([=]{ Shared->ToggleSectionLocked(); }),
+				FExecuteAction::CreateLambda([=] { Shared->ToggleSectionLocked(); }),
 				FCanExecuteAction(),
-				FIsActionChecked::CreateLambda([=]{ return Shared->IsSectionLocked(); })),
+				FIsActionChecked::CreateLambda([=] { return Shared->IsSectionLocked(); })),
 			NAME_None,
 			EUserInterfaceActionType::ToggleButton
 		);
@@ -389,8 +390,19 @@ void FSectionContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 			LOCTEXT("DeleteSection", "Delete"),
 			LOCTEXT("DeleteSectionToolTip", "Deletes this section"),
 			FSlateIcon(),
-			FUIAction(FExecuteAction::CreateLambda([=]{ return Shared->DeleteSection(); }))
+			FUIAction(FExecuteAction::CreateLambda([=] { return Shared->DeleteSection(); }))
 		);
+
+
+		if (CanSetSectionToKey())
+		{
+			MenuBuilder.AddMenuEntry(
+				LOCTEXT("KeySection", "Key This Section"),
+				LOCTEXT("KeySection_ToolTip", "This section will get changed when we modify the property externally"),
+				FSlateIcon(),
+				FUIAction(FExecuteAction::CreateLambda([=] { return Shared->SetSectionToKey(); }))
+			);
+		}
 	}
 	MenuBuilder.EndSection(); // SequencerSections
 }
@@ -671,6 +683,45 @@ bool FSectionContextMenu::CanPrimeForRecording() const
 }
 
 
+void FSectionContextMenu::SetSectionToKey()
+{
+	TArray<FSectionHandle> SelectedSections = StaticCastSharedRef<SSequencer>(Sequencer->GetSequencerWidget())->GetSectionHandles(Sequencer->GetSelection().GetSelectedSections());
+	if (SelectedSections.Num() == 1)
+	{
+		const FSectionHandle& Handle = SelectedSections[0];
+		UMovieSceneSection* Section = Handle.GetSectionObject();
+		if (Section)
+		{
+			UMovieScenePropertyTrack* Track = Section->GetTypedOuter<UMovieScenePropertyTrack>();
+			if (Track)
+			{
+				FScopedTransaction Transaction(LOCTEXT("SetSectionToKey", "Set Section To Key"));
+				Track->Modify();
+				Track->SetSectionToKey(Section);
+			}
+		}
+	}
+}
+
+bool FSectionContextMenu::CanSetSectionToKey() const
+{
+	TArray<FSectionHandle> SelectedSections = StaticCastSharedRef<SSequencer>(Sequencer->GetSequencerWidget())->GetSectionHandles(Sequencer->GetSelection().GetSelectedSections());
+	if (SelectedSections.Num() == 1)
+	{
+		const FSectionHandle& Handle = SelectedSections[0];
+		UMovieSceneSection* Section = Handle.GetSectionObject();
+		if (Section)
+		{
+			UMovieScenePropertyTrack* Track = Section->GetTypedOuter<UMovieScenePropertyTrack>();
+			if (Track && Section->GetBlendType().IsValid() && (Section->GetBlendType().Get() == EMovieSceneBlendType::Absolute || Section->GetBlendType().Get() == EMovieSceneBlendType::Additive))
+			{
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 bool FSectionContextMenu::CanSelectAllKeys() const
 {
 	for (auto& Pair : ChannelsByType)
@@ -845,7 +896,6 @@ void FSectionContextMenu::ToggleSectionActive()
 		ToggleSectionActiveTransaction.Cancel();
 	}
 }
-
 
 bool FSectionContextMenu::IsSectionActive() const
 {
@@ -1835,7 +1885,7 @@ void FEasingContextMenu::EasingTypeMenu(FMenuBuilder& MenuBuilder)
 	FClassViewerModule& ClassViewer = FModuleManager::LoadModuleChecked<FClassViewerModule>("ClassViewer");
 
 	FClassViewerInitializationOptions InitOptions;
-	InitOptions.bShowDisplayNames = true;
+	InitOptions.NameTypeToDisplay = EClassViewerNameTypeToDisplay::DisplayName;
 	InitOptions.ClassFilter = MakeShared<FFilter>();
 
 	// Copy a reference to the context menu by value into each lambda handler to ensure the type stays alive until the menu is closed
@@ -1913,6 +1963,8 @@ void FEasingContextMenu::EasingOptionsMenu(FMenuBuilder& MenuBuilder)
 
 	MenuBuilder.AddWidget(DetailsView, FText(), true, false);
 }
+
+
 
 
 #undef LOCTEXT_NAMESPACE

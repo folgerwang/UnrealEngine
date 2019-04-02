@@ -1,6 +1,5 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "WebRTCProxyPCH.h"
 #include "ClientSession.h"
 #include "Logging.h"
 #include "Conductor.h"
@@ -117,10 +116,10 @@ void FClientSession::OnRemoveStream(rtc::scoped_refptr<webrtc::MediaStreamInterf
 	EG_LOG(LogDefault, Log, "%s : ClientId=%u, Stream=%s", __FUNCTION__, ClientId, Stream->id().c_str());
 }
 
-void FClientSession::OnDataChannel(rtc::scoped_refptr<webrtc::DataChannelInterface> DataChannel)
+void FClientSession::OnDataChannel(rtc::scoped_refptr<webrtc::DataChannelInterface> InDataChannel)
 {
 	EG_LOG(LogDefault, Log, "%s : ClientId=%u", __FUNCTION__, ClientId);
-	this->DataChannel = DataChannel;
+	this->DataChannel = InDataChannel;
 	this->DataChannel->RegisterObserver(this);
 }
 
@@ -234,7 +233,7 @@ void FClientSession::OnSuccess(webrtc::SessionDescriptionInterface* Desc)
 	PeerConnection->SetLocalDescription(
 		FSetSessionDescriptionObserver::Create(
 	        []() {},
-	        [](const std::string& error) { checkf("Setting local description failed: %s", error.c_str()); }
+	        [](const std::string& error) { checkf(false, TEXT("Setting local description failed: %s"), error.c_str()); }
 		),
 		Desc
 	);

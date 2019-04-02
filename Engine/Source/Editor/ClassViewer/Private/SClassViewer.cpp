@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SClassViewer.h"
 #include "Misc/MessageDialog.h"
@@ -1901,9 +1901,14 @@ void FClassHierarchy::FindClass(TSharedPtr< FClassViewerNode > InOutClassNode)
 
 void FClassHierarchy::LoadUnloadedTagData(TSharedPtr<FClassViewerNode>& InOutClassViewerNode, const FAssetData& InAssetData)
 {
-	// Create the viewer node. We use the name without _C for both
 	const FString ClassName = InAssetData.AssetName.ToString();
-	InOutClassViewerNode = MakeShareable(new FClassViewerNode(ClassName, ClassName));
+	FString ClassDisplayName = InAssetData.GetTagValueRef<FString>(FBlueprintTags::BlueprintDisplayName);
+	if (ClassDisplayName.IsEmpty())
+	{
+		ClassDisplayName = ClassName;
+	}
+	// Create the viewer node. We use the name without _C for both
+	InOutClassViewerNode = MakeShareable(new FClassViewerNode(ClassName, ClassDisplayName));
 
 	InOutClassViewerNode->BlueprintAssetPath = InAssetData.ObjectPath;
 
@@ -2166,12 +2171,11 @@ void SClassViewer::Construct(const FArguments& InArgs, const FClassViewerInitial
 	.MaxDesiredHeight(800.0f)
 	[
 		SNew(SBorder)
-		.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+		.BorderImage(FEditorStyle::GetBrush(InitOptions.bShowBackgroundBorder ? "ToolPanel.GroupBorder" : "NoBorder"))
 		[
 			SNew(SVerticalBox)
 			+SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding( 1.0f, 0.0f, 1.0f, 0.0f )
 			[
 				SNew(SHorizontalBox)
 				+SHorizontalBox::Slot()
@@ -2470,7 +2474,7 @@ TSharedRef< ITableRow > SClassViewer::OnGenerateRowForClassViewer( TSharedPtr<FC
 	// If the item was accepted by the filter, leave it bright, otherwise dim it.
 	float AlphaValue = Item->bPassesFilter? 1.0f : 0.5f;
 	TSharedRef< SClassItem > ReturnRow = SNew(SClassItem, OwnerTable)
-		.ClassName(Item->GetClassName(InitOptions.bShowDisplayNames))
+		.ClassName(Item->GetClassName(InitOptions.NameTypeToDisplay))
 		.bIsPlaceable(Item->IsClassPlaceable())
 		.HighlightText(SearchBox->GetText())
 		.TextColor(Item->IsClassPlaceable()? FLinearColor(0.2f, 0.4f, 0.6f, AlphaValue) : FLinearColor(1.0f, 1.0f, 1.0f, AlphaValue))

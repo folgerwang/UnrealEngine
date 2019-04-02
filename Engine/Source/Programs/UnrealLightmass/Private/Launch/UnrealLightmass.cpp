@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 // UnrealLightmass.cpp : Defines the entry point for the console application.
 //
@@ -101,6 +101,15 @@ int LightmassMain(int argc, ANSICHAR* argv[])
 	bool bDumpTextures = false;
 	FGuid SceneGuid(0x0123, 0x4567, 0x89AB, 0xCDEF); // default scene guid if none specified
 	int32 NumThreads = FPlatformMisc::NumberOfCoresIncludingHyperthreads(); // default to the number of processors
+#if PLATFORM_WINDOWS
+	NumThreads = 0;
+	int NumProcessorGroups = GetActiveProcessorGroupCount();
+	for (int GroupIndex = 0; GroupIndex < NumProcessorGroups; GroupIndex++)
+	{
+		int NumProcessorsThisGroup = GetActiveProcessorCount(GroupIndex);
+		NumThreads += NumProcessorsThisGroup;
+	}
+#endif
 	bool bCompareFiles = false;
 	FString File1;
 	FString File2;
@@ -510,8 +519,10 @@ int main(int argc, ANSICHAR* argv[])
 				{
 					printf( "Exception handled in main, crash report generated, re-throwing exception\n" );
 
-					// With the crash report created, propagate the error
-					throw( 1 );
+					// With the crash report created, propagate the error. Per the MSDN documentation
+					// on GetExceptionInformation(), the flags and parameters are not available outside
+					// the exception filter (i.e. ReportCrash) as they were probably stack-pointers.
+					RaiseException(GetExceptionCode(), 0, 0, nullptr);
 				}
 			}
 			__except( EXCEPTION_EXECUTE_HANDLER )

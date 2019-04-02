@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -8,34 +8,54 @@ using System.Diagnostics;
 using System.Threading;
 using System.Runtime.Serialization;
 using Tools.DotNETCommon;
+using System.Collections.Concurrent;
 
 namespace UnrealBuildTool
 {
 	/// <summary>
-	/// Represents a file on disk that is used as an input or output of a build action.
-	/// FileItems are created by calling FileItem.GetItemByFileReference, which creates a single FileItem for each unique file path.
+	/// Represents a file on disk that is used as an input or output of a build action. FileItem instances are unique for a given path. Use FileItem.GetItemByFileReference 
+	/// to get the FileItem for a specific path.
 	/// </summary>
-	[Serializable]
-	class FileItem : ISerializable
+	class FileItem
 	{
-		///
-		/// Preparation and Assembly (serialized)
-		/// 
+		/// <summary>
+		/// The directory containing this file
+		/// </summary>
+		DirectoryItem CachedDirectory;
 
 		/// <summary>
-		/// The action that produces the file.
+		/// Location of this file
 		/// </summary>
-		public Action ProducingAction = null;
+		public readonly FileReference Location;
 
 		/// <summary>
-		/// The file reference
+		/// The information about the file.
 		/// </summary>
-		public FileReference Location;
+		FileInfo Info;
 
 		/// <summary>
-		/// True if any DLLs produced by this
+		/// A case-insensitive dictionary that's used to map each unique file name to a single FileItem object.
 		/// </summary>
-		public bool bNeedsHotReloadNumbersDLLCleanUp = false;
+		static ConcurrentDictionary<FileReference, FileItem> UniqueSourceFileMap = new ConcurrentDictionary<FileReference, FileItem>();
+
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		/// <param name="Location">Location of the file</param>
+		/// <param name="Info">File info</param>
+		private FileItem(FileReference Location, FileInfo Info)
+		{
+			this.Location = Location;
+			this.Info = Info;
+		}
+
+		/// <summary>
+		/// Name of this file
+		/// </summary>
+		public string Name
+		{
+			get { return Info.Name; }
+		}
 
 		/// <summary>
 		/// Accessor for the absolute path to the file
@@ -46,154 +66,137 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// For C++ file items, this stores cached information about the include paths needed in order to include header files from these C++ files.  This is part of UBT's dependency caching optimizations.
+		/// Gets the directory that this file is in
 		/// </summary>
-		public CppIncludePaths CachedIncludePaths
+		public DirectoryItem Directory
 		{
 			get
 			{
-				return CachedIncludePathsValue;
-			}
-			set
-			{
-				if (value != null && CachedIncludePathsValue != null && CachedIncludePathsValue != value)
+				if(CachedDirectory == null)
 				{
-					// Uh oh.  We're clobbering our cached CompileEnvironment for this file with a different CompileEnvironment.  This means
-					// that the same source file is being compiled into more than one module.
-					throw new BuildException("File '{0}' was included by multiple modules, but with different include paths", this.Info.FullName);
+					CachedDirectory = DirectoryItem.GetItemByDirectoryReference(Location.Directory);
 				}
-				CachedIncludePathsValue = value;
+				return CachedDirectory;
 			}
-		}
-		private CppIncludePaths CachedIncludePathsValue;
-
-
-		///
-		/// Transients (not serialized)
-		///
-
-		/// <summary>
-		/// The information about the file.
-		/// </summary>
-		public FileInfo Info;
-
-		/// <summary>
-		/// This is true if this item is actually a directory. Consideration for Mac application bundles. Note that Info will be null if true!
-		/// </summary>
-		public bool IsDirectory;
-
-		/// <summary>
-		/// Relative cost of action associated with producing this file.
-		/// </summary>
-		public long RelativeCost = 0;
-
-		/// <summary>
-		/// The last write time of the file.
-		/// </summary>
-		public DateTimeOffset _LastWriteTime;
-		public DateTimeOffset LastWriteTime
-		{
-			get { return _LastWriteTime; }
-			set { _LastWriteTime = value; }
 		}
 
 		/// <summary>
 		/// Whether the file exists.
 		/// </summary>
-		public bool _bExists = false;
-		public bool bExists
+		public bool Exists
 		{
-			get { return _bExists; }
-			set { _bExists = value; }
+			get { return Info.Exists; }
 		}
 
 		/// <summary>
 		/// Size of the file if it exists, otherwise -1
 		/// </summary>
-		public long _Length = -1;
 		public long Length
 		{
-			get { return _Length; }
-			set { _Length = value; }
+			get { return Info.Length; }
 		}
 
-
-		///
-		/// Statics
-		///
-
 		/// <summary>
-		/// Used for performance debugging
+		/// The attributes for this file
 		/// </summary>
-		public static long TotalFileItemCount = 0;
-		public static long MissingFileItemCount = 0;
-
-		/// <summary>
-		/// A case-insensitive dictionary that's used to map each unique file name to a single FileItem object.
-		/// </summary>
-		static Dictionary<FileReference, FileItem> UniqueSourceFileMap = new Dictionary<FileReference, FileItem>();
-
-		/// <summary>
-		/// Clears the FileItem caches.
-		/// </summary>
-		public static void ClearCaches()
+		public FileAttributes Attributes
 		{
-			UniqueSourceFileMap.Clear();
+			get { return Info.Attributes; }
 		}
 
 		/// <summary>
-		/// Clears the cached include paths on every file item
+		/// The last write time of the file.
 		/// </summary>
-		public static void ClearCachedIncludePaths()
+		public DateTime LastWriteTimeUtc
 		{
-			foreach(FileItem Item in UniqueSourceFileMap.Values)
-			{
-				Item.CachedIncludePaths = null;
-			}
+			get { return Info.LastWriteTimeUtc; }
 		}
 
+		/// <summary>
+		/// Determines if the file has the given extension
+		/// </summary>
+		/// <param name="Extension">The extension to check for</param>
+		/// <returns>True if the file has the given extension, false otherwise</returns>
+		public bool HasExtension(string Extension)
+		{
+			return Location.HasExtension(Extension);
+		}
+
+		/// <summary>
+		/// Gets the directory containing this file
+		/// </summary>
+		/// <returns>DirectoryItem for the directory containing this file</returns>
+		public DirectoryItem GetDirectoryItem()
+		{
+			return Directory;
+		}
+
+		/// <summary>
+		/// Updates the cached directory for this file. Used by DirectoryItem when enumerating files, to avoid having to look this up later.
+		/// </summary>
+		/// <param name="Directory">The directory that this file is in</param>
+		public void UpdateCachedDirectory(DirectoryItem Directory)
+		{
+			Debug.Assert(Directory.Location == Location.Directory);
+			CachedDirectory = Directory;
+		}
+
+		/// <summary>
+		/// Gets a FileItem corresponding to the given path
+		/// </summary>
+		/// <param name="FilePath">Path for the FileItem</param>
 		/// <returns>The FileItem that represents the given file path.</returns>
 		public static FileItem GetItemByPath(string FilePath)
 		{
 			return GetItemByFileReference(new FileReference(FilePath));
 		}
 
+		/// <summary>
+		/// Gets a FileItem for a given path
+		/// </summary>
+		/// <param name="Info">Information about the file</param>
 		/// <returns>The FileItem that represents the given a full file path.</returns>
-		public static FileItem GetItemByFileReference(FileReference Reference)
+		public static FileItem GetItemByFileInfo(FileInfo Info)
 		{
-			FileItem Result = null;
-			if (UniqueSourceFileMap.TryGetValue(Reference, out Result))
+			FileReference Location = new FileReference(Info);
+
+			FileItem Result;
+			if (!UniqueSourceFileMap.TryGetValue(Location, out Result))
 			{
-				return Result;
+				FileItem NewFileItem = new FileItem(Location, Info);
+				if(UniqueSourceFileMap.TryAdd(Location, NewFileItem))
+				{
+					Result = NewFileItem;
+				}
+				else
+				{
+					Result = UniqueSourceFileMap[Location];
+				}
 			}
-			else
-			{
-				return new FileItem(Reference);
-			}
+			return Result;
 		}
 
 		/// <summary>
-		/// If the given file path identifies a file that already exists, returns the FileItem that represents it.
+		/// Gets a FileItem for a given path
 		/// </summary>
-		public static FileItem GetExistingItemByPath(string FileName)
+		/// <param name="Location">Location of the file</param>
+		/// <returns>The FileItem that represents the given a full file path.</returns>
+		public static FileItem GetItemByFileReference(FileReference Location)
 		{
-			return GetExistingItemByFileReference(new FileReference(FileName));
-		}
-
-		/// <summary>
-		/// If the given file path identifies a file that already exists, returns the FileItem that represents it.
-		/// </summary>
-		public static FileItem GetExistingItemByFileReference(FileReference FileRef)
-		{
-			FileItem Result = GetItemByFileReference(FileRef);
-			if (Result.bExists)
+			FileItem Result;
+			if (!UniqueSourceFileMap.TryGetValue(Location, out Result))
 			{
-				return Result;
+				FileItem NewFileItem = new FileItem(Location, Location.ToFileInfo());
+				if(UniqueSourceFileMap.TryAdd(Location, NewFileItem))
+				{
+					Result = NewFileItem;
+				}
+				else
+				{
+					Result = UniqueSourceFileMap[Location];
+				}
 			}
-			else
-			{
-				return null;
-			}
+			return Result;
 		}
 
 		/// <summary>
@@ -212,29 +215,42 @@ namespace UnrealBuildTool
 		/// Creates a text file with the given contents.  If the contents of the text file aren't changed, it won't write the new contents to
 		/// the file to avoid causing an action to be considered outdated.
 		/// </summary>
-		/// <param name="AbsolutePath">Path to the intermediate file to create</param>
+		/// <param name="Location">Path to the intermediate file to create</param>
 		/// <param name="Contents">Contents of the new file</param>
 		/// <returns>File item for the newly created file</returns>
-		public static FileItem CreateIntermediateTextFile(FileReference AbsolutePath, string Contents)
+		public static FileItem CreateIntermediateTextFile(FileReference Location, string Contents)
 		{
-			// Create the directory if it doesn't exist.
-			Directory.CreateDirectory(Path.GetDirectoryName(AbsolutePath.FullName));
-
 			// Only write the file if its contents have changed.
-			if (!FileReference.Exists(AbsolutePath))
+			if (!FileReference.Exists(Location))
 			{
-				File.WriteAllText(AbsolutePath.FullName, Contents, GetEncodingForString(Contents));
+				DirectoryReference.CreateDirectory(Location.Directory);
+				FileReference.WriteAllText(Location, Contents, GetEncodingForString(Contents));
 			}
 			else
 			{
-				string CurrentContents = Utils.ReadAllText(AbsolutePath.FullName);
+				string CurrentContents = Utils.ReadAllText(Location.FullName);
 				if(!String.Equals(CurrentContents, Contents, StringComparison.InvariantCultureIgnoreCase))
 				{
-					Log.TraceLog("Updating {0} - contents have changed. Previous:\n  {1}\nNew:\n  {2}", AbsolutePath.FullName, CurrentContents.Replace("\n", "\n  "), Contents.Replace("\n", "\n  "));
-					File.WriteAllText(AbsolutePath.FullName, Contents, GetEncodingForString(Contents));
+					FileReference BackupFile = new FileReference(Location.FullName + ".old");
+					try
+					{
+						Log.TraceLog("Updating {0}: contents have changed. Saving previous version to {1}.", Location, BackupFile);
+						FileReference.Delete(BackupFile);
+						FileReference.Move(Location, BackupFile);
+					}
+					catch(Exception Ex)
+					{
+						Log.TraceWarning("Unable to rename {0} to {1}", Location, BackupFile);
+						Log.TraceLog("{0}", ExceptionUtils.FormatExceptionDetails(Ex));
+					}
+					FileReference.WriteAllText(Location, Contents, GetEncodingForString(Contents));
 				}
 			}
-			return GetItemByFileReference(AbsolutePath);
+
+			// Reset the file info, in case it already knows about the old file
+			FileItem Item = GetItemByFileReference(Location);
+			Item.ResetCachedInfo();
+			return Item;
 		}
 
 		/// <summary>
@@ -254,7 +270,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		public void Delete()
 		{
-			Debug.Assert(_bExists);
+			Debug.Assert(Exists);
 
 			int MaxRetryCount = 3;
 			int DeleteTryCount = 0;
@@ -297,132 +313,93 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Initialization constructor.
+		/// Resets the cached file info
 		/// </summary>
-		protected FileItem(FileReference InFile)
+		public void ResetCachedInfo()
 		{
-			Location = InFile;
-
-			ResetFileInfo();
-
-			++TotalFileItemCount;
-			if (!_bExists)
-			{
-				++MissingFileItemCount;
-				// Log.TraceInformation( "Missing: " + FileAbsolutePath );
-			}
-
-			UniqueSourceFileMap[Location] = this;
+			Info = Location.ToFileInfo();
 		}
 
-
 		/// <summary>
-		/// ISerializable: Constructor called when this object is deserialized
+		/// Resets all cached file info. Significantly reduces performance; do not use unless strictly necessary.
 		/// </summary>
-		protected FileItem(SerializationInfo SerializationInfo, StreamingContext StreamingContext)
+		public static void ResetAllCachedInfo_SLOW()
 		{
-			ProducingAction = (Action)SerializationInfo.GetValue("pa", typeof(Action));
-			Location = (FileReference)SerializationInfo.GetValue("fi", typeof(FileReference));
-			bNeedsHotReloadNumbersDLLCleanUp = SerializationInfo.GetBoolean("hr");
-			CachedIncludePaths = (CppIncludePaths)SerializationInfo.GetValue("ci", typeof(CppIncludePaths));
-
-			// Go ahead and init normally now
+			foreach(FileItem Item in UniqueSourceFileMap.Values)
 			{
-				ResetFileInfo();
-
-				++TotalFileItemCount;
-				if (!_bExists)
-				{
-					++MissingFileItemCount;
-					// Log.TraceInformation( "Missing: " + FileAbsolutePath );
-				}
-
-				UniqueSourceFileMap[Location] = this;
-			}
-		}
-
-
-		/// <summary>
-		/// ISerializable: Called when serialized to report additional properties that should be saved
-		/// </summary>
-		public void GetObjectData(SerializationInfo SerializationInfo, StreamingContext StreamingContext)
-		{
-			SerializationInfo.AddValue("pa", ProducingAction);
-			SerializationInfo.AddValue("fi", Location);
-			SerializationInfo.AddValue("hr", bNeedsHotReloadNumbersDLLCleanUp);
-			SerializationInfo.AddValue("ci", CachedIncludePaths);
-		}
-
-
-		/// <summary>
-		/// (Re-)set file information for this FileItem
-		/// </summary>
-		public void ResetFileInfo()
-		{
-			if (Directory.Exists(AbsolutePath))
-			{
-				// path is actually a directory (such as a Mac app bundle)
-				_bExists = true;
-				LastWriteTime = Directory.GetLastWriteTimeUtc(AbsolutePath);
-				IsDirectory = true;
-				_Length = 0;
-				Info = null;
-			}
-			else
-			{
-				Info = new FileInfo(AbsolutePath);
-
-				_bExists = Info.Exists;
-				if (_bExists)
-				{
-					_LastWriteTime = Info.LastWriteTimeUtc;
-					_Length = Info.Length;
-				}
+				Item.ResetCachedInfo();
 			}
 		}
 
 		/// <summary>
-		/// Reset file information on all cached FileItems.
+		/// Return the path to this FileItem to debugging
 		/// </summary>
-		public static void ResetInfos()
-		{
-			foreach (KeyValuePair<FileReference, FileItem> Item in UniqueSourceFileMap)
-			{
-				Item.Value.ResetFileInfo();
-			}
-		}
-
-		/// <summary>
-		/// Initialization constructor for optionally remote files.
-		/// </summary>
-		protected FileItem(FileReference InReference, bool InIsRemoteFile, UnrealTargetPlatform Platform)
-		{
-			Location = InReference;
-
-			FileInfo Info = new FileInfo(AbsolutePath);
-
-			_bExists = Info.Exists;
-			if (_bExists)
-			{
-				_LastWriteTime = Info.LastWriteTimeUtc;
-				_Length = Info.Length;
-			}
-
-			++TotalFileItemCount;
-			if (!_bExists)
-			{
-				++MissingFileItemCount;
-				// Log.TraceInformation( "Missing: " + FileAbsolutePath );
-			}
-
-			// @todo iosmerge: This was in UE3, why commented out now?
-			//UniqueSourceFileMap[AbsolutePathUpperInvariant] = this;
-		}
-
+		/// <returns>Absolute path to this file item</returns>
 		public override string ToString()
 		{
 			return AbsolutePath;
 		}
 	}
 
+	/// <summary>
+	/// Helper functions for serialization
+	/// </summary>
+	static class FileItemExtensionMethods
+	{
+		/// <summary>
+		/// Read a file item from a binary archive
+		/// </summary>
+		/// <param name="Reader">Reader to serialize data from</param>
+		/// <returns>Instance of the serialized file item</returns>
+		public static FileItem ReadFileItem(this BinaryArchiveReader Reader)
+		{
+			return Reader.ReadObjectReference<FileItem>(() => FileItem.GetItemByFileReference(Reader.ReadFileReference()));
+		}
+
+		/// <summary>
+		/// Write a file item to a binary archive
+		/// </summary>
+		/// <param name="Writer">Writer to serialize data to</param>
+		/// <param name="FileItem">File item to write</param>
+		public static void WriteFileItem(this BinaryArchiveWriter Writer, FileItem FileItem)
+		{
+			Writer.WriteObjectReference<FileItem>(FileItem, () => Writer.WriteFileReference(FileItem.Location));
+		}
+
+		/// <summary>
+		/// Read a file item as a DirectoryItem and name. This is slower than reading it directly, but results in a significantly smaller archive
+		/// where most files are in the same directories.
+		/// </summary>
+		/// <param name="Reader">Archive to read from</param>
+		/// <returns>FileItem read from the archive</returns>
+		static FileItem ReadCompactFileItemData(this BinaryArchiveReader Reader)
+		{
+			DirectoryItem Directory = Reader.ReadDirectoryItem();
+			string Name = Reader.ReadString();
+
+			FileItem FileItem = FileItem.GetItemByFileReference(FileReference.Combine(Directory.Location, Name));
+            FileItem.UpdateCachedDirectory(Directory);
+            return FileItem;
+		}
+
+		/// <summary>
+		/// Read a file item in a format which de-duplicates directory names.
+		/// </summary>
+		/// <param name="Reader">Reader to serialize data from</param>
+		/// <returns>Instance of the serialized file item</returns>
+		public static FileItem ReadCompactFileItem(this BinaryArchiveReader Reader)
+		{
+			return Reader.ReadObjectReference<FileItem>(() => ReadCompactFileItemData(Reader));
+		}
+
+		/// <summary>
+		/// Writes a file item in a format which de-duplicates directory names.
+		/// </summary>
+		/// <param name="Writer">Writer to serialize data to</param>
+		/// <param name="FileItem">File item to write</param>
+		public static void WriteCompactFileItem(this BinaryArchiveWriter Writer, FileItem FileItem)
+		{
+			Writer.WriteObjectReference<FileItem>(FileItem, () => { Writer.WriteDirectoryItem(FileItem.GetDirectoryItem()); Writer.WriteString(FileItem.Name); });
+		}
+	}
 }

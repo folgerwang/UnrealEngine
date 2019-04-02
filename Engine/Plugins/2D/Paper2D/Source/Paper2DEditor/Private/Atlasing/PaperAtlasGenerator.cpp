@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Atlasing/PaperAtlasGenerator.h"
 #include "Paper2DEditorLog.h"
@@ -69,10 +69,15 @@ void FPaperAtlasGenerator::HandleAssetChangedEvent(UPaperSpriteAtlas* Atlas)
 			bWasTextureRemoved = true;
 		}
 	}
+
 	if (bWasTextureRemoved)
 	{
 		MergeAdjacentRects(Atlas);
 	}
+
+	// Sort sprites by name first, so that we have a consistent sorting, before sorting by size, so that we have a repeatable
+	// atlas generation.
+	SpritesInNewAtlas.StableSort([](UPaperSprite& A, UPaperSprite& B) { return A.GetPathName() > B.GetPathName(); } );
 
 	// Sort new sprites by size
 	struct Local
@@ -84,7 +89,7 @@ void FPaperAtlasGenerator::HandleAssetChangedEvent(UPaperSpriteAtlas* Atlas)
 			return SpriteSize.X * 16384 + SpriteSize.Y; // Sort wider textures first
 		}
 	};
-	SpritesInNewAtlas.Sort( [](UPaperSprite& A, UPaperSprite& B) { return Local::SpriteSortValue(A) > Local::SpriteSortValue(B); } );
+	SpritesInNewAtlas.StableSort( [](UPaperSprite& A, UPaperSprite& B) { return Local::SpriteSortValue(A) > Local::SpriteSortValue(B); } );
 
 	// Add new sprites
 	TArray<FPaperSpriteAtlasSlot> ImprovementTestAtlas; // A second atlas to compare wastage

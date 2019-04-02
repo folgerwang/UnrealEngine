@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Widgets/Images/SSpinningImage.h"
 #include "Rendering/DrawElements.h"
@@ -8,7 +8,11 @@ void SSpinningImage::Construct(const FArguments& InArgs)
 {
 	Image = InArgs._Image;
 	ColorAndOpacity = InArgs._ColorAndOpacity;
-	OnMouseButtonDownHandler = InArgs._OnMouseButtonDown;
+
+	if (InArgs._OnMouseButtonDown.IsBound())
+	{
+		SetOnMouseButtonDown(InArgs._OnMouseButtonDown);
+	}
 	
 	SpinAnimationSequence = FCurveSequence( 0.f, InArgs._Period );
 	SpinAnimationSequence.Play( this->AsShared(), true );

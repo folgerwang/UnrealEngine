@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3013246
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:“开放世界工具”属性参考
 Crumbs:
@@ -9,13 +9,16 @@ Version:4.12
 
 [TOC(start:2)]
 
+(#Overview)
 ## 概述
 
 此页面包含您使用“开放世界工具”时可找到的属性的参考列表。
 
 
+(#FoliageType)
 ## 植物叶子类型
 
+(#Mesh)
 ### 网格
 ![](FT_Mesh.png)
 
@@ -25,6 +28,7 @@ Version:4.12
 |**组件类（Component Class）** |用于植物叶子实例的组件类。您可以让 FoliagedInstancedStaticMeshComponent 的蓝图子类实现定制行为并在此处指派该类。|
 |**覆盖材质（Override Materials）** | 植物叶子实例的材质覆盖项。|
 
+(#Placement)
 ### 布置
 ![](FT_Placement.png)
 
@@ -39,12 +43,13 @@ Version:4.12
 |**景观层（Landscape Layers）** | 如果指定了层名称，那么景观的绘制会将植物叶子限制在绘制有指定层的景观区域。|
 |**与环境碰撞（Collision with World）** | 如果选中此项，那么在放置每个实例之前，将执行与现有环境几何体的重叠测试。|
 
+(#Procedural)
 ### 程序式 
 ![](FT_Procedural.png)
 
 | 属性 | 说明 |
 | --- |  :--- |
-|**碰撞半径（Collision Radius）**|“碰撞半径”（CollisionTadius）确定两个实例何时重叠。当两个实例重叠时，将根据规则和优先顺序来选择胜方。|
+|**碰撞半径（Collision Radius）**|“碰撞半径”（CollisionRadius）确定两个实例何时重叠。当两个实例重叠时，将根据规则和优先顺序来选择胜方。|
 |**阴影半径（Shade Radius）**|“阴影半径”（ShadeRadius）确定两个实例何时重叠。如果某个实例可在阴影中成长，那么将忽略此半径。|
 |**阶数（Num Steps）** | 我们使物种老化并散布其种子的次数。|
 |**初始种子密度（Initial Seed Density）** | 指定在 10 米范围内填充的种子数。此数值将进行隐式平方运算，以覆盖 10m x 10m 的区域。|
@@ -57,11 +62,11 @@ Version:4.12
 |**最大初始年龄（Max Initial Age）** | 允许新种子在创建时的年龄大于 0。对于新种子，将随机指定 [0,最大初始年龄] 范围内的年龄。|
 |**最大年龄（Max Age）** | 指定种子的最大年龄。达到此年龄后，实例仍将散布种子，但不会继续变老。|
 |**重叠优先顺序 (Overlap Priority)** | 当两个实例重叠时，我们必须确定要移除哪个实例。“重叠优先顺序”（OverlapPriority）值较小的实例将移除。在“重叠优先顺序”（OverlapPriority）相同的情况下，将应用常规模拟规则。|
-|**重叠优先顺序 (Overlap Priority)** | 当两个实例重叠时，我们必须确定要移除哪个实例。“重叠优先顺序”（OverlapPriority）值较小的实例将移除。在“重叠优先顺序”（OverlapPriority）相同的情况下，将应用常规模拟规则。|
 |**程序式比例（Procedural Scale）** | 此类型在以程序方式生成时的比例范围。使用“标量曲线”（Scale Curve）进行配置。|
 |**标量曲线（Scale Curve）** | 实例标量系数，以规范化年龄的函数（即，当前年龄/最大年龄）表示。X = 0 对应于“年龄 = 0”，X = 1 对应于“年龄 = 最大年龄”。Y = 0 对应于“最小标量”，Y = 1 对应于“最大标量”。|
 |**外部曲线（External Curve）** | 用于外部曲线。|
 
+(#InstanceSettings)
 ### 实例设置
 ![](FT_Instance_Settings.png)
 

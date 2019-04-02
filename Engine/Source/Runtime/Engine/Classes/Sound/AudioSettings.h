@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -138,6 +138,14 @@ class ENGINE_API UAudioSettings : public UDeveloperSettings
 	/** How many streaming sounds can be played at the same time (if more are played they will be sorted by priority) */
 	UPROPERTY(config, EditAnywhere, Category="Audio", meta=(ClampMin=0))
 	int32 MaximumConcurrentStreams;
+
+	/** The value to use to clamp the min pitch scale */
+	UPROPERTY(config, EditAnywhere, Category = "Audio", meta = (ClampMin = 0.001, ClampMax = 4.0, UIMin = 0.001, UIMax = 4.0))
+	float GlobalMinPitchScale;
+
+	/** The value to use to clamp the min pitch scale */
+	UPROPERTY(config, EditAnywhere, Category = "Audio", meta = (ClampMin = 0.001, ClampMax = 4.0, UIMin = 0.001, UIMax = 4.0))
+	float GlobalMaxPitchScale;
 
 	UPROPERTY(config, EditAnywhere, Category="Quality")
 	TArray<FAudioQualitySettings> QualityLevels;

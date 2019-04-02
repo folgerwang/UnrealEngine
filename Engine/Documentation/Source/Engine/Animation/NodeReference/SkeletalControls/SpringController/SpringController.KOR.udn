@@ -1,12 +1,12 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:3782314
 Availability:Public
-Title:스프링 컨트롤러
+Title:Spring Controller
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
 Description:Spring Controller 는 본이 레퍼런스 포즈에서 늘어날 수 있는 거리를 넘어서면 반대 방향으로 힘을 가하도록 제한시키는 데 사용됩니다.
 version: 4.12
 topic-image:node_springcontroller.png
 
-**Spring Controller** 는 본이 그 레퍼런스 포즈 위치에서 늘어날 수 있는 거리를 제한하는 데 
+**Spring Controller** (스프링 컨트롤러)는 본이 그 레퍼런스 포즈 위치에서 늘어날 수 있는 거리를 제한하는 데 
 사용되는 컨트롤 노드로, 그 거리를 넘어서면 반대 방향으로 힘을 가합니다.
 
 ![](node_springcontroller.png)

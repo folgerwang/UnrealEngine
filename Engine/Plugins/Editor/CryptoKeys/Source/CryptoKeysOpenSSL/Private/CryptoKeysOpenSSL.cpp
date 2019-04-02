@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #include "CryptoKeysOpenSSL.h"
 #include "Modules/ModuleManager.h"
 
@@ -6,16 +6,22 @@
 #include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 
+#include <openssl/rsa.h>
 #include <openssl/rand.h>
 #include <openssl/pem.h>
+#include <openssl/bn.h>
 
 #if PLATFORM_WINDOWS
 #include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
-#include "Math/BigInt.h"
-
 DEFINE_LOG_CATEGORY_STATIC(LogCryptoKeys, Log, All);
+
+#if !defined(OPENSSL_VERSION_NUMBER) || OPENSSL_VERSION_NUMBER < 0x10100000L
+#define USE_LEGACY_OPENSSL 1
+#else
+#define USE_LEGACY_OPENSSL 0
+#endif
 
 namespace CryptoKeysOpenSSL
 {
@@ -31,90 +37,41 @@ namespace CryptoKeysOpenSSL
 		return bResult;
 	}
 
-	bool TestKeys(FEncryptionKey& InPublicKey, FEncryptionKey& InPrivateKey)
+	void BigNumToArray(const BIGNUM* InNum, TArray<uint8>& OutBytes, int32 InKeySize)
 	{
-		UE_LOG(LogCryptoKeys, Display, TEXT("Testing signature keys."));
+		int32 NumBytes = BN_num_bytes(InNum);
+		check(NumBytes <= InKeySize);
+		OutBytes.SetNumZeroed(NumBytes);
 
-		// Just some random values
-		static TEncryptionInt TestData[] =
-		{
-			11,
-			253,
-			128,
-			234,
-			56,
-			89,
-			34,
-			179,
-			29,
-			1024,
-			(int64)(MAX_int32),
-			(int64)(MAX_uint32)-1
-		};
-
-		for (int32 TestIndex = 0; TestIndex < ARRAY_COUNT(TestData); ++TestIndex)
-		{
-			TEncryptionInt EncryptedData = FEncryption::ModularPow(TestData[TestIndex], InPrivateKey.Exponent, InPrivateKey.Modulus);
-			TEncryptionInt DecryptedData = FEncryption::ModularPow(EncryptedData, InPublicKey.Exponent, InPublicKey.Modulus);
-			if (TestData[TestIndex] != DecryptedData)
-			{
-				UE_LOG(LogCryptoKeys, Error, TEXT("Keys do not properly encrypt/decrypt data (failed test with %lld)"), TestData[TestIndex].ToInt());
-				return false;
-			}
-		}
-
-		UE_LOG(LogCryptoKeys, Display, TEXT("Signature keys check completed successfuly."));
-
-		return true;
+		BN_bn2bin(InNum, OutBytes.GetData());
+		Algo::Reverse(OutBytes);
 	}
 
-	bool GenerateNewSigningKey(TArray<uint8>& OutPublicExponent, TArray<uint8>& OutPrivateExponent, TArray<uint8>& OutModulus)
+	bool GenerateNewSigningKey(TArray<uint8>& OutPublicExponent, TArray<uint8>& OutPrivateExponent, TArray<uint8>& OutModulus, int32 InNumKeyBits)
 	{
-		TArray<uint8> NewP, NewQ;
+		int32 KeySize = InNumKeyBits;
+		int32 KeySizeInBytes = InNumKeyBits / 8;
 
 		RSA* RSAKey = RSA_new();
 		BIGNUM* E = BN_new();
 		BN_set_word(E, RSA_F4);
-		RSA_generate_key_ex(RSAKey, 255, E, nullptr);
+		RSA_generate_key_ex(RSAKey, KeySize, E, nullptr);
 
-		BIGNUM* P = RSAKey->p;
-		BIGNUM* Q = RSAKey->q;
+#if USE_LEGACY_OPENSSL
+		const BIGNUM* PublicModulus = RSAKey->n;
+		const BIGNUM* PublicExponent = RSAKey->e;
+		const BIGNUM* PrivateExponent = RSAKey->d;
+#else
+		const BIGNUM* PublicModulus = RSA_get0_n(RSAKey);
+		const BIGNUM* PublicExponent = RSA_get0_e(RSAKey);
+		const BIGNUM* PrivateExponent = RSA_get0_d(RSAKey);
+#endif
 
-		const uint32 WordSize = sizeof(BN_ULONG);
-
-		uint32 NumBytes = WordSize * P->dmax;
-		NewP.Empty(NumBytes);
-		NewP.AddUninitialized(NumBytes);
-		FMemory::Memcpy(&NewP[0], P->d, NumBytes);
-
-		NumBytes = WordSize * Q->dmax;
-		NewQ.Empty(NumBytes);
-		NewQ.AddUninitialized(NumBytes);
-		FMemory::Memcpy(&NewQ[0], Q->d, NumBytes);
-
-		BN_free(P);
-		BN_free(Q);
-
-		NewP.AddZeroed(sizeof(TEncryptionInt) - NewP.Num());
-		NewQ.AddZeroed(sizeof(TEncryptionInt) - NewQ.Num());
-
-		check(NewP.Num() == sizeof(TEncryptionInt));
-		check(NewQ.Num() == sizeof(TEncryptionInt));
-
-		TEncryptionInt OurP((uint32*)&NewP[0]);
-		TEncryptionInt OurQ((uint32*)&NewQ[0]);
-
-		FEncryptionKey PublicKey, PrivateKey;
-		FEncryption::GenerateKeyPair(OurP, OurQ, PublicKey, PrivateKey);
-
-		TestKeys(PublicKey, PrivateKey);
-
-		OutPublicExponent.AddUninitialized(sizeof(TEncryptionInt));
-		OutPrivateExponent.AddUninitialized(sizeof(TEncryptionInt));
-		OutModulus.AddUninitialized(sizeof(TEncryptionInt));
-		FMemory::Memcpy(&OutPublicExponent[0], (const uint8*)PublicKey.Exponent.GetBits(), sizeof(TEncryptionInt));
-		FMemory::Memcpy(&OutPrivateExponent[0], (const uint8*)PrivateKey.Exponent.GetBits(), sizeof(TEncryptionInt));
-		FMemory::Memcpy(&OutModulus[0], (const uint8*)PublicKey.Modulus.GetBits(), sizeof(TEncryptionInt));
+		BigNumToArray(PublicModulus, OutModulus, KeySizeInBytes);
+		BigNumToArray(PublicExponent, OutPublicExponent, KeySizeInBytes);
+		BigNumToArray(PrivateExponent, OutPrivateExponent, KeySizeInBytes);
+		
+		RSA_free(RSAKey);
 
 		return true;
 	}

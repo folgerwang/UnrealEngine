@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -136,9 +136,6 @@ private:
 	/** Called at the end of SetObjectArray after we change the objects being observed */
 	void PostSetObject();
 	
-	/** Called when the filter button is clicked */
-	void OnFilterButtonClicked();
-
 	/** Called to get the visibility of the actor name area */
 	EVisibility GetActorNameAreaVisibility() const;
 

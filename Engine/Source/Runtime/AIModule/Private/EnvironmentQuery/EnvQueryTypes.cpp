@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "EnvironmentQuery/EnvQueryTypes.h"
 #include "UObject/Package.h"
@@ -29,9 +29,11 @@ float UEnvQueryTypes::UnlimitedStepTime = -1.f;
 AActor* FEnvQueryResult::GetItemAsActor(int32 Index) const
 {
 	if (Items.IsValidIndex(Index) &&
+		(ItemType.Get() != nullptr) &&
 		ItemType->IsChildOf(UEnvQueryItemType_ActorBase::StaticClass()))
 	{
 		UEnvQueryItemType_ActorBase* DefTypeOb = ItemType->GetDefaultObject<UEnvQueryItemType_ActorBase>();
+		check(DefTypeOb != nullptr);
 		return DefTypeOb->GetActor(RawData.GetData() + Items[Index].DataOffset);
 	}
 
@@ -41,9 +43,11 @@ AActor* FEnvQueryResult::GetItemAsActor(int32 Index) const
 FVector FEnvQueryResult::GetItemAsLocation(int32 Index) const
 {
 	if (Items.IsValidIndex(Index) &&
+		(ItemType.Get() != nullptr) &&
 		ItemType->IsChildOf(UEnvQueryItemType_VectorBase::StaticClass()))
 	{
 		UEnvQueryItemType_VectorBase* DefTypeOb = ItemType->GetDefaultObject<UEnvQueryItemType_VectorBase>();
+		check(DefTypeOb != nullptr);
 		return DefTypeOb->GetItemLocation(RawData.GetData() + Items[Index].DataOffset);
 	}
 
@@ -52,9 +56,12 @@ FVector FEnvQueryResult::GetItemAsLocation(int32 Index) const
 
 void FEnvQueryResult::GetAllAsActors(TArray<AActor*>& OutActors) const
 {
-	if (ItemType->IsChildOf(UEnvQueryItemType_ActorBase::StaticClass()) && Items.Num() > 0)
+	if ((ItemType.Get() != nullptr) &&
+		ItemType->IsChildOf(UEnvQueryItemType_ActorBase::StaticClass()) &&
+		(Items.Num() > 0))
 	{
 		UEnvQueryItemType_ActorBase* DefTypeOb = ItemType->GetDefaultObject<UEnvQueryItemType_ActorBase>();
+		check(DefTypeOb != nullptr);
 		
 		OutActors.Reserve(OutActors.Num() + Items.Num());
 
@@ -67,9 +74,12 @@ void FEnvQueryResult::GetAllAsActors(TArray<AActor*>& OutActors) const
 
 void FEnvQueryResult::GetAllAsLocations(TArray<FVector>& OutLocations) const
 {
-	if (ItemType->IsChildOf(UEnvQueryItemType_VectorBase::StaticClass()) && Items.Num() > 0)
+	if ((ItemType.Get() != nullptr) &&
+		ItemType->IsChildOf(UEnvQueryItemType_VectorBase::StaticClass()) &&
+		(Items.Num() > 0))
 	{
 		UEnvQueryItemType_VectorBase* DefTypeOb = ItemType->GetDefaultObject<UEnvQueryItemType_VectorBase>();
+		check(DefTypeOb != nullptr);
 
 		OutLocations.Reserve(OutLocations.Num() + Items.Num());
 
@@ -85,12 +95,13 @@ void FEnvQueryResult::GetAllAsLocations(TArray<FVector>& OutLocations) const
 //----------------------------------------------------------------------//
 FText UEnvQueryTypes::GetShortTypeName(const UObject* Ob)
 {
-	if (Ob == NULL)
+	if (Ob == nullptr)
 	{
 		return LOCTEXT("Unknown", "unknown");
 	}
 
 	const UClass* ObClass = Ob->IsA(UClass::StaticClass()) ? (const UClass*)Ob : Ob->GetClass();
+	check(ObClass != nullptr);
 	if (ObClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint))
 	{
 		return FText::FromString(ObClass->GetName().LeftChop(2));
@@ -113,7 +124,7 @@ FText UEnvQueryTypes::DescribeContext(TSubclassOf<UEnvQueryContext> ContextClass
 
 FText FEnvDirection::ToText() const
 {
-	if(DirMode == EEnvDirection::TwoPoints)
+	if (DirMode == EEnvDirection::TwoPoints)
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("LineFrom"), UEnvQueryTypes::DescribeContext(LineFrom));
@@ -154,7 +165,8 @@ FText FEnvTraceData::ToText(FEnvTraceData::EDescriptionMode DescMode) const
 
 		if (DescMode == FEnvTraceData::Brief)
 		{
-			static UEnum* ChannelEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ETraceTypeQuery"), true);
+			static UEnum* ChannelEnum = StaticEnum<ETraceTypeQuery>();
+			check(ChannelEnum != nullptr);
 
 			FFormatNamedArguments Args;
 			Args.Add(TEXT("ExtentDescription"), Desc);
@@ -382,7 +394,7 @@ void FEQSParametrizedQueryExecutionRequest::InitForOwnerAndBlackboard(UObject& O
 
 	EQSQueryBlackboardKey.AddObjectFilter(&Owner, NAME_None, UEnvQuery::StaticClass());
 
-	if ((QueryConfig.Num() > 0 || bUseBBKeyForQueryTemplate) && BBAsset)
+	if ((bUseBBKeyForQueryTemplate || QueryConfig.Num() > 0) && BBAsset)
 	{
 		for (FAIDynamicParam& RuntimeParam : QueryConfig)
 		{
@@ -392,7 +404,10 @@ void FEQSParametrizedQueryExecutionRequest::InitForOwnerAndBlackboard(UObject& O
 			}
 		}
 
-		EQSQueryBlackboardKey.ResolveSelectedKey(*BBAsset);
+		if (bUseBBKeyForQueryTemplate)
+		{
+			EQSQueryBlackboardKey.ResolveSelectedKey(*BBAsset);
+		}
 	}
 }
 
@@ -487,6 +502,7 @@ int32 FEQSParametrizedQueryExecutionRequest::Execute(AActor& QueryOwner, const U
 void FEQSParametrizedQueryExecutionRequest::PostEditChangeProperty(UObject& Owner, FPropertyChangedEvent& PropertyChangedEvent)
 {
 	check(PropertyChangedEvent.MemberProperty);
+	check(PropertyChangedEvent.Property);
 
 	if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(FEQSParametrizedQueryExecutionRequest, QueryTemplate))
 	{

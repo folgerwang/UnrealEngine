@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -48,15 +48,15 @@ struct FStructVariableDescription
 	UPROPERTY()
 	EPinContainerType ContainerType;
 
-	// DEPRECATED(4.17)
+	// UE_DEPRECATED(4.17)
 	UPROPERTY()
 	uint8 bIsArray_DEPRECATED:1;
 
-	// DEPRECATED(4.17)
+	// UE_DEPRECATED(4.17)
 	UPROPERTY()
 	uint8 bIsSet_DEPRECATED:1;
 
-	// DEPRECATED(4.17)
+	// UE_DEPRECATED(4.17)
 	UPROPERTY()
 	uint8 bIsMap_DEPRECATED:1;
 
@@ -83,7 +83,7 @@ struct FStructVariableDescription
 
 	UNREALED_API FEdGraphPinType ToPinType() const;
 
-	// DEPRECATED(4.17)
+	// UE_DEPRECATED(4.17)
 	void PostSerialize(const FArchive& Ar);
 
 	FStructVariableDescription()
@@ -143,6 +143,7 @@ public:
 
 	const uint8* GetDefaultInstance() const;
 	void RecreateDefaultInstance(FString* OutLog = nullptr);
+	void ReinitializeDefaultInstance(FString* OutLog = nullptr);
 	void CleanDefaultInstance();
 
 private:

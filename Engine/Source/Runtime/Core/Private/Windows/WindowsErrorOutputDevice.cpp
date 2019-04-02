@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Windows/WindowsErrorOutputDevice.h"
 #include "Logging/LogMacros.h"
@@ -18,7 +18,10 @@
 #include "Misc/App.h"
 #include "Misc/OutputDeviceRedirector.h"
 #include "HAL/ThreadHeartBeat.h"
+#include "HAL/ExceptionHandling.h"
 #include "Windows/WindowsHWrapper.h"
+
+extern CORE_API bool GIsGPUCrashed;
 
 FWindowsErrorOutputDevice::FWindowsErrorOutputDevice()
 {
@@ -58,7 +61,20 @@ void FWindowsErrorOutputDevice::Serialize( const TCHAR* Msg, ELogVerbosity::Type
 #if PLATFORM_EXCEPTIONS_DISABLED
 		UE_DEBUG_BREAK();
 #endif
-		FPlatformMisc::RaiseException( 1 );
+		// Generate the portable callstack. For asserts, we ignore the following frames:
+		// We do not ignore any stack frames since the optimization is
+		// brittle and the risk of trimming the valid frames is too high.
+		// The common frames will be instead filtered out in the web UI
+		const int32 NumStackFramesToIgnore = 0;
+
+		if (GIsGPUCrashed)
+		{
+			ReportGPUCrash(Msg, NumStackFramesToIgnore);
+		}
+		else
+		{
+			ReportAssert(Msg, NumStackFramesToIgnore);
+		}
 	}
 	else
 	{

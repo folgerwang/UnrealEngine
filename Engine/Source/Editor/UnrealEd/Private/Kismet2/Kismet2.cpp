@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "CoreMinimal.h"
@@ -1016,7 +1016,7 @@ bool FKismetEditorUtilities::GenerateBlueprintSkeleton(UBlueprint* BlueprintObj,
 }
 
 /** Recompiles the bytecode of a blueprint only.  Should only be run for recompiling dependencies during compile on load */
-void FKismetEditorUtilities::RecompileBlueprintBytecode(UBlueprint* BlueprintObj, TArray<UObject*>* ObjLoaded,  EBlueprintBytecodeRecompileOptions Flags)
+void FKismetEditorUtilities::RecompileBlueprintBytecode(UBlueprint* BlueprintObj,  EBlueprintBytecodeRecompileOptions Flags)
 {
 	FSecondsCounterScope Timer(BlueprintCompileAndLoadTimerData); 
 
@@ -1049,7 +1049,7 @@ void FKismetEditorUtilities::RecompileBlueprintBytecode(UBlueprint* BlueprintObj
 	{
 		FRecreateUberGraphFrameScope RecreateUberGraphFrameScope(BlueprintObj->GeneratedClass, true);
 		FCompilerResultsLog Results;
-		Compiler.CompileBlueprint(BlueprintObj, CompileOptions, Results, NULL, ObjLoaded);
+		Compiler.CompileBlueprint(BlueprintObj, CompileOptions, Results, NULL);
 	}
 	
 	if(!bSkipReinstancing)
@@ -1381,152 +1381,204 @@ void FKismetEditorUtilities::AddComponentsToBlueprint(UBlueprint* Blueprint, TAr
 		}
 	};
 
-	// Clear out nulls and components we won't be able to create, can swap since we're about to sort anyways
-	Components.RemoveAllSwap([](const UActorComponent* ActorComponent)
+	// Associate a scene node to its first attached parent if there is one.
+	struct FSceneComponentAndFirstParent
 	{
-		return (ActorComponent == nullptr || !ActorComponent->GetClass()->HasMetaData(FBlueprintMetadata::MD_BlueprintSpawnableComponent));
-	});
+		FSceneComponentAndFirstParent(USceneComponent* InSceneComponent, USceneComponent* InFirstAttachParent)
+			: SceneComponent(InSceneComponent)
+			, FirstAttachParent(InFirstAttachParent)
+		{}
 
-	// Sort scene components to the start of the array and those that are children after their parents
-	Components.Sort([](const UActorComponent& A, const UActorComponent& B)
-	{
-		const USceneComponent* SceneA = Cast<const USceneComponent>(&A);
-		const USceneComponent* SceneB = Cast<const USceneComponent>(&B);
+		USceneComponent* SceneComponent;
 
-		if (SceneA)
-		{
-			if (SceneB)
-			{
-				return SceneB->IsAttachedTo(SceneA);
-			}
-			return true;
-		}
-		return (SceneB == nullptr);
-	});
+		// The first attach parent is valid when we find a parent that is part of the components array.
+		USceneComponent* FirstAttachParent;
+	};
+
+	// Array of FSceneComponentAndFirstParent that will be filled in a way that the parents are always before their children
+	TArray<FSceneComponentAndFirstParent> SceneComponentNodes;
+	SceneComponentNodes.Reserve(Components.Num());
+
+	// Array of the valid ActorComponents
+	TArray<UActorComponent*> ActorComponents;
+	ActorComponents.Reserve(Components.Num());
+
+	// The boolean indicate if the scene component was added to the SceneComponentNodes array
+	TMap<USceneComponent*, bool> SceneComponentsMap;
+	SceneComponentsMap.Reserve(Components.Num());
 
 	for (int32 CompIndex = 0; CompIndex < Components.Num(); ++CompIndex)
 	{
 		UActorComponent* ActorComponent = Components[CompIndex];
+
+		// Filter out nulls and the components we won't be able to create.
+		if (ActorComponent && ActorComponent->GetClass()->HasMetaData(FBlueprintMetadata::MD_BlueprintSpawnableComponent))
+		{
+			USceneComponent* SceneComponent = Cast<USceneComponent>(Components[CompIndex]);
+			if (SceneComponent)
+			{
+				SceneComponentsMap.Add(SceneComponent, false);
+			}
+			else
+			{
+				ActorComponents.Add(ActorComponent);
+			}
+		}
+	}
+
+	TFunction<void (USceneComponent*)> ConstructSceneComponentNodes;
+	// Fill the SceneComponentNodes array
+	ConstructSceneComponentNodes = [&SceneComponentsMap, &SceneComponentNodes, &ConstructSceneComponentNodes] (USceneComponent* SceneComponent)
+	{
+		// The scene component should always be present in the map
+		if (*SceneComponentsMap.Find(SceneComponent))
+		{
+			// If the node for a scene component is already part of the array just return
+			return;
+		}
+		else
+		{
+			USceneComponent* Parent = SceneComponent->GetAttachParent();
+			while (Parent)
+			{
+				if (SceneComponentsMap.Contains(Parent))
+				{
+					// always add the parent first
+					ConstructSceneComponentNodes(Parent);
+					break;
+				}
+				Parent = Parent->GetAttachParent();
+			}
+
+			SceneComponentNodes.Emplace(SceneComponent, Parent);
+			SceneComponentsMap.Add(SceneComponent, true);
+		}
+	};
+
+	TArray<USceneComponent*> SceneComponents;
+	SceneComponentsMap.GetKeys(SceneComponents);
+	for (USceneComponent* SceneComponent : SceneComponents)
+	{
+		ConstructSceneComponentNodes(SceneComponent);
+	}
+
+	// The easy part to add the non-scene components.
+	for (int32 CompIndex = 0; CompIndex < ActorComponents.Num(); ++CompIndex)
+	{
+		UActorComponent* ActorComponent = ActorComponents[CompIndex];
 		AActor* Actor = ActorComponent->GetOwner();
 		check(Actor);
 
 		USCS_Node* SCSNode = FAddComponentsToBlueprintImpl::MakeComponentCopy(ActorComponent, SCS, InstanceComponentToNodeMap, bKeepMobility);
 
-		USceneComponent* SceneComponent = Cast<USceneComponent>(ActorComponent);
-		// The easy part is non-scene component or the Root simply add it
-		if (SceneComponent == nullptr)
+		SCS->AddNode(SCSNode);
+	}
+
+	// The loop to add the scene components
+	for (int32 CompIndex = 0; CompIndex < SceneComponentNodes.Num(); ++CompIndex)
+	{
+		const FSceneComponentAndFirstParent& ComponentNode = SceneComponentNodes[CompIndex];
+		USceneComponent* SceneComponent = ComponentNode.SceneComponent;
+		AActor* Actor = SceneComponent->GetOwner();
+		check(Actor);
+
+		USCS_Node* SCSNode = FAddComponentsToBlueprintImpl::MakeComponentCopy(SceneComponent, SCS, InstanceComponentToNodeMap, bKeepMobility);
+
+		USceneComponent* FirstAttachParent = ComponentNode.FirstAttachParent;
+		
+		if (FirstAttachParent)
 		{
-			SCS->AddNode(SCSNode);
+			// If the parent we're going to be attached to isn't the original attach parent, then adjust the
+			// relative transform so that the end result will be consistent with current relationship
+			if (FirstAttachParent != SceneComponent->GetAttachParent())
+			{
+				USceneComponent* SceneComponentTemplate = CastChecked<USceneComponent>(SCSNode->ComponentTemplate);
+
+				const FTransform ComponentToWorld = SceneComponent->GetComponentTransform();
+				const FTransform RelativeTransform = ComponentToWorld.GetRelativeTransform(FirstAttachParent->GetComponentTransform());
+				if (!SceneComponent->bAbsoluteLocation)
+				{
+					SceneComponentTemplate->RelativeLocation = RelativeTransform.GetLocation();
+				}
+				if (!SceneComponent->bAbsoluteRotation)
+				{
+					SceneComponentTemplate->RelativeRotation = RelativeTransform.GetRotation().Rotator();
+				}
+				if (!SceneComponent->bAbsoluteScale)
+				{
+					SceneComponentTemplate->RelativeScale3D = RelativeTransform.GetScale3D();
+				}
+			}
 		}
-		else
+
+		if (SceneComponent == Actor->GetRootComponent() && (SceneComponent->GetAttachParent() == nullptr || FirstAttachParent == nullptr))
 		{
-			// Since there is no guarantee that the attach parent is in the component set, but there could still be attachment hierarchy
-			// which is best to maintain, seek out the closest attached parent in the component set
-			USceneComponent* FirstAttachParent = nullptr;
-			if (SceneComponent->GetAttachParent())
+			if (OptionalNewRootNode != nullptr)
 			{
-				const int32 FirstAttachParentIndex = Components.FindLastByPredicate([SceneComponent](const UActorComponent* Other)
-				{
-					return (SceneComponent->IsAttachedTo(CastChecked<const USceneComponent>(Other)));
-				}, CompIndex);
-
-				if (FirstAttachParentIndex != INDEX_NONE)
-				{
-					FirstAttachParent = CastChecked<USceneComponent>(Components[FirstAttachParentIndex]);
-
-					// If the parent we're going to be attached to isn't the original attach parent, then adjust the
-					// relative transform so that the end result will be consistent with current relationship
-					if (FirstAttachParent != SceneComponent->GetAttachParent())
-					{
-						USceneComponent* SceneComponentTemplate = CastChecked<USceneComponent>(SCSNode->ComponentTemplate);
-
-						const FTransform ComponentToWorld = SceneComponent->GetComponentTransform();
-						const FTransform RelativeTransform = ComponentToWorld.GetRelativeTransform(FirstAttachParent->GetComponentTransform());
-						if (!SceneComponent->bAbsoluteLocation)
-						{
-							SceneComponentTemplate->RelativeLocation = RelativeTransform.GetLocation();
-						}
-						if (!SceneComponent->bAbsoluteRotation)
-						{
-							SceneComponentTemplate->RelativeRotation = RelativeTransform.GetRotation().Rotator();
-						}
-						if (!SceneComponent->bAbsoluteScale)
-						{
-							SceneComponentTemplate->RelativeScale3D = RelativeTransform.GetScale3D();
-						}
-					}
-				}
-			}
-
-			if (SceneComponent == Actor->GetRootComponent() && (SceneComponent->GetAttachParent() == nullptr || FirstAttachParent == nullptr))
-			{
-				if (OptionalNewRootNode != nullptr)
-				{
-					OptionalNewRootNode->AddChildNode(SCSNode);
-				}
-				else
-				{
-					SCS->AddNode(SCSNode);
-				}
-			}
-			// If we're not attached to a blueprint component, add ourself to the root node or the SCS root component:
-			else if (SceneComponent->GetAttachParent() == nullptr)
-			{
-					AddChildToSCSRootNodeLambda(SCSNode);
-			}
-			// If we're attached to a blueprint component look it up as the variable name is the component name
-			else if (SceneComponent->GetAttachParent()->IsCreatedByConstructionScript())
-			{
-				USCS_Node* ParentSCSNode = nullptr;
-				if (FirstAttachParent)
-				{
-					ParentSCSNode = InstanceComponentToNodeMap.FindChecked(FirstAttachParent);
-				}
-				else
-				{
-					for (UBlueprint* ParentBlueprint : ParentBPStack)
-					{
-						if (ParentBlueprint->SimpleConstructionScript)
-						{
-							ParentSCSNode = ParentBlueprint->SimpleConstructionScript->FindSCSNode(SceneComponent->GetAttachParent()->GetFName());
-							if (ParentSCSNode)
-							{
-								break;
-							}
-						}
-					}
-				}
-				check(ParentSCSNode);
-
-				if (ParentSCSNode->GetSCS() != SCS)
-				{
-					SCS->AddNode(SCSNode);
-					SCSNode->SetParent(ParentSCSNode);
-				}
-				else
-				{
-					ParentSCSNode->AddChildNode(SCSNode);
-				}
-			}
-			else if ((SceneComponent->GetAttachParent()->CreationMethod == EComponentCreationMethod::Native) && !bHarvesting)
-			{
-				// If we're attached to a component that will be native in the new blueprint
-				SCS->AddNode(SCSNode);
-				SCSNode->SetParent(SceneComponent->GetAttachParent());
+				OptionalNewRootNode->AddChildNode(SCSNode);
 			}
 			else
 			{
-				// Otherwise we will already have created the parents' new SCS node, so attach to that
-				if (USCS_Node** ParentSCSNode = InstanceComponentToNodeMap.Find(FirstAttachParent))
+				SCS->AddNode(SCSNode);
+			}
+		}
+		// If we're not attached to a blueprint component, add ourself to the root node or the SCS root component:
+		else if (SceneComponent->GetAttachParent() == nullptr)
+		{
+				AddChildToSCSRootNodeLambda(SCSNode);
+		}
+		// If we're attached to a blueprint component look it up as the variable name is the component name
+		else if (SceneComponent->GetAttachParent()->IsCreatedByConstructionScript())
+		{
+			USCS_Node* ParentSCSNode = nullptr;
+			if (FirstAttachParent)
+			{
+				ParentSCSNode = InstanceComponentToNodeMap.FindChecked(FirstAttachParent);
+			}
+			else
+			{
+				for (UBlueprint* ParentBlueprint : ParentBPStack)
 				{
-					(*ParentSCSNode)->AddChildNode(SCSNode);
+					if (ParentBlueprint->SimpleConstructionScript)
+					{
+						ParentSCSNode = ParentBlueprint->SimpleConstructionScript->FindSCSNode(SceneComponent->GetAttachParent()->GetFName());
+						if (ParentSCSNode)
+						{
+							break;
+						}
+					}
 				}
-				else
-				{
-					// Unsure what this case is really for when harvesting, but to be consistent with previous behavior still do this
-					ensure(bHarvesting);
-					AddChildToSCSRootNodeLambda(SCSNode);
-				}
+			}
+			check(ParentSCSNode);
+
+			if (ParentSCSNode->GetSCS() != SCS)
+			{
+				SCS->AddNode(SCSNode);
+				SCSNode->SetParent(ParentSCSNode);
+			}
+			else
+			{
+				ParentSCSNode->AddChildNode(SCSNode);
+			}
+		}
+		else if ((SceneComponent->GetAttachParent()->CreationMethod == EComponentCreationMethod::Native) && !bHarvesting)
+		{
+			// If we're attached to a component that will be native in the new blueprint
+			SCS->AddNode(SCSNode);
+			SCSNode->SetParent(SceneComponent->GetAttachParent());
+		}
+		else
+		{
+			// Otherwise we will already have created the parents' new SCS node, so attach to that
+			if (USCS_Node** ParentSCSNode = InstanceComponentToNodeMap.Find(FirstAttachParent))
+			{
+				(*ParentSCSNode)->AddChildNode(SCSNode);
+			}
+			else
+			{
+				// Unsure what this case is really for when harvesting, but to be consistent with previous behavior still do this
+				ensure(bHarvesting);
+				AddChildToSCSRootNodeLambda(SCSNode);
 			}
 		}
 	}
@@ -1605,7 +1657,11 @@ UBlueprint* FKismetEditorUtilities::CreateBlueprintFromActor(const FName Bluepri
 				FVector Location = Actor->GetActorLocation();
 				FRotator Rotator = Actor->GetActorRotation();
 
-				CreateBlueprintInstanceFromSelection(NewBlueprint, Actors, Location, Rotator);
+				AActor* NewActor = CreateBlueprintInstanceFromSelection(NewBlueprint, Actors, Location, Rotator);
+				if (NewActor)
+				{
+					NewActor->SetActorScale3D(Actor->GetActorScale3D());
+				}
 			}
 		}
 	}
@@ -1703,7 +1759,27 @@ public:
 					}
 				}
 			}
+
+			TArray<TPair<USceneComponent*, FTransform>> SceneComponentOldRelativeTransforms;
+			if (RootActors.Num() > 1)
+			{
+				SceneComponentOldRelativeTransforms.Reserve(RootActors.Num());
+				// Convert the components relative transform to world 
+				for (AActor* Actor : RootActors)
+				{
+					USceneComponent* SceneComponent = Actor->GetRootComponent();
+					SceneComponentOldRelativeTransforms.Emplace(SceneComponent, SceneComponent->GetRelativeTransform());
+					SceneComponent->SetRelativeTransform(SceneComponent->GetComponentTransform());
+				}
+			}
+
 			FKismetEditorUtilities::AddComponentsToBlueprint(Blueprint, MoveTemp(AllSelectedComponents), /*bHarvesting=*/ true, RootNodeOverride);
+
+			// Replace the modified components to their relative transform
+			for (const TPair<USceneComponent*, FTransform >& Pair : SceneComponentOldRelativeTransforms)
+			{
+				Pair.Key->SetRelativeTransform(Pair.Value);
+			}
 
 			FTransform NewActorTransform = FTransform::Identity;
 			if (RootActors.Num() == 1)
@@ -1738,10 +1814,9 @@ public:
 						{
 							if (USceneComponent* ChildComponent = Cast<USceneComponent>(ChildNode->ComponentTemplate))
 							{
-								const FTransform OldChildToWorld(ChildComponent->RelativeRotation, ChildComponent->RelativeLocation);
-								const FTransform NewRelativeTransform = OldChildToWorld.GetRelativeTransform(NewActorTransform);
-								ChildComponent->RelativeLocation = NewRelativeTransform.GetLocation();
-								ChildComponent->RelativeRotation = NewRelativeTransform.GetRotation().Rotator();
+								//The relative transform for those component was converted into the world space
+								const FTransform NewRelativeTransform = ChildComponent->GetRelativeTransform().GetRelativeTransform(NewActorTransform);
+								ChildComponent->SetRelativeTransform(NewRelativeTransform);
 							}
 						}
 					}
@@ -1763,7 +1838,11 @@ public:
 				FVector Location = NewActorTransform.GetLocation();
 				FRotator Rotator = NewActorTransform.Rotator();
 
-				FKismetEditorUtilities::CreateBlueprintInstanceFromSelection(Blueprint, SelectedActors, Location, Rotator);
+				AActor* NewActor = FKismetEditorUtilities::CreateBlueprintInstanceFromSelection(Blueprint, SelectedActors, Location, Rotator);
+				if (NewActor)
+				{
+					NewActor->SetActorScale3D(NewActorTransform.GetScale3D());
+				}
 			}
 
 			// Open the editor for the new blueprint
@@ -1812,7 +1891,7 @@ AActor* FKismetEditorUtilities::CreateBlueprintInstanceFromSelection(UBlueprint*
 
 	AActor* NewActor = World->SpawnActor(Blueprint->GeneratedClass, &Location, &Rotator);
 	GEditor->Layers->InitializeNewActorLayers(NewActor);
-
+	FActorLabelUtilities::SetActorLabelUnique(NewActor, Blueprint->GetName());
 	// Quietly ensure that no components are selected
 	USelection* ComponentSelection = GEditor->GetSelectedComponents();
 	ComponentSelection->BeginBatchSelectOperation();

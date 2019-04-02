@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -13,9 +13,9 @@ namespace UE4Game
 	/// Implements a default node that should boot most projects and supports n number of clients
 	/// via -numclients=<n> and a server via -server
 	/// </summary>
-	public class DefaultNode : UnrealTestNode<UE4TestConfig>
+	public class DefaultTest : UnrealTestNode<UE4TestConfig>
 	{
-		public DefaultNode(UnrealTestContext InContext) : base(InContext)
+		public DefaultTest(UnrealTestContext InContext) : base(InContext)
 		{
 		}
 

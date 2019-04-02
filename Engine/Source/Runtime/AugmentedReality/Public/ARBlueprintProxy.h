@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -10,11 +10,12 @@
 #include "Kismet/BlueprintAsyncActionBase.h"
 
 #include "ARTypes.h"
+#include "ARSupportInterface.h"
 
 #include "ARBlueprintProxy.generated.h"
 
 UCLASS(Abstract)
-class UARBaseAsyncTaskBlueprintProxy :
+class AUGMENTEDREALITY_API UARBaseAsyncTaskBlueprintProxy :
 	public UBlueprintAsyncActionBase,
 	public FTickableGameObject
 {
@@ -30,10 +31,10 @@ public:
 	virtual void ReportSuccess() { check(0); }
 	virtual void ReportFailure() { check(0); }
 
-	static void RegisterAsARSystem(const TSharedPtr<FARSystemBase, ESPMode::ThreadSafe>& NewArSystem);
+	static void RegisterAsARSystem(const TSharedRef<FARSupportInterface , ESPMode::ThreadSafe>& NewArSystem);
 
 protected:
-	static const TSharedPtr<FARSystemBase, ESPMode::ThreadSafe>& GetARSystem();
+	static const TWeakPtr<FARSupportInterface , ESPMode::ThreadSafe>& GetARSystem();
 	/** The async task to check during Tick() */
 	TSharedPtr<FARAsyncTask, ESPMode::ThreadSafe> AsyncTask;
 	
@@ -41,7 +42,7 @@ private:
 	/** True until the async task completes, then false */
 	bool bShouldTick;
 
-	static TSharedPtr<FARSystemBase, ESPMode::ThreadSafe> RegisteredARSystem;
+	static TWeakPtr<FARSupportInterface , ESPMode::ThreadSafe> RegisteredARSystem;
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FARSaveWorldPin, const TArray<uint8>&, SavedWorld);

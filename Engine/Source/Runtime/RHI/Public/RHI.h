@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RHI.h: Render Hardware Interface definitions.
@@ -18,8 +18,18 @@
 class FResourceArrayInterface;
 class FResourceBulkDataInterface;
 
-/** Uniform buffer structs must be aligned to 16-byte boundaries. */
-#define UNIFORM_BUFFER_STRUCT_ALIGNMENT 16
+
+/** Alignment of the shader parameters struct is required to be 16-byte boundaries. */
+#define SHADER_PARAMETER_STRUCT_ALIGNMENT 16
+
+/** The alignment in bytes between elements of array shader parameters. */
+#define SHADER_PARAMETER_ARRAY_ELEMENT_ALIGNMENT 16
+
+// RHICreateUniformBuffer assumes C++ constant layout matches the shader layout when extracting float constants, yet the C++ struct contains pointers.  
+// Enforce a min size of 64 bits on pointer types in uniform buffer structs to guarantee layout matching between languages.
+#define SHADER_PARAMETER_POINTER_ALIGNMENT sizeof(uint64)
+static_assert(sizeof(void*) <= SHADER_PARAMETER_POINTER_ALIGNMENT, "The alignment of pointer needs to match the largest pointer.");
+
 
 /** RHI Logging. */
 RHI_API DECLARE_LOG_CATEGORY_EXTERN(LogRHI,Log,VeryVerbose);
@@ -51,6 +61,9 @@ class RHI_API FRHICommandList;
 
 /** The maximum number of mip-maps that a texture can contain. 	*/
 extern	RHI_API int32		GMaxTextureMipCount;
+
+/** Does the RHI implements CopyToTexture() with FRHICopyTextureInfo::NumMips > 1 */
+extern RHI_API bool GRHISupportsCopyToTextureMultipleMips;
 
 /** true if this platform has quad buffer stereo support. */
 extern RHI_API bool GSupportsQuadBufferStereo;
@@ -120,7 +133,7 @@ inline bool RHISupportsInstancedStereo(const EShaderPlatform Platform)
 inline bool RHISupportsMultiView(const EShaderPlatform Platform)
 {
 	// Only PS4 and Metal SM5 from 10.13 onward supports Multi-View
-	return (Platform == EShaderPlatform::SP_PS4) || ((Platform == EShaderPlatform::SP_METAL_SM5 || Platform == SP_METAL_SM5_NOTESS) && RHIGetShaderLanguageVersion(Platform) >= 3);
+	return (Platform == EShaderPlatform::SP_PS4) || ((Platform == EShaderPlatform::SP_METAL_SM5 || Platform == SP_METAL_SM5_NOTESS));
 }
 
 inline bool RHISupportsMSAA(EShaderPlatform Platform)
@@ -128,30 +141,24 @@ inline bool RHISupportsMSAA(EShaderPlatform Platform)
 	return 
 		//@todo-rco: Fix when iOS OpenGL supports MSAA
 		Platform != SP_OPENGL_ES2_IOS
-		// @todo marksatt Metal on macOS 10.12 and earlier (or Intel on any macOS < 10.13.2) don't reliably support our MSAA usage & custom resolve.
-#if PLATFORM_MAC
-		&& IsMetalPlatform(Platform) && (FPlatformMisc::MacOSXVersionCompare(10, 13, 0) >= 0) && (!IsRHIDeviceIntel() || FPlatformMisc::MacOSXVersionCompare(10, 13, 2) >= 0)
-#endif
-		// @todo marksatt iOS Desktop Forward needs more work internally
-		&& Platform != SP_METAL_MRT
 		// @todo optimise MSAA for XboxOne, currently uses significant eRAM.
 		&& Platform != SP_XBOXONE_D3D12;
 }
 
 inline bool RHISupportsBufferLoadTypeConversion(EShaderPlatform Platform)
 {
-#if PLATFORM_MAC || PLATFORM_IOS
-	// Fixed from Metal v.2.0 onward.
-	return !IsMetalPlatform(Platform) || RHIGetShaderLanguageVersion(Platform) >= 3;
-#else
 	return true;
-#endif
 }
 
 /** Whether the platform supports reading from volume textures (does not cover rendering to volume textures). */
 inline bool RHISupportsVolumeTextures(ERHIFeatureLevel::Type FeatureLevel)
 {
 	return FeatureLevel >= ERHIFeatureLevel::SM4;
+}
+
+inline bool RHISupportsVertexShaderLayer(const EShaderPlatform Platform)
+{
+	return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) && IsMetalPlatform(Platform) && (IsPCPlatform(Platform) || (Platform == SP_METAL_MRT && RHIGetShaderLanguageVersion(Platform) >= 4));
 }
 
 inline bool RHISupports4ComponentUAVReadWrite(EShaderPlatform Platform)
@@ -165,8 +172,34 @@ inline bool RHISupports4ComponentUAVReadWrite(EShaderPlatform Platform)
 	Shader Platform must not use the mobile renderer, and for Metal, the shader language must be at least 2. */
 inline bool RHISupportsManualVertexFetch(EShaderPlatform InShaderPlatform)
 {
-	return (!IsOpenGLPlatform(InShaderPlatform) || IsSwitchPlatform(InShaderPlatform)) && !IsMobilePlatform(InShaderPlatform) && (!IsMetalPlatform(InShaderPlatform) || RHIGetShaderLanguageVersion(InShaderPlatform) >= 2);
+	return (!IsOpenGLPlatform(InShaderPlatform) || IsSwitchPlatform(InShaderPlatform)) && !IsMobilePlatform(InShaderPlatform);
 }
+
+/** 
+ * Returns true if SV_VertexID contains BaseVertexIndex passed to the draw call, false if shaders must manually construct an absolute VertexID.
+ */
+inline bool RHISupportsAbsoluteVertexID(EShaderPlatform InShaderPlatform)
+{
+	return IsVulkanPlatform(InShaderPlatform) || IsVulkanMobilePlatform(InShaderPlatform);
+}
+
+/** Can this platform compile ray tracing shaders (regardless of project settings).
+ *  To use at runtime, also check GRHISupportsRayTracing and r.RayTracing CVar (see IsRayTracingEnabled() helper).
+ **/
+inline RHI_API bool RHISupportsRayTracingShaders(EShaderPlatform Platform)
+{
+	return Platform == SP_PCD3D_SM5;
+}
+
+/** Can this platform compile shaders that use shader model 6.0 wave intrinsics.
+ *  To use such shaders at runtime, also check GRHISupportsWaveOperations.
+ **/
+inline RHI_API bool RHISupportsWaveOperations(EShaderPlatform Platform)
+{
+	// Currently SM6 shaders are treated as an extension of SM5.
+	return Platform == SP_PCD3D_SM5;
+}
+
 
 // Wrapper for GRHI## global variables, allows values to be overridden for mobile preview modes.
 template <typename TValueType>
@@ -323,6 +356,9 @@ extern RHI_API float GProjectionSignY;
 /** Does this RHI need to wait for deletion of resources due to ref counting. */
 extern RHI_API bool GRHINeedsExtraDeletionLatency;
 
+/** Allow opt-out default RHI resource deletion latency for streaming textures */
+extern RHI_API bool GRHIForceNoDeletionLatencyForStreamingTextures;
+
 /** The maximum size allowed for a computeshader dispatch. */
 extern RHI_API TRHIGlobal<int32> GMaxComputeDispatchDimension;
 
@@ -423,11 +459,17 @@ extern RHI_API TRHIGlobal<bool> GRHISupportsInstancing;
 /** True if the RHI supports copying cubemap faces using CopyToResolveTarget */
 extern RHI_API bool GRHISupportsResolveCubemapFaces;
 
-/** Whether or not the RHI can handle a non-zero FirstInstance - extra SetStreamSource calls will be needed if this is false */
+/** Whether or not the RHI can handle a non-zero FirstInstance to DrawIndexedPrimitive and friends - extra SetStreamSource calls will be needed if this is false */
 extern RHI_API bool GRHISupportsFirstInstance;
 
 /** Whether or not the RHI can handle dynamic resolution or not. */
 extern RHI_API bool GRHISupportsDynamicResolution;
+
+/** Whether or not the RHI supports ray tracing on current hardware (acceleration structure building and new ray tracing-specific shader types). */
+extern RHI_API bool GRHISupportsRayTracing;
+
+/** Whether or not the RHI supports shader wave operations (shader model 6.0). */
+extern RHI_API bool GRHISupportsWaveOperations;
 
 /** Whether or not the RHI supports an RHI thread.
 Requirements for RHI thread
@@ -1124,7 +1166,7 @@ struct FRHIResourceCreateInfo
 		: BulkData(nullptr)
 		, ResourceArray(nullptr)
 		, ClearValueBinding(FLinearColor::Transparent)
-		, DebugName(NULL)
+		, DebugName(nullptr)
 	{}
 
 	// for CreateTexture calls
@@ -1132,7 +1174,7 @@ struct FRHIResourceCreateInfo
 		: BulkData(InBulkData)
 		, ResourceArray(nullptr)
 		, ClearValueBinding(FLinearColor::Transparent)
-		, DebugName(NULL)
+		, DebugName(nullptr)
 	{}
 
 	// for CreateVertexBuffer/CreateStructuredBuffer calls
@@ -1140,14 +1182,22 @@ struct FRHIResourceCreateInfo
 		: BulkData(nullptr)
 		, ResourceArray(InResourceArray)
 		, ClearValueBinding(FLinearColor::Transparent)
-		, DebugName(NULL)
+		, DebugName(nullptr)
 	{}
 
 	FRHIResourceCreateInfo(const FClearValueBinding& InClearValueBinding)
 		: BulkData(nullptr)
 		, ResourceArray(nullptr)
 		, ClearValueBinding(InClearValueBinding)
-		, DebugName(NULL)
+		, DebugName(nullptr)
+	{
+	}
+
+	FRHIResourceCreateInfo(const TCHAR* InDebugName)
+		: BulkData(nullptr)
+		, ResourceArray(nullptr)
+		, ClearValueBinding(FLinearColor::Transparent)
+		, DebugName(InDebugName)
 	{
 	}
 
@@ -1244,36 +1294,21 @@ struct FResolveParams
 
 struct FRHICopyTextureInfo
 {
-	// Number of texels to copy. Z Must be always be > 0.
-	FIntVector Size = {0, 0, 1};
+	// Number of texels to copy. By default it will copy the whole resource if no size is specified.
+	FIntVector Size = FIntVector::ZeroValue;
 
-	/** The mip index to copy in both source and dest. */
-	int32 MipIndex = 0;
+	// Position of the copy from the source texture/to destination texture
+	FIntVector SourcePosition = FIntVector::ZeroValue;
+	FIntVector DestPosition = FIntVector::ZeroValue;
 
-	/** Array index or cube face to resolve in the source. For Cubemap arrays this would be ArraySlice * 6 + FaceIndex. */
-	int32 SourceArraySlice = 0;
-	/** Array index or cube face to resolve in the dest. */
-	int32 DestArraySlice = 0;
-	// How many slices or faces to copy.
-	int32 NumArraySlices = 1;
+	uint32 SourceSliceIndex = 0;
+	uint32 DestSliceIndex = 0;
+	uint32 NumSlices = 1;
 
-	// 2D copy
-	FRHICopyTextureInfo(int32 InWidth, int32 InHeight)
-		: Size(InWidth, InHeight, 1)
-	{
-	}
-
-	FRHICopyTextureInfo(const FIntVector& InSize)
-		: Size(InSize)
-	{
-	}
-
-	void AdvanceMip()
-	{
-		++MipIndex;
-		Size.X = FMath::Max(Size.X / 2, 1);
-		Size.Y = FMath::Max(Size.Y / 2, 1);
-	}
+	// Mips to copy and destination mips
+	uint32 SourceMipIndex = 0;
+	uint32 DestMipIndex = 0;
+	uint32 NumMips = 1;
 };
 
 enum class EResourceTransitionAccess
@@ -1522,7 +1557,6 @@ DECLARE_MEMORY_STAT_POOL_EXTERN(TEXT("Index buffer memory"),STAT_IndexBufferMemo
 DECLARE_MEMORY_STAT_POOL_EXTERN(TEXT("Vertex buffer memory"),STAT_VertexBufferMemory,STATGROUP_RHI,FPlatformMemory::MCR_GPU,RHI_API);
 DECLARE_MEMORY_STAT_POOL_EXTERN(TEXT("Structured buffer memory"),STAT_StructuredBufferMemory,STATGROUP_RHI,FPlatformMemory::MCR_GPU,RHI_API);
 DECLARE_MEMORY_STAT_POOL_EXTERN(TEXT("Pixel buffer memory"),STAT_PixelBufferMemory,STATGROUP_RHI,FPlatformMemory::MCR_GPU,RHI_API);
-DECLARE_CYCLE_STAT_EXTERN(TEXT("Get/Create PSO"), STAT_GetOrCreatePSO, STATGROUP_RHI, RHI_API);
 
 
 // RHI base resource types.
@@ -1547,6 +1581,7 @@ extern RHI_API void RHIExit();
 #define GETSAFERHISHADER_DOMAIN(Shader) ((Shader) ? (Shader)->GetDomainShader() : (FDomainShaderRHIParamRef)FDomainShaderRHIRef())
 #define GETSAFERHISHADER_GEOMETRY(Shader) ((Shader) ? (Shader)->GetGeometryShader() : (FGeometryShaderRHIParamRef)FGeometryShaderRHIRef())
 #define GETSAFERHISHADER_COMPUTE(Shader) ((Shader) ? (Shader)->GetComputeShader() : (FComputeShaderRHIParamRef)FComputeShaderRHIRef())
+#define GETSAFERHISHADER_RAYTRACING(Shader) ((Shader) ? (Shader)->GetRayTracingShader() : (FRayTracingShaderRHIParamRef)FRayTracingShaderRHIRef())
 
 
 // Panic delegate is called when when a fatal condition is encountered within RHI function.

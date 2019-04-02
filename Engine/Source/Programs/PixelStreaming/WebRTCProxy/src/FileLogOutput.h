@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -28,9 +28,9 @@ public:
 	/**
 	* @param bAutoNewLine if true, ever Log call will automatically append a '\n' to the message
 	*/
-	void SetAutoNewLine(bool bAutoNewLine)
+	void SetAutoNewLine(bool bInAutoNewLine)
 	{
-		this->bAutoNewLine = bAutoNewLine;
+		this->bAutoNewLine = bInAutoNewLine;
 	}
 
 	void Write(const char* Msg);

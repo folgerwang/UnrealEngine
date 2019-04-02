@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 LandscapeLight.cpp: Static lighting for LandscapeComponents
@@ -163,8 +163,8 @@ namespace
 	void GetLODData(ULandscapeComponent* LandscapeComponent, int32 X, int32 Y, int32 HeightmapOffsetX, int32 HeightmapOffsetY, int32 LODValue, int32 HeightmapStride, FColor& OutHeight, FColor& OutXYOffset)
 	{
 		int32 ComponentSize = ((LandscapeComponent->SubsectionSizeQuads + 1) * LandscapeComponent->NumSubsections) >> LODValue;
-		int32 LODHeightmapSizeX = LandscapeComponent->HeightmapTexture->Source.GetSizeX() >> LODValue;
-		int32 LODHeightmapSizeY = LandscapeComponent->HeightmapTexture->Source.GetSizeY() >> LODValue;
+		int32 LODHeightmapSizeX = LandscapeComponent->GetHeightmap()->Source.GetSizeX() >> LODValue;
+		int32 LODHeightmapSizeY = LandscapeComponent->GetHeightmap()->Source.GetSizeY() >> LODValue;
 		float Ratio = (float)(LODHeightmapSizeX) / (HeightmapStride);
 
 		int32 CurrentHeightmapOffsetX = FMath::RoundToInt((float)(LODHeightmapSizeX) * LandscapeComponent->HeightmapScaleBias.Z);
@@ -272,8 +272,8 @@ namespace
 		{
 			check(LandscapeComponent);
 			// Need Upscaling
-			int32 HeightmapStride = LandscapeComponent->HeightmapTexture->Source.GetSizeX() >> InLOD;
-			int32 HeightDataSize = HeightmapStride * LandscapeComponent->HeightmapTexture->Source.GetSizeY() >> InLOD;
+			int32 HeightmapStride = LandscapeComponent->GetHeightmap()->Source.GetSizeX() >> InLOD;
+			int32 HeightDataSize = HeightmapStride * LandscapeComponent->GetHeightmap()->Source.GetSizeY() >> InLOD;
 
 			CompHeightData.Empty(HeightDataSize);
 			CompXYOffsetData.Empty(HeightDataSize);
@@ -720,7 +720,8 @@ void ULandscapeComponent::GetLightAndShadowMapMemoryUsage( int32& LightMapMemory
 	int32 Width, Height;
 	GetLightMapResolution(Width, Height);
 
-	const auto FeatureLevel = GetWorld() ? GetWorld()->FeatureLevel : GMaxRHIFeatureLevel;
+	UWorld* World = GetWorld();
+	const ERHIFeatureLevel::Type FeatureLevel = World ? World->FeatureLevel.GetValue() : GMaxRHIFeatureLevel;
 
 	if(AllowHighQualityLightmaps(FeatureLevel))
 	{

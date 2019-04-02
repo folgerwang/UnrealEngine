@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Windows/WindowsWindow.h"
 #include "Math/UnrealMathUtility.h"
@@ -963,6 +963,30 @@ void FWindowsWindow::SetText( const TCHAR* const Text )
 	SetWindowText(HWnd, Text);
 }
 
+void FWindowsWindow::DrawAttention(const FWindowDrawAttentionParameters& Parameters)
+{
+	FLASHWINFO FlashInfo;
+	FMemory::Memzero(FlashInfo);
+	FlashInfo.cbSize = sizeof(FlashInfo);
+	FlashInfo.hwnd = HWnd;
+
+	switch (Parameters.RequestType)
+	{
+	case EWindowDrawAttentionRequestType::UntilActivated:
+		FlashInfo.dwFlags = FLASHW_TRAY | FLASHW_TIMERNOFG;
+		break;
+
+	case EWindowDrawAttentionRequestType::Stop:
+		FlashInfo.dwFlags = FLASHW_STOP;
+		break;
+
+	default:
+		ensureMsgf(false, TEXT("FWindowsWindow::DrawAttention(): Invalid request type %d"), static_cast<int32>(Parameters.RequestType));
+		break;
+	}
+
+	FlashWindowEx(&FlashInfo);
+}
 
 bool FWindowsWindow::IsRegularWindow() const
 {

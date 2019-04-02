@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Widgets/Browser/SSessionBrowser.h"
 #include "Misc/MessageDialog.h"
@@ -105,7 +105,9 @@ void SSessionBrowser::Construct( const FArguments& InArgs, TSharedRef<ISessionMa
 
 	ReloadSessions();
 
+	updatingTreeExpansion = true;
 	SessionTreeView->SetSingleExpandedItem(AppGroupItem);
+	updatingTreeExpansion = false;
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 

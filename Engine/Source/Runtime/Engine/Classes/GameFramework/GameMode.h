@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -87,14 +87,14 @@ protected:
 	/** Called when the state transitions to WaitingToStart */
 	virtual void HandleMatchIsWaitingToStart();
 
-	/** @return True if ready to Start Match. Games should override this */
+	/** Returns true if ready to Start Match. Games should override this */
 	UFUNCTION(BlueprintNativeEvent, Category="Game")
 	bool ReadyToStartMatch();
 
 	/** Called when the state transitions to InProgress */
 	virtual void HandleMatchHasStarted();
 
-	/** @return true if ready to End Match. Games should override this */
+	/** Returns true if ready to End Match. Games should override this */
 	UFUNCTION(BlueprintNativeEvent, Category="Game")
 	bool ReadyToEndMatch();
 
@@ -166,22 +166,22 @@ public:
 	/** Removes the passed in player controller from the correct count for player/spectator/tranistioning **/
 	void RemovePlayerControllerFromPlayerCount(APlayerController* PC);
 
-	DEPRECATED(4.14, "Deprecated in favor of PreloadContentForURL on GameInstance")
+	UE_DEPRECATED(4.14, "Deprecated in favor of PreloadContentForURL on GameInstance")
 	virtual FString GetDefaultGameClassPath(const FString& MapName, const FString& Options, const FString& Portal) const;
 
-	DEPRECATED(4.14, "Deprecated in favor of OverrideGameModeClass on GameInstance")
+	UE_DEPRECATED(4.14, "Deprecated in favor of OverrideGameModeClass on GameInstance")
 	virtual TSubclassOf<AGameMode> GetGameModeClass(const FString& MapName, const FString& Options, const FString& Portal) const;
 
-	DEPRECATED(4.14, "Deprecated in favor of GetGameModeForName on GameMapsSettings")
+	UE_DEPRECATED(4.14, "Deprecated in favor of GetGameModeForName on GameMapsSettings")
 	static FString StaticGetFullGameClassName(FString const& Str);
 
 	/** Return true if we want to travel_absolute, used by RestartGame by default */
 	virtual bool GetTravelType();
 
-	DEPRECATED(4.14, "SendPlayer is not in use, call ClientTravel directly instead")
+	UE_DEPRECATED(4.14, "SendPlayer is not in use, call ClientTravel directly instead")
 	virtual void SendPlayer( APlayerController* aPlayer, const FString& URL );
 	
-	DEPRECATED(4.14, "StartNewPlayer has been split into InitializeHUDForPlayer and HandleStartingNewPlayer")
+	UE_DEPRECATED(4.14, "StartNewPlayer has been split into InitializeHUDForPlayer and HandleStartingNewPlayer")
 	virtual void StartNewPlayer(APlayerController* NewPlayer);
 
 	/** Exec command to broadcast a string to all players */
@@ -189,7 +189,7 @@ public:
 	virtual void Say(const FString& Msg);
 
 	/** Alters the synthetic bandwidth limit for a running game. */
-	DEPRECATED(4.17, "AsyncIOBandwidthLimit is no longer configurable")
+	UE_DEPRECATED(4.17, "AsyncIOBandwidthLimit is no longer configurable")
 	UFUNCTION(exec)	
 	virtual void SetBandwidthLimit(float AsyncIOBandwidthLimit) {}
 

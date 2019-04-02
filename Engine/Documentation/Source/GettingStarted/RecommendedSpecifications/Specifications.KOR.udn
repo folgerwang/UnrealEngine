@@ -263,7 +263,7 @@ Visual Studio 2015 Professional 또는 Visual Studio 2015 Community:
 
 [EXCERPT:WER]
 [REGION:note]
-UE4 의 크래시 리포트 기능은 **Windows Error Reporting** (윈도우 오류 보고) 기능이 켜져있어야 하며, 기본 설정되어 있습니다. 이 기능을 껐다면, 켜주시기 바랍니다.
+UE4 의 크래시 리포트 기능은 **Windows Error Reporting** (Windows 오류 보고) 기능이 켜져있어야 하며, 기본 설정되어 있습니다. 이 기능을 껐다면, 켜주시기 바랍니다.
 [/REGION]
 [/EXCERPT:WER]
 

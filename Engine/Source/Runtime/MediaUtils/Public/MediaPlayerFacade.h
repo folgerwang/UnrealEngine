@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -58,6 +58,9 @@ public:
 
 	/** Extra time to reduce from current player's time. */
 	FTimespan TimeDelay;
+
+	/** Active media player options. */
+	TOptional<FMediaPlayerOptions> ActivePlayerOptions;
 
 public:
 
@@ -470,6 +473,13 @@ public:
 	bool IsPreparing() const;
 
 	/**
+	 * Whether media is currently closed.
+	 *
+	 * @return true if media is closed, false otherwise.
+	 */
+	bool IsClosed() const;
+
+	/**
 	 * Whether media is ready for playback.
 	 *
 	 * A player is ready for playback if it has a media source opened that
@@ -631,6 +641,35 @@ public:
 	 */
 	bool SupportsRate(float Rate, bool Unthinned) const;
 
+	/**
+	 * Record last audio sample played to track audio sync (for automated tests)
+	 *
+	 * @param SampleTime Time of media sample currently being played
+	 * @return true if playback is being prepared, false otherwise.
+	 */
+	void SetLastAudioRenderedSampleTime(FTimespan SampleTime);
+
+	/**
+	 * Get time of last audio sample played
+	 *
+	 * @return Time of last audio sample played.
+	 */
+	FTimespan GetLastAudioRenderedSampleTime() const;
+
+	/**
+	 * Get time of last audio sample decoded
+	 *
+	 * @return Time of last audio sample decoded.
+	 */
+	FTimespan GetLastAudioSampleProcessedTime() const;
+
+	/**
+	 * Get time of last video sample decoded
+	 *
+	 * @return Time of last video sample decoded.
+	 */
+	FTimespan GetLastVideoSampleProcessedTime() const;
+
 public:
 
 	/** Get an event delegate that is invoked when a media event occurred. */
@@ -779,6 +818,12 @@ private:
 	/** Media player event queue. */
 	TQueue<EMediaEvent, EQueueMode::Mpsc> QueuedEvents;
 
-	/** Active media player options. */
-	TOptional<FMediaPlayerOptions> ActivePlayerOptions;
+	/** Time of last audio sample played. */
+	TAtomic<FTimespan> LastAudioRenderedSampleTime;
+
+	/** Time of last audio sample decoded. */
+	TAtomic<FTimespan> LastAudioSampleProcessedTime;
+
+	/** Time of last video sample decoded. */
+	TAtomic<FTimespan> LastVideoSampleProcessedTime;
 };

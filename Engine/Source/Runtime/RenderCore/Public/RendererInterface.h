@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RendererInterface.h: Renderer interface definition.
@@ -23,37 +23,29 @@ class FSceneRenderTargets;
 class FSceneView;
 class FSceneViewFamily;
 class FSceneTexturesUniformParameters;
+class FGlobalDistanceFieldParameterData;
 struct FMeshBatch;
 struct FSynthBenchmarkResults;
 class IVirtualTextureSpace;
 struct FVirtualTextureSpaceDesc;
 
-enum class EShowMaterialDrawEventTypes
-{
-	None						= 0 << 0,  //0
-	CompositionLighting			= 1 << 0,  //1
-	BasePass					= 1 << 1,  //2
-	DepthPositionOnly			= 1 << 2,  //4
-	Depth						= 1 << 3,  //8
-	DistortionDynamic			= 1 << 4,  //16
-	DistortionStatic			= 1 << 5,  //32
-	MobileBasePass				= 1 << 6,  //64
-	MobileTranslucent			= 1 << 7,  //128
-	MobileTranslucentOpacity	= 1 << 8,  //256
-	ShadowDepth					= 1 << 9,  //512
-	ShadowDepthRsm				= 1 << 10, //1024
-	ShadowDepthStatic			= 1 << 11, //2048
-	StaticDraw					= 1 << 12, //4096
-	StaticDrawStereo			= 1 << 13, //8192
-	TranslucentLighting			= 1 << 14, //16384
-	Translucent					= 1 << 15, //32768
-	Velocity					= 1 << 16, //65536
-	FogVoxelization				= 1 << 17, //131072
-};
-ENUM_CLASS_FLAGS(EShowMaterialDrawEventTypes)
-
 // Shortcut for the allocator used by scene rendering.
 typedef TMemStackAllocator<> SceneRenderingAllocator;
+
+class SceneRenderingBitArrayAllocator
+	: public TInlineAllocator<4,SceneRenderingAllocator>
+{
+};
+
+class SceneRenderingSparseArrayAllocator
+	: public TSparseArrayAllocator<SceneRenderingAllocator,SceneRenderingBitArrayAllocator>
+{
+};
+
+class SceneRenderingSetAllocator
+	: public TSetAllocator<SceneRenderingSparseArrayAllocator,TInlineAllocator<1,SceneRenderingAllocator> >
+{
+};
 
 /** All necessary data to create a render target from the pooled render targets. */
 struct FPooledRenderTargetDesc
@@ -476,58 +468,6 @@ struct FQueryVisualizeTexureInfo
 };
 
 
-/** The vertex data used to filter a texture. */
-struct FFilterVertex
-{
-	FVector4 Position;
-	FVector2D UV;
-};
-
-/** The filter vertex declaration resource type. */
-class FFilterVertexDeclaration : public FRenderResource
-{
-public:
-	FVertexDeclarationRHIRef VertexDeclarationRHI;
-
-	/** Destructor. */
-	virtual ~FFilterVertexDeclaration() {}
-
-	virtual void InitRHI()
-	{
-		FVertexDeclarationElementList Elements;
-		uint32 Stride = sizeof(FFilterVertex);
-		Elements.Add(FVertexElement(0,STRUCT_OFFSET(FFilterVertex,Position),VET_Float4,0,Stride));
-		Elements.Add(FVertexElement(0,STRUCT_OFFSET(FFilterVertex,UV),VET_Float2,1,Stride));
-		VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
-	}
-
-	virtual void ReleaseRHI()
-	{
-		VertexDeclarationRHI.SafeRelease();
-	}
-};
-
-/** The empty vertex declaration resource type. */
-class FEmptyVertexDeclaration : public FRenderResource
-{
-public:
-	FVertexDeclarationRHIRef VertexDeclarationRHI;
-
-	/** Destructor. */
-	virtual ~FEmptyVertexDeclaration() {}
-
-	virtual void InitRHI()
-	{
-		FVertexDeclarationElementList Elements;
-		VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
-	}
-
-	virtual void ReleaseRHI()
-	{
-		VertexDeclarationRHI.SafeRelease();
-	}
-};
-
 // use r.DrawDenormalizedQuadMode to override the function call setting (quick way to see if an artifact is caused by this optimization)
 enum EDrawRectangleFlags
 {
@@ -539,29 +479,29 @@ enum EDrawRectangleFlags
 	EDRF_UseTesselatedIndexBuffer
 };
 
-class FPostOpaqueRenderParameters
+class FPreSceneRenderValues
 {
 	public:
-		FIntRect ViewportRect;
-		FMatrix ViewMatrix;
-		FMatrix ProjMatrix;
-		FRHITexture2D* DepthTexture;
-		FRHITexture2D* NormalTexture;
-		FRHITexture2D* SmallDepthTexture;
-		FRHICommandListImmediate* RHICmdList;
-		FUniformBufferRHIParamRef ViewUniformBuffer;
-		TUniformBufferRef<FSceneTexturesUniformParameters> SceneTexturesUniformParams;
-		void* Uid; // A unique identifier for the view.
+		bool bUsesGlobalDistanceField = false;
 };
-DECLARE_DELEGATE_OneParam(FPostOpaqueRenderDelegate, class FPostOpaqueRenderParameters&);
+DECLARE_MULTICAST_DELEGATE_OneParam(FPreSceneRenderDelegate, class FPreSceneRenderValues&);
 
-
-class FComputeDispatcher
+class FPostOpaqueRenderParameters
 {
 public:
-	virtual void Execute(FRHICommandList &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer) = 0;
+	FIntRect ViewportRect;
+	FMatrix ViewMatrix;
+	FMatrix ProjMatrix;
+	FRHITexture2D* DepthTexture;
+	FRHITexture2D* NormalTexture;
+	FRHITexture2D* SmallDepthTexture;
+	FRHICommandListImmediate* RHICmdList;
+	FUniformBufferRHIParamRef ViewUniformBuffer;
+	TUniformBufferRef<FSceneTexturesUniformParameters> SceneTexturesUniformParams;
+	const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParams;
+	void* Uid; // A unique identifier for the view.
 };
-
+DECLARE_DELEGATE_OneParam(FPostOpaqueRenderDelegate, class FPostOpaqueRenderParameters&);
 
 class ICustomVisibilityQuery: public IRefCountedObject
 {
@@ -725,6 +665,11 @@ public:
 	virtual void RemoveScene(FSceneInterface* Scene) = 0;
 
 	/**
+	* Updates all static draw lists for each allocated scene.
+	*/
+	virtual void UpdateStaticDrawLists() = 0;
+
+	/**
 	 * Updates static draw lists for the given set of materials for each allocated scene.
 	 */
 	virtual void UpdateStaticDrawListsForMaterials(const TArray<const FMaterial*>& Materials) = 0;
@@ -744,12 +689,14 @@ public:
 	virtual void InitializeSystemTextures(FRHICommandListImmediate& RHICmdList) = 0;
 
 	/** Draws a tile mesh element with the specified view. */
-	virtual void DrawTileMesh(FRHICommandListImmediate& RHICmdList, struct FDrawingPolicyRenderState& DrawRenderState, const FSceneView& View, const FMeshBatch& Mesh, bool bIsHitTesting, const class FHitProxyId& HitProxyId) = 0;
+	virtual void DrawTileMesh(FRHICommandListImmediate& RHICmdList, struct FMeshPassProcessorRenderState& DrawRenderState, const FSceneView& View, FMeshBatch& Mesh, bool bIsHitTesting, const class FHitProxyId& HitProxyId) = 0;
 
 	/** Render thread side, use TRefCountPtr<IPooledRenderTarget>, allows to use sharing and VisualizeTexture */
+	// TODO(RDG): Kill that guy.
 	virtual void RenderTargetPoolFindFreeElement(FRHICommandListImmediate& RHICmdList, const FPooledRenderTargetDesc& Desc, TRefCountPtr<IPooledRenderTarget> &Out, const TCHAR* InDebugName) = 0;
 	
 	/** Render thread side, to age the pool elements so they get released at some point */
+	// TODO(RDG): Kill that guy.
 	virtual void TickRenderTargetPool() = 0;
 
 	virtual const TSet<FSceneInterface*>& GetAllocatedScenes() = 0;
@@ -760,7 +707,6 @@ public:
 	// @param WorkScale >0, 10 for normal precision and runtime of less than a second
 	virtual void GPUBenchmark(FSynthBenchmarkResults& InOut, float WorkScale = 10.0f) = 0;
 
-	virtual void QueryVisualizeTexture(FQueryVisualizeTexureInfo& Out) = 0;
 	virtual void ExecVisualizeTextureCmd(const FString& Cmd) = 0;
 
 	virtual void UpdateMapNeedsLightingFullyRebuiltState(UWorld* World) = 0;
@@ -796,22 +742,17 @@ public:
 		EDrawRectangleFlags Flags = EDRF_Default
 		) = 0;
 
-	/** @return Returns a vertex declaration that can be used with with the DrawRectangle() function */
-	virtual TGlobalResource<FFilterVertexDeclaration>& GetFilterVertexDeclaration() = 0;
-
 	/** Register/unregister a custom occlusion culling implementation */
 	virtual void RegisterCustomCullingImpl(ICustomCulling* impl) = 0;
 	virtual void UnregisterCustomCullingImpl(ICustomCulling* impl) = 0;
 
+	virtual FPreSceneRenderDelegate& OnPreSceneRender() = 0;
 	virtual void RegisterPostOpaqueRenderDelegate(const FPostOpaqueRenderDelegate& PostOpaqueRenderDelegate) = 0;
 	virtual void RegisterOverlayRenderDelegate(const FPostOpaqueRenderDelegate& OverlayRenderDelegate) = 0;
 	virtual void RenderPostOpaqueExtensions(const class FViewInfo& View, FRHICommandListImmediate& RHICmdList, class FSceneRenderTargets& SceneContext, TUniformBufferRef<FSceneTexturesUniformParameters>& SceneTextureUniformParams) = 0;
 	virtual void RenderOverlayExtensions(const class FViewInfo& View, FRHICommandListImmediate& RHICmdList, FSceneRenderTargets& SceneContext) = 0;
+	virtual FPreSceneRenderValues PreSceneRenderExtension() = 0;
 	virtual bool HasPostOpaqueExtentions() const = 0;
-
-	virtual void RegisterPostOpaqueComputeDispatcher(FComputeDispatcher *Dispatcher) = 0;
-	virtual void UnRegisterPostOpaqueComputeDispatcher(FComputeDispatcher *Dispatcher) = 0;
-	virtual void DispatchPostOpaqueCompute(FRHICommandList &CmdList, FUniformBufferRHIParamRef ViewUniformBuffer) = 0;
 
 	/** Delegate that is called upon resolving scene color. */
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnResolvedSceneColor, FRHICommandListImmediate& /*RHICmdList*/, class FSceneRenderTargets& /*SceneContext*/);

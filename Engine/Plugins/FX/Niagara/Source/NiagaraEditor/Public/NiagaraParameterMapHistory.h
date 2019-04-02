@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -270,7 +270,7 @@ public:
 	/**
 	* Use the current alias map to resolve any aliases in this input variable name.
 	*/
-	FNiagaraVariable ResolveAliases(const FNiagaraVariable& InVar);
+	FNiagaraVariable ResolveAliases(const FNiagaraVariable& InVar) const;
 	
 	/**
 	* Has RegisterNodeVisitation been called yet on the owning node of this pin?

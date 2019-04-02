@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AttributeDetails.h"
 #include "UObject/UnrealType.h"
@@ -427,7 +427,7 @@ TSharedPtr<FString> FScalableFloatDetails::InitWidgetContent()
 	if (CurveTable != NULL)
 	{
 		/** Extract all the row names from the RowMap */
-		for (TMap<FName, FRichCurve*>::TConstIterator Iterator(CurveTable->RowMap); Iterator; ++Iterator)
+		for (TMap<FName, FRealCurve*>::TConstIterator Iterator(CurveTable->GetRowMap()); Iterator; ++Iterator)
 		{
 			/** Create a simple array of the row names */
 			TSharedRef<FString> RowNameItem = MakeShareable(new FString(Iterator.Key().ToString()));
@@ -601,7 +601,7 @@ void FScalableFloatDetails::OnFilterTextChanged(const FText& InFilterText)
 	if (CurveTable != NULL)
 	{
 		/** Extract all the row names from the RowMap */
-		for (TMap<FName, FRichCurve*>::TConstIterator Iterator(CurveTable->RowMap); Iterator; ++Iterator)
+		for (TMap<FName, FRealCurve*>::TConstIterator Iterator(CurveTable->GetRowMap()); Iterator; ++Iterator)
 		{
 			/** Create a simple array of the row names */
 			FString RowString = Iterator.Key().ToString();

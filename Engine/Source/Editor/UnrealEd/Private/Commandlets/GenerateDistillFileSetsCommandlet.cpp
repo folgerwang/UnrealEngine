@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "Commandlets/GenerateDistillFileSetsCommandlet.h"
@@ -338,6 +338,55 @@ int32 UGenerateDistillFileSetsCommandlet::Main( const FString& InParams )
 			{
 				AllFileSets += FString::Printf(TEXT("<FileSet Path=\"%s.*\" bIsRecursive=\"false\"/>") LINE_TERMINATOR, *FileSetPath);
 			}
+		}
+	}
+
+	// Add additional files marked for distillation
+	TArray<FString> AdditionalFilesToDistill;
+	GConfig->GetArray(TEXT("DistillSettings"), TEXT("FilesToAlwaysDistill"), AdditionalFilesToDistill, GEngineIni);
+
+	TArray<FString> AdditionalFilesToDistillFullPath;
+	for (const FString& File : AdditionalFilesToDistill)
+	{
+		//Only support path relative to content directory
+		if (!FPaths::IsRelative(File))
+		{
+			continue;
+		}
+
+		FString FileAbsolutePath = FPaths::ConvertRelativePathToFull(FPaths::Combine(AbsoluteGameContentDir, File));
+
+		FString Path;
+		FString Filename;
+		FString Extension;
+		FPaths::Split(FileAbsolutePath, Path, Filename, Extension);
+		if (!FPaths::DirectoryExists(Path)
+			|| Filename.IsEmpty())
+		{
+			continue;
+		}
+
+		//Verify if we're looking at an arbitrary amount of desired files
+		if (Filename == TEXT("*"))
+		{
+			TArray<FString> SubDirectoryFiles;
+			IFileManager::Get().FindFilesRecursive(SubDirectoryFiles, *Path, *(Filename + (!Extension.IsEmpty() ? TEXT(".") + Extension : TEXT(""))), true, false);
+			AdditionalFilesToDistillFullPath.Append(SubDirectoryFiles);
+		}
+		else
+		{
+			AdditionalFilesToDistillFullPath.Add(FileAbsolutePath);
+		}
+	}
+
+	for (FString& AdditionalFile : AdditionalFilesToDistillFullPath)
+	{
+		FPaths::MakeStandardFilename(AdditionalFile);
+		if (FPaths::FileExists(AdditionalFile))
+		{
+			AdditionalFile = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*AdditionalFile);
+			AllFileSets += FString::Printf(TEXT("%s") LINE_TERMINATOR, *AdditionalFile);
+			UE_LOG(LogGenerateDistillFileSetsCommandlet, Log, TEXT("Additional file: %s"), *AdditionalFile);
 		}
 	}
 

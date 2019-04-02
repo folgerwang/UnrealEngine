@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimNodes/AnimNode_SequenceEvaluator.h"
 #include "Animation/AnimInstanceProxy.h"
@@ -28,7 +28,7 @@ void FAnimNode_SequenceEvaluator::CacheBones_AnyThread(const FAnimationCacheBone
 
 void FAnimNode_SequenceEvaluator::UpdateAssetPlayer(const FAnimationUpdateContext& Context)
 {
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 
 	if (Sequence)
 	{
@@ -72,7 +72,8 @@ void FAnimNode_SequenceEvaluator::UpdateAssetPlayer(const FAnimationUpdateContex
  			}
 			
 			const float DeltaTime = Context.GetDeltaTime();
-			const float PlayRate = FMath::IsNearlyZero(DeltaTime) ? 0.f : (TimeJump / DeltaTime);
+			const float RateScale = Sequence->RateScale;
+			const float PlayRate = FMath::IsNearlyZero(DeltaTime) || FMath::IsNearlyZero(RateScale) ? 0.f : (TimeJump / (DeltaTime * RateScale));
 			CreateTickRecordForNode(Context, Sequence, bShouldLoop, PlayRate);
 		}
 		else

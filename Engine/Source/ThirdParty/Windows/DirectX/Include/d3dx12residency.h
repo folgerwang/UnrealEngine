@@ -296,10 +296,19 @@ namespace D3DX12Residency
 		{
 			pSyncManager = pSyncManagerIn;
 			MaxResidencySetSize = MaxSize;
+			
+			if (MaxSize)
+			{
+				ppSet = new ManagedObject*[MaxResidencySetSize];
 
-			ppSet = new ManagedObject*[MaxResidencySetSize];
+				return ppSet != nullptr;
+			}
 
-			return ppSet != nullptr;
+			// Empty set may be indicative of errors higher up, e.g. that something doesn't have its ResidencySet initialized. Unfortunately, such errors are generally masked
+			// by everything else that has it properly initialized, so it generally only hits on super tiny commandlists.
+			// That is not a fatal error though, so we accept the zero case here, otherwise new[] below returns nullptr, and a spurious E_OUTOFMEMORY is returned from ExecuteSubset()
+			// resulting in the termination of the process with a confusing "driver crash" end user message.
+			return true;
 		}
 
 		inline void Realloc()

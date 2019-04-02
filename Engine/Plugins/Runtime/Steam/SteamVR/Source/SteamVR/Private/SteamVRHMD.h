@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "ISteamVRPlugin.h"
@@ -227,6 +227,7 @@ public:
 	// Create/Set/Get/Destroy inherited from TStereoLayerManager
 	virtual void UpdateSplashScreen() override;
 	virtual void GetAllocatedTexture(uint32 LayerId, FTextureRHIRef &Texture, FTextureRHIRef &LeftTexture) override;
+	virtual bool ShouldCopyDebugLayersToSpectatorScreen() const override { return true; }
 
 	// ISceneViewExtension interface
 	virtual void SetupViewFamily(FSceneViewFamily& InViewFamily) override {};
@@ -386,10 +387,6 @@ public:
 
 	/** @return	True if the API was initialized OK */
 	bool IsInitialized() const;
-
-	vr::IVRSystem* GetVRSystem() const { return VRSystem; }
-	vr::IVRInput* GetVRInput() const { return VRInput; }
-	vr::IVRRenderModels* GetRenderModelManager() const { return VRRenderModels; }
 
 protected:
 
@@ -589,8 +586,6 @@ private:
 	vr::IVRCompositor* VRCompositor;
 	vr::IVROverlay* VROverlay;
 	vr::IVRChaperone* VRChaperone;
-	vr::IVRRenderModels* VRRenderModels;
-	vr::IVRInput* VRInput;
 
 	FString DisplayId;
 

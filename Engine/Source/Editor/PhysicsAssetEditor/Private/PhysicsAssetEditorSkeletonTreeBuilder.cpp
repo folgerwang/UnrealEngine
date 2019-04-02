@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PhysicsAssetEditorSkeletonTreeBuilder.h"
 #include "SkeletonTreePhysicsBodyItem.h"
@@ -99,6 +99,10 @@ void FPhysicsAssetEditorSkeletonTreeBuilder::AddBodies(FSkeletonTreeBuilderOutpu
 				bool bHasBodySetup = false;
 				for (int32 BodySetupIndex = 0; BodySetupIndex < PhysicsAsset->SkeletalBodySetups.Num(); ++BodySetupIndex)
 				{
+					if (!ensure(PhysicsAsset->SkeletalBodySetups[BodySetupIndex]))
+					{
+						continue;
+					}
 					if (BoneName == PhysicsAsset->SkeletalBodySetups[BodySetupIndex]->BoneName)
 					{
 						USkeletalBodySetup* BodySetup = PhysicsAsset->SkeletalBodySetups[BodySetupIndex];

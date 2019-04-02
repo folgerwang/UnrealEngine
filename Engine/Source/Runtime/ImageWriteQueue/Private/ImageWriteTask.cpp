@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ImageWriteTask.h"
 #include "ImageWriteQueue.h"
@@ -219,7 +219,7 @@ bool FImageWriteTask::EnsureWritableFile()
 	// We can't write to the file
 	else
 	{
-		UE_LOG(LogImageWriteQueue, Error, TEXT("Failed to write image to '%s'. The pixel format may not be compatible with this image type, or there was an error writing to that filename."), *Filename);
+		UE_LOG(LogImageWriteQueue, Error, TEXT("Failed to write image to '%s'. Should Overwrite: %d - If we should have overwritten the file, we failed to delete the file. If we shouldn't have overwritten the file the file already exists so we can't replace it."), *Filename, bOverwriteFile);
 		return false;
 	}
 }

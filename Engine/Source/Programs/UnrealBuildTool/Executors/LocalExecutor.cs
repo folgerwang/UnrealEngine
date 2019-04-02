@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -37,24 +37,6 @@ namespace UnrealBuildTool
 		int TotalJobs;
 
 		/// <summary>
-		/// Regex that matches environment variables in $(Variable) format.
-		/// </summary>
-		static Regex EnvironmentVariableRegex = new Regex("\\$\\(([\\d\\w]+)\\)");
-
-		/// <summary>
-		/// Replaces the environment variables references in a string with their values.
-		/// </summary>
-		public static string ExpandEnvironmentVariables(string Text)
-		{
-			foreach (Match EnvironmentVariableMatch in EnvironmentVariableRegex.Matches(Text))
-			{
-				string VariableValue = Environment.GetEnvironmentVariable(EnvironmentVariableMatch.Groups[1].Value);
-				Text = Text.Replace(EnvironmentVariableMatch.Value, VariableValue);
-			}
-			return Text;
-		}
-
-		/// <summary>
 		/// Constructor, takes the action to process
 		/// </summary>
 		public ActionThread(Action InAction, int InJobNumber, int InTotalJobs)
@@ -89,156 +71,109 @@ namespace UnrealBuildTool
 			// thread start time
 			Action.StartTime = DateTimeOffset.Now;
 
-			if (Action.ActionHandler != null)
+			// Create the action's process.
+			ProcessStartInfo ActionStartInfo = new ProcessStartInfo();
+			ActionStartInfo.WorkingDirectory = Action.WorkingDirectory.FullName;
+			ActionStartInfo.FileName = Action.CommandPath.FullName;
+			ActionStartInfo.Arguments = Action.CommandArguments;
+			ActionStartInfo.UseShellExecute = false;
+			ActionStartInfo.RedirectStandardInput = false;
+			ActionStartInfo.RedirectStandardOutput = false;
+			ActionStartInfo.RedirectStandardError = false;
+
+			// Log command-line used to execute task if debug info printing is enabled.
+			Log.TraceVerbose("Executing: {0} {1}", ActionStartInfo.FileName, ActionStartInfo.Arguments);
+
+			// Log summary if wanted.
+			if (Action.bShouldOutputStatusDescription)
 			{
-				// call the function and get the ExitCode and an output string
-				string Output;
-				Action.ActionHandler(Action, out ExitCode, out Output);
-
-				// Output status description (file name) when no output is returned
-				if (string.IsNullOrEmpty(Output))
+				string CommandDescription = Action.CommandDescription != null ? Action.CommandDescription : Path.GetFileName(ActionStartInfo.FileName);
+				if (string.IsNullOrEmpty(CommandDescription))
 				{
-					if (Action.bShouldOutputStatusDescription)
-					{
-						Output = string.Format("[{0}/{1}] {2} {3}", JobNumber, TotalJobs, Action.CommandDescription, Action.StatusDescription);
-					}
-					else
-					{
-						Output = Action.StatusDescription;
-					}
-				}
-
-				Log.TraceInformation(Output);
-			}
-			else
-			{
-				// batch files (.bat, .cmd) need to be run via or cmd /c or shellexecute, 
-				// the latter which we can't use because we want to redirect input/output
-				bool bLaunchViaCmdExe = !Utils.IsRunningOnMono && !Path.GetExtension(Action.CommandPath).ToLower().EndsWith("exe");
-
-				// Create the action's process.
-				ProcessStartInfo ActionStartInfo = new ProcessStartInfo();
-				ActionStartInfo.WorkingDirectory = ExpandEnvironmentVariables(Action.WorkingDirectory);
-
-
-				string ExpandedCommandPath = ExpandEnvironmentVariables(Action.CommandPath);
-				if (bLaunchViaCmdExe)
-				{
-					ActionStartInfo.FileName = "cmd.exe";
-					ActionStartInfo.Arguments = string.Format
-					(
-						"/c \"{0} {1}\"",
-						ExpandEnvironmentVariables(ExpandedCommandPath),
-						ExpandEnvironmentVariables(Action.CommandArguments)
-					);
+					Log.TraceInformation(Action.StatusDescription);
 				}
 				else
 				{
-					ActionStartInfo.FileName = ExpandedCommandPath;
-					ActionStartInfo.Arguments = ExpandEnvironmentVariables(Action.CommandArguments);
+					Log.TraceInformation("[{0}/{1}] {2} {3}", JobNumber, TotalJobs, CommandDescription, Action.StatusDescription);
 				}
+			}
 
-				ActionStartInfo.UseShellExecute = false;
-				ActionStartInfo.RedirectStandardInput = false;
-				ActionStartInfo.RedirectStandardOutput = false;
-				ActionStartInfo.RedirectStandardError = false;
-
-				// Log command-line used to execute task if debug info printing is enabled.
-				if (UnrealBuildTool.bPrintDebugInfo)
-				{
-					Log.TraceVerbose("Executing: {0} {1}", ExpandedCommandPath, ActionStartInfo.Arguments);
-				}
-				// Log summary if wanted.
-				else if (Action.bShouldOutputStatusDescription)
-				{
-					string CommandDescription = Action.CommandDescription != null ? Action.CommandDescription : Path.GetFileName(ExpandedCommandPath);
-					if (string.IsNullOrEmpty(CommandDescription))
-					{
-						Log.TraceInformation(Action.StatusDescription);
-					}
-					else
-					{
-						Log.TraceInformation("[{0}/{1}] {2} {3}", JobNumber, TotalJobs, CommandDescription, Action.StatusDescription);
-					}
-				}
-
-				// Try to launch the action's process, and produce a friendly error message if it fails.
-				Process ActionProcess = null;
+			// Try to launch the action's process, and produce a friendly error message if it fails.
+			Process ActionProcess = null;
+			try
+			{
 				try
 				{
-					try
-					{
-						ActionProcess = new Process();
-						ActionProcess.StartInfo = ActionStartInfo;
-						ActionStartInfo.RedirectStandardOutput = true;
-						ActionStartInfo.RedirectStandardError = true;
-						ActionProcess.OutputDataReceived += new DataReceivedEventHandler(ActionDebugOutput);
-						ActionProcess.ErrorDataReceived += new DataReceivedEventHandler(ActionDebugOutput);
-						ActionProcess.Start();
+					ActionProcess = new Process();
+					ActionProcess.StartInfo = ActionStartInfo;
+					ActionStartInfo.RedirectStandardOutput = true;
+					ActionStartInfo.RedirectStandardError = true;
+					ActionProcess.OutputDataReceived += new DataReceivedEventHandler(ActionDebugOutput);
+					ActionProcess.ErrorDataReceived += new DataReceivedEventHandler(ActionDebugOutput);
+					ActionProcess.Start();
 
-						ActionProcess.BeginOutputReadLine();
-						ActionProcess.BeginErrorReadLine();
-					}
-					catch (Exception ex)
-					{
-						Log.TraceError("Failed to start local process for action: {0} {1}", Action.CommandPath, Action.CommandArguments);
-						Log.WriteException(ex, null);
-						ExitCode = 1;
-						bComplete = true;
-						return;
-					}
-
-					// wait for process to start
-					// NOTE: this may or may not be necessary; seems to depend on whether the system UBT is running on start the process in a timely manner.
-					int checkIterations = 0;
-					bool haveConfiguredProcess = false;
-					do
-					{
-						if (ActionProcess.HasExited)
-						{
-							if (haveConfiguredProcess == false)
-								Debug.WriteLine("Process for action exited before able to configure!");
-							break;
-						}
-
-						if (!haveConfiguredProcess)
-						{
-							try
-							{
-								ActionProcess.PriorityClass = ProcessPriorityClass.BelowNormal;
-								haveConfiguredProcess = true;
-							}
-							catch (Exception)
-							{
-							}
-							break;
-						}
-
-						Thread.Sleep(10);
-
-						checkIterations++;
-					} while (checkIterations < 100);
-					if (checkIterations == 100)
-					{
-						throw new BuildException("Failed to configure local process for action: {0} {1}", Action.CommandPath, Action.CommandArguments);
-					}
-
-					// block until it's complete
-					// @todo iosmerge: UBT had started looking at:	if (Utils.IsValidProcess(Process))
-					//    do we need to check that in the thread model?
-					ActionProcess.WaitForExit();
-
-					// capture exit code
-					ExitCode = ActionProcess.ExitCode;
+					ActionProcess.BeginOutputReadLine();
+					ActionProcess.BeginErrorReadLine();
 				}
-				finally
+				catch (Exception ex)
 				{
-					// As the process has finished now, free its resources. On non-Windows platforms, processes depend 
-					// on POSIX/BSD threading and these are limited per application. Disposing the Process releases 
-					// these thread resources.
-					if (ActionProcess != null)
-						ActionProcess.Close();
+					Log.TraceError("Failed to start local process for action: {0} {1}", Action.CommandPath, Action.CommandArguments);
+					Log.WriteException(ex, null);
+					ExitCode = 1;
+					bComplete = true;
+					return;
 				}
+
+				// wait for process to start
+				// NOTE: this may or may not be necessary; seems to depend on whether the system UBT is running on start the process in a timely manner.
+				int checkIterations = 0;
+				bool haveConfiguredProcess = false;
+				do
+				{
+					if (ActionProcess.HasExited)
+					{
+						if (haveConfiguredProcess == false)
+							Debug.WriteLine("Process for action exited before able to configure!");
+						break;
+					}
+
+					if (!haveConfiguredProcess)
+					{
+						try
+						{
+							ActionProcess.PriorityClass = ProcessPriorityClass.BelowNormal;
+							haveConfiguredProcess = true;
+						}
+						catch (Exception)
+						{
+						}
+						break;
+					}
+
+					Thread.Sleep(10);
+
+					checkIterations++;
+				} while (checkIterations < 100);
+				if (checkIterations == 100)
+				{
+					throw new BuildException("Failed to configure local process for action: {0} {1}", Action.CommandPath, Action.CommandArguments);
+				}
+
+				// block until it's complete
+				// @todo iosmerge: UBT had started looking at:	if (Utils.IsValidProcess(Process))
+				//    do we need to check that in the thread model?
+				ActionProcess.WaitForExit();
+
+				// capture exit code
+				ExitCode = ActionProcess.ExitCode;
+			}
+			finally
+			{
+				// As the process has finished now, free its resources. On non-Windows platforms, processes depend 
+				// on POSIX/BSD threading and these are limited per application. Disposing the Process releases 
+				// these thread resources.
+				if (ActionProcess != null)
+					ActionProcess.Close();
 			}
 
 			// track how long it took
@@ -404,12 +339,12 @@ namespace UnrealBuildTool
 								// Determine whether there are any prerequisites of the action that are outdated.
 								bool bHasOutdatedPrerequisites = false;
 								bool bHasFailedPrerequisites = false;
-								foreach (FileItem PrerequisiteItem in Action.PrerequisiteItems)
+								foreach (Action PrerequisiteAction in Action.PrerequisiteActions)
 								{
-									if (PrerequisiteItem.ProducingAction != null && Actions.Contains(PrerequisiteItem.ProducingAction))
+									if (Actions.Contains(PrerequisiteAction))
 									{
 										ActionThread PrerequisiteProcess = null;
-										bool bFoundPrerequisiteProcess = ActionThreadDictionary.TryGetValue(PrerequisiteItem.ProducingAction, out PrerequisiteProcess);
+										bool bFoundPrerequisiteProcess = ActionThreadDictionary.TryGetValue(PrerequisiteAction, out PrerequisiteProcess);
 										if (bFoundPrerequisiteProcess == true)
 										{
 											if (PrerequisiteProcess == null)
@@ -502,7 +437,7 @@ namespace UnrealBuildTool
 					"^{0}^{1:0.00}^{2}^{3}^{4}",
 					Action.ActionType.ToString(),
 					ThreadSeconds,
-					Path.GetFileName(Action.CommandPath),
+					Action.CommandPath.GetFileName(),
 					  Action.StatusDescription,
 					Action.bIsUsingPCH);
 
@@ -541,11 +476,11 @@ namespace UnrealBuildTool
 			Log.WriteLineIf(bLogDetailedActionStats, LogEventType.Console, "-------- End Detailed Actions Stats -----------------------------------------------------------");
 
 			// Log total CPU seconds and numbers of processors involved in tasks.
-			Log.WriteLineIf(bLogDetailedActionStats || UnrealBuildTool.bPrintDebugInfo,
+			Log.WriteLineIf(bLogDetailedActionStats,
 				LogEventType.Console, "Cumulative thread seconds ({0} processors): {1:0.00}", System.Environment.ProcessorCount, TotalThreadSeconds);
 
 			// Log detailed stats
-			Log.WriteLineIf(bLogDetailedActionStats || UnrealBuildTool.bPrintDebugInfo,
+			Log.WriteLineIf(bLogDetailedActionStats,
 				LogEventType.Console,
 				"Cumulative action seconds ({0} processors): {1:0.00} building projects, {2:0.00} compiling, {3:0.00} creating app bundles, {4:0.00} generating debug info, {5:0.00} linking, {6:0.00} other",
 				System.Environment.ProcessorCount,

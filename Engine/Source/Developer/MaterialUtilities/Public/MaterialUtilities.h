@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -24,7 +24,7 @@ class UTexture2D;
 class UTextureRenderTarget2D;
 class UMaterialOptions;
 struct FMaterialProxySettings;
-struct FRawMesh;
+struct FMeshDescription;
 class FSkeletalMeshLODRenderData;
 struct FBakeOutput;
 struct FMeshData;
@@ -140,7 +140,7 @@ struct FMaterialMergeData
 	/** Material that is being baked out */
 	class UMaterialInterface* Material;
 	/** Raw mesh data used to bake out the material with, optional */
-	const struct FRawMesh* Mesh;
+	const struct FMeshDescription* Mesh;
 	/** LODModel data used to bake out the material with, optional */
 	const FSkeletalMeshLODRenderData* LODData;
 	/** Material index to use when the material is baked out using mesh data (face material indices) */
@@ -160,7 +160,7 @@ struct FMaterialMergeData
 
 	FMaterialMergeData(
 		UMaterialInterface* InMaterial,
-		const FRawMesh* InMesh,
+		const FMeshDescription* InMesh,
 		const FSkeletalMeshLODRenderData* InLODData,
 		int32 InMaterialIndex,
 		FBox2D InTexcoordBounds,
@@ -225,7 +225,7 @@ public:
 	 * @param OutBMP				Output array of rendered samples 
 	 * @return						Whether operation was successful
 	 */	
-	DEPRECATED(4.11, "Please use ExportMaterialProperty function with new signature")
+	UE_DEPRECATED(4.11, "Please use ExportMaterialProperty function with new signature")
 	static bool ExportMaterialProperty(UWorld* InWorld, UMaterialInterface* InMaterial, EMaterialProperty InMaterialProperty, UTextureRenderTarget2D* InRenderTarget, TArray<FColor>& OutBMP);
 
 	/**
@@ -237,7 +237,7 @@ public:
 	* @param OutSize			Output size of the rendered samples
 	* @return					Whether operation was successful
 	*/
-	DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
+	UE_DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
 	static bool ExportMaterialProperty(UMaterialInterface* InMaterial, EMaterialProperty InMaterialProperty, TArray<FColor>& OutBMP, FIntPoint& OutSize );
 
 	/**
@@ -249,7 +249,7 @@ public:
 	* @param OutBMP				Output array of rendered samples	
 	* @return					Whether operation was successful
 	*/
-	DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
+	UE_DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
 	static bool ExportMaterialProperty(UMaterialInterface* InMaterial, EMaterialProperty InMaterialProperty, FIntPoint InSize, TArray<FColor>& OutBMP );
 
 	/**
@@ -261,7 +261,7 @@ public:
 	 * @param OutBMP				Output array of rendered samples 
 	 * @return						Whether operation was successful
 	 */
-	DEPRECATED(4.11, "Please use ExportMaterialProperty function with new signature")
+	UE_DEPRECATED(4.11, "Please use ExportMaterialProperty function with new signature")
 	static bool ExportMaterialProperty(UWorld* InWorld, UMaterialInterface* InMaterial, EMaterialProperty InMaterialProperty, FIntPoint& OutSize, TArray<FColor>& OutBMP);
 
 	/**
@@ -272,7 +272,7 @@ public:
 	 * @param OutFlattenMaterial	Output flattened material
 	 * @return						Whether operation was successful
 	 */
-	DEPRECATED(4.11, "Please use ExportMaterial function with new signature")
+	UE_DEPRECATED(4.11, "Please use ExportMaterial function with new signature")
 	static bool ExportMaterial(UWorld* InWorld, UMaterialInterface* InMaterial, FFlattenMaterial& OutFlattenMaterial);
 	
 	/**
@@ -282,28 +282,11 @@ public:
 	* @param OutFlattenMaterial		Output flattened material
 	* @return						Whether operation was successful
 	*/
-	DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
+	UE_DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
 	static bool ExportMaterial(UMaterialInterface* InMaterial, FFlattenMaterial& OutFlattenMaterial, struct FExportMaterialProxyCache* ProxyCache = nullptr);
 
-	DEPRECATED(4.17, "Please use new functionality in MaterialBaking module")
+	UE_DEPRECATED(4.17, "Please use new functionality in MaterialBaking module")
 	static bool ExportMaterials(TArray<FMaterialMergeData*>& MergeData, TArray<FFlattenMaterial*>& OutFlattenMaterials);
-
-	/**
-	* Flattens specified material using mesh data	
-	*
-	* @param InMaterial			Target material
-	* @param InMesh				Mesh data to use for flattening
-	* @param InMaterialIndex	Material index
-	* @param InTexcoordBounds	Texture bounds 
-	* @param InTexCoords		Replacement non-overlapping texture coordinates
-	* @param OutFlattenMaterial Output flattened material
-	* @return					Whether operation was successful
-	*/
-	DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
-	static bool ExportMaterial(UMaterialInterface* InMaterial, const FRawMesh* InMesh, int32 InMaterialIndex, const FBox2D& InTexcoordBounds, const TArray<FVector2D>& InTexCoords, FFlattenMaterial& OutFlattenMaterial, struct FExportMaterialProxyCache* ProxyCache = nullptr);
-
-	DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
-	static bool ExportMaterial(UMaterialInterface* InMaterial, const FRawMesh* InMesh, int32 InMaterialIndex, const FBox2D& InTexcoordBounds, const TArray<FVector2D>& InTexCoords, const int32 LightMapIndex, FLightMapRef LightMap, FShadowMapRef ShadowMap, FUniformBufferRHIRef Buffer, FFlattenMaterial& OutFlattenMaterial, struct FExportMaterialProxyCache* ProxyCache = nullptr);
 
 	/**
 	 * Flattens specified landscape material
@@ -496,7 +479,7 @@ private:
 	* @param OutFlattenMaterial		Output flattened material
 	* @return						Whether operation was successful
 	*/
-	DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
+	UE_DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
 	static bool ExportMaterial(struct FMaterialMergeData& InMaterialData, FFlattenMaterial& OutFlattenMaterial, struct FExportMaterialProxyCache* ProxyCache = nullptr);
 
 	/**
@@ -511,7 +494,7 @@ private:
 	* @param OutSamples				Array of FColor samples containing the rendered out texture pixel data
 	* @return						Whether operation was successful
 	*/
-	DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
+	UE_DEPRECATED(4.19, "Please use new functionality in MaterialBaking module")
 	static bool RenderMaterialPropertyToTexture(struct FMaterialMergeData& InMaterialData, EMaterialProperty InMaterialProperty, bool bInForceLinearGamma, EPixelFormat InPixelFormat, const FIntPoint InTargetSize, FIntPoint& OutSampleSize, TArray<FColor>& OutSamples);
 
 	/**

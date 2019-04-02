@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once 
@@ -61,6 +61,11 @@ public:
 
 	/** Changes the viewport to lit mode */
 	TSharedPtr< FUICommandInfo > LitMode;
+
+#if RHI_RAYTRACING
+	TSharedPtr< FUICommandInfo > PathTracingMode;
+	TSharedPtr< FUICommandInfo > RayTracingDebugMode;
+#endif
 
 	/** Changes the viewport to detail lighting mode */
 	TSharedPtr< FUICommandInfo > DetailLightingMode;

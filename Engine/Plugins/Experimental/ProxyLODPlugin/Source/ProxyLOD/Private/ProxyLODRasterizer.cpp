@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ProxyLODRasterizer.h"
 
@@ -6,7 +6,9 @@
 #include "ProxyLODMeshUtilities.h"
 #include "ProxyLODThreadedWrappers.h"
 
+THIRD_PARTY_INCLUDES_START
 #include <tbb/spin_mutex.h>
+THIRD_PARTY_INCLUDES_END
 
 namespace ProxyLOD
 {
@@ -212,11 +214,13 @@ namespace ProxyLOD
 		return RasterGridPtr;
 	}
 
-	static void InterpolateWedgeColors(const FRawMesh& RawMesh, const ProxyLOD::FRasterGrid& DstUVGrid, FFlattenMaterial& OutMaterial)
+	static void InterpolateWedgeColors(const FMeshDescription& RawMesh, const ProxyLOD::FRasterGrid& DstUVGrid, FFlattenMaterial& OutMaterial)
 	{
 		TArray<FColor>& ColorBuffer = OutMaterial.GetPropertySamples(EFlattenMaterialProperties::Diffuse);
 		FIntPoint Size = OutMaterial.GetPropertySize(EFlattenMaterialProperties::Diffuse);
 		ResizeArray(ColorBuffer, Size.X * Size.Y);
+
+		TVertexInstanceAttributesConstRef<FVector4> VertexInstanceColors = RawMesh.VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
 
 		for (int j = 0; j < Size.Y; ++j)
 		{
@@ -229,11 +233,11 @@ namespace ProxyLOD
 				{
 					const auto& BarycentericCoords = Data.BarycentricCoords;
 
-					const int32 Indexes[3] = { TriangleId * 3, TriangleId * 3 + 1, TriangleId * 3 + 2 };
+					const FVertexInstanceID Indexes[3] = { FVertexInstanceID(TriangleId * 3), FVertexInstanceID(TriangleId * 3 + 1), FVertexInstanceID(TriangleId * 3 + 2) };
 					FLinearColor ColorSamples[3];
-					ColorSamples[0] = FLinearColor(RawMesh.WedgeColors[Indexes[0]]);
-					ColorSamples[1] = FLinearColor(RawMesh.WedgeColors[Indexes[1]]);
-					ColorSamples[2] = FLinearColor(RawMesh.WedgeColors[Indexes[2]]);
+					ColorSamples[0] = FLinearColor(VertexInstanceColors[Indexes[0]]);
+					ColorSamples[1] = FLinearColor(VertexInstanceColors[Indexes[1]]);
+					ColorSamples[2] = FLinearColor(VertexInstanceColors[Indexes[2]]);
 					FLinearColor AvgColor = ProxyLOD::InterpolateVertexData(BarycentericCoords, ColorSamples);
 
 					ColorBuffer[i + j * Size.X] = AvgColor.ToFColor(true);
@@ -247,7 +251,7 @@ namespace ProxyLOD
 
 	};
 
-	void DebugVertexAndTextureColors(FRawMesh& RawMesh, const ProxyLOD::FRasterGrid& DstUVGrid, FFlattenMaterial& OutMaterial)
+	void DebugVertexAndTextureColors(FMeshDescription& RawMesh, const ProxyLOD::FRasterGrid& DstUVGrid, FFlattenMaterial& OutMaterial)
 	{
 		// Testing the Barycentric interpolation.
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -48,14 +48,15 @@ PACKAGE_SCOPE:
 
 public:
 	/**
-	 * Assigns a Windows socket to this object
+	 * Creates a Steam socket
 	 *
 	 * @param InSocket the socket to assign to this object
 	 * @param InSocketType the type of socket that was created
 	 * @param InSocketDescription the debug description of the socket
+	 * @param InSocketProtocol the protocol used to create this socket.
 	 */
-	FSocketSteam(ISteamNetworking* InSteamNetworkingPtr, FUniqueNetIdSteam& InLocalSteamId, const FString& InSocketDescription) :
-		FSocket(SOCKTYPE_Datagram, InSocketDescription),
+	FSocketSteam(ISteamNetworking* InSteamNetworkingPtr, FUniqueNetIdSteam& InLocalSteamId, const FString& InSocketDescription, ESocketProtocolFamily InSocketProtocol) :
+		FSocket(SOCKTYPE_Datagram, InSocketDescription, InSocketProtocol),
 		LocalSteamId(InLocalSteamId),
 		SteamChannel(0),
 		SteamSendMode(k_EP2PSendUnreliable),
@@ -214,13 +215,19 @@ public:
 	 */
 	virtual bool SetBroadcast(bool bAllowBroadcast = true) override;
 
-	virtual bool JoinMulticastGroup (const FInternetAddr& GroupAddress) override;
+	virtual bool JoinMulticastGroup(const FInternetAddr& GroupAddress) override;
 
-	virtual bool LeaveMulticastGroup (const FInternetAddr& GroupAddress) override;
+	virtual bool LeaveMulticastGroup(const FInternetAddr& GroupAddress) override;
 
-	virtual bool SetMulticastLoopback (bool bLoopback) override;
+	virtual bool JoinMulticastGroup(const FInternetAddr& GroupAddress, const FInternetAddr& InterfaceAddress) override;
 
-	virtual bool SetMulticastTtl (uint8 TimeToLive) override;
+	virtual bool LeaveMulticastGroup(const FInternetAddr& GroupAddress, const FInternetAddr& InterfaceAddress) override;
+
+	virtual bool SetMulticastLoopback(bool bLoopback) override;
+
+	virtual bool SetMulticastTtl(uint8 TimeToLive) override;
+
+	virtual bool SetMulticastInterface(const FInternetAddr& InterfaceAddress) override;
 
 	/**
 	 * Sets whether a socket can be bound to an address in use

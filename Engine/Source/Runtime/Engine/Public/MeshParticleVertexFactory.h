@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MeshParticleVertexFactory.h: Mesh particle vertex factory definitions.
@@ -23,13 +23,13 @@ struct FShaderCompilerEnvironment;
 /**
  * Uniform buffer for mesh particle vertex factories.
  */
-BEGIN_UNIFORM_BUFFER_STRUCT( FMeshParticleUniformParameters, ENGINE_API)
-	UNIFORM_MEMBER( FVector4, SubImageSize )
-	UNIFORM_MEMBER( uint32, TexCoordWeightA )
-	UNIFORM_MEMBER( uint32, TexCoordWeightB )
-	UNIFORM_MEMBER( uint32, PrevTransformAvailable )
-	UNIFORM_MEMBER( float, DeltaSeconds)
-	END_UNIFORM_BUFFER_STRUCT(FMeshParticleUniformParameters)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT( FMeshParticleUniformParameters, ENGINE_API)
+	SHADER_PARAMETER( FVector4, SubImageSize )
+	SHADER_PARAMETER( uint32, TexCoordWeightA )
+	SHADER_PARAMETER( uint32, TexCoordWeightB )
+	SHADER_PARAMETER( uint32, PrevTransformAvailable )
+	SHADER_PARAMETER( float, DeltaSeconds)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 typedef TUniformBufferRef<FMeshParticleUniformParameters> FMeshParticleUniformBufferRef;
 
 class FMeshParticleInstanceVertices;
@@ -106,9 +106,9 @@ public:
 	 * Modify compile environment to enable instancing
 	 * @param OutEnvironment - shader compile environment to modify
 	 */
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+	static void ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		FParticleVertexFactoryBase::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+		FParticleVertexFactoryBase::ModifyCompilationEnvironment(Type, Platform, Material, OutEnvironment);
 
 		// Set a define so we can tell in MaterialTemplate.usf when we are compiling a mesh particle vertex factory
 		OutEnvironment.SetDefine(TEXT("PARTICLE_MESH_FACTORY"),TEXT("1"));
@@ -220,9 +220,9 @@ public:
 			&& FMeshParticleVertexFactory::ShouldCompilePermutation(Platform, Material, ShaderType);
 	}
 
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+	static void ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		FMeshParticleVertexFactory::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+		FMeshParticleVertexFactory::ModifyCompilationEnvironment(Type, Platform, Material, OutEnvironment);
 
 		OutEnvironment.SetDefine(TEXT("PARTICLE_MESH_INSTANCED"),TEXT("0"));
 	}

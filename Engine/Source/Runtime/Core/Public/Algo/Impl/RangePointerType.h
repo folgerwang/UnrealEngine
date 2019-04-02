@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -12,7 +12,7 @@ namespace AlgoImpl
 	template <typename RangeType>
 	struct TRangePointerType
 	{
-		using Type = decltype(&*begin(DeclVal<RangeType&>()));
+		using Type = decltype(&*DeclVal<RangeType&>().begin());
 	};
 
 	template <typename T, unsigned int N>

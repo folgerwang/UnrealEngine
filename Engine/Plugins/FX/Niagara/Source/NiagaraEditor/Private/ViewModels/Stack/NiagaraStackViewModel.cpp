@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ViewModels/Stack/NiagaraStackViewModel.h"
 #include "ViewModels/Stack/NiagaraStackRoot.h"
@@ -111,9 +111,10 @@ void UNiagaraStackViewModel::Tick()
 
 void UNiagaraStackViewModel::OnSearchTextChanged(const FText& SearchText)
 {
-	if (RootEntry)
+	if (RootEntry && !CurrentSearchText.EqualTo(SearchText))
 	{
 		CurrentSearchText = SearchText;
+		RestoreStackEntryExpansionPreSearch();
 		// postpone searching until next tick; protects against crashes from the GC
 		// also this can be triggered by multiple events, so better wait
 		bRestartSearch = true;
@@ -225,6 +226,10 @@ void UNiagaraStackViewModel::SearchTick()
 	if (bRestartSearch)
 	{
 		// clear the search results
+		for (auto SearchResult : GetCurrentSearchResults())
+		{
+			SearchResult.GetEntry()->SetIsSearchResult(false);
+		}
 		CurrentSearchResults.Empty();
 		CurrentFocusedSearchMatchIndex = -1;
 		// generates ItemsToSearch, these will be processed on tick, in batches
@@ -232,11 +237,18 @@ void UNiagaraStackViewModel::SearchTick()
 		{
 			GenerateTraversalEntries(RootEntry, TArray<UNiagaraStackEntry*>(), ItemsToSearch);
 		}
+		// we need to call the SearchCompletedDelegate to go through SynchronizeTreeExpansion in SNiagaraStack so that when exiting search we return the stack expansion to the state it was before searching
+		else
+		{
+			SearchCompletedDelegate.Broadcast();
+		}
 		bRestartSearch = false;
 	}
-	else if (IsSearching())
+
+	if (IsSearching())
 	{
-		double SearchStartTime= FPlatformTime::Seconds();
+		UNiagaraStackEditorData& EditorData = GetSystemViewModel()->GetEditorData().GetStackEditorData();
+		double SearchStartTime = FPlatformTime::Seconds();
 		double CurrentSearchLoopTime = SearchStartTime;
 		// process at least one item, but don't go over MaxSearchTime for the rest
 		while (ItemsToSearch.Num() > 0 && CurrentSearchLoopTime - SearchStartTime < MaxSearchTime)
@@ -250,10 +262,16 @@ void UNiagaraStackViewModel::SearchTick()
 				TSet<FName> MatchedKeys;
 				for (UNiagaraStackEntry::FStackSearchItem SearchItem : SearchItems)
 				{
+					if (!ItemsToSearch[0].GetEntry()->GetStackEditorDataKey().IsEmpty())
+					{
+						EditorData.SetStackEntryWasExpandedPreSearch(ItemsToSearch[0].GetEntry()->GetStackEditorDataKey(), ItemsToSearch[0].GetEntry()->GetIsExpanded());
+					}
+
 					if (ItemMatchesSearchCriteria(SearchItem)) 
 					{
 						if (MatchedKeys.Contains(SearchItem.Key) == false)
 						{
+							EntryToProcess->SetIsSearchResult(true);
 							CurrentSearchResults.Add({ ItemsToSearch[0].EntryPath, SearchItem });
 							MatchedKeys.Add(SearchItem.Key);
 						}
@@ -274,7 +292,7 @@ void UNiagaraStackViewModel::GenerateTraversalEntries(UNiagaraStackEntry* Root, 
 	TArray<FSearchWorkItem>& TraversedArray)
 {
 	TArray<UNiagaraStackEntry*> Children;
-	Root->GetFilteredChildren(Children);
+	Root->GetUnfilteredChildren(Children);
 	ParentChain.Add(Root);
 	TraversedArray.Add(FSearchWorkItem{ParentChain});
 	for (auto Child : Children)
@@ -306,6 +324,28 @@ void UNiagaraStackViewModel::GeneratePathForEntry(UNiagaraStackEntry* Root, UNia
 			return;
 		}
 		GeneratePathForEntry(Child, Entry, CurrentPath, EntryPath);
+	}
+}
+
+void UNiagaraStackViewModel::RestoreStackEntryExpansionPreSearch()
+{
+	UNiagaraStackEditorData& StackEditorData = SystemViewModel->GetEditorData().GetStackEditorData();
+	GenerateTraversalEntries(RootEntry, TArray<UNiagaraStackEntry*>(), ItemsToRestoreExpansionState);
+
+	while (ItemsToRestoreExpansionState.Num() != 0)
+	{
+		UNiagaraStackEntry* EntryToProcess = ItemsToRestoreExpansionState[0].GetEntry();
+		if (EntryToProcess->GetIsSearchResult() && !EntryToProcess->IsA<UNiagaraStackRoot>())
+		{
+			for (auto EntryToExpand : ItemsToRestoreExpansionState[0].EntryPath)
+			{
+				if (!EntryToExpand->IsA<UNiagaraStackRoot>())
+				{
+					EntryToExpand->SetIsExpanded(StackEditorData.GetStackEntryWasExpandedPreSearch(EntryToExpand->GetStackEditorDataKey(), false));
+				}
+			}
+		}
+		ItemsToRestoreExpansionState.RemoveAtSwap(0);
 	}
 }
 
@@ -364,6 +404,29 @@ void UNiagaraStackViewModel::SetShowOutputs(bool bInShowOutputs)
 		OnSearchTextChanged(CurrentSearchText);
 
 		// Showing outputs changes indenting so a full refresh is needed.
+		RootEntry->RefreshChildren();
+	}
+}
+
+bool UNiagaraStackViewModel::GetShowLinkedInputs() const
+{
+	if (SystemViewModel.IsValid() && EmitterHandleViewModel.IsValid())
+	{
+		return SystemViewModel->GetEditorData().GetStackEditorData().GetShowLinkedInputs() ||
+			EmitterHandleViewModel->GetEmitterViewModel()->GetEditorData().GetStackEditorData().GetShowLinkedInputs();
+	}
+	return false;
+}
+
+void UNiagaraStackViewModel::SetShowLinkedInputs(bool bInShowLinkedInputs)
+{
+	if (SystemViewModel.IsValid() && EmitterHandleViewModel.IsValid())
+	{
+		SystemViewModel->GetOrCreateEditorData().GetStackEditorData().SetShowLinkedInputs(bInShowLinkedInputs);
+		EmitterHandleViewModel->GetEmitterViewModel()->GetOrCreateEditorData().GetStackEditorData().SetShowLinkedInputs(bInShowLinkedInputs);
+		OnSearchTextChanged(CurrentSearchText);
+
+		// Showing linked inputs changes indenting so a full refresh is needed.
 		RootEntry->RefreshChildren();
 	}
 }

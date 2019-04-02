@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2722015
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:静态网格体内容范例
 Crumbs: %ROOT%, Resources, Resources/ContentExamples
@@ -9,48 +9,19 @@ Related:Engine/Content/Types/StaticMeshes/Editor
 Related:Engine/Actors/StaticMeshActor
 Related:Engine/Content/FBX/BestPractices
 Version:4.9
-
+topic-image:StaticMeshes_Compact.png
 
 
 [REGION:banner]
 ![](StaticMeshes_Header.png)(convert:false)
 [/REGION]
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/StaticMeshes:title%](StaticMeshes_Compact.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/StaticMeshes:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/StaticMeshes:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/StaticMeshes]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/StaticMeshes:title%](StaticMeshes_Compact.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/StaticMeshes:title%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/StaticMeshes]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 **静态网格体（StaticMeshes）** 内容范例页面包含静态网格体使用的重要范例，如：如何设置移动性、指定 UV、添加或调整碰撞设置。其他范例包括：如何使用材质元素自定义静态网格体（可指定应用到静态网格体部分的材质）、以及使用 MeshPaint 工具在静态网格体上进行手动绘制。 
 最后可了解 LOD 基于玩家距离相应降低网格体精度，从而增强性能。
 
 
+(#StaticMeshesMap)
 ## 静态网格体页面
 
 ![](StaticMeshes_Map.png)(w:640)

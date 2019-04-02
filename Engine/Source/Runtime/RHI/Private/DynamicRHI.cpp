@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DynamicRHI.cpp: Dynamically bound Render Hardware Interface implementation.
@@ -12,6 +12,7 @@
 #include "RHI.h"
 #include "Modules/ModuleManager.h"
 #include "GenericPlatform/GenericPlatformDriver.h"
+#include "GenericPlatform/GenericPlatformCrashContext.h"
 #include "PipelineStateCache.h"
 
 #ifndef PLATFORM_ALLOW_NULL_RHI
@@ -53,6 +54,9 @@ void InitNullRHI()
 	GRHICommandList.GetImmediateAsyncComputeCommandList().SetComputeContext(GDynamicRHI->RHIGetDefaultAsyncComputeContext());
 	GUsingNullRHI = true;
 	GRHISupportsTextureStreaming = false;
+
+	// Update the crash context analytics
+	FGenericCrashContext::SetEngineData(TEXT("RHI.RHIName"), TEXT("NullRHI"));
 }
 
 #if PLATFORM_WINDOWS
@@ -114,7 +118,10 @@ static void RHIDetectAndWarnOfBadDrivers(bool bHasEditorToken)
 
 	FGPUHardware DetectedGPUHardware(DriverInfo);
 
-	if (DriverInfo.IsValid())
+	// Pre-GCN GPUs usually don't support updating to latest driver
+	// But it is unclear what is the lastest version supported as it varies from card to card
+	// So just don't complain if pre-gcn
+	if (DriverInfo.IsValid() && !GRHIDeviceIsAMDPreGCNArchitecture)
 	{
 		FBlackListEntry BlackListEntry = DetectedGPUHardware.FindDriverBlacklistEntry();
 
@@ -171,8 +178,9 @@ static void RHIDetectAndWarnOfBadDrivers(bool bHasEditorToken)
 		return;
 	}
 
-	if (FPlatformMisc::MacOSXVersionCompare(10,13,5) < 0)
+	if (FPlatformMisc::MacOSXVersionCompare(10,13,6) < 0)
 	{
+		const FString BaseName = FApp::HasProjectName() ? FApp::GetProjectName() : TEXT("");
 		// this message can be suppressed with r.WarnOfBadDrivers=0
 		FPlatformMisc::MessageBoxExt(EAppMsgType::Ok,
 									 *NSLOCTEXT("MessageDialog", "UpdateMacOSX_Body", "Please update to the latest version of macOS for best performance and stability.").ToString(),
@@ -203,15 +211,24 @@ void RHIInit(bool bHasEditorToken)
 				GRHICommandList.GetImmediateCommandList().SetContext(GDynamicRHI->RHIGetDefaultContext());
 				GRHICommandList.GetImmediateAsyncComputeCommandList().SetComputeContext(GDynamicRHI->RHIGetDefaultAsyncComputeContext());
 
+				FString FeatureLevelString;
+				GetFeatureLevelName(GMaxRHIFeatureLevel, FeatureLevelString);
+
 				if (bHasEditorToken && GMaxRHIFeatureLevel < ERHIFeatureLevel::SM5)
 				{
-					FString FeatureLevelString;
-					GetFeatureLevelName(GMaxRHIFeatureLevel, FeatureLevelString);
 					FString ShaderPlatformString = LegacyShaderPlatformToShaderFormat(GetFeatureLevelShaderPlatform(GMaxRHIFeatureLevel)).ToString();
 					FString Error = FString::Printf(TEXT("A Feature Level 5 video card is required to run the editor.\nAvailableFeatureLevel = %s, ShaderPlatform = %s"), *FeatureLevelString, *ShaderPlatformString);
 					FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(Error));
 					FPlatformMisc::RequestExit(1);
 				}
+				
+				// Update the crash context analytics
+				FGenericCrashContext::SetEngineData(TEXT("RHI.RHIName"), GDynamicRHI ? GDynamicRHI->GetName() : TEXT("Unknown"));
+				FGenericCrashContext::SetEngineData(TEXT("RHI.AdapterName"), GRHIAdapterName);
+				FGenericCrashContext::SetEngineData(TEXT("RHI.UserDriverVersion"), GRHIAdapterUserDriverVersion);
+				FGenericCrashContext::SetEngineData(TEXT("RHI.InternalDriverVersion"), GRHIAdapterInternalDriverVersion);
+				FGenericCrashContext::SetEngineData(TEXT("RHI.DriverDate"), GRHIAdapterDriverDate);
+				FGenericCrashContext::SetEngineData(TEXT("RHI.FeatureLevel"), FeatureLevelString);
 			}
 #if PLATFORM_ALLOW_NULL_RHI
 			else

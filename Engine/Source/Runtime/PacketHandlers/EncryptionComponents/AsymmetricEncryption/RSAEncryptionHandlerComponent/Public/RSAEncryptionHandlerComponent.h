@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -39,6 +39,8 @@ public:
 	* will increase the fixed cipher text and max plain text sizes
 	*/
 	RSAEncryptionHandlerComponent(int32 InKeySizeInBits = 1024);
+
+	virtual void CountBytes(FArchive& Ar) const override;
 
 	/* Initializes the handler component */
 	virtual void Initialize() override;

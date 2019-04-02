@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Components/CanvasPanelSlot.h"
 #include "Components/CanvasPanel.h"
@@ -306,9 +306,9 @@ void UCanvasPanelSlot::SynchronizeProperties()
 
 #if WITH_EDITOR
 
-void UCanvasPanelSlot::PreEditChange(class FEditPropertyChain& PropertyAboutToChange)
+void UCanvasPanelSlot::PreEditChange(UProperty* PropertyThatWillChange)
 {
-	Super::PreEditChange(PropertyAboutToChange);
+	Super::PreEditChange(PropertyThatWillChange);
 
 	SaveBaseLayout();
 }
@@ -319,27 +319,19 @@ void UCanvasPanelSlot::PostEditChangeChainProperty(struct FPropertyChangedChainE
 
 	static FName AnchorsProperty(TEXT("Anchors"));
 
-	FEditPropertyChain::TDoubleLinkedListNode* AnchorNode = PropertyChangedEvent.PropertyChain.GetHead()->GetNextNode();
-	if ( !AnchorNode )
+	if (FEditPropertyChain::TDoubleLinkedListNode* AnchorNode = PropertyChangedEvent.PropertyChain.GetHead()->GetNextNode())
 	{
-		return;
+		if (FEditPropertyChain::TDoubleLinkedListNode* LayoutDataNode = AnchorNode->GetNextNode())
+		{
+			UProperty* AnchorProperty = LayoutDataNode->GetValue();
+			if (AnchorProperty && AnchorProperty->GetFName() == AnchorsProperty)
+			{
+				RebaseLayout();
+			}
+		}
 	}
 
-	FEditPropertyChain::TDoubleLinkedListNode* LayoutDataNode = AnchorNode->GetNextNode();
-
-	if ( !LayoutDataNode )
-	{
-		return;
-	}
-
-	UProperty* AnchorProperty = LayoutDataNode->GetValue();
-
-	if ( AnchorProperty && AnchorProperty->GetFName() == AnchorsProperty )
-	{
-		RebaseLayout();
-	}
-
-	Super::PostEditChangeProperty(PropertyChangedEvent);
+	Super::PostEditChangeChainProperty(PropertyChangedEvent);
 }
 
 void UCanvasPanelSlot::SaveBaseLayout()

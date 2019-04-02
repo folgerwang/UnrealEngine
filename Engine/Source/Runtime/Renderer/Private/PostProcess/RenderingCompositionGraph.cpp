@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RenderingCompositionGraph.cpp: Scene pass order and dependency system.
@@ -10,16 +10,18 @@
 #include "Async/Async.h"
 #include "EngineGlobals.h"
 #include "Engine/Engine.h"
-#include "PostProcess/RenderTargetPool.h"
+#include "RenderTargetPool.h"
 #include "RendererModule.h"
 #include "HighResScreenshot.h"
 #include "IHeadMountedDisplay.h"
 #include "IXRTrackingSystem.h"
 #include "PostProcess/SceneRenderTargets.h"
 #include "SceneRendering.h"
+#include "VisualizeTexture.h"
 
 #include "IImageWrapper.h"
 #include "ImageWriteQueue.h"
+#include "ImageWriteStream.h"
 #include "Modules/ModuleManager.h"
 
 void ExecuteCompositionGraphDebug();
@@ -136,28 +138,26 @@ void Test()
 
 void ExecuteCompositionGraphDebug()
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND(
-		StartDebugCompositionGraph,
-	{
-		GDebugCompositionGraphFrames = 1;
-		Test();
-	}
-	);
+	ENQUEUE_RENDER_COMMAND(StartDebugCompositionGraph)(
+		[](FRHICommandList& RHICmdList)
+		{
+			GDebugCompositionGraphFrames = 1;
+			Test();
+		});
 }
 
 // main thread
 void CompositionGraph_OnStartFrame()
 {
 #if !UE_BUILD_SHIPPING
-	ENQUEUE_UNIQUE_RENDER_COMMAND(
-		DebugCompositionGraphDec,
-	{
-		if(GDebugCompositionGraphFrames)
+	ENQUEUE_RENDER_COMMAND(DebugCompositionGraphDec)(
+		[](FRHICommandList& RHICmdList)
 		{
-			--GDebugCompositionGraphFrames;
-		}
-	}
-	);		
+			if(GDebugCompositionGraphFrames)
+			{
+				--GDebugCompositionGraphFrames;
+			}
+		});		
 #endif
 }
 
@@ -352,24 +352,12 @@ void FRenderingCompositionGraph::RecursivelyGatherDependencies(FRenderingComposi
 	}
 }
 
-TFuture<bool> FRenderingCompositionGraph::DumpOutputToFile(FRenderingCompositePassContext& Context, const FString& Filename, FRenderingCompositeOutput* Output) const
+TUniquePtr<FImagePixelData> FRenderingCompositionGraph::GetDumpOutput(FRenderingCompositePassContext& Context, FIntRect SourceRect, FRenderingCompositeOutput* Output) const
 {
 	FSceneRenderTargetItem& RenderTargetItem = Output->PooledRenderTarget->GetRenderTargetItem();
-	FHighResScreenshotConfig& HighResScreenshotConfig = GetHighResScreenshotConfig();
 	FTextureRHIRef Texture = RenderTargetItem.TargetableTexture ? RenderTargetItem.TargetableTexture : RenderTargetItem.ShaderResourceTexture;
 	check(Texture);
 	check(Texture->GetTexture2D());
-
-	if (!ensureMsgf(HighResScreenshotConfig.ImageWriteQueue, TEXT("Unable to write images unless FHighResScreenshotConfig::Init has been called.")))
-	{
-		return TFuture<bool>();
-	}
-
-	FIntRect SourceRect = Context.View.ViewRect;
-	if (GIsHighResScreenshot && HighResScreenshotConfig.CaptureRegion.Area())
-	{
-		SourceRect = HighResScreenshotConfig.CaptureRegion;
-	}
 
 	int32 MSAAXSamples = Texture->GetNumSamples();
 	SourceRect.Min.X *= MSAAXSamples;
@@ -384,13 +372,7 @@ TFuture<bool> FRenderingCompositionGraph::DumpOutputToFile(FRenderingCompositePa
 
 			check(PixelData->IsDataWellFormed());
 
-			TUniquePtr<FImageWriteTask> ImageTask = MakeUnique<FImageWriteTask>();
-			ImageTask->PixelData = MoveTemp(PixelData);
-
-			HighResScreenshotConfig.PopulateImageTaskParams(*ImageTask);
-			ImageTask->Filename = Filename;
-
-			return HighResScreenshotConfig.ImageWriteQueue->Enqueue(MoveTemp(ImageTask));
+			return PixelData;
 		}
 
 		case PF_A32B32G32R32F:
@@ -403,13 +385,7 @@ TFuture<bool> FRenderingCompositionGraph::DumpOutputToFile(FRenderingCompositePa
 
 			check(PixelData->IsDataWellFormed());
 
-			TUniquePtr<FImageWriteTask> ImageTask = MakeUnique<FImageWriteTask>();
-			ImageTask->PixelData = MoveTemp(PixelData);
-
-			HighResScreenshotConfig.PopulateImageTaskParams(*ImageTask);
-			ImageTask->Filename = Filename;
-
-			return HighResScreenshotConfig.ImageWriteQueue->Enqueue(MoveTemp(ImageTask));
+			return PixelData;
 		}
 
 		case PF_R8G8B8A8:
@@ -423,29 +399,65 @@ TFuture<bool> FRenderingCompositionGraph::DumpOutputToFile(FRenderingCompositePa
 
 			check(PixelData->IsDataWellFormed());
 
-			TUniquePtr<FImageWriteTask> ImageTask = MakeUnique<FImageWriteTask>();
-			ImageTask->PixelData = MoveTemp(PixelData);
-
-			HighResScreenshotConfig.PopulateImageTaskParams(*ImageTask);
-			ImageTask->Filename = Filename;
-
-			// Always write full alpha
-			ImageTask->PixelPreProcessors.Add(TAsyncAlphaWrite<FColor>(255));
-
-			if (ImageTask->Format == EImageFormat::EXR)
-			{
-				// Write FColors with a gamma curve. This replicates behaviour that previously existed in ExrImageWrapper.cpp (see following overloads) that assumed
-				// any 8 bit output format needed linearizing, but this is not a safe assumption to make at such a low level:
-				// void ExtractAndConvertChannel(const uint8*Src, uint32 SrcChannels, uint32 x, uint32 y, float* ChannelOUT)
-				// void ExtractAndConvertChannel(const uint8*Src, uint32 SrcChannels, uint32 x, uint32 y, FFloat16* ChannelOUT)
-				ImageTask->PixelPreProcessors.Add(TAsyncGammaCorrect<FColor>(2.2f));
-			}
-
-			return HighResScreenshotConfig.ImageWriteQueue->Enqueue(MoveTemp(ImageTask));
+			return PixelData;
 		}
 	}
 
-	return TFuture<bool>();
+	return nullptr;
+}
+
+void FRenderingCompositionGraph::DumpOutputToPipe(FRenderingCompositePassContext& Context, FImagePixelPipe* OutputPipe, FRenderingCompositeOutput* Output) const
+{
+	TUniquePtr<FImagePixelData> PixelData = GetDumpOutput(Context, Context.View.ViewRect, Output);
+	if (PixelData.IsValid())
+	{
+		OutputPipe->Push(MoveTemp(PixelData));
+	}
+}
+
+TFuture<bool> FRenderingCompositionGraph::DumpOutputToFile(FRenderingCompositePassContext& Context, const FString& Filename, FRenderingCompositeOutput* Output) const
+{
+	FHighResScreenshotConfig& HighResScreenshotConfig = GetHighResScreenshotConfig();
+
+	if (!ensureMsgf(HighResScreenshotConfig.ImageWriteQueue, TEXT("Unable to write images unless FHighResScreenshotConfig::Init has been called.")))
+	{
+		return TFuture<bool>();
+	}
+
+	FIntRect SourceRect = Context.View.ViewRect;
+	if (GIsHighResScreenshot && HighResScreenshotConfig.CaptureRegion.Area())
+	{
+		SourceRect = HighResScreenshotConfig.CaptureRegion;
+	}
+
+	TUniquePtr<FImagePixelData> PixelData = GetDumpOutput(Context, SourceRect, Output);
+	if (!PixelData.IsValid())
+	{
+		return TFuture<bool>();
+	}
+
+	TUniquePtr<FImageWriteTask> ImageTask = MakeUnique<FImageWriteTask>();
+	ImageTask->PixelData = MoveTemp(PixelData);
+
+	HighResScreenshotConfig.PopulateImageTaskParams(*ImageTask);
+	ImageTask->Filename = Filename;
+
+	if (ImageTask->PixelData->GetType() == EImagePixelType::Color)
+	{
+		// Always write full alpha
+		ImageTask->PixelPreProcessors.Add(TAsyncAlphaWrite<FColor>(255));
+
+		if (ImageTask->Format == EImageFormat::EXR)
+		{
+			// Write FColors with a gamma curve. This replicates behaviour that previously existed in ExrImageWrapper.cpp (see following overloads) that assumed
+			// any 8 bit output format needed linearizing, but this is not a safe assumption to make at such a low level:
+			// void ExtractAndConvertChannel(const uint8*Src, uint32 SrcChannels, uint32 x, uint32 y, float* ChannelOUT)
+			// void ExtractAndConvertChannel(const uint8*Src, uint32 SrcChannels, uint32 x, uint32 y, FFloat16* ChannelOUT)
+			ImageTask->PixelPreProcessors.Add(TAsyncGammaCorrect<FColor>(2.2f));
+		}
+	}
+
+	return HighResScreenshotConfig.ImageWriteQueue->Enqueue(MoveTemp(ImageTask));
 }
 
 void FRenderingCompositionGraph::RecursivelyProcess(const FRenderingCompositeOutputRef& InOutputRef, FRenderingCompositePassContext& Context) const
@@ -679,7 +691,9 @@ void FRenderingCompositionGraph::RecursivelyProcess(const FRenderingCompositeOut
 	Context.SetViewportInvalid();
 
 	// then process the pass itself
+	check(!Context.RHICmdList.IsInsideRenderPass());
 	Pass->Process(Context);
+	check(!Context.RHICmdList.IsInsideRenderPass());
 
 	// for VisualizeTexture and output buffer dumping
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -691,7 +705,14 @@ void FRenderingCompositionGraph::RecursivelyProcess(const FRenderingCompositeOut
 			// use intermediate texture unless it's the last one where we render to the final output
 			if(PassOutput->PooledRenderTarget)
 			{
-				GRenderTargetPool.VisualizeTexture.SetCheckPoint(Context.RHICmdList, PassOutput->PooledRenderTarget);
+				GVisualizeTexture.SetCheckPoint(Context.RHICmdList, PassOutput->PooledRenderTarget);
+
+				// If this buffer was given a pipe to push its output onto, do that now
+				FImagePixelPipe* OutputPipe = Pass->GetOutputDumpPipe((EPassOutputId)OutputId);
+				if (OutputPipe)
+				{
+					DumpOutputToPipe(Context, OutputPipe, PassOutput);
+				}
 
 				// If this buffer was given a dump filename, write it out
 				const FString& Filename = Pass->GetOutputDumpFilename((EPassOutputId)OutputId);

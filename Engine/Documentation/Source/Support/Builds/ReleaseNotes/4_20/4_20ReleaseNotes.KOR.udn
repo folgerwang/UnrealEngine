@@ -1,7 +1,7 @@
-﻿INTSourceChangelist:4220008
+INTSourceChangelist:4605596
 Availability:Public
-Title: Unreal Engine 4.20 Release Notes
-Description: Release Notes for Unreal Engine 4.20
+Title: 언리얼 엔진 4.20 릴리즈 노트
+Description: 언리얼 엔진 4.20 릴리즈 노트입니다.
 Crumbs:%ROOT%, Engine
 Parent:Support/Builds
 Order:20
@@ -26,7 +26,7 @@ reference-image:image_18.gif
 
 언리얼 엔진에는 원하는 스타일과 워크플로우에 맞게 제작 프로세스를 커스터마이징하는 툴이 제공되어 **나만의 작업 방식을 유지** 할 수 있습니다. 새로운 에디터 스크립팅 및 자동화 라이브러리를 통해, 툴과 워크플로우에 대한 완벽 커스터마이징이 가능합니다. 액터와 콘텐츠 브라우저 컨텍스트 메뉴에 대한 스크립트 익스텐션으로 액터나 애셋에 적용되는 액션을 새로 추가할 수 있어 디자이너와 아티스트의 삶이 편해집니다. 
 
-철저한 테스트를 거친 모바일 및 콘솔 지원이 제공된다는 것은, **한 번 제작으로 모든 디바이스에서 플레이** 할 수 있어 사용자가 원하면 언제 어디서든 즐길 수 있는 경험을 제공한다는 뜻입니다. 에픽은 언리얼 엔진의 모바일 게임 개발 부분 최적화를 위해 포트나이트 모바일 버전을 출시하는 데 총력을 기울였습니다. 하드웨어가 해야 하는 작업량을 줄이기 위해 하드웨어/소프트웨어 오클루전 쿼리를 둘 다 구현하는 등 엄청난 양의 퍼포먼스 향상 작업이 있었습니다. 이제 프록시 LOD 기능을 제작 단계에서 사용할 수 있으며, 렌더링해야 하는 지오메트리 복잡도를 한층 더 줄일 수 있게 되었습니다. 
+철저한 테스트를 거친 모바일 및 콘솔 지원이 제공된다는 것은, **한 번 제작으로 모든 디바이스에서 플레이** 할 수 있어 사용자가 원하면 언제 어디서든 즐길 수 있는 경험을 제공한다는 뜻입니다. 에픽은 언리얼 엔진의 모바일 게임 개발 부분 최적화를 위해 포트나이트 모바일 버전을 출시하는 데 총력을 기울였습니다. 하드웨어가 해야 하는 작업량을 줄이기 위해 하드웨어/소프트웨어 오클루전 쿼리를 둘 다 구현하는 등 엄청난 양의 퍼포먼스 향상 작업이 있었습니다. 이제 프락시 LOD 기능을 제작 단계에서 사용할 수 있으며, 렌더링해야 하는 지오메트리 복잡도를 한층 더 줄일 수 있게 되었습니다. 
 
 에픽에서 직접 개발한 업데이트 외에도 이번 릴리스에는 **GitHub 의 놀라운 언리얼 엔진 개발자 커뮤니티에서 제출한 165 개의 개선사항** 이 포함되어있습니다! 언리얼 엔진 4.20 에 기여해주신 모든 분들께 감사드립니다:
 
@@ -36,13 +36,13 @@ Adam Moss (adamnv), Akihiro Kayama (kayama-shift), Alan Edwardes (alanedwardes),
 
 ## 신규: 모바일 플랫폼 출시를 위한 최적화 및 개선사항
 
-**언리얼 엔진 4.20 에는 포트나이트 iOS 및 안드로이드 출시를 위해 개발했던 100 종 이상의 모바일 최적화가 포함되어**, 게임 출시가 쉬워지고 크로스 플랫폼 게임플레이는 더욱 매끄럽게 최적화되는 전환점이 될 것입니다. 주요 개선사항으로는 안드로이드 디버깅 향상, 모바일 랜드스케이프 개선, 모바일에서의 오클루전 쿼리가 있습니다. 
+**언리얼 엔진 4.20 에는 포트나이트 iOS 및 Android 출시를 위해 개발했던 100 종 이상의 모바일 최적화가 포함되어**, 게임 출시가 쉬워지고 크로스 플랫폼 게임플레이는 더욱 매끄럽게 최적화되는 전환점이 될 것입니다. 주요 개선사항으로는 Android 디버깅 향상, 모바일 랜드스케이프 개선, 모바일에서의 오클루전 쿼리가 있습니다. 
 
 ![image alt text](image_9.jpg)(w:669 convert:false)
 
 **모바일에서 하드웨어/소프트웨어 오클루전 쿼리**
 
-이제 ES 3.1 또는 Vulkan 을 지원하는 iOS 및 안드로이드 고사양 모바일 디바이스에 GPU를 사용하는 하드웨어 오클루전 쿼리가 지원됩니다. 지원하는 디바이스면 기본적으로 활성화됩니다. 
+이제 ES 3.1 또는 Vulkan 을 지원하는 iOS 및 Android 고사양 모바일 디바이스에 GPU를 사용하는 하드웨어 오클루전 쿼리가 지원됩니다. 지원하는 디바이스면 기본적으로 활성화됩니다. 
 
 소프트웨어 오클루전 쿼리는 CPU 를 사용하여 씬에서 프리미티브 컴포넌트를 컬링해 내는 실험단계 기능입니다. 보수적 접근법을 사용하므로, 어떤 모바일 디바이스에서도 사용할 수 있습니다. 
 
@@ -58,7 +58,7 @@ Adam Moss (adamnv), Akihiro Kayama (kayama-shift), Alan Edwardes (alanedwardes),
 
 3. 스태틱 메시 에디터에서 LOD for Occluder Mesh (오클루더 메시에 대한 LOD)를 true 설정하여 프리미티브를 오클루더로 만듭니다. 
 
-고사양 모바일 모드에서 r.SO.VisualizeBuffer 1 로 활성화시키면 [모바일 프리뷰어](https://docs.unrealengine.com/en-us/Platforms/Mobile/Previewer) 에 결과가 시각화되어 나옵니다. 
+고사양 모바일 모드에서 r.SO.VisualizeBuffer 1 로 활성화시키면 [모바일 프리뷰어](Platforms/Mobile/Previewer) 에 결과가 시각화되어 나옵니다. 
 
 **플랫폼 머티리얼 통계**
 
@@ -68,7 +68,7 @@ Adam Moss (adamnv), Akihiro Kayama (kayama-shift), Alan Edwardes (alanedwardes),
 
 **향상된 Android 디버깅**
 
-**UE4 프로젝트를 다시 패키징하지 않고도 안드로이드에서 반복처리작업과 디버깅이 가능합니다!** 안드로이드 컴파일 시, 이제 Gradle 프로젝트 파일을 생성하며, 이 파일을 Android Studio 에서 열 수 있습니다. C ++ 및 Java 코드에 중단점을 배치하고 Android Studio를 사용하여 디버그 세션을 시작할 수 있습니다.  C ++ 소스 코드를 변경하고 다시 컴파일할 수도 있습니다. 새로운 디버그 세션을 시작하면 Android Studio 에서 변경 사항을 확인하고 빠르게 새 공유 라이브러리를 디바이스에 업로드합니다. 
+**UE4 프로젝트를 다시 패키징하지 않고도 Android에서 반복처리작업과 디버깅이 가능합니다!** Android 컴파일 시, 이제 Gradle 프로젝트 파일을 생성하며, 이 파일을 Android Studio 에서 열 수 있습니다. C ++ 및 Java 코드에 중단점을 배치하고 Android Studio를 사용하여 디버그 세션을 시작할 수 있습니다.  C ++ 소스 코드를 변경하고 다시 컴파일할 수도 있습니다. 새로운 디버그 세션을 시작하면 Android Studio 에서 변경 사항을 확인하고 빠르게 새 공유 라이브러리를 디바이스에 업로드합니다. 
 
 **모바일 랜드스케이프 개선**
 
@@ -134,9 +134,9 @@ Adam Moss (adamnv), Akihiro Kayama (kayama-shift), Alan Edwardes (alanedwardes),
 
 * 머티리얼 파라미터 컬렉션 업데이트 비용
 
-## 신규: 닌텐도 스위치 출시를 위한 최적화 및 개선사항
+## 신규: Nintendo Switch 출시를 위한 최적화 및 개선사항
 
-닌텐도 스위치 개발 방식을 크게 향상시키고자 포트나이트 닌텐도 스위치 버전을 만들 때 사용한 **엄청난 퍼포먼스 및 메모리 개선사항을 모든 언리얼 엔진 개발자들에게 공개합니다**! 
+Nintendo Switch 개발 방식을 크게 향상시키고자 포트나이트 Nintendo Switch 버전을 만들 때 사용한 **엄청난 퍼포먼스 및 메모리 개선사항을 모든 언리얼 엔진 개발자들에게 공개합니다**! 
 
 ![image alt text](image_14.jpg)(w:930 convert:false)
 
@@ -158,23 +158,23 @@ Adam Moss (adamnv), Akihiro Kayama (kayama-shift), Alan Edwardes (alanedwardes),
 
 * 그 외 다수의 수정사항
 
-## 신규: 프록시 LOD 개선
+## 신규: 프락시 LOD 개선
 
-새로운 **프록시 LOD 툴** 이 **실험단계** 를 벗어나 **실제 제작 단계에서 사용할 수 있게 되었습니다**! 폴리곤 수, 드로 콜, 머티리얼 복잡도로 인한 렌더링 비용을 줄여 퍼포먼스를 향상시켜주는 툴로, **모바일 및 콘솔 플랫폼에서 개발할 때 퍼포먼스가 크게 향상** 됩니다. 이 툴은 서드파티 프로그램인 Simplygon 에 대한 대안이 되며, 언리얼 엔진의 **레벨 오브 디테일(LOD)** 시스템과 같이 사용할 수 있습니다.
+새로운 **프락시 LOD 툴** 이 **실험단계** 를 벗어나 **실제 제작 단계에서 사용할 수 있게 되었습니다**! 폴리곤 수, 드로 콜, 머티리얼 복잡도로 인한 렌더링 비용을 줄여 퍼포먼스를 향상시켜주는 툴로, **모바일 및 콘솔 플랫폼에서 개발할 때 퍼포먼스가 크게 향상** 됩니다. 이 툴은 서드파티 프로그램인 Simplygon 에 대한 대안이 되며, 언리얼 엔진의 **레벨 오브 디테일(LOD)** 시스템과 같이 사용할 수 있습니다.
 
-프록시 LOD 툴은 복잡한 소스 지오메트리 모델 집합의 시각적인 부분을 추정하여 단일 로우 폴리 파라미터화 메시와 관련 텍스처로 이루어진 프록시를 생성하는 방식으로 단순한 표현을 만듭니다. 그리고서 해당 지오메트리가 화면상에 차지하는 픽셀이 얼마 되지 않아 모델 퀄리티가 낮아도 괜찮은 경우 실행시간에 그 프록시로 대체합니다. 
+프락시 LOD 툴은 복잡한 소스 지오메트리 모델 집합의 시각적인 부분을 추정하여 단일 로우 폴리 파라미터화 메시와 관련 텍스처로 이루어진 프락시를 생성하는 방식으로 단순한 표현을 만듭니다. 그리고서 해당 지오메트리가 화면상에 차지하는 픽셀이 얼마 되지 않아 모델 퀄리티가 낮아도 괜찮은 경우 실행시간에 그 프락시로 대체합니다. 
 
-**참고:** 프록시 LOD 툴은 현재 윈도우의 언리얼 에디터에서만 사용할 수 있습니다. 
+**참고:** 프락시 LOD 툴은 현재 Windows의 언리얼 에디터에서만 사용할 수 있습니다. 
 
 ![image alt text](image_15.jpg)(w:930 convert:false)
 
-_위 그림은 **포트나이트 배틀로얄** 에서 빌딩과 주차장 부분에 **프록시 LOD 툴** 을 사용한 것으로, **Gap-Filling** (틈 채우기) 및 **Hard-Edge Splitting** (하드 에지 분할)을 사용했습니다._
+_위 그림은 **포트나이트 배틀로얄** 에서 빌딩과 주차장 부분에 **프락시 LOD 툴** 을 사용한 것으로, **Gap-Filling** (틈 채우기) 및 **Hard-Edge Splitting** (하드 에지 분할)을 사용했습니다._
 
-프록시 LOD 툴의 제작 단계에서 사용할 수 있는 버전은 4.19 의 실험단계 버전에 비해 기능이 많이 향상되었습니다. 특히 프록시 지오메트리 위의 노멀에 대한 사용자 제어나, 틈 채우기를 통해 문이나 창문을 자동으로 닫아 훨씬 단순한 프록시를 생성해주는 기능이 개선되었습니다. 
+프락시 LOD 툴의 제작 단계에서 사용할 수 있는 버전은 4.19 의 실험단계 버전에 비해 기능이 많이 향상되었습니다. 특히 프락시 지오메트리 위의 노멀에 대한 사용자 제어나, 틈 채우기를 통해 문이나 창문을 자동으로 닫아 훨씬 단순한 프락시를 생성해주는 기능이 개선되었습니다. 
 
 **노멀 제어 개선: 하드 에지 분할 노멀**
 
-포트나이트에서는 메모리 사용량이 극도로 제한되었기에 LOD 효율을 높여야 했습니다. 대부분 프록시의 경우, 베이스 컬러 텍스처는 아주 조금 생성하고 노멀 맵은 사용하지 않았는데, 이러한 접근법에는 프록시 메시 자체에 낼 수 있는 최고 퀄리티의 노멀이 필요합니다.   
+포트나이트에서는 메모리 사용량이 극도로 제한되었기에 LOD 효율을 높여야 했습니다. 대부분 프락시의 경우, 베이스 컬러 텍스처는 아주 조금 생성하고 노멀 맵은 사용하지 않았는데, 이러한 접근법에는 프락시 메시 자체에 낼 수 있는 최고 퀄리티의 노멀이 필요합니다.   
 
 [REGION:asyncgif]
 ![image alt text](image_16.gif)(w:581 convert:false)
@@ -188,7 +188,7 @@ _위 그림은 **포트나이트 배틀로얄** 에서 빌딩과 주차장 부�
 
 **Gap Filling** (틈 채우기)
 
-틈이 없는 지오메트리의 경우, 프록시 시스템은 접근할 수 없는 구조물(, 예로 닫힌 집 안의 내벽이나 가구 등)을 자동으로 버립니다. 이상적인 경우라면, 소스 지오메트리를 구성 또는 변경할 때 이러한 점을 염두에 두는 것이 좋겠지만, 게임 제작 상의 제약으로 인해 항상 가능한 일은 아닙니다. *거의 틈이 없는* 지오메트리에서 효율적인 프록시 LOD 를 쉽게 생성할 수 있도록 하기 위해서, 프록시 LOD 툴은 팽창과 침식으로 틈을 메우는 레벨 세트 기반 기법을 옵션을 통해 사용할 수 있습니다. 원래 의도는 주로 먼 건물의 문과 창에 사용하는 것입니다.
+틈이 없는 지오메트리의 경우, 프락시 시스템은 접근할 수 없는 구조물(, 예로 닫힌 집 안의 내벽이나 가구 등)을 자동으로 버립니다. 이상적인 경우라면, 소스 지오메트리를 구성 또는 변경할 때 이러한 점을 염두에 두는 것이 좋겠지만, 게임 제작 상의 제약으로 인해 항상 가능한 일은 아닙니다. *거의 틈이 없는* 지오메트리에서 효율적인 프락시 LOD 를 쉽게 생성할 수 있도록 하기 위해서, 프락시 LOD 툴은 팽창과 침식으로 틈을 메우는 레벨 세트 기반 기법을 옵션을 통해 사용할 수 있습니다. 원래 의도는 주로 먼 건물의 문과 창에 사용하는 것입니다.
 
 [REGION:asyncgif]
 ![image alt text](image_17.gif)(w:469 convert:false)
@@ -196,7 +196,7 @@ _위 그림은 **포트나이트 배틀로얄** 에서 빌딩과 주차장 부�
 
 *1 - 원본 메시; 2 - 틈 채우기 없음; 3 - 틈 채우기*
 
-위 gif 는 틈 채우기를 사용한 효과를 보여줍니다. 모든 그림은 텍스처 스페이스를 조금만 사용해야 한다는 제한이 있습니다. 2 번 그림은 틈 채우기를 사용하지 않은 프록시 LOD 결과로, LOD 에 건물 인테리어가 포함되어 있습니다 (보이지 않는 트라이앵글과 텍셀에도 비용이 듭니다). 3 번 그림은 같은 건물에 틈 채우기를 사용하여 문과 창문을 자동으로 닫아, 결과적으로 트라이앵글 수가 줄어 제한된 리소스 사용 효율이 좋아집니다. 
+위 gif 는 틈 채우기를 사용한 효과를 보여줍니다. 모든 그림은 텍스처 스페이스를 조금만 사용해야 한다는 제한이 있습니다. 2 번 그림은 틈 채우기를 사용하지 않은 프락시 LOD 결과로, LOD 에 건물 인테리어가 포함되어 있습니다 (보이지 않는 트라이앵글과 텍셀에도 비용이 듭니다). 3 번 그림은 같은 건물에 틈 채우기를 사용하여 문과 창문을 자동으로 닫아, 결과적으로 트라이앵글 수가 줄어 제한된 리소스 사용 효율이 좋아집니다. 
 
 ## 신규: 시네마틱 뎁스 오브 필드
 
@@ -214,7 +214,7 @@ _위 그림은 **포트나이트 배틀로얄** 에서 빌딩과 주차장 부�
 
 * 시네마틱 DoF 가 지원하는 플랫폼은 다음과 같습니다: 
 
-    * D3D11 SM5, D3D12 SM5, Vulkan SM5, 플레이스테이션 4, 엑스박스 원, 맥
+    * D3D11 SM5, D3D12 SM5, Vulkan SM5, PlayStation 4, Xbox One, Mac
 
 * 프로시저럴 보케 시뮬레이션이 지원하는 기능은 다음과 같습니다:
 
@@ -226,7 +226,7 @@ _위 그림은 **포트나이트 배틀로얄** 에서 빌딩과 주차장 부�
 
 * r.DOF.* 콘솔 변수를 사용하여 여러가지 설정가능한 퀄리티 세팅으로 하드웨어의 한정된 자원에 맞게끔 프로젝트의 퀄리티를 조절할 수 있습니다. 
 
-자세한 정보는 [뎁스 오브 필드](https://docs.unrealengine.com/en-us/Engine/Rendering/PostProcessEffects/DepthOfField/CinematicDOFMethods) 문서를 참고하세요. 
+자세한 정보는 [뎁스 오브 필드](Engine/Rendering/PostProcessEffects/DepthOfField/Cinematic) 문서를 참고하세요. 
 
 ## 신규: 나이아가라 비주얼 이펙트 에디터 (얼리 액세스)
 
@@ -253,7 +253,7 @@ _위 그림은 **포트나이트 배틀로얄** 에서 빌딩과 주차장 부�
 [/OBJECT]
 
 
-나이아가라 개요는 GDC 2018 프리젠테이션 중 [Programmable VFX with Unreal Engine's Niagara](https://www.unrealengine.com/en-US/events/gdc2018/programmable-vfx-with-unreal-engine-s-niagara), [나이아가라](https://docs.unrealengine.com/en-us/Engine/Niagara) 관련 문서를 참고해 주시기 바랍니다. 
+나이아가라 개요는 GDC 2018 프리젠테이션 중 [Programmable VFX with Unreal Engine's Niagara](https://www.unrealengine.com/en-US/events/gdc2018/programmable-vfx-with-unreal-engine-s-niagara), [나이아가라](Engine/Niagara) 관련 문서를 참고해 주시기 바랍니다. 
 
 **이펙트 디자인 및 생성 방법 개선**
 
@@ -325,7 +325,7 @@ _위 그림은 **포트나이트 배틀로얄** 에서 빌딩과 주차장 부�
 
 ## 신규: 디지털 휴먼 개선
 
-[포토리얼리스틱 캐릭터](https://docs.unrealengine.com/en-us/Resources/Showcases/PhotorealisticCharacter) 예제로 시작된 디지털 휴먼 개발을 위한 에픽의 캐릭터 탐구 과정에서, 현실적인 실사 캐릭터에 생명력을 불어넣기 위한 여러가지 렌더링 개선사항이 이루어졌습니다. 
+[포토리얼리스틱 캐릭터](Resources/Showcases/PhotorealisticCharacter) 예제로 시작된 디지털 휴먼 개발을 위한 에픽의 캐릭터 탐구 과정에서, 현실적인 실사 캐릭터에 생명력을 불어넣기 위한 여러가지 렌더링 개선사항이 이루어졌습니다. 
 
 ![image alt text](image_7.jpg)(w:928 convert:false)
 
@@ -341,7 +341,7 @@ _위 그림은 **포트나이트 배틀로얄** 에서 빌딩과 주차장 부�
 
 * 홍채에 별도의 노멀 맵을 사용하여 눈의 디테일을 높였습니다.
 
-자세한 정보는, [디지털 휴먼](https://docs.unrealengine.com/en-us/Resources/Showcases/DigitalHumans) 문서를 참고하세요. 
+자세한 정보는, [디지털 휴먼](Resources/Showcases/DigitalHumans) 문서를 참고하세요. 
 
 ## 신규: 렉탱귤러 에리어 라이트
 
@@ -371,7 +371,7 @@ _위 그림은 **포트나이트 배틀로얄** 에서 빌딩과 주차장 부�
 
 얼리 액세스 단계인 혼합 현실 캡처 기능은 비디오 입력, 보정, 게임 내 합성의 세 단계로 이루어집니다.   다양하게 지원되는 웹캠 및 HDMI 캡처 디바이스를 통한 여러 소스에서 현실의 크로마 키 비디오를 언리얼 엔진으로 가져올 수 있습니다.   Vive Tracker 또는 유사한 트래킹 디바이스가 있는 경우, 혼합 현실 캡처는 카메라 위치를 게임 내 카메라와 일치시켜 보다 역동적이고 흥미로운 씬 연출이 가능합니다. 구성 및 보정은 다른 언리얼 엔진 4 타이틀에서도 재사용할 수 있는 독립형 보정 툴을 통해 이루어집니다. 촬영 위치를 구성하고 나면 모든 어플리케이션에서 사용할 수 있습니다. 
 
-이 기능은 얼리 액세스 단계이기는 하지만, 피드백을 통해 시스템을 계속해서 발전시켜 나갈 수 있었으면 합니다. 혼합 현실 캡처 구성 관련 자세한 정보는 [문서](https://docs.unrealengine.com/en-us/Platforms/MR) 를 참고하세요.
+이 기능은 얼리 액세스 단계이기는 하지만, 피드백을 통해 시스템을 계속해서 발전시켜 나갈 수 있었으면 합니다. 혼합 현실 캡처 구성 관련 자세한 정보는 [문서](Platforms/MR) 를 참고하세요.
 
 ## 신규: nDisplay, 유연한 멀티 디스플레이 렌더링
 
@@ -379,7 +379,7 @@ _위 그림은 **포트나이트 배틀로얄** 에서 빌딩과 주차장 부�
 
 ![image alt text](image_19.jpg)(w:930 convert:false)
 
-자세한 정보는 [문서](https://docs.unrealengine.com/en-us/Engine/Rendering/Rendering-to-Multiple-Displays-with-nDisplay) 를 참고하세요. 
+자세한 정보는 [문서](Engine/Rendering/nDisplay) 를 참고하세요. 
 
 ## 신규: 서브믹스 오디오 녹음
 
@@ -415,7 +415,7 @@ _위 그림은 **포트나이트 배틀로얄** 에서 빌딩과 주차장 부�
 	[/PARAMLITERAL]
 [/OBJECT]
 
-자세한 정보는 [스켈레탈 메시 애셋 디테일](https://docs.unrealengine.com/en-US/Engine/Animation/Persona/MeshDetails) 문서의 LOD 세팅 공유 부분을 참고하세요. 
+자세한 정보는 [스켈레탈 메시 애셋 디테일](Engine/Animation/Persona/MeshDetails) 문서의 LOD 세팅 공유 부분을 참고하세요. 
 
 블류틸리티를 통해 LOD 세팅을 할당하고 블루프린트에서 LOD 를 재생성할 수도 있습니다. 
 
@@ -445,7 +445,7 @@ _위 그림은 **포트나이트 배틀로얄** 에서 빌딩과 주차장 부�
 ![image alt text](image_23.gif)(w:678 convert:false)
 [/REGION]
 
-자세한 정보는 [리타깃 매니저](https://docs.unrealengine.com/en-us/Engine/Animation/Persona/BasePoseManager) 문서를 참고하세요. 
+자세한 정보는 [리타깃 매니저](Engine/Animation/Persona/BasePoseManager) 문서를 참고하세요. 
 
 ## 신규: RigidBody (리짓바디) 애님 노드 개선
 
@@ -513,7 +513,7 @@ UE4 는 이제 Visual Studio 2017 컴파일러를 사용하며, 엔진은 기본
 
 **참고:** Visual Studio 2017 은 여러 버전의 컴파일러를 설치해 두고 선택하는 기능을 지원합니다.
 
-자세한 정보는 [하드웨어 & 소프트웨어 요구사양](https://docs.unrealengine.com/en-us/GettingStarted/RecommendedSpecifications) 문서를 참고하세요. 
+자세한 정보는 [하드웨어 & 소프트웨어 요구사양](GettingStarted/RecommendedSpecifications) 문서를 참고하세요. 
 
 ## 신규: GitHub 의 개발 스트림
 
@@ -543,7 +543,7 @@ UMG 세이프 존 워크플로우 관련 개선사항은 다음과 같습니다:
 
 * r.MobileContentScaleFactor 명령을 사용하면 UMG 프리뷰와 PIE 모드에서 폰과 태블릿 해상도를 스케일 조절합니다. 
 
-자세한 정보는 [UMG 세이프 존](https://docs.unrealengine.com/en-us/Engine/UMG/UserGuide/UMGSafeZones) 문서를 참고하세요. 
+자세한 정보는 [UMG 세이프 존](Engine/UMG/UserGuide/UMGSafeZones) 문서를 참고하세요. 
 
 ## 신규: 머티리얼의 커브 아틀라스
 
@@ -571,7 +571,7 @@ UMG 세이프 존 워크플로우 관련 개선사항은 다음과 같습니다:
 
 커브 애셋 에디터를 열면, 커브의 색상, 채도, 명도, 채도보정(Vibrance), 알파 클램프를 조정할 수 있습니다. 추가로 콘텐츠 브라우저의 프리뷰 썸네일에 커브로 설정되는 그레이디언트가 표시됩니다. 
 
-자세한 정보는 [머티리얼의 커브 아틀라스](https://docs.unrealengine.com/en-us/Engine/Rendering/Materials/CurveAtlasesInMaterials) 문서를 참고하세요. 
+자세한 정보는 [머티리얼의 커브 아틀라스](Engine/Rendering/CurveAtlasesInMaterials) 문서를 참고하세요. 
 
 ## 신규: 메시 설명 메시 포맷
 
@@ -614,7 +614,7 @@ UE4 는 엔진에서 어떤 유형의 메시 애셋이든 표현할 수 있는 �
 	[/PARAMLITERAL]
 [/OBJECT]
 
-자세한 정보는 [색 선택 툴](https://docs.unrealengine.com/en-us/Engine/UI/ColorPicker) 문서를 참고하세요. 
+자세한 정보는 [색 선택 툴](Engine/UI/ColorPicker) 문서를 참고하세요. 
 
 ## 신규: 콘텐츠 브라우저의 최근 열림 필터
 
@@ -624,7 +624,7 @@ UE4 는 엔진에서 어떤 유형의 메시 애셋이든 표현할 수 있는 �
 
 최근 열림 필터는 **필터** 목록의 **기타 필터** 아래에서 찾을 수 있습니다. 최근 열었던 애셋 저장 개수는 **에디터 개인설정** > **콘텐츠 브라우저** 에서 **Number of Assets to Keep in the Recently Opened Filter** (최근 열림 필터에 저장할 애셋 개수) 옵션으로 설정합니다. 
 
-자세한 정보는 [콘텐츠 브라우저 필터](https://docs.unrealengine.com/en-US/Engine/Content/Browser/UserGuide/Filters) 문서를 참고하세요. 
+자세한 정보는 [콘텐츠 브라우저 필터](Engine/Content/Browser/UserGuide/Filters) 문서를 참고하세요. 
 
 ## 신규: Shotgun 통합 (얼리 액세스)
 
@@ -644,27 +644,27 @@ UE4 는 엔진에서 어떤 유형의 메시 애셋이든 표현할 수 있는 �
 
 **주:** GitHub 통합을 공유하기 전 마지막 작업을 하는 중입니다. 업데이트와 문서는 곧 공개될 예정입니다!
 <!-- Note: Hiding this link until approval from legal. Ping Robb S. for info -->
-<!--For details, please see the [Shotgun Integration](https://docs.unrealengine.com/en-us/Editor/Content/Using-Unreal-Engine-with-Autodesk-Shotgun)[ documentation](https://docs.unrealengine.com/en-us/Editor/Content/Using-Unreal-Engine-with-Autodesk-Shotgun).-->
+<!--For details, please see the [Shotgun Integration](Editor/Content/Using-Unreal-Engine-with-Autodesk-Shotgun)[ documentation](Editor/Content/Using-Unreal-Engine-with-Autodesk-Shotgun).-->
 
 ## 신규: 에디터 스크립팅 및 자동화 라이브러리
 
 에디터 **스크립팅 유틸리티 플러그인** 이 모든 언리얼 엔진 사용자에게 공개되었습니다. 이 플러그인은 언리얼 에디터의 자동화 및 스크립트 작성, 콘텐츠 브라우저에서 애셋 관련 작업, 현재 레벨의 액터 관련 작업, 스태틱 메시 애셋의 프로퍼티 관련 작업을 단순화시켜주는 인터페이스를 제공합니다. 
 
-자세한 정보는 [에디터 스크립트 및 자동화](https://docs.unrealengine.com/en-us/Editor/Scripting-and-Automating-the-Editor) 문서를 참고하세요.
+자세한 정보는 [에디터 스크립트 및 자동화](Engine/Editor/ScriptingAndAutomation) 문서를 참고하세요.
 
 ## 신규: FBX 를 통한 애셋 메타데이터 임포트
 
 언리얼에 FBX 파일을 임포트할 때, 이제 그 파일 안에 저장된 FbxProperty 데이터도 같이 가져옵니다. 언리얼 에디터에서 실행되는 Python 스크립트 또는 블루프린트에서 이 메타데이터를 접근할 수 있습니다. 이렇게 하면 콘텐츠 제작 툴에 있던 애셋 관련 정보에 따라 언리얼 자체 애셋 관리 파이프라인을 커스터마이징하는 데 도움이 될 수 있습니다. 
 
-자세한 정보는 [FBX 애셋 메타데이터 파이프라인](https://docs.unrealengine.com/en-us/Editor/Content/FBX/FBX-Asset-Metadata-Pipeline) 문서를 참고하세요.
+자세한 정보는 [FBX 애셋 메타데이터 파이프라인](Engine/Content/FBX/AssetMetadataPipeline) 문서를 참고하세요.
 
 ## 신규: 스태틱 메시의 LOD 및 콜리전에 대한 접근 개선
 
 언리얼 에디터에서 실행되는 Python 스크립트 및 블루프린트가 이제 더 많은 수의 스태틱 메시 애셋 프로퍼티를 변경할 수 있습니다. 스태틱 메시 에디터의 유저 인터페이스가 제공하는 툴의 일정 부분을 자동화시킬 수 있게 되었습니다. 예를 들면:
 
-* 이제 지오메트리의 레벨 오브 디테일(LOD)을 자동 생성하여, 카메라 시점에서 지오메트리까지 거리가 멀어질수록 지오메트리 디테일을 적극적으로 떨어뜨리는 방식으로 씬의 렌더링 퍼포먼스를 향상시킵니다. [블루프린트와 Python 으로 레벨 오브 디테일 만들기](https://docs.unrealengine.com/en-us/Editor/Content/FBX/FBX-Asset-Metadata-Pipeline) 문서를 참고하세요.
+* 이제 지오메트리의 레벨 오브 디테일(LOD)을 자동 생성하여, 카메라 시점에서 지오메트리까지 거리가 멀어질수록 지오메트리 디테일을 적극적으로 떨어뜨리는 방식으로 씬의 렌더링 퍼포먼스를 향상시킵니다. [블루프린트와 Python 으로 레벨 오브 디테일 만들기](Engine/Editor/ScriptingAndAutomation/HowTos/CreatingLODs) 문서를 참고하세요.
 
-* 이제 피직스 시뮬레이션에서 스태틱 메시 애셋을 표현하는 콜리전 메시를 자동 생성할 수 있습니다. [블루프린트와 Python 으로 스태틱 메시의 콜리전 구성](https://docs.unrealengine.com/en-us/Editor/Scripting-and-Automating-the-Editor/Editor-Scripting-How-Tos/Setting-up-Collision-Properties-in-Blueprints-and-Python) 문서를 참고하세요. 
+* 이제 피직스 시뮬레이션에서 스태틱 메시 애셋을 표현하는 콜리전 메시를 자동 생성할 수 있습니다. [블루프린트와 Python 으로 스태틱 메시의 콜리전 구성](Engine/Editor/ScriptingAndAutomation/HowTos/SettingUpCollisionProperties) 문서를 참고하세요. 
 
 ## 신규: 블루프린트 북마크
 
@@ -732,7 +732,7 @@ Steam 인증이 추가되었습니다! 이제 게임에 Steam 인증 API 와 인
 
 * 이제 UI 를 논 드랍 프레임 (NDF) 타임코드 및 드랍 프레임 (DF) 타임코드로 볼 수 있습니다. NDF 타임코드는 모든 프레임 속도에 사용할 수 있으며, 프레임 번호를 시간, 분, 초, 나머지 프레임으로 직접 변환합니다. DF 타임코드는 NTSC 속도(23.976, 29.97, 59.94)에만 지원됩니다. 표시 형태는 키보드 단축키 Ctrl + T 또는 프레임속도 UI 메뉴에서 바꿀 수 있습니다.
 
-자세한 정보는 새로운 [시퀀서 타임 리팩터 노트](https://docs.unrealengine.com/en-us/Engine/Sequencer/Workflow/SequencerTimeRefactorNotes) 문서를 참고하세요. 
+자세한 정보는 새로운 [시퀀서 타임 리팩터 노트](Engine/Sequencer/Workflow/TimeRefactorNotes) 문서를 참고하세요. 
 
 ## 신규: 시퀀서의 미디어 트랙
 
@@ -740,7 +740,7 @@ Steam 인증이 추가되었습니다! 이제 게임에 Steam 인증 API 와 인
 
 ![image alt text](image_37.png)(w:585 convert:false)
 
-자세한 정보는 [미디어 트랙 사용법](https://docs.unrealengine.com/en-us/Engine/Sequencer/HowTo/Using-Media-Tracks) 문서를 참고하세요. 
+자세한 정보는 [미디어 트랙 사용법](https://docs.unrealengine.com/en-us/Engine/Sequencer/HowTo/Using-Media-Tracks) (영문) 문서를 참고하세요. 
 
 ## 신규: 시퀀서 커브 에디터 및 평가 개선
 
@@ -780,7 +780,7 @@ Steam 인증이 추가되었습니다! 이제 게임에 Steam 인증 API 와 인
 	[/PARAMLITERAL]
 [/OBJECT]
 
-자세한 정보는 [시퀀서로 애님 인스턴스 제어하기](https://docs.unrealengine.com/en-US/Engine/Sequencer/HowTo/ControlAnimInstances) 문서를 참고하세요. 
+자세한 정보는 [시퀀서로 애님 인스턴스 제어하기](Engine/Sequencer/HowTo/ControlAnimInstances) 문서를 참고하세요. 
 
 ## 신규: 시퀀서에서 Final Cut Pro 7 XML 임포트/익스포트
 
@@ -810,13 +810,13 @@ Steam 인증이 추가되었습니다! 이제 게임에 Steam 인증 API 와 인
 
 **시퀀스 레코더** 는 이제 퍼시스턴트 레벨에 저장되는 프로파일 시스템을 지원합니다. 레코딩 프로파일은 녹화하고자 하는 액터와 그 세팅 뿐만 아니라, 녹화 데이터를 저장할 출력 경로도 저장할 수 있습니다. 또한 시퀀스 레코더는 이제 선택된 액터 각각에 대한 다중 테이크 녹화도 지원합니다. 
 
-자세한 정보는 [시퀀스 레코더](https://docs.unrealengine.com/en-us/Engine/Sequencer/Workflow/SequenceRecorder) 문서를 참고하세요. 
+자세한 정보는 [시퀀스 레코더](Engine/Sequencer/Workflow/SequenceRecorder) 문서를 참고하세요. 
 
 ## 신규: 시퀀서 트랙 사용 편의성 개선
 
 시퀀서 안에서 **트랙** 을 더욱 편하게 사용하기 위한 여러가지 업데이트가 있었습니다. 이제 트랙, 액터, 폴더 순서를 변경할 수 있고, 이벤트 트랙 이름이 이벤트 키프레임 옆에 표시되며, 섹션을 소스 길이에 맞춰 크기를 조절하거나, 트랜스폼 채널 별로 마스크를 적용할 수도, 블렌드된 포즈에서 포즈 애셋을 생성할 수도 있습니다. 
 
-자세한 정보는 새로운 [시퀀서에서 트랙 작업 방법](https://docs.unrealengine.com/en-us/Engine/Sequencer/HowTo/WorkingWithTracks) 문서를 참고하세요. 
+자세한 정보는 새로운 [시퀀서에서 트랙 작업 방법](Engine/Sequencer/HowTo/WorkingWithTracks) 문서를 참고하세요. 
 
 ## 신규: 인스턴스드 스테레오 렌더링에 반투명 지원
 
@@ -848,7 +848,7 @@ Magic Leap 소프트웨어 개발 키트 및 시뮬레이터 다운로드는 [de
 
 * **빌드 팜의 컴파일 대상 IDE 버전**
 
-    * **Visual Studio:**  Visual Studio 2017 v15.6.3 toolchain (14.13.26128), 윈도우 10 SDK (10.0.12699.0)
+    * **Visual Studio:**  Visual Studio 2017 v15.6.3 toolchain (14.13.26128), Windows 10 SDK (10.0.12699.0)
 
         * 최소 지원 버전
 
@@ -858,7 +858,7 @@ Magic Leap 소프트웨어 개발 키트 및 시뮬레이터 다운로드는 [de
 
     * **Xcode:**  Xcode 9.4
 
-* **안드로이드:**  
+* **Android:**  
 
     * NDK 12b (릴리즈 전 CodeWorks for Android 1r6u1 인스톨러 새 버전이 이전 CodeWorks for Android 1R5 버전을 대체할 것입니다. 아직 NDK 12b 입니다.)
 
@@ -3775,213 +3775,6 @@ Magic Leap 소프트웨어 개발 키트 및 시뮬레이터 다운로드는 [de
 
 * **New:** Added an option that allows rebuilding a set of PAK files with different settings. 
 
-#### Tools
-
-* **Bug Fix:** Fixed editor preferred source code accessor parsing in the project file generator.
-
-* **Bug Fix:** Capped the allowed number of "Waiting Packages" to avoid creating too many kernel objects in pathological load time cases. 
-
-* **New:** Added "List Static Meshes" and List Skeletal Meshes Console commands.
-
-* **New:** Data for Crash Report Client is now stored in a PAK file of its own which can be found under Engine/Programs/CrashReportClient/Content/Paks/CrashReportClient.pak. 
-
-* **New:** Added 'Build SCW' to the CMake build command lines for editors to match what XCode is doing on Mac.
-
-* **New:** Added a new break pad dump_syms tool to symbolicate elf files on Windows.
-
-* **New:** Added a CLion Generator for consistency. 
-
-* **New:** Added code to detect the bad assumption of the project name always being UE4 and stripped that off in the CLion Source Code Accessor.
-
-##### AutomationTool
-
-* **Bug Fix:** Fixed Editor targets not being rebuilt when packaging from an installed Engine build.
-
-* **Bug Fix:** Fixed a bug when building with chunk installs enabled to not generate the master manifest from each pak creation thread and instead just do it once after all pak files have been created. 
-
-* **Bug Fix:** Fixed platform groups (for example, "Apple", "Microsoft", "Sony") to now included in the list of restricted folder names when staging files for a project.
-
-* **Bug Fix:** Allowed the use of PDBCOPY.EXE to be installed as part of the Windows 10 SDK to strip symbols, and add a better message if it can't be found.
-
-* **Bug Fix:** While cooking on the fly a .pak file will no longer be produced. 
-
-* **Bug Fix:** Fixed incorrect console colors being restored after a warning or error on Mac or Linux.
-
-* **New:** Added a script to rewrite source files with public include paths relative to the 'Public' folder. 
-
-* **New:** Added a -SeparateDebugInfo argument to Build Cook Run, which allows staging debug files to a separate output directory (for example, WindowsClientDebug). 
-
-* **New:** Allow passing -Project<N>=Foo.uproject arguments to the MegaXGE commandlet so it can be used from an installed engine build. 
-
-* **New:** Added an automation script for the CryptoKeys plugin which allows the cycling of encryption and signing keys from UAT.
-
-* **New:** As a security measure, a warning will now be output when staging a project for any config files which are not whitelisted or blacklisted. 
-
-* **New:** Added a Whitelist Directories list under the [Staging] category in DefaultEngine.ini, which allows specifying folders that can be staged despite having restricted folder names.
-
-* **New:** Added Record Performance automation script for running demos multiple times, gathering performance stats and plotting results on charts.
-
-##### BuildGraph
-
-* **Bug Fix:** The Build Editor And Tools .xml script will no longer force copying files to a staging directory.
-
-* **Bug Fix:** When Build Graph is run with the -Preprocess=... argument, no steps will be executed.
-
-* **Bug Fix:** Fixed "copy local" files not being included in build products enumerated from C# projects. 
-
-* **Bug Fix:** Added a warning message when trying to use the <Submit> task without the -Submit argument being passed to UAT.
-
-* **New:** Added a <Trace> element, which allows logging messages after the string is parsed (as opposed to the Log task, which logs them at runtime). 
-
-* **New:** Added a -show diagnostics parameter, to have diagnostic messages output even when running with the -listonly option.
-
-* **New:** Added support for enumerating content copied by the "CsCompile" task and support for invoking methods on string properties.
-
-* **New:** When displaying an XML parse error it will now** **Include the path to the XML file. 
-
-* **New:** Added support for user-defined macros, which can contain a list of BuildGraph commands to be expanded within a node. An example script is located in Engine/Build/Graph/Examples/Macros.xml.
-
-* **Removed:** Files with "Embed Interop Types" from the output list have been removed.
-
-##### UnrealBuildTool
-
-* **Bug Fix:**  Exceptions are no longer thrown on a background thread while caching C++ includes which caused incorrect logging. It now captures exceptions and re-throws on the Main thread.
-
-* **Bug Fix:** Allowed link time code generation on any configurations where b Allow LTCG is set to true.
-
-* **Bug Fix:** When building with the UBT it will now explicitly query the number of logical processors in the system to fix Environment.Processor Count by returning the number available to the .NET framework. For machines with > 64 cores, processors in a different processor groups will not be included in this number.
-
-* **Bug Fix:** The UBT will now always determine whether a project is a foreign project or not from the valid .uprojectdirs entries, rather than relying on the user passing -game on the command line.
-
-* **Bug Fix:** Fixed errors during incremental builds if a build contains an exported symbol change, but the build fails after the source files have been compiled but before the import library is built.
-
-* **Bug Fix:** Fixed an incremental build issue caused by force-included files not being treated as dependencies. 
-
-* **Bug Fix:** Fixed issues caused by the tool chain assuming that the Editor target will be the name of the project with an "Editor" suffix. The launcher will allow you to instantiate a project with any name, and it will not rename the target files.
-
-* **Bug Fix:** Changed RPC toolchain to abort early, rather than continue to try to build even though SSH init failed.
-
-* **Bug Fix:** Fixed platforms not adding response files as dependencies, causing incremental builds to fail if input files/compile arguments change.
-
-* **Bug Fix:** Updated project file generator to support VS2017 solution options file; C# projects will no longer open by default when generating new project files.
-
-* **Bug Fix:** Fixed platforms overriding project generation.
-
-* **Bug Fix:** Fixed a build failure that occurs on the very first build after adding new files with reflected types.
-
-* **Bug Fix:** Fixed an issue where overlapping circular header dependencies would not be parsed correctly, preventing files not being rebuilt on header changes.
-
-* **New:** Warnings and errors will output when compiling module rules assembly in a way that allows them to be double-clicked in the Visual Studio output window.
-
-* **New:** Precompiled targets will now generate a separate manifest for each precompiled module. This fixes issues where object files from static libraries would not be linked into a target if a symbol in them was not referenced.
-
-* **New:** Targets may now opt-out of having public include paths added for every dependent module. This reduces the command line length when building a target. All engine modules are compiled with this enabled; games may opt into it by setting bLegacyPublicIncludePaths = false; from their .target.cs.
-
-* **New:** Unreal Build Tool now writes a log file to Engine/Programs/UnrealBuildTool/Log.txt, containing the regular console output and any reasons why actions are outdated and needed to be executed.
-
-* **New:** C# projects for unsupported platforms are now excluded when generating project files.
-
-* **New:** When building with Incredibuild, the agent executing the compile step is now shown by default.
-
-* **New:** Unreal Build Tool will now validate that targets don't modify properties that affect other targets. Warnings are output for any include paths added via a .build.cs file that do not exist.
-
-* **New:** Added a working directory setting to custom build steps.
-
-* **New:** Added a new Build Configuration .xml setting <bMasterProjectNameFromFolder> which allows setting the solution name based on the folder that it's in, making it easier to distinguish between multiple instances of Visual Studio.
-
-* **New:** The name of the UE4 solution can now be overridden on a branch-specific basis, making it easier to work with multiple open solutions at once. 
-
-* **New:** Added a better error if an XML config file is corrupt.
-
-* **New:** The engine will now use the Windows 10 SDK by default, if available. Projects can be configured to use older versions, if necessary.
-
-* **New:** Added warnings whenever a module adds an include path or library path that doesn't exist.
-
-* **New:** Only output a warning message if Build Configuration .xml schema validation fails; we may have settings that only apply to code in another branch.
-
-* **New:** An "Engine Directory" property has been added to the Module Rules base class, making it easier to find paths to files under the Engine folder.
-
-* **New:** Verbose timing information from the compiler frontend is now included with the bPrintToolChainTimingInfo option enabled if using VS2017 15.7 preview 2 or later.
-
-* **New:** The UnrealBuildTool now enumerates all Visual Studio 2017 install locations using the Visual Studio Setup interop SDK, and supports multiple simultaneous Visual Studio installations.
-
-* **New:** Additional compiler/linker arguments can now be set through properties on the TargetRules object again.
-
-* **New:** Added support for reading the local PVS-Studio settings file to the PVS toolchain.
-
-* **New:** Added a new executor for Windows which uses the Managed Process class, spawning child processes under a job object using P/Invoke to ensure that any child process is terminated if the build is canceled.
-
-* **New:** Added support for multiple debug extensions.
-
-##### UnrealGameSync(UGS)
-
-* **Bug Fix:** Fixed an issue where pop-up menus can create top level windows in the taskbar. 
-
-* **Bug Fix:** Fixed notification window not expanding to fit long captions.
-
-* **Bug Fix:** Pre compiled binaries no longer will not be shown as available for a change until scrolling the last submitted code change into the buffer. It now queries changes up to the last change for which zipped binaries are available.
-
-* **Bug Fix:** The application lifecycle now uses a custom application context to allow creating separate 'main' windows, and does not require any forms to be shown in order to be updating in the background. This fixed issues with scheduled syncs on background windows not activating, and window jumping to the front after auto-update.
-
-* **Bug Fix:** UnrealGameSync will now Detect if other programs are running before allowing a sync to start, show a dialog listing them, and give an option to ignore them if necessary.
-
-* **Bug Fix:** Do not create a modal dialog if a scheduled sync is unable to run because the editor is open, and do not run the editor after a scheduled sync.
-
-* **New:** Workspace sync filter categories are now able to re-enable categories that are disabled by the global filter.
-
-* **New:** UnrealGameSync Launcher now shows an error window allowing setting default P4 server settings if syncing UGS fails.
-
-* **New:** Files which are excluded by the sync filter will now be removed from the workspace when syncing. The user's config file stores a hash of the last sync filter. During syncing, if this hash doesn't not match the previous value, we enumerate all the files in the #have list and remove anything masked out by the filter.
-
-* **New:** Added an option to allow setting a tint color to be applied to the status panel, to allow identifying streams more easily. 
-
-* **New:** Columns are now automatically resized when the main window is resized, and default column widths for projects that have a large number of CIS badges can be specified in the project's UnrealGameSync.ini file.
-
-* **New:** The stream name is now in tab labels by default.
-
-* **New:** Added support for a per-branch "message of the day"-style feature. Messages can be specified in a project's config file in Perforce (eg. <ProjectDir>/Build/UnrealGameSync.ini).
-
-* **New:** Added an extensible method for adding arbitrary badges to the right of the "description" column, by running a regular expression over the changelist description. **New: **Added an option to show changes by build machines, and move the "only show reviewed" option in there too (Options > Show Changes).
-
-* **New:** UnrealGameSync now detects Perforce login tickets expiring, and allows entering login credentials.
-
-* **New:** Added an option to prompt for arguments prompting before launching the editor.
-
-* **New:** Added a "Bisect" mode for regressing bugs between a certain range of changes. 
-
-* **New:** Moved the prompt to close the editor before allowing the user to enter a changelist to sync to, when syncing to a specific changelist.
-
-* **New:** Added an error dialog when trying to clean the workspace before closing the editor.
-
-* **New:** You can now select which projects to sync on schedule. Any projects not already opened at the time the schedule is triggered will be opened first.
-
-* **New:** Added an option for syncing all projects in a branch. 
-
-* **New:** Added support for masking in additional paths to be synced (eg. one or two extra projects) via the sync filter.
-
-* **New:** The "clean workspace" functionality will now detect and force-sync files that have been deleted or made writable.
-
-* **New:** You can now use a select stream dialog instead of displaying a drop list unless there's a stream filter specified. Makes it easier to find streams in large depots.
-
-* **New:** Added UI to allow creating new workspaces and selecting projects from existing workspaces that are not currently synced.
-
-##### UnrealHeaderTool
-
-* **Bug Fix:** Fixed some cases where empty default values would be lost from UHT (eg, empty strings, null objects)
-
-##### UnrealPak
-
-* **New:** UnrealPak now logs the size of all encrypted data
-
-* **New:** The key generator now only generates a prime table when required, not all the time
-
-* **New:** Added a parameter for compression block size with -compressionblocksize=XXXX. Accepts arguments with MB/KB suffixes, as well as byte counts.
-
-* **New:** Added support for custom compressors implemented via modular features. 
-
-* **New:** Added an -overrideplatformcompressor argument that allows selecting compressor without using the default platform implementation.
-
-* **New:** Added an option that allows rebuilding a set of PAK files with different settings. 
 
 #### UI
 

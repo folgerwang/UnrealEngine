@@ -1,0 +1,81 @@
+﻿INTSourceChangelist:4284888
+Availability: Public
+Crumbs: 
+Title: UMG Safe Zones
+Description: このページでは、 Safe Zones について説明します。 Safe Zones は、「UI がプレイヤーの見えない場所に表示されないようにすること」を意図して設計されています。
+Version: 4.20
+Parent: Engine/
+Order: 5 
+Tags: UMG UI Designer
+Tags: UMG
+
+
+** Safe Zone ** ウィジェットは、色々なデバイスで実行できるゲーム ユーザー インターフェース（UI）を開発するために、必要な要素です。 Safe Zone は、 TV ディスプレイの端や iPhoneX のノッチやホーム バーの下のような、「技術的に UI 上で使用できても、画面上には表示されない」といったことを防ぐ意図で設計されています。UMG Designer を使用すると、UI と セーフ ゾーン ウィジェットが適用されたデバイスの解像度（または回転）をテストできます。
+
+** Safe Zone ** ウィジェットを ** Designer ** に使用すると、 ウィジェットは ** [Hierarchy] ** パネルから、その「子になったウィジェット」をスケーリングします。これらの「子ウィジェット」は、「 unsafe （安全ではない）」なゾーンがあるとき、常にスケーリングと調整が行われます。
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![Safe Zone ウィジェット無し](WithoutSafeZone_opt-1.png) 
+ [/PARAM]
+ [PARAM:after]
+ ![Safe Zone ウィジェット有り](WithSafeZone_opt.png) 
+ [/PARAM]
+[/OBJECT]
+
+この例では、テストとデバッグが目的として、1080p ディスプレイに、0.9（赤色）の ** Uniform Safe Zone ** エリアがあります。ウィジェットが Safe Zone ウィジェットの親である場合、その「子ウィジェット」はセーフ ゾーン エリアにスケーリングされます。これにより、 「 unsafe 」とみなされる画面端で、ウィジェットが切断されるのを防ぎます。この例では、「 My Menu 」というタイトルのテキストが表示されています。
+
+## 設定と Safe Zone の解像度のテスト
+
+[ UMG ](Engine/UMG)（または [ Play-in-Editor ](Engine/UI/LevelEditor/InEditorTesting) 設定）では、選択された画面サイズが [ モバイル コンテンツのスケーリング係数 ](Platforms/Mobile/Performance#モバイルコンテンツスケール係数 ) を考慮した [ デバイス プロファイルの設定 ](Platforms/DeviceProfiles) にリンクされます。 これは、最終的な解像度と DPI のスケールが、選択されたデバイスに基づいて変更されることを意味します。
+
+デバイスの画面解像度をテストするには、 UMG の ** Designer ** ビューポートを使用して ** [Screen Size] ** ドロップダウンを選択し、リスト中のデバイスから選択します。
+![ScreenSizeSelection.png](ScreenSizeSelection_opt.png)
+
+デバイスが携帯電話やタブレットなどのスクリーンの向きに対応している場合は、 ** [Portrait/Landscape] ** ボタンを使用して2つの表示モードを切り替えることができます。選択したデバイスが方向シフトをサポートしていない場合、このオプションはグレイ アウトされます。
+  
+![](OrientationButton.png)
+
+この2つのビューモードの例を紹介します。![](iPhoneX_PortraitAndLandscape.png)
+
+[REGION:caption]
+*左：ランドスケープ、右： ポートレイト*
+[/REGION]
+
+デバイスが選択されると、関連する情報と「 unsafe 」とマークされたゾーンが ** Designer ** グラフに表示されます。
+![](DeviceDetails.png)
+
+[REGION:caption]
+1. 「 unsafe 」とマークされたゾーン
+2. デバイス詳細（モバイル コンテンツのスケーリング係数、デバイス名または Uniform Safe Zone 、画面サイズ）
+3. DPI スケール
+[/REGION]
+
+非 uniform safe zone の場合、 ** [Flip] ** ボタンを押して、ランドスケープ モードのデバイスの回転をシミュレートできます。
+![](DeviceFlipButton.png)
+
+[REGION:note]
+このオプションは、一部のデバイス上かつランドスケープ ビュー モードでのみ使用できます。
+[/REGION]
+
+リストからテレビとモニタをプレビューするときに、 [ debug title safe zone ](Platforms/TVSafeZoneDebugging) が1未満の場合、 ** Uniform Safe Zone ** にそのサイズが表示されます。debug safe zone エリアは、キャンバス ウィジェットの周りを赤で囲ったエリアとして表示されます。
+![](UniformSafeZone.png)
+
+[REGION:note]
+赤い「 unsafe 」ゾーンエリアを表示するため、 UMG ではデフォルトで ** Debug Safe Zone ** モードがオンになっています。
+[/REGION]
+
+一部のデバイスでは、 Designer のグラフ内にカスタムの「 unsafe 」ゾーンが表示されるようになっています。これらは、利用可能な画面スペースを占有するデバイスの、ハードウェアまたはソフトウェア固有の領域を表すために使用されます。例えば iPhoneX では、これらのゾーンは画面のノッチ部分とホームバー部分を表します。
+![](iPhoneXUnsafeZones.png)
+
+この iPhoneX の例では、 Safe Zone ウィジェットは、メニューとボタンが含まれているウィジェット階層のセクションを親としています。エリアが「 unsafe 」な場合、カプセル化されたウィジェットはこれらのエリアを避けるため、スケーリングされます（上記の例を参照）。
+
+![](SafeZoneHierarchyPanel.png)
+
+## PIE とスタンドアローン ゲームの UI のテスト
+
+エディタで UI をテストする時で、 ** [New Editor Window] ** で PIE を使用する場合、またはコンテンツをデバイスにデプロイせずに ** スタンドアロン ゲーム ** を使用する場合、共通のデバイスの画面サイズに基づき画面サイズを設定できます。** エディタの環境設定 ** の ** [Level] > [Play] > [Game Viewport Settings] ** でデバイスを設定して、共通のデバイス解像度を選択します。
+![](PIESettings.png)
+
+** [Landscape/Portrait Orientation] ** ボタンで、使用する向きを切り換えます。
+![](PIESettings_SwapOrientation.png)

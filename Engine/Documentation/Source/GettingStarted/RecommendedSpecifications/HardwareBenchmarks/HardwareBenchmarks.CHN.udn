@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
-Availability: Docs
+﻿INTSourceChangelist:3782314
+Availability: Licensee
 Crumbs: %ROOT%
-Title: Hardware Benchmarks (Mid 2017)
-Description: This page contains hardware benchmark analyses, helping developers choose ideal hardware configurations for your projects.
+Title: 硬件基准（2017年中）
+Description: 本页面提供了硬件基准分析，帮助开发者选择适合项目的硬件配置。
 Type: Reference
 Version: 4.15
 Parent: GettingStarted/RecommendedSpecifications
@@ -12,67 +12,64 @@ Tags: Specifications
 [TOC(start:2 end:2)]
 
 [REGION:warning]
-In the following analysis, price estimates and opinions of probable cost (current as of Mid 2017) are for informational purposes only.
+在以下分析中，价格估计和关于可能成本的意见（当前截至2017年中期）仅供参考之用。
 [/REGION]
 
-Unreal Engine 4 (UE4) ships with some of the best features available; oftentimes, those features are built as part of a development pipeline, requiring you to benchmark your hardware because unfortunately, when your team experiences slow build times being caused by underperforming hardware - programmers have downtime, designers don't iterate on their ideas, and artists won't test new visuals; fortunately, these hardware benchmark tests were conducted to help you improve your team's productivity, enabling you to optimize your development pipeline while empowering you to take advantage of the features that UE4 has to offer.
+这些硬件基准测试在私有P4V流中执行，其中固定的代码快照取自Changelist (CL) 3477826上的 `//UE4/Main`。为了高效地将结果自动化和聚合，作业通过具有计时数据（不包括同步、等待等）的构建系统运行。为了便于进行测试，本研究中使用以下计算机配置：
 
-These hardware benchmark tests were performed in a private [Perforce (P4V)](https://www.perforce.com/downloads/helix-visual-client-p4v) stream, namely `//UE4/Private-HardwareTest`, with a fixed snapshot of code taken from `//UE4/Main` at Changelist (CL) 3477826. For the purposes of automating and aggregating results efficiently, the jobs were run through a build system with timing data, excluding syncs, waits, etc. For the purposes of this study, the following machine configurations were used for testing purposes:
-
-| **Machine Name**        | **Type**| **CPU**                            | **Cores/Threads** | **RAM**  |
+| **计算机名称**        | **类型**| **CPU**                            | **核心/线程** | **RAM**  |
 | ----------------------- | ------- | ---------------------------------- | ----------------- | -------- |
-| **Dell T7910**          | Desktop | Xeon E5-2667 v3 @ 3.2 GHz (Dual)   | 8C/16T x 2        | 96GB     |
-| **Dell T7810**          | Desktop | Xeon E5-2643 v3 @ 3.4 GHz (Single) | 6C/12T            | 64GB     |
-| **Lenovo P710**         | Desktop | Xeon E5-2637 v4 @ 3.5 GHz (Dual)   | 4C/8T x 2         | 96GB     |
-| **Lenovo P510**         | Desktop | Xeon E5-1650 v3 @ 3.5 GHz (Single) | 6C/12T            | 64GB     |
-| **Current Builder**     | Server  | Xeon E5-2680 v2 @ 2.8 GHz (Dual)   | 10C/20H x 2       | 64GB     |
-| **Cisco C220-01 (S)\*** | Server  | Xeon E5-2637 v4 @ 3.5 GHz (Single) | 4C/8H             | 64GB     |
-| **Cisco C220-01 (D)**   | Server  | Xeon E5-2637 v4 @ 3.5 GHz (Dual)   | 4C/8H x 2         | 64GB     |
-| **Cisco C220-02 (S)\*** | Server  | Xeon E5-2698 v4 @ 2.2 GHz (Single) | 20C/40H           | 64GB     |
-| **Cisco C220-02 (D)**   | Server  | Xeon E5-2698 v4 @ 2.2 GHz (Dual)   | 20C/40H x 2       | 64GB     |
-| **Cisco C220-03 (S)\*** | Server  | Xeon E5-2640 v4 @ 2.4 GHz (Single) | 10C/20H           | 64GB     |
-| **Cisco C220-03 (D)**   | Server  | Xeon E5-2640 v4 @ 2.4 GHz (Dual)   | 10C/20H x 2       | 64GB     | 
-_*These are the same machines as the (D) variant, but with one CPU removed._
+| **Dell T7910**          | 台式机  | Xeon E5-2667 v3（3.2 GHz，双核）   | 8C/16T x 2        | 96GB     |
+| **Dell T7810**          | 台式机  | Xeon E5-2643 v3（3.4 GHz，单核）   | 6C/12T            | 64GB     |
+| **Lenovo P710**         | 台式机  | Xeon E5-2637 v4（3.5 GHz，双核）   | 4C/8T x 2         | 96GB     |
+| **Lenovo P510**         | 台式机  | Xeon E5-1650 v3（3.5 GHz，单核）   | 6C/12T            | 64GB     |
+| **当前构建器**          | 服务器  | Xeon E5-2680 v2（2.8 GHz，双核）   | 10C/20H x 2       | 64GB     |
+| **Cisco C220-01 (S)\*** | 服务器  | Xeon E5-2637 v4（3.5 GHz，单核）   | 4C/8H             | 64GB     |
+| **Cisco C220-01 (D)**   | 服务器  | Xeon E5-2637 v4（3.5 GHz，双核）   | 4C/8H x 2         | 64GB     |
+| **Cisco C220-02 (S)\*** | 服务器  | Xeon E5-2698 v4（2.2 GHz，单核）   | 20C/40H           | 64GB     |
+| **Cisco C220-02 (D)**   | 服务器  | Xeon E5-2698 v4（2.2 GHz，双核）   | 20C/40H x 2       | 64GB     |
+| **Cisco C220-03 (S)\*** | 服务器  | Xeon E5-2640 v4（2.4 GHz，单核）   | 10C/20H           | 64GB     |
+| **Cisco C220-03 (D)**   | 服务器  | Xeon E5-2640 v4（2.4 GHz，双核）   | 10C/20H x 2       | 64GB     | 
+_*以上是与（D）变体相同的计算机，只是删除了一个CPU。_
 
-During the tests, desktop machines were running [Windows 10](https://www.microsoft.com/en-us/windows/get-windows-10?step=Win10Question1) and server machines were running [Windows Server 2012 R2](https://www.microsoft.com/en-us/evalcenter/evaluate-windows-server-2012-r2). 
-Also, all machines had a [Samsung 850 PRO](http://www.samsung.com/semiconductor/minisite/ssd/product/consumer/850pro.html) data drive and a gigabit ethernet connection.
+测试期间，台式计算机运行 [Windows 10](https://www.microsoft.com/en-us/windows/get-windows-10?step=Win10Question1)，服务器计算机运行 [Windows Server 2012 R2](https://www.microsoft.com/en-us/evalcenter/evaluate-windows-server-2012-r2)。 
+此外，所有计算机都使用 [Samsung 850 PRO](http://www.samsung.com/semiconductor/minisite/ssd/product/consumer/850pro.html) 数据驱动器和千兆以太网连接。
 
-##Compiling with XGE
+##使用XGE进行编译
 
 [REGION:note]
-Only desktop machines were considered for these tests. The standard [Incredibuild-XGE](https://www.incredibuild.com/incredibuild-xge-product-overview.html) (XGE) coordinator and pool of agents were used in our headquarters. 
+这些测试只考虑使用台式计算机。我们的总部使用标准的 [Incredibuild-XGE](https://www.incredibuild.com/incredibuild-xge-product-overview.html)（XGE）服务端和客户端池。 
 [/REGION]
 
-All of the machines performed similarly, though the **T7910** tended to perform a bit slower than the others. Although the **T7910** has the lowest clock speed, we didn't isolate the reason for this machine's slower performance.
+所有计算机的性能均相似，但 **T7910** 的性能比其他计算机慢。虽然 **T7910** 的时钟频率最低，但我们并未确定该计算机性能低下的原因。
 
 |                                 | **T7910** | **T7810** | **P710** | **P510** |
 | ------------------------------- | --------- | --------- | -------- | -------- |
 | **Compile UE4Editor Win64**     | 0:07:03   | 0:06:28   | 0:06:35  | 0:06:29  |
-| **Compile OrionEditor Win64**   | 0:06:22   | 0:05:42   | 0:06:03  | 0:05:48  |
-| **Compile ForniteEditor Win64** | 0:05:24   | 0:05:08   | 0:04:57  | 0:05:00  |
-| **Compile OceanEditor Win64**   | 0:03:43   | 0:03:26   | 0:03:33  | 0:03:31  |
+| **Compile ParagonEditor Win64**   | 0:06:22   | 0:05:42   | 0:06:03  | 0:05:48  |
+| **Compile FortniteEditor Win64** | 0:05:24   | 0:05:08   | 0:04:57  | 0:05:00  |
 
-Compile times with XGE were fairly erratic, so it should be safe to ignore small differences. Typically, it took five to eight minutes to compile the **Editor**.
+使用XGE编译的时间极不稳定，因此可以忽略细微的差异。通常，编译 **编辑器** 需要五到八分钟。
 
 [REGION:raw]
 ![](HB_1.png)
 [/REGION]
 
-We ran separate tests at different times of the day (12am, 6am, 12pm, and 6pm) to determine whether load on the agent farm was a significant bottleneck.
+我们在一天中的不同时间（凌晨12点、凌晨6点、中午12点和下午6点）分别进行测试，以确定客户端群上的负载是否构成了显著的瓶颈。
 
 [REGION:raw]
 ![](HB_2.png)
 [/REGION]
 
-Morning compile times seem to be erratic and it seems likely that it correlates with the default scheduled sync time of 6am in **UnrealGameSync**, which many developers have enabled.
+早上的编译时间不稳定，这似乎与 [UnrealGameSync](https://github.com/EpicGames/UnrealEngine/blob/release/Engine/Source/Programs/UnrealGameSync/Deployment.txt) 中默认的预定同步时间凌晨6点有关，许多开发人员启用了该默认时间。
 
-###Memory
+###存储器
 
-The extra RAM installed in the **P710** and **P9710** didn't appear to improve performance.
+在 **P710** 和 **P9710** 中安装额外的随机存储器（RAM）未能改善性能。
 
 ###I/O
 
-All of these tests were performed on a [Samsung 850 PRO](http://www.samsung.com/semiconductor/minisite/ssd/product/consumer/850pro.html) data drive. The **P710** was supplied with a dual [RAID-0](https://en.wikipedia.org/wiki/RAID) **PCIe m.2** system drive, which has significantly higher read/write performance (as follows):
+所有这些测试均在 [Samsung 850 PRO](http://www.samsung.com/semiconductor/minisite/ssd/product/consumer/850pro.html) 数据驱动器上执行。**P710** 配备双 [RAID-0](https://en.wikipedia.org/wiki/RAID) **PCIe m.2** 系统驱动器，具有明显更高的读/写性能（如下所示）：
 
 [REGION:imagetable]
 | ![HB_3.png](HB_3.png)(w:330) | ![HB_4.png](HB_4.png)(w:330) |
@@ -80,69 +77,67 @@ All of these tests were performed on a [Samsung 850 PRO](http://www.samsung.com/
 | RAID-0 PCIe m.2 | Samsung 850 PRO |
 [/REGION]
 
-Given the erratic timing of XGE compilation, compiling on this drive didn't show a substantial increase in performance.
+鉴于XGE编译的时间不稳定，在此驱动器上进行编译并未显示性能大幅提升。
 
-|                                  | **P710 - Samsung 850 PRO** | **P710 - 2 x PCIe m.2** | **Change** |
+|                                  | **P710 - Samsung 850 PRO** | **P710 - 2 x PCIe m.2** | **变化** |
 | -------------------------------- | -------------------------- | ----------------------- | ---------- |
 | **Compile UE4Editor Win64**      | 0:06:35                    | 0:05:33                 | -15.74%    |
 | **Compile FortniteEditor Win64** | 0:04:57                    | 0:05:16                 | 6.37%      | 
 
-##Compiling without XGE
+##不使用XGE进行编译
 
-As shown in the yellow line (below), there is a slight degradation in the performance of **T7910**. Although we couldn't find the reason for the drop off in performance for **T7910**, we found that compile times are stable for different CPU configurations when running these tests on all machines.
+如黄线（下图）所示，**T7910** 的性能略有下降。虽然我们找不到 **T7910** 性能下降的原因，但发现在所有计算机上运行这些测试时，对于不同的CPU配置编译时间是稳定的。
 
 [REGION:raw]
 ![](HB_5.png)
 [/REGION]
 
-Looking at compile times for the **Editor**, build times are fairly linear with respect to physical core count, with single-CPU configurations being slightly faster than dual-CPU configurations for the same number of cores.
+从 **编辑器** 的编译时间来看，在物理内核数量方面，构建时间相当线性化，单CPU配置比相同内核数量的双CPU配置略快。
 
 [REGION:raw]
 ![](HB_6.png)
 [/REGION]
 
-Since the [IWYU](Programming/UnrealBuildSystem/IWYUReferenceGuide) refactor, we found that **Editor** compilation is highly parallel, having few PCH bottlenecks, so seeing the correlation shown above is expected.
+自 [IWYU（包括你使用的）](Programming/UnrealBuildSystem/IWYUReferenceGuide) 重构以来，我们发现 **编辑器（Editor）** 编译高度并行化，几乎没有PCH（预编译标头）瓶颈，因此可以看到上面显示的关系。
 
-###Memory
+###存储器
 
-The build process spawns one compiler instance for each logical core, presenting a limiting factor for **C220-02 (D)**, which has more cores (**40C/80H**) than any other machine in our test. To address this limiting factor for **C220-02 (D)**, we doubled the RAM to 128GB, and as you can see below, we saw good improvements.
+针对每个逻辑核心，构建过程生成一个编译器实例，这成为 **C220-02 (D)** 的限制因素，该计算机拥有的核心（**40C/80H**）比测试中的任何其他计算机都要多。为了解决 **C220-02 (D)** 的这个限制因素，我们将RAM加倍到128GB，这带来了显著的改进，具体如下所示。
 
-|                                  | **C220-02 (D) - 64GB** | **C220-02 (D) - 128GB** | **Change** |
+|                                  | **C220-02 (D) - 64GB** | **C220-02 (D) - 128GB** | **变化** |
 | -------------------------------- | ---------------------- | ----------------------- | ---------- |
 | **Compile UE4Editor Win64**      | 0:10:06                | 0:06:43                 | -33.50%    | 
-| **Compile OrionEditor Win64**    | 0:08:12                | 0:05:29                 | -33.13%    | 
+| **Compile ParagonEditor Win64**  | 0:08:12                | 0:05:29                 | -33.13%    | 
 | **Compile FortniteEditor Win64** | 0:06:08                | 0:04:12                 | -31.52%    | 
-| **Compile OceanEditor Win64**    | 0:03:33                | 0:02:38                 | -25.82%    | 
 
-After doubling the RAM for the **C220-03 (D)** machine (**20C/40H**), we observed performance improvements of around ten-percent (see below).
+将 **C220-03 (D)** 计算机（**20C/40H**）的RAM加倍后，我们观察到性能提高了大约10%（见下图）。
 
-|                                  | **C220-03 (D) - 64GB** | **C220-03 (D) - 128GB** | **Change** |
+|                                  | **C220-03 (D) - 64GB** | **C220-03 (D) - 128GB** | **变化** |
 | -------------------------------- | ---------------------- | ----------------------- | ---------- |
 | **Compile UE4Editor Win64**      | 0:12:33                | 0:10:40                 | -14.92%    | 
-| **Compile OrionEditor Win64**    | 0:10:03                | 0:09:03                 | -10.01%    | 
+| **Compile ParagonEditor Win64**  | 0:10:03                | 0:09:03                 | -10.01%    | 
 | **Compile FortniteEditor Win64** | 0:07:08                | 0:06:37                 | -7.24%     | 
-| **Compile OceanEditor Win64**    | 0:04:09                | 0:03:51                 | -7.09%     | 
 
-For machines with lower core counts, our expectation is for this to tail-off quickly because fewer compiler processes would use less memory.
+对于核心数较少的计算机，我们估计编译时间会显著缩短，因为编译器进程减少，使用的内存也会减少。
 
 ###I/O
 
-**Editor** compilation on the dual **RAID-0 PCIe m.2** (available on the **P710**) machine didn't make a significan't performance improvement. This machine had a fairly low core count (**2 x 4C/8T**), so it probably wasn't a limiting factor.
+双 **RAID-0 PCIe m.2**（**P710**上可用）计算机上的 **编辑器** 编译没有显著提高性能。该计算机的核心数较低（**2 x 4C/8T**），因此可能不构成限制因素。
 
-|                                     | **P710 - Samsung 850 PRO** | **P710 - 2 x PCIe m.2** | **Change** |
+|                                     | **P710 - Samsung 850 PRO** | **P710 - 2 x PCIe m.2** | **变化** |
 | ----------------------------------- | -------------------------- | ----------------------- | ---------- |
 | **Compile UE4Editor Win64 - NoXGE** | 0:21:11                    | 0:20:59                 | -0.94%     |
 
-After increasing the available RAM, I/O is likely the remaining bottleneck for the **C220-02 (D)** machine (we didn't have faster hard drive options for this machine). At the time of this writing, the high CPU cost (appropriximately $3,500 USD per CPU = $7,000 USD total) will likely preclude it as a viable option for wide deployment anyway.
+增加可用RAM之后，**C220-02 (D)** 计算机可能仍面临I/O瓶颈（我们没有为此计算机提供更快的硬盘驱动器选项）。在撰写本文时，由于CPU成本较高（每CPU大约3500美元=总计7000美元），可能导致其无法作为可行选项进行广泛部署。
 
-##Cooking Content
+##转化内容
 
-During a [Cook](Engine/Deployment/Cooking), **Task Manager** typically showed one or two threads being active. Thanks to a hot **Derived Data Cache**[(DDC)](Engine/Basics/DerivedDataCache), package serialization was most likely the bottleneck.
+在 [转化](Engine/Deployment/Cooking) 期间，**任务管理器（Task Manager）** 通常显示处于活动状态的一个或两个线程。由于使用填充（或“热”）[DDC](Engine/Basics/DerivedDataCache)（**衍生数据缓存**），软件包序列化最有可能成为一大瓶颈。
 
 [REGION:imagetable]
 | [INCLUDE:#DesktopCook] | [INCLUDE:#BuilderCook] |
 | ---------------------- | ---------------------- |
-| Desktop                | Builder                |
+| 台式机                | 构建器                |
 [/REGION]
 
 [COMMENT:none]
@@ -150,101 +145,93 @@ During a [Cook](Engine/Deployment/Cooking), **Task Manager** typically showed on
 [EXCERPT:DesktopCook]
 |                    | **T7910** | **T7810** | **P710** | **P510** |
 | -------------------| --------- | --------- | -------- | -------- |
-| **Orion Win64**    | 0:38:00   | 0:35:04   | 0:37:18  | 0:35:15  |
+| **Paragon Win64**    | 0:38:00   | 0:35:04   | 0:37:18  | 0:35:15  |
 | **Fortnite Win64** | 0:59:59   | 0:55:49   | 1:01:41  | 0:55:47  |
-| **Ocean Win64**    | 0:15:20   | 0:16:04   | 0:15:08  | 0:14:37  |
 [/EXCERPT:DesktopCook]
 
 [EXCERPT:BuilderCook]
-|                    | **Current** | **C220-01 (D)** | **C220-02 (D)** | **C220-03 (D)** |
+|                    | **当前（Current）** | **C220-01 (D)** | **C220-02 (D)** | **C220-03 (D)** |
 | -------------------| ----------- | --------------- | --------------- | --------------- |
-| **Orion Win64**    | 0:32:05     | 0:29:38         | 0:32:19         | 0:34:13         |
+| **Paragon Win64**    | 0:32:05     | 0:29:38         | 0:32:19         | 0:34:13         |
 | **Fortnite Win64** | 1:03:59     | 0:51:32         | 0:55:47         | 0:58:32         |
-| **Ocean Win64**    | 0:10:10     | 0:08:06         | 0:09:08         | 0:09:35         |
 [/EXCERPT:BuilderCook]
 
 [/COMMENT]
 
-Results from testing **C220** machines in single-core configurations were invalidated and discarded because we discovered that the default **Windows Server** power configuration results in poor CPU performance for serial tasks (such as Cooking Content).
+在单核配置中测试 **C220** 计算机所得到的结果无效并被丢弃，因为我们发现默认的 **Windows Server** 电源配置导致串行任务（例如转化内容）的CPU性能较差。
 
-###Memory
+###内存
 
-Cooking [Fornite](https://www.epicgames.com/fortnite/en-US/buy-now/battle-royale) tended to peak RAM usage at around 55GB and the increased amount of available RAM didn't make any real difference to Cook times. 
-Additionally, garbage collection was disabled to avoid reloading packages, which means that 64GB of RAM seems to be enough to cover the entirety of the working set. This high-water mark will likely increase as the game continues to grow.
+转化[《堡垒之夜（Fortnite）》](https://www.epicgames.com/fortnite/en-US/buy-now/battle-royale)将RAM使用率提高到55GB左右，但可用RAM的增加对转化时间没有任何实际影响。 
+此外，禁用了 [垃圾回收](Programming/UnrealArchitecture/Objects/Optimizations) 以避免重新加载包，这意味着64GB的RAM足以满足整个工作集的要求。随着游戏大小不断增加，该指标可能也会水涨船高。
 
-|                         | **C220-03 (D) - 64MB** | **C220-03 (D) - 128MB** | **Change** |
+|                         | **C220-03 (D) - 64MB** | **C220-03 (D) - 128MB** | **变化** |
 | ----------------------- | ---------------------- | ----------------------- | ---------- |
-| **Cook Orion Win64**    | 0:34:13                | 0:32:10                 | -6.01%     |
+| **Cook Paragon Win64**    | 0:34:13                | 0:32:10                 | -6.01%     |
 | **Cook Fortnite Win64** | 0:58:32                | 0:57:09                 | -2.35%     |
-| **Cook Ocean Win64**    | 0:09:35                | 0:09:44                 | 1.51%      | 
 
-|                         | **C220-02 (D) - 64MB** | **C220-02 (D) - 128MB** | **Change** |
+|                         | **C220-02 (D) - 64MB** | **C220-02 (D) - 128MB** | **变化** |
 | ----------------------- | ---------------------- | ----------------------- | ---------- |
-| **Cook Orion Win64**    | 0:32:19                | 0:33:33                 | 3.83%      |
+| **Cook Paragon Win64**    | 0:32:19                | 0:33:33                 | 3.83%      |
 | **Cook Fortnite Win64** | 0:55:47                | 0:55:58                 | 0.34%      |
-| **Cook Ocean Win64**    | 0:09:08                | 0:09:29                 | 3.90%      | 
 
 ###I/O
 
-To see the impact of I/O performance, we cooked Fornite on the dual **RAID-0 PCIe m.2** system drive supplied with the **P710**. Surprisingly, there was little difference in performance.
+为了解I/O性能的影响，我们在 **P710** 配备的双 **RAID-0 PCIe m.2** 系统驱动器上转化了《堡垒之夜》。出乎意料的是，性能差异并不大。
 
-|                         | **P710 - Samsung 850 PRO** | **P710 - 2 x PCIe m.2** | **Change** |
+|                         | **P710 - Samsung 850 PRO** | **P710 - 2 x PCIe m.2** | **变化** |
 | ----------------------- | -------------------------- | ----------------------- | ---------- |
 | **Cook Fortnite Win64** | 1:01:41                    | 1:01:02                 | -1.04%     |
 
-###Local DDC
+###本地DDC
 
-Build machines don't keep a local DDC for legacy reasons; managing disk space when running Cooks from several branches is a bit tricky, and previous attempts to periodically clean-up this space has resulted in more time spent back-filling the local cache rather than using it. 
+由于遗留原因，构建计算机不保留本地DDC；在从多个分支运行转化时，磁盘空间的管理会遇到问题，以前曾尝试定期清理该空间，却导致需花费更多时间来回填而不是使用本地缓存。 
 
-| Machine Name    |            |
+| 计算机名称    |            |
 | --------------- | ---------- |
-| **Current**     | [INCLUDE:#LocDDCCurrent]   | 
+| **当前**     | [INCLUDE:#LocDDCCurrent]   | 
 | **C220-01 (D)** | [INCLUDE:#LocDDCC22001D]    | 
 | **C220-02 (D)** | [INCLUDE:#LocDDCC22002D]    | 
 | **C220-03 (D)** | [INCLUDE:#LocDDCC22003D]    | 
 [COMMENT:none]
 
 [EXCERPT:LocDDCCurrent]
-|  |Shared DDC Only| Local and Shared DDC | Change |
+|  |仅共享DDC| 本地和共享DDC | 变化 |
 |--|--|--|--|
-|**Cook Orion**|0:32:05|0:31:55|-0.52%|
-|**Cook Fornite**|1:03:59|1:02:19|-2.60%|
-|**Cook Ocean**|0:10:10|0:09:09|-10.00%|
+|**转化《虚幻争霸》（Cook Paragon）**|0:32:05|0:31:55|-0.52%|
+|**转化《堡垒之夜》**|1:03:59|1:02:19|-2.60%|
 [/EXCERPT:LocDDCCurrent]
 
 [EXCERPT:LocDDCC22001D]
-|  |Shared DDC Only| Local and Shared DDC | Change |
+|  |仅共享DDC| 本地和共享DDC | 变化 |
 |--|--|--|--|
-|**Cook Orion**|0:29:38|0:20:43|-30.09%|
-|**Cook Fornite**|0:51:32|0:48:24|-6.08%|
-|**Cook Ocean**|0:08:06|0:06:50|-15.64%|
+|**转化《虚幻争霸》**|0:29:38|0:20:43|-30.09%|
+|**转化《堡垒之夜》**|0:51:32|0:48:24|-6.08%|
 [/EXCERPT:LocDDCC22001D]
 
 [EXCERPT:LocDDCC22002D]
-|  |Shared DDC Only| Local and Shared DDC | Change |
+|  |仅共享DDC| 本地和共享DDC | 变化 |
 |--|--|--|--|
-|**Cook Orion**|0:32:19|0:23:36|-26.97%|
-|**Cook Fornite**|0:55:47|0:52:37|-5.68%|
-|**Cook Ocean**|0:09:08|0:07:47|-14.78%|
+|**转化《虚幻争霸》**|0:29:38|0:20:43|-30.09%|
+|**转化《堡垒之夜》**|0:55:47|0:52:37|-5.68%|
 [/EXCERPT:LocDDCC22002D]
 
 [EXCERPT:LocDDCC22003D]
-|  |Shared DDC Only| Local and Shared DDC | Change |
+|  |仅共享DDC| 本地和共享DDC | 变化 |
 |--|--|--|--|
-|**Cook Orion**|0:34:13|0:24:35|-28.15%|
-|**Cook Fornite**|0:58:32|0:54:23|-7.09%|
-|**Cook Ocean**|0:09:35|0:07:58|-16.87%|
+|**转化《虚幻争霸》**|0:29:38|0:20:43|-30.09%|
+|**转化《堡垒之夜》**|0:58:32|0:54:23|-7.09%|
 [/EXCERPT:LocDDCC22003D]
 
 [/COMMENT]
 
-###Shared DDC
+###共享DDC
 
-To measure the effect of network performance (and network share performance) on Cooking, we ran tests with a fully populated local DDC where the shared DDC was disabled. Writes to the shared DDC are done asynchronously, so cook times are unaffected by disabling the shared DDC when the local DDC is coherent.
+为了评估网络性能（及网络共享性能）对转化的影响，我们使用完全填充的本地DDC运行测试，其中共享的DDC被禁用。向共享DDC写入数据是异步完成的，因此当本地DDC连贯时禁用共享DDC不会影响转化时间。
 
-| Machine Name    |            |
+| 计算机名称    |            |
 | --------------- | ---------- |
-| **Current**     | [INCLUDE:#SharedDDCCurrent]   | 
+| **当前**     | [INCLUDE:#SharedDDCCurrent]   | 
 | **C220-01 (D)** | [INCLUDE:#SharedDDCC22001D]    | 
 | **C220-02 (D)** | [INCLUDE:#SharedDDCC22002D]    | 
 | **C220-03 (D)** | [INCLUDE:#SharedDDCC22003D]    | 
@@ -252,144 +239,132 @@ To measure the effect of network performance (and network share performance) on 
 [COMMENT:none]
 
 [EXCERPT:SharedDDCCurrent]
-|  |Shared DDC Only| Local and Shared DDC | Change |
+|  |仅共享DDC| 本地和共享DDC | 变化 |
 |--|--|--|--|
-|**Cook Orion**|0:31:55|0:30:36|-4.13%|
-|**Cook Fornite**|1:02:19|1:02:57|1.02%|
-|**Cook Ocean**|0:09:09|0:09:07|-0.36%|
+|**转化《虚幻争霸》**|0:29:38|0:20:43|-30.09%|
+|**转化《堡垒之夜》**|1:02:19|1:02:57|1.02%|
 [/EXCERPT:SharedDDCCurrent]
 
 [EXCERPT:SharedDDCC22001D]
-|  |Shared DDC Only| Local and Shared DDC | Change |
+|  |仅共享DDC| 本地和共享DDC | 变化 |
 |--|--|--|--|
-|**Cook Orion**|0:20:43|0:20:40|-0.24%|
-|**Cook Fornite**|0:48:24|0:48:13|-0.38%|
-|**Cook Ocean**|0:06:50|0:07:03|3.17%|
+|**转化《虚幻争霸》**|0:29:38|0:20:43|-30.09%|
+|**转化《堡垒之夜》**|0:48:24|0:48:13|-0.38%|
 [/EXCERPT:SharedDDCC22001D]
 
 [EXCERPT:SharedDDCC22002D]
-|  |Shared DDC Only| Local and Shared DDC | Change |
+|  |仅共享DDC| 本地和共享DDC | 变化 |
 |--|--|--|--|
-|**Cook Orion**|0:23:36|0:23:16|-1.41%|
-|**Cook Fornite**|0:52:37|0:52:08|-0.92%|
-|**Cook Ocean**|0:07:47|0:07:51|0.86%|
+|**转化《虚幻争霸》**|0:29:38|0:20:43|-30.09%|
+|**转化《堡垒之夜》**|0:52:37|0:52:08|-0.92%|
 [/EXCERPT:SharedDDCC22002D]
 
 [EXCERPT:SharedDDCC22003D]
-|  |Shared DDC Only| Local and Shared DDC | Change |
+|  |仅共享DDC| 本地和共享DDC | 变化 |
 |--|--|--|--|
-|**Cook Orion**|0:24:35|0:24:08|-1.83%|
-|**Cook Fornite**|0:54:23|0:54:50|0.83%|
-|**Cook Ocean**|0:07:58|0:07:40|-3.77%|
+|**转化《虚幻争霸》**|0:29:38|0:20:43|-30.09%|
+|**转化《堡垒之夜》**|0:54:23|0:54:50|0.83%|
 [/EXCERPT:SharedDDCC22003D]
 
 [/COMMENT]
 
-###Invalidating DDC
+###DDC失效
 
-The Cooker's time is primarily spent on serializing in (and out) packages, which doesn't take advantage of additional CPU cores. It does; however, run in parallel when generating derived data for compressing animation data, compiling shaders, platform-specific textures, and so on. 
+转化程序的用时主要花费在序列化进（和出）软件包，其中不利用额外的CPU内核。但在生成用于压缩动画数据，编译着色器、特定于平台的纹理等的派生数据时，它确实会并行运行。 
 
-The DDC does a good job masking the Cooker for most asset types. Texture compression can be especially slow, but the compressor rarely changes (if ever), so the cost is only incurred once for each isolated texture change. 
+对于大多数资源类型，DDC可以很好地屏蔽转化程序。纹理压缩可能特别慢，但压缩程序很少变更（如果有的话），因此每次孤立的纹理变更只产生一次性能消耗。 
 
-The most frequent trigger for DDC data being invalidated is when the Engine shader version changes. The effects of these changes can be significant to users working off-site, so we measured times for a Cook with a new shader version. 
+引擎着色器版本更改时，最常出现DDC数据失效。这些变更的影响对不在现场工作的用户来说非常明显，因此我们使用新的着色器版本评估了转化的时间。 
 
 [REGION:Note]
-To avoid cached data from one machine being used by another, these tests were performed with the Shared DDC being disabled.
+为了避免一台计算机的缓存数据被另一台计算机使用，执行这些测试时禁用了共享DDC。
 [/REGION]
 
-| Machine Name    |            | **Old Shaders** | **New Shaders** | **Change** |
+| 计算机名称    |            | **原着色器** | **新着色器** | **变化** |
 | --------------- | ---------- | --------------- | --------------- | ---------- |
-| **Current**     | Cook Orion | 0:30:36         | 7:53:40         | 1,447.93%  |
-| **C220-01 (D)** | Cook Orion | 0:20:40         | 15:04:22        | 4,275.97%  |
-| **C220-02 (D)** | Cook Orion | 0:23:16         | 7:55:22         | 1,943.12%  |
-| **C220-03 (D)** | Cook Orion | 0:24:08         | 9:08:44         | 2,173.76%  |
+| **当前**     | 转化《虚幻争霸》 | 0:30:36         | 7:53:40         | 1,447.93%  |
+| **C220-01 (D)** | 转化《虚幻争霸》 | 0:20:40         | 15:04:22        | 4,275.97%  |
+| **C220-02 (D)** | 转化《虚幻争霸》| 0:23:16         | 7:55:22         | 1,943.12%  |
+| **C220-03 (D)** | 转化《虚幻争霸》| 0:24:08         | 9:08:44         | 2,173.76%  |
 
-It was surprising to observe that the current build machines (**2 x 10C/20H**) perform similarly to the **C220-02 (D)** (**2 x 20C/40H**), rather than the **C220-03 (D)** (also **2 x 10C/20H**); however, the test was only run once. If the test was run a few more times, we might see slightly different results. 
+出乎意料的是，我们发现当前构建计算机（**2 x 10C/20H**）的性能与 **C220-02 (D)**（**2 x 20C/40H**）相似，而不是与 **C220-03 (D)**（同样 **2 x 10C/20H**）相似；但是，测试只运行了一次。如果测试再多运行几次，我们可能看到结果会略有不同。 
 
-An interesting observation is that, for other games, building shaders for Orion only brought Cook times back to a more reasonable range (with the majority of their shaders already being in the local DDC).
+一个有趣的观察结果是，对于其他游戏而言，为《虚幻争霸》构建着色器只会使转化时间回落到更合理的范围（大多数着色器已经在本地DDC中）。
 
-| Machine Name    |                                   |
+| 计算机名称    |                                   |
 | --------------- | --------------------------------- |
-| **Current**     | [INCLUDE:#InvalidatingDDCCurrent] | 
+| **当前**     | [INCLUDE:#InvalidatingDDCCurrent] | 
 | **C220-01 (D)** | [INCLUDE:#InvalidatingDDCC22001D] | 
 | **C220-02 (D)** | [INCLUDE:#InvalidatingDDCC22002D] | 
 | **C220-03 (D)** | [INCLUDE:#InvalidatingDDCC22003D] |
 
 [REGION:Note]
-After the Editor compiled and Orion Cooked, there was a job timeout in the embedded controller (EC) for **C220-01 (D)**, precluding it from finishing during these tests. 
+在编译编辑器和转化《虚幻争霸》之后，**C220-01 (D)** 的嵌入式控制器（EC）中发生了作业超时，从而使其无法完成这些测试。 
 [/REGION]
 
 [COMMENT:none]
 
 [EXCERPT:InvalidatingDDCCurrent]
-|  | Old Shaders | New Shaders | Change |
+|  | 原着色器 | 新着色器 | 变化 |
 |--|--|--|--|
-|**Cook Fornite**|1:02:57|1:49:16|73.58%|
-|**Cook Ocean**|0:09:07|0:13:59|53.58%|
+|**转化《堡垒之夜》**|1:02:57|1:49:16|73.58%|
 [/EXCERPT:InvalidatingDDCCurrent]
 
 [EXCERPT:InvalidatingDDCC22001D]
-|  | Old Shaders | New Shaders | Change |
+|  | 原着色器 | 新着色器 | 变化 |
 |--|--|--|--|
-|**Cook Fornite**|0:48:13|Didn't Finish|None Applicable|
-|**Cook Ocean**|0:07:03|Didn't Finish|None Applicable|
+|**转化《堡垒之夜》**|0:48:13|未完成|不适用|
 [/EXCERPT:InvalidatingDDCC22001D]
 
 [EXCERPT:InvalidatingDDCC22002D]
-|  | Old Shaders | New Shaders | Change |
+|  | 原着色器 | 新着色器 | 变化 |
 |--|--|--|--|
-|**Cook Fornite**|0:52:08|2:08:57|147.35%|
-|**Cook Ocean**|0:07:51|0:12:52|63.91%|
+|**转化《堡垒之夜》**|0:52:08|2:08:57|147.35%|
 [/EXCERPT:InvalidatingDDCC22002D]
 
 [EXCERPT:InvalidatingDDCC22003D]
-|  | Old Shaders | New Shaders | Change |
+|  | 原着色器 | 新着色器 | 变化 |
 |--|--|--|--|
-|**Cook Fornite**|0:54:50|2:20:54|156.05%|
-|**Cook Ocean**|0:07:40|0:14:19|86.74%|
+|**转化《堡垒之夜》**|0:54:50|2:20:54|156.05%|
 [/EXCERPT:InvalidatingDDCC22003D]
 
 [/COMMENT]
 
-##Recommendations for On-Site Developers
+##针对现场开发人员的建议
 
-If you're working onsite, using XGE is a great alternative to having a CPU with a high-core count (though performance may be erratic). 
-The only standalone machine that came close to matching it was the **2 x 20C/40T** builder with 128GB of RAM. 
-With the **T7810** outperforming the newer **T7910**, the differences were minor, but faster processor machines seem preferable.  
+如果在现场工作，且使用的CPU具有较多核心数量，那么使用XGE是很好的选择（尽管性能可能不稳定）。 
+RAM为128GB的 **2 x 20C/40T** 构建器是唯一能与之媲美的独立计算机。 
+**T7810** 的性能优于新的 **T7910**，因此差异很小，但最好使用速度更快的处理器计算机。  
 
-64GB of RAM seems adequate for a baseline configuration, though future-proofing with 96-128GB of RAM (or planning for future expansion) is a wise choice.  
+64GB的RAM似乎足以满足基线配置的要求，但96-128GB的RAM能够适应未来的需求（或未来扩展规划），是较为明智的选择。  
 
-**Samsung 850 PRO** SSDs seem to be working well, and having a separate system/data drive is a reasonable policy for ensuring system stability when space is running low; however, a frequent complaint is that the standard 256GB drive is not enough for the tools that we need. 
-To prevent loss in performance due to SSD write amplification, there should be free space reserved for expansion of the system pagefile. Doubling to 512GB seems like a reasonable choice.  
+虽然 **Samsung 850 PRO** SSD似乎运行良好，且配备独立的系统/数据驱动器是确保系统在空间不足时保持稳定性的合理策略，但常见的抱怨是标准的256GB驱动器不足以满足所需工具的要求。 
+为了防止因SSD写入放大而导致性能下降，应保留一定的空闲空间，用于扩展系统页面文件。翻倍达到512GB是较为合理的选择。  
 
-##Recommendations for Off-Site Developers
+##针对异地开发人员的建议
 
-Developers without access to a shared DDC or XGE farm definitely benefit from a larger number of cores. The **2 x 10C/20H** configuration (approximately $1,000 USD each) seems like a good choice because the **2 x 20C/40H** configuration at approximately $3,500 USD each seems to be a bit overpriced for the expected returns.
+无法使用共享DDC或XGE场的开发人员，肯定会因内核数量较多而得益。**2 x 10C/20H** 配置（每个约1000美元）是一个不错的选择，因为每个 **2 x 20C/40H** 配置约3500美元，对于预期回报而言价格有点高。
 
-Finally, it may be worthwhile to install 128GB of RAM for the ten percent increase in performance (while compiling).
+最后，安装128GB的RAM可将性能提高10%（编译时），因此是值得的。
 
-##Setting up a Build Farm
+##设置构建场
 
-For offsite developers, build machines are typically specified to be consistent with our internal build farm specifications. Unlike "regular" developers, past experience has taught us that builders have a fairly constant load and using XGE increases contention and volatility, rather than spreading out the workload during downtime. 
-The primary driver for performance in the absence of XGE is CPU core count.
+对于异地开发人员，构建计算机通常会为与内部构建场规范一致。与“常规”开发人员不同，以往的经验告诉我们，构建器具有相当恒定的负载，并且使用XGE会加剧资源争用和波动性，而不是在停机期间分散工作负载。 
+如果没有XGE，要提升性能，主要是靠增加CPU核心数。
 
-Analyzing jobs being run on the build farm gives us an idea of the proportion of time spent Cooking versus compiling, enabling us to use this information to estimate how cost effective different CPU configurations would be at processing the same workload. Usage of the current farm is split close to 50/50; approximately 418 builder hours are spent compiling each day, and approximately 423 builder hours are spent cooking or performing other (primarily) serial tasks. 
+通过分析在构建场上运行的作业，我们了解到转化与编译所花费的时间比例，从而可以使用这些信息估计不同CPU配置在处理相同工作负载时的成本效益。当前场的使用率接近50/50；每天大约花费418个构建器小时进行编译，大约423个构建器小时用于转化或执行其他（主要是）序列任务。 
 
-Assuming a $5,000 USD base machine price and individual CPU prices taken from Amazon, we can estimate a normalized machine price based on how quickly it performs an average unit of work. This gives a metric of whether it is better to spend $100,000 USD on high-end machines, or $100,000 USD on twice the number of low end machines. 
+假设在亚马逊购买基础计算机和单个CPU的价格为5000美元，我们可以根据平均工作单位的执行速度来估算计算机的定价。该价格可以作为衡量标准，用于确定是花费10万美元购买高端计算机，还是花费10万美元购买两倍数量的低端计算机。 
 
-[REGION:tip]
-If you'd like to see a more detailed version of the following table, see the "Build Farm Value" tab in this [worksheet](https://docs.google.com/a/epicgames.com/spreadsheets/d/12uv-6ZIeFj5g4ZzxT3QX6cs20ncaezziBs0MZPiCXd8/edit?usp=sharing).
-[/REGION]
-
-| Machine Name    | **CPU**                            | **Relative Work Done** | **CPU Price** | **Normalized Machine Price** | **Price per Work Done** |
+| 计算机名称    | **CPU**                            | **完成的相关工作** | **CPU价格** | **标准化计算机定价** | **每工作完成价格** |
 | --------------- | ---------------------------------- | ---------------------- | ------------- | ---------------------------- |------------------------ |
-| **C220-01 (S)** | E5-2637 v4 - 4C/8H 3.5GHz          | 1.395                  | $996.00       | $5,996.00                    | $8,367.12               |
-| **C220-01 (D)** | E5-2637 v4 - 4C/8H 3.5GHz (dual)   | 1.276                  | $1,992.00     | $6,992.00                    | $8,922.15               |
-| **C220-02 (S)** | E5-2698 v4 - 20C/40H 2.2GHz        | 0.931                  | $3,226.00     | $8,226.00                    | $7,662.22               |
-| **C220-02 (D)** | E5-2698 v4 - 20C/40H 2.2GHz (dual) | 0.851                  | $6,452.00     | $11,452.00                   | $9,744.96               |
-| **C220-03 (S)** | E5-2640 v4 - 10C/20H 2.4GHz        | 1.268                  | $939.00       | $5,939.00                    | $7,531.10               |
-| **C220-03 (D)** | E5-2640 v4 - 10C/20H 2.4GHz (dual) | 1.006                  | $1,878.00     | $6,878.00                    | $6,921.82               | 
+| **C220-01 (S)** | E5-2637 v4 - 4C/8H 3.5GHz          | 1.395                  | 996.00美元    | 5996.00美元                  | 8367.12美元               |
+| **C220-01 (D)** | E5-2637 v4 - 4C/8H 3.5Ghz（双核）  | 1.276                  | 1992.00美元   | 6992.00美元                  | 8,922.15美元               |
+| **C220-02 (S)** | E5-2698 v4 - 20C/40H 2.2GHz        | 0.931                  | 3226.00美元   | 8226.00美元                  | 7662.22美元               |
+| **C220-02 (D)** | E5-2698 v4 - 20C/40H 2.2GHz（双核）| 0.851                  | 6,452.00美元  | 11,452.00美元                | 9,744.96美元               |
+| **C220-03 (S)** | E5-2640 v4 - 10C/20H 2.4GHz        | 1.268                  | 939.00美元    | 5939.00美元                  | 7531.10美元               |
+| **C220-03 (D)** | E5-2640 v4 - 10C/20H 2.4GHz（双核）| 1.006                  | 1878.00美元   | 6878.00美元                  | 6921.82美元               | 
 
 [REGION:Note]
-The dual **10C/20H** configuration comes out on top, matching the dual **E5-2680v2 10C/20H** configuration that we have in the current farm.
+双 **10C/20H** 配置最合适，与当前场中的双 **E5-2680v2 10C/20H** 配置相匹配。
 [/REGION]

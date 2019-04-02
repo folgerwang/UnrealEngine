@@ -41,7 +41,7 @@ topic-image:SourceControlTopic.png
 
 ### 콘텐츠 브라우저를 통한 소스 컨트롤 활성화
 
-소스 컨트롤은 콘텐츠 브라우저에서도 활성화시킬 수 있습니다. 그러기 위해서는, 애셋이나 폴더에 우클릭합니다. 맥락 메뉴 하단의 **Source Control** (소스 컨트롤) 섹션에 **Connect to Source Control** (소스 컨트롤에 접속)을 선택합니다. 
+소스 컨트롤은 콘텐츠 브라우저에서도 활성화시킬 수 있습니다. 그러기 위해서는, 애셋이나 폴더에 우클릭합니다. 컨텍스트 메뉴 하단의 **Source Control** (소스 컨트롤) 섹션에 **Connect to Source Control** (소스 컨트롤에 접속)을 선택합니다. 
 
 ![Connect to Source Control](CB_SourceControl.png)
 
@@ -49,7 +49,7 @@ topic-image:SourceControlTopic.png
 
 ![Source Control Login](CB_SourceControlLogin.png)
 
-정보를 알맞게 입력하고 **Accept Settings** (세팅 수락)을 클릭합니다. 소스 컨트롤이 활성화된 이후, 콘텐츠 브라우저의 애셋 표시가 소스 컨트롤 상태를 반영하도록 변경되며, 우클릭 맥락 메뉴에도 약간의 소스 컨트롤 옵션이 포함됩니다.
+정보를 알맞게 입력하고 **Accept Settings** (세팅 수락)을 클릭합니다. 소스 컨트롤이 활성화된 이후, 콘텐츠 브라우저의 애셋 표시가 소스 컨트롤 상태를 반영하도록 변경되며, 우클릭 컨텍스트 메뉴에도 약간의 소스 컨트롤 옵션이 포함됩니다.
 
 
 ## 상태 아이콘
@@ -65,7 +65,7 @@ topic-image:SourceControlTopic.png
 
 ## 소스 컨트롤 작업
 
-소스 컨트롤 활성화 상태에서, 애셋에 우클릭하면 다음과 같은 맥락 메뉴가 뜹니다:
+소스 컨트롤 활성화 상태에서, 애셋에 우클릭하면 다음과 같은 컨텍스트 메뉴가 뜹니다:
 
 ![SourceControlMenu.png](SourceControlMenu.png)
 

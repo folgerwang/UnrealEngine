@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "GameFramework/MovementComponent.h"
@@ -366,7 +366,8 @@ bool UMovementComponent::ShouldSkipUpdate(float DeltaTime) const
 
 float UMovementComponent::GetGravityZ() const
 {
-	return GetPhysicsVolume()->GetGravityZ();
+	APhysicsVolume* PhysicsVolume = GetPhysicsVolume();
+	return PhysicsVolume ? PhysicsVolume->GetGravityZ() : UPhysicsSettings::Get()->DefaultGravityZ;
 }
 
 void UMovementComponent::HandleImpact(const FHitResult& Hit, float TimeSlice, const FVector& MoveDelta)

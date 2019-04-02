@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SComponentClassCombo.h"
 #include "Widgets/Layout/SSpacer.h"
@@ -24,6 +24,22 @@
 FString FComponentClassComboEntry::GetClassName() const
 {
 	return ComponentClass != nullptr ? ComponentClass->GetDisplayNameText().ToString() : ComponentName;
+}
+
+void FComponentClassComboEntry::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	UClass* RawClass = ComponentClass;
+	Collector.AddReferencedObject(RawClass);
+	if(RawClass && RawClass->IsChildOf(UActorComponent::StaticClass()))
+	{
+		ComponentClass = RawClass;
+	}
+	else
+	{
+		ComponentClass = nullptr;
+	}
+
+	Collector.AddReferencedObject(IconClass);
 }
 
 void SComponentClassCombo::Construct(const FArguments& InArgs)

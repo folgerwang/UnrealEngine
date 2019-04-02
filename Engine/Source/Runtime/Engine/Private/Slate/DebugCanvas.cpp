@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Slate/DebugCanvas.h"
 #include "RenderingThread.h"
@@ -72,9 +72,8 @@ void FDebugCanvasDrawer::ReleaseResources()
 {
 	FDebugCanvasDrawer* const ReleaseMe = this;
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		ReleaseCommand,
-		FDebugCanvasDrawer*, ReleaseMe, ReleaseMe,
+	ENQUEUE_RENDER_COMMAND(ReleaseCommand)(
+		[ReleaseMe](FRHICommandList& RHICmdList)
 		{
 			ReleaseMe->ReleaseTexture();
 		});
@@ -124,25 +123,25 @@ void FDebugCanvasDrawer::BeginRenderingCanvas( const FIntRect& CanvasRect )
 	if( CanvasRect.Size().X > 0 && CanvasRect.Size().Y > 0 )
 	{
 		bCanvasRenderedLastFrame = true;
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER
-		(
-			BeginRenderingDebugCanvas,
-			FDebugCanvasDrawer*, CanvasDrawer, this, 
-			FCanvasPtr, CanvasToRender, GameThreadCanvas,
-			FIntRect, CanvasRect, CanvasRect,
+		FDebugCanvasDrawer* CanvasDrawer = this;
+		FCanvasPtr CanvasToRender = GameThreadCanvas;
+		ENQUEUE_RENDER_COMMAND(BeginRenderingDebugCanvas)(
+			[CanvasDrawer, CanvasToRender, CanvasRect = CanvasRect](FRHICommandListImmediate& RHICmdList)
 			{
+				FCanvasPtr LocalCanvasToRender = CanvasToRender;
+			
 				// Delete the old rendering thread canvas
-				if( CanvasDrawer->GetRenderThreadCanvas().IsValid() && CanvasToRender.IsValid() )
+				if( CanvasDrawer->GetRenderThreadCanvas().IsValid() && LocalCanvasToRender.IsValid() )
 				{
 					CanvasDrawer->DeleteRenderThreadCanvas();
 				}
 
-				if(!CanvasToRender.IsValid())
+				if (!LocalCanvasToRender.IsValid())
 				{
-					CanvasToRender = CanvasDrawer->GetRenderThreadCanvas();
+					LocalCanvasToRender = CanvasDrawer->GetRenderThreadCanvas();
 				}
 
-				CanvasDrawer->SetRenderThreadCanvas( CanvasRect, CanvasToRender );
+				CanvasDrawer->SetRenderThreadCanvas( CanvasRect, LocalCanvasToRender);
 			}
 		);
 		
@@ -160,7 +159,7 @@ void FDebugCanvasDrawer::InitDebugCanvas(FViewportClient* ViewportClient, UWorld
 		// the same canvas
 	if (FSlateApplication::Get().IsNormalExecution())
 	{
-		GameThreadCanvas = MakeShared<FCanvas, ESPMode::ThreadSafe>(RenderTarget, nullptr, InWorld, InWorld ? InWorld->FeatureLevel : GMaxRHIFeatureLevel, FCanvas::CDM_DeferDrawing, ViewportClient->GetDPIScale());
+		GameThreadCanvas = MakeShared<FCanvas, ESPMode::ThreadSafe>(RenderTarget, nullptr, InWorld, InWorld ? InWorld->FeatureLevel.GetValue() : GMaxRHIFeatureLevel, FCanvas::CDM_DeferDrawing, ViewportClient->GetDPIScale());
 
 		// Do not allow the canvas to be flushed outside of our debug rendering path
 		GameThreadCanvas->SetAllowedModes(FCanvas::Allow_DeleteOnRender);
@@ -206,6 +205,7 @@ void FDebugCanvasDrawer::InitDebugCanvas(FViewportClient* ViewportClient, UWorld
 void FDebugCanvasDrawer::DrawRenderThread(FRHICommandListImmediate& RHICmdList, const void* InWindowBackBuffer)
 {
 	check( IsInRenderingThread() );
+	check(RHICmdList.IsOutsideRenderPass());
 
 	SCOPED_DRAW_EVENT(RHICmdList, DrawDebugCanvas);
 
@@ -237,7 +237,7 @@ void FDebugCanvasDrawer::DrawRenderThread(FRHICommandListImmediate& RHICmdList, 
 				StereoLayers->GetAllocatedTexture(LayerID, HMDSwapchain, HMDNull);
 
 				// If drawing to a layer tell the spectator screen controller to copy that layer to the spectator screen.
-				if (LayerID != INVALID_LAYER_ID && GEngine && GEngine->XRSystem)
+				if (StereoLayers->ShouldCopyDebugLayersToSpectatorScreen() && LayerID != INVALID_LAYER_ID && GEngine && GEngine->XRSystem)
 				{
 					IHeadMountedDisplay* HMD = GEngine->XRSystem->GetHMDDevice();
 					if (HMD)

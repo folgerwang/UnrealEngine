@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -205,7 +205,7 @@ public:
 	 */
 	void SetActive(bool bActive);
 
-	DEPRECATED(4.11, "SetWidgetToFocusOnActivate is no longer needed, remove this call.")
+	UE_DEPRECATED(4.11, "SetWidgetToFocusOnActivate is no longer needed, remove this call.")
 	void SetWidgetToFocusOnActivate(TSharedPtr<SWidget> WidgetToFocus) { }
 
 public:

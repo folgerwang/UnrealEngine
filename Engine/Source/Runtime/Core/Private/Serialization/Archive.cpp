@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnArchive.cpp: Core archive classes.
@@ -147,6 +147,7 @@ void FArchive::Reset()
 	ArSerializingDefaults				= false;
 	ArIgnoreArchetypeRef				= false;
 	ArNoDelta							= false;
+	ArNoIntraPropertyDelta				= false;
 	ArIgnoreOuterRef					= false;
 	ArIgnoreClassGeneratedByRef			= false;
 	ArIgnoreClassRef					= false;
@@ -203,6 +204,7 @@ void FArchive::CopyTrivialFArchiveStatusMembers(const FArchive& ArchiveToCopy)
 	ArSerializingDefaults                = ArchiveToCopy.ArSerializingDefaults;
 	ArIgnoreArchetypeRef                 = ArchiveToCopy.ArIgnoreArchetypeRef;
 	ArNoDelta                            = ArchiveToCopy.ArNoDelta;
+	ArNoIntraPropertyDelta               = ArchiveToCopy.ArNoIntraPropertyDelta;
 	ArIgnoreOuterRef                     = ArchiveToCopy.ArIgnoreOuterRef;
 	ArIgnoreClassGeneratedByRef          = ArchiveToCopy.ArIgnoreClassGeneratedByRef;
 	ArIgnoreClassRef                     = ArchiveToCopy.ArIgnoreClassRef;
@@ -409,12 +411,7 @@ void FArchive::SerializeBool( bool& D )
 	const uint8 * RESTRICT Src = this->ActiveFPLB->StartFastPathLoadBuffer;
 	if (Src + sizeof(uint32) <= this->ActiveFPLB->EndFastPathLoadBuffer)
 	{
-#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
-		OldUBoolValue = *(uint32* RESTRICT)Src;
-#else
-		static_assert(sizeof(uint32) == 4, "assuming sizeof(uint32) == 4");
-		OldUBoolValue = Src[0] | Src[1] | Src[2] | Src[3];
-#endif
+		OldUBoolValue = FPlatformMemory::ReadUnaligned<uint32>(Src);
 		this->ActiveFPLB->StartFastPathLoadBuffer += 4;
 	}
 	else
@@ -567,6 +564,8 @@ public:
 	int32 UncompressedSize;
 	/** Target platform for compressed data										*/
 	int32 BitWindow;
+	/** Format to compress with													*/
+	FName CompressionFormat;
 	/** Flags to control compression											*/
 	ECompressionFlags Flags;
 
@@ -579,7 +578,8 @@ public:
 		, CompressedSize(0)
 		, UncompressedSize(0)
 		, BitWindow(DEFAULT_ZLIB_BIT_WINDOW)
-		, Flags(ECompressionFlags(0))
+		, CompressionFormat(NAME_Zlib)
+		, Flags(COMPRESS_NoFlags)
 	{
 	}
 	/**
@@ -587,8 +587,15 @@ public:
 	 */
 	void DoWork()
 	{
+		// upgrade old flag method
+		if ((Flags & COMPRESS_DeprecatedFormatFlagsMask) != 0)
+		{
+			UE_LOG(LogSerialization, Warning, TEXT("Old style compression flags are being used with FAsyncCompressionChunk, please update any code using this!"));
+			CompressionFormat = FCompression::GetCompressionFormatFromDeprecatedFlags(Flags);
+		}
+
 		// Compress from memory to memory.
-		verify( FCompression::CompressMemory( Flags, CompressedBuffer, CompressedSize, UncompressedBuffer, UncompressedSize, BitWindow) );
+		verify( FCompression::CompressMemory(CompressionFormat, CompressedBuffer, CompressedSize, UncompressedBuffer, UncompressedSize, Flags, BitWindow) );
 	}
 
 	FORCEINLINE TStatId GetStatId() const
@@ -598,23 +605,23 @@ public:
 };
 #endif		// WITH_MULTI_THREADED_COMPRESSION
 
-/**
- * Serializes and compresses/ uncompresses data. This is a shared helper function for compression
- * support. The data is saved in a way compatible with FIOSystem::LoadCompressedData.
- *
- * @note: the way this code works needs to be in line with FIOSystem::LoadCompressedData implementations
- * @note: the way this code works needs to be in line with FAsyncIOSystemBase::FulfillCompressedRead
- *
- * @param	V		Data pointer to serialize data from/to, or a FileReader if bTreatBufferAsFileReader is true
- * @param	Length	Length of source data if we're saving, unused otherwise
- * @param	Flags	Flags to control what method to use for [de]compression and optionally control memory vs speed when compressing
- * @param	bTreatBufferAsFileReader true if V is actually an FArchive, which is used when saving to read data - helps to avoid single huge allocations of source data
- * @param	bUsePlatformBitWindow use a platform specific bitwindow setting
- */
+
+
 void FArchive::SerializeCompressed( void* V, int64 Length, ECompressionFlags Flags, bool bTreatBufferAsFileReader, bool bUsePlatformBitWindow )
+{
+	SerializeCompressed(V, Length, FCompression::GetCompressionFormatFromDeprecatedFlags(Flags), ECompressionFlags(Flags & COMPRESS_OptionsFlagsMask), bTreatBufferAsFileReader);
+}
+
+void FArchive::SerializeCompressed(void* V, int64 Length, FName CompressionFormat, ECompressionFlags Flags, bool bTreatBufferAsFileReader)
 {
 	if( IsLoading() )
 	{
+		if (CompressionFormat == NAME_Zlib && FPlatformProperties::GetZlibReplacementFormat() != nullptr)
+		{
+			// use this platform's replacement format in case it's not zlib
+			CompressionFormat = FPlatformProperties::GetZlibReplacementFormat();
+		}
+
 		// Serialize package file tag used to determine endianess.
 		FCompressedChunkInfo PackageFileTag;
 		PackageFileTag.CompressedSize	= 0;
@@ -677,12 +684,9 @@ void FArchive::SerializeCompressed( void* V, int64 Length, ECompressionFlags Fla
 			MaxCompressedSize = FMath::Max( CompressionChunks[ChunkIndex].CompressedSize, MaxCompressedSize );
 		}
 
-		int64 Padding = 0;
-		const int32 CompressionBitWindow = bUsePlatformBitWindow ? FPlatformMisc::GetPlatformCompression()->GetCompressionBitWindow() : DEFAULT_ZLIB_BIT_WINDOW;
-
 		// Set up destination pointer and allocate memory for compressed chunk[s] (one at a time).
 		uint8*	Dest				= (uint8*) V;
-		void*	CompressedBuffer	= FMemory::Malloc( MaxCompressedSize + Padding );
+		void*	CompressedBuffer	= FMemory::Malloc( MaxCompressedSize );
 
 		// Iterate over all chunks, serialize them into memory and decompress them directly into the destination pointer
 		for( int64 ChunkIndex=0; ChunkIndex<TotalChunkCount; ChunkIndex++ )
@@ -691,9 +695,8 @@ void FArchive::SerializeCompressed( void* V, int64 Length, ECompressionFlags Fla
 			// Read compressed data.
 			Serialize( CompressedBuffer, Chunk.CompressedSize );
 			// Decompress into dest pointer directly.
-			bool bUncompressMemorySucceeded = FCompression::UncompressMemory( Flags, Dest, Chunk.UncompressedSize, CompressedBuffer, Chunk.CompressedSize, (Padding > 0) ? true : false, CompressionBitWindow ); //-V547
-			verifyf(bUncompressMemorySucceeded, TEXT("Failed to uncompress data in %s. Check log for details."), *GetArchiveName());
-			// And advance it by read amount.
+			bool bUncompressMemorySucceeded = FCompression::UncompressMemory( CompressionFormat, Dest, Chunk.UncompressedSize, CompressedBuffer, Chunk.CompressedSize, COMPRESS_NoFlags);
+			verifyf(bUncompressMemorySucceeded, TEXT("Failed to uncompress data in %s. Check log for details."), *GetArchiveName());			// And advance it by read amount.
 			Dest += Chunk.UncompressedSize;
 		}
 
@@ -705,6 +708,14 @@ void FArchive::SerializeCompressed( void* V, int64 Length, ECompressionFlags Fla
 	{	
 		SCOPE_SECONDS_COUNTER(GArchiveSerializedCompressedSavingTime);
 		check( Length > 0 );
+
+		// if there's a cooking target, and it wants to replace Zlib compression with another format, use it. When loading, 
+		// the platform will replace Zlib with that format above
+		if (CompressionFormat == NAME_Zlib && CookingTargetPlatform != nullptr)
+		{
+			// use the replacement format
+			CompressionFormat = CookingTargetPlatform->GetZlibReplacementFormat();
+		}
 
 		// Serialize package file tag used to determine endianess in LoadCompressedData.
 		FCompressedChunkInfo PackageFileTag;
@@ -833,25 +844,11 @@ void FArchive::SerializeCompressed( void* V, int64 Length, ECompressionFlags Fla
 						SrcBuffer += NewChunk.UncompressedSize;
 					}
 
-					if (!bUsePlatformBitWindow)
-					{
-						NewChunk.BitWindow = DEFAULT_ZLIB_BIT_WINDOW;
-					}
-					else if (CookingTargetPlatform)
-					{
-						NewChunk.BitWindow = CookingTargetPlatform->GetCompressionBitWindow();
-					}
-					else
-					{
-						IPlatformCompression* PlatformCompression = FPlatformMisc::GetPlatformCompression();
-						check(PlatformCompression);
-						NewChunk.BitWindow = PlatformCompression->GetCompressionBitWindow();
-					}
-
 					// Update status variables for tracking how much work is left, what to do next.
 					BytesRemainingToKickOff -= NewChunk.UncompressedSize;
 					AsyncChunkIndex[FreeIndex] = CurrentChunkIndex++;
 					NewChunk.Flags = Flags;
+					NewChunk.CompressionFormat = CompressionFormat;
 					NumChunksLeftToKickOff--;
 
 					AsyncChunks[FreeIndex].StartBackgroundTask();
@@ -966,24 +963,8 @@ void FArchive::SerializeCompressed( void* V, int64 Length, ECompressionFlags Fla
 
 			check(CompressedSize < INT_MAX);
 			int32 CompressedSizeInt = (int32)CompressedSize;
-			
-			int32 BitWindow = 0;
-			if (!bUsePlatformBitWindow)
-			{
-				BitWindow = DEFAULT_ZLIB_BIT_WINDOW;
-			}
-			else if (CookingTargetPlatform)
-			{
-				BitWindow = CookingTargetPlatform->GetCompressionBitWindow();
-			}
-			else
-			{
-				IPlatformCompression* PlatformCompression = FPlatformMisc::GetPlatformCompression();
-				check(PlatformCompression);
-				BitWindow = PlatformCompression->GetCompressionBitWindow();
-			}
-			
-			verify( FCompression::CompressMemory( Flags, CompressedBuffer, CompressedSizeInt, Src, BytesToCompress, BitWindow) );
+						
+			verify( FCompression::CompressMemory( CompressionFormat, CompressedBuffer, CompressedSizeInt, Src, BytesToCompress, Flags ) );
 			CompressedSize = CompressedSizeInt;
 			// move to next chunk if not reading from file
 			if (!bTreatBufferAsFileReader)
@@ -1061,7 +1042,8 @@ void FArchive::SerializeIntPacked(uint32& Value)
 	}
 	else
 	{
-		TArray<uint8, TInlineAllocator<6>> PackedBytes;
+		uint8 PackedBytes[5];
+		int32 PackedByteCount = 0;
 		uint32 Remaining = Value;
 		while(true)
 		{
@@ -1071,15 +1053,15 @@ void FArchive::SerializeIntPacked(uint32& Value)
 			if( Remaining > 0)
 			{
 				nextByte |= 1;						// set more bit
-				PackedBytes.Add(nextByte);
+				PackedBytes[PackedByteCount++] = nextByte;
 			}
 			else
 			{
-				PackedBytes.Add(nextByte);
+				PackedBytes[PackedByteCount++] = nextByte;
 				break;
 			}
 		}
-		Serialize(PackedBytes.GetData(), PackedBytes.Num()); // Actually serialize the bytes we made
+		Serialize(PackedBytes, PackedByteCount); // Actually serialize the bytes we made
 	}
 }
 

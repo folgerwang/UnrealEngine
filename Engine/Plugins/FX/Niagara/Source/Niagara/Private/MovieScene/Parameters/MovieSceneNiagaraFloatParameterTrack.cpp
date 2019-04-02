@@ -1,10 +1,15 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieScene/Parameters/MovieSceneNiagaraFloatParameterTrack.h"
 #include "MovieScene/Parameters/MovieSceneNiagaraFloatParameterSectionTemplate.h"
 #include "Sections/MovieSceneFloatSection.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
 #include "Templates/Casts.h"
+
+bool UMovieSceneNiagaraFloatParameterTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneFloatSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneNiagaraFloatParameterTrack::CreateNewSection()
 {

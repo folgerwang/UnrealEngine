@@ -1,0 +1,111 @@
+﻿INTSourceChangelist:4499768
+Availability: Public
+Crumbs: 
+Title: Installed Build を使用する
+Description: このページでは、Installed Build スクリプトの書き方など、Installed Build プロセスについて説明します。
+Type: 
+Version: 4.13
+Parent: Programming/Deployment
+Order: 2
+Tags: 
+
+
+デベロッパーは、多様なハードウェア プロファイルとオペレーション システム向けに、ビルド ソリューションを効率よく提供する方法を常に求めています。 **Installed Build** は十分な機能を備えたエンジンのビルドであり、チームでエンジンをすぐに使えるように再配布することができます。技術的な観点でいえば、Installed Build には Unreal Editor のプリコンパイルされたバイナリと、開発およびシッピング コンフィギュレーションに含まれる各ターゲット プラットフォームの静的ライブラリが含まれています。
+
+Installed Build プロセスでは、Unreal Engine 4 (UE4) の Installed Build バージョンを作成するために必要なパッケージとツールの構築が自動化されます。まとめると、Installed Build を作成するということは、デフォルトのターゲット プラットフォームを設定して、UE4 のツールとエディタで UE4 をコンパイルし、テストを実行して、ターゲット プラットフォームに UE4 の Installed Build バージョンをデプロイすることです。
+
+[REGION:note]
+また、独自のビルドを作成することに加えて、当社の Launcher から UE4 をダウンロードすることもできます。
+[/REGION]
+
+## Installed Build を作成する
+
+Installed Build は [BuildGraph`[UE4Root]/Engine/Build/InstalledBuild.xml` の Installed Build スクリプトによる ](Programming/Development/BuildGraph) スクリプティング システム を使用して作成することができます。
+
+**Installed Build を作成するには**
+
+1. **AutomationTool** を次のコマンドラインで呼び出して ( `[PLATFORM]` は `Win64` または `Mac` のいずれかで置き換えます)、Installed Build スクリプトを実行します。
+      
+    BuildGraph-target="Make Installed Build \[PLATFORM\]" -script=Engine/Build/InstalledEngineBuild.xml -clean
+
+1. Unreal Engine ディレクトリの「 `LocalBuilds/Engine/` 」フォルダに移動して、作成した Installed Build を表示します。公開先として別のディレクトリを指定した場合は、そのディレクトリに移動します。
+
+以下の Installed Build スクリプトのオプションを使用して、ビルドを設定します。
+
+## Installed Build スクリプトのオプション
+
+ `InstalledEngineBuild.xml` スクリプトで Installed Build のすべてのデフォルトのオプションおよびプラットフォームを有効にできますが、一連の特定のオプションを使用して、含めるプラットフォームやビルドの公開先などを設定することもできます。 `-listonly` オプションをスクリプトに渡すことで、ビルド プロセスのカスタマイズに使用できるオプションのリストを構築されるノードのリストと共に表示できます。
+
+以下は使用可能なオプションです。
+
+| オプション | デフォルト | 説明 |
+| --- | --- | --- |
+| `-set:HostPlatformOnly=[true/false]` | false | Installed Build をお使いのホスト プラットフォーム向けのみに設定するヘルパー オプションです。これにより、その他のプラットフォームを個別に無効にする必要がなくなります。|
+| `-set:WithWin64=[true/false]` | true | Win64 ターゲット プラットフォームを含めます。|
+| `-set:WithWin32=[true/false]` | true | Win32 ターゲット プラットフォームを含めます。|
+| `-set:WithMac=[true/false]` | true | Mac ターゲット プラットフォームを含めます。|
+| `-set:WithAndroid=[true/false]` | true | Android ターゲット プラットフォームを含めます。|
+| `-set:WithIOS=[true/false]` | true | [INCLUDE:#excerpt_0] |
+| `-set:WithTVOS=[true/false]` | true | [INCLUDE:#excerpt_1] |
+| `-set:WithLinux=[true/false]` | true | Linux ターゲット プラットフォームを含めます。|
+| `-set:WithHTML5=[true/false]` | true | HTML5 ターゲット プラットフォームを含めます。|
+| `-set:WithPS4=[true/false]` | false | [INCLUDE:#excerpt_2] |
+| `-set:WithXboxOne=[true/false]` | false | [INCLUDE:#excerpt_3] |
+| `-set:WithDDC=[true/false]` | true | [INCLUDE:#excerpt_4] |
+| `-set:WithFullDebugInfo=[true/false]` | false | バイナリ エディタおよびパッケージ化されたアプリケーション ビルドの完全なデバック情報を生成します。|
+| `-set:SignExecutables=[true/false]` | false | ビルド プロセスの一環として実行可能ファイルに署名するようマシンを設定する必要がある場合に、作成された実行可能ファイルに署名します。|
+| `-set:AnalyticsTypeOverride=[ID]` | N/A | 送信する分析イベントの識別子です。|
+| `-set:GameConfigurations=[Configurations]` | Development;Shipping | パッケージ化されたアプリケーションのコンフィギュレーションを指定します。|
+
+[COMMENT:none]
+
+[EXCERPT:excerpt_0]
+iOS ターゲット プラットフォームを含めます。
+[REGION:note]このオプションを有効にする場合は、リモート ビルド用に Mac を設定する必要があります。[/REGION]
+[/EXCERPT:excerpt_0]
+
+[EXCERPT:excerpt_1]
+tvOS ターゲット プラットフォームを含めます。
+[REGION:note]このオプションを有効にする場合は、リモート ビルド用に Mac を設定する必要があります。[/REGION]
+[/EXCERPT:excerpt_1]
+
+[EXCERPT:excerpt_2]
+PS4 ターゲット プラットフォームを含めます。
+[REGION:note]このオプションを有効にする場合は PS4 SDK が必要です。[/REGION]
+[/EXCERPT:excerpt_2]
+
+[EXCERPT:excerpt_3]
+XBoxOne ターゲット プラットフォームを含めます。
+[REGION:note]このオプションを有効にする場合は Xbox One SDK が必要です。[/REGION]
+[/EXCERPT:excerpt_3]
+
+[EXCERPT:excerpt_4]
+エンジン コンテンツおよびテンプレート用のスタンドアロンの派生データ キャッシュを構築します。
+[REGION:note]エンジンおよびテンプレート コンテンツ用にスタンドアロンの [派生データ キャッシュ (DDC)](Engine/Basics/DerivedDataCache) を構築する処理により、構築が非常に遅くなる場合があります。スタンドアロンの DDC が不要な場合は、コマンドラインに -set:WithDDC=false を追加することでこのステップを省略することができます。[/REGION]
+[/EXCERPT:excerpt_4]
+
+[/COMMENT]
+### 追加のファイルを含める
+
+RuntimeDependencies (各モジュールに対して `build.cs` ファイルで設定) は自動的に照合を行い、Installed Build に含まれているファイルを判断します。ただし、このやり方では必要であっても含めることができないファイルがいくつかあるため、こうしたファイルは `[UE4Root]/Engine/Build/InstalledEngineFilters.xml` で定義します。`InstalledEngineFilters` XML ファイルにはビルドから除外すべきファイルのパターンが一覧表示されており、削除または署名する必要があるファイルのタイプを判断して、最終的に DDC を構築するためのプロジェクトを決定することができます。Installed Build に追加のファイルを含める必要がある場合は、 `InstalledEngineFilters` XML ファイルを活用することを推奨します。
+
+## Installed Build を登録する
+
+UE4 には、「外部」プロジェクトと「非外部」プロジェクトという概念があります。外部プロジェクトはエンジンとは異なるディレクトリ ツリーに保存されているものを指し、非外部プロジェクトはエンジン ルートのサブディレクトリに保存され、 `UE4Games.uprojectdirs` エクステンションによって参照されるものを指します。
+
+ `.uproject` ファイル内の「EngineAssociation」フィールドでは、プロジェクトを開くエンジンのバージョンを指定します。非外部プロジェクトの場合、必然的にプロジェクトのディレクトリ階層からの (既知の) 相対位置にエディタが存在するため、このフィールドは空白になります。Launcher によってインストールされたエンジン ビルドを使用する外部プロジェクトについては、このフィールドには「4.19」など公式のバージョン番号が含まれており、Launcher はインストールされているアプリケーションのリストに基づいて、適切なエディタ バイナリ (インストールされていることが前提) を検索することができます。Launcher 以外の手段で配布されたエンジン ビルドを使用する外部プロジェクトについては、エンジン ビルドのランダムな一意の識別子を使用して、グローバルなアクセスが可能なデータ レポジトリ (具体的には Windows のレジストリ、または Mac のライブラリ フォルダに含まれるファイル) を介してインストール済みのディレクトリを検索できます。インストール済みのエディタ ビルドとの関連付けが見つからない場合、ユーザーはバージョンを選択するよう求められ、選択したバージョンで `.uproject` ファイルがアップデートされます。
+
+Installed Build をチームに配布する際は、メンバー全員がそのビルドの識別子を把握していることを確認してください。これにより、エディタによってバージョンを選択するよう求められることを回避し、 `.uproject` ファイルがローカルで生成された一意の識別子でアップデートされてしまうことを防ぐことができます。カスタム識別子は次の方法で設定することができます。
+
+*   **Windows** では、識別子をキーとして使用する HKEY\_CURRENT\_USER\\\SOFTWARE\\\Epic Games\\UnrealEngine\\Builds にレジストリ キーを追加し、エンジンへのパスをその値として追加します。例えば、キーが「MyCustom419」の場合、その値は「D:\\CustomUE4」などとなります。
+*   **Mac** では、「/Users/MyName/Library/Application Support/Epic/UnrealEngine/Install.ini」を開いて、識別子をキーとして使用する「\[Installations\]」セクションにエントリを追加し、エンジンへのパスをその値として追加します。例：
+    
+    
+    [Installations]
+    MyCustom419 = /Users/MyName/CustomUE4
+
+## このデプロイメント方法を選択する
+
+エンジンを変更する必要がほとんどなく、多様なハードウェア プロファイルおよびオペレーティング システム向けのビルド ソリューションを迅速に (そして効率よく) 提供する方法を求めている場合は、UE4 の Installed Build をデプロイしても良いでしょう (または当社の Launcher からエンジンをダウンロードできます)。 
+
+ただし、(C:\\Program Files にインストール可能な) 読み取り専用の UE4 の配布を求めているのでなければこの方法は推奨できません。主な理由として、これはスタンドアロンの読み取り専用のエンジン コンテンツ、ソース コードおよびサードパーティ ライブラリを作成するようデザインされているためです。当社では Epic Games Launcher を通じて Installed Engine Build を提供してはいますが、当社の内部ゲーム チームではこの方法は採用していません。さらに、当社ではこれ自体をスタンドアロンのデプロイメント製品として扱っています。

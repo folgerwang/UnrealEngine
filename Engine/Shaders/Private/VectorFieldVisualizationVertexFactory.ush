@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VectorFieldVisualizationVertexFactory.usf: Vertex factory for GPU simulated particles.
@@ -32,7 +32,7 @@ struct FVertexFactoryInterpolantsVSToPS
 	float2 DummyTexCoord : TEXCOORD0;
 
 #if INSTANCED_STEREO
-	nointerpolation uint PackedEyeIndex : PACKED_EYE_INDEX;
+	nointerpolation uint EyeIndex : EYE_INDEX;
 #endif
 };
 
@@ -56,7 +56,7 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates( FVertexFactoryInput I
 	const float3 VoxelSize = VectorFieldVis.VoxelSize.xyz;
 	const float3 HalfVoxelOffset = VoxelSize.xyz * 0.5f;
 	const float3 VoxelMultipliers = float3(1, VoxelSize.x, VoxelSize.x * VoxelSize.y);
-	const float3 VoxelIndex = floor(float3(GetLayerInstanceID(Input.InstanceId).xxx) * VoxelMultipliers.xyz);
+	const float3 VoxelIndex = floor((float3)GetInstanceId(Input.InstanceId.xxx) * VoxelMultipliers.xyz);
 	const float3 VoxelUV = frac(VoxelIndex.xyz * VoxelSize.xyz) + HalfVoxelOffset;
 
 	// Read vector for this voxel.
@@ -153,7 +153,7 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS( FVertexFact
 	Interpolants.DummyTexCoord = float2(0,0);
 
 #if INSTANCED_STEREO
-	Interpolants.PackedEyeIndex = 0;
+	Interpolants.EyeIndex = 0;
 #endif
 
 	return Interpolants;
@@ -185,14 +185,12 @@ float3x3 VertexFactoryGetTangentToLocal( FVertexFactoryInput Input, FVertexFacto
 	return TangentToLocal;
 }
 
-#if INSTANCED_STEREO
-uint VertexFactoryGetEyeIndex(uint InstanceId)
+float4 VertexFactoryGetTranslatedPrimitiveVolumeBounds(FVertexFactoryInterpolantsVSToPS Interpolants)
 {
 	return 0;
 }
-#endif
 
-float4 VertexFactoryGetTranslatedPrimitiveVolumeBounds(FVertexFactoryInterpolantsVSToPS Interpolants)
+uint VertexFactoryGetPrimitiveId(FVertexFactoryInterpolantsVSToPS Interpolants)
 {
 	return 0;
 }

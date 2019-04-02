@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -91,6 +91,9 @@ protected:
 
 	/** only process packages containing materials **/
 	bool bOnlyMaterials;
+
+	/** Only save packages with a changelist of zero **/
+	bool bOnlyUnversioned;
 
 	/** Ignore package version changelist **/
 	bool bIgnoreChangelist;

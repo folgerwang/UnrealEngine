@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /**
  * LevelStreamingDynamic
@@ -66,5 +66,5 @@ private:
 
 };
 
-DEPRECATED(4.21, "ULevelStreamingKismet has been renamed to ULevelStreamingDynamic")
+UE_DEPRECATED(4.21, "ULevelStreamingKismet has been renamed to ULevelStreamingDynamic")
 typedef ULevelStreamingDynamic ULevelStreamingKismet;

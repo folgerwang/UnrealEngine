@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved..
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved..
 
 /*=============================================================================
 	VulkanPipeline.h: Private Vulkan RHI definitions.
@@ -42,6 +42,10 @@ inline uint64 GetShaderKeyForGfxStage(const FBoundShaderStateInput& BSI, ShaderS
 #if VULKAN_SUPPORTS_GEOMETRY_SHADERS
 	case ShaderStage::Geometry:
 		return GetShaderKey(BSI.GeometryShaderRHI);
+	case ShaderStage::Hull:
+		return GetShaderKey(BSI.HullShaderRHI);
+	case ShaderStage::Domain:
+		return GetShaderKey(BSI.DomainShaderRHI);
 #endif
 	default:
 		check(0);
@@ -148,7 +152,8 @@ public:
 		uint32 VertexInputKey;
 		bool bLoaded;
 
-		uint32 RasterizationSamples;
+		uint16 RasterizationSamples;
+		uint16 ControlPoints;
 		uint32 Topology;
 		struct FBlendAttachment
 		{
@@ -528,7 +533,7 @@ public:
 		void Add(FVulkanGfxPipeline* GfxPipeline);
 
 		void Touch(FVulkanRHIGraphicsPipelineState* Pipeline);
-	
+
 	private:
 		bool bUseLRU;
 		FVulkanPipelineLRUCache LRU;
@@ -582,6 +587,7 @@ private:
 
 	//@@
 	TMap<FVulkanDescriptorSetsLayoutInfo, FVulkanLayout*> LayoutMap;
+	FVulkanDescriptorSetLayoutMap DSetLayoutMap;
 	FCriticalSection LayoutMapCS;
 
 	FVulkanRHIGraphicsPipelineState* FindInLoadedLibrary(const FGraphicsPipelineStateInitializer& PSOInitializer, FGfxPSIKey& PSIKey, TGfxPipelineEntrySharedPtr& OutGfxEntry, FGfxEntryKey& OutGfxEntryKey);

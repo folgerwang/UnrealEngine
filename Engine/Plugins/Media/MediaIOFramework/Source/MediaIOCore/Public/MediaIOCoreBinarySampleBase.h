@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,10 +22,11 @@ public:
 	 *
 	 * @param InBinaryBuffer The metadata frame data.
 	 * @param InBufferSize The size of the InBinaryBuffer.
-	 * @param InTimecode The sample timecode if available.
 	 * @param InTime The sample time (in the player's own clock).
+	 * @param InFrameRate The framerate of the media that produce the sample.
+	 * @param InTimecode The sample timecode if available.
 	 */
-	bool Initialize(const uint8* InBinaryBuffer, uint32 InBufferSize, FTimespan InTime, const TOptional<FTimecode>& InTimecode);
+	bool Initialize(const uint8* InBinaryBuffer, uint32 InBufferSize, FTimespan InTime, const FFrameRate& InFrameRate, const TOptional<FTimecode>& InTimecode);
 
 	/**
 	 * Initialize the sample.
@@ -34,7 +35,40 @@ public:
 	 * @param InTimecode The sample timecode if available.
 	 * @param InTime The sample time (in the player's own clock).
 	 */
-	bool Initialize(TArray<uint8> InBinaryBuffer, FTimespan InTime, const TOptional<FTimecode>& InTimecode);
+	bool Initialize(TArray<uint8> InBinaryBuffer, FTimespan InTime, const FFrameRate& InFrameRate, const TOptional<FTimecode>& InTimecode);
+
+	/**
+	 * Set the sample buffer.
+	 *
+	 * @param InBinaryBuffer The metadata frame data.
+	 * @param InBufferSize The size of the InBinaryBuffer.
+	 */
+	bool SetBuffer(const uint8* InBinaryBuffer, uint32 InBufferSize);
+
+	/**
+	 * Set the sample buffer.
+	 *
+	 * @param InBinaryBuffer The metadata frame data.
+	 */
+	bool SetBuffer(TArray<uint8> InBinaryBuffer);
+
+	/**
+	 * Set the sample properties.
+	 *
+	 * @param InTime The sample time (in the player's own clock).
+	 * @param InFrameRate The framerate of the media that produce the sample.
+	 * @param InTimecode The sample timecode if available.
+	 */
+	bool SetProperties(FTimespan InTime, const FFrameRate& InFrameRate, const TOptional<FTimecode>& InTimecode);
+
+	/**
+	 * Request an uninitialized sample buffer.
+	 * Should be used when the buffer could be filled by something else.
+	 * SetProperties should still be called after.
+	 *
+	 * @param InBufferSize The size of the metadata buffer.
+	 */
+	virtual void* RequestBuffer(uint32 InBufferSize);
 
 public:
 
@@ -47,7 +81,7 @@ public:
 
 	virtual FTimespan GetDuration() const override
 	{
-		return FTimespan::Zero();
+		return Duration;
 	}
 
 	virtual uint32 GetSize() const override
@@ -82,9 +116,11 @@ protected:
 	}
 
 protected:
-
 	/** The sample's frame buffer. */
 	TArray<uint8> Buffer;
+
+	/** Duration for which the sample is valid. */
+	FTimespan Duration;
 
 	/** Sample time. */
 	FTimespan Time;

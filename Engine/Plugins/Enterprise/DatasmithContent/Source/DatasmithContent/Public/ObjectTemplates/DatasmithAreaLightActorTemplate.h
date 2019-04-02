@@ -1,9 +1,11 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "DatasmithAreaLightActor.h"
 #include "ObjectTemplates/DatasmithObjectTemplate.h"
+
+#include "Engine/Scene.h"
 
 #include "DatasmithAreaLightActorTemplate.generated.h"
 
@@ -13,6 +15,9 @@ class DATASMITHCONTENT_API UDatasmithAreaLightActorTemplate : public UDatasmithO
 	GENERATED_BODY()
 
 public:
+	UPROPERTY()
+	EDatasmithAreaLightActorType LightType;
+
 	UPROPERTY()
 	EDatasmithAreaLightActorShape LightShape;
 
@@ -26,7 +31,34 @@ public:
 	float Intensity;
 
 	UPROPERTY()
-	uint8 bHidden:1;
+	ELightUnits IntensityUnits;
+
+	UPROPERTY()
+	float Temperature;
+
+	UPROPERTY()
+	TSoftObjectPtr< class UTextureLightProfile > IESTexture;
+
+	UPROPERTY()
+	bool bUseIESBrightness;
+
+	UPROPERTY()
+	float IESBrightnessScale;
+
+	UPROPERTY()
+	FRotator Rotation;
+
+	UPROPERTY()
+	float SourceRadius;
+
+	UPROPERTY()
+	float SourceLength;
+
+	UPROPERTY()
+	float AttenuationRadius;
+
+public:
+	UDatasmithAreaLightActorTemplate();
 
 	virtual void Apply( UObject* Destination, bool bForce = false ) override;
 	virtual void Load( const UObject* Source ) override;

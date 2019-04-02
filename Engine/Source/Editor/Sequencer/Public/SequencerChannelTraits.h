@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,11 +8,9 @@
 #include "Channels/MovieSceneChannelData.h"
 #include "MovieSceneClipboard.h"
 #include "SequencerClipboardReconciler.h"
-#include "SequencerGenericKeyStruct.h"
+#include "SequencerKeyStructGenerator.h"
 #include "Widgets/SNullWidget.h"
 #include "ISequencer.h"
-
-struct FSequencerGenericKeyStruct;
 
 /** Utility struct representing a number of selected keys on a single channel */
 template<typename ChannelType>
@@ -76,27 +74,8 @@ namespace Sequencer
 	template<typename ChannelType>
 	TSharedPtr<FStructOnScope> GetKeyStruct(const TMovieSceneChannelHandle<ChannelType>& ChannelHandle, FKeyHandle KeyHandle)
 	{
-		ChannelType* Channel = ChannelHandle.Get();
-		if (Channel)
-		{
-			auto ChannelData = Channel->GetData();
-			const int32 KeyIndex = ChannelData.GetIndex(KeyHandle);
-
-			if (KeyIndex != INDEX_NONE)
-			{
-				TSharedRef<FStructOnScope> NewStruct = MakeShared<FStructOnScope>(FSequencerGenericKeyStruct::StaticStruct());
-				FSequencerGenericKeyStruct* StructPtr = (FSequencerGenericKeyStruct*)NewStruct->GetStructMemory();
-
-				StructPtr->Time = ChannelData.GetTimes()[KeyIndex];
-				StructPtr->CustomizationImpl = MakeShared<TMovieSceneKeyStructCustomization<ChannelType>>(ChannelHandle, KeyHandle);
-
-				return NewStruct;
-			}
-		}
-		return nullptr;
+		return FSequencerKeyStructGenerator::Get().CreateKeyStructInstance(ChannelHandle, KeyHandle);
 	}
-
-
 
 	/**
 	 * Check whether the specified channel can create a key editor widget that should be placed on the sequencer node tree 
@@ -204,6 +183,7 @@ namespace Sequencer
 	 * Add or update a key for this channel's current value
 	 *
 	 * @param InChannel          The channel to create a key for
+	 * @param InSectionToKey     The Section to key
 	 * @param InTime             The time at which to add a key
 	 * @param InSequencer        The currently active sequencer
 	 * @param InObjectBindingID  The object binding ID that this section's track is bound to
@@ -213,6 +193,7 @@ namespace Sequencer
 	template<typename ChannelType>
 	FKeyHandle AddOrUpdateKey(
 		ChannelType*                    InChannel,
+		UMovieSceneSection*             InSectionToKey,
 		FFrameNumber                    InTime,
 		ISequencer&                     InSequencer,
 		const FGuid&                    InObjectBindingID,
@@ -227,6 +208,7 @@ namespace Sequencer
 	 * Add or update a key for this channel's current value, using an external value if possible
 	 *
 	 * @param InChannel          The channel to create a key for
+	 * @param InSectionToKey     The Section to key
 	 * @param InExternalValue    The external value definition
 	 * @param InTime             The time at which to add a key
 	 * @param InSequencer        The currently active sequencer
@@ -237,6 +219,7 @@ namespace Sequencer
 	template<typename ChannelType, typename ValueType>
 	FKeyHandle AddOrUpdateKey(
 		ChannelType*                               InChannel,
+		UMovieSceneSection*             SectionToKey,
 		const TMovieSceneExternalValue<ValueType>& InExternalValue,
 		FFrameNumber                               InTime,
 		ISequencer&                                InSequencer,
@@ -362,7 +345,3 @@ namespace Sequencer
 	SEQUENCER_API TUniquePtr<FCurveModel> CreateCurveEditorModel(const FMovieSceneChannelHandle& ChannelHandle, UMovieSceneSection* OwningSection, TSharedRef<ISequencer> InSequencer);
 
 }	// namespace Sequencer
-
-
-// include generic key struct function definitions
-#include "SequencerGenericKeyStruct.inl"

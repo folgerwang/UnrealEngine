@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -17,6 +17,10 @@ public:
 
 	/** Called before the module is unloaded, right before the module object is destroyed */
 	virtual void ShutdownModule() override;
+
+	/** Begin IAnimationModifiersModule overrides */
+	virtual void ShowAddAnimationModifierWindow(const TArray<UAnimSequence*>& InSequences) override;
+	/** End IAnimationModifiersModule overrides */
 
 protected:
 	/** Callback for extending an application mode */

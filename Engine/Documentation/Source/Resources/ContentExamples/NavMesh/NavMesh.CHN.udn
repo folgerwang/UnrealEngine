@@ -1,64 +1,45 @@
-﻿Availability: Public
-Title:导航网格物体
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:寻路网格体内容示例
 Crumbs:%ROOT%, Resources, Resources/ContentExamples
-Description:导航网格物体示例关卡概述
+Description:概述寻路网格体内容示例中提供的示例。
+Related: Engine/AI/BehaviorTrees/QuickStart
+Related: Gameplay/AI
+Related: Engine/AI/BehaviorTrees/NodeReference
+Related: Engine/Actors/Volumes
+Version: 4.9
+topic-image:NavMesh_Compact.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/NavMesh:title%](NavMesh_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/gameplay_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/NavMesh:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/NavMesh:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/NavMesh]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/NavMesh:title%](NavMesh_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/gameplay_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/NavMesh:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/NavMesh:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/NavMesh]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-[REGION:fullwidth]
-![](NavMesh_banner.png)
+[REGION:banner]
+![](NavMesh_Header.png)(convert:false)
 [/REGION]
 
-欢迎来到 **NavMesh** (导航网格物体）示例关卡！
+[TOC(start:2 end:2)]
 
-[INCLUDE:Resources\ContentExamples\ExampleLevelOverview#ExampleLevel]
 
-在本示例中，您可以按下 **P** 键，您的NavMesh数据将会在关卡编辑器中显示，并会在 **Play in Editor** （在编辑器中游玩）和 **Simulate in Editor** （在编辑器中模拟）时显示。
 
-## 示例
+内容示例中的 **寻路网格体（Navmesh）** 图提供了三个示例，说明如何生成和使用 **寻路网格体（Navmesh）** 来使 **Pawn** 能够通过障碍物、翻过斜坡或从窗台上跳下来。在编辑器中，将 **NavMeshBoundsVolume** 放置在关卡中后，按下 **P** 键将显示/隐藏寻路网格体（NavMesh）覆盖的区域。这个地图中的最后一个例子展示了当在关卡中移动 **Actor** 时，寻路网格体（NavMesh）的覆盖区域是如何自动更新的（可以在 **关卡编辑器/其他（Level Editor/Miscellaneous）** 下的 **编辑器设置（Editor Settings）** 中取消选中 **自动更新导航（Update Navigation Automatically）** 复选框来禁用该设置）。 
 
-[REGION:topics third]
-%Resources/ContentExamples/NavMesh/1_1:TopicCompact%
-%Resources/ContentExamples/NavMesh/1_2:TopicCompact%
-%Resources/ContentExamples/NavMesh/1_3:TopicCompact%
-[/REGION]
+[region:note]
+您可以通过单击示例的名称找到每个示例的其他资源。
+[/region]
+ 
+
+(#navmeshmap)
+
+## 寻路网格体图
+
+![](NavMesh_Map.png)(w:640)
+
+下面列出了在 **寻路网格体（Navmesh）** 图中提供的示例：
+
+| 示例 | 功能概述 |
+| ------- | ------------ |
+| **[1.1 简单障碍物导航（Simple navigation around obstacles）](Resources\ContentExamples\NavMesh\1_1)** | 如何让pawn通过一组障碍物。|
+| **[1.2 使用导航链接代理进行导航（Navigation using a Nav Link Proxy）](Resources\ContentExamples\NavMesh\1_2)** | 显示pawn导航到斜坡并跳下。|
+| **[1.3 移动Actor后重建寻路网格体（Navmesh rebuild after moving Actors）](Resources\ContentExamples\NavMesh\1_3)** | 这个例子演示了当像静态网格体这样的Actor在编辑器中移动时，寻路网格体是如何自动更新的。|
+
+
+
+
 

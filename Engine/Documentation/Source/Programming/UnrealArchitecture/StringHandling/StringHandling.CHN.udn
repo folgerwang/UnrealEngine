@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2714483
+﻿INTSourceChangelist:3108692
 Availability:Public
 Title:字符串处理
 Crumbs:%ROOT%, Programming, Programming/UnrealArchitecture/Reference, Programming/UnrealArchitecture/Reference/Properties
@@ -26,6 +26,7 @@ Version:4.9
 
 
 
+(#Conversions)
 ## 转换
 
 |从 | 到 | 范例 | 
@@ -63,6 +64,7 @@ Version:4.9
 |FText   | FName | FText 到 FName 的转换不存在。但可先转换到 FString，再转换到 FName。[REGION:warning] FText -> FString -> FName 不可靠。因为 FName 不区分大小写，所以转换存在损耗。[/REGION]| 
 [/VAR]
  
+(#Encoding)
 ## 编码
 
 总体而言，设置字符串变量文字时应使用 **TEXT()** 宏。如未指定 TEXT() 宏，将使用 ANSI 对文字进行编码，会导致支持字符高度受限。传入 FString 的 ANSI 文字需要完成到 TCHAR 的转换（本地万国码编码），以便更高效地使用 TEXT()。

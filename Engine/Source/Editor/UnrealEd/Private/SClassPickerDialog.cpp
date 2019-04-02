@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "Kismet2/SClassPickerDialog.h"
@@ -49,6 +49,15 @@ void SClassPickerDialog::Construct(const FArguments& InArgs)
 		{
 			AssetDefaultClasses.Add(MakeShareable(new FClassPickerDefaults(DefaultObj)));
 		}
+	}
+
+	for (UClass* CommonClass : InArgs._Options.ExtraPickerCommonClasses)
+	{
+		TSharedPtr<FClassPickerDefaults> PickerDefault = MakeShareable(new FClassPickerDefaults());
+		PickerDefault->AssetClass = InArgs._AssetType->GetPathName();
+		PickerDefault->ClassName  = CommonClass->GetPathName();
+
+		AssetDefaultClasses.Add(PickerDefault);
 	}
 
 	const bool bHasDefaultClasses = AssetDefaultClasses.Num() > 0;

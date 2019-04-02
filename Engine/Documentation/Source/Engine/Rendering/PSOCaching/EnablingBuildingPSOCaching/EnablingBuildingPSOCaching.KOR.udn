@@ -1,0 +1,51 @@
+﻿INTSourceChangelist:4677192
+Availability: Public
+Crumbs: 
+Title: PSO 캐시 활성화 및 빌드
+Description: PSO 데이터를 빌드할 수 있도록 UE4 프로젝트를 준비하는 법을 설명합니다.
+Type: 
+Version: 4.21
+Parent: Engine/Rendering/PSOCaching
+Order:
+Topic-image:EnablingBuildingPSCaching_Topic_Image.png
+Tags: 
+
+**Pipeline State Object (PSO)** 캐시를 UE4 프로젝트에서 사용하기 전, 먼저 활성화해야 하는 옵션이 몇 가지 있습니다. 여기서는 PSO 캐시의 작동에 필요한 파일을 생성하기 위해 활성화해야 하는 옵션을 전부 살펴봅니다.
+
+## 단계
+
+[REGION:note]
+**전제조건:** 여기서는 [액션 RPG](https://www.unrealengine.com/marketplace/action-rpg) 예제 게임 프로젝트를 사용합니다. 에픽게임즈 런처에서 다운로드할 수 있습니다.
+[/REGION]
+
+1.  메인 메뉴에서 **Edit** \> **Project Settings** \> **Packaging** \> **Packaging** (편집 > 프로젝트 세팅 > 패키징 > 패키징) 섹션에서 다음 옵션을 활성화합니다.  
+    *   **Share Material Shader Code** (머티리얼 셰이더 코드 공유)
+    *   **Shared Material Native Libraries** (공유 머티리얼 네이티브 라이브러리)  
+        [REGION:lightbox]
+        [![](Enable_PSO_Caching.png)(w:800px)](Enable_PSO_Caching.png)
+        [/REGION]
+        [REGION:caption]
+        클릭하면 이미지 원본을 확인합니다.
+        [/REGION]
+2.  그런 다음 **Device Profile** (디바이스 프로파일) 툴을 엽니다. **Window** \> **Developer Tools** \> **Device Profiles** (창 > 개발자 툴 > 디바이스 프로파일) 입니다.  
+    ![](Open_Device_Manager.png "Open_Device_Manager.png")
+3.  다음 **Existing Device Profiles** (기존 디바이스 프로파일) 입력에서 **Android** 옵션 옆 **...** 을 클릭하여 디바이스 프로파일을 엽니다.  
+    ![](Open_Up_Android_Device_Profile.png)
+4.  **Console Variables** (콘솔 변수) 섹션 아래 **Rendering** (렌더링 섹션)에서 **더하기** 아이콘을 클릭하여 **검색** 창을 엽니다.  
+    ![](Search_For_Command_To_Add.png "Search_For_Command_To_Add.png")
+5.  **검색** 창에 **r.ShaderPipelineCache.Enabled** 를 찾아 클릭하여 렌더링 변수 목록에 추가합니다.  
+    ![](PSO_Added_To_Device_Profile.png "PSO_Added_To_Device_Profile.png")
+6.  그런 다음 **r.ShaderPipelineCache.Enabled** 입력 값을 **1** 로 설정합니다.  
+    ![](PSO_Caching_Enabled.png "PSO_Caching_Enabled.png")
+    [REGION:note]
+    프로젝트가 여러 플랫폼을 지원하는 경우, 각 플랫폼마다 이 프로세스를 반복하세요.
+    [/REGION]
+7.  완료되면 언리얼 에디터 세션을 재시작합니다.
+
+## 최종 결과
+
+PSO 캐시의 필수 프로젝트 세팅이 활성화되었으니, 다음에는 필수 PSO 데이터를 파일로 출력하는 프로젝트 특수 버전을 만들어 실행하겠습니다. 
+
+[REGION:note]
+자세한 정보는 [PSO 데이터 수집 하우투](Engine/Rendering/PSOCaching/GatheringPSOData) 문서를 참조하세요.
+[/REGION]

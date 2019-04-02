@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "BoneControllers/AnimNode_LookAt.h"
 #include "SceneManagement.h"
@@ -16,19 +16,24 @@ static const FVector DefaultLookUpAxis(1.f, 0.f, 0.f);
 
 FAnimNode_LookAt::FAnimNode_LookAt()
 	: LookAtLocation(FVector(100.f, 0.f, 0.f))
-	, LookAtAxis_DEPRECATED(EAxisOption::Y)
-	, CustomLookAtAxis_DEPRECATED(FVector(0.f, 1.f, 0.f))
 	, LookAt_Axis(DefaultLookAtAxis)
 	, bUseLookUpAxis(false)
-	, LookUpAxis_DEPRECATED(EAxisOption::X)
-	, CustomLookUpAxis_DEPRECATED(FVector(1.f, 0.f, 0.f))
+	, InterpolationType(EInterpolationBlend::Linear)
 	, LookUp_Axis(DefaultLookUpAxis)
 	, LookAtClamp(0.f)
-	, InterpolationType(EInterpolationBlend::Linear)
 	, InterpolationTime(0.f)
 	, InterpolationTriggerThreashold(0.f)
-	, CurrentLookAtLocation(FVector::ZeroVector)
+#if WITH_EDITORONLY_DATA
+	, LookAtAxis_DEPRECATED(EAxisOption::Y)
+	, CustomLookAtAxis_DEPRECATED(FVector(0.f, 1.f, 0.f))
+	, LookUpAxis_DEPRECATED(EAxisOption::X)
+	, CustomLookUpAxis_DEPRECATED(FVector(1.f, 0.f, 0.f))
+#endif
+	, CurrentLookAtLocation(ForceInitToZero)
+	, CurrentTargetLocation(ForceInitToZero)
+	, PreviousTargetLocation(ForceInitToZero)
 	, AccumulatedInterpoolationTime(0.f)
+	, CachedCurrentTargetLocation(ForceInitToZero)
 {
 }
 
@@ -218,7 +223,7 @@ void FAnimNode_LookAt::ConditionalDebugDraw(FPrimitiveDrawInterface* PDI, USkele
 		{
 			float Angle = FMath::DegreesToRadians(LookAtClamp);
 			float ConeSize = 30.f;
-			DrawCone(PDI, FScaleMatrix(ConeSize) * CalculateLookAtMatrixFromTransform(ComponentTransform), Angle, Angle, 20, false, FLinearColor::Green, GEngine->DebugEditorMaterial->GetRenderProxy(false), SDPG_World);
+			DrawCone(PDI, FScaleMatrix(ConeSize) * CalculateLookAtMatrixFromTransform(ComponentTransform), Angle, Angle, 20, false, FLinearColor::Green, GEngine->DebugEditorMaterial->GetRenderProxy(), SDPG_World);
 		}
 
 		// draw directional  - lookat and look up

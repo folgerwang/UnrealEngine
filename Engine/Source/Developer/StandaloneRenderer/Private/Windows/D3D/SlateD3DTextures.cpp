@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Windows/D3D/SlateD3DTextures.h"
 #include "Windows/D3D/SlateD3DRenderer.h"
@@ -164,7 +164,7 @@ void FSlateD3DTexture::UpdateTextureThreadSafeWithTextureData(FSlateTextureData*
 
 
 FSlateTextureAtlasD3D::FSlateTextureAtlasD3D( uint32 Width, uint32 Height, uint32 StrideBytes, ESlateTextureAtlasPaddingStyle PaddingStyle )
-	: FSlateTextureAtlas( Width, Height, StrideBytes, PaddingStyle )
+	: FSlateTextureAtlas( Width, Height, StrideBytes, PaddingStyle, true )
 	, AtlasTexture( new FSlateD3DTexture( Width, Height ) )
 {
 }

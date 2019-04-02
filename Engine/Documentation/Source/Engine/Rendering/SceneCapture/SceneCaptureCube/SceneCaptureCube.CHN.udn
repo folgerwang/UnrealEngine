@@ -1,7 +1,7 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3225648
 availability:Docs
-title:Scene Capture Cube
-description: Using the Scene Capture Cube Actor in Unreal Engine 4.
+title:场景捕捉Cube
+description: 在虚幻引擎4中使用场景捕捉Cube Actor。
 crumbs:%ROOT%, Engine, Engine/Rendering, Engine/Rendering/SceneCapture
 version:4.14
 Type:topic
@@ -9,6 +9,37 @@ SkillLevel:Intermediate
 parent:Engine/Rendering/SceneCapture
 order:2
 Navigation:topic
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

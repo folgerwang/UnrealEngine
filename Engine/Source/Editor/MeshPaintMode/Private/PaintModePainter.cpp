@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PaintModePainter.h"
 
@@ -785,17 +785,35 @@ void FPaintModePainter::FinishPainting()
 	}
 }
 
-bool FPaintModePainter::PaintInternal(const FVector& InCameraOrigin, const FVector& InRayOrigin, const FVector& InRayDirection, EMeshPaintAction PaintAction, float PaintStrength)
+bool FPaintModePainter::PaintInternal(const FVector& InCameraOrigin, const TArrayView<TPair<FVector, FVector>>& Rays, EMeshPaintAction PaintAction, float PaintStrength)
 {
+	struct FPaintRayResults
+	{
+		FMeshPaintParameters Params;
+		FHitResult BestTraceResult;
+	};
+	TArray<FPaintRayResults> PaintRayResults;
+	PaintRayResults.AddDefaulted(Rays.Num());
+	
+	TMap<UMeshComponent*, TArray<int32>> HoveredComponents;
+
 	const float BrushRadius = BrushSettings->GetBrushRadius();
+	const bool bIsPainting = (PaintAction == EMeshPaintAction::Paint);
+	const float InStrengthScale = PaintStrength;;
+
+	bool bPaintApplied = false;
+
 	// Fire out a ray to see if there is a *selected* component under the mouse cursor that can be painted.
 	// NOTE: We can't use a GWorld line check for this as that would ignore components that have collision disabled
 
-	TArray<UMeshComponent*> HoveredComponents;
-	FHitResult BestTraceResult;
+	for (int32 i=0; i < Rays.Num(); ++i)
 	{
-		const FVector TraceStart(InRayOrigin);
-		const FVector TraceEnd(InRayOrigin + InRayDirection * HALF_WORLD_MAX);
+		const FVector& RayOrigin = Rays[i].Key;
+		const FVector& RayDirection = Rays[i].Value;
+		FHitResult& BestTraceResult = PaintRayResults[i].BestTraceResult;
+
+		const FVector TraceStart(RayOrigin);
+		const FVector TraceEnd(RayOrigin + RayDirection * HALF_WORLD_MAX);
 
 		for (UMeshComponent* MeshComponent : PaintableComponents)
 		{
@@ -819,6 +837,8 @@ bool FPaintModePainter::PaintInternal(const FVector& InCameraOrigin, const FVect
 			}
 		}
 
+		bool bUsed = false;
+
 		if (BestTraceResult.GetComponent() != nullptr)
 		{
 			// If we're using texture paint, just use the best trace result we found as we currently only
@@ -826,7 +846,8 @@ bool FPaintModePainter::PaintInternal(const FVector& InCameraOrigin, const FVect
 			if (PaintSettings->PaintMode == EPaintMode::Textures)
 			{
 				UMeshComponent* ComponentToPaint = CastChecked<UMeshComponent>(BestTraceResult.GetComponent());
-				HoveredComponents.AddUnique(ComponentToPaint);
+				HoveredComponents.FindOrAdd(ComponentToPaint).Add(i);
+				bUsed = true;
 			}
 			else
 			{
@@ -840,82 +861,88 @@ bool FPaintModePainter::PaintInternal(const FVector& InCameraOrigin, const FVect
 					if (ComponentToAdapterMap.Contains(TestComponent) && ComponentBounds.Intersect(BrushBounds))
 					{
 						// OK, this mesh potentially overlaps the brush!
-						HoveredComponents.AddUnique(TestComponent);
+						HoveredComponents.FindOrAdd(TestComponent).Add(i);
+						bUsed = true;
 					}
 				}
 			}
 		}
+
+		if (bUsed)
+		{
+			FVector BrushXAxis, BrushYAxis;
+			BestTraceResult.Normal.FindBestAxisVectors(BrushXAxis, BrushYAxis);
+			// Display settings
+			const float VisualBiasDistance = 0.15f;
+			const FVector BrushVisualPosition = BestTraceResult.Location + BestTraceResult.Normal * VisualBiasDistance;
+
+			const FLinearColor PaintColor = (PaintSettings->PaintMode == EPaintMode::Vertices) ? (PaintSettings->VertexPaintSettings.PaintColor) : PaintSettings->TexturePaintSettings.PaintColor;
+			const FLinearColor EraseColor = (PaintSettings->PaintMode == EPaintMode::Vertices) ? (PaintSettings->VertexPaintSettings.EraseColor) : PaintSettings->TexturePaintSettings.EraseColor;
+
+			// NOTE: We square the brush strength to maximize slider precision in the low range
+			const float BrushStrength =
+				BrushSettings->BrushStrength *  BrushSettings->BrushStrength *
+				InStrengthScale;
+
+			const float BrushDepth = BrushRadius;
+
+			// Mesh paint settings
+			FMeshPaintParameters& Params = PaintRayResults[i].Params;
+			{
+				Params.PaintMode = PaintSettings->VertexPaintSettings.MeshPaintMode;
+				Params.PaintAction = PaintAction;
+				Params.BrushPosition = BestTraceResult.Location;
+				Params.BrushNormal = BestTraceResult.Normal;
+				Params.BrushColor = bIsPainting ? PaintColor : EraseColor;
+				Params.SquaredBrushRadius = BrushRadius * BrushRadius;
+				Params.BrushRadialFalloffRange = BrushSettings->BrushFalloffAmount * BrushRadius;
+				Params.InnerBrushRadius = BrushRadius - Params.BrushRadialFalloffRange;
+				Params.BrushDepth = BrushDepth;
+				Params.BrushDepthFalloffRange = BrushSettings->BrushFalloffAmount * BrushDepth;
+				Params.InnerBrushDepth = BrushDepth - Params.BrushDepthFalloffRange;
+				Params.BrushStrength = BrushStrength;
+				Params.BrushToWorldMatrix = FMatrix(BrushXAxis, BrushYAxis, Params.BrushNormal, Params.BrushPosition);
+				Params.InverseBrushToWorldMatrix = Params.BrushToWorldMatrix.InverseFast();
+				Params.bWriteRed = PaintSettings->VertexPaintSettings.bWriteRed;
+				Params.bWriteGreen = PaintSettings->VertexPaintSettings.bWriteGreen;
+				Params.bWriteBlue = PaintSettings->VertexPaintSettings.bWriteBlue;
+				Params.bWriteAlpha = PaintSettings->VertexPaintSettings.bWriteAlpha;
+				Params.TotalWeightCount = (int32)PaintSettings->VertexPaintSettings.TextureWeightType;
+
+				// Select texture weight index based on whether or not we're painting or erasing
+				{
+					const int32 PaintWeightIndex = bIsPainting ? (int32)PaintSettings->VertexPaintSettings.PaintTextureWeightIndex : (int32)PaintSettings->VertexPaintSettings.EraseTextureWeightIndex;
+
+					// Clamp the weight index to fall within the total weight count
+					Params.PaintWeightIndex = FMath::Clamp(PaintWeightIndex, 0, Params.TotalWeightCount - 1);
+				}
+
+				// @todo MeshPaint: Ideally we would default to: TexturePaintingCurrentMeshComponent->StaticMesh->LightMapCoordinateIndex
+				//		Or we could indicate in the GUI which channel is the light map set (button to set it?)
+				Params.UVChannel = PaintSettings->TexturePaintSettings.UVChannel;
+			}
+		}
 	}
-
-	const bool bIsPainting = (PaintAction == EMeshPaintAction::Paint);
-	const float InStrengthScale = PaintStrength;;
-
-	bool bPaintApplied = false;
 
 	if (HoveredComponents.Num() > 0)
 	{
 		if (bArePainting == false)
-		{
-			BeginTransaction(LOCTEXT("MeshPaintMode_VertexPaint_TransactionPaintStroke", "Vertex Paint"));
+		{ 
+			// Vertex painting is an ongoing transaction, while texture painting is handled separately later in a single transaction
+			if (PaintSettings->PaintMode == EPaintMode::Vertices)
+			{
+				BeginTransaction(LOCTEXT("MeshPaintMode_VertexPaint_TransactionPaintStroke", "Vertex Paint"));
+			}
 			bArePainting = true;
 			TimeSinceStartedPainting = 0.0f;
 		}
-
-		FVector BrushXAxis, BrushYAxis;
-		BestTraceResult.Normal.FindBestAxisVectors(BrushXAxis, BrushYAxis);
-		// Display settings
-		const float VisualBiasDistance = 0.15f;
-		const FVector BrushVisualPosition = BestTraceResult.Location + BestTraceResult.Normal * VisualBiasDistance;
-
-		const FLinearColor PaintColor = (PaintSettings->PaintMode == EPaintMode::Vertices) ? (PaintSettings->VertexPaintSettings.PaintColor) : PaintSettings->TexturePaintSettings.PaintColor;
-		const FLinearColor EraseColor = (PaintSettings->PaintMode == EPaintMode::Vertices) ? (PaintSettings->VertexPaintSettings.EraseColor) : PaintSettings->TexturePaintSettings.EraseColor;
-
-		// NOTE: We square the brush strength to maximize slider precision in the low range
-		const float BrushStrength =
-			BrushSettings->BrushStrength *  BrushSettings->BrushStrength *
-			InStrengthScale;
-
-		const float BrushDepth = BrushRadius;
-
-		// Mesh paint settings
-		FMeshPaintParameters Params;
-		{
-			Params.PaintMode = PaintSettings->VertexPaintSettings.MeshPaintMode;
-			Params.PaintAction = PaintAction;
-			Params.BrushPosition = BestTraceResult.Location;
-			Params.BrushNormal = BestTraceResult.Normal;
-			Params.BrushColor = bIsPainting ? PaintColor : EraseColor;
-			Params.SquaredBrushRadius = BrushRadius * BrushRadius;
-			Params.BrushRadialFalloffRange = BrushSettings->BrushFalloffAmount * BrushRadius;
-			Params.InnerBrushRadius = BrushRadius - Params.BrushRadialFalloffRange;
-			Params.BrushDepth = BrushDepth;
-			Params.BrushDepthFalloffRange = BrushSettings->BrushFalloffAmount * BrushDepth;
-			Params.InnerBrushDepth = BrushDepth - Params.BrushDepthFalloffRange;
-			Params.BrushStrength = BrushStrength;
-			Params.BrushToWorldMatrix = FMatrix(BrushXAxis, BrushYAxis, Params.BrushNormal, Params.BrushPosition);
-			Params.InverseBrushToWorldMatrix = Params.BrushToWorldMatrix.InverseFast();
-			Params.bWriteRed = PaintSettings->VertexPaintSettings.bWriteRed;
-			Params.bWriteGreen = PaintSettings->VertexPaintSettings.bWriteGreen;
-			Params.bWriteBlue = PaintSettings->VertexPaintSettings.bWriteBlue;
-			Params.bWriteAlpha = PaintSettings->VertexPaintSettings.bWriteAlpha;
-			Params.TotalWeightCount = (int32)PaintSettings->VertexPaintSettings.TextureWeightType;
-
-			// Select texture weight index based on whether or not we're painting or erasing
-			{
-				const int32 PaintWeightIndex = bIsPainting ? (int32)PaintSettings->VertexPaintSettings.PaintTextureWeightIndex : (int32)PaintSettings->VertexPaintSettings.EraseTextureWeightIndex;
-
-				// Clamp the weight index to fall within the total weight count
-				Params.PaintWeightIndex = FMath::Clamp(PaintWeightIndex, 0, Params.TotalWeightCount - 1);
-			}
-
-			// @todo MeshPaint: Ideally we would default to: TexturePaintingCurrentMeshComponent->StaticMesh->LightMapCoordinateIndex
-			//		Or we could indicate in the GUI which channel is the light map set (button to set it?)
-			Params.UVChannel = PaintSettings->TexturePaintSettings.UVChannel;
-		}
-
+		
 		// Iterate over the selected meshes under the cursor and paint them!
-		for (UMeshComponent* HoveredComponent : HoveredComponents)
+		for (auto& Entry : HoveredComponents)
 		{
+			UMeshComponent* HoveredComponent = Entry.Key;
+			TArray<int32>& PaintRayResultIds = Entry.Value;
+
 			IMeshPaintGeometryAdapter* MeshAdapter = ComponentToAdapterMap.FindRef(HoveredComponent).Get();
 			if (!ensure(MeshAdapter))
 			{
@@ -924,15 +951,42 @@ bool FPaintModePainter::PaintInternal(const FVector& InCameraOrigin, const FVect
 
 			if (PaintSettings->PaintMode == EPaintMode::Vertices && MeshAdapter->SupportsVertexPaint())
 			{
-
 				FPerVertexPaintActionArgs Args;
 				Args.Adapter = MeshAdapter;
 				Args.CameraPosition = InCameraOrigin;
-				Args.HitResult = BestTraceResult;
 				Args.BrushSettings = BrushSettings;
 				Args.Action = PaintAction;
 
-				bPaintApplied |= MeshPaintHelpers::ApplyPerVertexPaintAction(Args, FPerVertexPaintAction::CreateRaw(this, &FPaintModePainter::ApplyVertexColor, Params));
+				bool bMeshPreEditCalled = false;
+				
+				TSet<int32> InfluencedVertices;
+				for (int32 PaintRayResultId : PaintRayResultIds)
+				{
+					InfluencedVertices.Reset();
+					Args.HitResult = PaintRayResults[PaintRayResultId].BestTraceResult;
+					bPaintApplied |= MeshPaintHelpers::GetPerVertexPaintInfluencedVertices(Args, InfluencedVertices);
+					
+					if (InfluencedVertices.Num() == 0)
+					{
+						continue;
+					}
+					
+					if (!bMeshPreEditCalled)
+					{
+						bMeshPreEditCalled = true;
+						MeshAdapter->PreEdit();
+					}
+						
+					for (const int32 VertexIndex : InfluencedVertices)
+					{
+						FPaintModePainter::ApplyVertexColor(Args, VertexIndex, PaintRayResults[PaintRayResultId].Params);
+					}
+				}
+				
+				if (bMeshPreEditCalled)
+				{
+					MeshAdapter->PostEdit();
+				}
 			}
 			else if (PaintSettings->PaintMode == EPaintMode::Textures&& MeshAdapter->SupportsTexturePaint())
 			{
@@ -952,7 +1006,12 @@ bool FPaintModePainter::PaintInternal(const FVector& InCameraOrigin, const FVect
 					TexturePaintHelpers::RetrieveMeshSectionsForTextures(HoveredComponent, CachedLODIndex, Textures, MaterialSections);
 
 					TArray<FTexturePaintTriangleInfo> TrianglePaintInfoArray;
-					bPaintApplied |= MeshPaintHelpers::ApplyPerTrianglePaintAction(MeshAdapter, InCameraOrigin, BestTraceResult.Location, BrushSettings, FPerTrianglePaintAction::CreateRaw(this, &FPaintModePainter::GatherTextureTriangles, &TrianglePaintInfoArray, &MaterialSections, PaintSettings->TexturePaintSettings.UVChannel));
+					for (int32 PaintRayResultId : PaintRayResultIds)
+					{
+						const FVector& BestTraceResultLocation = PaintRayResults[PaintRayResultId].BestTraceResult.Location;
+						bPaintApplied |= MeshPaintHelpers::ApplyPerTrianglePaintAction(MeshAdapter, InCameraOrigin, BestTraceResultLocation, BrushSettings, FPerTrianglePaintAction::CreateRaw(this, &FPaintModePainter::GatherTextureTriangles, &TrianglePaintInfoArray, &MaterialSections, PaintSettings->TexturePaintSettings.UVChannel));
+						break;
+					}
 
 					// Painting textures
 					if ((TexturePaintingCurrentMeshComponent != nullptr) && (TexturePaintingCurrentMeshComponent != HoveredComponent))
@@ -968,12 +1027,17 @@ bool FPaintModePainter::PaintInternal(const FVector& InCameraOrigin, const FVect
 
 					if (TexturePaintingCurrentMeshComponent != nullptr)
 					{
-						Params.bWriteRed = PaintSettings->TexturePaintSettings.bWriteRed;
-						Params.bWriteGreen = PaintSettings->TexturePaintSettings.bWriteGreen;
-						Params.bWriteBlue = PaintSettings->TexturePaintSettings.bWriteBlue;
-						Params.bWriteAlpha = PaintSettings->TexturePaintSettings.bWriteAlpha;
+						for (int32 PaintRayResultId : PaintRayResultIds)
+						{
+							FMeshPaintParameters& Params = PaintRayResults[PaintRayResultId].Params;
+							Params.bWriteRed = PaintSettings->TexturePaintSettings.bWriteRed;
+							Params.bWriteGreen = PaintSettings->TexturePaintSettings.bWriteGreen;
+							Params.bWriteBlue = PaintSettings->TexturePaintSettings.bWriteBlue;
+							Params.bWriteAlpha = PaintSettings->TexturePaintSettings.bWriteAlpha;
 
-						PaintTexture(Params, TrianglePaintInfoArray, *MeshAdapter);
+							PaintTexture(Params, TrianglePaintInfoArray, *MeshAdapter);
+							break;
+						}
 					}
 				}
 			}
@@ -1528,9 +1592,8 @@ void FPaintModePainter::PaintTexture(const FMeshPaintParameters& InParams, TArra
 	}
 
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			UpdateMeshPaintRTCommand1,
-			FTextureRenderTargetResource*, BrushRenderTargetResource, BrushRenderTargetResource,
+		ENQUEUE_RENDER_COMMAND(UpdateMeshPaintRTCommand1)(
+			[BrushRenderTargetResource](FRHICommandListImmediate& RHICmdList)
 			{
 				// Copy (resolve) the rendered image from the frame buffer to its render target texture
 				RHICmdList.CopyToResolveTarget(
@@ -1546,9 +1609,8 @@ void FPaintModePainter::PaintTexture(const FMeshPaintParameters& InParams, TArra
 		BrushMaskCanvas->Flush_GameThread(true);
 
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-				UpdateMeshPaintRTCommand2,
-				FTextureRenderTargetResource*, BrushMaskRenderTargetResource, BrushMaskRenderTargetResource,
+			ENQUEUE_RENDER_COMMAND(UpdateMeshPaintRTCommand2)(
+				[BrushMaskRenderTargetResource](FRHICommandListImmediate& RHICmdList)
 				{
 					// Copy (resolve) the rendered image from the frame buffer to its render target texture
 					RHICmdList.CopyToResolveTarget(
@@ -1648,9 +1710,8 @@ void FPaintModePainter::PaintTexture(const FMeshPaintParameters& InParams, TArra
 		}
 
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-				UpdateMeshPaintRTCommand3,
-				FTextureRenderTargetResource*, RenderTargetResource, RenderTargetResource,
+			ENQUEUE_RENDER_COMMAND(UpdateMeshPaintRTCommand3)(
+				[RenderTargetResource](FRHICommandListImmediate& RHICmdList)
 				{
 					// Copy (resolve) the rendered image from the frame buffer to its render target texture
 					RHICmdList.CopyToResolveTarget(

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Widgets/MessageData/SMessagingMessageData.h"
 
@@ -141,7 +141,7 @@ void SMessagingMessageData::HandleModelSelectedMessageChanged()
 			StructureDetailsView->SetStructureData(MakeShareable(new FStructOnScope(MessageTypeInfo, (uint8*)SelectedMessage->Context->GetMessage())));
 #else
 			FBufferArchive BufferArchive;
-			FJsonStructSerializerBackend Backend(BufferArchive);
+			FJsonStructSerializerBackend Backend(BufferArchive, EStructSerializerBackendFlags::Default);
 
 			FStructSerializer::Serialize(SelectedMessage->Context->GetMessage(), *MessageTypeInfo, Backend);
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PreLoadSlateThreading.h"
 #include "HAL/Runnable.h"
@@ -199,7 +199,7 @@ void FPreLoadScreenSlateSynchMechanism::SlateThreadRunMainLoop()
             DeltaTime = CurrentTime - LastTime;
         }
 
-        if (FSlateApplication::IsInitialized() && !IsSlateDrawPassEnqueued())
+        if (FSlateApplication::IsInitialized() && !IsSlateDrawPassEnqueued() && FPreLoadScreenManager::ShouldRender())
         {
             FSlateRenderer* MainSlateRenderer = FSlateApplication::Get().GetRenderer();
             FScopeLock ScopeLock(MainSlateRenderer->GetResourceCriticalSection());
@@ -212,12 +212,12 @@ void FPreLoadScreenSlateSynchMechanism::SlateThreadRunMainLoop()
             }
 
             //Queue up a render tick every time we tick on this sync thread.
-            ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-                PreLoadScreenRenderTick,
-                FPreLoadScreenSlateSynchMechanism*, SyncMech, this,
+			FPreLoadScreenSlateSynchMechanism* SyncMech = this;
+			ENQUEUE_RENDER_COMMAND(PreLoadScreenRenderTick)(
+				[SyncMech](FRHICommandListImmediate& RHICmdList)
                 {
                     FPreLoadScreenManager* PreLoadManager = FPreLoadScreenManager::Get();
-                    if (PreLoadManager)
+                    if (PreLoadManager && FPreLoadScreenManager::ShouldRender())
                     {
                         FPreLoadScreenManager::Get()->RenderTick();
                     }

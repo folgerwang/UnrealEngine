@@ -1,0 +1,200 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+//------------------------------------------------------- COMPILER CONFIG
+
+// Generate vector truncation warnings to errors.
+#pragma warning(error: 3206)
+
+
+//------------------------------------------------------- DEBUG CONFIG
+
+/** Turn on/off tile classfication for debugging purpose. */
+#define DEBUG_ENABLE_TILE_CLASSIFICATION 1
+
+/** Should output invalid data when know there is a need. */
+// TODO: there is an artifact in temporal reprojection.
+#define DEBUG_WASTFUL_OUTPUT 1
+
+/** Force the signal to a specific mip level. */
+#define DEBUG_MIP_LEVEL -1
+
+/** Debuging mode. */
+	#define DEBUG_MODE_DISABLED -1
+	#define DEBUG_MODE_BRUTE_FORCE_ONLY 0
+	#define DEBUG_MODE_FAST_ONLY 1
+#define DEBUG_MODE DEBUG_MODE_DISABLED
+
+/** DIsable any bilateral rejection. */
+#ifndef DEBUG_DISABLE_BILATERAL
+	#define DEBUG_DISABLE_BILATERAL 0
+#endif
+
+/** Prefer to store normalized components in internal texture. */
+#define DEBUG_STORE_NORMALIZED_COMPONENTS 1
+
+
+//------------------------------------------------------- SHARED CONSTANTS
+
+// Maximum number of mip level supported.
+#define MAX_MIP_LEVEL_COUNT 4
+
+#define TARGETED_SAMPLE_COUNT 1024
+
+// This constant is to artificially store the signal into higher resolution that theorically should from
+// the infered bluring radius by deviding it. 1.0 means nothing happen, but in practice want this >=
+// than Nyquist's 2.0 multiplier. Uses 3.0 because this is the size of the 3x3 neighborhood kernel.
+#define BLURING_ESTIMATION_MULTIPLIER 3.0
+
+// World bluring radius for a miss.
+#define WORLD_RADIUS_INVALID -1
+#define WORLD_RADIUS_MISS 1.#INF
+
+// Mip level for sample that are invalid or missed.
+#define MIP_LEVEL_INVALID -1
+#define MIP_LEVEL_MISS 1024
+
+// Maximum number of signal that can be denoised at same time.
+#define MAX_SIGNAL_BATCH_SIZE 4
+
+// Maximum number of signal that can be multiplexed into single output.
+#define MAX_SIGNAL_MULTIPLEXING 8
+
+// Maximum number of buffer multiple signals can be encode to/decoded from.
+#define MAX_MULTIPLEXED_TEXTURES 4
+
+
+//------------------------------------------------------- ENUMS
+
+/** Layouts of the signal buffer. */
+	/** Buffer layout for the shadow penumbra given as input. */
+	#define SIGNAL_BUFFER_LAYOUT_UNINITIALIZED 0xDEAD
+
+
+	/** Buffer layout for the shadow penumbra given as input, assuming there is only one spp. */
+	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_INPUT_1SPP 10
+
+	/** Buffer layout for the shadow penumbra given as input. */
+	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_INPUT_NSPP 15
+
+	/** Internal buffer layout for the shadow penumbra, but using world bluring radius. */
+	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_INJESTION_1SPP 14
+
+	/** Buffer layout for the shadow penumbra given as input. */
+	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_INJESTION_NSPP 16
+
+	/** Internal buffer layout for the shadow penumbra multiplexed into buffers.
+	 * This buffer layout is able to pack two signals per render target.
+	 */
+	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_RECONSTRUCTION 12
+
+	/** Internal buffer to encode history rejection preconvolution. */
+	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_REJECTION 17
+
+	/** Internal buffer layout for the shadow penumbra to be stored in indivual per light histories. */
+	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY 11
+
+
+	/** Buffer layout for the reflection given by the ray generation shader. */
+	#define SIGNAL_BUFFER_LAYOUT_REFLECTIONS_INPUT 3
+
+	/** Buffer layout for the rejection output. */
+	#define SIGNAL_BUFFER_LAYOUT_REFLECTIONS_REJECTION 9
+
+	/** Buffer layout for the reflection output. */
+	#define SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY 4
+
+
+	/** Buffer layout given by the ray generation shader for ambient occlusion. */
+	#define SIGNAL_BUFFER_LAYOUT_AO_INPUT 5
+
+	/** Internal buffer layout for ambient occlusion. */
+	#define SIGNAL_BUFFER_LAYOUT_AO_HISTORY 6
+
+
+	/** Buffer layout given by the ray generation shader for global illumination. */
+	#define SIGNAL_BUFFER_LAYOUT_GI_AND_AO_INPUT 7
+
+	/** Internal buffer layout for global illumination. */
+	#define SIGNAL_BUFFER_LAYOUT_GI_AND_AO_RECONSTRUCTION 13
+
+	/** Internal buffer layout for global illumination. */
+	#define SIGNAL_BUFFER_LAYOUT_GI_AND_AO_HISTORY 8
+
+
+/** Defines how the signal is being processed. Matches C++'s ESignalProcessing. */
+	/** Shadow penumbra denoising. */
+	#define SIGNAL_PROCESSING_MONOCHROMATIC_PENUMBRA 0
+
+	/** Reflection denoising. */
+	#define SIGNAL_PROCESSING_REFLECTIONS 1
+
+	/** Ambient occlusion denoising. */
+	#define SIGNAL_PROCESSING_AO 2
+
+	/** Global illumination denoising. */
+	#define SIGNAL_PROCESSING_GI_AND_AO 3
+
+
+
+/** Defines the color space bitfield. */
+	#define COLOR_SPACE_RGB 0x0
+	#define COLOR_SPACE_YCOCG 0x1
+	#define COLOR_SPACE_LCOCG 0x2
+
+	#define COLOR_SPACE_UNPREMULTIPLY 0x4
+	#define COLOR_SPACE_KARIS_WEIGHTING 0x8
+
+
+/** Light types */
+	#define LIGHT_TYPE_DIRECTIONAL 0
+	#define LIGHT_TYPE_POINT 1
+	#define LIGHT_TYPE_SPOT 2
+	#define LIGHT_TYPE_RECT 3
+
+
+/** Sets of sample available for the spatial kernel. */
+	// For debug purpose, only sample the center of the kernel.
+	#define SAMPLE_SET_1X1 0
+
+	// Filtering
+	#define SAMPLE_SET_2X2_BILINEAR 1
+
+	// Square kernel
+	#define SAMPLE_SET_3X3 2
+	#define SAMPLE_SET_3X3_SOBEK2018 3
+	#define SAMPLE_SET_5X5_WAVELET 4
+
+	#define SAMPLE_SET_3X3_PLUS 5
+	#define SAMPLE_SET_3X3_CROSS 6
+
+	#define SAMPLE_SET_NXN 7
+
+	// [ Stackowiak 2015, "Stochastic Screen-Space Reflections" ]
+	#define SAMPLE_SET_STACKOWIAK_4_SETS 8
+
+	#define SAMPLE_SET_HEXAWEB 11
+
+
+//------------------------------------------------------- GLOBAL CONFIGURATION OF ALL DENOISER SHADERS
+
+/** Do normal based anysotropy. */
+// TODO: the hierarchical denoiser needs that.
+#define CONFIG_NORMAL_ANISOTROPY 0
+
+/** Whether should enable VGPR optimizations. */
+#define CONFIG_VGPR_OPTIMIZATION 0
+
+/** Whether should do VALU optimizations. */
+#define CONFIG_VALU_OPTIMIZATIONS 1
+
+/** Whether should compile hint to the shader compiler to force shift some variable to SGPR. */
+// TODO: the shader compiler is not doing the right thing.
+#define CONFIG_SGPR_HINT_OPTIMIZATION 0
+
+/** By default, the color space stored into intermediary buffer is linear premultiplied RGBA. */
+#define STANDARD_BUFFER_COLOR_SPACE COLOR_SPACE_RGB
+
+/** Color space used for reflection history rejection. */
+#define REFLECTIONS_REJECTION_COLOR_SPACE (COLOR_SPACE_LCOCG | COLOR_SPACE_UNPREMULTIPLY)

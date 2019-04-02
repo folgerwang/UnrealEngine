@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #include "LevelModel.h"
 #include "GameFramework/Actor.h"
 #include "Misc/MessageDialog.h"
@@ -194,7 +194,18 @@ bool FLevelModel::IsVisible() const
 	else
 	{
 		ULevel* Level = GetLevelObject();
-		return Level ? FLevelUtils::IsLevelVisible(Level) :  false;
+		if (Level)
+		{
+			if (ULevelStreaming* StreamingLevel = FLevelUtils::FindStreamingLevel(Level))
+			{
+				return StreamingLevel->ShouldBeVisible();
+			}
+			else
+			{
+				return FLevelUtils::IsLevelVisible(Level);
+			}
+		}
+		return false;
 	}
 }
 

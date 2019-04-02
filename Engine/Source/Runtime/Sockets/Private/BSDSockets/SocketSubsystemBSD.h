@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -76,13 +76,13 @@ public:
 
 	virtual ESocketErrors TranslateErrorCode( int32 Code ) override;
 
+	virtual bool IsSocketWaitSupported() const override;
+
 	/**
 	 * Translates an ESocketProtocolFamily code into a value usable by raw socket apis.
 	 */
 	virtual int32 GetProtocolFamilyValue(ESocketProtocolFamily InProtocol) const;
-	
-	virtual bool IsSocketWaitSupported() const override;
-	
+
 	/**
 	 * Translates an raw socket family type value into an enum that can be used by the network layer.
 	 */
@@ -107,7 +107,16 @@ protected:
 	/**
 	 * Allows a subsystem subclass to create a FSocketBSD sub class.
 	 */
-	virtual class FSocketBSD* InternalBSDSocketFactory( SOCKET Socket, ESocketType SocketType, const FString& SocketDescription );
+	virtual class FSocketBSD* InternalBSDSocketFactory( SOCKET Socket, ESocketType SocketType, const FString& SocketDescription, ESocketProtocolFamily SocketProtocol);
+
+	/**
+	 * Allows a subsystem subclass to create a FSocketBSD sub class.
+	 */
+	UE_DEPRECATED(4.22, "To support multiple stack types, move to the constructor that allows for specifying the protocol stack to initialize the socket on.")
+	virtual class FSocketBSD* InternalBSDSocketFactory(SOCKET Socket, ESocketType SocketType, const FString& SocketDescription)
+	{
+		return InternalBSDSocketFactory(Socket, SocketType, SocketDescription, GetDefaultSocketProtocolFamily());
+	}
 
 	// allow BSD sockets to use this when creating new sockets from accept() etc
 	friend FSocketBSD;

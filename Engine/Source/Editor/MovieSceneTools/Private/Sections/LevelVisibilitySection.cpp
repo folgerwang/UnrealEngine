@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Sections/LevelVisibilitySection.h"
 #include "Sections/MovieSceneLevelVisibilitySection.h"
@@ -61,13 +61,13 @@ FSlateColor FLevelVisibilitySection::GetBackgroundColor() const
 FText FLevelVisibilitySection::GetVisibilityText() const
 {
 	FText VisibilityText = SectionObject.GetVisibility() == ELevelVisibility::Visible ? VisibleText : HiddenText;
-	return FText::Format( NSLOCTEXT( "LevelVisibilitySection", "SectionTextFormat", "{0} ({1})" ), VisibilityText, FText::AsNumber( SectionObject.GetLevelNames()->Num() ) );
+	return FText::Format( NSLOCTEXT( "LevelVisibilitySection", "SectionTextFormat", "{0} ({1})" ), VisibilityText, FText::AsNumber( SectionObject.GetLevelNames().Num() ) );
 }
 
 FText FLevelVisibilitySection::GetVisibilityToolTip() const
 {
 	TArray<FString> LevelNameStrings;
-	for ( const FName& LevelName : *SectionObject.GetLevelNames() )
+	for ( const FName& LevelName : SectionObject.GetLevelNames() )
 	{
 		LevelNameStrings.Add( LevelName.ToString() );
 	}
@@ -93,14 +93,18 @@ FReply FLevelVisibilitySection::OnDrop( TSharedPtr<FDragDropOperation> DragDropO
 			FScopedTransaction Transaction(NSLOCTEXT("LevelVisibilitySection", "TransactionText", "Add Level(s) to Level Visibility Section"));
 			SectionObject.Modify();
 
+			TArray<FName> LevelNames = SectionObject.GetLevelNames();
 			for ( TWeakObjectPtr<ULevelStreaming> Level : LevelDragDropOperation->StreamingLevelsToDrop )
 			{
 				if ( Level.IsValid() )
 				{
 					FName ShortLevelName = FPackageName::GetShortFName( Level->GetWorldAssetPackageFName() );
-					SectionObject.GetLevelNames()->AddUnique( ShortLevelName );
+					LevelNames.AddUnique( ShortLevelName );
 				}
 			}
+
+			SectionObject.SetLevelNames(LevelNames);
+
 			return FReply::Handled();
 		}
 	}

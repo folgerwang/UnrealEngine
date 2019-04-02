@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -93,6 +93,9 @@ public:
 	 *	@param	Actors	The actors to add to the new layer
 	 */
 	void AddActorsToNewLayer( TArray< TWeakObjectPtr< AActor > > Actors );
+
+	/** Toggles the visibility of the given layer and those of the other layers selected with it */
+	void ToggleLayerVisibility( const TSharedPtr< FLayerViewModel >& InLayer );
 
 	/********************************************************************
 	 * EVENTS

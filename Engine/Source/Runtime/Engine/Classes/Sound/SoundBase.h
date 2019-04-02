@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -15,11 +15,13 @@
 #include "Sound/SoundSourceBusSend.h"
 #include "SoundBase.generated.h"
 
+class USoundConcurrency;
 class USoundEffectSourcePreset;
 class USoundSubmix;
 class USoundSourceBus;
 class USoundEffectSourcePresetChain;
 
+struct FSoundConcurrencySettings;
 struct FSoundSubmixSendInfo;
 struct FSoundSourceBusSendInfo;
 struct FActiveSound;
@@ -68,8 +70,8 @@ public:
 	UPROPERTY()
 	uint8 bHasVirtualizeWhenSilent:1;
 
-	/** Allows this sound to bypass volume-weighting for the max channel resolution. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency)
+	/** Bypass volume weighting priority upon evaluating whether sound should remain active when max channel count is met (See platform Audio Settings). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Priority)
 	uint8 bBypassVolumeScaleForPriority : 1;
 
 #if WITH_EDITORONLY_DATA
@@ -81,12 +83,16 @@ public:
 	int32 CurrentPlayCount;
 
 	/** If Override Concurrency is false, the sound concurrency settings to use for this sound. */
+	UPROPERTY()
+	USoundConcurrency* SoundConcurrencySettings_DEPRECATED;
+
+	/** Set of concurrency settings to observe (if override is set to false).  Sound must pass all concurrency settings to play. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency, meta = (EditCondition = "!bOverrideConcurrency"))
-	class USoundConcurrency* SoundConcurrencySettings;
+	TSet<USoundConcurrency*> ConcurrencySet;
 
 	/** If Override Concurrency is true, concurrency settings to use. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency, meta = (EditCondition = "bOverrideConcurrency"))
-	struct FSoundConcurrencySettings ConcurrencyOverrides;
+	FSoundConcurrencySettings ConcurrencyOverrides;
 
 #if WITH_EDITORONLY_DATA
 	/** Maximum number of times this sound can be played concurrently. */
@@ -106,8 +112,11 @@ public:
 	UPROPERTY(Category = Info, AssetRegistrySearchable, VisibleAnywhere, BlueprintReadOnly)
 	float TotalSamples;
 
-	/** Sound priority (higher value is higher priority) used for concurrency resolution. This priority value is weighted against the final volume of the sound. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency, meta = (ClampMin = "0.0", UIMin = "0.0", ClampMax = "100.0", UIMax = "100.0") )
+	/** Used to determine whether sound can play or remain active if channel limit is met, where higher value is higher priority
+	  * (see platform's Audio Settings 'Max Channels' property). Unless bypassed, value is weighted with the final volume of the
+	  * sound to produce final runtime priority value.
+	  */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Priority, meta = (ClampMin = "0.0", UIMin = "0.0", ClampMax = "100.0", UIMax = "100.0"))
 	float Priority;
 
 	/** Attenuation settings package for the sound */
@@ -121,7 +130,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects, meta = (DisplayName = "Sound Submix"))
 	USoundSubmix* SoundSubmixObject;
 
-	/** An array of submix sends. Audio from this sound will send a portion of its audio to these effects.  */
+	/** An array of submix sends. Audio from this sound will send a portion of its audio to these effects. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	TArray<FSoundSubmixSendInfo> SoundSubmixSends;
 
@@ -129,11 +138,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	USoundEffectSourcePresetChain* SourceEffectChain;
 
-	/** This sound will send its audio output to this list of buses if there are bus instances playing after source effects are processed.  */
+	/** This sound will send its audio output to this list of buses if there are bus instances playing after source effects are processed. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects, meta = (DisplayName = "Post-Effect Bus Sends"))
 	TArray<FSoundSourceBusSendInfo> BusSends;
 
-	/** This sound will send its audio output to this list of buses if there are bus instances playing before source effects are processed.  */
+	/** This sound will send its audio output to this list of buses if there are bus instances playing before source effects are processed. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects, meta = (DisplayName = "Pre-Effect Bus Sends"))
 	TArray<FSoundSourceBusSendInfo> PreEffectBusSends;
 
@@ -144,8 +153,9 @@ public:
 	virtual void PostLoad() override;
 	virtual bool CanBeClusterRoot() const override;
 	virtual bool CanBeInCluster() const override;
+	virtual void Serialize(FArchive& Ar) override;
 	//~ End UObject interface.
-	
+
 	/** Returns whether the sound base is set up in a playable manner */
 	virtual bool IsPlayable() const;
 
@@ -209,8 +219,8 @@ public:
 	/** Returns the sound source sends for this sound. */
 	void GetSoundSourceBusSends(EBusSendType BusSendType, TArray<FSoundSourceBusSendInfo>& OutSends) const;
 
-	/** Returns the FSoundConcurrencySettings struct to use. */
-	const FSoundConcurrencySettings* GetSoundConcurrencySettingsToApply();
+	/** Returns an array of FSoundConcurrencySettings handles. */
+	void GetConcurrencyHandles(TArray<FConcurrencyHandle>& OutConcurrencyHandles) const;
 
 	/** Returns the priority to use when evaluating concurrency. */
 	float GetPriority() const;
@@ -218,5 +228,11 @@ public:
 	/** Returns the sound concurrency object ID if it exists. If it doesn't exist, returns 0. */
 	uint32 GetSoundConcurrencyObjectID() const;
 
+	/** Returns whether the sound has cooked analysis data (e.g. FFT or envelope following data) and returns sound waves which have cooked data. */
+	virtual bool GetSoundWavesWithCookedAnalysisData(TArray<USoundWave*>& OutSoundWaves);
+
+	/** Queries if the sound has cooked FFT or envelope data. */
+	virtual bool HasCookedFFTData() const { return false; }
+	virtual bool HasCookedAmplitudeEnvelopeData() const { return false; }
 };
 

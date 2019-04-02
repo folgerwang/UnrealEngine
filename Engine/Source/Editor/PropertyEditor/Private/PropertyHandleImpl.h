@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -180,7 +180,7 @@ public:
 	 * Get the value of a property as a formatted string, possibly using an alternate form more suitable for display in the UI
 	 *
 	 * @param OutValue	The formatted string value to set
-	 * @param PortFlags	Determines how the property's value is accessed. Defaults to PPF_PropertyWindow
+	 * @param PortFlags	Determines how the property's value is accessed. 
 	 * @return The result of attempting to get the value
 	 */
 	FPropertyAccess::Result GetValueAsDisplayString( FString& OutString, EPropertyPortFlags PortFlags ) const;
@@ -416,6 +416,8 @@ public:
 	DECLARE_PROPERTY_ACCESSOR( FAssetData )
 	virtual FPropertyAccess::Result GetValueData(void*& OutAddress) const override;
 
+	virtual FPropertyAccess::Result SetValue( const TCHAR* InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override;
+
 	/** IPropertyHandle interface */
 	virtual bool IsValidHandle() const override;
 	virtual FText GetPropertyDisplayName() const override;
@@ -432,6 +434,7 @@ public:
 	virtual TSharedRef<SWidget> CreatePropertyNameWidget( const FText& NameOverride = FText::GetEmpty(), const FText& ToolTipOverride = FText::GetEmpty(), bool bDisplayResetToDefault = false, bool bDisplayText = true, bool bDisplayThumbnail = true ) const override;
 	virtual TSharedRef<SWidget> CreatePropertyValueWidget( bool bDisplayDefaultPropertyButtons = true ) const override;
 	virtual bool IsEditConst() const override;
+	virtual bool IsEditable() const override;
 	virtual void SetOnPropertyValueChanged( const FSimpleDelegate& InOnPropertyValueChanged ) override;
 	virtual void SetOnChildPropertyValueChanged( const FSimpleDelegate& InOnPropertyValueChanged ) override;
 	virtual void SetOnPropertyValuePreChange(const FSimpleDelegate& InOnPropertyValuePreChange) override;
@@ -498,6 +501,8 @@ public:
 	virtual TArray<TSharedPtr<IPropertyHandle>> AddChildStructure( TSharedRef<FStructOnScope> ChildStructure ) override;
 	virtual bool CanResetToDefault() const override;
 	virtual void ExecuteCustomResetToDefault(const FResetToDefaultOverride& InOnCustomResetToDefault) override;
+	virtual FName GetDefaultCategoryName() const override;
+	virtual FText GetDefaultCategoryText() const override;
 
 	TSharedPtr<FPropertyNode> GetPropertyNode() const;
 	void OnCustomResetToDefault(const FResetToDefaultOverride& OnCustomResetToDefault);
@@ -576,6 +581,7 @@ public:
 	static bool Supports( TSharedRef<FPropertyNode> PropertyNode );
 	virtual FPropertyAccess::Result GetValue( FString& OutValue ) const override;
 	virtual FPropertyAccess::Result SetValue( const FString& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override;
+	virtual FPropertyAccess::Result SetValue( const TCHAR* InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override;
 
 	virtual FPropertyAccess::Result GetValue( FName& OutValue ) const override;
 	virtual FPropertyAccess::Result SetValue( const FName& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override;
@@ -656,12 +662,7 @@ public:
 	virtual TSharedPtr<IPropertyHandleArray> AsArray() override;
 	virtual TSharedRef<IPropertyHandle> GetElement( int32 Index ) const override;
 	virtual FPropertyAccess::Result MoveElementTo(int32 OriginalIndex, int32 NewIndex) override;
-
-private:
-	/**
-	 * @return Whether or not the array can be modified
-	 */
-	bool IsEditable() const;
+	virtual bool IsEditable() const override;
 };
 
 class FPropertyHandleText : public FPropertyHandleBase
@@ -673,6 +674,7 @@ public:
 	virtual FPropertyAccess::Result SetValue(const FText& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags) override;
 
 	virtual FPropertyAccess::Result SetValue(const FString& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags) override;
+	virtual FPropertyAccess::Result SetValue(const TCHAR* InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags) override;
 };
 
 class FPropertyHandleSet : public FPropertyHandleBase, public IPropertyHandleSet
@@ -692,11 +694,7 @@ public:
 	virtual bool HasDocumentation() override { return true; }
 	virtual FString GetDocumentationLink() override { return FString("Engine/UI/LevelEditor/Details/Properties/Set/"); }
 	virtual FString GetDocumentationExcerptName() override { return FString("Sets"); }
-private:
-	/**
-	 * @return Whether or not the set is editable
-	 */
-	bool IsEditable() const;
+	virtual bool IsEditable() const override;
 };
 
 class FPropertyHandleMap : public FPropertyHandleBase, public IPropertyHandleMap
@@ -716,9 +714,5 @@ public:
 	virtual bool HasDocumentation() override { return true; }
 	virtual FString GetDocumentationLink() override { return FString("Engine/UI/LevelEditor/Details/Properties/Map/"); }
 	virtual FString GetDocumentationExcerptName() override { return FString("Maps"); }
-private:
-	/**
-	 * @return Whether or not the map is editable
-	 */
-	bool IsEditable() const;
+	virtual bool IsEditable() const override;
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "CoreMinimal.h"
@@ -174,7 +174,7 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	* on controller recenter; if it's 0, only the controller will recenter. Returns false if not
 	* supported.
 	*/
-	UFUNCTION(BlueprintCallable, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
 	static void SetReorientHMDOnControllerRecenter(bool recenterMode);
 
 	/**
@@ -267,7 +267,8 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	/**
 	 * Shows loading splash screen.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
+	UE_DEPRECATED(4.22, "UOculusFunctionLibrary::ShowLoadingSplashScreen has been deprecated and no longer functions as before.  Use the generic UStereoLayerFunctionLibrary::ShowSplashScreen instead")
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "UOculusFunctionLibrary::ShowLoadingSplashScreen has been deprecated and no longer functions as before.  Use the generic UStereoLayerFunctionLibrary::ShowSplashScreen instead"))
 	static void ShowLoadingSplashScreen();
 
 	/**
@@ -275,7 +276,8 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	 *
 	 * @param	bClear	(in) Clear all splash screens after hide.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
+	UE_DEPRECATED(4.22, "UOculusFunctionLibrary::HideLoadingSplashScreen has been deprecated and no longer functions as before.  Use the generic UStereoLayerFunctionLibrary::HideSplashScreen instead")
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "UOculusFunctionLibrary::HideLoadingSplashScreen has been deprecated and no longer functions as before.  Use the generic UStereoLayerFunctionLibrary::HideSplashScreen instead"))
 	static void HideLoadingSplashScreen(bool bClear = false);
 
 	/**
@@ -283,31 +285,36 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	 *
 	 * @param	bAutoShowEnabled	(in)	True, if automatic showing of splash screens is enabled when map is being loaded.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
+	UE_DEPRECATED(4.22, "UOculusFunctionLibrary::EnableAutoLoadingSplashScreen has been deprecated and no longer functions as before.  Use the generic UStereoLayerFunctionLibrary::EnableAutoLoadingSplashScreen instead")
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "UOculusFunctionLibrary::EnableAutoLoadingSplashScreen has been deprecated and no longer functions as before.  Use the generic UStereoLayerFunctionLibrary::EnableAutoLoadingSplashScreen instead"))
 	static void EnableAutoLoadingSplashScreen(bool bAutoShowEnabled);
 
 	/**
 	 * Returns true, if the splash screen is automatically shown when LoadMap is called.
 	 */
-	UFUNCTION(BlueprintPure, Category = "OculusLibrary")
+	UE_DEPRECATED(4.22, "UOculusFunctionLibrary::IsAutoLoadingSplashScreenEnabled has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead.")
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "UOculusFunctionLibrary::IsAutoLoadingSplashScreenEnabled has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead."))
 	static bool IsAutoLoadingSplashScreenEnabled();
 
 	/**
 	 * Sets a texture for loading icon mode and shows it. This call will clear all the splashes.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
+	UE_DEPRECATED(4.22, "UOculusFunctionLibrary::ShowLoadingIcon has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead.")
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "UOculusFunctionLibrary::ShowLoadingIcon has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead."))
 	static void ShowLoadingIcon(class UTexture2D* Texture);
 
 	/**
 	 * Clears the loading icon. This call will clear all the splashes.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
+	UE_DEPRECATED(4.22, "UOculusFunctionLibrary::HideLoadingIcon has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead.")
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "UOculusFunctionLibrary::HideLoadingIcon has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead."))
 	static void HideLoadingIcon();
 
 	/**
 	 * Returns true, if the splash screen is in loading icon mode.
 	 */
-	UFUNCTION(BlueprintPure, Category = "OculusLibrary")
+	UE_DEPRECATED(4.22, "UOculusFunctionLibrary::IsLoadingIconEnabled has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead.")
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "UOculusFunctionLibrary::IsLoadingIconEnabled has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead."))
 	static bool IsLoadingIconEnabled();
 
 	/**
@@ -319,7 +326,8 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	 * @param RotationAxes		(in) A vector that specifies the axis of the splash screen rotation (if RotationDelta is specified).
 	 * @param RotationDeltaInDeg (in) Rotation delta, in degrees, that is added each 2nd frame to the quad transform. The quad is rotated around the vector "RotationAxes".
 	 */
-	UFUNCTION(BlueprintCallable, Category = "OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "use AddLoadingSplashScreen / ClearLoadingSplashScreens"))
+	UE_DEPRECATED(4.22, "UOculusFunctionLibrary::SetLoadingSplashParams has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead.")
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "UOculusFunctionLibrary::SetLoadingSplashParams has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead."))
 	static void SetLoadingSplashParams(FString TexturePath, FVector DistanceInMeters, FVector2D SizeInMeters, FVector RotationAxis, float RotationDeltaInDeg);
 
 	/**
@@ -331,7 +339,8 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	 * @param RotationAxes		(out) A vector that specifies the axis of the splash screen rotation (if RotationDelta is specified).
 	 * @param RotationDeltaInDeg (out) Rotation delta, in degrees, that is added each 2nd frame to the quad transform. The quad is rotated around the vector "RotationAxes".
 	 */
-	UFUNCTION(BlueprintPure, Category = "OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "use AddLoadingSplashScreen / ClearLoadingSplashScreens"))
+	UE_DEPRECATED(4.22, "UOculusFunctionLibrary::GetLoadingSplashParams has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead.")
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "UOculusFunctionLibrary::GetLoadingSplashParams has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead."))
 	static void GetLoadingSplashParams(FString& TexturePath, FVector& DistanceInMeters, FVector2D& SizeInMeters, FVector& RotationAxis, float& RotationDeltaInDeg);
 
 	/**
@@ -407,6 +416,12 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	static void EnableOrientationTracking(bool bOrientationTracking);
 
 	/**
+	* Enables/disables orientation tracking on devices that support it.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
+	static void SetColorScaleAndOffset(FLinearColor ColorScale, FLinearColor ColorOffset, bool bApplyToAllLayers = false);
+
+	/**
 	 * Returns IStereoLayers interface to work with overlays.
 	 */
 	static class IStereoLayers* GetStereoLayers();
@@ -421,9 +436,10 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	/**
 	* Returns the list of points in UE world space of the requested Boundary Type 
 	* @param BoundaryType			(in) An enum representing the boundary type requested, either Outer Boundary (exact guardian bounds) or PlayArea (rectangle inside the Outer Boundary)
+	* @param UsePawnSpace			(in) Boolean indicating to return the points in world space or pawn space
 	*/
 	UFUNCTION(BlueprintPure, Category = "OculusLibrary|Guardian")
-	static TArray<FVector> GetGuardianPoints(EBoundaryType BoundaryType);
+	static TArray<FVector> GetGuardianPoints(EBoundaryType BoundaryType, bool UsePawnSpace = false);
 
 	/**
 	* Returns the dimensions in UE world space of the requested Boundary Type

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "DisplayClusterPawnDefault.h"
 
@@ -14,8 +14,6 @@
 #include "Engine/World.h"
 #include "Misc/DisplayClusterLog.h"
 #include "GameFramework/WorldSettings.h"
-
-#include "IPDisplayCluster.h"
 
 
 ADisplayClusterPawnDefault::ADisplayClusterPawnDefault(const FObjectInitializer& ObjectInitializer) :

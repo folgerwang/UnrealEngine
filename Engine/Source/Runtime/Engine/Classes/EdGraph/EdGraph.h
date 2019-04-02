@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -136,7 +136,7 @@ public:
 	 * a FGraphNodeCreator builder.
 	 */
 	template <typename NodeClass>
-	DEPRECATED(4.17, "Use CreateIntermediateNode instead.")
+	UE_DEPRECATED(4.17, "Use CreateIntermediateNode instead.")
 	NodeClass* CreateBlankNode()
 	{
 		return CreateIntermediateNode<NodeClass>();

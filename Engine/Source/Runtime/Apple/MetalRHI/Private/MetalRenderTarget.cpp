@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MetalRenderTarget.cpp: Metal render target implementation.
@@ -114,7 +114,9 @@ void FMetalRHICommandContext::RHICopyToResolveTarget(FTextureRHIParamRef SourceT
 
                 FResolveRect ResolveRect = ResolveParams.Rect;
 
+				PRAGMA_DISABLE_DEPRECATION_WARNINGS
                 SetRenderTargets(RHICmdList, 0, nullptr, DestTextureRHI, ESimpleRenderTargetMode::EClearColorExistingDepth, FExclusiveDepthStencil::DepthWrite_StencilWrite, true);
+				PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
                 FGraphicsPipelineStateInitializer GraphicsPSOInit;
                 RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
@@ -197,7 +199,7 @@ void FMetalRHICommandContext::RHICopyToResolveTarget(FTextureRHIParamRef SourceT
 
 				RHIUnlockVertexBuffer(VertexBufferRHI);
 				RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
-				RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+				RHICmdList.DrawPrimitive(0, 2, 1);
 
                 RHICmdList.Flush();
             }
@@ -592,7 +594,7 @@ void FMetalDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI, FIntRe
 	FMetalTexture Texture = Surface->Texture;
     if(!Texture && (Surface->Flags & TexCreate_Presentable))
     {
-        Texture = Surface->GetDrawableTexture();
+        Texture = Surface->GetCurrentTexture();
     }
     if(!Texture)
     {
@@ -630,7 +632,7 @@ void FMetalDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI, FIntRe
 			Desc.SetStorageMode(StorageMode);
 			Desc.SetUsage(Texture.GetUsage());
 			
-			TempTexture = [GetMetalDeviceContext().GetDevice() newTextureWithDescriptor:Desc];
+			TempTexture = GetMetalDeviceContext().GetDevice().NewTexture(Desc);
 			
 			ImmediateContext.Context->CopyFromTextureToTexture(Texture, 0, 0, mtlpp::Origin(Region.origin), mtlpp::Size(Region.size), TempTexture, 0, 0, mtlpp::Origin(0, 0, 0));
 			
@@ -654,7 +656,7 @@ void FMetalDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI, FIntRe
 		TArray<uint8> Data;
 		Data.AddUninitialized(BytesPerImage);
 		
-		mtlpp::Texture(Texture).GetBytes(Data.GetData(), Stride, BytesPerImage, Region, 0, 0);
+		Texture.GetBytes(Data.GetData(), Stride, BytesPerImage, Region, 0, 0);
 		
 		ConvertSurfaceDataToFColor(Surface->PixelFormat, SizeX, SizeY, (uint8*)Data.GetData(), Stride, OutDataPtr, InFlags);
 		
@@ -736,7 +738,7 @@ void FMetalDynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI, F
     FMetalTexture Texture = Surface->Texture;
     if(!Texture && (Surface->Flags & TexCreate_Presentable))
     {
-		Texture = Surface->GetDrawableTexture();
+		Texture = Surface->GetCurrentTexture();
     }
     if(!Texture)
     {

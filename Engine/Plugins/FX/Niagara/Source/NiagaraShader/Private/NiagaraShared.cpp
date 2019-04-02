@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	NiagaraShared.cpp: Shared Niagara compute shader implementation.
@@ -154,9 +154,9 @@ void FNiagaraShaderScript::ReleaseShaderMap()
 	{
 		GameThreadShaderMap = nullptr;
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			ReleaseShaderMap,
-			FNiagaraShaderScript*, Script, this,
+		FNiagaraShaderScript* Script = this;
+		ENQUEUE_RENDER_COMMAND(ReleaseShaderMap)(
+			[Script](FRHICommandListImmediate& RHICmdList)
 			{
 				Script->SetRenderingThreadShaderMap(nullptr);
 			});
@@ -328,11 +328,10 @@ bool FNiagaraShaderScript::CacheShaders(const FNiagaraShaderMapId& ShaderMapId, 
 		bSucceeded = true;
 	}
 
-
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		FSetShaderMapOnScriptResources,
-		FNiagaraShaderScript*, Script, this,
-		FNiagaraShaderMap*, LoadedShaderMap, GameThreadShaderMap,
+	FNiagaraShaderScript* Script = this;
+	FNiagaraShaderMap* LoadedShaderMap = GameThreadShaderMap;
+	ENQUEUE_RENDER_COMMAND(FSetShaderMapOnScriptResources)(
+		[Script, LoadedShaderMap](FRHICommandListImmediate& RHICmdList)
 		{
 			Script->SetRenderingThreadShaderMap(LoadedShaderMap);
 		});
@@ -359,7 +358,10 @@ void FNiagaraShaderScript::FinishCompilation()
 		// Shouldn't have anything left to do...
 		TArray<int32> ShaderMapIdsToFinish2;
 		GetShaderMapIDsWithUnfinishedCompilation(ShaderMapIdsToFinish2);
-		ensure(ShaderMapIdsToFinish2.Num() == 0);
+		if (ShaderMapIdsToFinish2.Num() != 0)
+		{
+			UE_LOG(LogShaders, Warning, TEXT("Skipped multiple Niagara shader maps for compilation! May be indicative of no support for a given platform. Count: %d"), ShaderMapIdsToFinish2.Num());
+		}
 	}
 }
 
@@ -448,6 +450,7 @@ bool FNiagaraShaderScript::BeginCompileShaderMap(
 	{
 		INiagaraShaderModule NiagaraShaderModule = FModuleManager::GetModuleChecked<INiagaraShaderModule>(TEXT("NiagaraShader"));
 		NiagaraShaderModule.ProcessShaderCompilationQueue();
+		OutShaderMap = NewShaderMap;
 	}
 	else
 	{

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessTemporalAA.usf: Temporal AA
@@ -8,6 +8,7 @@
 #include "PostProcessCommon.ush"
 #include "Random.ush"
 #include "EyeAdaptationCommon.ush"
+#include "TextureSampling.ush"
 
 
 //------------------------------------------------------- COMPILER CONFIG
@@ -119,7 +120,7 @@
 	#define AA_LOWER_RESOLUTION 1
 	#define AA_BORDER 1
 
-#elif TAA_PASS_CONFIG == 4 // MainUpsampling
+#elif TAA_PASS_CONFIG == 4 || TAA_PASS_CONFIG == 7 // MainUpsampling & MainSuperSampling
 	#if POST_PROCESS_ALPHA
 		#define AA_HISTORY_PAYLOAD (HISTORY_PAYLOAD_RGB_TRANSLUCENCY)
 	#else
@@ -160,9 +161,11 @@
 
 	#endif
 
-	// Do not use LDS caching for screen percentage > 100%.
-	#if TAA_SCREEN_PERCENTAGE_RANGE == 2
+	// Do not use LDS caching for screen percentage > 100% or < 50%.
+	#if TAA_SCREEN_PERCENTAGE_RANGE == 2 || TAA_SCREEN_PERCENTAGE_RANGE == 3
 		#define AA_SAMPLE_CACHE_METHOD (AA_SAMPLE_CACHE_METHOD_VGPR_3X3)
+
+
 	#else
 		#define AA_SAMPLE_CACHE_METHOD (AA_SAMPLE_CACHE_METHOD_LDS)
 	#endif
@@ -1649,9 +1652,9 @@ void ComputeNeighborhoodBoundingbox(
 		m1 *= (1.0 / AA_SAMPLES);
 		m2 *= (1.0 / AA_SAMPLES);
 
-		float4 Variance = sqrt( abs(m2 - m1 * m1) );
-		NeighborMin = m1 - 1.25 * Variance;
-		NeighborMax = m1 + 1.25 * Variance;
+		float4 StdDev = sqrt( abs(m2 - m1 * m1) );
+		NeighborMin = m1 - 1.25 * StdDev;
+		NeighborMax = m1 + 1.25 * StdDev;
 
 		NeighborMin = min( NeighborMin, IntermediaryResult.Filtered );
 		NeighborMax = max( NeighborMax, IntermediaryResult.Filtered );

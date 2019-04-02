@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -49,6 +49,7 @@ public:
 	 * @return The sequence.
 	 * @see SetSequence
 	 */
+	UFUNCTION(BlueprintPure, Category = "Movie Scene Section")
 	UMovieSceneSequence* GetSequence() const;
 
 	/**
@@ -77,6 +78,7 @@ public:
 	 * @param Sequence The sequence to play.
 	 * @see GetSequence
 	 */
+	UFUNCTION(BlueprintCallable, Category = "Movie Scene Section")
 	void SetSequence(UMovieSceneSequence* Sequence);
 
 	/** Prime this section as the one and only recording section */
@@ -136,11 +138,11 @@ public:
 	virtual TOptional<TRange<FFrameNumber> > GetAutoSizeRange() const override;
 	virtual UMovieSceneSection* SplitSection( FQualifiedFrameTime SplitTime ) override;
 	virtual void TrimSection( FQualifiedFrameTime TrimTime, bool bTrimLeft ) override;
-	virtual TOptional<FFrameTime> GetOffsetTime() const override { return TOptional<FFrameTime>(FFrameTime(Parameters.GetStartFrameOffset())); }
+	virtual TOptional<FFrameTime> GetOffsetTime() const override { return TOptional<FFrameTime>(FFrameTime(Parameters.StartFrameOffset)); }
 
 public:
 
-	UPROPERTY(EditAnywhere, Category="General", meta=(ShowOnlyInnerProperties))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, BlueprintReadWrite, Category="General", meta=(ShowOnlyInnerProperties))
 	FMovieSceneSectionParameters Parameters;
 
 private:

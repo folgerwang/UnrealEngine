@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
-Availability:Docs
-Title: Media Framework Quick Start
+﻿INTSourceChangelist:3782314
+Availability:Public
+Title: 媒体框架快速入门指南
 Crumbs: %ROOT%, Engine
-Description: A guide on how to quickly add and play videos inside your game levels with the Media Framework tools. 
+Description: 指导您如何在游戏关卡中使用媒体框架工具快速添加及播放视频。
 Navigation:topic
 parent:Engine/MediaFramework
 order:1
@@ -10,40 +10,40 @@ Version: 4.18
 type:quick start
 checkpoint:mediaframeworkqs
 tags:Media Framework
-tags:Getting Started
 topic-image:MediaFrameworkTopic.png
 
 ![](MediaFrameworkHero.png)
 
-_At the end of this guide, you will have multiple TVs playing different content in your level that you can turn on or off when standing next to them._
+_在本指南末尾，关卡中将有多个播放不同内容的电视机，当角色站在电视机跟前时，可以打开或关闭电视机。_
 
-## Goals
+## 目标
 
-In the Media Framework Quick Start guide, we walk through setting up a TV that can play videos inside your level. 
-We also set the TV up with Blueprints so the content on the TV can be changed and multiple TVs can be placed in the level, each with different content on them if desired. 
-If you are new to the Media Framework tools or want to know how to play videos on Static Meshes inside your levels, this guide is for you. 
+在“媒体框架快速入门指南”中，我们将逐步讲解在关卡中设置可以播放视频的电视机的过程。 
+我们也将使用蓝图设置电视机，以使电视机上的内容可以变化，而且在关卡中可以放置多个电视机（如果你愿意，每个电视机上都可以播放不同的内容）。 
+如果不熟悉媒体框架工具，或者想要了解如何在关卡中的静态网格体上播放视频，本指南非常适合你。 
 
 [REGION:note]
-This guide includes some setup using [](Engine/Rendering/Materials) and [Blueprints](Engine/Blueprints) to achieve the effect of a video playing on a TV. 
-Some prior knowledge of these topics is recommended but not required. 
+本指南中包含一些使用[](Engine/Rendering/Materials)和[蓝图](Engine/Blueprints)来实现在电视机上播放视频的效果的设置。 
+我们建议大家提前了解一些与这些主题相关的知识，但是并非强制。 
 [/REGION]
 
-## Objectives
+## 目标
 
-After going through this tutorial, developers will know the following:
+在学完本教程后，开发人员将掌握下列知识：
 
-*	How to import Media and use different Media Sources. 
-*	How to create a Material incorporating a Media Texture used to play media files. 
-*	How to start, stop, and pause playback of media using Blueprint. 
-*	How to create a TV Blueprint where you can specify what Media Source to use. 
+*	如何导入媒体和使用不同的媒体源。 
+*	如何创建融入了用于播放媒体文件的媒体纹理的材质。 
+*	如何使用蓝图开始、停止和暂停媒体播放。 
+*	如何创建可以在其中指定要使用的媒体源的电视机蓝图。 
 
-## Steps
+## 步骤
 
-
+[DIR(output:"checkpoint" parent:"Engine\MediaFramework\QuickStart" org:"hierarchy")]
 
 [REGION:call_to_action]
-	[Click to Start](Engine\MediaFramework\QuickStart/1 "%Engine\MediaFramework\QuickStart/1:title%")
+	[单击此处开始学习](Engine\MediaFramework\QuickStart/1 "%Engine\MediaFramework\QuickStart/1:title%")
 [/REGION]
+
 
 
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -333,17 +333,19 @@ namespace PlatformInfo
 	/**
 	 * Build a hierarchy mapping vanilla platforms to their flavors
 	 * @param InFilter - Flags to control which kinds of flavors you want to include
+	 * @param bAccessiblePlatformsOnly	If true, only the accessible platforms(installed, or could be installed) will be returned
 	 * @return An array of vanilla platforms, potentially containing flavors
 	 */
-	DESKTOPPLATFORM_API TArray<FVanillaPlatformEntry> BuildPlatformHierarchy(const EPlatformFilter InFilter);
+	DESKTOPPLATFORM_API TArray<FVanillaPlatformEntry> BuildPlatformHierarchy(const EPlatformFilter InFilter, bool bAccessiblePlatformsOnly = true);
 
 	/**
 	* Build a hierarchy mapping for specified vanilla platform to it flavors
 	* @param InPlatformName - Platform name to build hierarchy for, could be vanilla or flavor name
 	* @param InFilter - Flags to control which kinds of flavors you want to include
+	* @param bAccessiblePlatformsOnly	If true, only the accessible platforms(installed, or could be installed) will be returned
 	* @return Vanilla platform potentially containing flavors
 	*/
-	DESKTOPPLATFORM_API FVanillaPlatformEntry BuildPlatformHierarchy(const FName& InPlatformName, const EPlatformFilter InFilter);
+	DESKTOPPLATFORM_API FVanillaPlatformEntry BuildPlatformHierarchy(const FName& InPlatformName, const EPlatformFilter InFilter, bool bAccessiblePlatformsOnly = true);
 
 	/**
 	 * Get an array of all the platforms we know about
@@ -369,9 +371,16 @@ namespace PlatformInfo
 	/**
 	* Returns a list of all defined Platform Groups, excluding None.
     * Used to to present a list in the Per-Platform Properties UI.
-	* @return An EPlatformType value.
+	* @return An array of FNames.
 	*/
 	DESKTOPPLATFORM_API const TArray<FName>& GetAllPlatformGroupNames();
+
+	/**
+	* Returns a list of all defined Platform, in vanilla form.
+    * Used to to present a list in the Per-Platform Properties UI.
+	* @return An array of FNames.
+	*/
+	DESKTOPPLATFORM_API const TArray<FName>& GetAllVanillaPlatformNames();
 }
 
 DESKTOPPLATFORM_API FString LexToString(const PlatformInfo::EPlatformType Value);

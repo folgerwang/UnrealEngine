@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BuildPatchFileConstructor.cpp: Implements the BuildPatchFileConstructor class
@@ -458,7 +458,7 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 			if (NewFileReader.IsValid())
 			{
 				// Start with a sensible buffer size for reading. 4 MiB.
-				const int32 ReadBufferSize = 4194304;
+				const int32 ReadBufferSize = 4 * 1024 * 1024;
 				// Read buffer
 				TArray<uint8> ReadBuffer;
 				ReadBuffer.Empty(ReadBufferSize);

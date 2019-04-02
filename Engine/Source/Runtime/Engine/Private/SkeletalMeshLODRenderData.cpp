@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Rendering/SkeletalMeshLODRenderData.h"
 #include "Rendering/SkeletalMeshRenderData.h"
@@ -21,6 +21,48 @@ static FAutoConsoleVariableRef CVarStripSkeletalMeshLodsBelowMinLod(
 	GStripSkeletalMeshLodsDuringCooking,
 	TEXT("If set will strip skeletal mesh LODs under the minimum renderable LOD for the target platform during cooking.")
 );
+
+namespace
+{
+	struct FReverseOrderBitArraysBySetBits
+	{
+		FORCEINLINE bool operator()(const TBitArray<>& Lhs, const TBitArray<>& Rhs) const
+		{
+			//sort by length
+			if (Lhs.Num() != Rhs.Num())
+			{
+				return Lhs.Num() > Rhs.Num();
+			}
+
+			uint32 NumWords = FMath::DivideAndRoundUp(Lhs.Num(), NumBitsPerDWORD);
+			const uint32* Data0 = Lhs.GetData();
+			const uint32* Data1 = Rhs.GetData();
+
+			//sort by num bits active
+			int32 Count0 = 0, Count1 = 0;
+			for (uint32 i = 0; i < NumWords; i++)
+			{
+				Count0 += FPlatformMath::CountBits(Data0[i]);
+				Count1 += FPlatformMath::CountBits(Data1[i]);
+			}
+
+			if (Count0 != Count1)
+			{
+				return Count0 > Count1;
+			}
+
+			//sort by big-num value
+			for (uint32 i = NumWords - 1; i != ~0u; i--)
+			{
+				if (Data0[i] != Data1[i])
+				{
+					return Data0[i] > Data1[i];
+				}
+			}
+			return false;
+		}
+	};
+}
 
 // Serialization.
 FArchive& operator<<(FArchive& Ar, FSkelMeshRenderSection& S)
@@ -292,7 +334,7 @@ void FSkeletalMeshLODRenderData::InitResources(bool bNeedsVertexColors, int32 LO
 							MorphAnimIndicies[Index].Add(VertexIndex);
 						}
 					}
-					//MorphBitToIndex.KeySort(TGreater<TBitArray<>>());
+					//MorphBitToIndex.KeySort(FReverseOrderBitArraysBySetBits());
 				}
 			}
 
@@ -339,7 +381,7 @@ void FSkeletalMeshLODRenderData::InitResources(bool bNeedsVertexColors, int32 LO
 				MorphTargetVertexInfoBuffers.TempStoreSize += MorphIndexToBit.Num();
 
 				//slightly better rule and cache locality when sorting by smallest number of active morphs (remember that the bits are inversed -> greater)
-				MorphIndexToBit.Sort(TGreater<TBitArray<>>());
+				MorphIndexToBit.Sort(FReverseOrderBitArraysBySetBits());
 				for (const auto& BitIndicies : MorphIndexToBit)
 				{
 					//continue splitting all requested outputs permutations until they are derived by the weights. 
@@ -500,7 +542,6 @@ void FSkeletalMeshLODRenderData::BuildFromLODModel(const FSkeletalMeshLODModel* 
 	if (bHasVertexColors && Vertices.Num() > 0 && StaticVertexBuffers.ColorVertexBuffer.GetAllocatedSize() == 0)
 	{
 		StaticVertexBuffers.ColorVertexBuffer.InitFromColorArray(&Vertices[0].Color, Vertices.Num(), sizeof(FSoftSkinVertex));
-		StaticVertexBuffers.ColorVertexBuffer.InitFromColorArray(&Vertices[0].Color, Vertices.Num(), sizeof(FSoftSkinVertex));
 	}
 
 	if (ImportedModel->HasClothData())
@@ -601,7 +642,7 @@ void FSkeletalMeshLODRenderData::Serialize(FArchive& Ar, UObject* Owner, int32 I
 #if WITH_EDITOR
 	if(bIsCook)
 	{
-		MinMeshLod = OwnerMesh ? OwnerMesh->MinLod.GetValueForPlatformGroup(CookTarget->GetPlatformInfo().PlatformGroupName) : 0;
+		MinMeshLod = OwnerMesh ? OwnerMesh->MinLod.GetValueForPlatformIdentifiers(CookTarget->GetPlatformInfo().PlatformGroupName, CookTarget->GetPlatformInfo().VanillaPlatformName) : 0;
 	}
 #endif
 

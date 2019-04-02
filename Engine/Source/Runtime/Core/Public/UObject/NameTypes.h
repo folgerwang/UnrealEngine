@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -124,13 +124,13 @@ enum EFindName
  */
 struct FNameEntry
 {
-private:
-	/** Index of name in hash. */
-	NAME_INDEX		Index;
-
 public:
 	/** Pointer to the next entry in this hash bin's linked list. */
 	TAtomic<FNameEntry*>		HashNext;
+
+private:
+	/** Index of name in hash. */
+	NAME_INDEX		Index;
 
 protected:
 	/** Name, variable-sized - note that AllocateNameEntry only allocates memory as needed. */
@@ -514,7 +514,7 @@ public:
 
 // Typedef for the threadsafe master name table. 
 // CAUTION: If you change those constants, you probably need to update the debug visualizers.
-typedef TStaticIndirectArrayThreadSafeRead<FNameEntry, 2 * 1024 * 1024 /* 2M unique FNames */, 16384 /* allocated in 64K/128K chunks */ > TNameEntryArray;
+typedef TStaticIndirectArrayThreadSafeRead<FNameEntry, 4 * 1024 * 1024 /* 4M unique FNames */, 16384 /* allocated in 64K/128K chunks */ > TNameEntryArray;
 
 /**
  * The minimum amount of data required to reconstruct a name
@@ -684,12 +684,7 @@ public:
 
 	FORCEINLINE bool operator==(const FName& Other) const
 	{
-		#if WITH_CASE_PRESERVING_NAME
-			return GetComparisonIndexFast() == Other.GetComparisonIndexFast() && GetNumber() == Other.GetNumber();
-		#else
-			static_assert(sizeof(CompositeComparisonValue) == sizeof(*this), "ComparisonValue does not cover the entire FName state");
-			return CompositeComparisonValue == Other.CompositeComparisonValue;
-		#endif
+		return (GetComparisonIndexFast() == Other.GetComparisonIndexFast()) & (GetNumber() == Other.GetNumber());
 	}
 	FORCEINLINE bool operator!=(const FName& Other) const
 	{
@@ -928,8 +923,8 @@ public:
 	FName(const ANSICHAR* Name, EFindName FindType=FNAME_Add);
 
 	// Deprecated bUnused
-	DEPRECATED(4.12, "Removed bUnused from FName") FName(const WIDECHAR* Name, EFindName FindType, bool bUnused) : FName(Name, FindType) { }
-	DEPRECATED(4.12, "Removed bUnused from FName") FName(const ANSICHAR* Name, EFindName FindType, bool bUnused) : FName(Name, FindType) { }
+	UE_DEPRECATED(4.12, "Removed bUnused from FName") FName(const WIDECHAR* Name, EFindName FindType, bool bUnused) : FName(Name, FindType) { }
+	UE_DEPRECATED(4.12, "Removed bUnused from FName") FName(const ANSICHAR* Name, EFindName FindType, bool bUnused) : FName(Name, FindType) { }
 
 	/**
 	 * Create an FName. If FindType is FNAME_Find, and the string part of the name 
@@ -938,8 +933,9 @@ public:
 	 * @param Name Value for the string portion of the name
 	 * @param Number Value for the number portion of the name
 	 * @param FindType Action to take (see EFindName)
+	 * @param bSplitName true if the trailing number should be split from the name when Number == NAME_NO_NUMBER_INTERNAL, or false to always use the name as-is
 	 */
-	FName( const TCHAR* Name, int32 InNumber, EFindName FindType=FNAME_Add );
+	FName( const TCHAR* Name, int32 InNumber, EFindName FindType=FNAME_Add, const bool bSplitName=true );
 
 	/**
 	 * Constructor used by FLinkerLoad when loading its name table; Creates an FName with an instance
@@ -1121,11 +1117,6 @@ private:
 			/** Number portion of the string/number pair (stored internally as 1 more than actual, so zero'd memory will be the default, no-instance case) */
 			uint32			Number;
 		};
-
-		// Used to perform a single comparison in FName::operator==
-		#if !WITH_CASE_PRESERVING_NAME
-			uint64 CompositeComparisonValue;
-		#endif
 	};
 
 	/** Name hash head - used to iterate the single-linked list.		*/

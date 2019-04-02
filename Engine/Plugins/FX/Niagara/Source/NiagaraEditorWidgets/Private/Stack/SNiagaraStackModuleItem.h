@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -25,6 +25,7 @@ public:
 
 	//~ SWidget interface
 	virtual FReply OnMouseButtonDoubleClick(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent) override;
+	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 
 private:
 	ECheckBoxState GetCheckState() const;
@@ -58,6 +59,8 @@ private:
 	EVisibility GetStackIssuesWarningVisibility() const;
 
 	FText GetErrorButtonTooltipText() const;
+
+	void ShowReassignModuleScriptMenu();
 
 private:
 	UNiagaraStackModuleItem* ModuleItem;

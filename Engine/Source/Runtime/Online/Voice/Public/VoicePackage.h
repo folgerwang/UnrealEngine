@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 // Can't be #pragma once because other modules may define PACKAGE_SCOPE
 
@@ -9,5 +9,5 @@
 #ifdef VOICE_PACKAGE
 #define PACKAGE_SCOPE public
 #else
-#define PACKAGE_SCOPE protected
+#define PACKAGE_SCOPE private
 #endif

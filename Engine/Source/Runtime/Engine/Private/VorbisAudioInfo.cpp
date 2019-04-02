@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "VorbisAudioInfo.h"
@@ -92,24 +92,25 @@ struct FVorbisFileWrapper
 /*------------------------------------------------------------------------------------
 	FVorbisAudioInfo.
 ------------------------------------------------------------------------------------*/
-FVorbisAudioInfo::FVorbisAudioInfo( void )
+FVorbisAudioInfo::FVorbisAudioInfo()
 	: VFWrapper(new FVorbisFileWrapper())
 	, SrcBufferData(NULL)
 	, SrcBufferDataSize(0)
 	, BufferOffset(0)
-	, bPerformingOperation(false)
+	, CurrentBufferChunkOffset(0)
 	, StreamingSoundWave(NULL)
-	, StreamingChunksSize(0)
+	, CurrentStreamingChunkData(nullptr)
+	, CurrentStreamingChunkIndex(INDEX_NONE)
+	, NextStreamingChunkIndex(0)
+	, CurrentStreamingChunksSize(0)
+	, bHeaderParsed(false)
 {
 	// Make sure we have properly allocated a VFWrapper
 	check(VFWrapper != NULL);
 }
 
-FVorbisAudioInfo::~FVorbisAudioInfo( void )
+FVorbisAudioInfo::~FVorbisAudioInfo()
 {
-	// Make sure we're not deleting ourselves while performing an operation
-	ensure(!bPerformingOperation);
-
 	FScopeLock ScopeLock(&VorbisCriticalSection);
 	check(VFWrapper != nullptr);
 	delete VFWrapper;
@@ -187,41 +188,73 @@ static long OggTellMemory( void *datasource )
 }
 
 /** Emulate read from memory functionality */
-size_t FVorbisAudioInfo::ReadStreaming( void *Ptr, uint32 Size )
+size_t FVorbisAudioInfo::ReadStreaming(void *Ptr, uint32 Size )
 {
-	size_t	BytesCopied = 0;
+	size_t NumBytesRead = 0;
 
-	while(Size > 0)
+	while (NumBytesRead < Size)
 	{
-		uint32	CurChunkSize = 0;
-
-		uint8 const* ChunkData = IStreamingManager::Get().GetAudioStreamingManager().GetLoadedChunk(StreamingSoundWave, BufferOffset / StreamingChunksSize, &CurChunkSize);
-
-		check(CurChunkSize >= (BufferOffset % StreamingChunksSize));
-		size_t	BytesToCopy = FMath::Min<uint32>(CurChunkSize - (BufferOffset % StreamingChunksSize), Size);
-		check((BufferOffset % StreamingChunksSize) + BytesToCopy <= CurChunkSize);
-
-		if(ChunkData == NULL || BytesToCopy == 0)
+		if (!CurrentStreamingChunkData || CurrentStreamingChunkIndex != NextStreamingChunkIndex)
 		{
-			return BytesCopied;
+			CurrentStreamingChunkIndex = NextStreamingChunkIndex;
+			CurrentStreamingChunkData = IStreamingManager::Get().GetAudioStreamingManager().GetLoadedChunk(StreamingSoundWave, CurrentStreamingChunkIndex);
+			if (CurrentStreamingChunkData)
+			{
+				check(CurrentStreamingChunkIndex < StreamingSoundWave->RunningPlatformData->Chunks.Num());
+				CurrentStreamingChunksSize = StreamingSoundWave->RunningPlatformData->Chunks[CurrentStreamingChunkIndex].AudioDataSize;
+				CurrentBufferChunkOffset = 0;
+			}
 		}
 
-		FMemory::Memcpy( Ptr, ChunkData + (BufferOffset % StreamingChunksSize), BytesToCopy );
-		BufferOffset += BytesToCopy;
-		BytesCopied += BytesToCopy;
-		Size -= BytesToCopy;
-		Ptr = (void*)((uint8*)Ptr + BytesToCopy);
+		// No chunk data -- either looping or something else happened with stream
+		if (!CurrentStreamingChunkData)
+		{
+			return NumBytesRead;
+		}
+
+		// How many bytes left in the current chunk
+		uint32 BytesLeftInCurrentChunk = CurrentStreamingChunksSize - CurrentBufferChunkOffset;
+
+		// How many more bytes we want to read
+		uint32 NumBytesLeftToRead = Size - NumBytesRead;
+
+		// The amount of audio we're going to copy is the min of the bytes left in the chunk and the bytes left we need to read.
+		size_t BytesToCopy = FMath::Min(BytesLeftInCurrentChunk, NumBytesLeftToRead);
+		if (BytesToCopy > 0)
+		{
+			void* WriteBufferLocation = (void*)((uint8*)Ptr + NumBytesRead);
+			FMemory::Memcpy(WriteBufferLocation, CurrentStreamingChunkData + CurrentBufferChunkOffset, BytesToCopy);
+
+			// Increment the BufferOffset by how many bytes we copied from the stream
+			BufferOffset += BytesToCopy;
+
+			// Increment the current buffer's offset
+			CurrentBufferChunkOffset += BytesToCopy;
+
+			// Increment the number of bytes we read this callback.
+			NumBytesRead += BytesToCopy;
+		}
+
+		// If we need to read more bytes than are left in the current chunk, we're going to need to increment the chunk index so we read the next chunk of audio
+		if (NumBytesLeftToRead >= BytesLeftInCurrentChunk)
+		{
+			NextStreamingChunkIndex++;
+		}
 	}
 
-	return BytesCopied;
+	return NumBytesRead;
 }
 
 static size_t OggReadStreaming( void *ptr, size_t size, size_t nmemb, void *datasource )
 {
 	check(ptr);
 	check(datasource);
-	FVorbisAudioInfo* OggInfo = (FVorbisAudioInfo*)datasource;
-	return( OggInfo->ReadStreaming( ptr, size * nmemb ) );
+	if (FVorbisAudioInfo* OggInfo = (FVorbisAudioInfo*)datasource)
+	{
+		return OggInfo->ReadStreaming(ptr, size * nmemb);
+	}
+	UE_LOG(LogAudio, Error, TEXT("OggReadStreaming had null audio info datasource."));
+	return 0;
 }
 
 int FVorbisAudioInfo::CloseStreaming( void )
@@ -237,6 +270,12 @@ static int OggCloseStreaming( void *datasource )
 
 bool FVorbisAudioInfo::GetCompressedInfoCommon(void* Callbacks, FSoundQualityInfo* QualityInfo)
 {
+	if (!bDllLoaded)
+	{
+		UE_LOG(LogAudio, Error, TEXT("FVorbisAudioInfo::GetCompressedInfoCommon failed due to vorbis DLL not being loaded."));
+		return false;
+	}
+
 	// Set up the read from memory variables
 	int Result = ov_open_callbacks(this, &VFWrapper->vf, NULL, 0, (*(ov_callbacks*)Callbacks));
 	if (Result < 0)
@@ -277,20 +316,25 @@ bool FVorbisAudioInfo::ReadCompressedInfo( const uint8* InSrcBufferData, uint32 
 {
 	if (!bDllLoaded)
 	{
+		UE_LOG(LogAudio, Error, TEXT("FVorbisAudioInfo::ReadCompressedInfo failed due to vorbis DLL not being loaded."));
 		return false;
 	}
-
-	bPerformingOperation = true;
-
-	SCOPE_CYCLE_COUNTER( STAT_VorbisPrepareDecompressionTime );
-
-	FScopeLock ScopeLock(&VorbisCriticalSection);
+	
+	if (bHeaderParsed)
+	{
+		UE_LOG(LogAudio, Error, TEXT("FVorbisAudioInfo::ReadCompressedInfo failed due to the header being parsed already."));
+		return false;
+	}
 
 	if (!VFWrapper)
 	{
-		bPerformingOperation = false;
+		UE_LOG(LogAudio, Error, TEXT("FVorbisAudioInfo::ReadCompressedInfo failed due to not having vorbis wrapper."));
 		return false;
 	}
+	
+	SCOPE_CYCLE_COUNTER( STAT_VorbisPrepareDecompressionTime );
+
+	FScopeLock ScopeLock(&VorbisCriticalSection);
 
 	ov_callbacks Callbacks;
 
@@ -303,11 +347,15 @@ bool FVorbisAudioInfo::ReadCompressedInfo( const uint8* InSrcBufferData, uint32 
 	Callbacks.close_func = OggCloseMemory;
 	Callbacks.tell_func = OggTellMemory;
 
-	bool result = GetCompressedInfoCommon(&Callbacks, QualityInfo);
+	bHeaderParsed = GetCompressedInfoCommon(&Callbacks, QualityInfo);
 
-	bPerformingOperation = false;
+	if (!bHeaderParsed)
+	{	
+		UE_LOG(LogAudio, Error, TEXT("Failed to parse header for compressed vorbis file."));
+	}
 
-	return( result );
+
+	return bHeaderParsed;
 }
 
 
@@ -318,10 +366,9 @@ void FVorbisAudioInfo::ExpandFile( uint8* DstBuffer, FSoundQualityInfo* QualityI
 {
 	if (!bDllLoaded)
 	{
+		UE_LOG(LogAudio, Error, TEXT("FVorbisAudioInfo::ExpandFile failed due to vorbis DLL not being loaded."));
 		return;
 	}
-
-	bPerformingOperation = true;
 
 	uint32		TotalBytesRead, BytesToRead;
 
@@ -330,6 +377,12 @@ void FVorbisAudioInfo::ExpandFile( uint8* DstBuffer, FSoundQualityInfo* QualityI
 	check( QualityInfo );
 
 	FScopeLock ScopeLock(&VorbisCriticalSection);
+
+	if (!bHeaderParsed)
+	{
+		UE_LOG(LogAudio, Error, TEXT("Failed to expand vorbis file to not parsing header first."));
+		return;
+	}
 
 	// A zero buffer size means decompress the entire ogg vorbis stream to PCM.
 	TotalBytesRead = 0;
@@ -344,15 +397,12 @@ void FVorbisAudioInfo::ExpandFile( uint8* DstBuffer, FSoundQualityInfo* QualityI
 		{
 			// indicates an error - fill remainder of buffer with zero
 			FMemory::Memzero(Destination, BytesToRead - TotalBytesRead);
-			bPerformingOperation = false;
 			return;
 		}
 
 		TotalBytesRead += BytesRead;
 		Destination += BytesRead;
 	}
-
-	bPerformingOperation = false;
 }
 
 
@@ -371,10 +421,9 @@ bool FVorbisAudioInfo::ReadCompressedData( uint8* InDestination, bool bLooping, 
 {
 	if (!bDllLoaded)
 	{
+		UE_LOG(LogAudio, Error, TEXT("FVorbisAudioInfo::ReadCompressedData failed due to vorbis DLL not being loaded."));
 		return true;
 	}
-
-	bPerformingOperation = true;
 
 	bool		bLooped;
 	uint32		TotalBytesRead;
@@ -387,6 +436,12 @@ bool FVorbisAudioInfo::ReadCompressedData( uint8* InDestination, bool bLooping, 
 #endif
 
 	FScopeLock ScopeLock(&VorbisCriticalSection);
+
+	if (!bHeaderParsed)
+	{
+		UE_LOG(LogAudio, Error, TEXT("FVorbisAudioInfo::ReadCompressedData failed due to not parsing header first."));
+		return true;
+	}
 
 	bLooped = false;
 
@@ -410,7 +465,6 @@ bool FVorbisAudioInfo::ReadCompressedData( uint8* InDestination, bool bLooping, 
 				{
 					// indicates an error - fill remainder of buffer with zero
 					FMemory::Memzero(Destination, BufferSize - TotalBytesRead);
-					bPerformingOperation = false;
 					return true;
 				}
 			}
@@ -426,7 +480,6 @@ bool FVorbisAudioInfo::ReadCompressedData( uint8* InDestination, bool bLooping, 
 		{
 			// indicates an error - fill remainder of buffer with zero
 			FMemory::Memzero(Destination, BufferSize - TotalBytesRead);
-			bPerformingOperation = false;
 			return false;
 		}
 
@@ -434,7 +487,6 @@ bool FVorbisAudioInfo::ReadCompressedData( uint8* InDestination, bool bLooping, 
 		Destination += BytesRead;
 	}
 
-	bPerformingOperation = false;
 	return( bLooped );
 }
 
@@ -442,38 +494,48 @@ void FVorbisAudioInfo::SeekToTime( const float SeekTime )
 {
 	if (!bDllLoaded)
 	{
+		UE_LOG(LogAudio, Error, TEXT("FVorbisAudioInfo::SeekToTime failed due to vorbis DLL not being loaded."));
 		return;
 	}
 
-	bPerformingOperation = true;
-
 	FScopeLock ScopeLock(&VorbisCriticalSection);
+
+	if (!bHeaderParsed)
+	{
+		UE_LOG(LogAudio, Error, TEXT("FVorbisAudioInfo::SeekToTime failed due to not parsing header first."));
+		return;
+	}
 
 	const float TargetTime = FMath::Min(SeekTime, (float)ov_time_total(&VFWrapper->vf, -1));
 	ov_time_seek( &VFWrapper->vf, TargetTime );
-
-	bPerformingOperation = false;
 }
 
 void FVorbisAudioInfo::EnableHalfRate( bool HalfRate )
 {
 	if (!bDllLoaded)
 	{
+		UE_LOG(LogAudio, Error, TEXT("FVorbisAudioInfo::EnableHalfRate failed due to vorbis DLL not being loaded."));
 		return;
 	}
 
-	bPerformingOperation = true;
-
 	FScopeLock ScopeLock(&VorbisCriticalSection);
 
-	ov_halfrate(&VFWrapper->vf, int32(HalfRate));
+	if (!bHeaderParsed)
+	{
+		UE_LOG(LogAudio, Error, TEXT("FVorbisAudioInfo::EnableHalfRate failed due to not parsing header first."));
+		return;
+	}
 
-	bPerformingOperation = false;
+	ov_halfrate(&VFWrapper->vf, int32(HalfRate));
 }
 
 bool FVorbisAudioInfo::StreamCompressedInfo(USoundWave* Wave, struct FSoundQualityInfo* QualityInfo)
 {
-	bPerformingOperation = true;
+	if (!bDllLoaded)
+	{
+		UE_LOG(LogAudio, Error, TEXT("FVorbisAudioInfo::StreamCompressedInfo failed to parse header due to vorbis DLL not being loaded for sound '%s'."), *Wave->GetName());
+		return false;
+	}
 
 	SCOPE_CYCLE_COUNTER( STAT_VorbisPrepareDecompressionTime );
 
@@ -481,7 +543,7 @@ bool FVorbisAudioInfo::StreamCompressedInfo(USoundWave* Wave, struct FSoundQuali
 
 	if (!VFWrapper)
 	{
-		bPerformingOperation = false;
+		UE_LOG(LogAudio, Error, TEXT("FVorbisAudioInfo::StreamCompressedInfo failed due to no vorbis wrapper for sound '%s'."), *Wave->GetName());
 		return false;
 	}
 
@@ -497,23 +559,25 @@ bool FVorbisAudioInfo::StreamCompressedInfo(USoundWave* Wave, struct FSoundQuali
 	Callbacks.seek_func = NULL;	// Force streaming
 	Callbacks.tell_func = NULL;	// Force streaming
 
-	// We need to start with a valid StreamingChunksSize so just use this
-	StreamingChunksSize = MONO_PCM_BUFFER_SIZE * 2 * 2;
+	bHeaderParsed = GetCompressedInfoCommon(&Callbacks, QualityInfo);
+	if (!bHeaderParsed)
+	{
+		UE_LOG(LogAudio, Error, TEXT("FVorbisAudioInfo::StreamCompressedInfo failed to parse header for '%s'."), *Wave->GetName());
+	}
+	
 
-	bool result = GetCompressedInfoCommon(&Callbacks, QualityInfo);
-
-	// Now we can set the real StreamingChunksSize
-	StreamingChunksSize = MONO_PCM_BUFFER_SIZE * 2 * QualityInfo->NumChannels;
-
-	bPerformingOperation = false;
-
-	return( result );
+	return bHeaderParsed;
 }
 
 bool FVorbisAudioInfo::StreamCompressedData(uint8* InDestination, bool bLooping, uint32 BufferSize)
 {
+	if (!bDllLoaded)
+	{
+		UE_LOG(LogAudio, Error, TEXT("FVorbisAudioInfo::StreamCompressedData failed due to vorbis DLL not being loaded."));
+		return true;
+	}
+
 	check( VFWrapper != NULL );
-	bPerformingOperation = true;
 
 #if PLATFORM_ANDROID
 	// Something on android spams threads, so we will only mark the GT and AT
@@ -523,7 +587,13 @@ bool FVorbisAudioInfo::StreamCompressedData(uint8* InDestination, bool bLooping,
 #endif
 	FScopeLock ScopeLock(&VorbisCriticalSection);
 
-	bool	bLooped = false;
+	if (!bHeaderParsed)
+	{
+		UE_LOG(LogAudio, Error, TEXT("FVorbisAudioInfo::StreamCompressedData failed due to not parsing header first."));
+		return true;
+	}
+
+	bool bLooped = false;
 
 	while( BufferSize > 0 )
 	{
@@ -531,14 +601,37 @@ bool FVorbisAudioInfo::StreamCompressedData(uint8* InDestination, bool bLooping,
 
 		if( BytesActuallyRead <= 0 )
 		{
+			// if we read 0 bytes or there was an error, instead of assuming we looped, lets write out zero's.
+			// this means that the chunk wasn't loaded in time
+			if (NextStreamingChunkIndex < StreamingSoundWave->RunningPlatformData->Chunks.Num())
+			{
+				// zero out the rest of the buffer
+				FMemory::Memzero(InDestination, BufferSize);
+				return false;
+			}
+
 			// We've reached the end
 			bLooped = true;
 
+			// Clean up decoder state:
 			BufferOffset = 0;
-
-			// Since we can't tell a streaming file to go back to the start of the stream (there is no seek) we have to close and reopen it which is a bummer
 			ov_clear(&VFWrapper->vf);
-			FMemory::Memzero( &VFWrapper->vf, sizeof( OggVorbis_File ) );
+			FMemory::Memzero(&VFWrapper->vf, sizeof(OggVorbis_File));
+
+			// If we're looping, then we need to make sure we wrap the stream chunks back to 0
+			if (bLooping)
+			{
+				NextStreamingChunkIndex = 0;
+			}
+			else
+			{
+				// Need to clear out the remainder of the buffer
+				FMemory::Memzero(InDestination, BufferSize);
+				BytesActuallyRead = BufferSize;
+				break;
+			}
+
+			// Since we can't tell a streaming file to go back to the start of the stream (there is no seek) we have to close and reopen it.
 			ov_callbacks Callbacks;
 			Callbacks.read_func = OggReadStreaming;
 			Callbacks.close_func = OggCloseStreaming;
@@ -551,12 +644,6 @@ bool FVorbisAudioInfo::StreamCompressedData(uint8* InDestination, bool bLooping,
 				break;
 			}
 
-			if( !bLooping )
-			{
-				// Need to clear out the remainder of the buffer
-				FMemory::Memzero(InDestination, BufferSize);
-				break;
-			}
 			// else we start over to get the samples from the start of the compressed audio data
 			continue;
 		}
@@ -564,8 +651,6 @@ bool FVorbisAudioInfo::StreamCompressedData(uint8* InDestination, bool bLooping,
 		InDestination += BytesActuallyRead;
 		BufferSize -= BytesActuallyRead;
 	}
-
-	bPerformingOperation = false;
 
 	return( bLooped );
 }
@@ -613,6 +698,10 @@ void LoadVorbisLibraries()
 		if (!bDllLoaded)
 		{
 			UE_LOG(LogAudio, Error, TEXT("Failed to load lib vorbis libraries."));
+		}
+		else
+		{
+			UE_LOG(LogAudioDebug, Display, TEXT("Lib vorbis DLL was dynamically loaded."));
 		}
 #elif WITH_OGGVORBIS
 		bDllLoaded = true;

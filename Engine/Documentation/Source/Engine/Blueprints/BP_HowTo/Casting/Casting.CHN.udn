@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2968923
+﻿INTSourceChangelist:3244370
 Availability:Public
 Title:蓝图转换范例
 Crumbs: %ROOT%, Engine, Engine\Blueprints, Engine\Blueprints\BP_HowTo
@@ -9,8 +9,9 @@ Related:Engine/Blueprints/UserGuide
 skilllevel:Advanced
 version:4.9
 Parent:Engine/Blueprints/HowTo
-type:howto
+type:how-to
 tags:Data Types
+tags:Blueprints
 order:3
 
 此页面讲述如何使用蓝图转换与不同的蓝图进行交流并共享信息。在此例中玩家可对物体进行射击，每次命中后均会使其变小。每次命中物体时还将告知角色蓝图并增加玩家的移动速度。 

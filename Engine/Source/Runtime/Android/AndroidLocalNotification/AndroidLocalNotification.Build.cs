@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -14,7 +14,6 @@ public class AndroidLocalNotification : ModuleRules
             "Runtime/Engine/Public",
         });
 
-
         PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"Core",
@@ -22,5 +21,10 @@ public class AndroidLocalNotification : ModuleRules
 			"Engine",
             "Launch"
 		});
+
+		if(Target.Platform == UnrealTargetPlatform.Lumin)
+		{
+			PrecompileForTargets = PrecompileTargetsType.None;
+		}
 	}
 }

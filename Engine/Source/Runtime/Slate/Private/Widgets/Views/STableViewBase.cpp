@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Widgets/Views/STableViewBase.h"
 #include "Rendering/DrawElements.h"
@@ -355,6 +355,11 @@ FReply STableViewBase::OnMouseButtonDown( const FGeometry& MyGeometry, const FPo
 {
 	// Zero the scroll velocity so the list stops immediately on mouse down, even if the user does not drag
 	this->InertialScrollManager.ClearScrollVelocity();
+
+	if (MouseEvent.GetEffectingButton() == EKeys::RightMouseButton)
+	{
+		OnRightMouseButtonDown(MouseEvent);
+	}
 
 	if ( MouseEvent.GetEffectingButton() == EKeys::RightMouseButton && ScrollBar->IsNeeded() )
 	{
@@ -742,6 +747,14 @@ void STableViewBase::AddScrollOffset(const float InScrollOffsetDelta, bool Refre
 	}
 }
 
+void STableViewBase::SetScrollbarVisibility(const EVisibility InVisibility)
+{
+	if (ScrollBar)
+	{
+		ScrollBar->SetVisibility(InVisibility);
+	}
+}
+
 void STableViewBase::InsertWidget( const TSharedRef<ITableRow> & WidgetToInset )
 {
 	ItemsPanel->AddSlot(0)
@@ -855,6 +868,8 @@ void STableViewBase::RequestLayoutRefresh()
 	{
 		ItemsPanel->SetRefreshPending(true);
 	}
+
+	Invalidate(EInvalidateWidget::Layout);
 }
 
 void STableViewBase::ScrollToTop()

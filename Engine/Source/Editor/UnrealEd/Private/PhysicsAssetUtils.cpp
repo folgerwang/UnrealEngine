@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PhysicsAssetUtils.h"
 #include "Modules/ModuleManager.h"
@@ -219,7 +219,7 @@ bool CreateFromSkeletalMeshInternal(UPhysicsAsset* PhysicsAsset, USkeletalMesh* 
 
 			SlowTask.EnterProgressFrame(1.0f, FText::Format(NSLOCTEXT("PhysicsAssetEditor", "ResetCollsionStepInfo", "Generating collision for {0}"), FText::FromName(BoneName)));
 
-			int32 NewBodyIndex = CreateNewBody(PhysicsAsset, BoneName);
+			int32 NewBodyIndex = CreateNewBody(PhysicsAsset, BoneName, Params);
 			UBodySetup* NewBodySetup = PhysicsAsset->SkeletalBodySetups[NewBodyIndex];
 			check(NewBodySetup->BoneName == BoneName);
 
@@ -846,7 +846,7 @@ void DestroyConstraint(UPhysicsAsset* PhysAsset, int32 ConstraintIndex)
 }
 
 
-int32 CreateNewBody(UPhysicsAsset* PhysAsset, FName InBodyName)
+int32 CreateNewBody(UPhysicsAsset* PhysAsset, FName InBodyName, const FPhysAssetCreateParams& Params)
 {
 	check(PhysAsset);
 
@@ -868,6 +868,13 @@ int32 CreateNewBody(UPhysicsAsset* PhysAsset, FName InBodyName)
 	PhysAsset->UpdateBodySetupIndexMap();
 	PhysAsset->UpdateBoundsBodiesArray();
 
+	if (Params.bDisableCollisionsByDefault)
+	{
+		for (int i = 0; i < PhysAsset->SkeletalBodySetups.Num(); ++i)
+		{
+			PhysAsset->DisableCollision(i, BodySetupIndex);
+		}
+	}
 	// Return index of new body.
 	return BodySetupIndex;
 }

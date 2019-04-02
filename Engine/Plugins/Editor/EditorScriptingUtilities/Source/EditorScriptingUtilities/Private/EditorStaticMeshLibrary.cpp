@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "EditorStaticMeshLibrary.h"
 
@@ -26,11 +26,10 @@
 #include "Engine/MapBuildDataRegistry.h"
 #include "MeshAttributes.h"
 #include "MeshAttributeArray.h"
-#include "MeshDescription.h"
 #include "MeshDescriptionOperations.h"
 #include "MeshMergeModule.h"
 #include "PhysicsEngine/BodySetup.h"
-#include "RawMesh.h"
+#include "MeshDescription.h"
 #include "ScopedTransaction.h"
 #include "Toolkits/AssetEditorManager.h"
 #include "UnrealEdGlobals.h"
@@ -50,21 +49,27 @@ namespace InternalEditorMeshLibrary
 	/** Note: This method is a replicate of FStaticMeshEditor::DoDecomp */
 	bool GenerateConvexCollision(UStaticMesh* StaticMesh, uint32 HullCount, int32 MaxHullVerts, uint32 HullPrecision)
 	{
-		// Check we have a selected StaticMesh
-		if (!StaticMesh || !StaticMesh->RenderData)
+		// Check we have a valid StaticMesh
+		if (!StaticMesh || !StaticMesh->IsMeshDescriptionValid(0))
 		{
 			return false;
 		}
 
-		FStaticMeshLODResources& LODModel = StaticMesh->RenderData->LODResources[0];
+		// If RenderData has not been computed yet, do it
+		if (!StaticMesh->RenderData)
+		{
+			StaticMesh->CacheDerivedData();
+		}
+
+		const FStaticMeshLODResources& LODModel = StaticMesh->RenderData->LODResources[0];
 
 		// Make vertex buffer
 		int32 NumVerts = LODModel.VertexBuffers.StaticMeshVertexBuffer.GetNumVertices();
 		TArray<FVector> Verts;
+		Verts.Reserve(NumVerts);
 		for(int32 i=0; i<NumVerts; i++)
 		{
-			FVector Vert = LODModel.VertexBuffers.PositionVertexBuffer.VertexPosition(i);
-			Verts.Add(Vert);
+			Verts.Add(LODModel.VertexBuffers.PositionVertexBuffer.VertexPosition(i));
 		}
 
 		// Grab all indices
@@ -131,8 +136,7 @@ namespace InternalEditorMeshLibrary
 			return false;
 		}
 
-		FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
-		if (!MeshDescription)
+		if (!StaticMesh->IsMeshDescriptionValid(LODIndex))
 		{
 			UE_LOG(LogEditorScripting, Error, TEXT("No mesh description for LOD %d."), LODIndex);
 			return false;
@@ -271,15 +275,81 @@ int32 UEditorStaticMeshLibrary::SetLodFromStaticMesh(UStaticMesh* DestinationSta
 	{
 		// Add one LOD 
 		DestinationStaticMesh->AddSourceModel();
-		
+
 		DestinationLodIndex = DestinationStaticMesh->SourceModels.Num() - 1;
+
+		// The newly added SourceModel won't have a MeshDescription so create it explicitly
+		DestinationStaticMesh->CreateMeshDescription(DestinationLodIndex);
 	}
 
-	FRawMesh SourceRawMesh;
-	SourceStaticMesh->SourceModels[ SourceLodIndex ].LoadRawMesh( SourceRawMesh );
+	// Transfers the build settings and the reduction settings.
+	const FStaticMeshSourceModel& SourceMeshSourceModel = SourceStaticMesh->SourceModels[SourceLodIndex];
+	FStaticMeshSourceModel& DestinationMeshSourceModel = DestinationStaticMesh->SourceModels[DestinationLodIndex];
+	DestinationMeshSourceModel.BuildSettings = SourceMeshSourceModel.BuildSettings;
+	DestinationMeshSourceModel.ReductionSettings = SourceMeshSourceModel.ReductionSettings;
+	// Base the reduction on the new lod
+	DestinationMeshSourceModel.ReductionSettings.BaseLODModel = DestinationLodIndex;
 
-	DestinationStaticMesh->SourceModels[ DestinationLodIndex ].BuildSettings = SourceStaticMesh->SourceModels[ SourceLodIndex ].BuildSettings;
-	DestinationStaticMesh->SourceModels[ DestinationLodIndex ].SaveRawMesh( SourceRawMesh );
+	// Fragile. If a public function emerge to determine if a reduction will be used please consider using it and remove this code.
+	bool bDoesSourceLodUseReduction = false;
+	switch (SourceMeshSourceModel.ReductionSettings.TerminationCriterion)
+	{
+	case EStaticMeshReductionTerimationCriterion::Triangles:
+		bDoesSourceLodUseReduction = !FMath::IsNearlyEqual(SourceMeshSourceModel.ReductionSettings.PercentTriangles, 100.f);
+		break;
+	case EStaticMeshReductionTerimationCriterion::Vertices:
+		bDoesSourceLodUseReduction = !FMath::IsNearlyEqual(SourceMeshSourceModel.ReductionSettings.PercentVertices, 100.f);
+		break;
+	case EStaticMeshReductionTerimationCriterion::Any:
+		bDoesSourceLodUseReduction = !(FMath::IsNearlyEqual(SourceMeshSourceModel.ReductionSettings.PercentTriangles, 100.f) && FMath::IsNearlyEqual(SourceMeshSourceModel.ReductionSettings.PercentVertices, 100.f));
+		break;
+	default:
+		break;
+	}
+	bDoesSourceLodUseReduction |= SourceMeshSourceModel.ReductionSettings.MaxDeviation > 0.f;
+
+
+	int32 BaseSourceLodIndex  = bDoesSourceLodUseReduction ? SourceMeshSourceModel.ReductionSettings.BaseLODModel : SourceLodIndex;
+	bool bIsReductionSettingAproximated = false;
+
+	// Find the original mesh description for this LOD
+	while (!SourceStaticMesh->IsMeshDescriptionValid(BaseSourceLodIndex ))
+	{
+		if (!SourceStaticMesh->SourceModels.IsValidIndex(BaseSourceLodIndex ))
+		{
+			UE_LOG(LogEditorScripting, Error, TEXT("SetLodFromStaticMesh: The SourceStaticMesh is in a invalid state."));
+			return -1;
+		}
+
+		const FMeshReductionSettings& PossibleSourceMeshReductionSetting = SourceStaticMesh->SourceModels[BaseSourceLodIndex ].ReductionSettings;
+		DestinationMeshSourceModel.ReductionSettings.PercentTriangles *= PossibleSourceMeshReductionSetting.PercentTriangles;
+		DestinationMeshSourceModel.ReductionSettings.PercentVertices *= PossibleSourceMeshReductionSetting.PercentVertices;
+		BaseSourceLodIndex  = SourceStaticMesh->SourceModels[BaseSourceLodIndex ].ReductionSettings.BaseLODModel;
+
+		bIsReductionSettingAproximated = true;
+	}
+
+	if (bIsReductionSettingAproximated)
+	{
+		TArray<FStringFormatArg> InOrderedArguments;
+		InOrderedArguments.Reserve(4);
+		InOrderedArguments.Add(SourceStaticMesh->GetName());
+		InOrderedArguments.Add(SourceLodIndex);
+		InOrderedArguments.Add(DestinationLodIndex);
+		InOrderedArguments.Add(DestinationStaticMesh->GetName());
+
+		UE_LOG(LogEditorScripting, Warning, TEXT("%s"), *FString::Format(TEXT("SetLodFromStaticMesh: The reduction settings from the SourceStaticMesh {0} LOD {1} were approximated."
+			" The LOD {2} from {3} might not be identical."), InOrderedArguments));
+	}
+
+	// Copy the source import file.
+	DestinationMeshSourceModel.SourceImportFilename = SourceStaticMesh->SourceModels[BaseSourceLodIndex ].SourceImportFilename;
+
+	// Copy the mesh description
+	const FMeshDescription& SourceMeshDescription = *SourceStaticMesh->GetMeshDescription(BaseSourceLodIndex );
+	FMeshDescription& DestinationMeshDescription = *DestinationStaticMesh->GetMeshDescription(DestinationLodIndex);
+	DestinationMeshDescription = SourceMeshDescription;
+	DestinationStaticMesh->CommitMeshDescription(DestinationLodIndex);
 
 	// Assign materials for the destination LOD
 	{
@@ -649,13 +719,16 @@ bool UEditorStaticMeshLibrary::SetConvexDecompositionCollisions(UStaticMesh* Sta
 		bStaticMeshIsEdited = true;
 	}
 
-	// Remove simple collisions
-	StaticMesh->BodySetup->Modify();
+	if (StaticMesh->BodySetup)
+	{
+		// Remove simple collisions
+		StaticMesh->BodySetup->Modify();
 
-	StaticMesh->BodySetup->RemoveSimpleCollision();
+		StaticMesh->BodySetup->RemoveSimpleCollision();
 
-	// refresh collision change back to static mesh components
-	RefreshCollisionChange(*StaticMesh);
+		// refresh collision change back to static mesh components
+		RefreshCollisionChange(*StaticMesh);
+	}
 
 	// Generate convex collision on mesh
 	bool bResult = InternalEditorMeshLibrary::GenerateConvexCollision(StaticMesh, HullCount, MaxHullVerts, HullPrecision);
@@ -685,6 +758,12 @@ bool UEditorStaticMeshLibrary::RemoveCollisions(UStaticMesh* StaticMesh)
 	{
 		UE_LOG(LogEditorScripting, Error, TEXT("RemoveCollisions: The StaticMesh is null."));
 		return false;
+	}
+
+	if (StaticMesh->BodySetup == nullptr)
+	{
+		UE_LOG(LogEditorScripting, Log, TEXT("RemoveCollisions: No collision set up. Nothing to do."));
+		return true;
 	}
 
 	// Close the mesh editor to prevent crashing. Reopen it after the mesh has been built.
@@ -840,7 +919,7 @@ bool UEditorStaticMeshLibrary::HasVertexColors(UStaticMesh* StaticMesh)
 
 	for (int32 LodIndex = 0; LodIndex < StaticMesh->SourceModels.Num(); ++LodIndex)
 	{
-		const FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LodIndex);
+		const FMeshDescription* MeshDescription = StaticMesh->GetMeshDescription(LodIndex);
 		if (!MeshDescription->VertexInstanceAttributes().HasAttribute(MeshAttribute::VertexInstance::Color))
 		{
 			continue;
@@ -904,7 +983,7 @@ bool UEditorStaticMeshLibrary::SetGenerateLightmapUVs(UStaticMesh* StaticMesh, b
 	{
 		FStaticMeshSourceModel& SourceModel = StaticMesh->SourceModels[LodIndex];
 		//Make sure LOD is not a reduction before considering its BuildSettings
-		if (StaticMesh->GetOriginalMeshDescription(LodIndex) != nullptr)
+		if (StaticMesh->IsMeshDescriptionValid(LodIndex))
 		{
 			AnySettingsToChange = (SourceModel.BuildSettings.bGenerateLightmapUVs != bGenerateLightmapUVs);
 
@@ -1112,7 +1191,7 @@ bool UEditorStaticMeshLibrary::GeneratePlanarUVChannel(UStaticMesh* StaticMesh, 
 		return false;
 	}
 
-	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
+	FMeshDescription* MeshDescription = StaticMesh->GetMeshDescription(LODIndex);
 
 	FUVMapParameters UVParameters(Position, Orientation.Quaternion(), StaticMesh->GetBoundingBox().GetSize(), FVector::OneVector, Tiling );
 
@@ -1136,7 +1215,7 @@ bool UEditorStaticMeshLibrary::GenerateCylindricalUVChannel(UStaticMesh* StaticM
 		return false;
 	}
 
-	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
+	FMeshDescription* MeshDescription = StaticMesh->GetMeshDescription(LODIndex);
 
 	FUVMapParameters UVParameters(Position, Orientation.Quaternion(), StaticMesh->GetBoundingBox().GetSize(), FVector::OneVector, Tiling);
 
@@ -1160,7 +1239,7 @@ bool UEditorStaticMeshLibrary::GenerateBoxUVChannel(UStaticMesh* StaticMesh, int
 		return false;
 	}
 
-	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
+	FMeshDescription* MeshDescription = StaticMesh->GetMeshDescription(LODIndex);
 
 	FUVMapParameters UVParameters(Position, Orientation.Quaternion(), Size, FVector::OneVector, FVector2D::UnitVector);
 

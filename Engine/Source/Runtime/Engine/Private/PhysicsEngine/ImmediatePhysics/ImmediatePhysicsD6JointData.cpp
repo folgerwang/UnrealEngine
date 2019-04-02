@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Physics/ImmediatePhysics/ImmediatePhysicsD6JointData.h"
 
@@ -45,6 +45,7 @@ D6JointData::D6JointData(PxD6Joint* Joint)
 	linearLimit = Joint->getLinearLimit();
 	swingLimit = Joint->getSwingLimit();
 	twistLimit = Joint->getTwistLimit();
+	linearMinDist = 0.001f;
 
 	for(uint32 DriveIdx = 0; DriveIdx < PxD6Drive::eCOUNT; ++DriveIdx)
 	{

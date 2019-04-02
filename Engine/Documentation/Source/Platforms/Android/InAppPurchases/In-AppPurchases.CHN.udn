@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2945303
+﻿INTSourceChangelist:3150518
 Title:使用安卓内购
 Description:利用内购为安卓游戏增加更多付费内容。
 Crumbs:
@@ -7,9 +7,10 @@ version:4.10
 Parent:Platforms/Android
 tags:Mobile
 tags:Android
-type:howto
+type:how-to
+Related:Platforms/Mobile/InAppPurchases/
 
-
+(#Configuration)
 ## 配置
 
 1. 在 Google Play 中设置内购：
@@ -36,12 +37,22 @@ type:howto
 	
 	![image alt text](image_2.png)
 
+1. 编辑 [ProjectName]/Config/Android/AndroidEngine.ini:
+
+		[OnlineSubsystem]
+		DefaultPlatformService=GooglePlay
+
+		[OnlineSubsystemGooglePlay.Store]
+		bSupportsInAppPurchasing=True
+
 [INCLUDE:Platforms/Mobile/InAppPurchases#usage_android]
 
+(#Testing)
 ## 测试
 
 如要进行安卓测试，需将打包的 APK 文件上传至 Google Play，并设置正确的测试账户。此外还需要您的自定义密钥库。 
 
+(#HelpfulLinks)
 ## 实用链接
 
 * [Administering In-app Billing (Creating products)](http://developer.android.com/google/play/billing/billing_admin.html)

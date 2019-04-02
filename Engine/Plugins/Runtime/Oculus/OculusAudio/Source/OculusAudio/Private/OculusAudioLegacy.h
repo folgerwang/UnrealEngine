@@ -1,6 +1,11 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-#if PLATFORM_WINDOWS
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
 #pragma once
+
+#include "CoreTypes.h"
+
+#if PLATFORM_WINDOWS
+
 #include "OVR_Audio.h"
 #include "XAudio2Device.h"
 #include "AudioEffect.h"

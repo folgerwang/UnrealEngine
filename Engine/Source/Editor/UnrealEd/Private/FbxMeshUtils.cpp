@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "FbxMeshUtils.h"
 #include "EngineDefines.h"
@@ -22,6 +22,7 @@
 #include "Rendering/SkeletalMeshModel.h"
 #include "EditorFramework/AssetImportData.h"
 #include "DesktopPlatformModule.h"
+#include "Editor.h"
 
 #if WITH_APEX_CLOTHING
 	#include "ApexClothingUtils.h"
@@ -117,6 +118,8 @@ namespace FbxMeshUtils
 
 			ImportOptions->bImportMaterials = false;
 			ImportOptions->bImportTextures = false;
+			//Make sure the LODGroup do not change when re-importing a mesh
+			ImportOptions->StaticMeshLODGroup = BaseStaticMesh->LODGroup;
 		}
 		ImportOptions->bAutoComputeLodDistances = true; //Setting auto compute distance to true will avoid changing the staticmesh flag
 		if ( !FFbxImporter->ImportFromFile( *Filename, FPaths::GetExtension( Filename ), true ) )
@@ -331,7 +334,6 @@ namespace FbxMeshUtils
 			{
 				ImportOptions->bImportAnimations = false;
 				ImportOptions->bUpdateSkeletonReferencePose = false;
-				ImportOptions->bUseT0AsRefPose = false;
 			}
 
 			if ( !FFbxImporter->ImportFromFile( *Filename, FPaths::GetExtension( Filename ), true ) )
@@ -706,10 +708,23 @@ namespace FbxMeshUtils
 			}
 		}
 
-		if(!bImportSuccess)
+		//If the filename is empty it mean the user cancel the file selection
+		if(!bImportSuccess && !FilenameToImport.IsEmpty())
 		{
 			// Failed to import a LOD, even after retries (if applicable)
 			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(LOCTEXT("LODImport_Failure", "Failed to import LOD{0}"), FText::AsNumber(LODLevel)));
+		}
+
+		if (bImportSuccess)
+		{
+			if (SkeletalMesh)
+			{
+				GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostLODImport(SkeletalMesh, LODLevel);
+			}				
+			else if(StaticMesh)
+			{
+				GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostLODImport(StaticMesh, LODLevel);
+			}
 		}
 
 		return bImportSuccess;

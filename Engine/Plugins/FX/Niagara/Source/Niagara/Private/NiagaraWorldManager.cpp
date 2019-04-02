@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraWorldManager.h"
 #include "NiagaraModule.h"
@@ -12,6 +12,9 @@
 #include "Misc/ConfigCacheIni.h"
 #include "NiagaraDataInterfaceSkeletalMesh.h"
 #include "EngineModule.h"
+#include "NiagaraStats.h"
+
+DECLARE_CYCLE_STAT(TEXT("Niagara Manager Tick [GT]"), STAT_NiagaraWorldManTick, STATGROUP_Niagara);
 
 TGlobalResource<FNiagaraViewDataMgr> GNiagaraViewDataManager;
 
@@ -27,8 +30,11 @@ FNiagaraViewDataMgr::FNiagaraViewDataMgr()
 void FNiagaraViewDataMgr::Init()
 {
 	IRendererModule& RendererModule = GetRendererModule();
+
 	GNiagaraViewDataManager.PostOpaqueDelegate.BindRaw(&GNiagaraViewDataManager, &FNiagaraViewDataMgr::PostOpaqueRender);
 	RendererModule.RegisterPostOpaqueRenderDelegate(GNiagaraViewDataManager.PostOpaqueDelegate);
+
+	RendererModule.OnPreSceneRender().AddRaw(&GNiagaraViewDataManager, &FNiagaraViewDataMgr::OnPreSceneRenderCalled);
 }
 
 void FNiagaraViewDataMgr::Shutdown()
@@ -65,6 +71,8 @@ FNiagaraWorldManager* FNiagaraWorldManager::Get(UWorld* World)
 
 void FNiagaraWorldManager::AddReferencedObjects(FReferenceCollector& Collector)
 {
+	// World doesn't need to be added to the reference list. It will be handle via OnWorldInit & OnWorldCleanup & OnPreWorldFinishDestroy in INiagaraModule
+
 	Collector.AddReferencedObjects(ParameterCollections);
 }
 
@@ -149,7 +157,7 @@ TSharedRef<FNiagaraSystemSimulation, ESPMode::ThreadSafe> FNiagaraWorldManager::
 	
 	TSharedRef<FNiagaraSystemSimulation, ESPMode::ThreadSafe> Sim = MakeShared<FNiagaraSystemSimulation, ESPMode::ThreadSafe>();
 	SystemSimulations.Add(System, Sim);
-	Sim->Init(System, World);
+	Sim->Init(System, World, false);
 	return Sim;
 }
 
@@ -199,6 +207,9 @@ Going off this idea tbh
 		}
 	}
 */
+	SCOPE_CYCLE_COUNTER(STAT_NiagaraWorldManTick);
+	SCOPE_CYCLE_COUNTER(STAT_NiagaraOverview_GT);
+
 	SkeletalMeshGeneratedData.TickGeneratedData(DeltaSeconds);
 
 	//Tick our collections to push any changes to bound stores.

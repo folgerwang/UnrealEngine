@@ -1,26 +1,33 @@
-﻿INTSourceChangeilst:3622836
-Availability:Public
+﻿INTSourceChangeilst:3810467
+Availability: Public
 Crumbs: %ROOT%, Platforms
-Title:为 Oculus Rift 设置坐立式摄像机
-Description:设置 UE4 摄像机，打造坐立式 Oculus Rift 体验。
+Title:为Oculus Rift设置坐立式相机
+Description:设置UE4相机，打造坐立式Oculus Rift体验。
 Type: how-to
 Skilllevel:Beginner
 Version:4.17
-Parent:Platforms/Oculus
-Order:2
+Parent: Platforms/Oculus
+Order: 1
 tags:Basics
 topic-image:HT_Rift_Camera_Setup_Topic_Image.png
 
-开始用 UE4 开发 Oculus Rift 上的 VR 项目时，首先需要考虑的一点便是确定该体验为坐立式或站立式。以下指南将讲述如何设置坐立式 Oculus Rift 体验的 UE4 项目 VR 摄像机。
+![](Platforms\VR\ContentSetup\VR_Seated_Experiance.png)
 
-## 坐立式 Rift 体验的 Pawn 设置 
+开始用UE4开发Oculus Rift上的VR项目时，首先需要考虑的一点便是确定该体验为坐立式或站立式。以下指南将讲述如何设置坐立式Oculus Rift体验的UE4项目VR相机。
 
-以下讲述如何进行坐立式 Oculus Rift 体验的 Pawn 设置。
+(#steps)
+## 步骤
 
-1. 首先，打开或新建一个 Pawn 蓝图，然后前往 **Viewport** 标签的 **Component** 部分。在此处用以下命名添加以下两个组件，并将 VRCamera 设为 VRCameraRoot 的子项：
+以下内容将讲述如何进行坐立式Oculus Rift体验的Pawn设置。
+
+1. 首先打开或新建一个Pawn蓝图，然后前往 **视口** 标签的 **组件** 部分。在此处用以下命名添加以下两个组件，并将VRCamera设为VRCameraRoot的子项：
     
-    * **Scene** - VRCameraRoot
-    * **Camera** - VRCamera
+    [REGION:simpletable]
+	|组件命名| 值 |
+    |--------|------------|
+    |**场景**|VRCameraRoot|
+    |**相机**|VRCamera|
+	[/region]
 
     [REGION:lightbox]
     [![](HT_Rift_Camera_Setup_03.png)(w:224)](HT_Rift_Camera_Setup_03.png)
@@ -33,16 +40,10 @@ topic-image:HT_Rift_Camera_Setup_Topic_Image.png
     When 
 
     [region:note]
-    无论您使用的是何种 VR 头戴显示器，Epic 都推荐以此方式设置 VR 摄像机。因为它能在不实际移动摄像机的情况下实现摄像机位置的偏移。
+    无论您使用的是何种VR头戴显示器，Epic都推荐以此方式设置VR相机。因为它能在不实际移动相机的情况下实现相机位置的偏移。
     [/region]
 
-操作完成后，VR 摄像机的初始设置便已完成。下一部分将讲述坐立式 Oculus Rift 体验所需蓝图逻辑的设置。
-
-## 坐立式 Rift 体验的蓝图设置 
-
-以下讲述如何进行坐立式 Oculus Rift 体验的蓝图逻辑设置。  
-
-1. 首先打开 Pawn 蓝图，然后在 **Event Graph** 中从 **Event Begin Play** 连出引线，显示 Executable Actions 列表。在列表中搜索 **Set Tracking Origin** 节点，点击将其添加到事件图表。
+1. 在Pawn蓝图中前往 **事件图表（Event Graph）**，从 **Event Begin Play** 节点连出引线，显示“可执行操作（Executable Actions）”列表。在列表中搜索 **Set Tracking Origin** 节点，点击并将其添加到事件图表。
 
     [REGION:lightbox]
     [![](HT_Rift_Camera_Setup_09.png)(w:555)](HT_Rift_Camera_Setup_09.png)
@@ -52,7 +53,7 @@ topic-image:HT_Rift_Camera_Setup_Topic_Image.png
     点击查看全图。
     [/REGION]
 
-1. Set Tracking Origin 节点拥有两个选项，**Floor Level** 和 **Eye Level**。针对坐立式体验，需要将 Set Tracking Origin 节点的 **Origin** 设为 **Eye Level**。
+1. Set Tracking Origin节点拥有两个选项：**地面平面（Floor Level）** 和 **视线平面（Eye Level）**。针对坐立式体验，需要将Set Tracking Origin节点的 **原点** 设为 **视线平面**。
     
     [REGION:lightbox]
     [![](HT_Rift_Camera_Setup_10.png)(w:555)](HT_Rift_Camera_Setup_10.png)
@@ -62,15 +63,15 @@ topic-image:HT_Rift_Camera_Setup_Topic_Image.png
     点击查看全图。
     [/REGION]
 
-1. 接下来在 **My Blueprint** 标签下的 **Variables** 部分中新建一个名为 **RiftCameraHeight** 的 **矢量** 变量，并将 **Z** 轴值设为 **121**。
+1. 接下来在 **我的蓝图（My Blueprint）** 标签下的 **变量（Variables）** 部分中新建一个名为 **RiftCameraHeight** 的 **矢量** 变量，并将 **Z** 轴值设为 **121**。
 
     ![](HT_Rift_Camera_Setup_05.png)
 
     [region:note]
-    对坐立式体验而言，需要将摄像机的高度设为真实世界中用户的坐立高度（以厘米为单位）。 
+    对坐立式体验而言，需要将相机的高度设为真实世界中用户的坐立高度（以厘米为单位）。 
     [/region]
 
-1. 然后从 Set Tracking Origin 节点的输出连出引线，搜索 **Set Relative Location** 节点，选择 **SetRelativeLocation(VRCameraRoot)** 选项。
+1. 然后从Set Tracking Origin节点的输出连出引线，搜索 **Set Relative Location** 节点，选择 **SetRelativeLocation(VRCameraRoot)** 选项。
 
     [REGION:lightbox]
     [![](HT_Rift_Camera_Setup_11.png)(w:472)](HT_Rift_Camera_Setup_11.png)
@@ -80,17 +81,17 @@ topic-image:HT_Rift_Camera_Setup_Topic_Image.png
     点击查看全图。
     [/REGION]
 
-1. 将 **RiftCameraHeight** 变量连接到 Set Relative Location 节点上的 **New Location** 输入，然后按下 Compile 按钮。操作完成后，事件图表与下图类似。
+1. 将 **RiftCameraHeight** 变量连接到Set Relative Location节点上的 **New Location** 输入，然后按下“编译”按钮。操作完成后，事件图表与下图类似。
 
     [REGION:fullwidth]
     [INCLUDE:Platforms\Oculus\HowTo\SeatedCamera\#OculusSittingVRCamera]
     [/REGION]
 
     [region:tip]
-    点击上图左上角并按下 CRTL + C 即可复制完成的蓝图。复制后前往蓝图事件按下 CTRL + V 进行粘贴。 
+    点击上图左上角并按下CRTL + C即可复制完成的蓝图。复制后前往蓝图事件按下CTRL + V进行粘贴。 
     [/region]
 
-1. 将 Pawn 蓝图从 Content Browser 拖入关卡，将其放置在关卡中 0,0,0 的位置。
+1. 将Pawn蓝图从内容浏览器拖入关卡，将其放置在关卡中0,0,0处。
     [REGION:lightbox]
     [![](HT_Rift_Camera_Setup_06.png)(w:555)](HT_Rift_Camera_Setup_06.png)
     [/REGION]
@@ -99,7 +100,7 @@ topic-image:HT_Rift_Camera_Setup_Topic_Image.png
     点击查看全图。
     [/REGION]
 
-1. 选中放置正在关卡中的 Pawn 蓝图，然后在 **Pawn** 设置下的 **Details** 面板中将 **Auto Possess Player** 从 **Disabled** 设为 **Player 0**。
+1. 选中放置在关卡中的Pawn蓝图，然后在 **Pawn** 设置下的 **细节** 面板中将 **自动拥有玩家（Auto Possess Player）** 从 **禁用（Disabled）** 改为 **Player 0**。
 
     [REGION:lightbox]
     [![](HT_Rift_Camera_Setup_07.png)(w:225)](HT_Rift_Camera_Setup_07.png)
@@ -109,30 +110,33 @@ topic-image:HT_Rift_Camera_Setup_Topic_Image.png
     点击查看全图。
     [/REGION]
 
-1. 最后前往 **主工具栏** 将 **Play Mode** 改为 **VR Preview**，然后按下 **Play** 按钮。当您戴上 Oculus Rift 头戴显示器，坐下观察关卡时，将看到与以下视频中相似的内容。 
+## 最终结果
 
-    [OBJECT:EmbeddedVideo]
-        [PARAMLITERAL:videoid]
-        ErQoJ2n5EpI
-        [/PARAMLITERAL]
-        [PARAMLITERAL:width]
-        100
-        [/PARAMLITERAL]
-        [PARAMLITERAL:height]
-        56.25
-        [/PARAMLITERAL]
-        [PARAMLITERAL:units]
-        %
-        [/PARAMLITERAL]
-        [PARAMLITERAL:type]
-        simple
-        [/PARAMLITERAL]
-    [/OBJECT]
+最后前往 **主工具栏** 将 **播放模式（Play Mode）** 改为 **VR预览（VR Preview）**，然后按下 **播放** 按钮。您戴上Oculus Rift头戴显示器坐下观察关卡时，将看到与以下视频相似的内容。 
 
-## UE4 项目下载
-可使用以下链接下载用于创建此例的 UE4 项目。 
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    ErQoJ2n5EpI
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    100
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
 
-* [**Oculus Rift 坐立式 VR 摄像机范例项目**](https://epicgames.box.com/s/jrhmrpvtk84jrrw05m5ma5rvcs35zm3g)
+(#ue4projectdownloads)
+## UE4项目下载
+可使用以下链接下载用于创建此例的UE4项目。 
+
+* [**Oculus Rift坐立式VR相机范例项目**](https://epicgames.box.com/s/jrhmrpvtk84jrrw05m5ma5rvcs35zm3g)
 
 [COMMENT:none]
 
@@ -168,7 +172,7 @@ topic-image:HT_Rift_Camera_Setup_Topic_Image.png
 			   NodeGuid=48B45C91438E818692990A8ACF803845
 			   CustomProperties Pin (PinId=9B118DD74D13E1A2489FEFBC87651604,PinName="execute",PinToolTip="\nExec",PinType.PinCategory="exec",PinType.PinSubCategory="",PinType.PinSubCategoryObject=None,PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,LinkedTo=(K2Node_Event_0 CE164667454B3EB8FFA464B7925FD171,),PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
 			   CustomProperties Pin (PinId=DB86848D4CD2762032F965A34161FE78,PinName="then",PinToolTip="\nExec",Direction="EGPD_Output",PinType.PinCategory="exec",PinType.PinSubCategory="",PinType.PinSubCategoryObject=None,PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,LinkedTo=(K2Node_CallFunction_9 DE9FB716426D0575C24DBD90B0B7F9B0,),PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
-			   CustomProperties Pin (PinId=CF7045694A0AC748019DB7B16FD84A1F,PinName="self",PinFriendlyName=NSLOCTEXT("K2Node", "Target", "Target"),PinToolTip="Target\nHead Mounted Display Function Library Object Reference",PinType.PinCategory="object",PinType.PinSubCategory="",PinType.PinSubCategoryObject=Class'/Script/HeadMountedDisplay.HeadMountedDisplayFunctionLibrary',PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,DefaultObject="/Script/HeadMountedDisplay.Default__HeadMountedDisplayFunctionLibrary",PersistentGuid=00000000000000000000000000000000,bHidden=True,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
+			   CustomProperties Pin (PinId=CF7045694A0AC748019DB7B16FD84A1F,PinName="self",PinFriendlyName=NSLOCTEXT("K2Node", "Target", "Target"),PinToolTip="Target\n头戴显示器函数库对象引用",PinType.PinCategory="object",PinType.PinSubCategory="",PinType.PinSubCategoryObject=Class'/Script/HeadMountedDisplay.HeadMountedDisplayFunctionLibrary',PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,DefaultObject="/Script/HeadMountedDisplay.Default__HeadMountedDisplayFunctionLibrary",PersistentGuid=00000000000000000000000000000000,bHidden=True,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
 			   CustomProperties Pin (PinId=6E59CEE64B1A4E275A73499235912077,PinName="Origin",PinToolTip="Origin\nEHMDTrackingOrigin Enum",PinType.PinCategory="byte",PinType.PinSubCategory="",PinType.PinSubCategoryObject=Enum'/Script/HeadMountedDisplay.EHMDTrackingOrigin',PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,DefaultValue="Eye",PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
 			End Object
 			Begin Object Class=/Script/UnrealEd.EdGraphNode_Comment Name="EdGraphNode_Comment_1"
@@ -176,7 +180,7 @@ topic-image:HT_Rift_Camera_Setup_Topic_Image.png
 			   NodePosY=-81
 			   NodeWidth=544
 			   NodeHeight=240
-			   NodeComment="Tracking Orgin should be set to Eye Level"
+			   NodeComment=”追踪原点应设为视线平面"
 			   NodeGuid=9B24193F4ED6C3FBF64C68B01AAFA782
 			End Object
 			Begin Object Class=/Script/BlueprintGraph.K2Node_VariableGet Name="K2Node_VariableGet_0"
@@ -194,11 +198,11 @@ topic-image:HT_Rift_Camera_Setup_Topic_Image.png
 			   NodeGuid=4EF05AB24E0197A031C39A8A8B2B8B3A
 			   CustomProperties Pin (PinId=DE9FB716426D0575C24DBD90B0B7F9B0,PinName="execute",PinToolTip="\nExec",PinType.PinCategory="exec",PinType.PinSubCategory="",PinType.PinSubCategoryObject=None,PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,LinkedTo=(K2Node_CallFunction_0 DB86848D4CD2762032F965A34161FE78,),PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
 			   CustomProperties Pin (PinId=E5FB25D74A81ACC9C7E06593A4BC6E98,PinName="then",PinToolTip="\nExec",Direction="EGPD_Output",PinType.PinCategory="exec",PinType.PinSubCategory="",PinType.PinSubCategoryObject=None,PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
-			   CustomProperties Pin (PinId=560BA9474CC7FF8D01863CB899932E82,PinName="self",PinFriendlyName=NSLOCTEXT("K2Node", "Target", "Target"),PinToolTip="Target\nScene Component Object Reference",PinType.PinCategory="object",PinType.PinSubCategory="",PinType.PinSubCategoryObject=Class'/Script/Engine.SceneComponent',PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,LinkedTo=(K2Node_VariableGet_0 D3E17C4549E0A126BF8A2D97653C64D5,),PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
-			   CustomProperties Pin (PinId=4751BC714842E8CEC1B7A294186125C2,PinName="NewLocation",PinToolTip="New Location\nVector \n\nNew location of the component relative to its parent.",PinType.PinCategory="struct",PinType.PinSubCategory="",PinType.PinSubCategoryObject=ScriptStruct'/Script/CoreUObject.Vector',PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,DefaultValue="0, 0, 0",AutogeneratedDefaultValue="0, 0, 0",LinkedTo=(K2Node_VariableGet_47 78E971AE41B9BC4AA335A6BCC9E5AE69,),PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
-			   CustomProperties Pin (PinId=42E17DA8407F1D6AE61E5AB8CE56D509,PinName="bSweep",PinToolTip="Sweep\nBoolean\n\nWhether we sweep to the destination location, triggering overlaps along the way and stopping short of the target if blocked by something. Only the root component is swept and checked for blocking collision, child components move without sweeping. If collision is off, this has no effect.",PinType.PinCategory="bool",PinType.PinSubCategory="",PinType.PinSubCategoryObject=None,PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,DefaultValue="false",AutogeneratedDefaultValue="false",PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
-			   CustomProperties Pin (PinId=C758BE724ED2C35AF55937B09A2B53F4,PinName="SweepHitResult",PinToolTip="Sweep Hit Result\nHit Result Structure\n\nHit result from any impact if sweep is true.",Direction="EGPD_Output",PinType.PinCategory="struct",PinType.PinSubCategory="",PinType.PinSubCategoryObject=ScriptStruct'/Script/Engine.HitResult',PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
-			   CustomProperties Pin (PinId=C8D4DFF74546FCDE47077A8F575C2D36,PinName="bTeleport",PinToolTip="Teleport\nBoolean\n\nWhether we teleport the physics state (if physics collision is enabled for this object). If true, physics velocity for this object is unchanged (so ragdoll parts are not affected by change in location). If false, physics velocity is updated based on the change in position (affecting ragdoll parts). If CCD is on and not teleporting, this will affect objects along the entire sweep volume.",PinType.PinCategory="bool",PinType.PinSubCategory="",PinType.PinSubCategoryObject=None,PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,DefaultValue="false",AutogeneratedDefaultValue="false",PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
+			   CustomProperties Pin (PinId=560BA9474CC7FF8D01863CB899932E82,PinName="self",PinFriendlyName=NSLOCTEXT("K2Node", "Target", "Target"),PinToolTip=”目标\n场景组件对象引用",PinType.PinCategory="object",PinType.PinSubCategory="",PinType.PinSubCategoryObject=Class'/Script/Engine.SceneComponent',PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,LinkedTo=(K2Node_VariableGet_0 D3E17C4549E0A126BF8A2D97653C64D5,),PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
+			   CustomProperties Pin (PinId=4751BC714842E8CEC1B7A294186125C2,PinName="NewLocation",PinToolTip=”新位置\n矢量\n\n组件相对于其父项的新位置。",PinType.PinCategory="struct",PinType.PinSubCategory="",PinType.PinSubCategoryObject=ScriptStruct'/Script/CoreUObject.Vector',PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,DefaultValue="0, 0, 0",AutogeneratedDefaultValue="0, 0, 0",LinkedTo=(K2Node_VariableGet_47 78E971AE41B9BC4AA335A6BCC9E5AE69,),PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
+			   CustomProperties Pin (PinId=42E17DA8407F1D6AE61E5AB8CE56D509,PinName="bSweep",PinToolTip=”扫描\n布尔\n\n是否扫描到目标位置，沿途触发重叠，如发生碰撞则停止。只会对根组件扫描和检查阻挡碰撞，子组件移动时不带扫描。碰撞关闭后便无效果。",PinType.PinCategory="bool",PinType.PinSubCategory="",PinType.PinSubCategoryObject=None,PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,DefaultValue="false",AutogeneratedDefaultValue="false",PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
+			   CustomProperties Pin (PinId=C758BE724ED2C35AF55937B09A2B53F4,PinName="SweepHitResult",PinToolTip=”扫描命中结果\n命中结果结构\n\n扫描为true时来自任意影响的命中结果。",Direction="EGPD_Output",PinType.PinCategory="struct",PinType.PinSubCategory="",PinType.PinSubCategoryObject=ScriptStruct'/Script/Engine.HitResult',PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
+			   CustomProperties Pin (PinId=C8D4DFF74546FCDE47077A8F575C2D36,PinName="bTeleport",PinToolTip=”瞬移\n布尔\n\n是否瞬移物理状态（如已为此对象启用物理碰撞）。如为true，此对象的物理速度则不会发生改变（因此布偶部件不会受位置变化影响）。如为false，则基于位置变化更新物理速度（影响布偶部件）。如CCD开启且未瞬移，这将影响沿整个扫描体积的对象。",PinType.PinCategory="bool",PinType.PinSubCategory="",PinType.PinSubCategoryObject=None,PinType.PinSubCategoryMemberReference=(),PinType.PinValueType=(),PinType.ContainerType=None,PinType.bIsMap=False,PinType.bIsSet=False,PinType.bIsArray=False,PinType.bIsReference=False,PinType.bIsConst=False,PinType.bIsWeakPointer=False,DefaultValue="false",AutogeneratedDefaultValue="false",PersistentGuid=00000000000000000000000000000000,bHidden=False,bNotConnectable=False,bDefaultValueIsReadOnly=False,bDefaultValueIsIgnored=False,bAdvancedView=False,bOrphanedPin=False,)
 			End Object
 			Begin Object Class=/Script/BlueprintGraph.K2Node_VariableGet Name="K2Node_VariableGet_47"
 			   VariableReference=(MemberName="RiftCameraHeight",MemberGuid=DB0F658D4BD2CC99041C3ABB8058E5EF,bSelfContext=True)
@@ -214,7 +218,7 @@ topic-image:HT_Rift_Camera_Setup_Topic_Image.png
 			   NodePosY=-80
 			   NodeWidth=592
 			   NodeHeight=448
-			   NodeComment="Offset the VRCameraRoot to move the Rift Camera"
+			   NodeComment=”偏移VRCameraRoot来移动Rift相机"
 			   NodeGuid=E3607E9749F360D6955336BC8E0E7F3A
 			End Object
 			Begin Object Class=/Script/UnrealEd.EdGraphNode_Comment Name="EdGraphNode_Comment_3"
@@ -222,7 +226,7 @@ topic-image:HT_Rift_Camera_Setup_Topic_Image.png
 			   NodePosY=192
 			   NodeWidth=512
 			   NodeHeight=160
-			   NodeComment="Set this to the standing height of the user."
+			   NodeComment=”将此项设为使用者的站立高度。"
 			   NodeGuid=FB8FE99D4F6E5E1DDE16B1BC685412F1
 			End Object
 			END OBJECT

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Linux/DirectoryWatcherLinux.h"
 #include "DirectoryWatcherPrivate.h"
@@ -67,7 +67,7 @@ bool FDirectoryWatcherLinux::RegisterDirectoryChangedCallback_Handle(const FStri
 		RequestMap.Add(Directory, Request);
 	}
 
-	OutHandle = Request->AddDelegate(InDelegate);
+	OutHandle = Request->AddDelegate(InDelegate, Flags);
 
 	return true;
 }

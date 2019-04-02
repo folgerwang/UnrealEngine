@@ -1,106 +1,221 @@
-﻿INTSourceChangelist:3122737
-Availability:Public
-Title:Actor 合并
-Crumbs: %ROOT%, Engine, Engine/Actors, Engine/Actors/Merging
-Description:如何使用 Actor 合并工具来在 UE4 中将多个静态网格体合并在一起。
-Related:Engine/Actors/StaticMeshActor
-Version:4.12
+﻿INTSourceChangelist:3810467
+Availability: Public
+Crumbs: %ROOT%
+Title: Actor合并
+Description: Actor合并工具的总览。此工具可在UE4中将多个静态网格体组合为单个网格体。
+Type: Overview
+SkillLevel:beginner
+Version:4.17
+Parent:Engine/Actors
+Order:6
+Tags:Static Mesh
+Tags:HLOD
 
 
+[TOC(start:2 end:3)]
 
-[TOC(start:2 end:2)]
-
-Merge Actors 工具可将多个静态网格体合并为一个新的 Actor。多个材质也可通过使用新 UV 排列的一系列自定义纹理被烘焙为一个单一材质，而原来使用的静态网格体甚至可以被新合并的资源完全替代。
-
+用户可以使用 **合并Actor** 工具将多个静态网格体组合为一个新的单一Actor。也可将材质烘焙到一个含一系列自定义纹理的单一材质中（其使用一个全新的UV布局）。 
+甚至原始的静态网格体都能被新合并的资源所完全替代。
+[COMMENT:none]
+-
 [REGION:warning]
-4.12 以及之后的新版本正式包含合并 Actor 功能。在 4.8 到 4.11 版本中，它必须在 Experimental 标签下的 Editor Settings 中启用。在低于 4.12 的引擎版本中，该功能应被视为实验性功能，而非正式功能。
+4.12及之后的版本将正式支持合并Actor功能。在4.8到4.11之间，其必须从“实验性”选项卡下方的编辑器设置中进行启用。如果您使用的引擎版本早于4.12，此功能则仍为实验性功能，并非正式功能。
+[/REGION]
+-
+[/COMMENT]
+[REGION:raw]
+![](MergingActors.png)(w:950)
 [/REGION]
 
-![](MergeActorsWindow.png)
 
-## Actor 合并工作流
-
-[COMMENT:none]
-
-[OBJECT:EmbeddedVideo]
-[PARAMLITERAL:videoid]
-_fTSGN8HGu8
-[/PARAMLITERAL]
-[PARAMLITERAL:width]
-930
-[/PARAMLITERAL]
-[PARAMLITERAL:height]
-568
-[/PARAMLITERAL]
-[/OBJECT]
-
-[/COMMENT]
+(#actormergingworkflow)
+## Actor合并工作流
 
 在场景中合并静态网格体的处理过程如下：
 
+1. 从主菜单栏中选择 **窗口（Window） > 开发者工具（Developer Tools） > 合并Actor（Merge Actors）**。
+	
+	[REGION:raw]
+	![](MergeMenu.png)(w:350)
+	[/REGION]
 1. 在场景中选择数个要合并的静态网格体。 
+	
+	![](SelectedMeshes.png)(w:500)
 
-2. 从主菜单栏中选择 **Window > Developer Tools > Merge Actors**。
+1. 选择适当的选项，用于合并选中的Actor。
 
-3. 选择相应选项（后文将说明）。
+	![](ChooseSettings.png)(w:500)
 
-4. 点击“Merge Actors”按钮。
+	[REGION:note]使用下方的[参考表](#mergeactorstooloptions)来了解此窗口中的每个设置及其执行的操作。[/REGION]
+	
+1. 点击 **合并Actor** 按钮并为新合并的Actor命名，然后点击 **保存**。
+	
+	[REGION:raw]
+	![](MergingActors.png)(w:950)
+	[/REGION]
 
-[REGION:tip]如果选择的静态网格体少于 **两个**，系统将警告要合并的网格体不足。[/REGION]
+	然后即可从 **内容浏览器** 中将合并的Actor作为其自身的资源打开。
+	
 
-## Merge Actors 工具选项
+(#mergeactorstooloptions)
+## 合并Actor工具选项
 
-Merge Actors 窗口顶端列出了视口中选中的所有静态网格体。您可以在此选择最终合并包含哪些网格体。 
+合并Actor窗口的顶部是视口中选中的所有静态网格体的一个列表。可在此处检查最终合并将包含哪些网格体。 
 
+[REGION:note]
 如果您未选择或只选择了一个网格体，窗口底部附近会出现黄色的警告，告知您选择合并的网格体组件不足。
+[/REGION]
 
+(#meshcomponentslist)
+### 网格体组件列表
 
+在 **网格体组件列表** 中，您将找到选中进行合并的Actor。 
+
+![](MeshComponentList.png)(w:500)
+
+[REGION:raw]
 | 选项 | 描述 |
 |--------|-------------|
-|[REGION:tablesection]Mesh Components List[/REGION]|该区域中有一个选择清单，您可以从中选择合并时包含的网格体。|
-|[REGION:tablesection]Mesh Settings[/REGION]||
-|**Pivot Point at Zero**|如设为 true，最终合并的 actor 的枢轴点将为场景的原点 <0,0,0>。如设为 false，旋转点将创建在为合并选择的第一个静态网格体 Actor 的枢轴点处。
-|**Merge Physics Data**|如设为 true，这会将所有物理基元整合到一个单一物理对象中。|
-|**Bake Vertex Data**|将顶点数据（包括顶点颜色和法线）烘焙到新获得的网格体中。|
-|**LOD Selection Type**| 用此选项控制将哪些 LOD 添加到合并得到的对象中。|
-|[REGION:tablesection]Advanced Options[/REGION]|可通过展开选项列表中的白色小三角图标来显示这些选项|
-|**Generate Lightmap UVs**|使用现有的 UV 岛状区为合并的网格体新建光照图 UV 布局。这一新布局将被置入 Target Light Map UVChannel 中。|
-|**Target Light Map UVChannel**|指定将新光照图 UV 存入的 UV 通道。|
-|**Target Light Map Resolution**|指定新光照图 UV 的分辨率，从而控制布局中各个岛状区之间的距离的计算。分辨率越高，岛状区之间的距离越短。|
-|[REGION:tablesection]Material Settings[/REGION]||
-|**Merge Materials**|选中后，所有合并的资源将整合到一个带有新 UV 布局的材质中。以下子设置仅在 Merge Materials 选中时适用。|
-| |[INCLUDE:#materialsettings]|
-|[REGION:tablesection]Landscape Culling[/REGION]||
-|**Use Landscape Culling**|选中后，现有的地形几何体将被用于剔除完全遮挡的三角形。例如，有一个树木网格体最底端的三角形位于地形表面之下，则合并时这些被遮挡的三角形将被移除。|
-|[REGION:tablesection]Standard Options[/REGION]||
-|**Replace Source Actors**|选中后，在视口中选中的 Actor 会被移除，并以新合并的版本替代。这不会影响内容浏览器中的原对象。| 
+| **网格体组件列表** |该区域中有一个选择清单，可以从中选择合并时要包含的网格体。|
+[/REGION]
+
+(#meshsettings)
+### 网格体设置
+
+在 **网格体设置** 部分中可找到属于将要合并的网格体的网格体属性。
+
+![](MeshSettings.png)(w:500)
+
+[REGION:raw]
+| 选项 | 描述 |
+|--------|----------|
+|**枢轴点位于零处**|如设为true，最终合并的Actor的枢轴点将被设为场景的原点[0,0,0]。如设为false，枢轴将被置于选择用于合并的首个静态网格体Actor的枢轴位置处。
+|**合并物理数据**|如设为true，这会将所有物理基元合并到一个单一物理对象中。|
+|**烘焙顶点数据**|将顶点数据（包括顶点颜色和法线）烘焙到新获得的网格体中。|
+|**LOD选项类型**| 用此选项控制将哪些LOD添加到合并出的对象中。  [INCLUDE:#lodselectiontype]  |
+|[REGION:tablesection]高级选项[/REGION]||
+|**生成光照图UV**|使用现有的UV岛状区为合并的网格体新建光照图UV布局。这一新布局将被置入目标光照图UVChannel中。|
+|**目标光照图分辨率**|指定新光照图UV的分辨率，从而控制布局中各个岛状区之间的距离的计算。分辨率越高，岛状区之间的距离越短。|
+[/REGION]
+
+[COMMENT:none]
+- LOD Selection Type Excerpts ---
+
+[EXCERPT:lodselectiontype]
+[REGION:raw]
+| 选项 | 描述 |
+| --- | --- |
+| **使用所有LOD** | 选中后，合并Actor时此选项将使用所有可用的LOD。 |
+| **使用指定LOD等级** | 选中后，合并Actor时此选项只使用选中的LOD等级。 |
+| **计算正确的LOD等级** | 选中后，这将计算给定屏幕尺寸的正确LOD模型。 |
+[/REGION]
+[/EXCERPT:lodselectiontype]
+
+--- LOD Selection Type Excerpts -
+[/COMMENT]
+
+
+(#materialsettings)
+### 材质设置
+
+在 **材质设置** 部分中可找到属于将要合并的网格体的纹理和材质属性。  
+
+![](MaterialSettings.png)(w:500)
+
+[REGION:raw]
+| 选项 | 描述 |
+|--------| -------------|
+| **合并材质** | 勾选后，所有合并资源的材质将整合到一个带新UV布局的单一材质中。只有在勾选“合并材质”之后才会应用以下子设置。 |
+|**纹理尺寸**|这可用于控制最终合并材质的纹理的X和Y像素尺寸（分辨率）。|
+| **纹理尺寸调整类型** | 选择纹理尺寸计算方式时可用的选项。  [INCLUDE:#texturesizing]|
+| **法线贴图** | 选中后，将为合并出的Actor烘焙法线贴图。|
+| **金属贴图** | 选中后，将为合并出的Actor烘焙金属贴图。这会使“金属常量”属性失效。|
+| **金属常量** |仅在未选中“金属贴图”的情况下启用，这将为合并出的Actor材质的金属感属性设置一个常量值。|
+| **粗糙度贴图** | 选中后，将为合并出的Actor烘焙粗糙度贴图。这会使“粗糙度常量”属性失效。|
+| **粗糙度常量**|仅在未选中“粗糙度贴图”的情况下启用，这将为合并出的Actor材质的“粗糙度”属性设置一个常量值。| 
+| **反射贴图** | 选中后，将为合并出的Actor烘焙反射贴图。这会使“反射常量”属性失效。|
+| **反射常量** |仅在未选中“反射贴图”的情况下启用，这将为合并出的Actor材质的“反射”属性设置一个常量值。|
+| **自发光贴图** | 选中后，将为合并出的Actor烘焙自发光贴图。|
+| **不透明贴图** | 选中后，将为合并出的Actor烘焙不透明贴图。这会使“不透明常量”属性失效。必须使用 **半透明（Translucent）** 的 **混合模式** 在生成的实例中进行正确显示。|
+| **不透明常量** |仅在未选中“不透明贴图”的情况下启用，这将为合并出的Actor材质的“不透明”属性设置一个常量值。|
+| **不透明遮罩贴图** | 选中后，将为合并出的Actor烘焙不透明遮罩贴图。这会使“不透明遮罩常量”属性失效。必须使用 **被遮挡（Masked）** 的 **混合模式** 在生成的实例中进行正确显示。|
+| **不透明遮罩常量** |仅在未选中“不透明遮罩贴图”的情况下启用，这将为合并出的Actor材质的“不透明遮罩”属性设置一个常量值。|
+| **漫反射纹理尺寸** | 覆盖漫反射纹理尺寸。在 **纹理尺寸调整类型** 设为 **使用逐属性手动覆盖纹理尺寸** 时启用。 |
+| **法线纹理尺寸** | 覆盖法线纹理尺寸。在 **纹理尺寸调整类型** 设为 **使用逐属性手动覆盖纹理尺寸** 时启用。 |
+| **金属纹理尺寸** | 覆盖金属纹理尺寸。在 **纹理尺寸调整类型** 设为 **使用逐属性手动覆盖纹理尺寸** 时启用。 |
+| **粗糙度纹理尺寸** | 覆盖粗糙度纹理尺寸。在 **纹理尺寸调整类型** 设为 **使用逐属性手动覆盖纹理尺寸** 时启用。 |
+| **反射纹理尺寸** | 覆盖反射纹理尺寸。在 **纹理尺寸调整类型** 设为 **使用逐属性手动覆盖纹理尺寸** 时启用。 |
+| **自发光纹理尺寸** | 覆盖自发光纹理尺寸。在 **纹理尺寸调整类型** 设为 **使用逐属性手动覆盖纹理尺寸** 时启用。 |
+| **不透明纹理尺寸** | 覆盖不透明纹理尺寸。在 **纹理尺寸调整类型** 设为 **使用逐属性手动覆盖纹理尺寸** 时启用。 |
+| **不透明遮罩纹理尺寸** | 覆盖不透明遮罩纹理尺寸。在 **纹理尺寸调整类型** 设为 **使用逐属性手动覆盖纹理尺寸** 时启用。 |
+| **混合模式** | 此项将决定材质颜色与背景颜色的混合方式。[INCLUDE:#blendmode] |
+| **将顶点数据用于烘焙材质** | 是否使用顶点数据（如顶点颜色）烘焙生成的材质。材质被顶点颜色以某种方式控制时，此项将十分实用。|
+| **使用纹理装箱** | 此项将根据打包最终图谱纹理时纹理的重要性来计算诸多输出纹理的大小。 |
+[/REGION]
 
 
 [COMMENT:none]
+ Material Settings Excerpts ----
 
-[EXCERPT:MaterialSettings]
-[REGION:simpletable]
-|----|----|
-|**Texture Size**|这可用于控制最后合并材质的纹理的 X 和 Y 像素尺寸（分辨率）。|
-|**Texture Sizing Type**| 此属性的设置将在下方的表格中说明。|
-| **Normal Map**| 选中后，将为合并得出的 Actor 烘焙法线贴图。|
-| **Metallic Map**| 选中后，将为合并得出的 Actor 烘焙金属贴图。这会使 Metallic Constant 属性失效。|
-| **Metallic Constant**|仅在未选中 Metallic Map 的情况下启用，这将为合并得到的 Actor 材质的 Metallic 属性设置一个常量值。|
-| **Roughness Map**| 选中后，将为合并得到的 Actor 烘焙粗糙贴图。这会使 Roughness Constant 属性失效。|
-| **Roughness Constant**|仅在未选中 Roughness Map 的情况下启用，这将为合并得到的 Actor 材质的 Roughness 属性设置一个常量值。| 
-| **Specular Map**| 选中后，将为合并得到的 Actor 烘焙反射贴图。这会使 Specular Constant 属性失效。|
-| **Specular Constant**|仅在未选中 Specular Map 的情况下启用，这将为合并得到的 Actor 材质的 Specular 属性设置一个常量值。|
-| **Emissive Map**| 选中后，将为合并得到的 Actor 烘焙自发光贴图。|
-|**Use Vertex Data for Baking Material**|是否使用顶点数据（如顶点颜色）烘焙生成的材质。如果材质受到顶点颜色某种方式的控制，此项将十分实用。|
+
+[EXCERPT:texturesizing]
+[REGION:raw]
+| 类型 | 描述 |
+| --- | :--- |	
+| **使用所有材质属性的TextureSize** | 此项将使用纹理尺寸中输入的值来调整尺寸。
+| **基于TextureSize自动使用带偏差的纹理尺寸** | 这将使用{1:0.5:0.25}的比例创建{normal:diffuse:otherproperties}纹理偏差集。因此如果纹理尺寸设为512，它将输出一张512的法线贴图、256的漫反射贴图和128的（粗糙度、反射）贴图（漫反射锁定为32x32，粗糙度、反射等锁定为16x16）|
+| **使用逐属性手动覆盖纹理尺寸** | 启用逐纹理覆盖，使用这些数值替代纹理尺寸。 |
+| **使用Simplygon自动调整纹理尺寸** |此项使用Simplygon算法，根据抽取设置来调整纹理的大小。仅限在已使用Simplygon的前提下使用此项。|
 [/REGION]
-[/EXCERPT:MaterialSettings]
+[/EXCERPT:texturesizing]
 
+
+
+
+
+
+
+[EXCERPT:blendmode]
+[REGION:raw]
+| 选项 | 描述|
+| --- | --- |
+| **不透明** | 此混合模式将定义一个光无法通过或穿透的表面。|
+| **被遮挡** | 此混合模式以二进制（开启/关闭）的方式定义可视性，工作方式是将材质区域标记为是否可见。 |
+| **半透明** | 此混合模式使用一个不透明度值来定义材质的可视性。 |
+| **添加式** | 此混合模式获取材质的像素，并将其添加至背景的像素。 |
+| **调制** | 此混合模式将材质的值与背景的像素相乘。 |
+| **透明度合成（预计算透明度）** | 此混合模式用于已拥有预乘透明度的纹理。 |
+[/REGION]
+[/EXCERPT:blendmode]
+
+--- /End Material Setting Excerpts 
 [/COMMENT]
 
-|[REGION:tablesection]Texture Sizing Type Settings[/REGION]||
-|-----|-----|
-|**Use TextureSize for all material properties**|这会将 Texture Size 属性中设置的分辨率应用到所有烘焙的纹理中。|
-|**Use automatically biased texture sizes based on TextureSize**|这会对所有纹理产生 1:0.5:0.25 的偏移，使得 Normal 得到 Texture Size 中设置分辨率的 100%，Diffuse (Base Color) 得到 Texture Size 的 50%，而所有其他属性得到 Texture Size 的 25%|
-|**Use per property manually overriden texture sizes**|该项提供单独的数字输入域，以便显式提供每张烘焙贴图的分辨率|
-|**Use Simplygon's automatic texture sizing**|此项使用 Simplygon 算法，根据抽取设置来调整纹理的大小。仅限在已使用 Simplygon 的前提下使用此项。|
+
+(#landscapecullingsettings)
+### 地形剔除设置
+
+**地形剔除** 部分中介绍的属性将使用地形在合并时剔除网格体的部分。
+
+![](LandscapeCullingSettings.png)(w:500)
+
+[REGION:raw]
+| 选项 | 描述 |
+|--------|-------------|
+| **使用地形剔除** |选中后，现有的地形几何体将被用于剔除完全遮挡的三角形。举例而言，如有一个树木网格体最底端的三角形位于地形表面之下，则合并时这些被遮挡的三角形将被移除。|
+[/REGION]
+
+(#standardoptions)
+### 标准选项
+
+这部分将讲述其他部分中并非绝对匹配的属性，例如用合并的Actor替换视口中的Actor。
+
+![](StandardOptions.png)(w:500)
+
+[REGION:raw]
+| 选项 | 描述 |
+|--------|-------------|
+| **替换源Actor** |选中后，在视口中选中的Actor会被移除，并替换为新合并的版本。这不会影响内容浏览器中的原对象。| 
+[/REGION]
+
 

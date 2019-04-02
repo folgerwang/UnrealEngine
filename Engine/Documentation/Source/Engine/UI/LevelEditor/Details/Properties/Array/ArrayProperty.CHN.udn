@@ -1,15 +1,16 @@
-﻿INTSourceChangelist:1649879
+﻿INTSourceChangelist:3782314
+Availability:Public
 Title: 数组控件
 Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor, Engine/UI/LevelEditor/Details
 Description:其他属性类型的动态列表。
-Availability:Public
+Version:4.9
 
 `Array(数组)`是其他类型属性的动态列表，比如对象引用属性。数组的元素列表垂直显示每个独立的属性元素，每种类型的属性有其对应的标准控件 
 。
 
 ![Array control](array.png)
 
-通过点击顶部的 ![Add Item](button_array_new.png) 按钮可以添加元素项。
+通过点击 ![Add Item](button_array_new.png) 按钮可以添加元素项。
 
 ![Array with new element](array_new.png)
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "WmfMediaPrivate.h"
 
@@ -9,8 +9,10 @@
 
 #if WMFMEDIA_SUPPORTED_PLATFORM
 	#include "IMediaModule.h"
+	#include "Interfaces/IPluginManager.h"
 	#include "Modules/ModuleInterface.h"
 	#include "Templates/SharedPointer.h"
+	#include "ShaderCore.h"
 
 	#include "WmfMediaPlayer.h"
 	#include "WmfMediaUtils.h"
@@ -20,6 +22,8 @@
 	#pragma comment(lib, "mfplay")
 	#pragma comment(lib, "mfuuid")
 	#pragma comment(lib, "shlwapi")
+	#pragma comment(lib, "d3d11")
+
 #endif
 
 
@@ -83,6 +87,11 @@ public:
 	virtual void StartupModule() override
 	{
 #if WMFMEDIA_SUPPORTED_PLATFORM
+
+		// Maps virtual shader source directory /Plugin/WmfMedia to the plugin's actual Shaders directory.
+		FString PluginShaderDir = FPaths::Combine(IPluginManager::Get().FindPlugin(TEXT("WmfMedia"))->GetBaseDir(), TEXT("Shaders"));
+		AddShaderSourceDirectoryMapping(TEXT("/Plugin/WmfMedia"), PluginShaderDir);
+
 		// load required libraries
 		if (!LoadRequiredLibraries())
 		{

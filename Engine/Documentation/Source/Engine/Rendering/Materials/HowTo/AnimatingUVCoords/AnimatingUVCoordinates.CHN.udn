@@ -1,13 +1,14 @@
-﻿INTSourceChangelist:2691614
+﻿INTSourceChangelist:3242329
 Availability:Public
-Title:材质编辑器 - 如何产生 UV 坐标动画
+Title: UV 坐标动画
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/HowTo
-Description:有关产生 UV 坐标动画的操作指南
-Related:Engine/Rendering/Materials/ExpressionReference/Coordinates
-Related:Engine/Rendering/Materials/CustomizedUVs
-Related:Engine/Rendering/LightingAndShadows/LightFunctions
-Version:4.9
-SkillLevel:Intermediate
+Description:有关 UV 坐标动画的指南
+Related: Engine/Rendering/Materials/ExpressionReference/Coordinates
+Related: Engine/Rendering/Materials/CustomizedUVs
+Related: Engine/Rendering/LightingAndShadows/LightFunctions
+Version: 4.9
+SkillLevel: Intermediate
+tags:Materials
 
 
 [TOC(start:2 end:3)]
@@ -19,6 +20,7 @@ SkillLevel:Intermediate
 “平移”（Panner）材质表达式节点允许沿 U 或 V 方向或者同时沿这两个方向移动纹理的 UV 坐标。 
 
 
+(#WhatisAnimatingUVCoordinates)
 ## 什么是 UV 坐标动画
 
 UV 坐标动画或 UV 平移的含义是，水平 (U) 和/或垂直 (V) 移动纹理的 UV 坐标，以产生复杂动画的错觉。 
@@ -36,6 +38,7 @@ dNmE36WNQos
 [/PARAMLITERAL]
 [/OBJECT]
 
+(#PannerNodeBreakdown)
 ## “平移”（Panner）节点明细
 
 下图是“平移”（Panner）节点添加到材质图之后的外观。
@@ -56,6 +59,7 @@ dNmE36WNQos
 | **常量坐标（Const Coordinate）**| 仅在未连接坐标的情况下使用。|
 | **小数部分（Fractional Part）**| 仅输出平移计算结果的小数部分，以提高精度。输出将大于或等于 0 并且小于 1。|
 
+(#HowtoUseAnimatedUVCoordinatesinyourMaterial)
 ## 如何在材质中使用动画 UV 坐标 
 
 设置纹理以使用 UV 平移功能的步骤如下。 
@@ -124,6 +128,7 @@ dNmE36WNQos
 1. 现在，可以编译、保存和使用此材质。 
 
 
+(#Tip&Tricks)
 ## 提示与技巧
 
 将平移功能与其他材质表达式结合使用是一种很不错的方法，这样可以添加一些额外的控制来确定平移的工作方式。 
@@ -151,6 +156,7 @@ Onrimjeh5z4
 [/PARAMLITERAL]
 [/OBJECT]
 
+(#Conclusion)
 ## 结论 
 
 UV 坐标动画是一种可以为材质引入运动效果的出色方法。 

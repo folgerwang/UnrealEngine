@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -88,6 +88,9 @@ public:
 
 	/** Sets this content browser as the primary browser. The primary browser is the target for asset syncs and contributes to the global selection set. */
 	void SetIsPrimaryContentBrowser(bool NewIsPrimary);
+
+	/** Returns if this browser can be used as the primary browser. */
+	bool CanSetAsPrimaryContentBrowser() const;
 
 	/** Gets the tab manager for the tab containing this browser */
 	TSharedPtr<FTabManager> GetTabManager() const;
@@ -411,6 +414,9 @@ private:
 	/** Sets up an inline-name for the creation of a default-named folder the specified path */
 	void CreateNewFolder(FString FolderPath, FOnCreateNewFolder OnCreateNewFolder);
 
+	/** Handler for when "Open in new Content Browser" is selected */
+	void OpenNewContentBrowser();
+
 	/** Bind our UI commands */
 	void BindCommands();
 
@@ -472,6 +478,9 @@ private:
 
 	/** True if this browser is the primary content browser */
 	bool bIsPrimaryBrowser;
+
+	/** True if this content browser can be set to the primary browser. */
+	bool bCanSetAsPrimaryBrowser;
 
 	/** Unique name for this Content Browser. */
 	FName InstanceName;

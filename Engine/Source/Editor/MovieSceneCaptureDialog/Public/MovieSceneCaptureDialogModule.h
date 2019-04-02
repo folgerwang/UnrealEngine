@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -60,6 +60,8 @@ struct FCaptureState
 struct MOVIESCENECAPTUREDIALOG_API FMovieSceneCaptureBase : TSharedFromThis<FMovieSceneCaptureBase>
 {
 public:
+	DECLARE_MULTICAST_DELEGATE_OneParam(FCaptureStateStopped, bool);
+
 	virtual ~FMovieSceneCaptureBase() {}
 	virtual void OnCaptureStarted() {}
 	virtual void OnCaptureFinished(bool bSuccess);
@@ -70,6 +72,11 @@ public:
 	{
 		return FCaptureState();
 	}
+
+public:
+	/** Multicast Delegate for when capture is stopped. Returns true if the capture was completed successfully. */
+	FCaptureStateStopped CaptureStoppedDelegate;
+
 protected:
 	/** Pointer to the capture notification pop up. */
 	TSharedPtr<SNotificationItem> InProgressCaptureNotification;
@@ -123,6 +130,8 @@ private:
 	int32 BackedUpUseFixedPoolSize;
 	TArray<uint8> BackedUpPlaySettings;
 
+	bool CachedPathTracingMode = false;
+	struct FEngineShowFlags* CachedEngineShowFlags = nullptr;
 	TSubclassOf<AGameModeBase> CachedGameMode;
 };
 

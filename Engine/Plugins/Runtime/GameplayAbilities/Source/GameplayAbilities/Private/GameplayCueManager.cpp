@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GameplayCueManager.h"
 #include "Engine/ObjectLibrary.h"
@@ -69,7 +69,15 @@ void UGameplayCueManager::OnCreated()
 	FNetworkReplayDelegates::OnPreScrub.AddUObject(this, &UGameplayCueManager::OnPreReplayScrub);
 		
 #if WITH_EDITOR
-	FCoreDelegates::OnFEngineLoopInitComplete.AddUObject(this, &UGameplayCueManager::OnEngineInitComplete);
+	if (GIsRunning)
+	{
+		// Engine init already completed
+		OnEngineInitComplete();
+	}
+	else
+	{
+		FCoreDelegates::OnFEngineLoopInitComplete.AddUObject(this, &UGameplayCueManager::OnEngineInitComplete);
+	}
 #endif
 }
 
@@ -430,6 +438,7 @@ AGameplayCueNotify_Actor* UGameplayCueManager::GetInstancedCueActor(AActor* Targ
 				ABILITY_LOG(Warning, TEXT("Spawning GameplaycueActor: %s"), *CueClass->GetName());
 			}
 
+			SpawnParams.OverrideLevel = World->PersistentLevel;
 			SpawnedCue = World->SpawnActor<AGameplayCueNotify_Actor>(CueClass, TargetActor->GetActorLocation(), TargetActor->GetActorRotation(), SpawnParams);
 		}
 
@@ -690,7 +699,7 @@ static void SearchDynamicClassCues(const FName PropertyName, const TArray<FStrin
 				AssetsToLoad.Add(StringRef);
 
 				// Make sure core knows about this ref so it can be properly detected during cook.
-				StringRef.PostLoadPath();
+				StringRef.PostLoadPath(nullptr);
 			}
 			else
 			{
@@ -873,7 +882,7 @@ void UGameplayCueManager::BuildCuesToAddToGlobalSet(const TArray<FAssetData>& As
 				OutAssetsToLoad.Add(StringRef);
 
 				// Make sure core knows about this ref so it can be properly detected during cook.
-				StringRef.PostLoadPath();
+				StringRef.PostLoadPath(GetLinker());
 			}
 			else
 			{
@@ -1009,7 +1018,7 @@ void UGameplayCueManager::HandleAssetAdded(UObject *Object)
 				}
 
 				// Make sure core knows about this ref so it can be properly detected during cook.
-				StringRef.PostLoadPath();
+				StringRef.PostLoadPath(Object->GetLinker());
 
 				for (UGameplayCueSet* Set : GetGlobalCueSets())
 				{

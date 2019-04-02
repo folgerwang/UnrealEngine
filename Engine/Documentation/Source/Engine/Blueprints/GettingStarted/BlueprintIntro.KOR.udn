@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:4372182
 Availability:Public
 Title: 블루프린트 소개
 Crumbs: %ROOT%, Engine, Engine/Blueprints
@@ -36,7 +36,7 @@ UE4 를 사용하다 보면, 블루프린트를 사용하여 정의된 오브젝
 
 이 둘 외에 다른 [블루프린트 유형](Engine/Blueprints/UserGuide/Types) 에는 [블루프린트 매크로](Engine/Blueprints/UserGuide/Types/MacroLibrary), [블루프린트 인터페이스](Engine/Blueprints/UserGuide/Types/Interface) 가 있습니다.
 
-## [레벨 블루프린트](Engine/Blueprints/UserGuide/Types/LevelBlueprint)
+## 레벨 블루프린트
 
 [REGION:lightbox]
 [![](Engine/Blueprints/GettingStarted/Level_Blueprint_Main.png)(w:640)](Engine/Blueprints/UserGuide/Types/LevelBlueprint) 
@@ -44,7 +44,7 @@ UE4 를 사용하다 보면, 블루프린트를 사용하여 정의된 오브젝
 
 레벨 블루프린트는 언리얼 엔진에서 키즈멧의 역할을 대체하는 것으로, 기능 역시 똑같습니다. 각 레벨마다 별도의 레벨 블루프린트가 있으며, 여기서 레벨에 있는 액터를 가리키고 조작하며, 마티네 액터를 사용해서 시네마틱을 제어하고, 레벨 스트리밍, 체크포인트, 기타 레벨 관련 시스템같은 것들을 관리합니다. 레벨 블루프린트는 레벨에 배치된 블루프린트 클래스와의 상호작용을 통해 들어있는 커스텀 이벤트를 발동시키거나 변수를 읽고 설정하는 등의 작업도 가능합니다 (예제는 다음 섹션을 참고해 주세요).
 
-## [Blueprint Class](Engine/Blueprints/UserGuide/Types/ClassBlueprint)
+## 블루프린트 클래스
 
 [REGION:lightbox]
 [![](Engine/Blueprints/GettingStarted/Blueprint_Main.png)(w:640)](Engine/Blueprints/UserGuide/Types/ClassBlueprint)

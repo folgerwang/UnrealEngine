@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AvfMediaUtils.h"
 
@@ -99,7 +99,11 @@ namespace AvfMedia
 
 		if (bForWrite)
 		{
+#if FILESHARING_ENABLED
+			static FString WritePathBase = FString([NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES) objectAtIndex:0]) + TEXT("/");
+#else
 			static FString WritePathBase = FString([NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0]) + TEXT("/");
+#endif
 			return WritePathBase + Result;
 		}
 		else

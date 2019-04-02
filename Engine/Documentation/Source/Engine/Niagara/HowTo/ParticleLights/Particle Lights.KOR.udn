@@ -1,16 +1,21 @@
-INTSourceChangelist:4301301
+INTSourceChangelist:4703316
 Availability: Public
 Crumbs: 
 Title: 파티클 라이트 생성
 Description: 파티클 시스템 안에서 라이트를 생성하는 방법을 설명합니다.
-Type:how-to
-Version: 4.20
-Parent:Engine/Niagara/HowTo 
-Order:5 
+Type:how-to 
+SkillLevel:Beginner
+Version: 4.21
+Parent: Engine/Niagara/HowTo
+Order: 4
 Tags: Niagara
-Tags:Early Access
-prereqs:Engine/Niagara/HowTo/EnableNiagara
-    
+Tags: Early Access
+
+전제조건 주제
+
+이 문서는 다음 주제에 대한 지식을 요합니다. 진행하기 전 확인하세요.
+
+*   [나이아가라 플러그인 활성화](Engine/Niagara/HowTo/EnableNiagara "나이아가라 플러그인을 활성화하는 법을 설명합니다.")
 
 파티클에 주변 월드를 밝힐 수 있는 능력을 주면 프로젝트의 비주얼 이펙트에 현실감을 한 층 높일 수 있습니다. 이번 하우투에서는 파티클과 라이트를 동시에 스폰하도록 나이아가라 이미터를 설정하는 방법을 살펴보겠습니다.
 
@@ -18,53 +23,54 @@ prereqs:Engine/Niagara/HowTo/EnableNiagara
 
 ## 단계
 
-1.  먼저 **콘텐츠 브라우저** 에 우클릭하면 표시되는 메뉴에서 **FX** > **Niagara Emitter** (나이아가라 이미터)를 클릭하여 생성해야 합니다.  
-    ![](SE_01.png)
-2.  새로 만든 나이아가라 이미터 이름은 **FX_Light** 로 설정한 뒤 더블클릭하여 엽니다.  
+1.  먼저 **콘텐츠 브라우저** 에 우클릭하면 표시되는 메뉴에서 **FX** > **Niagara Emitter** (나이아가라 이미터)를 클릭합니다. 나이아가라 이미터 마법사가 표시됩니다.  
+    ![](SE_01.png)(w:400)
+2.  **Create a new emitter from an emitter template** (이미터 템플릿에서 새 이미터 생성) 옆 동글 버튼을 클릭합니다. **Fountain** (분수) 템플릿을 선택합니다. 그런 다음 **OK** (확인)을 누르면 콘텐츠 브라우저에 이미터가 새로 생깁니다.  
+    ![](NiagaraEmitter_FountainTemplate.png)(w:400)
+3.  새로 만든 나이아가라 이미터 이름은 **FX_Light** 로 설정한 뒤 더블클릭하여 엽니다.  
     ![](PL_01.png)
-3.  나이아가라 에디터가 열렸으면 **Selected Emitter** (선택된 이미터) 패널에서 **Render** (렌더) 섹션을 찾습니다.  
+4.  나이아가라 에디터가 열렸으면 **Selected Emitter** (선택된 이미터) 패널에서 **Render** (렌더) 섹션을 찾습니다.  
     
-4.  **렌더** 섹션 옆 **더하기** 부호 (**+**) 아이콘을 클릭하여 표시되는 목록에서 **Niagara Light Renderer Properties** (나이아가라 라이트 렌더러 프로퍼티) 옵션을 선택합니다.  
+5.  **렌더** 섹션 옆 **더하기 부호** (**+**) 아이콘을 클릭하여 표시되는 목록에서 **Niagara Light Renderer Properties** (나이아가라 라이트 렌더러 프로퍼티) 옵션을 선택합니다.  
     ![](CreateParticleLight_Steps_Step4-AddLightRenderer.png)
-5.  렌더 모듈 하단에 새로 생긴 **NiagaraLightRendererProperties** 섹션을 찾습니다. 다음 프로퍼티를 다음 값으로 설정합니다.  
-    ![ParticleLights/CreateParticleLight_Steps_Step5-RadiusScaleColorAdd.png](CreateParticleLight_Steps_Step5-RadiusScaleColorAdd.png) 
-| 프로퍼티 이름 | 값 |
-| --- | --- |
-| **Radius Scale** | 1 |
-| **Color Add X** | 10 |
-    
-6.  **컴파일**, **적용**, **저장** 버튼을 눌러 작업 내용을 컴파일하고 저장합니다. 그런 다음 **FX_Light** 나이아가라 이미터를 닫습니다.  
+6.  렌더 모듈 하단에 새로 생긴 **NiagaraLightRendererProperties** 섹션을 찾습니다. 다음 프로퍼티를 다음 값으로 설정합니다.  
+    ![ParticleLights/CreateParticleLight_Steps_Step5-RadiusScaleColorAdd.png](CreateParticleLight_Steps_Step5-RadiusScaleColorAdd.png)
+
+    | **프로퍼티 이름** | **값** |
+    | --- | --- |
+    | **Radius Scale** | 1 |
+    | **Color Add X** | X: 10 Y:0 Z:0 |
+
+7.  **컴파일**, **적용**, **저장** 버튼을 눌러 작업 내용을 컴파일하고 저장합니다. 그런 다음 **FX_Light** 나이아가라 이미터를 닫습니다.  
     ![](ME_09.png)
-7.  이제 **콘텐츠 브라우저** 에 우클릭하고 **FX > 나이아가라 시스템** 을 선택합니다. 새 나이아가라 시스템 이름은 **ParticleLight** 라 합니다.  
-    ![](SE_16.png)
-8.  **ParticleLight** 나이아가라 시스템에 더블클릭하여 연 뒤 **FX_Light** 나이아가라 이미터를 끌어 ParticleLight 나이아가라 시스템의 **타임라인** 에 놓습니다.  
+8.  이제 **콘텐츠 브라우저** 에 우클릭하고 **FX > 나이아가라 시스템** 을 선택합니다. 나이아가라 시스템 마법사가 표시됩니다.  
+    ![](SE_16.png)(w:500)
+9.  **Create an empty system with no emitters** (이미터 없이 빈 시스템 생성) 옆 동글 버튼을 클릭합니다. 그런 다음 **OK** (확인)을 누르면 콘텐츠 브라우저에 나이아가라 시스템이 새로 생깁니다.  
+    ![](NiagaraSystem_EmptySystem.png)(w:400)
+10.  새 나이아가라 시스템 이름은 **ParticleLight** 라 합니다.  
+    ![](NiagaraSystem_ParticleLightIcon.png)(w:100)
+11.  **ParticleLight** 나이아가라 시스템에 더블클릭하여 연 뒤 **FX_Light** 나이아가라 이미터를 끌어 ParticleLight 나이아가라 시스템의 **타임라인** 에 놓습니다.  
     [REGION:lightbox]
     [![](PL_04.png)(w:317)](PL_04.png)
     [/REGION]
     [REGION:caption]
     *클릭하면 이미지 원본을 확인합니다.*
     [/REGION]
-9.  **컴파일**, **저장** 버튼을 눌러 작업 내용을 컴파일 및 저장한 뒤 Particle Light 나이아가라 시스템을 닫습니다. 콘텐츠 브라우저에서 **Mesh** 나이아가라 시스템을 끌어 레벨 뷰포트에 놓습니다.  
+12.  **컴파일**, **저장** 버튼을 눌러 작업 내용을 컴파일 및 저장한 뒤 Particle Light 나이아가라 시스템을 닫습니다. 콘텐츠 브라우저에서 **Mesh** 나이아가라 시스템을 끌어 레벨 뷰포트에 놓습니다.  
     ![](CreateParticleLight_Steps_Step9_AddToLevel.png)
 
 ## 최종 결과
 
-작업이 끝나면 파티클이 스폰될 때 월드에 빛을 발하는 VFX 가 완성되었을 것입니다. 아래 비디오에서 예제를 볼 수 있습니다.
+작업이 끝나면 파티클이 스폰될 때 월드에 빛을 발하는 비주얼 이펙트가 완성되었을 것입니다. 아래 비디오에서 예제를 볼 수 있습니다.
 
 [OBJECT:EmbeddedVideo]
-    [PARAMLITERAL:videoid]
-    cRcjPhPHmSM
-    [/PARAMLITERAL]
-    [PARAMLITERAL:width]
-    78
-    [/PARAMLITERAL]
-    [PARAMLITERAL:height]
-    56.25
-    [/PARAMLITERAL]
-    [PARAMLITERAL:units]
-    %
-    [/PARAMLITERAL]
-    [PARAMLITERAL:type]
-    simple
-    [/PARAMLITERAL]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ cRcjPhPHmSM
+ [/PARAMLITERAL]
 [/OBJECT]

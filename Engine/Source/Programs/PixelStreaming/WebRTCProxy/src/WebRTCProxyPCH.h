@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "targetver.h"
@@ -17,16 +17,13 @@
 
 //#include "crazygaze/spas/spas.h"
 
+#include "Windows/AllowWindowsPlatformAtomics.h"
+
 #if EG_PLATFORM == EG_PLATFORM_WINDOWS
 #pragma warning(push)
-//#pragma warning(disable : ALL_CODE_ANALYSIS_WARNINGS)
-#pragma warning(disable: 26439 ) //  warning C26439: This kind of function may not throw. Declare it 'noexcept' (f.6).
-#pragma warning(disable: 6255) // warning C6255: _alloca indicates failure by raising a stack overflow exception.  Consider using _malloca instead.
-#pragma warning(disable: 26451) // warning C26451: Arithmetic overflow: Using operator '*' on a 4 byte value and then casting the result to a 8 byte value. Cast the value to the wider type before calling operator '*' to avoid overflow (io.2).
-#pragma warning(disable: 26495) // warning C26495: Variable 'webrtc::StringRtpHeaderExtension::value_' is uninitialized. Always initialize a member variable (type.6).
-#pragma warning(disable: 26434) // warning C26434: Function 'cricket::VideoCodec::operator!=' hides a non-virtual function 'cricket::Codec::operator!=' (c.128).
-#pragma warning(disable: 26444) // warning C26444: Avoid unnamed objects with custom construction and destruction (es.84).
-#pragma warning(disable: 4244) // warning C4244: 'argument': conversion from 'const int' to 'float', possible loss of data
+#pragma warning(disable: 4582) // error C4582: 'webrtc::RTCError::string_message_': constructor is not implicitly called
+#pragma warning(disable: 4583) // error C4583 : 'rtc::Optional<std::string>::value_' : destructor is not implicitly called
+#pragma warning(disable : 4265) // warning C4265: 'webrtc::VideoCaptureExternal': class has virtual functions, but destructor is not virtual
 #endif
 //
 // WebRTC headers
@@ -40,7 +37,7 @@
 #include "api/test/fakeconstraints.h"
 #include "api/video_codecs/video_decoder_factory.h"
 #include "api/video_codecs/video_encoder_factory.h"
-#include "api\video_codecs\video_encoder.h"
+#include "api/video_codecs/video_encoder.h"
 #include "api/video_codecs/sdp_video_format.h"
 #include "api/video/video_frame.h"
 #include "api/video/video_frame_buffer.h"
@@ -92,3 +89,5 @@
 #if EG_PLATFORM == EG_PLATFORM_WINDOWS
 #pragma warning(pop)
 #endif
+
+#include "Windows/HideWindowsPlatformAtomics.h"

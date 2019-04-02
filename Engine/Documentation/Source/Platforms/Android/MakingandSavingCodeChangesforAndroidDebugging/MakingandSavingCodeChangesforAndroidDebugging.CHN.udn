@@ -1,0 +1,26 @@
+INTSourceChangelist:4681606
+Availability: Public
+Crumbs: 
+Title:为Android调试执行和保存代码更改
+Description:下文介绍了在Android Studio和Visual Studio中更改Android代码的方法。
+Type: 
+Version: 
+Parent: Platforms/Android
+Order: 
+Tags: Android
+Tags: Reference
+
+
+在调试Android项目时，可以使用Android Studio，也可以使用Visual Studio。在下文中，我们将介绍如何进行此项操作，以及可能需要注意的工作流调整。
+
+(#androidstudio)
+## Android Studio
+
+Android Studio可以用于编辑和调试Android项目的CPP文件，但在Android Studio中无法重新编译项目。
+
+(#visualstudio)
+## Visual Studio
+
+Visual Studio可以用于更改项目CPP文件的所有代码。使用Visual Studio的优势在于，Visual Studio允许使用虚幻构建工具来重新编译项目APK。
+
+请注意，必须删除app.iml文件，才能使UBT调用Gradle来编译生成APK，或者也可以清除Intermediate/Android/APK。此操作还会阻止编辑器中的启动正常工作，因此如果你决定这样做，需要确保已经在设备上保存要调试的内容。

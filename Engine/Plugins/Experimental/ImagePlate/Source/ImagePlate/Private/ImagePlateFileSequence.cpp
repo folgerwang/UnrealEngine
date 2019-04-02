@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ImagePlateFileSequence.h"
 #include "IImageWrapper.h"
@@ -16,6 +16,8 @@
 #include "Misc/PackageName.h"
 #include "Engine/Texture2DDynamic.h"
 #include "Engine/TextureRenderTarget2D.h"
+#include "Textures/SlateTextureData.h"
+
 
 DEFINE_LOG_CATEGORY_STATIC(LogImagePlateFileSequence, Log, Warning);
 
@@ -168,6 +170,7 @@ bool FImagePlateSourceFrame::EnsureTextureMetrics(UTexture* DestinationTexture) 
 	return true;
 }
 
+
 TFuture<void> FImagePlateSourceFrame::CopyTo(UTexture* DestinationTexture)
 {
 	// Copy the data to the texture via a render command
@@ -189,9 +192,8 @@ TFuture<void> FImagePlateSourceFrame::CopyTo(UTexture* DestinationTexture)
 	CommandData->SourceFrame = *this;
 	CommandData->DestinationTexture = DestinationTexture;
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		CopySourceBufferToTexture,
-		FCommandDataPtr, CommandData, CommandData,
+	ENQUEUE_RENDER_COMMAND(CopySourceBufferToTexture)(
+		[CommandData](FRHICommandListImmediate& RHICmdList)
 		{
 			if (!CommandData->DestinationTexture->Resource || !CommandData->DestinationTexture->Resource->TextureRHI)
 			{
@@ -241,6 +243,28 @@ TFuture<void> FImagePlateSourceFrame::CopyTo(UTexture* DestinationTexture)
 	);
 
 	return CompletionFuture;
+}
+
+TSharedRef<FSlateTextureData, ESPMode::ThreadSafe> FImagePlateSourceFrame::AsSlateTexture() const
+{
+	uint32 BytesPerPixel = (BitDepth * 4) / 8;
+	TSharedRef<FSlateTextureData, ESPMode::ThreadSafe> TextureData = MakeShared<FSlateTextureData, ESPMode::ThreadSafe>(nullptr, Width, Height, BytesPerPixel);
+
+	const uint8* SourceBuffer = Buffer.Get();
+	uint8* DestinationBuffer = TextureData->GetRawBytesPtr();
+	if (Pitch == Width * BytesPerPixel)
+	{
+		FMemory::Memcpy(DestinationBuffer, SourceBuffer, Width*Height*BytesPerPixel);
+	}
+	else for (uint32 Row = 0; Row < Height; ++Row)
+	{
+		FMemory::Memcpy(DestinationBuffer, SourceBuffer, FMath::Min(Width*BytesPerPixel, Pitch));
+
+		DestinationBuffer += Pitch;
+		SourceBuffer += (Width*BytesPerPixel);
+	}
+
+	return TextureData;
 }
 
 namespace ImagePlateFrameCache

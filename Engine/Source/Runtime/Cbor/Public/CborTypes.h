@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -152,6 +152,12 @@ struct FCborContext
 	ECborCode AdditionalValue() const
 	{
 		return Header.AdditionalValue();
+	}
+
+	/** @return true if this is a dummy context. */
+	bool IsDummy()
+	{
+		return Header.RawCode() == ECborCode::Dummy;
 	}
 
 	/** @return true if this context represents an error code. */

@@ -1,0 +1,58 @@
+﻿INTSourceChangelist:4320499
+Availability: Public
+Crumbs: %ROOT%, Platforms, Platforms/MR
+Title: Mixed Reality Capture のトラブルシューティング
+Description: Mixed Reality Capture (MRC) に対するトラブルシューティング情報
+Version: 4.20
+Parent: Platforms/MR
+Order: 5
+Tags: Reference
+Tags: MR
+Tags: landingpage
+Tags: Early Access
+topic-image:MR_CaptureFlicker.png
+reference-image:MR_CaptureFlicker.gif
+
+
+このページでは Mixed Reality Capture (MRC) に対するトラブルシューティング情報を示します。
+
+## キャプチャ中にちらつきが出る
+
+MR キャプチャ ターゲット解像度 (デフォルトは 1080p) によっては、使用するアプリケーションはレンダー ターゲットプール サイズによる制限を受けることがあります。デフォルトでは、レンダー ターゲットは必要に応じて再割り当てするように設定されます。これは MR キャプチャ ターゲットがステレオ レンダー ターゲットと競合するため、ピンポン効果およびちらつきにつながる可能性があります。(以下のビデオに示します)
+
+この種の挙動が確認される場合、レンダー ターゲットのサイズ変更ルールを「Grow」に変更します (「engine.ini」ファイルで  *r.SceneRenderTargetResizeMethod=2* を設定)。この変更により問題は解決するはずです。
+
+[REGION:asyncgif]
+![](MR_CaptureFlicker.gif)(w:640)
+[/REGION]
+  
+
+## キャプチャが Spectator Screen に表示されない
+
+MRC フレームワークは [Virtual Reality Spectator Screen](Platforms/VR/VRSpectatorScreen) を使用し、合成されたシーンを表示します。つまり Mixed Reality キャプチャが表示されるのは、Virtual Reality で動作しているときだけです。プロジェクトで Spectator Screen も使用する場合、条件付きで使用する場所を保護する必要があります。次の MRC メソッドが役立ちます。
+
+**Get Mixed Reality Capture Texture**
+キャプチャ テクスチャを返します。存在しない場合は nullptr を返します。
+
+![](MR_BP_GetMixedRealityCaptureTexture.png "MR_BP_GetMixedRealityCaptureTexture.png")
+
+**Is Mixed Reality Capture Broadcasting**
+true を返します (システムがキャプチャ テクスチャを Spectator Screen に送信している場合)。
+
+![](MR_BP_IsMixedRealityCaptureBroadcasting.png "MR_BP_IsMixedRealityCaptureBroadcasting.png")
+
+**Set Mixed Reality Capture Broadcasting**
+キャプチャ システムがキャプチャ テクスチャを Spectator Screen に送信するかどうかを切り替えます。
+
+![](MR_BP_SetMixedRealityCaptureBroadcasting.png "MR_BP_SetMixedRealityCaptureBroadcasting.png")
+
+**MRC メソッドの使用例**
+![](MR_MCR_SpecialConsiderations.png "MR_MCR_SpecialConsiderations.png")
+
+## コントローラー/トリガーがキャリブレーション中に応答しない
+
+使用するコントローラーの入力がキャリブレーション中に応答しないように見える場合は、以下に示す複数の原因の可能性があります。
+
+* **ヘッドセット センサーがカバーされていない。** ヘッドセット センサーがカバーされていない場合、コントローラーはアクティブにならないことがあります。
+* **アプリケーション ウィンドウにフォーカスが必要。** MRCalibration ウィンドウが現在のアクティブ ウィンドウではない場合、コントローラー アクションはキャリブレーション プログラムでキャプチャされないことがあります。 
+* **Oculus システムは不明のソースから実行するように設定できない。** アーリー アクセス段階であるため、キャリブレーション プログラムはまだ鋭意開発中であり、Oculus によるレビューが完了していません。  ![](MR_OculusUnknownSourcesSetting.png "MR_OculusUnknownSourcesSetting.png")

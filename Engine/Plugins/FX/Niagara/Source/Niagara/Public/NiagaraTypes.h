@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,6 +8,7 @@
 #include "Templates/SharedPointer.h"
 #include "NiagaraTypes.generated.h"
 
+class UNiagaraDataInterfaceBase;
 DECLARE_LOG_CATEGORY_EXTERN(LogNiagara, Log, Verbose);
 
 // basic type struct definitions
@@ -618,6 +619,8 @@ public:
 		return RegisteredNumericTypes;
 	}
 
+	static UNiagaraDataInterfaceBase* GetDefaultDataInterfaceByName(const FString& DIClassName);
+
 	static void ClearUserDefinedRegistry()
 	{
 		for (const FNiagaraTypeDefinition& Def : RegisteredUserDefinedTypes)
@@ -888,4 +891,22 @@ private:
 FORCEINLINE uint32 GetTypeHash(const FNiagaraVariable& Var)
 {
 	return HashCombine(GetTypeHash(Var.GetType()), GetTypeHash(Var.GetName()));
+}
+
+template<>
+inline bool FNiagaraVariable::GetValue<bool>() const
+{
+	check(TypeDef == FNiagaraTypeDefinition::GetBoolDef());
+	check(IsDataAllocated());
+	FNiagaraBool* BoolStruct = (FNiagaraBool*)GetData();
+	return BoolStruct->GetValue();
+}
+
+template<>
+inline void FNiagaraVariable::SetValue<bool>(const bool& Data)
+{
+	check(TypeDef == FNiagaraTypeDefinition::GetBoolDef());
+	AllocateData();
+	FNiagaraBool* BoolStruct = (FNiagaraBool*)GetData();
+	BoolStruct->SetValue(Data);
 }

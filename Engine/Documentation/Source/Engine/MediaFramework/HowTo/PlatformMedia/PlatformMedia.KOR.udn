@@ -19,7 +19,7 @@ Related: Engine\MediaFramework
 **플랫폼 미디어 소스** 애셋으로, 플랫폼에 따라 어느 미디어 애셋을 재생할지 결정할 수 있습니다.
 플랫폼 미디어 소스를 열/재생할 때, 현재 어느 플랫폼에 있는지 살펴보고 할당된 미디어 소스를 자동 재생합니다.
 
-여기서는 플랫폼 미디어 소스를 생성하고 안드로이드와 윈도우 플랫폼용 두 가지 다른 미디어 소스를 할당해 보겠습니다.
+여기서는 플랫폼 미디어 소스를 생성하고 Android와 Windows 플랫폼용 두 가지 다른 미디어 소스를 할당해 보겠습니다.
 
 ![](PlatformHero.png)
 
@@ -46,7 +46,7 @@ Related: Engine\MediaFramework
 
 	![](Platform_03.png)
 
-	여기서는 **플랫폼 미디어 소스** 애셋이 가리킬 수 있는 미디어 소스 애셋을 만들어, 안드로이드 디바이스에서 실행중인 경우 사용하도록 합니다.
+	여기서는 **플랫폼 미디어 소스** 애셋이 가리킬 수 있는 미디어 소스 애셋을 만들어, Android 디바이스에서 실행중인 경우 사용하도록 합니다.
 
 1.	**파일 미디어 소스** 애셋을 하나 더 만들고 **Windows_Movie** 라 합니다. 
 
@@ -56,7 +56,7 @@ Related: Engine\MediaFramework
 
 	![](Platform_05.png)
 
-	안드로이드 무비의 경우, 안드로이드 디바이스에 보다 적합한 .3GP 비디오 파일을 사용하는 반면, 윈도우용 무비는 .MP4 파일입니다.
+	Android 무비의 경우, Android 디바이스에 보다 적합한 .3GP 비디오 파일을 사용하는 반면, Windows용 무비는 .MP4 파일입니다.
 
 1.	**Windows_Movie** 미디어 소스를 연 뒤, **File Path** (파일 경로)에 **Infiltrator Demo** (또는 자신의 비디오)를 사용하고 **열기** 를 선택합니다.
 
@@ -66,12 +66,12 @@ Related: Engine\MediaFramework
 
 	다수의 미디어 소스 애셋이 생겼으니, 어느 플랫폼에서 어느 미디어 소스를 재생할지 **플랫폼 미디어 소스** 애셋으로 정의할 수 있습니다.
 
-1.	**Platform_Source** 를 연 뒤 **Android** (안드로이드) 아래 **Android_Movie** 를 선택하고 **Windows** (윈도우) 아래 **Windows_Movie** 를 선택합니다. 
+1.	**Platform_Source** 를 연 뒤 **Android** 아래 **Android_Movie** 를 선택하고 **Windows** 아래 **Windows_Movie** 를 선택합니다. 
 
 	![](Platform_07.png)
 
 	우리 예제에서는 두 가지 다른 비디오를 사용하고 있습니다. 하지만 디바이스마다 다른 포맷 또는 인코딩이 다른 동일한 비디오를 사용할 수 있습니다.
-	다른 미디어 소스 유형을 사용할 수도 있는데, 예를 들어, 윈도우에서는 디스크의 파일을 사용하는 대신 [미디어 스트림](Engine\MediaFramework\HowTo\StreamMediaSource\) 을 사용하여 웹사이트에서 콘텐츠를 끌어올 수 있습니다.
+	다른 미디어 소스 유형을 사용할 수도 있는데, 예를 들어, Windows에서는 디스크의 파일을 사용하는 대신 [미디어 스트림](Engine\MediaFramework\HowTo\StreamMediaSource\) 을 사용하여 웹사이트에서 콘텐츠를 끌어올 수 있습니다.
 
 1.	**Content/Movies** 폴더에 우클릭한 뒤 **미디어** 아래 **미디어 플레이어** 를 선택합니다. 
 
@@ -90,7 +90,7 @@ Related: Engine\MediaFramework
 
 	![](Platform_10.png)
 
-	**Platform_Source** 애셋에 더블클릭하면 (윈도우 플랫폼에서 실행중이므로) **Windows** 에 할당된 플랫폼 미디어 소스만 재생됩니다.
+	**Platform_Source** 애셋에 더블클릭하면 (Windows 플랫폼에서 실행중이므로) **Windows** 에 할당된 플랫폼 미디어 소스만 재생됩니다.
 	블루프린트 또는 C++ 를 통해, **Android_Movie** 미디어 소스 파일을 재생용으로 열 수 있었지만, Platform_Source 를 열 때 오직 Windows 에 할당된 미디어 소스만 재생됩니다.
 	또한, **Play on Open** (열리면 재생) 옵션이 기본으로 켜져있어 미디어 소스를 열 때마다 미디어 플레이어가 재생을 시작하도록 해줍니다.
 
@@ -149,7 +149,7 @@ Related: Engine\MediaFramework
 	[/PARAMLITERAL]
 [/OBJECT]
 
-이 프로젝트를 안드로이드 디바이스에 디플로이한다면, Android 에 할당된 미디어 소스 애셋이 재생될 것입니다.
+이 프로젝트를 Android 디바이스에 디플로이한다면, Android 에 할당된 미디어 소스 애셋이 재생될 것입니다.
 
 
 

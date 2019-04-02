@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title: 1.处理 Actor 转换
 Crumbs:%ROOT%, Gameplay, GettingStarted\HowTo, GettingStarted\HowTo\DetailsPanel
@@ -33,6 +33,7 @@ checkpoint: editorqs
 [/REGION]
 
 
+(#Steps)
 ## 步骤
 
 1. 	打开项目后，在 **内容浏览器** 内部，打开 **Content/StarterContent/Shapes** 文件夹。
@@ -43,10 +44,37 @@ checkpoint: editorqs
 
 1. 	放置好 Actor 后，编辑器右下角的 **细节（Details）**面板中将会填写一些内容。 
 
+	[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
 	[REGION:lightbox]
-	[![](Details2.png)](Details2.png)
-	_单击查看大图。_
+	[![](DetailsPanel_Windows.png)](DetailsPanel_Windows.png)
 	[/REGION]
+	[/PARAM]
+	[/OBJECT]
+
+	[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	[![](DetailsPanel_Mac.png)](DetailsPanel_Mac.png)
+	[/REGION]
+	[/PARAM]
+	[/OBJECT]
 
 1. 	在 **细节（Details）**面板的 **转换（Transform）**下，单击 **比例（Scale）**的锁图标并将 **XYZ** 值设置为 **3.0**。 
 
@@ -65,6 +93,7 @@ checkpoint: editorqs
 	这会将 Actor 移至楼梯略上方的空中，并使其可在游戏期间发生变化。 
 
 
+(#EndResult)
 ## 最终结果
 
 我们已直接通过“细节”（Details）面板设置 Actor 的位置、比例和可移动性，但您还可以在视口中使用 [](GettingStarted/HowTo/ManipulatingActors) 来操纵 Actor。当您需要让物体精确对齐，或需要使用准确的数值时，最好使用“细节”（Details）面板属性。 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "DisplayNodes/SequencerObjectBindingNode.h"
 #include "Modules/ModuleManager.h"
@@ -36,12 +36,15 @@
 #include "MovieSceneSequence.h"
 #include "MovieScene.h"
 #include "MovieSceneFolder.h"
+#include "ISequencerTrackEditor.h"
 
 #include "Tracks/MovieSceneSpawnTrack.h"
 #include "Sections/MovieSceneSpawnSection.h"
 #include "LevelUtils.h"
 #include "Engine/LevelStreaming.h"
 #include "Engine/World.h"
+#include "Editor.h"
+#include "Engine/Selection.h"
 
 #define LOCTEXT_NAMESPACE "FObjectBindingNode"
 
@@ -192,9 +195,9 @@ void FSequencerObjectBindingNode::BuildContextMenu(FMenuBuilder& MenuBuilder)
 				FFormatNamedArguments Args;
 
 				MenuBuilder.AddSubMenu(
-					FText::Format( LOCTEXT("Assign Actor ", "Assign Actor"), Args),
-					FText::Format( LOCTEXT("AssignActorTooltip", "Assign an actor to this track"), Args ),
-					FNewMenuDelegate::CreateRaw(&GetSequencer(), &FSequencer::AssignActor, ObjectBinding));
+					FText::Format(LOCTEXT("Assign Actor", "Assign Actor"), Args),
+					FText::Format(LOCTEXT("AssignActorTooltip", "Assign an actor to this track"), Args),
+					FNewMenuDelegate::CreateSP(this, &FSequencerObjectBindingNode::AddAssignActorMenu));
 			}
 
 			MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ConvertToSpawnable );
@@ -357,6 +360,59 @@ void FSequencerObjectBindingNode::AddSpawnLevelMenu(FMenuBuilder& MenuBuilder)
 	}
 }
 
+void FSequencerObjectBindingNode::AddAssignActorMenu(FMenuBuilder& MenuBuilder)
+{
+	TArray<AActor*> SelectedActors;
+	GEditor->GetSelectedActors()->GetSelectedObjects<AActor>(SelectedActors);
+
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("AddSelectedToBinding", "Add Selected"),
+		LOCTEXT("AddSelectedToBindingTooltip", "Add selected objects to this track"),
+		FSlateIcon(),
+		FUIAction(
+			FExecuteAction::CreateLambda([=] { GetSequencer().AddActorsToBinding(ObjectBinding, SelectedActors); }),
+			FCanExecuteAction::CreateLambda([=] { return SelectedActors.Num() > 0; })
+			)
+		);
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("ReplaceBindingWithSelected", "Replace with Selected"),
+		LOCTEXT("ReplaceBindingWithSelectedTooltip", "Replace the object binding with selected objects"),
+		FSlateIcon(),
+		FUIAction(
+			FExecuteAction::CreateLambda([=] { GetSequencer().ReplaceBindingWithActors(ObjectBinding, SelectedActors); }),
+			FCanExecuteAction::CreateLambda([=] { return SelectedActors.Num() > 0; })
+		)
+	);
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("RemoveSelectedFromBinding", "Remove Selected"),
+		LOCTEXT("RemoveSelectedFromBindingTooltip", "Remove selected objects from this track"),
+		FSlateIcon(),
+		FUIAction(
+			FExecuteAction::CreateLambda([=] { GetSequencer().RemoveActorsFromBinding(ObjectBinding, SelectedActors); }),
+			FCanExecuteAction::CreateLambda([=] { return SelectedActors.Num() > 0; })
+		)
+	);
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("RemoveAllBindings", "Remove All"),
+		LOCTEXT("RemoveAllBindingsTooltip", "Remove all bound objects from this track"),
+		FSlateIcon(),
+		FUIAction(
+			FExecuteAction::CreateLambda([=] { GetSequencer().RemoveAllBindings(ObjectBinding); })
+		)
+	);
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("RemoveMissing", "Remove Missing"),
+		LOCTEXT("RemoveMissingooltip", "Remove missing objects bound to this track"),
+		FSlateIcon(),
+		FUIAction(
+			FExecuteAction::CreateLambda([=] { GetSequencer().RemoveInvalidBindings(ObjectBinding); })
+		)
+	);
+
+	GetSequencer().AssignActor(MenuBuilder, ObjectBinding);
+}
+
+
 bool FSequencerObjectBindingNode::CanRenameNode() const
 {
 	return true;
@@ -364,11 +420,6 @@ bool FSequencerObjectBindingNode::CanRenameNode() const
 
 TSharedRef<SWidget> FSequencerObjectBindingNode::GetCustomOutlinerContent()
 {
-	if (GetSequencer().IsReadOnly())
-	{
-		return SNullWidget::NullWidget;
-	}
-	
 	// Create a container edit box
 	TSharedRef<SHorizontalBox> BoxPanel = SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
@@ -380,11 +431,11 @@ TSharedRef<SWidget> FSequencerObjectBindingNode::GetCustomOutlinerContent()
 	TAttribute<bool> HoverState = TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FSequencerDisplayNode::IsHovered));
 
 	BoxPanel->AddSlot()
-	.AutoWidth()
-	.VAlign(VAlign_Center)
-	[
-		FSequencerUtilities::MakeAddButton(LOCTEXT("TrackText", "Track"), FOnGetContent::CreateSP(this, &FSequencerObjectBindingNode::HandleAddTrackComboButtonGetMenuContent), HoverState)
-	];
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		[
+			FSequencerUtilities::MakeAddButton(LOCTEXT("TrackText", "Track"), FOnGetContent::CreateSP(this, &FSequencerObjectBindingNode::HandleAddTrackComboButtonGetMenuContent), HoverState, GetSequencer().AsShared())
+		];
 
 	const UClass* ObjectClass = GetClassForObjectBinding();
 	GetSequencer().BuildObjectBindingEditButtons(BoxPanel, ObjectBinding, ObjectClass);
@@ -408,21 +459,46 @@ FText FSequencerObjectBindingNode::GetDisplayName() const
 FLinearColor FSequencerObjectBindingNode::GetDisplayNameColor() const
 {
 	FSequencer& Sequencer = ParentTree.GetSequencer();
-	
-	for (TWeakObjectPtr<> BoundObject : Sequencer.FindBoundObjects(ObjectBinding, Sequencer.GetFocusedTemplateID()))
+
+	TArrayView<TWeakObjectPtr<> > BoundObjects = Sequencer.FindBoundObjects(ObjectBinding, Sequencer.GetFocusedTemplateID());
+
+	if (BoundObjects.Num() > 0)
 	{
-		if (BoundObject.IsValid())
+		int32 NumValidObjects = 0;
+		for (const TWeakObjectPtr<>& BoundObject : BoundObjects)
+		{
+			if (BoundObject.IsValid())
+			{
+				++NumValidObjects;
+			}
+		}
+
+		if (NumValidObjects == BoundObjects.Num())
 		{
 			return FSequencerDisplayNode::GetDisplayNameColor();
 		}
+	
+		return FLinearColor::Yellow;
 	}
 
 	// Spawnables don't have valid object bindings when their track hasn't spawned them yet,
 	// so we override the default behavior of red with a gray so that users don't think there is something wrong.
-	if (GetBindingType() == EObjectBindingType::Spawnable)
+	
+	TSharedPtr<FSequencerDisplayNode> CurrentNode = SharedThis((FSequencerDisplayNode*)this);
+
+	while (CurrentNode.IsValid())
 	{
-		return FLinearColor::Gray;
+		if (CurrentNode->GetType() == ESequencerNode::Object)
+		{
+			if (StaticCastSharedPtr<FSequencerObjectBindingNode>(CurrentNode)->GetBindingType() == EObjectBindingType::Spawnable)
+			{
+				return FLinearColor::Gray;
+			}
+		}
+
+		CurrentNode = CurrentNode->GetParent();
 	}
+
 
 	return FLinearColor::Red;
 }
@@ -430,9 +506,56 @@ FLinearColor FSequencerObjectBindingNode::GetDisplayNameColor() const
 FText FSequencerObjectBindingNode::GetDisplayNameToolTipText() const
 {
 	FSequencer& Sequencer = ParentTree.GetSequencer();
-	if ( Sequencer.FindObjectsInCurrentSequence(ObjectBinding).Num() == 0 )
+
+	TArrayView<TWeakObjectPtr<>> BoundObjects = Sequencer.FindObjectsInCurrentSequence(ObjectBinding);
+
+	if ( BoundObjects.Num() == 0 )
 	{
 		return LOCTEXT("InvalidBoundObjectToolTip", "The object bound to this track is missing.");
+	}
+	else if (BoundObjects.Num() > 1)
+	{
+		TArray<FString> ValidBoundObjectLabels;
+		bool bAddEllipsis = false;
+		int32 NumMissing = 0;
+		for (const TWeakObjectPtr<>& Ptr : BoundObjects)
+		{
+			UObject* Obj = Ptr.Get();
+
+			if (Obj == nullptr)
+			{
+				++NumMissing;
+				continue;
+			}
+
+			if (AActor* Actor = Cast<AActor>(Obj))
+			{
+				ValidBoundObjectLabels.Add(Actor->GetActorLabel());
+			}
+			else
+			{
+				ValidBoundObjectLabels.Add(Obj->GetName());
+			}
+
+			if (ValidBoundObjectLabels.Num() > 3)
+			{
+				bAddEllipsis = true;
+				break;
+			}
+		}
+
+		FString MultipleBoundObjectLabel = FString::Join(ValidBoundObjectLabels, TEXT(", "));
+		if (bAddEllipsis)
+		{
+			MultipleBoundObjectLabel += FString::Printf(TEXT("... %d more"), BoundObjects.Num()-3);
+		}
+
+		if (NumMissing != 0)
+		{
+			MultipleBoundObjectLabel += FString::Printf(TEXT(" (%d missing)"), NumMissing);
+		}
+
+		return FText::FromString(MultipleBoundObjectLabel);
 	}
 	else
 	{
@@ -450,6 +573,16 @@ const FSlateBrush* FSequencerObjectBindingNode::GetIconOverlayBrush() const
 	if (BindingType == EObjectBindingType::Spawnable)
 	{
 		return FEditorStyle::GetBrush("Sequencer.SpawnableIconOverlay");
+	}
+	else
+	{
+		FSequencer& Sequencer = ParentTree.GetSequencer();
+		const int32 NumBoundObjects = Sequencer.FindObjectsInCurrentSequence(ObjectBinding).Num();
+
+		if (NumBoundObjects > 1)
+		{
+			return FEditorStyle::GetBrush("Sequencer.MultipleIconOverlay");
+		}
 	}
 	return nullptr;
 }
@@ -492,6 +625,8 @@ void FSequencerObjectBindingNode::SetDisplayName(const FText& NewDisplayName)
 
 	if (MovieScene != nullptr)
 	{
+		FScopedTransaction Transaction(LOCTEXT("SetTrackName", "Set Track Name"));
+
 		// Modify the movie scene so that it gets marked dirty and renames are saved consistently.
 		MovieScene->Modify();
 		MovieScene->SetObjectDisplayName(ObjectBinding, NewDisplayName);
@@ -748,15 +883,23 @@ TSharedRef<SWidget> FSequencerObjectBindingNode::HandleAddTrackComboButtonGetMen
 	const bool bUseSubMenus = Sequencer.IsLevelEditorSequencer();
 
 	UObject* BoundObject = GetSequencer().FindSpawnedObjectOrTemplate(ObjectBinding);
+	const UClass* ObjectClass = GetClassForObjectBinding();
 
 	ISequencerModule& SequencerModule = FModuleManager::GetModuleChecked<ISequencerModule>( "Sequencer" );
 	TSharedRef<FUICommandList> CommandList(new FUICommandList);
-	FMenuBuilder AddTrackMenuBuilder(true, nullptr, SequencerModule.GetAddTrackMenuExtensibilityManager()->GetAllExtenders(CommandList, TArrayBuilder<UObject*>().Add(BoundObject)));
+
+	TSharedRef<FExtender> Extender = SequencerModule.GetAddTrackMenuExtensibilityManager()->GetAllExtenders(CommandList, TArrayBuilder<UObject*>().Add(BoundObject)).ToSharedRef();
+
+	for (const TSharedPtr<ISequencerTrackEditor>& TrackEditor : GetSequencer().GetTrackEditors())
+	{
+		TrackEditor->ExtendObjectBindingTrackMenu(Extender, ObjectBinding, ObjectClass);
+	}
+
+	FMenuBuilder AddTrackMenuBuilder(true, nullptr, Extender);
 
 	const int32 NumStartingBlocks = AddTrackMenuBuilder.GetMultiBox()->GetBlocks().Num();
 
-	const UClass* ObjectClass = GetClassForObjectBinding();
-	AddTrackMenuBuilder.BeginSection(NAME_None, LOCTEXT("TracksMenuHeader" , "Tracks"));
+	AddTrackMenuBuilder.BeginSection("Tracks", LOCTEXT("TracksMenuHeader" , "Tracks"));
 	GetSequencer().BuildObjectBindingTrackMenu(AddTrackMenuBuilder, ObjectBinding, ObjectClass);
 	AddTrackMenuBuilder.EndSection();
 
@@ -999,7 +1142,9 @@ void FSequencerObjectBindingNode::HandlePropertyMenuItemExecute(FPropertyPath Pr
 		}
 	}
 
-	FKeyPropertyParams KeyPropertyParams(KeyableBoundObjects, PropertyPath, ESequencerKeyMode::ManualKey);
+	// When auto setting track defaults are disabled, force add a key so that the changed
+	// value is saved and is propagated to the property.
+	FKeyPropertyParams KeyPropertyParams(KeyableBoundObjects, PropertyPath, Sequencer.GetAutoSetTrackDefaults() == false ? ESequencerKeyMode::ManualKeyForced : ESequencerKeyMode::ManualKey);
 
 	Sequencer.KeyProperty(KeyPropertyParams);
 }

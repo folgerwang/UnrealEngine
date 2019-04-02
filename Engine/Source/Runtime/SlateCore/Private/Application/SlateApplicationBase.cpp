@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Application/SlateApplicationBase.h"
 #include "Widgets/SWindow.h"
@@ -101,7 +101,7 @@ void FSlateApplicationBase::RegisterActiveTimer( const TSharedRef<FActiveTimerHa
 void FSlateApplicationBase::UnRegisterActiveTimer( const TSharedRef<FActiveTimerHandle>& ActiveTimerHandle )
 {
 	FScopeLock ActiveTimerLock(&ActiveTimerCS);
-	ActiveTimerHandles.Remove(ActiveTimerHandle);
+	ActiveTimerHandles.RemoveSingleSwap(ActiveTimerHandle);
 }
 
 bool FSlateApplicationBase::AnyActiveTimersArePending()

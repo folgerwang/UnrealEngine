@@ -1,11 +1,13 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3750348
 Availability:Public
-Title:3 - TV Blueprint Setup - Components
-Description:Here we create our TV Blueprint and set up its components. 
+Crumbs: %ROOT%
+Title:3 - 电视机蓝图设置 - 组件
+Description:在本节中，我们要创建电视机蓝图并设置它的组件。 
 SkillLevel:Beginner
 Version:4.18
 checkpoint: mediaframeworkqs
-parent:Engine\MediaFramework\QuickStart
+parent:Engine/MediaFramework/QuickStart
+type:quick start
 type:multi-step
 order:3
 tags:Media Framework
@@ -13,59 +15,54 @@ tags:Blueprints
  
 [NAV]
 
-In previous steps, we set up our media content and created a Material that will be used to play our video. 
-In the next few steps we use [](Engine/Blueprints) (Unreal Engine's visual node-based scripting system) to create an interactable TV Blueprint that will enable players to walk up to and turn on/off our specified video content. 
-Here in this step, we add the **Components** that will make up our interactable TV. 
+在前几步中，我们设置了媒体内容并创建了用于播放视频的材质。 
+在接下来的几步中，我们将使用[](Engine/Blueprints)（虚幻引擎基于节点的可视化脚本系统）来创建使玩家能够走近并打开/关闭指定的视频内容的可交互电视机蓝图。在本步中，我们将添加构成可交互电视机的 **组件** 。
 
-## Steps
+## 步骤
 
-1. Inside the **Content Browser** of your project, create a folder called **Blueprints** and in it, right-click and create a new **Blueprint Class**. 
+1. 在 **内容浏览器** 中，创建名为 **Blueprints** 的文件夹。导航至该文件夹，然后右键单击并创建新的 **蓝图类（Blueprint Class）**。
 
 	![](Blueprint_01.png)
 
-1. In the **Pick Parent Class** window, select **Actor** then name the Blueprint **TV_Blueprint**. 
+1. 在 **选择父类（Pick Parent Class）** 窗口中，选择 **Actor**，然后将蓝图命名为 **TV_Blueprint**。 
 
 	![](Blueprint_02.png)
 
-	Picking a [Parent Class](Engine/Blueprints/UserGuide/Types/ClassBlueprint) is a way to inherit properties or functionality from an existing class (we just want a generic Actor that can be spawned or placed in the world). 
+	选择[父类](Engine/Blueprints/UserGuide/Types/ClassBlueprint)是从现有类继承属性或功能的一种方法（我们仅需要能够在世界场景中生成或放置的泛型Actor）。 
 
-1. Open the **TV_Blueprint**, then in the upper-left click the **+Add Component** button and search for and add a **Static Mesh**. 
+1. 打开 **TV_Blueprint**。在左上角，单击 **+添加组件（+Add Component）** 按钮并搜索和添加 **静态网格体**。 
 
 	![](Blueprint_03.png)
 
-	Components are all the bits and pieces that make up the entirety of a Blueprint. 
-	In our case we need a **Static Mesh** to represent our TV, a **Box Collision** volume to tell us when the player is in range to turn on/off the TV, and a **Media Sound** Component to play the audio associated with our Media Player. 
+	[组件](Programming/UnrealArchitecture/Actors/Components)是特殊类型的对象，可在Actor中作为子对象使用。 
+	在本示例中，我们需要一个 **静态网格体** 来代表电视机，一个 **箱体碰撞（Box Collision）** 体积来告诉我们玩家已位于可以打开/关闭电视机的范围内，一个 **媒体声音（Media Sound）** 组件来播放与“媒体播放器（Media Player）”关联的音频。
 
-1. For the **Static Mesh**, name it **TV_Mesh** then in the **Details** panel, set the **Static Mesh** field to **SM_TV**. 
+1. 将该 **静态网格体** 命名为 **TV_Mesh**。在 **细节（Details）** 面板中，将 **静态网格体（Static Mesh）** 字段设置为 **SM_TV**。 
 
 	![](Blueprint_04.png)
 
-1. Click the **+Add Component** button and add a **Box Collision** component and resize it in the viewport as desired in front of the TV. 
+1. 单击 **+添加组件（+Add Component）** 按钮并添加 **箱体碰撞（Box Collision）** 组件。在视口中根据需要在电视机前调整它的大小。
 
 	![](Blueprint_05.png)
 
-	You can use the [Transform Tools](GettingStarted/HowTo/ManipulatingActors) and widget in the viewport to **Translate (W)**, **Rotate (E)** or **Scale (R)** the box. 
+	可以使用视口中的[变换工具](GettingStarted/HowTo/ManipulatingActors)和小部件来 **平移（W键）**、**旋转（E键）** 或 **缩放（R键）** 箱体。
 
-1.	Click the **+Add Component** button and add a **Media Sound** component. 
+1.	单击 **+添加组件（+Add Component）** 按钮并添加 **媒体声音（Media Sound）** 组件。 
 
 	![](Blueprint_06.png)
 
-	The **Media Sound** component is needed to play audio associated with a video file. 
+	**媒体声音（Media Sound）** 组件用于播放与视频文件关联的音频。 
 
-1.	In the **Details** panel for the **Media Sound** component, set the **Media Player** field to **MediaPlayer_01**. 
+1.	在 **细节（Details）** 面板（**媒体声音（Media Sound）** 组件的）中，将 **媒体播放器（Media Player）** 字段设置为 **MediaPlayer_01**。 
 
 	![](Blueprint_07.png)
 
-	Now when we open this Media Player, this Media Sound component will also open and begin playing the audio associated with the video playing. 
+	现在当我们打开媒体播放器（Media Player）时，媒体声音（Media Sound）组件也将打开并开始播放与正在播放的视频关联的音频。
 
 		
 
-## End Result
+## 最终结果
 
-With each of the Components for our TV Blueprint set up, in the next step, we will define some of the options that we want to be customizable within our TV Blueprint. 
-This will enable us to define in the editor what Media Texture and Media Sound are associated with a TV in the level and change them on a per-instance basis (enabling us to have the same TV Blueprint, playing different content on each). 
+我们设置好了电视机蓝图的所有组件，在下一步中，我们将定义希望在电视机蓝图中可自定义的一些选项。这使我们能够在编辑器中定义哪些媒体纹理和媒体声音与关卡中的电视机关联并按实例更改它们（这样我们就能使用相同的电视机蓝图，但在每个实例上播放不同的内容）。 
 
 [NAV]
-
-
-

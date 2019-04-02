@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MeshParticleVertexFactory.usf: Mesh particle vertex factory shader code.
@@ -14,9 +14,6 @@
 
 // Only support previous transform for deferred feature level
 #define USE_PREVIOUS_TRANSFORM (FEATURE_LEVEL >= FEATURE_LEVEL_SM4)
-
-float4x4 PreviousLocalToWorld;
-
 
 #if USE_PREVIOUS_TRANSFORM
 #if PARTICLE_MESH_INSTANCED
@@ -75,7 +72,7 @@ struct FVertexFactoryInput
 #endif
 
 /** Optional instance ID for vertex layered rendering */
-#if (PARTICLE_MESH_INSTANCED || (FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER))
+#if (PARTICLE_MESH_INSTANCED)
 	uint InstanceId	: SV_InstanceID;
 #endif
 };
@@ -132,7 +129,7 @@ struct FVertexFactoryInterpolantsVSToPS
 #endif
 
 #if INSTANCED_STEREO
-	nointerpolation uint PackedEyeIndex : PACKED_EYE_INDEX;
+	nointerpolation uint EyeIndex : PACKED_EYE_INDEX;
 #endif
 };
 
@@ -185,7 +182,7 @@ float4x4 GetParticleTransform(FVertexFactoryInput Input)
 float4x4 GetParticlePrevTransform(FVertexFactoryInput Input)
 {
 #if PARTICLE_MESH_INSTANCED
-	uint TransformBaseIdx = GetLayerInstanceID(Input.InstanceId) * 3;
+	uint TransformBaseIdx = GetInstanceId(Input.InstanceId) * 3;
 
 	float4x4 PrevTransform4x4 = float4x4(
 		PrevTransformBuffer[TransformBaseIdx + 0], 
@@ -339,19 +336,6 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 
 	return Result;
 }
-
-#if NEEDS_LIGHTMAP_COORDINATE
-void GetLightMapCoordinates(FVertexFactoryInterpolantsVSToPS Interpolants, out float2 LightmapUV0, out float2 LightmapUV1)
-{
-	LightmapUV0 = LightmapUV1 = 0;
-}
-
-half2 GetShadowMapCoordinate(FVertexFactoryInterpolantsVSToPS Interpolants)
-{
-	return 0;
-}
-#endif
-
 
 float4 CalcWorldPosition(FVertexFactoryInput Input)
 {
@@ -583,7 +567,7 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 #endif
 
 #if INSTANCED_STEREO
-	Interpolants.PackedEyeIndex = 0;
+	Interpolants.EyeIndex = 0;
 #endif
 
 	return Interpolants;
@@ -691,24 +675,12 @@ float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexF
 	}
 #endif // #if USING_TESSELLATION
 
-#if INSTANCED_STEREO
-
-// Instanced stereo sets the eye index explicitly for instanced geometry
-#if PARTICLE_MESH_INSTANCED
-uint InstancedEyeIndex;
-#endif
-
-uint VertexFactoryGetEyeIndex(uint InstanceId)
-{
-	#if PARTICLE_MESH_INSTANCED
-		return InstancedEyeIndex & bIsInstancedStereo;
-	#else
-		return InstanceId & 1;
-	#endif
-}
-#endif
-
 float4 VertexFactoryGetTranslatedPrimitiveVolumeBounds(FVertexFactoryInterpolantsVSToPS Interpolants)
+{
+	return 0;
+}
+
+uint VertexFactoryGetPrimitiveId(FVertexFactoryInterpolantsVSToPS Interpolants)
 {
 	return 0;
 }

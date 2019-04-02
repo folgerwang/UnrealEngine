@@ -1,150 +1,89 @@
-﻿INTSourceChangelist:2680000
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:事件调度器
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide
-Description: 允许类蓝图向关卡蓝图报告其状态。
+Description: 允许蓝图类向关卡蓝图报告其状态。
 related:Engine/Blueprints/UserGuide/BlueprintCommsUsage
 related:Engine/Blueprints/UserGuide/Types/Interface/UsingInterfaces
 related:Engine/Blueprints/UserGuide/BlueprintComms
 version: 4.9
-[COMMENT:none]
-related:Engine/Blueprints/UserGuide/BlueprintCommsUsage/BPComHowTo
-Commented out due to page not being published publicly
-[/COMMENT]
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints/UserGuide/EventDispatcher:title%](Engine/Blueprints/UserGuide/event_dispatcher_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/UserGuide/EventDispatcher:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/UserGuide/EventDispatcher:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/UserGuide/EventDispatcher]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints/UserGuide/EventDispatcher:title%](Engine/Blueprints/UserGuide/event_dispatcher_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/UserGuide/EventDispatcher:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/UserGuide/EventDispatcher:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/UserGuide/EventDispatcher]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
+tags:Blueprints
+topic-image:Engine/Blueprints/UserGuide/event_dispatcher_topic.png
 
 
 [EXCERPT:Intro]
-通过向 **Event Dispatcher（事件调度器）** 绑定一个或多个事件，您可以在调用该事件调度器后触发所有事件。这些事件可以在类蓝图中进行绑定，但
-事件调度器也允许在关卡蓝图激活这些事件。
+通过将一个或多个事件绑定到 **事件调度器（Event Dispatcher）**，您可以在调用事件调度器时触发所有这些事件。这些事件可以绑定到蓝图类中，但
+事件调度器也允许在关卡蓝图中触发事件。
 [/EXCERPT:Intro]
 
-[TOC (start:2 end:3)]
+[TOC(start:2 end:3)]
 
+
+(#creatingeventdispatchers)
 
 ## 创建事件调度器
 
-事件调度器是在[](Engine/Blueprints\Editor\Modes\GraphPanel)中的[](Engine/Blueprints\Editor/UIComponents\MyBlueprint)选卡内进行创建的。
+事件调度器在蓝图编辑器的[](Engine/Blueprints/Editor/UIComponents/MyBlueprint)选项卡中创建。 
 
-要想创建一个新的事件调度器：
+若要创建新的事件调度器，请执行以下操作：
 
-1. 点击 **我的蓝图** 选卡顶部的 ![New Event Dispatcher](%ROOT%/Engine/Blueprints/Editor/UIComponents/MyBlueprint/myblueprint_eventdispatcher.png)按钮。
+1. 在 **我的蓝图（MyBlueprint）** 中，单击事件调度器类别上的 ![](Engine/Blueprints/Editor/UIComponents/MyBlueprint/plus_Button.png)按钮：![](Engine/Blueprints/Editor/UIComponents/MyBlueprint/myblueprint_eventdispatcher.png). 
 
-1. 在 **我的蓝图** 选卡中的列表尾部出现的名称文本域中，输入该事件调度器的名称。
+1. 在名称字段中输入事件调度器的名称，该字段显示在 **我的蓝图（My Blueprint）** 选项卡中列表的末尾。
 
 	![](name_event_Dispatcher.png)
 
+(#settingproperties)
+
 ### 设置属性
 
-通过在 **我的蓝图** 选卡内选中该事件调度器，您可以在 **详细信息** 面板中编辑其属性。您可以为您的事件调度器设置工具提示信息和类目，且可以添加输入。
+通过在 **我的蓝图（My Blueprint）** 选项卡中选择事件调度器，您可在 **细节（Details）** 面板中编辑其属性。您可以为事件调度器设置提示文本和类别，并可添加输入。
 
-给您的事件调度器添加输入，允许您向绑定到您的事件调度器的每个事件发送变量。这使得数据不仅可以在您的类蓝图中流动，且可以在您的类蓝图和关卡蓝图
-之间流动。
+向事件调度器添加输入允许向绑定到事件调度器的每个事件发送变量。这不仅允许蓝图类中的数据流，
+还允许蓝图类与关卡蓝图之间的数据流。
 
-给您的事件调度器添加输入的过程和给函数、自定义事件及宏添加输入及输出的流程类似。如果您想使用和另一个事件相同的输入，那么您可以使用 **Copy Signature from（复制签名）** 下拉菜单来指定该事件。
-要想给该事件调度器添加您自己的输入：
+向事件调度程序添加输入的过程类似于向函数、自定义事件和宏添加输入和输出的工作流程。如果您希望使用与另一个事件相同的输入，可以使用 **从…复制签名（Copy Signature from）** 下拉菜单来指示事件。
+若要将您自己的输入添加到事件调度器，请执行以下操作：
 
-1. 点击 **详细信息** 面板的 **Inputs（输入）** 部分的 **New(新建)** 按钮。
+1. 单击 **细节（Details）** 窗格的 **输入（Inputs）** 部分中的 **新建（New）** 按钮。
 
+	[REGION:raw]
 	![](new_input_Dispatcher.png)
+	[/REGION]
 
-1. 命名该新输入并使用下拉菜单设置其类型。在这个示例中，有一个 _String(字符串型)_ 的输入参数 **MyStringParam** 。
+1. 为新输入命名并使用下拉菜单设置其类型。在本例中，有一个名为 **MyStringParam** 的字符串输入参数。 
 
+	[REGION:raw]
 	![](named_new_Dispatcher.png)
+	[/REGION]
 
-1. 您可以展开该参数项来设置默认值，并指出是否通过引用传递参数。
+1. 您还可以设置一个默认值，并通过展开参数的条目来指示是否通过参考传递参数。
 
+	[REGION:raw]
 	![](expanded_input_Dispatcher.png)
+	[/REGION]
 
-	要想改变节点边缘上的这个参数的引脚的位置，请使用展开的 **详细信息** 面板项的向下和向上箭头。
-
-
-
-##使用事件调度器
-
-一旦您创建了事件调度器后，您可以添加事件节点、绑定节点及解除绑定连接到其上面的节点。尽管您可以在 **我的蓝图** 选卡中双击事件调度器选项来打开 
-事件调度器的图表，但是该图表是锁定的，您不能直接修改该事件调度器。绑定、解除绑定及分配方法都允许您向事件调度器的事件列表添加事件， 
-但调用方法将激活事件图表中存储的所有事件。
-
-以下描述的所有节点，都可以添加到类蓝图及关卡蓝图中。除了Event（事件）节点外，每个节点都有一个 **Target（目标）** 输入引脚：
-
-* 在类蓝图中，该引脚自动设置为 **Self** 。这意味着对于该类来说该事件列表是变化的，所以每个类实例都将会发生变化。
-* 在关卡蓝图中，这个引脚必须连接到关卡中的一个类实例的引用上。这意味着事件列表将仅会针对那个类的特定实例进行改变。
-[关卡蓝图文档](Engine/Blueprints/UserGuide/Types/LevelBlueprint#引用Actor)解释了如何创建您需要的任何 _Actor_  引用的过程。
+	若要更改此参数在节点边缘上的引脚位置，请在展开的 **细节（Details）** 窗格条目中使用向上和向下箭头。 
 
 
-[OBJECT:IconSection]
-	[PARAM:icon]
-		[![](event_dispatcher_call_node.png)](Engine/Blueprints/UserGuide/EventDispatcher/Calling)
-	[/PARAM]
-	[PARAM:title]
-		[](Engine/Blueprints/UserGuide/EventDispatcher/Calling)
-	[/PARAM]
-	[PARAM:description]
-		[INCLUDE:Engine/Blueprints/UserGuide/EventDispatcher/Calling#Intro]
-	[/PARAM]
-[/OBJECT]
-[OBJECT:IconSection]
-	[PARAM:icon]
-		[![](bind_node.png)](Engine/Blueprints/UserGuide/EventDispatcher/BindingAndUnbinding)
-	[/PARAM]
-	[PARAM:title]
-		[](Engine/Blueprints/UserGuide/EventDispatcher/BindingAndUnbinding)
-	[/PARAM]
-	[PARAM:description]
-		[INCLUDE:Engine/Blueprints/UserGuide/EventDispatcher/BindingAndUnbinding#Intro]
-	[/PARAM]
-[/OBJECT]
-[OBJECT:IconSection]
-	[PARAM:icon]
-		[![](dispatcher_event.png)](Engine/Blueprints/UserGuide/EventDispatcher/CreatingEvents)
-	[/PARAM]
-	[PARAM:title]
-		[](Engine/Blueprints/UserGuide/EventDispatcher/CreatingEvents)
-	[/PARAM]
-	[PARAM:description]
-		[INCLUDE:Engine/Blueprints/UserGuide/EventDispatcher/CreatingEvents#Intro]
-	[/PARAM]
-[/OBJECT]
+
+(#usingeventdispatchers)
+
+## 使用事件调度器
+
+一旦创建了事件调度器，您就可以添加事件节点，绑定节点和取消绑定与之链接的节点。虽然您可以 **双击** **我的蓝图（My Blueprint）** 选项卡中的事件调度器条目以打开事件调度器的图表， 
+但是图表处于锁定状态，因此您无法直接修改事件调度器。绑定法、取消绑定法和指定法都使您能够将事件添加到事件调度器的事件列表中， 
+而调用法将激活存储在事件列表中的所有事件。 
+
+下面描述的所有节点都可以添加到蓝图类和关卡蓝图中。除了事件节点，各个节点都有一个 **目标（Target）** 输入引脚：
+
+* 在蓝图类中，此引脚自动设置为 **自身（Self）**。这意味着事件列表针对该类发生了更改，因此该类的每个实例都会产生变化。
+* 在关卡蓝图中，此引脚必须关联到对关卡中该类的一个实例的引用。这意味着，事件列表将仅针对该类的特定实例进行更改。 
+[关卡蓝图文档](Engine/Blueprints/UserGuide/Types/LevelBlueprint#referencingactors)说明了如何创建您可能需要的任何 _Actor_ 参考。 
+
+[DIR(output:"topic" parent:"Engine/Blueprints/UserGuide/EventDispatcher")]
+
+
 
 
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "TessellationRendering.h"
@@ -36,7 +36,7 @@ bool MaterialRenderingRequiresAdjacencyInformation_RenderingThread(UMaterialInte
 
 	if (RHISupportsTessellation(GShaderPlatformForFeatureLevel[InFeatureLevel]) && VertexFactorySupportsTessellation && Material)
 	{
-		FMaterialRenderProxy* MaterialRenderProxy = Material->GetRenderProxy(false, false);
+		FMaterialRenderProxy* MaterialRenderProxy = Material->GetRenderProxy();
 		if (ensureMsgf(MaterialRenderProxy, TEXT("Could not determine if RequiresAdjacencyInformation. Invalid MaterialRenderProxy on Material '%s'"), *GetNameSafe(Material)))
 		{
 			const FMaterial* MaterialResource = MaterialRenderProxy->GetMaterial(InFeatureLevel);

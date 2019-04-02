@@ -2,7 +2,7 @@
  * Copyright 2016-2017 Nikolay Aleksiev. All rights reserved.
  * License: https://github.com/naleksiev/mtlpp/blob/master/LICENSE
  */
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // Modifications for Unreal Engine
 
 #pragma once
@@ -71,6 +71,13 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
+	enum class DispatchType
+	{
+		Serial,
+		Concurrent,
+	}
+	/* MTLPP_AVAILABLE(10_14, 12_0) */;
+	
 	MTLPP_CLOSURE(CommandBufferHandler, void, const CommandBuffer&);
 	
     class MTLPP_EXPORT CommandBuffer : public ns::Object<ns::Protocol<id<MTLCommandBuffer>>::type>
@@ -115,7 +122,8 @@ namespace mtlpp
         void WaitUntilCompleted();
         MTLPP_VALIDATED BlitCommandEncoder BlitCommandEncoder();
         MTLPP_VALIDATED RenderCommandEncoder RenderCommandEncoder(const RenderPassDescriptor& renderPassDescriptor);
-        MTLPP_VALIDATED ComputeCommandEncoder ComputeCommandEncoder();
+        MTLPP_VALIDATED class ComputeCommandEncoder ComputeCommandEncoder();
+		MTLPP_VALIDATED class ComputeCommandEncoder ComputeCommandEncoder(DispatchType Type) /* MTLPP_AVAILABLE(10_14, 12_0) */;
         MTLPP_VALIDATED ParallelRenderCommandEncoder ParallelRenderCommandEncoder(const RenderPassDescriptor& renderPassDescriptor);
 		
 		void PushDebugGroup(const ns::String& string) MTLPP_AVAILABLE(10_13, 11_0);
@@ -150,7 +158,7 @@ namespace mtlpp
 	};
 	
 	template <>
-	class Validator<CommandBuffer>
+	class MTLPP_EXPORT Validator<CommandBuffer>
 	{
 		public:
 		Validator(CommandBuffer& Val, bool bEnable)

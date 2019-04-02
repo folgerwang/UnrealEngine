@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -253,7 +253,7 @@ public:
 	 *
 	 * @return	 Array of plug-in status objects.
 	 */
-	DEPRECATED(4.18, "QueryStatusForAllPlugins() has been deprecated. Please use GetDiscoveredPlugins() instead.")
+	UE_DEPRECATED(4.18, "QueryStatusForAllPlugins() has been deprecated. Please use GetDiscoveredPlugins() instead.")
 	virtual TArray<FPluginStatus> QueryStatusForAllPlugins() const = 0;
 
 	/**

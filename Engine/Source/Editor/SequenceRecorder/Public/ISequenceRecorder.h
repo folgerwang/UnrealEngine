@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -13,6 +13,7 @@ class AActor;
 class ISequenceAudioRecorder;
 class ISequenceRecorderExtender;
 class USequenceRecordingBase;
+class UAnimSequence;
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnRecordingStarted, class UMovieSceneSequence* /*Sequence*/);
 
@@ -165,4 +166,12 @@ public:
 
 	/** Remove an extension from the SequenceRecorder */
 	virtual void RemoveSequenceRecorderExtender(TSharedPtr<ISequenceRecorderExtender> SequenceRecorderExternder) = 0;
+
+	/**
+	* Play the current single node instance on the PreviewComponent from time [0, GetLength()], and record to NewAsset
+	*
+	* @param: PreviewComponent - this component should contains SingleNodeInstance with time-line based asset, currently support AnimSequence or AnimComposite
+	* @param: NewAsset - this is the asset that should be recorded. This will reset all animation data internally
+	*/
+	virtual bool RecordSingleNodeInstanceToAnimation(USkeletalMeshComponent* PreviewComponent, UAnimSequence* NewAsset) = 0;
 };

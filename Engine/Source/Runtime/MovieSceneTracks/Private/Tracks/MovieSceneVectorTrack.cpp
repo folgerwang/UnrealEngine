@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieSceneVectorTrack.h"
 #include "Sections/MovieSceneVectorSection.h"
@@ -12,6 +12,11 @@ UMovieSceneVectorTrack::UMovieSceneVectorTrack( const FObjectInitializer& Object
 	SupportedBlendTypes = FMovieSceneBlendTypeField::All();
 }
 
+
+bool UMovieSceneVectorTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneVectorSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneVectorTrack::CreateNewSection()
 {

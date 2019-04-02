@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "VirtualCameraCineCameraComponent.h"
 #include "Engine/StaticMesh.h"
@@ -236,6 +236,11 @@ void UVirtualCameraCineCameraComponent::SetFocusVisualization(bool bShowFocusVis
 	}
 
 	FocusSettings.bDrawDebugFocusPlane = bShowFocusVisualization;
+}
+
+bool UVirtualCameraCineCameraComponent::IsFocusVisualizationActivated() const
+{
+	return FocusSettings.FocusMethod != ECameraFocusMethod::None && FocusSettings.bDrawDebugFocusPlane;
 }
 
 int32 UVirtualCameraCineCameraComponent::FindClosestPresetIndex(const TArray<float>& ArrayToSearch, const float SearchValue) const

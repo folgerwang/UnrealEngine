@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraNodeFunctionCall.h"
 #include "UObject/UnrealType.h"
@@ -194,6 +194,17 @@ void UNiagaraNodeFunctionCall::AllocateDefaultPins()
 	{
 		ComputeNodeName();
 	}
+
+}
+
+// Returns true if this node is deprecated
+bool UNiagaraNodeFunctionCall::IsDeprecated() const
+{
+	if (FunctionScript)
+	{
+		return FunctionScript->bDeprecated;
+	}
+	return false;
 }
 
 FText UNiagaraNodeFunctionCall::GetNodeTitle(ENodeTitleType::Type TitleType) const
@@ -316,6 +327,21 @@ void UNiagaraNodeFunctionCall::Compile(class FHlslNiagaraTranslator* Translator,
 	UNiagaraGraph* CallerGraph = GetNiagaraGraph();
 	if (FunctionScript)
 	{
+		if (FunctionScript->bDeprecated && IsNodeEnabled())
+		{
+			if (FunctionScript->DeprecationRecommendation)
+			{
+				Translator->Warning(FText::Format(LOCTEXT("DeprecationErrorFmtRecommendation", "Function call \"{0}\" is deprecated. Please use {1} instead."), FText::FromString(FunctionDisplayName),
+					FText::FromString(FunctionScript->DeprecationRecommendation->GetPathName())),
+					this, nullptr);
+			}
+			else
+			{
+				Translator->Warning(FText::Format(LOCTEXT("DeprecationErrorFmtUnknown", "Function call \"{0}\" is deprecated. No recommendation was provided."), FText::FromString(FunctionDisplayName)),
+					this, nullptr);
+			}
+		}
+
 		TArray<UEdGraphPin*> CallerInputPins;
 		GetInputPins(CallerInputPins);
 
@@ -480,6 +506,22 @@ bool UNiagaraNodeFunctionCall::RefreshFromExternalChanges()
 				bReload = true;
 			}
 		}
+
+		if (FunctionScript->bDeprecated)
+		{
+			bHasCompilerMessage = true;
+			ErrorType = EMessageSeverity::Warning;
+			FFormatNamedArguments Args;
+			Args.Add(TEXT("NodeName"), GetNodeTitle(ENodeTitleType::ListView));
+			Args.Add(TEXT("Recommendation"), FunctionScript->DeprecationRecommendation != nullptr ? FText::FromString(FunctionScript->DeprecationRecommendation->GetPathName()) : LOCTEXT("UnspecifiedName","Unspecified"));
+			ErrorMsg = FText::Format(LOCTEXT("DeprecationWarning", "{NodeName} is deprecated. Suggested replacement: {Recommendation}"), Args).ToString();
+		}
+		else
+		{
+			bHasCompilerMessage = false;
+			ErrorMsg = FString();
+		}
+
 	}
 	else
 	{
@@ -528,7 +570,7 @@ void UNiagaraNodeFunctionCall::GatherExternalDependencyIDs(ENiagaraScriptUsage I
 		// We don't know which graph type we're referencing, so we try them all... may need to replace this with something faster in the future.
 		if (FunctionGraph)
 		{
-			for (int32 i = (int32)ENiagaraScriptUsage::Function; i <= (int32)ENiagaraScriptUsage::Module; i++)
+			for (int32 i = (int32)ENiagaraScriptUsage::Function; i <= (int32)ENiagaraScriptUsage::DynamicInput; i++)
 			{
 				FGuid FoundGuid = FunctionGraph->GetCompileID((ENiagaraScriptUsage)i, FGuid(0, 0, 0, 0));
 				if (FoundGuid.IsValid())

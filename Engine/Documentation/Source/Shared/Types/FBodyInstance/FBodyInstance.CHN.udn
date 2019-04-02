@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2573127
+﻿INTSourceChangelist:3372845
 Availability:NoPublish
 Title:FBodyInstance RTTs
 Crumbs:
@@ -61,7 +61,10 @@ Engine/Physics/PhysicsBodies#physics
 
 ![](PhAT_COM.png)
 
-当前版本中无法查看质量中心的实际位置，但增加正在调整的形体上的线性阻尼可以使形体在慢速下坠的同时从其质量中心开始摇摆。可能需要在关卡中放置一个骨架网格体并对其启用物理，获得直观感受。
+当前版本中无法查看质量中心的实际位置，但增加正在调整的形体上的线性阻尼可以使形体在慢速下坠的同时从其质量中心开始摇摆。可能需要在关卡中放置一个骨架网格体并对其启用物理，获得直观感受。质量属性的显示标识会显示可移动及模拟形体的质量中心和惯性框架。您需要为此开启线框渲染，因为质量中心是嵌入几何体的。
+
+![](COM_Geom.png)
+
 [VAR:ToolTipFullLink]
 Engine/Physics/PhysicsBodies#physics
 [/VAR]

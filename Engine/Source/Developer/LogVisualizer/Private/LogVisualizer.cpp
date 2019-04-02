@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LogVisualizer.h"
 #include "EngineGlobals.h"
@@ -174,7 +174,7 @@ void FLogVisualizer::UpdateCameraPosition(FName RowName, int32 ItemIndes)
 	UEditorEngine *EEngine = Cast<UEditorEngine>(GEngine);
 	if (GIsEditor && EEngine != NULL)
 	{
-		for (auto ViewportClient : EEngine->AllViewportClients)
+		for (auto ViewportClient : EEngine->GetAllViewportClients())
 		{
 			ViewportClient->FocusViewportOnBox(FBox::BuildAABB(CurrentLocation, Extent));
 		}

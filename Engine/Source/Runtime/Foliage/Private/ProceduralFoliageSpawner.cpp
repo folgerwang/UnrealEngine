@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ProceduralFoliageSpawner.h"
 #include "ProceduralFoliageTile.h"
@@ -109,6 +109,19 @@ void UProceduralFoliageSpawner::SimulateIfNeeded()
 		Simulate();
 	}
 
+}
+
+void UProceduralFoliageSpawner::Empty()
+{
+	for (TWeakObjectPtr<UProceduralFoliageTile>& WeakTile : PrecomputedTiles)
+	{
+		if (UProceduralFoliageTile* Tile = WeakTile.Get())
+		{
+			Tile->Empty();
+		}
+	}
+
+	PrecomputedTiles.Empty();
 }
 
 const UProceduralFoliageTile* UProceduralFoliageSpawner::GetRandomTile(int32 X, int32 Y)

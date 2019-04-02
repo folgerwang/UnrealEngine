@@ -1,10 +1,11 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Textures/TextureAtlas.h"
 #include "Stats/Stats.h"
 #include "Textures/SlateShaderResource.h"
 #include "Textures/SlateTextureData.h"
 #include "HAL/LowLevelMemTracker.h"
+#include "Misc/MemStack.h"
 
 DEFINE_STAT(STAT_SlateTextureGPUMemory);
 DEFINE_STAT(STAT_SlateTextureDataMemory);
@@ -32,17 +33,19 @@ ESlateTextureAtlasThreadId GetCurrentSlateTextureAtlasThreadId()
 
 FSlateTextureAtlas::~FSlateTextureAtlas()
 {
-	Empty();
+	EmptyAtlasData();
 }
 
 
 /* FSlateTextureAtlas interface
  *****************************************************************************/
 
-void FSlateTextureAtlas::Empty()
+void FSlateTextureAtlas::EmptyAtlasData()
 {
+	FMemMark Mark(FMemStack::Get());
+
 	// Remove all nodes
-	TArray<FAtlasedTextureSlot*> DeleteSlots;
+	TArray<FAtlasedTextureSlot*, TMemStackAllocator<>> DeleteSlots;
 
 	for (FAtlasedTextureSlot::TIterator SlotIt(AtlasUsedSlots); SlotIt; SlotIt.Next())
 	{
@@ -96,13 +99,14 @@ const FAtlasedTextureSlot* FSlateTextureAtlas::AddTexture( uint32 TextureWidth, 
 
 void FSlateTextureAtlas::MarkTextureDirty()
 {
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	{
-
 		const ESlateTextureAtlasThreadId AtlasThreadId = GetCurrentSlateTextureAtlasThreadId();
 		check(AtlasThreadId != ESlateTextureAtlasThreadId::Unknown);
 
 		check((GSlateLoadingThreadId != 0) || (AtlasOwnerThread == AtlasThreadId));
 	}
+#endif
 
 	bNeedsUpdate = true;
 }
@@ -120,8 +124,10 @@ void FSlateTextureAtlas::InitAtlasData()
 	AtlasData.Reserve(AtlasWidth * AtlasHeight * BytesPerPixel);
 	AtlasData.AddZeroed(AtlasWidth * AtlasHeight * BytesPerPixel);
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	AtlasOwnerThread = GetCurrentSlateTextureAtlasThreadId();
 	check(AtlasOwnerThread != ESlateTextureAtlasThreadId::Unknown);
+#endif
 
 	INC_MEMORY_STAT_BY(STAT_SlateTextureAtlasMemory, AtlasData.GetAllocatedSize());
 } //-V773

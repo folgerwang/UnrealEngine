@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2701304
+﻿INTSourceChangelist:3429254
 Availability: Public
 Title:在蓝图中使用远程调用函数
 Crumbs: %ROOT%, Gameplay, Gameplay\HowTo\Networking\ReplicateFunction
@@ -7,6 +7,7 @@ Related: Engine/Blueprints
 Related: Resources/ContentExamples/Networking
 Version: 4.9
 SkillLevel: Advanced
+type:how-to
 
 [TOC (start:2 end:2)]
 
@@ -15,6 +16,7 @@ SkillLevel: Advanced
 远程调用函数主要包括 3 种类型： **Multicast 广播**、 **Run on Server 在服务端执行** 和 **Run on owning Client 在客户端执行**。
 广播函数在服务器上调用和执行，然后自动转发给客户端。 在服务端执行的函数由客户端调用，然后仅在服务器上执行。 在客户端执行的函数由服务器调用，然后仅在自有客户端上执行。
 
+(#Multicast)
 ## Multicast 广播
 
  _在此示例中，我们使用的是 **包含起始资源的第三人称设计模板创建的项目**。_
@@ -83,7 +85,8 @@ SkillLevel: Advanced
 	因为我们并未告知服务器客户端已生成该效果。接下来的 Run on Server 部分将向您展示如何将其设置。 
 
 
-## Run On Server 在服务器上运行
+(#RunOnServer)
+## Run On Server （在服务器上运行）
 
  _在此示例中，我们继续以上 **Multicast Replication** 示例。_
 
@@ -121,7 +124,8 @@ SkillLevel: Advanced
 	我们已经向服务器发送消息，以在服务器运行部分脚本来生成 Actor，由于此 Actor 已设置为复制，因此我们可以在所有客户端上看到它。
 	
 
-## Run On Owning Client 在所有权的客户端上运行
+(#RunOnOwningClient)
+## Run On Owning Client （在所有权的客户端上运行）
 
 _在此示例中，我们继续以上 **Multicast Replication** 示例。_
 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2652918
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:EQS 测试 Pawn
 Crumbs:%ROOT%, Engine, Gameplay/AI, Engine/AI/EnvironmentQuerySystem
@@ -10,6 +10,7 @@ topic-image:Engine/AI/BehaviorTrees/AI_topic.png
 
 **场景查询系统测试 Pawn**（**EQSTestingPawn**）是一个特殊的 Pawn 类，可对场景查询实际进行的操作进行查看。场景查询的实际组成将定义所创建内容的尺寸和形状，但始终以彩色球体显示。球体的色阶从绿色到红色，表示场景查询执行的诸多测试的匹配度。蓝色球体表示失败或布尔型测试返回 false（如 **Trace** 测试）。
 
+(#CreatinganEQSTestingPawn)
 ## 创建 EQS 测试 Pawn
 
 [REGION:raw]
@@ -21,6 +22,7 @@ topic-image:Engine/AI/BehaviorTrees/AI_topic.png
 1. 选择 **EQSTestingPawn**
 1. 为新的 **EQSTestingPawn** 蓝图命名
 
+(#UsinganEQSTestingPawn)
 ## 使用 EQS 测试 Pawn
 
 [REGION:lightbox]
@@ -35,12 +37,14 @@ topic-image:Engine/AI/BehaviorTrees/AI_topic.png
 
 1. 为 **Query Template** 属性指定一个 **场景查询**。
 
+(#FeedbackReference)
 ## 反馈参考
 
 **蓝色**：测试在该项目上失败，因此其为完全不加权，并从结果中剔除。常见于数值被过滤掉时，如使用距离测试过滤掉其上（或其下）一定距离的项目时。如不希望数值被完全剔除，可使用 scoring 部分的 Clamp 功能。 
 
 **绿色-红色**：绿色较红色更佳。上面列出的数字是项目的权重。如只预览调试的一个步骤，此数值即为所选测试的最终数值。
 
+(#EQSTestingPawnPropertyReference)
 ## EQS 测试 Pawn 属性参考
 
 | 属性 | 描述 |

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -13,6 +13,6 @@ class USourceCodeAccessSettings : public UObject
 	GENERATED_UCLASS_BODY()
 
 	/** The source code editor we prefer to use. */
-	UPROPERTY(Config, EditAnywhere, Category="Source Code Editor", meta=(DisplayName="Source Code Editor"))
+	UPROPERTY(Config, EditAnywhere, Category="Source Code Editor", meta=(DisplayName="Source Code Editor", ConfigRestartRequired = true))
 	FString PreferredAccessor;
 };

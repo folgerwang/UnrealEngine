@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -11,6 +11,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Stores a numeric version consisting of any number of components.
 	/// </summary>
+	[Serializable]
 	class VersionNumber : IComparable<VersionNumber>
 	{
 		/// <summary>

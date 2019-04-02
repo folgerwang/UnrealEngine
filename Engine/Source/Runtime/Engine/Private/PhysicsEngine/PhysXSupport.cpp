@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PhysXSupport.cpp: PhysX
@@ -18,7 +18,12 @@
 #include "PhysicsEngine/ConstraintInstance.h"
 #include "PhysicsEngine/BodySetup.h"
 
+int32 GPhysXHackLoopCounter = -1;
+FAutoConsoleVariableRef CVarHackLoopCounter(TEXT("p.TriMeshBufferOverflowCounter"), GPhysXHackLoopCounter, TEXT("Loop logging counter - set to -1 to disable logging"), ECVF_Default);
+
+
 PxFoundation*			GPhysXFoundation = NULL;
+int32					GPhysXHackCurrentLoopCounter = 0;
 PxPvd*					GPhysXVisualDebugger = NULL;
 PxPhysics*				GPhysXSDK = NULL;
 FPhysXAllocator*		GPhysXAllocator = NULL;
@@ -52,16 +57,6 @@ PxTransform UMatrix2PTransform(const FMatrix& UTM)
 {
 	PxQuat PQuat = U2PQuat(UTM.ToQuat());
 	PxVec3 PPos = U2PVector(UTM.GetOrigin());
-
-	PxTransform Result(PPos, PQuat);
-
-	return Result;
-}
-
-PxTransform U2PTransform(const FTransform& UTransform)
-{
-	PxQuat PQuat = U2PQuat(UTransform.GetRotation());
-	PxVec3 PPos = U2PVector(UTransform.GetLocation());
 
 	PxTransform Result(PPos, PQuat);
 
@@ -271,7 +266,7 @@ PxFilterFlags PhysXSimFilterShader(	PxFilterObjectAttributes attributes0, PxFilt
 	}
 	
 	// if these bodies are from the same component, use the disable table to see if we should disable collision. This case should only happen for things like skeletalmesh and destruction. The table is only created for skeletal mesh components at the moment
-#if !WITH_APEIRON && !PHYSICS_INTERFACE_LLIMMEDIATE
+#if !WITH_CHAOS && !PHYSICS_INTERFACE_LLIMMEDIATE
 	if(filterData0.word2 == filterData1.word2)
 	{
 		check(constantBlockSize == sizeof(FPhysSceneShaderInfo));
@@ -336,7 +331,7 @@ PxFilterFlags PhysXSimFilterShader(	PxFilterObjectAttributes attributes0, PxFilt
 	return PxFilterFlags();
 }
 
-#if !WITH_APEIRON && !PHYSICS_INTERFACE_LLIMMEDIATE
+#if !WITH_CHAOS && !PHYSICS_INTERFACE_LLIMMEDIATE
 
 /** Figures out the new FCollisionNotifyInfo needed for pending notification. It adds it, and then returns an array that goes from pair index to notify collision index */
 TArray<int32> AddCollisionNotifyInfo(const FBodyInstance* Body0, const FBodyInstance* Body1, const physx::PxContactPair * Pairs, uint32 NumPairs, TArray<FCollisionNotifyInfo> & PendingNotifyInfos)
@@ -458,7 +453,7 @@ void FPhysXSimEventCallback::onContact(const PxContactPairHeader& PairHeader, co
 		}
 	}
 
-	TArray<FCollisionNotifyInfo>& PendingCollisionNotifies = OwningScene->GetPendingCollisionNotifies(SceneType);
+	TArray<FCollisionNotifyInfo>& PendingCollisionNotifies = OwningScene->GetPendingCollisionNotifies();
 
 	uint32 PreAddingCollisionNotify = PendingCollisionNotifies.Num() - 1;
 	TArray<int32> PairNotifyMapping = AddCollisionNotifyInfo(BodyInst0, BodyInst1, Pairs, NumPairs, PendingCollisionNotifies);
@@ -561,7 +556,7 @@ void FPhysXSimEventCallback::onConstraintBreak( PxConstraintInfo* constraints, P
 		{
 			if (FConstraintInstance* Constraint = FPhysxUserData::Get<FConstraintInstance>(Joint->userData))
 			{
-				OwningScene->AddPendingOnConstraintBreak(Constraint, SceneType);
+				OwningScene->AddPendingOnConstraintBreak(Constraint);
 			}
 		}
 	}
@@ -573,7 +568,7 @@ void FPhysXSimEventCallback::onWake(PxActor** Actors, PxU32 Count)
 	{
 		if (FBodyInstance* BodyInstance = FPhysxUserData::Get<FBodyInstance>(Actors[ActorIdx]->userData))
 		{
-			OwningScene->AddPendingSleepingEvent(BodyInstance, ESleepEvent::SET_Wakeup, SceneType);
+			OwningScene->AddPendingSleepingEvent(BodyInstance, ESleepEvent::SET_Wakeup);
 		}
 	}
 }
@@ -584,7 +579,7 @@ void FPhysXSimEventCallback::onSleep(PxActor** Actors, PxU32 Count)
 	{
 		if (FBodyInstance* BodyInstance = FPhysxUserData::Get<FBodyInstance>(Actors[ActorIdx]->userData))
 		{
-			OwningScene->AddPendingSleepingEvent(BodyInstance, ESleepEvent::SET_Sleep, SceneType);
+			OwningScene->AddPendingSleepingEvent(BodyInstance, ESleepEvent::SET_Sleep);
 		}
 	}
 }
@@ -640,7 +635,7 @@ FPhysXCookingDataReader::FPhysXCookingDataReader( FByteBulkData& InBulkData, FBo
 
 PxConvexMesh* FPhysXCookingDataReader::ReadConvexMesh( FBufferReader& Ar, uint8* InBulkDataPtr, int32 InBulkDataSize )
 {
-	LLM_SCOPE(ELLMTag::PhysXConvexMesh);
+	LLM_SCOPE(ELLMTag::PhysX);
 
 	PxConvexMesh* CookedMesh = NULL;
 	uint8 IsMeshCooked = false;
@@ -657,7 +652,7 @@ PxConvexMesh* FPhysXCookingDataReader::ReadConvexMesh( FBufferReader& Ar, uint8*
 
 PxTriangleMesh* FPhysXCookingDataReader::ReadTriMesh( FBufferReader& Ar, uint8* InBulkDataPtr, int32 InBulkDataSize )
 {
-	LLM_SCOPE(ELLMTag::PhysXTriMesh);
+	LLM_SCOPE(ELLMTag::PhysX);
 
 	FPhysXInputStream Buffer( InBulkDataPtr + Ar.Tell(), InBulkDataSize - Ar.Tell() );
 	PxTriangleMesh* CookedMesh = GPhysXSDK->createTriangleMesh(Buffer);
@@ -852,7 +847,7 @@ void AddToCollection(PxCollection* PCollection, PxBase* PBase)
 
 PxCollection* MakePhysXCollection(const TArray<UPhysicalMaterial*>& PhysicalMaterials, const TArray<UBodySetup*>& BodySetups, uint64 BaseId)
 {
-#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+#if WITH_CHAOS || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
     ensure(false);
     return nullptr;
 #else
@@ -920,6 +915,9 @@ FString ErrorCodeToString(PxErrorCode::Enum e)
 	case PxErrorCode::ePERF_WARNING:
 		CodeString = TEXT("ePERF_WARNING");
 		break;
+	case PxErrorCode::eLOGGING_INFO:
+		CodeString = TEXT("eLOGGING_INFO");
+		break;
 	default:
 		CodeString = TEXT("UNKONWN");		
 	}
@@ -937,6 +935,18 @@ void FPhysXErrorCallback::reportError(PxErrorCode::Enum e, const char* message, 
 		return;
 	}
 
+	if (e == PxErrorCode::eLOGGING_INFO)
+	{
+		if (GPhysXHackLoopCounter == -1)
+		{
+			return;
+		}
+		GPhysXHackCurrentLoopCounter++;
+		if (GPhysXHackCurrentLoopCounter <= GPhysXHackLoopCounter)
+		{
+			return;
+		}
+	}
 
 	if (e == PxErrorCode::eINTERNAL_ERROR)
 	{
@@ -962,7 +972,6 @@ void FPhysXErrorCallback::reportError(PxErrorCode::Enum e, const char* message, 
 			e = PxErrorCode::eDEBUG_WARNING;
 		}
 	}
-
 	// Make string to print out, include physx file/line
 	FString ErrorString = FString::Printf(TEXT("PHYSX: (%s %d) %s : %s"), ANSI_TO_TCHAR(file), line, *ErrorCodeToString(e), ANSI_TO_TCHAR(message));
 
@@ -976,7 +985,7 @@ void FPhysXErrorCallback::reportError(PxErrorCode::Enum e, const char* message, 
 		UE_LOG(LogPhysics, Error, TEXT("%s"), *ErrorString);
 		//ensureMsgf(false, TEXT("%s"), *ErrorString);
 	}
-	else if (e == PxErrorCode::ePERF_WARNING || e == PxErrorCode::eINTERNAL_ERROR)
+	else if (e == PxErrorCode::ePERF_WARNING || e == PxErrorCode::eINTERNAL_ERROR || e == PxErrorCode::eLOGGING_INFO)
 	{
 		UE_LOG(LogPhysics, Warning, TEXT("%s"), *ErrorString);
 	}

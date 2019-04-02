@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -29,12 +29,16 @@ private:
 	void OnUseSelected();
 	FText GetDisplayText() const;
 	FPrimaryAssetId GetCurrentPrimaryAssetId() const;
+	void UpdateThumbnail();
 
 	/** Handle to the struct property being customized */
 	TSharedPtr<IPropertyHandle> StructPropertyHandle;
 
 	/** Specified type */
 	TArray<FPrimaryAssetType> AllowedTypes;
+
+	/** Thumbnail resource */
+	TSharedPtr<class FAssetThumbnail> AssetThumbnail;
 };
 
 /** Graph pin version of UI */

@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:3149199
+﻿INTSourceChangelist:3801260
 Availability:Public
 Title:蓝图样条网格体组件属性参考
 Crumbs: %ROOT%, Engine
-Description:蓝图样条网格体组件编辑器中所有可用属性的参考。
+Description:包含在蓝图样条网格体组件的编辑器中可用的所有属性的参考。
 Navigation:topic
 parent:Engine/BlueprintSplines
 order:1
@@ -10,51 +10,12 @@ social-image:Splines_social.png
 version:4.13
 type:reference
 tags:Splines
+topic-image:Engine/BlueprintSplines/Splines_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/BlueprintSplines/Reference/MeshComponent:title%](Engine/BlueprintSplines/Splines_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/BlueprintSplines/Reference/MeshComponent:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/BlueprintSplines/Reference/MeshComponent:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/BlueprintSplines/Reference/MeshComponent]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/BlueprintSplines/Reference/MeshComponent:title%](Engine/BlueprintSplines/Splines_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/BlueprintSplines/Reference/MeshComponent:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/BlueprintSplines/Reference/MeshComponent:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/BlueprintSplines/Reference/MeshComponent]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
+本页面包含了一个在 **蓝图样条网格体组件（Blueprint Spline Mesh Components）** 中可用属性的参考列表。如果在 **蓝图编辑器（Blueprint Editor）** 中选择了 **蓝图样条网格体组件（Blueprint Spline Mesh Component）**，是 **根组件（Root Component）**，或者在 **关卡编辑器（Level Editor）** 中选择了该组件，则显示的属性将略有不同。
 
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
-
-本页面中的参考列出了 **蓝图样条网格体组件（Blueprint Spline Mesh Components）** 上可用的各项属性。**蓝图样条网格体组件** 在 **蓝图编辑器** 中被选中且为 **根组件** 时，或组件在 **关卡编辑器** 中被选中时，显示的属性将有些许不同。
+(#properties)
 
 ## 属性
 
@@ -65,251 +26,182 @@ tags:Splines
 
 
 [EXCERPT:PropStaticMeshCat]
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		StaticMeshCat
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Static Mesh
-	[/PARAM]
-	[PARAM:content]
-		%spm1%
-	[/PARAM]
-[/OBJECT]
+(#staticmesh)
 
-[VAR:spm1]
+### 静态网格体
 
 ![](StaticMeshCatRef.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Static Mesh** || 指定为此组件渲染的 **静态网格体**。|
+| 属性 | 说明 |
+| --- | :--- |
+| **静态网格体（Static Mesh）** | 指定要为该组件渲染的 **静态网格体（Static Mesh）**。|
 
 [/REGION]
 
-###材质
+(#materials)
+
+### 材质
 
 ![](MaterialsCatRef.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Element #** || 在 **静态网格体属性** 中指定一个 **静态网格体** 后，将出现多个额外的 **材质属性**。它们将基于应用至 **静态网格体** 的 **材质 ID** 进行命名。|
+| 属性 | 说明 |
+| --- | :--- |
+| **元素#（Element #）** | 一旦在 **静态网格体属性（Static Mesh Property）** 中指定了一个 **静态网格体（Static Mesh）**，将会出现一些额外的 **材质属性（Material Properties）**。将基于应用到 **静态网格体（Static Mesh）** 的 **材质ID（Material IDs）** 命名这些属性。|
 [/REGION]
-
-[/VAR]
 [/EXCERPT]
 
 
 
 [EXCERPT:PropSplineMeshCat]
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		SplineMeshCat
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Spline Mesh
-	[/PARAM]
-	[PARAM:content]
-		%spm2%
-	[/PARAM]
-[/OBJECT]
+(#splinemesh)
 
-[VAR:spm2]
+### 样条网格体
 
 ![](SplineMeshCat.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Start Pos** || %doxygen:FSplineMeshParams::StartPos% |
-| **Start Tangent** || %doxygen:FSplineMeshParams::StartTangent% |
-| **End Pos** || %doxygen:FSplineMeshParams::EndPos% |
-| **End Tangent** || %doxygen:FSplineMeshParams::EndTangent% |
-| **Spline Up Dir** || %doxygen:USplineMeshComponent::SplineUpDir% |
-| **Forward Axis** || %doxygen:USplineMeshComponent::ForwardAxis% |
+| 属性 | 说明 |
+| --- | :--- |
+| **起始位置（Start Pos）** | %doxygen:FSplineMeshParams::StartPos% |
+| **起始切线（Start Tangent）** | %doxygen:FSplineMeshParams::StartTangent% |
+| **结束位置（End Pos）** | %doxygen:FSplineMeshParams::EndPos% |
+| **结束切线（End Tangent）** | %doxygen:FSplineMeshParams::EndTangent% |
+| **样条向上方向（Spline Up Dir）** | %doxygen:USplineMeshComponent::SplineUpDir% |
+| **前向轴（Forward Axis）** | %doxygen:USplineMeshComponent::ForwardAxis% |
 [/REGION]
 
-###高级
+(#advanced)
+
+#### 高级
 
 ![](SplineMeshCatAdv.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Start Scale** || %doxygen:FSplineMeshParams::StartScale% |
-| **Start Roll** || %doxygen:FSplineMeshParams::StartRoll% |
-| **Start Offset** || %doxygen:FSplineMeshParams::StartOffset% |
-| **End Scale** || %doxygen:FSplineMeshParams::EndScale% |
-| **End Roll** || %doxygen:FSplineMeshParams::EndRoll% |
-| **End Offset** || %doxygen:FSplineMeshParams::EndOffset% |
-| **Smooth Interp Roll Scale** || %doxygen:USplineMeshComponent::bSmoothInterpRollScale% |
-| **Spline Boundary Min** || %doxygen:USplineMeshComponent::SplineBoundaryMin% |
-| **Spline Boundary Max** || %doxygen:USplineMeshComponent::SplineBoundaryMax% |
+| 属性 | 说明 |
+| --- | :--- |
+| **起始缩放（Start Scale）** | %doxygen:FSplineMeshParams::StartScale% |
+| **起始滚动（Start Roll）** | %doxygen:FSplineMeshParams::StartRoll% |
+| **起始偏移（Start Offset）** | %doxygen:FSplineMeshParams::StartOffset% |
+| **结束缩放（End Scale）** | %doxygen:FSplineMeshParams::EndScale% |
+| **结束滚动（End Roll）** | %doxygen:FSplineMeshParams::EndRoll% |
+| **结束偏移（End Offset）** | %doxygen:FSplineMeshParams::EndOffset% |
+| **平滑插值滚动缩放（Smooth Interp Roll Scale）** | %doxygen:USplineMeshComponent::bSmoothInterpRollScale% |
+| **样条边界最小值（Spline Boundary Min）** | %doxygen:USplineMeshComponent::SplineBoundaryMin% |
+| **样条边界最大值（Spline Boundary Max）** | %doxygen:USplineMeshComponent::SplineBoundaryMax% |
 [/REGION]
-
-[/VAR]
 [/EXCERPT]
 
 
 
 [EXCERPT:PropSplineCat]
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		SplineCat
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Spline
-	[/PARAM]
-	[PARAM:content]
-		%spm3%
-	[/PARAM]
-[/OBJECT]
+(#spline)
 
-[VAR:spm3]
+### 样条
 
 ![](BPSM_SplineCatRef.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Allow Spline Editing Per Instance** || %doxygen:USplineMeshComponent::bAllowSplineEditingPerInstance% |
+| 属性 | 说明 |
+| --- | :--- |
+| **允许对每个实例进行样条编辑（Allow Spline Editing Per Instance）** | %doxygen:USplineMeshComponent::bAllowSplineEditingPerInstance% |
 [/REGION]
-
-[/VAR]
 [/EXCERPT]
 
+(#physics)
 
+### 物理
 
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		PhysicsCat
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Physics
-	[/PARAM]
-	[PARAM:content]
-		%Engine/Physics/PhysicsBodies/Reference:c3%
-	[/PARAM]
-[/OBJECT]
+[INCLUDE:Engine/Physics/PhysicsBodies/Reference#PropPhysicsCat]
 
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		CollisionCat
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Collision
-	[/PARAM]
-	[PARAM:content]
-		%Engine/Physics/PhysicsBodies/Reference:p2%
-	[/PARAM]
-[/OBJECT]
+(#collision)
 
+### 碰撞
 
-
+[INCLUDE:Engine/Physics/PhysicsBodies/Reference#PropColCat]
 
 [EXCERPT:PropLightingCat]
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		LightingCat
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Lighting
-	[/PARAM]
-	[PARAM:content]
-		%c5%
-	[/PARAM]
-[/OBJECT]
+(#lighting)
 
-[VAR:c5]
+### 照明
 
 ![](LightingCatRef.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Cast Shadow** || %doxygen:UPrimitiveComponent::CastShadow% |
+| 属性 | 说明 |
+| --- | :--- |
+| **投射阴影（Cast Shadow）** | %doxygen:UPrimitiveComponent::CastShadow% |
 [/REGION]
 
-###高级
+(#advanced)
+
+#### 高级
 
 ![](LightingCatRefAdv.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Affect Dynamic Indirect Lighting** || %doxygen:UPrimitiveComponent::bAffectDynamicIndirectLighting% |
-| **Affect Distance Field Lighting** || %doxygen:UPrimitiveComponent::bAffectDistanceFieldLighting% |
-| **Cast Dynamic Shadow** || %doxygen:UPrimitiveComponent::bCastDynamicShadow% |
-| **Cast Static Shadow** || %doxygen:UPrimitiveComponent::bCastStaticShadow% |
-| **Cast Volumetric Translucent Shadow** || %doxygen:UPrimitiveComponent::bCastVolumetricTranslucentShadow% |
-| **Self Shadow Only** || %doxygen:UPrimitiveComponent::bSelfShadowOnly% |
-| **Cast Far Shadow** || %doxygen:UPrimitiveComponent::bCastFarShadow% |
-| **Cast Inset Shadow** || %doxygen:UPrimitiveComponent::bCastInsetShadow% |
-| **Cast Cinematic Shadow** || %doxygen:UPrimitiveComponent::bCastCinematicShadow% |
-| **Cast Hidden Shadow** || %doxygen:UPrimitiveComponent::bCastHiddenShadow% |
-| **Cast Shadow as Two Sided** || %doxygen:UPrimitiveComponent::bCastShadowAsTwoSided% |
-| **Light as if Static** || %doxygen:UPrimitiveComponent::bLightAsIfStatic% |
-| **Light Attachments as Group** || %doxygen:UPrimitiveComponent::bLightAttachmentsAsGroup% |
-| **Indirect Lighting Cache Quality** || %doxygen:UPrimitiveComponent::IndirectLightingCacheQuality% |
-| **Single Sample Shadow From Stationary Lights** || %doxygen:UPrimitiveComponent::bSingleSampleShadowFromStationaryLights% |
-| **Lighting Channels** || %doxygen:UPrimitiveComponent::LightingChannels% |
+| 属性 | 说明 |
+| --- | :--- |
+| **影响动态间接照明（Affect Dynamic Indirect Lighting）** | %doxygen:UPrimitiveComponent::bAffectDynamicIndirectLighting% |
+| **影响距离场照明（Affect Distance Field Lighting）** | %doxygen:UPrimitiveComponent::bAffectDistanceFieldLighting% |
+| **投射动态阴影（Casts Static Shadows）** | %doxygen:UPrimitiveComponent::bCastDynamicShadow% |
+| **投射静态阴影（Cast Static Shadow）** | %doxygen:UPrimitiveComponent::bCastStaticShadow% |
+| **投射体积半透明阴影（Cast Volumetric Translucent Shadow）** | %doxygen:UPrimitiveComponent::bCastVolumetricTranslucentShadow% |
+| **仅自我阴影（Self Shadow Only）** | %doxygen:UPrimitiveComponent::bSelfShadowOnly% |
+| **投射远阴影（Cast Far Shadow）** | %doxygen:UPrimitiveComponent::bCastFarShadow% |
+| **投射嵌入阴影（Cast Inset Shadow）** | %doxygen:UPrimitiveComponent::bCastInsetShadow% |
+| **投射电影级阴影（Cast Cinematic Shadow）** | %doxygen:UPrimitiveComponent::bCastCinematicShadow% |
+| **投射隐藏阴影（Cast Hidden Shadow）** | %doxygen:UPrimitiveComponent::bCastHiddenShadow% |
+| **投射双面阴影（Cast Shadow as Two Sided）** | %doxygen:UPrimitiveComponent::bCastShadowAsTwoSided% |
+| **静态光源（Light as if Static）** | %doxygen:UPrimitiveComponent::bLightAsIfStatic% |
+| **分组光源附件（Light Attachments as Group）** | %doxygen:UPrimitiveComponent::bLightAttachmentsAsGroup% |
+| **间接照明缓存质量（Indirect Lighting Cache Quality）** | %doxygen:UPrimitiveComponent::IndirectLightingCacheQuality% |
+| **来自固定光源的单一样本阴影（Single Sample Shadow From Stationary Lights）** | %doxygen:UPrimitiveComponent::bSingleSampleShadowFromStationaryLights% |
+| **照明通道（Lighting Channels）** | %doxygen:UPrimitiveComponent::LightingChannels% |
 [/REGION]
-
-[/VAR]
 [/EXCERPT]
 
 
 
 [EXCERPT:PropRenderingCat]
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		RenderingCat
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Rendering
-	[/PARAM]
-	[PARAM:content]
-		%c6%
-	[/PARAM]
-[/OBJECT]
+(#rendering)
 
-[VAR:c6]
+### 渲染
 
 ![](RenderingCatRef.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Visible** || %doxygen:USceneComponent::bVisible% |
-| **Hidden in Game** ||  %doxygen:USceneComponent::bHiddenInGame%|
+| 属性 | 说明 |
+| --- | :--- |
+| **可见（Visible）** | %doxygen:USceneComponent::bVisible% |
+| **隐藏在游戏中（Hidden in Game）** |  %doxygen:USceneComponent::bHiddenInGame%|
 [/REGION]
 
-###高级
+(#advanced)
+
+#### 高级
 
 ![](RenderingCatRefAdv.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Texture Streaming** || [INCLUDE:#TextureStreamingProp] |
-| **LOD** || [INCLUDE:#LODProp] |
-| **Render In Main Pass** || %doxygen:UPrimitiveComponent::bRenderInMainPass% |
-| **Receives Decals** || %doxygen:UPrimitiveComponent::bReceivesDecals% |
-| **Owner No See** || %doxygen:UPrimitiveComponent::bOwnerNoSee% |
-| **Only Owner See** || %doxygen:UPrimitiveComponent::bOnlyOwnerSee% |
-| **Treat As Background for Occlusion** || %doxygen:UPrimitiveComponent::bTreatAsBackgroundForOcclusion% |
-| **Use As Occluder** || %doxygen:UPrimitiveComponent::bUseAsOccluder% |
-| **Render CustomDepth Pass** || %doxygen:UPrimitiveComponent::bRenderCustomDepth% |
-| **CustomDepth Stencil Value** || %doxygen:UPrimitiveComponent::CustomDepthStencilValue% |
-| **Translucency Sort Priority** || 位于高优先级物体后，绘制优先级较低的半透明物体。优先级相同的半透明物体将基于其边界原点从后向前进行渲染。|
-| **Lpv Bias Multiplier** || %doxygen:UPrimitiveComponent::LpvBiasMultiplier% |
-| **Bounds Scale** || %doxygen:UPrimitiveComponent::BoundsScale% |
-| **Use Attach Parent Bound** || %doxygen:USceneComponent::bUseAttachParentBound% |
+| 属性 | 说明 |
+| --- | :--- |
+| **纹理流送（Texture Streaming）** | [INCLUDE:#TextureStreamingProp] |
+| **LOD** | [INCLUDE:#LODProp] |
+| **在主通道中渲染（Render In Main Pass）** | %doxygen:UPrimitiveComponent::bRenderInMainPass% |
+| **接收贴花（Receives Decals）** | %doxygen:UPrimitiveComponent::bReceivesDecals% |
+| **所有者看不到（Owner No See）** | %doxygen:UPrimitiveComponent::bOwnerNoSee% |
+| **仅所有者能看到（Only Owner See）** | %doxygen:UPrimitiveComponent::bOnlyOwnerSee% |
+| **视为遮挡的背景（Treat As Background for Occlusion）** | %doxygen:UPrimitiveComponent::bTreatAsBackgroundForOcclusion% |
+| **用作遮挡物（Use As Occluder）** | %doxygen:UPrimitiveComponent::bUseAsOccluder% |
+| **渲染CustomDepth通道（Render CustomDepth Pass）** | %doxygen:UPrimitiveComponent::bRenderCustomDepth% |
+| **CustomDepth模板值（CustomDepth Stencil Value）** | %doxygen:UPrimitiveComponent::CustomDepthStencilValue% |
+| **半透明排序优先级（Translucency Sort Priority）** | 排序优先级较低的半透明对象在优先级较高的对象后面绘制。具有相同优先级的半透明对象将根据其边界原点从后到前渲染。|
+| **Lpv偏差乘数（Lpv Bias Multiplier）** | %doxygen:UPrimitiveComponent::LpvBiasMultiplier% |
+| **边界缩放（Bounds Scale）** | %doxygen:UPrimitiveComponent::BoundsScale% |
+| **使用附加父级边界（Use Attach Parent Bound）** | %doxygen:USceneComponent::bUseAttachParentBound% |
 [/REGION]
-
-[/VAR]
 [/EXCERPT]
 
 
@@ -319,9 +211,9 @@ tags:Splines
 [EXCERPT:TextureStreamingProp]
 
 [REGION:raw]
-| 属性 | %spacer2% | 描述 |
-| --- | :---:| :--- |
-| **Force Mip Streaming** || %doxygen:UPrimitiveComponent::bForceMipStreaming% |
+| 属性 | 说明 |
+| --- | :--- |
+| **强制Mip流送（Force Mip Streaming）** | %doxygen:UPrimitiveComponent::bForceMipStreaming% |
 [/REGION]
 
 [/EXCERPT]
@@ -329,13 +221,13 @@ tags:Splines
 [EXCERPT:LODProp]
 
 [REGION:raw]
-| 属性 | %spacer2% | 描述 |
-| --- | :---:| :--- |
-| **Min Draw Distance** || %doxygen:UPrimitiveComponent::MinDrawDistance% |
-| **Desired Max Draw Distance** || %doxygen:UPrimitiveComponent::LDMaxDrawDistance% |
-| **Current Max Draw Distance** || %doxygen:UPrimitiveComponent::CachedMaxDrawDistance% |
-| **Allow Cull Distance Volume** || %doxygen:UPrimitiveComponent::bAllowCullDistanceVolume% |
-| **Detail Mode** || %doxygen:USceneComponent::DetailMode% |
+| 属性 | 说明 |
+| --- | :--- |
+| **最小绘制距离（Min Draw Distance）** | %doxygen:UPrimitiveComponent::MinDrawDistance% |
+| **所需最大绘制距离（Desired Max Draw Distance）** | %doxygen:UPrimitiveComponent::LDMaxDrawDistance% |
+| **当前最大绘制距离（Current Max Draw Distance）** | %doxygen:UPrimitiveComponent::CachedMaxDrawDistance% |
+| **允许剔除距离体积（Allow Cull Distance Volume）** | %doxygen:UPrimitiveComponent::bAllowCullDistanceVolume% |
+| **细节模式（Detail Mode）** | %doxygen:USceneComponent::DetailMode% |
 [/REGION]
 
 [/EXCERPT]
@@ -352,27 +244,15 @@ tags:Splines
 [INCLUDE:Engine/BlueprintSplines/Reference/ComponentProperties#PropEventsCat]
 
 [EXCERPT:PropMobileCat]
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		MobileCat
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Mobile
-	[/PARAM]
-	[PARAM:content]
-		%c10%
-	[/PARAM]
-[/OBJECT]
+(#mobile)
 
-[VAR:c10]
+### 移动
 
 ![](MobileCatRef.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Receive Combined Static and CSM Shadows from Stationary Lights** || %doxygen:UPrimitiveComponent::bReceiveCombinedCSMAndStaticShadowsFromStationaryLights%  |
+| 属性 | 说明 |
+| --- | :--- |
+| **从固定灯源接收静态和CSM组合阴影（Receive Combined Static and CSM Shadows from Stationary Lights）** | %doxygen:UPrimitiveComponent::bReceiveCombinedCSMAndStaticShadowsFromStationaryLights%  |
 [/REGION]
-
-[/VAR]
 [/EXCERPT]

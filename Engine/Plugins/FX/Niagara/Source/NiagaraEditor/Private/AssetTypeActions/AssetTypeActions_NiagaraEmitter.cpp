@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AssetTypeActions_NiagaraEmitter.h"
 #include "NiagaraEmitter.h"
@@ -111,6 +111,12 @@ void FAssetTypeActions_NiagaraEmitter::ExecuteNewNiagaraSystem(TArray<TWeakObjec
 
 				FNiagaraSystemViewModel SystemViewModel = FNiagaraSystemViewModel(*System, SystemOptions);
 				SystemViewModel.GetSystemScriptViewModel()->RebuildEmitterNodes();
+
+				// Ensure the new System is compiled
+				if (!Emitter->AreAllScriptAndSourcesSynchronized())
+				{
+					System->RequestCompile(true);
+				}
 
 				ObjectsToSync.Add(NewAsset);
 			}

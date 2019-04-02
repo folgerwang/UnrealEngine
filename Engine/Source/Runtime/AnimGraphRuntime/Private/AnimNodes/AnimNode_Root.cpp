@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimNodes/AnimNode_Root.h"
 
@@ -23,7 +23,7 @@ void FAnimNode_Root::CacheBones_AnyThread(const FAnimationCacheBonesContext& Con
 
 void FAnimNode_Root::Update_AnyThread(const FAnimationUpdateContext& Context)
 {
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 	Result.Update(Context);
 }
 

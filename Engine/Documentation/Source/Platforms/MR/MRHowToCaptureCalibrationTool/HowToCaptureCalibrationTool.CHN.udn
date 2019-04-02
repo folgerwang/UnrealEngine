@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:4320499
 Availability: Public
 Crumbs: %ROOT%, Platforms, Platforms/MR
-Title: How To Use The Mixed Reality Capture Calibration Tool
-Description: Product documentation including reference and guides for Unreal Engine 4
+Title: 如何使用混合现实捕捉校准工具
+Description: 包含参考及指南的虚幻引擎4产品文档
 Version: 4.20
 Parent: Platforms/MR
 Tags: GettingStarted
@@ -15,372 +15,372 @@ reference-image:MR_AdjustSample.gif
 reference-image:MR_CompletingCalibration.gif
 reference-image:MR_GarbageMattingControls.gif
 
-The goal of calibration is to have the virtual and physical cameras match up in the virtual world. 
+校准的目标是在虚拟场景中将虚拟摄像机和物理摄像机相匹配。 
 
 ![](AdjustingAlignmentStep.png "AdjustingAlignmentStep.png")  
-At runtime, the game needs to know a few things, like: 
+在运行时，游戏需要知道一些信息，例如： 
 
-*   The type of camera and lens that you’re using.
-*   Where your camera is in relation to your virtual scene. 
+*   要使用的摄像机和镜头类型。
+*   摄像机相对于虚拟场景的位置。 
 
-And to composite your scene, the game needs to know things like:
+要进行场景合成，游戏需要知道诸如以下之类的信息：
 
-*   The color of your chroma backdrop (usually green).
-*   How aggressively to cut out the chroma color.
-*   Areas you want fully cut out from the camera frame. 
+*   色度背景的颜色（通常为绿色）。
+*   如何有效地抠去色度颜色。
+*   要从摄像机取景框中完全抠去的区域。 
 
-The game needs to know these things so the virtual camera can emulate the physical one. This is where the calibration tool comes into play. The calibration tool lets you configure all of these settings at once, and produces a calibration settings file with that information. The settings file can then be reused across different games.
+游戏需要知道以上信息，才能用虚拟摄像机模拟物理摄像机。所以这时候校准工具就派上用场了。借助校准工具，你可以立即配置所有这些设置，并使用这些信息创建校准设置文件。此设置文件可以在其他游戏中重复使用。
 
-## Pre-Calibration Setup
+## 校准前设置
 
-Before you can start a Mixed Reality capture, you will need the right equipment. Here is quick overview of the equipment you will need, and some tips on how set it up. This include the basic green screen and camera setup for the capture process, as well as the equipment and software needed for calibration.
+在开始捕捉混合现实之前，你需要合适的设备。以下简要概述了你需要的设备以及有关如何设置的一些提示。这包括捕捉流程中的基本绿幕和摄像机设置，以及校准所需的设备和软件。
 
-#### Green Screen and Camera
+#### 绿幕和摄像机
 
 ![](MR_GreenScreenSetup.png "MR_GreenScreenSetup.png")
 
-1.  **Video Camera**  
-    UE4 only supports a very specific set of video capture devices; see [Supported Video Devices](https://docs.unrealengine.com/en-us/Platforms/MR/MRSupportedVideoDevices) for the current list of the supported devices. Using a device from the list, connect it to your PC for streaming.
-2.  **Chroma backdrop**  
-    For chroma keying, we generally use a green screen. When setting up the green screen you will want to make sure it’s taut, minimizing any wrinkles, especially behind your subject. If you are setting up lighting, you will want to make sure not to cast shadows directly behind the subject. You want a smooth, flat color. The more shades of green that there are across the backdrop, the harder it is to chroma key. It helps if the subject is far away from the backdrop as possible. If you plan on filming the subject’s feet, consider a green screen for the floor as well.
-3.  **Camera Mount**  
-    For initial setup (calibration), your camera needs to be static. If you are using a webcam this may be as simple as attaching it to your desk/monitor. Another option is mount the camera to a tripod.
-4.  **Multi-Mount + Tracker (Optional)**  
-    If you plan on moving the camera around while filming, you will want attach a tracking device to the camera, such as an HTC Vive Tracker. In addition, connect the camera and tracker together with a [multi mount](https://www.bhphotovideo.com/c/product/1062513-REG/desmond_d3d_1_stereo_camera_bracket.html), so that they stay firmly locked in place.
+1. **摄像机**  
+    UE4 仅支持一组非常特定的视频捕捉设备。有关支持的设备列表，请参见[支持的视频设备](https://docs.unrealengine.com/en-us/Platforms/MR/MRSupportedVideoDevices)。将列出的设备连接到PC进行流送。
+2. **色度背景（Chroma backdrop）**  
+    色度镶迭通常使用绿幕。设置绿幕时，请确保绿幕紧绷，尽量减少褶皱，尤其是在拍摄对象的后面。如果设置光照，应确保不在对象后面直接投射阴影。颜色应该平滑。背景中绿色阴影区域越多，色度镶迭就越困难。让拍摄对象尽可能远离背景会很有帮助。如果你打算对拍摄对象的脚进行拍摄，请考虑在地板上也使用绿幕。
+3. **摄像机安装**  
+    对于初始设置（校准），必须固定摄像机。如果你使用网络摄像头，只需将其连接到你的桌面/显示器即可。另一种选择是将摄像机安装在三脚架上。
+4. **多重安装 + 跟踪器（选件）**  
+    如果你打算在拍摄期间四处移动摄像机，最好将跟踪设备（例如HTC Vive Tracker）连接到摄像机。另外，你还可以使用[多重安装](https://www.bhphotovideo.com/c/product/1062513-REG/desmond_d3d_1_stereo_camera_bracket.html)将摄像机和跟踪器牢固地安装在一个地方。
 
-#### Calibration Specific Equipment
+#### 校准专用仪器
 
-There are a few additional items required specifically for the calibration process (as opposed to the capture process).
+校准过程需要一些额外的特定仪器或系统（相对于捕捉过程）。
 
 ![](MR_RequiredSetupItems.jpg "MR_RequiredSetupItems.jpg")
 
-*   **HTC Vive or Oculus Rift**  
-    The calibration tool requires one of these two VR systems to work. The tool uses the controllers’ tracking to evaluate the location of the camera. If this is the first time you’ve set up an HTC Vive or Oculus system, you will need to complete their setup process first for calibration to work properly.
-*   **Printed Checkerboard Pattern**  
-    Print and attach a printed checkerboard pattern to a flat rigid surface (like a piece of cardboard). You can find an example of this checkerboard pattern included with the calibration tool download.
+*   **HTC Vive 或 Oculus Rift**  
+    校准工具需要使用这两个VR系统中的一个才能工作。该工具使用控制器的跟踪功能来评估摄像机的位置。如果你尚未设置HTC Vive或Oculus系统，必须先完成设置过程，然后才能进行校准。
+*   **打印的棋盘格模板**  
+    打印棋盘格模板，并将其粘贴到坚硬的平面（例如纸板）上。下载的校准工具中包括棋盘格模板示例。
     [REGION:tip]
-    When taping down the checkerboard printout, make sure not to cover the checkerboard pattern itself with tape (even clear tape can cause specular reflections that make it hard for the camera to read).
+    在用胶带粘打印的棋盘格时，请勿让胶带遮住棋盘格模板（即使是透明胶带也会产生镜面反射，使摄像机难以识别）。
     [/REGION]
 
-## Steps
+## 步骤
 
-Once the equipment is set up, you can download the calibration tool from [here](http://epic.gm/mrccal). Once you've downloaded the file, unzip it and launch MRCalibration.exe.
+安装仪器后，可以在[此处](http://epic.gm/mrccal)下载校准工具。下载文件后，将其解压缩并运行MRCalibration.exe。
 
-The calibration process is divided into distinct steps. The individual steps are discussed further below.
+校准过程分为几个步骤。下面将详细介绍每个步骤。
 
-1.  Device/Camera/Tracker Selection
-2.  Lens Calibration
-3.  Alignment Calibration
-4.  Alignment Adjustment
-5.  Compositing Calibration
-6.  Garbage Matting
+1. 选择设备/摄像机/跟踪器
+2. 镜头校准
+3. 对齐校准
+4. 对齐调整
+5. 合成校准
+6. 削除抠像
 
-During calibration, at the end of each step your progress is saved. So you can exit and return to the tool if needed. Once the calibration process is complete, the tool generates a settings file that you will then use to start a MRC session in other projects.
-
-[REGION:tip]
-Your calibration progress is recorded in the setting file. If you want to restart the calibration process, you will need to delete the settings file. The settings file is named *MrcCalibration.sav*, and can be found under the tool’s */Saved/SaveGames/* directory.
-[/REGION]
-
-#### Shared Controls
-
-While each step has its own distinct controls, there are some controls that are used consistently through the tool:
-
-*   **Enter** : Next/Confirm/Accept/Submit
-*   **End** : Skip (only applicable when step requirements have been met - some steps can’t be skipped)
-*   **P/Thumbstick** : Preview
-*   **M** : Mirror the video feed
-*   **R** : Reset altered settings
-*   **Esc** : Exit
+校准期间将在每个步骤结束时保存进度。你可以按照需要退出和返回工具。完成校准过程后，校准工具会生成设置文件，你可以使用该文件在其他项目中启动MRC会话。
 
 [REGION:tip]
-The tool is rough around the edges, and usability can be improved in places. The tool is functional, but we plan on improving the usability of it in later releases. We welcome your feedback!
+设置文件会记录校准进度。要重新开始校准过程，必须删除设置文件。设置文件名为 *MrcCalibration.sav*，可以在工具的 */Saved/SaveGames/* 目录下找到。
 [/REGION]
 
-## Calibration Process
+#### 共享功能按钮
 
-### 1. Device/Camera/Tracker Selection
+尽管每个步骤都有特定的功能按钮，但有一些功能按钮是在整个工具中通用的：
 
-If you have multiple video capture devices connected to your PC, you have to specify which one you want to use. Use the **Up/Down** keys to cycle through them.
+*   **Enter**：下一步/确认/接受/提交
+*   **End**：跳过（仅在满足步骤要求时适用——有些步骤不能跳过）
+*   **P/Thumbstick**：预览
+*   **M**：镜像视频源
+*   **R**：还原更改过的设置
+*   **Esc**：退出
+
+[REGION:tip]
+工具中仍然存在一些瑕疵，有些方面的可用性还需要改进。该工具还算实用，但我们计划在以后的版本中提高可用性。欢迎提供反馈意见！
+[/REGION]
+
+## 校准过程
+
+### 1.选择设备/摄像机/跟踪器
+
+如果有多个视频捕捉设备连接到PC，必须指定要使用的设备。请使用 **Up/Down** 键循环浏览这些设备。
 
 ![](MR_DeviceSelection.png "MR_DeviceSelection.png")
 
-Additionally, each camera may have multiple formats and resolutions available to it. We try to auto-select the best format and resolution, but you can use **Left/Right** to change the selection.
+此外，每个摄像机可能有多种格式和分辨率。我们力求自动选择最佳的格式和分辨率，但你可以使用 **Left/Right** 更改选择。
 
 [REGION:tip]
-The resolution of the camera feed does not affect the output resolution of the Mixed Reality capture. The output resolution of the capture is controlled by the game project you will be capturing from. The resolution of the camera feed only controls how clear the feed is within the scene.
+摄像机影像的分辨率不会影响混合现实捕捉的输出分辨率。捕捉的输出分辨率由要捕捉的游戏项目控制。摄像机影像的分辨率仅控制场景中影像的清晰度。
 [/REGION]
 
-#### Device Selection Controls
+#### 设备选择功能按钮
 
-*   **Up/Down** : Select video capture source
-*   **Left/Right** : Select video capture format
-*   **Tab** : Select camera tracker
+*   **Up/Down**：选择视频捕捉源
+*   **Left/Right**：选择视频捕捉格式
+*   **Tab**：选择摄像机跟踪器
 
-#### Tracker Selection
+#### 选择追踪器
 
-If you’re planning on moving your camera while filming, you will need to attach it to a tracking device.
+如果你计划在拍摄期间四处移动摄像机，需要将其连接到跟踪设备。
 
-Before continuing to the next step, you can use the **Tab** key to cycle through the available tracking attachments. For the HTC Vive, the first tracker will be named “Special_1” in the attachments list.
+在继续下一步之前，你可以按 **Tab** 键循环浏览可用的跟踪附件。对于HTC Vive，第一个跟踪器在附件列表中命名为“Special_1”。
 
-After you have made the appropriate selections, press **Enter** and continue to the next step.
+进行适当的选择后，按 **Enter** 键进入下一步。
 
-### 2. Lens Calibration
+### 2.镜头校准
 
-Different camera lenses bend and distort the picture in different ways (think of a fisheye lens). You don’t want that distortion to be carried over into the captured scene, so use this lens calibration step to figure out how to undistort the image. ![](MR_LensCalibration.png "MR_LensCalibration.png")
+不同的摄像机镜头会以不同的方式弯曲和扭曲图像（想想鱼眼镜头）。你当然不希望在捕捉的场景中出现畸变，因此请学习如何进行镜头校准以消除图像畸变。![](MR_LensCalibration.png "MR_LensCalibration.png")
 
-During this step, you will need a printout of the checkerboard image that you downloaded along with the calibration tool. In this step, the calibration tool continuously takes screenshots using the checkerboard pattern as a baseline.
+在执行此步骤的过程中，你将需要打印出与校准工具一起下载的棋盘格图像。在此步骤中，校准工具继续根据棋盘格模板截取屏幕截图。
 
-Hold the printout at different locations in front of the camera. Use different angles and depths, especially around the edges of your frame, so that the calibration tool gets a wide collection of samples. The text at the top of the screen will change to let you know when the calibration tool has collected enough samples.
+将打印的模板放在摄像机前面的多个位置。使用不同的角度和景深，尤其是在取景框的边缘周围，让校准工具可以收集各种各样的样本。如果校准工具收集了足够的样本，屏幕顶部的文本会发生变化。
 
 [REGION:tip]
-If your camera is set to auto-focus, you might find it helpful to disable auto-focus during this step.
+如果摄像机设置为自动对焦，你可能会发现在此步骤中禁用自动对焦会很有帮助。
 [/REGION]
 
-#### Reprojection Error
+#### 重投影误差
 
-After the calibration tool has collected enough samples, the tool will show you a preview of the undistorted feed. If the feed looks acceptable, press **Enter** to continue. If needed, you can add more samples, or press **R** to reset and start over.
+在校准工具收集了足够的样本后，该工具就会显示无畸变的影像预览。如果影像看起来还可以，请按 **Enter** 键继续。如果需要，你可以添加更多样本，或按 **R** 键重置并重新启动。
 
 [REGION:tip]
-A good way to tell if the undistortion process is working is to find elements in frame that should be straight (wall corners, doorways, etc.). Lens distortion will often warp straight edges (especially towards the edge of the frame).
+判断去畸变过程是否有效的一个很好的方法是，在画面中寻找应该为直线的元素（墙角、过道等）。镜头畸变通常会扭曲直角（特别是向取景框边缘扭曲）。
 [/REGION]
 
 ![](MR_ReprojectionError.png "MR_ReprojectionError.png")
 
-The reported “reprojection error” lets you know how accurate the process thinks it is. The lower the reprojection error value, the better. You’re in great shape if the value is under one!
+“重投影误差”报告显示了该过程的准确程度。重投影误差值越低越好。如果该值小于1，说明显示效果非常好！
 
-#### Angle of View
+#### 视角
 
-Probably the most important use of this step is to approximate the camera’s angle-of-view (or FOV, ‘field-of-view’).
+此步骤最重要的用途可能是对摄像机的视角（或FOV，“视野”）进行估算。
 
-The FOV determines how much of the world the camera can see, and it is important that the FOV of our virtual camera matches this as closely as possible.
+FOV决定了摄像机可以看到的场景范围，务必尽可能使虚拟摄像机的FOV与该值匹配。
 
-If you already know the FOV of your camera (in degrees), you can use the *mrc.FovOverride* console variable to set it.  
+如果你已经知道摄像机的FOV值（以度为单位），可以使用 *mrc.FovOverride* 控制台变量对其进行设置。  
 
 [REGION:tip]
-Most USB camera manufacturers list the diagonal-FOV (DFOV) for their devices. However, we are interested in the horizontal-FOV (in degrees). You can compute the horizontal-FOV from the diagonal-FOV with the below formula, using the height (h) & width (w) of the resolution you selected in the previous step.
+大多数USB摄像机制造商会列出设备的对角FOV（DFOV）。但是，我们感兴趣的是水平FOV（以度为单位）。你可以使用上一步中选择的分辨率的高度（h）和宽度（w），通过以下公式从对角FOV计算出水平FOV。
 [/REGION]
 
 ![](MR_FOVFormula.png "MR_FOVFormula.png")
 
-There are also ways to calculate the horizontal-FOV for DSLR lenses. 
+还有一些方法可以计算DSLR镜头的水平FOV。 
 
-If you do not know your camera’s specific FOV offhand, don’t worry, this step will approximate it for you.  
+如果你不能立刻知道摄像机的特定FOV值，请不要担心，此步骤将为你计算出近似值。  
 
 [REGION:tip]
-If you have a camera with an adjustable lens, you will want to be very careful not to adjust the zoom after you’ve completed calibration. Adjusting the zoom will change the physical camera’s field-of-view (FOV), but not the virtual one. The virtual camera will use the FOV that was used during calibration. If you adjust the camera's zoom after calibration, you will need to repeat the calibration process.
+如果你可以调整摄像机的镜头，请注意不要在完成校准后调整变焦。调整变焦将改变物理摄像机的视野（FOV），但不会改变虚拟摄像机的视野。虚拟摄像机使用校准期间使用的FOV。如果在校准后调整了摄像机的变焦，需要重复校准过程。
 [/REGION]
 
-### 3. Alignment Calibration
+### 3.对其校准
 
 ![](AdjustingAlignment2.png "AdjustingAlignment2.png")
 
-This step requires you to rerun the Align and Adjust phases until complete.
+在此阶段，你必须重新进行“对齐”和“调整”步骤，直到完成为止。
 
-1.  Align the controller with an on-screen model.
-2.  Adjust the sampled alignment.
-3.  Repeat.
+1. 将控制器与屏幕上的模型对齐。
+2. 调整取样对齐。
+3. 重复。
 
 [REGION:tip]
-It is important to cover your headset’s sensor, so that we can get accurate tracking data from your controllers.
+务必覆盖头盔的传感器，这样才能从控制器获得准确的跟踪数据。
 [/REGION]
 
-For the HTC Vive, make sure that the controllers are on before you launch the tool. Otherwise, the calibration tool may not display models to align with (the tool needs to recognize the type of controllers that you are using).  
+对于HTC Vive，请确保在启动该工具之前已打开控制器。否则，校准工具可能无法显示要对齐的模型（工具需要能识别正在使用的控制器类型）。  
 
-#### Phase 1 - Align w/ Model
+#### 第 1 阶段- 与模型对齐
 
-On screen, there will be a pink/fuschia model to align your controller with. Hold the controller up to the screen and pull the trigger when the controller and the model are lined up.
+屏幕上会显示一个用于对齐控制器的粉红色/紫红色模型对齐。当控制器和模型在同一直线上时，将控制器朝向屏幕并扣动扳机。
 
-Once you’ve pulled the trigger, the screen will freeze frame, and switch into the next phase.
+扣动扳机后，屏幕将把图像定格，然后进入下一步。
 
-#### Phase 2 - Adjust Sample
+#### 第 2 阶段 - 调整样本
 
-Don’t expect to be wholly accurate when you first pull the trigger (shaky hands, etc.). In this phase, you adjust the last sample so it is more exactly aligned in the frame.
+首次扣动扳机时可能不完全准确（因为你的手会颤抖）。在此阶段中，要调整最后一个样本，使其在画框中更精确地对齐。
 
-#### Phase 3 - Repeat
+#### 第 3 阶段 - 重复
 
-In total, there are 11 points for you to align with. You don’t have to go through all of them, if at any point you think the alignment is satisfactory.
+要对齐的点总共有11个。如果你对某些点的对齐是满意的，可以不必再进行对齐。
 
 [REGION:asyncgif]
-![image alt text](AdjustingAlignment2.gif)(w:640 convert:false)
+![image alt text](AdjustingAlignment2.gif)(w:640)
 [/REGION]
 
-#### Adjustment Controls
+#### 调整功能按键
 
-*   **Up/Down** : Move the model vertically
-*   **Left/Right** : Move the model horizontally
-*   **Num +/-** : Zoom the model in/out
-*   **Alt + Up/Down** : Rotate the model vertically (pitch)
-*   **Alt + Left/Right** : Rotate the model horizontally (yaw)
-*   **Alt + Num +/-** : Rotate the model left & right (roll)
-*   **H** : Hide the model & its outline
-*   **Alt + H** : Hide the model only (leaving its outline)
-*   **P** : Preview alignment
-*   **Enter** : Accept alignment
+*   **Up/Down**：垂直移动模型
+*   **Left/Right**：水平移动模型
+*   **Num +/-**：放大/缩小模型
+*   **Alt + Up/Down**：垂直旋转模型（Pitch）
+*   **Alt + Left/Right**：水平旋转模型（Yaw）
+*   **Alt + Num +/-**：左右旋转模型（Roll）
+*   **H**：隐藏模型及其轮廓
+*   **Alt + H**：仅隐藏模型（保留轮廓）
+*   **P**：预览对齐
+*   **Enter**：接受对齐
 
-#### Preview the Result
+#### 预览结果
 
-As you take samples, the screen will show a series of color coded icons (a cross and target). How close each pair is gives you an idea how close the alignment is. You want all pairs to be as close as possible, though don’t worry if one is wildly off (it may have been an inaccurate sample).
+取样时，屏幕会显示一系列彩色编码图标（十字和目标）。你可以通过查看每对的接近程度来了解对齐的接近程度。你可能希望所有的对都尽可能接近，但如果其中一对相差较多也不要担心（该样本可能不准确）。
 
-You can preview how the alignment is coming together by holding **P** (or the thumbstick). If you’re happy with the results and wish to skip the rest of the alignment points, press the **End** key.
+按住 **P** 键（或摇杆）可以预览对齐的接近程度。如果对结果满意并希望跳过剩余的对齐点，请按 **End** 键。
 
 ![](MR_PreviewResults.png "MR_PreviewResults.png")
 [REGION:tip]
-**Video Lag:**There will likely be some lag between the video feed and controller tracking. It can make it hard to tell if the two are properly aligned. To combat this, you can use the console variable, *mrc.TrackingLatencyOverride* to introduce delay so that they’re more in sync.
+**视频延迟：**视频源和控制器跟踪之间可能会有一些延迟。这加大了判断两者是否正确对齐的难度。要解决这个问题，可以通过控制台变量 *mrc.TrackingLatencyOverride* 添加延迟，使两者更加同步。
 [/REGION]
 
-### 4. Alignment Adjustment
+### 4.对齐调整
 
-Up to this point, you’ve only adjusted the alignment one sample at a time. This single sample gives the calibration tool a good approximation of the camera’s position, but the calibration is likely better in some corners of the frame than others. 
+到目前为止，你一次只调整了一个样本对齐。该样本为校准工具提供了摄像机位置的近似值，但取景框中的某些角落的校准效果可能比其他地方好。 
 
 [REGION:asyncgif]
-![Click to play animation](MR_AdjustSample.gif)(w:640 convert:false)
+![单击以播放动画](MR_AdjustSample.gif)(w:640)
 [/REGION]
 
-In this step, there are five white boxes on-screen. Move one of your controllers to each of the boxes and pull the trigger in each.
+在此步骤中，屏幕上有五个白框。请将一个控制器移动到每个框中，并在每个框中扣动扳机。
 
 [REGION:tip]
-You want to perform this process at the same depth (distance away from the camera) that you plan on filming from.
+你执行此过程时的深度（到摄像机的距离）应该与计划拍摄的景深相同。
 [/REGION]
 
-Each box will disappear when it’s taken a sample for that region. The model tracking with your hands needs to be fully inside the box for it to take a sample.
+为该区域取样时，每个框都会消失。用手跟踪的模型需要完全在框中才能取样。
 
-#### Making Adjustments
+#### 进行调整
 
-Once you’ve hit all 5 boxes, the screen will change to a split-screen like view.
+点击全部5个框之后，屏幕将变为分屏式视图。
 
 ![](MR_MakingAdjustments.png "MR_MakingAdjustments.png")
 
-Like in the previous alignment process, move, rotate, and scale the models to match the image.
+与之前的对齐过程一样，移动、旋转和缩放模型以匹配图像。
 
-#### Adjustment Controls
+#### 调整功能按键
 
-*   **Up/Down** : Move the models vertically
-*   **Left/Right** : Move the models horizontally
-*   **Num +/-** : Zoom the models in/out
-*   **Alt + Up/Down** : Rotate the models vertically (pitch)
-*   **Alt + Left/Right** : Rotate the models horizontally (yaw)
-*   **Alt + Num +/-** : Rotate the models left & right (roll)
-*   **``</>``** : Adjust FOV up & down (careful)
-*   **R** : Reset adjustments
-*   **P** : Preview alignment
-*   **Enter** : Accept adjusted alignment
+*   **Up/Down**：垂直移动模型
+*   **Left/Right**：水平移动模型
+*   **Num +/-**：放大/缩小模型
+*   **Alt + Up/Down**：垂直旋转模型（Pitch）
+*   **Alt + Left/Right**：水平旋转模型（Yaw）
+*   **Alt + Num +/-**：左右旋转模型（Roll）
+*   **``</>``**：上下调整FOV（小心）
+*   **R**：重置调整
+*   **P**：预览对齐
+*   **Enter**：接受调整后的对齐
 
-You can see how adjusting/optimizing for one sample can throw off the others.
+你可以看到一个样本的调整/优化如何偏离其他样本。
 
 [REGION:tip]
-Rotating in this step is a little hard to wrap your head around, as you are moving all the models all at once in unison. Think of them together as a single model that you are rotating about their collective center. Try to keep the middle sample screen center, and align it first, using it as an anchor point.
+在此步骤中旋转不太好理解，因为你会同时移动所有模型。请把它们看成一个模型，而你在围绕整个模型的中心旋转。将中间的样本置于屏幕中心，并首先对齐它，将其用作参考点。
 [/REGION]
 
-### 5. Compositing Calibration
+### 5.合成校准
 
-In this step, you tweak specific compositing settings. This is the first step where you get to see the composited scene as you would in a Mixed Reality capture. You could exit now, and everything would work properly.
+在此步骤中，你将调整特定的合成设置。这是你在混合现实捕捉中查看合成场景的第一步。现在退出，一切都会正常运行。
 
 ![](MR_CompositingCalibratrion.png "MR_CompositingCalibratrion.png")
 
-Use the arrow keys to select and set specific values.
+使用箭头键选择和设置特定值。
 
-#### Chroma Key Settings
+#### 色键设置
 
-Most of the settings in this step pertain to the chroma keying process which is discussed in detail in [this UE blog post](https://www.unrealengine.com/en-US/blog/setting-up-a-chroma-key-material-in-ue4).
+此步骤中的大多数设置都与色度镶迭过程有关，[UE博客文章](https://www.unrealengine.com/en-US/blog/setting-up-a-chroma-key-material-in-ue4)对此进行了详细讨论。
 
   
 
-| Setting | Description |
+| 设置 | 说明 |
 | --- | --- |
-| ChromaColor | The color of your chroma backdrop (generally green). |
-| Luminance Power | Used to help separate the backdrop color from shadows that may tint the visible color. |
-| Chroma Clip Threshold | Colors matching the chroma color up to this tolerance level will be completely cut out. The higher the value the more that is cut out. A value of zero means that the chroma color has to be an exact match for the pixel to be completely transparent.|
-| Chroma Opacity Strength | Scales the opacity of the remaining pixels. The higher the number, the less translucency there will be. The closer a color is to the ChromaColor, the higher you have to turn this up to keep it from going transparent. |
-| Despill Strength | Scales the despill intensity. A value of zero means no despill correction will be performed. |
-| Despill Cutoff Cap | Colors that differ from the chroma color beyond this tolerance level will be unaffected by despill correction. The higher the value, the more that will be color corrected. |
-| Despill Sharpness | Used to smooth out the despill gradient - defines the despill falloff curve. Scales the despill strength exponentially. The lower the value, the more subtle/smooth it will be. |
-| Faux Bounce Intensity | Used to scale the strength of the color used to replace the color removed as part of the despill process. A value of zero means that the faux bounce color won’t be applied. |
-| Faux Bounce Color | A color to replace the chroma color bleed that was removed as part of the despill process with. |
+| 色度颜色（ChromaColor） | 色度背景的颜色（通常为绿色）。|
+| 亮度强度（Luminance Power） | 用于分离背景颜色和可能将可见颜色染色的阴影。|
+| 色度剪辑阈值（Chroma Clip Threshold） | 在此容差范围内匹配色度颜色的颜色，将被完全抠像。值越高，抠像区域越大。值为0表示只有与色度颜色完全相同，像素才能完全透明。|
+| 色度不透明强度（Chroma Opacity Strength） | 调整剩余像素的不透明度。数字越大，半透明度越低。颜色越接近色度颜色，该值越高，以防变得透明。|
+| 消溢色强度（Despill Strength） | 调整消溢色强度。值为0表示不执行消溢色校准。|
+| 消溢色剪切FOV上限（Despill Cutoff Cap） | 消溢色校准不会影响与色度颜色的差异超出此公差水平的颜色。值越高，颜色校准越多。|
+| 消溢色锐度（Despill Sharpness） | 用于软化消溢色渐变 - 定义消溢色衰减曲线。以指数方式调整消溢色强度。值越小，越细微/柔和。|
+| 仿造光线反射强度（Faux Bounce Intensity） | 用于调整消溢色过程中所去除颜色的替代颜色强度。值为0表示不应用仿造光线反射强度。|
+| 仿造光线反射颜色（Faux Bounce Color） | 该颜色用于替代消溢色过程中去除的色度颜色溢色。|
 
-#### Other Compositing Settings
+#### 其他合成设置
 
 
-| Setting | Description |
+| 设置 | 说明 |
 | --- | --- |
-| Tracking Latency | Depending on your video capture device, the video feed may be laggy compared to your controllers. With this setting, you can introduce a delay to the controllers, in order to better sync the two. |
-| Depth Offset | By default, the video aligns to the depth of the headset. This is used to determine what renders in front of and behind the subject. This lets you offset that forward or backward in the scene. | 
+| 跟踪延迟（Tracking Latency） | 根据视频捕捉设备的不同，视频源相对于控制器可能存在延迟。使用此设置，你可以将延迟应用于控制器以使两者更同步。|
+| 深度偏移（Depth Offset） | 默认情况下，视频与头盔的深度对齐。用于确定拍摄对象前后的渲染内容。允许你在场景的前后应用偏移。| 
 
-Pressing **Enter** cycles from one setting to the next. Once you’re satisfied with the configuration, hit **End** to save. You can always start the tool again to tweak these values later.
+按 **Enter** 键可从一个设置到下一个设置循环显示。如果你对配置满意，请按 **End** 进行保存。你可以随时重启该工具，以便稍后调整这些值。
 
-### 6\. Garbage Matting
+### 6\.削除抠像
 
-Garbage matting is the process of blocking out areas that should always be cut out of the video feed.
+削除抠像是遮住你在视频源中始终应该抠去的区域的过程。
 
-If your green screen doesn’t cover your entire frame, you will need to complete this additional process to cut out those excess regions from the capture.
+如果绿幕未覆盖整个框架，则需要完成此额外过程，从捕捉中抠去多余区域。
 
 [REGION:tip]
-This is the last step of the calibration process. If you don’t have this problem or a need for it, you can skip this step and exit.
+这是校准过程的最后一步。如果你没有此问题或无需修复此问题，可以跳过此步骤并退出。
 [/REGION]
 
 ![](MR_GarbageMatting.png "MR_GarbageMatting.png")
 
-This is the only step in the tool that requires you to work in VR. Put your headset on, and the controls should be listed in front of you.
+这是工具中唯一需要在VR中进行的步骤。如果你使用头盔，功能按钮将显示在前面。
 
-#### Garbage Matting Controls
+#### 削除抠像功能按钮
 
-*   **End/Esc** : Save & exit the tool
+*   **End/Esc**：保存并退出该工具
 
-| Left Controller | Right Controller |
+| 左控制器 | 右控制器 |
 | --- | --- |
 | [INCLUDE:#excerpt_14] | [INCLUDE:#excerpt_15] |
 
 <!-->
 [EXCERPT:excerpt_15]
 
-*   **Grip** : Create matte model
-*   **Trigger** : Select/Deselect matte model
-*   **Thumbstick** : Next gizmo mode (rotate, translate, scale, etc.)
+*   **握柄（Grip）**：创建蒙版模型
+*   **扳机（Trigger）**：选择/取消选择蒙版模型
+*   **摇杆（Thumbstick）**：下一个Gizmo模式（旋转、平移、缩放等）
 
-w/ LGrip held
+握住左握柄（w/ LGrip held）
 
-*   **Trigger** : Deselect all
-*   **Thumbstick** : Prev. gizmo mode
+*   **扳机（Trigger）**：取消全选
+*   **摇杆（Thumbstick）**：上一个Gizmo模式
 
 [/EXCERPT:excerpt_15]
 -->
 <!--
 [EXCERPT:excerpt_14]
 
-*   **Grip** : Alt (hold to change controls)
-*   **Trigger (Hold & Drag)** : Move gizmo
-*   **Thumbstick** : Undo
+*   **握柄（Grip）**：Alt （握住它时功能按钮会改变）
+*   **扳机（Trigger）（握住并拖动）**：移动Gizmo
+*   **摇杆（Thumbstick）**：撤消
 
-w/ LGrip held
+握住左握柄（w/ LGrip held）
 
-*   **Trigger** : Reset gizmo position
-*   **Thumbstick** : Redo
+*   **扳机（Trigger）**：Gizmo位置复位
+*   **摇杆（Thumbstick）**：再次运行
 
 [/EXCERPT:excerpt_14]
 
 -->
 
 [REGION:asyncgif]
-![Click to play animation](MR_GarbageMattingControls.gif)(w:640 convert:false)
+![单击以播放动画](MR_GarbageMattingControls.gif)(w:640)
 [/REGION]
 
-Similar to how our [VR world editor](https://docs.unrealengine.com/en-us/Engine/Editor/VR) works, you place and position 3D planes. Match the planes up with the real-world sections you want cut out of your capture.
+与[VR场景编辑器](https://docs.unrealengine.com/en-us/Engine/Editor/VR)的工作原理类似，你可以放置和定位3D平面。将平面与要从捕捉中抠去的实际部分匹配。
 
-There’s a preview window in VR, so you can see the results as you modify the mattes. You may want to to move the camera around at this point (if it’s attached to a tracker), to see how it looks from different angles.  
+VR有一个预览窗口，因此你可以在更改蒙版时查看结果。此时，你可以移动摄像机（如果连接到跟踪器）以从不同角度查看它的外观。  
 
 [REGION:tip]
-Getting the mattes aligned perfectly can be a difficult process. If you are having trouble, try standing where you want the mat to be, and bring it to yourself. Use the picture-in-picture to help guide your progress.
+完美地对齐蒙版可能并非易事。如果你遇到问题，请尝试直接站在要放置蒙版的位置。使用画中画功能帮助引导该过程。
 [/REGION]
 
-Once you’ve matted out the areas you want, you can exit the app (**End** or **Esc**) \- all of your settings will be saved. If necessary, you can start the tool back up again to tweak the settings.
+抠去所需的区域并退出应用程序时，（**End** 或 **Esc**） \- 将保存所有设置。如有必要，你可以重启该工具以调整设置。
 
-## End Result
+## 最终结果
 
-Once you’ve finished the calibration process, you can exit the tool. In the tool’s *Saved/SaveGames/* directory you should find a *MrcCalibration.sav* file.
+完成校准过程后，你可以退出工具。该工具的 *Saved/SaveGames/* 目录中将有一个 *MrcCalibration.sav* 文件。
 
 [REGION:asyncgif]
-![Click to play animation](MR_CompletingCalibration.gif)(w:640 convert:false)
+![单击以播放动画](MR_CompletingCalibration.gif)(w:640)
 [/REGION]
 
-Once you have a *MrcCalibration.sav* file, copy it into your game’s */Saved/SaveGames/* folder. If your game doesn’t have a SaveGames directory yet, you will need to create it manually.  
+如果找到 *MrcCalibration.sav* 文件，请将其复制到游戏的 */Saved/SaveGames/* 文件夹中。如果你的游戏还没有SaveGames目录，则需要手动创建。  
 
-If you’ve gone through this process once, you don’t need to do it again (as long as your setup doesn’t change). You can reuse the same calibration settings file across different UE titles (titles that have enabled the MRC framework plugin).
+完成此过程后，你无需再次执行此操作（除非更改设置）。相同的校准设置文件可以重复用于多个UE作品（如果启用了MRC Framework插件）。

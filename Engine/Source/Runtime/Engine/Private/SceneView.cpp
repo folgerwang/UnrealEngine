@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SceneView.cpp: SceneView implementation.
@@ -31,10 +31,10 @@ DEFINE_LOG_CATEGORY(LogBufferVisualization);
 DECLARE_CYCLE_STAT(TEXT("StartFinalPostprocessSettings"), STAT_StartFinalPostprocessSettings, STATGROUP_Engine);
 DECLARE_CYCLE_STAT(TEXT("OverridePostProcessSettings"), STAT_OverridePostProcessSettings, STATGROUP_Engine);
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FPrimitiveUniformShaderParameters,TEXT("Primitive"));
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FViewUniformShaderParameters,TEXT("View"));
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FInstancedViewUniformShaderParameters, TEXT("InstancedView"));
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FMobileDirectionalLightShaderParameters, TEXT("MobileDirectionalLight"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FPrimitiveUniformShaderParameters, "Primitive");
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FViewUniformShaderParameters, "View");
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FInstancedViewUniformShaderParameters, "InstancedView");
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FMobileDirectionalLightShaderParameters, "MobileDirectionalLight");
 
 
 static TAutoConsoleVariable<float> CVarSSRMaxRoughness(
@@ -633,6 +633,9 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 	, PrimaryScreenPercentageMethod(EPrimaryScreenPercentageMethod::SpatialUpscale)
 	, ForwardLightingResources(nullptr)
 	, FeatureLevel(InitOptions.ViewFamily ? InitOptions.ViewFamily->GetFeatureLevel() : GMaxRHIFeatureLevel)
+#if RHI_RAYTRACING
+	, IESLightProfileResource(nullptr)
+#endif
 {
 	check(UnscaledViewRect.Min.X >= 0);
 	check(UnscaledViewRect.Min.Y >= 0);
@@ -714,7 +717,7 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 
 #if PLATFORM_ANDROID
 	static const auto MobileMultiViewCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MobileMultiView"));
-	bIsMobileMultiViewEnabled = RHISupportsMobileMultiView(ShaderPlatform) && StereoPass != eSSP_MONOSCOPIC_EYE && (MobileMultiViewCVar && MobileMultiViewCVar->GetValueOnAnyThread() != 0);
+	bIsMobileMultiViewEnabled = RHISupportsMobileMultiView(ShaderPlatform) && (MobileMultiViewCVar && MobileMultiViewCVar->GetValueOnAnyThread() != 0);
 
 	// TODO: Test platform support for direct
 	static const auto MobileMultiViewDirectCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MobileMultiView.Direct"));
@@ -926,24 +929,7 @@ void FSceneView::UpdateViewMatrix()
 	}
 
 	ViewMatrices.UpdateViewMatrix(StereoViewLocation, StereoViewRotation);
-
-	// Derive the view frustum from the view projection matrix.
-	if ((StereoPass == eSSP_LEFT_EYE || StereoPass == eSSP_RIGHT_EYE) && Family->IsMonoscopicFarFieldEnabled())
-	{
-		// Stereo views use mono far field plane when using mono far field rendering
-		const FPlane FarPlane(ViewMatrices.GetViewOrigin() + GetViewDirection() * Family->MonoParameters.CullingDistance, GetViewDirection());
-		GetViewFrustumBounds(ViewFrustum, ViewMatrices.GetViewProjectionMatrix(), FarPlane, true, false);
-	}
-	else if (StereoPass == eSSP_MONOSCOPIC_EYE)
-	{
-		// Mono view uses near plane
-		GetViewFrustumBounds(ViewFrustum, ViewMatrices.GetViewProjectionMatrix(), true);
-	}
-	else
-	{
-		// Standard rendering setup
-		GetViewFrustumBounds(ViewFrustum, ViewMatrices.GetViewProjectionMatrix(), false);
-	}
+	GetViewFrustumBounds(ViewFrustum, ViewMatrices.GetViewProjectionMatrix(), false);
 
 	// We need to keep ShadowViewMatrices in sync.
 	ShadowViewMatrices = ViewMatrices;
@@ -1098,8 +1084,8 @@ void FSceneView::DeprojectScreenToWorld(const FVector2D& ScreenPos, const FIntRe
 	const float ScreenSpaceX = (NormalizedX - 0.5f) * 2.0f;
 	const float ScreenSpaceY = ((1.0f - NormalizedY) - 0.5f) * 2.0f;
 
-	// The start of the raytrace is defined to be at mousex,mousey,1 in projection space (z=1 is near, z=0 is far - this gives us better precision)
-	// To get the direction of the raytrace we need to use any z between the near and the far plane, so let's use (mousex, mousey, 0.5)
+	// The start of the ray trace is defined to be at mousex,mousey,1 in projection space (z=1 is near, z=0 is far - this gives us better precision)
+	// To get the direction of the ray trace we need to use any z between the near and the far plane, so let's use (mousex, mousey, 0.5)
 	const FVector4 RayStartProjectionSpace = FVector4(ScreenSpaceX, ScreenSpaceY, 1.0f, 1.0f);
 	const FVector4 RayEndProjectionSpace = FVector4(ScreenSpaceX, ScreenSpaceY, 0.5f, 1.0f);
 
@@ -1148,8 +1134,8 @@ void FSceneView::DeprojectScreenToWorld(const FVector2D& ScreenPos, const FIntRe
 	const float ScreenSpaceX = (NormalizedX - 0.5f) * 2.0f;
 	const float ScreenSpaceY = ((1.0f - NormalizedY) - 0.5f) * 2.0f;
 
-	// The start of the raytrace is defined to be at mousex,mousey,1 in projection space (z=1 is near, z=0 is far - this gives us better precision)
-	// To get the direction of the raytrace we need to use any z between the near and the far plane, so let's use (mousex, mousey, 0.5)
+	// The start of the ray trace is defined to be at mousex,mousey,1 in projection space (z=1 is near, z=0 is far - this gives us better precision)
+	// To get the direction of the ray trace we need to use any z between the near and the far plane, so let's use (mousex, mousey, 0.5)
 	const FVector4 RayStartProjectionSpace = FVector4(ScreenSpaceX, ScreenSpaceY, 1.0f, 1.0f);
 	const FVector4 RayEndProjectionSpace = FVector4(ScreenSpaceX, ScreenSpaceY, 0.5f, 1.0f);
 
@@ -1367,6 +1353,92 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 		LERP_PP(ScreenSpaceReflectionIntensity);
 		LERP_PP(ScreenSpaceReflectionMaxRoughness);
 
+		// Ray Tracing
+		if (Src.bOverride_ReflectionsType)
+		{
+			Dest.ReflectionsType = Src.ReflectionsType;
+		}
+
+		if (Src.bOverride_RayTracingReflectionsMaxRoughness)
+		{
+			Dest.RayTracingReflectionsMaxRoughness = Src.RayTracingReflectionsMaxRoughness;
+		}
+
+		if (Src.bOverride_RayTracingReflectionsMaxBounces)
+		{
+			Dest.RayTracingReflectionsMaxBounces = Src.RayTracingReflectionsMaxBounces;
+		}
+
+		if (Src.bOverride_RayTracingReflectionsSamplesPerPixel)
+		{
+			Dest.RayTracingReflectionsSamplesPerPixel = Src.RayTracingReflectionsSamplesPerPixel;
+		}
+
+		if (Src.bOverride_RayTracingReflectionsShadows)
+		{
+			Dest.RayTracingReflectionsShadows = Src.RayTracingReflectionsShadows;
+		}
+
+		if (Src.bOverride_TranslucencyType)
+		{
+			Dest.TranslucencyType = Src.TranslucencyType;
+		}
+
+		if (Src.bOverride_RayTracingTranslucencyMaxRoughness)
+		{
+			Dest.RayTracingTranslucencyMaxRoughness = Src.RayTracingTranslucencyMaxRoughness;
+		}
+
+		if (Src.bOverride_RayTracingTranslucencyRefractionRays)
+		{
+			Dest.RayTracingTranslucencyRefractionRays = Src.RayTracingTranslucencyRefractionRays;
+		}
+
+		if (Src.bOverride_RayTracingTranslucencySamplesPerPixel)
+		{
+			Dest.RayTracingTranslucencySamplesPerPixel = Src.RayTracingTranslucencySamplesPerPixel;
+		}
+
+		if (Src.bOverride_RayTracingTranslucencyShadows)
+		{
+			Dest.RayTracingTranslucencyShadows = Src.RayTracingTranslucencyShadows;
+		}
+
+		if (Src.bOverride_RayTracingTranslucencyRefraction)
+		{
+			Dest.RayTracingTranslucencyRefraction = Src.RayTracingTranslucencyRefraction;
+		}
+
+		if (Src.bOverride_RayTracingGI)
+		{
+			Dest.RayTracingGI = Src.RayTracingGI;
+		}
+
+		if (Src.bOverride_RayTracingGIMaxBounces)
+		{
+			Dest.RayTracingGIMaxBounces = Src.RayTracingGIMaxBounces;
+		}
+
+		if (Src.bOverride_RayTracingGISamplesPerPixel)
+		{
+			Dest.RayTracingGISamplesPerPixel = Src.RayTracingGISamplesPerPixel;
+		}
+
+		if (Src.bOverride_RayTracingAOSamplesPerPixel)
+		{
+			Dest.RayTracingAOSamplesPerPixel = Src.RayTracingAOSamplesPerPixel;
+		}
+		if (Src.bOverride_PathTracingMaxBounces)
+		{
+			Dest.PathTracingMaxBounces = Src.PathTracingMaxBounces;
+		}
+
+		if (Src.bOverride_PathTracingSamplesPerPixel)
+		{
+			Dest.PathTracingSamplesPerPixel = Src.PathTracingSamplesPerPixel;
+		}
+
+
 		if (Src.bOverride_DepthOfFieldBladeCount)
 		{
 			Dest.DepthOfFieldBladeCount = Src.DepthOfFieldBladeCount;
@@ -1424,6 +1496,12 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 			Dest.DepthOfFieldBokehShape = Src.DepthOfFieldBokehShape;
 		}
 		PRAGMA_ENABLE_DEPRECATION_WARNINGS
+
+		// Curve assets can not be blended.
+		IF_PP(AutoExposureBiasCurve)
+		{
+			Dest.AutoExposureBiasCurve = Src.AutoExposureBiasCurve;
+		}
 
 		// actual texture cannot be blended but the intensity can be blended
 		IF_PP(LensFlareBokehShape)
@@ -2063,6 +2141,10 @@ void FSceneView::SetupViewRectUniformBufferParameters(FViewUniformShaderParamete
 		InvBufferSizeX * (EffectiveViewRect.Max.X - 0.5),
 		InvBufferSizeY * (EffectiveViewRect.Max.Y - 0.5));
 
+	/* Texture Level-of-Detail Strategies for Real-Time Ray Tracing https://developer.nvidia.com/raytracinggems Equation 20 */
+	float RadFOV = (PI / 180.0f) * FOV;
+	ViewUniformShaderParameters.EyeToPixelSpreadAngle = FPlatformMath::Atan((2.0f * FPlatformMath::Tan(RadFOV * 0.5f)) / BufferSize.Y);
+
 	ViewUniformShaderParameters.MotionBlurNormalizedToPixel = FinalPostProcessSettings.MotionBlurMax * EffectiveViewRect.Width() / 100.0f;
 
 	{
@@ -2140,6 +2222,7 @@ void FSceneView::SetupCommonViewUniformBufferParameters(
 	ViewUniformShaderParameters.ViewToTranslatedWorld = InViewMatrices.GetOverriddenInvTranslatedViewMatrix();
 	ViewUniformShaderParameters.TranslatedWorldToClip = InViewMatrices.GetTranslatedViewProjectionMatrix();
 	ViewUniformShaderParameters.WorldToClip = InViewMatrices.GetViewProjectionMatrix();
+	ViewUniformShaderParameters.ClipToWorld = InViewMatrices.GetInvViewProjectionMatrix();
 	ViewUniformShaderParameters.TranslatedWorldToView = InViewMatrices.GetOverriddenTranslatedViewMatrix();
 	ViewUniformShaderParameters.TranslatedWorldToCameraView = InViewMatrices.GetTranslatedViewMatrix();
 	ViewUniformShaderParameters.CameraViewToTranslatedWorld = InViewMatrices.GetInvTranslatedViewMatrix();
@@ -2231,6 +2314,7 @@ void FSceneView::SetupCommonViewUniformBufferParameters(
 
 	ViewUniformShaderParameters.GameTime = Family->CurrentWorldTime;
 	ViewUniformShaderParameters.RealTime = Family->CurrentRealTime;
+	ViewUniformShaderParameters.DeltaTime = Family->DeltaWorldTime;
 	ViewUniformShaderParameters.Random = FMath::Rand();
 	ViewUniformShaderParameters.FrameNumber = Family->FrameNumber;
 
@@ -2277,7 +2361,7 @@ FSceneViewFamily::FSceneViewFamily(const ConstructionValues& CVS)
 	ViewModeParam = CVS.ViewModeParam;
 	ViewModeParamName = CVS.ViewModeParamName;
 
-	if (!AllowDebugViewPS(DebugViewShaderMode, GetShaderPlatform()))
+	if (!AllowDebugViewShaderMode(DebugViewShaderMode, GetShaderPlatform(), GetFeatureLevel()))
 	{
 		DebugViewShaderMode = DVSM_None;
 	}
@@ -2309,24 +2393,6 @@ FSceneViewFamily::FSceneViewFamily(const ConstructionValues& CVS)
 	bDrawBaseInfo = true;
 	bNullifyWorldSpacePosition = false;
 #endif
-
-	// Setup mono far field for VR
-	static const auto CVarMono = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MonoscopicFarField"));
-	static const auto CVarMonoMode = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MonoscopicFarFieldMode"));
-	bool bIsStereoEnabled = false;
-	if (GEngine != nullptr && GEngine->StereoRenderingDevice.IsValid())
-	{
-		bIsStereoEnabled = GEngine->StereoRenderingDevice->IsStereoEnabledOnNextFrame();
-	}
-
-	const bool bIsMobile = FSceneInterface::GetShadingPath(GetFeatureLevel()) == EShadingPath::Mobile;
-
-	if (bIsStereoEnabled && bIsMobile && CVarMono && CVarMonoMode)
-	{
-		MonoParameters.bEnabled = CVarMono->GetValueOnAnyThread() != 0;
-		MonoParameters.Mode = static_cast<EMonoscopicFarFieldMode>(FMath::Clamp(CVarMonoMode->GetValueOnAnyThread(), 0, 4));
-		MonoParameters.CullingDistance = CVS.MonoFarFieldCullingDistance;
-	}
 
 	// ScreenPercentage is not supported in ES2/3.1 with MobileHDR = false. Disable show flag so to have it respected.
 	const bool bIsMobileLDR = (GetFeatureLevel() <= ERHIFeatureLevel::ES3_1 && !IsMobileHDR());
@@ -2372,7 +2438,7 @@ const FSceneView& FSceneViewFamily::GetStereoEyeView(const EStereoscopicPass Eye
 	}
 	else // For extra views
 	{
-		return *Views[EyeIndex - eSSP_MONOSCOPIC_EYE + 1];
+		return *Views[EyeIndex - eSSP_RIGHT_EYE + 1];
 	}
 }
 
@@ -2397,9 +2463,6 @@ bool FSceneViewFamily::SupportsScreenPercentage() const
 
 bool FSceneViewFamily::AllowTranslucencyAfterDOF() const
 {
-	static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.PostProcessing.PropagateAlpha"));
-	const bool bPostProcessAlphaChannel = CVar ? (CVar->GetInt() != 0) : false;
-
 	static IConsoleVariable* CVarMobileMSAA = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MobileMSAA"));
 	const bool bMobileMSAA = CVarMobileMSAA ? (CVarMobileMSAA->GetInt() > 1) : false;
 
@@ -2407,8 +2470,7 @@ bool FSceneViewFamily::AllowTranslucencyAfterDOF() const
 		&& (GetFeatureLevel() > ERHIFeatureLevel::ES3_1 || (IsMobileHDR() && !bMobileMSAA)) // on <= ES3_1 separate translucency requires HDR on and MSAA off
 	&& EngineShowFlags.PostProcessing // Used for reflection captures.
 	&& !UseDebugViewPS()
-	&& EngineShowFlags.SeparateTranslucency
-	&& !bPostProcessAlphaChannel;
+	&& EngineShowFlags.SeparateTranslucency;
 	// If not, translucency after DOF will be rendered in standard translucency.
 }
 
@@ -2421,6 +2483,29 @@ FSceneViewFamilyContext::~FSceneViewFamilyContext()
 		delete Views[ViewIndex];
 	}
 }
+
+#if RHI_RAYTRACING
+void FSceneView::SetupRayTracedRendering()
+{
+	RayTracingRenderMode = ERayTracingRenderMode::Disabled;
+
+	if (!IsRayTracingEnabled())
+	{
+		return;
+	}
+
+	const FEngineShowFlags& ShowFlags = Family->EngineShowFlags;
+
+	if (ShowFlags.PathTracing)
+	{
+		RayTracingRenderMode = ERayTracingRenderMode::PathTracing;
+	}	
+	else if (ShowFlags.RayTracingDebug)
+	{
+		RayTracingRenderMode = ERayTracingRenderMode::RayTracingDebug;
+	}
+}
+#endif // RHI_RAYTRACING
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 

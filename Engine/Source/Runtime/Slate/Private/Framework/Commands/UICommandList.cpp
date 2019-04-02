@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Framework/Commands/UICommandList.h"
 #include "Framework/Application/SlateApplication.h"
@@ -93,14 +93,15 @@ bool FUICommandList::ExecuteAction(const TSharedRef< const FUICommandInfo > InUI
 
 	if( Action )
 	{
-		FSlateApplication::Get().OnLogSlateEvent(EEventLog::UICommand, InUICommandInfo->GetLabel());
+#if WITH_SLATE_DEBUGGING
+		FSlateDebugging::CommandRun.Broadcast(InUICommandInfo->GetCommandName(), InUICommandInfo->GetLabel());
+#endif
 		Action->Execute();
 		return true;
 	}
 
 	return false;
 }
-
 
 bool FUICommandList::CanExecuteAction( const TSharedRef< const FUICommandInfo > InUICommandInfo ) const
 {

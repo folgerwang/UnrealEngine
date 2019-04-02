@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -43,6 +43,8 @@ public:
 
 	void CollectChildPropertiesRecursive(TSharedPtr<IPropertyHandle> Node, TArray<TSharedPtr<IPropertyHandle>>& OutProperties);
 	
+	void ConstructMaterialImportMethod(TSharedPtr<IPropertyHandle> ImportMaterialPropHandle, class IDetailCategoryBuilder& MaterialCategory);
+
 	void ConstructBaseMaterialUI(TSharedPtr<IPropertyHandle> Handle, class IDetailCategoryBuilder& MaterialCategory);
 
 	/** Checks whether a metadata string is valid for a given import type 
@@ -53,6 +55,9 @@ public:
 	
 	/** Called if the bAutoComputeLodDistances changes */
 	void ImportAutoComputeLodDistancesChanged();
+
+	/** Called when the LODSettings changes */
+	void ValidateLodSettingsChanged(int32 MemberID);
 
 	/** Called if the bImportMaterials changes */
 	void ImportMaterialsChanged();
@@ -73,6 +78,9 @@ public:
 	void OnEmmisiveTextureColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo);
 	void OnEmissiveColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo);
 	void OnSpecularTextureColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo);
+	FReply MaterialBaseParamClearAllProperties();
+
+	void OnMaterialImportMethodChanged(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo);
 	
 	TWeakObjectPtr<UFbxImportUI> ImportUI;		// The UI data object being customised
 	IDetailLayoutBuilder* CachedDetailBuilder;	// The detail builder for this cusomtomisation
@@ -90,6 +98,7 @@ private:
 
 	/** Called to determine the visibility of the VertexOverrideColor property */
 	bool GetVertexOverrideColorEnabledState() const;
+	bool GetSkeletalMeshVertexOverrideColorEnabledState() const;
 
 	FReply ShowConflictDialog(ConflictDialogType DialogType);
 	bool ShowCompareResult();
@@ -103,6 +112,11 @@ private:
 
 	/** Cached VertexColorImportOption property handle */
 	TSharedPtr<IPropertyHandle> VertexColorImportOptionHandle;
+	TSharedPtr<IPropertyHandle> SkeletalMeshVertexColorImportOptionHandle;
+
+	TArray< TSharedPtr< FString > > ImportMethodNames;
+	TSharedPtr<class STextComboBox> MaterialImportMethodComboBox;
+	bool bShowBaseMaterialUI;
 
 	TArray< TSharedPtr< FString > > BaseColorNames;
 	TArray< TSharedPtr< FString > > BaseTextureNames;

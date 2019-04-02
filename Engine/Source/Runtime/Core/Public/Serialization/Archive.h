@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -9,7 +9,7 @@
 #include "Templates/IsEnumClass.h"
 #include "Templates/Function.h"
 #include "HAL/PlatformProperties.h"
-#include "Misc/Compression.h"
+#include "Misc/CompressionFlags.h"
 #include "Misc/EngineVersionBase.h"
 #include "Internationalization/TextNamespaceFwd.h"
 #include "Templates/IsValidVariadicFunctionArg.h"
@@ -28,7 +28,7 @@ struct FUntypedBulkData;
 struct FArchiveSerializedPropertyChain;
 template<class TEnum> class TEnumAsByte;
 typedef TFunction<bool (double RemainingTime)> FExternalReadCallback;
-
+struct FUObjectSerializeContext;
 
 // Temporary while we shake out the EDL at boot
 #define USE_EVENT_DRIVEN_ASYNC_LOAD_AT_BOOT_TIME (1)
@@ -255,7 +255,7 @@ public:
 	/**
 	 * Serializes soft object paths from or into this archive.
 	 *
-	 * @param Value String asset reference to serialize.
+	 * @param Value Soft object path to serialize.
 	 * @return This instance.
 	 */
 	virtual FArchive& operator<<(struct FSoftObjectPath& Value);
@@ -437,12 +437,7 @@ public:
 		const uint8 * RESTRICT Src = Ar.ActiveFPLB->StartFastPathLoadBuffer;
 		if (Src + sizeof(uint32) <= Ar.ActiveFPLB->EndFastPathLoadBuffer)
 		{
-#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
-			D = !!*(uint32* RESTRICT)Src;
-#else
-			static_assert(sizeof(uint32) == 4, "assuming sizeof(uint32) == 4");
-			D = !!(Src[0] | Src[1] | Src[2] | Src[3]);
-#endif
+			D = !!FPlatformMemory::ReadUnaligned<uint32>(Src);
 			Ar.ActiveFPLB->StartFastPathLoadBuffer += 4;
 		}
 		else
@@ -751,7 +746,10 @@ public:
 	 * @param	bTreatBufferAsFileReader true if V is actually an FArchive, which is used when saving to read data - helps to avoid single huge allocations of source data
 	 * @param	bUsePlatformBitWindow use a platform specific bitwindow setting
 	 */
-	void SerializeCompressed(void* V, int64 Length, ECompressionFlags Flags, bool bTreatBufferAsFileReader = false, bool bUsePlatformBitWindow = false);
+	UE_DEPRECATED(4.20, "Use the FName based version of SerializeCompressed (which also removes the basically-unused bUsePlatformBitWindow)")
+	void SerializeCompressed(void* V, int64 Length, ECompressionFlags Flags = COMPRESS_NoFlags, bool bTreatBufferAsFileReader = false, bool bUsePlatformBitWindow = false);
+	void SerializeCompressed(void* V, int64 Length, FName CompressionFormat, ECompressionFlags Flags=COMPRESS_NoFlags, bool bTreatBufferAsFileReader=false);
+
 
 
 	FORCEINLINE bool IsByteSwapping()
@@ -876,7 +874,7 @@ public:
 	 *
 	 * @param Guid The guid of the custom version.  This must have previously been registered with FCustomVersionRegistration.
 	 */
-	void UsingCustomVersion(const struct FGuid& Guid);
+	virtual void UsingCustomVersion(const struct FGuid& Guid);
 
 	/**
 	 * Queries a custom version from the archive.  If the archive is being used to write, the custom version must have already been registered.
@@ -984,6 +982,11 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	FORCEINLINE bool DoDelta() const
 	{
 		return !ArNoDelta;
+	}
+
+	FORCEINLINE bool DoIntraPropertyDelta() const
+	{
+		return !ArNoIntraPropertyDelta;
 	}
 
 	FORCEINLINE bool IsIgnoringOuterRef() const
@@ -1265,6 +1268,12 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	virtual bool IsEditorOnlyPropertyOnTheStack() const;
 #endif
 
+	/* Sets the current UObject serialization context for this archive */
+	virtual void SetSerializeContext(FUObjectSerializeContext* InLoadContext) {}
+
+	/* Gets the current UObject serialization context for this archive */
+	virtual FUObjectSerializeContext* GetSerializeContext() { return nullptr; }
+
 	/** 
 	 * Adds external read dependency 
 	 *
@@ -1297,24 +1306,22 @@ private:
 		const uint8* RESTRICT Src = ActiveFPLB->StartFastPathLoadBuffer;
 		if (Src + Size <= ActiveFPLB->EndFastPathLoadBuffer)
 		{
-#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
 			if (Size == 2)
 			{
 				uint16 * RESTRICT Dest = (uint16 * RESTRICT)InDest;
-				*Dest = *(uint16 * RESTRICT)Src;
+				*Dest = FPlatformMemory::ReadUnaligned<uint16>(Src);
 			}
 			else if (Size == 4)
 			{
 				uint32 * RESTRICT Dest = (uint32 * RESTRICT)InDest;
-				*Dest = *(uint32 * RESTRICT)Src;
+				*Dest = FPlatformMemory::ReadUnaligned<uint32>(Src);
 			}
 			else if (Size == 8)
 			{
 				uint64 * RESTRICT Dest = (uint64 * RESTRICT)InDest;
-				*Dest = *(uint64 * RESTRICT)Src;
+				*Dest = FPlatformMemory::ReadUnaligned<uint64>(Src);
 			}
 			else
-#endif
 			{
 				uint8 * RESTRICT Dest = (uint8 * RESTRICT)InDest;
 				for (SIZE_T Index = 0; Index < Size; Index++)
@@ -1364,31 +1371,31 @@ private:
 
 public:
 	/** Whether this archive is for loading data. */
-	DEPRECATED(4.20, "Direct access to ArIsLoading has been deprecated - please use IsLoading() and SetIsLoading() instead.")
+	UE_DEPRECATED(4.20, "Direct access to ArIsLoading has been deprecated - please use IsLoading() and SetIsLoading() instead.")
 	uint8 ArIsLoading : 1;
 
 	/** Whether this archive is for saving data. */
-	DEPRECATED(4.20, "Direct access to ArIsSaving has been deprecated - please use IsSaving() and SetIsSaving() instead.")
+	UE_DEPRECATED(4.20, "Direct access to ArIsSaving has been deprecated - please use IsSaving() and SetIsSaving() instead.")
 	uint8 ArIsSaving : 1;
 
 	/** Whether archive is transacting. */
-	DEPRECATED(4.20, "Direct access to ArIsTransacting has been deprecated - please use IsTransacting() and SetIsTransacting() instead.")
+	UE_DEPRECATED(4.20, "Direct access to ArIsTransacting has been deprecated - please use IsTransacting() and SetIsTransacting() instead.")
 	uint8 ArIsTransacting : 1;
 
 	/** Whether this archive serializes to a text format. Text format archives should use high level constructs from FStructuredArchive for delimiting data rather than manually seeking through the file. */
-	DEPRECATED(4.20, "Direct access to ArIsTextFormat has been deprecated - please use IsTextFormat() and SetIsTextFormat() instead.")
+	UE_DEPRECATED(4.20, "Direct access to ArIsTextFormat has been deprecated - please use IsTextFormat() and SetIsTextFormat() instead.")
 	uint8 ArIsTextFormat : 1;
 
 	/** Whether this archive wants properties to be serialized in binary form instead of tagged. */
-	DEPRECATED(4.20, "Direct access to ArWantBinaryPropertySerialization has been deprecated - please use WantBinaryPropertySerialization() and SetWantBinaryPropertySerialization() instead.")
+	UE_DEPRECATED(4.20, "Direct access to ArWantBinaryPropertySerialization has been deprecated - please use WantBinaryPropertySerialization() and SetWantBinaryPropertySerialization() instead.")
 	uint8 ArWantBinaryPropertySerialization : 1;
 
 	/** Whether this archive wants to always save strings in unicode format */
-	DEPRECATED(4.20, "Direct access to ArForceUnicode has been deprecated - please use ForceUnicode() and SetForceUnicode() instead.")
+	UE_DEPRECATED(4.20, "Direct access to ArForceUnicode has been deprecated - please use ForceUnicode() and SetForceUnicode() instead.")
 	uint8 ArForceUnicode : 1;
 
 	/** Whether this archive saves to persistent storage. */
-	DEPRECATED(4.20, "Direct access to ArIsPersistent has been deprecated - please use IsPersistent() and SetIsPersistent() instead.")
+	UE_DEPRECATED(4.20, "Direct access to ArIsPersistent has been deprecated - please use IsPersistent() and SetIsPersistent() instead.")
 	uint8 ArIsPersistent : 1;
 
 	/** Whether this archive contains errors. */
@@ -1412,8 +1419,11 @@ public:
 	/** If true, we will not serialize the ObjectArchetype reference in UObject. */
 	uint8 ArIgnoreArchetypeRef : 1;
 
-	/** If true, we will not serialize the ObjectArchetype reference in UObject. */
+	/** If true, do not perform delta serialization of properties. */
 	uint8 ArNoDelta : 1;
+
+	/** If true, do not perform delta serialization within properties (e.g. TMaps and TSets). */
+	uint8 ArNoIntraPropertyDelta : 1;
 
 	/** If true, we will not serialize the Outer reference in UObject. */
 	uint8 ArIgnoreOuterRef : 1;

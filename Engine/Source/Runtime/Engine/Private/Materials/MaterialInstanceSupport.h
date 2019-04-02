@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MaterialInstance.h: MaterialInstance definitions.
@@ -17,7 +17,7 @@ class UTexture;
  * Cache uniform expressions for the given material instance.
  * @param MaterialInstance - The material instance for which to cache uniform expressions.
  */
-void CacheMaterialInstanceUniformExpressions(const UMaterialInstance* MaterialInstance);
+void CacheMaterialInstanceUniformExpressions(const UMaterialInstance* MaterialInstance, bool bRecreateUniformBuffer = false);
 
 /**
  * Recaches uniform expressions for all material instances with a given parent.
@@ -70,19 +70,19 @@ public:
 	};
 
 	/** Initialization constructor. */
-	FMaterialInstanceResource(UMaterialInstance* InOwner,bool bInSelected,bool bInHovered);
+	FMaterialInstanceResource(UMaterialInstance* InOwner);
 
 	/**
 	 * Called from the game thread to destroy the material instance on the rendering thread.
 	 */
 	void GameThread_Destroy()
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FDestroyMaterialInstanceResourceCommand,
-			FMaterialInstanceResource*,Resource,this,
-		{
-			delete Resource;
-		});
+		FMaterialInstanceResource* Resource = this;
+		ENQUEUE_RENDER_COMMAND(FDestroyMaterialInstanceResourceCommand)(
+			[Resource](FRHICommandList& RHICmdList)
+			{
+				delete Resource;
+			});
 	}
 
 	// FRenderResource interface.
@@ -90,7 +90,7 @@ public:
 
 	// FMaterialRenderProxy interface.
 	/** Get the FMaterial to use for rendering.  Must return a valid FMaterial, even if it had to fall back to the default material. */
-	virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type FeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const class FMaterial*& OutMaterial) const override;
+	virtual const FMaterial& GetMaterialWithFallback(ERHIFeatureLevel::Type FeatureLevel, const FMaterialRenderProxy*& OutFallbackMaterialRenderProxy) const override;
 	/** Get the FMaterial that should be used for rendering, but might not be in a valid state to actually use.  Can return NULL. */
 	virtual FMaterial* GetMaterialNoFallback(ERHIFeatureLevel::Type FeatureLevel) const override;
 	virtual UMaterialInterface* GetMaterialInterface() const override;
@@ -108,7 +108,7 @@ public:
 		VectorParameterArray.Reset();
 		ScalarParameterArray.Reset();
 		TextureParameterArray.Reset();
-		InvalidateUniformExpressionCache();
+		InvalidateUniformExpressionCache(false);
 	}
 
 	/**
@@ -117,7 +117,7 @@ public:
 	template <typename ValueType>
 	void RenderThread_UpdateParameter(const FMaterialParameterInfo& ParameterInfo, const ValueType& Value )
 	{
-		InvalidateUniformExpressionCache();
+		InvalidateUniformExpressionCache(false);
 		TArray<TNamedParameter<ValueType> >& ValueArray = GetValueArray<ValueType>();
 		const int32 ParameterCount = ValueArray.Num();
 		for (int32 ParameterIndex = 0; ParameterIndex < ParameterCount; ++ParameterIndex)

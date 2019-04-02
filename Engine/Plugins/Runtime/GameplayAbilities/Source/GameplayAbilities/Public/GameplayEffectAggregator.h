@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -148,7 +148,7 @@ struct GAMEPLAYABILITIES_API FAggregatorModChannel
 	 */
 	void GetAllAggregatorMods(EGameplayModEvaluationChannel Channel, OUT TMap<EGameplayModEvaluationChannel, const TArray<FAggregatorMod>*>& OutMods) const;
 
-	DEPRECATED(4.17, "Use GetAllAggregatorMods")
+	UE_DEPRECATED(4.17, "Use GetAllAggregatorMods")
 	void DebugGetAllAggregatorMods(EGameplayModEvaluationChannel Channel, OUT TMap<EGameplayModEvaluationChannel, const TArray<FAggregatorMod>*>& OutMods) const { return GetAllAggregatorMods(Channel, OutMods); }
 	
 	/**
@@ -260,7 +260,7 @@ struct GAMEPLAYABILITIES_API FAggregatorModChannelContainer
 	 */
 	void GetAllAggregatorMods(OUT TMap<EGameplayModEvaluationChannel, const TArray<FAggregatorMod>*>& OutMods) const;
 
-	DEPRECATED(4.17, "Use GetAllAggregatorMods")
+	UE_DEPRECATED(4.17, "Use GetAllAggregatorMods")
 	void DebugGetAllAggregatorMods(OUT TMap<EGameplayModEvaluationChannel, const TArray<FAggregatorMod>*>& OutMods) const { return GetAllAggregatorMods(OutMods); }
 
 	/**
@@ -343,7 +343,7 @@ struct GAMEPLAYABILITIES_API FAggregator : public TSharedFromThis<FAggregator>
 	 */
 	void GetAllAggregatorMods(OUT TMap<EGameplayModEvaluationChannel, const TArray<FAggregatorMod>*>& OutMods) const;
 
-	DEPRECATED(4.17, "Use GetAllAggregatorMods")
+	UE_DEPRECATED(4.17, "Use GetAllAggregatorMods")
 	void DebugGetAllAggregatorMods(OUT TMap<EGameplayModEvaluationChannel, const TArray<FAggregatorMod>*>& OutMods) const { return GetAllAggregatorMods(OutMods); }
 	
 	/**

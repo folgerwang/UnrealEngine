@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PropertyRowGenerator.h"
 #include "PropertyNode.h"
@@ -63,7 +63,10 @@ public:
 			: TSharedPtr<class FAssetThumbnailPool>();
 	}
 
-	virtual void NotifyFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent) override {}
+	virtual void NotifyFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent) override 
+	{
+		Generator->OnFinishedChangingProperties().Broadcast(PropertyChangedEvent);
+	}
 
 	virtual bool DontUpdateValueWhileEditing() const override { return false; }
 

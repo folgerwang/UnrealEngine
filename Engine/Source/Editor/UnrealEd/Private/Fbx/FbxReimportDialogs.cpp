@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Static mesh creation from FBX data.
@@ -206,7 +206,7 @@ void ResetMaterialSlot(const TArray<TMaterialType>& CurrentMaterial, TArray<TMat
 	// the material slot name, artist will be able to remap the material instance correctly
 	for (int32 MaterialIndex = 0; MaterialIndex < ResultMaterial.Num(); ++MaterialIndex)
 	{
-		if (ResultMaterial[MaterialIndex].MaterialInterface == nullptr)
+		if (ResultMaterial[MaterialIndex].MaterialInterface == nullptr || ResultMaterial[MaterialIndex].MaterialInterface == UMaterial::GetDefaultMaterial(MD_Surface))
 		{
 			bool bFoundMatch = false;
 			for (int32 ExistMaterialIndex = 0; ExistMaterialIndex < CurrentMaterial.Num(); ++ExistMaterialIndex)

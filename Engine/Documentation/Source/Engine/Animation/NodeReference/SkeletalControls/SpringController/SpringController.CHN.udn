@@ -1,43 +1,10 @@
-﻿INTSourceChangelist:3020428
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:弹簧控制器（Spring Controller）
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
 Description:对弹簧控制器进行说明。它用于限定骨骼在被应用反向力之前从其参考姿态进行伸展的程度。
 version:4.12
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Animation\NodeReference\SkeletalControls\SpringController:title%](Engine\Animation\NodeReference\SkeletalControls\SpringController\node_springcontroller.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\NodeReference\SkeletalControls\SpringController:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\NodeReference\SkeletalControls\SpringController]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\NodeReference\SkeletalControls\SpringController:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Animation\NodeReference\SkeletalControls\SpringController:title%](Engine\Animation\NodeReference\SkeletalControls\SpringController\node_springcontroller.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\NodeReference\SkeletalControls\SpringController:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\NodeReference\SkeletalControls\SpringController]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\NodeReference\SkeletalControls\SpringController:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:node_springcontroller.png
 
 **弹簧控制器** 应用了一个控制节点，用于限定骨骼在被应用反向力之前从其参考姿态进行伸展的程度。
 
@@ -70,4 +37,7 @@ A7J0Xd79HhY
 | **Error Reset Thresh** | 一个位移阈值 - 如弹簧伸展量超过此值，将依次进行重置，防止突然出现的较大位移引起错误，如 Actor 的瞬移。|
 | **No ZSpring** | 启用后，弹簧将忽略 Z 轴位移并保证校正。|
 
+**Spring Controller** 节点还会受到4.11版本中加入的 **LOD Threshold** 系统影响。您可以在 **Spring Controller** 节点的 **细节面板** 上找到其设置。
+
+[INCLUDE:Engine/Animation/NodeReference/SkeletalControls#lodthresh]
 

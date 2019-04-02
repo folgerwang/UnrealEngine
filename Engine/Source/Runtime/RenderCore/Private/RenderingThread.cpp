@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RenderingThread.cpp: Rendering thread implementation.
@@ -370,13 +370,10 @@ static void AdvanceRenderingThreadStats(int64 StatsFrame, int32 MasterDisableCha
  */
 void AdvanceRenderingThreadStatsGT( bool bDiscardCallstack, int64 StatsFrame, int32 MasterDisableChangeTagStartFrame )
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER
-	(
-		RenderingThreadTickCommand,
-		int64, SentStatsFrame, StatsFrame,
-		int32, SentMasterDisableChangeTagStartFrame, MasterDisableChangeTagStartFrame,
+	ENQUEUE_RENDER_COMMAND(RenderingThreadTickCommand)(
+		[StatsFrame, MasterDisableChangeTagStartFrame](FRHICommandList& RHICmdList)
 		{
-			AdvanceRenderingThreadStats( SentStatsFrame, SentMasterDisableChangeTagStartFrame );
+			AdvanceRenderingThreadStats(StatsFrame, MasterDisableChangeTagStartFrame );
 		}
 	);
 	if( bDiscardCallstack )
@@ -522,16 +519,16 @@ public:
 			if (!GIsRenderingThreadSuspended.Load(EMemoryOrder::Relaxed) && OutstandingHeartbeats.GetValue() < 4)
 			{
 				OutstandingHeartbeats.Increment();
-				ENQUEUE_UNIQUE_RENDER_COMMAND(
-					HeartbeatTickTickables,
-				{
-					OutstandingHeartbeats.Decrement();
-					// make sure that rendering thread tickables get a chance to tick, even if the render thread is starving
-					if (!GIsRenderingThreadSuspended.Load(EMemoryOrder::Relaxed))
+				ENQUEUE_RENDER_COMMAND(HeartbeatTickTickables)(
+					[](FRHICommandList& RHICmdList)
 					{
-						TickRenderingTickables();
-					}
-				});
+						OutstandingHeartbeats.Decrement();
+						// make sure that rendering thread tickables get a chance to tick, even if the render thread is starving
+						if (!GIsRenderingThreadSuspended.Load(EMemoryOrder::Relaxed))
+						{
+							TickRenderingTickables();
+						}
+					});
 			}
 		}
 		return 0;
@@ -546,46 +543,42 @@ struct FConsoleRenderThreadPropagation : public IConsoleThreadPropagation
 {
 	virtual void OnCVarChange(int32& Dest, int32 NewValue)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			OnCVarChange1,
-			int32&, Dest, Dest,
-			int32, NewValue, NewValue,
-		{
-			Dest = NewValue;
-		});
+		int32* DestPtr = &Dest;
+		ENQUEUE_RENDER_COMMAND(OnCVarChange1)(
+			[DestPtr, NewValue](FRHICommandListImmediate& RHICmdList)
+			{
+				*DestPtr = NewValue;
+			});
 	}
 	
 	virtual void OnCVarChange(float& Dest, float NewValue)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			OnCVarChange2,
-			float&, Dest, Dest,
-			float, NewValue, NewValue,
-		{
-			Dest = NewValue;
-		});
+		float* DestPtr = &Dest;
+		ENQUEUE_RENDER_COMMAND(OnCVarChange2)(
+			[DestPtr, NewValue](FRHICommandListImmediate& RHICmdList)
+			{
+				*DestPtr = NewValue;
+			});
 	}
 
 	virtual void OnCVarChange(bool& Dest, bool NewValue)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			OnCVarChange2,
-			bool&, Dest, Dest,
-			bool, NewValue, NewValue,
-		{
-			Dest = NewValue;
-		});
+		bool* DestPtr = &Dest;
+		ENQUEUE_RENDER_COMMAND(OnCVarChange2)(
+			[DestPtr, NewValue](FRHICommandListImmediate& RHICmdList)
+			{
+				*DestPtr = NewValue;
+			});
 	}
 	
 	virtual void OnCVarChange(FString& Dest, const FString& NewValue)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			OnCVarChange3,
-			FString&, Dest, Dest,
-			const FString&, NewValue, NewValue,
-		{
-			Dest = NewValue;
-		});
+		FString* DestPtr = &Dest;
+		ENQUEUE_RENDER_COMMAND(OnCVarChange3)(
+			[DestPtr, NewValue](FRHICommandListImmediate& RHICmdList)
+			{
+				*DestPtr = NewValue;
+			});
 	}
 
 	static FConsoleRenderThreadPropagation& GetSingleton()
@@ -933,6 +926,9 @@ void FRenderCommandFence::BeginFence(bool bSyncToRHIAndGPU)
 	}
 	else
 	{
+		// Render thread is a default trigger for the CompletionEvent
+		TriggerThreadIndex = ENamedThreads::ActualRenderingThread;
+				
 		if (BundledCompletionEvent.GetReference() && IsInGameThread())
 		{
 			CompletionEvent = BundledCompletionEvent;
@@ -956,25 +952,30 @@ void FRenderCommandFence::BeginFence(bool bSyncToRHIAndGPU)
 
 		if (bSyncToRHIAndGPU)
 		{
+			if (GRHIThread_InternalUseOnly)
+			{
+				// Change trigger thread to RHI
+				TriggerThreadIndex = ENamedThreads::RHIThread;
+			}
+			
 			// Create a task graph event which we can pass to the render or RHI threads.
 			CompletionEvent = FGraphEvent::CreateGraphEvent();
 
-			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-				FSyncFrameCommand,
-				FGraphEventRef, CompletionEvent, CompletionEvent,
-				int32, GTSyncType, GTSyncType,
-			{
-				if (GRHIThread_InternalUseOnly)
+			FGraphEventRef InCompletionEvent = CompletionEvent;
+			ENQUEUE_RENDER_COMMAND(FSyncFrameCommand)(
+				[InCompletionEvent, GTSyncType](FRHICommandListImmediate& RHICmdList)
 				{
-					new (RHICmdList.AllocCommand<FRHISyncFrameCommand>()) FRHISyncFrameCommand(CompletionEvent, GTSyncType);
-					RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
-				}
-				else
-				{
-					FRHISyncFrameCommand Command(CompletionEvent, GTSyncType);
-					Command.Execute(RHICmdList);
-				}
-			});
+					if (GRHIThread_InternalUseOnly)
+					{
+						ALLOC_COMMAND_CL(RHICmdList, FRHISyncFrameCommand)(InCompletionEvent, GTSyncType);
+						RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
+					}
+					else
+					{
+						FRHISyncFrameCommand Command(InCompletionEvent, GTSyncType);
+						Command.Execute(RHICmdList);
+					}
+				});
 		}
 		else
 		{
@@ -1028,7 +1029,7 @@ static FAutoConsoleVariableRef CVarTimeoutForBlockOnRenderFence(
 /**
  * Block the game thread waiting for a task to finish on the rendering thread.
  */
-static void GameThreadWaitForTask(const FGraphEventRef& Task, bool bEmptyGameThreadTasks = false)
+static void GameThreadWaitForTask(const FGraphEventRef& Task, ENamedThreads::Type TriggerThreadIndex = ENamedThreads::ActualRenderingThread, bool bEmptyGameThreadTasks = false)
 {
 	SCOPE_TIME_GUARD(TEXT("GameThreadWaitForTask"));
 
@@ -1060,7 +1061,8 @@ static void GameThreadWaitForTask(const FGraphEventRef& Task, bool bEmptyGameThr
 
 			// Grab an event from the pool and fire off a task to trigger it.
 			FEvent* Event = FPlatformProcess::GetSynchEventFromPool();
-			FTaskGraphInterface::Get().TriggerEventWhenTaskCompletes(Event, Task, ENamedThreads::GameThread);
+			check(GIsThreadedRendering);
+			FTaskGraphInterface::Get().TriggerEventWhenTaskCompletes(Event, Task, ENamedThreads::GameThread, ENamedThreads::SetTaskPriority(TriggerThreadIndex, ENamedThreads::HighTaskPriority));
 
 			// Check rendering thread health needs to be called from time to
 			// time in order to pump messages, otherwise the RHI may block
@@ -1110,11 +1112,11 @@ static void GameThreadWaitForTask(const FGraphEventRef& Task, bool bEmptyGameThr
 				bRenderThreadEnsured |= FDebug::IsEnsuring();
 
 #if !WITH_EDITOR
-#if !PLATFORM_IOS // @todo MetalMRT: Timeout isn't long enough...
+#if !PLATFORM_IOS && !PLATFORM_MAC // @todo MetalMRT: Timeout isn't long enough...
 				// editor threads can block for quite a while... 
-				if (!bDone && !bRenderThreadEnsured && !FPlatformMisc::IsDebuggerPresent())
+				if (!bDone && !bRenderThreadEnsured)
 				{
-					if (bOverdue && !bDisabled)
+					if (bOverdue && !bDisabled && !FPlatformMisc::IsDebuggerPresent())
 					{
 						UE_LOG(LogRendererCore, Fatal, TEXT("GameThread timed out waiting for RenderThread after %.02f secs"), RenderThreadTimeoutClock.Seconds() - StartTime);
 					}
@@ -1149,7 +1151,7 @@ void FRenderCommandFence::Wait(bool bProcessGameThreadTasks) const
 			FTaskGraphInterface::Get().WaitUntilTaskCompletes(CompletionEvent, ENamedThreads::GameThread);
 		}
 #endif
-		GameThreadWaitForTask(CompletionEvent, bProcessGameThreadTasks);
+		GameThreadWaitForTask(CompletionEvent, TriggerThreadIndex, bProcessGameThreadTasks);
 	}
 }
 
@@ -1230,12 +1232,11 @@ void FlushPendingDeleteRHIResources_GameThread()
 {
 	if (!IsRunningRHIInSeparateThread())
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND(
-			FlushPendingDeleteRHIResources,
-		{
-			FlushPendingDeleteRHIResources_RenderThread();
-		}
-		);
+		ENQUEUE_RENDER_COMMAND(FlushPendingDeleteRHIResources)(
+			[](FRHICommandList& RHICmdList)
+			{
+				FlushPendingDeleteRHIResources_RenderThread();
+			});
 	}
 }
 void FlushPendingDeleteRHIResources_RenderThread()

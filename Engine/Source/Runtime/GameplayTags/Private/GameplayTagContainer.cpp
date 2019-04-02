@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GameplayTagContainer.h"
 #include "HAL/IConsoleManager.h"
@@ -520,7 +520,16 @@ bool FGameplayTagContainer::operator==(FGameplayTagContainer const& Other) const
 	{
 		return false;
 	}
-	return FilterExact(Other).Num() == this->Num();
+
+	for (const FGameplayTag& Tag : GameplayTags)
+	{
+		if (!Tag.MatchesAnyExact(Other))
+		{
+			return false;
+		}
+	}
+
+	return true;
 }
 
 bool FGameplayTagContainer::operator!=(FGameplayTagContainer const& Other) const
@@ -1081,6 +1090,11 @@ FGameplayTag FGameplayTag::RequestGameplayTag(FName TagName, bool ErrorIfNotFoun
 	return UGameplayTagsManager::Get().RequestGameplayTag(TagName, ErrorIfNotFound);
 }
 
+bool FGameplayTag::IsValidGameplayTagString(const FString& TagString, FText* OutError, FString* OutFixedString)
+{
+	return UGameplayTagsManager::Get().IsValidGameplayTagString(TagString, OutError, OutFixedString);
+}
+
 FGameplayTagContainer FGameplayTag::GetGameplayTagParents() const
 {
 	return UGameplayTagsManager::Get().RequestGameplayTagParents(*this);
@@ -1180,8 +1194,7 @@ static TSharedPtr<FNetFieldExportGroup> CreateNetfieldExportGroupForNetworkGamep
 		FNetFieldExport NetFieldExport(
 			i,
 			0,
-			NetworkGameplayTagNodeIndex[i]->GetCompleteTagString(),
-			TEXT(""));
+			NetworkGameplayTagNodeIndex[i]->GetCompleteTagName());
 
 		NetFieldExportGroup->NetFieldExports[i] = NetFieldExport;
 	}
@@ -1243,7 +1256,7 @@ bool FGameplayTag::NetSerialize_Packed(FArchive& Ar, class UPackageMap* Map, boo
 				// Get the tag name from the net field export group entry
 				if (NetIndex != INVALID_TAGNETINDEX && ensure(NetFieldExportGroup.IsValid()) && ensure(NetIndex < NetFieldExportGroup->NetFieldExports.Num()))
 				{
-					TagName = FName(*NetFieldExportGroup->NetFieldExports[NetIndex].Name);
+					TagName = NetFieldExportGroup->NetFieldExports[NetIndex].ExportName;
 
 					// Validate the tag name
 					const FGameplayTag Tag = UGameplayTagsManager::Get().RequestGameplayTag(TagName, false);
@@ -1341,7 +1354,6 @@ void FGameplayTag::FromExportString(const FString& ExportString)
 
 FGameplayTagNativeAdder::FGameplayTagNativeAdder()
 {
-	UE_LOG(LogGameplayTags, Display, TEXT("FGameplayTagNativeAdder::FGameplayTagNativeAdder"));
 	UGameplayTagsManager::OnLastChanceToAddNativeTags().AddRaw(this, &FGameplayTagNativeAdder::AddTags);
 }
 
@@ -1787,6 +1799,12 @@ void UEditableGameplayTagQueryExpression_AllTagsMatch::EmitTokens(TArray<uint8>&
 void UEditableGameplayTagQueryExpression_NoTagsMatch::EmitTokens(TArray<uint8>& TokenStream, TArray<FGameplayTag>& TagDictionary, FString* DebugString) const
 {
 	TokenStream.Add(EGameplayTagQueryExprType::NoTagsMatch);
+
+	if (DebugString)
+	{
+		DebugString->Append(TEXT(" NONE("));
+	}
+
 	EmitTagTokens(Tags, TokenStream, TagDictionary, DebugString);
 
 	if (DebugString)

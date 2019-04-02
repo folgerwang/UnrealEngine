@@ -1,8 +1,11 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OculusFunctionLibrary.h"
 #include "OculusHMDPrivate.h"
 #include "OculusHMD.h"
+#include "Logging/MessageLog.h"
+
+#define LOCTEXT_NAMESPACE "OculusFunctionLibrary"
 
 //-------------------------------------------------------------------------------------------------
 // UOculusFunctionLibrary
@@ -131,8 +134,7 @@ void UOculusFunctionLibrary::SetCPUAndGPULevels(int CPULevel, int GPULevel)
 	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
 	if (OculusHMD != nullptr && OculusHMD->IsHMDActive())
 	{
-		ovrp_SetSystemCpuLevel2(CPULevel);
-		ovrp_SetSystemGpuLevel2(GPULevel);
+		OculusHMD->SetCPUAndGPULevel(CPULevel, GPULevel);
 	}
 #endif // OCULUS_HMD_SUPPORTED_PLATFORMS
 }
@@ -210,7 +212,6 @@ void UOculusFunctionLibrary::AddLoadingSplashScreen(class UTexture2D* Texture, F
 			{
 				Splash->ClearSplashes();
 			}
-			Splash->SetLoadingIconMode(false);
 
 			FOculusSplashDesc Desc;
 			Desc.LoadingTexture = Texture;
@@ -233,7 +234,6 @@ void UOculusFunctionLibrary::ClearLoadingSplashScreens()
 		if (Splash)
 		{
 			Splash->ClearSplashes();
-			Splash->SetLoadingIconMode(false);
 		}
 	}
 #endif // OCULUS_HMD_SUPPORTED_PLATFORMS
@@ -241,175 +241,78 @@ void UOculusFunctionLibrary::ClearLoadingSplashScreens()
 
 void UOculusFunctionLibrary::ShowLoadingSplashScreen()
 {
-#if OCULUS_HMD_SUPPORTED_PLATFORMS
-	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr && OculusHMD->IsStereoEnabledOnNextFrame())
-	{
-		OculusHMD::FSplash* Splash = OculusHMD->GetSplash();
-		if (Splash)
-		{
-			Splash->SetLoadingIconMode(false);
-			Splash->Show();
-		}
-	}
-#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
+	FText Message = LOCTEXT("ShowLoadingSplashScreen",
+		"UOculusFunctionLibrary::ShowLoadingSplashScreen has been deprecated and no longer functions as before.  Use the generic UStereoLayerFunctionLibrary::ShowSplashScreen instead");
+	UE_LOG(LogHMD, Error, TEXT("%s"), *(Message.ToString()));
+	FMessageLog("PIE").Error(Message);
 }
 
 void UOculusFunctionLibrary::HideLoadingSplashScreen(bool bClear)
 {
-#if OCULUS_HMD_SUPPORTED_PLATFORMS
-	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr)
-	{
-		OculusHMD::FSplash* Splash = OculusHMD->GetSplash();
-		if (Splash)
-		{
-			Splash->Hide();
-			if (bClear)
-			{
-				Splash->ClearSplashes();
-			}
-		}
-	}
-#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
+	FText Message = LOCTEXT("HideLoadingSplashScreenDeprecated",
+		"UOculusFunctionLibrary::HideLoadingSplashScreen has been deprecated and no longer functions as before.  Use the generic UStereoLayerFunctionLibrary::HideSplashScreen instead");
+	UE_LOG(LogHMD, Error, TEXT("%s"), *(Message.ToString()));
+	FMessageLog("PIE").Error(Message);
 }
 
 void UOculusFunctionLibrary::EnableAutoLoadingSplashScreen(bool bAutoShowEnabled)
 {
-#if OCULUS_HMD_SUPPORTED_PLATFORMS
-	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr)
-	{
-		OculusHMD::FSplash* Splash = OculusHMD->GetSplash();
-		if (Splash)
-		{
-			Splash->SetAutoShow(bAutoShowEnabled);
-		}
-	}
-#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
+	FText Message = LOCTEXT("EnableAutoLoadingSplashScreenDeprecated",
+		"UOculusFunctionLibrary::EnableAutoLoadingSplashScreen has been deprecated and no longer functions as before.  Use the generic UStereoLayerFunctionLibrary::EnableAutoLoadingSplashScreen instead");
+	UE_LOG(LogHMD, Error, TEXT("%s"), *(Message.ToString()));
+	FMessageLog("PIE").Error(Message);
 }
 
 bool UOculusFunctionLibrary::IsAutoLoadingSplashScreenEnabled()
 {
-#if OCULUS_HMD_SUPPORTED_PLATFORMS
-	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr)
-	{
-		OculusHMD::FSplash* Splash = OculusHMD->GetSplash();
-		if (Splash)
-		{
-			return Splash->IsAutoShow();
-		}
-	}
-#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
+	FText Message = LOCTEXT("IsAutoLoadingSplashScreenEnabledDeprecated",
+		"UOculusFunctionLibrary::IsAutoLoadingSplashScreenEnabled has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead.");
+	UE_LOG(LogHMD, Error, TEXT("%s"), *(Message.ToString()));
+	FMessageLog("PIE").Error(Message);
+
 	return false;
 }
 
 void UOculusFunctionLibrary::ShowLoadingIcon(class UTexture2D* Texture)
 {
-#if OCULUS_HMD_SUPPORTED_PLATFORMS
-	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr && OculusHMD->IsStereoEnabledOnNextFrame())
-	{
-		OculusHMD::FSplash* Splash = OculusHMD->GetSplash();
-		if (Splash)
-		{
-			Splash->ClearSplashes();
-			FOculusSplashDesc Desc;
-			Desc.LoadingTexture = Texture;
-			Splash->AddSplash(Desc);
-			Splash->SetLoadingIconMode(true);
-			Splash->Show();
-		}
-	}
-#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
+	FText Message = LOCTEXT("IsAutoLoadingSplashScreenEnabledDeprecated",
+		"UOculusFunctionLibrary::ShowLoadingIcon has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead.");
+	UE_LOG(LogHMD, Error, TEXT("%s"), *(Message.ToString()));
+	FMessageLog("PIE").Error(Message);
 }
 
 void UOculusFunctionLibrary::HideLoadingIcon()
 {
-#if OCULUS_HMD_SUPPORTED_PLATFORMS
-	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr)
-	{
-		OculusHMD::FSplash* Splash = OculusHMD->GetSplash();
-		if (Splash)
-		{
-			Splash->Hide();
-			Splash->ClearSplashes();
-			Splash->SetLoadingIconMode(false);
-		}
-	}
-#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
+	FText Message = LOCTEXT("HideLoadingIconDeprecated",
+		"UOculusFunctionLibrary::HideLoadingIcon has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead.");
+	UE_LOG(LogHMD, Error, TEXT("%s"), *(Message.ToString()));
+	FMessageLog("PIE").Error(Message);
 }
 
 bool UOculusFunctionLibrary::IsLoadingIconEnabled()
 {
-#if OCULUS_HMD_SUPPORTED_PLATFORMS
-	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr)
-	{
-		OculusHMD::FSplash* Splash = OculusHMD->GetSplash();
-		if (Splash)
-		{
-			return Splash->IsLoadingIconMode();
-		}
-	}
-#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
+	FText Message = LOCTEXT("IsLoadingIconEnabledDeprecated",
+		"UOculusFunctionLibrary::IsLoadingIconEnabled has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead.");
+	UE_LOG(LogHMD, Error, TEXT("%s"), *(Message.ToString()));
+	FMessageLog("PIE").Error(Message);
 	return false;
 }
 
 
 void UOculusFunctionLibrary::SetLoadingSplashParams(FString TexturePath, FVector DistanceInMeters, FVector2D SizeInMeters, FVector RotationAxis, float RotationDeltaInDeg)
 {
-#if OCULUS_HMD_SUPPORTED_PLATFORMS
-	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr)
-	{
-		OculusHMD::FSplash* Splash = OculusHMD->GetSplash();
-		if (Splash)
-		{
-			Splash->ClearSplashes();
-			Splash->SetLoadingIconMode(false);
-			FOculusSplashDesc Desc;
-			Desc.TexturePath = TexturePath;
-			Desc.QuadSizeInMeters = SizeInMeters;
-			Desc.TransformInMeters = FTransform(DistanceInMeters);
-			Desc.DeltaRotation = FQuat(RotationAxis, FMath::DegreesToRadians(RotationDeltaInDeg));
-			Splash->AddSplash(Desc);
-		}
-	}
-#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
+	FText Message = LOCTEXT("SetLoadingSplashParamsDeprecated",
+		"UOculusFunctionLibrary::SetLoadingSplashParams has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead.");
+	UE_LOG(LogHMD, Error, TEXT("%s"), *(Message.ToString()));
+	FMessageLog("PIE").Error(Message);
 }
 
 void UOculusFunctionLibrary::GetLoadingSplashParams(FString& TexturePath, FVector& DistanceInMeters, FVector2D& SizeInMeters, FVector& RotationAxis, float& RotationDeltaInDeg)
 {
-#if OCULUS_HMD_SUPPORTED_PLATFORMS
-	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr)
-	{
-		OculusHMD::FSplash* Splash = OculusHMD->GetSplash();
-		if (Splash)
-		{
-			FOculusSplashDesc Desc;
-			if (Splash->GetSplash(0, Desc))
-			{
-				if (Desc.LoadingTexture && Desc.LoadingTexture->IsValidLowLevel())
-				{
-					TexturePath = Desc.LoadingTexture->GetPathName();
-				}
-				else
-				{
-					TexturePath = Desc.TexturePath.ToString();
-				}
-				DistanceInMeters = Desc.TransformInMeters.GetTranslation();
-				SizeInMeters	 = Desc.QuadSizeInMeters;
-
-				const FQuat rotation(Desc.DeltaRotation);
-				rotation.ToAxisAndAngle(RotationAxis, RotationDeltaInDeg);
-			}
-		}
-	}
-#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
+	FText Message = LOCTEXT("GetLoadingSplashParamsDeprecated",
+		"UOculusFunctionLibrary::GetLoadingSplashParams has been deprecated and no longer functions as before. Please use the generic UStereoLayerFunctionLibrary instead.");
+	UE_LOG(LogHMD, Error, TEXT("%s"), *(Message.ToString()));
+	FMessageLog("PIE").Error(Message);
 }
 
 bool UOculusFunctionLibrary::HasInputFocus()
@@ -591,6 +494,16 @@ void UOculusFunctionLibrary::EnableOrientationTracking(bool bOrientationTracking
 #endif
 }
 
+void UOculusFunctionLibrary::SetColorScaleAndOffset(FLinearColor ColorScale, FLinearColor ColorOffset, bool bApplyToAllLayers)
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		OculusHMD->SetColorScaleAndOffset(ColorScale, ColorOffset, bApplyToAllLayers);
+	}
+#endif
+}
 
 class IStereoLayers* UOculusFunctionLibrary::GetStereoLayers()
 {
@@ -633,7 +546,7 @@ bool UOculusFunctionLibrary::IsGuardianDisplayed()
 	return false;
 }
 
-TArray<FVector> UOculusFunctionLibrary::GetGuardianPoints(EBoundaryType BoundaryType)
+TArray<FVector> UOculusFunctionLibrary::GetGuardianPoints(EBoundaryType BoundaryType, bool UsePawnSpace /* = false */)
 {
 	TArray<FVector> BoundaryPointList;
 #if OCULUS_HMD_SUPPORTED_PLATFORMS
@@ -657,7 +570,15 @@ TArray<FVector> UOculusFunctionLibrary::GetGuardianPoints(EBoundaryType Boundary
 
 				for (int i = 0; i < NumPoints; i++)
 				{
-					FVector point = OculusHMD->ScaleAndMovePointWithPlayer(BoundaryPoints[i]);
+					FVector point;
+					if (UsePawnSpace)
+					{
+						point = OculusHMD->ConvertVector_M2U(BoundaryPoints[i]);
+					}
+					else
+					{
+						point = OculusHMD->ScaleAndMovePointWithPlayer(BoundaryPoints[i]);
+					}
 					BoundaryPointList.Add(point);
 				}
 			}
@@ -786,3 +707,5 @@ void UOculusFunctionLibrary::SetGuardianVisibility(bool GuardianVisible)
 	}
 #endif
 }
+
+#undef LOCTEXT_NAMESPACE

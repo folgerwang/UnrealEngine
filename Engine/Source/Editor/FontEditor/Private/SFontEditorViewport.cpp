@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SFontEditorViewport.h"
 #include "Fonts/SlateFontInfo.h"
@@ -222,9 +222,8 @@ void FFontEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 			// Draw and measure each name so we can work out where to start drawing the preview text column
 			for (const FTypefaceEntry& TypefaceEntry : Font->CompositeFont.DefaultTypeface.Fonts)
 			{
-				const FSlateFontInfo FontInfo(Font, Font->LegacyFontSize, TypefaceEntry.Name);
-
-				FCharacterList& CharacterList = FontCache->GetCharacterList(FontInfo, FontScale);
+				FSlateFontInfo FontInfo(Font, Font->LegacyFontSize, TypefaceEntry.Name);
+				FontInfo.FontFallback = EFontFallback::FF_NoFallback;
 
 				FShapedGlyphSequenceRef EntryNameShapedText = FontCache->ShapeBidirectionalText(TypefaceEntry.Name.ToString(), FontInfo, FontScale, TextBiDi::ETextDirection::LeftToRight, GetDefaultTextShapingMethod());
 				
@@ -234,7 +233,7 @@ void FFontEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 				const FVector2D MeasuredText = ShapedTextItem.DrawnSize;
 				WidestName = FMath::Max(WidestName, EntryNameShapedText->GetMeasuredWidth());
 
-				CurPos.Y += CharacterList.GetMaxHeight() + 8.0f;
+				CurPos.Y += EntryNameShapedText->GetMaxTextHeight() + 8.0f;
 			}
 
 			CurPos = FVector2D(WidestName + 12.0f, StartPos.Y);
@@ -242,7 +241,8 @@ void FFontEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 			// Draw the preview text using each of the default fonts
 			for (const FTypefaceEntry& TypefaceEntry : Font->CompositeFont.DefaultTypeface.Fonts)
 			{
-				const FSlateFontInfo FontInfo(Font, Font->LegacyFontSize, TypefaceEntry.Name);
+				FSlateFontInfo FontInfo(Font, Font->LegacyFontSize, TypefaceEntry.Name);
+				FontInfo.FontFallback = EFontFallback::FF_NoFallback;
 
 				FShapedGlyphSequenceRef ShapedPreviewText = FontCache->ShapeBidirectionalText(PreviewText.ToString(), FontInfo, FontScale, TextBiDi::ETextDirection::LeftToRight, GetDefaultTextShapingMethod());
 
@@ -440,7 +440,6 @@ bool FFontEditorViewportClient::InputKey(FViewport* Viewport, int32 ControllerId
 		
 			// Force a redraw
 			Viewport->Invalidate();
-			Viewport->InvalidateDisplay();
 
 			bHandled = true;
 		}

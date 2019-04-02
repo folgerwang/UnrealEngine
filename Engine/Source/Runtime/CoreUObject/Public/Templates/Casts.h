@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -18,7 +18,9 @@ class USceneComponent;
 class USkeletalMeshComponent;
 class USkinnedMeshComponent;
 class UStaticMeshComponent;
+/// @cond DOXYGEN_WARNINGS
 template<class TClass> class TSubclassOf;
+/// @endcond
 
 FUNCTION_NO_RETURN_START
 	COREUOBJECT_API void CastLogError(const TCHAR* FromType, const TCHAR* ToType)
@@ -91,7 +93,7 @@ struct TCastFlags
 template <typename From, typename To, bool bFromInterface = TIsIInterface<From>::Value, bool bToInterface = TIsIInterface<To>::Value, EClassCastFlags CastClass = TCastFlags<To>::Value>
 struct TGetCastType
 {
-#if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE || UCLASS_FAST_ISA_IMPL == UCLASS_ISA_CLASSARRAY
+#if USTRUCT_FAST_ISCHILDOF_IMPL == USTRUCT_ISCHILDOF_STRUCTARRAY
 	static const ECastType Value = ECastType::UObjectToUObject;
 #else
 	static const ECastType Value = ECastType::FromCastFlags;

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -31,16 +31,20 @@ namespace ESplitScreenType
 		ThreePlayer_FavorBottom,
 		//3 Player vertical split
 		ThreePlayer_Vertical,
+		//3 Player horizontal split
+		ThreePlayer_Horizontal,
 		// 4 Player grid split
 		FourPlayer_Grid,
 		// 4 Player vertical split
 		FourPlayer_Vertical,
+		// 4 Player horizontal split
+		FourPlayer_Horizontal,
 
 		SplitTypeCount
 	};
 
 	// Deprecated old FourPlayer grid enum value
-	DEPRECATED(4.21, "FourPlayer is now FourPlayer_Grid")
+	UE_DEPRECATED(4.21, "FourPlayer is now FourPlayer_Grid")
 	const Type FourPlayer = FourPlayer_Grid;
 }
 

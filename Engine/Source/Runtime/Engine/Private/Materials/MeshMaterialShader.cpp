@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MeshMaterialShader.cpp: Mesh material shader implementation.
@@ -27,6 +27,13 @@ static inline bool ShouldCacheMeshShader(const FMeshMaterialShaderType* ShaderTy
 		Material->ShouldCache(Platform, ShaderType, InVertexFactoryType) &&
 		InVertexFactoryType->ShouldCache(Platform, Material, ShaderType);
 }
+
+#if PLATFORM_WINDOWS && defined(__clang__)
+void FMeshMaterialShader::ValidateAfterBind()
+{
+	checkfSlow(PassUniformBuffer.IsInitialized(), TEXT("FMeshMaterialShader must bind a pass uniform buffer, even if it is just FSceneTexturesUniformParameters: %s"), GetType()->GetName());
+}
+#endif
 
 /**
  * Enqueues a compilation for a new shader of this type.
@@ -107,19 +114,36 @@ void FMeshMaterialShaderType::BeginCompileShaderPipeline(
 	NewJobs.Add(NewPipelineJob);
 }
 
+
+static inline FString GetJobName(const FShaderCompileJob* SingleJob, const FShaderPipelineType* ShaderPipelineType, const FString& InDebugDescription)
+{
+	FString String = SingleJob->Input.GenerateShaderName();
+	if (ShaderPipelineType)
+	{
+		String += FString::Printf(TEXT(" Pipeline '%s'"), ShaderPipelineType->GetName());
+	}
+	if (SingleJob->VFType)
+	{
+		String += FString::Printf(TEXT(" VF '%s'"), SingleJob->VFType->GetName());
+	}
+	String += FString::Printf(TEXT(" Type '%s'"), SingleJob->ShaderType->GetName());
+	String += FString::Printf(TEXT(" '%s' Entry '%s' Permutation %i %s"), *SingleJob->Input.VirtualSourceFilePath, *SingleJob->Input.EntryPointName, SingleJob->PermutationId, *InDebugDescription);
+	return String;
+}
+
 /**
  * Either creates a new instance of this type or returns an equivalent existing shader.
  * @param Material - The material to link the shader with.
  * @param CurrentJob - Compile job that was enqueued by BeginCompileShader.
  */
-FShader* FMeshMaterialShaderType::FinishCompileShader(
+FShader* FMeshMaterialShaderType::FinishCompileShader( 
 	const FUniformExpressionSet& UniformExpressionSet, 
 	const FSHAHash& MaterialShaderMapHash,
 	const FShaderCompileJob& CurrentJob,
 	const FShaderPipelineType* ShaderPipelineType,
 	const FString& InDebugDescription)
 {
-	check(CurrentJob.bSucceeded);
+	checkf(CurrentJob.bSucceeded, TEXT("Failed MeshMaterialType compilation job: %s"), *GetJobName(&CurrentJob, ShaderPipelineType, InDebugDescription));
 	check(CurrentJob.VFType);
 
 	FShaderType* SpecificType = CurrentJob.ShaderType->LimitShaderResourceToThisType() ? CurrentJob.ShaderType : NULL;

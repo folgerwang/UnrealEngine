@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SettingsSection.h"
 #include "Misc/Paths.h"
@@ -252,4 +252,12 @@ bool FSettingsSection::SaveDefaults()
 	}
 
 	return false;
+}
+
+void FSettingsSection::Select() 
+{
+	if (SelectDelegate.IsBound())
+	{
+		SelectDelegate.Execute();
+	}
 }

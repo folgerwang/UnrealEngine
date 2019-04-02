@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3244370
 Availability:Public
 Title:蓝图中的结构体变量
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/Scripting
@@ -7,7 +7,8 @@ version:4.12
 skilllevel:Intermediate
 Parent:Engine/Blueprints/Scripting
 tag:Arrays and Structures
-type:guide
+type:overview
+tags:Blueprints
 
 [TOC]
 
@@ -15,6 +16,7 @@ type:guide
 
 结构体也可保存其数据。变形结构体保存 Actor 的位置（矢量结构体）、旋转（旋转体结构体）和大小（矢量结构体）数据。
 
+(#CreatingStructs)
 ## 创建结构体
 
 将结构体变量添加到蓝图的方法和添加其他 [蓝图变量](Engine/Blueprints/UserGuide/Variables) 的方法相同。简单结构体（如矢量、旋转体和变形）位列于变量类型下拉菜单的顶部。 
@@ -27,10 +29,12 @@ type:guide
 ![](AddComplexStruct.png)
 
 
+(#AccessingStructInformation)
 ## 访问结构体信息
 
 结构体的工作是将数据捆绑起来，因此您需要访问那些小块的信息。可通过几种不同方法执行：
 
+(#SplittingStructPins)
 ### 分离结构体引脚
 
 如需在节点上访问结构体中的单个变量，可使用分离结构体引脚（Split Struct Pin）。 
@@ -49,6 +53,7 @@ type:guide
 
 可分离重组输入和输出结构体引脚。 
 
+(#BreakingStructs)
 ## 拆分结构体
 
 将结构体拆分为单独部分通常是在函数或宏中进行重复的游戏性逻辑。使用 **Break Struct** 节点可轻松复制贯穿蓝图图表的行为。
@@ -64,6 +69,7 @@ type:guide
 
 ![](BreakHitExample.png)
 
+(#MakingStructs)
 ### 组成结构体
 
 与将结构体筛分为单独数据块相似，也可使用正确的数据组成结构体。
@@ -76,6 +82,7 @@ type:guide
 
 ![](MakeLinearColor.png)
 
+(#SettingMembersinStructs)
 ### 设置结构体中的成员
 
 有时结构体会包含大量数据，而需要修改的只是其中数个元素。对结构体中的成员进行设置即可精确地对数据进行修改，无需将作为固定常量的所有数据引脚连接起来。

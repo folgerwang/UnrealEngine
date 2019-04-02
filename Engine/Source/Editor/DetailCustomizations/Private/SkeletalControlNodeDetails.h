@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -37,6 +37,6 @@ protected:
 
 private:
 	IDetailCategoryBuilder* DetailCategory;
-	TWeakObjectPtr<class UK2Node_BreakStruct> BreakStructNode;
+	TWeakObjectPtr<class UK2Node> HideUnconnectedPinsNode;
 	TSharedPtr<class IPropertyHandleArray> ArrayProperty;
 };

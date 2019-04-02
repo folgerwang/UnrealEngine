@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,9 @@
 
 struct CORE_API FIOSCrashContext : public FApplePlatformCrashContext
 {
+	/** Constructor */
+	FIOSCrashContext(ECrashContextType InType, const TCHAR* InErrorMessage);
+
 	/** Copies the PLCrashReporter minidump */
 	void CopyMinidump(char const* OutputPath, char const* InputPath) const;
 

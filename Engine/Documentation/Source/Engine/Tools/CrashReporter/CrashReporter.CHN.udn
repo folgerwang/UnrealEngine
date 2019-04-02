@@ -1,117 +1,117 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3599948
 Availability:Epic
-Title:Crash Reporter
+Title:崩溃报告器
 Crumbs:%ROOT%
-Description:Application for collecting information from crashes in Unreal Engine.
+Description:虚幻引擎中收集崩溃信息的应用程序。
 
 [TOC (start:2 end:3)]
 
-The Crash Reporter suite of programs is designed to capture and analyze application crashes both internal to the company, and externally from end users.
+“崩溃报告器（Crash Reporter）”程序套件用于捕捉和分析公司内部和外部最终用户的应用程序崩溃。
 
-## Requirements
+## 要求
 
-* Visual Studio 2012 with MVC3 installed
-* An IIS server with .NET40 support
-* A SQL database to serve the web site
-
-
-## Generic Overview
-
-* The application generates Windows Error Reporting style reports after a crash, queues them up for uploading, and then launches CrashReportUploader.
-* The CrashReportUploader then hijacks and uploads these reports to a desired server, but leaves them on the system so they are forwarded to Windows Error Reporting. It also optionally launches CrashReportInput so the user can input a description.
-* The CrashReportReceiver resides in the DMZ, and accepts these reports and writes them to a secure location.
-* The CrashReportProcessor monitors the secure location for new reports, processes crash reports as they come in.
-* The CrashReportWebsite then displays the processed reports for QA to analyse and take action.
+* 安装了MVC3的Visual Studio 2012
+* 具有.NET40支持的IIS服务器
+* 满足网站需要的SQL数据库
 
 
+## 概览
 
-Detailed API documentation is stored in Perforce: /Engine/Source/Programs/CrashReporter/CrashReportHelp/bin/Development/CrashReportHelp.chm
-
-## Generating a Crash Report
-
-* NewReportCrash() creates the report and launches CrashReportUploader
-
-
-The report contains Windows Error Reporting meta data, a minidump of the crash, the current log, and optionally a video file of the most recent usage. Any arbitrary file can be added in AddMiscFiles() if desired, and no changes will be required except in the processor on the 
-server. This new style of Windows Error Reporting was added in Windows Vista, so care will be needed if XP support is desired.
-
-## Uploading a Crash Report
-
-* /Engine/Binaries/DotNET/CrashReportUploader.exe.config contains the configuration properties.
-    * 'CrashReportUploadURL' - the URL of the CrashReportReceiver to send crashes to.
-	* 'UploadHistory' - how many days to search back for crashes.
-	* 'LocalDomain' - the domain to assist with the local symbol lookup heuristic.
+* 发生崩溃后，该应用程序会生成Windows错误报告风格的报告，将它们加入待上传的队列，然后启动CrashReportUploader。
+* 然后，CrashReportUploader将劫持这些报告并将它们上传至所需的服务器，而不是将它们留在系统上以便系统将它们转发至Windows错误报告。它也可以选择性地启动CrashReportInput，以允许用户输入描述。
+* CrashReportReceiver驻留在DMZ中，它接受这些报告并将它们写入安全的位置。
+* CrashReportProcessor将监视此安全位置，并在有新报告写入时处理这些崩溃报告。
+* 然后，CrashReportWebsite将显示处理后的报告，以便QA可以进行分析并采取行动。
 
 
-This application searches for all relevant crashes in the past 'UploadHistory' days, and uploads them the the 'CrashReportUploadURL'. The application is stateless in that it does not require any direct input from the engine; it can be run as a standalone application and
-will discover and upload just the same. If the upload fails for any reason (such as the URL being unavailable), the next launch of the uploader will retry. No parameters required, but '-unattended' and '-logfolder=<folder name>' as commandline options are respected. 
 
-Crash reports are discovered in by searching for any folders matching the pattern 'SpecialFolder.LocalApplicationData\Microsoft\Windows\WER\ReportQueue\AppCrash_UE4-*'. These folders have a Guid that is used to see if the report is already uploaded.
+详细的API文档存储在Perforce中：/Engine/Source/Programs/CrashReporter/CrashReportHelp/bin/Development/CrashReportHelp.chm
 
-To account for locally compiled binaries, the uploader checks to see if it has a pdb, and is running on the local domain. If both these conditions are met, MinidumpDiagnostics.exe will be run to generate a report (which includes a callstack). This is then uploaded as part
-of the report.
+## 生成崩溃报告
 
-The uploader program then optionally launches CrashReportInput.exe to allow the user to input a description of what they were doing when the crash happened. 
-
-## Receiving a Crash Report
-
-* /Engine/Binaries/DotNET/CrashReportReceiver.exe.config contains the configuration properties.
-    * 'CrashReportRepository' - the secure folder to store incoming crash reports.
+* NewReportCrash()创建报告并启动CrashReportUploader
 
 
-This is a web service that lives on a server in the DMZ, and is accessible from everywhere via 'CrashReportUploadURL'. As with all externally accessible servers, it is locked down hard with minimal access. It does basic rejection checks, then
-receives files to a temporary folder in a secure location. Once all files are received, the folder is renamed to be detectable by the processor. The secure location is currently an NFS drive which is also accessible on the intranet.
+报告中包含Windows错误报告元数据、崩溃的小型转储、当前日志以及最新使用情况视频文件（可选）。如果希望，可在AddMiscFiles()中添加任意文件，并且除在服务器上的处理程序中以外， 
+无需进行其他更改。此新样式的Windows错误报告添加在Windows Vista中，因此，如果需要XP支持，则应注意。
 
-The report folder has an embedded Guid (e.g. 'AppCrash_UE4-FortniteGame_a50cecbc1f087cac2543eb9f04823bbb548b119_cab_17bf8494') and this is used to prevent uploading of duplicate reports.
+## 上传崩溃报告
 
-The Windows Error Reporting meta data is parsed for more detailed culling. Currently, it rejects crashes from debug builds, and from MinidumpDiagnostics (as it cannot sync itself).
+* /Engine/Binaries/DotNET/CrashReportUploader.exe.config中包含配置属性。
+    * “CrashReportUploadURL” - 要将崩溃发送至的CrashReportReceiver的URL。
+	* “UploadHistory” - 向后搜索崩溃的天数。
+	* “LocalDomain” - 协助本地符号查找启发法的域。
 
-## Processing a Crash Report
+
+此应用程序搜索过去“UploadHistory”天的所有相关崩溃，然后将它们上传至“CrashReportUploadURL”。由于此应用程序不需要来自引擎的任何直接输入，所以它是无状态的；它可以作为独立应用程序运行，
+它所发现的和所上传的完全一样。如果由于URL不可用等任何原因导致上传失败，将重新尝试再次启动上传程序。无需任何参数，但是不能更改 `-unattended` 和 `-logfolder=<文件夹名称>` 命令行选项。 
+
+发现崩溃报告的方法是搜索与 `SpecialFolder.LocalApplicationData\Microsoft\Windows\WER\ReportQueue\AppCrash_UE4-*` 模式匹配的任何文件夹。这些文件夹具有Guid，可用于确定报告是否已上传。
+
+为处理本地编译的二进制文件，上传程序检查它是否具有pdb以及是否在本地域上运行。如果满足这两个条件，将运行MinidumpDiagnostics.exe以生成报告，报告中将包括调用堆栈。然后，它将作为
+报告的一部分上传。
+
+然后，上传程序选择性地启动CrashReportInput.exe，以允许用户输入对于崩溃发生时所执行的操作的描述。 
+
+## 接收崩溃报告
+
+* /Engine/Binaries/DotNET/CrashReportReceiver.exe.config中包含配置属性。
+    * “CrashReportRepository” - 安全文件夹，用于存储传入的崩溃报告。
+
+
+该Web服务驻留在DMZ中的服务器上，可通过“CrashReportUploadURL”从任意位置访问。与所有可外部访问的服务器一样，它被强力锁定，仅允许最低限度的访问。它执行基本拒收检查，然后
+将文件接收至安全位置中的临时文件夹。接收完所有文件之后，将重命名该文件夹，以使处理程序能够检测到它。此安全位置当前为NFS驱动器，也可以在内部网络上访问它。
+
+报告文件夹具有嵌入式Guid（例如，“AppCrash_UE4-FortniteGame_a50cecbc1f087cac2543eb9f04823bbb548b119_cab_17bf8494”），可用于防止重复上传报告。
+
+为进行更详细的剔除，将解析Windows错误报告元数据。当前，它拒收来自调试构建版本以及MinidumpDiagnostics（由于它无法同步自身）的崩溃。
+
+## 处理崩溃报告
 
 * /Engine/Binaries/DotNET/CrashReportProcess.exe.config
-    * 'ReportLandingZone' - the secure folder where the new reports arrive.
-	* 'ProcessedReports' - the location the processed crash data goes for access by the web site.
-	* 'DaysToSunsetReport' - the number of days empty folders are kept around to suppress duplicate report uploads.
-	* 'DepotRoot' - we use Perforce as the symbol server, and call utilities that are stored in the regular depot (e.g. MinidumpDiagnostics). A clientspec containing the relevant binaries and symbols is rooted here.
-	* 'CrashReportWebSite' - the URL of the crash report website for calling web services.
-	* 'ProcessedVideos' - the location of processed videos. As these can be large, they are stored separately from the normal files in the processed reports.
+    * “ReportLandingZone” - 新报告到达的安全文件夹。
+	* “ProcessedReports” - 处理后的崩溃数据流向的位置，可供网站访问。
+	* “DaysToSunsetReport” - 保留空文件夹以抑制重复报告上传的天数。
+	* “DepotRoot” - 我们使用Perforce作为符号服务器，并调用存储在常规仓库（例如，MinidumpDiagnostics）中的实用程序。包含相关的二进制文件和符号的clientspec的根位于此处。
+	* “CrashReportWebSite” - 用于调用Web服务的崩溃报告网站的URL。
+	* “ProcessedVideos” - 处理后的视频的位置。由于这些视频可能较大，它们与处理后的报告中的一般文件分开存储。
 
 
-The Crash Report Processor is a service that monitors secure location ('ReportLandingZone') for new reports. As NFS does not support directory watching, this is done in a slow fashion. The service looks for the files it is interested in,
-calls MinidumpDiagnostics on the minidump if necessary, and then calls a web service to add the crash to the database. The returned id is used for naming the data files so the web site can access them easily. The remaining files are deleted, and
-just the folder name remains. The binary images are required for x64 call stack walking due to the nature of the architecture, and so syncing to the Microsoft Symbol Server is required to support call stack walking of x64 minidumps where the crash originates in a system dll.
+崩溃报告处理程序是一个服务，它监视安全位置（ReportLandingZone）以发现新报告。由于NFS不支持目录监视，因此该服务的速度比较慢。该服务查找相关文件，
+必要时针对小型转储调用MinidumpDiagnostics，然后调用Web服务来将崩溃添加到数据库中。返回的ID将用于命名数据文件，以便网站能够轻松访问它们。将删除剩下的文件，
+仅保留文件夹名称。由于架构的性质，x64调用堆栈遍历需要二进制映像，因此要支持源头为系统dll的崩溃的x64小型转储调用堆栈遍历，需要同步到Microsoft符号服务器。
 
-MinidumpDiagnostics extracts the version number from the module list in the minidump, and uses this to sync the correct binaries, symbols, and source from Perforce. The call stack is then evaluated using the same technology as WinDbg, and as much information as 
-possible is written to Diagnostics.txt.
+MinidumpDiagnostics从小型转储的模块列表中提取版本号，然后用它来从Perforce同步正确的二进制文件、符号和源。然后会使用与WinDbg相同的技术对调用堆栈进行求值，并将信息尽可能全部 
+写入Diagnostics.txt。
 
-The clientspec does not need all the content for symbol lookup, but it does need binaries, symbols, and source. We use this template for the UE4 branch:
+clientspec并非需要所有内容才能进行符号查找，但它确实需要二进制文件、符号和源。对于UE4分支，我们使用此模板：
 
-	"//depot/UE4/Engine/... //CLIENT/UE4/Engine/..."
-	"//depot/UE4/*/Binaries/... //CLIENT/UE4/*/Binaries/..."
-	"//depot/UE4/*/Source/... //CLIENT/UE4/*/Source/..."
+	"//depot/UE4/Engine/...//CLIENT/UE4/Engine/..."
+	"//depot/UE4/*/Binaries/...//CLIENT/UE4/*/Binaries/..."
+	"//depot/UE4/*/Source/...//CLIENT/UE4/*/Source/..."
 
-## Displaying Crash Reports in the Web Site
+## 在网站中显示崩溃报告
 
-This is a web site that displays crashes and groups of crashes which can be sorted, searched, and filtered.
+此网站会显示崩溃及崩溃组，可在其中对它们进行排序、搜索和过滤。
 
-The basic display is via a list of crashes per user group (e.g. 'EngineQA', 'GameQA', 'Coder'). The crash id can be selected to show details of the crash, the log, minidump, and video (if available).
-Clicking on the CrashGroups shows crashes grouped by callstack pattern. The crashgroup id can be selected to show details, and a list of all crashes associated with the crashgroup. The crashgroups are updated by running the stored procedure
-'UpdateCrashesByPattern' every ten minutes on the SQL server.
+基本显示形式是按用户组（例如，“EngineQA”、“GameQA”和“Coder”等）分类的崩溃列表。可以选择崩溃ID来查看崩溃细节、日志、小型转储以及视频（如有）。
+单击“CrashGroups”可以以按调用堆栈模式分类的方法查看崩溃。可以选择崩溃组ID来查看细节以及与崩溃组关联的所有崩溃的列表。崩溃组的更新方式是
+每十分钟在SQL服务器上运行一次“UpdateCrashesByPattern”存储过程。
  
-## Setting up the Database
+## 设置数据库
 
-Run the creation script /Engine/Source/Programs/CrashReporter/DatabaseDefinition/CreateCrashReporterDatabase.sql and set up a job on the SQL server to run the stored procedure 'UpdateCrashesByPattern' once every ten minutes. This is done via a SQL
-server agent job set up to run one 'Run Update Script' that executes the aforementioned stored procedure.
+运行创建脚本/Engine/Source/Programs/CrashReporter/DatabaseDefinition/CreateCrashReporterDatabase.sql，并在SQL服务器上设置一个作业，以每十分钟运行一次“UpdateCrashesByPattern”存储过程。方法是设置一个SQL
+服务器代理作业来运行执行上述存储过程的“运行更新脚本”。
 
-## Setting up the Web Site
+## 设置网站
 
-The web site runs under IIS7.0 using MVC3 and .NET40. Add two virtual directories; one for the processed files, and another for the processed videos. These should be called 'CrashReporterFiles' and 'CrashReporterVideos', and map to the
-physical locations of 'ProcessedReports' and 'ProcessedVideos' in the Report Processor settings. The application pool needs to run as a user with permission to read files from the virtual directories.
+网站在IIS7.0下运行，使用MVC3和.NET40。添加两个虚拟目录：一个用于处理后的文件，另一个用于处理后的视频。应将它们命名为“CrashReporterFiles”和“CrashReporterVideos”，
+并将它们映射到报告处理程序设置中“ProcessedReports”和“ProcessedVideos”的物理位置。应用程序池需要作为具有从虚拟目录读取文件的权限的用户运行。
 
-## Mapping 'In House' Users and Machines
+## 映射“内部”用户和计算机
 
-The RegisterPII application maps the anonymous machine Guid from the Windows Error Report to a known user and machine name. It should only be run for developers to ease tracking down of crashes, as collecting such data for end users is illegal.
-PII stands for Personally Identifiable Information which is described here http://en.wikipedia.org/wiki/Personally_identifiable_information
+RegisterPII应用程序将来自Windows错误报告的匿名计算机Guid映射到已知的用户和计算机名。只能针对需要更轻松地追踪崩溃的开发者运行它，因为为最终用户收集此类数据是不合法的。
+PII代表个人身份信息（Personally Identifiable Information），可在http://en.wikipedia.org/wiki/Personally_identifiable_information中查看它的说明
 
 
 

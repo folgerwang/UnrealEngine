@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "TexturePaintHelpers.h"
 
@@ -93,9 +93,8 @@ void TexturePaintHelpers::CopyTextureToRenderTargetTexture(UTexture* SourceTextu
 	// Tell the rendering thread to draw any remaining batched elements
 	Canvas.Flush_GameThread(true);
 	
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		UpdateMeshPaintRTCommand,
-		FTextureRenderTargetResource*, RenderTargetResource, RenderTargetResource,
+	ENQUEUE_RENDER_COMMAND(UpdateMeshPaintRTCommand)(
+		[RenderTargetResource](FRHICommandListImmediate& RHICmdList)
 		{
 			// Copy (resolve) the rendered image from the frame buffer to its render target texture
 			RHICmdList.CopyToResolveTarget(
@@ -307,9 +306,8 @@ bool TexturePaintHelpers::GenerateSeamMask(UMeshComponent* MeshComponent, int32 
 
 
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			UpdateMeshPaintRTCommand5,
-			FTextureRenderTargetResource*, RenderTargetResource, RenderTargetResource,
+		ENQUEUE_RENDER_COMMAND(UpdateMeshPaintRTCommand5)(
+			[RenderTargetResource](FRHICommandListImmediate& RHICmdList)
 			{
 				// Copy (resolve) the rendered image from the frame buffer to its render target texture
 				RHICmdList.CopyToResolveTarget(

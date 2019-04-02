@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -58,6 +58,7 @@ struct FStaticMeshDataType
 	int LightMapCoordinateIndex = -1;
 	int NumTexCoords = -1;
 	uint32 ColorIndexMask = ~0u;
+	uint32 LODLightmapDataIndex = 0;
 };
 
 /** The world size for each texcoord mapping. Used by the texture streaming. */

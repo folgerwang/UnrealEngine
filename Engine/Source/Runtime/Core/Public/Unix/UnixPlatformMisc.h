@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 /*=============================================================================================
@@ -11,11 +11,7 @@
 #include "GenericPlatform/GenericPlatformMisc.h"
 #include "Misc/Build.h"
 
-#if UE_BUILD_SHIPPING
-#define UE_DEBUG_BREAK() ((void)0)
-#else
-#define UE_DEBUG_BREAK() (FUnixPlatformMisc::DebugBreakInternal())
-#endif
+#define UE_DEBUG_BREAK_IMPL() FUnixPlatformMisc::UngrabAllInput(); PLATFORM_BREAK()
 
 class Error;
 struct FGenericCrashContext;
@@ -31,51 +27,18 @@ struct CORE_API FUnixPlatformMisc : public FGenericPlatformMisc
 	static void SetCrashHandler(void (* CrashHandler)(const FGenericCrashContext& Context));
 	static int32 GetMaxPathLength();
 
-	DEPRECATED(4.21, "void FPlatformMisc::GetEnvironmentVariable(Name, Result, Length) is deprecated. Use FString FPlatformMisc::GetEnvironmentVariable(Name) instead.")
+	UE_DEPRECATED(4.21, "void FPlatformMisc::GetEnvironmentVariable(Name, Result, Length) is deprecated. Use FString FPlatformMisc::GetEnvironmentVariable(Name) instead.")
 	static void GetEnvironmentVariable(const TCHAR* VariableName, TCHAR* Result, int32 ResultLength);
 
 	static FString GetEnvironmentVariable(const TCHAR* VariableName);
 	static void SetEnvironmentVar(const TCHAR* VariableName, const TCHAR* Value);
-	DEPRECATED(4.14, "GetMacAddress is deprecated. It is not reliable on all platforms")
+	UE_DEPRECATED(4.14, "GetMacAddress is deprecated. It is not reliable on all platforms")
 	static TArray<uint8> GetMacAddress();
 	static bool IsRunningOnBattery();
 
 #if !UE_BUILD_SHIPPING
 	static bool IsDebuggerPresent();
-	static void DebugBreakInternal();
-
-	DEPRECATED(4.19, "FPlatformMisc::DebugBreak is deprecated. Use the UE_DEBUG_BREAK() macro instead.")
-	FORCEINLINE static void DebugBreak()
-	{
-		UE_DEBUG_BREAK();
-	}
 #endif // !UE_BUILD_SHIPPING
-
-	/** Break into debugger. Returning false allows this function to be used in conditionals. */
-	DEPRECATED(4.19, "FPlatformMisc::DebugBreakReturningFalse is deprecated. Use the (UE_DEBUG_BREAK(), false) expression instead.")
-	FORCEINLINE static bool DebugBreakReturningFalse()
-	{
-#if !UE_BUILD_SHIPPING
-		UE_DEBUG_BREAK();
-#endif
-		return false;
-	}
-
-	/** Prompts for remote debugging if debugger is not attached. Regardless of result, breaks into debugger afterwards. Returns false for use in conditionals. */
-	DEPRECATED(4.19, "FPlatformMisc::DebugBreakAndPromptForRemoteReturningFalse() is deprecated.")
-	static FORCEINLINE bool DebugBreakAndPromptForRemoteReturningFalse(bool bIsEnsure = false)
-	{
-#if !UE_BUILD_SHIPPING
-		if (!IsDebuggerPresent())
-		{
-			PromptForRemoteDebugging(bIsEnsure);
-		}
-
-		UE_DEBUG_BREAK();
-#endif
-
-		return false;
-	}
 
 	static void LowLevelOutputDebugString(const TCHAR *Message);
 
@@ -169,6 +132,7 @@ struct CORE_API FUnixPlatformMisc : public FGenericPlatformMisc
 	 */
 	static bool HasOverriddenReturnCode(uint8 * OverriddenReturnCodeToUsePtr);
 	static FString GetOSVersion();
+	static FString GetLoginId();
 
 #if STATS || ENABLE_STATNAMEDEVENTS
 	static void BeginNamedEventFrame();

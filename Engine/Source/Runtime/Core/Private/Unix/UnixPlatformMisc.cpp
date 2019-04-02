@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GenericPlatformMisc.cpp: Generic implementations of misc platform functions
@@ -163,6 +163,10 @@ static void UnixPlatForm_CheckIfKSMUsable()
 // Init'ed in UnixPlatformMemory for now. Once the old crash symbolicator is gone remove this
 extern bool CORE_API GUseNewCrashSymbolicator;
 
+// Function used to read and store the entire *.sym file associated with the main module in memory.
+// Helps greatly by reducing I/O during ensures/crashes. Only suggested when running a monolithic build
+extern void CORE_API UnixPlatformStackWalk_PreloadModuleSymbolFile();
+
 void FUnixPlatformMisc::PlatformInit()
 {
 	// install a platform-specific signal handler
@@ -171,6 +175,8 @@ void FUnixPlatformMisc::PlatformInit()
 	// do not remove the below check for IsFirstInstance() - it is not just for logging, it actually lays the claim to be first
 	bool bFirstInstance = FPlatformProcess::IsFirstInstance();
 	bool bIsNullRHI = !FApp::CanEverRender();
+
+	bool bPreloadedModuleSymbolFile = FParse::Param(FCommandLine::Get(), TEXT("preloadmodulesymbols"));
 
 	UnixPlatForm_CheckIfKSMUsable();
 
@@ -188,6 +194,11 @@ void FUnixPlatformMisc::PlatformInit()
 	UnixPlatform_UpdateCacheLineSize();
 	UE_LOG(LogInit, Log, TEXT(" - Cache line size: %Zu"), GCacheLineSize);
 	UE_LOG(LogInit, Log, TEXT(" - Memory allocator used: %s"), GMalloc->GetDescriptiveName());
+	UE_LOG(LogInit, Log, TEXT(" - This binary is optimized with LTO: %s, PGO: %s, instrumented for PGO data collection: %s"),
+		PLATFORM_COMPILER_OPTIMIZATION_LTCG ? TEXT("yes") : TEXT("no"),
+		PLATFORM_COMPILER_OPTIMIZATION_PG ? TEXT("yes") : TEXT("no"),
+		PLATFORM_COMPILER_OPTIMIZATION_PG_PROFILING ? TEXT("yes") : TEXT("no")
+		);
 
 	FPlatformTime::PrintCalibrationLog();
 
@@ -198,11 +209,25 @@ void FUnixPlatformMisc::PlatformInit()
 	UE_LOG(LogInit, Log, TEXT(" -filemapcachesize=NUMBER - set the size for case-sensitive file mapping cache"));
 	UE_LOG(LogInit, Log, TEXT(" -useksm - uses kernel same-page mapping (KSM) for mapped memory (%s)"), GUseKSM ? TEXT("ON") : TEXT("OFF"));
 	UE_LOG(LogInit, Log, TEXT(" -ksmmergeall - marks all mmap'd memory pages suitable for KSM (%s)"), GKSMMergeAllPages ? TEXT("ON") : TEXT("OFF"));
+	UE_LOG(LogInit, Log, TEXT(" -preloadmodulesymbols - Loads the main module symbols file into memory (%s)"), bPreloadedModuleSymbolFile ? TEXT("ON") : TEXT("OFF"));
+	UE_LOG(LogInit, Log, TEXT(" -sigdfl=SIGNAL - Allows a specific signal to be set to its default handler rather then ignoring the signal"));
+
+#if UE_SERVER
+	// Defined in UnixPlatformMemory, allows changing the number of 64k buckets used for the memory pool
+	extern float GPoolTableScale;
+
+	UE_LOG(LogInit, Log, TEXT(" -mempoolscale=SCALE - Scale the memory pool by (%lf)"), GPoolTableScale);
+#endif
 
 	// [RCL] FIXME: this should be printed in specific modules, if at all
 	UE_LOG(LogInit, Log, TEXT(" -httpproxy=ADDRESS:PORT - redirects HTTP requests to a proxy (only supported if compiled with libcurl)"));
 	UE_LOG(LogInit, Log, TEXT(" -reuseconn - allow libcurl to reuse HTTP connections (only matters if compiled with libcurl)"));
 	UE_LOG(LogInit, Log, TEXT(" -virtmemkb=NUMBER - sets process virtual memory (address space) limit (overrides VirtualMemoryLimitInKB value from .ini)"));
+
+	if (bPreloadedModuleSymbolFile)
+	{
+		UnixPlatformStackWalk_PreloadModuleSymbolFile();
+	}
 
 	if (FPlatformMisc::HasBeenStartedRemotely() || FPlatformMisc::IsDebuggerPresent())
 	{
@@ -211,6 +236,7 @@ void FUnixPlatformMisc::PlatformInit()
 	}
 }
 
+extern void CORE_API UnixPlatformStackWalk_UnloadPreloadedModuleSymbol();
 volatile sig_atomic_t GDeferedExitLogging = 0;
 
 void FUnixPlatformMisc::PlatformTearDown()
@@ -229,6 +255,7 @@ void FUnixPlatformMisc::PlatformTearDown()
 		}
 	}
 
+	UnixPlatformStackWalk_UnloadPreloadedModuleSymbol();
 	FPlatformProcess::CeaseBeingFirstInstance();
 }
 
@@ -914,7 +941,7 @@ void FUnixPlatformMisc::CustomNamedStat(const TCHAR* Text, float Value, const TC
 
 void FUnixPlatformMisc::CustomNamedStat(const ANSICHAR* Text, float Value, const ANSICHAR* Graph, const ANSICHAR* Unit)
 {
-	FRAMEPRO_DYNAMIC_CUSTOM_STAT(TCHAR_TO_WCHAR(Text), Value, TCHAR_TO_WCHAR(Graph), TCHAR_TO_WCHAR(Unit));
+	FRAMEPRO_DYNAMIC_CUSTOM_STAT(Text, Value, Graph, Unit);
 }
 #endif
 
@@ -928,18 +955,7 @@ void FUnixPlatformMisc::UngrabAllInput()
 	}
 }
 
-#if !UE_BUILD_SHIPPING
-void FUnixPlatformMisc::DebugBreakInternal()
+FString FUnixPlatformMisc::GetLoginId()
 {
-	if( IsDebuggerPresent() )
-	{
-		UngrabAllInput();
-
-#if PLATFORM_CPU_X86_FAMILY
-		__asm__ volatile("int $0x03");
-#else
-		raise(SIGTRAP);
-#endif
-	}
+	return FString::Printf(TEXT("%s-%08x"), *GetOperatingSystemId(), static_cast<uint32>(geteuid()));
 }
-#endif // !UE_BUILD_SHIPPING

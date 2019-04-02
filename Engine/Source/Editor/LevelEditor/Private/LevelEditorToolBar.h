@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -32,6 +32,15 @@ protected:
 	 * @return	Menu content widget
 	 */
 	static TSharedRef< SWidget > GenerateBuildMenuContent( TSharedRef<FUICommandList> InCommandList );
+
+#if WITH_LIVE_CODING
+	/**
+	 * Generates menu content for the compile combo button drop down menu
+	 *
+	 * @return	Menu content widget
+	 */
+	static TSharedRef< SWidget > GenerateCompileMenuContent( TSharedRef<FUICommandList> InCommandList );
+#endif
 
 	/**
 	 * Generates menu content for the create actor combo button drop down menu

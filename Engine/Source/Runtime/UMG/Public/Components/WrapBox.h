@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -43,9 +43,11 @@ public:
 
 public:
 
-	/**  */
-	UFUNCTION(BlueprintCallable, Category="Panel")
+	UE_DEPRECATED(4.22, "Deprecated, please use AddChildToWrapBox() instead")
 	UWrapBoxSlot* AddChildWrapBox(UWidget* Content);
+
+	UFUNCTION(BlueprintCallable, Category="Panel")
+	UWrapBoxSlot* AddChildToWrapBox(UWidget* Content);
 
 #if WITH_EDITOR
 	// UWidget interface

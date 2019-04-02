@@ -1,6 +1,8 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "RHI.h"
 
 #define VK_USE_PLATFORM_ANDROID_KHR					1
 
@@ -15,7 +17,8 @@
 #define VULKAN_ENABLE_LRU_CACHE						1
 #define VULKAN_SUPPORTS_GOOGLE_DISPLAY_TIMING		1
 #define VULKAN_FREEPAGE_FOR_TYPE					1
-#define VULKAN_PURGE_SHADER_MODULES					1
+#define VULKAN_PURGE_SHADER_MODULES					0
+
 
 // Android's hashes currently work fine as the problematic cases are:
 //	VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL = 1000117000,
@@ -92,7 +95,9 @@ public:
 	static bool RequiresSwapchainGeneralInitialLayout() { return true; }
 
 	static bool RequiresWaitingForFrameCompletionEvent() { return false; }
-
+	
+	static void BlockUntilWindowIsAwailable();
+	
 protected:
 	static void* VulkanLib;
 	static bool bAttemptedLoad;

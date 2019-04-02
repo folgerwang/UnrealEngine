@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "EnvironmentQuery/Tests/EnvQueryTest_Trace.h"
 #include "UObject/Package.h"
@@ -40,7 +40,6 @@ void UEnvQueryTest_Trace::RunTest(FEnvQueryInstance& QueryInstance) const
 	}
 
 	FCollisionQueryParams TraceParams(SCENE_QUERY_STAT(EnvQueryTrace), TraceData.bTraceComplex);
-	TraceParams.bTraceAsyncScene = true;
 
 	TArray<AActor*> IgnoredActors;
 	if (QueryInstance.PrepareContext(Context, IgnoredActors))
@@ -99,7 +98,7 @@ void UEnvQueryTest_Trace::PostLoad()
 
 FText UEnvQueryTest_Trace::GetDescriptionTitle() const
 {
-	UEnum* ChannelEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ETraceTypeQuery"), true);
+	UEnum* ChannelEnum = StaticEnum<ETraceTypeQuery>();
 	FString ChannelDesc = ChannelEnum->GetDisplayNameTextByValue(TraceData.TraceChannel).ToString();
 
 	FString DirectionDesc = TraceFromContext.IsDynamic() ?

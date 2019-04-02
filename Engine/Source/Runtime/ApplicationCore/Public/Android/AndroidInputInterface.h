@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 #include "GenericPlatform/GenericApplicationMessageHandler.h"
 
@@ -153,7 +153,9 @@ struct TouchInput
 };
 
 #define MAX_NUM_CONTROLLERS					8  // reasonable limit for now
-#define MAX_NUM_CONTROLLER_BUTTONS			18
+#define MAX_NUM_PHYSICAL_CONTROLLER_BUTTONS	18
+#define MAX_NUM_VIRTUAL_CONTROLLER_BUTTONS	8
+#define MAX_NUM_CONTROLLER_BUTTONS			MAX_NUM_PHYSICAL_CONTROLLER_BUTTONS + MAX_NUM_VIRTUAL_CONTROLLER_BUTTONS
 #define MAX_DEFERRED_MESSAGE_QUEUE_SIZE		128
 
 struct FAndroidControllerData
@@ -228,6 +230,7 @@ public:
 	static void ResetGamepadAssignments();
 	static void ResetGamepadAssignmentToController(int32 ControllerId);
 	static bool IsControllerAssignedToGamepad(int32 ControllerId);
+	static FString GetGamepadControllerName(int32 ControllerId);
 
 	static void JoystickAxisEvent(int32 deviceId, int32 axisId, float axisValue);
 	static void JoystickButtonEvent(int32 deviceId, int32 buttonId, bool buttonDown);
@@ -247,8 +250,11 @@ public:
 	virtual void SetForceFeedbackChannelValues(int32 ControllerId, const FForceFeedbackValues &values) override;
 	virtual void SetHapticFeedbackValues(int32 ControllerId, int32 Hand, const FHapticFeedbackValues& Values) override;
 	virtual void SetLightColor(int32 ControllerId, FColor Color) override {}
+	virtual void ResetLightColor(int32 ControllerId) override {}
 
+	void SetGamepadsAllowed(bool bAllowed) { bAllowControllers = bAllowed; }
 	virtual bool IsGamepadAttached() const;
+
 
 	virtual void AddExternalInputDevice(TSharedPtr<class IInputDevice> InputDevice);
 
@@ -308,6 +314,9 @@ private:
 
 	// should we allow controllers to send input
 	static bool bAllowControllers;
+
+	// should we allow controllers to send Android_Back and Android_Menu events
+	static bool bBlockAndroidKeysOnControllers;
 
 	static FAndroidGamepadDeviceMapping DeviceMapping[MAX_NUM_CONTROLLERS];
 

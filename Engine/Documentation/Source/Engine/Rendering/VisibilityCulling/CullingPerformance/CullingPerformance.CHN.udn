@@ -1,48 +1,9 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3782314
 Availability: Docs
-Title: Visibility Culling Settings and Performance 
+Title: 可视性剔除的设置与性能 
 Crumbs: %ROOT%, Engine, 
-Description: Visibility Culling Settings and Performance
+Description: 可视性剔除的设置与性能
 Version: 4.13
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/VisibilityCulling:title%]()
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/VisibilityCulling:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/VisibilityCulling:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/VisibilityCulling]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/VisibilityCulling:title%]()
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/VisibilityCulling:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/VisibilityCulling:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/VisibilityCulling]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 
 [TOC(start:2 end:2)]
@@ -50,38 +11,36 @@ Version: 4.13
 
 
 
-## Project Settings
+##项目设置
 
-The **Project Settings** contain various settings that will influence how culling works for your game. You can get to these settings by first going to the main menu and select 
-**Edit** > **Project Settings**. When the window opens you can select the **Rendering** category to see the available settings under the section named **Culling**.
+ **项目设置** 包含各种设置，这些设置将影响剔除在游戏中的起效方式。您可以通过如下方式实现这些设置：首先进入主菜单，然后选择 **编辑（Edit）** > **项目设置（Project Settings）**。打开窗口后，您可以选择 **渲染（Rendering）** 类别以查看名为 **剔除（Culling）** 部分下的可用设置。
 
 ![](ProjectSettingsCulling.png)
 
-| Setting | Description |
+| 设置 | 说明 |
 | --- | --- |
-| **Occlusion Culling** | Allows occluded meshes to be culled and not rendered. If this is disabled all occlusion culling will be disabled for the project which can have performance implications. |
-| **Min Screen Radius for EarlyZPass** | Screen radius at which objects are culled for early Z pass. Larger values can improve performance but very large values can degrade performance if large occluders are not rendered. |
-| **Warn about no precomputed visibility** | Displays a warning when no precomputed visibility data is available for the current camera location. This can be helpful if you are making a game that relies on precomputed visibility. |
+| **遮挡剔除** | 允许对遮挡的网格体进行剔除而不进行渲染。若禁用此选项，则将禁用项目的所有遮挡剔除，这可能会产生性能影响。|
+| **EarlyZPass的最小屏幕半径** | 为早期Z传递而剔除对象时所使用的屏幕半径。此值越大，性能越高，但是若不渲染大型遮挡物，非常大的值反而会降低性能。|
+| **警告无预计算可视性** | 当没有预计算可视性数据可用于当前摄像机位置时，显示警告。若您制作的游戏依赖于预计算可视性，此设置可能会大有帮助。|
 
 [REGION:tip]
-​If you are developing a mobile game it would be beneficial to enable the option for **Warn about no precomputed visibility** as a good reminder for your Level Designers when developing for mobile, since it does not currently use dynamic 
-occlusion culling.
+若您正在开发手游，那么在开发手游时启用 **警告无预计算可视性（Warn about no precomputed visibility）** 选项，可作为关卡设计师的良好提醒，并具有重要意义，因为它目前不使用动态遮挡剔除。
 [/REGION]
 
 
 
-## Relevant Stats for Performance
+##性能的相关统计数据
 
 [REGION:warning]
-Keep in mind that when testing visibility and occlusion culling there are a couple of things to be aware of.
+请记住，在测试可视性和遮挡剔除时，需要注意几点。
 
-* Occlusion culling is disabled in **Wireframe** view mode.
-* Use the console command **Stat Initviews** in PIE or Standalone games for more accurate results, because geometry for editor Actors that represent Lights, Cameras, and so on will be included when calculating visibility and occlusion culling.
+* 在 **Wireframe** 视图模式下禁用遮挡剔除。
+* 在编辑器中运行PIE或单机游戏中使用控制台命令 ** Stat Initviews ** 可获得更准确的结果，因为计算可视性和遮挡剔除时，代表灯光、摄像机等编辑器Actor的几何体将包括在内。
 [/REGION]
 
-In real-time rendering for games, it is important to manage your scene for optimization by keeping check of the stats generated for your scene that are relevant to visibility and occlusion culling.
+在游戏的实时渲染过程中，通过定期检查与可视性和遮挡剔除相关的场景生成的统计数据来管理场景优化，具有重要意义。
 
-Use the following console command to view the stats relevant to visibility and occlusion culling for your scene: 
+使用以下控制台命令查看与场景的可视性和遮挡剔除相关的数据统计： 
 
 	Stat Initviews
 
@@ -90,55 +49,54 @@ Use the following console command to view the stats relevant to visibility and o
 ![](StatInitViews.png)
 [/REGION]
 [REGION:caption]
-The scene's stats above were taken from the [Infinity Blade Grasslands](https://www.unrealengine.com/marketplace/infinity-blade-plain-lands) created by EPIC Games and is freely available on the EPIC Games Marketplace.
+以上的场景统计数据来自EPIC Games创建的[无尽之剑草原](https://www.unrealengine.com/marketplace/infinity-blade-plain-lands)，可在虚幻商城免费获取。
 [/REGION]
 
-The **Stat Initiviews** window is broken up into two sections for `Cycle Counters` and `Counters`. The Cycle Counter's stats focus on the number of cycles in milliseconds it took to process, while the Counter's stats simply
-add up the primitives that are processed.
+ **Stat Initiviews** 窗口分为‘循环计数器’和‘计数器’两部分。循环计数器的统计数据主要计算处理过程中所需的循环次数（以毫秒为单位），而计数器的统计数据只是简单地添加处理的图元。
 
 [REGION:tip]
-`Visible Static Mesh Elements` is the single biggest contributor to rendering thread time and should be carefully watched and optimized.
+‘可见静态网格体元素’是渲染线程时间的最大贡献者，因此需要仔细观察和优化。
 [/REGION]
 
 | Stat Initviews |  |
 | --- | --- |
-| **Cycle Counters** | [INCLUDE:#cyclecounter] |
-| **Counters** | [INCLUDE:#counters] |
+| **循环计数器** | [INCLUDE:#cyclecounter] |
+| **计数器** | [INCLUDE:#counters] |
 
 
 [COMMENT:none]
 
 [EXCERPT:CycleCounter]
-| Stat | Description|
+| 统计数据 | 说明 |
 | --- | --- |
-| **View Visibility** | The amount of frame time spent to process Actor visibility queries. |
-| **Occlusion Cull** | The amount of frame time spent to query the scene for Actors within the view frustum that were occluded by other Actors. |
-| **Frustum Cull** | The amount of frame time spent to query if an Actor's bounds were within the view frustum. |
-| **Decompress Occlusion** | The amount of frame time it took to load the precomputed visibility. |
+| **查看可视性** | 处理Actor可视性查询所花费的帧时间量。|
+| **遮挡剔除** | 在其他Actor遮挡的视锥体内，查询Actor场景所花费的帧时间量。|
+| **视锥剔除** | 查询Actor的边界是否处于视锥体内所花费的帧时间量。|
+| **解压缩遮挡** | 加载预计算可视性所花费的帧时间量。|
 [/EXCERPT:CycleCounter]
 
 [EXCERPT:Counters]
-| Stat | Description|
+| 统计数据 | 说明 |
 | --- | --- |
-| **Processed Primitives** | This is the total number of Actors that are being processed in the scene.  |
-| **Frustum Culled Primitives** | This is the number of primitives culled when not within the view frustum's FOV. |
-| **Occluded Primitives** | The number of Actors that are occluded by other Actors from within the view frustum's FOV. |
-| **Occlusion Queries** | This is the number of scene occlusion queries sent to the GPU based on the number of Actors visible within the view frustum. |
-| **Visible Dynamic Primitives** | This is the number of dynamic primitives in the scene that have their mobility set to Movable, like Particle Systems and Foliage instances. |
-| **Visible Static Mesh Elements** | This is the number of visible meshes that have their mobility set to Static within the scene. |
+| **被处理图元** | 此为场景中正在处理的Actor总数。|
+| **视锥体剔除图元** | 此为不在视锥体视野内时被剔除的图元数量。|
+| **被遮挡图元** | 在视锥体视野内被其他Actor遮挡的Actor数量。|
+| **遮挡查询** | 此为根据视锥体内可见的Actor数量而发送至GPU的场景遮挡查询的数量。|
+| **可见动态图元** | 此为场景中将其移动性设为“可移动”的诸如粒子系统和植被实例等动态图元的数量。|
+| **可见静态网格体元素** | 此为场景中将其移动性设为“静态”的可见网格体数量。|
 [/EXCERPT:Counters]
 
 [/COMMENT]
 
-## Useful Console Commands
+##实用控制台命令
 
-UE4 provides some [Console Commands](https://docs.unrealengine.com/latest/INT/GettingStarted/RunningUnrealEngine/index.html#usefulin-gamecommands) that can help with occlusion culling.
+UE4提供了一些[控制台命令](https://docs.unrealengine.com/latest/INT/GettingStarted/RunningUnrealEngine/index.html#usefulin-gamecommands)，它们有助于进行遮挡剔除。
 
-| Console Variable | Description |
+| 控制台变量 | 说明 |
 | --- | --- |
-| **r.OneFrameThreadLag** | This controls when occlusion queries are rendered. Rendering before the base pass may give worse occlusion (because not all occluders generally render in the earlyzpass). However, it may reduce CPU waiting for query result stalls on some platforms and increase overall performance. 0: After BasePass. 1: After EarlyZPass, but before BasePass. |
-| **r.AllowOcclusionQueries** | If zero, occlusion queries will not be used to cull primitives. |
-| **r.DownsampledOcclusionQueries** | Whether to issue occlusion queries to a downsampled depth buffer. |
-| **r.NumBufferedOcclusionQueries** | Number of frames to buffer occlusion queries (including the current render thread frame). More frames reduce the chance of stalling the CPU waiting for the results, but increases out of date query artifacts. |
+| **r.OneFrameThreadLag** | 它将控制何时渲染遮挡查询。在基本渲染阶段之前进行渲染可能会造成更严重的遮挡（因为并非所有遮挡物通常都会在earlyzpass中渲染）。然而，它可能会减少CPU因等待某些平台上的查询结果而发生的停滞，并提高整体性能。0: 在BasePass之后。1: 在EarlyZPass之后，但在BasePass之前。|
+| **r.AllowOcclusionQueries** | 若为零，则不会使用遮挡查询来剔除图元。|
+| **r.DownsampledOcclusionQueries** | 是否向缩减采样的深度缓冲区发出遮挡查询。|
+| **r.NumBufferedOcclusionQueries** | 缓冲遮挡查询的帧数（包括当前渲染线程帧）。帧数越多，等待结果的CPU停滞的可能性越小，但过时的查询瑕疵越多。|
 
 

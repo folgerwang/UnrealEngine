@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PoseableMeshComponent.cpp: UPoseableMeshComponent methods.
@@ -86,7 +86,7 @@ void UPoseableMeshComponent::FillComponentSpaceTransforms()
 	// right now all this does is to convert to SpaceBases
 	check( SkeletalMesh->RefSkeleton.GetNum() == BoneSpaceTransforms.Num() );
 	check( SkeletalMesh->RefSkeleton.GetNum() == GetNumComponentSpaceTransforms());
-	check( SkeletalMesh->RefSkeleton.GetNum() == BoneVisibilityStates.Num() );
+	check( SkeletalMesh->RefSkeleton.GetNum() == GetBoneVisibilityStates().Num() );
 
 	const int32 NumBones = BoneSpaceTransforms.Num();
 

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -25,10 +25,8 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// 
 		/// </summary>
-		/// <param name="ProjectName"></param>
-		/// <param name="ProjectDirectory"></param>
-		/// <param name="Configuration"></param>
-		void InitUPL(string ProjectName, DirectoryReference ProjectDirectory, UnrealTargetConfiguration Configuration);
+		/// <param name="Receipt"></param>
+		void InitUPL(TargetReceipt Receipt);
 
 		/// <summary>
 		/// 

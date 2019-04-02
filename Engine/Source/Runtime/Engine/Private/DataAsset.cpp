@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/DataAsset.h"
 #include "Misc/PackageName.h"
@@ -24,11 +24,10 @@ void UDataAsset::Serialize(FStructuredArchive::FRecord Record)
 
 void UPrimaryDataAsset::UpdateAssetBundleData()
 {
-	AssetBundleData.Reset();
-
 	// By default parse the metadata
 	if (UAssetManager::IsValid())
 	{
+		AssetBundleData.Reset();
 		UAssetManager::Get().InitializeAssetBundlesFromMetadata(this, AssetBundleData);
 	}
 }

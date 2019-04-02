@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "RSAEncryptionHandlerComponent.h"
 
@@ -42,6 +42,13 @@ RSAEncryptionHandlerComponent::RSAEncryptionHandlerComponent(int32 InKeySizeInBi
 	SetActive(true);
 
 	bRequiresHandshake = true;
+}
+
+void RSAEncryptionHandlerComponent::CountBytes(FArchive& Ar) const
+{
+	HandlerComponent::CountBytes(Ar);
+
+	const SIZE_T SizeOfThis = sizeof(*this) - sizeof(HandlerComponent);
 }
 
 void RSAEncryptionHandlerComponent::Initialize()

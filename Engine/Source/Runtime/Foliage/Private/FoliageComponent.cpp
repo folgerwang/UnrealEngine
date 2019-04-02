@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	FoliageComponent.cpp: Foliage rendering implementation.
@@ -41,11 +41,9 @@ public:
 	void UpdateParameters_GameThread(const FVector& NewFoliageImpluseDirection, const FVector4& NewFoliageNormalizedRotationAxisAndAngle)
 	{
 		checkSlow(IsInGameThread());
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-			UpdateFoliageParameters,
-			FInteractiveFoliageSceneProxy*,FoliageProxy,this,
-			FVector,NewFoliageImpluseDirection,NewFoliageImpluseDirection,
-			FVector4,NewFoliageNormalizedRotationAxisAndAngle,NewFoliageNormalizedRotationAxisAndAngle,
+		FInteractiveFoliageSceneProxy* FoliageProxy = this;
+		ENQUEUE_RENDER_COMMAND(UpdateFoliageParameters)(
+			[FoliageProxy, NewFoliageImpluseDirection, NewFoliageNormalizedRotationAxisAndAngle](FRHICommandListImmediate& RHICmdList)
 			{
 				FoliageProxy->FoliageImpluseDirection = NewFoliageImpluseDirection;
 				FoliageProxy->FoliageNormalizedRotationAxisAndAngle = NewFoliageNormalizedRotationAxisAndAngle;

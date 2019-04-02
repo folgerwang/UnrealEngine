@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -73,11 +73,15 @@ private:
 	/** Returns true if the refraction options should be displayed */
 	EVisibility ShouldShowSubsurfaceProfile() const;
 
-	
+	/** Creates all the lightmass property override widgets. */
+	void CreateLightmassOverrideWidgets(IDetailLayoutBuilder& DetailLayout);
+
 	//Functions supporting BasePropertyOverrides
 
 	/** Creates all the base property override widgets. */
 	void CreateBasePropertyOverrideWidgets(IDetailLayoutBuilder& DetailLayout);
+
+	EVisibility IsOverriddenAndVisible(TAttribute<bool> IsOverridden) const;
 
 	bool OverrideOpacityClipMaskValueEnabled() const;
 	bool OverrideBlendModeEnabled() const;

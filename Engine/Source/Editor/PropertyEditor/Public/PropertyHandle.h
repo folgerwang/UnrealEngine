@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -44,6 +44,11 @@ public:
 	 * @return Whether or not the property is edit const (can't be changed)
 	 */
 	virtual bool IsEditConst() const = 0;
+
+	/**
+	* @return The opposite of IsEditConst
+	*/
+	virtual bool IsEditable() const = 0;
 
 	/**
 	 * Gets the class of the property being edited
@@ -291,7 +296,8 @@ public:
 	virtual FPropertyAccess::Result SetValue( UObject* const& InValue,  EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) = 0;
 	virtual FPropertyAccess::Result SetValue( const UObject* const& InValue,  EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) = 0;
 	virtual FPropertyAccess::Result SetValue( const FAssetData& InValue,  EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) = 0;
-	
+	virtual FPropertyAccess::Result SetValue( const TCHAR* InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) = 0;
+
 	/**
 	 * Called to manually notify root objects that this property is about to change
 	 * This does not need to be called when SetValue functions are used since it will be called automatically
@@ -605,6 +611,18 @@ public:
 	 * Sets an override for this property's reset to default behavior
 	 */
 	virtual void ExecuteCustomResetToDefault(const class FResetToDefaultOverride& OnCustomResetToDefault) = 0;
+
+	/**
+	 * Gets the category FName that a property is in at the default location defined by the class the property is in
+	 * It does not handle the property being moved to another category during customization
+	 */
+	virtual FName GetDefaultCategoryName() const = 0;
+
+	/**
+	* Gets the category display name that a property is in at the default location defined by the class the property is in
+	* It does not handle the property being moved to another category during customization
+	*/
+	virtual FText GetDefaultCategoryText() const = 0;
 };
 
 /**

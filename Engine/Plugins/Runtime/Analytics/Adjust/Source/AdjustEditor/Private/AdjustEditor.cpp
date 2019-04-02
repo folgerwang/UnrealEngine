@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AdjustEditor.h"
 
@@ -7,7 +7,7 @@
 #include "AdjustSettings.h"
 #include "Analytics.h"
 
-IMPLEMENT_MODULE( FAdjustEditorModule, AdjustEditorModule );
+IMPLEMENT_MODULE( FAdjustEditorModule, AdjustEditor );
 
 #define LOCTEXT_NAMESPACE "Adjust"
 

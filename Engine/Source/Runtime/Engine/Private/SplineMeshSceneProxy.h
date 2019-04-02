@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -33,7 +33,7 @@ public:
 	}
 
 	/** Modify compile environment to enable spline deformation */
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+	static void ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		const bool ContainsManualVertexFetch = OutEnvironment.GetDefinitions().Contains("MANUAL_VERTEX_FETCH");
 		if (!ContainsManualVertexFetch)
@@ -42,7 +42,7 @@ public:
 		}
 
 		// We don't call this because we don't actually support speed tree wind, and this advertises support for that
-		//FLocalVertexFactory::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+		//FLocalVertexFactory::ModifyCompilationEnvironment(Type, Platform, Material, OutEnvironment);
 
 		OutEnvironment.SetDefine(TEXT("USE_SPLINEDEFORM"), TEXT("1"));
 	}
@@ -50,13 +50,13 @@ public:
 	/** Copy the data from another vertex factory */
 	void Copy(const FSplineMeshVertexFactory& Other)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			FSplineMeshVertexFactoryCopyData,
-			FSplineMeshVertexFactory*, VertexFactory, this,
-			const FDataType*, DataCopy, &Other.Data,
+		FSplineMeshVertexFactory* VertexFactory = this;
+		const FDataType* DataCopy = &Other.Data;
+		ENQUEUE_RENDER_COMMAND(FSplineMeshVertexFactoryCopyData)(
+			[VertexFactory, DataCopy](FRHICommandListImmediate& RHICmdList)
 			{
-			VertexFactory->Data = *DataCopy;
-		});
+				VertexFactory->Data = *DataCopy;
+			});
 		BeginUpdateResourceRHI(this);
 	}
 
@@ -71,7 +71,17 @@ class FSplineMeshVertexFactoryShaderParameters : public FVertexFactoryShaderPara
 {
 	void Bind(const FShaderParameterMap& ParameterMap) override;
 
-	void SetMesh(FRHICommandList& RHICmdList, FShader* Shader, const FVertexFactory* VertexFactory, const FSceneView& View, const FMeshBatchElement& BatchElement, uint32 DataFlags) const override;
+	virtual void GetElementShaderBindings(
+		const class FSceneInterface* Scene,
+		const FSceneView* View,
+		const class FMeshMaterialShader* Shader,
+		bool bShaderRequiresPositionOnlyStream,
+		ERHIFeatureLevel::Type FeatureLevel,
+		const FVertexFactory* VertexFactory,
+		const FMeshBatchElement& BatchElement,
+		class FMeshDrawSingleShaderBindings& ShaderBindings,
+		FVertexInputStreamArray& VertexStreams
+		) const override;
 
 	void Serialize(FArchive& Ar) override
 	{
@@ -155,10 +165,15 @@ public:
 	virtual bool GetShadowMeshElement(int32 LODIndex, int32 BatchIndex, uint8 InDepthPriorityGroup, FMeshBatch& OutMeshBatch, bool bDitheredLODTransition) const override;
 
 	/** Sets up a FMeshBatch for a specific LOD and element. */
-	virtual bool GetMeshElement(int32 LODIndex, int32 BatchIndex, int32 ElementIndex, uint8 InDepthPriorityGroup, bool bUseSelectedMaterial, bool bUseHoveredMaterial, bool bAllowPreCulledIndices, FMeshBatch& OutMeshBatch) const override;
+	virtual bool GetMeshElement(int32 LODIndex, int32 BatchIndex, int32 ElementIndex, uint8 InDepthPriorityGroup, bool bUseSelectionOutline, bool bAllowPreCulledIndices, FMeshBatch& OutMeshBatch) const override;
 
 	/** Sets up a wireframe FMeshBatch for a specific LOD. */
 	virtual bool GetWireframeMeshElement(int32 LODIndex, int32 BatchIndex, const FMaterialRenderProxy* WireframeRenderProxy, uint8 InDepthPriorityGroup, bool bAllowPreCulledIndices, FMeshBatch& OutMeshBatch) const override;
+
+#if RHI_RAYTRACING
+	virtual bool IsRayTracingRelevant() const override final { return false; }
+	virtual bool IsRayTracingStaticRelevant() const override final { return false; }
+#endif // RHI_RAYTRACING
 
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override
 	{

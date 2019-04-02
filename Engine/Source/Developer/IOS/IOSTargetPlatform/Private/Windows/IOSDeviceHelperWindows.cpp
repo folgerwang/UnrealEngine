@@ -1,107 +1,19 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved
 
 #include "IOSTargetPlatform.h"
+#include "IOSTargetDeviceOutput.h"
 #include "HAL/PlatformProcess.h"
 #include "HAL/Runnable.h"
 #include "HAL/RunnableThread.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "Interfaces/ITargetPlatform.h"
 
 struct FDeviceNotificationCallbackInformation
 {
 	FString UDID;
 	FString	DeviceName;
+	FString ProductType;
 	uint32 msgType;
-};
-
-class FDeviceSyslogRelay : public FRunnable
-{
-public:
-
-	FDeviceSyslogRelay(FString const& inDeviceID)
-	{
-		deviceID = inDeviceID;
-		Stopping = false;
-	}
-
-	virtual bool Init() override
-	{
-		return true;
-	}
-
-	virtual uint32 Run() override
-	{
-		// Tell DeploymentServer.exe to start collecting logs
-		FString ExecutablePath = FString::Printf(TEXT("%sBinaries/DotNET/IOS"), *FPaths::EngineDir());
-		FString Filename = TEXT("DeploymentServer.exe");
-
-		// Construct command line
-		FString CommandLine = FString::Printf(TEXT("listentodevice -device %s"), *deviceID);
-
-		// execute the command
-		void* WritePipe;
-		void* ReadPipe;
-		FPlatformProcess::CreatePipe(ReadPipe, WritePipe);
-		FProcHandle ProcessHandle = FPlatformProcess::CreateProc(*(ExecutablePath / Filename), *CommandLine, false, true, true, NULL, 0, *ExecutablePath, WritePipe);
-		FString	lastPartialLine;
-		while (FPlatformProcess::IsProcRunning(ProcessHandle) && !Stopping)
-		{
-			FString CurData = lastPartialLine + FPlatformProcess::ReadPipe(ReadPipe);
-			CurData.TrimStartInline();
-			if (CurData.Len() > 0)
-			{
-				// separate out each line
-				TArray<FString> LogLines;
-				CurData = CurData.Replace(TEXT("\r"), TEXT("\n"));
-
-				bool	endsWithNewline = CurData.EndsWith(TEXT("\n"));
-
-				CurData.ParseIntoArray(LogLines, TEXT("\n"), true);
-
-				for (int32 StringIndex = 0; StringIndex < LogLines.Num() - 1; ++StringIndex)
-				{
-					UE_LOG(LogIOS, Log, TEXT("%s"), *LogLines[StringIndex]);
-				}
-
-				if(endsWithNewline)
-				{
-					UE_LOG(LogIOS, Log, TEXT("%s"), *LogLines[LogLines.Num() - 1]);
-					lastPartialLine = "";
-				}
-				else
-				{
-					lastPartialLine = LogLines[LogLines.Num() - 1];
-				}
-			}
-			else
-			{
-				FPlatformProcess::Sleep(0.1);
-			}
-		}
-
-		FPlatformProcess::Sleep(0.25);
-		FString lastData = FPlatformProcess::ReadPipe(ReadPipe);
-		if (lastData.Len() > 0)
-		{
-			UE_LOG(LogIOS, Log, TEXT("%s"), *lastData);
-		}
-
-		FPlatformProcess::ClosePipe(ReadPipe, WritePipe);
-		FPlatformProcess::TerminateProc(ProcessHandle);
-
-		return 0;
-	}
-
-	virtual void Stop() override
-	{
-		Stopping = true;
-	}
-
-	virtual void Exit() override
-	{}
-
-
-private:
-	bool Stopping;
-	FString	deviceID;
 };
 
 class FIOSDevice
@@ -111,29 +23,10 @@ public:
 		: UDID(InID)
 		, Name(InName)
     {
-		// BHP - Disabling the ios syslog relay because it depends on DeploymentServer running which makes it unwritable 
-		//	which causes problems when packaging because this library gets rebuilt but it can't overwrite it which
-		//	causes errors and other bad behavior - will probably need to move this functionality into its own dll
-		#if 1
-			syslogRelay = nullptr;
-			syslogRelayThread = nullptr;
-		#else
-			syslogRelay = new FDeviceSyslogRelay(InID);
-			syslogRelayThread = FRunnableThread::Create(syslogRelay, TEXT("FIOSDevice.syslogRelay"), 128 * 1024, TPri_Normal);
-		#endif
     }
     
 	~FIOSDevice()
 	{
-		if(syslogRelay != nullptr && syslogRelayThread != nullptr)
-		{
-			syslogRelay->Stop();
-			syslogRelayThread->WaitForCompletion();
-			delete syslogRelayThread;
-			delete syslogRelay;
-			syslogRelay = NULL;
-			syslogRelayThread = NULL;
-		}
 	}
 
 	FString SerialNumber() const
@@ -144,8 +37,6 @@ public:
 private:
     FString UDID;
 	FString Name;
-	FDeviceSyslogRelay*	syslogRelay;
-	FRunnableThread*	syslogRelayThread;
 };
 
 /**
@@ -162,6 +53,8 @@ public:
 	FDeviceQueryTask()
 		: Stopping(false)
 		, bCheckDevices(true)
+		, NeedSDKCheck(true)
+		, RetryQuery(5)
 	{}
 
 	virtual bool Init() override
@@ -175,8 +68,37 @@ public:
 		{
 			if (bCheckDevices)
 			{
-				// BHP - Turning off device check to prevent it from interfering with packaging
-				//QueryDevices();
+#if WITH_EDITOR
+				if (!IsRunningCommandlet())
+				{
+					if (NeedSDKCheck)
+					{
+						if (GetTargetPlatformManager())
+						{
+							bool CanQuery = false;
+							FString OutTutorialPath;
+							const ITargetPlatform* Platform = GetTargetPlatformManager()->FindTargetPlatform(TEXT("IOS"));
+							if (Platform)
+							{
+								if (Platform->IsSdkInstalled(false, OutTutorialPath))
+								{
+									CanQuery = true;
+								}
+							}
+							NeedSDKCheck = false;
+							if (!CanQuery)
+							{
+								Enable(false);
+							}
+						}
+					}
+					else
+					{
+						// BHP - Turning off device check to prevent it from interfering with packaging
+						QueryDevices();
+					}
+				}
+#endif
 			}
 
 			FPlatformProcess::Sleep(5.0f);
@@ -204,70 +126,23 @@ public:
 	}
 
 private:
-	bool ExecuteDSCommand(const FString& CommandLine, FString* OutStdOut, FString* OutStdErr) const
-	{
-		FString ExecutablePath = FString::Printf(TEXT("%sBinaries/DotNET/IOS"), *FPaths::EngineDir());
-		FString Filename = TEXT("DeploymentServer.exe");
-
-		// execute the command
-		int32 ReturnCode;
-		FString DefaultError;
-
-		// make sure there's a place for error output to go if the caller specified nullptr
-		if (!OutStdErr)
-		{
-			OutStdErr = &DefaultError;
-		}
-
-		void* WritePipe;
-		void* ReadPipe;
-		FPlatformProcess::CreatePipe(ReadPipe, WritePipe);
-		FProcHandle ProcessHandle = FPlatformProcess::CreateProc(*(ExecutablePath / Filename), *CommandLine, false, true, true, NULL, 0, *ExecutablePath, WritePipe);
-		while (FPlatformProcess::IsProcRunning(ProcessHandle))
-		{
-			FString NewLine = FPlatformProcess::ReadPipe(ReadPipe);
-			if (NewLine.Len() > 0)
-			{
-				// process the string to break it up in to lines
-				*OutStdOut += NewLine;
-			}
-
-			FPlatformProcess::Sleep(0.25);
-		}
-		FString NewLine = FPlatformProcess::ReadPipe(ReadPipe);
-		if (NewLine.Len() > 0)
-		{
-			// process the string to break it up in to lines
-			*OutStdOut += NewLine;
-		}
-
-		FPlatformProcess::Sleep(0.25);
-		FPlatformProcess::ClosePipe(ReadPipe, WritePipe);
-
-		if (!FPlatformProcess::GetProcReturnCode(ProcessHandle, &ReturnCode))
-		{
-			return false;
-		}
-
-		if (ReturnCode != 0)
-		{
-			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("The DeploymentServer command '%s' failed to run. Return code: %d, Error: %s\n"), *CommandLine, ReturnCode, **OutStdErr);
-
-			return false;
-		}
-
-		return true;
-	}
 
 	void QueryDevices()
 	{
 		FString StdOut;
 		// get the list of devices
-		if (!ExecuteDSCommand(TEXT("listdevices"), &StdOut, nullptr))
+		int Response = FIOSTargetDeviceOutput::ExecuteDSCommand("listdevices", &StdOut);
+		if (Response <= 0)
 		{
+			RetryQuery--;
+			if (RetryQuery < 0 || Response < 0)
+			{
+				UE_LOG(LogTemp, Log, TEXT("IOS device listing is disabled (to many failed attempts)!"));
+				Enable(false);
+			}
 			return;
 		}
-
+		RetryQuery = 5;
 		// separate out each line
 		TArray<FString> DeviceStrings;
 		StdOut = StdOut.Replace(TEXT("\r"), TEXT("\n"));
@@ -284,9 +159,10 @@ private:
 			}
 
 			// grab the device serial number
+			int32 typeIndex = DeviceString.Find(TEXT("TYPE: "));
 			int32 idIndex = DeviceString.Find(TEXT("ID: "));
 			int32 nameIndex = DeviceString.Find(TEXT("NAME: "));
-			if (idIndex < 0 || nameIndex < 0)
+			if (typeIndex < 0 || idIndex < 0 || nameIndex < 0)
 			{
 				continue;
 			}
@@ -301,13 +177,15 @@ private:
 				continue;
 			}
 
-			// parse device name
+			// parse product type and device name
+			FString ProductType = DeviceString.Mid(typeIndex + 6, idIndex - 1 - (typeIndex + 6));
 			FString DeviceName = DeviceString.Mid(nameIndex + 6, DeviceString.Len() - (nameIndex + 6));
 
 			// create an FIOSDevice
 			FDeviceNotificationCallbackInformation CallbackInfo;
 			CallbackInfo.DeviceName = DeviceName;
 			CallbackInfo.UDID = SerialNumber;
+			CallbackInfo.ProductType = ProductType;
 			CallbackInfo.msgType = 1;
 			DeviceNotification.Broadcast(&CallbackInfo);
 		}
@@ -325,6 +203,8 @@ private:
 
 	bool Stopping;
 	bool bCheckDevices;
+	bool NeedSDKCheck;
+	int RetryQuery;
 	TArray<FString> ConnectedDeviceIds;
 	FDeviceNotification DeviceNotification;
 };
@@ -376,7 +256,12 @@ void FIOSDeviceHelper::Initialize(bool bIsTVOS)
 		QueryTask->OnDeviceNotification().AddStatic(FIOSDeviceHelper::DeviceCallback);
 
 		static int32 QueryTaskCount = 1;
-		QueryThread = FRunnableThread::Create(QueryTask, *FString::Printf(TEXT("FIOSDeviceHelper.QueryTask_%d"), QueryTaskCount++), 128 * 1024, TPri_Normal);
+		if (QueryTaskCount == 1)
+		{
+			// create the socket subsystem (loadmodule in game thread)
+			ISocketSubsystem* SSS = ISocketSubsystem::Get();
+			QueryThread = FRunnableThread::Create(QueryTask, *FString::Printf(TEXT("FIOSDeviceHelper.QueryTask_%d"), QueryTaskCount++), 128 * 1024, TPri_Normal);
+		}
 	}
 }
 
@@ -411,8 +296,9 @@ void FIOSDeviceHelper::DoDeviceConnect(void* CallbackInfo)
 
 	// fire the event
 	FIOSLaunchDaemonPong Event;
-	Event.DeviceID = FString::Printf(TEXT("IOS@%s"), *(cbi->UDID));
+	Event.DeviceID = FString::Printf(TEXT("%s@%s"), cbi->ProductType.Contains(TEXT("AppleTV")) ? TEXT("TVOS") : TEXT("IOS"), *(cbi->UDID));
 	Event.DeviceName = cbi->DeviceName;
+	Event.DeviceType = cbi->ProductType;
 	Event.bCanReboot = false;
 	Event.bCanPowerOn = false;
 	Event.bCanPowerOff = false;

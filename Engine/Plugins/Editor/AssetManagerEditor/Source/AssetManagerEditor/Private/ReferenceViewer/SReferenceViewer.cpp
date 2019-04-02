@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SReferenceViewer.h"
 #include "Widgets/SOverlay.h"
@@ -18,14 +18,13 @@
 #include "Widgets/Input/SSpinBox.h"
 #include "EditorStyleSet.h"
 #include "Engine/Selection.h"
-#include "EdGraph_ReferenceViewer.h"
-#include "EdGraphNode_Reference.h"
-#include "ReferenceViewerSchema.h"
+#include "ReferenceViewer/EdGraph_ReferenceViewer.h"
+#include "ReferenceViewer/EdGraphNode_Reference.h"
+#include "ReferenceViewer/ReferenceViewerSchema.h"
 #include "AssetRegistryModule.h"
 #include "ICollectionManager.h"
 #include "CollectionManagerModule.h"
 #include "Editor.h"
-#include "Toolkits/AssetEditorManager.h"
 #include "AssetManagerEditorCommands.h"
 #include "EditorWidgetsModule.h"
 #include "Toolkits/GlobalEditorCommonCommands.h"
@@ -907,7 +906,7 @@ void SReferenceViewer::RegisterActions()
 	ReferenceViewerActions->MapAction(
 		FAssetManagerEditorCommands::Get().OpenSelectedInAssetEditor,
 		FExecuteAction::CreateSP(this, &SReferenceViewer::OpenSelectedInAssetEditor),
-		FCanExecuteAction::CreateSP(this, &SReferenceViewer::HasExactlyOnePackageNodeSelected));
+		FCanExecuteAction::CreateSP(this, &SReferenceViewer::HasAtLeastOneRealNodeSelected));
 
 	ReferenceViewerActions->MapAction(
 		FAssetManagerEditorCommands::Get().ReCenterGraph,
@@ -972,12 +971,12 @@ void SReferenceViewer::RegisterActions()
 	ReferenceViewerActions->MapAction(
 		FAssetManagerEditorCommands::Get().ViewSizeMap,
 		FExecuteAction::CreateSP(this, &SReferenceViewer::ViewSizeMap),
-		FCanExecuteAction());
+		FCanExecuteAction::CreateSP(this, &SReferenceViewer::HasAtLeastOneRealNodeSelected));
 
 	ReferenceViewerActions->MapAction(
 		FAssetManagerEditorCommands::Get().ViewAssetAudit,
 		FExecuteAction::CreateSP(this, &SReferenceViewer::ViewAssetAudit),
-		FCanExecuteAction());
+		FCanExecuteAction::CreateSP(this, &SReferenceViewer::HasAtLeastOneRealNodeSelected));
 }
 
 void SReferenceViewer::ShowSelectionInContentBrowser()
@@ -1005,29 +1004,22 @@ void SReferenceViewer::ShowSelectionInContentBrowser()
 
 void SReferenceViewer::OpenSelectedInAssetEditor()
 {
+	TArray<FAssetIdentifier> IdentifiersToEdit;
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	TSet<UObject*> SelectedNodes = GraphEditorPtr->GetSelectedNodes();
 	for (FGraphPanelSelectionSet::TConstIterator It(SelectedNodes); It; ++It)
 	{
 		if (UEdGraphNode_Reference* ReferenceNode = Cast<UEdGraphNode_Reference>(*It))
 		{
-			if (!ReferenceNode->IsPackage() && !ReferenceNode->IsCollapsed())
+			if (!ReferenceNode->IsCollapsed())
 			{
-				if (AssetRegistryModule.Get().EditSearchableName(ReferenceNode->GetIdentifier()))
-				{
-					// Was handled by callback, otherwise fall back to default behavior
-					return;
-				}
+				ReferenceNode->GetAllIdentifiers(IdentifiersToEdit);
 			}
 		}
 	}
 
-	UObject* SelectedObject = GetObjectFromSingleSelectedNode();
-
-	if( SelectedObject )
-	{
-		FAssetEditorManager::Get().OpenEditorForAsset(SelectedObject);
-	}
+	// This will handle packages as well as searchable names if other systems register
+	FEditorDelegates::OnEditAssetIdentifiers.Broadcast(IdentifiersToEdit);
 }
 
 void SReferenceViewer::ReCenterGraph()
@@ -1403,6 +1395,27 @@ bool SReferenceViewer::HasAtLeastOnePackageNodeSelected() const
 		}
 	}
 	
+	return false;
+}
+
+bool SReferenceViewer::HasAtLeastOneRealNodeSelected() const
+{
+	if (GraphEditorPtr.IsValid())
+	{
+		TSet<UObject*> SelectedNodes = GraphEditorPtr->GetSelectedNodes();
+		for (UObject* Node : SelectedNodes)
+		{
+			UEdGraphNode_Reference* ReferenceNode = Cast<UEdGraphNode_Reference>(Node);
+			if (ReferenceNode)
+			{
+				if (!ReferenceNode->IsCollapsed())
+				{
+					return true;
+				}
+			}
+		}
+	}
+
 	return false;
 }
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	OpenGLShaderResources.h: OpenGL shader resource RHI definitions.
@@ -535,6 +535,7 @@ private:
 	TMap<GLuint, FPendingShaderCode> ShadersPendingCompilation;
 
 	bool AppendProgramBinaryFile(FArchive& Ar, const FOpenGLProgramKey& ProgramKey, GLuint Program, uint32& ProgramBinaryOffsetOUT, uint32& ProgramBinarySizeOUT);
+	void AppendProgramBinaryFileEofEntry(FArchive& Ar);
 
 	void ScanProgramCacheFile(const FGuid& ShaderPipelineCacheVersionGuid = FGuid());
 

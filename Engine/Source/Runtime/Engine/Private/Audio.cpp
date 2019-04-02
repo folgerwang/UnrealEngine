@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Audio.cpp: Unreal base audio.
@@ -57,7 +57,14 @@ DEFINE_STAT(STAT_AudioStartSources);
 DEFINE_STAT(STAT_AudioGatherWaveInstances);
 DEFINE_STAT(STAT_AudioFindNearestLocation);
 
-
+/** CVars */
+static int32 DisableStereoSpreadCvar = 0;
+FAutoConsoleVariableRef CVarDisableStereoSpread(
+	TEXT("au.DisableStereoSpread"),
+	DisableStereoSpreadCvar,
+	TEXT("When set to 1, ignores the 3D Stereo Spread property in attenuation settings and instead renders audio from a singular point.\n")
+	TEXT("0: Not Disabled, 1: Disabled"),
+	ECVF_Default);
 
 bool IsAudioPluginEnabled(EAudioPlugin PluginType)
 {
@@ -223,7 +230,7 @@ FString FSoundBuffer::Describe(bool bUseLongName)
 
 FString FSoundSource::Describe(bool bUseLongName)
 {
-	return FString::Printf(TEXT("Wave: %s, Volume: %6.2f, Owner: %s"), 
+	return FString::Printf(TEXT("Wave: %s, Volume: %6.2f, Owner: %s"),
 		bUseLongName ? *WaveInstance->WaveData->GetPathName() : *WaveInstance->WaveData->GetName(),
 		WaveInstance->GetVolume(),
 		WaveInstance->ActiveSound ? *WaveInstance->ActiveSound->GetOwnerName() : TEXT("None"));
@@ -368,9 +375,9 @@ void FSoundSource::UpdateStereoEmitterPositions()
 	check(WaveInstance->bUseSpatialization);
 	check(Buffer->NumChannels == 2);
 
-	if (WaveInstance->StereoSpread > 0.0f)
+	if (!DisableStereoSpreadCvar && WaveInstance->StereoSpread > 0.0f)
 	{
-		// We need to compute the stereo left/right channel positions using the audio component position and the spread 
+		// We need to compute the stereo left/right channel positions using the audio component position and the spread
 		FVector ListenerPosition = AudioDevice->Listeners[0].Transform.GetLocation();
 		FVector ListenerToSourceDir = (WaveInstance->Location - ListenerPosition).GetSafeNormal();
 
@@ -440,7 +447,7 @@ void FSoundSource::DrawDebugInfo()
 	}
 #endif // ENABLE_DRAW_DEBUG
 }
- 
+
 float FSoundSource::GetDebugVolume(const float InVolume)
 {
 	float OutVolume = InVolume;
@@ -449,8 +456,7 @@ float FSoundSource::GetDebugVolume(const float InVolume)
 
 	if (OutVolume != 0.0f)
 	{
-
-		// Check for solo sound class debuging. Mute all sounds that don't substring match their sound class name to the debug solo'd sound class
+		// Check for solo sound class debugging. Mute all sounds that don't substring match their sound class name to the debug solo'd sound class
 		const FString& DebugSoloSoundName = GEngine->GetAudioDeviceManager()->GetDebugSoloSoundWave();
 		if (DebugSoloSoundName != TEXT(""))
 		{
@@ -469,7 +475,7 @@ float FSoundSource::GetDebugVolume(const float InVolume)
 
 	if (OutVolume != 0.0f)
 	{
-		// Check for solo sound class debuging. Mute all sounds that don't substring match their sound class name to the debug solo'd sound class
+		// Check for solo sound class debugging. Mute all sounds that don't substring match their sound class name to the debug solo'd sound class
 		const FString& DebugSoloSoundCue = GEngine->GetAudioDeviceManager()->GetDebugSoloSoundCue();
 		if (DebugSoloSoundCue != TEXT(""))
 		{
@@ -524,7 +530,7 @@ FSpatializationParams FSoundSource::GetSpatializationParams()
 	if (WaveInstance->bUseSpatialization)
 	{
 		FVector EmitterPosition = AudioDevice->GetListenerTransformedDirection(WaveInstance->Location, &Params.Distance);
-		
+
 		// If we are using the OmniRadius feature
 		if (WaveInstance->OmniRadius > 0.0f)
 		{
@@ -561,7 +567,7 @@ FSpatializationParams FSoundSource::GetSpatializationParams()
 	}
 	Params.EmitterWorldPosition = WaveInstance->Location;
 
-	if (WaveInstance->ActiveSound != nullptr) 
+	if (WaveInstance->ActiveSound != nullptr)
 	{
 		Params.EmitterWorldRotation = WaveInstance->ActiveSound->Transform.GetRotation();
 	}
@@ -600,7 +606,7 @@ void FSoundSource::UpdateCommon()
 		Pitch *= AudioDevice->GetGlobalPitchScale().GetValue();
 	}
 
-	Pitch = FMath::Clamp<float>(Pitch, MIN_PITCH, MAX_PITCH);
+	Pitch = AudioDevice->ClampPitch(Pitch);
 
 	// Track playback time even if the voice is not virtual, it can flip to being virtual while playing.
 	const float DeviceDeltaTime = AudioDevice->GetDeviceDeltaTime();
@@ -755,6 +761,7 @@ FWaveInstance::FWaveInstance( FActiveSound* InActiveSound )
 	: WaveData(nullptr)
 	, SoundClass(nullptr)
 	, SoundSubmix(nullptr)
+	, SourceEffectChain(nullptr)
 	, ActiveSound(InActiveSound)
 	, Volume(0.0f)
 	, DistanceAttenuation(1.0f)
@@ -784,11 +791,14 @@ FWaveInstance::FWaveInstance( FActiveSound* InActiveSound )
 	, bIsMusic(false)
 	, bReverb(true)
 	, bCenterChannelOnly(false)
+	, bIsPaused(false)
 	, bReportedSpatializationWarning(false)
 	, bIsAmbisonics(false)
 	, bIsStopping(false)
 	, SpatializationMethod(ESoundSpatializationAlgorithm::SPATIALIZATION_Default)
+	, SpatializationPluginSettings(nullptr)
 	, OcclusionPluginSettings(nullptr)
+	, ReverbPluginSettings(nullptr)
 	, OutputTarget(EAudioOutputTarget::Speaker)
 	, LowPassFilterFrequency(MAX_FILTER_FREQUENCY)
 	, OcclusionFilterFrequency(MAX_FILTER_FREQUENCY)
@@ -802,8 +812,13 @@ FWaveInstance::FWaveInstance( FActiveSound* InActiveSound )
 	, AttenuationDistance(0.0f)
 	, ListenerToSoundDistance(0.0f)
 	, AbsoluteAzimuth(0.0f)
+	, PlaybackTime(0.0f)
+	, ReverbSendMethod(EReverbSendMethod::Linear)
 	, ReverbSendLevelRange(0.0f, 0.0f)
 	, ReverbSendLevelDistanceRange(0.0f, 0.0f)
+	, ManualReverbSendLevel(0.0f)
+	, TypeHash(0)
+	, WaveInstanceHash(0)
 	, UserIndex(0)
 {
 	TypeHash = ++TypeHashCounter;
@@ -871,14 +886,40 @@ void FWaveInstance::AddReferencedObjects( FReferenceCollector& Collector )
 
 float FWaveInstance::GetActualVolume() const
 {
-	// Include all volumes 
-	return GetVolume() * VolumeApp * DistanceAttenuation;
+	// Include all volumes
+	float ActualVolume = GetVolume() * VolumeApp * DistanceAttenuation;
+	if (ActualVolume != 0.0f)
+	{
+		ActualVolume *= GetDynamicVolume();
+	}
+
+	return ActualVolume;
 }
 
 float FWaveInstance::GetDistanceAttenuation() const
 {
 	// Only includes volume attenuation due do distance
 	return DistanceAttenuation;
+}
+
+float FWaveInstance::GetDynamicVolume() const
+{
+	float OutVolume = 1.0f;
+	if (FAudioDeviceManager* DeviceManager = GEngine->GetAudioDeviceManager())
+	{
+		if (WaveData)
+		{
+			OutVolume *= DeviceManager->GetDynamicSoundVolume(ESoundType::Wave, WaveData->GetFName());
+		}
+
+		check(ActiveSound);
+		if (const USoundCue* Sound = Cast<USoundCue>(ActiveSound->GetSound()))
+		{
+			OutVolume *= DeviceManager->GetDynamicSoundVolume(ESoundType::Cue, Sound->GetFName());
+		}
+	}
+
+	return OutVolume;
 }
 
 float FWaveInstance::GetVolumeWithDistanceAttenuation() const
@@ -1106,7 +1147,7 @@ bool FWaveModInfo::ReadWaveInfo( const uint8* WaveData, int32 WaveDataSize, FStr
 	pBlockAlign = &FmtChunk->nBlockAlign;
 	pChannels = &FmtChunk->nChannels;
 	pFormatTag = &FmtChunk->wFormatTag;
-	
+
 	if(OutFormatHeader != NULL)
 	{
 		*OutFormatHeader = FmtChunk;
@@ -1264,7 +1305,7 @@ bool FWaveModInfo::ReadWaveInfo( const uint8* WaveData, int32 WaveDataSize, FStr
 		}
 		#endif
 	}
-	
+
 	// Couldn't byte swap this before, since it'd throw off the chunk search.
 #if !PLATFORM_LITTLE_ENDIAN
 	*pWaveDataSize = INTEL_ORDER32( *pWaveDataSize );
@@ -1340,11 +1381,11 @@ void SerializeWaveFile(TArray<uint8>& OutWaveFileData, const uint8* InPCMData, c
 	OutWaveFileData[WaveDataByteIndex++] = 'F';
 	OutWaveFileData[WaveDataByteIndex++] = 'F';
 
-	// ChunkName: ChunkSize: 4 bytes 
+	// ChunkName: ChunkSize: 4 bytes
 	// Value: NumBytes + 36. Size of the rest of the chunk following this number. Size of entire file minus 8 bytes.
 	WriteUInt32ToByteArrayLE(OutWaveFileData, WaveDataByteIndex, NumBytes + 36);
 
-	// FieldName: Format 
+	// FieldName: Format
 	// FieldSize: 4 bytes
 	// FieldValue: "WAVE"  (big-endian)
 	OutWaveFileData[WaveDataByteIndex++] = 'W';

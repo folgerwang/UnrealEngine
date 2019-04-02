@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3255885
+﻿INTSourceChangelist:3782314
 Availability: Public
 Title:使用附加动画
 Crumbs: %ROOT%, Engine, Engine\Animation, Engine\Animation\AnimHowTo
@@ -42,16 +42,15 @@ WxYiLbnbQ_A
 
 [/COMMENT]
 
-## Steps
+(#Steps)
+## 步骤
 
-[REGION:buttonlist]
+[DIR(output:"checkpoint" parent:"Engine/Animation/AnimHowTo/AdditiveAnimations")]
 
-	* [](Engine\Animation\AnimHowTo\AdditiveAnimations\01_BlendSetup "%Engine\Animation\AnimHowTo\AdditiveAnimations\01_BlendSetup:description%")
-	* [](Engine\Animation\AnimHowTo\AdditiveAnimations\02_CharacterBlueprintSetup "%Engine\Animation\AnimHowTo\AdditiveAnimations\02_CharacterBlueprintSetup:description%")
-	* [](Engine\Animation\AnimHowTo\AdditiveAnimations\03_AnimGraphSetup "%Engine\Animation\AnimHowTo\AdditiveAnimations\03_AnimGraphSetup:description%")
-	* [](Engine\Animation\AnimHowTo\AdditiveAnimations\04_BlendSettings "%Engine\Animation\AnimHowTo\AdditiveAnimations\04_BlendSettings:description%")
-	
+[REGION:call_to_action]
+	[点击开始](Engine/Animation/AnimHowTo/AdditiveAnimations/01_BlendSetup "%Engine/Animation/AnimHowTo/AdditiveAnimations/01_BlendSetup:title%")
 [/REGION]
+
 
 
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -41,6 +41,9 @@ private:
 
 	/** Loads a level to be used for spawning actors from import factories */
 	bool LoadLevel(const FString& LevelToLoad);
+
+	/** Prints command line arguments */
+	void PrintUsage();
 
 	/**
 	 * Clears dirty flag from all packages

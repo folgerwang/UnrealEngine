@@ -1,7 +1,7 @@
 @echo off
 
 rem ## Unreal Engine 4 cleanup script
-rem ## Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+rem ## Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 rem ##
 rem ## This script is expecting to exist in the UE4 root directory.  It will not work correctly
 rem ## if you copy it to a different location and run it.
@@ -11,7 +11,6 @@ rem ##     %2 is the platform name
 rem ##     %3 is the configuration name
 
 setlocal
-echo Cleaning %1 Binaries...
 
 rem ## First, make sure the batch file exists in the folder we expect it to.  This is necessary in order to
 rem ## verify that our relative path to the /Engine/Source directory is correct

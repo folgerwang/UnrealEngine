@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /////////////////////////////////////////////////////
 // UMaterialGraph
@@ -333,7 +333,7 @@ bool UMaterialGraph::IsInputActive(UEdGraphPin* GraphPin) const
 		{
 			if (RootNode->Pins[Index] == GraphPin)
 			{
-				return Material->IsPropertyActive(MaterialInputs[Index].GetProperty());
+				return Material->IsPropertyActiveInEditor(MaterialInputs[Index].GetProperty());
 			}
 		}
 	}

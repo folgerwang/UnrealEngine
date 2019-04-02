@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -102,14 +102,14 @@ namespace UnrealGameSync
 			}
 		}
 
-		void MergeTrees(FolderToClean LocalFolder, PerforceHaveFolder PerforceFolder, HashSet<string> OpenClientPaths)
+		void MergeTrees(FolderToClean LocalFolder, PerforceHaveFolder PerforceFolder, HashSet<string> OpenClientPaths, string PerforceConfigFile)
 		{
 			if(PerforceFolder == null)
 			{
 				// Loop through all the local sub-folders
 				foreach(FolderToClean LocalSubFolder in LocalFolder.NameToSubFolder.Values)
 				{
-					MergeTrees(LocalSubFolder, null, OpenClientPaths);
+					MergeTrees(LocalSubFolder, null, OpenClientPaths, PerforceConfigFile);
 				}
 
 				// Delete everything
@@ -122,7 +122,7 @@ namespace UnrealGameSync
 				{
 					PerforceHaveFolder PerforceSubFolder;
 					PerforceFolder.NameToSubFolder.TryGetValue(LocalSubFolder.Name, out PerforceSubFolder);
-					MergeTrees(LocalSubFolder, PerforceSubFolder, OpenClientPaths);
+					MergeTrees(LocalSubFolder, PerforceSubFolder, OpenClientPaths, PerforceConfigFile);
 				}
 
 				// Also merge all the Perforce folders that no longer exist
@@ -132,7 +132,7 @@ namespace UnrealGameSync
 					if(!LocalFolder.NameToSubFolder.TryGetValue(PerforceSubFolderPair.Key, out LocalSubFolder))
 					{
 						LocalSubFolder = new FolderToClean(new DirectoryInfo(Path.Combine(LocalFolder.Directory.FullName, PerforceSubFolderPair.Key)));
-						MergeTrees(LocalSubFolder, PerforceSubFolderPair.Value, OpenClientPaths);
+						MergeTrees(LocalSubFolder, PerforceSubFolderPair.Value, OpenClientPaths, PerforceConfigFile);
 						LocalFolder.NameToSubFolder.Add(LocalSubFolder.Name, LocalSubFolder);
 					}
 				}
@@ -152,7 +152,19 @@ namespace UnrealGameSync
 				}
 
 				// Find all the files that should be deleted
-				LocalFolder.FilesToDelete.AddRange(LocalFolder.NameToFile.Values.Where(x => !PerforceFolder.NameToFile.ContainsKey(x.Name)));
+				foreach(FileInfo LocalFileInfo in LocalFolder.NameToFile.Values)
+				{
+					if(!PerforceFolder.NameToFile.ContainsKey(LocalFileInfo.Name) && !OpenClientPaths.Contains(LocalFileInfo.FullName))
+					{
+						LocalFolder.FilesToDelete.Add(LocalFileInfo);
+					}
+				}
+			}
+
+			// Remove any config files
+			if(PerforceConfigFile != null)
+			{
+				LocalFolder.FilesToDelete.RemoveAll(x => String.Compare(x.Name, PerforceConfigFile, StringComparison.OrdinalIgnoreCase) == 0);
 			}
 
 			// Figure out if this folder is just an empty directory that needs to be removed
@@ -288,8 +300,12 @@ namespace UnrealGameSync
 			// Wait to finish scanning the directory
 			FinishedScan.WaitOne();
 
+			// Find the value of the P4CONFIG variable
+			string PerforceConfigFile;
+			PerforceClient.GetSetting("P4CONFIG", out PerforceConfigFile, Log);
+
 			// Merge the trees
-			MergeTrees(RootFolderToClean, RootHaveFolder, OpenLocalFiles);
+			MergeTrees(RootFolderToClean, RootHaveFolder, OpenLocalFiles, PerforceConfigFile);
 
 			// Remove all the empty folders
 			RemoveEmptyFolders(RootFolderToClean);

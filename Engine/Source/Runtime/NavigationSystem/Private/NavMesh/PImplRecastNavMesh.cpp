@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NavMesh/PImplRecastNavMesh.h"
 #include "NavigationSystem.h"
@@ -194,6 +194,11 @@ void FRecastQueryFilter::GetAllAreaCosts(float* CostArray, float* FixedCostArray
 void FRecastQueryFilter::SetBacktrackingEnabled(const bool bBacktracking)
 {
 	setIsBacktracking(bBacktracking);
+}
+
+void FRecastQueryFilter::SetShouldIgnoreClosedNodes(const bool bIgnoreClosed)
+{
+	setShouldIgnoreClosedNodes(bIgnoreClosed);
 }
 
 bool FRecastQueryFilter::IsBacktrackingEnabled() const
@@ -966,10 +971,12 @@ float FPImplRecastNavMesh::CalcSegmentCostOnPoly(NavNodeRef PolyID, const dtQuer
 void FPImplRecastNavMesh::PostProcessPath(dtStatus FindPathStatus, FNavMeshPath& Path,
 	const dtNavMeshQuery& NavQuery, const dtQueryFilter* Filter,
 	NavNodeRef StartPolyID, NavNodeRef EndPolyID,
-	const FVector& StartLoc, const FVector& EndLoc,
-	const FVector& RecastStartPos, FVector& RecastEndPos,
+	FVector StartLoc, FVector EndLoc,
+	FVector RecastStartPos, FVector RecastEndPos,
 	dtQueryResult& PathResult) const
 {
+	check(Filter);
+
 	// note that for recast partial path is successful, while we treat it as failed, just marking it as partial
 	if (dtStatusSucceed(FindPathStatus))
 	{
@@ -1009,7 +1016,18 @@ void FPImplRecastNavMesh::PostProcessPath(dtStatus FindPathStatus, FNavMeshPath&
 			*DestCorridorPoly = PathResult.getRef(i);
 		}
 
-		Path.OnPathCorridorUpdated(); 
+		Path.OnPathCorridorUpdated();
+
+		// if we're backtracking this is the time to reverse the path.
+		if (Filter->getIsBacktracking())
+		{
+			// for a proper string-pulling of a backtracking path we need to
+			// reverse the data right now.
+			Path.Invert();
+			Swap(StartPolyID, EndPolyID);
+			Swap(StartLoc, EndLoc);
+			Swap(RecastStartPos, RecastEndPos);
+		}
 
 #if STATS
 		if (dtStatusDetail(FindPathStatus, DT_OUT_OF_NODES))
@@ -2612,6 +2630,25 @@ float FPImplRecastNavMesh::GetTotalDataSize() const
 	return TotalBytes / 1024;
 }
 
+#if !UE_BUILD_SHIPPING
+int32 FPImplRecastNavMesh::GetCompressedTileCacheSize()
+{
+	int32 CompressedTileCacheSize = 0;
+
+	for (TPair<FIntPoint, TArray<FNavMeshTileData>>& TilePairIter : CompressedTileCacheLayers)
+	{
+		TArray<FNavMeshTileData>& NavMeshTileDataArray = TilePairIter.Value;
+
+		for (FNavMeshTileData& NavMeshTileDataIter : NavMeshTileDataArray)
+		{
+			CompressedTileCacheSize += NavMeshTileDataIter.DataSize;
+		}
+	}
+
+	return CompressedTileCacheSize;
+}
+#endif
+
 void FPImplRecastNavMesh::ApplyWorldOffset(const FVector& InOffset, bool bWorldShift)
 {
 	if (DetourNavMesh != NULL)
@@ -2621,7 +2658,6 @@ void FPImplRecastNavMesh::ApplyWorldOffset(const FVector& InOffset, bool bWorldS
 		// apply offset
 		DetourNavMesh->applyWorldOffset(&OffsetRC.X);
 	}
-
 }
 
 uint16 FPImplRecastNavMesh::GetFilterForbiddenFlags(const FRecastQueryFilter* Filter)

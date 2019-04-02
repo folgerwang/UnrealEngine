@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "K2Node_SetVariableOnPersistentFrame.h"
@@ -42,7 +42,8 @@ public:
 			}
 
 			// Create the term in the list
-			FBPTerminal* Term = new (Context.PersistentFrameVariableReferences)FBPTerminal();
+			FBPTerminal* Term = new FBPTerminal();
+			Context.PersistentFrameVariableReferences.Add(Term);
 			Term->CopyFromPin(Pin, Pin->PinName);
 			Term->AssociatedVarProperty = BoundProperty;
 			Context.NetMap.Add(Pin, Term);

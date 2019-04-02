@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3801260
+INTSourceChangelist:3801260
 Availability:Public
 Title: 인바이런먼트 쿼리 시스템 노드 참고서
 Crumbs:%ROOT%, Engine, Gameplay/AI, Engine/AI/EnvironmentQuerySystem
@@ -10,7 +10,7 @@ version: 4.9
 
 인바이런먼트 쿼리 에디터에서 사용할 수 있는 노드와 테스트에 대한 간략 참고서입니다.
 
-## 제너레이터
+## Generators
 
 ### Actors of Class
 
@@ -84,7 +84,7 @@ version: 4.9
 [/REGION]
 
 
-## 테스트
+## Tests
 
 ### Distance
 
@@ -167,7 +167,7 @@ version: 4.9
 | **Tags to Match** | 일치시킬 태그 - Gameplay Tags 프로퍼티의 태그 **Any** (일부) 또는 **All** (전부) 를 일치시킬지 입니다. 기본적으로 **or** 또는 **and** 문입니다. |
 | **Gameplay Tags** | 게임플레이 태그 - 일치시킬 태그입니다. |
 | **Test Purpose** | 테스트 용도 - 테스트가 결과를 필터, 스코어, 또는 필터/스코어 할지 입니다. 필터는 테스트에 실패하는 아이템을 제거하고, 스코어는 아이템을 가중시킵니다. |
-| **Bool Match** | 불리언 일치 - 본질적으로 원하는 것이 True 일치인가 또는 False 일치인가 입니다. 아이템에 원하는 태그가 있다고 반환된 경우, 이를 통해 유지하는 대신 _제거_ 하는 것이 가능합니다. |
+| **Bool Match** | 부울 일치 - 본질적으로 원하는 것이 True 일치인가 또는 False 일치인가 입니다. 아이템에 원하는 태그가 있다고 반환된 경우, 이를 통해 유지하는 대신 _제거_ 하는 것이 가능합니다. |
 | **Scoring Factor** | 스코어 인수 - 모든 테스트를 기준으로 이 테스트가 갖는 가중치입니다. 음수가 될 수 있습니다. |
 [/REGION]
 

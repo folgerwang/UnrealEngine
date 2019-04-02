@@ -1,0 +1,197 @@
+﻿INTSourceChangelist:4540108
+Availability: Public
+Crumbs: 
+Title: Unreal Studio 4.20版本说明
+Description: 介绍了4.20版Unreal Studio与Datasmith的最新功能。
+Type: 
+Version: 4.20
+Parent: Enterprise
+Order: 1
+Tags: Unreal Studio
+Tags: Release Notes
+reference-image:mesh_editing.gif
+reference-image:dragdrop.gif
+
+
+该版本专为虚幻工作室订户提供了一些重要的新功能，包括根据您的反馈和建议做出的一些工作流程改进。本页介绍该版本中的新增功能。
+
+## 使用Datasmith从SketchUp Pro导入
+
+您现在可以使用Datasmith将SketchUp Pro中的整个场景快速且可重复地导入到虚幻中。
+
+[OBJECT:ComparisonSlider]
+ [PARAM:before]
+ ![SketchUp](release-notes-sketchup-skp.png) 
+ [/PARAM]
+ [PARAM:after]
+ ![虚幻](release-notes-sketchup-unreal.png) 
+ [/PARAM]
+[/OBJECT]
+
+该工作流程也完全适用于3ds Max。您需要为SketchUp安装新的Datasmith导出工具插件，并用它来将SketchUp场景导出到磁盘上的Datasmith文件。当您将该Datasmith文件导入到虚幻编辑器时，导入工具会为SketchUp场景中的所有几何结构创建静态网格体资源，为表面属性创建基于物理的材质。然后，它会将这些资源放入当前关卡，完全按照SketchUp中的样子在虚幻中重新构造场景。该场景转换遵从您将场景划分成组和实例化组件的方式，在虚幻关卡中创建匹配的Actor层级。  
+
+从[虚幻工作室下载页面](https://www.unrealengine.com/en-US/studio/downloads)下载导出工具插件。
+
+有关更多信息，请参阅[将Datasmith与SketchUp Pro搭配使用](Enterprise/Datasmith/SoftwareInteropGuides/SketchUp)。
+
+## Datasmith的迭代工作流程
+
+如果在虚幻中已经进行了一些更改后，源场景发生变化该怎么办？
+
+现在，您可以重新导入Datasmith和CAD内容而不会失去您已经对场景放置和虚幻Actor的材质分配所进行的更改。Datasmith作为*覆盖*跟踪这些更改——您可以选择性回滚所进行的覆盖，选择想要如何处理已经在虚幻中删除的Actor等操作。
+
+[REGION:lightbox]
+[![Datasmith重设覆盖](studio-relnotes-420-reset-overrides.png "Datasmith Reset Overrides")](studio-relnotes-420-reset-overrides.png)
+[/REGION]
+
+有关详细信息，请参阅[关于Datasmith重新导入工作流程](Enterprise/Datasmith/Overview/ReimportWorkflow)和[将Datasmith内容重新导入虚幻引擎4](Enterprise/Datasmith/HowTo/ReimportingContent)。
+
+## 通过Datasmith导入元数据
+
+Datasmith现在会导入您所导入的几何结构资源的相关自定义元数据。
+
+元数据存储在关卡中的Actor上，并可供蓝图和Python脚本使用。这可以帮助您创建自己的自定义资源管理管道，或者可以在运行时应用程序中使用元数据来显示所选场景部分的信息——例如名称、成本或物理属性。
+
+![运行时的Datasmith元数据](release-notes-metadata.png "Datasmith Metadata at Runtime")
+
+有关详细信息，请参阅[使用Datasmith元数据](Enterprise/Datasmith/Overview/UsingDatasmithMetadata)。
+
+## 在静态网格体编辑器中修改几何结构
+
+有时，将静态网格体几何结构导入到虚幻中后，您会发现它存在一些小问题——实际不需要的额外三角形，或者三角形朝向错误，并因隐面消除而在不适当的时间消失。在过去，修复这类微小变化需要回到DCC工具中，在那里解决问题，重新导出后再重新导入资源。如果资源最初是直接从CAD格式导入到虚幻中的，这可能意味着要向流程添加全新的设计工具。
+
+现在，您可以直接在静态网格体编辑器中，使用工具栏中的新的“编辑网格体”工具对静态网格体资源的几何结构进行基本更改。
+
+[REGION:asyncgif]
+![](mesh_editing.gif)(w:600 convert:false)
+[/REGION]
+
+您可以：
+
+*   翻转所选三角形。
+*   删除三角形。
+*   向所选三角形分配新材质，动态创建新材质插槽。
+
+有关详细信息，请参阅[修改静态网格体几何结构](Enterprise/Datasmith/HowTo/ModifyStaticMeshGeometry)。
+
+## 虚幻工作室和Datasmith工作流程改进
+
+本版本改进了通过Datasmith将内容导入到虚幻的工作流程以及导入后处理Datasmith内容的工作流程。 
+
+### 简化后的虚幻工作室项目创建
+
+只要是从Epic Games启动程序启动虚幻编辑器，无论使用哪个模板，您创建的任何新项目都会自动设置为虚幻工作室项目。您不必再从虚幻工作室选项卡上列出的模板开始操作，可以使用任何蓝图或C++模板。
+
+### 拖放Datasmith场景资源
+
+您现在可以从内容浏览器将Datasmith场景资源拖放到关卡，这样会自动重新创建Datasmith导入的整个场景或组装场景。此外，您可以在一个关卡中放置同一个Datasmith场景的多个实例（如果需要），每个实例有自己的3D位置和旋转。
+
+[REGION:asyncgif]
+![](dragdrop.gif "dragdrop.gif")(w:600 convert:false)
+[/REGION]
+
+有关Datasmith场景资源的更多信息，请参阅[Datasmith概述](Enterprise/Datasmith/Overview)。
+
+### 面向CAD网格体的选择性重新导入和重新曲面细分
+
+您现在可以重新导入从CAD场景导入的所选静态网格体资源。
+
+此外，每次重新导入静态网格体资源时，都可以为其设置新的曲面细分参数。这样您可以自定义场景中每个不同部分或组成部分的静态网格体表示的细节和密集程度。
+
+例如，您可以导入具有低分辨率设置的主CAD文件，提高需要更高细节层次的特定部件的细节层次，从而改进图形性能。
+
+### 使用Datasmith从3ds Max导入自定义碰撞网格体
+
+导入您从Autodesk 3ds Max导出的*.datasmith*文件时，Datasmith导入工具现在会遵从FBX导入工具的命名约定，以便自动为导入的几何结构分配自定义碰撞网格体。如果您的Datasmith内容包含一个名为`UCX_<name>`的几何结构元素，该几何结构不会导入到静态网格体资源中。相反，该几何结构会被分配一个对应的静态网格体资源`<name>`以作为其自定义碰撞形状。
+
+### 使用蓝图或Python自定义Datasmith导入
+
+如果您使用蓝图或Python脚本启动Datasmith导入过程，现在可以在该过程中运行自己的脚本，然后导入工具会在虚幻中创建您的资源和Actor。您可以通过这种方式来自定义如何将源场景转换为虚幻资源——例如，您可以过滤掉您知道虚幻项目中在运行时无需渲染的几何结构，这样您就不必等待为这些场景元素创建资源的过程。
+
+有关详细信息，请参阅[自定义Datasmith导入过程](Enterprise/Datasmith/Overview/CustomizingImportProcess)。
+
+### 改进了通过Datasmith导入Rhino的流程
+
+面向Rhino的Datasmith导入流程现在能够更准确地遵从原始设计，尤其是选择要应用于静态网格体资源的材质方面。
+
+有关详细信息，请参阅[将Datasmith与Rhino配合使用](Enterprise/Datasmith/SoftwareInteropGuides/Rhino)。
+
+### 改进了静态网格体命名
+
+Datasmith现在使用场景中的几何结构对象名称在内容浏览器中标注它创建的静态网格体。
+
+### 改进了对来自3ds Max的自定义支点的处理
+
+如果您的3ds Max场景包含具有自定义支点的网格体，则Datasmith现在会将这些自定义支点烘焙到它创建的静态网格体资源。这样会让场景层级更简洁，无需创建只是为了处理支点偏移所用的自定义Actor。
+
+即使您的场景包含网格体的多个实例，但只要它们共享*同一个*自定义支点，Datasmith就可以这样操作。 
+
+但是，如果网格体的任意实例所拥有的支点与所有其他实例不相符，则Datasmith就无法将任何自定义支点信息烘焙到静态网格体资源。在此情况下，它会回滚到4.19版本的行为。 
+
+### Datasmith场景支持子关卡
+
+您现在可以将Datasmith创建的Actor移到不同的子关卡。您移动的Actor将从父层级的Datasmith场景Actor下面被移出来，但它们保留与Datasmith场景的关联。Datasmith将继续跟踪覆盖，如果您重新导入Datasmith场景，这些Actor也将会被识别出来。
+
+## 导入MDL文件（抢先体验）
+
+您现在可以使用Datasmith导入[NVIDIA材质定义库（MDL）](https://www.nvidia.com/en-us/design-visualization/technologies/material-definition-language/)格式的文件。使用新的 **MDL** 导入工具：
+
+![](datasmith-import-mdl.png "datasmith-import-mdl.png")
+
+与其他类型的Datasmith导入一样，您会获得一个新的实例化材质资源，其设置与导入文件完全一致，并且它会公开您可以用来在虚幻中调整新材质的设置。
+
+## 改进了产品查看器模板
+
+我们对产品查看器模板进行了大幅修改以改进其视觉设计和易用性。
+
+*   使用新的X射线模式暂时将对象切换到透明材质，以便您查看和选择后面的对象。
+*   运行时使用鼠标或VR控制器拖拽和重设Actor。
+*   您现在可以将产品查看器内容添加到另一个项目，方法是使用内容浏览器中的 **新增（Add New）>添加功能或内容包（Add Feature or Content Pack）** 选项。
+
+![启用X射线模式的产品查看器](relnotes-prodviewer.png "Product Viewer with X-Ray Mode")
+
+有关详细信息，请参阅[虚幻工作室产品查看器模板](Enterprise/UnrealStudioProjectTemplates/StudioProductViewer)。
+
+## 面向Datasmith Plus被许可方的新功能
+
+想要获得Datasmith Plus的授权吗？请[联系我们](https://www.unrealengine.com/en-US/enterprise/contact-us)。
+
+### 从Deltagen和VRED导入（试验阶段）
+
+具有Datasmith Plus授权的用户现在可以从DeltaGen或VRED将场景导入到虚幻编辑器，并保留多样化布景和动画。您可以在运行时使用蓝图脚本切换不同的布景并播放动画。
+
+使用新的 **VRED Fbx** 和 **Deltagen Fbx** 导入工具：
+
+![](datasmith-import-vred-deltagen.png "datasmith-import-vred-deltagen.png")
+
+有关详细信息，请参阅[将Datasmith与Deltagen和VRED搭配使用](Enterprise/Datasmith/SoftwareInteropGuides/DeltagenVRED)。
+
+### 导入AxF文件（抢先体验）
+
+您现在可以使用Datasmith导入[Pantone X-RITE Appearance eXchange格式（AxF）](https://www.xrite.com/categories/formulation-and-quality-assurance-software/appearance-exchange-format-axf)的文件。使用新的 **MDL** 导入工具：
+
+![](datasmith-import-mdl.png "datasmith-import-mdl.png")
+
+与其他类型的Datasmith导入一样，您会获得一个新的实例化材质资源，其设置与导入文件完全一致，并且它会公开您可以用来在虚幻中调整新材质的设置。
+
+## 核心引擎中的相关功能
+
+除了本页概述的特定于虚幻工作室订户的功能之外，该版本虚幻引擎还包含面向所有用户提供的功能，或许包括您特别感兴趣的功能：
+
+*   [nDisplay：灵活的多显示屏渲染](Support/Builds/ReleaseNotes/4_20#new:ndisplayflexible,multi-displayrendering)  
+    使用虚幻在投影墙和CAVE虚拟现实装置上渲染的理想选择！
+*   [Autodesk Shotgun集成](Support/Builds/ReleaseNotes/4_20#new:shotgunintegration_earlyaccess_)
+*   [ProxyLOD改进](Support/Builds/ReleaseNotes/4_20#new:proxylodimprovements)
+*   [面向Sequencer的Final Cut Pro 7 XML导入/导出](Support/Builds/ReleaseNotes/4_20#new:finalcutpro7xmlimport/exportinsequencer)
+*   [矩形照明](Support/Builds/ReleaseNotes/4_20#new:rectangulararealights)
+*   [针对LOD和碰撞改进了对静态网格体的脚本访问](Support/Builds/ReleaseNotes/4_20#new:improvedscriptaccesstostaticmeshesforlodsandcollisions)
+*   [通过FBX导入资源元数据](Support/Builds/ReleaseNotes/4_20#new:importassetmetadatathroughfbx)
+*   [影院效果景深](Support/Builds/ReleaseNotes/4_20#new:cinematicdepthoffield)
+
+有关引擎中的所有新功能的详细信息，请参阅[虚幻引擎4.20发行说明](Support/Builds/ReleaseNotes/4_20)。
+
+## 更新的插件
+
+为支持上述所列的一些新功能和解决其他小错误，我们还更新了3ds Max的Datasmith导出工具插件。别忘了更新！
+
+[在此](https://www.unrealengine.com/en-US/studio/downloads)下载最新版本。有关安装说明，请参阅[安装针对3ds Max的Datasmith导出工具插件](Enterprise/Datasmith/SoftwareInteropGuides/3dsMax/InstallingExporterPlugin)。

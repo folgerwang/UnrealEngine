@@ -1,26 +1,31 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "Render/Devices/QuadBufferStereo/DisplayClusterDeviceQuadBufferStereoOpenGL.h"
+#include "Render/Devices/DisplayClusterDeviceMonoscopicBase.h"
 #include "Render/Devices/DisplayClusterDeviceInternals.h"
 
 
 /**
- * Monoscopic emulation device (OpenGL 3 and 4)
+ * Monoscopic render device (OpenGL3, OpenGL4)
  */
-class FDisplayClusterDeviceMonoscopicOpenGL : public FDisplayClusterDeviceQuadBufferStereoOpenGL
+class FDisplayClusterDeviceMonoscopicOpenGL
+	: public FDisplayClusterDeviceMonoscopicBase
 {
 public:
 	FDisplayClusterDeviceMonoscopicOpenGL();
 	virtual ~FDisplayClusterDeviceMonoscopicOpenGL();
 
-public:
-	//////////////////////////////////////////////////////////////////////////////////////////////
-	// IStereoRendering
-	//////////////////////////////////////////////////////////////////////////////////////////////
-	virtual int32 GetDesiredNumberOfViews(bool bStereoRequested) const override
-	{ return 1; }
+private:
+	void SwapBuffers(FOpenGLViewport* pOglViewport, int32& InOutSyncInterval);
+
+	// Set up swap interval for upcoming buffer swap
+	void UpdateSwapInterval(int32 swapInt) const;
+
+	// Implementation of swap policies
+	void internal_SwapBuffersPolicyNone(FOpenGLViewport* pOglViewport);
+	void internal_SwapBuffersPolicySoftSwapSync(FOpenGLViewport* pOglViewport);
+	void internal_SwapBuffersPolicyNvSwapSync(FOpenGLViewport* pOglViewport);
 
 protected:
 	virtual bool Present(int32& InOutSyncInterval) override;

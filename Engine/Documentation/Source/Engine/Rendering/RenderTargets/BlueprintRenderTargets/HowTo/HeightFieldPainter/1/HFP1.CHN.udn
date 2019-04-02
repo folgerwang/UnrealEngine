@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3259022
+﻿INTSourceChangelist:3782314
 availability:Public
 title:1.项目设置
 description:了解创建高度图绘制器的项目设置。
@@ -16,6 +16,7 @@ checkpoint:HFP
 
 该部分中我们将详细了解项目关卡的新建方法。
 
+(#ProjectSetup)
 ## 项目设置
 开始为高度场绘制器创建和设置必需的 Actor 时，首先需要创建并设置一个 **Gamemode Override**。在以下部分中，我们将查看如何在项目中完成此操作。
 
@@ -25,6 +26,7 @@ checkpoint:HFP
  ![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\HeightFieldPainter\HFP_PS_00.png)
 [/region]
 
+(#CreatingaNewGameMode&HUD)
 ## 新建游戏模式和 HUD
 我们需要创建和设置新游戏模式和 HUD 蓝图，为玩家提供射击准星。在以下部分中，我们将详细了解如何进行设置，使其和高度场绘制器共用。
 

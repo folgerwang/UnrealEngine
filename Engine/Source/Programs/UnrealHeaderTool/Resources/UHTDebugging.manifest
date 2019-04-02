@@ -33,7 +33,8 @@
 				".\\UHTDebugging\\TestInterface.h",
 				".\\UHTDebugging\\TestInterfaceObject.h",
 				".\\UHTDebugging\\StructOnlyHeader.h",
-				".\\UHTDebugging\\EnumOnlyHeader.h"
+				".\\UHTDebugging\\EnumOnlyHeader.h",
+				".\\UHTDebugging\\TestObjectSerializers.h"
 			],
 			"PublicHeaders": [
 			],

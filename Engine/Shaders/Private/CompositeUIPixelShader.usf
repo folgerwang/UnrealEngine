@@ -50,6 +50,10 @@ void GenerateLUTPS(
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
+#if PLATFORM_SUPPORTS_RENDERTARGET_WRITE_MASK
+Texture2D<uint> UIWriteMaskTexture;
+#endif
+
 Texture2D UITexture;
 SamplerState UISampler;
 
@@ -73,6 +77,14 @@ void Main(
 	out float4 OutColor : SV_Target0
 	)
 {
+#if PLATFORM_SUPPORTS_RENDERTARGET_WRITE_MASK
+	uint CompositeUIMask = DecodeRTWriteMaskTextureSingle(Input.Position, UIWriteMaskTexture);
+	BRANCH
+	if (CompositeUIMask == 0)
+	{
+		discard;
+	}
+#endif
 	float4 UIColor = Texture2DSample(UITexture, UISampler, Input.UV);
 	float3 SceneColor = Texture2DSample(SceneTexture, SceneSampler, Input.UV).xyz;
 

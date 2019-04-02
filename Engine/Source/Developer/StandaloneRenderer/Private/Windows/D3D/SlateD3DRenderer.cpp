@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Windows/D3D/SlateD3DRenderer.h"
 #include "Windows/D3D/SlateD3DTextureManager.h"
@@ -106,7 +106,7 @@ private:
 
 TSharedRef<FSlateFontServices> CreateD3DFontServices()
 {
-	const TSharedRef<FSlateFontCache> FontCache = MakeShareable(new FSlateFontCache(MakeShareable(new FSlateD3DFontAtlasFactory)));
+	const TSharedRef<FSlateFontCache> FontCache = MakeShareable(new FSlateFontCache(MakeShareable(new FSlateD3DFontAtlasFactory), ESlateTextureAtlasThreadId::Game));
 
 	return MakeShareable(new FSlateFontServices(FontCache, FontCache));
 }
@@ -466,11 +466,7 @@ void FSlateD3DRenderer::CreateDepthStencilBuffer( FSlateD3DViewport& Viewport )
 	DescDepth.Height = Viewport.ViewportInfo.Height;
 	DescDepth.MipLevels = 1;
 	DescDepth.ArraySize = 1;
-#if DEPTH_32_BIT_CONVERSION
-	DescDepth.Format = DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
-#else
 	DescDepth.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-#endif
 	DescDepth.SampleDesc.Count = 1;
 	DescDepth.SampleDesc.Quality = 0;
 	DescDepth.Usage = D3D11_USAGE_DEFAULT;
@@ -481,11 +477,7 @@ void FSlateD3DRenderer::CreateDepthStencilBuffer( FSlateD3DViewport& Viewport )
 	if (SUCCEEDED(Hr))
 	{
 		D3D11_DEPTH_STENCIL_VIEW_DESC DescDSV;
-#if DEPTH_32_BIT_CONVERSION
-		DescDSV.Format = DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
-#else
 		DescDSV.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-#endif
 		DescDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
 		DescDSV.Texture2D.MipSlice = 0;
 		DescDSV.Flags = 0;

@@ -1,7 +1,8 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "HeadMountedDisplayTypes.h"
 #include "RendererInterface.h"
+#include "CommonRenderResources.h"
 
 DEFINE_LOG_CATEGORY(LogHMD);
 DEFINE_LOG_CATEGORY(LogLoadingSplash);

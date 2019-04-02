@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SceneCore.h: Core scene definitions.
@@ -10,11 +10,11 @@
 #include "Templates/RefCounting.h"
 #include "HitProxies.h"
 #include "MeshBatch.h"
+#include "MeshPassProcessor.h"
 
 class FLightSceneInfo;
 class FPrimitiveSceneInfo;
 class FScene;
-class FStaticMeshDrawListBase;
 class UExponentialHeightFogComponent;
 
 /**
@@ -41,7 +41,7 @@ public:
 	bool HasTranslucentObjectShadow() const { return bHasTranslucentObjectShadow; }
 	bool HasInsetObjectShadow() const { return bHasInsetObjectShadow; }
 	bool CastsSelfShadowOnly() const { return bSelfShadowOnly; }
-	bool IsES2DynamicPointLight() const { return bES2DynamicPointLight; }
+	bool IsMobileDynamicPointLight() const { return bMobileDynamicPointLight; }
 	FLightSceneInfo* GetLight() const { return LightSceneInfo; }
 	int32 GetLightId() const { return LightId; }
 	FPrimitiveSceneInfo* GetPrimitiveSceneInfo() const { return PrimitiveSceneInfo; }
@@ -108,7 +108,7 @@ private:
 	uint32 bSelfShadowOnly : 1;
 
 	/** True this is an ES2 dynamic point light interaction. */
-	uint32 bES2DynamicPointLight : 1;	
+	uint32 bMobileDynamicPointLight : 1;
 
 	/** Initialization constructor. */
 	FLightPrimitiveInteraction(FLightSceneInfo* InLightSceneInfo,FPrimitiveSceneInfo* InPrimitiveSceneInfo,
@@ -123,23 +123,9 @@ private:
  * A mesh which is defined by a primitive at scene segment construction time and never changed.
  * Lights are attached and detached as the segment containing the mesh is added or removed from a scene.
  */
-class FStaticMesh : public FMeshBatch
+class FStaticMeshBatch : public FMeshBatch
 {
 public:
-
-	/**
-	 * An interface to a draw list's reference to this static mesh.
-	 * used to remove the static mesh from the draw list without knowing the draw list type.
-	 */
-	class FDrawListElementLink : public FRefCountedObject
-	{
-	public:
-		virtual bool IsInDrawList(const class FStaticMeshDrawListBase* DrawList) const = 0;
-		virtual void Remove(const bool bUnlinkMesh) = 0;
-	};
-
-	/** The screen space size to draw this primitive at */
-	float ScreenSize;
 
 	/** The render info for the primitive which created this mesh. */
 	FPrimitiveSceneInfo* PrimitiveSceneInfo;
@@ -151,14 +137,12 @@ public:
 	int32 BatchVisibilityId;
 
 	// Constructor/destructor.
-	FStaticMesh(
+	FStaticMeshBatch(
 		FPrimitiveSceneInfo* InPrimitiveSceneInfo,
 		const FMeshBatch& InMesh,
-		float InScreenSize,
 		FHitProxyId InHitProxyId
 		):
 		FMeshBatch(InMesh),
-		ScreenSize(InScreenSize),
 		PrimitiveSceneInfo(InPrimitiveSceneInfo),
 		Id(INDEX_NONE),
 		BatchVisibilityId(INDEX_NONE)
@@ -166,35 +150,78 @@ public:
 		BatchHitProxyId = InHitProxyId;
 	}
 
-	~FStaticMesh();
-
-	/** Adds a link from the mesh to its entry in a draw list. */
-	void LinkDrawList(FDrawListElementLink* Link);
-
-	/** Removes a link from the mesh to its entry in a draw list. */
-	void UnlinkDrawList(FDrawListElementLink* Link);
-
-	/** Adds the static mesh to the appropriate draw lists in a scene. */
-	void AddToDrawLists(FRHICommandListImmediate& RHICmdList, FScene* Scene);
-
-	/** Removes the static mesh from all draw lists. */
-	void RemoveFromDrawLists();
-
-	/** Returns true if the mesh is linked to the given draw list. */
-	bool IsLinkedToDrawList(const FStaticMeshDrawListBase* DrawList) const;
+	~FStaticMeshBatch();
 
 private:
-	/** Links to the draw lists this mesh is an element of. */
-	TArray<TRefCountPtr<FDrawListElementLink> > DrawListLinks;
-
 	/** Private copy constructor. */
-	FStaticMesh(const FStaticMesh& InStaticMesh):
+	FStaticMeshBatch(const FStaticMeshBatch& InStaticMesh):
 		FMeshBatch(InStaticMesh),
-		ScreenSize(InStaticMesh.ScreenSize),
 		PrimitiveSceneInfo(InStaticMesh.PrimitiveSceneInfo),
 		Id(InStaticMesh.Id),
 		BatchVisibilityId(InStaticMesh.BatchVisibilityId)
 	{}
+};
+
+/**
+ * FStaticMeshBatch data which is InitViews specific. Stored separately for cache efficiency.
+ */
+class FStaticMeshBatchRelevance
+{
+public:
+	FStaticMeshBatchRelevance(const FStaticMeshBatch& StaticMesh, float InScreenSize, bool InbSupportsCachingMeshDrawCommands)
+		: Id(StaticMesh.Id)
+		, ScreenSize(InScreenSize)
+		, CommandInfosBase(0)
+		, LODIndex(StaticMesh.LODIndex)
+		, NumElements(StaticMesh.Elements.Num())
+		, bDitheredLODTransition(StaticMesh.bDitheredLODTransition)
+		, bRequiresPerElementVisibility(StaticMesh.bRequiresPerElementVisibility)
+		, bSelectable(StaticMesh.bSelectable)
+		, CastShadow(StaticMesh.CastShadow)
+		, bUseForMaterial(StaticMesh.bUseForMaterial)
+		, bUseForDepthPass(StaticMesh.bUseForDepthPass)
+		, bUseAsOccluder(StaticMesh.bUseAsOccluder)
+		, bSupportsCachingMeshDrawCommands(InbSupportsCachingMeshDrawCommands)
+	{
+	}
+
+	/** The index of the mesh in the scene's static meshes array. */
+	int32 Id;
+
+	/** The screen space size to draw this primitive at */
+	float ScreenSize;
+
+	/** Starting offset into continuous array of command infos for this mesh in FPrimitiveSceneInfo::CachedMeshDrawCommandInfos. */
+	FMeshPassMask CommandInfosMask;
+
+	/* Every bit corresponds to one MeshPass. If bit is set, then FPrimitiveSceneInfo::CachedMeshDrawCommandInfos contains this mesh pass. */
+	uint16 CommandInfosBase;
+
+	/** LOD index of the mesh, used for fading LOD transitions. */
+	int8 LODIndex;
+
+	/** Number of elements in this mesh. */
+	uint16 NumElements;
+
+	/** Whether the mesh batch should apply dithered LOD. */
+	uint8 bDitheredLODTransition : 1;
+
+	/** Whether the mesh batch needs VertexFactory->GetStaticBatchElementVisibility to be called each frame to determine which elements of the batch are visible. */
+	uint8 bRequiresPerElementVisibility : 1;
+
+	/** Whether the mesh batch can be selected through editor selection, aka hit proxies. */
+	uint8 bSelectable : 1;
+
+	uint8 CastShadow		: 1; // Whether it can be used in shadow renderpasses.
+	uint8 bUseForMaterial	: 1; // Whether it can be used in renderpasses requiring material outputs.
+	uint8 bUseForDepthPass	: 1; // Whether it can be used in depth pass.
+	uint8 bUseAsOccluder	: 1; // User hint whether it's a good occluder.
+
+	/** Cached from vertex factory to avoid dereferencing VF in InitViews. */
+	uint8 bSupportsCachingMeshDrawCommands : 1;
+
+	/** Computes index of cached mesh draw command in FPrimitiveSceneInfo::CachedMeshDrawCommandInfos, for a given mesh pass. */
+	int32 GetStaticMeshCommandInfoIndex(EMeshPass::Type MeshPass) const;
 };
 
 /** The properties of a exponential height fog layer which are used for rendering. */
@@ -202,17 +229,25 @@ class FExponentialHeightFogSceneInfo
 {
 public:
 
+	struct FExponentialHeightFogSceneData
+	{
+		float Height;
+		float Density;
+		float HeightFalloff;
+	};
+
+	/** Number of supported individual fog settings on this ExponentialHeightFog */
+	static constexpr int NumFogs = 2;
+
 	/** The fog component the scene info is for. */
 	const UExponentialHeightFogComponent* Component;
-	float FogHeight;
-	float FogDensity;
-	float FogHeightFalloff;
+	FExponentialHeightFogSceneData FogData[NumFogs];
 	float FogMaxOpacity;
-	float StartDistance;
+	float StartDistance; 
 	float FogCutoffDistance;
 	float LightTerminatorAngle;
 	FLinearColor FogColor;
-	float DirectionalInscatteringExponent;
+	float DirectionalInscatteringExponent; 
 	float DirectionalInscatteringStartDistance;
 	FLinearColor DirectionalInscatteringColor;
 	UTextureCube* InscatteringColorCubemap;

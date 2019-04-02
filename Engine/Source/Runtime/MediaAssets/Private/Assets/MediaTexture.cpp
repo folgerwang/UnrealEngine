@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaTexture.h"
 #include "MediaAssetsPrivate.h"
@@ -39,9 +39,9 @@ public:
 
 	virtual void TickRender(FTimespan DeltaTime, FTimespan Timecode) override
 	{
-		if (Owner.IsValid())
+		if (UMediaTexture* OwnerPtr = Owner.Get())
 		{
-			Owner->TickResource(Timecode);
+			OwnerPtr->TickResource(Timecode);
 		}
 	}
 
@@ -158,9 +158,17 @@ float UMediaTexture::GetSurfaceHeight() const
 
 FGuid UMediaTexture::GetExternalTextureGuid() const
 {
-	return CurrentGuid;
+	FScopeLock Lock(&CriticalSection);
+	return CurrentRenderedGuid;
 }
 
+void UMediaTexture::SetRenderedExternalTextureGuid(const FGuid& InNewGuid)
+{
+	check(IsInRenderingThread());
+
+	FScopeLock Lock(&CriticalSection);
+	CurrentRenderedGuid = InNewGuid;
+}
 
 /* UObject interface
  *****************************************************************************/
@@ -179,12 +187,14 @@ void UMediaTexture::BeginDestroy()
 		ClockSink.Reset();
 	}
 
-	if (CurrentGuid.IsValid())
+	//Unregister the last rendered Guid
+	const FGuid LastRendered = GetExternalTextureGuid();
+	if (LastRendered.IsValid())
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(MediaTextureUnregisterGuid,
-			FGuid, Guid, CurrentGuid,
+		ENQUEUE_RENDER_COMMAND(MediaTextureUnregisterGuid)(
+			[LastRendered](FRHICommandList& RHICmdList)
 			{
-				FExternalTextureRegistry::Get().UnregisterExternalTexture(Guid);
+				FExternalTextureRegistry::Get().UnregisterExternalTexture(LastRendered);
 			});
 	}
 
@@ -300,9 +310,9 @@ void UMediaTexture::TickResource(FTimespan Timecode)
 	// set up render parameters
 	FMediaTextureResource::FRenderParams RenderParams;
 
-	if (CurrentPlayer.IsValid())
+	if (UMediaPlayer* CurrentPlayerPtr = CurrentPlayer.Get())
 	{
-		const bool PlayerActive = CurrentPlayer->IsPaused() || CurrentPlayer->IsPlaying() || CurrentPlayer->IsPreparing();
+		const bool PlayerActive = CurrentPlayerPtr->IsPaused() || CurrentPlayerPtr->IsPlaying() || CurrentPlayerPtr->IsPreparing();
 
 		if (PlayerActive)
 		{
@@ -313,8 +323,8 @@ void UMediaTexture::TickResource(FTimespan Timecode)
 			return; // retain last frame
 		}
 
-		RenderParams.Rate = CurrentPlayer->GetRate();
-		RenderParams.Time = CurrentPlayer->GetTime();
+		RenderParams.Rate = CurrentPlayerPtr->GetRate();
+		RenderParams.Time = CurrentPlayerPtr->GetTime();
 	}
 	else if (!AutoClear && (CurrentGuid == PreviousGuid))
 	{
@@ -328,25 +338,25 @@ void UMediaTexture::TickResource(FTimespan Timecode)
 	RenderParams.SrgbOutput = SRGB;
 
 	// redraw texture resource on render thread
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(MediaTextureResourceRender,
-		FMediaTextureResource*, ResourceParam, (FMediaTextureResource*)Resource,
-		FMediaTextureResource::FRenderParams, RenderParamsParam, RenderParams,
+	FMediaTextureResource* ResourceParam = (FMediaTextureResource*)Resource;
+	ENQUEUE_RENDER_COMMAND(MediaTextureResourceRender)(
+		[ResourceParam, RenderParams](FRHICommandListImmediate& RHICmdList)
 		{
-			ResourceParam->Render(RenderParamsParam);
+			ResourceParam->Render(RenderParams);
 		});
 }
 
 
 void UMediaTexture::UpdateQueue()
 {
-	if (CurrentPlayer.IsValid())
+	if (UMediaPlayer* CurrentPlayerPtr = CurrentPlayer.Get())
 	{
-		const FGuid PlayerGuid = CurrentPlayer->GetGuid();
+		const FGuid PlayerGuid = CurrentPlayerPtr->GetGuid();
 
 		if (CurrentGuid != PlayerGuid)
 		{
 			SampleQueue = MakeShared<FMediaTextureSampleQueue, ESPMode::ThreadSafe>();
-			CurrentPlayer->GetPlayerFacade()->AddVideoSampleSink(SampleQueue.ToSharedRef());
+			CurrentPlayerPtr->GetPlayerFacade()->AddVideoSampleSink(SampleQueue.ToSharedRef());
 			CurrentGuid = PlayerGuid;
 		}
 	}

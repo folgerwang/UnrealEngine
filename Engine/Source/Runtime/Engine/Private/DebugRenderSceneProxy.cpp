@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DebugRenderSceneProxy.h: Useful scene proxy for rendering non performance-critical information.
@@ -124,14 +124,14 @@ void FDebugRenderSceneProxy::GetDynamicMeshElements(const TArray<const FSceneVie
 				{
 					
 					MeshColor = new(FMemStack::Get())  FColoredMaterialRenderProxy(
-						SolidMeshMaterial->GetRenderProxy(false, false),
+						SolidMeshMaterial->GetRenderProxy(),
 						Color,
 						"GizmoColor"
 						);
 				}
 				else
 				{
-					MeshColor = new(FMemStack::Get()) FColoredMaterialRenderProxy(GEngine->DebugMeshMaterial->GetRenderProxy(false, false), Color);
+					MeshColor = new(FMemStack::Get()) FColoredMaterialRenderProxy(GEngine->DebugMeshMaterial->GetRenderProxy(), Color);
 				}
 
 				MeshColorInstances.Add(HashKey, MeshColor);

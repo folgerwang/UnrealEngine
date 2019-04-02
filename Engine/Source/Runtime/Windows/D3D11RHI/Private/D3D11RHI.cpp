@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D11RHI.cpp: Unreal D3D RHI library implementation.
@@ -42,8 +42,6 @@ void FD3D11DynamicRHI::RHIBeginFrame()
 		IntelMetricsDicoveryBeginFrame();
 	}
 #endif // INTEL_METRICSDISCOVERY
-
-	PSOPrimitiveType = PT_Num;
 }
 
 template <int32 Frequency>
@@ -66,10 +64,13 @@ void FD3D11DynamicRHI::ClearState()
 	StateCache.ClearState();
 
 	FMemory::Memzero(CurrentResourcesBoundAsSRVs, sizeof(CurrentResourcesBoundAsSRVs));
-	for (int32 Frequency = 0; Frequency < SF_NumFrequencies; Frequency++)
+	FMemory::Memzero(CurrentResourcesBoundAsVBs, sizeof(CurrentResourcesBoundAsVBs));
+	CurrentResourceBoundAsIB = nullptr;
+	for (int32 Frequency = 0; Frequency < SF_NumStandardFrequencies; Frequency++)
 	{
 		MaxBoundShaderResourcesIndex[Frequency] = INDEX_NONE;
 	}
+	MaxBoundVertexBufferIndex = INDEX_NONE;
 }
 
 void GetMipAndSliceInfoFromSRV(ID3D11ShaderResourceView* SRV, int32& MipLevel, int32& NumMips, int32& ArraySlice, int32& NumSlices)
@@ -238,6 +239,39 @@ void FD3D11DynamicRHI::InternalSetShaderResourceView(FD3D11BaseShaderResource* R
 	StateCache.SetShaderResourceView<ShaderFrequency>(SRV, ResourceIndex, SrvType);
 }
 
+void FD3D11DynamicRHI::TrackResourceBoundAsVB(FD3D11BaseShaderResource* Resource, int32 StreamIndex)
+{
+	check(StreamIndex >= 0 && StreamIndex < D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT);
+	if (Resource)
+	{
+		// We are binding a new VB.
+		// Update the max resource index to the highest bound resource index.
+		MaxBoundVertexBufferIndex = FMath::Max(MaxBoundVertexBufferIndex, StreamIndex);
+		CurrentResourcesBoundAsVBs[StreamIndex] = Resource;
+	}
+	else if (CurrentResourcesBoundAsVBs[StreamIndex] != nullptr)
+	{
+		// Unbind the resource from the slot.
+		CurrentResourcesBoundAsVBs[StreamIndex] = nullptr;
+
+		// If this was the highest bound resource...
+		if (MaxBoundVertexBufferIndex == StreamIndex)
+		{
+			// Adjust the max resource index downwards until we
+			// hit the next non-null slot, or we've run out of slots.
+			do
+			{
+				MaxBoundVertexBufferIndex--;
+			} while (MaxBoundVertexBufferIndex >= 0 && CurrentResourcesBoundAsVBs[MaxBoundVertexBufferIndex] == nullptr);
+		}
+	}
+}
+
+void FD3D11DynamicRHI::TrackResourceBoundAsIB(FD3D11BaseShaderResource* Resource)
+{
+	CurrentResourceBoundAsIB = Resource;
+}
+
 template <EShaderFrequency ShaderFrequency>
 void FD3D11DynamicRHI::ClearShaderResourceViews(FD3D11BaseShaderResource* Resource)
 {
@@ -252,7 +286,7 @@ void FD3D11DynamicRHI::ClearShaderResourceViews(FD3D11BaseShaderResource* Resour
 	}
 }
 
-void FD3D11DynamicRHI::ConditionalClearShaderResource(FD3D11BaseShaderResource* Resource)
+void FD3D11DynamicRHI::ConditionalClearShaderResource(FD3D11BaseShaderResource* Resource, bool bCheckBoundInputAssembler)
 {
 	SCOPE_CYCLE_COUNTER(STAT_D3D11ClearShaderResourceTime);
 	check(Resource);
@@ -262,6 +296,25 @@ void FD3D11DynamicRHI::ConditionalClearShaderResource(FD3D11BaseShaderResource* 
 	ClearShaderResourceViews<SF_Pixel>(Resource);
 	ClearShaderResourceViews<SF_Geometry>(Resource);
 	ClearShaderResourceViews<SF_Compute>(Resource);
+
+	if (bCheckBoundInputAssembler)
+	{
+		for (int32 ResourceIndex = MaxBoundVertexBufferIndex; ResourceIndex >= 0; --ResourceIndex)
+		{
+			if (CurrentResourcesBoundAsVBs[ResourceIndex] == Resource)
+			{
+				// Unset the vertex buffer from the device context
+				TrackResourceBoundAsVB(nullptr, ResourceIndex);
+				StateCache.SetStreamSource(nullptr, ResourceIndex, 0);
+			}
+		}
+
+		if (Resource == CurrentResourceBoundAsIB)
+		{
+			TrackResourceBoundAsIB(nullptr);
+			StateCache.SetIndexBuffer(nullptr, DXGI_FORMAT_R16_UINT, 0);
+		}
+	}
 }
 
 template <EShaderFrequency ShaderFrequency>
@@ -595,21 +648,25 @@ bool FD3DGPUProfiler::CheckGpuHeartbeat() const
 	if (GDX11NVAfterMathEnabled && bTrackingGPUCrashData)
 	{
 		GFSDK_Aftermath_Device_Status Status;
-		auto Result = GFSDK_Aftermath_GetDeviceStatus(&Status);
+		D3D11StallRHIThread();
+		GFSDK_Aftermath_Result Result = GFSDK_Aftermath_GetDeviceStatus(&Status);
+		D3D11UnstallRHIThread();
 		if (Result == GFSDK_Aftermath_Result_Success)
 		{
 			if (Status != GFSDK_Aftermath_Device_Status_Active)
 			{
 				GIsGPUCrashed = true;
 				const TCHAR* AftermathReason[] = { TEXT("Active"), TEXT("Timeout"), TEXT("OutOfMemory"), TEXT("PageFault"), TEXT("Unknown") };
-				check(Status < 5);
+				check(Status < ARRAYSIZE(AftermathReason));
 				UE_LOG(LogRHI, Error, TEXT("[Aftermath] Status: %s"), AftermathReason[Status]);
-				auto AftermathContext = D3D11RHI->GetNVAftermathContext();
+				GFSDK_Aftermath_ContextHandle AftermathContext = D3D11RHI->GetNVAftermathContext();
 
 				if (AftermathContext)
 				{
 					GFSDK_Aftermath_ContextData ContextDataOut;
+					D3D11StallRHIThread();
 					Result = GFSDK_Aftermath_GetData(1, &AftermathContext, &ContextDataOut);
+					D3D11UnstallRHIThread();
 					if (Result == GFSDK_Aftermath_Result_Success)
 					{
 						UE_LOG(LogRHI, Error, TEXT("[Aftermath] GPU Stack Dump"));

@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2690319
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:材质函数概述
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials
 Description:有关材质函数工作方式及其某些重要用法概念的概述。
 Version:4.9
+tags:Materials
 
 [REGION:banner]
 ![](matfunc_overview_banner_NEW.jpg)
@@ -28,6 +29,7 @@ Version:4.9
 ![ScreenBlendInMaterial.png](ScreenBlendInMaterial.png)(w:720)
 
 
+(#MaterialFunctionLibrary)
 ## 材质函数库
 
 创建材质函数完成后，应该将其发布到材质函数库，以方便创建材质期间进行访问。材质函数库是材质编辑器中的一个窗口，其中包含经过分类且可过滤的可用材质函数列表。这个列表包含所有已装入的函数，不过也包含所有虽然未装入但已通过内容浏览器所使用的 **内容浏览器数据库** 找到的函数。  
@@ -45,6 +47,7 @@ Version:4.9
 
 
 
+(#FunctionRelatedNodes)
 ## 与函数相关的节点
 
 下列是与材质函数相关的材质表达式节点及其用途：
@@ -59,6 +62,7 @@ Version:4.9
 * **StaticBoolParameter（静态布尔参数）**- 定义一个静态布尔参数并输出静态布尔值，以便在调用具有静态布尔输入的函数的材质中使用。此节点不会在任何内容之间切换，因此必须与 StaticSwitch（静态开关）节点配合使用。
 
 
+(#InputandOutput)
 ## 输入及输出
 
 因为材质函数是封装的节点网络，因此用户负责确保数据可流入和流出材质函数。这是通过 *FunctionInput（函数输入）*和 *FunctionOutput（函数输出）*节点进行处理的。了解这些节点对于使用材质函数十分关键。
@@ -96,6 +100,7 @@ Version:4.9
 
 
 
+(#FunctionOutputNodes)
 ### FunctionOutput（函数输出）节点
 
 
@@ -137,6 +142,7 @@ Version:4.9
 
 
 
+(#CommonProperties)
 ## 公共属性
 
 设计函数时，取消选中所有节点将显示函数自身的基本属性。 
@@ -151,6 +157,7 @@ Version:4.9
 
 
 
+(#Previewing)
 ## 预览
 
 编辑材质函数时，预览窗口将显示正在预览的节点。您可以 **右键单击** 任何节点并选择 _开始预览节点（Start Previewing Node）_，以预览截至该点为止的网络的结果。 
@@ -172,6 +179,7 @@ Version:4.9
 请注意，此数据具有名为“使用预览值作为默认值”（Use Preview Value As Default）的选项。如果启用此选项，那么每当在材质中使用此函数并且未将任何内容连接到该输入时都会使用预览值，而不会引起编译错误。这会使该输入成为可选输入，因此它显示为灰色。
 
 
+(#Parameters)
 ## 参数
 
 函数现可包含参数节点类型。这些参数可直接传递到任何材质以供使用。
@@ -195,6 +203,7 @@ Version:4.9
 
 
 
+(#Organization)
 ## 组织
 
 函数由几个人创建但由许多人使用，因此，维护良好的文档以记录函数用途以及函数输入和输出所需的值十分重要。正因为如此，函数在函数名称及输入/输出名称顶部提供了多个文档字段：
@@ -213,6 +222,7 @@ Version:4.9
 
 ![FunctionTooltip.png](FunctionTooltip.png)
 
+(#Propagation)
 ## 传播
 
 您编辑函数并单击“应用更改”（Apply Changes）时，新版本将传播到所有引用了此函数的已装入材质或函数。任何引用了此函数的未装入材质都将在下次装入时根据更改进行更新。
@@ -224,10 +234,12 @@ Version:4.9
 ![FindUsingMaterials.png](FindUsingMaterials.png)
 
 
+(#NestingFunctions)
 ## 嵌套函数
 
 函数可任意嵌套（一个函数位于另一个函数内）并链接在一起，但不得产生循环依赖关系。 
 
+(#CompileErrors)
 ## 编译错误
 
 函数内的编译错误将在使用该函数的材质内以红色突出显示 MaterialFunctionCall（材质函数调用）节点。错误消息也会指出错误在哪个函数内发生。在以下示例中，错误原因是尚未连接函数的输入。
@@ -248,6 +260,7 @@ Version:4.9
 
 
 
+(#DefaultMaterialFunctions)
 ## 默认材质函数
 
 许多材质函数已创建完毕并随虚幻引擎 4 一起提供。这些材质函数已可通过 [材质编辑器选用板](Engine/Rendering/Materials/Editor/Interface#PalettePanel) 使用。 

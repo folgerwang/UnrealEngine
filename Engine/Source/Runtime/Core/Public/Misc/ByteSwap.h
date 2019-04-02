@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -85,10 +85,20 @@ static FORCEINLINE void BYTESWAP_ORDER_TCHARARRAY (TCHAR* str)
 	#define INTEL_ORDERF(x)    (x)
 	#define INTEL_ORDER64(x)   (x)
 	#define INTEL_ORDER_TCHARARRAY(x)
+	#define NETWORK_ORDER16(x)			BYTESWAP_ORDER16(x)
+	#define NETWORK_ORDER32(x)			BYTESWAP_ORDER32(x)
+	#define NETWORK_ORDERF(x)			BYTESWAP_ORDERF(x)
+	#define NETWORK_ORDER64(x)			BYTESWAP_ORDER64(x)
+	#define NETWORK_ORDER_TCHARARRAY(x)	BYTESWAP_ORDER_TCHARARRAY(x)
 #else
 	#define INTEL_ORDER16(x)			BYTESWAP_ORDER16(x)
 	#define INTEL_ORDER32(x)			BYTESWAP_ORDER32(x)
 	#define INTEL_ORDERF(x)				BYTESWAP_ORDERF(x)
 	#define INTEL_ORDER64(x)			BYTESWAP_ORDER64(x)
 	#define INTEL_ORDER_TCHARARRAY(x)	BYTESWAP_ORDER_TCHARARRAY(x)
+	#define NETWORK_ORDER16(x)   (x)
+	#define NETWORK_ORDER32(x)   (x)
+	#define NETWORK_ORDERF(x)    (x)
+	#define NETWORK_ORDER64(x)   (x)
+	#define NETWORK_ORDER_TCHARARRAY(x)
 #endif

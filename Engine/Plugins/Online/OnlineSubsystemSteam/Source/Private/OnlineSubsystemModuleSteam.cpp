@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Misc/Paths.h"
@@ -60,7 +60,7 @@ public:
 			}
 			else
 			{
-				UE_LOG_ONLINE(Warning, TEXT("Steam API disabled!"));
+				UE_CLOG_ONLINE(IsRunningDedicatedServer() || IsRunningGame(), Warning, TEXT("Steam API disabled!"));
 				DestroySubsystem();
 			}
 

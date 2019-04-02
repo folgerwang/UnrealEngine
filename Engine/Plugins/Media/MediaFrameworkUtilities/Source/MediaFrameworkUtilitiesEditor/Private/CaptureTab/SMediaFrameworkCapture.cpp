@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CaptureTab/SMediaFrameworkCapture.h"
 
@@ -27,6 +27,8 @@
 #include "PropertyEditorModule.h"
 
 #define LOCTEXT_NAMESPACE "MediaFrameworkUtilities"
+
+TWeakPtr<SMediaFrameworkCapture> SMediaFrameworkCapture::WidgetInstance;
 
 namespace MediaFrameworkUtilities
 {
@@ -78,14 +80,47 @@ namespace MediaFrameworkUtilities
 			}
 			return FVector2D(SuperComputeDesiredSize.X, FMath::Max(SuperComputeDesiredSize.Y, ChildComputeDesiredSizeY));
 		}
+
+		void OnPrePIE()
+		{
+			for (const auto& OutputWidget : CaptureOutputWidget)
+			{
+				if (OutputWidget.IsValid())
+				{
+					OutputWidget->OnPrePIE();
+				}
+			}
+		}
+
+		void OnPostPIEStarted()
+		{
+			for (const auto& OutputWidget : CaptureOutputWidget)
+			{
+				if (OutputWidget.IsValid())
+				{
+					OutputWidget->OnPostPIEStarted();
+				}
+			}
+		}
+
+		void OnPrePIEEnded()
+		{
+			for (const auto& OutputWidget : CaptureOutputWidget)
+			{
+				if (OutputWidget.IsValid())
+				{
+					OutputWidget->OnPrePIEEnded();
+				}
+			}
+		}
 	};
 }
 
 FDelegateHandle SMediaFrameworkCapture::LevelEditorTabManagerChangedHandle;
 
-void SMediaFrameworkCapture::RegisterNomadTabSpawner()
+void SMediaFrameworkCapture::RegisterNomadTabSpawner(TSharedRef<FWorkspaceItem> InWorkspaceItem)
 {
-	auto RegisterTabSpawner = []()
+	auto RegisterTabSpawner = [InWorkspaceItem]()
 	{
 		FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>(MediaFrameworkUtilities::LevelEditorModuleName);
 		TSharedPtr<FTabManager> LevelEditorTabManager = LevelEditorModule.GetLevelEditorTabManager();
@@ -93,8 +128,8 @@ void SMediaFrameworkCapture::RegisterNomadTabSpawner()
 		LevelEditorTabManager->RegisterTabSpawner(MediaFrameworkUtilities::MediaFrameworkUtilitiesApp, FOnSpawnTab::CreateStatic(&MediaFrameworkUtilities::CreateMediaFrameworkCaptureCameraViewportTab))
 			.SetDisplayName(LOCTEXT("TabTitle", "Media Capture"))
 			.SetTooltipText(LOCTEXT("TooltipText", "Displays Capture Camera Viewport and Render Target."))
-			.SetGroup(WorkspaceMenu::GetMenuStructure().GetLevelEditorCategory())
-			.SetIcon(FSlateIcon(FMediaFrameworkUtilitiesEditorStyle::GetStyleSetName(), "CaptureCameraViewport_Capture.Small"));
+			.SetGroup(InWorkspaceItem)
+			.SetIcon(FSlateIcon(FMediaFrameworkUtilitiesEditorStyle::GetStyleSetName(), "TabIcons.MediaCapture.Small"));
 	};
 
 	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
@@ -127,20 +162,39 @@ void SMediaFrameworkCapture::UnregisterNomadTabSpawner()
 	}
 }
 
+TSharedPtr<SMediaFrameworkCapture> SMediaFrameworkCapture::GetPanelInstance()
+{
+	return SMediaFrameworkCapture::WidgetInstance.Pin();
+}
+
 SMediaFrameworkCapture::~SMediaFrameworkCapture()
 {
 	FCoreUObjectDelegates::OnPreObjectPropertyChanged.RemoveAll(this);
+	FEditorDelegates::OnAssetsDeleted.RemoveAll(this);
 	GEngine->OnLevelActorDeleted().RemoveAll(this);
 	FEditorDelegates::MapChange.RemoveAll(this);
-	FEditorDelegates::OnAssetsDeleted.RemoveAll(this);
+	FEditorDelegates::PrePIEEnded.RemoveAll(this);
+	FEditorDelegates::PostPIEStarted.RemoveAll(this);
+	FEditorDelegates::PreBeginPIE.RemoveAll(this);
 	EnabledCapture(false);
 }
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void SMediaFrameworkCapture::Construct(const FArguments& InArgs)
 {
-	bIsCapturing = false;
+	WidgetInstance = StaticCastSharedRef<SMediaFrameworkCapture>(AsShared());
 
+	bIsCapturing = false;
+	bIsInPIESession = false;
+
+	if (GEditor != nullptr)
+	{
+		bIsInPIESession = GEditor->PlayWorld != nullptr || GIsPlayInEditorWorld;
+	}
+
+	FEditorDelegates::PreBeginPIE.AddSP(this, &SMediaFrameworkCapture::OnPrePIE);
+	FEditorDelegates::PostPIEStarted.AddSP(this, &SMediaFrameworkCapture::OnPostPIEStarted);
+	FEditorDelegates::PrePIEEnded.AddSP(this, &SMediaFrameworkCapture::OnPrePIEEnded);
 	FEditorDelegates::MapChange.AddSP(this, &SMediaFrameworkCapture::OnMapChange);
 	GEngine->OnLevelActorDeleted().AddSP(this, &SMediaFrameworkCapture::OnLevelActorsRemoved);
 	FEditorDelegates::OnAssetsDeleted.AddSP(this, &SMediaFrameworkCapture::OnAssetsDeleted);
@@ -169,18 +223,21 @@ void SMediaFrameworkCapture::Construct(const FArguments& InArgs)
 		SNew(SVerticalBox)
 		+ SVerticalBox::Slot()
 		.AutoHeight()
-		.Padding(FMargin(0.0f, 4.0f, 0.0f, 0.0f))
+		.Padding(FMargin(2.f))
 		[
 			MakeToolBar()
 		]
 		+ SVerticalBox::Slot()
-		.Padding(FMargin(0.0f, 4.0f, 0.0f, 0.0f))
+		.FillHeight(1.f)
+		.Padding(FMargin(2.f))
 		[
-			SNew(SSplitter)
-			.Orientation(EOrientation::Orient_Vertical)
+			SAssignNew(Splitter, SSplitter)
+			.Orientation(GetDefault<UMediaFrameworkMediaCaptureSettings>()->bIsVerticalSplitterOrientation ? EOrientation::Orient_Vertical : EOrientation::Orient_Horizontal)
 			+ SSplitter::Slot()
 			[
 				SNew(SBorder)
+				.Padding(FMargin(3))
+				.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
 				.IsEnabled_Lambda([this]() { return !IsCapturing(); })
 				[
 					DetailView.ToSharedRef()
@@ -188,10 +245,15 @@ void SMediaFrameworkCapture::Construct(const FArguments& InArgs)
 			]
 			+ SSplitter::Slot()
 			[
-				SNew(SScrollBox)
-				+ SScrollBox::Slot()
+				SNew(SBorder)
+				.Padding(FMargin(3))
+				.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
 				[
-					CaptureBoxes.ToSharedRef()
+					SNew(SScrollBox)
+					+ SScrollBox::Slot()
+					[
+						CaptureBoxes.ToSharedRef()
+					]
 				]
 			]
 		]
@@ -210,14 +272,14 @@ TSharedRef<class SWidget> SMediaFrameworkCapture::MakeToolBar()
 				{
 					EnabledCapture(true);
 				}),
-				FCanExecuteAction::CreateLambda([=]
+				FCanExecuteAction::CreateLambda([this]
 				{
-					return CanEnableViewport() && !bIsCapturing;
+					return CanEnableViewport() && !IsCapturing();
 				})),
 			NAME_None,
 			LOCTEXT("Output_Label", "Capture"),
 			LOCTEXT("Output_ToolTip", "Capture the camera's viewport and the render target."),
-			FSlateIcon(FMediaFrameworkUtilitiesEditorStyle::GetStyleSetName(), "CaptureCameraViewport_Capture")
+			FSlateIcon(FMediaFrameworkUtilitiesEditorStyle::GetStyleSetName(), "MediaCapture.Capture")
 			);
 		ToolBarBuilder.AddToolBarButton(
 			FUIAction(
@@ -227,14 +289,29 @@ TSharedRef<class SWidget> SMediaFrameworkCapture::MakeToolBar()
 				}),
 				FCanExecuteAction::CreateLambda([this]
 				{
-					return bIsCapturing;
+					return IsCapturing();
 				})
 			),
 			NAME_None,
 			LOCTEXT("Stop_Label", "Stop"),
 			LOCTEXT("Stop_ToolTip", "Stop the capturing of the camera's viewport and the render target."),
-			FSlateIcon(FMediaFrameworkUtilitiesEditorStyle::GetStyleSetName(), "CaptureCameraViewport_Stop")
+			FSlateIcon(FMediaFrameworkUtilitiesEditorStyle::GetStyleSetName(), "MediaCapture.Stop")
 			);
+	}
+	ToolBarBuilder.EndSection();
+
+	ToolBarBuilder.BeginSection("Options");
+	{
+		FUIAction OpenSettingsMenuAction;
+		OpenSettingsMenuAction.CanExecuteAction = FCanExecuteAction::CreateLambda([this] { return !IsCapturing(); });
+
+		ToolBarBuilder.AddComboButton(
+			OpenSettingsMenuAction,
+			FOnGetContent::CreateRaw(this, &SMediaFrameworkCapture::CreateSettingsMenu),
+			LOCTEXT("Settings_Label", "Settings"),
+			LOCTEXT("Settings_ToolTip", "Settings"),
+			FSlateIcon(FMediaFrameworkUtilitiesEditorStyle::GetStyleSetName(), "MediaCapture.Settings")
+		);
 	}
 	ToolBarBuilder.EndSection();
 
@@ -242,10 +319,40 @@ TSharedRef<class SWidget> SMediaFrameworkCapture::MakeToolBar()
 	return ToolBarBuilder.MakeWidget();
 }
 
+TSharedRef<SWidget> SMediaFrameworkCapture::CreateSettingsMenu()
+{
+	FMenuBuilder SettingsMenuBuilder(true, nullptr);
+
+	{
+		SettingsMenuBuilder.AddMenuEntry(
+			LOCTEXT("SplitterOrientation_Label", "Vertical Split"),
+			LOCTEXT("SplitterOrientation_Tooltip", "Split the captures vertically or horizontally."),
+			FSlateIcon(),
+			FUIAction(
+				FExecuteAction::CreateLambda([this]
+				{
+					GetMutableDefault<UMediaFrameworkMediaCaptureSettings>()->bIsVerticalSplitterOrientation = !GetDefault<UMediaFrameworkMediaCaptureSettings>()->bIsVerticalSplitterOrientation;
+					Splitter->SetOrientation(GetDefault<UMediaFrameworkMediaCaptureSettings>()->bIsVerticalSplitterOrientation ? EOrientation::Orient_Vertical : EOrientation::Orient_Horizontal);
+					GetMutableDefault<UMediaFrameworkMediaCaptureSettings>()->SaveConfig();
+				}),
+				FCanExecuteAction(),
+				FIsActionChecked::CreateLambda([this]
+				{
+					return GetDefault<UMediaFrameworkMediaCaptureSettings>()->bIsVerticalSplitterOrientation;
+				})
+			),
+			NAME_None,
+			EUserInterfaceActionType::ToggleButton
+			);
+	}
+
+	return SettingsMenuBuilder.MakeWidget();
+}
+
 bool SMediaFrameworkCapture::CanEnableViewport() const
 {
 	UMediaFrameworkWorldSettingsAssetUserData* AssetUserData = FindMediaFrameworkAssetUserData();
-	bool bEnabled = AssetUserData && (AssetUserData->ViewportCaptures.Num() || AssetUserData->RenderTargetCaptures.Num());
+	bool bEnabled = AssetUserData && (AssetUserData->ViewportCaptures.Num() || AssetUserData->RenderTargetCaptures.Num() || AssetUserData->CurrentViewportMediaOutput.MediaOutput != nullptr);
 	if (bEnabled)
 	{
 		for (const FMediaFrameworkCaptureCameraViewportCameraOutputInfo& Info : AssetUserData->ViewportCaptures)
@@ -307,15 +414,16 @@ void SMediaFrameworkCapture::EnabledCapture(bool bEnabled)
 				}
 			}
 
-			TSharedPtr<SMediaFrameworkCaptureCameraViewportWidget> CaptureCamaraViewport = SNew(SMediaFrameworkCaptureCameraViewportWidget)
+			TSharedPtr<SMediaFrameworkCaptureCameraViewportWidget> CaptureCameraViewport = SNew(SMediaFrameworkCaptureCameraViewportWidget)
 				.Owner(SharedThis(this))
 				.PreviewActors(InfoPreviewActors)
 				.MediaOutput(Info.MediaOutput)
+				.CaptureOptions(Info.CaptureOptions)
 				.ViewMode(Info.ViewMode);
 
-			CaptureBoxes->AddCaptureWidget(CaptureCamaraViewport);
-			CaptureCamaraViewport->StartOutput();
-			CaptureCameraViewports.Add(CaptureCamaraViewport);
+			CaptureBoxes->AddCaptureWidget(CaptureCameraViewport);
+			CaptureCameraViewport->StartOutput();
+			CaptureCameraViewports.Add(CaptureCameraViewport);
 		}
 
 		for (const FMediaFrameworkCaptureRenderTargetCameraOutputInfo& Info : AssetUserData->RenderTargetCaptures)
@@ -323,11 +431,24 @@ void SMediaFrameworkCapture::EnabledCapture(bool bEnabled)
 			TSharedPtr<SMediaFrameworkCaptureRenderTargetWidget> CaptureRenderTarget = SNew(SMediaFrameworkCaptureRenderTargetWidget)
 				.Owner(SharedThis(this))
 				.MediaOutput(Info.MediaOutput)
+				.CaptureOptions(Info.CaptureOptions)
 				.RenderTarget(Info.RenderTarget);
 
 			CaptureBoxes->AddCaptureWidget(CaptureRenderTarget);
 			CaptureRenderTarget->StartOutput();
 			CaptureRenderTargets.Add(CaptureRenderTarget);
+		}
+
+		if (AssetUserData->CurrentViewportMediaOutput.MediaOutput != nullptr)
+		{
+			SAssignNew(CaptureCurrentViewport, SMediaFrameworkCaptureCurrentViewportWidget)
+				.Owner(SharedThis(this))
+				.MediaOutput(AssetUserData->CurrentViewportMediaOutput.MediaOutput)
+				.CaptureOptions(AssetUserData->CurrentViewportMediaOutput.CaptureOptions)
+				.ViewMode(AssetUserData->CurrentViewportMediaOutput.ViewMode);
+
+			CaptureBoxes->AddCaptureWidget(CaptureCurrentViewport);
+			CaptureCurrentViewport->StartOutput();
 		}
 	}
 	else
@@ -337,14 +458,21 @@ void SMediaFrameworkCapture::EnabledCapture(bool bEnabled)
 			CaptureBoxes->RemoveCaptureWidget(CaptureCameraViewport.ToSharedRef());
 		}
 		CaptureCameraViewports.Reset();
+
 		for (TSharedPtr<SMediaFrameworkCaptureRenderTargetWidget> CaptureRenderTarget : CaptureRenderTargets)
 		{
 			CaptureBoxes->RemoveCaptureWidget(CaptureRenderTarget.ToSharedRef());
 		}
 		CaptureRenderTargets.Reset();
+
+		if (CaptureCurrentViewport.IsValid())
+		{
+			CaptureBoxes->RemoveCaptureWidget(CaptureCurrentViewport);
+		}
+		CaptureCurrentViewport.Reset();
 	}
 
-	bIsCapturing = CaptureCameraViewports.Num() > 0 || CaptureRenderTargets.Num() > 0;
+	bIsCapturing = CaptureCameraViewports.Num() > 0 || CaptureRenderTargets.Num() > 0 || CaptureCurrentViewport.IsValid();
 }
 
 UMediaFrameworkWorldSettingsAssetUserData* SMediaFrameworkCapture::FindMediaFrameworkAssetUserData() const
@@ -446,5 +574,34 @@ void SMediaFrameworkCapture::OnObjectPreEditChange(UObject* Object, const FEditP
 		EnabledCapture(false);
 	}
 }
+
+void SMediaFrameworkCapture::OnPrePIE(bool)
+{
+	if (CaptureBoxes.IsValid())
+	{
+		CaptureBoxes->OnPrePIE();
+	}
+}
+
+void SMediaFrameworkCapture::OnPostPIEStarted(bool)
+{
+	bIsInPIESession = true;
+
+	if (CaptureBoxes.IsValid())
+	{
+		CaptureBoxes->OnPostPIEStarted();
+	}
+}
+
+void SMediaFrameworkCapture::OnPrePIEEnded(bool)
+{
+	bIsInPIESession = false;
+
+	if (CaptureBoxes.IsValid())
+	{
+		CaptureBoxes->OnPrePIEEnded();
+	}
+}
+
 
 #undef LOCTEXT_NAMESPACE

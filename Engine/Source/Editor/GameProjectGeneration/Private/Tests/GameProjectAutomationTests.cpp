@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "HAL/FileManager.h"
@@ -87,7 +87,7 @@ namespace GameProjectAutomationUtils
 		bool bRemoveCreatedProjects = true;		
 		OutCreatedProjects = 0;
 		OutMatchedProjects = 0;
-		UEnum* SourceCategoryEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EContentSourceCategory"));
+		UEnum* SourceCategoryEnum = StaticEnum<EContentSourceCategory>();
 
 		// The category name in the FTemplateItem is not the same as the enum definition EContentSourceCategory - convert it
 		FName CategoryName;
@@ -295,9 +295,8 @@ bool FBuildPromotionNewProjectMapTest::RunTest(const FString& Parameters)
 
 	//Add some bsp and a player start
 	GEditor->Exec(CurrentWorld, TEXT("BRUSH Scale 1 1 1"));
-	for (int32 i = 0; i < GEditor->LevelViewportClients.Num(); i++)
+	for(FLevelEditorViewportClient* ViewportClient : GEditor->GetLevelViewportClients())
 	{
-		FLevelEditorViewportClient* ViewportClient = GEditor->LevelViewportClients[i];
 		if (!ViewportClient->IsOrtho())
 		{
 			ViewportClient->SetViewLocation(FVector(176, 2625, 2075));

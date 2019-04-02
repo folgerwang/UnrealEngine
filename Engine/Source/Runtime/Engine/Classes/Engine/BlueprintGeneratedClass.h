@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -19,6 +19,7 @@ class UInheritableComponentHandler;
 class UTimelineTemplate;
 
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Persistent Uber Graph Frame memory"), STAT_PersistentUberGraphFrameMemory, STATGROUP_Memory, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("BPComp Instancing Fast Path memory"), STAT_BPCompInstancingFastPathMemory, STATGROUP_Memory, );
 
 class UEdGraphPin;
 
@@ -76,18 +77,13 @@ public:
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////
-// WARNING: Following struct layout definition repeated in ScriptCore.cpp as
-// FPointerToUberGraphFrameCoreUObject to work around reflection generation issues:
+
 USTRUCT()
 struct FPointerToUberGraphFrame
 {
 	GENERATED_USTRUCT_BODY()
 
 public:
-	//////////////////////////////////////////////////////////////////////////
-	// WARNING: This struct layout definition repeated in ScriptCore.cpp as
-	// FPointerToUberGraphFrameCoreUObject to work around reflection generation issues:
 	uint8* RawPointer;
 #if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
 	uint32 UberGraphFunctionKey;
@@ -108,9 +104,7 @@ public:
 		check(!RawPointer);
 	}
 };
-// WARNING: Preceding struct layout definition repeated in ScriptCore.cpp as
-// FPointerToUberGraphFrameCoreUObject to work around reflection generation issues!
-//////////////////////////////////////////////////////////////////////////
+
 
 template<>
 struct TStructOpsTypeTraits<FPointerToUberGraphFrame> : public TStructOpsTypeTraitsBase2<FPointerToUberGraphFrame>
@@ -570,6 +564,9 @@ struct ENGINE_API FBlueprintCookedComponentInstancingData
 		ComponentTemplateFlags = RF_NoFlags;
 	}
 
+	/** Destructor. */
+	~FBlueprintCookedComponentInstancingData();
+
 	/** Builds/returns the internal property list that's used for serialization. This is a linked list of UProperty references. */
 	const FCustomPropertyListNode* GetCachedPropertyList() const;
 
@@ -608,6 +605,10 @@ public:
 	UPROPERTY()
 	uint8 bHasNativizedParent:1;
 
+	/** Flag used to indicate if this class has data to support the component instancing fast path. */
+	UPROPERTY()
+	uint8 bHasCookedComponentInstancingData:1;
+
 private:
 	/** Flag to make sure the custom property list has been initialized */
 	uint8 bCustomPropertyListForPostConstructionInitialized:1;
@@ -632,6 +633,9 @@ public:
 	/** Stores data to override (in children classes) components (created by SCS) from parent classes */
 	UPROPERTY()
 	class UInheritableComponentHandler* InheritableComponentHandler;
+
+	UPROPERTY()
+	UStructProperty* UberGraphFramePointerProperty;
 
 	UPROPERTY()
 	UFunction* UberGraphFunction;
@@ -694,13 +698,14 @@ public:
 	// UClass interface
 #if WITH_EDITOR
 	virtual UClass* GetAuthoritativeClass() override;
-	virtual void ConditionalRecompileClass(TArray<UObject*>* ObjLoaded) override;
+	virtual void ConditionalRecompileClass(FUObjectSerializeContext* InLoadContext) override;
 	virtual void FlushCompilationQueueForLevel() override;
 	virtual UObject* GetArchetypeForCDO() const override;
 #endif //WITH_EDITOR
 	virtual void SerializeDefaultObject(UObject* Object, FArchive& Ar) override;
 	virtual void PostLoadDefaultObject(UObject* Object) override;
 	virtual bool IsFunctionImplementedInBlueprint(FName InFunctionName) const override;
+	virtual uint8* GetPersistentUberGraphFrame(UObject* Obj, UFunction* FuncToCheck) const override;
 	virtual void CreatePersistentUberGraphFrame(UObject* Obj, bool bCreateOnlyIfEmpty = false, bool bSkipSuperClass = false, UClass* OldClass = nullptr) const override;
 	virtual void DestroyPersistentUberGraphFrame(UObject* Obj, bool bSkipSuperClass = false) const override;
 	virtual void Link(FArchive& Ar, bool bRelinkExistingProperties) override;
@@ -759,6 +764,9 @@ public:
 
 	static FName GetUberGraphFrameName();
 	static bool UsePersistentUberGraphFrame();
+
+	/** Whether or not to use "fast path" component instancing. */
+	bool UseFastPathComponentInstancing();
 
 #if WITH_EDITORONLY_DATA
 	FBlueprintDebugData DebugData;

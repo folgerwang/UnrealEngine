@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3478014
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:1.项目设置
 Crumbs: %ROOT%, Engine, Engine/UMG, Engine/UMG/HowTo
@@ -38,6 +38,7 @@ type:how-to
 此指南中使用的是 **蓝图第三人称模板**。也可使用任意项目。 
 [/REGION]
 
+(#Steps)
 ## 步骤
 
 1.	在 **Content Browser** 中创建三个 **控件蓝图**，名为：**DragWidget**、**HealthBar** 和 **HUD**。 

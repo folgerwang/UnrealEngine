@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2591123
+﻿INTSourceChangelist:3487496
 Availability:NoPublish
 Title:关卡编辑器操作
 Crumbs:
@@ -97,12 +97,12 @@ Engine/UI/LevelEditor/InEditorTesting/KeepSimulationChanges
 对关卡中所选 Actor 进行的属性修改将被弃置，将 Actor 重置为蓝图中定义的默认设置。
 [/EXCERPT:ResetToBlueprintDefaults]
 
-[EXCERPT:ActorUsesExperimentalClass]
+[EXCERPT:ObjectUsesExperimentalClass]
 ###Here be dragons!
 
 ![](HereBeDragons.png)
 
-此 Actor 使用一个或多个“实验性”类。
+此对象使用一个或多个“实验性”类。
 
 它们完全是不支持、尚未公开的原型：
 * 在之后的版本中可能会出现极大变动，甚至被弃置。
@@ -111,12 +111,12 @@ Engine/UI/LevelEditor/InEditorTesting/KeepSimulationChanges
 * 它们未来可能进入“早期使用”或“完全支持”阶段。
 
 使用有风险！
-[/EXCERPT:ActorUsesExperimentalClass]
+[/EXCERPT:ObjectUsesExperimentalClass]
 
-[EXCERPT:ActorUsesEarlyAccessClass]
+[EXCERPT:ObjectUsesEarlyAccessClass]
 ###Early Access
 
-此 Actor 使用一个或多个“早期使用”类。
+此对象使用一个或多个“早期使用”类。
 
 虽然并不建议用于生产，但这些功能已经渡过“实验性”阶段，并作为预览内容开放：
 * 我们将尝试向前兼容您创建的内容。
@@ -124,33 +124,4 @@ Engine/UI/LevelEditor/InEditorTesting/KeepSimulationChanges
 * 代码仍在早期阶段，无法满足所需的优化/质量标准。
 * 可能还未准备文档或范例。
 * 可用于生产后，它们将被移出“早期使用”。
-[/EXCERPT:ActorUsesEarlyAccessClass]
-
-[EXCERPT:ComponentUsesExperimentalClass]
-###Here be dragons!
-
-![](HereBeDragons.png)
-
-此组件使用一个或多个“实验性”类。
-
-它们完全是不支持、尚未公开的原型：
-* 在之后的版本中可能会出现极大变动，甚至被弃置。
-* 无法保证数据或代码的兼容性。
-* 代码仍在早期阶段，可能引起编辑器的不稳定或崩溃。
-* 它们未来可能进入“早期使用”或“完全支持”阶段。
-
-使用有风险！
-[/EXCERPT:ComponentUsesExperimentalClass]
-
-[EXCERPT:ComponentUsesEarlyAccessClass]
-###Early Access
-
-此组件使用一个或多个“早期使用”类。
-
-虽然并不建议用于生产，但这些功能已经渡过“实验性”阶段，并作为预览内容开放：
-* 我们将尝试向前兼容您创建的内容。
-* 未来类可能发生重大变更。
-* 代码仍在早期阶段，无法满足所需的优化/质量标准。
-* 可能还未准备文档或范例。
-* 可用于生产后，它们将被移出“早期使用”。
-[/EXCERPT:ComponentUsesEarlyAccessClass]
+[/EXCERPT:ObjectUsesEarlyAccessClass]

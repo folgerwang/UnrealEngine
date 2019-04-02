@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -180,6 +180,8 @@ public:
 	virtual void BeginCameraMovement(bool bHasMovement) override;
 	virtual void EndCameraMovement() override;
 	virtual void SetVREditView(bool bGameViewEnable) override;
+	virtual bool GetPivotForOrbit(FVector& Pivot) const override;
+	virtual bool ShouldScaleCameraSpeedByDistance() const override;
 
 	virtual bool OverrideHighResScreenshotCaptureRegion(FIntRect& OutCaptureRegion) override;
 
@@ -188,6 +190,10 @@ public:
 	{
 		bEditorCameraCut = true;
 		bWasEditorCameraCut = false;
+	}
+	bool GetIsCameraCut() const
+	{
+		return bEditorCameraCut;
 	}
 
 	/** 
@@ -443,7 +449,7 @@ public:
 	 * Find a view component to use for the specified actor. Prioritizes selected 
 	 * components first, followed by camera components (then falls through to the first component that implements GetEditorPreviewInfo)
 	 */
-	static USceneComponent* FindViewComponentForActor(AActor const* Actor);
+	static UActorComponent* FindViewComponentForActor(AActor const* Actor);
 
 	/** 
 	 * Find the camera component that is driving this viewport, in the following order of preference:
@@ -577,14 +583,20 @@ protected:
 	void OnActorMoved(AActor* InActor);
 
 	/** FEditorViewportClient Interface*/
-	virtual void UpdateLinkedOrthoViewports( bool bInvalidate = false ) override;
+
+public:
+
+	virtual void UpdateLinkedOrthoViewports(bool bInvalidate = false) override;
 	virtual ELevelViewportType GetViewportType() const override;
-	virtual void SetViewportType( ELevelViewportType InViewportType ) override;
+	virtual void SetViewportType(ELevelViewportType InViewportType) override;
 	virtual void RotateViewportType() override;
-	virtual void OverridePostProcessSettings( FSceneView& View ) override;
-	virtual void PerspectiveCameraMoved() override;
+	virtual void OverridePostProcessSettings(FSceneView& View) override;
 	virtual bool ShouldLockPitch() const override;
-	virtual void CheckHoveredHitProxy( HHitProxy* HoveredHitProxy ) override;
+	virtual void CheckHoveredHitProxy(HHitProxy* HoveredHitProxy) override;
+
+protected:
+
+	virtual void PerspectiveCameraMoved() override;
 	virtual bool GetActiveSafeFrame(float& OutAspectRatio) const override;
 	virtual void RedrawAllViewportsIntoThisScene() override;
 
@@ -684,6 +696,9 @@ private:
 
 	/** Draw additional details for brushes in the world */
 	void DrawBrushDetails(const FSceneView* View, FPrimitiveDrawInterface* PDI);
+
+	/** Internal function for public FindViewComponentForActor, which finds a view component to use for the specified actor. */
+	static UActorComponent* FindViewComponentForActor(AActor const* Actor, TSet<AActor const*>& CheckedActors);
 
 public:
 	/** Static: List of objects we're hovering over */
@@ -786,4 +801,6 @@ private:
 
 	/** Stores the previous frame's value of bEditorCameraCut in order to reset it back to false on the next frame */
 	bool					bWasEditorCameraCut;
+
+	bool bApplyCameraSpeedScaleByDistance;
 };

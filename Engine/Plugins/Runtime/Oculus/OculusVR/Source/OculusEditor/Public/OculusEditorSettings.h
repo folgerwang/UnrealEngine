@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -30,4 +30,7 @@ public:
 	
 	UPROPERTY(config, EditAnywhere, Category = Oculus)
 	EOculusPlatform PerfToolTargetPlatform;
+
+	UPROPERTY(globalconfig, EditAnywhere, Category = Oculus)
+	bool bAddMenuOption;
 };

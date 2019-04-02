@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieSceneVisibilityTrack.h"
 #include "Sections/MovieSceneBoolSection.h"
@@ -10,6 +10,11 @@
 UMovieSceneVisibilityTrack::UMovieSceneVisibilityTrack(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {}
+
+bool UMovieSceneVisibilityTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneBoolSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneVisibilityTrack::CreateNewSection()
 {

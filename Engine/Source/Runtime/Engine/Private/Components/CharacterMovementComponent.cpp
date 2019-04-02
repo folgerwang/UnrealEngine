@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Movement.cpp: Character movement implementation
@@ -330,6 +330,16 @@ FString FCharacterMovementComponentPostPhysicsTickFunction::DiagnosticMessage()
 	return Target->GetFullName() + TEXT("[UCharacterMovementComponent::PreClothTick]");
 }
 
+FName FCharacterMovementComponentPostPhysicsTickFunction::DiagnosticContext(bool bDetailed)
+{
+	if (bDetailed)
+	{
+		return FName(*FString::Printf(TEXT("SkeletalMeshComponentClothTick/%s"), *GetFullNameSafe(Target)));
+	}
+
+	return FName(TEXT("SkeletalMeshComponentClothTick"));
+}
+
 UCharacterMovementComponent::UCharacterMovementComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -391,6 +401,7 @@ UCharacterMovementComponent::UCharacterMovementComponent(const FObjectInitialize
 	FallingLateralFriction = 0.f;
 	MaxAcceleration = 2048.0f;
 	BrakingFrictionFactor = 2.0f; // Historical value, 1 would be more appropriate.
+	BrakingSubStepTime = 1.0f / 33.0f;
 	BrakingDecelerationWalking = MaxAcceleration;
 	BrakingDecelerationFalling = 0.f;
 	BrakingDecelerationFlying = 0.f;
@@ -467,6 +478,8 @@ UCharacterMovementComponent::UCharacterMovementComponent(const FObjectInitialize
 	LastTimeStampResetServerTime = 0.f;
 
 	bEnableScopedMovementUpdates = true;
+	// Disabled by default since it can be a subtle behavior change, you should opt in if you want to accept that.
+	bEnableServerDualMoveScopedMovementUpdates = false;
 
 	bRequestedMoveUseAcceleration = true;
 	bUseRVOAvoidance = false;
@@ -1172,8 +1185,7 @@ void UCharacterMovementComponent::TickComponent(float DeltaTime, enum ELevelTick
 	SCOPED_NAMED_EVENT(UCharacterMovementComponent_TickComponent, FColor::Yellow);
 	SCOPE_CYCLE_COUNTER(STAT_CharacterMovement);
 	SCOPE_CYCLE_COUNTER(STAT_CharacterMovementTick);
-	CSV_SCOPED_TIMING_STAT(CharacterMovement, CharacterMovementTick);
-
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(CharacterMovement);
 	const FVector InputVector = ConsumeInputVector();
 	if (!HasValidData() || ShouldSkipUpdate(DeltaTime))
 	{
@@ -1218,7 +1230,11 @@ void UCharacterMovementComponent::TickComponent(float DeltaTime, enum ELevelTick
 		const bool bIsClient = (CharacterOwner->Role == ROLE_AutonomousProxy && IsNetMode(NM_Client));
 		if (bIsClient)
 		{
-			ClientUpdatePositionAfterServerUpdate();
+			FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
+			if (ClientData && ClientData->bUpdatePosition)
+			{
+				ClientUpdatePositionAfterServerUpdate();
+			}
 		}
 
 		// Allow root motion to move characters that have no controller.
@@ -1694,14 +1710,13 @@ void UCharacterMovementComponent::SimulateMovement(float DeltaSeconds)
 			Velocity = FVector::ZeroVector;
 		}
 
-		Acceleration = Velocity.GetSafeNormal();	// Not currently used for simulated movement
-		AnalogInputModifier = 1.0f;				// Not currently used for simulated movement
-
 		MaybeUpdateBasedMovement(DeltaSeconds);
 
 		// simulated pawns predict location
 		OldVelocity = Velocity;
 		OldLocation = UpdatedComponent->GetComponentLocation();
+
+		UpdateProxyAcceleration();
 
 		// May only need to simulate forward on frames where we haven't just received a new position update.
 		if (!bHandledNetUpdate || !bNetworkSkipProxyPredictionOnNetUpdate || !CharacterMovementCVars::NetEnableSkipProxyPredictionOnNetUpdate)
@@ -2083,7 +2098,7 @@ void UCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 		CurrentRootMotion.LastPreAdditiveVelocity += Adjustment;
 
 #if ROOT_MOTION_DEBUG
-		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 		{
 			if (!Adjustment.IsNearlyZero())
 			{
@@ -2117,7 +2132,7 @@ void UCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 			CurrentRootMotion.CleanUpInvalidRootMotion(DeltaSeconds, *CharacterOwner, *this);
 
 #if ROOT_MOTION_DEBUG
-			if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+			if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 			{
 				if (Velocity != VelocityBeforeCleanup)
 				{
@@ -2148,7 +2163,7 @@ void UCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 		ClearAccumulatedForces();
 
 #if ROOT_MOTION_DEBUG
-		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 		{
 			if (OldVelocity != Velocity)
 			{
@@ -2167,7 +2182,7 @@ void UCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 			CurrentRootMotion.LastPreAdditiveVelocity += Adjustment;
 
 #if ROOT_MOTION_DEBUG
-			if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+			if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 			{
 				if (!Adjustment.IsNearlyZero())
 				{
@@ -2254,7 +2269,7 @@ void UCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 					Velocity = NewVelocity;
 
 #if ROOT_MOTION_DEBUG
-					if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+					if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 					{
 						if (VelocityBeforeOverride != Velocity)
 						{
@@ -2269,7 +2284,7 @@ void UCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 		}
 
 #if ROOT_MOTION_DEBUG
-		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 		{
 			FString AdjustedDebugString = FString::Printf(TEXT("PerformMovement Velocity(%s) OldVelocity(%s)"),
 				*Velocity.ToCompactString(), *OldVelocity.ToCompactString());
@@ -3082,7 +3097,6 @@ void UCharacterMovementComponent::CalcVelocity(float DeltaTime, float Friction, 
 	float RequestedSpeed = 0.0f;
 	if (ApplyRequestedMove(DeltaTime, MaxAccel, MaxSpeed, Friction, BrakingDeceleration, RequestedAcceleration, RequestedSpeed))
 	{
-		RequestedAcceleration = RequestedAcceleration.GetClampedToMaxSize(MaxAccel);
 		bZeroRequestedAcceleration = false;
 	}
 
@@ -3104,7 +3118,8 @@ void UCharacterMovementComponent::CalcVelocity(float DeltaTime, float Friction, 
 
 	// Path following above didn't care about the analog modifier, but we do for everything else below, so get the fully modified value.
 	// Use max of requested speed and max speed if we modified the speed in ApplyRequestedMove above.
-	MaxSpeed = FMath::Max3(RequestedSpeed, MaxSpeed * AnalogInputModifier, GetMinAnalogSpeed());
+	const float MaxInputSpeed = FMath::Max(MaxSpeed * AnalogInputModifier, GetMinAnalogSpeed());
+	MaxSpeed = FMath::Max(RequestedSpeed, MaxInputSpeed);
 
 	// Apply braking or deceleration
 	const bool bZeroAcceleration = Acceleration.IsZero();
@@ -3138,11 +3153,21 @@ void UCharacterMovementComponent::CalcVelocity(float DeltaTime, float Friction, 
 		Velocity = Velocity * (1.f - FMath::Min(Friction * DeltaTime, 1.f));
 	}
 
-	// Apply acceleration
-	const float NewMaxSpeed = (IsExceedingMaxSpeed(MaxSpeed)) ? Velocity.Size() : MaxSpeed;
-	Velocity += Acceleration * DeltaTime;
-	Velocity += RequestedAcceleration * DeltaTime;
-	Velocity = Velocity.GetClampedToMaxSize(NewMaxSpeed);
+	// Apply input acceleration
+	if (!bZeroAcceleration)
+	{
+		const float NewMaxInputSpeed = IsExceedingMaxSpeed(MaxInputSpeed) ? Velocity.Size() : MaxInputSpeed;
+		Velocity += Acceleration * DeltaTime;
+		Velocity = Velocity.GetClampedToMaxSize(NewMaxInputSpeed);
+	}
+
+	// Apply additional requested acceleration
+	if (!bZeroRequestedAcceleration)
+	{
+		const float NewMaxRequestedSpeed = IsExceedingMaxSpeed(RequestedSpeed) ? Velocity.Size() : RequestedSpeed;
+		Velocity += RequestedAcceleration * DeltaTime;
+		Velocity = Velocity.GetClampedToMaxSize(NewMaxRequestedSpeed);
+	}
 
 	if (bUseRVOAvoidance)
 	{
@@ -3578,7 +3603,7 @@ void UCharacterMovementComponent::ApplyVelocityBraking(float DeltaTime, float Fr
 	// subdivide braking to get reasonably consistent results at lower frame rates
 	// (important for packet loss situations w/ networking)
 	float RemainingTime = DeltaTime;
-	const float MaxTimeStep = (1.0f / 33.0f);
+	const float MaxTimeStep = FMath::Clamp(BrakingSubStepTime, 1.0f / 75.0f, 1.0f / 20.0f);
 
 	// Decelerate to brake to a stop
 	const FVector RevAccel = (bZeroBraking ? FVector::ZeroVector : (-BrakingDeceleration * Velocity.GetSafeNormal()));
@@ -3674,7 +3699,7 @@ void UCharacterMovementComponent::RestorePreAdditiveRootMotionVelocity()
 	if( CurrentRootMotion.bIsAdditiveVelocityApplied )
 	{
 #if ROOT_MOTION_DEBUG
-		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 		{
 			FString AdjustedDebugString = FString::Printf(TEXT("RestorePreAdditiveRootMotionVelocity Velocity(%s) LastPreAdditiveVelocity(%s)"), 
 				*Velocity.ToCompactString(), *CurrentRootMotion.LastPreAdditiveVelocity.ToCompactString());
@@ -3709,7 +3734,7 @@ void UCharacterMovementComponent::ApplyRootMotionToVelocity(float deltaTime)
 		bAppliedRootMotion = true;
 
 #if ROOT_MOTION_DEBUG
-		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 		{
 			FString AdjustedDebugString = FString::Printf(TEXT("ApplyRootMotionToVelocity HasOverrideVelocity Velocity(%s)"),
 				*Velocity.ToCompactString());
@@ -3727,7 +3752,7 @@ void UCharacterMovementComponent::ApplyRootMotionToVelocity(float deltaTime)
 		bAppliedRootMotion = true;
 
 #if ROOT_MOTION_DEBUG
-		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 		{
 			FString AdjustedDebugString = FString::Printf(TEXT("ApplyRootMotionToVelocity HasAdditiveVelocity Velocity(%s) LastPreAdditiveVelocity(%s)"),
 				*Velocity.ToCompactString(), *CurrentRootMotion.LastPreAdditiveVelocity.ToCompactString());
@@ -4389,7 +4414,7 @@ bool UCharacterMovementComponent::CheckFall(const FFindFloorResult& OldFloor, co
 
 	if (bMustJump || CanWalkOffLedges())
 	{
-		CharacterOwner->OnWalkingOffLedge(OldFloor.HitResult.ImpactNormal, OldFloor.HitResult.Normal, OldLocation, timeTick);
+		HandleWalkingOffLedge(OldFloor.HitResult.ImpactNormal, OldFloor.HitResult.Normal, OldLocation, timeTick);
 		if (IsMovingOnGround())
 		{
 			// If still walking, then fall. If not, assume the user set a different mode they want to keep.
@@ -4770,7 +4795,7 @@ void UCharacterMovementComponent::PhysWalking(float deltaTime, int32 Iterations)
 			{
 				if (ShouldCatchAir(OldFloor, CurrentFloor))
 				{
-					CharacterOwner->OnWalkingOffLedge(OldFloor.HitResult.ImpactNormal, OldFloor.HitResult.Normal, OldLocation, timeTick);
+					HandleWalkingOffLedge(OldFloor.HitResult.ImpactNormal, OldFloor.HitResult.Normal, OldLocation, timeTick);
 					if (IsMovingOnGround())
 					{
 						// If still walking, then fall. If not, assume the user set a different mode they want to keep.
@@ -5165,6 +5190,14 @@ void UCharacterMovementComponent::PhysCustom(float deltaTime, int32 Iterations)
 bool UCharacterMovementComponent::ShouldCatchAir(const FFindFloorResult& OldFloor, const FFindFloorResult& NewFloor)
 {
 	return false;
+}
+
+void UCharacterMovementComponent::HandleWalkingOffLedge(const FVector& PreviousFloorImpactNormal, const FVector& PreviousFloorContactNormal, const FVector& PreviousLocation, float TimeDelta)
+{
+	if (CharacterOwner)
+	{
+		CharacterOwner->OnWalkingOffLedge(PreviousFloorImpactNormal, PreviousFloorContactNormal, PreviousLocation, TimeDelta);
+	}
 }
 
 void UCharacterMovementComponent::AdjustFloorHeight()
@@ -5746,6 +5779,13 @@ void UCharacterMovementComponent::MoveSmooth(const FVector& InVelocity, const fl
 	}
 }
 
+
+void UCharacterMovementComponent::UpdateProxyAcceleration()
+{
+	// Not currently replicated for simulated movement, but make it non-zero for animations that may want it, based on velocity.
+	Acceleration = Velocity.GetSafeNormal();
+	AnalogInputModifier = 1.0f;
+}
 
 bool UCharacterMovementComponent::IsWalkable(const FHitResult& Hit) const
 {
@@ -6822,9 +6862,9 @@ float UCharacterMovementComponent::GetAnalogInputModifier() const
 	return AnalogInputModifier;
 }
 
-static uint32 s_WarningCount = 0;
 float UCharacterMovementComponent::GetSimulationTimeStep(float RemainingTime, int32 Iterations) const
 {
+	static uint32 s_WarningCount = 0;
 	if (RemainingTime > MaxSimulationTimeStep)
 	{
 		if (Iterations < MaxSimulationIterations)
@@ -6965,7 +7005,11 @@ void UCharacterMovementComponent::SmoothCorrection(const FVector& OldLocation, c
 
 		// Don't let the client fall too far behind or run ahead of new server time.
 		const double ServerDeltaTime = ClientData->SmoothingServerTimeStamp - OldServerTimeStamp;
-		const double MaxDelta = FMath::Clamp(ServerDeltaTime * 1.25, 0.0, ClientData->MaxMoveDeltaTime * 2.0);
+		const double MaxOffset = ClientData->MaxClientSmoothingDeltaTime;
+		const double MinOffset = FMath::Min(double(ClientData->SmoothNetUpdateTime), MaxOffset);
+		
+		// MaxDelta is the farthest behind we're allowed to be after receiving a new server time.
+		const double MaxDelta = FMath::Clamp(ServerDeltaTime * 1.25, MinOffset, MaxOffset);
 		ClientData->SmoothingClientTimeStamp = FMath::Clamp(ClientData->SmoothingClientTimeStamp, ClientData->SmoothingServerTimeStamp - MaxDelta, ClientData->SmoothingServerTimeStamp);
 
 		// Compute actual delta between new server timestamp and client simulation.
@@ -7627,8 +7671,15 @@ bool UCharacterMovementComponent::ForcePositionUpdate(float DeltaTime)
 	const double SavedServerTimestamp = ServerData->ServerAccumulatedClientTimeStamp;
 	ServerData->ServerAccumulatedClientTimeStamp += DeltaTime;
 
+#if !(UE_BUILD_SHIPPING)
+	const bool bServerMoveHasOccurred = (ServerData->ServerTimeStampLastServerMove != 0.f);
+	if (bServerMoveHasOccurred)
+	{
+		UE_LOG(LogNetPlayerMovement, Log, TEXT("ForcePositionUpdate %s (DeltaTime %.2f)"), *CharacterOwner->GetName(), DeltaTime);
+	}
+#endif
+
 	// Force movement update.
-	UE_LOG(LogNetPlayerMovement, Log, TEXT("ForcePositionUpdate %s (DeltaTime %.2f)"), *CharacterOwner->GetName(), DeltaTime);
 	PerformMovement(DeltaTime);
 
 	// TODO: smooth correction on listen server?
@@ -7824,12 +7875,13 @@ void UCharacterMovementComponent::ReplicateMoveToServer(float DeltaTime, const F
 	}
 
 	NewMove->SetMoveFor(CharacterOwner, DeltaTime, NewAcceleration, *ClientData);
+	const UWorld* MyWorld = GetWorld();
 
 	// see if the two moves could be combined
 	// do not combine moves which have different TimeStamps (before and after reset).
 	if (const FSavedMove_Character* PendingMove = ClientData->PendingMove.Get())
 	{
-		if (!PendingMove->bOldTimeStampBeforeReset && PendingMove->CanCombineWith(NewMovePtr, CharacterOwner, ClientData->MaxMoveDeltaTime * CharacterOwner->GetActorTimeDilation()))
+		if (!PendingMove->bOldTimeStampBeforeReset && PendingMove->CanCombineWith(NewMovePtr, CharacterOwner, ClientData->MaxMoveDeltaTime * CharacterOwner->GetActorTimeDilation(*MyWorld)))
 		{
 			SCOPE_CYCLE_COUNTER(STAT_CharacterMovementCombineNetMove);
 
@@ -7894,7 +7946,6 @@ void UCharacterMovementComponent::ReplicateMoveToServer(float DeltaTime, const F
 	{
 		check(NewMove == NewMovePtr.Get());
 		ClientData->SavedMoves.Push(NewMovePtr);
-		const UWorld* MyWorld = GetWorld();
 
 		const bool bCanDelayMove = (CharacterMovementCVars::NetEnableMoveCombining != 0) && CanDelaySendingMove(NewMovePtr);
 		
@@ -8065,14 +8116,22 @@ void UCharacterMovementComponent::ServerMoveOld_Implementation
 
 	UE_LOG(LogNetPlayerMovement, Log, TEXT("Recovered move from OldTimeStamp %f, DeltaTime: %f"), OldTimeStamp, OldTimeStamp - ServerData->CurrentClientTimeStamp);
 
-	const float DeltaTime = ServerData->GetServerMoveDeltaTime(OldTimeStamp, CharacterOwner->GetActorTimeDilation());
+	const UWorld* MyWorld = GetWorld();
+	const float DeltaTime = ServerData->GetServerMoveDeltaTime(OldTimeStamp, CharacterOwner->GetActorTimeDilation(*MyWorld));
+	if (DeltaTime > 0.f)
+	{
+		ServerData->CurrentClientTimeStamp = OldTimeStamp;
+		ServerData->ServerAccumulatedClientTimeStamp += DeltaTime;
+		ServerData->ServerTimeStamp = MyWorld->GetTimeSeconds();
+		ServerData->ServerTimeStampLastServerMove = ServerData->ServerTimeStamp;
 
-	ServerData->CurrentClientTimeStamp = OldTimeStamp;
-	ServerData->ServerAccumulatedClientTimeStamp += DeltaTime;
-	ServerData->ServerTimeStamp = GetWorld()->GetTimeSeconds();
-	ServerData->ServerTimeStampLastServerMove = ServerData->ServerTimeStamp;
-
-	MoveAutonomous(OldTimeStamp, DeltaTime, OldMoveFlags, OldAccel);
+		MoveAutonomous(OldTimeStamp, DeltaTime, OldMoveFlags, OldAccel);
+	}
+	else
+	{
+		UE_LOG(LogNetPlayerMovement, Warning, TEXT("OldTimeStamp(%f) results in zero or negative actual DeltaTime(%f). Theoretical DeltaTime(%f)"),
+			OldTimeStamp, DeltaTime, OldTimeStamp - ServerData->CurrentClientTimeStamp);
+	}
 }
 
 
@@ -8091,6 +8150,9 @@ void UCharacterMovementComponent::ServerMoveDual_Implementation(
 	FName ClientBaseBone,
 	uint8 ClientMovementMode)
 {
+	// Optional scoped movement update to combine moves for cheaper performance on the server.
+	FScopedMovementUpdate ScopedMovementUpdate(UpdatedComponent, bEnableServerDualMoveScopedMovementUpdates ? EScopedUpdate::DeferredUpdates : EScopedUpdate::ImmediateUpdates);
+
 	ServerMove_Implementation(TimeStamp0, InAccel0, FVector(1.f,2.f,3.f), PendingFlags, ClientRoll, View0, ClientMovementBase, ClientBaseBone, ClientMovementMode);
 	ServerMove_Implementation(TimeStamp, InAccel, ClientLoc, NewFlags, ClientRoll, View, ClientMovementBase, ClientBaseBone, ClientMovementMode);
 }
@@ -8166,7 +8228,7 @@ void UCharacterMovementComponent::ProcessClientTimeStampForTimeDiscrepancy(float
 	if (GameNetworkManager != nullptr && GameNetworkManager->bMovementTimeDiscrepancyDetection && bServerMoveHasOccurred)
 	{
 		const float WorldTimeSeconds = GetWorld()->GetTimeSeconds();
-		const float ServerDelta = (WorldTimeSeconds - ServerData.ServerTimeStampLastServerMove) * CharacterOwner->CustomTimeDilation;
+		const float ServerDelta = (WorldTimeSeconds - ServerData.ServerTimeStamp) * CharacterOwner->CustomTimeDilation;
 		const float ClientDelta = ClientTimeStamp - ServerData.CurrentClientTimeStamp;
 		const float ClientError = ClientDelta - ServerDelta; // Difference between how much time client has ticked since last move vs server
 
@@ -8379,6 +8441,12 @@ bool UCharacterMovementComponent::IsClientTimeStampValid(float TimeStamp, const 
 	{
 		return false;
 	}
+
+	// Precision issues (or reordered timestamps from old moves) can cause very small or zero deltas which cause problems.
+	if (DeltaTimeStamp < UCharacterMovementComponent::MIN_TICK_TIME)
+	{
+		return false;
+	}
 	
 	// TimeStamp valid.
 	return true;
@@ -8454,10 +8522,10 @@ void UCharacterMovementComponent::ServerMove_Implementation(
 	const uint16 ViewYaw = (View >> 16);
 	
 	const FVector Accel = InAccel;
-	// Save move parameters.
-	const float DeltaTime = ServerData->GetServerMoveDeltaTime(TimeStamp, CharacterOwner->GetActorTimeDilation());
 
 	const UWorld* MyWorld = GetWorld();
+	const float DeltaTime = ServerData->GetServerMoveDeltaTime(TimeStamp, CharacterOwner->GetActorTimeDilation(*MyWorld));
+
 	ServerData->CurrentClientTimeStamp = TimeStamp;
 	ServerData->ServerAccumulatedClientTimeStamp += DeltaTime;
 	ServerData->ServerTimeStamp = MyWorld->GetTimeSeconds();
@@ -8629,7 +8697,7 @@ bool UCharacterMovementComponent::ServerCheckClientError(float ClientTimeStamp, 
 		const FVector LocDiff = UpdatedComponent->GetComponentLocation() - ClientWorldLocation;
 
 #if ROOT_MOTION_DEBUG
-		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 		{
 			FString AdjustedDebugString = FString::Printf(TEXT("ServerCheckClientError LocDiff(%.1f) ExceedsAllowablePositionError(%d) TimeStamp(%f)"),
 				LocDiff.Size(), GetDefault<AGameNetworkManager>()->ExceedsAllowablePositionError(LocDiff), ClientTimeStamp);
@@ -9071,7 +9139,7 @@ void UCharacterMovementComponent::OnClientCorrectionReceived(FNetworkPredictionD
 #endif //!UE_BUILD_SHIPPING
 
 #if ROOT_MOTION_DEBUG
-	if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+	if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 	{
 		const FVector VelocityCorrection = NewVelocity - Velocity;
 		FString AdjustedDebugString = FString::Printf(TEXT("PerformMovement ClientAdjustPosition_Implementation Velocity(%s) OldVelocity(%s) Correction(%s) TimeStamp(%f)"),
@@ -9172,7 +9240,7 @@ void UCharacterMovementComponent::ClientAdjustRootMotionSourcePosition_Implement
 	}
 
 #if ROOT_MOTION_DEBUG
-	if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+	if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 	{
 		FString AdjustedDebugString = FString::Printf(TEXT("ClientAdjustRootMotionSourcePosition_Implementation TimeStamp(%f)"),
 			TimeStamp);
@@ -9265,7 +9333,7 @@ void UCharacterMovementComponent::ClientAckGoodMove_Implementation(float TimeSta
 	check(ClientData);
 
 #if ROOT_MOTION_DEBUG
-	if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnAnyThread() == 1)
+	if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
 	{
 		FString AdjustedDebugString = FString::Printf(TEXT("ClientAckGoodMove_Implementation TimeStamp(%f)"),
 			TimeStamp);
@@ -9616,6 +9684,11 @@ void UCharacterMovementComponent::ApplyWorldOffset(const FVector& InOffset, bool
 
 void UCharacterMovementComponent::TickCharacterPose(float DeltaTime)
 {
+	if (DeltaTime < UCharacterMovementComponent::MIN_TICK_TIME)
+	{
+		return;
+	}
+
 	check(CharacterOwner && CharacterOwner->GetMesh());
 	USkeletalMeshComponent* CharacterMesh = CharacterOwner->GetMesh();
 
@@ -9938,6 +10011,7 @@ FNetworkPredictionData_Client_Character::FNetworkPredictionData_Client_Character
 	, MeshRotationTarget(FQuat::Identity)
 	, LastCorrectionDelta(0.f)
 	, LastCorrectionTime(0.f)
+	, MaxClientSmoothingDeltaTime(0.5f)
 	, SmoothingServerTimeStamp(0.f)
 	, SmoothingClientTimeStamp(0.f)
 	, CurrentSmoothTime(0.f) // Deprecated
@@ -9964,6 +10038,7 @@ FNetworkPredictionData_Client_Character::FNetworkPredictionData_Client_Character
 	if (GameNetworkManager)
 	{
 		MaxMoveDeltaTime = GameNetworkManager->MaxMoveDeltaTime;
+		MaxClientSmoothingDeltaTime = FMath::Max(GameNetworkManager->MaxClientSmoothingDeltaTime, MaxMoveDeltaTime * 2.0f);
 	}
 
 	MaxResponseTime = MaxMoveDeltaTime; // MaxResponseTime is deprecated, use MaxMoveDeltaTime instead
@@ -10395,6 +10470,12 @@ void FSavedMove_Character::PostUpdate(ACharacter* Character, FSavedMove_Characte
 		{
 			bForceNoCombine = true;
 		}
+
+		// Don't combine or delay moves where velocity changes to/from zero.
+		if (StartVelocity.IsZero() != SavedVelocity.IsZero())
+		{
+			bForceNoCombine = true;
+		}
 	}
 	else if (PostUpdateMode == PostUpdate_Replay)
 	{
@@ -10463,6 +10544,12 @@ bool UCharacterMovementComponent::CanDelaySendingMove(const FSavedMovePtr& NewMo
 
 	// Don't delay moves that change movement mode over the course of the move.
 	if (NewMove->StartPackedMovementMode != NewMove->EndPackedMovementMode)
+	{
+		return false;
+	}
+
+	// If we know we don't want to combine this move, reduce latency and avoid misprediction by flushing immediately.
+	if (NewMove->bForceNoCombine)
 	{
 		return false;
 	}

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3339965
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:3.指定材质实例
 Crumbs:%ROOT%
@@ -30,14 +30,14 @@ checkpoint:mod_extend
 
 2. 在 **Components** 面板中选择 **GrenadeGunPistol(self)**。
 
-	![image alt text](image_0.png)(w:302 h:253 convert:false)
+	![image alt text](image_0.png)(w:302 convert:false)
 
 3. 在 Details 面板中搜索 **Dissolve**，找到 **Dissolve Material** 属性。
 
 4. 点击 **Dissolve Material** 属性的下拉菜单显示资源选择器，然后选择 **GrenadeGun_Dissolve_MI**。可使用搜索框快速过滤列表。
 
 	[REGION:raw]
-	![image alt text](image_1.png)(w:933 h:494 convert:false)
+	![image alt text](image_1.png)(w:933 convert:false)
 	[/REGION]
 
 5. 在蓝图编辑器工具栏中，点击 **Compile** 更新更新蓝图并点击 **Save** 保存修改。

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,10 @@
 #include "EditorStyleSet.h"
 #include "Framework/Commands/Commands.h"
 #include "UI/MediaFrameworkUtilitiesEditorStyle.h"
+
+
+class FUICommandInfo;
+
 
 class FMediaProfileCommands : public TCommands<FMediaProfileCommands>
 {
@@ -20,6 +24,9 @@ public:
 	 */
 	virtual void RegisterCommands() override;
 
-	/** Applies changes to the original Media Profile.*/
+	/** Applies changes to the original Media Profile. */
 	TSharedPtr<FUICommandInfo> Apply;
+
+	/** Edit the current Media Profile. */
+	TSharedPtr<FUICommandInfo> Edit;
 };

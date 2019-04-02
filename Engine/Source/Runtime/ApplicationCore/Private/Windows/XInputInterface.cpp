@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "XInputInterface.h"
 #include "HAL/PlatformTime.h"
@@ -225,15 +225,21 @@ void XInputInterface::SendControllerEvents()
 			}	
 
 			// apply force feedback
-			XINPUT_VIBRATION VibrationState;
- 
+
 			const float LargeValue = (ControllerState.ForceFeedback.LeftLarge > ControllerState.ForceFeedback.RightLarge ? ControllerState.ForceFeedback.LeftLarge : ControllerState.ForceFeedback.RightLarge);
 			const float SmallValue = (ControllerState.ForceFeedback.LeftSmall > ControllerState.ForceFeedback.RightSmall ? ControllerState.ForceFeedback.LeftSmall : ControllerState.ForceFeedback.RightSmall);
 
-			VibrationState.wLeftMotorSpeed = ( ::WORD ) ( LargeValue * 65535.0f );
-			VibrationState.wRightMotorSpeed = ( ::WORD ) ( SmallValue * 65535.0f );
+			if (!FMath::IsNearlyEqual(LargeValue, ControllerState.LastLargeValue) || !FMath::IsNearlyEqual(SmallValue, ControllerState.LastSmallValue))
+			{
+				XINPUT_VIBRATION VibrationState;
+				VibrationState.wLeftMotorSpeed = ( ::WORD ) ( LargeValue * 65535.0f );
+				VibrationState.wRightMotorSpeed = ( ::WORD ) ( SmallValue * 65535.0f );
  
-			XInputSetState( ( ::DWORD ) ControllerState.ControllerId, &VibrationState );			
+				XInputSetState( ( ::DWORD ) ControllerState.ControllerId, &VibrationState );
+
+				ControllerState.LastLargeValue = LargeValue;
+				ControllerState.LastSmallValue = SmallValue;
+			}
 		}
 	}
 

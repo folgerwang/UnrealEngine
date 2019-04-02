@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AvfMediaTracks.h"
 #include "AvfMediaPrivate.h"
@@ -18,9 +18,15 @@
 
 #import <AudioToolbox/AudioToolbox.h>
 
-#define AUDIO_PLAYBACK_VIA_ENGINE (PLATFORM_MAC)
-
 NS_ASSUME_NONNULL_BEGIN
+
+static int32 AVFMediaForceDecodeBGRA = 0;
+FAutoConsoleVariableRef CVarAVFMediaForceDecodeBGRA(
+	TEXT("m.avf.ForceDecodeBGRA"),
+	AVFMediaForceDecodeBGRA,
+	TEXT("Change between YUV decode and convert to BGRA in UE4 Shader (Keeps everything on the GPU) or always force Apple framework to perform the decode to BRGA (potential performance penalty).\n")
+	TEXT("0: Auto Detect YUV (Default) and decode to BGRA in UE4 Shader, 1: Force AV Framework to decode to BGRA"),
+	ECVF_ReadOnly);
 
 /* FAVPlayerItemLegibleOutputPushDelegate
  *****************************************************************************/
@@ -66,12 +72,14 @@ struct AudioTrackTapContextData
 	AudioStreamBasicDescription DestinationFormat;
 	FMediaSamples&				SampleQueue;
 	FAvfMediaAudioSamplePool*	AudioSamplePool;
-	bool						bActive;
+	bool						bActive;			// Init and shutdown flag
+	volatile bool&				bMuted;				// Muted usually with -ve playback rate
 	
-	AudioTrackTapContextData(FMediaSamples& InSampleQueue, FAvfMediaAudioSamplePool* InAudioSamplePool, AudioStreamBasicDescription const & InDestinationFormat)
+	AudioTrackTapContextData(FMediaSamples& InSampleQueue, FAvfMediaAudioSamplePool* InAudioSamplePool, AudioStreamBasicDescription const & InDestinationFormat, volatile bool& bInBindMuted)
 	: SampleQueue(InSampleQueue)
 	, AudioSamplePool(InAudioSamplePool)
 	, bActive(false)
+	, bMuted(bInBindMuted)
 	{
 		FMemory::Memcpy(&DestinationFormat, &InDestinationFormat, sizeof(AudioStreamBasicDescription));
 	}
@@ -115,7 +123,7 @@ static void AudioTrackTapProcess(MTAudioProcessingTapRef __nonnull TapRef,
 		// in the public interface to AvfMediaTracks which seems wrong - plus we save the extra function call in time critical code!
 		check(Ctx);
 		
-		if(Ctx->bActive)
+		if(Ctx->bActive && !Ctx->bMuted)
 		{
 			// Compute required buffer size
 			uint32 BufferSize = (NumberFrames * ((Ctx->DestinationFormat.mBitsPerChannel / 8))) * Ctx->DestinationFormat.mChannelsPerFrame;
@@ -125,19 +133,19 @@ static void AudioTrackTapProcess(MTAudioProcessingTapRef __nonnull TapRef,
 			FTimespan Duration(((int64)NumberFrames * ETimespan::TicksPerSecond) / (int64)Ctx->DestinationFormat.mSampleRate);
 			
 			// If valid set time stamps give by the system
-			if((TimeRange.start.flags & kCMTimeFlags_Valid) != 0)
+			if((TimeRange.start.flags & kCMTimeFlags_Valid) == kCMTimeFlags_Valid)
 			{
 				StartTime = (TimeRange.start.value * ETimespan::TicksPerSecond) / TimeRange.start.timescale;
 			}
-			
+
 			// On pause the duration from system can be different from computed
-			if((TimeRange.duration.flags & kCMTimeFlags_Valid) != 0)
+			if((TimeRange.duration.flags & kCMTimeFlags_Valid) == kCMTimeFlags_Valid)
 			{
 				Duration = (TimeRange.duration.value * ETimespan::TicksPerSecond) / TimeRange.duration.timescale;
 			}
 			
 			// Don't add zero duration sample buffers to to the sink
-			if(Duration.GetTicks() != 0)
+			if(Duration.GetTicks() > 0)
 			{
 				// Get a media audio sample buffer from the pool
 				const TSharedRef<FAvfMediaAudioSample, ESPMode::ThreadSafe> AudioSample = Ctx->AudioSamplePool->AcquireShared();
@@ -193,6 +201,16 @@ static void AudioTrackTapProcess(MTAudioProcessingTapRef __nonnull TapRef,
 				}
 			}
 		}
+		else
+		{
+			// On mute or inactive make sure no audio 'leaks' through to the OS mixer - we can't rely on the outer AVPlayer when muted with this tap attached to be fast or clean about dealing with this
+			const uint32 BufferCount = BufferListInOut->mNumberBuffers;
+			for(uint32 b = 0;b < BufferCount;++b)
+			{
+				AudioBuffer& Buffer = BufferListInOut->mBuffers[b];
+				FMemory::Memset(Buffer.mData, 0, Buffer.mDataByteSize);
+			}
+		}
 	}
 }
 
@@ -233,7 +251,7 @@ static void AudioTrackTapShutdownCurrentAudioTrackProcessing(AVPlayerItem* Playe
 	}
 }
 
-static void AudioTrackTapInitializeForAudioTrack(FMediaSamples& InSampleQueue, FAvfMediaAudioSamplePool* InAudioSamplePool, AudioStreamBasicDescription const & InDestinationFormat, AVPlayerItem* PlayerItem, AVAssetTrack* AssetTrack)
+static void AudioTrackTapInitializeForAudioTrack(FMediaSamples& InSampleQueue, FAvfMediaAudioSamplePool* InAudioSamplePool, AudioStreamBasicDescription const & InDestinationFormat, AVPlayerItem* PlayerItem, AVAssetTrack* AssetTrack, volatile bool& bInBindMuted)
 {
 	SCOPED_AUTORELEASE_POOL;
 
@@ -247,7 +265,7 @@ static void AudioTrackTapInitializeForAudioTrack(FMediaSamples& InSampleQueue, F
 		MTAudioProcessingTapCallbacks Callbacks;
 		
 		Callbacks.version = kMTAudioProcessingTapCallbacksVersion_0;
-		Callbacks.clientInfo = new AudioTrackTapContextData(InSampleQueue, InAudioSamplePool, InDestinationFormat);
+		Callbacks.clientInfo = new AudioTrackTapContextData(InSampleQueue, InAudioSamplePool, InDestinationFormat, bInBindMuted);
 		Callbacks.init = AudioTrackTapInit;
 		Callbacks.prepare = AudioTrackTapPrepare;
 		Callbacks.process = AudioTrackTapProcess;
@@ -426,32 +444,39 @@ void FAvfMediaTracks::Initialize(AVPlayerItem* InPlayerItem, FString& OutInfo)
 		}
 		else if ([MediaType isEqualToString:AVMediaTypeVideo])
 		{
+			check(COREVIDEO_SUPPORTS_METAL);
+			
 			NSMutableDictionary* OutputSettings = [NSMutableDictionary dictionary];
-			// Mac:
-			// On Mac kCVPixelFormatType_422YpCbCr8 is the preferred single-plane YUV format but for H.264 bi-planar formats are the optimal choice
-			// The native RGBA format is 32ARGB but we use 32BGRA for consistency with iOS for now.
-			//
-			// iOS/tvOS:
-			// On iOS only bi-planar kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange/kCVPixelFormatType_420YpCbCr8BiPlanarFullRange are supported for YUV so an additional conversion is required.
-			// The only RGBA format is 32BGRA
-#if COREVIDEO_SUPPORTS_METAL
-			[OutputSettings setObject : [NSNumber numberWithInt : kCVPixelFormatType_420YpCbCr8BiPlanarFullRange] forKey : (NSString*)kCVPixelBufferPixelFormatTypeKey];
-#else
-			[OutputSettings setObject : [NSNumber numberWithInt : kCVPixelFormatType_32BGRA] forKey : (NSString*)kCVPixelBufferPixelFormatTypeKey];
-#endif
-
-#if WITH_ENGINE
-			// Setup sharing with RHI's starting with the optional Metal RHI
-			if (FPlatformMisc::HasPlatformFeature(TEXT("Metal")))
+			CMFormatDescriptionRef DescRef = (CMFormatDescriptionRef)[AssetTrack.formatDescriptions objectAtIndex:0];
+			CMVideoCodecType CodecType = CMFormatDescriptionGetMediaSubType(DescRef);
+			
+			// Select decode pixel format - BGRA32 is the fallback - Any more pixel formats added here need to be handled correctly in FAvfMediaVideoSampler
+			int32 DecodePixelBufferFormat = kCVPixelFormatType_32BGRA;
+	
+			if(!AVFMediaForceDecodeBGRA)
 			{
-				[OutputSettings setObject:[NSNumber numberWithBool:YES] forKey:(NSString*)kCVPixelBufferMetalCompatibilityKey];
+				if(kCMVideoCodecType_H264 == CodecType)
+				{
+					DecodePixelBufferFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange;
+					
+					CFDictionaryRef FormatExtensions = CMFormatDescriptionGetExtensions(DescRef);
+					if(FormatExtensions)
+					{
+						CFBooleanRef bFullRange = (CFBooleanRef)CFDictionaryGetValue(FormatExtensions, kCMFormatDescriptionExtension_FullRangeVideo);
+						if(bFullRange && (bool)CFBooleanGetValue(bFullRange))
+						{
+							DecodePixelBufferFormat = kCVPixelFormatType_420YpCbCr8BiPlanarFullRange;
+						}
+					}
+				}
 			}
-
-#if PLATFORM_MAC
-			[OutputSettings setObject:[NSNumber numberWithBool:YES] forKey:(NSString*)kCVPixelBufferOpenGLCompatibilityKey];
-#else
-			[OutputSettings setObject:[NSNumber numberWithBool:YES] forKey:(NSString*)kCVPixelBufferOpenGLESCompatibilityKey];
-#endif
+			
+			[OutputSettings setObject : [NSNumber numberWithInt :  DecodePixelBufferFormat] forKey : (NSString*)kCVPixelBufferPixelFormatTypeKey];
+			
+#if WITH_ENGINE
+			
+			[OutputSettings setObject:[NSNumber numberWithBool:YES] forKey:(NSString*)kCVPixelBufferMetalCompatibilityKey];
+			
 #endif //WITH_ENGINE
 
 			// Use unaligned rows
@@ -469,6 +494,7 @@ void FAvfMediaTracks::Initialize(AVPlayerItem* InPlayerItem, FString& OutInfo)
 			Track->Name = FString::Printf(TEXT("Video Track %i"), TrackIndex);
 			Track->Output = Output;
 			Track->Loaded = true;
+			Track->bFullRangeVideo = DecodePixelBufferFormat != kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange;
 			
 			// NominalFrameRate can be zero (e.g HLS streams) - try again using min frame duration, otherwise it's unknown - possibly variable - use a default
 			Track->FrameRate = AssetTrack.nominalFrameRate;
@@ -488,8 +514,6 @@ void FAvfMediaTracks::Initialize(AVPlayerItem* InPlayerItem, FString& OutInfo)
 			CGSize NaturalFrameSize = AssetTrack.naturalSize;
 			Track->FrameSize = FIntPoint((int32)NaturalFrameSize.width, (int32)NaturalFrameSize.height);
 
-			CMFormatDescriptionRef DescRef = (CMFormatDescriptionRef)[AssetTrack.formatDescriptions objectAtIndex:0];
-			CMVideoCodecType CodecType = CMFormatDescriptionGetMediaSubType(DescRef);
 			OutInfo += FString::Printf(TEXT("    Codec: %s\n"), *AvfMedia::CodecTypeToString(CodecType));
 			OutInfo += FString::Printf(TEXT("    Dimensions: %i x %i\n"), (int32)NaturalFrameSize.width, (int32)NaturalFrameSize.height);
 			OutInfo += FString::Printf(TEXT("    Frame Rate: %g fps\n"), AssetTrack.nominalFrameRate);
@@ -569,10 +593,10 @@ void FAvfMediaTracks::ProcessVideo()
 	{
 		TWeakPtr<FAvfMediaVideoSampler, ESPMode::ThreadSafe> VideoSamplerPtr;
 	}
-	VideoSamplerTickParams = { VideoSampler };
+	Params = { VideoSampler };
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AvfMediaVideoSamplerTick,
-		FVideoSamplerTickParams, Params, VideoSamplerTickParams,
+	ENQUEUE_RENDER_COMMAND(AvfMediaVideoSamplerTick)(
+		[Params](FRHICommandListImmediate& RHICmdList)
 		{
 			auto PinnedVideoSampler = Params.VideoSamplerPtr.Pin();
 
@@ -593,10 +617,10 @@ void FAvfMediaTracks::Reset()
 	{
 		TWeakPtr<FAvfMediaVideoSampler, ESPMode::ThreadSafe> VideoSamplerPtr;
 	}
-	ResetOutputParams = { VideoSampler };
+	Params = { VideoSampler };
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AvfMediaVideoSamplerResetOutput,
-		FResetOutputParams, Params, ResetOutputParams,
+	ENQUEUE_RENDER_COMMAND(AvfMediaVideoSamplerResetOutput)(
+		[Params](FRHICommandListImmediate& RHICmdList)
 	    {
 			auto PinnedVideoSampler = Params.VideoSamplerPtr.Pin();
 
@@ -642,7 +666,18 @@ void FAvfMediaTracks::Reset()
 	}
 	
 	PlayerItem = nil;
+	
+#if AUDIO_PLAYBACK_VIA_ENGINE
+	bMuted = false;
+#endif
 }
+
+#if AUDIO_PLAYBACK_VIA_ENGINE
+void FAvfMediaTracks::ApplyMuteState(bool bMute)
+{
+	bMuted = bMute;
+}
+#endif
 
 /* IMediaTracks interface
  *****************************************************************************/
@@ -889,7 +924,7 @@ bool FAvfMediaTracks::SelectTrack(EMediaTrackType TrackType, int32 TrackIndex)
 				TargetDesc.mBitsPerChannel = 32;
 				TargetDesc.mReserved = 0;
 				
-				AudioTrackTapInitializeForAudioTrack(Samples, AudioSamplePool, TargetDesc, PlayerItem, SelectedTrack.AssetTrack);
+				AudioTrackTapInitializeForAudioTrack(Samples, AudioSamplePool, TargetDesc, PlayerItem, SelectedTrack.AssetTrack, bMuted);
 #endif
 				
 				AVPlayerItemTrack* PlayerTrack = (AVPlayerItemTrack*)SelectedTrack.Output;
@@ -986,21 +1021,23 @@ bool FAvfMediaTracks::SelectTrack(EMediaTrackType TrackType, int32 TrackIndex)
 					AVPlayerItemVideoOutput* Output;
 					TWeakPtr<FAvfMediaVideoSampler, ESPMode::ThreadSafe> VideoSamplerPtr;
 					float FrameRate;
+					bool bFullRange;
 				}
-				SetOutputParams = {
+				Params = {
 					(AVPlayerItemVideoOutput*)VideoTracks[SelectedVideoTrack].Output,
 					VideoSampler,
-					VideoTracks[TrackIndex].FrameRate
+					VideoTracks[TrackIndex].FrameRate,
+					VideoTracks[TrackIndex].bFullRangeVideo
 				};
 
-				ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AvfMediaVideoSamplerSetOutput,
-					FSetOutputParams, Params, SetOutputParams,
+				ENQUEUE_RENDER_COMMAND(AvfMediaVideoSamplerSetOutput)(
+					[Params](FRHICommandListImmediate& RHICmdList)
 					{
 						auto PinnedVideoSampler = Params.VideoSamplerPtr.Pin();
 
 						if (PinnedVideoSampler.IsValid())
 						{
-							PinnedVideoSampler->SetOutput(Params.Output, Params.FrameRate);
+							PinnedVideoSampler->SetOutput(Params.Output, Params.FrameRate, Params.bFullRange);
 						}
 					});
 			}

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Widgets/SWidgetReflector.h"
 #include "Rendering/DrawElements.h"
@@ -38,6 +38,7 @@
 #include "Misc/TextFilterExpressionEvaluator.h"
 #include "Debugging/SlateDebugging.h"
 #include "VisualTreeCapture.h"
+#include "SWidgetEventLog.h"
 
 #if SLATE_REFLECTOR_HAS_DESKTOP_PLATFORM
 #include "DesktopPlatformModule.h"
@@ -111,6 +112,7 @@ namespace WidgetReflectorTabID
 	static const FName SlateStats = "WidgetReflector.SlateStatsTab";
 	static const FName SnapshotWidgetPicker = "WidgetReflector.SnapshotWidgetPickerTab";
 	static const FName WidgetDetails = "WidgetReflector.WidgetDetailsTab";
+	static const FName WidgetEvents = "WidgetReflector.WidgetEventsTab";
 }
 
 
@@ -144,6 +146,10 @@ private:
 
 #if WITH_EDITOR
 	TSharedRef<SDockTab> SpawnWidgetDetails(const FSpawnTabArgs& Args);
+#endif
+
+#if WITH_SLATE_DEBUGGING
+	TSharedRef<SDockTab> SpawnWidgetEvents(const FSpawnTabArgs& Args);
 #endif
 
 	void OnTabSpawned(const FName& TabIdentifier, const TSharedRef<SDockTab>& SpawnedTab);
@@ -275,22 +281,24 @@ private:
 	{
 		if (PickingMode != InMode)
 		{
-			{
-				SInvalidationPanel::SetEnableWidgetCaching(true);
+			// Disable visual picking, and renable widget caching.
+			SInvalidationPanel::SetEnableWidgetCaching(true);
+			VisualCapture.Disable();
 
-				VisualCapture.Disable();
-			}
-
+			// Enable the picking mode.
 			PickingMode = InMode;
 
-			if (PickingMode == EWidgetPickingMode::Drawable || PickingMode == EWidgetPickingMode::HitTesting)
+			// If we're enabling hit test, reset the visual capture entirely, we don't want to use the visual tree.
+			if (PickingMode == EWidgetPickingMode::HitTesting)
 			{
+				VisualCapture.Reset();
 				SInvalidationPanel::SetEnableWidgetCaching(false);
 			}
-
-			if (PickingMode == EWidgetPickingMode::Drawable)
+			// If we're using the drawing picking mode enable it!
+			else if (PickingMode == EWidgetPickingMode::Drawable)
 			{
 				VisualCapture.Enable();
+				SInvalidationPanel::SetEnableWidgetCaching(false);
 			}
 		}
 	}
@@ -472,13 +480,14 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 				->SetSizeCoefficient(0.7f)
 				->AddTab(WidgetReflectorTabID::WidgetHierarchy, ETabState::OpenedTab)
 			)
-			->Split
-			(
-				FTabManager::NewStack()
-				->SetHideTabWell(true)
-				->SetSizeCoefficient(0.3f)
-				->AddTab(WidgetReflectorTabID::SnapshotWidgetPicker, ETabState::ClosedTab)
-			)
+			//->Split
+			//(
+			//	FTabManager::NewStack()
+			//	->SetHideTabWell(true)
+			//	->SetSizeCoefficient(0.3f)
+			//	->AddTab(WidgetReflectorTabID::SnapshotWidgetPicker, ETabState::ClosedTab)
+			//	->AddTab(WidgetReflectorTabID::WidgetEvents, ETabState::OpenedTab)
+			//)
 		)
 #if WITH_EDITOR
 		->Split
@@ -516,6 +525,11 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 		RegisterTrackedTabSpawner(WidgetReflectorTabID::WidgetDetails, FOnSpawnTab::CreateSP(this, &SWidgetReflector::SpawnWidgetDetails))
 			.SetDisplayName(LOCTEXT("WidgetDetailsTab", "Widget Details"));
 	}
+#endif
+
+#if WITH_SLATE_DEBUGGING
+	RegisterTrackedTabSpawner(WidgetReflectorTabID::WidgetEvents, FOnSpawnTab::CreateSP(this, &SWidgetReflector::SpawnWidgetEvents))
+		.SetDisplayName(LOCTEXT("WidgetEventsTab", "Widget Events"));
 #endif
 
 	this->ChildSlot
@@ -941,6 +955,22 @@ TSharedRef<SDockTab> SWidgetReflector::SpawnWidgetDetails(const FSpawnTabArgs& A
 
 #endif
 
+#if WITH_SLATE_DEBUGGING
+
+TSharedRef<SDockTab> SWidgetReflector::SpawnWidgetEvents(const FSpawnTabArgs& Args)
+{
+	auto OnTabClosed = [this](TSharedRef<SDockTab>)
+	{
+	};
+
+	return SNew(SDockTab)
+		.Label(LOCTEXT("WidgetEventsTab", "Widget Events"))
+		[
+			SNew(SWidgetEventLog)
+		];
+}
+
+#endif
 
 void SWidgetReflector::OnTabSpawned(const FName& TabIdentifier, const TSharedRef<SDockTab>& SpawnedTab)
 {

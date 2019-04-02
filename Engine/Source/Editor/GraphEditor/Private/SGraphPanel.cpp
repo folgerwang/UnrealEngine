@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SGraphPanel.h"
@@ -624,7 +624,7 @@ FReply SGraphPanel::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointe
 
 FReply SGraphPanel::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
-	if ((MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton) && (MouseEvent.IsShiftDown()))
+	if (!NodeUnderMousePtr.IsValid() && !Marquee.IsValid() && (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton) && (MouseEvent.IsShiftDown()))
 	{
 		if (SGraphPin* BestPinFromHoveredSpline = GetBestPinFromHoveredSpline())
 		{
@@ -1015,6 +1015,12 @@ void SGraphPanel::RemoveAllNodes()
 {
 	NodeGuidMap.Empty();
 	CurrentHoveredPins.Empty();
+	
+	for (int32 Iter = 0; Iter != Children.Num(); ++Iter)
+	{
+		GetChild(Iter)->InvalidateGraphData();
+	}
+
 	SNodePanel::RemoveAllNodes();
 }
 
@@ -1397,6 +1403,7 @@ void SGraphPanel::RemoveNode(const UEdGraphNode* Node)
 		TSharedRef<SGraphNode> Child = GetChild(Iter);
 		if (Child->GetNodeObj() == Node)
 		{
+			Child->InvalidateGraphData();
 			Children.RemoveAt(Iter);
 			break;
 		}

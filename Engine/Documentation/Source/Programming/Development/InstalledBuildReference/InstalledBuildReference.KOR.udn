@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3808342
+﻿INTSourceChangelist:4604867
 Availability: Public
 Title: Installed Build 참고서
 Crumbs: %ROOT%, Programming, Programming/Development
@@ -70,16 +70,17 @@ Installed Builds 는 [](Programming/Development/BuildGraph) 스크립트 시스�
 | 옵션 | 기본 | 설명 |
 | ------ | ------- | ----------- |
 | `-set:HostPlatformOnly=[true/false]` | false | 다른 플랫폼을 일일이 끄지 않아도 되도록 호스트 플랫폼에 대해서만 Installed Build 를 만드는 헬퍼 옵션입니다. |
-| `-set:WithWin64=[true/false]` | true | Win64 대상 플랫폼을 포함시킵니다. |
-| `-set:WithWin32=[true/false]` | true | Win32 대상 플랫폼을 포함시킵니다. |
-| `-set:WithMac=[true/false]` | true |  Mac 대상 플랫폼을 포함시킵니다. |
-| `-set:WithAndroid=[true/false]` | true | Android 대상 플랫폼을 포함시킵니다. |
-| `-set:WithIOS=[true/false]` | true | iOS 대상 플랫폼을 포함시킵니다. [REGION:note]이 옵션을 켜려면 원격 빌드 구성된 맥이 필요합니다.[/REGION] |
-| `-set:WithTVOS=[true/false]` | true | tvOS 대상 플랫폼을 포함시킵니다. [REGION:note]이 옵션을 켜려면 원격 빌드 구성된 맥이 필요합니다.[/REGION] |
-| `-set:WithLinux=[true/false]` | true | Linux 대상 플랫폼을 포함시킵니다. |
-| `-set:WithHTML5=[true/false]` | true | HTML5 대상 플랫폼을 포함시킵니다. |
-| `-set:WithPS4=[true/false]` | false | PS4 대상 플랫폼을 포함시킵니다. [REGION:note]이 옵션을 켜려면 PS4 SDK 가 필요합니다.[/REGION] |
-| `-set:WithXboxOne=[true/false]` | false | XboxOne 대상 플랫폼을 포함시킵니다. [REGION:note]이 옵션을 켜려면 Xbox One SDK 가 필요합니다.[/REGION] |
+| `-set:WithWin64=[true/false]` | true | Win64 대상 플랫폼을 포함합니다. |
+| `-set:WithWin32=[true/false]` | true | Win32 대상 플랫폼을 포함합니다. |
+| `-set:WithMac=[true/false]` | true |  Mac 대상 플랫폼을 포함합니다. |
+| `-set:WithAndroid=[true/false]` | true | Android 대상 플랫폼을 포함합니다. |
+| `-set:WithIOS=[true/false]` | true | iOS 대상 플랫폼을 포함합니다. [REGION:note]이 옵션을 켜려면 원격 빌드 구성된 Mac이 필요합니다.[/REGION] |
+| `-set:WithTVOS=[true/false]` | true | tvOS 대상 플랫폼을 포함합니다. [REGION:note]이 옵션을 켜려면 원격 빌드 구성된 Mac이 필요합니다.[/REGION] |
+| `-set:WithLinux=[true/false]` | true | Linux 대상 플랫폼을 포함합니다. |
+| `-set:WithLumin=[true/false]` | true | Lumin 대상 플랫폼을 포함합니다. |
+| `-set:WithHTML5=[true/false]` | true | HTML5 대상 플랫폼을 포함합니다. |
+| `-set:WithPS4=[true/false]` | false | PS4 대상 플랫폼을 포함합니다. [REGION:note]이 옵션을 켜려면 PS4 SDK 가 필요합니다.[/REGION] |
+| `-set:WithXboxOne=[true/false]` | false | XboxOne 대상 플랫폼을 포함합니다. [REGION:note]이 옵션을 켜려면 Xbox One SDK 가 필요합니다.[/REGION] |
 | `-set:WithDDC=[true/false]` | true | 엔진 콘텐츠와 템플릿에 대한 독립형 파생 데이터 캐시(DDC)를 빌드합니다. [REGION:note]엔진과 템플릿 콘텐츠에 대한 독립형 [파생 데이터 캐시(DDC)](Engine/Basics/DerivedDataCache) 를 빌드하는 작업은 빌드의 매우 느린 부분중 하나가 될 수 있습니다. 독립형 DDC 가 필요치 않은 경우, 명령줄에 `-set:WithDDC=false` 를 붙여 이 단계를 건너뛸 수 있습니다.[/REGION] |
 | `-set:WithFullDebugInfo=[true/false]` | false | 바이너리 에디터와 패키징된 어플리케이션 빌드에 대한 전체 디버그 정보를 생성합니다. |
 | `-set:SignExecutables=[true/false]` | false | 빌드 프로세스의 일부분으로 실행파일 사이닝을 위한 머신을 구성해야 하는 경우 생성된 실행파일에 사이닝을 합니다. |

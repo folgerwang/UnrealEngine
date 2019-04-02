@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "DetailCategoryBuilderImpl.h"
 #include "ObjectPropertyNode.h"
@@ -27,6 +27,27 @@ void FDetailLayout::AddCustomLayout(const FDetailLayoutCustomization& Layout, bo
 void FDetailLayout::AddDefaultLayout(const FDetailLayoutCustomization& Layout, bool bAdvanced)
 {
 	AddLayoutInternal(Layout, bAdvanced ? DefaultAdvancedLayouts : DefaultSimpleLayouts);
+}
+
+FDetailLayoutCustomization* FDetailLayout::GetDefaultLayout(const TSharedRef<FPropertyNode>& PropertyNode)
+{
+	FDetailLayoutCustomization* Customization = 
+		DefaultSimpleLayouts.FindByPredicate([&PropertyNode](const FDetailLayoutCustomization& TestCustomization)
+		{
+			return TestCustomization.GetPropertyNode() == PropertyNode;
+		});
+
+	// Didn't find it in the simple layouts, look in advanced layouts
+	if (!Customization)
+	{
+		Customization = 
+			DefaultAdvancedLayouts.FindByPredicate([&PropertyNode](const FDetailLayoutCustomization& TestCustomization)
+			{
+				return TestCustomization.GetPropertyNode() == PropertyNode;
+			});
+	}
+
+	return Customization;
 }
 
 void FDetailLayout::AddLayoutInternal(const FDetailLayoutCustomization& Layout, FCustomizationList& ListToUse)
@@ -381,7 +402,7 @@ TArray<TSharedPtr<IPropertyHandle>> FDetailCategoryImpl::AddAllExternalStructure
 			{
 				FDetailLayoutCustomization NewCustomization;
 				NewCustomization.PropertyRow = MakeShared<FDetailPropertyRow>(PropertyNode, AsShared(), RootPropertyNode);
-				AddCustomLayout(NewCustomization, bForAdvanced);
+				AddDefaultLayout(NewCustomization, bForAdvanced, NAME_None);
 
 				Handles.Add(DetailLayoutBuilderRef.GetPropertyHandle(PropertyNode));
 			}
@@ -433,6 +454,18 @@ void FDetailCategoryImpl::OnAdvancedDropdownClicked()
 
 	const bool bRefilterCategory = true;
 	RefreshTree(bRefilterCategory);
+}
+
+FDetailLayoutCustomization* FDetailCategoryImpl::GetDefaultCustomization(TSharedRef<FPropertyNode> PropertyNode)
+{
+	FDetailLayout& Layout = GetLayoutForInstance(GetParentLayoutImpl().GetCurrentCustomizationVariableName());
+	
+	FDetailLayoutCustomization* Customization = Layout.GetDefaultLayout(PropertyNode);
+	if (Customization)
+	{
+		return Customization;
+	}
+	return nullptr;
 }
 
 bool FDetailCategoryImpl::ShouldShowAdvanced() const
@@ -793,10 +826,15 @@ void FDetailCategoryImpl::GenerateChildrenForLayouts()
 
 void FDetailCategoryImpl::GetChildren(FDetailNodeList& OutChildren)
 {
+	GetGeneratedChildren(OutChildren, false, false);
+}
+
+void FDetailCategoryImpl::GetGeneratedChildren(FDetailNodeList& OutChildren, bool bIgnoreVisibility, bool bIgnoreAdvancedDropdown)
+{
 	for (int32 ChildIndex = 0; ChildIndex < SimpleChildNodes.Num(); ++ChildIndex)
 	{
 		TSharedRef<FDetailTreeNode>& Child = SimpleChildNodes[ChildIndex];
-		if (Child->GetVisibility() == ENodeVisibility::Visible)
+		if (bIgnoreVisibility || Child->GetVisibility() == ENodeVisibility::Visible)
 		{
 			if (Child->ShouldShowOnlyChildren())
 			{
@@ -809,7 +847,7 @@ void FDetailCategoryImpl::GetChildren(FDetailNodeList& OutChildren)
 		}
 	}
 
-	if (ShouldShowAdvanced())
+	if (!bIgnoreAdvancedDropdown && ShouldShowAdvanced())
 	{
 		if (AdvancedDropdownNodeTop.IsValid())
 		{
@@ -820,7 +858,7 @@ void FDetailCategoryImpl::GetChildren(FDetailNodeList& OutChildren)
 		{
 			TSharedRef<FDetailTreeNode>& Child = AdvancedChildNodes[ChildIndex];
 
-			if (Child->GetVisibility() == ENodeVisibility::Visible)
+			if (bIgnoreVisibility || Child->GetVisibility() == ENodeVisibility::Visible)
 			{
 				if (Child->ShouldShowOnlyChildren())
 				{
@@ -834,7 +872,7 @@ void FDetailCategoryImpl::GetChildren(FDetailNodeList& OutChildren)
 		}
 	}
 
-	if (AdvancedDropdownNodeBottom.IsValid())
+	if (!bIgnoreAdvancedDropdown && AdvancedDropdownNodeBottom.IsValid())
 	{
 		OutChildren.Add(AdvancedDropdownNodeBottom.ToSharedRef());
 	}
@@ -876,7 +914,7 @@ FCustomPropertyTypeLayoutMap FDetailCategoryImpl::GetCustomPropertyTypeLayoutMap
 {
 	if (DetailLayoutBuilder.IsValid())
 	{
-		return DetailLayoutBuilder.Pin()->GetPropertyGenerationUtilities().GetInstancedPropertyTypeLayoutMap();
+		return DetailLayoutBuilder.Pin()->GetInstancedPropertyTypeLayoutMap();
 	}
 
 	return FCustomPropertyTypeLayoutMap();

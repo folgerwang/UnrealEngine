@@ -1,0 +1,383 @@
+INTSourceChangelist:4385465
+Availability: Public
+Crumbs: 
+Title: 모듈식 캐릭터 작업
+Description: 여러 스켈레탈 메시로 구성된 모듈식 캐릭터 제작을 위한 여러가지 방법을 설명합니다. 
+Type: 
+Version: 4.20 
+Parent: Engine/Animation
+Order: 2
+Tags: undefined
+
+
+![](ModularBanner.png)
+
+플레이어가 캐릭터의 머리와 몸, 옷과 같은 여러가지 옵션을 커스터마이징하고 파츠를 교체할 수 있는 시스템을 만들 때는, 캐릭터를 모듈식으로 구성하는 것이 좋습니다. 캐릭터 전체를 하나의 스켈레탈 메시로 임포트하기 보다는 몸통, 다리, 머리와 같은 섹션으로 분리하여 임포트하는 것입니다. 그런 다음 여기 설명된 방법 중 일부를 사용하여 그 섹션을 조립하고 애니메이션을 만들 수 있습니다. 이렇게 하면 여러가지 캐릭터를 유연하게 만들 수 있을 뿐만 아니라 퍼포먼스도 좋습니다. 
+
+## 마스터 포즈 컴포넌트
+
+**Master Pose Component** (마스터 포즈 컴포넌트)는 블루프린트 호출가능 함수로, 하나 이상의 **Skinned Mesh Component Object** (스킨 적용 메시 컴포넌트 오브젝트)를 동일 종류 다른 오브젝트에 자손으로 설정하여 부모로 간주하도록 할 수 있습니다. 예를 들어 Torso (몸통)을 마스터 포즈 컴포넌트로 정의하고, 몸통에 애니메이션을 할당한 뒤, Feet(발), Legs(다리), Hands(손), Head(머리)를 자손으로 설정하면 몸통에 할당한 애니메이션을 따릅니다. 
+
+내부적으로, 자손은 Bone Transform Buffer (본 트랜스폼 버퍼)를 사용하지 않으며 자손에 애니메이션을 설정해도 사용하지 않습니다. 렌더링할 때 몸통의 본 트랜스폼 버퍼만 사용하므로 매우 가벼운 어태치먼트 시스템이 됩니다. 애니메이션을 실행해야 하는 유일한 컴포넌트는 몸통이며, 붙인 모든 컴포넌트는 몸통의 본 트랜스폼을 사용합니다 (아래는 몸통에 애니메이션을 할당한 구성 예입니다). 
+
+![](SetMasterPoseComponentImage.png)
+
+*위에서는 블루프린트 안의 **컨스트럭션 스크립트** 를 사용하여 몸통 스켈레탈 메시를 **Master Bone Component** (마스터 본 컴포넌트)로, 모듈식 캐릭터의 다른 부분은 자손으로 설정했습니다.*  
+
+[REGION:note]
+**Set Master Pose Component** (마스터 포즈 컴포넌트 설정) 함수에는 **Force Update** (강제 업데이트)라는 부울 유형 두 번째 파라미터가 있습니다. Force Update 가 false 면, 모든 런타임 인포가 입력 마스터 컴포넌트와 같은 경우 업데이트를 생략합니다 (true 면 런타임 인포를 강제 업데이트합니다).  register 도중에만 true 인데, serialize 되면 모든 런타임 데이터를 새로고쳐야 하기 때문입니다.
+[/REGION]
+
+캐릭터의 각 부분은 다른 **스켈레탈 메시 컴포넌트** 로 바꿀 수 있는 스켈레탈 메시입니다. 
+
+![](HiddenComponents.png)
+
+*위에서는 몸통과 발의 표시를 토글했습니다 (같은 스켈레탈 계층을 따르는 다른 스켈레탈 메시로 바꿀 수 있습니다). *
+
+  
+한 가지 고려할 이슈라면, **마스터 포즈 컴포넌트** 를 사용하면 게임 스레드 비용은 줄지만 렌더링 비용은 줄지 않습니다. 여전히 동일한 수의 컴포넌트를 별도로 렌더링하므로, 컴포넌트당 섹션 수가 늘면 드로 콜 수도 는다는 점 유의하세요. 
+
+[REGION:note]
+마스터 본의 자손은 구조가 정확히 일치하는 부분집합에 일치해야 한다는 제한도 있으므로, 조인트가 남거나 생략하거나 할 수 없습니다. 남는 조인트는 본 버퍼 데이터가 없으므로, 레퍼런스 포즈를 사용해서 렌더링합니다. 또 자손에는 다른 애니메이션 또는 피직스를 사용할 수 없습니다.
+[/REGION]
+
+## 메시에서 포즈 복사
+
+**Copy Pose From Mesh** (메시에서 포즈 복사)는 자손의 **애니메이션 블루프린트** 에서 사용할 수 있는 **애님 그래프** 노드로, 다른 **스켈레탈 메시 컴포넌트** 에서 애니메이션 포즈를 복사할 수 있습니다.   
+  
+[REGION:lightbox]
+[![CopyPoseFromMesh.png](CopyPoseFromMesh.png)(w:900)](CopyPoseFromMesh.png)
+[/REGION]
+
+[REGION:caption]
+이미지를 클릭하면 원본을 확인합니다.
+[/REGION]
+  
+*Copy Pose From Mesh 는 일치하는 본만 복사할 뿐, 나머지는 레퍼런스 포즈를 사용합니다. 하지만 위와 같이 복사한 트랜스폼 위에 애니메이션을 재생할 수 있습니다.*
+
+[Copy Pose From Mesh](Engine/Animation/AnimHowTo/CopyPose) 를 사용할 때 복사해 올 스켈레탈 메시 컴포넌트는 이미 틱을 한 상태에서 복사해야 합니다. 그렇지 않으면 지난 프레임의 애니메이션을 복사하게 됩니다. 예를 들어 Head(머리)가 자손인 Body(몸)에서 복사하려는 경우, 머리를 몸에 붙이면 자손이 된 머리보다 부모인 몸 먼저 틱이 일어나도록 할 수 있습니다. 
+
+[REGION:note]
+관계 설정은 코드에서 할 수도 있습니다. 전제 조건으로 설정하면, 현재 컴포넌트보다 먼저 틱이 일어나도록 할 수 있습니다. 자세한 정보는 [](Programming/UnrealArchitecture/Actors/Ticking) 문서를 참고하세요.
+[/REGION]
+
+Copy Pose From Mesh 를 사용할 때 고려할 몇 가지 요소는, 자손마다 애니메이션을 실행하므로 Master Pose Component 보다 비싸다는 점입니다. 추가로 자손에서 피직스를 사용하는 경우 [Rigid Body](Engine/Animation/NodeReference/SkeletalControls/RigidBody) 또는 [AnimDynamics](Engine/Animation/NodeReference/SkeletalControls/AnimDynamics) 스켈레탈 컨트롤 노드를 대신 사용하는 것이 좋습니다.
+
+애니메이션 에디터에서 애니메이션을 미리볼 때 Copy Pose From Mesh 가 사용할 메시를 추가 할당할 수 있습니다. 커스텀 **Preview Mesh Collection** (프리뷰 메시 컬렉션)을 생성하여 (캐릭터의 컴포넌트처럼) 애니메이션이 연관된 스켈레탈 메시 컬렉션을 만들 수도 있습니다. 아래는 프리뷰에 여러 스켈레탈 메시를 변경하고 할당하여 캐릭터의 머리를 바꾸는 모습입니다. 
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:width]
+	640
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	360
+	[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	-a_GC1y2SA0
+	[/PARAMLITERAL]
+[/OBJECT]
+
+## 스켈레탈 메시 병합
+
+`FSkeletalMeshMerge` (스켈레탈 메시 병합) 코드를 통해 런타임에 여러 스켈레탈 메시를 하나의 스켈레탈 메시로 합칠 수 있습니다. 스켈레탈 메시 초기 생성 비용은 높지만 렌더링 비용은 싸지는데, 메시를 여럿이 아닌 하나만 렌더링하기 때문입니다. 예를 들어 컴포넌트가 (머리, 몸, 다리) 셋인 캐릭터가 화면에 50 개 있는 경우, **50 드로 콜** 이 됩니다. 스켈레탈 메시 머지가 없으면 각 컴포넌트마다 드로 콜 하나씩 총 **150 드로 콜** 이 됩니다. 
+
+`FSkeletalMeshMerge` 를 사용할 때 메인 바디에 모든 애니메이션이 있어야 하는데, 병합 메시는 설정된 메시만 사용하며 애니메이션에 필요한 모든 조인트가 있어야 합니다. 특정 바디 파츠에 남는 조인트가 있어도, 여전히 바디에 모든 애니메이션이 있어야 합니다. 다른 고려 사항이라면 병합 메시에서는 하나의 애니메이션만 실행할 수 있으며, 모프 타겟 전송은 지원하지 않습니다. 하지만 `FSkeletalMeshMerge::GenerateLODModel` 을 살펴보면, 스켈레탈 메시가 있을 때 베이스 메시와 모프 사이 `FMorphTargetDelta` 를 계산해서 모프 타겟을 생성할 수 있습니다.
+
+추가로 `FSkeletalMeshMerge` 를 사용할 때 콘텐츠를 처음부터 일정한 방식으로 제작하는 것이 좋습니다. 공통 머티리얼을 하나 만들고 텍스처는 (이 구역은 부츠, 저 구역은 글러브 처럼) 아틀라스로 결정하는 식으로 해야 텍스처를 잘라 붙여 새로 만들어 전체 캐릭터를 한 섹션으로 렌더링할 수 있습니다. 
+
+### 메시 병합 예제
+
+아래 예제에서 Mesh Merge 코드를 사용하여 런타임에 여러 스켈레탈 메시를 조립합니다. 
+
+![](Individual_Meshes.png)
+
+위에서 런타임에 하나의 스켈레탈 메시로 합치려는 다수의 스켈레탈 메시가 있습니다. 이 예제에서는 **Mesh Merge** 라는 코드를 통해 블루프린트 호출 가능 함수를 만들어 병합하려는 메시를 정의하도록 해줍니다. 가장 먼저 할 일은, 다른 블루프린트에서 함수를 호출할 수 있도록 [블루프린트 함수 라이브러리](Programming/BlueprintFunctionLibraries) 기반 C++ 클래스를 만들고 **MeshMergeFunctionLibrary** 라 합니다. 
+
+![](Blueprint_FunctionLibrary.png)
+
+아래 제공된 샘플 코드 블록은 **헤더** 및 **소스** 파일에서 사용할 수 있습니다. 
+
+**.h 코드 샘플**
+
+	// Fill out your copyright notice in the Description page of Project Settings.
+	#pragma once
+	#include "CoreMinimal.h"
+	#include "Kismet/BlueprintFunctionLibrary.h"
+	#include "UObject/NoExportTypes.h"
+	#include "MeshMergeFunctionLibrary.generated.h"
+	/**
+	* Blueprint equivalent of FSkeleMeshMergeSectionMapping
+	* Info to map all the sections from a single source skeletal mesh to
+	* a final section entry in the merged skeletal mesh.
+	*/
+	USTRUCT(BlueprintType)
+	struct PROJECTNAME_API FSkelMeshMergeSectionMapping_BP
+	{
+		GENERATED_BODY()
+			/** Indices to final section entries of the merged skeletal mesh */
+			UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh Merge Params")
+			TArray SectionIDs;
+	};
+	/**
+	* Used to wrap a set of UV Transforms for one mesh.
+	*/
+	USTRUCT(BlueprintType)
+	struct PROJECTNAME_API FSkelMeshMergeUVTransform
+	{
+		GENERATED_BODY()
+			/** A list of how UVs should be transformed on a given mesh, where index represents a specific UV channel. */
+			UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh Merge Params")
+			TArray UVTransforms;
+	};
+	/**
+	* Blueprint equivalent of FSkelMeshMergeUVTransforms
+	* Info to map all the sections about how to transform their UVs
+	*/
+	USTRUCT(BlueprintType)
+	struct PROJECTNAME_API FSkelMeshMergeUVTransformMapping
+	{
+		GENERATED_BODY()
+			/** For each UV channel on each mesh, how the UVS should be transformed. */
+			UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mesh Merge Params")
+			TArray UVTransformsPerMesh;
+	};
+	/**
+	* Struct containing all parameters used to perform a Skeletal Mesh merge.
+	*/
+	USTRUCT(BlueprintType)
+	struct PROJECTNAME_API FSkeletalMeshMergeParams
+	{
+		GENERATED_BODY()
+			FSkeletalMeshMergeParams()
+		{
+			MeshSectionMappings = TArray();
+			UVTransformsPerMesh = TArray();
+			StripTopLODS = 0;
+			bNeedsCpuAccess = false;
+			bSkeletonBefore = false;
+			Skeleton = nullptr;
+		}
+		// An optional array to map sections from the source meshes to merged section entries
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			TArray MeshSectionMappings;
+		// An optional array to transform the UVs in each mesh
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			TArray UVTransformsPerMesh;
+		// The list of skeletal meshes to merge.
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			TArray MeshesToMerge;
+		// The number of high LODs to remove from input meshes
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			int32 StripTopLODS;
+		// Whether or not the resulting mesh needs to be accessed by the CPU for any reason (e.g. for spawning particle effects).
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			uint32 bNeedsCpuAccess : 1;
+		// Update skeleton before merge. Otherwise, update after.
+		// Skeleton must also be provided.
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+			uint32 bSkeletonBefore : 1;
+		// Skeleton that will be used for the merged mesh.
+		// Leave empty if the generated skeleton is OK.
+		UPROPERTY(EditAnywhere, BlueprintReadOnly)
+			class USkeleton* Skeleton;
+	};
+	/**
+	*
+	*/
+	UCLASS()
+	class PROJECTNAME_API UMeshMergeFunctionLibrary : public UBlueprintFunctionLibrary
+	{
+		GENERATED_BODY()
+	public:
+		/**
+		* Merges the given meshes into a single mesh.
+		* @return The merged mesh (will be invalid if the merge failed).
+		*/
+		UFUNCTION(BlueprintCallable, Category = "Mesh Merge", meta = (UnsafeDuringActorConstruction = "true"))
+			static class USkeletalMesh* MergeMeshes(const FSkeletalMeshMergeParams& Params);
+	};
+	~~~
+
+헤더에서 모든 **PROJECTNAME_API** 레퍼런스를 실제 프로젝트 이름으로 바꿔야 합니다. 예를 들어 프로젝트 이름이 "MyProject" 면, 코드의 해당 부분을 **MYPROJECT_API** 로 바꿔야 됩니다. 
+
+**.cpp 코드 샘플**
+
+	// Fill out your copyright notice in the Description page of Project Settings.
+	#include "MeshMergeFunctionLibrary.h"
+	#include "SkeletalMeshMerge.h"
+	#include "Engine/SkeletalMeshSocket.h"
+	#include "Engine/SkeletalMesh.h"
+	#include "Animation/Skeleton.h"
+	static void ToMergeParams(const TArray<FSkelMeshMergeSectionMapping_BP>& InSectionMappings, TArray<FSkelMeshMergeSectionMapping>& OutSectionMappings)
+	{
+		if (InSectionMappings.Num() > 0)
+		{
+			OutSectionMappings.AddUninitialized(InSectionMappings.Num());
+			for (int32 i = 0; i < InSectionMappings.Num(); ++i)
+			{
+				OutSectionMappings[i].SectionIDs = InSectionMappings[i].SectionIDs;
+			}
+		}
+	}
+	static void ToMergeParams(const TArray<FSkelMeshMergeUVTransformMapping>& InUVTransformsPerMesh, TArray<FSkelMeshMergeUVTransforms>& OutUVTransformsPerMesh)
+	{
+		if (InUVTransformsPerMesh.Num() > 0)
+		{
+			OutUVTransformsPerMesh.Empty();
+			OutUVTransformsPerMesh.AddUninitialized(InUVTransformsPerMesh.Num());
+			for (int32 i = 0; i < InUVTransformsPerMesh.Num(); ++i)
+			{
+				TArray<TArray<FTransform>>& OutUVTransforms = OutUVTransformsPerMesh[i].UVTransformsPerMesh;
+				const TArray<FSkelMeshMergeUVTransform>& InUVTransforms = InUVTransformsPerMesh[i].UVTransformsPerMesh;
+				if (InUVTransforms.Num() > 0)
+				{
+					OutUVTransforms.Empty();
+					OutUVTransforms.AddUninitialized(InUVTransforms.Num());
+					for (int32 j = 0; j < InUVTransforms.Num(); j++)
+					{
+						OutUVTransforms[i] = InUVTransforms[i].UVTransforms;
+					}
+				}
+			}
+		}
+	}
+	USkeletalMesh* UMeshMergeFunctionLibrary::MergeMeshes(const FSkeletalMeshMergeParams& Params)
+	{
+		TArray<USkeletalMesh*> MeshesToMergeCopy = Params.MeshesToMerge;
+		MeshesToMergeCopy.RemoveAll([](USkeletalMesh* InMesh)
+		{
+			return InMesh == nullptr;
+		});
+		if (MeshesToMergeCopy.Num() <= 1)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Must provide multiple valid Skeletal Meshes in order to perform a merge."));
+			return nullptr;
+		}
+		EMeshBufferAccess BufferAccess = Params.bNeedsCpuAccess ?
+			EMeshBufferAccess::ForceCPUAndGPU :
+			EMeshBufferAccess::Default;
+		TArray<FSkelMeshMergeSectionMapping> SectionMappings;
+		TArray<FSkelMeshMergeUVTransforms> UvTransforms;
+		ToMergeParams(Params.MeshSectionMappings, SectionMappings);
+		ToMergeParams(Params.UVTransformsPerMesh, UvTransforms);
+		bool bRunDuplicateCheck = false;
+		USkeletalMesh* BaseMesh = NewObject<USkeletalMesh>();
+		if (Params.Skeleton && Params.bSkeletonBefore)
+		{
+			BaseMesh->Skeleton = Params.Skeleton;
+			bRunDuplicateCheck = true;
+			for (USkeletalMeshSocket* Socket : BaseMesh->GetMeshOnlySocketList())
+			{
+				if (Socket)
+				{
+					UE_LOG(LogTemp, Warning, TEXT("SkelMeshSocket: %s"), *(Socket->SocketName.ToString()));
+				}
+			}
+			for (USkeletalMeshSocket* Socket : BaseMesh->Skeleton->Sockets)
+			{
+				if (Socket)
+				{
+					UE_LOG(LogTemp, Warning, TEXT("SkelSocket: %s"), *(Socket->SocketName.ToString()));
+				}
+			}
+		}
+		FSkeletalMeshMerge Merger(BaseMesh, MeshesToMergeCopy, SectionMappings, Params.StripTopLODS, BufferAccess, UvTransforms.GetData());
+		if (!Merger.DoMerge())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Merge failed!"));
+			return nullptr;
+		}
+		if (Params.Skeleton && !Params.bSkeletonBefore)
+		{
+			BaseMesh->Skeleton = Params.Skeleton;
+		}
+		if (bRunDuplicateCheck)
+		{
+			TArray<FName> SkelMeshSockets;
+			TArray<FName> SkelSockets;
+			for (USkeletalMeshSocket* Socket : BaseMesh->GetMeshOnlySocketList())
+			{
+				if (Socket)
+				{
+					SkelMeshSockets.Add(Socket->GetFName());
+					UE_LOG(LogTemp, Warning, TEXT("SkelMeshSocket: %s"), *(Socket->SocketName.ToString()));
+				}
+			}
+			for (USkeletalMeshSocket* Socket : BaseMesh->Skeleton->Sockets)
+			{
+				if (Socket)
+				{
+					SkelSockets.Add(Socket->GetFName());
+					UE_LOG(LogTemp, Warning, TEXT("SkelSocket: %s"), *(Socket->SocketName.ToString()));
+				}
+			}
+			TSet<FName> UniqueSkelMeshSockets;
+			TSet<FName> UniqueSkelSockets;
+			UniqueSkelMeshSockets.Append(SkelMeshSockets);
+			UniqueSkelSockets.Append(SkelSockets);
+			int32 Total = SkelSockets.Num() + SkelMeshSockets.Num();
+			int32 UniqueTotal = UniqueSkelMeshSockets.Num() + UniqueSkelSockets.Num();
+			UE_LOG(LogTemp, Warning, TEXT("SkelMeshSocketCount: %d | SkelSocketCount: %d | Combined: %d"), SkelMeshSockets.Num(), SkelSockets.Num(), Total);
+			UE_LOG(LogTemp, Warning, TEXT("SkelMeshSocketCount: %d | SkelSocketCount: %d | Combined: %d"), UniqueSkelMeshSockets.Num(), UniqueSkelSockets.Num(), UniqueTotal);
+			UE_LOG(LogTemp, Warning, TEXT("Found Duplicates: %s"), *((Total != UniqueTotal) ? FString("True") : FString("False")));
+		}
+		return BaseMesh;
+	}
+
+
+에디터에서 코드를 컴파일하고 나면 **Skeletal Mesh Component** 와 **Skeletal Mesh Parameters** 유형 변수가 노출된 ActorBlueprint 를 만들 수 있습니다. 이 변수에 제공된 프로퍼티로 병합할 스켈레탈 메시뿐 아니라 그 병합 방법 및 추가 옵션도 정의할 수 있습니다.
+
+![](SkelMeshParams.png)
+
+아래는 스켈레탈 메시 병합 방법을 정의하는 옵션입니다. 
+
+| 프로퍼티 | 설명 |
+| --- | --- |
+| **Mesh Section Mappings** | 메시 섹션 매핑 - 소스 메시에서 병합된 섹션 항목으로 매핑하는 옵션 배열입니다. |
+| **UVTransforms Per Mesh** | 메시별 UV 트랜스폼 - 각 메시의 UV 트랜스폼에 사용되는 옵션 배열입니다. |
+| **Meshes to Merge** | 병합할 메시 - 병합할 스켈레탈 메시들입니다.  |
+| **Strip Top LODs** | 상위 LOD 제거 - 입력 메시에서 제거할 상위 LOD 수입니다.  |
+| **Needs Cpu Access** | CPU 액세스 필요 - 어떤 이유든 (파티클 이펙트 스폰 등) 결과 메시에 CPU 액세스 필요 여부입니다. |
+| **Skeleton Before** | 스켈레톤 이전 - 스켈레톤 업데이트를 병합 이전 또는 이후에 할지 여부입니다 (스켈레톤도 제공해야 합니다). |
+| **Skeleton** | 스켈레톤 - 병합 메시에 사용할 스켈레톤입니다. 생성된 스켈레톤이 괜찮다면 비워둬도 됩니다. |
+
+**이벤트 그래프** 안에서 **Event Begin Play** (플레이 시작) 시 아래 네트워크 노드를 사용합니다.   
+  
+[REGION:lightbox]
+[![](MeshMergeBPScript.png)(w:900)](MeshMergeBPScript.png)
+[/REGION]
+
+이미지를 클릭하면 원본을 확인합니다.  
+  
+새 블루프린트 함수 **Merge Meshes** 를 사용하면 스켈레탈 메시 오브젝트 레퍼런스를 반환하면서 Mesh Merge Parameters 전달할 수 있습니다. **스켈레탈 메시 컴포넌트** 가 블루프린트에 추가되면 새로 사용할 스켈레탈 메시 설정용 타깃으로 쓸 수 있으며, 이는 Merge Meshes 함수 호출의 반환 값을 기리킬 수 있습니다. 위 예제에서는 스켈레탈 메시에 모든 메시 병합 후 재생할 Idle (대기) 애니메이션도 할당하고 있습니다.   
+
+레벨에 Mesh Merge 블루프린트를 추가한 후 **디테일** 패널에서 **Mesh Merge Parameters** (메시 병합 파라미터)는 물론 **Meshes to Use** (사용할 메시)와 **Skeleton** (스켈레톤) 애셋을 정의할 수 있습니다.   
+  
+
+![](AssignedDetails-1.png)
+
+런타임에 Mesh Merge 함수를 실행하여 정의된 메시에 따라 스켈레탈 메시를 조립합니다.
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:width]
+	640
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	360
+	[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	N4dri0RLZFg
+	[/PARAMLITERAL]
+[/OBJECT]
+
+## 비교 차트
+
+**Master Pose Component** (마스터), **Copy Pose from Mesh** (포즈 복사), **Skeletal Mesh Merge** (메시 병합) 중 어느 것을 사용하든 각자의 장단점이 있습니다. 아래 표는 각각에 관련된 구성 및 퍼포먼스 비용 및 추가 지원하(거나 하지 않)는 기능에 대한 개요입니다.   
+
+| | 마스터 | 포즈 복사 | 메시 병합 |
+| --- | --- | --- | --- |
+| **구성 비용** | 최소 | 중간 | 높음 |
+| **게임 스레드 비용** | 최소 | 높음 | 중간 |
+| **렌더 스레드 비용** | 높음 | 높음 | 낮음 |
+| **피직스** | O | AnimDynamics 또는 RigidBody | X |
+| **모프 타겟** | O | O | X |

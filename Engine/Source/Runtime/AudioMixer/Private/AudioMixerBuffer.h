@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -35,19 +35,16 @@ namespace Audio
 		int32 GetCurrentChunkOffset() const override;
 		bool IsRealTimeSourceReady() override;
 		bool ReadCompressedInfo(USoundWave* SoundWave) override;
-		bool ReadCompressedData(uint8* Destination, bool bLooping) override;
+		bool ReadCompressedData(uint8* Destination, int32 NumFrames, bool bLooping) override;
 		void Seek(const float SeekTime) override;
 		//~ End FSoundBuffer Interface
 
-		// Allows specifying the number of frames you want to read
-		bool ReadCompressedData(uint8* Destination, int32 NumFrames, bool bLooping);
-
 		static FMixerBuffer* Init(FAudioDevice* AudioDevice, USoundWave* InWave, bool bForceRealtime);
-		static FMixerBuffer* CreatePreviewBuffer(FMixerDevice* InMixer, USoundWave* InWave);
-		static FMixerBuffer* CreateProceduralBuffer(FMixerDevice* InMixer, USoundWave* InWave);
-		static FMixerBuffer* CreateNativeBuffer(FMixerDevice* InMixer, USoundWave* InWave);
-		static FMixerBuffer* CreateStreamingBuffer(FMixerDevice* InMixer, USoundWave* InWave);
-		static FMixerBuffer* CreateRealTimeBuffer(FMixerDevice* InMixer, USoundWave* InWave);
+		static FMixerBuffer* CreatePreviewBuffer(FAudioDevice* AudioDevice, USoundWave* InWave);
+		static FMixerBuffer* CreateProceduralBuffer(FAudioDevice* AudioDevice, USoundWave* InWave);
+		static FMixerBuffer* CreateNativeBuffer(FAudioDevice* AudioDevice, USoundWave* InWave);
+		static FMixerBuffer* CreateStreamingBuffer(FAudioDevice* AudioDevice, USoundWave* InWave);
+		static FMixerBuffer* CreateRealTimeBuffer(FAudioDevice* AudioDevice, USoundWave* InWave);
 
 		/** Returns the buffer's format */
 		EBufferType::Type GetType() const;
@@ -60,6 +57,7 @@ namespace Audio
 
 		float GetSampleRate() const { return SampleRate; }
 		int32 GetNumChannels() const { return NumChannels; }
+		uint32 GetNumFrames() const { return NumFrames; }
 		void InitSampleRate(const float InSampleRate) { SampleRate = InSampleRate; }
 
 	private:
@@ -75,6 +73,9 @@ namespace Audio
 
 		/** Sample rate of the audio buffer. */
 		int32 SampleRate;
+
+		/** Number of frames of the audio. */
+		uint32 NumFrames;
 
 		/** Number of bits per sample. */
 		int16 BitsPerSample;

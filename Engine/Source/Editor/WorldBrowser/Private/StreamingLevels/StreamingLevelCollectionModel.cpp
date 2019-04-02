@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #include "StreamingLevels/StreamingLevelCollectionModel.h"
 #include "Misc/MessageDialog.h"
 #include "HAL/FileManager.h"
@@ -18,6 +18,7 @@
 
 #include "Interfaces/IMainFrameModule.h"
 #include "DesktopPlatformModule.h"
+#include "NewLevelDialogModule.h"
 
 #include "StreamingLevels/StreamingLevelCustomization.h"
 #include "StreamingLevels/StreamingLevelModel.h"
@@ -172,8 +173,8 @@ void FStreamingLevelCollectionModel::BindCommands()
 		FExecuteAction::CreateSP( this, &FStreamingLevelCollectionModel::RemoveInvalidSelectedLevels_Executed ));
 
 	//levels
-	ActionList.MapAction( Commands.World_CreateEmptyLevel,
-		FExecuteAction::CreateSP( this, &FStreamingLevelCollectionModel::CreateEmptyLevel_Executed  ) );
+	ActionList.MapAction( Commands.World_CreateNewLevel,
+		FExecuteAction::CreateSP( this, &FStreamingLevelCollectionModel::CreateNewLevel_Executed  ) );
 	
 	ActionList.MapAction( Commands.World_AddExistingLevel,
 		FExecuteAction::CreateSP( this, &FStreamingLevelCollectionModel::AddExistingLevel_Executed ) );
@@ -184,7 +185,7 @@ void FStreamingLevelCollectionModel::BindCommands()
 	
 	ActionList.MapAction( Commands.World_RemoveSelectedLevels,
 		FExecuteAction::CreateSP( this, &FStreamingLevelCollectionModel::UnloadSelectedLevels_Executed  ),
-		FCanExecuteAction::CreateSP( this, &FLevelCollectionModel::AreAllSelectedLevelsEditable ) );
+		FCanExecuteAction::CreateSP( this, &FStreamingLevelCollectionModel::AreAllSelectedLevelsRemovable ) );
 	
 	ActionList.MapAction( Commands.World_MergeSelectedLevels,
 		FExecuteAction::CreateSP( this, &FStreamingLevelCollectionModel::MergeSelectedLevels_Executed  ),
@@ -376,7 +377,7 @@ void FStreamingLevelCollectionModel::CustomizeFileMainMenu(FMenuBuilder& InMenuB
 			LOCTEXT("LevelsStreamingMethod_Tooltip", "Changes the default streaming method for a new levels"),
 			FNewMenuDelegate::CreateRaw(this, &FStreamingLevelCollectionModel::FillDefaultStreamingMethodSubMenu ) );
 		
-		InMenuBuilder.AddMenuEntry( Commands.World_CreateEmptyLevel );
+		InMenuBuilder.AddMenuEntry( Commands.World_CreateNewLevel );
 		InMenuBuilder.AddMenuEntry( Commands.World_AddExistingLevel );
 		InMenuBuilder.AddMenuEntry( Commands.World_AddSelectedActorsToNewLevel );
 		InMenuBuilder.AddMenuEntry( Commands.World_MergeSelectedLevels );
@@ -413,12 +414,22 @@ const FLevelModelList& FStreamingLevelCollectionModel::GetInvalidSelectedLevels(
 }
 
 //levels
-void FStreamingLevelCollectionModel::CreateEmptyLevel_Executed()
+void FStreamingLevelCollectionModel::CreateNewLevel_Executed()
 {
-	EditorLevelUtils::CreateNewStreamingLevelForWorld( *CurrentWorld, AddedLevelStreamingClass, TEXT(""), false);
+	FString TemplateMapPackageName;
+	FNewLevelDialogModule& NewLevelDialogModule = FModuleManager::LoadModuleChecked<FNewLevelDialogModule>("NewLevelDialog");
+	IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
+	if (NewLevelDialogModule.CreateAndShowNewLevelDialog(MainFrameModule.GetParentWindow(), TemplateMapPackageName))
+	{
+		UPackage* TemplatePackage = LoadPackage(nullptr, *TemplateMapPackageName, LOAD_None);
+		UWorld* TemplateWorld = TemplatePackage ? UWorld::FindWorldInPackage(TemplatePackage) : nullptr;
 
-	// Force a cached level list rebuild
-	PopulateLevelsList();
+		// Create the new level
+		EditorLevelUtils::CreateNewStreamingLevelForWorld(*CurrentWorld, AddedLevelStreamingClass, TEXT(""), false, TemplateWorld);
+
+		// Force a cached level list rebuild
+		PopulateLevelsList();
+	}
 }
 
 void FStreamingLevelCollectionModel::AddExistingLevel_Executed()
@@ -564,6 +575,19 @@ bool FStreamingLevelCollectionModel::IsStreamingMethodChecked(UClass* InClass) c
 		}
 	}
 	return false;
+}
+
+bool FStreamingLevelCollectionModel::AreAllSelectedLevelsRemovable() const
+{
+	for (const TSharedPtr<FLevelModel>& LevelModel : SelectedLevelsList)
+	{
+		if (LevelModel->IsLocked() || LevelModel->IsPersistent())
+		{
+			return false;
+		}
+	}
+
+	return AreAnyLevelsSelected();
 }
 
 void FStreamingLevelCollectionModel::SetStreamingLevelsClass_Executed(UClass* InClass)

@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:4285161
 Availability: Public
 Crumbs: 
-Title: Curve Atlases in Materials
-Description: Curve Atlases store a combination of Curve assets that enables you to access Curve Linear Color data through your Materials.
+Title: 材质曲线图集
+Description: 曲线图集保存了曲线资源组合，让您可以通过材质访问曲线线性颜色数据。
 Version: 4.20
 Parent: Engine/Rendering/Materials
 Order: 6
@@ -10,135 +10,135 @@ Order: 6
 
 ![](MaterialGradientCurvesBanner.png "MaterialGradientCurvesBanner.png")
 
-Curve Atlases store a combination of [Curve](Engine/UI/CurveEditor) assets that enables you to access Curve Linear Color data through your Materials. The Curve Atlas stores any number of Curves in a texture that can be used with [Materials](https://docs.unrealengine.com/en-us/Engine/Rendering/Materials). When creating [Material Instances](https://docs.unrealengine.com/en-us/Engine/Rendering/Materials/MaterialInstances) and changing [Material Instance Dynamics](https://docs.unrealengine.com/en-us/Engine/Rendering/Materials/MaterialInstances#materialinstancedynamic) (MIDs) through Blueprint, you are able to set a curve as an override, enabling you to quickly iterate and change RGBA curve values without changing your base Material.
+曲线图集保存了[曲线](Engine/UI/CurveEditor)资源组合，让您可以通过材质访问曲线线性颜色数据。曲线图集保存可以与[材质](https://docs.unrealengine.com/en-us/Engine/Rendering/Materials)搭配使用的纹理中任意数量的曲线。在通过蓝图创建[材质实例](https://docs.unrealengine.com/en-us/Engine/Rendering/Materials/MaterialInstances)和更改[动态材质实例](https://docs.unrealengine.com/en-us/Engine/Rendering/Materials/MaterialInstances#materialinstancedynamic)（MID）时，您能够将曲线设置为覆盖，这样就可以快速迭代和更改RGBA曲线值，而不更改基本材质。
 
-## Curve Linear Color Asset
+## 曲线线性颜色资源
 
-A **Curve Linear Color** asset is used to store the interpolated RGBA points that are evaluated over a given range producing a color gradient that can be used with Materials.  
+**曲线线性颜色** 资源用于存储插值RGBA点，在给定范围内将评估这些点以产生能够材质搭配使用的颜色渐变。  
 ![](CurveGradient.png)
 
 [REGION:caption]
-Example of a Curve Gradient created with a Curve Linear Color asset
+用曲线线性颜色资源创建的曲线梯度示例
 [/REGION]
 
-Use the **Content Browser** to create your Curve asset by selecting **Add New > Miscellaneous > Curve**.  
+使用 **内容浏览器**，选择 **新增（Add New）>其他（Miscellaneous）>曲线（Curve）** 来创建曲线资源。  
 
 [REGION:lightbox]
 [![](Create_Curve.png)(w:350)](Create_Curve.png)
 [/REGION]
 [REGION:caption]
-Click image for full size.
+单击查看大图。
 [/REGION]
 
-Then select **CurveLinearColor** from the **Pick Curve Class** window.  
+然后从 **选取曲线类（Pick Curve Class）** 窗口中选择 **CurveLinearColor**。  
 ![](PickCurveClassWindow.png)
 
-A new Curve Linear Color asset is added to the Content Browser displaying a preview of its current gradient. When you open the Curve Asset Editor, you can add, adjust, and subtract keys to the individual RGBA curves in the graph.  
+内容浏览器中添加了一个新的曲线线性颜色资源，显示其当前颜色梯度预览。当您打开曲线资源编辑器时，可以在图形中添加、调整和删除各个RGBA曲线的键。  
 ![](MyCurveAsset.png)
 
-When you open the Curve in its Asset Editor, you’ll be able to set the individual RGBA curves, adjust color values for the Curve, and preview the Curve Gradient Result.  
+当您在资源编辑器中打开曲线时，您将能够设置各个RGBA曲线，调整曲线的颜色值和预览曲线梯度结果。  
 
 [REGION:lightbox]
 [![](CurveAssetEditor.png)](CurveAssetEditor.png)
 [/REGION]
 [REGION:caption]
-Click image for full size.
+单击查看大图。
 [/REGION]
 
 [REGION:caption]
-1.  The **Curve Graph** is where you adjust, add, and subtract any keys for the individual RGBA curves.
-2.  The **Color** panel is where you adjust color values that affect all keys.
-3.  The **Curve Gradient Result** shows you the resulting gradient.
+1. **曲线图形（Curve Graph）** 用于调整、添加和删除各个RGBA曲线的任意键。
+2. **颜色（Color）** 面板用于调整影响所有键的颜色值。
+3. **曲线梯度结果（Curve Gradient Result）** 向您显示所产生的梯度。
 
 [REGION:note]
-You can add keys to your Curve by holding SHIFT and clicking on individual curve to add a single key. If you click in the empty graph, a new key will be added to all curves at the point where you clicked.
+您可以按住SHIFT键并单击单个曲线来添加一个键，以向曲线添加键。如果单击空图形，会在您单击的位置处向所有曲线添加一个新键。
 [/REGION]
 [/REGION]
 
-## Curve Atlas Asset
+## 曲线图集资源
 
-A **Curve Atlas** asset is used to store and access multiple Curve assets enabling management of gradient lookup tables (LUT). The Curve Atlas Asset Editor is similar to the Texture Editor, enabling you to make adjustments for Brightness, Vibrance, Hue, and more.  
+**曲线图集** 资源用于存储和访问多个曲线资源，使您能够管理梯度查找表（LUT）。曲线图集资源编辑器类似于纹理编辑器，您可以用来调整亮度、饱和度、色调等设置。  
 ![](CurveAtlas.png)(w:200 h:200)
 
 [REGION:caption]
-Example of the Curve Atlas LUT
+曲线图集LUT示例
 [/REGION]
 
-The curves assigned to the Curve Atlas as **Gradient Curves** make up the atlas. The Material Graph uses the texture created to perform the lookup for Materials applied to Actors.
+作为 **梯度曲线** 分配给曲线图集的曲线即构成图集。材质图形使用所创建的纹理对应用于Actor的材质执行查找。
 
-Use the **Content Browser** to create your Curve Atlas asset by selecting **Add New > Miscellaneous > Curve Atlas**.  
+使用 **内容浏览器**，选择 **新增（Add New）>其他（Miscellaneous）>曲线图集（Curve Atlas）** 来创建曲线图集资源。  
 
 [REGION:lightbox]
 [![](Create_CurveAtlas.png)(w:350)](Create_CurveAtlas.png)
 [/REGION]
 [REGION:caption]
-Click image for full size.
+单击查看大图。
 [/REGION]
 
-When you open the Curve Atlas in its Asset Editor, you’ll be able to set the number of curves it can store, assign your curves, and adjust color values for all assigned curves - similar to the functionality of the Texture Editor.  
+当您在资源编辑器中打开曲线图集时，您可以设置它能够存储的曲线数量，分配曲线和调整所有分配曲线的颜色值——类似于纹理编辑器的功能。  
 
 [REGION:lightbox]
 [![](CurveAtlasAssetEditor_1.png)](CurveAtlasAssetEditor_1.png)
 [/REGION]
 [REGION:caption]
-Click image for full size.
+单击查看大图。
 [/REGION]
 
-1.  The main viewport displays the **Curve Atlas** LUT that displays all assigned **Gradient Curves** for the **Texture Size** that is applied.
-2.  The **Curves** panel is where you sets the **Texture Size** for the number of **Gradient Curves** you need. The default is 256.
-3.  The **Adjustments** panel makes texture adjustments to all **Gradient Curves** assigned to the Curve Atlas.
+1. 主视口显示 **曲线图集** LUT，其中显示了为所应用 **纹理大小** 分配的所有 **梯度曲线**。
+2. 在 **曲线（Curves）** 面板中，您可以针对所需数量的 **渐变曲线** 设置 **纹理大小**。默认值为 256。
+3. **调整（Adjustments）** 面板用于对分配给曲线图集的所有 **梯度曲线** 进行调整。
 
 [REGION:note]
-For maximum texture efficiency, it’s best to use a **power of 2** value (such as 32, 64, 128). The texture sizes here are for demonstration purposes to include the entirety of the Editor Interface.
+为实现最大纹理效率，最好使用 **2的幂次方** 值（如 32、64、128）。这里的纹理大小仅用于演示目的，主要是为了包含整个编辑器界面。
 [/REGION]
 [REGION:warning]
-The **Texture Size** used can have an impact on the fidelity of your gradients, so it’s best not to use a small atlas size for a complex curve. However, you can save texture size by using a small atlas for a set of simple curves.
+所用 **纹理大小** 会影响梯度的保真度，因此最好不要对复杂曲线使用较小图集大小。但是，您可以对一组简单曲线使用较小图集来节约纹理大小。
 [/REGION]
 
-To add a new Gradient Curve to the Curve Atlas, click the **Plus** (**+**) icon to add array elements, and the **Trash Can** icon to remove elements.  
+要向曲线图集添加新的梯度曲线，单击 **加号**（**+**）图标以添加数组元素，单击 **垃圾桶** 图标可删除元素。  
 ![](CurveAtlasAssetEditor_AddRemove.png)
 
-## Using Curve Atlas with Materials
+## 将曲线图集与材质搭配使用
 
-After creating your Curves and applying them to a Curve Atlas, you can create a Material that references the Curve Atlas and a Curve assigned to the atlas.
+在创建曲线并应用于曲线图集后，您可以创建一个材质来引用该曲线图集和分配到该图集的曲线。
 
-To sample the curve from an atlas, create a new Material and in the graph, right-click and add a **Curve Atlas Row Parameter** node.  
+要对图集中的曲线采样，创建一个新材质，并在图形中单击右键，然后添加 **曲线图集行参数（Curve Atlas Row Parameter）** 节点。  
 ![](CurveAtlasRowParameter.png)
 
 [REGION:note]
-This node is similar to a Scalar Parameter in that it enables you to work with [Material Instance Dynamics](Engine/Rendering/Materials/MaterialInstances#materialinstancedynamic) (MIDs) that can then be used through Blueprint for the V-axis of the atlas UVs, but the node will do the sampling for you and return a Vector 3, along with R, G, B, and A, masks.
+该节点就像标量参数一样，让您可以使用[动态材质实例](Engine/Rendering/Materials/MaterialInstances#materialinstancedynamic)（MID），通过蓝图将这些实例用于图集UV的V轴，但该节点会为您执行采样任务，并返回矢量3和R、G、B和A遮罩。
 [/REGION]
 
-When you select the node, in the **Details** panel, you can assign the **Atlas** and a default **Curve** from that atlas to use with this Material.  
+当您选择该节点时，在 **细节（Details）** 面板中，您可以指定 **图集** 和该图集中的默认 **曲线** 以用于该材质。  
 ![](MatDetails_AtlasAndCurveAssignment.png)
 
-The Curve Atlas bakes down when it is compiled, which means there is currently no runtime support for changing what is in the atlas or the curve data that is stored in the atlas at runtime. However, you can store a large amount of data in a single Curve Atlas, and use Blueprint to override the curve being sampled from a Material Instance.
+曲线图集会在编译时分解，这意味着目前没有可用于更改图集内容的运行时支持，也不能在运行时更改图集中存储的曲线数据。但是，您可以在一个曲线图集中存储大量数据，并使用蓝图覆盖从材质实例取样的曲线。
 
-As an example, here is a “Rock” Material that is using multiple Curves assigned to a Curve Atlas.  
+例如，下面是一个“岩石”材质，它使用了分配到某曲线图集的多个曲线。  
 
 [REGION:lightbox]
 [![](RockMaterialSetup_2.png)](RockMaterialSetup_2.png)
 [/REGION]
 [REGION:caption]
-Click image for full size.
+单击查看大图。
 [/REGION]
 
-Then when you create any **Material Instances**, you can change the Scalar Parameter to select the **Curve** asset referenced by your **Curve Atlas** that is applied to your mesh.
+然后，在创建任何 **材质实例** 时，可以更改标量参数以选择应用于网格体的 **曲线图集** 所引用的 **曲线** 资源。
 
 [REGION:imagetable]
-The examples here show a Material Instance applied and the Curve that is being referenced from the Curve Atlas.
+下面的示例显示了所应用的材质和从曲线图集引用的曲线。
 | ![](Curve_Base.png)(w:250) | ![](Curve_1.png)(w:250) | ![](Curve_2.png)(w:250) | ![](Curve_3.png)(w:250) |
 | --- | --- | --- | --- |
-| Base | Curve 1 | Curve 2 | Curve 3 |
+| 基础 | 曲线1 | 曲线2 | 曲线3 |
 [/REGION]
 
-### Accessing Curve Atlases through Blueprint
+### 通过蓝图访问曲线图集
 
-In Blueprint, you can set the scalar parameter value on a Dynamic Material Instance using the **Get Curve Position** node. Get Curve Position takes the Curve Atlas as an input, passes the scalar value to the **Set Scalar Parameter Value**, and returns a Boolean indicating whether the curve was found in the atlas.  
+在蓝图中，您可以使用 **获取曲线位置（Get Curve Position）** 节点在动态材质实例上设置标量参数值。获取曲线位置（Get Curve Position）以曲线图集为输入，将标量值传递到 **设置标量参数值（Set Scalar Parameter Value）**，然后返回一个布尔值来指示是否在图集中找到了曲线。  
 
 [REGION:lightbox]
 [![](BlueprintCurve.png)](BlueprintCurve.png)
 [/REGION]
 [REGION:caption]
-Click image for full size.
+单击查看大图。
 [/REGION]

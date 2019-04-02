@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+# Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 SCRIPT_DIR=$(cd $(dirname $0) && pwd)
 
@@ -17,7 +17,7 @@ cd "${BUILD_DIR}"
 function build()
 {
 	CONFIGURATION=$1
-	xcodebuild -project libstrophe.xcodeproj -configuration $CONFIGURATION -destination generic/platform=iOS
+	xcodebuild BITCODE_GENERATION_MODE=bitcode -project libstrophe.xcodeproj -configuration $CONFIGURATION -destination generic/platform=iOS
 }
 
 build Release

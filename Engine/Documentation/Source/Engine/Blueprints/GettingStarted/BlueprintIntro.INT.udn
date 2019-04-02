@@ -35,7 +35,7 @@ The most common Blueprint types you will be working with are Level Blueprints an
 
 These are just two of the [Types of Blueprints](Engine/Blueprints/UserGuide/Types), which also include [Blueprint Macros](Engine/Blueprints/UserGuide/Types/MacroLibrary) and [Blueprint Interfaces](Engine/Blueprints/UserGuide/Types/Interface).
 
-## [Level Blueprint](Engine/Blueprints/UserGuide/Types/LevelBlueprint)
+## Level Blueprint
 
 [REGION:lightbox]
 [![](Engine/Blueprints/GettingStarted/Level_Blueprint_Main.png)(w:640)](Engine/Blueprints/UserGuide/Types/LevelBlueprint) 
@@ -43,7 +43,7 @@ These are just two of the [Types of Blueprints](Engine/Blueprints/UserGuide/Type
 
 The Level Blueprint fills the same role that Kismet did in Unreal Engine 3, and has the same capabilities. Each level has its own Level Blueprint, and this can reference and manipulate Actors within the level, control cinematics using Matinee Actors, and manage things like level streaming, checkpoints, and other level-related systems. The Level Blueprint can also interact with Blueprint Classes (see the next section for examples of these) placed in the level, such as reading/setting any variables or triggering custom events they might contain.
 
-## [Blueprint Class](Engine/Blueprints/UserGuide/Types/ClassBlueprint)
+## Blueprint Class
 
 [REGION:lightbox]
 [![](Engine/Blueprints/GettingStarted/Blueprint_Main.png)(w:640)](Engine/Blueprints/UserGuide/Types/ClassBlueprint)

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AudioMixerSourceBuffer.h"
 
@@ -94,8 +94,8 @@ namespace Audio
 		{
 			SourceVoiceBuffers.Add(TSharedPtr<FMixerSourceVoiceBuffer>(new FMixerSourceVoiceBuffer()));
 
-			SourceVoiceBuffers[BufferIndex]->AudioData.AddZeroed(TotalSamples);
-			SourceVoiceBuffers[BufferIndex]->Samples = TotalSamples;
+			// Prepare the memory to fit the max number of samples
+			SourceVoiceBuffers[BufferIndex]->AudioData.Reset(TotalSamples);
 			SourceVoiceBuffers[BufferIndex]->bRealTimeBuffer = true;
 			SourceVoiceBuffers[BufferIndex]->LoopCount = 0;
 		}
@@ -177,6 +177,10 @@ namespace Audio
 		const uint32 NumSamplesPerBuffer = MONO_PCM_BUFFER_SAMPLES * MixerBuffer->NumChannels;
 		int16* RawPCMBufferDataPtr = (int16*)RawPCMDataBuffer.Data;
 
+		// Prepare the buffer for the PCM submission
+		SourceVoiceBuffers[0]->AudioData.Reset(NumSamplesPerBuffer);
+		SourceVoiceBuffers[0]->AudioData.AddUninitialized(NumSamplesPerBuffer);
+
 		RawPCMDataBuffer.GetNextBuffer(SourceVoiceBuffers[0].Get(), NumSamplesPerBuffer);
 
 		SubmitBuffer(SourceVoiceBuffers[0]);
@@ -186,6 +190,8 @@ namespace Audio
 
 	void FMixerSourceBuffer::SubmitInitialRealtimeBuffers()
 	{
+		static_assert(PLATFORM_NUM_AUDIODECOMPRESSION_PRECACHE_BUFFERS <= 2 && PLATFORM_NUM_AUDIODECOMPRESSION_PRECACHE_BUFFERS >= 0, "Unsupported number of precache buffers.");
+
 		CurrentBuffer = 0;
 
 		bPlayedCachedBuffer = false;
@@ -193,25 +199,59 @@ namespace Audio
 		{
 			bPlayedCachedBuffer = true;
 
+			const int32 NumPrecacheFrames = SoundWave->NumPrecacheFrames;
+			const uint32 NumSamples = NumPrecacheFrames * MixerBuffer->NumChannels;
+			const uint32 BufferSize = NumSamples * sizeof(int16);
+
 			// Format convert the first cached buffers
-			const uint32 NumSamples = MONO_PCM_BUFFER_SAMPLES * MixerBuffer->NumChannels;
-			const uint32 BufferSize = MONO_PCM_BUFFER_SIZE * MixerBuffer->NumChannels;
-
-			int16* CachedBufferPtr0 = (int16*)SoundWave->CachedRealtimeFirstBuffer;
-			int16* CachedBufferPtr1 = (int16*)(SoundWave->CachedRealtimeFirstBuffer + BufferSize);
-			float* AudioData0 = SourceVoiceBuffers[0]->AudioData.GetData();
-			float* AudioData1 = SourceVoiceBuffers[1]->AudioData.GetData();
-			for (uint32 Sample = 0; Sample < NumSamples; ++Sample)
+#if (PLATFORM_NUM_AUDIODECOMPRESSION_PRECACHE_BUFFERS == 2)
 			{
-				AudioData0[Sample] = CachedBufferPtr0[Sample] / 32768.0f;
-				AudioData1[Sample] = CachedBufferPtr1[Sample] / 32768.0f;
+				// Prepare the precache buffer memory
+				for (int32 i = 0; i < 2; ++i)
+				{
+					SourceVoiceBuffers[i]->AudioData.Reset();
+					SourceVoiceBuffers[i]->AudioData.AddUninitialized(NumSamples);
+				}
+
+				int16* CachedBufferPtr0 = (int16*)SoundWave->CachedRealtimeFirstBuffer;
+				int16* CachedBufferPtr1 = (int16*)(SoundWave->CachedRealtimeFirstBuffer + BufferSize);
+				float* AudioData0 = SourceVoiceBuffers[0]->AudioData.GetData();
+				float* AudioData1 = SourceVoiceBuffers[1]->AudioData.GetData();
+				for (uint32 Sample = 0; Sample < NumSamples; ++Sample)
+				{
+					AudioData0[Sample] = CachedBufferPtr0[Sample] / 32768.0f;
+				}
+
+				for (uint32 Sample = 0; Sample < NumSamples; ++Sample)
+				{
+					AudioData1[Sample] = CachedBufferPtr1[Sample] / 32768.0f;
+				}
+
+				// Submit the already decoded and cached audio buffers
+				SubmitBuffer(SourceVoiceBuffers[0]);
+				SubmitBuffer(SourceVoiceBuffers[1]);
+
+				CurrentBuffer = 2;
 			}
+#elif (PLATFORM_NUM_AUDIODECOMPRESSION_PRECACHE_BUFFERS == 1)
+			{
+				SourceVoiceBuffers[0]->AudioData.Reset();
+				SourceVoiceBuffers[0]->AudioData.AddUninitialized(NumSamples);
 
-			// Submit the already decoded and cached audio buffers
-			SubmitBuffer(SourceVoiceBuffers[0]);
-			SubmitBuffer(SourceVoiceBuffers[1]);
+				int16* CachedBufferPtr0 = (int16*)SoundWave->CachedRealtimeFirstBuffer;
 
-			CurrentBuffer = 2;
+				float* AudioData0 = SourceVoiceBuffers[0]->AudioData.GetData();
+				for (uint32 Sample = 0; Sample < NumSamples; ++Sample)
+				{
+					AudioData0[Sample] = CachedBufferPtr0[Sample] / 32768.0f;
+				}
+
+				// Submit the already decoded and cached audio buffers
+				SubmitBuffer(SourceVoiceBuffers[0]);
+
+				CurrentBuffer = 1;
+			}
+#endif
 		}
 		else if (SoundWave && !SoundWave->bIsBus)
 		{
@@ -224,10 +264,12 @@ namespace Audio
 
 	bool FMixerSourceBuffer::ReadMoreRealtimeData(const int32 BufferIndex, EBufferReadMode BufferReadMode)
 	{
+		const int32 MaxSamples = MONO_PCM_BUFFER_SAMPLES * MixerBuffer->NumChannels;
+		SourceVoiceBuffers[BufferIndex]->AudioData.Reset();
+		SourceVoiceBuffers[BufferIndex]->AudioData.AddUninitialized(MaxSamples);
+
 		if (SoundWave && SoundWave->bProcedural)
 		{
-			const int32 MaxSamples = MONO_PCM_BUFFER_SAMPLES * MixerBuffer->NumChannels;
-
 			FProceduralAudioTaskData NewTaskData;
 			NewTaskData.ProceduralSoundWave = SoundWave;
 			NewTaskData.AudioData = SourceVoiceBuffers[BufferIndex]->AudioData.GetData();
@@ -244,8 +286,7 @@ namespace Audio
 			check(RawPCMDataBuffer.Data != nullptr);
 
 			// Read the next raw PCM buffer into the source buffer index. This converts raw PCM to float.
-			const uint32 NumSamplesPerBuffer = MONO_PCM_BUFFER_SAMPLES * MixerBuffer->NumChannels;
-			return RawPCMDataBuffer.GetNextBuffer(SourceVoiceBuffers[BufferIndex].Get(), NumSamplesPerBuffer);
+			return RawPCMDataBuffer.GetNextBuffer(SourceVoiceBuffers[BufferIndex].Get(), MaxSamples);
 		}
 
 		FDecodeAudioTaskData NewTaskData;
@@ -254,6 +295,15 @@ namespace Audio
 		NewTaskData.bLoopingMode = LoopingMode != LOOP_Never;
 		NewTaskData.bSkipFirstBuffer = (BufferReadMode == EBufferReadMode::AsynchronousSkipFirstFrame);
 		NewTaskData.NumFramesToDecode = MONO_PCM_BUFFER_SAMPLES;
+
+		if (SoundWave)
+		{
+			NewTaskData.NumPrecacheFrames = SoundWave->NumPrecacheFrames;
+		}
+		else
+		{
+			NewTaskData.NumPrecacheFrames = MONO_PCM_BUFFER_SAMPLES;
+		}
 
 		check(!AsyncRealtimeAudioTask);
 		AsyncRealtimeAudioTask = CreateAudioTask(NewTaskData);
@@ -306,7 +356,6 @@ namespace Audio
 				FDecodeAudioTaskResults TaskResult;
 				AsyncRealtimeAudioTask->GetResult(TaskResult);
 
-				SourceVoiceBuffers[CurrentBuffer]->Samples = MONO_PCM_BUFFER_SAMPLES * MixerBuffer->NumChannels;
 				bLooped = TaskResult.bLooped;
 			}
 			break;
@@ -316,7 +365,7 @@ namespace Audio
 				FProceduralAudioTaskResults TaskResult;
 				AsyncRealtimeAudioTask->GetResult(TaskResult);
 
-				SourceVoiceBuffers[CurrentBuffer]->Samples = TaskResult.NumSamplesWritten;
+				SourceVoiceBuffers[CurrentBuffer]->AudioData.SetNum(TaskResult.NumSamplesWritten);
 			}
 			break;
 			}
@@ -404,6 +453,7 @@ namespace Audio
 				SoundWave->SetGenerating(true);
 				SoundWave->OnBeginGenerate();
 			}
+
 		}
 	}
 
@@ -422,7 +472,6 @@ namespace Audio
 			}
 
 			SoundWave = nullptr;
-			bInitialized = false;
 		}
 
 		if (MixerBuffer)
@@ -432,6 +481,7 @@ namespace Audio
 			{
 				delete MixerBuffer;
 			}
+
 			MixerBuffer = nullptr;
 		}
 	}

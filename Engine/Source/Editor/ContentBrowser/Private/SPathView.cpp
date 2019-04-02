@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SPathView.h"
 #include "HAL/FileManager.h"
@@ -1387,7 +1387,8 @@ void SPathView::TreeAssetsOrPathsDropped(const TArray<FAssetData>& AssetList, co
 		TreeItem->FolderPath, 
 		TreeItem->DisplayName, 
 		DragDropHandler::FExecuteCopyOrMove::CreateSP(this, &SPathView::ExecuteTreeDropCopy),
-		DragDropHandler::FExecuteCopyOrMove::CreateSP(this, &SPathView::ExecuteTreeDropMove)
+		DragDropHandler::FExecuteCopyOrMove::CreateSP(this, &SPathView::ExecuteTreeDropMove),
+		DragDropHandler::FExecuteCopyOrMove::CreateSP(this, &SPathView::ExecuteTreeDropAdvancedCopy)
 		);
 }
 
@@ -1485,6 +1486,12 @@ void SPathView::ExecuteTreeDropMove(TArray<FAssetData> AssetList, TArray<FString
 
 		OnFolderPathChanged.ExecuteIfBound(MovedFolders);
 	}
+}
+
+
+void SPathView::ExecuteTreeDropAdvancedCopy(TArray<FAssetData> AssetList, TArray<FString> AssetPaths, FString DestinationPath)
+{
+	ContentBrowserUtils::BeginAdvancedCopyPackages(AssetList, AssetPaths, DestinationPath);
 }
 
 void SPathView::OnAssetRegistryPathAdded(const FString& Path)

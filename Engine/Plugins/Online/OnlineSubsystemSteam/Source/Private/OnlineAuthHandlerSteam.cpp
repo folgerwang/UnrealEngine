@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineAuthHandlerSteam.h"
 #include "OnlineAuthInterfaceSteam.h"
@@ -121,6 +121,16 @@ FSteamAuthHandlerComponent::~FSteamAuthHandlerComponent()
 	{
 		AuthInterface->RemoveUser(SteamId);
 	}
+}
+
+void FSteamAuthHandlerComponent::CountBytes(FArchive& Ar) const
+{
+	HandlerComponent::CountBytes(Ar);
+
+	const SIZE_T SizeOfThis = sizeof(*this) - sizeof(HandlerComponent);
+	Ar.CountBytes(SizeOfThis, SizeOfThis);
+
+	UserTicket.CountBytes(Ar);
 }
 
 void FSteamAuthHandlerComponent::Initialize()

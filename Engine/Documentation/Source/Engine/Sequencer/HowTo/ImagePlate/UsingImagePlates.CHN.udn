@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3692843
 Availability: Docs
-Title:Using Image Plate Actors & Image Plate Tracks
-Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
-Description:In this example, we use the Image Plate Actor and Image Plate Track in Sequencer to place a 3D character in a 2D video environment. 
+Title:Using Image Plate Actor与Image Plate轨迹
+Crumbs: %ROOT%
+Description:在本示例中，我们使用Sequencer中的Image Plate Actor与Image Plate轨迹在一个2D视频环境中放置了一个3D角色。 
 Version: 4.17
 SkillLevel: Advanced
 parent:Engine/Sequencer/HowTo
@@ -11,161 +11,152 @@ checkpoint: editorqs
 Related: Engine/Sequencer/Overview
 Related: Engine/MediaFramework
 tags:Sequencer
-tags:MediaFramework
+tags:Media Framework
 tags:Composure
 type:how-to
 
 [REGION:warning]
-This feature is currently in the experimental stages of development and some aspects of the feature may not work as expected. 
+本功能目前为试验性功能，仍在开发阶段，因此该功能的某些方面可能无法正常工作。 
 [/REGION]
 
-During the development of your own projects, you may want to use an image sequence as a backdrop for your 3D characters. 
-Maybe you want to have a menu with a 3D character in front of a 2D background containing moving images or you want to superimpose a 3D character over a 2D background giving the illusion that the character is in that environment. 
+在开发项目的过程中，你可能希望使用图像序列作为3D角色的背景。
+你可能希望设计这样一个菜单——3D角色位于包含活动图像的2D背景前，或者你希望使3D角色叠映在2D背景上，从而制造角色位于那个环境中的错觉。
 
-Using the **Image Plate** Actor enables the display of frame-accurate image sequences in fullscreen when it is attached to a camera. 
-When using the accompanying **Image Plate Track** in Sequencer, it enables you to playback those images within the context of your cinematic that you can play during gameplay or render out as a movie. 
-You can also use the [Composure Editor](https://docs.unrealengine.com/latest/INT/Engine/Composure/) to fine-tune and improve the quality of the final render. 
+借助 **Image Plate** Actor，你可以全屏显示帧度精确图像序列（将该Actor连接到摄像机时）。 
+使用Sequencer中的相关 **Image Plate轨迹** 时，它使你能够在过场动画背景下播放这些图像，
+也可以使用 [Composure编辑器](https://docs.unrealengine.com/latest/INT/Engine/Composure/) 进行微调，从而提高最终渲染的质量。 
 
-In this example, we focus on setting up an Image Plate Actor and Image Plate Track in Sequencer to playback an image Sequence with a 3D character in the foreground. 
+在本示例中，我们将重点介绍设置Image Plate Actor和Sequencer中的Image Plate轨迹，以播放3D角色位于前景中的图像序列的方法。 
 
 ![](EndResultImage.png)
 
 [REGION:note]
-For this how-to guide, we are using the **Blueprint Third Person Template** project with **Starter Content** enabled. 
+在本操作指南中，我们使用 **蓝图第三人称模板（Blueprint Third Person Template）** 项目，并启用了 **初学者内容包（Starter Content）**。 
 [/REGION]
 
-## Steps
+## 步骤
 
-1.	Download and extract the [Example Image Sequence](https://epicgames.box.com/s/l2xuneahxy1cfq3yn3jd4hysr83lkr8d) assets to your computer or generate your own Image Sequence assets outside the editor. 
+1.	请下载 [示例图像序列](https://epicgames.box.com/s/l2xuneahxy1cfq3yn3jd4hysr83lkr8d) 资源并将它们提取到你的计算机上或在 **编辑器** 外部生成你自己的图像序列资源。
 
-1.	Inside your project, select the **Edit** option from the Menu Toolbar and select **Plugins**. 
+1.	在项目中，从菜单工具栏选择 **编辑（Edit）** 选项，然后选择 **插件（Plugins）**。 
 
 	![](ImagePlate_01.png)
 
-	In order to access and work with the Image Plate Actor and Image Plate Track, we must first enable the associated plugin.
+	要能够访问和使用Image Plate Actor和Image Plate轨迹，必须先启用关联的插件。
 
-1.	In the Plugins menu, search for and select the **Image Plate** then click the **Enabled** check box and accept the confirmation then **Restart Now** to restart the editor. 
+1.	在 **插件（Plugins）** 菜单中，搜索并选择 **Image Plate**，然后选中 **启用（Enabled）** 复选框并接受确认消息，然后使用 **立即重启（Restart Now）** 按钮来重启 **编辑器**。
 
 	![](ImagePlate_02.png)
 
-1.	In the **Content Browser** of your project, create a **Cinematics** folder then inside it, create a new Level Sequence called **Master**. 
+1.	**编辑器** 重启好之后，在项目的 **内容浏览器** 中，创建 **Cinematics** 文件夹。在该文件夹中，创建名称为 **主（Master）** 的新关卡序列。 
 
 	![](ImagePlate_03.png)
 
-1.	From the **Modes** panel, search for and drag an **Image Plate** Actor into the level viewport. 
+1.	从 **模式（Modes）** 面板中，搜索并将一个 **Image Plate** Actor拖到 **关卡视口** 中。
 
 	![](ImagePlate_04.png)
 
-1.	From the **Modes** panel drag a **CineCameraActor** into the level, then in the **World Outliner** drag-and-drop the **ImagePlate** onto the **CineCameraActor** to attach it. 
+1.	从 **模式（Modes）** 面板中，将一个 **电影摄像机Actor（Cine Camera Actor）** 拖到关卡中，然后在 **世界大纲视图** 中，将 **Image Plate** 拖放到 **电影摄像机Actor（Cine Camera Actor）** 上来连接它。 
 
 	![](ImagePlate_05.png)
 
-	This will enable us to scale the Image Plate Actor while keeping it attached to the Cine Camera Actor. 
+	这使我们能够在使Image Plate Actor连接到电影摄像机Actor的情况下对它进行缩放。 
 
-1.	Select the **ImagePlate** in the **World Outliner**, then in the level use the translation widget to move the Image Plate away from the camera to increase its size. 
+1.	在 **世界大纲视图** 中，选择 **Image Plate**，然后在关卡中使用平移小部件将Image Plate从摄像机移开并增大它的大小。
 
 	![](ImagePlate_07.png)
 
-	This will enable us to add content that will fit within the Cine Camera's view frustum (you can increase or decrease the size of the Image Plate based on your own content). 
+	这使我们能够添加能够容纳在电影摄像机的视锥体（你可以基于内容增大或减小Image Plate的大小）内的内容。 
 
-1.	In the **Content Browser**, drag your **Master** Level Sequence into the level viewport and in the **Details** panel, check the **Auto Play** option. 
+1.	在 **内容浏览器** 中，将 **主（Master）** 关卡序列拖到 **关卡视口** 中并在 **细节（Details）** 面板中选中 **自动播放（Auto Play）** 选项。
 
 	![](ImagePlate_08.png)
 
-	If we play our game, this will enable us to automatically playback our Level Sequence. 
+	如果运行游戏，关卡序列将自动播放。
 
-1.	Open your **Master** Level Sequence and add the Cine Camera and Image Plate Actors from the level, then add a **Camera Cuts** track and assigned to the Cine Camera Actor. 
+1.	打开 **主（Master）** 关卡序列并添加关卡中的 **电影摄像机（Cine Camera）** 和 **Image Plate** Actor，然后添加一个 **镜头切换（Camera Cuts）** 轨迹并将它指定给电影摄像机Actor。
 
 	![](ImagePlate_09.png)
 
-1.	In the **Content Browser**, right-click on the **Cinematics** folder and choose **Show in Explorer**. 
+1.	在 **内容浏览器** 中，右键单击 **Cinematics** 文件夹并选择 **在资源管理器中显示（Show in Explorer）**。 
 
 	![](ShowInExplorer.png)
 
-1.	Inside the **Cinematics** folder in explorer, create a folder called **footage** then inside it, add your Image Sequence assets (from Step 1). 
+1.	在PC上的 **Cinematics** 文件夹中，创建名称为 **footage** 的文件夹。在其中，添加步骤1中的图像序列资源。
 
 	![](ImagePlate_10.png)
 
-	You may see an import message prompt when returning to the editor, you can choose **Don't Import**. 
+	返回到编辑器时，你可能会看到导入提示消息。可以选择 **不导入（Don't Import）**。
 
 	![](ImagePlate_10b.png)
 
-	We have created a folder with our content which we will point to a little later in this guide and do not need to, therefore, import all that content into our project. 
+1.	保存所有内容，然后关闭并重新打开项目以刷新项目的文件夹结构和资源。 
 
-1.	**Save** all your content, then close and re-open your project to refresh the project's folder structure and assets. 
-
-1.	Inside your project inside the **Cinematics** folder, select **Add New** then under **Media** select **Image Plate File Sequence** and call it **MyImagePlate**. 
+1.	在项目的 **Cinematics** 文件夹中，选择 **添加（Add New）**。然后，在 **媒体（Media）** 下，选择 **Image Plate文件序列（Image Plate File Sequence）** 并将其命名为 **MyImagePlate**。 
 
 	![](ImagePlate_11.png)
 
-1.	Open the **MyImagePlate** asset and point the **Sequence Path** to your **footage** folder, change the **File Wildcard** to **.png** and **Framerate** to **30**. 
+1.	打开 **MyImagePlate** 资源并将 **序列路径（Sequence Path）** 指向 **footage** 文件夹，然后将 **文件通配符（File Wildcard）** 更改为 **.png** 并将 **帧率（Framerate）** 更新到 **30**。
 
 	![](ImagePlate_12.png)
 
-	If you are using the Example Image Sequence assets, we are using .PNG files however you can use .EXR or other [supported image file formats](Engine/Content/Types/Textures/Importing) based on your setup. 
+	[REGION:note]在示例中，我们使用的是.PNG文件，但是，如果你要使用其他 [受支持的文件格式](Engine/Content/Types/Textures/Importing)，请使用相应的文件通配符扩展名。[/REGION]
 
-1.	Inside your **Master** Level Sequence, on the **ImagePlate** Track, click the **+Track** button and select **Image Plate**. 
+1.	在 **主（Master）** 关卡序列中，在 **ImagePlate** 轨迹上，单击 **+轨迹（+Track）** 按钮并选择 **Image Plate**。 
 
 	![](ImagePlate_14.png)
 
-1.	Click the **+Image Sequence** on the **Render Texture** Track and select your **MyImagePlate** Image Plate File Sequence asset. 
+1.	在 **渲染纹理（Render Texture）** 轨迹上单击 **+图像序列（+Image Sequence）** 并选择 **MyImagePlate** Image Plate文件序列资源。
 
 	![](ImagePlate_15.png)
 
-	You will now see your Image Sequence appear on the Image Plate in the level as well as within Sequencer. 
+	现在你将看到图像序列在关卡中的Image Plate上以及在Sequencer中显示。
 	
 	![](ImagePlate_16.png)
 	
-1.	In the **Content/Mannequin/Animations** folder, drag the **ThirdPersonWalk** animation into the level and place it within the camera's viewpoint facing away from the camera. 
+1.	在 **Content/Mannequin/Animations** 文件夹中，将 **ThirdPersonWalk** 动画拖到关卡中并将它放置在摄像机视口中（不朝向摄像机）。
 
 	![](ImagePlate_17.png)
 
-	Optionally for the Cine Camera Actor, you may need to adjust the focus settings by clicking the eye-dropper icon then selecting the Image Plate Actor in the level. 
+	对于电影摄像机Actor，你可能需要调整聚焦设置，方法为单击滴管图标并选择关卡中的Image Plate Actor。 
 
 	![](ImagePlate_20.png)
 
-1.	From the Sequencer toolbar, click the **Render Movie** button to render out the sequence. 
+1.	从 **Sequencer工具栏**，单击 **渲染电影（Render Movie）** 按钮来渲染序列。 
 
 	![](ImagePlate_18.png)
 
-1.	Choose an **Output Directory** then click the **Capture Movie** to render out the movie. 
+1. 选择 **输出目录（Output Directory）**，然后单击 **捕捉电影（Capture Movie）** 来渲染电影。 
 
-	![](ImagePlate_19.png)	
+   ![](ImagePlate_19.png)	
 
-	
-## End Result
 
-You will now have a 3D character that appears to be walking in the 2D background image sequence. 
+## 最终结果
+
+现在3D角色看起来就像正在2D背景图像序列中行走一样。 
 
 [OBJECT:EmbeddedVideo]
-	[PARAMLITERAL:videoid]
-	NNJIJHc90e0
-	[/PARAMLITERAL]
-	[PARAMLITERAL:width]
-	100
-	[/PARAMLITERAL]
-	[PARAMLITERAL:height]
-	56.25
-	[/PARAMLITERAL]
-	[PARAMLITERAL:units]
-	%
-	[/PARAMLITERAL]
-	[PARAMLITERAL:type]
-	simple
-	[/PARAMLITERAL]
+​	[PARAMLITERAL:videoid]
+​	NNJIJHc90e0
+​	[/PARAMLITERAL]
+​	[PARAMLITERAL:width]
+​	100
+​	[/PARAMLITERAL]
+​	[PARAMLITERAL:height]
+​	56.25
+​	[/PARAMLITERAL]
+​	[PARAMLITERAL:units]
+​	%
+​	[/PARAMLITERAL]
+​	[PARAMLITERAL:type]
+​	simple
+​	[/PARAMLITERAL]
 [/OBJECT]
 
-This example focuses on setting up the Image Plate Actor and using the Image Plate Track and getting image sequences to playback using the Image Plate File Sequence asset. 
-If you would like to learn more about lighting techniques and (or) more advanced compositing features, on the **Learn** tab of the Epic Games Launcher, the **Composure Compositing Framework** project offers a more advanced use case of Image Plates and uses the Compositing Framework to provide a more stylized version of this guide. 
+此示例主要关注Image Plate Actor设置、Image Plate轨迹使用以及使用Image Plate文件序列资源的图像序列的播放。如果希望进一步了解照明技术或更加高级的合成功能，Epic Games启动程序 **学习（Learn）** 选项卡上的 **Composure合成框架（Composure Compositing Framework）** 项目提供了Image Plate的更加高级的用例，而且它使用合成框架提供了本指南的更加样式化的版本。
 
 ![](ComposureFramework.png)
 
 [REGION:note]
-If you would like to learn more about compositing and more advanced compositing techniques, please see also the [Composure Editor](https://docs.unrealengine.com/latest/INT/Engine/Composure/) documentation. 
+如果希望进一步了解合成和更加高级的合成技术，请参阅 [Composure 编辑器](https://docs.unrealengine.com/latest/INT/Engine/Composure/) 文档。
 [/REGION]
-
-
-
-
-
-

@@ -1,6 +1,5 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "WebRTCProxyPCH.h"
 #include "Console.h"
 #include "StringUtils.h"
 
@@ -28,7 +27,7 @@ void FConsole::Init(short Width, short Height, short BufferWidth, short BufferHe
 
 	// allocate a console for this app.
 	// NOTE: It fails if there is a console already
-	bOwnsConsole = AllocConsole() == TRUE ? true : false;
+	bOwnsConsole = AllocConsole() == Windows::TRUE ? true : false;
 
 	hConsoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 	// set the screen buffer to be big enough to let us scroll text
@@ -40,7 +39,7 @@ void FConsole::Init(short Width, short Height, short BufferWidth, short BufferHe
 	// Set the real window size (need to be smaller than the buffer
 	ConInfo.srWindow.Bottom = Height - 1;
 	ConInfo.srWindow.Right = Width - 1;
-	SetConsoleWindowInfo(hConsoleHandle, TRUE, &ConInfo.srWindow);
+	SetConsoleWindowInfo(hConsoleHandle, Windows::TRUE, &ConInfo.srWindow);
 	Center();
 	EnableUTF8Support();
 	SetTextColour(EColour::White);
@@ -70,7 +69,7 @@ void FConsole::Center()
 	    0,
 	    SWP_NOSIZE | SWP_NOZORDER);
 
-	SwitchToThisWindow(hConsoleWnd, TRUE);
+	SwitchToThisWindow(hConsoleWnd, Windows::TRUE);
 }
 
 void FConsole::EnableUTF8Support()

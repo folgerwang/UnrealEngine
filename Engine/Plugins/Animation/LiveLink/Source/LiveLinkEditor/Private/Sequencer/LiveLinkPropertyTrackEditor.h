@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,7 +6,8 @@
 #include "MovieScene/MovieSceneLiveLinkTrack.h"
 #include "MovieScene/MovieSceneLiveLinkSection.h"
 #include "ILiveLinkClient.h"
-
+//mz for serialization
+#include "Serializers/MovieSceneLiveLinkSerialization.h"
 /** A property track editor for Live Link properties. */
 class FLiveLinkPropertyTrackEditor
 	: public FKeyframeTrackEditor<UMovieSceneLiveLinkTrack>
@@ -42,5 +43,10 @@ protected:
 	/** Callback for executing the "Add Live Link" menu entry. */
 	void HandleAddLiveLinkTrackMenuEntryExecute();
 	bool HandleAddLiveLinkTrackMenuEntryCanExecute() const;
+
+private:
+	//mz for serialization
+	FLiveLinkSerializer Serializer;
+	void LoadLiveLinkData(TSharedRef<ISequencer> Sequencer, UMovieSceneLiveLinkTrack* LiveLinkTrack);
 
 };

@@ -1,16 +1,18 @@
-﻿INTSourceChangelist:2697179
+﻿INTSourceChangelist:3429254
 Availability: Public
 Title:在蓝图中引用 Actor
 Crumbs: %ROOT%, Gameplay, Gameplay/HowTo/ReferenceAssets
 Description:关于如何在蓝图中引用 Actor 的操作指南。
 Version: 4.9
-SkillLevel: Advanced 
+SkillLevel: Advanced
+type:how-to
 
 [TOC (start:2)]
 
 在本页中，您将了解在蓝图中 **Reference Actors** 的多种方法。如果您想在玩游戏期间通过蓝图更改 Actor 的要素，
 或将引用从一个蓝图传递到另一个蓝图以便您访问和修改它，正确引用 Actor 则十分重要。 
  
+(#LevelBlueprintReference)
 ## 关卡蓝图引用
 
 创建引用的最常见方法是在 **Level Blueprint** 中引用放置在您的关卡中的 Actor。要执行此操作，只需遵循以下步骤。 
@@ -46,6 +48,7 @@ SkillLevel: Advanced
 
 
 
+(#SpawnActorReference)
 ## 生成 Actor 引用
 
 获取 Actor 引用的另一种方法可在关卡中生成 Actor 时执行。请参阅以下示例。 
@@ -75,6 +78,7 @@ SkillLevel: Advanced
 	并在玩家按下 **F** 键时在 **ThirdPersonCharacter** 蓝图中 **Deactivating** 它。
 
 
+(#DirectBlueprintCommunicationReferencing)
 ## 管理蓝图通信引用
 
 有时，您的关卡中具有若干个蓝图 Actor，而您想在另一个蓝图中修改其中一个 Actor。
@@ -145,6 +149,7 @@ SkillLevel: Advanced
 	[/REGION]
 
 
+(#CastToReferencing)
 ## 转换引用
 
 尽管直接蓝图通信方法可用于获取存在于关卡中的 Actor 之间的引用，但您有时会想在关卡中获取 Actor 引用并将该引用传递到关卡中尚未包含的蓝图 Actor，例如，直到游戏启动才存在于关卡中的玩家人物（或其他 Actor）。在这种情况下，您可以使用 Cast To 节点向您的目标蓝图发送引用。 

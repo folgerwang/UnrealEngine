@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreTypes.h"
@@ -63,6 +63,14 @@ struct CORE_API FEditorObjectVersion
 		MeshDescriptionNewSerialization_MovedToRelease,
 		// New format for mesh description attributes
 		MeshDescriptionNewAttributeFormat,
+		// Switch root component of SceneCapture actors from MeshComponent to SceneComponent
+		ChangeSceneCaptureRootComponent,
+		// StaticMesh serializes MeshDescription instead of RawMesh
+		StaticMeshDeprecatedRawMesh,
+		// MeshDescriptionBulkData contains a Guid used as a DDC key
+		MeshDescriptionBulkDataGuid,
+		// Change to MeshDescription serialization (removed FMeshPolygon::HoleContours)
+		MeshDescriptionRemovedHoles,
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

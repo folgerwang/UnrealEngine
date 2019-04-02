@@ -1,26 +1,15 @@
-﻿INTSourceChangelist:2757314
+﻿INTSourceChangelist:3717040
 Availability:Public
 Title:15.更多步骤
 Crumbs:%ROOT%, Engine, Gameplay, Engine/AI/BehaviorTrees, Engine/AI/BehaviorTrees/QuickStart
 Description:第十五步。更多步骤
 version:4.9
+parent:Engine/AI/BehaviorTrees/QuickStart
+type:quick start
+type:multi-step
+order:15
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[Previous Step](Engine/AI/BehaviorTrees/QuickStart/14 "%Engine/AI/BehaviorTrees/QuickStart/14:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[Quick Start Home](Engine/AI/BehaviorTrees/QuickStart)
-	[/PARAM]
-	[PARAM:next]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
+[NAV]
 
 可以利用这个简单的树实现多种功能，发挥创意动手试试吧！
 
@@ -39,22 +28,17 @@ version:4.9
 
 ## AI
 
-[REGION:buttonlist]
+* [行为树](Engine/AI/BehaviorTrees "%Engine/AI/BehaviorTrees:description%")
+* [行为树用户指南](Engine/AI/BehaviorTrees/UserGuide "%Engine/AI/BehaviorTrees/UserGuide:description%")
+* [行为树节点参考](Engine/AI/BehaviorTrees/NodeReference "%Engine/AI/BehaviorTrees/NodeReference:description%")
+* [](Engine/AI/EnvironmentQuerySystem "%Engine/AI/EnvironmentQuerySystem:description%")
 
-	* [行为树](Engine/AI/BehaviorTrees "%Engine/AI/BehaviorTrees:description%")
-	* [行为树用户指南](Engine/AI/BehaviorTrees/UserGuide "%Engine/AI/BehaviorTrees/UserGuide:description%")
-	* [行为树节点参考](Engine/AI/BehaviorTrees/NodeReference "%Engine/AI/BehaviorTrees/NodeReference:description%")
-	* [](Engine/AI/EnvironmentQuerySystem "%Engine/AI/EnvironmentQuerySystem:description%")
-	
-[/REGION]
-
+(#ExternalLinks)
 ## 外部链接
 
-[REGION:buttonlist]
-
-	* [次时代游戏 AI 行为树](http://aigamedev.com/insider/presentation/behavior-trees/ “AIGameDev.com 推出的这个视频将助您了解行为树的好处和功能。免费完成网站注册即可观看。”)
+* [次时代游戏 AI 行为树](http://aigamedev.com/insider/presentation/behavior-trees/ “AIGameDev.com 推出的这个视频将助您了解行为树的好处和功能。免费完成网站注册即可观看。”)
 	
-[/REGION]
+[NAV]
 
 
 

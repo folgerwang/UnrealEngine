@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -28,6 +28,8 @@ struct COREUOBJECT_API FBlueprintTags
 	static const FName BlueprintType;
 	/** String with user-entered description of blueprint */
 	static const FName BlueprintDescription;
+	/** String with user-entered display name for the blueprint class (used in editor along with the description to identify the Blueprint type) */
+	static const FName BlueprintDisplayName;
 	/** String set to True/False, set if this is a data only blueprint */
 	static const FName IsDataOnly;
 	/** List of implemented interfaces, must be converted to FBPInterfaceDescription */
@@ -142,7 +144,7 @@ private:
 struct COREUOBJECT_API FScopedClassDependencyGather
 {
 public:
-	FScopedClassDependencyGather(UClass* ClassToGather);
+	FScopedClassDependencyGather(UClass* ClassToGather, FUObjectSerializeContext* InLoadContext);
 	~FScopedClassDependencyGather();
 
 	/**
@@ -163,6 +165,9 @@ private:
 
 	/** List of dependencies (i.e. UClasses that have been newly instantiated) in the scope of this dependency gather */
 	static TArray<UClass*> BatchClassDependencies;
+
+	/** Current load context */
+	FUObjectSerializeContext* LoadContext;
 
 	FScopedClassDependencyGather();
 };

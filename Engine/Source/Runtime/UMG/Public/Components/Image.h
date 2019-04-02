@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -11,6 +11,7 @@
 #include "Components/Widget.h"
 #include "UObject/ScriptInterface.h"
 #include "Slate/SlateTextureAtlasInterface.h"
+#include "Engine/StreamableManager.h"
 #include "Image.generated.h"
 
 class SImage;
@@ -53,6 +54,10 @@ public:
 	/** A bindable delegate for the ColorAndOpacity. */
 	UPROPERTY()
 	FGetLinearColor ColorAndOpacityDelegate;
+
+	/** Flips the image if the localization's flow direction is RightToLeft */
+	UPROPERTY(EditAnywhere, Category = "Localization")
+	bool bFlipForRightToLeftFlowDirection;
 
 public:
 
@@ -107,6 +112,10 @@ public:
 
 	/**  */
 	UFUNCTION(BlueprintCallable, Category="Appearance")
+	virtual void SetBrushFromSoftMaterial(TSoftObjectPtr<UMaterialInterface> SoftMaterial);
+
+	/**  */
+	UFUNCTION(BlueprintCallable, Category="Appearance")
 	UMaterialInstanceDynamic* GetDynamicMaterial();
 
 	//~ Begin UWidget Interface
@@ -137,15 +146,27 @@ protected:
 	/** Translates the bound brush data and assigns it to the cached brush used by this widget. */
 	const FSlateBrush* ConvertImage(TAttribute<FSlateBrush> InImageAsset) const;
 
-	//
-	void CancelTextureStreaming();
+	// Called when we need to stream in content.
+	void RequestAsyncLoad(TSoftObjectPtr<UObject> SoftObject, TFunction<void()>&& Callback);
+	virtual void RequestAsyncLoad(TSoftObjectPtr<UObject> SoftObject, FStreamableDelegate DelegateToCall);
+
+	// Called when we need to abort the texture being streamed in.
+	virtual void CancelImageStreaming();
+
+	// Called when the image streaming starts, after the other one was cancelled.
+	virtual void OnImageStreamingStarted(TSoftObjectPtr<UObject> SoftObject);
+
+	// Called when the image streaming completes.
+	virtual void OnImageStreamingComplete(TSoftObjectPtr<UObject> LoadedSoftObject);
 
 	//
 	FReply HandleMouseButtonDown(const FGeometry& Geometry, const FPointerEvent& MouseEvent);
 
 protected:
 	TSharedPtr<SImage> MyImage;
+
 	TSharedPtr<FStreamableHandle> StreamingHandle;
+	FSoftObjectPath StreamingObjectPath;
 
 protected:
 

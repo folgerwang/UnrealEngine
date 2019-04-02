@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,49 +6,54 @@
 #include "UObject/ObjectMacros.h"
 #include "MovieSceneSection.h"
 #include "GeometryCacheComponent.h"
+#include "GeometryCache.h"
 #include "Channels/MovieSceneFloatChannel.h"
 #include "UObject/SoftObjectPath.h"
 #include "MovieSceneGeometryCacheSection.generated.h"
 
 USTRUCT()
-struct FMovieSceneGeometryCacheParams
+ struct GEOMETRYCACHETRACKS_API FMovieSceneGeometryCacheParams
 {
 	GENERATED_BODY()
 
 	FMovieSceneGeometryCacheParams();
 
-	/** Gets the animation duration, modified by play rate */
-	float GetDuration() const { return FMath::IsNearlyZero(PlayRate) || GeometryCache.ResolveObject() == nullptr ? 0.f : Cast<UGeometryCacheComponent>(GeometryCache.ResolveObject())->GetDuration() / PlayRate; }
-
 	/** Gets the animation sequence length, not modified by play rate */
-	float GetSequenceLength() const { return GeometryCache.ResolveObject() != nullptr ? Cast<UGeometryCacheComponent>(GeometryCache.ResolveObject())->GetDuration() : 0.f; }
-
+	 float GetSequenceLength() const;
 	/** The animation this section plays */
-	UPROPERTY(EditAnywhere, Category="GeometryCache", meta=(AllowedClasses = "GeometryCacheComponent"))
-	FSoftObjectPath GeometryCache;
+	UPROPERTY(EditAnywhere, Category = "GeometryCache", DisplayName = "Geometry Cache")
+	UGeometryCache* GeometryCacheAsset;
 
 	/** The offset into the beginning of the animation clip */
-	UPROPERTY(EditAnywhere, Category="GeometryCache")
-	float StartOffset;
-	
+	UPROPERTY(EditAnywhere, Category = "GeometryCache")
+	FFrameNumber StartFrameOffset;
+
 	/** The offset into the end of the animation clip */
-	UPROPERTY(EditAnywhere, Category="GeometryCache")
-	float EndOffset;
-	
+	UPROPERTY(EditAnywhere, Category = "GeometryCache")
+	FFrameNumber EndFrameOffset;
+
 	/** The playback rate of the animation clip */
-	UPROPERTY(EditAnywhere, Category="GeometryCache")
+	UPROPERTY(EditAnywhere, Category = "GeometryCache")
 	float PlayRate;
 
 	/** Reverse the playback of the animation clip */
-	UPROPERTY(EditAnywhere, Category="Animation")
-	uint32 bReverse:1;
+	UPROPERTY(EditAnywhere, Category = "Animation")
+	uint32 bReverse : 1;
 
+	UPROPERTY()
+	float StartOffset_DEPRECATED;
+
+	UPROPERTY()
+	float EndOffset_DEPRECATED;
+
+	UPROPERTY()
+	FSoftObjectPath GeometryCache_DEPRECATED;
 };
 
 /**
  * Movie scene section that control geometry cache playback
  */
-UCLASS( MinimalAPI )
+UCLASS(MinimalAPI)
 class UMovieSceneGeometryCacheSection
 	: public UMovieSceneSection
 {
@@ -56,11 +61,11 @@ class UMovieSceneGeometryCacheSection
 
 public:
 
-	UPROPERTY(EditAnywhere, Category = "Animation", meta=(ShowOnlyInnerProperties))
+	UPROPERTY(EditAnywhere, Category = "Animation", meta = (ShowOnlyInnerProperties))
 	FMovieSceneGeometryCacheParams Params;
 
 	/** Get Frame Time as Animation Time*/
-    virtual float MapTimeToAnimation(FFrameTime InPosition, FFrameRate InFrameRate) const;
+	virtual float MapTimeToAnimation(float ComponentDuration, FFrameTime InPosition, FFrameRate InFrameRate) const;
 
 protected:
 	//~ UMovieSceneSection interface
@@ -72,6 +77,7 @@ protected:
 	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
 
 	/** ~UObject interface */
+	virtual void PostLoad() override;
 	virtual void Serialize(FArchive& Ar) override;
 
 private:
@@ -85,6 +91,5 @@ private:
 	float PreviousPlayRate;
 
 #endif
-
 
 };

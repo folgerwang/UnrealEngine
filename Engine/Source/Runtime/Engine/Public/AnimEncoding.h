@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AnimEncoding.h: Skeletal mesh animation compression.
@@ -713,7 +713,7 @@ FORCEINLINE float AnimEncoding::TimeToIndex(
 	
 	const int32 LastKey= NumKeys-1;
 	
-	int32 TotalFrames = Seq.NumFrames-1;
+	int32 TotalFrames = Seq.GetCompressedNumberOfFrames()-1;
 	int32 EndingKey = LastKey;
 
 	if (NumKeys < 2 || RelativePos <= 0.f)
@@ -743,7 +743,7 @@ FORCEINLINE float AnimEncoding::TimeToIndex(
 		int32 HighFrame = 0;
 		
 		// find the pair of keys which surround our target frame index
-		if (Seq.NumFrames > 0xFF)
+		if (Seq.GetCompressedNumberOfFrames() > 0xFF)
 		{
 			const uint16* Frames= (uint16*)FrameTable;
 			PosIndex0Out = FindLowKeyIndex<uint16>(Frames, NumKeys, FramePosFloor, KeyEstimate);

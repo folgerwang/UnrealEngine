@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanUtil.cpp: Vulkan Utility implementation.
@@ -9,42 +9,10 @@
 #include "VulkanPendingState.h"
 #include "VulkanContext.h"
 #include "VulkanMemory.h"
-#include "PipelineStateCache.h"
 #include "Misc/OutputDeviceRedirector.h"
 
 
 extern CORE_API bool GIsGPUCrashed;
-
-FCriticalSection	GLayoutLock;
-
-
-//#todo-rco: Horrible work-around to avoid breaking binary compatibility; move to header!
-struct FVulkanTimingQueryPool : public FVulkanQueryPool
-{
-	FVulkanTimingQueryPool(FVulkanDevice* InDevice, uint32 InBufferSize)
-		: FVulkanQueryPool(InDevice, InBufferSize * 2, VK_QUERY_TYPE_TIMESTAMP)
-		, BufferSize(InBufferSize)
-	{
-		TimestampListHandles.AddZeroed(InBufferSize * 2);
-	}
-
-	uint32 CurrentTimestamp = 0;
-	uint32 NumIssuedTimestamps = 0;
-	const uint32 BufferSize;
-
-	struct FCmdBufferFence
-	{
-		FVulkanCmdBuffer* CmdBuffer;
-		uint64 FenceCounter;
-	};
-	TArray<FCmdBufferFence> TimestampListHandles;
-
-	VulkanRHI::FStagingBuffer* ResultsBuffer = nullptr;
-};
-
-
-//#todo-rco: Horrible work-around to avoid breaking binary compatibility
-static TMap<FVulkanGPUTiming*, FVulkanTimingQueryPool*> GTimingQueryPools;
 
 
 static FString		EventDeepString(TEXT("EventTooDeep"));
@@ -70,7 +38,8 @@ void FVulkanGPUTiming::PlatformStaticInitialize(void* UserData)
 			UE_LOG(LogVulkanRHI, Warning, TEXT("Timestamps not supported on Device"));
 			return;
 		}
-		GTimingFrequency = (uint64)((1.0f / Limits.timestampPeriod) * 1000.0f * 1000.0f * 1000.0f);
+		GTimingFrequency = (uint64)((1000.0 * 1000.0 * 1000.0) / Limits.timestampPeriod);
+		GIsSupported = true;
 	}
 }
 
@@ -121,30 +90,48 @@ FVulkanStagingBuffer::~FVulkanStagingBuffer()
 {
 	if (StagingBuffer)
 	{
-		FVulkanVertexBuffer* VertexBuffer = ResourceCast(GetBackingBuffer());
-		VertexBuffer->GetParent()->GetStagingManager().ReleaseBuffer(nullptr, StagingBuffer);
+		check(Device);
+		Device->GetStagingManager().ReleaseBuffer(nullptr, StagingBuffer);
 	}
 }
 
-FStagingBufferRHIRef FVulkanDynamicRHI::RHICreateStagingBuffer(FVertexBufferRHIParamRef BackingBuffer)
+void* FVulkanStagingBuffer::Lock(uint32 Offset, uint32 NumBytes)
 {
-	return new FVulkanStagingBuffer(BackingBuffer);
+	check(!bIsLocked);
+	bIsLocked = true;
+	uint32 QueuedEndOffset = QueuedNumBytes + QueuedOffset;
+	uint32 EndOffset = Offset + NumBytes;
+	check(Offset < QueuedNumBytes && EndOffset <= QueuedEndOffset);
+	//#todo-rco: Apply the offset in case it doesn't match
+	return (void*)((uint8*)StagingBuffer->GetMappedPointer() + Offset);
 }
 
-void* FVulkanDynamicRHI::RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI, uint32 Offset, uint32 SizeRHI)
+void FVulkanStagingBuffer::Unlock()
+{
+	check(bIsLocked);
+	bIsLocked = false;
+}
+
+FStagingBufferRHIRef FVulkanDynamicRHI::RHICreateStagingBuffer()
+{
+	return new FVulkanStagingBuffer();
+}
+
+void* FVulkanDynamicRHI::RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI, uint32 Offset, uint32 NumBytes)
 {
 	FVulkanStagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);
-	uint32 QueuedEndOffset = StagingBuffer->QueuedNumBytes + StagingBuffer->QueuedOffset;
-	uint32 EndOffset = Offset + SizeRHI;
-	check(Offset < StagingBuffer->QueuedNumBytes && EndOffset <= QueuedEndOffset);
-	//#todo-rco: Apply the offset in case it doesn't match
-	return StagingBuffer->StagingBuffer->GetMappedPointer();
+	return StagingBuffer->Lock(Offset, NumBytes);
 }
 
 void FVulkanDynamicRHI::RHIUnlockStagingBuffer(FStagingBufferRHIParamRef StagingBufferRHI)
 {
 	FVulkanStagingBuffer* StagingBuffer = ResourceCast(StagingBufferRHI);
-	Device->GetStagingManager().ReleaseBuffer(nullptr, StagingBuffer->StagingBuffer);
+	StagingBuffer->Unlock();
+}
+
+FVulkanGPUTiming::~FVulkanGPUTiming()
+{
+	check(!Pool);
 }
 
 /**
@@ -156,21 +143,11 @@ void FVulkanGPUTiming::Initialize()
 
 	bIsTiming = false;
 
-	// Now initialize the queries for this timing object.
-	if ( GIsSupported )
+	if (FVulkanPlatform::SupportsTimestampRenderQueries() && GIsSupported)
 	{
-		for (int32 Index = 0; Index < MaxTimers; ++Index)
-		{
-			Timers[Index].Begin = new FVulkanRenderQuery(RQT_AbsoluteTime);
-			Timers[Index].End = new FVulkanRenderQuery(RQT_AbsoluteTime);
-		}
-	}
-
-	if (FVulkanPlatform::SupportsTimestampRenderQueries())
-	{
-		FVulkanTimingQueryPool* Pool = new FVulkanTimingQueryPool(Device, 8);
+		check(!Pool);
+		Pool = new FVulkanTimingQueryPool(Device, 8);
 		Pool->ResultsBuffer = Device->GetStagingManager().AcquireBuffer(8 * sizeof(uint64), VK_BUFFER_USAGE_TRANSFER_DST_BIT, true);
-		GTimingQueryPools.Add(this, Pool);
 	}
 }
 
@@ -179,22 +156,12 @@ void FVulkanGPUTiming::Initialize()
  */
 void FVulkanGPUTiming::Release()
 {
-	for (int32 Index = 0; Index < MaxTimers; ++Index)
-	{
-		delete Timers[Index].Begin;
-		delete Timers[Index].End;
-	}
-
-	FMemory::Memzero(Timers);
-
 	if (FVulkanPlatform::SupportsTimestampRenderQueries())
 	{
-		FVulkanTimingQueryPool* FoundPool = nullptr;
-		if (GTimingQueryPools.RemoveAndCopyValue(this, FoundPool) && FoundPool)
-		{
-			Device->GetStagingManager().ReleaseBuffer(nullptr, FoundPool->ResultsBuffer);
-			delete FoundPool;
-		}
+		check(Pool);
+		Device->GetStagingManager().ReleaseBuffer(nullptr, Pool->ResultsBuffer);
+		delete Pool;
+		Pool = nullptr;
 	}
 }
 
@@ -204,13 +171,12 @@ void FVulkanGPUTiming::Release()
 void FVulkanGPUTiming::StartTiming(FVulkanCmdBuffer* CmdBuffer)
 {
 	// Issue a timestamp query for the 'start' time.
-	if ( GIsSupported && !bIsTiming )
+	if (GIsSupported && !bIsTiming)
 	{
 		if (CmdBuffer == nullptr)
 		{
 			CmdBuffer = CmdContext->GetCommandBufferManager()->GetActiveCmdBuffer();
 		}
-		FVulkanTimingQueryPool* Pool = GTimingQueryPools.FindChecked(this);
 		Pool->CurrentTimestamp = (Pool->CurrentTimestamp + 1) % Pool->BufferSize;
 		const uint32 QueryStartIndex = Pool->CurrentTimestamp * 2;
 		VulkanRHI::vkCmdWriteTimestamp(CmdBuffer->GetHandle(), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, Pool->GetHandle(), QueryStartIndex);
@@ -233,7 +199,6 @@ void FVulkanGPUTiming::EndTiming(FVulkanCmdBuffer* CmdBuffer)
 		{
 			CmdBuffer = CmdContext->GetCommandBufferManager()->GetActiveCmdBuffer();
 		}
-		FVulkanTimingQueryPool* Pool = GTimingQueryPools.FindChecked(this);
 		check(Pool->CurrentTimestamp < Pool->BufferSize);
 		const uint32 QueryStartIndex = Pool->CurrentTimestamp * 2;
 		const uint32 QueryEndIndex = Pool->CurrentTimestamp * 2 + 1;
@@ -261,7 +226,6 @@ uint64 FVulkanGPUTiming::GetTiming(bool bGetCurrentResultsAndBlock)
 {
 	if (GIsSupported)
 	{
-		FVulkanTimingQueryPool* Pool = GTimingQueryPools.FindChecked(this);
 		check(Pool->CurrentTimestamp < Pool->BufferSize);
 		uint64 StartTime, EndTime;
 		int32 TimestampIndex = Pool->CurrentTimestamp;
@@ -339,97 +303,10 @@ uint64 FVulkanGPUTiming::GetTiming(bool bGetCurrentResultsAndBlock)
 				return EndTime - StartTime;
 			}
 		}
-
-		/*
-		uint64 BeginTime, EndTime;
-		int32 TimerIndex = CurrentTimerIndex;
-		if (!bGetCurrentResultsAndBlock)
-		{
-			// Go backwards through the list
-			for (int32 Index = 1; Index < NumActiveTimers; ++Index)
-			{
-#if VULKAN_USE_NEW_QUERIES
-				check(Timers[TimerIndex].BeginCmdBuffer->GetSubmittedFenceCounter() >= Timers[TimerIndex].BeginFenceCounter);
-				check(Timers[TimerIndex].EndCmdBuffer->GetSubmittedFenceCounter() >= Timers[TimerIndex].EndFenceCounter);
-				if (Timers[TimerIndex].EndCmdBuffer->GetFenceSignaledCounter() <= Timers[TimerIndex].EndFenceCounter)
-				{
-					// Nothing here...
-					int i = 0;
-					++i;
-				}
-				else if (Timers[TimerIndex].Begin->HasQueryBeenEnded() && Timers[TimerIndex].End->HasQueryBeenEnded())
-#endif
-				{
-#if VULKAN_USE_NEW_QUERIES
-					check(Timers[TimerIndex].BeginCmdBuffer->GetFenceSignaledCounter() > Timers[TimerIndex].BeginFenceCounter);
-#endif
-					check(Device == CmdContext->GetDevice());
-					if (Timers[TimerIndex].Begin->GetResult(Device, BeginTime, false))
-					{
-						if (Timers[TimerIndex].End->GetResult(Device, EndTime, false))
-						{
-							if (BeginTime < EndTime)
-							{
-								return (EndTime - BeginTime);
-							}
-						}
-						else
-						{
-							int i = 0;
-							++i;
-						}
-					}
-				}
-
-				// Go back
-				TimerIndex = (TimerIndex + MaxTimers - 1) % MaxTimers;
-			}
-		}
-
-		if (bGetCurrentResultsAndBlock)
-		{
-			TimerIndex = CurrentTimerIndex;
-#if VULKAN_USE_NEW_QUERIES
-			check(Timers[TimerIndex].Begin->HasQueryBeenEnded() && Timers[TimerIndex].End->HasQueryBeenEnded());
-#endif
-
-			if (Timers[TimerIndex].Begin->GetResult(Device, BeginTime, true))
-			{
-				if (Timers[TimerIndex].End->GetResult(Device, EndTime, true))
-				{
-#if VULKAN_USE_NEW_QUERIES
-					check(BeginTime < EndTime);
-					return (EndTime - BeginTime);
-#else
-					if (BeginTime < EndTime)
-					{
-						return (EndTime - BeginTime);
-					}
-#endif
-				}
-				else
-				{
-					checkf(0, TEXT("Could not wait for End timer query result!"));
-				}
-			}
-			else
-			{
-				checkf(0, TEXT("Could not wait for Begin timer query result!"));
-			}
-		}
-		*/
 	}
 
 	return 0;
 }
-
-#if VULKAN_USE_NEW_QUERIES
-#else
-static double ConvertTiming(uint64 Delta)
-{
-	return Delta / 1e6;
-}
-#endif
 
 /** Start this frame of per tracking */
 void FVulkanEventNodeFrame::StartFrame()
@@ -451,12 +328,8 @@ float FVulkanEventNodeFrame::GetRootTimingResults()
 	{
 		const uint64 GPUTiming = RootEventTiming.GetTiming(true);
 
-#if VULKAN_USE_NEW_QUERIES
 		// In milliseconds
 		RootResult = (double)GPUTiming / (double)RootEventTiming.GetTimingFrequency();
-#else
-		RootResult = ConvertTiming(GPUTiming);
-#endif
 	}
 
 	return (float)RootResult;
@@ -469,12 +342,8 @@ float FVulkanEventNode::GetTiming()
 	if (Timing.IsSupported())
 	{
 		const uint64 GPUTiming = Timing.GetTiming(true);
-#if VULKAN_USE_NEW_QUERIES
 		// In milliseconds
 		Result = (double)GPUTiming / (double)Timing.GetTimingFrequency();
-#else
-		Result = ConvertTiming(GPUTiming);
-#endif
 	}
 
 	return Result;
@@ -653,22 +522,32 @@ void FVulkanGPUProfiler::DumpCrashMarkers(void* BufferData)
 #if VULKAN_SUPPORTS_NV_DIAGNOSTIC_CHECKPOINT
 		if (Device->GetOptionalExtensions().HasNVDiagnosticCheckpoints)
 		{
-			TArray<VkCheckpointDataNV> Data;
+			struct FCheckpointDataNV : public VkCheckpointDataNV
+			{
+				FCheckpointDataNV()
+				{
+					ZeroVulkanStruct(*this, VK_STRUCTURE_TYPE_CHECKPOINT_DATA_NV);
+				}
+			};
+			TArray<FCheckpointDataNV> Data;
 			uint32 Num = 0;
 			VkQueue QueueHandle = Device->GetGraphicsQueue()->GetHandle();
 			VulkanDynamicAPI::vkGetQueueCheckpointDataNV(QueueHandle, &Num, nullptr);
-			Data.AddUninitialized(Num);
-			VulkanDynamicAPI::vkGetQueueCheckpointDataNV(QueueHandle, &Num, &Data[0]);
-			check(Num == Data.Num());
-			for (uint32 Index = 0; Index < Num; ++Index)
+			if (Num > 0)
 			{
-				check(Data[Index].sType == VK_STRUCTURE_TYPE_CHECKPOINT_DATA_NV);
-				uint32 Value = (uint32)(size_t)Data[Index].pCheckpointMarker;
-				const FString* Frame = CachedStrings.Find(Value);
-				UE_LOG(LogVulkanRHI, Error, TEXT("[VK_NV_device_diagnostic_checkpoints] %i: Stage 0x%x, %s (CRC 0x%x)"), Index, Data[Index].stage, Frame ? *(*Frame) : TEXT("<undefined>"), Value);
+				Data.AddDefaulted(Num);
+				VulkanDynamicAPI::vkGetQueueCheckpointDataNV(QueueHandle, &Num, &Data[0]);
+				check(Num == Data.Num());
+				for (uint32 Index = 0; Index < Num; ++Index)
+				{
+					check(Data[Index].sType == VK_STRUCTURE_TYPE_CHECKPOINT_DATA_NV);
+					uint32 Value = (uint32)(size_t)Data[Index].pCheckpointMarker;
+					const FString* Frame = CachedStrings.Find(Value);
+					UE_LOG(LogVulkanRHI, Error, TEXT("[VK_NV_device_diagnostic_checkpoints] %i: Stage 0x%x, %s (CRC 0x%x)"), Index, Data[Index].stage, Frame ? *(*Frame) : TEXT("<undefined>"), Value);
+				}
+				GLog->PanicFlushThreadedLogs();
+				GLog->Flush();
 			}
-			GLog->PanicFlushThreadedLogs();
-			GLog->Flush();
 		}
 #endif
 	}

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "WindowsTargetSettingsDetails.h"
 #include "Misc/Paths.h"
@@ -47,12 +47,12 @@ namespace WindowsTargetSettingsDetailsConstants
 	const FText DisabledTip = LOCTEXT("GitHubSourceRequiredToolTip", "This requires GitHub source.");
 }
 
-static FText GetFriendlyNameFromRHIName(const FString& InRHIName)
+static FText GetFriendlyNameFromWindowsRHIName(const FString& InRHIName)
 {
 	FText FriendlyRHIName;
 	if (InRHIName == TEXT("PCD3D_SM5"))
 	{
-		FriendlyRHIName = LOCTEXT("DirectX11", "DirectX 11 (SM5)");
+		FriendlyRHIName = LOCTEXT("DirectX11", "DirectX 11 & 12 (SM5)");
 	}
 	else if (InRHIName == TEXT("PCD3D_SM4"))
 	{
@@ -64,7 +64,7 @@ static FText GetFriendlyNameFromRHIName(const FString& InRHIName)
 	}
 	else if (InRHIName == TEXT("SF_VULKAN_SM5"))
 	{
-		FriendlyRHIName = LOCTEXT("VulkanSM5", "Vulkan Desktop (SM5, Experimental)");
+		FriendlyRHIName = LOCTEXT("VulkanSM5", "Vulkan (SM5, Experimental)");
 	}
 	else if (InRHIName == TEXT("GLSL_SWITCH"))
 	{
@@ -96,7 +96,7 @@ TSharedRef<IDetailCustomization> FWindowsTargetSettingsDetails::MakeInstance()
 	return MakeShareable(new FWindowsTargetSettingsDetails);
 }
 
-namespace EImageScope
+namespace EWindowsImageScope
 {
 	enum Type
 	{
@@ -106,11 +106,11 @@ namespace EImageScope
 }
 
 /* Helper function used to generate filenames for splash screens */
-static FString GetSplashFilename(EImageScope::Type Scope, bool bIsEditorSplash)
+static FString GetWindowsSplashFilename(EWindowsImageScope::Type Scope, bool bIsEditorSplash)
 {
 	FString Filename;
 
-	if (Scope == EImageScope::Engine)
+	if (Scope == EWindowsImageScope::Engine)
 	{
 		Filename = FPaths::EngineContentDir();
 	}
@@ -134,13 +134,13 @@ static FString GetSplashFilename(EImageScope::Type Scope, bool bIsEditorSplash)
 }
 
 /* Helper function used to generate filenames for icons */
-static FString GetIconFilename(EImageScope::Type Scope)
+static FString GetWindowsIconFilename(EWindowsImageScope::Type Scope)
 {
 	const FString& PlatformName = FModuleManager::GetModuleChecked<ITargetPlatformModule>("WindowsTargetPlatform").GetTargetPlatforms()[0]->PlatformName();
 
-	if (Scope == EImageScope::Engine)
+	if (Scope == EWindowsImageScope::Engine)
 	{
-		FString Filename = FPaths::EngineDir() / FString(TEXT("Source/Runtime/Launch/Resources")) / PlatformName / FString("UE4.ico");
+		FString Filename = FPaths::EngineDir() / FString(TEXT("Build/Windows/Resources/Default.ico"));
 		return FPaths::ConvertRelativePathToFull(Filename);
 	}
 	else
@@ -161,8 +161,9 @@ static FString GetIconFilename(EImageScope::Type Scope)
 void FWindowsTargetSettingsDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder )
 {
 	// Setup the supported/targeted RHI property view
-	TargetShaderFormatsDetails = MakeShareable(new FTargetShaderFormatsPropertyDetails(&DetailBuilder));
-	TargetShaderFormatsDetails->CreateTargetShaderFormatsPropertyView();
+	ITargetPlatform* TargetPlatform = FModuleManager::GetModuleChecked<ITargetPlatformModule>("WindowsTargetPlatform").GetTargetPlatforms()[0];
+	TargetShaderFormatsDetails = MakeShareable(new FShaderFormatsPropertyDetails(&DetailBuilder));
+	TargetShaderFormatsDetails->CreateTargetShaderFormatsPropertyView(TargetPlatform, GetFriendlyNameFromWindowsRHIName);
 
 	TSharedRef<IPropertyHandle> MinOSProperty = DetailBuilder.GetProperty("MinimumOSVersion");
 	IDetailCategoryBuilder& OSInfoCategory = DetailBuilder.EditCategory(TEXT("OS Info"));
@@ -178,8 +179,8 @@ void FWindowsTargetSettingsDetails::CustomizeDetails( IDetailLayoutBuilder& Deta
 	IDetailCategoryBuilder& SplashCategoryBuilder = DetailBuilder.EditCategory(TEXT("Splash"));
 	FDetailWidgetRow& EditorSplashWidgetRow = SplashCategoryBuilder.AddCustomRow(EditorSplashDesc);
 
-	const FString EditorSplash_TargetImagePath = GetSplashFilename(EImageScope::GameOverride, true);
-	const FString EditorSplash_DefaultImagePath = GetSplashFilename(EImageScope::Engine, true);
+	const FString EditorSplash_TargetImagePath = GetWindowsSplashFilename(EWindowsImageScope::GameOverride, true);
+	const FString EditorSplash_DefaultImagePath = GetWindowsSplashFilename(EWindowsImageScope::Engine, true);
 
 	TArray<FString> ImageExtensions;
 	ImageExtensions.Add(TEXT("png"));
@@ -220,8 +221,8 @@ void FWindowsTargetSettingsDetails::CustomizeDetails( IDetailLayoutBuilder& Deta
 
 	const FText GameSplashDesc(LOCTEXT("GameSplashLabel", "Game Splash"));
 	FDetailWidgetRow& GameSplashWidgetRow = SplashCategoryBuilder.AddCustomRow(GameSplashDesc);
-	const FString GameSplash_TargetImagePath = GetSplashFilename(EImageScope::GameOverride, false);
-	const FString GameSplash_DefaultImagePath = GetSplashFilename(EImageScope::Engine, false);
+	const FString GameSplash_TargetImagePath = GetWindowsSplashFilename(EWindowsImageScope::GameOverride, false);
+	const FString GameSplash_DefaultImagePath = GetWindowsSplashFilename(EWindowsImageScope::Engine, false);
 
 	GameSplashWidgetRow
 	.NameContent()
@@ -279,7 +280,7 @@ void FWindowsTargetSettingsDetails::CustomizeDetails( IDetailLayoutBuilder& Deta
 		.FillWidth(1.0f)
 		.VAlign(VAlign_Center)
 		[
-			SNew(SExternalImageReference, GetIconFilename(EImageScope::Engine), GetIconFilename(EImageScope::GameOverride))
+			SNew(SExternalImageReference, GetWindowsIconFilename(EWindowsImageScope::Engine), GetWindowsIconFilename(EWindowsImageScope::GameOverride))
 			.FileDescription(GameSplashDesc)
 			.OnPreExternalImageCopy(FOnPreExternalImageCopy::CreateSP(this, &FWindowsTargetSettingsDetails::HandlePreExternalIconCopy))
 			.OnGetPickerPath(FOnGetPickerPath::CreateSP(this, &FWindowsTargetSettingsDetails::GetPickerPath))
@@ -461,100 +462,5 @@ TSharedRef<SWidget> FWindowsTargetSettingsDetails::MakeAudioDeviceMenu(const TSh
 
 	return MenuBuilder.MakeWidget();
 }
-
-FTargetShaderFormatsPropertyDetails::FTargetShaderFormatsPropertyDetails(IDetailLayoutBuilder* InDetailBuilder)
-: DetailBuilder(InDetailBuilder)
-{
-	TargetShaderFormatsPropertyHandle = DetailBuilder->GetProperty("TargetedRHIs");
-	ensure(TargetShaderFormatsPropertyHandle.IsValid());
-}
-
-void FTargetShaderFormatsPropertyDetails::CreateTargetShaderFormatsPropertyView()
-{
-	DetailBuilder->HideProperty(TargetShaderFormatsPropertyHandle);
-
-	// List of supported RHI's and selected targets
-	// @todo targetplatform: This [0] will probably always work, all of the windows TPs should return the same GetAllPossibleShaderFormats()
-	ITargetPlatform* WindowsTargetPlatform = FModuleManager::GetModuleChecked<ITargetPlatformModule>("WindowsTargetPlatform").GetTargetPlatforms()[0];
-	TArray<FName> ShaderFormats;
-	WindowsTargetPlatform->GetAllPossibleShaderFormats(ShaderFormats);
-
-	IDetailCategoryBuilder& TargetedRHICategoryBuilder = DetailBuilder->EditCategory(TEXT("Targeted RHIs"));
-
-	for (const FName& ShaderFormat : ShaderFormats)
-	{
-		FText FriendlyShaderFormatName = GetFriendlyNameFromRHIName(ShaderFormat.ToString());
-		// Skip explicitly removed entries
-		if (!FriendlyShaderFormatName.IsEmpty())
-		{
-			FDetailWidgetRow& TargetedRHIWidgetRow = TargetedRHICategoryBuilder.AddCustomRow(FriendlyShaderFormatName);
-
-			TargetedRHIWidgetRow
-				.NameContent()
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-				.Padding(FMargin(0, 1, 0, 1))
-				.FillWidth(1.0f)
-				[
-					SNew(STextBlock)
-					.Text(FriendlyShaderFormatName)
-				.Font(DetailBuilder->GetDetailFont())
-				]
-				]
-			.ValueContent()
-				[
-					SNew(SCheckBox)
-					.OnCheckStateChanged(this, &FTargetShaderFormatsPropertyDetails::OnTargetedRHIChanged, ShaderFormat)
-				.IsChecked(this, &FTargetShaderFormatsPropertyDetails::IsTargetedRHIChecked, ShaderFormat)
-				];
-		}
-	}
-}
-
-
-void FTargetShaderFormatsPropertyDetails::OnTargetedRHIChanged(ECheckBoxState InNewValue, FName InRHIName)
-{
-	TArray<void*> RawPtrs;
-	TargetShaderFormatsPropertyHandle->AccessRawData(RawPtrs);
-
-	// Update the CVars with the selection
-	{
-		TargetShaderFormatsPropertyHandle->NotifyPreChange();
-		for (void* RawPtr : RawPtrs)
-		{
-			TArray<FString>& Array = *(TArray<FString>*)RawPtr;
-			if(InNewValue == ECheckBoxState::Checked)
-			{
-				Array.Add(InRHIName.ToString());
-			}
-			else
-			{
-				Array.Remove(InRHIName.ToString());
-			}
-		}
-		TargetShaderFormatsPropertyHandle->NotifyPostChange();
-	}
-}
-
-
-ECheckBoxState FTargetShaderFormatsPropertyDetails::IsTargetedRHIChecked(FName InRHIName) const
-{
-	ECheckBoxState CheckState = ECheckBoxState::Unchecked;
-
-	TArray<void*> RawPtrs;
-	TargetShaderFormatsPropertyHandle->AccessRawData(RawPtrs);
-	
-	for(void* RawPtr : RawPtrs)
-	{
-		TArray<FString>& Array = *(TArray<FString>*)RawPtr;
-		if(Array.Contains(InRHIName.ToString()))
-		{
-			CheckState = ECheckBoxState::Checked;
-		}
-	}
-	return CheckState;
-}
-
 
 #undef LOCTEXT_NAMESPACE

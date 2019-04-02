@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/SubsurfaceProfile.h"
 #include "RenderingThread.h"
@@ -371,9 +371,9 @@ USubsurfaceProfile::USubsurfaceProfile(const FObjectInitializer& ObjectInitializ
 
 void USubsurfaceProfile::BeginDestroy()
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		RemoveSubsurfaceProfile,
-		USubsurfaceProfile*, Ref, this,
+	USubsurfaceProfile* Ref = this;
+	ENQUEUE_RENDER_COMMAND(RemoveSubsurfaceProfile)(
+		[Ref](FRHICommandList& RHICmdList)
 		{
 			GSubsurfaceProfileTextureObject.RemoveProfile(Ref);
 		});
@@ -383,12 +383,12 @@ void USubsurfaceProfile::BeginDestroy()
 
 void USubsurfaceProfile::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		UpdateSubsurfaceProfile,
-		const FSubsurfaceProfileStruct, Settings, this->Settings,
-		USubsurfaceProfile*, Profile, this,
-	{
-		// any changes to the setting require an update of the texture
-		GSubsurfaceProfileTextureObject.UpdateProfile(Settings, Profile);
-	});
+	const FSubsurfaceProfileStruct SettingsLocal = this->Settings;
+	USubsurfaceProfile* Profile = this;
+	ENQUEUE_RENDER_COMMAND(UpdateSubsurfaceProfile)(
+		[SettingsLocal, Profile](FRHICommandListImmediate& RHICmdList)
+		{
+			// any changes to the setting require an update of the texture
+			GSubsurfaceProfileTextureObject.UpdateProfile(SettingsLocal, Profile);
+		});
 }

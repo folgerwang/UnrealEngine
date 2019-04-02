@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "DetailPropertyRow.h"
 #include "Modules/ModuleManager.h"
@@ -12,6 +12,7 @@
 #include "ItemPropertyNode.h"
 #include "ObjectPropertyNode.h"
 #include "DetailWidgetRow.h"
+#include "CategoryPropertyNode.h"
 
 const float FDetailWidgetRow::DefaultValueMinWidth = 125.0f;
 const float FDetailWidgetRow::DefaultValueMaxWidth = 125.0f;
@@ -26,6 +27,7 @@ FDetailPropertyRow::FDetailPropertyRow(TSharedPtr<FPropertyNode> InPropertyNode,
 	, bShowPropertyButtons( true )
 	, bShowCustomPropertyChildren( true )
 	, bForceAutoExpansion( false )
+	, bCachedCustomTypeInterface(false)
 {
 	if( InPropertyNode.IsValid() )
 	{
@@ -59,8 +61,6 @@ FDetailPropertyRow::FDetailPropertyRow(TSharedPtr<FPropertyNode> InPropertyNode,
 				MakePropertyEditor(PropertyNode->GetPropertyKeyNode().ToSharedRef(), Utilities, PropertyKeyEditor);
 			}
 		}
-
-		CustomTypeInterface = GetPropertyCustomization(PropertyNodeRef, InParentCategory);
 	}
 }
 
@@ -130,6 +130,8 @@ void FDetailPropertyRow::GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, 
 void FDetailPropertyRow::GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, TSharedPtr<SWidget>& OutValueWidget, FDetailWidgetRow& Row, bool bAddWidgetDecoration )
 {
 	TSharedPtr<FDetailWidgetRow> CustomTypeRow;
+
+	TSharedPtr<IPropertyTypeCustomization>& CustomTypeInterface = GetTypeInterface();
 	if ( CustomTypeInterface.IsValid() ) 
 	{
 		CustomTypeRow = MakeShareable(new FDetailWidgetRow);
@@ -193,6 +195,13 @@ FDetailWidgetRow FDetailPropertyRow::GetWidgetRow()
 		MakeNameOrKeyWidget( Row, CustomPropertyWidget );
 		MakeValueWidget( Row, CustomPropertyWidget );
 
+		if (CustomPropertyWidget.IsValid())
+		{
+			Row.CopyMenuAction = CustomPropertyWidget->CopyMenuAction;
+			Row.PasteMenuAction = CustomPropertyWidget->PasteMenuAction;
+			Row.CustomMenuItems = CustomPropertyWidget->CustomMenuItems;
+		}
+		
 		return Row;
 	}
 	else
@@ -205,8 +214,9 @@ void FDetailPropertyRow::OnItemNodeInitialized( TSharedRef<FDetailCategoryImpl> 
 {
 	IsParentEnabled = InIsParentEnabled;
 
+	TSharedPtr<IPropertyTypeCustomization>& CustomTypeInterface = GetTypeInterface();
 	// Don't customize the user already customized
-	if( !CustomPropertyWidget.IsValid() && CustomTypeInterface.IsValid() )
+	if (!CustomPropertyWidget.IsValid() && CustomTypeInterface.IsValid())
 	{
 		CustomPropertyWidget = MakeShareable(new FDetailWidgetRow);
 
@@ -216,7 +226,7 @@ void FDetailPropertyRow::OnItemNodeInitialized( TSharedRef<FDetailCategoryImpl> 
 		if (CustomPropertyWidget->IsEnabledAttr.IsBound())
 		{
 			CustomIsEnabledAttrib = CustomPropertyWidget->IsEnabledAttr;
-		}
+		}		
 	}
 
 	if( bShowCustomPropertyChildren && CustomTypeInterface.IsValid() )
@@ -235,7 +245,24 @@ void FDetailPropertyRow::OnItemNodeInitialized( TSharedRef<FDetailCategoryImpl> 
 
 void FDetailPropertyRow::OnGenerateChildren( FDetailNodeList& OutChildren )
 {
-	if( PropertyNode->AsCategoryNode() || PropertyNode->GetProperty() || ExternalObjectLayout.IsValid())
+	if (PropertyNode->AsCategoryNode() && PropertyNode->GetParentNode() && !PropertyNode->GetParentNode()->AsObjectNode())
+	{
+		// This is a sub-category.  Populate from SubCategory builder
+		TSharedRef<FDetailCategoryImpl> ParentCategoryRef = ParentCategory.Pin().ToSharedRef();
+		FDetailLayoutBuilderImpl& LayoutBuilder = ParentCategoryRef->GetParentLayoutImpl();
+		TSharedPtr<FDetailCategoryImpl> MyCategory = LayoutBuilder.GetSubCategoryImpl(PropertyNode->AsCategoryNode()->GetCategoryName());
+		if(MyCategory.IsValid())
+		{
+			MyCategory->GenerateLayout();
+
+			// Ignore the header of the category by just getting the categories children directly. We are the header in this case.
+			// Also ignore visibility here as we dont have a filter yet and the children will be filtered later anyway
+			const bool bIgnoreVisibility = true;
+			const bool bIgnoreAdvancedDropdown = true;
+			MyCategory->GetGeneratedChildren(OutChildren, bIgnoreVisibility, bIgnoreAdvancedDropdown);
+		}
+	}
+	else if (PropertyNode->AsCategoryNode() || PropertyNode->GetProperty() || ExternalObjectLayout.IsValid())
 	{
 		GenerateChildrenForPropertyNode( PropertyNode, OutChildren );
 	}
@@ -531,6 +558,20 @@ bool FDetailPropertyRow::GetEnabledState() const
 	return Result;
 }
 
+TSharedPtr<IPropertyTypeCustomization>& FDetailPropertyRow::GetTypeInterface()
+{
+	if (!bCachedCustomTypeInterface)
+	{
+		if (PropertyNode.IsValid() && ParentCategory.IsValid())
+		{
+			CachedCustomTypeInterface = GetPropertyCustomization(PropertyNode.ToSharedRef(), ParentCategory.Pin().ToSharedRef());
+		}
+		bCachedCustomTypeInterface = true;
+	}
+
+	return CachedCustomTypeInterface;
+}
+
 bool FDetailPropertyRow::GetForceAutoExpansion() const
 {
 	return bForceAutoExpansion;
@@ -542,7 +583,7 @@ void FDetailPropertyRow::MakeNameOrKeyWidget( FDetailWidgetRow& Row, const TShar
 	EHorizontalAlignment HorizontalAlignment = HAlign_Fill;
 
 	// We will only use key widgets for non-struct keys
-	const bool bHasKeyNode = PropertyKeyEditor.IsValid();
+	const bool bHasKeyNode =  PropertyKeyEditor.IsValid() && !PropertyHandle->HasMetaData(TEXT("ReadOnlyKeys"));
 
 	if( !bHasKeyNode && InCustomRow.IsValid() )
 	{

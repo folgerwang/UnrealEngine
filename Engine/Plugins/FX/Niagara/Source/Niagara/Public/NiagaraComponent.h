@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,7 +8,7 @@
 #include "PrimitiveViewRelevance.h"
 #include "PrimitiveSceneProxy.h"
 #include "Components/PrimitiveComponent.h"
-#include "NiagaraParameterStore.h"
+#include "NiagaraUserRedirectionParameterStore.h"
 #include "NiagaraSystemInstance.h"
 
 #include "NiagaraComponent.generated.h"
@@ -21,14 +21,15 @@ class UNiagaraParameterCollectionInstance;
 class FNiagaraSystemSimulation;
 
 // Called when the particle system is done
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnNiagaraSystemFinished, class UNiagaraComponent*);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnNiagaraSystemFinished, class UNiagaraComponent*, PSystem);
+
 
 /**
 * UNiagaraComponent is the primitive component for a Niagara System.
 * @see ANiagaraActor
 * @see UNiagaraSystem
 */
-UCLASS(ClassGroup = (Rendering, Common), hidecategories = Object, hidecategories = Physics, hidecategories = Collision, showcategories = Trigger, editinlinenew, meta = (BlueprintSpawnableComponent))
+UCLASS(ClassGroup = (Rendering, Common), hidecategories = Object, hidecategories = Physics, hidecategories = Collision, showcategories = Trigger, editinlinenew, meta = (BlueprintSpawnableComponent, DisplayName = "Niagara Particle System"))
 class NIAGARA_API UNiagaraComponent : public UPrimitiveComponent
 {
 	GENERATED_UCLASS_BODY()
@@ -47,7 +48,7 @@ private:
 	Should expose anything in the "User" namespace.
 	*/
 	UPROPERTY(EditAnywhere, Category = Parameters)
-	FNiagaraParameterStore OverrideParameters;
+	FNiagaraUserRedirectionParameterStore OverrideParameters;
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY()
@@ -107,7 +108,7 @@ public:
 	* @see AutoAttachParent, AutoAttachSocketName, AutoAttachLocationType
 	*/
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Attachment)
-		uint32 bAutoManageAttachment : 1;
+	uint32 bAutoManageAttachment : 1;
 
 
 	virtual void Activate(bool bReset = false)override;
@@ -235,11 +236,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Get Niagara Emitter Positions"))
 	TArray<FVector> GetNiagaraParticlePositions_DebugOnly(const FString& InEmitterName);
 	
-	/** Debug accessors for getting a float attribute array in blueprints. */
+	/** Debug accessors for getting a float attribute array in blueprints.  The attribute name should be without namespaces. For example for "Particles.Position", send "Position". */
 	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Get Niagara Emitter Float Attrib"))
 	TArray<float> GetNiagaraParticleValues_DebugOnly(const FString& InEmitterName, const FString& InValueName);
 	
-	/** Debug accessors for getting a FVector attribute array in blueprints. */
+	/** Debug accessors for getting a FVector attribute array in blueprints. The attribute name should be without namespaces. For example for "Particles.Position", send "Position". */
 	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Get Niagara Emitter Vec3 Attrib"))
 	TArray<FVector> GetNiagaraParticleValueVec3_DebugOnly(const FString& InEmitterName, const FString& InValueName);
 
@@ -279,6 +280,7 @@ public:
 
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 
+	void PostLoadNormalizeOverrideNames();
 	bool IsParameterValueOverriddenLocally(const FName& InParamName);
 	void SetParameterValueOverriddenLocally(const FNiagaraVariable& InParam, bool bInOverridden, bool bRequiresSystemInstanceReset);
 	
@@ -287,11 +289,14 @@ public:
 	FOnSynchronizedWithAssetParameters& OnSynchronizedWithAssetParameters() { return OnSynchronizedWithAssetParametersDelegate; }
 #endif
 
-	FNiagaraParameterStore& GetOverrideParameters() { return OverrideParameters; }
+	FNiagaraUserRedirectionParameterStore& GetOverrideParameters() { return OverrideParameters; }
+
+	const FNiagaraParameterStore& GetOverrideParameters() const { return OverrideParameters; }
 
 	//~ End UObject Interface.
 
 	// Called when the particle system is done
+	UPROPERTY(BlueprintAssignable)
 	FOnNiagaraSystemFinished OnSystemFinished;
 
 private:
@@ -398,13 +403,18 @@ public:
 	/** Called on render thread to assign new dynamic data */
 	void SetDynamicData_RenderThread(struct FNiagaraDynamicDataBase* NewDynamicData);
 	TArray<class NiagaraRenderer*>& GetEmitterRenderers() { return EmitterRenderers; }
-	void UpdateEmitterRenderers(TArray<NiagaraRenderer*>& InRenderers);
+	void UpdateEmitterRenderers(const TArray<NiagaraRenderer*>& InRenderers);
 
 	/** Gets whether or not this scene proxy should be rendered. */
 	bool GetRenderingEnabled() const;
 
 	/** Sets whether or not this scene proxy should be rendered. */
 	void SetRenderingEnabled(bool bInRenderingEnabled);
+
+#if RHI_RAYTRACING
+	virtual void GetDynamicRayTracingInstances(FRayTracingMaterialGatheringContext& Context, TArray<FRayTracingInstance>& OutRayTracingInstances) override;
+	virtual bool IsRayTracingRelevant() const override { return true; }
+#endif
 
 private:
 	void ReleaseRenderThreadResources();

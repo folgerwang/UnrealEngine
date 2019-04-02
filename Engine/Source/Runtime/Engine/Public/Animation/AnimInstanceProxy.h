@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -31,6 +31,9 @@ struct FPoseContext;
 
 // Disable debugging information for shipping and test builds.
 #define ENABLE_ANIM_DRAW_DEBUG (1 && !(UE_BUILD_SHIPPING || UE_BUILD_TEST))
+
+// Disable node logging for shipping and test builds
+#define ENABLE_ANIM_LOGGING (1 && !NO_LOGGING && !(UE_BUILD_SHIPPING || UE_BUILD_TEST))
 
 UENUM()
 namespace EDrawDebugItemType
@@ -149,7 +152,7 @@ public:
 
 	// Get the Blueprint Generated Class associated with this context, if there is one.
 	// Note: This can return NULL, so check the result.
-	DEPRECATED(4.11, "GetAnimBlueprintClass() is deprecated, UAnimBlueprintGeneratedClass should not be directly used at runtime. Please use GetAnimClassInterface() instead.")
+	UE_DEPRECATED(4.11, "GetAnimBlueprintClass() is deprecated, UAnimBlueprintGeneratedClass should not be directly used at runtime. Please use GetAnimClassInterface() instead.")
 	UAnimBlueprintGeneratedClass* GetAnimBlueprintClass() const
 	{
 		return Cast<UAnimBlueprintGeneratedClass>(IAnimClassInterface::GetActualAnimClass(AnimClassInterface));
@@ -384,7 +387,7 @@ public:
 	void AnimDrawDebugPlane(const FTransform& BaseTransform, float Radii, const FColor& Color, bool bPersistentLines = false, float LifeTime = -1.f, float Thickness = 0.f) {}
 #endif // ENABLE_ANIM_DRAW_DEBUG
 
-#if !NO_LOGGING
+#if ENABLE_ANIM_LOGGING
 	const FString& GetActorName() const 
 	{
 		return ActorName; 
@@ -418,7 +421,7 @@ public:
 	/** Reset any dynamics running simulation-style updates (e.g. on teleport, time skip etc.) */
 	void ResetDynamics(ETeleportType InTeleportType);
 
-	DEPRECATED(4.20, "Please use ResetDynamics with a ETeleportType argument")
+	UE_DEPRECATED(4.20, "Please use ResetDynamics with a ETeleportType argument")
 	void ResetDynamics();
 
 	/** Get the relative transform of the component we are running on */
@@ -690,6 +693,25 @@ protected:
 	/** Allow nodes to register log messages to be processed on the game thread */
 	void LogMessage(FName InLogType, EMessageSeverity::Type InSeverity, const FText& InMessage);
 
+	/** Get the current value of all animation curves **/
+	TMap<FName, float>& GetAnimationCurves(EAnimCurveType InCurveType) { return AnimationCurves[(uint8)InCurveType]; }
+	const TMap<FName, float>& GetAnimationCurves(EAnimCurveType InCurveType) const { return AnimationCurves[(uint8)InCurveType]; }
+
+	/** Reset Animation Curves */
+	void ResetAnimationCurves();
+
+	/** Pushes blended heap curve to output curves in the proxy using required bones cached data */
+	void UpdateCurvesToEvaluationContext(const FAnimationEvaluationContext& InContext);
+
+	/** Update curves once evaluation has taken place. Mostly pushes curves to materials/morphs */
+	void UpdateCurvesPostEvaluation(USkeletalMeshComponent* SkelMeshComp);
+
+	/** Check whether we have any active curves */
+	bool HasActiveCurves() const;
+
+	/** Add a curve value */
+	void AddCurveValue(const FSmartNameMapping& Mapping, const FName& CurveName, float Value);
+
 private:
 	/** The component to world transform of the component we are running on */
 	FTransform ComponentTransform;
@@ -726,7 +748,7 @@ private:
 	TArray<FAnimNodePoseWatch> PoseWatchEntriesForThisFrame;
 #endif
 
-#if !NO_LOGGING
+#if ENABLE_ANIM_LOGGING
 	/** Actor name for debug logging purposes */
 	FString ActorName;
 #endif
@@ -770,6 +792,12 @@ private:
 	// Read/write buffers Tracker map for slot name->weights/relevancy
 	TMap<FName, int32> SlotNameToTrackerIndex;
 	TArray<FMontageActiveSlotTracker> SlotWeightTracker[2];
+
+	/** Curves in an easily looked-up form **/
+	TMap<FName, float> AnimationCurves[(uint8)EAnimCurveType::MaxAnimCurveType];
+
+	/** Material parameters that we had been changing and now need to clear */
+	TArray<FName> MaterialParametersToClear;
 
 protected:
 	// Counters for synchronization
@@ -824,7 +852,7 @@ private:
 	/** Array of snapshots. Each entry contains a name for finding specific pose snapshots */
 	TArray<FPoseSnapshot> PoseSnapshots;
 
-#if !NO_LOGGING
+#if ENABLE_ANIM_LOGGING
 	/** Logged message queues. Allows nodes to report messages to MessageLog even though they may be running
 	 *  on a worked thread
 	 */

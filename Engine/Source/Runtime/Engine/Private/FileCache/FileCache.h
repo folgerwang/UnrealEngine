@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -65,7 +65,7 @@ public:
 	 * the byte range again at a later time as the system strives to make data that was tried for a read but not available
 	 * resident in the future.
 	 */
-	virtual IFileCacheReadBuffer *ReadData(int64 Offset, int64 BytesToRead, EAsyncIOPriority Priority) = 0;
+	virtual IFileCacheReadBuffer *ReadData(int64 Offset, int64 BytesToRead, EAsyncIOPriorityAndFlags PriorityAndFlags) = 0;
 
 	/**
 	 * Wait until all outstanding read requests complete. 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -16,19 +16,8 @@ namespace UnrealBuildTool
 		/// </summary>
 		static public void DeleteJunk()
 		{
-			DateTime JunkStartTime = DateTime.UtcNow;
-
-			if (UnrealBuildTool.IsEngineInstalled() == false)
-			{
-				List<string> JunkManifest = LoadJunkManifest();
-				DeleteAllJunk(JunkManifest);
-			}
-
-			if (UnrealBuildTool.bPrintPerformanceInfo)
-			{
-				double JunkTime = (DateTime.UtcNow - JunkStartTime).TotalSeconds;
-				Log.TraceInformation("DeleteJunk took " + JunkTime + "s");
-			}
+			List<string> JunkManifest = LoadJunkManifest();
+			DeleteAllJunk(JunkManifest);
 		}
 
 		/// <summary>

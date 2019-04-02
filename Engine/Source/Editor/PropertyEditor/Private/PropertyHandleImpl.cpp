@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PropertyHandleImpl.h"
 #include "GameFramework/Actor.h"
@@ -23,8 +23,33 @@
 #include "Widgets/Notifications/SNotificationList.h"
 #include "UObject/EnumProperty.h"
 #include "IDetailPropertyRow.h"
+#include "ObjectEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "PropertyHandleImplementation"
+
+void PropertyToTextHelper(FString& OutString, FPropertyNode* InPropertyNode, UProperty* Property, uint8* ValueAddress, EPropertyPortFlags PortFlags)
+{
+	if (InPropertyNode->GetArrayIndex() != INDEX_NONE || Property->ArrayDim == 1)
+	{
+		Property->ExportText_Direct(OutString, ValueAddress, ValueAddress, nullptr, PortFlags);
+	}
+	else
+	{
+		UArrayProperty::ExportTextInnerItem(OutString, Property, ValueAddress, Property->ArrayDim, ValueAddress, Property->ArrayDim, nullptr, PortFlags);
+	}
+}
+
+void TextToPropertyHelper(const TCHAR* Buffer, FPropertyNode* InPropertyNode, UProperty* Property, uint8* ValueAddress, UObject* Object)
+{
+	if (InPropertyNode->GetArrayIndex() != INDEX_NONE || Property->ArrayDim == 1)
+	{
+		Property->ImportText(Buffer, ValueAddress, 0, Object);
+	}
+	else
+	{
+		UArrayProperty::ImportTextInnerItem(Buffer, Property, ValueAddress, 0, Object);
+	}
+}
 
 FPropertyValueImpl::FPropertyValueImpl( TSharedPtr<FPropertyNode> InPropertyNode, FNotifyHook* InNotifyHook, TSharedPtr<IPropertyUtilities> InPropertyUtilities )
 	: PropertyNode( InPropertyNode )
@@ -87,7 +112,7 @@ FPropertyAccess::Result FPropertyValueImpl::GetPropertyValueString( FString& Out
 			// Check for bogus data
 			if( Property != nullptr && InPropertyNode->GetParentNode() != nullptr )
 			{
-				Property->ExportText_Direct( OutString, ValueAddress, ValueAddress, nullptr, PortFlags );
+				PropertyToTextHelper(OutString, InPropertyNode, Property, ValueAddress, PortFlags);
 
 				UEnum* Enum = nullptr;
 				int64 EnumValue = 0;
@@ -160,7 +185,7 @@ FPropertyAccess::Result FPropertyValueImpl::GetPropertyValueText( FText& OutText
 			else
 			{
 				FString ExportedTextString;
-				Property->ExportText_Direct(ExportedTextString, ValueAddress, ValueAddress, nullptr, PPF_PropertyWindow );
+				PropertyToTextHelper(ExportedTextString, InPropertyNode, Property, ValueAddress, PPF_PropertyWindow);
 
 				UEnum* Enum = nullptr;
 				int64 EnumValue = 0;
@@ -403,7 +428,7 @@ FPropertyAccess::Result FPropertyValueImpl::ImportText( const TArray<FObjectBase
 
 			// Cache the value of the property before modifying it.
 			FString PreviousValue;
-			NodeProperty->ExportText_Direct(PreviousValue, Cur.BaseAddress, Cur.BaseAddress, nullptr, 0 );
+			PropertyToTextHelper(PreviousValue, InPropertyNode, NodeProperty, Cur.BaseAddress, PPF_None);
 
 			// If this property is the inner-property of a container, cache the current value as well
 			FString PreviousContainerValue;
@@ -490,13 +515,13 @@ FPropertyAccess::Result FPropertyValueImpl::ImportText( const TArray<FObjectBase
 
 			// Set the new value.
 			const TCHAR* NewValue = *InValues[ObjectIndex];
-			NodeProperty->ImportText( NewValue, Cur.BaseAddress, 0, Cur.Object );
+			TextToPropertyHelper(NewValue, InPropertyNode, NodeProperty, Cur.BaseAddress, Cur.Object);
 
 			if (Cur.Object)
 			{
 				// Cache the value of the property after having modified it.
 				FString ValueAfterImport;
-				NodeProperty->ExportText_Direct(ValueAfterImport, Cur.BaseAddress, Cur.BaseAddress, nullptr, 0);
+				PropertyToTextHelper(ValueAfterImport, InPropertyNode, NodeProperty, Cur.BaseAddress, PPF_None);
 
 				if ((Cur.Object->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject) ||
 					(Cur.Object->HasAnyFlags(RF_DefaultSubObject) && Cur.Object->GetOuter()->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))) &&
@@ -1042,7 +1067,7 @@ void FPropertyValueImpl::AddChild()
 		PropertyNodePin->GetReadAddress( !!PropertyNodePin->HasNodeFlags(EPropertyNodeFlags::SingleSelectOnly), ReadAddresses, true, false, true );
 		if ( ReadAddresses.Num() )
 		{
-			// determines whether we actually changed any values (if the user clicks the "emtpy" button when the array is already empty,
+			// determines whether we actually changed any values (if the user clicks the "empty" button when the array is already empty,
 			// we don't want the objects to be marked dirty)
 			bool bNotifiedPreChange = false;
 
@@ -1089,11 +1114,8 @@ void FPropertyValueImpl::AddChild()
 							(Obj->HasAnyFlags(RF_DefaultSubObject) && Obj->GetOuter()->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))) &&
 							!FApp::IsGame())
 						{
-							FString OrgContent;
-							NodeProperty->ExportText_Direct(OrgContent, Addr, Addr, nullptr, 0);
-
 							TMap<UObject*, bool> PropagationResult;
-							PropertyNodePin->PropagateContainerPropertyChange(Obj, OrgContent, EPropertyArrayChangeType::Add, -1, &PropagationResult);
+							PropertyNodePin->PropagateContainerPropertyChange(Obj, Addr, EPropertyArrayChangeType::Add, -1, &PropagationResult);
 							PropagationResultPerObject.Add(MoveTemp(PropagationResult));
 						}
 
@@ -1204,9 +1226,7 @@ void FPropertyValueImpl::ClearChildren()
 							(Obj->HasAnyFlags(RF_DefaultSubObject) && Obj->GetOuter()->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))) &&
 							!FApp::IsGame())
 						{
-							FString OrgContent;
-							NodeProperty->ExportText_Direct(OrgContent, Addr, Addr, nullptr, 0);
-							PropertyNodePin->PropagateContainerPropertyChange(Obj, OrgContent, EPropertyArrayChangeType::Clear, -1);
+							PropertyNodePin->PropagateContainerPropertyChange(Obj, Addr, EPropertyArrayChangeType::Clear, -1);
 						}
 
 						TopLevelObjects.Add(Obj);
@@ -1359,11 +1379,8 @@ void FPropertyValueImpl::InsertChild( TSharedPtr<FPropertyNode> ChildNodeToInser
 				(Obj->HasAnyFlags(RF_DefaultSubObject) && Obj->GetOuter()->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))) &&
 				!FApp::IsGame())
 			{
-				FString OrgArrayContent;
-				ArrayProperty->ExportText_Direct(OrgArrayContent, Addr, Addr, nullptr, 0);
-
 				TMap<UObject*, bool> PropagationResult;
-				ChildNodePtr->PropagateContainerPropertyChange(Obj, OrgArrayContent, EPropertyArrayChangeType::Insert, Index, &PropagationResult);
+				ChildNodePtr->PropagateContainerPropertyChange(Obj, Addr, EPropertyArrayChangeType::Insert, Index, &PropagationResult);
 				PropagationResultPerObject.Add(MoveTemp(PropagationResult));
 			}
 
@@ -1456,11 +1473,8 @@ void FPropertyValueImpl::DeleteChild( TSharedPtr<FPropertyNode> ChildNodeToDelet
 						(Obj->HasAnyFlags(RF_DefaultSubObject) && Obj->GetOuter()->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))) &&
 						!FApp::IsGame())
 					{
-						FString OrgContent;
-						Cast<UProperty>(NodeProperty->GetOuter())->ExportText_Direct(OrgContent, Address, Address, nullptr, 0);
-
 						TMap<UObject*, bool> PropagationResult;
-						ChildNodePtr->PropagateContainerPropertyChange(Obj, OrgContent, EPropertyArrayChangeType::Delete, Index, &PropagationResult);
+						ChildNodePtr->PropagateContainerPropertyChange(Obj, Address, EPropertyArrayChangeType::Delete, Index, &PropagationResult);
 
 						PropagationResultPerObject.Add(MoveTemp(PropagationResult));
 					}
@@ -1597,9 +1611,7 @@ void FPropertyValueImpl::SwapChildren( TSharedPtr<FPropertyNode> FirstChildNode,
 					if ((Obj->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject) || (Obj->HasAnyFlags(RF_DefaultSubObject) && Obj->GetOuter()->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))) 
 						&& !FApp::IsGame())
 					{
-						FString OrgContent;
-						Cast<UProperty>(FirstNodeProperty->GetOuter())->ExportText_Direct(OrgContent, Address, Address, nullptr, 0);
-						FirstChildNodePtr->PropagateContainerPropertyChange(Obj, OrgContent, EPropertyArrayChangeType::Swap, FirstIndex, nullptr, SecondIndex);
+						FirstChildNodePtr->PropagateContainerPropertyChange(Obj, Address, EPropertyArrayChangeType::Swap, FirstIndex, nullptr, SecondIndex);
 					}
 
 					TopLevelObjects.Add(Obj);
@@ -1663,53 +1675,48 @@ void FPropertyValueImpl::MoveElementTo(int32 OriginalIndex, int32 NewIndex)
 
 
 		FReadAddressList ReadAddresses;
-		void* Addr = nullptr;
 		ParentNode->GetReadAddress(!!ParentNode->HasNodeFlags(EPropertyNodeFlags::SingleSelectOnly), ReadAddresses);
-		if (ReadAddresses.Num())
+		for (int32 i = 0; i < ReadAddresses.Num(); ++i)
 		{
-			Addr = ReadAddresses.GetAddress(0);
-		}
-
-		if (Addr)
-		{
-			FScriptArrayHelper	ArrayHelper(ArrayProperty, Addr);
-			int32 Index = ChildNodePtr->GetArrayIndex();
-
-			// List of top level objects sent to the PropertyChangedEvent
-			TArray<const UObject*> TopLevelObjects;
-
-			UObject* Obj = ObjectNode ? ObjectNode->GetUObject(0) : nullptr;
-			if (Obj)
+			void* Addr = ReadAddresses.GetAddress(i);
+			if (Addr)
 			{
-				if ((Obj->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject) ||
-					(Obj->HasAnyFlags(RF_DefaultSubObject) && Obj->GetOuter()->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))))
-				{
-					FString OrgArrayContent;
-					ArrayProperty->ExportText_Direct(OrgArrayContent, Addr, Addr, nullptr, 0);
+				FScriptArrayHelper	ArrayHelper(ArrayProperty, Addr);
+				int32 Index = ChildNodePtr->GetArrayIndex();
 
-					ChildNodePtr->PropagateContainerPropertyChange(Obj, OrgArrayContent, EPropertyArrayChangeType::Insert, Index);
+				// List of top level objects sent to the PropertyChangedEvent
+				TArray<const UObject*> TopLevelObjects;
+
+				UObject* Obj = ObjectNode ? ObjectNode->GetUObject(0) : nullptr;
+				if (Obj)
+				{
+					if ((Obj->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject) ||
+						(Obj->HasAnyFlags(RF_DefaultSubObject) && Obj->GetOuter()->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))))
+					{
+						ChildNodePtr->PropagateContainerPropertyChange(Obj, Addr, EPropertyArrayChangeType::Insert, Index);
+					}
+
+					TopLevelObjects.Add(Obj);
 				}
 
-				TopLevelObjects.Add(Obj);
-			}
+				ArrayHelper.InsertValues(Index, 1);
 
-			ArrayHelper.InsertValues(Index, 1);
+				//set up indices for the coming events
+				TArray< TMap<FString, int32> > ArrayIndicesPerObject;
+				for (int32 ObjectIndex = 0; ObjectIndex < ReadAddresses.Num(); ++ObjectIndex)
+				{
+					//add on array index so we can tell which entry just changed
+					ArrayIndicesPerObject.Add(TMap<FString, int32>());
+					FPropertyValueImpl::GenerateArrayIndexMapToObjectNode(ArrayIndicesPerObject[ObjectIndex], ChildNodePtr);
+				}
 
-			//set up indices for the coming events
-			TArray< TMap<FString, int32> > ArrayIndicesPerObject;
-			for (int32 ObjectIndex = 0; ObjectIndex < ReadAddresses.Num(); ++ObjectIndex)
-			{
-				//add on array index so we can tell which entry just changed
-				ArrayIndicesPerObject.Add(TMap<FString, int32>());
-				FPropertyValueImpl::GenerateArrayIndexMapToObjectNode(ArrayIndicesPerObject[ObjectIndex], ChildNodePtr);
-			}
+				FPropertyChangedEvent ChangeEvent(ParentNode->GetProperty(), EPropertyChangeType::ArrayAdd, &TopLevelObjects);
+				ChangeEvent.SetArrayIndexPerObject(ArrayIndicesPerObject);
 
-			FPropertyChangedEvent ChangeEvent(ParentNode->GetProperty(), EPropertyChangeType::ArrayAdd, &TopLevelObjects);
-			ChangeEvent.SetArrayIndexPerObject(ArrayIndicesPerObject);
-
-			if (PropertyUtilities.IsValid())
-			{
-				ChildNodePtr->FixPropertiesInEvent(ChangeEvent);
+				if (PropertyUtilities.IsValid())
+				{
+					ChildNodePtr->FixPropertiesInEvent(ChangeEvent);
+				}
 			}
 		}
 	}
@@ -1754,9 +1761,7 @@ void FPropertyValueImpl::MoveElementTo(int32 OriginalIndex, int32 NewIndex)
 							if ((Obj->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject) ||
 								(Obj->HasAnyFlags(RF_DefaultSubObject) && Obj->GetOuter()->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))))
 							{
-								FString OrgContent;
-								NodeProperty->ExportText_Direct(OrgContent, Addr, Addr, nullptr, 0);
-								PropertyNodePin->PropagateContainerPropertyChange(Obj, OrgContent, EPropertyArrayChangeType::Add, -1);
+								PropertyNodePin->PropagateContainerPropertyChange(Obj, Addr, EPropertyArrayChangeType::Add, -1);
 							}
 
 							TopLevelObjects.Add(Obj);
@@ -1829,9 +1834,7 @@ void FPropertyValueImpl::MoveElementTo(int32 OriginalIndex, int32 NewIndex)
 						if ((Obj->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject) ||
 							(Obj->HasAnyFlags(RF_DefaultSubObject) && Obj->GetOuter()->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))))
 						{
-							FString OrgContent;
-							Cast<UProperty>(FirstNodeProperty->GetOuter())->ExportText_Direct(OrgContent, Address, Address, nullptr, 0);
-							FirstChildNodePtr->PropagateContainerPropertyChange(Obj, OrgContent, EPropertyArrayChangeType::Swap, FirstIndex, nullptr, SecondIndex);
+							FirstChildNodePtr->PropagateContainerPropertyChange(Obj, Address, EPropertyArrayChangeType::Swap, FirstIndex, nullptr, SecondIndex);
 						}
 
 						TopLevelObjects.Add(Obj);
@@ -1908,9 +1911,7 @@ void FPropertyValueImpl::MoveElementTo(int32 OriginalIndex, int32 NewIndex)
 							(Obj->HasAnyFlags(RF_DefaultSubObject) && Obj->GetOuter()->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))) &&
 							!FApp::IsGame())
 						{
-							FString OrgContent;
-							Cast<UProperty>(NodeProperty->GetOuter())->ExportText_Direct(OrgContent, Address, Address, nullptr, 0);
-							ChildNodePtr->PropagateContainerPropertyChange(Obj, OrgContent, EPropertyArrayChangeType::Delete, Index);
+							ChildNodePtr->PropagateContainerPropertyChange(Obj, Address, EPropertyArrayChangeType::Delete, Index);
 						}
 
 						TopLevelObjects.Add(Obj);
@@ -1992,11 +1993,8 @@ void FPropertyValueImpl::DuplicateChild( TSharedPtr<FPropertyNode> ChildNodeToDu
 				(Obj->HasAnyFlags(RF_DefaultSubObject) && Obj->GetOuter()->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))) &&
 				!FApp::IsGame())
 			{
-				FString OrgContent;
-				Cast<UProperty>(NodeProperty->GetOuter())->ExportText_Direct(OrgContent, Addr, Addr, nullptr, 0);
-
 				TMap<UObject*, bool> PropagationResult;
-				ChildNodePtr->PropagateContainerPropertyChange(Obj, OrgContent, EPropertyArrayChangeType::Duplicate, Index, &PropagationResult);
+				ChildNodePtr->PropagateContainerPropertyChange(Obj, Addr, EPropertyArrayChangeType::Duplicate, Index, &PropagationResult);
 				PropagationResultPerObject.Add(MoveTemp(PropagationResult));
 			}
 
@@ -2114,6 +2112,11 @@ IMPLEMENT_PROPERTY_ACCESSOR( FRotator )
 IMPLEMENT_PROPERTY_ACCESSOR( UObject* )
 IMPLEMENT_PROPERTY_ACCESSOR( const UObject* )
 IMPLEMENT_PROPERTY_ACCESSOR( FAssetData )
+
+FPropertyAccess::Result FPropertyHandleBase::SetValue( const TCHAR* InValue, EPropertyValueSetFlags::Type Flags )
+{
+	return FPropertyAccess::Fail;
+}
 
 FPropertyHandleBase::FPropertyHandleBase( TSharedPtr<FPropertyNode> PropertyNode, FNotifyHook* NotifyHook, TSharedPtr<IPropertyUtilities> PropertyUtilities )
 	: Implementation( MakeShareable( new FPropertyValueImpl( PropertyNode, NotifyHook, PropertyUtilities ) ) )
@@ -2278,6 +2281,11 @@ TSharedRef<SWidget> FPropertyHandleBase::CreatePropertyValueWidget( bool bDispla
 bool FPropertyHandleBase::IsEditConst() const
 {
 	return Implementation->IsEditConst();
+}
+
+bool FPropertyHandleBase::IsEditable() const
+{
+	return !IsEditConst();
 }
 
 FPropertyAccess::Result FPropertyHandleBase::GetValueAsFormattedString( FString& OutValue, EPropertyPortFlags PortFlags ) const
@@ -3088,6 +3096,30 @@ void FPropertyHandleBase::ExecuteCustomResetToDefault(const FResetToDefaultOverr
 	Implementation->GetPropertyUtilities()->EnqueueDeferredAction(FSimpleDelegate::CreateLambda([this, InOnCustomResetToDefault]() { OnCustomResetToDefault(InOnCustomResetToDefault); }));
 }
 
+FName FPropertyHandleBase::GetDefaultCategoryName() const
+{
+	UProperty* Property = GetProperty();
+
+	if (Property)
+	{
+		return FObjectEditorUtils::GetCategoryFName(Property);
+	}
+
+	return NAME_None;
+}
+
+FText FPropertyHandleBase::GetDefaultCategoryText() const
+{
+	UProperty* Property = GetProperty();
+
+	if (Property)
+	{
+		return FObjectEditorUtils::GetCategoryText(Property);
+	}
+
+	return FText::GetEmpty();
+}
+
 /** Implements common property value functions */
 #define IMPLEMENT_PROPERTY_VALUE( ClassName ) \
 	ClassName::ClassName( TSharedRef<FPropertyNode> PropertyNode, FNotifyHook* NotifyHook, TSharedPtr<IPropertyUtilities> PropertyUtilities ) \
@@ -3530,6 +3562,11 @@ FPropertyAccess::Result FPropertyHandleString::SetValue( const FString& NewValue
 	return Implementation->SetValueAsString( NewValue, Flags );
 }
 
+FPropertyAccess::Result FPropertyHandleString::SetValue( const TCHAR* NewValue, EPropertyValueSetFlags::Type Flags )
+{
+	return Implementation->SetValueAsString( NewValue, Flags );
+}
+
 FPropertyAccess::Result FPropertyHandleString::GetValue( FName& OutValue ) const
 {
 	void* PropValue = nullptr;
@@ -3630,7 +3667,7 @@ FPropertyAccess::Result FPropertyHandleObject::SetValue(const FAssetData& NewVal
 	{
 		if (!PropertyNode->GetProperty()->IsA(USoftObjectProperty::StaticClass()))
 		{
-			// Make sure the asset is loaded if we are not a string asset reference.
+			// Make sure the asset is loaded if we are not a soft reference
 			NewValue.GetAsset();
 		}
 
@@ -4376,11 +4413,16 @@ FPropertyAccess::Result FPropertyHandleText::GetValue(FText& OutValue) const
 FPropertyAccess::Result FPropertyHandleText::SetValue(const FText& NewValue, EPropertyValueSetFlags::Type Flags)
 {
 	FString StringValue;
-	FTextStringHelper::WriteToString(StringValue, NewValue);
+	FTextStringHelper::WriteToBuffer(StringValue, NewValue);
 	return Implementation->ImportText(StringValue, Flags);
 }
 
 FPropertyAccess::Result FPropertyHandleText::SetValue(const FString& NewValue, EPropertyValueSetFlags::Type Flags)
+{
+	return SetValue(FText::FromString(NewValue), Flags);
+}
+
+FPropertyAccess::Result FPropertyHandleText::SetValue(const TCHAR* NewValue, EPropertyValueSetFlags::Type Flags)
 {
 	return SetValue(FText::FromString(NewValue), Flags);
 }

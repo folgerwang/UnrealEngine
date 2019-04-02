@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -17,6 +17,8 @@
 #include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
 #include "MovieSceneSequence.h"
 #include "Evaluation/Blending/MovieSceneBlendingActuator.h"
+#include "Evaluation/Blending/MovieSceneMultiChannelBlending.h"
+#include "Compilation/MovieSceneTemplateInterrogation.h"
 #include "MovieScenePropertyTemplate.generated.h"
 
 class UMovieScenePropertyTrack;
@@ -38,55 +40,6 @@ namespace PropertyTemplate
 
 		/** Cached identifier of the property we're editing */
 		FMovieSceneAnimTypeID PropertyID;
-	};
-
-	/** The value of the object as it existed before this frame's evaluation */
-	template<typename PropertyValueType> struct
-	DEPRECATED(4.17, "Precaching of property values should no longer be necessary as it was only used to pass default values to curves on evaluation. Curves should now be checked for emptyness before attempting to animate an object.")
-	TCachedValue
-	{
-		TWeakObjectPtr<UObject> WeakObject;
-		PropertyValueType Value;
-	};
-
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	template<typename T> struct TCachedValue_DEPRECATED : TCachedValue<T> {};
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
-
-	template<typename PropertyValueType> struct 
-	DEPRECATED(4.17, "Precaching of property values should no longer be necessary as it was only used to pass default values to curves on evaluation. Curves should now be checked for emptyness before attempting to animate an object.")
-	TCachedSectionData : FSectionData
-	{
-		/** Setup the data for the current frame */
-		void SetupFrame(const FMovieSceneEvaluationOperand& Operand, IMovieScenePlayer& Player)
-		{
-			ObjectsAndValues.Reset();
-			
-			for (TWeakObjectPtr<> Object : Player.FindBoundObjects(Operand))
-			{
-				if (UObject* ObjectPtr = Object.Get())
-				{
-					PropertyBindings->CacheBinding(*ObjectPtr);
-					if (UProperty* Property = PropertyBindings->GetProperty(*ObjectPtr))
-					{
-						if (Property->GetSize() == sizeof(PropertyValueType))
-						{
-							ObjectsAndValues.Add(TCachedValue_DEPRECATED<PropertyValueType>{ ObjectPtr, PropertyBindings->GetCurrentValue<PropertyValueType>(*ObjectPtr) });
-						}
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-						else
-						{
-							FMessageLog("Sequencer").Warning()
-								->AddToken(FUObjectToken::Create(Player.GetEvaluationTemplate().GetSequence(MovieSceneSequenceID::Root)))
-								->AddToken(FTextToken::Create(FText::Format(NSLOCTEXT("MovieScene", "IncompatibleDataWarning", "Property size mismatch for property '{0}'. Expected '{1}', found '{2}'. Recreate the track with the new property type."), FText::FromString(PropertyBindings->GetPropertyPath()), FText::FromString(TNameOf<PropertyValueType>::GetName()), FText::FromString(Property->GetCPPType()))));
-						}
-#endif
-					}
-				}
-			}
-		}
-
-		TArray<TCachedValue_DEPRECATED<PropertyValueType>, TInlineAllocator<1>> ObjectsAndValues;
 	};
 
 	template<typename PropertyValueType, typename IntermediateType = PropertyValueType>
@@ -162,33 +115,8 @@ namespace PropertyTemplate
 
 		FTrackInstancePropertyBindings& PropertyBindings;
 	};
+
 }
-
-
-template<typename PropertyValueType> struct
-DEPRECATED(4.17, "Precaching of property values should no longer be necessary as it was only used to pass default values to curves on evaluation. Curves should now be checked for emptyness before attempting to animate an object.")
-TCachedPropertyTrackExecutionToken : IMovieSceneExecutionToken
-{
-	virtual void Execute(const FMovieSceneContext& Context, const FMovieSceneEvaluationOperand& Operand, FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) override
-	{
-		using namespace PropertyTemplate;
-
-		MOVIESCENE_DETAILED_SCOPE_CYCLE_COUNTER(MovieSceneEval_PropertyTrack_TokenExecute)
-		
-		TCachedSectionData<PropertyValueType>& PropertyTrackData = PersistentData.GetSectionData<TCachedSectionData<PropertyValueType>>();
-		FTrackInstancePropertyBindings* PropertyBindings = PropertyTrackData.PropertyBindings.Get();
-
-		for (TCachedValue<PropertyValueType>& ObjectAndValue : PropertyTrackData.ObjectsAndValues)
-		{
-			if (UObject* ObjectPtr = ObjectAndValue.WeakObject.Get())
-			{
-				Player.SavePreAnimatedState(*ObjectPtr, PropertyTrackData.PropertyID, FTokenProducer<PropertyValueType>(*PropertyBindings));
-				
-				PropertyBindings->CallFunction<PropertyValueType>(*ObjectPtr, ObjectAndValue.Value);
-			}
-		}
-	}
-};
 
 /** Execution token that simple stores a value, and sets it when executed */
 template<typename PropertyValueType, typename IntermediateType = PropertyValueType>
@@ -253,7 +181,12 @@ struct TPropertyActuator : TMovieSceneBlendingActuator<PropertyType>
 			PropertyData.PropertyBindings->CallFunction<PropertyType>(*InObject, InFinalValue);
 		}
 	}
+	//This will be specialized at end of this file for floats, transforms,eulertransforms and vectors
+	virtual void Actuate(FMovieSceneInterrogationData& InterrogationData, typename TCallTraits<PropertyType>::ParamType InValue, const TBlendableTokenStack<PropertyType>& OriginalStack, const FMovieSceneContext& Context) const override
+	{
+	}
 };
+
 
 USTRUCT()
 struct FMovieScenePropertySectionData
@@ -290,22 +223,6 @@ struct FMovieScenePropertySectionData
 	{
 		PersistentData.AddSectionData<T>().Initialize(PropertyName, PropertyPath, FunctionName, NotifyFunctionName);
 	}
-
-	template<typename T>
-	DEPRECATED(4.17, "Precaching of property values should no longer be necessary as it was only used to pass default values to curves on evaluation. Curves should now be checked for emptyness before attempting to animate an object.")
-	void SetupCachedTrack(FPersistentEvaluationData& PersistentData) const
-	{
-		typedef PropertyTemplate::TCachedSectionData<T> FSectionData;
-		PersistentData.AddSectionData<FSectionData>().Initialize(PropertyName, PropertyPath, FunctionName, NotifyFunctionName);
-	}
-
-	template<typename T>
-	DEPRECATED(4.17, "Precaching of property values should no longer be necessary as it was only used to pass default values to curves on evaluation. Curves should now be checked for emptyness before attempting to animate an object.")
-	void SetupCachedFrame(const FMovieSceneEvaluationOperand& Operand, FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) const
-	{
-		typedef PropertyTemplate::TCachedSectionData<T> FSectionData;
-		PersistentData.GetSectionData<FSectionData>().SetupFrame(Operand, Player);
-	}
 };
 
 USTRUCT()
@@ -315,6 +232,16 @@ struct MOVIESCENE_API FMovieScenePropertySectionTemplate : public FMovieSceneEva
 	
 	FMovieScenePropertySectionTemplate(){}
 	FMovieScenePropertySectionTemplate(FName PropertyName, const FString& InPropertyPath);
+public:
+	//use thse keys for setting and iterating the correct types.
+	const static FMovieSceneInterrogationKey GetFloatInterrogationKey();
+	const static FMovieSceneInterrogationKey GetInt32InterrogationKey();
+	const static FMovieSceneInterrogationKey GetTransformInterrogationKey();
+	const static FMovieSceneInterrogationKey GetEulerTransformInterrogationKey();
+	const static FMovieSceneInterrogationKey GetVector4InterrogationKey();
+	const static FMovieSceneInterrogationKey GetVectorInterrogationKey();
+	const static FMovieSceneInterrogationKey GetVector2DInterrogationKey();
+	const static FMovieSceneInterrogationKey GetColorInterrogationKey();
 
 protected:
 
@@ -344,3 +271,55 @@ protected:
 	UPROPERTY()
 	FMovieScenePropertySectionData PropertyData;
 };
+
+//Specializations 
+template<>
+inline void TPropertyActuator<float>::Actuate(FMovieSceneInterrogationData& InterrogationData, typename TCallTraits<float>::ParamType InValue, const TBlendableTokenStack<float>& OriginalStack, const FMovieSceneContext& Context) const
+{
+	float Value = InValue;
+	InterrogationData.Add(Value, FMovieScenePropertySectionTemplate::GetFloatInterrogationKey());
+};
+
+template<>
+inline void TPropertyActuator<int32>::Actuate(FMovieSceneInterrogationData& InterrogationData, typename TCallTraits<int32>::ParamType InValue, const TBlendableTokenStack<int32>& OriginalStack, const FMovieSceneContext& Context) const
+{
+	int32 Value = InValue;
+	InterrogationData.Add(Value, FMovieScenePropertySectionTemplate::GetInt32InterrogationKey());
+};
+
+template<>
+inline void TPropertyActuator<FVector2D>::Actuate(FMovieSceneInterrogationData& InterrogationData, typename TCallTraits<FVector2D>::ParamType InValue, const TBlendableTokenStack<FVector2D>& OriginalStack, const FMovieSceneContext& Context) const
+{
+	FVector2D Value = InValue;
+	InterrogationData.Add(Value, FMovieScenePropertySectionTemplate::GetVector2DInterrogationKey());
+};
+
+template<>
+inline void TPropertyActuator<FEulerTransform>::Actuate(FMovieSceneInterrogationData& InterrogationData, typename TCallTraits<FEulerTransform>::ParamType InValue, const TBlendableTokenStack<FEulerTransform>& OriginalStack, const FMovieSceneContext& Context) const
+{
+	FEulerTransform Value = InValue;
+	InterrogationData.Add(Value, FMovieScenePropertySectionTemplate::GetEulerTransformInterrogationKey());
+};
+
+template<>
+inline void TPropertyActuator<FTransform>::Actuate(FMovieSceneInterrogationData& InterrogationData, typename TCallTraits<FTransform>::ParamType InValue, const TBlendableTokenStack<FTransform>& OriginalStack, const FMovieSceneContext& Context) const
+{
+	FTransform Value = InValue;
+	InterrogationData.Add(Value, FMovieScenePropertySectionTemplate::GetTransformInterrogationKey());
+};
+
+template<>
+inline void TPropertyActuator<FVector4>::Actuate(FMovieSceneInterrogationData& InterrogationData, typename TCallTraits<FVector4>::ParamType InValue, const TBlendableTokenStack<FVector4>& OriginalStack, const FMovieSceneContext& Context) const
+{
+	FVector4 Value = InValue;
+	InterrogationData.Add(Value, FMovieScenePropertySectionTemplate::GetVector4InterrogationKey());
+};
+
+template<>
+inline void TPropertyActuator<FVector>::Actuate(FMovieSceneInterrogationData& InterrogationData, typename TCallTraits<FVector>::ParamType InValue, const TBlendableTokenStack<FVector>& OriginalStack, const FMovieSceneContext& Context) const
+{
+	FVector Value = InValue;
+	InterrogationData.Add(Value, FMovieScenePropertySectionTemplate::GetVectorInterrogationKey());
+};
+
+

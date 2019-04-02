@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Misc/ExpressionParser.h"
 #include "Misc/AutomationTest.h"
@@ -228,7 +228,7 @@ TOptional<FStringToken> FTokenStream::ParseWhitespace(FStringToken* Accumulate) 
 
 	if (IsReadPosValid(OptReadPos))
 	{
-		return ParseToken([](TCHAR InC){ return FChar::IsWhitespace(InC) ? EParseState::Continue : EParseState::StopBefore; });
+		return ParseToken([](TCHAR InC){ return FChar::IsWhitespace(InC) ? EParseState::Continue : EParseState::StopBefore; }, Accumulate);
 	}
 
 	return TOptional<FStringToken>();

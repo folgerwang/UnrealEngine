@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Backends/JsonStructDeserializerBackend.h"
 #include "Backends/StructDeserializerBackendUtilities.h"
@@ -176,7 +176,12 @@ bool FJsonStructDeserializerBackend::ReadProperty( UProperty* Property, UPropert
 
 			if (UTextProperty* TextProperty = Cast<UTextProperty>(Property))
 			{
-				return StructDeserializerBackendUtilities::SetPropertyValue(TextProperty, Outer, Data, ArrayIndex, FText::FromString(StringValue));
+				FText TextValue;
+				if (!FTextStringHelper::ReadFromBuffer(*StringValue, TextValue))
+				{
+					TextValue = FText::FromString(StringValue);
+				}
+				return StructDeserializerBackendUtilities::SetPropertyValue(TextProperty, Outer, Data, ArrayIndex, TextValue);
 			}
 
 			if (UByteProperty* ByteProperty = Cast<UByteProperty>(Property))

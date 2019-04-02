@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -74,12 +74,22 @@ struct FCrashStackFrame
 	uint64 BaseAddress;
 	uint64 Offset;
 
-	FCrashStackFrame(const FString& ModuleNameIn, uint64 BaseAddressIn, uint64 OffsetIn)
+	FCrashStackFrame(FString ModuleNameIn, uint64 BaseAddressIn, uint64 OffsetIn)
+		: ModuleName(MoveTemp(ModuleNameIn))
+		, BaseAddress(BaseAddressIn)
+		, Offset(OffsetIn)
 	{
-		ModuleName = ModuleNameIn;
-		BaseAddress = BaseAddressIn;
-		Offset = OffsetIn;
 	}
+};
+
+enum class ECrashContextType
+{
+	Crash,
+	Assert,
+	Ensure,
+	GPUCrash,
+
+	Max
 };
 
 /**
@@ -109,6 +119,7 @@ public:
 	static const FString CrashContextExtension;
 	static const FString RuntimePropertiesTag;
 	static const FString PlatformPropertiesTag;
+	static const FString EngineDataTag;
 	static const FString EnabledPluginsTag;
 	static const FString UE4MinidumpName;
 	static const FString NewLineTag;
@@ -123,6 +134,9 @@ public:
 	static const FString EngineModeExDirty;
 	static const FString EngineModeExVanilla;
 
+	// A guid that identifies this particular execution. Allows multiple crash reports from the same run of the project to be tied together
+	static const FGuid ExecutionGuid;
+
 	/** Initializes crash context related platform specific data that can be impossible to obtain after a crash. */
 	static void Initialize();
 
@@ -135,7 +149,7 @@ public:
 	}
 
 	/** Default constructor. */
-	FGenericCrashContext();
+	FGenericCrashContext(ECrashContextType InType, const TCHAR* ErrorMessage);
 
 	virtual ~FGenericCrashContext() { }
 
@@ -160,11 +174,6 @@ public:
 	 */
 	const bool IsFullCrashDump() const;
 
-	/**
-	 * @return whether this crash is a full memory minidump if the crash context is for an ensure
-	 */
-	const bool IsFullCrashDumpOnEnsure() const;
-
 	/** Serializes crash's informations to the specified filename. Should be overridden for platforms where using FFileHelper is not safe, all POSIX platforms. */
 	virtual void SerializeAsXML( const TCHAR* Filename ) const;
 
@@ -185,7 +194,7 @@ public:
 	static FString UnescapeXMLString( const FString& Text );
 
 	/** Helper to get the standard string for the crash type based on crash event bool values. */
-	static const TCHAR* GetCrashTypeString(bool InIsEnsure, bool InIsAssert, bool bIsGPUCrashed);
+	static const TCHAR* GetCrashTypeString(ECrashContextType Type);
 
 	/** Get the Game Name of the crash */
 	static FString GetCrashGameName();
@@ -202,19 +211,28 @@ public:
 	/** Helper to clean out old files in the crash report client config folder. */
 	static void PurgeOldCrashConfig();
 
+	/** Clears the engine data dictionary */
+	static void ResetEngineData();
+
+	/** Updates (or adds if not already present) arbitrary engine data to the crash context (will remove the key if passed an empty string) */
+	static void SetEngineData(const FString& Key, const FString& Value);
+
 	/** Adds a plugin descriptor string to the enabled plugins list in the crash context */
 	static void AddPlugin(const FString& PluginDesc);
-	
+
+	/** Sets the number of stack frames to ignore when symbolicating from a minidump */
+	void SetNumMinidumpFramesToIgnore(int32 InNumMinidumpFramesToIgnore);
+
 	/** Generate raw call stack for crash report (image base + offset) */
 	void CapturePortableCallStack(int32 NumStackFramesToIgnore, void* Context);
 	
 	/** Sets the portable callstack to a specified stack */
-	void SetPortableCallStack(int32 NumStackFramesToIgnore, const TArray<FProgramCounterSymbolInfo>& Stack);
+	virtual void SetPortableCallStack(const uint64* StackFrames, int32 NumStackFrames);
 
 	/**
 	 * @return whether this crash is a non-crash event
 	 */
-	bool GetIsEnsure() const { return bIsEnsure; }
+	ECrashContextType GetType() const { return Type; }
 
 	/**
 	 * Set the current deployment name (ie. EpicApp)
@@ -222,7 +240,15 @@ public:
 	static void SetDeploymentName(const FString& EpicApp);
 
 protected:
-	bool bIsEnsure;
+	/**
+	 * @OutStr - a stream of Thread XML elements containing info (e.g. callstack) specific to an active thread
+	 * @return - whether the operation was successful
+	 */
+	virtual bool GetPlatformAllThreadContextsString(FString& OutStr) const { return false; }
+
+	ECrashContextType Type;
+	const TCHAR* ErrorMessage;
+	int NumMinidumpFramesToIgnore;
 	TArray<FCrashStackFrame> CallStack;
 
 private:

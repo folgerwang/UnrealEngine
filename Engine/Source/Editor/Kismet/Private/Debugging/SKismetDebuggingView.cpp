@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "Debugging/SKismetDebuggingView.h"
@@ -1085,7 +1085,6 @@ void SKismetDebuggingView::Construct(const FArguments& InArgs)
 			.Text( this, &SKismetDebuggingView::GetTopText )
 		]
 		+SVerticalBox::Slot()
-		.AutoHeight()
 		[
 			SAssignNew( DebugTreeView, STreeView< FDebugTreeItemPtr > )
 			.TreeItemsSource( &RootTreeItems )

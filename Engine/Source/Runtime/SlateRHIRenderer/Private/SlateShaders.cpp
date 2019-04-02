@@ -1,7 +1,8 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateShaders.h"
 #include "Rendering/RenderingCommon.h"
+#include "PipelineStateCache.h"
 
 /** Flag to determine if we are running with a color vision deficiency shader on */
 EColorVisionDeficiency GSlateColorDeficiencyType = EColorVisionDeficiency::NormalVision;
@@ -62,7 +63,7 @@ void FSlateVertexDeclaration::InitRHI()
 	Elements.Add(FVertexElement(0, STRUCT_OFFSET(FSlateVertex, Color), VET_Color, 3, Stride));
 	Elements.Add(FVertexElement(0, STRUCT_OFFSET(FSlateVertex, PixelSize), VET_UShort2, 4, Stride));
 
-	VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
+	VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(Elements);
 }
 
 void FSlateVertexDeclaration::ReleaseRHI()
@@ -82,10 +83,9 @@ void FSlateInstancedVertexDeclaration::InitRHI()
 	Elements.Add(FVertexElement(0, STRUCT_OFFSET(FSlateVertex, MaterialTexCoords), VET_Float2, 1, Stride));
 	Elements.Add(FVertexElement(0, STRUCT_OFFSET(FSlateVertex, Position), VET_Float2, 2, Stride));
 	Elements.Add(FVertexElement(0, STRUCT_OFFSET(FSlateVertex, Color), VET_Color, 3, Stride));
-	Elements.Add(FVertexElement(0, STRUCT_OFFSET(FSlateVertex, PixelSize), VET_UShort2, 4, Stride));
-	Elements.Add(FVertexElement(1, 0, VET_Float4, 5, sizeof(FVector4), true));
+	Elements.Add(FVertexElement(1, 0, VET_Float4, 4, sizeof(FVector4), true));
 	
-	VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
+	VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(Elements);
 }
 
 void FSlateElementPS::ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
@@ -101,10 +101,10 @@ void FSlateElementPS::ModifyCompilationEnvironment(const FGlobalShaderPermutatio
 void FSlateMaskingVertexDeclaration::InitRHI()
 {
 	FVertexDeclarationElementList Elements;
-	uint32 Stride = sizeof(FVector2D);
-	Elements.Add(FVertexElement(0, 0, VET_Float2, 0, Stride));
+	uint32 Stride = sizeof(uint32);
+	Elements.Add(FVertexElement(0, 0, VET_UByte4, 0, Stride));
 
-	VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
+	VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(Elements);
 }
 
 void FSlateMaskingVertexDeclaration::ReleaseRHI()
@@ -161,6 +161,7 @@ FSlateMaskingVS::FSlateMaskingVS(const ShaderMetaType::CompiledShaderInitializer
 	: FGlobalShader(Initializer)
 {
 	ViewProjection.Bind(Initializer.ParameterMap, TEXT("ViewProjection"));
+	MaskRect.Bind(Initializer.ParameterMap, TEXT("MaskRectPacked"));
 	SwitchVerticalAxisMultiplier.Bind(Initializer.ParameterMap, TEXT("SwitchVerticalAxisMultiplier"));
 }
 
@@ -174,12 +175,21 @@ void FSlateMaskingVS::SetVerticalAxisMultiplier(FRHICommandList& RHICmdList, flo
 	SetShaderValue(RHICmdList, GetVertexShader(), SwitchVerticalAxisMultiplier, InMultiplier );
 }
 
+void FSlateMaskingVS::SetMaskRect(FRHICommandList& RHICmdList, const FVector2D& TopLeft, const FVector2D& TopRight, const FVector2D& BotLeft, const FVector2D& BotRight)
+{
+	//FVector4 MaskRectVal[4] = { FVector4(TopLeft, FVector2D::ZeroVector), FVector4(TopRight, FVector2D::ZeroVector), FVector4(BotLeft, FVector2D::ZeroVector), FVector4(BotRight, FVector2D::ZeroVector) };
+	FVector4 MaskRectVal[2] = { FVector4(TopLeft, TopRight), FVector4(BotLeft, BotRight) };
+
+	SetShaderValue(RHICmdList, GetVertexShader(), MaskRect, MaskRectVal);
+}
+
 /** Serializes the shader data */
 bool FSlateMaskingVS::Serialize(FArchive& Ar)
 {
 	bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 
 	Ar << ViewProjection;
+	Ar << MaskRect;
 	Ar << SwitchVerticalAxisMultiplier;
 
 	return bShaderHasOutdatedParameters;

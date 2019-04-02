@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "AnimationStateNodes/SGraphNodeAnimTransition.h"
@@ -268,6 +268,21 @@ FLinearColor SGraphNodeAnimTransition::StaticGetTransitionColor(UAnimStateTransi
 	UAnimInstance* ActiveObject = Cast<UAnimInstance>(AnimBlueprint->GetObjectBeingDebugged());
 	UAnimBlueprintGeneratedClass* Class = AnimBlueprint->GetAnimBlueprintGeneratedClass();
 	UEdGraph* StateMachineGraph = TransNode->GetGraph();
+
+	//@TODO: WIP fast path / slow path coloring
+	if (AnimBlueprint->bWarnAboutBlueprintUsage || ((ActiveObject != nullptr) && (ActiveObject->PCV_ShouldNotifyAboutNodesNotUsingFastPath() || ActiveObject->PCV_ShouldWarnAboutNodesNotUsingFastPath())))
+	{
+		if (UAnimationTransitionGraph* TransGraph = Cast<UAnimationTransitionGraph>(TransNode->GetBoundGraph()))
+		{
+			if (UAnimGraphNode_TransitionResult* ResultNode = TransGraph->GetResultNode())
+			{
+				if (ResultNode->BlueprintUsage == EBlueprintUsage::UsesBlueprint)
+				{
+					BaseColor = FLinearColor(0.4f, 0.4f, 1.0f);
+				}
+			}
+		}
+	}
 
 	if ((ActiveObject != NULL) && (Class != NULL))
 	{

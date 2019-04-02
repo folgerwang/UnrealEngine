@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "GameProjectUtils.h"
@@ -76,6 +76,10 @@
 
 #include "ProjectBuildMutatorFeature.h"
 
+#if WITH_LIVE_CODING
+#include "ILiveCodingModule.h"
+#endif
+
 #define LOCTEXT_NAMESPACE "GameProjectUtils"
 
 #define MAX_PROJECT_PATH_BUFFER_SPACE 130 // Leave a reasonable buffer of additional characters to account for files created in the content directory during or after project generation
@@ -87,6 +91,16 @@ TWeakPtr<SNotificationItem> GameProjectUtils::UpdateGameProjectNotification = NU
 TWeakPtr<SNotificationItem> GameProjectUtils::WarningProjectNameNotification = NULL;
 
 FString GameProjectUtils::DefaultFeaturePackExtension(TEXT(".upack"));	
+
+bool GameProjectUtils::bUseAudioMixerForAllPlatforms = false;
+
+TArray<FString> GameProjectUtils::AudioMixerEnabledPlatforms(
+{
+	// If bUseAudioMixerForAllPlatforms is set to false,
+	// This can be used to only flag specific platforms to use the new audio engine on new projects.
+	// For example, for windows:
+	//TEXT("Windows")
+});
 
 FText FNewClassInfo::GetClassName() const
 {
@@ -721,9 +735,9 @@ bool GameProjectUtils::CreateProject(const FProjectInformation& InProjectInfo, F
 		EventAttributes.Add(FAnalyticsEventAttribute(TEXT("ProjectType"), InProjectInfo.bShouldGenerateCode ? TEXT("C++ Code") : TEXT("Content Only")));
 		EventAttributes.Add(FAnalyticsEventAttribute(TEXT("Outcome"), bProjectCreationSuccessful ? TEXT("Successful") : TEXT("Failed")));
 
-		UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EHardwareClass"), true);
+		UEnum* Enum = StaticEnum<EHardwareClass::Type>();
 		EventAttributes.Add(FAnalyticsEventAttribute(TEXT("HardwareClass"), Enum ? Enum->GetNameStringByValue(InProjectInfo.TargetedHardware) : FString()));
-		Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EGraphicsPreset"), true);
+		Enum = StaticEnum<EGraphicsPreset::Type>();
 		EventAttributes.Add(FAnalyticsEventAttribute(TEXT("GraphicsPreset"), Enum ? Enum->GetNameStringByValue(InProjectInfo.DefaultGraphicsPerformance) : FString()));
 		EventAttributes.Add(FAnalyticsEventAttribute(TEXT("StarterContent"), InProjectInfo.bCopyStarterContent ? TEXT("Yes") : TEXT("No")));
 		EventAttributes.Emplace(TEXT("Enterprise"), InProjectInfo.bIsEnterpriseProject);
@@ -1814,6 +1828,20 @@ bool GameProjectUtils::GenerateConfigFiles(const FProjectInformation& InProjectI
 		FileContents += GetHardwareConfigString(InProjectInfo);
 		FileContents += LINE_TERMINATOR;
 		
+		if(bUseAudioMixerForAllPlatforms)
+		{
+			FileContents += TEXT("[Audio]") LINE_TERMINATOR;
+			FileContents += TEXT("UseAudioMixer=True") LINE_TERMINATOR;
+			FileContents += LINE_TERMINATOR;
+		}
+
+		if (InProjectInfo.bForceExtendedLuminanceRange)
+		{
+			FileContents += TEXT("[/Script/Engine.RendererSettings]") LINE_TERMINATOR;
+			FileContents += TEXT("r.DefaultFeature.AutoExposure.ExtendDefaultLuminanceRange=True") LINE_TERMINATOR;
+			FileContents += LINE_TERMINATOR;
+		}
+
 		if (InProjectInfo.bCopyStarterContent)
 		{
 			FString SpecificEditorStartupMap;
@@ -1886,7 +1914,40 @@ bool GameProjectUtils::GenerateConfigFiles(const FProjectInformation& InProjectI
 		}
 	}
 
+	// inis for any audiomixer-enabled platforms:
+	{
+		for (const FString& PlatformName : AudioMixerEnabledPlatforms)
+		{
+			if (!GeneratePlatformConfigFiles(InProjectInfo, PlatformName, OutFailReason))
+			{
+				return false;
+			}
+		}
+	}
+
 	return true;
+}
+
+bool GameProjectUtils::GeneratePlatformConfigFiles(const FProjectInformation& InProjectInfo, const FString& InPlatformName, FText& OutFailReason)
+{
+	const FString NewProjectFolder = FPaths::GetPath(InProjectInfo.ProjectFilename);
+
+	FString ProjectConfigPath = NewProjectFolder / TEXT("Config");
+
+	const FString PlatformEngineIniFilename = ProjectConfigPath / InPlatformName / InPlatformName + TEXT("Engine.ini");
+	FString FileContents;
+
+	FileContents += TEXT("[Audio]") LINE_TERMINATOR;
+	FileContents += TEXT("UseAudioMixer=True");
+
+	if (WriteOutputFile(PlatformEngineIniFilename, FileContents, OutFailReason))
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 bool GameProjectUtils::GenerateBasicSourceCode(TArray<FString>& OutCreatedFiles, FText& OutFailReason)
@@ -3031,11 +3092,11 @@ bool GameProjectUtils::GenerateClassCPPFile(const FString& NewCPPFileName, const
 	FinalOutput = FinalOutput.Replace(TEXT("%UNPREFIXED_CLASS_NAME%"), *UnPrefixedClassName, ESearchCase::CaseSensitive);
 	FinalOutput = FinalOutput.Replace(TEXT("%PREFIXED_CLASS_NAME%"), *PrefixedClassName, ESearchCase::CaseSensitive);
 	FinalOutput = FinalOutput.Replace(TEXT("%MODULE_NAME%"), *ModuleInfo.ModuleName, ESearchCase::CaseSensitive);
+	FinalOutput = FinalOutput.Replace(TEXT("%PCH_INCLUDE_DIRECTIVE%"), *PchIncludeDirective, ESearchCase::CaseSensitive);
 
 	// Special case where where the wildcard ends with a new line
 	const bool bLeadingTab = false;
 	const bool bTrailingNewLine = true;
-	FinalOutput = ReplaceWildcard(FinalOutput, TEXT("%PCH_INCLUDE_DIRECTIVE%"), *PchIncludeDirective, bLeadingTab, bTrailingNewLine);
 	FinalOutput = ReplaceWildcard(FinalOutput, TEXT("%ADDITIONAL_INCLUDE_DIRECTIVES%"), *AdditionalIncludesStr, bLeadingTab, bTrailingNewLine);
 	FinalOutput = ReplaceWildcard(FinalOutput, TEXT("%EVENTUAL_CONSTRUCTOR_DEFINITION%"), *EventualConstructorDefinition, bLeadingTab, bTrailingNewLine);
 	FinalOutput = ReplaceWildcard(FinalOutput, TEXT("%ADDITIONAL_MEMBER_DEFINITIONS%"), *AdditionalMemberDefinitions, bLeadingTab, bTrailingNewLine);
@@ -3570,10 +3631,10 @@ bool GameProjectUtils::HasDefaultBuildSettings(const FName InPlatformInfoName)
 	// first check default build settings for all platforms
 	TArray<FString> BoolKeys, IntKeys, StringKeys, BuildKeys;
 	BuildKeys.Add(TEXT("bCompileApex")); BuildKeys.Add(TEXT("bCompileICU"));
-	BuildKeys.Add(TEXT("bCompileSimplygon")); BuildKeys.Add(TEXT("bCompileSimplygonSSF")); BuildKeys.Add(TEXT("bCompileLeanAndMeanUE"));
-	BuildKeys.Add(TEXT("bIncludeADO"));	BuildKeys.Add(TEXT("bCompileRecast")); BuildKeys.Add(TEXT("bCompileSpeedTree"));
+	BuildKeys.Add(TEXT("bCompileSimplygon")); BuildKeys.Add(TEXT("bCompileSimplygonSSF"));
+	BuildKeys.Add(TEXT("bCompileRecast")); BuildKeys.Add(TEXT("bCompileSpeedTree"));
 	BuildKeys.Add(TEXT("bCompileWithPluginSupport")); BuildKeys.Add(TEXT("bCompilePhysXVehicle")); BuildKeys.Add(TEXT("bCompileFreeType"));
-	BuildKeys.Add(TEXT("bCompileForSize"));	BuildKeys.Add(TEXT("bCompileCEF3"));
+	BuildKeys.Add(TEXT("bCompileForSize"));	BuildKeys.Add(TEXT("bCompileCEF3")); BuildKeys.Add(TEXT("bCompileCustomSQLitePlatform"));
 
 	const PlatformInfo::FPlatformInfo* const PlatInfo = PlatformInfo::FindPlatformInfo(InPlatformInfoName);
 	check(PlatInfo);
@@ -3756,12 +3817,8 @@ GameProjectUtils::EAddCodeToProjectResult GameProjectUtils::AddCodeToProject_Int
 	// First see if we can avoid a full generation by adding the new files to an already open project
 	if ( bProjectHadCodeFiles && FSourceCodeNavigation::AddSourceFiles(CreatedFilesForExternalAppRead) )
 	{
-		// We successfully added the new files to the solution, but we still need to run UBT with -gather to update any UBT makefiles
-		if ( FDesktopPlatformModule::Get()->InvalidateMakefiles(FPaths::RootDir(), FPaths::GetProjectFilePath(), GWarn) )
-		{
-			// We managed the gather, so we can skip running the full generate
-			bGenerateProjectFiles = false;
-		}
+		// We managed the gather, so we can skip running the full generate
+		bGenerateProjectFiles = false;
 	}
 	
 	if ( bGenerateProjectFiles )
@@ -3787,6 +3844,15 @@ GameProjectUtils::EAddCodeToProjectResult GameProjectUtils::AddCodeToProject_Int
 
 	OutHeaderFilePath = NewHeaderFilename;
 	OutCppFilePath = NewCppFilename;
+
+#if WITH_LIVE_CODING
+	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME);
+	if (LiveCoding != nullptr && LiveCoding->IsEnabledForSession())
+	{
+		OutFailReason = LOCTEXT("FailedToCompileLiveCodingEnabled", "Adding classes dynamically is not allowed with Live Coding enabled.");
+		return EAddCodeToProjectResult::FailedToHotReload;
+	}
+#endif
 
 	if (!bProjectHadCodeFiles)
 	{

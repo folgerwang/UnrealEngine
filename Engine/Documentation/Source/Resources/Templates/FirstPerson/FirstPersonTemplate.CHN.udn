@@ -1,49 +1,11 @@
-﻿INTSourceChangelist:2744667
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:第一人称
 Crumbs:%ROOT%
 Description:诸多场景实例、游戏实例和教程的链接。
 Navigation:topic
 Version:4.9
-
-[VAR:Params]
-[PARAM:image]
-	![](FP_FirstPersonBP_Preview.png)
-[/PARAM]
-[PARAM:icon]
-	![](%ROOT%/tutorial_icon.png)(convert:false)
-[/PARAM]
-[PARAM:title]
-	%Resources/Templates/FirstPerson:title%
-[/PARAM]
-[PARAM:description]
-	%Resources/Templates/FirstPerson:description%
-[/PARAM]
-[PARAM:path]
-	[RELATIVE:Resources/Templates/FirstPerson]
-[/PARAM]
-[/VAR]
-
-[VAR:Topic]
-[OBJECT:Topic]
-%params%
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-%params%
-[/OBJECT]
-[/VAR]
-
-[VAR:Role]
-[OBJECT:Role]
-%params%
-[PARAMLITERAL:id]
-resources
-[/PARAMLITERAL]
-[/OBJECT]
-[/VAR]
+topic-image:FP_FirstPersonBP_Preview.png
 
 ![](templateMore1.png)(convert:false)
 
@@ -54,7 +16,7 @@ resources
 	* **奖励提示**：为 **FirstPersonProjectile** 添加一个粒子系统组件，使其获得烟雾拖尾的效果。在 [此处](Engine/Rendering/ParticleSystems/Reference/Modules/Required) 查找 **Use Local Space** 属性。
 * 使用 [虚幻动态图形](Engine/UMG) 为第一人称游戏 [创建 HUD](Engine/UMG/QuickStart)。
 * 为什么不在场景中添加一些可破坏模型呢？在 [可破坏 Actor 文档](Engine/Physics/Destructibles) 和 [](Engine/Blueprints/HowTo) 中查看操作方法！
-* 可通过 [行为树](Gameplay/AI/BehaviorTreeQuickStart) 为游戏添加 **AI 角色**，使其追逐、逃离、帮助或伤害玩家。
+* 可通过 [行为树](Engine/AI/BehaviorTrees/QuickStart) 为游戏添加 **AI 角色**，使其追逐、逃离、帮助或伤害玩家。
 	* **奖励提示**：在 **FirstPersonCharacter** 和全新 **AI 角色** 上实现 [破坏](Engine/Blueprints/UserGuide/Events#eventanydamage)，并设置这二者均可 [摧毁](Engine/Blueprints/UserGuide/Events#eventendplay) 对方。在 [](Gameplay/HowTo/SpawnAndDestroyActors/Blueprints) 指南中有该操作的详细内容。
 	* **双倍奖励提示**：参考 [](Gameplay/HowTo/CharacterMovement/Blueprints) 指南，为 AI 设置更多移动选项！
 * 如果最后玩家角色会被杀死，那么是否需要重生选项？请查阅 [重生玩家](Gameplay/HowTo/RespawnPlayer/Blueprints) 指南。

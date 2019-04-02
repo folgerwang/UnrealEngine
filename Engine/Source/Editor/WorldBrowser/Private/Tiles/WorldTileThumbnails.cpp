@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tiles/WorldTileThumbnails.h"
 #include "Misc/ObjectThumbnail.h"
@@ -217,13 +217,12 @@ void FTileAtlasPage::UpdateSlotImageData(int32 SlotIdx, FSlateTextureDataPtr Ima
 			UpdateRegion
 		};
 			
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			UpdateSlotImageData,
-			FSlotUpdateContext,	Context, Context,
-		{
-			FRHITexture2D* RHITexture2D = (FRHITexture2D*)Context.TextureRHI.GetReference();
-			RHIUpdateTexture2D(RHITexture2D, 0, Context.Region, Context.SourcePitch, Context.ImageData->GetRawBytesPtr());
-		});
+		ENQUEUE_RENDER_COMMAND(UpdateSlotImageData)(
+			[Context](FRHICommandList& RHICmdList)
+			{
+				FRHITexture2D* RHITexture2D = (FRHITexture2D*)Context.TextureRHI.GetReference();
+				RHIUpdateTexture2D(RHITexture2D, 0, Context.Region, Context.SourcePitch, Context.ImageData->GetRawBytesPtr());
+			});
 	}
 }
 

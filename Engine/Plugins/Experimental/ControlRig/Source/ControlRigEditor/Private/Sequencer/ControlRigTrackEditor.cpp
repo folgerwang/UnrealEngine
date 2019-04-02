@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigTrackEditor.h"
 #include "Sequencer/MovieSceneControlRigSection.h"
@@ -99,7 +99,7 @@ public:
 
 			FMovieSceneSequenceTransform InnerToOuterTransform = Section.OuterToInnerTransform().Inverse();
 
-			const FFrameNumber StartOffset = (FFrameTime(Section.Parameters.GetStartFrameOffset()) * InnerToOuterTransform).FloorToFrame();
+			const FFrameNumber StartOffset = (FFrameTime(Section.Parameters.StartFrameOffset) * InnerToOuterTransform).FloorToFrame();
 			if (StartOffset < 0)
 			{
 				// add dark tint for left out-of-bounds
@@ -251,7 +251,7 @@ TSharedPtr<SWidget> FControlRigTrackEditor::BuildOutlinerEditWidget(const FGuid&
 			.AutoWidth()
 			.VAlign(VAlign_Center)
 			[
-				FSequencerUtilities::MakeAddButton(LOCTEXT("SubText", "Sequence"), FOnGetContent::CreateSP(this, &FControlRigTrackEditor::HandleAddSubSequenceComboButtonGetMenuContent, ObjectBinding, Track), Params.NodeIsHovered)
+				FSequencerUtilities::MakeAddButton(LOCTEXT("SubText", "Sequence"), FOnGetContent::CreateSP(this, &FControlRigTrackEditor::HandleAddSubSequenceComboButtonGetMenuContent, ObjectBinding, Track), Params.NodeIsHovered, GetSequencer())
 			];
 	}
 	else

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -214,6 +214,7 @@ struct TGroupConfigEntry
 };
 
 typedef TGroupConfigEntry<int32> FGroupConfigEntryInt;
+typedef TGroupConfigEntry<bool> FGroupConfigEntryBool;
 
 template <typename EntryType>
 struct IGroupUserCollection
@@ -263,6 +264,11 @@ typedef IGroupUserCollection<FInvitationEntry> IInvitations;
 * Configuration key->values (int)
 */
 typedef TMap<FString, TSharedPtr<const FGroupConfigEntryInt>> IGroupConfigInt;
+
+/**
+* Configuration key->values (boolean)
+*/
+typedef TMap<FString, TSharedPtr<const FGroupConfigEntryBool>> IGroupConfigBool;
 
 /**
  * Group search options
@@ -337,7 +343,7 @@ struct FFindGroupsResult
 	FPagedQuery Paging;
 	FString ErrorContent;
 
-	inline bool DidSucceed() const { return (HttpStatus / 100) == 2; }
+	inline bool DidSucceed() const { return EHttpResponseCodes::IsOk(HttpStatus); }
 
 	FFindGroupsResult()
 		: HttpStatus(0)
@@ -398,6 +404,18 @@ public: // callable by all users
 	 *        (regardless of success/fail) and will not be called before this function returns.
 	 */
 	virtual void QueryGroupInfo(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+
+	/**
+	* Ask the server if the given group name currently exists. If it completes successfully, you can call
+	* GetCachedGroupNameExist to get the result. Even if the result is currently cached, this function will
+	* contact the server (ostensibly to refresh the cache).
+	*
+	* @param ContextUserId The ID of the user whose credentials are being used to make this call
+	* @param GroupName The group name to query
+	* @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
+	*        (regardless of success/fail) and will not be called before this function returns.
+	*/
+	virtual void QueryGroupNameExist(const FUniqueNetId& ContextUserId, const FString& GroupName, const FOnGroupsRequestCompleted& OnCompleted) = 0;
 
 	/**
 	 * Get the group info for a group that has been previously queried. The shared pointer will be 
@@ -797,6 +815,12 @@ public: // configuration queries
 	* Only the member queried for will be valid.
 	*/
 	virtual TSharedPtr<const FGroupConfigEntryInt> GetCachedConfigInt(const FString& Key) = 0;
+
+	/**
+	* Get the result of a previous configuration query.
+	* Only the member queried for will be valid.
+	*/
+	virtual TSharedPtr<const FGroupConfigEntryBool> GetCachedConfigBool(const FString& Key) = 0;
 
 public: // can be called by group owner only
 

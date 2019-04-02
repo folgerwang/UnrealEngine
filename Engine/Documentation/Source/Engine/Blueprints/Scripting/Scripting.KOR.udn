@@ -17,7 +17,7 @@ topic-image:Engine/Blueprints/UserGuide/using_interface_topic.png
 
 ## 변수
 
-변수는 불리언, 인티저, 플로트를 포함한 여러가지 유형으로 생성 가능합니다. 이들은 색을 통해 블루프린트에 쉽게 식별이 가능합니다.
+변수는 부울, 인티저, 플로트를 포함한 여러가지 유형으로 생성 가능합니다. 이들은 색을 통해 블루프린트에 쉽게 식별이 가능합니다.
 블루프린트 변수는 오브젝트, 액터, 클래스와 같은 것을 담은 레퍼런스 유형이 될 수도 있습니다.
 
 [DIR(output:"listbutton" parent:"Engine/Blueprints" tags:"Data Types" org:"flat")]

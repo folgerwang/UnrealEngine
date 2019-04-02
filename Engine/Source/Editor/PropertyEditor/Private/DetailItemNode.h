@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -68,7 +68,7 @@ public:
 	virtual FPropertyPath GetPropertyPath() const override;
 	virtual void SetIsHighlighted(bool bInIsHighlighted) override { bIsHighlighted = bInIsHighlighted; }
 	virtual bool IsHighlighted() const override { return bIsHighlighted; }
-	virtual bool IsLeaf() override { return true; }
+	virtual bool IsLeaf() override { return Children.Num() == 0;  }
 	virtual TAttribute<bool> IsPropertyEditingEnabled() const override { return IsParentEnabled; }
 	virtual TSharedPtr<FPropertyNode> GetPropertyNode() const override;
 	virtual TSharedPtr<FComplexPropertyNode> GetExternalRootPropertyNode() const override;

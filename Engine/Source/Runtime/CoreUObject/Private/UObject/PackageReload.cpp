@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "UObject/PackageReload.h"
 #include "UObject/ReferenceChainSearch.h"
@@ -565,6 +565,16 @@ void ReloadPackages(const TArrayView<FReloadPackageData>& InPackagesToReload, TA
 			for (FObjectIterator ObjIter(UObject::StaticClass(), false, RF_NoFlags, EInternalObjectFlags::PendingKill); ObjIter; ++ObjIter)
 			{
 				UObject* PotentialReferencer = *ObjIter;
+
+				// Mutating the old versions of classes can result in us replacing the SuperStruct pointer, which results
+				// in class layout change and subsequently crashes because instances will not match this new class layout:
+				if(UClass* AsClass = Cast<UClass>(PotentialReferencer))
+				{
+					if(AsClass->HasAnyClassFlags(CLASS_NewerVersionExists))
+					{
+						continue;
+					}
+				}
 
 				FixingUpReferencesSlowTask.EnterProgressFrame(1.0f);
 

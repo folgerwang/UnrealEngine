@@ -1,0 +1,37 @@
+﻿INTSourceChangelist:4352050
+Availability: Public
+Crumbs: 
+Title: ゲームプレイ アビリティ システム
+Description: ゲームプレイ アビリティ システム の概要
+Type: 
+Version: 4.20
+Parent: Gameplay
+Order: 1
+Tags: Gameplay Ability System
+
+
+![](GameplayAbilitySystemTopicImage_01.png "GameplayAbilitySystemTopicImage_01.png")
+
+ **ゲームプレイ アビリティ システム** は、 RPG や MOBA タイトルで使用される能力やアトリビュート の構築のための柔軟性の高いフレームワークです。ゲーム内で使用するアクションやパッシブ アビリティ、これらのアクションの結果としてさまざまなアトリビュートを作成または消耗させるステータス エフェクトを構築したり、これらのアクションの使用を制御するための「クールダウン」タイマーあるいはリソース コストの実装をしたり、各レベルでの能力とその効果のレベルを変更したり、パーティクルやサウンドエフェクトなどをアクティベートすることができます。簡単に言えば、このシステムは、近年の RPG や MOBA タイトルに組み込まれているジャンプのように単純なものから、お気に入りのキャラクターのアビリティと同じくらい複雑なゲーム アビリティの設計、実装および効率の良いネットワーク化を容易にします。
+
+## システムのセットアップ
+
+ゲームプレイ アビリティ システムはプラグインなため、使用するには有効にするための操作が必要です。操作は簡単で、次の 2 手順のみです。
+
+*   **[Edit]** - **[Plugins]** ウィンドウで [Gameplay Ability System Plugin] を有効にします。
+    ![](GameplayAbilitySystem_Plugin_00.png "GameplayAbilitySystem_Plugin_00.png")
+*   このシステムを最大限に使用するために「 GameplayAbilities 」「 GameplayTags 」「 GameplayTasks 」を`PublicDependencyModuleNames`プロジェクトの「（プロジェクト名） .Build.cs 」ファイルに追加します。パブリック モジュールのリストを探すことで簡単に追加できます。
+
+[COMMENT:none]
+[/COMMENT]
+
+    PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay" });
+
+
+ゲームプレイ アビリティ システムを使用するには次のように中括弧の任意の位置に 3 つのモジュールを追加します。
+
+
+    PublicDependencyModuleNames.AddRange(new string[] { "GameplayAbilities", "GameplayTags", "GameplayTasks", "Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay" });
+
+
+アビリティ システム コンポーネントはゲームのキャラクタがゲームプレイ アビリティ システムにアクセスする際のメイン インターフェイスになります。このコンポーネントは、ゲームプレイのアトリビュートを管理し、ゲームプレイ イベントを実行し、ゲームプレイ アビリティを格納するだけではなく、ゲームプレイ アビリティのアクティベーション、確定、および取り消しコマンドへのプレイヤーの入力を処理します。ゲームプレイ アビリティ システムとインタラクションするアクタにはアビリティ システム コンポーネントが必要です。

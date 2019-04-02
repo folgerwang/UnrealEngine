@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LightComponent.cpp: LightComponent implementation.
@@ -67,6 +67,36 @@ void ULightComponentBase::SetCastVolumetricShadow(bool bNewValue)
 		&& bCastVolumetricShadow != bNewValue)
 	{
 		bCastVolumetricShadow = bNewValue;
+		MarkRenderStateDirty();
+	}
+}
+
+void ULightComponentBase::SetAffectReflection(bool bNewValue)
+{
+	if (AreDynamicDataChangesAllowed()
+		&& bAffectReflection != bNewValue)
+	{
+		bAffectReflection = bNewValue;
+		MarkRenderStateDirty();
+	}
+}
+
+void ULightComponentBase::SetCastRaytracedShadow(bool bNewValue)
+{
+	if (AreDynamicDataChangesAllowed()
+		&& bCastRaytracedShadow != bNewValue)
+	{
+		bCastRaytracedShadow = bNewValue;
+		MarkRenderStateDirty();
+	}
+}
+
+void ULightComponentBase::SetSamplesPerPixel(int NewValue)
+{
+	if (AreDynamicDataChangesAllowed()
+		&& SamplesPerPixel != NewValue)
+	{
+		SamplesPerPixel = NewValue;
 		MarkRenderStateDirty();
 	}
 }
@@ -230,6 +260,8 @@ FLightSceneProxy::FLightSceneProxy(const ULightComponent* InLightComponent)
 	, bCastVolumetricShadow(InLightComponent->bCastVolumetricShadow)
 	, bCastShadowsFromCinematicObjectsOnly(InLightComponent->bCastShadowsFromCinematicObjectsOnly)
 	, bForceCachedShadowsForMovablePrimitives(InLightComponent->bForceCachedShadowsForMovablePrimitives)
+	, bCastRaytracedShadow(InLightComponent->bCastRaytracedShadow)
+	, bAffectReflection(InLightComponent->bAffectReflection)
 	, bAffectTranslucentLighting(InLightComponent->bAffectTranslucentLighting)
 	, bUsedAsAtmosphereSunLight(InLightComponent->IsUsedAsAtmosphereSunLight())
 	, bAffectDynamicIndirectLighting(InLightComponent->bAffectDynamicIndirectLighting)
@@ -237,6 +269,7 @@ FLightSceneProxy::FLightSceneProxy(const ULightComponent* InLightComponent)
 	, bUseRayTracedDistanceFieldShadows(InLightComponent->bUseRayTracedDistanceFieldShadows)
 	, bCastModulatedShadows(false)
 	, bUseWholeSceneCSMForMovableObjects(false)
+	, bTiledDeferredLightingSupported(false)
 	, LightType(InLightComponent->GetLightType())	
 	, LightingChannelMask(GetLightingChannelMaskForStruct(InLightComponent->LightingChannels))
 	, StatId(InLightComponent->GetStatID(true))
@@ -244,6 +277,7 @@ FLightSceneProxy::FLightSceneProxy(const ULightComponent* InLightComponent)
 	, LevelName(InLightComponent->GetOutermost()->GetFName())
 	, FarShadowDistance(0)
 	, FarShadowCascadeCount(0)
+	, SamplesPerPixel(1)
 {
 	check(SceneInterface);
 
@@ -280,7 +314,7 @@ FLightSceneProxy::FLightSceneProxy(const ULightComponent* InLightComponent)
 	if(LightComponent->LightFunctionMaterial &&
 		LightComponent->LightFunctionMaterial->GetMaterial()->MaterialDomain == MD_LightFunction )
 	{
-		LightFunctionMaterial = LightComponent->LightFunctionMaterial->GetRenderProxy(false);
+		LightFunctionMaterial = LightComponent->LightFunctionMaterial->GetRenderProxy();
 	}
 	else
 	{
@@ -290,6 +324,8 @@ FLightSceneProxy::FLightSceneProxy(const ULightComponent* InLightComponent)
 	LightFunctionScale = LightComponent->LightFunctionScale;
 	LightFunctionFadeDistance = LightComponent->LightFunctionFadeDistance;
 	LightFunctionDisabledBrightness = LightComponent->DisabledBrightness;
+
+	SamplesPerPixel = LightComponent->SamplesPerPixel;
 }
 
 bool FLightSceneProxy::ShouldCreatePerObjectShadowsForDynamicObjects() const
@@ -334,6 +370,8 @@ ULightComponentBase::ULightComponentBase(const FObjectInitializer& ObjectInitial
 	CastShadows = true;
 	CastStaticShadows = true;
 	CastDynamicShadows = true;
+	bCastRaytracedShadow = true;
+	bAffectReflection = true;
 #if WITH_EDITORONLY_DATA
 	bVisualizeComponent = true;
 #endif
@@ -377,6 +415,8 @@ ULightComponent::ULightComponent(const FObjectInitializer& ObjectInitializer)
 	MaxDistanceFadeRange = 0.0f;
 	bAddedToSceneVisible = false;
 	bForceCachedShadowsForMovablePrimitives = false;
+
+	SamplesPerPixel = 1;
 }
 
 bool ULightComponent::AffectsPrimitive(const UPrimitiveComponent* Primitive) const
@@ -609,6 +649,8 @@ void ULightComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, LightingChannels) &&
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, VolumetricScatteringIntensity) &&
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, bCastVolumetricShadow) &&
+		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, bCastRaytracedShadow) &&
+		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, bAffectReflection) &&
 		// Point light properties that shouldn't unbuild lighting
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(UPointLightComponent, SourceRadius) &&
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(UPointLightComponent, SoftSourceRadius) &&
@@ -950,12 +992,42 @@ void ULightComponent::SetIESTexture(UTextureLightProfile* NewValue)
 	}
 }
 
+void ULightComponent::SetUseIESBrightness(bool bNewValue)
+{
+	if (AreDynamicDataChangesAllowed()
+		&& bUseIESBrightness != bNewValue)
+	{
+		bUseIESBrightness = bNewValue;
+		MarkRenderStateDirty();
+	}
+}
+
+void ULightComponent::SetIESBrightnessScale(float NewValue)
+{
+	if (AreDynamicDataChangesAllowed()
+		&& IESBrightnessScale != NewValue)
+	{
+		IESBrightnessScale = NewValue;
+		MarkRenderStateDirty();
+	}
+}
+
 void ULightComponent::SetShadowBias(float NewValue)
 {
 	if (AreDynamicDataChangesAllowed()
 		&& ShadowBias != NewValue)
 	{
 		ShadowBias = NewValue;
+		MarkRenderStateDirty();
+	}
+}
+
+void ULightComponent::SetSpecularScale(float NewValue)
+{
+	if (AreDynamicDataChangesAllowed()
+		&& SpecularScale != NewValue)
+	{
+		SpecularScale = NewValue;
 		MarkRenderStateDirty();
 	}
 }
@@ -1039,32 +1111,10 @@ void ULightComponent::InvalidateLightingCacheInner(bool bRecreateLightGuids)
 	}
 }
 
-/** Used to store lightmap data during RerunConstructionScripts */
-class FPrecomputedLightInstanceData : public FSceneComponentInstanceData
-{
-public:
-	FPrecomputedLightInstanceData(const ULightComponent* SourceComponent)
-		: FSceneComponentInstanceData(SourceComponent)
-		, Transform(SourceComponent->GetComponentTransform())
-		, LightGuid(SourceComponent->LightGuid)
-		, PreviewShadowMapChannel(SourceComponent->PreviewShadowMapChannel)
-	{}
-
-	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
-	{
-		FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
-		CastChecked<ULightComponent>(Component)->ApplyComponentInstanceData(this);
-	}
-
-	FTransform Transform;
-	FGuid LightGuid;
-	int32 PreviewShadowMapChannel;
-};
-
-FActorComponentInstanceData* ULightComponent::GetComponentInstanceData() const
+TStructOnScope<FActorComponentInstanceData> ULightComponent::GetComponentInstanceData() const
 {
 	// Allocate new struct for holding light map data
-	return new FPrecomputedLightInstanceData(this);
+	return MakeStructOnScope<FActorComponentInstanceData, FPrecomputedLightInstanceData>(this);
 }
 
 void ULightComponent::ApplyComponentInstanceData(FPrecomputedLightInstanceData* LightMapData)
@@ -1147,14 +1197,12 @@ void ULightComponent::InitializeStaticShadowDepthMap()
 			DepthMapData = &MapBuildData->DepthMap;
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			SetDepthMapData,
-			FStaticShadowDepthMap*, DepthMap, &StaticShadowDepthMap,
-			const FStaticShadowDepthMapData*, DepthMapData, DepthMapData,
+		FStaticShadowDepthMap* DepthMap = &StaticShadowDepthMap;
+		ENQUEUE_RENDER_COMMAND(SetDepthMapData)(
+			[DepthMap, DepthMapData](FRHICommandList& RHICmdList)
 			{
 				DepthMap->Data = DepthMapData;
-			}
-		);
+			});
 
 		BeginInitResource(&StaticShadowDepthMap);
 	}

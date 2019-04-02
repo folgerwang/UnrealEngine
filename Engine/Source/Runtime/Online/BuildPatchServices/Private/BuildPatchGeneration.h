@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -11,10 +11,10 @@ class FBuildDataGenerator
 {
 public:
 	/**
-	 * Processes a Build Image to determine new chunks and produce a chunk based manifest, all saved to the cloud.
-	 * NOTE: This function is blocking and will not return until finished. Don't run on main thread.
-	 * @param Configuration      Specifies the settings for the operation.  See BuildPatchServices::FGenerationConfiguration comments.
-	 * @return True if no errors occurred.
+	 * Processes a Build directory to create chunks for new data and produce a manifest, saved to the provided cloud directory.
+	 * NOTE: This function is blocking and will not return until finished.
+	 * @param Configuration         Specifies the settings for the operation. See BuildPatchServices::FChunkBuildConfiguration comments.
+	 * @return true if successful.
 	 */
-	static bool GenerateChunksManifestFromDirectory(const BuildPatchServices::FGenerationConfiguration& Configuration);
+	static bool ChunkBuildDirectory(const BuildPatchServices::FChunkBuildConfiguration& Configuration);
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaIOCorePlayerBase.h"
 
@@ -31,7 +31,6 @@ FMediaIOCorePlayerBase::FMediaIOCorePlayerBase(IMediaEventSink& InEventSink)
 	, CurrentTime(FTimespan::Zero())
 	, EventSink(InEventSink)
 	, VideoFrameRate(30, 1)
-	, LastFrameDropCount(0)
 	, Samples(new FMediaIOCoreSamples)
 	, bUseTimeSynchronization(false)
 	, PreviousFrameTimespan(FTimespan::Zero())
@@ -141,20 +140,10 @@ bool FMediaIOCorePlayerBase::Open(const TSharedRef<FArchive, ESPMode::ThreadSafe
 
 void FMediaIOCorePlayerBase::TickTimeManagement()
 {
-	bool bUseTimecode = false;
 	if (bUseTimeSynchronization)
 	{
-		if (const UTimecodeProvider* Provider = GEngine->GetTimecodeProvider())
-		{
-			bUseTimecode = (Provider->GetSynchronizationState() == ETimecodeProviderSynchronizationState::Synchronized);
-		}
-	}
-
-	if (bUseTimecode)
-	{
-		FTimecode Timecode = FApp::GetTimecode();
-		FFrameRate FrameRate = FApp::GetTimecodeFrameRate();
-		CurrentTime = FTimespan(0, Timecode.Hours, Timecode.Minutes, Timecode.Seconds, static_cast<int32>((ETimespan::TicksPerSecond * Timecode.Frames) / FrameRate.AsDecimal()) * ETimespan::NanosecondsPerTick);
+		const FTimecode Timecode = FApp::GetTimecode();
+		CurrentTime = Timecode.ToTimespan(FApp::GetTimecodeFrameRate());
 	}
 	else
 	{

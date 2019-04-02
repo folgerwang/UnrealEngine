@@ -1,11 +1,13 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3750348
 Availability:Public
-Title:5 - TV Blueprint Functionality & Testing
-Description:In this step, we finish off the functionality for our TV Blueprint and test everything out in the level. 
+Crumbs: %ROOT%
+Title:5 - 电视机蓝图功能及测试
+Description:在本节中，我们将完成对电视机蓝图的功能设置并在关卡中进行测试。
 SkillLevel:Beginner
 Version:4.18
 checkpoint: mediaframeworkqs
-parent:Engine\MediaFramework\QuickStart
+parent:Engine/MediaFramework/QuickStart
+type:quick start
 type:multi-step
 order:5
 tags:Media Framework
@@ -13,132 +15,130 @@ tags:Blueprints
  
 [NAV]
 
-In this step, we continue in the TV Blueprint and provide the functionality for the player to approach the TV, turn it on or off as well as pause and start playback. 
-By the end of this step, we will be able to place multiple TVs in our level and change through the **Details** panel, what content we want to appear on each TV and have multiple TVs in our level. 
+在这一步，我们将继续对电视机蓝图进行设置，以提供使玩家能够走近电视机将其打开或关闭以及暂停然后开始播放的功能。目标是在这一步结束时，关卡中具有多个分别显示不同内容的电视机。为了实现这一步的目标，我们将在关卡中放置多个电视机并使用 **细节（Details）** 面板来更改要在每个电视机上显示的内容。 
 
-## Steps
+## 步骤
 
-1. Inside the **TV_Blueprint**, click on the **Event Graph** tab below the Main Toolbar. 
+1. 在 **TV_Blueprint** 中，单击主工具栏下的 **事件图（Event Graph）** 选项卡。 
 
 	![](Event_01.png)
 
-1. In the **Components** window, select the **Box** then in the **Details** panel add both the **On Component Begin Overlap** and **On Component End Overlap** Events. 
+1. 在 **组件（Components）** 窗口中，选择 **箱体（Box）**。在 **细节（Details）** 面板中，添加 **组件开始重叠（On Component Begin Overlap）** 和 **组件结束重叠（On Component End Overlap）** 事件。
 
 	![](Event_02.png)
 
-	This will generate [events ](Engine/Blueprints/UserGuide/Events/) which we can use to allow the player to press a button and affect the TV Blueprint. 
+	这将生成可以用来使玩家按下按钮并影响电视机蓝图的[事件](Engine/Blueprints/UserGuide/Events/)。 
 
-1. In the graph, right-click and add a **Get Player Controller**, **Enable Input** and **Disable Input** nodes and connect as shown. 
+1. 在图中，右键单击并添加 **获取玩家控制器（Get Player Controller）**、**启用输入（Enable Input）** 和 **禁用输入（Disable Input）** 节点，并如下图中所示进行连接。
 
 	![](Event_03.png)
 
-	When the player enters the box collision, they will be able to affect this Blueprint with keyboard input and when leaving the box collision they will not. 
+	当玩家进入箱体的碰撞体积时，他们能够使用键盘输入影响该蓝图。离开体积后，他们就无法影响该蓝图了。 
 
-1.	In the graph, right-click and add an **O** and **P** keyboard event and two **Flip Flop** nodes and connect as shown. 
+1.	在图中右键单击并添加一个 **O** 和 **P** 键盘事件和两个 **触发器（Flip Flop）** 节点。如下图中所示进行连接。 
 
 	![](Event_04.png)
 
-	We are going to set it up so that when the player presses the **O** key, we will turn on or off the TV while the **P** key will pause or resume playback. 
+	我们将对它进行设置，使得当玩家按 **O** 键时可以打开或关闭电视机，当玩家按 **P** 键时可以暂停或继续播放。
 
-1.	In the **My Blueprint** panel, create a variable called **MediaPlayerForVideo**. 
+1.	在 **我的蓝图（My Blueprint）** 面板中，创建名为 **MediaPlayerForVideo** 的变量。 
 
-1.	In the **Details** panel for the new variable, set the **Variable Type** to **Media Player Object Reference**, **Instance Editable** and set the **Default Value** to **MediaPlayer_01**. 
+1.	在新变量的 **细节（Details）** 面板中，将 **变量类型（Variable Type）** 设置为 **媒体播放器对象引用（Media Player Object Reference）**、**可编辑实例（Instance Editable）**，并将 **默认值（Default Value）** 设置为 **MediaPlayer_01**。 
 
 	![](Event_05.png)
 
-	In order to play our video content at runtime, we need to tell our Media Player asset to open a Media Source. 
-	Before we can do that we need a reference to the Media Player we want to talk to and by making this Instance Editable, we can define which Media Player we are going to talk to (allowing us to have multiple players and content in our level). 
+	要在运行时播放视频内容，我们需要指示媒体播放器资源打开媒体源。但是，我们首先需要创建对要与之交谈的媒体播放器的引用，然后才能实现该设置，通过将新变量设置为 **可编辑实例（Instance Editable）**，我们可以对我们要与哪个媒体播放器交谈进行定义（这样我们就能够在关卡中设置多个播放器和内容）。
 
-1.	Hold **Ctrl** and drag the **MediaPlayerForVideo** variable into the graph, then drag off it and use the **Open Source** function call. 
+1.	按住 **Ctrl** 键并将 **MediaPlayerForVideo** 变量拖到图中，然后从它拖出引线并使用 **打开源（Open Source）** 函数调用。 
 
 	![](Event_06.png)
 
-1.	On the **Open Source** node, set the **Media Source** to **Video_01** then right-click on it and **Promote to Variable** called **SourceToOpen**. 
+1.	在 **打开源（Open Source）** 节点上，将 **媒体源（Media Source）** 设置为 **Video_01**，然后右键单击它并选择 **提升为变量（Promote to Variable）**。将该变量命名为 **SourceToOpen**。 
 
 	![](Event_07.png)
 
-	Here we are creating a variable for the Media Source so that we may choose a different Media Source to play.
+	[REGION:caption]在此处，我们为“媒体源（Media Source）”创建了变量，以便能够选择不同的媒体源来播放。[/REGION]
 
 	[REGION:tip]
-	Setting the value of a property, then choosing **Promote to Variable** will automatically create a variable and assign your value as the Default Value.
+	如果设置属性的值并选择 **提升为变量（Promote to Variable）**，将自动创建变量并将设置的值指定为默认值。
 	[/REGION]
 
-1.	On the **SourceToOpen** variable, enable the **Instance Editable** option. 
+1.	在 **SourceToOpen** 变量上，启用 **可编辑实例（Instance Editable）** 选项。 
 
 	![](Event_08.png)
 
-	This will enable us to set which source to open for each instance of the TV we have placed in the level. 
+	这使我们能够为放置在关卡中的每个电视机实例设置要打开的源。 
 
-1.	In the graph, off the **MediaPlayerForVideo** node, use the **Close** function call and connect each to the **FlipFlop** node. 
+1.	在图中，从 **用于视频的媒体播放器（Media Player For Video）** 节点拖出引线并使用 **关闭（Close）** 函数调用，然后将每个函数调用与 **FlipFlop** 节点相连接。 
 
 	![](Event_09.png)
 
-	Here when the player presses the **O** key they will open the specified Media Source (turning on the TV) while pressing **O** again, will close the Media Player (turning the TV off). 
+	[REGION:caption]当玩家按 **O** 键时，它们将打开指定的媒体源（打开电视机）。当玩家再次按 **O** 键时，将关闭媒体播放器（关闭电视机）。[/REGION]
 
 	[REGION:note]
-	Our Media Player is set to **Play on Open**, therefore when we open a source, the player will start playing the source content automatically.
+	我们已将媒体播放器设置为 **打开时播放（Play on Open）**。因此，当我们打开源时，播放器将自动开始播放源内容。
 	[/REGION]
 
-1.	For the **P** keyboard event, add the **MediaPlayerForVideo** variable then off it, call the **Pause** and **Play** functions and connect as shown. 
+1.	对于 **P** 键盘事件，添加 **MediaPlayerForVideo** 变量，然后从它拖出引线并调用 **暂停（Pause）** 和 **播放（Play）** 函数，然后如下图所示进行连接。 
 
 	![](Event_10.png)
 
-	Similar to how we open a Media Source when the player presses the **P** key they will pause the Media Player while pressing **P** again will resume play. 
+	与我们打开媒体源的方式相似，当玩家按 **P** 键时，它们将暂停媒体播放器，当玩家再次按 **P** 键时，将继续播放。
 
-1.	Close the **TV_Blueprint**, then in the **Content Browser**, drag the **TV_Blueprint** into the level and resize using the transform tools as desired. 
+1.	关闭 **TV_Blueprint**，然后在 **内容浏览器** 中将 **TV_Blueprint** 拖到关卡中，并使用变换工具按照需要调节它的大小。 
 
 	![](Event_11.png)
 
-	In the **Details** panel, you will see all of the exposed properties that we can change for our TV. 
+	在 **细节（Details）** 面板中，你将看到我们可以更改的电视机的所有已公开属性。 
 
 	![](Event_12.png)
 
-	These properties will enable us to change the video/audio associated with the TV, but first, we need another Media Source. 
+	这些属性使我们能够更改与电视机关联的视频/音频，但是我们还要先创建另外一个媒体源。 
 
-1.	Inside the **Content Browser** in the **Content/Movies** folder right-click, then under **Media** select **Stream Media Source** and call it **Video_2**. 
+1.	在 **内容浏览器** 中的 **Content/Movies** 文件夹中右键单击，然后在 **媒体（Media）** 下，选择 **流媒体源（Stream Media Source）** 并将它命名为 **Video_2**。 
 
 	![](Event_13.png)
 
-	In addition to local media files, Media Framework also supports streaming video (in a [supported](Engine\MediaFramework\TechReference\) format) from the internet with the **Stream Media Source** asset. 
+	除本地媒体文件以外，媒体框架还通过 **流媒体源（Stream Media Source）** 资源类型支持来自互联网的流式视频（[受支持的](Engine\MediaFramework\TechReference\)格式）。
 
-1.	Open the **Video_2** asset, then right-click this [Sample Video Stream](https://docs.unrealengine.com/latest/attachments/Engine/MediaFramework/HowTo/StreamMediaSource/Infiltrator%20Demo.mp4) and **Copy link address** then paste the link in the **Stream URL** field. 
+1.	打开 **Video_2** 资源，然后右键单击该[样本视频流](https://docs.unrealengine.com/latest/attachments/Engine/MediaFramework/HowTo/StreamMediaSource/Infiltrator%20Demo.mp4)并选择 **复制链接地址**，然后将链接粘贴到 **流送URL（Stream URL）** 字段中。
 
 	![](Event_14.png)
 
 	[REGION:warning]
-	As of version 4.18, YouTube links are not yet supported. Please see the [](Engine\MediaFramework\TechReference\) page for supported formats. 
+	截至版本4.18，尚不支持YouTube。请参阅[](Engine\MediaFramework\TechReference\)页面来了解受支持的格式。 
 	[/REGION]
 
-1.	Inside the **Content Browser** in the **Content/Movies** folder right-click and create another **Media Player** asset. 
+1.	在 **内容浏览器** 中的 **Content/Movies** 文件夹中，右键单击并再创建一个 **媒体播放器（Media Player）** 资源。 
 
 	![](Event_15.png)
 
-	We can use this Media Player to play content on an additional TV inside the level. 
+	我们可以使用该媒体播放器在关卡中的另一个电视机上播放内容。 
 
-1.	In the **Create Media Player** window, make sure to enable **Video output Media Texture asset**, then call the Media Player **MediaPlayer_02**.  
+1.	在 **创建媒体播放器（Create Media Player）** 窗口中，确保启用 **视频输出媒体纹理资源（Video Output Media Texture Asset）**，然后将该媒体播放器命名为 **MediaPlayer_02**。  
 
 	![](Event_16.png)
 
-	This will automatically create and name our Media Texture and Media Player assets. 
+	这将自动创建媒体纹理和媒体播放器资源并为它们命名。 
 	
-1.	In the level, create a copy of the **TV_Blueprint** and in the **Details** panel, change the properties below. 
+1.	在关卡中，创建 **TV_Blueprint** 的副本。在 **细节（Details）** 面板中，更改以下属性。 
 
 	![](Event_17.png)
 
-	Set the following: 
+	请按以下所示进行设置： 
 
-	* **Texture for TV** - _MediaPlayer_02_Video_
-	* **Media Player for Sound** - _MediaPlayer_02_
-	* **Media Player for Video** - _MediaPlayer_02_
-	* **Source to Open** - _Video_2_
+	* **用于电视机的纹理（Texture for TV）** - _MediaPlayer_02_Video_
+	* **用于声音的媒体播放器（Media Player for Sound）** - _MediaPlayer_02_
+	* **用于视频的媒体播放器（Media Player For Video）** - _MediaPlayer_02_
+	* **要打开的源（Source to Open）** - _Video_2_
 
-	Here we are changing which Media Player, Media Texture, Media Sound and Media Source to open to our newly created Media Framework content and streaming video. 
+	在此处，我们将要打开的媒体播放器、媒体纹理、媒体声音和媒体源更改为新创建的媒体框架内容和流式视频。 
 
-1.	Click the **Play** button from the Main Toolbar to play in the level. 
+1.	在主工具栏中单击 **运行（Play）** 按钮以在关卡中运行。 
 
-## End Result
+## 最终结果
 
-When you approach one of the TVs, pressing the **O** key will open the specified Media Source (turning it on) while pressing **O** again will close the Media Source (turning it off). 
+当走近其中一个电视机并按 **O** 键时，将打开指定的媒体源（将其打开）。当再次按 **O** 键时，将关闭媒体源（将其关闭）。
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -159,14 +159,12 @@ When you approach one of the TVs, pressing the **O** key will open the specified
 [/OBJECT]
 
 [REGION:caption]
-You can also press the **P** key to pause or resume playback of a video on each TV. 
+也可以在每个电视机上按 **P** 键来暂停视频播放或继续播放。 
 [/REGION]
 
-Our setup is complete and we have a TV Blueprint where we can change the content and associated Media Framework assets for each instance in our level. 
-This is useful if you have multiple TVs in a level that need to have different content on them and can be interacted with independently of one another. 
-We also learned how to generate a Material that incorporates a Media Texture asset, used some Blueprint Function calls to control the playback and opening of our Media Player and Media Source assets. 
+我们完成了设置，通过现在的电视机蓝图，我们可以更改关卡中每个实例的内容以及关联的媒体框架资源。如果关卡中具有多个电视机，而且需要让每个电视机上具有不同的内容，并能相互独立地与每个电视机交互，那么这些设置非常有用。我们也学习了如何生成具有媒体纹理资源的材质并使用蓝图函数调用来控制媒体播放器和媒体源资源的播放和打开。
 
-In the next step, you will find some additional resources for Media Framework and other elements you try on your own. 
+在下一步中，我们将提供一些与媒体框架相关的额外资源以及你可以自己动手尝试的其他元素。 
 
 [NAV]
 

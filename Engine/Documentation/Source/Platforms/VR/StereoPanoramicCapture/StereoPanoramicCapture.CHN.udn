@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3340158
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:立体全景采集工具
 Crumbs:%ROOT%, Platforms, Platforms/VR
@@ -7,6 +7,7 @@ Navigation:platform
 Version:4.13
 parent:Platforms/VR
 type:landing
+type:overview
 SEO-Title:StereoPanoramicCaptureTool
 Topic-Image:SPE_Topic_Image_00.png
 tags:VR
@@ -28,33 +29,12 @@ Tags:Sequencer
 请注意：立体全景影片采集插件仍处于实验性阶段，因此使用时可能遇到意外崩溃之类的问题。 
 [/region]
 
+(#StartingOut)
 ## 开始
 
 [DIR(end:"1" output:"topic" parent:"Platforms/VR/StereoPanoramicCapture" type:"quick start")]
 
+(#Reference)
 ## 参考
 
-[DIR(end:"1" output:"listbutton" parent:"Platforms/VR/StereoPanoramicCapture" type:"!quick start")]
-
-[COMMENT:none]
-
-## 开始
-
-立体全景采集快速入门指南将为您讲述如何设置 UE4 项目，以便采集和查看立体图像。
-
-[DIR(end:"1" output:"listbutton" type:"quick start" parent:"Platforms/VR/StereoPanoramicCapture")]
-
-## 立体全景采集参考 
-
-立体全景采集参考将讲述可用的选项、插件拥有的选项，以及这些选项在渲染图像上拥有的效果。
-
-[DIR(end:"1" output:"listbutton" type:"reference" parent:"Platforms/VR/StereoPanoramicCapture")]
-
-## 立体全景采集提示和技巧
-
-该部分将讲述数个提示和技巧，使您使用插件时能获得最佳效果。
-
-[DIR(end:"1" output:"listbutton" type:"overview" parent:"Platforms/VR/StereoPanoramicCapture")]
-
-
-[/COMMENT]
+[DIR(end:"1" output:"listbutton" parent:"Platforms/VR/StereoPanoramicCapture" type:"landing,overview,reference,how-to")]

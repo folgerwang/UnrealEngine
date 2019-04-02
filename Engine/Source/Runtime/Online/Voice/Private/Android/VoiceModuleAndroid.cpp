@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*
 opensl_io.c:
@@ -581,37 +581,6 @@ IVoiceCapture* CreateVoiceCaptureObject(const FString& DeviceName, int32 SampleR
 #else
 	return nullptr;
 #endif 
-}
-
-IVoiceEncoder* CreateVoiceEncoderObject(int32 SampleRate, int32 NumChannels, EAudioEncodeHint EncodeHint)
-{
-#if ANDROIDVOICE_SUPPORTED_PLATFORMS
-	FVoiceEncoderOpus* NewEncoder = new FVoiceEncoderOpus;
-	if (!NewEncoder->Init(SampleRate, NumChannels, EncodeHint))
-	{
-		delete NewEncoder;
-		NewEncoder = nullptr;
-	}
-	
-	return NewEncoder;
-#else
-	return nullptr;
-#endif
-}
-
-IVoiceDecoder* CreateVoiceDecoderObject(int32 SampleRate, int32 NumChannels)
-{
-#if ANDROIDVOICE_SUPPORTED_PLATFORMS
-	FVoiceDecoderOpus* NewDecoder = new FVoiceDecoderOpus;
-	if (!NewDecoder->Init(SampleRate, NumChannels))
-	{
-		delete NewDecoder;
-		NewDecoder = nullptr;
-	}	
-	return NewDecoder;
-#else
-	return nullptr;
-#endif
 }
 
 // BEGIN code snippet from https://audioprograming.wordpress.com	

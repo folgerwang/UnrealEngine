@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelSequenceActorSpawner.h"
 #include "MovieSceneSpawnable.h"
@@ -92,6 +92,9 @@ UObject* FLevelSequenceActorSpawner::SpawnObject(FMovieSceneSpawnable& Spawnable
 		SpawnInfo.Template = ObjectTemplate;
 		SpawnInfo.OverrideLevel = WorldContext->PersistentLevel;
 	}
+
+	//Chaos - Avoiding crash in UWorld::SendAllEndOfFrameUpdates due to duplicating template components/re-runing the construction script on a fully formed hierarchy
+	ObjectTemplate->DestroyConstructedComponents();
 
 	FTransform SpawnTransform;
 

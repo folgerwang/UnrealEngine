@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SkeletonNotifyDetails.h"
 #include "Fonts/SlateFontInfo.h"
@@ -62,6 +62,7 @@ void FSkeletonNotifyDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuild
 			.Font( DetailFontInfo )
 		]
 		.ValueContent()
+		.HAlign( HAlign_Fill )
 		[
 			SNew(SHorizontalBox)
 			+SHorizontalBox::Slot()

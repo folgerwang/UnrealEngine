@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -14,13 +14,65 @@
 struct FPrivateTextFormatArguments;
 
 /**
+ * Definition of the pattern used during a text format.
+ */
+class CORE_API FTextFormatPatternDefinition : public TSharedFromThis<FTextFormatPatternDefinition, ESPMode::ThreadSafe>
+{
+public:
+	/** Constructor */
+	FTextFormatPatternDefinition();
+
+	/** Singleton access to the default instance */
+	static FTextFormatPatternDefinitionConstRef GetDefault();
+
+	/** Get the text format definitions used when formatting text */
+	const FTokenDefinitions& GetTextFormatDefinitions() const;
+
+	/** Is the given character one that an escape token may escape? */
+	FORCEINLINE bool IsValidEscapeChar(const TCHAR InChar) const
+	{
+		return InChar == EscapeChar
+			|| InChar == ArgStartChar
+			|| InChar == ArgEndChar
+			|| InChar == ArgModChar;
+	}
+
+	/** Is the given character one that should cause a literal string token to break parsing? */
+	FORCEINLINE bool IsLiteralBreakChar(const TCHAR InChar) const
+	{
+		return InChar == EscapeChar
+			|| InChar == ArgStartChar;
+	}
+
+	/** Character representing the start of an escape token */
+	TCHAR EscapeChar = TEXT('`');
+	FTextFormatPatternDefinition& SetEscapeChar(const TCHAR InChar) { EscapeChar = InChar; return *this; }
+
+	/** Character representing the start of a format argument token */
+	TCHAR ArgStartChar = TEXT('{');
+	FTextFormatPatternDefinition& SetArgStartChar(const TCHAR InChar) { ArgStartChar = InChar; return *this; }
+
+	/** Character representing the end of a format argument token */
+	TCHAR ArgEndChar = TEXT('}');
+	FTextFormatPatternDefinition& SetArgEndChar(const TCHAR InChar) { ArgEndChar = InChar; return *this; }
+
+	/** Character representing the start of a format argument modifier token */
+	TCHAR ArgModChar = TEXT('|');
+	FTextFormatPatternDefinition& SetArgModChar(const TCHAR InChar) { ArgModChar = InChar; return *this; }
+
+private:
+	/** Token definitions for the text format lexer */
+	FTokenDefinitions TextFormatDefinitions;
+};
+
+/**
  * A text formatter is responsible for formatting text patterns using a set of named or ordered arguments.
  */
 class CORE_API FTextFormatter
 {
 public:
-	/** Callback function used to compile an argument modifier. Takes an argument modifier string and returns the compiled result. */
-	typedef TFunction<TSharedPtr<ITextFormatArgumentModifier>(const FTextFormatString&)> FCompileTextArgumentModifierFuncPtr;
+	/** Callback function used to compile an argument modifier. Takes an argument modifier string and pattern definition, then returns the compiled result. */
+	typedef TFunction<TSharedPtr<ITextFormatArgumentModifier>(const FTextFormatString&, FTextFormatPatternDefinitionConstRef)> FCompileTextArgumentModifierFuncPtr;
 
 	/** Singleton access */
 	static FTextFormatter& Get();
@@ -28,9 +80,6 @@ public:
 	void RegisterTextArgumentModifier(const FTextFormatString& InKeyword, FCompileTextArgumentModifierFuncPtr InCompileFunc);
 	void UnregisterTextArgumentModifier(const FTextFormatString& InKeyword);
 	FCompileTextArgumentModifierFuncPtr FindTextArgumentModifier(const FTextFormatString& InKeyword) const;
-
-	/** Get the text format definitions used when formatting text */
-	const FTokenDefinitions& GetTextFormatDefinitions() const;
 
 	/** Low-level versions of Format. You probably want to use FText::Format(...) rather than call these directly */
 	static FText Format(FTextFormat&& InFmt, FFormatNamedArguments&& InArguments, const bool bInRebuildText, const bool bInRebuildAsSource);
@@ -52,9 +101,6 @@ private:
 	static int32 EstimateArgumentValueLength(const FFormatArgumentValue& ArgumentValue);
 
 	FTextFormatter();
-
-	/** Token definitions for the text format lexer */
-	FTokenDefinitions TextFormatDefinitions;
 
 	/** Functions for constructing argument modifier data */
 	TMap<FTextFormatString, FCompileTextArgumentModifierFuncPtr> TextArgumentModifiers;

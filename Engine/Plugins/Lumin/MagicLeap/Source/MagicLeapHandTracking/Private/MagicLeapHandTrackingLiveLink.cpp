@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MagicLeapHandTracking.h"
 #include "IMagicLeapHandTrackingPlugin.h"
@@ -7,6 +7,7 @@
 #include "Engine/Engine.h"
 #include "LiveLinkSourceFactory.h"
 #include "ILiveLinkClient.h"
+#include "IMagicLeapPlugin.h"
 
 #define LOCTEXT_NAMESPACE "MagicLeapHandTracking"
 
@@ -146,7 +147,7 @@ void FMagicLeapHandTracking::UpdateLiveLink()
 {
 	check(IsInGameThread());
 
-	if (LiveLinkClient)
+	if (LiveLinkClient && bIsHandTrackingStateValid && IMagicLeapPlugin::Get().IsMagicLeapHMDValid())
 	{
 		if (bNewLiveLinkClient)
 		{

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3735117
+﻿INTSourceChangelist:4649792
 Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Persona, Engine/Animation/Persona/Modes
 Title:物理资源编辑器界面
@@ -21,29 +21,35 @@ Social-image:PhysicsAssetEditor.png
 
 请参阅以下各个部分来详细了解“物理资源编辑器（Physics Asset Editor）”用户界面：
 
+(#1.Toolbar)
 ## 1.工具栏
 
 物理资源编辑器（Physics Asset Editor）中的[工具栏](Engine/Animation/Persona/Toolbar)提供用于保存对物理资源所做的任何更改或在“内容浏览器（Content Browser）”中找到物理资源的选项。 
 你可以为该特定物理资源设置 **预览网格体（Preview Mesh）**，为所选形体 **启用/禁用碰撞**，以及进行 **模拟** 设置以测试物理资源布偶。位于工具栏最右侧的是 **编辑器工具栏**，它使你能够在虚幻引擎4中的不同[动画工具](Engine/Animation/Persona/Modes)间进行切换。
 
+(#2.SkeletonTree)
 ## 2.骨架树
 
 [骨架树](Engine\Physics\PhAT\SkeletonTree)显示当前骨架资源的骨骼层级，是你创建形体和约束的地方。
 
+(#3.ConstraintsGraph)
 ## 3.约束图
 
 [约束图](Engine\Physics\PhAT\Graph)使你能够实现约束到另一个形体的骨骼层级形体的视觉表示。在该图中，你可以创建自己的约束，方法是从主形体节点（左侧）连出引线并选择要约束到的新形体，甚至通过双击目标形体以从树上向下跳转至下一套形体和约束，从而操控骨架树。你也可以查看指定了哪个[物理动画配置文件和约束配置文件](Engine/Physics/PhAT/ToolsAndProfiles)（基于在“配置文件（Profiles）”面板中选择的当前配置文件）。
 
+(#4.Viewport)
 ## 4.视口
 
 [视口](Engine/Animation/Persona/Viewport)窗口使你能够预览所做的更改和形体放置或者预览物理布偶模拟。从视口中，你可以更改照明模式，显示或隐藏骨架的骨骼、形体和约束，甚至将骨架网格体设置为在转盘上自动旋转，以便从各个角度查看它。
 
+(#5.AssetDetails/PreviewSceneSettings)
 ## 5.资源细节（Details）/预览场景设置（Preview Scene Settings）
 
 [细节（Details）](Engine/UI/LevelEditor/Details)面板与主编辑器相似，主要用于修改已添加的形体或约束等元素的属性。例如，当向骨架添加形体或约束时，在骨架树或视口中单击它会填充“细节（Details）”面板中与形体或约束的运行方式有关的选项。
 
 [预览场景设置（Preview Scene Settings）](Engine/Animation/Persona/PreviewSettings)面板使你能够快速评估资源在多个环境和光照情景下的效果，而无需在关卡中设置这些场景。可以从骨架网格体定义和应用多种不同的设置，也可指定与照明和[后期处理效果](Engine/Rendering/PostProcessEffects)一起播放的动画，这一切都可在编辑器中的每个[动画工具](Engine/Animation/Persona/Modes)中进行。
 
+(#6.ToolsandProfiles)
 ## 6.工具（Tools）和配置文件（Profiles）
 
 [工具（Tools）](Engine/Physics/PhAT/ToolsAndProfiles#Toolstab)面板显示可用于生成或重新生成新形体或所选形体的选项。这些选项与从“内容浏览器（Content Browser）”创建物理资源时可用的选项相同，此外则为导入骨架网格体和启用 **创建物理资源** 时将使用的默认设置。

@@ -1,6 +1,5 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "WebRTCProxyPCH.h"
 #include "Conductor.h"
 #include "Logging.h"
 #include "UE4Connection.h"
@@ -81,7 +80,7 @@ void FConductor::CreateClient(FClientId ClientId)
 
 	if (PARAM_PlanB)
 	{
-		verifyf(Clients.find(ClientId) == Clients.end(), "Client %u already exists", ClientId);
+		verifyf(Clients.find(ClientId) == Clients.end(), TEXT("Client %u already exists"), ClientId);
 	}
 	else
 	{
@@ -136,23 +135,23 @@ void FConductor::AddStreams(FClientId ClientId)
 		{
 			Stream = PeerConnectionFactory->CreateLocalMediaStream(StreamId);
 
-			rtc::scoped_refptr<webrtc::AudioTrackInterface> AudioTrack(
+			rtc::scoped_refptr<webrtc::AudioTrackInterface> LocalAudioTrack(
 			    PeerConnectionFactory->CreateAudioTrack(AudioLabel, PeerConnectionFactory->CreateAudioSource(NULL)));
 
-			Stream->AddTrack(AudioTrack);
+			Stream->AddTrack(LocalAudioTrack);
 
 			std::unique_ptr<FNetworkVideoCapturer> VideoCapturerStrong = std::make_unique<FNetworkVideoCapturer>();
 			VideoCapturer = VideoCapturerStrong.get();
-			rtc::scoped_refptr<webrtc::VideoTrackInterface> VideoTrack(PeerConnectionFactory->CreateVideoTrack(
+			rtc::scoped_refptr<webrtc::VideoTrackInterface> LocalVideoTrack(PeerConnectionFactory->CreateVideoTrack(
 			    VideoLabel, PeerConnectionFactory->CreateVideoSource(std::move(VideoCapturerStrong))));
 
-			Stream->AddTrack(VideoTrack);
+			Stream->AddTrack(LocalVideoTrack);
 
 			typedef std::pair<std::string, rtc::scoped_refptr<webrtc::MediaStreamInterface> > MediaStreamPair;
 			Streams.insert(MediaStreamPair(Stream->id(), Stream));
 		}
 
-		verifyf(Session->PeerConnection->AddStream(Stream), "Failed to add stream for client %u", ClientId);
+		verifyf(Session->PeerConnection->AddStream(Stream), TEXT("Failed to add stream for client %u"), ClientId);
 	}
 	else
 	{
@@ -279,11 +278,11 @@ void FConductor::OnCirrusConfig(const std::string& Config)
 	Json::Reader Reader;
 	Json::Value ConfigJson;
 	bool res = Reader.parse(Config, ConfigJson);
-	checkf(res, "Received invalid JSON config from Cirrus: %s", Config.c_str());
+	checkf(res, TEXT("Received invalid JSON config from Cirrus: %s"), Config.c_str());
 
 	EG_LOG(LogDefault, Log, "Cirrus config : %s", ConfigJson.toStyledString().c_str());
 
-	checkf(!ConfigJson[kPeerConnectionConfigName].isNull(), "No \"%s\" key in Cirrus config: %s", kPeerConnectionConfigName, ConfigJson.toStyledString().c_str());
+	checkf(!ConfigJson[kPeerConnectionConfigName].isNull(), TEXT("No \"%s\" key in Cirrus config: %s"), kPeerConnectionConfigName, ConfigJson.toStyledString().c_str());
 
 	Json::Value PcCfgJson = ConfigJson[kPeerConnectionConfigName];
 	Json::Value IceServersListJson = PcCfgJson[kIceServersName];
@@ -327,7 +326,7 @@ void FConductor::OnOffer(FClientId ClientId, const std::string& Offer)
 	AddStreams(ClientId);
 
 	FClientSession* Session = GetClientSession(ClientId);
-	checkf(Session, "Client %u not found", ClientId);
+	checkf(Session, TEXT("Client %u not found"), ClientId);
 
 	Json::Reader Reader;
 	Json::Value Jmessage;
@@ -375,7 +374,7 @@ void FConductor::OnIceCandidate(FClientId ClientId, const std::string& IceCandid
 	EG_LOG(LogDefault, Log, "Received ICE candidate from Client %u : %s", ClientId, IceCandidate.c_str());
 
 	FClientSession* Session = GetClientSession(ClientId);
-	checkf(Session, "Client %u not found", ClientId);
+	checkf(Session, TEXT("Client %u not found"), ClientId);
 
 	Json::Reader Reader;
 	Json::Value Jmessage;

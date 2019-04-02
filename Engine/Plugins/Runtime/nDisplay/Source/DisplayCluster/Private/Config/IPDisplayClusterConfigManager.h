@@ -1,20 +1,20 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Config/IDisplayClusterConfigManager.h"
 #include "IPDisplayClusterManager.h"
-
 #include "DisplayClusterBuildConfig.h"
 
 
 /**
  * Config manager private interface
  */
-struct IPDisplayClusterConfigManager
+class IPDisplayClusterConfigManager
 	: public IDisplayClusterConfigManager
 	, public IPDisplayClusterManager
 {
+public:
 	virtual ~IPDisplayClusterConfigManager()
 	{ }
 

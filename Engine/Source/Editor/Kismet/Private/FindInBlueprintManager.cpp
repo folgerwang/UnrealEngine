@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "FindInBlueprintManager.h"
 #include "Misc/MessageDialog.h"
@@ -44,6 +44,7 @@
 #include "AssetRegistryModule.h"
 #include "ImaginaryBlueprintData.h"
 #include "FiBSearchInstance.h"
+#include "Misc/ConfigCacheIni.h"
 #include "Misc/HotReloadInterface.h"
 #include "BlueprintAssetHandler.h"
 
@@ -1083,29 +1084,51 @@ namespace BlueprintSearchMetaDataHelpers
 
 class FCacheAllBlueprintsTickableObject
 {
-
 public:
+	DECLARE_DELEGATE_OneParam(FOnAssetCached, FName);
 
-	FCacheAllBlueprintsTickableObject(TSet<FName> InUncachedAssets, bool bInCheckOutAndSave, FSimpleDelegate InOnFinished = FSimpleDelegate())
+	struct FCacheParams
+	{
+		/** Control flags */
+		EFiBCacheOpFlags OpFlags;
+
+		/** Callback for when assets are cached */
+		FOnAssetCached OnCached;
+
+		/** Callback for when caching is finished */
+		FSimpleDelegate OnFinished;
+
+		FCacheParams()
+			:OpFlags(EFiBCacheOpFlags::None)
+		{
+		}
+	};
+
+	FCacheAllBlueprintsTickableObject(TSet<FName> InAssets, const FCacheParams& InParams)
 		: TickCacheIndex(0)
-		, UncachedAssets(InUncachedAssets.Array())
+		, UncachedAssets(InAssets.Array())
 		, bIsStarted(false)
 		, bIsCancelled(false)
-		, bRecursionGuard(false)
-		, bCheckOutAndSave(bInCheckOutAndSave)
-		, OnFinished(InOnFinished)
+		, CacheParams(InParams)
 	{
-		// Start the Blueprint indexing 'progress' notification
-		FNotificationInfo Info( LOCTEXT("BlueprintIndexMessage", "Indexing Blueprints...") );
-		Info.bFireAndForget = false;
-		Info.ButtonDetails.Add(FNotificationButtonInfo(
-			LOCTEXT("BlueprintIndexCancel","Cancel"),
-			LOCTEXT("BlueprintIndexCancelToolTip","Cancels indexing Blueprints."), FSimpleDelegate::CreateRaw(this, &FCacheAllBlueprintsTickableObject::OnCancelCaching, false)));
-
-		ProgressNotification = FSlateNotificationManager::Get().AddNotification(Info);
-		if (ProgressNotification.IsValid())
+		if (EnumHasAnyFlags(CacheParams.OpFlags, EFiBCacheOpFlags::ShowProgress)
+			&& !EnumHasAnyFlags(CacheParams.OpFlags, EFiBCacheOpFlags::HideNotifications))
 		{
-			ProgressNotification.Pin()->SetCompletionState(SNotificationItem::CS_Pending);
+			// Start the Blueprint indexing 'progress' notification
+			FNotificationInfo Info(LOCTEXT("BlueprintIndexMessage", "Indexing Blueprints..."));
+			Info.bFireAndForget = false;
+			if (EnumHasAnyFlags(CacheParams.OpFlags, EFiBCacheOpFlags::AllowUserCancel))
+			{
+				Info.ButtonDetails.Add(FNotificationButtonInfo(
+					LOCTEXT("BlueprintIndexCancel", "Cancel"),
+					LOCTEXT("BlueprintIndexCancelToolTip", "Cancels indexing Blueprints."), FSimpleDelegate::CreateRaw(this, &FCacheAllBlueprintsTickableObject::OnCancelCaching, false)));
+			}
+
+			ProgressNotification = FSlateNotificationManager::Get().AddNotification(Info);
+			if (ProgressNotification.IsValid())
+			{
+				ProgressNotification.Pin()->SetCompletionState(SNotificationItem::CS_Pending);
+			}
 		}
 	}
 
@@ -1151,7 +1174,7 @@ public:
 	/** True if there is a callback when done caching, this will prevent a re-query from occuring */
 	bool HasPostCacheWork() const
 	{
-		return OnFinished.IsBound();
+		return CacheParams.OnFinished.IsBound();
 	}
 
 	/** Cancels caching and destroys this object */
@@ -1159,10 +1182,13 @@ public:
 	{
 		if (!bIsCancelled)
 		{
-			ProgressNotification.Pin()->SetText(LOCTEXT("BlueprintIndexCancelled", "Cancelled Indexing Blueprints!"));
+			if (ProgressNotification.IsValid())
+			{
+				ProgressNotification.Pin()->SetText(LOCTEXT("BlueprintIndexCancelled", "Cancelled Indexing Blueprints!"));
 
-			ProgressNotification.Pin()->SetCompletionState(SNotificationItem::CS_Fail);
-			ProgressNotification.Pin()->ExpireAndFadeout();
+				ProgressNotification.Pin()->SetCompletionState(SNotificationItem::CS_Fail);
+				ProgressNotification.Pin()->ExpireAndFadeout();
+			}
 
 			// Sometimes we can't wait another tick to shutdown, so make the callback immediately.
 			if (bIsImmediate)
@@ -1177,102 +1203,127 @@ public:
 	}
 
 	/** Enables the caching process */
-	void Start() { bIsStarted = true; }
-
-	EActiveTimerReturnType Tick(double InCurrentTime, float InDeltaTime)
+	void Start()
 	{
-		// Protect against Slate recursion if a modal dialog appears from loading/resaving an asset
-		if (bRecursionGuard == true)
+		if (!bIsStarted)
 		{
-			return EActiveTimerReturnType::Continue;
+			bIsStarted = true;
+			FFindInBlueprintSearchManager::Get().StartedCachingBlueprints(CacheParams.OpFlags);
 		}
-		TGuardValue<bool> Guard(bRecursionGuard, true);
+	}
 
-		if(!bIsStarted)
+	void Tick(float InDeltaTime)
+	{
+		if (!bIsStarted)
 		{
-			return EActiveTimerReturnType::Continue;
+			return;
 		}
 
 		if (bIsCancelled || GWarn->ReceivedUserCancel())
 		{
 			FFindInBlueprintSearchManager::Get().FinishedCachingBlueprints(TickCacheIndex, FailedToCacheList);
-			return EActiveTimerReturnType::Stop;
 		}
 		else
 		{
 			FAssetRegistryModule* AssetRegistryModule = &FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 			FAssetData AssetData = AssetRegistryModule->Get().GetAssetByObjectPath(UncachedAssets[TickCacheIndex]);
-
-			const bool bIsWorldAsset = AssetData.AssetClass == UWorld::StaticClass()->GetFName();
-
-			// Construct a full package filename with path so we can query the read only status and save to disk
-			FString FinalPackageFilename = FPackageName::LongPackageNameToFilename(AssetData.PackageName.ToString());
-			if( FinalPackageFilename.Len() > 0 && FPaths::GetExtension(FinalPackageFilename).Len() == 0 )
+			if (AssetData.IsValid())
 			{
-				FinalPackageFilename += bIsWorldAsset ? FPackageName::GetMapPackageExtension() : FPackageName::GetAssetPackageExtension();
-			}
-			FText ErrorMessage;
-			bool bValidFilename = FFileHelper::IsFilenameValidForSaving( FinalPackageFilename, ErrorMessage );
-			if ( bValidFilename )
-			{
-				bValidFilename = bIsWorldAsset ? FEditorFileUtils::IsValidMapFilename( FinalPackageFilename, ErrorMessage ) : FPackageName::IsValidLongPackageName( FinalPackageFilename, false, &ErrorMessage );
-			}
+				const bool bIsWorldAsset = AssetData.AssetClass == UWorld::StaticClass()->GetFName();
 
-			bool bIsAssetReadOnlyOnDisk = IFileManager::Get().IsReadOnly( *FinalPackageFilename );
-			bool bFailedToCache = bCheckOutAndSave;
-
-			if (!bIsAssetReadOnlyOnDisk || !bCheckOutAndSave)
-			{
-				UObject* Asset = AssetData.GetAsset();
-				if(Asset && bCheckOutAndSave)
+				// Construct a full package filename with path so we can query the read only status and save to disk
+				FString FinalPackageFilename = FPackageName::LongPackageNameToFilename(AssetData.PackageName.ToString());
+				if (FinalPackageFilename.Len() > 0 && FPaths::GetExtension(FinalPackageFilename).Len() == 0)
 				{
-					if (UBlueprint* BlueprintAsset = Cast<UBlueprint>(Asset))
+					FinalPackageFilename += bIsWorldAsset ? FPackageName::GetMapPackageExtension() : FPackageName::GetAssetPackageExtension();
+				}
+				FText ErrorMessage;
+				bool bValidFilename = FFileHelper::IsFilenameValidForSaving(FinalPackageFilename, ErrorMessage);
+				if (bValidFilename)
+				{
+					bValidFilename = bIsWorldAsset ? FEditorFileUtils::IsValidMapFilename(FinalPackageFilename, ErrorMessage) : FPackageName::IsValidLongPackageName(FinalPackageFilename, false, &ErrorMessage);
+				}
+
+				const bool bCheckOutAndSave = EnumHasAnyFlags(CacheParams.OpFlags, EFiBCacheOpFlags::CheckOutAndSave);
+
+				bool bIsAssetReadOnlyOnDisk = IFileManager::Get().IsReadOnly(*FinalPackageFilename);
+				bool bFailedToCache = bCheckOutAndSave;
+
+				if (!bIsAssetReadOnlyOnDisk || !bCheckOutAndSave)
+				{
+					if (!FFindInBlueprintSearchManager::Get().IsUnindexedCacheInProgress())
 					{
-						if (BlueprintAsset->SkeletonGeneratedClass == nullptr)
+						// Re-index and update the cached value for loaded Blueprint assets only
+						if (AssetData.IsAssetLoaded())
 						{
-							// There is no skeleton class, something was wrong with the Blueprint during compile on load. This asset will be marked as failing to cache.
-							bFailedToCache = false;
+							if (UBlueprint* LoadedBlueprintAsset = Cast<UBlueprint>(AssetData.GetAsset()))
+							{
+								FFindInBlueprintSearchManager::Get().AddOrUpdateBlueprintSearchMetadata(LoadedBlueprintAsset, true);
+							}
 						}
 					}
-
-					// Still good to attempt to save
-					if (bFailedToCache)
+					else
 					{
-						// Assume the package was correctly checked out from SCC
-						bool bOutPackageLocallyWritable = true;
-
-						UPackage* Package = AssetData.GetPackage();
-
-						ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
-						// Trusting the SCC status in the package file cache to minimize network activity during save.
-						const FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(Package, EStateCacheUsage::Use);
-						// If the package is in the depot, and not recognized as editable by source control, and not read-only, then we know the user has made the package locally writable!
-						const bool bSCCCanEdit = !SourceControlState.IsValid() || SourceControlState->CanCheckIn() || SourceControlState->IsIgnored() || SourceControlState->IsUnknown();
-						const bool bSCCIsCheckedOut = SourceControlState.IsValid() && SourceControlState->IsCheckedOut();
-						const bool bInDepot = SourceControlState.IsValid() && SourceControlState->IsSourceControlled();
-						if (!bSCCCanEdit && bInDepot && !bIsAssetReadOnlyOnDisk && SourceControlProvider.UsesLocalReadOnlyState() && !bSCCIsCheckedOut)
+						UObject* Asset = AssetData.GetAsset();
+						if (Asset && bCheckOutAndSave)
 						{
-							bOutPackageLocallyWritable = false;
-						}
-
-						// Save the package if the file is writable
-						if (bOutPackageLocallyWritable)
-						{
-							UWorld* WorldAsset = Cast<UWorld>(Asset);
-
-							// Save the package
-							EObjectFlags ObjectFlags = (WorldAsset == nullptr) ? RF_Standalone : RF_NoFlags;
-
-							if (GEditor->SavePackage(Package, WorldAsset, ObjectFlags, *FinalPackageFilename, GError, nullptr, false, true, SAVE_NoError))
+							if (UBlueprint* BlueprintAsset = Cast<UBlueprint>(Asset))
 							{
-								bFailedToCache = false;
+								if (BlueprintAsset->SkeletonGeneratedClass == nullptr)
+								{
+									// There is no skeleton class, something was wrong with the Blueprint during compile on load. This asset will be marked as failing to cache.
+									bFailedToCache = false;
+								}
+							}
+
+							// Still good to attempt to save
+							if (bFailedToCache)
+							{
+								// Assume the package was correctly checked out from SCC
+								bool bOutPackageLocallyWritable = true;
+
+								UPackage* Package = AssetData.GetPackage();
+
+								ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+								// Trusting the SCC status in the package file cache to minimize network activity during save.
+								const FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(Package, EStateCacheUsage::Use);
+								// If the package is in the depot, and not recognized as editable by source control, and not read-only, then we know the user has made the package locally writable!
+								const bool bSCCCanEdit = !SourceControlState.IsValid() || SourceControlState->CanCheckIn() || SourceControlState->IsIgnored() || SourceControlState->IsUnknown();
+								const bool bSCCIsCheckedOut = SourceControlState.IsValid() && SourceControlState->IsCheckedOut();
+								const bool bInDepot = SourceControlState.IsValid() && SourceControlState->IsSourceControlled();
+								if (!bSCCCanEdit && bInDepot && !bIsAssetReadOnlyOnDisk && SourceControlProvider.UsesLocalReadOnlyState() && !bSCCIsCheckedOut)
+								{
+									bOutPackageLocallyWritable = false;
+								}
+
+								// Save the package if the file is writable
+								if (bOutPackageLocallyWritable)
+								{
+									UWorld* WorldAsset = Cast<UWorld>(Asset);
+
+									// Save the package
+									EObjectFlags ObjectFlags = (WorldAsset == nullptr) ? RF_Standalone : RF_NoFlags;
+
+									if (GEditor->SavePackage(Package, WorldAsset, ObjectFlags, *FinalPackageFilename, GError, nullptr, false, true, SAVE_NoError))
+									{
+										bFailedToCache = false;
+									}
+								}
 							}
 						}
 					}
 				}
-			}
 
-			if (bFailedToCache)
+				if (bFailedToCache)
+				{
+					FailedToCacheList.Add(UncachedAssets[TickCacheIndex]);
+				}
+				else
+				{
+					CacheParams.OnCached.ExecuteIfBound(UncachedAssets[TickCacheIndex]);
+				}
+			}
+			else
 			{
 				FailedToCacheList.Add(UncachedAssets[TickCacheIndex]);
 			}
@@ -1282,26 +1333,26 @@ public:
 			// Check if done caching Blueprints
 			if(TickCacheIndex == UncachedAssets.Num())
 			{
-				ProgressNotification.Pin()->SetCompletionState(SNotificationItem::CS_Success);
-				ProgressNotification.Pin()->ExpireAndFadeout();
+				if (ProgressNotification.IsValid())
+				{
+					ProgressNotification.Pin()->SetCompletionState(SNotificationItem::CS_Success);
+					ProgressNotification.Pin()->ExpireAndFadeout();
 
-				ProgressNotification.Pin()->SetText(LOCTEXT("BlueprintIndexComplete", "Finished indexing Blueprints!"));
+					ProgressNotification.Pin()->SetText(LOCTEXT("BlueprintIndexComplete", "Finished indexing Blueprints!"));
+				}
 
 				// We have actually finished, use the OnFinished callback.
-				OnFinished.ExecuteIfBound();
+				CacheParams.OnFinished.ExecuteIfBound();
 
 				FFindInBlueprintSearchManager::Get().FinishedCachingBlueprints(TickCacheIndex, FailedToCacheList);
-
-				return EActiveTimerReturnType::Stop;
 			}
-			else
+			else if(ProgressNotification.IsValid())
 			{
 				FFormatNamedArguments Args;
 				Args.Add(TEXT("Percent"), FText::AsPercent(GetCacheProgress()));
 				ProgressNotification.Pin()->SetText(FText::Format(LOCTEXT("BlueprintIndexProgress", "Indexing Blueprints... ({Percent})"), Args));
 			}
 		}
-		return EActiveTimerReturnType::Continue;
 	}
 
 private:
@@ -1309,7 +1360,7 @@ private:
 	/** The current index, increases at a rate of once per tick */
 	int32 TickCacheIndex;
 
-	/** The list of uncached assets that are in the process of being cached */
+	/** The list of assets that are in the process of being cached */
 	TArray<FName> UncachedAssets;
 
 	/** Notification that appears and details progress */
@@ -1324,14 +1375,8 @@ private:
 	/** TRUE if the user has requested to cancel the caching process */
 	bool bIsCancelled;
 
-	/** Guard to prevent TickRecursion */
-	bool bRecursionGuard = false;
-
-	/** If TRUE, Blueprints will be checked out and resaved after being loaded */
-	bool bCheckOutAndSave;
-
-	/** Callback for when caching is finished */
-	FSimpleDelegate OnFinished;
+	/** Parameters for task configuration */
+	FCacheParams CacheParams;
 };
 
 FFindInBlueprintSearchManager& FFindInBlueprintSearchManager::Get()
@@ -1347,6 +1392,7 @@ FFindInBlueprintSearchManager& FFindInBlueprintSearchManager::Get()
 
 FFindInBlueprintSearchManager::FFindInBlueprintSearchManager()
 	: bEnableGatheringData(true)
+	, bDisableDeferredIndexing(false)
 	, bIsPausing(false)
 	, AssetRegistryModule(nullptr)
 	, CachingObject(nullptr)
@@ -1383,6 +1429,9 @@ FFindInBlueprintSearchManager::~FFindInBlueprintSearchManager()
 
 void FFindInBlueprintSearchManager::Initialize()
 {
+	// Init configuration
+	GConfig->GetBool(TEXT("BlueprintSearchSettings"), TEXT("bDisableDeferredIndexing"), bDisableDeferredIndexing, GEditorIni);
+
 	// Must ensure we do not attempt to load the AssetRegistry Module while saving a package, however, if it is loaded already we can safely obtain it
 	if (!GIsSavingPackage || (GIsSavingPackage && FModuleManager::Get().IsModuleLoaded(TEXT("AssetRegistry"))))
 	{
@@ -1464,26 +1513,33 @@ void FFindInBlueprintSearchManager::OnAssetAdded(const FAssetData& InAssetData)
 	else if (Handler->AssetContainsBlueprint(InAssetData))
 	{
 		// Check first for versioned FiB data (latest codepath)
-		if(const FString* FiBVersionedSearchData = InAssetData.TagsAndValues.Find(FBlueprintTags::FindInBlueprintsData))
+		FAssetDataTagMapSharedView::FFindTagResult Result = InAssetData.TagsAndValues.FindTag(FBlueprintTags::FindInBlueprintsData);
+		if(Result.IsSet())
 		{
-			if (FiBVersionedSearchData->Len() == 0)
+			const FString& FiBVersionedSearchData = Result.GetValue();
+			if (FiBVersionedSearchData.Len() == 0)
 			{
-				UncachedAssets.Add(InAssetData.ObjectPath);
+				UnindexedAssets.Add(InAssetData.ObjectPath);
 			}
 			else
 			{
-				ExtractUnloadedFiBData(InAssetData, *FiBVersionedSearchData, true);
+				ExtractUnloadedFiBData(InAssetData, FiBVersionedSearchData, true);
 			}
 		}
-		// Check for legacy (unversioned) FiB data
-		else if(const FString* FiBSearchData = InAssetData.TagsAndValues.Find("FiB"))
-		{
-			ExtractUnloadedFiBData(InAssetData, *FiBSearchData, false);
-		}
-		// The asset has no FiB data, keep track of it so we can inform the user
 		else
 		{
-			UncachedAssets.Add(InAssetData.ObjectPath);
+			// Check for legacy (unversioned) FiB data
+			FAssetDataTagMapSharedView::FFindTagResult ResultLegacy = InAssetData.TagsAndValues.FindTag("FiB");
+			if (ResultLegacy.IsSet())
+			{
+				ExtractUnloadedFiBData(InAssetData, ResultLegacy.GetValue(), false);
+			}
+			// The asset has no FiB data, keep track of it so we can inform the user
+			else
+			{
+				UnindexedAssets.Add(InAssetData.ObjectPath);
+			}
+
 		}
 	}
 }
@@ -1622,7 +1678,7 @@ void FFindInBlueprintSearchManager::OnAssetLoaded(UObject* InAsset)
 			SearchArray[*IndexPtr].Blueprint = BlueprintObject;
 		}
 
-		UncachedAssets.Remove(AssetPath);
+		UnindexedAssets.Remove(AssetPath);
 	}
 }
 
@@ -1721,18 +1777,20 @@ FString FFindInBlueprintSearchManager::GatherBlueprintSearchMetadata(const UBlue
 
 	int32 Version = EFiBVersion::FIB_VER_LATEST;
 	SearchMetaData = FiBSerializationHelpers::Serialize(Version, false) + Writer->GetSerializedLookupTable() + SearchMetaData;
+
 	return SearchMetaData;
 }
 
 void FFindInBlueprintSearchManager::AddOrUpdateBlueprintSearchMetadata(UBlueprint* InBlueprint, bool bInForceReCache/* = false*/)
 {
-	// Do not try to gather any info from Blueprints who are loaded for diffing. It makes search all very strange and allows you to fully open those Blueprints.
-	if (InBlueprint->GetOutermost()->HasAnyPackageFlags(PKG_ForDiffing))
-	{
-		return;
-	}
-	
-	if (!bEnableGatheringData)
+	// No need to update the cache in the following cases:
+	//	a) Indexing is disabled.
+	//	b) The Blueprint is not yet fully loaded. This ensures that we don't make attempts to re-index before load completion.
+	//	c) The Blueprint was loaded for diffing. It makes search all very strange and allows you to fully open those Blueprints.
+	//	d) The Blueprint was loaded/copied for PIE. These assets are temporarily created for a session and don't need to be re-indexed.
+	if (!bEnableGatheringData
+		|| InBlueprint->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad)
+		|| InBlueprint->GetOutermost()->HasAnyPackageFlags(PKG_ForDiffing | PKG_PlayInEditor))
 	{
 		return;
 	}
@@ -1759,6 +1817,7 @@ void FFindInBlueprintSearchManager::AddOrUpdateBlueprintSearchMetadata(UBlueprin
 	{
 		Index = *IndexPtr;
 		SearchArray[Index].Blueprint = InBlueprint; // Blueprint instance may change due to reloading
+		SearchArray[Index].bMarkedForDeletion = false;
 	}
 
 	// Build the search data
@@ -1766,13 +1825,25 @@ void FFindInBlueprintSearchManager::AddOrUpdateBlueprintSearchMetadata(UBlueprin
 	{
 		ParentClassProp->ExportTextItem(SearchArray[Index].ParentClass, ParentClassProp->ContainerPtrToValuePtr<uint8>(InBlueprint), nullptr, InBlueprint, 0);
 	}
-	// Cannot successfully gather most searchable data if there is no SkeletonGeneratedClass, so don't try, leave it as whatever it was last set to
-	if(InBlueprint->SkeletonGeneratedClass != nullptr)
+
+	// During unindexed/out-of-date caching we will arrive here as a result of loading the asset, so don't remove the IsCacheInProgress() check!
+	if (bInForceReCache || IsCacheInProgress() || bDisableDeferredIndexing)
 	{
-		SearchArray[Index].Value = GatherBlueprintSearchMetadata(InBlueprint);
-		SearchArray[Index].Version = EFiBVersion::FIB_VER_LATEST;
+		// Cannot successfully gather most searchable data if there is no SkeletonGeneratedClass, so don't try, leave it as whatever it was last set to
+		if (InBlueprint->SkeletonGeneratedClass != nullptr)
+		{
+			SearchArray[Index].Value = GatherBlueprintSearchMetadata(InBlueprint);
+			SearchArray[Index].Version = EFiBVersion::FIB_VER_LATEST;
+		}
+
+		// Remove it from the list of pending assets (if it exists)
+		PendingAssets.Remove(AssetPath);
 	}
-	SearchArray[Index].bMarkedForDeletion = false;
+	else
+	{
+		// Add it to the list of assets to be indexed (deferred until the next global search)
+		PendingAssets.Add(AssetPath);
+	}
 }
 
 void FFindInBlueprintSearchManager::BeginSearchQuery(const FStreamSearch* InSearchOriginator)
@@ -1960,6 +2031,9 @@ void FFindInBlueprintSearchManager::CleanCache()
 		}
 		else
 		{
+			// Remove it from the list of loaded assets that require indexing
+			PendingAssets.Remove(SearchArray[SearchValuePair.Value].AssetPath);
+
 			// Level Blueprints are destroyed when you open a new level, we need to re-add it as an unloaded asset so long as they were not marked for deletion
 			if(!SearchArray[SearchValuePair.Value].bMarkedForDeletion && FModuleManager::Get().IsModuleLoaded(TEXT("AssetRegistry")))
 			{
@@ -1971,9 +2045,10 @@ void FFindInBlueprintSearchManager::CleanCache()
 				FAssetData AssetData = AssetRegistryModule->Get().GetAssetByObjectPath(SearchArray[SearchValuePair.Value].AssetPath);
 				if(AssetData.IsValid())
 				{
-					if(const FString* FiBSearchData = AssetData.TagsAndValues.Find("FiB"))
+					FAssetDataTagMapSharedView::FFindTagResult ResultLegacy = AssetData.TagsAndValues.FindTag("FiB");
+					if (ResultLegacy.IsSet())
 					{
-						SearchArray[SearchValuePair.Value].Value = *FiBSearchData;
+						SearchArray[SearchValuePair.Value].Value = ResultLegacy.GetValue();
 					}
 					// Build the new map/array
 					NewSearchMap.Add(SearchValuePair.Key, NewSearchArray.Add(SearchArray[SearchValuePair.Value]) );
@@ -2055,7 +2130,7 @@ FString FFindInBlueprintSearchManager::ConvertFTextToHexString(FText InValue)
 	return BytesToHex(SerializedData.GetData(), SerializedData.Num());
 }
 
-void FFindInBlueprintSearchManager::OnCacheAllUncachedAssets(bool bInSourceControlActive, bool bInCheckoutAndSave)
+void FFindInBlueprintSearchManager::OnCacheAllUnindexedAssets(bool bInSourceControlActive, bool bInCheckoutAndSave)
 {
 	// Multiple threads can be adding to this at the same time
 	FScopeLock ScopeLock(&SafeModifyCacheCriticalSection);
@@ -2081,73 +2156,115 @@ void FFindInBlueprintSearchManager::OnCacheAllUncachedAssets(bool bInSourceContr
 	}
 }
 
-void FFindInBlueprintSearchManager::CacheAllUncachedAssets(TWeakPtr< SFindInBlueprints > InSourceWidget, FWidgetActiveTimerDelegate& InOutActiveTimerDelegate, FSimpleDelegate InOnFinished/* = FSimpleDelegate()*/, EFiBVersion InMinimiumVersionRequirement/* = EFiBVersion::FIB_VER_LATEST*/)
+void FFindInBlueprintSearchManager::CacheAllAssets(TWeakPtr< SFindInBlueprints > InSourceWidget, const FFindInBlueprintCachingOptions& InOptions)
 {
 	// Do not start another caching process if one is in progress
 	if(!IsCacheInProgress())
 	{
-		TArray<FName> BlueprintsToUpdate;
-		// Add any out-of-date Blueprints to the list
-		for (FSearchData SearchData : SearchArray)
+		CurrentCacheOpType = InOptions.OpType;
+
+		if (CurrentCacheOpType == EFiBCacheOpType::CachePendingAssets)
 		{
-			if ((SearchData.Value.Len() != 0 || SearchData.ImaginaryBlueprint.IsValid()) && SearchData.Version < InMinimiumVersionRequirement)
+			FCacheAllBlueprintsTickableObject::FCacheParams CacheParams;
+			CacheParams.OnFinished = InOptions.OnFinished;
+			CacheParams.OnCached.BindLambda([this](FName InAssetName)
 			{
-				BlueprintsToUpdate.Add(SearchData.AssetPath);
-			}
-		}
+				// Ensure removal in case it did not get re-indexed for some reason (e.g. not loaded, not a Blueprint asset, etc.)
+				PendingAssets.Remove(InAssetName);
+			});
 
-		FText DialogTitle = LOCTEXT("ConfirmIndexAll_Title", "Indexing All");
-		FFormatNamedArguments Args;
-		Args.Add(TEXT("PackageCount"), UncachedAssets.Num() + BlueprintsToUpdate.Num());
+			// Determine if PIE is active - in that case we're potentially streaming assets in at random intervals, so just hide the progress UI while re-indexing those assets
+			const bool bIsPIESimulating = (GEditor->bIsSimulatingInEditor || GEditor->PlayWorld);
 
-		FText DialogDisplayText;
-		
-		if (UncachedAssets.Num() && BlueprintsToUpdate.Num())
-		{
-			Args.Add(TEXT("PackageCount"), UncachedAssets.Num() + BlueprintsToUpdate.Num());
-			Args.Add(TEXT("UnindexedCount"), UncachedAssets.Num());
-			Args.Add(TEXT("OutOfDateCount"), BlueprintsToUpdate.Num());
-			DialogDisplayText = FText::Format(LOCTEXT("CacheAllConfirmationMessage_UncachedAndBlueprints", "This process can take a long time and the editor may become unresponsive; there are {PackageCount} ({UnindexedCount} Unindexed/{OutOfDateCount} Out-of-Date) Blueprints to load. \
-																					\n\nWould you like to checkout, load, and save all Blueprints to make this indexing permanent? Otherwise, all Blueprints will still be loaded but you will be required to re-index the next time you start the editor!"), Args);
-		}
-		else if (UncachedAssets.Num() && BlueprintsToUpdate.Num() == 0)
-		{
-			DialogDisplayText = FText::Format(LOCTEXT("CacheAllConfirmationMessage_UncachedOnly", "This process can take a long time and the editor may become unresponsive; there are {PackageCount} unindexed Blueprints to load. \
-																					 \n\nWould you like to checkout, load, and save all Blueprints to make this indexing permanent? Otherwise, all Blueprints will still be loaded but you will be required to re-index the next time you start the editor!"), Args);
-		}
-		else if (UncachedAssets.Num() == 0 && BlueprintsToUpdate.Num())
-		{
-			DialogDisplayText = FText::Format(LOCTEXT("CacheAllConfirmationMessage_BlueprintsOnly", "This process can take a long time and the editor may become unresponsive; there are {PackageCount} out-of-date Blueprints to load. \
-																					 \n\nWould you like to checkout, load, and save all Blueprints to make this indexing permanent? Otherwise, all Blueprints will still be loaded but you will be required to re-index the next time you start the editor!"), Args);
-		}
-
-		const EAppReturnType::Type ReturnValue = FMessageDialog::Open(EAppMsgType::YesNoCancel, DialogDisplayText, &DialogTitle);
-
-		// If Yes is chosen, checkout and save all Blueprints, if No is chosen, only load all Blueprints
-		if (ReturnValue != EAppReturnType::Cancel)
-		{
-			FailedToCachePaths.Empty();
-			
-			TSet<FName> TempUncachedAssets;
-			TempUncachedAssets.Append(UncachedAssets);
-			TempUncachedAssets.Append(BlueprintsToUpdate);
-
-			const bool bCheckoutAndSave = ReturnValue == EAppReturnType::Yes;
-			CachingObject = new FCacheAllBlueprintsTickableObject(MoveTemp(TempUncachedAssets), bCheckoutAndSave, InOnFinished);
-			InOutActiveTimerDelegate.BindRaw(CachingObject, &FCacheAllBlueprintsTickableObject::Tick);
-
-			const bool bIsSourceControlEnabled = ISourceControlModule::Get().IsEnabled();
-			if(!bIsSourceControlEnabled && bCheckoutAndSave)
+			// Display progress during a re-indexing operation only if we have multiple assets to process (e.g. avoid showing after compiling a single asset) and we're not in PIE
+			if ((PendingAssets.Num() > 1) && !bIsPIESimulating)
 			{
-				// Offer to start up Source Control
-				ISourceControlModule::Get().ShowLoginDialog(FSourceControlLoginClosed::CreateRaw(this, &FFindInBlueprintSearchManager::OnCacheAllUncachedAssets, bCheckoutAndSave), ELoginWindowMode::Modeless, EOnLoginWindowStartup::PreserveProvider);
-			}
-			else
-			{
-				OnCacheAllUncachedAssets(bIsSourceControlEnabled, bCheckoutAndSave);
+				CacheParams.OpFlags |= EFiBCacheOpFlags::ShowProgress;
 			}
 
+			// Keep popup notifications hidden during this operation
+			CacheParams.OpFlags |= EFiBCacheOpFlags::HideNotifications;
+
+			// Keep track of which global FiB context started the operation (if any)
 			SourceCachingWidget = InSourceWidget;
+
+			CachingObject = new FCacheAllBlueprintsTickableObject(PendingAssets, CacheParams);
+
+			// Immediately start the operation (non-interactive)
+			check(CachingObject);
+			CachingObject->Start();
+		}
+		else
+		{
+			TArray<FName> BlueprintsToUpdate;
+			// Add any out-of-date Blueprints to the list
+			for (FSearchData SearchData : SearchArray)
+			{
+				if ((SearchData.Value.Len() != 0 || SearchData.ImaginaryBlueprint.IsValid()) && SearchData.Version < InOptions.MinimiumVersionRequirement)
+				{
+					BlueprintsToUpdate.Add(SearchData.AssetPath);
+				}
+			}
+
+			FText DialogTitle = LOCTEXT("ConfirmIndexAll_Title", "Indexing All");
+			FFormatNamedArguments Args;
+			Args.Add(TEXT("PackageCount"), UnindexedAssets.Num() + BlueprintsToUpdate.Num());
+
+			FText DialogDisplayText;
+
+			if (UnindexedAssets.Num() && BlueprintsToUpdate.Num())
+			{
+				Args.Add(TEXT("PackageCount"), UnindexedAssets.Num() + BlueprintsToUpdate.Num());
+				Args.Add(TEXT("UnindexedCount"), UnindexedAssets.Num());
+				Args.Add(TEXT("OutOfDateCount"), BlueprintsToUpdate.Num());
+				DialogDisplayText = FText::Format(LOCTEXT("CacheAllConfirmationMessage_UnindexedAndOutOfDate", "This process can take a long time and the editor may become unresponsive; there are {PackageCount} ({UnindexedCount} Unindexed/{OutOfDateCount} Out-of-Date) Blueprints to load. \
+																					\n\nWould you like to checkout, load, and save all Blueprints to make this indexing permanent? Otherwise, all Blueprints will still be loaded but you will be required to re-index the next time you start the editor!"), Args);
+			}
+			else if (UnindexedAssets.Num() && BlueprintsToUpdate.Num() == 0)
+			{
+				DialogDisplayText = FText::Format(LOCTEXT("CacheAllConfirmationMessage_UnindexedOnly", "This process can take a long time and the editor may become unresponsive; there are {PackageCount} unindexed Blueprints to load. \
+																					 \n\nWould you like to checkout, load, and save all Blueprints to make this indexing permanent? Otherwise, all Blueprints will still be loaded but you will be required to re-index the next time you start the editor!"), Args);
+			}
+			else if (UnindexedAssets.Num() == 0 && BlueprintsToUpdate.Num())
+			{
+				DialogDisplayText = FText::Format(LOCTEXT("CacheAllConfirmationMessage_OutOfDateOnly", "This process can take a long time and the editor may become unresponsive; there are {PackageCount} out-of-date Blueprints to load. \
+																					 \n\nWould you like to checkout, load, and save all Blueprints to make this indexing permanent? Otherwise, all Blueprints will still be loaded but you will be required to re-index the next time you start the editor!"), Args);
+			}
+
+			const EAppReturnType::Type ReturnValue = FMessageDialog::Open(EAppMsgType::YesNoCancel, DialogDisplayText, &DialogTitle);
+
+			// If Yes is chosen, checkout and save all Blueprints, if No is chosen, only load all Blueprints
+			if (ReturnValue != EAppReturnType::Cancel)
+			{
+				FailedToCachePaths.Empty();
+
+				TSet<FName> TempUncachedAssets;
+				TempUncachedAssets.Append(UnindexedAssets);
+				TempUncachedAssets.Append(BlueprintsToUpdate);
+
+				const bool bCheckOutAndSave = (ReturnValue == EAppReturnType::Yes);
+				FCacheAllBlueprintsTickableObject::FCacheParams CacheParams;
+				CacheParams.OpFlags = EFiBCacheOpFlags::ShowProgress | EFiBCacheOpFlags::AllowUserCancel;
+				if (bCheckOutAndSave)
+				{
+					CacheParams.OpFlags |= EFiBCacheOpFlags::CheckOutAndSave;
+				}
+				CacheParams.OnFinished = InOptions.OnFinished;
+				CachingObject = new FCacheAllBlueprintsTickableObject(MoveTemp(TempUncachedAssets), CacheParams);
+
+				const bool bIsSourceControlEnabled = ISourceControlModule::Get().IsEnabled();
+				if (!bIsSourceControlEnabled && bCheckOutAndSave)
+				{
+					// Offer to start up Source Control
+					ISourceControlModule::Get().ShowLoginDialog(FSourceControlLoginClosed::CreateRaw(this, &FFindInBlueprintSearchManager::OnCacheAllUnindexedAssets, bCheckOutAndSave), ELoginWindowMode::Modeless, EOnLoginWindowStartup::PreserveProvider);
+				}
+				else
+				{
+					OnCacheAllUnindexedAssets(bIsSourceControlEnabled, bCheckOutAndSave);
+				}
+
+				SourceCachingWidget = InSourceWidget;
+			}
 		}
 	}
 }
@@ -2195,14 +2312,36 @@ float FFindInBlueprintSearchManager::GetCacheProgress() const
 	return ReturnCacheValue;
 }
 
+int32 FFindInBlueprintSearchManager::GetNumberPendingAssets() const
+{
+	return PendingAssets.Num();
+}
+
+int32 FFindInBlueprintSearchManager::GetNumberUnindexedAssets() const
+{
+	return UnindexedAssets.Num();
+}
+
 int32 FFindInBlueprintSearchManager::GetNumberUncachedAssets() const
 {
-	int32 ReturnCount = UncachedAssets.Num();
 	if (CachingObject)
 	{
-		ReturnCount = CachingObject->GetUncachedAssetCount();
+		return CachingObject->GetUncachedAssetCount();
 	}
-	return ReturnCount;
+	
+	return 0;
+}
+
+void FFindInBlueprintSearchManager::StartedCachingBlueprints(EFiBCacheOpFlags InCacheOpFlags)
+{
+	// Invoke the callback on any open global widgets
+	for (TWeakPtr<SFindInBlueprints> FindResultsPtr : GlobalFindResults)
+	{
+		if (FindResultsPtr.IsValid())
+		{
+			FindResultsPtr.Pin()->OnCacheStarted(CurrentCacheOpType, InCacheOpFlags);
+		}
+	}
 }
 
 void FFindInBlueprintSearchManager::FinishedCachingBlueprints(int32 InNumberCached, TSet<FName>& InFailedToCacheList)
@@ -2213,11 +2352,28 @@ void FFindInBlueprintSearchManager::FinishedCachingBlueprints(int32 InNumberCach
 	// Update the list of cache failures
 	FailedToCachePaths = InFailedToCacheList;
 
-	// Signal the callback, so the source FindInBlueprint can resubmit their search queries
+	// Remove any failed attempts from the pending list
+	if (InFailedToCacheList.Num() > 0)
+	{
+		PendingAssets = PendingAssets.Difference(InFailedToCacheList);
+	}
+
+	// Invoke the completion callback on any open widgets that are not the initiating one (e.g. to hide progress bar)
+	for (TWeakPtr<SFindInBlueprints> FindResultsPtr : GlobalFindResults)
+	{
+		if (FindResultsPtr.IsValid() && FindResultsPtr != SourceCachingWidget)
+		{
+			FindResultsPtr.Pin()->OnCacheComplete(CurrentCacheOpType);
+		}
+	}
+
+	// Invoke the completion callback on the initiating widget only if necessary (i.e. only if it doesn't already delegate it)
 	if(SourceCachingWidget.IsValid() && !CachingObject->HasPostCacheWork())
 	{
-		SourceCachingWidget.Pin()->OnCacheComplete();
+		SourceCachingWidget.Pin()->OnCacheComplete(CurrentCacheOpType);
 	}
+
+	// Reset the reference to the widget that initiated the caching operation
 	SourceCachingWidget.Reset();
 
 	// Delete the object and NULL it out so we can do it again in the future if needed (if it was canceled)
@@ -2228,6 +2384,11 @@ void FFindInBlueprintSearchManager::FinishedCachingBlueprints(int32 InNumberCach
 bool FFindInBlueprintSearchManager::IsCacheInProgress() const
 {
 	return CachingObject != nullptr;
+}
+
+bool FFindInBlueprintSearchManager::IsUnindexedCacheInProgress() const
+{
+	return IsCacheInProgress() && CurrentCacheOpType == EFiBCacheOpType::CacheUnindexedAssets;
 }
 
 TSharedPtr< FJsonObject > FFindInBlueprintSearchManager::ConvertJsonStringToObject(bool bInIsVersioned, FString InJsonString, TMap<int32, FText>& OutFTextLookupTable)
@@ -2275,6 +2436,11 @@ void FFindInBlueprintSearchManager::GlobalFindResultsClosed(const TSharedRef<SFi
 		if (FindResultsPtr.Pin() == FindResults)
 		{
 			GlobalFindResults.Remove(FindResultsPtr);
+
+			if (CachingObject && SourceCachingWidget == FindResultsPtr)
+			{
+				SourceCachingWidget.Reset();
+			}
 			break;
 		}
 	}
@@ -2460,6 +2626,33 @@ void FFindInBlueprintSearchManager::CloseOrphanedGlobalFindResultsTabs(TSharedPt
 			}
 		}
 	}
+}
+
+void FFindInBlueprintSearchManager::Tick(float DeltaTime)
+{
+	if(IsCacheInProgress())
+	{
+		check(CachingObject);
+		CachingObject->Tick(DeltaTime);
+	}
+	else if (PendingAssets.Num() > 0)
+	{
+		// Kick off a re-indexing operation to update the cache
+		FFindInBlueprintCachingOptions CachingOptions;
+		CachingOptions.OpType = EFiBCacheOpType::CachePendingAssets;
+		CacheAllAssets(nullptr, CachingOptions);
+	}
+}
+
+bool FFindInBlueprintSearchManager::IsTickable() const
+{
+	// Tick only if we have an active caching operation or if we have pending assets and an open FiB context
+	return IsCacheInProgress() || (PendingAssets.Num() > 0 && GlobalFindResults.Num() > 0);
+}
+
+TStatId FFindInBlueprintSearchManager::GetStatId() const
+{
+	RETURN_QUICK_DECLARE_CYCLE_STAT(FFindInBlueprintSearchManager, STATGROUP_Tickables);
 }
 
 #undef LOCTEXT_NAMESPACE

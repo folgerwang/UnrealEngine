@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*==============================================================================
 	VectorFieldVisualization.h: Visualization of vector fields.
@@ -36,12 +36,12 @@ class FSceneView;
 /**
  * Uniform buffer to hold parameters for vector field visualization.
  */
-BEGIN_UNIFORM_BUFFER_STRUCT( FVectorFieldVisualizationParameters, )
-	UNIFORM_MEMBER( FMatrix, VolumeToWorld )
-	UNIFORM_MEMBER( FMatrix, VolumeToWorldNoScale )
-	UNIFORM_MEMBER( FVector, VoxelSize )
-	UNIFORM_MEMBER( float, Scale )
-END_UNIFORM_BUFFER_STRUCT( FVectorFieldVisualizationParameters )
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT( FVectorFieldVisualizationParameters, )
+	SHADER_PARAMETER( FMatrix, VolumeToWorld )
+	SHADER_PARAMETER( FMatrix, VolumeToWorldNoScale )
+	SHADER_PARAMETER( FVector, VoxelSize )
+	SHADER_PARAMETER( float, Scale )
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 typedef TUniformBufferRef<FVectorFieldVisualizationParameters> FVectorFieldVisualizationBufferRef;
 
 /**
@@ -75,7 +75,7 @@ public:
 	/**
 	 * Can be overridden by FVertexFactory subclasses to modify their compile environment just before compilation occurs.
 	 */
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
+	static void ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
 
 	/**
 	 * Construct shader parameters for this type of vertex factory.

@@ -1,10 +1,10 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Math/BoxSphereBounds.h"
 
-struct FRawMesh;
+struct FMeshDescription;
 struct FSectionInfo;
 struct FMeshData;
 class UMaterialInterface;
@@ -14,8 +14,8 @@ class IMaterialBakingAdapter
 public:
 	/** Returns the number of LODs for the data the adapter represents */
 	virtual int32 GetNumberOfLODs() const = 0;
-	/** Retrieves model data in FRawMesh form */
-	virtual void RetrieveRawMeshData(int32 LODIndex, FRawMesh& InOutRawMesh, bool bPropagateMeshData) const = 0;
+	/** Retrieves model data in FMeshDescription form */
+	virtual void RetrieveRawMeshData(int32 LODIndex, FMeshDescription& InOutRawMesh, bool bPropagateMeshData) const = 0;
 	/** Retrieves all mesh sections from underlying data */
 	virtual void RetrieveMeshSections(int32 LODIndex, TArray<FSectionInfo>& InOutSectionInfo) const = 0;
 	/** Returns lightmap UV index used by mesh data */

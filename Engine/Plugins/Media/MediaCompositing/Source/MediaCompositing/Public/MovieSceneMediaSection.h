@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -32,6 +32,10 @@ public:
 	/** Should the media player be set to loop? This can be helpful for media formats that can use this information (such as exr sequences) to pre-cache the starting data when nearing the end of playback. Does not cause the media to continue playing after the end of the section is reached. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Media")
 	bool bLooping;
+
+	/** Offset into the source media. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Media")
+	FFrameNumber StartFrameOffset;
 
 	/** The media texture that receives the track's video output. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Media", meta = (EditCondition = "!bUseExternalMediaPlayer"))

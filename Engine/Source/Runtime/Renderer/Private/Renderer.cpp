@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Renderer.cpp: Renderer module implementation.
@@ -14,8 +14,9 @@
 #include "RenderingThread.h"
 #include "RHIStaticStates.h"
 #include "SceneView.h"
-#include "PostProcess/RenderTargetPool.h"
+#include "RenderTargetPool.h"
 #include "PostProcess/SceneRenderTargets.h"
+#include "VisualizeTexture.h"
 #include "SceneCore.h"
 #include "SceneHitProxyRendering.h"
 #include "SceneRendering.h"
@@ -25,6 +26,12 @@
 #include "RendererModule.h"
 #include "GPUBenchmark.h"
 #include "SystemSettings.h"
+#include "VisualizeTexturePresent.h"
+#include "MeshPassProcessor.inl"
+#include "DebugViewModeRendering.h"
+#include "EditorPrimitivesRendering.h"
+#include "VisualizeTexturePresent.h"
+#include "ScreenSpaceDenoise.h"
 
 DEFINE_LOG_CATEGORY(LogRenderer);
 
@@ -53,6 +60,17 @@ public:
 };
 static TGlobalResource< FDummyReflectionCaptureUniformBuffer > GDummyReflectionCaptureUniformBuffer;
 
+void FRendererModule::StartupModule()
+{
+	GScreenSpaceDenoiser = IScreenSpaceDenoiser::GetDefaultDenoiser();
+}
+
+void FRendererModule::ShutdownModule()
+{
+	// Free up the memory of the default denoiser. Responsibility of the plugin to free up theirs.
+	delete IScreenSpaceDenoiser::GetDefaultDenoiser();
+}
+
 void FRendererModule::ReallocateSceneRenderTargets()
 {
 	FLightPrimitiveInteraction::InitializeMemoryPool();
@@ -70,7 +88,7 @@ void FRendererModule::InitializeSystemTextures(FRHICommandListImmediate& RHICmdL
 	GSystemTextures.InitializeTextures(RHICmdList, GMaxRHIFeatureLevel);
 }
 
-void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, FDrawingPolicyRenderState& DrawRenderState, const FSceneView& SceneView, const FMeshBatch& Mesh, bool bIsHitTesting, const FHitProxyId& HitProxyId)
+void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, FMeshPassProcessorRenderState& DrawRenderState, const FSceneView& SceneView, FMeshBatch& Mesh, bool bIsHitTesting, const FHitProxyId& HitProxyId)
 {
 	if (!GUsingNullRHI)
 	{
@@ -79,52 +97,152 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, FDrawin
 		FViewInfo View(&SceneView);
 		View.ViewRect = View.UnscaledViewRect;
 		
+		const auto FeatureLevel = View.GetFeatureLevel();
+		const EShadingPath ShadingPath = FSceneInterface::GetShadingPath(FeatureLevel);
+
+		Mesh.MaterialRenderProxy->UpdateUniformExpressionCacheIfNeeded(FeatureLevel);
 		FMaterialRenderProxy::UpdateDeferredCachedUniformExpressions();
 
 		//Apply the minimal forward lighting resources
 		extern FForwardLightingViewResources* GetMinimalDummyForwardLightingResources();
 		View.ForwardLightingResources = GetMinimalDummyForwardLightingResources();
 
+		FSinglePrimitiveStructuredBuffer SinglePrimitiveStructuredBuffer;
+
+		if (Mesh.VertexFactory->GetPrimitiveIdStreamIndex(true) >= 0)
+		{
+			FMeshBatchElement& MeshElement = Mesh.Elements[0];
+
+			checkf(Mesh.Elements.Num() == 1, TEXT("Only 1 batch element currently supported by DrawTileMesh"));
+			checkf(MeshElement.PrimitiveUniformBuffer == nullptr, TEXT("DrawTileMesh does not currently support an explicit primitive uniform buffer on vertex factories which manually fetch primitive data.  Use PrimitiveUniformBufferResource instead."));
+
+			if (MeshElement.PrimitiveUniformBufferResource)
+			{
+				checkf(MeshElement.NumInstances == 1, TEXT("DrawTileMesh does not currently support instancing"));
+				// Force PrimitiveId to be 0 in the shader
+				MeshElement.PrimitiveIdMode = PrimID_ForceZero;
+				
+				// Set the LightmapID to 0, since that's where our light map data resides for this primitive
+				FPrimitiveUniformShaderParameters PrimitiveParams = *(const FPrimitiveUniformShaderParameters*)MeshElement.PrimitiveUniformBufferResource->GetContents();
+				PrimitiveParams.LightmapDataIndex = 0;
+
+				// Now we just need to fill out the first entry of primitive data in a buffer and bind it
+				SinglePrimitiveStructuredBuffer.PrimitiveSceneData = FPrimitiveSceneShaderData(PrimitiveParams);
+
+				// Set up the parameters for the LightmapSceneData from the given LCI data 
+				FPrecomputedLightingUniformParameters LightmapParams;
+				GetPrecomputedLightingParameters(FeatureLevel, LightmapParams, Mesh.LCI);
+				SinglePrimitiveStructuredBuffer.LightmapSceneData = FLightmapSceneShaderData(LightmapParams);
+
+				SinglePrimitiveStructuredBuffer.InitResource();
+				View.PrimitiveSceneDataOverrideSRV = SinglePrimitiveStructuredBuffer.PrimitiveSceneDataBufferSRV;
+				View.LightmapSceneDataOverrideSRV = SinglePrimitiveStructuredBuffer.LightmapSceneDataBufferSRV;
+			}
+		}
+		
 		View.InitRHIResources();
 		DrawRenderState.SetViewUniformBuffer(View.ViewUniformBuffer);
 
-		const auto FeatureLevel = View.GetFeatureLevel();
-
-		if (FeatureLevel <= ERHIFeatureLevel::ES3_1)
+		if (ShadingPath == EShadingPath::Mobile)
 		{
 			View.MobileDirectionalLightUniformBuffers[0] = TUniformBufferRef<FMobileDirectionalLightShaderParameters>::CreateUniformBufferImmediate(FMobileDirectionalLightShaderParameters(), UniformBuffer_SingleFrame);
 		}
-		
+
 		const FMaterial* Material = Mesh.MaterialRenderProxy->GetMaterial(FeatureLevel);
 
 		//get the blend mode of the material
 		const EBlendMode MaterialBlendMode = Material->GetBlendMode();
 
 		GSystemTextures.InitializeTextures(RHICmdList, FeatureLevel);
+		FMemMark Mark(FMemStack::Get());
 
 		// handle translucent material blend modes, not relevant in MaterialTexCoordScalesAnalysis since it outputs the scales.
-		if (IsTranslucentBlendMode(MaterialBlendMode) && View.Family->GetDebugViewShaderMode() != DVSM_OutputMaterialTextureScales)
+		if (View.Family->GetDebugViewShaderMode() == DVSM_OutputMaterialTextureScales)
 		{
-			if (FeatureLevel >= ERHIFeatureLevel::SM4)
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			// make sure we are doing opaque drawing
+			DrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
+			
+			// is this path used on mobile?
+			if (ShadingPath == EShadingPath::Deferred)
+			{
+				FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+				FDebugViewModePassPassUniformParameters PassParameters;
+				SetupDebugViewModePassUniformBuffer(SceneContext, View.GetFeatureLevel(), PassParameters);
+				TUniformBufferRef<FDebugViewModePassPassUniformParameters> DebugViewModePassUniformBuffer = TUniformBufferRef<FDebugViewModePassPassUniformParameters>::CreateUniformBufferImmediate(
+					PassParameters,
+					UniformBuffer_SingleFrame
+				);
+
+				DrawDynamicMeshPass(View, RHICmdList,
+					[&View, &DrawRenderState, &DebugViewModePassUniformBuffer, &Mesh](FMeshPassDrawListContext* InDrawListContext)
+				{
+					FDebugViewModeMeshProcessor PassMeshProcessor(nullptr, View.GetFeatureLevel(), &View, DebugViewModePassUniformBuffer, false, InDrawListContext);
+					const uint64 DefaultBatchElementMask = ~0ull;
+					PassMeshProcessor.AddMeshBatch(Mesh, DefaultBatchElementMask, nullptr);
+				});
+			}
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		}
+		else if (IsTranslucentBlendMode(MaterialBlendMode))
+		{
+			FUniformBufferRHIRef BasePassUniformBuffer;
+
+			if (ShadingPath == EShadingPath::Deferred)
 			{
 				// Crash fix - reflection capture shader parameter is bound but we have no buffer during Build Texture Streaming
 				if(!View.ReflectionCaptureUniformBuffer.IsValid())
 				{
-					View.ReflectionCaptureUniformBuffer = GDummyReflectionCaptureUniformBuffer;
+					View.ReflectionCaptureUniformBuffer = GDummyReflectionCaptureUniformBuffer.GetUniformBufferRef();
 				}
 			
-				TUniformBufferRef<FTranslucentBasePassUniformParameters> BasePassUniformBuffer;
-				CreateTranslucentBasePassUniformBuffer(RHICmdList, View, nullptr, ESceneTextureSetupMode::None, BasePassUniformBuffer, 0);
+				TUniformBufferRef<FTranslucentBasePassUniformParameters> TranslucentBasePassUniformBuffer;
+				CreateTranslucentBasePassUniformBuffer(RHICmdList, View, nullptr, ESceneTextureSetupMode::None, TranslucentBasePassUniformBuffer, 0);
+				BasePassUniformBuffer = TranslucentBasePassUniformBuffer;
+				
 				DrawRenderState.SetPassUniformBuffer(BasePassUniformBuffer);
-				FTranslucencyDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FTranslucencyDrawingPolicyFactory::ContextType(nullptr, ETranslucencyPass::TPT_AllTranslucency, true), Mesh, false, DrawRenderState, NULL, HitProxyId);
+				
+				DrawDynamicMeshPass(View, RHICmdList,
+					[&View, &DrawRenderState, &Mesh](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
+				{
+					FBasePassMeshProcessor PassMeshProcessor(
+															 nullptr,
+															 View.GetFeatureLevel(),
+															 &View,
+															 DrawRenderState,
+															 DynamicMeshPassContext,
+															 ETranslucencyPass::TPT_AllTranslucency);
+					
+					const uint64 DefaultBatchElementMask = ~0ull;
+					PassMeshProcessor.AddMeshBatch(Mesh, DefaultBatchElementMask, nullptr);
+				});
 			}
-			else
+			else // Mobile
 			{
-				TUniformBufferRef<FMobileBasePassUniformParameters> BasePassUniformBuffer;
-				CreateMobileBasePassUniformBuffer(RHICmdList, View, false, BasePassUniformBuffer);
+				TUniformBufferRef<FMobileBasePassUniformParameters> MobileBasePassUniformBuffer;
+				CreateMobileBasePassUniformBuffer(RHICmdList, View, true, MobileBasePassUniformBuffer);
+				BasePassUniformBuffer = MobileBasePassUniformBuffer;
+				
 				DrawRenderState.SetPassUniformBuffer(BasePassUniformBuffer);
-				FMobileTranslucencyDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FMobileTranslucencyDrawingPolicyFactory::ContextType(ETranslucencyPass::TPT_AllTranslucency), Mesh, false, DrawRenderState, NULL, HitProxyId);
+				
+				DrawDynamicMeshPass(View, RHICmdList,
+					[&View, &DrawRenderState, &Mesh](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
+				{
+					FMobileBasePassMeshProcessor PassMeshProcessor(
+															 nullptr,
+															 View.GetFeatureLevel(),
+															 &View,
+															 DrawRenderState,
+															 DynamicMeshPassContext,
+															 false,
+															 ETranslucencyPass::TPT_AllTranslucency); // No CSM?
+					
+					const uint64 DefaultBatchElementMask = ~0ull;
+					PassMeshProcessor.AddMeshBatch(Mesh, DefaultBatchElementMask, nullptr);
+				});
 			}
+
+			
 		}
 		// handle opaque materials
 		else
@@ -135,26 +253,78 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, FDrawin
 			// draw the mesh
 			if (bIsHitTesting)
 			{
-				FHitProxyDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FHitProxyDrawingPolicyFactory::ContextType(), Mesh, false, DrawRenderState, NULL, HitProxyId);
+				ensureMsgf(HitProxyId == Mesh.BatchHitProxyId, TEXT("Only Mesh.BatchHitProxyId is used for hit testing."));
+
+#if WITH_EDITOR
+				DrawDynamicMeshPass(View, RHICmdList,
+					[&View, &DrawRenderState, &Mesh](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
+				{
+					FHitProxyMeshProcessor PassMeshProcessor(
+						nullptr,
+						&View,
+						false,
+						DrawRenderState,
+						DynamicMeshPassContext);
+
+					const uint64 DefaultBatchElementMask = ~0ull;
+					PassMeshProcessor.AddMeshBatch(Mesh, DefaultBatchElementMask, nullptr);
+				});
+#endif
 			}
 			else
 			{
-				if (FeatureLevel >= ERHIFeatureLevel::SM4)
+				FUniformBufferRHIRef BasePassUniformBuffer;
+
+				if (ShadingPath == EShadingPath::Deferred)
 				{
-					TUniformBufferRef<FOpaqueBasePassUniformParameters> BasePassUniformBuffer;
-					CreateOpaqueBasePassUniformBuffer(RHICmdList, View, nullptr, BasePassUniformBuffer);
+					TUniformBufferRef<FOpaqueBasePassUniformParameters> OpaqueBasePassUniformBuffer;
+					CreateOpaqueBasePassUniformBuffer(RHICmdList, View, nullptr, OpaqueBasePassUniformBuffer);
+					BasePassUniformBuffer = OpaqueBasePassUniformBuffer;
+					
 					DrawRenderState.SetPassUniformBuffer(BasePassUniformBuffer);
-					FBasePassOpaqueDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FBasePassOpaqueDrawingPolicyFactory::ContextType(), Mesh, false, DrawRenderState, NULL, HitProxyId);
+					
+					DrawDynamicMeshPass(View, RHICmdList,
+						[&View, &DrawRenderState, &Mesh](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
+					{
+						FBasePassMeshProcessor PassMeshProcessor(
+																 nullptr,
+																 View.GetFeatureLevel(),
+																 &View,
+																 DrawRenderState,
+																 DynamicMeshPassContext);
+						
+						const uint64 DefaultBatchElementMask = ~0ull;
+						PassMeshProcessor.AddMeshBatch(Mesh, DefaultBatchElementMask, nullptr);
+					});
 				}
-				else
+				else // Mobile
 				{
-					TUniformBufferRef<FMobileBasePassUniformParameters> BasePassUniformBuffer;
-					CreateMobileBasePassUniformBuffer(RHICmdList, View, false, BasePassUniformBuffer);
+					TUniformBufferRef<FMobileBasePassUniformParameters> MobileBasePassUniformBuffer;
+					CreateMobileBasePassUniformBuffer(RHICmdList, View, false, MobileBasePassUniformBuffer);
+					BasePassUniformBuffer = MobileBasePassUniformBuffer;
+					
 					DrawRenderState.SetPassUniformBuffer(BasePassUniformBuffer);
-					FMobileBasePassOpaqueDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FMobileBasePassOpaqueDrawingPolicyFactory::ContextType(), Mesh, false, DrawRenderState, NULL, HitProxyId);
+					
+					DrawDynamicMeshPass(View, RHICmdList,
+						[&View, &DrawRenderState, &Mesh](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
+					{
+						FMobileBasePassMeshProcessor PassMeshProcessor(
+																 nullptr,
+																 View.GetFeatureLevel(),
+																 &View,
+																 DrawRenderState,
+																 DynamicMeshPassContext, true);
+						
+						const uint64 DefaultBatchElementMask = ~0ull;
+						PassMeshProcessor.AddMeshBatch(Mesh, DefaultBatchElementMask, nullptr);
+					});
 				}
+
+				
 			}
-		}	
+		}
+
+		SinglePrimitiveStructuredBuffer.ReleaseResource();
 	}
 }
 
@@ -170,9 +340,9 @@ void FRendererModule::TickRenderTargetPool()
 
 void FRendererModule::DebugLogOnCrash()
 {
-	GRenderTargetPool.VisualizeTexture.SortOrder = 1;
-	GRenderTargetPool.VisualizeTexture.bFullList = true;
-	GRenderTargetPool.VisualizeTexture.DebugLog(false);
+	GVisualizeTexture.SortOrder = 1;
+	GVisualizeTexture.bFullList = true;
+	FVisualizeTexturePresent::DebugLog(false);
 	
 	GEngine->Exec(NULL, TEXT("rhi.DumpMemory"), *GLog);
 
@@ -227,23 +397,13 @@ void FRendererModule::GPUBenchmark(FSynthBenchmarkResults& InOut, float WorkScal
 
 	FSceneView DummyView(ViewInitOptions);
 	FlushRenderingCommands();
-	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-	  RendererGPUBenchmarkCommand,
-	  FSceneView, DummyView, DummyView,
-	  float, WorkScale, WorkScale,
-	  FSynthBenchmarkResults&, InOut, InOut,
-	{
-		RendererGPUBenchmark(RHICmdList, InOut, DummyView, WorkScale);
-	});
+	FSynthBenchmarkResults* InOutPtr = &InOut;
+	ENQUEUE_RENDER_COMMAND(RendererGPUBenchmarkCommand)(
+		[DummyView, WorkScale, InOutPtr](FRHICommandListImmediate& RHICmdList)
+		{
+			RendererGPUBenchmark(RHICmdList, *InOutPtr, DummyView, WorkScale);
+		});
 	FlushRenderingCommands();
-}
-
-void FRendererModule::QueryVisualizeTexture(FQueryVisualizeTexureInfo& Out)
-{
-	check(IsInGameThread());
-	FlushRenderingCommands();
-
-	GRenderTargetPool.VisualizeTexture.QueryInfo(Out);
 }
 
 static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
@@ -267,44 +427,44 @@ static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
 		// FULL flag
 		if(Parameter == TEXT("fulllist") || Parameter == TEXT("full"))
 		{
-			GRenderTargetPool.VisualizeTexture.bFullList = true;
+			GVisualizeTexture.bFullList = true;
 			// this one doesn't count as parameter so we can do "vis full"
 			continue;
 		}
 		// SORT0 flag
 		else if(Parameter == TEXT("sort0"))
 		{
-			GRenderTargetPool.VisualizeTexture.SortOrder = 0;
+			GVisualizeTexture.SortOrder = 0;
 			// this one doesn't count as parameter so we can do "vis full"
 			continue;
 		}
 		// SORT1 flag
 		else if(Parameter == TEXT("sort1"))
 		{
-			GRenderTargetPool.VisualizeTexture.SortOrder = 1;
+			GVisualizeTexture.SortOrder = 1;
 			// this one doesn't count as parameter so we can do "vis full"
 			continue;
 		}
 		else if(ParameterCount == 0)
 		{
 			// Init
-			GRenderTargetPool.VisualizeTexture.RGBMul = 1;
-			GRenderTargetPool.VisualizeTexture.SingleChannelMul = 0.0f;
-			GRenderTargetPool.VisualizeTexture.SingleChannel = -1;
-			GRenderTargetPool.VisualizeTexture.AMul = 0;
-			GRenderTargetPool.VisualizeTexture.UVInputMapping = 3;
-			GRenderTargetPool.VisualizeTexture.Flags = 0;
-			GRenderTargetPool.VisualizeTexture.Mode = 0;
-			GRenderTargetPool.VisualizeTexture.CustomMip = 0;
-			GRenderTargetPool.VisualizeTexture.ArrayIndex = 0;
-			GRenderTargetPool.VisualizeTexture.bOutputStencil = false;
+			GVisualizeTexture.RGBMul = 1;
+			GVisualizeTexture.SingleChannelMul = 0.0f;
+			GVisualizeTexture.SingleChannel = -1;
+			GVisualizeTexture.AMul = 0;
+			GVisualizeTexture.UVInputMapping = 3;
+			GVisualizeTexture.Flags = 0;
+			GVisualizeTexture.Mode = 0;
+			GVisualizeTexture.CustomMip = 0;
+			GVisualizeTexture.ArrayIndex = 0;
+			GVisualizeTexture.bOutputStencil = false;
 
 			// e.g. "VisualizeTexture Name" or "VisualizeTexture 5"
 			bool bIsDigit = FChar::IsDigit(**Parameter);
 
 			if (bIsDigit)
 			{
-				GRenderTargetPool.VisualizeTexture.Mode = FCString::Atoi(*Parameter);
+				GVisualizeTexture.Mode = FCString::Atoi(*Parameter);
 			}
 
 			if(!bIsDigit)
@@ -321,45 +481,45 @@ static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
 				{
 					// user specified a reuse goal
 					FString NameWithoutAt = Parameter.Left(AfterAt - *Parameter);
-					GRenderTargetPool.VisualizeTexture.SetObserveTarget(*NameWithoutAt, FCString::Atoi(AfterAt + 1));
+					GVisualizeTexture.SetRenderTargetNameToObserve(*NameWithoutAt, FCString::Atoi(AfterAt + 1));
 				}
 				else
 				{
 					// we take the last one
-					GRenderTargetPool.VisualizeTexture.SetObserveTarget(*Parameter);
+					GVisualizeTexture.SetRenderTargetNameToObserve(*Parameter);
 				}
 			}
 			else
 			{
 				// the index was used
-				GRenderTargetPool.VisualizeTexture.SetObserveTarget(TEXT(""));
+				GVisualizeTexture.SetRenderTargetNameToObserve(TEXT(""));
 			}
 		}
 		// GRenderTargetPoolInputMapping mode
 		else if(Parameter == TEXT("uv0"))
 		{
-			GRenderTargetPool.VisualizeTexture.UVInputMapping = 0;
+			GVisualizeTexture.UVInputMapping = 0;
 		}
 		else if(Parameter == TEXT("uv1"))
 		{
-			GRenderTargetPool.VisualizeTexture.UVInputMapping = 1;
+			GVisualizeTexture.UVInputMapping = 1;
 		}
 		else if(Parameter == TEXT("uv2"))
 		{
-			GRenderTargetPool.VisualizeTexture.UVInputMapping = 2;
+			GVisualizeTexture.UVInputMapping = 2;
 		}
 		else if(Parameter == TEXT("pip"))
 		{
-			GRenderTargetPool.VisualizeTexture.UVInputMapping = 3;
+			GVisualizeTexture.UVInputMapping = 3;
 		}
 		// BMP flag
 		else if(Parameter == TEXT("bmp"))
 		{
-			GRenderTargetPool.VisualizeTexture.bSaveBitmap = true;
+			GVisualizeTexture.bSaveBitmap = true;
 		}
 		else if (Parameter == TEXT("stencil"))
 		{
-			GRenderTargetPool.VisualizeTexture.bOutputStencil = true;
+			GVisualizeTexture.bOutputStencil = true;
 		}
 		// saturate flag
 		else if(Parameter == TEXT("frac"))
@@ -369,19 +529,19 @@ static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
 		// saturate flag
 		else if(Parameter == TEXT("sat"))
 		{
-			GRenderTargetPool.VisualizeTexture.Flags |= 0x1;
+			GVisualizeTexture.Flags |= 0x1;
 		}
 		// e.g. mip2 or mip0
 		else if(Parameter.Left(3) == TEXT("mip"))
 		{
 			Parameter = Parameter.Right(Parameter.Len() - 3);
-			GRenderTargetPool.VisualizeTexture.CustomMip = FCString::Atoi(*Parameter);
+			GVisualizeTexture.CustomMip = FCString::Atoi(*Parameter);
 		}
 		// e.g. [0] or [2]
 		else if(Parameter.Left(5) == TEXT("index"))
 		{
 			Parameter = Parameter.Right(Parameter.Len() - 5);
-			GRenderTargetPool.VisualizeTexture.ArrayIndex = FCString::Atoi(*Parameter);
+			GVisualizeTexture.ArrayIndex = FCString::Atoi(*Parameter);
 		}
 		// e.g. RGB*6, A, *22, /2.7, A*7
 		else if(Parameter.Left(3) == TEXT("rgb")
@@ -405,9 +565,9 @@ static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
 			if ( SingleChannel >= 0 )
 			{
 				Parameter = Parameter.Right(Parameter.Len() - 1);
-				GRenderTargetPool.VisualizeTexture.SingleChannel = SingleChannel;
-				GRenderTargetPool.VisualizeTexture.SingleChannelMul = 1;
-				GRenderTargetPool.VisualizeTexture.RGBMul = 0;
+				GVisualizeTexture.SingleChannel = SingleChannel;
+				GVisualizeTexture.SingleChannelMul = 1;
+				GVisualizeTexture.RGBMul = 0;
 			}
 
 			float Mul = 1.0f;
@@ -423,9 +583,9 @@ static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
 				Parameter = Parameter.Right(Parameter.Len() - 1);
 				Mul = 1.0f / FCString::Atof(*Parameter);
 			}
-			GRenderTargetPool.VisualizeTexture.RGBMul *= Mul;
-			GRenderTargetPool.VisualizeTexture.SingleChannelMul *= Mul;
-			GRenderTargetPool.VisualizeTexture.AMul *= Mul;
+			GVisualizeTexture.RGBMul *= Mul;
+			GVisualizeTexture.SingleChannelMul *= Mul;
+			GVisualizeTexture.AMul *= Mul;
 		}
 		else
 		{
@@ -468,9 +628,9 @@ static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
 		Ar.Logf(TEXT("TextureId:"));
 		Ar.Logf(TEXT("  0        = <off>"));
 
-		GRenderTargetPool.VisualizeTexture.DebugLog(true);
+		FVisualizeTexturePresent::DebugLog(true);
 	}
-	//		Ar.Logf(TEXT("VisualizeTexture %d"), GRenderTargetPool.VisualizeTexture.Mode);
+	//		Ar.Logf(TEXT("VisualizeTexture %d"), GVisualizeTexture.Mode);
 }
 
 static bool RendererExec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )

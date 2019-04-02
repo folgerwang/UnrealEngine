@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Reflection Environment - feature that provides HDR glossy reflections on any surfaces, leveraging precomputation to prefilter cubemaps of the scene
@@ -29,8 +29,12 @@
 #include "LightPropagationVolumeSettings.h"
 #include "PipelineStateCache.h"
 #include "DistanceFieldAmbientOcclusion.h"
+#include "SceneViewFamilyBlackboard.h"
+#include "ScreenSpaceDenoise.h"
+#include "RayTracing/RaytracingOptions.h"
 
 DECLARE_GPU_STAT_NAMED(ReflectionEnvironment, TEXT("Reflection Environment"));
+DECLARE_GPU_STAT_NAMED(RayTracingReflections, TEXT("Ray Tracing Reflections"));
 DECLARE_GPU_STAT(SkyLightDiffuse);
 
 extern TAutoConsoleVariable<int32> CVarLPVMixing;
@@ -98,6 +102,43 @@ static TAutoConsoleVariable<float> CVarSkySpecularOcclusionStrength(
 	TEXT("Strength of skylight specular occlusion from DFAO (default is 1.0)"),
 	ECVF_RenderThreadSafe);
 
+static int32 GRayTracingReflections = -1;
+static FAutoConsoleVariableRef CVarReflectionsMethod(
+	TEXT("r.RayTracing.Reflections"),
+	GRayTracingReflections,
+	TEXT("-1: Value driven by postprocess volume (default) \n")
+	TEXT("0: use traditional rasterized SSR\n")
+	TEXT("1: use ray traced reflections\n")
+);
+
+static TAutoConsoleVariable<float> CVarReflectionScreenPercentage(
+	TEXT("r.RayTracing.Reflections.ScreenPercentage"),
+	100.0f,
+	TEXT("Screen percentage the reflections should be ray traced at (default = 100)."),
+	ECVF_RenderThreadSafe);
+
+static int32 GRayTracingReflectionsSamplesPerPixel = -1;
+static FAutoConsoleVariableRef CVarRayTracingReflectionsSamplesPerPixel(
+	TEXT("r.RayTracing.Reflections.SamplesPerPixel"),
+	GRayTracingReflectionsSamplesPerPixel,
+	TEXT("Sets the samples-per-pixel for reflections (default = -1 (driven by postprocesing volume))"));
+
+static int32 GRayTracingReflectionsHeightFog = 1;
+static FAutoConsoleVariableRef CVarRayTracingReflectionsHeightFog(
+	TEXT("r.RayTracing.Reflections.HeightFog"),
+	GRayTracingReflectionsHeightFog,
+	TEXT("Enables height fog in ray traced reflections (default = 1)"));
+
+static TAutoConsoleVariable<int32> CVarUseReflectionDenoiser(
+	TEXT("r.Reflections.Denoiser"),
+	2,
+	TEXT("Choose the denoising algorithm.\n")
+	TEXT(" 0: Disabled;\n")
+	TEXT(" 1: Forces the default denoiser of the renderer;\n")
+	TEXT(" 2: GScreenSpaceDenoiser witch may be overriden by a third party plugin (default)."),
+	ECVF_RenderThreadSafe);
+
+
 // to avoid having direct access from many places
 static int GetReflectionEnvironmentCVar()
 {
@@ -148,7 +189,7 @@ bool IsReflectionCaptureAvailable()
 	return (!AllowStaticLightingVar || AllowStaticLightingVar->GetInt() != 0);
 }
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FReflectionUniformParameters, TEXT("ReflectionStruct"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FReflectionUniformParameters, "ReflectionStruct");
 
 void SetupReflectionUniformParameters(const FViewInfo& View, FReflectionUniformParameters& OutParameters)
 {
@@ -212,6 +253,16 @@ void SetupReflectionUniformParameters(const FViewInfo& View, FReflectionUniformP
 
 	OutParameters.ReflectionCubemap = CubeArrayTexture;
 	OutParameters.ReflectionCubemapSampler = TStaticSamplerState<SF_Trilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
+
+	OutParameters.PreIntegratedGF = GSystemTextures.PreintegratedGF->GetRenderTargetItem().ShaderResourceTexture;
+	OutParameters.PreIntegratedGFSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
+}
+
+TUniformBufferRef<FReflectionUniformParameters> CreateReflectionUniformBuffer(const class FViewInfo& View, EUniformBufferUsage Usage)
+{
+	FReflectionUniformParameters ReflectionStruct;
+	SetupReflectionUniformParameters(View, ReflectionStruct);
+	return CreateUniformBufferImmediate(ReflectionStruct, Usage);
 }
 
 void FReflectionEnvironmentCubemapArray::InitDynamicRHI()
@@ -296,12 +347,12 @@ void FReflectionEnvironmentSceneData::ResizeCubemapArrayGPU(uint32 InMaxCubemaps
 	for (int32 i=0; i<Components.Num(); i++ )
 	{
 		FCaptureComponentSceneState* ComponentStatePtr = AllocatedReflectionCaptureState.Find(Components[i]);
-		check(ComponentStatePtr->CaptureIndex < IndexRemapping.Num());
-		int32 NewIndex = IndexRemapping[ComponentStatePtr->CaptureIndex];
+		check(ComponentStatePtr->CubemapIndex < IndexRemapping.Num());
+		int32 NewIndex = IndexRemapping[ComponentStatePtr->CubemapIndex];
 		CubemapArraySlotsUsed[NewIndex] = true; 
-		ComponentStatePtr->CaptureIndex = NewIndex;
-		check(ComponentStatePtr->CaptureIndex > -1);
-		UsedCubemapCount = FMath::Max(UsedCubemapCount, ComponentStatePtr->CaptureIndex + 1);
+		ComponentStatePtr->CubemapIndex = NewIndex;
+		check(ComponentStatePtr->CubemapIndex > -1);
+		UsedCubemapCount = FMath::Max(UsedCubemapCount, ComponentStatePtr->CubemapIndex + 1);
 	}
 
 	// Clear elements in the remapping array which are outside the range of the used components (these were allocated but not used)
@@ -454,30 +505,7 @@ private:
 	FShaderParameter OcclusionCombineMode;
 };
 
-struct FReflectionCaptureSortData
-{
-	uint32 Guid;
-	int32 CaptureIndex;
-	FVector4 PositionAndRadius;
-	FVector4 CaptureProperties;
-	FMatrix BoxTransform;
-	FVector4 BoxScales;
-	FVector4 CaptureOffsetAndAverageBrightness;
-
-	bool operator < (const FReflectionCaptureSortData& Other) const
-	{
-		if( PositionAndRadius.W != Other.PositionAndRadius.W )
-		{
-			return PositionAndRadius.W < Other.PositionAndRadius.W;
-		}
-		else
-		{
-			return Guid < Other.Guid;
-		}
-	}
-};
-
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FReflectionCaptureShaderData,TEXT("ReflectionCapture"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FReflectionCaptureShaderData, "ReflectionCapture");
 
 /** Pixel shader that does tiled deferred culling of reflection captures, then sorts and composites them. */
 class FReflectionEnvironmentSkyLightingPS : public FGlobalShader
@@ -491,6 +519,7 @@ class FReflectionEnvironmentSkyLightingPS : public FGlobalShader
 	class FSkyLight					: SHADER_PERMUTATION_BOOL("ENABLE_SKY_LIGHT");
 	class FDynamicSkyLight			: SHADER_PERMUTATION_BOOL("ENABLE_DYNAMIC_SKY_LIGHT");
 	class FSkyShadowing				: SHADER_PERMUTATION_BOOL("APPLY_SKY_SHADOWING");
+	class FRayTracedReflections		: SHADER_PERMUTATION_BOOL("RAY_TRACED_REFLECTIONS");
 
 	using FPermutationDomain = TShaderPermutationDomain<
 		FHasBoxCaptures,
@@ -499,7 +528,8 @@ class FReflectionEnvironmentSkyLightingPS : public FGlobalShader
 		FSpecularBounce,
 		FSkyLight,
 		FDynamicSkyLight,
-		FSkyShadowing>;
+		FSkyShadowing,
+		FRayTracedReflections>;
 
 	static FPermutationDomain RemapPermutation(FPermutationDomain PermutationVector)
 	{
@@ -527,7 +557,7 @@ class FReflectionEnvironmentSkyLightingPS : public FGlobalShader
 		return PermutationVector;
 	}
 
-	static FPermutationDomain BuildPermutationVector(const FViewInfo& View, bool bBoxCapturesOnly, bool bSphereCapturesOnly, bool bSupportDFAOIndirectOcclusion, bool bSpecularBounce, bool bEnableSkyLight, bool bEnableDynamicSkyLight, bool bApplySkyShadowing)
+	static FPermutationDomain BuildPermutationVector(const FViewInfo& View, bool bBoxCapturesOnly, bool bSphereCapturesOnly, bool bSupportDFAOIndirectOcclusion, bool bSpecularBounce, bool bEnableSkyLight, bool bEnableDynamicSkyLight, bool bApplySkyShadowing, bool bRayTracedReflections)
 	{
 		FPermutationDomain PermutationVector;
 
@@ -538,6 +568,7 @@ class FReflectionEnvironmentSkyLightingPS : public FGlobalShader
 		PermutationVector.Set<FSkyLight>(bEnableSkyLight);
 		PermutationVector.Set<FDynamicSkyLight>(bEnableDynamicSkyLight);
 		PermutationVector.Set<FSkyShadowing>(bApplySkyShadowing);
+		PermutationVector.Set<FRayTracedReflections>(bRayTracedReflections);
 
 		return RemapPermutation(PermutationVector);
 	}
@@ -672,105 +703,10 @@ bool FDeferredShadingSceneRenderer::ShouldDoReflectionEnvironment() const
 		&& ViewFamily.EngineShowFlags.ReflectionEnvironment;
 }
 
-void GatherAndSortReflectionCaptures(const FViewInfo& View, const FScene* Scene, TArray<FReflectionCaptureSortData>& OutSortData, int32& OutNumBoxCaptures, int32& OutNumSphereCaptures, float& OutFurthestReflectionCaptureDistance)
-{	
-	OutSortData.Reset(Scene->ReflectionSceneData.RegisteredReflectionCaptures.Num());
-	OutNumBoxCaptures = 0;
-	OutNumSphereCaptures = 0;
-	OutFurthestReflectionCaptureDistance = 1000;
-
-	const int32 MaxCubemaps = Scene->ReflectionSceneData.CubemapArray.GetMaxCubemaps();
-
-	if (View.Family->EngineShowFlags.ReflectionEnvironment)
-	{
-		// Pack only visible reflection captures into the uniform buffer, each with an index to its cubemap array entry
-		//@todo - view frustum culling
-		for (int32 ReflectionProxyIndex = 0; ReflectionProxyIndex < Scene->ReflectionSceneData.RegisteredReflectionCaptures.Num() && OutSortData.Num() < GMaxNumReflectionCaptures; ReflectionProxyIndex++)
-		{
-			FReflectionCaptureProxy* CurrentCapture = Scene->ReflectionSceneData.RegisteredReflectionCaptures[ReflectionProxyIndex];
-
-			FReflectionCaptureSortData NewSortEntry;
-
-			NewSortEntry.CaptureIndex = -1;
-			NewSortEntry.CaptureOffsetAndAverageBrightness = FVector4(CurrentCapture->CaptureOffset, 1.0f);
-			if (Scene->GetFeatureLevel() >= ERHIFeatureLevel::SM5)
-			{
-				const FCaptureComponentSceneState* ComponentStatePtr = Scene->ReflectionSceneData.AllocatedReflectionCaptureState.Find(CurrentCapture->Component);
-
-				if (!ComponentStatePtr)
-				{
-					// Skip reflection captures without built data to upload
-					continue;
-				}
-
-				NewSortEntry.CaptureIndex = ComponentStatePtr->CaptureIndex;
-				check(NewSortEntry.CaptureIndex < MaxCubemaps || NewSortEntry.CaptureIndex == 0);
-				NewSortEntry.CaptureOffsetAndAverageBrightness.W = ComponentStatePtr->AverageBrightness;
-			}
-
-			NewSortEntry.Guid = CurrentCapture->Guid;
-			NewSortEntry.PositionAndRadius = FVector4(CurrentCapture->Position, CurrentCapture->InfluenceRadius);
-			float ShapeTypeValue = (float)CurrentCapture->Shape;
-			NewSortEntry.CaptureProperties = FVector4(CurrentCapture->Brightness, NewSortEntry.CaptureIndex, ShapeTypeValue, 0);
-
-			if (CurrentCapture->Shape == EReflectionCaptureShape::Plane)
-			{
-				//planes count as boxes in the compute shader.
-				++OutNumBoxCaptures;
-				NewSortEntry.BoxTransform = FMatrix(
-					FPlane(CurrentCapture->ReflectionPlane),
-					FPlane(CurrentCapture->ReflectionXAxisAndYScale),
-					FPlane(0, 0, 0, 0),
-					FPlane(0, 0, 0, 0));
-
-				NewSortEntry.BoxScales = FVector4(0);
-			}
-			else if (CurrentCapture->Shape == EReflectionCaptureShape::Sphere)
-			{
-				++OutNumSphereCaptures;
-			}
-			else
-			{
-				++OutNumBoxCaptures;
-				NewSortEntry.BoxTransform = CurrentCapture->BoxTransform;
-				NewSortEntry.BoxScales = FVector4(CurrentCapture->BoxScales, CurrentCapture->BoxTransitionDistance);
-			}
-
-			const FSphere BoundingSphere(CurrentCapture->Position, CurrentCapture->InfluenceRadius);
-			const float Distance = View.ViewMatrices.GetViewMatrix().TransformPosition(BoundingSphere.Center).Z + BoundingSphere.W;
-			OutFurthestReflectionCaptureDistance = FMath::Max(OutFurthestReflectionCaptureDistance, Distance);
-
-			OutSortData.Add(NewSortEntry);
-		}
-	}
-
-	OutSortData.Sort();	
-}
-
-void FDeferredShadingSceneRenderer::SetupReflectionCaptureBuffers(FViewInfo& View, FRHICommandListImmediate& RHICmdList)
-{
-	TArray<FReflectionCaptureSortData> SortData;
-	GatherAndSortReflectionCaptures(View, Scene, SortData, View.NumBoxReflectionCaptures, View.NumSphereReflectionCaptures, View.FurthestReflectionCaptureDistance);
-		
-	if (View.GetFeatureLevel() >= ERHIFeatureLevel::SM5)
-	{
-		FReflectionCaptureShaderData SamplePositionsBuffer;
-
-		for (int32 CaptureIndex = 0; CaptureIndex < SortData.Num(); CaptureIndex++)
-		{
-			SamplePositionsBuffer.PositionAndRadius[CaptureIndex] = SortData[CaptureIndex].PositionAndRadius;
-			SamplePositionsBuffer.CaptureProperties[CaptureIndex] = SortData[CaptureIndex].CaptureProperties;
-			SamplePositionsBuffer.CaptureOffsetAndAverageBrightness[CaptureIndex] = SortData[CaptureIndex].CaptureOffsetAndAverageBrightness;
-			SamplePositionsBuffer.BoxTransform[CaptureIndex] = SortData[CaptureIndex].BoxTransform;
-			SamplePositionsBuffer.BoxScales[CaptureIndex] = SortData[CaptureIndex].BoxScales;
-		}
-
-		View.ReflectionCaptureUniformBuffer = TUniformBufferRef<FReflectionCaptureShaderData>::CreateUniformBufferImmediate(SamplePositionsBuffer, UniformBuffer_SingleFrame);
-	}
-}
-
 void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO, TRefCountPtr<IPooledRenderTarget>& VelocityRT)
 {
+	check(RHICmdList.IsOutsideRenderPass());
+
 	if (ViewFamily.EngineShowFlags.VisualizeLightCulling || !ViewFamily.EngineShowFlags.Lighting)
 	{
 		return;
@@ -779,12 +715,18 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 	// If we're currently capturing a reflection capture, output SpecularColor * IndirectIrradiance for metals so they are not black in reflections,
 	// Since we don't have multiple bounce specular reflections
 	bool bReflectionCapture = false;
+	bool bAnyViewWithRaytracingReflections = false;
 	for (int32 ViewIndex = 0, Num = Views.Num(); ViewIndex < Num; ViewIndex++)
 	{
 		const FViewInfo& View = Views[ViewIndex];
 		bReflectionCapture = bReflectionCapture || View.bIsReflectionCapture;
+		//#dxr_todo: multiview case
+		bAnyViewWithRaytracingReflections = bAnyViewWithRaytracingReflections || (View.FinalPostProcessSettings.ReflectionsType == EReflectionsType::RayTracing);
 	}
 
+	const bool bRayTracedReflections = IsRayTracingEnabled() && (GRayTracingReflections < 0 ? bAnyViewWithRaytracingReflections : GRayTracingReflections);
+
+	// The specular sky light contribution is also needed by RT Reflections as a fallback.
 	const bool bSkyLight = Scene->SkyLight
 		&& Scene->SkyLight->ProcessedTexture
 		&& !Scene->SkyLight->bHasStaticLighting;
@@ -808,6 +750,8 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 		}
 	}
 
+	check(RHICmdList.IsOutsideRenderPass());
+
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
 	const bool bReflectionEnv = ShouldDoReflectionEnvironment();
@@ -816,17 +760,89 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 	{
 		FViewInfo& View = Views[ViewIndex];
 
-		const uint32 bSSR = ShouldRenderScreenSpaceReflections(Views[ViewIndex]);
+		const bool bScreenSpaceReflections = !bRayTracedReflections && ShouldRenderScreenSpaceReflections(Views[ViewIndex]);
 
-		TRefCountPtr<IPooledRenderTarget> SSROutput = GSystemTextures.BlackDummy;
-		if (bSSR)
+		TRefCountPtr<IPooledRenderTarget> ReflectionsColor = GSystemTextures.BlackDummy;
+		if (bRayTracedReflections)
 		{
-			RenderScreenSpaceReflections(RHICmdList, View, SSROutput, VelocityRT);
+#if RHI_RAYTRACING
+			SCOPED_DRAW_EVENT(RHICmdList, RayTracingReflections);
+			SCOPED_GPU_STAT(RHICmdList, RayTracingReflections);
+
+			FRDGBuilder GraphBuilder(RHICmdList); // TODO: convert the entire reflections to render graph.
+
+			FSceneViewFamilyBlackboard SceneBlackboard;
+			SetupSceneViewFamilyBlackboard(GraphBuilder, &SceneBlackboard);
+
+
+			IScreenSpaceDenoiser::FReflectionsRayTracingConfig RayTracingConfig;
+			RayTracingConfig.ResolutionFraction = FMath::Clamp(CVarReflectionScreenPercentage.GetValueOnRenderThread() / 100.0f, 0.25f, 1.0f);
+
+			int32 RayTracingReflectionsSPP = GRayTracingReflectionsSamplesPerPixel > -1 ? GRayTracingReflectionsSamplesPerPixel : View.FinalPostProcessSettings.RayTracingReflectionsSamplesPerPixel;
+			int32 DenoiserMode = CVarUseReflectionDenoiser.GetValueOnRenderThread();
+			const bool bDenoise = DenoiserMode != 0 && RayTracingReflectionsSPP == 1;
+
+			if (!bDenoise)
+			{
+				RayTracingConfig.ResolutionFraction = 1.0f;
+			}
+
+			// Ray trace the reflection.
+			IScreenSpaceDenoiser::FReflectionsInputs DenoiserInputs;
+			RenderRayTracingReflections(
+				GraphBuilder,
+				View, &DenoiserInputs.Color, &DenoiserInputs.RayHitDistance, &DenoiserInputs.RayImaginaryDepth,
+				RayTracingReflectionsSPP, GRayTracingReflectionsHeightFog, RayTracingConfig.ResolutionFraction);
+
+
+			// Denoise the reflections.
+			if (bDenoise)
+			{
+				const IScreenSpaceDenoiser* DefaultDenoiser = IScreenSpaceDenoiser::GetDefaultDenoiser();
+				const IScreenSpaceDenoiser* DenoiserToUse = DenoiserMode == 1 ? DefaultDenoiser : GScreenSpaceDenoiser;
+
+				// Standard event scope for denoiser to have all profiling information not matter what, and with explicit detection of third party.
+				RDG_EVENT_SCOPE(GraphBuilder, "%s%s(Reflections) %dx%d",
+					DenoiserToUse != DefaultDenoiser ? TEXT("ThirdParty ") : TEXT(""),
+					DenoiserToUse->GetDebugName(),
+					View.ViewRect.Width(), View.ViewRect.Height());
+
+				IScreenSpaceDenoiser::FReflectionsOutputs DenoiserOutputs = DenoiserToUse->DenoiseReflections(
+					GraphBuilder,
+					View,
+					&View.PrevViewInfo,
+					SceneBlackboard,
+					DenoiserInputs,
+					RayTracingConfig);
+
+				GraphBuilder.QueueTextureExtraction(DenoiserOutputs.Color, &ReflectionsColor);
+			}
+			else
+			{
+				// The performance of ray tracing does not allow to run without a denoiser in real time.
+				// Multiple rays per pixel is unsupported by the denoiser that will most likely more bound by to
+				// many rays than exporting the hit distance buffer. Therefore no permutation of the ray generation
+				// shader has been judged required to be supported.
+				GraphBuilder.RemoveUnusedTextureWarning(DenoiserInputs.RayHitDistance);
+
+				GraphBuilder.QueueTextureExtraction(DenoiserInputs.Color, &ReflectionsColor);
+			}
+
+			GraphBuilder.Execute();
+#endif
+		}
+		else if (bScreenSpaceReflections)
+		{
+			RenderScreenSpaceReflections(RHICmdList, View, ReflectionsColor, VelocityRT);
 		}
 
-		const bool bPlanarReflections = RenderDeferredPlanarReflections(RHICmdList, View, false, SSROutput);
+		bool bPlanarReflections = false;
+		if (!bRayTracedReflections)
+		{
+			bPlanarReflections = RenderDeferredPlanarReflections(RHICmdList, View, false, ReflectionsColor);
+		}
 
-		bool bRequiresApply = bSkyLight || bDynamicSkyLight || bReflectionEnv || bSSR || bPlanarReflections;
+		bool bRequiresApply = bSkyLight || bDynamicSkyLight || bReflectionEnv || bScreenSpaceReflections || bPlanarReflections || bRayTracedReflections;
 
 		if (bRequiresApply)
 		{
@@ -839,7 +855,7 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 
 			TShaderMapRef<FPostProcessVS> VertexShader(View.ShaderMap);
 
-			auto PermutationVector = FReflectionEnvironmentSkyLightingPS::BuildPermutationVector(View, bHasBoxCaptures, bHasSphereCaptures, DynamicBentNormalAO != NULL, bReflectionCapture, bSkyLight, bDynamicSkyLight, bApplySkyShadowing);
+			auto PermutationVector = FReflectionEnvironmentSkyLightingPS::BuildPermutationVector(View, bHasBoxCaptures, bHasSphereCaptures, DynamicBentNormalAO != NULL, bReflectionCapture, bSkyLight, bDynamicSkyLight, bApplySkyShadowing, bRayTracedReflections);
 
 			TShaderMapRef<FReflectionEnvironmentSkyLightingPS> PixelShader(View.ShaderMap, PermutationVector);
 
@@ -886,7 +902,7 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 
 			RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
 
-			PixelShader->SetParameters(RHICmdList, View, SSROutput->GetRenderTargetItem().ShaderResourceTexture, DynamicBentNormalAO);
+			PixelShader->SetParameters(RHICmdList, View, ReflectionsColor->GetRenderTargetItem().ShaderResourceTexture, DynamicBentNormalAO);
 
 			if (bReflectionCapture)
 			{
@@ -913,6 +929,8 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 					SceneContext.GetBufferSizeXY(),
 					*VertexShader);
 			}
+
+			SceneContext.FinishRenderingSceneColor(RHICmdList);
 
 			ResolveSceneColor(RHICmdList);
 		}

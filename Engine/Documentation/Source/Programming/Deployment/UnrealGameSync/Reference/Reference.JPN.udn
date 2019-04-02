@@ -1,0 +1,247 @@
+﻿INTSourceChangelist:4527375
+Availability: Public
+Crumbs: 
+Title: UGS リファレンス
+Description: UGS で使用されるメニュー、システムおよびオプションについて説明するリファレンスです。
+Type: 
+Version: 
+Parent: Programming/Deployment/UnrealGameSync
+Order: 2
+Tags: Unreal Game Sync
+
+
+本リファレンス ガイドでは、ソースからのコンパイルを不要とする制作スタッフがプリコンパイル済みのバイナリ機能を使用できるようにする方法を模索するデベロッパー向けに、エディタ バイナリを含む zip ファイルを Perforce に定期的にサブミットして、UGS でそのファイルを制作スタッフのワークスペースに展開するビルド システムの設定に関する有益な情報を紹介します。
+
+## UGS を配布する
+
+UGS をチームにデプロイする際は、次のフォルダにあるアプリケーションのソリューション ファイルを使用できます。
+
+`[UE4ROOT]\Engine\Source\Programs\UnrealGameSync`
+
+UGS の配布方法は実際の状況に応じて選ぶべきですが、以下の点に留意してください。
+
+*   インストーラーを構築する場合は Wix のバージョン 3.8 が必要です。
+*   Bootstrap Launcher をマシンにインストールする場合は UnrealGameSyncLauncher を使用します。Bootstrap Launcher をデベロッパーのマシンで実行すると、Perforce から自動的に UGS をアップデートして実行します。
+
+## デプロイメント ツール
+
+Unreal プロジェクトを内部でデプロイする際は、以下のツールを使用します。
+
+| **ツール** | **説明** |
+| --- | --- |
+| **UnrealGameSync (UGS)** | **Perforce** からの同期および構築を行うメインのツールです。|
+| **UnrealGameSyncLauncher** | **UGS** のランチャーで、プログラム実行可能ファイルを **Perforce** のパスから自動的にアップデートします。そのパスをマップした **clientspec** は必要ありません。|
+| **UnrealGameSyncMetadataServer** | [INCLUDE:#excerpt_0] |
+| **Installer** | [INCLUDE:#excerpt_1] |
+| **PostBadgeStatus** | UGS の読み取り先のデータベースに CIS の結果を書き込む小さなユーティリティです。|
+
+[COMMENT:none]
+[EXCERPT:excerpt_1]
+
+ **UnrealGameSyncLauncher** の MSI インストーラーです。通常は Bootstrap Launcher をデベロッパーのマシンにインストールする際に使用されます。インストール後は **Perforce** から自動的にプログラムをアップデートして実行します。
+
+[REGION:note]
+構築には Wix 3.8 が必要です。
+[/REGION]
+
+[/EXCERPT:excerpt_1]
+
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_0]
+
+ **UGS** と共にデプロイされる REST API で、ビルドでのコメント付け、ビルドの状態に対する投票、不適切なビルドに対するマーキング、PostBadgeStatus によってサブミットされる CIS の結果の表示など、その完全な一連の機能を有効にします。  
+
+メタデータ サーバーは、IIS 7.0 以降および .NET 4.0 がインストールされた Windows Server マシンにデプロイする必要があります。 
+
+[/EXCERPT:excerpt_0]
+
+[/COMMENT]
+
+## サイト特有のコンフィギュレーション
+
+いくつかのデプロイメント ツールでは、 **Perforce** のパスおよびデータベース サーバー接続設定についてサイト特有のコンフィギュレーションが必要になります。それらのデフォルト値は空白になっており、各ツールの「 `Program.cs` 」ファイルの冒頭で定義されます。 
+
+具体的には次の通りです。
+
+**UnrealGameSync：**
+
+`string` ApiUrl (UGSAPI がデプロイされるベース URI を指定する文字列)
+
+**UnrealGameSyncLauncher：**
+
+`string StableSyncPath` (UnrealGameSync 実行可能ファイルの自動アップデート元へのパスです。)
+
+`string UnstableSyncPath` (プレリリース版 UnrealGameSync 実行可能ファイルのアップデート元へのパスです。プレリリース版の実行可能ファイルを使用するには、UnrealGameSyncLauncher の実行中に SHIFT キーを押したままにします。) 
+
+Epic による設定は各ツールの「 `NotForLicensees/ProgramSettings.cs` 」ファイルに含まれており、プロジェクト ファイルが存在する場合はそれに含まれていますが、Epic では配布していません。それぞれのツール内で、このファイルは C# の「部分クラス」機能を使用して、これらの設定を初期化する、Program クラスのスタティック コンストラクターを実装します。
+
+  
+ライセンシーは、次のようにこれらのファイルの独自のバージョンを追加することができます。
+
+
+	using System;
+	using System.Data.SqlClient;
+	namespace UnrealGameSync
+	{
+	  static partial class Program
+	  {
+		static Program()
+		{
+		  ApiUrl = "http://ugsapi-server.net";
+		}
+	  }
+	}
+
+
+## zip されたエディタ ビルド
+
+ローカルでコンパイルする代わりに、ユーザーによる zip されたエディタ ビルドのダウンロードを許可するには、プロジェクトに「 `Build\UnrealGameSync.ini` 」ファイルを追加します。このファイルは、それぞれのブランチに対する zip されたバイナリが維持されている **Perforce** 内の場所を参照します。 
+
+例：
+
+`[//UE4/Main/Samples/Games/ShooterGame/ShooterGame.uproject]`  
+`ZippedBinariesPath=//UE4/Dev-Binaries/++UE4+Main-Editor.zip`  
+
+この機能ではデータベースを使用する必要はありませんが、サブミットされた各 zip ファイルについて、対応するチェンジリストをチェンジリストの説明 (「\[CL 12345678\]」タグで開始) から読み取ります。 
+
+[REGION:note]
+zip されたエディタ バイナリに対してはローカル ビルドに対するものと同様の制限事項が適用されるため、チェンジリストに一致するバイナリが存在しない限り、コンテンツ チェンジリストであっても、コード変更後は UGS によってチェンジリストの同期は認められません。コンテンツのみの変更については、「*.cpp`, `*.h`, `*.cs`, `*.usf`, `*.ush」ファイルが変更されていない限り、以前にサブミット済みのバイナリを使用して同期することができます。
+[/REGION]
+
+各ユーザーが自由に使用できるよう、ビルド マシンでエディタ バイナリを正しい形式で作成してサブミットする方法を紹介する [BuildGraph](Programming/Development/BuildGraph) スクリプトの例を次の場所で提供しています。
+
+`Engine/Build/Graph/Examples/BuildEditorAndTools.xml`
+
+通常、これを実行するコマンドラインは次のようになります。
+
+
+	Engine\Build\BatchFiles\RunUAT.bat
+	  BuildGraph
+	  -Script=Engine/Build/Graph/Examples/BuildEditorAndTools.xml
+	  -Target="Submit To Perforce for UGS"
+	  -set:EditorTarget=ShooterGameEditor
+	  -set:ArchiveStream=//UE4/Dev-Binaries
+	  -p4
+	  -submit
+
+
+このスクリプトにより zip ファイルが「 //UE4/Dev-Binaries/++UE4+Main-Editor.zip」にサブミットされます。ここで「++UE4+Main」は現在のブランチ名を表しています (スラッシュ「/」のエスケープ文字として「+」記号が使用されます)。同じパスを「UnrealGameSync.ini」内の ZippedBinariesPath の値として設定してください。
+
+このファイルの冒頭には、「BuildEditorAndTools.xml」の使用に関する追加情報がコメントとして記載されています。
+
+## プロジェクト コンフィギュレーション ファイル
+
+プロジェクト特有の config ファイルを使用することで、プロジェクトをユーザーに提示する方法をカスタマイズできます。プロジェクト config ファイルは「 `<ProjectDir>/Build/<wbr>UnrealGameSync.ini` 」として Perforce にサブミットする必要があります。以下の設定を使用できます。
+
+*   UGS では、プロジェクトのソース コードに対する変更が原因の構築の失敗に関する通知のみがデフォルトで表示されます。コンテンツに対する変更も構築の失敗の原因となり得るプロジェクトについては、次も追加してください。
+    
+
+		[Notifications]
+		+ContentBadges=Content
+
+    
+*   クリック可能なボタンを CL の説明カラムに追加して、クリックされた場合に CL の説明で正規表現を実行することで URL に移動するよう設定します。例えば、次の使用例では、「#jira」タグを含む各 CL の横に、バッジと JIRA 内の当該問題へのリンクを追加します。
+		
+			[Badges]
+			+DescriptionBadges=(Pattern="(?i)#\\s*jira\\s*:?\\s+([A-Za-z]+-[0-9]+)", Name="$1", Group="Jira", Color="#c0c0c0", HoverColor="#e0e0e0", Url="https://jira.it.yourcompany.net/browse/$1")
+	
+	この例では以下の属性が使用されています。
+    
+    | 属性 | 説明 |
+    | --- | --- |
+    | **Pattern** | 一致させる正規表現を指定します。一致するテキストを部分的にキャプチャすることもでき、この場合は後に置き換えることが可能です。|
+    | **Label** |	バッジに表記されるラベルを指定します。|
+    | **Group** |	任意の識別子を指定し、関連するバッジをホワイトスペースで分離するのではなくグループ化します。|
+    | **Color** | バッジに対する十六進の RGB 値を指定します。|
+    | **HoverColor** |	マウスオーバー時のバッジに対する十六進の RGB 値を指定します。|
+    | **Url** | バッジがクリックされた際に、C# Process.Open 呼び出しで開くパスを指定します。|
+    
+*   特定のブランチに対応するステータス パネル カラーで「今日の一言」メッセージを追加します。
+    
+		[//UE4/Main/Samples/Games/ShooterGame/ShooterGame.uproject]
+		Message=:警告：**金曜日の午後5時** より修正のためのロックダウンが開始されます。このブランチには 1.2.3 リリースに対する修正のみをサブミットしてください。1月23日現在で 123 件の問題が残っています。
+		StatusPanelColor=#e20000
+
+	`StatusPanelColor` オプションを使用することで、ストリームの識別が容易になります。さらに、 `Message` オプションを使用する際は、以下を含む、Markdown の限定されたサブセットのみがサポートされます。 
+    
+    *   \[web links\](http://www.google.com)
+    *   \*italic\*
+    *   \_italic\_
+    *   \*\*bold\*\*
+    *   \_\_bold\_\_
+    
+    最後に、  `:icon:` シンタックスにより複数のアイコンがサポートされますが、現在使用可能なのは , `:alert:` アイコンのみです。
+
+*   CIS の表示カラムをカスタマイズします。
+    
+
+		[Default]
+		ColumnWidth_CIS=580
+		+BadgeGroups=Editor
+		+BadgeGroups=And, Lin, PS4, XB1, Win, IOS, Mac, Swi
+		+BadgeGroups=Content
+
+## ビルド システムの統合
+
+UGS では、サブミットされたチェンジリストのリストに表示される **バッジ** を通じて、ビルド システムの結果 (およびビルドが「処理中」であることを示す通知) を表示できます。ビルドが破損している場合は、変更をサブミットしたデベロッパーに通知するトースト ポップアップも表示されます。**バッジ** をクリックするとウェブ ブラウザが起動して、 **ビルド ログ** が出力された URL に移動します。この情報はデータベース内に保存されており、エントリは **PostBadgeStatus** ユーティリティを使用して入力されます。
+  
+**PostBadgeStatus** のコマンドライン シンタックスは次の通りです。
+
+	PostBadgeStatus.exe
+		//(UGS で表示されるバッジ名です。)
+	  -Name=Editor
+		//(コンパイルされているチェンジリストです。)
+	  -Change=123456
+		//(バッジを表示する対象のプロジェクトです。これはフォルダへのパスであり、実際の .uproject ファイルへのものではないことに注意してください。)
+	  -Project=//UE4/Main/Samples/StarterContent
+		//(UGSAPI がデプロイされるベース URI)
+	  -RestUrl="http://ugsapi-server.net"
+		//(ビルドのステータスで、有効な値は「Starting (開始中)」、「Failure (失敗)」、「Warning (警告)」および「Success (成功)」です。)
+	  -Status=Success
+		//(ユーザーがバッジをクリックした際に、ユーザーをビルド ログに移動するリンクです。)
+	  -Url=http://link-to-build-log
+
+
+## メタデータ サーバーの設定
+
+UGS はメタデータ サーバーと通信して、ユーザーのフィードバック、コンパイルの結果、テレメトリーおよび **PostBadgeStatus** ユーティリティを使用して入力された外部の **CIS** の結果を保存します。メタデータ サーバーを設定しなくても UGS を実行することはできますが、より強力な機能の一部は利用できません。
+
+メタデータ サーバーを適切にデプロイするには、以下の環境設定が必要です。
+
+1. ASP.NET Web Publishing ツールがインストールされていることを確認します。このパッケージは Visual Studio のインストールに含まれています。このパッケージをインストールしていない場合は、「TransformXml のタスクが見つかりません」エラーが発生してプロジェクトの構築に失敗します。
+2. プロジェクトは、従来の web.config ファイルではなく、動的に web.config を出力するために .debug および .release XML ファイルに対して変換される web.template.config.xml と共にシッピングされます。ソース制御には、web.config ではなく web.template.config をチェックインしてください。
+3. .debug および .release XML ファイルでは、「Connection String (接続文字列)」プロパティを介して、SQLite データベースを置く場所へのパスを指定できます。次のように、この文字列は SQLite の標準的な接続文字列に似ています。
+    
+    ~~~
+    <add key="ConnectionString" value="Data Source=C:\inetpub\wwwroot\UGSAPI\database.sqlite;Version=3;" xdt:Transform="Replace" xdt:Locator="Match(key)"/>
+    ~~~
+    
+4. データベースは、接続文字列で指定されたディレクトリで API が初めてヒットされた際に自動的に作成されます。IIS のアクセス許可を得るために、IIS サーバー上で .NETv4.0 CLR を使用するアプリケーション プールを必ず作成してください。UGSAPI でこれを使用できるようにして、データベースが存在するディレクトリのルートに対する完全なアクセス許可を与えます。
+
+[REGION:note]
+データベースを確実かつ適切に初期化するために、データベースを作成できない場合や見つからない場合にサイトは自己のインスタンスを終了します。サイトをデプロイして GET で /api/cis 404 エラーが返される場合は、これが原因であると考えられます。データベースを確実に作成できるよう、ディレクトリのアクセス許可を確認してください。
+[/REGION]
+
+## ブランディング
+
+プロジェクトを含むディレクトリに「 `Build\UnrealGameSync.png` 」ファイルを置くことで、UGS で表示されるプロジェクト ロゴを追加できます。画像は 126 ピクセルの高さに調整されます。 
+
+[REGION:tip]
+ピクセルのサイズは 200x126 を推奨します。
+
+![](BrandPxDim.png "BrandPxDim.png")
+
+*この参照用の画像はご自由にダウンロードしていただけます。*
+[/REGION]
+
+## チームにデプロイする
+
+UGS でのさまざまなブランチおよびゲーム プロジェクトの開発を外部で行えるようにするために、当社では配布に [Perforce](https://www.perforce.com/) を利用する自己パッチング メカニズムを介して、UGS を内部のデベロッパーに配布します。
+
+ほとんどアップデートされることのないランチャー アプリケーションについては、MSI (「インストーラー」プロジェクト」) を介してデベロッパーの各マシンに手動でインストールされます ( **UnrealGameSyncLauncher** )。これをインストールするとスタートメニューのアイコンが作成され、実行することで、**Perforce** 内のパスから最新の UGS 実行可能ファイルが同期されて実行されます。このパスは監視されており、新しい実行可能ファイルがサブミットされるとプログラムがこれらを再び起動して同期します。
+
+[REGION:tip]
+場合によっては、UGS の実行可能ファイルを **Perforce** (またはその他の方法) で直接配布するほうが便利なこともあります。
+[/REGION]

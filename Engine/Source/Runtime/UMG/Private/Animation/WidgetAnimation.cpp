@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Animation/WidgetAnimation.h"
 #include "UObject/Package.h"
@@ -77,10 +77,57 @@ float UWidgetAnimation::GetStartTime() const
 	return MovieScene->GetPlaybackRange().GetLowerBoundValue() / MovieScene->GetTickResolution();
 }
 
-
 float UWidgetAnimation::GetEndTime() const
 {
 	return MovieScene->GetPlaybackRange().GetUpperBoundValue() / MovieScene->GetTickResolution();
+}
+
+void UWidgetAnimation::BindToAnimationStarted(UUserWidget* Widget, FWidgetAnimationDynamicEvent Delegate)
+{
+	if (ensure(Widget))
+	{
+		Widget->BindToAnimationStarted(this, Delegate);
+	}
+}
+
+void UWidgetAnimation::UnbindFromAnimationStarted(UUserWidget* Widget, FWidgetAnimationDynamicEvent Delegate)
+{
+	if (ensure(Widget))
+	{
+		Widget->UnbindFromAnimationStarted(this, Delegate);
+	}
+}
+
+void UWidgetAnimation::UnbindAllFromAnimationStarted(UUserWidget* Widget)
+{
+	if (ensure(Widget))
+	{
+		Widget->UnbindAllFromAnimationStarted(this);
+	}
+}
+
+void UWidgetAnimation::BindToAnimationFinished(UUserWidget* Widget, FWidgetAnimationDynamicEvent Delegate)
+{
+	if (ensure(Widget))
+	{
+		Widget->BindToAnimationFinished(this, Delegate);
+	}
+}
+
+void UWidgetAnimation::UnbindFromAnimationFinished(UUserWidget* Widget, FWidgetAnimationDynamicEvent Delegate)
+{
+	if (ensure(Widget))
+	{
+		Widget->UnbindFromAnimationFinished(this, Delegate);
+	}
+}
+
+void UWidgetAnimation::UnbindAllFromAnimationFinished(UUserWidget* Widget)
+{
+	if (ensure(Widget))
+	{
+		Widget->UnbindAllFromAnimationFinished(this);
+	}
 }
 
 

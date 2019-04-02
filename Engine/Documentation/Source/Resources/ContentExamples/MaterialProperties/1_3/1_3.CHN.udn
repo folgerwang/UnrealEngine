@@ -1,7 +1,9 @@
-﻿Availability: Public
-Title:1.3 - 半透明光照模式
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:1.3 - 半透明光源模式
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Materials
-Description:材质实例示例关卡概述，示例1.3： 半透明光照模式
+Description:概述材质实例示例关卡，示例1.3：半透明光源模式
+Description:概述材质实例示例关卡，示例1.2：着色模型
 Related: Engine/Rendering/LightingAndShadows/LitTranslucency
 Related: Engine/Rendering/Materials/PhysicallyBased
 Related: Engine/Rendering/Materials
@@ -12,57 +14,18 @@ Related: Engine/Rendering/Materials/MaterialInputs
 Related: Engine/Rendering/Materials/LayeredMaterials
 Related: Engine/Rendering/Materials/MaterialInstances
 Related: Engine/Actors/DecalActor
+Version: 4.9
 
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/MaterialProperties/1_3:title%](Resources/ContentExamples/MaterialProperties/rendering_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/MaterialProperties/1_3:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/MaterialProperties/1_3:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/MaterialProperties/1_3]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/MaterialProperties/1_3:title%](Resources/ContentExamples/MaterialProperties/rendering_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/MaterialProperties/1_3:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/MaterialProperties/1_3:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/MaterialProperties/1_3]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [REGION:fullwidth]
 ![](MP_1_3_001.png)
 [/REGION]
 
-如果将 **Translucent Material** （半透明材质）设置为 **Default Lit** （默认带光照），将会有3个其它选项可用来调整着色器如何获得光照。
+如果 **半透明材质（Translucent Material）** 设置为 **默认光照（Default Lit）**，还有3个选项可用于调整着色器的光照方式。
 
-| 半透明光照模式 | 描述 |
+| 半透明照明模式| 说明 |
 | ---- | ----- |
-| **Volumetric Non Directional** （体积非定向）| 这个网格物体按其被用来创建诸如烟雾的体积效果来进行光照处理。仅显示散射光照并且不使用法线。 这是光照半透明使用系统性能最少的形式。|
-| **Volumetric Directional** （体积定向）| 这个网格物体按其被用来创建诸如烟雾的体积效果来进行光照处理，但具有会影响光照的法线。仅显示散射光照。|
-| **Surface** （表面）| 该模式下带光照并接受反射，但反射受限并且看起来不如 **Opaque** （不透明）材质。它会直接选取最近的 **Reflection Capture（反射捕获）Actor** 并将其应用到整个目标。|
+| **体积非定向（Volumetric Non Directional）**| 网格体被照明，就像它被用来创造一个体积效果（例如烟雾）。将仅显示漫射照明，且不使用法线。这是最便宜的光照半透明形式。|
+| **体积定向（Volumetric Directional）**| 网格体被照明，就像它被用来创造一个体积效果（例如烟雾），但使用的法线会影响照明。将仅显示漫射照明。|
+| **表面（Surface）**| 它被照明并收到反射光，但反射光是有限的，并且效果不如不透明材料好。它只是选择最近的反射捕获Actor并将其应用于整个对象。|
 

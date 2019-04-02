@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -949,9 +949,6 @@ protected:
 	/** On starting to rename node */
 	void OnRenameNode();
 	bool CanRenameNodes() const;
-
-	/* Renames a GraphNode */
-	void RenameGraph(class UEdGraphNode* GraphNode, const FString& NewName);
 
 	/** Called when a node's title is being committed for a rename so it can be verified */
 	bool OnNodeVerifyTitleCommit(const FText& NewText, UEdGraphNode* NodeBeingChanged, FText& OutErrorMessage);

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Perception/AIPerceptionSystem.h"
 #include "EngineGlobals.h"
@@ -9,6 +9,7 @@
 #include "Perception/AISenseConfig.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "VisualLogger/VisualLogger.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 #include "Perception/AISenseEvent.h"
 
 DECLARE_CYCLE_STAT(TEXT("Perception System"),STAT_AI_PerceptionSys,STATGROUP_AI);
@@ -88,11 +89,6 @@ FAISenseID UAIPerceptionSystem::RegisterSenseClass(TSubclassOf<UAISense> SenseCl
 	return SenseID;
 }
 
-UWorld* UAIPerceptionSystem::GetWorld() const
-{
-	return Cast<UWorld>(GetOuter());
-}
-
 TStatId UAIPerceptionSystem::GetStatId() const
 {
 	RETURN_QUICK_DECLARE_CYCLE_STAT(UAIPerceptionSystem, STATGROUP_Tickables);
@@ -130,25 +126,23 @@ void UAIPerceptionSystem::PerformSourceRegistration()
 
 void UAIPerceptionSystem::OnNewListener(const FPerceptionListener& NewListener)
 {
-	UAISense** SenseInstance = Senses.GetData();
-	for (int32 SenseID = 0; SenseID < Senses.Num(); ++SenseID, ++SenseInstance)
+	for (UAISense* const SenseInstance : Senses)
 	{
 		// @todo filter out the ones that do not declare using this sense
-		if (*SenseInstance != nullptr && NewListener.HasSense((*SenseInstance)->GetSenseID()))
+		if (SenseInstance != nullptr && NewListener.HasSense(SenseInstance->GetSenseID()))
 		{
-			(*SenseInstance)->OnNewListener(NewListener);
+			SenseInstance->OnNewListener(NewListener);
 		}
 	}
 }
 
 void UAIPerceptionSystem::OnListenerUpdate(const FPerceptionListener& UpdatedListener)
 {
-	UAISense** SenseInstance = Senses.GetData();
-	for (int32 SenseID = 0; SenseID < Senses.Num(); ++SenseID, ++SenseInstance)
+	for (UAISense* const SenseInstance : Senses)
 	{
-		if (*SenseInstance != nullptr)
+		if (SenseInstance != nullptr)
 		{
-			(*SenseInstance)->OnListenerUpdate(UpdatedListener);
+			SenseInstance->OnListenerUpdate(UpdatedListener);
 		}
 	}
 }
@@ -157,6 +151,8 @@ void UAIPerceptionSystem::Tick(float DeltaSeconds)
 {
 	SCOPE_CYCLE_COUNTER(STAT_AI_PerceptionSys);
 	SCOPE_CYCLE_COUNTER(STAT_AI_Overall);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(AIPerception);
+
 
 	// if no new stimuli
 	// and it's not time to remove stimuli from "know events"
@@ -204,12 +200,9 @@ void UAIPerceptionSystem::Tick(float DeltaSeconds)
 			PerformSourceRegistration();
 		}
 
+		for (UAISense* const SenseInstance : Senses)
 		{
-			UAISense** SenseInstance = Senses.GetData();
-			for (int32 SenseID = 0; SenseID < Senses.Num(); ++SenseID, ++SenseInstance)
-			{
-				bNeedsUpdate |= *SenseInstance != nullptr && (*SenseInstance)->ProgressTime(DeltaSeconds);
-			}
+			bNeedsUpdate |= SenseInstance != nullptr && SenseInstance->ProgressTime(DeltaSeconds);
 		}
 
 		if (bNeedsUpdate)
@@ -228,28 +221,28 @@ void UAIPerceptionSystem::Tick(float DeltaSeconds)
 				}
 			}
 
-			UAISense** SenseInstance = Senses.GetData();
-			for (int32 SenseID = 0; SenseID < Senses.Num(); ++SenseID, ++SenseInstance)
+			for (UAISense* const SenseInstance : Senses)
 			{
-				if (*SenseInstance != nullptr)
+				if (SenseInstance != nullptr)
 				{
-					(*SenseInstance)->Tick();
+					SenseInstance->Tick();
 				}
 			}
 		}
 
-		/** no point in soring in no new stimuli was processed */
+		/** no point in sorting if no new stimuli was processed */
 		bool bStimuliDelivered = DeliverDelayedStimuli(bNeedsUpdate ? RequiresSorting : NoNeedToSort);
 
 		if (bNeedsUpdate || bStimuliDelivered || bSomeListenersNeedUpdateDueToStimuliAging)
 		{
 			for (AIPerception::FListenerMap::TIterator ListenerIt(ListenerContainer); ListenerIt; ++ListenerIt)
 			{
-				check(ListenerIt->Value.Listener.IsValid())
-					if (ListenerIt->Value.HasAnyNewStimuli())
-					{
-						ListenerIt->Value.ProcessStimuli();
-					}
+				check(ListenerIt->Value.Listener.IsValid());
+
+				if (ListenerIt->Value.HasAnyNewStimuli())
+				{
+					ListenerIt->Value.ProcessStimuli();
+				}
 			}
 
 			bSomeListenersNeedUpdateDueToStimuliAging = false;
@@ -374,11 +367,11 @@ void UAIPerceptionSystem::UnregisterSource(AActor& SourceActor, const TSubclassO
 		}
 		else // unregister from all senses
 		{
-			for (int32 SenseID = 0; SenseID < Senses.Num(); ++SenseID)
+			for (UAISense* const SenseInstance : Senses)
 			{
-				if (Senses[SenseID] != nullptr && StimuliSource->RelevantSenses.ShouldRespondToChannel(Senses[SenseID]->GetSenseID()))
+				if (SenseInstance != nullptr && StimuliSource->RelevantSenses.ShouldRespondToChannel(SenseInstance->GetSenseID()))
 				{
-					Senses[SenseID]->UnregisterSource(SourceActor);
+					SenseInstance->UnregisterSource(SourceActor);
 				}
 			}
 			StimuliSource->RelevantSenses.Clear();
@@ -398,12 +391,11 @@ void UAIPerceptionSystem::UnregisterSource(AActor& SourceActor, const TSubclassO
 
 void UAIPerceptionSystem::OnListenerRemoved(const FPerceptionListener& NewListener)
 {
-	UAISense** SenseInstance = Senses.GetData();
-	for (int32 SenseID = 0; SenseID < Senses.Num(); ++SenseID, ++SenseInstance)
+	for (UAISense* const SenseInstance : Senses)
 	{
-		if (*SenseInstance != nullptr && NewListener.HasSense((*SenseInstance)->GetSenseID()))
+		if (SenseInstance != nullptr && NewListener.HasSense(SenseInstance->GetSenseID()))
 		{
-			(*SenseInstance)->OnListenerRemoved(NewListener);
+			SenseInstance->OnListenerRemoved(NewListener);
 		}
 	}
 }

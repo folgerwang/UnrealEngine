@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "FlurryEditor.h"
 
@@ -6,7 +6,7 @@
 #include "FlurrySettings.h"
 #include "Analytics.h"
 
-IMPLEMENT_MODULE( FFlurryEditorModule, FlurryEditorModule );
+IMPLEMENT_MODULE( FFlurryEditorModule, FlurryEditor );
 
 #define LOCTEXT_NAMESPACE "Flurry"
 

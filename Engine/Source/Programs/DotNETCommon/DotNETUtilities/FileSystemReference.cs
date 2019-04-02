@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -312,6 +312,11 @@ namespace Tools.DotNETCommon
 				Result.Append(FullName, CommonDirectoryLength + 1, FullName.Length - CommonDirectoryLength - 1);
 			}
 			return Result.ToString();
+		}
+
+		public string ToNormalizedPath()
+		{
+			return FullName.Replace("\\", "/");
 		}
 
 		/// <summary>

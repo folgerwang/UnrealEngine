@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -10,9 +10,10 @@ public class Renderer : ModuleRules
 			new string[] {
 				"Runtime/Renderer/Private",
 				"Runtime/Renderer/Private/CompositionLighting",
-				"Runtime/Renderer/Private/PostProcess"
-            }
-		);
+				"Runtime/Renderer/Private/PostProcess",
+				"../Shaders/Shared"
+				}
+			);
 
 		PublicDependencyModuleNames.Add("Core");
         PublicDependencyModuleNames.Add("Engine");
@@ -37,7 +38,6 @@ public class Renderer : ModuleRules
 				"RenderCore", 
 				"ImageWriteQueue",
 				"RHI", 
-				"ShaderCore",
 				"UtilityShaders"
             }
             );

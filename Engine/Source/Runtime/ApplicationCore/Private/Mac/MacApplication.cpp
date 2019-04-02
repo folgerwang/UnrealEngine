@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Mac/MacApplication.h"
 #include "Mac/MacWindow.h"
@@ -104,7 +104,7 @@ FMacApplication::FMacApplication()
 		
 		CacheKeyboardInputSource();
 
-		WindowUnderCursor = FindSlateWindowUnderCursor();
+		WindowUnderCursor = [FindSlateWindowUnderCursor() retain];
 	}, NSDefaultRunLoopMode, true);
 
 #if WITH_EDITOR
@@ -170,6 +170,8 @@ FMacApplication::~FMacApplication()
 			[KeyBoardLayoutData release];
 			KeyBoardLayoutData = nil;
 		}
+		
+		[WindowUnderCursor release];
 	}, NSDefaultRunLoopMode, true);
 
 	if (TextInputMethodSystem.IsValid())
@@ -257,7 +259,11 @@ void FMacApplication::InitializeWindow(const TSharedRef<FGenericWindow>& InWindo
 	const TSharedRef<FMacWindow> Window = StaticCastSharedRef<FMacWindow >(InWindow);
 	const TSharedPtr<FMacWindow> ParentWindow = StaticCastSharedPtr<FMacWindow>(InParent);
 
-	Windows.Add(Window);
+	{
+		FScopeLock Lock(&WindowsMutex);
+		Windows.Add(Window);
+	}
+
 	Window->Initialize(this, InDefinition, ParentWindow, bShowImmediately);
 }
 
@@ -351,14 +357,23 @@ void FMacApplication::EndScopedModalEvent()
 
 void FMacApplication::CloseWindow(TSharedRef<FMacWindow> Window)
 {
-	MessageHandler->OnWindowClose(Window);
+	FScopeLock Lock(&WindowsToCloseMutex);
+	if (!SlateWindowsToClose.Contains(Window))
+	{
+		SlateWindowsToClose.Add(Window);
+	}
 }
 
 void FMacApplication::DeferEvent(NSObject* Object)
 {
 	FDeferredMacEvent DeferredEvent;
 
-	WindowUnderCursor = FindSlateWindowUnderCursor();
+	FCocoaWindow* CursorWindow = FindSlateWindowUnderCursor();
+	if (WindowUnderCursor != CursorWindow)
+	{
+		[WindowUnderCursor release];
+		WindowUnderCursor = [CursorWindow retain];
+	}
 
 	if (Object && [Object isKindOfClass:[NSEvent class]])
 	{
@@ -542,7 +557,7 @@ NSEvent* FMacApplication::HandleNSEvent(NSEvent* Event)
 				case NSEventTypeKeyUp:
 					bShouldStopEventDispatch = true;
 					break;
-					
+
 				case NSEventTypeLeftMouseDown:
 				case NSEventTypeRightMouseDown:
 				case NSEventTypeOtherMouseDown:
@@ -553,7 +568,7 @@ NSEvent* FMacApplication::HandleNSEvent(NSEvent* Event)
 					bShouldStopEventDispatch = ((FMacCursor*)MacApplication->Cursor.Get())->IsLocked();
 					break;
 			}
-			
+
 			if (bShouldStopEventDispatch)
 			{
 				ReturnEvent = nil;
@@ -577,6 +592,7 @@ void FMacApplication::OnDisplayReconfiguration(CGDirectDisplayID Display, CGDisp
 		App->BroadcastDisplayMetricsChanged(DisplayMetrics);
 	}
 
+	FScopeLock Lock(&App->WindowsMutex);
 	for (int32 WindowIndex=0; WindowIndex < App->Windows.Num(); ++WindowIndex)
 	{
 		TSharedRef<FMacWindow> WindowRef = App->Windows[WindowIndex];
@@ -1098,7 +1114,7 @@ void FMacApplication::OnWindowDidResize(TSharedRef<FMacWindow> Window, bool bRes
 	uint32 Width = [Window->GetWindowHandle() openGLFrame].size.width * Window->GetDPIScaleFactor();
 	uint32 Height = [Window->GetWindowHandle() openGLFrame].size.height * Window->GetDPIScaleFactor();
 
-	if ([Window->GetWindowHandle() windowMode] == EWindowMode::WindowedFullscreen)
+	if (Window->GetWindowHandle().TargetWindowMode == EWindowMode::WindowedFullscreen)
 	{
 		// Grab current monitor data for sizing
 		Width = FMath::TruncToInt([[Window->GetWindowHandle() screen] frame].size.width * Window->GetDPIScaleFactor());
@@ -1139,11 +1155,14 @@ bool FMacApplication::OnWindowDestroyed(TSharedRef<FMacWindow> DestroyedWindow)
 		OnWindowActivationChanged(DestroyedWindow, EWindowActivation::Deactivate);
 	}
 
-	Windows.Remove(DestroyedWindow);
-
-	if (!WindowsToClose.Contains(WindowHandle))
 	{
-		WindowsToClose.Add(WindowHandle);
+		FScopeLock Lock(&WindowsMutex);
+		Windows.Remove(DestroyedWindow);
+	}
+
+	if (!CocoaWindowsToClose.Contains(WindowHandle))
+	{
+		CocoaWindowsToClose.Add(WindowHandle);
 	}
 
 	TSharedPtr<FMacWindow> WindowToActivate;
@@ -1157,7 +1176,7 @@ bool FMacApplication::OnWindowDestroyed(TSharedRef<FMacWindow> DestroyedWindow)
 		for (int32 Index = 0; Index < Windows.Num(); ++Index)
 		{
 			TSharedRef<FMacWindow> WindowRef = Windows[Index];
-			if (!WindowsToClose.Contains(WindowRef->GetWindowHandle()) && [WindowRef->GetWindowHandle() canBecomeMainWindow] && WindowRef->GetDefinition().Type != EWindowType::Notification)
+			if (!CocoaWindowsToClose.Contains(WindowRef->GetWindowHandle()) && [WindowRef->GetWindowHandle() canBecomeMainWindow] && WindowRef->GetDefinition().Type != EWindowType::Notification)
 			{
 				WindowToActivate = WindowRef;
 				break;
@@ -1580,27 +1599,13 @@ void FMacApplication::UpdateScreensArray()
 		WholeWorkspace = NSUnionRect(WholeWorkspace, CurScreen->Frame);
 	}
 
-	for (TSharedRef<FMacScreen> CurScreen : AllScreens)
-	{
-		CurScreen->Frame.origin.y = WholeWorkspace.origin.y + WholeWorkspace.size.height - CurScreen->Frame.size.height - CurScreen->Frame.origin.y;
-		CurScreen->VisibleFrame.origin.y = WholeWorkspace.origin.y + WholeWorkspace.size.height - CurScreen->VisibleFrame.size.height - CurScreen->VisibleFrame.origin.y;
-	}
-
 	const bool bUseHighDPIMode = FPlatformApplicationMisc::IsHighDPIModeEnabled();
 
 	TArray<TSharedRef<FMacScreen>> SortedScreens;
-
 	for (TSharedRef<FMacScreen> CurScreen : AllScreens)
 	{
-		const float DPIScaleFactor = bUseHighDPIMode ? CurScreen->Screen.backingScaleFactor : 1.0f;
-		CurScreen->FramePixels.origin.x = CurScreen->Frame.origin.x;
-		CurScreen->FramePixels.origin.y = CurScreen->Frame.origin.y;
-		CurScreen->FramePixels.size.width = CurScreen->Frame.size.width * DPIScaleFactor;
-		CurScreen->FramePixels.size.height = CurScreen->Frame.size.height * DPIScaleFactor;
-		CurScreen->VisibleFramePixels.origin.x = CurScreen->Frame.origin.x + (CurScreen->VisibleFrame.origin.x - CurScreen->Frame.origin.x) * DPIScaleFactor;
-		CurScreen->VisibleFramePixels.origin.y = CurScreen->Frame.origin.y + (CurScreen->VisibleFrame.origin.y - CurScreen->Frame.origin.y) * DPIScaleFactor;
-		CurScreen->VisibleFramePixels.size.width = CurScreen->VisibleFrame.size.width * DPIScaleFactor;
-		CurScreen->VisibleFramePixels.size.height = CurScreen->VisibleFrame.size.height * DPIScaleFactor;
+		CurScreen->Frame.origin.y = CurScreen->FramePixels.origin.y = WholeWorkspace.origin.y + WholeWorkspace.size.height - CurScreen->Frame.size.height - CurScreen->Frame.origin.y;
+		CurScreen->VisibleFrame.origin.y = CurScreen->VisibleFramePixels.origin.y = WholeWorkspace.origin.y + WholeWorkspace.size.height - CurScreen->VisibleFrame.size.height - CurScreen->VisibleFrame.origin.y;
 
 		SortedScreens.Add(CurScreen);
 	}
@@ -1613,13 +1618,18 @@ void FMacApplication::UpdateScreensArray()
 		const float DPIScaleFactor = bUseHighDPIMode ? CurScreen->Screen.backingScaleFactor : 1.0f;
 		if (DPIScaleFactor != 1.0f)
 		{
+			CurScreen->FramePixels.size.width = CurScreen->Frame.size.width * DPIScaleFactor;
+			CurScreen->FramePixels.size.height = CurScreen->Frame.size.height * DPIScaleFactor;
+			CurScreen->VisibleFramePixels.size.width = CurScreen->VisibleFrame.size.width * DPIScaleFactor;
+			CurScreen->VisibleFramePixels.size.height = CurScreen->VisibleFrame.size.height * DPIScaleFactor;
+
 			for (int32 OtherIndex = Index + 1; OtherIndex < SortedScreens.Num(); ++OtherIndex)
 			{
 				TSharedRef<FMacScreen> OtherScreen = SortedScreens[OtherIndex];
 				const float DiffFrame = (OtherScreen->Frame.origin.x - CurScreen->Frame.origin.x) * DPIScaleFactor;
 				const float DiffVisibleFrame = (OtherScreen->VisibleFrame.origin.x - CurScreen->VisibleFrame.origin.x) * DPIScaleFactor;
-				OtherScreen->FramePixels.origin.x = CurScreen->Frame.origin.x + DiffFrame;
-				OtherScreen->VisibleFramePixels.origin.x = CurScreen->VisibleFrame.origin.x + DiffVisibleFrame;
+				OtherScreen->FramePixels.origin.x = CurScreen->FramePixels.origin.x + DiffFrame;
+				OtherScreen->VisibleFramePixels.origin.x = CurScreen->VisibleFramePixels.origin.x + DiffVisibleFrame;
 			}
 		}
 	}
@@ -1637,8 +1647,8 @@ void FMacApplication::UpdateScreensArray()
 				TSharedRef<FMacScreen> OtherScreen = SortedScreens[OtherIndex];
 				const float DiffFrame = (OtherScreen->Frame.origin.y - CurScreen->Frame.origin.y) * DPIScaleFactor;
 				const float DiffVisibleFrame = (OtherScreen->VisibleFrame.origin.y - CurScreen->VisibleFrame.origin.y) * DPIScaleFactor;
-				OtherScreen->FramePixels.origin.y = CurScreen->Frame.origin.y + DiffFrame;
-				OtherScreen->VisibleFramePixels.origin.y = CurScreen->VisibleFrame.origin.y + DiffVisibleFrame;
+				OtherScreen->FramePixels.origin.y = CurScreen->FramePixels.origin.y + DiffFrame;
+				OtherScreen->VisibleFramePixels.origin.y = CurScreen->VisibleFramePixels.origin.y + DiffVisibleFrame;
 			}
 		}
 	}
@@ -1948,18 +1958,35 @@ TCHAR FMacApplication::TranslateCharCode(TCHAR CharCode, uint32 KeyCode) const
 
 void FMacApplication::CloseQueuedWindows()
 {
-	if (WindowsToClose.Num() > 0)
+	// OnWindowClose may call PumpMessages, which would reenter this function, so make a local copy of SlateWindowsToClose array to avoid infinite recursive calls
+	TArray<TSharedRef<FMacWindow>> LocalWindowsToClose;
+
+	{
+		FScopeLock Lock(&WindowsToCloseMutex);
+		LocalWindowsToClose = SlateWindowsToClose;
+		SlateWindowsToClose.Empty();
+	}
+
+	if (LocalWindowsToClose.Num() > 0)
+	{
+		for (TSharedRef<FMacWindow> Window : LocalWindowsToClose)
+		{
+			MessageHandler->OnWindowClose(Window);
+		}
+	}
+
+	if (CocoaWindowsToClose.Num() > 0)
 	{
 		MainThreadCall(^{
 			SCOPED_AUTORELEASE_POOL;
-			for (FCocoaWindow* Window : WindowsToClose)
+			for (FCocoaWindow* Window : CocoaWindowsToClose)
 			{
 				[Window close];
 				[Window release];
 			}
 		}, UE4CloseEventMode, true);
 
-		WindowsToClose.Empty();
+		CocoaWindowsToClose.Empty();
 	}
 }
 
@@ -2027,77 +2054,81 @@ void FDisplayMetrics::RebuildDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 		Info.ID = FString::Printf(TEXT("%u"), DisplayID);
 
 		CFArrayRef ArrDisplay = CGDisplayCopyAllDisplayModes(DisplayID, nullptr);
-
-		Info.NativeWidth = 0;
-		Info.NativeHeight = 0;
-		const CFIndex AppsCount = CFArrayGetCount(ArrDisplay);
-		for (CFIndex i = 0; i < AppsCount; ++i)
+		if (ArrDisplay)
 		{
-			const CGDisplayModeRef Mode = (const CGDisplayModeRef)CFArrayGetValueAtIndex(ArrDisplay, i);
-			const int32 Width = (int32)CGDisplayModeGetWidth(Mode);
-			const int32 Height = (int32)CGDisplayModeGetHeight(Mode);
-
-			if (Width * Height > Info.NativeWidth * Info.NativeHeight)
+			Info.NativeWidth = 0;
+			Info.NativeHeight = 0;
+			const CFIndex AppsCount = CFArrayGetCount(ArrDisplay);
+			for (CFIndex i = 0; i < AppsCount; ++i)
 			{
-				Info.NativeWidth = Width;
-				Info.NativeHeight = Height;
-			}
-		}
+				const CGDisplayModeRef Mode = (const CGDisplayModeRef)CFArrayGetValueAtIndex(ArrDisplay, i);
+				const int32 Width = (int32)CGDisplayModeGetWidth(Mode);
+				const int32 Height = (int32)CGDisplayModeGetHeight(Mode);
 
-		if (!Info.NativeWidth || !Info.NativeHeight)
-		{
-			Info.NativeWidth = CGDisplayPixelsWide(DisplayID);
-			Info.NativeHeight = CGDisplayPixelsHigh(DisplayID);
-		}
-
-		Info.DisplayRect = FPlatformRect(Screen->FramePixels.origin.x, Screen->FramePixels.origin.y, Screen->FramePixels.origin.x + Screen->FramePixels.size.width, Screen->FramePixels.origin.y + Screen->FramePixels.size.height);
-		Info.WorkArea = FPlatformRect(Screen->VisibleFramePixels.origin.x, Screen->VisibleFramePixels.origin.y, Screen->VisibleFramePixels.origin.x + Screen->VisibleFramePixels.size.width, Screen->VisibleFramePixels.origin.y + Screen->VisibleFramePixels.size.height);
-		Info.bIsPrimary = Screen->Screen == [NSScreen mainScreen];
-
-		// dpi computations
-		const CGSize DisplayPhysicalSize = CGDisplayScreenSize(DisplayID);
-		const float MilimetreInch = 25.4f;
-		float HorizontalDPI = MilimetreInch * (float)Info.NativeWidth / (float)DisplayPhysicalSize.width;
-		float VerticalDPI = MilimetreInch * (float)Info.NativeHeight / (float)DisplayPhysicalSize.height;
-		Info.DPI = FMath::CeilToInt((HorizontalDPI + VerticalDPI) / 2.0f);
-
-		// Monitor's name can only be obtained from IOKit
-		io_iterator_t IOIterator;
-		kern_return_t Result = IOServiceGetMatchingServices(kIOMasterPortDefault, IOServiceMatching("IODisplayConnect"), &IOIterator);
-		if (Result == kIOReturnSuccess)
-		{
-			io_object_t Device;
-			while ((Device = IOIteratorNext(IOIterator)))
-			{
-				CFDictionaryRef Dictionary = IODisplayCreateInfoDictionary(Device, kIODisplayOnlyPreferredName);
-				if (Dictionary)
+				if (Width * Height > Info.NativeWidth * Info.NativeHeight)
 				{
-					const uint32 VendorID = [(__bridge NSNumber*)CFDictionaryGetValue(Dictionary, CFSTR(kDisplayVendorID)) unsignedIntegerValue];
-					const uint32 ProductID = [(__bridge NSNumber*)CFDictionaryGetValue(Dictionary, CFSTR(kDisplayProductID)) unsignedIntegerValue];
-					const uint32 SerialNumber = [(__bridge NSNumber*)CFDictionaryGetValue(Dictionary, CFSTR(kDisplaySerialNumber)) unsignedIntegerValue];
+					Info.NativeWidth = Width;
+					Info.NativeHeight = Height;
+				}
+			}
 
-					if (VendorID == CGDisplayVendorNumber(DisplayID) && ProductID == CGDisplayModelNumber(DisplayID) && SerialNumber == CGDisplaySerialNumber(DisplayID))
+			if (!Info.NativeWidth || !Info.NativeHeight)
+			{
+				Info.NativeWidth = CGDisplayPixelsWide(DisplayID);
+				Info.NativeHeight = CGDisplayPixelsHigh(DisplayID);
+			}
+		
+			CFRelease(ArrDisplay);
+
+			Info.DisplayRect = FPlatformRect(Screen->FramePixels.origin.x, Screen->FramePixels.origin.y, Screen->FramePixels.origin.x + Screen->FramePixels.size.width, Screen->FramePixels.origin.y + Screen->FramePixels.size.height);
+			Info.WorkArea = FPlatformRect(Screen->VisibleFramePixels.origin.x, Screen->VisibleFramePixels.origin.y, Screen->VisibleFramePixels.origin.x + Screen->VisibleFramePixels.size.width, Screen->VisibleFramePixels.origin.y + Screen->VisibleFramePixels.size.height);
+			Info.bIsPrimary = Screen->Screen == [NSScreen mainScreen];
+
+			// dpi computations
+			const CGSize DisplayPhysicalSize = CGDisplayScreenSize(DisplayID);
+			const float MilimetreInch = 25.4f;
+			float HorizontalDPI = MilimetreInch * (float)Info.NativeWidth / (float)DisplayPhysicalSize.width;
+			float VerticalDPI = MilimetreInch * (float)Info.NativeHeight / (float)DisplayPhysicalSize.height;
+			Info.DPI = FMath::CeilToInt((HorizontalDPI + VerticalDPI) / 2.0f);
+
+			// Monitor's name can only be obtained from IOKit
+			io_iterator_t IOIterator;
+			kern_return_t Result = IOServiceGetMatchingServices(kIOMasterPortDefault, IOServiceMatching("IODisplayConnect"), &IOIterator);
+			if (Result == kIOReturnSuccess)
+			{
+				io_object_t Device;
+				while ((Device = IOIteratorNext(IOIterator)))
+				{
+					CFDictionaryRef Dictionary = IODisplayCreateInfoDictionary(Device, kIODisplayOnlyPreferredName);
+					if (Dictionary)
 					{
-						NSDictionary* NamesDictionary = (__bridge NSDictionary*)CFDictionaryGetValue(Dictionary, CFSTR(kDisplayProductName));
-						if (NamesDictionary && NamesDictionary.count > 0)
+						const uint32 VendorID = [(__bridge NSNumber*)CFDictionaryGetValue(Dictionary, CFSTR(kDisplayVendorID)) unsignedIntegerValue];
+						const uint32 ProductID = [(__bridge NSNumber*)CFDictionaryGetValue(Dictionary, CFSTR(kDisplayProductID)) unsignedIntegerValue];
+						const uint32 SerialNumber = [(__bridge NSNumber*)CFDictionaryGetValue(Dictionary, CFSTR(kDisplaySerialNumber)) unsignedIntegerValue];
+
+						if (VendorID == CGDisplayVendorNumber(DisplayID) && ProductID == CGDisplayModelNumber(DisplayID) && SerialNumber == CGDisplaySerialNumber(DisplayID))
 						{
-							Info.Name = (NSString*)[NamesDictionary objectForKey:[NamesDictionary.allKeys objectAtIndex:0]];
-							CFRelease(Dictionary);
-							IOObjectRelease(Device);
-							break;
+							NSDictionary* NamesDictionary = (__bridge NSDictionary*)CFDictionaryGetValue(Dictionary, CFSTR(kDisplayProductName));
+							if (NamesDictionary && NamesDictionary.count > 0)
+							{
+								Info.Name = (NSString*)[NamesDictionary objectForKey:[NamesDictionary.allKeys objectAtIndex:0]];
+								CFRelease(Dictionary);
+								IOObjectRelease(Device);
+								break;
+							}
 						}
+
+						CFRelease(Dictionary);
 					}
 
-					CFRelease(Dictionary);
+					IOObjectRelease(Device);
 				}
 
-				IOObjectRelease(Device);
+				IOObjectRelease(IOIterator);
 			}
 
-			IOObjectRelease(IOIterator);
+			OutDisplayMetrics.MonitorInfo.Add(Info);
 		}
-
-		OutDisplayMetrics.MonitorInfo.Add(Info);
 	}
 
 	// Virtual desktop area

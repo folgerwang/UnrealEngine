@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SystemTextures.h: System textures definitions.
@@ -81,6 +81,12 @@ public:
 	// float4(0.5,0.5,0.5,1)
 	TRefCountPtr<IPooledRenderTarget> DefaultNormal8Bit;
 
+	/** float4(0,0,0,0) volumetric texture. */
+	TRefCountPtr<IPooledRenderTarget> VolumetricBlackDummy;
+
+	// SRV for WhiteDummy Texture.
+	TRefCountPtr<FRHIShaderResourceView> WhiteDummySRV;
+
 protected:
 	/** Maximum feature level that the textures have been initialized up to */
 	ERHIFeatureLevel::Type FeatureLevelInitializedTo;
@@ -90,4 +96,4 @@ protected:
 };
 
 /** The global system textures used for scene rendering. */
-extern TGlobalResource<FSystemTextures> GSystemTextures;
+RENDERER_API extern TGlobalResource<FSystemTextures> GSystemTextures;

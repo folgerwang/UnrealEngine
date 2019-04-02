@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	StaticMesh.h: Static mesh class definition.
@@ -258,6 +258,11 @@ struct FStaticMeshLODResources
 	/** Index buffer containing adjacency information required by tessellation. */
 	FRawStaticIndexBuffer AdjacencyIndexBuffer;
 
+#if RHI_RAYTRACING
+	/** Geometry for ray tracing. */
+	FRayTracingGeometry RayTracingGeometry;
+#endif // RHI_RAYTRACING
+
 	/** Sections for this LOD. */
 	TArray<FStaticMeshSection> Sections;
 
@@ -320,7 +325,10 @@ struct ENGINE_API FStaticMeshVertexFactories
 		, VertexFactoryOverrideColorVertexBuffer(InFeatureLevel, "FStaticMeshVertexFactories_Override")
 		, SplineVertexFactory(nullptr)
 		, SplineVertexFactoryOverrideColorVertexBuffer(nullptr)
-	{}
+	{
+		// FLocalVertexFactory::InitRHI requires valid current feature level to setup streams properly
+		check(InFeatureLevel < ERHIFeatureLevel::Num);
+	}
 
 	~FStaticMeshVertexFactories();
 
@@ -341,10 +349,10 @@ struct ENGINE_API FStaticMeshVertexFactories
 	* @param	InParentMesh					Parent static mesh
 	* @param	bInOverrideColorVertexBuffer	If true, make a vertex factory ready for per-instance colors
 	*/
-	void InitVertexFactory(const FStaticMeshLODResources& LodResources, FLocalVertexFactory& InOutVertexFactory, const UStaticMesh* InParentMesh, bool bInOverrideColorVertexBuffer);
+	void InitVertexFactory(const FStaticMeshLODResources& LodResources, FLocalVertexFactory& InOutVertexFactory, uint32 LODIndex, const UStaticMesh* InParentMesh, bool bInOverrideColorVertexBuffer);
 
 	/** Initializes all rendering resources. */
-	void InitResources(const FStaticMeshLODResources& LodResources, const UStaticMesh* Parent);
+	void InitResources(const FStaticMeshLODResources& LodResources, uint32 LODIndex, const UStaticMesh* Parent);
 
 	/** Releases all rendering resources. */
 	void ReleaseResources();
@@ -368,6 +376,11 @@ public:
 
 	/** Bounds of the renderable mesh. */
 	FBoxSphereBounds Bounds;
+
+	bool IsInitialized()
+	{
+		return bIsInitialized;
+	}
 
 	/** True if LODs share static lighting data. */
 	bool bLODsShareStaticLighting;
@@ -427,6 +440,7 @@ private:
 	/** Allow the editor to explicitly update section information. */
 	friend class FLevelOfDetailSettingsLayout;
 #endif // #if WITH_EDITORONLY_DATA
+	bool bIsInitialized = false;
 };
 
 /**
@@ -549,8 +563,7 @@ public:
 		int32 BatchIndex, 
 		int32 ElementIndex, 
 		uint8 InDepthPriorityGroup, 
-		bool bUseSelectedMaterial, 
-		bool bUseHoveredMaterial, 
+		bool bUseSelectionOutline,
 		bool bAllowPreCulledIndices,
 		FMeshBatch& OutMeshBatch) const;
 
@@ -575,6 +588,7 @@ public:
 	virtual int32 GetLOD(const FSceneView* View) const override;
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override;
 	virtual bool CanBeOccluded() const override;
+	virtual bool IsUsingDistanceCullFade() const override;
 	virtual void GetLightRelevance(const FLightSceneProxy* LightSceneProxy, bool& bDynamic, bool& bRelevant, bool& bLightMapped, bool& bShadowMapped) const override;
 	virtual void GetDistancefieldAtlasData(FBox& LocalVolumeBounds, FVector2D& OutDistanceMinMax, FIntVector& OutBlockMin, FIntVector& OutBlockSize, bool& bOutBuiltAsIfTwoSided, bool& bMeshWasPlane, float& SelfShadowBias, TArray<FMatrix>& ObjectLocalToWorldTransforms) const override;
 	virtual void GetDistanceFieldInstanceInfo(int32& NumInstances, float& BoundsSurfaceArea) const override;
@@ -586,6 +600,15 @@ public:
 	virtual void GetMeshDescription(int32 LODIndex, TArray<FMeshBatch>& OutMeshElements) const override;
 
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override;
+
+#if RHI_RAYTRACING
+	virtual bool IsRayTracingRelevant() const override { return true; }
+	virtual bool IsRayTracingStaticRelevant() const override 
+	{ 
+		const bool bAllowStaticLighting = FReadOnlyCVARCache::Get().bAllowStaticLighting;
+		return IsStaticPathAvailable() && !HasViewDependentDPG() && !(bAllowStaticLighting && HasStaticLighting() && !HasValidSettingsForStaticLighting());
+	}
+#endif // RHI_RAYTRACING
 
 	virtual void GetLCIs(FLCIArray& LCIs) override;
 
@@ -650,7 +673,7 @@ protected:
 		const FRawStaticIndexBuffer* PreCulledIndexBuffer;
 
 		/** Initialization constructor. */
-		FLODInfo(const UStaticMeshComponent* InComponent, const TIndirectArray<FStaticMeshVertexFactories>& InLODVertexFactories, int32 InLODIndex, bool bLODsShareStaticLighting);
+		FLODInfo(const UStaticMeshComponent* InComponent, const TIndirectArray<FStaticMeshVertexFactories>& InLODVertexFactories, int32 InLODIndex, int32 InClampedMinLOD, bool bLODsShareStaticLighting);
 
 		bool UsesMeshModifyingMaterials() const { return bUsesMeshModifyingMaterials; }
 
@@ -691,7 +714,7 @@ protected:
 #if WITH_EDITORONLY_DATA
 	/** The component streaming distance multiplier */
 	float StreamingDistanceMultiplier;
-	/** The cacheed GetTextureStreamingTransformScale */
+	/** The cached GetTextureStreamingTransformScale */
 	float StreamingTransformScale;
 	/** Material bounds used for texture streaming. */
 	TArray<uint32> MaterialStreamingRelativeBoxes;
@@ -700,6 +723,9 @@ protected:
 	int32 SectionIndexPreview;
 	/** Index of the material to preview. If set to INDEX_NONE, all section will be rendered */
 	int32 MaterialIndexPreview;
+
+	/** Whether selection should be per section or per entire proxy. */
+	bool bPerSectionSelection;
 #endif
 
 private:

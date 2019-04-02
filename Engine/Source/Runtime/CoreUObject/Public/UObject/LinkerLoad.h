@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -59,6 +59,8 @@ struct FScopedCreateImportCounter
 	/** Destructor. Called upon CreateImport() exit. */
 	~FScopedCreateImportCounter();
 
+	/** Current load context object */
+	FUObjectSerializeContext* LoadContext;
 	/** Previously stored linker */
 	FLinkerLoad* PreviousLinker;
 	/** Previously stored index */
@@ -357,6 +359,8 @@ private:
 		return !IsAsyncLoading() && (LoadFlags & (LOAD_Quiet | LOAD_Async)) == 0;
 	}
 
+	/** Test whether we should report progress or not based on how recently we last created a progress task */
+	bool ShouldCreateThrottledSlowTask() const;
 
 	virtual void PushDebugDataString(const FName& DebugData) override
 	{
@@ -445,7 +449,7 @@ public:
 	 *
 	 * @return	new FLinkerLoad object for Parent/ Filename
 	 */
-	COREUOBJECT_API static FLinkerLoad* CreateLinker(UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags, FArchive* InLoader = nullptr);
+	COREUOBJECT_API static FLinkerLoad* CreateLinker(FUObjectSerializeContext* LoadContext, UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags, FArchive* InLoader = nullptr);
 
 	void Verify();
 
@@ -857,8 +861,8 @@ private:
 	 *
 	 * @return	new FLinkerLoad object for Parent/ Filename
 	 */
-	COREUOBJECT_API static FLinkerLoad* CreateLinkerAsync(UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags
-		, TFunction<void()>&& InSummaryReadyCallback	
+	COREUOBJECT_API static FLinkerLoad* CreateLinkerAsync(FUObjectSerializeContext* LoadContext, UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags
+		, TFunction<void()>&& InSummaryReadyCallback
 	);
 
 protected: // Daniel L: Made this protected so I can override the constructor and create a custom loader to load the header of the linker in the DiffFilesCommandlet
@@ -1180,6 +1184,12 @@ private:
 	//
 	// FLinkerLoad creation helpers END
 	//
+
+public:
+
+	//~ FArchive interface
+	COREUOBJECT_API virtual void SetSerializeContext(FUObjectSerializeContext* InLoadContext) override;
+	COREUOBJECT_API virtual FUObjectSerializeContext* GetSerializeContext() override;
 };
 
 // used by the EDL at boot time to coordinate loading with what is going on with the deferred registration stuff

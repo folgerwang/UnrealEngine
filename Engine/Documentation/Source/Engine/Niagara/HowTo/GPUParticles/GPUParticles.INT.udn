@@ -2,69 +2,70 @@ Availability: Public
 Crumbs: 
 Title: Create a GPU Particle Effect
 Description: Describes how you can use your GPU to spawn millions of particles.
-Type: how-to 
-Version: 4.20
+Type:how-to
+SkillLevel:Beginner
+Version: 4.21
 Parent: Engine/Niagara/HowTo
-Order: 5
+Order: 2
 Tags: Niagara
 Tags: Early Access
-prereqs: Engine/Niagara/HowTo/EnableNiagara
 
+Prerequisite Topics
+
+This page assumes you have prior knowledge of the following topics. Please read them before proceeding.
+
+*   [Enable the Niagara Plugin](Engine/Niagara/HowTo/EnableNiagara "Describes how you can enable the Niagara Plugin.")
+    
 
 For some effects, you may need to spawn tens of thousands of particles. However, using the standard CPU to generate this many particles can cause the game to slow down. In the following How-To we will demonstrate how to spawn particles using the GPU instead of the CPU.
 
-![](GPU_Banner_01-1.png "GPU_Banner_01-1.png")
+![](GPU_Banner_01-1.png)
 
 ## Steps
 
-1.  First, we will need to create a particle effect. Right-click in the **Content Browser**, and from the displayed menu select **FX > Niagara Emitter** to create a new Niagara Emitter.  
-    ![](SE_01.png)
-1.  Name the newly created Niagara Emitter **FX_GPUParticle** and then double-click it to open it.  
-    ![](CreateGPU_Steps_Step2-CreateEmitter.png)
-1.  With the Niagara Editor now open, go to the **Selected Emitter** panel and locate the **Render** section.
-1.  Expand the **Particle Spawn** section. Locate the **Sphere Location** section.
-1.  In the **Sphere Location** section, set the **Sphere Radius** to a value of **100**.  
-    ![CreateGPUParticle_Steps_Step05-SphereRadius.png](CreateGPUParticle_Steps_Step05-SphereRadius.png)
-1.  Locate the **Set Variables** section and then set the following parameters with the following values: ![](CreateGPUParticle_Steps_Step06-SetVariables.png)
-    
-    | Particle Module Name | Value |
-    | --- | --- |
-    | **Particles.Lifetime** | 5 |
-    | **Particles.SpriteSize** | X: 5, Y: 5 |
-    
-1.  Locate the **Emitter Properties** section and click the dropdown next to **Sim Target**. From the displayed list, select the **GPUCompute Sim** option.  
-    ![](CreateGPUParticle_Steps_Step07-ChangeToGPU.png)
+1.  First, create a Niagara Emitter by right-clicking in the **Content Browser**, and from the displayed menu select **FX > Niagara Emitter**. The Niagara Emitter wizard displays.  
+    ![](SE_01.png)(w:400)
+2.  Click the radio button next to **Create a new emitter from an emitter template**. Select the **Fountain** template. Then click **OK** to create a new Niagara Emitter in the Content Browser.  
+    ![](NiagaraEmitter_FountainTemplate.png)(w:400)
+3.  Name the newly created Niagara Emitter **FX_GPU** and then double-click it to open it.  
+    ![](CreateGPU_Steps_Step2-CreateEmitter.png)(w:100)
+4.  Expand the **Emitter Spawn** section. Locate **Emitter Properties** and expand it. Click the dropdown next to **Sim Target**. From the displayed list, select the **GPUCompute Sim** option.  
+    ![](CreateGPUParticle_Steps_Step06-ChangeToGPU.png)(w:500)
 [REGION:note]
-This is where you are changing from the CPU to the GPU. You should see an increase in the number of particles generated.
-[/REGION]9.  Next, find the **Spawn Rate** section and set the **SpawnRate** to a value of **5000**.  
-![](CreateGPUParticle_Steps_Step08-SpawnRate.png)
-1.  Click the **Compile**, **Apply** and **Save** buttons to compile and save your work. Then close the **FX_GPUParticle** emitter.  
-    ![](ME_09.png)
-1.  Now right-click in the **Content Browser**, and select **FX > Niagara System**, giving the new Niagara System the name **GPUParticle**.  
-    ![](SE_16.png)
-1.  Double-click the **GPUParticle** Niagara System to open it. Then drag the **FX_GPUParticle** Niagara Emitter to the **Timeline**.  
-    ![](CreateGPUParticle_Steps_Step11-AddEmitterToSystem.png)
-1.  Click the **Compile** and **Save** buttons to compile and save your work, and then close the Particle Light Niagara System. In the **Content Browser**, drag the Mesh Niagara System into the level viewport.  
-    ![](CreateGPUParticle_Steps_Step12-AddSystemToLevel.png)
+This setting changes particle simulation from the CPU to the GPU. This enables the Engine to spawn more particles while maintaining performance.
+[/REGION]
+6.  Expand the **Emitter Update** section. Locate the **Spawn Rate** module.
+7.  In the Spawn Rate module, set the **SpawnRate** to a value of **5000**.  
+    ![](CreateGPUParticle_Steps_Step07-SpawnRate.png)(w:500)
+8.  Next, locate the **Set Variables** module. Set the **Particles.SpriteSize** **X** and **Y** values to **5**.  
+    ![](CreateGPUParticle_SetVariablesParticleSpriteSize.png)(w:500)
+9.  In the **Sphere Location** module, set the **Sphere Radius** to a value of **100**.  
+    ![](CreateGPUParticle_Steps_Step04-SphereRadius.png)(w:500)
+10.  Click the **Compile**, **Apply** and **Save** buttons to compile and save your work. Then close the **FX_GPU** emitter.  
+    ![](ME_09.png)(w:400)
+11.  Right-click in the **Content Browser**, and from the displayed menu select **FX > Niagara System**. The Niagara System wizard displays.  
+    ![](SE_16.png)(w:400)
+12.  Click the radio button next to **Create an empty system with no emitters**. Then click **OK** to create a new Niagara System in the Content Browser.  
+    ![](NiagaraSystem_EmptySystem.png)(w:400)
+13.  Name the new Niagara System **GPU**.   
+    ![](NiagaraSystem_GPUIcon.png)(w:100)
+14.  Double-click the **GPU Niagara System** to open it, then drag the **FX_GPU** Niagara Emitter from the Content Browser to the **Timeline**.  
+    ![](CreateGPUParticle_Steps_Step10-AddEmitterToSystem.png)(w:400)
+15.  Click the **Compile** and **Save** buttons to compile and save your work, and then close the GPU Niagara System. In the **Content Browser**, drag the **GPU Niagara System** into the Level Viewport. When that is completed, you should now see something like the image below.  
+    ![](CreateGPUParticle_Steps_Step11-AddSystemToLevel.png)(w:600)
 
 ## End Result
 
 When all steps have been completed, you will have a particle effect that is larger and more complex than the same particle effect using the CPU. An example is shown in the video below.
 
 [OBJECT:EmbeddedVideo]
-    [PARAMLITERAL:videoid]
-    zz3dFQzNQY8
-    [/PARAMLITERAL]
     [PARAMLITERAL:width]
-    78
+    640
     [/PARAMLITERAL]
     [PARAMLITERAL:height]
-    56.25
+    360
     [/PARAMLITERAL]
-    [PARAMLITERAL:units]
-    %
-    [/PARAMLITERAL]
-    [PARAMLITERAL:type]
-    simple
+    [PARAMLITERAL:videoid]
+    zz3dFQzNQY8
     [/PARAMLITERAL]
 [/OBJECT]

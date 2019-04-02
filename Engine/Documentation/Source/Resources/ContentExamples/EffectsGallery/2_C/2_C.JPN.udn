@@ -17,7 +17,7 @@ topic-image:2_CTopic.png
 ![](image054.png)
 [/REGION]
 
-UE4 のマテリアル システムの大変便利な機能の 1 つに [BlackBody マテリアル式ノード](Engine/Rendering/Materials\ExpressionReference\Utility#BlackBody) があります。このノードは **マテリアル エディタ** にあります。ここからは科学の世界になります！
+UE4 のマテリアル システムの大変便利な機能の 1 つに [BlackBody マテリアル式ノード](Engine/Rendering/Materials\ExpressionReference\Utility) があります。このノードは **マテリアル エディタ** にあります。ここからは科学の世界になります！
 
 黒体は特定タイプのオブジェクト (物体) が一定温度で放出するある種の放射です。この放射の顕著な特徴の一つに、放出されるライトの色のスペクトル分布があります。 
 

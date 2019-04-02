@@ -1,188 +1,186 @@
-﻿INTSourceChangelist:3151855
+INTSourceChangelist:3782314
 Availability:Public
-Title: 开始 虚幻4 之旅
+Title: 虚幻引擎4入门
 Crumbs: %ROOT%
-Description: 为刚开始使用虚幻引擎的游戏开发者提供的入门信息。
+Description:针对刚开始用引擎创建游戏的开发者进行讲解。
 Navigation:start
 version: 4.9
 parent:%ROOT%
 order:1
 tags:Getting Started
 type:landing
+topic-image:gettingstarted_topic.png
+topic-icon:%ROOT%/start_icon.png
 
-[VAR:Params]
-[PARAM:image]
-	![](gettingstarted_topic.png)
-[/PARAM]
-[PARAM:icon]
-	![](%ROOT%/start_icon.png)(convert:false)
-[/PARAM]
-[PARAM:title]
-	%GettingStarted:title%
-[/PARAM]
-[PARAM:description]
-	%GettingStarted:description%
-[/PARAM]
-[PARAM:path]
-	[RELATIVE:GettingStarted]
-[/PARAM]
-[/VAR]
 
-[VAR:Topic]
-[OBJECT:Topic]
-%params%
-[/OBJECT]
-[/VAR]
+(#startingout)
 
-[VAR:TopicCompact]
+## 开始
+
+%Engine/QuickStart:topiccompact%
+%Engine/Content/QuickStart:topiccompact%
+%Programming/QuickStart:topiccompact%
+%GettingStarted/Terminology:topiccompact%
 [OBJECT:TopicCompact]
-%params%
+	[PARAM:image]
+		![](GettingStarted/FromUnity/image_0.png)
+	[/PARAM]
+	[PARAM:icon]
+		![](%ROOT%/start_icon.png)(convert:false)
+	[/PARAM]
+	[PARAM:title]
+		%GettingStarted/FromUnity:title%
+	[/PARAM]
+	[PARAM:description]
+		%GettingStarted/FromUnity:description%
+	[/PARAM]
+	[PARAM:path]
+		[RELATIVE:GettingStarted/FromUnity]
+	[/PARAM]
 [/OBJECT]
-[/VAR]
-
-[VAR:Role]
-[OBJECT:Role]
-%params%
-[PARAMLITERAL:id]
-gettingstarted
-[/PARAMLITERAL]
-[/OBJECT]
-[/VAR]
-
-
-## 开始入门
-
-[REGION:buttonlist]
-
-	
+%GettingStarted/SubEditors:topiccompact%
+[REGION:section]
+	[REGION:normaltitle]
+	其他信息
+	[/REGION]
+	* [必备软硬件](GettingStarted/RecommendedSpecifications "%GettingStarted/RecommendedSpecifications:description%")	
+	* [安装引擎](GettingStarted/Installation "%GettingStarted/Installation:description%")	
+	* [](GettingStarted/DownloadingUnrealEngine "%GettingStarted/DownloadingUnrealEngine:description%")
+	* [版本说明](Support/Builds "%Support/Builds:description%")
 [/REGION]
 
-## 编辑器基础知识
+(#editorbasics)
 
-[REGION:buttonlist]
+## 编辑器基础
 
-		* [](Engine/QuickStart "%Engine/QuickStart:description%")
-		* [关卡编辑器简介](Engine/UI/LevelEditor "%Engine/UI/LevelEditor:description%")
-		* [](Engine/UI/LevelEditor/Toolbar "%Engine/UI/LevelEditor/Toolbar:description%")
+[INCLUDE:Shared/Glossary/P/#Glossary_project]
 
-		[REGION:gallery]
-		[REGION:normaltitle]
-		相关视频
-		[/REGION]
-		[VideoLink(videoid:"w4XlBKeE46E" playlistid:"PLZlv_N0_O1gasd4IcOe9Cx9wHoBB7rxFl" width:"180")]
-		[/REGION]
-	
+[INCLUDE:Engine/UI/LevelEditor#levels]
+
+%Engine/QuickStart:topic%
+%Engine/UI/LevelEditor:topic%
+%Engine/UI/LevelEditor/Toolbar:topic%
+
+[REGION:section]
+[REGION:normaltitle]
+相关视频
 [/REGION]
+[DIR(playlist_id:"PLZlv_N0_O1gasd4IcOe9Cx9wHoBB7rxFl" type:"playlist" output:"playlist")]
+[/REGION]
+
+(#editorviewports)
 
 ## 编辑器视口
-
-[REGION:buttonlist]
-
-		* [](Engine/UI/LevelEditor/Viewports/Basics "%Engine/UI/LevelEditor/Viewports/Basics:description%")
-		* [](Engine/UI/LevelEditor/Viewports/ViewportControls "%Engine/UI/LevelEditor/Viewports/ViewportControls:description%")
 	
-[/REGION]
+[INCLUDE:Engine/UI/LevelEditor/Viewports#intro]
+
+%Engine/UI/LevelEditor/Viewports/Basics:topic%
+%Engine/UI/LevelEditor/Viewports/ViewportControls:topic%
+
+(#editormodes)
 
 ## 编辑器模式
-
-[REGION:buttonlist]
-
-		* [](Engine/UI/LevelEditor/Modes "%Engine/UI/LevelEditor/Modes:description%")
 	
+[INCLUDE:Shared/Glossary/M#glossary_modes_panel]
+
+%Engine/UI/LevelEditor/Modes:topic%
+
+(#actors&geometry)
+
+## Actor和几何体
+	
+[INCLUDE:Engine/UI/LevelEditor#actors]
+
+%Engine/Actors/Placement:topic%
+%Engine/Actors/Brushes:topic%
+%Engine/Actors/Transform:topic%
+
+[REGION:section]
+[REGION:normaltitle]
+相关视频
+[/REGION]
+[DIR(playlist_id:"PLZlv_N0_O1gak1_FoAJVrEGiLIploeF3F" type:"playlist" output:"playlist")]
 [/REGION]
 
-## Actor & 几何体
-
-[REGION:buttonlist]
-
-	* [](Engine/Actors/Placement "%Engine/Actors/Placement:description%")
-	* [几何体 Actor](Engine/Actors/Brushes "%Engine/Actors/Brushes:description%")
-	* [](Engine/Actors/Transform "%Engine/Actors/Transform:description%")
-
-	[REGION:gallery]
-	[REGION:normaltitle]
-	相关视频
-	[/REGION]
-	[VideoLink(videoid:"cl_eoVfNDKU" playlistid:"PLZlv_N0_O1gak1_FoAJVrEGiLIploeF3F" width:"180")]
-	[/REGION]
-	
-[/REGION]
+(#Contentbrowser)
 
 ## 内容浏览器
-
-[REGION:buttonlist]
-
-		* [](Engine/Content/QuickStart "%Engine/Content/QuickStart:description%")
-		* [](Engine/Basics/AssetsAndPackages "%Engine/Basics/AssetsAndPackages:description%")
-		* [](Engine/Content/Browser "%Engine/Content/Browser:description%")	
 	
-[/REGION]
+[INCLUDE:Shared/Glossary/C/#Glossary_Content_Browser]
+
+%Engine/Content/QuickStart:topic%
+%Engine/Basics/AssetsAndPackages:topic%
+%Engine/Content/Browser:topic%
+
+(#lighting)
 
 ## 光照
 
-[REGION:buttonlist]
+对场景的照明通过光照actor来完成。其用作光源，包含多种属性，用于确定光照特性，如：
+		
+* 光照的亮度
+* 光照的颜色
+		
+不同光源以不同方式发射光线。举例而言，标准电灯泡会向所有方向发射光线。在虚幻引擎中，这被称之为 _点光源_。在其他情况下将把灯泡的背面设为不透明，对发射的光线形成物理限制（例如泛光灯）。这便是 _聚光源_。来自太阳的室外光线，其所在位置较远，因此看似是来自一个方向，而非一个具体的点。利用 _定向光源_ 可模拟此类光线。 
 
-		* [](Engine/Rendering/LightingAndShadows/QuickStart "%Engine/Rendering/LightingAndShadows/QuickStart:description%")
-		* [](Engine/Rendering/LightingAndShadows/Basics "%Engine/Rendering/LightingAndShadows/Basics:description%")
-	
+%Engine/Rendering/LightingAndShadows/QuickStart:description%
+%Engine/Rendering/LightingAndShadows/Basics:description%
+
+(#materials&shading)
+
+## 材质和着色
+
+[INCLUDE:Shared/Glossary/M/#Glossary_Material]
+
+%Engine/Rendering/Materials/IntroductionToMaterials:topic%
+
+[REGION:section]
+[REGION:normaltitle]
+相关视频
+[/REGION]
+[DIR(playlist_id:"PLZlv_N0_O1gbQjgY0nDwZNYe_N8IcYWS-" type:"playlist" output:"playlist")]
 [/REGION]
 
-## 材质 & 着色
+(#blueprintsvisualscripting)
 
-[REGION:buttonlist]
+## 蓝图可视化脚本编写
 
-		* [](Engine/Rendering/Materials/IntroductionToMaterials "%Engine/Rendering/Materials/IntroductionToMaterials:description%")
+[INCLUDE:Engine/Blueprints#intro]	
 
-		[REGION:gallery]
-		[REGION:normaltitle]
-		相关视频
-		[/REGION]
-		[VideoLink(videoid:"lngF4VVNER4" playlistid:"PLZlv_N0_O1gbQjgY0nDwZNYe_N8IcYWS-" width:"180" image:"https://img.youtube.com/vi/lngF4VVNER4/hqdefault.jpg")]
-		[/REGION]
-	
+%Engine/Blueprints/GettingStarted:topic%
+
+[REGION:gallery]
+[REGION:normaltitle]
+相关视频
+[/REGION]
+[DIR(playlist_id:"PLZlv_N0_O1gY35ezlSQn1sWOGfh4C7ewO" type:"playlist" output:"playlist")]
 [/REGION]
 
-
-## 蓝图可视化脚本
-
-[REGION:buttonlist]
-
-		* [蓝图简介](Engine/Blueprints/GettingStarted "%Engine/Blueprints/GettingStarted:description%")
-
-		[REGION:gallery]
-		[REGION:normaltitle]
-		相关视频
-		[/REGION]
-		[VideoLink(videoid:"EFXMW_UEDco" playlistid:"PLZlv_N0_O1gY35ezlSQn1sWOGfh4C7ewO" width:"180")]
-		[/REGION]
-	
-[/REGION]
+(#programming)
 
 ## 编程
 
-[REGION:buttonlist]
+实现gameplay和修改引擎是所有游戏项目的重要部分。虚幻引擎实现gameplay的方式可通过代码进行，也可通过蓝图的直观方式来进行，甚至可以创建插件来修改或延展引擎和编辑器，以添加完全自定义的功能让设计师或美术师进行使用。
 
-		* [](Programming/QuickStart "%Programming/QuickStart:description%")
-		* [](Programming/Basics "%Programming/Basics:description%")
-		* [学习游戏框架](Gameplay/Framework/QuickReference "%Gameplay/Framework/QuickReference:description%")
+%Programming:topic%
+%Programming/Development/VisualStudioSetup:topic%
+%Programming/QuickStart:topic%
+%Programming/Basics:topic%
+%Gameplay/Framework/QuickReference:topic%
 	
-		[REGION:gallery]
-		[REGION:normaltitle]
-		相关视频
-		[/REGION]
-		[VideoLink(videoid:"mSRov77hNR4" playlistid:"PLZlv_N0_O1gYup-gvJtMsgJqnEB_dGiM4" width:"180")]
-		[/REGION]
-	
+[REGION:gallery]
+[REGION:normaltitle]
+相关视频
+[/REGION]
+[DIR(playlist_id:"PLZlv_N0_O1gYup-gvJtMsgJqnEB_dGiM4" type:"playlist" output:"playlist")]
 [/REGION]
 
-## 测试游戏
+(#playtestyourgame)
 
-[REGION:buttonlist]
+## 对游戏进行测试
 
-		* [](Engine/UI/LevelEditor/InEditorTesting "%Engine/UI/LevelEditor/InEditorTesting:description%")
-		* **平台**
-			* [](Platforms/iOS/QuickStart "%Platforms/iOS/QuickStart:description%")	
-			* [](Platforms/Android/GettingStarted "%Platforms/Android/GettingStarted:description%")
-			* [](Platforms/Oculus/QuickStart "%Platforms/Oculus/QuickStart:description%")	
-	
-[/REGION]
+使用虚幻引擎的内置功能对关卡和gameplay进行测试和调试。 
+使用PIE模式在编辑器中直接获取实时反馈，甚至使用Simulate In Editor模式在运行时检查和操纵游戏中的对象。 
+对gameplay代码进行修改、重编译，并使用热重载在游戏过程中对游戏进行更新。
+
+%Engine/UI/LevelEditor/InEditorTesting:topic%

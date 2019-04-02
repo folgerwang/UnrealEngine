@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Fonts/SlateFontRenderer.h"
 #include "Fonts/FontCacheCompositeFont.h"
@@ -141,6 +141,28 @@ void FSlateFontRenderer::GetUnderlineMetrics(const FSlateFontInfo& InFontInfo, c
 	}
 }
 
+void FSlateFontRenderer::GetStrikeMetrics(const FSlateFontInfo& InFontInfo, const float InScale, int16& OutStrikeLinePos, int16& OutStrikeLineThickness) const
+{
+#if WITH_FREETYPE
+	const FFontData& FontData = CompositeFontCache->GetDefaultFontData(InFontInfo);
+	FT_Face FontFace = GetFontFace(FontData);
+
+	if (FontFace && FT_IS_SCALABLE(FontFace))
+	{
+		FreeTypeUtils::ApplySizeAndScale(FontFace, InFontInfo.Size, InScale);
+
+		// Place the strike 2/5th down the text by height (the code below does 3/5th as it counts from the bottom, not the top)
+		OutStrikeLinePos = static_cast<int16>(FreeTypeUtils::Convert26Dot6ToRoundedPixel<int32>(FT_MulFix(FT_MulFix(FT_DivFix(FontFace->height, 5), 3), FontFace->size->metrics.y_scale)) * InScale);
+		OutStrikeLineThickness = static_cast<int16>(FreeTypeUtils::Convert26Dot6ToRoundedPixel<int32>(FT_MulFix(FontFace->underline_thickness, FontFace->size->metrics.y_scale)) * InScale);
+	}
+	else
+#endif // WITH_FREETYPE
+	{
+		OutStrikeLinePos = 0;
+		OutStrikeLineThickness = 0;
+	}
+}
+
 bool FSlateFontRenderer::HasKerning(const FFontData& InFontData) const
 {
 #if WITH_FREETYPE
@@ -220,9 +242,9 @@ FFreeTypeFaceGlyphData FSlateFontRenderer::GetFontFaceForCharacter(const FFontDa
 	{
 		const bool bCanFallback = bOverrideFallback || MaxFallbackLevel >= EFontFallback::FF_LocalizedFallback;
 
-		if (bCanFallback)
+		if (bCanFallback && FLegacySlateFontInfoCache::Get().IsLocalizedFallbackFontAvailable())
 		{
-			ReturnVal.FaceAndMemory = CompositeFontCache->GetFontFace(FLegacySlateFontInfoCache::Get().GetLocalizedFallbackFontData());
+			ReturnVal.FaceAndMemory = CompositeFontCache->GetFontFace(FLegacySlateFontInfoCache::Get().GetLocalizedFallbackFontData(FLegacySlateFontInfoCache::FFallbackContext(&InFontData, Char)));
 
 			if (ReturnVal.FaceAndMemory.IsValid())
 			{	
@@ -244,7 +266,7 @@ FFreeTypeFaceGlyphData FSlateFontRenderer::GetFontFaceForCharacter(const FFontDa
 
 		if (bCanFallback && FLegacySlateFontInfoCache::Get().IsLastResortFontAvailable())
 		{
-			ReturnVal.FaceAndMemory = CompositeFontCache->GetFontFace(FLegacySlateFontInfoCache::Get().GetLastResortFontData());
+			ReturnVal.FaceAndMemory = CompositeFontCache->GetFontFace(FLegacySlateFontInfoCache::Get().GetLastResortFontData(FLegacySlateFontInfoCache::FFallbackContext(&InFontData, Char)));
 
 			if (ReturnVal.FaceAndMemory.IsValid())
 			{
@@ -372,6 +394,7 @@ void RenderOutlineRows(FT_Library Library, FT_Outline* Outline, FRasterizerSpanL
 
 bool FSlateFontRenderer::GetRenderDataInternal(const FFreeTypeFaceGlyphData& InFaceGlyphData, const float InScale, const FFontOutlineSettings& InOutlineSettings, FCharacterRenderData& OutRenderData) const
 {
+	SCOPE_CYCLE_COUNTER(STAT_FreetypeRenderGlyph);
 	FT_Face Face = InFaceGlyphData.FaceAndMemory->GetFace();
 
 	// Get the lot for the glyph.  This contains measurement info

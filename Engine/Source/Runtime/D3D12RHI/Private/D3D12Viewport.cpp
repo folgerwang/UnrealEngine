@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D12Viewport.cpp: D3D viewport RHI implementation.
@@ -208,6 +208,7 @@ FD3D12Texture2D* GetSwapChainSurface(FD3D12Device* Parent, EPixelFormat PixelFor
 		{
 			FD3D12Resource* NewResourceWrapper = new FD3D12Resource(Device, FRHIGPUMask::All(), BackBufferResource, State, BackBufferDesc);
 			NewResourceWrapper->AddRef();
+			NewResourceWrapper->StartTrackingForResidency();
 			NewTexture->ResourceLocation.AsStandAlone(NewResourceWrapper);
 		}
 		else // If this is not the GPU which will hold the back buffer, create a compatible texture so that it can still render to the viewport.
@@ -220,7 +221,8 @@ FD3D12Texture2D* GetSwapChainSurface(FD3D12Device* Parent, EPixelFormat PixelFor
 				&NewTexture->ResourceLocation,
 				PixelFormat,
 				TexCreate_RenderTargetable |  TexCreate_ShaderResource,
-				D3D12_RESOURCE_STATE_PRESENT);
+				D3D12_RESOURCE_STATE_PRESENT,
+				TEXT("SwapChainSurface"));
 		}
 
 		FD3D12RenderTargetView* BackBufferRenderTargetView = nullptr;

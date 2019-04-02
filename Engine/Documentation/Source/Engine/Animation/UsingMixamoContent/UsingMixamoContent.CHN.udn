@@ -1,14 +1,16 @@
-﻿INTSourceChangelist:2674533
+﻿INTSourceChangelist:3467293
 Availability:Public
 Title:使用 Mixamo 内容
 Crumbs:%ROOT%, Engine, Engine/Animation
 Description:Mixamo 项目中的动画和骨骼网格的使用入门。
 version:4.9
+topic-image:UsingMixamoContent_topic.png
 
 可以将 Mixamo 动画包中提供的 15 个角色以角色蓝图形式或骨骼网格与动画蓝图的组合形式添加到您的项目。
 第一种方法是将带有运动控制和攻击动作的第三人称角色添加到项目的快捷简便的方法。第二种方法允许您更改 
 已有角色的外观，如果具有与 Mixamo 基本角色相似的运动和输入设置，还可以使用不同样式的模板。 
 
+(#Third-PersonBlueprintCharacter)
 ## 第三人称蓝图角色
 [REGION:fullwidth]
 1. 基于“第三人称”（Third Person）蓝图模板创建一个新项目。
@@ -53,6 +55,7 @@ version:4.9
 
 	![](MixamoJump.png)
 
+(#GeneralUsage)
 ## 一般使用
 
 如果您的项目是基于下列模板之一，可以使用这个更一般化的设置。它对这些模板的蓝图版本和 C++ 版本都适用。

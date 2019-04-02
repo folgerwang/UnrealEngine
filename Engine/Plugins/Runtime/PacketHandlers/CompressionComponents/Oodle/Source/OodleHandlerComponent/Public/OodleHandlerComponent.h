@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -273,6 +273,8 @@ public:
 
 	/** Default Destructor */
 	~OodleHandlerComponent();
+
+	virtual void CountBytes(FArchive& Ar) const override;
 
 	/**
 	 * Initializes first-run config settings

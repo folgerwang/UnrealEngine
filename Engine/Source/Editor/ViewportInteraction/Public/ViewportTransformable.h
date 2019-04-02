@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -40,6 +40,12 @@ public:
 
 	/** Returns true if this transformable is a physically simulated kinematic object */
 	virtual bool IsPhysicallySimulated() const
+	{
+		return false;
+	}
+
+	/** Returns true if this transformable should be 'carried' (moved and rotated) when dragged, if possible, instead of only translated */
+	virtual bool ShouldBeCarried() const
 	{
 		return false;
 	}

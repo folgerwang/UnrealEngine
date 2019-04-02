@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "HTNTestSuiteModule.h"
 
@@ -8,6 +8,6 @@ class FHTNTestSuiteModule : public IHTNTestSuiteModule
 {
 };
 
-IMPLEMENT_MODULE(FHTNTestSuiteModule, HTNTestSuiteModule)
+IMPLEMENT_MODULE(FHTNTestSuiteModule, HTNTestSuite)
 
 #undef LOCTEXT_NAMESPACE

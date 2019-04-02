@@ -1,10 +1,16 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OvrAvatarManager.h"
 #include "OvrAvatar.h"
 #include "OVR_Avatar.h"
-#include "RenderUtils.h"
-#include "UObject/UObjectIterator.h"
+#include "Engine/Texture2D.h"
 #include "OculusHMDModule.h"
+#include "UObject/UObjectIterator.h"
+#include "RenderUtils.h"
+
+#if PLATFORM_ANDROID
+#include "Android/AndroidApplication.h"
+#endif
 
 DEFINE_LOG_CATEGORY(LogAvatars);
 
@@ -12,9 +18,11 @@ FOvrAvatarManager* FOvrAvatarManager::sAvatarManager = nullptr;
 
 FSoftObjectPath FOvrAvatarManager::AssetList[] =
 {
-	FString(TEXT("/OculusAvatar/Materials/AvatarsPBR_2/OculusAvatars_PBRV2.OculusAvatars_PBRV2")),
-	FString(TEXT("/OculusAvatar/Materials/AvatarsPBR_2/OculusAvatars_PBRV2_2_Depth.OculusAvatars_PBRV2_2_Depth")),
-	FString(TEXT("/OculusAvatar/Materials/AvatarsPBR_2/OculusAvatars_PBRV2_Masked.OculusAvatars_PBRV2_Masked")),
+	FString(TEXT("/OculusAvatar/Materials/AvatarsPBR_2/OculusAvatars_PBRV2_Combined")),
+	FString(TEXT("/OculusAvatar/Materials/AvatarsPBR_2/OculusAvatars_PBRV2_Mobile")),
+	FString(TEXT("/OculusAvatar/Materials/AvatarsPBR_2/OculusAvatars_PBRV2_Mobile_Combined")),
+	FString(TEXT("/OculusAvatar/Materials/AvatarsPBR_2/OculusAvatars_PBRV2_2_Depth")),
+	FString(TEXT("/OculusAvatar/Materials/AvatarsPBR_2/OculusAvatars_PBRV2")),
 	FString(TEXT("/OculusAvatar/Materials/OculusAvatarsPBR.OculusAvatarsPBR")),
 	FString(TEXT("/OculusAvatar/Materials/v1/Inst/Off/N_OFF_P_OFF/OculusAvatar8Layers_Inst_0Layers.OculusAvatar8Layers_Inst_0Layers")),
 	FString(TEXT("/OculusAvatar/Materials/v1/Inst/Off/N_OFF_P_OFF/OculusAvatar8Layers_Inst_1Layers.OculusAvatar8Layers_Inst_1Layers")),
@@ -114,13 +122,21 @@ FOvrAvatarManager::~FOvrAvatarManager()
 		FPlatformProcess::FreeDllHandle(OVRPluginHandle);
 		OVRPluginHandle = nullptr;
 	}
+
+	if (OVRAvatarHandle)
+	{
+		FPlatformProcess::FreeDllHandle(OVRAvatarHandle);
+		OVRAvatarHandle = nullptr;
+	}
 }
 
 static const FString sTextureFormatStrings[ovrAvatarTextureFormat_Count] =
 {
 	FString("ovrAvatarTextureFormat_RGB24"),
 	FString("ovrAvatarTextureFormat_DXT1"),
-	FString("ovrAvatarTextureFormat_DXT5")
+	FString("ovrAvatarTextureFormat_DXT5"),
+	FString("ovrAvatarTextureFormat_ASTC_RGB_6x6_DEPRECATED"),
+	FString("ovrAvatarTextureFormat_ASTC_RGB_6x6_MIPMAPS")
 };
 
 static const FString sOvrEmptyString = "";
@@ -162,6 +178,8 @@ void FOvrAvatarManager::SDKLogger(const char * str)
 
 void FOvrAvatarManager::InitializeSDK()
 {
+	UE_LOG(LogAvatars, Display, TEXT("FOvrAvatarManager::InitializeSDK()"));
+
 	if (!IsInitialized)
 	{
 #if WITH_EDITORONLY_DATA
@@ -179,10 +197,34 @@ void FOvrAvatarManager::InitializeSDK()
 			OVRPluginHandle = FOculusHMDModule::GetOVRPluginHandle();
 		}
 
-		IsInitialized = true;
-		AVATAR_APP_ID = TCHAR_TO_ANSI(*GConfig->GetStr(TEXT("OnlineSubsystemOculus"), TEXT("RiftAppId"), GEngineIni));
-		ovrAvatar_Initialize(AVATAR_APP_ID);
 
+#if PLATFORM_ANDROID
+		AVATAR_APP_ID = TCHAR_TO_ANSI(*GConfig->GetStr(TEXT("OnlineSubsystemOculus"), TEXT("GearVRAppId"), GEngineIni));
+		UE_LOG(LogAvatars, Display, TEXT("ovrAvatar_InitializeAndroid"));
+		ovrAvatar_InitializeAndroid(AVATAR_APP_ID, FAndroidApplication::GetGameActivityThis(), FAndroidApplication::GetJavaEnv());
+#else
+		OVRAvatarHandle = FPlatformProcess::GetDllHandle(TEXT("libovravatar.dll"));
+		if (OVRAvatarHandle == nullptr)
+		{
+			UE_LOG(LogAvatars, Log, TEXT("OVRAvatar DLL not found!"));
+			return;
+		}
+
+		AVATAR_APP_ID = TCHAR_TO_ANSI(*GConfig->GetStr(TEXT("OnlineSubsystemOculus"), TEXT("RiftAppId"), GEngineIni));
+		UE_LOG(LogAvatars, Display, TEXT("ovrAvatar_Initialize"));
+		ovrAvatar_Initialize(AVATAR_APP_ID);
+#endif
+
+		IsInitialized = true;
+
+		ovrAvatar_SetLoggingLevel(LogLevel);
+
+		// Clear avatar message queue in case there are leftover/invalid messages from other sessions/apps
+		while (ovrAvatarMessage* Message = ovrAvatarMessage_Pop())
+		{
+			ovrAvatarMessage_Free(Message);
+		}
+		
 		ovrAvatar_RegisterLoggingCallback(&FOvrAvatarManager::SDKLogger);
 	}
 }
@@ -194,6 +236,8 @@ void FOvrAvatarManager::ShutdownSDK()
 #if WITH_EDITORONLY_DATA
 		AssetObjects.Empty();
 #endif
+		ovrAvatar_RegisterLoggingCallback(nullptr);
+
 		IsInitialized = false;
 		ovrAvatar_Shutdown();
 	}
@@ -219,10 +263,14 @@ void FOvrAvatarManager::HandleAssetLoaded(const ovrAvatarMessage_AssetLoaded* me
 
 void FOvrAvatarManager::LoadTexture(const uint64_t id, const ovrAvatarTextureAssetData* data)
 { 
-	UE_LOG(LogAvatars, Display, TEXT("[Avatars] Loaded Texture: [%llu] - [%s]"), id, *TextureFormatToString(data->format));
-
 	const bool isNormalMap = NormalMapIDs.Find(id) != nullptr;
 	Textures.Add(id, LoadTexture(data, isNormalMap));
+
+	UE_LOG(LogAvatars, Display, TEXT("[Avatars] Loaded Texture: [%llu] - [%s]"), id, *TextureFormatToString(data->format));
+	UE_LOG(LogAvatars, Display, TEXT("[Avatars]        Res:     [%d]x[%d]"), data->sizeX, data->sizeY);
+	UE_LOG(LogAvatars, Display, TEXT("[Avatars]        Size:    [%llu]"), data->textureDataSize);
+	UE_LOG(LogAvatars, Display, TEXT("[Avatars]        Mips:    [%d]"), data->mipCount);
+	UE_LOG(LogAvatars, Display, TEXT("[Avatars]        Normal:  [%d]"), isNormalMap ? 1u : 0u);
 }
 
 
@@ -268,7 +316,10 @@ UTexture2D* FOvrAvatarManager::LoadTexture(const ovrAvatarTextureAssetData* data
 	case ovrAvatarTextureFormat_DXT5:
 		PixelFormat = EPixelFormat::PF_DXT5;
 		break;
-
+	case ovrAvatarTextureFormat_ASTC_RGB_6x6_MIPMAPS:
+	case ovrAvatarTextureFormat_ASTC_RGB_6x6_DEPRECATED:
+		PixelFormat = EPixelFormat::PF_ASTC_6x6;
+		break;
 	default:
 		UE_LOG(LogAvatars, Warning, TEXT("[Avatars] Unknown pixel format [%u]."), (int)data->format);
 		break;
@@ -278,16 +329,15 @@ UTexture2D* FOvrAvatarManager::LoadTexture(const ovrAvatarTextureAssetData* data
 	if (PixelFormat == PF_Unknown)
 		return nullptr;
 
+	UTexture2D* UnrealTexture = NULL;
+	uint32_t Width = data->sizeX;
+	uint32_t Height = data->sizeY;
+
 	const uint32_t BlockSizeX = GPixelFormats[PixelFormat].BlockSizeX;
 	const uint32_t BlockSizeY = GPixelFormats[PixelFormat].BlockSizeY;
 	const uint32_t BlockBytes = GPixelFormats[PixelFormat].BlockBytes;
 
-	uint32_t Width = data->sizeX;
-	uint32_t Height = data->sizeY;
-
-	UTexture2D* UnrealTexture = NULL;
-
-	if (Width > 0 && Height > 0 && Width % BlockSizeX == 0 && Height % BlockSizeY == 0)
+	if (Width > 0 && Height > 0)
 	{
 		UnrealTexture = NewObject<UTexture2D>(GetTransientPackage(), NAME_None, RF_Transient);
 
@@ -299,11 +349,14 @@ UTexture2D* FOvrAvatarManager::LoadTexture(const ovrAvatarTextureAssetData* data
 
 		uint32_t DataOffset = 0;
 
-		for (uint32_t MipIndex = 0; MipIndex < data->mipCount; MipIndex++)
+		// The old deprecated format reads in as zero mips
+		const uint32_t MipCount = FMath::Max(data->mipCount, 1u);
+
+		for (uint32_t MipIndex = 0; MipIndex < MipCount; MipIndex++)
 		{
-			const uint32_t BlocksX = Width / BlockSizeX;
-			const uint32_t BlocksY = Height / BlockSizeY;
-			const uint32_t MipSize = BlocksX * BlocksY * BlockBytes;
+			const uint32_t BlocksX = PixelFormat == EPixelFormat::PF_ASTC_6x6 ? (Width + 5) / 6 : Width / BlockSizeX;
+			const uint32_t BlocksY = PixelFormat == EPixelFormat::PF_ASTC_6x6 ? (Height + 5) / 6 : Height / BlockSizeY;
+			const uint32_t MipSize = PixelFormat == EPixelFormat::PF_ASTC_6x6 ? BlocksX * BlocksY * 16 : BlocksX * BlocksY * BlockBytes;
 
 			if (MipSize == 0)
 				break;
@@ -325,6 +378,9 @@ UTexture2D* FOvrAvatarManager::LoadTexture(const ovrAvatarTextureAssetData* data
 
 			Width /= 2;
 			Height /= 2;
+
+			Width = FMath::Max(Width, 1u);
+			Height = FMath::Max(Height, 1u);
 		}
 	}
 
@@ -447,5 +503,14 @@ void FOvrAvatarManager::FreeSDKPacket(ovrAvatarPacket* packet)
 	{
 		ovrAvatarPacket_Free(packet);
 	}
+}
+
+bool FOvrAvatarManager::IsOVRPluginValid() const
+{
+#if PLATFORM_ANDROID
+	return true;
+#else
+	return OVRPluginHandle != nullptr;
+#endif
 }
 

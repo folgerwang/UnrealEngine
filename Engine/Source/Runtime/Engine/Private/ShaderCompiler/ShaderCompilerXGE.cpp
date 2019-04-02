@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ShaderCompiler.h"
 #include "GenericPlatform/GenericPlatformFile.h"
@@ -77,12 +77,6 @@ namespace XGEShaderCompilerVariables
 				XGEShaderCompilerVariables::Enabled = 1;
 			}
 			if (FParse::Param(FCommandLine::Get(), TEXT("noxgeshadercompile")) || FParse::Param(FCommandLine::Get(), TEXT("noshaderworker")))
-			{
-				XGEShaderCompilerVariables::Enabled = 0;
-			}
-
-			//something going wrong with XGE shader compile on the build farm at the moment. Temporarily disable.
-			if (GIsBuildMachine)
 			{
 				XGEShaderCompilerVariables::Enabled = 0;
 			}

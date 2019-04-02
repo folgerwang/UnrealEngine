@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "UserInterface/PropertyEditor/SPropertyEditorClass.h"
 #include "Engine/Blueprint.h"
@@ -217,7 +217,7 @@ TSharedRef<SWidget> SPropertyEditorClass::GenerateClassPicker()
 	ClassFilter->bAllowAbstract = bAllowAbstract;
 	Options.bIsBlueprintBaseOnly = bIsBlueprintBaseOnly;
 	Options.bIsPlaceableOnly = bAllowOnlyPlaceable;
-	Options.bShowDisplayNames = bShowDisplayNames;
+	Options.NameTypeToDisplay = (bShowDisplayNames ? EClassViewerNameTypeToDisplay::DisplayName : EClassViewerNameTypeToDisplay::ClassName);
 	Options.DisplayMode = bShowTree ? EClassViewerDisplayMode::TreeView : EClassViewerDisplayMode::ListView;
 	Options.bAllowViewOptions = bShowViewOptions;
 
@@ -269,6 +269,67 @@ void SPropertyEditorClass::SendToObjects(const FString& NewValue)
 	else
 	{
 		OnSetClass.Execute(nullptr);
+	}
+}
+
+void SPropertyEditorClass::OnDragEnter(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent)
+{
+	TSharedPtr<FAssetDragDropOp> UnloadedClassOp = DragDropEvent.GetOperationAs<FAssetDragDropOp>();
+	if (UnloadedClassOp.IsValid())
+	{
+		bool bAllAssetWereLoaded = true;
+
+		FString AssetPath;
+		FString PathName;
+
+		// Find the class/blueprint path
+		if (UnloadedClassOp->HasAssets())
+		{
+			AssetPath = UnloadedClassOp->GetAssets()[0].ObjectPath.ToString();
+		}
+		else if (UnloadedClassOp->HasAssetPaths())
+		{
+			AssetPath = UnloadedClassOp->GetAssetPaths()[0];
+		}
+
+		// Check to see if the asset can be found, otherwise load it.
+		UObject* Object = FindObject<UObject>(nullptr, *AssetPath);
+		if (Object == nullptr)
+		{
+			// Load the package.
+			GWarn->BeginSlowTask(LOCTEXT("OnDrop_LoadPackage", "Fully Loading Package For Drop"), true, false);
+
+			Object = LoadObject<UObject>(nullptr, *AssetPath);
+
+			GWarn->EndSlowTask();
+		}
+
+		if (UClass* Class = Cast<UClass>(Object))
+		{
+			// This was pointing to a class directly
+			UnloadedClassOp->SetToolTip(FText::GetEmpty(), FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.OK")));
+		}
+		else if (UBlueprint* Blueprint = Cast<UBlueprint>(Object))
+		{
+			if (Blueprint->GeneratedClass)
+			{
+				// This was pointing to a blueprint, get generated class
+				UnloadedClassOp->SetToolTip(FText::GetEmpty(), FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.OK")));
+			}
+		}
+		else
+		{
+			UnloadedClassOp->SetToolTip(FText::GetEmpty(), FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.Error")));
+		}
+	}
+}
+
+void SPropertyEditorClass::OnDragLeave(const FDragDropEvent& DragDropEvent)
+{
+	TSharedPtr<FAssetDragDropOp> UnloadedClassOp = DragDropEvent.GetOperationAs<FAssetDragDropOp>();
+	if (UnloadedClassOp.IsValid())
+	{
+		UnloadedClassOp->ResetToDefaultToolTip();
 	}
 }
 

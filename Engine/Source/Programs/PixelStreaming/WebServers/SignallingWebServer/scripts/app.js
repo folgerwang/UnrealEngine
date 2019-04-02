@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 var webRtcPlayerObj = null;
 var print_stats = false;
@@ -14,6 +14,7 @@ var matchViewportResolution;
 var lastTimeResized = new Date().getTime();
 var resizeTimeout;
 
+var onDataChannelConnected;
 var responseEventListeners = new Map();
 
 var t0 = Date.now();
@@ -91,9 +92,9 @@ function setupHtmlEvents(){
 	    }
 	}
 
-	let showFPSCheckBox = document.getElementById('show-fps-tgl');
-	if (showFPSCheckBox != null) {
-	    showFPSCheckBox.onchange = function (event) {
+	let showFPSButton = document.getElementById('show-fps-button');
+	if (showFPSButton != null) {
+	    showFPSButton.onclick = function (event) {
 	        let consoleDescriptor = {
 	            Console: 'stat fps'
 	        }
@@ -276,6 +277,9 @@ function setupWebRtcPlayer(htmlElement, clientConfig){
 
     webRtcPlayerObj.onDataChannelConnected = function(){
     	showTextOverlay('WebRTC connected, waiting for video');
+		if (onDataChannelConnected) {
+			onDataChannelConnected();
+		}
     }
 
 	webRtcPlayerObj.onDataChannelMessage = function (data) {

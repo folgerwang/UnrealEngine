@@ -10,7 +10,7 @@ Version: 4.8
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-	[예전 단계](Engine\OpenWorldTools\Grass\QuickStart\2 "%Engine\OpenWorldTools\ProceduralFoliage\QuickStart\2:title%") 
+	[이전 단계](Engine\OpenWorldTools\Grass\QuickStart\2 "%Engine\OpenWorldTools\ProceduralFoliage\QuickStart\2:title%") 
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -75,7 +75,7 @@ UE4 의 랜드스케이프 터레인 작동방식에 대해 보다 자세히 살
 	
 	![](T_Grass_Out_SetUp.gif)(convert:false)
 
-1. **콘텐츠 브라우저** 에서 예전 단계에 만든 **Grass_00** 랜드스케이프 그래스 타입을 선택합니다.
+1. **콘텐츠 브라우저** 에서 이전 단계에 만든 **Grass_00** 랜드스케이프 그래스 타입을 선택합니다.
 
 1.  **머티리얼** 의 **Grass Type** 옵션 아래 **화살표** 아이콘을 눌러 콘텐츠 브라우저에 현재 선택된 액터를 로드합니다.
 

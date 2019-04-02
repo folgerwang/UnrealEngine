@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MaterialInterface.cpp: UMaterialInterface implementation.
@@ -70,7 +70,7 @@ UMaterialInterface::UMaterialInterface(const FObjectInitializer& ObjectInitializ
 
 		if (SamplerTypeEnum == nullptr)
 		{
-			SamplerTypeEnum = FindObject<UEnum>(NULL, TEXT("/Script/Engine.EMaterialSamplerType"));
+			SamplerTypeEnum = StaticEnum<EMaterialSamplerType>();
 			check(SamplerTypeEnum);
 		}
 
@@ -155,6 +155,7 @@ FMaterialRelevance UMaterialInterface::GetRelevance_Internal(const UMaterial* Ma
 			MaterialRelevance.bTranslucentSurfaceLighting = bIsTranslucent && (TranslucencyLightingMode == TLM_SurfacePerPixelLighting || TranslucencyLightingMode == TLM_Surface);
 			MaterialRelevance.bUsesSceneDepth = MaterialResource->MaterialUsesSceneDepthLookup_GameThread();
 			MaterialRelevance.bHasVolumeMaterialDomain = MaterialResource->IsVolumetricPrimitive();
+			MaterialRelevance.bUsesDistanceCullFade = MaterialResource->MaterialUsesDistanceCullFade_GameThread();
 		}
 		return MaterialRelevance;
 	}
@@ -209,12 +210,12 @@ void UMaterialInterface::SetForceMipLevelsToBeResident( bool OverrideForceMiplev
 	}
 }
 
-void UMaterialInterface::RecacheAllMaterialUniformExpressions()
+void UMaterialInterface::RecacheAllMaterialUniformExpressions(bool bRecreateUniformBuffer)
 {
 	// For each interface, reacache its uniform parameters
 	for( TObjectIterator<UMaterialInterface> MaterialIt; MaterialIt; ++MaterialIt )
 	{
-		MaterialIt->RecacheUniformExpressions();
+		MaterialIt->RecacheUniformExpressions(bRecreateUniformBuffer);
 	}
 }
 
@@ -228,6 +229,10 @@ bool UMaterialInterface::IsReadyForFinishDestroy()
 void UMaterialInterface::BeginDestroy()
 {
 	ParentRefFence.BeginFence();
+
+	// If the material changes, then the debug view material must reset to prevent parameters mismatch
+	void ClearDebugViewMaterials(UMaterialInterface*);
+	ClearDebugViewMaterials(this);
 
 	Super::BeginDestroy();
 }
@@ -248,6 +253,14 @@ void UMaterialInterface::PostEditChangeProperty(FPropertyChangedEvent& PropertyC
 	LightmassSettings.EmissiveBoost = FMath::Max(LightmassSettings.EmissiveBoost, 0.0f);
 	LightmassSettings.DiffuseBoost = FMath::Max(LightmassSettings.DiffuseBoost, 0.0f);
 	LightmassSettings.ExportResolutionScale = FMath::Clamp(LightmassSettings.ExportResolutionScale, 0.0f, 16.0f);
+
+	for (UAssetUserData* Datum : AssetUserData)
+	{
+		if (Datum != nullptr)
+		{
+			Datum->PostEditChangeOwner();
+		}
+	}
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
@@ -474,22 +487,20 @@ void UMaterialInterface::UpdateMaterialRenderProxy(FMaterialRenderProxy& Proxy)
 			Settings = LocalSubsurfaceProfile->Settings;
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-			UpdateMaterialRenderProxySubsurface,
-			const FSubsurfaceProfileStruct, Settings, Settings,
-			USubsurfaceProfile*, LocalSubsurfaceProfile, LocalSubsurfaceProfile,
-			FMaterialRenderProxy&, Proxy, Proxy,
-		{
-			uint32 AllocationId = 0;
-
-			if (LocalSubsurfaceProfile)
+		FMaterialRenderProxy* InProxy = &Proxy;
+		ENQUEUE_RENDER_COMMAND(UpdateMaterialRenderProxySubsurface)(
+			[Settings, LocalSubsurfaceProfile, InProxy](FRHICommandListImmediate& RHICmdList)
 			{
-				AllocationId = GSubsurfaceProfileTextureObject.AddOrUpdateProfile(Settings, LocalSubsurfaceProfile);
+				uint32 AllocationId = 0;
 
-				check(AllocationId >= 0 && AllocationId <= 255);
-			}
-			Proxy.SetSubsurfaceProfileRT(LocalSubsurfaceProfile);
-		});
+				if (LocalSubsurfaceProfile)
+				{
+					AllocationId = GSubsurfaceProfileTextureObject.AddOrUpdateProfile(Settings, LocalSubsurfaceProfile);
+
+					check(AllocationId >= 0 && AllocationId <= 255);
+				}
+				InProxy->SetSubsurfaceProfileRT(LocalSubsurfaceProfile);
+			});
 	}
 }
 

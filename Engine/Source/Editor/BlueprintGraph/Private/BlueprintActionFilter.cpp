@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintActionFilter.h"
 #include "UObject/Interface.h"
@@ -1718,7 +1718,7 @@ static bool BlueprintActionFilterImpl::IsHiddenInNonEditorBlueprint(FBlueprintAc
 
 	if (Function)
 	{
-		const bool bIsEditorOnlyFunction = IsEditorOnlyObject(Function);
+		const bool bIsEditorOnlyFunction = IsEditorOnlyObject(Function) || Function->HasAnyFunctionFlags(FUNC_EditorOnly);
 		
 		if (bIsEditorOnlyFunction)
 		{

@@ -1,0 +1,188 @@
+﻿INTSourceChangelist:4678085
+Availability: Public
+Crumbs: 
+Title: 픽셀 스트리밍 시작하기
+Description: 한 컴퓨터에서 같은 네트워크의 다른 컴퓨터 및 모바일 디바이스로 언리얼 엔진 응용 프로그램을 스트리밍할 수 있도록 구성합니다. 
+Type: 
+Version: 4.21
+Parent: Platforms/PixelStreaming
+Order: 
+topic-image:cloud-gs-topic.png
+Tags: Getting Started
+Tags: Early Access
+Tags: Pixel Streaming
+
+언리얼 엔진 프로젝트에서 렌더링 출력한 결과물을 로컬 네트워크의 다른 브라우저와 모바일 디바이스로 스트리밍하는 법을 단계별로 설명합니다.
+
+![픽셀 스트리밍 시작하기](pixelstreaming-gs-banner.png "Getting Started with Pixel Streaming")
+
+[REGION:note]
+이 페이지의 단계별 이미지에서는 **삼인칭 블루프린트** 템플릿으로 만든 프로젝트를 사용합니다. 하지만 어떤 언리얼 엔진 프로젝트에서도 같은 방법이 쓰입니다.
+[/REGION]
+
+## 전제조건
+
+*   **OS 및 하드웨어 확인** - Pixel Streaming Plugin (픽셀 스트리밍 플러그인)은 특정 유형의 GPU 하드웨어를 탑재한 Windows 운영 체제 하의 컴퓨터에서만 비디오를 인코딩할 수 있습니다. 자세한 내용은 [픽셀 스트리밍 레퍼런스](Platforms/PixelStreaming/PixelStreamingReference) 를 참조하세요.
+*   **node.js 설치** - 컴퓨터에 **node.js** 가 이미 설치되어 있지 않은 경우, [다운로드](https://nodejs.org/en/download/) 및 설치해야 합니다.
+*   **네트워크 포트 열기** - 로컬 네트워크의 다음 포트의 통신이 열렸는지 확인하세요: 80, 8124, 8888. 이 기본 포트를 변경하려면 [픽셀 스트리밍 레퍼런스](Platforms/PixelStreaming/PixelStreamingReference) 를 참조하세요.
+*   **다른 웹 서버 중지** - 컴퓨터에 다른 웹 서버가 실행중이면 중지하세요.
+*   **IP 주소** - 컴퓨터의 IP 주소를 알아야 합니다.  
+    LAN 또는 VPN 안에서 픽셀 스트리밍을 시작해 보는 것이 좋습니다. 컴퓨터의 *내부* IP 주소만 알면 되기 때문입니다. 명령줄 또는 콘솔 창에서 `ipconfig` 명령을 실행한 뒤 `IPv4 Address` 로 시작하는 줄에서 찾을 수 있습니다.  
+    다른 네트워크의 컴퓨터나 모바일 디바이스에서 접속하려는 경우, 외부 IP 주소를 알아야 합니다. 그 방법은 [이 외부 페이지](http://net.ipcalf.com/) 를 참조하세요.
+
+## 1 - 언리얼 엔진 응용 프로그램 준비
+
+여기서는 프로젝트의 독립형 실행 파일을 생성합니다.
+
+[REGION:note]
+*   픽셀 스트리밍 플러그인은 프로젝트를 패키지 응용 프로그램으로 실행할 때, 또는 언리얼 에디터에서 **독립형 게임** 옵션으로 실행할 때만 작동합니다.
+*   픽셀 스트리밍 플러그인이 응용 프로그램의 오디오를 추출하여 스트리밍할 수 있도록 하려면, 언리얼 엔진에 `-AudioMixer` 인수를 붙여 실행해야 합니다. 두 가지 상황의 설정 절차는 다음과 같습니다.
+[/REGION]
+
+1.  언리얼 에디터에서 프로젝트를 엽니다.
+2.  언리얼 에디터의 메인 메뉴에서 **편집 > 플러그인** 을 선택합니다.
+3.  **Graphics** (그래픽) 카테고리 아래 **Pixel Streaming** (픽셀 스트리밍) 플러그인을 찾아 **Enabled** (활성화) 박스를 체크합니다.  
+    ![픽셀 스트리밍 플러그인 활성화](pixelstreaming-gs-prepare-enable.png "Enable the Pixel Streaming plugin")
+4.  **Yes** (예)를 클릭하여 확인합니다.  
+    ![설치 확인](pixelstreaming-gs-prepare-confirm.png "Confirm the install")
+5.  **Restart Now** (지금 재시작)을 눌러 프로젝트를 재시작해야 변경사항이 적용됩니다.  
+    ![지금 재시작](pixelstreaming-gs-prepare-restart.png "Restart now")
+6.  언리얼 에디터로 돌아와 메인 메뉴의 **편집 > 프로젝트 세팅** 을 선택합니다. 
+7.  프로젝트에 캐릭터가 있는 경우, 폰과 태블릿의 터치 디바이스에서 입력을 받아 캐릭터가 레벨을 이동할 수 있도록 하려면, 화면위 터치 컨트롤러를 표시하는 것이 좋습니다.  
+    **엔진 > 입력 카테고리** 아래 **Always Show Touch Interface** (터치 인터페이스 항상 표시) 세팅을 활성화합니다.  
+    ![터치 인터페이스 항상 표시](pixelstreaming-gs-prepare-showtouch.png "Always Show Touch Interface")
+    옵션이며 모든 프로젝트에 필수는 아닙니다. 하지만 삼인칭 템플릿같은 프로젝트의 경우, 이렇게 해야 (프로젝트의 플레이어 컨트롤러가 터치 입력을 지원하는 한) 사용자가 터치 디바이스로 스트리밍 응용 프로그램을 제어할 수 있습니다.
+8.  메인 메뉴에서 **편집 > 에디터 개인설정...** 을 선택합니다.
+9.  **레벨 에디터 > 플레이** 카테고리 아래 **Additional Launch Parameters** (부가 실행 파라미터) 칸에 `-AudioMixer` 값을 설정합니다.  
+    ![부가 실행 파라미터](pixelstreaming-gs-prepare-audiomixer.png "Additional Launch Parameters")
+10.  프로젝트를 Windows 용으로 패키징합니다. 언리얼 에디터의 메인 메뉴에서 **파일 > 프로젝트 패키지 > Windows > Windows (64 비트)** 를 선택합니다.  
+    ![Windows 64 비트로 패키징](pixelstreaming-gs-prepare-package.png "Package for Windows 64-bit")
+11.  언리얼 에디터가 프로젝트의 패키지 버전을 저장하고자 하는 폴더로 이동한 뒤 **폴더 선택** 을 클릭합니다.  
+    ![폴더 선택](pixelstreaming-gs-prepare-selectfolder.png "Select a folder")
+12.  언리얼 에디터가 패키징 프로세스를 시작합니다.  
+    ![패키징 프로세스 진행 표시](multiuserviewer-packagestatus.png "Packaging progress indicator")
+13.  패키징 프로세스가 완료되면, 위에서 선택한 폴더로 이동합니다. `WindowsNoEditor` 라는 폴더 안에 다음과 같은 내용물이 보일 것입니다.  
+    ![패키지로 만든 결과물](pixelstreaming-gs-package.png "Packaged output")
+14.  패키지 응용 프로그램을 시작할 때마다 명령줄 옵션 `-AudioMixer` 를 붙여줘야 합니다. 그렇게 하는 한 가지 방법은 바로 가기를 설정하는 것입니다.
+    1.  *.exe* 파일을 **Alt** 드래그하여 같은 폴더에 (또는 컴퓨터의 다른 위치에) 바로 가기를 새로 만듭니다.  
+        ![바로 가기 생성](pixelstreaming-gs-prepare-shortcut.png "Create a shortcut")         
+    2.  바로 가기에 우클릭하고 컨텍스트 메뉴에서 **속성** 을 선택합니다.  
+        ![바로 가기 속성](pixelstreaming-gs-prepare-shortcutprops.png "Shortcut properties")
+    3.  **바로 가기 속성** 창의 **바로 가기** 탭에서 **대상** 칸 끝에 `-AudioMixer` 를 덧붙인 뒤 **확인** 을 클릭합니다.  
+        ![-AudioMixer](pixelstreaming-gs-shortcut-target.png "-AudioMixer")
+
+[REGION:tip]
+픽셀 스트리밍 시스템 구성을 마치면 `-RenderOffScreen` 명령줄 파라미터도 붙여주는 것이 좋습니다. 언리얼 엔진 응용 프로그램 창이 실수로라도 최소화되면, 픽셀 스트리밍 비디오 및 입력 스트림 작동이 중단됩니다. `-RenderOffScreen` 는 응용 프로그램이 보이는 창 없이 실행될 가능성을 없애줍니다.
+[/REGION]
+
+### 최종 결과
+
+픽셀 스트리밍 플러그인을 활성화한 패키지로 만든 독립형 언리얼 엔진 응용 프로그램이 생겨 렌더링된 프레임과 오디오를 스트리밍할 준비를 마쳤습니다.
+
+## 2 - 서버 시작
+
+여기서는 클라이언트 연결을 받아 언리얼 엔진 응용 프로그램에서 렌더링된 프레임과 오디오를 그 클라이언트의 브라우저로 스트리밍하는 웹 서비스를 시작합니다.
+
+1.  언리얼 엔진 설치 폴더에서 시그널링 서버 위치를 찾습니다. `Engine/Source/Programs/PixelStreaming/WebServers/SignallingWebServer` 아래 있습니다.  
+    ![시그널링 및 웹 서버](pixelstreaming-gs-servers-signalling.png "Signaling and Web Server")
+2.  `run.bat` 파일을 실행하여 시그널링 서버를 시작합니다. 서버를 처음 실행할 때 필요한 종속성 파일을 전부 다운로드합니다. 서버가 시작되고 연결을 받을 준비가 되면, 콘솔 창에 다음과 같은 줄이 보입니다.
+
+    Listening to proxy connections on: 8888
+    Http listening on *: 80
+    
+3.  언리얼 엔진 설치 폴더에서 WebRTC 프록시 서버 바이너리를 찾습니다. `Engine/Source/Programs/PixelStreaming/WebRTCProxy/bin` 아래 있습니다.  
+    ![WebRTC 프록시 서버](pixelstreaming-gs-servers-proxy.png "WebRTC Proxy Server")
+4.  `Start_WebRTCProxy.bat` 파일을 실행하여 WebRTC 프록시 서버를 시작합니다. 서버가 시작되면 콘솔 창에 다음과 같은 줄이 보입니다.
+
+    LOG: LogDefault     : Connecting to UE4 127.0.0.1:8124
+
+5.  이제 이전 단계에서 만든 바로 가기를 통해 언리얼 엔진 응용 프로그램을 시작합니다.
+
+[REGION:tip]
+편의를 위해 언리얼 엔진 응용 프로그램을 패키징할 때, 이 서버 역시 패키지로 만든 실행 파일이 들어있는 폴더로 복사됩니다. 위에 표시된 경로와 동일한 *Engine* 하위 폴더에서 찾을 수 있습니다. 언리얼 엔진 설치 폴더가 아닌 그 폴더에서 서버를 시작할 수도 있습니다.  
+하지만 이 폴더의 파일, 특히 시그널링 및 웹 서버의 플레이어 페이지 또는 구성 파일을 수정해야 하는 경우, 원래 위치에서 수정해야 합니다. 패키지 폴더에서 수정한 경우, 다음 번 응용 프로그램을 패키징할 때 변경사항을 덮어쓸 수 있습니다.
+[/REGION]
+
+### 최종 결과
+
+WebRTC 프록시 서버가 언리얼 엔진 응용 프로그램 실행을 감지하면, 시그널링 서버에 연결하여 응용 프로그램에서 콘텐츠를 스트리밍할 준비가 되었음을 알립니다.
+
+WebRTC 프록시 서버에 대한 콘솔 창에서 다음과 같은 출력 줄을 확인할 수 있습니다.
+
+    LOG: LogDefault     : Connected to UE4
+    LOG: LogDefault     : Connecting to Cirrus 127.0.0.1:8888
+    LOG: LogDefault     : Connected to Cirrus
+    LOG: LogDefault     : Cirrus config: {
+    "peerConnectionConfig" : {}
+    }
+
+시그널링 서버에 대해서는 콘솔 창에 다음과 같은 출력 줄을 확인할 수 있습니다.
+
+    proxy connected
+    config to Proxy: {"peerConnectionConfig":{}}
+
+이 시점에서 컴퓨터에 필요한 설정은 전부 마쳤습니다. 이제 브라우저만 연결하면 됩니다.
+
+## 3 - 연결!
+
+여기서는 여러 디바이스에서 실행되는 웹 브라우저를 픽셀 스트리밍 방송에 연결합니다.
+
+1.  언리얼 엔진 응용 프로그램을 실행중인 컴퓨터에서 Alt-Tab 을 눌러 포커스를 전환하고, 지원하는 웹 브라우저를 시작합니다 (Google Chrome 이나 Mozilla Firefox 가 안전합니다).
+2.  주소줄에 `http://127.0.0.1` 라 입력합니다. 로컬 머신의 IP 주소이므로, 시그널링 서버가 요청을 제공할 것입니다.  
+    ![localhost 연결](pixelstreaming-gs-connect-127001.png "Connect to the localhost")
+3.  연결할 페이지를 클릭한 다음 Play 버튼을 다시 클릭하여 스트림을 시작합니다. 
+4.  이제 응용 프로그램에 연결되고, 플레이어 웹 페이지 중간에 렌더링된 출력 스트리밍이 보일 것입니다.  
+    ![localhost 로 미디어 스트리밍](pixelstreaming-gs-connect-streaming.png "Media streaming to localhost")
+    기본 플레이어 페이지는 이미 키보드, 마우스, 터치 입력을 언리얼 엔진에 전송하도록 설정되어 있으므로, 앱을 직접 제어하는 것과 똑같은 방식으로 응용 프로그램을 제어하고 이동할 수 있습니다. 
+5.  창 오른쪽의 **+** 버튼을 클릭하면 스트림 제어를 위한 내장 옵션이 펼쳐집니다.
+    
+    | **설정** | **설명** |
+    | --- | --- |
+    | **Kick all other players** | 다른 모든 플레이어 추방 - WebRTC 프록시 서버가 현재 브라우저를 제외한 다른 모든 브라우저 연결을 닫도록 합니다. |
+    | **Enlarge Display to Fill Window** | 디스플레이를 확대하여 창 채우기 - 브라우저 창 현재 크기에 맞게 미디어 플레이어 크기를 조정할지, 고정된 크기와 위치로 놔둘지 결정합니다. |
+    | **Quality control ownership** | 퀄리티 제어 소유권 - [INCLUDE:#excerpt_7] |
+    | **Show Stats** | 통계 표시 - 브라우저와 WebRTC 프록시 서버 사이 연결 관련 통계를 시각화합니다. |
+    
+[COMMENT:none]
+[EXCERPT:excerpt_7]
+픽셀 스트리밍 플러그인 인코더가 현재 브라우저 연결을 사용하여 사용가능한 대역폭을 확인하고 스트림 인코딩 퀄리티를 결정하도록 합니다.  
+픽셀 스트리밍은 사용가능한 대역폭에 맞게 스트림 퀄리티를 조정하긴 하지만, 비디오 프레임은 픽셀 스트리밍 플러그인이 한 번만 인코딩합니다. 그 인코딩 한 번이 모든 클라이언트에 사용됩니다. 그러므로 하나의 클라이언트 연결만 적응형 스트리밍에 사용되는 퀄리티를 "소유"할 수 있습니다. 다른 클라이언트의 대역폭이 서버보다 훨씬 큰 경우, 결국 스트리밍 퀄리티가 저하될 수 있습니다. 반면 다른 클라이언트가 서버와의 연결 상태가 훨씬 안좋을 경우, 지연 또는 떨림 현상이 발생할 수 있습니다.  
+기본적으로 새 브라우저가 연결될 때마다 스트림 소유권을 사용합니다. 다른 연결 브라우저에서 소유권을 다시 얻으려면 이 옵션을 사용하세요.
+[/EXCERPT:excerpt_7]
+[/COMMENT]
+    
+[REGION:tip]
+    시그널링 웹 서버 폴더 아래 `player.htm` 및 `app.js` 파일 내용을 보면 이 컨트롤이 어떻게 구현되었는지 확인할 수 있습니다.
+[/REGION]
+
+6.  이제 네트워크의 다른 컴퓨터 및/또는 모바일 디바이스를 찾습니다. 같은 단계를 반복하되 브라우저에 `127.0.0.1` 대신 언리얼 엔진 응용 프로그램과 시그널링 서버를 실행중인 컴퓨터의 IP 주소를 입력합니다.  
+    ![원격 호스트로 미디어 스트리밍](pixelstreaming-gs-connect-others.png "Media streaming to remote host")
+
+### 최종 결과
+
+이제 컴퓨터에 하나의 언리얼 엔진 인스턴스가 실행되어 로컬 네트워크를 통해 여러 다비아스로 미디어 스트림을 방송합니다. 연결된 각 디바이스에는 모두 같은 원래 데스크톱 PC 에서 렌더링된 같은 레벨 같은 화면이 보입니다.
+
+기본적으로 연결된 모든 디바이스는 언리얼 엔진 응용 프로그램에 대한 컨트롤을 공유하여, 모든 키보드, 마우스, 터치스크린 입력을 전송합니다.
+
+![](pixelstreaming-endresult-chrome.png)
+
+데스크톱
+
+![](pixelstreaming-endresult-iossafari.png)
+
+iPhone
+
+![](pixelstreaming-endresult-gpixel.png)
+
+Pixel
+
+## 4 - 직접 해보기
+
+지금까지 하나의 서버 호스트와 기본 플레이어 페이지를 사용하는 비교적 단순한 설정을 살펴봤습니다. 약간의 노력으로 픽셀 스트리밍 시스템을 훨씬 발전시킬 수 있습니다. 예를 들어:
+
+*   프로젝트의 필요에 맞게 플레이어 HTML 페이지 디자인을 완전히 바꿀 수 있습니다. 언리얼 엔진 응용 프로그램으로 입력을 전송할 수 있는 컨트롤은 물론, 페이지에 HTML5 UI 요소를 만들어 언리얼 엔진에 커스텀 게임플레이 이벤트를 발생시킬 수도 있습니다.  
+    자세한 내용은 [플레이어 웹 페이지 커스터마이징](Platforms/PixelStreaming/CustomPlayer) 문서를 참조하세요.
+*   개방형 인터넷 또는 서브넷을 통해 픽셀 스트리밍 서비스를 제공해야 하는 경우, 조금 더 고급 네트워크 구성이 필요할 수 있습니다.  별도의 언리얼 엔진 인스턴스에서, 또는 다른 컨트롤을 제공하는 별도의 플레이어 페이지를 통해 연결된 각 클라이언트로 콘텐츠를 스트리밍하고 싶을 수도 있습니다.  
+    이와 같은 주제에 대한 자세한 내용은 [호스팅 및 네트워킹 가이드](Platforms/PixelStreaming/Hosting) 문서를 참조하세요.
+*   픽셀 스트리밍 시스템의 각 구성 요소에는 다수의 구성 프로퍼티가 있어 인코딩 해상도, 화면 크기, IP 주소, 통신 포트 등을 제어할 수 있습니다.  
+    이 모든 프로퍼티 및 설정 방법 관련 정보는 [픽셀 스트리밍 레퍼런스](Platforms/PixelStreaming/PixelStreamingReference) 문서를 참조하세요.

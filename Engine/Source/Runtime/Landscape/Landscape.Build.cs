@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -19,6 +19,7 @@ public class Landscape : ModuleRules
 				"TargetPlatform",
 				"DerivedDataCache",
 				"Foliage",
+				"Renderer",
 			}
 		);
 
@@ -30,7 +31,6 @@ public class Landscape : ModuleRules
 				"Engine",
 				"RenderCore", 
 				"RHI",
-				"ShaderCore",
 				"Renderer",
 				"Foliage",
 			}
@@ -46,7 +46,8 @@ public class Landscape : ModuleRules
 		{
 			PrivateDependencyModuleNames.AddRange(
 				new string[] {
-					"RawMesh"
+					"MeshDescription",
+                    "MeshUtilitiesCommon"
 				}
 			);
 		}

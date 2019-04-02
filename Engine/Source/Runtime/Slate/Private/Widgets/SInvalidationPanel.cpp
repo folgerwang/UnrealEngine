@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Widgets/SInvalidationPanel.h"
 #include "Rendering/DrawElements.h"
@@ -467,6 +467,10 @@ int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& Allo
 			if (bWasCachingNeeded == false)
 			{
 				INC_DWORD_STAT_BY(STAT_SlateNumCachedElements, CachedWindowElements->GetElementCount());
+
+#if SLATE_VERBOSE_NAMED_EVENTS
+				SCOPED_NAMED_EVENT_TEXT("SInvalidationPanel::RecordHittestGeometry", FColor::Magenta);
+#endif
 
 				RootCacheNode->RecordHittestGeometry(Args.GetGrid(), Args.GetLastHitTestIndex(), MaximumLayerIdCachedAt, AbsoluteDeltaPosition);
 			}

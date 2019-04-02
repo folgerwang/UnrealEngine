@@ -1,9 +1,10 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneLiveLinkSectionRecorder.h"
 #include "Modules/ModuleManager.h"
 #include "MovieScene/MovieSceneLiveLinkSection.h"
 #include "MovieScene/MovieSceneLiveLinkTrack.h"
+#include "MovieScene/MovieSceneLiveLinkBufferData.h"
 #include "SequenceRecorderUtils.h"
 #include "ISequenceRecorder.h"
 #include "MotionControllerComponent.h"
@@ -12,7 +13,10 @@
 #include "LiveLinkClient.h"
 #include "LiveLinkComponent.h"
 #include "Misc/ScopedSlowTask.h"
-#include "Channels/MovieSceneChannelProxy.h"
+//recording
+#include "HAL/FileManagerGeneric.h"
+
+//DEFINE_LOG_CATEGORY(LiveLinkSerialization);
 
 TSharedPtr<IMovieSceneSectionRecorder> FMovieSceneLiveLinkSectionRecorderFactory::CreateSectionRecorder(const struct FActorRecordingSettings& InActorRecordingSettings) const
 {
@@ -84,19 +88,17 @@ void FMovieSceneLiveLinkSectionRecorder::SetLiveLinkSubject(UMotionControllerCom
 	}
 }
 
+
 void FMovieSceneLiveLinkSectionRecorder::CreateSection(UObject* InObjectToRecord, UMovieScene* InMovieScene, const FGuid& Guid, float Time)
 {
 	ObjectGuid = Guid;
 	ObjectToRecord = InObjectToRecord;
 	MovieScene = InMovieScene;
 	TimecodeSource = SequenceRecorderUtils::GetTimecodeSource();
-	SecondsDiff = FPlatformTime::Seconds() - Time;
-
 	UMotionControllerComponent* MotionControllerComp = Cast<UMotionControllerComponent>(ObjectToRecord.Get());
 	if (MotionControllerComp)
 	{
 		SetLiveLinkSubject(MotionControllerComp);
-
 	}
 	else
 	{
@@ -112,190 +114,176 @@ void FMovieSceneLiveLinkSectionRecorder::CreateSection(UObject* InObjectToRecord
 void FMovieSceneLiveLinkSectionRecorder::CreateTracks(UMovieScene* InMovieScene, const FGuid& Guid, float Time)
 {
 	MovieSceneSections.Reset(SubjectNames.Num());
-	for (const FName& Name : SubjectNames)
+	CachedFramesArray.SetNum(SubjectNames.Num());
+	//LiveLinkSerializers.SetNum(SubjectNames.Num());
+
+	IModularFeatures& ModularFeatures = IModularFeatures::Get();
+	ILiveLinkClient* LiveLinkClient = &ModularFeatures.GetModularFeature<ILiveLinkClient>(ILiveLinkClient::ModularFeatureName);
+	SecondsDiff = FPlatformTime::Seconds() - Time;
+	FText Error;
+
+	if (LiveLinkClient)
 	{
-		TWeakObjectPtr<class UMovieSceneLiveLinkSection> MovieSceneSection;
-		TWeakObjectPtr<class UMovieSceneLiveLinkTrack> MovieSceneTrack;
+		int32 Index = 0;
 
-		MovieSceneTrack = InMovieScene->FindTrack<UMovieSceneLiveLinkTrack>(Guid, Name);
-		if (!MovieSceneTrack.IsValid())
+		//FName SerializedType("LiveLink");
+
+		//FLiveLinkManifestHeader  ManifestHeader(SerializedType);
+		HandlerGuid = LiveLinkClient->StartRecordingLiveLink(SubjectNames);
+
+		for (const FName& Name : SubjectNames)
 		{
-			MovieSceneTrack = InMovieScene->AddTrack<UMovieSceneLiveLinkTrack>(Guid);
-			MovieSceneTrack->SetPropertyNameAndPath(Name, Name.ToString());
+			TWeakObjectPtr<class UMovieSceneLiveLinkSection> MovieSceneSection;
+			TWeakObjectPtr<class UMovieSceneLiveLinkTrack> MovieSceneTrack;
 
+			MovieSceneTrack = InMovieScene->FindTrack<UMovieSceneLiveLinkTrack>(Guid, Name);
+			if (!MovieSceneTrack.IsValid())
+			{
+				MovieSceneTrack = InMovieScene->AddTrack<UMovieSceneLiveLinkTrack>(Guid);
+				MovieSceneTrack->SetPropertyNameAndPath(Name, Name.ToString());
+
+			}
+			else
+			{
+				MovieSceneTrack->RemoveAllAnimationData();
+			}
+
+			if (MovieSceneTrack.IsValid())
+			{
+				MovieSceneSection = Cast<UMovieSceneLiveLinkSection>(MovieSceneTrack->CreateNewSection());
+
+				MovieSceneTrack->AddSection(*MovieSceneSection);
+				 
+				MovieSceneSection->SetSubjectName(Name);
+
+				FFrameRate   TickResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+				FFrameNumber CurrentFrame = (Time * TickResolution).FloorToFrame();
+
+				MovieSceneSection->SetRange(TRange<FFrameNumber>::Inclusive(CurrentFrame, CurrentFrame));
+
+				MovieSceneSection->TimecodeSource = TimecodeSource;
+				//MZ todo best place to save this out, make new option for this...
+
+				//FString Temp = Name.ToString();
+				//FString FileName = FString::Printf(TEXT("%s_%s"), *(SerializedType.ToString()), *Temp);
+
+				const FLiveLinkSubjectFrame *CurrentSubjectData = LiveLinkClient->GetSubjectData(Name);
+				if (CurrentSubjectData)
+				{
+					FLiveLinkRefSkeleton RefSkeleton;
+					FLiveLinkCurveKey  CurveKey;
+					if (CurrentSubjectData)
+					{
+						RefSkeleton = CurrentSubjectData->RefSkeleton;
+						CurveKey = CurrentSubjectData->CurveKeyData;
+					}
+					int32 NumChannels = MovieSceneSection->CreateChannelProxy(RefSkeleton, CurveKey.CurveNames);
+					/*
+					FLiveLinkFileHeader Header(Name, SecondsDiff, CurrentSubjectData->RefSkeleton, CurrentSubjectData->CurveKeyData.CurveNames,
+						SerializedType, Guid);
+					LiveLinkSerializers[Index].SetLocalCaptureDir(Directory);
+					
+					if (!LiveLinkSerializers[Index].OpenForWrite(FileName, Header, Error))
+					{
+						UE_LOG(LiveLinkSerialization, Warning, TEXT("Error Opening LiveLink Sequencer File: Subject '%s' Error '%s'"), *(Name.ToString()), *(Error.ToString()));
+					}
+					else
+					{
+						ManifestHeader.SubjectNames.Add(Name);
+					}
+					*/
+				}
+				else
+				{
+					//UE_LOG(LiveLinkSerialization, Warning, TEXT("Error Getting LiveLink Subject Data File: Subject '%s' Error '%s'"), *(Name.ToString()), *(Error.ToString()));
+				}
+				++Index;
+			}
+			MovieSceneSections.Add(MovieSceneSection);
+		}
+
+		/*
+		FString ManifestFileName = FString::Printf(TEXT("%s_%s"), *(SerializedType.ToString()), *ObjectToRecord->GetName());
+
+		Serializer.SetLocalCaptureDir(Directory);
+
+		if (!Serializer.OpenForWrite(ManifestFileName, ManifestHeader, Error))
+		{
+			UE_LOG(LiveLinkSerialization, Warning, TEXT("Error Opening Live Link Manifest file Error '%s'"), *(Error.ToString()));
 		}
 		else
 		{
-			MovieSceneTrack->RemoveAllAnimationData();
+			Serializer.Close(); //just read header.
 		}
+		*/
 
-		if (MovieSceneTrack.IsValid())
-		{
-			MovieSceneSection = Cast<UMovieSceneLiveLinkSection>(MovieSceneTrack->CreateNewSection());
+		LastRotationValues.Reset();
 
-			MovieSceneTrack->AddSection(*MovieSceneSection);
-
-			MovieSceneSection->SetSubjectName(Name);
-
-			FFrameRate   TickResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
-			FFrameNumber CurrentFrame = (Time * TickResolution).FloorToFrame();
-
-			MovieSceneSection->SetRange(TRange<FFrameNumber>::Inclusive(CurrentFrame, CurrentFrame));
-
-			MovieSceneSection->TimecodeSource = TimecodeSource;
-		}
-		MovieSceneSections.Add(MovieSceneSection);
 	}
 }
-
-/** Structure used to buffer up individual curve keys. Keys are inserted currently in Finalize Section and then moved to the channel */
-struct FLiveLinkCurveKeys
-{
-	void Add(float Val, FFrameNumber FrameNumber)
-	{
-		FMovieSceneFloatValue NewValue(Val);
-		NewValue.InterpMode = RCIM_Cubic;
-		Curve.Add(NewValue);
-		Times.Add(FrameNumber);
-	}
-
-	void Reserve(int32 Num)
-	{
-		Curve.Reserve(Num);
-		Times.Reserve(Num);
-	}
-
-	void AddToFloatChannels(int32 StartIndex, TArray<FMovieSceneFloatChannel> &FloatChannels)
-	{
-		FloatChannels[StartIndex].Set(Times, MoveTemp(Curve));
-		FloatChannels[StartIndex].AutoSetTangents();
-	}
-
-
-	TArray<FMovieSceneFloatValue> Curve;
-	/*Unlike Transforms that will always have a key per frame, curves are optional and so miss frames, so we need to keep track of each curve. */
-	TArray<FFrameNumber> Times;
-
-};
-
-/** Structure used to buffer up transform keys. Keys are inserted currently in Finalize Section and then moved to the channel */
-struct FLiveLinkTransformKeys
-{
-	void Add(const FTransform& InTransform)
-	{
-		FMovieSceneFloatValue NewValue(InTransform.GetTranslation().X);
-		NewValue.InterpMode = RCIM_Cubic;
-		LocationX.Add(NewValue);
-		NewValue = FMovieSceneFloatValue(InTransform.GetTranslation().Y);
-		NewValue.InterpMode = RCIM_Cubic;
-		LocationY.Add(NewValue);
-		NewValue = FMovieSceneFloatValue(InTransform.GetTranslation().Z);
-		NewValue.InterpMode = RCIM_Cubic;
-		LocationZ.Add(NewValue);
-
-		FRotator WoundRotation = InTransform.Rotator();
-		NewValue = FMovieSceneFloatValue(WoundRotation.Roll);
-		NewValue.InterpMode = RCIM_Cubic;
-		RotationX.Add(NewValue);
-
-		NewValue = FMovieSceneFloatValue(WoundRotation.Pitch);
-		NewValue.InterpMode = RCIM_Cubic;
-		RotationY.Add(NewValue);
-
-		NewValue = FMovieSceneFloatValue(WoundRotation.Yaw);
-		NewValue.InterpMode = RCIM_Cubic;
-		RotationZ.Add(NewValue);
-
-		NewValue = FMovieSceneFloatValue(InTransform.GetScale3D().X);
-		NewValue.InterpMode = RCIM_Cubic;
-		ScaleX.Add(NewValue);
-
-		NewValue = FMovieSceneFloatValue(InTransform.GetScale3D().Y);
-		NewValue.InterpMode = RCIM_Cubic;
-		ScaleY.Add(NewValue);
-
-		NewValue = FMovieSceneFloatValue(InTransform.GetScale3D().Z);
-		NewValue.InterpMode = RCIM_Cubic;
-		ScaleZ.Add(NewValue);
-
-	}
-
-	void Reserve(int32 Num)
-	{
-		LocationX.Reserve(Num);
-		LocationY.Reserve(Num);
-		LocationZ.Reserve(Num);
-
-		RotationX.Reserve(Num);
-		RotationY.Reserve(Num);
-		RotationZ.Reserve(Num);
-
-		ScaleX.Reserve(Num);
-		ScaleY.Reserve(Num);
-		ScaleZ.Reserve(Num);
-	}
-
-	TArray<FMovieSceneFloatValue> LocationX, LocationY, LocationZ;
-	TArray<FMovieSceneFloatValue> RotationX, RotationY, RotationZ;
-	TArray<FMovieSceneFloatValue> ScaleX, ScaleY, ScaleZ;
-
-	void AddToFloatChannels(int32 StartIndex, TArray<FMovieSceneFloatChannel> &FloatChannels, const TArray<FFrameNumber> &Times)
-	{
-		FloatChannels[StartIndex].Set(Times, MoveTemp(LocationX));
-		FloatChannels[StartIndex++].AutoSetTangents();
-		FloatChannels[StartIndex].Set(Times, MoveTemp(LocationY));
-		FloatChannels[StartIndex++].AutoSetTangents();
-		FloatChannels[StartIndex].Set(Times, MoveTemp(LocationZ));
-		FloatChannels[StartIndex++].AutoSetTangents();
-
-		FloatChannels[StartIndex].Set(Times, MoveTemp(RotationX));
-		FloatChannels[StartIndex++].AutoSetTangents();
-		FloatChannels[StartIndex].Set(Times, MoveTemp(RotationY));
-		FloatChannels[StartIndex++].AutoSetTangents();
-		FloatChannels[StartIndex].Set(Times, MoveTemp(RotationZ));
-		FloatChannels[StartIndex++].AutoSetTangents();
-
-		FloatChannels[StartIndex].Set(Times, MoveTemp(ScaleX));
-		FloatChannels[StartIndex++].AutoSetTangents();
-		FloatChannels[StartIndex].Set(Times, MoveTemp(ScaleY));
-		FloatChannels[StartIndex++].AutoSetTangents();
-		FloatChannels[StartIndex].Set(Times, MoveTemp(ScaleZ));
-		FloatChannels[StartIndex++].AutoSetTangents();
-	}
-};
 
 
 void FMovieSceneLiveLinkSectionRecorder::FinalizeSection(float CurrentTime)
 {
+	IModularFeatures& ModularFeatures = IModularFeatures::Get();
+	ILiveLinkClient* LiveLinkClient = &ModularFeatures.GetModularFeature<ILiveLinkClient>(ILiveLinkClient::ModularFeatureName);
+	if (LiveLinkClient)
+	{
+		LiveLinkClient->StopRecordingLiveLinkData(HandlerGuid, SubjectNames);
+	}
+
 	if (ObjectToRecord.IsValid())
 	{
-
-		IModularFeatures& ModularFeatures = IModularFeatures::Get();
-		ILiveLinkClient* LiveLinkClient = &ModularFeatures.GetModularFeature<ILiveLinkClient>(ILiveLinkClient::ModularFeatureName);
-
-		if (LiveLinkClient  && SubjectNames.Num() > 0)
+		if (SubjectNames.Num() > 0)
 		{
-
-			FScopedSlowTask SlowTask(SubjectNames.Num(), NSLOCTEXT("SequenceRecorder", "ProcessingLiveLink", "Processing LiveLink"));
+			Record(CurrentTime); //
 			int32 SectionCount = 0;
 			for (const FName& SubjectName : SubjectNames)
 			{
-				TWeakObjectPtr<class UMovieSceneLiveLinkSection> MovieSceneSection = MovieSceneSections[SectionCount++];
+				TWeakObjectPtr<class UMovieSceneLiveLinkSection> MovieSceneSection = MovieSceneSections[SectionCount];
+				TArray<FMovieSceneFloatChannel>& FloatChannels = MovieSceneSection->GetFloatChannels();
+				for (FMovieSceneFloatChannel& Channel : FloatChannels)
+				{
+					Channel.AutoSetTangents();
+				}
+				//LiveLinkSerializers[SectionCount++].Close();
+			}
+		}
+		return;
+	}
+}
+
+
+void FMovieSceneLiveLinkSectionRecorder::Record(float CurrentTime)
+{
+	if (ObjectToRecord.IsValid())
+	{
+		IModularFeatures& ModularFeatures = IModularFeatures::Get();
+		ILiveLinkClient* LiveLinkClient = &ModularFeatures.GetModularFeature<ILiveLinkClient>(ILiveLinkClient::ModularFeatureName);
+		if (LiveLinkClient  && SubjectNames.Num() > 0)
+		{
+			int32 SectionCount = 0;
+			for (const FName& SubjectName : SubjectNames)
+			{
+				TWeakObjectPtr<class UMovieSceneLiveLinkSection> MovieSceneSection = MovieSceneSections[SectionCount];
 
 				FFrameRate TickResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
 				FFrameNumber CurrentFrame = (CurrentTime * TickResolution).FloorToFrame();
 				MovieSceneSection->ExpandToFrame(CurrentFrame);
-				SlowTask.EnterProgressFrame();
-				const TArray<FLiveLinkFrame>* Frames = LiveLinkClient->GetSubjectRawFrames(SubjectName);
-				if (Frames)
+
+				TArray<FLiveLinkFrame>& Frames = CachedFramesArray[SectionCount];
+				LiveLinkClient->GetAndFreeLastRecordedFrames(HandlerGuid, SubjectName, Frames);
+				if (Frames.Num() > 0)
 				{
+					//LiveLinkSerializers[SectionCount].WriteFrameData(LiveLinkSerializers[SectionCount].FramesWritten, Frames);
+
 					bool InFirst = true;
 					TArray<FFrameNumber> Times;
-					Times.Reserve(Frames->Num());
+					Times.Reserve(Frames.Num());
 					TArray<FLiveLinkTransformKeys> LinkTransformKeysArray;
 					TArray<FLiveLinkCurveKeys>  LinkCurveKeysArray;
 
-					for (const FLiveLinkFrame& Frame : *Frames)
+					for (const FLiveLinkFrame& Frame : Frames)
 					{
 						int32 TransformIndex = 0;
 						int32 CurveIndex = 0;
@@ -306,24 +294,15 @@ void FMovieSceneLiveLinkSectionRecorder::FinalizeSection(float CurrentTime)
 
 						if (InFirst)
 						{
-							const FLiveLinkSubjectFrame *CurrentSubjectData = LiveLinkClient->GetSubjectData(SubjectName);
-							FLiveLinkRefSkeleton RefSkeleton;
-							FLiveLinkCurveKey  CurveKey;
-							if (CurrentSubjectData)
-							{
-								RefSkeleton = CurrentSubjectData->RefSkeleton;
-								CurveKey = CurrentSubjectData->CurveKeyData;
-							}
-							int32 NumChannels = MovieSceneSection->CreateChannelProxy(Frame,RefSkeleton, CurveKey);
 							LinkTransformKeysArray.SetNum(Frame.Transforms.Num());
 							for (FLiveLinkTransformKeys& TransformKeys : LinkTransformKeysArray)
 							{
-								TransformKeys.Reserve(Frames->Num());
+								TransformKeys.Reserve(Frames.Num());
 							}
 							LinkCurveKeysArray.SetNum(Frame.Curves.Num());
 							for (FLiveLinkCurveKeys& CurveKeys : LinkCurveKeysArray)
 							{
-								CurveKeys.Reserve(Frames->Num());
+								CurveKeys.Reserve(Frames.Num());
 							}
 							InFirst = false;
 						}
@@ -347,40 +326,213 @@ void FMovieSceneLiveLinkSectionRecorder::FinalizeSection(float CurrentTime)
 					int32 ChannelIndex = 0;
 					for (FLiveLinkTransformKeys& TransformKeys : LinkTransformKeysArray)
 					{
-						TransformKeys.AddToFloatChannels(ChannelIndex, FloatChannels, Times);
+						TransformKeys.AppendToFloatChannelsAndReset(ChannelIndex, FloatChannels, Times, LastRotationValues);
 						ChannelIndex += 9;
 					}
 					for (FLiveLinkCurveKeys CurveKeys : LinkCurveKeysArray)
 					{
-						CurveKeys.AddToFloatChannels(ChannelIndex, FloatChannels);
+						CurveKeys.AppendToFloatChannelsAndReset(ChannelIndex, FloatChannels);
 						ChannelIndex += 1;
 					}
-				}
-			}
+				} //if frames.num > 0
+				++SectionCount;
+			}//for each subject
 		}
 	}
 }
 
-//MZ TODO STORE ITERATIVELY AND NOT JUST AT END SECTION
-void FMovieSceneLiveLinkSectionRecorder::Record(float CurrentTime)
+
+/*
+bool FMovieSceneLiveLinkSectionRecorder::LoadManifestFile(const FString& FileName, UMovieScene *InMovieScene, TFunction<void()> InCompletionCallback)
 {
 
-	/*
-
-	if (ObjectToRecord.IsValid())
+	bool bFileExists = Serializer.DoesFileExist(FileName);
+	if (bFileExists)
 	{
-		for (TWeakObjectPtr<class UMovieSceneLiveLinkSection> MovieSceneSection : MovieSceneSections)
+		FText Error;
+		FLiveLinkManifestHeader Header;
+		FString PathPart, FilenamePart, ExtensionPart;
+
+		if (Serializer.OpenForRead(FileName, Header, Error))
 		{
-			if (MovieSceneSection.IsValid())
+			for (const FName& SubjectName : Header.SubjectNames)
 			{
-				FFrameRate TickResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
-				FFrameNumber CurrentFrame = (CurrentTime * TickResolution).FloorToFrame();
-
-				MovieSceneSection->ExpandToFrame(CurrentFrame);
+				FPaths::Split(FileName, PathPart, FilenamePart, ExtensionPart);
+				FilenamePart = FString("/") + Header.SerializedType.ToString() + FString("_") + SubjectName.ToString();
+				LoadSubjectFile(PathPart + FilenamePart, InMovieScene, InCompletionCallback);
 			}
+			Serializer.Close();
 		}
+		else
+		{
+			Serializer.Close();
+		}
+		return true;
 	}
-
-	*/
+	return false;
 
 }
+
+bool FMovieSceneLiveLinkSectionRecorder::LoadSubjectFile(const FString& FileName, UMovieScene *InMovieScene, TFunction<void()> InCompletionCallback)
+{
+
+	LiveLinkSerializers.SetNum(1);
+
+	bool bFileExists = LiveLinkSerializers[0].DoesFileExist(FileName);
+	if (bFileExists)
+	{
+		FText Error;
+		FLiveLinkFileHeader Header;
+
+		if (LiveLinkSerializers[0].OpenForRead(FileName, Header, Error))
+		{
+			LiveLinkSerializers[0].GetDataRanges([this, InMovieScene, FileName, Header, InCompletionCallback](uint64 InMinFrameId, uint64 InMaxFrameId)
+			{
+				auto OnReadComplete = [this, InMovieScene, Header, InCompletionCallback]()
+				{
+					TArray<FLiveLinkSerializedFrame> &InFrames = LiveLinkSerializers[0].ResultData;
+					if (InFrames.Num() > 0)
+					{
+
+						TWeakObjectPtr<class UMovieSceneLiveLinkSection> MovieSceneSection;
+						TWeakObjectPtr<class UMovieSceneLiveLinkTrack> MovieSceneTrack;
+
+						MovieSceneTrack = InMovieScene->FindTrack<UMovieSceneLiveLinkTrack>(Header.Guid, Header.SubjectName);
+						if (!MovieSceneTrack.IsValid())
+						{
+							MovieSceneTrack = InMovieScene->AddTrack<UMovieSceneLiveLinkTrack>(Header.Guid);
+							MovieSceneTrack->SetPropertyNameAndPath(Header.SubjectName, Header.SubjectName.ToString());
+
+						}
+						else
+						{
+							MovieSceneTrack->RemoveAllAnimationData();
+						}
+
+						if (MovieSceneTrack.IsValid())
+						{
+							FName SubjectName;
+							FLiveLinkFrameData FrameData;
+							FLiveLinkRefSkeleton RefSkeleton;
+							MovieSceneSection = Cast<UMovieSceneLiveLinkSection>(MovieSceneTrack->CreateNewSection());
+							MovieSceneTrack->AddSection(*MovieSceneSection);
+
+							MovieSceneSection->SetSubjectName(Header.SubjectName);
+							FFrameRate   TickResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+
+							MovieSceneSection->TimecodeSource = FMovieSceneTimecodeSource(FApp::GetTimecode());
+
+							int32 NumChannels = MovieSceneSection->CreateChannelProxy(Header.RefSkeleton, Header.CurveNames);
+							if (NumChannels > 0)
+							{
+								TArray<FFrameNumber> Times;
+								Times.Reserve(InFrames.Num());
+								TArray<FLiveLinkTransformKeys> LinkTransformKeysArray;
+								TArray<FLiveLinkCurveKeys>  LinkCurveKeysArray;
+								bool InFirst = true;
+								for (const FLiveLinkSerializedFrame& SerializedFrame : InFrames)
+								{
+									const FLiveLinkFrame &Frame = SerializedFrame.Frame;
+
+									int32 TransformIndex = 0;
+									int32 CurveIndex = 0;
+									//FQualifiedFrameTime QualifiedFrameTime = LiveLinkClient->GetQualifiedFrameTimeAtIndex(SubjectName.GetValue(), FrameIndex++);
+									double Second = Frame.WorldTime.Time - Header.SecondsDiff;
+									FFrameNumber FrameNumber = (Second * TickResolution).FloorToFrame();
+									Times.Add(FrameNumber);
+									MovieSceneSection->ExpandToFrame(FrameNumber);
+
+									if (InFirst)
+									{
+										LinkTransformKeysArray.SetNum(Frame.Transforms.Num());
+										for (FLiveLinkTransformKeys& TransformKeys : LinkTransformKeysArray)
+										{
+											TransformKeys.Reserve(InFrames.Num());
+										}
+										LinkCurveKeysArray.SetNum(Frame.Curves.Num());
+										for (FLiveLinkCurveKeys& CurveKeys : LinkCurveKeysArray)
+										{
+											CurveKeys.Reserve(InFrames.Num());
+										}
+										InFirst = false;
+									}
+
+									for (const FTransform& Transform : Frame.Transforms)
+									{
+										LinkTransformKeysArray[TransformIndex++].Add(Transform);
+									}
+									for (const FOptionalCurveElement& Curve : Frame.Curves)
+									{
+										if (Curve.IsValid())
+										{
+											LinkCurveKeysArray[CurveIndex].Add(Curve.Value, FrameNumber);
+										}
+										CurveIndex += 1;
+									}
+
+								}
+
+								TArray<FMovieSceneFloatChannel>& FloatChannels = MovieSceneSection->GetFloatChannels();
+								int32 ChannelIndex = 0;
+								for (FLiveLinkTransformKeys& TransformKeys : LinkTransformKeysArray)
+								{
+									TransformKeys.AddToFloatChannels(ChannelIndex, FloatChannels, Times);
+									ChannelIndex += 9;
+								}
+								for (FLiveLinkCurveKeys CurveKeys : LinkCurveKeysArray)
+								{
+									CurveKeys.AddToFloatChannels(ChannelIndex, FloatChannels);
+									ChannelIndex += 1;
+								}
+
+							}
+						}
+					}
+					LiveLinkSerializers[0].Close();
+					InCompletionCallback();
+
+				}; //callback
+
+				LiveLinkSerializers[0].ReadFramesAtFrameRange(InMinFrameId, InMaxFrameId, OnReadComplete);
+
+			});
+			return true;
+		}
+		else
+		{
+			LiveLinkSerializers[0].Close();
+
+		}
+	}
+	return false;
+}
+bool FMovieSceneLiveLinkSectionRecorder::LoadRecordedFile(const FString& FileName, UMovieScene *InMovieScene, TFunction<void()> InCompletionCallback,  UObject *InObjectToLoad)
+{
+	FLiveLinkManifestHeader Header;
+	TMovieSceneSerializer<FLiveLinkManifestHeader, FLiveLinkManifestHeader>  ManifestCheckSerializer;
+	bool bFileExists = ManifestCheckSerializer.DoesFileExist(FileName);
+	if (bFileExists)
+	{
+		FText Error;
+		if (ManifestCheckSerializer.OpenForRead(FileName, Header, Error))
+		{
+			ManifestCheckSerializer.Close();
+			//reuse LiveLinkSerializers Array
+			if (Header.bIsManifest)
+			{
+				return LoadManifestFile(FileName, InMovieScene, InCompletionCallback);
+			}
+			else
+			{
+				return LoadSubjectFile(FileName, InMovieScene, InCompletionCallback);
+			}
+		}
+		else
+		{
+			ManifestCheckSerializer.Close();
+		}
+	}
+	return false;
+
+}
+*/

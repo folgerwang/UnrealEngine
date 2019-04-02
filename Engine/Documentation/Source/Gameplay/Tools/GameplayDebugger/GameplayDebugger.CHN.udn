@@ -1,58 +1,54 @@
-﻿INTSourceChangelist:2610380
-Title:游戏性的调试
+INTSourceChangelist:3967023
+Title:Gameplay调试程序
 Availability:Public
 Crumbs:
-Description: 该工具可在运行时分析实时游戏数据。
+Description:用于在运行时分析实时游戏的工具。
 
-游戏调试工具对于在运行时（甚至在使用复制的联网游戏中的客户端上）查看实时数据，都非常有用。在编辑器中进行游戏、在编辑器中进行模拟以及在单独的游戏会话中，都可使用游戏调试工具，且所有数据都重叠显示在游戏视区中。该系统提供了一个框架，该框架可扩展，以便对游戏特定数据进行调试。
+Gameplay调试程序用于监控运行时的实时数据，可用于使用复制的联网游戏客户端。它可用于“在编辑器中运行”（Play in Editor）、“在编辑器中模拟”（Simulate in Editor）和独立游戏会话，所有数据皆以覆层显示在游戏视口上。此系统提供了一个可延展的框架，以启用游戏特定数据的调试。
 
-引擎实现了以下这些可显示的功能：
+引擎实现可以显示：
 
-* Pawn 的基本数据
-* AIController 的基本数据
-* 行为树和黑板数据的相关信息
-* 执行环境查询 (EQS) 的相关信息
-* 感知系统的信息
-* 玩家周围的导航网格或带有所有细节（如链接或区域）的选定 Pawn
+* 从Pawn获得的基础数据
+* 从AI控制器获得的基本数据
+* 行为树和黑板数据的信息
+* 已执行环境查询（EQS）的信息
+* 来自感知系统的信息
+* 拥有所有细节（如链接和区域），在玩家或所选Pawn周围的寻路网格体
 
-通常数据量较大，因此 GDT 使用类别来限制屏幕上的信息量。系统只会复制已启用类别的数据，该数据可保存复制通道的带宽。共有以下 5 种默认类别和 5 种项目中使用的类别：
+通常存在大量数据，因此GDT会使用类别来限制屏幕上显示的信息量。仅来自支持类别的数据会被复制，从而节省复制信道带宽。有5种默认类别，项目使用5种类别：
 
 ![image alt text](image_1.png)
 
-* 导航网格
-* 基本数据
+* 寻路网格体
+* 基础
 * 行为树
 * EQS
 * 感知
-* 以及 5 种项目中使用的类别
+* 和5种项目使用的类别
 
 
-也可对现有类别进行扩展，以显示更多游戏特定数据。
+现有类别也可以展开以显示更多特定于游戏的数据。
 
-以下是我们在客户端上获取的屏幕截屏，该客户端上只启用了几个类别：基本数据、EQS、导航网格和行为树：
+下面是在启用了一些类别的客户端上截取的屏幕截图。基础、EQS、寻路网格体和行为树：
 
 ![image alt text](image_2.png)
 
-使用 '（单引号）键（默认设置）或 *EnableGDT* 作弊工具可启用游戏调试工具。键盘按键设置在文件中设置，可方便地更改该设置。
-若要选定要调试的敌人，请在屏幕上正对着该敌人时按 ' 键。数字键盘用于在可见类别之间进行切换。
-必须将游戏调试模块添加到项目的依赖关系模块，才能启用和使用游戏调试模块。 
+Gameplay调试程序默认可以使用撇号（'）键或*EnableGDT*作弊激活。键绑定在文件中设置，可以轻松更改。要选择调试的敌人，在指向屏幕上的敌人的同时按 ' 键。数字键盘用于切换可见类别。GameplayDebugger模块必须添加到项目的依赖性模块才能激活和使用。 
 
-## 编辑器-与游戏调试工具组合使用 
+(#editor-workingwithgameplaydebugger)
+## 编辑器——使用Gameplay调试程序 
 
-在编辑器中工作时，可在 PIE 或模拟模式中使用 GDT。已设置的键或 *EnableGDT* 作弊工具可用于在 PIE 模式中启用 GDT。
-模拟模式与 PIE 模式稍有不同，所以启用本调试工具需要启用 “Debug AI” 显示标志。软件还提供了一个选项，可在模拟模式中更改可见的类别。
-*GameplayDebuggingReplicator* actor 就用于该选项。该 actor 位于场景大纲视图中，其属性可用于控制 GDT：
+在编辑器中工作时，可以在PIE或模拟中使用GDT。在PIE中，可以使用绑定键或*EnableGDT*作弊来激活GDT。模拟模式与PIE稍有不同，因此激活该调试工具需要启用“*调试AI（Debug AI）*”显示标志。模拟中还有一个选项可以更改可见类别。*GameplayDebuggingReplicator* Actor可以用于此目的。该Actor可以在“场景大纲”（Scene Outliner）中找到，其属性用来控制GDT：
 
 ![image alt text](image_3.jpg)
 
 
-## 基本扩展
+(#basicextension)
+## 基础扩展
 
-游戏调试工具只能使用 C++ 代码进行扩展。在蓝图项目中，游戏调试程序只能按原样使用，即显示当前的基本调试信息。对游戏调试程序进行扩展是一件容易的事情，
-收集并显示游戏特定数据即可。为此，需要使用继承自 *UGameplayDebuggingComponent* 类和 *AGameplayDebuggingHUDComponent* 类的定制类。
-第一个类用于收集数据，并最终复制数据，而第二个类用于在屏幕上显示所有已收集的数据。
+Gameplay调试程序只能使用C++代码扩展。对于蓝图项目，它只能原样使用，目前用于显示基本调试信息。扩展Gameplay调试程序很简单，扩展后可以收集和显示游戏特定数据。为此，需要使用继承自*UGameplayDebuggingComponent*类和*AGameplayDebuggingHUDComponent*类的自定义类。第一个类用于收集并最终复制数据，第二个类用于在屏幕上显示所有收集的数据。
 
-以下是一种用于收集游戏特定数据的简单类：
+下面是用于收集游戏特定数据的简单类：
 
 
 GDTComponent.h
@@ -70,7 +66,7 @@ GDTComponent.h
 		virtual void CollectBasicData() override;
 
 		UPROPERTY(Replicated)
-		float TestData; //custom data replicated to clients
+		float TestData; //复制到客户端的自定义数据
 	};
 
 GDTComponent.cpp
@@ -80,7 +76,7 @@ GDTComponent.cpp
 	#include "GameplayDebuggingComponent.h"
 	#include "GDTComponent.h"
 
-	UGDTComponent::UGDTComponent(const class FPostConstructInitializeProperties& PCIP) :Super(PCIP) { }
+	UGDTComponent::UGDTComponent(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP) { }
 
 	void UGDTComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const
 	{
@@ -94,11 +90,11 @@ GDTComponent.cpp
 	{
 		Super::CollectBasicData();
 	#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		TestData= FMath::RandRange(2.75, 8.25); //collect data and store it
+		TestData= FMath::RandRange(2.75, 8.25); //收集并存储数据
 	#endif
 	}
 
-下个类用于在屏幕上显示新数据：
+使用下一个类在屏幕上显示新数据：
 
 
 GDTHUDComponent.h
@@ -125,7 +121,7 @@ GDTHUDComponent.cpp
 	#include "GDTHUDComponent.h"
 
 	AGDTHUDComponent::AGDTHUDComponent(const class FPostConstructInitializeProperties& PCIP)
-		:Super(PCIP)
+		: Super(PCIP)
 	{
 	}
 	void AGDTHUDComponent::DrawBasicData(APlayerController* PC, class UGameplayDebuggingComponent *DebugComponent)
@@ -140,7 +136,7 @@ GDTHUDComponent.cpp
 	#endif
 	}
 
-游戏调试工具需要理解新的类，且该信息可在 DefaultEngine.ini 配置文件中设置：
+Gameplay调试程序需要知道新类，该信息可以在DefaultEngine.ini配置文件中设置：
 
 
 DefaultEngine.ini
@@ -149,11 +145,12 @@ DefaultEngine.ini
 	DebugComponentClassName="/Script/MyGameProject.GDTComponent"
 	DebugComponentHUDClassName="/Script/MyGameProject.GDTHUDComponent" |
 
-## 定制类别
+(#customcategories)
+## 自定义类别
 
-需几步即可在游戏调试程序中添加项目特定类别。 
+还需要再执行一些步骤来将项目特定类别添加到Gameplay调试程序。 
 
-让我们扩展 GDTComponent 类：
+首先扩展GDTComponent类：
 
 
 GDTComponent.h
@@ -173,7 +170,7 @@ GDTComponent.h
 		void CollectCustomData();
 	public:
 		UPROPERTY(Replicated)
-		float TestData; //custom data replicated to clients
+		float TestData; //复制到客户端的自定义数据
 	};
 
 GDTComponent.cpp
@@ -183,7 +180,7 @@ GDTComponent.cpp
 	#include "GameplayDebuggingComponent.h"
 	#include "GDTComponent.h"
 
-	UGDTComponent::UGDTComponent(const class FPostConstructInitializeProperties& PCIP) :Super(PCIP) { }
+	UGDTComponent::UGDTComponent(const class FPostConstructInitializeProperties& PCIP) : Super(PCIP) { }
 
 	void UGDTComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const
 	{
@@ -197,7 +194,7 @@ GDTComponent.cpp
 	{
 		Super::CollectBasicData();
 	#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		TestData= FMath::RandRange(2.75, 8.25); //collect data and store it
+		TestData= FMath::RandRange(2.75, 8.25); //收集并存储数据
 	#endif
 	}
 
@@ -210,13 +207,13 @@ GDTComponent.cpp
 			CollectCustomData();
 			if (bCollectExtendedData)
 			{
-				// collect additional data for selected Pawn/AIController 
+				// 收集所选Pawn/AIController的额外数据 
 			}
 		}
 	#endif
 	}
 
-HUD 组件已被扩展，以便在新视图中显示数据：
+扩展HUD组件以在新视图中显示数据：
 
 
 GDTHUDComponent.h
@@ -245,7 +242,7 @@ GDTHUDComponent.cpp
 	#include "GDTHUDComponent.h"
 
 	AGDTHUDComponent::AGDTHUDComponent(const class FPostConstructInitializeProperties& PCIP)
-		:Super(PCIP)
+		: Super(PCIP)
 	{
 	}
 	void AGDTHUDComponent::DrawCustomData(APlayerController* PC, class UGameplayDebuggingComponent *DebugComponent)
@@ -277,18 +274,18 @@ GDTHUDComponent.cpp
 	#endif
 	}
 
-新类别已准备就绪，可用于对项目特定数据进行调试：
+新类别已准备就系，可以用于调试特定于项目的数据：
 
 ![image alt text](image_4.jpg)
 
-若要用颜色标出调试信息，*PrintString* 函数可在字符串中使用标记来改变当前使用的颜色。使用不同颜色描绘字符串变得更加方便：
+要用颜色绘制调试信息，*PrintString*函数可以在字符串中使用标记来更改活跃颜色。这样更便于使用不同的颜色绘制字符串：
 
 	void PrintString(FPrintContext& Context, const FString& InString );
 	void PrintString(FPrintContext& Context, const FColor& InColor, const FString& InString );
 	PrintString(DefaultContext, FColor::Green, TEXT("Whole text in green"));
 	PrintString(DefaultContext, TEXT("String {green}in green, {red}in red {white}or {R=0,G=0,B=255,A=255}in blue"));
 
-最后的 PrintString 函数可生成具有 4 种不同颜色的字符串：
+最后的PrintString函数生成有4种不同颜色的字符串：
 
 ![image alt text](image_5.jpg)
 

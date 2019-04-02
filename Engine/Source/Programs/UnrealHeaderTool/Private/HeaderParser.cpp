@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "HeaderParser.h"
@@ -1010,9 +1010,46 @@ namespace
 			{
 				if (UFunction* Function = Cast<UFunction>(Field))
 				{
-					if (FHeaderParser::FindField(Function, *InValue, false) == nullptr)
+					// multiple entry parsing in the same format as eg SetParam.
+					TArray<FString> RawGroupings;
+					InValue.ParseIntoArray(RawGroupings, TEXT(","), false);
+
+					UProperty* FirstInput = nullptr;
+					for (const FString& RawGroup : RawGroupings)
 					{
-						UE_LOG_ERROR_UHT(TEXT("Function does not have a parameter named '%s'"), *InValue);
+						TArray<FString> IndividualEntries;
+						RawGroup.ParseIntoArray(IndividualEntries, TEXT("|"));
+
+						for (const FString& Entry : IndividualEntries)
+						{
+							if (Entry.IsEmpty())
+							{
+								continue;
+							}
+							
+							UField* FoundField = FHeaderParser::FindField(Function, *Entry, false);
+							if (!FoundField)
+							{
+								UE_LOG_ERROR_UHT(TEXT("Function does not have a parameter named '%s'"), *Entry);
+							}
+							else if (UProperty* Prop = Cast<UProperty>(FoundField))
+							{
+								if (!Prop->HasAnyPropertyFlags(CPF_ReturnParm) &&
+
+								    (!Prop->HasAnyPropertyFlags(CPF_OutParm) ||
+									Prop->HasAnyPropertyFlags(CPF_ReferenceParm)))
+								{
+									if (!FirstInput)
+									{
+										FirstInput = Prop;
+									}
+									else
+									{
+										UE_LOG_ERROR_UHT(TEXT("Function already specified an ExpandEnumAsExec input (%s), but '%s' is also an input parameter. Only one is permitted."), *FirstInput->GetName(), *Entry);
+									}
+								}
+							}
+						}
 					}
 				}
 			}
@@ -1112,6 +1149,7 @@ namespace
 			|| Property->IsA<UObjectProperty>()
 			|| Property->IsA<UFloatProperty>()
 			|| Property->IsA<UIntProperty>()
+			|| Property->IsA<UInt64Property>()
 			|| Property->IsA<UByteProperty>()
 			|| Property->IsA<UNameProperty>()
 			|| Property->IsA<UBoolProperty>()
@@ -1124,8 +1162,51 @@ namespace
 
 		return bSupportedType || (bIsSupportedMemberVariable && bMemberVariable);
 	}
+
+	void SkipAlignasIfNecessary(FBaseParser& Parser)
+	{
+		if (Parser.MatchIdentifier(TEXT("alignas")))
+		{
+			Parser.RequireSymbol(TEXT("("), TEXT("'alignas'"));
+			Parser.RequireAnyConstInt(TEXT("'alignas'"));
+			Parser.RequireSymbol(TEXT(")"), TEXT("'alignas'"));
+		}
+	}
+
+	void SkipDeprecatedMacroIfNecessary(FBaseParser& Parser)
+	{
+		FToken MacroToken;
+		if (!Parser.GetToken(MacroToken))
+		{
+			return;
+		}
+
+		if (MacroToken.TokenType != TOKEN_Identifier || (FCString::Stricmp(MacroToken.Identifier, TEXT("DEPRECATED")) != 0 && FCString::Stricmp(MacroToken.Identifier, TEXT("UE_DEPRECATED")) != 0))
+		{
+			Parser.UngetToken(MacroToken);
+			return;
+		}
+
+		FString ErrorScope = FString::Printf(TEXT("%s macro"), MacroToken.Identifier);
+
+		Parser.RequireSymbol(TEXT("("), *ErrorScope);
+
+		FToken Token;
+		if (Parser.GetToken(Token) && (Token.Type != CPT_Float || Token.TokenType != TOKEN_Const))
+		{
+			FError::Throwf(TEXT("Expected engine version in %s macro"), MacroToken.Identifier);
+		}
+
+		Parser.RequireSymbol(TEXT(","), *ErrorScope);
+		if (Parser.GetToken(Token) && (Token.Type != CPT_String || Token.TokenType != TOKEN_Const))
+		{
+			FError::Throwf(TEXT("Expected deprecation message in %s macro"), MacroToken.Identifier);
+		}
+
+		Parser.RequireSymbol(TEXT(")"), *ErrorScope);
+	}
 }
-	
+
 /////////////////////////////////////////////////////
 // FScriptLocation
 
@@ -1370,6 +1451,8 @@ UEnum* FHeaderParser::CompileEnum()
 	}
 	else if (EnumToken.Matches(TEXT("enum"), ESearchCase::CaseSensitive))
 	{
+		SkipAlignasIfNecessary(*this);
+
 		if (!GetIdentifier(EnumToken))
 		{
 			FError::Throwf(TEXT("Missing identifier after enum") );
@@ -1377,6 +1460,10 @@ UEnum* FHeaderParser::CompileEnum()
 
 		if (EnumToken.Matches(TEXT("class"), ESearchCase::CaseSensitive) || EnumToken.Matches(TEXT("struct"), ESearchCase::CaseSensitive))
 		{
+			// You can't actually have an alignas() before the class/struct keyword, but this
+			// makes the parsing easier and illegal syntax will be caught by the compiler anyway.
+			SkipAlignasIfNecessary(*this);
+
 			CppForm       = UEnum::ECppForm::EnumClass;
 			bReadEnumName = GetIdentifier(EnumToken);
 		}
@@ -1491,6 +1578,8 @@ UEnum* FHeaderParser::CompileEnum()
 		{
 			// Now handle the inner true enum portion
 			RequireIdentifier(TEXT("enum"), TEXT("'Enum'"));
+
+			SkipAlignasIfNecessary(*this);
 
 			FToken InnerEnumToken;
 			if (!GetIdentifier(InnerEnumToken))
@@ -2015,7 +2104,11 @@ UScriptStruct* FHeaderParser::CompileStructDeclaration(FClasses& AllClasses)
 	// The required API module for this struct, if any
 	FString RequiredAPIMacroIfPresent;
 
-	SkipDeprecatedMacroIfNecessary();
+	// alignas() can come before or after the deprecation macro.
+	// We can't have both, but the compiler will catch that anyway.
+	SkipAlignasIfNecessary(*this);
+	SkipDeprecatedMacroIfNecessary(*this);
+	SkipAlignasIfNecessary(*this);
 
 	// Read the struct name
 	ParseNameWithPotentialAPIMacroPrefix(/*out*/ StructNameInScript, /*out*/ RequiredAPIMacroIfPresent, TEXT("struct"));
@@ -3135,7 +3228,7 @@ void FHeaderParser::GetVarType(
 	FScope*                         Scope,
 	FPropertyBase&                  VarProperty,
 	EPropertyFlags                  Disallow,
-	FToken*                         OuterPropertyType,
+	const FToken*                   OuterPropertyType,
 	EPropertyDeclarationStyle::Type PropertyDeclarationStyle,
 	EVariableCategory::Type         VariableCategory,
 	FIndexRange*                    ParsedVarIndexRange
@@ -3796,10 +3889,7 @@ void FHeaderParser::GetVarType(
 	{
 		RequireSymbol( TEXT("<"), TEXT("'tarray'") );
 
-		// GetVarType() clears the property flags of the array var, so use dummy 
-		// flags when getting the inner property
-		EPropertyFlags OriginalVarTypeFlags = VarType.PropertyFlags;
-		VarType.PropertyFlags |= Flags;
+		VarType.PropertyFlags = Flags;
 
 		GetVarType(AllClasses, Scope, VarProperty, Disallow, &VarType, EPropertyDeclarationStyle::None, VariableCategory);
 		if (VarProperty.IsContainer())
@@ -3812,8 +3902,7 @@ void FHeaderParser::GetVarType(
 			bNativeConstTemplateArg = true;
 		}
 
-		OriginalVarTypeFlags |= VarProperty.PropertyFlags & (CPF_ContainsInstancedReference | CPF_InstancedReference); // propagate these to the array, we will fix them later
-		VarType.PropertyFlags = OriginalVarTypeFlags;
+		VarType.PropertyFlags = VarProperty.PropertyFlags & (CPF_ContainsInstancedReference | CPF_InstancedReference); // propagate these to the array, we will fix them later
 		VarProperty.ArrayType = EArrayType::Dynamic;
 
 		FToken CloseTemplateToken;
@@ -3844,10 +3933,7 @@ void FHeaderParser::GetVarType(
 	{
 		RequireSymbol( TEXT("<"), TEXT("'tmap'") );
 
-		// GetVarType() clears the property flags of the array var, so use dummy 
-		// flags when getting the inner property
-		EPropertyFlags OriginalVarTypeFlags = VarType.PropertyFlags;
-		VarType.PropertyFlags |= Flags;
+		VarType.PropertyFlags = Flags;
 
 		FToken MapKeyType;
 		GetVarType(AllClasses, Scope, MapKeyType, Disallow, &VarType, EPropertyDeclarationStyle::None, VariableCategory);
@@ -3878,12 +3964,10 @@ void FHeaderParser::GetVarType(
 			FError::Throwf(TEXT("Nested containers are not supported.") );
 		}
 
-		OriginalVarTypeFlags |= VarProperty.PropertyFlags & (CPF_ContainsInstancedReference | CPF_InstancedReference); // propagate these to the map value, we will fix them later
-		OriginalVarTypeFlags |= MapKeyType .PropertyFlags & (CPF_ContainsInstancedReference | CPF_InstancedReference); // propagate these to the map key, we will fix them later
-		VarType.PropertyFlags = OriginalVarTypeFlags;
-		FToken* MapKeyProp = new FToken(MapKeyType);
-		VarProperty.MapKeyProp = MakeShareable<FToken>(MapKeyProp);
-		VarProperty.MapKeyProp->PropertyFlags = OriginalVarTypeFlags | (VarProperty.MapKeyProp->PropertyFlags & CPF_UObjectWrapper); // Make sure the 'UObjectWrapper' flag is maintained so that 'TMap<TSubclassOf<...>, ...>' works
+		EPropertyFlags InnerFlags = (MapKeyType.PropertyFlags | VarProperty.PropertyFlags) & (CPF_ContainsInstancedReference | CPF_InstancedReference); // propagate these to the map value, we will fix them later
+		VarType.PropertyFlags = InnerFlags;
+		VarProperty.MapKeyProp = MakeShared<FToken>(MapKeyType);
+		VarProperty.MapKeyProp->PropertyFlags = InnerFlags | (VarProperty.MapKeyProp->PropertyFlags & CPF_UObjectWrapper); // Make sure the 'UObjectWrapper' flag is maintained so that 'TMap<TSubclassOf<...>, ...>' works
 
 		FToken CloseTemplateToken;
 		if (!GetToken(CloseTemplateToken, /*bNoConsts=*/ true, ESymbolParseOption::CloseTemplateBracket))
@@ -3913,10 +3997,7 @@ void FHeaderParser::GetVarType(
 	{
 		RequireSymbol( TEXT("<"), TEXT("'tset'") );
 
-		// GetVarType() clears the property flags of the array var, so use dummy 
-		// flags when getting the inner property
-		EPropertyFlags OriginalVarTypeFlags = VarType.PropertyFlags;
-		VarType.PropertyFlags |= Flags;
+		VarType.PropertyFlags = Flags;
 
 		GetVarType(AllClasses, Scope, VarProperty, Disallow, &VarType, EPropertyDeclarationStyle::None, VariableCategory);
 		if (VarProperty.IsContainer())
@@ -3934,8 +4015,7 @@ void FHeaderParser::GetVarType(
 			FError::Throwf(TEXT("FText is not currently supported as an element type."));
 		}
 
-		OriginalVarTypeFlags |= VarProperty.PropertyFlags & (CPF_ContainsInstancedReference | CPF_InstancedReference); // propagate these to the set, we will fix them later
-		VarType.PropertyFlags = OriginalVarTypeFlags;
+		VarType.PropertyFlags = VarProperty.PropertyFlags & (CPF_ContainsInstancedReference | CPF_InstancedReference); // propagate these to the set, we will fix them later
 		VarProperty.ArrayType = EArrayType::Set;
 
 		FToken CloseTemplateToken;
@@ -4801,115 +4881,103 @@ UProperty* FHeaderParser::GetVarNameAndDim
 	// create the FName for the property, splitting (ie Unnamed_3 -> Unnamed,3)
 	FName PropertyName(VarProperty.Identifier, FindFlag);
 
-	// Add property.
-	UProperty* NewProperty = nullptr;
-
+	UProperty* Prev = nullptr;
+	for (TFieldIterator<UProperty> It(Scope, EFieldIteratorFlags::ExcludeSuper); It; ++It)
 	{
-		UProperty* Prev = nullptr;
-	    for (TFieldIterator<UProperty> It(Scope, EFieldIteratorFlags::ExcludeSuper); It; ++It)
-		{
-			Prev = *It;
-		}
-
-		UArrayProperty* Array             = nullptr;
-		UMapProperty*   Map               = nullptr;
-		USetProperty*   Set               = nullptr; // TODO: Set Property
-		UProperty*      NewMapKeyProperty = nullptr;
-		UObject*        NewScope          = Scope;
-		int32           ArrayDim          = 1; // 1 = not a static array, 2 = static array
-		if (VarProperty.ArrayType == EArrayType::Dynamic)
-		{
-			Array       = new (EC_InternalUseOnlyConstructor, Scope, PropertyName, ObjectFlags) UArrayProperty(FObjectInitializer());
-			NewScope    = Array;
-			ObjectFlags = RF_Public;
-		}
-		else if (VarProperty.ArrayType == EArrayType::Static)
-		{
-			ArrayDim = 2;
-		}
-		else if (VarProperty.ArrayType == EArrayType::Set)
-		{
-			Set               = new (EC_InternalUseOnlyConstructor, Scope, PropertyName, ObjectFlags) USetProperty(FObjectInitializer());
-			NewScope          = Set;
-			ObjectFlags       = RF_Public;
-		}
-		else if (VarProperty.MapKeyProp.IsValid())
-		{
-			Map               = new (EC_InternalUseOnlyConstructor, Scope, PropertyName, ObjectFlags) UMapProperty(FObjectInitializer());
-			NewScope          = Map;
-			ObjectFlags       = RF_Public;
-			NewMapKeyProperty = CreateVariableProperty(*VarProperty.MapKeyProp, NewScope, *(PropertyName.ToString() + TEXT("_Key")), ObjectFlags, VariableCategory, CurrentSrcFile);
-		}
-
-		NewProperty = CreateVariableProperty(VarProperty, NewScope, PropertyName, ObjectFlags, VariableCategory, CurrentSrcFile);
-
-		auto PropagateFlags = [](EPropertyFlags FlagsToPropagate, FPropertyBase& From, UProperty* To) {
-			// Copy some of the property flags to the inner property.
-			To->PropertyFlags |= (From.PropertyFlags & FlagsToPropagate);
-
-			// Copy some of the property flags to the array property.
-			if (To->PropertyFlags & (CPF_ContainsInstancedReference | CPF_InstancedReference))
-			{
-				From.PropertyFlags |= CPF_ContainsInstancedReference;
-				From.PropertyFlags &= ~(CPF_InstancedReference | CPF_PersistentInstance); //this was propagated to the inner
-
-				if (To->PropertyFlags & CPF_PersistentInstance)
-				{
-					TMap<FName, FString> MetaData;
-					AddEditInlineMetaData(MetaData);
-					AddMetaDataToClassData(To, From.MetaData);
-				}
-			}
-		};
-
-		if( Array )
-		{
-			Array->Inner = NewProperty;
-
-			PropagateFlags(CPF_PropagateToArrayInner, VarProperty, NewProperty);
-
-			NewProperty = Array;
-		}
-
-		if (Map)
-		{
-			Map->KeyProp   = NewMapKeyProperty;
-			Map->ValueProp = NewProperty;
-
-			PropagateFlags(CPF_PropagateToMapKey,   *VarProperty.MapKeyProp, NewMapKeyProperty);
-			PropagateFlags(CPF_PropagateToMapValue, VarProperty,             NewProperty);
-
-			NewProperty = Map;
-		}
-
-		if (Set)
-		{
-			Set->ElementProp = NewProperty;
-
-			PropagateFlags(CPF_PropagateToSetElement, VarProperty, NewProperty);
-
-			NewProperty = Set;
-		}
-
-		NewProperty->ArrayDim = ArrayDim;
-		if (ArrayDim == 2)
-		{
-			GArrayDimensions.Add(NewProperty, Dimensions.String);
-		}
-		NewProperty->PropertyFlags = VarProperty.PropertyFlags;
-		if (Prev != nullptr)
-		{
-			NewProperty->Next = Prev->Next;
-			Prev->Next = NewProperty;
-		}
-		else
-		{
-			NewProperty->Next = Scope->Children;
-			Scope->Children = NewProperty;
-		}
+		Prev = *It;
 	}
 
-	VarProperty.TokenProperty = NewProperty;
+	auto PropagateFlagsFromInnerAndHandlePersistentInstanceMetadata = [](EPropertyFlags& DestFlags, const TMap<FName, FString>& InMetaData, UProperty* Inner) {
+		// Copy some of the property flags to the container property.
+		if (Inner->PropertyFlags & (CPF_ContainsInstancedReference | CPF_InstancedReference))
+		{
+			DestFlags |= CPF_ContainsInstancedReference;
+			DestFlags &= ~(CPF_InstancedReference | CPF_PersistentInstance); //this was propagated to the inner
+
+			if (Inner->PropertyFlags & CPF_PersistentInstance)
+			{
+				TMap<FName, FString> MetaData;
+				AddEditInlineMetaData(MetaData);
+				AddMetaDataToClassData(Inner, InMetaData);
+			}
+		}
+	};
+
+	UProperty* Result = nullptr;
+	if (VarProperty.ArrayType == EArrayType::Dynamic)
+	{
+		UArrayProperty* Array     = new (EC_InternalUseOnlyConstructor, Scope, PropertyName, ObjectFlags) UArrayProperty(FObjectInitializer());
+		UProperty*      InnerProp = CreateVariableProperty(VarProperty, Array, PropertyName, RF_Public, VariableCategory, CurrentSrcFile);
+
+		Array->Inner         = InnerProp;
+		Array->PropertyFlags = VarProperty.PropertyFlags;
+
+		// Propagate flags
+		InnerProp->PropertyFlags |= Array->PropertyFlags & CPF_PropagateToArrayInner;
+
+		PropagateFlagsFromInnerAndHandlePersistentInstanceMetadata(Array->PropertyFlags, VarProperty.MetaData, InnerProp);
+
+		Result = Array;
+	}
+	else if (VarProperty.ArrayType == EArrayType::Set)
+	{
+		USetProperty* Set       = new (EC_InternalUseOnlyConstructor, Scope, PropertyName, ObjectFlags) USetProperty(FObjectInitializer());
+		UProperty*    InnerProp = CreateVariableProperty(VarProperty, Set, PropertyName, RF_Public, VariableCategory, CurrentSrcFile);
+
+		Set->ElementProp   = InnerProp;
+		Set->PropertyFlags = VarProperty.PropertyFlags;
+
+		// Propagate flags
+		InnerProp->PropertyFlags |= Set->PropertyFlags & CPF_PropagateToSetElement;
+
+		PropagateFlagsFromInnerAndHandlePersistentInstanceMetadata(Set->PropertyFlags, VarProperty.MetaData, InnerProp);
+
+		Result = Set;
+	}
+	else if (VarProperty.MapKeyProp.IsValid())
+	{
+		UMapProperty* Map       = new (EC_InternalUseOnlyConstructor, Scope, PropertyName, ObjectFlags) UMapProperty(FObjectInitializer());
+		UProperty*    KeyProp   = CreateVariableProperty(*VarProperty.MapKeyProp, Map, *(PropertyName.ToString() + TEXT("_Key")), RF_Public, VariableCategory, CurrentSrcFile);
+		UProperty*    ValueProp = CreateVariableProperty(VarProperty,             Map, PropertyName,                              RF_Public, VariableCategory, CurrentSrcFile);
+
+		Map->KeyProp       = KeyProp;
+		Map->ValueProp     = ValueProp;
+		Map->PropertyFlags = VarProperty.PropertyFlags;
+
+		// Propagate flags
+		KeyProp  ->PropertyFlags |= VarProperty.MapKeyProp->PropertyFlags & CPF_PropagateToMapKey;
+		ValueProp->PropertyFlags |= Map->PropertyFlags                    & CPF_PropagateToMapValue;
+
+		PropagateFlagsFromInnerAndHandlePersistentInstanceMetadata(Map->PropertyFlags, VarProperty.MapKeyProp->MetaData, KeyProp);
+		PropagateFlagsFromInnerAndHandlePersistentInstanceMetadata(Map->PropertyFlags, VarProperty.MetaData,             ValueProp);
+
+		Result = Map;
+	}
+	else
+	{
+		Result = CreateVariableProperty(VarProperty, Scope, PropertyName, ObjectFlags, VariableCategory, CurrentSrcFile);
+
+		if (VarProperty.ArrayType == EArrayType::Static)
+		{
+			Result->ArrayDim = 2; // 2 = static array
+			GArrayDimensions.Add(Result, Dimensions.String);
+		}
+
+		Result->PropertyFlags = VarProperty.PropertyFlags;
+	}
+
+	if (Prev != nullptr)
+	{
+		Result->Next = Prev->Next;
+		Prev->Next = Result;
+	}
+	else
+	{
+		Result->Next = Scope->Children;
+		Scope->Children = Result;
+	}
+
+	VarProperty.TokenProperty = Result;
 	VarProperty.StartLine = InputLine;
 	VarProperty.StartPos = InputPos;
 	FClassMetaData* ScopeData = GScriptHelper.FindClassData(Scope);
@@ -4918,7 +4986,8 @@ UProperty* FHeaderParser::GetVarNameAndDim
 
 	// if we had any metadata, add it to the class
 	AddMetaDataToClassData(VarProperty.TokenProperty, VarProperty.MetaData);
-	return NewProperty;
+
+	return Result;
 }
 
 /*-----------------------------------------------------------------------------
@@ -5661,7 +5730,11 @@ UClass* FHeaderParser::CompileClassDeclaration(FClasses& AllClasses)
 	// New style files have the class name / extends afterwards
 	RequireIdentifier(TEXT("class"), TEXT("Class declaration"));
 
-	SkipDeprecatedMacroIfNecessary();
+	// alignas() can come before or after the deprecation macro.
+	// We can't have both, but the compiler will catch that anyway.
+	SkipAlignasIfNecessary(*this);
+	SkipDeprecatedMacroIfNecessary(*this);
+	SkipAlignasIfNecessary(*this);
 
 	FString DeclaredClassName;
 	FString RequiredAPIMacroIfPresent;
@@ -7020,7 +7093,7 @@ bool FHeaderParser::IsBitfieldProperty()
 	return bIsBitfield;
 }
 
-void FHeaderParser::ValidatePropertyIsDeprecatedIfNecessary(FPropertyBase& VarProperty, FToken* OuterPropertyType)
+void FHeaderParser::ValidatePropertyIsDeprecatedIfNecessary(FPropertyBase& VarProperty, const FToken* OuterPropertyType)
 {
 	// check to see if we have a UClassProperty using a deprecated class
 	if ( VarProperty.MetaClass != NULL && VarProperty.MetaClass->HasAnyClassFlags(CLASS_Deprecated) && !(VarProperty.PropertyFlags & CPF_Deprecated) &&
@@ -7552,10 +7625,7 @@ ECompilationResult::Type FHeaderParser::ParseHeader(FClasses& AllClasses, FUnrea
 			Class->Bind();
 
 			// Finalize functions
-			if (Result == ECompilationResult::Succeeded)
-			{
-				FinalizeScriptExposedFunctions(Class);
-			}
+			FinalizeScriptExposedFunctions(Class);
 
 			bNoExportClassesOnly = bNoExportClassesOnly && Class->HasAnyClassFlags(CLASS_NoExport);
 		}
@@ -7708,9 +7778,9 @@ bool FHeaderParser::DependentClassNameFromHeader(const TCHAR* HeaderFilename, FS
  *
  * @returns Array of source files.
  */
-TArray<FUnrealSourceFile*> GetSourceFilesWithInheritanceOrdering(UPackage* CurrentPackage, FClasses& AllClasses)
+TSet<FUnrealSourceFile*> GetSourceFilesWithInheritanceOrdering(UPackage* CurrentPackage, FClasses& AllClasses)
 {
-	TArray<FUnrealSourceFile*> SourceFiles;
+	TSet<FUnrealSourceFile*> SourceFiles;
 
 	TArray<FClass*> Classes = AllClasses.GetClassesInPackage();
 
@@ -7760,7 +7830,7 @@ void FHeaderParser::ExportNativeHeaders(
 	TArray<FString>	ClassHeaderFilenames;
 	new (ClassHeaderFilenames) FString();
 
-	TArray<FUnrealSourceFile*> SourceFiles = GetSourceFilesWithInheritanceOrdering(CurrentPackage, AllClasses);
+	TSet<FUnrealSourceFile*> SourceFiles = GetSourceFilesWithInheritanceOrdering(CurrentPackage, AllClasses);
 	if (SourceFiles.Num() > 0)
 	{
 		if ( CurrentPackage != NULL )
@@ -8226,7 +8296,6 @@ void FHeaderParser::SimplifiedClassParse(const TCHAR* Filename, const TCHAR* InB
 	// Two passes, preprocessor, then looking for the class stuff
 
 	// The layer of multi-line comment we are in.
-	int32 CommentDim = 0;
 	int32 CurrentLine = 0;
 	const TCHAR* Buffer = InBuffer;
 
@@ -8235,14 +8304,7 @@ void FHeaderParser::SimplifiedClassParse(const TCHAR* Filename, const TCHAR* InB
 	{
 		CurrentLine++;
 		const TCHAR* Str = *StrLine;
-		bool bProcess = CommentDim <= 0;	// for skipping nested multi-line comments
 		int32 BraceCount = 0;
-
-		if( !bProcess )
-		{
-			ClassHeaderTextStrippedOfCppText.Logf( TEXT("%s\r\n"), *StrLine );
-			continue;
-		}
 
 		bool bIf = FParse::Command(&Str,TEXT("#if"));
 		if( bIf || FParse::Command(&Str,TEXT("#ifdef")) || FParse::Command(&Str,TEXT("#ifndef")) )
@@ -8426,7 +8488,7 @@ void FHeaderParser::SimplifiedClassParse(const TCHAR* Filename, const TCHAR* InB
 
 	// now start over go look for the class
 
-	CommentDim  = 0;
+	int32 CommentDim  = 0;
 	CurrentLine = 0;
 	Buffer      = *ClassHeaderTextStrippedOfCppText;
 
@@ -8653,6 +8715,12 @@ void FHeaderPreParser::ParseClassDeclaration(const TCHAR* Filename, const TCHAR*
 	// Require 'class'
 	RequireIdentifier(TEXT("class"), *ErrorMsg);
 
+	// alignas() can come before or after the deprecation macro.
+	// We can't have both, but the compiler will catch that anyway.
+	SkipAlignasIfNecessary(*this);
+	SkipDeprecatedMacroIfNecessary(*this);
+	SkipAlignasIfNecessary(*this);
+
 	// Read the class name
 	FString RequiredAPIMacroIfPresent;
 	ParseNameWithPotentialAPIMacroPrefix(/*out*/ out_ClassName, /*out*/ RequiredAPIMacroIfPresent, StartingMatchID);
@@ -8760,6 +8828,14 @@ bool FHeaderParser::DefaultValueStringCppFormatToInnerFormat(const UProperty* Pr
 				OutForm = FString::FromInt(Value);
 			}
 		}
+		else if (Property->IsA(UInt64Property::StaticClass()))
+		{
+			int64 Value;
+			if (FDefaultValueHelper::ParseInt64(CppForm, Value))
+			{
+				OutForm = FString::Printf(TEXT("%lld"), Value);
+			}
+		}
 		else if( Property->IsA(UByteProperty::StaticClass()) )
 		{
 			const UEnum* Enum = CastChecked<UByteProperty>(Property)->Enum;
@@ -8844,7 +8920,7 @@ bool FHeaderParser::DefaultValueStringCppFormatToInnerFormat(const UProperty* Pr
 			{
 				static const FString UHTDummyNamespace = TEXT("__UHT_DUMMY_NAMESPACE__");
 
-				if (!FTextStringHelper::ReadFromString(*CppForm, ParsedText, *UHTDummyNamespace, nullptr, nullptr, /*bRequiresQuotes*/true, EStringTableLoadingPolicy::Find))
+				if (!FTextStringHelper::ReadFromBuffer(*CppForm, ParsedText, *UHTDummyNamespace, nullptr, /*bRequiresQuotes*/true))
 				{
 					return false;
 				}
@@ -8863,7 +8939,7 @@ bool FHeaderParser::DefaultValueStringCppFormatToInnerFormat(const UProperty* Pr
 			}
 
 			// Normalize the default value from the parsed value
-			FTextStringHelper::WriteToString(OutForm, ParsedText, /*bRequiresQuotes*/false);
+			FTextStringHelper::WriteToBuffer(OutForm, ParsedText, /*bRequiresQuotes*/false);
 			return true;
 		}
 		else if( Property->IsA(UStrProperty::StaticClass()) )
@@ -9191,30 +9267,6 @@ bool FHeaderParser::TryToMatchConstructorParameterList(FToken Token)
 	}
 
 	return true;
-}
-
-void FHeaderParser::SkipDeprecatedMacroIfNecessary()
-{
-	if (!MatchIdentifier(TEXT("DEPRECATED")))
-	{
-		return;
-	}
-
-	FToken Token;
-	// DEPRECATED(Version, "Message")
-	RequireSymbol(TEXT("("), TEXT("DEPRECATED macro"));
-	if (GetToken(Token) && (Token.Type != CPT_Float || Token.TokenType != TOKEN_Const))
-	{
-		FError::Throwf(TEXT("Expected engine version in DEPRECATED macro"));
-	}
-
-	RequireSymbol(TEXT(","), TEXT("DEPRECATED macro"));
-	if (GetToken(Token) && (Token.Type != CPT_String || Token.TokenType != TOKEN_Const))
-	{
-		FError::Throwf(TEXT("Expected deprecation message in DEPRECATED macro"));
-	}
-
-	RequireSymbol(TEXT(")"), TEXT("DEPRECATED macro"));
 }
 
 void FHeaderParser::CompileVersionDeclaration(UStruct* Struct)

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3482403
+﻿INTSourceChangelist:3782314
 Availability:Public
 Crumbs: %ROOT%
 Title:拓扑
@@ -19,6 +19,7 @@ Topic-image:Retopo_topic.png
 [/REGION]
 
 
+(#UsingtheRetopologizeTool)
 ## 使用拓扑工具
 
 [OBJECT:EmbeddedVideo]
@@ -83,6 +84,7 @@ Topic-image:Retopo_topic.png
 -
 [/COMMENT]
 
+(#ToolSettings)
 ### 工具设置
 
 ![Retopologize Tool](Landscape_Retopologize.png)

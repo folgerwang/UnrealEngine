@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 Unreal Websocket network driver.
@@ -82,7 +82,7 @@ bool UWebSocketNetDriver::InitConnect(FNetworkNotify* InNotify, const FURL& Conn
 	ServerConnection->InitLocalConnection(this, NULL, ConnectURL, USOCK_Pending);
 
 	// Create channel zero.
-	GetServerConnection()->CreateChannel(CHTYPE_Control, 1, 0);
+	CreateInitialClientChannels();
 
 	return true;
 }

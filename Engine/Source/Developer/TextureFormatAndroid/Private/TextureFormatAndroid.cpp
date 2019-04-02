@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "GenericPlatform/GenericPlatformStackWalk.h"
@@ -130,7 +130,7 @@ class FTextureFormatAndroid : public ITextureFormat
 {
 	virtual bool AllowParallelBuild() const override
 	{
-		return true;
+		return !PLATFORM_MAC; // On Mac Qualcomm's TextureConverter library is not thead-safe
 	}
 
 	virtual uint16 GetVersion(

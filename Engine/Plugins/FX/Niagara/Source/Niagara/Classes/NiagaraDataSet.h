@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -42,6 +42,7 @@ public:
 	void KillInstance(uint32 InstanceIdx);
 	void CopyTo(FNiagaraDataBuffer& DestBuffer, int32 StartIdx, int32 NumInstances)const;
 	void CopyTo(FNiagaraDataBuffer& DestBuffer)const;
+	void GPUCopyTo(FNiagaraDataBuffer& DestBuffer, float* GPUReadBackFloat, int* GPUReadBackInt, int32 StartIdx, int32 NumInstances)const;
 
 	const TArray<uint8>& GetFloatBuffer()const { return FloatData; }
 	const TArray<uint8>& GetInt32Buffer()const { return Int32Data; }
@@ -84,6 +85,26 @@ public:
 	FORCEINLINE int32* GetInstancePtrInt32(uint32 ComponentIdx, uint32 InstanceIdx)const
 	{
 		return (int32*)GetComponentPtrInt32(ComponentIdx) + InstanceIdx;
+	}
+
+	FORCEINLINE uint8* GetComponentPtrFloat(float* BasePtr, uint32 ComponentIdx) const
+	{
+		return (uint8*)BasePtr + FloatStride * ComponentIdx;
+	}
+
+	FORCEINLINE uint8* GetComponentPtrInt32(int* BasePtr, uint32 ComponentIdx) const
+	{
+		return (uint8*)BasePtr + Int32Stride * ComponentIdx;
+	}
+
+	FORCEINLINE float* GetInstancePtrFloat(float* BasePtr, uint32 ComponentIdx, uint32 InstanceIdx)const
+	{
+		return (float*)GetComponentPtrFloat(BasePtr, ComponentIdx) + InstanceIdx;
+	}
+
+	FORCEINLINE int32* GetInstancePtrInt32(int* BasePtr, uint32 ComponentIdx, uint32 InstanceIdx)const
+	{
+		return (int32*)GetComponentPtrInt32(BasePtr, ComponentIdx) + InstanceIdx;
 	}
 
 	uint32 GetNumInstances()const { return NumInstances; }
@@ -288,7 +309,7 @@ public:
 		}
 	}
 
-	void SetShaderParams(class FNiagaraShader *Shader, FRHICommandList &CommandList);
+	void SetShaderParams(class FNiagaraShader *Shader, FRHICommandList &CommandList, uint32& WriteBufferIdx, uint32& ReadBufferIdx);
 	void UnsetShaderParams(class FNiagaraShader *Shader, FRHICommandList &CommandList);
 	void Allocate(int32 NumInstances, bool bMaintainExisting=false)
 	{
@@ -326,6 +347,7 @@ public:
 				}
 				//UE_LOG(LogNiagara, Warning, TEXT("DataSetAllocate: Adding New Free IDs: %d - "), RequiredIDs - 1, ExistingNumIDs);
 			}
+#if 0
 			else if (RequiredIDs < ExistingNumIDs >> 1)//Configurable?
 			{
 				//If the max id we use has reduced significantly then we can shrink the tables.
@@ -350,6 +372,7 @@ public:
 				check(NumFreeIDs <= RequiredIDs);
 				FreeIDsTable.SetNumUninitialized(NumFreeIDs);
 			}
+#endif
 			else
 			{
 				//Drop in required size not great enough so just allocate same size.
@@ -382,6 +405,18 @@ public:
 	FORCEINLINE int32 GetPrevBufferIdx() const
 	{
 		return CurrBuffer > 0 ? CurrBuffer - 1 : MaxBufferIdx;
+	}
+
+	FORCEINLINE int32 GetCurrBufferIdx() const
+	{
+		return CurrBuffer;
+	}
+
+	FORCEINLINE FNiagaraDataBuffer& GetDataByIndex(int32 InIdx)
+	{
+		check(InIdx < 3);
+		//CheckCorrectThread();//TODO: We should be able to enable these checks and have well defined GT/RT ownership but GPU sims fire these a lot currently.
+		return Data[InIdx];
 	}
 
 	FORCEINLINE FNiagaraDataBuffer& CurrData() 
@@ -483,9 +518,9 @@ public:
 		}
 		else
 		{			
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-				ResetBuffersRT,
-				FNiagaraDataSet*, DataSet, this,
+			FNiagaraDataSet* DataSet = this;
+			ENQUEUE_RENDER_COMMAND(ResetBuffersRT)(
+				[DataSet](FRHICommandListImmediate& RHICmdList)
 				{
 					DataSet->ResetBuffersInternal();
 				}
@@ -532,6 +567,7 @@ public:
 
 	void Dump(bool bCurr, int32 StartIdx = 0, int32 NumInstances = INDEX_NONE)const;
 	void Dump(FNiagaraDataSet& Other, bool bCurr, int32 StartIdx = 0, int32 NumInstances = INDEX_NONE)const;
+	void DumpGPU(FNiagaraDataSet& Other, float* GPUReadBackFloat, int* GPUReadBackInt, int32 StartIdx = 0, int32 NumInstances = INDEX_NONE)const;
 	FORCEINLINE const TArray<FNiagaraVariable> &GetVariables() { return Variables; }
 
 	void CheckForNaNs()const

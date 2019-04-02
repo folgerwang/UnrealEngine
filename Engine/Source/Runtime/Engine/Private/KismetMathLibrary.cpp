@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Kismet/KismetMathLibrary.h"
 #include "EngineGlobals.h"
@@ -81,6 +81,11 @@ void UKismetMathLibrary::ReportError_Percent_ByteByte()
 void UKismetMathLibrary::ReportError_Divide_IntInt()
 {
 	FFrame::KismetExecutionMessage(TEXT("Divide by zero: Divide_IntInt"), ELogVerbosity::Warning, DivideByZeroWarning);
+}
+
+void UKismetMathLibrary::ReportError_Divide_Int64Int64()
+{
+	FFrame::KismetExecutionMessage(TEXT("Divide by zero: Divide_Int64Int64"), ELogVerbosity::Warning, DivideByZeroWarning);
 }
 
 void UKismetMathLibrary::ReportError_Percent_IntInt()
@@ -194,13 +199,15 @@ bool UKismetMathLibrary::InRange_FloatFloat(float Value, float Min, float Max, b
 float UKismetMathLibrary::Hypotenuse(float Width, float Height)
 {
 	// This implementation avoids overflow/underflow caused by squaring width and height:
-	Width = FMath::Abs(Width);
-	Height = FMath::Abs(Height);
+	float Min = FMath::Abs(Width);
+	float Max = FMath::Abs(Height);
 
-	float Min = FGenericPlatformMath::Min(Width, Height);
-	float Max = FGenericPlatformMath::Max(Width, Height);
-	float Ratio = Min / Max;
-	return Max * FMath::Sqrt(1.f + Ratio * Ratio);
+	if (Min > Max)
+	{
+		Swap(Min, Max);
+	}
+
+	return (FMath::IsNearlyZero(Max) ? 0.f : Max * FMath::Sqrt(1.f + FMath::Square(Min/Max)));
 }
 
 float UKismetMathLibrary::Log(float A, float Base)
@@ -318,16 +325,6 @@ float UKismetMathLibrary::Ease(float A, float B, float Alpha, TEnumAsByte<EEasin
 	return Lerp(A, B, EaseAlpha(Alpha, EasingFunc, BlendExp, Steps));
 }
 
-FVector  UKismetMathLibrary::RotateAngleAxis(FVector InVect, float AngleDeg, FVector Axis)
-{
-	return InVect.RotateAngleAxis(AngleDeg, Axis.GetSafeNormal());
-}
-
-FVector UKismetMathLibrary::VEase(FVector A, FVector B, float Alpha, TEnumAsByte<EEasingFunc::Type> EasingFunc, float BlendExp, int32 Steps)
-{
-	return VLerp(A, B, EaseAlpha(Alpha, EasingFunc, BlendExp, Steps));
-}
-
 float ComputeDamping(float Mass, float Stiffness, float CriticalDampingFactor)
 {
 	return 2 * FMath::Sqrt(Mass * Stiffness) * CriticalDampingFactor;
@@ -361,6 +358,16 @@ T GenericSpringInterp(T Current, T Target, T& PrevError, T& Velocity, float Stif
 float UKismetMathLibrary::FloatSpringInterp(float Current, float Target, FFloatSpringState& SpringState, float Stiffness, float CriticalDamping, float DeltaTime, float Mass)
 {
 	return GenericSpringInterp(Current, Target, SpringState.PrevError, SpringState.Velocity, Stiffness, CriticalDamping, DeltaTime, Mass);
+}
+
+FVector  UKismetMathLibrary::RotateAngleAxis(FVector InVect, float AngleDeg, FVector Axis)
+{
+	return InVect.RotateAngleAxis(AngleDeg, Axis.GetSafeNormal());
+}
+
+FVector UKismetMathLibrary::VEase(FVector A, FVector B, float Alpha, TEnumAsByte<EEasingFunc::Type> EasingFunc, float BlendExp, int32 Steps)
+{
+	return VLerp(A, B, EaseAlpha(Alpha, EasingFunc, BlendExp, Steps));
 }
 
 FVector UKismetMathLibrary::VectorSpringInterp(FVector Current, FVector Target, FVectorSpringState& SpringState, float Stiffness, float CriticalDamping, float DeltaTime, float Mass)
@@ -405,21 +412,11 @@ FRotator UKismetMathLibrary::RandomRotator(bool bRoll)
 	return RRot;
 }
 
-FVector UKismetMathLibrary::GetReflectionVector(FVector Direction, FVector SurfaceNormal)
-{
-	return FMath::GetReflectionVector(Direction, SurfaceNormal);
-}
-
 FVector UKismetMathLibrary::FindClosestPointOnLine(FVector Point, FVector LineOrigin, FVector LineDirection)
 {
 	const FVector SafeDir = LineDirection.GetSafeNormal();
 	const FVector ClosestPoint = LineOrigin + (SafeDir * ((Point-LineOrigin) | SafeDir));
 	return ClosestPoint;
-}
-
-FVector UKismetMathLibrary::ClampVectorSize(FVector A, float Min, float Max)
-{
-	return A.GetClampedToSize(Min, Max);
 }
 
 FVector UKismetMathLibrary::GetVectorArrayAverage(const TArray<FVector>& Vectors)
@@ -466,8 +463,6 @@ void UKismetMathLibrary::GetAxes(FRotator A, FVector& X, FVector& Y, FVector& Z)
 
 FRotator UKismetMathLibrary::RLerp(FRotator A, FRotator B, float Alpha, bool bShortestPath)
 {
-	FRotator DeltaAngle = B - A;
-
 	// if shortest path, we use Quaternion to interpolate instead of using FRotator
 	if (bShortestPath)
 	{
@@ -475,11 +470,11 @@ FRotator UKismetMathLibrary::RLerp(FRotator A, FRotator B, float Alpha, bool bSh
 		FQuat BQuat(B);
 
 		FQuat Result = FQuat::Slerp(AQuat, BQuat, Alpha);
-		Result.Normalize();
 
 		return Result.Rotator();
 	}
 
+	const FRotator DeltaAngle = B - A;
 	return A + Alpha*DeltaAngle;
 }
 
@@ -869,6 +864,11 @@ int32 UKismetMathLibrary::RandomIntegerInRangeFromStream(int32 Min, int32 Max, c
 }
 
 bool UKismetMathLibrary::InRange_IntInt(int32 Value, int32 Min, int32 Max, bool InclusiveMin, bool InclusiveMax)
+{
+	return ((InclusiveMin ? (Value >= Min) : (Value > Min)) && (InclusiveMax ? (Value <= Max) : (Value < Max)));
+}
+
+bool UKismetMathLibrary::InRange_Int64Int64(int64 Value, int64 Min, int64 Max, bool InclusiveMin, bool InclusiveMax)
 {
 	return ((InclusiveMin ? (Value >= Min) : (Value > Min)) && (InclusiveMax ? (Value <= Max) : (Value < Max)));
 }

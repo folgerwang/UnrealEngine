@@ -182,7 +182,7 @@ SynthBenchmark 툴이 테스트할 가치가 있는 하드웨어 그룹 식별�
 
 일정 기간에 걸친 단위별 통계를 구할 수 있으면 매우 유용하게 쓰일 수 있습니다 (예를 들어 게임 컷씬 또는 다양한 테스트를 위한 카메라 경로 구성 등입니다).
 
-다음 차트는 안드로이드 디바이스(스트리밍)에서 컷씬을 돌려 생성한 것입니다. 컷씬 전후 콘솔 명령 StartFPSChart 와 StopFPSChart 를 입력했습니다.
+다음 차트는 Android 디바이스(스트리밍)에서 컷씬을 돌려 생성한 것입니다. 컷씬 전후 콘솔 명령 StartFPSChart 와 StopFPSChart 를 입력했습니다.
 결과 .csv 파일은 ([ProjectFolder]\Saved\Cooked\Android_ES31\SubwayPatrol\Saved\Profiling\FPSChartStats 폴더에 있으며) Microsoft Excel 로 열었습니다.
 이 예제에서는 처음 제목 4 줄을 제거, 전부 선택, Scatter With Straight Lines 플롯을 삽입했습니다.
 

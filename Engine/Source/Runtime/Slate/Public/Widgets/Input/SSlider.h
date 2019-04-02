@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -196,6 +196,9 @@ protected:
 
 	// Holds the slider's current value.
 	TAttribute<float> ValueAttribute;
+
+	// Holds the initial cursor in case a custom cursor has been specified, so we can restore it after dragging the slider
+	EMouseCursor::Type CachedCursor;
 
 	/** Holds the amount to adjust the value by when using a controller or keyboard */
 	TAttribute<float> StepSize;

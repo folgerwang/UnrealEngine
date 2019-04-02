@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SourceControlWindows.h"
 #include "SSourceControlSubmit.h"
@@ -74,7 +74,6 @@ bool FSourceControlWindows::ChoosePackagesToCheckIn(const FSourceControlWindowsO
 
 	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
 	FSourceControlOperationRef Operation = ISourceControlOperation::Create<FUpdateStatus>();
-	StaticCastSharedRef<FUpdateStatus>(Operation)->SetCheckingAllFiles(false);
 	SourceControlProvider.Execute(
 		Operation,
 		Filenames,

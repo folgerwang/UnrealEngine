@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "NiagaraNodeWithDynamicPins.h"
@@ -13,16 +13,16 @@ class UNiagaraNodeIf : public UNiagaraNodeWithDynamicPins
 public:
 
 	/** Outputs of this branch. */
-	UPROPERTY(EditAnywhere, Category=If)
+	UPROPERTY()
 	TArray<FNiagaraVariable> OutputVars;
 
-	UPROPERTY(EditAnywhere, Category = If)
+	UPROPERTY()
 	TArray<FGuid> OutputVarGuids;
 
-	UPROPERTY(EditAnywhere, Category = If)
+	UPROPERTY()
 	TArray<FGuid> InputAVarGuids;
 
-	UPROPERTY(EditAnywhere, Category = If)
+	UPROPERTY()
 	TArray<FGuid> InputBVarGuids;
 
 	//~ Begin UObject Interface
@@ -39,6 +39,8 @@ public:
 	//~ Begin UNiagaraNode Interface
 	virtual void Compile(class FHlslNiagaraTranslator* Translator, TArray<int32>& Outputs) override;
 	virtual bool RefreshFromExternalChanges() override;
+	virtual ENiagaraNumericOutputTypeSelectionMode GetNumericOutputTypeSelectionMode() const;
+	virtual void ResolveNumerics(const UEdGraphSchema_Niagara* Schema, bool bSetInline, TMap<TPair<FGuid, UEdGraphNode*>, FNiagaraTypeDefinition>* PinCache);
 	//~ End UNiagaraNode Interface
 
 protected:
@@ -49,7 +51,7 @@ protected:
 	//~ Begin EdGraphNode Interface
 	virtual void OnPinRemoved(UEdGraphPin* PinToRemove) override;
 	//~ End EdGraphNode Interface
-
+	
 	//~ Begin UNiagaraNodeWithDynamicPins Interface
 	virtual void OnNewTypedPinAdded(UEdGraphPin* NewPin) override;
 	virtual void OnPinRenamed(UEdGraphPin* RenamedPin, const FString& OldName) override;

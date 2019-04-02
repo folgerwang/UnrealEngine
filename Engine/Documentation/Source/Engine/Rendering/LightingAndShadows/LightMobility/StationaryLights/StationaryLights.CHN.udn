@@ -1,48 +1,13 @@
-﻿INTSourceChangelist:2854430
+﻿INTSourceChangelist:3736212
 Availability:Public
 Title: 固定光源
 Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows,Engine/Rendering/LightingAndShadows/LightMobility
 Description: 这种类型的光源，可以在运行时改变颜色和亮度，但是不能移动、旋转或修改影响范围。
 Version: 4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-	![%Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights:title%](%ROOT%/Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights/stationarylights_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	![](%ROOT%/ue4_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-	%Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights:title%
-	[/PARAM]
-	[PARAM:description]
-	%Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-	![%Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights:title%](%ROOT%/Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights/stationarylights_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	![](%ROOT%/ue4_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-	%Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights:title%
-	[/PARAM]
-	[PARAM:description]
-	%Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+parent:Engine/Rendering/LightingAndShadows/LightMobility
+order:2
+type:overview
+topic-image:stationarylights_topic.png
 
 [REGION:banner]
 ![](Engine/Rendering/LightingAndShadows/lighting_overview_banner_001.png)(convert:false)
@@ -50,10 +15,9 @@ Version: 4.9
 
 [TOC(start:2 end:2)]
 
-
-
 [INCLUDE:Resources/ContentExamples\Lighting\2_2#StationaryLights01]
 
+(#DirectLighting)
 ## 直接光照
 
 固定光源的直接光照使用延迟着色直接进行渲染。这使得在运行时可以改变光源的亮度和颜色，同时提供了光源函数或IES概述文件。该光源具有和可移动光源一样的高质量解析高光。在游戏中，可以通过修改光源的 **Visible** 属性来显示或隐藏该光源。
@@ -66,12 +30,15 @@ Version: 4.9
 来自固定光源的直接光照
 [/REGION]
 
+(#DirectShadowing)
 ## 直接阴影
 
 光源的实时阴影具有较大的性能消耗。渲染一个有阴影的完全动态的光源所带来的性能消耗，通常是渲染一个没有阴影的动态光源的性能消耗的 20 倍。所以，固定光源可以在静态物体上投射静态阴影，但仍有一些限制。
 
+(#StaticShadowing)
 ### 静态阴影
 
+(#OnOpaque)
 #### 在不透明表面
 
 [**Lightmass**](Engine/Rendering/LightingAndShadows/Lightmass) 在重新构建光照过程中为静态对象上的固定光源生成 _距离场阴影贴图_。距离场阴影贴图即时在分辨率非常低的情况下，也可以提供非常精确的阴影变换，产生的运行时性能消耗非常小。和光照贴图类似，距离场阴影贴图要求所有静态光照的 _静态网格体_ 具有唯一的展开的 UV。
@@ -94,6 +61,7 @@ Version: 4.9
 StationaryLightOverlap 视图模式显示了多个光源的重叠。请注意在 **Spot 光源** 后面的三个光源。左侧和中间的两个光源可以看到已经和 **Spot 光源的** 半径重叠了。而右侧那个并未重叠。
 [/REGION]
 
+(#OnTranslucency)
 #### 在半透明表面
 
 半透明表面也能够在开销较小的情况下接受固定光源的阴影投射—— Lightmass 会根据场景静态物体预计算阴影深度贴图，这将在运行时被应用到半透明表面。这种形式的阴影是比较粗糙的，仅仅在米的度量单位上计算阴影。
@@ -109,6 +77,7 @@ StationaryLightOverlap 视图模式显示了多个光源的重叠。请注意在
 
 静态阴影深度贴图的分辨率由 BaseLightmass.ini 文件中的 StaticShadowDepthMapTransitionSampleDistanceX 和 StaticShadowDepthMapTransitionSampleDistanceY 控制，默认参数是 100，意味着每个纹素对应于 1 米。
 
+(#DynamicShadowing)
 ### 动态阴影
 
 [EXCERPT:StationaryShadows]
@@ -126,6 +95,7 @@ StationaryLightOverlap 视图模式显示了多个光源的重叠。请注意在
 
 [/EXCERPT:StationaryShadows]
 
+(#Directionallightdynamicshadowing)
 #### 定向光源的动态阴影
 
 [EXCERPT:CascadedShadowMaps]
@@ -134,12 +104,14 @@ StationaryLightOverlap 视图模式显示了多个光源的重叠。请注意在
 
 即便在定向光源上使用联级阴影贴图的时候，可移动组件仍然将会创建 PerObject 的阴影。这么做在较小的 Dynamic Shadow Distances 时比较有用，但如果设置较大的时候这么做就会产生不必要的性能开销。要禁用 PerObject 阴影来优化性能的话，可以在光源属性上禁用 *Use Inset Shadows For Movable Objects*。
 
+(#IndirectLighting)
 ## 间接光照
 
 和静态光源一样，固定光源把间接光照信息存储在光照贴图中。在运行时，通过修改亮度和颜色来改变直接光照的做法并不适用于改变间接光照。这意味着，即使当一个光源未选中 **Visible** 项时，在构建光照时，它的间接光照仍会存放到光照贴图中。光源属性中的 **IndirectLightingIntensity** 可以用于控制或禁用该光源的间接光照强度，以便当在构建光照时减小甚至彻底关闭它的间接光照。
 
 不过，还有一个后处理 Volume，叫做 **IndirectLightingIntensity**，它能够控制所有光源在光照贴图中的间接光照强度效果，这个 Volume 可以在运行时修改，并可以从蓝图控制。
 
+(#UseAreaShadowsforStationaryLights)
 ## 固定光源使用区域阴影
 
 在虚幻引擎的 4.9 版本及以后的版本中，固定的定向光源提供了一个新的阴影选项，在 Lightmass 区块内，叫 **Use Area Shadows for Stationary Lights**。

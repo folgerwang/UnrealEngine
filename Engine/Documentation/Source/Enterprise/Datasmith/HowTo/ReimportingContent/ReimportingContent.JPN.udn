@@ -1,0 +1,93 @@
+﻿INTSourceChangelist:4506246
+Availability: Public
+Crumbs: 
+Title: Unreal Engine 4 に Datasmith コンテンツを再インポートする
+Description: Unreal にインポート済みの Datasmith のコンテンツを更新して、ソース マテリアルの変更を反映するための様々な方法について、詳細な手順を説明します。
+Type:how-to
+SkillLevel:Beginner
+Version: 4.20
+Parent: Enterprise/Datasmith/HowTo
+Order: 4
+Tags: Enterprise, how to, Unreal Studio, Datasmith, beginner
+
+
+このページでは、Datasmith のコンテンツを Unreal Editor に再インポートする方法と、レベルのアクタにどのようなアップデートを同期させるのか制御する方法について説明します。
+
+再インポートによるプロジェクトのアセットとレベルのアクタへの処理内容の概要を含むバックグラウンド情報については、 「[Datasmith の再インポート ワークフローについて](Enterprise/Datasmith/Overview/ReimportWorkflow)」を参照してください。
+
+## ソース ファイルのエクスポートまたは保存
+
+インポート済みの Datasmith シーンを円滑に更新するには、その Datasmith のシーン アセットを作成したときに最初にインポートしたファイルとコンピュータ上の *同じ* 場所に、新しいバージョンのソース ファイルを配置する必要があります。
+
+再インポートする Datasmith シーン アセットの元のソース パスがわからない場合は、[Details (詳細)] で確認できます。
+
+1.  コンテンツ ブラウザで **Datasmith シーン** アセットをダブルクリックして **アセット エディタ** で開きます。
+2.  **[Details (詳細)]** パネルが表示されていない場合は、メインメニューから **[Window (ウィンドウ)] > [Details (詳細)]** を選択して表示します。
+3.  **[File Path (ファイル パス)] > [Source File (ソース ファイル)]** 設定を確認します。  
+    ![Datasmith シーンのソース ファイル](datasmith-reimport-scene-asset-details.png "Datasmith シーンのソース ファイル")
+
+また、ソースで最近変更したオブジェクトだけでなく、Unreal Editor の Datasmith シーンに含めるすべての要素が、保存またはエクスポートされたファイルに含まれていることを確認してください。 「シーンの選択した部分のみをエクスポートする」といったオプションだけしかない場合でも、そのオプションを使用しないでください。もし選択した場合、Unreal Editor の再インポート後の Datasmith コンテンツは、エクスポートされたオブジェクトのみに限定されます。
+
+## Datasmith シーン アセットの再インポート
+
+新しいバージョンのソース ファイルから Datasmith シーン アセットを再インポートするには、次の手順を実行します。
+
+1.  コンテンツ ブラウザで **Datasmith シーン** アセットを右クリックして、コンテキスト メニューの **[Reimport (再インポート)]** を選択します。  
+    ![Datasmith シーン アセットの再インポート](datasmith-reimport-datasmith-scene.png "Datasmith シーン アセットの再インポート")
+2.  いくつか再インポート オプションを指定するように求められます。 これらは、インポート時に最初に設定したものと同じオプションですが、いくつか追加のオプションがあります。  
+    **[Sync Current Level Actors (現在のレベル アクタの同期)]** の下にある新しいオプションでは、Datasmith シーン アセットに行われた更新を、更新中のアセットから作成された現在のレベルの Datasmith シーン アクタにも適用するかどうかを決定します。  
+    ![再インポート オプション](datasmith-reimport-sync-level-actors.png "再インポート オプション")  
+    アクタを今すぐ同期する必要がない場合は、後で実行できます。 以下の「[Datasmith シーン アクタとアセットの同期](#Datasmithシーンアクタとアセットの同期)」を参照してください。  
+    他のインポート オプションの詳細は、「[Datasmith インポート オプション](Enterprise/Datasmith/ImportOptions)」を参照してください。
+3.  Importer で使用するオプションを設定し、**[Import (インポート)]** をクリックします。 
+
+[REGION:warning]
+再インポート プロセスでは、コンテンツ ブラウザのジオメトリ、マテリアル、およびテクスチャが上書きされる場合があります。 詳細は、「[Datasmith の再インポート ワークフローについて](Enterprise/Datasmith/Overview/ReimportWorkflow)」を参照してください。
+[/REGION]
+
+## Datasmith シーン アクタとアセットの同期
+
+レベルの Datasmith シーン アクタを対応する Datasmith シーン アセットと再同期させるには、次の 2 とおりの方法があります。
+
+**オプション 1.**
+
+Datasmith シーン アセットを再インポートするときに、次の手順を実行します。
+
+1.  Datasmith シーン アクタを含むレベルを開きます。
+2.  上記の「[Datasmith シーン アセットの再インポート](#Datasmithシーンアセットの再インポート)」の説明に従って、Datasmith シーン アセットを再インポートします。
+3.  **[Import Options (インポート オプション)]** ダイアログの **[Sync Current Level Actors (現在のレベル アクタを同期する)]** セクションを確認します。 **[Datasmith Scene Actors (Datasmith シーン アクタ)]** チェックボックスをオンにします。  
+    前に削除したアクタをレベルに再追加する場合は、**[Re-Spawn Deleted Actors (削除されたアクタのリスポーン)]** オプションのチェックもオンにします。  
+    ![レベル アクタの同期](datasmith-reimport-sync-level-actors.png "レベル アクタの同期")
+4.  **[Import (インポート)]** をクリックします。
+
+**オプション 2.**
+
+アセットの再インポート後随時、次の手順を実行します。
+
+1.  Datasmith シーン アクタを含むレベルを開きます。
+2.  **ワールド アウトライナー** で Datasmith シーン アクタを選択します。  
+    ![Datasmith シーン アクタの選択](datasmith-reimport-select-scene-actor.png "Datasmith シーン アクタの選択")
+3.  **[Details (詳細)]** パネルで、**[Datasmith]** セクションを確認します。  
+    ![Update actors from Scene (シーンからのアクタの更新)](datasmith-reimport-sync-details.png "[Update actors from Scene （シーンからのアクタの更新）]")
+4.  前に削除したアクタをレベルに再追加する場合は、**[Respawn deleted actors (削除されたアクタのリスポーン)]** オプションのチェックをオンにします。
+5.  **[Update actors from Scene (シーンからのアクタの更新)]** をクリックします。
+
+##　個別のアセットの再インポート
+
+Datasmith シーン アセット全体を再インポートする代わりに、更新するスタティック メッシュ、マテリアル、およびテクスチャ アセットを個々に選択することができます。
+
+単一のアセットを再インポートするには、次の手順を実行します。
+
+1.  コンテンツ ブラウザでアセットを右クリックして、コンテキスト メニューから **[Reimport (再インポート)]** を選択します。  
+    ![スタティック メッシュ アセットの再インポート](datasmith-reimport-asset.png "スタティック メッシュ アセットの再インポート")  
+    マテリアル アセットの場合は、**[Datasmith] > [Reimport Material (マテリアルの再インポート)]** を選択します。  
+    ![マテリアル アセットの再インポート](datasmith-reimport-material.png "マテリアル アセットの再インポート")
+    [REGION:note]
+    通常の 3ds Max からインポートされるマテリアルの場合のように、 Datasmith が最初に作成したマテリアル アセットのソースファイル内のマテリアル定義と一致させるため、 **[Datasmith] > [Reimport Material (マテリアルの再インポート)]** オプションのみが表示されます。ただし、このオプションは、通常の CAD ファイルまたは SketchUp からインポートされたマテリアルの場合のような、Datasmith に組み込まれているマテリアルのインスタンスであるマテリアル アセットでは表示されません。
+    [/REGION]
+2.  アセットの再インポート オプションを指定するように求められます。  
+    これらは、インポート時に最初に設定したものと同です。 これらすべてのオプションの詳細は、「[Datasmith のインポート オプション](Enterprise/Datasmith/ImportOptions)」を参照してください。
+
+[REGION:note]
+個々のアセットを再インポートする場合は、レベル アクタを同期するオプションは表示されません。 プロジェクトのアセットを参照するたびに、アセットの更新されたバージョンが自動的に使用されます。 「[Datasmith の再インポート ワークフローについて](Enterprise/Datasmith/Overview/ReimportWorkflow)」を参照してください。
+[/REGION]

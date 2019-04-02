@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -24,10 +24,10 @@ public:
 
 	FORCEINLINE bool operator==(const FCachedShapedTextKey& Other) const
 	{
-		return TextRange == Other.TextRange 
+		return TextRange == Other.TextRange
 			&& Scale == Other.Scale
 			&& TextContext == Other.TextContext
-			&& FontInfo == Other.FontInfo;
+			&& FontInfo.IsIdentialToForCaching(Other.FontInfo);
 	}
 
 	FORCEINLINE bool operator!=(const FCachedShapedTextKey& Other) const

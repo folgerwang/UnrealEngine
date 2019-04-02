@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PrimitiveSceneProxy.h: Primitive scene proxy definition.
@@ -187,6 +187,19 @@ public:
 	/** Gathers shadow shapes from this proxy. */
 	virtual void GetShadowShapes(TArray<FCapsuleShape>& CapsuleShapes) const {}
 
+#if RHI_RAYTRACING
+	virtual bool IsRayTracingRelevant() const { return false; }
+	virtual bool IsRayTracingStaticRelevant() const { return false; }
+
+	/** Gathers dynamic ray tracing instances from this proxy. */
+	virtual void GetDynamicRayTracingInstances(struct FRayTracingMaterialGatheringContext& Context, TArray<struct FRayTracingInstance>& OutRayTracingInstances) {}
+
+	TArray<FRayTracingGeometryRHIRef>&& MoveRayTracingGeometries()
+	{
+		return static_cast<TArray<FRayTracingGeometryRHIRef>&&>(RayTracingGeometries);
+	}
+#endif // RHI_RAYTRACING
+
 	/** Collects occluder geometry for software occlusion culling */
 	virtual bool CollectOccluderElements(class FOccluderElementsCollector& Collector) const { return false; }
 
@@ -310,6 +323,14 @@ public:
 	virtual bool CanBeOccluded() const
 	{
 		return true;
+	}
+
+	/**
+	* @return true if the proxy uses distance cull fade.
+	*/
+	virtual bool IsUsingDistanceCullFade() const
+	{
+		return false;
 	}
 
 	/**
@@ -447,6 +468,7 @@ public:
 		return (LightingChannelMask & 0x6) | (~LightingChannelMask & 0x1); 
 	}
 	inline bool IsVisibleInReflectionCaptures() const { return bVisibleInReflectionCaptures; }
+	inline bool IsVisibleInRayTracing() const { return bVisibleInRayTracing; }
 	inline bool ShouldRenderInMainPass() const { return bRenderInMainPass; }
 	inline bool IsCollisionEnabled() const { return bCollisionEnabled; }
 	inline bool IsHovered() const { return bHovered; }
@@ -473,17 +495,17 @@ public:
 	inline bool LightAttachmentsAsGroup() const { return bLightAttachmentsAsGroup; }
 	ENGINE_API bool UseSingleSampleShadowFromStationaryLights() const;
 	inline bool StaticElementsAlwaysUseProxyPrimitiveUniformBuffer() const { return bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer; }
+	inline bool DoesVFRequirePrimitiveUniformBuffer() const { return bVFRequiresPrimitiveUniformBuffer; }
 	inline bool ShouldUseAsOccluder() const { return bUseAsOccluder; }
 	inline bool AllowApproximateOcclusion() const { return bAllowApproximateOcclusion; }
-	inline const TUniformBuffer<FPrimitiveUniformShaderParameters>& GetUniformBuffer() const 
+	inline FUniformBufferRHIParamRef GetUniformBuffer() const 
 	{
-		return UniformBuffer; 
+		return UniformBuffer.GetReference(); 
 	}
 	inline bool HasPerInstanceHitProxies () const { return bHasPerInstanceHitProxies; }
 	inline bool UseEditorCompositing(const FSceneView* View) const { return GIsEditor && bUseEditorCompositing && !View->bIsGameView; }
 	inline const FVector& GetActorPosition() const { return ActorPosition; }
 	inline const bool ReceivesDecals() const { return bReceivesDecals; }
-	inline const bool RenderInMono() const { return bRenderInMono; }
 	inline bool WillEverBeLit() const { return bWillEverBeLit; }
 	inline bool HasValidSettingsForStaticLighting() const { return bHasValidSettingsForStaticLighting; }
 	inline bool AlwaysHasVelocity() const { return bAlwaysHasVelocity; }
@@ -493,7 +515,7 @@ public:
 	inline bool TreatAsBackgroundForOcclusion() const { return bTreatAsBackgroundForOcclusion; }
 	inline bool NeedsLevelAddedToWorldNotification() const { return bNeedsLevelAddedToWorldNotification; }
 	inline bool IsComponentLevelVisible() const { return bIsComponentLevelVisible; }
-	inline bool IsStaticPathAvailable() const { return !bDisableStaticPath; }
+	inline bool IsStaticPathAvailable() const { return !bHasMobileMovablePointLightInteraction; }
 	inline bool ShouldReceiveMobileCSMShadows() const { return bReceiveMobileCSMShadows; }
 
 #if WITH_EDITOR
@@ -586,10 +608,6 @@ public:
 	 * Updates the primitive proxy's uniform buffer.
 	 */
 	ENGINE_API void UpdateUniformBuffer();
-	/**
-	 * Updates the primitive proxy's uniform buffer.
-	 */
-	ENGINE_API bool NeedsUniformBufferUpdate() const;
 
 #if !UE_BUILD_SHIPPING
 
@@ -659,11 +677,12 @@ public:
 	 * @param InView - Current View
  	 * @param InViewLODScale - View LOD scale
   	 * @param InCustomDataMemStack - MemStack to allocate the custom data
-   	 * @param InIsStaticRelevant - Tell us if it was called in a static of dynamic relevancy context
+	 * @param InIsStaticRelevant - Tell us if it was called in a static of dynamic relevancy context
+	 * @param InIsShadowOnly - Tell us if we are creating in the shadow context
    	 * @param InVisiblePrimitiveLODMask - Calculated LODMask for visibile primitive in static relevancy
    	 * @param InMeshScreenSizeSquared - Computed mesh batch screen size, passed to prevent recalculation
 	 */
-	ENGINE_API virtual void* InitViewCustomData(const FSceneView& InView, float InViewLODScale, FMemStackBase& InCustomDataMemStack, bool InIsStaticRelevant = false, const struct FLODMask* InVisiblePrimitiveLODMask = nullptr, float InMeshScreenSizeSquared = -1.0f) { return nullptr; }
+	ENGINE_API virtual void* InitViewCustomData(const FSceneView& InView, float InViewLODScale, FMemStackBase& InCustomDataMemStack, bool InIsStaticRelevant, bool InIsShadowOnly, const struct FLODMask* InVisiblePrimitiveLODMask = nullptr, float InMeshScreenSizeSquared = -1.0f) { return nullptr; }
 	
 	/**
 	 * Called during post visibility and shadow setup, just before the frame is rendered. It can be used to update custom data that had a dependency between them.
@@ -672,7 +691,10 @@ public:
 	 * @param InView - Current View
  	 * @param InViewCustomData - Custom data to update
 	 */	
-	ENGINE_API virtual void PostInitViewCustomData(const FSceneView& InView, void* InViewCustomData) { }
+	ENGINE_API virtual void PostInitViewCustomData(const FSceneView& InView, void* InViewCustomData) const { }
+
+	/** Tell us if this proxy is drawn in game.*/
+	ENGINE_API virtual bool IsDrawnInGame() const { return DrawInGame; }
 
 	/** Tell us if we should rely on the default LOD computing rules or not.*/
 	ENGINE_API virtual bool IsUsingCustomLODRules() const { return false; }
@@ -711,6 +733,10 @@ protected:
 		OwnerName = InOwnerName;
 	}
 
+#if RHI_RAYTRACING
+	TArray<FRayTracingGeometryRHIRef> RayTracingGeometries;
+#endif
+
 private:
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	FLinearColor WireframeColor;
@@ -732,7 +758,6 @@ private:
 	uint8 bIsLocalToWorldDeterminantNegative : 1;
 	uint8 DrawInGame : 1;
 	uint8 DrawInEditor : 1;
-	uint8 bRenderInMono : 1;
 	uint8 bReceivesDecals : 1;
 	uint8 bOnlyOwnerSee : 1;
 	uint8 bOwnerNoSee : 1;
@@ -763,6 +788,9 @@ private:
 	/** True if the primitive should be visible in reflection captures. */
 	uint8 bVisibleInReflectionCaptures : 1;
 
+	/** If true, this component will be visible in ray tracing effects. Turning this off will remove it from ray traced reflections, shadows, etc. */
+	uint8 bVisibleInRayTracing : 1;
+
 	/** If true this primitive Renders in the mainPass */
 	uint8 bRenderInMainPass : 1;
 
@@ -779,8 +807,9 @@ private:
 	uint8 bTreatAsBackgroundForOcclusion : 1;
 
 	friend class FLightPrimitiveInteraction;
-	/** Whether the renderer needs us to temporarily use only the dynamic drawing path */
-	uint8 bDisableStaticPath : 1;
+	
+	/** Whether this primitive is affected by dynamic point lights (mobile only)*/
+	uint8 bHasMobileMovablePointLightInteraction : 1;
 
 protected:
 
@@ -860,6 +889,12 @@ protected:
 	 * When true, a fast path for updating can be used that does not update static draw lists.
 	 */
 	uint8 bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer : 1;
+
+	/** 
+	 * Whether this proxy ever draws with vertex factories that require a primitive uniform buffer. 
+	 * When false, updating the primitive uniform buffer can be skipped since vertex factories always use GPUScene instead.
+	 */
+	uint32 bVFRequiresPrimitiveUniformBuffer : 1;
 
 	/** Whether the primitive should always be considered to have velocities, even if it hasn't moved. */
 	uint8 bAlwaysHasVelocity : 1;
@@ -966,8 +1001,8 @@ private:
 	/** A copy of the actor's group membership for handling per-view group hiding */
 	uint64 HiddenEditorViews;
 
-	/** Whether this should only draw in VR Editing mode*/
-	uint32 DrawInVREditMode : 1;
+	/** Whether this should only draw in any editing mode*/
+	uint32 DrawInAnyEditMode : 1;
 #endif
 
 	/** Used for precomputed visibility */
@@ -980,7 +1015,7 @@ private:
 	float MinDrawDistance;
 
 	/** The primitive's uniform buffer. */
-	TUniformBuffer<FPrimitiveUniformShaderParameters> UniformBuffer;
+	TUniformBufferRef<FPrimitiveUniformShaderParameters> UniformBuffer;
 
 	/** 
 	 * The UPrimitiveComponent this proxy is for, useful for quickly inspecting properties on the corresponding component while debugging.
@@ -1009,11 +1044,6 @@ private:
 
 	ENGINE_API bool WouldSetTransformBeRedundant(const FMatrix& InLocalToWorld, const FBoxSphereBounds& InBounds, const FBoxSphereBounds& InLocalBounds, FVector InActorPosition);
 
-	/**
-	 * Either updates the uniform buffer or defers it until it becomes visible depending on a cvar
-	 */
-	ENGINE_API void UpdateUniformBufferMaybeLazy();
-
 	/** Updates the hidden editor view visibility map on the render thread */
 	void SetHiddenEdViews_RenderThread( uint64 InHiddenEditorViews );
 
@@ -1024,3 +1054,14 @@ protected:
 	/** Updates hover state for the primitive proxy. This is called in the rendering thread by SetHovered_GameThread. */
 	void SetHovered_RenderThread(const bool bInHovered);
 };
+
+/**
+ * Returns if specified mesh command can be cached, or needs to be recreated every frame.
+ */
+ENGINE_API extern bool SupportsCachingMeshDrawCommands(const FVertexFactory* RESTRICT VertexFactory, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy);
+
+/**
+ * Returns if specified mesh command can be cached, or needs to be recreated every frame; this is a slightly slower version
+ * used for materials with external textures that need invalidating their PSOs.
+ */
+ENGINE_API extern bool SupportsCachingMeshDrawCommands(const FVertexFactory* RESTRICT VertexFactory, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, const class FMaterialRenderProxy* MaterialRenderProxy, ERHIFeatureLevel::Type FeatureLevel);

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SubtitleManager.h"
 #include "EngineGlobals.h"
@@ -266,7 +266,7 @@ void FSubtitleManager::DisplaySubtitle_ToDisplays(FActiveSubtitle* Subtitle)
 		}
 	}
 
-	OnSetSubtitleTextDelegate.Broadcast(FText::FromString(SubtitleString));
+	OnSetSubtitleTextDelegate.Broadcast(SubtitleString.IsEmpty() ? FText::GetEmpty() : FText::FromString(SubtitleString));
 }
 
 

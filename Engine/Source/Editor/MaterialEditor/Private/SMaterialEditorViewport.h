@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -124,6 +124,9 @@ private:
 
 	/** Handle to the registered OnPropertyChangedHandle delegate. */
 	FDelegateHandle OnPropertyChangedHandleDelegateHandle;
+
+	/** Handle to the registered OnPreviewFeatureLevelChanged delegate. */
+	FDelegateHandle PreviewFeatureLevelChangedHandle;
 };
 
 /**

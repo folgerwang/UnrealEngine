@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3574744
+﻿INTSourceChangelist:4649792
 Availability:Public
 Title:结合模拟父项使用运动学形体
 Crumbs: %ROOT%, Engine
@@ -22,6 +22,7 @@ tags:PhAT
 
 ![](EndResultImage.png)
 
+(#Steps)
 ## 步骤
 
 [REGION:note]
@@ -82,6 +83,7 @@ tags:PhAT
 
 1.	在工具栏中点击 **Play** 按钮即可在编辑器中进行游戏。 
 
+(#EndResult)
 ## 最终结果
 
 以下视频中可以看到，我们在墙边缘放置了一个角色，操纵另一个角色撞向悬吊的角色时它会对物理形成响应，而双手则较为固定。 

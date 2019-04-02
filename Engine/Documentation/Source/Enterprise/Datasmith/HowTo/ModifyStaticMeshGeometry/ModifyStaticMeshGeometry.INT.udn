@@ -1,0 +1,95 @@
+Availability: Public
+Crumbs: 
+Title: Modifying Static Mesh Geometry
+Description: Describes how to use the Edit Mode controls in the Static Mesh Editor to change the geometry of a Static Mesh Asset.
+Type:how-to
+SkillLevel:Beginner
+Version: 4.20
+Parent: Enterprise/Datasmith/HowTo
+Order: 1
+Tags: Static Mesh
+Tags: how to
+Tags: Datasmith
+Tags: beginner
+
+
+You may sometimes find small problems with the geometry of your Static Meshes after you import them into Unreal. For example, this could include:
+
+*   Extra triangles that you don’t really need at runtime, which could be removed in order to optimize the model.
+*   Triangles that are unexpectedly facing the wrong direction, so they disappear at unexpected times due to back-face culling.
+
+One way to fix these kinds of issues is to go back to a design tool, correct the problems there, re-export the model, then reimport it into Unreal. However, that process can be time-consuming. And when your Static Mesh Assets originally come to Unreal directly from CAD formats, this may mean adding entirely new design tools to your pipeline.
+
+To make it easier for you to fix these kinds of minor issues without leaving the Unreal Editor, the Static Mesh Editor includes a small suite of basic geometry editing tools.
+
+This page describes how to use these tools to make small edits to a Static Mesh Asset in your Project.
+
+[REGION:note]
+*   These mesh editing operations modify the raw geometry of the Static Mesh, but they don't immediately update any other data based on that geometry. For example, deleted triangles will still take up space in auto-generated lightmap UV layouts, and will still appear in lower Levels of Detail (LODs) assigned to the Static Mesh. Depending on the kind of changes you make to your geometry, you may need to re-create these kinds of data, rebuild lighting for your Level, and so on.
+*   The Static Mesh editing mode described on this page is currently only available in Unreal Studio Projects. For details on creating an Unreal Studio Project, or converting an existing Project, see [Setting Up an Unreal Project to Use Datasmith](Enterprise/Datasmith/HowTo/SettingUpUnrealProject).
+[/REGION]
+
+## Editing Workflow
+
+![Static Mesh editing overview](mesh_editing.gif "Static Mesh editing overview")
+
+1.  Open the Static Mesh Asset that you want to modify in the Static Mesh Editor.  
+    To do this, you can double-click it in the **Content Browser**, or you can right-click a Static Mesh object in the Level Viewport and select **Edit** from the contextual menu.
+2.  Click the **Edit Mode** icon in the Toolbar of the Static Mesh Editor.  
+    ![Edit Mode](mesh-editing-toggle-editing-mode.png "Edit Mode")  
+    While you're in editing mode, the viewport shows your model overlaid with a wireframe that shows the outlines of all triangles visible to the camera.
+3.  Select one or more triangles that you want to modify. See [Selecting Faces to Edit](#selectingfacestoedit) below.
+4.  Choose a face editing operation to apply. See [Face Editing Operations](#faceeditingoperations) below.
+5.  To leave editing mode, click the **Edit Mode** button in the Toolbar again.
+6.  To keep your modifications, save your Static Mesh Asset before you close the Unreal Editor.
+
+## Selecting Faces to Edit
+
+As you move the mouse over the triangles in your Static Mesh, the triangle under the mouse cursor is highlighted in yellow.
+
+*   Left-click to clear your current selection and start a new selection based on the highlighted triangle and the current selection mode.
+*   Hold Control + left-click to add new triangles to the current selection, or to remove selected triangles from the current selection.
+
+Selected faces are rendered in orange:
+
+![Selecting faces](mesh-editing-selections.png "Selecting faces")
+
+There are three different selection modes that you can choose from in the Toolbar.
+
+| Icon | Meaning | Description |
+| --- | --- | --- |
+| ![Single face selection mode](mesh-editing-selection-single.png "Single face selection mode")   | Single Face | Selects or de-selects only the triangle that you currently have highlighted. |
+| ![Material selection mode](mesh-editing-selection-material.png "Material selection mode") | By Material | Selects or de-selects all triangles in the Static Mesh that share the same Material with the triangle you currently have highlighted, regardless of whether they are connected to the highlighted triangle. |
+| ![By faces selection mode](mesh-editing-selection-element.png "By faces selection mode") | By Connected Faces | Selects or de-selects all triangles that are connected to the triangle you currently have highlighted, regardless of whether they share the same Material. |
+
+
+[REGION:tip]
+You can switch modes while a selection is active. So, you could use the Connected Faces mode to select all connected triangles in a given part of the Static Mesh, then switch back to Single Face mode and hold the Control key to deselect individual triangles.
+[/REGION]
+
+## Face Editing Operations
+
+The Static Mesh Editor offers the following operations for modifying selected triangles in your model.
+
+### Delete
+
+![Delete](mesh-editing-delete-faces.png "Delete")
+
+Completely removes all selected triangles from the Static Mesh.
+
+### Flip
+
+![Flip](mesh-editing-flip-faces.png "Flip")
+
+Flips all selected triangles so that they face the opposite direction. For each triangle:
+
+*   The normal is inverted, so that it points out from the opposite face of the triangle.
+*   The winding direction of the triangle's vertices is inverted.
+
+### Assign a New Material
+
+![Assign Material](mesh-editing-assign-materials-faces.png "Assign Material")
+
+Assigns a new Material to all selected triangles. This creates a new Material Slot in the Static Mesh for those triangles.
+
+If you have a Material already selected in the **Content Browser**, that Material is automatically assigned to the new Material Slot. If not, you can set the new Material for the triangles by assigning it to the new Material Slot in the **Details** panel.

@@ -1,16 +1,21 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "GameFramework/PlayerController.h"
+
+#include "CineCameraActor.h"
 #include "ILiveLinkClient.h"
 #include "InputCore.h"
 #include "LevelSequencePlaybackController.h"
-#include "VirtualCameraPawnBase.h"
 #include "Math/UnitConversion.h"
+#include "Misc/FrameNumber.h"
+#include "Misc/FrameRate.h"
+#include "Misc/Timecode.h"
+#include "VirtualCameraPawnBase.h"
 #include "VirtualCameraPlayerControllerBase.generated.h"
 
-class USequencerRecorderSettings;
+class AVPRootActor;
 
 UENUM(BlueprintType)
 enum class ETrackerInputSource : uint8
@@ -22,10 +27,7 @@ enum class ETrackerInputSource : uint8
 	Custom,
 
 	/* Livelink plugin tracker */
-	LiveLink,
-
-	/* Vive tracker */
-	Vive,
+	LiveLink
 };
 
 UENUM(BlueprintType)
@@ -74,12 +76,13 @@ public:
 	};
 };
 
-UCLASS()
+UCLASS(Abstract)
 class VIRTUALCAMERA_API AVirtualCameraPlayerControllerBase : public APlayerController
 {
 	GENERATED_UCLASS_BODY()
 
 public:
+	virtual void OnPossess(APawn* InPawn) override;
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void SetupInputComponent() override;
@@ -87,20 +90,24 @@ public:
 	FScriptDelegate OnStop;
 
 	/** Allows user to select which tracker input should be used */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Camera Settings")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, BlueprintSetter="SetInputSource", Category = "Camera Settings")
 	ETrackerInputSource InputSource;
 
 	/** Controller for level sequence playback */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Settings")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera Settings")
 	FName LiveLinkTargetName;
 
 	/** Offset applied to calculated location before tracker transform is added */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Settings")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera Settings")
 	FTrackingOffset TrackerPreOffset;
 
 	/** Offset applied to calculated location after tracker transform is added */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Settings")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera Settings")
 	FTrackingOffset TrackerPostOffset;
+
+	/** Class of CameraActor to spawn to allow user to use their own customized camera */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, NoClear, Category = "Camera Settings")
+	TSubclassOf<ACineCameraActor> TargetCameraActorClass;
 
 	/** Array of any properties that should be recorded */
 	UPROPERTY(EditAnywhere, Category = "Recording")
@@ -108,6 +115,9 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Movement")
 	FVirtualCameraResetOffsetsDelegate OnOffsetReset;
+
+	UPROPERTY(transient, BlueprintReadOnly, Category = "VirtualCamera")
+	AVPRootActor* RootActor;
 
 	/**
 	 * Overridable function to allow user to get tracker data from blueprints.
@@ -142,6 +152,18 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "VirtualCamera")
 	void InitializeAutoFocusPoint();
+
+	/**
+	 * Returns the target camera that was spawned for this play
+	 */
+	UFUNCTION(BlueprintCallable, Category = "VirtualCamera")
+	ACineCameraActor* GetTargetCamera();
+
+	/**
+	 * Set the input source
+	 */
+	UFUNCTION(BlueprintSetter, Category = "Camera Settings")
+	void SetInputSource(ETrackerInputSource InInputSource);
 
 	/**
 	 * Blueprint event for when the focus method is changed.
@@ -182,8 +204,23 @@ protected:
 	ETouchInputState PreviousTouchInput;
 
 	/** Controller for level sequence playback */
-	UPROPERTY()
+	UPROPERTY(Transient)
 	ULevelSequencePlaybackController* LevelSequencePlaybackController;
+	
+	/** Target camera that is spawned or possessed on begin play for the sequence controller */
+	UPROPERTY(Transient)
+	ACineCameraActor* TargetCameraActor;
+
+	/** Cached value for IsVirtualCameraControlledByRemoteSession() */
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "VirtualCamera")
+	bool bCachedIsVirtualCameraControlledByRemoteSession;
+
+	/** Cached value for IsVirtualCameraControlledByRemoteSession() */
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "VirtualCamera")
+	bool bCachedShouldUpdateTargetCameraTransform;
+	
+
+protected:
 
 	/**
 	 * Get the current tracker location and rotation based on selected input method.
@@ -223,6 +260,11 @@ protected:
 	 * @return pointer to movement component if one is found, null otherwise
 	 */
 	UVirtualCameraMovementComponent* GetVirtualCameraMovementComponent() const;
+
+	/**
+	 * Pilot the controlled camera during recording, copying over settings from the pawn.
+	 */
+	void PilotTargetedCamera(AVirtualCameraPawnBase* PawnToFollow, UVirtualCameraCineCameraComponent* CameraToFollow);
 
 	/**
 	 * Override of InputTouch, used to handle touch and hold events.
@@ -281,6 +323,18 @@ protected:
 	 */
 	UFUNCTION()
 	void BroadcastOffsetReset() { OnOffsetReset.Broadcast(); }
+
+	/*
+	 * Is this machine should display the Virtual Camera UI and establish a connection with the remote session app.
+	 */
+	UFUNCTION(BlueprintNativeEvent, Category = "VirtualCamera")
+	bool IsVirtualCameraControlledByRemoteSession() const;
+
+	/*
+	 * In multi user session, how should we update the information across different sessions.
+	 */
+	UFUNCTION(BlueprintNativeEvent, Category = "VirtualCamera")
+	bool ShouldUpdateTargetCameraTransform() const;
 
 	/***** UI Interface *****/
 public:
@@ -345,6 +399,13 @@ public:
  	 */
 	UFUNCTION(BlueprintPure, Category = "Virtual Camera|Sequencer|Playback")
 	FString GetActiveLevelSequenceName();
+
+	/**
+	 * Returns the currently selected sequence
+	 * @return the current selected sequence; returns nullptr if no selected sequence
+	 */
+	UFUNCTION(BlueprintPure, Category = "Virtual Camera|Sequencer|Playback")
+	ULevelSequence* GetActiveLevelSequence();
 	
 	/**
 	 * Gets stabalization scale for a specific axis.
@@ -398,53 +459,37 @@ public:
 	EVirtualCameraFocusMethod GetCurrentFocusMethod() { return CurrentFocusMethod; }
 
 	/**
-	 * Get the frame rate at which Sequencer Recorder will record
-	 * @return the record rate in frames per second
-	 */
-	UFUNCTION(BlueprintPure, Category = "Virtual Camera|Sequencer|Recording")
-	float GetCurrentRecordingFrameRate();
-
-	/**
-	 * Get the current amount of time that this sequence has been recording
-	 * @return - The length of time in seconds that this sequence has been recording
-	 */
-	UFUNCTION(BlueprintPure, Category = "Virtual Camera|Sequencer|Recording")
-	float GetCurrentRecordingLength();
-
-	/**
-	 * Get the name of the sequence that will be created by the next or current recording
-	 * @return - The name of the current or next sequence that will be recorded
-	 */
-	UFUNCTION(BlueprintPure, Category = "Virtual Camera|Sequencer|Recording")
-	FString GetCurrentRecordingSceneName();
-
-	/**
-	 * Get the name of the sequence that will be created by the next or current recording
-	 * @return - The name of the current or next sequence that will be recorded
-	 */
-	UFUNCTION(BlueprintPure, Category = "Virtual Camera|Sequencer|Recording")
-	FString GetCurrentRecordingTakeName();
-
-	/**
 	 * Get the end position of the currently selected sequence
-	 * @return the end position of the sequence in seconds
+	 * @return the end position of the sequence in FrameNumber
 	 */
 	UFUNCTION(BlueprintPure, Category = "Virtual Camera|Sequencer|Playback")
-	float GetCurrentSequencePlaybackEnd();
+	FFrameNumber GetCurrentSequencePlaybackEnd();
 
 	/**
 	 * Get the start position of the currently selected sequence
-	 * @return the start position of the sequence in seconds
+	 * @return the start position of the sequence in FrameNumber
 	 */
 	UFUNCTION(BlueprintPure, Category = "Virtual Camera|Sequencer|Playback")
-	float GetCurrentSequencePlaybackStart();
+	FFrameNumber GetCurrentSequencePlaybackStart();
+
+	/**
+	 * Gets the locked to camera cut from the active LevelSequence
+	 */
+	UFUNCTION(BlueprintPure, Category = "Virtual Camera|Sequencer|Playback")
+	bool IsSequencerLockedToCameraCut();
+
+	/**
+	 * Sets the locked to camera cut from the active LevelSequence
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Virtual Camera|Sequencer|Playback")
+	void SetSequencerLockedToCameraCut(bool bLockView);
 
 	/**
 	 * Get the frame rate of the currently selected sequence
 	 * @return the frame rate in frames per second
 	 */
 	UFUNCTION(BlueprintPure, Category = "Virtual Camera|Sequencer|Playback")
-	float GetCurrentSequenceFrameRate();
+	FFrameRate GetCurrentSequenceFrameRate();
 
 	/**
 	 * Set the matte aspect ratio to a new value.
@@ -470,10 +515,10 @@ public:
 
 	/**
 	 * Gets the length of the currently selected level sequence
-	 * @return the length of the level sequence in seconds
+	 * @return the length of the level sequence in FrameNumber
 	 */
 	UFUNCTION(BlueprintPure, Category = "Virtual Camera|Sequencer|Playback")
-	float GetLevelSequenceLength();
+	FFrameNumber GetLevelSequenceLength();
 
 	/**
 	 * Returns the names of each level sequence asset in the project
@@ -508,7 +553,14 @@ public:
 	 * @return the current playback position
 	 */
 	UFUNCTION(BlueprintPure, Category = "Virtual Camera|Sequencer|Playback")
-	float GetPlaybackPosition();
+	FFrameTime GetPlaybackPosition();
+
+	/**
+	 * Gets the playback Timecode of the level sequence
+	 * @return the current playback Timecode
+	 */
+	UFUNCTION(BlueprintPure, Category = "Virtual Camera|Sequencer|Playback")
+	FTimecode GetPlaybackTimecode();
 
 	/**
 	 * Returns the information associated with a Screenshot.
@@ -604,10 +656,10 @@ public:
 
 	/**
 	 * Sets the playback position of the level sequence.
-	 * @param NewPlaybackPosition - current playback position
+	 * @param InFrameNumber - New FrameNumber to jump to.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Virtual Camera|Sequencer|Playback")
-	void JumpToPlaybackPositionSeconds(float NewPlaybackPosition);
+	void JumpToPlaybackPosition(const FFrameNumber& InFrameNumber);
 
 	/**
 	 * Loads a preset using its name as a string key.
@@ -685,7 +737,7 @@ public:
 	 * @return true if a valid level sequence player was found, false if no level sequence player is currently available
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Virtual Camera|Sequencer|Playback")
-	bool SetActiveLevelSequence(const FString& LevelSequenceName);
+	bool SetActiveLevelSequence(ULevelSequence* InNewLevelSequence);
 
 	/**
 	 * Sets whether or not to use focus visualization
@@ -758,6 +810,13 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Virtual Camera|Cinematic Camera|Focus")
 	void SetFocusVisualization(bool bShowFocusVisualization);
+
+	/**
+	 * Checks whether or not focus visualization is activate
+	 * @return the current state of touch event visualization
+	 */
+	UFUNCTION(BlueprintPure, Category = "Virtual Camera|Cinematic Camera|Focus")
+	bool IsFocusVisualizationActivated() const;
 
 	/**
 	 * Set the matte aspect ratio to a new value.
@@ -842,22 +901,10 @@ public:
 	bool ShouldSaveSettingsWhenClosing();
 
 	/**
-	 * Records current movement into a new take sequence.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Virtual Camera|Sequencer|Recording")
-	void StartRecording();
-
-	/**
 	 * Stops the currently playing level sequence.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Virtual Camera|Sequencer|Playback")
 	void StopLevelSequencePlay();
-
-	/**
-	 * Stops recording and cleans up scene.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Virtual Camera|Sequencer|Recording")
-	void StopRecording();
 
 	/**
 	 * Takes a screenshot from the current view and saves the location and camera settings.

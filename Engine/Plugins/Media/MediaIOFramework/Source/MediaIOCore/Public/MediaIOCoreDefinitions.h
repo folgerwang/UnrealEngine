@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -9,14 +9,15 @@
 
 
 /**
- * SDI transport type.
+ * Media transport type.
  */
 UENUM()
-enum class EMediaIOSDITransportType
+enum class EMediaIOTransportType
 {
 	SingleLink,
 	DualLink,
 	QuadLink,
+	HDMI,
 };
 
 
@@ -55,10 +56,20 @@ enum class EMediaIOTimecodeFormat
 
 
 /**
+ * SDI Input type.
+ */
+UENUM()
+enum class EMediaIOInputType
+{
+	Fill			UMETA(DisplayName="Fill"),
+	FillAndKey		UMETA(DisplayName="Fill & Key"),
+};
+
+/**
  * SDI Output type.
  */
 UENUM()
-enum class EMediaIOOutputType : uint8
+enum class EMediaIOOutputType
 {
 	Fill			UMETA(DisplayName="Fill"),
 	FillAndKey		UMETA(DisplayName="Fill & Key"),
@@ -125,7 +136,7 @@ public:
 
 	/** The type of cable link used for that configuration */
 	UPROPERTY(EditAnywhere, Category=Connection)
-	EMediaIOSDITransportType TransportType;
+	EMediaIOTransportType TransportType;
 
 	/** The type of cable link used for that configuration */
 	UPROPERTY(EditAnywhere, Category=Connection)
@@ -214,6 +225,36 @@ public:
 
 public:
 	bool operator== (const FMediaIOConfiguration& Other) const;
+
+	/** Return true if the configuration has been set properly */
+	bool IsValid() const;
+};
+
+/**
+ * Configuration of a device input.
+ */
+USTRUCT()
+struct MEDIAIOCORE_API FMediaIOInputConfiguration
+{
+	GENERATED_BODY()
+
+public:
+	FMediaIOInputConfiguration();
+
+	/** The signal input format. */
+	UPROPERTY(VisibleAnywhere, Category=Configuration)
+	FMediaIOConfiguration MediaConfiguration;
+
+	/** Whether to input the fill or the fill and key. */
+	UPROPERTY(VisibleAnywhere, Category=Configuration)
+	EMediaIOInputType InputType;
+
+	/** The port of the video channel on the device to input the key from. */
+	UPROPERTY(VisibleAnywhere, Category=Configuration)
+	int32 KeyPortIdentifier;
+
+public:
+	bool operator== (const FMediaIOInputConfiguration& Other) const;
 
 	/** Return true if the configuration has been set properly */
 	bool IsValid() const;

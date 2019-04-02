@@ -1,0 +1,342 @@
+﻿INTSourceChangelist:4523760
+Availability: Public
+Crumbs: 
+Title: 데이터스미스 메타데이터 사용법
+Description: 애셋의 커스텀 메타데이터를 언리얼로 가져오는 법, 블루프린트와 Python 스크립트를 사용하여 에디터와 런타임에 그 메타데이터를 사용하는 법을 설명합니다.
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/Overview
+Order: 6
+Tags: Metadata
+Tags: Datasmith
+Tags: Guides
+topic-image:datasmith-metadata-topic.png
+
+
+![데이터스미스 메타데이터 사용](datasmith_metadata_banner.png "Using Datasmith Metadata")
+
+데이터스미스 임포터는 처리하는 오브젝트의 메타데이터를 자동으로 가져올 수 있습니다. 메타데이터란 3D 디자인 또는 캐드 프로그램에서 그 오브젝트에 설정해 둔 정보를 말합니다. 메타데이터는 애셋이 나타내는 현실의 기계 부품 또는 건축 요소 관련 정보를 저장하는 데 자주 쓰입니다. 예를 들어 그 부품의 가격, 소재, 무게나 단열 효율과 같은 물리적 속성, 부품에 적용할 수 있는 최대 토그화 같은 사용 정보같은 것입니다. 프로젝트에 필요할 수도 있는 애셋 관련 다른 유형 정보를 메타데이터에 저장할 수도 있습니다.
+
+언리얼 엔진 및 언리얼 에디터에서 이 메타데이터를 유용하게 사용할 수 있는 방법은 두 가지입니다.
+
+*   **애셋 아피프라인에서** - 애셋을 임포트하고 레벨을 구성할 때 메타데이터를 사용하면 다른 처리가 필요한 애셋과 액터 유형을 구분하는 데 도움이 됩니다. 예를 들어,  
+    *   데이터스미스 임포트 프로세스 도중 최종 씬에 필요치 않아 임포트를 생략할 수 있는 애셋 유형을 식별할 수 있습니다.
+    *   임포트 후 레벨의 액터 중 병합, 결합, 대체, 또는 그 머티리얼을 대체할 액터를 식별할 수 있습니다.
+*   **게임 런타임에서** - 런타임에 메타데이터를 사용하면, 소스 디자인 툴에서 액터에 설정된 정보를 사용자에게 표시할 수 있습니다. 예를 들어,
+    *   레벨의 오브젝트에 구조적 특성 관련 정보가 담긴 BIM 데이터가 있는 경우, 상호작용형 체험에서 플레이어가 씬의 그 오브젝트를 선택하면 그 정보를 시각화할 수 있습니다.
+    *   제품 컨피켜레이터 프로젝트에서 플레이어가 여러 디자인 옵션 중 하나를 선택하면, 게임플레이 로직을 통해 보이는 애셋에 할당된 비용 메타데이터에 따라 플레이어의 현재 선택 비용 총합을 계산하여 표시할 수 있습니다.
+
+여기서는 데이터스미스 임포트 프로세스를 통해 언리얼로 메타데이터를 가져오는 방법, 에디터와 런타임 양쪽에서 스크립트를 통해 액세스하는 법을 설명합니다.
+
+## 메타데이터 소스
+
+현재 메타데이터를 임포트를 지원하는 디자인 툴은 다음과 같습니다.  
+
+*   [Autodesk 3ds Max](#autodesk3dsmax)
+*   [Dassault Systèmes Solidworks](#dassaultsystèmessolidworks)
+*   [Trimble SketchUp Pro](#trimblesketchuppro)
+
+[REGION:note]
+현재 지오메트리의 메타데이터만 처리하며, 라이트나 카메라같은 씬 오브젝트 다른 유형은 지원하지 않습니다.
+[/REGION]
+
+### Autodesk 3ds Max
+
+3ds Max 오브젝트의 **Object Properties** 창 **User Defined** 탭에 메타데이터를 추가합니다.
+
+![3ds Max User Defined Properties 의 메타데이터](3ds_max_user_defined_properties.png "Metadata in 3ds Max User Defined Properties")
+
+3ds Max 에서 메시의 이 패널을 여는 방법은 다음과 같습니다.
+
+1.  아웃라이너 또는 뷰포트에서 메시를 선택합니다.
+2.  우클릭 컨텍스트 메뉴에서 **Properties** 또는 **Object Properties**, 또는 메인 메뉴의 **Edit > Properties** 를 선택합니다.
+3.  이 패널에 메타데이터를 위와 같이 `키 = 값` 짝으로 입력합니다.
+    [REGION:note]
+    **주의할 점은 `=` 부호 양쪽에 한 칸 띄워야 합니다**. 띄우지 않으면 데이터스미스가 인식하지 못해 예상대로 임포트할 수 없습니다.
+    [/REGION]
+
+[REGION:tip]
+[MAXScript 를 사용하여](http://help.autodesk.com/view/3DSMAX/2018/ENU/?guid=__files_GUID_AF1F51D4_449B_4C4D_9F58_85DB145BC0B9_htm) 사용자 정의 프로퍼티를 구성할 수도 있습니다.
+[/REGION]
+[REGION:tip]
+모델을 Revit 에서 만들고 3ds Max 로 임포트한 경우, 사용자 정의 프로퍼티는 3ds Max 임포터가 모델의 BIM 정보로 미리 설정했을 것입니다.
+[/REGION]
+
+### Dassault Systèmes SolidWorks
+
+SolidWorks 파일을 임포트할 때, 데이터스미스가 생성하는 스태틱 메시 액터 각각에 프리셋 메타데이터 최소량을 추가하여, 원본 Solidworks 디자인에서 그 메시의 어셈블리와 파트 이름을 나타냅니다. 하지만 데이터스미스는 현재 파트와 어셈블리에 추가한 커스텀 메타데이터 프로퍼티를 가져오지 않습니다.
+
+### Trimble SketchUp Pro
+
+SketchUp 에서 만든 컴포넌트 각각에 대해, 가격, 크기, 상태와 같은 [Advanced Attributes](https://help.sketchup.com/es/article/3000124#advanced-attributes) 를 추가할 수 있습니다.
+
+![SketchUp Pro Advanced Attributes 의 메타데이터](sketchup-advaned-attributes.png "Metadata in SketchUp Pro Advanced Attributes")
+
+데이터스미스는 이 Advanced Attributes 를 전부 임포트하며, Type 값도 있으면 메타데이터에 포함시킵니다.
+
+[REGION:note]
+데이터스미스 메타데이터는 씬 계층구조에서 컴포넌트를 나타내는 액터에 붙일 수는 있지만, 그 컴포넌트의 지오메트리를 나타내는 개별 스태틱 메시 액터는 아닙니다. 하지만 그래야 한다면, 이 페이지 하단의 블루프린트 및 Python 예제를 조정해야 합니다.
+[/REGION]
+
+## 언리얼 에디터에서 메타데이터 보기
+
+데이터스미스 임포트 프로세스가 완료된 이후, **디테일** 패널의 **Asset User Data** 섹션 아래에서 레벨의 스태틱 메시 액터의 메타데이터를 볼 수 있습니다.
+
+![언리얼의에서 데이터스미스 메타데이터 확인](datasmith_metadata_in_editor.png "Viewing Datasmith metadata in Unreal")
+
+데이터스미스 메타데이터는 현재 에디터에서 읽기 전용입니다.
+
+## 블루프린트 및 Python 에서 메타데이터 액세스
+
+씬 오브젝트에 연관된 메타데이터에 액세스하는 방법은 여러가지입니다. 그 방법은 메타데이터에 액세스할 시점이 데이터스미스 임포트 프로세스 도중인지 완료 이후인지에 따라 달라집니다.
+
+[REGION:note]
+모든 메타데이터 키 값은 언리얼 엔진에 스트링로 저장되며, 디자인 또는 CAD 프로그램의 원본 유형과는 관계 없습니다. 예로 3ds Max 에서 메타데이터 값을 `true` 같은 부울이나 `312` 같은 숫자로 설정한 경우, 언리얼에서 스크립트로 읽으면 스트링이 됩니다. 이 값을 부울이나 숫자로 만들려면, 블루프린트 변환 노드 **Utilities > String > String to Int** 또는 **String to Float** 를 사용하거나, Python 내장 스트링 파싱 함수 `int()` 또는 `float()` 를 사용하면 됩니다.
+[/REGION]
+
+### 임포트 도중 메타데이터 액세스
+
+데이터스미스 임포트 프로세스 **도중** 메타데이터에 액세스하려면, 예를 들어 씬에 언리얼 애셋을 생성하기 전 필터로 거를 메시를 식별하려는 경우, 데이터스미스 씬 또는 데이터스미스 CAD 씬에서 메타데이터를 읽으면 됩니다. 입력 프로세스 도중 스크립트를 실행하는 방법 관련 배경 정보는 [](Enterprise/Datasmith/Overview/CustomizingImportProcess) 문서를 참고하세요.
+
+데이터스미스 씬의 **메시 액터 엘리먼트** 에 붙은 메타데이터를 찾을 수 있습니다.
+
+%Globals:BlueprintOrPythonSelectVar%
+
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    BlueprintOrCPPSelect
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    blueprintimplementation
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    active_button_content
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:Enterprise/Datasmith/Overview/UsingDatasmithMetadata#blueprintContent1]
+    [/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    BlueprintOrCPPSelect
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    pythonimplementation
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:Enterprise/Datasmith/Overview/UsingDatasmithMetadata#pythonContent1]
+    [/PARAM]
+[/OBJECT]
+
+[COMMENT:none]
+[EXCERPT:blueprintContent1]
+필요하는 노드는 **Datasmith > Scene** 및 **Datasmith > Element** 아래 있습니다.
+
+[REGION:note]
+이 노드를 사용하려면 컨텍스트 메뉴의 **Context Sensitive** (컨텍스트에 따라) 체크박스를 해제하거나, 팔레트에서 노드를 찾으면 됩니다.
+[/REGION]
+
+*   데이터스미스 씬의 모든 오브젝트에 대해 모든 메타데이터 오브젝트를 기록하는 배열을 구할 수 있습니다.  
+    ![모든 메타데이터 구하기](pre_import_get_all_metadata.png "Get All Metadata")
+*   키 이름으로 시작해서, 그 키를 가진 데이터스미스 씬의 모든 오브젝트 목록을 구할 수 있습니다. 또한 모든 오브젝트에서 그 키에 대해 기록된 모든 값 목록을 구할 수도 있습니다.  
+    ![키에 대한 모든 오브젝트와 값 구하기](pre_import_get_all_objects_for_key.png "Get All Objects and Values for Key")
+*   특정 오브젝트에서 시작해서 그 모든 메타데이터 오브젝트의 배열을 구할 수 있습니다.  
+    ![오브젝트에 대한 메타데이터 구하기](pre_import_get_for_object.png "Get Metadata for Object")
+*   원하는 키의 이름과 오브젝트를 둘 다 알면 값을 구할 수 있습니다.  
+    ![키에 대한 메타데이터 값 구하기](pre_import_get_for_key.png "Get Metadata Value For Key")
+*   오브젝트와 **값** 은 알지만 키 이름은 모른다면, 그 값을 가진 오브젝트의 모든 키를 구할 수 있습니다.  
+    ![값에 대한 메타데이터 키와 값 구하기](pre_import_get_keys_and_values_for_value.png "Get Metadata Keys and Values for Value")
+
+데이터스미스 메타데이터 엘리먼트 오브젝트를 반환하는 위 노드의 경우, **Datasmith > Element > Get Properties**, **Get Property**,  **Get Property Count** 를 사용하면 메타데이터 오브젝트에서 키와 값을 구할 수 있습니다.
+
+![데이터스미스 메타데이터 엘리먼트](pre_import_get_properties_from_md.png "Datasmith Metadata Element")
+
+**사용 예**
+
+메타데이터 키에 할당된 값을 사용하여 프로젝트에 필요치 않을거라 알고있는 지오메트리를 식별하는 법을 보여주는 예제입니다. 그렇게 식별한 것을 데이터스미스 씬에서 제거한 이후 스태틱 메시 애셋을 생성할 수 있습니다.
+
+[REGION:lightbox]
+[![데이터스미스 메타데이터 사용 예](pre_import_remove_by_key.png "Datasmith metadata usage example")](pre_import_remove_by_key.png)
+
+*클릭하면 이미지 원본을 확인합니다.*
+[/REGION]
+[/EXCERPT:blueprintContent1]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:pythonContent1]
+데이터스미스 임포트 프로세스 도중 `unreal.DatasmithSceneElement` 또는 `unreal.DatasmithCADSceneElement` 오브젝트를 통해 씬 오브젝트 관련 메타데이터를 구할 수 있습니다. 다음 함수 관련 자세한 정보는 [Python API Reference](https://api.unrealengine.com/INT/PythonAPI/) 를 참고하세요.
+
+*   데이터스미스 씬의 모든 오브젝트에 대해 모든 메타데이터 오브젝트를 기록하는 배열을 구할 수 있습니다.  
+    `get_all_metadata(object_class)`
+*   키 이름으로 시작해서, 그 키를 가진 데이터스미스 씬의 모든 오브젝트 목록을 구할 수 있습니다. 또한 모든 오브젝트에서 그 키에 대해 기록된 모든 값 목록을 구할 수도 있습니다.  
+    `get_all_objects_and_values_for_key(key, object_class)`
+*   특정 오브젝트에서 시작해서 그 모든 메타데이터 오브젝트의 배열을 구할 수 있습니다.  
+    `get_metadata_for_object(object)`
+*   원하는 키의 이름과 오브젝트를 둘 다 알면 값을 구할 수 있습니다.  
+    `get_metadata_value_for_key(object, key)`
+*   오브젝트와 **값** 은 알지만 키 이름은 모른다면, 그 값을 가진 오브젝트의 모든 키를 구할 수 있습니다.  
+    `get_metadata_keys_and_values_for_value(object, string_to_match)`
+
+**사용 예**
+
+메타데이터 키에 할당된 값을 사용하여 프로젝트에 필요치 않을거라 알고있는 지오메트리를 식별하는 법을 보여주는 예제입니다. 그렇게 식별한 것을 데이터스미스 씬에서 제거한 이후 스태틱 메시 애셋을 생성할 수 있습니다.
+
+
+    key_name = "name"
+    remove_keyword = "Clutch"
+    meshes_to_skip = set([])
+    # "name" 키를 가진 씬 엘리먼트를 전부 구합니다.
+    objects_and_values = ds_scene_in_memory.get_all_objects_and_values_for_key(key_name, unreal.DatasmithMeshActorElement)
+    objects = objects_and_values[0]
+    values = objects_and_values[1]
+    # 반복처리하면서 값이 키워드에 일치하는 것을 찾습니다.
+    for index, value in enumerate(values):
+        if remove_keyword in value:
+            print("removing actor named: " + value)
+            # 씬에서 메시 액터 엘리먼트를 제거하고, 목록에 나중에 제거할 메시 엘리먼트를 넣습니다.
+            mesh_actor = objects[index]
+            mesh = mesh_actor.get_mesh_element()
+            meshes_to_skip.add(mesh)
+            ds_scene_in_memory.remove_mesh_actor(mesh_actor)
+    # 임포트할 필요가 없는 모든 메시를 제거합니다.
+    for mesh in meshes_to_skip:
+        mesh_name = mesh.get_element_name()
+        print("removing mesh named " + mesh_name)
+        ds_scene_in_memory.remove_mesh(mesh)
+[/EXCERPT:pythonContent1]
+[/COMMENT]
+
+### 임포트 이후 메타데이터에 액세스
+
+임포트 프로세스가 데이터스미스 또는 CAD 씬을 마무리하여 언리얼 애셋과 액터로 가져왔으면, 데이터스미스 씬에 있는 각 메시 엘리먼트의 메타데이터를 그 스태틱 메시 애셋의 인스턴스를 표현하는 레벨의 모든 액터에도 적용합니다. 그런 다음 블루프린트 또는 Python 을 사용하여 레벨의 스태틱 메시 액터 일부 또는 전부에 대한 메타데이터를 구할 수 있습니다.
+
+%Globals:BlueprintOrPythonSelectVar%
+
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    BlueprintOrCPPSelect
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    blueprintimplementation
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    active_button_content
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:Enterprise/Datasmith/Overview/UsingDatasmithMetadata#blueprintContent2]
+    [/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    BlueprintOrCPPSelect
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    pythonimplementation
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:Enterprise/Datasmith/Overview/UsingDatasmithMetadata#pythonContent2]
+    [/PARAM]
+[/OBJECT]
+
+[COMMENT:none]
+[EXCERPT:blueprintContent2]
+특정 액터 하나에 대한 메타데이터에 액세스하는 노드는 다음과 같습니다. 퍼포먼스 영향은 매우 적어 언제든, 심지어 프로젝트에서 런타임에도 사용할 수 있습니다. 씬에서, 즉 프로젝트의 런타임 UI 내 콜아웃이나 메뉴에서 선택한 오브젝트 하나 이상에 대해 임포트한 메타데이터를 시각화할 때 런타임 블루프린트에서 사용하면 좋은 노드입니다.
+
+**Datasmith User Data** 카테고리 아래에서 찾을 수 있습니다. 
+
+*   값을 구하고자 하는 키의 이름을 아는 경우:  
+    ![키에 대한 데이터스미스 사용자 데이터 값 구하기](post_import_get_for_key.png "Get Datasmith User Data Value for Key")
+*   찾고자 하는 **값** 은 알지만 키 이름은 모른다면, 그 값을 가진 액터의 모든 키를 구할 수 있습니다.  
+    ![값에 대한 데이터스미스 사용자 데이터 키와 값 구하기](post_import_get_keys_and_values_for_value.png "Get Datasmith User Data Keys and Values for Value")
+*   또는 액터에 대해 기록된 **모든** 키-값 짝이 들어있는 메타데이터 오브젝트를 구하여, 직접 반복처리할 수 있습니다.  
+    ![데이터스미스 사용자 데이터 구하기](post_import_get_user_data.png "Get Datasmith User Data")
+
+이와 대조적으로 현재( 또는 지정한 클래스를 공유하는 모든) 레벨의 스태틱 메시 액터 전부에 대한 메타데이터를 액세스하는 노드는 다음과 같습니다. 잠재적으로 레벨에는 액터가 많고 각각 프로퍼티도 많을 수 있으므로, 이 함수는 CPU 자원을 많이 사용할 수 있으며, 런타임 게임플레이에 사용하면 퍼포먼스가 떨어질 수 있습니다. 따라서 에디터 전용 블루프린트 클래스에서 생성한 그래프에서만 사용할 수 있습니다.
+
+이 노드는 **Editor Scripting > Datasmith User Data** 카테고리에서 찾을 수 있습니다.
+
+*   키 이름으로 시작해서, 현재 레벨의 모든 액터 중 그 데이터스미스 메타데이터에 그 키를 가진 액터 목록을 구할 수 있습니다. 또한 모든 오브젝트에서 그 키에 대해 기록된 모든 값 목록을 구할 수도 있습니다.  
+    ![키에 대한 모든 오브젝트와 값 구하기](post_import_get_all_objects_for_key.png "Get All Objects and Values for Key")
+*   현재 레벨의 모든 액터에 대한 메타데이터 오브젝트 전체 목록을 구할 수 있습니다.  
+    ![모든 데이터스미스 사용자 데이터 구하기](post_import_get_all_user_data.png "Get All Datasmith User Data")
+
+위 **Get Datasmith User Data** 및 **Get All Datasmith User Data** 노드는 데이터스미스 사용자 데이터 오브젝트 레퍼런스를 반환합니다. 이 오브젝트에서 액세스할 수 있는 변수 하나 Metadata 는 오브젝트의 데이터스미스 메타데이터를 이루는 모든 키-값 짝의 맵입니다. 이러한 종류의 오브젝트를 사용하려면, 출력 핀을 끌어 놓고 **Variables > Get Metadata** 를 선택합니다.
+
+![데이터스미스 사용자 데이터 오브젝트 레퍼런스](post_import_get_metadata_node.png "Datasmith User Data Object References")
+
+그러면 키와 값이 맵으로 나옵니다. 그런 다음 **Utilities > Map** 카테고리의 유틸리티 노드를 사용하여 데이터 작업을 하면 됩니다. 예로 이 그래프는 모든 키에 대해 하나씩 반복처리하면서 각 키와 연관된 값을 구합니다.
+
+[REGION:lightbox]
+[![맵을 통한 반복처리](post_import_iterate_userdata.png "Iterate through the Map")](post_import_iterate_userdata.png)
+
+*클릭하면 이미지 원본을 확인합니다.*
+[/REGION]
+
+블루프린트에서 맵 작업 관련 자세한 정보는 [](Engine/Blueprints/UserGuide/Maps) 문서를 참고하세요.
+
+**사용 예**
+
+레벨에 플레이어가 선택한 오브젝트에 대해 런타임에 애셋 메타데이터를 시각화하는 방법을 보여주는 단순한 예제입니다.
+
+![UMG 위젯의 메타데이터](post_import_bp_result.png "Metadata in a UMG widget")
+
+텍스트 칸이 둘 있는 UMG 위젯으로 텍스트를 작성했으며, 각각 스트링 변수에 바인딩됩니다. 위젯에 대한 블루프린트 그래프에서, 커스텀 액션이 커스텀 이벤트에 전달한 액터에서 데이터스미스 메타데이터 두 항목을 추출하고, 그 항목을 바인딩된 변수에 저장합니다.
+
+![UMG 위젯 이벤트 그래프](post_import_bp_ui.png "UMG widget Event Graph")
+
+다음 레벨 블루프린트는 플레이를 시작할 때 이런 위젯을 추가하는 법, 사용자가 마우스를 클릭할 때마다 커서 아래 액터를 물려주는 방법을 보여줍니다.
+
+[REGION:lightbox]
+[![UMG 위젯 셋업 및 업데이트](post_import_bp_level.png "Set up and update the UMG widget")](post_import_bp_level.png)
+
+*클릭하면 이미지 원본을 확인합니다.*
+[/REGION]
+
+UMG 로 유저 인터페이스 구축 관련 자세한 정보는 [](Engine/UMG/QuickStart) 및 관련 문서를 참고하세요.
+[/EXCERPT:blueprintContent2]
+[/COMMENT]
+[COMMENT:none]
+[EXCERPT:pythonContent2]
+데이터스미스 임포트 프로세스 완료 이후, `unreal.DatasmithContentLibrary` 클래스를 사용하여 모든 액터 또는 선택된 액터에 대한 메타데이터에 액세스할 수 있습니다. 다음 함수 관련 자세한 정보는 [Python API Reference](https://api.unrealengine.com/INT/PythonAPI/) 를 참고하세요.
+
+*   현재 레벨의 모든 액터에 대한 메타데이터 오브젝트 전체 목록을 구할 수 있습니다.  
+    `get_all_datasmith_user_data(object_class)`
+*   키 이름으로 시작해서, 현재 레벨의 모든 액터 중 그 데이터스미스 메타데이터에 그 키를 가진 액터 목록을 구할 수 있습니다. 또한 모든 오브젝트에서 그 키에 대해 기록된 모든 값 목록을 구할 수도 있습니다.  
+    `get_all_objects_and_values_for_key(key, object_class)`
+*   메타 데이터를 검색하려는 액터를 이미 알고 있다면, 특정 키의 값을 구할 수 있습니다.  
+    `get_datasmith_user_data(object)`
+*   찾고자 하는 **값** 은 알지만 키 이름은 모른다면, 그 값을 가진 액터의 모든 키를 구할 수 있습니다.  
+    `get_datasmith_user_data_keys_and_values_for_value(object, string_to_match)`
+*   오브젝트와 **값** 은 알지만 키 이름은 모른다면, 그 값을 가진 오브젝트의 모든 키를 구할 수 있습니다.  
+    `get_datasmith_user_data_value_for_key(object, key)`
+
+**사용 예**
+
+언리얼 에디터에서 실행하는 Python 스크립트에서 임포트 후 데이터스미스 메타데이터를 사용하면 레벨의 스태틱 메시 액터 중 특수 처리를 적용하려는 것을 식별할 수 있습니다.
+
+
+    import unreal
+    new_actor_name = "Exterior Walls"
+    metadata_key = "Type"
+    metadata_value = "Wall: Exterior"
+    meshes_to_join = set([])
+    # 현재 레벨의 액터를 대상으로 반복처리합니다.
+    all_actors = unreal.EditorLevelLibrary.get_all_level_actors()
+    for actor in all_actors:
+        # 위에서 설정한 키가 있으면 그에 대한 이 애셋의 데이터스미스 메타데이터 값을 구합니다.
+        actor_value = unreal.DatasmithContentLibrary.get_datasmith_user_data_value_for_key(actor, metadata_key)
+        # 키가 존재하고, 그 값에 위에 설정한 키워드가 있으면, 목록에 액터를 추가합니다.
+        if actor_value and metadata_value in actor_value:
+            print("found a matching actor: " + actor_value)
+            meshes_to_join.add(actor)
+    # 위에서 찾은 모든 액터를 하나의 액터 아래 여러 컴포넌트로 합칩니다.
+    options = unreal.EditorScriptingJoinStaticMeshActorsOptions(destroy_source_actors=True, new_actor_label=new_actor_name, rename_components_from_source=True)
+    unreal.EditorLevelLibrary.join_static_mesh_actors(meshes_to_join, options)
+    print "Merged all actors!"
+[/EXCERPT:pythonContent2]
+[/COMMENT]

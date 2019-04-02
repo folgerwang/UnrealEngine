@@ -1,112 +1,209 @@
+﻿INTSourceChangelist:3782314
 Availability: Public
-Title:控制台管理器: 在C++中设置控制台变量
+Title:C++中的控制台变量
 Crumbs:%ROOT%, Engine, Programming, Programming/Basics
+Description:控制台管理器的总览与创建控制台变量的实现细节。
+Version: 4.16
+Parent:Programming/Development/Tools
+Order:
+topic-image:consoleVar_topicImage.png
 
 [TOC(start:2)]
 
 
 
-## 概述
 
-虚幻引擎自很久以前就有了控制台命令。一个控制台命令就是用户输入的一个简单的字符串，该字符串被发送到引擎中，引擎以某种方式作出反应(比如，控制台文本反应、改变内部状态)。
-
-新的控制台管理器统一并简化为一个通用形式： 控制台变量。
+**控制台命令** 是一条用户输入字符串，其可被发送到引擎，而引擎能以某种方式进行回应（如控制台/日志响应，修改内部状态）。
+**控制台变量** 将额外保存一些状态，可通过控制台进行修改。在控制台管理器中注册控制台命令和变量即可得到自动完成和列举，以便获取所有控制台对象的列表（控制台命令Help或DumpConsoleVariables）。因此需要避免使用老旧的Exec接口。中间点中的控制台管理器将控制所有内容和更多内容（如用户输入历史）。
 
 
+(#whatisaconsolevariable?)
 
-## 什么是控制台变量?
+## 什么是控制台变量？
 
-控制台变量是某种简单的数据类型(比如，浮点型、整型、字符串型)，这些类型具有引擎范围内的状态，用户可以读取和设置该状态。控制台变量有一个名称，当用户开始尝试把名称输入到控制台中时会进行自动补全处理。
+控制台变量是一种简单的数据类型（如浮点、整数、字符串）。其拥有引擎层面的状态，使用者可对其状态进行读取和设置。
+控制台变量拥有命名，使用者在控制台中输入命名时将自动完成拼写。举例而言：
 
 |**用户控制台输入**|**控制台输出**|**描述**|
 | --- | --- | --- |
-|`MyConsoleVar`|`MyConsoleVar = 0`|变量的当前状态输出到控制台中。| 
-|`MyConsoleVar 123`|`MyConsoleVar = 123`|变量的状态被修改了，新的状态会被输出到控制台中。| 
-|`MyConsoleVar ?`|`Possibly multi line help text.`|把控制台变量的帮助文本输出到控制台中。|
+|`MyConsoleVar`|`MyConsoleVar = 0`|变量的当前状态将被打印到控制台中。| 
+|`MyConsoleVar 123`|`MyConsoleVar = 123 LastSetBy: Constructor`|变量的状态已改变，新状态将被打印到控制台中。| 
+|`MyConsoleVar ?`|`Possibly multi line help text.`|将控制台变量帮助文本打印到控制台中。|
 
 
 
-## 创建/注册 控制台变量
+(#creating/registeringaconsolevariable)
 
-当创建引擎时需要尽早注册变量。示例：
+## 创建/注册控制台变量
 
-      GConsoleManager->RegisterConsoleVariable(TEXT("r.TonemapperType"),
-         -1,
-         TEXT("Allows to override which tonemapper function (during the post processing stage to transform HDR to LDR colors) is used:\n")
-         TEXT("  -1 = use what is specified elsewhere\n")
-         TEXT("   0 = off (no tonemapper)\n")
-         TEXT("   1 = filmic approximation (s-curve, contrast enhances, changes saturation and hue)\n")
-         TEXT("   2 = neutral soft white clamp (experimental)"),
-         ECVF_Cheat);
+引擎创建时需要尽早注册变量。此例显示了最佳操作方法（在任意C++文件中）：
 
+	static TAutoConsoleVariable<int32> CVarRefractionQuality(
+		TEXT("r.RefractionQuality"),
+		2,
+		TEXT("Defines the distortion/refraction quality, adjust for quality or performance.\n")
+		TEXT("<=0: off (fastest)\n")
+		TEXT("  1: low quality (not yet implemented)\n")
+		TEXT("  2: normal quality (default)\n")
+		TEXT("  3: high quality (e.g. color fringe, not yet implemented)"),
+		ECVF_Scalability | ECVF_RenderThreadSafe);
 
-`GConsoleManager` 是全局访问点。在那里您可以注册一个控制台变量或者查找一个现有的控制台变量。第一个参数是控制台变量的名称(unicode)。第二个参数是默认值，根据这个常量类型的不同，将会创建不同的控制台变量类型： int, float or string (!FString).
+我们在此处注册了一个类型为int32的控制台变量，命名为r.RefractionQuality、默认值为2，并包括一些多行帮助文本和一些标签。
+标签有很多个，而最重要的则是ECVF_Cheat。其在IConsoleManager.h中有详细讲解。
+使用者在控制台变量后使用“?”即可显示帮助文本。
 
-`RegisterConsoleVariableRef` 也允许您注册一个现有浮点或int型，并让控制台变量直接使用它来存储变量状态。
+如有需要，也可以在函数中生成一个控制台变量：
 
-下一个参数定义了当用户在控制台变量的后面使用"?"时所显示的帮助文档。
-
-另一个可选的参数允许指定标志，比如ECVF_Cheat。在 `IConsoleManager.h` 对这些内容进行了详细解释。
-
-
-
-## 获得控制台变量的状态
-
-通过使用 `RegisterConsoleVariableRef` 所注册的变量可以高效地获得使用 `RegisterConsoleVariableRef` 所创建的控制台变量的状态。
-
-通过使用以下其中任何一个get函数可以更加方便地获得状态，但是速度稍微慢些(虚函数调用，或许会产生缓存丢失)： !GetInt(), !GetFloat(), !GetString()
-要想获得最好的性能，您应该使用和所注册的变量一样的类型。为了获得到变量的指针，您可以存储注册函数的返回参数或者在需要变量之前调用 `FindConsoleVariable` 函数。示例：
-
-
-       static IConsoleVariable* CVar = GConsoleManager->FindConsoleVariable(TEXT("TonemapperType")); 
+	IConsoleManager::Get().RegisterConsoleVariable(TEXT("r.RefractionQuality"),
+       2,
+       TEXT("Defines the distortion/refraction quality, adjust for quality or performance.\n")
+		TEXT("<=0: off (fastest)\n")
+		TEXT("  1: low quality (not yet implemented)\n")
+		TEXT("  2: normal quality (default)\n")
+		TEXT("  3: high quality (e.g. color fringe, not yet implemented)"),
+       ECVF_Scalability | ECVF_RenderThreadSafe);
     
-       int32 Value = CVar->GetInt();
-    
+`IConsoleManager::Get()` 是全局访问点。可在此处注册控制台变量，或寻找现有的控制台变量。第一个参数是控制台变量的命名。
+第二个参数是默认值。此常量的类型不同，创建的控制台变量类型也有所不同：整数、浮点或字符串（!FString）。
+下个参数将定义控制台变量帮助文本。
 
-这里的static确保只在第一次调用该代码时进行名称搜索(作为地图实现)。这是正确的，因为该变量永远都不会移动，仅在引擎关闭时销毁。
+也可以注册一个对现有变量的引用。这种方法方便快速但会绕过多项功能（如线程安全、回调、sink、cheat），因此不建议使用此方法。请参考下例：
 
+	FAutoConsoleVariableRef CVarVisualizeGPUSimulation(
+		TEXT("FX.VisualizeGPUSimulation"),
+		VisualizeGPUSimulation,
+		TEXT("Visualize the current state of GPU simulation.\n")
+		TEXT("0 = off\n")
+		TEXT("1 = visualize particle state\n")
+		TEXT("2 = visualize curve texture"),
+		ECVF_Cheat
+		);
 
-
-## 当状态改变时的反应
-
-可以使用ECVF_Changed标志来检测状态是通过Set()方法改变的还是由于用户输入改变的(注意，可以在不触发该标志的情况下改变到这些变量的引用)。示例：
-
-       if(CVar->TestFlags(ECVF_Changed))
-       {
-          CVar->ClearFlags(ECVF_Changed);
-          ... 
-       }
-    
-
-
-## 预期的控制台变量行为和风格
+其类型可由变量类型推断而出。
 
 
-* 控制台变量应该反映用户输入，不必反应系统的状态(比如， !MotionBlur 0/1 ，某些平台可能不支持它)。不应该通过代码改变变量状态。否则用户或许会想他是否拼写错了，因为变量不具有他所指定的状态或者由于某个其他变量的状态导致他不能修改控制台变量。
-* 总是提供很好的帮助信息，指出变量的用途及设置哪些值是有意义的。
-* 大部分控制台变量都是仅用于开发，所以尽早指定 `ECVF_Cheat` 标志是个好主意。
-* 当描述变量名称时应该尽可能简短，避免否定意思 (比如 这些不好的名字 !EnableMotionBlur 、 !MotionBlurDisable 、 MBlur 、 !HideMotionBlur)。使用大小写区分使得名称变得更加具有可读性和方便性(比如 !MotionBlur)。
-* 对于缩进，您可以假设固定宽度的字体输出 (不成比例)。
+
+(#gettingthestateofaconsolevariable)
+
+## 获取控制台变量的状态
+
+获取以 **RegisterConsoleVariableRef** 创建的控制台变量的状态十分便利，使用其注册时使用的变量即可。举例而言：
+
+	// 只在未处于相同cpp文件中时需要
+	extern TAutoConsoleVariable<int32> CVarRefractionQuality;
+	// 获取游戏线程上的值
+	int32 MyVar = CVarRefractionQuality.GetValueOnGameThread();
+
+使用Getter函数（即!GetInt()、!GetFloat()、!GetString()）来确定控制台变量状态会导致实现速度稍慢（虚拟函数调用、可能的缓存丢失等）。
+要获得最佳性能，应使用用于注册变量的相同类型。为获取变量的指针，可保存注册函数的返回参数或在需要变量之前调用 **FindConsoleVariable**。范例如下：
+
+    static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("TonemapperType")); 
+	int32 Value = CVar->GetInt();
+   
+此处的静态将确保命名搜索（实现为地图）只在此代码首次调用时完成。
+这是正确的，因为变量从不会移动，只会在引擎关闭时被销毁。
 
 
-请阅读 `IConsoleManager.h` 查找关于这些内容的更多信息。
+(#howtotrackconsolevariablechanges)
+
+## 如何追踪控制台变量修改
+
+如果希望在控制台变量变化时执行一些自定义代码，可在三个方法中进行选择。 
+
+通常最简单的方法即是最佳方法：可将旧状态保存在子系统中，并每帧检查其是否有所不同。可在此处自由控制其发生时间（如渲染线程或游戏线程、流送线程、tick或渲染前后）。
+检测到差异时复制控制台变量状态并自定义代码。范例如下：
+
+	void MyFunc()
+	{
+		int GBufferFormat = CVarGBufferFormat.GetValueOnRenderThread();
+
+		if(CurrentGBufferFormat != GBufferFormat)
+		{
+			CurrentGBufferFormat = GBufferFormat;
+
+			// 自定义代码
+		}
+	}
+
+也可注册一个控制台变量sink。范例如下： 
+
+	static void MySinkFunction()
+	{
+		bool bNewAtmosphere = CVarAtmosphereRender.GetValueOnGameThread() != 0;
+
+		// 默认假定状态为true
+		static bool GAtmosphere = true;
+
+		if (GAtmosphere != bNewAtmosphere)
+		{
+			GAtmosphere = bNewAtmosphere;
+
+			// 自定义代码
+		}
+	}
+
+	FAutoConsoleVariableSink CMyVarSink(FConsoleCommandDelegate::CreateStatic(&MySinkFunction));
+
+sink将在渲染前主线程上的一个指定点处调用。函数不会获取控制台变量命名/指针，因为这通常会导致错误行为。
+如多个控制台变量（如r.SceneColorFormat、r.GBufferFormat）皆会触发修改，则最好在所有修改完成后调用代码，而非一个接一个调用。
+
+最后一种方法是使用回调，建议尽量不使用。如不谨慎使用，可能会引起问题：
+
+* 循环可能出现死锁（可以防止死锁出现，但使用哪个回调则不明确）。
+* 回调可在 **!Set()** 被调用中的任意时间处返回。代码必须在所有情况下（在初始化中、在序列化中）均能使用。
+  可假定其固定处于主线程一侧。
+
+不建议使用此方法，除非用上述其他方法已无法解决。 
+
+范例：
+
+	void OnChangeResQuality(IConsoleVariable* Var)
+	{
+		SetResQualityLevel(Var->GetInt());
+	}
+
+	CVarResQuality.AsVariable()
+		->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&OnChangeResQuality));
 
 
-##加载控制台变量
 
-一旦引擎启动，就可以从"Engine/Config/ConsoleVariables.ini"文件加载控制台变量的状态。更多细节可以在该文件本身内找到：
+(#intendedconsolevariablebehaviorandstyle)
 
-    ; This file allows to set console variables on engine startup (In undefined order).
-    ; Currently there is no other file overriding this one.
-    ; This file should be in the source control database (for the comments and to know where to find it)
-    ; but kept empty from variables.
-    ; A developer can change it locally to save time not having to type repetitive
-    ; console variable settings. The variables need to be in the section called [Startup].
-    ; Later on we might have multiple named sections referenced by the section name.
-    ; This would allow platform specific or level specific overrides.
-    ; The name comparison is not case sensitive and if the variable doesn't exists it's silently ignored.
+## 控制台变量预期行为和风格
+
+* 控制台输入应反映用户输入，并不一定反映系统的状态（例如部分平台可能不支持!MotionBlur 0/1）。
+  变量状态不应由代码修改。否则变量不含用户指定的状态时用户会无端怀疑自己错误输入，
+  又或者用户可能因其他变量的状态而无法对控制台变量进行修改。
+* 请务必提供解释，说明变量的用途和恰当的值。
+* 多数控制台变量仅适用于开发，因此建议尽早指定 `ECVF_Cheat` 标签。
+  能够使用定义来编译出功能则更佳（如#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)）。
+* 变量命名应尽量简短，描述性强，不应使用否定含义。
+  （举例而言，较差的命名有!EnableMotionBlur、!MotionBlurDisable、MBlur、!HideMotionBlur）。
+  使用大小写，使命名统一、易读（如!MotionBlur）。
+* 为便于缩进，可假定为固定的宽度字体（非比例）输出。
+* 在引擎初始化中注册变量十分重要，这样自动完成、!DumpConsoleCommands和!Help才能正常工作。 
+
+请阅读 `IConsoleManager.h` 了解这部分详情。
+
+
+(#loadingconsolevariables)
+
+## 加载控制台变量
+
+引擎启动时，可从文件 **Engine/Config/ConsoleVariables.ini** 加载控制台变量的状态。此位置预留给本地开发者，不应用于项目设置。
+文件自身中有更多详情：
+
+    ; 利用此文件当前可在引擎启动时设置控制台变量（排序未定义）。
+    ; 当前无其他文件覆盖此文件。
+    ; 此文件应在源码管理数据库中（便于进行注释和了解在何处进行查找）
+    ; 变量中不应含空格。
+    ; 开发者可在本地对其进行修改，避免输入重复的控制台变量设置，
+    ; 以节约时间。须将变量放在名为[Startup]的部分中。
+    ; 之后可能会有多个命名部分被部分命名所引用。
+    ; 这会实现平台或关卡特定的覆盖。
+    ; 命名对比不区分大小写；如果变量不存在，其便会被略过。
     ;
-    ; Example file content:
+    ; 文本内容范例：
     ;
     ; [Startup]
     ; FogDensity = 0.9
@@ -115,100 +212,103 @@ Crumbs:%ROOT%, Engine, Programming, Programming/Basics
     
     [Startup]
     
+可将设定放在 **Engine/Config/BasEngine.ini** 中。范例如下：
 
-## 以后的工作
+	[SystemSettings]
+	r.MyCvar = 2
 
+	[SystemSettingsEditor]
+	r.MyCvar = 3
 
-* 当前系统非常简单很容易使用。
-* 我们也考虑到了执行控制台命令(统一的界面、使用函数调用或代理、自动补全及帮助)。
-* 为了在所有解决方案中都能获得显示有好的帮助文本输出，我们将检查最长行的长度，并确保我们总是使用固定宽度的字体。
-* 目前仅能通过C++创建控制变量，但是这个情况性可能会改变。
-* 我们应该考虑把变量分组到一起。其他系统具有针对特定用途的首字母或字符串前缀(比如 !s_MusicBufferSize)。
-* 我们打算添加一个用于输出全部控制台命令及其帮助文本的命令(排序,分组)。
-* 我们想添加一个枚举类型和布尔类型，但是这会导致很多问题。暂时，我们建议使用int类型，或者根据需要使用字符串。
-* 帮助文档是非常便利的，但是为了减小可执行文件的大小或者为了使它们对于作弊者来说变得更加难，我们考虑添加一个定义来防止帮助文本进入到可执行文件中。
-* 目前的自动补全功能也会输出某些命令的一行帮助。对于控制台变量来说，该功能是禁止的，因为我们不想指定另一行帮助信息，并且我们不应该缩短多行帮助文档。这个或许会进行修改。
+设置也可来自 **Script/Engine.RendererSettings**。这些项目设置公开如下：
 
+	UPROPERTY(config, EditAnywhere, Category=Optimizations, meta=(
+		ConsoleVariable="r.EarlyZPassMovable",DisplayName="Movables in early Z-pass",
+		ToolTip=”是否在早Z阶段渲染可移动对象。需要重新加载关卡！"))
+		uint32 bEarlyZPassMovable:1;
 
+这些设置可在编辑器UI中修改。项目设置不应与可延展性设置混合（避免出现优先级问题）。
 
-##取消注册控制台变量
+其他设置可来自可延展性功能。查看 **Config/BaseScalability.ini** 或可延展性文档了解更多信息。
 
-`UnregisterConsoleVariable` 方法允许您删除该控制台变量。至少从用户的角度来说所发生的处理是这样的。实际上，这个变量仍然是保留的(具有取消注册标志)，以防止当指针访问该数据是出现崩溃。如果有一个新的变量注册为和所存储的老变量一样的名称，那么将会复制新变量的帮助提示信息及标志。这样DLL加载及卸载也可以正常工作，甚至不会缺失变量状态。注意，这个方法对于控制台变量引用是无效的。该问题可以通过放弃以下处理来进行修复： 不要存储指针、不要取消注册引用或不要使用引用。
+(#commandline)
 
+## 命令行
 
+命令行允许设置控制台变量、调用控制台命令或exec命令。范例如下：
 
-##和手动控制台变量实现的比较
+	UE4Editor.exe GAMENAME -ExecCmds="r.BloomQuality 12;vis 21;Quit"
 
-**示例:**
+可在此处执行3个命令。注意：以此方式设置控制台变量需要省略掉ini文件中需要的“=”。
 
-_一些 .cpp文件和全局变量_
+(#priority)
 
+## 优先级
 
-       // for documentation see "MotionBlurSoftEdge" console command
-       float GMotionBlurSoftEdge = -1;
-    
+控制台变量可从多个源处覆盖，如用户/编辑器/项目设置、命令行、consolevariables.ini等为能够重新指定部分设置（如可在编辑器UI中修改的项目设置）而保持指定的覆盖（如从命令行），我们加入了优先级。
+现在所有设置均能按任意排序来应用。 
 
-_另一些 .cpp文件和Exec() 方法_ 
+参见IConsoleManager.h：
 
+	//最低优先级（控制台变量创建后为默认）
+	ECVF_SetByConstructor =			0x00000000,
+	// 来自Scalability.ini
+	ECVF_SetByScalability =			0x01000000,
+	//（在游戏UI或来自文件）
+	ECVF_SetByGameSetting =			0x02000000,
+	// 项目设置
+	ECVF_SetByProjectSetting =		0x03000000,
+	// 逐设备设置
+	ECVF_SetByDeviceProfile =		0x04000000,
+	// 逐项目设置
+	ECVF_SetBySystemSettingsIni =	0x05000000,
+	// consolevariables.ini（针对多个项目）
+	ECVF_SetByConsoleVariablesIni = 0x06000000,
+	// 减法命令，如-VSync 
+	ECVF_SetByCommandline =			0x07000000,
+	// 用处不大，就像是hack一样，也许找到正确的SetBy更好
+	ECVF_SetByCode =				0x08000000,
+	// 编辑器UI或游戏/编辑器中的控制台
+	ECVF_SetByConsole =				0x09000000,
 
-       else if (ParseCommand(&Cmd, TEXT("MotionBlurSoftEdge")))
-       {
-          extern float GMotionBlurSoftEdge;
-          FString Parameter(ParseToken(Cmd, 0));
-          if(Parameter.Len())
-          {
-             GMotionBlurSoftEdge = appAtof(*Parameter);
-          }
-          else
-          {
-             Ar.Logf(TEXT("Allows to override the motion blur soft edge amount.\n"));
-             Ar.Logf(TEXT("<0: use post process settings (default: -1)"));
-             Ar.Logf(TEXT(" 0: override post process settings, feature is off"));
-             Ar.Logf(TEXT(">0: override post process settings by the given value"));
-          }
-          Ar.Logf( TEXT("MotionBlurSoftEdge = %g"), GMotionBlurSoftEdge );
-          return true;
-       } 
-    
+一些情况下可能会出现此日志：
 
+	Console variable 'r.MyVar' wasn't set (Priority SetByDeviceProfile < SetByCommandline)
 
-_在 !BaseInput.ini 中_
+这可能是正常情况（如命令行强制进行用户设置），也可能是因一些代码问题而造成。
+优先级也有所帮助，可以查看最后设置变量的是谁。获取控制台变量状态时即可获得此信息。范例如下：
 
-
-       ManualAutoCompleteList=(Command="MotionBlurSoftEdge",Desc="")
-    
-
-_某个函数中的应用:_
-
-       extern float GMotionBlurSoftEdge;
-       ... use GMotionBlurSoftEdge ...
-    
-
-**变为:**
-
-_在某些 .cpp文件中, 当引擎启动时_
+	> r.GBuffer
+	
+	r.GBuffer = "1"      LastSetBy: Constructor
 
 
-       GConsoleManager->RegisterConsoleVariable(TEXT("MotionBlurSoftEdge"),
-          -1.0f,
-          TEXT("Allows to override the motion blur soft edge amount.\n")
-          TEXT("<0: use post process settings (default: -1)\n")
-          TEXT(" 0: override post process settings, feature is off\n")
-          TEXT(">0: override post process settings by the given value"),
-          ECVF_Cheat);
-    
 
 
-_某个函数中的应用:_
+(#future)
+
+## 未来更新
+
+* 现版本中控制台变量只能在C++中创建，但未来情况可能会不同。
+* 我们考虑过添加列举和布尔类型，但存在诸多问题。现在我们建议使用整数，必要时使用字符串。
+* 帮助文本虽然方便，但为了节约可执行文件大小并增加作弊的难度，我们考虑在未来加入一个定义，防止帮助文本进入可执行文件。
 
 
-       {
-          static IConsoleVariable* CVar = GConsoleManager->FindConsoleVariable(TEXT("MotionBlurSoftEdge")); 
-          float Value = CVar->GetFloat();
-          ... use Value ...
-       }
-    
+(#unregisteringconsolevariables)
+
+## 取消注册控制台变量
+
+用 **UnregisterConsoleVariable** 方法可移除控制台变量。至少从使用者角度而言是如此。
+变量仍被保留（带未注册的标签），使指针访问数据时不会发生崩溃。如新变量以相同命名注册，旧变量将被恢复，并从新变量复制标签。
+这样DLL加载和卸载便能正常工作，变量状态也不会丢失。
+注意：这无法用于控制台变量引用。 
+[COMMENT:none]
+为进行简化，下方的句子已废弃。
+[/COMMENT]
+[COMMENT:none]
+放弃一项即可修复：不保存指针、不取消注册或不使用引用。
+[/COMMENT]
 
 
-当创建控制台变量时，在读取该变量之前代码甚至可以更加简短。但是，在引擎初始化过程中注册变量是很重要的，所以自动补全可以有效工作。可以输出所有控制台变量及其帮助信息是非常重要的，我们以后打算实现该功能。
+
 

@@ -1,9 +1,9 @@
-﻿INTSourceChangelist:3457813
+﻿INTSourceChangelist:3736300
 Availability:Public
 Title:3 - 创建项目
 Crumbs:%ROOT%
 Description：了解如何在 UE4 中创建 Android 移动游戏项目。
-Version:4.14
+Version:4.17
 type:quick start
 parent:Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux
 order:3
@@ -16,6 +16,7 @@ Contributor:yaakuro
 
 此时您已安装并配置了 Android SDK，已设置了 Android 的开发环境，Android 调试桥也能够显示连接到 Linux 电脑的全部设备。在 UE4 中创建新移动项目的准备工作便已完成。
 
+(#CreatingyourMobileProject)
 ## 创建移动项目
 
 1.	打开 **Unreal Project Browser** 并按以下选项创建一个新蓝图项目。
@@ -53,6 +54,7 @@ Contributor:yaakuro
 		点击查看全图。
 	[/REGION]
 
+(#EndResult)
 ## 最终结果
 
 [REGION:lightbox]

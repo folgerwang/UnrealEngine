@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "NiagaraSystem.h"
@@ -42,6 +42,7 @@ UNiagaraSystem::UNiagaraSystem(const FObjectInitializer& ObjectInitializer)
 , WarmupTime(0.0f)
 , WarmupTickCount(0)
 , WarmupTickDelta(1.0f / 15.0f)
+, bHasSystemScriptDIsWithPerInstanceData(false)
 {
 }
 
@@ -174,8 +175,6 @@ void UNiagaraSystem::PostEditChangeProperty(struct FPropertyChangedEvent& Proper
 	FNiagaraSystemUpdateContext(this, true);
 
 	ThumbnailImageOutOfDate = true;
-
-	DetermineIfSolo();
 	
 	if (PropertyChangedEvent.Property != nullptr)
 	{
@@ -228,6 +227,10 @@ void UNiagaraSystem::PostLoad()
 			}
 		}
 	}
+
+#if UE_EDITOR
+	ExposedParameters.RecreateRedirections();
+#endif
 
 #if WITH_EDITORONLY_DATA
 	TArray<UNiagaraScript*> AllSystemScripts;
@@ -391,8 +394,6 @@ void UNiagaraSystem::PostLoad()
 	}
 #endif
 #endif
-
-	DetermineIfSolo();
 }
 
 #if WITH_EDITORONLY_DATA
@@ -546,44 +547,40 @@ bool UNiagaraSystem::HasOutstandingCompilationRequests() const
 	return ActiveCompilations.Num() > 0;
 }
 
-
-bool UNiagaraSystem::IsSolo()const
+bool UNiagaraSystem::HasSystemScriptDIsWithPerInstanceData() const
 {
-	return bSolo;
+	return bHasSystemScriptDIsWithPerInstanceData;
 }
 
-void UNiagaraSystem::DetermineIfSolo()
+const TArray<FName>& UNiagaraSystem::GetUserDINamesReadInSystemScripts() const
 {
-	//Determine if we can update normally or have to update solo.
-	bSolo = false;
-	//If our scripts have any interfaces that require instance data.
-	UNiagaraScript* SystemSpawn = GetSystemSpawnScript();
-	if (SystemSpawn->GetVMExecutableData().IsValid())
-	{
-		for (int32 i = 0; !bSolo && i < SystemSpawn->GetVMExecutableData().DataInterfaceInfo.Num(); ++i)
-		{
-			FNiagaraScriptDataInterfaceCompileInfo& Info = SystemSpawn->GetVMExecutableData().DataInterfaceInfo[i];
-			if (Info.IsSystemSolo())//Temp hack to force solo on any systems with system scrips needing user (aka per instance) interfaces.
-			{
-				bSolo = true;
-				break;
-			}
-		}
-	}
+	return UserDINamesReadInSystemScripts;
+}
 
-	UNiagaraScript* SystemUpdate = GetSystemUpdateScript();
-	if (SystemUpdate->GetVMExecutableData().IsValid())
+void CheckDICompileInfo(const TArray<FNiagaraScriptDataInterfaceCompileInfo>& ScriptDICompileInfos, bool& bOutbHasSystemDIsWithPerInstanceData, TArray<FName>& OutUserDINamesReadInSystemScripts)
+{
+	for (const FNiagaraScriptDataInterfaceCompileInfo& ScriptDICompileInfo : ScriptDICompileInfos)
 	{
-		for (int32 i = 0; !bSolo && i < SystemUpdate->GetVMExecutableData().DataInterfaceInfo.Num(); ++i)
+		UNiagaraDataInterface* DefaultDataInterface = ScriptDICompileInfo.GetDefaultDataInterface();
+		if (DefaultDataInterface != nullptr && DefaultDataInterface->PerInstanceDataSize() > 0)
 		{
-			FNiagaraScriptDataInterfaceCompileInfo& Info = SystemUpdate->GetVMExecutableData().DataInterfaceInfo[i];
-			if (Info.IsSystemSolo())//Temp hack to force solo on any systems with system scrips needing user (aka per instance) interfaces.
-			{
-				bSolo = true;
-				break;
-			}
+			bOutbHasSystemDIsWithPerInstanceData = true;
+		}
+
+		if (ScriptDICompileInfo.RegisteredParameterMapRead.ToString().StartsWith(TEXT("User.")))
+		{
+			OutUserDINamesReadInSystemScripts.AddUnique(ScriptDICompileInfo.RegisteredParameterMapRead);
 		}
 	}
+}
+
+void UNiagaraSystem::UpdatePostCompileDIInfo()
+{
+	bHasSystemScriptDIsWithPerInstanceData = false;
+	UserDINamesReadInSystemScripts.Empty();
+
+	CheckDICompileInfo(SystemSpawnScript->GetVMExecutableData().DataInterfaceInfo, bHasSystemScriptDIsWithPerInstanceData, UserDINamesReadInSystemScripts);
+	CheckDICompileInfo(SystemUpdateScript->GetVMExecutableData().DataInterfaceInfo, bHasSystemScriptDIsWithPerInstanceData, UserDINamesReadInSystemScripts);
 }
 
 bool UNiagaraSystem::IsValid()const
@@ -901,7 +898,7 @@ bool UNiagaraSystem::QueryCompileComplete(bool bWait, bool bDoPost, bool bDoNotA
 
 		ActiveCompilations[ActiveCompileIdx].RootObjects.Empty();
 
-		DetermineIfSolo();
+		UpdatePostCompileDIInfo();
 
 		UE_LOG(LogNiagara, Log, TEXT("Compiling System %s took %f sec (wall time), %f sec (combined time)."), *GetFullName(), (float)(FPlatformTime::Seconds() - ActiveCompilations[ActiveCompileIdx].StartTime),
 			CombinedCompileTime);

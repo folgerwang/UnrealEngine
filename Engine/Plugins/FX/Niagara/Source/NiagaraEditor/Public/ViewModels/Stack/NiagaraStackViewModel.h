@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -52,6 +52,8 @@ public:
 
 	bool GetShowOutputs() const;
 	void SetShowOutputs(bool bInShowOutputs);
+	bool GetShowLinkedInputs() const;
+	void SetShowLinkedInputs(bool bInShowLinkedInputs);
 
 	double GetLastScrollPosition() const;
 	void SetLastScrollPosition(double InLastScrollPosition);
@@ -110,6 +112,7 @@ private:
 		TArray<FSearchWorkItem>& TraversedArray);
 	bool ItemMatchesSearchCriteria(UNiagaraStackEntry::FStackSearchItem SearchItem);
 	void GeneratePathForEntry(UNiagaraStackEntry* Root, UNiagaraStackEntry* Entry, TArray<UNiagaraStackEntry*> CurrentPath, TArray<UNiagaraStackEntry*>& EntryPath);
+	void RestoreStackEntryExpansionPreSearch();
 
 private:
 	TSharedPtr<FNiagaraEmitterHandleViewModel> EmitterHandleViewModel;
@@ -127,6 +130,7 @@ private:
 	int CurrentFocusedSearchMatchIndex;
 	FOnSearchCompleted SearchCompletedDelegate;
 	TArray<FSearchWorkItem> ItemsToSearch;
+	TArray<FSearchWorkItem> ItemsToRestoreExpansionState;
 	TArray<FSearchResult> CurrentSearchResults;
 	static const double MaxSearchTime;
 	bool bRestartSearch;

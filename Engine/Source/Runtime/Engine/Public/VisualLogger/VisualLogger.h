@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -432,7 +432,7 @@ public:
 
 	void AddCategoryToWhitelist(FName Category) { CategoriesWhitelist.AddUnique(Category); }
 
-	DEPRECATED(4.12, "Please use the AddCategoryToWhitelist instead")
+	UE_DEPRECATED(4.12, "Please use the AddCategoryToWhitelist instead")
 	void AddCategortyToWhiteList(FName Category) { AddCategoryToWhitelist(Category); }
 
 	void ClearWhiteList() { CategoriesWhitelist.Reset(); }

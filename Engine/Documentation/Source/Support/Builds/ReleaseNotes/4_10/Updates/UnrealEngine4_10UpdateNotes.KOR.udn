@@ -36,7 +36,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.10.1-release](
 
 *  UE-23250	PS4Tracker 크래시
 
-*  UE-23394	리눅스에서 에디터 시작 시 CacheOptimizeIndexBuffer 의 간헐적 크래시
+*  UE-23394	Linux에서 에디터 시작 시 CacheOptimizeIndexBuffer 의 간헐적 크래시
 
 *  UE-23302	GitHub 1751 : USceneComponent::AttachTo() 크래시 픽스
 
@@ -58,7 +58,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.10.1-release](
 
 *  UE-23150	Mosaic 디바이스에서 굴절이 제대로 렌더링되지 않음
 
-*  UE-23611	안드로이드 스트리밍 오디오가 시작 시간이 0.0 인 것처럼 시작 부분에서 반복
+*  UE-23611	Android 스트리밍 오디오가 시작 시간이 0.0 인 것처럼 시작 부분에서 반복
 
 *  UE-23694	핫픽스용 스트리밍 오디오 픽스 재작업
 
@@ -96,7 +96,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.10.1-release](
 
 *  UE-21717	Self Shadow Only 가 렌더링 부작용 유발
 
-*  UE-22949	리눅스에서 UE4Editor 열 수 없음 - 잘못된 hlslcc 헤더 찾음
+*  UE-22949	Linux에서 UE4Editor 열 수 없음 - 잘못된 hlslcc 헤더 찾음
 
 *  UE-23746	4.10 에서 에디터 전용 블루프린트 텍스트를 게임 현지화 텍스트로 수집
 

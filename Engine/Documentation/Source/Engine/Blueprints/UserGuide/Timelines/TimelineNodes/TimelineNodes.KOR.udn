@@ -1,6 +1,6 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:3782314
 Availability:Public
-Title:Timeline 노드
+Title:타임라인 노드
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide, Engine/Blueprints/UserGuide/Timelines
 Description: 블루프린트 타임라인의 특정 함수성 처리에 사용되는 노드입니다.
 version: 4.9
@@ -49,7 +49,7 @@ topic-image:Engine/Blueprints/UserGuide/Timelines.png
 
 ## Is Looping
 
-**Is Looping** (반복중인지) 노드는 입력 타임라인이 반복중이면 _True_, 그렇지 않은 경우 _False_ 불리언 값을 반환합니다.
+**Is Looping** (반복중인지) 노드는 입력 타임라인이 반복중이면 _True_, 그렇지 않은 경우 _False_ 부울 값을 반환합니다.
 
 ![](Is_Looping.png)
 
@@ -62,7 +62,7 @@ topic-image:Engine/Blueprints/UserGuide/Timelines.png
 
 ## Is Playing
 
-**Is Playing** (재생중인지) 노드는 입력 타임라인이 현재 재생중이면 _True_, 아니면 _False_ 불리언 값을 반환합니다.
+**Is Playing** (재생중인지) 노드는 입력 타임라인이 현재 재생중이면 _True_, 아니면 _False_ 부울 값을 반환합니다.
 
 ![](Is_Playing.png)
 
@@ -75,7 +75,7 @@ topic-image:Engine/Blueprints/UserGuide/Timelines.png
 
 ## Is Reversing
 
-**Is Reversing** (역재생중인지) 노드는 타임라인이 현재 역재생중이면 _True_, 아니면 _False_ 불리언 값을 반환합니다.
+**Is Reversing** (역재생중인지) 노드는 타임라인이 현재 역재생중이면 _True_, 아니면 _False_ 부울 값을 반환합니다.
 
 ![](Is_Reversing.png)
 
@@ -135,7 +135,7 @@ topic-image:Engine/Blueprints/UserGuide/Timelines.png
 
 ![](Set_Looping.png)
 
-**Set Looping** (루핑 설정) 노드는 입력 타임라인과 불리언 값을 받은 다음, 타임라인의 Looping 프로퍼티를 불리언 값으로 설정합니다.
+**Set Looping** (루핑 설정) 노드는 입력 타임라인과 부울 값을 받은 다음, 타임라인의 Looping 프로퍼티를 부울 값으로 설정합니다.
 
 | **이름** | **유형** | **설명** |
 | --- | --- |---|
@@ -171,7 +171,7 @@ topic-image:Engine/Blueprints/UserGuide/Timelines.png
 
 ![](Set_Playback_Position.png)
 
-**Set Playback Position** (재생 위치 설정) 노드는 입력 타임라인, 실수 값, 불리언 값을 받은 다음, 타임라인의 Playback Position 프로퍼티를 실수 값으로 설정하여 점프시킵니다. 타임라인 안에 이벤트 트랙이 있는 경우, 불리언 값을 사용하여 발동 여부를 결정합니다.
+**Set Playback Position** (재생 위치 설정) 노드는 입력 타임라인, 실수 값, 부울 값을 받은 다음, 타임라인의 Playback Position 프로퍼티를 실수 값으로 설정하여 점프시킵니다. 타임라인 안에 이벤트 트랙이 있는 경우, 부울 값을 사용하여 발동 여부를 결정합니다.
 
 | **이름** | **유형** | **설명** |
 | --- | --- |---|

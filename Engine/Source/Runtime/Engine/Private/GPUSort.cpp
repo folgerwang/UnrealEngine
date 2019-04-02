@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GPUSort.cpp: Implementation for sorting buffers on the GPU.
@@ -49,15 +49,15 @@ void SetRadixSortShaderCompilerEnvironment( FShaderCompilerEnvironment& OutEnvir
 	Uniform buffer for passing in radix sort parameters.
 ------------------------------------------------------------------------------*/
 
-BEGIN_UNIFORM_BUFFER_STRUCT( FRadixSortParameters, )
-	UNIFORM_MEMBER( uint32, RadixShift )
-	UNIFORM_MEMBER( uint32, TilesPerGroup )
-	UNIFORM_MEMBER( uint32, ExtraTileCount )
-	UNIFORM_MEMBER( uint32, ExtraKeyCount )
-	UNIFORM_MEMBER( uint32, GroupCount )
-END_UNIFORM_BUFFER_STRUCT( FRadixSortParameters )
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT( FRadixSortParameters, )
+	SHADER_PARAMETER( uint32, RadixShift )
+	SHADER_PARAMETER( uint32, TilesPerGroup )
+	SHADER_PARAMETER( uint32, ExtraTileCount )
+	SHADER_PARAMETER( uint32, ExtraKeyCount )
+	SHADER_PARAMETER( uint32, GroupCount )
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FRadixSortParameters,TEXT("RadixSortUB"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FRadixSortParameters,"RadixSortUB");
 
 typedef TUniformBufferRef<FRadixSortParameters> FRadixSortUniformBufferRef;
 
@@ -91,7 +91,7 @@ public:
 		
 			for (int32 BufferIndex = 0; BufferIndex < 2; ++BufferIndex)
 			{
-				FRHIResourceCreateInfo CreateInfo;
+				FRHIResourceCreateInfo CreateInfo(TEXT("SortOffset"));
 				Buffers[BufferIndex] = RHICreateVertexBuffer(
 					OffsetsBufferSize,
 					BUF_Static | BUF_ShaderResource | BUF_UnorderedAccess,
@@ -1077,11 +1077,9 @@ static bool TestGPUSort_RenderThread(FRHICommandListImmediate& RHICmdList, EGPUS
  */
 void TestGPUSort(EGPUSortTest TestToRun, ERHIFeatureLevel::Type FeatureLevel)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		FTestGPUSortCommand,
-		EGPUSortTest, TestToRun, TestToRun,
-		ERHIFeatureLevel::Type, FeatureLevel, FeatureLevel,
-	{
-		TestGPUSort_RenderThread(RHICmdList, TestToRun, FeatureLevel);
-	});
+	ENQUEUE_RENDER_COMMAND(FTestGPUSortCommand)(
+		[TestToRun, FeatureLevel](FRHICommandListImmediate& RHICmdList)
+		{
+			TestGPUSort_RenderThread(RHICmdList, TestToRun, FeatureLevel);
+		});
 }

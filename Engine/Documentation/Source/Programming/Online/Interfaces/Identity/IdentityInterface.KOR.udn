@@ -1,0 +1,77 @@
+INTSourceChangelist:4668233
+Availability: Public
+Crumbs: 
+Title: ID 인터페이스
+Description: Identity Interface, 플레이어 ID 관리를 위한 온라인 인터페이스입니다.
+Type: 
+Version: 4.21
+Parent: Programming/Online
+Order: 
+Tags: Online Subsystem
+Tags: online
+Tags: identity
+Tags: login
+
+
+게임 세션에 접속하고 인터넷을 통해 다른 플레이어와 상호작용하기 위해서는 보통 타사 온라인 서비스의 등록 계정에 로그인해야 합니다. 이 서비스 운영 주체는 소셜 미디어 사이트, 하드웨어 플랫폼 소유사, 게임 서비스 등 다양합니다. 언리얼 엔진 4 (UE4) 의 **Identity Interface** (ID 인터페이스)는 이 서비스와의 계정 관련 상호작용을 처리하며, 사용자 인증 및 액세스 토근 획득 관련 기능을 제공합니다.
+
+## 인증 함수
+
+### Login
+
+`Login` (로그인) 함수는 로컬 플레이어의 계정 정보를 (`FOnlineAccountCredentials`) 받아 온라인 서비스에 로그인 시도합니다. 계정 정보를 자동 생성하거나, 명령줄 인수에서 생성하려면, `AutoLogin` 함수를 대신 호출할 수도 있습니다. 온라인 서비스가 응답하면, 로그인 시도가 성공했든 실패했든 `FOnLoginCompleteDelegate` 가 호출됩니다. 추가로 특정 로컬 플레이어에 대한 로그인 상태가 변경될 때마다 `FOnLoginStatusChangedDelegate` 가 호출됩니다.
+
+[REGION:note]
+각 로컬 사용자는 별도로 로그인합니다. 로컬 멀티플레이어 게임의 경우 특히 중요합니다. 플레이어가 온라인에서 경쟁하고, 순위표 점수를 획득하고, 친구를 초대하고, 별도의 계정 이름으로 업적을 기록하도록 하기 위해서입니다.
+[/REGION]
+[REGION:tip]
+`Login` 호출이 실패한 경우, [외부 UI 인터페이스](Programming/Online/Interfaces/ExternalUI) 에서 사용자가 온라인 서비스 내장 유저 인터페이스를 통해 로그인할 수 있는 기회를 줄 수 있습니다. 모든 온라인 플랫폼의 인증 프로세스 일부에 `FOnlineAccountCredentials` 를 사용하지는 않습니다. 내장 유저 인터페이스를 통한 로그인만 지원하는 경우도 있습니다.
+[/REGION]
+
+### Logout
+
+온라인 서비스에서 사용자 로그아웃은 `Logout` 함수를 사용합니다. 작업이 완료되면 `FOnLogoutCompleteDelegate` 가 호출됩니다. 추가로 특정 로컬 플레이어에 대한 로그인 상태가 변경될 때마다 `FOnLoginStatusChangedDelegate` 가 호출됩니다.
+
+### 현재 로그인 상태 확인
+
+로컬 플레이어가 온라인에 로그인했을 수도, (온라인은 아니지만) 로컬 프로필에 로그인했을 수도, 전혀 로그인하지 않았을 수도 있습니다. 플레이어의 현재 상태를 확인하려면, `GetLoginStatus` 함수를 사용합니다. 로그인 상태는 온라인 서비스와의 가장 최근 통신에 따라 결정하므로, 바인딩할 델리게이트가 없습니다. 하지만 플레이어의 로그인과 같은 특정 상태 변화를 기다리는 중이라 주기적으로 그 함수를 폴링하지 않으려는 경우, `FOnLoginStatusChangedDelegate` 를 바인딩하면 도움이 될 수 있습니다.
+
+[REGION:note]
+일부 시스템에서 사용자는 물리적 입력 장치를 다른 플레이어에게 재할당할 수 있는데, 그러면 언리얼 엔진 내 로컬 플레이어 인덱스 값이 바뀝니다. 그러면 사용자의 로그인 상태가 실제 바뀌지 않고도 로그인된 사용자의 로컬 유저 인덱스 값이 바뀔 수 있습니다. 이 경우 `OnControllerPairingChanged` 델리게이트를 호출하고 컨트롤러의 인덱스와 관련 사용자의 `FUniqueNetId` 값을 지정하면 됩니다.
+[/REGION]
+
+## 플레이어 ID 및 정보
+
+### ID 시스템 사이 변환
+
+언리얼 엔진 4 의 네트워킹 환경 내에서 불투명 `FUniqueNetId` 값은 로그인 시도 성공 시 자동으로 로컬 플레이어에 연결됩니다. 언리얼 엔진 4 의 네트워킹 코드 전반에 사용되는 것에 추가로, 각 온라인 서비스의 전용 ID 데이터 유형에 대한 추상화 역할을 하기도 합니다.
+
+[REGION:tip]
+사용자의 `FUniqueNetId` 를 리플리케이트하려는 경우, [`FUniqueNetIdRepl`](https://api.unrealengine.com/INT/API/Runtime/Engine/GameFramework/FUniqueNetIdRepl/index.html) 에 제공되는 `ToString` 메서드를 통해 `FUniqueNetId` 를 리플리케이션에 안전한 스트링으로 변환한 뒤, `CreateUniquePlayerId` 를 통해 원래대로 다시 변환할 수 있습니다.
+[/REGION]
+
+ID 인터페이스는 여러가지 다양한 시스템과 ID 유형 사이 차이를 메울 수 있는 몇 가지 함수를 제공합니다. 플레이어의 `FUniqueNetId` 검색은 `CreateUniquePlayerId` 에 플레이어의 서비스 전용 ID 를 붙여 호출하거나, `GetUniquePlayerId` 에 플레이어의 로컬 유저 인덱스를 붙여 호출하면 됩니다. 플레이어의 `FUniqueNetId` 를 사용하면 `GetPlatformUserIdFromUniqueNetId` 를 호출하여 플레이어의 (`FPlatformUserId` 유형) 서비스 전용 ID 를 구할 수 있긴 하지만, 대부분의 경우 필수는 아닙니다. 이 모든 함수는 로컬에서 사용할 수 있는 정보를 사용하므로, 델리게이트나 콜백이 필요하지는 않습니다.
+
+[REGION:note]
+`GetSponsorUniquePlayerId` 는 후원 플레이어의 `FUniqueNetId` 를 반환하지만, 이 함수는 Xbox Live 서비스에만 구현됩니다.
+[/REGION]
+
+### 사용자 계정 정보
+
+추상 클래스 `FOnlineUser` 는 온라인 서브시스템 관련 사용자 계정의 기반 정보를 나타내며, 로컬 또는 원격 사용자에게 공개적으로 보이는 정보에 대한 공통 인터페이스 역할을 합니다. 이 클래스의 확장인 `FUserOnlineAccount` 에서는 로컬에서 로그인한 사용자가 사용할 수 있는 모든 정보를 액세스할 수 있습니다.
+
+경우에 따라 온라인 시스템의 `FOnlineUser` 자손 클래스를 확장하여 특정 온라인 서비스의 요구에 맞춰야 할 수 있습니다. 베이스 클래스는 사용자의 `FUniqueNetId`, (사용 중인  온라인 서비스에 따른) 실명 및 표시명, 사용자에 연관된 스트링 기반 특성을 반환하는 함수 기능을 지원합니다. 그 특성을 저장하려면 자손 클래스에서 별도로 구현해야 합니다.
+
+`FUserOnlineAccount` 클래스 역시 추상 클래스지만, 사용자 특성 설정 및 로컬에서 로그인한 사용자 관련해서 서비스 전용 액세스 토큰 또는 기타 데이터를 포함한 메타데이터 저장을 위한 프레임워크를 수립합니다. 일부 서브시스템은 이 토큰을 사용하여 기능에 액세스하며, 이를 통해 RESTful 호출을 하거나 별도의 백엔드 서비스와의 조정도 가능합니다.
+
+### 로컬에 알려진 계정 검색
+
+다수의 온라인 서비스는 로컬 머신에서 (생성했거나) 로그인한 사용자 계정 정보를 저장합니다. 그러한 서비스의 경우 `GetAllUserAccounts` 함수를 구현하여 알려진 계정 전부를 나열하는 배열을 반환합니다. 이 계정은 `FUserOnlineAccount` 데이터로 반환됩니다. 그 목록에 특정 플레이어가 있는지 확인하려면, `GetUserAccount` 를 호출하여 플레이어의 `FUniqueNetId` 를 알려진 `FUserOnlineAccount` 에 매핑시키면, 목록에서 존재 여부를 확인할 수 있습니다.
+
+### 플레이어 표시명
+
+일부 온라인 서비스는 사용자의 계정 로그인 이름과 다른 "표시명" 또는 "닉네임"을 입력할 수 있는 옵션을 제공합니다. 게임의 채팅, 점수판, 캐릭터 라벨, 비슷한 사용자향 디스플레이에 계정 이름보다 그런 이름을 사용하는 것이 좋을 수도 있습니다. 플레이어의 `FOnlineUser` 를 사용하여 `GetDisplayName` 을 호출하면 로컬 캐시에 저장된 사용자 계정 데이터에스 그 플레이어의 표시명 또는 닉네임을 검색할 수 있습니다.
+
+### 사용자 특권
+
+온라인 서비스는 특정 온라인 기능에 대한 액세스를 허가 또는 거부하는 게이트웨이 역할을 할 수 있습니다. 다른 서비스 사용자와의 온라인 게임 플레이 기능이 가장 중요하다고 할 수 있습니다. `GetUserPrivilege` 함수는 사용자에게 ([`EUserPrivileges`](https://api.unrealengine.com/INT/API/Plugins/OnlineSubsystem/Interfaces/EUserPrivileges__Type/index.html) 로 정의되는) 특권이 있는지를 보고합니다. 이 함수는 온라인 서비스 접속이 필요하며, `FOnGetUserPrivilegeCompleteDelegate` 를 통한 사용자 요청에 반응하여 [`EPrivilegeResults`](https://api.unrealengine.com/INT/API/Plugins/OnlineSubsystem/Interfaces/IOnlineIdentity/EPrivilegeResults/index.html) 유형 결과값을 반환합니다.

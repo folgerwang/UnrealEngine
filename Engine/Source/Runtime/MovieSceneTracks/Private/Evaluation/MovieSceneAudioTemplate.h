@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -19,7 +19,7 @@ struct FMovieSceneAudioSectionTemplateData
 {
 	GENERATED_BODY()
 
-	FMovieSceneAudioSectionTemplateData() : Sound(nullptr), AudioStartOffset(0.0f), SectionStartTimeSeconds(0.0f), RowIndex(0), bOverrideAttenuation(false), AttenuationSettings(nullptr) {}
+	FMovieSceneAudioSectionTemplateData() : Sound(nullptr), AudioStartOffset(0), SectionStartTimeSeconds(0.0f), RowIndex(0), bOverrideAttenuation(false), AttenuationSettings(nullptr) {}
 	FMovieSceneAudioSectionTemplateData(const UMovieSceneAudioSection& Section);
 
 	/** Ensure that the sound is playing for the specified audio component and data */
@@ -31,7 +31,7 @@ struct FMovieSceneAudioSectionTemplateData
 
 	/** The offset into the beginning of the audio clip */
 	UPROPERTY()
-	float AudioStartOffset;
+	FFrameNumber AudioStartOffset;
 
 	/** The frame number at which the audio starts playing */
 	UPROPERTY()

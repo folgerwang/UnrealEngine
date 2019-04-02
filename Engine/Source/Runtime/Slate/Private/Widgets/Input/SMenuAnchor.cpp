@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
  
 #include "Widgets/Input/SMenuAnchor.h"
 #include "Layout/ArrangedChildren.h"
@@ -174,7 +174,7 @@ bool SMenuAnchor::ComputeVolatility() const
 
 void SMenuAnchor::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const
 {
-	ArrangeSingleChild( AllottedGeometry, ArrangedChildren, Children[0], FVector2D::UnitVector );
+	ArrangeSingleChild(GSlateFlowDirection, AllottedGeometry, ArrangedChildren, Children[0], FVector2D::UnitVector);
 	const TSharedPtr<SWindow> PresentingWindow = PopupWindowPtr.Pin();
 	if (IsOpenAndReusingWindow() && PresentingWindow.IsValid())
 	{
@@ -365,11 +365,15 @@ void SMenuAnchor::SetIsOpen( bool InIsOpen, const bool bFocusMenu, const int32 F
 						{
 							// Open the pop-up
 							TSharedPtr<IMenu> NewMenu = FSlateApplication::Get().PushMenu(AsShared(), MyWidgetPath, MenuContentRef, NewPosition, TransitionEffect, bFocusMenu, MyGeometry.GetLocalSize(), MethodInUse.GetPopupMethod(), bIsCollapsedByParent);
+							
+							if (ensure(NewMenu.IsValid()))
+							{
+								check(NewMenu->GetOwnedWindow().IsValid());
 
-							PopupMenuPtr = NewMenu;
-							check(NewMenu.IsValid() && NewMenu->GetOwnedWindow().IsValid());
-							NewMenu->GetOnMenuDismissed().AddSP(this, &SMenuAnchor::OnMenuClosed);
-							PopupWindowPtr = NewMenu->GetOwnedWindow();
+								PopupMenuPtr = NewMenu;
+								NewMenu->GetOnMenuDismissed().AddSP(this, &SMenuAnchor::OnMenuClosed);
+								PopupWindowPtr = NewMenu->GetOwnedWindow();
+							}
 						}
 						else
 						{

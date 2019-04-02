@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3339965
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:7.测试及更多
 Crumbs:%ROOT%
@@ -24,7 +24,7 @@ checkpoint:mod_extend
 
 自定义手枪设置完成后，可在中心关卡加载时点击 **Play**，然后通过 mod 菜单启用 GrenadeGunPistol。现在便可使用 Gun Range 将枪掷向目标，发生爆炸！
 
-![image alt text](image_1.png)(w:934 h:604 convert:false)
+![image alt text](image_1.png)(w:934 convert:false)
 
 ## 更多步骤
 
@@ -56,7 +56,7 @@ checkpoint:mod_extend
 
 在 GrenadeGunPistol 蓝图的右上方有一个小放大镜：
 
-![image alt text](image_2.png)(w:486 h:78 convert:false)
+![image alt text](image_2.png)(w:486 convert:false)
 
 此按钮将在 Content Browser 中高亮当前蓝图的父类。使用此按钮可找到 Gun_Pistol 和 Gun_Base（其中包含手枪的海量功能）。浏览，找到您可用的变量和函数。
 

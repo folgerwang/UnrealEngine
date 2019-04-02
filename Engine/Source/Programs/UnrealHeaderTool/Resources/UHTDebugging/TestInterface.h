@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -19,4 +19,13 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent)
 	FString SomeFunction(int32 Val) const;
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	const float SomeFunctionWithConstReturnType() const;
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	UObject* SomeFunctionWithNonConstPointerReturnType() const;
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	const UObject* SomeFunctionWithConstPointerReturnType() const;
 };

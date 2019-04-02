@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Mac/CocoaWindow.h"
 #include "Mac/MacApplication.h"
@@ -189,6 +189,14 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 	[super zoom:Sender];
 }
 
+- (void)toggleFullScreen:(id)Sender
+{
+	// Make sure we don't limit the window size for fullscreen toggle. Limits, if needed, will be restored by FMacWindow after fullscreen transition (in FMacApplication::OnCursorLock()).
+	[self setMinSize:NSMakeSize(10.0f, 10.0f)];
+	[self setMaxSize:NSMakeSize(10000.0f, 10000.0f)];
+	[super toggleFullScreen:Sender];
+}
+
 - (void)keyDown:(NSEvent*)Event
 {
 	// @note Deliberately empty - we don't want OS X to handle keyboard input as it will recursively re-add events we aren't handling
@@ -207,7 +215,7 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 
 - (void)windowWillEnterFullScreen:(NSNotification*)Notification
 {
-	FMacCursor* MacCursor = (FMacCursor*)MacApplication->Cursor.Get();
+	FMacCursor* MacCursor = MacApplication ? (FMacCursor*)MacApplication->Cursor.Get() : nullptr;
 	if (MacCursor)
 	{
 		MacCursor->SetShouldIgnoreLocking(true);
@@ -242,7 +250,7 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 
 - (void)windowWillExitFullScreen:(NSNotification *)Notification
 {
-	FMacCursor* MacCursor = (FMacCursor*)MacApplication->Cursor.Get();
+	FMacCursor* MacCursor = MacApplication ? (FMacCursor*)MacApplication->Cursor.Get() : nullptr;
 	if (MacCursor)
 	{
 		MacCursor->SetShouldIgnoreLocking(true);

@@ -1,18 +1,22 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ProxyLODMeshSDFConversions.h"
 #include "ProxyLODMeshConvertUtils.h"
 
 #include "CoreMinimal.h"
 
+THIRD_PARTY_INCLUDES_START
+#pragma warning(push)
+#pragma warning(disable: 4146)
 #include <openvdb/tools/MeshToVolume.h> // for MeshToVolume
-
 #include <openvdb/tools/Composite.h> // for csgUnion
+#pragma warning(pop)
+THIRD_PARTY_INCLUDES_END
 
 //#include <exception>
 
 
-bool ProxyLOD::MeshArrayToSDFVolume(const FRawMeshArrayAdapter& MeshAdapter, openvdb::FloatGrid::Ptr& SDFGrid, openvdb::Int32Grid* PolyIndexGrid)
+bool ProxyLOD::MeshArrayToSDFVolume(const FMeshDescriptionArrayAdapter& MeshAdapter, openvdb::FloatGrid::Ptr& SDFGrid, openvdb::Int32Grid* PolyIndexGrid)
 {
 
 	bool success = true;
@@ -56,7 +60,7 @@ bool ProxyLOD::MeshArrayToSDFVolume(const FRawMeshArrayAdapter& MeshAdapter, ope
 }
 
 
-bool ProxyLOD::MeshArrayToSDFVolume(const FRawMeshAdapter& MeshAdapter, openvdb::FloatGrid::Ptr& SDFGrid, openvdb::Int32Grid* PolyIndexGrid)
+bool ProxyLOD::MeshArrayToSDFVolume(const FMeshDescriptionAdapter& MeshAdapter, openvdb::FloatGrid::Ptr& SDFGrid, openvdb::Int32Grid* PolyIndexGrid)
 {
 
 	bool success = true;
@@ -116,8 +120,9 @@ static openvdb::FloatGrid::Ptr OffsetSDF(const openvdb::FloatGrid::Ptr InSDFVolu
 	FMixedPolyMesh  MixedPolyMesh;
 	openvdb::tools::volumeToMesh(*InSDFVolume, MixedPolyMesh.Points, MixedPolyMesh.Triangles, MixedPolyMesh.Quads, IsoValue, 0.001);
 
-	// convert the mesh to FRawMesh
-	FRawMesh RawMesh;
+	// convert the mesh to FMeshDescription
+	FMeshDescription RawMesh;
+	UStaticMesh::RegisterMeshAttributes(RawMesh);
 	ProxyLOD::MixedPolyMeshToRawMesh(MixedPolyMesh, RawMesh);
 
 	// Create a new empty grid with the same transform and metadata
@@ -125,7 +130,7 @@ static openvdb::FloatGrid::Ptr OffsetSDF(const openvdb::FloatGrid::Ptr InSDFVolu
 	OutSDFVolume->setTransform(openvdb::math::Transform::createLinearTransform(ResultVolexSize));
 
 	// Wrap so we can re-voxelize with bandwidth 2
-	FRawMeshAdapter  MeshAdapter(RawMesh, OutSDFVolume->transform());
+	FMeshDescriptionAdapter  MeshAdapter(RawMesh, OutSDFVolume->transform());
 
 	// Re-voxelize
 	ProxyLOD::MeshArrayToSDFVolume(MeshAdapter, OutSDFVolume);

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "NodeFactory.h"
@@ -293,6 +293,10 @@ TSharedPtr<SGraphPin> FNodeFactory::CreateK2PinWidget(UEdGraphPin* InPin)
 	else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Int)
 	{
 		return SNew(SGraphPinInteger, InPin);
+	}
+	else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Int64)
+	{
+		return SNew(SGraphPinNum<int64>, InPin);
 	}
 	else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Float)
 	{

@@ -1,55 +1,16 @@
-﻿INTSourceChangelist:2715330
+﻿INTSourceChangelist:4649792
 Availability:Public
-Title:将物理材质分配到物理资产
+Title:将物理材质分配到物理资源
 Crumbs:%ROOT%, Engine, Engine/Physics, Engine/Physics/PhysicalMaterials
-Description:如何使用物理资产工具将物理材质分配到整个物理资产。
+Description:如何使用物理资源工具将物理材质分配到整个物理资源。
 Version:4.9
 SkillLevel:Intermediate
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Physics/PhysicalMaterials/HowTo/UsagePhysAsset:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/PhysicalMaterials/HowTo/UsagePhysAsset:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/PhysicalMaterials/HowTo/UsagePhysAsset:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Physics/PhysicalMaterials/HowTo/UsagePhysAsset]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Physics/PhysicalMaterials/HowTo/UsagePhysAsset:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/PhysicalMaterials/HowTo/UsagePhysAsset:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/PhysicalMaterials/HowTo/UsagePhysAsset:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Physics/PhysicalMaterials/HowTo/UsagePhysAsset]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
-
-下列步骤详细说明如何一次性设置一个物理资产中的所有物理形体的物理材质。
+下列步骤详细说明如何一次性设置一个物理资源中的所有物理形体的物理材质。
 
 [EXCERPT:PhysMatSkelMesh1]
-1. 在物理资产工具中 **打开** 物理资产。
+1. 在物理资源工具中 **打开** 物理资源。
 
 	![](Engine\Physics\PhysicalMaterials\HowTo\PhysicsAsset1.jpg)
 
@@ -57,7 +18,7 @@ SkillLevel:Intermediate
 
 	![](Engine\Physics\PhysicalMaterials\HowTo\M_Glass.jpg)
 
-1. 在物理资产工具中，**单击** 工具栏中 **资产（Asset）**下拉菜单中的 **应用物理材质（Apply PhysMat）**按钮。![](Engine\Physics\PhysicalMaterials\HowTo\AssetButton.jpg).
+1. 在物理资源工具中，**单击** 工具栏中 **资源（Asset）**下拉菜单中的 **应用物理材质（Apply PhysMat）**按钮。![](Engine\Physics\PhysicalMaterials\HowTo\AssetButton.jpg).
 	
 	[REGION:raw]
 	![](Engine\Physics\PhysicalMaterials\HowTo\ApplyPhysMat.jpg)

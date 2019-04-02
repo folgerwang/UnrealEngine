@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3575019
-Availability:Docs
+﻿INTSourceChangelist:4326187
+Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Persona
 Title:リターゲット マネージャ
 Description:スケルトン エディタ内のリターゲット マネージャ オプションの内容について説明します。
@@ -12,7 +12,7 @@ Tags:Animation
 Tags:Skeleton
 Tags:Retargeting
 topic-image:RetargetTopic.png
-Related:Engine\Animation\AnimationRetargeting
+Related:Engine/Animation/AnimationRetargeting
 Related:Engine/Animation/Skeleton
 Related:Engine/Animation/Persona/Modes/Skeleton
 Related:Engine/Animation/AnimPose
@@ -20,7 +20,7 @@ Related:Engine/Animation/Sequences
 
 [TOC(start:2 end:2)]
 
-**スケルトン エディタ** 内の **リターゲット マネージャ** では、リターゲット ソースの管理、リグの設定、[アニメーションのリターゲット](Engine\Animation\AnimHowTo\Retargeting) で使用するためのリターゲットのベース ポーズを定義します。
+**スケルトン エディタ** 内の **リターゲット マネージャ** では、リターゲット ソースの管理、リグの設定、[アニメーションのリターゲット](Engine/Animation/AnimHowTo/Retargeting) で使用するためのリターゲットのベース ポーズを定義します。
 
 ## リターゲット ソースの管理
 
@@ -39,11 +39,11 @@ Related:Engine/Animation/Sequences
 
 	![](RetargetManager.png)
 
-1. **[Add New Retarget Source (新規のリターゲットソースを追加)]** ボタンをクリックします。 
+2. **[Add New Retarget Source (新規のリターゲットソースを追加)]** ボタンをクリックします。 
 
 	![](AddSource.png)
 
-1. 特別なアニメーションを作成した **スケルタル メッシュ** を選びます。
+3. 特別なアニメーションを作成した **スケルタル メッシュ** を選びます。
 
 	![](SelectSkeletalMesh.png)
 
@@ -51,9 +51,9 @@ Related:Engine/Animation/Sequences
 
 	![](Created.png)
 
-1. ご自分の特定の **スケルタルメッシュ** 用の特別な **アニメーション シーケンス** を開きます。 
+4. ご自分の特定の **スケルタルメッシュ** 用の特別な **アニメーション シーケンス** を開きます。 
 
-1. **[Asset Details (アセットの詳細)]** パネルで、 **[アニメーション]** カテゴリ、そして **[Retarget Source]** プロパティの順に見て、ドロップダウン メニューからスケルタルメッシュを選択します。
+5. **[Asset Details (アセットの詳細)]** パネルで、 **[アニメーション]** カテゴリ、そして **[Retarget Source]** プロパティの順に見て、ドロップダウン メニューからスケルタルメッシュを選択します。
 
 	![](DropDownSelection.png)
 
@@ -64,22 +64,42 @@ Related:Engine/Animation/Sequences
 
 Retarget Manager の真ん中のセクションでは、スケルトンに **リグ** を割り当ててアニメーション データを同じリグを使う別のスケルトンに渡すことができます。 
 
-![](SetUpRig.png)
+![Set up Rig-1.png](Set20up20Rig-1.png "Set up Rig-1.png")
 
 このプロセスは異なるスケルトン アセットを使うキャラクターのアニメーションのリターゲットを行うために必要です。 
 **[Select Rig]** ドロップダウン オプションから使用するリグを選択することができます。このオプションにある **Humanoid** はほとんどのキャラクターで選択できます。 
 
-![](HumanoidRig.png)
+![](HumanoidSetup-1.png "HumanoidSetup-1.png")
 
 Humanoid Rig を割り当てたら、リグのノードと同じ (または類似) 位置に対応するスケルトンのボーンを割り当てる必要があります。 
 ノードのドロップダウン メニューで、スケルトンから対応するボーンを手動で割り当てるか、メニュー上部にある **[Auto Mapping]** 機能を使用することができます。 
 これにより、スケルトンを調べて、リグの各ノードに対して最適にマッチするボーンを探そうとします。 
 
-**[Clear Mapping]** ボタンを使うと、現在割り当てられているすべてのボーンが対応するノード割り当てからワイプされます。**[Show Advanced]** ボタンは、指、IK ボーン、Twist Bone などのノード / ボーンの相関関係を追加で割り当てることができます。 
+**[Clear Mapping]** ボタンを使うと、現在割り当てられているすべてのボーンが対応するノード割り当てからワイプされます。You can also use the **[Save]** と **[Load]** ボタンで **Node Mapping Container** アセットへの現在のマッピングの保存と、読み込みが可能です。
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    qna6b-kAN48
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    78
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
+
+**[Show Advanced]** ボタンは、指、IK ボーン、Twist Bone などのノード / ボーンの相関関係を追加で割り当てることができます。 
 ソース スケルトンのリグ (または別のキャラクターにリターゲットするアニメーションを操作する Skeleton アセット) を設定したら、ターゲット スケルトンのスケルトンに進んで、同じリグを割り当て、リグ上のノードと最適にマッチするボーンを新しいスケルトンで定義する必要があります。 
 
 [REGION:note]
-別のスケルトンを使用するキャラクター間でアニメーションをリターゲットするためのリグ設定に関する操作ガイドについては、[](Engine\Animation\AnimHowTo\Retargeting) をご覧ください。
+別のスケルトンを使用するキャラクター間でアニメーションをリターゲットするためのリグ設定に関する操作ガイドについては、[](Engine/Animation/AnimHowTo/Retargeting) をご覧ください。
 [/REGION]
 
 
@@ -129,4 +149,3 @@ Humanoid Rig を割り当てたら、リグのノードと同じ (または類�
 以下では、デフォルト ポーズと、Pose アセット内のポーズから選択された Retargeted Base Pose が表示されています。 
 
 ![](DefaultPose.png)(w:540)![](NewRetargetPose.png)(w:540)
-

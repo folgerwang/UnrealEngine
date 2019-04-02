@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -20,8 +20,21 @@ class UUserWidget;
 class UWidget;
 class UWidgetAnimation;
 class FKismetCompilerContext;
+class UWidgetBlueprint;
 enum class EWidgetTickFrequency : uint8;
 enum class EWidgetCompileTimeTickPrediction : uint8;
+
+
+/** Widget Delegates */
+class UMGEDITOR_API FWidgetBlueprintDelegates
+{
+public:
+	// delegate for generating widget asset registry tags.
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FGetAssetTags, const UWidgetBlueprint*, TArray<UObject::FAssetRegistryTag>&);
+
+	// called by UWdgetBlueprint::GetAssetRegistryTags()
+	static FGetAssetTags GetAssetTags;
+};
 
 
 /** */
@@ -254,9 +267,16 @@ public:
 	/** UObject interface */
 	virtual void PostLoad() override;
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
+
 #if WITH_EDITORONLY_DATA
 	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 #endif // WITH_EDITORONLY_DATA
+
+#if WITH_EDITOR
+	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
+	virtual void NotifyGraphRenamed(class UEdGraph* Graph, FName OldName, FName NewName) override;
+#endif
+
 	virtual void Serialize(FArchive& Ar) override;
 
 	UPackage* GetWidgetTemplatePackage() const;
@@ -305,6 +325,12 @@ public:
 	 */
 	UPROPERTY(AssetRegistrySearchable)
 	int32 InclusiveWidgets;
+
+	/**
+	 * The estimated size in bytes of the template class.
+	 */
+	UPROPERTY(AssetRegistrySearchable)
+	int32 EstimatedTemplateSize;
 
 private:
 	/**

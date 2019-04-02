@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3009005
+﻿INTSourceChangelist:3683933
 Availability:Public
 Title:从摄像机导轨拍摄
 Crumbs:%ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
@@ -10,12 +10,15 @@ order:1
 checkpoint: editorqs
 Related:Engine/Sequencer/Overview
 Related:Engine\Sequencer\ReferenceEditor\
+tags:Sequencer
+type:how-to
 
 **摄像机导轨** Actor 将摄像机连接到用于四处移动的导轨，可用来拍摄出飞越鸟瞰、360 度旋转或其他任何运动镜头。
 可以使用 [**样条组件**](Engine/Components/Shapes/) 定义导轨的路径，在 Sequencer 中您还可以沿导轨为摄像机应该在任何给定时间所处的位置设置关键帧。 
 
 在本操作指南中，我们创建一条 180 度导轨，而相连的摄像机始终聚焦于我们的角色。 
 
+(#Steps)
 ## 步骤
 
 [REGION:note]
@@ -105,6 +108,7 @@ Related:Engine\Sequencer\ReferenceEditor\
 1. 	将视口锁定到 **镜头切换轨道**，然后单击预览播放按钮。 
 
 	
+(#EndResult)
 ## 最终结果
 
 你应该得到类似下面示例的镜头，其中摄像机绕角色平移 180 度。 

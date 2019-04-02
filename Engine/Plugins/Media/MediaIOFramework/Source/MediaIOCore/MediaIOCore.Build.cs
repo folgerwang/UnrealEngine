@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealBuildTool.Rules
 {
@@ -12,6 +12,7 @@ namespace UnrealBuildTool.Rules
 					"Core",
 					"CoreUObject",
 					"Engine",
+					"ImageWriteQueue",
 					"Media",
 					"MediaAssets",
 					"MediaUtils",
@@ -26,6 +27,13 @@ namespace UnrealBuildTool.Rules
 
 			PrivateIncludePaths.AddRange(
 				new string[] {
+				});
+				
+            PrivateDependencyModuleNames.AddRange(
+                new string[]
+                {
+                    "RenderCore",
+                    "UtilityShaders",
 				});
 
 			if (Target.bBuildEditor == true)

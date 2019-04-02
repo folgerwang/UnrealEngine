@@ -1,13 +1,11 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraShaderModule.h"
 #include "Modules/ModuleManager.h"
 
 IMPLEMENT_MODULE(INiagaraShaderModule, NiagaraShader);
 
-
-
-
+INiagaraShaderModule* INiagaraShaderModule::Singleton(nullptr);
 
 FDelegateHandle INiagaraShaderModule::SetOnProcessShaderCompilationQueue(FOnProcessQueue InOnProcessQueue)
 {
@@ -26,4 +24,22 @@ void INiagaraShaderModule::ProcessShaderCompilationQueue()
 {
 	checkf(OnProcessQueue.IsBound(), TEXT("Can not process shader queue.  Delegate was never set."));
 	return OnProcessQueue.Execute();
+}
+
+FDelegateHandle INiagaraShaderModule::SetOnRequestDefaultDataInterfaceHandler(FOnRequestDefaultDataInterface InHandler)
+{
+	checkf(OnRequestDefaultDataInterface.IsBound() == false, TEXT("Shader OnRequestDefaultDataInterface delegate already set."));
+	OnRequestDefaultDataInterface = InHandler;
+	return OnRequestDefaultDataInterface.GetHandle();
+}
+
+void  INiagaraShaderModule::ResetOnRequestDefaultDataInterfaceHandler()
+{
+	OnRequestDefaultDataInterface.Unbind();
+}
+
+UNiagaraDataInterfaceBase* INiagaraShaderModule::RequestDefaultDataInterface(const FString& DIClassName)
+{
+	checkf(OnRequestDefaultDataInterface.IsBound(), TEXT("Can not invoke OnRequestDefaultDataInterface.  Delegate was never set."));
+	return OnRequestDefaultDataInterface.Execute(DIClassName);
 }

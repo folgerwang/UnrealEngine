@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Commandlets/ImportAssetsCommandlet.h"
 #include "AutomatedAssetImportData.h"
@@ -20,7 +20,7 @@
 #include "HAL/PlatformFilemanager.h"
 #include "GameFramework/WorldSettings.h"
 
-static void PrintUsage()
+void UImportAssetsCommandlet::PrintUsage()
 {
 	UE_LOG(LogAutomatedImport, Display, TEXT("LogAutomatedImport Usage: LogAutomatedImport {arglist}"));
 	UE_LOG(LogAutomatedImport, Display, TEXT("Arglist:"));

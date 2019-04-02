@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineExternalUIGoogleCommon.h"
 #include "OnlineSubsystemGoogle.h"
@@ -14,7 +14,7 @@ bool FOnlineExternalUIGoogleCommon::ShowLoginUI(const int ControllerIndex, bool 
 
 	GoogleSubsystem->ExecuteNextTick([ControllerIndex, Delegate]()
 	{
-		Delegate.ExecuteIfBound(nullptr, ControllerIndex, FOnlineError(false));
+		Delegate.ExecuteIfBound(nullptr, ControllerIndex, FOnlineError(EOnlineErrorResult::Unknown));
 	});
 
 	return bStarted;

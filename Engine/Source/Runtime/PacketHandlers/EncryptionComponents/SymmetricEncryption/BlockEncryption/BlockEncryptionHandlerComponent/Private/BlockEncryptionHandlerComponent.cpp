@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "BlockEncryptionHandlerComponent.h"
 #include "XORBlockEncryptor.h"
@@ -26,6 +26,16 @@ BlockEncryptionHandlerComponent::BlockEncryptionHandlerComponent(BlockEncryptor*
 
 	// Set key size, if no key size passed in then get default key size for the encryptor
 	KeySizeInBytes = InKeySizeInBytes != 0 ? InKeySizeInBytes : Encryptor->GetDefaultKeySize();
+}
+
+void BlockEncryptionHandlerComponent::CountBytes(FArchive& Ar) const
+{
+	HandlerComponent::CountBytes(Ar);
+
+	const SIZE_T SizeOfThis = sizeof(*this) - sizeof(HandlerComponent);
+	Ar.CountBytes(SizeOfThis, SizeOfThis);
+
+	Key.CountBytes(Ar);
 }
 
 void BlockEncryptionHandlerComponent::Initialize()

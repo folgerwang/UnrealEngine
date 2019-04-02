@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Misc/RedirectCollector.h"
 #include "Misc/CoreDelegates.h"
@@ -17,7 +17,7 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogRedirectors, Log, All);
 
-void FRedirectCollector::OnSoftObjectPathLoaded(const FSoftObjectPath& InPath)
+void FRedirectCollector::OnSoftObjectPathLoaded(const FSoftObjectPath& InPath, FArchive* InArchive)
 {
 	if (InPath.IsNull() || !GIsEditor)
 	{
@@ -32,7 +32,7 @@ void FRedirectCollector::OnSoftObjectPathLoaded(const FSoftObjectPath& InPath)
 	ESoftObjectPathCollectType CollectType = ESoftObjectPathCollectType::AlwaysCollect;
 	ESoftObjectPathSerializeType SerializeType = ESoftObjectPathSerializeType::AlwaysSerialize;
 
-	ThreadContext.GetSerializationOptions(PackageName, PropertyName, CollectType, SerializeType);
+	ThreadContext.GetSerializationOptions(PackageName, PropertyName, CollectType, SerializeType, InArchive);
 
 	if (CollectType == ESoftObjectPathCollectType::NeverCollect)
 	{
@@ -59,7 +59,7 @@ void FRedirectCollector::OnSoftObjectPathLoaded(const FSoftObjectPath& InPath)
 void FRedirectCollector::OnStringAssetReferenceLoaded(const FString& InString)
 {
 	FSoftObjectPath Path(InString);
-	OnSoftObjectPathLoaded(Path);
+	OnSoftObjectPathLoaded(Path, nullptr);
 }
 
 FString FRedirectCollector::OnStringAssetReferenceSaved(const FString& InString)
@@ -105,7 +105,7 @@ void FRedirectCollector::ResolveAllSoftObjectPaths(FName FilterPackage)
 
 			if (ToLoad.Len() > 0 )
 			{
-				UE_LOG(LogRedirectors, Verbose, TEXT("String Asset Reference '%s'"), *ToLoad);
+				UE_LOG(LogRedirectors, Verbose, TEXT("Resolving Soft Object Path '%s'"), *ToLoad);
 				UE_CLOG(RefFilenameAndProperty.GetProperty().ToString().Len(), LogRedirectors, Verbose, TEXT("    Referenced by '%s'"), *RefFilenameAndProperty.GetProperty().ToString());
 
 				int32 DotIndex = ToLoad.Find(TEXT("."));
@@ -131,7 +131,7 @@ void FRedirectCollector::ResolveAllSoftObjectPaths(FName FilterPackage)
 				else
 				{
 					const FString Referencer = RefFilenameAndProperty.GetProperty().ToString().Len() ? RefFilenameAndProperty.GetProperty().ToString() : TEXT("Unknown");
-					UE_LOG(LogRedirectors, Warning, TEXT("String Asset Reference '%s' was not found! (Referencer '%s')"), *ToLoad, *Referencer);
+					UE_LOG(LogRedirectors, Warning, TEXT("Soft Object Path '%s' was not found when resolving paths! (Referencer '%s')"), *ToLoad, *Referencer);
 				}
 			}
 		}

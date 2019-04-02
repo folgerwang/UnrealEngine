@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3339965
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:安装 Robo Recall Mod 套件
 Crumbs:%ROOT%
@@ -17,7 +17,7 @@ social-image:install.png
 
 1. 点击 **Install** 从 Epic Games Launcher 下载 Robo Recall Mod 套件。
 
-	![](install.png)(w:934 h:433 convert:false)
+	![](install.png)(w:934 convert:false)
 
 	[REGION:tip]
 	此过程耗时较长，因为 Robo Recall 编辑器容量较大（超过 20 GB）。可利用这段时间查看其他 Robo Recall 文档或其他虚幻引擎 4 入门指南：

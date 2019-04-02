@@ -1,0 +1,42 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+#include "RayTracingCommon.ush"
+
+RaytracingAccelerationStructure  TLAS;
+StructuredBuffer<FBasicRayData>  Rays;
+RWStructuredBuffer<uint>         Output;
+
+[shader("raygeneration")]
+void TestMainRGS()
+{
+	const uint RayIndex = DispatchRaysIndex().x;
+	FBasicRayData InputRay = Rays[RayIndex];
+
+	RayDesc Ray;
+	Ray.Origin = InputRay.Origin;
+	Ray.Direction = InputRay.Direction;
+	Ray.TMin = 0.0f;
+	Ray.TMax = InputRay.TFar;
+
+	uint RayFlags = 0
+	              | RAY_FLAG_CULL_BACK_FACING_TRIANGLES      // use back face culling
+	              | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH // terminate immediately upon detecting primitive intersection
+	              | RAY_FLAG_FORCE_OPAQUE                    // don't run anyhit shader
+	              | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER;        // don't run closesthit shader
+
+	FOcclusionPayload Payload;
+	Payload.Hit = true;
+
+	TraceRay(
+		TLAS,   // AccelerationStructure
+		RayFlags,
+		RAY_TRACING_MASK_ALL,             // InstanceInclusionMask
+		RAY_TRACING_SHADER_SLOT_MATERIAL, // RayContributionToHitGroupIndex
+		RAY_TRACING_NUM_SHADER_SLOTS,     // MultiplierForGeometryContributionToShaderIndex
+		0,      // MissShaderIndex
+		Ray,    // RayDesc
+		Payload // Payload
+	);
+
+	Output[RayIndex] = Payload.Hit ? ~0 : 0;
+}

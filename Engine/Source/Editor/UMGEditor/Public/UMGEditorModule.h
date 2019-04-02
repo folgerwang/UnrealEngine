@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -9,10 +9,11 @@
 extern const FName UMGEditorAppIdentifier;
 
 class FUMGEditor;
+class FWidgetBlueprintCompiler;
 
 /** The public interface of the UMG editor module. */
 class IUMGEditorModule : public IModuleInterface, public IHasMenuExtensibility, public IHasToolBarExtensibility
 {
 public:
-
+	virtual FWidgetBlueprintCompiler* GetRegisteredCompiler() = 0;
 };

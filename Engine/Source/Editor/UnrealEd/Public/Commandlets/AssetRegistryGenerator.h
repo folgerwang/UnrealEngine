@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -71,7 +71,7 @@ public:
 	* PreSave
 	* Notify generator that we are about to save the registry and chunk manifests
 	*/
-	void PreSave();
+	void PreSave(const TSet<FName>& InCookedPackages);
 
 	/**
 	* PostSave
@@ -235,6 +235,11 @@ private:
 	 */
 	void FixupPackageDependenciesForChunks(FSandboxPlatformFile* InSandboxFile);
 
+	/**
+	 * Attaches encryption key guids into the registry data for encrypted primary assets
+	 */
+	void InjectEncryptionData(FAssetRegistryState& TargetState);
+
 	void AddPackageAndDependenciesToChunk(FChunkPackageSet* ThisPackageSet, FName InPkgName, const FString& InSandboxFile, int32 ChunkID, FSandboxPlatformFile* SandboxPlatformFile);
 
 	/**
@@ -296,7 +301,7 @@ private:
 	bool ShouldPlatformGenerateStreamingInstallManifest(const ITargetPlatform* Platform) const;
 
 	/** Generates and saves streaming install chunk manifest */
-	bool GenerateStreamingInstallManifest(int64 InExtraFlavorChunkSize);
+	bool GenerateStreamingInstallManifest(int64 InExtraFlavorChunkSize, FSandboxPlatformFile* InSandboxFile);
 
 	/** Gather a list of dependencies required by to completely load this package */
 	bool GatherAllPackageDependencies(FName PackageName, TArray<FName>& DependentPackageNames);

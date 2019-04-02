@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "IOSAppDelegateConsoleHandling.h"
 #include "Engine/Engine.h"
@@ -111,7 +111,9 @@ extern bool GShowSplashScreen;
 #endif
 	}
 }
+#endif
 
+#if !UE_BUILD_SHIPPING
 /**
  * Handles processing of an input console command
  */
@@ -119,7 +121,7 @@ extern bool GShowSplashScreen;
 {
 	if ([ConsoleCommand length] > 0)
 	{
-		if (self.bEngineInit)
+		if (self.bEngineInit && GEngine != nullptr)
 		{
 			TArray<TCHAR> Ch;
 			Ch.AddZeroed([ConsoleCommand length]);
@@ -127,7 +129,7 @@ extern bool GShowSplashScreen;
 			FPlatformString::CFStringToTCHAR((CFStringRef)ConsoleCommand, Ch.GetData());
 			new(GEngine->DeferredCommands) FString(Ch.GetData());
 		}
-
+#if !PLATFORM_TVOS
 		NSUInteger ExistingCommand = [self.ConsoleHistoryValues indexOfObjectPassingTest:
 			^ BOOL (id obj, NSUInteger idx, BOOL *stop)
 			{ 
@@ -146,6 +148,7 @@ extern bool GShowSplashScreen;
 		// save to local storage
 		[[NSUserDefaults standardUserDefaults] setObject:self.ConsoleHistoryValues forKey:@"ConsoleHistory"];
 		[[NSUserDefaults standardUserDefaults] synchronize];
+#endif
 	}
 }
 #endif
@@ -298,5 +301,16 @@ extern bool GShowSplashScreen;
 
 #endif // !UE_BUILD_SHIPPING && !TVOS
 
+void EnqueueConsoleCommand(uint8 *Command)
+{
+#if !UE_BUILD_SHIPPING
+	if (!Command)
+	{
+		return;
+	}
+
+	[[IOSAppDelegate GetDelegate] HandleConsoleCommand:[NSString stringWithUTF8String : (const char *)Command]];
+#endif
+}
 
 @end

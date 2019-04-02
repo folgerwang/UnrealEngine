@@ -29,7 +29,7 @@ order:3
 %Steps%
 
 [REGION:note]
-기존에 맥에서 iOS 어플리케이션을 개발했었으나 윈도우 PC 에서 언리얼 엔진을 사용하여 iOS 게임을 개발하려는 경우,
+기존에 Mac에서 iOS 어플리케이션을 개발했었으나 Windows PC 에서 언리얼 엔진을 사용하여 iOS 게임을 개발하려는 경우,
 [이 단계를 건너뛰고](Platforms/iOS/QuickStart/4) **Keychain** 에서 Certificate 를 `.p12` 파일로 익스포트하여 언리얼 iOS 환경설정 마법사에서 사용하면 됩니다.
 [/REGION]
 
@@ -72,7 +72,7 @@ order:3
 [EXCERPT:windows]
 
 ## 단계
-iOS 디바이스에 UE4 프로젝트를 디플로이하고 사용하려면 Apple 에서 특수한 Certificate 가 필요합니다. 윈도우에서 iOS 개발용 Signing Certificate 생성 작업은 애플 개발자 사이트와 언리얼 엔진과 같이 제공되는 언리얼 iOS 환경설정 마법사(iPhonePackager) 조합으로 이루어지는데, 그 방법을 알아보겠습니다.
+iOS 디바이스에 UE4 프로젝트를 디플로이하고 사용하려면 Apple 에서 특수한 Certificate 가 필요합니다. Windows에서 iOS 개발용 Signing Certificate 생성 작업은 애플 개발자 사이트와 언리얼 엔진과 같이 제공되는 언리얼 iOS 환경설정 마법사(iPhonePackager) 조합으로 이루어지는데, 그 방법을 알아보겠습니다.
 
 1. 먼저, `Engine\Binaries\DotNET\IOS\` 디렉터리로 이동하여 `iPhonePackager.exe` 를 실행합니다.
 

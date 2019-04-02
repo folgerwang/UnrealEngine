@@ -2,7 +2,7 @@
  * Copyright 2016-2017 Nikolay Aleksiev. All rights reserved.
  * License: https://github.com/naleksiev/mtlpp/blob/master/LICENSE
  */
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // Modifications for Unreal Engine
 
 #pragma once
@@ -45,7 +45,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 9_0);
 
-    class BlitCommandEncoder : public CommandEncoder<ns::Protocol<id<MTLBlitCommandEncoder>>::type>
+    class MTLPP_EXPORT BlitCommandEncoder : public CommandEncoder<ns::Protocol<id<MTLBlitCommandEncoder>>::type>
     {
     public:
         BlitCommandEncoder(ns::Ownership const retain = ns::Ownership::Retain) : CommandEncoder<ns::Protocol<id<MTLBlitCommandEncoder>>::type>(retain) { }
@@ -68,7 +68,7 @@ namespace mtlpp
     };
 	
 #if MTLPP_CONFIG_VALIDATE
-	class ValidatedBlitCommandEncoder : public ns::AutoReleased<BlitCommandEncoder>
+	class MTLPP_EXPORT ValidatedBlitCommandEncoder : public ns::AutoReleased<BlitCommandEncoder>
 	{
 		CommandEncoderValidationTable Validator;
 		
@@ -96,7 +96,7 @@ namespace mtlpp
 	};
 	
 	template <>
-	class Validator<BlitCommandEncoder>
+	class MTLPP_EXPORT Validator<BlitCommandEncoder>
 	{
 	public:
 		Validator(BlitCommandEncoder& Val, bool bEnable)

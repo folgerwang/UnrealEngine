@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieSceneLevelVisibilityTrack.h"
 #include "Sections/MovieSceneLevelVisibilitySection.h"
@@ -40,6 +40,10 @@ void UMovieSceneLevelVisibilityTrack::RemoveSection( UMovieSceneSection& Section
 	Sections.Remove(&Section);
 }
 
+bool UMovieSceneLevelVisibilityTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneLevelVisibilitySection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneLevelVisibilityTrack::CreateNewSection()
 {

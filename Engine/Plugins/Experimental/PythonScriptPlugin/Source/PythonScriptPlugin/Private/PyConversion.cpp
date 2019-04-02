@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PyConversion.h"
 #include "PyUtil.h"
@@ -852,6 +852,24 @@ FPyConversionResult NativizeProperty_Direct(PyObject* PyObj, const UProperty* Pr
 		PYCONVERSION_PROPERTY_RETURN(Result);
 	}
 
+	if (auto* CastProp = Cast<USoftClassProperty>(Prop))
+	{
+		UClass* NewValue = nullptr;
+		const FPyConversionResult Result = NativizeClass(PyObj, NewValue, CastProp->MetaClass, SetErrorState);
+		if (Result)
+		{
+			UObject* OldValue = CastProp->GetObjectPropertyValue(ValueAddr);
+			if (OldValue != NewValue)
+			{
+				EmitPropertyChangeNotifications(InChangeOwner, [&]()
+				{
+					CastProp->SetObjectPropertyValue(ValueAddr, NewValue);
+				});
+			}
+		}
+		PYCONVERSION_PROPERTY_RETURN(Result);
+	}
+
 	if (auto* CastProp = Cast<UObjectPropertyBase>(Prop))
 	{
 		UObject* NewValue = nullptr;
@@ -1051,13 +1069,19 @@ FPyConversionResult PythonizeProperty_Direct(const UProperty* Prop, const void* 
 
 	if (auto* CastProp = Cast<UClassProperty>(Prop))
 	{
-		UClass* Value = Cast<UClass>(CastProp->GetObjectPropertyValue(ValueAddr));
+		UClass* Value = Cast<UClass>(CastProp->LoadObjectPropertyValue(ValueAddr));
+		PYCONVERSION_PROPERTY_RETURN(PythonizeClass(Value, OutPyObj, SetErrorState));
+	}
+
+	if (auto* CastProp = Cast<USoftClassProperty>(Prop))
+	{
+		UClass* Value = Cast<UClass>(CastProp->LoadObjectPropertyValue(ValueAddr));
 		PYCONVERSION_PROPERTY_RETURN(PythonizeClass(Value, OutPyObj, SetErrorState));
 	}
 
 	if (auto* CastProp = Cast<UObjectPropertyBase>(Prop))
 	{
-		UObject* Value = CastProp->GetObjectPropertyValue(ValueAddr);
+		UObject* Value = CastProp->LoadObjectPropertyValue(ValueAddr);
 		PYCONVERSION_PROPERTY_RETURN(Pythonize(Value, OutPyObj, SetErrorState));
 	}
 

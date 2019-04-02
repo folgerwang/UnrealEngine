@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -217,16 +217,18 @@ public:
 	 */
 	void MakeSearchQuery(FString InSearchString, bool bInIsFindWithinBlueprint, enum ESearchQueryFilter InSearchFilterForImaginaryDataReturn = ESearchQueryFilter::AllFilter, EFiBVersion InMinimiumVersionRequirement = EFiBVersion::FIB_VER_LATEST, FOnSearchComplete InOnSearchComplete = FOnSearchComplete());
 
-	/** Called when caching Blueprints is complete, if this widget initiated the indexing */
-	void OnCacheComplete();
+	/** Called when caching Blueprints is started */
+	void OnCacheStarted(EFiBCacheOpType InOpType, EFiBCacheOpFlags InOpFlags);
+	
+	/** Called when caching Blueprints is complete */
+	void OnCacheComplete(EFiBCacheOpType InOpType);
 
 	/**
 	 * Asynchronously caches all Blueprints below a specified version.
 	 *
-	 * @param InOnFinished						Callback when the cache process is complete.
-	 * @param InMinimiumVersionRequirement		Version that Blueprints must be below to be loaded and indexed, by default all out-of-date Blueprints
+	 * @param InOptions								Options to configure the caching task
 	 */
-	void CacheAllBlueprints(FSimpleDelegate InOnFinished = FSimpleDelegate(), EFiBVersion InMinimiumVersionRequirement = EFiBVersion::FIB_VER_LATEST);
+	void CacheAllBlueprints(const FFindInBlueprintCachingOptions& InOptions);
 
 	/** If this is a global find results widget, returns the host tab's unique ID. Otherwise, returns NAME_None. */
 	FName GetHostTabId() const;
@@ -285,14 +287,16 @@ private:
 	FReply OnRemoveCacheBar();
 
 	/** Callback to return the cache bar's display text, informing the user of the situation */
-	FText GetUncachedAssetWarningText() const;
+	FText GetUnindexedAssetWarningText() const;
 
 	/** Callback to return the cache bar's current indexing Blueprint name */
 	FText GetCurrentCacheBlueprintName() const;
 
-	/** Callback to cache all uncached Blueprints */
-	FReply OnCacheAllBlueprints();
-	FReply OnCacheAllBlueprints(FSimpleDelegate InOnFinished, EFiBVersion InMinimiumVersionRequirement = EFiBVersion::FIB_VER_LATEST);
+	/** Callback to cache all unindexed Blueprints */
+	FReply OnCacheAllUnindexedBlueprints();
+
+	/** Callback to cache all Blueprints according to the given options */
+	FReply OnCacheAllBlueprints(const FFindInBlueprintCachingOptions& InOptions);
 
 	/** Callback to cancel the caching process */
 	FReply OnCancelCacheAll();
@@ -307,7 +311,10 @@ private:
 	EVisibility GetCachingProgressBarVisiblity() const;
 
 	/** Returns the visibility of the "Cache All" button, visible when not caching, collapsed when caching is in progress */
-	EVisibility GetCacheAllButtonVisibility() const;
+	EVisibility GetCacheAllUnindexedButtonVisibility() const;
+
+	/** Returns the visibility of the "Cancel" button, visible when caching is in progress, collapsed when not caching */
+	EVisibility GetCacheAllCancelButtonVisibility() const;
 
 	/** Returns the caching bar's visibility, it goes invisible when there is nothing to be cached. The next search will remove this bar or make it visible again */
 	EVisibility GetCachingBarVisibility() const;
@@ -317,6 +324,9 @@ private:
 
 	/** Returns the visibility of the popup button that displays the list of Blueprints that failed to cache */
 	EVisibility GetFailedToCacheListVisibility() const;
+
+	/** Returns the visibility of the unresponsive editor warning note text in the caching progress bar */
+	EVisibility GetUnresponsiveEditorWarningVisibility() const;
 
 	/** Returns TRUE if Blueprint caching is in progress */
 	bool IsCacheInProgress() const;
@@ -399,7 +409,4 @@ private:
 
 	/** True if current search should not be changed by an external source */
 	bool bIsLocked;
-
-	/** True if the most recent search was a global search */
-	bool bHasGlobalSearchResults;
 };

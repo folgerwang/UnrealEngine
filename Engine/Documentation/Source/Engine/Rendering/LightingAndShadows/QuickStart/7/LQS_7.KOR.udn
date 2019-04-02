@@ -9,7 +9,7 @@ Version: 4.9
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 단계](Engine/Rendering/LightingAndShadows/QuickStart/6 "%Engine/Rendering/LightingAndShadows/QuickStart/6:title%")
+		[이전 단계](Engine/Rendering/LightingAndShadows/QuickStart/6 "%Engine/Rendering/LightingAndShadows/QuickStart/6:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]

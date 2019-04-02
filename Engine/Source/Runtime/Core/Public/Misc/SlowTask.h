@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -67,6 +67,11 @@ private:
 	FSlowTask(const FSlowTask&);
 
 public:
+
+	/**
+	 * True if a slow task should be created. False if a slow task should not be created because another was created recently.
+	 */
+	static bool ShouldCreateThrottledSlowTask();
 
 	/**
 	 * Construct this scope from an amount of work to do, and a message to display

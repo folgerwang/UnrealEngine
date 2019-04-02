@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraCollectionParameterViewModel.h"
 #include "NiagaraEditorUtilities.h"
@@ -33,7 +33,7 @@ FName FNiagaraCollectionParameterViewModel::GetName() const
 
 FText FNiagaraCollectionParameterViewModel::GetTypeDisplayName() const
 {
-	return FText::Format(LOCTEXT("TypeTextFormat", "Type: {0}"), Parameter.GetType().GetStruct()->GetDisplayNameText());
+	return FText::Format(LOCTEXT("TypeTextFormat", "Type: {0}"), Parameter.GetType().GetNameText());
 }
 
 void FNiagaraCollectionParameterViewModel::NameTextComitted(const FText& Name, ETextCommit::Type CommitInfo)

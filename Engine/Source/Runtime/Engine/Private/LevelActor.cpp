@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "CoreMinimal.h"
@@ -40,6 +40,7 @@
 #include "GameFramework/MovementComponent.h"
 
 #include "Misc/TimeGuard.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 #define LOCTEXT_NAMESPACE "LevelActor"
 
@@ -52,6 +53,12 @@ static TAutoConsoleVariable<float> CVarEncroachEpsilon(
 	TEXT("Epsilon value used during encroachment checking for shape components\n")
 	TEXT("0: use full sized shape. > 0: shrink shape size by this amount (world units)"),
 	ECVF_Default);
+
+static TAutoConsoleVariable<int32> CVarAllowDestroyNonNetworkActors(
+	TEXT("p.AllowDestroyNonNetworkActors"),
+	1,
+	TEXT("When enabled, allows Clients in Networked Games to destroy non-networked actors (AActor::Role == ROLE_None). Does not change behavior on Servers or Standalone games.")
+);
 
 #define LINE_CHECK_TRACING 0
 
@@ -299,11 +306,15 @@ AActor* UWorld::SpawnActor( UClass* Class, FVector const* Location, FRotator con
 AActor* UWorld::SpawnActor( UClass* Class, FTransform const* UserTransformPtr, const FActorSpawnParameters& SpawnParameters )
 {
 	SCOPE_CYCLE_COUNTER(STAT_SpawnActorTime);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(ActorSpawning);
 	SCOPE_TIME_GUARD_NAMED_MS(TEXT("SpawnActor Of Type"), Class->GetFName(), 2);
-	
 
+#if WITH_EDITORONLY_DATA
 	check( CurrentLevel ); 	
 	check(GIsEditor || (CurrentLevel == PersistentLevel));
+#else
+	ULevel* CurrentLevel = PersistentLevel;
+#endif
 
 	// Make sure this class is spawnable.
 	if( !Class )
@@ -526,6 +537,7 @@ bool UWorld::EditorDestroyActor( AActor* ThisActor, bool bShouldModifyLevel )
 bool UWorld::DestroyActor( AActor* ThisActor, bool bNetForce, bool bShouldModifyLevel )
 {
 	SCOPE_CYCLE_COUNTER(STAT_DestroyActor);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(ActorDestroying);
 
 	check(ThisActor);
 	check(ThisActor->IsValidLowLevel());
@@ -545,18 +557,29 @@ bool UWorld::DestroyActor( AActor* ThisActor, bool bNetForce, bool bShouldModify
 		return true;
 	}
 
+	// Never destroy the world settings actor. This used to be enforced by bNoDelete and is actually needed for 
+	// seamless travel and network games.
+	if (GetWorldSettings() == ThisActor)
+	{
+		return false;
+	}
+
 	// In-game deletion rules.
 	if( IsGameWorld() )
 	{
-		// Never destroy the world settings actor. This used to be enforced by bNoDelete and is actually needed for 
-		// seamless travel and network games.
-		if (GetWorldSettings() == ThisActor)
+		// Note, for Standalone games, Actors should have Authority == ROLE_Authority.
+		// In that sense, they'll be treated as Network Actors here.
+		const bool bIsNetworkedActor = ThisActor->Role != ROLE_None;
+
+		// Can't kill if wrong role.
+		const bool bCanDestroyNetworkActor = ThisActor->Role == ROLE_Authority || bNetForce || ThisActor->bNetTemporary;
+		if (bIsNetworkedActor && !bCanDestroyNetworkActor)
 		{
 			return false;
 		}
 
-		// Can't kill if wrong role.
-		if( ThisActor->Role!=ROLE_Authority && !bNetForce && !ThisActor->bNetTemporary )
+		const bool bCanDestroyNonNetworkActor = !!CVarAllowDestroyNonNetworkActors.GetValueOnAnyThread();
+		if (!bIsNetworkedActor && !bCanDestroyNonNetworkActor)
 		{
 			return false;
 		}
@@ -1440,6 +1463,7 @@ FAudioDevice* UWorld::GetAudioDevice()
  */
 void UWorld::SetMapNeedsLightingFullyRebuilt(int32 InNumLightingUnbuiltObjects, int32 InNumUnbuiltReflectionCaptures)
 {
+#if !UE_BUILD_SHIPPING
 	static const TConsoleVariableData<int32>* AllowStaticLightingVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
 	const bool bAllowStaticLighting = (!AllowStaticLightingVar || AllowStaticLightingVar->GetValueOnGameThread() != 0);
 
@@ -1463,6 +1487,7 @@ void UWorld::SetMapNeedsLightingFullyRebuilt(int32 InNumLightingUnbuiltObjects, 
 			LastTimeUnbuiltLightingWasEncountered = FApp::GetCurrentTime();
 		}
 	}
+#endif
 }
 
 #undef LOCTEXT_NAMESPACE

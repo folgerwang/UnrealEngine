@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "UI/Synth2DSlider.h"
 #include "UI/SSynth2DSlider.h"
@@ -150,7 +150,7 @@ void USynth2DSlider::SetSliderHandleColor(FLinearColor InValue)
 
 const FText USynth2DSlider::GetPaletteCategory()
 {
-	return LOCTEXT("Common", "Common");
+	return LOCTEXT("Synth", "Synth");
 }
 
 #endif

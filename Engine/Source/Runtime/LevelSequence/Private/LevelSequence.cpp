@@ -1,6 +1,7 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelSequence.h"
+#include "ILevelSequenceMetaData.h"
 #include "Engine/EngineTypes.h"
 #include "HAL/IConsoleManager.h"
 #include "Components/ActorComponent.h"
@@ -52,7 +53,6 @@ ULevelSequence::ULevelSequence(const FObjectInitializer& ObjectInitializer)
 
 void ULevelSequence::Initialize()
 {
-	// @todo sequencer: gmp: fix me
 	MovieScene = NewObject<UMovieScene>(this, NAME_None, RF_Transactional);
 
 	const bool bFrameLocked = CVarDefaultEvaluationType.GetValueOnGameThread() != 0;
@@ -104,7 +104,30 @@ void ULevelSequence::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) co
 	}
 #endif
 
+	for (UObject* MetaData : MetaDataObjects)
+	{
+		ILevelSequenceMetaData* MetaDataInterface = Cast<ILevelSequenceMetaData>(MetaData);
+		if (MetaDataInterface)
+		{
+			MetaDataInterface->ExtendAssetRegistryTags(OutTags);
+		}
+	}
+
 	Super::GetAssetRegistryTags(OutTags);
+}
+
+void ULevelSequence::GetAssetRegistryTagMetadata(TMap<FName, FAssetRegistryTagMetadata>& OutMetadata) const
+{
+	for (UObject* MetaData : MetaDataObjects)
+	{
+		ILevelSequenceMetaData* MetaDataInterface = Cast<ILevelSequenceMetaData>(MetaData);
+		if (MetaDataInterface)
+		{
+			MetaDataInterface->ExtendAssetRegistryTagMetaData(OutMetadata);
+		}
+	}
+
+	Super::GetAssetRegistryTagMetadata(OutMetadata);
 }
 
 void PurgeLegacyBlueprints(UObject* InObject, UPackage* Package)
@@ -163,11 +186,47 @@ void PurgeLegacyBlueprints(UObject* InObject, UPackage* Package)
 }
 #endif
 
+void ULevelSequence::PostDuplicate(bool bDuplicateForPIE)
+{
+	Super::PostDuplicate(bDuplicateForPIE);
+
+#if WITH_EDITORONLY_DATA
+	if (DirectorBlueprint)
+	{
+		DirectorClass = DirectorBlueprint->GeneratedClass.Get();
+
+		// Remove the binding for the director blueprint recompilation and re-add it to be sure there is only one entry in the list
+		DirectorBlueprint->OnCompiled().RemoveAll(this);
+		DirectorBlueprint->OnCompiled().AddUObject(this, &ULevelSequence::OnDirectorRecompiled);
+	}
+	else
+	{
+		DirectorClass = nullptr;
+	}
+#endif
+}
+
 void ULevelSequence::PostLoad()
 {
 	Super::PostLoad();
 
 #if WITH_EDITOR
+	if (!DirectorBlueprint)
+	{
+		UBlueprint* PhantomDirector = FindObject<UBlueprint>(this, TEXT("SequenceDirector"));
+		if (!ensureMsgf(!PhantomDirector, TEXT("Phantom sequence director found in sequence '%s' which has a nullptr DirectorBlueprint. Re-assigning to prevent future crash."), *GetName()))
+		{
+			DirectorBlueprint = PhantomDirector;
+		}
+	}
+
+	if (DirectorBlueprint)
+	{
+		// Remove the binding for the director blueprint recompilation and re-add it to be sure there is only one entry in the list
+		DirectorBlueprint->OnCompiled().RemoveAll(this);
+		DirectorBlueprint->OnCompiled().AddUObject(this, &ULevelSequence::OnDirectorRecompiled);
+	}
+
 	TSet<FGuid> InvalidSpawnables;
 
 	for (int32 Index = 0; Index < MovieScene->GetSpawnableCount(); ++Index)
@@ -265,6 +324,11 @@ bool ULevelSequence::CanPossessObject(UObject& Object, UObject* InPlaybackContex
 
 void ULevelSequence::LocateBoundObjects(const FGuid& ObjectId, UObject* Context, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const
 {
+	LocateBoundObjects(ObjectId, Context, NAME_None, OutObjects);
+}
+
+void ULevelSequence::LocateBoundObjects(const FGuid& ObjectId, UObject* Context, FName StreamedLevelAssetPath, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const
+{
 	// Handle legacy object references
 	UObject* Object = Context ? ObjectReferences.ResolveBinding(ObjectId, Context) : nullptr;
 	if (Object)
@@ -272,7 +336,7 @@ void ULevelSequence::LocateBoundObjects(const FGuid& ObjectId, UObject* Context,
 		OutObjects.Add(Object);
 	}
 
-	BindingReferences.ResolveBinding(ObjectId, Context, OutObjects);
+	BindingReferences.ResolveBinding(ObjectId, Context, StreamedLevelAssetPath, OutObjects);
 }
 
 void ULevelSequence::GatherExpiredObjects(const FMovieSceneObjectCache& InObjectCache, TArray<FGuid>& OutInvalidIDs) const
@@ -331,7 +395,48 @@ void ULevelSequence::UnbindPossessableObjects(const FGuid& ObjectId)
 	ObjectReferences.Map.Remove(ObjectId);
 }
 
+void ULevelSequence::UnbindObjects(const FGuid& ObjectId, const TArray<UObject*>& InObjects, UObject* InContext)
+{
+	BindingReferences.RemoveObjects(ObjectId, InObjects, InContext);
+}
+
+void ULevelSequence::UnbindInvalidObjects(const FGuid& ObjectId, UObject* InContext)
+{
+	BindingReferences.RemoveInvalidObjects(ObjectId, InContext);
+}
+
 #if WITH_EDITOR
+
+UBlueprint* ULevelSequence::GetDirectorBlueprint() const
+{
+	return DirectorBlueprint;
+}
+
+void ULevelSequence::SetDirectorBlueprint(UBlueprint* NewDirectorBlueprint)
+{
+	if (DirectorBlueprint)
+	{
+		DirectorBlueprint->OnCompiled().RemoveAll(this);
+	}
+
+	DirectorBlueprint = NewDirectorBlueprint;
+
+	if (DirectorBlueprint)
+	{
+		DirectorClass = NewDirectorBlueprint->GeneratedClass.Get();
+		DirectorBlueprint->OnCompiled().AddUObject(this, &ULevelSequence::OnDirectorRecompiled);
+	}
+	else
+	{
+		DirectorClass = nullptr;
+	}
+}
+
+void ULevelSequence::OnDirectorRecompiled(UBlueprint* InCompiledBlueprint)
+{
+	ensure(InCompiledBlueprint == DirectorBlueprint);
+	DirectorClass = DirectorBlueprint->GeneratedClass.Get();
+}
 
 FGuid ULevelSequence::FindOrAddBinding(UObject* InObject)
 {

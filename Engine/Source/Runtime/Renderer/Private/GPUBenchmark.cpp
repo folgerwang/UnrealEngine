@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GPUBenchmark.cpp: GPUBenchmark to compute performance index to set video options automatically
@@ -16,11 +16,13 @@
 #include "RHIStaticStates.h"
 #include "Containers/DynamicRHIResourceArray.h"
 #include "GlobalShader.h"
-#include "PostProcess/RenderTargetPool.h"
+#include "RenderTargetPool.h"
 #include "PostProcess/SceneFilterRendering.h"
 #include "GPUProfiler.h"
 #include "PipelineStateCache.h"
 #include "LongGPUTask.h"
+#include "VisualizeTexture.h"
+#include "CommonRenderResources.h"
 
 static const uint32 GBenchmarkResolution = 512;
 static const uint32 GBenchmarkPrimitives = 200000;
@@ -177,7 +179,7 @@ struct FVertexThroughputDeclaration : public FRenderResource
 			{ 0, 4 * sizeof(FVector4), VET_Float4, 4, sizeof(FBenchmarkVertex) },
 		};
 
-		DeclRHI = RHICreateVertexDeclaration(Elements);
+		DeclRHI = PipelineStateCache::GetOrCreateVertexDeclaration(Elements);
 	}
 
 	virtual void ReleaseRHI() override
@@ -231,7 +233,7 @@ void RunBenchmarkShader(FRHICommandList& RHICmdList, FVertexBufferRHIParamRef Ve
 
 			RHICmdList.SetStreamSource(0, VertexThroughputBuffer, 0);
 
-			RHICmdList.DrawPrimitive(PT_TriangleList, 0, PrimitivesThisPass, 1);
+			RHICmdList.DrawPrimitive(0, PrimitivesThisPass, 1);
 
 			TotalNumVertices -= VerticesThisPass;
 		}
@@ -573,15 +575,18 @@ void RendererGPUBenchmark(FRHICommandListImmediate& RHICmdList, FSynthBenchmarkR
 				// 0 / 1
 				const uint32 SrcRTIndex = 1 - DestRTIndex;
 
-				GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, RTItems[DestRTIndex]);
-
-				SetRenderTarget(RHICmdList, RTItems[DestRTIndex]->GetRenderTargetItem().TargetableTexture, FTextureRHIRef(), true);	
+				GVisualizeTexture.SetCheckPoint(RHICmdList, RTItems[DestRTIndex]);
 
 				// decide how much work we do in this pass
 				LocalWorkScale[Iteration] = (Iteration / 10.f + 1.f) * WorkScale;
 
-				RunBenchmarkShader(RHICmdList, VertexBuffer, View, MethodId, RTItems[SrcRTIndex], LocalWorkScale[Iteration]);
-
+				FRHIRenderPassInfo RPInfo(RTItems[DestRTIndex]->GetRenderTargetItem().TargetableTexture, ERenderTargetActions::Load_Store);
+				TransitionRenderPassTargets(RHICmdList, RPInfo);
+				RHICmdList.BeginRenderPass(RPInfo, TEXT("GPUBenchmark"));
+				{
+					RunBenchmarkShader(RHICmdList, VertexBuffer, View, MethodId, RTItems[SrcRTIndex], LocalWorkScale[Iteration]);
+				}
+				RHICmdList.EndRenderPass();
 				RHICmdList.CopyToResolveTarget(RTItems[DestRTIndex]->GetRenderTargetItem().TargetableTexture, RTItems[DestRTIndex]->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 
 				/*if(bGPUCPUSync)

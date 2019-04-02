@@ -1,0 +1,36 @@
+﻿INTSourceChangelist:4357683
+Availability: Public
+Crumbs: 
+Title: ARPG中的近战技能
+Description: 概述如何在ARPG中设置近战技能。
+Type: 
+Version: 4.20
+Parent: Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG
+Order: 2
+Tags: 
+
+
+动作角色扮演类游戏（ARPG）有两种类型的能力：**近战（Melee）** 和 **技能（Skills）**。这两种能力虽然相似，但仍存在一些差异。例如，当角色的武器与敌人重叠时，近战技能会激活，而技能能力则使用技能特定的线迹追踪检查。下图是 **GA_MeleeBase** 的蓝图图形，它是所有近战能力的基础：  
+
+[REGION:lightbox]
+[![](ARPG_Melee20_Abilities_01.png)(w:800px)](ARPG_Melee20_Abilities_01.png)
+[/REGION]
+[REGION:caption]
+单击查看大图。
+[/REGION]
+
+当启动某项能力时，调用 **ActivateAbility**，并使用 **CommitAbility** 应用能力的 **消耗（Cost）**（通常是ARPG中的法力）和 **冷却效果（Cooldown）**。调用 **EndAbility** 通知系统该能力已执行完毕。另外两个节点专用于ARPG，通常每个游戏都会根据需要添加新的函数和节点。  
+
+**PlayMontageandWaitForEvent** 是一个 **AbilityTask** 节点，对应于 **URPGAbilityTask_PlayMontageAndWaitForEvent**。AbilityTask节点是一种特殊对象，它定义一组静态函数，以创建任务（在本例中为PlayMontageAndWaitForEvent）、变量和用于执行任务的函数。另外，还有一组动态/蓝图委托，从任务中激活。每个输出执行引脚（紧邻顶层，始终立即激活）对应于其中一个委托，输出数据引脚与委托签名相匹配。此特定任务是 **UAbilityTask_PlayMontageAndWait** 和 **UAbilityTask_WaitGameplayEvent** 的组合，其中包含一些特定于游戏的调整和注释。你的游戏可能需要实现几个新的Gameplay任务，因此此任务是如何进行设置的范例。
+
+此任务的工作原理是首先播放蒙太奇，然后监听从 **AbilitySystemComponent** 发出的Gameplay事件。如果发出的Gameplay事件与传入的 **EventTags** 匹配，将使用标记和有效负载激活 **EventReceived** 执行引脚，然后调用 **ApplyEffectContainer** 函数。当蒙太奇混合、中断或取消时，该能力结束。实际的Gameplay事件使用以下逻辑从 **WeaponActor** 蓝图发出：  
+
+![ARPG_Melee_Abilities_02.png](ARPG_Melee20_Abilities_02.png "ARPG_Melee_Abilities_02.png")
+
+这在武器actor与角色重叠时触发。在触发后，将构建 **GameplayEventData** 有效负载并传入 **Target Actor + Instigator**。然后，它使用放置在蒙太奇中的 **Anim Notify** 状态设置的标记发送Gameplay事件。因此，当该事件被触发后，能力图将激活 **EventReceived** 执行引脚。**ApplyEffectContainer** 节点对应于 **URPGGameplayAbility::ApplyEffectContainer**，它应用一组Gameplay效果。每个URPGGameplayAbility都有到 **FRPGGameplayEffectContainer** 结构的标记贴图，其中包含目标信息和要应用的Gameplay效果列表。以下是 **GA_PlayerAxeMelee** 中贴图的示例：  
+
+![ARPG_Melee_Abilities_03.png](ARPG_Melee20_Abilities_03.png "ARPG_Melee_Abilities_03.png")
+
+当执行 **AM_Attack_Axe** 蒙太奇时，它表示当发出 **Event.Montage.Shared.WeaponHit GameplayEvent** 时，它将使用目标类 **RPGTargetType_UseEventData** 执行 **GE_PlayerAxeMelee** 效果其中。目标类型在 **RPGTargetType****.cpp** 文件中的原生C++中实现，并从传入的 **EventData** 中提取目标actor和碰撞结果。贴图中的第二个元素执行 **BurstPound** 特殊攻击，我们稍后将介绍该技能。  
+
+**ApplyEffectContainer** 执行两项操作：首先，它在此贴图中查找与传入标记匹配的 **FRPGGameplayEffectContainer**。如果找到了，它将创建 **FRPGGameplayEffectContainerSpec**，其中包含 **TargetData** 和 **EffectSpecs** 的列表。然后，它会应用该 **ContainerSpec**，对目标造成实际伤害。目标数据是 **FGameplayAbilityTargetDataHandle**，它指向包含碰撞结果、actor或其他游戏特定对象的多态目标结构数组。EffectSpecs是 **FGameplayEffectSpecHandle** 数组，指向要应用的效果以及捕获的属性值列表。在捕获效果和目标数据之后，可在日后转发、修改和执行它们。但在近战中，它会在捕获后立即执行。使用能力系统的游戏可能都需要实现与 **ApplyEffectContainer** 类似的系统，以便将蓝图逻辑放入父能力中，而将要执行的效果列表放入子蓝图中。但是，每个游戏都会略有不同，如果游戏包含客户端预测定位，那么它将比ARPG中使用的版本复杂得多。

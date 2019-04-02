@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*================================================================================
 	AndroidPlatform.h: Setup for the Android platform
@@ -50,12 +50,14 @@ typedef FAndroidTypes FPlatformTypes;
 #define PLATFORM_HAS_BSD_SOCKET_FEATURE_MSG_DONTWAIT	1
 #define PLATFORM_HAS_TOUCH_MAIN_SCREEN				1
 #define PLATFORM_SUPPORTS_STACK_SYMBOLS				1
-#define PLATFORM_NUM_AUDIODECOMPRESSION_PRECACHE_BUFFERS 1
+#define PLATFORM_NUM_AUDIODECOMPRESSION_PRECACHE_BUFFERS 2
 #define PLATFORM_USES_ANSI_STRING_FOR_EXTERNAL_PROFILING 1
 #define PLATFORM_UI_HAS_MOBILE_SCROLLBARS			1
 #define PLATFORM_UI_NEEDS_TOOLTIPS					0
 #define PLATFORM_UI_NEEDS_FOCUS_OUTLINES			0
 #define PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK		1 // movies will start before engine is initalized
+
+#define PLATFORM_CODE_SECTION(Name)					__attribute__((section(Name)))
 
 #if defined(EXPERIMENTAL_OPENGL_RHITHREAD) && EXPERIMENTAL_OPENGL_RHITHREAD
 	#define PLATFORM_RHITHREAD_DEFAULT_BYPASS			0

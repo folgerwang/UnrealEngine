@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ModuleDescriptor.h"
 #include "Misc/App.h"
@@ -46,6 +46,9 @@ const TCHAR* ELoadingPhase::ToString( const ELoadingPhase::Type Value )
 
 	case PostEngineInit:
 		return TEXT( "PostEngineInit" );
+
+	case EarliestPossible:
+		return TEXT("EarliestPossible");
 
 	case None:
 		return TEXT( "None" );

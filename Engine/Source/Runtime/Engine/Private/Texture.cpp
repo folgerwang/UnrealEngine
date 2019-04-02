@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/Texture.h"
 #include "Misc/App.h"
@@ -124,6 +124,21 @@ int32 UTexture::GetCachedLODBias() const
 }
 
 #if WITH_EDITOR
+bool UTexture::CanEditChange(const UProperty* InProperty) const
+{
+	if (InProperty)
+	{
+		FString PropertyName = InProperty->GetName();
+
+		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UTexture, AdjustVibrance))
+		{
+			return !HasHDRSource();
+		}
+	}
+
+	return true;
+}
+
 void UTexture::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -244,6 +259,14 @@ void UTexture::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEven
 		}
 	}
 #endif
+
+	for (UAssetUserData* Datum : AssetUserData)
+	{
+		if (Datum != nullptr)
+		{
+			Datum->PostEditChangeOwner();
+		}
+	}
 }
 #endif // WITH_EDITOR
 
@@ -657,14 +680,14 @@ void FTextureSource::Compress()
 				BulkData.Unlock();
 				bPNGCompressed = true;
 
-				BulkData.StoreCompressedOnDisk(ECompressionFlags::COMPRESS_None);
+				BulkData.StoreCompressedOnDisk(NAME_None);
 			}
 		}
 	}
 	else
 	{
 		//Can't PNG compress so just zlib compress the lot when its serialized out to disk. 
-		BulkData.StoreCompressedOnDisk(ECompressionFlags::COMPRESS_ZLIB);
+		BulkData.StoreCompressedOnDisk(NAME_Zlib);
 	}
 }
 

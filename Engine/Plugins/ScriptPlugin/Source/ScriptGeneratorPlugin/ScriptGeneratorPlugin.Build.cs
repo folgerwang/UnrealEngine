@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 using System.IO;
 using UnrealBuildTool;
 
@@ -17,7 +17,6 @@ namespace UnrealBuildTool.Rules
 
 			PrivateIncludePaths.AddRange(
 				new string[] {
-					"Developer/ScriptGeneratorPlugin/Private",
 					// ... add other private include paths required here ...
 				}
 				);

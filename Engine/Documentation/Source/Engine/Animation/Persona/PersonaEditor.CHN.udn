@@ -1,174 +1,129 @@
-﻿INTSourceChangelist:2714483
+INTSourceChangelist:3809606
 Availability:Public
-Title: Persona 动画编辑器参考
+Title:动画编辑器
 Crumbs: %ROOT%, Engine, Engine/Animation
-Description: 用于预览及编辑动画蓝图、混合空间、动画序列及通知等这些动画资源的编辑器。
-version: 4.9
-
+Description:用于预览和编辑AnimBlueprint、AnimationSequence和其他动画资源的编辑器。
+version: 4.14
+parent:Engine/Animation
+topic-image:Engine/Animation/animation_topic.png
+reference-image:UpdatedPersonaWindowAnim.gif
+Related: Engine/Content/FBX/Animations
+Related: Engine/Content/Types/SkeletalMeshes
+Related: Engine/Animation/PhysicallyDrivenAnimation
+Related: Engine/Content/Tools/MayaRiggingTool
+tags:Animation
+tags:Skeleton Asset
+tags:Animation Blueprint
+tags:Skeletal Mesh
+tags:Animation Tools
+type:landing
 
 [VAR:ModeSize]w:450 convert:false[/VAR]
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Animation/Persona:title%](Engine/Animation/animation_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/anim_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Animation/Persona:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Animation/Persona:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Animation/Persona]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[REGION:fullwidth]
-![](UpdatedPersonaWindow.png)
+[OBJECT:ToggleButtonContent]
+[PARAMLITERAL:category]
+OS
+[/PARAMLITERAL]
+[PARAMLITERAL:id]
+windows
+[/PARAMLITERAL]
+[PARAMLITERAL:active]
+active_button_content
+[/PARAMLITERAL]
+[PARAM:content]
+[REGION:asyncgif]
+![](UpdatedPersonaWindowAnim.gif)
 [/REGION]
+[/PARAM]
+[/OBJECT]
 
-[TOC (start:2 end:3)]
-
+[OBJECT:ToggleButtonContent]
+[PARAMLITERAL:category]
+OS
+[/PARAMLITERAL]
+[PARAMLITERAL:id]
+mac
+[/PARAMLITERAL]
+[PARAMLITERAL:active]
+[/PARAMLITERAL]
+[PARAM:content]
+[REGION:asyncgif]
+![](UpdatedPersonaWindowAnim_Mac.gif)
+[/REGION]
+[/PARAM]
+[/OBJECT]
 
 
 [EXCERPT:Intro]
+虚幻引擎4包含四个主要工具，用来处理骨架动画和 **骨架网格体**：骨架编辑器、骨架网格体编辑器、动画编辑器和动画蓝图编辑器。每个工具都可以通过编辑关联资源或使用每个动画编辑器顶部的四个导航按钮进行访问。
 
-[INCLUDE:Shared/Glossary/P/#Glossary_Persona]
+* **骨架编辑器** 用于检查和修改 **骨架网格体** 的 **骨架**。在这里，您可以添加 **插槽** 或关节，或测试骨架网格体关节的转动情况。
+
+* **骨架网格体编辑器** 可以用来导入LOD或向 **骨架网格体** 分配默认材质。还可以连接APEX布料，修改骨架网格体边界，甚至分配专用 **阴影物理资源**。
+
+* **动画编辑器** 可以用来处理 **动画序列** 和其他动画资源，如 **混合空间** 和 **动画蒙太奇**。在这里，您将创建动画通知，处理姿势资源，调整动画序列的压缩和定时，以及构建动画蒙太奇。
+
+* **动画蓝图编辑器** 可以用来创建何时以及如何播放动画的规则。在这里，您可以使用复杂状态机和不同的混合来生动地呈现角色。
+
+* 最后一个编辑器是 **物理编辑器**，在这里，您可创建和编辑将用于骨架网格体的碰撞形体。 
 
 [/EXCERPT:Intro]
 
-## 打开 Persona
-
-[REGION:fullwidth]
-![](OpeningPersona.png)
+[REGION:note]
+在虚幻引擎版本4.14之前，合并的动画编辑器称为 **Persona**。在4.14中，该编辑器被拆解为四个独立的编辑器。虽然它们的功能基本相同，但部分界面发生了变化，现在，您可以同时打开不同状态的多个动画编辑器窗口。例如，您现在可以针对游戏中的每个 **动画序列** 打开一个选项卡，而不是只通过一个选项卡在它们之间进行切换（如果从 **资源浏览器** 中选择 **动画序列**，则仍保持这种行为）。
 [/REGION]
 
+(#openingaspecificanimationeditor)
+## 打开特定动画编辑器
 
-通过在 **内容浏览器** 中双击一个动画资源可以打开角色编辑器，比如双击以下这样的动画资源：
+[OBJECT:ToggleButtonContent]
+[PARAMLITERAL:category]
+OS
+[/PARAMLITERAL]
+[PARAMLITERAL:id]
+windows
+[/PARAMLITERAL]
+[PARAMLITERAL:active]
+[/PARAMLITERAL]
+[PARAM:content]
+![](OpenPersona_Windows.png)
+[/PARAM]
+[/OBJECT]
 
-* 动画蓝图
-* 骨架
-* 骨架网格体
-* 动画序列
-* 混合空间
-* 动画蒙太奇
+[OBJECT:ToggleButtonContent]
+[PARAMLITERAL:category]
+OS
+[/PARAMLITERAL]
+[PARAMLITERAL:id]
+mac
+[/PARAMLITERAL]
+[PARAMLITERAL:active]
+[/PARAMLITERAL]
+[PARAM:content]
+![](OpenPersona_Mac.png)
+[/PARAM]
+[/OBJECT]
+
+
+每个动画编辑器都可以从 **内容浏览器** 中打开，方法是 **双击** 与该编辑器关联的资源。
+
+| 编辑器 | 资源类型 |
+| --- | --- |
+| 骨架编辑器 | 骨架资源 |
+| 骨架网格体编辑器 | 骨架网格体 |
+| 动画编辑器 | 动画序列、动画蒙太奇、1D混合空间、混合空间、动画偏移1D、动画偏移、动画合成、姿势资源 |
+| 动画蓝图编辑器 | 动画蓝图 |
+| 物理编辑器 | 物理资源 |
 
 [REGION:tip]
-也可以在 **内容浏览器** 中 **右键点击** 上述资源的任何一种，并在弹出菜单中选择 **编辑** 里打开 Persona！
+您还可以 **右键单击** **内容浏览器** 中的任意上述资源，从快捷菜单中选择 **编辑** 来打开资源的关联编辑器！
 [/REGION]
 
-## Persona 的模式和用户界面
+(#animationeditorsreference)
+## 动画编辑器参考
 
-[OBJECT:EmbeddedVideo]
-[PARAMLITERAL:width]
-640
-[/PARAMLITERAL]
-[PARAMLITERAL:height]
-360
-[/PARAMLITERAL]
-[PARAMLITERAL:videoid]
-3DKiBKb5a3E
-[/PARAMLITERAL]
-[/OBJECT]
+请参阅各个编辑器页面以了解有关其界面和用法的信息。
 
-[REGION:caption]
-在界面的 **模式** 工具栏右上角有一个按钮，用于 [Persona 编辑模式](Engine\Animation\Persona\Modes)。
-[/REGION]
-
-作为整合了大量独立功能的工具，如果同时展现所有相关内容的话，Persona 的界面会让人奔溃。为了解决这个问题，Persona 被拆分为四个主要部分。
-
-1. 骨架 Skeleton
-1. 网格体 Mesh
-1. 动画 Animation
-1. 图 Graph
-
-每个部分都是面向特定的类型，并使用特定工具完成相应的工作。在每个模式下，一部分工具及界面元素可见并可用。
-要记住的是，这仍然为工作提供了极大的灵活度，即使在同一个模式下，无需切换到其他模式，便能完成很多不同类型的工作。
-
-[REGION:note]
-下图中各个窗口的位置是都是默认状态，每个窗口元素都有可以被移动重新布局。
-[/REGION]
-
-
-[REGION:tip]
-无论当前是否显示，每个界面窗口都可以从 Persona 的窗口菜单打开。
-[/REGION]
-
-[OBJECT:IconSection]
-	[PARAM:icon]
-		[![](Engine\Animation\Persona\Modes\Persona_Mode_Skeleton.png)(%modesize%)](Engine\Animation\Persona\Modes\Persona_Mode_Skeleton.png)
-	[/PARAM]
-	[PARAM:title]
-		骨架模式
-	[/PARAM]
-	[PARAM:description]
-		[INCLUDE:#skeletonoverview]
-		
-		界面窗口包括：
-		[INCLUDE:Engine\Animation\Persona\Modes#skeletonmodeui]
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:IconSection]
-	[PARAM:icon]
-		[![](Engine\Animation\Persona\Modes\Persona_Mode_Mesh.png)(%modesize%)](Engine\Animation\Persona\Modes\Persona_Mode_Mesh.png)
-	[/PARAM]
-	[PARAM:title]
-		网格体模式
-	[/PARAM]
-	[PARAM:description]
-		[INCLUDE:#meshoverview]
-
-		界面窗口包括：
-		[INCLUDE:Engine\Animation\Persona\Modes#meshmodeui]
-	[/PARAM]
-[/OBJECT]
-
-
-[OBJECT:IconSection]
-	[PARAM:icon]
-		[![](Engine\Animation\Persona\Modes\Persona_Mode_Anmation.png)(%modesize%)](Engine\Animation\Persona\Modes\Persona_Mode_Anmation.png)
-	[/PARAM]
-	[PARAM:title]
-		动画模式
-	[/PARAM]
-	[PARAM:description]
-		[INCLUDE:#animationoverview]
-
-
-		界面窗口包括：
-		[INCLUDE:Engine\Animation\Persona\Modes#animationmodeui]
-
-		动画模式下，有一个特有的用户界面功能，叫做 **资源编辑器 Asset Editor**。**资源浏览器** 中在动画资源上 **双击** 会打开这个面板。默认情况下，资源编辑器会显示在 Persona 中间底部的位置，直接在窗口下面。
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:IconSection]
-	[PARAM:icon]
-		[![](Engine\Animation\Persona\Modes\Persona_Mode_Vim.png)(%modesize%)](Engine\Animation\Persona\Modes\Persona_Mode_Vim.png)
-	[/PARAM]
-	[PARAM:title]
-		图形模式
-	[/PARAM]
-	[PARAM:description]
-		[INCLUDE:#graphoverview]
-
-		界面窗口包括：
-		[INCLUDE:Engine\Animation\Persona\Modes#graphmodeui]
-	[/PARAM]
-[/OBJECT]
-
-[REGION:note]
-**图形** 模式只有在 **内容浏览器** 中打开动画蓝图时才可用。对于其他动画数据类型（骨骼、动画序列等）只能够看到骨骼模式、网格物体模式和动画模式。
-这是因为单个骨骼和动画的设置可能具有多个相应的动画蓝图。
-[/REGION]
-
-
+[INCLUDE:Engine/Animation/Persona/Modes#animeditors]
 
 
 
@@ -176,99 +131,69 @@ version: 4.9
 [COMMENT:none]
 
 [EXCERPT:SkeletonOverview]
-**骨骼模式** 能够可视化的控制角色或者骨骼网格物体，包括控制单个骨骼或者关节继承关系。比如可以做的事情包括：
+**骨架模式** 允许呈现和控制角色的骨架或涉及角色骨骼或关节层级的骨架网格体。示例用法包括：
 
-* 在骨骼网格物体上新建 [插槽 Socket](Engine/Content\Types\SkeletalMeshes\Sockets) 用于外挂其他物体。
-* 为每个 [插槽 Socket](Engine/Content\Types\SkeletalMeshes\Sockets) 编辑相对位置和相对角度。
-* 建立动画数据和骨骼数据的绑定关系。
+* 创建[插槽](Engine/Content\Types\SkeletalMeshes\Sockets)以将项目连接到骨架网格体。
+* 编辑每个[插槽](Engine/Content\Types\SkeletalMeshes\Sockets)的相对位置和旋转。
+* 建立动画重定位关系。
 
 [/EXCERPT:SkeletonOverview]
 
 [EXCERPT:MeshOverview]
-**网格物体模式** 能够对骨骼网格物体上的多面体模型做改动。比如可以做的事情包括：
+**网格体模式** 允许您进行会影响骨架网格体的多边形网格体模型的更改。该模式的示例用法包括：
 
-* 为骨骼网格物体设置材质。
+* 在骨架网格体上设置材质。
 * 添加布料元素。
-* 对骨骼网格物体做 LOD 设置。
-* 测试 Morph Target。
+* 为骨架网格体设置LOD。
+* 测试变形目标。
 [/EXCERPT:MeshOverview]
 
 [EXCERPT:AnimationOverview]
-**动画模式** 中能够为骨骼网格模型很容易的访问各类动画资源，包括动画序列，混合空间，动画蒙太奇。比如可以做的事情包括：
+**动画模式** 便于访问可供骨架网格体使用的各种以动画为核心的资源，包括动画序列、混合空间和动画蒙太奇。示例用法包括：
 		
-* 预览动画资源（动画序列，混合空间，动画蒙太奇）。
-* 对资源进行修改（混合空间，动画蒙太奇）。
-* 为材质或者 Morph Target 的变化添加或编辑曲线。
-* 新建或编辑动画通知（Animation Notification）。
+* 预览动画资源（动画序列、混合空间、动画蒙太奇等）。
+* 对资源进行编辑（混合空间或动画蒙太奇）。
+* 添加和编辑材质或变形目标更改的曲线。
+* 创建和编辑动画通知。
 [/EXCERPT:AnimationOverview]
 
 [EXCERPT:GraphOverview]
-**图形模式** 主要是用来创建并编辑动画蓝图，以及动画状态机。比如可以做的事情包括：
+**图表模式** 是创建和编辑动画蓝图以及动画状态机的主要方法。示例用法包括：
 
-* 设置并编辑动画蓝图。
-* 新建并编辑状态机。
-* 在动画蓝图的事件图中播放动画蒙太奇。
-* 使用 AnimGraph 混合不同的姿势以及其他动画计算的结果数据。
+* 设置和编辑动画蓝图。
+* 创建和编辑状态机。
+* 从动画蓝图事件图表内部播放动画蒙太奇。
+* 使用AnimGraph混合不同姿势和动画结果。
 [/EXCERPT:GraphOverview]
 
-[/COMMENT]
-
-
-
-[COMMENT:none]
--
-[EXCERPT:Modes]
-
-
-
-
-[/EXCERPT:Modes]
-
-
--
-[/COMMENT]
-
-
-
-
-
-
-[COMMENT:none]
-
 [EXCERPT:SkeletonUI]
-
 [REGION:simpletable]
-|Available Interface Components						|																					|
+|可用界面组件						|																					|
 |------------------------------------------------------|-----------------------------------------------------------------------------------|
-| **Visible by Default**									| **In Window Menu** 																|
-| 1. [Menu Bar](Engine/Animation/Persona\MenuBar)			| [Morph Target Previewer](Engine/Animation/Persona\MorphTargetPreviewer)|
-| 2. [Toolbar](Engine/Animation/Persona\Toolbar)			| [Animation Notifies](Engine/Animation/Persona\AnimationNotifies)		|
-| 3. [Skeleton Tree](Engine/Animation/Persona\SkeletonTree)	| [Retarget Source Manager](Engine/Animation/Persona\BasePoseManager)			|
-| 4. [Viewport](Engine/Animation/Persona\Viewport)			|																					|
-| 5. [Details](Engine/UI/LevelEditor/Details)				|																					|
-| 6. [Asset Browser](Engine/Animation/Persona\AssetBrowser)	|																					|
-
-
+| **默认可见**									| **在“窗口（Window）”菜单中** 																|
+| 1.[菜单栏](Engine/Animation/Persona\MenuBar)			| [变形目标预览器](Engine/Animation/Persona\MorphTargetPreviewer)|
+| 2.[工具栏](Engine/Animation/Persona\Toolbar)			| [动画通知](Engine/Animation/Persona\AnimationNotifies)		|
+| 3.[骨架树](Engine/Animation/Persona\SkeletonTree)	| [重定位源管理器](Engine/Animation/Persona\BasePoseManager)			|
+| 4.[视口](Engine/Animation/Persona\Viewport)			|																					|
+| 5.[细节](Engine/UI/LevelEditor/Details)				|																					|
+| 6.[资源浏览器](Engine/Animation/Persona\AssetBrowser)	|																					|
 [/REGION]
 [/EXCERPT:SkeletonUI]
 
 
 
 [EXCERPT:MeshUI]
-
 [REGION:simpletable]
-|Available Interface Components											|																					|
+|可用界面组件											|																					|
 |-----------------------------------------------------------------------|-----------------------------------------------------------------------------------|
-| **Visible by Default**												| **In Window Menu**																|
-| 1. [Menu Bar](Engine/Animation/Persona\MenuBar)			| [Retarget Source Manager](Engine/Animation/Persona\BasePoseManager)			|
-| 2. [Toolbar](Engine/Animation/Persona\Toolbar)				| [Animation Notifies](Engine/Animation/Persona\AnimationNotifies)		|
-| 3. [Skeleton Tree](Engine/Animation/Persona\SkeletonTree)	|																					|
-| 4. [Mesh Details](Engine/Animation/Persona\MeshDetails)	|																					|
-| 5. [Viewport](Engine/Animation/Persona\Viewport)			|																					|
-| 6. [Asset Browser](Engine/Animation/Persona\AssetBrowser) & [Details](Engine/UI/LevelEditor/Details)|									|
-| 7. [Morph Target Previewer](Engine/Animation/Persona\MorphTargetPreviewer)	|																	|
-
-
+| **默认可见**									| **在“窗口（Window）”菜单中**																|
+| 1.[菜单栏](Engine/Animation/Persona\MenuBar)	| [重定位源管理器](Engine/Animation/Persona\BasePoseManager)			|
+| 2.[工具栏](Engine/Animation/Persona\Toolbar)				| [动画通知](Engine/Animation/Persona\AnimationNotifies)		|
+| 3.[骨架树](Engine/Animation/Persona\SkeletonTree)	|																					|
+| 4.[网格体细节](Engine/Animation/Persona\MeshDetails)	|																					|
+| 5.[视口](Engine/Animation/Persona\Viewport)			|																					|
+| 6.[资源浏览器](Engine/Animation/Persona\AssetBrowser)和[细节](Engine/UI/LevelEditor/Details)|									|
+| 7.[变形目标预览器](Engine/Animation/Persona\MorphTargetPreviewer)	|																	|
 [/REGION]
 [/EXCERPT:MeshUI]
 
@@ -276,19 +201,17 @@ version: 4.9
 
 [EXCERPT:AnimationUI]
 [REGION:simpletable]
-|Available Interface Components													|																					|
+|可用界面组件													|																					|
 |-------------------------------------------------------------------------------|-----------------------------------------------------------------------------------|
-| **Visible by Default**														| **In Window Menu**																|
-| 1. [Menu Bar](Engine/Animation/Persona\MenuBar)					| [Retarget Source Manager](Engine/Animation/Persona\BasePoseManager)			|
-| 2. [Toolbar](Engine/Animation/Persona\Toolbar)						| [Animation Notifies](Engine/Animation/Persona\AnimationNotifies)		|
-| 3. [Skeleton Tree](Engine/Animation/Persona\SkeletonTree)			| [Morph Target Previewer](Engine/Animation/Persona\MorphTargetPreviewer)|
-| 4. [Anim Asset Details](Engine/Animation/Persona\AnimAssetDetails)	|																					|
-| 5. [Viewport](Engine/Animation/Persona\Viewport)					|																					|
-| 6. [Asset Editor](Engine/Animation/Persona\AssetEditor)			|																					|
-| 7. [Details](Engine/UI/LevelEditor/Details)							|																					|
-| 8. [Asset Browser](Engine/Animation/Persona\AssetBrowser)			|																					|
-
-
+| **默认可见**														| **在“窗口（Window）”菜单中**																|
+| 1.[菜单栏](Engine/Animation/Persona\MenuBar)					| [重定位源管理器](Engine/Animation/Persona\BasePoseManager)			|
+| 2.[工具栏](Engine/Animation/Persona\Toolbar)						| [动画通知](Engine/Animation/Persona\AnimationNotifies)		|
+| 3.[骨架树](Engine/Animation/Persona\SkeletonTree)			| [变形目标预览器](Engine/Animation/Persona\MorphTargetPreviewer)|
+| 4.[动画资源细节](Engine/Animation/Persona\AnimAssetDetails)	|																					|
+| 5.[视口](Engine/Animation/Persona\Viewport)					|																					|
+| 6.[资源编辑器](Engine/Animation/Persona\AssetEditor)			|																					|
+| 7.[细节](Engine/UI/LevelEditor/Details)							|																					|
+| 8.[资源浏览器](Engine/Animation/Persona\AssetBrowser)			|																					|
 [/REGION]
 [/EXCERPT:AnimationUI]
 
@@ -297,173 +220,17 @@ version: 4.9
 
 [EXCERPT:GraphUI]
 [REGION:simpletable]
-|Available Interface Components													|																					|
+|可用界面组件													|																					|
 |-------------------------------------------------------------------------------|-----------------------------------------------------------------------------------|
-| **Visible by Default**														| **In Window Menu**																|
-| 1. [Menu Bar](Engine/Animation/Persona\MenuBar)					| [Debug](Engine/Blueprints\UserGuide\Debugging)										|
-| 2. [Toolbar](Engine/Animation/Persona\Toolbar)						| [Palette](Engine/Blueprints\Editor/UIComponents\Palette)										|
-| 3. [Viewport](Engine/Animation/Persona\Viewport)					| [Compiler Results](Engine/Blueprints\Editor/UIComponents\CompilerResults)					|
-| 4. [Graph Editor](Engine/Blueprints\Editor/UIComponents\GraphEditor)						| [Find Results](Engine/Blueprints\Editor/UIComponents\FindResults)							|
-| 5. [Class Defaults](Engine/Animation/Persona\BlueprintDefaults)| [Animation Notifies](Engine/Animation/Persona\AnimationNotifies)		|
-| 6. [My Blueprint](Engine/Blueprints\Editor/UIComponents\MyBlueprint) & [Asset Browser](Engine/Animation/Persona\AssetBrowser)|									|
-| 7. [Details](Engine/UI/LevelEditor/Details)							|																					|
+| **默认可见**														| **在“窗口（Window）”菜单中**																|
+| 1.[菜单栏](Engine/Animation/Persona\MenuBar)					| [调试](Engine/Blueprints\UserGuide\Debugging)										|
+| 2.[工具栏](Engine/Animation/Persona\Toolbar)						| [选用板](Engine/Blueprints\Editor/UIComponents\Palette)										|
+| 3.[视口](Engine/Animation/Persona\Viewport)					| [编译结果](Engine/Blueprints\Editor/UIComponents\CompilerResults)					|
+| 4.[图表编辑器](Engine/Blueprints\Editor/UIComponents\GraphEditor)						| [查找结果](Engine/Blueprints\Editor/UIComponents\FindResults)							|
+| 5.[类默认值](Engine/Animation/Persona\BlueprintDefaults)| [动画通知](Engine/Animation/Persona\AnimationNotifies)		|
+| 6.[我的蓝图](Engine/Blueprints\Editor/UIComponents\MyBlueprint)和[资源浏览器](Engine/Animation/Persona\AssetBrowser)|									|
+| 7.[细节](Engine/UI/LevelEditor/Details)							|																					|
 [/REGION]
-
-
-
-
-
-
 [/EXCERPT:GraphUI]
-
-
 -
 [/COMMENT]
-
-
-[COMMENT:none]
-
-
-
-## Interface Elements
-
-Persona combines a node-based graph editor with other specialized tools and panels that can be used 
-for setting up animations for Skeletal meshes. The tools available will update depending on the type of asset being previewed. For instance, if not looking at a BlendSpace, you will not see the BlendSpace Editor.
-
-### Toolbar
-
-![](ToolbarPersona.png)(w:800)
-
-![](ToolbarPersona_BluePrint.png)(w:800)
-
-[INCLUDE:Engine/Animation/Persona/Toolbar#Overview]
-
-See the [](Engine/Animation/Persona/Toolbar) page for details.
-
-### Explorer
-
-[INCLUDE:Engine/Animation/Persona/Explorer#Overview]
-
-See the [](Engine/Animation/Persona/Explorer) page for details.
-
-
-### My Blueprint
-
-![](MyBlueprint.png)
-
-[INCLUDE:Engine/Blueprints\Editor\MyBlueprint#Intro]
-
-See the [](Engine/Blueprints\Editor/UIComponents\MyBlueprint) page for details.
-
-### Variables
-
-![](Variables.png)
-
-The **Variables** panel allows custom variables to be added to the Animation Blueprint and lists any existing 
-variables. Variables will typically either have their values updated within the EventGraph of the Animation 
-Blueprint or externally through code. These can then be used in other calculations or as inputs to 
-[Blendspaces](Engine/Animation/Blendspaces) to control animation blending.
-
-See the [](Engine/Blueprints/UserGuide/Variables) page for details.
-
-### Details
-
-![Persona: Details Panel](CE_details_panel.png)
-
-The **Details** panel displays properties or a context-sensitive collection of commands and actions that 
-act on the current selection in the active graph, such as Blendspace nodes, SkelControls, etc.
-
-See the [](Engine/UI/LevelEditor/Details) page for general usage details.
-
-### Debug
-
-![Persona: Debug Panel](CE_debug_panel.png)
-
-The **Debug** panel shows information designated as important by the designer in the form of breakpoints 
-and watch values as well as a trace stack of all nodes belonging to the Animation Blueprint that have been executed. 
-This window also shows controls for controlling execution of the game when using breakpoints.
-
-See [Debugging](Engine/Blueprints/UserGuide/Debugging) for more information on working with the **Debug** panel to debug Animation Blueprints.
-
-### Asset Browser Panel
-
-[INCLUDE:Engine/Animation/Persona/AssetBrowser#Overview]
-
-See the [](Engine/Animation/Persona/AssetBrowser) page for details.
-
-### Skeleton Tree Panel
-
-![](SkeletonTree.png)
-
-The **Skeleton Tree** panel displays the bone hierarchy of the Skeleton the Animation Blueprint being edited was created from.
-
-See the [Skeleton Tree](Engine/Animation/Persona\SkeletonTree) page for details.
-
-### Viewport Panel
-
-[INCLUDE:Engine/Animation/Persona/Viewport#Overview]
-
-See the [](Engine/Animation/Persona/Viewport) page for details.
-
-
-### Mesh Details Panel
-
-[INCLUDE:Engine/Animation/Persona\MeshDetails#Overview]
-
-See the [Mesh Details Panel](Engine/Animation/Persona\MeshDetails) page for details.
-
-### Anim Asset Details
-
-[INCLUDE:Engine/Animation/Persona\AnimAssetDetails#Overview]
-
-See the [](Engine/Animation/Persona\AnimAssetDetails) page for details.
-
-
-### Morph Target Previewer
-
-[INCLUDE:Engine/Animation/Persona\MorphTargetPreviewer#Overview]
-
-See the [](Engine/Animation/Persona\MorphTargetPreviewer) page for details.
-
-### Class Defaults (Preview Settings)
-
-![](BlueprintDefaults.png)
-
-When testing out Animation Blueprints, you will often need to adjust the value of certain variables to drive the blends between animations. This is done by way of the Class Defaults panel. Within Persona, the tab for this panel will be hidden by default, and so the window simply reads "Preview Settings."
-
-
-See the [](Engine/Blueprints\Editor\Modes\Defaults) page for details.
-
-### Graph Panels
-
-![Persona: Graph Panels](CE_graph_panels.png)
-
-[INCLUDE:Engine/Blueprints/Editor/Modes/GraphPanel#Intro]
-
-See the [Blueprint Graph Panel](Engine/Blueprints/Editor/Modes/GraphPanel) section for details.
-
-## Editors
-
-### Animation Sequence Editor
-
-[INCLUDE:Engine/Animation/Sequences/Editor#Overview]
-
-![Animation Sequence Editor](Engine/Animation/Sequences/Editor/persona_sequence.png)(w:720)
-
-See [](Engine/Animation/Sequences/Editor) for more information on setting up AnimationSequences.
-
-### BlendSpace Editor
-
-[INCLUDE:Engine/Animation/Blendspaces/Editor#Overview]
-
-![Animation Sequence Editor](Engine/Animation/Blendspaces/Editor/bs_editor.png)(w:720)
-
-See [](Engine/Animation/Blendspaces/Editor) for more information on setting up Blendspaces.
-
-
--
-[/COMMENT]
-
-
-
-

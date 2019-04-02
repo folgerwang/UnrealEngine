@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 //~=============================================================================
 // ReimportFbxSkeletalMeshFactory
@@ -20,8 +20,16 @@ class UReimportFbxSkeletalMeshFactory : public UFbxFactory, public FReimportHand
 
 	//~ Begin FReimportHandler Interface
 	virtual bool CanReimport( UObject* Obj, TArray<FString>& OutFilenames ) override;
-	virtual void SetReimportPaths( UObject* Obj, const TArray<FString>& NewReimportPaths ) override;
-	virtual EReimportResult::Type Reimport( UObject* Obj ) override;
+	virtual void SetReimportPaths( UObject* Obj, const TArray<FString>& NewReimportPaths ) override
+	{
+		return SetReimportPaths(Obj, NewReimportPaths[0], 0);
+	}
+	virtual void SetReimportPaths(UObject* Obj, const FString& NewReimportPath, const int32 SourceIndex) override;
+	virtual EReimportResult::Type Reimport(UObject* Obj) override
+	{
+		return Reimport(Obj, INDEX_NONE);
+	}
+	virtual EReimportResult::Type Reimport( UObject* Obj, int32 SourceFileIndex );
 	virtual int32 GetPriority() const override;
 	//~ End FReimportHandler Interface
 

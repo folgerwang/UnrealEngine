@@ -1,126 +1,149 @@
-﻿Availability:Public
+﻿INTSourceChangelist:3782314
+Availability:Public
 Title: 在线子系统类型
 Crumbs:%ROOT%, Programming
-Description: 对于在线子系统定义的主要类型的描述
+Description:在线子系统中定义的主要类型的描述
+Version: 4.9
 
 [TOC(start:2)]
 
 
-## 概述
 
-本文被用来对整个在线子系统用到的不同数据结构进行定义。
+此文档用于定义在线子系统中使用的各种数据结构。
+
+(#ionlineplatformdata)
 
 ### IOnlinePlatformData
 
- *任何基类都为不透明，这样数据就可以被传递而不必考虑其中包含的数据。*
- 数据中操作人员可阅读的版本是通过 **ToString()** 函数来访问的，否则，数据只能直接采用平台源代码来操作。
+ **IOnlinePlatformData** 是任意不透明类容的基类，以便数据能四处传递，而不考虑其所包含的数据。
+ 通过 **ToString()** 函数可获取到数据的可读版本；否则，除平台代码应没有内容尝试在数据上直接进行操作。
 
- 经常有不同构造的平台特定表示，尽管它们需要游戏来处理，但并不需要显示其细节。这使得游戏可以紧扣数据并将其复制到其他电脑而不必理解其细节。
+ 诸多结构体通常有平台特定的表达，而它们需要被游戏处理，不需要被公开细节。这需要游戏抓牢数据，并将其复制到其他机器（而无需理解其详情）。
  
- 来自 **IOnlinePlatformData** 的类:
+ 派生自IOnlinePlatformData的类：
  * [FUniqueNetId](#FUniqueNetId)
  * [FSharedContentHandle](#FSharedContentHandle)
  * [FSessionInfo](#FSessionInfo)
 
 
+(#functions)
+
 #### 函数
 
 	/** 
-	 * 获取此不透明数据的初始字节表示
-	 * 此数据依赖于平台并且不应进行直接操作
-	 * @return GetSize()的字节数组
+	 * 获取此不透明数据的原始字节表达
+	 * 此数据拥有平台依赖性，不应被直接操纵
+	 * @返回大小GetSize()字节数据
 	 */
 	virtual const uint8* GetBytes() const = 0;
 
 	/** 
 	 * 获取不透明数据的大小
-	 * @return 用字节表示的数据大小
+	 * @返回数据表达的大小（按字节计）
 	 */
 	virtual int32 GetSize() const = 0;
 
 	/** 
 	 * 检查不透明数据的有效性
-	 * @return 如果数据组成良好，返回true，否则返回false
+	 * @如这是完整的数据，则返回true；否则返回false
 	 */
 	virtual bool IsValid() const = 0;
 
 	/** 
-	 * 获取不透明数据的可读表示
-	 * 不应用于除记录/调试外的任意对象
-	 * @return 以字符串形式返回数据 
+	 * 获取不透明数据的可读表达
+	 * 不应用于日志记录/调试之外的其他操作
+	 * @以字符串形式返回数据 
 	 */
 	virtual FString ToString() const = 0;
 
 
 
+(#funiquenetid)
+
 ### FUniqueNetId
 
-*包含用户配置文件服务在线ID并可从单人，朋友或会话处任意代表内容。*
+**FUniqueNetId** 包含一个档案服务在线ID，可代表单个玩家、好友或会话。
 
-请参照:
- * [](Programming/Online/Interfaces/Profile)
+[COMMENT:none]
+参见：[](Programming/Online/Interfaces/Profile)
+[/COMMENT]
 
+
+(#fsharedcontenthandle)
 
 ### FSharedContentHandle
 
-*包含用户配置文件服务共享的文件句柄。*  这个句柄可以被传送并在有合适权限的条件下，用来访问任意位置的共享内容。
+**FSharedContentHandle** 包含一个档案服务共享文件柄。此柄可四处传递，用于访问来自任意处的共享内容，给出正确的许可。
 
-See:
+[COMMENT:none]
+参见：
  * [](Programming/Online/Interfaces/SharedCloud)
+[/COMMENT]
 
 
  
+(#fsessioninfo)
+
 ### FSessionInfo
 
-*包含会话的平台特定信息。*  大多数情况下这些信息为会话标识符，主机地址,或其它辨认和连接已创建对话的方法。
+**FSessionInfo** 包含会话的平台特定消息。在多数情况下，这是会话辨识符、主机地址之类的信息，或识别和连接到已创建会话的其他方式。
 
-请参照:
- * [](Programming/Online/Interfaces/Session)
+参见：[](Programming/Online/Interfaces/Session)
 
+
+(#femsfile)
 
 ### FEmsFile
 
-*给定下载文件的元数据。* 此结构被用于从给定服务中枚举可用数据。
+**FEmsFile** 是关于一个给定可下载文件的元数据。从给定服务列举出可用数据时将使用此结构。 
 
 包含以下元素：
- * Hash -给定文件内容的hash值。
- * 文件名- 文件名同已下载的相同。
- * 逻辑名称- 映射到已下载文件名的名称。
- * 文件尺寸-文件的尺寸。
+ * 散列——给定文件内容的散列值。
+ * 文件名——下载时的文件名。
+ * 逻辑命名——映射到下载文件名的命名。
+ * 文件大小——文件的大小。  
 
 
-请参照:
+[COMMENT:none]
+参见：
  * [](Programming/Online/Interfaces/SharedCloud)
  * [](Programming/Online/Interfaces/UserCloud)
+[/COMMENT]
 
+
+(#ftitlefile)
 
 ### FTitleFile
 
-* 从在线服务异步下载的存储数据的内部结构。*
+**FTitleFile** 是内部结构，保存用于从在线服务异步下载文件的数据。
 
 包含以下元素：
- * 文件名- 文件名同已下载的相同。
- * 异步状态-已下载文件的状态。（参见:[异步状态](#EOnlineAsyncTaskState) )
- * 数据- 包含文件内容的缓冲器。
+ * 文件名——下载时的文件名。
+ * 异步状态——下载文件的状态。（参见：[异步状态](#EOnlineAsyncTaskState)）
+ * 数据——包含文件内容的缓冲。
 
 
-请参照: 
+[COMMENT:none]
+参见： 
  * [](Programming/Online/Interfaces/SharedCloud)
  * [](Programming/Online/Interfaces/UserCloud)
+[/COMMENT]
 
+
+(#eonlineasynctaskstate)
 
 ### EOnlineAsyncTaskState
 
-*简单的枚举展示了异步动作的可能状态。* 
+**EOnlineAsyncTaskState** 是一个简单列举，代表异步操作可能的状态。
 
 
 		/** 任务尚未开始 */
 		NotStarted,
-		/** 任务正在处理 */
+		/** 任务当前当前正在处理 */
 		InProgress,
-		/** 任务成功完成 */
+		/** 任务已成功完成 */
 		Done,
-		/** 任务完成失败 */
+		/** 任务未能完成 */
 		Failed
 
 

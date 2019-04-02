@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UExporter.cpp: Exporter class implementation.
@@ -869,7 +869,7 @@ FString DumpComponentsToString(UObject *Object)
 	Output.Logf(TEXT("Components for '%s':\r\n"), *Object->GetFullName());
 	ExportProperties(NULL, Output, Object->GetClass(), (uint8*)Object, 2, NULL, NULL, Object, PPF_SubobjectsOnly);
 	Output.Logf(TEXT("<--- DONE!\r\n"));
-	return Output;
+	return MoveTemp(Output);
 }
 
 
@@ -889,5 +889,5 @@ FString DumpObjectToString(UObject* Object)
 	const FExportObjectInnerContext Context;
 	UExporter::ExportToOutputDevice(&Context, Object, NULL, Archive, TEXT("copy"), 0, PPF_Copy | PPF_DebugDump, false);
 
-	return Archive;
+	return MoveTemp(Archive);
 }

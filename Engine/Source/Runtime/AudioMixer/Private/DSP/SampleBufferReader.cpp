@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "DSP/SampleBufferReader.h"
 #include "AudioMixer.h"
@@ -372,7 +372,7 @@ namespace Audio
 			int32 WrappedNextFrameIndex = WrapIndex(NextFrameIndex, BufferNumFrames);
 
 			// Update the current playback time
-			PlaybackProgress = (float)(WrappedCurrentFrameIndex / BufferSampleRate);
+			PlaybackProgress = ((float)WrappedCurrentFrameIndex) / BufferSampleRate;
 
 			const int32 CurrentBufferSampleIndex = BufferNumChannels * WrappedCurrentFrameIndex + Channel;
 			const int32 NextBufferSampleIndex = BufferNumChannels * WrappedNextFrameIndex + Channel;

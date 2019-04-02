@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnixPlatformMemory.cpp: Unix platform memory functions
@@ -48,6 +48,17 @@ bool CORE_API GFullCrashCallstack = false;
 // Used to enable kernel shared memory from mmap'd memory
 bool CORE_API GUseKSM = false;
 bool CORE_API GKSMMergeAllPages = false;
+
+// Used to enable or disable timing of ensures. Enabled by default
+bool CORE_API GTimeEnsures = true;
+
+// Allows settings a specific signal to maintain its default handler rather then ignoring the signal
+int32 CORE_API GSignalToDefault = 0;
+
+#if UE_SERVER
+// Scale factor for how much we would like to increase or decrease the memory pool size
+float CORE_API GPoolTableScale = 1.0f;
+#endif
 
 // Used to set the maximum number of file mappings.
 #if UE_EDITOR
@@ -164,12 +175,39 @@ class FMalloc* FUnixPlatformMemory::BaseAllocator()
 					GKSMMergeAllPages = true;
 				}
 
+				if (FCStringAnsi::Stricmp(Arg, "-noensuretiming") == 0)
+				{
+					GTimeEnsures = false;
+				}
+
+				const char SignalToDefaultCmd[] = "-sigdfl=";
+				if (const char* Cmd = FCStringAnsi::Stristr(Arg, SignalToDefaultCmd))
+				{
+					int32 SignalToDefault = FCStringAnsi::Atoi(Cmd + sizeof(SignalToDefaultCmd) - 1);
+
+					// Valid signals are only from 1 -> SIGRTMAX
+					if (SignalToDefault > SIGRTMAX)
+					{
+						SignalToDefault = 0;
+					}
+
+					GSignalToDefault = FMath::Max(SignalToDefault, 0);
+				}
+
 				const char FileMapCacheCmd[] = "-filemapcachesize=";
 				if (const char* Cmd = FCStringAnsi::Stristr(Arg, FileMapCacheCmd))
 				{
 					int32 Max = FCStringAnsi::Atoi(Cmd + sizeof(FileMapCacheCmd) - 1);
 					GMaxNumberFileMappingCache = FMath::Clamp(Max, 0, MaximumAllowedMaxNumFileMappingCache);
 				}
+#if UE_SERVER
+				const char MemPoolTableScaleCmd[] = "-mempoolscale=";
+				if (const char* Cmd = FCStringAnsi::Stristr(Arg, MemPoolTableScaleCmd))
+				{
+					float MemPoolScale = FCStringAnsi::Atof(Cmd + sizeof(MemPoolTableScaleCmd) - 1);
+					GPoolTableScale = FMath::Max(MemPoolScale, 0.0f);
+				}
+#endif
 
 #if UE_USE_MALLOC_REPLAY_PROXY
 				if (FCStringAnsi::Stricmp(Arg, "-mallocsavereplay") == 0)
@@ -291,7 +329,7 @@ bool FUnixPlatformMemory::MemoryRangeDecommit(void* Ptr, SIZE_T Size)
 	{
 		return true;
 	}
-	return madvise(Ptr, Size, MADV_DONTNEED) != 0;
+	return madvise(Ptr, Size, MADV_DONTNEED) == 0;
 }
 
 namespace UnixPlatformMemory
@@ -556,8 +594,8 @@ const FPlatformMemoryConstants& FUnixPlatformMemory::GetConstants()
 
 		MemoryConstants.PageSize = sysconf(_SC_PAGESIZE);
 		MemoryConstants.BinnedPageSize = FMath::Max((SIZE_T)65536, MemoryConstants.PageSize);
-		MemoryConstants.BinnedAllocationGranularity = 16384;  // Binned2 malloc will allocate in increments of this, and this is the minimum constant recommended
-		MemoryConstants.OsAllocationGranularity = MemoryConstants.BinnedPageSize;
+		MemoryConstants.BinnedAllocationGranularity = MemoryConstants.PageSize;
+		MemoryConstants.OsAllocationGranularity = MemoryConstants.PageSize;
 	}
 
 	return MemoryConstants;	
@@ -733,7 +771,7 @@ void FUnixPlatformMemory::OnOutOfMemory(uint64 Size, uint32 Alignment)
 	}
 
 	// let any registered handlers go
-	FCoreDelegates::GetMemoryTrimDelegate().Broadcast();
+	FCoreDelegates::GetOutOfMemoryDelegate().Broadcast();
 
 	UE_LOG(LogMemory, Fatal, TEXT("Ran out of memory allocating %llu bytes with alignment %u"), Size, Alignment);
 	// unreachable

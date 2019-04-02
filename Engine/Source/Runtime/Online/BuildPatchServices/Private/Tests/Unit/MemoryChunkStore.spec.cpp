@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Misc/AutomationTest.h"
 #include "Installer/MemoryChunkStore.h"
@@ -265,36 +265,6 @@ void FMemoryChunkStoreSpec::Define()
 					{
 						TEST_TRUE(MemoryChunkStore->Remove(Chunk).IsValid());
 					}
-				});
-			});
-		});
-
-		Describe("GetSlack", [this]()
-		{
-			Describe("when no chunks were previously Put", [this]()
-			{
-				It("should return StoreSize.", [this]()
-				{
-					TEST_EQUAL(MemoryChunkStore->GetSlack(), StoreSize);
-				});
-			});
-
-			Describe("when some chunks were previously Put", [this]()
-			{
-				BeforeEach([this]()
-				{
-					for (const FGuid& Chunk : SomeChunks)
-					{
-						MemoryChunkStore->Put(Chunk, TUniquePtr<IChunkDataAccess>(new FFakeChunkDataAccess()));
-					}
-				});
-
-				Describe("when no chunks were instructed to boot", [this]()
-				{
-					It("should return StoreSize minus number of Put chunks.", [this]()
-					{
-						TEST_EQUAL(MemoryChunkStore->GetSlack(), StoreSize - SomeChunks.Num());
-					});
 				});
 			});
 		});

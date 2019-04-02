@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -37,6 +37,9 @@ private:
 
 	/** Handler for when Create Pose Asset is selected */
 	void ExecuteNewPoseAsset(TArray<TWeakObjectPtr<UAnimSequence>> Objects) const;
+
+	/** Handler for when Add Animation Modifier is selected */
+	void ExecuteAddNewAnimationModifier(TArray<TWeakObjectPtr<UAnimSequence>> Objects);
 
 	/** Delegate handler passed to CreateAnimationAssets when creating AnimComposites */
 	bool ConfigureFactoryForAnimComposite(UFactory* AssetFactory, UAnimSequence* SourceAnimation) const;

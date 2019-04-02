@@ -1,7 +1,7 @@
-﻿INTSourceChangelist:3200404
+﻿INTSourceChangelist:4057278
 Availability:Public
-Title:Ansel 蓝图节点参考
-Description:Nvidia Ansel Photography 插件可用配置变量的参考
+TItle:NVIDIA Ansel蓝图节点参考
+Description:NVIDIA Ansel Photography插件可用蓝图实用程序参考
 Crumbs:
 Parent:Engine/Plugins/Ansel
 Order:1
@@ -11,13 +11,18 @@ tags:Ansel
 version:4.14
 topic-image:BlueprintAPI_Topic.png
 
-为增强体验效果，用户可以自定义 Ansel Photography 插件的终端用户体验。禁用采集时效果不佳的部分特效，或对体验进行控制（如限制摄像机的移动）。可利用数个蓝图事件和函数实现逻辑，自定义玩家体验。
+你可以自定义最终用户的Ansel体验。
+例如，你可以让特定效果在摄影时禁用，或者以游戏特定的方法限制摄像机的移动。可利用多个蓝图事件和函数实现逻辑，自定义玩家体验。
+
+(#events)
 
 ## 事件
 
-### On Photography Session Start
+(#onphotographysessionstart)
 
-进入摄影模式时触发的事件（如 `r.Photography.AutoPause` 为 1，则发生于暂停之前）。
+### 摄影会话开始时（On Photography Session Start）
+
+进入摄影模式时触发的事件（如果 `r.Photography.AutoPause` 为1，则发生于暂停前）。
 
 [REGION:graph]
     [OBJECT:BlueprintNode]
@@ -44,9 +49,11 @@ topic-image:BlueprintAPI_Topic.png
     [/OBJECT]
 [/REGION]
 
-### On Photography Session End
+(#onphotographysessionend)
 
-退出摄影模式时触发的事件（如 `r.Photography.AutoPause` 为 1，则发生于取消暂停之后）。
+### 摄影会话结束时（On Photography Session End）
+
+离开摄影模式时触发的事件（如果 `r.Photography.AutoPause` 为1，则发生于取消暂停后）。
 
 [REGION:graph]
     [OBJECT:BlueprintNode]
@@ -73,9 +80,11 @@ topic-image:BlueprintAPI_Topic.png
     [/OBJECT]
 [/REGION]
 
-### On Photography Multi Part Capture Start
+(#onphotographymultipartcapturestart)
 
-多部分摄影采集开始时触发的事件（即立体或 360 度镜头）。如果渲染特效平铺效果不佳，这就是将其关闭最佳时机（UI、字幕、晕映、极强的光晕等；`r.Photography.AutoPostprocess` 设为 1 时，这些特效中的多数均会被自动禁用）。
+### 摄影多部分采集开始时（On Photography Multi Part Capture Start）
+
+多部分摄影采集（例如，立体或360度截图）开始时触发的事件。如果渲染特效平铺效果不佳，这就是将其关闭的最佳时机（UI、字幕、晕映、极强的泛光等；`r.Photography.AutoPostprocess` 设为1时，这些特效中的多数均会被自动禁用）。
 
 [REGION:graph]
     [OBJECT:BlueprintNode]
@@ -102,9 +111,11 @@ topic-image:BlueprintAPI_Topic.png
     [/OBJECT]
 [/REGION]
 
-### On Photography Multi Part Capture End
+(#onphotographymultipartcaptureend)
 
-多部分摄影采集结束、使用者即将重新手动控制摄像机自由漫游时触发的事件。可在此处重新启用 OnPhotographyMultiPartCaptureStart 中关闭的内容。
+### 摄影多部分采集结束时（On Photography Multi Part Capture End）
+
+多部分摄影采集结束、使用者即将重新手动控制摄像机自由漫游时触发的事件。可在此处重新启用OnPhotographyMultiPartCaptureStart中关闭的内容。
 
 [REGION:graph]
     [OBJECT:BlueprintNode]
@@ -131,31 +142,91 @@ topic-image:BlueprintAPI_Topic.png
     [/OBJECT]
 [/REGION]
 
+(#overridablefunctions)
+
 ## 可覆盖函数
 
-**覆盖下列函数的步骤：**
+**要覆盖下列函数：**
 
-1. 新建一个带 **Player Camera Manager** 的 **蓝图类** 作为父项，并将其在 **蓝图编辑器** 中打开。
+1. 创建一个以 **玩家摄像机管理器** 作为父项的新 **蓝图类** 并在 **蓝图编辑器** 中将其打开。
 
-1. 将鼠标指针悬停在 **My Blueprint** 面板的 **Functions** 标题上，点击 **Override**。
+1. 在 **我的蓝图（My Blueprint）** 面板中，将鼠标光标悬停在 **函数（Functions）** 标题上并单击 **覆盖（Override）**。
 
 	![](BIE_Override.png)
 
-1. 从可覆盖函数列表中选择需要覆盖的函数。出现在 **Functions** 列表中的函数及其图表已打开，可进行编辑。
+1. 从可覆盖函数列表中选择要覆盖的函数。该函数将出现在 **函数（Functions）** 列表中，它的图表将打开，方便你进行编辑。
 
-### Photography Camera Modify
+(#photographycameramodify)
+### 摄像机修改（Photography Camera Modify）
 
-这使 PlayerCameraManager 子类在自由摄像机摄影中约束或修改摄像机。例如蓝图可能希望限制到摄像机原点的距离，或禁止摄像机穿过墙壁。
-此函数将生成原始、之前和建议的摄像机位置，并将修改后的摄像机位置作为结果。
+这使PlayerCameraManager子类在自由摄像机摄影中约束或修改摄像机。默认情况下，按照这种方式约束摄像机：它距其初始位置的距离是限定的，并且不能穿过可碰撞墙。你可以替换或增强这种行为。
+
+此函数使你能够得到摄像机原始位置、前一位置和目标位置并将修改后的摄像机位置作为结果。
+
+要查看现成可用的约束函数，请参阅 **按距离约束摄像机（Constrain Camera By Distance）** 和 **按几何体约束摄像机（Constrain Camera By Geometry）** 这两个蓝图实用程序。
 
 [REGION:raw]
 ![](PhotoCameraModify.png)
 [/REGION]
 
-#### 范例
+(#utilityactions)
 
-下图是 **Photography Camera Modify** 实现的一个例子，将摄像机限制在其原始位置的 200 个虚幻单位以内。
+## 实用程序操作
 
-[REGION:lightbox]
-[![](camera_constraint.png)(w:480)](camera_constraint.png)
-[/REGION]
+(#startsession)
+
+### 开始会话（Start Session）
+立即开始摄影会话，无需等待用户按下Alt-F2组合键。将摄影模式绑定到备用热键或控制器按钮时，它非常有用。
+(#stopsession)
+
+### 停止会话（Stop Session）
+立即停止正在进行中的摄影会话。
+(#isphotographyavailable)
+
+### 可摄影（Is Photography Available）
+返回摄影系统是否有可以使用的可能性。另请参阅控制台变量 **r.Photography.Available**
+(#isphotographyallowed)
+
+### 允许摄影（Is Photography Allowed）
+返回此时应用程序是否允许摄影。另请参阅控制台变量 **r.Photography.Allowed**
+(#setisphotographyallowed)
+
+### 设置为允许摄影（Set Is Photography Allowed）
+设置此时应用程序是否允许摄影。另请参阅控制台变量 **r.Photography.Allowed**
+(#setsettleframes)
+
+### 设置稳定帧数（Set Settle Frames）
+设置多部分摄影中两次采集间间隔的帧数。另请参阅控制台变量 **r.Photography.SettleFrames**
+(#setcameramovementspeed)
+
+### 设置摄像机移动速度（Set Camera Movement Speed）
+设置摄像机的正常移动速度。另请参阅控制台变量 **r.Photography.TranslationSpeed**
+(#setcameraconstraintcamerasize)
+
+### 设置摄像机约束摄像机大小（Set Camera Constraint Camera Size）
+设置用于碰撞的摄像机的大小；仅在使用PlayerCameraManager的PhotographyCameraModify函数的默认实现或直接使用 **按几何体约束摄像机（Constrain Camera By Geometry）** 实用程序时相关。另请参阅控制台变量 **r.Photography.Constrain.CameraSize**
+(#setcameraconstraintdistance)
+
+### 设置摄像机约束距离（Set Camera Constraint Distance）
+设置允许摄像机从其初始位置离开的最大距离；仅在使用PlayerCameraManager的Photography Camera Modify函数的默认实现时相关。另请参阅控制台变量 **r.Photography.Constrain.MaxCameraDistance**
+(#setautopostprocess)
+
+### 设置自动后期处理（Set Auto Postprocess）
+设置摄影系统是否自动尝试优化虚幻的后期处理效果以进行摄影。另请参阅控制台变量 **r.Photography.AutoPostprocess**
+(#setautopause)
+
+### 设置自动暂停（Set Auto Pause）
+设置在摄影会话中摄影系统是否自动暂停游戏。另请参阅控制台变量 **r.Photography.AutoPause**
+(#setuicontrolvisibility)
+
+### 设置UIControl可视性（Set UIControl Visibility）
+允许你隐藏摄影界面中允许玩家在摄影时调整标准UE视觉效果的功能按钮，例如，景深或色差。注：这些功能按钮仅在启用SetAutoPostprocess时存在。部分功能按钮可能不适用于你的应用程序，原因可能是你未使用关联的效果或者你使用了效果的自定义版本。
+(#constraincamerabydistance)
+
+### 按距离约束摄像机（Constrain Camera By Distance）
+约束摄像机离开其初始位置的距离的实用程序；实现自定义 **Photography Camera Modify** 函数时可能非常有用。
+(#constraincamerabygeometry)
+
+### 按几何体约束摄像机（Constrain Camera By Geometry）
+使用可碰撞几何体约束摄像机的实用程序；实现自定义 **Photography Camera Modify** 函数时非常有用。
+

@@ -1,18 +1,54 @@
-﻿INTSourceChangelist:3112291
+﻿INTSourceChangelist:4540153
 Availability:Public
-Title:企业应用
-Description:将虚幻引擎用于汽车、航空、建筑、消费性电子产品，以及复杂数据的可视化应用
+Title:虚幻工作室
+Description:将虚幻引擎用于汽车、航空、建筑、消费电子产品和复杂数据可视化应用
 Crumbs:%ROOT%,
-version:4.13
+version:4.19
 Parent:%ROOT%
-tags:Enterprise
+tags:Studio
 type:landing
 order:8
 topic-image:Enterprise_Topic.png
 topic-icon:%ROOT%/enterprise_icon.png
 
+
+[COMMENT:none]
+[](Enterprise/GettingStarted/DownloadingUnrealEngineandInstallingDatasmith.pdf)
+[](Enterprise/GettingStarted/DatasmithOverview.pdf)
+[](Enterprise/GettingStarted/DatasmithImportOptions.pdf)
+[](Enterprise/GettingStarted/DatasmithSupportedSoftwareandFileTypes.pdf)
+[](Enterprise/GettingStarted/Preparinga3DSceneforDatasmith.pdf)
+[](Enterprise/GettingStarted/ExportingDatasmithContentforUnrealEngine4.pdf)
+[](Enterprise/GettingStarted/ImportingDatasmithContentintoUnrealEngine4.pdf)
+[](Enterprise/GettingStarted/UnrealStudioProjectTemplate_DRAFT.pdf)
+[/COMMENT]
+
 ![](Enterprise_Hero.png)
 
-虚幻引擎的实时交互和渲染功能适用于企业应用的大量项目，如汽车、航空、建筑、消费性电子产品和复杂数据可视化应用。
+虚幻引擎及其 **实时** 交互和渲染功能非常适用于跨所有企业（Enterprise）应用的大量项目，包括汽车、航空、建筑、消费电子产品和复杂数据可视化。
 
-[DIR(output:"topic" org:"hierarchy" parent:"Enterprise")]
+(#gettingstarted)
+
+## 新手入门
+
+[DIR(output:"topic" org:"hierarchy" parent:"Enterprise" tags:"Getting Started" end:"1")]
+
+(#unrealstudiotools)
+
+## Unreal Studio工具
+
+%Enterprise/Datasmith:topic%
+%Engine/Editor/ScriptingAndAutomation/Python:topic%
+
+(#unrealstudioreleasenotes)
+
+## Unreal Studio版本说明
+
+%Enterprise/Builds/4_21:topic%
+%Enterprise/Builds/4_20:topic%
+
+(#additionalcontentresources)
+
+## 其他内容资源
+
+%Enterprise/Automotive/AutomotiveMaterialPack:topic%

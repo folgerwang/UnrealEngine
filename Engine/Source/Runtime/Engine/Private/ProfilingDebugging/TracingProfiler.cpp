@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ProfilingDebugging/TracingProfiler.h"
 
@@ -7,9 +7,9 @@
 #include "GPUProfiler.h"
 #include "HAL/ConsoleManager.h"
 #include "HAL/FileManager.h"
+#include "HAL/LowLevelMemTracker.h"
 #include "Misc/CoreDelegates.h"
 #include "Misc/Paths.h"
-#include "ProfilingDebugging/CsvProfiler.h"
 #include "RenderingThread.h"
 #include "RHI.h"
 
@@ -64,6 +64,8 @@ static FAutoConsoleCommand HandleTracingProfileCmd(
 
 FTracingProfiler::FTracingProfiler()
 {
+	LLM_SCOPE(ELLMTag::Stats);
+
 	MaxNumCapturedEvents = GTracingProfileBufferSize.GetValueOnAnyThread();
 
 	FEvent DefaultEvent = {};
@@ -332,18 +334,6 @@ void FTracingProfiler::WriteCaptureToFile()
 			verifyf(0, TEXT("Unexpected profiling event type"));
 		}
 
-		const char* EventName = Event.Name;
-
-#if CSV_PROFILER 
-		// Remove CSV stat event name prefix, if it's there
-		static const auto CSVStatNamePrefixAnsi = StringCast<char>(CSV_STAT_NAME_PREFIX);
-		static const int32 NamePrefixLen = FCStringAnsi::Strlen(CSVStatNamePrefixAnsi.Get());
-		if (FCStringAnsi::Strstr(EventName, CSVStatNamePrefixAnsi.Get()) == EventName)
-		{
-			EventName += NamePrefixLen;
-		}
-#endif //CSV_PROFILER
-
 		uint32 ThreadOrGpuId;
 		if (Event.Type == EEventType::CPU)
 		{
@@ -357,7 +347,7 @@ void FTracingProfiler::WriteCaptureToFile()
 		FCStringAnsi::Snprintf(StringBuffer, StringBufferSize,
 			R"({"pid":%d, "tid":%d, "ph": "X", "name": "%s", "ts": %llu, "dur": %llu, "args":{"frame":%d}},)"
 			"\n",
-			Pid, ThreadOrGpuId, EventName, TimeBeginMicroseconds,
+			Pid, ThreadOrGpuId, Event.Name, TimeBeginMicroseconds,
 			TimeEndMicroseconds - TimeBeginMicroseconds,
 			Event.FrameNumber);
 

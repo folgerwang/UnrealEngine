@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,6 +8,7 @@
 #include "CommonFrameRates.h"
 #include "Widgets/SFrameRateEntryBox.h"
 #include "Internationalization/Text.h"
+#include "Styling/CoreStyle.h"
 
 class FMenuBuilder;
 
@@ -21,10 +22,26 @@ public:
 	DECLARE_DELEGATE_RetVal_OneParam(bool, FIsPresetRecommended, FFrameRate);
 
 	SLATE_BEGIN_ARGS(SFrameRatePicker)
-		: _HasMultipleValues(false)
+		: _ComboButtonStyle(&FCoreStyle::Get().GetWidgetStyle< FComboButtonStyle >("ComboButton"))
+		, _ButtonStyle(nullptr)
+		, _ForegroundColor(FCoreStyle::Get().GetSlateColor("InvertedForeground"))
+		, _ContentPadding(FMargin(2.f, 0.f))
+		, _HasMultipleValues(false)
 		, _PresetValues()
 		, _Font()
 	{}
+
+		/** The visual style of the combo button */
+		SLATE_STYLE_ARGUMENT(FComboButtonStyle, ComboButtonStyle)
+
+		/** The visual style of the button (overrides ComboButtonStyle) */
+		SLATE_STYLE_ARGUMENT(FButtonStyle, ButtonStyle)
+
+		/** Foreground color for the picker */
+		SLATE_ATTRIBUTE(FSlateColor, ForegroundColor)
+
+		/** Content padding for the picker */
+		SLATE_ATTRIBUTE(FMargin, ContentPadding)
 
 		/** Attribute used to retrieve the current value. */
 		SLATE_ATTRIBUTE(FFrameRate, Value)

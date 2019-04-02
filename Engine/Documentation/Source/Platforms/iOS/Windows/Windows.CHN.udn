@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3565221
 Availability:Public
 Title:在 Windows 上构建 iOS 版本
 Crumbs:%ROOT%, Platforms
@@ -6,14 +6,16 @@ Description:如何从 Windows 电脑上进行 Mac 远程编译，创建 iOS 版�
 Platform:iOS
 Navigation:platform
 Version:4.9
-type:howto
+type:how-to
 parent:Platforms/iOS
 tags:Mobile
 tags:iOS
 prereq:Platforms/iOS/QuickStart
+related:Platforms/iOS/GettingStarted
 
 构建 iOS 版本需要 Mac，而通过远程编译能使主要使用 Windows 电脑的团队通过一台 Mac 即可构建 iOS 版本。 
 
+(#MacSetup)
 ## Mac 设置
 
 1. 使用 [Apple 官方说明](https://support.apple.com/kb/PH18726) 在 Mac 上启用远程编译。
@@ -26,6 +28,7 @@ prereq:Platforms/iOS/QuickStart
 
 1. 最后，将证书的私人密钥设为可从任意程序访问。双击开发者证书下方的密钥即可进行访问。如需了解更多内容，请查阅 [Apple 官方支持文档](https://support.apple.com/kb/PH18682)。
 
+(#PCSetup)
 ## PC 设置
 
 1. 在编辑器中打开项目，然后打开 **Project Settings**。  
@@ -46,6 +49,7 @@ prereq:Platforms/iOS/QuickStart
 
 1. 此时需要生成 SSH 密钥，用于保证和远程 Mac 之间的连接安全。按下 Generate SSH Key 按钮并根据提示进行操作。
 
+(#SSHSetup)
 ### SSH 设置
 
 主要根据弹出窗口中的提示进行 SSH 设置。此处的额外步骤将助您完成此操作。
@@ -60,6 +64,7 @@ prereq:Platforms/iOS/QuickStart
 
 此时 SSH 密钥便已成功生成，即可开始在 PC 编辑器中构建 iOS 游戏。
 
+(#OptionalTeamSetup)
 ## 自选团队设置
 
 如要传递此数据，将其用于之后的所有项目，则需要在电脑上的一个或多个 `*Engine.ini` 文件中指定 **Remote Server Name** 和 **Remote User Name**。  

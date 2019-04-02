@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -45,6 +45,11 @@ public class libOpus : ModuleRules
 			PublicAdditionalLibraries.Add(OpusPath);
 			PublicAdditionalLibraries.Add(SpeexPath);
 		}
+        else if (Target.Platform == UnrealTargetPlatform.IOS)
+        {
+            string OpusPath = LibraryPath + "/IOS/libOpus.a";
+            PublicAdditionalLibraries.Add(OpusPath);
+        }
 		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
             if (Target.LinkType == TargetLinkType.Monolithic)
@@ -88,6 +93,14 @@ public class libOpus : ModuleRules
             PublicAdditionalLibraries.Add("celt.lib");
             PublicAdditionalLibraries.Add("opus.lib");
             PublicAdditionalLibraries.Add("speex_resampler.lib");
+        }
+		else if (Target.Platform == UnrealTargetPlatform.PS4)
+        {
+            PublicAdditionalLibraries.Add(LibraryPath + "PS4/ORBIS_Release/" + "OpusLibrary.a");
+        }
+        else if (Target.Platform == UnrealTargetPlatform.Switch)
+        {
+            PublicAdditionalLibraries.Add(LibraryPath +  "Switch/libOpus-1.1/NX64/Release/" + "libOpus-1.1.a");
         }
     }
 }

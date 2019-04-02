@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -143,6 +143,9 @@ protected:
 
 	TSortedMap<FName, FMaterialParameterCache> MaterialParameterCache;
 
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = MaterialParameters)
+	bool bEnableMaterialParameterCaching;
+
 	/** Flag whether or not the cached material parameter indices map is dirty (defaults to true, and is set from SetMaterial/Set(Skeletal)Mesh */
-	uint32 bCachedMaterialParameterIndicesAreDirty : 1;
+	bool bCachedMaterialParameterIndicesAreDirty;
 };

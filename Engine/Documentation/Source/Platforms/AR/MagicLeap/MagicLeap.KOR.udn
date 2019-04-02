@@ -1,0 +1,313 @@
+﻿INTSourceChangelist:4359079
+Availability: Public
+Crumbs: 
+Title: Magic Leap 개발
+Description: 언리얼 엔진 4 에서 Magic Leap 개발용 문서로 레퍼런스 및 가이드를 포함합니다.
+Type: 
+Version: 4.20
+Parent: Platforms/AR
+Order: 3
+Tags: AR
+topic-image:image12-crop700x225.jpg
+Tags: Early Access
+Tags: Landing Page
+
+
+[REGION:note]
+빠른 시작을 돕기 위해 이 콘텐츠의 초안 형태를 얼리 액세스로 제공해 드립니다. 곧 업데이트가 있을 예정입니다!
+[/REGION]
+
+이제 언리얼 엔진에 Magic Leap One, Creator Edition 을 지원하는 테크니컬 프리뷰를 사용할 수 있습니다! 이 통합 커스텀 에디터는 에픽게임즈 런처는 물론 GitHub 에서도 바로 받을 수 있습니다.
+
+![image12](image12-crop700x225.jpg "image12")
+
+**참고:** 대부분의 초기 통합 버전이 그렇듯, 이 SDK 의 API 도 엔진 공식 지원 (4.20) 릴리즈 이전 바뀔 예정입니다. 그러므로 다른 4.19 프로젝트는 이 커스텀 버전과 직접 호환되지 않을 것이며, 이 버전으로 만든 프로젝트를 4.20 으로 업그레이드하면 손상될 수 있습니다. 이 빌드는 정식 제품 개발이 아닌 새 디바이스의 가능성 탐구를 위해서만 사용할 것을 권장합니다.
+
+## 구성
+
+### Lumin SDK
+
+먼저 **Lumin SDK** 를 설치해야 합니다.
+
+1.  다음 위치에서 **Magic Leap Package Manager** 를 다운로드, 설치, 실행합니다. [https://creator.magicleap.com](https://creator.magicleap.com/).
+2.  등록 이메일과 6자리 코드로 Magic Leap Package Manager 에 로그인합니다.
+3.  Magic Leap 패키지의 기본 대상 폴더는 **C:\\Users\\you\\MagicLeap** 입니다. 변경하려면 Settings 를 클릭한 후 Download/Install Directory 에 다른 경로를 입력합니다.
+4.  **Lumin SDK under Common Packages** 옵션을 선택한 뒤 Download & Install 을 클릭합니다.
+5.  Package Manager 하단 확인 메시지의 **Apply** 버튼을 클릭합니다.
+
+### Magic Leap 0.16 용 언리얼 에디터
+
+에픽게임즈 런처의 라이브러리 탭에서 Add Versions (버전 추가) 드롭다운을 선택하고 Magic Leap 0.16 에디터를 받습니다.
+
+![](ML_MagicLeapInstall.png "ML_MagicLeapInstall.png")
+
+설치 후 Lumin SDK 설치 디렉토리를 지정해야 합니다. 프로젝트 세팅 메뉴에서 **Platforms -> Magic Leap SDK** 부분에 Lumin SDK 폴더를 지정합니다. (예: C:\Users\you\MagicLeap\mlsdk\v0.x)
+
+### 시스템 구성
+
+UE4 가 SDK  에서 명령을 실행하려면 컴퓨터의 환경 변수에 몇 가지 (사용자 아닌) 시스템 변수를 설정해야 합니다. 이 창은 **제어판 -> 시스템 -> 고급 시스템 설정 -> 환경 변수...** 에서 찾을 수 있습니다.
+
+![](image2_Add.png "image2_Add.png")
+
+우선 MLSDK 라는 항목을 추가해야 합니다. 위에서 설치한 /mlsdk 가 들어있는 폴더 경로가 들어갑니다.
+
+![](image3_Add.png "image3_Add.png")
+
+다음 PATH 환경 변수에 \%MLSDK%\tools\mldb 를 추가합니다.
+
+![](image1_Add.png "image1_Add.png")
+
+그리고 재부팅합니다.
+
+### 샘플 프로젝트
+
+Magic Leap 헤드셋 초기 지원의 일환으로 작은 샘플 프로젝트를 만들어 언리얼 엔진에서 다양한 플랫폼 고유 기능을 선보였습니다.
+
+다음 문서를 읽을 때 [LuminSample 프로젝트를 다운로드](http://epic.gm/psssample) 하여 참고해 보면 좋습니다.
+
+디바이스를 연결하고 전원을 켭니다. 참고로 처음 부팅할 때 디바이스는 코 위치를 언리얼 엔진의 월드 원점 위치로 선택하며, 착용자와 디바이싀 위치가 멀어지면 X 축이 증가합니다. *LuminSample* 프로젝트는 헤드셋이 사용자쪽을 향한 채 시작한다 가정합니다. 모든 콘텐츠가 180 도 회전되었기 때문입니다. 
+
+*LuminSample* 패키지 프로젝트를 돌아다니려면 컨트롤러가 필요합니다. 메인 메뉴에서 터치패드를 사용하여 확인하려는 예제를 선택합니다. 선택 후 터치패드를 누르면 레벨을 로드합니다. 언제든 트리거를 누른 채 숄더 버튼을 누르면 메인 메뉴를 표시 또는 숨길 수 있습니다.
+
+각 서브레벨은 완전 별개로 필요할 때 개별 로드할 수 있습니다.
+
+## 기능
+
+### 플레이어 위치
+
+*이 예제는 PlayerLocationAndGaze map 에 있습니다.*
+
+혼합 현실 체험을 만들 때 플레이어의 머리 위치를 자주 구하게 됩니다. UE4 의 다른 HMD 와 다르지 않게 *LuminSamplePawn* 의 *CameraComponent* 에서 *GetWorldTransform* 을 호출하는 것으로 액세스할 수 있습니다.
+
+![image35](image35.png "image35")
+
+*처음부터 폰을 직접 제작하려면 Camera Component 를 추가해야 합니다.*
+
+*LuminSample* 에서 Robo Recall (로보 리콜)의 Bot (봇)이 씬을 돌아다니는 자신을 향해 조준하고 발사합니다. 봇 뒤로 가면 멈추도록 하는 로직도 있습니다. 돌아다니는 동안 Drone (드론)이 따라오기도 합니다.
+
+[REGION:lightbox]
+[![image7](image7.png "image7")](image7.png)
+[/REGION]
+*Lumin_Biped*, *Lumin_Drone*, *LuminSamplePawn* 블루프린트에서 그 행동 및 연결 방식을 확인할 수 있습니다. 즉 *액터* 회전 또는 *애님 블루프린트* 를 구동하는 것은 플레이어를 향해야 하는 *액터* 의 *FindLookRotation* 결과 및 플레이어 위치입니다.
+[REGION:lightbox]
+[![image38](image38.png "image38")](image38.png)
+[/REGION]
+눈 트래킹을 사용하지 않는 경우, *CameraCompoent* 의 앞 벡터를 사용하여 플레이어의 시선을 추정하고 그 방향으로 트레이스할 수 있습니다. 바라보면 감정표현을 하는 드론도 이 기법을 사용합니다.
+[REGION:lightbox]
+[![image2](image2.png "image2")](image2.png)
+[/REGION][](image2.png)
+
+### 월드 원점 표시
+
+*예제 위치는 LuminSamplePawn 입니다.*
+
+꽤 단순하지만 콘텐츠가 어디있는지 이해하는 데 좋습니다.
+
+![image18](image18.png "image18")
+
+월드 원점 위치를 알면 월드 스페이스에서 업데이트할 것의 디버깅에 도움이 될 수 있습니다. 위에 언급했듯 월드 원점은 디바이스 처음 부팅 시 코 바로 주변 위치로 설정됩니다. 월드 원점의 기본 앞 벡터는 헤드셋에서 멀어지는 사용자 시선 방향입니다.
+
+*LuminSample* 에서 *LuminSamplePawn* 에 bShowWorldOrigin 부울 변수를 추가하여 월드 원점 위치 관련 간단한 디버그 정보를 토글합니다. 폰의 이 변수 기본 값을 설정하거나 실행시간에 토글하면 월드 원점을 표시합니다.
+
+![image3](image3.png "image3")
+
+[REGION:lightbox]
+[![image15](image15.png "image15")](image15.png)
+[/REGION]
+
+### 제스처 및 손 추적
+
+*예제 위치는 LuminSamplePawn 및 GesturesAndTotem Map 입니다.*
+
+Magic Leap One 은 여러 제스처를 지원하며 손이 시야에 있을 때 특정 지점 위치를 추적합니다. 기본적으로 찾고자 하는 제스처를 활성화해야 합니다.  그 설정은 언제든 *SetConfiguration* 노드를 사용하면 됩니다.  제스처를 조금만 선택하는 것이 디바이스의 제스처 인식율을 높이는 데 도움이 됩니다. 그 설정은 *LuminSamplePawn* 에서 합니다.
+
+![image9](image9.png "image9")
+
+*GetCurrentGesture* 를 호출하여 손으로 직접 및/또는 열거형 반환을 검사하는 것으로 제스처를 구할 수 있습니다. *LuminSamplePawn* 에서도 찾을 수 있습니다.
+
+![](image37.png)
+
+손 중앙 위치 정보는 물론 손가락 끝이나 주먹처럼 손의 여러 부분을 나타내는 Keypoint (키포인트) 정보도 구할 수 있습니다. (*GetGestureKeypointTransform*) 키포인트 및 (*GetHandCenter*) 손 중앙을 사용하면 사용자의 손 각 부분 위치 관련 정보와 하는 일에 대한 정보를 많이 구할 수 있습니다. *GesturesAndTotem* 맵의 *LuminSamplePawn* 에 *bShowGestureDebug* 를 켜서 매 프레임 손 중앙 및 키포인트에 디버그 구체를 그리고 있습니다.
+
+![](image10.PNG "image10.PNG")
+
+![image19](image19.png "image19")
+
+위 정보를 받아 월드 스페이스에서 사물을 "터치"할 수 있습니다. *GesturesAndTotem* 맵의 *InteractionSphere* 는 오버랩 검사를 하면서 *LuminPlayerPawn* 에 *bTryTouchOverlap* 옵션을 켜 양손의 모든 키포인트에 겹치는지 확인합니다. 이 작업을 보다 효율적으로 하는 방법은 많겠지만, 가상 오브젝트 터치의 모든 옵션을 보여드리고 싶었습니다.
+
+[REGION:lightbox]
+[![image5](image5.png "image5")](image5.png)
+[/REGION]
+
+제스처 검색은 퍼포먼스 비용이 발생하므로, 콘텐츠 계획 단계에서 유념해 주세요.
+
+### 컨트롤러 입력
+
+![image14](image14.jpg "image14")
+
+*예제 위치는 LuminSamplePawn 및 GesturesAndTotem 맵입니다.*
+
+대부분의 경우 컨트롤러는 다른 VR 모션 컨트롤러와 똑같이 작동합니다. Touchpad (터치패드)는 *GetMotionController (R) Thumbstick X* 로 좌우, *GetMotionController (R) Thumbstick Y* 로 상하 값을 구할 수 있습니다. 또 터치패드에는 압력 감지를 위한 Z 축이 있습니다. 터치 패드를 누른 세기에 따라 0-1 값이 됩니다.
+
+![image8](image8.png "image8")
+
+트리거도 똑같이 작동합니다. 축 값을 구하거나 이벤트를 설정할 수 있습니다. *GetMotionController (R) TriggerAxis*, *MotionController (R) TriggerAxis* 를 찾아보세요.
+
+![image11](image11.png "image11")
+
+![image27](image27.png "image27")
+
+다른 것과 마찬가지로 숄더 버튼은 *MotionController (R) Shoulder* 를 사용하여 눌림과 뗌 이벤트를 구합니다.
+
+![image40](image40.png "image40")
+
+*LuminSamplePawn* 에서 모든 연결을 확인할 수 있습니다. *LuminSample* 의 경우 이벤트 디스패처를 호출합니다. 다른 블루프린트에서 이를 통해 입력을 받았을 때 조치를 취할 수 있도록 해주는 기능입니다. 이런 식으로 *GesturesAndTotem* 맵의 *GesturesAndTotemContainer* 안의 *TotemInputActor* 및 *MainMenuActor* 를 제어합니다.
+
+![image34](image34.png "image34")
+
+### 룸 스캐닝 및 메싱
+
+*예제 위치는 WorldMeshing 맵 및 LuminMeshActor 입니다.*
+
+Magic Leap One 에는 방을 스캔하여 환경에 대한 지오메트리 데이터를 제공하는 기능이 있습니다. 이 기능을 플랫폼의 기존 *Mixed Reality Mesh (MRMesh)* 시스템에 적용하여 개발자가 영역에 대한 쿼리를 사용하여 공간에 콘텐츠를 동적으로 추가할 수 있도록 했습니다.
+
+필요한 것은 블루프린트 액터와 두 개의 컴포넌트, *MRMeshComponent* 와 *MeshTrackerComponent* 입니다.
+
+![image39](image39.png "image39")
+
+월드 스캔을 시작하여 메시 데이터를 구하려면, *ConnectMRMesh* 함수의 Target 에 *MeshTracker*, In MRMesh Ptr 에 *MRMesh* 를 사용하여 이 두 컴포넌트를 서로 연결해야 합니다.
+
+![image30](image30.png "image30")
+
+트래킹 스페이스에서 올바른 것을 찾을 수 있도록 *LuminMeshActor* 의 *MeshTrackerComponent* 에서 몇 가지 옵션을 켰습니다. 디테일 패널의 Meshing->MagicLeap 섹션에서 다음과 같이 수정했습니다.
+
+*   Scan World (월드 스캔): **true**
+*   Mesh Type (메시 유형): **Blocks**
+*   Meshing Poll Time (메싱 폴 시간): **0.5**
+*   Bounding Volume (바운딩 볼륨): **Box Collision**
+*   Ignore Bounding Volume (바운딩 볼륨 무시): **true** (방 전체 스캔)
+*   Planarize (평면화): **true**
+
+![image20](image20.png "image20")
+
+메시의 물리 반응 방식은 다른 콜라이더와 같습니다. *WorldMeshing* 맵에서 컨트롤러의 숄더 버튼을 누르면 HMD 에서 앞 벡터 방향 월드 속으로 트레이스한 뒤 걸린 위치와 노멀에 따라 디버그 정보를 그립니다. *LuminSamplePawn* 에서 이 처리를 위해 *TestWorldHit* 옵션을 켰습니다.
+
+[REGION:lightbox]
+[![image24](image24.png "image24")](image24.png)
+[/REGION]
+
+### 마이크 입력
+
+*예제 위치는 LuminSamplePawn 및 AudioExamples 맵입니다.*
+
+Magic Leap One 에는 내장 마이크가 있어 다양한 용도로 음성을 캡처할 수 있습니다. *AudioExamples* 맵에서 *LuminSamplePawn* 에 *AudioCaptureComponent* 를 추가하여 게임플레이에 사용할 마이크 엔벨로프 값을 모니터링합니다.
+
+![image41](image41.png "image41")
+
+활성화되면 컴포넌트는 마이크 엔벨로프 값으로 이벤트를 전송합니다. 컴포넌트 리스트에서 컴포넌트를 선택하고 디테일 패널 하단 초록 더하기 아이콘을 클릭하여 이벤트를 추가할 수 있습니다.
+
+![image6](image6.png "image6")
+
+예제에서 플레이어는 바람이 부는 방향을 바꿀 수 있으며, 소년과 연이 새로운 바람 방향에 적응합니다. *MicInputAudioValue* 커스텀 이벤트를 *OnAudioEnvelopeValue* 에 바인딩하여 필요할 때만 디바이스 마이크에서 정보를 수집합니다.
+
+[REGION:lightbox]
+[![image22](image22.png "image22")](image22.png)
+[/REGION]
+[REGION:lightbox]
+[![image29](image29.png "image29")](image29.png)
+[/REGION][]
+
+### 공간화 오디오
+
+*예제 위치는 AudioActor_SoundSpawn 및 AudioExamples 맵입니다.*
+
+ML1 개발 시 다른 플랫폼과 똑같은 기법으로 공간화 오디오를 사용할 수 있습니다. 그 워크플로에 추가로 공간화 랜덤 사운드 제작에 특화된 액터를 사용합니다. 그 위치는 샘플 콘텐츠 내 다음과 같습니다.
+
+.../LuminSampleContent/AudioExample/AudioBlueprints/AudioActor_SoundSpawn
+
+이 액터의 용도는 사운드 디자이너가 이해하기 쉬운 파라미터를 통해 일반적인 앰비언트 오디오 작동방식을 설정할 수 있도록 하기 위해서입니다. *AudioActor_SoundSpawn* 액터는 정의된 반경 내 랜덤 사운드를 생성하거나, 아주 특정 위치에 싱글 사운드를 재생하도록 설정할 수 있습니다. *AudioExamples* 샘플에서는 두 가지 독특한 목적으로 이 액터를 사용합니다. 씬에서 무작위 호출 및 새 지저귐 반응을 하도록 두 액터를 설정했습니다. 세 번째 액터는 연에 붙여 바스락거리는 반복 사운드를 만듭니다.
+
+새는 *Auto Start* (자동 시작) 및 즉시 재생 시작하도록 설정됩니다. *Repeat* (반복) 설정도 되어 있어 재생 완료 후 설정된 사운드를 계속 재생합니다. 어느 액터도 *Use Overlaps* 설정되어 있지 않습니다. 이 부울을 체크하면 플레이어가 정의된 반경에 드나들 때 액터를 켜고 끕니다.
+
+![image21](image21.png "image21")
+
+액터 안에 재생에 사용되는 세팅은 여럿입니다. 사운드 스폰 간격, 사운드 무작위 스폰 횟수, 볼륨, 피치, 가장 중요하게 사운드를 스폰할 반경을 제어할 수 있습니다. 이 값을 설정하면 시스템은 반경 내 X Y 좌표계 임의 위치를 선택합니다. 난수 Z 오프셋을 포함하려면 *B Include Height* 옵션을 체크합니다.
+
+![image32](image32.png "image32")
+
+나중에 씬에서 새 소리를 끄려면 *레벨 블루프린트* 의 *Repeat* 부울을 false 설정하면 됩니다.
+
+![image28](image28.png "image28")
+
+연의 대기 상태 오디오는 *AudioActor_KiteIdle* 라는 별도의 액터를 *Begin Play* 에 붙였습니다.
+
+![image31](image31.png "image31")
+
+*AudioActor_KiteIdle* 는 다른 오디오 액터와 다르게 구성됩니다. 세팅에서 여기 *Auto Start* 는 체크를 해제하고 *레벨 블루프린트* 의 *Execute Timer* 를 사용하여 오디오를 활성화합니다.
+
+![image1](image1.png "image1")
+
+이 액터 역시 *Min and Max Timer* 값을 매우 낮게 설정하여 빠르게 반복되는 바스락 소리를 만듭니다. *Min* / *Max Spawns* 은 1 로 설정하여 소리가 겹치지 않도록 합니다.
+
+![image4](image4.png "image4")
+
+*Spawn Radius* 역시 1 로 설정하여, 연 위치 근처에만 소리가 나도록 합니다.
+
+![image23](image23.png "image23")
+
+여기서도 나중에 씬에서 소리를 끄려면 *레벨 블루프린트* 의 *Repeat* 를 false 설정하면 됩니다.
+
+## 엔진 세팅
+
+### Vulkan 및 OpenGL
+
+Magic Leap One 은 렌더링에 OpenGL 도 Vulkan 도 지원합니다. 프로젝트 세팅 -> Platforms (플랫폼) -> Magic Leap 에서 옵션을 바꿀 수 있습니다.
+
+![image17](image17.png "image17")
+
+### 렌더러 - 데스크탑 또는 모바일
+
+**프로젝트 세팅** -> **Platform** (플랫폼) -> **Magic Leap** 의 Use Mobile Rendering (모바일 렌더링 사용) 옵션으로 렌더링 패스를 데스크톱 및 모바일 중에서 선택할 수 있습니다.
+
+![image33](image33.png "image33")
+
+[REGION:note]
+데스크톱 렌더링 및 Vulkan 은 현재 소스 빌드에서만 지원하며, 바이너리(런처) 빌드에서는 지원하지 않습니다. 4.20 바이너리에서는 제대로 지원할 것으로 기대합니다.
+[/REGION]
+
+## 패키지, 디플로이, 시뮬레이트
+
+### 실행
+
+다른 플랫폼과 마찬가지로 에디터에서 디바이스로 바로 실행할 수 있습니다. 실행 버튼 옆 드롭다운을 클릭한 뒤 Magic Leap 디바이스를 선택하면 됩니다.
+
+![image36](image36.png "image36")
+
+### 패키지
+
+툴바에서 **파일** > **프로젝트 패키지** 를 통해 .mpk 파일 패키지를 만들 수도 있습니다.
+
+![image26](image26.png "image26")
+
+실행 버튼을 누르면 예상대로 디바이스에서 앱을 바로 실행합니다. 패키지 프로젝트를 설치하려면, 명령줄을 열고 *mldb install /yourproject.mpk* 를 실행합니다.
+
+그리고 헤드셋의 메뉴에서 앱을 실행하거나, 명령줄에서 *mldb launch* 를 실행해도 됩니다. 물론 com.yourcompany.yourproject 를 프로젝트 세팅에 설정한 식별자로 대체해야 합니다.
+
+### 시뮬레이트
+
+또는 디바이스가 없는 경우 Magic Leap Remote 를 사용하여 시뮬레이터에서 반복작업할 수 있습니다. **프로젝트 세팅->Plugins(플러그인)->Magic Leap Plugin** 에서 **Enable Zero Iteration** 박스를 체크합니다. 에디터 재시작 후 **플레이** -> **VR Preview** (VR 프리뷰)를 선택하면 됩니다.
+
+![image16](image16.png "image16")
+
+## 터미널 명령
+
+자주 사용되는 유용한 MLDK 터미널 명령 몇 가지입니다.
+
+*   *mldb devices* // 컴퓨터에 연결된 디바이스 중 인식된 것의 목록을 표시합니다.
+*   *mldb packages* // 디바이스에 설치된 패키지를 표시합니다.
+*   *mldb uninstall* // 디바이스에서 패키지 설치를 해제합니다.
+*   *mldb launch* // 디바이스에 패키지가 설치된 경우 실행합니다.
+*   *mldb terminate* // 앱이 실행 중인 경우 종료합니다.
+*   *mldb reboot* // 연결된 디바이스를 리부팅합니다.
+*   *mldb shutdown* // 디바이스를 종료합니다.
+No search results.

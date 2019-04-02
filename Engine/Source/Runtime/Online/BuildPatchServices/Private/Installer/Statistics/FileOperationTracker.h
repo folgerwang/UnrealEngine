@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -23,6 +23,13 @@ namespace BuildPatchServices
 		 * @return the array of states for each file operation performed by the installation.
 		 */
 		virtual const TArray<FFileOperation>& GetStates() const = 0;
+
+		/**
+		 * Called when manifest selection occurs. This will clear out internal states resetting them built from the provided manifest.
+		 * All subsequent state updates must refer to data from within the provided manifest.
+		 * @param Manifest  The manifest to be used to build up internal operation states.
+		 */
+		virtual void OnManifestSelection(const FBuildPatchAppManifest& Manifest) = 0;
 
 		/**
 		 * Called when state is updated for chunk data.
@@ -87,6 +94,6 @@ namespace BuildPatchServices
 		 * @param   Manifest    The manifest for the build being installed.
 		 * @return the new IFileOperationTracker instance created.
 		 */
-		static IFileOperationTracker* Create(FTicker& Ticker, FBuildPatchAppManifest* Manifest);
+		static IFileOperationTracker* Create(FTicker& Ticker);
 	};
 }

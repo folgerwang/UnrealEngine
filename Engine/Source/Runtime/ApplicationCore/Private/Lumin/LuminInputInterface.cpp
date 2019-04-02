@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Lumin/LuminInputInterface.h"
 #include "LuminGamepadInterface.h"
@@ -51,6 +51,11 @@ bool FAndroidInputInterface::IsControllerAssignedToGamepad(int32 ControllerId)
 {
 	// @todo Lumin: Well, we only support gamepads really, so always true?
 	return true;
+}
+
+FString FAndroidInputInterface::GetGamepadControllerName(int32 ControllerId)
+{
+	return FString(TEXT("Generic"));
 }
 
 void FAndroidInputInterface::SetForceFeedbackChannelValue(int32 ControllerId, FForceFeedbackChannelType ChannelType, float Value)

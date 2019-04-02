@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineIdentityFacebook.h"
 #include "Interfaces/OnlineExternalUIInterface.h"
@@ -75,7 +75,7 @@ bool FOnlineIdentityFacebook::Login(int32 LocalUserNum, const FOnlineAccountCred
 	else
 	{
 		FString ErrorStr = FString::Printf(TEXT("Operation already in progress"));
-		TriggerOnLoginCompleteDelegates(LocalUserNum, false, GetEmptyUniqueId(), ErrorStr);
+		TriggerOnLoginCompleteDelegates(LocalUserNum, false, *FUniqueNetIdFacebook::EmptyId(), ErrorStr);
 	}
 
 	return bTriggeredLogin;
@@ -146,7 +146,7 @@ void FOnlineIdentityFacebook::OnLoginAttemptComplete(int32 LocalUserNum, const F
 			}
 			else
 			{
-				UserId = GetEmptyUniqueId().AsShared();
+				UserId = FUniqueNetIdFacebook::EmptyId();
 			}
 			// remove cached user id
 			UserIds.Remove(LocalUserNum);
@@ -185,7 +185,7 @@ bool FOnlineIdentityFacebook::Logout(int32 LocalUserNum)
 				}
 				else
 				{
-					UserId = GetEmptyUniqueId().AsShared();
+					UserId = FUniqueNetIdFacebook::EmptyId();
 				}
 				// remove cached user id
 				UserIds.Remove(LocalUserNum);

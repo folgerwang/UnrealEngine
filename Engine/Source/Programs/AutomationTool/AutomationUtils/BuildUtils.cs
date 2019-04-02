@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -27,7 +27,7 @@ namespace AutomationTool
 			{
 				throw new AutomationException("Project {0} does not exist!", Project);
 			}
-			var RunArguments = MakePathSafeToUseWithCommandLine(Project);
+			string RunArguments = MakePathSafeToUseWithCommandLine(Project);
 			if (!String.IsNullOrEmpty(Arguments))
 			{
 				RunArguments += " " + Arguments;
@@ -80,7 +80,7 @@ namespace AutomationTool
 				throw new AutomationException(String.Format("Unabled to build Project {0}. Project file not found.", ProjectFile));
 			}
 
-			string CmdLine = String.Format(@"/verbosity:minimal /nologo /target:Rebuild /property:Configuration={0} /property:Platform=AnyCPU", BuildConfig);
+			string CmdLine = String.Format(@"/verbosity:minimal /nologo /target:Build /property:Configuration={0} /property:Platform=AnyCPU", BuildConfig);
 			MsBuild(Env, ProjectFile, CmdLine, LogName);
 		}
 

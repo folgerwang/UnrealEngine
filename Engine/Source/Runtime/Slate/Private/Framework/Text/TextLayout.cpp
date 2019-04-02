@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Framework/Text/TextLayout.h"
 #include "Fonts/FontCache.h"
@@ -40,7 +40,7 @@ FTextLayout::FBreakCandidate FTextLayout::CreateBreakCandidate( int32& OutRunInd
 	FVector2D BreakSizeWithoutTrailingWhitespace( ForceInitToZero );
 	float FirstTrailingWhitespaceCharWidth = 0.0f;
 	int32 WhitespaceStopIndex = CurrentBreak;
-	uint8 Kerning = 0;
+	int8 Kerning = 0;
 
 	if ( Line.Runs.IsValidIndex( OutRunIndex ) )
 	{
@@ -591,7 +591,7 @@ void FTextLayout::FlowLineLayout(const int32 LineModelIndex, const float Wrappin
 
 			const bool IsLastBreak = BreakIndex + 1 == LineModel.BreakCandidates.Num();
 			const bool IsFirstBreakOnSoftLine = CurrentWidth == 0.0f;
-			const uint8 Kerning = ( IsFirstBreakOnSoftLine ) ? Break.Kerning : 0;
+			const int8 Kerning = ( IsFirstBreakOnSoftLine ) ? Break.Kerning : 0;
 			const bool BreakDoesFit = CurrentWidth + Break.ActualSize.X + Kerning <= WrappingDrawWidth;
 			const bool BreakWithoutTrailingWhitespaceDoesFit = CurrentWidth + Break.TrimmedWidth + Kerning <= WrappingDrawWidth;
 
@@ -2680,7 +2680,10 @@ TSharedRef< ILayoutBlock > FTextLayout::FRunModel::CreateBlock( const FBlockDefi
 		if ( MeasuredRanges[ StartRangeIndex ].BeginIndex == SizeRange.BeginIndex && 
 			MeasuredRanges[ StartRangeIndex ].EndIndex == SizeRange.EndIndex )
 		{
-			BlockSize += MeasuredRangeSizes[ StartRangeIndex ];
+			if (MeasuredRangeSizes.IsValidIndex(StartRangeIndex))
+			{
+				BlockSize += MeasuredRangeSizes[StartRangeIndex];
+			}
 		}
 		else
 		{
@@ -2691,7 +2694,10 @@ TSharedRef< ILayoutBlock > FTextLayout::FRunModel::CreateBlock( const FBlockDefi
 	{
 		if ( MeasuredRanges[ StartRangeIndex ].BeginIndex == SizeRange.BeginIndex )
 		{
-			BlockSize += MeasuredRangeSizes[ StartRangeIndex ];
+			if (MeasuredRangeSizes.IsValidIndex(StartRangeIndex))
+			{
+				BlockSize += MeasuredRangeSizes[StartRangeIndex];
+			}
 		}
 		else
 		{
@@ -2700,14 +2706,20 @@ TSharedRef< ILayoutBlock > FTextLayout::FRunModel::CreateBlock( const FBlockDefi
 
 		for (int32 Index = StartRangeIndex + 1; Index < EndRangeIndex; Index++)
 		{
-			BlockSize.X += MeasuredRangeSizes[ Index ].X;
-			BlockSize.Y = FMath::Max( MeasuredRangeSizes[ Index ].Y, BlockSize.Y );
+			if (MeasuredRangeSizes.IsValidIndex(Index))
+			{
+				BlockSize.X += MeasuredRangeSizes[Index].X;
+				BlockSize.Y = FMath::Max(MeasuredRangeSizes[Index].Y, BlockSize.Y);
+			}
 		}
 
 		if ( MeasuredRanges[ EndRangeIndex ].EndIndex == SizeRange.EndIndex )
 		{
-			BlockSize.X += MeasuredRangeSizes[ EndRangeIndex ].X;
-			BlockSize.Y = FMath::Max( MeasuredRangeSizes[ EndRangeIndex ].Y, BlockSize.Y );
+			if (MeasuredRangeSizes.IsValidIndex(EndRangeIndex))
+			{
+				BlockSize.X += MeasuredRangeSizes[EndRangeIndex].X;
+				BlockSize.Y = FMath::Max(MeasuredRangeSizes[EndRangeIndex].Y, BlockSize.Y);
+			}
 		}
 		else
 		{
@@ -2770,7 +2782,7 @@ int32 FTextLayout::FRunModel::BinarySearchForBeginIndex( const TArray< FTextRang
 	return Mid;
 }
 
-uint8 FTextLayout::FRunModel::GetKerning(int32 CurrentIndex, float InScale, const FRunTextContext& InTextContext)
+int8 FTextLayout::FRunModel::GetKerning(int32 CurrentIndex, float InScale, const FRunTextContext& InTextContext)
 {
 	return Run->GetKerning(CurrentIndex, InScale, InTextContext);
 }

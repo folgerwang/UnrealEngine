@@ -1,41 +1,72 @@
-﻿INTSourceChangelist:2666096
-Availability:Public
-Title:动画模式
-Crumbs:%ROOT%, Engine, Engine/Animation, Engine/Animation/Persona, Engine/Animation/Persona/Modes
-Description:Persona 动画编辑器中的动画模式的用户指南。
-version:4.9
+﻿INTSourceChangelist:4326187
+Availability: Public
+Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Persona, Engine/Animation/Persona/Modes
+Title:动画编辑器
+Description:重点介绍虚幻引擎4中动画编辑器的核心功能。 
+Type: Landing
+version: 4.16
+Parent: Engine/Animation/Persona/Modes
+Order: 1
+tags:Animation
+tags:Skeletal Mesh
+tags:FBX Importing
+tags:Tools
+topic-image:animEditor_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Animation/Persona/Modes/Animation:title%](Engine/Animation/animation_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/content_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Animation/Persona/Modes/Animation:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Animation/Persona/Modes/Animation:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Animation/Persona/Modes/Animation]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+[REGION:banner]
+![](AnimationBanner.png)
+[/REGION]
 
 
+[EXCERPT:Overview]
+使用 **动画编辑器** 可轻松地访问可用于骨架网格体的各种以动画为中心的资源。 
+在动画编辑器中，你可以预览动画序列、混合空间、动画蒙太奇等动画资源的播放，编辑动画资源，为材质参数或变形目标添加和编辑曲线，以及定义动画通知（在动画中的特定点发生的事件）。 
+[/EXCERPT:Overview]
+
+请参阅以下各个部分来详细了解动画编辑器用户界面： 
 
 [REGION:fullwidth]
 ![](AnimationModeWindow.png)
 [/REGION]
 
-**Persona** 的 **动画** 模式（单击工具栏窗口的 **动画（Animation）** 选项卡即可访问）包含几个在其他模式下也会出现的窗口，但有三个窗口（见上图）是在动画模式下工作时使用最多的。 
 
-1. [动画资产细节](Engine\Animation\Persona\AnimAssetDetails) - **动画资产细节（Anim Asset Details）**面板是一个上下文相关的属性编辑器，允许您更改各种动画资产（比如动画序列、混合空间、动画蒙太奇，等等）的设置。默认情况下，**动画资产细节（Anim Asset Details）**面板只有在 Persona 处于 **动画** 模式时才可见。
-1. [动画序列编辑器](Engine\Animation\Sequences\Editor) - **动画序列编辑器（Animation Sequence Editor）**提供预览和编辑各个动画序列资产的功能。可以设置包括压缩模式在内的动画序列属性，也可以添加动画通知事件（也称为通知）以便根据动画触发摄像机效果、粒子效果、声音，等等。
-1. [资产浏览器](Engine\Animation\Persona\AssetBrowser) - **资产浏览器（Asset Browser）**面板在 **内容浏览器** 式的迷你界面中显示对目标骨架有效的动画序列、混合空间、动画蒙太奇和动画偏移混合空间。 
+(#1.Toolbar)
+## 1.工具栏
+
+动画编辑器中的 [工具栏](Engine/Animation/Persona/Toolbar) 提供用于保存对动画所做的任何更改或在内容浏览器中找到动画的选项。它也允许你创建新动画资源，定义压缩设置，调整Additive层轨迹或使用预览的当前姿势创建静态网格体。 
+工具栏最右侧的是 **编辑器工具栏**，它使你能够在虚幻引擎4中的不同动画工具间进行切换。 
+
+(#2.AssetDetails/SkeletonTree)
+## 2.资源细节（Asset Details） / 骨架树（Skeleton Tree）
+
+[资源细节（Asset Details）](Engine\Animation\Persona\AnimAssetDetails) 选项卡提供使你能够定义动画资源的工作方式的选项，这些选项因你打开的动画资源的类型而异。 
+停靠在“资源细节（Asset Details）”旁边的是 [](Engine/Animation/Persona/SkeletonTree)，它显示当前骨架资源的骨骼层级，允许你创建/编辑插槽以及定义与动画重定向相关的设置。 
+
+(#3.Viewport)
+## 3.视口
+
+[视口](Engine/Animation/Persona/Viewport) 窗口允许你预览选定的骨架网格体上的动画资源的播放并提供与资源相关的信息。你可以更改照明模式，显示或隐藏骨架的骨骼，调整动画播放速度，甚至将骨架网格体设置为在转盘上自动旋转，以便从各个角度查看它。 
+
+(#4.Details/PreviewSceneSettings)
+## 4.细节（Details）/预览场景设置（Preview Scene Settings）
+
+[细节（Details）](Engine/UI/LevelEditor/Details) 面板与主编辑器相似，主要用于修改使用 **资源编辑器** 时已添加的选项。 
+例如，如果你向动画序列添加通知，单击通知后，“细节（Details）”面板中将填充与通知相关的选项。向动画蒙太奇添加新片段之后，可以在“细节（Details）”面板中修改片段的内容。 
+
+同样位于此部分的是 [预览设置](Engine\Animation\Persona\PreviewSettings) 选项卡，它使你能够定义要用作预览的 **动画模式（Animation Mode）** 或 **动画（Animation）** 等视口设置，切换用于预览的 **骨架网格体**，以及要应用的视口照明和后期处理设置，以便你可以在应用不同照明的情况下预览设置。 
+
+(#5. Asset Editor)
+## 5.资源编辑器
+
+[资源编辑器](Engine/Animation/Persona/AssetEditor) 是上下文编辑器，其界面布局和选项会基于你打开的动画资源的类型发生变化。你可以在此窗口中修改动画序列、混合空间、动画蒙太奇或任何其他动画资源，以及从位于底部的工具栏播放动画或录制新动画。 
+
+(#6.AssetBrowser)
+## 6.资源浏览器（Asset Browser）
+
+[](Engine\Animation\Persona\AssetBrowser) 允许你查看与当前骨架资源关联且可由其使用的所有动画资源。 
+
+
+
 
 
 

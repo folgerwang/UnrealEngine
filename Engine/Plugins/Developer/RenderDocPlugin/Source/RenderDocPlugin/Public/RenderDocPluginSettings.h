@@ -1,11 +1,11 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Engine/DeveloperSettings.h"
 #include "RenderDocPluginSettings.generated.h"
 
-UCLASS(config = RenderDocPlugin, meta = (DisplayName = "RenderDoc"))
+UCLASS(config = Engine, defaultconfig, meta = (DisplayName = "RenderDoc"))
 class RENDERDOCPLUGIN_API URenderDocPluginSettings : public UDeveloperSettings
 {
 	GENERATED_BODY()
@@ -52,9 +52,6 @@ public:
 		ToolTip = "Path to the main RenderDoc executable to use.",
 		ConfigRestartRequired = true))
 	FString RenderDocBinaryPath;
-
-public:
-	void SaveSettings();
 
 public:
 	virtual void PostInitProperties() override;

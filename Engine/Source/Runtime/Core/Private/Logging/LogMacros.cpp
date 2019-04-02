@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Logging/LogMacros.h"
 #include "CoreGlobals.h"
@@ -6,6 +6,8 @@
 #include "Misc/OutputDeviceRedirector.h"
 #include "Misc/FeedbackContext.h"
 #include "Misc/VarargsHelper.h"
+#include "Stats/Stats.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 void StaticFailDebug( const TCHAR* Error, const ANSICHAR* File, int32 Line, const TCHAR* Description, bool bIsEnsure, int32 NumStackFramesToIgnore );
 
@@ -13,6 +15,8 @@ void StaticFailDebug( const TCHAR* Error, const ANSICHAR* File, int32 Line, cons
 static FCriticalSection					MsgLogfStaticBufferGuard;
 /** Increased from 4096 to fix crashes in the renderthread without autoreporter. */
 static TCHAR							MsgLogfStaticBuffer[8192];
+
+CSV_DEFINE_CATEGORY(FMsgLogf, true);
 
 void FMsg::LogfImpl(const ANSICHAR* File, int32 Line, const FName& Category, ELogVerbosity::Type Verbosity, const TCHAR* Fmt, ...)
 {
@@ -67,6 +71,9 @@ void FMsg::LogfImpl(const ANSICHAR* File, int32 Line, const FName& Category, ELo
 void FMsg::Logf_InternalImpl(const ANSICHAR* File, int32 Line, const FName& Category, ELogVerbosity::Type Verbosity, const TCHAR* Fmt, ...)
 {
 #if !NO_LOGGING
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FMsgLogf);
+	CSV_CUSTOM_STAT(FMsgLogf, FMsgLogfCount, 1, ECsvCustomStatOp::Accumulate);
+
 	if (Verbosity != ELogVerbosity::Fatal)
 	{
 		// SetColour is routed to GWarn just like the other verbosities and handled in the 

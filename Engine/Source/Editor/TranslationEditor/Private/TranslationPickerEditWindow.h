@@ -1,10 +1,10 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
+#include "UObject/GCObject.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Input/Reply.h"
 #include "Widgets/SCompoundWidget.h"
@@ -76,7 +76,7 @@ private:
 };
 
 /** Translation picker edit Widget to handle the display and editing of a single selected FText */
-class STranslationPickerEditWidget : public SCompoundWidget
+class STranslationPickerEditWidget : public SCompoundWidget, public FGCObject
 {
 	SLATE_BEGIN_ARGS(STranslationPickerEditWidget) {}
 
@@ -87,6 +87,8 @@ class STranslationPickerEditWidget : public SCompoundWidget
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
+
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
 	/** Return the translation unit for this text, with any modifications */
 	UTranslationUnit* GetTranslationUnitWithAnyChanges();

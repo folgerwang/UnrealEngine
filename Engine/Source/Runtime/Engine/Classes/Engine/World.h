@@ -1,10 +1,6 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-
-/*=============================================================================
-	World.h: UWorld definition.
-=============================================================================*/
 
 #include "CoreMinimal.h"
 #include "HAL/ThreadSafeCounter.h"
@@ -25,6 +21,7 @@
 #include "Engine/GameInstance.h"
 #include "Physics/PhysicsInterfaceDeclares.h"
 #include "Particles/WorldPSCPool.h"
+#include "Containers/SortedMap.h"
 
 #include "World.generated.h"
 
@@ -150,20 +147,20 @@ private:
 class FSeamlessTravelHandler
 {
 private:
-	/** set when a transition is in progress */
-	bool bTransitionInProgress;
 	/** URL we're traveling to */
 	FURL PendingTravelURL;
 	/** Guid of the destination map (for finding it in the package cache if autodownloaded) */
 	FGuid PendingTravelGuid;
-	/** whether or not we've transitioned to the entry level and are now moving on to the specified map */
-	bool bSwitchedToDefaultMap;
 	/** set to the loaded package once loading is complete. Transition to it is performed in the next tick where it's safe to perform the required operations */
 	UObject* LoadedPackage;
 	/** the world we are travelling from */
 	UWorld* CurrentWorld;
 	/** set to the loaded world object inside that package. This is added to the root set (so that if a GC gets in between it won't break loading) */
 	UWorld* LoadedWorld;
+	/** set when a transition is in progress */
+	bool bTransitionInProgress;
+	/** whether or not we've transitioned to the entry level and are now moving on to the specified map */
+	bool bSwitchedToDefaultMap;
 	/** while set, pause at midpoint (after loading transition level, before loading final destination) */
 	bool bPauseAtMidpoint;
 	/** set when we started a new travel in the middle of a previous one and still need to clean up that previous attempt */
@@ -186,13 +183,13 @@ private:
 
 public:
 	FSeamlessTravelHandler()
-		: bTransitionInProgress(false)
-		, PendingTravelURL(NoInit)
+		: PendingTravelURL(NoInit)
 		, PendingTravelGuid(0, 0, 0, 0)
-		, bSwitchedToDefaultMap(false)
 		, LoadedPackage(NULL)
 		, CurrentWorld(NULL)
 		, LoadedWorld(NULL)
+		, bTransitionInProgress(false)
+		, bSwitchedToDefaultMap(false)
 		, bPauseAtMidpoint(false)
 		, bNeedCancelCleanUp(false)
 	{}
@@ -375,6 +372,8 @@ struct FStartPhysicsTickFunction : public FTickFunction
 	virtual void ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
 	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph **/
 	virtual FString DiagnosticMessage() override;
+	/** Function used to describe this tick for active tick reporting. **/
+	virtual FName DiagnosticContext(bool bDetailed) override;
 };
 
 template<>
@@ -407,42 +406,12 @@ struct FEndPhysicsTickFunction : public FTickFunction
 	virtual void ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
 	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph **/
 	virtual FString DiagnosticMessage() override;
+	/** Function used to describe this tick for active tick reporting. **/
+	virtual FName DiagnosticContext(bool bDetailed) override;
 };
 
 template<>
 struct TStructOpsTypeTraits<FEndPhysicsTickFunction> : public TStructOpsTypeTraitsBase2<FEndPhysicsTickFunction>
-{
-	enum
-	{
-		WithCopy = false
-	};
-};
-
-/**
-* Tick function that starts the cloth tick
-**/
-USTRUCT()
-struct FStartAsyncSimulationFunction : public FTickFunction
-{
-	GENERATED_USTRUCT_BODY()
-
-	/** World this tick function belongs to **/
-	class UWorld*	Target;
-
-	/**
-	* Abstract function actually execute the tick.
-	* @param DeltaTime - frame time to advance, in seconds
-	* @param TickType - kind of tick for this frame
-	* @param CurrentThread - thread we are executing on, useful to pass along as new tasks are created
-	* @param MyCompletionGraphEvent - completion event for this task. Useful for holding the completetion of this task until certain child tasks are complete.
-	**/
-	virtual void ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
-	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph **/
-	virtual FString DiagnosticMessage() override;
-};
-
-template<>
-struct TStructOpsTypeTraits<FStartAsyncSimulationFunction> : public TStructOpsTypeTraitsBase2<FStartAsyncSimulationFunction>
 {
 	enum
 	{
@@ -635,6 +604,12 @@ private:
 	ELevelCollectionType CollectionType;
 
 	/**
+	* Whether or not this collection is currently visible. While invisible, actors in this collection's
+	* levels will not be rendered and sounds originating from levels in this collection will not be played.
+	*/
+	bool bIsVisible;
+
+	/**
 	 * The GameState associated with this collection. This may be different than the UWorld's GameState
 	 * since the source collection and the duplicated collection will have their own instances.
 	 */
@@ -665,12 +640,6 @@ private:
 	/** All the levels in this collection. */
 	UPROPERTY()
 	TSet<ULevel*> Levels;
-
-	/**
-	 * Whether or not this collection is currently visible. While invisible, actors in this collection's
-	 * levels will not be rendered and sounds originating from levels in this collection will not be played.
-	 */
-	bool bIsVisible;
 };
 
 template<>
@@ -716,6 +685,87 @@ public:
 private:
 	class UWorld* World;
 	int32 SavedTickingCollectionIndex;
+};
+
+USTRUCT()
+struct FLevelStreamingWrapper
+{
+	GENERATED_BODY()
+
+	FLevelStreamingWrapper()
+		: StreamingLevel(nullptr)
+	{}
+
+	FLevelStreamingWrapper(ULevelStreaming* InStreamingLevel)
+		: StreamingLevel(InStreamingLevel)
+	{}
+
+	ULevelStreaming*& Get() { return StreamingLevel; }
+	ULevelStreaming* Get() const { return StreamingLevel; }
+
+
+	bool operator<(const FLevelStreamingWrapper& Other) const;
+	bool operator==(const FLevelStreamingWrapper& Other) const { return StreamingLevel == Other.StreamingLevel; }
+
+private:
+	UPROPERTY()
+	ULevelStreaming* StreamingLevel;
+};
+
+USTRUCT()
+struct FStreamingLevelsToConsider
+{
+	GENERATED_BODY()
+
+	FStreamingLevelsToConsider()
+		: bStreamingLevelsBeingConsidered(false)
+	{}
+
+	/** Priority sorted array of streaming levels actively being considered. */
+	UPROPERTY()
+	TArray<FLevelStreamingWrapper> StreamingLevels;
+
+private:
+
+	enum class EProcessReason
+	{
+		Add,
+		Reevaluate
+	};
+
+	/** Streaming levels that had their priority changed or were added to the container while consideration was underway. */
+	TSortedMap<FLevelStreamingWrapper, EProcessReason> LevelsToProcess;
+
+	/** Whether the streaming levels are under active consideration or not */
+	bool bStreamingLevelsBeingConsidered;
+
+	/** 
+	 * Add an element to the container. 
+	 * If bGuaranteedRemoved is true, Contains check to avoid duplicates will not be used. This should only be used immediately after calling Remove.
+	*/
+	void Add_Internal(ULevelStreaming* StreamingLevel, bool bGuaranteedNotInContainer);
+
+public:
+
+	void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
+
+	void BeginConsideration();
+	void EndConsideration();
+
+	/** Add an element to the container if not already in the container. */
+	void Add(ULevelStreaming* StreamingLevel) { Add_Internal(StreamingLevel, false); }
+
+	/* Remove an element from the container. */
+	bool Remove(ULevelStreaming* StreamingLevel);
+
+	/* Returns if an element is in the container. */
+	bool Contains(ULevelStreaming* StreamingLevel) const;
+
+	/* Resets the container to an empty state without freeing array memory. */
+	void Reset();
+
+	/* Instructs the container that state changed such that the position in the priority sorted array the level may no longer be correct. */
+	void Reevaluate(ULevelStreaming* StreamingLevel);
 };
 
 /** 
@@ -797,7 +847,7 @@ private:
 
 	/** This is the list of streaming levels that are actively being considered for what their state should be. It will be a subset of StreamingLevels */
 	UPROPERTY(Transient, DuplicateTransient)
-	TSet<ULevelStreaming*> StreamingLevelsToConsider;
+	FStreamingLevelsToConsider StreamingLevelsToConsider;
 
 public:
 
@@ -816,7 +866,7 @@ public:
 	void AddStreamingLevel(ULevelStreaming* StreamingLevelToAdd);
 
 	/** Add multiple streaming levels to the list of streamed levels to consider.  */
-	void AddStreamingLevels(TArrayView<ULevelStreaming* const> StreamingLevelsToAdd);
+	void AddStreamingLevels(TArrayView<ULevelStreaming* const> StreamingLevelsToAdd);	
 
 	/** Add a streaming level to the list of streamed levels to consider. If this streaming level is in the array already then it won't be added again. */
 	void AddUniqueStreamingLevel(ULevelStreaming* StreamingLevelToAdd);
@@ -850,6 +900,9 @@ public:
 
 	/** Inform the world that a streaming level has had a potentially state changing modification made to it so that it needs to be in the StreamingLevelsToConsider list. */
 	void UpdateStreamingLevelShouldBeConsidered(ULevelStreaming* StreamingLevelToConsider);
+
+	/** Inform the world that the streaming level has had its priority change and may need to be resorted if under consideration. */
+	void UpdateStreamingLevelPriority(ULevelStreaming* StreamingLevel);
 
 	/** Examine all streaming levels and determine which ones should be considered. */
 	void PopulateStreamingLevelsToConsider();
@@ -886,17 +939,145 @@ public:
 	/** View locations rendered in the previous frame, if any. */
 	TArray<FVector>								ViewLocationsRenderedLastFrame;
 
+	/** The current renderer feature level of this world */
+	TEnumAsByte<ERHIFeatureLevel::Type> FeatureLevel;
+
+	/** The current ticking group																								*/
+	TEnumAsByte<ETickingGroup> TickGroup;
+
+	/** The type of world this is. Describes the context in which it is being used (Editor, Game, Preview etc.) */
+	TEnumAsByte<EWorldType::Type> WorldType;
+
 	/** set for one tick after completely loading and initializing a new world
 	 * (regardless of whether it's LoadMap() or seamless travel)
 	 */
-	uint32 bWorldWasLoadedThisTick:1;
+	uint8 bWorldWasLoadedThisTick:1;
 
 	/**
 	 * Triggers a call to PostLoadMap() the next Tick, turns off loading movie if LoadMap() has been called.
 	 */
-	uint32 bTriggerPostLoadMap:1;
+	uint8 bTriggerPostLoadMap:1;
+
+	/** Whether we are in the middle of ticking actors/components or not														*/
+	uint8 bInTick:1;
+
+	/** Whether we have already built the collision tree or not                                                                 */
+	uint8 bIsBuilt:1;
+
+	/** We are in the middle of actor ticking, so add tasks for newly spawned actors											*/
+	uint8 bTickNewlySpawned:1;
+
+	/** 
+	 * Indicates that during world ticking we are doing the final component update of dirty components 
+	 * (after PostAsyncWork and effect physics scene has run. 
+	 */
+	uint8 bPostTickComponentUpdate:1;
+
+	/** Whether world object has been initialized via Init()																	*/
+	uint8 bIsWorldInitialized:1;
+
+	/** Is level streaming currently frozen?																					*/
+	uint8 bIsLevelStreamingFrozen:1;
+
+	/** True we want to execute a call to UpdateCulledTriggerVolumes during Tick */
+	uint8 bDoDelayedUpdateCullDistanceVolumes:1;
+
+	/** If true this world is in the process of running the construction script for an actor */
+	uint8 bIsRunningConstructionScript:1;
+
+	/** If true this world will tick physics to simulate. This isn't same as having Physics Scene. 
+	*  You need Physics Scene if you'd like to trace. This flag changed ticking */
+	uint8 bShouldSimulatePhysics:1;
+
+#if !UE_BUILD_SHIPPING
+	/** If TRUE, 'hidden' components will still create render proxy, so can draw info (see USceneComponent::ShouldRender) */
+	uint8 bCreateRenderStateForHiddenComponents:1;
+#endif // !UE_BUILD_SHIPPING
+
+#if WITH_EDITOR
+	/** this is special flag to enable collision by default for components that are not Volume
+	* currently only used by editor level viewport world, and do not use this for in-game scene
+	*/
+	uint8 bEnableTraceCollision:1;
+#endif
+
+	/** frame rate is below DesiredFrameRate, so drop high detail actors */
+	uint8 bDropDetail:1;
+
+	/** frame rate is well below DesiredFrameRate, so make LOD more aggressive */
+	uint8 bAggressiveLOD:1;
+
+	/** That map is default map or not **/
+	uint8 bIsDefaultLevel:1;
+	
+	/** Whether it was requested that the engine bring up a loading screen and block on async loading. */   
+	uint8 bRequestedBlockOnAsyncLoading:1;
+
+	/** Whether actors have been initialized for play */
+	uint8 bActorsInitialized:1;
+
+	/** Whether BeginPlay has been called on actors */
+	uint8 bBegunPlay:1;
+
+	/** Whether the match has been started */
+	uint8 bMatchStarted:1;
+
+	/**  When ticking the world, only update players. */
+	uint8 bPlayersOnly:1;
+
+	/** Indicates that at the end the frame bPlayersOnly will be set to true. */
+	uint8 bPlayersOnlyPending:1;
+
+	/** Is the world in its actor initialization phase. */
+	uint8 bStartup:1;
+
+	/** Is the world being torn down */
+	uint8 bIsTearingDown:1;
+
+	/**
+	 * This is a bool that indicates that one or more blueprints in the level (blueprint instances, level script, etc)
+	 * have compile errors that could not be automatically resolved.
+	 */
+	uint8 bKismetScriptError:1;
+
+	// Kismet debugging flags - they can be only editor only, but they're uint32, so it doens't make much difference
+	uint8 bDebugPauseExecution:1;
+
+	/** When set, camera is potentially moveable even when paused */
+	uint8 bIsCameraMoveableWhenPaused:1;
+
+	/** Indicates this scene always allows audio playback. */
+	uint8 bAllowAudioPlayback:1;
+
+#if WITH_EDITOR
+	/** When set, will tell us to pause simulation after one tick.  If a breakpoint is encountered before tick is complete we will stop there instead. */
+	uint8 bDebugFrameStepExecution:1;
+#endif
+
+	/** Keeps track whether actors moved via PostEditMove and therefore constraint syncup should be performed. */
+	UPROPERTY(transient)
+	uint8 bAreConstraintsDirty:1;
 
 private:
+
+	/** Whether the render scene for this World should be created with HitProxies or not */
+	uint8 bRequiresHitProxies:1;
+
+	/** Whether to do any ticking at all for this world. */
+	uint8 bShouldTick:1;
+
+	/** Whether we have a pending call to BuildStreamingData(). */
+	uint8 bStreamingDataDirty : 1;
+
+	/** Is forcibly unloading streaming levels?																					*/
+	uint8 bShouldForceUnloadStreamingLevels:1;
+
+	/** Is forcibly making streaming levels visible?																			*/
+	uint8 bShouldForceVisibleStreamingLevels:1;
+
+	/** Is there at least one material parameter collection instance waiting for a deferred update?								*/
+	uint8 bMaterialParameterCollectionInstanceNeedsDeferredUpdate : 1;
+
 	/** The world's navigation data manager */
 	UPROPERTY(Transient)
 	class UNavigationSystemBase*				NavigationSystem;
@@ -933,6 +1114,9 @@ private:
 
 public:
 
+	/** Handle to the active audio device for this world. */
+	uint32 AudioDeviceHandle;
+
 #if WITH_EDITOR
 	/** Hierarchical LOD System. Used when WorldSetting.bEnableHierarchicalLODSystem is true */
 	struct FHierarchicalLODBuilder*						HierarchicalLODBuilder;
@@ -944,9 +1128,11 @@ public:
 
 private:
 
+#if WITH_EDITORONLY_DATA
 	/** Pointer to the current level being edited. Level has to be in the Levels array and == PersistentLevel in the game.		*/
 	UPROPERTY(Transient)
 	class ULevel*								CurrentLevel;
+#endif
 
 	UPROPERTY(Transient)
 	class UGameInstance*						OwningGameInstance;
@@ -972,32 +1158,33 @@ public:
 	/** The interface to the scene manager for this world. */
 	class FSceneInterface*						Scene;
 
-	/** The current renderer feature level of this world */
-	ERHIFeatureLevel::Type						FeatureLevel;
-	
 #if WITH_EDITORONLY_DATA
 	/** Saved editor viewport states - one for each view type. Indexed using ELevelViewportType from UnrealEdTypes.h.	*/
 	UPROPERTY(NonTransactional)
 	TArray<FLevelViewportInfo>					EditorViews;
 #endif
 
+#if WITH_EDITORONLY_DATA
 	/** 
 	 * Set the CurrentLevel for this world. 
 	 * @return true if the current level changed.
 	 */
 	bool SetCurrentLevel( class ULevel* InLevel );
-	
+#endif
+
 	/** Get the CurrentLevel for this world. **/
 	class ULevel* GetCurrentLevel() const;
 
 	/** A static map that is populated before loading a world from a package. This is so UWorld can look up its WorldType in ::PostLoad */
 	static TMap<FName, EWorldType::Type> WorldTypePreLoadMap;
 
+#if WITH_EDITOR
 	/** Map of blueprints that are being debugged and the object instance they are debugging. */
 	typedef TMap<TWeakObjectPtr<class UBlueprint>, TWeakObjectPtr<UObject> > FBlueprintToDebuggedObjectMap;
 
 	/** Return the array of objects currently bieng debugged. */
 	const FBlueprintToDebuggedObjectMap& GetBlueprintObjectsBeingDebugged() const{ return BlueprintObjectsBeingDebugged; };
+#endif
 
 	/** Creates a new FX system for this world */
 	void CreateFXSystem();
@@ -1042,23 +1229,21 @@ private:
 	/** Physics scene for this world. */
 	FPhysScene*									PhysicsScene;
 
-	/** Set of components that need updates at the end of the frame */
-	TSet<TWeakObjectPtr<UActorComponent> > ComponentsThatNeedEndOfFrameUpdate;
+	/** Array of components that need updates at the end of the frame */
+	UPROPERTY(Transient, NonTransactional)
+	TArray<UActorComponent*> ComponentsThatNeedEndOfFrameUpdate;
 
-	/** Set of components that need recreates at the end of the frame */
-	TSet<TWeakObjectPtr<UActorComponent> > ComponentsThatNeedEndOfFrameUpdate_OnGameThread;
+	/** Array of components that need game thread updates at the end of the frame */
+	UPROPERTY(Transient, NonTransactional)
+	TArray<UActorComponent*> ComponentsThatNeedEndOfFrameUpdate_OnGameThread;
 
 	/** The state of async tracing - abstracted into its own object for easier reference */
 	FWorldAsyncTraceState AsyncTraceState;
 
+#if WITH_EDITOR
 	/**	Objects currently being debugged in Kismet	*/
 	FBlueprintToDebuggedObjectMap BlueprintObjectsBeingDebugged;
-
-	/** Whether the render scene for this World should be created with HitProxies or not */
-	bool bRequiresHitProxies;
-
-	/** Whether to do any ticking at all for this world. */
-	bool bShouldTick;
+#endif
 
 	/** a delegate that broadcasts a notification whenever an actor is spawned */
 	FOnActorSpawned OnActorSpawned;
@@ -1080,9 +1265,6 @@ private:
 
 	/** Latent action manager. */
 	struct FLatentActionManager LatentActionManager;
-
-	/** Whether we have a pending call to BuildStreamingData(). */
-	uint32 bStreamingDataDirty:1;
 
 	/** Timestamp (in FPlatformTime::Seconds) when the next call to BuildStreamingData() should be made, if bDirtyStreamingData is true. */
 	double BuildStreamingDataTimer;
@@ -1163,55 +1345,16 @@ public:
 	/** Data structures for holding the tick functions that are associated with the world (line batcher, etc) **/
 	class FTickTaskLevel*						TickTaskLevel;
 
-	/** Whether we are in the middle of ticking actors/components or not														*/
-	bool										bInTick;
-
-    /** Whether we have already built the collision tree or not                                                                 */
-    bool                                        bIsBuilt;
-    
-	/** We are in the middle of actor ticking, so add tasks for newly spawned actors											*/
-	bool										bTickNewlySpawned;
-
-	/** The current ticking group																								*/
-	ETickingGroup								TickGroup;
-
 	/** Tick function for starting physics																						*/
 	FStartPhysicsTickFunction StartPhysicsTickFunction;
 	/** Tick function for ending physics																						*/
 	FEndPhysicsTickFunction EndPhysicsTickFunction;
 
-	/** Tick function for starting cloth simulation																				*/
-	FStartAsyncSimulationFunction StartAsyncTickFunction;
-
-	/** 
-	 * Indicates that during world ticking we are doing the final component update of dirty components 
-	 * (after PostAsyncWork and effect physics scene has run. 
-	 */
-	bool										bPostTickComponentUpdate;
-
 	/** Counter for allocating game- unique controller player numbers															*/
 	int32										PlayerNum;
-
-	/** Whether world object has been initialized via Init()																	*/
-	bool										bIsWorldInitialized;
 	
 	/** Number of frames to delay Streaming Volume updating, useful if you preload a bunch of levels but the camera hasn't caught up yet (INDEX_NONE for infinite) */
 	int32										StreamingVolumeUpdateDelay;
-
-	/** Is level streaming currently frozen?																					*/
-	bool										bIsLevelStreamingFrozen;
-
-private:
-	/** Is forcibly unloading streaming levels?																					*/
-	bool										bShouldForceUnloadStreamingLevels;
-
-	/** Is forcibly making streaming levels visible?																			*/
-	bool										bShouldForceVisibleStreamingLevels;
-
-	/** Is there at least one material parameter collection instance waiting for a deferred update?								*/
-	uint8										bMaterialParameterCollectionInstanceNeedsDeferredUpdate : 1;
-
-public:
 
 	bool GetShouldForceUnloadStreamingLevels() const { return bShouldForceUnloadStreamingLevels; }
 	void SetShouldForceUnloadStreamingLevels(bool bInShouldForceUnloadStreamingLevels);
@@ -1219,42 +1362,13 @@ public:
 	bool GetShouldForceVisibleStreamingLevels() const { return bShouldForceVisibleStreamingLevels; }
 	void SetShouldForceVisibleStreamingLevels(bool bInShouldForceVisibleStreamingLevels);
 
-	/** True we want to execute a call to UpdateCulledTriggerVolumes during Tick */
-	bool										bDoDelayedUpdateCullDistanceVolumes;
-
-	/** The type of world this is. Describes the context in which it is being used (Editor, Game, Preview etc.) */
-	EWorldType::Type							WorldType;
-
-	/** Force UsesGameHiddenFlags to return true. */
-	DEPRECATED(4.14, "bHack_Force_UsesGameHiddenFlags_True is deprecated. Please use EWorldType::GamePreview (etc.) to enforce correct hidden flag usage for preview scenes.")
-	bool										bHack_Force_UsesGameHiddenFlags_True;
-
-	/** If true this world is in the process of running the construction script for an actor */
-	bool										bIsRunningConstructionScript;
-
-	/** If true this world will tick physics to simulate. This isn't same as having Physics Scene. 
-	 *  You need Physics Scene if you'd like to trace. This flag changed ticking */
-	bool										bShouldSimulatePhysics;
-
-#if !UE_BUILD_SHIPPING
-	/** If TRUE, 'hidden' components will still create render proxy, so can draw info (see USceneComponent::ShouldRender) */
-	bool										bCreateRenderStateForHiddenComponents;
-#endif // !UE_BUILD_SHIPPING
-
-#if WITH_EDITOR
-	/** this is special flag to enable collision by default for components that are not Volume
-	 * currently only used by editor level viewport world, and do not use this for in-game scene
-	 */
-	bool										bEnableTraceCollision;
-#endif
-
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	/** When non-'None', all line traces where the TraceTag match this will be drawn */
 	FName    DebugDrawTraceTag;
 
 	/** When set to true, all scene queries will be drawn */
 	bool bDebugDrawAllTraceTags;
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	bool DebugDrawSceneQueries(const FName& UsedTraceTag) const
 	{
 		return (bDebugDrawAllTraceTags || ((DebugDrawTraceTag != NAME_None) && (DebugDrawTraceTag == UsedTraceTag))) && IsInGameThread();
@@ -1266,10 +1380,7 @@ public:
 
 	/** Set of AudioVolumes sorted by  */
 	// TODO: Make this be property UPROPERTY(Transient)
-	TSet<class AAudioVolume*> AudioVolumes;
-
-	/** Handle to the active audio device for this world. */
-	uint32 AudioDeviceHandle;
+	TArray<class AAudioVolume*> AudioVolumes;
 
 	/** Time in FPlatformTime::Seconds unbuilt time was last encountered. 0 means not yet.							*/
 	double LastTimeUnbuiltLightingWasEncountered;
@@ -1300,7 +1411,10 @@ public:
 
 	/** World origin offset value. Non-zero only for a single frame when origin is rebased */
 	FVector OriginOffsetThisFrame;
-		
+
+	/** Amount of time to wait before traveling to next map, gives clients time to receive final RPCs @see ServerTravelPause */
+	float NextSwitchCountdown;
+
 	/** All levels information from which our world is composed */
 	UPROPERTY()
 	class UWorldComposition* WorldComposition;
@@ -1308,15 +1422,11 @@ public:
 	/** Whether we flushing level streaming state */ 
 	EFlushLevelStreamingType FlushLevelStreamingType;
 
-public:
 	/** The type of travel to perform next when doing a server travel */
-	ETravelType			NextTravelType;
+	TEnumAsByte<ETravelType> NextTravelType;
 	
 	/** The URL to be used for the upcoming server travel */
 	FString NextURL;
-
-	/** Amount of time to wait before traveling to next map, gives clients time to receive final RPCs @see ServerTravelPause */
-	float NextSwitchCountdown;
 
 	/** array of levels that were loaded into this map via PrepareMapChange() / CommitMapChange() (to inform newly joining clients) */
 	TArray<FName> PreparingLevelNames;
@@ -1324,6 +1434,7 @@ public:
 	/** Name of persistent level if we've loaded levels via CommitMapChange() that aren't normally in the StreamingLevels array (to inform newly joining clients) */
 	FName CommittedPersistentLevelName;
 
+#if !UE_BUILD_SHIPPING
 	/**
 	 * This is a int on the level which is set when a light that needs to have lighting rebuilt
 	 * is moved.  This is then checked in CheckMap for errors to let you know that this level should
@@ -1338,61 +1449,7 @@ public:
 
 	/** Num of resources that have changed since the last texture streaming build. Updated in map check. */
 	int32 NumTextureStreamingDirtyResources;
-
-	/** frame rate is below DesiredFrameRate, so drop high detail actors */
-	uint32 bDropDetail:1;
-
-	/** frame rate is well below DesiredFrameRate, so make LOD more aggressive */
-	uint32 bAggressiveLOD:1;
-
-	/** That map is default map or not **/
-	uint32 bIsDefaultLevel:1;
-	
-	/** Whether it was requested that the engine bring up a loading screen and block on async loading. */   
-	uint32 bRequestedBlockOnAsyncLoading:1;
-
-	/** Whether actors have been initialized for play */
-	uint32 bActorsInitialized:1;
-
-	/** Whether BeginPlay has been called on actors */
-	uint32 bBegunPlay:1;
-
-	/** Whether the match has been started */
-	uint32 bMatchStarted:1;
-
-	/**  When ticking the world, only update players. */
-	uint32 bPlayersOnly:1;
-
-	/** Indicates that at the end the frame bPlayersOnly will be set to true. */
-	uint32 bPlayersOnlyPending:1;
-
-	/** Is the world in its actor initialization phase. */
-	uint32 bStartup:1;
-
-	/** Is the world being torn down */
-	uint32 bIsTearingDown:1;
-
-	/**
-	 * This is a bool that indicates that one or more blueprints in the level (blueprint instances, level script, etc)
-	 * have compile errors that could not be automatically resolved.
-	 */
-	uint32 bKismetScriptError:1;
-
-	// Kismet debugging flags - they can be only editor only, but they're uint32, so it doens't make much difference
-	uint32 bDebugPauseExecution:1;
-
-	/** When set, camera is potentially moveable even when paused */
-	uint32 bIsCameraMoveableWhenPaused:1;
-
-	/** Indicates this scene always allows audio playback. */
-	uint32 bAllowAudioPlayback:1;
-
-	/** When set, will tell us to pause simulation after one tick.  If a breakpoint is encountered before tick is complete we will stop there instead. */
-	uint32 bDebugFrameStepExecution:1;
-
-	/** Keeps track whether actors moved via PostEditMove and therefore constraint syncup should be performed. */
-	UPROPERTY(transient)
-	uint32 bAreConstraintsDirty:1;
+#endif
 
 	/** Indicates that the world has marked contained objects as pending kill */
 	bool HasMarkedObjectsPendingKill() const { return bMarkedObjectsPendingKill; }
@@ -1795,12 +1852,6 @@ public:
 	 */ 
 	FTraceHandle	AsyncLineTraceByChannel(EAsyncTraceType InTraceType, const FVector& Start,const FVector& End, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam, FTraceDelegate * InDelegate=NULL, uint32 UserData = 0 );
 
-	DEPRECATED(4.12, "bMultiTrace option replaced with required EAsyncTraceType enum.")
-	FTraceHandle	AsyncLineTraceByChannel(const FVector& Start, const FVector& End, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam, FTraceDelegate * InDelegate = NULL, uint32 UserData = 0, bool bMultiTrace = false)
-	{
-		return AsyncLineTraceByChannel(bMultiTrace ? EAsyncTraceType::Multi : EAsyncTraceType::Single, Start, End, TraceChannel, Params, ResponseParam, InDelegate, UserData);
-	}
-
 	/**
 	 * Interface for Async. Pretty much same parameter set except you can optional set delegate to be called when execution is completed and you can set UserData if you'd like
 	 * if no delegate, you can query trace data using QueryTraceData or QueryOverlapData
@@ -1821,13 +1872,6 @@ public:
 	 *	@param	UserData		UserData
 	 */ 
 	FTraceHandle	AsyncLineTraceByObjectType(EAsyncTraceType InTraceType, const FVector& Start,const FVector& End, const FCollisionObjectQueryParams& ObjectQueryParams, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, FTraceDelegate * InDelegate=NULL, uint32 UserData = 0 );
-
-	DEPRECATED(4.12, "bMultiTrace option replaced with required EAsyncTraceType enum.")
-	FTraceHandle	AsyncLineTraceByObjectType(const FVector& Start,const FVector& End, const FCollisionObjectQueryParams& ObjectQueryParams, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, FTraceDelegate * InDelegate=NULL, uint32 UserData = 0, bool bMultiTrace=false )
-	{
-		return AsyncLineTraceByObjectType(bMultiTrace ? EAsyncTraceType::Multi : EAsyncTraceType::Single, Start, End, ObjectQueryParams, Params, InDelegate, UserData);
-	}
-
 
 	/**
 	 * Interface for Async trace
@@ -1853,12 +1897,6 @@ public:
 	 */ 
 	FTraceHandle	AsyncSweepByChannel(EAsyncTraceType InTraceType, const FVector& Start, const FVector& End, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam, FTraceDelegate * InDelegate = NULL, uint32 UserData = 0);
 
-	DEPRECATED(4.12, "bMultiTrace option replaced with required ETraceDatumType enum.")
-	FTraceHandle	AsyncSweepByChannel(const FVector& Start, const FVector& End, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam, FTraceDelegate * InDelegate = NULL, uint32 UserData = 0, bool bMultiTrace = false)
-	{
-		return AsyncSweepByChannel(bMultiTrace ? EAsyncTraceType::Multi : EAsyncTraceType::Single, Start, End, TraceChannel, CollisionShape, Params, ResponseParam, InDelegate, UserData);
-	}
-
 	/**
 	 * Interface for Async trace
 	 * Pretty much same parameter set except you can optional set delegate to be called when execution is completed and you can set UserData if you'd like
@@ -1881,13 +1919,6 @@ public:
 	 *	@param	UserData		UserData
 	 */ 
 	FTraceHandle	AsyncSweepByObjectType(EAsyncTraceType InTraceType, const FVector& Start, const FVector& End, const FCollisionObjectQueryParams& ObjectQueryParams, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, FTraceDelegate * InDelegate = NULL, uint32 UserData = 0);
-
-	DEPRECATED(4.12, "bMultiTrace option replaced with required ETraceDatumType enum.")
-	FTraceHandle	AsyncSweepByObjectType(const FVector& Start, const FVector& End, const FCollisionObjectQueryParams& ObjectQueryParams, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, FTraceDelegate * InDelegate = NULL, uint32 UserData = 0, bool bMultiTrace = false)
-	{
-		return AsyncSweepByObjectType(bMultiTrace ? EAsyncTraceType::Multi : EAsyncTraceType::Single, Start, End, ObjectQueryParams, CollisionShape, Params, InDelegate, UserData);
-	}
-
 
 	// overlap functions
 
@@ -1992,6 +2023,9 @@ public:
 
 	/** @return Returns an iterator for the player controller list. */
 	FConstPlayerControllerIterator GetPlayerControllerIterator() const;
+
+	/** @return Returns the number of Player Controllers. */
+	int32 GetNumPlayerControllers() const;
 	
 	/** 
 	 * @return Returns the first player controller cast to the template type, or NULL if there is not one.
@@ -2035,12 +2069,6 @@ public:
 	
 	/** Returns a reference to the game viewport displaying this world if one exists. */
 	UGameViewportClient* GetGameViewport() const;
-
-private:
-	/** Begin async simulation */
-	void StartAsyncSim();
-
-	friend FStartAsyncSimulationFunction;
 
 public:
 
@@ -2104,9 +2132,6 @@ public:
 	/** Helper for getting the time since a certain time. */
 	float TimeSince( float Time ) const;
 
-	/** Helper for getting the mono far field culling distance. */
-	float GetMonoFarFieldCullingDistance() const;
-
 	/** Creates a new physics scene for this world. */
 	void CreatePhysicsScene(const AWorldSettings* Settings = nullptr);
 
@@ -2153,6 +2178,8 @@ public:
 	 *
 	 * @return AWorldSettings actor associated with this world
 	 */
+	UFUNCTION(BlueprintCallable, Category="Utilities|World", meta=(DisplayName="GetWorldSettings", ScriptName="GetWorldSettings"))
+	AWorldSettings* K2_GetWorldSettings();
 	AWorldSettings* GetWorldSettings( bool bCheckStreamingPersistent = false, bool bChecked = true ) const;
 
 	/**
@@ -2288,8 +2315,9 @@ public:
 	 * Updates cull distance volumes for a specified component or a specified actor or all actors
          * @param ComponentToUpdate If specified just that Component will be updated
 	 * @param ActorToUpdate If specified (and ComponentToUpdate is not specified), all Components owned by this Actor will be updated
+	 * @return True if the passed in actors or components were within a volume
 	 */
-	void UpdateCullDistanceVolumes(AActor* ActorToUpdate = nullptr, UPrimitiveComponent* ComponentToUpdate = nullptr);
+	bool UpdateCullDistanceVolumes(AActor* ActorToUpdate = nullptr, UPrimitiveComponent* ComponentToUpdate = nullptr);
 
 	/**
 	 * Cleans up components, streaming data and assorted other intermediate data.
@@ -2395,7 +2423,7 @@ public:
 	UMaterialParameterCollectionInstance* GetParameterCollectionInstance(const UMaterialParameterCollection* Collection);
 
 	/** Updates this world's scene with the list of instances, and optionally updates each instance's uniform buffer. */
-	void UpdateParameterCollectionInstances(bool bUpdateInstanceUniformBuffers);
+	void UpdateParameterCollectionInstances(bool bUpdateInstanceUniformBuffers, bool bRecreateUniformBuffer);
 
 	/** Gets the canvas object for rendering to a render target.  Will allocate one if needed. */
 	UCanvas* GetCanvasForRenderingToTarget();
@@ -2488,13 +2516,13 @@ public:
 	/**
 	 *  Interface to allow WorldSettings to request immediate garbage collection
 	 */
-	DEPRECATED(4.18, "Use GEngine->PerformGarbageCollectionAndCleanupActors instead.")
+	UE_DEPRECATED(4.18, "Use GEngine->PerformGarbageCollectionAndCleanupActors instead.")
 	void PerformGarbageCollectionAndCleanupActors();
 
 	/**
 	 *  Requests a one frame delay of Garbage Collection
 	 */
-	DEPRECATED(4.18, "Use GEngine->DelayGarbageCollection instead.")
+	UE_DEPRECATED(4.18, "Use GEngine->DelayGarbageCollection instead.")
 	void DelayGarbageCollection();
 
 	/**
@@ -2503,13 +2531,13 @@ public:
 	 *
 	 * Note: Things that force a GC will still force a GC after using this method (and they will also reset the timer)
 	 */
-	DEPRECATED(4.18, "Use GEngine->SetTimeUntilNextGarbageCollection instead.")
+	UE_DEPRECATED(4.18, "Use GEngine->SetTimeUntilNextGarbageCollection instead.")
 	void SetTimeUntilNextGarbageCollection(float MinTimeUntilNextPass);
 
 	/**
 	 * Returns the current desired time between garbage collection passes (not the time remaining)
 	 */
-	DEPRECATED(4.18, "Call GEngine->GetTimeBetweenGarbageCollectionPasses instead")
+	UE_DEPRECATED(4.18, "Call GEngine->GetTimeBetweenGarbageCollectionPasses instead")
 	float GetTimeBetweenGarbageCollectionPasses() const;
 
 	/**
@@ -2557,12 +2585,14 @@ public:
 	*/
 	void ClearActorComponentEndOfFrameUpdate(UActorComponent* Component);
 
+#if WITH_EDITOR
 	/**
 	 * Updates an ActorComponent's cached state of whether it has been marked for end of frame update based on the current
 	 * state of the World's NeedsEndOfFrameUpdate arrays
 	 * @param Component - Component to update the cached state of
 	 */
 	void UpdateActorComponentEndOfFrameUpdateState(UActorComponent* Component) const;
+#endif
 
 	/** 
 	 * Used to indicate a UMaterialParameterCollectionInstance needs a deferred update 
@@ -2958,6 +2988,10 @@ public:
 	/** Copies GameState properties from the GameMode. */
 	void CopyGameState(AGameModeBase* FromGameMode, AGameStateBase* FromGameState);
 
+	DECLARE_EVENT_OneParam(UWorld, FOnGameStateSetEvent, AGameStateBase*);
+	/** Called whenever the gamestate is set on the world. */
+	FOnGameStateSetEvent GameStateSetEvent;
+
 
 	/** Spawns a Brush Actor in the World */
 	ABrush*	SpawnBrush();
@@ -3253,7 +3287,7 @@ public:
 	int32 GetDetailMode();
 
 	/** Updates the timer between garbage collection such that at the next opportunity garbage collection will be run. */
-	DEPRECATED(4.18, "Call GEngine->ForceGarbageCollection instead")
+	UE_DEPRECATED(4.18, "Call GEngine->ForceGarbageCollection instead")
 	void ForceGarbageCollection( bool bFullPurge = false );
 
 	/** asynchronously loads the given levels in preparation for a streaming map transition.
@@ -3421,6 +3455,10 @@ public:
 
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnWorldTickStart, ELevelTick, float);
 	static FOnWorldTickStart OnWorldTickStart;
+
+	// Delegate called before actors are ticked for each world. Delta seconds is already dilated and clamped.
+	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnWorldPreActorTick, UWorld* /*World*/, ELevelTick/**Tick Type*/, float/**Delta Seconds*/);
+	static FOnWorldPreActorTick OnWorldPreActorTick;
 
 	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnWorldPostActorTick, UWorld* /*World*/, ELevelTick/**Tick Type*/, float/**Delta Seconds*/);
 	static FOnWorldPostActorTick OnWorldPostActorTick;

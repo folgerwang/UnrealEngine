@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Framework/Docking/TabManager.h"
 #include "Dom/JsonValue.h"
@@ -392,14 +392,15 @@ TSharedRef<FJsonObject> FTabManager::FLayout::PersistToString_Helper(const TShar
 
 void FTabManager::FLayout::ProcessExtensions(const FLayoutExtender& Extender)
 {
+	// Extend areas first
+	for (TSharedRef<FTabManager::FArea>& Area : Areas)
+	{
+		Extender.ExtendAreaRecursive(Area);
+	}
+
 	struct FTabInformation
 	{
 		FTabInformation(FTabManager::FLayout& Layout)
-		{
-			Gather(Layout);
-		}
-
-		void Gather(FTabManager::FLayout& Layout)
 		{
 			for (TSharedRef<FTabManager::FArea>& Area : Layout.Areas)
 			{
@@ -492,8 +493,7 @@ TSharedPtr<SWindow> FTabManager::FPrivateApi::GetParentWindow() const
 	{
 		// The tab was dragged out of some context that is owned by a MajorTab.
 		// Whichever window possesses the MajorTab should be the parent of the newly created window.
-		FWidgetPath DummyPath;
-		TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow( OwnerTab.ToSharedRef(), DummyPath );
+		TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow( OwnerTab.ToSharedRef() );
 		return ParentWindow;
 	}
 	else
@@ -886,8 +886,10 @@ void FTabManager::PopulateTabSpawnerMenu_Helper( FMenuBuilder& PopulateMe, FPopu
 
 				if ( Args.Level % 2 == 0 )
 				{
-					FName SectionName(*ChildItem->GetDisplayName().ToString().Replace(TEXT(" "), TEXT("")));
-					PopulateMe.BeginSection(SectionName, ChildItem->GetDisplayName());
+					FString SectionNameStr = ChildItem->GetDisplayName().BuildSourceString();
+					SectionNameStr.ReplaceInline(TEXT(" "), TEXT(""));
+
+					PopulateMe.BeginSection(*SectionNameStr, ChildItem->GetDisplayName());
 					{
 						PopulateTabSpawnerMenu_Helper(PopulateMe, Payload);
 					}

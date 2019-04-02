@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "EditableSkeleton.h"
 #include "Editor.h"
@@ -247,7 +247,7 @@ bool FEditableSkeleton::AddSmartname(const FName& InContainerName, const FName& 
 	return false;
 }
 
-void FEditableSkeleton::RenameSmartname(const FName& InContainerName, SmartName::UID_Type InNameUid, const FName& InNewName)
+void FEditableSkeleton::RenameSmartname(const FName InContainerName, SmartName::UID_Type InNameUid, const FName InNewName)
 {
 	FSmartName CurveToRename;
 	if (!Skeleton->GetSmartNameByUID(USkeleton::AnimCurveMappingName, InNameUid, CurveToRename))
@@ -297,7 +297,9 @@ void FEditableSkeleton::RenameSmartname(const FName& InContainerName, SmartName:
 						if (UAnimSequence* Seq = Cast<UAnimSequence>(SequenceBase))
 						{
 							SequencesToRecompress.Add(Seq);
-							Seq->CompressedCurveData.Empty();
+
+							Seq->CompressedCurveByteStream.Empty();
+							Seq->CurveCompressionCodec = nullptr;
 						}
 					}
 				}
@@ -414,12 +416,9 @@ void FEditableSkeleton::RemoveSmartnamesAndFixupAnimations(const FName& InContai
 	TArray<FAssetData> AnimationAssets;
 	GetAssetsContainingCurves(InContainerName, InNames, AnimationAssets);
 
-	bool bRemoved = true;
-
 	// AnimationAssets now only contains assets that are using the selected curve(s)
 	if (AnimationAssets.Num() > 0)
 	{
-		bRemoved = false; //need to warn user now
 		FString AssetMessage = LOCTEXT("DeleteCurveMessage", "Deleting curves will:\n\nRemove the curves from Animations and PoseAssets\nRemove poses using that curve name from PoseAssets.\n\nThe following assets will be modified. Continue?\n\n").ToString();
 
 		AnimationAssets.Sort([&](const FAssetData& A, const FAssetData& B)
@@ -441,7 +440,6 @@ void FEditableSkeleton::RemoveSmartnamesAndFixupAnimations(const FName& InContai
 
 		if (FMessageDialog::Open(EAppMsgType::YesNo, AssetMessageText, &AssetTitleText) == EAppReturnType::Yes)
 		{
-			bRemoved = true;
 			// Proceed to delete the curves
 			GWarn->BeginSlowTask(FText::Format(LOCTEXT("DeleteCurvesTaskDesc", "Deleting curve from skeleton {0}"), FText::FromString(Skeleton->GetName())), true);
 			FScopedTransaction Transaction(LOCTEXT("DeleteCurvesTransactionName", "Delete skeleton curve"));
@@ -484,13 +482,17 @@ void FEditableSkeleton::RemoveSmartnamesAndFixupAnimations(const FName& InContai
 				Seq->RequestSyncAnimRecompression();
 			}
 			GWarn->EndSlowTask();
+
+			// Remove names from skeleton
+			Skeleton->RemoveSmartnamesAndModify(InContainerName, InNames);
 		}
 	}
-
-	if (bRemoved && InNames.Num() > 0)
+	else if(InNames.Num() > 0)
 	{
+		FScopedTransaction Transaction(LOCTEXT("DeleteCurvesTransactionName", "Delete skeleton curve"));
+
 		// Remove names from skeleton
-		Skeleton->RemoveSmartnamesAndModify(InContainerName, InNames);
+		Skeleton->RemoveSmartnamesAndModify(InContainerName, InNames);	
 	}
 
 	OnSmartNameChanged.Broadcast(InContainerName);
@@ -560,7 +562,7 @@ static USkeletalMeshSocket* FindSocket(const FName& InSocketName, USkeletalMesh*
 	return Socket;
 }
 
-void FEditableSkeleton::RenameSocket(const FName& OldSocketName, const FName& NewSocketName, USkeletalMesh* InSkeletalMesh)
+void FEditableSkeleton::RenameSocket(const FName OldSocketName, const FName NewSocketName, USkeletalMesh* InSkeletalMesh)
 {
 	USkeletalMeshSocket* SocketData = FindSocket(OldSocketName, InSkeletalMesh, Skeleton);
 
@@ -672,6 +674,13 @@ void FEditableSkeleton::HandlePasteSockets(const FName& InBoneName, USkeletalMes
 		                                            } );
 		TextObjectFactory.ProcessBuffer(nullptr, RF_Transactional, PastePtr);
 	}
+}
+
+USkeletalMeshSocket* FEditableSkeleton::AddSocket(const FName& InBoneName)
+{
+	USkeletalMeshSocket* NewSocket = HandleAddSocket(InBoneName);
+	OnTreeRefresh.Broadcast();
+	return NewSocket;
 }
 
 USkeletalMeshSocket* FEditableSkeleton::HandleAddSocket(const FName& InBoneName)
@@ -1007,7 +1016,7 @@ bool FEditableSkeleton::DoesVirtualBoneAlreadyExist(const FString& InVBName) con
 	return false;
 }
 
-void FEditableSkeleton::RenameVirtualBone(const FName& OriginalName, const FName& InVBName)
+void FEditableSkeleton::RenameVirtualBone(const FName OriginalName, const FName InVBName)
 {
 	FScopedTransaction Transaction(LOCTEXT("RenameVirtualBone", "Rename Virtual Bone in Skeleton"));
 	Skeleton->RenameVirtualBone(OriginalName, InVBName);
@@ -1122,7 +1131,7 @@ void FEditableSkeleton::AddSyncMarker(FName NewName)
 	Skeleton->RegisterMarkerName(NewName);
 }
 
-int32 FEditableSkeleton::RenameNotify(const FName& NewName, const FName& OldName)
+int32 FEditableSkeleton::RenameNotify(const FName NewName, const FName OldName)
 {
 	const FScopedTransaction Transaction(LOCTEXT("RenameAnimNotify", "Rename Anim Notify"));
 	Skeleton->Modify();
@@ -1244,7 +1253,7 @@ void FEditableSkeleton::SetAdditionalPreviewSkeletalMeshes(class UDataAsset* InP
 	}
 }
 
-void FEditableSkeleton::RenameRetargetSource(const FName& InOldName, const FName& InNewName)
+void FEditableSkeleton::RenameRetargetSource(const FName InOldName, const FName InNewName)
 {
 	const FScopedTransaction Transaction(LOCTEXT("RetargetSourceWindow_Rename", "Rename Retarget Source"));
 
@@ -1611,7 +1620,7 @@ void FEditableSkeleton::DeleteSlotGroup(const FName& InGroupName)
 	Skeleton->RemoveSlotGroup(InGroupName);
 }
 
-void FEditableSkeleton::RenameSlotName(const FName& InOldSlotName, const FName& InNewSlotName)
+void FEditableSkeleton::RenameSlotName(const FName InOldSlotName, const FName InNewSlotName)
 {
 	const FScopedTransaction Transaction(LOCTEXT("RenameSlotName", "Rename Slot Name"));
 	Skeleton->Modify();

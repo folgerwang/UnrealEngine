@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SSCSEditorViewport.h"
 #include "Framework/Application/SlateApplication.h"
@@ -111,96 +111,22 @@ public:
 
 	FText GetCameraMenuLabel() const
 	{
-		FText Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Default", "Camera");
-
 		if(EditorViewport.IsValid())
 		{
-			switch(EditorViewport.Pin()->GetViewportClient()->GetViewportType())
-			{
-			case LVT_Perspective:
-				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Perspective", "Perspective");
-				break;
-
-			case LVT_OrthoXY:
-				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Top", "Top");
-				break;
-
-			case LVT_OrthoYZ:
-				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Left", "Left");
-				break;
-
-			case LVT_OrthoXZ:
-				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Front", "Front");
-				break;
-
-			case LVT_OrthoNegativeXY:
-				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Bottom", "Bottom");
-				break;
-
-			case LVT_OrthoNegativeYZ:
-				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Right", "Right");
-				break;
-
-			case LVT_OrthoNegativeXZ:
-				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Back", "Back");
-				break;
-
-			case LVT_OrthoFreelook:
-				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_OrthoFreelook", "Ortho");
-				break;
-			}
+			return GetCameraMenuLabelFromViewportType(EditorViewport.Pin()->GetViewportClient()->GetViewportType());
 		}
 
-		return Label;
+		return NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Default", "Camera");
 	}
 
 	const FSlateBrush* GetCameraMenuLabelIcon() const
 	{
-		static FName PerspectiveIconName("EditorViewport.Perspective");
-		static FName TopIconName("EditorViewport.Top");
-		static FName LeftIconName("EditorViewport.Left");
-		static FName FrontIconName("EditorViewport.Front");
-		static FName BottomIconName("EditorViewport.Bottom");
-		static FName RightIconName("EditorViewport.Right");
-		static FName BackIconName("EditorViewport.Back");
-
-		FName Icon = NAME_None;
-
 		if(EditorViewport.IsValid())
 		{
-			switch(EditorViewport.Pin()->GetViewportClient()->GetViewportType())
-			{
-			case LVT_Perspective:
-				Icon = PerspectiveIconName;
-				break;
-
-			case LVT_OrthoXY:
-				Icon = TopIconName;
-				break;
-
-			case LVT_OrthoYZ:
-				Icon = LeftIconName;
-				break;
-
-			case LVT_OrthoXZ:
-				Icon = FrontIconName;
-				break;
-
-			case LVT_OrthoNegativeXY:
-				Icon = BottomIconName;
-				break;
-
-			case LVT_OrthoNegativeYZ:
-				Icon = RightIconName;
-				break;
-
-			case LVT_OrthoNegativeXZ:
-				Icon = BackIconName;
-				break;
-			}
+			return GetCameraMenuLabelIconFromViewportType( EditorViewport.Pin()->GetViewportClient()->GetViewportType() );
 		}
 
-		return FEditorStyle::GetBrush(Icon);
+		return FEditorStyle::GetBrush(NAME_None);
 	}
 
 	TSharedRef<SWidget> GenerateCameraMenu() const
@@ -311,12 +237,42 @@ void SSCSEditorViewport::Construct(const FArguments& InArgs)
 
 	SEditorViewport::Construct( SEditorViewport::FArguments() );
 
+	// Restore last used feature level
+	if (ViewportClient.IsValid())
+	{
+		UWorld* World = ViewportClient->GetPreviewScene()->GetWorld();
+		if (World != nullptr)
+		{
+			World->ChangeFeatureLevel(GWorld->FeatureLevel);
+		}
+	}
+
+	// Use a delegate to inform the attached world of feature level changes.
+	UEditorEngine* Editor = (UEditorEngine*)GEngine;
+	PreviewFeatureLevelChangedHandle = Editor->OnPreviewFeatureLevelChanged().AddLambda([this](ERHIFeatureLevel::Type NewFeatureLevel)
+		{
+			if(ViewportClient.IsValid())
+			{
+				UWorld* World = ViewportClient->GetPreviewScene()->GetWorld();
+				if (World != nullptr)
+				{
+					World->ChangeFeatureLevel(NewFeatureLevel);
+
+					// Refresh the preview scene. Don't change the camera.
+					RequestRefresh(false);
+				}
+			}
+		});
+
 	// Refresh the preview scene
 	RequestRefresh(true);
 }
 
 SSCSEditorViewport::~SSCSEditorViewport()
 {
+	UEditorEngine* Editor = (UEditorEngine*)GEngine;
+	Editor->OnPreviewFeatureLevelChanged().Remove(PreviewFeatureLevelChangedHandle);
+
 	if(ViewportClient.IsValid())
 	{
 		// Reset this to ensure it's no longer in use after destruction
@@ -351,6 +307,19 @@ TSharedPtr<SWidget> SSCSEditorViewport::MakeViewportToolbar()
 		.IsEnabled(FSlateApplication::Get().GetNormalExecutionAttribute());
 }
 
+void SSCSEditorViewport::PopulateViewportOverlays(TSharedRef<class SOverlay> Overlay)
+{
+	SEditorViewport::PopulateViewportOverlays(Overlay);
+
+	// add the feature level display widget
+	Overlay->AddSlot()
+		.VAlign(VAlign_Bottom)
+		.HAlign(HAlign_Right)
+		.Padding(5.0f)
+		[
+			BuildFeatureLevelWidget()
+		];
+}
 
 void SSCSEditorViewport::BindCommands()
 {

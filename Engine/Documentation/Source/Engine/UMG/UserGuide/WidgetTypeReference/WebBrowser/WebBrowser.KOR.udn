@@ -23,14 +23,14 @@ tags:UMG UI Designer
 
 ![](WebBrowserWidget.png)(w:600)
 
-웹 브라우저 위젯은 데스크톱 플랫폼은 물론 안드로이드와 iOS 모바일 디바이스에도 지원됩니다.
+웹 브라우저 위젯은 데스크톱 플랫폼은 물론 Android와 iOS 모바일 디바이스에도 지원됩니다.
 
 [REGION:raw]
 ![](Devices.png)
 [/REGION]
 
 [REGION:note]
-데스크톱 플랫폼의 웹 브라우저 위젯에는 Chromium 이 사용되는 반면, iOS 와 안드로이드에서는 UMG 레이아웃에 일치하도록 정렬된 네이티브 WebKit 컨트롤을 사용합니다. 실행파일 크기가 최소한으로 유지되며 퍼포먼스가 향상됩니다.
+데스크톱 플랫폼의 웹 브라우저 위젯에는 Chromium 이 사용되는 반면, iOS 와 Android에서는 UMG 레이아웃에 일치하도록 정렬된 네이티브 WebKit 컨트롤을 사용합니다. 실행파일 크기가 최소한으로 유지되며 퍼포먼스가 향상됩니다.
 [/REGION]
 
 Web Browser (웹 브라우저) 위젯은 위젯 블루프린트 또는 C++ 에서 Slate (슬레이트) 코드를 사용하여 생성할 수 있으며, 앞서 언급했듯이 현재는 실험단계 기능이라 **편집** - **Plugins** 메뉴에서 켜 줘야 합니다. **Widgets** 아래 **Web Browser** 플러그인의 **Enabled** 를 클릭하면 켜집니다.

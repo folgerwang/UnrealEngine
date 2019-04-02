@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "FoliageEdMode.h"
 #include "SceneView.h"
@@ -2430,8 +2430,8 @@ void FEdModeFoliage::ApplyBrush(FEditorViewportClient* ViewportClient)
 	float BrushArea = PI * FMath::Square(UISettings.GetRadius());
 
 	// Tablet pressure or motion controller pressure
-	const UVREditorInteractor* VRInteractor = Cast<UVREditorInteractor>(FoliageInteractor);
-	const float Pressure = VRInteractor ? VRInteractor->GetSelectAndMoveTriggerValue() : ViewportClient->Viewport->IsPenActive() ? ViewportClient->Viewport->GetTabletPressure() : 1.f;
+	const UVREditorInteractor* VREditorInteractor = Cast<UVREditorInteractor>(FoliageInteractor);
+	const float Pressure = VREditorInteractor ? VREditorInteractor->GetSelectAndMoveTriggerValue() : ViewportClient->Viewport->IsPenActive() ? ViewportClient->Viewport->GetTabletPressure() : 1.f;
 
 	// Cache a copy of the world pointer
 	UWorld* World = ViewportClient->GetWorld();
@@ -3118,11 +3118,11 @@ bool FEdModeFoliage::CanPaint(const UFoliageType* FoliageType, const ULevel* InL
 
 bool FEdModeFoliage::IsModifierButtonPressed(const FEditorViewportClient* ViewportClient) const
 {
-	const UVREditorInteractor* VRInteractor = Cast<UVREditorInteractor>(FoliageInteractor);
+	const UVREditorInteractor* VREditorInteractor = Cast<UVREditorInteractor>(FoliageInteractor);
 	bool bIsModifierPressed = false;
-	if (VRInteractor != nullptr)
+	if (VREditorInteractor != nullptr)
 	{
-		bIsModifierPressed = VRInteractor->IsModifierPressed();
+		bIsModifierPressed = VREditorInteractor->IsModifierPressed();
 	}
 
 	return IsShiftDown(ViewportClient->Viewport) || bIsModifierPressed;

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -12,7 +12,7 @@
  * VRPN button device data holder. Responsible for data serialization and deserialization.
  */
 class FDisplayClusterVrpnButtonInputDataHolder
-	: public FDisplayClusterInputDeviceBase<EDisplayClusterInputDevice::VrpnButton>
+	: public FDisplayClusterInputDeviceBase<EDisplayClusterInputDeviceType::VrpnButton>
 {
 public:
 	FDisplayClusterVrpnButtonInputDataHolder(const FDisplayClusterConfigInput& config);

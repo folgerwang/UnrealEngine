@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -38,7 +38,7 @@ namespace UnrealBuildTool
 
 		public static string WhichClang()
 		{
-			string[] ClangNames = { "clang++", "clang++-6.0", "clang++-5.0", "clang++-4.0", "clang++-3.9", "clang++-3.8" };
+			string[] ClangNames = { "clang++", "clang++-7.0", "clang++-6.0" };
 			string ClangPath;
 			foreach (string ClangName in ClangNames)
 			{

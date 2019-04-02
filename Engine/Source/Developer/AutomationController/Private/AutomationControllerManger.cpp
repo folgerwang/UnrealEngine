@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "HAL/FileManager.h"
@@ -673,6 +673,8 @@ void FAutomationControllerManager::ProcessResults()
 		FAutomatedTestPassResults SerializedPassResults = OurPassResults;
 
 		SerializedPassResults.ComparisonExported = ExportResults.Success;
+		SerializedPassResults.ComparisonExportDirectory = ExportResults.ExportPath;
+		SerializedPassResults.ReportCreatedOn = Timestamp;
 		if (DisplayReportOutputPath.IsEmpty())
 		{
 			SerializedPassResults.ComparisonExportDirectory = ExportResults.ExportPath;

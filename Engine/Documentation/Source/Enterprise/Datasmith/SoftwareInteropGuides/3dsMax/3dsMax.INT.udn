@@ -1,0 +1,208 @@
+Availability: Public
+Crumbs: 
+Title: Using Datasmith with 3ds Max
+Description: Describes special considerations that apply only when you use Datasmith to bring scenes from Autodesk 3ds Max into the Unreal Editor.
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/SoftwareInteropGuides
+Order: 2
+Tags: Enterprise
+Tags: 3DS Max
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: overview
+Tags: interop
+topic-image:max_datasmith_topic.png
+
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![V-Ray in 3ds Max](max_datasmith_compare_vray.png) 
+	[/PARAM]
+	[PARAM:after]
+	![UE4](max_datasmith_compare_unreal.png) 
+	[/PARAM]
+[/OBJECT]
+
+*Images courtesy of Litrix.*
+
+If you plan to use Datasmith to bring scenes into Unreal Editor from Autodesk 3ds Max, you'll need to know a few extra things about how Datasmith treats your scene, in addition to the basics that you'll find described in the [Datasmith Overview](Enterprise/Datasmith/Overview) and [About the Datasmith Import Process](Enterprise/Datasmith/Overview/ImportProcess).
+
+## 3ds Max Workflow
+
+Datasmith uses an **Export Plugin** workflow for 3ds Max. That means that to get your 3ds Max content into Unreal using Datasmith, you need to:
+
+1.  Install a plugin for 3ds Max. See [Installing the Datasmith Exporter Plugin for 3ds Max](Enterprise/Datasmith/SoftwareInteropGuides/3dsMax/InstallingExporterPlugin).
+2.  Export your 3ds Max content to a *.udatasmith* file. See [Exporting Datasmith Content from 3ds Max](Enterprise/Datasmith/SoftwareInteropGuides/3dsMax/ExportingDatasmithContentfrom3dsMax).
+3.  Use the Datasmith importer to bring your exported *.udatasmith* file into the Unreal Editor. See [Importing Datasmith Content into Unreal Engine 4](Enterprise/Datasmith/HowTo/ImportingContent).
+
+## Instances
+
+When Datasmith detects multiple instances of the same master object in your 3ds Max scene, it only creates one Static Mesh Asset for that object, and places multiple instances of that Static Mesh into the Level in Unreal. This is typically better for the runtime memory requirements and performance of your Project, as well as making it easier to manage your content by keeping the number of Static Meshes down.
+
+Wherever possible, we recommend taking advantage of this by using instances in 3ds Max for all repeating elements in your scene (such as windows, doors, or chairs).
+
+## Pivot Points
+
+In 3ds Max, you can set a custom pivot point for each object in your scene, even when those objects are instances of the same master object. When Datasmith translates your objects to Unreal, it handles those pivot points as follows.
+
+*   If *all* instances in 3ds Max have the same custom pivot point, Datasmith simply sets this as the pivot location for the Static Mesh Asset it creates. When you rotate any of the Static Mesh Actors that Datasmith creates for this object in the Unreal Engine Level, it will rotate around the location of that custom pivot as you expect.
+*   If one or more instances use a different pivot location from the others, Datasmith sets the Static Mesh Asset it creates in Unreal to use the default pivot location of the 3ds Max object. Each time it needs to place this Asset into the Level, instead of creating a Static Mesh Actor, it creates a new, empty parent Actor at the location of the custom pivot for that instance. It then gives this parent Actor a Static Mesh Component that references the Static Mesh asset, and that has a translation offset from the parent Actor that places it where it needs to be in the 3D scene. That child Component is named with the suffix `_pivot`.
+
+For example, the teapot on the left has a custom pivot placed at the top of its lid:
+
+![Custom pivot points on instanced objects](InstancedObjectPivotPoint.png "Custom pivot points on instanced objects")
+
+When Datasmith brings the scene into Unreal, it creates a new Actor called `Teapot002`, at the location of that pivot point in the 3D world. This Actor is given a Static Mesh Component named `Teapot002_Pivot`, which refers to the Static Mesh asset for the teapot, and is offset from the parent Actor by exactly the right amount to make it appear at the right place relative to the other geometry in the scene:
+
+![Parent Actor to represent the custom pivot](PivotPointSubComponent.png "Parent Actor to represent the custom pivot")
+
+You can move, rotate and scale the parent Actor in the Unreal Engine Level, and your model will behave as you expect. All you need to note is that in this case, your model is a *Component* of the parent Actor, rather than being a Static Mesh Actor itself. For example, in the case above, the teapot on the right is instanced in the Level as a Static Mesh Actor rather than an Actor with a Static Mesh Component.
+
+[REGION:note]
+Datasmith does not support having instances of an object in 3ds Max that use different pivot points *and* that have a non-uniform scale. If you have instances like this, use the **[Reset XForm Utility](http://help.autodesk.com/view/3DSMAX/2018/ENU/?guid=GUID-B98414B9-4F28-45F4-A1F4-9DA994548ED9)** on them before you export.
+[/REGION]
+
+## Lights
+
+Datasmith maintains a rich set of information about the lights in your 3ds Max scene, with the goal of making the lighting in your Unreal Level as close an approximation as possible to the lighting you set up in 3ds Max.
+
+Datasmith translates a wide variety of 3ds Max light types, including Standard, Photometric, V-Ray, and Corona lights. For each light, it brings into Unreal:
+
+*   Position, orientation, shape and size in 3D space.
+*   Light type (for example, point light or spot light).
+*   Intensity, units, lamp color, temperature, and filter color.
+*   Render shape visibility.
+*   IES light profiles.
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![3ds Max](3DS_LightCharacteristics.png) 
+	[/PARAM]
+	[PARAM:after]
+	![Unreal Engine 4](UE4_LightCharacteristics.png) 
+	[/PARAM]
+[/OBJECT]
+
+*Top: Point lights with IES profiles and scaled Kelvin temperatures.  
+Middle: Point lights with IES profiles and scaled light intensity.  
+Bottom: Spot lights with filter color.*
+
+However, every lighting system produces somewhat different results. Even though Datasmith brings your light placement, types and properties through into Unreal Engine as closely as possible, you will likely need to make adjustments in your Level's lighting after import in order to make the results look the way you expect, and in order to optimize the performance of your Level's lighting at runtime.
+
+A few notable differences between 3ds Max and Unreal when you use Datasmith:
+
+*   Datasmith currently does not support instances for lights. It creates a separate Light Actor in your Level for each instanced light in 3ds Max.
+*   Standard lights in 3ds Max are unitless, and allow custom attenuation parameters that Unreal Engine doesn't support.
+*   Some V-Ray shapes, such as Vertical Cylinder, Spheroid, and Custom Mesh lights, are not supported.
+*   Area lights are handled specially (see below).
+
+### Area, Plane and Volume Lights
+
+3ds Max supports some lights that are emitted from 2D shapes or 3D volumes, which don't have an exact counterpart in the Unreal Engine. This includes mental ray area lights, V-Ray plane, disc, dome and sphere lights, and so on. When Datasmith imports one of these area lights from 3ds Max, it mimics the light's behavior using a special, custom-written Blueprint class called a **DatasmithAreaLightMesh**.
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Area light off](max_datasmith_arealightmesh_off.png) 
+	[/PARAM]
+	[PARAM:after]
+	![Area light on](max_datasmith_arealightmesh_on.png) 
+	[/PARAM]
+[/OBJECT]
+
+This Blueprint essentially pairs an auto-generated emissive surface with a Point Light or Spot Light:
+
+*   The job of the emissive surface is to represent the visible, physical extents of the light in the Level's 3D space, and in reflections from other surfaces.  
+    You can control the shape, size, color, and intensity of the glow from this surface. Select the DatasmithActorLightMesh Actor in the viewport or in the **World Outliner**, and use the **Appearance** controls in the **Details** panel.  
+    ![Controls the shape of the glowing surface](max_datasmith_area_light_appearance.png "Controls the shape of the glowing surface")
+*   The job of the Point Light or Spot Light is to emit the actual light out into the scene.  
+    The light is set up as a Component on the DatasmithActorLightMesh Actor. To set up its properties, select your DatasmithActorLightMesh Actor in the viewport or in the **World Outliner**, then select the Point Light Component or Spot Light Component in the scene tree at the top of the **Details** panel:  
+    ![Controls the light being emitted onto other surfaces](max_datasmith_area_light_props.png "Controls the light being emitted onto other surfaces")  
+    For details on the light properties, see [Point Lights](Engine/Rendering/LightingAndShadows/LightTypes/Point) and [Spot Lights](Engine/Rendering/LightingAndShadows/LightTypes/Spot).
+
+The result of this setup is a light that has a visible presence in the scene, and that illuminates surrounding objects. However, unlike in your offline renders, the actual light the DatasmithAreaLightMesh emits into the Level is cast from a single point, rather than from the whole surface.
+
+The emissive surface does not currently cast any light out into the scene, regardless of whether you bake your lighting using Lightmass or whether you use dynamic lighting. Only the Point Light or Spot Light Component actually illuminates the surrounding objects in the Level.
+
+## Materials
+
+For each material in your 3ds Max scene, Datasmith attempts to create a new Material in your Unreal Engine Project with an equivalent shader graph, with the goal of producing equivalent results in the Unreal Engine's physically based renderer.
+
+Materials with a single shading model and a relatively simple graph should translate very well. For example, the following 3ds Max material is translated smoothly:
+
+![Simple material in 3ds Max](3DS_SimpleMaterial-resize526x484.png "Simple material in 3ds Max")
+
+If you open your imported Material assets, you'll notice that their graphs are often a little different from what you started with in 3ds Max, even for simple materials like the one shown above. This is a normal result of converting between shading models: Datasmith attempts to preserve the visual result as closely as possible, even if this sometimes means inserting extra connections or constants into the graph.  
+
+That said, 3ds Max supports multiple different shading models for materials, such as V-Ray, Corona, Arnold, Mental Ray, and more. Each shading model is a separate piece of software, with its own unique features that are not always consistent with one another. Sometimes, Datasmith is able to convert these features into similar features offered by the Unreal Engine. For example, if your 3ds Max material uses *bump maps*, Datasmith automatically converts these to *normal maps*.
+
+However, Datasmith can't always handle the more esoteric features of these shading models. It may not be able to produce equivalent results in Unreal for materials with complex graphs that mix multiple output shaders together, such as this example:
+
+![Complex material in 3ds Max](3DS_ComplexMaterial.png "Complex material in 3ds Max")
+
+In cases like these, you'll need to do some extra work to adjust or replace these Materials in the Unreal Editor after import.
+
+[REGION:note]
+Datasmith does not translate **Autodesk Materials** from 3ds Max. These are typically the materials that your scene uses if you imported a Revit scene into 3ds Max. You'll need to replace these materials either in 3ds Max before you export to Datasmith, or in the Unreal Editor after you import your scene.
+[/REGION]
+
+## UV Channels
+
+Datasmith always ensures that every Static Mesh it brings into Unreal has a set of UVs available for Lightmass to use when you build static lighting into lightmap textures. When you import the Datasmith file, the Unreal Engine creates that UV channel automatically, and sets each Static Mesh Asset to use that new channel for baking lightmaps.
+
+However, in some cases you might want to create your own custom lightmap UVs by hand in 3ds Max, so that you have full artistic control over the placement of seams and the relative space assigned to the triangles in your geometry. If so, you need to know how your UVs are brought into Unreal from 3ds Max.
+
+The Unreal Engine supports up to eight UV channels per Static Mesh. And, every time Datasmith imports a geometry object from 3ds Max into a Static Mesh Asset in the Unreal Engine, it uses two UV channels to generate the lightmap UVs for that Static Mesh. Therefore, Datasmith can preserve up to six pre-existing UV channels from each object that it imports into Unreal from 3ds Max.
+
+However, 3ds Max can have up to 99 UV channels per object. So, Datasmith takes the first six channels it finds in 3ds Max, in ascending order, and brings them into Unreal.
+
+For example, the 3ds Max object below has five UV channels in its modifier list. Each one of these channels has a number between 0 and 99 associated with it. Datasmith imports these five UV channels, resetting their numbers to begin at 0. This results in a set of UV channels numbered 0-4 in Unreal. Finally, the import process creates two additional UVs, 5 and 6 in this case, for the auto-generated lightmaps.
+
+![UV channel numbering in 3ds Max and Unreal](UVChannels_MaxVsUnreal.png "UV channel numbering in 3ds Max and Unreal")(w:500)
+
+This table breaks down the way the UV channel numbers are related between 3ds Max and Unreal:
+
+| 3DS Max UV Channel | Resulting Unreal UV Channel | Notes |
+| --- | --- | --- |
+| 1 | 0 | 	The UV channel 1 in 3ds Max is assigned to UV channel 0 in Unreal. |
+| 2 | 1 | The UV channel 2 in 3ds Max is assigned to UV channel 1 in Unreal. |
+| 3| 2 | 	The UV channel 3 in 3ds Max is assigned to UV channel 2 in Unreal. |
+| 10 | 3 | The UV channel 10 in 3ds Max is assigned to UV channel 3 in Unreal. |
+| 99 | 4 | The UV channel 99 in 3ds Max is assigned to UV channel 4 in Unreal. |
+| `--` | 5 | 	UV channel 5 in Unreal is generated during import to create an automatic unwrap of the geometry contained in the Datasmith scene. It is the basis for the lightmap UV generation used by UV channel 6. |
+| `--`| 6 | UV channel 6 in Unreal is generated based on UV channel 5 to correctly pad and pack the UV charts based on the Datasmith Import Options used for the Static Mesh Lightmap Resolution values. |
+
+
+[REGION:note]
+It is not currently possible to prevent automatic lightmap UVs from being created on import, or to prevent the Static Mesh in Unreal from using the auto-generated lightmap UV after import. If you want your imported Static Meshes to use pre-existing UV channels imported from 3ds Max, you need to change the UV channel that is used for lightmaps for each Static Mesh Asset.
+
+You can do this:
+
+*   In the Static Mesh Editor. In the **Details** panel, expand the Advanced controls under the **General Settings** group, and set the **Light Map Coordinate Index** to the UV channel you want to use.
+*   In Python: Call `static_mesh.set_editor_property("light_map_coordinate_index", index)`.
+[/REGION]
+
+## Custom Collision Shapes
+
+If you want to model custom physics collision geometry for an object in 3ds Max, you can use a special naming convention to have Datasmith automatically assign that geometry to its corresponding Static Mesh Asset. Datasmith uses the same naming convention as the FBX importer to recognize and assign these special collision meshes:  
+
+*   If a convex geometry object exists in the scene with the same name as another object, but with the prefix `UCX_` added to the name, Datasmith will consider this `UCX_` object to be the collision representation of the other object. Only the other object will be imported as a Static Mesh Asset; the object with the `UCX_` prefix will be assigned as the collision mesh for that Static Mesh Asset.  
+    The object that you set as a collision mesh can be any completely closed, convex 3D shape. For example, a box could be a convex object. The diagram below illustrates what is convex and what is not:  
+    ![Convex and non-convex examples](Convex-resize334x269.gif "Convex and non-convex examples")
+
+## Levels of Detail
+
+Datasmith currently does not import any custom Levels of Detail that you've set up in 3ds Max. You can, however, generate new Levels of Detail automatically in Unreal Editor. For details, see [Automatic LOD Generation](Engine/Content/Types/StaticMeshes/HowTo/AutomaticLODGeneration), or [Creating Levels of Detail in Blueprints or Python](Engine/Editor/ScriptingAndAutomation/HowTos/CreatingLODs).
+
+## Conversion Notes and Warnings
+
+After Datasmith finishes exporting your 3ds Max scene, it pops up a window that lists any notes, problems, warnings or errors that it encountered during the process:
+
+![3ds Max conversion notes and warnings](max_datasmith_conversion_notes.png "3ds Max conversion notes and warnings")
+
+The goal of this window is to notify you of any elements in your scene that may not carry through to Unreal exactly as you expect.
+
+*   Some of these lines, such as the lines about missing bitmaps in the image above, indicate problems with your source scene that you may want to fix in 3ds Max, then export to Datasmith again.
+*   Others notify you about things in your 3ds Max scene that either Datasmith or the Unreal Engine doesn't support, or things that Datasmith had to convert in a way you might not be expecting.
+
+After you import your Datasmith scene into the Unreal Editor, if you're looking for conversion issues that you may need to clean up, the items in this list are a good place to start.

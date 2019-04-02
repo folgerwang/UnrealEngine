@@ -13,7 +13,7 @@ Related: Engine/Sequencer/Overview
 
 [TOC(start:2 end:3)]
 
-여기서는 시퀀서에서 하나의 씬을 FBX 파일로 익스포트하고, 3dsMax 나 Maya (마야)같은 써드 파티 프로그램에서 파일을 변경하는 방법을 설명합니다.
+여기서는 시퀀서에서 하나의 씬을 FBX 파일로 익스포트하고, 3dsMax 나 Maya (Maya)같은 써드 파티 프로그램에서 파일을 변경하는 방법을 설명합니다.
 변경사항이 마음에 들면, 그 FBX 파일을 언리얼 엔진 4(UE4)에 다시 임포트하여 기존 씬의 일부로 합칠 수 있습니다.
 
 이 프로세스에는 알아둬야 할 주의점이 몇 가지 있는데, 다음과 같습니다:
@@ -29,7 +29,7 @@ Related: Engine/Sequencer/Overview
 ## 예제 작업방식
 
 아래는 런처의 **학습** 탭에서 무료로 받을 수 있는 Sequencer Subway Project (아래 그림)에서 씬을 익스포트합니다.
-그것을 마야에서 받아 씬의 카메라 이동을 변경한 다음, 그 FBX 파일을 언리얼 엔진으로 다시 임포트한 것입니다. 기존의 씬에 그 변경사항이 자동 반영되어 업데이트됩니다.
+그것을 Maya에서 받아 씬의 카메라 이동을 변경한 다음, 그 FBX 파일을 언리얼 엔진으로 다시 임포트한 것입니다. 기존의 씬에 그 변경사항이 자동 반영되어 업데이트됩니다.
 
 ![](SequencerSample.png)
 
@@ -69,7 +69,7 @@ Related: Engine/Sequencer/Overview
 
 시퀀서에서 FBX 를 익스포트했으면, 써드 파티 프로그램에서 임포트하여 편집을 시작합니다.
 
-1.	FBX 를 마야로 임포트하기 전, **Time** 작업 단위를 언리얼 엔진에 사용되는 **Time Rate** 에 일치시킵니다.
+1.	FBX 를 Maya로 임포트하기 전, **Time** 작업 단위를 언리얼 엔진에 사용되는 **Time Rate** 에 일치시킵니다.
 
 	[OBJECT:EmbeddedVideo]
 		[PARAMLITERAL:videoid]
@@ -89,7 +89,7 @@ Related: Engine/Sequencer/Overview
 		[/PARAMLITERAL]
 	[/OBJECT]
 
-1.	그런 다음 FBX 를 마야로 임포트한 뒤 편집을 시작할 수 있도록 씬을 구성합니다. 씬이 임포트되면, **Panel** 아래 Perspective 를 씬에 있는 **shotCamA** 카메라를 사용하도록 설정하고, 씬에서 시야를 가리는 (godray 메시같은) 요소를 선택한 뒤 **Ctrl + H** 키를 눌러 숨깁니다. 마지막으로 **View** 아래 **Select Camera** 로 **shotCamA** 의 프로퍼티와 키프레임을 표시하면 편집을 시작할 수 있습니다.
+1.	그런 다음 FBX 를 Maya로 임포트한 뒤 편집을 시작할 수 있도록 씬을 구성합니다. 씬이 임포트되면, **Panel** 아래 Perspective 를 씬에 있는 **shotCamA** 카메라를 사용하도록 설정하고, 씬에서 시야를 가리는 (godray 메시같은) 요소를 선택한 뒤 **Ctrl + H** 키를 눌러 숨깁니다. 마지막으로 **View** 아래 **Select Camera** 로 **shotCamA** 의 프로퍼티와 키프레임을 표시하면 편집을 시작할 수 있습니다.
 
 	[OBJECT:EmbeddedVideo]
 		[PARAMLITERAL:videoid]
@@ -129,7 +129,7 @@ Related: Engine/Sequencer/Overview
 		[/PARAMLITERAL]
 	[/OBJECT]
 
-1.	변경을 마쳤으면 **Export Selection** (선택 익스포트)로 씬을 익스포트합니다. 마야에서 익스포트할 때, 먼저 익스포트 유형은 **FBX export** (FBX 익스포트)로 변경합니다. 그리고 **Advanced Options** (고급 옵션) 아래 **Axis Conversion** (축 변환)에서 **Up Axis** (윗축)이 **Z** 를 따르도록 하여 언리얼 엔진에 임포트가 호환되도록 합니다. 앞으로의 엔진 버전에서는 이 문제를 해결하여 축 변환을 하지 않아도 되도록 할 것이나, 지금은 이 작업을 해 줘야 임포트 문제가 생기지 않습니다.
+1.	변경을 마쳤으면 **Export Selection** (선택 익스포트)로 씬을 익스포트합니다. Maya에서 익스포트할 때, 먼저 익스포트 유형은 **FBX export** (FBX 익스포트)로 변경합니다. 그리고 **Advanced Options** (고급 옵션) 아래 **Axis Conversion** (축 변환)에서 **Up Axis** (윗축)이 **Z** 를 따르도록 하여 언리얼 엔진에 임포트가 호환되도록 합니다. 앞으로의 엔진 버전에서는 이 문제를 해결하여 축 변환을 하지 않아도 되도록 할 것이나, 지금은 이 작업을 해 줘야 임포트 문제가 생기지 않습니다.
 
 	[OBJECT:EmbeddedVideo]
 		[PARAMLITERAL:videoid]
@@ -190,7 +190,7 @@ Related: Engine/Sequencer/Overview
 
 예제에서는 카메라의 트랜스폼만 변경했었습니다. 하지만 **Focal Length** (포커스 길이)같은 데 새로운 키프레임 값을 선택하여 다른 느낌의 샷을 만들 수도 있습니다.
 작업방식은 직접 실험해 보며 주어진 상황에 가장 잘 맞는 것을 사용하면 됩니다. 
-마야나 3dsMax 같은 3D 프로그램에 익스포트하고, 거기서 씬을 미세 조정한 뒤, 변경한 내용을 언리얼 엔진의 씬에 다시 임포트해 오는 식으로 작업하고 싶을 때가 있을 것이기 때문입니다.
+Maya나 3dsMax 같은 3D 프로그램에 익스포트하고, 거기서 씬을 미세 조정한 뒤, 변경한 내용을 언리얼 엔진의 씬에 다시 임포트해 오는 식으로 작업하고 싶을 때가 있을 것이기 때문입니다.
 	
 
 

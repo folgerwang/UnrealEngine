@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -38,6 +38,18 @@ namespace EClassViewerDisplayMode
 		ListView,
 	};
 }
+
+enum class EClassViewerNameTypeToDisplay : uint8
+{
+	/** Display both the display name and class name if they're available and different. */
+	Dynamic,
+
+	/** Always use the display name */
+	DisplayName,
+
+	/** Always use the class name */
+	ClassName,
+};
 
 /**
  * Settings for the Class Viewer set by the programmer before spawning an instance of the widget.  This
@@ -80,8 +92,8 @@ public:
 	/** true allows class dynamic loading on selection */
 	bool bEnableClassDynamicLoading;
 
-	/** true shows display names of classes rather than full class names */
-	bool bShowDisplayNames;
+	/** Controls what name is shown for classes */
+	EClassViewerNameTypeToDisplay NameTypeToDisplay;
 
 	/** the title string of the class viewer if required. */
 	FText ViewerTitleString;
@@ -89,8 +101,14 @@ public:
 	/** The property this class viewer be working on. */
 	TSharedPtr<class IPropertyHandle> PropertyHandle;
 
-	/** true (the default) shows the view options at the bottom of the class picker*/
+	/** true (the default) shows the view options at the bottom of the class picker */
 	bool bAllowViewOptions;
+
+	/** true (the default) shows a background border behind the class viewer widget. */
+	bool bShowBackgroundBorder = true;
+
+	/** Defines additional classes you want listed in the "Common Classes" section for the picker. */
+	TArray<UClass*> ExtraPickerCommonClasses;
 public:
 
 	/** Constructor */
@@ -105,7 +123,7 @@ public:
 		, bShowObjectRootClass(false)
 		, bExpandRootNodes(true)
 		, bEnableClassDynamicLoading(true)
-		, bShowDisplayNames(false)
+		, NameTypeToDisplay(EClassViewerNameTypeToDisplay::ClassName)
 		, bAllowViewOptions(true)
 	{
 	}

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -182,6 +182,7 @@ private:
 
 	FText GetCurrentResolutionText() const;
 	FText GetCurrentDPIScaleText() const;
+	FSlateColor GetCurrentDPIScaleColor() const;
 	FText GetCurrentScaleFactorText() const;
 	FText GetCurrentSafeZoneText() const;
 	FSlateColor GetResolutionTextColorAndOpacity() const;
@@ -226,6 +227,8 @@ private:
 	void EndTransaction(bool bCancel);
 
 	UWidget* GetWidgetInDesignScopeFromSlateWidget(TSharedRef<SWidget>& InWidget);
+
+	EVisibility GetExtensionCanvasVisibility() const;
 
 private:
 	struct FWidgetHitResult
@@ -344,6 +347,12 @@ private:
 
 	/** The configured Height of the preview area, simulates screen size. */
 	int32 PreviewHeight;
+
+	/** The original Width of the preview area, read from the settings file. */
+	int32 WidthReadFromSettings;
+
+	/** The original Height of the preview area, read from the settings file. */
+	int32 HeightReadFromSettings;
 
 	/***/
 	bool bShowResolutionOutlines;

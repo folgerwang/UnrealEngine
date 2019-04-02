@@ -1,52 +1,55 @@
-﻿INTSourceChangelist:2739011
-Availability:Public
-Title:设置门
+﻿INTSourceChangelist:3810577
+Availability: Public
+Title:设置一扇门
 Crumbs: %ROOT%, Engine, Engine/Matinee, Engine/Matinee/HowTo
-Description:利用 Matinee 设置一扇自动开关的门。 
-Version:4.9
-SkillLevel:Beginner
+Description:利用Matinee设置一扇自动开关的门。 
+Version: 4.9
+SkillLevel: Beginner
 
-在下列步骤中我们将创建一扇角色进入/离开触发框时自动开关的门。 
+
+在下列步骤中，我们将创建一扇角色进入/离开触发框时自动开关的门。 
 
 [EXCERPT:ProjectStart]
+(#creatingtheproject)
 ## 创建项目
 
-在这部分中我们先设置项目。 
+在这部分中，我们将设置项目。 
 
-1. 从 **Unreal Project Browser** 窗口中创建一个 **New Project**，然后使用 **Blueprint Third Person** 模板。 
+1. 在 **虚幻项目浏览器（Unreal Project Browser）** 窗口中创建一个 **新项目（New Project）**，然后使用 **蓝图第三人称（Blueprint Third Person）** 模板。 
 
 	![](MatineeHowTo.jpg)(w:640)
 
-1. 启用 **Include starter content** 选项。 
+1. 启用 **包括初学者内容包（Include starter content）** 选项。 
 
-1. 为项目命名。 
+1. 命名项目。 
 
-1. 上述步骤设置完成后，点击 **Create Project** 创建新项目。 
+1. 上述步骤完成后点击 **创建项目（Create Project）** 新建项目。 
 [/EXCERPT:ProjectStart]
 
+(#placingthedoorandtrigger)
 ## 放置门和触发器
 
-在这步中我们放置门并为门放置触发器。
+在这步中我们将放置门并添加门的触发器。
 
-1. 在 **Content Browser** 中选择 **Props** 文件夹，找到 **SM_DoorFrame** 静态网格体。 
+1. 在 **内容浏览器（Content Browser）** 中选择 **道具（Props）** 文件夹，找到 **SM_DoorFrame** 静态网格体。 
 
 	![](MHT1_DoorFrame.png)(w:480)
 
 	[Region:note]
-	如未发现 **Props** 文件夹，请重新查看 **创建项目** 步骤，确认已启用 **Include Starter Content**。
+	如未找到 **道具（Props）** 文件夹，请查看 **创建项目** 步骤，并确认已启用 **包括初学者内容包**。
 	[/Region]
 
-1. 在 **SM_DoorFrame** 静态网格体上 **单击左键** 将其拖放进 **关卡视口**。 
+1. **左键点击** **SM_DoorFrame** 静态网格体，将其拖入 **关卡视口**。 
 	
 	![](MHT_DoorFrameDragIn.jpg)(w:640)
 
-1. 在 Props 文件夹中找到 **SM_Door** 静态网格体并拖放进关卡视口。 
+1. 同样，在 **道具（Props）** 文件夹中找到 **SM_Door** 静态网格体，将其拖入 **关卡视口**。 
 
 	![](MHT_DoorDragIn.jpg)(w:640)
 
-1. 在 Content Browser 中再次找到 SM_Door 静态网格体，**双击** 将其在 **静态网格体** 查看器中打开。 
+1. 在“内容浏览器（Content Browser）中再次找到SM_Door静态网格体，在 **静态网格体** 查看器中将其打开。 
 
-1. 在 **Details** 面板中，在搜索栏中输入 **Collision**，将 **Collision Complexity** 设置设为 **Use Complex Collision as Simple**。 
+1. 在 **细节** 面板的搜索栏中输入 **碰撞Collision（）**，将 **碰撞复杂度（Collision Complexity）** 设置设为 **将复杂碰撞用作简单（Use Complex Collision as Simple）**。 
 
 	![](MHT_CollisionComplexity.jpg)
 
@@ -54,7 +57,7 @@ SkillLevel:Beginner
 	以上步骤将在门上应用碰撞机制。
 	[/Region]
 
-1. 在关卡视口中选择 **SM_Door**，前往 Details 面板。在 **Transform** 和 **Rotation** 设置中将 **Z** 轴值设为 **-180**。 
+1. 在关卡视口中选择 **SM_Door**，然后前往细节面板。在 **变换（Transform）** 和 **旋转（Rotation）** 设置下，将 **Z** 值设为 **-180**。 
 
 	![](MHT1_RotateDoor.png)(w:640)
 
@@ -64,37 +67,38 @@ SkillLevel:Beginner
 
 1. 使用 **平移（Translation）** 控件将门放入门框内。 
 
-	![](MHT1_MoveDoor.png)(h:300) ![](MHT1_MoveDoor2.png)(w:310 h:300)
+	![](MHT1_MoveDoor.png)(h:300) ![](MHT1_MoveDoor2.png)(w:310)
 	
-1. 在 **Modes** 菜单的 **Basic** 标签下选择 **Box Trigger** 并将其拖放进关卡视口中的门框内。
+1. 在 **模式（Modes）** 菜单的 **基础（Basic）** 标签下找到 **盒体触发器（Box Trigger）** 并将其拖放进门框内的关卡视口中。
 
 	![](MHT_DragInBoxTrigger.jpg)(w:640)
 
-1. 在 Details 面板中的 **Shape** 部分选择 **TriggerBox**，将 **X** 轴的 **Box Extent** 数值改为 **140**。 
+1. 在细节面板中的 **形状（Shape）** 部分选择 **TriggerBox**，将 **盒体范围（Box Extent）** 的 **X** 值改为 **140**。 
 
 	![](MHT1_TriggerBoxSize.png)(w:760)
 
-	_注解：**触发框** 在门框里向里延伸出一部分，使门提前向里打开（在玩家到达之前）。_
+	_注意：**触发框** 将延伸到门框内部，使门提前向里打开（在玩家到达之前）。_
 
 	[REGION:tip]
-	玩家使用 **蓝图** 从任意一边进入 **触发框**，使门向不同方向打开。关于这类实例，请查阅 [](Resources\ContentExamples\Blueprints_Advanced\2_4) 中的内容范例。 
+	基于玩家使用 **蓝图** 进入 **触发框**的位置，门会向不同方向打开。浏览[](Resources\ContentExamples\Blueprints_Advanced\2_4)的内容范例即可查看该范例。 
 	[/REGION]
 
-1. 门和触发器已放置好，下一步我们将添加一个 **Matinee** Actor 控制开关。 
+1. 门和触发器已放置好，下一步我们将添加 **Matinee** Actor 来控制其开关。 
 
-添加 Matinee Actor
+(#addingthematineeactor)
+## 添加Matinee Actor
 
-在这步中，我们将添加 **Matinee** Actor 并设置 **关键帧（Keyframes）** 控制门的开关。 
+在这步中我们将添加 **Matinee** Actor并设置 **关键帧** 来控制门的开关。 
 
-1. 在 **工具栏** 菜单中选择 **Matinee** 并点击 **Add Matinee** 按钮。 
+1. 在 **工具栏（Toolbar）** 菜单中选择 **Matinee** 并点击 **添加Matinee（Add Matinee）** 按钮。 
 
 	![](MHT_AddMatinee.jpg)(w:760)
 
-1. 在出现的 Matinee 撤销提示上点击 **继续** 按钮。 
+1. 将出现Matinee撤销警告消息，点击 **继续** 按钮。 
 
 	![](MHT1_MatineeWarning.png)
 
-1. **Matinee Editor** 窗口将打开。 
+1. **Matinee编辑器（Matinee Editor）** 窗口将打开。 
 
 	[REGION:lightbox]
 	[![](MHT1_MatineeOpen.png)(w:640)](Engine\Matinee\HowTo\MHT_1\MHT1_MatineeOpen.png)
@@ -102,108 +106,110 @@ SkillLevel:Beginner
 
 	_点击查看全图。_
 
-1. 在 **Tracks** 窗口（**All** 下的空白部分）中 **单击右键**，然后从快捷菜单中选择 **Add New Empty Group**。 
+1. 在 **轨迹（Tracks）** 窗口（**全部** 下的空白部分）中 **点击右键**，然后在快捷菜单中选择 **添加新空白组（Add New Empty Group）**。 
 
 	![](MHT1_TrackContextMenu.png)
 
-1. 窗口提示为出现的群组输入 **New Group Name** 时，为该群组命名（在此例中我们命名为 **Door**）。 
+1. 窗口将要求使用者在出现的组上输入 **新组名** 来为该组命名（在此例中我们命名为 **Door**）。 
 
-1. 最小化 Matinee 窗口，然后前往 **主编辑器** 中的 **World Outliner** 窗口并选择 **SM_Door** 将其高亮。 
+1. 最小化Matinee窗口，然后前往 **主编辑器（Main Editor）** 中的 **世界大纲试图（World Outliner）** 窗口，选择 **SM_Door** 将其高亮显示。 
 
 	![](MHT1_SelectDoor.png)
 
-1. 返回 Matinee 窗口并在群组（门）上 **单击右键** 呼出快捷菜单，选择 **Actors**，然后选择 **Add Selected Actors**。 
+1. 返回Matinee窗口并 **右键点击** 组（门）来呼出快捷菜单，然后选择 **Actor**，接着选择 **添加选定Actor（Add Selected Actors)**。 
 
 	![](MHT1_AddDoorToGroup.png)
 
 	[Region:note]
-	此操作将把 **SM_Door** Actor 添加至 **Door** 群组。
+	此操作将把 **SM_Door** Actor添加至 **Door** 组。
 	[/Region]
 
-1. 再次在群组（门）上 **单击右键** 呼出快捷菜单，然后选择 **Add New Movement Track**。 
+1. 再次 **右键点击** 组（门）呼出快捷菜单，然后选择 **添加新移动轨迹（Add New Movement Track）**。 
 
 	![](MHT1_AddMovementTrack.png)
 
-1. **运动轨迹（Movement Track）** 被添加后，将在时间 **0.00** 上沿轨迹自动添加新 **关键帧**（下图 1 所示）。 
+1. 添加 **运动轨迹（Movement Track）** 后，将沿轨迹添加时间为 0.00 的新 **关键帧**（下图 1 所示）。 
 
 	![](MHT1_TrackExplained.png)(w:780)
 
-	_注解：图中 2 框内包含开始/结束标记（红色三角）、循环部分（绿色三角）和 **时间条（Time Bar）**（黑色条）。_ 
+	_注意：图中2号框内包含开始/结束标记（红色三角）、循环分段（绿色三角）和 **时间条**（黑色条）。_ 
 	
-1. 在 **时间条** 上 **单击左键** 将其拖至时间 **0.50**，然后按下 **Enter** 键添加一个新的 **关键帧**。 
+1. **左键点击** **时间条** 并将其拖至时间 **0.50**，然后按下 **回车** 键添加一个新的 **关键帧**。 
 
 	![](MHT1_AddKey.png)(w:780)
 
-1. 最小化 Matinee 窗口，在选中 **SM_Door** 的情况下返回关卡视口，按下 **E** 键进入 **旋转（Rotation）** 模式。 
+1. 最小化Matinee窗口，选中 **SM_Door** 后返回“关卡视口”，按下 **E** 键进入 **旋转** 模式。 
 
 	![](MHT1_RotateWidget.png)
 
-1. **左键单击** **旋转** 控件的 **蓝色** 弧（控件会发生变化），向右旋转至 **-90.0** 度。 
+1. **左键点击** **旋转** 控件（控件会改变）的 **蓝色** 弧，将其向右旋转至 **-90.0** 度。 
 
 	![](MHT1_DoorOpen.png)
 
-1. 返回 Matinee 窗，**左键单击** 红色箭头 **结束标记**，然后将其移至左边 **0.50** 的位置。 
+1. 返回Matinee窗，**左键点击** **结束标记**（红色箭头），然后将其向左移动到 **0.50**。 
 
 	![](MHT1_EndPointMoved.png)
 
-1. Matinee 序列设置已完成。在下一步中，我们将把 Matinee 和 **触发器** 衔接起来，完成操作。 
+1. Matinee序列已设置完毕。在下一步中我们将把Matinee和 **触发器** 衔接起来，完成操作。 
 
 
-将 **Matinee** 和 **触发器** 衔接起来
+(#hookingthematineeuptothetriggerbox)
 
-在这步中我们将把 **Matinee** 和 **触发器** 衔接起来，达成角色进入触发器时门自动打开，角色离开触发器时门自动关闭的效果。
+## 将Matinee和TriggerBox衔接起来
 
-1. 在 **工具栏** 菜单中选择 **Blueprints** 并点击 **Open Level Blueprint** 按钮。 
+在这步中我们将把 **Matinee** 和 **TriggerBox** 衔接起来，以便角色进入/离开触发器时门会自动打开/关闭。
+
+1. 在 **工具栏（Toolbar）** 菜单中选择 **蓝图** 并点击 **打开关卡蓝图（Open Level Blueprint）** 按钮。 
 
 	![](MHT_OpenLvlBlueprint.jpg)(w:720)
 
-1. 最小化 **关卡蓝图（Level Blueprint）**，然后在 **关卡视口** 或 **World Outliner** 中 **左键单击** **MatineeActor** 选中。 
+1. 最小化 **关卡蓝图**，然后在 **关卡视口（Level Viewport）** 或 **世界大纲视图（World Outliner）** 中 **左键点击** **MatineeActor** 将其选中。 
 
 	![](MHT1_MatineeSceneOutliner.png)
 
-1. 打开 **关卡蓝图** 窗口，在 **事件图表（Event Graph）** 中 **单击右键**，在快捷菜单中选择 **Add Reference to MatineeActor** 选项。 
+1. 打开 **关卡蓝图（Level Blueprint）** 窗口，在 **事件图表（Event Graph）** 中 **点击右键**，在快捷菜单中选择 **将引用添加到MatineeActor（Add Reference to MatineeActor）** 选项。 
 
 	![](MHT_MatineeReference.jpg)
 
-1. 此操作将把 **MatineeActor** 添加至 **关卡蓝图** 的 **事件图表**。 
+1. 此操作将把 **MatineeActor** 添加至 **关卡蓝图（Level Blueprint）** 的 **事件图表（Event Graph）**。 
 
 	![](MHT1_MatineeAddedToBP.png)
 	
-1. 最小化 **关卡蓝图（Level Blueprint）**，然后在 **关卡视口** 或 **World Outliner** 中 **左键单击** **TriggerBox** 选中。 
+1. 最小化 **关卡蓝图**，然后在 **关卡视口（Level Viewport）** 或 **世界大纲视图（World Outliner）** 中 **左键点击** **TriggerBox** 将其选中。 
 
 	![](MHT1_TriggerBoxSceneOutliner.png)
 
-1. 打开 **关卡蓝图** 窗口，在 **事件图表** 中 **单击右键**，然后在快捷菜单中的 **Add Event for TriggerBox** 和 **Collision** 下方选择 **Add OnActorBeginOverlap** 选项。 
+1. 打开 **关卡蓝图（Level Blueprint）** 窗口，在 **事件图表（Event Graph）** 中 **点击右键**，然后在快捷菜单中的 **添加TriggerBox事件（Add Event for TriggerBox）** 和 **碰撞（Collision）** 下选择 **添加OnActorBeginOverlap（Add OnActorBeginOverlap）** 选项。 
 
 	![](MHT1_AddOnBeginOverlap.png)
 
-1. 再次在 **事件图表** 中 **单击右键**，重复之前步骤（选择 **Add OnActorEndOverlap** 选项除外）。 
+1. 在 **事件图表（Event Graph）** 中再次 **点击右键**，重复之前步骤，但最后变为选择 **添加OnActorEndOverlap（Add OnActorEndOverlap）** 选项。 
 
 	![](MHT1_AddOnEndOverlap.png)
 
-1. 在 **事件图表** 中 **左键单击** **MatineeActor** 节点并 **拖动** 输出引脚（蓝色圆圈）呼出快捷菜单，然后在搜索框中输入 **Play** 并选择 **Play** 选项。 
+1. 在 **事件图表（Event Graph）** 中 **左键点击** **MatineeActor** 节点并从其中 **连出** 输出引脚（蓝色圆圈）来呼出快捷菜单，然后在搜索框中输入 **Play** 并选择 **运行（Play）** 选项。 
 
 	![](MHT1_DragOffPlay.png)(w:720)
 
-1. 再次 **拖动** **MatineeActor** 节点，在快捷菜单的搜索框中输入 **Reverse** 并选择 **Reverse** 选项。 
+1. 再次 **连出** **MatineeActor** 节点，在快捷菜单的搜索框中输入 **反向（Reverse）** 并选择 **反向运行（Reverse）** 选项。 
 
 	![](MHT1_DragOffReverse.png)(w:720)
 
-1. 找到 **OnActorBeginOverlap** 节点，**拖动** **执行（Execute）** 输出引脚并将其和 **Play** 节点的输入引脚连接起来。 
+1. 找到 **OnActorBeginOverlap** 节点，**连出** **执行** 输出引脚并将其和 **Play** 节点的输入引脚连接。 
 
 	![](MHT1_ConnectOverlapToPlay.png)(w:720)
 
-1. 重复上述步骤，把 **OnActorEndOverlap** 节点的输出引脚和 **Reverse** 节点的输入引脚连接起来。 
+1. 重复上述步骤，将 **OnActorEndOverlap** 节点的输出引脚和 **Reverse** 节点的输入引脚连接。 
 
 	![](MHT1_BlueprintConnected.png)(w:720)
 
-1. 在 **Level Blueprint's Toolbar** 菜单中，点击 **Compile** 按钮。 
+1. 在 **关卡蓝图工具栏（Level Blueprint's Toolbar）** 菜单中，点击 **编译（Compile）** 按钮。 
 	
 	![](MHT1_ClickCompile.png)
 	
-1. 蓝图现已完成，**触发框** 已和 Matinee Actor 衔接起来。 
+1. 蓝图现已完成，**TriggerBox** 已与Matinee Actor衔接。 
 
-1. 最小化关卡蓝图，然后在主工具栏中点击 **Play** 按钮即可在编辑器中进行游戏。 
+1. 最小化关卡蓝图，然后在主工具栏中点击 **运行（Play）** 按钮即可在编辑器中进行运行。 
 
 	[OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:width]
@@ -216,10 +222,3 @@ SkillLevel:Beginner
 	Z2son2Wcgbo
 	[/PARAMLITERAL]
 	[/OBJECT]
-
-
-
-
-
-
-

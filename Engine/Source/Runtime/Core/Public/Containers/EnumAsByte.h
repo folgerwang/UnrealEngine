@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,7 +7,7 @@
 #include "Templates/IsEnumClass.h"
 
 template <bool> struct TEnumAsByte_EnumClass;
-template <> struct DEPRECATED(4.15, "TEnumAsByte is not intended for use with enum classes - please derive your enum class from uint8 instead.") TEnumAsByte_EnumClass<true> {};
+template <> struct UE_DEPRECATED(4.15, "TEnumAsByte is not intended for use with enum classes - please derive your enum class from uint8 instead.") TEnumAsByte_EnumClass<true> {};
 template <> struct TEnumAsByte_EnumClass<false> {};
 
 /**
@@ -21,17 +21,9 @@ class TEnumAsByte
 public:
 	typedef TEnum EnumType;
 
-	/** Default Constructor (no initialization). */
-	FORCEINLINE TEnumAsByte() { }
-
-	/**
-	 * Copy constructor.
-	 *
-	 * @param InValue value to construct with.
-	 */
-	FORCEINLINE TEnumAsByte( const TEnumAsByte &InValue )
-		: Value(InValue.Value)
-	{ }
+	TEnumAsByte() = default;
+	TEnumAsByte(const TEnumAsByte&) = default;
+	TEnumAsByte& operator=(const TEnumAsByte&) = default;
 
 	/**
 	 * Constructor, initialize to the enum value.
@@ -61,30 +53,6 @@ public:
 	{ }
 
 public:
-
-	/**
-	 * Assignment operator.
-	 *
-	 * @param InValue value to set.
-	 * @return This instance.
-	 */
-	FORCEINLINE TEnumAsByte& operator=( TEnumAsByte InValue )
-	{
-		Value = InValue.Value;
-		return *this;
-	}
-	/**
-	 * Assignment operator.
-	 *
-	 * @param InValue value to set.
-	 * @return This instance.
-	 */
-	FORCEINLINE TEnumAsByte& operator=( TEnum InValue )
-	{
-		Value = static_cast<uint8>(InValue);
-		return *this;
-	}
-
 	/**
 	 * Compares two enumeration values for equality.
 	 *

@@ -1,14 +1,15 @@
-﻿INTSourceChangelist:3150502
+﻿INTSourceChangelist:4604867
 Availability:Public
 Title:安装版本参考
 Crumbs: %ROOT%, Programming, Programming/Development
 Description:此页面讲述安装版本流程，包括如何编写安装版本脚本的概览。
 version:4.13
-parent:Programming/Development
+parent:Programming/Development/BuildGraph
 type:Reference
 related:Programming/Development/BuildGraph
 related:Programming/UnrealBuildSystem
 related:Programming/Development/BuildConfigurations
+tags:Programming
 tags:BuildGraph
 
 [TOC (start:1 end:5)]
@@ -68,12 +69,15 @@ tags:BuildGraph
 | `-set:WithIOS=[true/false]` | true | 包含 iOS 目标平台 [REGION:note]启用此项需要带远程编译设置的 Mac。[/REGION]|
 | `-set:WithTVOS=[true/false]` | true | 包含 tvOS 目标平台 [REGION:note]启用此项需要带远程编译设置的 Mac。[/REGION]|
 | `-set:WithLinux=[true/false]` | true | 包含 Linux 目标平台 |
+| `-set:WithLumin=[true/false]` | true | 包含 Lumin 目标平台 |
 | `-set:WithHTML5=[true/false]` | true | 包含 HTML5 目标平台 |
 | `-set:WithPS4=[true/false]` | false | 包含 PS4 目标平台 [REGION:note]启用此项需要 PS4 SDK。[/REGION]|
 | `-set:WithXboxOne=[true/false]` | false | 包含 XboxOne 目标平台 [REGION:note]启用此项需要 Xbox One SDK。[/REGION]|
 | `-set:WithDDC=[true/false]` | true | 为引擎内容和模板编译独立派生数据缓存 [REGION:note]为引擎和模板内容编译独立 [派生数据缓存（DDC）](Engine/Basics/DerivedDataCache) 是编译最慢的方面之一。如不需要独立 DDC，可在命令行中附加 `-set:WithDDC=false` 跳过此步骤。[/REGION]|
+| `-set:WithFullDebugInfo=[true/false]` | false | 为二进制编辑器及打包的应用构建生成完整调试信息 |
 | `-set:SignExecutables=[true/false]` | false | 如已将机器对可执行文件签名设为编译过程的一部分，则对生成的可执行文件签名。
 | `-set:AnalyticsTypeOverride=[ID]` | N/A | 分析事件发送的辨识符 |
+| `-set:GameConfigurations=[Configurations]` | Development;Shipping | 指定打包应用的配置 |
 
 
 ### 包含额外文件

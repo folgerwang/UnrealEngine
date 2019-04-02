@@ -527,6 +527,7 @@ SDL_EGL_InitializeOffscreen(_THIS, int device)
     EGLAttrib cuda_device_attrib;
     char const *device_string;
     const char *cuda_device_hint;
+    const char *egl_device_hint;
 
     if (_this->gl_config.driver_loaded != 1) {
         return SDL_SetError("SDL_EGL_LoadLibraryOnly() has not been called or has failed.");
@@ -549,7 +550,11 @@ SDL_EGL_InitializeOffscreen(_THIS, int device)
         return SDL_SetError("eglGetPlatformDisplayEXT is missing (EXT_platform_base not supported by the drivers?)");
     }
 
-    /* Enumerate all EGL devices and extract the device string and CUDA device where available. */
+    if (_this->egl_data->eglQueryDevicesEXT(SDL_EGL_MAX_DEVICES, egl_devices, &num_egl_devices) != EGL_TRUE) {
+        return SDL_SetError("eglQueryDevicesEXT() failed");
+    }
+
+    /* Enumerate all EGL devices and extract the device string and CUDA device where available. TODO: parse NVIDIA_VISIBLE_DEVICES?*/
     cuda_devices_found = 0;
     for (i=0; i<num_egl_devices; i++) {
         cuda_devices[i] = -1;
@@ -564,6 +569,13 @@ SDL_EGL_InitializeOffscreen(_THIS, int device)
                 ++cuda_devices_found;
             }
         }
+    }
+
+    /* if we have a hint about the EGL device, ignore the CUDA hint */
+    egl_device_hint = SDL_GetHint("SDL_HINT_EGL_DEVICE");
+    if (egl_device_hint) {
+        device = SDL_atoi(egl_device_hint);
+        cuda_devices_found = 0;
     }
 
     /* If no CUDA devices found, proceed with an unchanged device - we might be running on non-NVidia hardware. */
@@ -611,10 +623,6 @@ SDL_EGL_InitializeOffscreen(_THIS, int device)
                                     cuda_device);
             }
         }
-    }
-
-    if (_this->egl_data->eglQueryDevicesEXT(SDL_EGL_MAX_DEVICES, egl_devices, &num_egl_devices) != EGL_TRUE) {
-        return SDL_SetError("eglQueryDevicesEXT() failed");
     }
 
     if (device >= num_egl_devices) {

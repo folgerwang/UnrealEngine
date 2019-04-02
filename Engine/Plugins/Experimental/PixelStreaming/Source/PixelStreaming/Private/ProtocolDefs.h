@@ -1,7 +1,8 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "Misc/AssertionMacros.h"
 
 namespace PixelStreamingProtocol
 {
@@ -63,11 +64,7 @@ namespace PixelStreamingProtocol
 	inline const TCHAR* PacketTypeStr(EToProxyMsg PktType) 
 	{
 		static const TCHAR* Str[static_cast<uint8>(EToProxyMsg::Count)] = { TEXT("AudioPCM"), TEXT("SpsPps"), TEXT("VideoIDR"), TEXT("Video"), TEXT("ClientConfig"), TEXT("Response") };
-#if WITH_ENGINE
 		check(PktType < EToProxyMsg::Count);
-#else
-		assert(PktType < EToProxyMsg::Count);
-#endif
 		return Str[static_cast<uint8>(PktType)];
 	}
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SynthesisEditorModule.h"
 #include "CoreMinimal.h"
@@ -12,7 +12,7 @@
 #include "AudioEditorModule.h"
 #include "EpicSynth1PresetBank.h"
 
-IMPLEMENT_MODULE(FSynthesisEditorModule, FSynthesisEditor)
+IMPLEMENT_MODULE(FSynthesisEditorModule, SynthesisEditor)
 
 void FSynthesisEditorModule::StartupModule()
 {

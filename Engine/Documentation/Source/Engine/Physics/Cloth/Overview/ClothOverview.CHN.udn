@@ -1,157 +1,380 @@
-﻿INTSourceChangelist:3576470
+﻿INTSourceChangelist:4649792
 Availability:Public
 Crumbs:
-Title:布料工具总览
-Description:在虚幻引擎 4 中使用编辑器内工具进行布料创建的总览。
+Title:布料工具
+Description:使用虚幻引擎4的编辑器内工具进行布料创建的总览。
 Type:Overview
 SkillLevel:Intermediate
-Version:4.16
+Version:4.17
 Parent:Engine/Physics
+Related:Engine/Physics/Cloth/Reference
 Order:1
 Tags:Cloth
 Tags:Physics
-reference-image:SectionSelection.gif
-reference-image:PaintingCloth.gif
 Topic-image:Clothing_Topic.png
 
 
 
-[REGION:warning]
-这是一个实验性功能，之后的版本中可能有所修改。为使用此工具，首先必须将其在 Editor Preferences 中启用。前往主菜单 > **Edit** > **Editor Preferences** > **Experimental**，启用 **Clothing Tool** 旁的勾选框。
-[/REGION]
-
 [TOC(start:2 end:2)]
 
-在虚幻引擎 4.16 版本中，APEX Cloth 已替代 NVIDIA 的 NvCloth 解算器。这是一个低阶布料解算器，负责模拟形成布料效果的粒子。此布料解算器让整合轻量级，且拥有极佳的延展性，因为现在用户能够直接访问此数据。而 APEX 布料则是一个复杂的 SDK，是布料模拟的一站式商店，处理模拟和渲染。 
+[REGION:warning]
+布料工具当前为实验性功能，在之后版本中可能会被修改。要使用该工具，必须首先在“编辑器偏好”设置中启用该工具，顺序如下：主菜单> **编辑（Edit）** > **编辑器偏好（Editor Preferences）** > **实验性（Experimental）** > 勾选 **布料工具（Clothing Tool）** 旁的复选框。
+[/REGION]
 
-![](OverviewImage.png)(w:1200)
 
-1. **Section 选项 -** 用于选择用于绘制布料的材质 ID。 
-1. **Cloth Paint 标签 -** 这部分包含绘制布料时的所有必要工具和属性。 
+在4.16版本的虚幻引擎中，APEX布料现已被替换为NVIDIA的NvCloth解算器。其是负责运算布料的粒子模拟的低级布料解算器。现在使用者能够直接访问此数据，因此利用此布料解算器可轻量化整合，并极具延展性。而APEX布料则是一个复杂的SDK，其是布料模拟的一站式商店，可处理模拟和渲染。 
 
-布料工具在编辑器中可用后，工作流便已被重新定义，使开发者能够直接在虚幻引擎中创建内容，不再对外部软件存在依赖性。 
+[REGION:raw]
+![](ClothingOverviewBanner.png)
+[/REGION]
+
+布料工具在编辑器中可用后，工作流便已被重新定义，使开发者能够直接使用虚幻引擎创建内容，而不再对外部软件存在依赖性。 
 
 [REGION:imagetable]
-| [INCLUDE:#oldworkflow] | [INCLUDE:#newworkflow] |
+| [INCLUDE:#newworkflow] | [INCLUDE:#oldworkflow] |
 | --- | --- |
-| 旧布料工作流 | 新布料工作流 |
+| 新布料工作流 | 新布料工作流 |
 | [INCLUDE:#clickimage] | [INCLUDE:#clickimage] |
 [/REGION]
 
-“旧”工作流使用 APEX Cloth，用户需要使用第三方程序（NVIDIA 的布料工具）或需要特定软件（3DS Max/Maya）进行内容创建的 DCC 插件，在虚幻引擎之外进行所有资源的开发。用户只能在开发的最后阶段才能将创建的内容导入虚幻引擎，指定到网格体。这就意味着如果要进行修改，则必须返回第三方程序，在虚幻引擎外重新对内容进行修改。 
+“旧”工作流使用APEX Cloth，使用者需要使用第三方程序（NVIDIA 的布料工具）或需要特定软件（3DS Max/Maya）进行内容创建的DCC插件，使用者仅可在最后开发阶段才能将创建的内容导入虚幻引擎，并指定到网格体。这意味着如果要进行修改，则必须返回第三方程序，在虚幻引擎外重新修改内容。 
 
-“新”工作流则使用户能够直接在虚幻引擎中一次性地创建内容，并执行所有布料的创建编辑。这使得测试内容的创建和迭代更为快速，还可以避免内容创建和内容使用之处不同所带来的不便。新流程中布料模拟均为实时进行并在游戏中显示，用户可随时查看编辑的内容。
+“新”工作流让则使用者能够直接在虚幻引擎中一次性创建内容，并执行所有布料的创建编辑。这使测试内容的创建和迭代更快速，还可以避免内容创建和内容使用的不同之处导致的不便。新流程中布料模拟均为实时进行并在游戏中显示，使用者可随时查看编辑的内容。
 
 
-## 创建布料分段资源
 
-根据以下步骤即可新建布料资源。
 
-1. 点击主工具栏中的 **Section Selection** 按钮。这将会为骨架网格体选择不同的材质元素。
+(#clothpaintingworkflow)
+## 布料绘制工作流
+
+使用编辑器内创建布料的新工作流，通过布料绘制工具可使用骨架网格体的现有材质快速创建角色的布料。
+
+![](OverviewImage.png)(w:1200)
+
+1. **分段选择（Section Selection） -** 用于选择用于绘制布料的材质 ID。 
+1. **布料绘制面板（Cloth Paint Panel） -** 包含绘制布料需要的所有必要工具和属性。 
+
+
+根据以下步骤学习创建布料资源的方法，并将其与渲染网格体上的基础绘制一同指定至角色。
+
+(#createandassignaclothasset)
+### 创建并指定布料资源
+
+要开始使用布料，首先需要在细节等级（LOD）部分中创建布料资源，并将其指定至渲染网格体，以便在其上进行绘制。 
+
+根据以下步骤进行学习：
+
+1. 在骨架网格体编辑器中，点击主工具栏的 **分段选择（Section Selection）** 按钮。使用者可选择已指定自身材质元素的骨架网格体的不同部分。
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		9Xrfs1waIdA
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		75
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+1. 确认想要用作布料的网格体，点击左键选择其中一部分。点击右键打开快捷菜单来创建布料资源。
 	
-	[REGION:asyncgif]
-	![](SectionSelection.gif)(w:500)
+	[REGION:lightbox]
+	[![](ClothAssetContextMenu.png)(w:500)](ClothAssetContextMenu.png)
 	[/REGION]
-1. 选中分段后，即可点击高亮元素上的任意部分呼出 **Cloth Asset** 选项菜单。
+	[REGION:caption] Click image for full size. [/REGION]
 
-	![](ClothAssetContextMenu.png)(w:450)
-
-1. 鼠标悬停在 **Create Cloth Asset from Selection** 部分上，然后填充以下区域。
+1. 在快捷菜单中选择 **在选项中创建布料资源（Create Cloth Asset from Selection）** ，然后填写以下菜单区域：
 
 	![](CreateClothContextMenu.png)(w:350)
 
-	* **Asset Name** - 为资源命名，便于之后查找。
-	* **Remove from Mesh** - 如果希望将几何体的一个单独模型块和布料关联，则可启用此项。如否，则可不勾选此项。
-	* **Physics Asset** - 如此布料资源用于角色，在此处使用其物理资源获得布料模拟的正确碰撞。 
+	* **资源名（Asset Name）**——为资源命名，便于之后查找。
+	* **移除网格体（Remove from Mesh）**——若要将几何体的一个单独模型块和布料关联，则可启用此项。若不需要，则无需勾选。
+	* **物理资源（Physics Asset）**——若此布料资源用于角色，在此处使用其物理资源获得布料模拟的正确碰撞。 	
 
-1. 完成上一步的信息设置后，即可点击 **Create** 按钮。
-
-	![](CreateClothButton.png)(w:350)
-
-## 指定布料分段资源
-
-按照以下步骤将布料资源指定到分段。
-
-1. 选中分段元素后，即可点击高亮元素上的任意部分呼出 **Cloth Asset** 选项菜单。然后将鼠标悬停在 **Apply Clothing Asset** 上方，从可用的布料资源中进行选择应用。此操作将把您创建的布料资源和这个材质元素几何体关联起来。
+	完成设置后点击 **创建（Create）** 按钮。
+	
+	![](CreateClothButton.png)(w:350)	
+	
+1. 对部分再次点击右键打开快捷菜单，移动光标至 **应用布料资源（Apply Clothing Asset）** 并在可用布料资源中选择需要应用的对象。其会与所选部分创建的布料资源进行关联。
 
 	![](ClothSectionAssignment.png)(w:450)
-
-## 绘制布料权重
-
-按照以下步骤开始绘制布料权重。
-
-1. 前往主菜单，选择 **Window**，然后找到并点击 **Cloth Paint**。此操作将打开 Cloth Paint 面板，可在其中点击 **Enable Paint Tools** 按钮访问诸多选项，将布料权重绘制到几何体上。 
-
-	![](ClothPanelEnabled.png)(w:350)
-
-1. 开始绘制，从 **Assets** 窗口选择指定的布料资源。
 	
-	![](HighlightClothAsset.png)(w:550)
 
-1. 在 Cloth Painting 部分中设置一个 **Paint Value**，然后在选中的布料几何体表面点击左键拖动笔刷。
-	
-	[REGION:asyncgif]
-	![](PaintingCloth.gif)(w:500)
-	[/REGION]
+(#paintingonyourcloth)
+### 在布料上进行绘制
 
-	[REGION:note]
-	如您已使用 3DS Max 或 Maya 的 APEX 布料工具或类似的绘制工具，便不会对此操作感觉陌生。 
-	[/REGION]
+准备好在布料上进行绘制后，可使用以下功能按钮开始在所选布料资源上绘制：
 
-### 绘制工具法
-
-通过 **绘制工具（Paint Tool）** 选项即可选择绘制布料权重的方式，使用笔刷或梯度。 
-
-#### 笔刷
-
-利用 **笔刷（Brush）** 工具可手动将加权值直接绘制到布料上。 
-
-![](BrushTools.png)(w:350)
-
-设置一个 **绘制值（Paint Value）**，点击左键在布料几何体上拖动即可绘制加权值。 
-
-![](Paint_Brush.png)(w:500)
-
-
-#### 梯度
-
-利用 **梯度（Gradient）** 工具可设置两个选中点之间进行绘制的加权值。梯度将在这些选中的点之间进行绘制，从 **梯度初始值（Gradient Start Value）** 增加到 **梯度最终值（Gradient End Value）**。 
-
-![](GradientTools.png)(w:350)
-
-开始绘制加权值之前，首先设置 **梯度初始值（Gradient Start Value）** 和 **梯度最终值（Gradient End Value）**。然后点击左键沿布料网格体拖动绘制初始值，它由绘制顶点上的绿色所代表。完成操作后，按下 **Enter**（回车）键切换并绘制最终值，它由顶点上的红色所代表。
-
-完成梯度值的绘制后，再次按下 **Enter**（回车）键，便会出现与下例相似的绘制梯度。
-
-![](Paint_Gradient.png)(w:500)
-
-
+* 绘制（Paint）——**鼠标左键**
+* 擦除（Erase）——**Shift键 + 鼠标左键**
+* 预览布料（Cloth Preview）——**H键**
 
 [REGION:note]
-如果您希望用笔刷绘制梯度初始和最终点，则可启用选项 **Use Regular Brush for Gradient**。然后在 Brush 部分中使用 **Radius** 工具设置笔刷半径。
+若使用者使用过NVIDIA的PhysX DCC插件或其他程序的类似绘制工具，进行3DS Max或Maya的布料创建，那便不会对此操作中的功能按钮感到陌生。 
 [/REGION]
 
 
-
-## 将布料材质指定到材质
-
-按以下步骤执行即可将布料材质指定到骨架网格体的材质元素。
-
-1. 导航至 **Asset Details** 面板，找到 **Clothing** 部分。可在其中找到能够进行指定的布料资源。展开 **Clothing Properties** 即可调整布料的诸多属性。
+1. 在骨架网格体编辑器中，前往文件菜单并选择 **窗口（Window）**，然后在列表中选择 **布料绘制（Cloth Paint）**。此操作将打开“布料绘制”面板。 
 	
-	![](AssetDetailsCloth.png)(w:350)
-1. 在 **LOD** 部分中找到用于绘制布料权重的 **Material Element**。使用 **Clothing** 下拉选项从可用布料资源中进行选取。
+	[REGION:imagetable]
+	| ![](OpenClothPaintPanel.png)(h:500) | | | | | ![](ClothPaintPanel.png)(h:500) |
+	| --- | --- | --- | --- | --- | --- |
+	|||
+	[/REGION]
 
-	![](AssignClothToMaterial.png)(w:350)
+	点击 **启用绘制工具（Enable Paint Tools）** 按钮来启用可用于绘制所选布料资源的属性。
+	
+	![](EnablePaintTools.png)
+	
+1. 在“布料绘制”面板中，在 **资源（Assets）** 列表中选择指定的 **布料资源（Cloth Asset）**。
 
-	[REGION:note]
-	布料资源只能被指定到拥有已绘制布料资源的材质元素。 
+	![](HighlightClothAsset.png)
+
+1. 在“布料绘制”部分，可选择要使用的[绘制工具](#painttools)类型，然后选择 **绘制值（Paint Value）**（默认使用笔刷绘制工具）。然后点击左键并拖动网格体表面开始绘制。
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		PtevsF0qJCI
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		75
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		55
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+	[REGION:tip]
+	按住快捷键 **H** 键预览绘制的布料。
 	[/REGION]
 
 
 
+(#painttools)
+## 绘制工具
+
+![](PaintToolSelection.png)
+
+利用 **工具（Tool）** 选项，可选择可用的笔刷来绘制布料。
+
+* [笔刷](#brush)
+* [梯度](#gradient)
+* [平滑](#smooth)
+* [填充](#fill)
 
 
+(#brush)
+### 笔刷
+
+利用 **笔刷（Brush）** 工具在布料资源上进行拖动即可绘制出半径和强度值。
+
+![](Engine\Physics\Cloth\Reference\Brush.png)
+
+绘制布料时使用 **绘制值（Paint Value）** 控制笔刷的强度。此数值控制绘制区域近似于布料响应的程度。数值为0时蒙皮顶点无法移动，而数值为100时蒙皮顶点可从原始位置移动1米。
+
+![](Paint_Brush.png)(w:500)
+
+[REGION:note]
+参见[笔刷属性](Engine/Physics/Cloth/Reference#brush)参考，了解该工具及其属性的更多详情。
+[/REGION]
+
+(#gradient)
+### 梯度
+
+利用 **梯度（Gradient）** 工具，可在选择的一组布料值之间绘制出渐变混合。 
+
+![](Engine\Physics\Cloth\Reference\Gradient.png)
+
+绘制梯度需要执行以下步骤：
+
+1. 使用 **鼠标左键** 绘制 **梯度起始值（Gradient Start Value）**。其由已绘制顶点上的 **绿** 点来代表。
+1. 按住 **Ctrl + 鼠标左键** 绘制 **梯度结束值（Gradient End Value）**。其由已绘制顶点上的 **红** 点来代表。
+1. 完成绘制后按下 **回车** 键绘制梯度。
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	7iOYc3j2q4Q
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	75
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	48
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+![](Paint_Gradient.png)(w:500)
+
+[REGION:note]
+参见[梯度属性](Engine/Physics/Cloth/Reference#gradient)参考，了解该工具及其属性的更多详情。
+[/REGION]
+
+(#smooth)
+### 平滑
+
+利用 **平滑** 工具可模糊或柔化绘制布料值之间的对比度。 
+
+![](Engine\Physics\Cloth\Reference\Smooth.png)
+
+模糊效果用于在绘制区域之间创建柔化梯度，使用 **强度（Strength）** 值可调整模糊效果的强弱。
+
+![](Paint_Smooth.png)(w:500)
+
+[REGION:note]
+参见[平滑属性](Engine/Physics/Cloth/Reference#smooth)参考，了解该工具及其属性的更多详情。
+[/REGION]
+
+(#fill)
+### 填充
+
+利用 **填充（Fill）** 工具可使用其他数值替代数值相似的区域。 
+
+![](Engine\Physics\Cloth\Reference\Fill.png)
+
+使用 **填充值（Fill Value）** 设置填充区域顶点的数值。采样用于替换的顶点时，使用 **阈值（Threshold）** 设置填充操作所用的数值。 
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Painted Area (White)](Paint_Fill1.png)(w:500)
+	[/PARAM]
+	[PARAM:after]
+	![Painted area using | Fill value of 1.0](Paint_Fill2.png)(w:500)
+	[/PARAM]
+[/OBJECT]
+
+[REGION:note]
+参见[填充属性](Engine/Physics/Cloth/Reference#fill)参考，了解该工具及其属性的更多详情。
+[/REGION]
+
+(#clothproperties)
+## 布料属性
+
+利用 **布料配置（Cloth Config）** 属性可调整布料以模拟不同类型的材质，如粗麻布、橡胶，或是其他类型的材质。 
+
+![](ClothConfig.png)
+
+[REGION:note]
+参见[布料配置属性](Engine/Physics/Cloth/Reference#config)参考，了解布料配置属性的更多详情。
+[/REGION]
+
+(#masks)## 遮罩
+
+**遮罩（Mask）** 是一类参数集，可用于交换布料资源。 
+
+![](Engine\Physics\Cloth\Reference\Masks.png)
+
+该参数集代表以下 **目标** （或参数集）：
+
+* **最大距离（Max Distance）**：布料上的点从其动画位置移动的最远距离。 
+* **逆止距离（Backstop Distance）**： 布料上的点所用偏移，以限制“最大距离”内的移动。 
+* **逆止半径（Backstop Radius）**：与“最大距离”相交时，可防止布料上已绘制的点进入该区域的球体半径。 
+
+[COMMENT:none]
+- http://wiki.fitnect.hu/index.php/PhysX_setup -
+[/COMMENT]
+
+可同时含有多个 **目标** 但一次仅能指定一个。此操作可以非破坏性方式快速测试不同配置。
+
+要创建遮罩并将其指定至目标，请按照以下步骤操作： 
+
+1. 点击 **加号**（+）按钮新建空白遮罩。 
+
+	![](Masks01.png)(w:450)
+
+1. 对新遮罩点击右键，将鼠标移动到 **设置目标（Set Target）**，在可用的 **目标（Targets）** 列表中进行选择。
+
+	![](Masks02.png)(w:450)
+
+1. 在“遮罩”窗口中，可看到所选目标已被列为布料资源的活跃目标。
+
+	![](Masks03.png)(w:450)
+
+[REGION:note]
+参见[遮罩属性](Engine/Physics/Cloth/Reference#masks)参考，了解遮罩的更多详情。
+[/REGION]
+
+
+[COMMENT:none]
+- SAVE FOR 4.18 Release Update ------- 
+
+(#levelsofdetail)
+### 细节级别（LOD）
+
+使用者可能会选择使用基础网格体的较低 **细节级别（Level of Detail）**（LOD）网格体。设置基础网格的初始布料资源后，其不会自动带入到LOD中。
+
+
+要创建LOD的布料，请按照以下步骤操作：
+
+1. 在 **视口** 或 **布料绘制（Cloth Paint）** 面板中，使用 **LOD** 选项来选择要应用布料的LOD网格体。
+
+	[REGION:imagetable]
+	| IMAGE1 | IMAGE2 |
+	| --- | --- |
+	| 视口LOD选项 | 布料绘制面板LOD选项 |
+	[/REGION]
+
+1. 启用主工具栏中的 **分段选择（Section Selection）** ，**点击鼠标左键** 选择要创建布料的网格体部分。点击右键打开快捷菜单并选择 **在部分中创建布料LOD（Create Clothing LOD from Section）**。接着填写以下菜单选项： 
+
+	* **目标资源（Target Asset）**——选择要应用LOD的目标布料资源。对于部分网格体，可能已创建多个布料资源。
+	* **LOD索引（LOD Index）**——选择要添加的LOD；或在已创建LOD的情况下，选择想要替换的LOD。
+	* **重映射参数（Remap Parameters）**——若LOD网格体大体上与先前的LOD类似，设置参数后会尝试重映射至该LOD。
+	
+	完成设置后点击 **创建（Create）** 按钮。
+
+1. 对部分再次点击右键打开快捷菜单，移动光标至 **应用布料资源（Apply Clothing Asset）** 并在可用布料资源中选择新LOD。此操作会将其与所选部分创建的布料资源进行关联。
+
+
+(#repaintinglods)
+### 重新绘制LOD
+
+若想要重新绘制LOD0网格体，又不想重新绘制全部LOD网格体，可选择进行以下操作：
+
+1. 在 **资源（Assets）** 窗口下的“布料绘制（Cloth Paint）”面板中，对布料资源点击右键打开快捷菜单。
+
+	IMAGE HERE
+	
+1. 选择 **重新构建资源参数遮罩（Rebuild Asset Parameter Masks）** 来自动进行过程，将新绘制的布料值带到其他LOD上。
+
+
+	LOD0的新绘制值现在已传递到较低的LOD网格体，例如此处与LOD1前后的比较。
+
+
+[/COMMENT]
+
+(#apex(legacy)assets)
+## APEX（旧有）资源
+
+若已使用NVIDIA提供的APEX布料工具创建3DS Max或Maya的布料资源，可继续使用该工作流。将APEX布料（.apx或.apb）文件导入编辑器的方法有2种。 
+
+在骨架网格体编辑器中，可使用 **资源细节（Asset Details）**，并使用 **布料（Clothing）** 部分下的 **添加APEX布料文件（Add APEX clothing file...）** 按钮。
+
+![](APEXLegacyImport.png)
+
+同时也可启用“编辑器内布料工具”，使用**布料绘制（Cloth Paint）** 窗口中 **资源（Assets）** 下的 **加号**（+）按钮来导入APEX文件。 
+
+![](InEditorClothImportAPEX.png)
+
+使用此方法时APEX布料资源将转换为编辑器内工具，在创建不同参数（如“最大距离”和“逆止”）遮罩的同时，相应地创建和指定至渲染网格体。
 
 
 [COMMENT:none]
@@ -179,3 +402,8 @@ _点击图片查看全图。_
 
 -
 [/COMMENT]
+
+
+
+
+

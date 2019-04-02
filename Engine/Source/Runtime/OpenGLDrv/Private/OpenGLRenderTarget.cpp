@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	OpenGLRenderTarget.cpp: OpenGL render target implementation.
@@ -894,6 +894,47 @@ void FOpenGLDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI,FIntRe
 	RHITHREAD_GLCOMMAND_EPILOGUE();
 }
 
+void FOpenGLDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI, FIntRect Rect, TArray<FLinearColor>& OutData, FReadSurfaceDataFlags InFlags)
+{
+	VERIFY_GL_SCOPE();
+
+	// Verify requirements, but don't crash
+	if (!ensure(FOpenGL::SupportsFloatReadSurface()) || !ensure(TextureRHI) || !ensure(TextureRHI->GetFormat() == PF_A32B32G32R32F))
+	{
+		return;
+	}
+
+	FOpenGLTextureBase* Texture = GetOpenGLTextureFromRHITexture(TextureRHI);
+	if (!ensure(Texture))
+	{
+		return;
+	}
+
+	// Get framebuffer for texture
+	uint32 MipmapLevel = 0;
+	GLuint SourceFramebuffer = GetOpenGLFramebuffer(1, &Texture, NULL, &MipmapLevel, NULL);
+
+	uint32 SizeX = Rect.Width();
+	uint32 SizeY = Rect.Height();
+
+	// Initialize output
+	OutData.Empty(SizeX * SizeY);
+	OutData.AddUninitialized(SizeX * SizeY);
+
+	// Bind the framebuffer
+	// @TODO: Do we need to worry about multisampling?
+	glBindFramebuffer(UGL_READ_FRAMEBUFFER, SourceFramebuffer);
+	FOpenGL::ReadBuffer(SourceFramebuffer == 0 ? GL_BACK : GL_COLOR_ATTACHMENT0);
+
+	// Read the float data from the buffer directly into the output data
+	// @TODO: Do we need to support BGRA?
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glReadPixels(Rect.Min.X, Rect.Min.Y, SizeX, SizeY, GL_RGBA, GL_FLOAT, OutData.GetData());
+	glPixelStorei(GL_PACK_ALIGNMENT, 4);
+
+	GetContextStateForCurrentContext().Framebuffer = (GLuint)-1;
+}
+
 void FOpenGLDynamicRHI::RHIMapStagingSurface(FTextureRHIParamRef TextureRHI,void*& OutData,int32& OutWidth,int32& OutHeight)
 {
 	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
@@ -932,13 +973,6 @@ void FOpenGLDynamicRHI::RHIUnmapStagingSurface(FTextureRHIParamRef TextureRHI)
 void FOpenGLDynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI,FIntRect Rect,TArray<FFloat16Color>& OutData,ECubeFace CubeFace,int32 ArrayIndex,int32 MipIndex)
 {
 	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
-
-	if (IsInRenderingThread() && !RHICmdList.Bypass())
-	{
-		//#todo-rco: Workaround binary header compatibility for UE4.21.1
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_ReadSurfaceFloatData_Flush);
-		RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
-	}
 
 	RHITHREAD_GLCOMMAND_PROLOGUE();
 
@@ -1142,5 +1176,20 @@ void FOpenGLDynamicRHI::RHIEndRenderPass()
 	{
 		extern void EndOcclusionQueryBatch();
 		EndOcclusionQueryBatch();
+	}
+
+	IRHICommandContext::RHIEndRenderPass();
+
+	// Drop depth and stencil to avoid export
+	if (RenderPassInfo.DepthStencilRenderTarget.DepthStencilTarget)
+	{
+		ERenderTargetActions DepthActions = GetDepthActions(RenderPassInfo.DepthStencilRenderTarget.Action);
+		ERenderTargetActions StencilActions = GetDepthActions(RenderPassInfo.DepthStencilRenderTarget.Action);
+		bool bDiscardDepth = GetStoreAction(DepthActions) == ERenderTargetStoreAction::ENoAction;
+		bool bDiscardStencil = GetStoreAction(StencilActions) == ERenderTargetStoreAction::ENoAction;
+		if (bDiscardDepth || bDiscardStencil)
+		{
+			RHIDiscardRenderTargets(bDiscardDepth, bDiscardStencil, 0);
+		}
 	}
 }

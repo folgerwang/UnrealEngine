@@ -1,9 +1,15 @@
-﻿INTSourceChangelist:2743189
+﻿INTSourceChangelist:3801260
 Availability:Public
 Title: 粒子系统的关键概念
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems
 Description: 在虚幻中使用粒子以及级联粒子编辑器时的一些关键概念
 Version: 4.9
+tags:Particles
+tags:Getting Started
+parent:Engine/Rendering/ParticleSystems
+order:1
+type:overview
+topic-image:Engine/Rendering/ParticleSystems/particles_topic.png
 
 [TOC(start:2 end:3)]
 
@@ -22,19 +28,9 @@ Version: 4.9
 
 ### 默认模块
 
-[OBJECT:topiclistnotitlealt]
-	[PARAM:icon]
-		![DefaultEmitter.png](DefaultEmitter.png)(convert:false)
-	[/PARAM]
-	[PARAM:description]
-	[INCLUDE:#Modules]
-	[/PARAM]
-[/OBJECT]
+![DefaultEmitter.png](DefaultEmitter.png)(convert:false)
 
-
-[REGION:raw]
-![](Engine\Rendering\LightingAndShadows\LightTypes\Point\spacer.png)
-[/REGION]
+[INCLUDE:#Modules]
 
 
 [COMMENT:none]

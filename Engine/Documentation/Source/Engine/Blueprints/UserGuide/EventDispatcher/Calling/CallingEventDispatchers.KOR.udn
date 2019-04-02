@@ -31,7 +31,7 @@ _블루프린트 클래스_ 와 _레벨 블루프린트_ 양쪽에서도 이벤�
 
 1. 그래프에 우클릭합니다.
 
-1. 뜨는 맥락 메뉴에서 **Event Dispatcher** 를 펼칩니다.
+1. 뜨는 컨텍스트 메뉴에서 **Event Dispatcher** 를 펼칩니다.
 
 	![](event_dispatcher_context.png)
 
@@ -46,11 +46,11 @@ _블루프린트 클래스_ 와 _레벨 블루프린트_ 양쪽에서도 이벤�
 
 	![](target_step1.png)
 
-1.  레퍼런스 노드의 출력 핀을 끌어 놓아 맥락 메뉴를 띄웁니다.
+1.  레퍼런스 노드의 출력 핀을 끌어 놓아 컨텍스트 메뉴를 띄웁니다.
 
 	![](empty_context_menu.png)
 
-1. 맥락 메뉴에서 **Event Dispatcher > Call [이벤트 디스패처 이름]** 을 선택합니다. Event Call 을 검색하면 빠르게 찾을 수 있습니다.
+1. 컨텍스트 메뉴에서 **Event Dispatcher > Call [이벤트 디스패처 이름]** 을 선택합니다. Event Call 을 검색하면 빠르게 찾을 수 있습니다.
 
 	![](call_node_level.png)
 

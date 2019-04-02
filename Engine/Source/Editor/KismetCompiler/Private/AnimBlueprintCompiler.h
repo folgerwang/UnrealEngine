@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -36,7 +36,7 @@ class FAnimBlueprintCompilerContext : public FKismetCompilerContext
 protected:
 	typedef FKismetCompilerContext Super;
 public:
-	FAnimBlueprintCompilerContext(UAnimBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompileOptions, TArray<UObject*>* InObjLoaded);
+	FAnimBlueprintCompilerContext(UAnimBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompileOptions);
 	virtual ~FAnimBlueprintCompilerContext();
 
 	virtual void PostCompile() override;
@@ -50,6 +50,7 @@ protected:
 	virtual void CreateFunctionList() override;
 	virtual void SpawnNewClass(const FString& NewClassName) override;
 	virtual void OnNewClassSet(UBlueprintGeneratedClass* ClassToUse) override;
+	virtual void OnPostCDOCompiled() override;
 	virtual void CopyTermDefaultsToDefaultObject(UObject* DefaultObject) override;
 	virtual void PostCompileDiagnostics() override;
 	virtual void EnsureProperGeneratedClass(UClass*& TargetClass) override;
@@ -163,7 +164,7 @@ protected:
 		UStructProperty* NodeVariableProperty;
 
 		// The specific evaluation handler inside the specified node
-		UStructProperty* EvaluationHandlerProperty;
+		int32 EvaluationHandlerIdx;
 
 		// Whether or not our serviced properties are actually on the instance instead of the node
 		bool bServicesInstanceProperties;
@@ -178,7 +179,7 @@ protected:
 
 		FEvaluationHandlerRecord()
 			: NodeVariableProperty(nullptr)
-			, EvaluationHandlerProperty(nullptr)
+			, EvaluationHandlerIdx(INDEX_NONE)
 			, bServicesInstanceProperties(false)
 			, HandlerFunctionName(NAME_None)
 		{}
@@ -202,10 +203,10 @@ protected:
 
 		bool IsValid() const
 		{
-			return NodeVariableProperty != nullptr && EvaluationHandlerProperty != nullptr;
+			return NodeVariableProperty != nullptr;
 		}
 
-		void PatchFunctionNameAndCopyRecordsInto(UObject* TargetObject) const;
+		void PatchFunctionNameAndCopyRecordsInto(FExposedValueHandler& Handler) const;
 
 		void RegisterPin(UEdGraphPin* DestPin, UProperty* AssociatedProperty, int32 AssociatedPropertyArrayIndex);
 

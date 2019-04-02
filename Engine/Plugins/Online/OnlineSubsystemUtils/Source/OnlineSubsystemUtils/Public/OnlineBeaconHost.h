@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -25,6 +25,7 @@ class ONLINESUBSYSTEMUTILS_API AOnlineBeaconHost : public AOnlineBeacon
 {
 	GENERATED_UCLASS_BODY()
 
+public:
 	/** Configured listen port for this beacon host */
 	UPROPERTY(Config)
 	int32 ListenPort;

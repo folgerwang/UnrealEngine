@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved. 
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved. 
 
 #include "CableComponent.h"
 #include "EngineGlobals.h"
@@ -253,7 +253,7 @@ public:
 		const bool bWireframe = AllowDebugViewmodes() && ViewFamily.EngineShowFlags.Wireframe;
 
 		auto WireframeMaterialInstance = new FColoredMaterialRenderProxy(
-			GEngine->WireframeMaterial ? GEngine->WireframeMaterial->GetRenderProxy(IsSelected()) : NULL,
+			GEngine->WireframeMaterial ? GEngine->WireframeMaterial->GetRenderProxy() : NULL,
 			FLinearColor(0, 0.5f, 1.f)
 			);
 
@@ -266,7 +266,7 @@ public:
 		}
 		else
 		{
-			MaterialProxy = Material->GetRenderProxy(IsSelected());
+			MaterialProxy = Material->GetRenderProxy();
 		}
 
 		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
@@ -281,7 +281,16 @@ public:
 				Mesh.bWireframe = bWireframe;
 				Mesh.VertexFactory = &VertexFactory;
 				Mesh.MaterialRenderProxy = MaterialProxy;
-				BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate(GetLocalToWorld(), GetBounds(), GetLocalBounds(), true, UseEditorDepthTest());
+
+				bool bHasPrecomputedVolumetricLightmap;
+				FMatrix PreviousLocalToWorld;
+				int32 SingleCaptureIndex;
+				GetScene().GetPrimitiveUniformShaderParameters_RenderThread(GetPrimitiveSceneInfo(), bHasPrecomputedVolumetricLightmap, PreviousLocalToWorld, SingleCaptureIndex);
+
+				FDynamicPrimitiveUniformBuffer& DynamicPrimitiveUniformBuffer = Collector.AllocateOneFrameResource<FDynamicPrimitiveUniformBuffer>();
+				DynamicPrimitiveUniformBuffer.Set(GetLocalToWorld(), PreviousLocalToWorld, GetBounds(), GetLocalBounds(), true, bHasPrecomputedVolumetricLightmap, UseEditorDepthTest());
+				BatchElement.PrimitiveUniformBufferResource = &DynamicPrimitiveUniformBuffer.UniformBuffer;
+
 				BatchElement.FirstIndex = 0;
 				BatchElement.NumPrimitives = GetRequiredIndexCount()/3;
 				BatchElement.MinVertexIndex = 0;
@@ -555,6 +564,14 @@ void UCableComponent::PerformSubstep(float InSubstepTime, const FVector& Gravity
 	}
 }
 
+void UCableComponent::SetAttachEndToComponent(USceneComponent* Component, FName SocketName)
+{
+	AttachEndTo.OtherActor = Component->GetOwner();
+	AttachEndTo.ComponentProperty = NAME_None;
+	AttachEndTo.OverrideComponent = Component;
+	AttachEndToSocketName = SocketName;
+}
+
 void UCableComponent::SetAttachEndTo(AActor* Actor, FName ComponentProperty, FName SocketName)
 {
 	AttachEndTo.OtherActor = Actor;
@@ -691,10 +708,9 @@ void UCableComponent::SendRenderDynamicData_Concurrent()
 		}
 
 		// Enqueue command to send to render thread
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			FSendCableDynamicData,
-			FCableSceneProxy*,CableSceneProxy,(FCableSceneProxy*)SceneProxy,
-			FCableDynamicData*,DynamicData,DynamicData,
+		FCableSceneProxy* CableSceneProxy = (FCableSceneProxy*)SceneProxy;
+		ENQUEUE_RENDER_COMMAND(FSendCableDynamicData)(
+			[CableSceneProxy, DynamicData](FRHICommandListImmediate& RHICmdList)
 		{
 			CableSceneProxy->SetDynamicData_RenderThread(DynamicData);
 		});

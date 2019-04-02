@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "VirtualCameraPawnBase.h"
 #include "UnrealClient.h"
@@ -23,6 +23,7 @@ AVirtualCameraPawnBase::AVirtualCameraPawnBase(const FObjectInitializer& ObjectI
 
 	MovementComponent = CreateDefaultSubobject<UVirtualCameraMovementComponent>("Movement Component");
 	MovementComponent->UpdatedComponent = CineCamera;
+	MovementComponent->SetRootComponent(DefaultSceneRoot);
 
 	// Set Default Variables
 	HomeWaypointName = "";

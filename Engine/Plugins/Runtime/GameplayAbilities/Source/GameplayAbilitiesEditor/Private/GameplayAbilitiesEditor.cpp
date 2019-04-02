@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GameplayAbilitiesEditor.h"
 #include "EditorReimportHandler.h"
@@ -26,9 +26,6 @@ FGameplayAbilitiesEditor::FGameplayAbilitiesEditor()
 
 FGameplayAbilitiesEditor::~FGameplayAbilitiesEditor()
 {
-	FEditorDelegates::OnAssetPostImport.RemoveAll(this);
-	FReimportManager::Instance()->OnPostReimport().RemoveAll(this);
-	
 	// NOTE: Any tabs that we still have hanging out when destroyed will be cleaned up by FBaseToolkit's destructor
 }
 

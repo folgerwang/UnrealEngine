@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ProjectManager.h"
 #include "Misc/MessageDialog.h"
@@ -458,6 +458,7 @@ IProjectManager& IProjectManager::Get()
 	static FProjectManager* ProjectManager = NULL;
 	if( ProjectManager == NULL )
 	{
+		SCOPED_BOOT_TIMING("new FProjectManager");
 		ProjectManager = new FProjectManager();
 	}
 	return *ProjectManager;

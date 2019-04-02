@@ -1,29 +1,16 @@
-﻿INTSourceChangelist:3255885
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:1 - 设置动画进行混合
 Crumbs: %ROOT%, Engine, Engine\Animation, Engine\Animation\AnimHowTo
 Description:在此步骤中，我们将更新玩家角色，并为需要放置在运动动画上的动画创建 AnimMontage。
-version:4.14
-skilllevel:Advanced
+version: 4.14
+skilllevel: Advanced
+parent:Engine/Animation/AnimHowTo/AdditiveAnimations
 type:how-to
+order:1
 tags:Animation
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[Layered Animations - Home ](Engine\Animation\AnimHowTo\AdditiveAnimations)
-	[/PARAM]
-	[PARAM:next]
-		[Next](Engine\Animation\AnimHowTo\AdditiveAnimations\02_CharacterBlueprintSetup)
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
+[NAV]
 
 在此步骤中，我们将变更默认玩家角色，并为需要放置在运动动画上的动画创建 AnimMontage。 
 
@@ -74,5 +61,7 @@ tags:Animation
 	现在我们便已将此蒙太奇与 **DefaultGroup.UpperBody** 相关联，使其在槽被调用时进行播放。  
 
 在下一部分中，我们将变更默认玩家角色并进行一些调整，确定武器是否正在开火。 
+
+[NAV]
 
 

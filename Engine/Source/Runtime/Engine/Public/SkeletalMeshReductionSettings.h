@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SkeletalMeshReductionSettings.h: Skeletal Mesh Reduction Settings
@@ -11,7 +11,21 @@
 #include "BoneContainer.h"
 #include "SkeletalMeshReductionSettings.generated.h"
 
-/** Enum specifying the reduction type to use when simplifying skeletal meshes. */
+
+/** Enum specifying the reduction type to use when simplifying skeletal meshes with internal tool */
+UENUM()
+enum SkeletalMeshTerminationCriterion
+{
+	SMTC_NumOfTriangles UMETA(DisplayName = "Triangles", ToolTip = "Triangle count criterion will be used for simplification."),
+	SMTC_NumOfVerts UMETA(DisplayName = "Vertices", ToolTip = "Vertex cont criterion will be used for simplification."),
+	SMTC_TriangleOrVert UMETA(DisplayName = "First Percent Satisfied", ToolTip = "Simplification will continue until either Triangle or Vertex count criteria is met."),
+	SMTC_AbsNumOfTriangles UMETA(DisplayName = "Max Triangles", ToolTip = "Triangle count criterion will be used for simplification."),
+	SMTC_AbsNumOfVerts UMETA(DisplayName = "Max Vertices", ToolTip = "Vertex cont criterion will be used for simplification."),
+	SMTC_AbsTriangleOrVert UMETA(DisplayName = "First Max Satisfied", ToolTip = "Simplification will continue until either Triangle or Vertex count criteria is met."),
+	SMTC_MAX UMETA(Hidden),
+};
+
+/** Enum specifying the reduction type to use when simplifying skeletal meshes with Simmplygon */
 UENUM()
 enum SkeletalMeshOptimizationType
 {
@@ -42,12 +56,25 @@ struct FSkeletalMeshOptimizationSettings
 {
 	GENERATED_USTRUCT_BODY()
 
-
-	/** If ReductionMethod equals NumOfTriangles this value is the ratio of triangles percentage to remove from the mesh.
-	 * In code, it ranges from [0, 1]. In the editor UI, it ranges from [0, 100]
-	 */
+	/** The method to use when optimizing the skeletal mesh LOD */
 	UPROPERTY(EditAnywhere, Category = ReductionMethod)
+	TEnumAsByte<enum SkeletalMeshTerminationCriterion> TerminationCriterion;
+
+	/** The percentage of triangles to retain as a ratio, e.g. 0.1 indicates 10 percent */
+	UPROPERTY(EditAnywhere, Category = ReductionMethod, meta = (DisplayName = "Percent of Triangles"))
 	float NumOfTrianglesPercentage;
+
+	/** The percentage of vertices to retain as a ratio, e.g. 0.1 indicates 10 percent */
+	UPROPERTY(EditAnywhere, Category = ReductionMethod, meta = (DisplayName = "Percent of Vertices"))
+	float NumOfVertPercentage;
+	
+	/** The maximum number of triangles to retain */
+	UPROPERTY(EditAnywhere, Category = ReductionMethod, meta = (DisplayName = "Max Triangle Count", ClampMin = 4))
+	uint32 MaxNumOfTriangles;
+
+	/** The maximum number of vertices to retain */
+	UPROPERTY(EditAnywhere, Category = ReductionMethod, meta = (DisplayName = "Max Vertex Count", ClampMin = 6))
+	uint32 MaxNumOfVerts;
 
 	/**If ReductionMethod equals MaxDeviation this value is the maximum deviation from the base mesh as a percentage of the bounding sphere. 
 	 * In code, it ranges from [0, 1]. In the editor UI, it ranges from [0, 100]
@@ -93,8 +120,20 @@ struct FSkeletalMeshOptimizationSettings
 	float NormalsThreshold;
 
 	/** Maximum number of bones that can be assigned to each vertex. */
-	UPROPERTY(EditAnywhere, Category = FSkeletalMeshOptimizationSettings, meta = (DisplayName = "Max Bones Influence"))
+	UPROPERTY(EditAnywhere, Category = FSkeletalMeshOptimizationSettings, meta = (DisplayName = "Max Bones Influence", ClampMin = 1))
 	int32 MaxBonesPerVertex;
+
+	/** Penalize edge collapse between vertices that have different major bones.  This will help articulated segments like tongues but can lead to undesirable results under extreme simplification */
+	UPROPERTY(EditAnywhere, Category = FSkeletalMeshOptimizationSettings, meta = (DisplayName = "Enforce Bone Boundaries"))
+	uint8 bEnforceBoneBoundaries : 1;
+
+	/** Default value of 1 attempts to preserve volume.  Smaller values will loose volume by flattening curved surfaces, and larger values will accentuate curved surfaces.  */
+	UPROPERTY(EditAnywhere, Category = FSkeletalMeshOptimizationSettings, meta = (DisplayName = "Volumetric Correction", ClampMin = 0, ClampMax = 2))
+	float VolumeImportance;
+
+	/** Preserve cuts in the mesh surface by locking vertices in place.  Increases the quality of the simplified mesh at edges at the cost of more triangles*/
+	UPROPERTY(EditAnywhere, Category = FSkeletalMeshOptimizationSettings, meta = (DisplayName = "Lock Mesh Edges"))
+	uint8 bLockEdges : 1;
 
 	/** Base LOD index to generate this LOD. By default, we generate from LOD 0 */
 	UPROPERTY(EditAnywhere, Category = FSkeletalMeshOptimizationSettings)
@@ -109,7 +148,11 @@ struct FSkeletalMeshOptimizationSettings
 #endif
 
 	FSkeletalMeshOptimizationSettings()
-		: NumOfTrianglesPercentage(0.5f)
+		: TerminationCriterion(SMTC_NumOfTriangles)
+		, NumOfTrianglesPercentage(0.5f)
+		, NumOfVertPercentage(0.5f)
+		, MaxNumOfTriangles(4)
+		, MaxNumOfVerts(6)
 		, MaxDeviationPercentage(0.5f)
 		, ReductionMethod(SMOT_NumOfTriangles)
 		, SilhouetteImportance(SMOI_Normal)
@@ -121,6 +164,9 @@ struct FSkeletalMeshOptimizationSettings
 		, WeldingThreshold(0.1f)
 		, NormalsThreshold(60.0f)
 		, MaxBonesPerVertex(4)
+		, bEnforceBoneBoundaries(false)
+		, VolumeImportance(1.f)
+		, bLockEdges(false)
 		, BaseLOD(0)
 #if WITH_EDITORONLY_DATA
 		, BakePose_DEPRECATED(nullptr)

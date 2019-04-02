@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SSCSEditor.h"
@@ -394,7 +394,6 @@ FReply FSCSRowDragDropOp::DroppedOnPanel(const TSharedRef< class SWidget >& Pane
 FSCSEditorTreeNode::FSCSEditorTreeNode(FSCSEditorTreeNode::ENodeType InNodeType)
 	: ComponentTemplatePtr(nullptr)
 	, NodeType(InNodeType)
-	, bNonTransactionalRename(false)
 	, FilterFlags((uint8)EFilteredState::Unknown)
 {
 }
@@ -905,14 +904,16 @@ void FSCSEditorTreeNode::RemoveChild(FSCSEditorTreeNodePtrType InChildNodePtr)
 	}
 }
 
-void FSCSEditorTreeNode::OnRequestRename(bool bTransactional)
+void FSCSEditorTreeNode::OnRequestRename(TUniquePtr<FScopedTransaction> InOngoingCreateTransaction)
 {
-	bNonTransactionalRename = !bTransactional;
+	OngoingCreateTransaction = MoveTemp(InOngoingCreateTransaction); // Take responsibility to end the 'create + give initial name' transaction.
 	RenameRequestedDelegate.ExecuteIfBound();
 }
 
 void FSCSEditorTreeNode::OnCompleteRename(const FText& InNewName)
 {
+	// If a 'create + give initial name' transaction exists, end it, the object is expected to have its initial name.
+	OngoingCreateTransaction.Reset();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1134,8 +1135,11 @@ void FSCSEditorTreeNodeInstanceAddedComponent::RemoveMeAsChild()
 
 void FSCSEditorTreeNodeInstanceAddedComponent::OnCompleteRename(const FText& InNewName)
 {
-	bool bIsNonTransactionalRename = GetAndClearNonTransactionalRenameFlag();
-	FScopedTransaction TransactionContext(LOCTEXT("RenameComponentVariable", "Rename Component Variable"), !bIsNonTransactionalRename);
+	// If the 'rename' was part of an ongoing component creation, ensure the transaction is ended when the local object goes out of scope. (Must complete after the rename transaction below)
+	TUniquePtr<FScopedTransaction> ScopedCreateTransaction(MoveTemp(OngoingCreateTransaction));
+
+	// If a 'create' transaction is opened, the rename will be folded into it and will be invisible to the 'undo' as create + give a name is really just one operation from the user point of view.
+	FScopedTransaction TransactionContext(LOCTEXT("RenameComponentVariable", "Rename Component Variable"));
 
 	UActorComponent* ComponentInstance = GetComponentTemplate();
 	if(ComponentInstance == nullptr)
@@ -1144,11 +1148,7 @@ void FSCSEditorTreeNodeInstanceAddedComponent::OnCompleteRename(const FText& InN
 	}
 
 	ERenameFlags RenameFlags = REN_DontCreateRedirectors;
-	if (bIsNonTransactionalRename)
-	{
-		RenameFlags |= REN_NonTransactional;
-	}
-	
+
 	// name collision could occur due to e.g. our archetype being updated and causing a conflict with our ComponentInstance:
 	FString NewNameAsString = InNewName.ToString();
 	if(StaticFindObject(UObject::StaticClass(), ComponentInstance->GetOuter(), *NewNameAsString) == nullptr)
@@ -1344,18 +1344,13 @@ UActorComponent* FSCSEditorTreeNode::FindComponentInstanceInActor(const AActor* 
 
 void FSCSEditorTreeNodeComponent::OnCompleteRename(const FText& InNewName)
 {
-	FScopedTransaction* TransactionContext = NULL;
-	if (!GetAndClearNonTransactionalRenameFlag())
-	{
-		TransactionContext = new FScopedTransaction(LOCTEXT("RenameComponentVariable", "Rename Component Variable"));
-	}
+	// If the 'rename' was part of the creation process, we need to complete the creation transaction as the component has a user confirmed name. (Must complete after rename transaction below)
+	TUniquePtr<FScopedTransaction> ScopedOngoingCreateTransaction(MoveTemp(OngoingCreateTransaction));
+
+	// If a 'create' transaction is opened, the rename will be folded into it and will be invisible to the 'undo' as 'create + give initial name' means creating an object from the user point of view.
+	FScopedTransaction RenameTransaction(LOCTEXT("RenameComponentVariable", "Rename Component Variable"));
 
 	FBlueprintEditorUtils::RenameComponentMemberVariable(GetBlueprint(), GetSCSNode(), FName(*InNewName.ToString()));
-
-	if (TransactionContext)
-	{
-		delete TransactionContext;
-	}
 }
 
 void FSCSEditorTreeNodeComponent::RemoveMeAsChild()
@@ -1416,6 +1411,9 @@ void FSCSEditorTreeNodeRootActor::OnCompleteRename(const FText& InNewName)
 		const FScopedTransaction Transaction(LOCTEXT("SCSEditorRenameActorTransaction", "Rename Actor"));
 		FActorLabelUtilities::RenameExistingActor(Actor, InNewName.ToString());
 	}
+
+	// Not expected to reach here with an ongoing create transaction, but if it does, end it.
+	OngoingCreateTransaction.Reset();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -3094,7 +3092,8 @@ bool SSCS_RowWidget::OnNameTextVerifyChanged(const FText& InNewText, FText& OutE
 				OutErrorMessage = FText::Format(LOCTEXT("ComponentRenameFailed_TooLong", "Component name must be less than {CharCount} characters long."), Arguments);
 				return false;
 			}
-			else if (!FComponentEditorUtils::IsComponentNameAvailable(InNewText.ToString(), ExistingNameSearchScope, ComponentInstance))
+			else if (!FComponentEditorUtils::IsComponentNameAvailable(InNewText.ToString(), ExistingNameSearchScope, ComponentInstance) 
+					|| !FComponentEditorUtils::IsComponentNameAvailable(InNewText.ToString(), ComponentInstance->GetOuter(), ComponentInstance ))
 			{
 				OutErrorMessage = LOCTEXT("RenameFailed_ExistingName", "Another component already has the same name.");
 				return false;
@@ -3455,7 +3454,7 @@ void SSCSEditor::Construct( const FArguments& InArgs )
 		);
 
 	CommandList->MapAction( FGenericCommands::Get().Rename,
-			FUIAction( FExecuteAction::CreateSP( this, &SSCSEditor::OnRenameComponent, true ), // true = transactional (i.e. undoable)
+			FUIAction( FExecuteAction::CreateSP( this, &SSCSEditor::OnRenameComponent),
 			FCanExecuteAction::CreateSP( this, &SSCSEditor::CanRenameComponent ) ) 
 		);
 
@@ -3722,7 +3721,6 @@ void SSCSEditor::Construct( const FArguments& InArgs )
 		];
 	}
 
-
 	this->ChildSlot
 	[
 		Contents.ToSharedRef()
@@ -3747,7 +3745,7 @@ void SSCSEditor::OnLevelComponentRequestRename(const UActorComponent* InComponen
 	FSCSEditorTreeNodePtrType Node = GetNodeFromActorComponent(InComponent);
 	if (SelectedItems.Contains(Node) && CanRenameComponent())
 	{
-		OnRenameComponent(true);
+		OnRenameComponent();
 	}
 }
 
@@ -4092,48 +4090,62 @@ void SSCSEditor::OnDuplicateComponent()
 	{
 		const FScopedTransaction Transaction(SelectedNodes.Num() > 1 ? LOCTEXT("DuplicateComponents", "Duplicate Components") : LOCTEXT("DuplicateComponent", "Duplicate Component"));
 
+		TMap<USceneComponent*, USceneComponent*> DuplicateSceneComponentMap;
 		for (int32 i = 0; i < SelectedNodes.Num(); ++i)
 		{
 			if (UActorComponent* ComponentTemplate = SelectedNodes[i]->GetComponentTemplate())
 			{
 				UActorComponent* CloneComponent = AddNewComponent(ComponentTemplate->GetClass(), ComponentTemplate);
-				UActorComponent* OriginalComponent = ComponentTemplate;
-
-				// If we've duplicated a scene component, attempt to reposition the duplicate in the hierarchy if the original
-				// was attached to another scene component as a child. By default, the duplicate is attached to the scene root node.
-				USceneComponent* NewSceneComponent = Cast<USceneComponent>(CloneComponent);
-				if(NewSceneComponent != NULL)
+				if (USceneComponent* SceneClone = Cast<USceneComponent>(CloneComponent))
 				{
-					if (EditorMode == EComponentEditorMode::BlueprintSCS)
-					{
-						// Ensure that any native attachment relationship inherited from the original copy is removed (to prevent a GLEO assertion)
-						NewSceneComponent->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
-					}
+					DuplicateSceneComponentMap.Add(CastChecked<USceneComponent>(ComponentTemplate), SceneClone);
+				}
+			}
+		}
+
+		for (const TPair<USceneComponent*,USceneComponent*>& DuplicatedPair : DuplicateSceneComponentMap)
+		{
+			USceneComponent* OriginalComponent = DuplicatedPair.Key;
+			USceneComponent* NewSceneComponent = DuplicatedPair.Value;
+
+			if (EditorMode == EComponentEditorMode::BlueprintSCS)
+			{
+				// Ensure that any native attachment relationship inherited from the original copy is removed (to prevent a GLEO assertion)
+				NewSceneComponent->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+			}
 					
-					// Attempt to locate the original node in the SCS tree
-					FSCSEditorTreeNodePtrType OriginalNodePtr = FindTreeNode(OriginalComponent);
-					if(OriginalNodePtr.IsValid())
+			// Attempt to locate the original node in the SCS tree
+			FSCSEditorTreeNodePtrType OriginalNodePtr = FindTreeNode(OriginalComponent);
+			if(OriginalNodePtr.IsValid())
+			{
+				// If we're duplicating the root then we're already a child of it so need to reparent, but we do need to reset the scale
+				// otherwise we'll end up with the square of the root's scale instead of being the same size.
+				if (OriginalNodePtr == SceneRootNodePtr)
+				{
+					NewSceneComponent->RelativeScale3D = FVector(1.f);
+				}
+				else
+				{
+					// If the original node was parented, attempt to add the duplicate as a child of the same parent node if the parent is not
+					// part of the duplicate set, otherwise parent to the parent's duplicate
+					FSCSEditorTreeNodePtrType ParentNodePtr = OriginalNodePtr->GetParent();
+					if (ParentNodePtr.IsValid())
 					{
-						// If we're duplicating the root then we're already a child of it so need to reparent, but we do need to reset the scale
-						// otherwise we'll end up with the square of the root's scale instead of being the same size.
-						if (OriginalNodePtr == SceneRootNodePtr)
+						if (USceneComponent** ParentDuplicateComponent = DuplicateSceneComponentMap.Find(Cast<USceneComponent>(ParentNodePtr->GetComponentTemplate())))
 						{
-							NewSceneComponent->RelativeScale3D = FVector(1.f);
-						}
-						else
-						{
-							// If the original node was parented, attempt to add the duplicate as a child of the same parent node
-							FSCSEditorTreeNodePtrType ParentNodePtr = OriginalNodePtr->GetParent();
-							if (ParentNodePtr.IsValid())
+							FSCSEditorTreeNodePtrType DuplicateParentNodePtr = FindTreeNode(*ParentDuplicateComponent);
+							if (DuplicateParentNodePtr.IsValid())
 							{
-								// Locate the duplicate node (as a child of the current scene root node), and switch it to be a child of the original node's parent
-								FSCSEditorTreeNodePtrType NewChildNodePtr = SceneRootNodePtr->FindChild(NewSceneComponent, true);
-								if (NewChildNodePtr.IsValid())
-								{
-									// Note: This method will handle removal from the scene root node as well
-									ParentNodePtr->AddChild(NewChildNodePtr);
-								}
+								ParentNodePtr = DuplicateParentNodePtr;
 							}
+						}
+
+						// Locate the duplicate node (as a child of the current scene root node), and switch it to be a child of the original node's parent
+						FSCSEditorTreeNodePtrType NewChildNodePtr = SceneRootNodePtr->FindChild(NewSceneComponent, true);
+						if (NewChildNodePtr.IsValid())
+						{
+							// Note: This method will handle removal from the scene root node as well
+							ParentNodePtr->AddChild(NewChildNodePtr);
 						}
 					}
 				}
@@ -4702,7 +4714,8 @@ void SSCSEditor::AddInstancedTreeNodesRecursive(USceneComponent* Component, FSCS
 {
 	if (Component != nullptr)
 	{
-		for (USceneComponent* ChildComponent : Component->GetAttachChildren())
+		TArray<USceneComponent*> Components = Component->GetAttachChildren();
+		for (USceneComponent* ChildComponent : Components)
 		{
 			if (ComponentsToAdd.Contains(ChildComponent)
 				&& ShouldAddInstancedActorComponent(ChildComponent, Component)
@@ -5103,7 +5116,9 @@ UActorComponent* SSCSEditor::AddNewComponent( UClass* NewComponentClass, UObject
 		return nullptr;
 	}
 
-	const FScopedTransaction Transaction( LOCTEXT("AddComponent", "Add Component") );
+	// Begin a transaction. The transaction will end when the component name will be provided/confirmed by the user.
+	check(!DeferredOngoingCreateTransaction.IsValid())
+	TUniquePtr<FScopedTransaction> AddTransaction = MakeUnique<FScopedTransaction>( LOCTEXT("AddComponent", "Add Component") );
 
 	UActorComponent* NewComponent = nullptr;
 	UActorComponent* ComponentTemplate = Cast<UActorComponent>(Asset);
@@ -5128,8 +5143,19 @@ UActorComponent* SSCSEditor::AddNewComponent( UClass* NewComponentClass, UObject
 			bAllowTreeUpdates = false;
 		}
 		
-		const FName NewVariableName = (Asset ? FName(*FComponentEditorUtils::GenerateValidVariableNameFromAsset(Asset, nullptr)) : NAME_None);
-		NewComponent = AddNewNode(Blueprint->SimpleConstructionScript->CreateNode(NewComponentClass, NewVariableName), Asset, bMarkBlueprintModified, bSetFocusToNewItem);
+		FName NewVariableName;
+		if (ComponentTemplate)
+		{
+			FString TemplateName = ComponentTemplate->GetName();
+			NewVariableName = (TemplateName.EndsWith(USimpleConstructionScript::ComponentTemplateNameSuffix) 
+								? FName(*TemplateName.LeftChop(USimpleConstructionScript::ComponentTemplateNameSuffix.Len()))
+								: ComponentTemplate->GetFName());
+		}
+		else if (Asset)
+		{
+			NewVariableName = *FComponentEditorUtils::GenerateValidVariableNameFromAsset(Asset, nullptr);
+		}
+		NewComponent = AddNewNode(MoveTemp(AddTransaction), Blueprint->SimpleConstructionScript->CreateNode(NewComponentClass, NewVariableName), Asset, bMarkBlueprintModified, bSetFocusToNewItem);
 
 		if (ComponentTemplate)
 		{
@@ -5152,7 +5178,7 @@ UActorComponent* SSCSEditor::AddNewComponent( UClass* NewComponentClass, UObject
 		if (ComponentTemplate)
 		{
 			// Create a duplicate of the provided template
-			NewComponent = AddNewNodeForInstancedComponent(FComponentEditorUtils::DuplicateComponent(ComponentTemplate), nullptr, bSetFocusToNewItem);
+			NewComponent = AddNewNodeForInstancedComponent(MoveTemp(AddTransaction), FComponentEditorUtils::DuplicateComponent(ComponentTemplate), nullptr, bSetFocusToNewItem);
 		}
 		else if (AActor* ActorInstance = GetActorContext())
 		{
@@ -5214,14 +5240,14 @@ UActorComponent* SSCSEditor::AddNewComponent( UClass* NewComponentClass, UObject
 			// Rerun construction scripts
 			ActorInstance->RerunConstructionScripts();
 
-			NewComponent = AddNewNodeForInstancedComponent(NewInstanceComponent, Asset, bSetFocusToNewItem);
+			NewComponent = AddNewNodeForInstancedComponent(MoveTemp(AddTransaction), NewInstanceComponent, Asset, bSetFocusToNewItem);
 		}
 	}
 
 	return NewComponent;
 }
 
-UActorComponent* SSCSEditor::AddNewNode(USCS_Node* NewNode, UObject* Asset, bool bMarkBlueprintModified, bool bSetFocusToNewItem)
+UActorComponent* SSCSEditor::AddNewNode(TUniquePtr<FScopedTransaction> InOngoingCreateTransaction, USCS_Node* NewNode, UObject* Asset, bool bMarkBlueprintModified, bool bSetFocusToNewItem)
 {
 	check(NewNode != nullptr);
 
@@ -5272,7 +5298,7 @@ UActorComponent* SSCSEditor::AddNewNode(USCS_Node* NewNode, UObject* Asset, bool
 	{
 		// Select and request a rename on the new component
 		SCSTreeWidget->SetSelection(NewNodePtr);
-		OnRenameComponent(false);
+		OnRenameComponent(MoveTemp(InOngoingCreateTransaction));
 	}
 
 	// Will call UpdateTree as part of OnBlueprintChanged handling
@@ -5288,7 +5314,7 @@ UActorComponent* SSCSEditor::AddNewNode(USCS_Node* NewNode, UObject* Asset, bool
 	return NewNode->ComponentTemplate;
 }
 
-UActorComponent* SSCSEditor::AddNewNodeForInstancedComponent(UActorComponent* NewInstanceComponent, UObject* Asset, bool bSetFocusToNewItem)
+UActorComponent* SSCSEditor::AddNewNodeForInstancedComponent(TUniquePtr<FScopedTransaction> InOngoingCreateTransaction, UActorComponent* NewInstanceComponent, UObject* Asset, bool bSetFocusToNewItem)
 {
 	check(NewInstanceComponent != nullptr);
 
@@ -5324,7 +5350,7 @@ UActorComponent* SSCSEditor::AddNewNodeForInstancedComponent(UActorComponent* Ne
 	{
 		// Select and request a rename on the new component
 		SCSTreeWidget->SetSelection(NewNodePtr);
-		OnRenameComponent(false);
+		OnRenameComponent(MoveTemp(InOngoingCreateTransaction));
 	}
 
 	UpdateTree(false);
@@ -5425,11 +5451,41 @@ void SSCSEditor::CopySelectedNodes()
 		if (ComponentTemplate)
 		{
 			ComponentsToCopy.Add(ComponentTemplate);
+
+			if (EditorMode == EComponentEditorMode::BlueprintSCS)
+			{
+				// CopyComponents uses component attachment to maintain hierarchy, but the SCS templates are not
+				// setup with a relationship to each other. Briefly setup the attachment between the templates being
+				// copied so that the hierarchy is retained upon pasting
+				if (USceneComponent* SceneTemplate = Cast<USceneComponent>(ComponentTemplate))
+				{
+					FSCSEditorTreeNodePtrType SelectedParentNodePtr = SelectedNodePtr->GetParent();
+					if (SelectedParentNodePtr.IsValid())
+					{
+						if (USceneComponent* ParentSceneTemplate = Cast<USceneComponent>(SelectedParentNodePtr->GetComponentTemplate()))
+						{
+							SceneTemplate->SetupAttachment(ParentSceneTemplate);
+						}
+					}
+				}
+			}
 		}
 	}
 
 	// Copy the components to the clipboard
 	FComponentEditorUtils::CopyComponents(ComponentsToCopy);
+
+	if (EditorMode == EComponentEditorMode::BlueprintSCS)
+	{
+		for (UActorComponent* ComponentTemplate : ComponentsToCopy)
+		{
+			if (USceneComponent* SceneTemplate = Cast<USceneComponent>(ComponentTemplate))
+			{
+				// clear back out any temporary attachments we set up for the copy
+				SceneTemplate->SetupAttachment(nullptr);
+			}
+		}
+	}
 }
 
 bool SSCSEditor::CanPasteNodes() const
@@ -5477,7 +5533,7 @@ void SSCSEditor::PasteNodes()
 			check(NewActorComponent);
 
 			// Create a new SCS node to contain the new component and add it to the tree
-			NewActorComponent = AddNewNode(Blueprint->SimpleConstructionScript->CreateNodeAndRenameComponent(NewActorComponent), nullptr, false, false);
+			NewActorComponent = AddNewNode(TUniquePtr<FScopedTransaction>(), Blueprint->SimpleConstructionScript->CreateNodeAndRenameComponent(NewActorComponent), nullptr, false, false);
 
 			if (NewActorComponent)
 			{
@@ -6118,7 +6174,7 @@ void SSCSEditor::OnItemScrolledIntoView( FSCSEditorTreeNodePtrType InItem, const
 		if(DeferredRenameRequest == ItemName)
 		{
 			DeferredRenameRequest = NAME_None;
-			InItem->OnRequestRename(bIsDeferredRenameRequestTransactional);
+			InItem->OnRequestRename(MoveTemp(DeferredOngoingCreateTransaction)); // Transfer responsibility to end the 'create + give initial name' transaction to the tree item if such transaction is ongoing.
 		}
 	}
 }
@@ -6129,7 +6185,12 @@ void SSCSEditor::HandleItemDoubleClicked(FSCSEditorTreeNodePtrType InItem)
 	OnItemDoubleClicked.ExecuteIfBound(InItem);
 }
 
-void SSCSEditor::OnRenameComponent(bool bTransactional)
+void SSCSEditor::OnRenameComponent()
+{
+	OnRenameComponent(nullptr); // null means that the rename is not part of the creation process (create + give initial name).
+}
+
+void SSCSEditor::OnRenameComponent(TUniquePtr<FScopedTransaction> InComponentCreateTransaction)
 {
 	TArray< FSCSEditorTreeNodePtrType > SelectedItems = SCSTreeWidget->GetSelectedItems();
 
@@ -6137,9 +6198,29 @@ void SSCSEditor::OnRenameComponent(bool bTransactional)
 	check(SelectedItems.Num() == 1);
 
 	DeferredRenameRequest = SelectedItems[0]->GetNodeID();
-	bIsDeferredRenameRequestTransactional = bTransactional;
+
+	check(!DeferredOngoingCreateTransaction.IsValid()); // If this fails, something in the chain of responsibility failed to end the previous transaction.
+	DeferredOngoingCreateTransaction = MoveTemp(InComponentCreateTransaction); // If a 'create + give initial name' transaction is ongoing, take responsibility of ending it until the selected item is scrolled into view.
 
 	SCSTreeWidget->RequestScrollIntoView(SelectedItems[0]);
+
+	if (DeferredOngoingCreateTransaction.IsValid())
+	{
+		// Ensure the item will be scrolled into view during the frame (See explanation in OnPostTick()).
+		PostTickHandle = FSlateApplication::Get().OnPostTick().AddSP(this, &SSCSEditor::OnPostTick);
+	}
+}
+
+void SSCSEditor::OnPostTick(float)
+{
+	// If a 'create + give initial name' is ongoing and the transaction ownership was not transferred during the frame it was requested, it is most likely because the newly
+	// created item could not be scrolled into view (should say 'teleported', the scrolling is not animated). The tree view will not put the item in view if the there is
+	// no space left to display the item. (ex a splitter where all the display space is used by the other component). End the transaction before starting a new frame. The user
+	// will not be able to rename on creation, the widget is likely not in view and cannot be edited anyway.
+	DeferredOngoingCreateTransaction.Reset();
+
+	// The post tick event handler is not required anymore.
+	FSlateApplication::Get().OnPostTick().Remove(PostTickHandle);
 }
 
 bool SSCSEditor::CanRenameComponent() const

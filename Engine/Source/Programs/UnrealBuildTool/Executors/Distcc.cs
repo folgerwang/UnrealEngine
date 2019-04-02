@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -205,8 +205,8 @@ namespace UnrealBuildTool
 					Environment.SetEnvironmentVariable("DISTCC_VERBOSE", "1");
 				}
 
-				string DistccExecutable = DistccExecutablesPath + "/distcc";
-				string GetHostExecutable = DistccExecutablesPath + "/gethost";
+				FileReference DistccExecutable = new FileReference(DistccExecutablesPath + "/distcc");
+				FileReference GetHostExecutable = new FileReference(DistccExecutablesPath + "/gethost");
 
 				Log.TraceInformation("Performing {0} actions ({1} in parallel)", Actions.Count, MaxActionsToExecuteInParallel, DistccExecutable, GetHostExecutable);
 
@@ -265,31 +265,28 @@ namespace UnrealBuildTool
 									// Determine whether there are any prerequisites of the action that are outdated.
 									bool bHasOutdatedPrerequisites = false;
 									bool bHasFailedPrerequisites = false;
-									foreach (FileItem PrerequisiteItem in Action.PrerequisiteItems)
+									foreach(Action PrerequisiteAction in Action.PrerequisiteActions)
 									{
-										if (PrerequisiteItem.ProducingAction != null && Actions.Contains(PrerequisiteItem.ProducingAction))
+										ActionThread PrerequisiteProcess = null;
+										bool bFoundPrerequisiteProcess = ActionThreadDictionary.TryGetValue(PrerequisiteAction, out PrerequisiteProcess);
+										if (bFoundPrerequisiteProcess == true)
 										{
-											ActionThread PrerequisiteProcess = null;
-											bool bFoundPrerequisiteProcess = ActionThreadDictionary.TryGetValue(PrerequisiteItem.ProducingAction, out PrerequisiteProcess);
-											if (bFoundPrerequisiteProcess == true)
+											if (PrerequisiteProcess == null)
 											{
-												if (PrerequisiteProcess == null)
-												{
-													bHasFailedPrerequisites = true;
-												}
-												else if (PrerequisiteProcess.bComplete == false)
-												{
-													bHasOutdatedPrerequisites = true;
-												}
-												else if (PrerequisiteProcess.ExitCode != 0)
-												{
-													bHasFailedPrerequisites = true;
-												}
+												bHasFailedPrerequisites = true;
 											}
-											else
+											else if (PrerequisiteProcess.bComplete == false)
 											{
 												bHasOutdatedPrerequisites = true;
 											}
+											else if (PrerequisiteProcess.ExitCode != 0)
+											{
+												bHasFailedPrerequisites = true;
+											}
+										}
+										else
+										{
+											bHasOutdatedPrerequisites = true;
 										}
 									}
 
@@ -364,7 +361,7 @@ namespace UnrealBuildTool
 						"^{0}^{1:0.00}^{2}^{3}^{4}",
 						Action.ActionType.ToString(),
 						ThreadSeconds,
-						Path.GetFileName(Action.CommandPath),
+						Action.CommandPath.GetFileName(),
 						Action.StatusDescription,
 						Action.bIsUsingPCH);
 
@@ -372,12 +369,12 @@ namespace UnrealBuildTool
 					TotalThreadSeconds += ThreadSeconds;
 				}
 
-				Log.WriteLineIf(bLogDetailedActionStats || UnrealBuildTool.bPrintDebugInfo,
+				Log.WriteLineIf(bLogDetailedActionStats,
 					LogEventType.Console,
 					"-------- End Detailed Actions Stats -----------------------------------------------------------");
 
 				// Log total CPU seconds and numbers of processors involved in tasks.
-				Log.WriteLineIf(bLogDetailedActionStats || UnrealBuildTool.bPrintDebugInfo,
+				Log.WriteLineIf(bLogDetailedActionStats,
 					LogEventType.Console, "Cumulative thread seconds ({0} processors): {1:0.00}", System.Environment.ProcessorCount, TotalThreadSeconds);
 			}
 			return bDistccResult;

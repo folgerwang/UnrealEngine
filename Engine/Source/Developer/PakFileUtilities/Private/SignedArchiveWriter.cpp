@@ -1,18 +1,17 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SignedArchiveWriter.h"
 #include "IPlatformFilePak.h"
 #include "Misc/SecureHash.h"
 #include "HAL/FileManager.h"
 
-FSignedArchiveWriter::FSignedArchiveWriter(FArchive& InPak, const FString& InPakFilename, const FEncryptionKey& InPublicKey, const FEncryptionKey& InPrivateKey)
+FSignedArchiveWriter::FSignedArchiveWriter(FArchive& InPak, const FString& InPakFilename, FRSA::TKeyPtr InSigningKey)
 : BufferArchive(Buffer)
 	, PakWriter(InPak)
 	, PakSignaturesFilename(FPaths::ChangeExtension(InPakFilename, TEXT("sig")))
 	, SizeOnDisk(0)
 	, PakSize(0)
-	, PublicKey(InPublicKey)
-	, PrivateKey(InPrivateKey)
+	, SigningKey(InSigningKey)
 {
 	Buffer.Reserve(FPakInfo::MaxChunkDataSize);
 }
@@ -44,14 +43,10 @@ bool FSignedArchiveWriter::Close()
 		SerializeBufferAndSign();
 	}
 
-	FEncryptedSignature EncryptedMasterHash;
-	FDecryptedSignature DecryptedMasterHash;
-	DecryptedMasterHash.Data = ComputePakChunkHash((const uint8*)&ChunkHashes[0], ChunkHashes.Num() * sizeof(TPakChunkHash));
-	FEncryption::EncryptSignature(DecryptedMasterHash, EncryptedMasterHash, PrivateKey);
-
 	FArchive* SignatureWriter = IFileManager::Get().CreateFileWriter(*PakSignaturesFilename);
-	*SignatureWriter << EncryptedMasterHash;
-	*SignatureWriter << ChunkHashes;
+	FPakSignatureFile SignatureFile;
+	SignatureFile.SetChunkHashesAndSign(ChunkHashes, SigningKey);
+	SignatureFile.Serialize(*SignatureWriter);
 	delete SignatureWriter;
 
 	return FArchive::Close();
@@ -99,64 +94,4 @@ int64 FSignedArchiveWriter::TotalSize()
 void FSignedArchiveWriter::Seek(int64 InPos)
 {
 	UE_LOG(LogPakFile, Fatal, TEXT("Seek is not supported in FSignedArchiveWriter."));
-}
-
-/**
- * Useful code for testing the encryption methods
- */
-void TestEncryption()
-{
-	FEncryptionKey PublicKey;
-	FEncryptionKey PrivateKey;
-	TEncryptionInt P(TEXT("0x21443BD2DD63E995403"));
-	TEncryptionInt Q(TEXT("0x28CBB6E5749AC65749"));
-	FEncryption::GenerateKeyPair(P, Q, PublicKey, PrivateKey);
-
-	// Generate random data
-	const int32 DataSize = 1024;
-	uint8* Data = (uint8*)FMemory::Malloc(DataSize);
-	for (int32 Index = 0; Index < DataSize; ++Index)
-	{
-		Data[Index] = (uint8)(Index % 255);
-	}
-
-	// Generate signature
-	FDecryptedSignature OriginalSignature;
-	FEncryptedSignature EncryptedSignature;
-	FDecryptedSignature DecryptedSignature;
-	OriginalSignature.Data = FCrc::MemCrc32(Data, DataSize);
-
-	// Encrypt signature with the private key
-	FEncryption::EncryptSignature(OriginalSignature, EncryptedSignature, PrivateKey);
-	FEncryption::DecryptSignature(EncryptedSignature, DecryptedSignature, PublicKey);
-
-	// Check
-	if (OriginalSignature == DecryptedSignature)
-	{
-		UE_LOG(LogPakFile, Display, TEXT("Keys match"));
-	}
-	else
-	{
-		UE_LOG(LogPakFile, Fatal, TEXT("Keys mismatched!"));
-	}
-
-	double OverallTime = 0.0;
-	double OverallNumTests = 0.0;
-	for (int32 TestIndex = 0; TestIndex < 10; ++TestIndex)
-	{
-		static const int64 NumTests = 500;
-		double Timer = FPlatformTime::Seconds();
-		{
-			for (int64 i = 0; i < NumTests; ++i)
-			{
-				FEncryption::DecryptSignature(EncryptedSignature, DecryptedSignature, PublicKey);
-			}
-		}
-		Timer = FPlatformTime::Seconds() - Timer;
-		OverallTime += Timer;
-		OverallNumTests += (double)NumTests;
-		UE_LOG(LogPakFile, Display, TEXT("%i signatures decrypted in %.4fs, Avg = %.4fs, OverallAvg = %.4fs"), NumTests, Timer, Timer / (double)NumTests, OverallTime / OverallNumTests);
-	}
-	
-	FMemory::Free(Data);
 }

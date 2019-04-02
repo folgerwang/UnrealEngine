@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	InterpFilter.h
@@ -134,12 +134,12 @@ public:
 	}
 #endif // WITH_EDITOR
 private:
-	TArray<FFilterData>			FilterWindow;
 	EFilterInterpolationType	InterpolationType;
 	int32						CurrentStackIndex;
 	float						TimeDuration;
 	int32						NumValidFilter;
 	float						CurrentTime;
+	TArray<FFilterData>			FilterWindow;
 
 	float GetInterpolationCoefficient (FFilterData & Data);
 	float CalculateFilteredOutput();

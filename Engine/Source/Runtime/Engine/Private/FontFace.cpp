@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/FontFace.h"
 #include "Engine/Font.h"
@@ -76,23 +76,18 @@ void UFontFace::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
 	Super::GetResourceSizeEx(CumulativeResourceSize);
 
+	const bool bCountInlineData = WITH_EDITORONLY_DATA || LoadingPolicy == EFontLoadingPolicy::Inline;
 	// Only count the memory size for fonts that will be loaded
-	if (LoadingPolicy != EFontLoadingPolicy::Stream)
+	if (bCountInlineData)
 	{
-		const bool bCountInlineData = WITH_EDITORONLY_DATA || LoadingPolicy == EFontLoadingPolicy::Inline;
-		if (bCountInlineData)
-		{
-			CumulativeResourceSize.AddDedicatedSystemMemoryBytes(FontFaceData->GetData().Num());
-		}
-		else
-		{
-			const int64 FileSize = IFileManager::Get().FileSize(*SourceFilename);
-			if (FileSize > 0)
-			{
-				CumulativeResourceSize.AddDedicatedSystemMemoryBytes(FileSize);
-			}
-		}
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(FontFaceData->GetData().GetAllocatedSize());
 	}
+	// only get size if lazy loading.  Resident font memory wont exist for EFontLoadingPolicy::Stream
+	else if(LoadingPolicy == EFontLoadingPolicy::LazyLoad && FSlateApplication::IsInitialized())
+	{
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(FSlateApplication::Get().GetRenderer()->GetFontCache()->GetFontDataAssetResidentMemory(this));
+	}
+
 }
 
 #if WITH_EDITOR

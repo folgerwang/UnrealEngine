@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Components/RichTextBlockImageDecorator.h"
 #include "UObject/SoftObjectPtr.h"
@@ -113,7 +113,7 @@ protected:
 		EStretch::Type Stretch = EStretch::ScaleToFit;
 		if (const FString* SstretchString = RunInfo.MetaData.Find(TEXT("stretch")))
 		{
-			static const UEnum* StretchEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EStretch"));
+			static const UEnum* StretchEnum = StaticEnum<EStretch::Type>();
 			int64 StretchValue = StretchEnum->GetValueByNameString(*SstretchString);
 			if (StretchValue != INDEX_NONE)
 			{

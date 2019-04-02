@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,10 +6,10 @@
 #include "Templates/SharedPointer.h"
 
 class ITargetDeviceServiceManager;
+class IDeviceManagerCustomPlatformWidgetCreator;
 class SDockTab;
 class SWidget;
 class SWindow;
-
 
 /**
  * Interface for device manager modules.

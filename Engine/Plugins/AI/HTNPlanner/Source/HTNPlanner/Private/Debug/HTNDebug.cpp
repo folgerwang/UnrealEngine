@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Debug/HTNDebug.h"
 #include "HTNBuilder.h"
@@ -9,13 +9,13 @@ namespace FHTNDebug
 {
 	FString HTNWorldStateCheckToString(const EHTNWorldStateCheck Value)
 	{
-		static const UEnum* EnumType = FindObject<UEnum>(ANY_PACKAGE, TEXT("EHTNWorldStateCheck"));
+		static const UEnum* EnumType = StaticEnum<EHTNWorldStateCheck>();
 		return EnumType->GetNameStringByIndex(static_cast<uint32>(Value));
 	}
 
 	FString HTNWorldStateOperationToString(const EHTNWorldStateOperation Value)
 	{
-		static const UEnum* EnumType = FindObject<UEnum>(ANY_PACKAGE, TEXT("EHTNWorldStateOperation"));
+		static const UEnum* EnumType = StaticEnum<EHTNWorldStateOperation>();
 		return EnumType->GetNameStringByIndex(static_cast<uint32>(Value));
 	}
 

@@ -31,7 +31,7 @@ SkillLevel: Advanced
 	1.	**Download ZIP** 버튼을 클릭합니다.
 		![](DownloadZipButton.png)
 		[REGION:warning]
-		내장 윈도우 Zip 유틸리티가 다운로드한 zip 파일 콘텐츠를 안전하지 않은 실행 파일이라 마킹합니다.
+		내장 Windows Zip 유틸리티가 다운로드한 zip 파일 콘텐츠를 안전하지 않은 실행 파일이라 마킹합니다.
 		zip 파일 압축을 해제하기 전:
 
 		1.	zip 파일에 **우클릭** 합니다.
@@ -50,7 +50,7 @@ SkillLevel: Advanced
 		셋업 뱃치 파일이 엔진의 바이너리 콘텐츠 다운로드, 사전 요구사항 설치, 언리얼 파일 연결 프로그램 구성을 해 줍니다. 엔진 바이너리 크기는 3-4 기가에 달하므로 다운로드에 시간이 조금 걸릴 수 있습니다. 이후의 체크아웃에 걸리는 다운로드 시간은 줄어듭니다. 
 		[/REGION]
 		[REGION:warning]
-		윈도우에서는 스마트 스크린에 경고가 나타날 수 있습니다. **More Info** 를 클릭한 다음 **Run Anyway** 를 선택하여 셋업 뱃치 파일 실행을 계속합니다.
+		Windows에서는 스마트 스크린에 경고가 나타날 수 있습니다. **More Info** 를 클릭한 다음 **Run Anyway** 를 선택하여 셋업 뱃치 파일 실행을 계속합니다.
 		[/REGION]
 	[/PARAM]
 [/OBJECT]
@@ -94,7 +94,7 @@ SkillLevel: Advanced
 	[PARAM:content]
 
 	[REGION:warning]
-	저희 개발자와 지원팀은 현재 Ubuntu 최신 버전을 사용합니다. 그에 따라 (Ubuntu 다른 버전을 포함해서) 다른 리눅스 배포판을 지원하기 어려울 수 있습니다.
+	저희 개발자와 지원팀은 현재 Ubuntu 최신 버전을 사용합니다. 그에 따라 (Ubuntu 다른 버전을 포함해서) 다른 Linux 배포판을 지원하기 어려울 수 있습니다.
 	[/REGION]
 
 	1.	GitHub 페이지로 이동합니다.

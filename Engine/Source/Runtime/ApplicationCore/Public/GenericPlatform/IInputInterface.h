@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -125,7 +125,12 @@ public:
 	virtual void SetHapticFeedbackValues(int32 ControllerId, int32 Hand, const FHapticFeedbackValues& Values) {}
 
 	/*
-	 * Sets the controller for the given controller.  Ignored if controller does not support a color.
+	 * Sets the light color for the given controller.  Ignored if controller does not support a color.
 	 */
 	virtual void SetLightColor(int32 ControllerId, FColor Color) = 0;
+	
+	/*
+	 * Resets the light color for the given controller.  Ignored if controller does not support a color.
+	 */
+	virtual void ResetLightColor(int32 ControllerId) = 0;
 };

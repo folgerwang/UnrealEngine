@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,7 +6,6 @@
 #include "HAL/ThreadSafeBool.h"
 #include "ARTypes.generated.h"
 
-class FARSystemBase;
 class USceneComponent;
 class IXRTrackingSystem;
 class UARPin;
@@ -170,6 +169,19 @@ class AUGMENTEDREALITY_API UARCandidateImage :
 	GENERATED_BODY()
 
 public:
+
+	static UARCandidateImage* CreateNewARCandidateImage(UTexture2D* InCandidateTexture, FString InFriendlyName, float InPhysicalWidth, float InPhysicalHeight, EARCandidateImageOrientation InOrientation)
+	{
+		UARCandidateImage* NewARCandidateImage = NewObject<UARCandidateImage>();
+		NewARCandidateImage->CandidateTexture = InCandidateTexture;
+		NewARCandidateImage->FriendlyName = InFriendlyName;
+		NewARCandidateImage->Width = InPhysicalWidth;
+		NewARCandidateImage->Height = InPhysicalHeight;
+		NewARCandidateImage->Orientation = InOrientation;
+
+		return NewARCandidateImage;
+	}
+
 	/** @see CandidateTexture */
 	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Image Detection")
 	UTexture2D* GetCandidateTexture() const { return CandidateTexture; }

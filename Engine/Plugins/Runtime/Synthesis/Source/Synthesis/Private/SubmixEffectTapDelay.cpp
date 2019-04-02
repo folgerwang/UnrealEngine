@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #include "SubmixEffects/SubmixEffectTapDelay.h"
 
 DEFINE_LOG_CATEGORY(LogTapDelay);
@@ -74,7 +74,8 @@ FTapDelayInfo::FTapDelayInfo()
 	, OutputChannel(0)
 	, PanInDegrees(0.0f)
 	, TapId(TapIdCount++)
-{}
+{
+}
 
 FSubmixEffectTapDelay::FSubmixEffectTapDelay()
 	: SampleRate(0.0f)

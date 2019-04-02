@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ComposurePostProcessPass.h"
 #include "ComposurePostProcessBlendable.h"
@@ -15,7 +15,7 @@
 UComposurePostProcessBlendable::UComposurePostProcessBlendable(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, Target(nullptr)
-{ }
+{}
 
 void UComposurePostProcessBlendable::OverrideBlendableSettings(class FSceneView& View, float Weight) const
 {
@@ -34,6 +34,8 @@ UComposurePostProcessPass::UComposurePostProcessPass( const FObjectInitializer& 
 	// Sets a default setup material that sets black.
 	COMPOSURE_GET_MATERIAL(Material, SetupMaterial, "PassSetup/", "ComposureBeforeTranslucencySetBlack");
 	SetSetupMaterial(SetupMaterial);
+
+	bAutoActivate = true;
 }
 
 void UComposurePostProcessPass::SetSetupMaterial(UMaterialInterface* Material)
@@ -69,47 +71,75 @@ UTextureRenderTarget2D* UComposurePostProcessPass::GetOutputRenderTarget() const
 
 void UComposurePostProcessPass::SetOutputRenderTarget(UTextureRenderTarget2D* RenderTarget)
 {
-	SceneCapture->TextureTarget = RenderTarget;
+	if (SceneCapture)
+	{
+		SceneCapture->TextureTarget = RenderTarget;
+	}
 }
 
-void UComposurePostProcessPass::InitializeComponent()
+void UComposurePostProcessPass::Activate(bool bReset)
 {
-	Super::InitializeComponent();
+	Super::Activate(bReset);
 
-	SceneCapture = NewObject<USceneCaptureComponent2D>(this, TEXT("SceneCapture"));
+	if (bIsActive)
+	{
+		if (SceneCapture == nullptr)
+		{
+			SceneCapture = NewObject<USceneCaptureComponent2D>(this, TEXT("SceneCapture"));
+			// Create underlying scene capture.
+			SceneCapture->AttachToComponent(this, FAttachmentTransformRules::KeepRelativeTransform);
+			// Avoid drawing any primitive by using the empty show only lists.
+			SceneCapture->PrimitiveRenderMode = ESceneCapturePrimitiveRenderMode::PRM_UseShowOnlyList;
+			// Avoid capturing every frame and on movement.
+			SceneCapture->bCaptureEveryFrame = false;
+			SceneCapture->bCaptureOnMovement = false;
+			// Sets the capture source to final color to enable post processing.
+			SceneCapture->CaptureSource = SCS_FinalColorLDR;
 
-	// Create underlying scene capture.
-	SceneCapture->AttachToComponent(this, FAttachmentTransformRules::KeepRelativeTransform);
+			SceneCapture->RegisterComponent();
+		}
 
-	// Avoid drawing any primitive by using the empty show only lists.
-	SceneCapture->PrimitiveRenderMode = ESceneCapturePrimitiveRenderMode::PRM_UseShowOnlyList;
-
-	// Avoid capturing every frame and on movement.
-	SceneCapture->bCaptureEveryFrame = false;
-	SceneCapture->bCaptureOnMovement = false;
-
-	// Sets the capture source to final color to enable post processing.
-	SceneCapture->CaptureSource = SCS_FinalColorLDR;
-
-	// Post process materials, eye adaptation, FFT bloom requires the view state.
-	SceneCapture->bAlwaysPersistRenderingState = true;
-
-	// Create private blendable interface.
-	BlendableInterface = NewObject<UComposurePostProcessBlendable>(this, TEXT("PostProcessBlendable"));
-	BlendableInterface->Target = this;
-
-	SceneCapture->RegisterComponent();
+		if (BlendableInterface == nullptr)
+		{
+			// Create private blendable interface.
+			BlendableInterface = NewObject<UComposurePostProcessBlendable>(this, TEXT("PostProcessBlendable"));
+			BlendableInterface->Target = this;
+		}
+	}
 }
 
-void UComposurePostProcessPass::UninitializeComponent()
+void UComposurePostProcessPass::Deactivate()
 {
-	SceneCapture->UnregisterComponent();
-	SceneCapture = nullptr;
+	Super::Deactivate();
 
-	BlendableInterface->Target = nullptr;
-	BlendableInterface = nullptr;
+	if (BlendableInterface)
+	{
+		BlendableInterface->Target = nullptr;
+		BlendableInterface = nullptr;
+	}
 
-	Super::UninitializeComponent();
+	if (SceneCapture)
+	{
+		SceneCapture->DestroyComponent();
+		SceneCapture = nullptr;
+	}
+}
+
+void UComposurePostProcessPass::OnComponentDestroyed(bool bDestroyingHierarchy)
+{
+	if (BlendableInterface)
+	{
+		BlendableInterface->Target = nullptr;
+		BlendableInterface = nullptr;
+	}
+
+	if (SceneCapture)
+	{
+		SceneCapture->DestroyComponent();
+		SceneCapture = nullptr;
+	}
+
+	Super::OnComponentDestroyed(bDestroyingHierarchy);
 }
 
 void UComposurePostProcessPass::OverrideBlendableSettings(class FSceneView& View, float Weight) const
@@ -118,9 +148,13 @@ void UComposurePostProcessPass::OverrideBlendableSettings(class FSceneView& View
 	View.FinalPostProcessSettings.BlendableManager = FBlendableManager();
 
 	// Setup the post process materials.
-	SetupMaterial->OverrideBlendableSettings(View, Weight);
-	if (TonemapperReplacingMID)
+	if (ensure(SetupMaterial))
 	{
-		TonemapperReplacingMID->OverrideBlendableSettings(View, Weight);
+		SetupMaterial->OverrideBlendableSettings(View, Weight);
+	}
+	
+	if (TonemapperReplacement)
+	{
+		TonemapperReplacement->OverrideBlendableSettings(View, Weight);
 	}
 }

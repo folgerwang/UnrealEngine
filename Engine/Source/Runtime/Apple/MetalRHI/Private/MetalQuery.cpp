@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MetalQuery.cpp: Metal query RHI implementation.
@@ -8,6 +8,10 @@
 #include "MetalProfiler.h"
 #include "MetalLLM.h"
 #include "MetalCommandBuffer.h"
+
+#if METAL_STATISTICS
+extern int32 GMetalProfilerStatisticsTiming;
+#endif
 
 void FMetalQueryBufferPool::Allocate(FMetalQueryResult& NewQuery)
 {
@@ -51,16 +55,11 @@ FMetalQueryBuffer* FMetalQueryBufferPool::GetCurrentQueryBuffer()
 		{
 			LLM_SCOPE_METAL(ELLMTagMetal::Buffers);
 			LLM_PLATFORM_SCOPE_METAL(ELLMTagMetal::Buffers);
-#if PLATFORM_MAC
-			METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("AllocBuffer: %llu, %llu"), EQueryBufferMaxSize, mtlpp::ResourceOptions::StorageModeManaged)));
-			Buffer = FMetalBuffer(MTLPP_VALIDATE(mtlpp::Device, Context->GetDevice(), SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, NewBuffer(EQueryBufferMaxSize, GetMetalDeviceContext().GetCommandQueue().GetCompatibleResourceOptions((mtlpp::ResourceOptions)(BUFFER_CACHE_MODE | mtlpp::ResourceOptions::HazardTrackingModeUntracked | mtlpp::ResourceOptions::StorageModeManaged)))), false);
-			FMemory::Memzero((((uint8*)Buffer.GetContents())), EQueryBufferMaxSize);
-			Buffer.DidModify(ns::Range(0, EQueryBufferMaxSize));
-#else
+
 			METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("AllocBuffer: %llu, %llu"), EQueryBufferMaxSize, mtlpp::ResourceOptions::StorageModeShared)));
 			Buffer = FMetalBuffer(MTLPP_VALIDATE(mtlpp::Device, Context->GetDevice(), SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, NewBuffer(EQueryBufferMaxSize, GetMetalDeviceContext().GetCommandQueue().GetCompatibleResourceOptions((mtlpp::ResourceOptions)(BUFFER_CACHE_MODE | mtlpp::ResourceOptions::HazardTrackingModeUntracked | mtlpp::ResourceOptions::StorageModeShared)))), false);
 			FMemory::Memzero((((uint8*)Buffer.GetContents())), EQueryBufferMaxSize);
-#endif
+
 #if STATS || ENABLE_LOW_LEVEL_MEM_TRACKER
 			MetalLLM::LogAllocBuffer(Context->GetDevice(), Buffer);
 #endif
@@ -245,7 +244,7 @@ void FMetalRenderQuery::End(FMetalContext* Context)
 			
 #if METAL_STATISTICS
 			class IMetalStatistics* Stats = Context->GetCommandQueue().GetStatistics();
-			if (Stats)
+			if (Stats && GMetalProfilerStatisticsTiming)
 			{
 				id<IMetalStatisticsSamples> StatSample = Stats->GetLastStatisticsSample(Context->GetCurrentCommandBuffer().GetPtr());
 				if (!StatSample)
@@ -331,6 +330,14 @@ bool FMetalDynamicRHI::RHIGetRenderQueryResult(FRenderQueryRHIParamRef QueryRHI,
 		uint64 WaitMS = (Query->Type == RQT_AbsoluteTime) ? 2000 : 500;
 		if (bWait)
 		{
+			// RHI thread *must* be flushed at this point if the internal handles we rely upon are not yet valid.
+			// We *CANNOT* have one event per query as it consumes too many pthread objects.
+			if (!FRHICommandListExecutor::GetImmediateCommandList().Bypass() && IsRunningRHIInSeparateThread() && !Query->Buffer.CommandBufferFence.IsValid())
+			{
+				FRHICommandListExecutor::GetImmediateCommandList().RHIThreadFence(true);
+				FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+			}
+			
 			uint32 IdleStart = FPlatformTime::Cycles();
 		
 			bOK = Query->Buffer.Wait(WaitMS);

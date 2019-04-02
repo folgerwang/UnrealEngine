@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "DSP/Amp.h"
 #include "DSP/Dsp.h"
@@ -196,8 +196,6 @@ namespace Audio
 	{
 		GainEnv = 1.0f;
 		GainMod = 1.0f;
-		Pan = 0.0f;
-		PanMod = 0.0f;
 	}
 
 }

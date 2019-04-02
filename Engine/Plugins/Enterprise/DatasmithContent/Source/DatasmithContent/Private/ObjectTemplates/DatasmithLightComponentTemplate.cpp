@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ObjectTemplates/DatasmithLightComponentTemplate.h"
 
@@ -75,6 +75,7 @@ void UDatasmithLightComponentTemplate::Load( const UObject* Source )
 	bUseTemperature = LightComponent->bUseTemperature;
 	Temperature = LightComponent->Temperature;
 
+	IESTexture = LightComponent->IESTexture;
 	bUseIESBrightness = LightComponent->bUseIESBrightness;
 	IESBrightnessScale = LightComponent->IESBrightnessScale;
 #endif // #if WITH_EDITORONLY_DATA

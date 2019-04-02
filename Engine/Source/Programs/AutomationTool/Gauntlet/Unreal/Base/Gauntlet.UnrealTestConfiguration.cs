@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -43,14 +43,19 @@ namespace Gauntlet
         Saved
     }
 
-    /// <summary>
-    /// This class represents a process-role in a test and defines the type, command line,
-    /// and controllers that are needed.
-    /// 
-    /// TODO - can this be removed and UnrealSessionRole used directly?
-    /// 
-    /// </summary>
-    public class UnrealTestRole
+	/// <summary>
+	/// Delegate for role device configuration
+	/// </summary>
+	public delegate void ConfigureDeviceHandler(ITargetDevice Device);
+
+	/// <summary>
+	/// This class represents a process-role in a test and defines the type, command line,
+	/// and controllers that are needed.
+	/// 
+	/// TODO - can this be removed and UnrealSessionRole used directly?
+	/// 
+	/// </summary>
+	public class UnrealTestRole
 	{
 		/// <summary>
 		/// Constructor. This intentionally takes only a type as it's expected that code creating roles should do so via
@@ -97,6 +102,12 @@ namespace Gauntlet
 		public string ExplicitClientCommandLine { get; set; }
 
         public List<UnrealFileToCopy> FilesToCopy { get; set; }
+
+		/// <summary>
+		/// Role device configuration 
+		/// </summary>
+		public ConfigureDeviceHandler ConfigureDevice;
+
 	}
 
 
@@ -134,13 +145,6 @@ namespace Gauntlet
 		[AutoParam(false)]
 		protected bool Nullrhi { get; set; }
 
-        /// <summary>
-		/// DEPRECATED. Instead, set WindowMode to EWindowMode.Fullscreen. Run fullscreen (default is 1280x720 windowed)
-		/// </summary>
-		/// 
-		[AutoParam(false)]
-        protected bool Fullscreen { get; set; }
-
         // Public options that tests can configure
 
         /// <summary>
@@ -164,11 +168,18 @@ namespace Gauntlet
         [AutoParam(720)]
         public int ResY { get; set; }
 
-        /// <summary>
-        /// Which window mode to use for the PC or Mac client. Only Windowed and Fullscreen are fully supported.
-        /// </summary>
-        /// 
-        [AutoParam(EWindowMode.Windowed)]
+		/// <summary>
+		/// Set to Windowed mode (same as -WindowMode=Windowed);
+		/// </summary>
+		/// 
+		[AutoParam(false)]
+		protected bool Windowed { get; set; }
+
+		/// <summary>
+		/// Which window mode to use for the PC or Mac client. Only Windowed and Fullscreen are fully supported.
+		/// </summary>
+		/// 
+		[AutoParam(EWindowMode.Windowed)]
 		public EWindowMode WindowMode { get; set; }
 
 		/// <summary>
@@ -322,29 +333,29 @@ namespace Gauntlet
 				{
 					if (AppConfig.Platform == UnrealTargetPlatform.Win64 || AppConfig.Platform == UnrealTargetPlatform.Mac)
 					{
-                        if(!IgnoreDefaultResolutionAndWindowMode)
-                        {
-                            if (Globals.Params.ToString().Contains("-resx") == false)
-                            {
-                                AppConfig.CommandLine += String.Format(" -ResX={0} -ResY={1}", ResX, ResY);
-                            }
-                            if (WindowMode == EWindowMode.Windowed)
-                            {
-                                AppConfig.CommandLine += " -windowed";
-                            }
-                            else if (WindowMode == EWindowMode.Fullscreen)
-                            {
-                                AppConfig.CommandLine += " -fullscreen";
-                            }
-                            else if (WindowMode == EWindowMode.WindowedFullscreen) // Proper -windowedfullscreen flag does not exist and some platforms treat both modes as the same.
-                            {
-                                AppConfig.CommandLine += " -fullscreen";
-                            }
-                            else
-                            {
-                                Log.Warning("Test config uses an unsupported WindowMode: {0}! WindowMode not set.", Enum.GetName(typeof(EWindowMode), WindowMode));
-                            }
-                        }
+						if(!IgnoreDefaultResolutionAndWindowMode)
+						{
+							if (Globals.Params.ToString().Contains("-resx") == false)
+							{
+								AppConfig.CommandLine += String.Format(" -ResX={0} -ResY={1}", ResX, ResY);
+							}
+							if (WindowMode == EWindowMode.Windowed || Windowed)
+							{
+								AppConfig.CommandLine += " -windowed";
+							}
+							else if (WindowMode == EWindowMode.Fullscreen)
+							{
+								AppConfig.CommandLine += " -fullscreen";
+							}
+							else if (WindowMode == EWindowMode.WindowedFullscreen) // Proper -windowedfullscreen flag does not exist and some platforms treat both modes as the same.
+							{
+								AppConfig.CommandLine += " -fullscreen";
+							}
+							else
+							{
+								Log.Warning("Test config uses an unsupported WindowMode: {0}! WindowMode not set.", Enum.GetName(typeof(EWindowMode), WindowMode));
+							}
+						}
 					}
 
 					if (ScreenshotPeriod > 0 && Nullrhi == false)

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3339912
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:立体全景采集提示和技巧
 Crumbs:%ROOT%, Platforms, Platforms/VR
@@ -23,6 +23,7 @@ Tags:Sequencer
 
 在以下部分中，我们将了解使用立体全景插件时最常见的错误和问题，以及解决和回避方法。
 
+(#CapturingMoviesinStereo)
 ## 采集立体影片
 
 也可使用立体全景采集工具输出图像序列，再转为立体影片。为达到尽量好的效果，采集立体视频前请务必执行以下操作：
@@ -69,6 +70,7 @@ Tags:Sequencer
 [/REGION]
 
 
+(#ImageSeams)
 ## 图像接缝
 
 查看时，您可能会发现使用立体图像材质的图像中左右眼纹理相连之处存在接缝，如下图所示。
@@ -93,6 +95,7 @@ Tags:Sequencer
 点击查看全图。
 [/REGION]
 
+(#ImageDarkness)
 ## 图像偏黑
 
 如采集的图像偏黑，这意味着使用的是老版色调映射器。在控制台中输入以下命令并重新采集图像即可修改为新的色调映射器。
@@ -121,6 +124,7 @@ Tags:Sequencer
     请注意：以上类目中的设置会改变屏幕上的内容，但部分设置没有作用。
     [/region]
 
+(#ImageDistortion)
 ## 图像失真 
 
 因为立体图像创建的方式，图像的顶部和底部会出现一些失真/挤压。可在下图中看到这种失真/挤压的范例。
@@ -161,6 +165,8 @@ Tags:Sequencer
 
     因为滑翔机顶部十分靠近进行采集的摄像机，用户上抬摄像机时将难以使图像上部处于焦距之中。然而下垂摄像机时则不会存在焦距的问题，因为地面离摄像机足够远，不存在发散的问题。
 
+(#
+NotallEffectsWork)
 ## 无法使用的部分效果
 
 在屏幕空间中创建的效果，或正对摄像机的效果无法和立体全景图像采集工具共用。这意味着应该禁用以下类型的效果，使图像中不会出现错误。 
@@ -184,6 +190,7 @@ Tags:Sequencer
 点击查看全图。
 [/REGION]
 
+(#AdditionalResources)
 ## 附加资源
 
 [Ninja Theory](http://www.ninjatheory.com/wp/) 的文章详细说明了如何使用立体全景工具采集立体图像和影片。建议您在 Epic 网站上查看他们的博文，其中有各种有用信息哟！点击下图即可查看博文。

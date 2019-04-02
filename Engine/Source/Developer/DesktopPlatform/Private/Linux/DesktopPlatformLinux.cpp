@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Linux/DesktopPlatformLinux.h"
 #include "HAL/FileManager.h"
@@ -169,6 +169,8 @@ void FDesktopPlatformLinux::EnumerateEngineInstallations(TMap<FString, FString> 
 		Section.Remove(Key);
 	}
 
+	FConfigSection SectionsToAdd;
+
 	// Iterate through all entries.
 	for (auto It : Section)
 	{
@@ -178,6 +180,11 @@ void FDesktopPlatformLinux::EnumerateEngineInstallations(TMap<FString, FString> 
 
 		FString EngineId;
 		const FName* Key = Section.FindKey(EngineDir);
+		if (Key == nullptr)
+		{
+			Key = SectionsToAdd.FindKey(EngineDir);
+		}
+
 		if (Key)
 		{
 			FGuid IdGuid;
@@ -189,7 +196,8 @@ void FDesktopPlatformLinux::EnumerateEngineInstallations(TMap<FString, FString> 
 			if (!OutInstallations.FindKey(EngineDir))
 			{
 				EngineId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphensInBraces);
-				Section.AddUnique(*EngineId, EngineDir);
+				SectionsToAdd.AddUnique(*EngineId, EngineDir);
+
 				ConfigFile.Dirty = true;
 			}
 		}
@@ -197,6 +205,11 @@ void FDesktopPlatformLinux::EnumerateEngineInstallations(TMap<FString, FString> 
 		{
 			OutInstallations.Add(EngineId, EngineDir);
 		}
+	}
+
+	for (auto It : SectionsToAdd)
+	{
+		Section.AddUnique(It.Key, It.Value.GetValue());
 	}
 
 	ConfigFile.Write(ConfigPath);

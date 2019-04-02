@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -144,4 +144,13 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category=Sequence, meta=(ScriptMethod))
 	static FSequencerBindingProxy GetParent(const FSequencerBindingProxy& InBinding);
+
+	/**
+	 * Set the parent to this binding
+	 *
+	 * @param InBinding     The binding to set 
+	 * @param InParentBinding     The parent to set the InBinding to
+	 */
+	UFUNCTION(BlueprintCallable, Category = Sequence, meta = (ScriptMethod))
+	static void SetParent(const FSequencerBindingProxy& InBinding, const FSequencerBindingProxy& InParentBinding);
 };

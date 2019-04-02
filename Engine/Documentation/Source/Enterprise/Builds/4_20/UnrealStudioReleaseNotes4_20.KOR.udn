@@ -1,0 +1,197 @@
+INTSourceChangelist:4540108
+Availability: Public
+Crumbs: 
+Title: 언리얼 스튜디오 4.20 릴리즈 노트
+Description: 언리얼 스튜디오 및 데이터스미스 4.20 의 새 소식을 전합니다.
+Type: 
+Version: 4.20
+Parent: Enterprise
+Order: 1
+Tags: Unreal Studio
+Tags: Release Notes
+reference-image:mesh_editing.gif
+reference-image:dragdrop.gif
+
+
+이번 릴리즈에는 사용자 피드백과 제안 기반 워크플로 개선을 포함해서 언리얼 스튜디오 가입자에게만 제공되는 몇 가지 주요 신기능이 포함되어 있습니다. 관련해서 새 소식을 안내합니다.
+
+## 데이터스미스로 SketchUp Pro 임포트
+
+이제 데이터스미스를 사용하여 SketchUp Pro 의 전체 씬을 언리얼로 빠르게 반복해서 임포트할 수 있습니다.
+
+[OBJECT:ComparisonSlider]
+[PARAM:before]
+![SketchUp](release-notes-sketchup-skp.png) 
+[/PARAM]
+[PARAM:after]
+![언리얼](release-notes-sketchup-unreal.png) 
+[/PARAM]
+[/OBJECT]
+
+워크플로는 3ds Max 와 똑같습니다. SketchUp 용 데이터스미스 익스포터 플러그인을 설치하고, SketchUp 씬을 익스포트할 때 사용하여 씬을 디스크에 데이터스미스 파일로 저장할 수 있습니다. 이 데이터스미스 파일을 언리얼 에디터로 임포트할 때, 임포터는 SketchUp 씬의 모든 지오메트리에 대해 스태틱 메시 애셋을 만들고, 표면 프로퍼티에 대해서는 물리 기반 머티리얼을 만듭니다. 그런 다음 현재 레벨에 그 애셋을 배치하고, SketchUp 에 나타나는 그대로 언리얼에서 씬을 재구성합니다. 씬 변환은 씬을 그룹 및 인스턴스화된 컴포넌트로 나눈 방식을 따라 언리얼 레벨에서 액터의 계층구조를 그대로 만듭니다.  
+
+[언리얼 스튜디오 다운로드 페이지](https://www.unrealengine.com/en-US/studio/downloads) 에서 익스포터 플러그인을 다운로드하세요.
+
+자세한 정보는 [SketchUp Pro 에 데이터스미스 사용](Enterprise/Datasmith/SoftwareInteropGuides/SketchUp) 문서를 참고하세요.
+
+## 데이터스미스의 반복처리 워크플로
+
+언리얼에서 씬을 변경한 이후 소스 씬이 변경되면 어떻게 하나요?
+
+이제 언리얼 액터의 머티리얼 할당과 씬 배치를 수정한 이후 데이터스미스와 CAD 콘텐츠를 리임포트해도 변경사항을 잃지 않습니다. 데이터스미스는 그 변경사항을 **오버라이드** 로 추적하고, 그 오버라이드를 선택적으로 되돌릴 수 있으며, 언리얼에서 삭제한 액터 처리 방식 등을 선택할 수도 있습니다.
+
+[REGION:lightbox]
+[![Datasmith Reset Overrides](studio-relnotes-420-reset-overrides.png "Datasmith Reset Overrides")](studio-relnotes-420-reset-overrides.png)
+[/REGION]
+
+자세한 내용은 [데이터스미스 리임포트 워크플로에 대하여](Enterprise/Datasmith/Overview/ReimportWorkflow) 및 [언리얼 엔진 4 에 데이터스미스 콘텐츠 리임포트](Enterprise/Datasmith/HowTo/ReimportingContent) 문서를 참고하세요.
+
+## 데이터스미스로 메타데이터 임포트
+
+이제 데이터스미스는 임포트한 지오메트리 애셋 관련 커스텀 메타데이터를 임포트합니다.
+
+메타데이터는 레벨의 액터에 저장되며, 블루프린트와 Python 스크립트에서 사용할 수 있습니다. 그러면 애셋 관리 파이프라인을 사용자 정의하거나, 런타임 앱의 메타데이터를 사용하여 씬의 선택 부분 관련 이름, 비용, 물리적 속성같은 정보를 시각화할 수 있습니다.
+
+![Datasmith Metadata at Runtime](release-notes-metadata.png "Datasmith Metadata at Runtime")
+
+자세한 내용은 [데이터스미스 메타데이터 사용](Enterprise/Datasmith/Overview/UsingDatasmithMetadata) 문서를 참고하세요.
+
+## 스태틱 메시 에디터에서 지오메트리 수정
+
+가끔 스태틱 메시 지오메트리를 언리얼로 임포트한 이후 작은 문제를 발견할 수 있습니다. 꼭 필요치 않은 여분의 트라이앵글이나, 그 방향이 잘못되어 있어서 뒷면 컬링으로 인해 트라이앵글이 부적절하게 사라지는 경우입니다. 과거에는 이런 작은 변경이라도 할라 치면 DDC 툴로 돌아가서 문제를 고치고 다시 익스포트한 다음 애셋을 다시 임포트해야 헀습니다. 원본 애셋이 CAD 포맷인 경우, 파이프라인에 완전 새로운 디자인 툴을 추가해야 한다는 뜻입니다.
+
+하지만 이제 스태틱 메시 애셋의 지오메트리에 대한 기본적인 변경은 스태틱 메시 안에서 바로, 툴바에 새로 생긴 메시 편집 툴을 사용하면 됩니다.
+
+[REGION:asyncgif]
+![](mesh_editing.gif)(w:600 convert:false)
+[/REGION]
+
+다음과 같은 작업이 가능합니다.
+
+*   선택 트라이앵글을 뒤집습니다.
+*   트라이앵글을 삭제합니다.
+*   선택 트라이앵글에 새 머티리얼을 할당하면, 바로 새 머티리얼 슬롯을 생성합니다.
+
+자세한 내용은 [스태틱 메시 지오메트리 수정](Enterprise/Datasmith/HowTo/ModifyStaticMeshGeometry) 문서를 참고하세요.
+
+## 언리얼 스튜디오 및 데이터스미스 워크플로 개선
+
+이번 릴리즈에는 데이터스미스를 통해 언리얼로 콘텐츠를 임포트하는 워크플로와, 임포트 후 데이터스미스 콘텐츠를 작업하는 방식에 여러가지 개선이 있었습니다. 
+
+### 단순화된 언리얼 스튜디오 프로젝트 생성
+
+에픽게임즈 런처에서 언리얼 에디터를 시작하면서 새로운 프로젝트를 생성하면, 어느 템플릿을 선택했든 상관 없이 언리얼 스튜디오 프로젝트로 자동 구성됩니다. 더이상 언리얼 스튜디오 탭에 있는 템플릿으로 시작할 필요 없이 아무 블루프린트 또는 C++ 템플릿을 사용하면 됩니다.
+
+### 데이터스미스 씬 애셋 드래그 앤 드롭
+
+이제 데이터스미스 씬 애셋을 콘텐츠 브라우저에서 끌어 레벨에 놓을 수 있습니다. 그러면 데이터스미스가 임포트한 전체 씬 또는 어셈블리를 자동 재생성합니다. 추가로 필요한 경우 한 레벨 안에 같은 데이터스미스 씬 인스턴스를 다수 배치하고, 각각 3D 위치와 회전을 다르게 할 수 있습니다.
+
+[REGION:asyncgif]
+![](dragdrop.gif "dragdrop.gif")(w:600 convert:false)
+[/REGION]
+
+데이터스미스 씬 애셋 관련 자세한 정보는 [데이터스미스 개요](Enterprise/Datasmith/Overview) 문서를 참고하세요.
+
+### CAD 메시에 대한 선택적 리임포트 및 테셀레이션 재적용
+
+이제 CAD 씬에서 임포트한 스태틱 메시 애셋을 선택적으로 리임포트할 수 있습니다.
+
+추가로 스태틱 메시 애셋을 리임포트할 때마다, 새로운 테셀레이션 파라미터를 설정할 수 있습니다. 그러면 씬의 각기 다른 파츠와 어셈블리에 대한 스태틱 메시 표현의 디테일 및 밀도를 사용자 정의할 수 있습니다.
+
+예를 들어 메인 CAD 파일을 저해상도로 임포트한 뒤 특정 파츠만 디테일을 높이는 식으로 그래픽 퍼포먼스를 향상시킬 수 있습니다.
+
+### 데이터스미스로 3ds Max 에서 커스텀 콜리전 메시 임포트
+
+Autodesk 3ds Max 에서 익스포트한 *.datasmith* 파일을 임포트할 때, 데이터스미스는 FBX 임포터와 같은 명명 규칙에 따라 임포트하는 지오메트리에 커스텀 콜리전 메시를 자동 할당합니다. 데이터스미스 콘텐츠에 `UCX_<name>` 라는 지오메트리 요소가 있으면, 그 지오메트리는 스태틱 메시 애셋으로 임포트하지 않습니다. 그 대신 `<name>` 이라는 이름의 스태틱 메시 애셋에 커스텀 콜리전 모양으로 할당합니다.
+
+### 블루프린트 또는 Python 으로 데이터스미스 임포트 사용자 정의
+
+블루프린트 또는 Python 스크립트를 사용하여 데이터스미스 임포트 프로세스를 실행하는 경우, 이제 프로세스 도중 임포터가 언리얼에 애셋과 액터를 만들기 전 자체 스크립트를 실행할 수 있습니다. 그러면 씬을 언리얼 애셋으로 변환하는 방식을 사용자 정의할 수 있습니다. 예를 들어 언리얼 프로젝트에서 런타임에 렌더링할 필요 없다 알고 있는 지오메트리를 필터로 걸러내면 그 씬 요소에 대한 애셋을 생성하느라 기다리지 않아도 됩니다.
+
+자세한 내용은 [데이터스미스 임포트 프로세스 사용자 정의](Enterprise/Datasmith/Overview/CustomizingImportProcess) 문서를 참고하세요.
+
+### 데이터스미스를 통한 Rhino 임포트 개선
+
+Rhino 용 데이터스미스 임포트 프로세스가 원본 디자인을 더욱 잘 따릅니다. 특히 머티리얼을 스태틱 메시 애셋에 적용하는 경우입니다.
+
+자세한 내용은 [Rhino 에 데이터스미스 사용](Enterprise/Datasmith/SoftwareInteropGuides/Rhino) 문서를 참고하세요.
+
+### 스태틱 메시 명명 규칙 개선
+
+이제 데이터스미스는 씬의 지오메트리 오브젝트 이름을 사용하여 콘텐츠 브라우저에 생성하는 스태틱 메시 라벨을 붙입니다.
+
+### 3ds Max 의 커스텀 피벗 처리 개선
+
+3ds Max 씬에 커스텀 피벗 포인트가 있는 메시가 있는 경우, 이제 데이터스미스는 그 커스텀 피벗을 생성하는 스태틱 메시 애셋에 굽습니다. 이렇게 하면 씬 계층구조가 명확해 지는 경향이 있는데, 피벗 오프셋 처리하자고 커스텀 액터를 만들지 않아도 되기 때문입니다.
+
+데이터스미스는 씬에 메시 인스턴스가 다수인 경우에도 모두 **동일한** 커스텀 피벗을 공유하는 한 똑같이 합니다.
+
+하지만 그 인스턴스 중 하나가 피벗이 다른 경우, 데이터스미스는 커스텀 피벗 정보를 스태틱 메시 애셋에 구워 넣지 않습니다. 이 경우 4.19 작동방식으로 돌아갑니다. 
+
+### 데이터스미스 씬에 서브레벨 지원
+
+이제 데이터스미스가 만든 액터를 다른 서브레벨로 이동할 수 있습니다. 이동하는 액터는 데이터스미스 씬 액터 아래 부모 계층구조를 벗어나지만, 데이터스미스 씬과의 연결은 유지합니다. 데이터스미스가 오버라이드 추적을 계속 하며, 데이터스미스 씬을 리임포트하면 액터를 인식합니다.
+
+## MDL 파일 임포트 (얼리 액세스)
+
+이제 데이터스미스를 사용하여 [NVIDIA 머티리얼 정의 라이브러리 (MDL)](https://www.nvidia.com/en-us/design-visualization/technologies/material-definition-language/) 포맷 파일을 임포트할 수 있습니다. 새로운 **MDL** 임포터를 사용합니다.
+
+![](datasmith-import-mdl.png "datasmith-import-mdl.png")
+
+다른 데이터스미스 임포트 유형과 마찬가지로, 임포트한 파일과 구성이 똑같은 구성으로 인스턴스드 머티리얼 애셋을 새로 만들고 세팅을 노출시켜 언리얼의 새 머티리얼 조정에 사용합니다.
+
+## 프로덕트 뷰어 템플릿 개선
+
+프로덕트 뷰어 템플릿을 크게 개선하여 시각 디자인과 사용 편의성을 개선했습니다.
+
+*   새로운 X-Ray 모드로 오브젝트를 투명 머티리얼로 임시 전환하면 뒤의 오브젝트를 확인하고 선택할 수 있습니다.
+*   마우스 또는 VR 컨트롤러를 사용하여 런타임에 애셋을 드래그 앤 리셋할 수 있습니다.
+*   이제 프로덕트 뷰어 콘텐츠에 있는 콘텐츠를 다른 프로젝트에 추가할 수 있습니다. 콘텐츠 브라우저의 **신규 추가 > 피처 또는 콘텐츠 팩 추가** 옵션입니다.
+
+![Product Viewer with X-Ray Mode](relnotes-prodviewer.png "Product Viewer with X-Ray Mode")
+
+자세한 내용은 [언리얼 스튜디오 프로덕트 뷰어 템플릿](Enterprise/UnrealStudioProjectTemplates/StudioProductViewer) 문서를 참고하세요.
+
+## 데이터스미스 플러스 라이선시용 신기능
+
+데이터스미스 플러스 라이선스에 관심이 있으신가요? [이쪽으로](https://www.unrealengine.com/en-US/enterprise/contact-us) 연락주세요.
+
+### Deltagen 및 VRED 에서 임포트 (실험단계)
+
+데이터스미스 플러스 라이선시는 이제 DeltaGen 또는 VRED 씬에서 베리언트 세트와 애니메이션 그대로 언리얼 에디터에 가져올 수 있습니다. 블루프린트 스크립트를 사용하여 런타임에 다양한 베리언트를 전환하고 애니메이션을 재생할 수 있습니다.
+
+새로운 **VRED Fbx** 및 **Deltagen Fbx** 임포터를 사용합니다.
+
+![](datasmith-import-vred-deltagen.png "datasmith-import-vred-deltagen.png")
+
+자세한 내용은 [데이터스미스에 Deltagen 및 VRED 사용](Enterprise/Datasmith/SoftwareInteropGuides/DeltagenVRED) 문서를 참고하세요.
+
+### AxF 파일 임포트 (얼리 액세스)
+
+이제 데이터스미스를 사용하여 [Pantone X-RITE Appearance eXchange Format (AxF)](https://www.xrite.com/categories/formulation-and-quality-assurance-software/appearance-exchange-format-axf) 포맷을 임포트할 수 있습니다. 새로운 **MDL** 임포터를 사용합니다.
+
+![](datasmith-import-mdl.png "datasmith-import-mdl.png")
+
+다른 데이터스미스 임포트 유형과 마찬가지로, 임포트한 파일과 똑같은 구성으로 인스턴스드 머티리얼 애셋을 만들고 세팅을 노출시켜 언리얼의 새 머티리얼 조정에 사용합니다.
+
+## 코어 엔진의 관심 기능
+
+여기서 간단히 설명한 언리얼 스튜디오 가입자 전용 기능에 추가로, 언리얼 엔진 이번 버전에서 사용자 관심을 끌만한 여러가지 기능은 다음과 같습니다.
+
+*   [nDisplay: 유연한 멀티 디스플레이 렌더링](Support/Builds/ReleaseNotes/4_20)  
+    언리얼을 사용하여 Powerwall 및 CAVE 가상 현실 구조물을 렌더링하는 데 좋습니다.
+*   [Autodesk Shotgun 통합](Support/Builds/ReleaseNotes/4_20)
+*   [프록시 LOD 개선](Support/Builds/ReleaseNotes/4_20)
+*   [Final Cut Pro 7 XML 시퀀서용 임포트/익스포트](Support/Builds/ReleaseNotes/4_20)
+*   [렉탱귤러 라이트](Support/Builds/ReleaseNotes/4_20)
+*   [스태틱 메시의 LOD 및 콜리전에 대한 스크립트 액세스 개선](Support/Builds/ReleaseNotes/4_20)
+*   [FBX 를 통한 애셋 메타데이터 임포트](Support/Builds/ReleaseNotes/4_20)
+*   [시네마틱 뎁스 오브 필드](Support/Builds/ReleaseNotes/4_20)
+
+엔진의 모든 신기능 관련 자세한 내용은, [언리얼 엔진 4.20 릴리즈 노트](Support/Builds/ReleaseNotes/4_20) 전문을 확인하세요.
+
+## 업데이트된 플러그인
+
+위 신기능 지원 및 사소한 문제 해결을 위해 3ds Max 용 데이터스미스 익스포터 플러그인도 업데이트했습니다. 업데이트 잊지 마세요!
+
+최신 버전 다운로드는 [여기입니다](https://www.unrealengine.com/en-US/studio/downloads). 설치 안내는 [3ds Max 용 데이터스미스 익스포터 플러그인 설치](Enterprise/Datasmith/SoftwareInteropGuides/3dsMax/InstallingExporterPlugin) 문서를 참고하세요.

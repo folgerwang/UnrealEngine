@@ -1,10 +1,15 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieScene/Parameters/MovieSceneNiagaraBoolParameterTrack.h"
 #include "MovieScene/Parameters/MovieSceneNiagaraBoolParameterSectionTemplate.h"
 #include "Sections/MovieSceneBoolSection.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
 #include "Templates/Casts.h"
+
+bool UMovieSceneNiagaraBoolParameterTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneBoolSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneNiagaraBoolParameterTrack::CreateNewSection()
 {

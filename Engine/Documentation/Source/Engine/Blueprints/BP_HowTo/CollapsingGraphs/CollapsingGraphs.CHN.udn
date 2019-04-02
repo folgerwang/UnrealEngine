@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2679264
+﻿INTSourceChangelist:3244370
 Availability:Public
 Title:重叠图表
 Crumbs: %ROOT%, Engine, Engine\Blueprints, Engine\Blueprints\BP_HowTo
@@ -9,13 +9,15 @@ Related:Engine/Blueprints/UserGuide/Macros
 version:4.9
 skilllevel:Beginner
 parent:Engine/Blueprints/BP_HowTo
-type:howto
+type:how-to
 order:4
+tags:Blueprints
 
 本页讲述将 **Blueprint** 图表重叠为一个单独节点、一个 **函数** 或一个 **宏** 的多种方法。将大型图表重叠为一个连接图表，便于清理。 
 
 [TOC(start:2)]
 
+(#CollapsingNodes)
 ## 重叠节点
 
 下图表现的是最简单的重叠方法，将 **重叠节点** 转变为连接图表。它主要用于组织，使事件图表中的内容整齐清楚。 
@@ -67,6 +69,7 @@ order:4
 	![](Collapse7.png)
 	
 
+(#CollapsingtoFunction)
 ## 重叠为函数
 
 重叠节点的另一种方式是将它们重叠为一个 **函数**。较之于重叠图表，将节点重叠为函数有下列优点：基于任意指定参数在脚本的另一区域调用函数、在另一蓝图中调用函数（需为包含要调用函数的蓝图添加引用）。 
@@ -104,6 +107,7 @@ order:4
 如需函数使用或调用的更多信息，请查阅 [](Engine/Blueprints/UserGuide/Functions) 文档。 
 
 
+(#CollapsingtoMacro)
 ## 重叠为宏
 
 除重叠为重叠图表和函数外，还可将节点重叠为 **宏**。如此理解宏方为最佳：选取相连的数个节点，将它们合并为单个节点，便于执行整体操作。利用其执行高频率操作（如复杂数学方程式）十分实用。 

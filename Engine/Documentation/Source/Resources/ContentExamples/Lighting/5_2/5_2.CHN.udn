@@ -1,7 +1,8 @@
-﻿Availability: Public
+﻿INTSourceChangelist:3782314
+Availability: Public
 Title:5.2 - 光源半径
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Lighting
-Description:光照示例关卡的概述,示例5.2: 光源半径(反射特效)
+Description:光照实例5.2概览：光源半径（反射效果）
 Related: Engine/Rendering/LightingAndShadows/Basics
 Related: Engine/Rendering/LightingAndShadows/LightTypes/Point
 Related: Engine/Rendering/LightingAndShadows/LightTypes/Spot
@@ -11,6 +12,25 @@ Related: Engine/Rendering/LightingAndShadows/Lightmass
 Related: Engine/Rendering/LightingAndShadows/Shadows
 Related: Engine/Rendering/LightingAndShadows/IndirectLightingCache
 Related: Engine/Rendering/LightingAndShadows/LightMobility
+Version: 4.9
+
+[VAR:Steps]
+[OBJECT:Navigation]
+	[PARAM:previous]
+		[上一个示例](Resources/ContentExamples/Lighting/5_1 "%Resources/ContentExamples/Lighting/5_1:title%")
+	[/PARAM]
+	[PARAM:current]
+	[/PARAM]
+	[PARAM:home]
+		[光照主页](Resources/ContentExamples/Lighting)
+	[/PARAM]
+	[PARAM:next]
+		[下一个示例](Resources/ContentExamples/Lighting/5_3 "%Resources/ContentExamples/Lighting/5_3:title%")
+	[/PARAM]
+[/OBJECT]
+[/VAR]
+
+
 
 [VAR:Topic]
 [OBJECT:TopicCompact]
@@ -37,7 +57,7 @@ Related: Engine/Rendering/LightingAndShadows/LightMobility
 ![%Resources\ContentExamples\Lighting\5_2:title%](Resources\ContentExamples\Lighting\Lighting_5_2.png)
 [/REGION]
 
-本示例展示了在非静态光源（固定或移动光源）的情况下，光源半径所产生的效果，尤其是它们如何产生高光反射。 由于光源半径模拟了光源的大小，因此光源的反射也会相应改变大小。
+此例显示了 **源半径** 在非静态（静止或移动）光源上的效果，尤其体现了其如何构成高光反射。因为源半径模拟光源的大小，所以光反射将调整大小进行关联。
 
 
 

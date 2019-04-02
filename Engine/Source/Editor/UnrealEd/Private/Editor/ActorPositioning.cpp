@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Editor/ActorPositioning.h"
 #include "EngineDefines.h"
@@ -103,7 +103,6 @@ FActorPositionTraceResult FActorPositioning::TraceWorldForPosition(const UWorld&
 	TArray<FHitResult> Hits;
 
 	FCollisionQueryParams Param(SCENE_QUERY_STAT(DragDropTrace), true);
-	Param.bTraceAsyncScene = true;
 	
 	if (IgnoreActors)
 	{

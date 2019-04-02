@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3478014
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:3.On Drag Detected（检测到拖动）
 Crumbs: %ROOT%, Engine, Engine/UMG, Engine/UMG/HowTo
@@ -35,6 +35,7 @@ type:how-to
 
 在这步中，我们将决定玩家实际在屏幕上拖动 HealthBar 时发生的状况。 
 
+(#Steps)
 ## 步骤
 
 1.	打开 **OnDragDetected** 函数，**点击右键** 并添加一个设为 **Drag Widget** 的 **Create Widget**，然后进行 **浏览**。 

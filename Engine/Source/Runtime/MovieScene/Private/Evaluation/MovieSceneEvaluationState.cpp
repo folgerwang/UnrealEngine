@@ -1,10 +1,10 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Evaluation/MovieSceneEvaluationState.h"
 #include "MovieSceneSequence.h"
 #include "MovieScene.h"
 #include "IMovieScenePlayer.h"
-#include "MovieSceneBindingOverridesInterface.h"
+#include "IMovieScenePlaybackClient.h"
 
 DECLARE_CYCLE_STAT(TEXT("Find Bound Objects"), MovieSceneEval_FindBoundObjects, STATGROUP_MovieSceneEval);
 
@@ -215,9 +215,9 @@ void FMovieSceneObjectCache::UpdateBindings(const FGuid& InGuid, IMovieScenePlay
 		// Because these are ordered parent-first, the parent must have already been bound, if it exists
 		if (Possessable->GetParent().IsValid())
 		{
-			ChildBindings.FindOrAdd(Possessable->GetParent()).AddUnique(InGuid);
-
 			TArrayView<TWeakObjectPtr<>> ParentBoundObjects = FindBoundObjects(Possessable->GetParent(), Player);
+
+			ChildBindings.FindOrAdd(Possessable->GetParent()).AddUnique(InGuid);
 
 			// Refresh bindings in case of map changes
 			Bindings = BoundObjects.Find(InGuid);
@@ -256,11 +256,11 @@ void FMovieSceneObjectCache::UpdateBindings(const FGuid& InGuid, IMovieScenePlay
 		bool bUseDefault = true;
 
 		// Allow external overrides for spawnables
-		const IMovieSceneBindingOverridesInterface* Overrides = Player.GetBindingOverrides();
-		if (Overrides)
+		const IMovieScenePlaybackClient* PlaybackClient = Player.GetPlaybackClient();
+		if (PlaybackClient)
 		{
 			TArray<UObject*, TInlineAllocator<1>> FoundObjects;
-			bUseDefault = Overrides->LocateBoundObjects(InGuid, SequenceID, FoundObjects);
+			bUseDefault = PlaybackClient->RetrieveBindingOverrides(InGuid, SequenceID, FoundObjects);
 			for (UObject* Object : FoundObjects)
 			{
 				Bindings->Objects.Add(Object);

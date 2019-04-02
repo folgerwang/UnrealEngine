@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PositionOnlyDepthOnlyVertexShader.hlsl: Depth-only vertex shader.
@@ -7,10 +7,6 @@
 #include "Common.ush"
 #include "/Engine/Generated/Material.ush"
 #include "/Engine/Generated/VertexFactory.ush"
-
-#if INSTANCED_STEREO
-bool bIsInstancedStereoEmulated;
-#endif
 
 void Main(
 	FPositionOnlyVertexFactoryInput Input,
@@ -29,17 +25,7 @@ void Main(
 	)
 {
 #if INSTANCED_STEREO
-	uint EyeIndex;
-	BRANCH
-	if (bIsInstancedStereoEmulated)
-	{
-		EyeIndex = View.StereoPassIndex;
-	}
-	else
-	{
-		EyeIndex = VertexFactoryGetEyeIndex(InstanceId);
-	}
-
+	uint EyeIndex = GetEyeIndex(InstanceId);
 	ResolvedView = ResolveView(EyeIndex);
 
 	#if !MULTI_VIEW
@@ -65,7 +51,7 @@ void Main(
 
 	#if INSTANCED_STEREO && !MULTI_VIEW
 	BRANCH 
-	if (bIsInstancedStereo || bIsInstancedStereoEmulated)  
+	if (IsInstancedStereo())  
 	{
 		// Clip at the center of the screen
 		OutClipDistance = dot(OutPosition, EyeClipEdge[EyeIndex]);

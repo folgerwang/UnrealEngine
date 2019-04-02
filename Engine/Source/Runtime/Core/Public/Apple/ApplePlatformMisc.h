@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================================
 	ApplePlatformMisc.h: Apple platform misc functions
@@ -20,11 +20,7 @@
 #define WITH_SIMULATOR 0
 #endif
 
-#if UE_BUILD_SHIPPING
-#define UE_DEBUG_BREAK() ((void)0)
-#else
-#define UE_DEBUG_BREAK() (FApplePlatformMisc::DebugBreakInternal())
-#endif
+#define UE_DEBUG_BREAK_IMPL() PLATFORM_BREAK()
 
 #ifdef __OBJC__
 
@@ -58,7 +54,7 @@ struct CORE_API FApplePlatformMisc : public FGenericPlatformMisc
 {
 	static void PlatformInit();
 
-	DEPRECATED(4.21, "void FPlatformMisc::GetEnvironmentVariable(Name, Result, Length) is deprecated. Use FString FPlatformMisc::GetEnvironmentVariable(Name) instead.")
+	UE_DEPRECATED(4.21, "void FPlatformMisc::GetEnvironmentVariable(Name, Result, Length) is deprecated. Use FString FPlatformMisc::GetEnvironmentVariable(Name) instead.")
 	static void GetEnvironmentVariable(const TCHAR* VariableName, TCHAR* Result, int32 ResultLength);
 
 	static FString GetEnvironmentVariable(const TCHAR* VariableName);
@@ -76,55 +72,7 @@ struct CORE_API FApplePlatformMisc : public FGenericPlatformMisc
 
 		return ( Info.kp_proc.p_flag & P_TRACED ) != 0;
 	}
-	FORCEINLINE static void DebugBreakInternal()
-	{
-		if( IsDebuggerPresent() )
-		{
-			//Signal interupt to our process, this is caught by the main thread, this is not immediate but you can continue
-			//when triggered by check macros you will need to inspect other threads for the appFailAssert call.
-			//kill( getpid(), SIGINT );
-
-			//If you want an immediate break use the trap instruction, continued execuction is halted
-#if WITH_SIMULATOR || PLATFORM_MAC
-            __asm__ ( "int $3" );
-#elif PLATFORM_64BITS
-			__asm__ ( "svc 0" );
-#else
-            __asm__ ( "trap" );
 #endif
-		}
-	}
-#endif
-
-	DEPRECATED(4.19, "FPlatformMisc::DebugBreak is deprecated. Use the UE_DEBUG_BREAK() macro instead.")
-	FORCEINLINE static void DebugBreak()
-	{
-		UE_DEBUG_BREAK();
-	}
-
-	/** Break into debugger. Returning false allows this function to be used in conditionals. */
-	DEPRECATED(4.19, "FPlatformMisc::DebugBreakReturningFalse is deprecated. Use the (UE_DEBUG_BREAK(), false) expression instead.")
-	FORCEINLINE static bool DebugBreakReturningFalse()
-	{
-		UE_DEBUG_BREAK();
-		return false;
-	}
-
-	/** Prompts for remote debugging if debugger is not attached. Regardless of result, breaks into debugger afterwards. Returns false for use in conditionals. */
-	DEPRECATED(4.19, "FPlatformMisc::DebugBreakAndPromptForRemoteReturningFalse() is deprecated.")
-	FORCEINLINE static bool DebugBreakAndPromptForRemoteReturningFalse(bool bIsEnsure = false)
-	{
-#if !UE_BUILD_SHIPPING
-		if (!IsDebuggerPresent())
-		{
-			PromptForRemoteDebugging(bIsEnsure);
-		}
-
-		UE_DEBUG_BREAK();
-#endif
-
-		return false;
-	}
 
 	FORCEINLINE static void MemoryBarrier()
 	{
@@ -139,18 +87,20 @@ struct CORE_API FApplePlatformMisc : public FGenericPlatformMisc
 	static TArray<uint8> GetSystemFontBytes();
 	static FString GetDefaultLocale();
 	static FString GetDefaultLanguage();
-	static TArray<FString> GetPreferredLanguages();
 	static FString GetLocalCurrencyCode();
 	static FString GetLocalCurrencySymbol();
 
 	static bool IsOSAtLeastVersion(const uint32 MacOSVersion[3], const uint32 IOSVersion[3], const uint32 TVOSVersion[3]);
 
-#if APPLE_PROFILING_ENABLED
-	static void BeginNamedEvent(const struct FColor& Color,const TCHAR* Text);
-	static void BeginNamedEvent(const struct FColor& Color,const ANSICHAR* Text);
+#if STATS || ENABLE_STATNAMEDEVENTS || APPLE_PROFILING_ENABLED
+	static void BeginNamedEventFrame();
+	static void BeginNamedEvent(const struct FColor& Color, const TCHAR* Text);
+	static void BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text);
 	static void EndNamedEvent();
+	static void CustomNamedStat(const TCHAR* Text, float Value, const TCHAR* Graph, const TCHAR* Unit);
+	static void CustomNamedStat(const ANSICHAR* Text, float Value, const ANSICHAR* Graph, const ANSICHAR* Unit);
 #endif
-	
+
 	//////// Platform specific
 	static void* CreateAutoreleasePool();
 	static void ReleaseAutoreleasePool(void *Pool);

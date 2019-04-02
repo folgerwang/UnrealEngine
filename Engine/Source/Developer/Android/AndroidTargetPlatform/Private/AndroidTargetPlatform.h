@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AndroidTargetPlatform.h: Declares the FAndroidTargetPlatform class.
@@ -143,8 +143,6 @@ public:
 	}
 
 	virtual void GetAllDevices( TArray<ITargetDevicePtr>& OutDevices ) const override;
-
-	virtual ECompressionFlags GetBaseCompressionMethod( ) const override;
 
 	virtual bool GenerateStreamingInstallManifest(const TMultiMap<FString, int32>& ChunkMap, const TSet<int32>& ChunkIDsInUse) const override
 	{

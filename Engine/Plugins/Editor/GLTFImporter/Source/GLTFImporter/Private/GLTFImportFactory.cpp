@@ -1,29 +1,84 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GLTFImportFactory.h"
-#include "GLTFReader.h"
-#include "GLTFStaticMesh.h"
-#include "GLTFMaterial.h"
 
+#include "GLTFImportOptions.h"
+#include "GLTFImporterContext.h"
+#include "GLTFImporterModule.h"
+#include "UI/GLTFOptionsWindow.h"
+
+#include "Engine/StaticMesh.h"
 #include "Misc/FeedbackContext.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
-#include "Engine/StaticMesh.h"
-#include "RawMesh.h"
-#include "Serialization/ArrayReader.h"
+
+#include "AssetRegistryModule.h"
 #include "Editor/UnrealEd/Public/Editor.h"
-#include "Serialization/JsonReader.h"
-#include "Serialization/JsonSerializer.h"
+#include "Engine/StaticMesh.h"
+#include "IMessageLogListing.h"
+#include "Interfaces/IMainFrameModule.h"
+#include "Logging/LogMacros.h"
+#include "Logging/TokenizedMessage.h"
+#include "Materials/Material.h"
+#include "MessageLogModule.h"
+#include "PackageTools.h"
+#include "UObject/StrongObjectPtr.h"
 
 #define LOCTEXT_NAMESPACE "GLTFFactory"
 
-UGLTFImportFactory::UGLTFImportFactory(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
+namespace GLTFImporterImpl
 {
-	bCreateNew = false;
+	bool ShowOptionsWindow(const FString& Filepath, const FString& PackagePath, UGLTFImportOptions& ImporterOptions)
+	{
+		TSharedPtr<SWindow> ParentWindow;
+		if (FModuleManager::Get().IsModuleLoaded("MainFrame"))
+		{
+			IMainFrameModule& MainFrame = FModuleManager::LoadModuleChecked<IMainFrameModule>("MainFrame");
+			ParentWindow                = MainFrame.GetParentWindow();
+		}
+
+		TSharedRef<SWindow> Window = SNew(SWindow).Title(LOCTEXT("GLTFImportOptionsTitle", "glTF Import Options")).SizingRule(ESizingRule::Autosized);
+
+		TSharedPtr<SGLTFOptionsWindow> OptionsWindow;
+		Window->SetContent(
+		    SAssignNew(OptionsWindow, SGLTFOptionsWindow)
+		        .ImportOptions(&ImporterOptions)
+		        .WidgetWindow(Window)
+		        .FileNameText(FText::Format(LOCTEXT("GLTFImportOptionsFileName", "  Import File  :    {0}"),
+		                                    FText::FromString(FPaths::GetCleanFilename(Filepath))))
+		        .FilePathText(FText::FromString(Filepath))
+		        .PackagePathText(FText::Format(LOCTEXT("GLTFImportOptionsPackagePath", "  Import To   :    {0}"), FText::FromString(PackagePath))));
+
+		FSlateApplication::Get().AddModalWindow(Window, ParentWindow, false);
+		return OptionsWindow->ShouldImport();
+	}
+
+	void ShowLogMessages(const TArray<GLTF::FLogMessage>& Messages)
+	{
+		if (Messages.Num() > 0)
+		{
+			FMessageLogModule&             MessageLogModule = FModuleManager::LoadModuleChecked<FMessageLogModule>("MessageLog");
+			TSharedRef<IMessageLogListing> LogListing       = (MessageLogModule.GetLogListing("LoadErrors"));
+			LogListing->ClearMessages();
+			for (const GLTF::FLogMessage& Error : Messages)
+			{
+				EMessageSeverity::Type Severity =
+				    Error.Get<0>() == GLTF::EMessageSeverity::Error ? EMessageSeverity::Error : EMessageSeverity::Warning;
+				LogListing->AddMessage(FTokenizedMessage::Create(Severity, FText::FromString(Error.Get<1>())));
+			}
+			MessageLogModule.OpenMessageLog("LoadErrors");
+		}
+	}
+}
+
+UGLTFImportFactory::UGLTFImportFactory(const FObjectInitializer& ObjectInitializer)
+    : Super(ObjectInitializer)
+    , GLTFImporterModule(&IGLTFImporterModule::Get())
+{
+	bCreateNew    = false;
 	bEditAfterNew = false;
-	bEditorImport = true; // binary / general file source
-	bText = false; // text source (maybe support?)
+	bEditorImport = true;   // binary / general file source
+	bText         = false;  // text source
 
 	SupportedClass = UStaticMesh::StaticClass();
 
@@ -31,211 +86,101 @@ UGLTFImportFactory::UGLTFImportFactory(const FObjectInitializer& ObjectInitializ
 	Formats.Add(TEXT("glb;GL Transmission Format (Binary)"));
 }
 
-static bool SignatureMatches(uint32 Signature, const char* ExpectedSignature)
+UObject* UGLTFImportFactory::FactoryCreateFile(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, const FString& Filename,
+                                               const TCHAR* Parms, FFeedbackContext* Warn, bool& bOutOperationCanceled)
 {
-	return Signature == *(const uint32*)ExpectedSignature;
-}
-
-static bool IsHeaderValid(FArchive* Archive)
-{
-	// Binary glTF files begin with a 12-byte header:
-	// - magic bytes "glTF"
-	// - format version
-	// - size of this file
-
-	const int64 FileSize = Archive->TotalSize();
-	if (FileSize < 12)
-	{
-		return false;
-	}
-
-	uint32 Magic;
-	Archive->SerializeInt(Magic, MAX_uint32);
-	bool MagicOk = SignatureMatches(Magic, "glTF");
-
-	uint32 Version;
-	Archive->SerializeInt(Version, MAX_uint32);
-	bool VersionOk = Version == 2;
-
-	uint32 Size;
-	Archive->SerializeInt(Size, MAX_uint32);
-	bool SizeOk = Size == FileSize;
-
-	return MagicOk && VersionOk && SizeOk;
-}
-
-bool UGLTFImportFactory::FactoryCanImport(const FString& Filename)
-{
-	bool bCanImport = false;
-
-	const FString Extension = FPaths::GetExtension(Filename);
-	if (Extension == TEXT("gltf"))
-	{
-		// File contains standard JSON with no magic number.
-		bCanImport = true;
-	}
-	else if (Extension == TEXT("glb"))
-	{
-		FArchive* Reader = IFileManager::Get().CreateFileReader(*Filename);
-		if (Reader)
-		{
-			bCanImport = IsHeaderValid(Reader);
-
-			Reader->Close();
-			delete Reader;
-		}
-	}
-
-	return bCanImport;
-}
-
-static UStaticMesh* ImportMeshesAndMaterialsFromJSON(FArchive* Archive, const FString& Path, UObject* InParent, FName InName, EObjectFlags Flags, FFeedbackContext* Warn, TArray<uint8> PackedBinData = TArray<uint8>())
-{
-	UStaticMesh* StaticMesh = nullptr;
-
-	TSharedPtr<FJsonObject> Root = MakeShareable(new FJsonObject);
-
-	TSharedRef<TJsonReader<char>> JsonReader = TJsonReader<char>::Create(Archive);
-	// Actually it's UTF-8 (pure ASCII for glTF-defined strings, UTF-8 for app-defined names)
-
-	bool JsonOk = FJsonSerializer::Deserialize(JsonReader, Root);
-
-	if (JsonOk)
-	{
-		// Build glTF asset from JSON
-		GLTF::FAsset Asset;
-		FGLTFReader GLTFReader(Asset, *Root, Path, *Warn, PackedBinData);
-
-		// Import materials first so new StaticMeshes can refer to them
-		const TArray<UMaterial*> Materials = ImportMaterials(Asset, InParent, InName, Flags);
-
-		// Build StaticMeshes from glTF asset
-		const TArray<UStaticMesh*> StaticMeshes = ImportStaticMeshes(Asset, Materials, InParent, InName, Flags);
-		if (StaticMeshes.Num() > 0)
-		{
-			StaticMesh = StaticMeshes[0];
-		}
-	}
-	else
-	{
-		Warn->Log("Problem with JSON.");
-	}
-
-	return StaticMesh;
-}
-
-// Returns whether the current chunk is of the expected type
-// OutData is filled only if these match
-static bool ReadChunk(FArchive* Archive, bool& OutHasMoreData, TArray<uint8>& OutData, const char* ExpectedChunkType)
-{
-	// Align to next 4-byte boundary before reading anything
-	uint32 Offset = Archive->Tell();
-	uint32 AlignedOffset = Pad4(Offset);
-	if (Offset != AlignedOffset)
-	{
-		Archive->Seek(AlignedOffset);
-	}
-
-	// Each chunk has the form [Size][Type][...Data...]
-	uint32 ChunkType, ChunkDataSize;
-	Archive->SerializeInt(ChunkDataSize, MAX_uint32);
-	Archive->SerializeInt(ChunkType, MAX_uint32);
-
-	constexpr uint32 ChunkHeaderSize = 8;
-	const uint32 AvailableData = Archive->TotalSize() - (AlignedOffset + ChunkHeaderSize);
-
-	// Is there room for another chunk after this one?
-	OutHasMoreData = AvailableData - Pad4(ChunkDataSize) >= ChunkHeaderSize;
-
-	// Is there room for this chunk's data? (should always be true)
-	if (ChunkDataSize > AvailableData)
-	{
-		return false;
-	}
-
-	if (SignatureMatches(ChunkType, ExpectedChunkType))
-	{
-		// Read this chunk's data
-		OutData.SetNumUninitialized(ChunkDataSize, true);
-		Archive->Serialize(OutData.GetData(), ChunkDataSize);
-		return true;
-	}
-	else
-	{
-		// Skip past this chunk's data
-		Archive->Seek(AlignedOffset + ChunkHeaderSize + ChunkDataSize);
-		return false;
-	}
-}
-
-UObject* UGLTFImportFactory::FactoryCreateFile(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, const FString& Filename, const TCHAR* Parms, FFeedbackContext* Warn, bool& bOutOperationCanceled)
-{
-	UStaticMesh* StaticMesh = nullptr;
-
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, Parms);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, InClass, InParent, InName, Parms);
 
 	Warn->Log(Filename);
-	const FString Extension = FPaths::GetExtension(Filename);
-	const FString Path = FPaths::GetPath(Filename);
 
-	if (Extension == TEXT("gltf"))
+	TStrongObjectPtr<UGLTFImportOptions> ImporterOptions(NewObject<UGLTFImportOptions>(GetTransientPackage(), TEXT("GLTF Importer Options")));
+	// show import options window
 	{
-		// File contains standard JSON
-		FArchive* FileReader = IFileManager::Get().CreateFileReader(*Filename);
-		if (FileReader)
+		const FString Filepath    = FPaths::ConvertRelativePathToFull(Filename);
+		const FString PackagePath = InParent->GetPathName();
+
+		if (!GLTFImporterImpl::ShowOptionsWindow(Filepath, PackagePath, *ImporterOptions))
 		{
-			StaticMesh = ImportMeshesAndMaterialsFromJSON(FileReader, Path, InParent, InName, Flags, Warn);
+			bOutOperationCanceled = true;
+			return nullptr;
 		}
-		FileReader->Close();
-		delete FileReader;
 	}
-	else if (Extension == TEXT("glb"))
+
+	FGLTFImporterContext& Context = GLTFImporterModule->GetImporterContext();
+	// setup import options
 	{
-		// Binary glTF files begin with a 12-byte header
-		// followed by 1 chunk of JSON and (optionally) 1 chunk of binary data.
+		Context.StaticMeshFactory.SetUniformScale(ImporterOptions->ImportScale);
+		Context.StaticMeshFactory.SetGenerateLightmapUVs(ImporterOptions->bGenerateLightmapUVs);
+	}
 
-		FArchive* FileReader = IFileManager::Get().CreateFileReader(*Filename);
-		if (FileReader)
+	UObject* Object = nullptr;
+	if (Context.OpenFile(Filename))
+	{
+		const FString AssetName      = Context.Asset.Name;
+		const FString NewPackageName = UPackageTools::SanitizePackageName(*(FPaths::GetPath(InParent->GetName()) / AssetName));
+		UObject*      ParentPackage  = NewPackageName == InParent->GetName() ? InParent : CreatePackage(nullptr, *NewPackageName);
+
+		const TArray<UStaticMesh*>& CreatedMeshes = Context.CreateMeshes(ParentPackage, Flags, false);
+		Context.CreateMaterials(ParentPackage, Flags);
+		UpdateMeshes();
+
+		if (CreatedMeshes.Num() == 1)
 		{
-			// Can we count on glTF header being valid, since FactoryCanImport returned true?
-			// If so, skip Magic and Version checks.
-			// Update: We get here even if FactoryCanImport returns false :/
+			Object = CreatedMeshes[0];
+		}
+		else if (CreatedMeshes.Num() != 0)
+		{
+			Object = CreatedMeshes[0]->GetOutermost();
+		}
+	}
 
-			if (IsHeaderValid(FileReader))
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, Object);
+
+	GLTFImporterImpl::ShowLogMessages(Context.GetLogMessages());
+
+	return Object;
+}
+
+void UGLTFImportFactory::CleanUp()
+{
+	// cleanup any resources/buffers
+
+	FGLTFImporterContext& Context = GLTFImporterModule->GetImporterContext();
+	Context.StaticMeshFactory.CleanUp();
+
+	Context.Asset.Clear(8 * 1024, 512);
+}
+
+void UGLTFImportFactory::UpdateMeshes() const
+{
+	const FGLTFImporterContext& Context   = GLTFImporterModule->GetImporterContext();
+	const TArray<UStaticMesh*>& Meshes    = Context.StaticMeshFactory.GetMeshes();
+	const TArray<UMaterial*>&   Materials = Context.Materials;
+	check(Materials.Num() == Context.Asset.Materials.Num());
+
+	int32 MeshIndex = 0;
+	for (UStaticMesh* StaticMesh : Meshes)
+	{
+		const GLTF::FMesh& GltfMesh = Context.Asset.Meshes[MeshIndex++];
+
+		for (int32 PrimIndex = 0; PrimIndex < GltfMesh.Primitives.Num(); ++PrimIndex)
+		{
+			const GLTF::FPrimitive& Primitive = GltfMesh.Primitives[PrimIndex];
+
+			UMaterialInterface* Material = nullptr;
+			if (Primitive.MaterialIndex != INDEX_NONE)
 			{
-				// Get JSON chunk for later parsing (always first in the file)
-				// JSON reader fails when it hits the first non-ASCII byte (BIN chunk size),
-				// so we must isolate the JSON chunk.
-
-				FArrayReader JSON;
-				bool HasMoreData;
-
-				if (ReadChunk(FileReader, HasMoreData, JSON, "JSON"))
-				{
-					// Get BIN chunk if present
-					TArray<uint8> PackedBinData;
-
-					while (HasMoreData)
-					{
-						if (ReadChunk(FileReader, HasMoreData, PackedBinData, "BIN"))
-						{
-							break;
-						}
-					}
-
-					StaticMesh = ImportMeshesAndMaterialsFromJSON(&JSON, Path, InParent, InName, Flags, Warn, PackedBinData);
-				}
+				Material = static_cast<UMaterialInterface*>(Materials[Primitive.MaterialIndex]);
+				check(Material);
 			}
 
-			FileReader->Close();
-			delete FileReader;
+			StaticMesh->StaticMaterials[PrimIndex].MaterialInterface = Material;
 		}
+
+		StaticMesh->MarkPackageDirty();
+		StaticMesh->PostEditChange();
+		FAssetRegistryModule::AssetCreated(StaticMesh);
 	}
-
-	// Is this necessary? Should call for all new assets, not just the first StaticMesh?
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, StaticMesh);
-
-	return StaticMesh;
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "RenderDocPluginModule.h"
 
@@ -216,13 +216,12 @@ void FRenderDocPluginModule::BeginCapture()
 	HWND WindowHandle = GetActiveWindow();
 
 	typedef FRenderDocPluginLoader::RENDERDOC_API_CONTEXT RENDERDOC_API_CONTEXT;
-	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-		StartRenderDocCapture,
-		HWND, WindowHandle, WindowHandle,
-		RENDERDOC_API_CONTEXT*, RenderDocAPI, RenderDocAPI,
-		FRenderDocPluginModule*, Plugin, this,
+	FRenderDocPluginModule* Plugin = this;
+	FRenderDocPluginLoader::RENDERDOC_API_CONTEXT* RenderDocAPILocal = RenderDocAPI;
+	ENQUEUE_RENDER_COMMAND(StartRenderDocCapture)(
+		[Plugin, WindowHandle, RenderDocAPILocal](FRHICommandListImmediate& RHICmdList)
 		{
-			FRenderDocFrameCapturer::BeginCapture(WindowHandle, RenderDocAPI, Plugin);
+			FRenderDocFrameCapturer::BeginCapture(WindowHandle, RenderDocAPILocal, Plugin);
 		});
 }
 
@@ -252,13 +251,12 @@ void FRenderDocPluginModule::EndCapture()
 	HWND WindowHandle = GetActiveWindow();
 
 	typedef FRenderDocPluginLoader::RENDERDOC_API_CONTEXT RENDERDOC_API_CONTEXT;
-	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-		EndRenderDocCapture,
-		HWND, WindowHandle, WindowHandle,
-		RENDERDOC_API_CONTEXT*, RenderDocAPI, RenderDocAPI,
-		FRenderDocPluginModule*, Plugin, this,
+	FRenderDocPluginModule* Plugin = this;
+	FRenderDocPluginLoader::RENDERDOC_API_CONTEXT* RenderDocAPILocal = RenderDocAPI;
+	ENQUEUE_RENDER_COMMAND(EndRenderDocCapture)(
+		[WindowHandle, RenderDocAPILocal, Plugin](FRHICommandListImmediate& RHICmdList)
 		{
-			FRenderDocFrameCapturer::EndCapture(WindowHandle, RenderDocAPI, Plugin);
+			FRenderDocFrameCapturer::EndCapture(WindowHandle, RenderDocAPILocal, Plugin);
 		});
 }
 

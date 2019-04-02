@@ -1,7 +1,8 @@
-﻿Availability: Public
+INTSourceChangelist:3782314
+Availability: Public
 Title:1.1 - HUD示例
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Blueprints
-Description:蓝图HUD示例关卡概述，示例1.1： HUD示例
+Description:蓝图HUD示例关卡概述，示例1.1：HUD示例
 Related: Engine/Blueprints/Overview 
 Related: Engine/Blueprints/UserGuide/Variables
 Related: Engine/Blueprints/UserGuide/BlueprintComms
@@ -9,6 +10,22 @@ Related: Engine/Blueprints/UserGuide/Types/MacroLibrary
 Related: Engine/Animation/AnimBlueprints/EventGraph
 Related: Engine/Blueprints/UserGuide/UserConstructionScript
 Related: Gameplay/HowTo/SetUpInput/Blueprints
+Version: 4.9
+
+[VAR:Steps]
+[OBJECT:Navigation]
+	[PARAM:previous]
+	[/PARAM]
+	[PARAM:current]
+	[/PARAM]
+	[PARAM:home]
+		[蓝图内容示例主页](Resources/ContentExamples/Blueprints)
+	[/PARAM]
+	[PARAM:next]
+	[/PARAM]
+[/OBJECT]
+[/VAR]
+
 
 
 
@@ -31,56 +48,75 @@ Related: Gameplay/HowTo/SetUpInput/Blueprints
 
 [REGION:fullwidth]
 
-本示例展示了一个简单的游戏中的HUD，并包括了以基本的暂停菜单形式出现的可点击按钮。HUD上描画了生命条的材质，并使用了蓝图接口函数来从角色读取生命值，同时在目标处会出现标记，这个标记会附带目标名称以及其与玩家的距离。HUD蓝图可以在 **内容浏览器** 中通过搜寻 **BP_HUD_Example** 来获得。
+本示例展示了一个简单的游戏内HUD，并且包含了形式为基本暂停菜单的可点击按钮。HUD上绘制了生命值条材质并且使用蓝图接口函数来从角色获取生命值，在目标上方绘制了目标标记以及目标的名称和距玩家的距离。
+你可以通过在内容浏览器中搜索 **BP_HUD_Example** 来找到该HUD蓝图。
 
-## 游戏模式
+(#gamemode)
+## 游戏模式（GameMode）
 
-**游戏模式** 设置了默认的Pawn类，HUD类，以及PlayerController类，另外还包含了游戏内特定的行为或设置。 本例中，**GameInfo_HUD** 蓝图即为设置 **BP_HUD_Example** 蓝图为HUD类的GameMode（游戏模式）蓝图，并且我们必须在 **World Settings** （世界设置）选项卡中将其设置为 **GameMode Override** （游戏模式覆盖）。
+**游戏模式（GameMode）** 用于设置默认Pawn类、HUD类和玩家控制器类，除这些以外，还包含任何游戏特定的游戏性行为或设置。在本示例中，
+**GameInfo_HUD** 蓝图是游戏模式蓝图，该蓝图将 **BP_HUD_Example** 蓝图设置为HUD类，而且必须在 **场景设置（World Settings）** 选项卡中将它设置为 **游戏模式覆盖（GameMode Override）**。
  
 ![](gamemode_hud.png)
 
 
+(#hud)
 ## HUD
 
-**ReceiveDrawHUD** 事件被用来描画HUD的每个元素，它使用X值和Y值来代表屏幕尺寸。这些值可以在之后通过蓝图来体现，使得不同的HUD要素可根据游戏屏幕尺寸来进行缩放和重新定位以确保完成目标，比如说让按钮在任何屏幕分辨率下都能保持在屏幕的中心位置。
+用于绘制每个HUD元素的 **ReceiveDrawHUD** 事件提供代表屏幕大小的X和Y数值。然后，可以在蓝图各处融入这些数值，
+ 以使各种HUD元素能够根据游戏屏幕的大小进行缩放及调整自己的位置，例如，用于确保无论分辨率为何，按钮始终位于屏幕中央。
 
 
-### 生命条
+(#healthbars)
+### 生命值条
 ![](BP_HUD_healthbar.png)
 
-生命条是在HUD蓝图的构建脚本中创建的动态材质实例。该材质包含了根据 **Current Health** （当前生命值）和 **Maximum Health** （最大生命值）标量参数而变更生命条长度的节点，以及基于角色当前生命值而更新 **Current Health** （当前生命值）参数的HUD蓝图。
+生命值条是在HUD蓝图的构造脚本中创建的动态材质实例。该材质包含根据 
+“当前生命值（Current Health）”和“最大生命值（Maximum Health）”标量参数更改生命值条长度的节点，而且HUD蓝图基于角色的当前生命值更新“当前生命值（Current Health）”参数。
 
-### 掉落拾取
+(#pickups)
+### 拾取物
 ![](BP_HUD_pickup.png)
 
-本关卡中的掉落拾取对象为 **BP_Pickup_Child_Health** ，它也被同时在[高级蓝图 - 子蓝图](Resources\ContentExamples\Blueprints_Advanced\2_5)内容示例中进行使用。它在关卡蓝图中被设置为 **Objective** （目标）变量。
+此关卡中的目标拾取物是 **BP_Pickup_Child_Health**，我们在[高级蓝图 - 子蓝图（Advanced Blueprints - Child Blueprints）](Resources\ContentExamples\Blueprints_Advanced\2_5)内容示例中也用到了它。在
+该关卡蓝图中，我们将它设置为“目标（Objective）”变量。 
 
-在HUD蓝图中，如果 **Current Objective** （当前目标）为非空：
--	目标标记使用 **Project** （投影）函数来转换3D位置向量（代表目标位置）为2D屏幕坐标，这样如目标Actor出现在屏幕上，这些坐标描画的目标标记和图标将总是悬停在它的位置。
--	通过使用 **Get Text Size** （获取文本尺寸）节点，文本被定位在目标的中心位置。该节点会测量在HUD上描画的字符串的高度和宽度，并考虑使用的字体和文本的尺寸。因为文本默认为左对齐，而其坐标将会位于左上方，该节点对于添加坐标轴的偏移来使文本处于中心位置将会很有帮助。
+在该HUD蓝图中，如果“当前目标（Current Objective）”不是“null”：
+-	该目标标记使用 **Project** 函数将代表该目标的位置的3D位置矢量转换成2D屏幕坐标， 
+以使当目标Actor位于屏幕上时，在这些坐标上绘制的目标标签和图标始终悬停在它上方。
+-	文本通过使用 **获取文本大小（Get Text Size）** 节点位于目标的正上方。此节点测量在HUD上绘制字符串时字符串的高度和宽度，它考虑到了使用的字体和文本的缩放。 
+由于文本默认为左对齐且其坐标位于左上角，要向这些坐标添加偏移来使文本位于中央时，此节点非常有用。
 
+(#pausemenu)
 ### 暂停菜单
 ![](BP_HUD_menu.png)
 
-在玩家按下 **M** 后，会打开暂停菜单。 PlayerController蓝图会随后对 **Toggle Menu** （打开菜单）功能执行接口信息。 此函数在 **BPI_HUD_Interface_Events** 的蓝图接口中被定义，同时还有设置目标拾取以及获取玩家角色生命值的函数。
+玩家按 **M** 键时将打开暂停菜单。然后玩家控制器蓝图将为 **Toggle Menu** 函数执行接口信息。此函数
+在 **BPI_HUD_Interface_Events** 蓝图接口中定义，同样在该蓝图接口中定义的还有设置目标拾取物和获取玩家角色生命值的函数。 
 
-在暂停菜单中出现的关键特性包括了：
--	自定义函数： 名为 **Draw Button** 的自定义函数被用来方便地描画所有按钮的必要组件（按钮贴图，按钮文本以及点击框），同时还有单个函数节点可按需进行无限次使用。在HUD中，这就特别有用，因为需要大量算法节点来确定屏幕坐标值，偏移量等等，所以这些节点可以很容易来被包含在此函数中并被反复使用。
--	点击框： **DrawButton** 函数下的 **Add Hit Box** （添加点击框）函数可以用来很方便地检测鼠标是否在屏幕特定区域内进行了点击或释放。我们可定义点击框的位置和尺寸，对名称也是如此。主EventGraph（事件图表）中的通用 **ReceiveHitBoxClick** 事件会在玩家对点击框进行点击后被触发，并输出该点击框的名称。**Switch on Name** 节点会随后根据此输出的名称来引导执行流程。 
+在暂停菜单中显示的关键特性包括：
+-	自定义函数：名称为 **Draw Button** 的自定义函数是绘制按钮的所有必要组件（按钮纹理、按钮文本和命中框）的简便方法，
+ 它包含一个单函数节点，可以根据需要复用任意次数。它对于HUD来说非常有用，因为确定
+  屏幕坐标数值、偏移等时需要用到大量数学节点，而该函数可以包含这些节点并轻松复用它们。 
+-	命中框：DrawButton函数中的 **Add Hit Box** 函数可作为检测在屏幕的指定区域中发生的鼠标点击或释放的简单方法。你可以指定命中框的位置和大小， 
+以及名称。当玩家点击命中框时，主事件图表中的泛型 **ReceiveHitBoxClick** 事件将被触发，然后它将输出命中框的名称。然后，**Switch on Name** 节点
+将根据此名称输出确定执行流的方向。  
 
 
 
+(#playercontroller)
 ## 玩家控制器
 
 ![](BP_HUD_pressM.png)
 
-**BP_PlayerController_HUD** 蓝图是本示例的默认PlayerController（玩家控制器）类，同时在 **GameInfo_HUD** GameMode（游戏模式）蓝图中进行了设置。尽管我们通过 **BP_HUD_Example** 蓝图来设置 **Press "M" for Menu** （按下M键来打开菜单）字符串，但PlayerController蓝图实际上设置了按下 **M** 键后的初始响应。
+**BP_PlayerController_HUD** 蓝图是本示例的默认“玩家控制器类（PlayerController Class）”，在 **GameInfo_HUD** 游戏模式蓝图中也设置了它。尽管 **按“M”键调出菜单（Press "M" for Menu）** 字符串由 **BP_HUD_Example** 蓝图设置，
+PlayerController蓝图实际上设置了按下 **M** 键的初始响应。
 
-按下 **M** 键后，会执行 **Toggle Menu** （打开菜单）接口信息，并把HUD蓝图作为目标。PlayerController随后会进行下列操作：
+**M** 键被按下时，将以HUD蓝图作为目标执行“Toggle Menu”接口信息。然后，玩家控制器：
 
-* 设置 **Show Mouse Cursor** （显示鼠标指针）为 _真_ 。
-* 设置 **启用点击事件** 为 _真_ 。
-* 启用PlayerController，以赋予HUD输入值。
-* 暂停游戏。
+* 将 **显示鼠标光标（Show Mouse Cursor）** 设置为 _true_。
+* 将 **启用单击事件（Enable Click Events）** 设置为 _true_。
+* 启用玩家控制器，以为HUD提供输入。
+* 使游戏暂停。
 
 [/REGION]

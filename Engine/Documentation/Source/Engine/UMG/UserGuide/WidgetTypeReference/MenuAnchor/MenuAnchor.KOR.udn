@@ -45,7 +45,7 @@ tags:UMG UI Designer
 | **Close** | 닫기 - 메뉴가 현재 열린 경우 닫습니다. |
 | **Get Menu Position** | 메뉴 위치 구하기 - 메뉴의 월드 스페이스 위치를 반환합니다. |
 | **Has Open Sub Menus** | 열린 서브 메뉴 있는지 - 메뉴에 열린 서브 메뉴가 있는지 없는지를 반환합니다. |
-| **Is Open** | 열렸는지 - 타깃 메뉴 앵커가 현재 열렸는지 검사하여 불리언을 반환합니다. |
+| **Is Open** | 열렸는지 - 타깃 메뉴 앵커가 현재 열렸는지 검사하여 부울을 반환합니다. |
 | **Open** | 열기 - 메뉴가 현재 닫힌 경우 엽니다. |
 | **Should Open Due to Click** | Returns wether the menu should be openable by clicking or not. |
 | **Toggle Open** | 열림 토글 - 열기/닫기 대신 메뉴가 열렸으면 닫고 닫혔으면 엽니다. |

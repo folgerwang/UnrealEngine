@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VolumetricFogLightFunction.cpp
@@ -11,6 +11,7 @@
 #include "LightRendering.h"
 #include "SceneFilterRendering.h"
 #include "PostProcessing.h"
+#include "RHI/Public/PipelineStateCache.h"
 
 float GVolumetricFogLightFunctionSupersampleScale = 2.0f;
 FAutoConsoleVariableRef CVarVolumetricFogLightFunctionSupersampleScale(
@@ -97,16 +98,15 @@ private:
 IMPLEMENT_MATERIAL_SHADER_TYPE(,FVolumetricFogLightFunctionPS,TEXT("/Engine/Private/VolumetricFogLightFunction.usf"),TEXT("Main"),SF_Pixel);
 
 void FDeferredShadingSceneRenderer::RenderLightFunctionForVolumetricFog(
-	FRHICommandListImmediate& RHICmdList, 
-	FViewInfo& View, 
+	FRDGBuilder& GraphBuilder,
+	FViewInfo& View,
 	FIntVector VolumetricFogGridSize,
 	float VolumetricFogMaxDistance,
 	FMatrix& OutLightFunctionWorldToShadow,
-	TRefCountPtr<IPooledRenderTarget>& OutLightFunctionTexture,
+	const FRDGTexture*& OutLightFunctionTexture,
 	bool& bOutUseDirectionalLightShadowing)
 {
 	OutLightFunctionWorldToShadow = FMatrix::Identity;
-	OutLightFunctionTexture = NULL;
 	bOutUseDirectionalLightShadowing = true;
 
 	FLightSceneInfo* DirectionalLightSceneInfo = NULL;
@@ -116,9 +116,9 @@ void FDeferredShadingSceneRenderer::RenderLightFunctionForVolumetricFog(
 		const FLightSceneInfoCompact& LightSceneInfoCompact = *LightIt;
 		FLightSceneInfo* LightSceneInfo = LightSceneInfoCompact.LightSceneInfo;
 
-		if (ViewFamily.EngineShowFlags.LightFunctions 
+		if (ViewFamily.EngineShowFlags.LightFunctions
 			&& LightSceneInfo->Proxy->GetLightType() == LightType_Directional
-			&& LightSceneInfo->ShouldRenderLightViewIndependent() 
+			&& LightSceneInfo->ShouldRenderLightViewIndependent()
 			&& LightSceneInfo->ShouldRenderLight(View))
 		{
 			bOutUseDirectionalLightShadowing = LightSceneInfo->Proxy->CastsVolumetricShadow();
@@ -165,10 +165,10 @@ void FDeferredShadingSceneRenderer::RenderLightFunctionForVolumetricFog(
 			const FBoxSphereBounds SubjectBounds(Bounds.Center, FVector(ShadowExtent, ShadowExtent, ShadowExtent), Bounds.W);
 			ShadowInitializer.PreShadowTranslation = -Bounds.Center;
 			ShadowInitializer.WorldToLight = FInverseRotationMatrix(LightDirection.Rotation());
-			ShadowInitializer.Scales = FVector(1.0f,1.0f / Bounds.W,1.0f / Bounds.W);
-			ShadowInitializer.FaceDirection = FVector(1,0,0);
-			ShadowInitializer.SubjectBounds = FBoxSphereBounds(FVector::ZeroVector,SubjectBounds.BoxExtent,SubjectBounds.SphereRadius);
-			ShadowInitializer.WAxis = FVector4(0,0,0,1);
+			ShadowInitializer.Scales = FVector(1.0f, 1.0f / Bounds.W, 1.0f / Bounds.W);
+			ShadowInitializer.FaceDirection = FVector(1, 0, 0);
+			ShadowInitializer.SubjectBounds = FBoxSphereBounds(FVector::ZeroVector, SubjectBounds.BoxExtent, SubjectBounds.SphereRadius);
+			ShadowInitializer.WAxis = FVector4(0, 0, 0, 1);
 			ShadowInitializer.MinLightW = -HALF_WORLD_MAX;
 			// Reduce casting distance on a directional light
 			// This is necessary to improve floating point precision in several places, especially when deriving frustum verts from InvReceiverMatrix
@@ -184,59 +184,65 @@ void FDeferredShadingSceneRenderer::RenderLightFunctionForVolumetricFog(
 				LightFunctionResolution.Y,
 				0,
 				false
-				);
+			);
 		}
 
 		const FMaterialRenderProxy* MaterialProxy = DirectionalLightSceneInfo->Proxy->GetLightFunctionMaterial();
 
 		if (MaterialProxy && MaterialProxy->GetMaterial(Scene->GetFeatureLevel())->IsLightFunction())
 		{
-			FPooledRenderTargetDesc LightFunctionTextureDesc(FPooledRenderTargetDesc::Create2DDesc(LightFunctionResolution, PF_G8, FClearValueBinding::None, TexCreate_None, TexCreate_ShaderResource | TexCreate_RenderTargetable, false));
+			FPooledRenderTargetDesc LightFunctionTextureDesc = FPooledRenderTargetDesc::Create2DDesc(LightFunctionResolution, PF_G8, FClearValueBinding::None, TexCreate_None, TexCreate_ShaderResource | TexCreate_RenderTargetable, false);
 			LightFunctionTextureDesc.Flags |= GFastVRamConfig.VolumetricFog;
-			GRenderTargetPool.FindFreeElement(RHICmdList, LightFunctionTextureDesc, OutLightFunctionTexture, TEXT("VolumetricFogLightFunction"));
-			
+
+			OutLightFunctionTexture = GraphBuilder.CreateTexture(LightFunctionTextureDesc, TEXT("VolumetricFogLightFunction"));
+
 			const FMatrix WorldToShadowValue = FTranslationMatrix(ProjectedShadowInfo.PreShadowTranslation) * ProjectedShadowInfo.SubjectAndReceiverMatrix;
 			OutLightFunctionWorldToShadow = WorldToShadowValue;
 
-			const FMaterial* Material = MaterialProxy->GetMaterial(Scene->GetFeatureLevel());
-			SCOPED_DRAW_EVENTF(RHICmdList, LightFunction, TEXT("LightFunction %ux%u Material=%s"), LightFunctionResolution.X, LightFunctionResolution.Y, *Material->GetFriendlyName());
+			FRenderTargetParameters* PassParameters = GraphBuilder.AllocParameters<FRenderTargetParameters>();
+			PassParameters->RenderTargets[0] = FRenderTargetBinding(OutLightFunctionTexture, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::EStore);
 
-			SetRenderTarget(RHICmdList, OutLightFunctionTexture->GetRenderTargetItem().TargetableTexture, NULL, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthNop_StencilNop, true);
-			RHICmdList.SetViewport(0, 0, 0.0f, LightFunctionResolution.X, LightFunctionResolution.Y, 1.0f);
+			GraphBuilder.AddPass(
+				RDG_EVENT_NAME("LightFunction"),
+				PassParameters,
+				ERenderGraphPassFlags::None,
+				[PassParameters, &View, MaterialProxy, LightFunctionResolution, DirectionalLightSceneInfo, WorldToShadowValue, this](FRHICommandListImmediate& RHICmdList)
+			{
+				const FMaterial* Material = MaterialProxy->GetMaterial(Scene->GetFeatureLevel());
+				SCOPED_DRAW_EVENTF(RHICmdList, LightFunction, TEXT("LightFunction %ux%u Material=%s"), LightFunctionResolution.X, LightFunctionResolution.Y, *Material->GetFriendlyName());
 
-			FGraphicsPipelineStateInitializer GraphicsPSOInit;
-			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+				RHICmdList.SetViewport(0, 0, 0.0f, LightFunctionResolution.X, LightFunctionResolution.Y, 1.0f);
 
-			const FMaterialShaderMap* MaterialShaderMap = Material->GetRenderingThreadShaderMap();
-			TShaderMapRef<FPostProcessVS> VertexShader(View.ShaderMap);
-			FVolumetricFogLightFunctionPS* PixelShader = MaterialShaderMap->GetShader<FVolumetricFogLightFunctionPS>();
+				FGraphicsPipelineStateInitializer GraphicsPSOInit;
+				RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+				GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+				GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+				GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+				GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(PixelShader);
+				const FMaterialShaderMap* MaterialShaderMap = Material->GetRenderingThreadShaderMap();
+				TShaderMapRef<FPostProcessVS> VertexShader(View.ShaderMap);
+				FVolumetricFogLightFunctionPS* PixelShader = MaterialShaderMap->GetShader<FVolumetricFogLightFunctionPS>();
 
-			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+				GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+				GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(PixelShader);
 
-			VertexShader->SetParameters(RHICmdList, View.ViewUniformBuffer);
-			PixelShader->SetParameters(RHICmdList, View, DirectionalLightSceneInfo, MaterialProxy, FVector2D(1.0f / LightFunctionResolution.X, 1.0f / LightFunctionResolution.Y), WorldToShadowValue.Inverse());
+				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-			DrawRectangle( 
-				RHICmdList,
-				0, 0, 
-				LightFunctionResolution.X, LightFunctionResolution.Y,
-				0, 0, 
-				LightFunctionResolution.X, LightFunctionResolution.Y,
-				LightFunctionResolution,
-				LightFunctionResolution,
-				*VertexShader);
+				VertexShader->SetParameters(RHICmdList, View.ViewUniformBuffer);
+				PixelShader->SetParameters(RHICmdList, View, DirectionalLightSceneInfo, MaterialProxy, FVector2D(1.0f / LightFunctionResolution.X, 1.0f / LightFunctionResolution.Y), WorldToShadowValue.Inverse());
 
-			RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, OutLightFunctionTexture->GetRenderTargetItem().TargetableTexture);
-
-			GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, OutLightFunctionTexture);
+				DrawRectangle(
+					RHICmdList,
+					0, 0,
+					LightFunctionResolution.X, LightFunctionResolution.Y,
+					0, 0,
+					LightFunctionResolution.X, LightFunctionResolution.Y,
+					LightFunctionResolution,
+					LightFunctionResolution,
+					*VertexShader);
+			});
 		}
 	}
 }

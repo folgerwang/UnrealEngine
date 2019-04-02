@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraComponentDetails.h"
 #include "PropertyHandle.h"
@@ -46,6 +46,7 @@
 #include "INiagaraEditorTypeUtilities.h"
 #include "Widgets/Layout/SBox.h"
 #include "UObject/WeakObjectPtr.h"
+#include "NiagaraUserRedirectionParameterStore.h"
 #define LOCTEXT_NAMESPACE "NiagaraComponentDetails"
 
 class FNiagaraComponentNodeBuilder : public IDetailCustomNodeBuilder
@@ -55,8 +56,10 @@ public:
 	{
 		Component = InComponent;
 		Component->OnSynchronizedWithAssetParameters().AddRaw(this, &FNiagaraComponentNodeBuilder::ComponentSynchronizedWithAssetParameters);
-		OriginalScripts.Add(SourceSpawn);
-		OriginalScripts.Add(SourceUpdate);
+		if (SourceSpawn)
+			OriginalScripts.Add(SourceSpawn);
+		if (SourceUpdate)
+			OriginalScripts.Add(SourceUpdate);
 		//UE_LOG(LogNiagaraEditor, Log, TEXT("FNiagaraComponentNodeBuilder %p Component %p"), this, Component.Get());
 	}
 
@@ -88,8 +91,8 @@ public:
 	{
 		check(Component.IsValid());
 		TArray<FNiagaraVariable> Parameters;
-		FNiagaraParameterStore& ParamStore = Component->GetOverrideParameters();
-		ParamStore.GetParameters(Parameters);
+		FNiagaraUserRedirectionParameterStore& ParamStore = Component->GetOverrideParameters();
+		ParamStore.GetUserParameters(Parameters);
 
 		FNiagaraEditorModule& NiagaraEditorModule = FModuleManager::GetModuleChecked<FNiagaraEditorModule>("NiagaraEditor");
 		
@@ -359,6 +362,11 @@ void FNiagaraComponentDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
 
 			IDetailCategoryBuilder& InputParamCategory = DetailBuilder.EditCategory(ParamCategoryName, LOCTEXT("ParamCategoryName", "Override Parameters"));
 			InputParamCategory.AddCustomBuilder(MakeShared<FNiagaraComponentNodeBuilder>(Component.Get(), ScriptSpawn, ScriptUpdate));
+		}
+		else
+		{
+			IDetailCategoryBuilder& InputParamCategory = DetailBuilder.EditCategory(ParamCategoryName, LOCTEXT("ParamCategoryName", "Override Parameters"));
+			InputParamCategory.AddCustomBuilder(MakeShared<FNiagaraComponentNodeBuilder>(Component.Get(), nullptr, nullptr));
 		}
 	}
 }

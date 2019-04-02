@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -30,9 +30,6 @@ public:
 
 	UPROPERTY(config, EditAnywhere, Category=VideoSettings, meta=(ClampMin=1, ClampMax=100, EditCondition=bUseCompression))
 	float CompressionQuality;
-
-	UPROPERTY(config, EditAnywhere, Category=VideoSettings, AdvancedDisplay)
-	FString VideoCodec;
 
 public:
 	virtual bool SetupImpl() override;

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -12,17 +12,6 @@ namespace UnrealBuildTool
 {
 	class Unity
 	{
-		/// <summary>
-		/// The set of source files that UnrealBuildTool determined to be part of the programmer's "working set".
-		/// This feature is only used when bUseAdaptiveUnityBuild is enabled
-		/// </summary>
-		public static HashSet<FileItem> SourceFileWorkingSet = new HashSet<FileItem>();
-
-		/// <summary>
-		/// Set of files which are candidates for being part of the working set.
-		/// </summary>
-		public static HashSet<FileItem> CandidateSourceFilesForWorkingSet = new HashSet<FileItem>();
-
 		/// <summary>
 		/// Set of target names we've printed out adaptive non-unity messages for.
 		/// </summary>
@@ -56,7 +45,7 @@ namespace UnrealBuildTool
 			{
 				Files.Add(File);
 
-				long FileLength = File.Info.Length;
+				long FileLength = File.Length;
 				TotalLength += FileLength;
 				VirtualLength += FileLength;
 			}
@@ -116,7 +105,7 @@ namespace UnrealBuildTool
 			/// <param name="File">The file to add virtually.  Only the size of the file is tracked.</param>
 			public void AddVirtualFile(FileItem File)
 			{
-				CurrentCollection.AddVirtualFile(File.Info.Length);
+				CurrentCollection.AddVirtualFile(File.Length);
 				if (SplitLength != -1 && CurrentCollection.VirtualLength > SplitLength)
 				{
 					EndCurrentUnityFile();
@@ -165,6 +154,7 @@ namespace UnrealBuildTool
 		/// <param name="WorkingSet">Interface to query files which belong to the working set</param>
 		/// <param name="BaseName">Base name to use for the Unity files</param>
 		/// <param name="IntermediateDirectory">Intermediate directory for unity cpp files</param>
+		/// <param name="Makefile">The makefile being built</param>
 		/// <returns>The "unity" C++ files.</returns>
 		public static List<FileItem> GenerateUnityCPPs(
 			ReadOnlyTargetRules Target,
@@ -172,7 +162,8 @@ namespace UnrealBuildTool
 			CppCompileEnvironment CompileEnvironment,
 			ISourceFileWorkingSet WorkingSet,
 			string BaseName,
-			DirectoryReference IntermediateDirectory
+			DirectoryReference IntermediateDirectory,
+			TargetMakefile Makefile
 			)
 		{
 			List<FileItem> NewCPPFiles = new List<FileItem>();
@@ -180,7 +171,7 @@ namespace UnrealBuildTool
 			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatformForCPPTargetPlatform(CompileEnvironment.Platform);
 
 			// Figure out size of all input files combined. We use this to determine whether to use larger unity threshold or not.
-			long TotalBytesInCPPFiles = CPPFiles.Sum(F => F.Info.Length);
+			long TotalBytesInCPPFiles = CPPFiles.Sum(F => F.Length);
 
 			// We have an increased threshold for unity file size if, and only if, all files fit into the same unity file. This
 			// is beneficial when dealing with PCH files. The default PCH creation limit is X unity files so if we generate < X 
@@ -220,14 +211,14 @@ namespace UnrealBuildTool
 						++CandidateWorkingSetSourceFileCount;
 
 						// Don't include writable source files into unity blobs
-						if (WorkingSet.Contains(CPPFile.Location))
+						if (WorkingSet.Contains(CPPFile))
 						{
 							++WorkingSetSourceFileCount;
 
 							// Mark this file as part of the working set.  This will be saved into the UBT Makefile so that
 							// the assembler can automatically invalidate the Makefile when the working set changes (allowing this
 							// code to run again, to build up new unity blobs.)
-							SourceFileWorkingSet.Add(CPPFile);
+							Makefile.WorkingSet.Add(CPPFile);
 						}
 					}
 
@@ -249,7 +240,7 @@ namespace UnrealBuildTool
 					}
 
 					// When adaptive unity is enabled, go ahead and exclude any source files that we're actively working with
-					if (bUseAdaptiveUnityBuild && SourceFileWorkingSet.Contains(CPPFile))
+					if (bUseAdaptiveUnityBuild && Makefile.WorkingSet.Contains(CPPFile))
 					{
 						// Just compile this file normally, not as part of the unity blob
 						NewCPPFiles.Add(CPPFile);
@@ -275,17 +266,11 @@ namespace UnrealBuildTool
 						// If adaptive unity build is enabled for this module, add this source file to the set that will invalidate the makefile
 						if(bUseAdaptiveUnityBuild)
 						{
-							CandidateSourceFilesForWorkingSet.Add(CPPFile);
+							Makefile.CandidatesForWorkingSet.Add(CPPFile);
 						}
 
 						// Compile this file as part of the unity blob
 						CPPUnityFileBuilder.AddFile(CPPFile);
-
-						// Now that the CPPFile is part of this unity file, we will no longer need to treat it like a root level prerequisite for our
-						// dependency cache, as it is now an "indirect include" from the unity file.  We'll clear out the compile environment
-						// attached to this file.  This prevents us from having to cache all of the indirect includes from these files inside our
-						// dependency cache, which speeds up iterative builds a lot!
-						CPPFile.CachedIncludePaths = null;
 					}
 				}
 
@@ -348,8 +333,6 @@ namespace UnrealBuildTool
 
 				// Write the unity file to the intermediate folder.
 				FileItem UnityCPPFile = FileItem.CreateIntermediateTextFile(UnityCPPFilePath, OutputUnityCPPWriter.ToString());
-				UnityCPPFile.CachedIncludePaths = CompileEnvironment.IncludePaths;
-				UnityCPPFile.RelativeCost = UnityFile.TotalLength;
 				NewCPPFiles.Add(UnityCPPFile);
 			}
 

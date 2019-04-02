@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -66,6 +66,11 @@ struct FWindowsPlatformProperties
 	static FORCEINLINE bool RequiresCookedData()
 	{
 		return !HAS_EDITOR_DATA;
+	}
+
+	static FORCEINLINE bool HasSecurePackageFormat()
+	{
+		return IS_DEDICATED_SERVER;
 	}
 
 	static FORCEINLINE bool SupportsAudioStreaming()

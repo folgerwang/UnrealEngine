@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VoiceChannel.cpp: Unreal voice traffic implementation.
@@ -11,12 +11,12 @@
 #include "Net/OnlineEngineInterface.h"
 
 /** Cleans up any voice data remaining in the queue */
-bool UVoiceChannel::CleanUp( const bool bForDestroy )
+bool UVoiceChannel::CleanUp( const bool bForDestroy, EChannelCloseReason CloseReason )
 {
 	// Clear out refs to any voice packets so we don't leak
 	VoicePackets.Empty();
 	// Route to the parent class for their cleanup
-	return Super::CleanUp( bForDestroy );
+	return Super::CleanUp( bForDestroy, CloseReason );
 }
 
 /**

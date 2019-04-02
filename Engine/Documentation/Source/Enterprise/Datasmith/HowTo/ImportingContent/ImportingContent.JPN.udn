@@ -1,0 +1,54 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: Unreal Engine 4 に Datasmith コンテンツをインポートする
+Description: サポートされている 3D デザイン アプリケーションで作成したファイルを、Datasmith を使用して Unreal にインポートする方法の詳細な手順です。
+Type:how-to
+Version: 4.20
+Parent: Enterprise/Datasmith/HowTo
+SkillLevel:Beginner
+Order: 3
+Tags: Getting Started
+Tags:how to
+Tags: Datasmith
+Tags: overview
+Tags: beginner
+topic-image:datasmith-import-topic.png
+
+
+![](datasmith-setup-import.png)
+
+このページでは、Datasmith を使用して、サポートされている 3D デザイン アプリケーションまたはファイル形式から Unreal にコンテンツをインポートする方法について説明します。
+
+[REGION:tip]
+また、Python を使用することで *.udatasmith* ファイルおよび CAD ファイルをインポートするプロセスを自動化することもできます。 詳細は、「[Datasmith インポート プロセスのカスタマイズ](Enterprise/Datasmith/Overview/CustomizingImportProcess)」を参照してください。
+[/REGION]
+
+1.  Unreal Editor で、Datasmith コンテンツをインポートするプロジェクトを開きます。
+    [REGION:note]
+    なお、Datasmith でコンテンツのインポートを行うためには、 Unreal Studio プロジェクトで作業している必要があります。 詳細は、「[Datasmith を使用するための Unreal プロジェクトの設定](Enterprise/Datasmith/HowTo/SettingUpUnrealProject)」を参照してください。
+    [/REGION]
+1.  プロジェクト内の既存のレベルにコンテンツをインポートする場合は、すぐにそのレベルを開きます。 その他の場合は、新しいレベルを作成するか、デフォルトのレベルを使用します。
+1.  メイン ツールバーの **[Import Datasmith (Datasmith のインポート)]** ボタンを確認します。  
+    ![ツールバーの Import Datasmith](DS_Import_1.png "ツールバーの Import Datasmith")
+1.  ドロップダウンの矢印を使用して、使用する Datasmith Importer のタイプを選択します。  
+    ![Datasmith Importer のリスト](datasmith-importers-list.png "Datasmith Importer のリスト")  
+    この選択肢は、インポートするソース ファイルのタイプに応じて異なります。  
+    
+    *   3ds Max または SketchUp からエクスポートした *.udatasmith* ファイルの場合は、 **[Import Datasmith (Datasmith のインポート)]** を選択します。
+    *   *.MDL* ファイルまたは  *.AxF* ファイルの場合は、 **[Import MDL (MDL のインポート)]** を選択します。
+    *   VRED または Deltagen からエクスポートした *.fbx* ファイルの場合は、**[Import VRED Fbx (VRED Fbx のインポート)]** または **[Import Deltagen Fbx (Deltagen Fbx のインポート)]** を選択します。
+    *   その他のほとんどのファイル形式では、 **[Import CAD (CAD のインポート)]** を選択します。
+    
+    詳細なリストについては、「[Datasmith がサポートするソフトウェアとファイル型式](Enterprise/Datasmith/SupportedSoftwareAndFileTypes)」を参照してください。
+1.  **[Import (インポート)]** ウィンドウで、インポートするファイルを参照して選択します。 **[Open (開く)]** をクリックします。  
+    ![インポートするファイルの選択](DS_Import_2.png "インポートするファイルの選択")
+1.  Datasmith が新たにインポートされたアセットを配置するためのプロジェクトコンテンツのフォルダを選択します。  
+    ![コンテンツ フォルダの選択](DS_Import_3.png "コンテンツ フォルダの選択")
+    [REGION:tip]
+    Datasmith コンテンツ用に新しいフォルダを作成する場合は、このウィンドウで既存のフォルダを右クリックします。
+    [/REGION]
+1.  **[Datasmith Import Options (Datasmith インポート オプション)]** ウィンドウを使用して、ソース ファイルからインポートするコンテンツのタイプを選択し、インポート プロセスを制御するオプションの追加パラメータを設定します。
+1.  ![インポート オプションの設定](UnrealDSImportOptions-1.png "インポート オプションの設定")  
+    ここで設定できるオプションは、インポートするファイルのタイプに応じて異なります。 詳細は、「[Datasmith インポート オプション](Enterprise/Datasmith/ImportOptions)」を参照してください。
+1.  **[Import (インポート)]** をクリックします。 Datasmith によりソース ファイルが読み取られ、プロジェクトに新しいアセットが作成され、現在のレベルに Datasmith シーンが配置されます。 このプロセスの詳細は、「[Datasmith の概要](Enterprise/Datasmith/Overview)」を参照してください。

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	HTML5TargetPlatform.h: Declares the FHTML5TargetPlatform class.
@@ -39,8 +39,6 @@ public:
 	virtual void EnableDeviceCheck(bool OnOff) override {}
 
 	virtual void GetAllDevices( TArray<ITargetDevicePtr>& OutDevices ) const override;
-
-	virtual ECompressionFlags GetBaseCompressionMethod( ) const override;
 
 	virtual bool GenerateStreamingInstallManifest(const TMultiMap<FString, int32>& ChunkMap, const TSet<int32>& ChunkIDsInUse) const override
 	{

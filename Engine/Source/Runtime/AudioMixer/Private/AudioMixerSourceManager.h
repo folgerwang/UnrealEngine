@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -31,10 +31,7 @@ namespace Audio
 	struct FMixerSourceVoiceBuffer
 	{
 		/** PCM float data. */
-		TArray<float> AudioData;
-
-		/** The amount of samples of audio data in the float buffer array. */
-		uint32 Samples;
+		AlignedFloatBuffer AudioData;
 
 		/** How many times this buffer will loop. */
 		int32 LoopCount;
@@ -141,71 +138,48 @@ namespace Audio
 		{}
 	};
 
-	class FSourceChannelMap
+	struct FSourceChannelMap
 	{
-	public:
-		FSourceChannelMap() {}
+		alignas(16) float ChannelStartGains[AUDIO_MIXER_MAX_OUTPUT_CHANNELS * AUDIO_MIXER_MAX_OUTPUT_CHANNELS];
+		alignas(16) float ChannelDestinationGains[AUDIO_MIXER_MAX_OUTPUT_CHANNELS * AUDIO_MIXER_MAX_OUTPUT_CHANNELS];
 
-		FORCEINLINE void Reset()
+		// This is the number of bytes the gain array is using:
+		// (Number of input channels * number of output channels) * sizeof float.
+		int32 CopySize;
+
+		FSourceChannelMap(int32 InNumInChannels, int32 InNumOutChannels) 
+			: CopySize(InNumInChannels * InNumOutChannels * sizeof(float))
 		{
-			ChannelValues.Reset();
+			checkSlow(InNumInChannels <= AUDIO_MIXER_MAX_OUTPUT_CHANNELS);
+			checkSlow(InNumOutChannels <= AUDIO_MIXER_MAX_OUTPUT_CHANNELS);
+			FMemory::Memzero(ChannelStartGains, CopySize);
 		}
 
-		FORCEINLINE void SetChannelMap(const Audio::AlignedFloatBuffer& ChannelMap, const int32 InNumInterpFrames)
+		FORCEINLINE void Reset(int32 InNumInChannels, int32 InNumOutChannels)
 		{
-			if (ChannelValues.Num() != ChannelMap.Num())
-			{
-				ChannelValues.Reset();
-				for (int32 i = 0; i < ChannelMap.Num(); ++i)
-				{
-					ChannelValues.Add(FParam());
-					ChannelValues[i].SetValue(ChannelMap[i], InNumInterpFrames);
-				}
-			}
-			else
-			{
-				for (int32 i = 0; i < ChannelMap.Num(); ++i)
-				{
-					ChannelValues[i].SetValue(ChannelMap[i], InNumInterpFrames);
-				}
-			}
+			checkSlow(InNumInChannels <= AUDIO_MIXER_MAX_OUTPUT_CHANNELS);
+			checkSlow(InNumOutChannels <= AUDIO_MIXER_MAX_OUTPUT_CHANNELS);
+
+			CopySize = InNumInChannels * InNumOutChannels * sizeof(float);
+			FMemory::Memzero(ChannelStartGains, CopySize);
+			FMemory::Memzero(ChannelDestinationGains, CopySize);
 		}
 
-		FORCEINLINE void UpdateChannelMap()
+		FORCEINLINE void CopyDestinationToStart()
 		{
-			const int32 NumChannelValues = ChannelValues.Num();
-			for (int32 i = 0; i < NumChannelValues; ++i)
-			{
-				ChannelValues[i].Update();
-			}
+			FMemory::Memcpy(ChannelStartGains, ChannelDestinationGains, CopySize);
 		}
 
-		FORCEINLINE void ResetInterpolation()
+		FORCEINLINE void SetChannelMap(const float* RESTRICT InChannelGains)
 		{
-			const int32 NumChannelValues = ChannelValues.Num();
-			for (int32 i = 0; i < NumChannelValues; ++i)
-			{
-				ChannelValues[i].Reset();
-			}
-		}
-
-		FORCEINLINE float GetChannelValue(int ChannelIndex)
-		{
-			return ChannelValues[ChannelIndex].GetValue();
-		}
-
-		FORCEINLINE void PadZeroes(const int32 ToSize, const int32 InNumInterpFrames)
-		{
-			int32 CurrentSize = ChannelValues.Num();
-			for (int32 i = CurrentSize; i < ToSize; ++i)
-			{
-				ChannelValues.Add(FParam());
-				ChannelValues[i].SetValue(0.0f, InNumInterpFrames);
-			}
+			FMemory::Memcpy(ChannelDestinationGains, InChannelGains, CopySize);
 		}
 
 	private:
-		TArray<FParam> ChannelValues;
+		FSourceChannelMap()
+			: CopySize(0)
+		{
+		}
 	};
 
 	struct FSourceManagerInitParams
@@ -241,7 +215,7 @@ namespace Audio
 		void SetVolume(const int32 SourceId, const float Volume);
 		void SetDistanceAttenuation(const int32 SourceId, const float DistanceAttenuation);
 		void SetSpatializationParams(const int32 SourceId, const FSpatializationParams& InParams);
-		void SetChannelMap(const int32 SourceId, const ESubmixChannelFormat SubmixChannelType, const Audio::AlignedFloatBuffer& InChannelMap, const bool bInIs3D, const bool bInIsCenterChannelOnly);
+		void SetChannelMap(const int32 SourceId, const ESubmixChannelFormat SubmixChannelType, const uint32 NumInputChannels, const Audio::AlignedFloatBuffer& InChannelMap, const bool bInIs3D, const bool bInIsCenterChannelOnly);
 		void SetLPFFrequency(const int32 SourceId, const float Frequency);
 		void SetHPFFrequency(const int32 SourceId, const float Frequency);
 
@@ -348,18 +322,78 @@ namespace Audio
 
 		struct FSubmixChannelTypeInfo
 		{
-			// Channel map parameter
-			FSourceChannelMap ChannelMapParam;
+			FSourceChannelMap ChannelMap;
+			Audio::AlignedFloatBuffer OutputBuffer;
+			bool bInUse;
 
-			// Output buffer based on channel map param
-			TArray<float> OutputBuffer;
+			FSubmixChannelTypeInfo(uint32 InNumInChannels, uint32 InNumOutputChannels, uint32 NumFrames)
+				: ChannelMap(InNumInChannels, InNumOutputChannels)
+				, bInUse(false)
+			{
+				OutputBuffer.Reset();
+				OutputBuffer.AddUninitialized(NumFrames * InNumOutputChannels);
+			}
 
-			// Whether or not this channel type is used
-			bool bUsed;
+			void Reset(uint32 InNumInChannels, uint32 InNumOutputChannels, uint32 NumFrames)
+			{
+				ChannelMap.Reset(InNumInChannels, InNumOutputChannels);
 
-			FSubmixChannelTypeInfo()
-				: bUsed(false)
-			{}
+				OutputBuffer.Reset();
+				OutputBuffer.AddUninitialized(NumFrames * InNumOutputChannels);
+			}
+		};
+
+		struct FSourceDownmixData
+		{
+			// Output data, after computing a block of sample data, this is read back from mixers
+			Audio::AlignedFloatBuffer ReverbPluginOutputBuffer;
+			Audio::AlignedFloatBuffer* PostEffectBuffers;
+
+			// Data needed for outputting to submixes for each channel configuration.
+			FSubmixChannelTypeInfo DeviceSubmixInfo;
+			FSubmixChannelTypeInfo StereoSubmixInfo;
+			FSubmixChannelTypeInfo QuadSubmixInfo;
+			FSubmixChannelTypeInfo FiveOneSubmixInfo;
+			FSubmixChannelTypeInfo SevenOneSubmixInfo;
+			FSubmixChannelTypeInfo AmbisonicsSubmixInfo;
+
+			uint32 NumInputChannels;
+			const uint32 NumFrames;
+			uint32 NumDeviceChannels;
+
+			FSourceDownmixData(uint32 SourceNumChannels, uint32 NumDeviceOutputChannels, uint32 InNumFrames)
+				: PostEffectBuffers(nullptr)
+				, DeviceSubmixInfo(FSubmixChannelTypeInfo(SourceNumChannels, NumDeviceOutputChannels, InNumFrames))
+				, StereoSubmixInfo(FSubmixChannelTypeInfo(SourceNumChannels, 2, InNumFrames))
+				, QuadSubmixInfo(FSubmixChannelTypeInfo(SourceNumChannels, 4, InNumFrames))
+				, FiveOneSubmixInfo(FSubmixChannelTypeInfo(SourceNumChannels, 6, InNumFrames))
+				, SevenOneSubmixInfo(FSubmixChannelTypeInfo(SourceNumChannels, 8, InNumFrames))
+				, AmbisonicsSubmixInfo(FSubmixChannelTypeInfo(SourceNumChannels, 4, InNumFrames))
+				, NumInputChannels(SourceNumChannels)
+				, NumFrames(InNumFrames)
+				, NumDeviceChannels(NumDeviceOutputChannels)
+			{
+			}
+
+			void ResetNumberOfDeviceChannels(const uint32 NumDeviceOutputChannels)
+			{
+				NumDeviceChannels = NumDeviceOutputChannels;
+				DeviceSubmixInfo.Reset(NumInputChannels, NumDeviceOutputChannels, NumFrames);
+			}
+
+			void ResetData(const uint32 InNumInputChannels, int32 InNumDeviceChannels)
+			{
+				NumDeviceChannels = InNumDeviceChannels;
+				NumInputChannels = InNumInputChannels;
+				PostEffectBuffers = nullptr;
+
+				DeviceSubmixInfo.Reset(NumInputChannels, NumDeviceChannels, NumFrames);
+				StereoSubmixInfo.Reset(NumInputChannels, 2, NumFrames);
+				QuadSubmixInfo.Reset(NumInputChannels, 4, NumFrames);
+				FiveOneSubmixInfo.Reset(NumInputChannels, 6, NumFrames);
+				SevenOneSubmixInfo.Reset(NumInputChannels, 8, NumFrames);
+				AmbisonicsSubmixInfo.Reset(NumInputChannels, 4, NumFrames);
+			}
 		};
 
 		struct FSourceInfo
@@ -435,13 +469,6 @@ namespace Audio
 			FSpatializationParams SpatParams;
 			Audio::AlignedFloatBuffer ScratchChannelMap;
 
-			// Output data, after computing a block of sample data, this is read back from mixers
-			Audio::AlignedFloatBuffer ReverbPluginOutputBuffer;
-			Audio::AlignedFloatBuffer* PostEffectBuffers;
-
-			// Data needed for outputting to submixes
-			FSubmixChannelTypeInfo SubmixChannelInfo[(int32) ESubmixChannelFormat::Count];
-
 			// State management
 			uint8 bIs3D:1;
 			uint8 bIsCenterChannelOnly:1;
@@ -460,9 +487,6 @@ namespace Audio
 			uint8 bIsVorbis:1;
 			uint8 bIsBypassingLPF:1;
 			uint8 bIsBypassingHPF:1;
-			uint8 bIsDebugMode:1;
-
-			FString DebugName;
 
 			// Source format info
 			int32 NumInputChannels;
@@ -471,16 +495,34 @@ namespace Audio
 
 			// ID for associated Audio Component if there is one, 0 otherwise
 			uint64 AudioComponentID;
+
+#if AUDIO_MIXER_ENABLE_DEBUG_MODE
+			uint8 bIsDebugMode : 1;
+			FString DebugName;
+#endif // AUDIO_MIXER_ENABLE_DEBUG_MODE
 		};
 
-		void ApplyDistanceAttenuation(FSourceInfo& InSourceInfo, int32 NumSamples);
-		void ComputePluginAudio(FSourceInfo& InSourceInfo, int32 SourceId, int32 NumSamples);
+		static void ApplyDistanceAttenuation(FSourceInfo& InSourceInfo, int32 NumSamples);
+		void ComputePluginAudio(FSourceInfo& InSourceInfo, FSourceDownmixData& DownmixData, int32 SourceId, int32 NumSamples);
+
+		static void ComputeDownmix3D(FSourceDownmixData& DownmixData);
+		static void ComputeDownmix2D(FSourceDownmixData& DownmixData);
+
+		// This function is effectively equivalent to calling DownmixDataArray.EmplaceAt_GetRef(args...), but bypasses that function's intrinsic call to AddUninitialized.
+		FSourceDownmixData& InitializeDownmixForSource(const int32 SourceId, const int32 NumInputChannels, const int32 NumOutputChannels, const int32 InNumOutputFrames);
+
+		const FSubmixChannelTypeInfo& GetChannelInfoForFormat(const ESubmixChannelFormat InFormat, const FSourceDownmixData& InDownmixData) const;
+		FSubmixChannelTypeInfo& GetChannelInfoForFormat(const ESubmixChannelFormat InFormat, FSourceDownmixData& InDownmixData);
 
 		// Array of listener transforms
 		TArray<FTransform> ListenerTransforms;
 
 		// Array of source infos.
 		TArray<FSourceInfo> SourceInfos;
+		
+		// These structs are used for guaranteed vectorization when downmixing
+		// sources.
+		TArray<FSourceDownmixData> DownmixDataArray;
 
 		// Map of bus object Id's to bus data. 
 		TMap<uint32, FMixerBus> Buses;
@@ -496,7 +538,7 @@ namespace Audio
 		{
 			TArray<int32> FreeSourceIndices;
 			TArray<bool> bIsBusy;
-			TArray <bool> bNeedsSpeakerMap;
+			TArray<bool> bNeedsSpeakerMap;
 			TArray<bool> bIsDebugMode;
 		} GameThreadInfo;
 
@@ -509,8 +551,9 @@ namespace Audio
 		uint8 bInitialized : 1;
 		uint8 bUsingSpatializationPlugin : 1;
 
-		friend class FMixerSourceVoice;
 		// Set to true when the audio source manager should pump the command queue
 		FThreadSafeBool bPumpQueue;
+
+		friend class FMixerSourceVoice;
 	};
 }

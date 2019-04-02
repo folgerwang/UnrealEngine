@@ -1,0 +1,51 @@
+Availability: Public
+Crumbs: 
+Title: Low Latency Frame Syncing
+Description: Modifies the way thread syncing is performed to greatly reduce input latency.
+Version: 
+Parent: Platforms
+Order: 1
+Tags: Xbox One, PS4, Additional
+
+
+[REGION:note]
+We have provided early access to this content in draft form in order to get you up and running. Check back soon for updates!
+[/REGION]
+
+Low-latency frame syncing mode modifies the way thread syncing is performed between the game, rendering and RHI threads and the GPU to greatly reduce and control input latency. In previous engine releases, the game thread synced with the rendering thread at the end of the frame. When the **r.OneFrameThreadLag** CVar is enabled (as is the default), this syncing ensures that the game thread does not get more than one whole frame ahead of the rendering thread.   
+
+Platform specific graphics drivers generally stall the thread that calls Present() to stop the game running faster than the frames are presenting. The driver allows the swap chain to be filled, and then stalls the calling thread when there is no more room. Before UE4’s parallel rendering was introduced, this syncing behaviour was correct, as the game thread would wait on the rendering thread, which would then be stalled by the graphics driver / OS.  
+
+However, with the introduction of parallel rendering, the RHI thread is now the thread that calls Present(), so it is that thread which is throttled by the driver. The game thread continued to sync with only the rendering thread, which allows both these threads to get much further ahead of the GPU and flipped frames than it used to. In a 30hz title with **rhi.SyncInterval** set to 2, this can lead to worst case input latency of up to 130 ms.
+
+To achieve the same input latency as UE4 pre-parallel rendering, it is necessary to synchronize the game thread to the RHI thread instead. However, we can go one better here. When vsyncing is enabled, the swap chain provides a regular, predictable syncing interval, i.e. the point in time when the swap chain flips the front/back buffers. We can accurately control input latency by syncing the start of the game thread frame to an arbitrary point relative to the vsync. By carefully choosing this point, we can trade input latency for performance, or vise versa. 
+
+The new low-latency frame syncing mode adds a new CVar called **r.GTSyncType** (game thread sync thread). This CVar drives how the new frame syncing mechanism works. It allows the following values:
+
+| **Value** | **Description** |
+| --- | --- |
+| 0 | Game thread syncs with rendering thread (old behaviour, and default). |
+| 1 | Game thread syncs to the RHI thread (equivalent to UE4 before parallel rendering) |
+| 2 | Game thread syncs with the swap chain present +/- an offset in milliseconds. |
+
+To achieve mode 2 syncing, the engine tracks presented frames with an index which is passed to the driver when Present() is called. This index is retrieved from platform frame flip statistics which indicates the exact time when each frame flipped. We use these value to predict when the next frame flip is due, and then kick off the next game thread frame based on this time.
+
+The CVar **rhi.SyncSlackMS** drives the offset we apply to the next predicted vsync time. Decreasing this value will reduce input latency at the cost of shortening the engine pipeline, making it more likely for hitches to cause dropped frames. Likewise, increasing this value will lengthen the engine pipeline, giving the title more resilience to hitches at the cost of increased input latency.
+
+Generally, titles using this new frame syncing system should aim to reduce **rhi.SyncSlackMS** as much as possible whilst maintaining acceptable frame rates.
+
+As an example, a 30hz title with the following CVar settings:
+
+*   **rhi.SyncInterval 2**
+*   **r.GTSyncType 2**
+*   **r.OneFrameThreadLag 1**
+*   **r.Vsync 1**
+*   **rhi.SyncSlackMS 0**
+
+Would have a best case input latency of ~66ms (two 30hz frames). Increasing **rhi.SyncSlackMS** to 10 would result in a ~76ms best case input latency.  
+
+**r.GTSyncType 2** works for 60hz titles too (i.e **rhi.SyncInterval** is set to 1), but the benefit of this will be less noticeable as the input latency is halved to start with, given the doubled frame rate vs 30hz.  
+
+[REGION:note]
+On unsupported platforms, **r.GTSyncType 2** will fall back to mode 1 instead.
+[/REGION]

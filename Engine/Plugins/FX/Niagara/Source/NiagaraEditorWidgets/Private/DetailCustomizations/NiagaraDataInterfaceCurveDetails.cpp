@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraDataInterfaceCurveDetails.h"
 #include "NiagaraCurveOwner.h"
@@ -229,10 +229,11 @@ public:
 
 		for (const FRichCurveEditInfo& CurveEditInfo : CurveOwner->GetCurves())
 		{
-			if (CurveEditInfo.CurveToEdit->GetNumKeys())
+			FRealCurve* Curve = CurveEditInfo.CurveToEdit;
+			if (Curve->GetNumKeys())
 			{
-				ViewMinInput = FMath::Min(ViewMinInput, CurveEditInfo.CurveToEdit->GetFirstKey().Time);
-				ViewMaxOutput = FMath::Max(ViewMaxOutput, CurveEditInfo.CurveToEdit->GetLastKey().Time);
+				ViewMinInput = FMath::Min(ViewMinInput, Curve->GetKeyTime(Curve->GetFirstKeyHandle()));
+				ViewMaxOutput = FMath::Max(ViewMaxOutput, Curve->GetKeyTime(Curve->GetLastKeyHandle()));
 			}
 		}
 

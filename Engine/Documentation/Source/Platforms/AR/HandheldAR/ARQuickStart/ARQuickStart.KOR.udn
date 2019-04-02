@@ -1,0 +1,135 @@
+﻿INTSourceChangelist:4400933
+Availability: Public
+Crumbs: 
+Title: 증강 현실 퀵스타트
+Description: 증강 현실 기초 입문서입니다.
+Type: 
+Version: 4.19
+Parent: Platforms/AR/HandheldAR
+Order: 3
+Tags: iOS
+Tags: Android
+Tags: StartingOut
+Tags: AR
+Tags: Mobile AR
+prereq: Platforms/AR/HandheldAR/ARKitPrerequisites
+prereq: Platforms/AR/HandheldAR/ARCorePrerequisites
+
+![](AR_IntroShot.png "AR_IntroShot.png")
+
+여기서 배울 수 있는 내용은 다음과 같습니다.
+
+*   언리얼 엔진 4(UE4)에서 Handheld AR (휴대형 증강 현실) 블루프린트 템플릿을 사용하여 기본적인 증강 현실 프로젝트를 만드는 방법.
+*   UE4 에서 핸드헬드 디바이스로 기본 증강 현실 프로젝트를 디플로이하는 법.
+*   증강 현실 앱을 실행하는 법. 
+
+##  AR 프로젝트 생성
+
+언리얼 엔진에서 증강 현실 디바이스용 프로젝트 개발을 시작하기 위해 가장 먼저 해야할 일은 새 프로젝트를 만드는 것입니다.  
+
+1.  **언리얼 프로젝트 브라우저** 를 열고 다음 옵션으로 새 블루프린트 프로젝트를 만듭니다.
+    
+    *   **Handheld AR** (휴대형 증강 현실) 템플릿을 선택합니다.
+    *   **Target Hardware** (타깃 하드웨어)를 **Mobile / Tablet** (모바일 / 태블릿)으로 설정합니다.
+    *   **Graphics Level** (그래픽 레벨)을 **Scalable 3D or 2D** (스케일가능 3D 또는 2D) 로 설정합니다.
+    *   **No Starter Content** (시작용 콘텐츠 없음)을 선택합니다.
+    
+    ![](AR_NewProjectScreen_HandheldARandProjectSettingsSelected.png "AR_NewProjectScreen_HandheldARandProjectSettingsSelected.png")
+2.  프로젝트에 이름 및 프로젝트의 **Folder** (폴더) 위치를 설정합니다. 여기서는 **ARProject** 라 합니다.  
+    ![](AR_NewProjectScreen_ARProject.png "AR_NewProjectScreen_ARProject.png")
+3.  프로젝트 세팅을 설정한 후 **Create Project** (프로젝트 생성) 버튼을 클릭합니다.  
+    ![](AR_NewProjectScreen_CreateProject.png "AR_NewProjectScreen_CreateProject.png")
+4.  그 결과 **Handheld AR** 템플릿 기반 새 UE4 프로젝트가 (**ARProject**) 생성됩니다.  
+    ![](AR_InitialEditorScreen_HandheldARBlankMap.png "AR_InitialEditorScreen_HandheldARBlankMap.png")
+
+##  추가 프로젝트 구성
+
+#### iOS
+
+**HandheldAR** 블루프린트 템플릿에는 언리얼 엔진에서 증강 현실 작업을 할 때 필요한 프로젝트 세팅을 다수 미리 설정해 두었습니다. 하지만 iOS 플랫폼용 프로젝트를 생성할 때는, 몇 가지 수동 구성해야 하는 세팅이 있습니다.  
+
+| 세팅 | 값 | 설명 |
+| --- | --- | --- |
+|  **Apple ARKit Plugin**  | 활성화 | HandheldAR 템플릿에 구성되어 있습니다. |
+| **Support AR** | 활성화 | HandheldAR 템플릿에 구성되어 있습니다. |
+| **Minimum iOS Version** | 11 | HandheldAR 템플릿에 구성되어 있지 않습니다. |
+| **Max. Metal Shader Standard to Target** | 1.2 | HandheldAR 템플릿에 구성되어 있지 않습니다. |
+| **Additional Plist Data** | UE4 는 카메라 사용 권한이 있어야 ARKit 를 사용할 수 있습니다. | HandheldAR 템플릿에 구성되어 있지 않습니다. |
+
+프로젝트 셋업 UI 에 구성된 세팅:  
+![](AR_ConfigureProject_MinimumiOSVersion_POST.png "AR_ConfigureProject_MinimumiOSVersion_POST.png")  
+![](AR_ConfigureProject_MaxMetalShader_POST.png "AR_ConfigureProject_MaxMetalShader_POST.png")  
+![](AR_ConfigureProject_ExtraPListData_POST.png "AR_ConfigureProject_ExtraPListData_POST.png")  
+
+#### Android
+
+**HandheldAR** 블루프린트 템플릿에는 언리얼 엔진으로 증강 현실을 제작할 때 필요한 프로젝트 세팅 대다수가 이미 구성되어 있습니다. 하지만 Android 플랫폼용 프로젝트를 만들 때는 **Configure Now** 버튼으로 Android 플랫폼용 프로젝트를 수동 구성해야 합니다.  
+  
+
+| 세팅 | 값 |
+| --- | --- |
+| **Configure Project for Android** | <수동 구성 필수> |
+
+프로젝트 셋업 UI 에 구성된 세팅입니다 (이전/이후):  
+![](AR_ConfigureProject_ForAndroid_PRE.png "AR_ConfigureProject_ForAndroid_PRE.png")  
+![](AR_ConfigureProject_ForAndroid_POST.png "AR_ConfigureProject_ForAndroid_POST.png")
+
+##  기본 레벨 디플로이
+
+1.  현재 레벨의 디바이스에 디플로이하려면, 먼저 테스트하고자 하는 레벨이 열려있는지 확인합니다. 여기서는 **Handheld AR** 템플릿으로 만든 **Handheld AR Blank Map** 레벨을 사용합니다.   
+    ![](AR_InitialEditorScreen_HandheldARBlankMap.png "AR_InitialEditorScreen_HandheldARBlankMap.png")  
+    
+2.  **Handheld AR Blank Map** 을 열어둔 채 **메인 툴바** 의 **실행** 아이콘 옆 작은 삼각형을 클릭하면 추가 옵션이 표시됩니다.  
+    ![](AR_LaunchButton.png "AR_LaunchButton.png")  
+    
+3.  **실행** 메뉴의 **디바이스** 아래 목록에서 대상으로 삼을 디바이스를 클릭하여 선택합니다.  
+    ![](LaunchMenu_Pixel.png "LaunchMenu_Pixel.png")
+4.  디플로이가 시작되면, **언리얼 에디터** 하단 진행상황 대화창이 표시됩니다. 앱 디플로이는 몇 분 걸릴 수 있습니다.   
+    ![](AR_DeviceInstallationMessages.png "AR_DeviceInstallationMessages.png")  
+
+##  AR 앱 실행
+
+1.  디바이스에서 **ARProject** 아이콘을 선택하여 앱을 시작합니다.  
+    [REGION:lightbox]
+    [![](AR_DeviceScreenIcon.png "AR_DeviceScreenIcon.png")](AR_DeviceScreenIcon.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+2.  **Start AR** 버튼을 선택하면 AR 에 필요한 플랫폼 기능을 활성화하는 AR 세션이 초기화됩니다.  
+    [REGION:lightbox]
+    [![](AR_DeviceStartButton.png "AR_DeviceStartButton.png")](AR_DeviceStartButton.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+3.  앱에 패스스루 카메라가 활성화된 채 열리고 구석에 **Show Debug Menu** (디버그 메뉴 표시) 버튼이 있습니다.
+    [REGION:lightbox]
+    [![](AR_DeviceShowDebugMenu.png "AR_DeviceShowDebugMenu.png")](AR_DeviceShowDebugMenu.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+4.  그 버튼을 클릭하면 세부사항이 표시됩니다.  
+    [REGION:lightbox]
+    [![](AR_DeviceFullDebugMenu.png "AR_DeviceFullDebugMenu.png")](AR_DeviceFullDebugMenu.png)
+    [/REGION]
+    [REGION:caption]
+    클릭하면 이미지 원본을 확인합니다.
+    [/REGION]
+
+| 메뉴 아이템 | 설명 |
+| --- | --- |
+| **Start/Stop AR Mode** |  AR 세션을 켜고 끕니다. |
+| **Show/Hide World Origin** | 월드 원점 트랜스폼 위젯을 토글합니다. |
+| **Show/Hide Planes** | 하드웨어가 감지한 면의 디버그 그리기를 토글합니다. |
+| **Show/Hide Pins** | 클라이언트 정의 핀을 토글합니다. |
+| **Show/Hide Light Info** | 라이트 추정 정보를 토글합니다. 빛 세기(lm), 온도(K), 색(RGBA) 정보가 포함됩니다. |
+| **Last Hit Object** | 사용자가 마지막 터치한 유효 아이템을 표시합니다. 트래킹 또는 월드 스페이스입니다. |
+| **Frames Per Second** | 처리하는 초당 프레임 수를 표시합니다. |
+| **Tracking Quality** | 트래킹 퀄리티를 표시합니다. Orientation (방향) 또는 Orientation and Position (방향 및 위치)를 포함합니다. |
+| **Show/Hide Debug Menu** | 디버그 메뉴를 토글합니다. |
+
+##  직접 해보기!
+
+예제 증강 현실 앱의 준비를 마쳤으니, 앱을 둘러보면서 특히 메뉴 기능을 디버깅할 차례입니다. **show planes** 함수를 사용하면 디바이스가 수평면으로 발견한 것이 무엇인지 확인하고 트래킹한 지오메트리에 탭하여 오브젝트를 스폰할 수도 있습니다. 다른 각도, 라이팅을 확인하면서 오브젝트를 추가로 스폰해 보세요. 그럼 즐기세요!

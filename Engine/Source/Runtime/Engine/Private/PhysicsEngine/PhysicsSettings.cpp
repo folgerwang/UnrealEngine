@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "GameFramework/MovementComponent.h"
@@ -13,7 +13,6 @@ UPhysicsSettings::UPhysicsSettings(const FObjectInitializer& ObjectInitializer)
 	, SimulateScratchMemorySize(262144)
 	, RagdollAggregateThreshold(4)
 	, TriangleMeshTriangleMinAreaThreshold(5.0f)
-	, bEnableAsyncScene(false)
 	, bEnableShapeSharing(false)
 	, bEnablePCM(true)
 	, bEnableStabilization(false)
@@ -33,11 +32,9 @@ UPhysicsSettings::UPhysicsSettings(const FObjectInitializer& ObjectInitializer)
 	, bEnableEnhancedDeterminism(false)
 	, MaxPhysicsDeltaTime(1.f / 30.f)
 	, bSubstepping(false)
-	, bSubsteppingAsync(false)
 	, MaxSubstepDeltaTime(1.f / 60.f)
 	, MaxSubsteps(6)
 	, SyncSceneSmoothingFactor(0.0f)
-	, AsyncSceneSmoothingFactor(0.99f)
 	, InitialAverageFrameRate(1.f / 60.f)
 	, PhysXTreeRebuildRate(10)
 {
@@ -119,7 +116,7 @@ void UPhysicsSettings::LoadSurfaceType()
 {
 	// read "SurfaceType" defines and set meta data for the enum
 	// find the enum
-	UEnum * Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EPhysicalSurface"), true);
+	UEnum * Enum = StaticEnum<EPhysicalSurface>();
 	// we need this Enum
 	check(Enum);
 

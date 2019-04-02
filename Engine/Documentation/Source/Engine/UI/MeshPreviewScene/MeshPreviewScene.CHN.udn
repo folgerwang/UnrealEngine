@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3277768
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:模型预览场景（Mesh Preview Scenes）
 Crumbs: %ROOT%, Engine
@@ -19,12 +19,14 @@ tags:User Interface
 * 天空光照：HDRI 环境地图、强度和旋转
 * 后期处理体积域：全部设置
 
+(#UsingSceneProfiles)
 ## 使用场景配置文件
 
 利用 **Preview Scene Settings** 可设置任意数量的环境和光照情景，进行游戏关卡模拟。这些场景可被另存为任意数量的独立 
 配置文件，在诸多编辑器窗口中共享。 
 
 
+(#AddingProfiles)
 ### 添加配置文件
 
 1. 在 Content Browser 中打开静态或骨架网格体，找到编辑器窗口右边面板上的 **Preview Scene Settings**。 
@@ -69,27 +71,29 @@ tags:User Interface
 	[/REGION]
 
 
+(#RemovingProfiles)
 #### 移除配置文件
 
 1. 从 **Scene Profile Settings** 下方的下拉菜单中选择一个配置文件。
 
 	[REGION:lightbox]
-	[![](RemoveProfileSelection.png)(w:350)](ProfileSelection.png) 
+	[![](RemoveProfileSelection.png)(w:350)](RemoveProfileSelection.png) 
 	[/REGION]
 
 2. 点击 **Remove Profile** 按钮永久删除当前选中的配置文件。
 
 	[REGION:lightbox]
-	[![](RemoveProfileButton.png)(w:350)](ProfileSelection.png) 
+	[![](RemoveProfileButton.png)(w:350)](RemoveProfileButton.png) 
 	[/REGION]
 
 3. 配置文件列表中只剩下默认配置文件和其他未删除的配置文件。 
 
 	[REGION:lightbox]
-	[![](RemoveProfileSelection1.png)(w:350)](ProfileSelection.png) 
+	[![](RemoveProfileSelection1.png)(w:350)](RemoveProfileSelection1.png) 
 	[/REGION]
 
 
+(#RotatingtheEnvironment)
 ### 旋转环境
 
 在这部分中我们将调整环境旋转，围绕网格体旋转天空盒和定向光照。此设置可用于围绕网格体手动旋转环境，
@@ -122,6 +126,7 @@ tags:User Interface
 	[/REGION]
 
 
+(#ToggleEnvironmentandFloorVisibility)
 ### 开启/关闭环境和地面显示
 
 这部分讲述如何隐藏和显示预览场景中的环境和地面网格体。 
@@ -141,6 +146,7 @@ tags:User Interface
 	[/OBJECT]
 
 
+(#AssigninganEnvironmentCubeMap)
 ### 指定环境立方体贴图
 
 这部分讲述如何为预览场景的环境指定天空盒。
@@ -169,6 +175,7 @@ tags:User Interface
 [/REGION]
 
 
+(#PostProcessSettings)
 ### 后期处理设置
 
 和游戏视口中的后期处理体积域设置一样，在高级卷栏中可对预览场景的所有后期处理设置进行调整。 

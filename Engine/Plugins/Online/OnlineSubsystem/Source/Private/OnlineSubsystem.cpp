@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystem.h"
 #include "Misc/CommandLine.h"
@@ -9,6 +9,7 @@
 #include "Logging/LogMacros.h"
 #include "Misc/EngineVersion.h"
 
+#include "Interfaces/OnlineChatInterface.h"
 #include "Interfaces/OnlinePartyInterface.h"
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "Interfaces/OnlineUserInterface.h"
@@ -27,6 +28,7 @@
 #include "Interfaces/VoiceInterface.h"
 #include "Interfaces/OnlineLeaderboardInterface.h"
 #include "Interfaces/OnlineTournamentInterface.h"
+#include "Interfaces/OnlineStatsInterface.h"
 
 DEFINE_LOG_CATEGORY(LogOnline);
 DEFINE_LOG_CATEGORY(LogOnlineGame);
@@ -50,6 +52,7 @@ DEFINE_LOG_CATEGORY(LogOnlineStore);
 DEFINE_LOG_CATEGORY(LogOnlineStoreV2);
 DEFINE_LOG_CATEGORY(LogOnlinePurchase);
 DEFINE_LOG_CATEGORY(LogOnlineTournament);
+DEFINE_LOG_CATEGORY(LogOnlineStats);
 
 #if STATS
 ONLINESUBSYSTEM_API DEFINE_STAT(STAT_Online_Async);
@@ -57,6 +60,22 @@ ONLINESUBSYSTEM_API DEFINE_STAT(STAT_Online_AsyncTasks);
 ONLINESUBSYSTEM_API DEFINE_STAT(STAT_Session_Interface);
 ONLINESUBSYSTEM_API DEFINE_STAT(STAT_Voice_Interface);
 #endif
+
+namespace OnlineIdentity
+{
+	namespace Errors
+	{
+		// Params
+		const FString AuthLoginParam = TEXT("auth_login");
+		const FString AuthTypeParam = TEXT("auth_type");
+		const FString AuthPasswordParam = TEXT("auth_password");
+
+		// Results
+		const FString NoUserId = TEXT("no_user_id");
+		const FString NoAuthToken = TEXT("no_auth_token");
+		const FString NoAuthType = TEXT("no_auth_type");
+	}
+}
 
 /** Workaround, please avoid using this */
 TSharedPtr<const FUniqueNetId> GetFirstSignedInUser(IOnlineIdentityPtr IdentityInt)

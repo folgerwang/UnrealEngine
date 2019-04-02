@@ -1,7 +1,8 @@
-﻿Availability: Public
+INTSourceChangelist:3782314
+Availability: Public
 Title:2.4 - 带触发器的门
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Blueprints
-Description:高级蓝图示例关卡概述，示例2.4： 带触发器的门
+Description:高级蓝图示例关卡概述，示例2.4：带触发器的门
 Related: Engine/Blueprints/Overview 
 Related: Engine/Actors/Triggers
 Related: Engine/Blueprints/UserGuide/Types/Interface
@@ -11,6 +12,24 @@ Related: Engine/Blueprints/UserGuide/Types/MacroLibrary
 Related: Engine/Animation/AnimBlueprints/EventGraph
 Related: Engine/Blueprints/UserGuide/UserConstructionScript
 Related: Gameplay/HowTo/SetUpInput/Blueprints
+Version: 4.9
+
+[VAR:Steps]
+[OBJECT:Navigation]
+	[PARAM:previous]
+		[前一示例](Resources/ContentExamples/Blueprints_Advanced/2_3 "%Resources/ContentExamples/Blueprints_Advanced/2_3:title%")
+	[/PARAM]
+	[PARAM:current]
+	[/PARAM]
+	[PARAM:home]
+		[蓝图内容示例主页](Resources/ContentExamples/Blueprints)
+	[/PARAM]
+	[PARAM:next]
+		[下一示例](Resources/ContentExamples/Blueprints_Advanced/2_5 "%Resources/ContentExamples/Blueprints_Advanced/2_5:title%")
+	[/PARAM]
+[/OBJECT]
+[/VAR]
+
 
 
 [VAR:TopicCompact]
@@ -34,21 +53,22 @@ Related: Gameplay/HowTo/SetUpInput/Blueprints
 
 ![](blueprint_advanced_2_4.png)
 
-## 概述
 
-**BP_Door** _Blueprint_ （蓝图）创建了使用触发器 _Box Component_ 来开启的门，是另一个可能在游戏创建过程中被普遍使用的 _Blueprint_ （蓝图）示例，这种蓝图已经有了内置的脚本和动画，无需额外设置。
 
-当玩家触碰 _BoxComponent_ 时，_Blueprint_ 会获取玩家相对于门体的位置并使用该信息以及actor的旋转以确定玩家位于门的哪一边。随后，[时间轴](Engine/Blueprints\UserGuide\Timelines)播放以正确方向开门的动画，这样它会远离玩家。
+**BP_Door** 蓝图创建了一个借助触发器 **盒体组件** 打开的门，是游戏创作中常用蓝图的又一示例，它具有内置脚本和动画，无需进行额外设置。 
 
+当玩家触碰该盒体组件时，该蓝图检索玩家相对于门的位置，并将该信息与该Actor的旋转信息配合使用，以确定玩家位于门的哪一侧。然后，一个[时间轴](Engine/Blueprints\UserGuide\Timelines)开始播放，使门朝着正确的方向打开，从而沿着玩家朝向的方向旋转。
+
+(#eventgraph)
 ## 事件图表
 
 [REGION:lightbox]
 [![](AdvBP_2_4_EventGraph.png)](AdvBP_2_4_EventGraph.png)
 [/REGION]
 [REGION:caption]
-点击以查看完整尺寸图片或 **右键点击** 并另存。
+单击查看大图，或者 **右键单击** 图片并选择“另存为”。
 [/REGION]
 
-此蓝图使用了两个[时间轴](Engine/Blueprints\UserGuide\Timelines): 一个用来开门，一个用来关门。当玩家首次重叠 _Box Component_ 时， **Open direction** （打开方向）布尔变量根据玩家处于门的哪一侧进行设置。然后，播放开门时间轴。该时间轴被连接到 **Lerp (Rotator)** 节点，它在起始旋转和所需的最终旋转间进行线性插值。**Select Float** 节点基于 **Open Direction** （开门方向）值选择正确的最终旋转。这样的话，同一时间轴可被用来在两个方向上进行开门操作。
+该蓝图使用了两个[时间轴](Engine/Blueprints\UserGuide\Timelines)：一个用于打开门，另一个用于将门关上。当玩家第一次与该盒体组件重叠时，将根据玩家位于门的哪侧来设置 **打开方向（Open direction）** 布尔变量。接下来，用于打开门的时间轴开始播放。该时间轴与 **插值（旋转体）（Lerp (Rotator)）** 节点相连接，它在开始旋转和所需的最终旋转之间进行线性插值。**选择浮点（Select Float）** 节点基于 **打开方向（Open Direction）** 的数值选择正确的最终旋转。通过这种方式，可以将同一个时间轴用于在两个方向打开门。
 
 [/REGION]

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleHelper.h: Particle helper definitions/ macros.
@@ -242,6 +242,13 @@ enum EParticleStates
 /*-----------------------------------------------------------------------------
 	FParticlesStatGroup
 -----------------------------------------------------------------------------*/
+
+DECLARE_STATS_GROUP(TEXT("ParticlesOverview"), STATGROUP_ParticlesOverview, STATCAT_Advanced);
+DECLARE_CYCLE_STAT_EXTERN(TEXT("GT Total"), STAT_ParticlesOverview_GT, STATGROUP_ParticlesOverview, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("GT Concurrent Total"), STAT_ParticlesOverview_GT_CNC, STATGROUP_ParticlesOverview, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("RT Total"), STAT_ParticlesOverview_RT, STATGROUP_ParticlesOverview, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("RT Concurrent Total"), STAT_ParticlesOverview_RT_CNC, STATGROUP_ParticlesOverview, );
+
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Sprite Particles"),STAT_SpriteParticles,STATGROUP_Particles, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Sprite Ptcls Spawned"),STAT_SpriteParticlesSpawned,STATGROUP_Particles, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Sprite Ptcls Updated"),STAT_SpriteParticlesUpdated,STATGROUP_Particles, );
@@ -926,47 +933,6 @@ struct FModuleLocationBoneSocketParticlePayload
 	int32 SourceIndex;
 };
 
-/** ModuleLocationVertSurface instance payload */
-struct FModuleLocationVertSurfaceInstancePayload
-{
-	/** The skeletal mesh component used as the source of the sockets */
-	TWeakObjectPtr<USkeletalMeshComponent> SourceComponent;
-	/** Actor that owns the skel mesh component we're using. */
-	TWeakObjectPtr<AActor> CachedActor;
-	/** The index of the vertice this particle system spawns from */
-	int32 VertIndex;
-	/** The number of valid bone indices that which can be used for . */
-	int32 NumValidAssociatedBoneIndices;
-	/** Bone indices for the associated bone names. */
-	TPreallocatedArrayProxy<int32> ValidAssociatedBoneIndices;
-	/** The position of each bone from the previous tick. Used to calculate the inherited bone velocity when spawning particles. */
-	TPreallocatedArrayProxy<FVector> PrevFrameBonePositions;
-	/** The velocity of each bone. Used to calculate the inherited bone velocity when spawning particles. */
-	TPreallocatedArrayProxy<FVector> BoneVelocities;
-
-	/** Initialize array proxies and map to memory that has been allocated in the emitter's instance data buffer */
-	void InitArrayProxies(int32 FixedArraySize)
-	{
-		// Calculate offsets into instance data buffer for the arrays and initialize the buffer proxies. The allocation 
-		// size for these arrays is calculated in RequiredBytesPerInstance.
-		const uint32 StructSize =  sizeof(FModuleLocationVertSurfaceInstancePayload);
-		ValidAssociatedBoneIndices = TPreallocatedArrayProxy<int32>((uint8*)this + StructSize, FixedArraySize);
-
-		uint32 StructOffset = StructSize + (FixedArraySize*sizeof(int32));
-		PrevFrameBonePositions = TPreallocatedArrayProxy<FVector>((uint8*)this + StructOffset, FixedArraySize );
-
-		StructOffset = StructSize + (FixedArraySize*sizeof(int32)) + (FixedArraySize*sizeof(FVector));
-		BoneVelocities = TPreallocatedArrayProxy<FVector>((uint8*)this + StructOffset, FixedArraySize );
-	}
-};
-
-/** ModuleLocationVertSurface per-particle payload - only used if updating each frame */
-struct FModuleLocationVertSurfaceParticlePayload
-{
-	/** The index of the socket this particle is 'attached' to */
-	int32 SourceIndex;
-};
-
 /**
  *	Chain-able Orbit module instance payload
  */
@@ -1466,7 +1432,7 @@ struct FDynamicEmitterDataBase
 	 *
 	 *	@return	FMaterialRenderProxy*	The material proxt to render with.
 	 */
-	virtual const FMaterialRenderProxy* GetMaterialRenderProxy(bool bSelected) = 0;
+	virtual const FMaterialRenderProxy* GetMaterialRenderProxy() = 0;
 
 	/** Callback from the renderer to gather simple lights that this proxy wants renderered. */
 	virtual void GatherSimpleLights(const FParticleSystemSceneProxy* Proxy, const FSceneViewFamily& ViewFamily, FSimpleLightArray& OutParticleLights) const {}
@@ -1560,8 +1526,7 @@ struct FDynamicSpriteEmitterDataBase : public FDynamicEmitterDataBase
 		FDynamicEmitterDataBase(RequiredModule),
 		bUsesDynamicParameter( false )
 	{
-		MaterialResource[0] = NULL;
-		MaterialResource[1] = NULL;
+		MaterialResource = nullptr;
 	}
 
 	virtual ~FDynamicSpriteEmitterDataBase()
@@ -1575,9 +1540,9 @@ struct FDynamicSpriteEmitterDataBase : public FDynamicEmitterDataBase
 	 *
 	 *	@return	FMaterialRenderProxy*	The material proxt to render with.
 	 */
-	const FMaterialRenderProxy* GetMaterialRenderProxy(bool bInSelected) 
+	const FMaterialRenderProxy* GetMaterialRenderProxy() 
 	{ 
-		return MaterialResource[bInSelected]; 
+		return MaterialResource;
 	}
 
 	/**
@@ -1663,13 +1628,15 @@ struct FDynamicSpriteEmitterDataBase : public FDynamicEmitterDataBase
 		int32 InVertexCount, 
 		int32 InVertexSize, 
 		int32 InDynamicParameterVertexSize, 
+		FGlobalDynamicIndexBuffer& DynamicIndexBuffer,
+		FGlobalDynamicVertexBuffer& DynamicVertexBuffer,
 		FGlobalDynamicVertexBuffer::FAllocation& DynamicVertexAllocation,
 		FGlobalDynamicIndexBuffer::FAllocation& DynamicIndexAllocation,
 		FGlobalDynamicVertexBuffer::FAllocation* DynamicParameterAllocation,
 		FAsyncBufferFillData& Data) const;
 
-	/** The material render proxies for this emitter */
-	const FMaterialRenderProxy*	MaterialResource[2];
+	/** The material render proxy for this emitter */
+	const FMaterialRenderProxy*	MaterialResource;
 	/** true if the particle emitter utilizes the DynamicParameter module */
 	uint32 bUsesDynamicParameter:1;
 };
@@ -1746,10 +1713,11 @@ struct FDynamicSpriteEmitterData : public FDynamicSpriteEmitterDataBase
 	 *	@param	ParticleOrder		The (optional) particle ordering to use
 	 *	@param	InCameraPosition	The position of the camera in world space.
 	 *	@param	InLocalToWorld		Transform from local to world space.
+	 *	@param	InstanceFactor		The factor to duplicate instances by.
 	 *
 	 *	@return	bool			true if successful, false if failed
 	 */
-	bool GetVertexAndIndexData(void* VertexData, void* DynamicParameterVertexData, void* FillIndexData, FParticleOrder* ParticleOrder, const FVector& InCameraPosition, const FMatrix& InLocalToWorld) const;
+	bool GetVertexAndIndexData(void* VertexData, void* DynamicParameterVertexData, void* FillIndexData, FParticleOrder* ParticleOrder, const FVector& InCameraPosition, const FMatrix& InLocalToWorld, uint32 InstanceFactor) const;
 
 	/**
 	 *	Retrieve the vertex and (optional) index required to render this emitter.
@@ -1897,8 +1865,9 @@ struct FDynamicMeshEmitterData : public FDynamicSpriteEmitterDataBase
 	 *	@param	PrevTransformBuffer     The memory to fill the vertex prev transform data into. May be null
 	 *	@param	Proxy                   The scene proxy for the particle system that owns this emitter
 	 *	@param	View                    The scene view being rendered
+	 *	@param	InstanceFactor			The factor to duplicate instances by
 	 */
-	void GetInstanceData(void* InstanceData, void* DynamicParameterData, void* PrevTransformBuffer, const FParticleSystemSceneProxy* Proxy, const FSceneView* View) const;
+	void GetInstanceData(void* InstanceData, void* DynamicParameterData, void* PrevTransformBuffer, const FParticleSystemSceneProxy* Proxy, const FSceneView* View, uint32 InstanceFactor) const;
 
 	/**
 	 *	Helper function for retrieving the particle transform.
@@ -2607,7 +2576,7 @@ public:
 	void SetVisualizeLODIndex(int32 InVisualizeLODIndex) { VisualizeLODIndex = InVisualizeLODIndex; }
 	int32  GetVisualizeLODIndex() const { return VisualizeLODIndex; }
 
-	inline const TUniformBuffer<FPrimitiveUniformShaderParameters>& GetWorldSpacePrimitiveUniformBuffer() const { return WorldSpacePrimitiveUniformBuffer; }
+	inline FUniformBufferRHIParamRef GetWorldSpacePrimitiveUniformBuffer() const { return WorldSpacePrimitiveUniformBuffer.GetUniformBufferRHI(); }
 
 	const FColoredMaterialRenderProxy* GetDeselectedWireframeMatInst() const	{	return &DeselectedWireframeMaterialInstance;	}
 

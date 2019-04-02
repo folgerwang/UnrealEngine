@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -72,9 +72,8 @@ private:
 
 	const UTimecodeProvider* GetTimecodeProvider() const;
 	FSlateColor HandleIconColorAndOpacity() const;
-	const FSlateBrush* HandleIconImage() const;
-	EVisibility HandleImageVisibility() const;
-	EVisibility HandleThrobberVisibility() const;
+	FText HandleStateText() const;
+
 
 private:
 	TAttribute<TWeakObjectPtr<UTimecodeProvider>> OverrideTimecodeProvider;

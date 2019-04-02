@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "UnitTestCommandlet.h"
 
@@ -63,9 +63,11 @@ UUnitTestCommandlet::UUnitTestCommandlet(const FObjectInitializer& ObjectInitial
 
 int32 UUnitTestCommandlet::Main(const FString& Params)
 {
-	// @todo #JohnBLowPri: Fix StandaloneRenderer support for static builds
+	// @todo #JohnBLowPri: Fix StandaloneRenderer support for static builds (this is very hard to do,
+	//						getting the game renderer going with commandlets, is very tricky)
 #if IS_MONOLITHIC
-	UE_LOG(LogUnitTest, Log, TEXT("NetcodeUnitTest commandlet not currently supported in static/monolithic builds"));
+	UE_LOG(LogUnitTest, Log, TEXT("NetcodeUnitTest commandlet not currently supported in static/monolithic builds. ")
+			TEXT("You must disable the externs in SlateOpenGLExtensions.cpp to hack-unblock monolithic builds."));
 
 #else
 	GIsRequestingExit = false;
@@ -90,11 +92,11 @@ int32 UUnitTestCommandlet::Main(const FString& Params)
 
 		// Hack-set the engine GameViewport, so that setting GIsClient, doesn't cause an auto-exit
 		// @todo JohnB: If you later remove the GIsClient setting code below, remove this as well
-		if (GEngine->GameViewport == NULL)
+		if (GEngine->GameViewport == nullptr)
 		{
 			UGameEngine* GameEngine = Cast<UGameEngine>(GEngine);
 
-			if (GameEngine != NULL)
+			if (GameEngine != nullptr)
 			{
 				// GameInstace = GameEngine->GameInstance;
 				UGameInstance* GameInstance = GET_PRIVATE(UGameEngine, GameEngine, GameInstance);
@@ -103,6 +105,11 @@ int32 UUnitTestCommandlet::Main(const FString& Params)
 
 				GameEngine->GameViewport = NewViewport;
 				NewViewport->Init(*CurContext, GameInstance);
+
+				// Set the overlay widget, to avoid an ensure
+				TSharedRef<SOverlay> DudOverlay = SNew(SOverlay);
+
+				NewViewport->SetViewportOverlayWidget(nullptr, DudOverlay);
 
 				// Set the internal FViewport, for the new game viewport, to avoid another bit of auto-exit code
 				NewViewport->Viewport = new FDummyViewport(NewViewport);
@@ -174,12 +181,12 @@ int32 UUnitTestCommandlet::Main(const FString& Params)
 			// When the unit tests complete, open an exit-confirmation window, and when that closes, exit the main loop
 			// NOTE: This will not execute, if the last open slate window is closed (such as when clicking 'yes' to 'abort all' dialog);
 			//			in that circumstance, GIsRequestingExit gets set, by the internal engine code
-			if (GUnitTestManager == NULL || !GUnitTestManager->IsRunningUnitTests())
+			if (GUnitTestManager == nullptr || !GUnitTestManager->IsRunningUnitTests())
 			{
 				if (bConfirmedExit || FApp::IsUnattended())
 				{
 					// Wait until the status window is closed, if it is still open, before exiting
-					if (GUnitTestManager == NULL || !GUnitTestManager->StatusWindow.IsValid())
+					if (GUnitTestManager == nullptr || !GUnitTestManager->StatusWindow.IsValid())
 					{
 						GIsRequestingExit = true;
 					}
@@ -203,7 +210,7 @@ int32 UUnitTestCommandlet::Main(const FString& Params)
 
 					// If the 'abort all' dialog was open, close it now as it is redundant;
 					// can't close it before opening above dialog though, otherwise no slate windows, triggers an early exit
-					if (GUnitTestManager != NULL && GUnitTestManager->AbortAllDialog.IsValid())
+					if (GUnitTestManager != nullptr && GUnitTestManager->AbortAllDialog.IsValid())
 					{
 						GUnitTestManager->AbortAllDialog->RequestDestroyWindow();
 

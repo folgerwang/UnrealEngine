@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleSpriteVertexFactory.hlsl: Particle vertex factory shader code.
@@ -16,9 +16,6 @@
 #define USE_PARTICLE_TIME (FEATURE_LEVEL >= FEATURE_LEVEL_SM5 && NEEDS_PARTICLE_TIME)
 #define USE_PARTICLE_SIZE (FEATURE_LEVEL >= FEATURE_LEVEL_SM5 && NEEDS_PARTICLE_SIZE)
 #define USE_PARTICLE_RANDOM (FEATURE_LEVEL >= FEATURE_LEVEL_SM5 && NEEDS_PARTICLE_RANDOM)
-
-uint ParticleAlignmentMode;
-uint ParticleFacingMode;
 
 // Must keep these in sync with ENiagaraSpriteAlignment in NiagaraSpriteRendererProperties.h
 /** Only Particles.SpriteRotation and FacingMode impact the alignment of the particle.*/
@@ -39,20 +36,33 @@ uint ParticleFacingMode;
 /** Blends between FaceCamera and FaceCameraPosition.*/
 #define FACING_MODE_FACECAMERADISTANCEBLEND 4
 
-/** Sorted index buffer for particles if we need to sort their draw order (translucency etc). */
-Buffer<int> SortedIndices;
-uint SortedIndicesOffset;
-
 struct FVertexFactoryInput
 {
 	float2	TexCoord				: ATTRIBUTE0;
 	uint VertexId					: SV_VertexID;
-
-/** Optional instance ID for vertex layered rendering */
-//#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
-	uint InstanceId	: SV_InstanceID;
-//#endif
+	uint InstanceId					: SV_InstanceID;
 };
+
+// RHI_RAYTRACING
+#if COMPUTESHADER || RAYHITGROUPSHADER
+FVertexFactoryInput LoadVertexFactoryInput(uint TriangleIndex, int VertexIndex)
+{
+	FVertexFactoryInput Input;
+	
+	uint IndexBuffer[6] = { 0, 2, 3, 0, 1, 2 };
+	uint VertexId = IndexBuffer[(TriangleIndex * 3 + VertexIndex) % 6];
+	float2 TexCoords[4] = { float2(0.0f, 0.0f), float2(0.0f, 1.0f), float2(1.0f, 1.0f), float2(1.0f, 0.0f) };
+	Input.TexCoord = TexCoords[VertexId];
+	Input.VertexId = VertexId;
+	Input.InstanceId = TriangleIndex / 2;
+
+	return Input;
+}
+uint GetNumRayTracingDynamicMeshVerticesIndirect()
+{
+	return 6 * NiagaraSpriteVFLooseParameters.IndirectArgsBuffer[1];
+}
+#endif
 
 struct FVertexFactoryInterpolantsVSToPS
 {
@@ -75,11 +85,11 @@ struct FVertexFactoryInterpolantsVSToPS
 #endif
 
 #if NEEDS_PARTICLE_COLOR
-	float4	Color				: TEXCOORD2;
+	float4	Color				: TEXCOORD0;
 #endif
 
-#if NUM_MATERIAL_TEXCOORDS
-	float4	TexCoords[(NUM_MATERIAL_TEXCOORDS + 1) / 2]	: TEXCOORD3;
+#if NUM_TEX_COORD_INTERPOLATORS
+	float4	TexCoords[(NUM_TEX_COORD_INTERPOLATORS + 1) / 2]	: TEXCOORD1;
 #endif
 
 	//Not sure this is actually being used now and it's awkward to slot in now we're supporting custom UVs so I'm just giving this its own interpolant.
@@ -117,7 +127,7 @@ struct FVertexFactoryInterpolantsVSToPS
 #endif
 
 #if INSTANCED_STEREO
-	nointerpolation uint PackedEyeIndex : PACKED_EYE_INDEX;
+	nointerpolation uint EyeIndex : PACKED_EYE_INDEX;
 #endif
 };
 
@@ -189,7 +199,7 @@ struct FVertexFactoryIntermediates
 #endif
 };
 
-#if NUM_MATERIAL_TEXCOORDS
+#if NUM_TEX_COORD_INTERPOLATORS
 bool UVIndexUseZW(int UVIndex)
 {
 	#if COMPILER_GLSL_ES2
@@ -225,13 +235,13 @@ FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVS
 	// GetMaterialPixelParameters is responsible for fully initializing the result
 	FMaterialPixelParameters Result = MakeInitializedMaterialPixelParameters();
 
-#if NUM_MATERIAL_TEXCOORDS
+#if NUM_TEX_COORD_INTERPOLATORS
 	UNROLL
-	for (int CoordinateIndex = 0; CoordinateIndex < NUM_MATERIAL_TEXCOORDS; CoordinateIndex++)
+	for (int CoordinateIndex = 0; CoordinateIndex < NUM_TEX_COORD_INTERPOLATORS; CoordinateIndex++)
 	{
 		Result.TexCoords[CoordinateIndex] = GetUV(Interpolants, CoordinateIndex);
 	}
-#endif	// NUM_MATERIAL_TEXCOORDS
+#endif	// NUM_TEX_COORD_INTERPOLATORS
 
 	Result.VertexColor = 1;
 
@@ -387,16 +397,6 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	return Result;
 }
 
-void GetLightMapCoordinates(FVertexFactoryInterpolantsVSToPS Interpolants, out float2 LightmapUV0, out float2 LightmapUV1)
-{
-	LightmapUV0 = LightmapUV1 = 0;
-}
-
-half2 GetShadowMapCoordinate(FVertexFactoryInterpolantsVSToPS Interpolants)
-{
-	return 0;
-}
-
 float3 SafeNormalize(float3 V)
 {
 	return V * rsqrt(max(dot(V,V),0.01));
@@ -424,11 +424,11 @@ void GetTangents(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermed
 	float3 CustomFacingVector = Intermediates.CustomFacingVector * CustomFacingVectorMask + CameraDirection * (float3(1.0,1.0,1.0)-CustomFacingVectorMask);
 	
 	// the particle's movement direction.
-	float3 DirectionVector	= lerp(ParticleDirection, Intermediates.CustomAlignmentVector, ParticleAlignmentMode == ALIGNMENT_MODE_CUSTOMALIGNMENT);
+	float3 DirectionVector	= lerp(ParticleDirection, Intermediates.CustomAlignmentVector, NiagaraSpriteVFLooseParameters.ParticleAlignmentMode == ALIGNMENT_MODE_CUSTOMALIGNMENT);
 	
 	// Tangent vectors for any non-default alignment mode.
 	float3 CameraRightAligned	= SafeNormalize(cross(CustomFacingVector, DirectionVector));
-	float3 CameraUpAligned = lerp(-DirectionVector, cross(CustomFacingVector, CameraRightAligned), ParticleFacingMode == FACING_MODE_CUSTOMFACINGVECTOR);
+	float3 CameraUpAligned = lerp(-DirectionVector, cross(CustomFacingVector, CameraRightAligned), NiagaraSpriteVFLooseParameters.ParticleFacingMode == FACING_MODE_CUSTOMFACINGVECTOR);
 
 	// Tangent vectors for camera plane facing mode
 	float3 CameraRightPlaneFacing = SafeNormalize(cross(CameraFacingVector,ResolvedViewUp));
@@ -447,10 +447,10 @@ void GetTangents(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermed
 	
 	/**This could well be better as a branch*/
 	FLATTEN
-	if(ParticleAlignmentMode == ALIGNMENT_MODE_UNALIGNED)
+	if(NiagaraSpriteVFLooseParameters.ParticleAlignmentMode == ALIGNMENT_MODE_UNALIGNED)
 	{
 		FLATTEN
-		if (ParticleFacingMode == FACING_MODE_FACECAMERADISTANCEBLEND)
+		if (NiagaraSpriteVFLooseParameters.ParticleFacingMode == FACING_MODE_FACECAMERADISTANCEBLEND)
 		{
 			float CameraDistanceSq = dot(CameraVector, CameraVector);
 			float Interp = saturate(CameraDistanceSq * NiagaraSpriteVF.CameraFacingBlend.y - NiagaraSpriteVF.CameraFacingBlend.z);
@@ -459,22 +459,22 @@ void GetTangents(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermed
 			Right = lerp(Right, CameraRight.xyz, Interp);
 			Up = lerp(Up, CameraUp.xyz, Interp);
 		} 
-		else if(ParticleFacingMode == FACING_MODE_FACECAMERA)
+		else if(NiagaraSpriteVFLooseParameters.ParticleFacingMode == FACING_MODE_FACECAMERA)
 		{
 			Right = CameraRight.xyz;
 			Up = CameraUp.xyz;
 		}		 
-		else if(ParticleFacingMode == FACING_MODE_FACECAMERAPLANE)
+		else if(NiagaraSpriteVFLooseParameters.ParticleFacingMode == FACING_MODE_FACECAMERAPLANE)
 		{
 			Right = CameraRightPlaneFacing;
 			Up = CameraUpPlaneFacing;
 		}
-		else if(ParticleFacingMode == FACING_MODE_CUSTOMFACINGVECTOR)
+		else if(NiagaraSpriteVFLooseParameters.ParticleFacingMode == FACING_MODE_CUSTOMFACINGVECTOR)
 		{
 			Right = CameraRightCustomFacing;
 			Up = CameraUpCustomFacing;
 		}
-		else//(ParticleFacingMode == FACING_MODE_FACECAMERAPOSITION)
+		else//(NiagaraSpriteVFLooseParameters.ParticleFacingMode == FACING_MODE_FACECAMERAPOSITION)
 		{
 			Right = CameraRightPosition;
 			Up = CameraUpPosition;
@@ -534,23 +534,17 @@ float3x3 CalcTangentBasis(FVertexFactoryIntermediates Intermediates)
 	return Result;
 }
 
-// Note: C++ geometry setup behavior has to match this define
-/** Number of vertices in each SubUV frame of CutoutGeometry. */
-uint NumCutoutVerticesPerFrame;
-
-/** SubUV animation bounding geometry used to minimize overdraw.  Each frame has its own polygon. */
-Buffer<float2> CutoutGeometry;
-
 void ComputeBillboardUVs(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, out float2 UVForPosition, out float2 UVForTexturing, out float2 UVForTexturingUnflipped)
 {
 	// Encoding the UV flip in the sign of the size data.
 	float2 UVFlip = sign(Intermediates.SizeRotSubImage.xy);
 
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
 	BRANCH
-	if (NumCutoutVerticesPerFrame > 0)
+	if (NiagaraSpriteVFLooseParameters.NumCutoutVerticesPerFrame > 0)
 	{
 		// Avoid uint divide which is extremely slow on GCN
-		uint CutoutVertexIndex = (uint)fmod(Input.VertexId, NumCutoutVerticesPerFrame);
+		uint CutoutVertexIndex = (uint)fmod(Input.VertexId, NiagaraSpriteVFLooseParameters.NumCutoutVerticesPerFrame);
 		float NumFrames = NiagaraSpriteVF.SubImageSize.x * NiagaraSpriteVF.SubImageSize.y;
 		uint SubImageIndexInt = (uint)fmod(Intermediates.SizeRotSubImage.w, NumFrames);
 
@@ -558,11 +552,11 @@ void ComputeBillboardUVs(FVertexFactoryInput Input, FVertexFactoryIntermediates 
 		if (UVFlip.x * UVFlip.y < 0)
 		{
 			// Reverse the winding order of the polygon when only flipping in one direction to counteract UV flipping
-			CutoutVertexIndex = NumCutoutVerticesPerFrame - 1 - CutoutVertexIndex;
+			CutoutVertexIndex = NiagaraSpriteVFLooseParameters.NumCutoutVerticesPerFrame - 1 - CutoutVertexIndex;
 		}
 
 		// Fetch the billboard space positions from the appropriate frame of the preprocessed cutout geometry
-		UVForTexturing = UVForTexturingUnflipped = CutoutGeometry[SubImageIndexInt * NumCutoutVerticesPerFrame + CutoutVertexIndex];
+		UVForTexturing = UVForTexturingUnflipped = NiagaraSpriteVFLooseParameters.CutoutGeometry[SubImageIndexInt * NiagaraSpriteVFLooseParameters.NumCutoutVerticesPerFrame + CutoutVertexIndex];
 
 		// Invert positions on the billboard so that the cutout geometry still contains the visible portion
 		// This changes the winding order when only one direction is flipped
@@ -570,6 +564,7 @@ void ComputeBillboardUVs(FVertexFactoryInput Input, FVertexFactoryIntermediates 
 		UVForPosition.y = UVFlip.y < 0.0 ? 1.0 - UVForTexturing.y : UVForTexturing.y;
 	}
 	else
+#endif
 	{
 		UVForTexturing.x = UVFlip.x < 0.0 ? 1.0 - Input.TexCoord.x : Input.TexCoord.x;
 		UVForTexturing.y = UVFlip.y < 0.0 ? 1.0 - Input.TexCoord.y : Input.TexCoord.y;
@@ -744,11 +739,12 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	FVertexFactoryIntermediates Intermediates = (FVertexFactoryIntermediates)0;
 
 	uint ParticleID = Input.InstanceId;
-	if(SortedIndicesOffset != 0xFFFFFFFF)
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+	if(NiagaraSpriteVFLooseParameters.SortedIndicesOffset != 0xFFFFFFFF)
 	{
-		ParticleID = SortedIndices[SortedIndicesOffset + Input.InstanceId];
+		ParticleID = NiagaraSpriteVFLooseParameters.SortedIndices[NiagaraSpriteVFLooseParameters.SortedIndicesOffset + Input.InstanceId];
 	}
-
+#endif
 	Intermediates.Position = GetNiagaraParticlePosition(ParticleID);
 	Intermediates.OldPosition = Intermediates.Position.xyz - GetNiagaraParticleVelocity(ParticleID) * NiagaraSpriteVF.DeltaSeconds;
 	float2 ParticleSize = GetNiagaraParticleSize(ParticleID);
@@ -842,7 +838,7 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 
 #if USE_PARTICLE_VELOCITY
 	float3 ParticleVelocity = (ParticleWorldPosition.xyz - ParticleOldWorldPosition.xyz) * (1.0f/NiagaraSpriteVF.DeltaSeconds);
-	float3 DirectionVector = lerp(ParticleVelocity, Intermediates.CustomAlignmentVector, ParticleAlignmentMode == ALIGNMENT_MODE_CUSTOMALIGNMENT);
+	float3 DirectionVector = lerp(ParticleVelocity, Intermediates.CustomAlignmentVector, NiagaraSpriteVFLooseParameters.ParticleAlignmentMode == ALIGNMENT_MODE_CUSTOMALIGNMENT);
 	Intermediates.ParticleVelocity.xyz = normalize(DirectionVector);
 	Intermediates.ParticleVelocity.w = length(DirectionVector);
 #endif
@@ -893,7 +889,7 @@ float3 VertexFactoryGetPositionForVertexLighting(FVertexFactoryInput Input, FVer
 {
 #if (TRANSLUCENCY_LIGHTING_VOLUMETRIC_PERVERTEX_DIRECTIONAL || TRANSLUCENCY_LIGHTING_VOLUMETRIC_PERVERTEX_NONDIRECTIONAL)
 	// Do per-vertex lighting with particle position instead of vertex position when we're using SubUV cutouts, since the vertex positions vary per-frame which would cause popping
-	return NumCutoutVerticesPerFrame > 0 ? (Intermediates.ParticleWorldPosition.xyz + ResolvedView.PreViewTranslation.xyz) : TranslatedWorldPosition;
+	return NiagaraSpriteVFLooseParameters.NumCutoutVerticesPerFrame > 0 ? (Intermediates.ParticleWorldPosition.xyz + ResolvedView.PreViewTranslation.xyz) : TranslatedWorldPosition;
 #else
 	return TranslatedWorldPosition;
 #endif
@@ -906,13 +902,13 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 	// Initialize the whole struct to 0
 	Interpolants = (FVertexFactoryInterpolantsVSToPS)0;
 
-#if NUM_MATERIAL_TEXCOORDS
+#if NUM_TEX_COORD_INTERPOLATORS
 
-	float2 CustomizedUVs[NUM_MATERIAL_TEXCOORDS];
+	float2 CustomizedUVs[NUM_TEX_COORD_INTERPOLATORS];
 	GetMaterialCustomizedUVs(VertexParameters, CustomizedUVs);
 
 	UNROLL
-	for (int CoordinateIndex = 0; CoordinateIndex < NUM_MATERIAL_TEXCOORDS; CoordinateIndex++)
+	for (int CoordinateIndex = 0; CoordinateIndex < NUM_TEX_COORD_INTERPOLATORS; CoordinateIndex++)
 	{
 		SetUV(Interpolants, CoordinateIndex, CustomizedUVs[CoordinateIndex]);
 	}
@@ -978,11 +974,99 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 
 
 #if INSTANCED_STEREO
-	Interpolants.PackedEyeIndex = 0;
+	Interpolants.EyeIndex = 0;
 #endif
 
 	return Interpolants;
 }
+
+#if RAYHITGROUPSHADER
+struct FVertexFactoryInterpolantsVSToDS
+{
+	FVertexFactoryInterpolantsVSToPS InterpolantsVSToPS;
+};
+
+FVertexFactoryInterpolantsVSToDS VertexFactoryGetInterpolantsVSToDS(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, FMaterialVertexParameters VertexParameters)
+{
+	FVertexFactoryInterpolantsVSToDS Interpolants;
+	
+	Interpolants.InterpolantsVSToPS = VertexFactoryGetInterpolantsVSToPS(Input, Intermediates, VertexParameters);
+	
+	return Interpolants;
+}
+
+FVertexFactoryInterpolantsVSToDS VertexFactoryInterpolate(FVertexFactoryInterpolantsVSToDS a, float aInterp, FVertexFactoryInterpolantsVSToDS b, float bInterp)
+{
+	FVertexFactoryInterpolantsVSToDS O;
+
+#if LIGHTMAP_UV_ACCESS
+	TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.LightMapUVs);
+#endif
+
+#if NUM_TEX_COORD_INTERPOLATORS
+	UNROLL
+	for(int tc = 0; tc < (NUM_TEX_COORD_INTERPOLATORS+1)/2; ++tc)
+	{
+		TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.TexCoords[tc]);
+	}
+#endif
+
+#if USE_PARTICLE_SUBUVS
+	TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.Interpolants.ParticleSubUVs);
+#endif
+
+	TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.TangentToWorld0AndInterp_Sizer);
+	TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.TangentToWorld2);
+
+#if NEEDS_PARTICLE_COLOR
+	TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.Color);
+#endif
+
+#if (DYNAMIC_PARAMETERS_MASK & 1)
+	TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.DynamicParameter);
+#endif
+#if (DYNAMIC_PARAMETERS_MASK & 2)
+	TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.DynamicParameter1);
+#endif
+#if (DYNAMIC_PARAMETERS_MASK & 4)
+	TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.DynamicParameter2);
+#endif
+#if (DYNAMIC_PARAMETERS_MASK & 8)
+	TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.DynamicParameter3);
+#endif
+
+#if USE_PARTICLE_POSITION
+	TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.ParticleTranslatedWorldPositionAndSize);
+#endif
+
+#if USE_PARTICLE_VELOCITY
+	TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.ParticleVelocity);
+#endif
+
+#if USE_PARTICLE_TIME
+	TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.RelativeTime);
+#endif
+
+#if USE_PARTICLE_LIGHTING_OFFSET
+	TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.LightingPositionOffset);
+#endif
+
+#if USE_PARTICLE_SIZE
+	TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.ParticleSize);
+#endif
+
+#if USE_PARTICLE_RANDOM
+	TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.ParticleRandom);
+#endif
+
+	return O;
+}
+
+FVertexFactoryInterpolantsVSToPS VertexFactoryAssignInterpolants(FVertexFactoryInterpolantsVSToDS Input)
+{
+	return Input.InterpolantsVSToPS;
+}
+#endif
 
 float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates)
 {
@@ -1000,18 +1084,16 @@ float3x3 VertexFactoryGetTangentToLocal(FVertexFactoryInput Input, FVertexFactor
 	return Intermediates.TangentToLocal;
 }
 
-#if INSTANCED_STEREO
-
-// Instanced stereo sets the eye index explicitly for instanced geometry
-uint InstancedEyeIndex;	 
-
-uint VertexFactoryGetEyeIndex(uint InstanceId)
-{
-	return InstancedEyeIndex & bIsInstancedStereo;
-}
-#endif
-
 float4 VertexFactoryGetTranslatedPrimitiveVolumeBounds(FVertexFactoryInterpolantsVSToPS Interpolants)
+{
+#if USE_PARTICLE_POSITION
+	return Interpolants.ParticleTranslatedWorldPositionAndSize;
+#else
+	return 0;
+#endif
+}
+
+uint VertexFactoryGetPrimitiveId(FVertexFactoryInterpolantsVSToPS Interpolants)
 {
 	return 0;
 }

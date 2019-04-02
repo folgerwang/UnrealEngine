@@ -1,13 +1,13 @@
-﻿INTSourceChangelist:3076265
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:5.打包游戏
 Crumbs:%ROOT%, Platforms, Platforms/Android, Platforms/Android/GettingStarted
 Description:Package your game for installation.
-Version:4.12
+Version:4.17
 Skilllevel:Intermediate
 tags:Android
 tags:Mobile
-type:sequential
+type:multi-step
 parent:Platforms/Android/GettingStarted
 order:5
 Checkpoint:AndroidQS
@@ -16,10 +16,11 @@ Checkpoint:AndroidQS
 
 如果想要和其他人分享一个项目，或者要发布一个版本到数字商城去贩卖的话，需要先打包项目。在下面的内容中我们来看一下，在 虚幻 4 中如何对一个已经完成的项目进行打包的操作。
 
+(#Steps)
 ## 步骤
 
 
-%Globals:OSSelect%
+%Globals:osselect_linux%
 
 [OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
@@ -50,7 +51,19 @@ Checkpoint:AndroidQS
 	[/PARAM]
 [/OBJECT]
 
-
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	linux
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[INCLUDE:#LinuxSetup]
+	[/PARAM]
+[/OBJECT]
 
 [COMMENT:none]
 
@@ -132,8 +145,13 @@ Checkpoint:AndroidQS
 
 [/EXCERPT:MacOSSetup]
 
+[EXCERPT:LinuxSetup]
+[INCLUDE:Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux/5#AndroidLinux_5]
+[/EXCERPT:LinuxSetup]
+
 [/COMMENT]
 
+(#EndResult)
 ## 最终结果
 当完成后，将会得到一个 .APK 的文件，其中包含了 UE4 的项目，并能够通过另一个 .BAT 的文件部署到任意安卓的智能手机上。
 [nav]

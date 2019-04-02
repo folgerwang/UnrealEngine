@@ -1,6 +1,6 @@
-﻿INTSourceChangelist:2492260
+﻿INTSourceChangelist:3782314
 Availability: Public
-Title:2.4 - 网络关联性（第四部分-组合方案）
+Title:2.4 - 网络关联性[第四部分-组合方案]
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Networking
 Description:网络特性示例关卡概述，示例2.4： 网络关联性（第四部分-组合方案）。
 Related: Gameplay/Networking
@@ -8,6 +8,24 @@ Related: Gameplay/Networking/Actors/Components
 Related: Gameplay/Networking/Actors
 Related: Gameplay/Networking/Actors/RPCs
 Related: Engine/UI/LevelEditor/InEditorTesting/NetworkedPlayInEditor
+Version: 4.9
+
+[VAR:Steps]
+[OBJECT:Navigation]
+	[PARAM:previous]
+		[Previous Example](Resources/ContentExamples/Networking/2_3 "%Resources/ContentExamples/Networking/2_3:title%")
+	[/PARAM]
+	[PARAM:current]
+	[/PARAM]
+	[PARAM:home]
+		[Networking Home](Resources/ContentExamples/Networking)
+	[/PARAM]
+	[PARAM:next]
+	[/PARAM]
+[/OBJECT]
+[/VAR]
+
+
 
 
 [VAR:TopicCompact]
@@ -37,7 +55,6 @@ Related: Engine/UI/LevelEditor/InEditorTesting/NetworkedPlayInEditor
 [/REGION]
 
 
-## 概述
 示例2.2和2.3都失败了，因为两者都无法处理箱子示例所要完成的两个内容： 
 
 * 在互动时播放瞬间效果。 
@@ -46,6 +63,7 @@ Related: Engine/UI/LevelEditor/InEditorTesting/NetworkedPlayInEditor
 示例2.4提供了通过组合2.2和2.3中使用的技术的混合方案来有效解决此问题。 Multicast函数处理在此特定时间的客户端相关的瞬间黄金特效播放，同时无论箱盖打开还是关闭都保留复制的布尔值。 如果箱子在初始的开箱过程中对客户端而言无关联性，则客户端将仅仅在箱子与它们关联时看到箱盖打开。 
 
 
+(#BlueprintBreakdown)
 ## 蓝图详细信息
 在 **BP_Relevancy_Replication_Combined** 蓝图的事件图表中，如同下方的带注释的图，OnChestTouch被覆盖以使用RepNotify变量的组合以及Multicast复制函数。
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Framework/Text/SyntaxHighlighterTextLayoutMarshaller.h"
 #include "Framework/Text/TextLineHighlight.h"
@@ -84,6 +84,7 @@ void FRichTextSyntaxHighlighterTextLayoutMarshaller::ParseTokens(const FString& 
 
 	TArray<FTextLineHighlight> LineHighlightsToAdd;
 	TMap<const FTextBlockStyle*, TSharedPtr<FSlateTextUnderlineLineHighlighter>> CachedUnderlineHighlighters;
+	TMap<const FTextBlockStyle*, TSharedPtr<FSlateTextStrikeLineHighlighter>> CachedStrikeLineHighlighters;
 
 	// Parse the tokens, generating the styled runs for each line
 	EParseState ParseState = EParseState::LookingForNode;
@@ -191,6 +192,18 @@ void FRichTextSyntaxHighlighterTextLayoutMarshaller::ParseTokens(const FString& 
 				}
 
 				LineHighlightsToAdd.Add(FTextLineHighlight(LineIndex, ModelRange, FSlateTextUnderlineLineHighlighter::DefaultZIndex, UnderlineLineHighlighter.ToSharedRef()));
+			}
+
+			if (!TextBlockStyle->StrikeBrush.GetResourceName().IsNone())
+			{
+				TSharedPtr<FSlateTextStrikeLineHighlighter> StrikeLineHighlighter = CachedStrikeLineHighlighters.FindRef(TextBlockStyle);
+				if (!StrikeLineHighlighter.IsValid())
+				{
+					StrikeLineHighlighter = FSlateTextStrikeLineHighlighter::Create(TextBlockStyle->StrikeBrush, TextBlockStyle->Font, TextBlockStyle->ColorAndOpacity, TextBlockStyle->ShadowOffset, TextBlockStyle->ShadowColorAndOpacity);
+					CachedStrikeLineHighlighters.Add(TextBlockStyle, StrikeLineHighlighter);
+				}
+
+				LineHighlightsToAdd.Add(FTextLineHighlight(LineIndex, ModelRange, FSlateTextStrikeLineHighlighter::DefaultZIndex, StrikeLineHighlighter.ToSharedRef()));
 			}
 		}
 

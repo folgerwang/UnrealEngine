@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2723610
+﻿INTSourceChangelist:3782314
 Availability: Public
 Title: 多人连线的枪战游戏
 Crumbs:%ROOT%, Resources, Resources/Showcases
@@ -10,47 +10,8 @@ Related: Programming/Online/Steam
 Related: Gameplay/Networking/Actors
 Related: Resources/ContentExamples/Networking
 Version: 4.9
+topic-image:MultiplayerShootout_Featured-476x246-c51d69c862538ea6fb72a13f7a0034e0.png
 
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](MultiplayerShootout_Featured-476x246-c51d69c862538ea6fb72a13f7a0034e0.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/online_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\Showcases\BlueprintMultiplayer:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\Showcases\BlueprintMultiplayer:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\Showcases\BlueprintMultiplayer]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](MultiplayerShootout_Featured-476x246-c51d69c862538ea6fb72a13f7a0034e0.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/online_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\Showcases\BlueprintMultiplayer:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\Showcases\BlueprintMultiplayer:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\Showcases\BlueprintMultiplayer]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [REGION:raw]
 ![](MultiplayerExample_Header.png)
@@ -69,6 +30,7 @@ Version: 4.9
 目前，这篇文档涵盖了 [](Engine/Blueprints/UserGuide/OnlineNodes) 和它对于用于多人游戏中的创建主机，发现、加入、离开游戏的实现。这篇文档将会在之后更新，来进一步说明射击游戏的其他方面，比如攻击命中其他玩家，死亡和重生，以及得分的计算。
 [/REGION]
 
+(#Starting/PlayingtheGame)
 ## 开始/进行游戏
 
 这个章节汉高了如何开始并进行游戏，提供了游戏的各个组件的单独分析。
@@ -148,6 +110,7 @@ Version: 4.9
 这个游戏的目标是射击其他玩家，命中就能得到 1 分，被命中的人则要重生。每个玩家有六次射击机会，然后就要用鼠标中间（上下滚轮）来换弹（一次一颗）。
 
 
+(#ProjectSetup/Configuration)
 ## 项目设置/配置
 
 这个章节涵盖了 **内容浏览器** 中创建（或修改）的每个素材，并有各自的描述。有几个蓝图和 UMG UI 的素材互相调用（或有依赖关系），因此如果您想要重新做这个项目中类似的事情，最好是从头开始创建并再将它们关联起来。
@@ -206,6 +169,7 @@ Version: 4.9
 | **MainMenu** | 项目和编辑器的默认加载地图，包含了启动的显示。 |
 | **Level_01** | 这是游戏地图，给玩家创建主机或者加入游戏。 |
 
+(#ConfigurationSettings)
 ### 配置设置
 
 为了成功的创建主机或者连接到多人游戏中，在 **DefaultEngine.ini** 中有些设置需要做，该文件在 _UnrealProjectDirectory/ProjectName/Config_：
@@ -240,6 +204,7 @@ Version: 4.9
 [/REGION]
 
 
+(#BlueprintWalkthrough)
 ## 蓝图说明
 
 在接下去的章节中，我们来看一下游戏的各个状态，以及驱动这些状态工作的蓝图。
@@ -359,6 +324,7 @@ Version: 4.9
 
 如果没有错误的话，在 **Open Level** 节点中定义的地图则会加载，玩家进入 **游戏**。
 
+(#JoiningaGame)
 ### 加入一个游戏
 
 在主惨淡中，点击 **Find Games** 按钮会执行 **MainMenu** 控件蓝图中的相应脚本，见下图：
@@ -437,6 +403,7 @@ RefreshListMacro 宏干了不少事情。下面先解释第一部分。
 当 LoadingScreen 显示的时候，Join Session 节点会尝试加入玩家当前点击的由 ServerRow 控件提供的 SearchResult。
 如果成功的话，玩家就能加入该服务器，并在游戏中生成角色。如果有错误的话，就会执行 [DisplayErrorDialog](#bookmarkdisplayerrordialogmacro) 并显示 **Failed To Join Session** 为 **错误信息**。
 
+(#Gameplay)
 ### 游戏性
 
 在玩家控制角色前，角色和游戏状态都需要被设置好（或者，比如要加入一个游戏时，游戏自身需要得到更新，并被告知有新玩家要加入进来）。
@@ -487,6 +454,7 @@ RefreshListMacro 宏干了不少事情。下面先解释第一部分。
 
 在 state 被设置为 **Player** 后，通过调用 **Set Focus To Game Viewport** 的节点（上图中的（3）），鼠标会被锁定在游戏窗口内，并调用 **Set Input Mode Game Only** 节点（上图的（4））使 UI 不再截获用户输入。
 
+(#DisconnectingfromaGame)
 ### 从游戏中离开
 
 从一个游戏中断开的过程非常简单直接，只需要关闭一些 UMG 控件的显示，并执行第一次加载游戏进入主菜单同样的过程即可。

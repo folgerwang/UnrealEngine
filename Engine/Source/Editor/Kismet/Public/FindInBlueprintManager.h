@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -10,6 +10,7 @@
 #include "HAL/Runnable.h"
 #include "SlateFwd.h"
 #include "Input/Reply.h"
+#include "TickableEditorObject.h"
 
 struct FAssetData;
 class FFindInBlueprintsResult;
@@ -183,6 +184,42 @@ struct KISMET_API FFiBMD
 	static const FString FiBSearchableHiddenExplicitMD;
 };
 
+/** Which assets to index for caching */
+enum class EFiBCacheOpType
+{
+	CachePendingAssets,
+	CacheUnindexedAssets
+};
+
+/** Flags to control the UX while caching */
+enum class EFiBCacheOpFlags
+{
+	None = 0,
+	/** Whether to show progress */
+	ShowProgress = 1 << 0,
+	/** Whether to hide toast popups */
+	HideNotifications = 1 << 1,
+	/** Whether to allow users to cancel */
+	AllowUserCancel = 1 << 2,
+	/** Set if the user wants to check out and save (applies to unindexed caching only) */
+	CheckOutAndSave = 1 << 3,
+};
+
+ENUM_CLASS_FLAGS(EFiBCacheOpFlags);
+
+/** Options to configure the bulk caching task */
+struct FFindInBlueprintCachingOptions
+{
+	/** Type of caching operation */
+	EFiBCacheOpType OpType = EFiBCacheOpType::CachePendingAssets;
+
+	/** Callback for when caching is finished */
+	FSimpleDelegate OnFinished;
+
+	/** Minimum version requirement for caching, any Blueprints below this version will be re-indexed */
+	EFiBVersion MinimiumVersionRequirement = EFiBVersion::FIB_VER_LATEST;
+};
+
 ////////////////////////////////////
 // FFindInBlueprintsResult
 
@@ -341,7 +378,7 @@ public:
 // FFindInBlueprintSearchManager
 
 /** Singleton manager for handling all Blueprint searches, helps to manage the going progress of Blueprints, and is thread-safe. */
-class KISMET_API FFindInBlueprintSearchManager
+class KISMET_API FFindInBlueprintSearchManager : public FTickableEditorObject
 {
 public:
 	static FFindInBlueprintSearchManager* Instance;
@@ -349,6 +386,12 @@ public:
 
 	FFindInBlueprintSearchManager();
 	~FFindInBlueprintSearchManager();
+
+	//~ Begin FTickableObject Interface
+	virtual void Tick(float DeltaTime) override;
+	virtual bool IsTickable() const override;
+	virtual TStatId GetStatId() const override;
+	//~ End FTickableObject Interface
 
 	/**
 	 * Gathers the Blueprint's search metadata and adds or updates it in the cache
@@ -405,18 +448,22 @@ public:
 	/** Serializes an FText to memory and converts the memory into a string of hex characters */
 	static FString ConvertFTextToHexString(FText InValue);
 
-	/** Returns the number of uncached Blueprints */
+	/** Returns the number of assets that are waiting to be re-indexed */
+	int32 GetNumberPendingAssets() const;
+
+	/** Returns the number of unindexed Blueprints, either due to not having been indexed before, or AR data being out-of-date */
+	int32 GetNumberUnindexedAssets() const;
+
+	/** Returns the number of uncached assets during an active indexing operation */
 	int32 GetNumberUncachedAssets() const;
 
 	/**
-	 * Starts caching all uncached Blueprints at a rate of 1 per tick
+	 * Starts a task to cache Blueprints at a rate of 1 per tick
 	 *
 	 * @param InSourceWidget				The source FindInBlueprints widget, this widget will be informed when caching is complete
-	 * @param InOutActiveTimerDelegate		Binds an object that ticks every time the Find-in-Blueprints widget ticks to cache all Blueprints
-	 * @param InOnFinished					Callback when caching is finished
-	 * @param InMinimiumVersionRequirement	Minimum version requirement for caching, any Blueprints below this version will be re-indexed
+	 * @param InCachingOptions				Options to configure the caching task
 	 */
-	void CacheAllUncachedAssets(TWeakPtr< class SFindInBlueprints > InSourceWidget, FWidgetActiveTimerDelegate& InOutActiveTimerDelegate, FSimpleDelegate InOnFinished = FSimpleDelegate(), EFiBVersion InMinimiumVersionRequirement = EFiBVersion::FIB_VER_LATEST);
+	void CacheAllAssets(TWeakPtr< class SFindInBlueprints > InSourceWidget, const FFindInBlueprintCachingOptions& InCachingOptions);
 	
 	/**
 	 * Starts the actual caching process
@@ -424,7 +471,7 @@ public:
 	 * @param bInSourceControlActive		TRUE if source control is active
 	 * @param bInCheckoutAndSave			TRUE if the system should checkout and save all assets that need to be reindexed
 	 */
-	void OnCacheAllUncachedAssets(bool bInSourceControlActive, bool bInCheckoutAndSave);
+	void OnCacheAllUnindexedAssets(bool bInSourceControlActive, bool bInCheckoutAndSave);
 
 	/** Stops the caching process where it currently is at, the rest can be continued later */
 	void CancelCacheAll(SFindInBlueprints* InFindInBlueprintWidget);
@@ -446,6 +493,10 @@ public:
 
 	/** Returns TRUE if caching failed */
 	bool HasCachingFailed() const { return FailedToCachePaths.Num() > 0; };
+
+	/** Callback to note that Blueprint caching is started */
+	void StartedCachingBlueprints(EFiBCacheOpFlags InCacheOpFlags);
+
 	/**
 	 * Callback to note that Blueprint caching is complete
 	 *
@@ -456,8 +507,11 @@ public:
 	/** Returns TRUE if Blueprints are being cached. */
 	bool IsCacheInProgress() const;
 
-	/** Serializes an FString to memory and converts the memory into a string of hex characters */
-	static FString ConvertFStringToHexString(FString InValue);
+	/** Returns TRUE if unindexed Blueprints are being cached (since this can block the UI) */
+	bool IsUnindexedCacheInProgress() const;
+
+	/** Returns a weak reference to the widget that initiated the current caching operation */
+	TWeakPtr<SFindInBlueprints> GetSourceCachingWidget() const { return SourceCachingWidget; }
 
 	/** Given a fully constructed Find-in-Blueprint FString of searchable data, will parse and construct a JsonObject */
 	static TSharedPtr< class FJsonObject > ConvertJsonStringToObject(bool bInIsVersioned, FString InJsonString, TMap<int32, FText>& OutFTextLookupTable);
@@ -541,6 +595,9 @@ protected:
 	/** Tells if gathering data is currently allowed */
 	bool bEnableGatheringData;
 
+	/** Tells if deferred indexing is configured as disabled */
+	bool bDisableDeferredIndexing;
+
 	/** Maps the Blueprint paths to their index in the SearchArray */
 	TMap<FName, int32> SearchMap;
 
@@ -571,14 +628,20 @@ protected:
 	/** FindInBlueprints widget that started the cache process */
 	TWeakPtr<SFindInBlueprints> SourceCachingWidget;
 
+	/** Asset paths that are either loaded or modified and require re-indexing before caching */
+	TSet<FName> PendingAssets;
+
 	/** Asset paths that have not been cached for searching due to lack of FiB data, this means that they are either older Blueprints, or the DDC cannot find the data */
-	TSet<FName> UncachedAssets;
+	TSet<FName> UnindexedAssets;
 
 	/** List of paths for Blueprints that failed to cache */
 	TSet<FName> FailedToCachePaths;
 
 	/** Tickable object that does the caching of uncached Blueprints at a rate of once per tick */
 	class FCacheAllBlueprintsTickableObject* CachingObject;
+
+	/** Stores the type of caching operation that's currently in progress */
+	EFiBCacheOpType CurrentCacheOpType;
 
 	/** Mapping between a class name and its UClass instance - used for faster look up in FFindInBlueprintSearchManager::OnAssetAdded */
 	TMap<FName, const UClass*> CachedAssetClasses;

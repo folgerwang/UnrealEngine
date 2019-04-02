@@ -1,6 +1,6 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "DisplayClusterDeviceQuadBufferStereoD3D12.h"
+#include "Render/Devices/QuadBufferStereo/DisplayClusterDeviceQuadBufferStereoD3D12.h"
 #include "Render/Devices/DisplayClusterDeviceInternals.h"
 
 #include "Misc/DisplayClusterLog.h"
@@ -20,32 +20,11 @@ FDisplayClusterDeviceQuadBufferStereoD3D12::~FDisplayClusterDeviceQuadBufferSter
 {
 }
 
-bool FDisplayClusterDeviceQuadBufferStereoD3D12::ShouldUseSeparateRenderTarget() const
-{
-	return true;
-}
-
-void FDisplayClusterDeviceQuadBufferStereoD3D12::SetSwapSyncPolicy(EDisplayClusterSwapSyncPolicy policy)
-{
-	FScopeLock lock(&InternalsSyncScope);
-	UE_LOG(LogDisplayClusterRender, Log, TEXT("Swap sync policy: %d"), (int)policy);
-
-	switch (policy)
-	{
-		case EDisplayClusterSwapSyncPolicy::SoftSwapSync:
-			SwapSyncPolicy = policy;
-			break;
-
-		default:
-			// Forward the policy type to the upper level
-			FDisplayClusterDeviceBase::SetSwapSyncPolicy(policy);
-			break;
-	}
-}
-
 bool FDisplayClusterDeviceQuadBufferStereoD3D12::Present(int32& InOutSyncInterval)
 {
-	FD3D12Viewport* viewport = static_cast<FD3D12Viewport*>(CurrentViewport->GetViewportRHI().GetReference());
+	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterRender);
+
+	FD3D12Viewport* viewport = static_cast<FD3D12Viewport*>(MainViewport->GetViewportRHI().GetReference());
 
 // This code is not used in editor and required only for packaged builds. To avoid linking issues it won't be used with editor builds.
 #if !WITH_EDITOR
@@ -58,7 +37,7 @@ bool FDisplayClusterDeviceQuadBufferStereoD3D12::Present(int32& InOutSyncInterva
 	// Sync all nodes
 	exec_BarrierWait();
 	
-	// present	
+	// present
 	IDXGISwapChain1* swapchain1 = (IDXGISwapChain1*)viewport->GetSwapChain();
 	swapchain1->Present(GetSwapInt(), 0);
 	
@@ -84,6 +63,10 @@ void FDisplayClusterDeviceQuadBufferStereoD3D12::RenderTexture_RenderThread(FRHI
 	copyParamsLeft.DestRect.X2 = halfSizeX;
 	copyParamsLeft.DestRect.Y2 = BackBuffSize.Y;
 
+	UE_LOG(LogDisplayClusterRender, Verbose, TEXT("CopyToResolveTarget [L]: [%d,%d - %d,%d] -> [%d,%d - %d,%d]"), 
+		copyParamsLeft.Rect.X1, copyParamsLeft.Rect.Y1, copyParamsLeft.Rect.X2, copyParamsLeft.Rect.Y2,
+		copyParamsLeft.DestRect.X1, copyParamsLeft.DestRect.Y1, copyParamsLeft.DestRect.X2, copyParamsLeft.DestRect.Y2);
+	
 	RHICmdList.CopyToResolveTarget(SrcTexture, BackBuffer, copyParamsLeft);
 	
 	FResolveParams copyParamsRight;
@@ -93,9 +76,13 @@ void FDisplayClusterDeviceQuadBufferStereoD3D12::RenderTexture_RenderThread(FRHI
 	copyParamsRight.Rect = copyParamsLeft.Rect;
 
 	copyParamsRight.Rect.X1 = halfSizeX;
-	copyParamsRight.Rect.X2 = halfSizeX * 2;
+	copyParamsRight.Rect.X2 = BackBuffSize.X;
 
 	copyParamsRight.DestRect = copyParamsLeft.DestRect;
+
+	UE_LOG(LogDisplayClusterRender, Verbose, TEXT("CopyToResolveTarget [R]: [%d,%d - %d,%d] -> [%d,%d - %d,%d]"),
+		copyParamsRight.Rect.X1, copyParamsRight.Rect.Y1, copyParamsRight.Rect.X2, copyParamsRight.Rect.Y2,
+		copyParamsRight.DestRect.X1, copyParamsRight.DestRect.Y1, copyParamsRight.DestRect.X2, copyParamsRight.DestRect.Y2);
 
 	RHICmdList.CopyToResolveTarget(SrcTexture, BackBuffer, copyParamsRight);
 }

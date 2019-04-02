@@ -1,0 +1,61 @@
+﻿INTSourceChangelist:4400482
+Availability: Public
+Crumbs: 
+Title: ワールド基点を表示する方法
+Description: AR でワールド基点を表示する方法です。
+Type: 
+Version: 4.19
+Parent: Platforms/AR/HandheldAR
+Order: 
+Tags: mobile
+Tags: iOS
+Tags: Android
+Tags: AR
+
+
+前提条件に関するトピック
+このページでは、次のトピックに関する事前知識があることを前提としています。先に進む前にそれらをお読みください。
+
+*   [](Platforms/AR/HandheldAR/ARKitPrerequisites)
+*   [](Platforms/AR/HandheldAR/ARCorePrerequisites)
+*   [](Platforms/AR/HandheldAR/ARQuickStart)
+
+![](AR_WorldOriginGraphic.png)
+[REGION:note]
+このガイドでは、 **Handheld AR** テンプレートを使用します。
+[/REGION]
+
+以下の操作ガイドでは、 **Handheld AR** テンプレートによって作成されたサンプル プロジェクトがどのようにワールド基点を描くかについて説明します。AR システム (ARKit/ARCore) がどこにワールド基点を置いたか知ることは、トラブルシューティングをする際に役立つ情報となります。デバイスは、予測できない要因に基づいてワールド位置 0,0,0 (ワールド基点) を決定することがまちまちです。そのため、コンテンツの場所、動き、スポーンに関する問題について、トラックされたジオメトリ トランスフォームの情報が参照されていないものは、デバッグが難しくなります。静的なコンテンツは、ワールド基点が特定の場所にいることを想定しています。そのため、これはベイクしたライティングを使って作業する際に大きな問題となります。
+
+## ステップ
+
+### AR プロジェクトを開く
+
+1. **Unreal Project Browser** を開き、新しい **Handheld AR** プロジェクトを作成するか、既存の AR のプロジェクトを開きます。
+    新しい AR のプロジェクトを作成するための方法についてサポートが必要な場合は、 [](Platforms/AR/HandheldAR/ARQuickStart) を参照してください。   
+    ![](AR_NewProjectScreen_HandheldARandProjectSettingsSelected.png)
+2. **[Find in Blueprints]** メニュー アイテムを開きます。
+    ![](AR_FindInBlueprintsMenu.png)
+3. **Debug Draw World Origin** で検索します。検索結果で、 **Debug Draw World Origin** 関数をダブルクリックします。
+    ![](AR_BluePrintSearch_DebugDrawWorldOrigin.png)
+
+### ワールド基点を表示します。
+
+このプロジェクトの例では、ワールド基点を描画する簡単な方法を示しています。ワールド基点を描画することで、 AR システムがワールド基点として何を決定したかを知ることができます。そのため、デバッグ使用の良いエクササイズとなります。
+以下に示すように、ワールド基点は常に **0.0, 0.0, 0.0** で始まります。 
+
+**ワールド基点描画のデバッグ**
+*   **Draw Debug String** この関数は、テキスト文字列 "WORLD ORIGIN" をワールド基点 (0.0, 0.0, 0.0) に配置します。 
+*   **Draw Debug Arrow(s)** これらの関数は、それぞれワールド基点 (0.0,0,0,0,0) から始まる X 、 Y 、 Z 軸に沿って短い矢印を描画します。
+
+[REGION:lightbox]
+![](AR_DebugDrawWorldOriginFunction.png)
+[/REGION]
+
+### その他の AR 関数を探る
+
+** ハンドヘルド AR ** ブループリント テンプレートを使ったプロジェクトを調べることで、さまざまな AR 用の関数が実際にどのようなコンテキストで使用されているかについて、知ることができます。新しい AR 用の関数が数多く用意されていますので、新しいプロジェクトを分析して、実装できるかどうか検証してみる価値があります。  
+
+[REGION:tip]
+プロジェクトでの新しい AR 関数を探すには、 **[Content Browser]** を開き、 **Content\\HandheldARBP\\Blueprints\\UI** に移動し、 **Blueprint Editor** の **[BP_DebugMenu]** を開きます。
+[/REGION]

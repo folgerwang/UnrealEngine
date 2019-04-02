@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "DetailCustomBuilderRow.h"
 #include "IDetailCustomNodeBuilder.h"
@@ -50,6 +50,11 @@ void FDetailCustomBuilderRow::OnItemNodeInitialized( TSharedRef<FDetailItemNode>
 FName FDetailCustomBuilderRow::GetCustomBuilderName() const
 {
 	return CustomNodeBuilder->GetName();
+}
+
+TSharedPtr<IPropertyHandle> FDetailCustomBuilderRow::GetPropertyHandle() const
+{
+	return CustomNodeBuilder->GetPropertyHandle();
 }
 
 void FDetailCustomBuilderRow::OnGenerateChildren( FDetailNodeList& OutChildren )

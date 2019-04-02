@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Misc/AutomationTest.h"
 #include "Tests/TestHelpers.h"
@@ -332,19 +332,6 @@ void FDiskChunkStoreSpec::Define()
 						TEST_EQUAL(MockChunkDataSerialization->RxLoadFromArchive.Num(), 1);
 					});
 				});
-			});
-		});
-
-		Describe("GetSlack", [this]()
-		{
-			It("should always return MAX_int32.", [this]()
-			{
-				FGuid ChunkId = FGuid::NewGuid();
-				TEST_EQUAL(DiskChunkStore->GetSlack(), MAX_int32);
-				DiskChunkStore->Put(ChunkId, TUniquePtr<IChunkDataAccess>(new FFakeChunkDataAccess()));
-				TEST_EQUAL(DiskChunkStore->GetSlack(), MAX_int32);
-				DiskChunkStore->Remove(ChunkId);
-				TEST_EQUAL(DiskChunkStore->GetSlack(), MAX_int32);
 			});
 		});
 	});

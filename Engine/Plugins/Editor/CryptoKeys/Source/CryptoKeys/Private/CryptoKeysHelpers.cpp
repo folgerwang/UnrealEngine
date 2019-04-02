@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CryptoKeysHelpers.h"
 #include "CryptoKeysOpenSSL.h"
@@ -26,12 +26,12 @@ namespace CryptoKeysHelpers
 		return bResult;
 	}
 
-	bool GenerateSigningKey(FString& OutPublicExponent, FString& OutPrivateExponent, FString& OutModulus)
+	bool GenerateSigningKey(FString& OutPublicExponent, FString& OutPrivateExponent, FString& OutModulus, int32 NumKeyBits)
 	{
 		bool bResult = false;
 
 		TArray<uint8> PublicExponent, PrivateExponent, Modulus;
-		if (CryptoKeysOpenSSL::GenerateNewSigningKey(PublicExponent, PrivateExponent, Modulus))
+		if (CryptoKeysOpenSSL::GenerateNewSigningKey(PublicExponent, PrivateExponent, Modulus, NumKeyBits))
 		{
 			OutPublicExponent = FBase64::Encode(PublicExponent);
 			OutPrivateExponent = FBase64::Encode(PrivateExponent);

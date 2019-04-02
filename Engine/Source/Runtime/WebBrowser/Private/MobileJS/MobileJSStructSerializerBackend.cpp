@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MobileJSStructSerializerBackend.h"
 
@@ -52,7 +52,7 @@ FString FMobileJSStructSerializerBackend::ToString()
 }
 
 FMobileJSStructSerializerBackend::FMobileJSStructSerializerBackend(TSharedRef<class FMobileJSScripting> InScripting)
-	: FJsonStructSerializerBackend(Writer)
+	: FJsonStructSerializerBackend(Writer, EStructSerializerBackendFlags::Legacy)
 	, Scripting(InScripting)
 	, ReturnBuffer()
 	, Writer(ReturnBuffer)

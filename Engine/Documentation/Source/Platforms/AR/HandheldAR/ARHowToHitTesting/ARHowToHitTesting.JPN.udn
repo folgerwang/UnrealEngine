@@ -1,0 +1,94 @@
+﻿INTSourceChangelist:4400471
+Availability: Public
+Crumbs: 
+Title: AR ヒットテストの実行方法
+Description: AR でトラックしたジオメトリのヒット テストを行う方法です。
+Type: 
+Version: 4.19
+Parent: Platforms/AR/HandheldAR
+Order: 5
+Tags: mobile
+Tags: iOS
+Tags: Android
+Tags: AR
+
+
+前提条件に関するトピック
+このページでは、次のトピックに関する事前知識があることを前提としています。先に進む前にそれらをお読みください。
+
+*   [](Platforms/AR/HandheldAR/ARKitPrerequisites)
+*   [](Platforms/AR/HandheldAR/ARCorePrerequisites)
+*   [](Platforms/AR/HandheldAR/ARQuickStart)
+
+![](AR_HitTesting.png)
+[REGION:note]
+このガイドでは、 **Handheld AR** テンプレートを使用します。
+[/REGION]
+
+以下の操作ガイドでは、 **Handheld AR** テンプレートによって作成されたサンプル プロジェクトが、標準のヒット テストとトラックされたオブジェクトのヒット テストをどのように表示するかについて説明します。ヒット テスト(ライン トレース)は Unreal Engine や ブループリントの新しい機能ではありません。しかし、 Unreal の世界でのヒット テストと AR でのヒット テストには異なるアプローチが必要であることを認識する必要があります。このサンプル プロジェクトには、 Unreal ワールドでのヒット テストと、ハンドヘルド デバイスの AR でのヒット テストの標準的なパターンが含まれています。 
+[REGION:tip]
+AR ヘッドセットなどの他の AR デバイスには、以下の操作ガイドで説明する方法とは異なったアプローチを行う必要があります。
+[/REGION]
+
+## ステップ
+
+### ハンドヘルド AR プロジェクトを新規作成する
+
+1. Unreal Project Browser を開き、新しい **Handheld AR** プロジェクトを作成するか、既存の AR のプロジェクトを開きます。
+    新しい AR のプロジェクトを作成するための方法についてサポートが必要な場合は、 [](Platforms/AR/HandheldAR/ARQuickStart) を参照してください。
+    ![](AR_NewProjectScreen_HandheldARandProjectSettingsSelected.png)
+2. **BP_ARPawn** ブループリント クラスを開きます。
+    ![](AR_BlueprintARPawnClass.png)
+3. **[Event Graph]** タブを選択します。
+    ![](AR_BlueprintARPawnEventGraph.png)
+
+  
+
+### トラックされたジオメトリとワールドオブジェクトのヒット テスト
+
+このサンプル プロジェクトでは、通常のワークフローのコンテキストに応じて、 **Line Trace For Objects** と **Line Trace Tracked Objects** の使用について説明します。 **Line Trace For Objects** は、 Unreal ワールドのオブジェクトに対するヒットを確認するために使用されますが、一方 **Line Trace Tracked Objects** は、トラックされたオブジェクト (AR でトラックされたジオメトリ) に対するヒットをチェックするために使用されます。ライン トレースは Unreal Engine の新しい機能ではありませんが、一方で **Line Trace Tracked Objects** 関数は新しい機能です。この関数を使用することで、ワールドで追加された、トラックされているジオメトリを検出することができます。
+[REGION:tip]
+以下の例に示すように、まずワールド オブジェクトをチェックします。これは、スポーンされたワールド オブジェクトがライントレースのオリジナルに近くなることが多いため、トラックされたジオメトリの前にそれらが表示されると思います。もし最初にトラックされたジオメトリをテストしたなら、触れようとしたものが毎回欠落することでしょう。
+[/REGION]  
+[REGION:lightbox]
+[![](AR_BlueprintBothHitTests.png)](AR_BlueprintBothHitTests.png)
+[/REGION]
+[REGION:caption]
+クリックしてフルサイズで表示
+[/REGION]  
+
+*   **Test If User Touched World Object**
+    これは、 **World Hit Test** にある **Line Trace For Objects** 関数の標準的な使い方です。潜在的な Unrea lワールド オブジェクトの配列をチェックし、 「true」または「false」を返します。戻り値が「true」の場合、 **AR Hit Result** が呼び出され、 **Debug Menu** アイテムの 1 つがアップデートされます。戻り値が「false」の場合、新しい AR 用関数 **Line Trace Tracked Objects** に沿って実行パスが移動します。   
+    [REGION:lightbox]
+    [![](AR_BlueprintHitTests_WorldHitTest.png)](AR_BlueprintHitTests_WorldHitTest.png)
+    [/REGION]
+    [REGION:caption]
+    クリックしてフルサイズで表示
+    [/REGION]  
+    [REGION:lightbox]
+    [![](AR_WorldHitTest.png)](AR_WorldHitTest.png)
+    [/REGION]
+    [REGION:caption]
+    クリックしてフルサイズで表示
+    [/REGION]
+  
+*   **Test If User Touched Tracked Geometry, Spawn Object**
+    **Line Trace Tracked Objects** は、新しい AR 用関数で、トラックされたオブジェクト (AR 追跡システムによって認識されるジオメトリ) に対するライン トレース テストを行います。 **Line Trace Tracked Objects** は、カメラからの距離でソートされた結果のリストを返します。この場合、戻り値が  *0 より大きい場合* (トラックされたオブジェクトにヒットした場合)、 **AR Hit Result** が呼び出され、 **Debug Menu** アイテムの 1 つがアップデートされます。そして、 **Spawn Actor BP Placeable** が呼び出され、ヒットした  *トラックされた* 場所にポーンを作成します。戻り値にヒットの結果が含まれていない場合(トラックされたオブジェクトにヒットしなかった場合)、 **AR Hit Result** が呼び出され、 **Debug Menu** のアイテムの 1 つがアップデートされます。   
+    [REGION:lightbox]
+    [![](AR_BlueprintHitTests_ARHitTest.png)](AR_BlueprintHitTests_ARHitTest.png)
+    [/REGION]
+    [REGION:caption]
+    クリックしてフルサイズで表示
+    [/REGION]
+
+[REGION:tip]
+このプロジェクトのアクションの多くは、この特定のプロジェクトに固有の、アプリケーションの **Debug Menu** を更新することになります。もちろん、要求されれば、どんな方法でもライン トレースからヒット データを使用することもできます。ここでの違いは、 **Line Trace Tracked Object** には、 AR のトラックされたジオメトリを検出して反応する能力があるということです。
+[/REGION]
+
+### その他の AR 機能を探る
+
+** ハンドヘルド AR ** ブループリント テンプレートに基づいてプロジェクトを調べることで、さまざまな AR 用の機能が実際にどのようなコンテキストで使用されているかについて、知ることができます。新しい AR 用の機能が数多く用意されていますので、プロジェクトを分析して、実装の詳細について調べてみてください。 
+
+[REGION:tip]
+プロジェクトで新しい AR 機能を試すには、 **[Content Browser]** を開き、 **Content\\HandheldARBP\\Blueprints\\UI** に移動し、 **Blueprint Editor** の **[BP_DebugMenu]** を開きます。
+[/REGION]

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -12,11 +12,12 @@
 class FArchiveCountMem : public FArchiveUObject
 {
 public:
-	FArchiveCountMem( UObject* Src )
+	FArchiveCountMem( UObject* Src, bool bFilterEditorOnly = false )
 	:	Num(0)
 	,	Max(0)
 	{
 		ArIsCountingMemory = true;
+		ArIsFilterEditorOnly = bFilterEditorOnly;
 		if( Src )
 		{
 			Src->Serialize( *this );

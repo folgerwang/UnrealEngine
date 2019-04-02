@@ -1,34 +1,34 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Network/DisplayClusterServer.h"
 #include "Sockets.h"
 
-class FDisplayClusterSession;
+class FDisplayClusterSessionBase;
 struct FIPv4Endpoint;
 
 
 /**
- * Abstract DisplayCluster server
+ * Abstract DisplayCluster service
  */
 class FDisplayClusterService
 	: public FDisplayClusterServer
 {
 public:
-	FDisplayClusterService(const FString& name, const FString& addr, const int32 port);
+	FDisplayClusterService(const FString& InName, const FString& InAddr, const int32 InPort);
 
 public:
-	static bool IsClusterIP(const FIPv4Endpoint& ep);
+	static bool IsClusterIP(const FIPv4Endpoint& InEP);
 
 protected:
-	virtual bool IsConnectionAllowed(FSocket* pSock, const FIPv4Endpoint& ep) override;
+	virtual bool IsConnectionAllowed(FSocket* InSocket, const FIPv4Endpoint& InEP) override;
 
 protected:
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	// IDisplayClusterSessionListener
 	//////////////////////////////////////////////////////////////////////////////////////////////
-	virtual void NotifySessionOpen(FDisplayClusterSession* pSession) override;
-	virtual void NotifySessionClose(FDisplayClusterSession* pSession) override;
+	virtual void NotifySessionOpen(FDisplayClusterSessionBase* InSession) override;
+	virtual void NotifySessionClose(FDisplayClusterSessionBase* InSession) override;
 };
 

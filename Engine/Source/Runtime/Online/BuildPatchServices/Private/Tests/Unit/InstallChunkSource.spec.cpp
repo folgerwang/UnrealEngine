@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Misc/AutomationTest.h"
 #include "Tests/TestHelpers.h"
@@ -175,8 +175,7 @@ void FInstallChunkSourceSpec::Define()
 							for (TPair<FString, FBuildPatchAppManifestRef>& InstallationSourcePair : InstallationSources)
 							{
 								FMockManifest* MockInstallationManifest = (FMockManifest*)&InstallationSourcePair.Value.Get();
-								MockInstallationManifest->ChunkHashes.Remove(SomeChunk);
-								MockInstallationManifest->ChunkShaHashes.Remove(SomeChunk);
+								MockInstallationManifest->ChunkInfos.Remove(SomeChunk);
 							}
 						});
 
@@ -194,7 +193,10 @@ void FInstallChunkSourceSpec::Define()
 							for (TPair<FString, FBuildPatchAppManifestRef>& InstallationSourcePair : InstallationSources)
 							{
 								FMockManifest* MockInstallationManifest = (FMockManifest*)&InstallationSourcePair.Value.Get();
-								MockInstallationManifest->ChunkShaHashes.Remove(SomeChunk);
+								if (MockInstallationManifest->ChunkInfos.Contains(SomeChunk))
+								{
+									FMemory::Memzero(MockInstallationManifest->ChunkInfos[SomeChunk].ShaHash.Hash, FSHA1::DigestSize);
+								}
 							}
 						});
 
@@ -459,8 +461,14 @@ void FInstallChunkSourceSpec::InventUsableChunkData()
 			}
 			ChunkPolyHash = FRollingHash::GetHashForDataSet(ChunkData.GetData(), ChunkData.Num());
 			FSHA1::HashBuffer(ChunkData.GetData(), TestChunkSize, ChunkShaHash.Hash);
-			MockInstallationManifest->ChunkHashes.Add(ProducibleChunk, ChunkPolyHash);
-			MockInstallationManifest->ChunkShaHashes.Add(ProducibleChunk, ChunkShaHash);
+			FChunkInfo ChunkInfo;
+			ChunkInfo.Guid = ProducibleChunk;
+			ChunkInfo.Hash = ChunkPolyHash;
+			ChunkInfo.ShaHash = ChunkShaHash;
+			ChunkInfo.GroupNumber = 0;
+			ChunkInfo.WindowSize = TestChunkSize;
+			ChunkInfo.FileSize = TestChunkSize;
+			MockInstallationManifest->ChunkInfos.Add(ProducibleChunk, ChunkInfo);
 		}
 	}
 }

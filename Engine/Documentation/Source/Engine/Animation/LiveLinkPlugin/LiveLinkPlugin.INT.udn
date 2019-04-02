@@ -1,0 +1,235 @@
+Availability: Public
+Crumbs: 
+Title: Live Link Plugin
+Description: Describes how to enable and use the Live Link Plugin and features within the animation system in Unreal Engine 4. 
+Type:landing
+Version: 4.19
+Parent: Engine/Animation
+Order: 1
+Tags: Animation, Animation Tools, Live Link
+
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    NRfZXRmHKtU
+    [/PARAMLITERAL]
+[/OBJECT]
+
+The purpose of Live Link is to provide a common interface for streaming and consuming animation data from external sources (for example, DDC tools or Mocap Servers) into Unreal Engine 4 (UE4). It is designed to be extensible through Unreal Plugins allowing third parties to develop new features with hopefully no need to make and then maintain Engine changes.
+
+With DDC tools like Maya or Motionbuilder, Live Link provides a way for you to edit animations externally while seeing a preview of your work inside UE4 in real-time. Motion Capture Systems can also use Live Link to stream data into the Engine which can be previewed in real-time.
+
+## Live Link Client
+
+![](LiveLinkGraph-3.png)
+
+The Hub of Live Link is the **Live Link Client**. The client is created when the Live Link plugin is enabled inside a project and has two main responsibilities:  
+
+1.  **Manage Sources**: These are the source of animation data and mostly represent connections to other applications, either on the same machine or across the network, that provide animation data to Live Link.
+2.  **Manage Subjects**: Subjects are individual streams of data within the client. One animating character would be a subject for instance.  
+      
+    A subject is made up of the following data:
+    1.  A name
+    2.  A reference skeleton (names and hierarchy of bones)
+    3.  A curve key (names of curves in order)
+    4.  1 or more “frames”
+        1.  Each frame contains a list of transforms for bones (matching the reference skeleton order) and a list of float values for curves (matching the curve key).
+    
+
+The client is also responsible for building up the next frame of data to be used by the Engine. This can either be a straight copy of the latest received data or an interpolated frame created by buffering the incoming data and playing it back with a user definable delay.  
+
+**Sources**  
+
+Sources are how data gets into the Live Link client. Sources can be defined within plugins so that third parties can build their own without having to change Engine code. Sources are responsible for managing how they receive the animation data (over a network protocol for example, or reading from an API for a device connected to the machine itself). Each source is handed a reference to the client to allow it to pass data to it.
+
+Within the Live Link plugin we have defined our own source (called the **Message Bus Source**) that reads data from an Unreal Message Bus connection. We have used this to build Live Link plugins for Maya and Motionbuilder.
+
+## Enabling Live Link
+
+The Live Link plugin can be enabled by opening the Plugins window (**Edit > Plugins**), selecting the **Animation** category and selecting **Enabled** on the Live Link Plugin.
+
+![](Step_02-1.png)
+
+Once enabled the Live Link client can be accessed from the **Window** menu.
+
+![](EnableLink_1-1.png)
+
+The Live Link window will open where you can add Source Types and Subjects.
+
+![](LiveLinkWindow.png)
+
+Above we can see the Live Link client with an open connection to an instance of Maya running our plugin (top left section). That instance is sending two subjects to the editor, named “EditorActiveCamera” and a subject called “Maya” (bottom left section).
+
+**Interpolation Settings**
+
+When adding a Source Type, you can **Use Interpolation** to apply a defined **Interpolation Offset** from the **Details** panel.
+
+![](LiveLinkConnected-1.png)
+
+Enable the Use Interpolation setting to set the connection to use the specified Interpolation Offset value. When interpolating, this value determines how far back from the current time should the system read the buffer (in seconds).
+
+## Editor Integration
+
+Currently, the Animation Editor has a built-in integration with Live Link. This is accessed in the **Preview Scene Settings** tab under the **Preview Controller** property.
+
+![](PreviewSceneSettings-3.png)
+
+When the Live Link plugin is enabled, the Preview Controller option can be changed to **Live Link Preview Controller**. Once selected, you can set the following options:
+
+*   **Subject Name** - The name of the subject in Live Link you would like to apply to the Preview Mesh.
+*   **Enable Camera Sync** - Enables syncing of the Unreal Editor camera with an external editor. Internally this looks at Live Link for a subject called **EditorActiveCamera**. Both our internally developed Maya and Motionbuilder plugins support this.
+*   **Retarget Asset** - This specifies the Retarget Asset to apply to the Live Link data that will be applied to the Preview Mesh.
+
+Below we have an established connection between UE4 and Maya, using the Maya Live Link Plugin.
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    RHJpSyS_EIw
+    [/PARAMLITERAL]
+[/OBJECT]
+
+## Live Link Retargeting
+
+Live Link retargeting is currently performed by retargeting assets (Base class ULiveLinkRetargetAsset). The Live Link pose node has a pin for specifying the retarget asset to use. We provide a very simple remap asset (ULiveLinkRemapAsset) to allow mapping of transforms from Live Link on to a USkeleton. Below is an example of how to implement a retargeting asset.
+
+A Live Link Retarget Asset has one function it needs to override:
+
+    BuildPoseForSubject(const FLiveLinkSubjectFrame& InFrame, TSharedPtr<FLiveLinkRetargetContext> InOutContext, FCompactPose& OutPose, FBlendedCurve& OutCurve)
+
+This function takes:
+
+*   A LiveLinkSubjectFrame - the transform/skeleton as Live Link sees it, optionally buffered and interpolated.
+*   A FLiveLinkRetargetContext - Allows for retargeting instance data, as the ULiveLinkRetargetAsset will not be instanced for each use (can be customized by overriding CreateRetargetContext).
+*   An FCompactPose - This is the output pose from the retargeting FCompactPose is the format we use during animation evaluation.
+*   An FBlendedCurve - This is the output curve data. ULiveLinkRetargetAsset has a helper function BuildCurveData which will populate this from the supplied Live Link data.
+
+Retarget Assets can be Blueprintable as well, allowing users to specify logic in Editor (where appropriate). This functionality is used by the Remap Asset to allow bone names to be transformed in the Editor.
+
+**Live Link Remap Asset**
+
+  
+An example of what is required to create a new retarget asset can be found in the editor by looking at the following classes in /Engine/Plugins/Animation/LiveLink/Source/LiveLink:
+
+*   ULiveLinkRetargetAsset
+*   ULiveLinkRemapAsset  
+    
+
+In Editor, Remap Assets can be created by using the **LiveLinkRemapAsset** class type.  
+  
+
+![](RemapBlueprint-3.png)
+
+ Inside the remap asset, you can override the function **Get Remapped Bone Name**.
+
+  
+
+![](RemapBlueprint2.png)
+
+ This will enable you to transform the Bone Name in Editor.
+
+  
+
+![](GetRemappedBone.png)
+
+ In the example above, we are taking in Bone Name information from a Skeletal Mesh in Maya. That data is then being modified and mapped to the Bone Name naming convention in UE4.
+
+For example in Maya, the naming convention used refers to our Bone Names as *CharacterName:BoneName.* In UE4, the Skeleton Asset uses just the *BoneName* portion. In order for Maya to stream data to the UE4 Skeleton, we use the Remap Asset and override the function **Get Remapped Bone Name** by splitting the string at the colon and only taking the string information following the colon, so just *BoneName* instead of *CharacterName:BoneName.*
+
+
+In the **Preview Scene Settings** window, we then specify to use the Retarget Asset.  
+  
+
+![](RemapBlueprint3.png)
+
+## Additional Live Link Usage
+
+In addition to previewing from external sources, you can use Live Link Data in the following different ways:
+
+### Animation Blueprint  
+
+Data from Live Link can be applied directly inside Animation Blueprints:  
+  
+
+![](AnimBPLiveLink.png)
+
+This is achieved by creating a **Live Link Pose** node inside the AnimGraph of an Animation Blueprint. The node has 2 properties:
+
+*   **Subject Name** - The name of the subject in live link to stream data from
+*   **Retarget Asset** - The Retarget Asset to use to apply the data from Live Link to the Skeleton that the animation blueprint uses.
+
+The output of the Live Link Pose node is a normal pose like any other pose node in an Anim Blueprint and therefore can be manipulated like other poses (fed into Modifier or Blend nodes for instance).
+
+### Motion Controllers
+
+Live Link can be used with Motion Controllers. The motion source property of a motion controller can be set to a subject within Live Link.  
+  
+
+![](MotionController.png)
+
+When set in this way, the position of the Motion Controller component is governed by the first transform of the subject.
+
+  
+The Motion Controller integration can also access custom parameters on the Live Link subject. These are passed by the curve support built into Live Link subjects. To access the values, it is necessary to derive a new blueprint from MotionControllerComponent and override the OnMotionControllerUpdated function. During OnMotionControllerUpdated it is valid to call GetParameterValue on the motion controller
+
+Below is an example of a possible way to drive a light component’s intensity from an Intensity parameter in Live Link:  
+  
+
+![](LiveLinkAnimMotionControllers.png)
+
+## Plugin Development
+
+There are two paths for integrating in Live Link:   
+
+*   Building an Unreal Engine plugin that exposes a new Source to Live Link.
+
+This is the recommended approach for anyone that already has there own streaming protocol.
+
+*   Integrating a Message Bus endpoint in third-party software to allow it to act as a data transmitter for the built in Message Bus Source.
+
+This is the approach we have taken for our Maya and Motionbuilder plugins.
+
+[REGION:note]
+For more information, please see the [](Engine/Animation/LiveLinkPlugin/LiveLinkPluginDevelopment) page.
+[/REGION]
+
+## Maya Live Link Plugin
+
+Prebuilt binaries of the Maya Live Link plugin are supplied with the Engine and can be found in your Engine’s installation folder under **Engine\Extras\MayaLiveLink\LiveLinkMaya.zip**. Inside the zip file are binaries for Maya 2016/2017 and 2018 for Windows. If you require binaries for other versions, the source code for the plugin can be found in (**Engine\Source\Programs\MayaLiveLinkPlugin**). This can be used to build the binaries. 
+
+[REGION:warning]
+When 4.19 was deployed, the Maya Live Link plugin was not included in the Engine\Extras\MayaLiveLink folder as it should have been. Until a hotfix has been deployed to address this, you can use [THIS LINK](https://epicgames.app.box.com/s/awdz97dguh6k61opwy66ovfhn3gpk1hg) to download the content.
+[/REGION]
+
+The Maya plugin is supplied in the Maya Module format. To install the plugin, copy the contents of the correct versioned folder within the zip file to your Maya Module folder.
+
+[REGION:note]
+Please see the Maya documentation for an explanation of modules.
+[/REGION]
+
+Once the Live Link plugin is installed in Maya and enabled, it will automatically show as a connection in the Unreal Editor. A window can be opened within Maya to access the streaming settings. This is spawned by the MEL command MayaLiveLinkUI and can be bound to a toolbar button.
+
+![](MayaLiveLinkUI.png)  
+
+At the top right is a display that shows whether this instance of Maya is connected to an Unreal client. Below Unreal Engine Live Link, is a list of all the subjects currently being streamed (in the image above, only one is being streamed) and in the lower window, controls for adding and removing subjects from streaming is available. Adding works by selecting an item to stream from the Maya scene, typing a name for the subject into the text box and clicking **Add Subject**.
+
+For a step-by-step guide on how to set up the Maya Live Link plugin, please see the [](Engine/Animation/LiveLinkPlugin/ConnectingUnrealEngine4toMayawithLiveLink) How-to guide.
+
+## Motionbuilder Live Link Plugin
+
+The Motionbuilder Plugin offers the same functionality as the Maya plugin and shows up in Editor as a connection in a similar way. It also has a custom UI for managing streaming:
+
+![](MotionBuilderLiveLinkPlugin.png)
+
+Objects can be selected from the the current scene and added to the streamed list (as shown above). From there, their names can be set in the **Subject Name** column and their **Stream Type** (Camera, Skeleton etc) can be set. Streaming on the subject can also be enabled and disabled from here.

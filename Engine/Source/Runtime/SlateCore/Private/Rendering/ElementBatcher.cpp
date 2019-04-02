@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Rendering/ElementBatcher.h"
 #include "Fonts/SlateFontInfo.h"
@@ -99,13 +99,6 @@ void FSlateElementBatcher::AddElements(FSlateWindowElementList& WindowElementLis
 void FSlateElementBatcher::AddElementsInternal(const TArray<FSlateDrawElement>& DrawElements, const FVector2D& ViewportSize)
 {
 	checkSlow(DrawLayer);
-
-	FName Elements_Boxes(TEXT("Boxes"));
-	FName Elements_Borders(TEXT("Borders"));
-	FName Elements_Text(TEXT("Text"));
-	FName Elements_ShapedText(TEXT("ShapedText"));
-	FName Elements_Lines(TEXT("Lines"));
-	FName Elements_CachedBuffer(TEXT("CachedBuffer"));
 
 	for ( int32 DrawElementIndex = 0; DrawElementIndex < DrawElements.Num(); ++DrawElementIndex )
 	{
@@ -759,7 +752,7 @@ void FSlateElementBatcher::AddTextElement(const FSlateDrawElement& DrawElement)
 					InvTextureSizeY = 1.0f / FontAtlasTexture->GetHeight();
 				}
 
-				const bool bIsWhitespace = !Entry.Valid || FText::IsWhitespace(CurrentChar);
+				const bool bIsWhitespace = !Entry.Valid || FChar::IsWhitespace(CurrentChar);
 
 				if( !bIsWhitespace && PreviousCharEntry.Valid )
 				{
@@ -927,6 +920,26 @@ void FSlateElementBatcher::AddShapedTextElement( const FSlateDrawElement& DrawEl
 
 		const bool bIsFontMaterial = FontMaterial != nullptr;
 
+		// Optimize by culling
+		bool bEnableCulling = false;
+		float LocalClipBoundingBoxLeft = 0;
+		float LocalClipBoundingBoxRight = 0;
+		if (GlyphsToRender.Num() > 200)
+		{
+			int16 ClippingIndex = DrawElement.GetClippingIndex();
+			if (ClippingStates && ClippingStates->IsValidIndex(ClippingIndex))
+			{
+				const FSlateClippingState& ClippingState = (*ClippingStates)[ClippingIndex];
+				if (ClippingState.ScissorRect.IsSet() && ClippingState.ScissorRect->IsAxisAligned() && RenderTransform.GetMatrix().IsIdentity())
+				{
+					bEnableCulling = true;
+					const FSlateRect LocalClipBoundingBox = TransformRect(RenderTransform.Inverse(), ClippingState.ScissorRect->GetBoundingBox());
+					LocalClipBoundingBoxLeft = LocalClipBoundingBox.Left;
+					LocalClipBoundingBoxRight = LocalClipBoundingBox.Right;
+				}
+			}
+		}
+
 		const int32 NumGlyphs = GlyphsToRender.Num();
 		for (int32 GlyphIndex = 0; GlyphIndex < NumGlyphs; ++GlyphIndex)
 		{
@@ -938,6 +951,23 @@ void FSlateElementBatcher::AddShapedTextElement( const FSlateDrawElement& DrawEl
 				 
 				if (GlyphAtlasData.Valid)
 				{
+					const float X = LineX + GlyphAtlasData.HorizontalOffset + GlyphToRender.XOffset;
+					// Note PosX,PosY is the upper left corner of the bounding box representing the string.  This computes the Y position of the baseline where text will sit
+
+					if (bEnableCulling)
+					{
+						if (X + GlyphAtlasData.USize < LocalClipBoundingBoxLeft)
+						{
+							LineX += GlyphToRender.XAdvance;
+							LineY += GlyphToRender.YAdvance;
+							continue;
+						}
+						else if (X > LocalClipBoundingBoxRight)
+						{
+							break;
+						}
+					}
+
 					if (FontAtlasTexture == nullptr || GlyphAtlasData.TextureIndex != FontTextureIndex)
 					{
 						// Font has a new texture for this glyph. Refresh the batch we use and the index we are currently using
@@ -961,8 +991,6 @@ void FSlateElementBatcher::AddShapedTextElement( const FSlateDrawElement& DrawEl
 						InvTextureSizeY = 1.0f / FontAtlasTexture->GetHeight();
 					}
 
-					const float X = LineX + GlyphAtlasData.HorizontalOffset + GlyphToRender.XOffset;
-					// Note PosX,PosY is the upper left corner of the bounding box representing the string.  This computes the Y position of the baseline where text will sit
 
 					const float Y = LineY - GlyphAtlasData.VerticalOffset + GlyphToRender.YOffset + MaxHeight + TextBaseline;
 					const float U = GlyphAtlasData.StartU * InvTextureSizeX;
@@ -1937,8 +1965,18 @@ void FSlateElementBatcher::AddBorderElement( const FSlateDrawElement& DrawElemen
 	RightMarginU += HalfTexel.X;
 
 	// Determine the amount of tiling needed for the texture in this element.  The formula is number of pixels covered by the tiling portion of the texture / the number number of texels corresponding to the tiled portion of the texture.
-	float TopTiling = (RightMarginX-LeftMarginX)/(TextureSizeLocalSpace.X * ( 1 - Margin.GetTotalSpaceAlong<Orient_Horizontal>() ));
-	float LeftTiling = (BottomMarginY-TopMarginY)/(TextureSizeLocalSpace.Y * ( 1 - Margin.GetTotalSpaceAlong<Orient_Vertical>() ));
+	float TopTiling = 1.0f;
+	float LeftTiling = 1.0f;
+	float Denom = TextureSizeLocalSpace.X * (1.0f - Margin.GetTotalSpaceAlong<Orient_Horizontal>());
+	if (!FMath::IsNearlyZero(Denom))
+	{
+		TopTiling = (RightMarginX - LeftMarginX) / Denom;
+	}
+	Denom = TextureSizeLocalSpace.Y * (1.0f - Margin.GetTotalSpaceAlong<Orient_Vertical>());
+	if (!FMath::IsNearlyZero(Denom))
+	{
+		LeftTiling = (BottomMarginY - TopMarginY) / Denom;
+	}
 	
 	FShaderParams ShaderParams = FShaderParams::MakePixelShaderParams( FVector4(LeftMarginU,RightMarginU,TopMarginV,BottomMarginV) );
 

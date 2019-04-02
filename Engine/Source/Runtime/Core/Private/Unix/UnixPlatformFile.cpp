@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Unix/UnixPlatformFile.h"
 #include "GenericPlatform/GenericPlatformProcess.h"
@@ -206,6 +206,20 @@ public:
 			BytesToWrite -= ThisSize;
 		}
 		return true;
+	}
+
+	virtual bool Flush(const bool bFullFlush = false) override
+	{
+		check(IsValid());
+		return bFullFlush
+			? fsync(FileHandle) == 0
+			: fdatasync(FileHandle) == 0;
+	}
+
+	virtual bool Truncate(int64 NewSize) override
+	{
+		check(IsValid());
+		return ftruncate(FileHandle, NewSize) == 0;
 	}
 
 	virtual int64 Size() override

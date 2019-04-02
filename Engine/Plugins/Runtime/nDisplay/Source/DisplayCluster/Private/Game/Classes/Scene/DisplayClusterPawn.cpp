@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "DisplayClusterPawn.h"
 
@@ -15,7 +15,6 @@
 
 #include "DisplayClusterSceneComponentSyncParent.h"
 
-#include "IPDisplayCluster.h"
 #include "Misc/DisplayClusterLog.h"
 #include "DisplayClusterSettings.h"
 #include "DisplayClusterGameMode.h"

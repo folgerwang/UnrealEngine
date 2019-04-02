@@ -1,0 +1,412 @@
+﻿INTSourceChangelist:4676176
+Availability: Public
+Crumbs: 
+Title:渲染电影设置（Render Movie Settings）
+Description:介绍渲染过场动画序列时的可用选项。
+Type: 
+Version: 4.21
+Parent: Engine/Sequencer/Workflow
+Order: 
+Tags: Sequencer
+Tags: Render Movie Settings
+
+
+![](RenderMovieBanner_02.png "RenderMovieBanner_02.png")
+
+借助Sequencer，你可以视频或图像格式渲染过场动画。你可以将场景渲染为可与他人共享的AVI视频格式，或者以BMP、EXR、JPG或PNG文件格式渲染图像。你也可以执行“自定义渲染通道（Custom Render Passes）”来渲染“底色（Base Color）”、场景深度（Scene Depth）、“次表面颜色（Subsurface Color）”等。 
+
+渲染过场动画时，有多个 **渲染电影设置（Render Movie Settings）** 可供你用来定义内容的渲染方式。本页面介绍如何访问“渲染电影设置（Render Movie Settings）”以及在此过程中可供你使用的选项。 
+
+(#rendermovieoption)
+## “渲染电影（Render Movie）”选项
+
+要访问 **渲染电影设置（Render Movie Settings）** 并渲染过场动画，首先在序列中单击 **渲染电影（Render Movie）** 选项。   
+
+![](RenderMovieButton.png "RenderMovieButton.png")
+
+单击此选项之后，**渲染电影设置（Render Movie Settings）** 窗口将打开，你可以在此窗口中定义过场动画的渲染方式。 
+
+![](MovieSettingsWindow.png "MovieSettingsWindow.png")
+
+单击 **采集电影（Capture Movie）** 按钮之后，你就可以期望的 **图像输出格式（Image Output Format）** 开启渲染过程。 
+
+![](RenderProcess.png "RenderProcess.png")
+
+你将在编辑器的右下角看到 **正在采集（Capturing）** 状态消息，以及随着内容渲染在整个内容上向前移动的 **电影渲染 - 预览（Movie Render - Preview）**。渲染完成后，你会在编辑器右下角看到 **采集完成（Capture Finished）** 状态消息。单击此状态消息中的 **打开采集文件夹（Open Capture Folder）** 选项来打开你定义为渲染保存位置的文件位置。   
+[REGION:note]
+有关渲染电影的逐步示例，请参阅[渲染过场动画电影](Engine/Sequencer/HowTo/RenderMovies)。
+[/REGION]
+
+(#capturesettings)
+## 采集设置（Capture Settings）
+
+**采集设置（Capture Settings）** 部分是你定义“图像输出格式（Image Output Format）”及“音频输出格式（Audio Output Format）”、“帧率（Frame Rate）”、“分辨率（Resolution）”以及是否应用“烧入（Burn In）”的地方。  
+
+![](CaptureSettingsSection.png "CaptureSettingsSection.png")
+
+| 属性 | 说明 |
+| --- | --- |
+| **图像输出格式（Image Output Format）** | 用于图像数据的采集协议类型。你可以渲染 [自定义渲染通道（Custom Render Passes）](Engine/Sequencer/Workflow/CustomRenderPass)、**图像序列（Image Sequences）**（BMP、EXR、JPG、PNG）或 **视频序列（Video Sequence）**（AVI）。|
+| **音频输出格式（Audio Output Format）** | 用于音频数据的采集协议类型。|
+| **帧率（Frame Rate）** | 执行采集的帧率。|
+| **分辨率（Resolution）** | 执行采集的分辨率。|
+| **使用烧入（Use Burn In）** | 是否向采集[应用“烧入（Burn In）”](Engine/Sequencer/HowTo/BurnIns)内容（例如，场景数据、时间码和镜次号）。|
+| **启用纹理流送（Enable Texture Streaming）** | [INCLUDE:#excerpt_0] |
+
+[COMMENT:none]
+[EXCERPT:excerpt_0]
+
+采集时是否应启用纹理流送（Texture Streaming）。
+
+[REGION:note]
+关闭纹理流送（Texture Streaming）可能会导致使用的内存剧增，但是也将降低采集的视频中出现模糊纹理的概率。
+[/REGION]
+
+[/EXCERPT:excerpt_0]
+[/COMMENT]
+
+(#audiooutputformat)
+### 音频输出格式（Audio Output Format）
+
+[REGION:warning]
+由于依赖试验性的“混音器（Audio Mixer）”功能，在渲染过程中导出音频这一功能目前为试验性功能。
+[/REGION]
+
+**音频输出格式（Audio Output Format）** 使用试验性的音频采集实现，该实现从Master Submix（@@@）采集最终输出。这要求使用新“混音器（Audio Mixer）”（通过命令行参数`-audiomixer`启动），而且要求序列能够实时播放（禁用渲染时）。如果序列求值卡顿，音频将变得不同步，因为实时的时间流逝（平台时间）要多于序列本身。
+
+[REGION:note]
+选择使用此试验性的音频烘焙功能渲染过场动画时，将执行单独的通道，专门用于采集音频。采集音频时，预览窗口中不会显示视频。
+[/REGION]
+
+(#videosettings)
+## 视频设置（Video Settings）
+
+选择渲染“视频序列（Video Sequence）”时，可用的 **视频设置（Video Settings）** 属性包括以下这些。   
+
+![](VideoSettings.png "VideoSettings.png")
+
+| 属性 | 说明 |
+| --- | --- |
+| **使用压缩（Use Compression）** | 渲染未压缩的视频还是应用压缩以缩小文件大小。|
+| **压缩质量（Compression Quality）** | 要应用的压缩级别，介于1（质量最差，压缩比最大）和100（质量最好，压缩比最小）之间。|
+| **视频编码解码器（Video Codec）** | 使你能够指定渲染过场动画时使用的特定视频编码解码器。|
+
+(#compositiongraphoptions)
+## 合成图选项（Composition Graph Options）
+
+将 **自定义渲染通道（Custom Render Passes）** 作为 **图像输出格式（Image Output Format）** 时的可用选项如下。 
+
+![](CompositionGraphOptions.png "CompositionGraphOptions.png")
+
+| 属性 | 说明 |
+| --- | --- |
+| **包含渲染通道（Include Render Passes）** | 要包含在采集中的渲染通道列表。将此字段保留为空将导出所有可用通道。|
+| **以HDR格式采集帧（Capture Frames in HDR）** | 是否以HDR纹理格式（*.exr格式）采集帧。|
+| **HDR压缩质量（HDRCompression Quality）** | 当启用 **以HDR格式采集帧（Capture Frames in HDR）** 时HDR帧的压缩质量（0代表不压缩，1代表默认压缩（可能会很慢））****。|
+| **采集色域（Capture Gamut）** | [INCLUDE:#excerpt_1] |
+| **材质后期处理（Post Processing Material）** | 是否将自定义[材质后期处理](Engine/Rendering/PostProcessEffects/PostProcessMaterials)用于渲染。|
+| **禁用屏幕百分比（Disable Screen Percentage）** | 是否在渲染过程中禁用[屏幕百分比](Engine/Rendering/ScreenPercentage)。|
+
+[COMMENT:none]
+
+[EXCERPT:excerpt_1]
+
+存储HDR采集数据而且启用 **以HDR格式采集帧（Capture Frames in HDR）** 时使用的颜色色域。 
+
+[REGION:note]
+色域取决于 **HDR压缩质量（HDRCompression Quality）** 是否启用。
+[/REGION]
+
+[/EXCERPT:excerpt_1]
+
+[/COMMENT]
+
+(#includingrenderpasses)
+### 包含渲染通道（Include Render Passes）
+
+渲染“自定义渲染通道（Custom Render Passes）”时，你可以渲染所有可用通道或者选择要渲染的通道。 
+
+![](IncludeRenderPasses.png "IncludeRenderPasses.png")
+
+你可以为渲染添加多个通道，每个通道都将在菜单中显示。   
+
+![](AddedRenderPasses.png "AddedRenderPasses.png")  
+
+单击 **减号（−）** 可移除任何之前添加的通道。 
+
+[REGION:note]
+有关更多信息，请参阅[导出自定义渲染通道](Engine/Sequencer/Workflow/CustomRenderPass)。
+[/REGION]
+
+(#imagesettings)
+## 图像设置（Image Settings）
+
+当以 **图像输出格式（Image Output Format）** 渲染 **图像序列** 时，**图像设置（Image Settings）** 将变得可用。   
+  
+**图像序列（EXR）**  
+
+![](ImageSettings_EXR.png "ImageSettings_EXR.png")
+
+| 属性 | 说明 |
+| --- | --- |
+| **压缩（Compressed）** | 写出压缩还是未压缩的EXR。|
+| **采集色域（Capture Gamut）** | 存储HDR采集的数据时使用的颜色色域。|
+
+**图像序列**（**JPG** 或 **PNG**）  
+
+![](ImageCompressionOnly.png "ImageCompressionOnly.png")
+
+| 属性 | 说明 |
+| --- | --- |
+| **压缩质量（Compression Quality）** | 要应用给图像的压缩级别，介于1（质量最差，压缩比最大）和100（质量最好，压缩比最小）之间。|
+
+(#generalsettings)
+## “通用（General）”设置
+
+无论渲染输出的类型为何，以下选项都可用（位于 **通用（General）** 部分下）。   
+
+![](GeneralSettings-1-1.png "GeneralSettings-1-1.png")
+
+| 属性 | 说明 |
+| --- | --- |
+| **输出目录（Output Directory）** | 将采集的文件输出至其中的目录。|
+| **文件名格式（Filename Format）** | 用于采集的文件的文件名的格式。将自动添加扩展名。都将使用相应的数值替换掉任何格式为{token}的令牌。|
+| **游戏模式覆盖（Game Mode Override）** | 要覆盖地图的默认游戏模式的“可选游戏模式（Optional Game Mode）”。如果游戏的常规模式显示你不希望采集的UI元素或者加载屏幕，这个属性非常有用。|
+| **覆盖现有（Overwrite Existing）** | 是否覆盖现有文件。|
+| **使用相对帧号（Use Relative Frame Numbers）** | 输出文件中的帧号是否应相对于零，而非原始动画内容中的实际帧号。|
+| **零填充帧号（Zero Pad Frame Numbers）** | 在文件名上要用零填充帧号的位数（如果为4，则填充在文件名前的为0000）。|
+| **使用单独进程（Use Separate Process）** | 是否在单独进程中采集电影，如是，将打开一个单独的编辑器版本来处理采集。|
+| **采集开始时关闭编辑器（Close Editor when Capture Starts）** | [INCLUDE:#excerpt_2] |
+| **附加命令行参数（Additional Command Line Arguments）** | [INCLUDE:#excerpt_3] |
+| **继承的命令行参数（Inherited Command Line Arguments）** | [INCLUDE:#excerpt_4] |
+
+[COMMENT:none]
+
+[EXCERPT:excerpt_4]
+
+从此进程继承的命令行参数。 
+
+[REGION:note]
+要使用此选项，**使用单独进程（Use Separate Process）** 必须处于启用状态。
+[/REGION]
+
+[/EXCERPT:excerpt_4]
+
+[/COMMENT]
+[COMMENT:none]
+
+[EXCERPT:excerpt_3]
+
+采集时传递给外部进程的附加命令行参数。 
+
+[REGION:note]
+要使用此选项，**使用单独进程（Use Separate Process）** 必须处于启用状态。
+[/REGION]
+
+[/EXCERPT:excerpt_3]
+
+[/COMMENT]
+[COMMENT:none]
+
+[EXCERPT:excerpt_2]
+
+启用时，编辑器将在采集开始时关闭。
+
+[REGION:note]
+要使用此选项，**使用单独进程（Use Separate Process）** 必须处于启用状态。
+[/REGION]
+
+[/EXCERPT:excerpt_2]
+
+[/COMMENT]
+
+(#filenameformattokens)
+### 文件名格式令牌
+
+可以向 **文件名格式（Filename Format）** 选项添加下列令牌来处理文件的命名规范：   
+
+| 令牌 | 说明 |
+| --- | --- |
+| **{fps}** | [INCLUDE:#excerpt_5] |
+| **{frame}** | 当前帧号（只与图像序列相关）。|
+| **{width}** | 采集的帧的宽度。|
+| **{height}** | 采集的帧的高度。|
+| **{world}** | 当前世界场景的名称。|
+| **{quality}** | 图像压缩质量设置。|
+| **{material}** | 材质/渲染通道。|
+| **{shot}** | 播放的关卡序列资源镜头的名称。|
+| **{camera}** | 当前摄像机的名称。|
+
+[COMMENT:none]
+
+[EXCERPT:excerpt_5]
+采集的帧率。
+[/EXCERPT:excerpt_5]
+
+[/COMMENT]
+
+(#sequencesettings)
+## “序列（Sequence）”设置
+
+**序列（Sequence）** 部分为渲染过程提供以下选项。  
+
+![](SequenceSection.png "SequenceSection.png")
+
+| 属性 | 说明 |
+| --- | --- |
+| **写入编辑决策列表（Write Edit Decision List）** | [INCLUDE:#excerpt_6] |
+| **写入Final Cut Pro XML（Write Final Cut Pro XML）** | 如果序列包含镜头，是否写入Final Cut Pro XML文件（XML）。|
+| **处理帧（Handle Frames）** | 要为每个镜头包含的“帧余量（Frame Handles）”。这些额外帧填充每个镜头，由EDL（或XML）文件插入和抠去，此类文件可在外部视频编辑软件包中用来调整镜头之间的切换。|
+
+[COMMENT:none]
+
+[EXCERPT:excerpt_6]
+
+如果序列包含镜头，是否写入编辑决策列表（EDL）。
+
+[REGION:note]
+请参阅 [导入和导出编辑决策列表](Engine/Sequencer/HowTo/ImportExportEDLs) 页面获取更多信息。
+[/REGION]
+
+[/EXCERPT:excerpt_6]
+
+[/COMMENT]
+
+(#cinematicsettings)
+## “过场动画（Cinematic）”设置
+
+可使用下列设置来定义采集时过场动画的播放方式。   
+
+![](CinematicSettings.png "CinematicSettings.png")
+
+| 属性 | 说明 |
+| --- | --- |
+| **过场动画引擎可延展性（Cinematic Engine Scalability）** | 是否启用“过场动画引擎可延展性（Cinematic Engine [Scalability](Engine/Performance/Scalability)）”设置。|
+| **过场动画模式（Cinematic Mode）** | 采集时是否启用“过场动画模式（Cinematic Mode）”。|
+| **允许移动（Allow Movement）** | [INCLUDE:#excerpt_7] |
+| **允许旋转（Allow Turning）** | [INCLUDE:#excerpt_8] |
+| **显示播放器（Show Player）** | [INCLUDE:#excerpt_9] |
+| **显示HUD（Show HUD）** | [INCLUDE:#excerpt_10] |
+
+[COMMENT:none]
+
+[EXCERPT:excerpt_10]
+
+采集时是否显示游戏内HUD。此设置不适用于基于UMG的HUD元素，而且它引用基于HUD类的蓝图。 
+
+[REGION:note]
+要求启用 **过场动画模式（Cinematic Mode）**。
+[/REGION]
+
+[/EXCERPT:excerpt_10]
+
+[/COMMENT]
+[COMMENT:none]
+
+[EXCERPT:excerpt_9]
+
+采集时是否显示本地播放器。 
+
+[REGION:note]
+要求启用 **过场动画模式（Cinematic Mode）**。
+[/REGION]
+
+[/EXCERPT:excerpt_9]
+
+[/COMMENT]
+[COMMENT:none]
+
+[EXCERPT:excerpt_8]
+
+采集时是否允许播放器旋转。 
+
+[REGION:note]
+要求启用 **过场动画模式（Cinematic Mode）**。
+[/REGION]
+
+[/EXCERPT:excerpt_8]
+
+[/COMMENT]
+[COMMENT:none]
+
+[EXCERPT:excerpt_7]
+
+采集时是否允许播放器移动。
+
+[REGION:note]
+要求启用 **过场动画模式（Cinematic Mode）**。
+[/REGION]
+
+[/EXCERPT:excerpt_7]
+
+[/COMMENT]
+
+(#animationsettings)
+## “动画（Animation）”设置
+
+下列选项定义采集时使用的 **动画（Animation）** 设置：   
+
+![](AnimationSettings.png "AnimationSettings.png")
+
+| 属性 | 说明 |
+| --- | --- |
+| **使用自定义起始帧（Use Custom Start Frame）** | 启用时，“起始帧（Start Frame）”设置将覆盖默认起始帧号。|
+| **起始帧（Start Frame）** | [INCLUDE:#excerpt_11] |
+| **使用自定义结束帧（Use Custom End Frame）** | 启用时，“结束帧（End Frame）”设置将覆盖默认结束帧号。|
+| **结束帧（End Frame）** | [INCLUDE:#excerpt_12] |
+| **预热帧数（Warm Up Frame Count）** | 在序列的“起始帧（Start Frame）”前播放以“预热”动画的额外帧数。如果动画中包含粒子或其他早于采集“起始帧（Start Frame）”生成到场景中的运行时效果，此属性非常有用。|
+| **预热前延迟（Delay Before Warm Up）** | [INCLUDE:#excerpt_13] |
+| **镜头预热前延迟（Delay Before Shot Warm Up）** | [INCLUDE:#excerpt_14] |
+
+[COMMENT:none]
+
+[EXCERPT:excerpt_14]
+
+在镜头边界处等待的秒数（实时）。
+
+[REGION:note]
+这有助于使后期处理效果在采集动画前稳定下来。
+[/REGION]
+
+[/EXCERPT:excerpt_14]
+
+[/COMMENT]
+[COMMENT:none]
+
+[EXCERPT:excerpt_13]
+
+开始播放预热帧前等待的秒数（实时）。
+
+[REGION:note]
+这有助于使后期处理效果在采集动画前稳定下来。
+[/REGION]
+
+[/EXCERPT:excerpt_13]
+
+[/COMMENT]
+[COMMENT:none]
+
+[EXCERPT:excerpt_12]
+
+时间字段，格式为时间码、帧和秒。
+
+[REGION:note]
+**使用自定义结束帧（Use Custom End Frame）** 启用时，使用此值。
+[/REGION]
+
+[/EXCERPT:excerpt_12]
+
+[/COMMENT]
+[COMMENT:none]
+
+[EXCERPT:excerpt_11]
+
+时间字段，格式为时间码、帧和秒。
+
+[REGION:note]
+**使用自定义起始帧（Use Custom Start Frame）** 启用时，使用此值。
+[/REGION]
+
+[/EXCERPT:excerpt_11]
+
+[/COMMENT]

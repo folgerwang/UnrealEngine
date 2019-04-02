@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MacPlatformProcess.mm: Mac implementations of Process functions
@@ -11,10 +11,12 @@
 #include "Misc/CoreDelegates.h"
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"
+#include "Apple/PreAppleSystemHeaders.h"
 #include <mach-o/dyld.h>
 #include <mach/thread_act.h>
 #include <mach/thread_policy.h>
 #include <libproc.h>
+#include "Apple/PostAppleSystemHeaders.h"
 
 void* FMacPlatformProcess::GetDllHandle( const TCHAR* Filename )
 {
@@ -88,7 +90,7 @@ FString FMacPlatformProcess::GenerateApplicationPath( const FString& AppName, EB
 	else
 	{
 		// Try expected path of an executable inside an app package in Engine Binaries
-		FString ExecutablePath = FString::Printf(TEXT("../../../Engine/Binaries/%s/%s.app/Contents/MacOS/%s"), *PlatformName, *ExecutableName, *ExecutableName);
+		FString ExecutablePath = FPaths::EngineDir() / FString::Printf(TEXT("Binaries/%s/%s.app/Contents/MacOS/%s"), *PlatformName, *ExecutableName, *ExecutableName);
 			
 		NSString* LaunchPath = ExecutablePath.GetNSString();
 		
@@ -99,7 +101,7 @@ FString FMacPlatformProcess::GenerateApplicationPath( const FString& AppName, EB
 		else
 		{
 			// Next try expected path of a simple executable file in Engine Binaries
-			ExecutablePath = FString::Printf(TEXT("../../../Engine/Binaries/%s/%s"), *PlatformName, *ExecutableName);
+			ExecutablePath = FPaths::EngineDir() / FString::Printf(TEXT("Binaries/%s/%s"), *PlatformName, *ExecutableName);
 
 			LaunchPath = ExecutablePath.GetNSString();
 
@@ -258,7 +260,7 @@ FString FMacPlatformProcess::GetGameBundleId()
 
 @end // NSAutoReadPipe
 
-bool FMacPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, int32* OutReturnCode, FString* OutStdOut, FString* OutStdErr )
+bool FMacPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, int32* OutReturnCode, FString* OutStdOut, FString* OutStdErr, const TCHAR* OptionalWorkingDirectory)
 {
 	SCOPED_AUTORELEASE_POOL;
 
@@ -301,6 +303,13 @@ bool FMacPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, in
 	if (ProcessHandle)
 	{
 		[ProcessHandle setLaunchPath: LaunchPath];
+
+		if (OptionalWorkingDirectory != NULL)
+		{
+			NSString* WorkingDirectory = (NSString*)FPlatformString::TCHARToCFString(OptionalWorkingDirectory);
+			[ProcessHandle setCurrentDirectoryPath : WorkingDirectory];
+			CFRelease((CFStringRef)WorkingDirectory);
+		}
 		
 		TArray<FString> ArgsArray;
 		FString(Params).ParseIntoArray(ArgsArray, TEXT(" "), true);
@@ -911,6 +920,18 @@ FString FMacPlatformProcess::GetCurrentWorkingDirectory()
 	return UTF8_TO_TCHAR(CurrentDir);
 }
 
+const TCHAR* FMacPlatformProcess::ExecutablePath()
+{
+	static TCHAR Result[512]=TEXT("");
+	if( !Result[0] )
+	{
+		SCOPED_AUTORELEASE_POOL;
+		NSString *NSExeName = [[NSBundle mainBundle] executablePath];
+		FPlatformString::CFStringToTCHAR( ( CFStringRef )NSExeName, Result );
+	}
+	return Result;
+}
+
 const TCHAR* FMacPlatformProcess::ExecutableName(bool bRemoveExtension)
 {
 	static TCHAR Result[512]=TEXT("");
@@ -931,19 +952,6 @@ const TCHAR* FMacPlatformProcess::GetModuleExtension()
 const TCHAR* FMacPlatformProcess::GetBinariesSubdirectory()
 {
 	return TEXT("Mac");
-}
-
-const FString FMacPlatformProcess::GetModulesDirectory()
-{
-	if ([[[[NSBundle mainBundle] bundlePath] pathExtension] isEqual: @"app"])
-	{
-		// If we're an app bundle, modules dylibs are stored in .app/Contents/MacOS
-		return [[[NSBundle mainBundle] executablePath] stringByDeletingLastPathComponent];
-	}
-	else
-	{
-		return FGenericPlatformProcess::GetModulesDirectory();
-	}
 }
 
 void FMacPlatformProcess::LaunchFileInDefaultExternalApplication( const TCHAR* FileName, const TCHAR* Parms /*= NULL*/, ELaunchVerb::Type Verb /*= ELaunchVerb::Open*/ )

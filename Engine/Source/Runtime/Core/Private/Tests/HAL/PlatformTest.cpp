@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreTypes.h"
 #include "Misc/AssertionMacros.h"
@@ -53,7 +53,7 @@ bool FPlatformVerificationTest::RunTest (const FString& Parameters)
 	check(*(uint8*)&Test == 0x12);
 #endif
 
-	FGenericPlatformMath::AutoTest();
+	FPlatformMath::AutoTest();
 
 #if WITH_EDITORONLY_DATA
 	check(FPlatformProperties::HasEditorOnlyData());

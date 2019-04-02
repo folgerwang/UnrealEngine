@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemGoogleCommon.h"
 #include "OnlineSubsystemGooglePrivate.h"
@@ -216,6 +216,11 @@ IOnlinePresencePtr FOnlineSubsystemGoogleCommon::GetPresenceInterface() const
 }
 
 IOnlineChatPtr FOnlineSubsystemGoogleCommon::GetChatInterface() const
+{
+	return nullptr;
+}
+
+IOnlineStatsPtr FOnlineSubsystemGoogleCommon::GetStatsInterface() const
 {
 	return nullptr;
 }

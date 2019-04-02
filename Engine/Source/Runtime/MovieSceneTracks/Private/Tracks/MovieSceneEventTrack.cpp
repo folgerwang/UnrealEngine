@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieSceneEventTrack.h"
 #include "MovieSceneCommonHelpers.h"
@@ -21,6 +21,11 @@ void UMovieSceneEventTrack::AddSection(UMovieSceneSection& Section)
 	Sections.Add(&Section);
 }
 
+
+bool UMovieSceneEventTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneEventSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneEventTrack::CreateNewSection()
 {

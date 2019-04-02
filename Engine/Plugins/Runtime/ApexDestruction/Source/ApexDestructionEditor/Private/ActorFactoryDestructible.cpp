@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ActorFactoryDestructible.h"
 #include "DestructibleActor.h"
@@ -160,7 +160,7 @@ UObject* UDestructibleMeshFactory::FactoryCreateBinary
 	FFeedbackContext*	Warn
 )
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, FileType);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, Class, InParent, Name, FileType);
 
 	// The return value
 	UDestructibleMesh* DestructibleMesh = nullptr;
@@ -173,7 +173,7 @@ UObject* UDestructibleMeshFactory::FactoryCreateBinary
 		DestructibleMesh = ImportDestructibleMeshFromApexDestructibleAsset(InParent, *ApexDestructibleAsset, Name, Flags, nullptr);
 		if (DestructibleMesh != nullptr)
 		{
-			FEditorDelegates::OnAssetPostImport.Broadcast(this, DestructibleMesh);
+			GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, DestructibleMesh);
 
 			// Success
 			DestructibleMesh->PostEditChange();

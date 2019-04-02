@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // Enums used in both hlslcc and the common shader compiler modules in the Engine.
 
 #pragma once
@@ -59,6 +59,11 @@ enum EHlslCompileFlag
 	HLSLCC_ExpandUBMemberArrays = 0x20000 | HLSLCC_FlattenUniformBuffers,
 	// Use a single uniform block struct for all global uniform parameters while preserving names, implies PackUniformsIntoUniformBuffers
 	HLSLCC_PackUniformsIntoUniformBufferWithNames = 0x40000 | HLSLCC_PackUniformsIntoUniformBuffers,
+	// Doesn't promote vec3->vec4 when packing globals
+	HLSLCC_RetainSizes = 0x80000 | HLSLCC_PackUniforms,
+	/* Only call Validate instead of OptimizeAndValidate in FHlslCrossCompilerContext::RunBackend.
+	 * BE VERY CAREFUL WITH THIS. IT MAY RESULT IN BAD OR SLOW CODE BEING GENERATED. */
+	HLSLCC_DisableBackendOptimizations = 0x100000,
 };
 
 /**

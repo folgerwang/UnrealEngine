@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -117,7 +117,7 @@ public:
 	/**
 	* Releases as much memory as possible. Must be called from the main thread.
 	*/
-	virtual void Trim()
+	virtual void Trim(bool bTrimThreadCaches)
 	{
 	}
 

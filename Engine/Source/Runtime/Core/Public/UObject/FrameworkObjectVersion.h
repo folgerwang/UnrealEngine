@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreTypes.h"
@@ -118,6 +118,9 @@ struct CORE_API FFrameworkObjectVersion
 
 		// Custom event and non-native interface event implementations add 'const' to reference parameters
 		EditableEventsUseConstRefParameters,
+
+		// No longer serialize the legacy flag that indicates this state, as it is now implied since we don't serialize the skeleton CDO
+		BlueprintGeneratedClassIsAlwaysAuthoritative,
 
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,

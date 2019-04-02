@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineIdentityGoogleCommon.h"
 #if USES_RESTFUL_GOOGLE
@@ -229,12 +229,6 @@ FOnlineIdentityGoogleCommon::FOnlineIdentityGoogleCommon(FOnlineSubsystemGoogle*
 	{
 		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("Missing ClientSecret= in [OnlineSubsystemGoogle] of DefaultEngine.ini"));
 	}
-}
-
-const FUniqueNetId& FOnlineIdentityGoogleCommon::GetEmptyUniqueId()
-{
-	static TSharedRef<const FUniqueNetIdGoogle> EmptyUniqueId = MakeShared<const FUniqueNetIdGoogle>(FString());
-	return *EmptyUniqueId;
 }
 
 TSharedPtr<FUserOnlineAccount> FOnlineIdentityGoogleCommon::GetUserAccount(const FUniqueNetId& UserId) const

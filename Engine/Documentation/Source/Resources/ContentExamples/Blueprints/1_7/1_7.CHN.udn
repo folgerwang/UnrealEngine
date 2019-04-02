@@ -1,7 +1,8 @@
-﻿Availability: Public
-Title:1.7 -流程控制
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:1.7——流程控制
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Blueprints
-Description:蓝图示例关卡概述，示例1.7： 流程控制
+Description:蓝图关卡实例1.7概览：流程控制
 Related: Engine/Blueprints/Overview 
 Related: Engine/Blueprints/UserGuide/Components
 Related: Engine/Blueprints/UserGuide/Variables
@@ -10,6 +11,23 @@ Related: Engine/Blueprints/UserGuide/Types/MacroLibrary
 Related: Engine/Animation/AnimBlueprints/EventGraph
 Related: Engine/Blueprints/UserGuide/UserConstructionScript
 Related: Gameplay/HowTo/SetUpInput/Blueprints
+Version: 4.9
+
+[VAR:Steps]
+[OBJECT:Navigation]
+	[PARAM:previous]
+		[Previous Example](Resources/ContentExamples/Blueprints/1_6 "%Resources/ContentExamples/Blueprints/1_6:title%")
+	[/PARAM]
+	[PARAM:current]
+	[/PARAM]
+	[PARAM:home]
+		[Blueprint Content Examples Home](Resources/ContentExamples/Blueprints)
+	[/PARAM]
+	[PARAM:next]
+	[/PARAM]
+[/OBJECT]
+[/VAR]
+
 
 
 
@@ -33,42 +51,48 @@ Related: Gameplay/HowTo/SetUpInput/Blueprints
 [REGION:fullwidth]
 ![](1.7Overview.png)
 
-## 概述
 
-本例中我们显示几个不同类型的流程控制。流程控制节点是对您蓝图脚本中流程执行提供明确控制的一种方式。存在许多不同类型的流程控制，例如：
 
-* Branch（分支）- 让您可以基于布尔值的结果来执行两个脚本之一。
-* Sequence（序列）- 让任意数量的脚本以特定顺序来执行。
-* Switch（切换）- 使得执行路径可基于枚举的结果来被选择。
+此例展示了数个不同类型的 **流程控制**。流程控制节点可对蓝图脚本中的执行流程进行显式控制。存在不同类型的流程控制，例如：
 
-还有许多其它类型可用，您可以在创建蓝图时在流程控制分类下找到它们。
+* **分支（Branch）**——允许基于布尔值的结果执行一对脚本。
+* **序列（Sequence）**——允许任意数量的脚本以特定排序执行。
+* **切换（Switch）**——允许基于列举的结果选择执行路径。
 
-## 构建脚本
+有多种可用的其他类型，创建蓝图时可在“流程控制”类目下找到。
 
-本示例的构建脚本创建并设置动态材质示例，然后使用分支流程控制节点以确定应用到动态材质的颜色。该分支由一个名称为 _Branch Condition_ 的布尔变量来驱动，该变量为公共变量并且可在 **细节** 面板内进行编辑。
+(#constructionscript)
+
+## 构造脚本
+
+此例的构造脚本创建并设置一个动态材质实例，然后使用一个Branch Flow Control节点来决定应用到动态材质的颜色。分支由一个命名为Branch Condition的布尔变量来驱动。此变量已公开，可在 **细节** 面板中进行编辑。
 
 [REGION:lightbox]
 [![](1.7Construction.png)](1.7Construction.png)
 [/REGION]
 
+(#eventgraph)
+
 ## 事件图表
 
-事件图表使用几种不同类型的流程控制。这包括：
+事件图表使用数个不同类型的流程控制。它们包括：
 
-* Sequence（序列），它会按顺序执行所有其它操作。当您有一个一对多的关系，即一个事件需要执行许多其它任务时，序列流程控制很有用。
-* Branch（分支），它是通过 _Branch Condition_ （分支状态）变量进行控制的。
-*  Switch on Enum(基于枚举切换），它基于枚举的结果控制硬币移动的方向（水平或垂直）。
-* Do N（运行N次），以特定次数生成粒子特效。
+* **序列（Sequence）**，按顺序执行所有其他操作。在拥有一对多的关系（一个事件需要执行多个不同内容）时此方法十分实用。
+* **分支（Branch）**，通过Branch Condition变量进行控制。
+* **开启列举（Switch on Enum）**，基于列举的结果控制硬币移动的方向（水平或垂直）。
+* **Do N**，将一个粒子效果生成特定次。
 
-### 创建枚举
+(#creatingenumerations)
 
-枚举就是一系列选项，其中的每个条目都可以被赋予特定名称。当您需要提供更多描述性标签而不仅仅是一个数字的特定选项时，这就很有用了。比方说，您在创建角色姿势的枚举时有以下选项：
+### 创建列举
+
+**列举** 是选项的列表，其中每个条目均可赋予一个特定的命名。需要为特定选项提供描述性更强的标签（而非只是一个数字）时，其十分实用。举例而言，可为拥有以下选项的角色实例创建一个列举：
 
 * 站立
-* 蹲下
-* 匍匐
+* 蹲伏
+* 俯卧
 
-枚举可通过在 **内容浏览器** 中 **点击右键** 并从关联菜单中选择 **Miscellaneous > Enumeration** （其它>枚举）来创建。您可通过 **双击** 它们从而在枚举编辑器中对它们进行编辑。在枚举编辑器中，您可以添加需出现在您的枚举中的不同条目。
+在内容浏览器中 **点击右键** 并从快捷菜单中选择 **蓝图（Blueprints） > 列举（Enumeration）** 即可创建列举。对其进行 **双击** 即可在 **列举编辑器** 中进行编辑。可在此编辑器中添加要在列举中显示的诸多条目。
 
 ![](EnumEditor.png)
 

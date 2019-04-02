@@ -1,55 +1,27 @@
-﻿INTSourceChangelist:2911162
+﻿INTSourceChangelist:3746172
 Title:在 VR 模式中进行世界场景导航
 Description:学习如何在 VR 模式中工作时进行世界场景导航。
 Crumbs:
 Availability: public
 parent:Engine/Editor/VR
-type: howto
-order:3
-tags:VR
-tags:Level Editing
-version:4.11
+type:how-to
+order: 3
+tags: VR
+tags: Level Editing
+version: 4.17
 skilllevel: intermediate
+topic-image:movement_grid.png
+prereq:Engine/Editor/VR/ActivateVRMode
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Editor/VR/WorldInteraction:title%](Engine/Editor/VR/WorldInteraction/worldinteraction.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Editor/VR/WorldInteraction:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Editor/VR/WorldInteraction]
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Editor/VR/WorldInteraction:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Editor/VR/WorldInteraction:title%](Engine/Editor/VR/WorldInteraction/worldinteraction.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Editor/VR/WorldInteraction:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Editor/VR/WorldInteraction]
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Editor/VR/WorldInteraction:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+[TOC(start:1 end:4)]
 
 [EXCERPT:main]
 
+(#MovingtheWorld)
 ## 移动世界场景
 
-如需在 VR 编辑器中移动世界场景，必须长按任一控制器的侧边键启动移动模式。长按侧边键之后，世界场景上将出现网格图案，说明移动模式已启动。
+如需在 VR 模式中移动世界场景，必须长按任一控制器的侧边键启动移动模式。长按侧边键之后，世界场景上将出现网格图案，说明移动模式已启动。
 
 ![](movement_grid.png)(w:640)
 
@@ -69,6 +41,7 @@ skilllevel: intermediate
 
 	![](teleport_move.png)(h:320)
 
+(#RotatingtheWorld)
 ## 旋转世界场景
 
 1. 按下两个控制器上的侧边键。
@@ -78,6 +51,7 @@ skilllevel: intermediate
 	![](rotate_world.png)
 
 
+(#ScalingtheWorld)
 ## 缩放世界场景
 
 可对世界场景进行缩放，以便放置和操作 Actor。

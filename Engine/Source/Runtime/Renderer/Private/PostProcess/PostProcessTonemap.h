@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessTonemap.h: Post processing tone mapping implementation, can add bloom.
@@ -162,7 +162,7 @@ public:
 			uint8 FrameIndexMod8 = 0;
 			if (Context.View.State)
 			{
-				FrameIndexMod8 = Context.View.State->GetFrameIndexMod8();
+				FrameIndexMod8 = Context.View.ViewState->GetFrameIndex(8);
 			}
 			GrainRandomFromFrame(&GrainRandomFullValue, FrameIndexMod8);
 		}

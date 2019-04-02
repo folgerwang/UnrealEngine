@@ -1,0 +1,342 @@
+﻿INTSourceChangelist:4523760
+Availability: Public
+Crumbs: 
+Title: Datasmith メタデータの使用
+Description: Unreal でのアセットに関するカスタム メタデータを取得する方法、エディタで、およびランタイム時にメタデータを処理するためにブループリントおよび Python スクリプティングを使用する方法について説明します。
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/Overview
+Order: 6
+Tags: Metadata
+Tags: Datasmith
+Tags: Guides
+topic-image:datasmith-metadata-topic.png
+
+
+![Datasmith メタデータの使用](datasmith_metadata_banner.png "Datasmith メタデータの使用")
+
+Datasmith インポータは処理対象のオブジェクトに関する *メタデータ* を自動的に取り込むことができます。このメタデータは 3D デザインまたは CAD アプリケーションで各オブジェクトに対してセットアップした情報です。アセットが表す、機械部分や建築要素に関する実世界の情報 (ピースのコスト、構成している素材、重量や断熱性能など物理特性、パーツに適用できる最大トルクなどの使用上の情報など) を保存するためにメタデータはもっともよく使用されます。メタデータは、アセットに関してプロジェクトで必要になる可能性がある他の種類の情報を保存するために使用することもできます。
+
+Unreal Engine と Unreal Editor でこのメタデータを利用できるようにすると、次の 2 つの点で役に立ちます。
+
+* **アセット パイプライン内** - アセットをインポートし、レベルをセットアップするときにメタデータを使用できます。これは異なる処理が必要な他の種類のアセットとアクタを区別するために役に立ちます。例：
+    * 最終シーンで必要ない特定の種類のアセットを識別するために Datasmith インポート プロセス中にメタデータを使用できるため、それらのインポートを省略することができます。
+    * インポートすると、マージ、結合、置換する、あるいはそのマテリアルを置換する、アクタをレベルで識別するために使用できます。
+* **ゲームのランタイム時** - ソース デザイン ツールから取得する、アクタに関する選択した情報をユーザーに示すためランタイム時にメタデータを使用できます。例：
+    * レベルのオブジェクトに、構造プロパティに関する情報を含む BIM データがあるとき、場合によりプレイヤーがシーンでそれらのオブジェクトを選択すると、インタラクティブ体験でその情報を可視化する必要があります。
+    * あるいは、プロジェクトが、プレイヤーが異なるデザイン オプションを選択できる製品コンフィギュレーターであるとき、場合によりプレイヤーがその時点で選択した可視アセットに割り当てられるコスト メタデータに基づいてコストの中間結果を、ゲームプレイ ロジックで計算し表示する必要があります。
+
+このページでは Datasmith インポート プロセスを通じて Unreal にメタデータを取り込む方法、エディタで、およびランタイム時にスクリプトでアクセスする方法について説明します。
+
+## メタデータ ソース
+
+現在 Datasmith は次のデザイン ツールからメタデータをインポートします。
+
+* [Autodesk 3ds Max](#autodesk3dsmax)
+* [Dassault Systèmes Solidworks](#dassaultsystèmessolidworks)
+* [Trimble SketchUp Pro](#trimblesketchuppro)
+
+[REGION:note]
+現在 Datasmith はジオメトリでメタデータを処理するだけで、ライトやカメラなど他のシーン オブジェクトでは対象外です。
+[/REGION]
+
+### Autodesk 3ds Max
+
+**[Object Properties (オブジェクト プロパティ)]** ウィンドウの **[User Defined (ユーザー定義)]** タブで 3ds Max オブジェクトにメタデータを追加します。
+
+![3ds Max の User Defined プロパティのメタデータ](3ds_max_user_defined_properties.png "3ds Max の User Defined プロパティのメタデータ")
+
+3ds Max のメッシュに対するこのパネルで作業する方法
+
+1. アウトライナーまたはビューポートでメッシュを選択します。
+2. 右クリックして、コンテキスト メニューから **[Properties (プロパティ)]** または **[Object Properties (オブジェクト プロパティ)]** を選択するか、またはメイン メニューから **[Edit (編集)] > [Properties (プロパティ)]** を選択します。
+3. 上記に示したとおり、`key = value` ペアとしてこのパネルにメタデータを入力します。
+    [REGION:note]
+    **`=` 記号の両側に必ずスペースを残してください**。スペースがない場合、Datasmith はメタデータを認識せず、予測どおりにインポートされません。
+    [/REGION]
+
+[REGION:tip]
+[MAXScript](http://help.autodesk.com/view/3DSMAX/2018/ENU/?guid=__files_GUID_AF1F51D4_449B_4C4D_9F58_85DB145BC0B9_htm) を使用してユーザー定義のプロパティをセットアップすることもできます。
+[/REGION]
+[REGION:tip]
+元は Revit でモデルが作成され、3ds Max にインポートされたものである場合、ユーザー定義プロパティは 3ds Max インポータにより、モデルの BIM 情報がすでに設定されています。
+[/REGION]
+
+### Dassault Systèmes SolidWorks
+
+SolidWorks ファイルをインポートするとき、元の SolidWorks デザインでそのメッシュの集合と部分名を示すため、Datasmith は最小限の事前設定メタデータを作成する各スタティック メッシュ アクタに追加します。ただし、Datasmith はパーツや集合に追加するカスタム メタデータ プロパティを現在引き継ぎません。
+
+### Trimble SketchUp Pro
+
+SketchUp で作成する各コンポーネントでは、[Price (価格)]、[Size (サイズ)] および [Status (ステータス)] など [[Advanced Attributes (高度な属性)]](https://help.sketchup.com/es/article/3000124#advanced-attributes) を設定できます。
+
+![SketchUp Pro の Advanced Attributes のメタデータ](sketchup-advaned-attributes.png "SketchUp Pro の Advanced Attributes のメタデータ")
+
+Datasmith はこれら Advanced Attributes のすべて、存在する場合は Type 値を含め、メタデータにインポートします。
+
+[REGION:note]
+Datasmith メタデータはコンポーネントのジオメトリを表す個別のスタティック メッシュ アクタではなく、シーン階層のコンポーネントを表すアクタにアタッチできます。シーンでこれが該当する場合、このページの以下に示すブループリントや Python の例を調整する必要があります。
+[/REGION]
+
+## Unreal Editor でメタデータを表示する
+
+Datasmith インポート プロセスが完了した後、**[Details (詳細)]** パネルの **[Asset User Data (アセット ユーザー データ)]** セクションで、レベルのスタティック メッシュ アクタに対するメタデータを表示できます。
+
+![Unreal での Datasmith メタデータの表示](datasmith_metadata_in_editor.png "Unreal での Datasmith メタデータの表示")
+
+Datasmith メタデータは現在、エディタで読み取り専用です。
+
+## ブループリントおよび Python でのメタデータのアクセス
+
+シーン オブジェクトに関連付けられているメタデータにアクセスする方法は複数あります。どれを使用するのかは、Datasmith インポート プロセス中またはインポートが終了した後に、メタデータにアクセスする必要があるかどうかで決まります。
+
+[REGION:note]
+すべてのメタデータのキーと値は、デザインまたは CAD アプリケーションでの元のタイプには関係なく、Unreal Engine で文字列として保存されます。例えば、3ds Max のメタデータ値に、`true` のような Boolean 値や `312` のような数値を設定する場合、Unreal 内でスクリプトでその値を読み取ると、文字列になります。値が Boolean や数値であることが必要な場合は、**[Utilities (ユーティリティ)] > [String (文字列)] > [String to Int (文字列を整数に変換)]** または **[String to Float (文字列を浮動小数点に変換)]** などのブループリント変換ノード、あるいは `int()` または `float()` などのビルトイン Python 文字列解析関数を使用します。
+[/REGION]
+
+### インポート中のメタデータのアクセス
+
+Datasmith インポート プロセス *中* に、例えば、シーンの Unreal アセットを生成する前に、除外する一定のメッシュを特定するため、メタデータにアクセスする必要がある場合、Datasmith シーンまたは Datasmith CAD シーンからメタデータを読み取ることができます。インプット プロセス中にスクリプトを実行する方法の背景情報については、「[Datasmith インポート プロセスのカスタマイズ](Enterprise/Datasmith/Overview/CustomizingImportProcess)」を参照してください。
+
+Datasmith シーンで *メッシュ アクタ エレメント* にアタッチされているメタデータが見つかります。
+
+%Globals:BlueprintOrPythonSelectVar%
+
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    BlueprintOrCPPSelect
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    blueprintimplementation
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    active_button_content
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:Enterprise/Datasmith/Overview/UsingDatasmithMetadata#blueprintContent1]
+    [/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    BlueprintOrCPPSelect
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    pythonimplementation
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:Enterprise/Datasmith/Overview/UsingDatasmithMetadata#pythonContent1]
+    [/PARAM]
+[/OBJECT]
+
+[COMMENT:none]
+[EXCERPT:blueprintContent1]
+必要なノードは **[Datasmith] > [Scene (シーン)]** および **[Datasmith] > [Element (エレメント)]** にあります。
+
+[REGION:note]
+これらのノードにアクセスするには、コンテキスト メニューの **[Context Sensitive (状況依存)]** チェックボックスをオフにするか、あるいはパレットで必要なノードを見つける必要があります。
+[/REGION]
+
+* Datasmith シーンのすべてのオブジェクトに対して、記録されたすべてのメタデータ オブジェクトの配列を取得できます。
+    ![Get All Metadata (すべてのメタデータを取得)](pre_import_get_all_metadata.png "Get All Metadata （すべてのメタデータを取得）")
+* キー名から開始して、そのキーを含む Datasmith シーンのすべてのオブジェクトのリストを取得できます。すべてのオブジェクトで対象キーに対して記録されたすべての値のリストも取得できます。
+    ![Get All Objects and Values for Key (キーのすべてのオブジェクトと値を取得)](pre_import_get_all_objects_for_key.png "Get All Objects and Values for Key （キーのすべてのオブジェクトと値を取得）")
+* 特定のオブジェクトから開始して、そのメタデータ オブジェクトすべての配列を取得できます。
+    ![Get Metadata for Object (オブジェクトのメタデータを取得)](pre_import_get_for_object.png "Get Metadata for Object （オブジェクトのメタデータを取得）")
+* 必要なキーのオブジェクトと名前の両方がわかっている場合は、値を取得できます。
+    ![Get Metadata Value For Key (キーのメタデータ値を取得)](pre_import_get_for_key.png "Get Metadata Value For Key （キーのメタデータ値を取得）")
+* キー名は不明だが、オブジェクトと *値* がわかっている場合は、その値を含むオブジェクトのすべてのキーを取得できます。
+    ![Get Metadata Keys and Values for Value (値に対するメタデータ キーと値を取得)](pre_import_get_keys_and_values_for_value.png "Get Metadata Keys and Values for Value （値に対するメタデータ キーと値を取得）")
+
+Datasmith Metadata Element オブジェクトを返す上記のノードでは、**[Datasmith] > [Element (エレメント)] > [Get Properties (プロパティの取得)]**、**[Get Property (プロパティの取得)]** および **[Get Property Count (プロパティ数の取得)]** を使用してメタデータ オブジェクトからキーと値を取得できます。
+
+![Datasmith Metadata Element](pre_import_get_properties_from_md.png "Datasmith Metadata Element")
+
+**使用例**
+
+この例では、プロジェクトで必要ないことがわかっているジオメトリを識別し、それに対してスタティック メッシュ アセットを作成する前に Datasmith シーンから削除するため、メタデータ キーに割り当てられた値をどのように使用できるのか示します。
+
+[REGION:lightbox]
+[![Datasmith メタデータの使用例](pre_import_remove_by_key.png "Datasmith メタデータの使用例")](pre_import_remove_by_key.png)
+
+*クリックしてフルサイズで表示*
+[/REGION]
+[/EXCERPT:blueprintContent1]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:pythonContent1]
+Datasmith インポート プロセス中に、`unreal.DatasmithSceneElement` または `unreal.DatasmithCADSceneElement` オブジェクトを通じてシーン オブジェクトに関するメタデータを処理できます。次の関数の詳細については、「Python API Reference」(https://api.unrealengine.com/INT/PythonAPI/) を参照してください。
+
+* Datasmith シーンのすべてのオブジェクトに対して、記録されたすべてのメタデータ オブジェクトの配列を取得できます。
+    `get_all_metadata(object_class)`
+* キー名から開始して、そのキーを含む Datasmith シーンのすべてのオブジェクトのリストを取得できます。すべてのオブジェクトで対象キーに対して記録されたすべての値のリストも取得できます。
+    `get_all_objects_and_values_for_key(key, object_class)`
+* 特定のオブジェクトから開始して、そのメタデータ オブジェクトすべての配列を取得できます。
+    `get_metadata_for_object(object)`
+* 必要なキーのオブジェクトと名前の両方がわかっている場合は、値を取得できます。
+    `get_metadata_value_for_key(object, key)`
+* キー名は不明だが、オブジェクトと *値* がわかっている場合は、その値を含むオブジェクトのすべてのキーを取得できます。
+    `get_metadata_keys_and_values_for_value(object, string_to_match)`
+
+**使用例**
+
+この例では、プロジェクトで必要ないことがわかっているジオメトリを識別し、それに対してスタティック メッシュ アセットを作成する前に Datasmith シーンから削除するため、メタデータ キーに割り当てられた値をどのように使用できるのか示します。
+
+
+    key_name = "name"
+    remove_keyword = "Clutch"
+    meshes_to_skip = set([])
+    # 「name」キーがあるすべてのシーン エレメントを取得する。
+    objects_and_values = ds_scene_in_memory.get_all_objects_and_values_for_key(key_name, unreal.DatasmithMeshActorElement)
+    objects = objects_and_values[0]
+    values = objects_and_values[1]
+    # 値がキーワードに一致するものを検索するようにイテレーションする
+    for index, value in enumerate(values):
+        if remove_keyword in value:
+            print("removing actor named:" + value)
+            # シーンからメッシュ アクタ エレメントを取り除き、後で取り除くリストにメッシュ エレメントを追加する
+            mesh_actor = objects[index]
+            mesh = mesh_actor.get_mesh_element()
+            meshes_to_skip.add(mesh)
+            ds_scene_in_memory.remove_mesh_actor(mesh_actor)
+    # インポートする必要がないすべてのメッシュを取り除く。
+    for mesh in meshes_to_skip:
+        mesh_name = mesh.get_element_name()
+        print("removing mesh named " + mesh_name)
+        ds_scene_in_memory.remove_mesh(mesh)
+[/EXCERPT:pythonContent1]
+[/COMMENT]
+
+### インポート後のメタデータのアクセス
+
+インポート プロセスが Datasmith または CAD シーンを Unreal のアセットとアクタにファイナライズしたとき、Datasmith シーンの各メッシュ エレメントからのメタデータを、そのスタティック メッシュ アセットのインスタンスを表す、レベルのすべてのアクタにも適用します。それからブループリントまたは Python を使用して、レベルでスタティック メッシュ アクタのすべてまたは一部に対するメタデータを取得できます。
+
+%Globals:BlueprintOrPythonSelectVar%
+
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    BlueprintOrCPPSelect
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    blueprintimplementation
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    active_button_content
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:Enterprise/Datasmith/Overview/UsingDatasmithMetadata#blueprintContent2]
+    [/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    BlueprintOrCPPSelect
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    pythonimplementation
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:Enterprise/Datasmith/Overview/UsingDatasmithMetadata#pythonContent2]
+    [/PARAM]
+[/OBJECT]
+
+[COMMENT:none]
+[EXCERPT:blueprintContent2]
+次のノードは 1 つの特定のアクタに対するメタデータにアクセスします。これらはパフォーマンスへの影響はほとんどありません。したがって、プロジェクトのランタイム時でも、いつでも使用できます。使用するシーン (プロジェクトのランタイム UI のメニューやコールアウト) の 1 つ以上の選択オブジェクトに対してインポートされたメタデータを可視化する場合は、これらはランタイムのブループリントで使用するノードです。
+
+それらは **[Datasmith User Data (Datasmith ユーザー データ)]** カテゴリにあります。 
+
+* キー名がわかっていて、そのキーの値を取得する場合。
+    ![Get Datasmith User Data Value for Key (キーの Datasmith ユーザー データ値を取得)](post_import_get_for_key.png "Get Datasmith User Data Value for Key （キーの Datasmith ユーザー データ値を取得）")
+* キー名は不明だが、探している *値* がわかっている場合、その値を含むアクタにあるすべてのキーを取得できます。
+    ![Get Datasmith User Data Keys and Values for Value (値の Datasmith ユーザー データ キーと値を取得)](post_import_get_keys_and_values_for_value.png "Get Datasmith User Data Keys and Values for Value （値の Datasmith ユーザー データ キーと値を取得）")
+* あるいは、アクタに対して記録されている *すべて* のキーと値のペアを含むメタデータ オブジェクトを取得できます。したがってそれらに対してイテレーションできます。
+    ![Get Datasmith User Data (Datasmith ユーザー データを取得)](post_import_get_user_data.png "Get Datasmith User Data （Datasmith ユーザー データを取得）")
+
+対照的に次のノードは、現在のレベル (または対象のクラスを共有するすべて) にあるすべてのスタティック メッシュ アクタに対するメタデータにアクセスします。レベルは多数のアクタを含むことができるので、これらの関数は CPU リソースを大量に使用することがあり、ランタイム ゲームプレイで使用するとパフォーマンスが低下することがあります。したがって、Editor-only Blueprint クラスに作成するグラフで、それらを使用することだけできます。
+
+**[Editor Scripting (エディタ スクリプティング)] > [Datasmith User Data (Datasmith ユーザー データ)]** カテゴリにあるこれらのノードを確認します。
+
+* キー名から開始して、Datasmith メタデータのそのキーを含む現在のレベルですべてのアクタのリストを取得できます。すべてのオブジェクトで対象キーに対して記録されたすべての値のリストも取得できます。
+    ![Get All Objects and Values for Key (キーのすべてのオブジェクトと値を取得)](post_import_get_all_objects_for_key.png "Get All Objects and Values for Key （キーのすべてのオブジェクトと値を取得）")
+* 現在のレベルのすべてのアクタに対するすべてのメタデータ オブジェクトの完全リストを取得できます。
+    ![Get All Datasmith User Data (すべての Datasmith ユーザー データを取得)](post_import_get_all_user_data.png "Get All Datasmith User Data （すべての Datasmith ユーザー データを取得）")
+
+上記の **[Get Datasmith User Data (Datasmith ユーザー データの取得)]** および **[Get All Datasmith User Data (すべての Datasmith ユーザー データの取得)]** ノードは、Datasmith User Data Object References を返します。オブジェクトの Datasmith メタデータを構成する、すべてのキーと値のペアのマップであるメタデータにアクセスできる 1 つの変数がオブジェクトにあります。この種のオブジェクトで作業するには、出力ピンをドラッグして、**[Variables (変数)] > [Get Metadata (メタデータの取得)]** を選択します。
+
+![Datasmith User Data Object References](post_import_get_metadata_node.png "Datasmith User Data Object References")
+
+これによりキーと値がマップとして得られます。それから **[Utilities (ユーティリティ)] > [Map (マップ)]** カテゴリのユーティリティ ノードを使用して、データを作業できます。例えば、このグラフではすべてのキーを 1 つずつイテレーションして、各キーに関連付けられた値を取得します。
+
+[REGION:lightbox]
+[![マップのイテレーション](post_import_iterate_userdata.png "マップのイテレーション")](post_import_iterate_userdata.png)
+
+*クリックしてフルサイズで表示*
+[/REGION]
+
+ブループリントでのマップの作業に関する詳細は、「[Blueprint Maps](Engine/Blueprints/UserGuide/Maps)」を参照してください。
+
+**使用例**
+
+このセクションでは、レベルでプレイヤーが選択するオブジェクトに対する、ランタイム時のアセット メタデータをどのように可視化するのかの簡単な例を示します。
+
+![UMG ウィジェットのメタデータ](post_import_bp_result.png "UMG ウィジェットのメタデータ")
+
+それぞれ文字列変数に関連付けられた 2 つのテキスト フィールドを含む UMG ウィジェットにより、テキストは記述されます。ウィジェット用のブループリント グラフでは、カスタム イベントに渡す、アクタから Datasmith メタデータの 2 つのアイテムをカスタム アクションが抽出し、それらのアイテムを関連変数に保存します。
+
+![UMG ウィジェットイベント グラフ](post_import_bp_ui.png "UMG ウィジェットイベント グラフ")
+
+次の Level ブループリントでは、プレイが開始されたときにこのようなウィジェットを追加する方法、およびユーザーがマウス ボタンを押すたびにカーソルの下にあるアクタとともに取り込む方法の例を示します。
+
+[REGION:lightbox]
+[![UMG ウィジェットのセットアップとアップデート](post_import_bp_level.png "UMG ウィジェットのセットアップとアップデート")](post_import_bp_level.png)
+
+*クリックしてフルサイズで表示*
+[/REGION]
+
+UMG のユーザー インターフェースの構築については、「[UMG UI デザイナのクイック スタート ガイド](Engine/UMG/QuickStart)」および周辺のセクションを参照してください。
+[/EXCERPT:blueprintContent2]
+[/COMMENT]
+[COMMENT:none]
+[EXCERPT:pythonContent2]
+Datasmith インポート プロセスを完了した後、`unreal.DatasmithContentLibrary` クラスを使用してすべてのアクタや選択したアクタに対するメタデータにアクセスできます。次の関数の詳細については、「Python API Reference」(https://api.unrealengine.com/INT/PythonAPI/) を参照してください。
+
+* 現在のレベルのすべてのアクタに対するすべてのメタデータ オブジェクトの完全リストを取得できます。
+    `get_all_datasmith_user_data(object_class)`
+* キー名から開始して、Datasmith メタデータのそのキーを含む現在のレベルですべてのアクタのリストを取得できます。すべてのオブジェクトで対象キーに対して記録されたすべての値のリストも取得できます。
+    `get_all_objects_and_values_for_key(key, object_class)`
+* 取得するメタデータがある、アクタがすでにわかっている場合、指定キーの値を取得できます。
+    `get_datasmith_user_data(object)`
+* キー名は不明だが、探している *値* がわかっている場合、その値を含むアクタにあるすべてのキーを取得できます。
+    `get_datasmith_user_data_keys_and_values_for_value(object, string_to_match)`
+* キー名は不明だが、オブジェクトと *値* がわかっている場合は、その値を含むオブジェクトのすべてのキーを取得できます。
+    `get_datasmith_user_data_value_for_key(object, key)`
+
+**使用例**
+
+Unreal Editor 内で実行する Python スクリプトでは、インポート後に Datasmith メタデータを使用して、一定の特別な処理を適用するレベルのスタティック メッシュ アクタを識別できます。
+
+
+    import unreal
+    new_actor_name = "Exterior Walls"
+    metadata_key = "Type"
+    metadata_value = "Wall: Exterior"
+    meshes_to_join = set([])
+    # 現在のレベルでアクタをイテレーションする
+    all_actors = unreal.EditorLevelLibrary.get_all_level_actors()
+    for actor in all_actors:
+        # 上記で設定したキーがある場合にアクタの Datasmith メタデータの値を取得する。
+        actor_value = unreal.DatasmithContentLibrary.get_datasmith_user_data_value_for_key(actor, metadata_key)
+        # キーが存在し、上記で設定したキーワードを値に含む場合、アクタをリストに追加する
+        if actor_value and metadata_value in actor_value:
+            print("found a matching actor: " + actor_value)
+            meshes_to_join.add(actor)
+    # 上記で見つかったすべてのアクタを多くのコンポーネントがある単一のアクタに追加する
+    options = unreal.EditorScriptingJoinStaticMeshActorsOptions(destroy_source_actors=True, new_actor_label=new_actor_name, rename_components_from_source=True)
+    unreal.EditorLevelLibrary.join_static_mesh_actors(meshes_to_join, options)
+    print "Merged all actors!"
+[/EXCERPT:pythonContent2]
+[/COMMENT]

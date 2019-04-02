@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GameFramework/ForceFeedbackEffect.h"
 #include "GenericPlatform/IInputInterface.h"
@@ -92,9 +92,9 @@ bool FActiveForceFeedbackEffect::Update(const float DeltaTime, FForceFeedbackVal
 
 	const float Duration = ForceFeedbackEffect->GetDuration();
 
-	PlayTime += (bIgnoreTimeDilation ? FApp::GetDeltaTime() : DeltaTime);
+	PlayTime += (Parameters.bIgnoreTimeDilation ? FApp::GetDeltaTime() : DeltaTime);
 
-	if (PlayTime > Duration && (!bLooping || Duration == 0.f) )
+	if (PlayTime > Duration && (!Parameters.bLooping || Duration == 0.f) )
 	{
 		return false;
 	}

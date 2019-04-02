@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "LandscapeToolInterface.h"
@@ -6,7 +6,13 @@
 #include "LandscapeEdMode.h"
 #include "LandscapeEditorObject.h"
 #include "LandscapeEdModeTools.h"
+#include "Landscape.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/MapErrors.h"
+#include "Settings/EditorExperimentalSettings.h"
 
+#define LOCTEXT_NAMESPACE "LandscapeTools"
 //
 // FLandscapeToolErosionBase
 //
@@ -251,6 +257,14 @@ public:
 			}
 		}
 
+		ALandscape* Landscape = LandscapeInfo->LandscapeActor.Get();
+
+		if (Landscape != nullptr && Landscape->HasProceduralContent && !GetMutableDefault<UEditorExperimentalSettings>()->bProceduralLandscape)
+		{
+			FMessageLog("MapCheck").Warning()->AddToken(FTextToken::Create(LOCTEXT("LandscapeProcedural_ChangingDataWithoutSettings", "This map contains landscape procedural content, modifying the landscape data will result in data loss when the map is reopened with Landscape Procedural settings on. Please enable Landscape Procedural settings before modifying the data.")));
+			FMessageLog("MapCheck").Open(EMessageSeverity::Warning);
+		}
+
 		HeightCache.SetCachedData(X1, Y1, X2, Y2, HeightData);
 		HeightCache.Flush();
 		if (bWeightApplied)
@@ -474,6 +488,14 @@ public:
 			LowPassFilter<uint16>(X1, Y1, X2, Y2, BrushInfo, HeightData, UISettings->HErosionDetailScale, 1.0f);
 		}
 
+		ALandscape* Landscape = LandscapeInfo->LandscapeActor.Get();
+
+		if (Landscape != nullptr && Landscape->HasProceduralContent && !GetMutableDefault<UEditorExperimentalSettings>()->bProceduralLandscape)
+		{
+			FMessageLog("MapCheck").Warning()->AddToken(FTextToken::Create(LOCTEXT("LandscapeProcedural_ChangingDataWithoutSettings", "This map contains landscape procedural content, modifying the landscape data will result in data loss when the map is reopened with Landscape Procedural settings on. Please enable Landscape Procedural settings before modifying the data.")));
+			FMessageLog("MapCheck").Open(EMessageSeverity::Warning);
+		}
+
 		HeightCache.SetCachedData(X1, Y1, X2, Y2, HeightData);
 		HeightCache.Flush();
 	}
@@ -512,3 +534,5 @@ void FEdModeLandscape::InitializeTool_HydraErosion()
 	Tool_HydraErosion->ValidBrushes.Add("BrushSet_Pattern");
 	LandscapeTools.Add(MoveTemp(Tool_HydraErosion));
 }
+
+#undef LOCTEXT_NAMESPACE

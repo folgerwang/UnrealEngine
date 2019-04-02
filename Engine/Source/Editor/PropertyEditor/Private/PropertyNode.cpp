@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "PropertyNode.h"
@@ -1707,17 +1707,8 @@ FString FPropertyNode::GetDefaultValueAsStringForObject( FPropertyItemValueDataT
 				}
 				else if ( GetArrayIndex() == INDEX_NONE && InProperty->ArrayDim > 1 )
 				{
-					for ( int32 Idx = 0; !bDiffersFromDefaultForObject && Idx < InProperty->ArrayDim; Idx++ )
-					{
-						uint8* DefaultAddress = ValueTracker.GetPropertyDefaultAddress() + Idx * InProperty->ElementSize;
-						FString DefaultItem;
-						InProperty->ExportTextItem( DefaultItem, DefaultAddress, DefaultAddress, InObject, PortFlags, NULL );
-						if ( DefaultValue.Len() > 0 && DefaultItem.Len() > 0 )
-						{
-							DefaultValue += TEXT( ", " );
-						}
-						DefaultValue += DefaultItem;
-					}
+					UArrayProperty::ExportTextInnerItem(DefaultValue, InProperty, ValueTracker.GetPropertyDefaultAddress(), InProperty->ArrayDim,
+														ValueTracker.GetPropertyDefaultAddress(), InProperty->ArrayDim, nullptr, PortFlags);
 				}
 				else
 				{
@@ -2404,8 +2395,10 @@ bool FPropertyNode::IsFilterAcceptable(const TArray<FString>& InAcceptableNames,
 	return bCompleteMatchFound;
 }
 
-void FPropertyNode::PropagateContainerPropertyChange( UObject* ModifiedObject, const FString& OriginalContainerContent, EPropertyArrayChangeType::Type ChangeType, int32 Index, TMap<UObject*, bool>* PropagationResult, int32 SwapIndex /*= INDEX_NONE*/)
+void FPropertyNode::PropagateContainerPropertyChange( UObject* ModifiedObject, const void* OriginalContainerAddr, EPropertyArrayChangeType::Type ChangeType, int32 Index, TMap<UObject*, bool>* PropagationResult, int32 SwapIndex /*= INDEX_NONE*/)
 {
+	check(OriginalContainerAddr);
+
 	UProperty* NodeProperty = GetProperty();
 	UArrayProperty* ArrayProperty = NULL;
 	USetProperty* SetProperty = NULL;
@@ -2488,10 +2481,8 @@ void FPropertyNode::PropagateContainerPropertyChange( UObject* ModifiedObject, c
 
 			if (Addr != nullptr)
 			{
-				FString OriginalContent;
-				ConvertedProperty->ExportText_Direct(OriginalContent, Addr, Addr, nullptr, PPF_None);
-
-				bool bIsDefaultContainerContent = OriginalContent == OriginalContainerContent;
+				checkf(OriginalContainerAddr != Addr, TEXT("PropagateContainerPropertyChange tried to propagate a change onto itself!"));
+				const bool bIsDefaultContainerContent = ConvertedProperty->Identical(OriginalContainerAddr, Addr);
 
 				// Return instance changes result to caller
 				if (PropagationResult != nullptr)

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemFacebookCommon.h"
 #include "OnlineSubsystemFacebookPrivate.h"
@@ -192,6 +192,11 @@ IOnlinePresencePtr FOnlineSubsystemFacebookCommon::GetPresenceInterface() const
 }
 
 IOnlineChatPtr FOnlineSubsystemFacebookCommon::GetChatInterface() const
+{
+	return nullptr;
+}
+
+IOnlineStatsPtr FOnlineSubsystemFacebookCommon::GetStatsInterface() const
 {
 	return nullptr;
 }

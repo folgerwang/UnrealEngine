@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================================
 AndroidAffinity.h: Android affinity profile masks definitions.
@@ -12,6 +12,7 @@ class FAndroidAffinity : public FGenericPlatformAffinity
 {
 private:
 	static uint64 GetLittleCoreMask();
+	const static uint64 AllCores = 0xFFFFFFFFFF;
 public:
 	static const CORE_API uint64 GetMainGameMask()
 	{
@@ -25,7 +26,7 @@ public:
 
 	static const CORE_API uint64 GetRHIThreadMask()
 	{
-		return FGenericPlatformAffinity::GetNoAffinityMask();
+		return AllCores;
 	}
 
 	static const CORE_API uint64 GetRTHeartBeatMask()
@@ -58,9 +59,14 @@ public:
 		return GetLittleCoreMask();
 	}
 
+	static const CORE_API uint64 GetTaskGraphHighPriorityTaskMask()
+	{
+		return AllCores;
+	}
+
 	static const CORE_API uint64 GetAsyncLoadingThreadMask()
 	{
-		return GetLittleCoreMask();
+		return AllCores;
 	}
 
 	static EThreadPriority GetRenderingThreadPriority()

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:4220945
+﻿INTSourceChangelist:4309183
 Availability:Public
 Title:照片级角色
 Crumbs:%ROOT%, Resources
@@ -281,7 +281,7 @@ Tangent 属性主要用作为矢量，控制各向异性高光伸展的方向。
 |**Sclera inner color**| 这是巩膜与虹膜相交时的颜色。|n/a|
 |**Sclera outer color**| 这是巩膜在眼睛外边缘的颜色。|n/a|
 |**SecondaryEnvBalance**| 此值控制眼睛表面上可见 [次要环境](#eyeshadersecondaryenvironment) 的量。|0.00 - 0.03|
-|**SecondaryEnvRotationAxis**| [次要环境](#eyeshadersecondaryenvironment) 是虚拟反射，因此它必须围绕眼睛手动旋转。此属性控制旋转的轴。| <0.0, 0.0, 1.0> （Z 轴）|
+|**SecondaryEnvRotationAxis**| [次要环境](#eyeshadersecondaryenvironment) 是虚拟反射，因此它必须围绕眼睛手动旋转。此属性控制旋转的轴。| 0.0, 0.0, 1.0 Z轴|
 |[REGION:tablesection]标量参数值[/REGION]|||
 |**Depth Scale**| 此值控制角膜下虹膜反射的深度。|1.0-1.4|
 |**Flatten Normal**| 此值控制眼睛法线贴图发生的扁平，注重于巩膜。|0.9 - 1.1|

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "DiffUtils.h"
 #include "UObject/PropertyPortFlags.h"
@@ -605,6 +605,15 @@ static void IdenticalHelper(const UProperty* AProperty, const UProperty* BProper
 
 bool DiffUtils::Identical(const FResolvedProperty& AProp, const FResolvedProperty& BProp, const FPropertySoftPath& RootPath, TArray<FPropertySoftPath>& DifferingProperties)
 {
+	if( AProp.Property == nullptr && BProp.Property == nullptr )
+	{
+		return true;
+	}
+	else if( AProp.Property == nullptr || BProp.Property == nullptr )
+	{
+		return false;
+	}
+
 	const void* AValue = AProp.Property->ContainerPtrToValuePtr<void>(AProp.Object);
 	const void* BValue = BProp.Property->ContainerPtrToValuePtr<void>(BProp.Object);
 

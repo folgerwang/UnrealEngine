@@ -1,0 +1,37 @@
+﻿INTSourceChangelist:4687515
+Availability: Public
+Crumbs: 
+Title: 用PSO缓存编译一个UE4项目
+Description: 了解如何将PSO数据编译到UE4项目中。
+Type: 
+Version: 4.21
+Parent: Engine/Rendering/PSOCaching
+Order:
+Topic-image:Building_PSO_Into_UE4_Project.png
+Tags: 
+
+
+要让虚幻引擎4项目使用stablepc.csv文件中包含的着色器数据，首先需要使用stablepc.csv文件对UE4项目进行编译。以下指南讲述如何对UE4项目进行设置，使项目在编译时包含 **管线状态对象（Pipeline State Object）**（PSO）缓存数据。  
+
+(#steps)
+## 步骤
+
+1.  找到在[编译PSO缓存指南](Engine/Rendering/PSOCaching/BuildingPSOCache)中创建的stablepc.csv文件。
+[REGION:note]
+如未能找到此文件，请尝试在Engine\\Binaries\\Win64文件夹中寻找。
+[/REGION]
+2.  接下来前往项目的 **Build** \> **Platform Name** \> **PipelineCaches** 文件夹，将stablepc.csv文件复制到Pipeline Caches文件夹。   
+ 
+[REGION:note]
+如未找到 **PipelineCaches** 文件夹，则创建新建一个，并放入stablepc.csv文件。
+[/REGION]
+3.  操作完成后，针对支持平台编译UE4项目。  
+    
+
+(#endresults)
+## 最终结果
+
+UE4完成项目的编译后，UE4项目便能使用之前创建的PSO缓存数据。
+[REGION:note]
+如需了解PSO缓存的编译方式和编译时间，请参见[编译并使用PSO缓存数据](Engine/Rendering/PSOCaching/CompilingUsingPSOCachingData)。
+[/REGION]

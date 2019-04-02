@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AppFramework.h"
 #include "MagicLeapHMD.h"
@@ -9,6 +9,7 @@
 #include "Misc/CoreDelegates.h"
 #include "RenderingThread.h"
 #include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
+#include "IMagicLeapModule.h"
 
 #if WITH_MLSDK
 ML_INCLUDES_START
@@ -19,6 +20,8 @@ ML_INCLUDES_END
 TArray<MagicLeap::IAppEventHandler*> FAppFramework::EventHandlers;
 FCriticalSection FAppFramework::EventHandlersCriticalSection;
 MagicLeap::FAsyncDestroyer* FAppFramework::AsyncDestroyer = nullptr;
+TMap<FName, IMagicLeapModule*> FAppFramework::RegisteredModules;
+
 
 FAppFramework::FAppFramework()
 {}
@@ -90,7 +93,6 @@ void FAppFramework::ApplicationPauseDelegate()
 {
 	UE_LOG(LogMagicLeap, Log, TEXT("+++++++ ML AppFramework APP PAUSE ++++++"));
 
-
 	if (GEngine)
 	{
 		saved_max_fps_ = GEngine->GetMaxFPS();
@@ -122,6 +124,7 @@ void FAppFramework::ApplicationResumeDelegate()
 {
 	UE_LOG(LogMagicLeap, Log, TEXT("+++++++ ML AppFramework APP RESUME ++++++"));
 
+	// Resume rendering
 	// Resume rendering
 	FMagicLeapHMD * const HMD = GEngine ? static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice()) : nullptr;
 	if (HMD)
@@ -198,28 +201,6 @@ FVector2D FAppFramework::GetFieldOfView() const
 {
 	// TODO Pass correct values when graphics provides them through API.
 	return FVector2D(80.0f, 60.0f);
-}
-
-bool FAppFramework::GetDeviceResolution(FVector2D& OutResolution) const
-{
-#if WITH_MLSDK
-	// JMC: The size of the back buffer should not change, rather the internal
-	// viewport should render to a sub region of the back buffer.
-	// This will happen automatically once the render pipeline draws directly
-	// to our provided color buffer.
-	/*const FTrackingFrame *frame = GetOldFrame();
-
-	if (frame && frame->RenderInfoArray.num_virtual_cameras > 0)
-	{
-		const float width = frame->RenderInfoArray.viewport.w * 2.0f;
-		const float height = frame->RenderInfoArray.viewport.h;
-		OutResolution = FVector2D(width, height);
-		return true;
-	}*/
-#endif //WITH_MLSDK
-
-	OutResolution = FVector2D(1280.0f * 2.0f, 960.0f);
-	return true;
 }
 
 uint32 FAppFramework::GetViewportCount() const
@@ -343,7 +324,30 @@ void FAppFramework::RemoveEventHandler(MagicLeap::IAppEventHandler* EventHandler
 	EventHandlers.Remove(EventHandler);
 }
 
-void FAppFramework::AsyncDestroy(MagicLeap::IAppEventHandler* InEventHandler)
+bool FAppFramework::AsyncDestroy(MagicLeap::IAppEventHandler* InEventHandler)
 {
-	AsyncDestroyer->AddRaw(InEventHandler);
+	if (AsyncDestroyer != nullptr)
+	{
+		AsyncDestroyer->AddRaw(InEventHandler);
+		return true;
+	}
+
+	return false;
+}
+
+void FAppFramework::RegisterMagicLeapModule(IMagicLeapModule* InModule)
+{
+	checkf(RegisteredModules.Find(InModule->GetName()) == nullptr, TEXT("MagicLeapModule %s has already been registered!"), *InModule->GetName().ToString());
+	RegisteredModules.Add(InModule->GetName(), InModule);
+}
+
+void FAppFramework::UnregisterMagicLeapModule(IMagicLeapModule* InModule)
+{
+	RegisteredModules.Remove(InModule->GetName());
+}
+
+IMagicLeapModule* FAppFramework::GetMagicLeapModule(FName InName)
+{
+	IMagicLeapModule** MagicLeapModule = RegisteredModules.Find(InName);
+	return MagicLeapModule ? *MagicLeapModule : nullptr;
 }

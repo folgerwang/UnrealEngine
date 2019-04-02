@@ -1,7 +1,7 @@
-﻿INTSourceChangelist:3490639
+INTSourceChangelist:3490639
 Availability:Public
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
-Title:바라보기
+Title:Look At
 Description:하나의 본이 다른 본을 바라보거나 따라가도록 하는 데 사용되는 Look At 컨트롤입니다.
 Type: Reference
 version: 4.16
@@ -16,7 +16,7 @@ Related: Engine/Animation/AnimBlueprints/AnimGraph
 Related: Engine/Animation/StateMachines
 Related: Engine/Animation/AnimBlueprints
 
-**Look At** 스켈레탈 컨트롤 노드는 하나의 본이 스켈레톤 내 다른 본을 바라보거나 따르도록 하는 데 사용됩니다.
+**Look At** (룩앳) 스켈레탈 컨트롤 노드는 하나의 본이 스켈레톤 내 다른 본을 바라보거나 따르도록 하는 데 사용됩니다.
 
 ![](LookAtnode.png)
 

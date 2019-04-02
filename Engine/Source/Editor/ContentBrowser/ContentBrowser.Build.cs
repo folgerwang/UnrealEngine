@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -39,6 +39,7 @@ public class ContentBrowser : ModuleRules
 				"Projects",
 				"AddContentDialog",
 				"DesktopPlatform",
+				"AssetRegistry"
 			}
 		);
 
@@ -46,7 +47,6 @@ public class ContentBrowser : ModuleRules
 			new string[] {
 				"PropertyEditor",
 				"PackagesDialog",
-				"AssetRegistry",
 				"AssetTools",
 				"CollectionManager",
 				"GameProjectGeneration",

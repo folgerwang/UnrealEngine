@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tests/AutomationCommon.h"
 #include "Misc/Paths.h"
@@ -218,6 +218,12 @@ bool FWaitLatentCommand::Update()
 	return false;
 }
 
+bool FEditorAutomationLogCommand::Update()
+{
+	UE_LOG(LogEditorAutomationTests, Log, TEXT("%s"), *LogText);
+	return true;
+}
+
 bool FTakeActiveEditorScreenshotCommand::Update()
 {
 	AutomationCommon::SaveWindowAsScreenshot(FSlateApplication::Get().GetActiveTopLevelWindow().ToSharedRef(),ScreenshotName);
@@ -254,7 +260,7 @@ bool FExitGameCommand::Update()
 
 bool FRequestExitCommand::Update()
 {
-	GIsRequestingExit = true;
+	FPlatformMisc::RequestExit(true);
 	return true;
 }
 

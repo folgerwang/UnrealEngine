@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -91,6 +91,21 @@ class SLATE_API ITableRow
 		virtual ESelectionMode::Type GetSelectionMode() const = 0;
 };
 
+/**
+ * When the table row should signal the owner widget that the selection changed.
+ * This only affect the selection with the left mouse button!
+ */
+enum class ETableRowSignalSelectionMode
+{
+	/**
+	 * The selection will be updated on the left mouse button down, but the owner table will only get signaled when the mouse button is released or if a drag is detected.
+	 */
+	Deferred,
+	/**
+	 * Each time the selection of the owner table is changed the table get signaled.
+	 */
+	Instantaneous
+};
 
 /**
  * Where we are going to drop relative to the target item.
@@ -132,6 +147,7 @@ public:
 		, _ExpanderStyleSet( &FCoreStyle::Get() )
 		, _Padding( FMargin(0) )
 		, _ShowSelection( true )
+		,_SignalSelectionMode( ETableRowSignalSelectionMode::Deferred )
 		, _Content()
 		{}
 	
@@ -166,7 +182,15 @@ public:
 		SLATE_ATTRIBUTE( FMargin, Padding )
 	
 		SLATE_ARGUMENT( bool, ShowSelection )
-		
+
+		/**
+		 * The Signal Selection mode affect when the owner table gets notified that the selection has changed.
+		 * This only affect the selection with the left mouse button!
+		 * When Deferred, the owner table will get notified when the button is released or when a drag started.
+		 * When Instantaneous, the owner table is notified as soon as the selection changed.
+		 */
+		SLATE_ARGUMENT( ETableRowSignalSelectionMode , SignalSelectionMode)
+
 		SLATE_DEFAULT_SLOT( typename STableRow<ItemType>::FArguments, Content )
 
 	SLATE_END_ARGS()
@@ -346,11 +370,19 @@ public:
 					{
 						OwnerWidget->Private_SetItemSelection(MyItem, !bIsSelected, true);
 						bChangedSelectionOnMouseDown = true;
+						if (SignalSelectionMode == ETableRowSignalSelectionMode::Instantaneous)
+						{
+							OwnerWidget->Private_SignalSelectionChanged(ESelectInfo::OnMouseClick);
+						}
 					}
 					else if (MouseEvent.IsShiftDown())
 					{
 						OwnerWidget->Private_SelectRangeFromCurrentTo(MyItem);
 						bChangedSelectionOnMouseDown = true;
+						if (SignalSelectionMode == ETableRowSignalSelectionMode::Instantaneous)
+						{
+							OwnerWidget->Private_SignalSelectionChanged(ESelectInfo::OnMouseClick);
+						}
 					}
 				}
 				
@@ -359,6 +391,10 @@ public:
 					OwnerWidget->Private_ClearSelection();
 					OwnerWidget->Private_SetItemSelection(MyItem, true, true);
 					bChangedSelectionOnMouseDown = true;
+					if (SignalSelectionMode == ETableRowSignalSelectionMode::Instantaneous)
+					{
+						OwnerWidget->Private_SignalSelectionChanged(ESelectInfo::OnMouseClick);
+					}
 				}
 
 				return FReply::Handled()
@@ -445,7 +481,7 @@ public:
 					Reply = FReply::Handled().ReleaseMouseCapture();
 				}
 
-				if ( bChangedSelectionOnMouseDown )
+				if (bChangedSelectionOnMouseDown && (SignalSelectionMode == ETableRowSignalSelectionMode::Deferred))
 				{
 					OwnerWidget->Private_SignalSelectionChanged(ESelectInfo::OnMouseClick);
 				}
@@ -551,7 +587,7 @@ public:
 			bProcessingSelectionTouch = false;
 			return FReply::Handled().CaptureMouse( OwnerTablePtr.Pin()->AsWidget() );
 		}
-		else if ( HasMouseCapture() && bChangedSelectionOnMouseDown )
+		else if ( HasMouseCapture() && bChangedSelectionOnMouseDown && (SignalSelectionMode == ETableRowSignalSelectionMode::Deferred))
 		{
 			TSharedPtr< ITypedTableView<ItemType> > OwnerWidget = OwnerTablePtr.Pin();
 			OwnerWidget->Private_SignalSelectionChanged(ESelectInfo::OnMouseClick);
@@ -881,6 +917,7 @@ public:
 	STableRow()
 		: IndexInList(0)
 		, bShowSelection(true)
+		, SignalSelectionMode( ETableRowSignalSelectionMode::Deferred )
 	{ }
 
 protected:
@@ -918,6 +955,8 @@ protected:
 		this->SetOwnerTableView( InOwnerTableView );
 
 		this->bShowSelection = InArgs._ShowSelection;
+
+		this->SignalSelectionMode = InArgs._SignalSelectionMode;
 	}
 
 	void SetOwnerTableView( TSharedPtr<STableViewBase> OwnerTableView )
@@ -964,6 +1003,9 @@ protected:
 
 	/** Whether or not to visually show that this row is selected */
 	bool bShowSelection;
+
+	/** When should we signal that selection changed for a left click */
+	ETableRowSignalSelectionMode SignalSelectionMode;
 
 	/** Style used to draw this table row */
 	const FTableRowStyle* Style;

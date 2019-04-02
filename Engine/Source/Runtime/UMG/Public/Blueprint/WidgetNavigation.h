@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -26,6 +26,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Navigation")
 	EUINavigationRule Rule;
 
+	/** This either the widget to focus, OR the name of the function to call. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Navigation")
 	FName WidgetToFocus;
 
@@ -36,6 +37,10 @@ public:
 	FCustomWidgetNavigationDelegate CustomDelegate;
 
 	void Resolve(class UUserWidget* Outer, class UWidgetTree* WidgetTree);
+
+#if WITH_EDITOR
+	void TryToRenameBinding(FName OldName, FName NewName);
+#endif
 };
 
 /**
@@ -80,6 +85,9 @@ public:
 
 	/**  */
 	EUINavigationRule GetNavigationRule(EUINavigation Nav);
+
+	/** Try to rename any explicit or custom bindings from an old to a new name. */
+	void TryToRenameBinding(FName OldName, FName NewName);
 
 #endif
 

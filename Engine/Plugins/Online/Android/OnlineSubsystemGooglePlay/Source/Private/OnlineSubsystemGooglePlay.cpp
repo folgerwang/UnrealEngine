@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 //Google Play Services
 
@@ -278,9 +278,7 @@ void FOnlineSubsystemGooglePlay::StartShowLoginUITask(int PlayerId, const FOnLog
 	if (AreAnyAsyncLoginTasksRunning())
 	{
 		UE_LOG_ONLINE(Log, TEXT("FOnlineSubsystemGooglePlay::StartShowLoginUITask: An asynchronous login task is already running."));
-		FOnlineError Error(false);
-		Error.SetFromErrorCode(TEXT("FOnlineSubsystemGooglePlay::StartShowLoginUITask: An asynchronous login task is already running."));
-		Delegate.ExecuteIfBound(nullptr, PlayerId, Error);
+		Delegate.ExecuteIfBound(nullptr, PlayerId, OnlineIdentity::Errors::LoginPending());
 		return;
 	}
 

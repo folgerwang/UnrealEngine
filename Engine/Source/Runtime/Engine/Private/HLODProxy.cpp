@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/HLODProxy.h"
 #include "GameFramework/WorldSettings.h"
@@ -185,9 +185,17 @@ uint32 GetCRC(UMaterialInterface* InMaterialInterface, uint32 InCRC = 0)
 uint32 GetCRC(UTexture* InTexture, uint32 InCRC = 0)
 {
 	// Default to just the path name if we don't have render data
-	FTexturePlatformData* PlatformData = *InTexture->GetRunningPlatformData();
-	const FString DerivedDataKey = PlatformData ? PlatformData->DerivedDataKey : InTexture->GetPathName();
-	return FCrc::StrCrc32(*DerivedDataKey, InCRC);
+	 if (InTexture->GetRunningPlatformData() != nullptr)
+     {
+         FTexturePlatformData* PlatformData = *InTexture->GetRunningPlatformData();
+         if (PlatformData != nullptr)
+         {
+             return FCrc::StrCrc32(*PlatformData->DerivedDataKey, InCRC);
+         }
+     }
+ 
+     // Default to just the path name if we don't have render data
+     return FCrc::StrCrc32(*InTexture->GetPathName(), InCRC);
 }
 
 uint32 GetCRC(UStaticMesh* InStaticMesh, uint32 InCRC = 0)

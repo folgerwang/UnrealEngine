@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Components/PanelWidget.h"
 
@@ -50,7 +50,19 @@ UWidget* UPanelWidget::GetChildAt(int32 Index) const
 	return nullptr;
 }
 
-int32 UPanelWidget::GetChildIndex(UWidget* Content) const
+TArray<UWidget*> UPanelWidget::GetAllChildren() const
+{
+	TArray<UWidget*> Result;
+
+	for(UPanelSlot* ChildSlot : Slots)
+	{
+		Result.Add(ChildSlot->Content);
+	}
+
+	return Result;
+}
+
+int32 UPanelWidget::GetChildIndex(const UWidget* Content) const
 {
 	const int32 ChildCount = GetChildrenCount();
 	for ( int32 ChildIndex = 0; ChildIndex < ChildCount; ChildIndex++ )

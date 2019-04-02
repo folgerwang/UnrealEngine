@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -84,7 +84,25 @@ public:
 	/** Build the exposure menu using EV100 settings */
 	TSharedRef<SWidget> BuildFixedEV100Menu()  const;
 
+///////////////////////////////////////////////////////////////////////////////
+// begin feature level control functions block
+///////////////////////////////////////////////////////////////////////////////
+private:
+	/** Called to get the feature level preview text */
+	FText GetCurrentFeatureLevelPreviewText(bool bDrawOnlyLabel) const;
+
+	/** @return The visibility of the current feature level preview text display */
+	EVisibility GetCurrentFeatureLevelPreviewTextVisibility() const;
+
+	/** Helper function that, for some FeatureLevel argument, will retrieve the required shader platform */
+	EShaderPlatform GetShaderPlatformHelper(const ERHIFeatureLevel::Type InFeatureLevel) const;
+
 protected:
+	/** call this function to build a 'text' widget that can display the present feature level */
+	TSharedRef<SWidget> BuildFeatureLevelWidget() const;
+///////////////////////////////////////////////////////////////////////////////
+// end feature level control functions block
+///////////////////////////////////////////////////////////////////////////////
 
 	/** Called by the fixed EV100 slider to get the fixed EV100 value */
 	float OnGetFixedEV100Value() const;

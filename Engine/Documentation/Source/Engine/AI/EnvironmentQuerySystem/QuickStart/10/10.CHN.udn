@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2654577
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:10.创建玩家 Context
 Crumbs:%ROOT%, Engine, Gameplay/AI, Engine/AI/EnvironmentQuerySystem, Engine/AI/EnvironmentQuerySystem/QuickStart
@@ -26,6 +26,7 @@ version:4.9
 场景查询可基于 Actor 类型生成一系列项目，但其并不会对 Context 执行此操作。因此，需要找到一种使玩家 Pawn 成为 Context 的方法，此时 **EnvQueryContext_BlueprintBase** 即可派上用场。
 
 
+(#Steps)
 ## 步骤
 
 1. 在 **内容浏览器** 中双击打开 **PlayerContext** 蓝图进行编辑。

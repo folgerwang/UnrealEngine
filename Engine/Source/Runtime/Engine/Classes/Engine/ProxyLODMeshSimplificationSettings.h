@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -21,7 +21,7 @@ public:
 public:
 	/** Mesh reduction plugin to use when simplifying mesh geometry for Hierarchical LOD */
 	UPROPERTY(config, EditAnywhere, Category = General, meta = (ConsoleVariable = "r.ProxyLODMeshReductionModule", DisplayName = "Hierarchical LOD Mesh Reduction Plugin", ConfigRestartRequired = true))
-		FName ProxyLODMeshReductionModuleName;
+	FName ProxyLODMeshReductionModuleName;
 
 	virtual void PostInitProperties() override;
 #if WITH_EDITOR

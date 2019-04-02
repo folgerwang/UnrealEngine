@@ -1,0 +1,62 @@
+Availability: Public
+Crumbs: 
+Title: Setting Up an Unreal Project to Use Datasmith
+Description: In order to use Datasmith to bring content into the Unreal Editor, your Project needs to be set up with a some special plugins and content that are specific to Unreal Studio.
+Type:how-to
+SkillLevel:Beginner
+Version: 4.20
+Parent: Enterprise/Datasmith/HowTo
+Order: 2
+Tags: Enterprise
+Tags: how to
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: beginner
+
+
+![](datasmith-setup-create-project.png)
+
+Datasmith can only import content into a Project that has access to a special set of content and Plugins. We call this an **Unreal Studio Project**, because access to this set of content and Plugins is covered by your Unreal Studio entitlement.
+
+This page describes two ways you can make an Unreal Studio Project to use with Datasmith:
+
+*   by creating a new one from a template that comes with Unreal Engine, and
+*   by converting an existing project that you've already created from a non-Unreal Studio template.
+
+## Creating a New Unreal Studio Project
+
+When you launch Unreal Engine from the Epic Games Launcher, and your account has the Unreal Studio entitlement active, **every** Project you create in the Editor will automatically be set up as an Unreal Studio Project. 
+
+1.  Click the **Launch** button on the left-hand side of the Launcher to start the latest Engine Version you have installed. If you're using Datasmith, we recommend always keeping up to date with the latest released version of Unreal Engine 4.  
+    ![Launch an Engine version](CreateProject_LaunchEngineVersion.png "Launch an Engine version")(w:500)  
+    If you already have the Unreal Editor open, you can instead choose **File > New Project...** from the main menu, then skip to step 3 below.
+2.  After a moment, you should see the [Unreal Project Browser](Engine/Basics/Projects/Browser/). Click the **New Project** tab if it's not already open.  
+    ![New Project tab](CreateProject_SelectNewProjectTab-1.png "New Project tab")(w:500)
+3.  Next, you'll choose a template and set some basic information about it:  
+    ![Choose a Template](CreateProject_SetProjectProperties-1.png "Choose a Template")(w:500)
+    1.  Choose a template to start from.  
+        If you started the Unreal Engine from the Epic Games Launcher, you can select any Project on any tab, and your new Project will automatically be set up as an Unreal Studio Project.  
+        If you don't have a template in mind, the **Blank** template from the Unreal Studio tab is a fine choice to get started with.  
+        For more information on the available templates and what each of them does, see [Unreal Studio Templates.](Enterprise/UnrealStudioProjectTemplates)
+    2.  Enter the **Folder** where you want your project to be saved on your computer.
+    3.  Enter a **Name** for your project.
+4.  Click **Create Project**.  
+    ![Create Project](CreateProject_CreateProjectButton.png "Create Project")(w:500)
+
+You should now be able to import Datasmith files and CAD files into your Project. See [Importing Datasmith and CAD Files into Unreal Engine 4](Enterprise/Datasmith/HowTo/ImportingContent).
+
+## Converting an Existing Project to an Unreal Studio Project
+
+Follow the steps below to convert an existing Project to an Unreal Studio Project.
+
+1.  Open your Project in the latest version of the Unreal Editor.
+2.  When your Project opens, select **Edit > Plugins** from the main menu to open the **Plugins** window.  
+    ![Edit | Plugins](Convert_EditPluginsMenu.png "Edit | Plugins")
+3.  In the **Plugins** window, use the left panel to select **Unreal Studio**.  
+    ![Unreal Studio section](Convert_PluginBrowserUnrealStudio.png "Unreal Studio section")  
+    [REGION:note]
+    You’ll notice that the Datasmith CAD Importer and Datasmith Importer are both grayed out: they are disabled for this Project because it's not yet an Unreal Studio Project.
+    [/REGION]
+4.  At the bottom of the **Plugins** window, click the **Convert Project & Restart** button to convert your Project to an Unreal Studio Project. ![Convert Project and Restart](Convert_ConverProjectButton.png "Convert Project and Restart")
+
+You should now be able to use Datasmith to import Datasmith files and CAD files into your Project. See [Importing Datasmith and CAD Content into Unreal Engine 4](Enterprise/Datasmith/HowTo/ImportingContent).

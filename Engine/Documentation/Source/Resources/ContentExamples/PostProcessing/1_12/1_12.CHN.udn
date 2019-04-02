@@ -1,47 +1,14 @@
-﻿INTSourceChangelist:1929389
+﻿INTSourceChangelist:3782314
 Availability: Public
 Title:1.12 - 运动模糊
-Crumbs:%ROOT%, Resources, Resources/ContentExamples/PostProcessing
+Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/PostProcessing
 Description:后期处理示例关卡概述，示例1.12： 运动模糊
+Related: Engine/Rendering/Overview
+Related: Engine/Rendering/PostProcessEffects
+Related: Engine/Rendering/PostProcessEffects/PostProcessMaterials
+Version: 4.9
+topic-image:Resources/ContentExamples/PostProcessing/PP_12.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/PostProcessing/1_12:title%](Resources/ContentExamples/PostProcessing/PP_12.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/PostProcessing/1_12:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/PostProcessing/1_12:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/PostProcessing/1_12]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/PostProcessing/1_12:title%](Resources/ContentExamples/PostProcessing/PP_12.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/PostProcessing/1_12:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/PostProcessing/1_12:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/PostProcessing/1_12]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [REGION:fullwidth]
 ![](1_12_01.png)

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraSystemFactoryNew.h"
 #include "CoreMinimal.h"
@@ -116,6 +116,10 @@ UObject* UNiagaraSystemFactoryNew::FactoryCreateNew(UClass* Class, UObject* InPa
 	
 	if (SystemToCopy != nullptr)
 	{
+		if (SystemToCopy->IsReadyToRun() == false)
+		{
+			SystemToCopy->WaitForCompilationComplete();
+		}
 		NewSystem = Cast<UNiagaraSystem>(StaticDuplicateObject(SystemToCopy, InParent, Name, Flags, Class));
 		NewSystem->bIsTemplateAsset = false;
 		NewSystem->TemplateAssetDescription = FText();
@@ -162,7 +166,7 @@ void UNiagaraSystemFactoryNew::InitializeSystem(UNiagaraSystem* System, bool bCr
 
 	if (bCreateDefaultNodes)
 	{
-		FStringAssetReference SystemUpdateScriptRef(TEXT("/Niagara/Modules/System/SystemLifeCycle.SystemLifeCycle"));
+		FSoftObjectPath SystemUpdateScriptRef(TEXT("/Niagara/Modules/System/SystemLifeCycle.SystemLifeCycle"));
 		UNiagaraScript* Script = Cast<UNiagaraScript>(SystemUpdateScriptRef.TryLoad());
 
 		FAssetData ModuleScriptAsset(Script);

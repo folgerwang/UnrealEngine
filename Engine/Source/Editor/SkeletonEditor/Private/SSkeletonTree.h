@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -369,7 +369,7 @@ private:
 	/** Delegate for when an item is selected */
 	FOnSkeletonTreeSelectionChangedMulticast OnSelectionChangedMulticast;
 
-	DEPRECATED(4.17, "Please use OnSelectionChangedMulticast")
+	UE_DEPRECATED(4.17, "Please use OnSelectionChangedMulticast")
 	FOnObjectSelectedMulticast OnObjectSelectedMulticast;
 
 	/** Selection recursion guard flag */

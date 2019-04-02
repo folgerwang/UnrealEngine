@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MakeStructHandler.h"
 #include "UObject/UnrealType.h"
@@ -141,7 +141,8 @@ void FKCHandler_MakeStruct::Compile(FKismetFunctionContext& Context, UEdGraphNod
 				Schema->ConvertPropertyToPinType(OverrideProperty, /*out*/ PinType);
 
 				// Create the term in the list
-				FBPTerminal* OverrideTerm = new (Context.VariableReferences) FBPTerminal();
+				FBPTerminal* OverrideTerm = new FBPTerminal();
+				Context.VariableReferences.Add(OverrideTerm);
 				OverrideTerm->Type = PinType;
 				OverrideTerm->AssociatedVarProperty = OverrideProperty;
 				OverrideTerm->Context = OutputStructTerm;

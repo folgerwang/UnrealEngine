@@ -1,8 +1,13 @@
-﻿INTSourceChangelist:1547582
+﻿INTSourceChangelist:3750353
 Availability: Public
 Title:  视图模式
 Crumbs:%ROOT%, Engine, Engine/UI/LevelEditor/Modes/MeshPaintMode/VertexColor
 Description:关于网格物体描画模式中的不同视图模式的介绍。
+Version: 4.9
+parent:Engine/UI/LevelEditor/Modes/MeshPaintMode/VertexColor
+type:reference
+order:3
+topic-image:Engine/UI/LevelEditor/Modes/MeshPaintMode/VertexColor/ViewModes_Demo_Cropped.png
 
 [EXCERPT:Intro]
 网格物体描画模式包含多种不同的视图模式，用以辅助在视口中可视化地呈现顶点颜色是如何应用到您的网格物体上的。这个视图可以仅显示顶点颜色，也可以选择性地查看单独的通道(红色、绿色、蓝色和alpha)。

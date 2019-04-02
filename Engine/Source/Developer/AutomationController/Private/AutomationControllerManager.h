@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -81,7 +81,8 @@ struct FAutomatedTestPassResults
 
 public:
 	FAutomatedTestPassResults()
-		: Succeeded(0)
+		: ReportCreatedOn(0)
+		, Succeeded(0)
 		, SucceededWithWarnings(0)
 		, Failed(0)
 		, NotRun(0)
@@ -89,6 +90,9 @@ public:
 		, ComparisonExported(false)
 	{
 	}
+
+	UPROPERTY()
+	FDateTime ReportCreatedOn;
 
 	UPROPERTY()
 	int32 Succeeded;

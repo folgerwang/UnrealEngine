@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NavigationSystem.h"
 #include "Misc/ScopeLock.h"
@@ -11,6 +11,7 @@
 #include "UObject/UObjectIterator.h"
 #include "EngineUtils.h"
 #include "Logging/MessageLog.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 #include "NavAreas/NavArea.h"
 #include "NavigationOctree.h"
 #include "VisualLogger/VisualLogger.h"
@@ -55,12 +56,12 @@ static const uint32 REGISTRATION_QUEUE_SIZE = 16;	// and we'll not reallocate
 
 DEFINE_LOG_CATEGORY_STATIC(LogNavOctree, Warning, All);
 
-DECLARE_CYCLE_STAT(TEXT("Rasterize triangles"), STAT_Navigation_RasterizeTriangles,STATGROUP_Navigation);
-DECLARE_CYCLE_STAT(TEXT("Nav Tick: area register"), STAT_Navigation_TickNavAreaRegister, STATGROUP_Navigation);
+
 DECLARE_CYCLE_STAT(TEXT("Nav Tick: mark dirty"), STAT_Navigation_TickMarkDirty, STATGROUP_Navigation);
 DECLARE_CYCLE_STAT(TEXT("Nav Tick: async build"), STAT_Navigation_TickAsyncBuild, STATGROUP_Navigation);
 DECLARE_CYCLE_STAT(TEXT("Nav Tick: async pathfinding"), STAT_Navigation_TickAsyncPathfinding, STATGROUP_Navigation);
 DECLARE_CYCLE_STAT(TEXT("Debug NavOctree Time"), STAT_DebugNavOctree, STATGROUP_Navigation);
+
 //----------------------------------------------------------------------//
 // Stats
 //----------------------------------------------------------------------//
@@ -69,7 +70,6 @@ DEFINE_STAT(STAT_Navigation_QueriesTimeSync);
 DEFINE_STAT(STAT_Navigation_RequestingAsyncPathfinding);
 DEFINE_STAT(STAT_Navigation_PathfindingSync);
 DEFINE_STAT(STAT_Navigation_PathfindingAsync);
-DEFINE_STAT(STAT_Navigation_AddGeneratedTiles);
 DEFINE_STAT(STAT_Navigation_TileNavAreaSorting);
 DEFINE_STAT(STAT_Navigation_TileGeometryExportToObjAsync);
 DEFINE_STAT(STAT_Navigation_TileVoxelFilteringAsync);
@@ -81,10 +81,27 @@ DEFINE_STAT(STAT_Navigation_ActorsGeometryExportSync);
 DEFINE_STAT(STAT_Navigation_ProcessingActorsForNavMeshBuilding);
 DEFINE_STAT(STAT_Navigation_AdjustingNavLinks);
 DEFINE_STAT(STAT_Navigation_AddingActorsToNavOctree);
+DEFINE_STAT(STAT_Navigation_RecastAddGeneratedTiles);
 DEFINE_STAT(STAT_Navigation_RecastTick);
 DEFINE_STAT(STAT_Navigation_RecastPathfinding);
+DEFINE_STAT(STAT_Navigation_RecastTestPath);
 DEFINE_STAT(STAT_Navigation_RecastBuildCompressedLayers);
+DEFINE_STAT(STAT_Navigation_RecastCreateHeightField);
+DEFINE_STAT(STAT_Navigation_RecastRasterizeTriangles);
+DEFINE_STAT(STAT_Navigation_RecastVoxelFilter);
+DEFINE_STAT(STAT_Navigation_RecastFilter);
+DEFINE_STAT(STAT_Navigation_RecastBuildCompactHeightField);
+DEFINE_STAT(STAT_Navigation_RecastErodeWalkable);
+DEFINE_STAT(STAT_Navigation_RecastBuildLayers);
+DEFINE_STAT(STAT_Navigation_RecastBuildTileCache);
+DEFINE_STAT(STAT_Navigation_RecastBuildPolyMesh);
+DEFINE_STAT(STAT_Navigation_RecastBuildPolyDetail);
+DEFINE_STAT(STAT_Navigation_RecastGatherOffMeshData);
+DEFINE_STAT(STAT_Navigation_RecastCreateNavMeshData);
+DEFINE_STAT(STAT_Navigation_RecastMarkAreas);
+DEFINE_STAT(STAT_Navigation_RecastBuildContours);
 DEFINE_STAT(STAT_Navigation_RecastBuildNavigation);
+DEFINE_STAT(STAT_Navigation_RecastBuildRegions);
 DEFINE_STAT(STAT_Navigation_UpdateNavOctree);
 DEFINE_STAT(STAT_Navigation_CollisionTreeMemory);
 DEFINE_STAT(STAT_Navigation_NavDataMemory);
@@ -97,8 +114,6 @@ DEFINE_STAT(STAT_Navigation_OffsetFromCorners);
 DEFINE_STAT(STAT_Navigation_PathVisibilityOptimisation);
 DEFINE_STAT(STAT_Navigation_ObservedPathsCount);
 DEFINE_STAT(STAT_Navigation_RecastMemory);
-
-CSV_DEFINE_CATEGORY(NAV_SYSTEM, true);
 
 //----------------------------------------------------------------------//
 // consts
@@ -401,7 +416,7 @@ UNavigationSystemV1::UNavigationSystemV1(const FObjectInitializer& ObjectInitial
 		SetDefaultObstacleArea(UNavArea_Obstacle::StaticClass());
 		
 		const FTransform RecastToUnrealTransfrom(Recast2UnrealMatrix());
-		SetCoordTransformFrom(ENavigationCoordSystem::Recast, RecastToUnrealTransfrom);
+		SetCoordTransform(ENavigationCoordSystem::Navigation, ENavigationCoordSystem::Unreal, RecastToUnrealTransfrom);
 	}
 
 #if WITH_EDITOR
@@ -775,6 +790,8 @@ void UNavigationSystemV1::OnWorldInitDone(FNavigationSystemRunMode Mode)
 		else
 		{
 			const bool bIsBuildLocked = IsNavigationBuildingLocked();
+			const bool bAllowRebuild = !bIsBuildLocked && GetIsAutoUpdateEnabled();
+
 			if (GetDefaultNavDataInstance(FNavigationSystem::DontCreate) != NULL)
 			{
 				// trigger navmesh update
@@ -787,7 +804,7 @@ void UNavigationSystemV1::OnWorldInitDone(FNavigationSystemRunMode Mode)
 
 						if (Result == RegistrationSuccessful)
 						{
-							if (!bIsBuildLocked && bNavigationAutoUpdateEnabled)
+							if (bAllowRebuild)
 							{
 								NavData->RebuildAll();
 							}
@@ -830,13 +847,12 @@ void UNavigationSystemV1::OnWorldInitDone(FNavigationSystemRunMode Mode)
 		}
 	}
 
+#if	WITH_EDITOR
 	if (Mode == FNavigationSystemRunMode::EditorMode)
 	{
-#if	WITH_EDITOR
 		// make sure this static get applied to this instance
 		bNavigationAutoUpdateEnabled = !bNavigationAutoUpdateEnabled; 
 		SetNavigationAutoUpdateEnabled(!bNavigationAutoUpdateEnabled, this);
-#endif		
 		
 		// update navigation invokers
 		if (bGenerateNavigationOnlyAroundNavigationInvokers)
@@ -851,12 +867,13 @@ void UNavigationSystemV1::OnWorldInitDone(FNavigationSystemRunMode Mode)
 		}
 
 		// update navdata after loading world
-		if (bNavigationAutoUpdateEnabled)
+		if (GetIsAutoUpdateEnabled())
 		{
 			const bool bIsLoadTime = true;
 			RebuildAll(bIsLoadTime);
 		}
 	}
+#endif
 
 	if (!bCanAccumulateDirtyAreas)
 	{
@@ -889,9 +906,13 @@ void UNavigationSystemV1::RegisterNavigationDataInstances()
 
 void UNavigationSystemV1::CreateCrowdManager()
 {
-	if (CrowdManagerClass)
+	UClass* CrowdManagerClassInstance = CrowdManagerClass.Get();
+	if (CrowdManagerClassInstance)
 	{
-		SetCrowdManager(NewObject<UCrowdManagerBase>(this, CrowdManagerClass));
+		UCrowdManagerBase* ManagerInstance = NewObject<UCrowdManagerBase>(this, CrowdManagerClassInstance);
+		// creating an instance when we have a valid class should never fail
+		check(ManagerInstance);
+		SetCrowdManager(ManagerInstance);
 	}
 }
 
@@ -992,7 +1013,6 @@ void UNavigationSystemV1::Tick(float DeltaSeconds)
 	if (!bAsyncBuildPaused)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_Navigation_TickAsyncBuild);
-		CSV_SCOPED_TIMING_STAT(NAV_SYSTEM, Navigation_TickAsyncBuild);
 
 		for (ANavigationData* NavData : NavDataSet)
 		{
@@ -1039,10 +1059,11 @@ void UNavigationSystemV1::SetNavigationAutoUpdateEnabled(bool bNewEnable, UNavig
 		UNavigationSystemV1* NavSystem = Cast<UNavigationSystemV1>(InNavigationSystemBase);
 		if (NavSystem)
 		{
-			NavSystem->bCanAccumulateDirtyAreas = bNavigationAutoUpdateEnabled 
+			const bool bCurrentIsEnabled = NavSystem->GetIsAutoUpdateEnabled();
+			NavSystem->bCanAccumulateDirtyAreas = bCurrentIsEnabled
 				|| (NavSystem->OperationMode != FNavigationSystemRunMode::EditorMode && NavSystem->OperationMode != FNavigationSystemRunMode::InvalidMode);
 
-			if (bNavigationAutoUpdateEnabled)
+			if (bCurrentIsEnabled)
 			{
 				const bool bSkipRebuildsInEditor = false;
 				NavSystem->RemoveNavigationBuildLock(ENavigationBuildLock::NoUpdateInEditor, bSkipRebuildsInEditor);
@@ -1742,7 +1763,10 @@ void UNavigationSystemV1::ApplyWorldOffset(const FVector& InOffset, bool bWorldS
 			{
 				NavData->ConditionalConstructGenerator();
 				ARecastNavMesh* RecastNavMesh = Cast<ARecastNavMesh>(NavData);
-				if (RecastNavMesh) RecastNavMesh->RequestDrawingUpdate();
+				if (RecastNavMesh)
+				{
+					RecastNavMesh->RequestDrawingUpdate();
+				}
 			}
 		}
 	}
@@ -4340,7 +4364,7 @@ void UNavigationSystemV1::GetOnScreenMessages(TMultiMap<FCoreDelegates::EOnScree
 {
 	// check navmesh
 #if WITH_EDITOR
-	const bool bIsNavigationAutoUpdateEnabled = UNavigationSystemV1::GetIsNavigationAutoUpdateEnabled();
+	const bool bIsNavigationAutoUpdateEnabled = GetIsAutoUpdateEnabled();
 #else
 	const bool bIsNavigationAutoUpdateEnabled = true;
 #endif

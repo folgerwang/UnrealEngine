@@ -1,0 +1,144 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: Datasmith导入选项
+Description: 描述您在使用Datasmit将内容导入虚幻时可设置的所有选项。
+Type: 
+Version: 4.20
+Parent: Eterprise/Datasmith
+Order: 4
+Tags: Enterprise
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: Reference
+topic-image:import-options-topic.png
+
+
+本页面介绍使用Datasmith从受支持的设计应用程序或数据文件格式导入文件或从原始源重新导入Datasmith场景资源时可以配置的选项。
+
+所有文件格式都提供第一部分中介绍的 **通用导入选项**。另外，根据要导入的文件的类型，可能还会看到特定于该格式的附加选项。请参阅下面的部分来获取细节。
+
+## 通用Datasmith导入选项
+
+使用Datasmith导入任意种类的文件时，都可以设置以下选项。
+
+![通用Datasmith导入选项](UnrealDSImportOptions-1.png "Common Datasmith import options")
+
+| 属性 | 	说明 |
+| --- | --- |
+| **几何体（Geometry）** | 指定Datasmith是否应从源文件导入几何体并将它变成项目中的静态网格体资源。|
+| **材质和纹理（Materials & Textures）** | 指定Datasmith是否应从源文件导入材质和纹理并将它们变成项目中的材质和纹理资源。|
+| **光源（Lights）** | 指定Datasmith是否应在Datasmith场景保留的场景层级中包括源文件中的光源，并在关卡中创建光源Actor来代表它们。|
+| **摄像机（Cameras）** | 指定Datasmith是否应在Datasmith场景保留的场景层级中包括源文件中的摄像机，并在关卡中创建电影摄像机Actor来代表它们。|
+| **最低光照贴图分辨率（Min Lightmap Resolution）** | 为Datasmith生成的静态网格体资源设置最低光照贴图分辨率。该值用于确定在虚幻引擎4中生成光照贴图UV时，打包的UV光照图之间的填补量。较为合适的值通常为“最高光照贴图分辨率（Max Lightmap Resolution）”的一半。|
+| **最高光照贴图分辨率（Max Lightmap Resolution ）** | 为Datasmith生成的静态网格体资源设置光照贴图分辨率。在关卡中使用预计算照明（静态和固定光源）时，这些光照贴图用于按实例存储照明信息。导入时请勿将该值设置得过高。针对项目，将其设置到合适的基准级别，然后在构建照明时为需要更高分辨率以实现更好效果的个别静态网格体资源增大该值。|
+
+
+[REGION:note]
+重新导入Datasmith场景时，**包括（Include）** 部分下的复选框仅指示是否应使用源文件中的新内容和修改后的内容更新每个类型的资源或Actor。如果取消选中其中一项，该类型的现有资源或Actor不会从项目中删除。
+[/REGION]
+
+## CAD导入选项
+
+使用Datasmith CAD导入程序导入CAD文件时，可以设置以下附加选项。
+
+如果源文件包含由曲线定义的表面，Datasmith会将这些曲面细分成三角网格体。这些参数控制曲面细分过程。它们控制生成的网格体应在多大程度上接近原始表面，从而也将控制网格体的复杂度。对于所有设置，数值越小，三角形的数量越多，数值越大，三角形的数量越少。
+
+![几何体和曲面细分选项（Geometry and Tessellation Options）](UnrealDSImportOptions.png "Geometry and Tessellation Options")
+
+  
+| 属性 | 说明 |
+| --- | --- |
+| [REGION:tablesection]几何体和曲面细分选项（Geometry and Tessellation Options）[/REGION] ||
+| **弦容差（Chord Tolerance）** | 设置生成的三角形中的任何点和原始表面间的最大距离。|
+| **最大边缘长度（Max Edge Length）** | 设置生成的任何三角形的任何边缘的最大长度。|
+| **法线容差（Normal Tolerance）** | 设置任意相邻的两个从表面生成的三角形间的最大角度。|
+
+
+
+[REGION:tip]
+要获取这些参数以及它们如何影响生成的静态网格体几何体的深入介绍，请参阅[将Datasmith与CAD文件格式配合使用](Enterprise/Datasmith/SoftwareInteropGuides/CAD)。
+[/REGION]
+
+## MDL和AxF导入选项
+
+使用Datasmith导入 *.mdl* 或 *.axf* 文件时，可以设置以下附加选项：
+
+![MDL和AxF导入选项](datasmith-import-settings-mdlaxf.png "MDL and AxF import options")
+
+  
+| 属性 | 说明 |
+| --- | --- |
+| [REGION:tablesection]资源导入（Asset Importing）[/REGION] ||
+| **资源文件夹（Resource folder）** | 设置Datasmith应在其中搜索源文件使用的资源（例如，纹理文件、IES光源配置文件和BSDF度量）的路径。|
+| **模块文件夹（Modules folder）** | [INCLUDE:#modulesfoldersection] |
+| **烘焙分辨率（Baking resolution）** | 设置Datasmith在需要将以程序化的方式生成的纹理烘焙到纹理资源时使用的纹理分辨率。|
+| **烘焙样本（Baking samples）** | 设置Datasmith在需要将以程序化的方式生成的纹理烘焙到纹理资源时从它们采样的深度。|
+| **每场景单位的米数（Meters per scene unit）** | 设置材质中的场景单位和虚幻引擎坐标系中的“米”的转换比率。如果使用不同的标尺创建了材质，可能需要调整该值。|
+| **使用样本大小（Use sample size）** | 对于AxF材质，该设置将确定是否使用材质的物理大小来调整其UV标尺。|
+
+[COMMENT:none]
+[EXCERPT:modulesfoldersection]
+指定Datasmith应用于搜索源文件使用的任何其他MDL模块的路径。
+
+许多MDL材质都依赖MDL Material Exchange库中的模块，[可单击此处来获取英伟达分发的库](http://us.download.nvidia.com/iray/mdl_material_exchange_v1.6.exe)。建议你安装此库。
+
+* 导入程序始终在系统路径中搜索模块。该系统路径由系统上的`MDL_SYSTEM_PATH`环境值（如果存在）的值设置。如果导入程序找不到具有该名称的变量，它会使用英伟达分发的核心MDL Material Exchange库的默认安装位置，例如，在Windows上该位置为 *C:/ProgramData/NVIDIA Corporation/mdl/*。
+* 导入程序也会在 *用户* 路径中查找。该用户路径由系统上的`MDL_USER_PATH`环境值的（如果存在）的值设置。如果导入程序找不到具有该名称的变量，它会在用户目录中的“mdl”文件夹中查找。例如，在Windows平台上为 *C:\Users\<UserName>\Documents\mdl*，在Linux和Mac OS上为*~/Documents/mdl*。
+* 可以使用此 **模块文件夹（Modules folder）** 参数覆盖具有不同搜索路径的用户路径。例如，如果将Material Exchange安装在计算机上的自定义位置，或源文件依赖位于其他位置的其他MDL模块，可能需要进行覆盖。
+
+[/EXCERPT:modulesfoldersection]
+[/COMMENT]
+
+## Deltagen导入选项
+
+使用Datasmith Deltagen Fbx导入程序导入从Deltagen导出的 *.fbx* 文件时，可以设置以下附加选项：
+
+![Deltagen导入选项](datasmith-import-settings-deltagen.png "Deltagen import options")
+
+  
+| 属性 | 说明 |
+| --- | --- |
+| [REGION:tablesection]属性[/REGION] ||
+| **合并节点（Merge Nodes）** | 将未用于动画、变体或其他功能的StaticMesh节点的子树合并成单个StaticMesh节点。它降低了场景层级的深度和复杂度，从而简化虚幻中的场景管理。但是，如果需要手动清除导入的静态网格体，或者场景中包含同一个几何体的多个实例，则建议不要使用该选项。|
+| **优化复制的节点（Optimize Duplicated Nodes）** | 通过重复使用整个相同的子树来减少场景层级中的节点总数。|
+| **删除不可见节点（Remove Invisble Nodes）** | 启用该设置可避免导入任何在Deltagen场景中隐藏的几何体。|
+| **简化节点层级（Simplify Node Hierarchy）** | 启用该设置可使Datasmith场景层级扁平化。|
+| [REGION:tablesection]资源导入（Asset Importing）[/REGION] ||
+| **导入VAR（Import VAR）** | 启用该选项可将Deltagen场景中的变体导入到虚幻中，并使项目中的蓝图脚本可以使用它们。|
+| **导入POS（Import POS）** | 	启用该选项可将Deltagen场景中的状态数据导入到虚幻中。|
+| **导入TML（Import TML）** | 启用该选项可将Deltagen场景中的动画数据导入到虚幻中，并使项目中的蓝图脚本可以使用它们。|
+| **纹理目录（Textures Dir）** | 指定Datasmith用于搜索在 *.fbx* 文件中引用的纹理文件的文件夹路径。|
+|[REGION:tablesection]调试（Debug）[/REGION]||
+| **中间序列化（Intermediate Serialization）** | 启用该选项可将从.fbx文件读取的场景数据存储为中间格式。如果经常需要导入相同的场景，而且FBX导入程序是个瓶颈，那么该设置可能非常有用。|
+| **为材质着色（Colorize materials）** | 启用该选项可使用随机着色的简单材质，而无需导入DiffuseColor等材质参数或纹理。|
+| [REGION:tablesection]光照贴图（Lightmaps）[/REGION]||
+| **生成光照贴图UV（Generate Lightmap UVs）** | 启用该选项可让Datasmith导入程序自动为导入的静态网格体资源生成光照贴图UV。禁用该选项可将现有UV集用于光照贴图。请注意，对于其光照贴图，几何体必须具有有效的非重叠UV集，以便和Lightmass构建的静态预计算照明结合使用。|
+
+
+
+
+## VRED导入选项
+
+使用Datasmith VRED Fbx导入程序导入从VRED导出的 *.fbx* 文件时，可以设置以下附加选项：
+
+![VRED导入选项](datasmith-import-settings-vred.png "VRED import options")
+
+  
+| 属性 | 说明 |
+| --- | --- |
+| [REGION:tablesection]属性[/REGION] ||
+| **合并节点（Merge Nodes）** | 将未用于动画、变体或其他功能的StaticMesh节点的子树合并成单个StaticMesh节点。它降低了场景层级的深度和复杂度，从而简化虚幻中的场景管理。但是，如果需要手动清除导入的静态网格体，或者场景中包含同一个几何体的多个实例，则建议不要使用该选项。|
+| 优化复制的节点（Optimize Duplicated Nodes） | 通过重复使用整个相同的子树来减少场景层级中的节点总数。|
+| [REGION:tablesection]资源导入（Asset Importing）[/REGION] ||
+| **导入FBX动画（Import FBX animations）** | 启用该选项可将VRED场景中的动画导入到虚幻中，并使项目中的蓝图脚本可以使用它们。|
+| **导入变体文件（Import variants file）** | 启用该选项可将VRED场景中的变体和变体集导入到虚幻中，并使项目中的蓝图脚本可以使用它们。|
+| **变体文件路径（Variants file path）** | 指定包含VRED场景中变体的相关数据的.var文件的路径。默认情况下，该路径设置为与要导入的.fbx文件匹配的路径和文件名。只有在要从其他位置导入.var文件时才需要手动设置该路径。|
+| **导入光源文件（Import lights file）** | 	如果禁用该选项，但将通用Datasmith属性中的“导入（Import） > 光源（Lights）”设置保留为启用，Datasmith在虚幻中创建的光源将仅包含.fbx文件中存储的信息。如果启用该选项，Datasmith将从导出场景时创建的.lights文件中导入VRED场景中与照明有关的额外信息。该选项将保留不受FBX支持的IES光源描述文件等与光源有关的额外属性，通常可带来更好的视觉效果，更加接近VRED中的照明。|
+| **光源文件路径（Light file path）** | 指定包含VRED场景中变体的相关数据的.lights文件的路径。默认情况下，该路径设置为与要导入的.fbx文件匹配的路径和文件名。只有在要从其他位置导入.lights文件时才需要手动设置该路径。|
+| **纹理文件夹（Textures folder）** | 指定Datasmith用于搜索在 *.fbx* 文件中引用的纹理文件的文件夹路径。|
+|[REGION:tablesection]调试（Debug）[/REGION]||
+| **中间序列化（Intermediate Serialization）** | 启用该选项可将从.fbx文件读取的场景数据存储为中间格式。如果经常需要导入相同的场景，而且FBX导入程序是个瓶颈，那么该设置可能非常有用。|
+| **为材质着色（Colorize materials）** | 启用该选项可使用随机着色的简单材质，而无需导入DiffuseColor等材质参数或纹理。|
+| [REGION:tablesection]光照贴图（Lightmaps）[/REGION]||
+| **生成光照贴图UV（Generate Lightmap UVs）** | 启用该选项可让Datasmith导入程序自动为导入的静态网格体资源生成光照贴图UV。禁用该选项可将现有UV集用于光照贴图。请注意，对于其光照贴图，几何体必须具有有效的非重叠UV集，以便和Lightmass构建的静态预计算照明结合使用。|

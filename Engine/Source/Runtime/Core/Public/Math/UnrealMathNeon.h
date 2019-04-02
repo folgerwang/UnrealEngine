@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -552,12 +552,12 @@ FORCEINLINE VectorRegister VectorBitwiseXor(const VectorRegister& Vec1, const Ve
 * @param Vec1		Source vector1
 * @param Vec2		Source vector2
 * @param X			Index for which component of Vector1 to use for X (literal 0-3)
-* @param Y			Index for which component to Vector1 to use for Y (literal 0-3)
-* @param Z			Index for which component to Vector2 to use for Z (literal 0-3)
-* @param W			Index for which component to Vector2 to use for W (literal 0-3)
+* @param Y			Index for which component of Vector1 to use for Y (literal 0-3)
+* @param Z			Index for which component of Vector2 to use for Z (literal 0-3)
+* @param W			Index for which component of Vector2 to use for W (literal 0-3)
 * @return			The swizzled vector
 */
-#define VectorShuffle( Vec1, Vec2, X, Y, Z, W )	__builtin_shufflevector(Vec1, Vec2, X, Y, Z, W)
+#define VectorShuffle( Vec1, Vec2, X, Y, Z, W )	__builtin_shufflevector(Vec1, Vec2, X, Y, Z + 4, W + 4)
 
 
 /**
@@ -1423,7 +1423,7 @@ FORCEINLINE VectorRegisterInt VectorIntSelect(const VectorRegisterInt& Mask, con
 * @param Vec	Vector to store
 * @param Ptr	Memory pointer
 */
-#define VectorIntStore( Vec, Ptr )			vst1q_s32( (VectorRegisterInt*)(Ptr), Vec )
+#define VectorIntStore( Vec, Ptr )			vst1q_s32( (int32*)(Ptr), Vec )
 
 /**
 * Loads 4 int32s from unaligned memory.

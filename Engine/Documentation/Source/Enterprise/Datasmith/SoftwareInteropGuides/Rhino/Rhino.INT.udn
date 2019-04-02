@@ -1,0 +1,137 @@
+Availability: Public
+Crumbs: 
+Title: Using Datasmith with Rhino
+Description: Describes special considerations that apply when you use Datasmith to import scenes from McNeel Rhinoceros 3D.
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/SoftwareInteropGuides
+Order: 3
+Tags: Enterprise
+Tags: Datasmith
+Tags: overview
+Tags: studio
+Tags: interop
+topic-image:RhinoToUE_Topic_v2.png
+
+
+![Using Datasmith with Rhino](rhino-datasmith-banner.png "Using Datasmith with Rhino")
+
+If you plan to use Datasmith to bring scenes into Unreal Editor from McNeel Rhinoceros (Rhino), you'll need to know a few extra things about how Datasmith treats your scene, in addition to the basics that you'll find described in the [Datasmith Overview](Enterprise/Datasmith/Overview) and [About the Datasmith Import Process](Enterprise/Datasmith/Overview/ImportProcess).
+
+## Rhino Workflow
+
+Datasmith uses a **Direct** workflow for Rhino. That means that to get your Rhino content into Unreal using Datasmith, you simply need to save your Rhino scene to a *.3dm* file, and use the Datasmith CAD importer to bring that file into the Unreal Editor. See [Importing Datasmith Content into Unreal Engine 4](Enterprise/Datasmith/HowTo/ImportingContent).
+
+## Converting Geometry into Static Meshes
+
+Datasmith creates a separate Static Mesh Asset for each separate mesh, solid, or surface in the Rhino file. If the object has its **Name** property set in the **Properties** panel in Rhino (shown on the left in the image below), Datasmith uses that name for the Static Mesh Asset (shown on the right in the image below). Any Actors that Datasmith creates in your Level that refer to that Static Mesh Asset also use the same name.
+
+[REGION:lightbox]
+[![Rhino object name conversion](rhino-datasmith-object-name.png "Rhino object name conversion")](rhino-datasmith-object-name.png)
+
+*Click for full image.*
+[/REGION]
+
+### Instancing
+
+When Datasmith detects multiple instances of the same block in your Rhino scene, it only creates one set of Static Mesh Assets for the geometry in that block, and places multiple instances of those Static Meshes into the scene. This is typically better for the runtime memory requirements and performance of your Project, as well as making it easier to manage the number of Static Meshes in your **Content Browser**.
+
+Wherever possible, we recommend taking advantage of this by making any repeating elements in your scene (such as windows, doors, or chairs) into blocks in Rhino. For details, see the [Rhino documentation](https://wiki.mcneel.com/rhino/usingblocks).
+
+### Tessellation and Render Meshes
+
+Unlike most other CAD file formats, Datasmith does not tessellate surfaces in Rhino files.
+
+Instead, if the Rhino file you import already contains a render mesh for an object, Datasmith re-uses that mesh to create the Static Mesh in Unreal instead of tessellating the surfaces at import time.
+
+This saves time on import, and allows you to control the tessellation of your surfaces in Rhino. For details, see the [Rhino documentation](https://wiki.mcneel.com/rhino/meshfaq). However, this also means that the tessellation parameters in the [Datasmith Import Options window](Enterprise/Datasmith/ImportOptions) have no effect when you import and re-import Rhino scenes.
+
+### Triangle Facing Direction
+
+Rhino typically displays all surfaces as two-sided, regardless of the direction of their surface normals. However, the Unreal Engine automatically culls triangles that face away from the camera. This may cause some geometry in your scene to disappear when viewed from certain angles.
+
+For example, the image below shows a wheel well cover that was modeled with its surface normals facing inward. After the scene is imported into Unreal, the sides at first appear to be missing. In this case, flipping the normal direction of the object makes the sides appear as they should.
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![backward-facing](rhino-datasmith-facing-dir-bad.png) 
+	[/PARAM]
+	[PARAM:after]
+	![forward-facing](rhino-datasmith-facing-dir-good.png) 
+	[/PARAM]
+[/OBJECT]
+
+For a complete discussion and recommended solutions, see [About the Datasmith Import Process](Enterprise/Datasmith/Overview/ImportProcess).
+
+## Rhino Materials
+
+For each different surface color and material that Datasmith finds in your Rhino scene, it creates a separate [Material Asset](Engine/Rendering/Materials) in Unreal, and places it in the Materials folder next to your Datasmith Scene Asset.
+
+*   Unreal Materials that represent Rhino materials keep the names they have in Rhino. These [Material Instances](Engine/Rendering/Materials/MaterialInstances) use the **Datasmith_Material **as their Parent. For details, see [Rhino Material Properties](#rhinomaterialproperties) below.
+*   Unreal Materials that represent Rhino display colors have names automatically generated for them based on the values of the RGB channels. These Material Instances use the **Datasmith_Color** as their Parent Material. For details, see [About the Datasmith Import Process](Enterprise/Datasmith/Overview/ImportProcess). 
+
+[REGION:lightbox]
+[![Material Assets created by Datasmith](rhino-datasmith-material-name.png "Material Assets created by Datasmith")](rhino-datasmith-material-name.png)
+
+*Click for full image.*
+[/REGION]
+
+### Material and Color Assignment
+
+In Rhino, the material or color used to draw an object's surface can be assigned to the object itself, to its layer, or to its parent, and may depend on the properties of the current viewport. However, in Unreal, each triangle that makes up the surface of a Static Mesh Asset needs a single Material to define its rendering properties. Datasmith therefore needs to interpret the surface display properties for each geometry object in Rhino to determine a single way for that object's surface to be rendered in Unreal.
+
+To do this, it uses the following rules:
+
+*   It first tries to find a material for each surface. It uses each object's **Assign material by** setting in Rhino to determine the source of the material that should be used to shade that surface.  
+    ![Assign material by](rhino-datasmith-assign-mat-by-layer.png "Assign material by")
+*   If that source does not have a material assigned to it, Datasmith falls back on using the **Display Color** property set for the object.  
+    ![Display Color](rhino-datasmith-display_color.png "Display Color")  
+    That setting may in turn be defined directly on the object itself, or it may point to the object's layer or the object's parent block.
+
+### Rhino Material Properties
+
+The goal of the Rhino Material conversion process is to take the settings you're familiar with from Rhino, and interpret them in a way that produces similar results with Unreal's physically based renderer.
+
+As you can see from looking at the settings side-by-side, each Material Asset created by Datasmith offers the same Basic properties and the same Texture types that you can set in Rhino:
+
+[REGION:lightbox]
+[![Rhino Datasmith Material settings](rhino-datasmith-material.png "Rhino Datasmith Material settings")](rhino-datasmith-material.png)
+
+*Click for full image.*
+[/REGION]
+
+The only Rhino properties that are missing from the Datasmith Material are the ambient color and diffuse color settings:
+
+*   In Unreal, you can take care of adding extra ambient lighting when you set up lighting for your Level, not in individual Materials.
+*   You can simulate the effect of unchecking Rhino's **Enable Diffuse Lighting** checkbox by changing your Unreal Material's **General > Material Property Override > ****Shading Model** setting to Unlit.
+
+[REGION:note]
+**Note: **If your Rhino material uses a texture with a blend percentage, the percentage value is not automatically carried over into the Unreal Material. However, you can set it in Unreal using the corresponding **Percentage** setting that appears alongside any active textures:
+
+![Color Percentage](datasmith-rhino-material-percentage.png "Color Percentage")
+[/REGION]
+
+## Building the Datasmith Scene Hierarchy
+
+Datasmith builds its scene hierarchy from your Rhino model as follows:
+
+*   For each layer in your Rhino scene, Datasmith creates an Actor in Unreal to act as the parent for all objects on that layer.  
+    Note that unlike the layers that are created in the **Layers** panel of the Unreal Editor, this hierarchy of Actors is not flattened. The Actors are nested exactly like the layers in your Rhino scene.
+*   Under the Actor that represents each layer, every instanced block on the corresponding layer is represented by another Actor.
+    [REGION:warning]
+    **Warning:** Pivot points on Rhino blocks are currently imported at the wrong position in world space.
+    [/REGION]
+*   Finally, the Actor that represents each layer and each block contains Static Mesh Actors that represent the actual geometry objects that make up that layer or block.
+*   Groups in Rhino do not affect the Unreal scene hierarchy, as they are considered selection helpers rather than important elements in the scene hierarchy.
+
+For example, in the image below, you can see that every layer in the Rhino hierarchy has a counterpart Actor in Unreal. Layers like **lights > turn signals**, which contain only geometry objects in Rhino, contain only the corresponding Static Mesh Actors in Unreal. The **lights** layer in Rhino also contains two block instances, named **left_headlight** and **right_headlight**. Each of these is represented by a nested Actor in Unreal, which in turn contains the geometry objects that make up those blocks.
+
+[REGION:lightbox]
+[![Rhino to Datasmith scene hierarchy](rhino-datasmith-hierarchy.png "Rhino to Datasmith scene hierarchy")](rhino-datasmith-hierarchy.png)
+
+*Click for full image.*
+[/REGION]
+
+[REGION:note]
+**Credit:** The model used on this page is courtesy of [Turbosquid](https://www.turbosquid.com/3d-models/3d-3dm-car-offroad-van/1137533) user [tomashorin.design](https://www.turbosquid.com/Search/Artists/tomashorin.design).
+[/REGION]

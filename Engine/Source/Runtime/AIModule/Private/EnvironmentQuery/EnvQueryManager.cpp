@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "EnvironmentQuery/EnvQueryManager.h"
 #include "UObject/UObjectIterator.h"
@@ -18,6 +18,8 @@
 #include "UObject/Package.h"
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"
+#include "ProfilingDebugging/CsvProfiler.h"
+
 
 #if WITH_EDITOR
 #include "Editor/EditorEngine.h"
@@ -143,22 +145,9 @@ void UEnvQueryManager::PostInitProperties()
 #endif // WITH_EDITOR
 }
 
-UWorld* UEnvQueryManager::GetWorld() const
-{
-	return Cast<UWorld>(GetOuter());
-}
-
 void UEnvQueryManager::FinishDestroy()
 {
 	FCoreUObjectDelegates::PreLoadMap.RemoveAll(this);
-
-#if WITH_EDITOR
-	if (GEditor)
-	{
-		GEditor->OnBlueprintCompiled().Remove(OnBlueprintCompiledHandle);
-	}
-#endif // WITH_EDITOR
-
 	Super::FinishDestroy();
 }
 
@@ -257,13 +246,17 @@ void UEnvQueryManager::RunInstantQuery(const TSharedPtr<FEnvQueryInstance>& Quer
 		return;
 	}
 
-	RegisterExternalQuery(QueryInstance);
-	while (QueryInstance->IsFinished() == false)
 	{
-		QueryInstance->ExecuteOneStep(UEnvQueryTypes::UnlimitedStepTime);
-	}
+		CSV_SCOPED_TIMING_STAT_EXCLUSIVE(EnvQueryManager);
 
-	UnregisterExternalQuery(QueryInstance);
+		RegisterExternalQuery(QueryInstance);
+		while (QueryInstance->IsFinished() == false)
+		{
+			QueryInstance->ExecuteOneStep(UEnvQueryTypes::UnlimitedStepTime);
+		}
+
+		UnregisterExternalQuery(QueryInstance);
+	}
 
 	UE_VLOG_EQS(*QueryInstance.Get(), LogEQS, All);
 
@@ -303,7 +296,7 @@ TSharedPtr<FEnvQueryInstance> UEnvQueryManager::PrepareQueryInstance(const FEnvQ
 		return NULL;
 	}
 
-	QueryInstance->World = Cast<UWorld>(GetOuter());
+	QueryInstance->World = GetWorldFast();
 	QueryInstance->Owner = Request.Owner;
 	QueryInstance->StartTime = FPlatformTime::Seconds();
 
@@ -345,6 +338,8 @@ void UEnvQueryManager::Tick(float DeltaTime)
 	SCOPE_TIME_GUARD_MS(TEXT("UEnvQueryManager::Tick"), 10);
 	SCOPE_CYCLE_COUNTER(STAT_AI_EQS_Tick);
 	SET_DWORD_STAT(STAT_AI_EQS_NumInstances, RunningQueries.Num());
+
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(EnvQueryManager);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	CheckQueryCount();
@@ -692,7 +687,7 @@ TSharedPtr<FEnvQueryInstance> UEnvQueryManager::CreateQueryInstance(const UEnvQu
 	if (InstanceTemplate == NULL)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_AI_EQS_LoadTime);
-		static const UEnum* RunModeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEnvQueryRunMode"));
+		static const UEnum* RunModeEnum = StaticEnum<EEnvQueryRunMode::Type>();
 
 		// duplicate template in manager's world for BP based nodes
 		const FString NewInstanceName = RunModeEnum

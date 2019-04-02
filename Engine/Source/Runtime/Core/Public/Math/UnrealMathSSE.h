@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -12,6 +12,8 @@ struct FMath;
 // We require SSE2
 #include <emmintrin.h>
 
+// We suppress static analysis warnings for the cast from (double*) to (float*) in VectorLoadFloat2 below:
+// -V:VectorLoadFloat2:615
 
 /*=============================================================================
  *	Helpers:
@@ -1200,7 +1202,10 @@ FORCEINLINE VectorRegister VectorFloor(const VectorRegister& X)
 
 FORCEINLINE VectorRegister VectorMod(const VectorRegister& X, const VectorRegister& Y)
 {
-	VectorRegister Temp = VectorTruncate(VectorDivide(X, Y));
+	VectorRegister Div = VectorDivide(X, Y);
+	// Floats where abs(f) >= 2^23 have no fractional portion, and larger values would overflow VectorTruncate.
+	VectorRegister NoFractionMask = VectorCompareGE(VectorAbs(Div), GlobalVectorConstants::FloatNonFractional);
+	VectorRegister Temp = VectorSelect(NoFractionMask, Div, VectorTruncate(Div));
 	return VectorSubtract(X, VectorMultiply(Y, Temp));
 }
 

@@ -2,7 +2,7 @@
 Availability: Licensee
 Title:언리얼 엔진 4용 P4Win 셋업하기
 Crumbs:%ROOT%, Engine, Programming, Programming/Basics, GettingStarted/DownloadingUnrealEngine/Perforce
-Description:언리얼 언진 4 에 사용되는 퍼포스 P4Win 윈도우 클라이언트로 빌드 설치, 셋업, 동기화 하는 방법 안내서입니다.
+Description:언리얼 언진 4 에 사용되는 퍼포스 P4Win Windows 클라이언트로 빌드 설치, 셋업, 동기화 하는 방법 안내서입니다.
 version: 4.9
 
 [TOC(start:2)]

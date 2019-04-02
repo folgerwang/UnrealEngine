@@ -1,17 +1,15 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3532405
 Availability: Docs
 Crumbs: %ROOT%
-Title: Brand Glossary
-Description: A glossary of key terms, which are used to describe the systems, features, and tools that belong to Unreal Engine 4 (UE4).
+Title: 品牌术语表
+Description: 用于描述虚幻引擎4（UE4）系统、功能及功能的重要术语表。
 Type: Reference
-Version: 4.17
+Version: 4.16
 Parent:BrandGlossary
 Order:14
 Tags:Brand Glossary
 
-Welcome to the Unreal Engine 4 (UE4) **Brand Glossary**. If you want to create user-facing resources for the UE4 community, this guide 
-helps you gain a better understanding of the terms being used to describe systems, features, and tools belonging to UE4. After reading 
-through this glossary, you'll also know how to properly spell and capitalize the terms we use to describe Unreal Engine.  
+欢迎了解虚幻引擎4(UE4) **品牌术语表**。若您希望为UE4社区创建面向用户的资源，本指南可帮助您更深入了解用于描述UE4系统、功能及工具的术语。在通读本术语表后，您还将了解如何正确拼写和大写用于描述虚幻引擎的术语。  
 
 <hr>
   
@@ -44,48 +42,48 @@ through this glossary, you'll also know how to properly spell and capitalize the
 
 ##Sequencer
 
-Unreal Engine’s cinematic toolset that provides director-level control over cut scenes, dynamic gameplay sequences, and movies.
+Sequencer是虚幻引擎的电影工具集，可对剪切场景、动态Gameplay序列及影片提供导演级别的控制。
 
-##Simulate In Editor
+##在编辑器中模拟
 
-Simulate In Editor enables you to run game logic in the editor viewport so you can inspect, edit, and interact with Actors in the world as the game runs.
+在编辑器中模拟功能使您能够在编辑器视口中运行游戏逻辑，因此，当游戏运行时，您可以检查、编辑及与世界场景中的Actor互动。
 
-##Skeletal Mesh
+##骨架网格体
 
-Skeletal Meshes are built up of two parts; a set of polygons composed to make up the surface of the Skeletal Mesh, and a hierarchical set of interconnected bones that can be used to animate the polygons
+骨架网格体由两部分构成：构成骨架网格体表面的一组多边形，以及用于使多边形产生动画的一组层次化的关联骨骼
 
-##Skeleton
+##骨架
 
-A Skeleton is an asset that holds bone and hierarchy information for a specific type of character or Skeletal Mesh.
+骨架是针对特定类型的角色或骨架网格体保存骨骼和层级信息的资源。
 
-##Slate UI Framework
+##Slate用户界面框架
 
-Slate is a completely custom and platform agnostic user interface framework that is designed to make building the user interfaces for tools and applications, such as Unreal Editor, or in-game user interfaces fun and efficient. It combines a declarative syntax with the ability to design, layout, and style components that allows for easily creating and iterating on UIs.
+Slate是完全自定义、与平台无关的用户界面框架，旨在让工具和应用程序（比如虚幻编辑器）的用户界面或游戏中用户界面的构建过程变得有趣、高效。它将声明性语法与设计、布局和风格组件的功能相结合，允许在UI上轻松实现创建和迭代。
 
 ##Sound Cue
 
-Asset that defines the playback behavior of a sound.
+用于定义声音回放行为的资源。
 
-##Sound Cue Editor
+##Sound Cue编辑器
 
-Node-based tool used to edit Sound Cues.
+用于编辑Sound Cue的基于节点的工具。
 
-##Spawn
+##生成
 
-Creating a new instance of an Actor, either programmatically at run-time, or manually in the Level Editor at design-time.
+在运行时以编程方式创建新的Actor实例，或在设计时手动在关卡编辑器中创建新的Actor实例。
 
-##Static Mesh
+##静态网格体
 
-A Static Mesh is a piece of geometry that consists of a static set of polygons and are the basic unit used to create world geometry for levels in Unreal Engine 4.
+静态网格体是由一组静态多边形组成的几何体，是虚幻引擎4中用于创建关卡世界场景几何体的基本单位。
 
-##Static Mesh Actor
+##静态网格Actor
 
-An Actor whose visual representation is a Static Mesh.
+视觉呈现为静态网格体的Actor。
 
-##Static Mesh Components
+##静态网格组件
 
-A Component that adds a Static Mesh to an Actor.
+向Actor添加静态网格体的组件。
 
-##Static Mesh Editor
+##静态网格体编辑器
 
-The Static Mesh Editor provides tools for previewing the geometry, collision, and levels of detail of a Static Mesh asset, as well as editing properties, applying Materials, and setting up collision geometry.
+静态网格体编辑器提供用于预览静态网格体资源几何体、碰撞和关卡细节的工具，以及用于编辑属性、应用材质及设置碰撞几何体的工具。

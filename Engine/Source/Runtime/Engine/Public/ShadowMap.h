@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -318,7 +318,8 @@ public:
 	FShadowMap2D(TArray<FGuid> LightGuids);
 
 	// Accessors.
-	UShadowMapTexture2D* GetTexture() const { check(IsValid()); return Texture; }
+	UTexture2D* GetTexture();
+	const UTexture2D* GetTexture() const;
 	const FVector2D& GetCoordinateScale() const { check(IsValid()); return CoordinateScale; }
 	const FVector2D& GetCoordinateBias() const { check(IsValid()); return CoordinateBias; }
 	bool IsValid() const { return Texture != NULL; }

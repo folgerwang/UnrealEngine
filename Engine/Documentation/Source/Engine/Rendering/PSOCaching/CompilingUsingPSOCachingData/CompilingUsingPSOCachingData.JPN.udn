@@ -1,0 +1,47 @@
+﻿INTSourceChangelist:0
+Availability: Public
+Crumbs: 
+Title: Compiling & Using PSO Caching Data
+Description: Going over setting up when PSO data will be compiled at run time.
+Type: 
+Version: 4.21
+Parent: Engine/Rendering/PSO-Caching
+Order: 
+Tags: 
+
+
+Before the **Pipeline State Object** (PSO) caching data can be used in the run-time version of your Unreal Engine 4 (UE4) project, it needs to be compiled. In the following How-To, we will take a look at two different ways to control when PSO data is being compiled while your UE4 project is running.
+
+## Loading Screens
+
+You can configure your project to build PSO data only while displaying a loading screen. To do this, you need to create a new function that waits for the PSO cache to finish compiling before the loading screen display ends. The following code gives an example of how you can accomplish this:  
+
+~~~
+ if(FShaderPipelineCache::NumPrecompilesRemaining() > 0)
+    {
+        if (OutDebugReason != nullptr)
+        {
+            *OutDebugReason = FString(TEXT("PC: PSO cache still compiling"));
+        }
+        return true;
+    }
+~~~
+
+[REGION:note]
+If you are developing a mobile project, this is the recommended method for compiling the PSO cache for your project.
+[/REGION]
+
+## UI, Cutscenes, and Pause Menus
+
+You can set up the PSO cache compiling so that it only happens when a UI, Cutscene or Pause Menu is opened.  To do this, you need to use the **ResumeBatching** and **SetBatchMode** functions of the PSO caching system to start and stop when compiling takes place. Below you can find all of the functions that can be used to accomplish this.
+**Pause PSO Caching - Pauses the PSO Caching compilation.**
+
+ FShaderPipelineCache::PauseBatching();
+
+**Set Batch Mode Speed - Sets the speed at which the PSO Caching should be processed.**
+
+ FShaderPipelineCache::SetBatchMode(FShaderPipelineCache::BatchMode::Background);
+
+**Resume PSO Caching - Resumes the PSO Caching if it has been stopped or paused.**
+
+ FShaderPipelineCache::ResumeBatching();

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -18,7 +18,7 @@ namespace UnrealBuildTool
 	 * so the order the sections are executed matters.
 	 * 
 	 * While UPL is a general system for modifying and quering XML it is specifically used to allow
-	 * plug-ins to effect the global configuration of the package that they are a part of. For
+	 * plug-ins to affect the global configuration of the package that they are a part of. For
 	 * example, this allows a plug-in to modify an Android's APK AndroidManfiest.xml file or an
 	 * IOS IPA's plist file. UBT will also query a plug-in's UPL xml file for strings to be included
 	 * in files that must be common to the package such as some .java files on Android.
@@ -51,6 +51,10 @@ namespace UnrealBuildTool
 	 *	$S(BuildDir) = project's platform appropriate build directory (within the Intermediate folder)
 	 *	$S(Configuration) = configuration type (Debug, DebugGame, Development, Test, Shipping)
 	 *	$B(Distribution) = true if distribution build
+	 *	$I(EngineMajorVersion) = major version of engine (ex. 4)
+	 *	$I(EngineMinorVersion) = minor version of engine (ex. 21)
+	 *	$I(EnginePatchVersion) = patch version of engine (ex. 0)
+	 *	$S(EngineVersion) = engine version string (ex. "4.21.0")
 	 * 
 	 * Note: with the exception of the above variables, all are in the context of the plugin to
 	 * prevent namespace collision; trying to set a new value to any of the above, with the
@@ -164,7 +168,7 @@ namespace UnrealBuildTool
 	 * Note the "isIntel" could also be done like this:
 	 * 
 	 *	<setStringSubstring result="subarch" source="$S(Architecture)" start="0" length="3"/>
-	 *	<setBoolEquals result="isIntel" arg1="$S(subarch)" arg2="x86"/>
+	 *	<setBoolIsEqual result="isIntel" arg1="$S(subarch)" arg2="x86"/>
 	 * 
 	 * Two shortcut nodes are available for conditional execution:
 	 * 
@@ -174,7 +178,7 @@ namespace UnrealBuildTool
 	 * 
 	 * is the equivalent of:
 	 * 
-	 *	<setBoolEquals result="temp" arg1="$S(Architecture)" arg2="armeabi-armv7">
+	 *	<setBoolIsEqual result="temp" arg1="$S(Architecture)" arg2="armeabi-armv7">
 	 *	<if condition="temp">
 	 *		<true>
 	 *			<!-- do stuff -->
@@ -2405,6 +2409,14 @@ namespace UnrealBuildTool
 			GlobalContext.StringVariables["EngineDir"] = EngineDirectory.Replace("\\", "/");
 			GlobalContext.StringVariables["BuildDir"] = BuildDirectory.Replace("\\", "/");
 			GlobalContext.StringVariables["ProjectDir"] = ProjectDirectory.Replace("\\", "/");
+
+			ReadOnlyBuildVersion Version = ReadOnlyBuildVersion.Current;
+			GlobalContext.IntVariables["EngineMajorVersion"] = Version.MajorVersion;
+			GlobalContext.IntVariables["EngineMinorVersion"] = Version.MinorVersion;
+			GlobalContext.IntVariables["EnginePatchVersion"] = Version.PatchVersion;
+			GlobalContext.IntVariables["EngineChangelist"] = Version.Changelist;
+			GlobalContext.StringVariables["EngineVersion"] = Version.MajorVersion.ToString() + "." + Version.MinorVersion.ToString() + "." + Version.PatchVersion.ToString();
+			GlobalContext.StringVariables["EngineBranchName"] = (Version.BranchName != null) ? Version.BranchName : "";
 
 			if (GlobalContext.StringVariables["EngineDir"].Length < 1)
 			{

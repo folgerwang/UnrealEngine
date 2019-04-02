@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -171,7 +171,6 @@ MONOLITHIC_HEADER_BOILERPLATE()
 #include "Containers/ResourceArray.h"
 #include "Containers/DynamicRHIResourceArray.h"
 #include "Templates/RefCounting.h"
-#include "UObject/AutoPointer.h"
 #include "UObject/WeakObjectPtrTemplates.h"
 #include "UObject/ScriptDelegates.h"
 #include "Delegates/DelegateSettings.h"
@@ -266,7 +265,6 @@ MONOLITHIC_HEADER_BOILERPLATE()
 #include "Misc/CoreStats.h"
 #include "Misc/TimeGuard.h"
 #include "Misc/MemStack.h"
-#include "GenericPlatform/GenericPlatformCompression.h"
 #include "Async/AsyncWork.h"
 #include "Serialization/MemoryArchive.h"
 #include "Serialization/MemoryWriter.h"
@@ -278,8 +276,6 @@ MONOLITHIC_HEADER_BOILERPLATE()
 #include "Serialization/ArrayWriter.h"
 #include "Serialization/BufferReader.h"
 #include "Serialization/BufferWriter.h"
-#include "Serialization/ArchiveSaveCompressedProxy.h"
-#include "Serialization/ArchiveLoadCompressedProxy.h"
 #include "Misc/Variant.h"
 #include "Misc/WildcardString.h"
 #include "Containers/CircularBuffer.h"

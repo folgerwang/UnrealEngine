@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/GameInstance.h"
 #include "Misc/MessageDialog.h"
@@ -35,9 +35,10 @@
 #endif
 
 UGameInstance::UGameInstance(const FObjectInitializer& ObjectInitializer)
-: Super(ObjectInitializer)
-, TimerManager(new FTimerManager())
-, LatentActionManager(new FLatentActionManager())
+	: Super(ObjectInitializer)
+	, TimerManager(new FTimerManager())
+	, LatentActionManager(new FLatentActionManager())
+	, SubsystemCollection(this)
 {
 	TimerManager->SetGameInstance(this);
 }
@@ -95,6 +96,8 @@ void UGameInstance::Init()
 		FNetDelegates::OnReceivedNetworkEncryptionToken.BindUObject(this, &ThisClass::ReceivedNetworkEncryptionToken);
 		FNetDelegates::OnReceivedNetworkEncryptionAck.BindUObject(this, &ThisClass::ReceivedNetworkEncryptionAck);
 	}
+
+	SubsystemCollection.Initialize();
 }
 
 void UGameInstance::OnConsoleInput(const FString& Command)
@@ -131,6 +134,8 @@ void UGameInstance::Shutdown()
 			RemoveLocalPlayer(Player);
 		}
 	}
+
+	SubsystemCollection.Deinitialize();
 
 	FNetDelegates::OnReceivedNetworkEncryptionToken.Unbind();
 	FNetDelegates::OnReceivedNetworkEncryptionAck.Unbind();
@@ -550,12 +555,48 @@ bool UGameInstance::HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorl
 	return Engine->HandleOpenCommand(Cmd, Ar, InWorld);
 }
 
+bool UGameInstance::HandleDisconnectCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld)
+{
+	check(WorldContext && WorldContext->World() == InWorld);
+
+	UEngine* const Engine = GetEngine();
+	return Engine->HandleDisconnectCommand(Cmd, Ar, InWorld);
+}
+
+bool UGameInstance::HandleReconnectCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld)
+{
+	check(WorldContext && WorldContext->World() == InWorld);
+
+	UEngine* const Engine = GetEngine();
+	return Engine->HandleReconnectCommand(Cmd, Ar, InWorld);
+}
+
+bool UGameInstance::HandleTravelCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld)
+{
+	check(WorldContext && WorldContext->World() == InWorld);
+
+	UEngine* const Engine = GetEngine();
+	return Engine->HandleTravelCommand(Cmd, Ar, InWorld);
+}
+
 bool UGameInstance::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 {
 	// @todo a bunch of stuff in UEngine probably belongs here as well
 	if (FParse::Command(&Cmd, TEXT("OPEN")))
 	{
 		return HandleOpenCommand(Cmd, Ar, InWorld);
+	}
+	else if (FParse::Command(&Cmd, TEXT("DISCONNECT")))
+	{
+		return HandleDisconnectCommand(Cmd, Ar, InWorld);
+	}
+	else if (FParse::Command(&Cmd, TEXT("RECONNECT")))
+	{
+		return HandleReconnectCommand(Cmd, Ar, InWorld);
+	}
+	else if (FParse::Command(&Cmd, TEXT("TRAVEL")))
+	{
+		return HandleTravelCommand(Cmd, Ar, InWorld);
 	}
 
 	return false;
@@ -566,7 +607,7 @@ ULocalPlayer* UGameInstance::CreateInitialPlayer(FString& OutError)
 	return CreateLocalPlayer( 0, OutError, false );
 }
 
-ULocalPlayer* UGameInstance::CreateLocalPlayer(int32 ControllerId, FString& OutError, bool bSpawnActor)
+ULocalPlayer* UGameInstance::CreateLocalPlayer(int32 ControllerId, FString& OutError, bool bSpawnPlayerController)
 {
 	check(GetEngine()->LocalPlayerClass != NULL);
 
@@ -600,7 +641,7 @@ ULocalPlayer* UGameInstance::CreateLocalPlayer(int32 ControllerId, FString& OutE
 
 		NewPlayer = NewObject<ULocalPlayer>(GetEngine(), GetEngine()->LocalPlayerClass);
 		InsertIndex = AddLocalPlayer(NewPlayer, ControllerId);
-		if (bSpawnActor && InsertIndex != INDEX_NONE && GetWorld() != NULL)
+		if (bSpawnPlayerController && InsertIndex != INDEX_NONE && GetWorld() != NULL)
 		{
 			if (GetWorld()->GetNetMode() != NM_Client)
 			{

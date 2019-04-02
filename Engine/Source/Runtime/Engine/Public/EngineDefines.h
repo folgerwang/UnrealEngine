@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // 
 // Public defines form the Engine
 
@@ -12,12 +12,6 @@
 
 #ifndef ENABLE_VISUAL_LOG
 	#define ENABLE_VISUAL_LOG (PLATFORM_DESKTOP && !NO_LOGGING && !(UE_BUILD_SHIPPING || UE_BUILD_TEST))
-#endif
-
-// If set, recast will use async workers for rebuilding tiles in runtime
-// All access to tile data must be guarded with critical sections
-#ifndef RECAST_ASYNC_REBUILDING
-	#define RECAST_ASYNC_REBUILDING	1
 #endif
 
 // Whether lightmass generates FSHVector2 or FSHVector3. Linked with VER_UE4_INDIRECT_LIGHTING_SH3

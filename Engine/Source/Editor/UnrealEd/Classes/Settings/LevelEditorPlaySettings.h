@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -239,16 +239,6 @@ public:
 	/** Whether the new window should be centered on the screen. */
 	UPROPERTY(config, EditAnywhere, Category = GameViewportSettings)
 	uint32 CenterNewWindow:1;
-
-public:
-
-	/** Whether to automatically bind any active level sequences to a PIE world */
-	UPROPERTY(config, EditAnywhere, Category=Sequencer)
-	uint32 bBindSequencerToPIE:1;
-
-	/** Whether to automatically bind any active level sequences to a Simulate world */
-	UPROPERTY(config, EditAnywhere, Category=Sequencer)
-	uint32 bBindSequencerToSimulate:1;
 
 public:
 

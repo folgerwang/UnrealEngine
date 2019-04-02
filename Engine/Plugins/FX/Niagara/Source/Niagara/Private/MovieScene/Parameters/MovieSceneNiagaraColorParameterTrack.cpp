@@ -1,9 +1,14 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieScene/Parameters/MovieSceneNiagaraColorParameterTrack.h"
 #include "MovieScene/Parameters/MovieSceneNiagaraColorParameterSectionTemplate.h"
 #include "Sections/MovieSceneColorSection.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
+
+bool UMovieSceneNiagaraColorParameterTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneColorSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneNiagaraColorParameterTrack::CreateNewSection()
 {

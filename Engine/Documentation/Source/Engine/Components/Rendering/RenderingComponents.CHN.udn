@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2775974
+﻿INTSourceChangelist:3350015
 Availability:Public
 Title:渲染组件
 Crumbs:%ROOT%, Engine, Engine/Components
@@ -11,6 +11,7 @@ Skilllevel: Beginner
 Version: 4.9
 [TOC (start:2 end:2)]
 
+(#AtmosphericFogComponent)
 ## Atmospheric Fog Component （环境雾气组件）
 
 **AtmosphericFogComponents** 用于创建雾化效果，如场景中的云或环境雾气。该组件拥有几项可调整的设置，可以影响此效果在关卡中的生成方式。 
@@ -19,6 +20,7 @@ Version: 4.9
 
 [INCLUDE:Engine/Actors/FogEffects/AtmosphericFog#examples]
 
+(#ExponentialHeightFogComponent)
 ## Exponential Height Fog Component （指数高度雾气组件）
 
 **ExponentialHeightFogComponent** 用于创建雾化效果，而其浓度与雾的高度相关。 
@@ -27,6 +29,7 @@ Version: 4.9
 
 请参见 **[](Engine/Actors/FogEffects/HeightFog)** 了解详细信息以及可调整的设置。 
 
+(#BillboardComponent)
 ## Billboard Component （看板组件）
 
 **BillboardComponent** 是一个会被渲染为始终朝向摄像机的 2D 贴图，其功能与 **ArrowComponent** 类似，可用于某种放置方法且能够轻松选取。例如在下面创建的雾化效果图中，唯一添加的组件就是 **BillboardComponent**（实际的雾气效果是一个通过脚本动态创建的材质）。 
@@ -39,29 +42,30 @@ Version: 4.9
 
 有关如何创建此雾化效果图的示例，请参见 **[](Resources/Showcases/BlueprintExamples/FogSheet)** 文档。 
 
+(#MaterialBillboardComponent)
 ## Material Billboard Component （材质看板组件）
 
 **MaterialBillboardComponent** 是一个被渲染为始终朝向摄像机的 2D 材质。这类组件可用在 2D 草丛或树叶等情形中。我们并未使用静态网格模型来呈现生长中的草丛甚至单个草叶，而是利用 **MaterialBillboardComponent** 和一个材质来表现生长中的草，这样就无需使用草的 3D 象征，因为看板（billboard）将自动转动并朝向玩家，从而呈现出草的三维表象。 
 
 
+(#CableComponent)
 ## Cable Component （连线组件）
 
-**CableComponent** 可以将两个组件附加在一起，同时在它们之间渲染出一条连线。在这条连线上，您可以指定一个材质并定义参数来影响连线的显示方式。 
+**CableComponent** 可以将两个组件附加在一起，同时在它们之间渲染出一条连线。在这条连线上，您可以指定一个材质并定义参数来影响连线的显示方式。想要了解更多有关连线组件的信息，请点击下方的链接。 
 
-假如您需要让玩家人物在绳索之类的东西上摆动，就可以使用这类组件。只要通过脚本将一个点附加到某个固定位置，并将另一个点附加到玩家人物，该人物便可以在绳索上摆动。下面是一个第一人称人物，他可以用枪（“抓钩枪”一类的东西）发射一条绳索并将其连接到命中位置。 
+* [**连线组件用户指南**](Engine\Components\Rendering\CableComponent\) 
 
-![](cable.png)(w:440)
-
-当然，您也可以将这个用于简单的视觉元素，如连接多个物体的连线。 
-
+(#CustomMeshComponent)
 ## Custom Mesh Component （自定义网格组件）
 
 **CustomMeshComponent** 能让您指定自定义三角形网格几何体。 
 
+(#PoseableMeshComponent)
 ## Poseable Mesh Component （姿态网格组件）
 
 **PoseableMeshComponent** 允许您通过 **Blueprint** 来控制骨骼变换。 
 
+(#DecalComponent)
 ## Decal Component （贴花组件）
 
 **DecalComponent** 是一个被渲染到网格模型表面上的材质（一种适用于模型的“保险杠标贴”）。贴花组件可用于任何目的，如发射子弹时在墙上撞出的痕迹，车辆在道路上擦出的打滑印记，被击中时在地上溅出的血迹等（下面有一个相关的示例）。 
@@ -74,6 +78,7 @@ Version: 4.9
 * 参见 **[](Resources/ContentExamples/Decals/1_1)**。 
 * 参见 **[贴花内容范例](Resources/ContentExamples/Materials)**。 
 
+(#InstancedStaticMeshComponent)
 ## Instanced Static Mesh Component （实例化静态网格组件）
 
 **InstancedStaticMeshComponent** 可以高效渲染同一静态网格模型的多个实例。 
@@ -97,12 +102,14 @@ Version: 4.9
 请参见 **[](Engine/Rendering/ParticleSystems)** 了解详细信息。 
 
 
+(#PostProcessComponent)
 ## Post Process Component （后处理组件）
 
 **PostProcessComponets** 可以为 **Blueprints** 开启后处理控制。它将使用一个父级 `UShapeComponent` 来提供体积数据（如可用）。这类组件可以在某一场景应用了后处理设置时变换场景的色调。例如，假设您定义了一个默认的后处理设置并将其用于游戏，那么在玩家受到伤害（或丧命）时，您可以通过脚本将 **Scene Color Tint** 的设置改为黑色/白色色调。 
 
 有关详细信息，请参见 **[](Resources/ContentExamples/PostProcessing)** 或 **[](Engine/Rendering/PostProcessEffects)** 文档。 
 
+(#SceneCapture2DComponent)
 ## Scene Capture 2D Component （场景捕捉 2D 组件）
 
 **SceneCapture2DComponent** 用于从单一平面捕获场景“快照”并将其馈送给渲染目标。在捕获和指定 **Render Target** 贴图时，除其他设置外有一些设置可用于控制 **Field of View**。这样的示例包括在监视器上创建镜子（如下面所示）或安保摄像头视角的情形（参见 **[](Resources/Showcases/BlueprintExamples/SecurityCameraAndAlarm)**。） 
@@ -111,6 +118,7 @@ Version: 4.9
 
 在上面的示例中，我们创建了一个带有 **SceneCapture2DComponent** 的 **Blueprint** 并指定了一个 **Render Target** 贴图，它随后被用作 **Material** 施加给场景中的几何体。有关详细信息，请参见 [**Scene Capture 2D Content Example**](Resources/ContentExamples/Reflections/1_7)。 
 
+(#SceneCaptureCubeComponent)
 ## Scene Capture Cube Component （场景捕捉立方组件）
 
 **SceneCaptureCubeComponent** 用于从 6 个平面捕获场景“快照”并将其馈送给渲染目标。 
@@ -119,6 +127,7 @@ Version: 4.9
 
 在多数情况下，**SceneCapture2DComponent** 应当能满足大部分场景捕获需求，但在需要对环境进行 3D 捕获时，您可以使用这个组件。但在使用时应当留意，因为这会产生很大的性能消耗，只应当在绝对必要时使用。请参见 **[](Resources/Showcases/Reflections)** 了解在场景中创建反射时所用不用方法的详细信息。 
 
+(#SplineMeshComponent)
 ## Spline Mesh Component （样条网格组件）
 
 **SplineMeshComponents** 可用于拉伸和弯曲静态网格模型资源。使用 **SplineMeshesComponents** 时，您必须提供方位对应的向量，并提供样条曲线起点和终点的切线。在下面的示例中，**SplineMeshComponent** 被添加到 **Blueprint**，同时有一个管道 **Static Mesh** 被指定为要影响的资源。 
@@ -131,6 +140,7 @@ Version: 4.9
 
 在上述示例中，我们可以单独移动 **Start Transform** 和 **End Transform** 而无需移动整个 Actor，从而随意拉伸或旋转它。该示例及其相关设置可以在 **[](Resources/ContentExamples/Blueprint_Splines)** 内容示例图中找到。 
 
+(#TextRenderComponent)
 ## Text Render Component （字体渲染组件）
 
 **TextRenderComponent** 可以用指定的字体渲染世界中的文本。其中包含与常用字体有关的属性，如 Scale、Alignment、Color 等。您可以使用该组件提示玩家您的场景中有一个复杂对象。 
@@ -144,6 +154,7 @@ Version: 4.9
 ![](text2.png)(w:500)
 
 
+(#VectorFieldComponent)
 ## Vector Field Component （向量场组建）
 
 **VectorFieldComponent** 用于引用 [**Vector Field**](Engine/Rendering/ParticleSystems/VectorFields)，这是一种带有速度向量网格的 3D 容器，可用于确定 GPU 子画面的速度或加速度。 

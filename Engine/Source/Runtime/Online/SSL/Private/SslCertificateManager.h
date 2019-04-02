@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -18,6 +18,8 @@ public:
 	virtual bool HasCertificatesAvailable() const override;
 
 	virtual void ClearAllPinnedPublicKeys() override;
+	virtual bool HasPinnedPublicKeys() const override;
+	virtual bool IsDomainPinned(const FString& Domain) override;
 	virtual void SetPinnedPublicKeys(const FString& Domain, const FString& PinnedKeyDigests) override;
 	virtual bool VerifySslCertificates(X509_STORE_CTX* Context, const FString& Domain) const override;
 

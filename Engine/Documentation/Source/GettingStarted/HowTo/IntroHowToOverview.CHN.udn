@@ -1,4 +1,4 @@
-﻿INTSourceChangelist: 2735872
+﻿INTSourceChangelist: 3782314
 Availability: Public
 Title: 基本操作
 Crumbs: %ROOT%, GettingStarted
@@ -6,40 +6,7 @@ Description: 几个简短基础教程，一步步的引导如何在虚幻引擎 
 version: 4.9
 parent:Engine/Editor
 order:2
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](IntroHowTo_Topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%GettingStarted\HowTo:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:GettingStarted\HowTo]
-	[/PARAM]
-	[PARAM:description]
-	%GettingStarted\HowTo:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](IntroHowTo_Topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%GettingStarted\HowTo:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:GettingStarted\HowTo]
-	[/PARAM]
-	[PARAM:description]
-	%GettingStarted\HowTo:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:IntroHowTo_Topic.png
 
 
 如果是 **虚幻引擎 4** 编辑器的新手，这个页面为了让您能够快速的开始使用引擎，并完成一些通用的操作。
@@ -47,12 +14,12 @@ order:2
 
 参考下面的表格来了解详细信息，每个链接都能点击跳转。
 
-|How To | Description |
+|指南 | 描述 |
 | ------- | ------------ |
 | [创建/打开 项目](Engine/Basics/Projects/Browser) | %Engine/Basics/Projects/Browser:description% |
-| [](Engine\Actors\Placement) | %Engine\Actors\Placement:description% |
-| [](GettingStarted\HowTo\ManipulatingActors) | %GettingStarted\HowTo\ManipulatingActors:description% |
-| [](GettingStarted\HowTo\DetailsPanel) | %GettingStarted\HowTo\DetailsPanel:description% |
-| [](GettingStarted\HowTo\PIE) | %GettingStarted\HowTo\PIE:description% |
-| [](GettingStarted\HowTo\FindingHelp) | %GettingStarted\HowTo\FindingHelp:description% |
+| [](Engine/Actors/Placement) | %Engine/Actors/Placement:description% |
+| [](GettingStarted/HowTo/ManipulatingActors) | %GettingStarted/HowTo/ManipulatingActors:description% |
+| [](GettingStarted/HowTo/DetailsPanel) | %GettingStarted/HowTo/DetailsPanel:description% |
+| [](GettingStarted/HowTo/PIE) | %GettingStarted/HowTo/PIE:description% |
+| [](GettingStarted/HowTo/FindingHelp) | %GettingStarted/HowTo/FindingHelp:description% |
 

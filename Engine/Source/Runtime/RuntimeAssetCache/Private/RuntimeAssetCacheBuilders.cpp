@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "RuntimeAssetCacheBuilders.h"
 #include "Serialization/LargeMemoryWriter.h"
@@ -179,7 +179,7 @@ void UExampleTextureCacheBuilder::SerializeAsset(FArchive& Ar)
 			PlatformData->Mips.Empty(NumMips);
 			for (int32 MipIndex = 0; MipIndex < NumMips; ++MipIndex)
 			{
-				new(PlatformData->Mips) FTexture2DMipMap();
+				PlatformData->Mips.Add(new FTexture2DMipMap());
 			}
 		}
 

@@ -27,4 +27,4 @@ RPC 에 중요한 이유는, 액터에 RPC 함수를 호출할 때, RPC 가 멀�
 
 오너를 사용한 [조건에 따른 프로퍼티 리플리케이션](Gameplay/Networking/Actors/Properties/Conditions) 도중에도 중요하게 쓰입니다. 예를 들어 `COND_OnlyOwner` 가 사용되면, 해당 액터의 오너만 이 프로퍼티 업데이트를 받습니다.
 
-마지막으로 (Role 이 `ROLE_AutonomousProxy` 인) 자율 프록시인 액터에도 중요합니다. 이러한 액터는, 이 액터를 소유하지 않는 접속에 프로퍼티를 리플리케이트시킬 때는 그 롤이 `ROLE_SimulatedProxy` 로 다운그레이드되기 때문입니다.
+마지막으로 (Role 이 `ROLE_AutonomousProxy` 인) 자율 프락시인 액터에도 중요합니다. 이러한 액터는, 이 액터를 소유하지 않는 접속에 프로퍼티를 리플리케이트시킬 때는 그 롤이 `ROLE_SimulatedProxy` 로 다운그레이드되기 때문입니다.

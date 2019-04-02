@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UCContentCommandlets.cpp: Various commmandlets.
@@ -70,6 +70,7 @@ DEFINE_LOG_CATEGORY(LogContentCommandlet);
 #include "ShaderCompiler.h"
 #include "ICollectionManager.h"
 #include "CollectionManagerModule.h"
+#include "UObject/UObjectThreadContext.h"
 
 /**-----------------------------------------------------------------------------
  *	UResavePackages commandlet.
@@ -571,9 +572,7 @@ void UResavePackagesCommandlet::LoadAndSaveOnePackage(const FString& Filename)
 		// Get the package linker.
 		VerboseMessage(TEXT("Pre GetPackageLinker"));
 
-		BeginLoad();
-		auto Linker = GetPackageLinker(NULL,*Filename,LOAD_NoVerify,NULL,NULL);
-		EndLoad();
+		FLinkerLoad* Linker = LoadPackageLinker(nullptr, *Filename, LOAD_NoVerify);
 	
 		// Bail early if we don't have a valid linker (package was out of date, etc)
 		if( !Linker )
@@ -897,6 +896,8 @@ int32 UResavePackagesCommandlet::Main( const FString& Params )
 	bShouldBuildTextureStreaming = bShouldBuildTextureStreamingForAll || Switches.Contains(TEXT("buildtexturestreaming"));
 	/** determine if we can skip the version changelist check */
 	bIgnoreChangelist = Switches.Contains(TEXT("IgnoreChangelist"));
+	/** whether we should only save packages with changelist zero */
+	bOnlyUnversioned = Switches.Contains(TEXT("OnlyUnversioned"));
 	/** only process packages containing materials */
 	bOnlyMaterials = Switches.Contains(TEXT("onlymaterials"));
 
@@ -1203,6 +1204,12 @@ void UResavePackagesCommandlet::PerformPreloadOperations( FLinkerLoad* PackageLi
 			*PackageLinker->GetArchiveName(),
 			PackageLinker->Summary.SavedByEngineVersion.GetChangelist(), 
 			FEngineVersion::Current().GetChangelist());
+		bSavePackage = false;
+	}
+
+	// Check if the changelist number is zero
+	if (bOnlyUnversioned && PackageLinker->Summary.SavedByEngineVersion.GetChangelist() != 0)
+	{
 		bSavePackage = false;
 	}
 
@@ -2174,11 +2181,9 @@ int32 UWrangleContentCommandlet::Main( const FString& Params )
 	// or make sure that the following redirects marks the package dirty (which maybe it shouldn't do in the editor?)
 
 					// load the package fully
-					UPackage* Package = LoadPackage(NULL, *PackageFilename, LOAD_None);
+					UPackage* Package = LoadPackage(nullptr, *PackageFilename, LOAD_None);
 
-					BeginLoad();
-					auto Linker = GetPackageLinker( NULL, *PackageFilename, LOAD_Quiet|LOAD_NoWarn|LOAD_NoVerify, NULL, NULL );
-					EndLoad();
+					FLinkerLoad* Linker = LoadPackageLinker(nullptr, *PackageFilename, LOAD_Quiet | LOAD_NoWarn | LOAD_NoVerify);
 
 					// look for special package types
 					bool bIsMap = Linker->ContainsMap();
@@ -2330,9 +2335,7 @@ int32 UWrangleContentCommandlet::Main( const FString& Params )
 				}
 			}
 
-			BeginLoad();
-			auto Linker = GetPackageLinker( NULL, *PackageFilename, LOAD_Quiet|LOAD_NoWarn|LOAD_NoVerify, NULL, NULL );
-			EndLoad();
+			FLinkerLoad* Linker = LoadPackageLinker(nullptr, *PackageFilename, LOAD_Quiet | LOAD_NoWarn | LOAD_NoVerify);
 
 			// go through the exports in the package, looking for public objects
 			for (int32 ExportIndex = 0; ExportIndex < Linker->ExportMap.Num(); ExportIndex++)

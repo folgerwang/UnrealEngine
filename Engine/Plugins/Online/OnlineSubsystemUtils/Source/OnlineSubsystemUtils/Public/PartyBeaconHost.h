@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -23,6 +23,13 @@ DECLARE_DELEGATE(FOnReservationUpdate);
  * @param PartyLeader leader of the canceled reservation
  */
 DECLARE_DELEGATE_OneParam(FOnCancelationReceived, const FUniqueNetId&);
+
+/**
+* Delegate fired when a the beacon host has added a new player
+*
+* @param PlayerId Player who reservation has been made for.
+*/
+DECLARE_DELEGATE_OneParam(FOnNewPlayerAdded, const FPlayerReservation&);
 
 /**
  * Delegate called when the beacon gets any request, allowing the owner to validate players at a higher level (bans,etc)
@@ -330,6 +337,11 @@ class ONLINESUBSYSTEMUTILS_API APartyBeaconHost : public AOnlineBeaconHostObject
 	FOnReservationUpdate& OnReservationChanged() { return ReservationChanged; }
 
 	/**
+	* Delegate fired when the beacon host adds a new player
+	*/
+	FOnNewPlayerAdded& OnNewPlayerAdded() { return NewPlayerAddedDelegate; }
+
+	/**
 	 * Delegate fired when a the beacon host cancels a reservation
 	 */
 	FOnCancelationReceived& OnCancelationReceived() { return CancelationReceived; }
@@ -363,6 +375,8 @@ protected:
 	FOnCancelationReceived CancelationReceived;
 	/** Delegate fired when the beacon detects a duplicate reservation */
 	FOnDuplicateReservation DuplicateReservation;
+	/** Delegate fired when reservation has been added */
+	FOnNewPlayerAdded NewPlayerAddedDelegate;
 	/** Delegate fired when asking the beacon owner if this reservation is legit */
 	FOnValidatePlayers ValidatePlayers;
 

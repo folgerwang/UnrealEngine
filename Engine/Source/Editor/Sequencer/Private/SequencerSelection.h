@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -127,7 +127,6 @@ public:
 	/** Updates the selection once per frame.  This is required for deferred selection broadcasts. */
 	void Tick();
 
-private:
 	/** When true, selection change notifications should be broadcasted. */
 	bool IsBroadcasting();
 	

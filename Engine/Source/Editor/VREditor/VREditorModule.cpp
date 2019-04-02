@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "VREditorModule.h"
 #include "Modules/ModuleManager.h"
@@ -35,9 +35,9 @@ public:
 	virtual void EnableVREditor( const bool bEnable, const bool bForceWithoutHMD ) override;
 	virtual bool IsVREditorModeActive() override;
 	virtual UVREditorMode* GetVRMode() override;
-	virtual void UpdateActorPreview(TSharedRef<SWidget> InWidget, int32 Index) override;
-	virtual void UpdateExternalUMGUI(TSubclassOf<UUserWidget> InUMGClass, FName Name) override;
-	virtual void UpdateExternalSlateUI(TSharedRef<SWidget> InSlateWidget, FName Name) override;
+	virtual void UpdateActorPreview(TSharedRef<SWidget> InWidget, int32 Index, AActor *Actor) override;
+	virtual void UpdateExternalUMGUI(TSubclassOf<UUserWidget> InUMGClass, FName Name, FVector2D InSize) override;
+	virtual void UpdateExternalSlateUI(TSharedRef<SWidget> InSlateWidget, FName Name, FVector2D InSize) override;
 	virtual TSharedPtr<FExtender> GetRadialMenuExtender() override
 	{
 		return RadialMenuExtender;
@@ -45,6 +45,12 @@ public:
 
 
 	static void ToggleForceVRMode();
+
+	/** Return a multicast delegate which is executed when VR mode starts. */
+	virtual FOnVREditingModeEnter& OnVREditingModeEnter() override { return ModeManager.OnVREditingModeEnter(); }
+
+	/** Return a multicast delegate which is executed when VR mode stops. */
+	virtual FOnVREditingModeExit& OnVREditingModeExit() override { return ModeManager.OnVREditingModeExit(); }
 
 private:
 	TSharedPtr<class FExtender> RadialMenuExtender;
@@ -106,19 +112,19 @@ UVREditorMode* FVREditorModule::GetVRMode()
 	return ModeManager.GetCurrentVREditorMode();
 }
 
-void FVREditorModule::UpdateActorPreview(TSharedRef<SWidget> InWidget, int32 Index)
+void FVREditorModule::UpdateActorPreview(TSharedRef<SWidget> InWidget, int32 Index, AActor* Actor)
 {
-	GetVRMode()->RefreshActorPreviewWidget(InWidget, Index);
+	GetVRMode()->RefreshActorPreviewWidget(InWidget, Index, Actor);
 }
 
-void FVREditorModule::UpdateExternalUMGUI(TSubclassOf<UUserWidget> InUMGClass, FName Name)
+void FVREditorModule::UpdateExternalUMGUI(TSubclassOf<UUserWidget> InUMGClass, FName Name, FVector2D InSize)
 {
-	GetVRMode()->UpdateExternalUMGUI(InUMGClass, Name);
+	GetVRMode()->UpdateExternalUMGUI(InUMGClass, Name, InSize);
 }
 
-void FVREditorModule::UpdateExternalSlateUI(TSharedRef<SWidget> InSlateWidget, FName Name)
+void FVREditorModule::UpdateExternalSlateUI(TSharedRef<SWidget> InSlateWidget, FName Name, FVector2D InSize)
 {
-	GetVRMode()->UpdateExternalSlateUI(InSlateWidget, Name);
+	GetVRMode()->UpdateExternalSlateUI(InSlateWidget, Name, InSize);
 }
 
 void FVREditorModule::ToggleForceVRMode()

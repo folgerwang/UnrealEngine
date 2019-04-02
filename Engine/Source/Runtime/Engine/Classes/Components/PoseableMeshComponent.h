@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -67,15 +67,10 @@ class ENGINE_API UPoseableMeshComponent : public USkinnedMeshComponent
 	 */
 	void FillComponentSpaceTransforms();
 
-private:
 	void MarkRefreshTransformDirty();
+private:
 	// this is marked if transform has to be updated
 	bool bNeedsRefreshTransform;
-
-	// MarkRefreshTransformDirty will become public in 4.22, but we don't change public engine APIs in a hotfix release.
-	// The UOvrAvatar class in the OculusAvatar plugin needs to invoke the method, however, and therefore
-	// we need this temporary hack to allow it to access the method.
-	friend class UOvrAvatar;
 };
 
 

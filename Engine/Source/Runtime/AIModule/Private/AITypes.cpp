@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AITypes.h"
 #include "UObject/Package.h"
@@ -64,7 +64,7 @@ void FAIResourceLock::ForceClearAllLocks()
 
 FString FAIResourceLock::GetLockPriorityName() const
 {
-	const static UEnum* SourceEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EAIRequestPriority"));
+	const static UEnum* SourceEnum = StaticEnum<EAIRequestPriority::Type>();
 
 	FString LockNames;
 

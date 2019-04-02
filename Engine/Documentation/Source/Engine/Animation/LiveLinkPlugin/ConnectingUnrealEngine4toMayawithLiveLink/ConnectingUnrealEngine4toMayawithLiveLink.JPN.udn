@@ -1,0 +1,196 @@
+﻿INTSourceChangelist:4404731
+Availability: Public
+Crumbs: 
+Title: Live Link による Unreal Engine 4 の Maya への接続
+Description: Unreal Engine 4 (UE4) を特定のバージョンの Maya に接続して、 Maya のコンテンツを UE4 でリアルタイムにプレビューする方法について説明します。
+Type:how-to
+Version: 4. 19
+Parent: Engine/Animation/LiveLinkPlugin
+Order: 2
+Tags: Animation, Maya, Live Link
+
+この操作ガイドでは、 Live Link プラグインを使用して Unreal Engine 4 (UE4) を Maya に接続します。そうすることで、 Maya 内のスケルタル メッシュとアニメーションを制御する一方で、 UE4 でリアルタイムにレンダリングしたスケルタル メッシュ上にそれらをライブ プレビューできます。
+
+Live Link プラグインを使用すると、アニメーションに関する作業をスピードアップすることができます。コンテンツを確認するためにエクスポートしたり UE4 へインポートする作業が不要になったり、 Live Link を通して直接 Maya 内部での作業が可能になったり、エンジン内でどのように表示されるかリアルタイムでプレビューが可能になるためです。このガイドでは Live Link を Maya 向けにセットアップし、 Maya 内のスケルタル メッシュのアニメーションを制御しながら UE4 でプレビューする手順について説明します。
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    pe9WGDbJrv0
+    [/PARAMLITERAL]
+[/OBJECT]
+
+[REGION:note]
+このガイドでは、 Blueprint Third Person プロジェクト と Maya 2017 を使用します。また、 Live Link は異なるバージョンの Maya および他の DDC ツールでも動作します。詳細については [Live Link Plugin](Engine/Animation/LiveLinkPlugin) のドキュメンテーション ページを参照してください。
+[/REGION]
+
+## 1 - Live Link プラグインの有効化
+
+1. プロジェクト内で、 **[Edit]** の **[Menu Bar]** から **[Plugins]** を選択します。
+
+    ![](Step_01-1.png)
+
+2. **Animation** セクションで、 **Live Link** の **[Enabled]** と確認ウィンドウの **[Yes]** をクリックしてエディタを再起動します。
+
+    ![](Step_02-3.png)
+
+    これにより、外部 DDC ツールへの接続に使用する Live Link プラグインが有効になります。お使いの DDC ツールを UE4 に接続するには、対応するプラグインを有効にする必要があります。このガイドでは、 Maya にフォーカスし、 Maya 内部のプラグインを有効にする必要があります。
+
+    Maya の Live Link プラグインのプレビルドのバイナリはエンジンに付属しており、それは UE4 のインストール フォルダにあります。
+
+3. UE4 のインストールフォルダを開き、 **「 Engine\Extras\MayaLiveLink 」** フォルダの **「 LiveLinkMaya.zip 」** ファイルを解凍します。
+
+    ![](Step_03-1.png)
+
+[REGION:warning]
+Maya Live Link プラグインは、 4.19 がデプロイされた際に「Engine\Extras\MayaLiveLink 」フォルダに含まれるはずでしたが、されませんでした。そのため、この問題に対処する修正プログラムがデプロイされるまでの間は、 [このリンク](https://epicgames.app.box.com/s/awdz97dguh6k61opwy66ovfhn3gpk1hg) からコンテンツをダウンロードしてください。
+[/REGION]
+
+4. お使いのバージョンの **Maya** のフォルダをコピーして **Maya** のインストール フォルダを開き、 **「 plug-ins 」** フォルダにそれをペーストします。
+
+    ![](Step_04-1.png)
+
+次のステップでは、 Maya 内の Live Link プラグインを有効にして Maya Live Link UI ウインドウを開くと、実行中の UE4 エディタへの接続状態を確認することができます。
+
+## 2 - Maya Live Link の有効化
+
+1. **Maya** を開いた後、 **[Windows]**  、 **[Settings/Preferences]** と開き、 **[Plug-in Manager]** を選択します。
+
+    ![](Step_05-1.png)
+
+1. **[Browse]** ボタンをクリックして、コピーした「 MayaLiveLink 」フォルダを開き、 **.py** ファイルを追加します。
+
+    ![](Step_06-1.png)
+
+1. この前の手順を繰り返し、 **[Plug-in Manager]** から **.mll** を追加します。
+
+    ![](Step_07-2.png)
+
+    追加すると、[Plug-in Manager] でプラグインが [Loaded] となっているのが分かります。
+
+1. Maya の左下の **[MEL]** コンソールで、 **MayaLiveLinkUI** と入力して **Enter** を押します。
+
+    ![](Step_08-2.png)
+
+すると、 [Maya Live Link UI] の接続状況ウインドウが開きます。
+
+![](Step_09-1.png)
+
+ウィンドウの右上に接続状態が表示され、実行中のバージョンの UE4 エディタに接続しているかどうかが示されます。下部のウインドウで UE4 にストリーミングしたい **Subject** の命名、追加/削除ができます。本ガイドで後ほど取り上げます。
+
+今のところ接続はしていませんが、次のステップで UE4 への接続を確立して、 Maya での作業に使用可能なアニメーション アセットとスケルタル メッシュ をエクスポートして、ライブプレビューするために UE4 にストリーミングを戻すサブジェクトとして追加します。
+
+## 3 - UE4 への接続の確立
+
+1. UE4 エディタ内の、 **[Window]** の **[Menu Bar]** から **[Live Link]** を選択します。
+
+    ![](Step_10-1.png)
+
+1. **[Live Link]** ウインドウで、 **[Add]** ボタンをクリックして、 **Message Bus Source** でお使いの **[Maya Live Link]** ソースを選択して **[Ok]** をクリックします。
+
+    ![](Step_11-2.png)
+
+    Maya に戻ると、[Maya Live Link Connection Status] ウインドウがアップデートされ、新しい接続状況を反映します。
+
+    ![](Step_11b-1.png)
+
+    接続されたので、プレビューするサブジェクトが必要です。次に、接続をテストします。
+
+1. UE4 内の **Content/Mannequin/Animations** フォルダで、 **ThirdPersonRun** アセットを開きます。
+
+1. ツールバーから、 **[Export Asset]** をクリックして、 **[Preview Mesh]** を選択します。
+
+    ![](Step_12-1.png)
+
+1. スケルタル メッシュをエクスポートするために、 **[Yes]** をクリックして、エクスポート場所を選択して、 **[FBX Export Options]** ウインドウの **[Export]** をクリックします。
+
+    ![](Step_13-1.png)
+
+1. Maya 内の、 **[File]** で **[Import]** を選択して、前のステップから FBX アセットをインポートします。
+
+    ![](Step_14-1.png)
+
+1. **[Animation]** モードに切り替えて、キャラクターの **[Root]** ボーンを選択します。
+
+    ![](Step_15-1.png)
+
+1. **[Maya Live Link UI]** ウインドウで、 **[Add Subject]** ボタンをクリックします。
+
+    ![](Step_16-2.png)
+
+    これにより、選択したものが、UE4 にストリーミングする **Subject** として追加されます。
+
+    ![](Step_17-1.png)
+
+    プラグインはこれがジョイント階層であることを認識しており、サブジェクトを文字列としてラベリングします。**Maya** という名称は、サブジェクトの名前で、テキスト エントリー ボックスで変更できます。この名称は UE4 内でサブジェクト名として使われるので、記録してくことを忘れないでください。
+
+Maya が UE4 エディタへサブジェクトをストリーミングするようにセットアップされました。次のステップでは、 UE4 をストリーミングされたサブジェクトを受け取るようにセットアップして、 UE4 内で Maya のコンテンツのライブ プレビューを開始できるようにします。
+
+## 4 - Live Link プレビュー コントローラー
+
+1. UE4 内の **「 Content/Mannequin/Character/Mesh 」** フォルダで、 **SK_Mannequin** アセットを開きます。
+
+1. **[Preview Scene Settings]** タブをクリックして、 **[Preview Controller]** で **[Live Link Preview Controller]** を選択します。
+
+    ![](Step_18-1.png)
+
+1. **[Subject Name]** で、 名称に **Maya** と入力し、 **[Enter]** ボタンを押します。
+
+    ![](Step_19-1.png)
+
+    デフォルト名ではなく自作の名を付けた場合は、代わりにその名前を入力します。ビューポートがアップデートされ、キャラクターが Maya 内で使用するポーズを入力します。
+
+    もともとスケルタルメッシュがインポートされるメソッドのため、この例では、キャラクターが 90 度回転します。すぐに Maya 内で修正します。
+
+1. **[Enable Camera Sync]** オプションを有効にします。
+
+    ![](Step_20-1.png)
+
+    これにより、 UE4 のカメラを Mayaで使用された直前のビューポートカメラと同期します。Maya のカメラを動かすと常に、UE4 のカメラが一致するようにアップデートされます。
+
+1. **[Performance]** の **[Editor Preferences]** を開き、 **[Use Less CPU when in Background]** オプションを無効にします。
+
+    ![](DisableUseLessCPU-1.png)
+
+    これは、エディタのバックグラウンド パフォーマンス を抑制し、エディタのレンダリングを停止するので、 Maya がフォーカスされている間、リアルタイムでのアップデートを表示されないようにするオプションです。
+
+1. **Maya** に戻り、ビューポートでアニメーションをスクラブするか、カメラを移動します。
+
+## 5 - 結果
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    _ku41AVH16g
+    [/PARAMLITERAL]
+[/OBJECT]
+
+Maya でアニメーションをスクラブするかカメラを移動すると、 UE4 のキャラクターとカメラの動きが、 Maya で見ているものと一致するようにアップデートされます。この例では、すでに述べたとおり、このスケルタルメッシュが UE4 にインポートされると、もともと上方向軸が異なるためキャラクターが UE4 で回転します。
+
+テストのため、 [Rotate X] 値に 90 追加して、アニメーションの最初でキーフレーム化しました。典型的なワークフローとしては、コンテンツを Maya でオーサリングして、スケルタル メッシュをエクスポートして、 UE4 にインポートします。そして、このガイドで概要を述べた接続設定手順に従って接続を確立して、 Maya でオーサリングしたアニメーションを UE4 の Live Link サブジェクト でプレビューします。
+
+アニメーションに修正を加えて、 Live Link サブジェクトの UE4 内でリアルタイムに反映させることもできます。
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    pe9WGDbJrv0
+    [/PARAMLITERAL]
+[/OBJECT]
+
+上の例では、頭の位置を再度キーイングして、キャラクターが走っている間に上を見上げるようにしています。そして、それが UE4 の中でどのように見えるかについて確認しています。これは Live Link プラグインの使用方法についての単純な例ですが、 Live Link プラグインのドキュメンテーション ページにこの機能のメリットについて、より多くの詳細が書かれています。

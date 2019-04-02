@@ -48,6 +48,13 @@
 #include <math.h>
 #include <float.h>
 
+#if PX_ANDROID
+	// If cmath is included after math.h, it will undefine isfinite. If that's the case, use the version in the std namespace instead.
+	#ifndef isfinite
+		using std::isfinite;
+	#endif
+#endif
+
 namespace physx
 {
 namespace intrinsics

@@ -1,45 +1,10 @@
-﻿INTSourceChangelist:3020428
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Hand IK Retargeting
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
 Description:对用于处理 IK 骨骼重定向的 Hand IK Retargeting 进行说明。 
 version:4.12
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Animation\NodeReference\SkeletalControls\HandIKRetargeting:title%](Engine\Animation\NodeReference\SkeletalControls\HandIKRetargeting\handIKretargeting.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\NodeReference\SkeletalControls\HandIKRetargeting:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\NodeReference\SkeletalControls\HandIKRetargeting]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\NodeReference\SkeletalControls\HandIKRetargeting:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Animation\NodeReference\SkeletalControls\HandIKRetargeting:title%](Engine\Animation\NodeReference\SkeletalControls\HandIKRetargeting\handIKretargeting.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\NodeReference\SkeletalControls\HandIKRetargeting:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\NodeReference\SkeletalControls\HandIKRetargeting]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\NodeReference\SkeletalControls\HandIKRetargeting:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
+topic-image:handIKretargeting.png
 
 **Hand IK Retargeting** 是一个解算器，可用于处理 IK 骨骼链的重定向。该解算器移动 IK 骨骼链，基于 **Hand FKWeight** 值匹配 FK 手部骨骼（以偏向任意一侧）。例如：0 偏向左手，1 偏向右手，0.5 则权重均等。 
 
@@ -82,3 +47,6 @@ Two Bone IK 节点驱动左右手的位置，**Hand FKWeight** 属性（由变�
 | **Component Pose** | 引入的姿态。|
 | **Alpha** | 当前的控制强度。|
 
+**Hand IK Retargeting** 节点还会受到4.11版本中加入的 **LOD Threshold** 系统影响。您可以在 **Hand IK Retargeting** 节点的 **细节面板** 上找到其设置。
+
+[INCLUDE:Engine/Animation/NodeReference/SkeletalControls#lodthresh]

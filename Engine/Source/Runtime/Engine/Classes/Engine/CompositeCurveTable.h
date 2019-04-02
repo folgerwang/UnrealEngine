@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -21,6 +21,7 @@ class UCompositeCurveTable
 
 	//~ Begin UObject Interface.
 	ENGINE_API virtual void GetPreloadDependencies(TArray<UObject*>& OutDeps) override;
+	ENGINE_API virtual void Serialize(FArchive& Ar) override;
 	ENGINE_API virtual void PostLoad() override;
 	//~ End UObject Interface
 
@@ -41,6 +42,9 @@ protected:
 	void UpdateCachedRowMap();
 
 	void OnParentTablesUpdated();
+
+	// true if this asset is currently being loaded; false otherwise
+	uint8 bIsLoading : 1;
 
 	// temporary copy used to detect changes so we can update delegates correctly on removal
 	UPROPERTY(transient)

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigBlueprintGeneratedClass.h"
 #include "Units/RigUnit_Control.h"
@@ -37,3 +37,15 @@ void UControlRigBlueprintGeneratedClass::PurgeClass(bool bRecompilingOnLoad)
 {
 	Super::PurgeClass(bRecompilingOnLoad);
 }
+
+uint8* UControlRigBlueprintGeneratedClass::GetPersistentUberGraphFrame(UObject* Obj, UFunction* FuncToCheck) const
+{
+	if(!IsInGameThread())
+	{
+		// we cant use the persistent frame if we are executing in parallel (as we could potentially thunk to BP)
+		return nullptr;
+	}
+
+	return Super::GetPersistentUberGraphFrame(Obj, FuncToCheck);
+}
+

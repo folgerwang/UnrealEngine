@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/StreamableManager.h"
 #include "UObject/WeakObjectPtr.h"
@@ -25,11 +25,44 @@ class FStreamableDelegateDelayHelper : public FTickableGameObject
 public:
 
 	/** Adds a delegate to deferred list */
-	void AddDelegate(const FStreamableDelegate& Delegate, TSharedPtr<FStreamableHandle> AssociatedHandle)
+	void AddDelegate(const FStreamableDelegate& Delegate, const FStreamableDelegate& CancelDelegate, TSharedPtr<FStreamableHandle> AssociatedHandle)
 	{
 		DataLock.Lock();
 
-		PendingDelegates.Emplace(Delegate, AssociatedHandle);
+		PendingDelegates.Emplace(Delegate, CancelDelegate, AssociatedHandle);
+
+		DataLock.Unlock();
+	}
+
+	/** Cancels delegate for handle, this will either delete the delegate or replace with the cancel delegate */
+	void CancelDelegatesForHandle(TSharedPtr<FStreamableHandle> AssociatedHandle)
+	{
+		if (!AssociatedHandle.IsValid())
+		{
+			return;
+		}
+
+		DataLock.Lock();
+
+		for (int32 DelegateIndex = 0; DelegateIndex < PendingDelegates.Num(); DelegateIndex++)
+		{
+			FPendingDelegate& PendingDelegate = PendingDelegates[DelegateIndex];
+			if (PendingDelegate.RelatedHandle == AssociatedHandle)
+			{
+				if (PendingDelegate.CancelDelegate.IsBound())
+				{
+					// Replace with cancel delegate
+					PendingDelegate.Delegate = PendingDelegate.CancelDelegate;
+					PendingDelegate.CancelDelegate.Unbind();
+				}
+				else
+				{
+					// Remove entirely
+					PendingDelegates.RemoveAt(DelegateIndex);
+					DelegateIndex--;
+				}
+			}
+		}
 
 		DataLock.Unlock();
 	}
@@ -61,7 +94,7 @@ public:
 			if (--PendingDelegates[DelegateIndex].DelayFrames <= 0)
 			{
 				// Add to call array and remove from tracking one
-				DelegatesToCall.Emplace(PendingDelegates[DelegateIndex].Delegate, PendingDelegates[DelegateIndex].RelatedHandle);
+				DelegatesToCall.Emplace(PendingDelegates[DelegateIndex].Delegate, FStreamableDelegate(), PendingDelegates[DelegateIndex].RelatedHandle);
 				PendingDelegates.RemoveAt(DelegateIndex--);
 			}
 		}
@@ -101,8 +134,11 @@ private:
 
 	struct FPendingDelegate
 	{
-		/** Delegate to call on next frame */
+		/** Delegate to call when frames are up */
 		FStreamableDelegate Delegate;
+
+		/** Delegate to call if this gets cancelled early */
+		FStreamableDelegate CancelDelegate;
 
 		/** Handle related to delegates, needs to keep these around to avoid things GCing before the user callback goes off. This may be null */
 		TSharedPtr<FStreamableHandle> RelatedHandle;
@@ -110,8 +146,9 @@ private:
 		/** Frames left to delay */
 		int32 DelayFrames;
 
-		FPendingDelegate(const FStreamableDelegate& InDelegate, TSharedPtr<FStreamableHandle> InHandle)
+		FPendingDelegate(const FStreamableDelegate& InDelegate, const FStreamableDelegate& InCancelDelegate, TSharedPtr<FStreamableHandle> InHandle)
 			: Delegate(InDelegate)
+			, CancelDelegate(InCancelDelegate)
 			, RelatedHandle(InHandle)
 			, DelayFrames(GStreamableDelegateDelayFrames)
 		{}
@@ -205,30 +242,21 @@ EAsyncPackageState::Type FStreamableHandle::WaitUntilComplete(float Timeout, boo
 
 bool FStreamableHandle::HasLoadCompletedOrStalled() const
 {
-	// We need to recursively look for complete or stalled handles
-	TArray<TSharedRef< FStreamableHandle>> HandlesToCheck;
-
-	HandlesToCheck.Add(const_cast<FStreamableHandle*>(this)->AsShared());
-
-	for (int32 i = 0; i < HandlesToCheck.Num(); i++)
+	// Check this handle
+	if (!IsCombinedHandle() && !HasLoadCompleted() && !IsStalled())
 	{
-		TSharedRef<const FStreamableHandle> Handle = HandlesToCheck[i];
+		return false;
+	}
 
-		if (!Handle->IsCombinedHandle() && !Handle->HasLoadCompleted() && !Handle->IsStalled())
+	// Check children recursively
+	for (const TSharedPtr<FStreamableHandle>& ChildHandle : ChildHandles)
+	{
+		if (ChildHandle.IsValid() && !ChildHandle->HasLoadCompletedOrStalled())
 		{
 			return false;
 		}
-
-		for (TSharedPtr<FStreamableHandle> ChildHandle : Handle->ChildHandles)
-		{
-			if (ChildHandle.IsValid())
-			{
-				HandlesToCheck.Add(ChildHandle.ToSharedRef());
-			}
-		}
 	}
 
-	// All handles are either completed or stalled
 	return true;
 }
 
@@ -347,21 +375,31 @@ void FStreamableHandle::CancelHandle()
 {
 	check(IsInGameThread());
 
-	if (bReleased || bCanceled || !OwningManager)
+	if (bCanceled || !OwningManager)
 	{
 		// Too late to cancel it
 		return;
 	}
 
-	if (bLoadCompleted)
+	TSharedRef<FStreamableHandle> SharedThis = AsShared();
+	if (bLoadCompleted || bReleased)
 	{
-		ReleaseHandle();
+		// Cancel if it's in the pending queue
+		if (StreamableDelegateDelayHelper)
+		{
+			StreamableDelegateDelayHelper->CancelDelegatesForHandle(SharedThis);
+		}
+
+		if (!bReleased)
+		{
+			ReleaseHandle();
+		}
+
+		bCanceled = true;
 		return;
 	}
 
 	bCanceled = true;
-
-	TSharedRef<FStreamableHandle> SharedThis = AsShared();
 
 	ExecuteDelegate(CancelDelegate, SharedThis);
 	UnbindDelegates();
@@ -483,7 +521,7 @@ void FStreamableHandle::CompleteLoad()
 	{
 		bLoadCompleted = true;
 
-		ExecuteDelegate(CompleteDelegate, AsShared());
+		ExecuteDelegate(CompleteDelegate, AsShared(), CancelDelegate);
 		UnbindDelegates();
 
 		if (ParentHandles.Num() > 0)
@@ -518,16 +556,10 @@ void FStreamableHandle::UpdateCombinedHandle()
 	// Check all our children, complete if done
 	bool bAllCompleted = true;
 	bool bAllCanceled = true;
-	for (TSharedPtr<FStreamableHandle> ChildHandle : ChildHandles)
+	for (TSharedPtr<FStreamableHandle>& ChildHandle : ChildHandles)
 	{
-		if (ChildHandle->IsLoadingInProgress())
-		{
-			bAllCompleted = false;
-		}
-		if (!ChildHandle->WasCanceled())
-		{
-			bAllCanceled = false;
-		}
+		bAllCompleted = bAllCompleted && !ChildHandle->IsLoadingInProgress();
+		bAllCanceled = bAllCanceled && ChildHandle->WasCanceled();
 	}
 
 	// If all our sub handles were canceled, cancel us. Otherwise complete us if at least one was completed and there are none in progress
@@ -599,16 +631,25 @@ void FStreamableHandle::AsyncLoadCallbackWrapper(const FName& PackageName, UPack
 	}
 }
 
-void FStreamableHandle::ExecuteDelegate(const FStreamableDelegate& Delegate, TSharedPtr<FStreamableHandle> AssociatedHandle)
+void FStreamableHandle::ExecuteDelegate(const FStreamableDelegate& Delegate, TSharedPtr<FStreamableHandle> AssociatedHandle, const FStreamableDelegate& CancelDelegate)
 {
 	if (Delegate.IsBound())
 	{
-		if (!StreamableDelegateDelayHelper)
+		if (GStreamableDelegateDelayFrames == 0)
 		{
-			StreamableDelegateDelayHelper = new FStreamableDelegateDelayHelper;
+			// Execute it immediately
+			Delegate.Execute();
 		}
+		else
+		{
+			// Add to execution queue for next tick
+			if (!StreamableDelegateDelayHelper)
+			{
+				StreamableDelegateDelayHelper = new FStreamableDelegateDelayHelper;
+			}
 
-		StreamableDelegateDelayHelper->AddDelegate(Delegate, AssociatedHandle);
+			StreamableDelegateDelayHelper->AddDelegate(Delegate, CancelDelegate, AssociatedHandle);
+		}
 	}
 }
 

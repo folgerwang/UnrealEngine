@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieSceneTransformTrack.h"
 #include "MovieSceneCommonHelpers.h"
@@ -18,6 +18,11 @@ UMovieSceneTransformTrack::UMovieSceneTransformTrack(const FObjectInitializer& O
 	SupportedBlendTypes = FMovieSceneBlendTypeField::All();
 
 	EvalOptions.bEvaluateNearestSection_DEPRECATED = EvalOptions.bCanEvaluateNearestSection = true;
+}
+
+bool UMovieSceneTransformTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieScene3DTransformSection::StaticClass();
 }
 
 UMovieSceneSection* UMovieSceneTransformTrack::CreateNewSection()

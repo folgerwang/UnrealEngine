@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -67,30 +67,34 @@ public:
 #if WITH_EDITORONLY_DATA
 
 	UPROPERTY()
-	uint8 bCookSlowConstructionWidgetTree:1;
+	uint32 bCookSlowConstructionWidgetTree:1;
+
+	UPROPERTY(Transient)
+	uint32 bCanCallPreConstruct:1;
 
 #endif
 
+	/** This indicates that we *could* template the class */
 	UPROPERTY()
-	uint8 bAllowTemplate:1;
+	uint32 bAllowTemplate:1;
 
 	UPROPERTY()
-	uint8 bAllowDynamicCreation:1;
+	uint32 bAllowDynamicCreation:1;
 
 private:
 
 	UPROPERTY()
-	uint8 bValidTemplate:1;
+	uint32 bValidTemplate:1;
 
 	UPROPERTY(Transient)
-	uint8 bTemplateInitialized:1;
+	uint32 bTemplateInitialized:1;
 
 	UPROPERTY(Transient)
-	uint8 bCookedTemplate:1;
+	uint32 bCookedTemplate:1;
 
 	/** The classes native parent requires a native tick */
 	UPROPERTY()
-	uint8 bClassRequiresNativeTick:1;
+	uint32 bClassRequiresNativeTick:1;
 
 public:
 	UPROPERTY()
@@ -106,8 +110,18 @@ public:
 
 	bool HasTemplate() const;
 
+#if WITH_EDITOR
+	bool WillHaveTemplate() const
+	{
+		return bAllowTemplate && bAllowDynamicCreation;
+	}
+#endif
+
 	void SetTemplate(UUserWidget* InTemplate);
 	UUserWidget* GetTemplate();
+
+	// Walks up the hierarchy looking for a valid widget tree.
+	UWidgetBlueprintGeneratedClass* FindWidgetTreeOwningClass();
 
 	// UObject interface
 	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
@@ -142,6 +156,8 @@ public:
 #endif
 private:
 	void InitializeTemplate(const ITargetPlatform* TargetPlatform);
+
+	static void BindAnimations(UUserWidget* Instance, const TArray< UWidgetAnimation* >& InAnimations);
 
 	UPROPERTY()
 	TSoftObjectPtr<UUserWidget> TemplateAsset;

@@ -1,43 +1,10 @@
-﻿INTSourceChangelist:3032506
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:扭曲矫正（Twist Corrective）
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
 Description:说明 Twist Corrective 节点如何基于骨骼之间的相对扭曲驱动曲线值。 
 version:4.12
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Animation\NodeReference\SkeletalControls\TwistCorrective:title%](Engine\Animation\NodeReference\SkeletalControls\TwistCorrective\TwistCorrective.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\NodeReference\SkeletalControls\TwistCorrective:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\NodeReference\SkeletalControls\TwistCorrective]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\NodeReference\SkeletalControls\TwistCorrective:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Animation\NodeReference\SkeletalControls\TwistCorrective:title%](Engine\Animation\NodeReference\SkeletalControls\TwistCorrective\TwistCorrective.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Animation\NodeReference\SkeletalControls\TwistCorrective:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Animation\NodeReference\SkeletalControls\TwistCorrective]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Animation\NodeReference\SkeletalControls\TwistCorrective:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:TwistCorrective.png
 
 
 **Twist Corrective** 节点可基于骨骼之间的相对扭曲驱动曲线值（如 **Morph Targets**）。例如，当角色颈部向左或向右扭曲过大时，即可对颈部应用一个变形目标，形成更自然的效果。 
@@ -64,4 +31,6 @@ version:4.12
 | [REGION:tablesection]**输出引脚**[/REGION] ||
 | Pose (Blank) | 应用转换后的最终姿态。|
 
+**Twist Corrective** 节点还会受到4.11版本中加入的 **LOD Threshold** 系统影响。您可以在 **Twist Corrective** 节点的 **细节面板** 上找到其设置。
 
+[INCLUDE:Engine/Animation/NodeReference/SkeletalControls#lodthresh]

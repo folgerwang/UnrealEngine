@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -60,7 +60,7 @@ namespace UnrealBuildTool
 			}
 		}
 
-		protected override bool WriteMasterProjectFile(ProjectFile UBTProject)
+		protected override bool WriteMasterProjectFile(ProjectFile UBTProject, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			bool bSuccess = true;
 			return bSuccess;
@@ -106,7 +106,7 @@ namespace UnrealBuildTool
 					}
 
 					string TargetFileName = TargetFile.TargetFilePath.GetFileNameWithoutExtension();
-					string Basename = TargetFileName.Substring(0, TargetFileName.LastIndexOf(".Target"));
+					string Basename = TargetFileName.Substring(0, TargetFileName.LastIndexOf(".Target", StringComparison.InvariantCultureIgnoreCase));
 
 					foreach (UnrealTargetConfiguration CurConfiguration in Enum.GetValues(typeof(UnrealTargetConfiguration)))
 					{
@@ -141,7 +141,7 @@ namespace UnrealBuildTool
 					}
 
 					string TargetFileName = TargetFile.TargetFilePath.GetFileNameWithoutExtension();
-					string Basename = TargetFileName.Substring(0, TargetFileName.LastIndexOf(".Target"));
+					string Basename = TargetFileName.Substring(0, TargetFileName.LastIndexOf(".Target", StringComparison.InvariantCultureIgnoreCase));
 
 					if (Basename == GameProjectName || Basename == (GameProjectName + "Editor"))
 					{
@@ -182,7 +182,7 @@ namespace UnrealBuildTool
 			if (!String.IsNullOrEmpty(GameProjectName))
 			{
 				// Make sure UBT is updated.
-				MakefileContent.Append("\txbuild /property:Configuration=Development /property:TargetFrameworkVersion=v4.5 /verbosity:quiet /nologo ");
+				MakefileContent.Append("\txbuild /property:Configuration=Development /verbosity:quiet /nologo ");
 				MakefileContent.Append("\"$(UNREALROOTPATH)/Engine/Source/Programs/UnrealBuildTool/UnrealBuildTool.csproj\"\n");
 				MakefileContent.Append("\t$(PROJECTBUILD) -projectfiles -project=\"\\\"$(GAMEPROJECTFILE)\\\"\" -game -engine \n");
 			}
@@ -198,7 +198,7 @@ namespace UnrealBuildTool
 
 		/// ProjectFileGenerator interface
 		//protected override bool WriteMasterProjectFile( ProjectFile UBTProject )
-		protected override bool WriteProjectFiles()
+		protected override bool WriteProjectFiles(PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			return WriteMakefile();
 		}

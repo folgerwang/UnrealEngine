@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -535,7 +535,7 @@ public class IOSPlatform : Platform
 			Arguments += " -platforms=" + PlatformName + " -game -nointellisense -" + PlatformName + "deployonly -ignorejunk -projectfileformat=XCode";
 
 			// If engine is installed then UBT doesn't need to be built
-			if (Automation.IsEngineInstalled())
+			if (CommandUtils.IsEngineInstalled())
 			{
 				// Get the path to UBT
 				string InstalledUBT = CombinePaths(CmdEnv.LocalRoot, "Engine/Binaries/DotNET/UnrealBuildTool.exe");
@@ -893,24 +893,16 @@ public class IOSPlatform : Platform
 				ImageFileNames.Add("Default-IPhone6.png");
 				ImageFileNames.Add("Default-IPhone6Plus-Portrait.png");
 				ImageFileNames.Add("Default-Portrait@2x.png");
-				ImageFileNames.Add("Default-Portrait-1112@2x.png");
-				ImageFileNames.Add("Default-Portrait-1194@2x.png");
 				ImageFileNames.Add("Default-Portrait-1336@2x.png");
 				ImageFileNames.Add("Default-IPhoneXS-Portrait.png");
-				ImageFileNames.Add("Default-IPhoneXSMax-Portrait.png");
-				ImageFileNames.Add("Default-IPhoneXR-Portrait.png");
 			}
 			if (bSupportsLandscape)
 			{
 				ImageFileNames.Add("Default-IPhone6-Landscape.png");
 				ImageFileNames.Add("Default-IPhone6Plus-Landscape.png");
 				ImageFileNames.Add("Default-Landscape@2x.png");
-				ImageFileNames.Add("Default-Landscape-1112@2x.png");
-				ImageFileNames.Add("Default-Landscape-1194@2x.png");
 				ImageFileNames.Add("Default-Landscape-1336@2x.png");
 				ImageFileNames.Add("Default-IPhoneXS-Landscape.png");
-				ImageFileNames.Add("Default-IPhoneXSMax-Landscape.png");
-				ImageFileNames.Add("Default-IPhoneXR-Landscape.png");
 			}
 			ImageFileNames.Add("Default@2x.png");
 			ImageFileNames.Add("Default-568h@2x.png");
@@ -1658,10 +1650,9 @@ public class IOSPlatform : Platform
 
 	public override void PreBuildAgenda(UE4Build Build, UE4Build.BuildAgenda Agenda)
 	{
-		if (UnrealBuildTool.BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac && !Automation.IsEngineInstalled())
+		if (UnrealBuildTool.BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac && !CommandUtils.IsEngineInstalled())
 		{
 			Agenda.DotNetProjects.Add(@"Engine\Source\Programs\IOS\MobileDeviceInterface\MobileDeviceInterface.csproj");
-			Agenda.DotNetProjects.Add(@"Engine\Source\Programs\IOS\iPhonePackager\iPhonePackager.csproj");
 			Agenda.DotNetProjects.Add(@"Engine\Source\Programs\IOS\DeploymentServer\DeploymentServer.csproj");
 		}
 	}

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -8,6 +8,7 @@
 #include "UObject/ScriptInterface.h"
 #include "UObject/ScriptMacros.h"
 #include "GameplayTaskOwnerInterface.h"
+#include "UObject/WeakInterfacePtr.h"
 #include "GameplayTask.generated.h"
 
 class AActor;

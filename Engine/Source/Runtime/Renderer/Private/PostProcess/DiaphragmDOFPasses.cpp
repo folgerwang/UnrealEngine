@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DiaphragmDOFPasses.cpp: Implementations of all diaphragm DOF's passes.
@@ -133,6 +133,7 @@ const TCHAR* GetEventName(FRCPassDiaphragmDOFGather::EQualityConfig e)
 		TEXT("LowQ"),
 		TEXT("HighQ"),
 		TEXT("ScatterOcclusion"),
+		TEXT("Cinematic"),
 	};
 	int32 i = int32(e);
 	check(i < ARRAY_COUNT(kArray));
@@ -338,7 +339,8 @@ public:
 	{
 		DestViewport.Min = FIntPoint::ZeroValue;
 
-		SetRenderTarget(Context.RHICmdList, FTextureRHIRef(), FTextureRHIRef());
+		// #todo-renderpasses remove once everything is a renderpass
+		UnbindRenderTargets(Context.RHICmdList);
 		Context.RHICmdList.SetComputeShader(ShaderRHI);
 
 		for (int32 i = 0; i < OutputCount; i++)
@@ -1225,6 +1227,9 @@ class FPostProcessDiaphragmDOFGatherCS : public FPostProcessDiaphragmDOFShader
 			// Foreground hole filling doesn't have lower quality accumulator.
 			if (PermutationVector.Get<FDDOFGatherQualityDim>() == FRCPassDiaphragmDOFGather::EQualityConfig::LowQualityAccumulator) return false;
 
+			// Foreground hole filling doesn't need cinematic quality.
+			if (PermutationVector.Get<FDDOFGatherQualityDim>() == FRCPassDiaphragmDOFGather::EQualityConfig::Cinematic) return false;
+
 			// No bokeh simulation on hole filling, always use euclidian closest distance to compute opacity alpha channel.
 			if (PermutationVector.Get<FDDOFBokehSimulationDim>() != EDiaphragmDOFBokehSimulation::Disabled) return false;
 
@@ -1243,6 +1248,9 @@ class FPostProcessDiaphragmDOFGatherCS : public FPostProcessDiaphragmDOFShader
 
 			// Slight out of focus filling can't have lower quality accumulator since it needs to brute force the focus areas.
 			if (PermutationVector.Get<FDDOFGatherQualityDim>() == FRCPassDiaphragmDOFGather::EQualityConfig::LowQualityAccumulator) return false;
+
+			// Slight out of focus doesn't have cinematic quality, yet.
+			if (PermutationVector.Get<FDDOFGatherQualityDim>() == FRCPassDiaphragmDOFGather::EQualityConfig::Cinematic) return false;
 
 			// Storing Coc independently of RGB is only supported for RecombineQuality == 0.
 			if (PermutationVector.Get<FDDOFRGBColorBufferDim>())
@@ -1685,70 +1693,72 @@ void FRCPassDiaphragmDOFHybridScatter::Process(FRenderingCompositePassContext& C
 		EResourceTransitionPipeline::EComputeToGfx,
 		DestRenderTarget.UAV);
 
-	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-	Context.SetViewportAndCallRHI(DestViewport, 0.0f, 1.0f);
-
-	SCOPED_DRAW_EVENTF(Context.RHICmdList, DiaphragmDOFIndirectScatter, TEXT("DiaphragmDOF IndirectScatter(%s Bokeh=%s Occlusion=%s 1/2) %dx%d"),
-		GetEventName(bIsForeground ? EDiaphragmDOFLayerProcessing::ForegroundOnly : EDiaphragmDOFLayerProcessing::BackgroundOnly),
-		PermutationVector.Get<FPostProcessDiaphragmDOFHybridScatterPS::FBokehSimulationDim>() ? TEXT("Generic") : TEXT("None"),
-		PermutationVector.Get<FDDOFScatterOcclusionDim>() ? TEXT("Yes") : TEXT("No"),
-		DestViewport.Width(), DestViewport.Height());
-
+	FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
+	Context.RHICmdList.BeginRenderPass(RPInfo, TEXT("DOFHybridScatter"));
 	{
-		FGraphicsPipelineStateInitializer GraphicsPSOInit;
-		Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-		GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_One, BF_One>::GetRHI();
-		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-		GraphicsPSOInit.PrimitiveType = PrimitiveType;
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GEmptyVertexDeclaration.VertexDeclarationRHI;
-		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-		SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+		Context.SetViewportAndCallRHI(DestViewport, 0.0f, 1.0f);
+
+		SCOPED_DRAW_EVENTF(Context.RHICmdList, DiaphragmDOFIndirectScatter, TEXT("DiaphragmDOF IndirectScatter(%s Bokeh=%s Occlusion=%s 1/2) %dx%d"),
+			GetEventName(bIsForeground ? EDiaphragmDOFLayerProcessing::ForegroundOnly : EDiaphragmDOFLayerProcessing::BackgroundOnly),
+			PermutationVector.Get<FPostProcessDiaphragmDOFHybridScatterPS::FBokehSimulationDim>() ? TEXT("Generic") : TEXT("None"),
+			PermutationVector.Get<FDDOFScatterOcclusionDim>() ? TEXT("Yes") : TEXT("No"),
+			DestViewport.Width(), DestViewport.Height());
+
+		{
+			FGraphicsPipelineStateInitializer GraphicsPSOInit;
+			Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+			GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_One, BF_One>::GetRHI();
+			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+			GraphicsPSOInit.PrimitiveType = PrimitiveType;
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GEmptyVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+			SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
+		}
+
+		float ScatteringScaling = float(Params.OutputViewSize.X) / float(Params.InputViewSize.X);
+
+		{
+			FVertexShaderRHIParamRef ShaderRHI = VertexShader->GetVertexShader();
+
+			SetShaderValue(Context.RHICmdList, ShaderRHI, VertexShader->CocRadiusToCircumscribedRadius,
+				BokehModel.CocRadiusToCircumscribedRadius);
+
+			SetSRVParameter(Context.RHICmdList, ShaderRHI, VertexShader->ScatterDrawList,
+				ScatterDrawListBuffer->SRV);
+
+			VertexShader->PostprocessParameter.SetVS(ShaderRHI, Context);
+
+			SetShaderValue(Context.RHICmdList, ShaderRHI, VertexShader->ScatteringScaling, ScatteringScaling);
+		}
+
+		{
+			FPixelShaderRHIParamRef ShaderRHI = PixelShader->GetPixelShader();
+			PixelShader->PostprocessParameter.SetPS(Context.RHICmdList, ShaderRHI, Context);
+			PixelShader->SetParameters<FViewUniformShaderParameters>(
+				Context.RHICmdList, ShaderRHI, Context.View.ViewUniformBuffer);
+
+			SetShaderValue(Context.RHICmdList, ShaderRHI, PixelShader->ScatteringScaling, ScatteringScaling);
+		}
+
+		Context.RHICmdList.SetStreamSource(0, NULL, 0);
+
+		if (GRHISupportsRectTopology)
+		{
+			Context.RHICmdList.DrawPrimitiveIndirect(
+				DrawIndirectParametersBuffer->Buffer,
+				sizeof(FRHIDrawIndirectParameters) * DrawIndirectParametersOffset);
+		}
+		else
+		{
+			Context.RHICmdList.DrawIndexedPrimitiveIndirect(
+				GDiaphragmDOFGlobalResource.ScatterIndexBuffer.IndexBufferRHI,
+				DrawIndirectParametersBuffer->Buffer,
+				sizeof(FRHIDrawIndexedIndirectParameters) * DrawIndirectParametersOffset);
+		}
 	}
-	
-	float ScatteringScaling = float(Params.OutputViewSize.X) / float(Params.InputViewSize.X);
-
-	{
-		FVertexShaderRHIParamRef ShaderRHI = VertexShader->GetVertexShader();
-		
-		SetShaderValue(Context.RHICmdList, ShaderRHI, VertexShader->CocRadiusToCircumscribedRadius,
-			BokehModel.CocRadiusToCircumscribedRadius);
-
-		SetSRVParameter(Context.RHICmdList, ShaderRHI, VertexShader->ScatterDrawList,
-			ScatterDrawListBuffer->SRV);
-
-		VertexShader->PostprocessParameter.SetVS(ShaderRHI, Context);
-
-		SetShaderValue(Context.RHICmdList, ShaderRHI, VertexShader->ScatteringScaling, ScatteringScaling);
-	}
-
-	{
-		FPixelShaderRHIParamRef ShaderRHI = PixelShader->GetPixelShader();
-		PixelShader->PostprocessParameter.SetPS(Context.RHICmdList, ShaderRHI, Context);
-		PixelShader->SetParameters<FViewUniformShaderParameters>(
-			Context.RHICmdList, ShaderRHI, Context.View.ViewUniformBuffer);
-
-		SetShaderValue(Context.RHICmdList, ShaderRHI, PixelShader->ScatteringScaling, ScatteringScaling);
-	}
-
-	Context.RHICmdList.SetStreamSource(0, NULL, 0);
-
-	if (GRHISupportsRectTopology)
-	{
-		Context.RHICmdList.DrawPrimitiveIndirect(
-			PrimitiveType,
-			DrawIndirectParametersBuffer->Buffer,
-			sizeof(FRHIDrawIndirectParameters) * DrawIndirectParametersOffset);
-	}
-	else
-	{
-		Context.RHICmdList.DrawIndexedPrimitiveIndirect(
-			PrimitiveType, GDiaphragmDOFGlobalResource.ScatterIndexBuffer.IndexBufferRHI,
-			DrawIndirectParametersBuffer->Buffer,
-			sizeof(FRHIDrawIndexedIndirectParameters) * DrawIndirectParametersOffset);
-	}
-
+	Context.RHICmdList.EndRenderPass();
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 
 	{

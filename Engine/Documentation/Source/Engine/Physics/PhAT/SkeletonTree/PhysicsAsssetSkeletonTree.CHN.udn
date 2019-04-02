@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3810557
+﻿INTSourceChangelist:4649792
 Availability: Public
 Crumbs: %ROOT%
 Title: 物理资源编辑器 - 骨架树
@@ -27,6 +27,7 @@ Tags:Animation
 * 创建暂时连接的预览资源，它们非常有用，例如，可以预览武器拿在角色手中的效果。
 
 
+(#InterfaceBreakdown)
 ## 界面详细介绍
 
 ![](SkeletonTreeInterface.png)
@@ -53,12 +54,14 @@ Tags:Animation
 该窗口显示所选物理资源当前使用的所有骨骼、形体、约束、Primitive和预览对象。在该窗口中，你可以添加和指定碰撞形体、Primitive、约束和预览对象。在骨骼层级列表中进行的大部分调整都通过右击情境菜单进行，菜单选项因右键单击的对象而异（请参阅下方的各个情境菜单部分）。  
 
 
+(#selectioncontextmenus)
 ### 选择情境菜单
 
 在骨骼层级列表中，当你在骨骼、形体、Primitive或约束上右键单击时，可以访问特定于选择对象的情境菜单。
 
 以下是可用的情境菜单及其相关选项。
 
+(#BoneContextMenu)
 #### 骨骼情境菜单
 
 当你在某个骨骼上右键单击时，将会看到以下情境菜单：
@@ -79,6 +82,7 @@ Tags:Animation
 
 
 
+(#BodyContextMenu)
 #### 形体情境菜单
 
 在某个形体上右键单击时，将会看到以下情境菜单：
@@ -123,7 +127,8 @@ Tags:Animation
 -
 [/COMMENT]
 
-#### Primitive 情境菜单
+(#PrimitiveContextMenu)
+#### Primitive情境菜单
 
 当你在某个Primitive上右键单击时，将会看到以下情境菜单：
 
@@ -139,6 +144,7 @@ Tags:Animation
 [/REGION]
 
 
+(#ConstraintContextMenu)
 #### 约束情境菜单
 
 当你在某个约束上右键单击时，将会看到以下情境菜单：
@@ -186,6 +192,7 @@ Tags:Animation
 [/COMMENT]
 
 
+(#PreviewAssetContextMenu)
 #### 预览资源情境菜单
 
 **预览资源** 是静态网格体或骨架网格体等暂时连接到骨骼或骨臼以进行预览的资源。

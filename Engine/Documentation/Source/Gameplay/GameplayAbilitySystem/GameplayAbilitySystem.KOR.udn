@@ -1,0 +1,37 @@
+﻿INTSourceChangelist:4352050
+Availability: Public
+Crumbs: 
+Title: 게임플레이 어빌리티 시스템
+Description: Gameplay Ability System 에 대한 일반적인 수준의 개요입니다.
+Type: 
+Version: 4.20
+Parent: Gameplay
+Order: 1
+Tags: Gameplay Ability System
+
+
+![](GameplayAbilitySystemTopicImage_01.png "GameplayAbilitySystemTopicImage_01.png")
+
+**Gameplay Ability System** (게임플레이 어빌리티 시스템)은 RPG 또는 MOBA 게임에서 찾을 수 있는 유형의 어빌리티 및 어트리뷰트를 만들 수 있는 매우 유연한 프레임워크입니다. 게임에서 캐릭터가 사용할 액션 또는 패시브 어빌리티를 만들고, 그 액션의 결과로 여러 어트리뷰트를 높이거나 낮추는 상태 효과라던가 그 액션 사용을 규제하기 위한 "쿨다운" (재사용 대기시간) 및 자원 비용을 구현하며, 어빌리티의 레벨 및 그에 맞는 효과 변경할 수도, 파티클 또는 사운드 이펙트를 생성할 수도 있습니다. 간단히 말해 최신 RPG 또는 MOBA 게임의 인기 캐릭터 어빌리티처럼 복잡한 것이든 점프처럼 단순한 것이든, 게임 내 어빌리티를 효율적으로 디자인, 구현, 제작할 수 있도록 해주는 시스템입니다.
+
+## 시스템 구성
+
+게임플레이 어빌리티 시스템은 플러그인으로 존재하므로, 활성화해야 사용할 수 있습니다. 그 방법은 딱 두 단계로 쉽습니다.
+
+*   ** 편집** > **플러그인** 창에서 Gameplay Ability System (게임플레이 어빌리티 시스템) 플러그인을 활성화합니다.  
+    ![](GameplayAbilitySystem_Plugin_00.png "GameplayAbilitySystem_Plugin_00.png")
+*   이 시스템을 최대한 활용하려면 프로젝트의 "(프로젝트명).Build.cs" 파일의 `PublicDependencyModuleNames` 부분에 "GameplayAbilities", "GameplayTags", "GameplayTasks" 를 추가해야 합니다. 퍼블릭 모듈 목록을 찾아보면 되니 쉽습니다.
+
+[COMMENT:none]
+[/COMMENT]
+
+    PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay" });
+
+
+게임플레이 어빌리티 시스템을 사용하려면, 다음과 같이 대괄호 목록 아무데나 위의 세 모듈 이름을 넣으면 됩니다.
+
+
+    PublicDependencyModuleNames.AddRange(new string[] { "GameplayAbilities", "GameplayTags", "GameplayTasks", "Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay" });
+
+
+Ability System Component (어빌리티 시스템 컴포넌트)는 게임의 캐릭터가 게임플레이 어빌리티 시스템에 액세스할 때 사용하는 메인 인터페이스입니다. 이 컴포넌트는 Gameplay Attributes (게임플레이 어트리뷰트)를 관리하고, Gameplay Events (게임플레이 이벤트)를 실행하며, Gameplay Abilities (게임플레이 어빌리티)를 저장하고, 게임플레이 어빌리티 시전, 확인, 취소 명령에 플레이어 입력 바인딩 처리를 하기도 합니다. 게임플레이 어빌리티 시스템과 상호작용하려는 액터는 어빌리티 시스템 컴포넌트가 있어야 합니다.

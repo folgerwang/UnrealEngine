@@ -1,13 +1,18 @@
-﻿INTSourceChangelist:2713299
+﻿INTSourceChangelist:3253207
 Availability:Public
-Title: 本地化相关的命令行
+Title: 本地化命令行
 Crumbs:%ROOT%, Gameplay, Gameplay/Localization
 Description:对项目本地化过程中所用命令行的介绍及其参数。 
 version: 4.9
+Parent:Gameplay/Localization
+Order:4
+Tags:Localization
+Type:Reference
 
 
 [TOC (start:2)]
 
+(#GatherText)
 ## GatherText 命令
 主要命令行指令，必须运行它才能配置和运行其他本地化的命令行。它只有一个参数：`Config`，用于指定所需的 INI 格式文件的路径，
 该文件列出了要执行的其他命令行及各自的[配置](Gameplay/Localization/Setup)。该命令会读取指定文件并使用基于 0 的索引数字后缀
@@ -19,8 +24,10 @@ version: 4.9
 其他所有命令行都有 `Config` 参数和 `Section` 参数，用于读取指定 INI 文件中的指定 Section 部分，以及 `CommonSettings` 部分。
 
 
+(#ForGathering)
 ## 用于收集的命令
 
+(#GatherTextFromSource)
 ### GatherTextFromSource 命令
 
 这个命令可以扫描那些通过指定筛选器的指定目录，分析匹配文件寻找 LOCTEXT_NAMESPACE、LOCTEXT、NSLOCTEXT 之类的标记以及其他与本地化存在特殊关联的宏， 
@@ -33,6 +40,7 @@ version: 4.9
 | ExcludePaths | 与指定样式相匹配的路径将排除在扫描之外。|
 | SourceFileSearchFilters | 与指定样式相匹配的文件将被进行分析。|
 
+(#GatherTextFromAssets)
 ### GatherTextFromAssets  命令
 
 这个命令将扫描通过指定筛选器的特定目录，加载找到的资源包以及引用到的其他资源包，为后续处理收集文本。
@@ -46,6 +54,7 @@ version: 4.9
 |ExcludeClasses | 将不会从资源包内这些类型的实例中收集文本。|
 |bFixBroken | 当资源内的文本缺少键或与其他文本存在冲突时，可以通过此项进行修复。|
 
+(#GatherTextFromMetadata)
 ### GatherTextFromMetadata 命令 
 
 这个命令可以扫描通过指定筛选器的指定目录，迭代访问从这些目录获取类的对象的元数据，并通过元数据值创建文本 
@@ -67,7 +76,9 @@ version: 4.9
 |OutputKeys | 要进行格式化并用于已创建文本键的样式字符串。|
 
 
+(#ForGeneration)
 ## 用于生成的命令
+(#GenerateGatherManifest)
 ### GenerateGatherManifest 命令
 
 这个命令可以使用由其他收集类 commandlet 收集的数据，将一个具有指定名称的清单文件写入到指定目录。
@@ -78,6 +89,7 @@ version: 4.9
 |DestinationPath | 要写入清单文件的目录所在的路径。|
 |ManifestName | 要写入的清单文件的完整名称，通常与目标同名并带有“manifest”扩展名。|
 
+(#GenerateGatherArchive)
 ### GenerateGatherArchive 命令
 
 这个命令可以将指定名称的存档文件写入到某一指定目录中带有相关文化名称的指定子目录（使用指定的清单文件）。已经存在的现有存档将被更新。
@@ -92,6 +104,7 @@ version: 4.9
 |bPurgeOldEmptyEntries | 如果为_true_，缺少翻译的现有存档文件中的条目将被移除，然后会用清单中的新条目去更新存档。这样，那些已经从清单内消失以及尚未翻译的条目都会被清除。|
 
 
+(#GenerateTextLocalizationResource)
 ### GenerateTextLocalizationResource 命令
 
 这个命令可以将指定名称的本地化资源文件写入到某一指定目录中带有相关文化名称的指定子目录（使用指定的清单文件和所有发现的存档文件）。
@@ -104,7 +117,9 @@ version: 4.9
 |DestinationPath | 要写入的本地化资源所在的针对特定文化的子目录的目录路径。|
 |ResourceName | 要写入的本地化资源文件的完整名称，通常与目标同名并带有“locres”扩展名。|
 
+(#ForMaintenance)
 ## 用于维护的命令
+(#RepairLocalizationData)
 ### RepairLocalizationData 命令
 
 这个命令可以修复并更新不同版本的本地化数据。它还能专门修复清单和存档。本地化资源可通过修复/更新后的清单和存档重新（正常）生成。
@@ -116,6 +131,7 @@ version: 4.9
 |ArchiveName | 要读写的存档文件的完整名称，通常与目标同名并带有“archive”扩展名。|
 |CulturesToGenerate | 修复和更新的存档对应的文化名称。|
 
+(#GenerateTextLocalizationReport)
 ### GenerateTextLocalizationReport 命令
 
 这个命令用于生成和更新报告，如字数和文本冲突。

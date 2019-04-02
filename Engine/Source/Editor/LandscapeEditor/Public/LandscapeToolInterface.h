@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -176,12 +176,14 @@ struct FLandscapeToolTarget
 	ELandscapeToolTargetType::Type TargetType;
 	TWeakObjectPtr<ULandscapeLayerInfoObject> LayerInfo;
 	FName LayerName;
+	int32 CurrentProceduralLayerIndex;
 
 	FLandscapeToolTarget()
 		: LandscapeInfo()
 		, TargetType(ELandscapeToolTargetType::Heightmap)
 		, LayerInfo()
 		, LayerName(NAME_None)
+		, CurrentProceduralLayerIndex(INDEX_NONE)
 	{
 	}
 };
@@ -222,6 +224,9 @@ public:
 	virtual bool IsSelectionAllowed(AActor* InActor, bool bInSelection) const { return false; }
 	virtual bool UsesTransformWidget() const { return false; }
 	virtual EAxisList::Type GetWidgetAxisToDraw(FWidget::EWidgetMode InWidgetMode) const { return EAxisList::All; }
+
+	virtual bool OverrideWidgetLocation() const { return true; }
+	virtual bool OverrideWidgetRotation() const { return true; }
 	virtual FVector GetWidgetLocation() const { return FVector::ZeroVector; }
 	virtual FMatrix GetWidgetRotation() const { return FMatrix::Identity; }
 	virtual bool DisallowMouseDeltaTracking() const { return false; }

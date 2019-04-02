@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -118,8 +118,11 @@ public:
 protected:
 
 	virtual void Serialize(FArchive& Ar) override;
+	virtual void PostEditImport() override;
 
 	void UpdateChannelProxy();
+public:
+	UMG_API const static FMovieSceneInterrogationKey GetWidgetTransformInterrogationKey();
 
 public:
 

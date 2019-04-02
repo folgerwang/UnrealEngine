@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneMediaTrack.h"
 
@@ -58,6 +58,12 @@ UMovieSceneSection* UMovieSceneMediaTrack::AddNewMediaSourceOnRow(UMediaSource& 
 void UMovieSceneMediaTrack::AddSection(UMovieSceneSection& Section)
 {
 	MediaSections.Add(&Section);
+}
+
+
+bool UMovieSceneMediaTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneMediaSection::StaticClass();
 }
 
 

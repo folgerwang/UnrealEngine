@@ -1,9 +1,10 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Android/AndroidMemory.h"
 #include "HAL/LowLevelMemTracker.h"
 #include "HAL/MallocBinned.h"
 #include "HAL/MallocBinned2.h"
+#include "HAL/MallocBinned3.h"
 #include "HAL/MallocAnsi.h"
 #include "unistd.h"
 #include <jni.h>
@@ -259,6 +260,7 @@ const FPlatformMemoryConstants& FAndroidPlatformMemory::GetConstants()
 		MemoryConstants.TotalPhysicalGB = (MemoryConstants.TotalPhysical + 1024 * 1024 * 1024 - 1) / 1024 / 1024 / 1024;
 		MemoryConstants.PageSize = sysconf(_SC_PAGESIZE);
 		MemoryConstants.BinnedPageSize = FMath::Max((SIZE_T)65536, MemoryConstants.PageSize);
+		MemoryConstants.BinnedAllocationGranularity = MemoryConstants.PageSize;
 		MemoryConstants.OsAllocationGranularity = MemoryConstants.PageSize;
 #if PLATFORM_32BITS
 		MemoryConstants.AddressLimit = DECLARE_UINT64(4) * 1024 * 1024 * 1024;
@@ -279,6 +281,9 @@ EPlatformMemorySizeBucket FAndroidPlatformMemory::GetMemorySizeBucket()
 
 // Set rather to use BinnedMalloc2 for binned malloc, can be overridden below
 #define USE_MALLOC_BINNED2 PLATFORM_ANDROID_ARM64
+#if !defined(USE_MALLOC_BINNED3)
+	#define USE_MALLOC_BINNED3 (0)
+#endif
 
 FMalloc* FAndroidPlatformMemory::BaseAllocator()
 {
@@ -288,7 +293,9 @@ FMalloc* FAndroidPlatformMemory::BaseAllocator()
 	FLowLevelMemTracker::Get().SetProgramSize(Stats.UsedPhysical);
 #endif
 
-#if USE_MALLOC_BINNED2
+#if USE_MALLOC_BINNED3 && PLATFORM_ANDROID_ARM64
+	return new FMallocBinned3();
+#elif USE_MALLOC_BINNED2
 	return new FMallocBinned2();
 #else
 	const FPlatformMemoryConstants& MemoryConstants = FPlatformMemory::GetConstants();
@@ -390,6 +397,11 @@ void FAndroidPlatformMemory::BinnedFreeToOS(void* Ptr, SIZE_T Size)
 		UE_LOG(LogHAL, Fatal, TEXT("munmap(addr=%p, len=%llu) failed with errno = %d (%s)"), Ptr, Size,
 			ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
 	}
+}
+
+bool FAndroidPlatformMemory::MemoryRangeDecommit(void* Ptr, SIZE_T Size)
+{
+	return madvise(Ptr, Size, MADV_DONTNEED) == 0;
 }
 
 /**

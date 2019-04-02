@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SMontageEditor.h"
@@ -617,6 +617,7 @@ void SMontageEditor::SortAndUpdateMontage()
 	AnimMontagePanel->Update();
 	AnimMontageSectionsPanel->Update();
 	AnimTimingPanel->Update();
+	AnimNotifyPanel->Update();
 
 	// Restart the preview instance of the montage
 	RestartPreview();

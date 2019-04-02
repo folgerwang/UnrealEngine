@@ -179,7 +179,7 @@ Subsurface Color (서브서피스 컬러) 입력은 [셰이딩 모델](Engine/Re
 
 ## 앰비언트 오클루전
 
-Ambient Occlusion (앰비언트 오클루전)은 표면의 틈 안에 벌어지는 셀프 섀도잉 시뮬레이션을 돕는 데 사용됩니다. 일반적으로 이 입력은 일정 유형의 AO 맵에 연결되며, 이러한 AO 맵은 종종 마야, 3ds Max, ZBrush 와 같은 3D 모델링 프로그램에서 만들어 집니다.
+Ambient Occlusion (앰비언트 오클루전)은 표면의 틈 안에 벌어지는 셀프 섀도잉 시뮬레이션을 돕는 데 사용됩니다. 일반적으로 이 입력은 일정 유형의 AO 맵에 연결되며, 이러한 AO 맵은 종종 Maya, 3ds Max, ZBrush 와 같은 3D 모델링 프로그램에서 만들어 집니다.
 
 ![](NormalNetwork.png)
 

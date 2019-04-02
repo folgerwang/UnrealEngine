@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 // This code is modified from that in the Mesa3D Graphics library available at
 // http://mesa3d.org/
@@ -398,6 +398,8 @@ struct _mesa_glsl_parse_state
 	TStringToSetMap TextureToSamplerMap;
 
 	bool conservative_propagation;
+
+	bool bInBackEnd = false;
 };
 
 typedef struct YYLTYPE

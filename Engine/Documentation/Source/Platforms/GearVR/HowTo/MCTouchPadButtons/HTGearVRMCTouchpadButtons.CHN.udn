@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3697586
+﻿INTSourceChangelist:3782314
 Availability:Public
 Crumbs: %ROOT%
 Title:使用 Gear VR 触控板按键
@@ -22,6 +22,7 @@ Gear VR 运动控制器（MC）拥有一些不同的按键和一个触控板，�
 [/region]
 
 
+(#Steps)
 ## 步骤
 
 1. 首先打开 Player Pawn 蓝图，然后在 **Component** 标签中添加一个新的 **Text Render** 组件，将其命名为 **FaceButtonPressed**，并将其设为 **Motion Controller** 组件的子类，如下图所示。
@@ -139,6 +140,7 @@ Gear VR 运动控制器（MC）拥有一些不同的按键和一个触控板，�
     点击查看全图。
     [/REGION]
   
+(#EndResult)
 ## 最终结果
 
 编译并保存蓝图，然后使用 Launch On 按钮将项目部署到三星 Galaxy Note 智能手机运行。项目部署完成后，将手机放入 Gear VR 头戴显示器，然后拿起运动控制器。现在按下触控板上的方向键后，其将自动显示，如以下视频所示。
@@ -161,6 +163,7 @@ Gear VR 运动控制器（MC）拥有一些不同的按键和一个触控板，�
 	[/PARAMLITERAL]
 [/OBJECT]
 
+(#UE4ProjectDownloads)
 ### UE4 项目下载
 
 可使用以下链接下载用于创建此例的 UE4 项目。 

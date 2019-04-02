@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/GameNetworkManager.h"
@@ -671,6 +671,7 @@ APlayerController* AGameModeBase::Login(UPlayer* NewPlayer, ENetRole InRemoteRol
 	ErrorMessage = InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
 	if (!ErrorMessage.IsEmpty())
 	{
+		NewPlayerController->Destroy();
 		return nullptr;
 	}
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	TimerManager.h: Global gameplay timer facility
@@ -83,6 +83,12 @@ struct FTimerUnifiedDelegate
 
 	/** Utility to output info about delegate as a string. */
 	FString ToString() const;
+
+	// Movable only
+	FTimerUnifiedDelegate(FTimerUnifiedDelegate&&) = default;
+	FTimerUnifiedDelegate(const FTimerUnifiedDelegate&) = delete;
+	FTimerUnifiedDelegate& operator=(FTimerUnifiedDelegate&&) = default;
+	FTimerUnifiedDelegate& operator=(const FTimerUnifiedDelegate&) = delete;
 };
 
 enum class ETimerStatus : uint8
@@ -135,6 +141,12 @@ struct FTimerData
 		, ExpireTime(0)
 		, LevelCollection(ELevelCollectionType::DynamicSourceLevels)
 	{}
+
+	// Movable only
+	FTimerData(FTimerData&&) = default;
+	FTimerData(const FTimerData&) = delete;
+	FTimerData& operator=(FTimerData&&) = default;
+	FTimerData& operator=(const FTimerData&) = delete;
 };
 
 
@@ -209,30 +221,30 @@ public:
 	 * @param inTimerMethod			Method to call when timer fires.
 	 */
 	template< class UserClass >
-	FORCEINLINE void SetTimerForNextTick(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate< UserClass >::FMethodPtr inTimerMethod)
+	FORCEINLINE FTimerHandle SetTimerForNextTick(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate< UserClass >::FMethodPtr inTimerMethod)
 	{
-		InternalSetTimerForNextTick(FTimerUnifiedDelegate(FTimerDelegate::CreateUObject(inObj, inTimerMethod)));
+		return InternalSetTimerForNextTick(FTimerUnifiedDelegate(FTimerDelegate::CreateUObject(inObj, inTimerMethod)));
 	}
 	template< class UserClass >
-	FORCEINLINE void SetTimerForNextTick(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate_Const< UserClass >::FMethodPtr inTimerMethod)
+	FORCEINLINE FTimerHandle SetTimerForNextTick(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate_Const< UserClass >::FMethodPtr inTimerMethod)
 	{
-		InternalSetTimerForNextTick(FTimerUnifiedDelegate(FTimerDelegate::CreateUObject(inObj, inTimerMethod)));
+		return InternalSetTimerForNextTick(FTimerUnifiedDelegate(FTimerDelegate::CreateUObject(inObj, inTimerMethod)));
 	}
 
 	/** Version that takes any generic delegate. */
-	FORCEINLINE void SetTimerForNextTick(FTimerDelegate const& InDelegate)
+	FORCEINLINE FTimerHandle SetTimerForNextTick(FTimerDelegate const& InDelegate)
 	{
-		InternalSetTimerForNextTick(FTimerUnifiedDelegate(InDelegate));
+		return InternalSetTimerForNextTick(FTimerUnifiedDelegate(InDelegate));
 	}
 	/** Version that takes a dynamic delegate (e.g. for UFunctions). */
-	FORCEINLINE void SetTimerForNextTick(FTimerDynamicDelegate const& InDynDelegate)
+	FORCEINLINE FTimerHandle SetTimerForNextTick(FTimerDynamicDelegate const& InDynDelegate)
 	{
-		InternalSetTimerForNextTick(FTimerUnifiedDelegate(InDynDelegate));
+		return InternalSetTimerForNextTick(FTimerUnifiedDelegate(InDynDelegate));
 	}
 	/** Version that takes a TFunction */
-	FORCEINLINE void SetTimerForNextTick(TFunction<void(void)>&& Callback)
+	FORCEINLINE FTimerHandle SetTimerForNextTick(TFunction<void(void)>&& Callback)
 	{
-		InternalSetTimerForNextTick(FTimerUnifiedDelegate(MoveTemp(Callback)));
+		return InternalSetTimerForNextTick(FTimerUnifiedDelegate(MoveTemp(Callback)));
 	}
 
 	/**
@@ -392,8 +404,8 @@ protected:
 	FTimerData* FindTimer( FTimerHandle const& InHandle );
 
 private:
-	void InternalSetTimer( FTimerHandle& InOutHandle, FTimerUnifiedDelegate const& InDelegate, float InRate, bool InbLoop, float InFirstDelay );
-	void InternalSetTimerForNextTick( FTimerUnifiedDelegate const& InDelegate );
+	void InternalSetTimer( FTimerHandle& InOutHandle, FTimerUnifiedDelegate&& InDelegate, float InRate, bool InbLoop, float InFirstDelay );
+	FTimerHandle InternalSetTimerForNextTick( FTimerUnifiedDelegate&& InDelegate );
 	void InternalClearTimer( FTimerHandle const& InDelegate );
 	void InternalClearAllTimers( void const* Object );
 	float InternalGetTimerRate( FTimerData const* const TimerData ) const;

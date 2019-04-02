@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -51,9 +51,6 @@ public:
 	virtual FPlatformUserId GetPlatformUserIdFromUniqueNetId(const FUniqueNetId& UniqueNetId) const override;
 	virtual FString GetAuthType() const override;
 	//~ End IOnlineIdentity Interface
-
-	/** @return an invalid/empty unique id */
-	static const FUniqueNetId& GetEmptyUniqueId();
 
 public:
 

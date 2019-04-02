@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -253,15 +253,15 @@ struct GAMEPLAYABILITIES_API FScalableFloat
 
 	FScalableFloat()
 		: Value(0.f)
-		, FinalCurve(nullptr)
 		, LocalCachedCurveID(INDEX_NONE)
+		, FinalCurve(nullptr)
 	{
 	}
 
 	FScalableFloat(float InInitialValue)
 		: Value(InInitialValue)
-		, FinalCurve(nullptr)
 		, LocalCachedCurveID(INDEX_NONE)
+		, FinalCurve(nullptr)
 	{
 	}
 
@@ -275,12 +275,25 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ScalableFloat)
 	float	Value;
 
+private:
+	mutable int32 LocalCachedCurveID;
+
+public:
 	/** Curve that is evaluated at a specific level. If found, it is multipled by Value */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ScalableFloat)
 	FCurveTableRowHandle	Curve;
 
 	/** Returns the scaled value at a given level */
 	float GetValueAtLevel(float Level, const FString* ContextString = nullptr) const;
+
+	/** Returns the scaled value at level 0 */
+	float GetValue(const FString* ContextString = nullptr) const;
+
+	/** Used when using a scalable float as a bool */
+	bool AsBool(float Level = 0, const FString* ContextString = nullptr) const;
+
+	/** Returns the value as an int32 */
+	int32 AsInteger(float Level = 0, const FString* ContextString = nullptr) const;
 
 	/** True if there is no curve lookup */
 	bool IsStatic() const
@@ -331,9 +344,8 @@ public:
 
 private:
 
-	// Cached direct pointer to RichCurve we should evaluate
-	mutable FRichCurve* FinalCurve;
-	mutable int32 LocalCachedCurveID;
+	// Cached direct pointer to the RealCurve we should evaluate
+	mutable FRealCurve* FinalCurve;
 };
 
 template<>

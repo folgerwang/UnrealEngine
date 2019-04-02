@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LightMapRendering.h: Light map rendering definitions.
@@ -11,95 +11,67 @@
 #include "RenderResource.h"
 #include "UniformBuffer.h"
 #include "ShaderParameters.h"
-#include "DrawingPolicy.h"
 #include "ShadowRendering.h"
 #include "LightMap.h"
 
 class FPrimitiveSceneProxy;
 
-extern ENGINE_API bool GShowDebugSelectedLightmap;
-extern ENGINE_API class FLightMap2D* GDebugSelectedLightmap;
 extern bool GVisualizeMipLevels;
 
-BEGIN_UNIFORM_BUFFER_STRUCT(FPrecomputedLightingParameters, )
-	UNIFORM_MEMBER(FVector, IndirectLightingCachePrimitiveAdd) // FCachedVolumeIndirectLightingPolicy
-	UNIFORM_MEMBER(FVector, IndirectLightingCachePrimitiveScale) // FCachedVolumeIndirectLightingPolicy
-	UNIFORM_MEMBER(FVector, IndirectLightingCacheMinUV) // FCachedVolumeIndirectLightingPolicy
-	UNIFORM_MEMBER(FVector, IndirectLightingCacheMaxUV) // FCachedVolumeIndirectLightingPolicy
-	UNIFORM_MEMBER(FVector4, PointSkyBentNormal) // FCachedPointIndirectLightingPolicy
-	UNIFORM_MEMBER_EX(float, DirectionalLightShadowing, EShaderPrecisionModifier::Half) // FCachedPointIndirectLightingPolicy
-	UNIFORM_MEMBER(FVector4, StaticShadowMapMasks) // TDistanceFieldShadowsAndLightMapPolicy
-	UNIFORM_MEMBER(FVector4, InvUniformPenumbraSizes) // TDistanceFieldShadowsAndLightMapPolicy
-	UNIFORM_MEMBER_ARRAY(FVector4, IndirectLightingSHCoefficients0, [3]) // FCachedPointIndirectLightingPolicy
-	UNIFORM_MEMBER_ARRAY(FVector4, IndirectLightingSHCoefficients1, [3]) // FCachedPointIndirectLightingPolicy
-	UNIFORM_MEMBER(FVector4,	IndirectLightingSHCoefficients2) // FCachedPointIndirectLightingPolicy
-	UNIFORM_MEMBER_EX(FVector4, IndirectLightingSHSingleCoefficient, EShaderPrecisionModifier::Half) // FCachedPointIndirectLightingPolicy used in forward Translucent
-	UNIFORM_MEMBER(FVector4, LightMapCoordinateScaleBias) // TLightMapPolicy
-	UNIFORM_MEMBER(FVector4, ShadowMapCoordinateScaleBias) // TDistanceFieldShadowsAndLightMapPolicy
-	UNIFORM_MEMBER_ARRAY_EX(FVector4, LightMapScale, [MAX_NUM_LIGHTMAP_COEF], EShaderPrecisionModifier::Half) // TLightMapPolicy
-	UNIFORM_MEMBER_ARRAY_EX(FVector4, LightMapAdd, [MAX_NUM_LIGHTMAP_COEF], EShaderPrecisionModifier::Half) // TLightMapPolicy
-	UNIFORM_MEMBER(FMatrix, LightmapVirtualTextureUniformData) // VT
-	UNIFORM_MEMBER_TEXTURE(Texture2D, LightMapTexture) // TLightMapPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture2D, LightMapTexture_1) // VT
-	UNIFORM_MEMBER_TEXTURE(Texture2D, SkyOcclusionTexture) // TLightMapPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture2D, AOMaterialMaskTexture) // TLightMapPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, IndirectLightingCacheTexture0) // FCachedVolumeIndirectLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, IndirectLightingCacheTexture1) // FCachedVolumeIndirectLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture3D, IndirectLightingCacheTexture2) // FCachedVolumeIndirectLightingPolicy
-	UNIFORM_MEMBER_TEXTURE(Texture2D, StaticShadowTexture) // 
-	UNIFORM_MEMBER_SAMPLER(SamplerState, LightMapSampler) // TLightMapPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, SkyOcclusionSampler) // TLightMapPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, AOMaterialMaskSampler) // TLightMapPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, IndirectLightingCacheTextureSampler0) // FCachedVolumeIndirectLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, IndirectLightingCacheTextureSampler1) // FCachedVolumeIndirectLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, IndirectLightingCacheTextureSampler2) // FCachedVolumeIndirectLightingPolicy
-	UNIFORM_MEMBER_SAMPLER(SamplerState, StaticShadowTextureSampler) // TDistanceFieldShadowsAndLightMapPolicy
-#if LIGHTMAP_VT_16BIT
-	UNIFORM_MEMBER_TEXTURE(Texture2D<uint>, LightmapVirtualTexturePageTable) // VT
-#else
-	UNIFORM_MEMBER_TEXTURE(Texture2D, LightmapVirtualTexturePageTable) // VT
-	UNIFORM_MEMBER_SAMPLER(SamplerState, LightmapVirtualTexturePageTableSampler) // VT
-#endif
-END_UNIFORM_BUFFER_STRUCT( FPrecomputedLightingParameters )
-
-
-uint32 GetPrecompuledLightingVersionID(const FLightMapInteraction& LightMapInteraction, const FShadowMapInteraction& ShadowMapInteraction, ERHIFeatureLevel::Type FeatureLevel);
-uint32 GetPrecompuledLightingVersionID(const FLightCacheInterface* LCI, ERHIFeatureLevel::Type FeatureLevel);
-
-void GetPrecomputedLightingParameters(
-	ERHIFeatureLevel::Type FeatureLevel,
-	FPrecomputedLightingParameters& Parameters, 
-	const class FIndirectLightingCache* LightingCache, 
-	const class FIndirectLightingCacheAllocation* LightingAllocation, 
-	FVector VolumetricLightmapLookupPosition,
-	uint32 SceneFrameNumber,
-	class FVolumetricLightmapSceneData* VolumetricLightmapSceneData,
-	const FLightCacheInterface* LCI
-	);
-
-FUniformBufferRHIRef CreatePrecomputedLightingUniformBuffer(
-	EUniformBufferUsage BufferUsage,
-	ERHIFeatureLevel::Type FeatureLevel,
-	const class FIndirectLightingCache* LightingCache, 
-	const class FIndirectLightingCacheAllocation* LightingAllocation, 
-	FVector VolumetricLightmapLookupPosition,
-	uint32 SceneFrameNumber,
-	FVolumetricLightmapSceneData* VolumetricLightmapSceneData,
-	const FLightCacheInterface* LCI
-	);
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FIndirectLightingCacheUniformParameters, )
+	SHADER_PARAMETER(FVector, IndirectLightingCachePrimitiveAdd) // FCachedVolumeIndirectLightingPolicy
+	SHADER_PARAMETER(FVector, IndirectLightingCachePrimitiveScale) // FCachedVolumeIndirectLightingPolicy
+	SHADER_PARAMETER(FVector, IndirectLightingCacheMinUV) // FCachedVolumeIndirectLightingPolicy
+	SHADER_PARAMETER(FVector, IndirectLightingCacheMaxUV) // FCachedVolumeIndirectLightingPolicy
+	SHADER_PARAMETER(FVector4, PointSkyBentNormal) // FCachedPointIndirectLightingPolicy
+	SHADER_PARAMETER_EX(float, DirectionalLightShadowing, EShaderPrecisionModifier::Half) // FCachedPointIndirectLightingPolicy
+	SHADER_PARAMETER_ARRAY(FVector4, IndirectLightingSHCoefficients0, [3]) // FCachedPointIndirectLightingPolicy
+	SHADER_PARAMETER_ARRAY(FVector4, IndirectLightingSHCoefficients1, [3]) // FCachedPointIndirectLightingPolicy
+	SHADER_PARAMETER(FVector4,	IndirectLightingSHCoefficients2) // FCachedPointIndirectLightingPolicy
+	SHADER_PARAMETER_EX(FVector4, IndirectLightingSHSingleCoefficient, EShaderPrecisionModifier::Half) // FCachedPointIndirectLightingPolicy used in forward Translucent
+	SHADER_PARAMETER_TEXTURE(Texture3D, IndirectLightingCacheTexture0) // FCachedVolumeIndirectLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, IndirectLightingCacheTexture1) // FCachedVolumeIndirectLightingPolicy
+	SHADER_PARAMETER_TEXTURE(Texture3D, IndirectLightingCacheTexture2) // FCachedVolumeIndirectLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, IndirectLightingCacheTextureSampler0) // FCachedVolumeIndirectLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, IndirectLightingCacheTextureSampler1) // FCachedVolumeIndirectLightingPolicy
+	SHADER_PARAMETER_SAMPLER(SamplerState, IndirectLightingCacheTextureSampler2) // FCachedVolumeIndirectLightingPolicy
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 /**
  * Default precomputed lighting data. Used for fully dynamic lightmap policies.
  */
-class FEmptyPrecomputedLightingUniformBuffer : public TUniformBuffer< FPrecomputedLightingParameters >
+class FEmptyPrecomputedLightingUniformBuffer : public TUniformBuffer< FPrecomputedLightingUniformParameters >
 {
-	typedef TUniformBuffer< FPrecomputedLightingParameters > Super;
+	typedef TUniformBuffer< FPrecomputedLightingUniformParameters > Super;
 public:
 	virtual void InitDynamicRHI() override;
 };
 
 /** Global uniform buffer containing the default precomputed lighting data. */
 extern TGlobalResource< FEmptyPrecomputedLightingUniformBuffer > GEmptyPrecomputedLightingUniformBuffer;
+
+void GetIndirectLightingCacheParameters(
+	ERHIFeatureLevel::Type FeatureLevel,
+	FIndirectLightingCacheUniformParameters& Parameters,
+	const class FIndirectLightingCache* LightingCache,
+	const class FIndirectLightingCacheAllocation* LightingAllocation,
+	FVector VolumetricLightmapLookupPosition,
+	uint32 SceneFrameNumber,
+	class FVolumetricLightmapSceneData* VolumetricLightmapSceneData);
+
+/**
+ * Default precomputed lighting data. Used for fully dynamic lightmap policies.
+ */
+class FEmptyIndirectLightingCacheUniformBuffer : public TUniformBuffer< FIndirectLightingCacheUniformParameters >
+{
+	typedef TUniformBuffer< FIndirectLightingCacheUniformParameters > Super;
+public:
+	virtual void InitDynamicRHI() override;
+};
+
+/** Global uniform buffer containing the default precomputed lighting data. */
+extern TGlobalResource< FEmptyIndirectLightingCacheUniformBuffer > GEmptyIndirectLightingCacheUniformBuffer;
+
 
 /**
  * A policy for shaders without a light-map.
@@ -206,14 +178,7 @@ class FSelfShadowedTranslucencyPolicy
 {
 public:
 
-	struct ElementDataType
-	{
-		ElementDataType(const FProjectedShadowInfo* InTranslucentSelfShadow) :
-			TranslucentSelfShadow(InTranslucentSelfShadow)
-		{}
-
-		const FProjectedShadowInfo* TranslucentSelfShadow;
-	};
+	typedef const FUniformBufferRHIParamRef ElementDataType;
 
 	class VertexParametersType
 	{
@@ -227,27 +192,15 @@ public:
 	public:
 		void Bind(const FShaderParameterMap& ParameterMap)
 		{
-			TranslucencyShadowParameters.Bind(ParameterMap);
-			WorldToShadowMatrix.Bind(ParameterMap, TEXT("WorldToShadowMatrix"));
-			ShadowUVMinMax.Bind(ParameterMap, TEXT("ShadowUVMinMax"));
-			DirectionalLightDirection.Bind(ParameterMap, TEXT("DirectionalLightDirection"));
-			DirectionalLightColor.Bind(ParameterMap, TEXT("DirectionalLightColor"));
+			TranslucentSelfShadowBufferParameter.Bind(ParameterMap, TEXT("TranslucentSelfShadow"));
 		}
 
 		void Serialize(FArchive& Ar)
 		{
-			Ar << TranslucencyShadowParameters;
-			Ar << WorldToShadowMatrix;
-			Ar << ShadowUVMinMax;
-			Ar << DirectionalLightDirection;
-			Ar << DirectionalLightColor;
+			Ar << TranslucentSelfShadowBufferParameter;
 		}
 
-		FTranslucencyShadowProjectionShaderParameters TranslucencyShadowParameters;
-		FShaderParameter WorldToShadowMatrix;
-		FShaderParameter ShadowUVMinMax;
-		FShaderParameter DirectionalLightDirection;
-		FShaderParameter DirectionalLightColor;
+		FShaderUniformBufferParameter TranslucentSelfShadowBufferParameter;
 	};
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
@@ -267,60 +220,26 @@ public:
 
 	/** Initialization constructor. */
 	FSelfShadowedTranslucencyPolicy() {}
-
-	void SetMesh(
-		FRHICommandList& RHICmdList,
-		const FSceneView& View,
+	
+	static void GetVertexShaderBindings(
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+		const ElementDataType& ShaderElementData,
 		const VertexParametersType* VertexShaderParameters,
+		FMeshDrawSingleShaderBindings& ShaderBindings) {}
+
+	static void GetPixelShaderBindings(
+		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+		const ElementDataType& ShaderElementData,
 		const PixelParametersType* PixelShaderParameters,
-		FShader* VertexShader,
-		FShader* PixelShader,
-		const FVertexFactory* VertexFactory,
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const ElementDataType& ElementData
-		) const
+		FMeshDrawSingleShaderBindings& ShaderBindings)
 	{
-		if (PixelShaderParameters)
-		{
-			const FPixelShaderRHIParamRef ShaderRHI = PixelShader->GetPixelShader();
-
-			// Set these even if ElementData.TranslucentSelfShadow is NULL to avoid a d3d debug error from the shader expecting texture SRV's when a different type are bound
-			PixelShaderParameters->TranslucencyShadowParameters.Set(RHICmdList, PixelShader, ElementData.TranslucentSelfShadow);
-
-			if (ElementData.TranslucentSelfShadow)
-			{
-				FVector4 ShadowmapMinMax;
-				FMatrix WorldToShadowMatrixValue = ElementData.TranslucentSelfShadow->GetWorldToShadowMatrix(ShadowmapMinMax);
-
-				SetShaderValue(RHICmdList, ShaderRHI, PixelShaderParameters->WorldToShadowMatrix, WorldToShadowMatrixValue);
-				SetShaderValue(RHICmdList, ShaderRHI, PixelShaderParameters->ShadowUVMinMax, ShadowmapMinMax);
-
-				const FLightSceneProxy* const LightProxy = ElementData.TranslucentSelfShadow->GetLightSceneInfo().Proxy;
-				SetShaderValue(RHICmdList, ShaderRHI, PixelShaderParameters->DirectionalLightDirection, LightProxy->GetDirection());
-				//@todo - support fading from both views
-				const float FadeAlpha = ElementData.TranslucentSelfShadow->FadeAlphas[0];
-				// Incorporate the diffuse scale of 1 / PI into the light color
-				const FVector4 DirectionalLightColorValue(FVector(LightProxy->GetColor() * FadeAlpha / PI), FadeAlpha);
-				SetShaderValue(RHICmdList, ShaderRHI, PixelShaderParameters->DirectionalLightColor, DirectionalLightColorValue);
-			}
-			else
-			{
-				SetShaderValue(RHICmdList, ShaderRHI, PixelShaderParameters->DirectionalLightColor, FVector4(0, 0, 0, 0));
-			}
-		}
+		ShaderBindings.Add(PixelShaderParameters->TranslucentSelfShadowBufferParameter, ShaderElementData);
 	}
 
 	friend bool operator==(const FSelfShadowedTranslucencyPolicy A,const FSelfShadowedTranslucencyPolicy B)
 	{
 		return true;
 	}
-
-	friend int32 CompareDrawingPolicy(const FSelfShadowedTranslucencyPolicy&,const FSelfShadowedTranslucencyPolicy&)
-	{
-		return 0;
-	}
-
 };
 
 /**
@@ -794,25 +713,34 @@ class FUniformLightMapPolicyShaderParametersType
 public:
 	void Bind(const FShaderParameterMap& ParameterMap)
 	{
-		BufferParameter.Bind(ParameterMap, TEXT("PrecomputedLightingBuffer"));
+		PrecomputedLightingBufferParameter.Bind(ParameterMap, TEXT("PrecomputedLightingBuffer"));
+		IndirectLightingCacheParameter.Bind(ParameterMap, TEXT("IndirectLightingCache"));
+		LightmapResourceCluster.Bind(ParameterMap, TEXT("LightmapResourceCluster"));
 	}
 
 	void Serialize(FArchive& Ar)
 	{
-		Ar << BufferParameter;
+		Ar << PrecomputedLightingBufferParameter;
+		Ar << IndirectLightingCacheParameter;
+		Ar << LightmapResourceCluster;
 	}
 
-	FShaderUniformBufferParameter BufferParameter;
+	FShaderUniformBufferParameter PrecomputedLightingBufferParameter;
+	FShaderUniformBufferParameter IndirectLightingCacheParameter;
+	FShaderUniformBufferParameter LightmapResourceCluster;
 };
 
 class FUniformLightMapPolicy
 {
 public:
 
-	typedef  const FLightCacheInterface* ElementDataType;
+	typedef const FLightCacheInterface* ElementDataType;
 
 	typedef FUniformLightMapPolicyShaderParametersType PixelParametersType;
 	typedef FUniformLightMapPolicyShaderParametersType VertexParametersType;
+#if RHI_RAYTRACING
+	typedef FUniformLightMapPolicyShaderParametersType RayHitGroupParametersType;
+#endif
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
@@ -824,28 +752,30 @@ public:
 
 	FUniformLightMapPolicy(ELightMapPolicyType InIndirectPolicy) : IndirectPolicy(InIndirectPolicy) {}
 
-	void SetMesh(
-		FRHICommandList& RHICmdList,
-		const FSceneView& View,
+	static void GetVertexShaderBindings(
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+		const ElementDataType& ShaderElementData,
 		const VertexParametersType* VertexShaderParameters,
+		FMeshDrawSingleShaderBindings& ShaderBindings);
+
+	static void GetPixelShaderBindings(
+		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+		const ElementDataType& ShaderElementData,
 		const PixelParametersType* PixelShaderParameters,
-		FShader* VertexShader,
-		FShader* PixelShader,
-		const FVertexFactory* VertexFactory,
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FLightCacheInterface* LCI
-		) const;
+		FMeshDrawSingleShaderBindings& ShaderBindings);
+
+#if RHI_RAYTRACING
+	void GetRayHitGroupShaderBindings(
+		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+		const FLightCacheInterface* ElementData,
+		const RayHitGroupParametersType* RayHitGroupShaderParameters,
+		FMeshDrawSingleShaderBindings& RayHitGroupBindings
+	) const;
+#endif // RHI_RAYTRACING
 
 	friend bool operator==(const FUniformLightMapPolicy A,const FUniformLightMapPolicy B)
 	{
 		return A.IndirectPolicy == B.IndirectPolicy;
-	}
-
-	friend int32 CompareDrawingPolicy(const FUniformLightMapPolicy& A,const FUniformLightMapPolicy& B)
-	{
-		COMPAREDRAWINGPOLICYMEMBERS(IndirectPolicy);
-		return  0;
 	}
 
 	ELightMapPolicyType GetIndirectPolicy() const { return IndirectPolicy; }
@@ -1037,12 +967,19 @@ public:
 	}
 };
 
+struct FSelfShadowLightCacheElementData
+{
+	const FLightCacheInterface* LCI;
+	FUniformBufferRHIParamRef SelfShadowTranslucencyUniformBuffer;
+};
+
 /**
  * Self shadowing translucency from a directional light + allows a dynamic object to access indirect lighting through a per-object lighting sample
  */
 class FSelfShadowedCachedPointIndirectLightingPolicy : public FSelfShadowedTranslucencyPolicy
 {
 public:
+	typedef const FSelfShadowLightCacheElementData ElementDataType;
 
 	class PixelParametersType : public FUniformLightMapPolicyShaderParametersType, public FSelfShadowedTranslucencyPolicy::PixelParametersType
 	{
@@ -1075,23 +1012,23 @@ public:
 	/** Initialization constructor. */
 	FSelfShadowedCachedPointIndirectLightingPolicy() {}
 
-	void SetMesh(
-		FRHICommandList& RHICmdList, 
-		const FSceneView& View,
+	static void GetVertexShaderBindings(
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+		const ElementDataType& ShaderElementData,
 		const VertexParametersType* VertexShaderParameters,
+		FMeshDrawSingleShaderBindings& ShaderBindings) {}
+
+	static void GetPixelShaderBindings(
+		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+		const ElementDataType& ShaderElementData,
 		const PixelParametersType* PixelShaderParameters,
-		FShader* VertexShader,
-		FShader* PixelShader,
-		const FVertexFactory* VertexFactory,
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const ElementDataType& ElementData
-		) const;
+		FMeshDrawSingleShaderBindings& ShaderBindings);
 };
 
 class FSelfShadowedVolumetricLightmapPolicy : public FSelfShadowedTranslucencyPolicy
 {
 public:
+	typedef const FSelfShadowLightCacheElementData ElementDataType;
 
 	class PixelParametersType : public FUniformLightMapPolicyShaderParametersType, public FSelfShadowedTranslucencyPolicy::PixelParametersType
 	{
@@ -1128,16 +1065,15 @@ public:
 	/** Initialization constructor. */
 	FSelfShadowedVolumetricLightmapPolicy() {}
 
-	void SetMesh(
-		FRHICommandList& RHICmdList, 
-		const FSceneView& View,
+	static void GetVertexShaderBindings(
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+		const ElementDataType& ShaderElementData,
 		const VertexParametersType* VertexShaderParameters,
+		FMeshDrawSingleShaderBindings& ShaderBindings) {}
+
+	static void GetPixelShaderBindings(
+		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
+		const ElementDataType& ShaderElementData,
 		const PixelParametersType* PixelShaderParameters,
-		FShader* VertexShader,
-		FShader* PixelShader,
-		const FVertexFactory* VertexFactory,
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const ElementDataType& ElementData
-		) const;
+		FMeshDrawSingleShaderBindings& ShaderBindings);
 };

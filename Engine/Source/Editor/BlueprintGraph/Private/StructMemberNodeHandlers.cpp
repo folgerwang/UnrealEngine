@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "StructMemberNodeHandlers.h"
 #include "UObject/UnrealType.h"
@@ -23,7 +23,8 @@ static FBPTerminal* RegisterStructVar(FCompilerResultsLog& MessageLog, FKismetFu
 	if (UProperty* BoundProperty = FKismetCompilerUtilities::FindNamedPropertyInScope(SearchScope, MemberSetNode->GetVarName()))
 	{
 		// Create the term in the list
-		FBPTerminal* Term = new (Context.VariableReferences) FBPTerminal();
+		FBPTerminal* Term = new FBPTerminal();
+		Context.VariableReferences.Add(Term);
 
 		Schema->ConvertPropertyToPinType(BoundProperty, /*out*/ Term->Type);
 		Term->Source = MemberSetNode;
@@ -61,7 +62,8 @@ static void ResolveAndRegisterScopedStructTerm(FCompilerResultsLog& MessageLog, 
 	if (UProperty* BoundProperty = FindField<UProperty>(StructType, Net->PinName))
 	{
 		// Create the term in the list
-		FBPTerminal* Term = new (Context.VariableReferences) FBPTerminal();
+		FBPTerminal* Term = new FBPTerminal();
+		Context.VariableReferences.Add(Term);
 		Term->CopyFromPin(Net, Net->PinName.ToString());
 		Term->AssociatedVarProperty = BoundProperty;
 		Context.NetMap.Add(Net, Term);

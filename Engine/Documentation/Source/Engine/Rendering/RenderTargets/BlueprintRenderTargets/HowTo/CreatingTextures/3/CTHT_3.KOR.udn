@@ -14,12 +14,12 @@ checkpoint:CTUB
 
 [NAV]
 
-여기서는 예전 단계에서 애셋 작업을 위해 만들었던 블루피른트를 만드는 법을 살펴보겠습니다.
+여기서는 이전 단계에서 애셋 작업을 위해 만들었던 블루피른트를 만드는 법을 살펴보겠습니다.
 
 ## 블루프린트 생성 & 구성
 렌더 타깃과 머티리얼 작업이 가능한 블루프린트를 생성하는 방법은 다음과 같습니다.
 
-1. **콘텐츠 브라우저** 의 우클릭 맥락 메뉴에서 **기본 애셋 생성** 부분의 **블루프린트** 옵션을 선택하여 블루프린트를 새로 만듭니다.
+1. **콘텐츠 브라우저** 의 우클릭 컨텍스트 메뉴에서 **기본 애셋 생성** 부분의 **블루프린트** 옵션을 선택하여 블루프린트를 새로 만듭니다.
 
 	![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\CreatingTextures\Create_Blueprint_01.png)
 
@@ -41,7 +41,7 @@ checkpoint:CTUB
 
 	![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\CreatingTextures\Create_Blueprint_05.png)
 
-1. 다음 **Draw Material to Render Target** 노드에서 예전에 생성한 렌더 타깃을 **Texture Render Target** 슬롯에 로드합니다. **Select Asset** (애셋 선택) 옆의 작은 흰색 삼각형을 클릭한 뒤 목록에서 `RT_00` 렌더 타깃을 찾아 클릭하여 선택하면 됩니다. 완료되면 **Material** 섹션에 대해서도 `RT_Material_00` 를 선택하여 같은 작업을 해 줍니다.
+1. 다음 **Draw Material to Render Target** 노드에서 이전에 생성한 렌더 타깃을 **Texture Render Target** 슬롯에 로드합니다. **Select Asset** (애셋 선택) 옆의 작은 흰색 삼각형을 클릭한 뒤 목록에서 `RT_00` 렌더 타깃을 찾아 클릭하여 선택하면 됩니다. 완료되면 **Material** 섹션에 대해서도 `RT_Material_00` 를 선택하여 같은 작업을 해 줍니다.
 
 	![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\CreatingTextures\Create_Blueprint_06.png)
 

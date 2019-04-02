@@ -1,44 +1,44 @@
-﻿INTSourceChangelist:0
+INTSourceChangelist:3782314
 Availability: Docs
-Title: Visibility Culling Tips & Tricks
+Title: 비저빌리티 컬링 팁 & 트릭
 Crumbs: %ROOT%, Engine, 
-Description: Tips & Tricks you can use to troubleshoot your scenes.
+Description: 씬의 문제를 해결에 도움이 되는 팁 & 트릭입니다.
 Version: 4.13
 
-The following are some Tips & Tricks you can use to help you troubleshoot and test your scene when you suspect problems with visibility or occlusion culling.
+비저빌리티 또는 오클루전 컬링 관련 문제가 의심될 때 씬의 문제를 테스트하고 해결하는 데 도움이 될 수 있는 팁 & 트릭은 다음과 같습니다.
 
 
-## Visualize Occluded Primitives
+## 가려진 프리미티브 시각화
 
-This will enable the visualization mode to draw the bounding boxes of any Actors in your scene that are occluded from the Camera view. A green bounding box indicates the Actor is 
-dynamically occluded and a red bounding box indicates that the Actor is statically occluded when using [Precomputed Visibility Volumes](1_TimH\2_IN_PROGRESS\VisibilityCulling\PrecomputedVisibilityVolume). 
+씬에 있는 액터 중 카메라 뷰에서 가려진 액터의 바운딩 박스를 그리는 시각화 모드를 활성화합니다. 빨강은 프리컴퓨티드 비저빌리티 볼륨을 사용했을 때 정적으로 가려졌음을, 
+초록은 동적으로 가려졌음을 나타냅니다. 
 
-Use the following console command to enable this visualization: 
+이 시각화를 활성화하는 콘솔 명령은 다음과 같습니다. 
 
 	r.VisualizeOccludedPrimitives 1
 
 
 [REGION:note]
-This console command will only work while in the editor and not in PIE or Standalone games.
+이 콘솔 명령은 에디터에서만 작동하며, PIE 또는 독립형 게임에서는 작동하지 않습니다.
 [/REGION]
 
-In the example below, the visualization of occluded Actors blocked by the wall is compared to the placement of the Actor's with the wall removed. 
+아래 예제는 벽에 막혀 가려진 액터의 시각화를 벽을 제거한 액터의 배치와 비교한 것입니다. 
 
 [OBJECT:ComparisonSlider]
  [PARAM:before]
- ![Visualize Occluded Primitives Enabled (Green Box)](VisOccludedPrimitives1.png)(w:500)
+ ![Visualize Occluded Primitives 활성화 (초록 박스)](VisOccludedPrimitives1.png)(w:500)
  [/PARAM]
  [PARAM:after]
- ![Actors occluded by the wall](VisOccludedPrimitives2.png)(w:500)
+ ![벽에 가려진 액터](VisOccludedPrimitives2.png)(w:500)
  [/PARAM]
 [/OBJECT]
 
 
-## Freeze Rendering
+## 렌더링 고정
 
-This will toggle the rendering state of the scene from the current Camera perspective while allowing you to freely move around the world.
+현재 카메라 시점에서의 씬 렌더링을 고정한 상태에서 월드를 자유롭게 이동하는 기능의 토글입니다.
 
-Use the following console command to toggle this mode:
+이 모드를 토글하는 콘솔 명령은 다음과 같습니다.
 
 	FREEZERENDERING
 
@@ -56,10 +56,10 @@ Use the following console command to toggle this mode:
 [/OBJECT]
 
 
-## Game View Mode
+## 게임 뷰 모드
 
-You can use the keyboard shortcut for **G** or use the main **Viewport Options** down-arrow to select **Game View** to be able to work in the editor and switch between what you would see in game. 
-This is helpful when you do not want to PIE or launch a game but need to check what the game would look like. This is ideal for checking [Cull Distance Volumes](Engine\Rendering\VisibilityCulling\CullDistanceVolume) 
-and [Precomputed Visibility Volumes](Engine\Rendering\VisibilityCulling\PrecomputedVisibilityVolume) since these do not work unless you are in game or using the Game View.
+키보드 단축키 **G** 또는 메인 **뷰포트 옵션** 드롭다운에서 **게임 뷰** 를 선택하면 에디터에서 작업하면서 게임에서 실제 보이는 화면을 전환할 수 있습니다. 
+PIE 또는 게임 실행을 하지 않고도 게임이 어때 보이는지 확인할 때 좋습니다. 
+게임 중이거나 게임 뷰가 아니면 작동하지 않는 컬 디스턴스 볼륨 및 프리컴퓨티드 비저빌리티 볼륨을 확인할 때 좋습니다.
 
-For more information on the [Game View](Engine\UI\LevelEditor\Viewports\Basics) mode, you can read about it in this page.
+[게임 뷰](Engine\UI\LevelEditor\Viewports\Basics) 모드 관련 자세한 정보는 문서를 참고하세요.

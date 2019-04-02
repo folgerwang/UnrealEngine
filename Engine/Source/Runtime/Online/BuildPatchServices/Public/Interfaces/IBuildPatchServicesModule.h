@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -166,35 +166,40 @@ public:
 	virtual void CancelAllInstallers(bool WaitForThreads) = 0;
 
 	/**
-	 * Processes a Build Image to determine new chunks and produce a chunk based manifest, all saved to the cloud.
-	 * NOTE: This function is blocking and will not return until finished. Don't run on main thread.
-	 * @param Configuration			Specifies the settings for the operation.  See BuildPatchServices::FGenerationConfiguration comments.
-	 * @return		true if no file errors occurred
+	 * Processes a Build directory to create chunks for new data and produce a manifest, saved to the provided cloud directory.
+	 * NOTE: This function is blocking and will not return until finished.
+	 * @param Configuration         Specifies the settings for the operation. See BuildPatchServices::FChunkBuildConfiguration comments.
+	 * @return true if successful.
 	 */
-	virtual bool GenerateChunksManifestFromDirectory(const BuildPatchServices::FGenerationConfiguration& Configuration) = 0;
+	virtual bool ChunkBuildDirectory(const BuildPatchServices::FChunkBuildConfiguration& Configuration) = 0;
+
+	/**
+	 * Process a pair of manifests to produce additional delta data which reduces the patch directly between them.
+	 * NOTE: This function is blocking and will not return until finished.
+	 * @param Configuration         Specifies the settings for the operation. See BuildPatchServices::FChunkDeltaOptimiserConfiguration comments.
+	 * @return true if successful.
+	 */
+	virtual bool OptimiseChunkDelta(const BuildPatchServices::FChunkDeltaOptimiserConfiguration& Configuration) = 0;
 
 	/**
 	 * Processes a Cloud Directory to identify and delete any orphaned chunks or files.
-	 * NOTE: THIS function is blocking and will not return until finished. Don't run on main thread.
-	 * @param CloudDirectory        The path to the directory to compactify.
-	 * @param DataAgeThreshold      Chunks which are not referenced by a valid manifest, and which are older than this age (in days), will be deleted.
-	 * @param Mode                  The mode that compactify will run in. If Preview, then no work will be carried out, if NoPatchData, then no patch-data will be deleted.
-	 * @param DeletedChunkLogFile   The full path to a file to which a list of all chunk files deleted by compactify will be written. The output filenames will be relative to the cloud directory.
-	 * @return true if no file errors occurred.
+	 * NOTE: THIS function is blocking and will not return until finished.
+	 * @param Configuration         Specifies the settings for the operation. See BuildPatchServices::FCompactifyConfiguration comments.
+	 * @return true if successful.
 	 */
-	virtual bool CompactifyCloudDirectory(const FString& CloudDirectory, float DataAgeThreshold, ECompactifyMode::Type Mode, const FString& DeletedChunkLogFile) = 0;
+	virtual bool CompactifyCloudDirectory(const BuildPatchServices::FCompactifyConfiguration& Configuration) = 0;
 
 	/**
 	 * Saves info for an enumeration of patch data referenced from an input file of known format, to a specified output file.
-	 * @param InputFile             A full file path for the manifest or chunkdb to be loaded.
-	 * @param OutputFile            A full file path where to save the output text.
-	 * @param bIncludeSizes         If true, will include the size (in bytes) with every file output.
+	 * NOTE: THIS function is blocking and will not return until finished.
+	 * @param Configuration         Specifies the settings for the operation. See BuildPatchServices::FPatchDataEnumerationConfiguration comments.
 	 * @return true if successful.
 	 */
-	virtual bool EnumeratePatchData(const FString& InputFile, const FString& OutputFile, bool bIncludeSizes) = 0;
+	virtual bool EnumeratePatchData(const BuildPatchServices::FPatchDataEnumerationConfiguration& Configuration) = 0;
 
 	/**
 	 * Searches a given directory for chunk and chunkdb files, and verifies their integrity uses the hashes in the files.
+	 * NOTE: THIS function is blocking and will not return until finished. Don't run on main thread.
 	 * @param SearchPath            A full file path for the directory to search.
 	 * @param OutputFile            A full file path where to save the output text.
 	 * @return true if successful and no corruptions detected.
@@ -203,19 +208,15 @@ public:
 
 	/**
 	 * Packages data referenced by a manifest file into chunkdb files, supporting a maximum filesize per chunkdb.
-	 * @param ManifestFilePath      A full file path to the manifest to enumerate chunks from.
-	 * @param PrevManifestFilePath  A full file path to a manifest describing a previous build, which will filter out saved chunks for patch only chunkdbs.
-	 * @param TagSetArray           Optional list of tagsets to split chunkdb files on. Empty array will include all data as normal.
-	 * @param OutputFile            A full file path to the chunkdb file to save. Extension of .chunkdb will be added if not present.
-	 * @param CloudDir              Cloud directory where chunks to be packaged can be found.
-	 * @param MaxOutputFileSize     The maximum desired size for each chunkdb file.
-	 * @param ResultDataFilePath    A full file path to use when saving the json output data.
+	 * NOTE: THIS function is blocking and will not return until finished. Don't run on main thread.
+	 * @param Configuration         Specifies the settings for the operation. See BuildPatchServices::FPackageChunksConfiguration comments.
 	 * @return true if successful.
 	 */
-	virtual bool PackageChunkData(const FString& ManifestFilePath, const FString& PrevManifestFilePath, const TArray<TSet<FString>>& TagSetArray, const FString& OutputFile, const FString& CloudDir, uint64 MaxOutputFileSize, const FString& ResultDataFilePath) = 0;
+	virtual bool PackageChunkData(const BuildPatchServices::FPackageChunksConfiguration& Configuration) = 0;
 
 	/**
 	 * Takes two manifests as input, in order to merge together producing a new manifest containing all files.
+	 * NOTE: THIS function is blocking and will not return until finished. Don't run on main thread.
 	 * @param ManifestFilePathA         A full file path for the base manifest to be loaded.
 	 * @param ManifestFilePathB         A full file path for the merge manifest to be loaded, by default files in B will stomp over A.
 	 * @param ManifestFilePathC         A full file path for the manifest to be output.
@@ -230,19 +231,37 @@ public:
 
 	/**
 	 * Takes two manifests as input and outputs the details of the patch.
-	 * @param ManifestFilePathA         A full file path for the manifest to be used as the source.
-	 * @param TagSetA                   The tag set to use to filter desired files from ManifestA.
-	 * @param ManifestFilePathB         A full file path for the manifest to be used as the target.
-	 * @param TagSetB                   The tag set to use to filter desired files from ManifestB.
-	 * @param CompareTagSets            Tag sets that will be used to calculate additional differential size statistics between manifests.
-	 * @param OutputFilePath            A full file path where a JSON object will be saved for the diff details. Empty string if not desired.
+	 * NOTE: THIS function is blocking and will not return until finished. Don't run on main thread.
+	 * @param Configuration         Specifies the settings for the operation. See BuildPatchServices::FDiffManifestsConfiguration comments.
 	 * @return true if successful.
 	 */
-	virtual bool DiffManifests(const FString& ManifestFilePathA, const TSet<FString>& TagSetA, const FString& ManifestFilePathB, const TSet<FString>& TagSetB, const TArray<TSet<FString>>& CompareTagSets, const FString& OutputFilePath) = 0;
+	virtual bool DiffManifests(const BuildPatchServices::FDiffManifestsConfiguration& Configuration) = 0;
 
-	DEPRECATED(4.21, "MakeManifestFromJSON(const FString& ManifestJSON) has been deprecated.  Please use MakeManifestFromData(const TArray<uint8>& ManifestData) instead.")
+	/**
+	 * Returns an event which fires when we start a new build install.
+	 */
+	DECLARE_EVENT(IBuildPatchServicesModule, FSimpleEvent)
+	virtual FSimpleEvent& OnStartBuildInstall() = 0;
+
+	/**
+	 * Deprecated function, use MakeManifestFromData instead.
+	 */
+	UE_DEPRECATED(4.21, "MakeManifestFromJSON(const FString& ManifestJSON) has been deprecated.  Please use MakeManifestFromData(const TArray<uint8>& ManifestData) instead.")
 	virtual IBuildManifestPtr MakeManifestFromJSON(const FString& ManifestJSON) = 0;
 
-	DEPRECATED(4.16, "Please use EnumeratePatchData instead.")
-	virtual bool EnumerateManifestData(const FString& ManifestFilePath, const FString& OutputFile, bool bIncludeSizes) { return EnumeratePatchData(ManifestFilePath, OutputFile, bIncludeSizes); }
+	UE_DEPRECATED(4.16, "Please use EnumeratePatchData instead.")
+	virtual bool EnumerateManifestData(const FString& ManifestFilePath, const FString& OutputFile, bool bIncludeSizes)
+	{
+		BuildPatchServices::FPatchDataEnumerationConfiguration Configuration;
+		Configuration.InputFile = ManifestFilePath;
+		Configuration.OutputFile = OutputFile;
+		Configuration.bIncludeSizes = bIncludeSizes;
+		return EnumeratePatchData(Configuration);
+	}
+
+	UE_DEPRECATED(4.21, "Please use ChunkBuildDirectory instead.")
+	virtual bool GenerateChunksManifestFromDirectory(const BuildPatchServices::FGenerationConfiguration& Configuration)
+	{
+		return ChunkBuildDirectory(Configuration);
+	}
 };

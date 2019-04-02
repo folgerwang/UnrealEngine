@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -54,6 +54,7 @@ public partial class Project : CommandUtils
 			);
 	}
 
+
 	public static void Build(BuildCommand Command, ProjectParams Params, int WorkingCL = -1, ProjectBuildTargets TargetMask = ProjectBuildTargets.All)
 	{
 		Params.ValidateAndLog();
@@ -62,7 +63,7 @@ public partial class Project : CommandUtils
 		{
 			return;
 		}
-		if (Automation.IsEngineInstalled() && !Params.IsCodeBasedProject)
+		if (CommandUtils.IsEngineInstalled() && !Params.IsCodeBasedProject)
 		{
 			return;
 		}
@@ -82,7 +83,7 @@ public partial class Project : CommandUtils
 
             Agenda.AddTargets(Params.EditorTargets.ToArray(), EditorPlatform, EditorConfiguration, Params.CodeBasedUprojectPath);
 
-			if(!Automation.IsEngineInstalled())
+			if(!CommandUtils.IsEngineInstalled())
 			{
 				CrashReportPlatforms.Add(EditorPlatform);
 				if (Params.EditorTargets.Contains("UnrealHeaderTool") == false)
@@ -110,7 +111,7 @@ public partial class Project : CommandUtils
 		}
 
 		// Build any tools we need to stage
-		if ((TargetMask & ProjectBuildTargets.UnrealPak) == ProjectBuildTargets.UnrealPak && !Automation.IsEngineInstalled())
+		if ((TargetMask & ProjectBuildTargets.UnrealPak) == ProjectBuildTargets.UnrealPak && !CommandUtils.IsEngineInstalled())
 		{
 			if (Params.EditorTargets.Contains("UnrealPak") == false)
 			{
@@ -134,6 +135,11 @@ public partial class Project : CommandUtils
 		if (Params.Deploy || Params.Package)
 		{
 			AdditionalArgs += " -skipdeploy"; // skip deploy step in UBT if we going to do it later anyway
+		}
+
+		if (Params.Distribution)
+		{
+			AdditionalArgs += " -distribution";
 		}
 
 		// Config overrides (-ini)
@@ -170,7 +176,7 @@ public partial class Project : CommandUtils
 				}
 			}
 		}
-		if (!Params.NoBootstrapExe && !Automation.IsEngineInstalled() && (TargetMask & ProjectBuildTargets.Bootstrap) == ProjectBuildTargets.Bootstrap)
+		if (!Params.NoBootstrapExe && !CommandUtils.IsEngineInstalled() && (TargetMask & ProjectBuildTargets.Bootstrap) == ProjectBuildTargets.Bootstrap)
 		{
 			UnrealBuildTool.UnrealTargetPlatform[] BootstrapPackagedGamePlatforms = { UnrealBuildTool.UnrealTargetPlatform.Win32, UnrealBuildTool.UnrealTargetPlatform.Win64 };
 			foreach(UnrealBuildTool.UnrealTargetPlatform BootstrapPackagedGamePlatformType in BootstrapPackagedGamePlatforms)
@@ -181,7 +187,7 @@ public partial class Project : CommandUtils
 				}
 			}
 		}
-		if (Params.CrashReporter && !Automation.IsEngineInstalled() && (TargetMask & ProjectBuildTargets.CrashReporter) == ProjectBuildTargets.CrashReporter)
+		if (Params.CrashReporter && !CommandUtils.IsEngineInstalled() && (TargetMask & ProjectBuildTargets.CrashReporter) == ProjectBuildTargets.CrashReporter)
 		{
 			foreach (var CrashReportPlatform in CrashReportPlatforms)
 			{

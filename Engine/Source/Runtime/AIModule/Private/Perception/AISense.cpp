@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Perception/AISense.h"
 #include "Perception/AIPerceptionSystem.h"
@@ -139,7 +139,7 @@ FString UAISenseConfig::GetSenseName() const
 #if WITH_GAMEPLAY_DEBUGGER
 static FString DescribeColorHelper(const FColor& Color)
 {
-	int32 MaxColors = GColorList.GetColorsNum();
+	const int32 MaxColors = GColorList.GetColorsNum();
 	for (int32 Idx = 0; Idx < MaxColors; Idx++)
 	{
 		if (Color == GColorList.GetFColorByIndex(Idx))

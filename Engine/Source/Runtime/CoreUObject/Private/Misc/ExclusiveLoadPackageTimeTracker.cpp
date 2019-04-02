@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Misc/ExclusiveLoadPackageTimeTracker.h"
 #include "Misc/OutputDeviceArchiveWrapper.h"
@@ -12,6 +12,8 @@
 #if WITH_LOADPACKAGE_TIME_TRACKER
 
 #define LOCTEXT_NAMESPACE "ExclusiveLoadPackageTimeTracker"
+
+FExclusiveLoadPackageTimeTracker* FExclusiveLoadPackageTimeTracker::TrackerInstance;
 
 FExclusiveLoadPackageTimeTracker::FExclusiveLoadPackageTimeTracker()
 	: TrackerOverhead(0.f)
@@ -28,9 +30,10 @@ FExclusiveLoadPackageTimeTracker::FExclusiveLoadPackageTimeTracker()
 {
 }
 
-FExclusiveLoadPackageTimeTracker& FExclusiveLoadPackageTimeTracker::Get()
+FExclusiveLoadPackageTimeTracker& FExclusiveLoadPackageTimeTracker::Construct()
 {
 	static FExclusiveLoadPackageTimeTracker Tracker;
+	TrackerInstance = &Tracker;
 	return Tracker;
 }
 

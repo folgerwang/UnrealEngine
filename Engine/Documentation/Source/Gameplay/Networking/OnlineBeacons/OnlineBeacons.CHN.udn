@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3169600
+﻿INTSourceChangelist:3454520
 Availability:Public
 Title:Online Beacons
 Crumbs: %ROOT%, Engine
 Description:Online Beacons 系统总览
 Version:4.13
-parent:Engine
+parent:Gameplay/Networking
 Related:Gameplay/Networking/Actors/RPCs
 Related:Gameplay/Networking/Actors/Properties
 
@@ -12,6 +12,7 @@ Related:Gameplay/Networking/Actors/Properties
 
 **Online Beacons** 是一个特殊类型的 **Actor**，可提供一种简易的方式与服务器联络并进行交互（通过 RPC），而无需让普通游戏连接来执行此任务。可以使用内置类，因为在一些情况下它们将被延展为自定义类，执行项目特定的交互、逻辑和信息请求。
 
+(#OnlineBeaconBaseClasses)
 ## Online Beacon 基类
 Beacon 类执行的常规操作是请求服务质量信息、在客户端需要加入的游戏中预留空位、接收游戏中玩家名列表、获取正在进行的游戏中的得分和运行时间，等等。以下类由引擎提供，构成了 Online Beacon 系统的基础：
 
@@ -28,6 +29,7 @@ Beacon 类执行的常规操作是请求服务质量信息、在客户端需要�
 ### AOnlineBeaconHostObject
 此类也应被覆盖，使其和覆盖的 `AOnlineBeaconClient` 类配对。将客户端 `GetBeaconType` 的返回值和保存在 `BeaconTypeName` 成员变量中的值进行匹配即可完成配对。服务器的 `AOnlineBeaconHost` 检测到传入 `AOnlineBeaconClient` 的配对 `AOnlineBeaconHostObject` 时，它将指示 `AOnlineBeaconHostObject` 通过虚拟 `SpawnBeaconActor` 函数生成 `AOnlineBeaconClient` 的本地副本。此函数默认使用 `ClientBeaconActorClass` 成员变量确定要生成的 actor 类，此类应被设为配对的 `AOnlineBeaconClient` 类。它还将在生成对象的服务器副本上调用 `SetBeaconOwner`，以便客户端对象的服务器端实例与主机对象进行交流。此设置多数建立在基类中，无需被覆盖。
 
+(#OnlineBeaconExample)
 ## Online Beacon 范例
 引擎中已自带大量预建 Beacon 类配对。但您也可自行构建，Test Beacon 就是一个简单的好例子。`ATestBeaconClient` 派生自 `AOnlineBeaconClient`，`ATestBeaconHost` 派生自 `AOnlineBeaconHostObject`。Test Beacon 就是简单地在客户端和服务器之间来回执行重复的函数调用。以下是类一同工作的原理：
 1. 在 `ATestBeaconHost` 的构建函数中，`ClientBeaconActorClass` 设为 `ATestBeaconClient` 的类、`BeaconTypeName` 设为 `ClientBeaconActorClass` 的命名（调用 `GetName` 函数获得）。这样可确保 `AOnlineBeaconHost` 将两个 Test Beacon 类正确配对。

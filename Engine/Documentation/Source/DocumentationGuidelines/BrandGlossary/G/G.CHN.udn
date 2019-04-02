@@ -1,17 +1,15 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3532405
 Availability: Docs
 Crumbs: %ROOT%
-Title: Brand Glossary
-Description: A glossary of key terms, which are used to describe the systems, features, and tools that belong to Unreal Engine 4 (UE4).
+Title: 品牌术语表
+Description: 用于描述虚幻引擎4（UE4）系统、功能及功能的重要术语表。
 Type: Reference
-Version: 4.17
+Version: 4.16
 Parent:BrandGlossary
 Order:7
 Tags:Brand Glossary
 
-Welcome to the Unreal Engine 4 (UE4) **Brand Glossary**. If you want to create user-facing resources for the UE4 community, this guide 
-helps you gain a better understanding of the terms being used to describe systems, features, and tools belonging to UE4. After reading 
-through this glossary, you'll also know how to properly spell and capitalize the terms we use to describe Unreal Engine.  
+欢迎了解虚幻引擎4(UE4) **品牌术语表**。若您希望为UE4社区创建面向用户的资源，本指南可帮助您更深入了解用于描述UE4系统、功能及工具的术语。在通读本术语表后，您还将了解如何正确拼写和大写用于描述虚幻引擎的术语。  
 
 <hr>
   
@@ -42,22 +40,22 @@ through this glossary, you'll also know how to properly spell and capitalize the
 <font size = "5" color=#001940>Y</font>&nbsp;&nbsp;
 <font size = "5" color=#001940>Z</font>&nbsp;&nbsp;
 
-##Game Mode
+##游戏模式
 
-The GameMode Class is responsible for setting the rules of the game that is being played. The rules can include how players join the game, whether or not a game can be paused, level transitions, as well as any game-specific behavior (for example, win conditions).
+游戏模式类负责设置正在执行的游戏规则。规则可包括玩家如何加入游戏、是否可暂停游戏、关卡过渡，以及任何特定的游戏行为（例如获胜条件）。
 
-##Gameplay Framework
+##Gameplay框架
 
-The basic gameplay classes include functionality for representing players, allies, and enemies; as well as for controlling these avatars with player input or AI logic. There are also classes for creating heads-up displays and cameras for players. Finally, gameplay classes such as GameMode, GameState, and PlayerState set the rules of the game. Gameplay classes also track how the game and the players are progressing.
+基本的Gameplay类包括用于表示玩家、盟友和敌人的功能，以及通过玩家输入或AI逻辑控制这些化身的功能。还包括为玩家创建平视显示器和摄像机的类。总之，Gameplay类（如游戏模式、GameState及玩家状态）可用于设置游戏规则。Gameplay类还可追踪游戏和玩家的进展情况。
 
 ##GameState
 
-The GameState contains information that you want replicated to every client in a game. Put simply, it is ‘The State of the Game’ for every connected player.
+GameState包含要复制到游戏中每个客户端的信息。简单而言，它表示每个联网玩家的“游戏状态”。
 
-##Global Asset Picker
+##全局资源选择器
 
-The Global Asset Picker (Ctrl-P) is a fast-access means of editing assets or bringing them into your levels. In some ways, it is similar to the Content Browser but without limiting itself to the current folder you have selected in the Asset Tree. Not only can you pull assets specific to your game, but also anything from Engine, like lights or sound emitters. Because it offers all available assets in a list format, it is not intended to be used as means for browsing. Instead, it’s perfect for those moments when you know the asset (or asset type) you need and just want to quickly type part of its name into the Search Line.
+全局资源选择器（Ctrl-P）是一种快速编辑资源或将资源带入您所在关卡的工具。在某些方面，它类似于内容浏览器，但不局限于您在资源树中选择的当前文件夹。您不仅可将特定资源拖放到游戏中，还可从引擎（如光源或声音发射器）选取资源。因为它以列表的形式提供所有可用的资源，所以不将其用作浏览工具。相反，在您确切清楚需要资源（或资源类型），以及想要在搜索行中快速键入部分名称时非常实用。
 
-##Grass Tool
+##草工具
 
-A tool to densely populate the Landscape Terrain used in a forest with grass, flowers, and small rocks.
+一种在森林所用地形地貌中填满花草和小岩石的工具。

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	EditorFactories.cpp: Editor class factories.
@@ -257,6 +257,11 @@
 #include "Rendering/SkeletalMeshModel.h"
 
 #include "Misc/App.h"
+#include "Subsystems/ImportSubsystem.h"
+
+#include "IDesktopPlatform.h"
+#include "DesktopPlatformModule.h"
+#include "Interfaces/IMainFrameModule.h"
 
 DEFINE_LOG_CATEGORY(LogEditorFactories);
 
@@ -265,6 +270,56 @@ DEFINE_LOG_CATEGORY(LogEditorFactories);
 /*------------------------------------------------------------------------------
 	Shared - used by multiple factories
 ------------------------------------------------------------------------------*/
+
+void GetReimportPathFromUser(const FText& TitleLabel, TArray<FString>& InOutFilenames)
+{
+	FString FileTypes;
+	FString AllExtensions;
+	// Determine whether we will allow multi select and clear old filenames
+	bool bAllowMultiSelect = false;
+	InOutFilenames.Empty();
+
+	FileTypes = TEXT("FBX Files (*.fbx)|*.fbx");
+
+	FString DefaultFolder;
+	FString DefaultFile;
+
+	// Prompt the user for the filenames
+	TArray<FString> OpenFilenames;
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+	bool bOpened = false;
+	if (DesktopPlatform)
+	{
+		void* ParentWindowWindowHandle = NULL;
+
+		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
+		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
+		if (MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid())
+		{
+			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
+		}
+
+		const FString Title = FString::Printf(TEXT("%s %s"), *NSLOCTEXT("FBXReimport", "ImportContentTypeDialogTitle", "Add import source file for").ToString(), *TitleLabel.ToString());
+		bOpened = DesktopPlatform->OpenFileDialog(
+			ParentWindowWindowHandle,
+			Title,
+			*DefaultFolder,
+			*DefaultFile,
+			FileTypes,
+			bAllowMultiSelect ? EFileDialogFlags::Multiple : EFileDialogFlags::None,
+			OpenFilenames
+		);
+	}
+
+	if (bOpened)
+	{
+		for (int32 FileIndex = 0; FileIndex < OpenFilenames.Num(); ++FileIndex)
+		{
+			InOutFilenames.Add(OpenFilenames[FileIndex]);
+		}
+	}
+}
+
 
 class FAssetClassParentFilter : public IClassViewerFilter
 {
@@ -588,7 +643,18 @@ UMaterialParameterCollectionFactoryNew::UMaterialParameterCollectionFactoryNew(c
 
 UObject* UMaterialParameterCollectionFactoryNew::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
 {
-	return NewObject<UObject>(InParent, Class, Name, Flags);
+	UMaterialParameterCollection* MaterialParameterCollection = NewObject<UMaterialParameterCollection>(InParent, Class, Name, Flags);
+	
+	if (MaterialParameterCollection)
+	{
+		for (TObjectIterator<UWorld> It; It; ++It)
+		{
+			UWorld* CurrentWorld = *It;
+			CurrentWorld->AddParameterCollectionInstance(MaterialParameterCollection, true);
+		}
+	}
+
+	return MaterialParameterCollection;
 }
 
 /*------------------------------------------------------------------------------
@@ -619,7 +685,7 @@ UObject* ULevelFactory::FactoryCreateText
 	FFeedbackContext*	Warn
 )
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, Class, InParent, Name, Type);
 
 	UWorld* World = GWorld;
 	//@todo locked levels - if lock state is persistent, do we need to check for whether the level is locked?
@@ -653,7 +719,7 @@ UObject* ULevelFactory::FactoryCreateText
 				else
 				{
 					Warn->Logf(ELogVerbosity::Warning, TEXT("The Root map package name : '%s', conflicts with the existing object : '%s'"), *RootMapPackage->GetFullName(), *MapName);
-					FEditorDelegates::OnAssetPostImport.Broadcast( this, nullptr );
+					GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr );
 					return nullptr;
 				}
 				
@@ -867,7 +933,7 @@ UObject* ULevelFactory::FactoryCreateText
 				if ( FLevelUtils::IsLevelLocked(World->GetCurrentLevel()) )
 				{
 					UE_LOG(LogEditorFactories, Warning, TEXT("Import actor: The requested operation could not be completed because the level is locked."));
-					FEditorDelegates::OnAssetPostImport.Broadcast( this, nullptr );
+					GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr );
 					return nullptr;
 				}
 				else if ( !(bShouldSkipImportSpecialActors && ActorIndex < 2) )
@@ -1244,7 +1310,7 @@ UObject* ULevelFactory::FactoryCreateText
 	GEditor->IsImportingT3D = 0;
 	GIsImportingT3D = false;
 
-	FEditorDelegates::OnAssetPostImport.Broadcast( this, World );
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, World );
 
 	return World;
 }
@@ -1265,7 +1331,7 @@ UPackageFactory::UPackageFactory(const FObjectInitializer& ObjectInitializer)
 
 UObject* UPackageFactory::FactoryCreateText( UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const TCHAR*& Buffer, const TCHAR* BufferEnd, FFeedbackContext* Warn )
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, Class, InParent, Name, Type);
 
 	bool bSavedImportingT3D = GIsImportingT3D;
 	// Mark us as importing a T3D.
@@ -1428,7 +1494,7 @@ UObject* UPackageFactory::FactoryCreateText( UClass* Class, UObject* InParent, F
 	GEditor->IsImportingT3D = bSavedImportingT3D;
 	GIsImportingT3D = bSavedImportingT3D;
 
-	FEditorDelegates::OnAssetPostImport.Broadcast( this, TopLevelPackage );
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, TopLevelPackage );
 
 	return TopLevelPackage;
 }
@@ -1463,7 +1529,7 @@ UObject* UPolysFactory::FactoryCreateText
 	FVector PointPool[4096];
 	int32 NumPoints = 0;
 
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, Class, InParent, Name, Type);
 
 	// Create polys.	
 	UPolys* Polys = Context ? CastChecked<UPolys>(Context) : NewObject<UPolys>(InParent, Name, Flags);
@@ -1704,7 +1770,7 @@ UObject* UPolysFactory::FactoryCreateText
 		}
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast( this, Polys );
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, Polys );
 
 	// Success.
 	return Polys;
@@ -1735,7 +1801,7 @@ UObject* UModelFactory::FactoryCreateText
 	FFeedbackContext*	Warn
 )
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, Class, InParent, Name, Type);
 
 	ABrush* TempOwner = (ABrush*)Context;
 	UModel* Model = NewObject<UModel>(InParent, Name, Flags);
@@ -1791,7 +1857,7 @@ UObject* UModelFactory::FactoryCreateText
 		}
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast( this, Model );
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, Model );
 
 	return Model;
 }
@@ -2944,7 +3010,8 @@ public:
 	/* returns False if requires further processing because entire row is filled with zeroed alpha values */
 	bool ProcessHorizontalRow(int32 Y)
 	{
-		const uint32 White = FColor::White.DWColor();
+		// only wipe out colors that are affected by png turning valid colors white if alpha = 0
+		const uint32 WhiteWithZeroAlpha = FColor(255, 255, 255, 0).DWColor();
 
 		// Left -> Right
 		int32 NumLeftmostZerosToProcess = 0;
@@ -2953,8 +3020,8 @@ public:
 		{
 			PixelDataType* PixelData = SourceData + (Y * TextureWidth + X) * 4;
 			ColorDataType* ColorData = reinterpret_cast<ColorDataType*>(PixelData);
-			// only wipe out colors that are affected by png turning valid colors white if alpha = 0
-			if (PixelData[AIdx] == 0 && *ColorData == White)
+
+			if (*ColorData == WhiteWithZeroAlpha)
 			{
 				if (FillColor)
 				{
@@ -3755,7 +3822,7 @@ UObject* UTextureFactory::FactoryCreateBinary
 {
 	check(Type);
 
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, Class, InParent, Name, Type);
 
 	// if the texture already exists, remember the user settings
 	UTexture* ExistingTexture = FindObject<UTexture>( InParent, *Name.ToString() );
@@ -3815,7 +3882,7 @@ UObject* UTextureFactory::FactoryCreateBinary
 		case EAppReturnType::Cancel:
 		default:
 			{
-				FEditorDelegates::OnAssetPostImport.Broadcast( this, nullptr );
+				GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport( this, nullptr );
 				return nullptr;
 			}
 		}
@@ -3876,7 +3943,7 @@ UObject* UTextureFactory::FactoryCreateBinary
 		}
 
 		Warn->Logf(ELogVerbosity::Error, TEXT("Texture import failed") );
-		FEditorDelegates::OnAssetPostImport.Broadcast( this, nullptr );
+		GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport( this, nullptr );
 		return nullptr;
 	}
 
@@ -4003,7 +4070,7 @@ UObject* UTextureFactory::FactoryCreateBinary
 		ApplyAutoImportSettings(Texture);
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, Texture);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, Texture);
 
 	// Invalidate any materials using the newly imported texture. (occurs if you import over an existing texture)
 	Texture->PostEditChange();
@@ -4711,7 +4778,7 @@ UObject* UFontFileImportFactory::FactoryCreateBinary(UClass* InClass, UObject* I
 		return nullptr;
 	}
 
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, InType);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, InClass, InParent, InName, InType);
 
 	// Create the font face
 	UFontFace* const FontFace = NewObject<UFontFace>(InParent, InClass, InName, InFlags);
@@ -4725,7 +4792,7 @@ UObject* UFontFileImportFactory::FactoryCreateBinary(UClass* InClass, UObject* I
 		FontFace->CacheSubFaces();
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, FontFace);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, FontFace);
 	
 	// Create the font (if requested)
 	if (FontFace && bCreateFontAsset)
@@ -5266,6 +5333,7 @@ void UReimportFbxStaticMeshFactory::SetReimportPaths( UObject* Obj, const TArray
 	UStaticMesh* Mesh = Cast<UStaticMesh>(Obj);
 	if(Mesh && ensure(NewReimportPaths.Num() == 1))
 	{
+		Mesh->Modify();
 		UFbxStaticMeshImportData* ImportData = UFbxStaticMeshImportData::GetImportDataForStaticMesh(Mesh, ImportUI->StaticMeshImportData);
 
 		ImportData->UpdateFilenameOnly(NewReimportPaths[0]);
@@ -5300,7 +5368,7 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 		ImportUI = NewObject<UFbxImportUI>(this, NAME_None, RF_Public);
 	}
 	//Prevent any UI for automation, unattended and commandlet
-	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended() || IsRunningCommandlet();
+	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended() || IsRunningCommandlet() || GIsRunningUnattendedScript;
 	const bool ShowImportDialogAtReimport = GetDefault<UEditorPerProjectUserSettings>()->bShowImportDialogAtReimport && !IsUnattended;
 
 	if (ImportData == nullptr)
@@ -5343,7 +5411,14 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 	{
 		ReimportUI->bIsReimport = true;
 		ReimportUI->ReimportMesh = Mesh;
+
+		//Make sure the outer is the ImportUI, because there is some logic in the meta data needing this outer
+		UObject* OriginalOuter = ImportData != nullptr ? ImportData->GetOuter() : nullptr;
 		ReimportUI->StaticMeshImportData = ImportData;
+		if (ReimportUI->StaticMeshImportData && OriginalOuter)
+		{
+			ReimportUI->StaticMeshImportData->Rename(nullptr, ReimportUI);
+		}
 		
 		//Force the bAutoGenerateCollision to false if the Mesh Customize collision is true
 		bool bOldAutoGenerateCollision = ReimportUI->StaticMeshImportData->bAutoGenerateCollision;
@@ -5362,9 +5437,15 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 		GetImportOptions( FFbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, Obj->GetPathName(), bOperationCanceled, bOutImportAll, bIsObjFormat, Filename, bForceImportType, FBXIT_StaticMesh);
 		
 		//Put back the original bAutoGenerateCollision settings since the user cancel the re-import
-		if (bOperationCanceled && Mesh->bCustomizedCollision)
+		if (ReimportUI->StaticMeshImportData && bOperationCanceled && Mesh->bCustomizedCollision)
 		{
 			ReimportUI->StaticMeshImportData->bAutoGenerateCollision = bOldAutoGenerateCollision;
+		}
+
+		//Put back the original SM outer
+		if (ReimportUI->StaticMeshImportData && OriginalOuter)
+		{
+			ReimportUI->StaticMeshImportData->Rename(nullptr, OriginalOuter);
 		}
 	}
 	ImportOptions->bCanShowDialog = !IsUnattended;
@@ -5373,6 +5454,8 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 	ImportOptions->bAutoComputeLodDistances = true;
 	ImportOptions->LodNumber = 0;
 	ImportOptions->MinimumLodNumber = 0;
+	//Make sure the LODGroup do not change when re-importing a mesh
+	ImportOptions->StaticMeshLODGroup = Mesh->LODGroup;
 
 	if( !bOperationCanceled && ensure(ImportData) )
 	{
@@ -5542,17 +5625,18 @@ bool UReimportFbxSkeletalMeshFactory::CanReimport( UObject* Obj, TArray<FString>
 	return false;
 }
 
-void UReimportFbxSkeletalMeshFactory::SetReimportPaths( UObject* Obj, const TArray<FString>& NewReimportPaths )
+void UReimportFbxSkeletalMeshFactory::SetReimportPaths( UObject* Obj, const FString& NewReimportPath, const int32 SourceFileIndex )
 {	
 	USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(Obj);
-	if(SkeletalMesh && ensure(NewReimportPaths.Num() == 1))
+	if(SkeletalMesh)
 	{
+		SkeletalMesh->Modify();
 		UFbxSkeletalMeshImportData* ImportData = UFbxSkeletalMeshImportData::GetImportDataForSkeletalMesh(SkeletalMesh, ImportUI->SkeletalMeshImportData);
-		ImportData->UpdateFilenameOnly(NewReimportPaths[0]);
+		ImportData->UpdateFilenameOnly(NewReimportPath, SourceFileIndex);
 	}
 }
 
-EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
+EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj, int32 SourceFileIndex)
 {
 	// Only handle valid skeletal meshes
 	if( !Obj || !Obj->IsA( USkeletalMesh::StaticClass() ))
@@ -5595,7 +5679,7 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 
 	bool bSuccess = false;
 	//Prevent any UI for automation, unattended and commandlet
-	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended() || IsRunningCommandlet();
+	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended() || IsRunningCommandlet() || GIsRunningUnattendedScript;
 	const bool ShowImportDialogAtReimport = GetDefault<UEditorPerProjectUserSettings>()->bShowImportDialogAtReimport && !IsUnattended;
 
 	if (ImportData == nullptr)
@@ -5604,31 +5688,142 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 		ImportData = UFbxSkeletalMeshImportData::GetImportDataForSkeletalMesh(SkeletalMesh, ImportUI->SkeletalMeshImportData);
 		SkeletalMesh->AssetImportData = ImportData;
 	}
+	check(ImportData != nullptr);
 
-	const FString Filename = ImportData->GetFirstFilename();
-	UE_LOG(LogEditorFactories, Log, TEXT("Performing atomic reimport of [%s]"), *Filename);
-
-	// Ensure that the file provided by the path exists
-	if (IFileManager::Get().FileSize(*Filename) == INDEX_NONE)
+	auto GetSourceFileName = [](UFbxSkeletalMeshImportData* ImportDataPtr, FString& OutFilename, bool bUnattended)->bool
 	{
-		UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: source file cannot be found."));
-		return EReimportResult::Failed;
-	}
-	CurrentFilename = Filename;
+		if (ImportDataPtr == nullptr)
+		{
+			return false;
+		}
+		EFBXImportContentType ContentType = ImportDataPtr->ImportContentType;
+		TArray<FString> AbsoluteFilenames;
+		ImportDataPtr->ExtractFilenames(AbsoluteFilenames);
+		
+		auto InternalGetSourceFileName = [&ImportDataPtr, &AbsoluteFilenames, &bUnattended, &OutFilename](const int32 SourceIndex, const FText& SourceLabel)->bool
+		{
+			if (AbsoluteFilenames.Num() > SourceIndex)
+			{
+				OutFilename = AbsoluteFilenames[SourceIndex];
+			}
+			else if (!bUnattended)
+			{
+				GetReimportPathFromUser(SourceLabel, AbsoluteFilenames);
+				if (AbsoluteFilenames.Num() < 1)
+				{
+					return false;
+				}
+				OutFilename = AbsoluteFilenames[0];
+			}
+			//Make sure the source file data is up to date
+			if (SourceIndex == 0)
+			{
+				//When we re-import the All content we just update the 
+				ImportDataPtr->AddFileName(OutFilename, SourceIndex, SourceLabel.ToString());
+			}
+			else
+			{
+				//Refresh the absolute filenames
+				AbsoluteFilenames.Reset();
+				ImportDataPtr->ExtractFilenames(AbsoluteFilenames);
+				//Set both geo and skinning filepath. Reuse existing file path if possible. Use the first filename(geo and skin) if it has to be create.
+				FString FilenameToAdd = SourceIndex == 1 ? OutFilename : AbsoluteFilenames.Num() > SourceIndex ? AbsoluteFilenames[1] : AbsoluteFilenames[0];
+				ImportDataPtr->AddFileName(FilenameToAdd, 1, NSSkeletalMeshSourceFileLabels::GeometryText().ToString());
+				FilenameToAdd = SourceIndex == 2 ? OutFilename : AbsoluteFilenames.Num() > SourceIndex ? AbsoluteFilenames[2] : AbsoluteFilenames[0];
+				ImportDataPtr->AddFileName(FilenameToAdd, 2, NSSkeletalMeshSourceFileLabels::SkinningText().ToString());
+			}
+			return true;
+		};
 
-	if( ImportData && !ShowImportDialogAtReimport)
+		switch (ContentType)
+		{
+			case FBXICT_All:
+			{
+				if (!InternalGetSourceFileName(0, NSSkeletalMeshSourceFileLabels::GeoAndSkinningText()))
+				{
+					return false;
+				}
+			}
+			break;
+			case FBXICT_Geometry:
+			{
+				if (!InternalGetSourceFileName(1, NSSkeletalMeshSourceFileLabels::GeometryText()))
+				{
+					return false;
+				}
+			}
+			break;
+			case FBXICT_SkinningWeights:
+			{
+				if (!InternalGetSourceFileName(2, NSSkeletalMeshSourceFileLabels::SkinningText()))
+				{
+					return false;
+				}
+			}
+			break;
+			default:
+			{
+				if (!InternalGetSourceFileName(0, NSSkeletalMeshSourceFileLabels::GeoAndSkinningText()))
+				{
+					return false;
+				}
+			}
+		}
+		return IFileManager::Get().FileSize(*OutFilename) != INDEX_NONE;
+	};
+
+	FString Filename = ImportData->GetFirstFilename();
+
+	ReimportUI->SkeletalMeshImportData = ImportData;
+	const FSkeletalMeshModel* SkeletalMeshModel = SkeletalMesh->GetImportedModel();
+
+	//Manage the content type from the source file index
+	ReimportUI->bAllowContentTypeImport = SkeletalMeshModel && SkeletalMeshModel->LODModels.Num() > 0 && !SkeletalMeshModel->LODModels[0].RawSkeletalMeshBulkData.IsEmpty();
+	if (!ReimportUI->bAllowContentTypeImport)
+	{
+		//No content type allow reimport All (legacy)
+		ImportData->ImportContentType = EFBXImportContentType::FBXICT_All;
+	}
+	else if (SourceFileIndex != INDEX_NONE)
+	{
+		//Reimport a specific source file index
+		TArray<FString> SourceFilenames;
+		ImportData->ExtractFilenames(SourceFilenames);
+		if (SourceFilenames.IsValidIndex(SourceFileIndex))
+		{
+			ImportData->ImportContentType = SourceFileIndex == 0 ? EFBXImportContentType::FBXICT_All : SourceFileIndex == 1 ? EFBXImportContentType::FBXICT_Geometry : EFBXImportContentType::FBXICT_SkinningWeights;
+			Filename = SourceFilenames[SourceFileIndex];
+		}
+	}
+	else
+	{
+		//No source index is provided. Reimport the last imported content.
+		int32 LastSourceFileIndex = ImportData->LastImportContentType == EFBXImportContentType::FBXICT_All ? 0 : ImportData->LastImportContentType == EFBXImportContentType::FBXICT_Geometry ? 1 : 2;
+		TArray<FString> SourceFilenames;
+		ImportData->ExtractFilenames(SourceFilenames);
+		if (SourceFilenames.IsValidIndex(LastSourceFileIndex))
+		{
+			ImportData->ImportContentType = ImportData->LastImportContentType;
+			Filename = SourceFilenames[LastSourceFileIndex];
+		}
+		else
+		{
+			ImportData->ImportContentType = EFBXImportContentType::FBXICT_All;
+		}
+	}
+
+
+	if( !ShowImportDialogAtReimport)
 	{
 		// Import data already exists, apply it to the fbx import options
-		ReimportUI->SkeletalMeshImportData = ImportData;
 		//Some options not supported with skeletal mesh
-		ReimportUI->SkeletalMeshImportData->bBakePivotInVertex = false;
-		ReimportUI->SkeletalMeshImportData->bTransformVertexToAbsolute = true;
+		ImportData->bBakePivotInVertex = false;
+		ImportData->bTransformVertexToAbsolute = true;
 
-		const FSkeletalMeshModel* SkeletalMeshModel = SkeletalMesh->GetImportedModel();
-		ReimportUI->bAllowContentTypeImport = SkeletalMeshModel && SkeletalMeshModel->LODModels.Num() > 0 && !SkeletalMeshModel->LODModels[0].RawSkeletalMeshBulkData.IsEmpty();
-		if (!ReimportUI->bAllowContentTypeImport)
+		if (!GetSourceFileName(ImportData, Filename, true))
 		{
-			ReimportUI->SkeletalMeshImportData->ImportContentType = EFBXImportContentType::FBXICT_All;
+			UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: source file cannot be found."));
+			return EReimportResult::Failed;
 		}
 
 		ApplyImportUIToImportOptions(ReimportUI, *ImportOptions);
@@ -5637,14 +5832,7 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 	{
 		ReimportUI->bIsReimport = true;
 		ReimportUI->ReimportMesh = Obj;
-		ReimportUI->SkeletalMeshImportData = ImportData;
-		const FSkeletalMeshModel* SkeletalMeshModel = SkeletalMesh->GetImportedModel();
-		ReimportUI->bAllowContentTypeImport = SkeletalMeshModel && SkeletalMeshModel->LODModels.Num() > 0 && !SkeletalMeshModel->LODModels[0].RawSkeletalMeshBulkData.IsEmpty();
 
-		if (!ReimportUI->bAllowContentTypeImport)
-		{
-			ReimportUI->SkeletalMeshImportData->ImportContentType = EFBXImportContentType::FBXICT_All;
-		}
 		bool bImportOperationCanceled = false;
 		bool bShowOptionDialog = true;
 		bool bForceImportType = true;
@@ -5657,9 +5845,18 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 		ImportOptions->PhysicsAsset = SkeletalMesh->PhysicsAsset;
 
 		ImportOptions = GetImportOptions( FFbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, Obj->GetPathName(), bOperationCanceled, bOutImportAll, bIsObjFormat, Filename, bForceImportType, FBXIT_SkeletalMesh);
+
+		if (!GetSourceFileName(ImportData, Filename, false))
+		{
+			UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: source file cannot be found."));
+			return EReimportResult::Failed;
+		}
 	}
 
-	if( !bOperationCanceled && ensure(ImportData) )
+	UE_LOG(LogEditorFactories, Log, TEXT("Performing atomic reimport of [%s]"), *Filename);
+	CurrentFilename = Filename;
+
+	if( !bOperationCanceled )
 	{
 		ImportOptions->bCanShowDialog = !IsUnattended;
 
@@ -5676,7 +5873,6 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 		{
 			ImportOptions->bImportAnimations = false;
 			ImportOptions->bUpdateSkeletonReferencePose = false;
-			ImportOptions->bUseT0AsRefPose = false;
 		}
 
 		if ( FFbxImporter->ImportFromFile( *Filename, FPaths::GetExtension( Filename ), true ) )
@@ -5685,8 +5881,6 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 			{
 				UE_LOG(LogEditorFactories, Log, TEXT("-- imported successfully") );
 
-				SkeletalMesh->AssetImportData->Update(Filename);
-				
 				// Try to find the outer package so we can dirty it up
 				if (SkeletalMesh->GetOuter())
 				{
@@ -5976,6 +6170,8 @@ bool UBlueprintFactory::ConfigureProperties()
 
 	// Enable Class Dynamic Loading
 	Options.bEnableClassDynamicLoading = true;
+
+	Options.NameTypeToDisplay = EClassViewerNameTypeToDisplay::Dynamic;
 
 	// Prevent creating blueprints of classes that require special setup (they'll be allowed in the corresponding factories / via other means)
 	TSharedPtr<FBlueprintParentFilter> Filter = MakeShareable(new FBlueprintParentFilter);
@@ -6352,7 +6548,7 @@ UCurveImportFactory::UCurveImportFactory(const FObjectInitializer& ObjectInitial
 // @note jf: for importing a curve from a text format.  this is experimental code for a prototype feature and not fully fleshed out
 UObject* UCurveImportFactory::FactoryCreateText( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const TCHAR*& Buffer, const TCHAR* BufferEnd, FFeedbackContext* Warn )
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, InClass, InParent, InName, Type);
 
 	if(	FCString::Stricmp( Type, TEXT( "AS" ) ) == 0 )
 	{
@@ -6422,13 +6618,13 @@ UObject* UCurveImportFactory::FactoryCreateText( UClass* InClass, UObject* InPar
 				}
 			}
 
-			FEditorDelegates::OnAssetPostImport.Broadcast(this, NewCurve);
+			GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, NewCurve);
 
 			return NewCurve;
 		}
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast( this, nullptr );
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport( this, nullptr );
 	return nullptr;
 }
 

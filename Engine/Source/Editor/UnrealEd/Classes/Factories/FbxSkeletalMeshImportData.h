@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -21,6 +21,26 @@ enum EFBXImportContentType
 	FBXICT_MAX,
 };
 
+namespace NSSkeletalMeshSourceFileLabels
+{
+	static FText GeoAndSkinningText()
+	{
+		static FText GeoAndSkinningText = (NSLOCTEXT("FBXReimport", "ImportContentTypeAll", "Geometry and Skinning Weights"));
+		return GeoAndSkinningText;
+	}
+
+	static FText GeometryText()
+	{
+		static FText GeometryText = (NSLOCTEXT("FBXReimport", "ImportContentTypeGeometry", "Geometry"));
+		return GeometryText;
+	}
+	static FText SkinningText()
+	{
+		static FText SkinningText = (NSLOCTEXT("FBXReimport", "ImportContentTypeSkinning", "Skinning Weights"));
+		return SkinningText;
+	}
+}
+
 /**
  * Import data and options used when importing a static mesh from fbx
  */
@@ -30,8 +50,20 @@ class UFbxSkeletalMeshImportData : public UFbxMeshImportData
 	GENERATED_UCLASS_BODY()
 public:
 	/** Filter the content we want to import from the incoming FBX skeletal mesh.*/
-	UPROPERTY(EditAnywhere, Transient, Category = Mesh, meta = (ImportType = "SkeletalMesh", DisplayName = "Import Content Type", OBJRestrict = "true"))
+	UPROPERTY(EditAnywhere, Category = Mesh, meta = (ImportType = "SkeletalMesh", DisplayName = "Import Content Type", OBJRestrict = "true"))
 	TEnumAsByte<enum EFBXImportContentType> ImportContentType;
+	
+	/** The value of the content type during the last import. This cannot be edited and is set only on successful import or re-import*/
+	UPROPERTY()
+	TEnumAsByte<enum EFBXImportContentType> LastImportContentType;
+
+	/** Specify how vertex colors should be imported */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, config, Category = Mesh, meta = (OBJRestrict = "true", ImportType = "SkeletalMesh"))
+	TEnumAsByte<EVertexColorImportOption::Type> VertexColorImportOption;
+
+	/** Specify override color in the case that VertexColorImportOption is set to Override */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, config, Category = Mesh, meta = (OBJRestrict = "true", ImportType = "SkeletalMesh"))
+	FColor VertexOverrideColor;
 
 	/** Enable this option to update Skeleton (of the mesh)'s reference pose. Mesh's reference pose is always updated.  */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Mesh, meta=(ImportType="SkeletalMesh|RigOnly", ToolTip="If enabled, update the Skeleton (of the mesh being imported)'s reference pose."))
@@ -69,6 +101,11 @@ public:
 	static UFbxSkeletalMeshImportData* GetImportDataForSkeletalMesh(USkeletalMesh* SkeletalMesh, UFbxSkeletalMeshImportData* TemplateForCreation);
 
 	bool CanEditChange( const UProperty* InProperty ) const override;
+
+	bool GetImportContentFilename(FString& OutFilename, FString& OutFilenameLabel) const;
+
+	/** This function add the last import content type to the asset registry which is use by the thumbnail overlay of the skeletal mesh */
+	virtual void AppendAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags);
 };
 
 class FSkeletalMeshImportData;

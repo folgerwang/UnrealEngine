@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GenericPlatform/GenericPlatformProcess.h"
 #include "Misc/Timespan.h"
@@ -16,6 +16,7 @@
 #include "Misc/CoreStats.h"
 #include "Misc/EventPool.h"
 #include "Misc/EngineVersion.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 #ifndef DEFAULT_NO_THREADING
 	#define DEFAULT_NO_THREADING 0
@@ -153,6 +154,12 @@ void FGenericPlatformProcess::CleanShaderWorkingDir()
 	IFileManager::Get().DeleteDirectory(*LegacyShaderWorkingDirectory, false, true);
 }
 
+const TCHAR* FGenericPlatformProcess::ExecutablePath()
+{
+	UE_LOG(LogHAL, Fatal, TEXT("FGenericPlatformProcess::ExecutablePath not implemented on this platform"));
+	return NULL;
+}
+
 const TCHAR* FGenericPlatformProcess::ExecutableName(bool bRemoveExtension)
 {
 	UE_LOG(LogHAL, Fatal, TEXT("FGenericPlatformProcess::ExecutableName not implemented on this platform"));
@@ -272,7 +279,7 @@ FString FGenericPlatformProcess::GetApplicationName( uint32 ProcessId )
 	return FString(TEXT(""));
 }
 
-bool FGenericPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, int32* OutReturnCode, FString* OutStdOut, FString* OutStdErr )
+bool FGenericPlatformProcess::ExecProcess(const TCHAR* URL, const TCHAR* Params, int32* OutReturnCode, FString* OutStdOut, FString* OutStdErr, const TCHAR* OptionalWorkingDirectory)
 {
 	UE_LOG(LogHAL, Fatal, TEXT("FGenericPlatformProcess::ExecProcess not implemented on this platform"));
 	return false;
@@ -349,6 +356,7 @@ bool FPThreadEvent::Wait(uint32 WaitTime, const bool bIgnoreThreadIdleStats /*= 
 	WaitForStats();
 
 	SCOPE_CYCLE_COUNTER(STAT_EventWait);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE_CONDITIONAL(EventWait, IsInGameThread());
 	FThreadIdleStats::FScopeIdle Scope(bIgnoreThreadIdleStats);
 
 	check(bInitialized);

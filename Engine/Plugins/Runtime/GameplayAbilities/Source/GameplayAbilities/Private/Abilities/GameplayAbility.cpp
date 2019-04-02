@@ -1,8 +1,9 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Abilities/GameplayAbility.h"
 #include "TimerManager.h"
 #include "Engine/BlueprintGeneratedClass.h"
+#include "Engine/Engine.h"
 #include "Engine/NetDriver.h"
 #include "AbilitySystemStats.h"
 #include "AbilitySystemGlobals.h"
@@ -11,7 +12,6 @@
 #include "GameplayCue_Types.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Character.h"
-
 
 namespace FAbilitySystemTweaks
 {
@@ -89,7 +89,7 @@ UWorld* UGameplayAbility::GetWorld() const
 
 int32 UGameplayAbility::GetFunctionCallspace(UFunction* Function, void* Parameters, FFrame* Stack)
 {
-	if (HasAnyFlags(RF_ClassDefaultObject))
+	if (HasAnyFlags(RF_ClassDefaultObject) || !IsSupportedForNetworking())
 	{
 		return FunctionCallspace::Local;
 	}
@@ -103,14 +103,23 @@ bool UGameplayAbility::CallRemoteFunction(UFunction* Function, void* Parameters,
 	check(GetOuter() != nullptr);
 
 	AActor* Owner = CastChecked<AActor>(GetOuter());
-	UNetDriver* NetDriver = Owner->GetNetDriver();
-	if (NetDriver)
+
+	bool bProcessed = false;
+
+	FWorldContext* const Context = GEngine->GetWorldContextFromWorld(GetWorld());
+	if (Context != nullptr)
 	{
-		NetDriver->ProcessRemoteFunction(Owner, Function, Parameters, OutParms, Stack, this);
-		return true;
+		for (FNamedNetDriver& Driver : Context->ActiveNetDrivers)
+		{
+			if (Driver.NetDriver != nullptr && Driver.NetDriver->ShouldReplicateFunction(Owner, Function))
+			{
+				Driver.NetDriver->ProcessRemoteFunction(Owner, Function, Parameters, OutParms, Stack, this);
+				bProcessed = true;
+			}
+		}
 	}
 
-	return false;
+	return bProcessed;
 }
 
 void UGameplayAbility::SendGameplayEvent(FGameplayTag EventTag, FGameplayEventData Payload)
@@ -655,6 +664,8 @@ void UGameplayAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const
 				// If we're still blocking other abilities, cancel now
 				AbilitySystemComponent->ApplyAbilityBlockAndCancelTags(AbilityTags, this, false, BlockAbilitiesWithTag, false, CancelAbilitiesWithTag);
 			}
+
+			AbilitySystemComponent->ClearAbilityReplicatedDataCache(Handle, CurrentActivationInfo);
 
 			// Tell owning AbilitySystemComponent that we ended so it can do stuff (including MarkPendingKill us)
 			AbilitySystemComponent->NotifyAbilityEnded(Handle, this, bWasCancelled);
@@ -1757,8 +1768,11 @@ void UGameplayAbility::BP_RemoveGameplayEffectFromOwnerWithAssetTags(FGameplayTa
 		return;
 	}
 
-	FGameplayEffectQuery const Query = FGameplayEffectQuery::MakeQuery_MatchAnyEffectTags(WithTags);
-	CurrentActorInfo->AbilitySystemComponent->RemoveActiveEffects(Query, StacksToRemove);
+	if (CurrentActorInfo)
+	{
+		FGameplayEffectQuery const Query = FGameplayEffectQuery::MakeQuery_MatchAnyEffectTags(WithTags);
+		CurrentActorInfo->AbilitySystemComponent->RemoveActiveEffects(Query, StacksToRemove);
+	}
 }
 
 void UGameplayAbility::BP_RemoveGameplayEffectFromOwnerWithGrantedTags(FGameplayTagContainer WithGrantedTags, int32 StacksToRemove)
@@ -1768,8 +1782,11 @@ void UGameplayAbility::BP_RemoveGameplayEffectFromOwnerWithGrantedTags(FGameplay
 		return;
 	}
 
-	FGameplayEffectQuery const Query = FGameplayEffectQuery::MakeQuery_MatchAnyOwningTags(WithGrantedTags);
-	CurrentActorInfo->AbilitySystemComponent->RemoveActiveEffects(Query, StacksToRemove);
+	if (CurrentActorInfo)
+	{
+		FGameplayEffectQuery const Query = FGameplayEffectQuery::MakeQuery_MatchAnyOwningTags(WithGrantedTags);
+		CurrentActorInfo->AbilitySystemComponent->RemoveActiveEffects(Query, StacksToRemove);
+	}
 }
 
 void UGameplayAbility::BP_RemoveGameplayEffectFromOwnerWithHandle(FActiveGameplayEffectHandle Handle, int32 StacksToRemove)
@@ -1779,7 +1796,10 @@ void UGameplayAbility::BP_RemoveGameplayEffectFromOwnerWithHandle(FActiveGamepla
 		return;
 	}
 
-	CurrentActorInfo->AbilitySystemComponent->RemoveActiveGameplayEffect(Handle, StacksToRemove);
+	if (CurrentActorInfo)
+	{
+		CurrentActorInfo->AbilitySystemComponent->RemoveActiveGameplayEffect(Handle, StacksToRemove);
+	}
 }
 
 float UGameplayAbility::GetCooldownTimeRemaining() const

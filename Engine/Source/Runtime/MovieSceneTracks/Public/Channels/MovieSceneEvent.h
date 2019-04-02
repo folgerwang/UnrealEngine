@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,7 @@
 #include "MovieSceneEvent.generated.h"
 
 class UEdGraph;
+class UBlueprint;
 class UK2Node_FunctionEntry;
 class UMovieSceneEventSectionBase;
 
@@ -37,6 +38,10 @@ struct MOVIESCENETRACKS_API FMovieSceneEvent
 	 */
 	void PostSerialize(const FArchive& Ar);
 
+	/**
+	 * Called to perform custom serialization logic for this struct.
+	 */
+	bool Serialize(FArchive& Ar);
 
 	/**
 	 * Check whether the specified function is valid for a movie scene event
@@ -99,9 +104,21 @@ public:
 
 private:
 
-	/** Weak pointer to the function entry within the blueprint graph for this event. Stored as an editor-only UObject so UHT can parse it when building for non-editor. */
+	/** Serialized soft pointer to the blueprint that contains the function graph endpoint for this event. Stored as a soft path so that renames of the blueprint don't break this event binding. */
 	UPROPERTY()
-	TWeakObjectPtr<UObject> FunctionEntry;
+	TSoftObjectPtr<UBlueprint> SoftBlueprintPath;
+
+	/** The UEdGraph::GraphGuid property that relates to the function entry to call. */
+	UPROPERTY()
+	FGuid GraphGuid;
+
+	/** Non-serialized weak pointer to the function entry within the blueprint graph for this event. Stored as an editor-only UObject so UHT can parse it when building for non-editor. */
+	UPROPERTY(transient)
+	mutable TWeakObjectPtr<UObject> CachedFunctionEntry;
+
+	/** Deprecated weak pointer to the function entry to call - no longer serialized but cached on load. */
+	UPROPERTY()
+	TWeakObjectPtr<UObject> FunctionEntry_DEPRECATED;
 
 #endif // WITH_EDITORONLY_DATA
 };
@@ -109,6 +126,6 @@ private:
 template<>
 struct TStructOpsTypeTraits<FMovieSceneEvent> : TStructOpsTypeTraitsBase2<FMovieSceneEvent>
 {
-	enum { WithPostSerialize = true };
+	enum { WithSerializer = true, WithPostSerialize = true };
 };
 

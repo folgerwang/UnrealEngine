@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /**
  * Base class for Camera Lens Effects.  Needed so we can have AnimNotifies be able to show camera effects
@@ -87,7 +87,7 @@ public:
 	/** Returns true if either particle system would loop forever when played */
 	bool IsLooping() const;
 private:
-	/** DEPRECATED(4.11) */
+	/** UE_DEPRECATED(4.11) */
 	UPROPERTY()
 	float DistFromCamera_DEPRECATED;
 };

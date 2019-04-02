@@ -1,8 +1,12 @@
-﻿INTSourceChangelist:1780224
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:函数调用
-Crumbs: %ROOT%, Engine/Blueprints, Engine/Blueprints/UserGuide, Engine/Blueprints/UserGuide/Functions
+Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide
 Description: 执行目标Actor或对象的函数的节点，既包括代码定义的函数也包括用户定义的函数。
+Related: Engine/Blueprints/UserGuide/Functions
+version: 4.9
+tags:Blueprints
+topic-image:Engine/Blueprints/UserGuide/Functions.png
 
 [EXCERPT:Intro]
 **Function Calls（函数调用）**是可以蓝图中形成的操作，该蓝图同属于目标Actor或对象的函数相对应 
@@ -11,18 +15,21 @@ Description: 执行目标Actor或对象的函数的节点，既包括代码定�
 不同类型的函数调用具有不同颜色的标题。
 [/EXCERPT:Intro]
 
-**自身**
+(#Self)
+##自身
 
 **Self Function Calls（自身函数调用）** 是属于蓝图本身的函数，通过在该蓝图继承的类或父类中声明 
 。
 
-**其他**
+(#Other)
+##其他
 
 **Other Function Calls（其他函数调用）** 是属于除了该蓝图之外的其他对象或Actor的函数。例如， 
 该蓝图可能有一个StaticMeshComponent，该StaticMeshComponent可以通过SetStaticMesh函数调用修改它的网格物体。
 由于这个函数属于StaticMeshComponent 而不属于蓝图，所以它是Other Function Call（其他函数调用）。
 
-**Pure（纯函数调用）**
+(#Pure)
+##纯函数调用
 
 **Pure Function Calls（纯函数调用）** 是可以执行的特殊动作，它不会直接影响世界或者世界中的对象 
 。这些函数一般执行类似于这样的事情: 输出一个属性值、数学运算操作(比如两个值间的加减乘除等)， 
@@ -34,3 +41,8 @@ Description: 执行目标Actor或对象的函数的节点，既包括代码定�
 | ------ | ------ |
 | 标准| 压缩|
 [/REGION]
+
+
+
+
+

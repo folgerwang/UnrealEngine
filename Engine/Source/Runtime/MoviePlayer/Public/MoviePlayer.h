@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -34,7 +34,8 @@ public:
 	/* ISlateViewport interface. */
 	virtual FIntPoint GetSize() const override
 	{
-		return SlateTexture.IsValid() ? FIntPoint(SlateTexture.Pin()->GetWidth(), SlateTexture.Pin()->GetHeight()) : FIntPoint();
+		TSharedPtr<FSlateTexture2DRHIRef, ESPMode::ThreadSafe> SlateTextureSharedPtr = SlateTexture.Pin();
+		return SlateTextureSharedPtr.IsValid() ? FIntPoint(SlateTextureSharedPtr->GetWidth(), SlateTextureSharedPtr->GetHeight()) : FIntPoint();
 	}
 
 	virtual class FSlateShaderResource* GetViewportRenderTargetTexture() const override
@@ -98,6 +99,9 @@ public:
 
 	void BroadcastCurrentMovieClipFinished(const FString& MovieClipThatFinished) { OnCurrentMovieClipFinished().Broadcast(MovieClipThatFinished); }
 
+	/** Called by the engine on suspend/resume */
+	virtual void Suspend() {};
+	virtual void Resume() {};
 
 };
 
@@ -241,6 +245,8 @@ public:
 	/** Check if the initial movie(s) is still playing */
 	virtual bool IsStartupMoviePlaying() const { return false; };
 	virtual void ForceCompletion() {};
+	virtual void Suspend() {};
+	virtual void Resume() {};
 };
 
 /** Creates the movie player */

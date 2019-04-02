@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 NiagaraShaderDerivedDataVersion.h: Shader derived data version for Niagara.
@@ -11,5 +11,5 @@ NiagaraShaderDerivedDataVersion.h: Shader derived data version for Niagara.
 // In case of merge conflicts with DDC versions, you MUST generate a new GUID and set this new
 // guid as version
 
-#define NIAGARASHADERMAP_DERIVEDDATA_VER		TEXT("9B98AE21EB7347A99AB0862D8B1EB8A6}")
+#define NIAGARASHADERMAP_DERIVEDDATA_VER		TEXT("F3D3254CE5E3409D9FB3E774D0E0C8D9")
 													  

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -132,6 +132,46 @@ namespace UnrealBuildTool
 						Arguments.RemoveRange(Idx, NextIdx - Idx);
 						Idx--;
 					}
+				}
+			}
+
+			// Make sure there are no required parameters that are missing
+			Dictionary<FieldInfo, Parameter> MissingFieldToParameter = new Dictionary<FieldInfo, Parameter>();
+			foreach(Parameter Parameter in PrefixToParameter.Values)
+			{
+				if(Parameter.Attribute.Required && !AssignedFieldToParameter.ContainsKey(Parameter.FieldInfo) && !MissingFieldToParameter.ContainsKey(Parameter.FieldInfo))
+				{
+					MissingFieldToParameter.Add(Parameter.FieldInfo, Parameter);
+				}
+			}
+			if(MissingFieldToParameter.Count > 0)
+			{
+				if(MissingFieldToParameter.Count == 1)
+				{
+					throw new BuildException("Missing {0} argument", MissingFieldToParameter.First().Value.Prefix.Replace("=", "=..."));
+				}
+				else
+				{
+					throw new BuildException("Missing {0} arguments", StringUtils.FormatList(MissingFieldToParameter.Values.Select(x => x.Prefix.Replace("=", "=..."))));
+				}
+			}
+		}
+
+		/// <summary>
+		/// Checks that the list of arguments is empty. If not, throws an exception listing them.
+		/// </summary>
+		/// <param name="RemainingArguments">List of remaining arguments</param>
+		public static void CheckNoRemainingArguments(List<string> RemainingArguments)
+		{
+			if(RemainingArguments.Count > 0)
+			{
+				if(RemainingArguments.Count == 1)
+				{
+					Log.TraceWarning("Invalid argument: {0}", RemainingArguments[0]);
+				}
+				else
+				{
+					Log.TraceWarning("Invalid arguments:\n{0}", String.Join("\n", RemainingArguments));
 				}
 			}
 		}

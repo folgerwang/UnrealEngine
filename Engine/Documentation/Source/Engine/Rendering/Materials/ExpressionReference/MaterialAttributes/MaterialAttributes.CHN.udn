@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2690154
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:材质属性表达式
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/ExpressionReference
 Description:这些表达式节点使您能够分隔或组合各种材质属性，这在创建分层材质时特别有用。
 Version:4.9
+tags:Materials
 
 [EXCERPT:TOC]
 [TOC(start:2)]

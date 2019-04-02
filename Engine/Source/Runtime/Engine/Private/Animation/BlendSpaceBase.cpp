@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BlendSpaceBase.cpp: Base class for blend space objects
@@ -183,6 +183,17 @@ void UBlendSpaceBase::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNot
 
 		OldSampleDataList.Append(*Instance.BlendSpace.BlendSampleDataCache);
 
+		// @fixme: temporary code to clear the invalid sample data 
+		// related jira: UE-71107
+		for (int32 Index = 0; Index < OldSampleDataList.Num(); ++Index)
+		{
+			if (!SampleData.IsValidIndex(OldSampleDataList[Index].SampleDataIndex))
+			{
+				OldSampleDataList.RemoveAt(Index);
+				--Index;
+			}
+		}
+		
 		// get sample data based on new input
 		// consolidate all samples and sort them, so that we can handle from biggest weight to smallest
 		Instance.BlendSpace.BlendSampleDataCache->Reset();
@@ -499,6 +510,22 @@ int32 UBlendSpaceBase::GetMarkerUpdateCounter() const
 { 
 	return MarkerDataUpdateCounter; 
 }
+
+void UBlendSpaceBase::RuntimeValidateMarkerData()
+{
+	check(IsInGameThread());
+
+	for (FBlendSample& Sample : SampleData)
+	{
+		if (Sample.Animation && Sample.CachedMarkerDataUpdateCounter != Sample.Animation->GetMarkerUpdateCounter())
+		{
+			// Revalidate data
+			ValidateSampleData();
+			return;
+		}
+	}
+}
+
 #endif // WITH_EDITOR
 
 // @todo fixme: slow approach. If the perbone gets popular, we should change this to array of weight 
@@ -560,7 +587,12 @@ void UBlendSpaceBase::GetAnimationPose(TArray<FBlendSampleData>& BlendSampleData
 			const FBlendSample& Sample = SampleData[BlendSampleDataCache[I].SampleDataIndex];
 			ChildrenWeights[I] = BlendSampleDataCache[I].GetWeight();
 
-			if(Sample.Animation)
+			if(Sample.Animation 
+#if WITH_EDITOR
+				// verify if Sample.Animation->GetSkeleton matches
+				&& ensure(Sample.Animation->GetSkeleton() == GetSkeleton())
+#endif // WITH_EDITOR
+			)
 			{
 				const float Time = FMath::Clamp<float>(BlendSampleDataCache[I].Time, 0.f, Sample.Animation->SequenceLength);
 
@@ -640,7 +672,11 @@ bool UBlendSpaceBase::GetSamplesFromBlendInput(const FVector &BlendInput, TArray
 		for(int32 Ind = 0; Ind < GridElement.MAX_VERTICES; ++Ind)
 		{
 			const int32 SampleDataIndex = GridElement.Indices[Ind];		
-			if(SampleData.IsValidIndex(SampleDataIndex))
+			if( SampleData.IsValidIndex(SampleDataIndex) 
+#if WITH_EDITOR
+				&& SampleData[SampleDataIndex].Animation->GetSkeleton() == GetSkeleton()
+#endif // WITH_EDITOR
+				)
 			{
 				int32 Index = OutSampleDataList.AddUnique(SampleDataIndex);
 				FBlendSampleData& NewSampleData = OutSampleDataList[Index];
@@ -758,6 +794,8 @@ void UBlendSpaceBase::ValidateSampleData()
 				// @todo : should apply scale? If so, we'll need to apply also when blend
 				AnimLength = Sample.Animation->SequenceLength;
 			}
+
+			Sample.CachedMarkerDataUpdateCounter = Sample.Animation->GetMarkerUpdateCounter();
 
 			if (Sample.Animation->AuthoredSyncMarkers.Num() > 0)
 			{

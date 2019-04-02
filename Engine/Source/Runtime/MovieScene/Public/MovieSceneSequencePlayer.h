@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,7 +8,7 @@
 #include "IMovieScenePlayer.h"
 #include "MovieScene.h"
 #include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
-#include "MovieSceneBindingOverridesInterface.h"
+#include "IMovieScenePlaybackClient.h"
 #include "Misc/QualifiedFrameTime.h"
 #include "MovieSceneTimeController.h"
 #include "MovieSceneSequencePlayer.generated.h"
@@ -18,7 +18,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnMovieSceneSequencePlayerEvent);
 /**
  * Enum used to define how to update to a particular time
  */
-enum class EUpdatePositionMethod
+UENUM()
+enum class EUpdatePositionMethod : uint8
 {
 	/** Update from the current position to a specified position (including triggering events), using the current player status */
 	Play,
@@ -28,6 +29,62 @@ enum class EUpdatePositionMethod
 	Scrub,
 };
 
+
+
+/** POD struct that represents a number of loops where -1 signifies infinite looping, 0 means no loops, etc
+ * Defined as a struct rather than an int so a property type customization can be bound to it
+ */
+USTRUCT(BlueprintType)
+struct FMovieSceneSequenceLoopCount
+{
+	FMovieSceneSequenceLoopCount()
+		: Value(0)
+	{}
+
+	GENERATED_BODY()
+
+	/** Serialize this count from an int */
+	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot );
+
+	/** Number of times to loop playback. -1 for infinite, else the number of times to loop before stopping */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Playback", meta=(UIMin=1, DisplayName="Loop"))
+	int32 Value;
+};
+template<> struct TStructOpsTypeTraits<FMovieSceneSequenceLoopCount> : public TStructOpsTypeTraitsBase2<FMovieSceneSequenceLoopCount>
+{
+	enum { WithStructuredSerializeFromMismatchedTag = true };
+};
+
+
+
+/**
+ * Properties that are broadcast from server->clients for time/state synchronization
+ */
+USTRUCT()
+struct FMovieSceneSequenceReplProperties
+{
+	GENERATED_BODY()
+
+	FMovieSceneSequenceReplProperties()
+		: LastKnownStatus(EMovieScenePlayerStatus::Stopped)
+		, LastKnownNumLoops(0)
+	{}
+
+	/** The last known position of the sequence on the server */
+	UPROPERTY()
+	FFrameTime LastKnownPosition;
+
+	/** The last known playback status of the sequence on the server */
+	UPROPERTY()
+	TEnumAsByte<EMovieScenePlayerStatus::Type> LastKnownStatus;
+
+	/** The last known number of loops of the sequence on the server */
+	UPROPERTY()
+	int32 LastKnownNumLoops;
+};
+
+
+
 /**
  * Settings for the level sequence player actor.
  */
@@ -35,10 +92,10 @@ USTRUCT(BlueprintType)
 struct FMovieSceneSequencePlaybackSettings
 {
 	FMovieSceneSequencePlaybackSettings()
-		: LoopCount(0)
+		: bAutoPlay(false)
 		, PlayRate(1.f)
-		, bRandomStartTime(false)
 		, StartTime(0.f)
+		, bRandomStartTime(false)
 		, bRestoreState(false)
 		, bDisableMovementInput(false)
 		, bDisableLookAtInput(false)
@@ -46,65 +103,57 @@ struct FMovieSceneSequencePlaybackSettings
 		, bHideHud(false)
 		, bDisableCameraCuts(false)
 		, bPauseAtEnd(false)
-		, InstanceData(nullptr)
 	{ }
 
 	GENERATED_BODY()
 
+	/** Auto-play the sequence when created */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Playback")
+	uint32 bAutoPlay : 1;
+
 	/** Number of times to loop playback. -1 for infinite, else the number of times to loop before stopping */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Playback", meta=(UIMin=1, DisplayName="Loop"))
-	int32 LoopCount;
+	FMovieSceneSequenceLoopCount LoopCount;
 
 	/** The rate at which to playback the animation */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Playback", meta=(Units=Multiplier))
 	float PlayRate;
 
+	/** Start playback at the specified offset from the start of the sequence's playback range */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Playback", DisplayName="Start Offset", meta=(Units=s, EditCondition="!bRandomStartTime"))
+	float StartTime;
+
 	/** Start playback at a random time */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Playback")
-	bool bRandomStartTime;
-
-	/** Start playback at the specified offset from the start of the sequence's playback range */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Playback", DisplayName="Start Offset", meta=(Units=s))
-	float StartTime;
+	uint32 bRandomStartTime : 1;
 
 	/** Flag used to specify whether actor states should be restored on stop */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Playback")
-	bool bRestoreState;
+	uint32 bRestoreState : 1;
 
 	/** Disable Input from player during play */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Cinematic")
-	bool bDisableMovementInput;
+	uint32 bDisableMovementInput : 1;
 
 	/** Disable LookAt Input from player during play */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Cinematic")
-	bool bDisableLookAtInput;
+	uint32 bDisableLookAtInput : 1;
 
 	/** Hide Player Pawn during play */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Cinematic")
-	bool bHidePlayer;
+	uint32 bHidePlayer : 1;
 
 	/** Hide HUD during play */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Cinematic")
-	bool bHideHud;
+	uint32 bHideHud : 1;
 
 	/** Disable camera cuts */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Cinematic")
-	bool bDisableCameraCuts;
+	uint32 bDisableCameraCuts : 1;
 
 	/** Pause the sequence when playback reaches the end rather than stopping it */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Cinematic")
-	bool bPauseAtEnd;
-
-	/** An object that can implement specific instance overrides for the sequence */
-	UPROPERTY(BlueprintReadWrite, Category="Cinematic")
-	UObject* InstanceData;
-
-	/** Interface that defines overridden bindings for this sequence */
-	UPROPERTY()
-	TScriptInterface<IMovieSceneBindingOverridesInterface> BindingOverrides;
-
-	/** (Optional) Externally supplied time controller */
-	TSharedPtr<FMovieSceneTimeController> TimeController;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Playback")
+	uint32 bPauseAtEnd : 1;
 
 	MOVIESCENE_API bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot);
 };
@@ -155,9 +204,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
 	void Scrub();
 
-	/** Stop playback. */
+	/** Stop playback and move the cursor to the end (or start, for reversed playback) of the sequence. */
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
 	void Stop();
+
+	/** Stop playback without moving the cursor. */
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
+	void StopAtCurrentTime();
 
 	/** Go to end and stop. */
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic", meta = (ToolTip = "Go to end of the sequence and stop. Adheres to 'When Finished' section rules."))
@@ -169,29 +222,29 @@ public:
 	 * Get the current playback position
 	 * @return The current playback position
 	 */
-	DEPRECATED(4.20, "Please use GetCurrentTime instead")
-	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
+	UE_DEPRECATED(4.20, "Please use GetCurrentTime instead")
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic", meta = (DeprecatedFunction, DeprecationMessage = "Please use GetCurrentTime instead"))
 	float GetPlaybackPosition() const { return GetCurrentTime().AsSeconds() - StartTime / PlayPosition.GetInputRate(); }
 
 	/**
 	 * Get the playback length of the sequence
 	 */
-	DEPRECATED(4.20, "Please use GetDuration instead")
-	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
+	UE_DEPRECATED(4.20, "Please use GetDuration instead")
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic", meta = (DeprecatedFunction, DeprecationMessage = "Please use GetDuration instead"))
 	float GetLength() const;
 
 	/**
 	 * Get the offset within the level sequence to start playing
 	 */
-	DEPRECATED(4.20, "Please use GetStartTime instead")
-	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
+	UE_DEPRECATED(4.20, "Please use GetStartTime instead")
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic", meta = (DeprecatedFunction, DeprecationMessage = "Please use GetStartTime instead"))
 	float GetPlaybackStart() const { return StartTime / PlayPosition.GetInputRate(); }
 
 	/**
 	 * Get the offset within the level sequence to finish playing
 	 */
-	DEPRECATED(4.20, "Please use GetEndTime instead")
-	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
+	UE_DEPRECATED(4.20, "Please use GetEndTime instead")
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic", meta = (DeprecatedFunction, DeprecationMessage = "Please use GetEndTime instead"))
 	float GetPlaybackEnd() const { return (StartTime + DurationFrames) / PlayPosition.GetInputRate(); }
 
 	/**
@@ -199,8 +252,8 @@ public:
 	 * @param NewPlaybackPosition - The new playback position to set.
 	 * If the animation is currently playing, it will continue to do so from the new position
 	 */
-	DEPRECATED(4.20, "Please use PlayToFrame instead")
-	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
+	UE_DEPRECATED(4.20, "Please use PlayToFrame instead")
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic", meta = (DeprecatedFunction, DeprecationMessage = "Please use PlayToFrame instead"))
 	void SetPlaybackPosition(float NewPlaybackPosition) { Status == EMovieScenePlayerStatus::Playing ? PlayToSeconds(NewPlaybackPosition + StartTime / PlayPosition.GetInputRate()) : JumpToSeconds(NewPlaybackPosition + StartTime / PlayPosition.GetInputRate()); }
 
 	/**
@@ -209,8 +262,8 @@ public:
 	 * @param	NewStartTime	The new starting time for playback
 	 * @param	NewEndTime		The new ending time for playback.  Must be larger than the start time.
 	 */
-	DEPRECATED(4.20, "Please use SetFrameRange or SetTimeRange instead")
-	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
+	UE_DEPRECATED(4.20, "Please use SetFrameRange or SetTimeRange instead")
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic", meta = (DeprecatedFunction, DeprecationMessage = "Please use SetFrameRange or SetTimeRange instead"))
 	void SetPlaybackRange( const float NewStartTime, const float NewEndTime );
 
 	/**
@@ -218,8 +271,8 @@ public:
 	 * @param NewPlaybackPosition - The new playback position to set.
 	 * This can be used to update sequencer repeatedly, as if in a scrubbing state
 	 */
-	DEPRECATED(4.20, "Please use ScrubToTime instead")
-	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
+	UE_DEPRECATED(4.20, "Please use ScrubToTime instead")
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic", meta = (DeprecatedFunction, DeprecationMessage = "Please use ScrubToTime instead"))
 	void JumpToPosition(float NewPlaybackPosition) { ScrubToSeconds(NewPlaybackPosition); }
 
 public:
@@ -290,7 +343,8 @@ public:
 public:
 
 	/**
-	 * Play the sequence from the current time, to the specified frame position
+	 * Low-level call to set the current time of the player by evaluating from the current time to the specified time, as if the sequence is playing. 
+	 * Triggers events that lie within the evaluated range. Does not alter the persistent playback status of the player (IsPlaying).
 	 *
 	 * @param NewPosition     The new frame time to play to
 	 */
@@ -298,7 +352,8 @@ public:
 	void PlayToFrame(FFrameTime NewPosition);
 
 	/**
-	 * Scrub the sequence from the current time, to the specified frame position
+	 * Low-level call to set the current time of the player by evaluating only the specified time. Will not trigger any events. 
+	 * Does not alter the persistent playback status of the player (IsPlaying).
 	 *
 	 * @param NewPosition     The new frame time to scrub to
 	 */
@@ -306,7 +361,8 @@ public:
 	void ScrubToFrame(FFrameTime NewPosition);
 
 	/**
-	 * Jump to the specified frame position, without evaluating the sequence in between the current and desired time (as if in a paused state)
+	 * Low-level call to set the current time of the player by evaluating only the specified time, as if scrubbing the timeline. Will trigger only events that exist at the specified time. 
+	 * Does not alter the persistent playback status of the player (IsPlaying).
 	 *
 	 * @param NewPosition     The new frame time to jump to
 	 */
@@ -337,6 +393,34 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic", DisplayName="Jump To (Seconds)")
 	void JumpToSeconds(float TimeInSeconds);
+
+
+	/**
+	 * Play the sequence from the current time, to the specified marked frame by label
+	 *
+	 * @param InLabel   The desired marked frame label to play to
+	 * @return Whether the marked frame was found
+	 */
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
+	bool PlayToMarkedFrame(const FString& InLabel);
+
+	/**
+	 * Scrub the sequence from the current time, to the specified marked frame by label
+	 *
+	 * @param InLabel   The desired marked frame label to scrub to
+	 * @return Whether the marked frame was found
+	 */
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
+	bool ScrubToMarkedFrame(const FString& InLabel);
+
+	/**
+	 * Jump to the specified marked frame by label, without evaluating the sequence in between the current and desired time (as if in a paused state)
+	 *
+	 * @param InLabel   The desired marked frame label to jump to
+	 * @return Whether the marked frame was found
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Game|Cinematic")
+	bool JumpToMarkedFrame(const FString& InLabel);
 
 public:
 
@@ -414,9 +498,6 @@ public:
 	/** Initialize this player with a sequence and some settings */
 	void Initialize(UMovieSceneSequence* InSequence, const FMovieSceneSequencePlaybackSettings& InSettings);
 
-	/** Begin play called */
-	virtual void BeginPlay() {}
-
 public:
 
 	/**
@@ -425,11 +506,22 @@ public:
 	 */
 	UMovieSceneSequence* GetSequence() const { return Sequence; }
 
+	/**
+	 * Assign a playback client interface for this sequence player, defining instance data and binding overrides
+	 */
+	void SetPlaybackClient(TScriptInterface<IMovieScenePlaybackClient> InPlaybackClient);
+
+	/**
+	 * Assign a time controller for this sequence player allowing custom time management implementations.
+	 */
+	void SetTimeController(TSharedPtr<FMovieSceneTimeController> InTimeController);
+
 protected:
 
 	void PlayInternal();
+	void StopInternal(FFrameTime TimeToResetTo);
 
-	void UpdateMovieSceneInstance(FMovieSceneEvaluationRange InRange, EMovieScenePlayerStatus::Type PlayerStatus, bool bHasJumped = false);
+	virtual void UpdateMovieSceneInstance(FMovieSceneEvaluationRange InRange, EMovieScenePlayerStatus::Type PlayerStatus, bool bHasJumped = false);
 
 	void UpdateTimeCursorPosition(FFrameTime NewPosition, EUpdatePositionMethod Method);
 	bool ShouldStopOrLoop(FFrameTime NewPosition) const;
@@ -437,6 +529,8 @@ protected:
 	UWorld* GetPlaybackWorld() const;
 
 	FFrameTime GetLastValidTime() const;
+
+	int32 FindMarkedFrameByLabel(const FString& InLabel) const;
 
 protected:
 
@@ -452,11 +546,15 @@ protected:
 	virtual bool CanUpdateCameraCut() const override { return !PlaybackSettings.bDisableCameraCuts; }
 	virtual void UpdateCameraCut(UObject* CameraObject, UObject* UnlockIfCameraObject, bool bJumpCut) override {}
 	virtual void ResolveBoundObjects(const FGuid& InBindingId, FMovieSceneSequenceID SequenceID, UMovieSceneSequence& Sequence, UObject* ResolutionContext, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const override;
-	virtual const IMovieSceneBindingOverridesInterface* GetBindingOverrides() const override { return PlaybackSettings.BindingOverrides ? &*PlaybackSettings.BindingOverrides : nullptr; }
-	virtual const UObject* GetInstanceData() const override { return PlaybackSettings.InstanceData; }
+	virtual IMovieScenePlaybackClient* GetPlaybackClient() override { return PlaybackClient ? &*PlaybackClient : nullptr; }
 
-	//~ UObject interface
+	/*~ Begin UObject interface */
 	virtual void BeginDestroy() override;
+	virtual bool IsSupportedForNetworking() const { return true; }
+	virtual int32 GetFunctionCallspace(UFunction* Function, void* Parameters, FFrame* Stack) override;
+	virtual bool CallRemoteFunction(UFunction* Function, void* Parameters, FOutParmRec* OutParms, FFrame* Stack) override;
+	virtual void PostNetReceive() override;
+	/*~ End UObject interface */
 
 protected:
 
@@ -473,6 +571,30 @@ private:
 
 	void UpdateTimeCursorPosition_Internal(FFrameTime NewPosition, EUpdatePositionMethod Method);
 
+private:
+
+	/**
+	 * Called on the server whenever an explicit change in time has occurred through one of the (Play|Jump|Scrub)To methods
+	 */
+	UFUNCTION(netmulticast, reliable)
+	void RPC_ExplicitServerUpdateEvent(EUpdatePositionMethod Method, FFrameTime RelevantTime);
+
+	/**
+	 * Called on the server when Stop() is called in order to differentiate Stops from Pauses.
+	 */
+	UFUNCTION(netmulticast, reliable)
+	void RPC_OnStopEvent(FFrameTime StoppedTime);
+
+	/**
+	 * Check whether this sequence player is an authority, as determined by its outer Actor
+	 */
+	bool HasAuthority() const;
+
+	/**
+	 * Update the replicated properties required for synchronizing to clients of this sequence player
+	 */
+	void UpdateNetworkSyncProperties();
+
 protected:
 
 	/** Movie player status. */
@@ -480,22 +602,22 @@ protected:
 	TEnumAsByte<EMovieScenePlayerStatus::Type> Status;
 
 	/** Whether we're currently playing in reverse. */
-	UPROPERTY()
+	UPROPERTY(replicated)
 	uint32 bReversePlayback : 1;
 
 	/** Set to true while evaluating to prevent reentrancy */
-	bool bIsEvaluating : 1;
+	uint32 bIsEvaluating : 1;
 
 	/** The sequence to play back */
 	UPROPERTY(transient)
 	UMovieSceneSequence* Sequence;
 
 	/** Time (in playback frames) at which to start playing the sequence (defaults to the lower bound of the sequence's play range) */
-	UPROPERTY()
+	UPROPERTY(replicated)
 	FFrameNumber StartTime;
 
 	/** Time (in playback frames) at which to stop playing the sequence (defaults to the upper bound of the sequence's play range) */
-	UPROPERTY()
+	UPROPERTY(replicated)
 	int32 DurationFrames;
 
 	/** The number of times we have looped in the current playback */
@@ -506,7 +628,7 @@ protected:
 	{
 		enum EType { Stop, Pause, Update };
 
-		FLatentAction(EType InType)
+		FLatentAction(EType InType, FFrameTime DesiredTime = 0)
 			: Type(InType)
 		{}
 
@@ -523,7 +645,7 @@ protected:
 	TArray<FLatentAction> LatentActions;
 
 	/** Specific playback settings for the animation. */
-	UPROPERTY()
+	UPROPERTY(replicated)
 	FMovieSceneSequencePlaybackSettings PlaybackSettings;
 
 	/** The root template instance we're evaluating */
@@ -534,6 +656,17 @@ protected:
 	FMovieScenePlaybackPosition PlayPosition;
 
 	TSharedPtr<FMovieSceneSpawnRegister> SpawnRegister;
+
+	/** Replicated playback status and current time that are replicated to clients */
+	UPROPERTY(replicated)
+	FMovieSceneSequenceReplProperties NetSyncProps;
+
+	/** External client pointer in charge of playing back this sequence */
+	UPROPERTY(Transient)
+	TScriptInterface<IMovieScenePlaybackClient> PlaybackClient;
+
+	/** (Optional) Externally supplied time controller */
+	TSharedPtr<FMovieSceneTimeController> TimeController;
 
 private:
 

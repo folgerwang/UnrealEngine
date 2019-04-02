@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,6 +22,7 @@
 #include "Stats/Stats.h"
 #include "EngineStats.h"
 #include "SlateGlobals.h"
+#include "Animation/WidgetAnimation.h"
 #include "Blueprint/WidgetBlueprintGeneratedClass.h"
 
 #include "UserWidget.generated.h"
@@ -35,6 +36,7 @@ class UWidgetAnimation;
 class UWidgetTree;
 class UNamedSlot;
 
+/** Determines what strategy we use to determine when and if the widget ticks. */
 UENUM()
 enum class EWidgetTickFrequency : uint8
 {
@@ -49,6 +51,46 @@ enum class EWidgetTickFrequency : uint8
 	Auto,
 };
 
+/** Different animation events. */
+UENUM(BlueprintType)
+enum class EWidgetAnimationEvent : uint8
+{
+	Started,
+	Finished
+};
+
+/** Used to manage different animation event bindings that users want callbacks on. */
+USTRUCT()
+struct FAnimationEventBinding
+{
+	GENERATED_BODY()
+
+public:
+
+	FAnimationEventBinding()
+		: Animation(nullptr)
+		, Delegate()
+		, AnimationEvent(EWidgetAnimationEvent::Started)
+		, UserTag(NAME_None)
+	{
+	}
+
+	/** The animation to look for. */
+	UPROPERTY()
+	UWidgetAnimation* Animation;
+
+	/** The callback. */
+	UPROPERTY()
+	FWidgetAnimationDynamicEvent Delegate;
+
+	/** The type of animation event. */
+	UPROPERTY()
+	EWidgetAnimationEvent AnimationEvent;
+
+	/** A user tag used to only get callbacks for specific runs of the animation. */
+	UPROPERTY()
+	FName UserTag;
+};
 
 
 /**
@@ -744,6 +786,56 @@ public:
 public:
 
 	/**
+	 * Bind an animation started delegate.
+	 * @param Animation the animation to listen for starting or finishing.
+	 * @param Delegate the delegate to call when the animation's state changes
+	 */
+	UFUNCTION(BlueprintCallable, Category=Animation)
+	void BindToAnimationStarted(UWidgetAnimation* Animation, FWidgetAnimationDynamicEvent Delegate);
+
+	/**
+	 * Unbind an animation started delegate.
+	 * @param Animation the animation to listen for starting or finishing.
+	 * @param Delegate the delegate to call when the animation's state changes
+	 */
+	UFUNCTION(BlueprintCallable, Category = Animation)
+	void UnbindFromAnimationStarted(UWidgetAnimation* Animation, FWidgetAnimationDynamicEvent Delegate);
+
+	UFUNCTION(BlueprintCallable, Category = Animation)
+	void UnbindAllFromAnimationStarted(UWidgetAnimation* Animation);
+
+	/**
+	 * Bind an animation finished delegate.
+	 * @param Animation the animation to listen for starting or finishing.
+	 * @param Delegate the delegate to call when the animation's state changes
+	 */
+	UFUNCTION(BlueprintCallable, Category = Animation)
+	void BindToAnimationFinished(UWidgetAnimation* Animation, FWidgetAnimationDynamicEvent Delegate);
+
+	/**
+	 * Unbind an animation finished delegate.
+	 * @param Animation the animation to listen for starting or finishing.
+	 * @param Delegate the delegate to call when the animation's state changes
+	 */
+	UFUNCTION(BlueprintCallable, Category = Animation)
+	void UnbindFromAnimationFinished(UWidgetAnimation* Animation, FWidgetAnimationDynamicEvent Delegate);
+
+	UFUNCTION(BlueprintCallable, Category = Animation)
+	void UnbindAllFromAnimationFinished(UWidgetAnimation* Animation);
+
+	/**
+	 * Allows binding to a specific animation's event.
+	 * @param Animation the animation to listen for starting or finishing.
+	 * @param Delegate the delegate to call when the animation's state changes
+	 * @param AnimationEvent the event to watch for.
+	 * @param UserTag Scopes the delegate to only be called when the animation completes with a specific tag set on it when it was played.
+	 */
+	UFUNCTION(BlueprintCallable, Category = Animation)
+	void BindToAnimationEvent(UWidgetAnimation* Animation, FWidgetAnimationDynamicEvent Delegate, EWidgetAnimationEvent AnimationEvent, FName UserTag = NAME_None);
+
+protected:
+
+	/**
 	 * Called when an animation is started.
 	 *
 	 * @param Animation the animation that started
@@ -763,6 +855,19 @@ public:
 
 	virtual void OnAnimationFinished_Implementation(const UWidgetAnimation* Animation);
 
+	/** Broadcast any events based on a state transition for the sequence player, started, finished...etc. */
+	void BroadcastAnimationStateChange(const UUMGSequencePlayer& Player, EWidgetAnimationEvent AnimationEvent);
+
+protected:
+
+	/** Called when a sequence player is finished playing an animation */
+	virtual void OnAnimationStartedPlaying(UUMGSequencePlayer& Player);
+
+	/** Called when a sequence player is finished playing an animation */
+	virtual void OnAnimationFinishedPlaying(UUMGSequencePlayer& Player);
+
+public:
+
 	/**
 	 * Sets the tint of the widget, this affects all child widgets.
 	 * 
@@ -780,6 +885,9 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Appearance")
 	void SetForegroundColor(FSlateColor InForegroundColor);
 
+	/**
+	 * Sets the padding for the user widget, putting a larger gap between the widget border and it's root widget.
+	 */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Appearance")
 	void SetPadding(FMargin InPadding);
 
@@ -793,20 +901,59 @@ public:
 	 * @param PlayMode Specifies the playback mode
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "User Interface|Animation")
-	void PlayAnimation(UWidgetAnimation* InAnimation, float StartAtTime = 0.0f, int32 NumLoopsToPlay = 1, EUMGSequencePlayMode::Type PlayMode = EUMGSequencePlayMode::Forward, float PlaybackSpeed = 1.0f);
+	UUMGSequencePlayer* PlayAnimation(UWidgetAnimation* InAnimation, float StartAtTime = 0.0f, int32 NumLoopsToPlay = 1, EUMGSequencePlayMode::Type PlayMode = EUMGSequencePlayMode::Forward, float PlaybackSpeed = 1.0f);
 
 	/**
-	 * Plays an animation in this widget a specified number of times stoping at a specified time
+	 * Plays an animation in this widget a specified number of times
+	 * 
+	 * @param InAnimation The animation to play
+	 * @param StartAtTime The time in the animation from which to start playing, relative to the start position. For looped animations, this will only affect the first playback of the animation.
+	 * @param NumLoopsToPlay The number of times to loop this animation (0 to loop indefinitely)
+	 * @param PlaybackSpeed The speed at which the animation should play
+	 * @param PlayMode Specifies the playback mode
+	 */
+	UE_DEPRECATED(4.22, "Short lived attempt to clarify what the default PlayAnimation function does, but going to just keep the default one to make things simple by default.")
+	UUMGSequencePlayer* PlayAnimationAtTime(UWidgetAnimation* InAnimation, float StartAtTime = 0.0f, int32 NumLoopsToPlay = 1, EUMGSequencePlayMode::Type PlayMode = EUMGSequencePlayMode::Forward, float PlaybackSpeed = 1.0f)
+	{
+		return PlayAnimation(InAnimation, StartAtTime, NumLoopsToPlay, PlayMode, PlaybackSpeed);
+	}
+
+	/**
+	 * Plays an animation in this widget a specified number of times stopping at a specified time
 	 * 
 	 * @param InAnimation The animation to play
 	 * @param StartAtTime The time in the animation from which to start playing, relative to the start position. For looped animations, this will only affect the first playback of the animation.
 	 * @param EndAtTime The absolute time in the animation where to stop, this is only considered in the last loop.
 	 * @param NumLoopsToPlay The number of times to loop this animation (0 to loop indefinitely)
-	 * @param PlaybackSpeed The speed at which the animation should play
 	 * @param PlayMode Specifies the playback mode
+	 * @param PlaybackSpeed The speed at which the animation should play
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="User Interface|Animation")
-	void PlayAnimationTo(UWidgetAnimation* InAnimation, float StartAtTime = 0.0f, float EndAtTime = 0.0f, int32 NumLoopsToPlay = 1, EUMGSequencePlayMode::Type PlayMode = EUMGSequencePlayMode::Forward, float PlaybackSpeed = 1.0f);
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "User Interface|Animation")
+	UUMGSequencePlayer* PlayAnimationTimeRange(UWidgetAnimation* InAnimation, float StartAtTime = 0.0f, float EndAtTime = 0.0f, int32 NumLoopsToPlay = 1, EUMGSequencePlayMode::Type PlayMode = EUMGSequencePlayMode::Forward, float PlaybackSpeed = 1.0f);
+
+	/**
+	 * Plays an animation on this widget relative to it's current state forward.  You should use this version in situations where
+	 * say a user can click a button and that causes a panel to slide out, and you want to reverse that same animation to begin sliding
+	 * in the opposite direction.
+	 * 
+	 * @param InAnimation The animation to play
+	 * @param PlayMode Specifies the playback mode
+	 * @param PlaybackSpeed The speed at which the animation should play
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "User Interface|Animation")
+	UUMGSequencePlayer* PlayAnimationForward(UWidgetAnimation* InAnimation, float PlaybackSpeed = 1.0f);
+
+	/**
+	 * Plays an animation on this widget relative to it's current state in reverse.  You should use this version in situations where
+	 * say a user can click a button and that causes a panel to slide out, and you want to reverse that same animation to begin sliding
+	 * in the opposite direction.
+	 *
+	 * @param InAnimation The animation to play
+	 * @param PlayMode Specifies the playback mode
+	 * @param PlaybackSpeed The speed at which the animation should play
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "User Interface|Animation")
+	UUMGSequencePlayer* PlayAnimationReverse(UWidgetAnimation* InAnimation, float PlaybackSpeed = 1.0f);
 
 	/**
 	 * Stops an already running animation in this widget
@@ -891,9 +1038,6 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "User Interface|Animation")
 	bool IsAnimationPlayingForward(const UWidgetAnimation* InAnimation);
 
-	/** Called when a sequence player is finished playing an animation */
-	void OnAnimationFinishedPlaying(UUMGSequencePlayer& Player );
-
 	/**
 	 * Plays a sound through the UI
 	 *
@@ -937,7 +1081,7 @@ public:
 	 * @see ValidateCompiledDefaults
 	 * @see ValidateCompiledWidgetTree
 	 */
-	void ValidateBlueprint(const UWidgetTree& BlueprintWidgetTree, FCompilerResultsLog& OutErrors) const;
+	void ValidateBlueprint(const UWidgetTree& BlueprintWidgetTree, class IWidgetCompilerLog& CompileLog) const;
 
 	/**
 	 * Override to perform any custom inspections of the default widget tree at the end of compilation.
@@ -947,7 +1091,7 @@ public:
 	 *
 	 * Tip: If you need to validate properties of BindWidget members, you can search for them by property name within the widget tree.
 	 */
-	virtual void ValidateCompiledWidgetTree(const UWidgetTree& BlueprintWidgetTree, FCompilerResultsLog& OutErrors) const {};
+	virtual void ValidateCompiledWidgetTree(const UWidgetTree& BlueprintWidgetTree, class IWidgetCompilerLog& CompileLog) const {};
 #endif
 
 	static UUserWidget* CreateWidgetInstance(UWidget& OwningWidget, TSubclassOf<UUserWidget> UserWidgetClass, FName WidgetName);
@@ -996,7 +1140,7 @@ private:
 
 public:
 	/** The widget tree contained inside this user widget initialized by the blueprint */
-	UPROPERTY(Instanced)
+	UPROPERTY(Instanced, TextExportTransient)
 	UWidgetTree* WidgetTree;
 
 public:
@@ -1085,7 +1229,7 @@ protected:
 
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime);
 
-	DEPRECATED(2.20, "Please override the other version of NativePaint that accepts all the parameters, not just the paint context.")
+	UE_DEPRECATED(4.20, "Please override the other version of NativePaint that accepts all the parameters, not just the paint context.")
 	virtual void NativePaint(FPaintContext& InContext) const { }
 
 	/**
@@ -1093,6 +1237,9 @@ protected:
 	 * Returns the maximum LayerID painted on
 	 */
 	virtual int32 NativePaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const;
+
+	FORCEINLINE FVector2D GetMinimumDesiredSize() const { return MinimumDesiredSize; }
+	void SetMinimumDesiredSize(FVector2D InMinimumDesiredSize);
 
 	virtual bool NativeIsInteractable() const;
 	virtual bool NativeSupportsKeyboardFocus() const;
@@ -1131,27 +1278,11 @@ protected:
 	virtual FReply NativeOnTouchForceChanged(const FGeometry& MyGeometry, const FPointerEvent& TouchEvent);
 	virtual FCursorReply NativeOnCursorQuery( const FGeometry& InGeometry, const FPointerEvent& InCursorEvent );
 	virtual FNavigationReply NativeOnNavigation(const FGeometry& InGeometry, const FNavigationEvent& InNavigationEvent);
-	DEPRECATED(4.20, "Please use NativeOnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent)")
+	UE_DEPRECATED(4.20, "Please use NativeOnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent)")
 	void NativeOnMouseCaptureLost() {}
 	virtual void NativeOnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent);
 
 protected:
-	/**
-	*  Helper function to get the game instance
-	*
-	*  @return a pointer to the owning game instance
-	*/
-	template <class TGameInstance = UGameInstance>
-	TGameInstance* GetGameInstance() const
-	{
-		if (UWorld* World = GetWorld())
-		{
-			return Cast<TGameInstance>(World->GetGameInstance());
-		}
-
-		return nullptr;
-	}
-
 	bool ShouldSerializeWidgetTree(const class ITargetPlatform* TargetPlatform) const;
 
 	/**
@@ -1161,8 +1292,13 @@ protected:
 
 	void RemoveObsoleteBindings(const TArray<FName>& NamedSlots);
 
-	UUMGSequencePlayer* GetOrAddPlayer(UWidgetAnimation* InAnimation);
+	UUMGSequencePlayer* GetSequencePlayer(const UWidgetAnimation* InAnimation) const;
+	UUMGSequencePlayer* GetOrAddSequencePlayer(UWidgetAnimation* InAnimation);
+
+	UE_DEPRECATED(4.21, "You now need to provide the reason you're invalidating.")
 	void Invalidate();
+
+	void Invalidate(EInvalidateWidget InvalidateReason);
 	
 	/**
 	 * Listens for a particular Player Input Action by name.  This requires that those actions are being executed, and
@@ -1216,6 +1352,9 @@ protected:
 	virtual void InitializeInputComponent();
 
 private:
+	FVector2D MinimumDesiredSize;
+
+private:
 	/**
 	 * This widget is allowed to tick. If this is unchecked tick will never be called, animations will not play correctly, and latent actions will not execute.
 	 * Uncheck this for performance reasons only
@@ -1227,6 +1366,10 @@ protected:
 	UPROPERTY(Transient, DuplicateTransient)
 	class UInputComponent* InputComponent;
 
+protected:
+	UPROPERTY(Transient, DuplicateTransient)
+	TArray<FAnimationEventBinding> AnimationCallbacks;
+
 private:
 	static void OnLatentActionsChanged(UObject* ObjectWhichChanged, ELatentActionChangeType ChangeType);
 
@@ -1236,6 +1379,7 @@ private:
 
 	TWeakPtr<SWidget> FullScreenWidget;
 
+	/** The player context that is associated with this UI.  Think of this as the owner of the UI. */
 	FLocalPlayerContext PlayerContext;
 
 	/** Get World calls can be expensive for Widgets, we speed them up by caching the last found world until it goes away. */
@@ -1250,6 +1394,14 @@ protected:
 
 	PROPERTY_BINDING_IMPLEMENTATION(FLinearColor, ColorAndOpacity);
 	PROPERTY_BINDING_IMPLEMENTATION(FSlateColor, ForegroundColor);
+
+	/**
+	 * The sequence player is a friend because we need to be alerted when animations start and finish without
+	 * going through the normal event callbacks as people have a tendency to RemoveAll(this), which would permanently
+	 * disable callbacks that are critical for UserWidget's base class - so rather we just directly report to the owning
+	 * UserWidget of state transitions.
+	 */
+	friend UUMGSequencePlayer;
 };
 
 #define LOCTEXT_NAMESPACE "UMG"

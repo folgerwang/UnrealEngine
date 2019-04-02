@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -17,16 +17,16 @@ using Tools.DotNETCommon;
 [Help("UEProjectName", "Optional name of the project we're gathering for (should match its .uproject file, eg QAGame).")]
 [Help("LocalizationProjectNames", "Comma separated list of the projects to gather text from.")]
 [Help("LocalizationBranch", "Optional suffix to use when uploading the new data to the localization provider.")]
-[Help("LocalizationProvider", "Optional localization provide override (default is OneSky).")]
+[Help("LocalizationProvider", "Optional localization provide override.")]
 [Help("LocalizationSteps", "Optional comma separated list of localization steps to perform [Download, Gather, Import, Export, Compile, GenerateReports, Upload] (default is all). Only valid for projects using a modular config.")]
 [Help("IncludePlugins", "Optional flag to include plugins from within the given UEProjectDirectory as part of the gather. This may optionally specify a comma separated list of the specific plugins to gather (otherwise all plugins will be gathered).")]
 [Help("ExcludePlugins", "Optional comma separated list of plugins to exclude from the gather.")]
 [Help("AdditionalCommandletArguments", "Optional arguments to pass to the gather process.")]
-class Localise : BuildCommand
+class Localize : BuildCommand
 {
-	private struct LocalizationBatch
+	private class LocalizationBatch
 	{
-		public LocalizationBatch(string InUEProjectDirectory, string InLocalizationTargetDirectory, string InRemoteFilenamePrefix, List<string> InLocalizationProjectNames)
+		public LocalizationBatch(string InUEProjectDirectory, string InLocalizationTargetDirectory, string InRemoteFilenamePrefix, IReadOnlyList<string> InLocalizationProjectNames)
 		{
 			UEProjectDirectory = InUEProjectDirectory;
 			LocalizationTargetDirectory = InLocalizationTargetDirectory;
@@ -34,10 +34,10 @@ class Localise : BuildCommand
 			LocalizationProjectNames = InLocalizationProjectNames;
 		}
 
-		public string UEProjectDirectory;
-		public string LocalizationTargetDirectory;
-		public string RemoteFilenamePrefix;
-		public List<string> LocalizationProjectNames;
+		public string UEProjectDirectory { get; private set; }
+		public string LocalizationTargetDirectory { get; private set; }
+		public string RemoteFilenamePrefix { get; private set; }
+		public IReadOnlyList<string> LocalizationProjectNames { get; private set; }
 	};
 
 	public override void ExecuteBuild()
@@ -75,24 +75,24 @@ class Localise : BuildCommand
 		var LocalizationProviderName = ParseParamValue("LocalizationProvider");
 		if (LocalizationProviderName == null)
 		{
-			LocalizationProviderName = "OneSky";
+			LocalizationProviderName = "";
 		}
 
-		var LocalizationSteps = new List<string>();
+		var LocalizationStepNames = new List<string>();
 		{
-			var LocalizationStepsStr = ParseParamValue("LocalizationSteps");
-			if (LocalizationStepsStr == null)
+			var LocalizationStepNamesStr = ParseParamValue("LocalizationSteps");
+			if (LocalizationStepNamesStr == null)
 			{
-				LocalizationSteps.AddRange(new string[] { "Download", "Gather", "Import", "Export", "Compile", "GenerateReports", "Upload" });
+				LocalizationStepNames.AddRange(new string[] { "Download", "Gather", "Import", "Export", "Compile", "GenerateReports", "Upload" });
 			}
 			else
 			{
-				foreach (var StepName in LocalizationStepsStr.Split(','))
+				foreach (var StepName in LocalizationStepNamesStr.Split(','))
 				{
-					LocalizationSteps.Add(StepName.Trim());
+					LocalizationStepNames.Add(StepName.Trim());
 				}
 			}
-			LocalizationSteps.Add("Monolithic"); // Always allow the monolithic scripts to run as we don't know which steps they do
+			LocalizationStepNames.Add("Monolithic"); // Always allow the monolithic scripts to run as we don't know which steps they do
 		}
 
 		var ShouldGatherPlugins = ParseParam("IncludePlugins");
@@ -140,8 +140,11 @@ class Localise : BuildCommand
 			IReadOnlyList<PluginInfo> AllPlugins = Plugins.ReadPluginsFromDirectory(new DirectoryReference(PluginsRootDirectory), UEProjectName.Length == 0 ? PluginType.Engine : PluginType.Project);
 
 			// Add a batch for each plugin that meets our criteria
+			var AvailablePluginNames = new HashSet<string>();
 			foreach (var PluginInfo in AllPlugins)
 			{
+				AvailablePluginNames.Add(PluginInfo.Name);
+
 				bool ShouldIncludePlugin = (IncludePlugins.Count == 0 || IncludePlugins.Contains(PluginInfo.Name)) && !ExcludePlugins.Contains(PluginInfo.Name);
 				if (ShouldIncludePlugin && PluginInfo.Descriptor.LocalizationTargets != null && PluginInfo.Descriptor.LocalizationTargets.Length > 0)
 				{
@@ -157,6 +160,15 @@ class Localise : BuildCommand
 					LocalizationBatches.Add(new LocalizationBatch(UEProjectDirectory, RootRelativePluginPath, PluginInfo.Name, PluginTargetNames));
 				}
 			}
+
+			// If we had an explicit list of plugins to include, warn if any were missing
+			foreach (string PluginName in IncludePlugins)
+			{
+				if (!AvailablePluginNames.Contains(PluginName))
+				{
+					LogWarning("The plugin '{0}' specified by -IncludePlugins wasn't found and will be skipped.", PluginName);
+				}
+			}
 		}
 
 		// Create a single changelist to use for all changes, and hash the current PO files on disk so we can work out whether they actually change
@@ -164,14 +176,20 @@ class Localise : BuildCommand
 		Dictionary<string, byte[]> InitalPOFileHashes = null;
 		if (P4Enabled)
 		{
-			PendingChangeList = P4.CreateChange(P4Env.Client, "Localization Automation");
+			var ChangeListCommitMessage = "Localization Automation";
+			if (File.Exists(CombinePaths(CmdEnv.LocalRoot, @"Engine/Build/NotForLicensees/EpicInternal.txt")))
+			{
+				ChangeListCommitMessage += "\n#okforgithub ignore";
+			}
+
+			PendingChangeList = P4.CreateChange(P4Env.Client, ChangeListCommitMessage);
 			InitalPOFileHashes = GetPOFileHashes(LocalizationBatches, UEProjectRoot);
 		}
 
 		// Process each localization batch
 		foreach (var LocalizationBatch in LocalizationBatches)
 		{
-			ProcessLocalizationProjects(LocalizationBatch, PendingChangeList, UEProjectRoot, UEProjectName, LocalizationProviderName, LocalizationSteps, AdditionalCommandletArguments);
+			ProcessLocalizationProjects(LocalizationBatch, PendingChangeList, UEProjectRoot, UEProjectName, LocalizationProviderName, LocalizationStepNames, AdditionalCommandletArguments);
 		}
 
 		// Clean-up the changelist so it only contains the changed files, and then submit it (if we were asked to)
@@ -220,7 +238,7 @@ class Localise : BuildCommand
 		}
 	}
 
-	private void ProcessLocalizationProjects(LocalizationBatch LocalizationBatch, int PendingChangeList, string UEProjectRoot, string UEProjectName, string LocalizationProviderName, List<string> LocalizationSteps, string AdditionalCommandletArguments)
+	private void ProcessLocalizationProjects(LocalizationBatch LocalizationBatch, int PendingChangeList, string UEProjectRoot, string UEProjectName, string LocalizationProviderName, IReadOnlyList<string> LocalizationSteps, string AdditionalCommandletArguments)
 	{
 		var EditorExe = CombinePaths(CmdEnv.LocalRoot, @"Engine/Binaries/Win64/UE4Editor-Cmd.exe");
 		var RootWorkingDirectory = CombinePaths(UEProjectRoot, LocalizationBatch.UEProjectDirectory);
@@ -276,7 +294,7 @@ class Localise : BuildCommand
 		{
 			EditorArguments += " -BuildMachine";
 		}
-		EditorArguments += " -Unattended";
+		EditorArguments += " -Unattended -LogLocalizationConflicts";
 
 		// Execute commandlet for each config in each project.
 		bool bLocCommandletFailed = false;
@@ -293,6 +311,7 @@ class Localise : BuildCommand
 
 			if (LocalizationConfigFiles.Count > 0)
 			{
+				var ProjectArgument = String.IsNullOrEmpty(UEProjectName) ? "" : String.Format("\"{0}\"", Path.Combine(RootWorkingDirectory, String.Format("{0}.uproject", UEProjectName)));
 				var CommandletArguments = String.Format("-config=\"{0}\"", String.Join(";", LocalizationConfigFiles));
 
 				if (!String.IsNullOrEmpty(AdditionalCommandletArguments))
@@ -300,7 +319,7 @@ class Localise : BuildCommand
 					CommandletArguments += " " + AdditionalCommandletArguments;
 				}
 
-				string Arguments = String.Format("{0} -run=GatherText {1} {2}", UEProjectName, EditorArguments, CommandletArguments);
+				string Arguments = String.Format("{0} -run=GatherText {1} {2}", ProjectArgument, EditorArguments, CommandletArguments);
 				LogInformation("Running localization commandlet: {0}", Arguments);
 				var StartTime = DateTime.UtcNow;
 				var RunResult = Run(EditorExe, Arguments, null, ERunOptions.Default | ERunOptions.NoLoggingOfRunCommand); // Disable logging of the run command as it will print the exit code which GUBP can pick up as an error (we do that ourselves below)
@@ -327,18 +346,19 @@ class Localise : BuildCommand
 				// Upload all text to our localization provider
 				foreach (var ProjectInfo in ProjectInfos)
 				{
+					// Recalculate the split platform paths before doing the upload, as the export may have changed them
+					ProjectInfo.ExportInfo.CalculateSplitPlatformNames(RootLocalizationTargetDirectory);
 					LocProvider.UploadProjectToLocalizationProvider(ProjectInfo.ProjectName, ProjectInfo.ExportInfo);
 				}
 			}
 		}
 	}
 
-	private ProjectInfo GenerateProjectInfo(string RootWorkingDirectory, string ProjectName, List<string> LocalizationSteps)
+	private ProjectInfo GenerateProjectInfo(string RootWorkingDirectory, string ProjectName, IReadOnlyList<string> LocalizationStepNames)
 	{
-		var ProjectInfo = new ProjectInfo();
-
-		ProjectInfo.ProjectName = ProjectName;
-		ProjectInfo.LocalizationSteps = new List<ProjectStepInfo>();
+		var LocalizationSteps = new List<ProjectStepInfo>();
+		ProjectImportExportInfo ImportInfo = null;
+		ProjectImportExportInfo ExportInfo = null;
 
 		// Projects generated by the localization dashboard will use multiple config files that must be run in a specific order
 		// Older projects (such as the Engine) would use a single config file containing all the steps
@@ -346,18 +366,18 @@ class Localise : BuildCommand
 		var MonolithicConfigFile = CombinePaths(RootWorkingDirectory, String.Format(@"Config/Localization/{0}.ini", ProjectName));
 		if (File.Exists(MonolithicConfigFile))
 		{
-			ProjectInfo.LocalizationSteps.Add(new ProjectStepInfo("Monolithic", MonolithicConfigFile));
+			LocalizationSteps.Add(new ProjectStepInfo("Monolithic", MonolithicConfigFile));
 
-			ProjectInfo.ImportInfo = GenerateProjectImportExportInfo(MonolithicConfigFile);
-			ProjectInfo.ExportInfo = ProjectInfo.ImportInfo;
+			ImportInfo = GenerateProjectImportExportInfo(RootWorkingDirectory, MonolithicConfigFile);
+			ExportInfo = ImportInfo;
 		}
 		else
 		{
 			var FileSuffixes = new[] { 
-				new { Suffix = "Gather", Required = LocalizationSteps.Contains("Gather") }, 
-				new { Suffix = "Import", Required = LocalizationSteps.Contains("Import") || LocalizationSteps.Contains("Download") },	// Downloading needs the parsed ImportInfo
-				new { Suffix = "Export", Required = LocalizationSteps.Contains("Gather") || LocalizationSteps.Contains("Upload")},		// Uploading needs the parsed ExportInfo
-				new { Suffix = "Compile", Required = LocalizationSteps.Contains("Compile") }, 
+				new { Suffix = "Gather", Required = LocalizationStepNames.Contains("Gather") }, 
+				new { Suffix = "Import", Required = LocalizationStepNames.Contains("Import") || LocalizationStepNames.Contains("Download") },	// Downloading needs the parsed ImportInfo
+				new { Suffix = "Export", Required = LocalizationStepNames.Contains("Gather") || LocalizationStepNames.Contains("Upload")},		// Uploading needs the parsed ExportInfo
+				new { Suffix = "Compile", Required = LocalizationStepNames.Contains("Compile") }, 
 				new { Suffix = "GenerateReports", Required = false } 
 			};
 
@@ -367,15 +387,15 @@ class Localise : BuildCommand
 
 				if (File.Exists(ModularConfigFile))
 				{
-					ProjectInfo.LocalizationSteps.Add(new ProjectStepInfo(FileSuffix.Suffix, ModularConfigFile));
+					LocalizationSteps.Add(new ProjectStepInfo(FileSuffix.Suffix, ModularConfigFile));
 
 					if (FileSuffix.Suffix == "Import")
 					{
-						ProjectInfo.ImportInfo = GenerateProjectImportExportInfo(ModularConfigFile);
+						ImportInfo = GenerateProjectImportExportInfo(RootWorkingDirectory, ModularConfigFile);
 					}
 					else if (FileSuffix.Suffix == "Export")
 					{
-						ProjectInfo.ExportInfo = GenerateProjectImportExportInfo(ModularConfigFile);
+						ExportInfo = GenerateProjectImportExportInfo(RootWorkingDirectory, ModularConfigFile);
 					}
 				}
 				else if (FileSuffix.Required)
@@ -385,56 +405,63 @@ class Localise : BuildCommand
 			}
 		}
 
-		return ProjectInfo;
+		return new ProjectInfo(ProjectName, LocalizationSteps, ImportInfo, ExportInfo);
 	}
 
-	private ProjectImportExportInfo GenerateProjectImportExportInfo(string LocalizationConfigFile)
+	private ProjectImportExportInfo GenerateProjectImportExportInfo(string RootWorkingDirectory, string LocalizationConfigFile)
 	{
-		var ProjectImportExportInfo = new ProjectImportExportInfo();
-
 		ConfigFile File = new ConfigFile(new FileReference(LocalizationConfigFile), ConfigLineAction.Add);
 		var LocalizationConfig = new ConfigHierarchy(new ConfigFile[] { File });
 
-		if (!LocalizationConfig.GetString("CommonSettings", "DestinationPath", out ProjectImportExportInfo.DestinationPath))
+		string DestinationPath;
+		if (!LocalizationConfig.GetString("CommonSettings", "DestinationPath", out DestinationPath))
 		{
 			throw new AutomationException("Failed to find a required config key! Section: 'CommonSettings', Key: 'DestinationPath', File: '{0}'", LocalizationConfigFile);
 		}
 
-		if (!LocalizationConfig.GetString("CommonSettings", "ManifestName", out ProjectImportExportInfo.ManifestName))
+		string ManifestName;
+		if (!LocalizationConfig.GetString("CommonSettings", "ManifestName", out ManifestName))
 		{
 			throw new AutomationException("Failed to find a required config key! Section: 'CommonSettings', Key: 'ManifestName', File: '{0}'", LocalizationConfigFile);
 		}
 
-		if (!LocalizationConfig.GetString("CommonSettings", "ArchiveName", out ProjectImportExportInfo.ArchiveName))
+		string ArchiveName;
+		if (!LocalizationConfig.GetString("CommonSettings", "ArchiveName", out ArchiveName))
 		{
 			throw new AutomationException("Failed to find a required config key! Section: 'CommonSettings', Key: 'ArchiveName', File: '{0}'", LocalizationConfigFile);
 		}
 
-		if (!LocalizationConfig.GetString("CommonSettings", "PortableObjectName", out ProjectImportExportInfo.PortableObjectName))
+		string PortableObjectName;
+		if (!LocalizationConfig.GetString("CommonSettings", "PortableObjectName", out PortableObjectName))
 		{
 			throw new AutomationException("Failed to find a required config key! Section: 'CommonSettings', Key: 'PortableObjectName', File: '{0}'", LocalizationConfigFile);
 		}
 
-		if (!LocalizationConfig.GetString("CommonSettings", "NativeCulture", out ProjectImportExportInfo.NativeCulture))
+		string NativeCulture;
+		if (!LocalizationConfig.GetString("CommonSettings", "NativeCulture", out NativeCulture))
 		{
 			throw new AutomationException("Failed to find a required config key! Section: 'CommonSettings', Key: 'NativeCulture', File: '{0}'", LocalizationConfigFile);
 		}
 
-		if (!LocalizationConfig.GetArray("CommonSettings", "CulturesToGenerate", out ProjectImportExportInfo.CulturesToGenerate))
+		List<string> CulturesToGenerate;
+		if (!LocalizationConfig.GetArray("CommonSettings", "CulturesToGenerate", out CulturesToGenerate))
 		{
 			throw new AutomationException("Failed to find a required config key! Section: 'CommonSettings', Key: 'CulturesToGenerate', File: '{0}'", LocalizationConfigFile);
 		}
 
-		if (!LocalizationConfig.GetBool("CommonSettings", "bUseCultureDirectory", out ProjectImportExportInfo.bUseCultureDirectory))
+		bool bUseCultureDirectory;
+		if (!LocalizationConfig.GetBool("CommonSettings", "bUseCultureDirectory", out bUseCultureDirectory))
 		{
 			// bUseCultureDirectory is optional, default is true
-			ProjectImportExportInfo.bUseCultureDirectory = true;
+			bUseCultureDirectory = true;
 		}
 
+		var ProjectImportExportInfo = new ProjectImportExportInfo(DestinationPath, ManifestName, ArchiveName, PortableObjectName, NativeCulture, CulturesToGenerate, bUseCultureDirectory);
+		ProjectImportExportInfo.CalculateSplitPlatformNames(RootWorkingDirectory);
 		return ProjectImportExportInfo;
 	}
 
-	private Dictionary<string, byte[]> GetPOFileHashes(List<LocalizationBatch> LocalizationBatches, string UEProjectRoot)
+	private Dictionary<string, byte[]> GetPOFileHashes(IReadOnlyList<LocalizationBatch> LocalizationBatches, string UEProjectRoot)
 	{
 		var AllFiles = new Dictionary<string, byte[]>();
 
@@ -478,3 +505,8 @@ class Localise : BuildCommand
 		return AllFiles;
 	}
 }
+
+// Legacy alias
+class Localise : Localize
+{
+};

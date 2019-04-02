@@ -29,9 +29,13 @@
 #include "winrt/Windows.Graphics.DirectX.Direct3D11.h"
 #include <Windows.Graphics.DirectX.Direct3D11.interop.h>
 
+// Remoting
+#include "HolographicStreamerHelpers.h"
+
 #pragma comment(lib, "OneCore")
 
 using namespace Microsoft::WRL;
+using namespace Microsoft::Holographic;
 using namespace winrt::Windows::Foundation::Collections;
 using namespace winrt::Windows::Foundation::Numerics;
 
@@ -44,6 +48,8 @@ using namespace winrt::Windows::Perception;
 
 namespace WindowsMixedReality
 {
+	bool bInitialized = false;
+
 	// Since WinRT types cannot be included in the header, 
 	// we are declaring classes using WinRT types in this cpp file.
 	// Forward declare the relevant classes here to keep variables at the top of the class.
@@ -95,8 +101,6 @@ namespace WindowsMixedReality
 	std::mutex CameraResourcesLock;
 	std::mutex StageLock;
 
-	int prevFrameWidth = 1920;
-	int prevFrameHeight = 1080;
 	const float defaultPlayerHeight = -1.8f;
 
 	// Hidden Area Mesh
@@ -116,9 +120,21 @@ namespace WindowsMixedReality
 	bool supportsHapticFeedback = false;
 	bool supportsHandedness = false;
 
+	// Remoting
+	bool isRemoteHolographicSpace = false;
+	Microsoft::WRL::Wrappers::SRWLock                   m_connectionStateLock;
+	Microsoft::Holographic::HolographicStreamerHelpers^ m_streamerHelpers;
+	Windows::Foundation::EventRegistrationToken ConnectedToken;
+	Windows::Foundation::EventRegistrationToken DisconnectedToken;
+	ConnectedEvent^ RemotingConnectedEvent = nullptr;
+	DisconnectedEvent^ RemotingDisconnectedEvent = nullptr;
+
 	// Controller pose
 	float3 ControllerPositions[2];
 	quaternion ControllerOrientations[2];
+
+	// IDs for unhanded controllers.
+	int HandIDs[2];
 
 	// Controller state
 	MixedRealityInterop::HMDInputPressState CurrentSelectState[2];
@@ -194,7 +210,7 @@ namespace WindowsMixedReality
 		std::lock_guard<std::mutex> lock(StageLock);
 
 		// Check for new stage if necessary.
-		if (isSpatialStageSupported)
+		if (isSpatialStageSupported && !isRemoteHolographicSpace)
 		{
 			if (StageReferenceFrame == nullptr)
 			{
@@ -373,8 +389,12 @@ namespace WindowsMixedReality
 			if (frame->Frame == nullptr
 				|| frame->Pose == nullptr
 				|| CameraResources == nullptr
-				|| holographicSpace == nullptr
-				|| !holographicSpace.IsAvailable())
+				|| holographicSpace == nullptr)
+			{
+				return false;
+			}
+
+			if (!isRemoteHolographicSpace && !holographicSpace.IsAvailable())
 			{
 				return false;
 			}
@@ -442,6 +462,11 @@ namespace WindowsMixedReality
 
 		bool CommitDepthTexture(Microsoft::WRL::ComPtr<ID3D11Texture2D> depthTexture, HolographicCameraRenderingParameters RenderingParameters)
 		{
+			if (isRemoteHolographicSpace)
+			{
+				return false;
+			}
+
 			if (!isDepthBasedReprojectionSupported || depthTexture == nullptr)
 			{
 				return false;
@@ -519,6 +544,11 @@ namespace WindowsMixedReality
 
 	void InternalCreateHiddenVisibleAreaMesh(HolographicCamera Camera)
 	{
+		if (isRemoteHolographicSpace)
+		{
+			return;
+		}
+
 		for (int i = (int)MixedRealityInterop::HMDEye::Left;
 			i <= (int)MixedRealityInterop::HMDEye::Right; i++)
 		{
@@ -655,12 +685,14 @@ namespace WindowsMixedReality
 #pragma endregion
 
 	MixedRealityInterop::MixedRealityInterop()
-		: bInitialized(false)
 	{
+		bInitialized = false;
+
 		for (int i = 0; i < 2; i++)
 		{
 			ControllerPositions[i] = float3(0, 0, 0);
 			ControllerOrientations[i] = quaternion::identity();
+			HandIDs[i] = -1;
 		}
 
 		ResetButtonStates();
@@ -691,7 +723,7 @@ namespace WindowsMixedReality
 		isUserPresenceSupported = is17134;
 	}
 
-	bool MixedRealityInterop::CreateInteropDevice(ID3D11Device* device)
+	bool CreateInteropDevice(ID3D11Device* device)
 	{
 		// Acquire the DXGI interface for the Direct3D device.
 		Microsoft::WRL::ComPtr<ID3D11Device> d3dDevice(device);
@@ -768,8 +800,12 @@ namespace WindowsMixedReality
 
 		if (device == nullptr
 			|| bInitialized
-			|| holographicSpace == nullptr
-			|| !holographicSpace.IsAvailable())
+			|| holographicSpace == nullptr)
+		{
+			return;
+		}
+
+		if (!isRemoteHolographicSpace && !holographicSpace.IsAvailable())
 		{
 			return;
 		}
@@ -777,7 +813,10 @@ namespace WindowsMixedReality
 		// Use the default SpatialLocator to track the motion of the device.
 		if (Locator == nullptr)
 		{
-			Locator = SpatialLocator::GetDefault();
+			Microsoft::WRL::ComPtr<ABI::Windows::Perception::Spatial::ISpatialLocatorStatics> spatialLocatorStatics;
+			HRESULT hr = Windows::Foundation::GetActivationFactory(Microsoft::WRL::Wrappers::HStringReference(RuntimeClass_Windows_Perception_Spatial_SpatialLocator).Get(), &spatialLocatorStatics);
+
+			spatialLocatorStatics->GetDefault((ABI::Windows::Perception::Spatial::ISpatialLocator**)winrt::put_abi(Locator));
 		}
 		if (Locator == nullptr)
 		{
@@ -841,7 +880,7 @@ namespace WindowsMixedReality
 			StageReferenceFrame = nullptr;
 		});
 
-		if (isUserPresenceSupported)
+		if (!isRemoteHolographicSpace && isUserPresenceSupported)
 		{
 			UserPresenceChangedToken = holographicSpace.UserPresenceChanged(
 				[=](const HolographicSpace & sender, const winrt::Windows::Foundation::IInspectable & args)
@@ -853,7 +892,7 @@ namespace WindowsMixedReality
 		bInitialized = true;
 	}
 
-	void MixedRealityInterop::Dispose()
+	void MixedRealityInterop::Dispose(bool force)
 	{
 		std::lock_guard<std::mutex> lock(poseLock);
 
@@ -863,11 +902,27 @@ namespace WindowsMixedReality
 		if (currentFrame != nullptr)
 		{
 			currentFrame->Frame = nullptr;
+			currentFrame->Pose = nullptr;
 			delete currentFrame;
 			currentFrame = nullptr;
 		}
 
 		CurrentFrameResources = nullptr;
+
+		for (int i = 0; i < 2; i++)
+		{
+			ControllerPositions[i] = float3(0, 0, 0);
+			ControllerOrientations[i] = quaternion::identity();
+			HandIDs[i] = -1;
+
+			hiddenMesh[i].clear();
+			visibleMesh[i].clear();
+		}
+
+		if (!force && isRemoteHolographicSpace)
+		{
+			return;
+		}
 
 		if (holographicSpace != nullptr)
 		{
@@ -890,7 +945,10 @@ namespace WindowsMixedReality
 			}
 		}
 
-		DestroyWindow(stereoWindowHandle);
+		if (IsWindow(stereoWindowHandle))
+		{
+			DestroyWindow(stereoWindowHandle);
+		}
 		stereoWindowHandle = (HWND)INVALID_HANDLE_VALUE;
 
 		if (Locator != nullptr && LocatabilityChangedToken.value != 0)
@@ -898,6 +956,7 @@ namespace WindowsMixedReality
 			Locator.LocatabilityChanged(LocatabilityChangedToken);
 			LocatabilityChangedToken.value = 0;
 		}
+		Locator = nullptr;
 
 		if (StageReferenceFrame != nullptr && StageChangedEventToken.value != 0)
 		{
@@ -907,6 +966,14 @@ namespace WindowsMixedReality
 
 		bInitialized = false;
 		holographicSpace = nullptr;
+		interactionManager = nullptr;
+
+		CameraResources = nullptr;
+		AttachedReferenceFrame = nullptr;
+		StationaryReferenceFrame = nullptr;
+		StageReferenceFrame = nullptr;
+
+		isRemoteHolographicSpace = false;
 	}
 
 	bool MixedRealityInterop::IsStereoEnabled()
@@ -941,10 +1008,14 @@ namespace WindowsMixedReality
 
 	bool MixedRealityInterop::IsInitialized()
 	{
+		if (!isRemoteHolographicSpace && (holographicSpace == nullptr || !holographicSpace.IsAvailable()))
+		{
+			return false;
+		}
+
 		return bInitialized
 			&& holographicSpace != nullptr
-			&& CameraResources != nullptr
-			&& holographicSpace.IsAvailable();
+			&& CameraResources != nullptr;
 	}
 
 	bool MixedRealityInterop::IsImmersiveWindowValid()
@@ -954,6 +1025,11 @@ namespace WindowsMixedReality
 
 	bool MixedRealityInterop::IsAvailable()
 	{
+		if (isRemoteHolographicSpace)
+		{
+			return holographicSpace != nullptr;
+		}
+
 		if (IsAtLeastWindowsBuild(15063))
 		{
 			return HolographicSpace::IsAvailable();
@@ -1072,40 +1148,22 @@ namespace WindowsMixedReality
 		return GetInteropUserPresence();
 	}
 
-	int MixedRealityInterop::GetDisplayWidth()
+	bool MixedRealityInterop::GetDisplayDimensions(int& width, int& height)
 	{
 		std::lock_guard<std::mutex> lock(CameraResourcesLock);
+		width = 1920;
+		height = 1080;
+
 		if (CameraResources == nullptr)
 		{
-			if (prevFrameWidth == 0)
-			{
-				prevFrameWidth = 1920;
-			}
-
-			return prevFrameWidth;
+			return false;
 		}
 
 		auto size = CameraResources->GetRenderTargetSize();
-		prevFrameWidth = (int)(size.Width);
-		return (int)(size.Width);
-	}
+		width = (int)(size.Width);
+		height = (int)(size.Height);
 
-	int MixedRealityInterop::GetDisplayHeight()
-	{
-		std::lock_guard<std::mutex> lock(CameraResourcesLock);
-		if (CameraResources == nullptr)
-		{
-			if (prevFrameHeight == 0)
-			{
-				prevFrameHeight = 1920;
-			}
-
-			return prevFrameHeight;
-		}
-
-		auto size = CameraResources->GetRenderTargetSize();
-		prevFrameHeight = (int)(size.Height);
-		return (int)(size.Height);
+		return true;
 	}
 
 	const wchar_t* MixedRealityInterop::GetDisplayName()
@@ -1134,7 +1192,7 @@ namespace WindowsMixedReality
 	}
 
 	// Copy a double-wide src texture into a single-wide dst texture with 2 subresources.
-	void MixedRealityInterop::StereoCopy(
+	void StereoCopy(
 		ID3D11DeviceContext* D3D11Context,
 		const float viewportScale,
 		ID3D11Texture2D* src,
@@ -1321,18 +1379,23 @@ namespace WindowsMixedReality
 		return supportsSpatialInput;
 	}
 
-	//TODO: State where we do not support handedness.
-	bool CheckHandedness(SpatialInteractionSourceHandedness handedness, MixedRealityInterop::HMDHand hand)
+	bool CheckHandedness(SpatialInteractionSource source, MixedRealityInterop::HMDHand hand)
 	{
-		SpatialInteractionSourceHandedness desiredHandedness = (hand == MixedRealityInterop::HMDHand::Left) ?
-			SpatialInteractionSourceHandedness::Left : SpatialInteractionSourceHandedness::Right;
+		if (!isRemoteHolographicSpace)
+		{
+			SpatialInteractionSourceHandedness desiredHandedness = (hand == MixedRealityInterop::HMDHand::Left) ?
+				SpatialInteractionSourceHandedness::Left : SpatialInteractionSourceHandedness::Right;
 
-		return handedness == desiredHandedness;
+			return source.Handedness() == desiredHandedness;
+		}
+
+		// For HoloLens, we must check handedness from the source id.
+		return HandIDs[(int)hand] == source.Id();
 	}
 
 	bool GetInputSources(IVectorView<SpatialInteractionSourceState>& sourceStates)
 	{
-		if (interactionManager == nullptr)
+		if (interactionManager == nullptr || !bInitialized)
 		{
 			return false;
 		}
@@ -1344,19 +1407,42 @@ namespace WindowsMixedReality
 			return false;
 		}
 
-		PerceptionTimestamp now = PerceptionTimestampHelper::FromHistoricalTargetTime(winrt::Windows::Foundation::DateTime(winrt::clock::now()));
-		if (now == nullptr)
+		Microsoft::WRL::ComPtr<ABI::Windows::Perception::IPerceptionTimestampHelperStatics> timestampStatics;
+		HRESULT hr = Windows::Foundation::GetActivationFactory(Microsoft::WRL::Wrappers::HStringReference(RuntimeClass_Windows_Perception_PerceptionTimestampHelper).Get(), &timestampStatics);
+
+		// Convert from winrt DateTime to ABI DateTime.
+		winrt::Windows::Foundation::DateTime dt = winrt::clock::now();
+		winrt::Windows::Foundation::TimeSpan timespan = dt.time_since_epoch();
+
+		ABI::Windows::Foundation::DateTime dt_abi;
+		dt_abi.UniversalTime = timespan.count();
+
+		ABI::Windows::Perception::IPerceptionTimestamp* timestamp = nullptr;
+		timestampStatics->FromHistoricalTargetTime(dt_abi, &timestamp);
+
+		if (timestamp == nullptr)
 		{
 			return false;
 		}
 
-		sourceStates = interactionManager.GetDetectedSourcesAtTimestamp(now);
+		winrt::Windows::Perception::PerceptionTimestamp ts = nullptr;
+
+		winrt::check_hresult(timestamp->QueryInterface(winrt::guid_of<winrt::Windows::Perception::PerceptionTimestamp>(),
+			reinterpret_cast<void**>(winrt::put_abi(ts))));
+
+		sourceStates = interactionManager.GetDetectedSourcesAtTimestamp(ts);
+
 		return true;
 	}
 
 	MixedRealityInterop::HMDTrackingStatus MixedRealityInterop::GetControllerTrackingStatus(HMDHand hand)
 	{
 		HMDTrackingStatus trackingStatus = HMDTrackingStatus::NotTracked;
+
+		if (!IsInitialized())
+		{
+			return trackingStatus;
+		}
 
 		IVectorView<SpatialInteractionSourceState> sourceStates;
 		if (!GetInputSources(sourceStates))
@@ -1379,7 +1465,7 @@ namespace WindowsMixedReality
 				continue;
 			}
 
-			if (!CheckHandedness(source.Handedness(), hand))
+			if (!CheckHandedness(source, hand))
 			{
 				continue;
 			}
@@ -1429,6 +1515,14 @@ namespace WindowsMixedReality
 
 	bool MixedRealityInterop::GetControllerOrientationAndPosition(HMDHand hand, DirectX::XMFLOAT4& orientation, DirectX::XMFLOAT3& position)
 	{
+		if (isRemoteHolographicSpace)
+		{
+			if (HandIDs[(int)hand] == -1)
+			{
+				return false;
+			}
+		}
+
 		float3 pos = ControllerPositions[(int)hand];
 		quaternion rot = ControllerOrientations[(int)hand];
 
@@ -1453,23 +1547,44 @@ namespace WindowsMixedReality
 			return;
 		}
 
-		SpatialInteractionSourceHandedness handedness = source.Handedness();
-		int handIndex = 0; // Default to left
-		// if we support handedness, the right controller will be index 1,
-		// Otherwise, the second controller to be identified will be treated as the right controller.
-		if (handedness != SpatialInteractionSourceHandedness::Left)
+		int handIndex = 0;
+		if (!isRemoteHolographicSpace)
 		{
-			handIndex = 1;
+			// Find hand index from source handedness.
+			SpatialInteractionSourceHandedness handedness = source.Handedness();
+			if (handedness != SpatialInteractionSourceHandedness::Left)
+			{
+				handIndex = 1;
+			}
+		}
+		else
+		{
+			// If source does not support handedness, find hand index from HandIDs array.
+			handIndex = -1;
+			for (int i = 0; i < 2; i++)
+			{
+				if (source.Id() == HandIDs[i])
+				{
+					handIndex = i;
+					break;
+				}
+			}
+
+			if (handIndex == -1)
+			{
+				// No hands.
+				return;
+			}
 		}
 
-		if (!supportsMotionControllers)
+		if (!supportsMotionControllers || isRemoteHolographicSpace)
 		{
 			// Prior to motion controller support, Select was the only press
 			bool isPressed = state.IsPressed();
 			PreviousSelectState[handIndex] = CurrentSelectState[handIndex];
 			CurrentSelectState[handIndex] = PressStateFromBool(isPressed);
 		}
-		else
+		else if (supportsMotionControllers && !isRemoteHolographicSpace)
 		{
 			// Select
 			bool isPressed = state.IsSelectPressed();
@@ -1510,12 +1625,115 @@ namespace WindowsMixedReality
 		}
 	}
 
+	bool HandCurrentlyTracked(int id)
+	{
+		for (int i = 0; i < 2; i++)
+		{
+			if (HandIDs[i] == id)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	void AddHand(int id)
+	{
+		// Check right hand first (index 1).
+		for (int i = 1; i >= 0; i--)
+		{
+			if (HandIDs[i] == -1)
+			{
+				HandIDs[i] = id;
+				return;
+			}
+		}
+	}
+
+	void UpdateTrackedHands(IVectorView<SpatialInteractionSourceState> sourceStates)
+	{
+		int sourceCount = sourceStates.Size();
+
+		for (int i = 0; i < sourceCount; i++)
+		{
+			SpatialInteractionSourceState state = sourceStates.GetAt(i);
+			if (state == nullptr)
+			{
+				continue;
+			}
+
+			SpatialInteractionSource source = state.Source();
+			if (source == nullptr)
+			{
+				continue;
+			}
+
+			if (!HandCurrentlyTracked(source.Id()))
+			{
+				AddHand(source.Id());
+			}
+		}
+	}
+
+	// Reset any lost hands.
+	void ResetHandIDs(IVectorView<SpatialInteractionSourceState> sourceStates)
+	{
+		int sourceCount = sourceStates.Size();
+
+		for (int i = 0; i < 2; i++)
+		{
+			// Hand already reset.
+			if (HandIDs[i] == -1)
+			{
+				continue;
+			}
+
+			bool handFound = false;
+			for (int j = 0; j < sourceCount; j++)
+			{
+				SpatialInteractionSourceState state = sourceStates.GetAt(j);
+				if (state == nullptr)
+				{
+					continue;
+				}
+
+				SpatialInteractionSource source = state.Source();
+				if (source == nullptr)
+				{
+					continue;
+				}
+
+				if (HandIDs[i] == source.Id())
+				{
+					handFound = true;
+					break;
+				}
+			}
+
+			if (!handFound)
+			{
+				HandIDs[i] = -1;
+			}
+		}
+	}
+
 	void MixedRealityInterop::PollInput()
 	{
 		IVectorView<SpatialInteractionSourceState> sourceStates;
 		if (!GetInputSources(sourceStates))
 		{
 			return;
+		}
+
+		// Update unhanded controller mapping.
+		if (isRemoteHolographicSpace)
+		{
+			// Remove and hands that have been removed since last update.
+			ResetHandIDs(sourceStates);
+
+			// Add new tracked hands.
+			UpdateTrackedHands(sourceStates);
 		}
 
 		int sourceCount = sourceStates.Size();
@@ -1593,7 +1811,7 @@ namespace WindowsMixedReality
 
 	float MixedRealityInterop::GetAxisPosition(HMDHand hand, HMDInputControllerAxes axis)
 	{
-		if (!supportsMotionControllers)
+		if (!supportsMotionControllers || isRemoteHolographicSpace)
 		{
 			return 0.0f;
 		}
@@ -1619,9 +1837,14 @@ namespace WindowsMixedReality
 				continue;
 			}
 
-			if (!CheckHandedness(source.Handedness(), hand))
+			if (!CheckHandedness(source, hand))
 			{
 				continue;
+			}
+
+			if (axis == HMDInputControllerAxes::SelectValue)
+			{
+				return static_cast<float>(state.SelectPressedValue());
 			}
 
 			SpatialInteractionControllerProperties controllerProperties = state.ControllerProperties();
@@ -1658,7 +1881,7 @@ namespace WindowsMixedReality
 
 	void MixedRealityInterop::SubmitHapticValue(HMDHand hand, float value)
 	{
-		if (!supportsHapticFeedback)
+		if (!supportsHapticFeedback || isRemoteHolographicSpace)
 		{
 			return;
 		}
@@ -1684,7 +1907,7 @@ namespace WindowsMixedReality
 				continue;
 			}
 
-			if (!CheckHandedness(source.Handedness(), hand))
+			if (!CheckHandedness(source, hand))
 			{
 				continue;
 			}
@@ -1745,5 +1968,89 @@ namespace WindowsMixedReality
 				hapticsController.StopFeedback();
 			}
 		}
+	}
+
+	void MixedRealityInterop::ConnectToRemoteHoloLens(ID3D11Device* device, const wchar_t * ip, int bitrate)
+	{
+		if (m_streamerHelpers != nullptr)
+		{
+			// We are already connected to the remote device.
+			return;
+		}
+
+		const int STREAMER_WIDTH = 1280;
+		const int STREAMER_HEIGHT = 720;
+
+		if (bitrate < 1024) { bitrate = 1024; }
+		if (bitrate > 99999) { bitrate = 99999; }
+
+		// Connecting to the remote device can change the connection state.
+		auto exclusiveLock = m_connectionStateLock.LockExclusive();
+
+		if (m_streamerHelpers == nullptr)
+		{
+			m_streamerHelpers = ref new HolographicStreamerHelpers();
+			m_streamerHelpers->CreateStreamer(device);
+			m_streamerHelpers->SetVideoFrameSize(STREAMER_WIDTH, STREAMER_HEIGHT);
+			m_streamerHelpers->SetMaxBitrate(bitrate);
+
+			RemotingConnectedEvent = ref new ConnectedEvent(
+				[&]()
+			{
+				isRemoteHolographicSpace = true;
+
+				winrt::check_hresult(reinterpret_cast<::IUnknown*>(m_streamerHelpers->HolographicSpace)
+					->QueryInterface(winrt::guid_of<HolographicSpace>(),
+						reinterpret_cast<void**>(winrt::put_abi(holographicSpace))));
+
+				interactionManager = SpatialInteractionManager::GetForCurrentView();
+			});
+			ConnectedToken = m_streamerHelpers->OnConnected += RemotingConnectedEvent;
+
+			RemotingDisconnectedEvent = ref new DisconnectedEvent(
+				[&](_In_ HolographicStreamerConnectionFailureReason failureReason)
+			{
+				DisconnectFromRemoteHoloLens();
+			});
+			DisconnectedToken = m_streamerHelpers->OnDisconnected += RemotingDisconnectedEvent;
+
+			try
+			{
+				m_streamerHelpers->Connect(ip, 8001);
+			}
+			catch (Platform::Exception^ ex)
+			{
+				OutputDebugString(L"Connect failed with hr = ");
+				OutputDebugString(std::to_wstring(ex->HResult).c_str());
+				OutputDebugString(L"\n");
+			}
+		}
+	}
+
+	void MixedRealityInterop::DisconnectFromRemoteHoloLens()
+	{
+		// Disconnecting from the remote device can change the connection state.
+		auto exclusiveLock = m_connectionStateLock.LockExclusive();
+
+		if (m_streamerHelpers != nullptr)
+		{
+			m_streamerHelpers->OnConnected -= ConnectedToken;
+			m_streamerHelpers->OnDisconnected -= DisconnectedToken;
+
+			RemotingConnectedEvent = nullptr;
+			RemotingDisconnectedEvent = nullptr;
+
+			m_streamerHelpers->Disconnect();
+
+			// Reset state
+			m_streamerHelpers = nullptr;
+
+			Dispose(true);
+		}
+	}
+
+	bool MixedRealityInterop::IsRemoting()
+	{
+		return isRemoteHolographicSpace && holographicSpace != nullptr;
 	}
 }

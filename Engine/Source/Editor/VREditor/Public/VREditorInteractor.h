@@ -1,30 +1,43 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UObject/ObjectMacros.h"
-#include "InputCoreTypes.h"
 #include "Engine/EngineTypes.h"
+#include "InputCoreTypes.h"
 #include "ViewportInteractor.h"
+#include "UObject/ObjectMacros.h"
 #include "VREditorInteractor.generated.h"
 
 class AActor;
 class UWidgetComponent;
+class UStaticMeshSocket;
 
+UENUM( BlueprintType )
 enum class EControllerType : uint8
 {
 	Laser,
 	AssistingLaser,
 	UI,
+	Navigation,
 	Unknown
 };
 
+/** Directions the trackpad can be swiped to */
+UENUM( BlueprintType )
+enum ETouchSwipeDirection
+{
+	None = 0,
+	Left = 1,
+	Right = 2,
+	Up = 3,
+	Down = 4
+};
 
 /**
  * VREditor default interactor
  */
-UCLASS()
+UCLASS( Blueprintable, BlueprintType )
 class VREDITOR_API UVREditorInteractor : public UViewportInteractor
 {
 	GENERATED_BODY()
@@ -33,9 +46,6 @@ public:
 
 	/** Default constructor */
 	UVREditorInteractor();
-
-	/** Initialize default values */
-	virtual void Init( class UVREditorMode* InVRMode );
 
 	/** Gets the owner of this system */
 	class UVREditorMode& GetVRMode()
@@ -49,37 +59,143 @@ public:
 		return *VRMode;
 	}
 
+	/** Initialize default values */
+	UFUNCTION( BlueprintNativeEvent, CallInEditor, Category = "UVREditorInteractor" )
+	void Init( class UVREditorMode* InVRMode );
+
+	/** Sets up all components */
+	UFUNCTION( BlueprintNativeEvent, CallInEditor, Category = "UVREditorInteractor" )
+	void SetupComponent( AActor* OwningActor );
+
 	// ViewportInteractorInterface overrides
-	virtual void Shutdown() override;
-	virtual void Tick( const float DeltaTime ) override;
+	virtual void Shutdown_Implementation() override;
+	virtual void Tick_Implementation( const float DeltaTime ) override;
+	virtual void CalculateDragRay( float& InOutDragRayLength, float& InOutDragRayVelocity ) override;
+
+	/** @return Returns the type of HMD we're dealing with */
+	UFUNCTION( BlueprintCallable, Category = "UVREditorInteractor" )
+	FName GetHMDDeviceType() const;
+
 	virtual FHitResult GetHitResultFromLaserPointer( TArray<AActor*>* OptionalListOfIgnoredActors = nullptr, const bool bIgnoreGizmos = false,
-		TArray<UClass*>* ObjectsInFrontOfGizmo = nullptr, const bool bEvenIfBlocked = false, const float LaserLengthOverride = 0.0f ) override;
+	TArray<UClass*>* ObjectsInFrontOfGizmo = nullptr, const bool bEvenIfBlocked = false, const float LaserLengthOverride = 0.0f ) override;
 	virtual void ResetHoverState() override;
 	virtual bool IsModifierPressed() const override;
 	virtual void PreviewInputKey( class FEditorViewportClient& ViewportClient, FViewportActionKeyInput& Action, const FKey Key, const EInputEvent Event, bool& bOutWasHandled ) override;
+	virtual void HandleInputKey( class FEditorViewportClient& ViewportClient, FViewportActionKeyInput& Action, const FKey Key, const EInputEvent Event, bool& bOutWasHandled ) override;
+	virtual bool GetTransformAndForwardVector( FTransform& OutHandTransform, FVector& OutForwardVector ) const override;
+
+
+	void HandleInputAxis( FEditorViewportClient& ViewportClient, FViewportActionKeyInput& Action, const FKey Key, const float Delta, const float DeltaTime, bool& bOutWasHandled );
+
+	/** Toggles whether or not this controller is being used to scrub sequencer */
+	void ToggleSequencerScrubbingMode();;
+
+	/** Returns whether or not this controller is being used to scrub sequencer */
+	bool IsScrubbingSequencer() const;
+
+	/** Get the motioncontroller component of this interactor */
+	UFUNCTION( BlueprintCallable, Category = "UVREditorInteractor" )
+	class UMotionControllerComponent* GetMotionControllerComponent() const;
+
+
+	/** Sets the EControllerHand for this motioncontroller */
+	UFUNCTION( BlueprintCallable, Category = "UVREditorInteractor" )
+	void SetControllerHandSide( const FName InControllerHandSide );
 
 	/** Returns the slide delta for pushing and pulling objects. Needs to be implemented by derived classes (e.g. touchpad for vive controller or scrollweel for mouse ) */
-	virtual float GetSlideDelta();
+	UFUNCTION( CallInEditor, BlueprintNativeEvent, Category = "UVREditorInteractor" )
+	float GetSlideDelta() const;
+
+	/** Starts haptic feedback for physical motion controller */
+	virtual void PlayHapticEffect( const float Strength ) override;
+
+	/** Set if we want to force to show the laser*/
+	UFUNCTION( BlueprintCallable, Category = "UVREditorInteractor" )
+	void SetForceShowLaser( const bool bInForceShow );
+
+	// Tells us if thie interator is carrying a "carryable" actor, like a camera, which matches the interactor motions instead of using manipulators.
+	bool IsCarrying() const;
+
+	//
+	// Trackpad
+	//
+
+	/**
+	 * Gets the trackpad delta of the axis passed.
+	 *
+	 * @param Axis	The axis of which we want the slide delta. 0 is X axis and 1 is Y axis.Default is axis Y
+	 */
+	float GetTrackpadSlideDelta( const bool Axis = 1 ) const;
+
+	/** Resets all the trackpad related values to default. */
+	void ResetTrackpad();
+
+	/** Check if the touchpad is currently touched */
+	UFUNCTION( BlueprintCallable, Category = "UVREditorInteractor" )
+	bool IsTouchingTrackpad() const;
+
+	/** Get the current position of the trackpad or analog stick */
+	UFUNCTION( BlueprintCallable, Category = "UVREditorInteractor" )
+	FVector2D GetTrackpadPosition() const;
+
+	/** Get the last position of the trackpad or analog stick */
+	UFUNCTION( BlueprintCallable, Category = "UVREditorInteractor" )
+	FVector2D GetLastTrackpadPosition() const;
+
+	/** If the trackpad values are valid */
+	bool IsTrackpadPositionValid( const int32 AxisIndex ) const;
+
+	/** Get when the last time the trackpad position was updated */
+	FTimespan& GetLastTrackpadPositionUpdateTime();
+
+	/** Get when the last time the trackpad position was updated */
+	FTimespan& GetLastActiveTrackpadUpdateTime();
+
 
 	//
 	// Getters and setters
 	//
+	UFUNCTION( BlueprintCallable, Category = "UVREditorInteractor" )
+	const FVector& GetLaserStart() const;
+
+	UFUNCTION( BlueprintCallable, Category = "UVREditorInteractor" )
+	const FVector& GetLaserEnd() const;
+
+	/** Next frame this will be used as color for the laser */
+	UFUNCTION( BlueprintCallable, Category = "UVREditorInteractor" )
+	void SetForceLaserColor( const FLinearColor& InColor );
+
+	UFUNCTION( BlueprintCallable, Category = "UVREditorInteractor" )
+	AVREditorTeleporter* GetTeleportActor();
+
+	/** Get the side of the controller */
+	UFUNCTION( BlueprintCallable, Category = "UVREditorInteractor" )
+	EControllerHand GetControllerSide() const;
 
 	/** Returns what controller type this is for asymmetric control schemes */
-	EControllerType GetControllerType() const
-	{
-		return ControllerType;
-	};
+	UFUNCTION( BlueprintCallable, Category = "VREditorInteractor" )
+	EControllerType GetControllerType() const;
 
 	/** Set what controller type this is for asymmetric control schemes */
-	void SetControllerType( const EControllerType& InControllerType );
+	UFUNCTION( BlueprintCallable, Category = "VREditorInteractor" )
+	void SetControllerType( const EControllerType InControllerType );
+
+	/**
+	 * Temporary set what controller type this is for asymmetric control schemes.
+	 * You can't override the controller type when there's already an override.
+	 * Remove the temporary controller type with EControllerType::Unknown
+	 * @return true if the controller type was changed
+	 */
+	UFUNCTION( BlueprintCallable, Category = "VREditorInteractor" )
+	bool TryOverrideControllerType( const EControllerType InControllerType );
 
 	/** Gets if this interactor is hovering over UI */
+	UFUNCTION( BlueprintCallable, Category = "VREditorInteractor" )
 	bool IsHoveringOverUI() const;
 
 	/** Sets if the quick menu is on this interactor */
 	void SetHasUIOnForearm( const bool bInHasUIOnForearm );
-	
+
 	/** Check if the quick menu is on this interactor */
 	bool HasUIOnForearm() const;
 
@@ -91,8 +207,9 @@ public:
 
 	/** Sets if the interactor is clicking on any UI */
 	void SetIsClickingOnUI( const bool bInIsClickingOnUI );
-	
+
 	/** Gets if the interactor is clicking on any UI */
+	UFUNCTION( BlueprintCallable, Category = "VREditorInteractor" )
 	bool IsClickingOnUI() const;
 
 	/** Sets if the interactor is hovering over any UI */
@@ -117,23 +234,69 @@ public:
 	float GetUIScrollVelocity() const;
 
 	/** Gets the trigger value */
+	UFUNCTION( BlueprintCallable, Category = "VREditorInteractor" )
 	float GetSelectAndMoveTriggerValue() const;
-	
+
 	/* ViewportInteractor overrides, checks if the laser is blocked by UI */
 	virtual bool GetIsLaserBlocked() const override;
-	
+
 protected:
 
-	/** The mode that owns this interactor */
+	/** Polls input for the motion controllers transforms */
+	virtual void PollInput() override;
+
+	/** Motion controller component which handles late-frame transform updates of all parented sub-components */
 	UPROPERTY()
-	class UVREditorMode* VRMode;
+	class UMotionControllerComponent* MotionControllerComponent;
 
 	//
-	// General input @todo: VREditor: Should this be general (non-UI) in interactordata ?
+	// Graphics
 	//
 
-	/** For asymmetrical systems - what type of controller this is */
-	EControllerType ControllerType;
+	/** Mesh for this hand */
+	UPROPERTY()
+	class UStaticMeshComponent* HandMeshComponent;
+private:
+
+	/** Spline for this hand's laser pointer */
+	UPROPERTY()
+	class USplineComponent* LaserSplineComponent;
+
+	/** Spline meshes for curved laser */
+	UPROPERTY()
+	TArray<class USplineMeshComponent*> LaserSplineMeshComponents;
+
+	/** MID for laser pointer material (opaque parts) */
+	UPROPERTY()
+	class UMaterialInstanceDynamic* LaserPointerMID;
+
+	/** MID for laser pointer material (translucent parts) */
+	UPROPERTY()
+	class UMaterialInstanceDynamic* TranslucentLaserPointerMID;
+
+	/** Hover impact indicator mesh */
+	UPROPERTY()
+	class UStaticMeshComponent* HoverMeshComponent;
+
+	/** Hover point light */
+	UPROPERTY()
+	class UPointLightComponent* HoverPointLightComponent;
+
+	/** MID for hand mesh */
+	UPROPERTY()
+	class UMaterialInstanceDynamic* HandMeshMID;
+
+	/** True if this hand has a motion controller (or both!) */
+	bool bHaveMotionController;
+
+	// Special key action names for motion controllers
+	static const FName TrackpadPositionX;
+	static const FName TrackpadPositionY;
+	static const FName TriggerAxis;
+	static const FName MotionController_Left_FullyPressedTriggerAxis;
+	static const FName MotionController_Right_FullyPressedTriggerAxis;
+	static const FName MotionController_Left_PressedTriggerAxis;
+	static const FName MotionController_Right_PressedTriggerAxis;
 
 	/** Is the Modifier button held down? */
 	bool bIsModifierPressed;
@@ -141,7 +304,54 @@ protected:
 	/** Current trigger pressed amount for 'select and move' (0.0 - 1.0) */
 	float SelectAndMoveTriggerValue;
 
+	FVector LaserStart;
+
+	FVector LaserEnd;
+
 private:
+
+	/** Changes the color of the buttons on the handmesh */
+	void ApplyButtonPressColors( const FViewportActionKeyInput& Action );
+
+	/** Set the visuals for a button on the motion controller */
+	void SetMotionControllerButtonPressedVisuals( const EInputEvent Event, const FName& ParameterName, const float PressStrength );
+
+	/** Pops up some help text labels for the controller in the specified hand, or hides it, if requested */
+	void ShowHelpForHand( const bool bShowIt );
+
+	/** Called every frame to update the position of any floating help labels */
+	void UpdateHelpLabels();
+
+	/** Given a mesh and a key name, tries to find a socket on the mesh that matches a supported key */
+	UStaticMeshSocket* FindMeshSocketForKey( UStaticMesh* StaticMesh, const FKey Key );
+
+	/** Updates all the segments of the curved laser */
+	void UpdateSplineLaser( const FVector& InStartLocation, const FVector& InEndLocation, const FVector& InForward );
+
+	/** Sets the visibility on all curved laser segments */
+	void SetLaserVisibility( const bool bVisible );
+
+	/** Sets the visuals of the LaserPointer */
+	void SetLaserVisuals( const FLinearColor& NewColor, const float CrawlFade, const float CrawlSpeed );
+
+	/** Updates the radial menu */
+	void UpdateRadialMenuInput( const float DeltaTime );
+
+
+	/** Start undo or redo from swipe for the Vive */
+	void UndoRedoFromSwipe( const ETouchSwipeDirection InSwipeDirection );
+
+	//
+	// General input @todo: VREditor: Should this be general (non-UI) in interactordata ?
+	//
+
+	/** For asymmetrical systems - what type of controller this is */
+	UPROPERTY()
+	EControllerType ControllerType;
+
+	/** What was our previous controller type */
+	UPROPERTY()
+	EControllerType OverrideControllerType;
 
 	//
 	// UI
@@ -160,11 +370,11 @@ private:
 	/** When bIsClickingOnUI is true, this will be true if we're "right clicking".  That is, the Modifier key was held down at the time that the user clicked */
 	bool bIsRightClickingOnUI;
 
-	 /** True if we're hovering over UI right now.  When hovering over UI, we don't bother drawing a see-thru laser pointer */
+	/** True if we're hovering over UI right now.  When hovering over UI, we don't bother drawing a see-thru laser pointer */
 	bool bIsHoveringOverUI;
-	
+
 	/** Inertial scrolling -- how fast to scroll the mousewheel over UI */
-	float UIScrollVelocity;	
+	float UIScrollVelocity;
 
 	/** Last real time that we pressed the 'SelectAndMove' button on UI.  This is used to detect double-clicks. */
 	double LastUIPressTime;
@@ -172,8 +382,49 @@ private:
 protected:
 
 	//
+	// Trackpad support
+	//
+
+	/** True if the trackpad is actively being touched */
+	bool bIsTouchingTrackpad;
+
+	/** True if pressing trackpad button (or analog stick button is down) */
+	bool bIsPressingTrackpad;
+
+	/** Position of the touched trackpad */
+	FVector2D TrackpadPosition;
+
+	/** Last position of the touched trackpad */
+	FVector2D LastTrackpadPosition;
+
+	/** True if we have a valid trackpad position (for each axis) */
+	bool bIsTrackpadPositionValid[2];
+
+	/** Real time that the last trackpad position was last updated.  Used to filter out stale previous data. */
+	FTimespan LastTrackpadPositionUpdateTime;
+
+	/** Real time that the last trackpad position was over the dead zone threshold. */
+	FTimespan LastActiveTrackpadUpdateTime;
+
+	/** Forcing to show laser */
+	bool bForceShowLaser;
+
+	/** The color that will be used for one frame */
+	TOptional<FLinearColor> ForceLaserColor;
+
+	/**Whether a flick action was executed */
+	bool bFlickActionExecuted;
+
+	/** whether or not this controller is being used to scrub sequencer */
+	bool bIsScrubbingSequence;
+
+	//
 	// Help
 	//
+
+	/** Right or left hand */
+	UPROPERTY()
+	FName ControllerMotionSource;
 
 	/** True if we want help labels to be visible right now, otherwise false */
 	bool bWantHelpLabels;
@@ -183,4 +434,31 @@ protected:
 
 	/** Time that we either started showing or hiding help labels (for fade transitions) */
 	FTimespan HelpLabelShowOrHideStartTime;
+
+	//
+	// Trigger axis state
+	//
+
+	/** True if trigger is fully pressed right now (or within some small threshold) */
+	bool bIsTriggerFullyPressed;
+
+	/** True if the trigger is currently pulled far enough that we consider it in a "half pressed" state */
+	bool bIsTriggerPressed;
+
+	/** True if trigger has been fully released since the last press */
+	bool bHasTriggerBeenReleasedSinceLastPress;
+
+	//
+	// Swipe
+	//
+
+	/** Initial position when starting to touch the trackpad */
+	FVector2D InitialTouchPosition;
+
+	/** Latest swipe direction on the trackpad */
+	ETouchSwipeDirection LastSwipe;
+
+	/** The mode that owns this interactor */
+	UPROPERTY()
+	class UVREditorMode* VRMode;
 };

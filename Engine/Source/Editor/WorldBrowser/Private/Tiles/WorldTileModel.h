@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -162,7 +162,7 @@ public:
 	 */
 	ULevelStreaming* GetAssociatedStreamingLevel();
 
-	DEPRECATED(4.20, "Call GetAssociatedStreamingLevel instead")
+	UE_DEPRECATED(4.20, "Call GetAssociatedStreamingLevel instead")
 	ULevelStreaming* GetAssosiatedStreamingLevel() { return GetAssociatedStreamingLevel(); }
 
 	/**  */

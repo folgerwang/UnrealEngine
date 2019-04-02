@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -143,16 +143,21 @@ public:
 		ensureMsgf(InBrush->GetDrawType() != ESlateBrushDrawType::NoDrawType, TEXT("This should have been filtered out earlier in the Make... call."));
 
 		// The slate brush ptr can't be trusted after batch elements.
-		SlateBrush = InBrush;
+		BrushMargin = InBrush->GetMargin();
+		BrushUVRegion = InBrush->GetUVRegion();
+		BrushTiling = InBrush->GetTiling();
+		BrushMirroring = InBrush->GetMirroring();
+		BrushDrawType = InBrush->GetDrawType();
+
 		const FSlateResourceHandle& ResourceHandle = InBrush->GetRenderingResource();
 		ResourceProxy = ResourceHandle.GetResourceProxy();
 	}
 
-	FORCEINLINE const FMargin& GetBrushMargin() const { return SlateBrush->GetMargin(); }
-	FORCEINLINE const FBox2D& GetBrushUVRegion() const { return SlateBrush->GetUVRegion(); }
-	FORCEINLINE ESlateBrushTileType::Type GetBrushTiling() const { return SlateBrush->GetTiling(); }
-	FORCEINLINE ESlateBrushMirrorType::Type GetBrushMirroring() const { return SlateBrush->GetMirroring(); }
-	FORCEINLINE ESlateBrushDrawType::Type GetBrushDrawType() const { return SlateBrush->GetDrawType(); }
+	FORCEINLINE const FMargin& GetBrushMargin() const { return BrushMargin; }
+	FORCEINLINE const FBox2D& GetBrushUVRegion() const { return BrushUVRegion; }
+	FORCEINLINE ESlateBrushTileType::Type GetBrushTiling() const { return BrushTiling; }
+	FORCEINLINE ESlateBrushMirrorType::Type GetBrushMirroring() const { return BrushMirroring; }
+	FORCEINLINE ESlateBrushDrawType::Type GetBrushDrawType() const { return BrushDrawType; }
 	FORCEINLINE const FSlateShaderResourceProxy* GetResourceProxy() const { return ResourceProxy; }
 
 	// Tinting
@@ -199,8 +204,12 @@ public:
 protected:
 	FLinearColor Tint;
 
-	// The slate brush ptr can't be trusted after batch elements.
-	const FSlateBrush* SlateBrush;
+	// The slate brush ptr can't be trusted after batch elements, so we copy everything when slate brush is set.
+	FMargin BrushMargin;
+	FBox2D BrushUVRegion;
+	TEnumAsByte<enum ESlateBrushTileType::Type> BrushTiling;
+	TEnumAsByte<enum ESlateBrushMirrorType::Type> BrushMirroring;
+	TEnumAsByte<enum ESlateBrushDrawType::Type> BrushDrawType;
 
 	// The resource proxy that we actually render with
 	const FSlateShaderResourceProxy* ResourceProxy;
@@ -342,12 +351,6 @@ public:
 	 */
 	SLATECORE_API static void MakeDebugQuad( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry);
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
-	static void MakeDebugQuad(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FSlateRect& InClippingRect)
-	{
-		MakeDebugQuad(ElementList, InLayer, PaintGeometry);
-	}
-
 	/**
 	 * Creates a box element based on the following diagram.  Allows for this element to be resized while maintain the border of the image
 	 * If there are no margins the resulting box is simply a quad
@@ -378,20 +381,8 @@ public:
 		ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None,
 		const FLinearColor& InTint = FLinearColor::White );
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
-	static void MakeBox(
-			FSlateWindowElementList& ElementList,
-			uint32 InLayer,
-			const FPaintGeometry& PaintGeometry,
-			const FSlateBrush* InBrush,
-			const FSlateRect& InClippingRect,
-			ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None,
-			const FLinearColor& InTint = FLinearColor::White)
-	{
-		MakeBox(ElementList, InLayer, PaintGeometry, InBrush, InDrawEffects, InTint);
-	}
 
-	DEPRECATED(4.20, "Storing and passing in a FSlateResourceHandle to MakeBox is no longer necessary.")
+	UE_DEPRECATED(4.20, "Storing and passing in a FSlateResourceHandle to MakeBox is no longer necessary.")
 	SLATECORE_API static void MakeBox(
 		FSlateWindowElementList& ElementList,
 		uint32 InLayer, 
@@ -401,21 +392,6 @@ public:
 		ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, 
 		const FLinearColor& InTint = FLinearColor::White );
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
-	static void MakeBox(
-		FSlateWindowElementList& ElementList,
-		uint32 InLayer, 
-		const FPaintGeometry& PaintGeometry, 
-		const FSlateBrush* InBrush, 
-		const FSlateResourceHandle& InRenderingHandle, 
-		const FSlateRect& InClippingRect, 
-		ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, 
-		const FLinearColor& InTint = FLinearColor::White )
-	{
-		MakeBox(ElementList, InLayer, PaintGeometry, InBrush, InDrawEffects, InTint);
-	}
-	
-	//DEPRECATED(4.17, "Use Render Transforms instead.")
 	SLATECORE_API static void MakeRotatedBox(
 		FSlateWindowElementList& ElementList,
 		uint32 InLayer, 
@@ -450,24 +426,6 @@ public:
 		MakeText(ElementList, InLayer, PaintGeometry, InText.ToString(), InFontInfo, InDrawEffects, InTint);
 	}
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
-	static void MakeText(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FString& InText, const int32 StartIndex, const int32 EndIndex, const FSlateFontInfo& InFontInfo, const FSlateRect& InClippingRect, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White)
-	{
-		MakeText(ElementList, InLayer, PaintGeometry, InText, StartIndex, EndIndex, InFontInfo, InDrawEffects, InTint);
-	}
-	
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
-	static void MakeText(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FString& InText, const FSlateFontInfo& InFontInfo, const FSlateRect& InClippingRect, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White)
-	{
-		MakeText(ElementList, InLayer, PaintGeometry, InText, InFontInfo, InDrawEffects, InTint);
-	}
-
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
-	static void MakeText(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FText& InText, const FSlateFontInfo& InFontInfo, const FSlateRect& InClippingRect, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White)
-	{
-		MakeText(ElementList, InLayer, PaintGeometry, InText, InFontInfo, InDrawEffects, InTint);
-	}
-
 	/**
 	 * Creates a text element which displays a series of shaped glyphs on the screen
 	 *
@@ -481,12 +439,6 @@ public:
 	 */
 	SLATECORE_API static void MakeShapedText( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FShapedGlyphSequenceRef& InShapedGlyphSequence, ESlateDrawEffect InDrawEffects, const FLinearColor& BaseTint, const FLinearColor& OutlineTint);
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
-	static void MakeShapedText(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FShapedGlyphSequenceRef& InShapedGlyphSequence, const FSlateRect& InClippingRect, ESlateDrawEffect InDrawEffects, const FLinearColor& BaseTint, const FLinearColor& OutlineTint)
-	{
-		MakeShapedText(ElementList, InLayer, PaintGeometry, InShapedGlyphSequence, InDrawEffects, BaseTint, OutlineTint);
-	}
-
 	/**
 	 * Creates a gradient element
 	 *
@@ -499,12 +451,6 @@ public:
 	 * @param InDrawEffects            Optional draw effects to apply
 	 */
 	SLATECORE_API static void MakeGradient( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, TArray<FSlateGradientStop> InGradientStops, EOrientation InGradientType, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None );
-
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
-	static void MakeGradient(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, TArray<FSlateGradientStop> InGradientStops, EOrientation InGradientType, const FSlateRect& InClippingRect, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None)
-	{
-		MakeGradient(ElementList, InLayer, PaintGeometry, InGradientStops, InGradientType, InDrawEffects);
-	}
 
 	/**
 	 * Creates a Hermite Spline element
@@ -538,27 +484,14 @@ public:
 	 */
 	SLATECORE_API static void MakeCubicBezierSpline(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FVector2D& P0, const FVector2D& P1, const FVector2D& P2, const FVector2D& P3, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White);
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
-	static void MakeSpline(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, const FSlateRect InClippingRect, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White)
-	{
-		MakeSpline(ElementList, InLayer, PaintGeometry, InStart, InStartDir, InEnd, InEndDir, InThickness, InDrawEffects, InTint);
-	}
-
 	/** Just like MakeSpline but in draw-space coordinates. This is useful for connecting already-transformed widgets together. */
 	SLATECORE_API static void MakeDrawSpaceSpline(FSlateWindowElementList& ElementList, uint32 InLayer, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint=FLinearColor::White);
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
-	static void MakeDrawSpaceSpline(FSlateWindowElementList& ElementList, uint32 InLayer, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, const FSlateRect InClippingRect, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White)
-	{
-		MakeDrawSpaceSpline(ElementList, InLayer, InStart, InStartDir, InEnd, InEndDir, InThickness, InDrawEffects, InTint);
-	}
-
-	
 	/** Just like MakeSpline but in draw-space coordinates. This is useful for connecting already-transformed widgets together. */
-	DEPRECATED(4.20, "Splines with color gradients will not be supported in the future.")
+	UE_DEPRECATED(4.20, "Splines with color gradients will not be supported in the future.")
 	SLATECORE_API static void MakeDrawSpaceGradientSpline( FSlateWindowElementList& ElementList, uint32 InLayer, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, const TArray<FSlateGradientStop>& InGradientStops, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None );
 
-	DEPRECATED(4.20, "Splines with color gradients will not be supported in the future.")
+	UE_DEPRECATED(4.20, "Splines with color gradients will not be supported in the future.")
 	static void MakeDrawSpaceGradientSpline(FSlateWindowElementList& ElementList, uint32 InLayer, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, const FSlateRect InClippingRect, const TArray<FSlateGradientStop>& InGradientStops, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None);
 
 	/**
@@ -577,12 +510,6 @@ public:
 	SLATECORE_API static void MakeLines( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const TArray<FVector2D>& Points, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint=FLinearColor::White, bool bAntialias = true, float Thickness = 1.0f );
 	SLATECORE_API static void MakeLines( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const TArray<FVector2D>& Points, const TArray<FLinearColor>& PointColors, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint=FLinearColor::White, bool bAntialias = true, float Thickness = 1.0f );
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
-	static void MakeLines(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const TArray<FVector2D>& Points, const FSlateRect InClippingRect, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White, bool bAntialias = true, float Thickness = 1.0f)
-	{
-		MakeLines(ElementList, InLayer, PaintGeometry, Points, InDrawEffects, InTint, bAntialias, Thickness);
-	}
-
 	/**
 	 * Creates a viewport element which is useful for rendering custom data in a texture into Slate
 	 *
@@ -596,12 +523,6 @@ public:
 	 * @param InTint                   Color to tint the element
 	 */
 	SLATECORE_API static void MakeViewport( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, TSharedPtr<const ISlateViewport> Viewport, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint=FLinearColor::White );
-
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
-	static void MakeViewport(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, TSharedPtr<const ISlateViewport> Viewport, const FSlateRect& InClippingRect, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White)
-	{
-		MakeViewport(ElementList, InLayer, PaintGeometry, Viewport, InDrawEffects, InTint);
-	}
 
 	/**
 	 * Creates a custom element which can be used to manually draw into the Slate render target with graphics API calls rather than Slate elements
@@ -620,12 +541,6 @@ public:
 	SLATECORE_API static void MakeLayer(FSlateWindowElementList& ElementList, uint32 InLayer, TSharedPtr<FSlateDrawLayerHandle, ESPMode::ThreadSafe>& DrawLayerHandle);
 
 	SLATECORE_API static void MakePostProcessPass(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FVector4& Params, int32 DownsampleAmount);
-
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
-	static void MakePostProcessPass(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FSlateRect& InClippingRect, const FVector4& Params, int32 DownsampleAmount)
-	{
-		MakePostProcessPass(ElementList, InLayer, PaintGeometry, Params, DownsampleAmount);
-	}
 
 	FORCEINLINE EElementType GetElementType() const { return ElementType; }
 	FORCEINLINE const FSlateDataPayload& GetDataPayload() const { return DataPayload; }
@@ -849,11 +764,6 @@ public:
 		return BatchKey == Other.BatchKey && ShaderResource == Other.ShaderResource;
 	}
 
-	friend uint32 GetTypeHash( const FSlateElementBatch& ElementBatch )
-	{
-		return PointerHash(ElementBatch.ShaderResource, GetTypeHash(ElementBatch.BatchKey));
-	}
-
 	const FSlateShaderResource* GetShaderResource() const { return ShaderResource; }
 	const FShaderParams& GetShaderParams() const { return BatchKey.ShaderParams; }
 	ESlateBatchDrawFlag GetDrawFlags() const { return BatchKey.DrawFlags; }
@@ -970,25 +880,6 @@ private:
 				&& InstanceOffset == Other.InstanceOffset
 				&& InstanceData == Other.InstanceData
 				&& SceneIndex == Other.SceneIndex;
-		}
-
-		/** Compute an efficient hash for this type for use in hash containers. */
-		friend uint32 GetTypeHash( const FBatchKey& InBatchKey )
-		{
-			// NOTE: Assumes these enum types are 8 bits.
-			uint32 RunningHash = (uint32)InBatchKey.DrawFlags << 24 | (uint32)InBatchKey.ShaderType << 16 | (uint32)InBatchKey.DrawPrimitiveType << 8 | (uint32)InBatchKey.DrawEffects << 0;
-			RunningHash = InBatchKey.CustomDrawer.IsValid() ? PointerHash(InBatchKey.CustomDrawer.Pin().Get(), RunningHash) : RunningHash;
-			RunningHash = InBatchKey.CachedRenderHandle.IsValid() ? PointerHash(InBatchKey.CachedRenderHandle.Get(), RunningHash) : RunningHash;
-			RunningHash = HashCombine(GetTypeHash(InBatchKey.ShaderParams.PixelParams), RunningHash);
-			RunningHash = HashCombine(InBatchKey.ClippingIndex, RunningHash);
-			const bool bHasInstances = InBatchKey.InstanceCount > 0;
-			RunningHash = bHasInstances ? HashCombine(InBatchKey.InstanceCount, RunningHash) : RunningHash;
-			RunningHash = bHasInstances ? HashCombine(InBatchKey.InstanceOffset, RunningHash) : RunningHash;
-			RunningHash = InBatchKey.InstanceData ? HashCombine( PointerHash(InBatchKey.InstanceData), RunningHash ) : RunningHash;
-			RunningHash = HashCombine(InBatchKey.SceneIndex, RunningHash);
-
-			return RunningHash;
-			//return FCrc::MemCrc32(&InBatchKey.ShaderParams, sizeof(FShaderParams)) ^ ((InBatchKey.ShaderType << 16) | (InBatchKey.DrawFlags+InBatchKey.ShaderType+InBatchKey.DrawPrimitiveType+InBatchKey.DrawEffects));
 		}
 	};
 
@@ -1468,7 +1359,7 @@ public:
 /**
  * Represents a top level window and its draw elements.
  */
-class FSlateWindowElementList
+class FSlateWindowElementList : public FNoncopyable
 {
 	friend class FSlateElementBatcher;
 	friend class FSlateDrawElement;
@@ -1481,12 +1372,12 @@ public:
 	 * @param InPaintWindow		The window that owns the widgets being painted.  This is almost most always the same window that is being rendered to
 	 * @param InRenderWindow	The window that we will be rendering to.
 	 */
-	SLATECORE_API explicit FSlateWindowElementList(TSharedPtr<SWindow> InPaintWindow = nullptr);
+	SLATECORE_API explicit FSlateWindowElementList(const TSharedPtr<SWindow>& InPaintWindow = TSharedPtr<SWindow>());
 
 	SLATECORE_API ~FSlateWindowElementList();
 
 	/** @return Get the window that we will be painting */
-	DEPRECATED(4.21, "FSlateWindowElementList::GetWindow is not thread safe but window element lists are accessed on multiple threads.  Please call GetPaintWindow instead")
+	UE_DEPRECATED(4.21, "FSlateWindowElementList::GetWindow is not thread safe but window element lists are accessed on multiple threads.  Please call GetPaintWindow instead")
 	FORCEINLINE TSharedPtr<SWindow> GetWindow() const
 	{
 		// check that we are in game thread or are in slate/movie loading thread

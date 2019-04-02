@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -142,6 +142,13 @@ public:
 	void SetContent(int32 InContent);
 	/** Sets the new value of the node */
 	void SetContent(bool InContent);
+
+	/** Sets the new value of the node */
+	FORCEINLINE void SetContent(const TCHAR* InContent)
+	{
+		// Force an FString conversion here, otherwise it calls the bool overload
+		SetContent(FString(InContent));
+	}
 
 	/** Gets a list of child nodes */
 	const TArray<TSharedRef<FFCPXMLNode>>& GetChildNodes() const;

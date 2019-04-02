@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -27,9 +27,27 @@ namespace UnrealBuildTool
 		// always seed the random number the same, so multiple runs of the generator will generate the same project
 		static Random Rand = new Random(0);
 
-		public XcodeProjectFileGenerator(FileReference InOnlyGameProject)
+		/// <summary>
+		/// Mark for distribution builds
+		/// </summary>
+		bool bForDistribution = false;
+
+		/// <summary>
+		/// Override BundleID
+		/// </summary>
+		string BundleIdentifier = "";
+
+		public XcodeProjectFileGenerator(FileReference InOnlyGameProject, CommandLineArguments CommandLine)
 			: base(InOnlyGameProject)
 		{
+			if (CommandLine.HasOption("-distribution"))
+			{
+				bForDistribution = true;
+			}
+			if (CommandLine.HasValue("-bundleID="))
+			{
+				BundleIdentifier = CommandLine.GetString("-bundleID=");
+			}
 		}
 
 		/// <summary>
@@ -90,7 +108,7 @@ namespace UnrealBuildTool
 		/// <returns>The newly allocated project file object</returns>
 		protected override ProjectFile AllocateProjectFile(FileReference InitFilePath)
 		{
-			return new XcodeProjectFile(InitFilePath, OnlyGameProject);
+			return new XcodeProjectFile(InitFilePath, OnlyGameProject, bForDistribution, BundleIdentifier);
 		}
 
 		/// ProjectFileGenerator interface
@@ -195,7 +213,7 @@ namespace UnrealBuildTool
 			return bSuccess;
 		}
 
-		protected override bool WriteMasterProjectFile(ProjectFile UBTProject)
+		protected override bool WriteMasterProjectFile(ProjectFile UBTProject, PlatformProjectGeneratorCollection PlatformProjectGenerators)
 		{
 			return WriteXcodeWorkspace();
 		}

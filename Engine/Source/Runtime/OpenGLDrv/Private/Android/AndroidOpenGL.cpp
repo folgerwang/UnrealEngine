@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Android/AndroidPlatform.h"
@@ -136,9 +136,16 @@ FPlatformOpenGLDevice::FPlatformOpenGLDevice()
 // call out to JNI to see if the application was packaged for Gear VR
 extern bool AndroidThunkCpp_IsGearVRApplication();
 
+
+// RenderDoc
+#define GL_DEBUG_TOOL_EXT	0x6789
+static bool bRunningUnderRenderDoc = false;
+
 void FPlatformOpenGLDevice::Init()
 {
 	extern void InitDebugContext();
+
+	bRunningUnderRenderDoc = glIsEnabled(GL_DEBUG_TOOL_EXT) != GL_FALSE;
 
 	FPlatformMisc::LowLevelOutputDebugString(TEXT("FPlatformOpenGLDevice:Init"));
 	bool bCreateSurface = !AndroidThunkCpp_IsGearVRApplication();
@@ -166,7 +173,7 @@ FPlatformOpenGLDevice* PlatformCreateOpenGLDevice()
 
 bool PlatformCanEnableGPUCapture()
 {
-	return false;
+	return bRunningUnderRenderDoc;
 }
 
 void PlatformReleaseOpenGLContext(FPlatformOpenGLDevice* Device, FPlatformOpenGLContext* Context)
@@ -711,6 +718,12 @@ void FAndroidOpenGL::QueryTimestampCounter(GLuint Query)
 
 }
 
+bool FAndroidOpenGL::SupportsFramebufferSRGBEnable()
+{	
+	static auto* MobileUseHWsRGBEncodingCVAR = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.UseHWsRGBEncoding"));
+	const bool bMobileUseHWsRGBEncoding = (MobileUseHWsRGBEncodingCVAR && MobileUseHWsRGBEncodingCVAR->GetValueOnAnyThread() == 1);
+	return bMobileUseHWsRGBEncoding;
+}
 
 void FAndroidOpenGL::BeginQuery(GLenum QueryType, GLuint Query)
 {
@@ -813,7 +826,7 @@ void FAndroidOpenGL::ProcessExtensions(const FString& ExtensionsString)
 	}
 
 	// Get procedures
-	if (bSupportsOcclusionQueries || bSupportsDisjointTimeQueries)
+	if (bSupportsOcclusionQueries || SupportsDisjointTimeQueries())
 	{
 		if (bES30Support || bES31Support)
 		{
@@ -836,7 +849,7 @@ void FAndroidOpenGL::ProcessExtensions(const FString& ExtensionsString)
 			glGetQueryObjectuivEXT = (PFNGLGETQUERYOBJECTUIVEXTPROC)((void*)eglGetProcAddress("glGetQueryObjectuivEXT"));
 		}
 
-		if (bSupportsDisjointTimeQueries)
+		if (SupportsDisjointTimeQueries())
 		{
 			glQueryCounterEXT			= (PFNGLQUERYCOUNTEREXTPROC)		((void*)eglGetProcAddress("glQueryCounterEXT"));
 			glGetQueryObjectui64vEXT	= (PFNGLGETQUERYOBJECTUI64VEXTPROC)	((void*)eglGetProcAddress("glGetQueryObjectui64vEXT"));

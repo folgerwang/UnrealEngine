@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -21,7 +21,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="File">File to check</param>
 		/// <returns>True if the file is part of the working set, false otherwise</returns>
-		bool Contains(FileReference File);
+		bool Contains(FileItem File);
 	}
 
 	/// <summary>
@@ -41,7 +41,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="File">File to check</param>
 		/// <returns>True if the file is part of the working set, false otherwise</returns>
-		public bool Contains(FileReference File)
+		public bool Contains(FileItem File)
 		{
 			return false;
 		}
@@ -64,7 +64,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="File">File to check</param>
 		/// <returns>True if the file is part of the working set, false otherwise</returns>
-		public bool Contains(FileReference File)
+		public bool Contains(FileItem File)
 		{
 			// Generated .cpp files should never be treated as part of the working set
 			if (File.HasExtension(".gen.cpp"))
@@ -75,7 +75,7 @@ namespace UnrealBuildTool
 			// Check if the file is read-only
 			try
 			{
-				return !FileReference.GetAttributes(File).HasFlag(FileAttributes.ReadOnly);
+				return !File.Attributes.HasFlag(FileAttributes.ReadOnly);
 			}
 			catch (FileNotFoundException)
 			{
@@ -201,10 +201,10 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="File">File to check</param>
 		/// <returns>True if the file is part of the working set, false otherwise</returns>
-		public bool Contains(FileReference File)
+		public bool Contains(FileItem File)
 		{
 			WaitForBackgroundProcess();
-			if(Files.Contains(File) || Directories.Any(x => File.IsUnderDirectory(x)))
+			if(Files.Contains(File.Location) || Directories.Any(x => File.Location.IsUnderDirectory(x)))
 			{
 				return true;
 			}
@@ -312,9 +312,9 @@ namespace UnrealBuildTool
 		/// Create an ISourceFileWorkingSet instance suitable for the given project or root directory
 		/// </summary>
 		/// <param name="RootDir">The root directory</param>
-		/// <param name="ProjectDir">The current project</param>
+		/// <param name="ProjectDirs">The project directories</param>
 		/// <returns>Working set instance for the given directory</returns>
-		public static ISourceFileWorkingSet Create(DirectoryReference RootDir, DirectoryReference ProjectDir)
+		public static ISourceFileWorkingSet Create(DirectoryReference RootDir, IEnumerable<DirectoryReference> ProjectDirs)
 		{
 			if (Provider == ProviderType.None || ProjectFileGenerator.bGenerateProjectFiles)
 			{
@@ -327,7 +327,7 @@ namespace UnrealBuildTool
 				{
 					WorkingSet = new GitSourceFileWorkingSet(GitPath, DirectoryReference.Combine(RootDir, RepositoryPath), null);
 				}
-				else if(!TryCreateGitWorkingSet(RootDir, ProjectDir, out WorkingSet))
+				else if(!TryCreateGitWorkingSet(RootDir, ProjectDirs, out WorkingSet))
 				{
 					WorkingSet = new GitSourceFileWorkingSet(GitPath, RootDir, null);
 				}
@@ -340,7 +340,7 @@ namespace UnrealBuildTool
 			else
 			{
 				GitSourceFileWorkingSet WorkingSet;
-				if(TryCreateGitWorkingSet(RootDir, ProjectDir, out WorkingSet))
+				if(TryCreateGitWorkingSet(RootDir, ProjectDirs, out WorkingSet))
 				{
 					return WorkingSet;
 				}
@@ -351,7 +351,7 @@ namespace UnrealBuildTool
 			}
 		}
 
-		static bool TryCreateGitWorkingSet(DirectoryReference RootDir, DirectoryReference ProjectDir, out GitSourceFileWorkingSet OutWorkingSet)
+		static bool TryCreateGitWorkingSet(DirectoryReference RootDir, IEnumerable<DirectoryReference> ProjectDirs, out GitSourceFileWorkingSet OutWorkingSet)
 		{
 			GitSourceFileWorkingSet WorkingSet  = null;
 
@@ -362,7 +362,7 @@ namespace UnrealBuildTool
 			}
 
 			// Try to create a working set for the project directory
-			if(ProjectDir != null)
+			foreach(DirectoryReference ProjectDir in ProjectDirs)
 			{
 				if(WorkingSet == null || !ProjectDir.IsUnderDirectory(RootDir))
 				{

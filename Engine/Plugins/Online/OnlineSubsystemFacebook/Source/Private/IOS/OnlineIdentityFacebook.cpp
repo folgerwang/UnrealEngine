@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 // Module includes
 #include "OnlineIdentityFacebook.h"
@@ -6,8 +6,11 @@
 #include "Interfaces/OnlineSharingInterface.h"
 #include "Interfaces/OnlineExternalUIInterface.h"
 
+THIRD_PARTY_INCLUDES_START
 #import <FBSDKCoreKit/FBSDKCoreKit.h>
 #import <FBSDKLoginKit/FBSDKLoginKit.h>
+THIRD_PARTY_INCLUDES_END
+
 #import "FacebookHelper.h"
 
 // Other UE4 includes
@@ -278,7 +281,7 @@ void FOnlineIdentityFacebook::OnLoginAttemptComplete(int32 LocalUserNum, const F
 				}
 				else
 				{
-					UserId = GetEmptyUniqueId().AsShared();
+					UserId = FUniqueNetIdFacebook::EmptyId();
 				}
 				// remove cached user id
 				UserIds.Remove(LocalUserNum);
@@ -312,7 +315,7 @@ bool FOnlineIdentityFacebook::Logout(int32 LocalUserNum)
 				}
 				else
 				{
-					UserId = GetEmptyUniqueId().AsShared();
+					UserId = FUniqueNetIdFacebook::EmptyId();
 				}
 				// remove cached user id
 				UserIds.Remove(LocalUserNum);

@@ -1,3 +1,5 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
 #include "FileCache.h"
 #include "Containers/BinaryHeap.h"
 #include "Containers/Queue.h"
@@ -503,7 +505,7 @@ public:
 		return FMath::Min((int64)(BlockIDType::BlockSize - OffsetInBlock), Size - Offset);
 	}
 
-	IFileCacheReadBuffer* ReadData(int64 Offset, int64 BytesToRead, EAsyncIOPriority Priority) override;
+	IFileCacheReadBuffer* ReadData(int64 Offset, int64 BytesToRead, EAsyncIOPriorityAndFlags PriorityAndFlags) override;
 
 	void WaitAll() override;
 
@@ -714,7 +716,7 @@ bool FFileCacheHandle::Initialize(const FString &FileName)
 	return true;
 }
 
-IFileCacheReadBuffer *FFileCacheHandle::ReadData(int64 Offset, int64 BytesToRead, EAsyncIOPriority Priority)
+IFileCacheReadBuffer *FFileCacheHandle::ReadData(int64 Offset, int64 BytesToRead, EAsyncIOPriorityAndFlags PriorityAndFlags)
 {
 	SCOPE_CYCLE_COUNTER(STAT_SFC_ReadData);
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimationEditorViewportClient.h"
 #include "Modules/ModuleManager.h"
@@ -44,10 +44,6 @@ namespace {
 	// follow camera feature
 	static const float FollowCamera_InterpSpeed = 4.f;
 	static const float FollowCamera_InterpSpeed_Z = 1.f;
-
-	// @todo double define - fix it
-	const float FOVMin = 5.f;
-	const float FOVMax = 170.f;
 }
 
 namespace EAnimationPlaybackSpeeds
@@ -119,6 +115,10 @@ FAnimationViewportClient::FAnimationViewportClient(const TSharedRef<IPersonaPrev
 	{
 		SetRealtime(false,true); // We are PIE, don't start in realtime mode
 	}
+
+	// @todo double define - fix it
+	const float FOVMin = 5.f;
+	const float FOVMax = 170.f;
 
 	ViewFOV = FMath::Clamp<float>(ConfigOption->GetAssetEditorOptions(InAssetEditorToolkit->GetEditorName()).ViewportConfigs[ViewportIndex].ViewFOV, FOVMin, FOVMax);
 
@@ -680,15 +680,7 @@ bool FAnimationViewportClient::ShouldDisplayAdditiveScaleErrorMessage() const
 	return false;
 }
 
-static FText ConcatenateLine(const FText& InText, const FText& InNewLine)
-{
-	if(InText.IsEmpty())
-	{
-		return InNewLine;
-	}
-
-	return FText::Format(LOCTEXT("ViewportTextNewlineFormatter", "{0}\n{1}"), InText, InNewLine);
-}
+extern FText ConcatenateLine(const FText& InText, const FText& InNewLine);
 
 FText FAnimationViewportClient::GetDisplayInfo(bool bDisplayAllInfo) const
 {
@@ -1133,7 +1125,7 @@ void FAnimationViewportClient::DrawBonesFromTransforms(TArray<FTransform>& Trans
 			BoneColours[BoneIndex] = (ParentIndex >= 0) ? BoneColour : RootBoneColour;
 		}
 
-		DrawBones(DrawBoneIndices, MeshComponent->GetReferenceSkeleton(), WorldTransforms, MeshComponent->BonesOfInterest, PDI, BoneColours);
+		DrawBones(DrawBoneIndices, MeshComponent->GetReferenceSkeleton(), WorldTransforms, MeshComponent->BonesOfInterest, PDI, BoneColours, MeshComponent->Bounds.SphereRadius);
 	}
 }
 
@@ -1167,7 +1159,7 @@ void FAnimationViewportClient::DrawBonesFromCompactPose(const FCompactHeapPose& 
 
 		if (MeshComponent && MeshComponent->SkeletalMesh)
 		{
-			DrawBones(MeshComponent->GetDrawBoneIndices(), MeshComponent->GetReferenceSkeleton(), WorldTransforms, MeshComponent->BonesOfInterest, PDI, BoneColours, 1.0f, true);
+			DrawBones(MeshComponent->GetDrawBoneIndices(), MeshComponent->GetReferenceSkeleton(), WorldTransforms, MeshComponent->BonesOfInterest, PDI, BoneColours, MeshComponent->Bounds.SphereRadius, 1.0f, true);
 		}
 
 	}
@@ -1261,11 +1253,11 @@ void FAnimationViewportClient::DrawMeshBones(UDebugSkelMeshComponent * MeshCompo
 			}
 		}
 
-		DrawBones(DrawBoneIndices, MeshComponent->GetReferenceSkeleton(), WorldTransforms, MeshComponent->BonesOfInterest, PDI, BoneColours);
+		DrawBones(DrawBoneIndices, MeshComponent->GetReferenceSkeleton(), WorldTransforms, MeshComponent->BonesOfInterest, PDI, BoneColours, MeshComponent->Bounds.SphereRadius);
 	}
 }
 
-void FAnimationViewportClient::DrawBones(const TArray<FBoneIndexType>& RequiredBones, const FReferenceSkeleton& RefSkeleton, const TArray<FTransform> & WorldTransforms, const TArray<int32>& InSelectedBones, FPrimitiveDrawInterface* PDI, const TArray<FLinearColor>& BoneColours, float LineThickness/*=0.f*/, bool bForceDraw/*=false*/) const
+void FAnimationViewportClient::DrawBones(const TArray<FBoneIndexType>& RequiredBones, const FReferenceSkeleton& RefSkeleton, const TArray<FTransform> & WorldTransforms, const TArray<int32>& InSelectedBones, FPrimitiveDrawInterface* PDI, const TArray<FLinearColor>& BoneColours, float BoundRadius, float LineThickness/*=0.f*/, bool bForceDraw/*=false*/) const
 {
 	TArray<int32> SelectedBones = InSelectedBones;
 	if(InSelectedBones.Num() > 0 && GetBoneDrawMode() == EBoneDrawMode::SelectedAndParents)
@@ -1282,6 +1274,8 @@ void FAnimationViewportClient::DrawBones(const TArray<FBoneIndexType>& RequiredB
 		}
 	}
 
+	// we may not want to axis to be too big, so clamp at 1 % of bound
+	const float MaxDrawRadius = BoundRadius * 0.01f;
 	// we could cache parent bones as we calculate, but right now I'm not worried about perf issue of this
 	for ( int32 Index=0; Index<RequiredBones.Num(); ++Index )
 	{
@@ -1308,10 +1302,11 @@ void FAnimationViewportClient::DrawBones(const TArray<FBoneIndexType>& RequiredB
 			}
 
 			const float BoneLength = (End - Start).Size();
-			const float AxisLength = FMath::Max(BoneLength * 0.1f, 1.f);
+			// clamp by bound, we don't want too long or big
+			const float Radius = FMath::Clamp(BoneLength * 0.05f, 0.1f, MaxDrawRadius);
 			//Render Sphere for bone end point and a cone between it and its parent.
 			PDI->SetHitProxy(new HPersonaBoneProxy(RefSkeleton.GetBoneName(BoneIndex)));
-			SkeletalDebugRendering::DrawWireBone(PDI, Start, End, LineColor, SDPG_Foreground, AxisLength);
+			SkeletalDebugRendering::DrawWireBone(PDI, Start, End, LineColor, SDPG_Foreground, Radius);
 			PDI->SetHitProxy(NULL);
 
 			// draw gizmo
@@ -1320,7 +1315,7 @@ void FAnimationViewportClient::DrawBones(const TArray<FBoneIndexType>& RequiredB
 				)
 			{
 				// we want to say 10 % of bone length is good
-				SkeletalDebugRendering::DrawAxes(PDI, WorldTransforms[BoneIndex], SDPG_Foreground, 0.f , AxisLength);
+				SkeletalDebugRendering::DrawAxes(PDI, WorldTransforms[BoneIndex], SDPG_Foreground, 0.f , Radius);
 			}
 		}
 	}
@@ -1387,7 +1382,7 @@ void FAnimationViewportClient::DrawMeshSubsetBones(const UDebugSkelMeshComponent
 			}
 		}
 
-		DrawBones(RequiredBones, MeshComponent->GetReferenceSkeleton(), WorldTransforms, MeshComponent->BonesOfInterest, PDI, BoneColours, 0.3f);
+		DrawBones(RequiredBones, MeshComponent->GetReferenceSkeleton(), WorldTransforms, MeshComponent->BonesOfInterest, PDI, BoneColours, MeshComponent->Bounds.SphereRadius, 0.3f);
 	}
 }
 
@@ -1906,6 +1901,12 @@ void FAnimationViewportClient::SetupViewForRendering( FSceneViewFamily& ViewFami
 void FAnimationViewportClient::HandleToggleShowFlag(FEngineShowFlags::EShowFlag EngineShowFlagIndex)
 {
 	FEditorViewportClient::HandleToggleShowFlag(EngineShowFlagIndex);
+	
+	if (UDebugSkelMeshComponent* Component = GetAnimPreviewScene()->GetPreviewMeshComponent())
+	{
+		Component->bDisplayVertexColors = EngineShowFlags.VertexColors;
+		Component->MarkRenderStateDirty();
+	}
 
 	ConfigOption->SetShowGrid(EngineShowFlags.Grid);
 }

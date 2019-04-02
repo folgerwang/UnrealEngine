@@ -1,52 +1,51 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3782314
 Availability: Docs
-Title: Visibility Culling Best Practices
+Title: 비저빌리티 컬링 모범 사례
 Crumbs: %ROOT%, Engine, 
-Description: Visibility Culling Strategies and Best Practices
+Description: 비저빌리티 컬링 모범 사례입니다.
 Version: 4.13
 
 [TOC(start:2 end:2)]
 
 
 
-Below are some good practices to follow when designing and working with visibility culling for your game. 
+게임의 비저빌리티 컬링 디자인 및 작업을 할 때 따르면 좋을 모범 사례는 다음과 같습니다. 
 
-## Large View Distances
+## 큰 뷰 디스턴스
 
-Large view distances can cause an impact on performance due to the number of Actors that need to be rendered. By blocking these large view distances with large occluders you can block Actors that would have been rendered otherwise.
-This can reduce the number of queries that need to be sent to the GPU by having fewer Actors to check. In turn, you get better performance by having fewer Actors to check and render.
+뷰 디스턴스가 크면 렌더링해야 하는 액터 수로 인해 퍼포먼스에 영향을 줄 수 있습니다. 커다란 오클루더로 뷰 디스턴스가 커지지 않도록 하면 액터를 쓸 데 없이 렌더링하지 않을 수 있습니다.
+검사할 액터 수를 줄여 GPU 로 보낼 쿼리 수를 줄일 수 있습니다. 차례로 검사 및 렌더링할 액터 수가 줄어 퍼포먼스가 향상됩니다.
 
-* Use large occluders where possible. 
-* Use Cull Distance Volumes to remove any smaller Actors that will not be easily visible at far distances, even if they are occluded from view.
-* Limit the amount of overdraw you get from Translucent Actors, since they will not occlude.
+* 가급적 큰 오클루더를 사용합니다. 
+* 컬 디스턴스 볼륨을 사용하여 뷰에 가려졌어도 원거리에서 잘 보이지 않는 작은 액터를 제거합니다.
+* 가리지 못하는 반투명 액터의 오버드로 수를 제한합니다.
 
-## "Popping" in/Lag from GPU Queries
+## 액터 GPU 쿼리로 인한 랙/갑툭튀 현상
 
-This is a common issue with using visibility culling for the view frustum and hardware occlusion queries since they are being read back from the GPU one frame later. This is often 
-noticeable when turning your player camera very fast or when you come around a corner in darkly lit areas that have a contrasting lit area behind them. 
+비저빌리티 컬링에 뷰 프러스텀 및 하드웨어 오클루전 쿼리를 사용할 때 한 프레임 후 GPU 에서 읽어 오기 때문에 발생하는 일반적인 이슈입니다. 플레이어 카메라를 매우 빨리 회전하거나, 
+플레이어가 라이팅이 어두운 코너를 도는 데 그 뒤의 라이팅이 대조적인 경우 흔히 발생합니다. 
 
-* Use other geometry to help hide this artifact. For something like caves or darkened areas with bright outsides use a large occluder mesh that can sit just outside of these pieces to hide the popping in and block the light that makes it evident.
-* Increase the Bounds Scale of the Actor that is causing the offending behavior. 
-* Build geometry in a way that does not have too many small pieces that need to be assembled. This is especially true for walls, floors, and ceilings.
+* 다른 지오메트리를 사용하면 이 부작용을 숨기는 데 도움이 됩니다. 동굴 등 바깥이 밝은 어두운 지역에는 커다란 오클루더 메시로 외부를 막아 pop in (갑자기 툭 튀어나오는, 갑툭튀) 현상을 막고 빛도 차단하여 명확히 드러나지 않도록 합니다.
+* 문제의 원인이 되는 액터의 바운드 스케일을 높입니다. 
+* 지오메트리를 만들 때 작은 조각을 너무 많이 조립하지 않습니다. 벽, 바닥, 천장이 특히 그렇습니다.
 
-## Asset Construction
+## 애셋 구성
 
-When creating geometry for your game it is a good idea to break your geometry up into modular pieces for design purposes and reusability. However, it is possible to modularize too much in the design 
-process by using pieces that are too small to make up larger geometry. Because of this, each actor will need to be have its visibility state checked. It's best to find a balance that makes sense
-for your game design and optimize for the best performance. Reducing the number of queries needed to check visibility is key for optimization and to help reduce the "Popping" in that can happen. 
+게임의 지오메트리를 생성할 때, 디자인 목적 및 재사용을 위해 지오메트리를 모듈식 조각으로 분해하는 것이 좋습니다. 하지만 디자인 프로세스에서 모듈화가 너무 심하게 하면 너무 작은 
+조각으로 큰 지오메트리를 만들 수가 있습니다. 그래서 각 액터는 가시성 상태 검사를 해야 합니다. 합리적인 게임 디자인과 최고의 퍼포먼스를 내는 최적화 사이 균형을 찾는 것이 가장 좋습니다. 
+가시성 검사에 필요한 쿼리 수를 줄이는 것이 최적화의 핵심이며 갑툭튀 현상을 줄일 수 있습니다. 
 
-* Use larger geometry when crafting your levels for structural surfaces rather than breaking it up into many smaller pieces. There is more impact on the GPU testing multiple smaller Actors than a single Actor.
-* "Popping" in of Actors is reduced when considering the construction of the mesh.
+* 레벨을 만들 때 구조적 표면에는 작은 조각으로 분해해서 조립하기 보다는 큰 지오메트리를 사용하세요. 하나의 액터가 아닌 작은 액터를 다수 테스트하면 GPU 에 영향이 큽니다.
+* 메시 구조를 고려하면 액터 갑툭튀 현상이 줄어듭니다.
 
 
-## Consider Occlusion vs Distance Culling Cost
+## 오클루전 vs 디스턴스 컬링 비용 고려
 
-Occlusion and visibility culling methods cost much more than distance culling since these require GPU queries, so it is a good idea to setup Cull Distance Volumes for distant stuff even if they will 
-be occluded by other Actors from a certain part of the scene.
+오클루전 및 비저빌리티 컬링 메서드는 디스턴스 컬링보다 비용이 훨씬 많이 드는데, GPU 쿼리가 필요하기 때문입니다. 즉 원거리 부분은 어차피 씬의 일정 부분에 가려진다 하더라도 
+컬 디스턴스 볼륨을 설정하는 것이 좋습니다.
 
-* Make good use of Cull Distance Volumes to reduce occlusion culling costs.
-* Stream out levels where possible instead of relying on distance or occlusion culling.
-* Use the `Stat Initviews` command to keep performance balance in check.
+* 컬 디스턴스 볼륨을 잘 활용하면 오클루전 컬링 비용을 줄일 수 있습니다.
+* 디스턴스 또는 오클루전 컬링에 의존하기 보다는 가급적 레벨 스트림 아웃이 좋습니다.
+* `Stat Initviews` 명령으로 퍼포먼스 균형을 유지하세요.
 
-For information about [Level Streaming](Engine/LevelStreaming) see how to set this up in this page.
-
+레벨 스트리밍 관련 정보는 [](Engine/LevelStreaming) 문서를 참고하세요.

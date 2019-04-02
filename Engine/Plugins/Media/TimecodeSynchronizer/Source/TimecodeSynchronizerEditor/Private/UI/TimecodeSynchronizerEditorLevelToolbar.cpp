@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "UI/TimecodeSynchronizerEditorLevelToolbar.h"
 
@@ -26,10 +26,10 @@
 
 FTimecodeSynchronizerEditorLevelToolbar::FTimecodeSynchronizerEditorLevelToolbar()
 {
-	CurrentTimecodeSynchronizer = GetDefault<UTimecodeSynchronizerEditorSettings>()->UserTimecodeSynchronizer.Get();
+	CurrentTimecodeSynchronizer = GetDefault<UTimecodeSynchronizerEditorSettings>()->UserTimecodeSynchronizer.LoadSynchronous();
 	if (CurrentTimecodeSynchronizer == nullptr)
 	{
-		CurrentTimecodeSynchronizer = GetDefault<UTimecodeSynchronizerProjectSettings>()->DefaultTimecodeSynchronizer.Get();
+		CurrentTimecodeSynchronizer = GetDefault<UTimecodeSynchronizerProjectSettings>()->DefaultTimecodeSynchronizer.LoadSynchronous();
 	}
 
 	ExtendLevelEditorToolbar();
@@ -70,24 +70,35 @@ void FTimecodeSynchronizerEditorLevelToolbar::FillToolbar(FToolBarBuilder& Toolb
 {
 	ToolbarBuilder.BeginSection("TimecodeSynchronizer");
 	{
-		// Add a button to open a TimecodeSynchronizer Editor
+		auto TooltipLambda = [this]()
+		{
+			if (!CurrentTimecodeSynchronizer.IsValid())
+			{
+				return LOCTEXT("EmptyTimecodeSynchronizer_ToolTip", "Select a Timecode Synchronizer to edit it.");
+			}
+			return FText::Format(LOCTEXT("TimecodeSynchronizer_ToolTip", "Edit '{0}'")
+				, FText::FromName(CurrentTimecodeSynchronizer->GetFName()));
+		};
+
+		// Add a button to edit the current timecode synchronizer
 		ToolbarBuilder.AddToolBarButton(
 			FUIAction(
 				FExecuteAction::CreateRaw(this, &FTimecodeSynchronizerEditorLevelToolbar::OpenCurrentTimecodeSynchronizer),
-				FCanExecuteAction::CreateLambda([this]() { return CurrentTimecodeSynchronizer.IsValid(); }),
-				FIsActionChecked::CreateLambda([this]() { return CurrentTimecodeSynchronizer.IsValid(); })
+				FCanExecuteAction::CreateLambda([this] { return CurrentTimecodeSynchronizer.IsValid(); }),
+				FIsActionChecked::CreateLambda([this] { return CurrentTimecodeSynchronizer.IsValid(); })
 			),
 			NAME_None,
-			MakeAttributeRaw(this, &FTimecodeSynchronizerEditorLevelToolbar::GetMenuLabel),
-			LOCTEXT("ToolbarButtonTooltip", "Edit the selected Timecode Provider."),
+			LOCTEXT("TimecodeSynch_Label", "Timecode Synchronizer"),
+			MakeAttributeLambda(TooltipLambda),
 			FSlateIcon(FTimecodeSynchronizerEditorStyle::GetStyleSetName(), TEXT("Console"))
 		);
 
+		// Add a simple drop-down menu (no label, no icon for the drop-down button itself) that list the timecode synchronizer available
 		ToolbarBuilder.AddComboButton(
 			FUIAction(),
 			FOnGetContent::CreateRaw(this, &FTimecodeSynchronizerEditorLevelToolbar::GenerateMenuContent),
-			LOCTEXT("TimecodeSynchronizerComboLabel", "Timecode Synchronizer Options"),
-			LOCTEXT("TimecodeSynchronizerComboToolTip", "Timecode Synchronizer options menu"),
+			FText::GetEmpty(),
+			LOCTEXT("TimecodeSynchButton_ToolTip", "List of Timecode Synchronizer available to the user for editing or creation."),
 			FSlateIcon(),
 			true
 		);
@@ -100,21 +111,30 @@ TSharedRef<SWidget> FTimecodeSynchronizerEditorLevelToolbar::GenerateMenuContent
 	const bool bShouldCloseWindowAfterMenuSelection = true;
 	FMenuBuilder MenuBuilder(bShouldCloseWindowAfterMenuSelection, nullptr);
 
-	MenuBuilder.BeginSection("TimecodeSynchronizer", LOCTEXT("TimecodeSynchronizerSection", "Timecode Synchronizer"));
+	MenuBuilder.BeginSection("TimecodeSynchronizer", LOCTEXT("NewTimecodeSynchronizerSection", "New"));
 	{
-		MenuBuilder.AddSubMenu(
-			LOCTEXT("SelectMenuLabel", "Select Synchronizer"),
-			LOCTEXT("SelectMenuTooltip", "Select the current timecode synchronizer for this editor."),
-			FNewMenuDelegate::CreateRaw(this, &FTimecodeSynchronizerEditorLevelToolbar::AddObjectSubMenu)
-		);
-
 		MenuBuilder.AddMenuEntry(
-			LOCTEXT("CreateMenuLabel", "Create New Timecode Synchronizer"),
+			LOCTEXT("CreateMenuLabel", "New Empty Timecode Synchronizer"),
 			LOCTEXT("CreateMenuTooltip", "Create a new Timecode Synchronizer asset."),
 			FSlateIcon(FTimecodeSynchronizerEditorStyle::GetStyleSetName(), TEXT("Console")),
 			FUIAction(
 				FExecuteAction::CreateRaw(this, &FTimecodeSynchronizerEditorLevelToolbar::CreateNewTimecodeSynchronizer)
 			)
+		);
+	}
+	MenuBuilder.EndSection();
+
+	MenuBuilder.BeginSection("TimecodeSynchronizer", LOCTEXT("TimecodeSynchronizerSection", "Timecode Synchronizer"));
+	{
+		const bool bIsTimecodeSynchronizerValid = CurrentTimecodeSynchronizer.IsValid();
+
+		MenuBuilder.AddSubMenu(
+			bIsTimecodeSynchronizerValid ? FText::FromName(CurrentTimecodeSynchronizer->GetFName()) : LOCTEXT("SelectMenuLabel", "Select a Timecode Synchronizer"),
+			LOCTEXT("SelectMenuTooltip", "Select the current timecode synchronizer for this editor."),
+			FNewMenuDelegate::CreateRaw(this, &FTimecodeSynchronizerEditorLevelToolbar::AddObjectSubMenu),
+			FUIAction(),
+			NAME_None,
+			EUserInterfaceActionType::RadioButton
 		);
 	}
 	MenuBuilder.EndSection();
@@ -131,8 +151,8 @@ void FTimecodeSynchronizerEditorLevelToolbar::AddObjectSubMenu(FMenuBuilder& Men
 
 	MenuBuilder.AddWidget(
 		PropertyCustomizationHelpers::MakeAssetPickerWithMenu(
-			FAssetData(),
-			true,
+			CurrentAssetData,
+			CurrentTimecodeSynchronizer.IsValid(),
 			false,
 			ClassFilters,
 			TArray<UFactory*>(),
@@ -144,11 +164,6 @@ void FTimecodeSynchronizerEditorLevelToolbar::AddObjectSubMenu(FMenuBuilder& Men
 		true,
 		false
 	);
-}
-
-FText FTimecodeSynchronizerEditorLevelToolbar::GetMenuLabel()
-{
-	return CurrentTimecodeSynchronizer.IsValid() ? FText::FromName(CurrentTimecodeSynchronizer.Get()->GetFName()) : LOCTEXT("NoTimecodeProvider", "[No asset selected]");
 }
 
 void FTimecodeSynchronizerEditorLevelToolbar::OpenCurrentTimecodeSynchronizer()

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "UpdateManager.h"
 #include "Misc/CommandLine.h"
@@ -76,8 +76,8 @@ UUpdateManager::UUpdateManager()
 	LastCompletionResult[0] = LastCompletionResult[1] = EUpdateCompletionStatus::UpdateUnknown;
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		UpdateStateEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EUpdateState"));
-		UpdateCompletionEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EUpdateCompletionStatus"));
+		UpdateStateEnum = StaticEnum<EUpdateState>();
+		UpdateCompletionEnum = StaticEnum<EUpdateCompletionStatus>();
 
 		RegisterDelegates();
 	}
@@ -369,9 +369,13 @@ inline bool SkipPatchCheck(UUpdateManager* UpdateManager)
 
 	// Prevent a patch check on editor builds 
 	const bool bSkipDueToEditor = UE_EDITOR;
+
+	// prevent a check when running unattended
+	const bool bSkipDueToUnattended = FApp::IsUnattended();
+
 	// Explicitly skipping the check
 	const bool bForceSkipCheck = FParse::Param(FCommandLine::Get(), TEXT("SkipPatchCheck"));
-	const bool bSkipPatchCheck = !bForcePatchCheck && (!bEnvironmentWantsPatchCheck || bSkipDueToEditor || bForceSkipCheck);
+	const bool bSkipPatchCheck = !bForcePatchCheck && (!bEnvironmentWantsPatchCheck || bSkipDueToEditor || bForceSkipCheck || bSkipDueToUnattended);
 
 	return bSkipPatchCheck;
 }

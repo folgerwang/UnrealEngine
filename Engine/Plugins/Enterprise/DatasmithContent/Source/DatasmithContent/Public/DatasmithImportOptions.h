@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -102,6 +102,14 @@ enum class EDatasmithImportHierarchy : uint8
 	UseOneBlueprint		UMETA(DisplayName = "Blueprint", ToolTip = "Create one root blueprint then one component for every node in the hierarchy of the model. Recommended to import CAD files."),
 };
 
+UENUM()
+enum class EDatasmithCADStitchingTechnique : uint8
+{
+	StitchingNone = 0,
+	StitchingHeal,
+	StitchingSew,
+};
+
 USTRUCT(BlueprintType)
 struct DATASMITHCONTENT_API FDatasmithAssetImportOptions
 {
@@ -186,22 +194,29 @@ struct DATASMITHCONTENT_API FDatasmithImportBaseOptions
 	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Process, meta = (DisplayName = "Cameras"))
 	bool bIncludeCamera;
 
+	/** Specifies whether or not to import animations */
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Process, meta = (DisplayName = "Animations"))
+	bool bIncludeAnimation;
+
 	UPROPERTY(BlueprintReadWrite, AdvancedDisplay, Category = Process, meta = (ShowOnlyInnerProperties))
 	FDatasmithAssetImportOptions AssetOptions;
 
 	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = Process, meta = (ShowOnlyInnerProperties))
 	FDatasmithStaticMeshImportOptions StaticMeshOptions;
+
+	bool CanIncludeAnimation() const { return bIncludeGeometry || bIncludeCamera || bIncludeLight; }
 };
 
 USTRUCT(BlueprintType)
 struct DATASMITHCONTENT_API FDatasmithTessellationOptions
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	FDatasmithTessellationOptions()
 		: ChordTolerance(0.2f)
 		, MaxEdgeLength(0.0f)
 		, NormalTolerance(20.0f)
+		, StitchingTechnique(EDatasmithCADStitchingTechnique::StitchingSew)
 	{
 
 	}
@@ -231,10 +246,22 @@ struct DATASMITHCONTENT_API FDatasmithTessellationOptions
 	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "Geometry & Tessellation Options", meta = (Units = deg, ToolTip = "Maximum angle between adjacent triangles. Smaller values make more triangles.", ClampMin = "0.0", ClampMax = "90.0"))
 	float NormalTolerance;
 
+
+	/**
+	 * Stitching technique applied on neighbouring surfaces before tessellation.
+	 * None : No stitching applied. This is the default.
+	 * Sewing : Connects surfaces which physically share a boundary but not topologically within a set of objects.
+	 *          This technique can modify the structure of the model by removing and adding objects.  
+	 * Healing : Connects surfaces which physically share a boundary but not topologically within an object.
+	 * The techniques are using the chord tolerance to determine if two surfaces should be stitched.
+	 */
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "Geometry & Tessellation Options", meta = (ToolTip = "Stitching technique applied on model before tessellation. Sewing could impact number of objects."))
+	EDatasmithCADStitchingTechnique StitchingTechnique;
+
 public:
 	bool operator == (const FDatasmithTessellationOptions& Other) const
 	{
-		return (FMath::IsNearlyEqual(ChordTolerance, Other.ChordTolerance) && FMath::IsNearlyEqual(MaxEdgeLength, Other.MaxEdgeLength) && FMath::IsNearlyEqual(NormalTolerance, Other.NormalTolerance));
+		return (FMath::IsNearlyEqual(ChordTolerance, Other.ChordTolerance) && FMath::IsNearlyEqual(MaxEdgeLength, Other.MaxEdgeLength) && FMath::IsNearlyEqual(NormalTolerance, Other.NormalTolerance) && StitchingTechnique == Other.StitchingTechnique);
 	}
 };
 
@@ -290,11 +317,21 @@ public:
 	FDatasmithReimportOptions ReimportOptions;
 
 	/** Name of the imported file without its path */
+	UPROPERTY(BlueprintReadWrite, Category = "NotVisible")
 	FString FileName;
+	
 	/** Full path of the imported file */
+	UPROPERTY(BlueprintReadWrite, Category = "NotVisible")
 	FString FilePath;
+	
 	/** Whether to use or not the same options when loading multiple files. Default false */
 	bool bUseSameOptions;
 
 	void UpdateNotDisplayedConfig( bool bIsAReimport );
+
+	//~ UObject interface
+#if WITH_EDITOR
+	virtual bool CanEditChange(const UProperty* InProperty) const override;
+#endif //WITH_EDITOR
+	//~ End UObject interface
 };

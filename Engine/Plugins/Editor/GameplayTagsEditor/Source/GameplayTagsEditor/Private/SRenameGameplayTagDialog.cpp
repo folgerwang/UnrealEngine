@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SRenameGameplayTagDialog.h"
 #include "GameplayTagsEditorModule.h"
@@ -172,8 +172,7 @@ FReply SRenameGameplayTagDialog::OnCancelClicked()
 
 void SRenameGameplayTagDialog::CloseContainingWindow()
 {
-	FWidgetPath WidgetPath;
-	TSharedPtr<SWindow> CurrentWindow = FSlateApplication::Get().FindWidgetWindow( AsShared(), WidgetPath );
+	TSharedPtr<SWindow> CurrentWindow = FSlateApplication::Get().FindWidgetWindow( AsShared() );
 
 	if (CurrentWindow.IsValid())
 	{

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Math/RandomStream.h"
@@ -1385,11 +1385,13 @@ void ApplyViewModeOverrides(
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
-	// If debug viewmodes are not allowed, skip all of the debug viewmode handling
+	// If debug viewmodes are not allowed, skip all of the debug viewmode handling.
 	if (!AllowDebugViewmodes())
 	{
 		return;
 	}
+
+	const bool bMaterialModifiesMeshPosition = Mesh.MaterialRenderProxy->GetMaterial(FeatureLevel)->MaterialModifiesMeshPosition_RenderThread();
 
 	if (EngineShowFlags.Wireframe)
 	{
@@ -1405,13 +1407,13 @@ void ApplyViewModeOverrides(
 			BaseColor = PrimitiveSceneProxy->GetLevelColor();
 		}
 
-		if (Mesh.MaterialRenderProxy->GetMaterial(FeatureLevel)->MaterialModifiesMeshPosition_RenderThread())
+		if (bMaterialModifiesMeshPosition)
 		{
-			// If the material is mesh-modifying, we cannot rely on substitution
+			// If the material is mesh-modifying, we cannot rely on substitution.
 			auto WireframeMaterialInstance = new FOverrideSelectionColorMaterialRenderProxy(
 				Mesh.MaterialRenderProxy,
-				GetSelectionColor( BaseColor, bSelected, Mesh.MaterialRenderProxy->IsHovered(), /*bUseOverlayIntensity=*/false)
-				);
+				GetSelectionColor(BaseColor, bSelected, PrimitiveSceneProxy->IsHovered(), /*bUseOverlayIntensity=*/false)
+			);
 
 			Mesh.bWireframe = true;
 			Mesh.MaterialRenderProxy = WireframeMaterialInstance;
@@ -1420,9 +1422,9 @@ void ApplyViewModeOverrides(
 		else
 		{
 			auto WireframeMaterialInstance = new FColoredMaterialRenderProxy(
-				GEngine->WireframeMaterial->GetRenderProxy(Mesh.MaterialRenderProxy->IsSelected(), Mesh.MaterialRenderProxy->IsHovered()),
-				GetSelectionColor( BaseColor, bSelected, Mesh.MaterialRenderProxy->IsHovered(), /*bUseOverlayIntensity=*/false)
-				);
+				GEngine->WireframeMaterial->GetRenderProxy(),
+				GetSelectionColor(BaseColor, bSelected, PrimitiveSceneProxy->IsHovered(), /*bUseOverlayIntensity=*/false)
+			);
 
 			Mesh.bWireframe = true;
 			Mesh.MaterialRenderProxy = WireframeMaterialInstance;
@@ -1433,14 +1435,14 @@ void ApplyViewModeOverrides(
 	{
 		if (!Mesh.IsTranslucent(FeatureLevel) && GEngine->LODColorationColors.Num()  > 0)
 		{
-			int32 lodColorationIndex =  FMath::Clamp((int32)Mesh.VisualizeLODIndex, 0, GEngine->LODColorationColors.Num() - 1);
+			int32 lodColorationIndex = FMath::Clamp((int32)Mesh.VisualizeLODIndex, 0, GEngine->LODColorationColors.Num() - 1);
 	
 			bool bLit = Mesh.MaterialRenderProxy->GetMaterial(FeatureLevel)->GetShadingModel() != MSM_Unlit;
 			const UMaterial* LODColorationMaterial = (bLit && EngineShowFlags.Lighting) ? GEngine->LevelColorationLitMaterial : GEngine->LevelColorationUnlitMaterial;
 
 			auto LODColorationMaterialInstance = new FColoredMaterialRenderProxy(
-				LODColorationMaterial->GetRenderProxy( Mesh.MaterialRenderProxy->IsSelected(), Mesh.MaterialRenderProxy->IsHovered() ),
-				GetSelectionColor(GEngine->LODColorationColors[lodColorationIndex], bSelected, Mesh.MaterialRenderProxy->IsHovered() )
+				LODColorationMaterial->GetRenderProxy(),
+				GetSelectionColor(GEngine->LODColorationColors[lodColorationIndex], bSelected, PrimitiveSceneProxy->IsHovered() )
 				);
 
 			Mesh.MaterialRenderProxy = LODColorationMaterialInstance;
@@ -1457,8 +1459,8 @@ void ApplyViewModeOverrides(
 			const UMaterial* HLODColorationMaterial = (bLit && EngineShowFlags.Lighting) ? GEngine->LevelColorationLitMaterial : GEngine->LevelColorationUnlitMaterial;
 
 			auto HLODColorationMaterialInstance = new FColoredMaterialRenderProxy(
-				HLODColorationMaterial->GetRenderProxy(Mesh.MaterialRenderProxy->IsSelected(), Mesh.MaterialRenderProxy->IsHovered()),
-				GetSelectionColor(GEngine->HLODColorationColors[hlodColorationIndex], bSelected, Mesh.MaterialRenderProxy->IsHovered())
+				HLODColorationMaterial->GetRenderProxy(),
+				GetSelectionColor(GEngine->HLODColorationColors[hlodColorationIndex], bSelected, PrimitiveSceneProxy->IsHovered())
 				);
 
 			Mesh.MaterialRenderProxy = HLODColorationMaterialInstance;
@@ -1491,9 +1493,20 @@ void ApplyViewModeOverrides(
 				}
 			}
 
-			if (bTextureMapped == false)
+			if (bMaterialModifiesMeshPosition)
 			{
-				FMaterialRenderProxy* RenderProxy = GEngine->LevelColorationLitMaterial->GetRenderProxy(Mesh.MaterialRenderProxy->IsSelected(),Mesh.MaterialRenderProxy->IsHovered());
+				// If the material is mesh-modifying, we cannot rely on substitution.
+				auto LightingOnlyMaterialInstance = new FOverrideSelectionColorMaterialRenderProxy(
+					Mesh.MaterialRenderProxy, 
+					GEngine->LightingOnlyBrightness
+				);
+
+				Mesh.MaterialRenderProxy = LightingOnlyMaterialInstance;
+				Collector.RegisterOneFrameMaterialProxy(LightingOnlyMaterialInstance);
+			}
+			else if (bTextureMapped == false)
+			{
+				FMaterialRenderProxy* RenderProxy = GEngine->LevelColorationLitMaterial->GetRenderProxy();
 				auto LightingOnlyMaterialInstance = new FColoredMaterialRenderProxy(
 					RenderProxy,
 					GEngine->LightingOnlyBrightness
@@ -1504,7 +1517,7 @@ void ApplyViewModeOverrides(
 			}
 			else
 			{
-				FMaterialRenderProxy* RenderProxy = GEngine->LightingTexelDensityMaterial->GetRenderProxy(Mesh.MaterialRenderProxy->IsSelected(),Mesh.MaterialRenderProxy->IsHovered());
+				FMaterialRenderProxy* RenderProxy = GEngine->LightingTexelDensityMaterial->GetRenderProxy();
 				auto LightingDensityMaterialInstance = new FLightingDensityMaterialRenderProxy(
 					RenderProxy,
 					GEngine->LightingOnlyBrightness,
@@ -1524,8 +1537,8 @@ void ApplyViewModeOverrides(
 			const UMaterial* PropertyColorationMaterial = EngineShowFlags.Lighting ? GEngine->LevelColorationLitMaterial : GEngine->LevelColorationUnlitMaterial;
 
 			auto PropertyColorationMaterialInstance = new FColoredMaterialRenderProxy(
-				PropertyColorationMaterial->GetRenderProxy(Mesh.MaterialRenderProxy->IsSelected(), Mesh.MaterialRenderProxy->IsHovered()),
-				GetSelectionColor(PrimitiveSceneProxy->GetPropertyColor(),bSelected,Mesh.MaterialRenderProxy->IsHovered())
+				PropertyColorationMaterial->GetRenderProxy(),
+				GetSelectionColor(PrimitiveSceneProxy->GetPropertyColor(),bSelected,PrimitiveSceneProxy->IsHovered())
 				);
 
 			Mesh.MaterialRenderProxy = PropertyColorationMaterialInstance;
@@ -1536,8 +1549,8 @@ void ApplyViewModeOverrides(
 			const UMaterial* LevelColorationMaterial = EngineShowFlags.Lighting ? GEngine->LevelColorationLitMaterial : GEngine->LevelColorationUnlitMaterial;
 			// Draw the mesh with level coloration.
 			auto LevelColorationMaterialInstance = new FColoredMaterialRenderProxy(
-				LevelColorationMaterial->GetRenderProxy(Mesh.MaterialRenderProxy->IsSelected(), Mesh.MaterialRenderProxy->IsHovered()),
-				GetSelectionColor(PrimitiveSceneProxy->GetLevelColor(),bSelected,Mesh.MaterialRenderProxy->IsHovered())
+				LevelColorationMaterial->GetRenderProxy(),
+				GetSelectionColor(PrimitiveSceneProxy->GetLevelColor(),bSelected,PrimitiveSceneProxy->IsHovered())
 				);
 			Mesh.MaterialRenderProxy = LevelColorationMaterialInstance;
 			Collector.RegisterOneFrameMaterialProxy(LevelColorationMaterialInstance);
@@ -1558,8 +1571,8 @@ void ApplyViewModeOverrides(
 			
 			// Draw BSP mesh with unique color for each model component.
 			auto BSPSplitMaterialInstance = new FColoredMaterialRenderProxy(
-				BSPSplitMaterial->GetRenderProxy(Mesh.MaterialRenderProxy->IsSelected(), Mesh.MaterialRenderProxy->IsHovered()),
-				GetSelectionColor(BSPSplitColor,bSelected,Mesh.MaterialRenderProxy->IsHovered())
+				BSPSplitMaterial->GetRenderProxy(),
+				GetSelectionColor(BSPSplitColor,bSelected,PrimitiveSceneProxy->IsHovered())
 				);
 			Mesh.MaterialRenderProxy = BSPSplitMaterialInstance;
 			Collector.RegisterOneFrameMaterialProxy(BSPSplitMaterialInstance);
@@ -1567,8 +1580,8 @@ void ApplyViewModeOverrides(
 		else if (PrimitiveSceneProxy->HasStaticLighting() && !PrimitiveSceneProxy->HasValidSettingsForStaticLighting())
 		{
 			auto InvalidSettingsMaterialInstance = new FColoredMaterialRenderProxy(
-				GEngine->InvalidLightmapSettingsMaterial->GetRenderProxy(bSelected),
-				GetSelectionColor(PrimitiveSceneProxy->GetLevelColor(),bSelected,Mesh.MaterialRenderProxy->IsHovered())
+				GEngine->InvalidLightmapSettingsMaterial->GetRenderProxy(),
+				GetSelectionColor(PrimitiveSceneProxy->GetLevelColor(),bSelected,PrimitiveSceneProxy->IsHovered())
 				);
 			Mesh.MaterialRenderProxy = InvalidSettingsMaterialInstance;
 			Collector.RegisterOneFrameMaterialProxy(InvalidSettingsMaterialInstance);
@@ -1582,32 +1595,35 @@ void ApplyViewModeOverrides(
 			// Avoid infinite recursion
 			MeshEdgeElement.bCanApplyViewModeOverrides = false;
 
+			
 			// Draw the mesh's edges in blue, on top of the base geometry.
-			if (MeshEdgeElement.MaterialRenderProxy->GetMaterial(FeatureLevel)->MaterialModifiesMeshPosition_RenderThread())
+			if (bMaterialModifiesMeshPosition)
 			{
 				// If the material is mesh-modifying, we cannot rely on substitution
 				auto WireframeMaterialInstance = new FOverrideSelectionColorMaterialRenderProxy(
 					MeshEdgeElement.MaterialRenderProxy,
 					PrimitiveSceneProxy->GetWireframeColor()
-					);
+				);
 
 				MeshEdgeElement.bWireframe = true;
 				MeshEdgeElement.MaterialRenderProxy = WireframeMaterialInstance;
 				Collector.RegisterOneFrameMaterialProxy(WireframeMaterialInstance);
+
+				Collector.AddMesh(ViewIndex, MeshEdgeElement);
 			}
 			else
 			{
 				auto WireframeMaterialInstance = new FColoredMaterialRenderProxy(
-					GEngine->WireframeMaterial->GetRenderProxy(MeshEdgeElement.MaterialRenderProxy->IsSelected(), MeshEdgeElement.MaterialRenderProxy->IsHovered()),
+					GEngine->WireframeMaterial->GetRenderProxy(),
 					PrimitiveSceneProxy->GetWireframeColor()
-					);
+				);
 
 				MeshEdgeElement.bWireframe = true;
 				MeshEdgeElement.MaterialRenderProxy = WireframeMaterialInstance;
 				Collector.RegisterOneFrameMaterialProxy(WireframeMaterialInstance);
-			}
 
-			Collector.AddMesh(ViewIndex, MeshEdgeElement);
+				Collector.AddMesh(ViewIndex, MeshEdgeElement);
+			}
 		}
 	}
 #endif

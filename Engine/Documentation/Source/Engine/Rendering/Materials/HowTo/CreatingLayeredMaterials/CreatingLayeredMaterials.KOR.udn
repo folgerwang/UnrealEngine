@@ -48,7 +48,7 @@ topic-image:layered_tutorial_topic.png
 
 	![](EditLayerChrome.png)
 
-1. 머티리얼 그래프 영역에 우클릭하여 맥락 메뉴를 띄운 뒤, **Make** 를 검색한 다음 **Make Material Attributes** 를 선택합니다.
+1. 머티리얼 그래프 영역에 우클릭하여 컨텍스트 메뉴를 띄운 뒤, **Make** 를 검색한 다음 **Make Material Attributes** 를 선택합니다.
 
 	![](MakeMaterialAttributesContext.png)
 
@@ -102,7 +102,7 @@ topic-image:layered_tutorial_topic.png
 
 	![](EditLayerChrome.png)(w:600)
 
-1. 머티리얼 그래프 영역에 우클릭하여 맥락 메뉴를 띄운 다음, **Make** 를 검색하고 **Make Material Attributes** 를 선택합니다.
+1. 머티리얼 그래프 영역에 우클릭하여 컨텍스트 메뉴를 띄운 다음, **Make** 를 검색하고 **Make Material Attributes** 를 선택합니다.
 
 	![](MakeMaterialAttributesContext.png)
 
@@ -138,7 +138,7 @@ topic-image:layered_tutorial_topic.png
 
 이제 지금까지 만든 레이어를 사용하여 레이어드 머티리얼을 만들 수 있습니다. 항상 표면 위에 눈이 보이도록 인스턴스 커스터마이제이션 여지를 약간 남겨둔 채 셋업하도록 하겠습니다.
 
-1. 콘텐츠 브라우저에서, **신규 추가** 버튼을 클릭한 다음 맥락 메뉴에서 머티리얼을 선택합니다.
+1. 콘텐츠 브라우저에서, **신규 추가** 버튼을 클릭한 다음 컨텍스트 메뉴에서 머티리얼을 선택합니다.
 
 	![](NewMaterialContextMenu.png)
 

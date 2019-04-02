@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved..
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved..
 
 /*=============================================================================
 	VulkanDevice.h: Private Vulkan RHI definitions.
@@ -8,6 +8,7 @@
 
 #include "VulkanMemory.h"
 
+class FVulkanDescriptorSetCache;
 class FVulkanDescriptorPool;
 class FVulkanDescriptorPoolsManager;
 class FVulkanCommandListContextImmediate;
@@ -21,7 +22,7 @@ struct FOptionalVulkanDeviceExtensions
 {
 	uint32 HasKHRMaintenance1 : 1;
 	uint32 HasKHRMaintenance2 : 1;
-	uint32 HasMirrorClampToEdge : 1;
+	//uint32 HasMirrorClampToEdge : 1;
 	uint32 HasKHRExternalMemoryCapabilities : 1;
 	uint32 HasKHRGetPhysicalDeviceProperties2 : 1;
 	uint32 HasKHRDedicatedAllocation : 1;
@@ -142,7 +143,8 @@ public:
 		return TimestampValidBitsMask;
 	}
 
-	bool IsFormatSupported(VkFormat Format) const;
+	bool IsTextureFormatSupported(VkFormat Format) const;
+	bool IsBufferFormatSupported(VkFormat Format) const;
 
 	const VkComponentMapping& GetFormatComponentMapping(EPixelFormat UEFormat) const;
 
@@ -151,14 +153,14 @@ public:
 		return Device;
 	}
 
-	inline VkSampler GetDefaultSampler() const
+	inline const FVulkanSamplerState& GetDefaultSampler() const
 	{
-		return DefaultSampler->Sampler;
+		return *DefaultSampler;
 	}
 
-	inline VkImageView GetDefaultImageView() const
+	inline const FVulkanTextureView& GetDefaultImageView() const
 	{
-		return DefaultImageView;
+		return DefaultTextureView;
 	}
 
 	inline const VkFormatProperties* GetFormatProperties() const
@@ -169,6 +171,11 @@ public:
 	inline VulkanRHI::FDeviceMemoryManager& GetMemoryManager()
 	{
 		return MemoryManager;
+	}
+
+	inline const VkPhysicalDeviceMemoryProperties& GetDeviceMemoryProperties() const
+	{
+		return MemoryManager.GetMemoryProperties();
 	}
 
 	inline VulkanRHI::FResourceHeapManager& GetResourceHeapManager()
@@ -189,6 +196,11 @@ public:
 	inline VulkanRHI::FFenceManager& GetFenceManager()
 	{
 		return FenceManager;
+	}
+
+	inline FVulkanDescriptorSetCache& GetDescriptorSetCache()
+	{
+		return *DescriptorSetCache;
 	}
 
 	inline FVulkanDescriptorPoolsManager& GetDescriptorPoolsManager()
@@ -256,6 +268,7 @@ public:
 	void SubmitCommandsAndFlushGPU();
 
 	FVulkanOcclusionQueryPool* AcquireOcclusionQueryPool(uint32 NumQueries);
+	void ReleaseUnusedOcclusionQueryPools();
 
 	inline class FVulkanPipelineStateCacheManager* GetPipelineStateCache()
 	{
@@ -291,8 +304,11 @@ public:
 	VkSamplerYcbcrConversion CreateSamplerColorConversion(const VkSamplerYcbcrConversionCreateInfo& CreateInfo);
 #endif
 
+	void*	Hotfix;
+
 private:
 	void MapFormatSupport(EPixelFormat UEFormat, VkFormat VulkanFormat);
+	void MapFormatSupportWithFallback(EPixelFormat UEFormat, VkFormat VulkanFormat, TArrayView<const VkFormat> FallbackTextureFormats);
 	void MapFormatSupport(EPixelFormat UEFormat, VkFormat VulkanFormat, int32 BlockBytes);
 	void SetComponentMapping(EPixelFormat UEFormat, VkComponentSwizzle r, VkComponentSwizzle g, VkComponentSwizzle b, VkComponentSwizzle a);
 
@@ -311,13 +327,16 @@ private:
 
 	VulkanRHI::FFenceManager FenceManager;
 
+	// Active on ES3.1
+	FVulkanDescriptorSetCache* DescriptorSetCache = nullptr;
+	// Active on >= SM4
 	FVulkanDescriptorPoolsManager* DescriptorPoolsManager = nullptr;
 
 	FVulkanShaderFactory ShaderFactory;
 
 	FVulkanSamplerState* DefaultSampler;
 	FVulkanSurface* DefaultImage;
-	VkImageView DefaultImageView;
+	FVulkanTextureView DefaultTextureView;
 
 	VkPhysicalDevice Gpu;
 	VkPhysicalDeviceProperties GpuProps;

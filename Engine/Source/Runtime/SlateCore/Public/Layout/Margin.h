@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -155,6 +155,16 @@ public:
 	}
 
 public:
+
+	/**
+	 * Gets the offset for the top left.
+	 *
+	 * @return The top left offset.
+	 */
+	FVector2D GetTopLeft() const
+	{
+		return FVector2D(Left, Top);
+	}
 
 	/**
 	 * Gets the margin's total size.

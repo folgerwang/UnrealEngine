@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "DestructibleMeshEditor.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
@@ -43,8 +43,6 @@ void FDestructibleMeshEditorCommands::RegisterCommands()
 FDestructibleMeshEditor::~FDestructibleMeshEditor()
 {
 	FReimportManager::Instance()->OnPostReimport().RemoveAll(this);
-
-	GEditor->OnObjectReimported().RemoveAll(this);
 }
 
 void FDestructibleMeshEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)

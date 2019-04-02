@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -147,6 +147,10 @@ public:
 	/** Integer pin type color */
 	UPROPERTY(EditAnywhere, config, Category=PinColors)
 	FLinearColor IntPinTypeColor;
+
+	/** Integer64 pin type color */
+	UPROPERTY(EditAnywhere, config, Category = PinColors)
+	FLinearColor Int64PinTypeColor;
 
 	/** Floating-point pin type color */
 	UPROPERTY(EditAnywhere, config, Category=PinColors)

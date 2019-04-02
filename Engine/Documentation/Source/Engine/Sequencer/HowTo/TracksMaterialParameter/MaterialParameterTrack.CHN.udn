@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3478222
-Availability:Docs
+﻿INTSourceChangelist:3683933
+Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
 Title:为材质参数集（Material Parameter Collections）设置动画
 Description:说明如何在 Sequencer 中更新材质参数集。 
@@ -15,6 +15,7 @@ topic-image:EndResult.png
 Related:Engine/Rendering/Materials/ParameterCollections
 Related:Engine/Rendering/Materials
 Related:Engine/Sequencer/Overview
+type:how-to
 
 **Sequencer** 提供了一个名为 **Material Parameter Collection** 的特殊轨迹，用于使用 [](Engine/Rendering/Materials/ParameterCollections) 并对其设置动画。需要更新数个 **材质** 时它十分实用，因为无需在每个材质实例上对每个参数值设置动画（以便共享动画更新）。 
 
@@ -22,6 +23,7 @@ Related:Engine/Sequencer/Overview
 
 ![](EndResult.png)
 
+(#Steps)
 ## 步骤
 
 [REGION:note]
@@ -110,6 +112,7 @@ Related:Engine/Sequencer/Overview
 
 1.	在主编辑器工具栏中，点击 **Play** 按钮在编辑器中进行游戏。 
 
+(#EndResult)
 ## 最终结果
 
 在关卡中进行游戏时，玩家周围的环境将从灰色变至紫色并溶解，然后重回正常，并重复此过程。

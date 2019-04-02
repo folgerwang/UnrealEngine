@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PointLightComponent.cpp: PointLightComponent implementation.
@@ -27,6 +27,17 @@ void ULocalLightComponent::SetAttenuationRadius(float NewRadius)
 	{
 		AttenuationRadius = NewRadius;
 		PushRadiusToRenderThread();
+	}
+}
+
+void ULocalLightComponent::SetIntensityUnits(ELightUnits NewIntensityUnits)
+{
+	if (AreDynamicDataChangesAllowed()
+		&& IntensityUnits != NewIntensityUnits)
+	{
+		IntensityUnits = NewIntensityUnits;
+
+		UpdateColorAndBrightness();
 	}
 }
 

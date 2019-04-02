@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LinuxTargetSettingsDetails.h"
 #include "Misc/Paths.h"
@@ -46,7 +46,7 @@ namespace LinuxTargetSettingsDetailsConstants
 	const FText DisabledTip = LOCTEXT("GitHubSourceRequiredToolTip", "This requires GitHub source.");
 }
 
-static FText GetFriendlyNameFromRHIName(const FString& InRHIName)
+static FText GetFriendlyNameFromLinuxRHIName(const FString& InRHIName)
 {
 	FText FriendlyRHIName = LOCTEXT("UnknownRHI", "UnknownRHI");
 	if (InRHIName == TEXT("GLSL_150"))
@@ -87,7 +87,7 @@ TSharedRef<IDetailCustomization> FLinuxTargetSettingsDetails::MakeInstance()
 	return MakeShareable(new FLinuxTargetSettingsDetails);
 }
 
-namespace EImageScope
+namespace ELinuxImageScope
 {
 	enum Type
 	{
@@ -97,11 +97,11 @@ namespace EImageScope
 }
 
 /* Helper function used to generate filenames for splash screens */
-static FString GetSplashFilename(EImageScope::Type Scope, bool bIsEditorSplash)
+static FString GetLinuxSplashFilename(ELinuxImageScope::Type Scope, bool bIsEditorSplash)
 {
 	FString Filename;
 
-	if (Scope == EImageScope::Engine)
+	if (Scope == ELinuxImageScope::Engine)
 	{
 		Filename = FPaths::EngineContentDir();
 	}
@@ -125,11 +125,11 @@ static FString GetSplashFilename(EImageScope::Type Scope, bool bIsEditorSplash)
 }
 
 /* Helper function used to generate filenames for icons */
-static FString GetIconFilename(EImageScope::Type Scope)
+static FString GetLinuxIconFilename(ELinuxImageScope::Type Scope)
 {
 	const FString& PlatformName = FModuleManager::GetModuleChecked<ITargetPlatformModule>("LinuxTargetPlatform").GetTargetPlatforms()[0]->PlatformName();
 
-	if (Scope == EImageScope::Engine)
+	if (Scope == ELinuxImageScope::Engine)
 	{
 		FString Filename = FPaths::EngineDir() / FString(TEXT("Source/Runtime/Launch/Resources")) / PlatformName / FString("UE4.png");
 		return FPaths::ConvertRelativePathToFull(Filename);
@@ -152,16 +152,17 @@ static FString GetIconFilename(EImageScope::Type Scope)
 void FLinuxTargetSettingsDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder )
 {
 	// Setup the supported/targeted RHI property view
-	TargetShaderFormatsDetails = MakeShareable(new FLinuxTargetShaderFormatsPropertyDetails(&DetailBuilder));
-	TargetShaderFormatsDetails->CreateTargetShaderFormatsPropertyView();
+	ITargetPlatform* TargetPlatform = FModuleManager::GetModuleChecked<ITargetPlatformModule>("LinuxTargetPlatform").GetTargetPlatforms()[0];
+	TargetShaderFormatsDetails = MakeShareable(new FShaderFormatsPropertyDetails(&DetailBuilder));
+	TargetShaderFormatsDetails->CreateTargetShaderFormatsPropertyView(TargetPlatform, GetFriendlyNameFromLinuxRHIName);
 
 	// Next add the splash image customization
 	const FText EditorSplashDesc(LOCTEXT("EditorSplashLabel", "Editor Splash"));
 	IDetailCategoryBuilder& SplashCategoryBuilder = DetailBuilder.EditCategory(TEXT("Splash"));
 	FDetailWidgetRow& EditorSplashWidgetRow = SplashCategoryBuilder.AddCustomRow(EditorSplashDesc);
 
-	const FString EditorSplash_TargetImagePath = GetSplashFilename(EImageScope::GameOverride, true);
-	const FString EditorSplash_DefaultImagePath = GetSplashFilename(EImageScope::Engine, true);
+	const FString EditorSplash_TargetImagePath = GetLinuxSplashFilename(ELinuxImageScope::GameOverride, true);
+	const FString EditorSplash_DefaultImagePath = GetLinuxSplashFilename(ELinuxImageScope::Engine, true);
 
 	TArray<FString> ImageExtensions;
 	ImageExtensions.Add(TEXT("png"));
@@ -202,8 +203,8 @@ void FLinuxTargetSettingsDetails::CustomizeDetails( IDetailLayoutBuilder& Detail
 
 	const FText GameSplashDesc(LOCTEXT("GameSplashLabel", "Game Splash"));
 	FDetailWidgetRow& GameSplashWidgetRow = SplashCategoryBuilder.AddCustomRow(GameSplashDesc);
-	const FString GameSplash_TargetImagePath = GetSplashFilename(EImageScope::GameOverride, false);
-	const FString GameSplash_DefaultImagePath = GetSplashFilename(EImageScope::Engine, false);
+	const FString GameSplash_TargetImagePath = GetLinuxSplashFilename(ELinuxImageScope::GameOverride, false);
+	const FString GameSplash_DefaultImagePath = GetLinuxSplashFilename(ELinuxImageScope::Engine, false);
 
 	GameSplashWidgetRow
 	.NameContent()
@@ -261,7 +262,7 @@ void FLinuxTargetSettingsDetails::CustomizeDetails( IDetailLayoutBuilder& Detail
 		.FillWidth(1.0f)
 		.VAlign(VAlign_Center)
 		[
-			SNew(SExternalImageReference, GetIconFilename(EImageScope::Engine), GetIconFilename(EImageScope::GameOverride))
+			SNew(SExternalImageReference, GetLinuxIconFilename(ELinuxImageScope::Engine), GetLinuxIconFilename(ELinuxImageScope::GameOverride))
 			.FileDescription(GameSplashDesc)
 			.OnPreExternalImageCopy(FOnPreExternalImageCopy::CreateSP(this, &FLinuxTargetSettingsDetails::HandlePreExternalIconCopy))
 			.OnGetPickerPath(FOnGetPickerPath::CreateSP(this, &FLinuxTargetSettingsDetails::GetPickerPath))
@@ -401,96 +402,5 @@ TSharedRef<SWidget> FLinuxTargetSettingsDetails::MakeAudioDeviceMenu(const TShar
 
 	return MenuBuilder.MakeWidget();
 }
-
-FLinuxTargetShaderFormatsPropertyDetails::FLinuxTargetShaderFormatsPropertyDetails(IDetailLayoutBuilder* InDetailBuilder)
-: DetailBuilder(InDetailBuilder)
-{
-	TargetShaderFormatsPropertyHandle = DetailBuilder->GetProperty("TargetedRHIs");
-	ensure(TargetShaderFormatsPropertyHandle.IsValid());
-}
-
-void FLinuxTargetShaderFormatsPropertyDetails::CreateTargetShaderFormatsPropertyView()
-{
-	DetailBuilder->HideProperty(TargetShaderFormatsPropertyHandle);
-
-	// List of supported RHI's and selected targets
-	ITargetPlatform* LinuxTargetPlatform = FModuleManager::GetModuleChecked<ITargetPlatformModule>("LinuxTargetPlatform").GetTargetPlatforms()[0];
-	TArray<FName> ShaderFormats;
-	LinuxTargetPlatform->GetAllPossibleShaderFormats(ShaderFormats);
-
-	IDetailCategoryBuilder& TargetedRHICategoryBuilder = DetailBuilder->EditCategory(TEXT("Targeted RHIs"));
-
-	for (const FName& ShaderFormat : ShaderFormats)
-	{
-		FText FriendlyShaderFormatName = GetFriendlyNameFromRHIName(ShaderFormat.ToString());
-
-		FDetailWidgetRow& TargetedRHIWidgetRow = TargetedRHICategoryBuilder.AddCustomRow(FriendlyShaderFormatName);
-
-		TargetedRHIWidgetRow
-		.NameContent()
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.Padding(FMargin(0, 1, 0, 1))
-			.FillWidth(1.0f)
-			[
-				SNew(STextBlock)
-				.Text(FriendlyShaderFormatName)
-				.Font(DetailBuilder->GetDetailFont())
-			]
-		]
-		.ValueContent()
-		[
-			SNew(SCheckBox)
-			.OnCheckStateChanged(this, &FLinuxTargetShaderFormatsPropertyDetails::OnTargetedRHIChanged, ShaderFormat)
-			.IsChecked(this, &FLinuxTargetShaderFormatsPropertyDetails::IsTargetedRHIChecked, ShaderFormat)
-		];
-	}
-}
-
-
-void FLinuxTargetShaderFormatsPropertyDetails::OnTargetedRHIChanged(ECheckBoxState InNewValue, FName InRHIName)
-{
-	TArray<void*> RawPtrs;
-	TargetShaderFormatsPropertyHandle->AccessRawData(RawPtrs);
-
-	// Update the CVars with the selection
-	{
-		TargetShaderFormatsPropertyHandle->NotifyPreChange();
-		for (void* RawPtr : RawPtrs)
-		{
-			TArray<FString>& Array = *(TArray<FString>*)RawPtr;
-			if(InNewValue == ECheckBoxState::Checked)
-			{
-				Array.Add(InRHIName.ToString());
-			}
-			else
-			{
-				Array.Remove(InRHIName.ToString());
-			}
-		}
-		TargetShaderFormatsPropertyHandle->NotifyPostChange();
-	}
-}
-
-
-ECheckBoxState FLinuxTargetShaderFormatsPropertyDetails::IsTargetedRHIChecked(FName InRHIName) const
-{
-	ECheckBoxState CheckState = ECheckBoxState::Unchecked;
-
-	TArray<void*> RawPtrs;
-	TargetShaderFormatsPropertyHandle->AccessRawData(RawPtrs);
-	
-	for(void* RawPtr : RawPtrs)
-	{
-		TArray<FString>& Array = *(TArray<FString>*)RawPtr;
-		if(Array.Contains(InRHIName.ToString()))
-		{
-			CheckState = ECheckBoxState::Checked;
-		}
-	}
-	return CheckState;
-}
-
 
 #undef LOCTEXT_NAMESPACE

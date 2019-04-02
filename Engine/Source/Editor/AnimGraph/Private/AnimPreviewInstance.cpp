@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "AnimPreviewInstance.h"
@@ -144,6 +144,11 @@ void FAnimPreviewInstanceProxy::PreUpdate(UAnimInstance* InAnimInstance, float D
 {
 	FAnimSingleNodeInstanceProxy::PreUpdate(InAnimInstance, DeltaSeconds);
 
+	if (CopyPoseNode.SourceMeshComponent.IsValid())
+	{
+		CopyPoseNode.PreUpdate(InAnimInstance);
+	}
+
 	if (!bForceRetargetBasePose)
 	{
 		CurveSource.PreUpdate(InAnimInstance);
@@ -218,7 +223,7 @@ bool FAnimPreviewInstanceProxy::Evaluate(FPoseContext& Output)
 					ApplyBoneControllers(BoneControllers, ComponentSpacePoseContext);
 
 					// convert back to local @todo check this
-					ComponentSpacePoseContext.Pose.ConvertToLocalPoses(Output.Pose);
+					FCSPose<FCompactPose>::ConvertComponentPosesToLocalPoses(ComponentSpacePoseContext.Pose, Output.Pose);
 
 					if(bSetKey)
 					{

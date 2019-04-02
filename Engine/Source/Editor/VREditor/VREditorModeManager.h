@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,6 +7,7 @@
 #include "UObject/GCObject.h"
 #include "TickableEditorObject.h"
 #include "HeadMountedDisplayTypes.h"
+#include "IVREditorModule.h"
 
 class UVREditorMode;
 enum class EMapChangeType : uint8;
@@ -52,7 +53,19 @@ public:
 	virtual void AddReferencedObjects( FReferenceCollector& Collector );
 	// End FGCObject
 
+	/** Return a multicast delegate which is executed when VR mode starts. */
+	FOnVREditingModeEnter& OnVREditingModeEnter() { return OnVREditingModeEnterHandle;  }
+
+	/** Return a multicast delegate which is executed when VR mode stops. */
+	FOnVREditingModeExit& OnVREditingModeExit() { return OnVREditingModeExitHandle; }
+
 private:
+
+	/** Broadcasts when VR mode is started */
+	FOnVREditingModeEnter OnVREditingModeEnterHandle;
+
+	/** Broadcasts when VR mode is stopped */
+	FOnVREditingModeExit OnVREditingModeExitHandle;
 
 	/** Saves the WorldToMeters and enters the mode belonging to GWorld */
 	void StartVREditorMode( const bool bForceWithoutHMD );

@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2690146
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:材质函数表达式
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/ExpressionReference
 Description:用来创建或执行材质函数的表达式。
 Version:4.9
+tags:Materials
 
 [EXCERPT:TOC]
 [TOC(start:2)]

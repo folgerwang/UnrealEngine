@@ -1,19 +1,22 @@
-﻿INTSourceChangelist:2730073
+﻿INTSourceChangelist:3242329
 Availability:Public
 title:矢量操作
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
 Description:这些函数用来处理矢量数学运算，例如计算菲涅耳效果。
 Version:4.9
+tags:Materials
 
 [TOC (start:2 end:3)]
 
 “矢量操作”类别包含用于应用各种基于矢量的数学方程式的特殊函数。
 
+(#VectorOpsFunctions)
 ## 矢量操作函数
 
 以下是“矢量操作”类别下所有函数的列表。
 
-## Fresnel（菲涅尔）
+(#Fresnel)
+### Fresnel（菲涅尔）
 
 与普通的 Fresnel（菲涅尔）表达式节点不同，Fresnel（菲涅尔）函数允许您指定自己的一组用于计算方程式的矢量以及对混合进行其他调整。
 

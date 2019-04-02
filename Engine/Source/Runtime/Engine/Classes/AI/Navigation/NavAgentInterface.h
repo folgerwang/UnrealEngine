@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -56,13 +56,13 @@ class INavAgentInterface
 	//----------------------------------------------------------------------//
 	// DEPRECATED
 	//----------------------------------------------------------------------//
-	DEPRECATED_FORGAME(4.13, "This function is now deprecated and will not be called, please use override with const Actor pointer.")
+	UE_DEPRECATED_FORGAME(4.13, "This function is now deprecated and will not be called, please use override with const Actor pointer.")
 	virtual FVector GetMoveGoalOffset(AActor* MovingActor) const
 	{
 		return GetMoveGoalOffset((const AActor*)MovingActor);
 	}
 
-	DEPRECATED_FORGAME(4.13, "This function is now deprecatedand will not be called, please use override with const Actor pointer.")
+	UE_DEPRECATED_FORGAME(4.13, "This function is now deprecatedand will not be called, please use override with const Actor pointer.")
 	virtual void GetMoveGoalReachTest(AActor* MovingActor, const FVector& MoveOffset, FVector& GoalOffset, float& GoalRadius, float& GoalHalfHeight) const 
 	{
 		GetMoveGoalReachTest((const AActor*)MovingActor, MoveOffset, GoalOffset, GoalRadius, GoalHalfHeight);

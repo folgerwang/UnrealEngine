@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -296,6 +296,27 @@ struct ENGINE_API FCompressedOffsetData
 	}
 };
 
+// Param structure for UAnimSequence::RequestAnimCompressionParams
+struct ENGINE_API FRequestAnimCompressionParams
+{
+	// Is the compression to be performed Async
+	bool bAsyncCompression;
+
+	// Should we attempt to do framestripping (removing every other frame from raw animation tracks)
+	bool bPerformFrameStripping;
+
+	// Compression context
+	TSharedPtr<FAnimCompressContext> CompressContext;
+
+	// Constructors
+	FRequestAnimCompressionParams(bool bInAsyncCompression, bool bInAllowAlternateCompressor = false, bool bInOutput = false);
+	FRequestAnimCompressionParams(bool bInAsyncCompression, TSharedPtr<FAnimCompressContext> InCompressContext);
+
+	// Frame stripping initialization funcs (allow stripping per platform)
+	void InitFrameStrippingFromCVar();
+	void InitFrameStrippingFromPlatform(const class ITargetPlatform* TargetPlatform);
+};
+
 #if WITH_EDITOR
 // Cache debugging data in editor for UE-49335
 struct FAnimLoadingDebugData
@@ -395,10 +416,6 @@ class ENGINE_API UAnimSequence : public UAnimSequenceBase
 
 	GENERATED_UCLASS_BODY()
 
-	/** Number of raw frames in this sequence (not used by engine - just for informational purposes). */
-	UPROPERTY(AssetRegistrySearchable, meta=(DisplayName = "Number of Keys"))
-	int32 NumFrames;
-
 #if WITH_EDITORONLY_DATA
 	/** The DCC framerate of the imported file. UI information only, unit are Hz */
 	UPROPERTY(AssetRegistrySearchable, meta = (DisplayName = "Import File Framerate"))
@@ -410,6 +427,13 @@ class ENGINE_API UAnimSequence : public UAnimSequenceBase
 #endif
 
 protected:
+	/** Number of raw frames in this sequence (not used by engine - just for informational purposes). */
+	UPROPERTY(AssetRegistrySearchable, meta = (DisplayName = "Number of Keys"))
+	int32 NumFrames;
+
+	// The number of frames that the animation had when compressed data was created (may have been resampled for instance)
+	int32 CompressedNumFrames;
+
 	/**
 	 * In the future, maybe keeping RawAnimSequenceTrack + TrackMap as one would be good idea to avoid inconsistent array size
 	 * TrackToSkeletonMapTable(i) should contains  track mapping data for RawAnimationData(i). 
@@ -423,6 +447,12 @@ protected:
 	 * compressed data using this 
 	 */
 	TArray<struct FTrackToSkeletonMap> CompressedTrackToSkeletonMapTable;
+
+	/**
+	 * Much like track indices above, we need to be able to remap curve names. The FName inside FSmartName
+	 * is serialized and the UID is generated at runtime. Stored in the DDC.
+	 */
+	TArray<struct FSmartName> CompressedCurveNames;
 
 	/**
 	 * Raw uncompressed keyframe data. 
@@ -460,7 +490,22 @@ public:
 	 */
 	UPROPERTY(Category=Compression, VisibleAnywhere)
 	class UAnimCompress* CompressionScheme;
-#endif // WITH_EDITORONLY_DATA
+
+	/**
+	 * Allow frame stripping to be performed on this animation if the platform requests it
+	 * Can be disabled if animation has high frequency movements that are being lost.
+	 */
+	UPROPERTY(Category = Compression, EditAnywhere)
+	bool bAllowFrameStripping;
+
+#endif
+
+	/** The curve compression settings used to compress curves in this sequence. */
+	UPROPERTY(Category=Compression, EditAnywhere)
+	class UAnimCurveCompressionSettings* CurveCompressionSettings;
+
+	/** The codec used by the compressed data as determined by the compression settings. */
+	class UAnimCurveCompressionCodec* CurveCompressionCodec;
 
 	/** The compression format that was used to compress translation tracks. */
 	TEnumAsByte<enum AnimationCompressionFormat> TranslationCompressionFormat;
@@ -517,11 +562,16 @@ public:
 
 	class AnimEncoding* ScaleCodec;
 
-	// Built during compression, could be baked additive or original curve data
-	FRawCurveTracks CompressedCurveData;
+	/* Compressed curve data stream used by AnimCurveCompressionCodec */
+	TArray<uint8> CompressedCurveByteStream;
 
 	// The size of the raw data used to create the compressed data
 	int32 CompressedRawDataSize;
+
+	// Accessors for animation frame count
+	int32 GetRawNumberOfFrames() const { return NumFrames; }
+	void SetRawNumberOfFrame(int32 InNumFrames) { NumFrames = InNumFrames; }
+	int32 GetCompressedNumberOfFrames() const { return CompressedNumFrames; }
 
 	/** Additive animation type. **/
 	UPROPERTY(EditAnywhere, Category=AdditiveSettings, AssetRegistrySearchable)
@@ -630,6 +680,7 @@ public:
 #endif // WITH_EDITOR
 	virtual void BeginDestroy() override;
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
+	static void AddReferencedObjects(UObject* This, FReferenceCollector& Collector);
 	//~ End UObject Interface
 
 	//~ Begin UAnimationAsset Interface
@@ -647,8 +698,11 @@ public:
 	virtual bool HasRootMotion() const override { return bEnableRootMotion; }
 	virtual void RefreshCacheData() override;
 	virtual EAdditiveAnimationType GetAdditiveAnimType() const override { return AdditiveAnimType; }
-	virtual void EvaluateCurveData(FBlendedCurve& OutCurve, float CurrentTime, bool bForceUseRawData=false) const;
-	virtual const FRawCurveTracks& GetCurveData() const;
+
+	virtual void EvaluateCurveData(FBlendedCurve& OutCurve, float CurrentTime, bool bForceUseRawData = false) const override;
+	virtual float EvaluateCurveData(SmartName::UID_Type CurveUID, float CurrentTime, bool bForceUseRawData = false) const override;
+	virtual bool HasCurveData(SmartName::UID_Type CurveUID, bool bForceUseRawData) const override;
+
 #if WITH_EDITOR
 	virtual void MarkRawDataAsModified(bool bForceNewRawDatGuid = true) override
 	{
@@ -701,6 +755,9 @@ public:
 	const TArray<FName>& GetAnimationTrackNames() const { return AnimationTrackNames; }
 	const TArray<FRawAnimSequenceTrack>& GetAdditiveBaseAnimationData() const { return TemporaryAdditiveBaseAnimationData; }
 	void  UpdateCompressedTrackMapFromRaw() { CompressedTrackToSkeletonMapTable = TrackToSkeletonMapTable; }
+	void  UpdateCompressedNumFramesFromRaw() { CompressedNumFrames = NumFrames; }
+	void  UpdateCompressedCurveNames();
+	void  UpdateCompressedCurveName(SmartName::UID_Type CurveUID, const struct FSmartName& NewCurveName);
 	
 	// Adds a new track (if no track of the supplied name is found) to the raw animation data, optionally setting it to TrackData.
 	int32 AddNewRawTrack(FName TrackName, FRawAnimSequenceTrack* TrackData = nullptr);
@@ -708,6 +765,7 @@ public:
 
 	const TArray<FTrackToSkeletonMap>& GetRawTrackToSkeletonMapTable() const { return TrackToSkeletonMapTable; }
 	const TArray<FTrackToSkeletonMap>& GetCompressedTrackToSkeletonMapTable() const { return CompressedTrackToSkeletonMapTable; }
+	const TArray<struct FSmartName>& GetCompressedCurveNames() const { return CompressedCurveNames; }
 
 	FRawAnimSequenceTrack& GetRawAnimationTrack(int32 TrackIndex) { return RawAnimationData[TrackIndex]; }
 	const FRawAnimSequenceTrack& GetRawAnimationTrack(int32 TrackIndex) const { return RawAnimationData[TrackIndex]; }
@@ -811,7 +869,10 @@ public:
 	 */
 	int32 GetApproxCompressedSize() const;
 
-	/** 
+	// Initialize curve compression settings, does nothing if scheme already valid
+	void InitCurveCompressionScheme();
+
+	/**
 	 *  Utility function for lossless compression of a FRawAnimSequenceTrack 
 	 *  @return true if keys were removed.
 	 **/
@@ -834,10 +895,10 @@ public:
 	bool CompressRawAnimData();
 
 	// Get compressed data for this UAnimSequence. May be built directly or pulled from DDC
-	void RequestAnimCompression(bool bAsyncCompression, bool AllowAlternateCompressor = false, bool bOutput = false);
-	void RequestAnimCompression(bool bAsyncCompression, TSharedPtr<FAnimCompressContext> CompressContext);
-	void RequestSyncAnimRecompression(bool bOutput = false) { RequestAnimCompression(false, false, bOutput); }
+	void RequestAnimCompression(FRequestAnimCompressionParams Params);
+	void RequestSyncAnimRecompression(bool bOutput = false) { RequestAnimCompression(FRequestAnimCompressionParams(false, false, bOutput)); }
 	bool IsCompressedDataValid() const;
+	bool IsCurveCompressedDataValid() const;
 
 	// Write the compressed data to the supplied FArchive
 	void SerializeCompressedData(FArchive& Ar, bool bDDCData);
@@ -882,7 +943,7 @@ public:
 	/** 
 	 * Copy AnimNotifies from one UAnimSequence to another.
 	 */
-	static bool CopyNotifies(UAnimSequence* SourceAnimSeq, UAnimSequence* DestAnimSeq);
+	static bool CopyNotifies(UAnimSequence* SourceAnimSeq, UAnimSequence* DestAnimSeq, bool bShowDialogs = true);
 
 	/**
 	 * Flip Rotation's W For NonRoot items, and compress it again if SkelMesh exists
@@ -1019,6 +1080,9 @@ public:
 	// Bakes out track data for the skeletons virtual bones into the raw data
 	void BakeOutVirtualBoneTracks();
 
+	// Performs multiple evaluations of the animation as a test of compressed data validatity
+	void TestEvalauteAnimation() const;
+
 	// Bakes out the additive version of this animation into the raw data.
 	void BakeOutAdditiveIntoRawData();
 
@@ -1139,6 +1203,7 @@ struct FScopedAnimSequenceRawDataCache
 	TArray<FTrackToSkeletonMap> TrackToSkeletonMapTable;
 	FRawCurveTracks RawCurveData;
 	bool bWasEmpty;
+	int32 NumFrames;
 
 	FScopedAnimSequenceRawDataCache() : SrcAnim(nullptr), bWasEmpty(false) {}
 	~FScopedAnimSequenceRawDataCache()
@@ -1160,6 +1225,7 @@ struct FScopedAnimSequenceRawDataCache
 		AnimationTrackNames = Src->AnimationTrackNames;
 		TrackToSkeletonMapTable = Src->TrackToSkeletonMapTable;
 		RawCurveData = Src->RawCurveData;
+		NumFrames = Src->NumFrames;
 #endif
 	}
 
@@ -1172,6 +1238,7 @@ struct FScopedAnimSequenceRawDataCache
 		Src->AnimationTrackNames = MoveTemp(AnimationTrackNames);
 		Src->TrackToSkeletonMapTable = MoveTemp(TrackToSkeletonMapTable);
 		Src->RawCurveData = RawCurveData;
+		Src->NumFrames = NumFrames;
 #endif
 	}
 

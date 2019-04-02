@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*==============================================================================
 	VectorField.cpp: Implementation of vector fields.
@@ -57,14 +57,14 @@ FVectorFieldInstance::~FVectorFieldInstance()
 {
 	if (Resource && bInstancedResource)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FDestroyVectorFieldResourceCommand,
-			FVectorFieldResource*,Resource,Resource,
-		{
-			Resource->ReleaseResource();
-			delete Resource;
-		});
-		Resource = NULL;
+		FVectorFieldResource* InResource = Resource;
+		ENQUEUE_RENDER_COMMAND(FDestroyVectorFieldResourceCommand)(
+			[InResource](FRHICommandList& RHICmdList)
+			{
+				InResource->ReleaseResource();
+				delete InResource;
+			});
+		Resource = nullptr;
 	}
 }
 
@@ -239,25 +239,24 @@ public:
 		UpdateParams.VolumeData = NULL;
 		InVectorField->SourceData.GetCopy(&UpdateParams.VolumeData, /*bDiscardInternalCopy=*/ true);
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			FUpdateStaticVectorFieldCommand,
-			FVectorFieldStaticResource*, Resource, this,
-			FUpdateParams, UpdateParams, UpdateParams,
-		{
-			// Free any existing volume data on the resource.
-			FMemory::Free(Resource->VolumeData);
-			
-			// Update settings on this resource.
-			Resource->SizeX = UpdateParams.SizeX;
-			Resource->SizeY = UpdateParams.SizeY;
-			Resource->SizeZ = UpdateParams.SizeZ;
-			Resource->Intensity = UpdateParams.Intensity;
-			Resource->LocalBounds = UpdateParams.Bounds;
-			Resource->VolumeData = UpdateParams.VolumeData;
+		FVectorFieldStaticResource* Resource = this;
+		ENQUEUE_RENDER_COMMAND(FUpdateStaticVectorFieldCommand)(
+			[Resource, UpdateParams](FRHICommandListImmediate& RHICmdList)
+			{
+					// Free any existing volume data on the resource.
+					FMemory::Free(Resource->VolumeData);
 
-			// Update RHI resources.
-			Resource->UpdateRHI();
-		});
+					// Update settings on this resource.
+					Resource->SizeX = UpdateParams.SizeX;
+					Resource->SizeY = UpdateParams.SizeY;
+					Resource->SizeZ = UpdateParams.SizeZ;
+					Resource->Intensity = UpdateParams.Intensity;
+					Resource->LocalBounds = UpdateParams.Bounds;
+					Resource->VolumeData = UpdateParams.VolumeData;
+
+					// Update RHI resources.
+					Resource->UpdateRHI();
+			});
 	}
 
 private:
@@ -268,6 +267,7 @@ private:
 
 UVectorFieldStatic::UVectorFieldStatic(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bAllowCPUAccess(false)
 {
 }
 
@@ -280,32 +280,114 @@ void UVectorFieldStatic::InitInstance(FVectorFieldInstance* Instance, bool bPrev
 void UVectorFieldStatic::InitResource()
 {
 	check(Resource == NULL);
-	Resource = new FVectorFieldStaticResource( this );
-	BeginInitResource( Resource );
+
+	// Loads and copies the bulk data into CPUData if bAllowCPUAccess is set, otherwise clear CPUData. 
+	UpdateCPUData();
+
+	Resource = new FVectorFieldStaticResource(this);
+	BeginInitResource(Resource);
 }
 
 
 void UVectorFieldStatic::UpdateResource()
 {
 	check(Resource != NULL);
+
+	// Loads and copies the bulk data into CPUData if bAllowCPUAccess is set, otherwise clears CPUData. 
+	UpdateCPUData();
+
 	FVectorFieldStaticResource* StaticResource = (FVectorFieldStaticResource*)Resource;
 	StaticResource->UpdateResource(this);
 }
 
+#if WITH_EDITOR
+ENGINE_API void UVectorFieldStatic::SetCPUAccessEnabled()
+{
+	bAllowCPUAccess = true;
+	UpdateCPUData();
+}
+#endif // WITH_EDITOR
+
+void UVectorFieldStatic::UpdateCPUData()
+{
+	if (bAllowCPUAccess)
+	{
+		// Grab a copy of the bulk vector data. 
+		// If the data is already loaded it makes a copy and discards the old content,
+		// otherwise it simply loads the data directly from file into the pointer after allocating.
+		FFloat16Color *Ptr = nullptr;
+		SourceData.GetCopy((void**)&Ptr, /* bDiscardInternalCopy */ true);
+
+		// Make sure the data is actually valid. 
+		if (!ensure(Ptr))
+		{
+			UE_LOG(LogVectorField, Error, TEXT("Vector field data is not loaded."));
+			return;
+		}
+
+		// Make sure the size actually match what we expect
+		if (!ensure(SourceData.GetBulkDataSize() == (SizeX*SizeY*SizeZ) * sizeof(FFloat16Color)))
+		{
+			UE_LOG(LogVectorField, Error, TEXT("Vector field bulk data size is different than expected. Expected %d bytes, got %d."), SizeX*SizeY*SizeZ, SourceData.GetBulkDataSize());
+			FMemory::Free(Ptr);
+			return;
+		}
+
+		// GetCopy should free/unload the data.
+		if (SourceData.IsBulkDataLoaded())
+		{
+			// NOTE(mv): This assertion will fail in the case where the bulk data is still available even though the bDiscardInternalCopy
+			//           flag is toggled when FUntypedBulkData::CanLoadFromDisk() also fail. This happens when the user tries to allow 
+			//           CPU access to a newly imported file that isn't reloaded. We still have our valid data, so we just issue a 
+			//           warning and move on. See FUntypedBulkData::GetCopy() for more details. 
+			UE_LOG(LogVectorField, Warning, TEXT("SourceData.GetCopy() is supposed to unload the data after copying, but it is still loaded."));
+		}
+
+		// Convert from 16-bit to 32-bit floats.
+			// Use vec4s instead of vec3s because of alignment, which in principle would be better for 
+			// cache and automatic or manual vectorization, even if the memory usage is 33% larger. 
+			// Need to profile to to make sure.
+		CPUData.SetNumUninitialized(SizeX*SizeY*SizeZ);
+		for (size_t i = 0; i < (size_t)(SizeX*SizeY*SizeZ); i++)
+		{
+			CPUData[i] = FVector4(float(Ptr[i].R), float(Ptr[i].G), float(Ptr[i].B), 0.0f);
+		}
+
+		FMemory::Free(Ptr);
+	}
+	else
+	{
+		// If there's no need to access the CPU data just empty the array.
+		CPUData.Empty();
+	}
+}
+
+FRHITexture* UVectorFieldStatic::GetVolumeTextureRef()
+{
+	if (Resource)
+	{
+		return Resource->VolumeTextureRHI;
+	}
+	else
+	{	
+		// Fallback to a global 1x1x1 black texture when no vector field is loaded or unavailable
+		return GBlackVolumeTexture->TextureRHI;
+	}
+}
 
 void UVectorFieldStatic::ReleaseResource()
 {
 	if ( Resource != NULL )
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			ReleaseVectorFieldCommand,
-			FRenderResource*,Resource,Resource,
-		{
-			Resource->ReleaseResource();
-			delete Resource;
-		});
+		FRenderResource* InResource = Resource;
+		ENQUEUE_RENDER_COMMAND(ReleaseVectorFieldCommand)(
+			[InResource](FRHICommandList& RHICmdList)
+			{
+				InResource->ReleaseResource();
+				delete InResource;
+			});
 	}
-	Resource = NULL;
+	Resource = nullptr;
 }
 
 void UVectorFieldStatic::Serialize(FArchive& Ar)
@@ -565,13 +647,13 @@ void UVectorFieldComponent::OnUnregister()
 	{
 		if (VectorFieldInstance)
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-				FDestroyVectorFieldInstanceCommand,
-				FVectorFieldInstance*, VectorFieldInstance, VectorFieldInstance,
-			{
-				delete VectorFieldInstance;
-			});
-			VectorFieldInstance = NULL;
+			FVectorFieldInstance* InVectorFieldInstance = VectorFieldInstance;
+			ENQUEUE_RENDER_COMMAND(FDestroyVectorFieldInstanceCommand)(
+				[InVectorFieldInstance](FRHICommandList& RHICmdList)
+				{
+					delete InVectorFieldInstance;
+				});
+			VectorFieldInstance = nullptr;
 		}
 	}
 	else if (VectorFieldInstance)
@@ -641,17 +723,17 @@ void UVectorFieldComponent::PostEditChangeProperty(FPropertyChangedEvent& Proper
 	Shader for constructing animated vector fields.
 ------------------------------------------------------------------------------*/
 
-BEGIN_UNIFORM_BUFFER_STRUCT( FCompositeAnimatedVectorFieldUniformParameters, )
-	UNIFORM_MEMBER( FVector4, FrameA )
-	UNIFORM_MEMBER( FVector4, FrameB )
-	UNIFORM_MEMBER( FVector, VoxelSize )
-	UNIFORM_MEMBER( float, FrameLerp )
-	UNIFORM_MEMBER( float, NoiseScale )
-	UNIFORM_MEMBER( float, NoiseMax )
-	UNIFORM_MEMBER( uint32, Op )
-END_UNIFORM_BUFFER_STRUCT( FCompositeAnimatedVectorFieldUniformParameters )
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT( FCompositeAnimatedVectorFieldUniformParameters, )
+	SHADER_PARAMETER( FVector4, FrameA )
+	SHADER_PARAMETER( FVector4, FrameB )
+	SHADER_PARAMETER( FVector, VoxelSize )
+	SHADER_PARAMETER( float, FrameLerp )
+	SHADER_PARAMETER( float, NoiseScale )
+	SHADER_PARAMETER( float, NoiseMax )
+	SHADER_PARAMETER( uint32, Op )
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FCompositeAnimatedVectorFieldUniformParameters,TEXT("CVF"));
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FCompositeAnimatedVectorFieldUniformParameters,"CVF");
 
 typedef TUniformBufferRef<FCompositeAnimatedVectorFieldUniformParameters> FCompositeAnimatedVectorFieldUniformBufferRef;
 

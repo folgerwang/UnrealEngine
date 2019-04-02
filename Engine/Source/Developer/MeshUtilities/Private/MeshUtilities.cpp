@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MeshUtilities.h"
 #include "MeshUtilitiesPrivate.h"
@@ -79,6 +79,7 @@
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
 #include "Engine/MeshSimplificationSettings.h"
+#include "Engine/SkeletalMeshSimplificationSettings.h"
 #include "Engine/ProxyLODMeshSimplificationSettings.h"
 
 #include "IDetailCustomization.h"
@@ -90,6 +91,9 @@
 #include "DetailWidgetRow.h"
 #include "OverlappingCorners.h"
 #include "MeshUtilitiesCommon.h"
+
+#include "MeshDescription.h"
+#include "MeshDescriptionOperations.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
@@ -2424,8 +2428,10 @@ public:
 		for (int32 LODIndex = 0; LODIndex < SourceModels.Num(); ++LODIndex)
 		{
 			FStaticMeshSourceModel& SrcModel = SourceModels[LODIndex];
-			FRawMesh& RawMesh = *new(LODMeshes)FRawMesh;
-			FOverlappingCorners& OverlappingCorners = *new(LODOverlappingCorners)FOverlappingCorners;
+			FRawMesh& RawMesh = *new FRawMesh;
+			LODMeshes.Add(&RawMesh);
+			FOverlappingCorners& OverlappingCorners = *new FOverlappingCorners;
+			LODOverlappingCorners.Add(&OverlappingCorners);
 
 			if (!SrcModel.IsRawMeshEmpty())
 			{
@@ -2497,11 +2503,21 @@ public:
 					}
 
 					FLayoutUVRawMeshView RawMeshView(RawMesh, SrcModel.BuildSettings.SrcLightmapIndex, SrcModel.BuildSettings.DstLightmapIndex);
-					FLayoutUV Packer(RawMeshView, SrcModel.BuildSettings.MinLightmapResolution);
+					FLayoutUV Packer(RawMeshView);
 					Packer.SetVersion(LightmapUVVersion);
 
 					Packer.FindCharts(OverlappingCorners);
-					bool bPackSuccess = Packer.FindBestPacking();
+
+					int32 EffectiveMinLightmapResolution = SrcModel.BuildSettings.MinLightmapResolution;
+					if (LightmapUVVersion >= ELightmapUVVersion::ConsiderLightmapPadding)
+					{
+						if (GLightmassDebugOptions.bPadMappings)
+						{
+							EffectiveMinLightmapResolution -= 2;
+						}
+					}
+
+					bool bPackSuccess = Packer.FindBestPacking(EffectiveMinLightmapResolution);
 					if (bPackSuccess)
 					{
 						Packer.CommitPackedUVs();
@@ -2578,8 +2594,16 @@ public:
 				FRawMesh& DestMesh = LODMeshes[NumValidLODs];
 				FOverlappingCorners& InOverlappingCorners = LODOverlappingCorners[ReductionSettings.BaseLODModel];
 				FOverlappingCorners& DestOverlappingCorners = LODOverlappingCorners[NumValidLODs];
+				FMeshDescription SrcMeshdescription;
+				UStaticMesh::RegisterMeshAttributes(SrcMeshdescription);
+				FMeshDescription DestMeshdescription;
+				UStaticMesh::RegisterMeshAttributes(DestMeshdescription);
+				TMap<int32, FName> FromMaterialMap;
+				FMeshDescriptionOperations::ConvertFromRawMesh(InMesh, SrcMeshdescription, FromMaterialMap);
+				MeshReduction->ReduceMeshDescription(DestMeshdescription, LODMaxDeviation[NumValidLODs], SrcMeshdescription, InOverlappingCorners, ReductionSettings);
+				TMap<FName, int32> ToMaterialMap;
+				FMeshDescriptionOperations::ConvertToRawMesh(DestMeshdescription, DestMesh, ToMaterialMap);
 
-				MeshReduction->Reduce(DestMesh, LODMaxDeviation[NumValidLODs], InMesh, InOverlappingCorners, ReductionSettings);
 				if (DestMesh.WedgeIndices.Num() > 0 && !DestMesh.IsValid())
 				{
 					UE_LOG(LogMeshUtilities, Error, TEXT("Mesh reduction produced a corrupt mesh for LOD%d"), LODIndex);
@@ -3930,7 +3954,8 @@ public:
 
 		BeginSlowTask();
 
-		FOverlappingCorners& OverlappingCorners = *new(LODOverlappingCorners)FOverlappingCorners;
+		FOverlappingCorners& OverlappingCorners = *new FOverlappingCorners;
+		LODOverlappingCorners.Add(&OverlappingCorners);
 
 		float ComparisonThreshold = THRESH_POINTS_ARE_SAME;//GetComparisonThreshold(LODBuildSettings[LODIndex]);
 		int32 NumWedges = BuildData->GetNumWedges();
@@ -4394,8 +4419,8 @@ void TangentFailSafe(const FVector &TriangleTangentX, const FVector &TriangleTan
 		else
 		{
 			//TangentX and Y are invalid, use the triangle data, can cause a hard edge
-			TangentX = TriangleTangentX;
-			TangentY = TriangleTangentY;
+			TangentX = TriangleTangentX.GetSafeNormal();
+			TangentY = TriangleTangentY.GetSafeNormal();
 		}
 	}
 	else if (!bTangentXZero)
@@ -4408,43 +4433,68 @@ void TangentFailSafe(const FVector &TriangleTangentX, const FVector &TriangleTan
 		else
 		{
 			//TangentY and Z are invalid, use the triangle data, can cause a hard edge
-			TangentZ = TriangleTangentZ;
-			TangentY = TriangleTangentY;
+			TangentZ = TriangleTangentZ.GetSafeNormal();
+			TangentY = TriangleTangentY.GetSafeNormal();
 		}
 	}
 	else if (!bTangentYZero)
 	{
 		//TangentX and Z are invalid, use the triangle data, can cause a hard edge
-		TangentX = TriangleTangentX;
-		TangentZ = TriangleTangentZ;
+		TangentX = TriangleTangentX.GetSafeNormal();
+		TangentZ = TriangleTangentZ.GetSafeNormal();
 	}
 	else
 	{
 		//Everything is zero, use all triangle data, can cause a hard edge
-		TangentX = TriangleTangentX;
-		TangentY = TriangleTangentY;
-		TangentZ = TriangleTangentZ;
+		TangentX = TriangleTangentX.GetSafeNormal();
+		TangentY = TriangleTangentY.GetSafeNormal();
+		TangentZ = TriangleTangentZ.GetSafeNormal();
 	}
 
-	//Ortho normalize the result
-	TangentY -= TangentX * (TangentX | TangentY);
-	TangentY.Normalize();
-
-	TangentX -= TangentZ * (TangentZ | TangentX);
-	TangentY -= TangentZ * (TangentZ | TangentY);
-
-	TangentX.Normalize();
-	TangentY.Normalize();
-
-	//If we still have some zero data (i.e. triangle data is degenerated)
-	if (TangentZ.IsNearlyZero() || TangentZ.ContainsNaN()
-		|| TangentX.IsNearlyZero() || TangentX.ContainsNaN()
-		|| TangentY.IsNearlyZero() || TangentY.ContainsNaN())
+	bool bParaXY = FVector::Parallel(TangentX, TangentY);
+	bool bParaYZ = FVector::Parallel(TangentY, TangentZ);
+	bool bParaZX = FVector::Parallel(TangentZ, TangentX);
+	if (bParaXY || bParaYZ || bParaZX)
 	{
-		//Since the triangle is degenerate this case can cause a hardedge, but will probably have no other impact since the triangle is degenerate (no visible surface)
-		TangentX = FVector(1.0f, 0.0f, 0.0f);
-		TangentY = FVector(0.0f, 1.0f, 0.0f);
-		TangentZ = FVector(0.0f, 0.0f, 1.0f);
+		//In case XY are parallel, use the Z(normal) if valid and not parallel to both X and Y to find the missing component
+		if (bParaXY && !bParaZX)
+		{
+			TangentY = FVector::CrossProduct(TangentZ, TangentX).GetSafeNormal();
+		}
+		else if (bParaXY && !bParaYZ)
+		{
+			TangentX = FVector::CrossProduct(TangentY, TangentZ).GetSafeNormal();
+		}
+		else
+		{
+			//Degenerated value put something valid
+			TangentX = FVector(1.0f, 0.0f, 0.0f);
+			TangentY = FVector(0.0f, 1.0f, 0.0f);
+			TangentZ = FVector(0.0f, 0.0f, 1.0f);
+		}
+	}
+	else
+	{
+		//Ortho normalize the result
+		TangentY -= TangentX * (TangentX | TangentY);
+		TangentY.Normalize();
+
+		TangentX -= TangentZ * (TangentZ | TangentX);
+		TangentY -= TangentZ * (TangentZ | TangentY);
+
+		TangentX.Normalize();
+		TangentY.Normalize();
+
+		//If we still have some zero data (i.e. triangle data is degenerated)
+		if (TangentZ.IsNearlyZero() || TangentZ.ContainsNaN()
+			|| TangentX.IsNearlyZero() || TangentX.ContainsNaN()
+			|| TangentY.IsNearlyZero() || TangentY.ContainsNaN())
+		{
+			//Since the triangle is degenerate this case can cause a hardedge, but will probably have no other impact since the triangle is degenerate (no visible surface)
+			TangentX = FVector(1.0f, 0.0f, 0.0f);
+			TangentY = FVector(0.0f, 1.0f, 0.0f);
+			TangentZ = FVector(0.0f, 0.0f, 1.0f);
+		}
 	}
 }
 
@@ -5246,14 +5296,132 @@ private:
 	TSharedPtr<IPropertyHandle> MeshReductionModuleProperty;
 };
 
-
-
-class FProxyLODMeshSimplifcationSettingsCustomization : public IDetailCustomization
+class FSkeletalMeshSimplificationSettingsCustomization : public IDetailCustomization
 {
 public:
 	static TSharedRef<IDetailCustomization> MakeInstance()
 	{
-		return MakeShareable(new FProxyLODMeshSimplifcationSettingsCustomization);
+		return MakeShareable(new FSkeletalMeshSimplificationSettingsCustomization);
+	}
+
+	virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override
+	{
+		SkeletalMeshReductionModuleProperty = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(USkeletalMeshSimplificationSettings, SkeletalMeshReductionModuleName));
+
+		IDetailCategoryBuilder& Category = DetailBuilder.EditCategory(TEXT("General"));
+
+		IDetailPropertyRow& PropertyRow = Category.AddProperty(SkeletalMeshReductionModuleProperty);
+
+		FDetailWidgetRow& WidgetRow = PropertyRow.CustomWidget();
+		WidgetRow.NameContent()
+			[
+				SkeletalMeshReductionModuleProperty->CreatePropertyNameWidget()
+			];
+
+		WidgetRow.ValueContent()
+			.MaxDesiredWidth(0)
+			[
+				SNew(SComboButton)
+				.OnGetMenuContent(this, &FSkeletalMeshSimplificationSettingsCustomization::GenerateSkeletalMeshSimplifierMenu)
+			.ContentPadding(FMargin(2.0f, 2.0f))
+			.ButtonContent()
+			[
+				SNew(STextBlock)
+				.Font(IDetailLayoutBuilder::GetDetailFont())
+			.Text(this, &FSkeletalMeshSimplificationSettingsCustomization::GetCurrentSkeletalMeshSimplifierName)
+			]
+			];
+	}
+
+private:
+	FText GetCurrentSkeletalMeshSimplifierName() const
+	{
+		if (SkeletalMeshReductionModuleProperty->IsValidHandle())
+		{
+			FText Name;
+			SkeletalMeshReductionModuleProperty->GetValueAsDisplayText(Name);
+
+			return Name;
+		}
+		else
+		{
+			return LOCTEXT("AutomaticSkeletalMeshReductionPlugin", "Automatic");
+		}
+	}
+
+	TSharedRef<SWidget> GenerateSkeletalMeshSimplifierMenu() const
+	{
+		FMenuBuilder MenuBuilder(true, nullptr);
+
+		TArray<FName> ModuleNames;
+		FModuleManager::Get().FindModules(TEXT("*MeshReduction"), ModuleNames);
+
+		if (ModuleNames.Num() > 0)
+		{
+			for (FName ModuleName : ModuleNames)
+			{
+				IMeshReductionModule& Module = FModuleManager::LoadModuleChecked<IMeshReductionModule>(ModuleName);
+
+				IMeshReduction* SkeletalMeshReductionInterface = Module.GetSkeletalMeshReductionInterface();
+				// Only include options that support skeletal simplification.
+				if (SkeletalMeshReductionInterface)
+				{
+					FUIAction UIAction;
+					UIAction.ExecuteAction.BindSP(this, &FSkeletalMeshSimplificationSettingsCustomization::OnSkeletalMeshSimplificationModuleChosen, ModuleName);
+					UIAction.GetActionCheckState.BindSP(this, &FSkeletalMeshSimplificationSettingsCustomization::IsSkeletalMeshSimplificationModuleChosen, ModuleName);
+
+					MenuBuilder.AddMenuEntry(FText::FromName(ModuleName), FText::GetEmpty(), FSlateIcon(), UIAction, NAME_None, EUserInterfaceActionType::RadioButton);
+				}
+			}
+
+			MenuBuilder.AddMenuSeparator();
+		}
+
+
+		FUIAction OpenMarketplaceAction;
+		OpenMarketplaceAction.ExecuteAction.BindSP(this, &FSkeletalMeshSimplificationSettingsCustomization::OnFindReductionPluginsClicked);
+		FSlateIcon Icon = FSlateIcon(FEditorStyle::Get().GetStyleSetName(), "LevelEditor.OpenMarketplace.Menu");
+		MenuBuilder.AddMenuEntry(LOCTEXT("FindMoreReductionPluginsLink", "Search the Marketplace"), LOCTEXT("FindMoreReductionPluginsLink_Tooltip", "Opens the Marketplace to find more mesh reduction plugins"), Icon, OpenMarketplaceAction);
+		return MenuBuilder.MakeWidget();
+	}
+
+	void OnSkeletalMeshSimplificationModuleChosen(FName ModuleName)
+	{
+		if (SkeletalMeshReductionModuleProperty->IsValidHandle())
+		{
+			SkeletalMeshReductionModuleProperty->SetValue(ModuleName);
+		}
+	}
+
+	ECheckBoxState IsSkeletalMeshSimplificationModuleChosen(FName ModuleName)
+	{
+		if (SkeletalMeshReductionModuleProperty->IsValidHandle())
+		{
+			FName CurrentModuleName;
+			SkeletalMeshReductionModuleProperty->GetValue(CurrentModuleName);
+			return CurrentModuleName == ModuleName ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+		}
+
+		return ECheckBoxState::Unchecked;
+	}
+
+	void OnFindReductionPluginsClicked()
+	{
+		FString URL;
+		FUnrealEdMisc::Get().GetURL(TEXT("MeshSimplificationPluginsURL"), URL);
+
+		FUnrealEdMisc::Get().OpenMarketplace(URL);
+	}
+private:
+	TSharedPtr<IPropertyHandle> SkeletalMeshReductionModuleProperty;
+};
+
+class FProxyLODMeshSimplificationSettingsCustomization : public IDetailCustomization
+{
+public:
+	static TSharedRef<IDetailCustomization> MakeInstance()
+	{
+		return MakeShareable(new FProxyLODMeshSimplificationSettingsCustomization);
 	}
 
 	virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override
@@ -5274,13 +5442,13 @@ public:
 			.MaxDesiredWidth(0)
 			[
 				SNew(SComboButton)
-				.OnGetMenuContent(this, &FProxyLODMeshSimplifcationSettingsCustomization::GenerateProxyLODMeshSimplifierMenu)
+				.OnGetMenuContent(this, &FProxyLODMeshSimplificationSettingsCustomization::GenerateProxyLODMeshSimplifierMenu)
 			.ContentPadding(FMargin(2.0f, 2.0f))
 			.ButtonContent()
 			[
 				SNew(STextBlock)
 				.Font(IDetailLayoutBuilder::GetDetailFont())
-			.Text(this, &FProxyLODMeshSimplifcationSettingsCustomization::GetCurrentProxyLODMeshSimplifierName)
+			.Text(this, &FProxyLODMeshSimplificationSettingsCustomization::GetCurrentProxyLODMeshSimplifierName)
 			]
 			];
 	}
@@ -5319,8 +5487,8 @@ private:
 				if (MeshMergingInterface)
 				{
 					FUIAction UIAction;
-					UIAction.ExecuteAction.BindSP(this, &FProxyLODMeshSimplifcationSettingsCustomization::OnProxyLODMeshSimplificationModuleChosen, ModuleName);
-					UIAction.GetActionCheckState.BindSP(this, &FProxyLODMeshSimplifcationSettingsCustomization::IsProxyLODMeshSimplificationModuleChosen, ModuleName);
+					UIAction.ExecuteAction.BindSP(this, &FProxyLODMeshSimplificationSettingsCustomization::OnProxyLODMeshSimplificationModuleChosen, ModuleName);
+					UIAction.GetActionCheckState.BindSP(this, &FProxyLODMeshSimplificationSettingsCustomization::IsProxyLODMeshSimplificationModuleChosen, ModuleName);
 
 					MenuBuilder.AddMenuEntry(FText::FromName(ModuleName), FText::GetEmpty(), FSlateIcon(), UIAction, NAME_None, EUserInterfaceActionType::RadioButton);
 				}
@@ -5331,7 +5499,7 @@ private:
 
 
 		FUIAction OpenMarketplaceAction;
-		OpenMarketplaceAction.ExecuteAction.BindSP(this, &FProxyLODMeshSimplifcationSettingsCustomization::OnFindReductionPluginsClicked);
+		OpenMarketplaceAction.ExecuteAction.BindSP(this, &FProxyLODMeshSimplificationSettingsCustomization::OnFindReductionPluginsClicked);
 		FSlateIcon Icon = FSlateIcon(FEditorStyle::Get().GetStyleSetName(), "LevelEditor.OpenMarketplace.Menu");
 		MenuBuilder.AddMenuEntry(LOCTEXT("FindMoreReductionPluginsLink", "Search the Marketplace"), LOCTEXT("FindMoreReductionPluginsLink_Tooltip", "Opens the Marketplace to find more mesh reduction plugins"), Icon, OpenMarketplaceAction);
 		return MenuBuilder.MakeWidget();
@@ -5380,8 +5548,8 @@ void FMeshUtilities::StartupModule()
 	FPropertyEditorModule& PropertyEditorModule = FModuleManager::Get().LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 
 	PropertyEditorModule.RegisterCustomClassLayout("MeshSimplificationSettings", FOnGetDetailCustomizationInstance::CreateStatic(&FMeshSimplifcationSettingsCustomization::MakeInstance));
-
-	PropertyEditorModule.RegisterCustomClassLayout("ProxyLODMeshSimplificationSettings", FOnGetDetailCustomizationInstance::CreateStatic(&FProxyLODMeshSimplifcationSettingsCustomization::MakeInstance));
+	PropertyEditorModule.RegisterCustomClassLayout("SkeletalMeshSimplificationSettings", FOnGetDetailCustomizationInstance::CreateStatic(&FSkeletalMeshSimplificationSettingsCustomization::MakeInstance));
+	PropertyEditorModule.RegisterCustomClassLayout("ProxyLODMeshSimplificationSettings", FOnGetDetailCustomizationInstance::CreateStatic(&FProxyLODMeshSimplificationSettingsCustomization::MakeInstance));
 
 	static const TConsoleVariableData<int32>* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.TriangleOrderOptimization"));
 
@@ -5507,10 +5675,10 @@ bool FMeshUtilities::GenerateUniqueUVsForSkeletalMesh(const FSkeletalMeshLODMode
 
 	// Generate new UVs
 	FLayoutUVRawMeshView TempMeshView(TempMesh, 0, 1);
-	FLayoutUV Packer(TempMeshView, FMath::Clamp(TextureResolution / 4, 32, 512));
+	FLayoutUV Packer(TempMeshView);
 	Packer.FindCharts(OverlappingCorners);
 
-	bool bPackSuccess = Packer.FindBestPacking();
+	bool bPackSuccess = Packer.FindBestPacking(FMath::Clamp(TextureResolution / 4, 32, 512));
 	if (bPackSuccess)
 	{
 		Packer.CommitPackedUVs();
@@ -6008,10 +6176,10 @@ bool FMeshUtilities::GenerateUniqueUVsForStaticMesh(const FRawMesh& RawMesh, int
 
 	// Generate new UVs
 	FLayoutUVRawMeshView TempMeshView(TempMesh, 0, 1);
-	FLayoutUV Packer(TempMeshView, FMath::Clamp(TextureResolution / 4, 32, 512));
+	FLayoutUV Packer(TempMeshView);
 	Packer.FindCharts(OverlappingCorners);
 
-	bool bPackSuccess = Packer.FindBestPacking();
+	bool bPackSuccess = Packer.FindBestPacking(FMath::Clamp(TextureResolution / 4, 32, 512));
 	if (bPackSuccess)
 	{
 		Packer.CommitPackedUVs();

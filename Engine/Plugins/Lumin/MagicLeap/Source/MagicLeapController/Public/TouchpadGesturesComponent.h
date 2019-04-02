@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -45,9 +45,13 @@ struct FMagicLeapTouchpadGesture
 	GENERATED_BODY()
 
 public:
-	/** Controller on which the gesture was performed. */
-	UPROPERTY(BlueprintReadOnly, Category = "TouchpadGesture|MagicLeap")
+	/** Hand on which the gesture was performed. */
+	UPROPERTY(BlueprintReadOnly, Category = "TouchpadGesture|MagicLeap", meta = (DeprecatedProperty, DeprecationMessage = "Hand is deprecated. Please use MotionSource instead."))
 	EControllerHand Hand;
+
+	/** Motion source on which the gesture was performed. */
+	UPROPERTY(BlueprintReadOnly, Category = "TouchpadGesture|MagicLeap")
+	FName MotionSource;
 
 	/** Type of gesture. */
 	UPROPERTY(BlueprintReadOnly, Category = "TouchpadGesture|MagicLeap")

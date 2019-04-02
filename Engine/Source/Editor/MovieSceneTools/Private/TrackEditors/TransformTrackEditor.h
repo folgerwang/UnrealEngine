@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -79,6 +79,25 @@ private:
 	 */
 	void OnTransformChanged( UObject& InObject );
 
+	/** 
+	 * Called before an actor or component property changes.
+	 * Forward to OnPreTransformChanged if the property is transform related.
+	 *
+	 * @param InObject The object whose property is about to change
+	 * @param InPropertyChain the property that is about to change
+	 */
+	void OnPrePropertyChanged(UObject* InObject, const class FEditPropertyChain& InPropertyChain);
+
+	/** 
+	 * Called before an actor or component property changes.
+	 * Forward to OnTransformChanged if the property is transform related.
+	 *
+	 * @param InObject The object whose property is about to change
+	 * @param InPropertyChangedEvent the property that changed
+	 */
+	void OnPostPropertyChanged(UObject* InObject, struct FPropertyChangedEvent& InPropertyChangedEvent);
+
+
 	/** Delegate for camera button visible state */
 	EVisibility IsCameraVisible(FGuid ObjectGuid) const;
 
@@ -147,4 +166,18 @@ private:
 
 	/** Mapping of objects to their existing transform data (for comparing against new transform data) */
 	TMap< TWeakObjectPtr<UObject>, FTransformData > ObjectToExistingTransform;
+
+private:
+	/** 
+	 * Modify the passed in Generated Keys by the current tracks values and weight at the passed in time.
+
+	 * @param Object The handle to the object modify
+	 * @param Track The track we are modifying
+	 * @param SectionToKey The Sections Channels we will be modifiying
+     * @param Time The Time at which to evaluate
+	 * @param InOutGeneratedTrackKeys The Keys we need to modify. We change these values.
+     * @param Weight The weight we need to modify the values by.
+	 */
+	virtual bool ModifyGeneratedKeysByCurrentAndWeight(UObject* Object, UMovieSceneTrack *Track, UMovieSceneSection* SectionToKey, FFrameNumber Time, FGeneratedTrackKeys& InOutGeneratedTotalKeys, float Weight) const override;
+
 };

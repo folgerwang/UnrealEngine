@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -73,27 +73,6 @@ namespace UnrealBuildTool
 		public int EffectiveCompatibleChangelist
 		{
 			get { return (Changelist != 0 && CompatibleChangelist != 0)? CompatibleChangelist : Changelist; }
-		}
-
-		/// <summary>
-		/// Reads the default build version, throwing an exception on error.
-		/// </summary>
-		/// <returns>New BuildVersion instance</returns>
-		public static BuildVersion ReadDefault()
-		{
-			FileReference File = GetDefaultFileName();
-			if(!FileReference.Exists(File))
-			{
-				throw new BuildException("Version file is missing ({0})", File);
-			}
-
-			BuildVersion Version;
-			if(!TryRead(File, out Version))
-			{
-				throw new BuildException("Unable to read version file ({0}). Check that this file is present and well-formed JSON.", File);
-			}
-
-			return Version;
 		}
 
 		/// <summary>
@@ -231,7 +210,15 @@ namespace UnrealBuildTool
 	/// </summary>
 	public class ReadOnlyBuildVersion
 	{
-		BuildVersion Inner;
+		/// <summary>
+		/// The inner build version
+		/// </summary>
+		private BuildVersion Inner;
+
+		/// <summary>
+		/// Cached copy of the current build version
+		/// </summary>
+		private static ReadOnlyBuildVersion CurrentCached;
 
 		/// <summary>
 		/// Constructor
@@ -240,6 +227,33 @@ namespace UnrealBuildTool
 		public ReadOnlyBuildVersion(BuildVersion Inner)
 		{
 			this.Inner = Inner;
+		}
+
+		/// <summary>
+		/// Gets the current build version
+		/// </summary>
+		public static ReadOnlyBuildVersion Current
+		{
+			get
+			{
+				if(CurrentCached == null)
+				{
+					FileReference File = BuildVersion.GetDefaultFileName();
+					if(!FileReference.Exists(File))
+					{
+						throw new BuildException("Version file is missing ({0})", File);
+					}
+
+					BuildVersion Version;
+					if(!BuildVersion.TryRead(File, out Version))
+					{
+						throw new BuildException("Unable to read version file ({0}). Check that this file is present and well-formed JSON.", File);
+					}
+
+					CurrentCached = new ReadOnlyBuildVersion(Version);
+				}
+				return CurrentCached;
+			}
 		}
 
 		/// <summary>

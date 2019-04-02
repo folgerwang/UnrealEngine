@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -20,6 +20,8 @@ class UMovieSceneMarginSection
 	: public UMovieSceneSection
 {
 	GENERATED_UCLASS_BODY()
+public:
+	UMG_API const static FMovieSceneInterrogationKey GetMarginInterrogationKey();
 
 public:
 

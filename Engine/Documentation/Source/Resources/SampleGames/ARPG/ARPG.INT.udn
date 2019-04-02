@@ -1,0 +1,23 @@
+Availability: Public
+Crumbs: 
+Title: Action RPG Game
+Description: A sample game that shows how to use the Ability System plugin.
+Type: landing
+Version: 4.20
+Parent: Resources/SampleGames
+Order: 1
+Tags: Sample Game
+
+
+![](ARPG_Banner_Image_00.png "ARPG_Banner_Image_00.png")  
+Designed as a resource for developers, Action RPG is a third-person hack-and-slash game built from the ground up to help you learn more about how to use UE4 to develop high-end mobile games for Android and iOS.
+
+## Setup
+
+%Resources/SampleGames/ARPG/BuildingGameplayinC-forActionRPG:topic%
+
+%Resources/SampleGames/ARPG/BalancingBlueprintandC-:topic%
+
+## Ability System Breakdown
+
+%Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG:topic%

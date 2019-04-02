@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Backends/CborStructSerializerBackend.h"
 #include "UObject/UnrealType.h"
@@ -212,7 +212,17 @@ void FCborStructSerializerBackend::WriteProperty(const FStructSerializerState& S
 	}
 	else if (State.ValueType == UTextProperty::StaticClass())
 	{
-		WritePropertyValue(CborWriter, State, CastChecked<UTextProperty>(State.ValueProperty)->GetPropertyValue_InContainer(State.ValueData, ArrayIndex).ToString());
+		const FText& TextValue = CastChecked<UTextProperty>(State.ValueProperty)->GetPropertyValue_InContainer(State.ValueData, ArrayIndex);
+		if (EnumHasAnyFlags(Flags, EStructSerializerBackendFlags::WriteTextAsComplexString))
+		{
+			FString TextValueString;
+			FTextStringHelper::WriteToBuffer(TextValueString, TextValue);
+			WritePropertyValue(CborWriter, State, TextValueString);
+		}
+		else
+		{
+			WritePropertyValue(CborWriter, State, TextValue.ToString());
+		}
 	}
 
 	// Classes & Objects

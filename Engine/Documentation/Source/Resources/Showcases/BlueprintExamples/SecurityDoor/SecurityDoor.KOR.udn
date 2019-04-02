@@ -114,7 +114,7 @@ Alarm Blueprint 는 플레이어가 보안 카메라 범위에 걸려 알람을 
 |프로퍼티|용도|
 | --- | --- |
 | **Light Rotation Speed** | 알람 경고등 회전 속도입니다. |
-| **Test Alarm Material Settings** | 테스팅 목적으로 알람을 강제로 켜는 불리언입니다. 플레이 모드가 아닌 경우 경고등은 돌지 않습니다. |
+| **Test Alarm Material Settings** | 테스팅 목적으로 알람을 강제로 켜는 부울입니다. 플레이 모드가 아닌 경우 경고등은 돌지 않습니다. |
 
 
 ## 문 블루프린트

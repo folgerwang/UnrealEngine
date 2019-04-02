@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealBuildTool.Rules
 {
@@ -9,7 +9,6 @@ namespace UnrealBuildTool.Rules
 
 
             // For boost:: and TBB:: code
-            bEnableUndefinedIdentifierWarnings = false;
             bUseRTTI = true;
 
             PublicIncludePaths.AddRange(
@@ -37,6 +36,7 @@ namespace UnrealBuildTool.Rules
                     "InputCore",
                     "UnrealEd",
                     "RawMesh",
+                    "MeshDescription",
                     "MeshUtilities",
                     "MaterialUtilities",
                     "PropertyEditor",
@@ -56,7 +56,8 @@ namespace UnrealBuildTool.Rules
                     "Core",
                     "CoreUObject",
                     "Engine",
-                    "UnrealEd"
+                    "UnrealEd",
+                    "MeshDescriptionOperations"
 					// ... add private dependencies that you statically link with here ...
 				}
 				);

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SPackageReportDialog.h"
@@ -189,8 +189,7 @@ void SPackageReportDialog::OpenPackageReportDialog(const FText& ReportMessage, c
 
 void SPackageReportDialog::CloseDialog()
 {
-	FWidgetPath WidgetPath;
-	TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(AsShared(), WidgetPath);
+	TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(AsShared());
 
 	if ( Window.IsValid() )
 	{

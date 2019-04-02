@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Customizations/WidgetNavigationCustomization.h"
 #include "Widgets/Text/STextBlock.h"
@@ -12,8 +12,13 @@
 #include "DetailWidgetRow.h"
 #include "DetailLayoutBuilder.h"
 #include "ScopedTransaction.h"
+#include "SFunctionSelector.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Blueprint/WidgetTree.h"
+#include "WidgetBlueprint.h"
+#include "WidgetBlueprintEditor.h"
 
-#define LOCTEXT_NAMESPACE "UMG"
+#define LOCTEXT_NAMESPACE "FWidgetNavigationCustomization"
 
 // FWidgetNavigationCustomization
 ////////////////////////////////////////////////////////////////////////////////
@@ -93,6 +98,17 @@ FText FWidgetNavigationCustomization::GetNavigationText(TWeakPtr<IPropertyHandle
 
 FText FWidgetNavigationCustomization::GetExplictWidget(TWeakPtr<IPropertyHandle> PropertyHandle, EUINavigation Nav) const
 {
+	TOptional<FName> OptionalName = GetUniformNavigationTargetOrFunction(PropertyHandle, Nav);
+	if (!OptionalName.IsSet())
+	{
+		return LOCTEXT("NavigationMultipleValues", "Multiple Values");
+	}
+
+	return FText::FromName(OptionalName.GetValue());
+}
+
+TOptional<FName> FWidgetNavigationCustomization::GetUniformNavigationTargetOrFunction(TWeakPtr<IPropertyHandle> PropertyHandle, EUINavigation Nav) const
+{
 	TArray<UObject*> OuterObjects;
 	TSharedPtr<IPropertyHandle> PropertyHandlePtr = PropertyHandle.Pin();
 	PropertyHandlePtr->GetOuterObjects(OuterObjects);
@@ -117,17 +133,17 @@ FText FWidgetNavigationCustomization::GetExplictWidget(TWeakPtr<IPropertyHandle>
 
 			if ( CurRule != Rule )
 			{
-				return LOCTEXT("NavigationMultipleValues", "Multiple Values");
+				return TOptional<FName>();
 			}
 
 			Rule = CurRule;
 		}
 	}
 
-	return FText::FromName(Rule);
+	return Rule;
 }
 
-void FWidgetNavigationCustomization::OnCommitExplictWidgetText(const FText& ItemFText, ETextCommit::Type CommitInfo, TWeakPtr<IPropertyHandle> PropertyHandle, EUINavigation Nav)
+void FWidgetNavigationCustomization::OnWidgetSelectedForExplicitNavigation(FName ExplictWidgetOrFunction, TWeakPtr<IPropertyHandle> PropertyHandle, EUINavigation Nav)
 {
 	TArray<UObject*> OuterObjects;
 	TSharedPtr<IPropertyHandle> PropertyHandlePtr = PropertyHandle.Pin();
@@ -135,16 +151,14 @@ void FWidgetNavigationCustomization::OnCommitExplictWidgetText(const FText& Item
 
 	const FScopedTransaction Transaction(LOCTEXT("InitializeNavigation", "Edit Widget Navigation"));
 
-	FName GotoWidgetName = FName(*ItemFText.ToString());
-
 	for ( UObject* OuterObject : OuterObjects )
 	{
 		if ( UWidget* Widget = Cast<UWidget>(OuterObject) )
 		{
 			FWidgetReference WidgetReference = Editor.Pin()->GetReferenceFromPreview(Widget);
 
-			SetNav(WidgetReference.GetPreview(), Nav, TOptional<EUINavigationRule>(), GotoWidgetName);
-			SetNav(WidgetReference.GetTemplate(), Nav, TOptional<EUINavigationRule>(), GotoWidgetName);
+			SetNav(WidgetReference.GetPreview(), Nav, TOptional<EUINavigationRule>(), ExplictWidgetOrFunction);
+			SetNav(WidgetReference.GetTemplate(), Nav, TOptional<EUINavigationRule>(), ExplictWidgetOrFunction);
 		}
 	}
 }
@@ -155,10 +169,20 @@ EVisibility FWidgetNavigationCustomization::GetExplictWidgetFieldVisibility(TWea
 	switch (Rule)
 	{
 		case EUINavigationRule::Explicit:
-		case EUINavigationRule::Custom:
-		case EUINavigationRule::CustomBoundary:
 			return EVisibility::Visible;
-		
+	}
+
+	return EVisibility::Collapsed;
+}
+
+EVisibility FWidgetNavigationCustomization::GetCustomWidgetFieldVisibility(TWeakPtr<IPropertyHandle> PropertyHandle, EUINavigation Nav) const
+{
+	EUINavigationRule Rule = GetNavigationRule(PropertyHandle, Nav);
+	switch (Rule)
+	{
+	case EUINavigationRule::Custom:
+	case EUINavigationRule::CustomBoundary:
+		return EVisibility::Visible;
 	}
 
 	return EVisibility::Collapsed;
@@ -166,6 +190,8 @@ EVisibility FWidgetNavigationCustomization::GetExplictWidgetFieldVisibility(TWea
 
 void FWidgetNavigationCustomization::MakeNavRow(TWeakPtr<IPropertyHandle> PropertyHandle, IDetailChildrenBuilder& ChildBuilder, EUINavigation Nav, FText NavName)
 {
+	static UFunction* CustomWidgetNavSignature = FindObject<UFunction>(FindPackage(nullptr, TEXT("/Script/UMG")), TEXT("CustomWidgetNavigationDelegate__DelegateSignature"));
+
 	ChildBuilder.AddCustomRow(NavName)
 		.NameContent()
 		[
@@ -199,13 +225,95 @@ void FWidgetNavigationCustomization::MakeNavRow(TWeakPtr<IPropertyHandle> Proper
 			+ SHorizontalBox::Slot()
 			.FillWidth(1.0f)
 			[
-				SNew(SEditableTextBox)
-				.HintText(LOCTEXT("WidgetName", "Widget Name?"))
-				.Text(this, &FWidgetNavigationCustomization::GetExplictWidget, PropertyHandle, Nav)
-				.OnTextCommitted(this, &FWidgetNavigationCustomization::OnCommitExplictWidgetText, PropertyHandle, Nav)
-				.Font(IDetailLayoutBuilder::GetDetailFont())
+				SNew(SComboButton)
 				.Visibility(this, &FWidgetNavigationCustomization::GetExplictWidgetFieldVisibility, PropertyHandle, Nav)
+				.OnGetMenuContent(this, &FWidgetNavigationCustomization::OnGenerateWidgetList, PropertyHandle, Nav)
+				.ContentPadding(1)
+				.ButtonContent()
+				[
+					SNew(STextBlock)
+					.Text(this, &FWidgetNavigationCustomization::GetExplictWidget, PropertyHandle, Nav)
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+				]
 			]
+
+			// Custom Navigation Widget
+			+ SHorizontalBox::Slot()
+			.FillWidth(1.0f)
+			[
+				SNew(SFunctionSelector, Editor.Pin().ToSharedRef(), CustomWidgetNavSignature)
+				.OnSelectedFunction(this, &FWidgetNavigationCustomization::HandleSelectedCustomNavigationFunction, PropertyHandle, Nav)
+				.OnResetFunction(this, &FWidgetNavigationCustomization::HandleResetCustomNavigationFunction, PropertyHandle, Nav)
+				.CurrentFunction(this, &FWidgetNavigationCustomization::GetUniformNavigationTargetOrFunction, PropertyHandle, Nav)
+				.Visibility(this, &FWidgetNavigationCustomization::GetCustomWidgetFieldVisibility, PropertyHandle, Nav)
+			]
+		];
+}
+
+void FWidgetNavigationCustomization::HandleSelectedCustomNavigationFunction(FName SelectedFunction, TWeakPtr<IPropertyHandle> PropertyHandle, EUINavigation Nav)
+{
+	OnWidgetSelectedForExplicitNavigation(SelectedFunction, PropertyHandle, Nav);
+}
+
+void FWidgetNavigationCustomization::HandleResetCustomNavigationFunction(TWeakPtr<IPropertyHandle> PropertyHandle, EUINavigation Nav)
+{
+	OnWidgetSelectedForExplicitNavigation(NAME_None, PropertyHandle, Nav);
+}
+
+TSharedRef<SWidget> FWidgetNavigationCustomization::OnGenerateWidgetList(TWeakPtr<IPropertyHandle> PropertyHandle, EUINavigation Nav)
+{
+	const bool bInShouldCloseWindowAfterMenuSelection = true;
+	FMenuBuilder MenuBuilder(bInShouldCloseWindowAfterMenuSelection, nullptr);
+
+	TArray<UWidget*> Widgets;
+	
+	UWidgetTree* WidgetTree = Editor.Pin()->GetWidgetBlueprintObj()->WidgetTree;
+	WidgetTree->GetAllWidgets(Widgets);
+
+	Widgets.Sort([](const UWidget& LHS, const UWidget& RHS) {
+		return LHS.GetName() > RHS.GetName();
+	});
+
+	{
+		MenuBuilder.BeginSection("Actions");
+		{
+			MenuBuilder.AddMenuEntry(
+				LOCTEXT("ResetFunction", "Reset"),
+				LOCTEXT("ResetFunctionTooltip", "Reset this navigation option and clear it out."),
+				FSlateIcon(FEditorStyle::GetStyleSetName(), "Cross"),
+				FUIAction(FExecuteAction::CreateSP(this, &FWidgetNavigationCustomization::HandleResetCustomNavigationFunction, PropertyHandle, Nav))
+			);
+		}
+		MenuBuilder.EndSection();
+	}
+
+	MenuBuilder.BeginSection("Widgets", LOCTEXT("Widgets", "Widgets"));
+	{
+		for (UWidget* Widget : Widgets)
+		{
+			if (!Widget->IsGeneratedName())
+			{
+				MenuBuilder.AddMenuEntry(
+					FText::FromString(Widget->GetDisplayLabel()),
+					FText::GetEmpty(),
+					FSlateIcon(),
+					FUIAction(FExecuteAction::CreateSP(this, &FWidgetNavigationCustomization::OnWidgetSelectedForExplicitNavigation, Widget->GetFName(), PropertyHandle, Nav))
+				);
+			}
+		}
+	}
+	MenuBuilder.EndSection();
+
+	FDisplayMetrics DisplayMetrics;
+	FSlateApplication::Get().GetCachedDisplayMetrics(DisplayMetrics);
+
+	return
+		SNew(SVerticalBox)
+
+		+ SVerticalBox::Slot()
+		.MaxHeight(DisplayMetrics.PrimaryDisplayHeight * 0.5)
+		[
+			MenuBuilder.MakeWidget()
 		];
 }
 
@@ -251,8 +359,8 @@ void FWidgetNavigationCustomization::HandleNavMenuEntryClicked(TWeakPtr<IPropert
 		{
 			FWidgetReference WidgetReference = Editor.Pin()->GetReferenceFromPreview(Widget);
 
-			SetNav(WidgetReference.GetPreview(), Nav, Rule, TOptional<FName>());
-			SetNav(WidgetReference.GetTemplate(), Nav, Rule, TOptional<FName>());
+			SetNav(WidgetReference.GetPreview(), Nav, Rule, FName(NAME_None));
+			SetNav(WidgetReference.GetTemplate(), Nav, Rule, FName(NAME_None));
 		}
 	}
 }
@@ -270,6 +378,7 @@ void FWidgetNavigationCustomization::SetNav(UWidget* Widget, EUINavigation Nav, 
 	if (!Widget->Navigation)
 	{
 		WidgetNavigation = NewObject<UWidgetNavigation>(Widget);
+		WidgetNavigation->SetFlags(RF_Transactional);
 	}
 
 	FWidgetNavigationData* DirectionNavigation = nullptr;

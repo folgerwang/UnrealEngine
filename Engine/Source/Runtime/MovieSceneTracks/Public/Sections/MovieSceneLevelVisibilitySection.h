@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -34,11 +34,17 @@ class MOVIESCENETRACKS_API UMovieSceneLevelVisibilitySection
 
 public:
 
+	UFUNCTION(BlueprintPure, Category = "Movie Scene Section")
 	ELevelVisibility GetVisibility() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Movie Scene Section")
 	void SetVisibility(ELevelVisibility InVisibility);
 
-	TArray<FName>* GetLevelNames();
+	UFUNCTION(BlueprintPure, Category = "Movie Scene Section")
 	const TArray<FName>& GetLevelNames() const { return LevelNames; }
+
+	UFUNCTION(BlueprintCallable, Category = "Movie Scene Section")
+	void SetLevelNames(const TArray<FName>& InLevelNames) { LevelNames = InLevelNames; }
 
 public:
 

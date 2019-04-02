@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Framework/Docking/SDockingSplitter.h"
 #include "Widgets/Docking/SDockTab.h"
@@ -382,4 +382,24 @@ TSharedRef<SDockingNode> SDockingSplitter::FindTabStack(ETabStackToFind FindMe) 
 		return Candidate;
 	}
 
+}
+
+SSplitter::ESizeRule SDockingSplitter::GetSizeRule() const
+{
+	if (Children.Num() > 0)
+	{
+		for (const TSharedRef<SDockingNode>& ChildNode : Children)
+		{
+			if (ChildNode->GetSizeRule() == SSplitter::FractionOfParent)
+			{
+				return SSplitter::FractionOfParent;
+			}
+		}
+		// If all nodes in this docking splitter are sized to content, then it should size to Content.
+		return SSplitter::SizeToContent;
+	}
+	else
+	{
+		return SSplitter::FractionOfParent;
+	}
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LoginFlowManager.h"
 #include "LoginFlowPrivate.h"
@@ -310,9 +310,9 @@ void FLoginFlowManager::FinishLogin()
 {
 	check(PendingLogin.IsValid());
 
-	if (!PendingLogin->Result.Error.bSucceeded)
+	if (!PendingLogin->Result.Error.WasSuccessful())
 	{
-		UE_LOG(LogLoginFlow, Warning, TEXT("Login Flow failed with error: %s"), PendingLogin->Result.Error.ToLogString());
+		UE_LOG(LogLoginFlow, Warning, TEXT("Login Flow failed with error: %s"), *PendingLogin->Result.Error.ToLogString());
 	}
 
 	// fire the login complete callback
@@ -464,9 +464,9 @@ void FLoginFlowManager::FinishAccountCreation()
 {
 	check(PendingAccountCreation.IsValid());
 
-	if (!PendingAccountCreation->Result.Error.bSucceeded)
+	if (!PendingAccountCreation->Result.Error.WasSuccessful())
 	{
-		UE_LOG(LogLoginFlow, Warning, TEXT("Account Creation Flow failed with error: %s"), PendingAccountCreation->Result.Error.ToLogString());
+		UE_LOG(LogLoginFlow, Warning, TEXT("Account Creation Flow failed with error: %s"), *PendingAccountCreation->Result.Error.ToLogString());
 	}
 
 	// fire the login complete callback

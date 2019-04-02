@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "StructSerializer.h"
 #include "UObject/UnrealType.h"
@@ -214,7 +214,7 @@ void FStructSerializer::Serialize( const void* Struct, UStruct& TypeInfo, IStruc
 						FStructSerializerState NewState;
 						{
 							NewState.HasBeenProcessed = false;
-							NewState.KeyData = PairPtr + MapProperty->MapLayout.KeyOffset;
+							NewState.KeyData = PairPtr;
 							NewState.KeyProperty = MapProperty->KeyProp;
 							NewState.ValueData = PairPtr;
 							NewState.ValueProperty = ValueProperty;

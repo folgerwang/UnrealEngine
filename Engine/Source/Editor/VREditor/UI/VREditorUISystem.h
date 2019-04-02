@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -105,7 +105,9 @@ public:
 
 	/** Initializes default values for the UISystem and creates the UI panels */
 	void Init(class UVREditorMode* InVRMode);
-	
+
+	void UpdateInteractors();
+
 	/** Shuts down the UISystem whenever the mode is exited */
 	void Shutdown();
 
@@ -128,7 +130,7 @@ public:
 	}
 
 	/** Returns true if the specified editor UI panel is currently visible */
-	bool IsShowingEditorUIPanel(const VREditorPanelID& InPanelID) const;
+	bool VREDITOR_API IsShowingEditorUIPanel(const VREditorPanelID& InPanelID) const;
 
 	/** Sets whether the specified editor UI panel should be visible.  Any other UI floating off this hand will be dismissed when showing it. */
 	void ShowEditorUIPanel(const UWidgetComponent* WidgetComponent, UVREditorInteractor* Interactor, const bool bShouldShow, const bool bSpawnInFront = false, const bool bDragFromOpen = false, const bool bPlaySound = true);
@@ -200,11 +202,11 @@ public:
 	void UpdateSequencerUI();
 
 	/** Function to force an update of the Actor Preview UI based on a change */
-	void UpdateActorPreviewUI(TSharedRef<SWidget> InWidget, int32 Index);
+	void UpdateActorPreviewUI(TSharedRef<SWidget> InWidget, int32 Index, AActor *InActor );
 
-	void UpdateExternalUMGUI(TSubclassOf<class UUserWidget> InUMGClass, FName Name);
+	void UpdateExternalUMGUI(TSubclassOf<class UUserWidget> InUMGClass, FName Name, FVector2D InSize);
 
-	void UpdateExternalSlateUI(TSharedRef<SWidget> InWidget, FName Name);
+	void UpdateExternalSlateUI(TSharedRef<SWidget> InWidget, FName Name, FVector2D InSize);
 
 	/** Transition the user widgets to a new world */
 	void TransitionWorld(UWorld* NewWorld, EEditorWorldExtensionTransitionState TransitionState);
@@ -226,7 +228,7 @@ public:
 	bool CanScalePanel() const;
 
 	/** Get the interactor that holds the radial menu */
-	class UVREditorMotionControllerInteractor* GetUIInteractor();
+	class UVREditorInteractor* GetUIInteractor();
 
 	static const VREditorPanelID ContentBrowserPanelID;
 	static const VREditorPanelID WorldOutlinerPanelID;
@@ -385,10 +387,10 @@ protected:
 	//
 	/** Interactor that has a laser and is generally interacting with the scene */
 	UPROPERTY()
-	class UVREditorMotionControllerInteractor* LaserInteractor;
+	class UVREditorInteractor* LaserInteractor;
 	/** Interactor that usually accesses UI and other helper functionality */
 	UPROPERTY()
-	class UVREditorMotionControllerInteractor* UIInteractor;
+	class UVREditorInteractor* UIInteractor;
 
 	//
 	// Tab Manager UI

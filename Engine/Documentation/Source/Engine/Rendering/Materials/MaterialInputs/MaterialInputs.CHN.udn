@@ -1,23 +1,35 @@
-﻿Availability:Public
+﻿INTSourceChangelist:3810557
+Availability:Public
 Title:材质输入			
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/IntroductionToMaterials
-Description:对材质不同输入的深入探讨及其使用原理
+Description:深入了解材质上可用的各种输入以及如何使用它们。
+Version: 4.9
+parent:Engine/Rendering/Materials
+order:5
+topic-image:Engine/Rendering/Materials/MaterialInputsTopic.png
+type:reference
+tags:Materials
 
-本文我们一起来探讨一下在制作材质时，有哪些可用的输入。 通过对这些输入填写值（通过常量，参数和贴图），您可以定义您能想象到的任意物理表面。
 
-并不是所有的输入都能在不同的混合模式和着色模型组合下进行使用。 对一些材质类型来说，我们会指定哪些输入在该类型下可用，这样您就可以了解，对于您创建的每种类型材质来说，使用了哪些输入。
+在这里，我们将了解一下制作材质时可用的输入。通过向这些输入馈送值（通过常量、参数和纹理），您可以定义您所能想象的任何物理表面。
 
+并非所有的输入都可以与混合模式（Blend Mode）和着色模型（Shading Model）的每个组合一起使用。因此，我们将指定每个输入可供使用的时间，以便您知道您创建的每种类型的材质都使用哪些输入。
+
+
+(#inputsandmaterialsettings)
 
 ## 输入和材质设置
 
-对于您创建的某些类型的材质来说，有些输入是不起作用的。 比如说，在开发光照功能时-有一个被应用到光照上的材质-您仅能对该材质使用Emissive Color（自发光颜色），其它输入均不可用，因为其它的输入（如金属色或粗糙度），均不适用于该材质。 基于这个原因，您应了解重要的一点，就是要弄清楚您正在创建的是哪种类型的材质，而不必过于担心输入。 三个产生主要影响的属性为：
+并不是所有的输入对您创建的每种类型的材质都有用。例如，在开发光源功能（Light Function）时 - 一种应用于光源的材质 - 您只能在材质上使用自发光颜色（Emissive Color）输入，而不能使用其他任何输入，因为其他输入，如金属感（Metallic）或粗糙度（Roughness），将不适用。正因为如此，为了避免您开始过多地担心输入，了解您正在创建的材质类型非常重要。其中三个主要的控制属性是：
 
-* **Blend Mode** （混合模式）- 该模式控制了您的材质如何混合进材质后方的像素。
-* **Shading Model** （着色模型）- 它定义了材质表面的光照是如何进行计算的。
-* **Material Domain** （材质域）- 该属性控制了该材质使用的场合，例如该材质是否会成为表面，光照函数或后期处理材质的一部分。
+* **混合模式（Blend Mode）** - 此属性将控制您的材质如何与它后面的像素融合。
+* **着色模型（Shading Model）** - 此属性定义了如何计算材质表面的光源。
+* **材质域（Material Domain）** - 此属性控制了材质的使用方式，例如它是作为表面的一部分、光源功能，还是后期处理材质。
 
-幸运地是，虚幻引擎4使得您面对给定类型的材质时，不必猜测哪些输入可用。 当您变更材质中的设置时，您将会注意到您的可用输入将会更新，而您不需要的输入将会被禁用。
+幸运的是，虚幻引擎4消除了对给定类型材质所需输入的猜测工作。当您在材质（Material）中更改这些设置时，您会注意到可用的输入将更新，而不需要的输入将被禁用。
 
+
+(#basecolor)
 
 ## 底色
 
@@ -25,18 +37,24 @@ Description:对材质不同输入的深入探讨及其使用原理
 
 
 
-## 金属色
+(#metallic)
+
+## 金属感
 
 [INCLUDE:Engine/Rendering/Materials\PhysicallyBased#Metallic] 
 
 ![](Engine/Rendering/Materials\PhysicallyBased\Metallic_21.png)
 
-## 高光
+(#specular)
+
+## 镜面反射
 
 [INCLUDE:Engine/Rendering/Materials\PhysicallyBased#Specular]
 
 ![](Engine/Rendering/Materials\PhysicallyBased\Specular_21.png)
 
+
+(#roughness)
 
 ## 粗糙度
 
@@ -44,114 +62,118 @@ Description:对材质不同输入的深入探讨及其使用原理
 
 [INCLUDE:Engine/Rendering/Materials\PhysicallyBased#RoughnessMap]
 
-[EXCERPT:lightbox]
-**点击查看完整尺寸**
+ **单击查看完整尺寸（Click for full size）**
 
 [REGION:lightbox]
 [![](Engine/Rendering/Materials\PhysicallyBased/RoughBias_12.png)(w:935)](Engine/Rendering/Materials\PhysicallyBased/RoughBias_12.png)
 [/REGION]
-[/EXCERPT:lightbox]
+
+(#emissivecolor)
 
 ## 自发光颜色
 
 [EXCERPT:Emissive]
-因为 **自发光颜色** 输入发光，所以其可控制您材质的哪一部分发光。 理想状态下，可使用蒙板贴图（除需要发光的区域外，大部分均为黑色）。 
+由于材质正在发光，所以 **自发光颜色（Emissive Color）** 输入控制材质的哪些部分将发光。理想情况下，这将获得一个遮罩纹理（除了需要发光的区域之外，大部分呈黑色）。 
 
-支持将大于1的值作为HDR光照。
+由于支持HDR照明，所以允许大于1的值。
 
-[EXCERPT:lightbox]
-**点击查看完整尺寸**
+ **单击查看完整尺寸（Click for full size）**
 
 [REGION:lightbox]
 [![](Emissive_21.png)(w:935)](Emissive_21.png)
 [/REGION]
-[/EXCERPT:lightbox]
 [/EXCERPT:Emissive]
 
-## 透明度
+(#opacity)
+
+## 不透明度
 
 [EXCERPT:Opacity]
-**透明度** 输入在使用 [半透明混合模式](Engine/Rendering/Materials\MaterialProperties\BlendModes#Translucent)时使用。 它允许您输入一个0和1之间的值：
+使用[半透明混合模式](Engine/Rendering/Materials\MaterialProperties\BlendModes#Translucent)时，会用到 **不透明度（Opacity）** 输入。它允许您输入0与1之间的值，其中：
 
-* 0.0 代表完全的透明。
+* 0.0代表完全透明。
 * 1.0代表完全不透明。
 
-在使用次表面着色模型之一时，不透明和蒙板混合模式同时使用不透明度。
+使用一个次表面着色模型时，不透明和遮罩混合模式也使用不透明度（Opacity）。
 
-[EXCERPT:lightbox]
-**点击查看完整尺寸**
+ **单击查看完整尺寸（Click for full size）**
 
 [REGION:lightbox]
 [![](TranslucencyImage.png)(w:935)](TranslucencyImage.png)
 [/REGION]
-[/EXCERPT:lightbox]
 
-透明度主要适用于 _半透明_ ， _添加型_ 以及 _调制材质_ 。
+不透明度主要用于_半透明材质（Translucent）_、_添加材质（Additive）_和_调制材质（Modulated Materials）_。
 [/EXCERPT:Opacity]
 
-## 透明度蒙板
+(#opacitymask)
+
+## 不透明度遮罩
 
 
 [EXCERPT:OpacityMask]
-**Opacity Mask** (透明度蒙板）与透明度类似，但仅在使用蒙板混合模式时可用。 和透明度一致的地方是，一般输入的值在 0.0和1.0之间，但  _不同于_ 透明度，不同色调的灰色无法在结果中观察到。  在蒙板模式下，材质要么完全可见，要么完全不可见。 当您需要如铁丝网，铁丝网围栏及其它定义了复杂固态表面的材质时，此蒙板是最佳的解决方案。 不透明的部分将仍遵从光照。
+ **不透明度遮罩（Opacity Mask）** 类似于不透明度（Opacity），但仅在使用遮罩混合模式（Masked Blend Mode）时可用。与不透明度（Opacity）一样，它的值在0.0到1.0之间，但与不透明度（Opacity）_不同_的是，结果中看不到不同深浅的灰色。在遮罩模式下时，材质要么完全可见，要么完全不可见。当您需要可以定义复杂固体表面（如铁丝网，链环围栏等等）的材质时，这使它成为一种理想的解决方案。不透明部分仍将遵循照明。
 
-您可以使用基础材质节点的 **Opacity Mask Clip Value** （透明度蒙板剪辑值）来控制剪辑发生处的截断点。 请查阅[蒙板混合模式文档](Engine/Rendering/Materials\MaterialProperties\BlendModes#Masked)以获得更多详细信息。
+您可以使用基本材质节点上的 **不透明度遮罩剪辑值（Opacity Mask Clip Value）** 属性来控制剪辑发生点。有关更多详情，请参阅[遮罩混合模式文档](Engine/Rendering/Materials\MaterialProperties\BlendModes#Masked)。
 
-[EXCERPT:lightbox]
-**点击查看完整尺寸**
+ **单击查看完整尺寸（Click for full size）**
 
 [REGION:lightbox]
 [![](MaskedChainlink.png)(w:935)](Engine/Rendering/Materials\MaterialInputs/MaskedChainlink.png)
 [/REGION]
-[/EXCERPT:lightbox]
 
 [/EXCERPT:OpacityMask]
+
+(#normal)
 
 ## 法线
 
 [EXCERPT:Normal]
-**Normal** (法线）输入会采用法线贴图，这是通过打乱每个单独像素的”法线“，或其朝向以对表面提供惊人的物理细节。 
+ **法线（Normal）** 输入吸收了法线图，后者通过打乱每个单独像素的“法线”或面向方向，为表面提供重要的物理细节。 
 
 ![](Axes.png)(w:935)
 
-**上图中** ，两把武器使用的都是同样的静态网格物体。 下方那把武器拥有高度细节的法线贴图，它提供了海量的额外细节，使观看者误以为表面包含了大量的多边形，而实际进行渲染的数量要远小于此值。 这样的法线贴图往往是通过高分辨率模型包来进行创建的，例如Pixologic ZBrush。
+ **在上图中**，两种武器都使用了相同的静态网格体（Static Mesh）。下图显示了一个非常详细的法线图，它提供了大量的其他细节，并给人一种表面包含比实际呈现的多边形多得多的错觉。这样的法线图通常是从高分辨率建模包创建的，例如Pixologic ZBrush。
 
 ![](NormalNetwork.png)
 [/EXCERPT:Normal]
 
 
-## 世界位置偏移
+(#worldpositionoffset)
+
+## 世界场景位置偏移
 
 [EXCERPT:WPO]
-**World Position Offset** （世界位置偏移）输入使得网格物体的顶点可由材质在世界空间内进行控制。 这对于使目标移动，改变形状，旋转以及一系列其他特效来说，都很有用。 它对于环境动画也很好用。
+ **世界场景位置偏移（World Position Offset）** 输入允许网格体的顶点在世界场景空间中由材质操控。这有助于实现使对象移动、改变形状、旋转和各种其他效果。这对于环境动画等很有用。
 
 
-**点击查看完整尺寸**
+ **单击查看完整尺寸（Click for full size）**
 
 [REGION:lightbox]
 [![](WPODancing.png)(w:935)](WPODancing.png)
 [/REGION]
 
-上图的节点网络会让您的目标同时旋转并上下起伏，犹如舞蹈一般！
+上面的网络会使得对象同时旋转和上下波动，如同它在跳舞一样！
 
 [REGION:warning]
-当您使用世界位置偏移来将您的目标扩展出其初始边界时，请记住渲染器仍会使用到这些初始边界。 这就意味着您可能会看到剔除和阴影功能报错。 您可以查看网格物体的属性，然后设置其 **Scale Bounds** （缩放边界）属性为补偿，尽管这有可能影响性能并导致投影的错误。
+当使用世界场景位置偏移（World Position Offset）将对象扩展到超出其原始边界时，请记住，渲染程序仍然使用那些原始边界。这意味着您可能会看到剔除和阴影错误。您可以进入一个网格体的属性，并设置它的 **范围边界（Scale Bounds）** 属性来进行补偿，尽管这样会影响性能，并可能导致阴影错误。
 [/REGION]
 
 [/EXCERPT:WPO]
 
-## 世界位移以及多边形细分乘数
+(#worlddisplacement&tessellationmultiplier)
+
+## 世界场景位移和曲面细分乘数
 
 [EXCERPT:WorldDisp]
-**World Displacement** (世界位移)的运行原理和World Position Offset（世界位置偏移）非常相似，但它使用的是多边形细分顶点而不是网格物体基础顶点。 为启用该项，材质的Tessellation（多边形细分）属性必须被设置为除 _None_ （无）外的任意值。
+ **世界场景位移（World Displacement）** 的工作方式与世界场景位置偏移（World Position Offset）非常相似，但它使用曲面细分顶点而非网格体的基本顶点。为了启用这个功能，材质上的曲面细分（Tessellation）属性必须设置为非_无（None）_值。
 [/EXCERPT:WorldDisp]
 
 [EXCERPT:TessMult]
-**Tessellation Multiplier** （多边形细分乘数）控制沿表面方向的多边形细分数量，使得在需要时能添加更多的细节。 为能在World Displacement（世界位移）中启用该项，材质的Tessellation（多边形细分）属性必须被设置为除 _None_ （无）外的任意值。
+ **曲面细分乘数（Tessellation Multiplier）** 控制沿表面的曲面细分量，允许在需要的地方添加更多细节。与世界场景位移（World Displacement）一样，为了启用这个功能，曲面细分（Tessellation）属性必须设置为非_无（None）_值。
 [/EXCERPT:TessMult]
 
 [EXCERPT:WorldDispAndTess]
-**点击查看完整尺寸**
+ **单击查看完整尺寸（Click for full size）**
 
 [REGION:lightbox]
 [![](DisplacementNetwork.png)(w:935)](DisplacementNetwork.png)
@@ -159,17 +181,19 @@ Description:对材质不同输入的深入探讨及其使用原理
 
 
 [REGION:warning]
-当您使用世界位移来将您的目标扩展出其初始边界时，请记住渲染器仍会使用到这些初始边界。 这就意味着您可能会看到剔除和阴影功能报错。 您可以查看网格物体的属性，然后设置其 **Scale Bounds** （缩放边界）属性为补偿，尽管这有可能影响性能并导致投影的错误。
+当使用世界场景位移（World Displacement）将对象扩展到超出其原始边界时，请记住，渲染程序仍然使用那些原始边界。这意味着您可能会看到剔除和阴影错误。您可以进入一个网格体的属性，并设置它的 **范围边界（Scale Bounds）** 属性来进行补偿，尽管这样会影响性能，并可能导致阴影错误。
 [/REGION]
 
 [/EXCERPT:WorldDispAndTess]
 
+(#subsurfacecolor)
+
 ## 次表面颜色
 
 [EXCERPT:SubsurfColor]
-Subsurface Color(次表面颜色）输入仅在[着色模型](Engine/Rendering/Materials\MaterialProperties\LightingModels) 属性被设置为Subsurface（次表面）时才可被启用。 该输入可以让您添加颜色到您的材质，以模拟在光照穿过表面时的颜色转换。 例如，人类角色的皮肤上可能会有红色的次表面颜色，以模拟其皮肤下的血液流动。
+只有在[着色模型](Engine/Rendering/Materials\MaterialProperties\LightingModels)属性设置为次表面（Subsurface）时，次表面颜色（Subsurface Color）才会被启用。此输入允许您将一种颜色到材质，以模拟光通过表面时颜色的变化。例如，人类角色的皮肤上可能有一种红色的次表面颜色来模拟其表面之下的血液。
 
-**点击查看完整尺寸**
+ **单击查看完整尺寸（Click for full size）**
 
 [REGION:lightbox]
 [![](SkinSSS.png)(w:935)](SkinSSS.png)
@@ -177,43 +201,50 @@ Subsurface Color(次表面颜色）输入仅在[着色模型](Engine/Rendering/M
 
 [/EXCERPT:SubsurfColor]
 
+(#ambientocclusion)
+
 ## 环境遮挡
 
-环境遮挡主要用来模拟表面缝隙中发生的自投阴影。 一般来说，这种输入会与某些类型的环境遮挡贴图进行连接，而这些贴图常常是在3D模型包内进行创建的，例如 Maya, 3ds Max或ZBrush。
+环境遮挡用来帮助模拟在表面缝隙中发生的自我遮蔽。通常，此输入将连接到某种类型的AO映射，这种映射通常在Maya、3ds Max或ZBrush等三维建模包中创建如。
 
 ![](NormalNetwork.png)
+
+(#refraction)
 
 ## 折射
 
 [EXCERPT:Refraction]
-折射输入会采用模拟表面折射率的贴图或值。 这对于玻璃表面和水面很有帮助，这些表面会对穿过它们的光线进行折射。 
+折射（Refraction）输入接受一个纹理或数值，该纹理或值模拟表面的折射率。这对于像玻璃和水这样的物体很有用，这些物体会折射穿过它们的光。 
 
-**点击查看完整尺寸**
+ **单击查看完整尺寸（Click for full size）**
 
 [REGION:lightbox]
 [![](RefractionNetwork.png)(w:935)](RefractionNetwork.png)
 [/REGION]
 
-| 常见折射率 ||
+|常用折射率||
 |--|--|
 |**空气**|1.00|
-|**水面**|1.33|
-|**冰面**|1.31|
-|**玻璃表面**|1.52|
-|**钻石表面**|2.42|
+|**水**|1.33|
+|**冰**|1.31|
+|**玻璃**|1.52|
+|**钻石**|2.42|
 
 [/EXCERPT:Refraction]
 
-## 透明图层
+(#clearcoat)
+## 透明涂层
 
-透明图层着色模型可以用于更好地模拟在材质表面具有薄半透明膜的多层材质。 除此之外，透明图层着色模型也可以用于金属或非金属表面。 实际上，它是特别用于对无颜色金属的二级平滑颜色膜进行建模的。 一些透明图层材质的示例包括了丙烯酸或漆的透明图层，以及对金属表面的着色膜，诸如易拉罐或车漆。 
+透明涂层着色模型可以用来更好地模拟在材质表面有一层薄的半透明薄膜的多层材质。
+除此之外，透明涂层着色模型也可以用于金属或非金属表面。事实上，它是专门设计来对非有色金属上 
+的第二类光滑彩色薄膜进行建模的。透明涂层材质的一些例子包括丙烯酸或涂漆的透明涂层，以及金属表面的彩色薄膜，如易拉罐或车漆。 
 
 ![](Clearcoat.png)
 
-透明图层着色模型在主材质节点上打开了两个新的材质输入。 
+透明涂层着色模型（Clear Coat Shading Model）在主材质（Main Material）节点上开辟了两种新的材质输入。 
 
-**透明图层** : 透明图层的数量，0为标准着色模型，1为完整透明图层模型。 这对蒙板很有用。 
+ **透明涂层（Clear Coat）**：透明涂层的层数，0代表标准着色模型，1是完全透明涂层模型。这对于遮蔽非常有用。 
 
-**透明图层粗糙度** : 透明图层的粗糙度。 近似值对于小的值是准确的。 支持非常粗糙的透明图层，但相比真实世界中的内容，这样不是特别准确。 
+ **透明涂层粗糙度（Clear Coat Roughness）**：透明涂层的粗糙度。对于较小的值，我们的近似处理是准确的。此输入支持非常粗糙的透明涂层，但与其实际的世界场景对照物相比，这些涂层不会非常准确。 
 
 

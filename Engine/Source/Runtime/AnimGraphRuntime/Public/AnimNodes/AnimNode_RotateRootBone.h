@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -18,10 +18,10 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_RotateRootBone : public FAnimNode_Base
 	FPoseLink BasePose;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings, meta=(PinShownByDefault))
-	mutable float Pitch;
+	float Pitch;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings, meta=(PinShownByDefault))
-	mutable float Yaw;
+	float Yaw;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
 	FInputScaleBiasClamp PitchScaleBiasClamp;
@@ -30,12 +30,10 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_RotateRootBone : public FAnimNode_Base
 	FInputScaleBiasClamp YawScaleBiasClamp;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings, meta=(PinShownByDefault))
-	mutable FRotator MeshToComponent;
+	FRotator MeshToComponent;
 
-	UPROPERTY(Transient)
 	float ActualPitch;
 
-	UPROPERTY(Transient)
 	float ActualYaw;
 
 public:	

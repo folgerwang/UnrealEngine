@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -134,7 +134,7 @@ public:
 
 private:
 
-	UPROPERTY()
+	UPROPERTY(meta=(KeyTimes))
 	TArray<FFrameNumber> Times;
 
 	UPROPERTY()
@@ -143,7 +143,7 @@ private:
 	UPROPERTY()
 	bool bHasDefaultValue;
 
-	UPROPERTY()
+	UPROPERTY(meta=(KeyValues))
 	TArray<uint8> Values;
 
 	UPROPERTY()

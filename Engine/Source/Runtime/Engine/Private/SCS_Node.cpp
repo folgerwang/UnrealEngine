@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/SCS_Node.h"
 #include "UObject/LinkerLoad.h"
@@ -14,7 +14,6 @@ USCS_Node::USCS_Node(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 #if WITH_EDITORONLY_DATA
-	bIsFalseRoot_DEPRECATED = false;
 	bIsNative_DEPRECATED = false;
 #endif
 
@@ -87,9 +86,10 @@ UActorComponent* USCS_Node::ExecuteNodeOnActor(AActor* Actor, USceneComponent* P
 
 	// Create a new component instance based on the template
 	UActorComponent* NewActorComp = nullptr;
-	UBlueprintGeneratedClass* ActualBPGC = Cast<UBlueprintGeneratedClass>(Actor->GetClass());
-	const FBlueprintCookedComponentInstancingData* ActualComponentTemplateData = FPlatformProperties::RequiresCookedData() ? GetActualComponentTemplateData(ActualBPGC) : nullptr;
-	if (ActualComponentTemplateData && ActualComponentTemplateData->bIsValid)
+	UBlueprintGeneratedClass* ActualBPGC = CastChecked<UBlueprintGeneratedClass>(Actor->GetClass());
+	const FBlueprintCookedComponentInstancingData* ActualComponentTemplateData = ActualBPGC->UseFastPathComponentInstancing() ? GetActualComponentTemplateData(ActualBPGC) : nullptr;
+	if (ActualComponentTemplateData && ActualComponentTemplateData->bIsValid
+		&& ensureMsgf(ActualComponentTemplateData->ComponentTemplateClass != nullptr, TEXT("SCS fast path (%s.%s): Cooked data is valid, but runtime support data is not initialized. Using the slow path instead."), *ActualBPGC->GetName(), *InternalVariableName.ToString()))
 	{
 		// Use cooked instancing data if valid (fast path).
 		NewActorComp = Actor->CreateComponentFromTemplateData(ActualComponentTemplateData, InternalVariableName);
@@ -403,7 +403,7 @@ void USCS_Node::SetOnNameChanged( const FSCSNodeNameChanged& OnChange )
 }
 #endif
 
-int32 USCS_Node::FindMetaDataEntryIndexForKey(const FName& Key)
+int32 USCS_Node::FindMetaDataEntryIndexForKey(const FName Key) const
 {
 	for(int32 i=0; i<MetaDataArray.Num(); i++)
 	{
@@ -415,27 +415,27 @@ int32 USCS_Node::FindMetaDataEntryIndexForKey(const FName& Key)
 	return INDEX_NONE;
 }
 
-FString USCS_Node::GetMetaData(const FName& Key)
+const FString& USCS_Node::GetMetaData(const FName Key) const
 {
 	int32 EntryIndex = FindMetaDataEntryIndexForKey(Key);
 	check(EntryIndex != INDEX_NONE);
 	return MetaDataArray[EntryIndex].DataValue;
 }
 
-void USCS_Node::SetMetaData(const FName& Key, const FString& Value)
+void USCS_Node::SetMetaData(const FName Key, FString Value)
 {
 	int32 EntryIndex = FindMetaDataEntryIndexForKey(Key);
 	if(EntryIndex != INDEX_NONE)
 	{
-		MetaDataArray[EntryIndex].DataValue = Value;
+		MetaDataArray[EntryIndex].DataValue = MoveTemp(Value);
 	}
 	else
 	{
-		MetaDataArray.Add( FBPVariableMetaDataEntry(Key, Value) );
+		MetaDataArray.Emplace( FBPVariableMetaDataEntry(Key, MoveTemp(Value)) );
 	}
 }
 
-void USCS_Node::RemoveMetaData(const FName& Key)
+void USCS_Node::RemoveMetaData(const FName Key)
 {
 	int32 EntryIndex = FindMetaDataEntryIndexForKey(Key);
 	if(EntryIndex != INDEX_NONE)

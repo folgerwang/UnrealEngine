@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "DatasmithAssetImportData.h"
 
@@ -14,9 +14,29 @@
 
 #if WITH_EDITORONLY_DATA
 
+#if WITH_EDITOR
+bool UDatasmithSceneImportData::CanEditChange(const UProperty* InProperty) const
+{
+	if (!Super::CanEditChange(InProperty))
+	{
+		return false;
+	}
+
+	if (InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(FDatasmithImportBaseOptions, bIncludeAnimation))
+	{
+		return BaseOptions.CanIncludeAnimation();
+	}
+
+	return true;
+}
+#endif //WITH_EDITOR
+
 UDatasmithStaticMeshImportData* UDatasmithStaticMeshImportData::GetImportDataForStaticMesh( UStaticMesh* StaticMesh, TOptional< DefaultOptionsPair > DefaultImportOptions )
 {
-	check( StaticMesh );
+	if( !StaticMesh )
+	{
+		return nullptr;
+	}
 
 	UDatasmithStaticMeshImportData* ImportData = nullptr;
 
@@ -81,14 +101,18 @@ void UDatasmithStaticMeshCADImportData::SetResourcePath(const FString& FilePath)
 
 	ResourceFilename = FPaths::GetCleanFilename(FilePath);
 
-	TArray<FString> AuxililaryFilePaths;
-	IFileManager::Get().FindFiles(AuxililaryFilePaths, *(FilePath + TEXT(".*")), true, false);
+	static TArray<FString> AuxiliaryExtentions = {
+		TEXT(".ext"),
+	};
 
-	AuxiliaryFilenames.Empty(AuxililaryFilePaths.Num());
-
-	for (FString& AuxililaryFilePath : AuxililaryFilePaths)
+	AuxiliaryFilenames.Empty(AuxiliaryExtentions.Num());
+	for (const FString& Ext : AuxiliaryExtentions)
 	{
-		AuxiliaryFilenames.Add(FPaths::GetCleanFilename(AuxililaryFilePath));
+		FString AuxililaryFilePath = FilePath + Ext;
+		if (FPaths::FileExists(AuxililaryFilePath))
+		{
+			AuxiliaryFilenames.Add(FPaths::GetCleanFilename(AuxililaryFilePath));
+		}
 	}
 
 	// Set ResourcePath as absolute path because CoreTech expects an absolute path

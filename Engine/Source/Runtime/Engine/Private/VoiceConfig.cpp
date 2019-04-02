@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Net/VoiceConfig.h"
 #include "Engine/World.h"
@@ -23,7 +23,9 @@ static TAutoConsoleVariable<float> CVarVoiceSilenceDetectionThreshold(TEXT("voic
 
 int32 UVOIPStatics::GetVoiceSampleRate()
 {
-#if USE_DEFAULT_VOICE_SAMPLE_RATE
+#if PLATFORM_UNIX
+	return PLATFORM_LINUX ? 16000 : 48000;
+#elif USE_DEFAULT_VOICE_SAMPLE_RATE
 	return (int32) 16000;
 #else
 	static bool bRetrievedSampleRate = false;
@@ -35,13 +37,21 @@ int32 UVOIPStatics::GetVoiceSampleRate()
 	}
 
 	static FString DesiredSampleRateStr;
-	bRetrievedSampleRate = true;
-
+	
 	if (GConfig->GetString(TEXT("/Script/Engine.AudioSettings"), TEXT("VoiPSampleRate"), DesiredSampleRateStr, GEngineIni))
 	{
-		SampleRate = (int32)GetEnumValueFromString<EVoiceSampleRate>(TEXT("EVoiceSampleRate"), DesiredSampleRateStr);
+		if (DesiredSampleRateStr.Equals(TEXT("Low16000Hz")))
+		{
+			SampleRate = (int32)EVoiceSampleRate::Low16000Hz;
+		}
+		else if (DesiredSampleRateStr.Equals(TEXT("Normal24000Hz")))
+		{
+			SampleRate = (int32)EVoiceSampleRate::Normal24000Hz;
+		}
+
 		if (SampleRate > 0)
 		{		
+			bRetrievedSampleRate = true;
 			return SampleRate;
 		}
 	}

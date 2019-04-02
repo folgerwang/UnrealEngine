@@ -174,7 +174,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.12.4-release](
 
 *  UE-32060	랜드스케이프 콜리전 밉 레벨 편집 시의 에디터 크래시를 고쳤습니다.
 
-*  UE-32132	세이프 존 시각화 및 디버깅이 윈도우에서 깨지던 것을 고쳤습니다.
+*  UE-32132	세이프 존 시각화 및 디버깅이 Windows에서 깨지던 것을 고쳤습니다.
 
 *  UE-31441	A3D 가 PS4 에서 작동하지 않던 것을 고쳤습니다.
 

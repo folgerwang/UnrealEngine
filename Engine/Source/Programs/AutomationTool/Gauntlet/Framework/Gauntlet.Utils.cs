@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -12,6 +12,8 @@ using System.Reflection;
 using ImageMagick;
 using UnrealBuildTool;
 using Tools.DotNETCommon;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Gauntlet
 {
@@ -370,6 +372,30 @@ namespace Gauntlet
 		static public void Error(string Message)
 		{		
 			OutputMessage(Message, "Error", false);
+		}
+	}
+
+	public class Hasher
+	{
+		public static string ComputeHash(string Input)
+		{
+			if (string.IsNullOrEmpty(Input))
+			{
+				return "0";
+			}
+
+			HashAlgorithm Hasher = MD5.Create();  //or use SHA256.Create();
+
+			byte[] Hash = Hasher.ComputeHash(Encoding.UTF8.GetBytes(Input));
+
+			string HashString = "";
+
+			foreach (byte b in Hash)
+			{
+				HashString += (b.ToString("X2"));
+			}
+
+			return HashString;
 		}
 	}
 
@@ -792,11 +818,13 @@ namespace Gauntlet
 					foreach (string RelativePath in DeletionList)
 					{
 						FileInfo DestInfo = new FileInfo(Path.Combine(DestDir.FullName, RelativePath));
-
+						
 						Log.Verbose("Deleting extra file {0}", DestInfo.FullName);
 
 						try
 						{
+							// avoid an UnauthorizedAccessException by making sure file isn't read only
+							DestInfo.IsReadOnly = false;
 							DestInfo.Delete();
 						}
 						catch (Exception Ex)
@@ -952,6 +980,74 @@ namespace Gauntlet
 				}
 
 				return false;
+			}
+
+			/// <summary>
+			/// Marks a directory for future cleanup
+			/// </summary>
+			/// <param name="InPath"></param>
+			public static void MarkDirectoryForCleanup(string InPath)
+			{
+				if (Directory.Exists(InPath) == false)
+				{
+					Directory.CreateDirectory(InPath);
+				}
+
+				// write a token, used to detect and old gauntlet-installed builds periodically
+				string TokenPath = Path.Combine(InPath, "gauntlet.tempdir");
+				File.WriteAllText(TokenPath, "Created by Gauntlet");
+			}
+
+			/// <summary>
+			/// Removes any directory at the specified path which has a file  matching the provided name
+			/// older than the specified number of days. Used by code that writes a .token file to temp
+			/// folders
+			/// </summary>
+			/// <param name="InPath"></param>
+			/// <param name="FileName"></param>
+			/// <param name="Days"></param>
+			public static void CleanupMarkedDirectories(string InPath, int Days)
+			{
+				DirectoryInfo Di = new DirectoryInfo(InPath);
+
+				if (Di.Exists == false)
+				{
+					return;
+				}
+
+				foreach (DirectoryInfo SubDir in Di.GetDirectories())
+				{
+					bool HasFile = 
+						SubDir.GetFiles().Where(F => {
+							int DaysOld = (DateTime.Now - F.LastWriteTime).Days;				
+							
+							if (DaysOld >= Days)
+							{
+								// use the old and new tokennames
+								return string.Equals(F.Name, "gauntlet.tempdir", StringComparison.OrdinalIgnoreCase) ||
+										string.Equals(F.Name, "gauntlet.token", StringComparison.OrdinalIgnoreCase);
+							}
+
+							return false;
+						}).Count() > 0;
+
+					if (HasFile)
+					{
+						Log.Info("Removing old directory {0}", SubDir.Name);
+						try
+						{
+							SubDir.Delete(true);
+						}
+						catch (Exception Ex)
+						{
+							Log.Warning("Failed to remove old directory {0}. {1}", SubDir.FullName, Ex.Message);
+						}
+					}
+					else
+					{
+						CleanupMarkedDirectories(SubDir.FullName, Days);
+					}
+				}				
 			}
 		}
 

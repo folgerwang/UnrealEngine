@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Tools.DotNETCommon;
+using System.Reflection;
 
 namespace UnrealBuildTool
 {
@@ -35,12 +36,12 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Cached copy of the list of folders to include for this platform
 		/// </summary>
-		private string[] CachedIncludedFolderNames;
+		private ReadOnlyHashSet<string> CachedIncludedFolderNames;
 
 		/// <summary>
 		/// Cached copy of the list of folders to exclude for this platform
 		/// </summary>
-		private string[] CachedExcludedFolderNames;
+		private ReadOnlyHashSet<string> CachedExcludedFolderNames;
 
 		/// <summary>
 		/// Constructor.
@@ -51,6 +52,48 @@ namespace UnrealBuildTool
 		{
 			Platform = InPlatform;
 			DefaultCppPlatform = InDefaultCPPPlatform;
+		}
+
+		/// <summary>
+		/// Finds all the UEBuildPlatformFactory types in this assembly and uses them to register all the available platforms
+		/// </summary>
+		/// <param name="bIncludeNonInstalledPlatforms">Whether to register platforms that are not installed</param>
+		public static void RegisterPlatforms(bool bIncludeNonInstalledPlatforms)
+		{
+			// Initialize the installed platform info
+			using(Timeline.ScopeEvent("Initializing InstalledPlatformInfo"))
+			{
+				InstalledPlatformInfo.Initialize();
+			}
+
+			// Find and register all tool chains and build platforms that are present
+			Type[] AllTypes;
+			using(Timeline.ScopeEvent("Querying types"))
+			{
+				AllTypes = Assembly.GetExecutingAssembly().GetTypes();
+			}
+
+			// register all build platforms first, since they implement SDK-switching logic that can set environment variables
+			foreach (Type CheckType in AllTypes)
+			{
+				if (CheckType.IsClass && !CheckType.IsAbstract)
+				{
+					if (CheckType.IsSubclassOf(typeof(UEBuildPlatformFactory)))
+					{
+						Log.TraceVerbose("    Registering build platform: {0}", CheckType.ToString());
+						using(Timeline.ScopeEvent(CheckType.Name))
+						{
+							UEBuildPlatformFactory TempInst = (UEBuildPlatformFactory)Activator.CreateInstance(CheckType);
+							
+							// We need all platforms to be registered when we run -validateplatform command to check SDK status of each
+							if (bIncludeNonInstalledPlatforms || InstalledPlatformInfo.IsValidPlatform(TempInst.TargetPlatform))
+							{
+								TempInst.RegisterBuildPlatforms();
+							}
+						}
+					}
+				}
+			}
 		}
 
 		/// <summary>
@@ -87,11 +130,11 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Finds a list of folder names to include when building for this platform
 		/// </summary>
-		virtual public string[] GetIncludedFolderNames()
+		public ReadOnlyHashSet<string> GetIncludedFolderNames()
 		{
 			if(CachedIncludedFolderNames == null)
 			{
-				List<string> Names = new List<string>();
+				HashSet<string> Names = new HashSet<string>(DirectoryReference.Comparer);
 
 				Names.Add(Platform.ToString());
 				foreach(UnrealPlatformGroup Group in UEBuildPlatform.GetPlatformGroups(Platform))
@@ -99,7 +142,7 @@ namespace UnrealBuildTool
 					Names.Add(Group.ToString());
 				}
 
-				CachedIncludedFolderNames = Names.ToArray();
+				CachedIncludedFolderNames = new ReadOnlyHashSet<string>(Names, DirectoryReference.Comparer);
 			}
 			return CachedIncludedFolderNames;
 		}
@@ -107,11 +150,11 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Finds a list of folder names to exclude when building for this platform
 		/// </summary>
-		public string[] GetExcludedFolderNames()
+		public ReadOnlyHashSet<string> GetExcludedFolderNames()
 		{
 			if(CachedExcludedFolderNames == null)
 			{
-				CachedExcludedFolderNames = GetPlatformFolderNames().Except(GetIncludedFolderNames()).ToArray();
+				CachedExcludedFolderNames = new ReadOnlyHashSet<string>(GetPlatformFolderNames().Except(GetIncludedFolderNames()), DirectoryReference.Comparer);
 			}
 			return CachedExcludedFolderNames;
 		}
@@ -295,22 +338,8 @@ namespace UnrealBuildTool
 			return false;
 		}
 
-		public virtual void PreBuildSync()
-		{
-		}
-
 		public virtual void PostBuildSync(UEBuildTarget Target)
 		{
-		}
-
-		/// <summary>
-		/// Converts the passed in path from UBT host to compiler native format.
-		/// </summary>
-		/// <param name="OriginalPath">The path to convert</param>
-		/// <returns>The path in native format for the toolchain</returns>
-		public virtual string ConvertPath(string OriginalPath)
-		{
-			return OriginalPath;
 		}
 
 		/// <summary>
@@ -514,14 +543,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Returns the name that should be returned in the output when doing -validateplatforms
-		/// </summary>
-		public virtual string GetPlatformValidationName()
-		{
-			return Platform.ToString();
-		}
-
-		/// <summary>
 		/// If this platform can be compiled with XGE
 		/// </summary>
 		public virtual bool CanUseXGE()
@@ -608,17 +629,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Whether this build should support ONLY cooked data or not
-		/// </summary>
-		/// <param name="InPlatform"> The UnrealTargetPlatform being built</param>
-		/// <param name="InConfiguration">The UnrealTargetConfiguration being built</param>
-		/// <returns>bool   true if the editor should be built, false if not</returns>
-		public virtual bool BuildRequiresCookedData(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
-		{
-			return false;
-		}
-
-		/// <summary>
 		/// Whether this platform should build a monolithic binary
 		/// </summary>
 		public virtual bool ShouldCompileMonolithicBinary(UnrealTargetPlatform InPlatform)
@@ -654,15 +664,6 @@ namespace UnrealBuildTool
 		{
 			List<FileReference> TempList = new List<FileReference>() { BinaryName };
 			return TempList;
-		}
-
-		/// <summary>
-		/// Whether the build platform requires deployment prep
-		/// </summary>
-		/// <returns></returns>
-		public virtual bool RequiresDeployPrepAfterCompile()
-		{
-			return false;
 		}
 
 		/// <summary>
@@ -739,10 +740,10 @@ namespace UnrealBuildTool
 		public virtual bool HasDefaultBuildConfig(UnrealTargetPlatform Platform, DirectoryReference ProjectDirectoryName)
 		{
 			string[] BoolKeys = new string[] {
-				"bCompileApex", "bCompileICU", "bCompileSimplygon", "bCompileSimplygonSSF",
-				"bCompileLeanAndMeanUE", "bIncludeADO", "bCompileRecast", "bCompileSpeedTree",
+				"bCompileApex", "bCompileICU",
+				"bCompileRecast", "bCompileSpeedTree",
 				"bCompileWithPluginSupport", "bCompilePhysXVehicle", "bCompileFreeType",
-				"bCompileForSize", "bCompileCEF3"
+				"bCompileForSize", "bCompileCEF3", "bCompileCustomSQLitePlatform"
 			};
 
 			return DoProjectSettingsMatchDefault(Platform, ProjectDirectoryName, "/Script/BuildSettings.BuildSettings",
@@ -830,6 +831,27 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Allows the platform to return various build metadata that is not tracked by other means. If the returned string changes, the makefile will be invalidated.
+		/// </summary>
+		/// <param name="ProjectFile">The project file being built</param>
+		/// <returns>String describing the current build metadata</returns>
+		public string GetExternalBuildMetadata(FileReference ProjectFile)
+		{
+			StringBuilder Result = new StringBuilder();
+			GetExternalBuildMetadata(ProjectFile, Result);
+			return Result.ToString();
+		}
+
+		/// <summary>
+		/// Allows the platform to return various build metadata that is not tracked by other means. If the returned string changes, the makefile will be invalidated.
+		/// </summary>
+		/// <param name="ProjectFile">The project file being built</param>
+		/// <param name="Metadata">String builder to contain build metadata</param>
+		public virtual void GetExternalBuildMetadata(FileReference ProjectFile, StringBuilder Metadata)
+		{
+		}
+
+		/// <summary>
 		/// Checks if platform is part of a given platform group
 		/// </summary>
 		/// <param name="Platform">The platform to check</param>
@@ -865,19 +887,9 @@ namespace UnrealBuildTool
 		public abstract UEToolChain CreateToolChain(CppPlatform CppPlatform, ReadOnlyTargetRules Target);
 
 		/// <summary>
-		/// Creates a temp toolchain instance for the given project - will not be used to compile with, and is only needed on some platforms
-		/// </summary>
-		/// <param name="ProjectFile">The project to make the toolchain for</param>
-		/// <returns>New toolchain instance.</returns>
-		public virtual UEToolChain CreateTempToolChainForProject(FileReference ProjectFile)
-		{
-			return null;
-		}
-
-		/// <summary>
 		/// Deploys the given target
 		/// </summary>
-		/// <param name="Target">Information about the target being deployed</param>
-		public abstract void Deploy(UEBuildDeployTarget Target);
+		/// <param name="Receipt">Receipt for the target being deployed</param>
+		public abstract void Deploy(TargetReceipt Receipt);
 	}
 }

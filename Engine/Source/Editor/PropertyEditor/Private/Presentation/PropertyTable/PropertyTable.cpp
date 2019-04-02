@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Presentation/PropertyTable/PropertyTable.h"
 #include "Misc/FeedbackContext.h"
@@ -1283,7 +1283,8 @@ void FPropertyTable::UpdateColumns()
 			{
 				TWeakObjectPtr< UProperty > Property = *PropertyIter;
 
-				if ( PropertyIter->HasAnyPropertyFlags(CPF_AssetRegistrySearchable) )
+				// Don't expose CPF_NativeAccessSpecifierProtected and CPF_NativeAccessSpecifierPrivate properties
+				if ( PropertyIter->HasAllPropertyFlags(CPF_NativeAccessSpecifierPublic | CPF_AssetRegistrySearchable) )
 				{
 					TArray< TSharedRef< IPropertyTableColumn > > MapResults;
 

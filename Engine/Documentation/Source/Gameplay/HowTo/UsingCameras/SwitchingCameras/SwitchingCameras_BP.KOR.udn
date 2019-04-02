@@ -62,7 +62,7 @@ type:how-to
 
 	![](camera_6.png)
 
-1.	그래프에 **우클릭** 한 다음 **Set View Target with Blend** 노드를 추가합니다 (안보이면 **맥락 의존적** 체크를 해제합니다). 
+1.	그래프에 **우클릭** 한 다음 **Set View Target with Blend** 노드를 추가합니다 (안보이면 **컨텍스트에 따라** 체크를 해제합니다). 
 
 	![](camera_7.png)
 

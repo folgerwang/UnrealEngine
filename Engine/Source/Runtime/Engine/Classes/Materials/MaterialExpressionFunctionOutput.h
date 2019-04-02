@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -26,7 +26,7 @@ class UMaterialExpressionFunctionOutput : public UMaterialExpression
 	FString Description;
 
 	/** Controls where the output is displayed relative to the other outputs. */
-	UPROPERTY(EditAnywhere, Category=MaterialExpressionFunctionOutput)
+	UPROPERTY(EditAnywhere, Category=MaterialExpression)
 	int32 SortPriority;
 
 	/** Stores the expression in the material function connected to this output. */

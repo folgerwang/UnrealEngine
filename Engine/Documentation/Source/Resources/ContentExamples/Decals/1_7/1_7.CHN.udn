@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:1954017
+﻿INTSourceChangelist:3782314
 Availability: Public
-Title:1.7 - 对贴花材质添加动画
-Crumbs:%ROOT%, Resources, Resources/ContentExamples/Decals
-Description:贴花示例关卡概述，示例1.7： 对贴花材质添加动画
+Title:1.7 - 动画化贴花材质
+Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Decals
+Description:贴花示例关卡的概述，示例1.7：动画化贴花材质
 Related: Engine/Actors/DecalActor
 Related: Engine/Rendering/Materials/PhysicallyBased
 Related: Engine/Rendering/Materials
@@ -11,55 +11,17 @@ Related: Engine/Rendering/Materials/ExpressionReference
 Related: Engine/Rendering/Materials/MaterialInputs
 Related: Engine/Rendering/Materials/LayeredMaterials
 Related: Engine/Rendering/Materials/MaterialInstances
+Version: 4.9
+topic-image:Resources\ContentExamples\Decals\Decals_7.png
 
 [TOC(start:2 end:2)]
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/Decals/1_7:title%](Resources\ContentExamples\Decals\Decals_7.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Decals/1_7:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Decals/1_7:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/Decals/1_7]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/Decals/1_7:title%](Resources\ContentExamples\Decals\Decals_7.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Decals/1_7:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Decals/1_7:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/Decals/1_7]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [REGION:fullwidth]
 
 ![%Resources/ContentExamples/Decals/1_1:title%](Resources\ContentExamples\Decals\Decals_7.png)
 
-
-
-本例中我们在贴花材质中使用旋转器材质表达式来对贴花添加动画。您对标准材质可以进行的任何操作可以对贴花材质进行，包括添加动画。
-
-
 [/REGION]
+
+
+在本例中，我们通过在贴花材质中使用旋转体材质表达式来动画化贴花。凡是您可以对标准材质执行的操作，同样适用于贴花材质，包括动画。
+

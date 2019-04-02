@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2690184
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:参数表达式
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/ExpressionReference
 Description:这类表达式向材质实例公开属性，以便在子实例中覆盖或在运行时修改。
 Version:4.9
+tags:Materials
 
 [EXCERPT:TOC]
 [TOC(start:2)]
@@ -173,7 +174,7 @@ Version:4.9
 | **组（Group）**| [INCLUDE:Engine/Rendering/Materials/ExpressionReference/Parameters#GroupDefinition] |
 | **纹理（Texture）** | 指定表达式所取样的纹理。|
 | **取样类型（Sampler Type）** | 此节点所要取样并输出的数据类型。|
-| **Mip 值模式（MipValueMode）** | 对纹理应用一个将会影响外观及性能的噪声值。|
+| **Mip 值模式（MipValueMode）** | 通过计算的默认硬件选择如何定制取样的mip等级或派生物。这会影响外观及性能的噪声值。|
 
 此节点与[材质函数](Engine/Rendering/Materials/Functions)配合使用。
 [/EXCERPT:TextureObjectParameter]
@@ -192,7 +193,7 @@ Version:4.9
 | **组（Group）**| [INCLUDE:Engine/Rendering/Materials/ExpressionReference/Parameters#GroupDefinition] |
 | **纹理（Texture）** | 指定表达式所取样的纹理。|
 | **取样类型（Sampler Type）** | 此节点所要取样并输出的数据类型。|
-| **Mip 值模式（MipValueMode）** | 对纹理应用一个将会影响外观及性能的噪声值。|
+| **Mip 值模式（MipValueMode）** | 通过计算的默认硬件选择如何定制取样的mip等级或派生物。这会影响外观及性能的噪声值。|
 | [REGION:tablesection]输入[/REGION] ||
 | **UVs** | 接收 UV 纹理坐标，以用于纹理。如果没有任何值输入到 UVs，那么将使用材质所应用于的网格的纹理坐标。|
 | [REGION:tablesection]输出[/REGION] ||
@@ -219,7 +220,7 @@ Version:4.9
 | **组（Group）**| [INCLUDE:Engine/Rendering/Materials/ExpressionReference/Parameters#GroupDefinition] |
 | **纹理（Texture）** | 指定表达式所取样的纹理。|
 | **取样类型（Sampler Type）** | 此节点所要取样并输出的数据类型。|
-| **Mip 值模式（MipValueMode）** | 对纹理应用一个将会影响外观及性能的噪声值。|
+| **Mip 值模式（MipValueMode）** | 通过计算的默认硬件选择如何定制取样的mip等级或派生物。这会影响外观及性能的噪声值。|
 | [REGION:tablesection]输入[/REGION] ||
 | **UVs** | 接收 UV 纹理坐标，以用于纹理。如果没有任何值输入到 UVs，那么将使用材质所应用于的网格的纹理坐标。这必须是三通道矢量值。|
 | [REGION:tablesection]输出[/REGION] ||
@@ -244,7 +245,7 @@ Version:4.9
 | **组（Group）**| [INCLUDE:Engine/Rendering/Materials/ExpressionReference/Parameters#GroupDefinition] |
 | **纹理（Texture）** | 指定表达式所取样的纹理。|
 | **取样类型（Sampler Type）** | 此节点所要取样并输出的数据类型。|
-| **Mip 值模式（MipValueMode）** | 对纹理应用一个将会影响外观及性能的噪声值。|
+| **Mip 值模式（MipValueMode）** | 通过计算的默认硬件选择如何定制取样的mip等级或派生物。这会影响外观及性能的噪声值。|
 | [REGION:tablesection]输入[/REGION] ||
 | **UVs** | 接收 UV 纹理坐标，以用于纹理。如果没有任何值输入到 UVs，那么将使用材质所应用于的网格的纹理坐标。|
 | [REGION:tablesection]输出[/REGION] ||

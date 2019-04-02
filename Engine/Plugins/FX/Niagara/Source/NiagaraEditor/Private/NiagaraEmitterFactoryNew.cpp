@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraEmitterFactoryNew.h"
 #include "NiagaraEmitter.h"
@@ -82,7 +82,7 @@ bool UNiagaraEmitterFactoryNew::ConfigureProperties()
 
 UNiagaraNodeFunctionCall* AddModuleFromAssetPath(FString AssetPath, UNiagaraNodeOutput& TargetOutputNode)
 {
-	FStringAssetReference AssetRef(AssetPath);
+	FSoftObjectPath AssetRef(AssetPath);
 	UNiagaraScript* AssetScript = Cast<UNiagaraScript>(AssetRef.TryLoad());
 	FAssetData ScriptAssetData(AssetScript);
 	if (ScriptAssetData.IsValid())
@@ -196,6 +196,7 @@ UObject* UNiagaraEmitterFactoryNew::FactoryCreateNew(UClass* Class, UObject* InP
 
 		FNiagaraStackGraphUtilities::RelayoutGraph(*Source->NodeGraph);
 		NewEmitter->bInterpolatedSpawning = true;
+		NewEmitter->bDeterminism = false; // NOTE: Default to non-determinism
 		NewEmitter->SpawnScriptProps.Script->SetUsage(ENiagaraScriptUsage::ParticleSpawnScriptInterpolated);
 	}
 	

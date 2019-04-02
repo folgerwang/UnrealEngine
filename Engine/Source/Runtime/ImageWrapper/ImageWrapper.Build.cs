@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -36,8 +36,6 @@ public class ImageWrapper : ModuleRules
 		{
 			PublicDefinitions.Add("WITH_UNREALEXR=0");
 		}
-
-		bEnableShadowVariableWarnings = false;
 
 		// Enable exceptions to allow error handling
 		bEnableExceptions = true;

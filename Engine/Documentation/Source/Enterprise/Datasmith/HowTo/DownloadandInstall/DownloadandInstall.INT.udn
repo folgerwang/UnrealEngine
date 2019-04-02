@@ -1,0 +1,84 @@
+Availability: Public
+Crumbs: 
+Title: Downloading Unreal Engine 4 and Installing Datasmith
+Description: Get an Epic account, and get Unreal Engine and Datasmith installed on your computer and ready to use.
+Type:how-to
+Version: 4.20
+Parent: Enterprise/Datasmith/HowTo
+Order: 1
+SkillLevel:Beginner
+Tags: Enterprise
+Tags: Getting Started
+Tags: how to
+Tags: Datasmith
+Tags: Manufacturing
+Tags: overview
+Tags: beginner
+topic-image:datasmith-download-install-topic.png
+
+![](datasmith-setup-install-engine.png)
+
+[TOC]
+
+[REGION:note]
+If you've already completed some of these steps, you can skip to the sections that are relevant to you below.
+[/REGION]
+
+## Installing Unreal Engine 4
+
+1.  To get started installing Unreal Engine 4, start by following this How-To guide for [Installing Unreal Engine 4](GettingStarted/Installation). It shows you how to do the following:
+
+	1.  Create an Epic Games account (if you don’t already have one)
+	1.  Download and Run the Installer (Epic Games Launcher Setup Program)
+	1.  Sign into the Epic Games Launcher
+
+1.  When you're ready to install Unreal Engine 4, go to the **Library** tab of the Epic Games Launcher.  
+    ![](datasmith-launcher-learn-tab.png)
+1.  Click the **+** button next to the **Engine Versions** heading:  
+    ![](datasmith-add-engine-version.png)
+1.  Under the **Engine Versions** heading, a new version slot is shown with the latest major release version of Unreal Engine 4.  
+    ![](datasmith-new-version-slot.png)  
+    [REGION:tip]
+    A Datasmith Beta is not always limited to the latest major release of Unreal Engine 4 and may use a Unreal Engine **Preview** release. You can install these by clicking the arrow next to the Engine version number and selecting the latest Preview release.  
+    ![](datasmith-choose-version.png)
+    [/REGION]
+1.  Click **Install** and choose an installation location.  
+    ![](datasmith-install-version.png)  
+    [REGION:tip]
+    If storage space is a concern, when choosing an installation location, you can select **Options** and deselect parts of the Engine that you will not need. For instance, you can disable any content under **Target Platforms** if you do not intend to develop for them individually to save some additional space.
+    [REGION:lightbox]
+    [![](Install_OptionalTargetPlatforms.png)(w:300)](Install_OptionalTargetPlatforms.png)  
+    *Click for full image.*
+    [/REGION]
+    [/REGION]
+
+## Checking that Datasmith Entitlements Are Active
+
+Starting with the release of Unreal Engine version 4.19, the delivery process for the Datasmith plugin has changed. If you have an “Active” Unreal Studio entitlement (see below), Datasmith can and will be installed alongside the Engine automatically.
+
+In the left panel of the Epic Games Launcher, you should see the subscription status listed for Unreal Studio:
+
+[REGION:lightbox]
+[![](UnrealStudioSubscriptionStatus.png)(w:100)](UnrealStudioSubscriptionStatus.png)   
+*Click for full image.*
+[/REGION]
+
+If you don't see the highlighted area listed, you may not have entitlements enabled for this account, so be sure to log in with an Unreal Studio-enabled account. If you need additional information about entitlements for Datasmith, see the [Unreal Studio knowledge base](https://unrealstudiohelp.epicgames.com/s/article/What-are-Datasmith-Entitlements).
+
+## Validating that Datasmith is Installed
+
+1.  Once Unreal Engine 4 has been installed, you can click **Installed Plugins** under the Engine version to verify that the Unreal Datasmith plugin has been installed.  
+    ![](datasmith-verify-installed-plugin.png)
+
+## Manually Installing the Datasmith Plugin
+
+The Datasmith plugin will automatically install alongside any new installation of Unreal Engine 4 if you have Unreal Studio entitlements. However, if you've already installed your Engine version, or you do not see the plugin listed under the **Installed Plugins** for your version of UE4, use the following steps to manually install the plugin from your Epic Games Launcher's **Library**:
+
+1.  From the Epic Games Launcher, select the **Library** tab, if it is not already selected.  
+    ![](datasmith-launcher-library-tab.png)
+2.  Under the **Unreal Studio Beta** section of the page, look for the **Unreal Datasmith** plugin. Click **Install to Engine**.  
+    ![](datasmith-launcher-unrealdatasmith.png)
+3.  Select the version of the Engine you want to install the plugin for, then click **Install**.  
+    ![](datasmith-install-plugin-version.png)
+4.  After the installation completes, you can verify that the plugin was installed correctly by clicking the **Installed Plugins** link under your Engine version:  
+    ![](datasmith-verify-installed-plugin.png)

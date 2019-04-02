@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /**
  * MaterialParameterCollectionInstance.h 
@@ -49,9 +49,9 @@ class ENGINE_API UMaterialParameterCollectionInstance : public UObject
 		return Collection;
 	}
 
-	void UpdateRenderState();
+	void UpdateRenderState(bool bRecreateUniformBuffer);
 
-	void DeferredUpdateRenderState();
+	void DeferredUpdateRenderState(bool bRecreateUniformBuffer);
 
 	/** Tracks whether this instance has ever issued a missing parameter warning, to reduce log spam. */
 	bool bLoggedMissingParameterWarning;

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -51,10 +51,11 @@ public:
 	 * @param	bAskForNewFileIfMissing If the file is missing, open a dialog to ask for a new one
 	 * @param	bShowNotification True to show a notification when complete, false otherwise
 	 * @param	PreferredReimportFile if not empty, will be use in case the original file is missing and bAskForNewFileIfMissing is set to false
+	 * @param	SourceFileIndex		which source file index you want to reimport default is INDEX_NONE(the factory will choose)
 	 *
 	 * @return	true if the object was handled by one of the reimport handlers; false otherwise
 	 */
-	UNREALED_API virtual bool Reimport( UObject* Obj, bool bAskForNewFileIfMissing = false, bool bShowNotification = true, FString PreferredReimportFile = TEXT(""), FReimportHandler* SpecifiedReimportHandler = nullptr );
+	UNREALED_API virtual bool Reimport( UObject* Obj, bool bAskForNewFileIfMissing = false, bool bShowNotification = true, FString PreferredReimportFile = TEXT(""), FReimportHandler* SpecifiedReimportHandler = nullptr, int32 SourceFileIndex = INDEX_NONE, bool bForceNewFile = false);
 
 	/**
 	 * Attemp to reimport all specified objects. This function will verify that all source file exist and ask the user
@@ -66,8 +67,9 @@ public:
 	 *
 	 * * @param	ToImportObjects		Objects to try reimporting
 	 * * @param	bShowNotification	True to show a notification when complete, false otherwise
+	 * * @param	SourceFileIndex		which source file index you want to reimport default is INDEX_NONE(the factory will chooseP)
 	 */
-	UNREALED_API virtual void ValidateAllSourceFileAndReimport(TArray<UObject*> &ToImportObjects, bool bShowNotification = true);
+	UNREALED_API virtual void ValidateAllSourceFileAndReimport(TArray<UObject*> &ToImportObjects, bool bShowNotification = true, int32 SourceFileIndex = INDEX_NONE, bool bForceNewFile = false);
 
 	/**
 	* Attempt to reimport multiple objects from its source by giving registered reimport
@@ -77,10 +79,11 @@ public:
 	* @param	bAskForNewFileIfMissing If the file is missing, open a dialog to ask for a new one
 	* @param	bShowNotification True to show a notification when complete, false otherwise
 	* @param	PreferredReimportFile if not empty, will be use in case the original file is missing and bAskForNewFileIfMissing is set to false
+	* @param	SourceFileIndex which source file index you want to reimport default is INDEX_NONE(the factory will choose)
 	*
 	* @return	true if the objects all imported successfully, for more granular success reporting use FReimportManager::Reimport
 	*/
-	UNREALED_API virtual bool ReimportMultiple( TArrayView<UObject*> Objects, bool bAskForNewFileIfMissing = false, bool bShowNotification = true, FString PreferredReimportFile = TEXT(""), FReimportHandler* SpecifiedReimportHandler = nullptr );
+	UNREALED_API virtual bool ReimportMultiple( TArrayView<UObject*> Objects, bool bAskForNewFileIfMissing = false, bool bShowNotification = true, FString PreferredReimportFile = TEXT(""), FReimportHandler* SpecifiedReimportHandler = nullptr, int32 SourceFileIndex = INDEX_NONE );
 
 	/**
 	 * Update the reimport paths for the specified object
@@ -89,6 +92,15 @@ public:
 	 * @param	InFilenames The files we want to set to its import paths
 	 */
 	UNREALED_API virtual void UpdateReimportPaths( UObject* Obj, const TArray<FString>& InFilenames );
+
+	/**
+	* Update the reimport paths for the specified object
+	*
+	* @param	Obj	Object to update
+	* @param	Filename The files we want to set to its import paths
+	* @param	SourceFileIndex the source file index to set the filename
+	*/
+	UNREALED_API virtual void UpdateReimportPath(UObject* Obj, const FString& Filename, int32 SourceFileIndex);
 
 	/**
 	 * Gets the delegate that's fired prior to reimporting an asset
@@ -108,7 +120,7 @@ public:
 	FPostReimportNotification& OnPostReimport(){ return PostReimport; }
 
 	/** Opens a file dialog to request a new reimport path */
-	UNREALED_API void GetNewReimportPath(UObject* Obj, TArray<FString>& InOutFilenames);
+	UNREALED_API void GetNewReimportPath(UObject* Obj, TArray<FString>& InOutFilenames, int32 SourceFileIndex = INDEX_NONE);
 	
 	/** FGCObject interface */
 	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;
@@ -181,6 +193,20 @@ public:
 	virtual void SetReimportPaths( UObject* Obj, const TArray<FString>& NewReimportPaths ) = 0;
 
 	/**
+	* Sets the reimport path(s) for the specified object at the specified index
+	*
+	* @param	Obj	Object for which to change the reimport path(s)
+	* @param	NewReimportPaths	The new path(s) to set on the object
+	* @param	SourceIndex			the index of the SourceFile to set the reimport path
+	*/
+	virtual void SetReimportPaths(UObject* Obj, const FString& NewReimportPath, const int32 SourceIndex)
+	{
+		TArray<FString> NewReimportPaths;
+		NewReimportPaths.Add(NewReimportPath);
+		SetReimportPaths(Obj, NewReimportPaths);
+	}
+
+	/**
 	 * Attempt to reimport the specified object from its source
 	 *
 	 * @param	Obj	Object to attempt to reimport
@@ -192,6 +218,21 @@ public:
 	virtual EReimportResult::Type Reimport( UObject* Obj ) = 0;
 
 	/**
+	* Attempt to reimport the specified object from its source
+	*
+	* @param	Obj	Object to attempt to reimport
+	* @param	SourceFileIndex	the index of the SourceFile to use to reimport the Obj
+	*
+	* @return	EReimportResult::Succeeded if this handler was able to handle reimporting the provided object,
+	*			EReimportResult::Failed if this handler was unable to handle reimporting the provided object or
+	*			EReimportResult::Cancelled if the handler was cancelled part-way through re-importing the provided object.
+	*/
+	virtual EReimportResult::Type Reimport(UObject* Obj, int32 SourceFileIndex)
+	{
+		return Reimport(Obj);
+	}
+
+	/**
 	 * Get the import priority for this handler.
 	 * Import handlers with higher priority values will take precedent over lower priorities.
 	 */
@@ -200,4 +241,11 @@ public:
 	/** Returns the UFactory object associated with this reimport handler */
 	virtual const UObject* GetFactoryObject() const { return nullptr; }
 
+	/**	Sets the preferred reimport path, for aiding in resolving reimporting objects where the
+	 *	object path differs from the new path (ex. differing extensions).
+	 */
+	void SetPreferredReimportPath(const FString& Path) { PreferredReimportPath = Path; }
+
+protected:
+	FString PreferredReimportPath;
 };

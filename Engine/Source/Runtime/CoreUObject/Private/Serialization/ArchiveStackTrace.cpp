@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Serialization/ArchiveStackTrace.h"
 #include "Misc/CommandLine.h"
@@ -285,7 +285,7 @@ void FArchiveStackTrace::Serialize(void* InData, int64 Num)
 		{
 			StackTrace[0] = '\0';
 			FPlatformStackWalk::StackWalkAndDump(StackTrace, StackTraceSize, StackIgnoreCount);
-#if WITH_EDITOR
+#if WITH_EDITOR && !NO_LOGGING
 			//if we have a debug name stack, plaster it onto the end of the current stack buffer so that it's a part of the unique stack entry.
 			if (DebugDataStack.Num() > 0)
 			{
@@ -323,7 +323,8 @@ void FArchiveStackTrace::Serialize(void* InData, int64 Num)
 			if (CallstackAtOffsetMap.Num() == 0 || CurrentOffset > CallstackAtOffsetMap.Last().Offset)
 			{
 				// New data serialized at the end of archive buffer
-				LastSerializeCallstack = AddUniqueCallstack(ThreadContext.SerializedObject, GetSerializedProperty(), CallstackCRC);
+				check(LoadContext);
+				LastSerializeCallstack = AddUniqueCallstack(LoadContext->SerializedObject, GetSerializedProperty(), CallstackCRC);
 				CallstackAtOffsetMap.Add(FCallstactAtOffset(CurrentOffset, CallstackCRC, GIgnoreDiffManager.ShouldIgnoreDiff()));
 			}
 			else
@@ -331,8 +332,9 @@ void FArchiveStackTrace::Serialize(void* InData, int64 Num)
 				// This happens usually after Seek() so we need to find the exiting offset or insert a new one
 				int32 CallstackToUpdateIndex = GetCallstackAtOffset(CurrentOffset, 0);
 				check(CallstackToUpdateIndex != -1);
+				check(LoadContext);
 				FCallstactAtOffset& CallstackToUpdate = CallstackAtOffsetMap[CallstackToUpdateIndex];
-				LastSerializeCallstack = AddUniqueCallstack(ThreadContext.SerializedObject, GetSerializedProperty(), CallstackCRC);
+				LastSerializeCallstack = AddUniqueCallstack(LoadContext->SerializedObject, GetSerializedProperty(), CallstackCRC);
 				if (CallstackToUpdate.Offset == CurrentOffset)
 				{
 					CallstackToUpdate.Callstack = CallstackCRC;
@@ -353,6 +355,16 @@ void FArchiveStackTrace::Serialize(void* InData, int64 Num)
 		}
 	}
 	FLargeMemoryWriter::Serialize(InData, Num);
+}
+
+void FArchiveStackTrace::SetSerializeContext(FUObjectSerializeContext* InLoadContext)
+{
+	LoadContext = InLoadContext;
+}
+
+FUObjectSerializeContext* FArchiveStackTrace::GetSerializeContext()
+{
+	return LoadContext;
 }
 
 int32 FArchiveStackTrace::GetCallstackAtOffset(int64 InOffset, int32 MinOffsetIndex)
@@ -914,7 +926,7 @@ bool FArchiveStackTrace::IsIdentical(const TCHAR* InFilename, int64 BufferSize, 
 	return bIdentical;
 }
 
-FLinkerLoad* FArchiveStackTrace::CreateLinkerForPackage(const FString& InPackageName, const FString& InFilename, const FPackageData& PackageData)
+FLinkerLoad* FArchiveStackTrace::CreateLinkerForPackage(FUObjectSerializeContext* LoadContext, const FString& InPackageName, const FString& InFilename, const FPackageData& PackageData)
 {
 	// First create a temp package to associate the linker with
 	UPackage* Package = FindObjectFast<UPackage>(nullptr, *InPackageName);
@@ -924,7 +936,7 @@ FLinkerLoad* FArchiveStackTrace::CreateLinkerForPackage(const FString& InPackage
 	}
 	// Create an archive for the linker. The linker will take ownership of it.
 	FLargeMemoryReader* PackageReader = new FLargeMemoryReader(PackageData.Data, PackageData.Size, ELargeMemoryReaderFlags::None, *InPackageName);	
-	FLinkerLoad* Linker = FLinkerLoad::CreateLinker(Package, *InFilename, LOAD_NoVerify, PackageReader);
+	FLinkerLoad* Linker = FLinkerLoad::CreateLinker(LoadContext, Package, *InFilename, LOAD_NoVerify, PackageReader);
 
 	if (Linker && Package)
 	{
@@ -1275,6 +1287,7 @@ static void DumpTableDifferences(
 #endif // !NO_LOGGING
 }
 
+extern int32 GAllowCookedDataInEditorBuilds;
 
 void FArchiveStackTrace::DumpPackageHeaderDiffs(const FPackageData& SourcePackage, const FPackageData& DestPackage, const FString& AssetFilename, const int32 MaxDiffsToLog)
 {
@@ -1285,15 +1298,24 @@ void FArchiveStackTrace::DumpPackageHeaderDiffs(const FPackageData& SourcePackag
 
 	TGuardValue<bool> GuardIsSavingPackage(GIsSavingPackage, false);
 	TGuardValue<bool> GuardAllowUnversionedContentInEditor(GAllowUnversionedContentInEditor, true);
+	TGuardValue<int32> GuardAllowCookedDataInEditorBuilds(GAllowCookedDataInEditorBuilds, 1);
 
+	FLinkerLoad* SourceLinker = nullptr;
+	FLinkerLoad* DestLinker = nullptr;
 	// Create linkers. Note there's no need to clean them up here since they will be removed by the package associated with them
-	BeginLoad();
-	FLinkerLoad* SourceLinker = CreateLinkerForPackage(SourceAssetPackageName, AssetFilename, SourcePackage);
-	EndLoad();
-
-	BeginLoad();
-	FLinkerLoad* DestLinker = CreateLinkerForPackage(DestAssetPackageName, AssetFilename, DestPackage);
-	EndLoad();
+	{
+		TRefCountPtr<FUObjectSerializeContext> LinkerLoadContext(FUObjectThreadContext::Get().GetSerializeContext());
+		BeginLoad(LinkerLoadContext);
+		SourceLinker = CreateLinkerForPackage(LinkerLoadContext, SourceAssetPackageName, AssetFilename, SourcePackage);
+		EndLoad(SourceLinker ? SourceLinker->GetSerializeContext() : LinkerLoadContext.GetReference());
+	}
+	
+	{
+		TRefCountPtr<FUObjectSerializeContext> LinkerLoadContext(FUObjectThreadContext::Get().GetSerializeContext());
+		BeginLoad(LinkerLoadContext);
+		DestLinker = CreateLinkerForPackage(LinkerLoadContext, DestAssetPackageName, AssetFilename, DestPackage);
+		EndLoad(DestLinker ? DestLinker->GetSerializeContext() : LinkerLoadContext.GetReference());
+	}
 
 	if (SourceLinker && DestLinker)
 	{
@@ -1334,7 +1356,8 @@ FArchiveStackTraceReader::FArchiveStackTraceReader(const TCHAR* InFilename, cons
 void FArchiveStackTraceReader::Serialize(void* OutData, int64 Num)
 {
 	bool bAddData = true;
-	FSerializeData NewData(Tell(), Num, ThreadContext.SerializedObject, GetSerializedProperty());
+	check(GetSerializeContext());
+	FSerializeData NewData(Tell(), Num, GetSerializeContext()->SerializedObject, GetSerializedProperty());
 	if (SerializeTrace.Num())
 	{
 		FSerializeData& Last = SerializeTrace.Last();

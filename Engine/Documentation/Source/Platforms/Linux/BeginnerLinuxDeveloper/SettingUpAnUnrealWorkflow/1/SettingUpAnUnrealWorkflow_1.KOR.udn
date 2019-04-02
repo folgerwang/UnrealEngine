@@ -2,7 +2,7 @@
 Availability: Public
 Title: 1 - 필수 구성
 Crumbs:
-Description:리눅스에서 Git 구성 방법을 배워봅니다.
+Description:Linux에서 Git 구성 방법을 배워봅니다.
 Version: 4.13
 type:quick start
 parent:Platforms/Linux/BeginnerLinuxDeveloper/SettingUpAnUnrealWorkflow
@@ -17,7 +17,7 @@ SkillLevel:Beginner
 	[PARAM:current]
 	[/PARAM]
 	[PARAM:home]
-		[리눅스 퀵 스타트 홈](Platforms/Linux/BeginnerLinuxDeveloper/SettingUpAnUnrealWorkflow)
+		[Linux 퀵 스타트 홈](Platforms/Linux/BeginnerLinuxDeveloper/SettingUpAnUnrealWorkflow)
 	[/PARAM]
 	[PARAM:next]
 		[다음 단계](Platforms/Linux/BeginnerLinuxDeveloper/SettingUpAnUnrealWorkflow/2 "%Platforms/Linux/BeginnerLinuxDeveloper/SettingUpAnUnrealWorkflow/2:title%")
@@ -27,13 +27,13 @@ SkillLevel:Beginner
 
 
 
-현재 리눅스 사용자를 위해서는 UE4 바이너리 인스톨러를 제공하지 않습니다. 좋은 소식은 저희가 엔진을 개발하는 데 사용하는 것과 동일한 소스 코드로 언리얼 엔진 
+현재 Linux 사용자를 위해서는 UE4 바이너리 인스톨러를 제공하지 않습니다. 좋은 소식은 저희가 엔진을 개발하는 데 사용하는 것과 동일한 소스 코드로 언리얼 엔진 
 바이너리를 컴파일할 수 있다는 것입니다. 저희 소스 코드에 접근하시려면, 에픽 게임스 계정을 등록하시고 GitHub 계정에 가입한 뒤,
-에픽 게임스 계정에 GitHub 사용자명을 연동시킨 뒤, 리눅스 머신에서 Git 구성을 해주면 됩니다.
+에픽 게임스 계정에 GitHub 사용자명을 연동시킨 뒤, Linux 머신에서 Git 구성을 해주면 됩니다.
 
 ## 에픽 게임스 계정 등록
 
-언리얼 엔진으로 리눅스용 게임을 제작하거나 미래에 기여하고자 하시는 경우, 유효한 에픽 게임스 계정이 있어야 합니다.
+언리얼 엔진으로 Linux용 게임을 제작하거나 미래에 기여하고자 하시는 경우, 유효한 에픽 게임스 계정이 있어야 합니다.
 
 [INCLUDE:GettingStarted/AccountSetup#epicAccount]
 

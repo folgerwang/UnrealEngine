@@ -1,0 +1,191 @@
+INTSourceChangelist:4530598
+Availability: Public
+Crumbs: 
+Title: 데이터스미스에 Deltagen 및 VRED 사용
+Description: 데이터스미스로 3DExcite Deltagen 또는 Autodesk VRED 에서 씬을 임포트할 때 적용되는 특수 사항을 설명합니다.
+Type:how-to
+Version: 4.20
+SkillLevel:Beginner
+Parent:Enterprise/Datasmith/SoftwareInteropGuides
+Order: 1
+Tags: Enterprise
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: overview
+Tags: Experimental
+Tags: interop
+Tags: Deltagen
+Tags: VRED
+Tags: Landing Page
+
+
+[REGION:note]
+빠른 시작을 돕기 위해 실험 단계로 제공해 드리는 초안 콘텐츠입니다. 곧 업데이트가 있을 예정입니다!
+[/REGION]
+
+데이터스미스를 사용하여 3DExcite Deltagen or Autodesk VRED에서 언리얼 에디터로 씬을 가져오려는 경우, 데이터스미스가 씬을 처리하는 방식에 대해 [](Enterprise/Datasmith/Overview), [](Enterprise/Datasmith/Overview/ImportProcess) 의 기본적인 부분 이외에도 몇 가지 알아야 할 것이 있습니다.
+
+## 워크플로
+
+[REGION:note]
+Deltagen 및 VRED 에서 임포트하는 기능은 데이터스미스 플러스 사용자 전용입니다. 자세한 내용은 [이쪽으로](https://www.unrealengine.com/en-US/enterprise/contact-us) 문의하세요.
+[/REGION]
+
+### Deltagen
+
+데이터스미스는 Deltagen 에 **Export** (익스포트) 워크플로를 사용합니다. 즉 데이터스미스를 사용하여 언리얼에 Deltagen 콘텐츠를 가져오는 방법은 다음과 같습니다.
+
+1.  Deltagen 내장 익스포트 기능을 사용하여 씬을 *.fbx* 파일로 익스포트합니다.
+2.  데이터스미스 Deltagen Fbx 임포터를 사용하여 그 파일을 언리얼 에디터로 가져옵니다. [](Enterprise/Datasmith/HowTo/ImportingContent) 문서를 참고하세요.
+
+### VRED
+
+데이터스미스는 VRED 에 **Export Plugin** (익스포트 플러그인) 워크플로를 사용합니다. 즉 데이터스미스를 사용하여 VRED 콘텐츠를 언리얼로 가져오는 방법은 다음과 같습니다.
+
+1.  VRED 용 플러그인 스크립트를 설치하고, VRED 씬을 *.fbx* 파일로 익스포트할 때 사용합니다. [](Enterprise/Datasmith/SoftwareInteropGuides/DeltagenVRED/ExportingDatasmithContentfromVRED) 문서를 참고하세요.
+2.  데이터스미스 VRED Fbx 임포터를 사용하여 그 *.fbx* 파일을 언리얼 에디터로 가져옵니다. [](Enterprise/Datasmith/HowTo/ImportingContent) 문서를 참고하세요.
+
+## 베리언트
+
+Deltagen 및 VRED 용 데이터스미스 FBX 임포터는 Deltagen 또는 VRED 씬에 정의한 베리언트(variant) 및 그 세트를 언리얼로 가져옵니다. 프로젝트에서 전용 블루프린트 함수를 사용하여 런타임에 다양한 베리언트와 그 세트를 선택할 수 있습니다.
+
+[REGION:note]
+언리얼 프로젝트를 실행하는 플레이어가 런타임에 베리언트를 선택하는 방법 결정, 적합한 블루프린트 함수를 발동하는 게임플레이 코드 작성은 사용자의 몫입니다. 예를 들어 플레이어가 베리언트 선택을 위해 사용할 수 있는 UI 나 메뉴 세트를 만들거나, 키 입력 또는 다른 입력에 반응하여 다른 베리언트를 발동하도록 할 수 있습니다. 데이터스미스 임포터가 UI 나 메뉴를 대신 만들지는 않습니다. 직접 만들 수 있는 툴만 제공할 뿐입니다.
+[/REGION]
+
+### 베리언트 데이터에 대하여
+
+임포터는 프로젝트의 데이터스미스 씬 애셋 옆에 **Variants** 폴더를 새로 만듭니다. 이 폴더에는 소스 씬에서 찾은 베리언트를 저장할 데이터 테이블 애셋을 생성합니다.
+
+이 테이블의 각 행은 런타임에 활성화할 수 있는 베리언트 하나 또는 세트의 레코드입니다. 데이터 테이블 애셋을 더블클릭하면 들어있는 데이터를 확인할 수 있습니다. 프로젝트에 사용할 수 있는 베리언트 및 그 세트의 이름을 확인하거나, 그 베리언트 각각이 제어하는 항목의 세부 사항을 확인할 때 좋습니다.
+
+데이터 테이블 에디터에서, 아래 표시된 **Data Table panel (1)** (데이터 테이블 패널)에는 씬의 베리언트 각각이 표시됩니다. **Row Editor panel (2)** (행 에디터 패널)에는 상단 패널에 현재 선택된 베리언트 관련 세부 정보가 표시됩니다.
+
+[REGION:lightbox]
+[![Variants Data Table](datasmith-variants-datatable.png "Variants Data Table")](datasmith-variants-datatable.png)
+
+*클릭하면 이미지 원본을 확인합니다.*
+[/REGION]
+[REGION:note]
+VRED 에서 온 씬의 경우, 모든 베리언트의 이름에 붙는 접미사를 통해 유형을 알 수 있습니다. `_GV` 는 지오메트리 베리언트, `_MV` 는 머티리얼 베리언트, `_VS` 는 베리언트 세트 등입니다. VRED 에는 유형만 다르다면 이름이 같은 베리언트가 여럿 있을 수 있습니다. 이 접미사로 언리얼에서 베리언트를 구분하는 데 도움이 됩니다.
+[/REGION]
+
+### 베리언트 선택
+
+Deltagen 및 VRED 용 데이터스미스 FBX 임포터는 레벨의 다음 클래스 중 하나에 새 인스턴스를 추가합니다.  
+
+*   Deltagen 의 경우 **BP_VariantSelector**.
+*   VRED 의 경우 **VREDVariantsSelector**.
+
+이 베리언트 셀렉터 액터는 베리언트 데이터 테이블에 대한 레퍼런스로 자동 구성되므로, 데이터스미스가 소스 파일에서 임포트한 모든 베리언트 데이터에 액세스할 수 있습니다. 임포트한 씬 계층구조 상단, 데이터스미스 씬 액터 바로 아래 위치한 루트 액터로의 레퍼런스도 있어, 다양한 베리언트를 교체할 때 수정해야하는 씬 요소를 찾을 수 있습니다. 이 세팅은 디테일 패널의 **Deltagen** 또는 **VRED** 섹션에서 찾을 수 있습니다.
+
+![Variant selector details](variant-selector-detail.png "Variant selector details")
+
+[REGION:tip]
+씬에 카메라 베리언트가 있는 경우, 베리언트 셀렉터에 레벨의 카메라 액터에 대한 레퍼런스를 지정할 수도 있습니다. 새 카메라 베리언트를 선택할 때마다, 여기 설정한 카메라 액터의 3D 트랜스폼이 업데이트됩니다.
+[/REGION]
+
+베리언트 셀렉터 클래스는 여러 블루프린트 함수로 미리 설정되어 있습니다. 이 함수를 런타임에 호출하여 레벨에 표시할 베리언트를 선택할 수 있습니다. 
+
+베리언트 셀렉터 액터를 편집하면, **내 블루프린트** 패널의 함수 목록에 그 함수가 나타나며, 그 함수를 끌어 이벤트 그래프에 놓으면 생성하는 커스텀 이벤트에 반응하여 호출할 수 있습니다.
+
+![Variant selector functions](variant-selector-functions.png "Variant selector functions")
+
+작성한 다른 블루프린트 클래스 또는 UMG 위젯에서 이 블루프린트 노드를 찾는 방법은 다음과 같습니다.  
+
+1.  새 변수를 생성하고 유형을 **BP_VariantSelector** 또는 **VREDVariantsSelector** 클래스에 대한 Object Reference 로 설정합니다.  
+    이 변수가 레벨에 배치한 베리언트 셀렉터 오브젝트를 가리키도록 설정합니다.
+2.  이벤트 그래프에 그 변수에 대한 **Get** 노드를 추가하고, 그 출력 핀을 끌어 새 노드를 만듭니다.
+3.  **Deltagen** 또는 **VRED** 카테고리에서 베리언트 제어를 위한 함수를 찾을 수 있습니다.  
+    [REGION:lightbox]
+    [![Variant Blueprint functions](datasmith-variant-selectors.png "Variant Blueprint functions")](datasmith-variant-selectors.png)  
+    *클릭하면 이미지 원본을 확인합니다.*
+    [/REGION]
+
+노드 목록이 보이면:
+
+*   **Select Variant** 노드 중 하나를 사용하여 활성화하려는 베리언트 이름을 지정합니다.
+*   **Get** 노드를 사용하여 데이터 테이블에 들어있는 데이터에서 베리언트 및 그 세트의 이름과 유형을 읽습니다. 특정 베리언트 이름을 UI 에 하드코딩하는 대신 씬에서 사용할 수 있는 실제 베리언트 이름에 따라 프로그래밍 방식으로 UI 를 만들려는 경우 매우 유용할 수 있습니다.
+
+다음 이미지는 이러한 블루프린트 API 함수를 UMG UI 위젯 안에서 사용하는 방법을 보여줍니다. 강조 표시된 것이 베리언트 노드입니다. 
+
+[REGION:lightbox]
+[![Variant functions in a UI Widget](variants_ui.png "Variant functions in a UI Widget")](variants_ui.png)
+
+*클릭하면 이미지 원본을 확인합니다.*
+[/REGION]
+
+## 애니메이션
+
+Deltagen 또는 VRED 씬에 애니메이션 요소가 있는 경우, 데이터스미스 FBX 임포터는 그 애니메이션을 베리언트와 똑같은 방식으로 언리얼에 가져옵니다. 다양한 헬퍼 클래스에 노출된 블루프린트 함수 세트를 사용하여, 런타임에 프로젝트에서 그 애니메이션을 재생, 중지, 리셋할 수 있습니다.
+
+[REGION:note]
+베리언트와 마찬가지로 언리얼 프로젝트를 실행하는 플레이어가 런타임에 애니메이션을 발동하는 방법 결정, 적합한 블루프린트 함수를 호출하는 게임플레이 코드 작성은 사용자의 몫입니다. 예를 들어 플레이어가 애니메이션을 선택하는 데 사용할 수 있는 UI 또는 메뉴 세트를 만들고 싶을 수도, 키 누름이나 다른 입력에 반응하여 애니메이션을 발동시킬 수도 있습니다. 데이터스미스 임포터가 UI 나 메뉴를 대신 만들지는 않습니다. 직접 만들 수 있는 툴만 제공할 뿐입니다.
+[/REGION]
+
+### 애니메이션 데이터에 대하여
+
+임포터는 프로젝트의 데이터스미스 씬 애셋 옆에 **Animations** 폴더를 새로 만듭니다. 이 폴더에 생성하는 것은 다음과 같습니다.
+
+*   **Curves** 폴더에는 애니메이션 커브 애셋이 들어갑니다. 이 애셋 각각에는 임포터가 소스 파일에서 찾은 단일 씬 요소에 대한 원시 애니메이션 커브가 들어갑니다.
+*   Data Table (데이터 테이블) 애셋에는 임포터가 씬에서 찾은 애니메이션 레코드를 저장합니다. 이 테이블의 각 행은 런타임에 활성화할 수 있는 단일 애니메이션 레코드입니다. 사용할 수 있는 애니메이션 이름을 확인해야 하는 경우, 또는 그 애니메이션 각각이 어떤 씬 항목을 제어하는지 세부 사항을 확인해야 하는 경우, 이 애셋을 더블클릭하여 열어보면 됩니다.  
+    **Data Table 패널 panel (1)** (테이블 데이터 패널)에는 씬에 있는 애니메이션 각각이 표시됩니다. **Row Editor panel (2)** (행 에디터 패널)에는 상단 패널에 현재 선택된 애니메이션 관련 세부 정보가 표시됩니다.
+
+[REGION:lightbox]
+[![Animation Data Table](datasmith-vred-animtable.png "Animation Data Table")](datasmith-vred-animtable.png)
+
+*클릭하면 이미지 원본을 확인합니다.*
+[/REGION]
+
+각 애니메이션은 별개의 트랙으로 이루어져 있으며, 각 트랙은 임포터가 **Curves** 폴더에 만든 커브 애셋 중 하나를 참조합니다.
+
+![](vred-animation-curve-setting.png "vred-animation-curve-setting.png")
+
+### 애니메이션 제어
+
+FBX 파일에 애니메이션이 있는 경우, Deltagen 및 VRED 용 데이터스미스 FBX 임포터는 레벨의 다음 클래스 중 하나에 새 인스턴스를 추가합니다.  
+
+*   Deltagen 의 경우 **BP_AnimationPlayer**.
+*   VRED 의 경우 **VREDAnimationPlayer**.
+
+이 애니메이션 플레이어 액터는 애니메이션 데이터 테이블 레퍼런스로 자동 구성되므로, 데이터스미스가 소스 파일에서 임포트한 모든 애니메이션 데이터에 액세스할 수 있습니다. 임포트한 씬 계층구조 상단, 데이터스미스 씬 액터 바로 아래 위치한 루트 액터로의 레퍼런스도 있어, 그 애니메이션을 재생하도록 선택할 때 수정해야 하는 씬 요소를 찾을 수 있습니다. 이 세팅은 **디테일** 패널의 **Deltagen** 또는 (VRED 의 경우) **Default** 섹션 아래에서 찾을 수 있습니다.  
+
+![Animation player details](animation-player-details.png "Animation player details")
+
+#### 애니메이션 블루프린트 API
+
+[REGION:tip]
+애니메이션 플레이어 클래스는 여러 블루프린트 함수로 미리 설정되어 있어, 런타임에 호출하여 레벨에 어떤 애니메이션을 언제 재생할지 선택할 수 있습니다.
+[/REGION]
+
+애니메이션 플레이어 액터를 편집하면, **내 블루프린트** 패널의 함수 목록에 그 함수가 나타나며, 그 함수를 끌어 이벤트 그래프에 놓으면 생성하는 커스텀 이벤트에 반응하여 호출할 수 있습니다.
+
+![Animation player functions](animation-player-functions.png "Animation player functions")
+
+작성한 다른 블루프린트 클래스 또는 UMG 위젯에서 이 블루프린트 노드를 찾는 방법은 다음과 같습니다.  
+
+1.  새 변수를 만들고, 그 유형을 **BP_AnimationPlayer** 또는 **VREDAnimationPlayer** 클래스에 대한 Object Reference 로 설정합니다.  
+    이 변수가 레벨에 배치한 애니메이션 플레이어 오브젝트를 가리키도록 설정합니다.
+2.  이벤트 그래프에 그 변수에 대한 **Get** 노드를 추가하고, 그 출력 핀을 끌어 새 노드를 만듭니다.
+3.  **Call Function** (Deltagen 을 사용한다면 **Deltagen** 포함) 카테고리에서 애니메이션을 제어하는 함수를 찾을 수 있습니다.
+[REGION:lightbox]
+[![Animation Blueprint functions](datasmith-vreddgen-anim-blueprint-api.png "Animation Blueprint functions")](datasmith-vreddgen-anim-blueprint-api.png)
+
+*클릭하면 이미지 원본을 확인합니다.*
+[/REGION]
+
+가장 자주 사용하게 될 노드는 다음과 같습니다.
+
+| 이름 | 설명 |
+| --- | --- |
+| **Play Animation** | 	애니메이션 재생 - 애니메이션 이름이 노드에 전달한 이름과 일치하는 것을 재생합니다. |
+| **Reset** | 리셋 - 레벨의 애니메이션 가능 액터 전부를 기본 트랜스폼으로 리셋합니다. |
+| **Set Animation** | 애니메이션 설정 - 이 애니메이션 플레이어가 현재 실행 중인 애니메이션을 전환합니다. |
+| **Update Animation** | 애니메이션 업데이트 - 노드에 전달하는 시점에서 현재 애니메이션을 평가하고, 레벨의 애니메이션 액터 전부의 트랜스폼을 그에 맞게 설정합니다. |
+| **Get Animation Names** | 애니메이션 이름 구하기 - **Play Animation** 노드에 전달할 수 있는 모든 애니메이션 이름이 들어있는 배열을 반환합니다. |
+
+다음 이미지는 UMG UI 위젯에서 위 블루프린트 API 함수를 사용하는 법을 보여줍니다. 강조 표시된 것이 애니메이션 노드입니다.
+
+[![Animation functions in a UI widget](animation_ui.png "Animation functions in a UI widget")](animation_ui.png)
+
+*클릭하면 이미지 원본을 확인합니다.*

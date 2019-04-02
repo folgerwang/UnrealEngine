@@ -1,10 +1,13 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Sockets.h"
-#include "DisplayClusterMessage.h"
+
+#include "Network/DisplayClusterMessage.h"
+
+class FJsonObject;
 
 
 /**
@@ -13,16 +16,17 @@
 class FDisplayClusterSocketOps
 {
 public:
-	FDisplayClusterSocketOps(FSocket* pSock);
+	FDisplayClusterSocketOps(FSocket* InSocket);
 	virtual ~FDisplayClusterSocketOps();
 
-public:
-	virtual bool SendMsg(const FDisplayClusterMessage::Ptr& msg);
-	virtual FDisplayClusterMessage::Ptr RecvMsg();
+protected:
+	virtual bool SendMsg(const TSharedPtr<FDisplayClusterMessage>& Message);
+	virtual TSharedPtr<FDisplayClusterMessage> RecvMsg();
 
-	inline FSocket* GetSocket() const
-	{ return Socket; }
+	virtual bool SendJson(const TSharedPtr<FJsonObject>& Message);
+	virtual TSharedPtr<FJsonObject> RecvJson();
 
+protected:
 	inline bool IsOpen() const
 	{ return (Socket && (Socket->GetConnectionState() == ESocketConnectionState::SCS_Connected)); }
 
@@ -30,29 +34,33 @@ public:
 	virtual FString GetName() const = 0;
 
 protected:
-	// Provides with a synchronization object for underlying operations (message send/recv)
+	// Provides with a synchronization object
 	inline FCriticalSection& GetSyncObj() const
-	{ return InternalsSyncScope; }
+	{ return CritSecInternals; }
 
-private:
-	bool RecvChunk(int32 chunkSize, TArray<uint8>& chunkBuffer, const FString& chunkName = FString("DataChunk"));
+	inline FSocket* GetSocket() const
+	{ return Socket; }
+
+	bool RecvChunk(TArray<uint8>& ChunkBuffer, const int32 ChunkSize, const FString& ChunkName = FString("ReadDataChunk"));
+	bool SendChunk(const TArray<uint8>& ChankBuffer, const int32 ChunkSize, const FString& ChunkName = FString("WriteDataChunk"));
 
 private:
 	struct FDisplayClusterMessageHeader
 	{
-		int16 length;
+		uint16 Length;
 
 		FString ToString()
-		{ return FString::Printf(TEXT("<length=%d>"), length); }
-
+		{
+			return FString::Printf(TEXT("<length=%u>"), Length);
+		}
 	};
 
-private:
 	// Socket
 	FSocket* Socket = nullptr;
-	// Data buffer for incoming and outgoing messages
-	TArray<uint8> DataBuffer;
-	// Access sync object
-	mutable FCriticalSection InternalsSyncScope;
-};
+	
+	// Sync access to internals
+	mutable FCriticalSection CritSecInternals;
 
+	// Read/write buffer
+	TArray<uint8> DataBuffer;
+};

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Widgets/SCompoundWidget.h"
 #include "Types/PaintArgs.h"
@@ -58,7 +58,7 @@ FVector2D SCompoundWidget::ComputeDesiredSize( float ) const
 
 void SCompoundWidget::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const
 {
-	ArrangeSingleChild( AllottedGeometry, ArrangedChildren, ChildSlot, ContentScale );
+	ArrangeSingleChild(GSlateFlowDirection, AllottedGeometry, ArrangedChildren, ChildSlot, ContentScale);
 }
 
 FSlateColor SCompoundWidget::GetForegroundColor() const

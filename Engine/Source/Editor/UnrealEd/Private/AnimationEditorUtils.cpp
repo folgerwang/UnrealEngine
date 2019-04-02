@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimationEditorUtils.h"
 #include "Framework/Commands/UIAction.h"
@@ -544,7 +544,7 @@ namespace AnimationEditorUtils
 							AnimSeq->CompressCommandletVersion = 0;
 						}
 						AnimSeq->CompressionScheme = static_cast<UAnimCompress*>(StaticDuplicateObject(Algorithm, AnimSeq));
-						AnimSeq->RequestAnimCompression(false, CompressContext);
+						AnimSeq->RequestAnimCompression(FRequestAnimCompressionParams(false, CompressContext));
 						++CompressContext->AnimIndex;
 					}
 				}

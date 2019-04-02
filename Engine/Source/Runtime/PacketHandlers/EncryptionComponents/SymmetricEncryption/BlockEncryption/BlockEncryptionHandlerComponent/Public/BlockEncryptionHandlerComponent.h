@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -50,6 +50,8 @@ class BLOCKENCRYPTIONHANDLERCOMPONENT_API BlockEncryptionHandlerComponent : publ
 public:
 	/* Initializes default data, can provide the key size in bytes */
 	BlockEncryptionHandlerComponent(BlockEncryptor* Encryptor = nullptr, uint32 KeySizeInBytes = 0);
+
+	virtual void CountBytes(FArchive& Ar) const override;
 
 	/* Initializes the handler component */
 	virtual void Initialize() override;

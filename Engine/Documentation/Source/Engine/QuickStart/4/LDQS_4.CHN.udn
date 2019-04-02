@@ -1,126 +1,122 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3782314
 Availability: Public
-Title:4. 放置Actor
+Title:4 - 将Actor放入关卡
 Crumbs:%ROOT%, GettingStarted, Engine/QuickStart
-Description:放置及操作Actor是构建任何关卡的基础。
+Description:在本节中，我们将开始在关卡中放置并操作Actor以构建环境。 
+SkillLevel:Beginner
+Version:4.9 
+Related:Engine/UI/LevelEditor/Modes/PlaceMode
+Related:GettingStarted/HowTo/ManipulatingActors
+Related:Engine/UI/LevelEditor/Details
+Related:Engine/Actors
+Related:Engine/Rendering/LightingAndShadows
+checkpoint: editorqs
+
 
 [VAR:Steps]
-[OBJECT:TopicList]
-	[PARAM:icon]
-		![](%ROOT%/build_icon.png)(convert:false)
+[OBJECT:Navigation]
+	[PARAM:previous]
+		[Previous Step](Engine/QuickStart/3 "%Engine/QuickStart/3:title%")
 	[/PARAM]
-	[PARAM:title]
-		步骤
+	[PARAM:current]
 	[/PARAM]
-	[PARAM:description]
+	[PARAM:home]
+		[快速入门主页](Engine/QuickStart)
 	[/PARAM]
-	[PARAM:links]
-		* [前一步 - %Engine/QuickStart/3:Title%](Engine/QuickStart/3 "%Engine/QuickStart/3:description%")
-		* **当前步骤 - %Engine/QuickStart/4:Title%**
-		* [下一步 - %Engine/QuickStart/5:Title%](Engine/QuickStart/5 "%Engine/QuickStart/5:description%")
+	[PARAM:next]
+		[后续步骤](Engine/QuickStart/5 "%Engine/QuickStart/5:title%")
 	[/PARAM]
 [/OBJECT]
 [/VAR]
 
 
 
----
+在这一步，我们会在空白关卡中放置[Actor](Engine/Actors)（例如光源或几何体）。 
+我将介绍两种将Actor添加到关卡的最常用方法：使用[放置模式](Engine/UI/LevelEditor/Modes/PlaceMode)，或使用[内容浏览器](Engine/Content/Browser)。 
+完成这一步后，你会了解到如何在自己的关卡中放置Actor，并能操纵这些Actor来构建环境。 
 
-"放置"这个概念可以扩展到编辑器的很多选项。它总是涉及到点击并拖拽某物到关卡视口中。
+## 步骤
 
- **Modes Panel（模式面板）** 中的 **Place Mode(放置模式)** 使您可以放置任何常用的 **Actors** ，比如光源和几何体。在以下的步骤中，您将放置一个地面、一个定向光源、大气雾Actor、玩家起点Actor、发射捕获和几个静态网格物体Actor。
+1. 在 **模式面板（Modes Panel）** 上启用 **放置模式（Place Mode）**，单击[BSP](Engine/Actors/Brushes)类别，然后选择 **盒体（Box）**。 
 
-[REGION:tip]
-简单地讲， **Actor** 是可以放置到关卡中的对象，当您使用虚幻引擎4 创建关卡时，您将会放置、移动及编辑很多  **Actor** 。
+	![](ModesPanel.png)
 
-关于 **Actors** 的更多信息，请参照 [**Actors & 几何体**](Engine\Actors)。
-[/REGION]
+1. **左键单击** 并拖动 **盒体**，将其放置在 **关卡视口（Level Viewport）** 中。 
 
-首先，您需要一个地面来用于放置所有东西，在本示例中，使用了一个盒体几何体Actor。
+	![](placeBox.png)
 
-1. 在 **模式面板** 中, 启用 **放置** 模式，点击几何体类别。
-1. 在 **模式面板** 中，通过点击盒体几何体Actor并将其放置到关卡中来进行放置该Actor。
+	松开 **鼠标左键** 就会将 **盒体** 添加到关卡中。
 
-	[REGION:raw]
-	![](placeBox.png)(w:920 convert:false)
-	[/REGION]
+	![](place2.png)
 
-1. 放好地面并调整好位置后，切换到 **模式面板** 的 **光源** 类别中。
-1. 在地面盒体的顶部，放置一个 **定向光源** 到关卡中。
+1. 在 **盒体** 仍被选中的状态下，在编辑器的右下窗口中的[细节（Details）](Engine/UI/LevelEditor/Details) 面板上，将 **位置（Location）** 和 **旋转（Rotation）** 都设置为 **0**。 
 
-	[REGION:raw]
-	![](placeLight.png)(w:920 convert:false)
-	[/REGION]
+1. 将 **比例（Scale）** 设置为 **4 x 4 x 0.1**。 
 
-1. 看上去和这个放置光源类似，但是它恰好放置在地面盒体表面上。为了能更轻松地找到该光源，通过使用  "W" 键切换到 **Translation Tool（平移工具）** ，将它移动到地面的上方。
-1. 点击并拖拽 **平移工具** 的 Z轴(蓝色轴)小工具，从地表面向上拖拽。
+	![](resize_floor.png)
+
+	我们将它用作供玩家走动的地面。 
+
+1. 在 **模式面板（Modes Panel）** 中选择 **光源（Lights）** 选项卡，然后将 **定向光源（Directional Light）** 拖放到关卡中的地面上。 
+
+	![](placeLight.png)
+	
+1. 在[平移工具（Translation Tool）](Engine/UI/LevelEditor/Viewports/ViewportControls)中，单击Z轴（蓝色）小工具，将其从地面向上拖拽。
 
 	![](moveLight.png)
 
-	_如果没有选中该定向光源，那么您可以在视口中左击它来选中它，然后就会出现当前的变换小工具。_
+	如果取消选中 **定向光源（Directional Light）**，可在 **关卡视口（Level Viewport）** 中 **单击鼠标左键** 来重新选中。 
 
-1. 在 **模式面板** 中切换到 **Visual（视觉效果）** 类别。
-1. 放置一个 **Atmospheric Fog(大气雾)** 到关卡中。
+1. 选择 **模式面板（Modes Panel）** 上的 **视觉效果（Visual Effects）** 选项卡，然后将[大气雾（Atmospheric Fog）](Engine/Actors/FogEffects/AtmosphericFog)拖放到关卡。 
 
-	[REGION:raw]
-	![](placeFog.png)(w:920 convert:false)
-	[/REGION]
-
-	_大气雾Actor将会为该场景添加一个基本的天空。在上面图片中，您可以在地平线上看到太阳，稍后在本指南中，您将会把它和定向光源相关联。_
-
-1. 在 **模式面板** 中，切换到 **Basic（基本）** 类别。
-1. 放置一个 **Player Start(玩家起点)** 到关卡中。
-
-	[REGION:raw]
-	![](placeStart.png)(w:920 convert:false)
-	[/REGION]
-
-1. 在上面的图片中， **Player Start Actor（玩家起点Actor）** 朝向变换小工具的负X轴(红色轴)， 这意味着它指向地面的边缘。您需要使用 **旋转工具** 来旋转它，以便它朝向地面的中心。通过按下 "E" 键可以启用 **旋转工具** 。
-1. 通过点击并拖拽Z轴(蓝色)弧形工具来旋转 **Player Start Actor（玩家起点Actor）** ，以便 **玩家起点Actor** 上的浅蓝色箭头向内朝向地面的中心。
-
-	![](rotateStart.png)
-
-1. 在 **模式面板** 中，切换到 **Volumes** 类别。
-1. 放置一个 **Lightmass Importance Volume(Lightmass 重要体积)** 到关卡中。
-
-	[REGION:raw]
-	![](placeVolume.png)(w:920 convert:false)
-	[/REGION]
-
-1.  **Lightmass Importance Volume** 的大小和地面一样，但是我们需要把它变得更大，以便它可以包围我们将要放置到关卡中的所有东西。通过按下 "R" 键切换到 **Scale Tool（缩放工具）** 。
-1. 点击并拖拽 **缩放工具** 的轴，以便 **Lightmass Importance Volume** 变得比地面盒体大。
-
-	![](scaleVolume.png)(w:920)
-
-	_在该图片中，视口的渲染模式设置成了 **Unlit（无光照）** ，以便您可以更清楚地看到构成体积的边线。_
-
-1. 此时，您放置的所有Actor都来自于 **模式面板** ，但是您也可以从 **内容浏览器** 中放置内容。定位 **内容浏览器** ，它应该如下所示：
-
-	![](contentBrowser.png)
-
-	从现在开始，您可以放置类似于静态网格物体、骨架网格物体、蓝图这样的内容，甚至您可以将材质放置到已放置到关卡中的Actor上。关于 **内容浏览器** 的更多信息，请参照： [**内容浏览器**](Engine\Content\Browser)
+	![](placeFog.png)
 	
-1.  **Starter Content（初学者内容）** 中包含了一个道具文件夹。向下滚动到Props文件夹，并 **双击** 它来进行浏览。
+	**大气雾** Actor将会为关卡添加基本的天空，关卡会变亮，不再黑暗。 
 
-	![](openProps.png)
+1. 在 **模式面板（Modes Panel）** 的 **基本（Basic）** 选项卡上，将[玩家出生点（Player Start）](Engine/Actors/PlayerStart)拖放到关卡中。 
 
-1. 向下滚动，找到名称为  SM_TableRound 的静态网格物体资源。
+	![](placeStart.png)
 
-	![](findSMTableRound.png)
+1. 在 **模式面板（Modes Panel）** 的 **体积（Volumes）** 选项卡上，将 [Lightmass重要体积（Lightmass Importance Volume）](Engine/Rendering/LightingAndShadows/Lightmass/Basics)拖放到关卡中。 
 
-1. 点击并拖拽该 **SM_TableRound** 静态网格物体资源到关卡中。
+	![](placeVolume.png)
 
-	[REGION:raw]
-	![](placeTable.png)(w:920 convert:false)
-	[/REGION]
+	**Lightmass重要体积（Lightmass Importance Volume）** 用于控制和汇聚体积中的光照和阴影效果。将Lightmass重要体积放置在关卡时，体积的默认尺寸不能覆盖可游戏区域，因此我们需要将其放大。 
+	
+1. 在 **关卡视口（Level Viewport）** 中，按 **R** 切换到[缩放工具（Scale Tool）](Engine/UI/LevelEditor/Viewports/ViewportControls#transformcontrols)。 
 
+1. 单击并拖动 **缩放工具（Scale Tool）** 中心的白框，以使 **Lightmass重要体积（Lightmass Importance Volume）** 包围地面。 
 
-利用您所需的知识，通过从 **模式面板** 和 **内容浏览器** 中添加更多的Actor来制作一个小场景。在下一部分中，您将会学到如何编辑已经放置到关卡中的Actor。
+	![](scaleVolume.png)
 
-![](placeThings.png)(w:940)
+1. 在 **内容浏览器（Content Browser）** 中的 **内容（Content）** > **初学者内容包（StarterContent）** > **道具（Props）** 下，将 **SM_TableRound** 拖放到关卡中。 
 
+	![](placeTable.png)
 
+	使用 **移动工具（Move Tool）** （如果未选择，则使用键盘快捷键 **W** 键）将桌子放置到地面的中央。 
 
----
+1. 同样地，在 **内容（Content）** > **初学者内容包（StarterContent）** > **道具（Props）** 下，将 **SM_Chair** 将其拖放到关卡中。 
+
+	![](addChair.png)
+
+1. 选择 **SM_Chair** （在 **关卡视口中）** 后，按 **E** 访问[旋转工具（Rotation Tool）](Engine/UI/LevelEditor/Viewports/ViewportControls#transformcontrols)。 
+	
+	![](Rotate1.png)(w:440)
+
+1. **左键单击** 并拖动 **蓝** 轴弧（该小工具显示更新角度），并旋转椅子使其面向桌子。 
+
+	![](Rotate2.png)(w:440)
+
+1. 使用上面的放置方法，从 **模式面板（Modes Panel）** 和 **内容浏览器（Content Browser）** 添加更多Actor来创建小场景。  
+
+	![](Engine/QuickStart/5/placeThings.png)
+
+	尝试添加一些光源、道具、墙壁和屋顶（可在 **内容（Content）** > **初学者内容包（StarterContent）** > **架构（Architecture）** 文件夹中找到）。 
+
+## 最终结果
+
+现在，你应该已经通过 **模式（Modes）** 面板和 **内容浏览器** 将几种不同的Actor类型填充到关卡。你还可使用 **移动**、**旋转** 和 **缩放** 工具来操控这些Actor。你做出的效果应该与上面类似，具体取决于最后一步放置的Actor。 
+
+在下节中，你将学习如何编辑放置在关卡中的Actor并自定义Actor的属性。 
 
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -47,6 +47,7 @@ public:
 	virtual void IncomingConnectionless(const FString& Address, FBitReader& Packet) override;
 	virtual void OutgoingConnectionless(const FString& Address, FBitWriter& Packet, FOutPacketTraits& Traits) override;
 	virtual int32 GetReservedPacketBits() const override;
+	virtual void CountBytes(FArchive& Ar) const override;
 
 private:
 	TUniquePtr<FEncryptionContext> EncryptionContext;

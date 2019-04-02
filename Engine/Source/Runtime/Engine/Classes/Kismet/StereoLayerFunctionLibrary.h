@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -20,24 +20,24 @@ public:
 	* Set splash screen attributes
 	*
 	* @param Texture			(in) A texture to be used for the splash. B8R8G8A8 format.
-	* @param Scale				(in) Scale of the texture.
-	* @param Offset				(in) Position from which to start rendering the texture.
+	* @param Scale				(in) Scale multiplier of the splash screen.
+	* @param Offset				(in) Position in UE Units to offset the Splash Screen by
 	* @param ShowLoadingMovie	(in) Whether the splash screen presents loading movies.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "VR")
-		static void SetSplashScreen(class UTexture* Texture, FVector2D Scale = FVector2D(1.0f, 1.0f), FVector2D Offset = FVector2D(0.0f, 0.0f), bool bShowLoadingMovie = false, bool bShowOnSet = false);
+		static void SetSplashScreen(class UTexture* Texture, FVector2D Scale = FVector2D(1.0f, 1.0f), FVector Offset = FVector(0.0f, 0.0f, 0.0f), bool bShowLoadingMovie = false, bool bShowOnSet = false);
 
 	/**
 	* Show the splash screen and override the VR display
 	*/
 	UFUNCTION(BlueprintCallable, Category = "VR")
-		static void ShowSplashScreen();
+	static void ShowSplashScreen();
 
 	/**
 	* Hide the splash screen and return to normal display.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "VR")
-		static void HideSplashScreen();
+	static void HideSplashScreen();
 
 	/**
 	 * Enables/disables splash screen to be automatically shown when LoadMap is called.
@@ -45,5 +45,5 @@ public:
 	 * @param	bAutoShowEnabled	(in)	True, if automatic showing of splash screens is enabled when map is being loaded.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "VR")
-		static void EnableAutoLoadingSplashScreen(bool InAutoShowEnabled);
+	static void EnableAutoLoadingSplashScreen(bool InAutoShowEnabled);
 };

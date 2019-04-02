@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Navigation/PathFollowingComponent.h"
 #include "UObject/Package.h"
@@ -71,7 +71,7 @@ FPathFollowingResult::FPathFollowingResult(EPathFollowingResult::Type ResultCode
 
 FString FPathFollowingResult::ToString() const
 {
-	static UEnum* ResultEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EPathFollowingResult"));
+	static UEnum* ResultEnum = StaticEnum<EPathFollowingResult::Type>();
 	return FString::Printf(TEXT("%s[%s]"), ResultEnum ? *ResultEnum->GetNameStringByValue(Code) : TEXT("??"), *FPathFollowingResultFlags::ToString(Flags));
 }
 
@@ -154,6 +154,9 @@ UPathFollowingComponent::UPathFollowingComponent(const FObjectInitializer& Objec
 	Status = EPathFollowingStatus::Idle;
 
 	CurrentMoveInput = FVector::ZeroVector;
+#if !UE_BUILD_SHIPPING
+	DEBUG_bMovingDirectlyToGoal = false;
+#endif // !UE_BUILD_SHIPPING
 }
 
 void UPathFollowingComponent::LogPathHelper(const AActor* LogOwner, FNavigationPath* InLogPath, const AActor* LogGoalActor)
@@ -228,7 +231,7 @@ FString GetPathDescHelper(FNavPathSharedPtr Path)
 
 void UPathFollowingComponent::OnPathEvent(FNavigationPath* InPath, ENavPathEvent::Type Event)
 {
-	const static UEnum* NavPathEventEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ENavPathEvent"));
+	const static UEnum* NavPathEventEnum = StaticEnum<ENavPathEvent::Type>();
 	UE_VLOG(GetOwner(), LogPathFollowing, Log, TEXT("OnPathEvent: %s"), *NavPathEventEnum->GetNameStringByValue(Event));
 
 	if (InPath && Path.Get() == InPath)
@@ -609,7 +612,8 @@ void UPathFollowingComponent::Initialize()
 
 void UPathFollowingComponent::Cleanup()
 {
-	// empty in base class
+	SetMovementComponent(nullptr);
+	Reset();
 }
 
 void UPathFollowingComponent::UpdateCachedComponents()
@@ -882,6 +886,10 @@ int32 UPathFollowingComponent::DetermineCurrentTargetPathPoint(int32 StartIndex)
 
 void UPathFollowingComponent::UpdatePathSegment()
 {
+#if !UE_BUILD_SHIPPING
+	DEBUG_bMovingDirectlyToGoal = false;
+#endif // !UE_BUILD_SHIPPING
+
 	if ((Path.IsValid() == false) || (MovementComp == nullptr))
 	{
 		UE_CVLOG(Path.IsValid() == false, this, LogPathFollowing, Log, TEXT("Aborting move due to not having a valid path object"));
@@ -960,6 +968,10 @@ void UPathFollowingComponent::UpdatePathSegment()
 			}
 
 			UpdateMoveFocus();
+
+#if !UE_BUILD_SHIPPING
+			DEBUG_bMovingDirectlyToGoal = true;
+#endif // !UE_BUILD_SHIPPING
 		}
 		// check if current move segment is finished
 		else if (HasReachedCurrentTarget(CurrentLocation))
@@ -1624,7 +1636,7 @@ bool UPathFollowingComponent::HasDirectPath() const
 
 FString UPathFollowingComponent::GetStatusDesc() const
 {
-	const static UEnum* StatusEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EPathFollowingStatus"));
+	const static UEnum* StatusEnum = StaticEnum<EPathFollowingStatus::Type>();
 	if (StatusEnum)
 	{
 		return StatusEnum->GetNameStringByValue(Status);
@@ -1635,7 +1647,7 @@ FString UPathFollowingComponent::GetStatusDesc() const
 
 FString UPathFollowingComponent::GetResultDesc(EPathFollowingResult::Type Result) const
 {
-	const static UEnum* ResultEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EPathFollowingResult"));
+	const static UEnum* ResultEnum = StaticEnum<EPathFollowingResult::Type>();
 	if (ResultEnum)
 	{
 		return ResultEnum->GetNameStringByValue(Result);
@@ -1783,7 +1795,7 @@ void UPathFollowingComponent::OnStartedFalling()
 
 void UPathFollowingComponent::LockResource(EAIRequestPriority::Type LockSource)
 {
-	const static UEnum* SourceEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EAILockSource"));
+	const static UEnum* SourceEnum = StaticEnum<EAILockSource::Type>();
 	const bool bWasLocked = ResourceLock.IsLocked();
 
 	ResourceLock.SetLock(LockSource);

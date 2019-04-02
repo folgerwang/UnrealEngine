@@ -7,7 +7,7 @@ Version: 4.21
 
 ### XboxOnePlatform
 
-$ Compiler : 윈도우 플랫폼에서 사용할 컴파일러 툴체인 버전입니다. "default" 값은 UBT 시작 시 특정 버전으로 변경됩니다.
+$ Compiler : Windows 플랫폼에서 사용할 컴파일러 툴체인 버전입니다. "default" 값은 UBT 시작 시 특정 버전으로 변경됩니다.
 
 ### BuildConfiguration
 
@@ -105,13 +105,13 @@ $ bCheckLicenseViolations : 현재 빌드중인 모듈의 EULA 침해 여부를 
 
 $ bBreakBuildOnLicenseViolation : 현재 빌드중인 모듈이 EULA 를 침해하는 경우 UBT 더러 빌드를 중단하라고 합니다.
 
-$ bUseFastPDBLinking : 윈도우에서 로컬 PDB 생성을 위해 /DEBUG 로 빌드할 때 :FASTLINK 옵션 사용 여부입니다. 빠르지면 현재 디버거의 심볼을 찾는 데 문제가 있는 것 같습니다.
+$ bUseFastPDBLinking : Windows에서 로컬 PDB 생성을 위해 /DEBUG 로 빌드할 때 :FASTLINK 옵션 사용 여부입니다. 빠르지면 현재 디버거의 심볼을 찾는 데 문제가 있는 것 같습니다.
 
 $ bCreateMapFile : 빌드의 일부로 맵 파일을 출력합니다.
 
 $ bCheckSystemHeadersForModification : 구버전 동작 결정 시 시스템 경로의 헤더에 대해 변경 검사를 할지 여부입니다.
 
-$ bFlushBuildDirOnRemoteMac : 빌드 전 원격 맥의 Builds 디렉터리 청소 여부입니다.
+$ bFlushBuildDirOnRemoteMac : 빌드 전 원격 Mac의 Builds 디렉터리 청소 여부입니다.
 
 $ bPrintToolChainTimingInfo : 컴파일러와 링커에서의 자세한 타이밍 정보 작성 여부입니다.
 
@@ -151,7 +151,7 @@ $ bUseUBTMakefiles : 타깃 데이터를 캐시하는 매우 빠른 반복처리
 
 $ bAllowDistcc : DMUCS/Distcc 사용 여부입니다. Distcc 는 셋업이 조금 필요한데, 로컬 또는 원격 빌드가 깨지지 않도록 기본으로 끕니다.
 
-$ bAllowParallelExecutor : 윈도우에 병렬 실행기 사용 허용 여부입니다.
+$ bAllowParallelExecutor : Windows에 병렬 실행기 사용 허용 여부입니다.
 
 $ bIgnoreJunk : junk manifest 로 식별되는 파일 검사 생략 여부입니다.
 
@@ -287,7 +287,7 @@ $ IOSSDKVersion : 빌드 시간에 타깃으로 삼을 iOS SDK 버전입니다.
 
 $ BuildIOSVersion : 빌드 시간에 허용할 iOS 버전입니다.
 
-$ bUseDangerouslyFastMode : 설정되면 실행파일을 맥의 적합한 지점에 옮기는 것을 제외하고 별다른 컴파일 이후 작업을 수행하지 않습니다.
+$ bUseDangerouslyFastMode : 설정되면 실행파일을 Mac의 적합한 지점에 옮기는 것을 제외하고 별다른 컴파일 이후 작업을 수행하지 않습니다.
 
 ### HTML5Platform
 
@@ -331,7 +331,7 @@ $ RSyncUsername : RSync 로 접속하기 위한 원격 머신의 사용자명입
 
 ### WindowsPlatform
 
-$ Compiler : 윈도우 플랫폼에서 사용할 컴파일러 툴체인 버전입니다. UBT 시작 시 "default" 값이 특정 버전으로 바뀝니다.
+$ Compiler : Windows 플랫폼에서 사용할 컴파일러 툴체인 버전입니다. UBT 시작 시 "default" 값이 특정 버전으로 바뀝니다.
 
 $ CompilerVersion : 사용할 툴체인 버전입니다. 구체적인 버전 번호(예: "14.13.26128") 또는 "Latest" 스트링이면 사용할 수 있는 최신 버전을 선택합니다. 기본적으로, WindowsPlatform.DefaultToolChainVersion 을 사용할 수 있는 경우 명시된 툴체인 버전을, 아니면 최신 버전을 사용합니다.
 

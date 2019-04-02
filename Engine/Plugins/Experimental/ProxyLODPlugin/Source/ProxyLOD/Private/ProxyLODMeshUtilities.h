@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,7 +7,9 @@
 #include "ProxyLODMeshTypes.h"
 #include "ProxyLODThreadedWrappers.h"
 
+THIRD_PARTY_INCLUDES_START
 #include <vector>
+THIRD_PARTY_INCLUDES_END
 
 namespace ProxyLOD
 {
@@ -32,13 +34,13 @@ namespace ProxyLOD
 	* Uses UE4 code in the Mesh Utilities module to compute the tangent space
 	* The computation is a Mikk-T(angent) space version of tangent space.  
 	*
-	* NB: This updates the FRawMesh::TangentX and FRawMesh::TangentY and optionally TangentZ.
+	* NB: This updates the FMeshDescription::TangentX and FMeshDescription::TangentY and optionally TangentZ.
 	*     This can result in a per-wedge tangent space if the normals are split.
 	* 
-	* @param InOutMesh          FRawMesh which will be updated by this function - adding a tangent space
+	* @param InOutMesh          FMeshDescription which will be updated by this function - adding a tangent space
 	* @param bRecomputeNormals  Determine if the normal should be recomputed as well (defualt - no).
 	*/
-	void ComputeTangentSpace( FRawMesh& InOutMesh, 
+	void ComputeTangentSpace(FMeshDescription& InOutMesh,
 		                      const bool bRecomputeNormals = false );
 	/**
 	* Calls into the direxXMesh library to compute the per-vertex tangent and bitangent, optionally recomputes the normal.
@@ -141,17 +143,17 @@ namespace ProxyLOD
 	*
 	* @return  Number of detected inter-penetrations of opposing faced polys.
 	*/
-	int32 CorrectCollapsedWalls( FRawMesh& InOutMesh, 
-		                         const float LengthScale );
+	int32 CorrectCollapsedWalls( FMeshDescription& InOutMeshDescription,
+								 const float LengthScale);
 	int32 CorrectCollapsedWalls( FVertexDataMesh& InOutMesh,
 		                         const float LengthScale );
 	
 #if 0
 	// Can be used to transfer things like vertex colors from source geometry to output.
 
-	void TransferMeshAttributes( const FRawMeshArrayAdapter& RawMeshArrayAdapter,
+	void TransferMeshAttributes( const FMeshDescriptionArrayAdapter& RawMeshArrayAdapter,
 		                         const openvdb::Int32Grid& SrcPolyIndexGrid,
-		                         FRawMesh& InOutMesh );
+								 FMeshDescription& InOutMesh );
 #endif 
 	// --------------- debugging ---------------------------------------------------------------
 
@@ -174,7 +176,7 @@ namespace ProxyLOD
 	* @param InOutMesh       Mesh to be colored.
 	* @param PartitionArray  Maps each face to a partition.
 	*/
-	void ColorPartitions( FRawMesh& InOutMesh,     const std::vector<uint32>& PartitionArray );
+	void ColorPartitions(FMeshDescription& InOutMesh,     const std::vector<uint32>& PartitionArray );
 	void ColorPartitions( FVertexDataMesh& InMesh, const std::vector<uint32>& PartitionArray );
 
 	
@@ -183,7 +185,7 @@ namespace ProxyLOD
 	* 
 	* @param InOutMesh  Mesh to be colored.
 	*/
-	void AddWedgeColors( FRawMesh& InOutMesh );
+	void AddWedgeColors(FMeshDescription& InOutMesh );
 	
 	/**
 	* Add a default tangent and bi tangent  aligned with the coordinate axes :(1, 0, 0), (0, 1, 0) to a mesh.

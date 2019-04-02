@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "K2Node_GetSequenceBinding.h"
 #include "Kismet2/BlueprintEditorUtils.h"
@@ -95,7 +95,8 @@ public:
 
 UMovieSceneSequence* UK2Node_GetSequenceBinding::GetSequence() const
 {
-	return Cast<UMovieSceneSequence>(SourceSequence.TryLoad());
+	FLinkerLoad* Linker = GetLinker();
+	return Cast<UMovieSceneSequence>(SourceSequence.TryLoad(Linker ? Linker->GetSerializeContext() : nullptr));
 }
 
 void UK2Node_GetSequenceBinding::ValidateNodeDuringCompilation(FCompilerResultsLog& MessageLog) const
@@ -205,7 +206,7 @@ FNodeHandlingFunctor* UK2Node_GetSequenceBinding::CreateNodeHandler(FKismetCompi
 
 void UK2Node_GetSequenceBinding::PreloadRequiredAssets()
 {
-	GetSequence();
+	EnsureFullyLoaded(GetSequence());
 }
 
 FText UK2Node_GetSequenceBinding::GetSequenceName() const

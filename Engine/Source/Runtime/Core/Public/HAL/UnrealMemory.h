@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -178,7 +178,7 @@ struct CORE_API FMemory
 	/**
 	* Releases as much memory as possible. Must be called from the main thread.
 	*/
-	static void Trim();
+	static void Trim(bool bTrimThreadCaches = true);
 
 	/**
 	* Set up TLS caches on the current thread. These are the threads that we can trim.

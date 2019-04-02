@@ -42,9 +42,9 @@ Github: [https://github.com/EpicGames/UnrealEngine/tree/4.6.1-release](https://g
 
 * InstancedStaticMeshes 의 스태틱 라이팅을 고쳤습니다.
 
-* 안드로이드 패키징된 인스톨 배치 파일에 대한 adb 경로와 디바이스 시리얼 번호를 수정했습니다.
+* Android 패키징된 인스톨 배치 파일에 대한 adb 경로와 디바이스 시리얼 번호를 수정했습니다.
 
-* 안드로이드에서 Touch 이벤트를 너무 일찍 호출했을 때 크래시를 유발하던 오류를 고쳤습니다.
+* Android에서 Touch 이벤트를 너무 일찍 호출했을 때 크래시를 유발하던 오류를 고쳤습니다.
 
 * Z 축 기본 쿼리 크기가 충분히 크지 않을 때의 길찾기 버그를 잡았습니다.
 
@@ -58,5 +58,5 @@ Github: [https://github.com/EpicGames/UnrealEngine/tree/4.6.1-release](https://g
 
 * iTunes 가 설치되지 않아 iOS 에서 실행 또는 패키징 작업을 할 수 없다고 잘못 감지되던 에디터 이슈에 대한 픽스입니다.
 
-[윈도우 다운로드](https://s3.amazonaws.com/unrealengine/qfe/QFE-FromCL-2405993.exe](https://s3.amazonaws.com/unrealengine/qfe/QFE-FromCL-2405993.exe) 
+[Windows 다운로드](https://s3.amazonaws.com/unrealengine/qfe/QFE-FromCL-2405993.exe](https://s3.amazonaws.com/unrealengine/qfe/QFE-FromCL-2405993.exe) 
 

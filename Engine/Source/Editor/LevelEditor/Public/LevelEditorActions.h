@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 
@@ -59,7 +59,7 @@ public:
 
 	static const int32 MaxRecentFiles = 10;
 	TArray< TSharedPtr< FUICommandInfo > > OpenRecentFileCommands;
-	static const int32 MaxFavoriteFiles = 10;
+	static const int32 MaxFavoriteFiles = 20;
 	TArray< TSharedPtr< FUICommandInfo > > OpenFavoriteFileCommands;
 
 	TSharedPtr< FUICommandInfo > ToggleFavorite;
@@ -105,6 +105,13 @@ public:
 	TSharedPtr< FUICommandInfo > RecompileLevelEditor;
 	TSharedPtr< FUICommandInfo > ReloadLevelEditor;
 	TSharedPtr< FUICommandInfo > RecompileGameCode;
+
+#if WITH_LIVE_CODING
+	TSharedPtr< FUICommandInfo > LiveCoding_Enable;
+	TSharedPtr< FUICommandInfo > LiveCoding_StartSession;
+	TSharedPtr< FUICommandInfo > LiveCoding_ShowConsole;
+	TSharedPtr< FUICommandInfo > LiveCoding_Settings;
+#endif
 
 	/**
 	 * Level context menu commands.  These are shared between all viewports
@@ -290,6 +297,8 @@ public:
 	/** Reverse a merge */
 	TSharedPtr< FUICommandInfo > SeparatePolys;
 
+	/** Align brush verticies to the grid */
+	TSharedPtr<FUICommandInfo> AlignBrushVerticesToGrid;
 
 	/**
 	 * Actor group commands
@@ -346,6 +355,12 @@ public:
 
 	/** Invert the current selection */
 	TSharedPtr< FUICommandInfo > InvertSelection;
+
+	/** Selects all direct children of the current selection */
+	TSharedPtr< FUICommandInfo > SelectImmediateChildren;
+
+	/** Selects all descendants of the current selection */
+	TSharedPtr< FUICommandInfo > SelectAllDescendants;
 
 	/** Selects all actors of the same class as the current selection */
 	TSharedPtr< FUICommandInfo > SelectAllActorsOfSameClass;
@@ -577,6 +592,8 @@ public:
 
 	TSharedPtr< FUICommandInfo > FeatureLevelPreview[ERHIFeatureLevel::Num];
 	
+	TSharedPtr< FUICommandInfo > ToggleFeatureLevelPreview;
+
 	TSharedPtr< FUICommandInfo > PreviewPlatformOverride_DefaultES2;
 	TSharedPtr< FUICommandInfo > PreviewPlatformOverride_AndroidGLES2;
 
@@ -616,6 +633,17 @@ public:
 
         // Open merge actor command
 	TSharedPtr< FUICommandInfo > OpenMergeActor;
+
+	/** Selects all Geometry Collection geometry */
+	TSharedPtr< FUICommandInfo > GeometryCollectionSelectAllGeometry;
+
+	/** Deselects all Geometry Collection geometry */
+	TSharedPtr< FUICommandInfo > GeometryCollectionSelectNone;
+
+	/** Selects inverse of currently seleted Geometry Collection geometry */
+	TSharedPtr< FUICommandInfo > GeometryCollectionSelectInverseGeometry;
+
+
 };
 
 /**
@@ -784,12 +812,20 @@ public:
 	static void AttachToSocketSelection(FName SocketName, AActor* ParentActorPtr);
 	static void SetMaterialQualityLevel( EMaterialQualityLevel::Type NewQualityLevel );
 	static bool IsMaterialQualityLevelChecked( EMaterialQualityLevel::Type TestQualityLevel );
+	static void ToggleFeatureLevelPreview();
+	static bool IsFeatureLevelPreviewEnabled();
+	static bool IsFeatureLevelPreviewActive();
+	static bool IsPreviewModeButtonVisible();
 	static void SetPreviewPlatform(FName MaterialQualityPlatform,ERHIFeatureLevel::Type PreviewFeatureLevel);
 	static bool IsPreviewPlatformChecked(FName MaterialQualityPlatform, ERHIFeatureLevel::Type PreviewFeatureLevel);
 	static void SetFeatureLevelPreview(ERHIFeatureLevel::Type InFeatureLevel);
 	static bool IsFeatureLevelPreviewChecked(ERHIFeatureLevel::Type InFeatureLevel);
 	static bool IsFeatureLevelPreviewAvailable(ERHIFeatureLevel::Type InFeatureLevel);
-	
+	static void GeometryCollection_SelectAllGeometry();
+	static void GeometryCollection_SelectNone();
+	static void GeometryCollection_SelectInverseGeometry();
+	static bool GeometryCollection_IsChecked();
+
 	/**
 	 * Called when the Scene Stats button is clicked.  Invokes the Primitive Stats dialog.
 	 */
@@ -813,6 +849,43 @@ public:
 	 */
 	static void RecompileGameCode_Clicked();
 	static bool Recompile_CanExecute();
+
+#if WITH_LIVE_CODING
+	/**
+	 * Enables live coding mode
+	 */
+	static void LiveCoding_ToggleEnabled();
+
+	/**
+	 * Determines if live coding is enabled
+	 */
+	static bool LiveCoding_IsEnabled();
+
+	/**
+	 * Starts live coding (in manual mode)
+	 */
+	static void LiveCoding_StartSession_Clicked();
+
+	/**
+	 * Determines whether we can manually start live coding for the current session
+	 */
+	static bool LiveCoding_CanStartSession();
+
+	/**
+	 * Shows the console
+	 */
+	static void LiveCoding_ShowConsole_Clicked();
+
+	/**
+	 * Determines whether the console can be shown
+	 */
+	static bool LiveCoding_CanShowConsole();
+
+	/**
+	 * Shows the settings panel
+	 */
+	static void LiveCoding_Settings_Clicked();
+#endif
 
 	/**
 	 * Called when requesting connection to source control
@@ -1254,6 +1327,11 @@ public:
 	 * @param InUsePivot		Whether or not to use the pivot position.
 	 */
 	static void SnapActorToActor_Clicked( bool InAlign, bool InUseLineTrace, bool InUseBounds, bool InUsePivot );
+
+	/**
+	 * Aligns brush verticies to the nearest grid point.
+	 */
+	static void AlignBrushVerticesToGrid_Execute();
 
 	/**
 	 * Checks to see if multiple actors are selected

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Serialization/MemoryWriter.h"
@@ -42,7 +42,7 @@ bool FTextPropertyTest::RunTest (const FString& Parameters)
 			FString ExportedStringValue;
 			DefaultedTextProperty->ExportTextItem(ExportedStringValue, &(NewUObject->DefaultedText), NULL, NULL, 0, NULL);
 			FText ExportedTextValue;
-			FTextStringHelper::ReadFromString(*ExportedStringValue, ExportedTextValue);
+			FTextStringHelper::ReadFromBuffer(*ExportedStringValue, ExportedTextValue);
 			if (ExportedTextValue.ToString() != NewUObject->DefaultedText.ToString())
 			{
 				AddError(TEXT("UTextProperty::ExportTextItem failed to provide the display string."));

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Script.h: Blueprint bytecode execution engine.
@@ -231,8 +231,8 @@ enum EExprToken
 	EX_StructMemberContext	= 0x42, // Context expression to address a property within a struct
 	EX_LetMulticastDelegate	= 0x43, // Assignment to a multi-cast delegate
 	EX_LetDelegate			= 0x44, // Assignment to a delegate
-	//						= 0x45, 
-	//						= 0x46, // CST_ObjectToInterface
+	EX_LocalVirtualFunction	= 0x45, // Special instructions to quickly call a virtual function that we know is going to run only locally
+	EX_LocalFinalFunction	= 0x46, // Special instructions to quickly call a final function that we know is going to run only locally
 	//						= 0x47, // CST_ObjectToBool
 	EX_LocalOutVariable		= 0x48, // local out (pass by reference) function parameter
 	//						= 0x49, // CST_InterfaceToBool
@@ -552,13 +552,3 @@ COREUOBJECT_API FString ToValidCPPIdentifierChars(TCHAR Char);
 */
 COREUOBJECT_API FString UnicodeToCPPIdentifier(const FString& InName, bool bDeprecated, const TCHAR* Prefix);
 
-/**
-	@param ForFn Function to search for a corresponding uber graph frame
-	@param Obj owning the uber graph frame, Obj must be an instance based on ForFn->GetOuterUClass()
-	@return A pointer to the start of the objects persistent uber graph
-		frame if ForFn is an ubergraph function, else nullptr. The uber graph
-		frame is a struct that has a matching layout to a blueprint's UberGraphFunction's
-		parameters. The Uber Graph frame is an optimization because it avoids a large
-		allocation and corresponding initialization when calling the UberGraphFunction
-*/
-COREUOBJECT_API uint8* GetPersistentUberGraphFrame(const UFunction* ForFn, UObject* Obj);

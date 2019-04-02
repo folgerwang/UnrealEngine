@@ -256,7 +256,7 @@ Description:
 		active_button
 		[/PARAMLITERAL]
 		[PARAM:label]
-		안드로이드
+		Android
 		[/PARAM]
 	[/OBJECT]
 	[OBJECT:ToggleButton]

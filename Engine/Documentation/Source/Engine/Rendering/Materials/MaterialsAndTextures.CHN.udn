@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3155346
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title: 材质 
 Crumbs: %ROOT%, Engine
 Description: 使用着色器控制世界中的表面外形。
 Navigation:topic
-Version:4.9
+Version:4.15
 parent:Engine/Rendering
 order:2
 type:landing
@@ -21,16 +21,4 @@ topic-image:materials_topic.png
 用更为专业的术语来说，当穿过场景的光照接触到表面后，材质被用来计算该光照如何与该表面进行互动。这些计算是通过对材质的输入数据来完成的，而这些输入数据来自于一系列图像（贴图）以及数学表达式，以及材质本身所继承的不同属性设置。
 
 
-[DIR(output:"topiccompact" parent:"Engine/Rendering/Materials" org:"hierarchy" tags:"!PBR" end:"1")]
-
-## 基于物理的着色（Physically-Based Shading）
-
-虚幻引擎 4 使用了 _基于物理的着色器模型_ 。这意味着不再使用数学模型中的某个参数属性（比如漫反射颜色和高光次幂）定义一个材质，而是使用和现实世界更加相关的属性定义材质。这些属性包括底色、金属色、高光及粗糙度。 如需更多信息，请参阅下方的页面。
-
-[DIR(output:"topiccompact" parent:"Engine/Rendering/Materials" org:"hierarchy" tags:"PBR" end:"1")]
-
-_上方的页面旨在提供对此模型的深入详细信息讨论，以及对其的一些技术性思考。_
-
-## 初级教程
-
-%Engine/Content/Types/Textures/Importing:topiccompact%
+[DIR(output:"topiccompact" parent:"Engine/Rendering/Materials" org:"hierarchy" end:"1")]

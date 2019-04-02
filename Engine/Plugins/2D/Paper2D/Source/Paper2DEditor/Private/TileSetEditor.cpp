@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "TileSetEditor.h"
 #include "UObject/Package.h"
@@ -424,12 +424,7 @@ FText FTileSetEditor::GetBaseToolkitName() const
 
 FText FTileSetEditor::GetToolkitName() const
 {
-	const bool bDirtyState = TileSetBeingEdited->GetOutermost()->IsDirty();
-
-	FFormatNamedArguments Args;
-	Args.Add(TEXT("TileSetName"), FText::FromString(TileSetBeingEdited->GetName()));
-	Args.Add(TEXT("DirtyState"), bDirtyState ? FText::FromString( TEXT( "*" ) ) : FText::GetEmpty());
-	return FText::Format(LOCTEXT("TileSetAppLabel", "{TileSetName}{DirtyState}"), Args);
+	return FText::FromString(TileSetBeingEdited->GetName());
 }
 
 FText FTileSetEditor::GetToolkitToolTipText() const

@@ -1,0 +1,36 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+#include "../Common.ush"
+#include "../DeferredShadingCommon.ush"
+
+Texture2D<float4> GlobalIlluminationTexture;
+SamplerState GlobalIlluminationSampler;
+
+void GlobalIlluminationCompositePS(
+	in noperspective float2 UV : TEXCOORD0,
+	out float4 OutColor : SV_Target0,
+	out float OutAmbientOcclusion : SV_Target1
+)
+{
+	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(UV);
+	float3 DiffuseColor = ScreenSpaceData.GBuffer.DiffuseColor;
+	if (UseSubsurfaceProfile(ScreenSpaceData.GBuffer.ShadingModelID))
+	{
+		DiffuseColor = ScreenSpaceData.GBuffer.StoredBaseColor;
+	}
+	float4 GlobalIllumination = GlobalIlluminationTexture.Sample(GlobalIlluminationSampler, UV);
+	// Apply albedo after denoising
+	GlobalIllumination.rgb *= DiffuseColor;
+	OutColor = float4(GlobalIllumination.rgb, 0.0);
+	OutAmbientOcclusion = 1.0 - GlobalIllumination.a;
+}
+
+void GlobalIlluminationSceneColorCompositePS(
+	in noperspective float2 UV : TEXCOORD0,
+	out float4 OutColor : SV_Target0
+)
+{
+	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(UV);
+	float4 GlobalIllumination = GlobalIlluminationTexture.Sample(GlobalIlluminationSampler, UV);
+	OutColor = float4(GlobalIllumination.rgb, 0.0);
+}

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PartyModule.h"
 
@@ -23,6 +23,7 @@ bool FPartyModule::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 	// Ignore any execs that don't start with Party
 	if (FParse::Command(&Cmd, TEXT("Party")))
 	{
+		// this is where we can implement "Party XYZABC" commands
 		return false;
 	}
 

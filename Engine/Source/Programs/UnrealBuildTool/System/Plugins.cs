@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -326,10 +326,19 @@ namespace UnrealBuildTool
 			if (!PluginFileCache.TryGetValue(ParentDirectory, out FileNames))
 			{
 				FileNames = new List<FileReference>();
-				if (DirectoryReference.Exists(ParentDirectory))
+
+				DirectoryItem ParentDirectoryItem = DirectoryItem.GetItemByDirectoryReference(ParentDirectory);
+				if (ParentDirectoryItem.Exists)
 				{
-					EnumeratePluginsInternal(ParentDirectory, FileNames);
+					using(ThreadPoolWorkQueue Queue = new ThreadPoolWorkQueue())
+					{
+						EnumeratePluginsInternal(ParentDirectoryItem, FileNames, Queue);
+					}
 				}
+
+				// Sort the filenames to ensure that the plugin order is deterministic; otherwise response files will change with each build.
+				FileNames = FileNames.OrderBy(x => x.FullName, StringComparer.OrdinalIgnoreCase).ToList();
+
 				PluginFileCache.Add(ParentDirectory, FileNames);
 			}
 			return FileNames;
@@ -340,27 +349,35 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="ParentDirectory">Parent directory to look in. Plugins will be found in any *subfolders* of this directory.</param>
 		/// <param name="FileNames">List of filenames. Will have all the discovered .uplugin files appended to it.</param>
-		static void EnumeratePluginsInternal(DirectoryReference ParentDirectory, List<FileReference> FileNames)
+		/// <param name="Queue">Queue for tasks to be executed</param>
+		static void EnumeratePluginsInternal(DirectoryItem ParentDirectory, List<FileReference> FileNames, ThreadPoolWorkQueue Queue)
 		{
-			foreach (DirectoryReference ChildDirectory in DirectoryReference.EnumerateDirectories(ParentDirectory))
+			foreach (DirectoryItem ChildDirectory in ParentDirectory.EnumerateDirectories())
 			{
-				int InitialFileNamesCount = FileNames.Count;
-				foreach (FileReference PluginFile in DirectoryReference.EnumerateFiles(ChildDirectory, "*.uplugin"))
+				bool bSearchSubDirectories = true;
+				foreach (FileItem PluginFile in ChildDirectory.EnumerateFiles())
 				{
-					FileNames.Add(PluginFile);
+					if(PluginFile.HasExtension(".uplugin"))
+					{
+						lock(FileNames)
+						{
+							FileNames.Add(PluginFile.Location);
+						}
+						bSearchSubDirectories = false;
+					}
 				}
-				if (FileNames.Count == InitialFileNamesCount)
+
+				if (bSearchSubDirectories)
 				{
-					EnumeratePluginsInternal(ChildDirectory, FileNames);
+					Queue.Enqueue(() => EnumeratePluginsInternal(ChildDirectory, FileNames, Queue));
 				}
 			}
 		}
 
-
 		/// <summary>
 		/// Determine if a plugin is enabled for a given project
 		/// </summary>
-		/// <param name="Project">The project to check</param>
+		/// <param name="Project">The project to check. May be null.</param>
 		/// <param name="Plugin">Information about the plugin</param>
 		/// <param name="Platform">The target platform</param>
 		/// <param name="TargetConfiguration">The target configuration</param>
@@ -368,7 +385,7 @@ namespace UnrealBuildTool
 		/// <returns>True if the plugin should be enabled for this project</returns>
 		public static bool IsPluginEnabledForProject(PluginInfo Plugin, ProjectDescriptor Project, UnrealTargetPlatform Platform, UnrealTargetConfiguration TargetConfiguration, TargetType Target)
 		{
-			bool bEnabled = Plugin.EnabledByDefault;
+			bool bEnabled = Plugin.EnabledByDefault && Plugin.Descriptor.SupportsTargetPlatform(Platform);
 			if (Project != null && Project.Plugins != null)
 			{
 				foreach (PluginReferenceDescriptor PluginReference in Project.Plugins)

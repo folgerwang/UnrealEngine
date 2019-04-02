@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraSystemTrackEditor.h"
 #include "MovieScene/MovieSceneNiagaraSystemTrack.h"
@@ -83,7 +83,7 @@ void FNiagaraSystemTrackEditor::BuildObjectBindingTrackMenu(FMenuBuilder& MenuBu
 	if (System != nullptr)
 	{
 		TArray<FNiagaraVariable> ParameterVariables;
-		System->GetExposedParameters().GetParameters(ParameterVariables);
+		System->GetExposedParameters().GetUserParameters(ParameterVariables);
 
 		TSet<FNiagaraVariable> AnimatedParameters;
 		GetAnimatedParameters(*GetSequencer()->GetFocusedMovieSceneSequence()->GetMovieScene(), ObjectBinding, AnimatedParameters);

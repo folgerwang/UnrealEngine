@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Windows/WindowsEventLogOutputDevice.h"
 #include "Windows/WindowsHWrapper.h"
@@ -46,7 +46,7 @@ void FWindowsEventLogOutputDevice::Serialize(const TCHAR* Buffer, ELogVerbosity:
 		{
 		case ELogVerbosity::Error:
 			{
-				ReportEvent(EventLog,
+				ReportEventW(EventLog,
 					EVENTLOG_ERROR_TYPE,
 					NULL,
 					0xC0000001L,
@@ -59,7 +59,7 @@ void FWindowsEventLogOutputDevice::Serialize(const TCHAR* Buffer, ELogVerbosity:
 			}
 		case ELogVerbosity::Warning:
 			{
-				ReportEvent(EventLog,
+				ReportEventW(EventLog,
 					EVENTLOG_WARNING_TYPE,
 					NULL,
 					0x80000002L,

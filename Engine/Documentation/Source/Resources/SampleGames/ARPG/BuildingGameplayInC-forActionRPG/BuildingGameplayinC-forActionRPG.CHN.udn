@@ -1,0 +1,105 @@
+﻿INTSourceChangelist:4366188
+Availability: Public
+Crumbs: 
+Title: 在C++中构建动画RPG的玩法
+Description: 本指南描述了如何在动作RPG中构建玩法系统。
+Version: 4.20
+Parent: Resources/SampleGames/ARPG
+Order: 1
+Tags: 
+
+
+本文档旨在描述如何构建动作角色扮演类游戏（ARPG）中的Gameplay系统，同时还可作为设计类似系统的示例。它适用于那些已经阅读[UE4中的C++编程介绍](Programming/Introduction)，并使用[FPS教程](Programming/Tutorials/FirstPersonShooter)中描述的现有模板构建过某些基本原型的开发者。有关特定于能力系统的功能，请参阅[Gameplay能力系统](Gameplay/GameplayAbilitySystem)文档。
+
+## 代码概述
+
+大部分虚幻引擎4（UE4）项目都以现有模板或现有示例项目的副本为起点。以ARPG为例，它最初是作为类似于自上而下（Top Down）模板的纯蓝图游戏，然后我们将其转换为混合C++/蓝图项目。由于这段历史，大多数基本的Gameplay逻辑都是用蓝图而不是C++实现的。[平衡蓝图和C++的使用](Resources/SampleGames/ARPG/BalancingBlueprintandC-)文档讨论了决定使用蓝图还是C++时应考虑的部分因素。在初始创建和转换项目后，我们创建了用于Gameplay的原生类层级。我们还为C++代码和内容定义了命名和目录组织方案。
+
+下面概述了ARPG中使用的源文件：  
+
+| **文件名** | **说明** |
+| --- | --- |
+| **ActionRPG.h** | 这是项目中每个CPP文件都包含的第一个模块标头。这里包含大多数类所需的共享引擎标头以及全局定义。|
+| **RPGTypes.h** | 用于定义其他类中使用的游戏特定结构体和枚举值的共享标头。通常，最好创建一个或多个这些标头，以避免出现循环使用标头的问题。|
+| **RPGPlayerControllerBase.h** | 它是大多数游戏所需的 **PlayerController** 的游戏特定子类。对于ARPG，这里主要处理物品栏。|
+| **RPGCharacterBase.h** | 角色的游戏特定子类。对于ARPG，所有 **蓝图角色（Blueprint Characters）** 都继承此类，但是许多游戏需要具有多种角色类型的层级。|
+| **RPGGameInstanceBase.h** | 它是 **GameInstance** 的游戏特定子类，是大多数游戏所必需的。由于在整个游戏中只声明一个游戏实例，它很适合存储全局Gameplay数据。|
+| **RPGGameModeBase.h** 和 **RPGGameStateBase.h** | 游戏模式（Game Mode）和状态子类。对于ARPG，只有存根代码，因为大多数贴图特定的Gameplay逻辑是使用蓝图，但许多游戏使用C++代码制作各种模式和状态。|
+| **RPGBlueprintLibrary.h** | 公开并非与特定Actor挂钩的游戏特定蓝图函数，几乎每个游戏都需要一个或多个这类文件。|
+| **RPGSaveGame.h** | 此类用于在磁盘上存储物品栏/经验值信息，下文将详细介绍。|
+| **RPGAssetManager.h** | 这是下文中描述的物品栏系统使用的资源管理器（AssetManager）的子类。|
+| **RPGInventoryInterface.h** | 原生接口，允许 **RPGCharacterBase** 在无需手动转换的情况下查询 **RPGPlayerControllerBase** 以了解关于物品栏的信息。|
+| **Items/RPGItem.h和子类** | 不同种类的物品栏项目类型。|
+| **Abilities/RPGAbilitySystemComponent及其他** | 它用于能力系统，具体请参阅[ARPG的Gameplay能力](Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG)中描述的能力系统。|
+| **ActionRPGLoadingScreen Module** | 一个简单的C++加载屏幕，用于在首次加载游戏或转换地图时显示纹理。由于需要在加载主要ARPG游戏模块之前先加载，它是一个单独的模块。|
+
+虽然ARPG中没有编辑器模块，但许多其他虚幻引擎4（UE4）游戏都有一个 **编辑器模块（Editor Module）**，可添加要在UE4编辑器中使用的其他UI或工具。
+
+创建原生类后，你需要更改[项目设置](Engine/UI/ProjectSettings)以生成正确的[游戏模式](Gameplay/Framework/GameMode)、[游戏实例](Gameplay/Framework/GameMode)和[资源管理器](Engine/Basics/AssetsAndPackages/AssetManagement)类。你可能还需要更改贴图设置，将项目中的新更改反映出来。
+
+## 物品栏和资源管理器
+
+ARPG使用[资源管理器](Engine/Basics/AssetsAndPackages/AssetManagement)系统加载和访问物品栏项目。资源管理器最初设计用于管理在各种不同情况下和整个游戏中可用的资源，通常应用于所有物品栏项目。对于ARPG，有四种物品栏项目类型：
+
+*   **武器（Weapons）**：是一种玩家可以装备的蓝图，可造成近战伤害。
+*   **技能（Skills）**：是指特殊的攻击（例如火球），玩家可以装备和使用，可造成直接和区域作用伤害。  
+    
+*   **药剂（Potions）**：是一种一次性消耗品，用于治疗或补充更多法力。  
+    
+*   **代币（Tokens）**：是一种简单的计数器，记录获得的灵魂值和经验值等。  
+    
+
+其中每一项都有单独的原生C++类，它继承自 **URPGItem**，并用 **DefaultGame.ini** 的 **AssetManagerSettings** 部分中的代码行定义。我们决定不为ARPG创建项目蓝图，因为它们没有专属的逻辑或继承结构，而是在每个游戏中都会有所不同。每个项目基类提供UI信息（例如要使用的图标），以及Gameplay信息（例如装备特定项目时授予的能力）。
+
+玩家拥有的项目存储在 **URPGPlayerControllerBase** 实例中，使用以下两个贴图属性：
+
+*   第一个贴图是从 **URPGItem**\* 到 **FRPGItemData**，存储数量和关卡。 
+*   第二个贴图是从 **FRPGItemSlot** 到 **URPGItem**\*，描述某些项目存储在“武器插槽1”中。 
+
+有效项目插槽和默认物品栏存储在 **BP_GameInstance** 中。Player Controller原生类提供用于添加、删除和查询物品栏项目以及与能力系统交互的API。由于ARGP中的每个项目类型都是主要资源类型，我们将 **FPrimaryAssetType** 结构的用途更改为“项目类型”并将其传入过滤器函数。由于ARPG提供游戏内存储，需要在启动时预加载游戏中的所有项目。它使用 **BP_GameInstance** 的逻辑来实现这一目的：
+
+[REGION:lightbox]
+[![](InventoryAssetManager_01.png)(w:800px)](InventoryAssetManager_01.png)
+[/REGION]
+[REGION:caption]
+单击查看大图。
+[/REGION]
+
+**AsyncLoadPrimaryAssetList** 节点最终在 **URPGAssetManager** 上调用 **LoadPrimaryAssets ** 函数，后者开始异步加载指定类型的所有项目。完成加载后，它会将其添加到存储在游戏实例中的贴图中，并在存储UI中使用。需要注意的是，调用 **LoadPrimaryAssets ** 时，会将这些资源保存在内存中，直到调用 **Unload** 为止，即使这些资源未被进行任何引用也是如此。**RPGAssetManager** 子类相对比较简单，因为它仅为每个项目类型声明某些静态类型，以及从磁盘加载物品栏时使用的 **ForceLoadItem** 函数。
+
+对于ARPG，使用物品栏项目的逻辑主要在玩家和敌人蓝图共享的 **BP_Character** 蓝图中，但有许多游戏在原生C++中实现项目用途。此外，物品栏还与能力系统进行大量交互，具体请参阅[Gameplay系统](Gameplay/GameplayAbilitySystem)文档。
+
+## 保存游戏
+
+ARPG通过原生结构使用 **URPGSaveGame** ARPG 类将玩家的物品栏（包括灵魂/经验）存储在磁盘上。通常，任何关键信息都应使用原生结构存储，以便可以使用原生版本控制和修正代码。对于 **URPGSaveGame**，这使用 **ERPGSaveGameVersion** 枚举值和Serialize函数中的修正代码来实现。这是因为在任何时候，用户定义的结构体都可能被意外修改。如果开发者试图重命名或删除字段，那么玩家保存的游戏就会丢失数据，可能导致玩家保存的数据被完全破坏。通常，应使用具有版本控制功能的原生结构来实现关键数据。
+
+ARPG保存游戏使用存储为字符串的 **PrimaryAssetIds**（版块类型 **ItemType:ItemName**）来存储物品栏。通过这种方法存储项目引用比资源路径（如 **/Game/Items/ItemName.ItemName**）更安全，因为即使资源移动了，引用也不会破坏。如果更改资源名称，可以使用 **PrimaryAssetIdRedirects** 或原生代码处理这些修复。**ForceLoadItem** 可以同步加载尚未在内存中的项目以从 **PrimaryAssetId** 转换为 **URPGItem**（由于上面提到的存储预载，在ARPG中通常需要这样操作）。
+
+**URPGGameInstanceBase** 使用 **BP_GameInstance** 中设置的变量，处理物品栏的实际保存和加载。能否从原生代码访问保存函数非常重要，因为只要从物品栏添加或删除项目，**玩家控制器（Player Controller）** 就会强制物品栏保存。如有必要，你也可以从蓝图手动调用它。对于ARPG，使用 **SaveGameToSlot** 蓝图函数将保存写入磁盘，但如果原生实现，可以在以后将其更改为服务器端解决方案。“选项”菜单不使用原生保存游戏实现，因为数据丢失无关紧要。你还应始终将该信息存储在本地设备上。 
+
+[REGION:note]
+无论哪个游戏，在开发之初，都应仔细考虑保存游戏管理的计划。
+[/REGION]
+
+## 打包发布
+
+在构建了Gameplay基础架构并且团队已开始制作内容之后，最后也是最重要的编程任务是准备打包和发布游戏。默认情况下，UE4打包的内容多于发布版本所需的内容，这在移动等平台上可能成为问题。对于ARPG，第一步是确保只包含ARPG需要的内容，因此我们使用[资源管理器](Engine/Basics/AssetsAndPackages/AssetManagement)来帮助解决这个问题。 
+
+**主资源类型（Primary Asset Type）** 配置文件的 **“CookRule=AlwaysCook”** 部分允许将项目 **内容（Content）** 文件夹中的所有项目转化为最终成品。为了确保ARPG中包含 **主菜单（Main Menu）** 和 **Gameplay（Gameplay）** 贴图，我们将两者都添加到 **打包设置（Packaging Settings）** 中的 **+MapsToCook** 行。在确定ARPG包含所有必要内容之后，我们使用UE4编辑器面向移动平台打包项目，以便验证打包游戏是否按预期运行。在验证打包游戏是否正确运行且其中包含所有项目内容之后，我们再研究如何减少下载和内存大小。由于ARPG面向的是移动平台，我们希望尽量减少下载和内存大小。为了实现这一点，我们使用了以下步骤来减少安装大小和内存占用：
+
+1.  禁用所有未使用的 **插件（Plugins）**。针对ARP执行这一操作，可将整体项目大小减少30 MB。  
+    ![](ARPG_DisableUnusedPlugins_01.png "ARPG_DisableUnusedPlugins_01.png")
+	[REGION:note]
+	上图仅显示了禁用的 **增强现实（Augmented Reality）** 插件，项目中的每个插件部分都应禁用，以最大程度地实现节省。
+	[/REGION]
+3.  启用 **转化时排除编辑器内容（Exclude editor content when cooking）**，该标记可在 **打包（Packaging）** 设置中找到。这样可以防止项目发行 **/Engine/EditorMaterials** 等UE4编辑器文件夹中的任何内容。  
+	![](ARPG_SkipCookingEditorContent_01-1.png "ARPG_SkipCookingEditorContent_01-1.png")  
+	[REGION:warning]
+	请注意，该操作会破坏使用这些材质的所有游戏内容。但是，项目不应使用UE4编辑器文件夹中的任何资源。
+	[/REGION]
+4.  默认情况下，由于 **DefaultEditor.ini** 文件夹中的 **+ContentDirectories** 行，UE4将转化 **/Game/UI** 和其他一些文件夹中的所有内容。ARPG在此文件夹中有一些原型用户界面项目，我们在 ARPG **DefaultEditor.ini ** 文件夹中添加了includes以将其禁用。如果结合使用此步骤与上一步骤，可将ARPG的安装大小减小50 MB。![](ARPG_DefaultEditorINI_01.png "ARPG_DefaultEditorINI_01.png")
+5.  使用“资源审核”（Asset Audit）窗口中提供的 **尺寸贴图（Size Map）** 工具（在[转化和分块](Engine/Basics/AssetsAndPackages/AssetManagement/CookingAndChunking)文档中描述），我们能够找出一组性能成本较大的纹理和静态网格体。然后我们将此信息转发给内容团队进行整理。通过优化这些资源，ARPG的安装大小又减少了100 MB。![](ARPG_SizeMapTool_01.png "ARPG_SizeMapTool_01.png")
+6.  我们暂时启用了 **“项目设置”>“打包”（Project Settings > Packaging）** 中的 **用于分发（For Distribution）** 复选框，并将 **编译配置（Build Configuration）** 从 **开发（Development）** 更改为 **发行（Shipping）**，以便更好地了解ARPG的最终大小。一般，在转化最终发布版本（通常使用传递给UAT脚本的命令行选项）时都会将其启用，但 **不应** 在项目开发期间启用。从开发（Development）版本变为发行（Shipping）版本，可将ARPG的安装大小节省大约50 MB。  
+    ![](ARPG_ForDistributionSettings_01.png "ARPG_ForDistributionSettings_01.png")
+
+完成上述所有步骤后，ARPG的安装大小减少了大约 **230 MB**，这有助于将ARPG发布到各种应用程序商店。

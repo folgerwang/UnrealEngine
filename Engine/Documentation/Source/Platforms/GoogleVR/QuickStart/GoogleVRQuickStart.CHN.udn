@@ -1,33 +1,64 @@
-﻿INTSourceChangelist:3432707
-Title:Google VR 快速入门
-Crumbs:%ROOT%, Platforms, Platforms/GoogleVR
-Description:Google VR 的设置和使用说明。
-Availability:Public
-Version:4.12
-SkillLevel:Intermediate
-parent:Platforms/GoogleVR
-type:quick start
+﻿INTSourceChangelist:3723511
+Availability: Public
+Crumbs: %ROOT%
+Title: Google VR快速入门
+Description: 介绍如何设置及使用Google VR
+Type: quick start
 type:landing
-tags:VR
+SkillLevel: Intermediate
+Version: 4.17
+Parent: Platforms/GoogleVR
+Order:2
 tags:Google VR
+tags:Getting Started
+Checkpoint:GoogleVRQS
+prereq:Platforms/Android/GettingStarted/
 topic-image:Platforms\GoogleVR\GoogleVR_Cardboard_Topic_Image.png
 
-Google VR 快速入门讲述如何设置 UE4 项目，使其可用于 Google VR。
+![](Google_Cardboard_Headset.png)
 
+## 目的
 
-## 步骤
-
-[REGION:buttonlist]
-
-	* [](Platforms/GoogleVR/QuickStart/1 "%Platforms/GoogleVR/QuickStart/1:description%")
-	* [](Platforms/GoogleVR/QuickStart/2 "%Platforms/GoogleVR/QuickStart/2:description%")
-	* [](Platforms/GoogleVR/QuickStart/3 "%Platforms/GoogleVR/QuickStart/3:description%")
-	
-[/REGION]
+GoogleVR快速入门将指导您设置UE4项目以使用Google VR。
 
 [region:note]
-Google 已编写了一份详细文档，其中详述了如何充分利用 Daydream。访问 [官方 Google Daydream Unreal](https://developers.google.com/vr/unreal/) 帮助站点即可阅读此文档。
+Google已编写了一份详细文档，其中详述了如何充分利用Daydream。访问[官方Google Daydream Unreal](https://developers.google.com/vr/unreal/)帮助站点即可阅读此文档。
 [/region]
+
+## 目标
+* 创建针对Google VR开发的新UE4项目。
+* 进行必需的项目设置，使项目可与Google VR一起使用。
+* 借助所选的Google VR HMD部署和查看UE4项目。
+
+[DIR(output:"checkpoint" parent:"Platforms/GoogleVR/QuickStart")]
+
+[REGION:call_to_action]
+ [单击此处开始学习](Platforms/GoogleVR/QuickStart/1 "%Platforms/GoogleVR/QuickStart/1:title%")
+[/REGION]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

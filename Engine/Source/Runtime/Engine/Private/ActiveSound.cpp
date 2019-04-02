@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ActiveSound.h"
 #include "EngineDefines.h"
@@ -11,6 +11,13 @@
 #include "SubtitleManager.h"
 #include "DSP/Dsp.h"
 
+static int32 AudioOcclusionDisabledCvar = 0;
+FAutoConsoleVariableRef CVarAudioOcclusionEnabled(
+	TEXT("au.DisableOcclusion"),
+	AudioOcclusionDisabledCvar,
+	TEXT("Disables (1) or enables (0) audio occlusion.\n"),
+	ECVF_Default);
+
 FTraceDelegate FActiveSound::ActiveSoundTraceDelegate;
 TMap<FTraceHandle, FActiveSound::FAsyncTraceDetails> FActiveSound::TraceToActiveSoundMap;
 
@@ -21,9 +28,7 @@ FActiveSound::FActiveSound()
 	, AudioComponentID(0)
 	, OwnerID(0)
 	, AudioDevice(nullptr)
-	, ConcurrencyGroupID(0)
 	, ConcurrencyGeneration(0)
-	, ConcurrencySettings(nullptr)
 	, SoundClassOverride(nullptr)
 	, SoundSubmixOverride(nullptr)
 	, bHasCheckedOcclusion(false)
@@ -56,6 +61,7 @@ FActiveSound::FActiveSound()
 	, bUpdatePlayPercentage(false)
 	, bUpdateSingleEnvelopeValue(false)
 	, bUpdateMultiEnvelopeValue(false)
+	, bUpdatePlaybackTime(false)
 	, bIsPlayingAudio(false)
 	, bIsStopping(false)
 	, UserIndex(0)
@@ -72,8 +78,6 @@ FActiveSound::FActiveSound()
 	, LowPassFilterFrequency(MAX_FILTER_FREQUENCY)
 	, CurrentOcclusionFilterFrequency(MAX_FILTER_FREQUENCY)
 	, CurrentOcclusionVolumeAttenuation(1.0f)
-	, ConcurrencyVolumeScale(1.f)
-	, ConcurrencyDuckingVolumeScale(1.f)
 	, SubtitlePriority(DEFAULT_SUBTITLE_PRIORITY)
 	, Priority(1.0f)
 	, FocusPriorityScale(1.0f)
@@ -133,7 +137,14 @@ void FActiveSound::AddReferencedObjects( FReferenceCollector& Collector)
 
 	Collector.AddReferencedObject(Sound);
 	Collector.AddReferencedObject(SoundClassOverride);
-	Collector.AddReferencedObject(ConcurrencySettings);
+
+	for (USoundConcurrency* Concurrency : ConcurrencySet)
+	{
+		if (Concurrency)
+		{
+			Collector.AddReferencedObject(Concurrency);
+		}
+	}
 
 	for (FAudioComponentParam& Param : InstanceParameters)
 	{
@@ -329,30 +340,22 @@ int32 FActiveSound::FindClosestListener( const TArray<FListener>& InListeners ) 
 	return FAudioDevice::FindClosestListenerIndex(Transform, InListeners);
 }
 
-const FSoundConcurrencySettings* FActiveSound::GetSoundConcurrencySettingsToApply() const
+void FActiveSound::GetConcurrencyHandles(TArray<FConcurrencyHandle>& OutConcurrencyHandles) const
 {
-	if (ConcurrencySettings)
+	OutConcurrencyHandles.Reset();
+	if (!ConcurrencySet.Num() && Sound)
 	{
-		return &ConcurrencySettings->Concurrency;
+		Sound->GetConcurrencyHandles(OutConcurrencyHandles);
+		return;
 	}
-	else if (Sound)
-	{
-		return Sound->GetSoundConcurrencySettingsToApply();
-	}
-	return nullptr;
-}
 
-uint32 FActiveSound::GetSoundConcurrencyObjectID() const
-{
-	if (ConcurrencySettings)
+	for (const USoundConcurrency* Concurrency : ConcurrencySet)
 	{
-		return ConcurrencySettings->GetUniqueID();
+		if (Concurrency)
+		{
+			OutConcurrencyHandles.Emplace(FConcurrencyHandle(*Concurrency));
+		}
 	}
-	else if (Sound)
-	{
-		return Sound->GetSoundConcurrencyObjectID();
-	}
-	return INDEX_NONE;
 }
 
 void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances, const float DeltaTime )
@@ -436,7 +439,8 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 		ParseParams.VolumeApp = AudioDevice->GetTransientMasterVolume() * FApp::GetVolumeMultiplier();
 	}
 
-	ParseParams.VolumeMultiplier = VolumeMultiplier * Sound->GetVolumeMultiplier() * CurrentAdjustVolumeMultiplier * ConcurrencyVolumeScale;
+	const float TotalConcurrencyVolumeScale = GetTotalConcurrencyVolumeScale();
+	ParseParams.VolumeMultiplier = VolumeMultiplier * Sound->GetVolumeMultiplier() * CurrentAdjustVolumeMultiplier * TotalConcurrencyVolumeScale;
 
 	ParseParams.Priority = Priority;
 	ParseParams.Pitch *= PitchMultiplier * Sound->GetPitchMultiplier();
@@ -525,15 +529,16 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 			}
 		}
 
-		// If this active sound is told to limit concurrency by the quietest sound
-		const FSoundConcurrencySettings* ConcurrencySettingsToApply = GetSoundConcurrencySettingsToApply();
-		if (ConcurrencySettingsToApply && ConcurrencySettingsToApply->ResolutionRule == EMaxConcurrentResolutionRule::StopQuietest)
+		// If the concurrency volume is negative (as set by ConcurrencyManager on creation),
+		// skip updating as its been deemed unnecessary
+		if (VolumeConcurrency >= 0.0f)
 		{
-			check(ConcurrencyGroupID != 0);
 			// Now that we have this sound's active wave instances, lets find the loudest active wave instance to represent the "volume" of this active sound
 			VolumeConcurrency = 0.0f;
 			for (const FWaveInstance* WaveInstance : ThisSoundsWaveInstances)
 			{
+				check(WaveInstance);
+
 				const float WaveInstanceVolume = WaveInstance->GetVolumeWithDistanceAttenuation();
 				if (WaveInstanceVolume > VolumeConcurrency)
 				{
@@ -543,39 +548,73 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 		}
 
 		// Check to see if we need to broadcast the envelope value of sounds playing with this active sound
-		if (bUpdateMultiEnvelopeValue && AudioComponentID > 0)
+		if (AudioComponentID > 0)
 		{
-			int32 NumWaveInstances = ThisSoundsWaveInstances.Num();
-
-			// Add up the envelope value for every wave instance so we get a sum of the envelope value for all sources.
-			float EnvelopeValueSum = 0.0f;
-			float MaxEnvelopeValue = 0.0f;
-			for (FWaveInstance* WaveInstance : ThisSoundsWaveInstances)
+			if (bUpdateMultiEnvelopeValue)
 			{
-				const float WaveInstanceEnvelopeValue = WaveInstance->GetEnvelopeValue();
-				EnvelopeValueSum += WaveInstanceEnvelopeValue;
-				MaxEnvelopeValue = FMath::Max(WaveInstanceEnvelopeValue, MaxEnvelopeValue);
+				int32 NumWaveInstances = ThisSoundsWaveInstances.Num();
+
+				// Add up the envelope value for every wave instance so we get a sum of the envelope value for all sources.
+				float EnvelopeValueSum = 0.0f;
+				float MaxEnvelopeValue = 0.0f;
+				for (FWaveInstance* WaveInstance : ThisSoundsWaveInstances)
+				{
+					const float WaveInstanceEnvelopeValue = WaveInstance->GetEnvelopeValue();
+					EnvelopeValueSum += WaveInstanceEnvelopeValue;
+					MaxEnvelopeValue = FMath::Max(WaveInstanceEnvelopeValue, MaxEnvelopeValue);
+				}
+
+				// Now divide by the number of instances to get the average
+				float AverageEnvelopeValue = EnvelopeValueSum / NumWaveInstances;
+				uint64 AudioComponentIDCopy = AudioComponentID;
+				FAudioThread::RunCommandOnGameThread([AudioComponentIDCopy, AverageEnvelopeValue, MaxEnvelopeValue, NumWaveInstances]()
+				{
+					if (UAudioComponent* AudioComponent = UAudioComponent::GetAudioComponentFromID(AudioComponentIDCopy))
+					{
+						if (AudioComponent->OnAudioMultiEnvelopeValue.IsBound())
+						{
+							AudioComponent->OnAudioMultiEnvelopeValue.Broadcast(AverageEnvelopeValue, MaxEnvelopeValue, NumWaveInstances);
+						}
+
+						if (AudioComponent->OnAudioMultiEnvelopeValueNative.IsBound())
+						{
+							AudioComponent->OnAudioMultiEnvelopeValueNative.Broadcast(AudioComponent, AverageEnvelopeValue, MaxEnvelopeValue, NumWaveInstances);
+						}
+					}
+				});
 			}
 
-			// Now divide by the number of instances to get the average
-			float AverageEnvelopeValue = EnvelopeValueSum / NumWaveInstances;
-			uint64 AudioComponentIDCopy = AudioComponentID;
-			FAudioThread::RunCommandOnGameThread([AudioComponentIDCopy, AverageEnvelopeValue, MaxEnvelopeValue, NumWaveInstances]()
+			if (bUpdatePlaybackTime)
 			{
-				if (UAudioComponent* AudioComponent = UAudioComponent::GetAudioComponentFromID(AudioComponentIDCopy))
-				{
-					if (AudioComponent->OnAudioMultiEnvelopeValue.IsBound())
-					{
-						AudioComponent->OnAudioMultiEnvelopeValue.Broadcast(AverageEnvelopeValue, MaxEnvelopeValue, NumWaveInstances);
-					}
+				TMap<uint32, float> WaveInstancePlaybackTimes;
 
-					if (AudioComponent->OnAudioMultiEnvelopeValueNative.IsBound())
+				// Update each of the wave instances playback time based on delta time and the wave instances pitch value
+				for (FWaveInstance* WaveInstance : ThisSoundsWaveInstances)
+				{
+					WaveInstance->PlaybackTime += DeltaTime * WaveInstance->Pitch;
+
+					// For looping sounds, we need to check the wrapping condition
+					if (WaveInstance->LoopingMode != LOOP_Never)
 					{
-						AudioComponent->OnAudioMultiEnvelopeValueNative.Broadcast(AudioComponent, AverageEnvelopeValue, MaxEnvelopeValue, NumWaveInstances);
+						float Duration = WaveInstance->WaveData->Duration;
+						if (WaveInstance->PlaybackTime > Duration)
+						{
+							WaveInstance->PlaybackTime = 0.0f;
+						}
 					}
+					WaveInstancePlaybackTimes.Add(WaveInstance->WaveData->GetUniqueID(), WaveInstance->PlaybackTime);
 				}
-			});
+				uint64 AudioComponentIDCopy = AudioComponentID;
+				FAudioThread::RunCommandOnGameThread([AudioComponentIDCopy, WaveInstancePlaybackTimes]()
+				{
+					if (UAudioComponent* AudioComponent = UAudioComponent::GetAudioComponentFromID(AudioComponentIDCopy))
+					{
+						AudioComponent->SetPlaybackTimes(WaveInstancePlaybackTimes);
+					}
+				});
+			}
 		}
+
 	}
 
 	InWaveInstances.Append(ThisSoundsWaveInstances);
@@ -803,58 +842,71 @@ void FActiveSound::CheckOcclusion(const FVector ListenerLocation, const FVector 
 	check(AttenuationSettingsPtr);
 	check(AttenuationSettingsPtr->bEnableOcclusion);
 
-	if (!bAsyncOcclusionPending && (PlaybackTime - LastOcclusionCheckTime) > OcclusionCheckInterval)
+	float InterpolationTime = 0.0f;
+
+	// If occlusion is disabled by cvar, we're always going to be not occluded
+	if (AudioOcclusionDisabledCvar == 1)
 	{
-		LastOcclusionCheckTime = PlaybackTime;
-
-		const bool bUseComplexCollisionForOcclusion = AttenuationSettingsPtr->bUseComplexCollisionForOcclusion;
-		const ECollisionChannel OcclusionTraceChannel = AttenuationSettingsPtr->OcclusionTraceChannel;
-
-		if (!bHasCheckedOcclusion)
-		{
-			FCollisionQueryParams Params(SCENE_QUERY_STAT(SoundOcclusion), bUseComplexCollisionForOcclusion);
-			if (OwnerID > 0)
-			{
-				Params.AddIgnoredActor(OwnerID);
-			}
-
-			if (UWorld* WorldPtr = World.Get())
-			{
-				// LineTraceTestByChannel is generally threadsafe, but there is a very narrow race condition here 
-				// if World goes invalid before the scene lock and queries begin.
-				bIsOccluded = WorldPtr->LineTraceTestByChannel(SoundLocation, ListenerLocation, OcclusionTraceChannel, Params);
-			}
-		}
-		else
-		{
-			bAsyncOcclusionPending = true;
-
-			const uint32 SoundOwnerID = OwnerID;
-			TWeakObjectPtr<UWorld> SoundWorld = World;
-			FAsyncTraceDetails TraceDetails;
-			TraceDetails.AudioDeviceID = AudioDevice->DeviceHandle;
-			TraceDetails.ActiveSound = this;
-
-			FAudioThread::RunCommandOnGameThread([SoundWorld, SoundLocation, ListenerLocation, OcclusionTraceChannel, SoundOwnerID, bUseComplexCollisionForOcclusion, TraceDetails]
-			{
-				if (UWorld* WorldPtr = SoundWorld.Get())
-				{
-					FCollisionQueryParams Params(SCENE_QUERY_STAT(SoundOcclusion), bUseComplexCollisionForOcclusion);
-					if (SoundOwnerID > 0)
-					{
-						Params.AddIgnoredActor(SoundOwnerID);
-					}
-
-					FTraceHandle TraceHandle = WorldPtr->AsyncLineTraceByChannel(EAsyncTraceType::Test, SoundLocation, ListenerLocation, OcclusionTraceChannel, Params, FCollisionResponseParams::DefaultResponseParam, &ActiveSoundTraceDelegate);
-					TraceToActiveSoundMap.Add(TraceHandle, TraceDetails);
-				}
-			});
-		}
+		bIsOccluded = false;
 	}
+	else
+	{
+		if (!bAsyncOcclusionPending && (PlaybackTime - LastOcclusionCheckTime) > OcclusionCheckInterval)
+		{
+			LastOcclusionCheckTime = PlaybackTime;
 
-	// Update the occlusion values
-	const float InterpolationTime = bHasCheckedOcclusion ? AttenuationSettingsPtr->OcclusionInterpolationTime : 0.0f;
-	bHasCheckedOcclusion = true;
+			const bool bUseComplexCollisionForOcclusion = AttenuationSettingsPtr->bUseComplexCollisionForOcclusion;
+			const ECollisionChannel OcclusionTraceChannel = AttenuationSettingsPtr->OcclusionTraceChannel;
+
+			if (!bHasCheckedOcclusion)
+			{
+				FCollisionQueryParams Params(SCENE_QUERY_STAT(SoundOcclusion), bUseComplexCollisionForOcclusion);
+				if (OwnerID > 0)
+				{
+					Params.AddIgnoredActor(OwnerID);
+				}
+
+				if (UWorld* WorldPtr = World.Get())
+				{
+					// LineTraceTestByChannel is generally threadsafe, but there is a very narrow race condition here 
+					// if World goes invalid before the scene lock and queries begin.
+					bIsOccluded = WorldPtr->LineTraceTestByChannel(SoundLocation, ListenerLocation, OcclusionTraceChannel, Params);
+				}
+			}
+			else
+			{
+				bAsyncOcclusionPending = true;
+
+				const uint32 SoundOwnerID = OwnerID;
+				TWeakObjectPtr<UWorld> SoundWorld = World;
+				FAsyncTraceDetails TraceDetails;
+				TraceDetails.AudioDeviceID = AudioDevice->DeviceHandle;
+				TraceDetails.ActiveSound = this;
+
+				FAudioThread::RunCommandOnGameThread([SoundWorld, SoundLocation, ListenerLocation, OcclusionTraceChannel, SoundOwnerID, bUseComplexCollisionForOcclusion, TraceDetails]
+				{
+					if (UWorld* WorldPtr = SoundWorld.Get())
+					{
+						FCollisionQueryParams Params(SCENE_QUERY_STAT(SoundOcclusion), bUseComplexCollisionForOcclusion);
+						if (SoundOwnerID > 0)
+						{
+							Params.AddIgnoredActor(SoundOwnerID);
+						}
+
+						FTraceHandle TraceHandle = WorldPtr->AsyncLineTraceByChannel(EAsyncTraceType::Test, SoundLocation, ListenerLocation, OcclusionTraceChannel, Params, FCollisionResponseParams::DefaultResponseParam, &ActiveSoundTraceDelegate);
+						TraceToActiveSoundMap.Add(TraceHandle, TraceDetails);
+					}
+				});
+			}
+		}
+
+		// Update the occlusion values
+		if (bHasCheckedOcclusion)
+		{
+			InterpolationTime = AttenuationSettingsPtr->OcclusionInterpolationTime;
+		}
+		bHasCheckedOcclusion = true;
+	}
 
 	if (bIsOccluded)
 	{
@@ -985,6 +1037,18 @@ bool FActiveSound::GetFloatParameter( const FName InName, float& OutFloat ) cons
 	}
 
 	return false;
+}
+
+float FActiveSound::GetTotalConcurrencyVolumeScale() const
+{
+	float OutVolume = 1.0f;
+
+	for (const TPair<FConcurrencyGroupID, float>& ConcurrencyGroupVolumePair : ConcurrencyGroupVolumeScales)
+	{
+		OutVolume *= ConcurrencyGroupVolumePair.Value;
+	}
+
+	return OutVolume;
 }
 
 void FActiveSound::SetFloatParameter( const FName InName, const float InFloat )

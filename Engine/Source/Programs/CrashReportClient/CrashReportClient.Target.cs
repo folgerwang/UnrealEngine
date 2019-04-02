@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.Collections.Generic;
@@ -22,17 +22,12 @@ public class CrashReportClientTarget : TargetRules
 
         bOutputPubliclyDistributable = true;
 
-		bCompileLeanAndMeanUE = true;
-
-		// Don't need editor
-		bBuildEditor = false;
+		bBuildDeveloperTools = false;
 
 		// CrashReportClient doesn't ever compile with the engine linked in
 		bCompileAgainstEngine = false;
 		bCompileAgainstCoreUObject = true;
 		bUseLoggingInShipping = true;
-
-		bIncludeADO = false;
 
 		// CrashReportClient.exe has no exports, so no need to verify that a .lib and .exp file was emitted by
 		// the linker.
@@ -42,6 +37,9 @@ public class CrashReportClientTarget : TargetRules
 
 		// Epic Games Launcher needs to run on OS X 10.9, so CrashReportClient needs this as well
 		bEnableOSX109Support = true;
+
+		// Need to disable the bundled version of dbghelp so that CrashDebugHelper can load dbgeng.dll.
+		WindowsPlatform.bUseBundledDbgHelp = false;
 
 		GlobalDefinitions.Add("NOINITCRASHREPORTER=1");
 	}

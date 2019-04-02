@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System;
@@ -14,6 +14,7 @@ public class VulkanRHI : ModuleRules
 		if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
 		{
 			PrivateIncludePaths.Add("Runtime/VulkanRHI/Private/Windows");
+			AddEngineThirdPartyPrivateStaticDependencies(Target, "AMD_AGS");
 		}
 		else
 		{
@@ -28,7 +29,6 @@ public class VulkanRHI : ModuleRules
 				"Engine", 
 				"RHI", 
 				"RenderCore", 
-				"ShaderCore",
 				"UtilityShaders",
 				"HeadMountedDisplay",
                 "PreLoadScreen"

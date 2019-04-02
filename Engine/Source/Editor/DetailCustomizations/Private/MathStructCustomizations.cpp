@@ -1,6 +1,6 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-#include "MathStructCustomizations.h"
+#include "Customizations/MathStructCustomizations.h"
 #include "UObject/UnrealType.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Editor.h"

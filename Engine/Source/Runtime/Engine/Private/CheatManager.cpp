@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GameFramework/CheatManager.h"
 #include "HAL/FileManager.h"
@@ -593,7 +593,7 @@ void UCheatManager::EnableDebugCamera()
 void UCheatManager::DisableDebugCamera()
 {
 	ADebugCameraController* const DCC = Cast<ADebugCameraController>(GetOuter());
-	if (DCC)
+	if (DCC && DCC->OriginalPlayer && DCC->OriginalControllerRef)
 	{
 		DCC->OriginalPlayer->SwitchController(DCC->OriginalControllerRef);
 		DCC->OnDeactivate(DCC->OriginalControllerRef);

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
         MallocReplayProxy.cpp: Light-weight proxy that saves all memory 
@@ -156,9 +156,9 @@ const TCHAR* FMallocReplayProxy::GetDescriptiveName()
 	return UsedMalloc->GetDescriptiveName();
 }
 
-void FMallocReplayProxy::Trim()
+void FMallocReplayProxy::Trim(bool bTrimThreadCaches)
 {
-	UsedMalloc->Trim();
+	UsedMalloc->Trim(bTrimThreadCaches);
 }
 
 void FMallocReplayProxy::SetupTLSCachesOnCurrentThread()

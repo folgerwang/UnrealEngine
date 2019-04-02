@@ -9,7 +9,7 @@ Version: 4.15
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 단계](Programming/Tutorials/FirstPersonShooter/4/1)
+		[이전 단계](Programming/Tutorials/FirstPersonShooter/4/1)
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -32,22 +32,22 @@ Version: 4.15
 
 	![](OpenEventGraph.png)
 
-1.	그래프에 우클릭하여 **맥락 메뉴** 를 불러옵니다.
+1.	그래프에 우클릭하여 **컨텍스트 메뉴** 를 불러옵니다.
 
-1.	**맥락 메뉴** 의 검색창에 Update 라 입력한 다음 **Event Blueprint Update Animation** 를 클릭하여 노드를 추가합니다.
+1.	**컨텍스트 메뉴** 의 검색창에 Update 라 입력한 다음 **Event Blueprint Update Animation** 를 클릭하여 노드를 추가합니다.
 
 	[REGION:note]
 	**Event Blueprint Update Animation** 노드를 통해 애니메이션이 업데이트될 때마다 스테이트 변수를 업데이트하여 항상 게임 스테이트와 동기화 상태를 유지합니다.
 	![](EventBlueprintUpdateAnimationNode.png)
 	[/REGION]
 
-1.	그래프에 우클릭하여 **맥락 메뉴** 를 불러옵니다.
+1.	그래프에 우클릭하여 **컨텍스트 메뉴** 를 불러옵니다.
 
-1.	**맥락 메뉴** 검색창에 Owner 라 입력한 뒤 **Try Get Pawn Owner** 를 클릭하여 노드를 추가합니다.
+1.	**컨텍스트 메뉴** 검색창에 Owner 라 입력한 뒤 **Try Get Pawn Owner** 를 클릭하여 노드를 추가합니다.
 
 	![](TryGetPawnOwnerBP_Node.png)
 
-1.	출력 핀을 끌어놓고 맥락 메뉴에서 **Cast to Character** 를 선택합니다.
+1.	출력 핀을 끌어놓고 컨텍스트 메뉴에서 **Cast to Character** 를 선택합니다.
 
 	![](CastToCharacterContextMenu.png)
 
@@ -79,7 +79,7 @@ Version: 4.15
 
 	![](IsFalling.png)
 
-1.	**Set Is Falling** 노드의 입력 실행 핀에 **Cast to Character** 노드의 이름 없는 출력 실행 핀을 연결하고, **Equal (Enum)** 노드의 출력 불리언 데이터 핀을 **Set Is Falling** 노드의 입력 불리언 데이터 핀에 연결합니다.
+1.	**Set Is Falling** 노드의 입력 실행 핀에 **Cast to Character** 노드의 이름 없는 출력 실행 핀을 연결하고, **Equal (Enum)** 노드의 출력 부울 데이터 핀을 **Set Is Falling** 노드의 입력 부울 데이터 핀에 연결합니다.
 
 	![](ConnectedIsFalling.png)
 
@@ -101,7 +101,7 @@ Version: 4.15
 
 	![](IsRunning.png)
 
-1.	**Set Is Falling** 노드의 출력 실행 핀을 **Set Is Running** 노드의 입력 실행 핀에 연결하고, **> (float)** 노드의 출력 불리언 핀을 **Set Is Running** 노드의 입력 불리언 핀에 연결합니다.
+1.	**Set Is Falling** 노드의 출력 실행 핀을 **Set Is Running** 노드의 입력 실행 핀에 연결하고, **> (float)** 노드의 출력 부울 핀을 **Set Is Running** 노드의 입력 부울 핀에 연결합니다.
 
 	![](ConnectedIsRunning.png)
 

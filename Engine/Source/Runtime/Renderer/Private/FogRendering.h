@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	FogRendering.h: 
@@ -11,21 +11,23 @@
 #include "SceneRendering.h"
 #include "VolumetricFog.h"
 
-BEGIN_UNIFORM_BUFFER_STRUCT(FFogUniformParameters,)
-	UNIFORM_MEMBER(FVector4, ExponentialFogParameters)
-	UNIFORM_MEMBER(FVector4, ExponentialFogColorParameter)
-	UNIFORM_MEMBER(FVector4, ExponentialFogParameters3)
-	UNIFORM_MEMBER(FVector4, InscatteringLightDirection) // non negative DirectionalInscatteringStartDistance in .W
-	UNIFORM_MEMBER(FVector4, DirectionalInscatteringColor)
-	UNIFORM_MEMBER(FVector2D, SinCosInscatteringColorCubemapRotation)
-	UNIFORM_MEMBER(FVector, FogInscatteringTextureParameters)
-	UNIFORM_MEMBER(float, ApplyVolumetricFog)
-	UNIFORM_MEMBER_TEXTURE(TextureCube, FogInscatteringColorCubemap)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, FogInscatteringColorSampler)
-	UNIFORM_MEMBER_TEXTURE(Texture3D, IntegratedLightScattering)
-	UNIFORM_MEMBER_SAMPLER(SamplerState, IntegratedLightScatteringSampler)
-END_UNIFORM_BUFFER_STRUCT(FFogUniformParameters)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FFogUniformParameters,)
+	SHADER_PARAMETER(FVector4, ExponentialFogParameters)
+	SHADER_PARAMETER(FVector4, ExponentialFogParameters2)
+	SHADER_PARAMETER(FVector4, ExponentialFogColorParameter)
+	SHADER_PARAMETER(FVector4, ExponentialFogParameters3)
+	SHADER_PARAMETER(FVector4, InscatteringLightDirection) // non negative DirectionalInscatteringStartDistance in .W
+	SHADER_PARAMETER(FVector4, DirectionalInscatteringColor)
+	SHADER_PARAMETER(FVector2D, SinCosInscatteringColorCubemapRotation)
+	SHADER_PARAMETER(FVector, FogInscatteringTextureParameters)
+	SHADER_PARAMETER(float, ApplyVolumetricFog)
+	SHADER_PARAMETER_TEXTURE(TextureCube, FogInscatteringColorCubemap)
+	SHADER_PARAMETER_SAMPLER(SamplerState, FogInscatteringColorSampler)
+	SHADER_PARAMETER_TEXTURE(Texture3D, IntegratedLightScattering)
+	SHADER_PARAMETER_SAMPLER(SamplerState, IntegratedLightScatteringSampler)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 extern void SetupFogUniformParameters(const class FViewInfo& View, FFogUniformParameters& OutParameters);
+TUniformBufferRef<FFogUniformParameters> CreateFogUniformBuffer(const class FViewInfo& View, EUniformBufferUsage Usage);
 
 extern bool ShouldRenderFog(const FSceneViewFamily& Family);

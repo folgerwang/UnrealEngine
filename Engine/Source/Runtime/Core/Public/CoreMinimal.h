@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -104,7 +104,6 @@
 #include "CoreGlobals.h"
 #include "Templates/SharedPointer.h"
 #include "Internationalization/CulturePointer.h"
-#include "UObject/AutoPointer.h"
 #include "UObject/WeakObjectPtrTemplates.h"
 #include "Delegates/DelegateSettings.h"
 #include "Delegates/IDelegateInstance.h"

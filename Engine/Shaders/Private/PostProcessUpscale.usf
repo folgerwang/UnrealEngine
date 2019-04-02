@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessUpscale.usf: PostProcessing shader to upscale
@@ -7,6 +7,7 @@
 #include "Common.ush"
 #include "PostProcessCommon.ush"
 #include "PaniniProjection.ush"
+#include "TextureSampling.ush"
 
 // only for MainPS
 float UpscaleSoftness;

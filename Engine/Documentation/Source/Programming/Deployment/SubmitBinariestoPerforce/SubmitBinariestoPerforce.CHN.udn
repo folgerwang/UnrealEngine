@@ -1,0 +1,23 @@
+﻿INTSourceChangelist:4499768
+Availability: Public
+Crumbs: 
+Title: 将二进制文件提交到Perforce
+Description: 本页讲述了用户如何将二进制文件提交到Perforce。
+Type: 
+Version: 4.19
+Parent: Programming/Deployment
+Order: 4
+Tags: 
+
+
+如果希望构建系统将编辑器二进制文件提交到Perforce以供美工们使用，我们在 `Engine\Build\Graph\Examples\BuildEditorAndTools.xml` 中提供了示例 [BuildGraph](Programming/Development/BuildGraph) 脚本，该脚本展示了编译二进制文件，将它们复制到暂存目录，以及（可选）将它们提交到Perforce的过程。
+
+我们在脚本的顶部展示了用法示例和使用它时的各种可用选项的文档。
+
+## 在Epic的发展史
+
+我们过去曾在Epic内部使用该部署方法，但是后来抛弃了它，原因有以下几点：
+
+*   工程师们通常并不愿意使用预编译的二进制文件，因为它们比较大，经常导致同步耗时过长，对于非现场开发者和远程工作室而言，这无疑相当痛苦。 
+*   如果将二进制文件提交到与内容和引擎流内联的流，因为时间戳在同步过程中被更新，使得本地构建和非本地构建的二进制文件相互混合，可能会导致错误发生。操作系统将无法在不匹配的DLL之间找到正确的导入和导出。 
+*   如果删除了某个模块，仍可以将受损的二进制文件提交到Perforce，引擎可能仍将尝试加载它，例如，`UE4Editor-*ShaderFormat.dll`

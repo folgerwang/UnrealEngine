@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -9,17 +9,19 @@
 
 #include "Network/DisplayClusterMessage.h"
 
-struct IPDisplayClusterNodeController;
-struct IDisplayClusterClusterSyncObject;
+class IPDisplayClusterNodeController;
+class IDisplayClusterClusterSyncObject;
+class FJsonObject;
 
 
 /**
  * Cluster manager private interface
  */
-struct IPDisplayClusterClusterManager :
+class IPDisplayClusterClusterManager :
 	public IDisplayClusterClusterManager,
 	public IPDisplayClusterManager
 {
+public:
 	virtual ~IPDisplayClusterClusterManager()
 	{ }
 
@@ -29,7 +31,7 @@ struct IPDisplayClusterClusterManager :
 	virtual void  SetDeltaTime(float deltaTime) = 0;
 
 	virtual void GetTimecode(FTimecode& timecode, FFrameRate& frameRate) const = 0;
-	virtual void  SetTimecode(const FTimecode& timecode, const FFrameRate& frameRate) = 0;
+	virtual void SetTimecode(const FTimecode& timecode, const FFrameRate& frameRate) = 0;
 	
 	virtual void RegisterSyncObject  (IDisplayClusterClusterSyncObject* pSyncObj) = 0;
 	virtual void UnregisterSyncObject(IDisplayClusterClusterSyncObject* pSyncObj) = 0;
@@ -37,6 +39,10 @@ struct IPDisplayClusterClusterManager :
 	virtual void ExportSyncData(FDisplayClusterMessage::DataType& data) const = 0;
 	virtual void ImportSyncData(const FDisplayClusterMessage::DataType& data) = 0;
 
+	virtual void ExportEventsData(FDisplayClusterMessage::DataType& data) const = 0;
+	virtual void ImportEventsData(const FDisplayClusterMessage::DataType& data) = 0;
+
 	virtual void SyncObjects() = 0;
 	virtual void SyncInput()   = 0;
+	virtual void SyncEvents()  = 0;
 };

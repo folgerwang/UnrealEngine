@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieSceneStringTrack.h"
 #include "MovieSceneCommonHelpers.h"
@@ -17,6 +17,11 @@ void UMovieSceneStringTrack::AddSection(UMovieSceneSection& Section)
 	Sections.Add(&Section);
 }
 
+
+bool UMovieSceneStringTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneStringSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneStringTrack::CreateNewSection()
 {

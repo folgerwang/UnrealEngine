@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CborReader.h"
 
@@ -10,7 +10,7 @@ FCborReader::FCborReader(FArchive* InStream)
 
 FCborReader::~FCborReader()
 {
-	check(ContextStack.Num() == 1 && ContextStack.Top().RawCode() == ECborCode::Dummy);
+	check(ContextStack.Num() > 0 && (ContextStack[0].IsDummy() || ContextStack[0].IsError()));
 }
 
 const FArchive* FCborReader::GetArchive() const
@@ -72,7 +72,7 @@ bool FCborReader::ReadNext(FCborContext& OutContext)
 	// Done reading
 	if (Stream->AtEnd())
 	{
-		OutContext.Header.Set(ParentContext.RawCode() == ECborCode::Dummy ? ECborCode::StreamEnd : ECborCode::ErrorContext);
+		OutContext.Header = (ParentContext.RawCode() == ECborCode::Dummy) ? FCborHeader(ECborCode::StreamEnd) : SetError(ECborCode::ErrorContext);
 		return false;
 	}
 

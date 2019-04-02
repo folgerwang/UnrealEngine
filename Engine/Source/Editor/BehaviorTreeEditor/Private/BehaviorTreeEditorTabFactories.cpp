@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "BehaviorTreeEditorTabFactories.h"
 #include "Engine/Blueprint.h"
@@ -108,7 +108,7 @@ FBehaviorTreeSearchSummoner::FBehaviorTreeSearchSummoner(TSharedPtr<class FBehav
 	, BehaviorTreeEditorPtr(InBehaviorTreeEditorPtr)
 {
 	TabLabel = LOCTEXT("BehaviorTreeSearchLabel", "Search");
-	TabIcon = FSlateIcon(FEditorStyle::GetStyleSetName(), "Kismet.Tabs.Components");
+	TabIcon = FSlateIcon(FEditorStyle::GetStyleSetName(), "Kismet.Tabs.FindResults");
 
 	bIsSingleton = true;
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	WindowsD3D11Device.cpp: Windows D3D device RHI implementation.
@@ -1520,33 +1520,36 @@ void FD3D11DynamicRHI::InitD3DDevice()
 
 		GNumAlternateFrameRenderingGroups = 1;
 
-		if (IsRHIDeviceNVIDIA())
+		if (!bRenderDoc)
 		{
-			GSupportsDepthBoundsTest = true;
-			NV_GET_CURRENT_SLI_STATE SLICaps;
-			FMemory::Memzero(SLICaps);
-			SLICaps.version = NV_GET_CURRENT_SLI_STATE_VER;
-			NvAPI_Status SLIStatus = NvAPI_D3D_GetCurrentSLIState(Direct3DDevice, &SLICaps);
-			if (SLIStatus == NVAPI_OK)
-			{
-				if (SLICaps.numAFRGroups > 1)
-				{
-					GNumAlternateFrameRenderingGroups = SLICaps.numAFRGroups;
-					UE_LOG(LogD3D11RHI, Log, TEXT("Detected %i SLI GPUs Setting GNumAlternateFrameRenderingGroups to: %i."), SLICaps.numAFRGroups, GNumAlternateFrameRenderingGroups);
-				}
-			}
-			else
-			{
-				UE_LOG(LogD3D11RHI, Log, TEXT("NvAPI_D3D_GetCurrentSLIState failed: 0x%x"), (int32)SLIStatus);
-			}
-
-			START_NV_AFTERMATH();
-		}
-		else if (IsRHIDeviceAMD() && AmdAgsContext)
-		{
-			if ((AmdSupportedExtensionFlags & AGS_DX11_EXTENSION_DEPTH_BOUNDS_TEST) != 0)
+			if (IsRHIDeviceNVIDIA())
 			{
 				GSupportsDepthBoundsTest = true;
+				NV_GET_CURRENT_SLI_STATE SLICaps;
+				FMemory::Memzero(SLICaps);
+				SLICaps.version = NV_GET_CURRENT_SLI_STATE_VER;
+				NvAPI_Status SLIStatus = NvAPI_D3D_GetCurrentSLIState(Direct3DDevice, &SLICaps);
+				if (SLIStatus == NVAPI_OK)
+				{
+					if (SLICaps.numAFRGroups > 1)
+					{
+						GNumAlternateFrameRenderingGroups = SLICaps.numAFRGroups;
+						UE_LOG(LogD3D11RHI, Log, TEXT("Detected %i SLI GPUs Setting GNumAlternateFrameRenderingGroups to: %i."), SLICaps.numAFRGroups, GNumAlternateFrameRenderingGroups);
+					}
+				}
+				else
+				{
+					UE_LOG(LogD3D11RHI, Log, TEXT("NvAPI_D3D_GetCurrentSLIState failed: 0x%x"), (int32)SLIStatus);
+				}
+
+				START_NV_AFTERMATH();
+			}
+			else if (IsRHIDeviceAMD() && AmdAgsContext)
+			{
+				if ((AmdSupportedExtensionFlags & AGS_DX11_EXTENSION_DEPTH_BOUNDS_TEST) != 0)
+				{
+					GSupportsDepthBoundsTest = true;
+				}
 			}
 		}
 
@@ -1657,7 +1660,7 @@ void FD3D11DynamicRHI::InitD3DDevice()
 
 		GRHISupportsTextureStreaming = true;
 		GRHISupportsFirstInstance = true;
-		GRHINeedsExtraDeletionLatency = true;
+		GRHINeedsExtraDeletionLatency = false;
 		// Set the RHI initialized flag.
 		GIsRHIInitialized = true;
 	}
@@ -1665,6 +1668,10 @@ void FD3D11DynamicRHI::InitD3DDevice()
 
 void FD3D11DynamicRHI::RHIPerFrameRHIFlushComplete()
 {
+	extern void D3D11RHIQueryBatcherPerFrameCleanup();
+
+	D3D11RHIQueryBatcherPerFrameCleanup();
+
 #if NV_AFTERMATH
 	if (GDX11NVAfterMathEnabled)
 	{

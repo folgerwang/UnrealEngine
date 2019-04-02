@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SScrubControlPanel.h"
 #include "Modules/ModuleManager.h"
@@ -53,6 +53,7 @@ void SScrubControlPanel::Construct( const SScrubControlPanel::FArguments& InArgs
 			SNew( SBorder )
 			[
 				SAssignNew(ScrubWidget, SScrubWidget)
+				.Clipping(EWidgetClipping::ClipToBounds)
 				.Value(InArgs._Value)
 				.NumOfKeys(InArgs._NumOfKeys)
 				.DisplayDrag(InArgs._DisplayDrag)

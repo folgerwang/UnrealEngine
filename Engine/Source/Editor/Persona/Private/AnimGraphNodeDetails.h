@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -38,6 +38,9 @@ public:
 protected:
 	// Creates a widget for the supplied property
 	TSharedRef<SWidget> CreatePropertyWidget(UProperty* TargetProperty, TSharedRef<IPropertyHandle> TargetPropertyHandle, UClass* NodeClass);
+
+	// Creates the 'as pin' toggle widget for a property
+	TSharedRef<SWidget> CreateAsPinWidget(TSharedRef<IPropertyHandle> InPropertyHandle);
 
 	EVisibility GetVisibilityOfProperty(TSharedRef<IPropertyHandle> Handle) const;
 

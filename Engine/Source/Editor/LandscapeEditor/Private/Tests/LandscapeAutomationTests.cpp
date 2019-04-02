@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Misc/Paths.h"
@@ -34,9 +34,8 @@ namespace LandscapeTestUtils
 	{
 		FLevelEditorViewportClient* SelectedViewport = NULL;
 
-		for (int32 i = 0; i < GEditor->LevelViewportClients.Num(); i++)
+		for(FLevelEditorViewportClient* ViewportClient : GEditor->GetLevelViewportClients())
 		{
-			FLevelEditorViewportClient* ViewportClient = GEditor->LevelViewportClients[i];
 			if (!ViewportClient->IsOrtho())
 			{
 				SelectedViewport = ViewportClient;

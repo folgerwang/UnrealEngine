@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Internationalization/ICUCulture.h"
 #include "Misc/ScopeLock.h"
@@ -47,28 +47,28 @@ namespace
 		return Ptr.ToSharedRef();
 	}
 
-	TSharedRef<const icu::DateFormat> CreateDateFormat( const icu::Locale& ICULocale )
+	TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> CreateDateFormat( const icu::Locale& ICULocale )
 	{
 		UErrorCode ICUStatus = U_ZERO_ERROR;
-		TSharedPtr<icu::DateFormat> Ptr = MakeShareable( icu::DateFormat::createDateInstance( icu::DateFormat::EStyle::kDefault, ICULocale ) );
+		TSharedPtr<icu::DateFormat, ESPMode::ThreadSafe> Ptr = MakeShareable( icu::DateFormat::createDateInstance( icu::DateFormat::kDefault, ICULocale ) );
 		checkf(Ptr.IsValid(), TEXT("Creating a date format object failed using locale %s. Perhaps this locale has no data."), StringCast<TCHAR>(ICULocale.getName()).Get());
 		Ptr->adoptTimeZone( icu::TimeZone::createDefault() );
 		return Ptr.ToSharedRef();
 	}
 
-	TSharedRef<const icu::DateFormat> CreateTimeFormat( const icu::Locale& ICULocale )
+	TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> CreateTimeFormat( const icu::Locale& ICULocale )
 	{
 		UErrorCode ICUStatus = U_ZERO_ERROR;
-		TSharedPtr<icu::DateFormat> Ptr = MakeShareable( icu::DateFormat::createTimeInstance( icu::DateFormat::EStyle::kDefault, ICULocale ) );
+		TSharedPtr<icu::DateFormat, ESPMode::ThreadSafe> Ptr = MakeShareable( icu::DateFormat::createTimeInstance( icu::DateFormat::kDefault, ICULocale ) );
 		checkf(Ptr.IsValid(), TEXT("Creating a time format object failed using locale %s. Perhaps this locale has no data."), StringCast<TCHAR>(ICULocale.getName()).Get());
 		Ptr->adoptTimeZone( icu::TimeZone::createDefault() );
 		return Ptr.ToSharedRef();
 	}
 
-	TSharedRef<const icu::DateFormat> CreateDateTimeFormat( const icu::Locale& ICULocale )
+	TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> CreateDateTimeFormat( const icu::Locale& ICULocale )
 	{
 		UErrorCode ICUStatus = U_ZERO_ERROR;
-		TSharedPtr<icu::DateFormat> Ptr = MakeShareable( icu::DateFormat::createDateTimeInstance( icu::DateFormat::EStyle::kDefault, icu::DateFormat::EStyle::kDefault, ICULocale ) );
+		TSharedPtr<icu::DateFormat, ESPMode::ThreadSafe> Ptr = MakeShareable( icu::DateFormat::createDateTimeInstance( icu::DateFormat::kDefault, icu::DateFormat::kDefault, ICULocale ) );
 		checkf(Ptr.IsValid(), TEXT("Creating a date-time format object failed using locale %s. Perhaps this locale has no data."), StringCast<TCHAR>(ICULocale.getName()).Get());
 		Ptr->adoptTimeZone( icu::TimeZone::createDefault() );
 		return Ptr.ToSharedRef();
@@ -113,18 +113,46 @@ ETextPluralForm ICUPluralFormToUE(const icu::UnicodeString& InICUTag)
 	return ETextPluralForm::Other;
 }
 
+TArray<ETextPluralForm> ICUPluralRulesToUEValidPluralForms(const icu::PluralRules* InICUPluralRules)
+{
+	check(InICUPluralRules);
+
+	UErrorCode ICUStatus = U_ZERO_ERROR;
+	icu::StringEnumeration* ICUAvailablePluralForms = InICUPluralRules->getKeywords(ICUStatus);
+
+	TArray<ETextPluralForm> UEPluralForms;
+
+	if (ICUAvailablePluralForms)
+	{
+		while (const icu::UnicodeString* ICUTag = ICUAvailablePluralForms->snext(ICUStatus))
+		{
+			UEPluralForms.Add(ICUPluralFormToUE(*ICUTag));
+		}
+		delete ICUAvailablePluralForms;
+	}
+
+	UEPluralForms.Sort();
+	return UEPluralForms;
+}
+
 FCulture::FICUCultureImplementation::FICUCultureImplementation(const FString& LocaleName)
 	: ICULocale( TCHAR_TO_ANSI( *LocaleName ) )
 {
+	if (ICULocale.isBogus())
+	{
+		ICULocale = icu::Locale();
+	}
 	{
 		UErrorCode ICUStatus = U_ZERO_ERROR;
 		ICUCardinalPluralRules = icu::PluralRules::forLocale(ICULocale, UPLURAL_TYPE_CARDINAL, ICUStatus);
 		checkf(U_SUCCESS(ICUStatus) && ICUCardinalPluralRules, TEXT("Creating a cardinal plural rules object failed using locale %s. Perhaps this locale has no data."), *LocaleName);
+		UEAvailableCardinalPluralForms = ICUPluralRulesToUEValidPluralForms(ICUCardinalPluralRules);
 	}
 	{
 		UErrorCode ICUStatus = U_ZERO_ERROR;
-		ICUOrdianalPluralRules = icu::PluralRules::forLocale(ICULocale, UPLURAL_TYPE_ORDINAL, ICUStatus);
-		checkf(U_SUCCESS(ICUStatus) && ICUOrdianalPluralRules, TEXT("Creating an ordinal plural rules object failed using locale %s. Perhaps this locale has no data."), *LocaleName);
+		ICUOrdinalPluralRules = icu::PluralRules::forLocale(ICULocale, UPLURAL_TYPE_ORDINAL, ICUStatus);
+		checkf(U_SUCCESS(ICUStatus) && ICUOrdinalPluralRules, TEXT("Creating an ordinal plural rules object failed using locale %s. Perhaps this locale has no data."), *LocaleName);
+		UEAvailableOrdinalPluralForms = ICUPluralRulesToUEValidPluralForms(ICUOrdinalPluralRules);
 	}
 }
 
@@ -154,24 +182,12 @@ int FCulture::FICUCultureImplementation::GetLCID() const
 
 FString FCulture::FICUCultureImplementation::GetCanonicalName(const FString& Name)
 {
-#define USE_ICU_CANONIZATION (0)
-
-#if USE_ICU_CANONIZATION
-
-	const FString SanitizedName = ICUUtilities::SanitizeCultureCode(Name);
-
-	static const int32 CanonicalNameBufferSize = 64;
-	char CanonicalNameBuffer[CanonicalNameBufferSize];
-
-	UErrorCode ICUStatus = U_ZERO_ERROR;
-	uloc_canonicalize(TCHAR_TO_ANSI(*SanitizedName), CanonicalNameBuffer, CanonicalNameBufferSize-1, &ICUStatus);
-	CanonicalNameBuffer[CanonicalNameBufferSize-1] = 0;
-
-	FString CanonicalNameString = CanonicalNameBuffer;
-	CanonicalNameString.ReplaceInline(TEXT("_"), TEXT("-"));
-	return CanonicalNameString;
-
-#else	// USE_ICU_CANONIZATION
+	auto IsLanguageCode = [](const FString& InCode)
+	{
+		// Language codes must be 2 or 3 letters, or out special "LEET" language
+		static const FString LeetLanguageCode = TEXT("LEET");
+		return InCode.Len() == 2 || InCode.Len() == 3 || InCode == LeetLanguageCode;
+	};
 
 	auto IsScriptCode = [](const FString& InCode)
 	{
@@ -215,8 +231,27 @@ FString FCulture::FICUCultureImplementation::GetCanonicalName(const FString& Nam
 
 	auto ConditionKeywordArgKey = [](FString& InOutKey)
 	{
+		static const FString ValidKeywords[] = {
+			TEXT("calendar"),
+			TEXT("collation"),
+			TEXT("currency"),
+			TEXT("numbers"),
+		};
+
 		// Keyword argument keys are lowercase
 		InOutKey.ToLowerInline();
+
+		// Only certain argument keys are accepted
+		for (const FString& ValidKeyword : ValidKeywords)
+		{
+			if (InOutKey.Equals(ValidKeyword, ESearchCase::CaseSensitive))
+			{
+				return;
+			}
+		}
+
+		// Invalid key - clear it
+		InOutKey.Reset();
 	};
 
 	enum class ENameTagType : uint8
@@ -335,7 +370,7 @@ FString FCulture::FICUCultureImplementation::GetCanonicalName(const FString& Nam
 
 					// What kind of tag is this?
 					ENameTagType NameTagType = ENameTagType::Variant;
-					if (ParsedNameTags.Num() == 0)
+					if (ParsedNameTags.Num() == 0 && IsLanguageCode(NameTagStr))
 					{
 						// todo: map 3 letter language codes into 2 letter language codes like ICU would?
 						NameTagType = ENameTagType::Language;
@@ -346,7 +381,7 @@ FString FCulture::FICUCultureImplementation::GetCanonicalName(const FString& Nam
 						NameTagType = ENameTagType::Script;
 						ConditionScriptCode(NameTagStr);
 					}
-					else if (ParsedNameTags.Num() <= 2 && (ParsedNameTags.Last().Type == ENameTagType::Language || ParsedNameTags.Last().Type == ENameTagType::Script) && IsRegionCode(NameTagStr))
+					else if (ParsedNameTags.Num() > 0 && ParsedNameTags.Num() <= 2 && (ParsedNameTags.Last().Type == ENameTagType::Language || ParsedNameTags.Last().Type == ENameTagType::Script) && IsRegionCode(NameTagStr))
 					{
 						// todo: map 3 letter region codes into 2 letter region codes like ICU would?
 						NameTagType = ENameTagType::Region;
@@ -363,7 +398,7 @@ FString FCulture::FICUCultureImplementation::GetCanonicalName(const FString& Nam
 						check(VariantTagData->KeywordArgKey && VariantTagData->KeywordArgValue);
 						ParsedKeywords.Add(VariantTagData->KeywordArgKey, VariantTagData->KeywordArgValue);
 					}
-					else
+					else if (NameTagStr.Len() > 0)
 					{
 						ParsedNameTags.Add({ MoveTemp(NameTagStr), NameTagType });
 					}
@@ -390,7 +425,10 @@ FString FCulture::FICUCultureImplementation::GetCanonicalName(const FString& Nam
 				{
 					// Single values are treated as variants
 					ConditionVariant(NameKeywordArg);
-					ParsedNameTags.Add({ MoveTemp(NameKeywordArg), ENameTagType::Variant });
+					if (NameKeywordArg.Len() > 0)
+					{
+						ParsedNameTags.Add({ MoveTemp(NameKeywordArg), ENameTagType::Variant });
+					}
 				}
 				else
 				{
@@ -398,7 +436,13 @@ FString FCulture::FICUCultureImplementation::GetCanonicalName(const FString& Nam
 					FString NameKeywordArgKey = NameKeywordArg.Left(KeyValueSplitIndex);
 					ConditionKeywordArgKey(NameKeywordArgKey);
 					FString NameKeywordArgValue = NameKeywordArg.Mid(KeyValueSplitIndex + 1);
-					ParsedKeywords.Add(MoveTemp(NameKeywordArgKey), MoveTemp(NameKeywordArgValue));
+					if (NameKeywordArgKey.Len() > 0 && NameKeywordArgValue.Len() > 0)
+					{
+						if (!ParsedKeywords.Contains(NameKeywordArgKey))
+						{
+							ParsedKeywords.Add(MoveTemp(NameKeywordArgKey), MoveTemp(NameKeywordArgValue));
+						}
+					}
 				}
 			}
 		}
@@ -408,39 +452,43 @@ FString FCulture::FICUCultureImplementation::GetCanonicalName(const FString& Nam
 	FString CanonicalName;
 	{
 		// Assemble the name tags first
-		for (int32 NameTagIndex = 0; NameTagIndex < ParsedNameTags.Num(); ++NameTagIndex)
+		// These *must* start with a language tag
+		if (ParsedNameTags.Num() > 0 && ParsedNameTags[0].Type == ENameTagType::Language)
 		{
-			const FNameTag& NameTag = ParsedNameTags[NameTagIndex];
-
-			switch (NameTag.Type)
+			for (int32 NameTagIndex = 0; NameTagIndex < ParsedNameTags.Num(); ++NameTagIndex)
 			{
-			case ENameTagType::Language:
-				CanonicalName = NameTag.Str;
-				break;
+				const FNameTag& NameTag = ParsedNameTags[NameTagIndex];
 
-			case ENameTagType::Script:
-			case ENameTagType::Region:
-				CanonicalName += TEXT('-');
-				CanonicalName += NameTag.Str;
-				break;
-
-			case ENameTagType::Variant:
-				// If the previous tag was a language, we need to add an extra hyphen for non-empty variants since ICU would produce a double hyphen in this case
-				if (ParsedNameTags.IsValidIndex(NameTagIndex - 1) && ParsedNameTags[NameTagIndex - 1].Type == ENameTagType::Language && !NameTag.Str.IsEmpty())
+				switch (NameTag.Type)
 				{
-					CanonicalName += TEXT('-');
-				}
-				CanonicalName += TEXT('-');
-				CanonicalName += NameTag.Str;
-				break;
+				case ENameTagType::Language:
+					CanonicalName = NameTag.Str;
+					break;
 
-			default:
-				break;
+				case ENameTagType::Script:
+				case ENameTagType::Region:
+					CanonicalName += TEXT('-');
+					CanonicalName += NameTag.Str;
+					break;
+
+				case ENameTagType::Variant:
+					// If the previous tag was a language, we need to add an extra hyphen for non-empty variants since ICU would produce a double hyphen in this case
+					if (ParsedNameTags.IsValidIndex(NameTagIndex - 1) && ParsedNameTags[NameTagIndex - 1].Type == ENameTagType::Language && !NameTag.Str.IsEmpty())
+					{
+						CanonicalName += TEXT('-');
+					}
+					CanonicalName += TEXT('-');
+					CanonicalName += NameTag.Str;
+					break;
+
+				default:
+					break;
+				}
 			}
 		}
 
 		// Now add the keywords
-		if (ParsedKeywords.Num() > 0)
+		if (CanonicalName.Len() > 0 && ParsedKeywords.Num() > 0)
 		{
 			TCHAR NextToken = TEXT('@');
 			for (const auto& ParsedKeywordPair : ParsedKeywords)
@@ -453,12 +501,14 @@ FString FCulture::FICUCultureImplementation::GetCanonicalName(const FString& Nam
 				CanonicalName += ParsedKeywordPair.Value;
 			}
 		}
+
+		// If we canonicalized to an empty string, just fallback to en-US-POSIX
+		if (CanonicalName.IsEmpty())
+		{
+			CanonicalName = TEXT("en-US-POSIX");
+		}
 	}
 	return CanonicalName;
-
-#endif	// USE_ICU_CANONIZATION
-
-#undef USE_ICU_CANONIZATION
 }
 
 FString FCulture::FICUCultureImplementation::GetName() const
@@ -614,7 +664,7 @@ TSharedRef<const icu::Collator, ESPMode::ThreadSafe> FCulture::FICUCultureImplem
 	}
 }
 
-TSharedRef<const icu::DateFormat> FCulture::FICUCultureImplementation::GetDateFormatter(const EDateTimeStyle::Type DateStyle, const FString& TimeZone)
+TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> FCulture::FICUCultureImplementation::GetDateFormatter(const EDateTimeStyle::Type DateStyle, const FString& TimeZone)
 {
 	if (!ICUDateFormat.IsValid())
 	{
@@ -626,7 +676,7 @@ TSharedRef<const icu::DateFormat> FCulture::FICUCultureImplementation::GetDateFo
 	icu::UnicodeString InputTimeZoneID;
 	ICUUtilities::ConvertString(SanitizedTimezoneCode, InputTimeZoneID, false);
 
-	const TSharedRef<const icu::DateFormat> DefaultFormatter( ICUDateFormat.ToSharedRef() );
+	const TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> DefaultFormatter( ICUDateFormat.ToSharedRef() );
 
 	bool bIsDefaultTimeZone = SanitizedTimezoneCode.IsEmpty();
 	if( !bIsDefaultTimeZone )
@@ -655,13 +705,13 @@ TSharedRef<const icu::DateFormat> FCulture::FICUCultureImplementation::GetDateFo
 	}
 	else
 	{
-		const TSharedRef<icu::DateFormat> Formatter( icu::DateFormat::createDateInstance( UEToICU(DateStyle), ICULocale ) );
+		const TSharedRef<icu::DateFormat, ESPMode::ThreadSafe> Formatter( icu::DateFormat::createDateInstance( UEToICU(DateStyle), ICULocale ) );
 		Formatter->adoptTimeZone( bIsDefaultTimeZone ? icu::TimeZone::createDefault() : icu::TimeZone::createTimeZone(InputTimeZoneID) );
 		return Formatter;
 	}
 }
 
-TSharedRef<const icu::DateFormat> FCulture::FICUCultureImplementation::GetTimeFormatter(const EDateTimeStyle::Type TimeStyle, const FString& TimeZone)
+TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> FCulture::FICUCultureImplementation::GetTimeFormatter(const EDateTimeStyle::Type TimeStyle, const FString& TimeZone)
 {
 	if (!ICUTimeFormat.IsValid())
 	{
@@ -673,7 +723,7 @@ TSharedRef<const icu::DateFormat> FCulture::FICUCultureImplementation::GetTimeFo
 	icu::UnicodeString InputTimeZoneID;
 	ICUUtilities::ConvertString(SanitizedTimezoneCode, InputTimeZoneID, false);
 
-	const TSharedRef<const icu::DateFormat> DefaultFormatter( ICUTimeFormat.ToSharedRef() );
+	const TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> DefaultFormatter( ICUTimeFormat.ToSharedRef() );
 
 	bool bIsDefaultTimeZone = SanitizedTimezoneCode.IsEmpty();
 	if( !bIsDefaultTimeZone )
@@ -702,13 +752,13 @@ TSharedRef<const icu::DateFormat> FCulture::FICUCultureImplementation::GetTimeFo
 	}
 	else
 	{
-		const TSharedRef<icu::DateFormat> Formatter( icu::DateFormat::createTimeInstance( UEToICU(TimeStyle), ICULocale ) );
+		const TSharedRef<icu::DateFormat, ESPMode::ThreadSafe> Formatter( icu::DateFormat::createTimeInstance( UEToICU(TimeStyle), ICULocale ) );
 		Formatter->adoptTimeZone( bIsDefaultTimeZone ? icu::TimeZone::createDefault() : icu::TimeZone::createTimeZone(InputTimeZoneID) );
 		return Formatter;
 	}
 }
 
-TSharedRef<const icu::DateFormat> FCulture::FICUCultureImplementation::GetDateTimeFormatter(const EDateTimeStyle::Type DateStyle, const EDateTimeStyle::Type TimeStyle, const FString& TimeZone)
+TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> FCulture::FICUCultureImplementation::GetDateTimeFormatter(const EDateTimeStyle::Type DateStyle, const EDateTimeStyle::Type TimeStyle, const FString& TimeZone)
 {
 	if (!ICUDateTimeFormat.IsValid())
 	{
@@ -720,7 +770,7 @@ TSharedRef<const icu::DateFormat> FCulture::FICUCultureImplementation::GetDateTi
 	icu::UnicodeString InputTimeZoneID;
 	ICUUtilities::ConvertString(SanitizedTimezoneCode, InputTimeZoneID, false);
 
-	const TSharedRef<const icu::DateFormat> DefaultFormatter( ICUDateTimeFormat.ToSharedRef() );
+	const TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> DefaultFormatter( ICUDateTimeFormat.ToSharedRef() );
 
 	bool bIsDefaultTimeZone = SanitizedTimezoneCode.IsEmpty();
 	if( !bIsDefaultTimeZone )
@@ -750,7 +800,7 @@ TSharedRef<const icu::DateFormat> FCulture::FICUCultureImplementation::GetDateTi
 	}
 	else
 	{
-		const TSharedRef<icu::DateFormat> Formatter( icu::DateFormat::createDateTimeInstance( UEToICU(DateStyle), UEToICU(TimeStyle), ICULocale ) );
+		const TSharedRef<icu::DateFormat, ESPMode::ThreadSafe> Formatter( icu::DateFormat::createDateTimeInstance( UEToICU(DateStyle), UEToICU(TimeStyle), ICULocale ) );
 		Formatter->adoptTimeZone( bIsDefaultTimeZone ? icu::TimeZone::createDefault() : icu::TimeZone::createTimeZone(InputTimeZoneID) );
 		return Formatter;
 	}
@@ -952,24 +1002,29 @@ const FDecimalNumberFormattingRules& FCulture::FICUCultureImplementation::GetCur
 	}
 }
 
-ETextPluralForm FCulture::FICUCultureImplementation::GetPluralForm(int32 Val, const ETextPluralType PluralType)
+ETextPluralForm FCulture::FICUCultureImplementation::GetPluralForm(int32 Val, const ETextPluralType PluralType) const
 {
 	checkf(Val >= 0, TEXT("GetPluralFormImpl requires a positive value"));
 
-	const icu::PluralRules* ICUPluralRules = (PluralType == ETextPluralType::Cardinal) ? ICUCardinalPluralRules : ICUOrdianalPluralRules;
+	const icu::PluralRules* ICUPluralRules = (PluralType == ETextPluralType::Cardinal) ? ICUCardinalPluralRules : ICUOrdinalPluralRules;
 	const icu::UnicodeString ICUPluralFormTag = ICUPluralRules->select(Val);
 
 	return ICUPluralFormToUE(ICUPluralFormTag);
 }
 
-ETextPluralForm FCulture::FICUCultureImplementation::GetPluralForm(double Val, const ETextPluralType PluralType)
+ETextPluralForm FCulture::FICUCultureImplementation::GetPluralForm(double Val, const ETextPluralType PluralType) const
 {
 	checkf(!FMath::IsNegativeDouble(Val), TEXT("GetPluralFormImpl requires a positive value"));
 
-	const icu::PluralRules* ICUPluralRules = (PluralType == ETextPluralType::Cardinal) ? ICUCardinalPluralRules : ICUOrdianalPluralRules;
+	const icu::PluralRules* ICUPluralRules = (PluralType == ETextPluralType::Cardinal) ? ICUCardinalPluralRules : ICUOrdinalPluralRules;
 	const icu::UnicodeString ICUPluralFormTag = ICUPluralRules->select(Val);
 
 	return ICUPluralFormToUE(ICUPluralFormTag);
+}
+
+const TArray<ETextPluralForm>& FCulture::FICUCultureImplementation::GetValidPluralForms(const ETextPluralType PluralType) const
+{
+	return (PluralType == ETextPluralType::Cardinal) ? UEAvailableCardinalPluralForms : UEAvailableOrdinalPluralForms;
 }
 
 #endif

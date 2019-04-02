@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AudioThread.cpp: Audio thread implementation.
@@ -39,7 +39,7 @@ TAutoConsoleVariable<int32> CVarEnableBatchProcessing(
 	ECVF_Default); 
 
 static int32 GBatchAudioAsyncBatchSize = 128;
-static FAutoConsoleVariableRef CVarBatchParticleAsyncBatchSize(
+static FAutoConsoleVariableRef CVarBatchAudioAsyncBatchSize(
 	TEXT("AudioThread.BatchAsyncBatchSize"),
 	GBatchAudioAsyncBatchSize,
 	TEXT("When AudioThread.EnableBatchProcessing = 1, controls the number of audio commands grouped together for threading.")

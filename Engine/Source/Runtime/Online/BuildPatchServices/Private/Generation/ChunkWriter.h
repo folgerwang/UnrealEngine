@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -24,6 +24,7 @@ namespace BuildPatchServices
 
 	struct FParallelChunkWriterSummaries
 	{
+		EFeatureLevel FeatureLevel;
 		TMap<FGuid, int64> ChunkOutputSizes;
 		TMap<FGuid, uint64> ChunkOutputHashes;
 		TMap<FGuid, FSHAHash> ChunkOutputShas;

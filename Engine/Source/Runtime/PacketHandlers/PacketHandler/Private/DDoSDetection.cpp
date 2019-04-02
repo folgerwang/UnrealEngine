@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 // Includes
 
@@ -134,6 +134,7 @@ void FDDoSDetection::InitConfig()
 				CurState.SeverityCategory = CurCategory;
 
 				GConfig->GetInt(*CurSection, TEXT("EscalateQuotaPacketsPerSec"), CurState.EscalateQuotaPacketsPerSec, GEngineIni);
+				GConfig->GetInt(*CurSection, TEXT("EscalateQuotaDisconnPacketsPerSec"), CurState.EscalateQuotaDisconnPacketsPerSec, GEngineIni);
 				GConfig->GetInt(*CurSection, TEXT("EscalateQuotaBadPacketsPerSec"), CurState.EscalateQuotaBadPacketsPerSec, GEngineIni);
 				GConfig->GetInt(*CurSection, TEXT("PacketLimitPerFrame"), CurState.PacketLimitPerFrame, GEngineIni);
 				GConfig->GetInt(*CurSection, TEXT("PacketTimeLimitMSPerFrame"), CurState.PacketTimeLimitMSPerFrame, GEngineIni);

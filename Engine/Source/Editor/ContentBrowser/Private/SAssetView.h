@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -413,6 +413,9 @@ private:
 	/** Handler for when an asset was renamed in the asset registry */
 	void OnAssetRenamed(const FAssetData& AssetData, const FString& OldObjectPath);
 
+	/** Handler for when an asset is updated in the asset registry */
+	void OnAssetUpdated(const FAssetData& AssetData);
+
 	/** Handler for when an asset was loaded */
 	void OnAssetLoaded(UObject* Asset);
 
@@ -432,6 +435,9 @@ private:
 	bool PassesCurrentFrontendFilter(const FAssetData& Item) const;
 
 	/** Returns true if the specified asset data item passes all applied backend (asset registry) filters */
+	bool PassesCurrentBackendFilter(const FAssetData& Item) const;
+
+	/** Removes asset data items from the given array that don't pass all applied backend (asset registry) filters */
 	void RunAssetsThroughBackendFilter(TArray<FAssetData>& InOutAssetDataList) const;
 
 	/** Returns true if the current filters deem that the asset view should be filtered recursively (overriding folder view) */
@@ -553,6 +559,9 @@ private:
 
 	/** Sets the view type and updates lists accordingly */
 	void SetCurrentViewType(EAssetViewType::Type NewType);
+
+	/** Sets the view type and forcibly dismisses all currently open context menus */
+	void SetCurrentViewTypeFromMenu(EAssetViewType::Type NewType);
 
 	/** Clears the reference to the current view and creates a new one, based on CurrentViewType */
 	void CreateCurrentView();
@@ -720,6 +729,9 @@ private:
 	/** Delegate to respond to drop of assets or asset paths onto a folder */
 	void ExecuteDropMove(TArray<FAssetData> AssetList, TArray<FString> AssetPaths, FString DestinationPath);
 
+	/** Delegate to respond to drop of assets or asset paths onto a folder */
+	void ExecuteDropAdvancedCopy(TArray<FAssetData> AssetList, TArray<FString> AssetPaths, FString DestinationPath);
+
 	/** Creates a new asset from deferred data */
 	void DeferredCreateNewAsset();
 
@@ -794,8 +806,8 @@ private:
 	/** The folder items being displayed in the view */
 	TSet<FString> Folders;
 
-	/** A map of object paths to assets that were loaded or changed since the last frame */
-	TMap< FName, TWeakObjectPtr<UObject> > RecentlyLoadedOrChangedAssets;
+	/** A set of assets that were loaded or changed since the last frame */
+	TSet<FAssetData> RecentlyLoadedOrChangedAssets;
 
 	/** A list of assets that were recently reported as added by the asset registry */
 	TArray<FAssetData> RecentlyAddedAssets;

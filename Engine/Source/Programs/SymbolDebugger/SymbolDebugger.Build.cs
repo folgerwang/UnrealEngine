@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -26,8 +26,5 @@ public class SymbolDebugger : ModuleRules
 		);
 
 		PrivateIncludePaths.Add("Runtime/Launch/Private");		// For LaunchEngineLoop.cpp include
-
-		// Need database support!
-		PublicDefinitions.Add("WITH_DATABASE_SUPPORT=1");
 	}
 }

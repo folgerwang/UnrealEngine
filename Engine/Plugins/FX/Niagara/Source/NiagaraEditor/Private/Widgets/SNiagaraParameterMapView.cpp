@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SNiagaraParameterMapView.h"
 #include "SNiagaraParameterMapPaletteItem.h"
@@ -280,6 +280,11 @@ void SNiagaraParameterMapView::AddParameter(FNiagaraVariable NewVariable)
 	}
 }
 
+bool SNiagaraParameterMapView::AllowMakeType(const FNiagaraTypeDefinition& InType) const
+{
+	return InType != FNiagaraTypeDefinition::GetParameterMapDef();
+}
+
 void SNiagaraParameterMapView::OnFilterTextChanged(const FText& InFilterText)
 {
 	GraphActionMenu->GenerateFilteredItems(false);
@@ -496,6 +501,7 @@ TSharedRef<SWidget> SNiagaraParameterMapView::OnGetParameterMenu(const NiagaraPa
 {
 	TSharedRef<SNiagaraAddParameterMenu> MenuWidget = SNew(SNiagaraAddParameterMenu, Graphs)
 		.OnAddParameter(this, &SNiagaraParameterMapView::AddParameter)
+		.OnAllowMakeType(this, &SNiagaraParameterMapView::AllowMakeType)
 		.Section(InSection)
 		.ShowNamespaceCategory(false)
 		.ShowGraphParameters(false)

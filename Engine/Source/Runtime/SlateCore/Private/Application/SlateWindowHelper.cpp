@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Application/SlateWindowHelper.h"
 #include "Layout/ArrangedChildren.h"
@@ -97,7 +97,7 @@ bool FSlateWindowHelper::FindPathToWidget( const TArray<TSharedRef<SWindow>>& Wi
 {
 	SCOPE_CYCLE_COUNTER(STAT_FindPathToWidget);
 
-	if (SLATE_PARENT_POINTERS && GSlateFastWidgetPath)
+	if (GSlateFastWidgetPath)
 	{
 		// We have to internally cast this anyway - because the constructed widget path will be of non-const widgets, so if you'll end up with
 		// a mutable copy anyway.

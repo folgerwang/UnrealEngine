@@ -1,14 +1,17 @@
-﻿INTSourceChangelist:2816279
-Availability:Public
+﻿INTSourceChangelist:3782314
+Availability:Docs
 Title:1.创建控件蓝图
 Crumbs:%ROOT%, Engine, Engine/UMG, Engine/UMG/HowTo, Engine\UMG\HowTo\Create3DWidgets
 Description:在此我们将创建要在 3D 游戏世界中显示的控件蓝图。 
-Related:Engine/UMG
-Related:Engine/UMG/UserGuide
-Related:Engine/Blueprints
-Version:4.10
-SkillLevel:Intermediate
-checkpoint: editorqs
+Parent:Engine/UMG/HowTo/Create3DWidgets
+Related: Engine/UMG
+Related: Engine/UMG/UserGuide
+Related: Engine/Blueprints
+Version: 4.10
+SkillLevel: Intermediate
+checkpoint: umg_create_3d_howto
+tags:UMG UI Designer
+Order: 1
 
 [VAR:Steps]
 [OBJECT:Navigation]
@@ -34,6 +37,7 @@ checkpoint: editorqs
 [/REGION]
 
 
+(#Steps)
 ## 步骤
 
 1. 在项目 **内容浏览器** 的 **内容** 根文件夹下，**单击右键** 并创建名为 **UMG** 的新文件夹。 
@@ -118,6 +122,7 @@ checkpoint: editorqs
 
 1.	点击 **编译**，然后点击 **保存** 并关闭蓝图。 
 
+(#EndResult)
 ## 最终结果
 
 我们已完成控件蓝图创建过程，并且我们现在可以将其用作接下来要创建的角色蓝图中的 **控件组件**。虽然我们不会为该按钮连结在点击时触发的功能，但至少获得了一个可以在 3D 世界空间中导航的菜单，它可以响应鼠标交互并让您对如何开始入手有一个概念。

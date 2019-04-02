@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2828862
+﻿INTSourceChangelist:3244089
 Availability:Public
 Title:自动换行框
 Crumbs:%ROOT%, Engine, Engine/UMG, Engine/UMG/UserGuide, Engine/UMG/UserGuide/WidgetTypeReference
@@ -6,15 +6,18 @@ Description:自动换行框用于在超出其宽度时将控件自动放到下�
 Related:Engine/UMG/UserGuide
 Related:Engine/UMG/UserGuide/Styling
 Related:Engine/UMG/UserGuide/Slots
+tags:UMG UI Designer
 
 [TOC(start:2 end:2)]
 
+(#Description)
 ## 描述
 
 [EXCERPT:desc]
 该控件会将子控件从左到右排列，超出其宽度时会将其余子控件放到下一行。 
 [/EXCERPT:desc]
 
+(#Details)
 ## 详情
 
 在放入 **自动换行框** 的控件的 **详情** 面板中，提供了一些设置，用于调整控件的运作方式，以下针对这些设置进行介绍。 
@@ -30,6 +33,7 @@ Related:Engine/UMG/UserGuide/Slots
 | **垂直对齐** | 垂直对齐对象。|
 
 
+(#UsageExample)
 ## 使用示例
 
 当您想要根据容器的宽度来排布容器中的项目，使这些项目对齐且等间隔放置并自动确定其中内容的格式时，使用自动换行框非常有用。 

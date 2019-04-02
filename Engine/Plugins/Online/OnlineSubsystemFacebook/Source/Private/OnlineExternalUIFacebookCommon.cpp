@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineExternalUIFacebookCommon.h"
 #include "OnlineSubsystemFacebook.h"
@@ -9,7 +9,7 @@ bool FOnlineExternalUIFacebookCommon::ShowLoginUI(const int ControllerIndex, boo
 
 	FacebookSubsystem->ExecuteNextTick([ControllerIndex, Delegate]()
 	{
-		Delegate.ExecuteIfBound(nullptr, ControllerIndex, FOnlineError(false));
+		Delegate.ExecuteIfBound(nullptr, ControllerIndex, FOnlineError(EOnlineErrorResult::Unknown));
 	});
 
 	return bStarted;

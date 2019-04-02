@@ -1,321 +1,322 @@
-﻿INTSourceChangelist:0
-Title: 2014年1月份版本信息
+﻿INTSourceChangelist:3782314
+Title: 2014年1月版本说明
 Crumbs:%ROOT%, Support/Builds
 Description:
 Availability:Licensee
-Template:ReleaseNotes.html
+Parent:Support/Builds
+Order:-2
 
 [TOC(start:2 end:2)]
 
-## Build Info
+## 版本信息
 
 
 [REGION:simpletable]
-| Item | Info |
-| ---- | ---- |
-| **Labels** | [INCLUDE:#labels] |
-| **Built from Changelist #** |  (//depot/UE4-QA/Promotable-CL-1986836) |
-| **Branched from Changelist #** |  (//depot/UE4/Promoted-CL-1973917) |
-| **Visual Studio Version** | Microsoft Visual Studio 2012 Version 11.0.60610.01 Update 3 |
-| **DirectX** | June 2010 |
+| 项目| 信息|
+| ----| ----|
+| **标签**| [INCLUDE:#labels] |
+| **根据变更列表编号构建**|  (//depot/UE4-QA/Promotable-CL-1986836)|
+| **根据变更列表编号分支**|  (//depot/UE4/Promoted-CL-1973917)|
+| **Visual Studio 版本**| Microsoft Visual Studio 2012 版本 11.0.60610.01 更新 3|
+| **DirectX**| 2010 年 6 月|
 [/REGION]
 
 [COMMENT:none]
 
 [EXCERPT:Labels]
-QA_APPROVED_UE4_BUILD_2014_01  
-QA_APPROVED_UE4_BUILD_CURRENT  
+QA_APPROVED_UE4_BUILD_2014_01
+QA_APPROVED_UE4_BUILD_CURRENT
 QA_APPROVED_UE4_BUILD_MINIMUM
 [/EXCERPT:Labels]
 
 [/COMMENT]
 
-## Important information
+## 重要信息
 
- * Current Engine Development Roadmaps: [UE4 Roadmaps](https://udn.unrealengine.com/questions/topics/roadmap.html)
- * Fixed Bugs: [UE4 Fixed Bugs January 2014](UE4_Fixed_2014_January.xlsx)
- * Known Issues: [UE4 Known Issues January 2014](UE4_Bugs_2014_January.xlsx)
+ * 当前引擎开发路线图：[虚幻引擎4 路线图](https://udn.unrealengine.com/questions/topics/roadmap.html)
+ * 已修复的错误：[[2014 年 1 月虚幻引擎4 已修复的错误]](UE4_Fixed_2014_January.xlsx)
+ * 已知问题：[[2014 年 1 月虚幻引擎4 已知问题]](UE4_Bugs_2014_January.xlsx)
  
 
-## Major New Features
+## 主要新功能
 
-####Blueprints
+####蓝图
 
-* **Format Text Node** 
-	* A new Format Text node has been added to Blueprints.	
+* **格式化文本节点**
+	* 在蓝图中添加了一个新格式化文本节点。	
 
 		![](Support\Builds\ReleaseNotes\2014\January\FormatTextNode01.png)
 
-	* The "Format" text can be a literal or connected to a pin. When used as a literal, it will auto-generate arguments for formatting. 
+	* “格式化”文本可以是文字，也可以连接到引脚。用作文字时，它会自动生成格式化参数。
 
 		![](Support\Builds\ReleaseNotes\2014\January\FormatTextNode02.png)
 
-	* These arguments can be filled in as a literal or from a variable and the output Text will replace the arguments with whatever values are hooked to the pins.	 
+	* 这些参数既可以用文字填写，也可以从变量获取值，且输出“文本”将使用连接到引脚的任何值替换这些参数。	 
 
 		![](Support\Builds\ReleaseNotes\2014\January\FormatTextNode003.png)
 
-	* When the "Format" pin is connected, the "Format" cannot be deciphered because it is variable. In this case, you can add pins yourself and name them after the possible arguments. In this way, you can setup the Format Text node to be ready for multiple possibilities. Whenever an argument matches at argument in the Format, it will utilize the provided information.	
+	* 如果连接到“格式化”引脚，由于它是变量，因此无法解译“格式化”。在这种情况下，您可以自行添加引脚并将其指定到可能的参数后。这样，您可以为多种可能设置好“格式化文本”节点。不管参数何时匹配格式化中的参数，它都会利用提供的信息。	
 
 		![](Support\Builds\ReleaseNotes\2014\January\FormatTextNode04.png)
 
-	* Pin names can be changed, added, and removed from the Details Panel.
+	* 可更改、添加引脚名称，也可将其从详细信息面板中删除。
 
 		![](Support\Builds\ReleaseNotes\2014\January\FormatTextNode05.png)
 
-* **Node style changes and Append Array**
-	* There is now an "Append Array" function which will add the contents of one array to the end of another.	
+* **节点样式更改和附加数组**
+	* 现在提供了一个“附加数组”函数，可将一个数组的内容添加到另一个数组末尾。	
 
 		![](Support\Builds\ReleaseNotes\2014\January\AppendArray.png)
 
-	* Level actor references in Blueprints now have a new look, to better identify them:	
+	* 蓝图中的关卡 Actor 引用现在有新的外观，更易于识别：	
 
 		![](Support\Builds\ReleaseNotes\2014\January\References.png)
 
-	* Array function nodes have a new look as well!	
+	* 数组函数节点也有新的外观！	
 
 		![](Support\Builds\ReleaseNotes\2014\January\ArrayFunctionNodes.png)
 
 
-####Editor and Tools
+####编辑器和工具
 
-* **SoundCue Editor**
-	* A palette of sound nodes has been added to the SoundCue editor!
+* **SoundCue 编辑器**
+	* 在 SoundCue 编辑器中添加了一个声音节点控制板！
 
 		![](Support\Builds\ReleaseNotes\2014\January\SoundPalette.png)
 
-* **Event Listing**
-	* Graph sub-event listings have been added back to the "My Blueprint" tab, where you can focus, rename (for custom events), find, and delete event nodes.						
+* **事件列表**
+	* 重新将图表子事件列表添加到了“我的蓝图”（My Blueprint）选项卡中，您可以在该列表中选定、重命名（对于自定义事件）、查找和删除事件节点。						
 
 		![](Support\Builds\ReleaseNotes\2014\January\EventListing.png)
 
-* **Documentation**
-	* A handful of "big tooltips" have been added to help better explain certain nodes.
+* **文档**
+	* 将少量解释某些节点的“详细工具提示”添加到了帮助中心。
 
 		![](Support\Builds\ReleaseNotes\2014\January\Documentation.png)
 
-* **Scalability Interface**
-	* There is a new user interface for scalability in the editor!	
+* **可延展性界面**
+	* 添加了一个新用户界面，以提升编辑器中的可延展性！	
 
 		![](Support\Builds\ReleaseNotes\2014\January\scalability.png)
 
-* **Actor Visibility in Scene Outliner**
-	* It is now possible to quickly toggle actors' visibility from the scene outliner using the eye that appears beside each actor:
+* **场景大纲视图中的 Actor 可视性**
+	* 现在从场景大纲视图使用每个 Actor 旁的眼睛图标可以快速切换 Actor 的可视性：
 		
 		![](Support\Builds\ReleaseNotes\2014\January\ActorVisibility.png)
 
-* **Level Viewport**
-	* In the Level Viewport, when you select a camera for example, you see a preview of what that camera sees in a Picture-in-Picture box in your current viewport. When you deselect the camera, the preview goes away.  
+* **关卡视口**
+	* 在关卡视口中，比方说如果您选择一个相机，您会看到当前视口的画中画框中看到相机可见画面的预览。当您取消选中相机时，预览会关闭。
 
-	* Added a button to those to the Actor Previews in the Level Viewport to pin them so they remain visible even if you select another object:
+	* 在关卡视口中为 Actor 预览的对象添加了一个按钮，以便将其锁定，使其在您选择其他对象时也保持可见：
 
 		![](Support\Builds\ReleaseNotes\2014\January\LevelViewport01.png)
 
-	* As you can see, this is additive, so you will see any pinned previews plus any other preview actors you have selected. 
+	* 如您所见，这是新增对象，所以您可以看到所有锁定预览和其他已选定预览 Actor。
 
-	* One potentially useful thing this allows you to do is to move actors in a camera shot while you preview what the camera sees, without using Matinee or multiple viewports:	
+	* 这样做可能产生的一个好处是，您在预览相机可见画面时，可以在相机拍摄中移动 Actor，而不需要使用 Matinee 或多个视口：	
 
 		![](Support\Builds\ReleaseNotes\2014\January\LevelViewport02.png)
 
-#### Rendering
-* **Sky Light and Precomputed Bent Normals**
-	* There is now a Sky Light actor and a Sky Light Component for Blueprints.
+#### 渲染
+* **天空光照和预计算环境法线**
+	* 蓝图现在有一个天空光照 Actor 和一个天空光照组件。
 
-	Here is an Ambient Cubemap with just SSAO.	  
+	有一个仅带 SSAO 的环境立方体贴图。	  
 
 	![](Support\Builds\ReleaseNotes\2014\January\Skylight01.png)	
 
-	And here is a Sky Light with baked shadowing.	
+	还有一个带烘焙阴影的天空光照。	
 
 	![](Support\Builds\ReleaseNotes\2014\January\Skylight02.png)	
 
-	**Usability**	
+	**可用性**	
 	 
-	* The Sky Light captures the distant parts of your level (everything further than Sky Distance Threshold) and applies that to the scene as a light.  
+	* 天空光照用于获取关卡的远处部件（比天空距离阈值更远的任何部件）并将其作为光照应用到场景。
 	  
-	You can also manually specify a Cubemap to use.		
+	您还可以手动指定要使用的立方体贴图。		
 
 	![](Support\Builds\ReleaseNotes\2014\January\CubeMap.png)	
 	
-	* Previously, you had to pick an Ambient Cubemap for the sky's reflection while providing a different constant color for sky diffuse through Lightmass Environment Color. 
+	* 以前，在通过 Lightmass 环境颜色为天空漫反射提供不同的常量颜色时，您必须为天空的反射选择环境立方体贴图。
 	 
-	* The Sky Light is a full replacement for Environment Color and will replace the Ambient Cubemap in the future. 
+	* 天空光照完全替代了环境颜色，以后还将替代环境立方体贴图。
 
-	* Note however, that right now the Sky Light will only recapture the scene when you rebuild lighting or manually tell it to. 
+	* 但是，请注意，当您重新构建光照或手动告诉它创建时，天空光照现在只会重新捕获场景。
 	 
-	**Baked Shadowing**		
+	**烘焙阴影**		
 
-	* The only version of the Sky Light supported right now is the one with Stationary Mobility, which means that it has baked shadowing from Lightmass.	
+	* 天空光照现在唯一支持的版本是带固定移动性的光源，也就是说它有 Lightmass 的烘焙阴影。	
 
-	* Once you place a sky light in your level, you have to rebuild lighting once to get the baked shadowing.  
+	* 一旦在关卡中放置天空光照，则必须重新构建一次光照才能获得烘焙阴影。
 
-	Lit by Sky Light only.	
+	仅天空光照可点亮。	
 
 	![](Support\Builds\ReleaseNotes\2014\January\Skylight05.png)
 
-* **New Experimental Feature: DBuffer Deferred Decals**
-	* Deferred decals now work with baked/lightmass lighting.	 
-	That has a cost - not all projects make use of baked lighting or need proper decals so this can be enabled as a project setting and you need to change the decal blend mode.	
+* **试验性新功能：DBuffer 延迟贴花**
+	* 延迟贴花现在可与烘焙/Lightmass 光照一起使用。	 
+	这样做有一定的成本 - 并非所有项目都需要使用烘焙光照或需要适当的贴花，所以可将其作为项目设置启用，并且需要更改贴花混合模式。	
 
 		![](Support\Builds\ReleaseNotes\2014\January\DBufferDeferredDecals01.png)	
 
-	Right: baked lighting with a classic decal (no DBuffer) has broken lighting (should look like the left one).
-	* How to activate the feature:
-		* To try DBuffer locally, put this into BaseEngine.ini under [SystemSettings]
+	右边：使用传统贴花（无 DBuffer)）烘焙的光照具有破损光照（应与左边的光照相似）。
+	* 如何激活此功能：
+		* 要尝试在本地使用 DBuffer，请以下代码添加到 BaseEngine.ini 的 [SystemSettings] 下
 		* r.EarlyZPassMovable=1
 		* r.EarlyZPass=2
 		* r.DBuffer=1
-		* Use new DBuffer decal blend mode
-	* Similar changes can be made in the project settings in case you want that use that feature in your project.
+		* 使用新的 DBuffer 贴花混合模式
+	* 如果您要在项目中使用该功能，可在项目设置中执行类似的更改。
 
 
-## New Additions 
+## 新增内容
 
-#### Editor and Tools
-* New asset browser filter context menu entry to isolate and enable a single filter.
-	* Activated by bringing up the context menu on a single filter in the list of active filters and choosing enable this only: `<filtername>`
-* LOD Distance is now visible in the collapsed LODs title.
-* Asset picker buttons now appear for those assets which support it in the property matrix view.
-* Ctrl clicking on a selected, grouped actor now deselects the entire group.
-* Adds a reset filters button to the bottom of the filters menu.
-* Adds support for toggle boxes and actions on submenu menu entries, and modified CB filter menu to utilise submenus.
-* Dirty maps/assets now display an asterisk in the dock tab next to their name.
-* Added 'Explore' content menu option when right clicking assets in content browser.
-* Added a visibility toggle to the scene outliner.
-	* Users can click-swipe over multiple visibility icons to batch-toggle multiple actors' visibility.
-* Added a palette of sound nodes to the SoundCue editor.
-* Material Editor Expression and Function lists are now combined in a single palette.
-* Double clicking a Sound Node in the SoundCue editor will now play that node.
-* Added Material Functions to the Material editor's right click context menu.
-* The Material nodes 'Particle Direction', 'Particle Speed', 'Particle Position' and 'Particle Relative Time' now work with mesh particles.
-* Added UTF-8 support to Perforce plugin so unicode servers can be used.
-* Instanced static mesh components are now editable in the Blueprint Components view.
-* Engine API documentation is now available in CHM format (located at Engine\Documentation\CHM\API.chm). 
-* Landscape now supports .png format for heightmap and weightmap import/export.
-* Added "Change component size" tool to landscape editor.
-* Added Cut/Copy/Paste support to landscape splines.
-* Spline Mesh collision is now automatically rebuilt when the source mesh's collision is changed.
-* Added option to disable shadow casting on landscape splines.
-* Added MaterialOverrides to spline meshes.
-* Added GetMorphTarget blueprint callable function.
+#### 编辑器和工具
+* 添加了新资源浏览器过滤器上下文菜单项，可隔离和启用单个过滤器。
+	* 通过打开活动过滤器列表中单个过滤器的上下文菜单并选择仅启用此过滤器可将其激活：`<filtername>`
+* LOD 距离现在在折叠的 LOD 标题中可见。
+* 在属性矩阵视图中，支持资源选择器按钮的资源现在会显示此按钮。
+* 按住 Ctrl 并单击已选定和分组的 Actor 现在可将整个分组取消选定。
+* 在过滤器菜单底部添加了重置过滤器按钮。
+* 添加了对子菜单的菜单项切换框和操作的支持，并修改了 CB 过滤器菜单以利用子菜单。
+* 已修改的贴图/资源现在会在其名称旁的停靠选项卡中显示一个星号。
+* 右键单击内容浏览器中的资源时，菜单中添加了一个“浏览”（Explore）内容菜单项。
+* 场景大纲视图中添加了一个可视性切换图标。
+	* 用户单击并刷过多个可视性图标可批量切换多个 Actor 的可视性。
+* 在 SoundCue 编辑器中添加了一个声音节点控制板。
+* 现在在单个控制板中合并了材质编辑器表达式和函数列表。
+* 现在在 SoundCue 编辑器中双击声音节点可运行该节点。
+* 在材质编辑器的右键单击上下文菜单中添加了材质函数。
+* 材质节点“粒子方向”（Particle Direction）、“粒子速度”（Particle Speed）、“粒子位置”（Particle Position）和“粒子相对时间”（Particle Relative Time）现在可以与网格体粒子一起使用。
+* 为 Perforce 插件添加了 UTF-8 支持，以便使用 Unicode 服务器。
+* 现在可在蓝图组件视图中编辑实例化的静态网格体组件。
+* 现在提供了 CHM 格式的引擎 API 文档（路径：Engine\Documentation\CHM\API.chm）。
+* 地形现在支持导入/导出 .png 格式的高度图和权重图。
+* 在地形编辑器中添加了“变更组件大小”工具。
+* 在地形样条中添加了剪切/复制/粘贴支持。
+* 更改源网格体时，现在会自动重建样条网格体碰撞。
+* 在地形样条上添加了禁用阴影投射的选项。
+* 在样条网格体中添加了 MaterialOverrides。
+* 添加了 GetMorphTarget 蓝图可调用函数。
 
-#### Blueprints
-* Added "Blueprints.Find Timelines On Server" editor automation test, to identify TimelineComponents that are hooked up in Blueprints and will run on dedicated servers (Timelines can tick and can impact performance).
-	* This test walks backwards up the execution chain to find which Timelines can possibly be executed by non-cosmetic (server) events and flags those as errors in the log.
-	* A macro has been added to StandardMacros ("Can Execute Cosmetic Events") which can be used to conditionally avoid executing Timelines on servers. The automation test checks for this macro explicitly.
-* Added GetStreamingLevel BP node. Returns ULevelStreamingKismet object which allows better control over level streaming in blueprints.
-* Icons denoting a components mobility are now displayed alongside components in the blueprint component list-view.
-* Event navigation added back to the "My Blueprints" tab (events implemented in a graph are now listed in the tree).
-* Inside a blueprint, you're no longer able to parent non-movable components under ones with more mobility.
-* Inside a blueprint, you're no longer able to parent game-components under editor-only ones.
-* Can now prohibit an interface from being implemented on Blueprintable objects (through "ProhibitedInterfaces" metadata).
-* On Blueprint nodes, object pins will now directly accept objects that inherit from the input type.
-* Can now diff arbitrary blueprints against each other, as well as arbitrary revisions.
-* Added an "Append Array" function to Blueprints.
-* Added a "Format Text" node to Blueprints.
-* Text variables can be handled as literals.
-* Various Text to Number nodes made available in Blueprints.
+#### 蓝图
+* 添加了“服务器上的 Blueprints.Find 时间轴”编辑器自动测试，以识别蓝图中连接的 TimelineComponents，并在指定服务器上运行（时间轴能够 Tick 并影响性能）。
+	* 该测试通过回退执行链以找到可能由非修饰（服务器）事件执行的时间轴，并在日志中将其标记为错误。
+	* 在 StandardMacro 中添加了一个宏（“可执行装修饰事件”），可有条件地避免在服务器上执行时间轴。该自动测试会显式检查此宏。
+* 添加了 GetStreamingLevel BP 节点。返回 ULevelStreamingKismet 对象，从而允许进一步控制蓝图中的关卡流。
+* 在蓝图组件列表视图中，指示组件移动性的图标现在会显示在组件旁。
+* 重新将事件导航添加到了“我的蓝图”（My Blueprints）选项卡中（图表中执行的事件现在会列在树中）。
+* 在蓝图中，您不能再在具有更多移动性的组件下建立父级不可移动组件。
+* 在蓝图中，您不能再在仅针对编辑器的组件下建立父级游戏组件。
+* 现在可以禁止在蓝图对象上实现接口（通过“ProhibitedInterfaces”元数据）。
+* 在蓝图节点中，对象引脚现在直接接受从输入类型继承的对象。
+* 现在可以相互比较任意蓝图以及蓝图版本。
+* 在蓝图中添加了一个“附加数组”（Append Array）函数。
+* 在蓝图中添加了一个“格式化文本”（Format Text）节点。
+* 文本变量可作为文字处理。
+* 蓝图中现在可以使用数量节点的不同文本（Various Text）。
 
-#### Rendering
-* A new console command 'scalability' has been added which allows engine settings to be controlled simply in order to balance performance and quality. Type 'scalability' in the console to see full documentation on its usage.
-* A new UI has been added under "View->Engine Scalability Settings". This gives access to the same functionality that the "scalability" console command offers.
-* Added scale factors for static and skeletal mesh LOD calculations. (r.SkeletalMeshLODRadiusScale and r.StaticMeshLODDistanceScale).
-* Added Post processing options to 2D scene capture component.
-* New Blueprint function on static meshes to toggle bRenderCustomDepth property called SetRenderCustomDepth();
-* New checkbox in collision particle module to enable collision checks with the source actor of the effect. Useful when creating blueprints with meshes and particles that you want to interact.
-* New material checkbox to toggle use of vertex fogging for translucent surfaces.
-* **Sky Light Feature**
-	* Provides a unified representation of sky light, between diffuse and specular and what you see directly
-	* Sky light component will automatically capture the distant geometry and apply it to the scene as lighting
-	* Lightmass bakes out bent normal ambient occlusion, which provides directional shadowing
-	* This feature is new and not fully functional yet, for example no character shadows, doesn't apply to translucency, etc.
-* Particle light modules can opt-in to affecting translucency
-* Material Ambient Occlusion output is applied to all indirect lighting, which is useful for volumetric particles
-* **Precomputed Visibility Improvements**
-	* New cell placement heuristic that covers potential play areas much more thoroughly, but with increased build times
-	* Various optimizations to build times
-	* Precomputed Visibility is now much more reliable, which is important for mobile
-* **Customized UVs** 
-	* Allows moving expensive operations to the vertex shader which are interpolated to the pixel shader material inputs.
-	* [Customized UVs UDN Page](https://udn.unrealengine.com/docs/ue4/INT/Engine/Rendering/Materials/CustomizedUVs/index.html)
-* **Adaptive sampling Lightmass GI solver**
-	* Provides higher quality in worse case situations (bright light coming in tiny window) for the same build time.
-	* New World Settings lightmass property: IndirectLightingQuality which can be used to increase solver quality for maps that need it.
-* Added DBuffer deferred decals (experimental feature, costs extra 10bytes per pixel GPU memory, allows decals with lightmaps, supports color,normal,roughness, separate opacity)  enable from ini: r.EarlyZPassMovable=1   r.EarlyZPass=2  r.DBuffer=1
+#### 渲染
+* 添加了一个新的控制台命令“scalability”，可用于简单控制引擎设置，从而平衡性能和质量。在控制台中键入“scalability”可查看关于其使用方法的完整文档。
+* 在“视图（View）->引擎可延展性设置（Engine Scalability Settings）”下添加了一个新 UI。与“scalability”控制台命令一样，通过此界面也可以访问相同的功能。
+* 添加了执行静态和骨架网格体 LOD 计算的缩放因数。（r.SkeletalMeshLODRadiusScale 和 r.StaticMeshLODDistanceScale）。
+* 在 2D 场景捕获组件中添加了后期处理选项。
+* 在静态网格体上添加了新蓝图函数，用于切换调用 SetRenderCustomDepth(); 的 bRenderCustomDepth 属性
+* 在碰撞粒子模块中添加了一个新复选框，可用于对效果的源 Actor 启用碰撞检测。当您想要通过交互的网格体和粒子创建蓝图时会很有帮助。
+* 添加了用于切换使用半透明表面顶点雾气效果的新材质复选框。
+* **天空光照功能**
+	* 在漫反射和高光度以及直接看到的效果之间，为天空光照提供了统一表示法。
+	* 天空光照组件将自动捕获远处几何体并将其作为光照应用到场景。
+	* Lightmass 可烘焙环境法线环境光遮蔽，从而提供定向阴影
+	* 该新功能尚未完善（比如说没有角色阴影），不适用于半透明度等。
+* 可选择启用粒子光源模块来调整半透明度
+* 材质环境光遮蔽输出适用于所有间接光照，这对体积式粒子很有用
+* **预计算可视性改进**
+	* 新单元放置启发法可更全面地覆盖潜在运行区域，但是会增加构建时间。
+	* 对构建时间进行了多方面的优化
+	* 预计算可视性现在更加可靠，这对移动平台很重要
+* **自定义 UV**
+	* 允许将成本高昂的操作移到已插入像素着色器材质输入的顶点着色器。
+	* [自定义 UV UDN 页面](https://udn.unrealengine.com/docs/ue4/INT/Engine/Rendering/Materials/CustomizedUVs/index.html)
+* **自适应采样 Lightmass GI 解算器**
+	* 在光照条件不佳的情况下（例如明亮的光线通过小窗口照入）提供更高的质量，而构建时间不变。
+	* 新场景设置 Lightmass 属性：IndirectLightingQuality，可为有需要的贴图提高解算器质量。
+* 添加了可从 ini 启用的 DBuffer 延迟贴花（试验性功能，每像素消耗额外 10 字节 GPU 内存，允许使用光照贴图贴花，支持颜色、法线、粗糙度，单独不透明度）：r.EarlyZPassMovable=1   r.EarlyZPass=2  r.DBuffer=1
 
-#### Gameplay and Framework
-* LogVisualizer improvements: log category filtering.
-* CharacterMovementComponents will apply a force to objects the pawn stands on and will generate a constant repulsion force on objects it overlap if PlayerPhysics is enabled.
-* Convex hull support in Physical Asset Tool (PhAT).
-* Added a way to pass custom filters to navigation queries.
-* Bound GameplayDebuggingComponent with LogVisualizer so that when an AI is clicked in simulation mode and LogVisualizer is present, then LogVisualizer will switch over to show log of selected AI.
-* ReferenceViewer is no longer in EpicLabs, it is now part of the main editor.
-	* Existing reference tools have been moved into the right click menu for nodes in the reference viewer.
-	* Added support for depth and breadth limiting for more sane graphs. Also added history.
-* Added CameraBlockingVolume. This simple volume just blocks the ECC_Camera collision channel. 
-* Added KillZVolume. This simple volume kills pawns that touch it.
-* MemReport command now outputs a comprehensive memory report to Saved/Profiling/MemReports. It works similarly to how memleakcheck worked in UE3. The commands it runs can be modified in ini files.
+#### Gameplay 和框架
+* LogVisualizer 改进：日志类别过滤。
+* 如果启用 PlayerPhysics，CharacterMovementComponents 将对上面站有 Pawn 的对象产生作用力，并对与之重叠的对象产生不变斥力。
+* 物理资源工具 (PhAT) 中支持凸面外壳。
+* 添加了一种将自定义过滤器传递给导航查询的方式。
+* 将 GameplayDebuggingComponent 与 LogVisualizer 绑定，这样，在模拟模式中点击 AI 且 LogVisualizer 存在时，LogVisualizer 将切换到显示所选 AI 的日志。
+* 现在将 ReferenceViewer 移到了主编辑器中，不再放在 EpicLabs 中。
+	* 对于引用查看器中的节点，已将现有引用工具移到右键单击菜单中。
+	* 添加了深度和宽度限制，从而制作更完善的图表。还添加了历史记录。
+* 添加了 CameraBlockingVolume。这种简单的体积只会阻挡 ECC_Camera 碰撞通道。
+* 添加了 KillZVolume。这种简单体积会终止与之发生接触的 Pawn。
+* MemReport 命令现在输出全面的内存报告到 Saved/Profiling/MemReports 目录。它与虚幻引擎3 中的 memleakcheck 相似。它运行的命令可在 ini 文件中修改。
 * **ForceFeedback**
-	* ForceFeedbackEffect asset can be created in content browser.  An effect contains an array of entries containing a curve and booleans indicating which servos are affected by this curve.
-	* Playing/Stopping an effect is done via function calls on the PlayerController.
+	* 在内容浏览器中可创建 ForceFeedbackEffect 资源。一种包含一系列具有曲线和布尔值的条目的效果，以表示该曲线会影响哪一个伺服器。
+	* 运行/停止效果通过在玩家控制器中的函数调用完成。
 * **SoundGroups**
-	* A SoundWave can be assigned to a SoundGroup.  The sound group allows sounds to be have different decompression properties.  In the future this will also be used for flagging sounds that should be streamed.
-	* Custom game SoundGroups can be specified somewhat similarly to custom Collision Profiles.
-* Reworking of AnimNotify UI. Notifies now clamp to tracks making them easier to drag/drop and will automatically pan a zoomed track display
-* Refactor of AnimNotifies so that they can be set at previously disallowed times (0, Sequence Length, section times).
-* Added skeleton retargeting for animations to the content browser (automatically triggered when opening an asset with a NULL skeleton)
-* Added importing of lods for morph targets.
-* Added a UV display to Persona.
-* Added Vertex  Normal, Tangent and Binormal views to Persona.
-* **Voice**
-	* First pass at a new voice capture interface.
-		* DirectSound voice capture implementation (125ms notifications).
-		* Missing proper enumeration/detection of microphone plug/unplug (leave plugged in at launch for now).
-	* First pass at a new voice codec interface (opus 1.0.3, soon to be 1.1).
-	* Stats added for voice codec timings.
-* **SKELETALMESH** 
-	* Simplygon bone reduction support. 
-	* Remove selected bones from LODs before applying simplygon mesh reduction.
+	* 可分配给 SoundGroup 的 SoundWave。该音效组允许声音有不同的解压属性。以后此功能还会用于需要流送的标记声音。
+	* 自定义游戏 SoundGroups 在一定程度上可以像自定义碰撞概述文件一样指定。
+* 重写了 AnimNotify UI。现在将通知限制到轨迹，使其更易于拖放并自动平移缩放的轨迹显示
+* 重构了 AnimNotifies，从而可在之前不允许的时间点对其进行设置（0，序列长度，分段时间）。
+* 在内容浏览器中为动画添加了骨架重定向（打开具有空骨架的资源时自动触发）
+* 添加了变形目标的 LOD 的导入功能。
+* 在角色管理器中添加了 UV 显示。
+* 在角色管理器中添加了顶点法线、切线和副法线视图。
+* **语音**
+	* 首次在新语音捕获界面上传递。
+		* DirectSound 语音捕获实现（125 毫秒通知）。
+		* 缺少麦克风插入/拔出的正确列举/检测（现在在启动时保持插入）。
+	* 首次在新语音编码解码器接口上传递（opus 1.0.3，即将升级为 1.1）。
+	* 为语音编码解码器时间添加了统计数据。
+* **骨架网格体**
+	* 支持 Simplygon 骨骼简化。
+	* 应用 Simplygon 网格体简化之前从 LOD 删除所选骨骼。
 
 
-#### Core
-* Added hierarchical stats display ( 'stat groupname+', for more information use 'stat' command ).
-	* Added thread safe FMemStack.
-* The UnrealHeaderTool manifest (the 'response file' used to execute UHT) is now written to the Intermediate folder so that it can be used to diagnose build errors or debug UHT.
-	* The manifest is now also in JSON format, making it easier for humans to read and computers to parse.
-* Hot reload conflicts are written next to generated header file (as a .generated.h.conflict file) to help diagnose changes.
-* UnrealHeaderTool now supports files with UTF-8 BOMs.
-* NonPIETransient property specifier added to allow a property to be serialized only when it is being duplicated for Play-In-Editor(PIE).
-* Added -pakdir=dir command line param to be able to specify additional pak file locations.
-* Zero engine version support - the engine will now allow loading packages saved with 0 engine version (local builds).
-* Support for NULL (None) active class redirects.
-* Reference elimination is now supported in AddReferencedObjects.
-* Added the ability to sign pak files with asymetrical key.
+#### 核心
+* 添加了层级统计数据显示（“stat groupname+”，使用“stat”命令可了解详细信息）。
+	* 添加了线程安全 FMemStack。
+* 现在将 UnrealHeaderTool 清单（用于执行 UHT 的“响应文件”）写入 Intermediate 文件夹，以便将其用于诊断构建错误或调试 UHT。
+	* 清单现在还有 JSON 格式，更便于用户阅读和计算机解析。
+* 热加载冲突写在生成的标头文件旁（.generated.h.conflict 文件）以帮助诊断更改。
+* UnrealHeaderTool 现在支持使用 UTF-8 BOM 的文件。
+* 添加了 NonPIETransient 属性说明符，从而仅在为“在编辑器中运行”(PIE) 复制了属性时，才允许对属性序列化。
+* 添加了 -pakdir=dir 命令行参数，以便能够指定其他 pak 文件位置。
+* 支持 0 引擎版本 - 引擎现在允许加载使用 0 引擎版本（本地版本）保存的包。
+* 支持空（无）活动类重定向。
+* AddReferencedObjects 中现在支持引用消除。
+* 添加了使用非对称密钥为 pak 文件签名的功能。
 
-#### Platforms
-* Added controller vibration (currently only supported on PS4).
-* Added high level "Game DVR" control (currently only support on PS4).
-* Added safe zone support in Slate (put widgets inside an SSafeZone widget, see ShooterGameLoadingScreen for an example, or the top of SSafeZone.h) (currently only PS4 specifies a safe zone).
+#### 平台
+* 添加了控制器振动（当前仅 PS4 支持）。
+* 添加了高关卡“游戏 DVR”控制（当前仅 PS4 支持）。
+* 在 Slate 中添加了安全区域支持（将控件放在 SSafeZone 控件中，有关示例，请参阅 ShooterGameLoadingScreen，或 SSafeZone.h 的开头）（当前仅 PS4 指定安全区域）。
 * **Mac**
-	* Implemented C++ symbol loading for the Editor on Mac OS X.
-	* Implemented a better method for opening files in Xcode from within the Editor so new code files are opened within the Xcode project.
+	* 为 Mac OS X 上的编辑器实现了 C++ 符号加载。
+	* 在编辑器中，实现了在 Xcode 中打开文件更好的方法，从而让新代码文件在 Xcode 项目中打开。
 
-#### Audio
-* Audio components can have integer parameters.
-* Switch node for sound cues.
-* Multiway branching can be achieved when used with integer parameters on audio components.
+#### 音频
+* 音频组件可以有整数参数。
+* 切换 Sound Cue 的节点。
+* 在声音组件中使用整数参数时可实现多路分支。
 
-#### Animation
-* Added ability to mute audio to the Viewport menu when editing an animation sequence.
+#### 动画
+* 在视口菜单中添加了编辑动画序列时静音的功能。
 
-#### Networking
-* Ability to override active status of lifetime replicated properties.
-	* Use DOREPLIFETIME_ACTIVE_OVERRIDE during AActor::PreReplication.     
-* Lots of network performance enhancements.
-* Sharing the replication work across connections is on by default (performance improvement).
-* Simplification of FNetworkGUID ack logic (will reduce log spam under load when loading levels).
+#### 连接网络
+* 可覆盖生命周期复制属性的活动状态。
+	* 在 AActor::PreReplication 期间使用 DOREPLIFETIME_ACTIVE_OVERRIDE。
+* 网络性能大有增强。
+* 默认启用在连接之间共享复制工作（性能改进）。
+* 简化了 FNetworkGUID 确认逻辑（加载关卡时可减少加载下的日志垃圾）。
 
 
-## Upgrade Notes
+## Upgrade Notes （以下内容仅供参考，不作翻译）
 
 #### Editor and Tools
 * Landscape ES2 : Landscape UV increase from 2 to 3 to be same as LocalVertexFactory.
@@ -696,7 +697,7 @@ QA_APPROVED_UE4_BUILD_MINIMUM
 	* Made the default merge tool p4merge.app on Mac OS X. 
 	* Make the editor services 'Launch Game' use the default application to open (the project the same as double-clicking in Finder).
 	* Prevent blue flickering on AMD cards under Mac OS X when more than one UE4 instance is running.
-	* Worked around an Nvidia driver bug to avoid crashes loading some samples on Mac OS X.
+	* Worked around an NVIDIA driver bug to avoid crashes loading some samples on Mac OS X.
 * **Moblie**
 	* Added support for texture streaming on iOS.
 	* Cleaned up OpenGL TexStorage2D handling and added support for texture storage on iOS.

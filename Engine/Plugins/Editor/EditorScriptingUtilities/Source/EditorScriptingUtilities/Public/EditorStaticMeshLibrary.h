@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -54,7 +54,7 @@ struct FEditorScriptingMeshReductionOptions
 };
 
 /** Types of Collision Construct that are generated **/
-UENUM()
+UENUM(BlueprintType)
 enum class EScriptingCollisionShapeType : uint8
 {
 	Box,

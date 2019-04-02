@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2713275
+﻿INTSourceChangelist:3429254
 Availability: Public
 Title:使用静态摄像机
 Crumbs: %ROOT%, Gameplay, Gameplay\HowTo\UsingCameras
@@ -9,6 +9,7 @@ Related: Engine/Matinee
 Related: Engine/Blueprints
 SkillLevel: Beginner
 Version: 4.9
+type:how-to
 
 在这份操作指南中，我们要看看如何创建静态（或固定）摄像机角度，使之可用作游戏中的玩家视角。在完成本次教程后，您可以将我们所用的流程用于您自己的游戏，从而为玩家设置一个固定视角用来观察您的游戏。 
 
@@ -82,6 +83,7 @@ Version: 4.9
 
 1.	在主编辑器视图中，单击 **Play** 按钮在编辑器中运行程序。 
 
+(#EndResult)
 ## 最终结果
 
 [OBJECT:EmbeddedVideo]

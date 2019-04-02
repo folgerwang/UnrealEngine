@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Atmosphere/Atmosphere.h"
 #include "UObject/ConstructorHelpers.h"
@@ -277,58 +277,55 @@ void UAtmosphericFogComponent::BeginDestroy()
 void UAtmosphericFogComponent::ReleaseResource()
 {
 	FSceneInterface* Scene = GetScene();
-	if ( TransmittanceResource != NULL )
+	if ( TransmittanceResource != nullptr )
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			ReleaseAtmosphericFogTransmittanceTextureCommand,
-			FRenderResource*,TransmittanceResource,TransmittanceResource,
-			FSceneInterface*,Scene,Scene,
-		{
-			if (Scene)
+		FRenderResource* InTransmittanceResource = TransmittanceResource;
+		ENQUEUE_RENDER_COMMAND(ReleaseAtmosphericFogTransmittanceTextureCommand)(
+			[InTransmittanceResource, Scene](FRHICommandListImmediate& RHICmdList)
 			{
-				Scene->RemoveAtmosphericFogResource_RenderThread(TransmittanceResource);
-			}
-			TransmittanceResource->ReleaseResource();
-			delete TransmittanceResource;
-		});
+				if (Scene)
+				{
+					Scene->RemoveAtmosphericFogResource_RenderThread(InTransmittanceResource);
+				}
+				InTransmittanceResource->ReleaseResource();
+				delete InTransmittanceResource;
+			});
 
-		TransmittanceResource = NULL;
+		TransmittanceResource = nullptr;
 	}
 
-	if ( IrradianceResource != NULL )
+	if ( IrradianceResource != nullptr)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			ReleaseAtmosphericFogIrradianceTextureCommand,
-			FRenderResource*,IrradianceResource,IrradianceResource,
-			FSceneInterface*,Scene,Scene,
-		{
-			if (Scene)
+		FRenderResource* InIrradianceResource = IrradianceResource;
+		ENQUEUE_RENDER_COMMAND(ReleaseAtmosphericFogIrradianceTextureCommand)(
+			[InIrradianceResource, Scene](FRHICommandListImmediate& RHICmdList)
 			{
-				Scene->RemoveAtmosphericFogResource_RenderThread(IrradianceResource);
-			}
-			IrradianceResource->ReleaseResource();
-			delete IrradianceResource;
-		});
+				if (Scene)
+				{
+					Scene->RemoveAtmosphericFogResource_RenderThread(InIrradianceResource);
+				}
+				InIrradianceResource->ReleaseResource();
+				delete InIrradianceResource;
+			});
 
-		IrradianceResource = NULL;
+		IrradianceResource = nullptr;
 	}
 
-	if ( InscatterResource != NULL )
+	if ( InscatterResource != nullptr )
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			ReleaseAtmosphericFogInscatterTextureCommand,
-			FRenderResource*,InscatterResource,InscatterResource,
-			FSceneInterface*,Scene,Scene,
-		{
-			if (Scene)
+		FRenderResource* InInscatterResource = InscatterResource;
+		ENQUEUE_RENDER_COMMAND(ReleaseAtmosphericFogInscatterTextureCommand)(
+			[InInscatterResource, Scene](FRHICommandListImmediate& RHICmdList)
 			{
-				Scene->RemoveAtmosphericFogResource_RenderThread(InscatterResource);
-			}
-			InscatterResource->ReleaseResource();
-			delete InscatterResource;
-		});
+				if (Scene)
+				{
+					Scene->RemoveAtmosphericFogResource_RenderThread(InInscatterResource);
+				}
+				InInscatterResource->ReleaseResource();
+				delete InInscatterResource;
+			});
 
-		InscatterResource = NULL;
+		InscatterResource = nullptr;
 	}
 }
 
@@ -578,18 +575,17 @@ void UAtmosphericFogComponent::StartPrecompute()
 			}
 
 			// This is largely redundant, the component will be reattached anyway, thus it will be recomputed.
-			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-				FStartPrecompute,
-				FSceneInterface*, AtmosphericFogScene, AtmosphericFogScene, 
-				UAtmosphericFogComponent*, Component, this,
-			{
-				FAtmosphericFogSceneInfo* AtmosphericFogSceneInfo = AtmosphericFogScene->GetAtmosphericFogSceneInfo();
-
-				if (AtmosphericFogSceneInfo && AtmosphericFogSceneInfo->Component == Component)
+			UAtmosphericFogComponent* Component = this;
+			ENQUEUE_RENDER_COMMAND(FStartPrecompute)(
+				[AtmosphericFogScene, Component](FRHICommandListImmediate& RHICmdList)
 				{
-					AtmosphericFogSceneInfo->bNeedRecompute = true;
-				}
-			});
+					FAtmosphericFogSceneInfo* AtmosphericFogSceneInfo = AtmosphericFogScene->GetAtmosphericFogSceneInfo();
+
+					if (AtmosphericFogSceneInfo && AtmosphericFogSceneInfo->Component == Component)
+					{
+						AtmosphericFogSceneInfo->bNeedRecompute = true;
+					}
+				});
 		}
 	}
 #endif
@@ -731,40 +727,17 @@ void UAtmosphericFogComponent::Serialize(FArchive& Ar)
 	}
 }
 
-/** Used to store lightmap data during RerunConstructionScripts */
-class FAtmospherePrecomputeInstanceData : public FSceneComponentInstanceData
-{
-public:
-	FAtmospherePrecomputeInstanceData(const UAtmosphericFogComponent* SourceComponent)
-		: FSceneComponentInstanceData(SourceComponent)
-	{}
-
-	virtual ~FAtmospherePrecomputeInstanceData()
-	{}
-
-	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
-	{
-		FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
-		CastChecked<UAtmosphericFogComponent>(Component)->ApplyComponentInstanceData(this);
-	}
-
-	struct FAtmospherePrecomputeParameters PrecomputeParameter;
-
-	FByteBulkData TransmittanceData;
-	FByteBulkData IrradianceData;
-	FByteBulkData InscatterData;
-};
 
 // Backup the precomputed data before re-running Blueprint construction script
-FActorComponentInstanceData* UAtmosphericFogComponent::GetComponentInstanceData() const
+TStructOnScope<FActorComponentInstanceData> UAtmosphericFogComponent::GetComponentInstanceData() const
 {
-	FActorComponentInstanceData* InstanceData = nullptr;
+	TStructOnScope<FActorComponentInstanceData> InstanceData;
 
 	if (TransmittanceData.GetElementCount() && IrradianceData.GetElementCount() && InscatterData.GetElementCount() && PrecomputeCounter == EValid)
 	{
 		// Allocate new struct for holding light map data
-		FAtmospherePrecomputeInstanceData* PrecomputedData = new FAtmospherePrecomputeInstanceData(this);
-		InstanceData = PrecomputedData;
+		InstanceData.InitializeAs<FAtmospherePrecomputeInstanceData>(this);
+		FAtmospherePrecomputeInstanceData* PrecomputedData = InstanceData.Cast<FAtmospherePrecomputeInstanceData>();
 
 		// Fill in info
 		PrecomputedData->PrecomputeParameter = PrecomputeParams;
@@ -796,7 +769,6 @@ FActorComponentInstanceData* UAtmosphericFogComponent::GetComponentInstanceData(
 	{
 		InstanceData = Super::GetComponentInstanceData();
 	}
-
 	return InstanceData;
 }
 

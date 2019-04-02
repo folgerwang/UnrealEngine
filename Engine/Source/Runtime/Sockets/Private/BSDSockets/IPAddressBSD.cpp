@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "IPAddressBSD.h"
 #include "SocketSubsystemBSD.h"
@@ -238,16 +238,6 @@ TArray<uint8> FInternetAddrBSD::GetRawIp() const
 		{
 			RawAddressArray.Add(IPv6Addr->sin6_addr.s6_addr[i]);
 		}
-
-		// Copy over the interface if we have it explicitly set (anything other than 0)
-		if (IPv6Addr->sin6_scope_id != 0)
-		{
-			uint32 RawScopeId = IPv6Addr->sin6_scope_id;
-			RawAddressArray.Add((RawScopeId >> 0) & 0xFF);
-			RawAddressArray.Add((RawScopeId >> 8) & 0xFF);
-			RawAddressArray.Add((RawScopeId >> 16) & 0xFF);
-			RawAddressArray.Add((RawScopeId >> 24) & 0xFF);
-		}
 	}
 #endif
 
@@ -269,12 +259,6 @@ void FInternetAddrBSD::SetRawIp(const TArray<uint8>& RawAddr)
 		for (int i = 0; i < 16; ++i)
 		{
 			IPv6Addr->sin6_addr.s6_addr[i] = RawAddr[i];
-		}
-
-		// If this address has an interface, we'll copy it over too.
-		if (RawAddr.Num() == 20)
-		{
-			IPv6Addr->sin6_scope_id = (RawAddr[16] << 0) | (RawAddr[17] << 8) | (RawAddr[18] << 16) | (RawAddr[19] << 24);
 		}
 
 		Addr.ss_family = AF_INET6;
@@ -554,7 +538,7 @@ SOCKLEN FInternetAddrBSD::GetStorageSize() const
 	return sizeof(sockaddr_storage);
 }
 
-uint32 FInternetAddrBSD::GetTypeHash()
+uint32 FInternetAddrBSD::GetTypeHash() const
 {
 	ESocketProtocolFamily CurrentFamily = GetProtocolFamily();
 

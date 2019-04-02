@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:2731779
+﻿INTSourceChangelist:3242329
 Availability:Public
-Title:材质编辑器 - 如何预览和应用材质
+Title:预览和应用材质
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/HowTo
-Description:有关预览和应用材质的操作指南
+Description:有关预览和应用材质的指南
 Related:Engine/Rendering/Materials/Editor/Interface
 Related:Engine/Rendering/Materials/MaterialInputs
 Related:Engine/Rendering/Materials/Editor
@@ -10,6 +10,7 @@ Related:Engine/Rendering/Materials/IntroductionToMaterials
 Related:Engine/Rendering/Materials/MaterialProperties
 Version:4.9
 SkillLevel:Beginner
+tags:Materials
 
 [TOC(start:2 end:3)]
 
@@ -19,6 +20,7 @@ SkillLevel:Beginner
 在虚幻引擎 4 (UE4) 中，预览和应用材质是一个直截了当的过程。
 在以下操作指南中，我们将阐述在 UE4 中预览和应用材质所需了解的所有内容。
 
+(#PreviewingandApplyingMaterials)
 ## 预览和应用材质
 
 预览和应用材质是材质创建过程中的关键步骤，因为只有通过这些步骤，您才能查看并应用材质图中的工作成果。
@@ -28,6 +30,7 @@ SkillLevel:Beginner
 
 ![](Engine\Rendering\Materials\HowTo\Refraction\R_Apply_&_Save.png)
 
+(#HowtoPreviewyourMaterials)
 ## 如何预览材质
 
 在 UE4 中，您可以通过多种不同方法来预览材质，但最简单的方法是使用材质编辑器的 **视口（Viewport）**窗口。 
@@ -70,6 +73,7 @@ TDn_9Dg1s-Q
  对材质网络进行任何更改后，可能要经过一小段时间才能正确渲染这些更改。材质越复杂，更新预览窗口就需要越多的时间。如果您觉得确实需要加快更新速度，那么应考虑将材质转换为 [材质实例] (Engine/Rendering/Materials/MaterialInstances)。 
 [/region]
 
+(#PreviewingintheLevel)
 ### 在关卡中预览
 
 [region:warning]
@@ -125,6 +129,7 @@ TDn_9Dg1s-Q
 	[/PARAMLITERAL]
 	[/OBJECT]
 
+(#HowtoApplyyourMaterials)
 ## 如何应用材质 
 
 在 UE4 中，可通过两种主要的方法将材质应用于对象。
@@ -155,6 +160,7 @@ TDn_9Dg1s-Q
 	[/OBJECT]
 
 
+(#Conclusion)
 ## 总结
 
 如您所见，在 UE4 中，可通过许多不同方法来预览和应用材质。 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "BehaviorTree/Decorators/BTDecorator_DoesPathExist.h"
 #include "UObject/Package.h"
@@ -89,7 +89,7 @@ bool UBTDecorator_DoesPathExist::CalculateRawConditionValue(UBehaviorTreeCompone
 
 FString UBTDecorator_DoesPathExist::GetStaticDescription() const 
 {
-	const UEnum* PathTypeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EPathExistanceQueryType"));
+	const UEnum* PathTypeEnum = StaticEnum<EPathExistanceQueryType::Type>();
 	check(PathTypeEnum);
 
 	return FString::Printf(TEXT("%s: Find path from %s to %s (mode:%s)"),

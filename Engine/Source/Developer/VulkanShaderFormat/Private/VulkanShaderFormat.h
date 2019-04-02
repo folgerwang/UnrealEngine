@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -81,6 +81,9 @@ struct FSpirv
 		uint32 WordBindingIndex = UINT32_MAX;
 	};
 	TArray<FEntry> ReflectionInfo;
+	uint32 OffsetToMainName = 0;
+	uint32 OffsetToEntryPoint = 0;
+	uint32 CRC = 0;
 
 	int32 FindBinding(const FString& Name, bool bOuter = false) const
 	{

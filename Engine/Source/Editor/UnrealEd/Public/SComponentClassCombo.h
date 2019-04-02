@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -148,6 +148,8 @@ public:
 	FName GetIconOverrideBrushName() const { return CustomizationArgs.IconOverrideBrushName; }
 
 	int32 GetSortPriority() const { return CustomizationArgs.SortPriority; }
+
+	void AddReferencedObjects(FReferenceCollector& Collector);
 private:
 	TSubclassOf<UActorComponent> ComponentClass;
 	const UClass* IconClass;

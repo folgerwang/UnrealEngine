@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "Interfaces/IHttpRequest.h"
@@ -83,6 +83,18 @@ namespace BuildPatchServices
 		virtual void SetContentAsString(const FString& ContentString) override
 		{
 			MOCK_FUNC_NOT_IMPLEMENTED("FMockHttpRequest::SetContentAsString");
+		}
+        
+        virtual bool SetContentAsStreamedFile(const FString& Filename) override
+        {
+            MOCK_FUNC_NOT_IMPLEMENTED("FMockHttpRequest::SetContentAsStreamedFile");
+			return false;
+        }
+
+		virtual bool SetContentFromStream(TSharedRef<FArchive, ESPMode::ThreadSafe> Stream) override
+		{
+			MOCK_FUNC_NOT_IMPLEMENTED("FMockHttpRequest::SetContentFromStream");
+			return false;
 		}
 
 		virtual void SetHeader(const FString& HeaderName, const FString& HeaderValue) override

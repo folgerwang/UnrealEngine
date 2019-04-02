@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -9,6 +9,64 @@ using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {
+/// <summary>
+	/// HTML5-specific target settings
+	/// </summary>
+	public class HTML5TargetRules
+	{
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		public HTML5TargetRules()
+		{
+			XmlConfig.ApplyTo(this);
+		}
+
+		/// <summary>
+		/// Use LLVM Wasm backend
+		/// </summary>
+		public string libExt = HTML5ToolChain.libExt;
+	}
+
+	/// <summary>
+	/// Read-only wrapper for HTML5-specific target settings
+	/// </summary>
+	public class ReadOnlyHTML5TargetRules
+	{
+		/// <summary>
+		/// The private mutable settings object
+		/// </summary>
+		private HTML5TargetRules Inner;
+
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		/// <param name="Inner">The settings object to wrap</param>
+		public ReadOnlyHTML5TargetRules(HTML5TargetRules Inner)
+		{
+			this.Inner = Inner;
+		}
+
+		/// <summary>
+		/// Accessors for fields on the inner TargetRules instance
+		/// </summary>
+
+		#region Read-only accessor properties
+#if !__MonoCS__
+#pragma warning disable CS1591
+#endif
+
+		public string libExt
+		{
+			get { return Inner.libExt; }
+		}
+
+#if !__MonoCS__
+#pragma warning restore CS1591
+#endif
+		#endregion
+	}
+
 	class HTML5Platform : UEBuildPlatform
 	{
 		/// <summary>
@@ -46,20 +104,12 @@ namespace UnrealBuildTool
 
 		public override void ValidateTarget(TargetRules Target)
 		{
-			Target.bCompileLeanAndMeanUE = true;
 			Target.bCompileAPEX = false;
 			Target.bCompileNvCloth = false;
 			Target.bCompilePhysX = true;
-			Target.bCompileSimplygon = false;
-			Target.bCompileSimplygonSSF = false;
-			Target.bCompileForSize = true;			// {true:[all:-Oz], false:[developer:-O2, shipping:-O3]}  WARNING: need emscripten version >= 1.37.13
+			Target.bCompileForSize = false;			// {true:[all:-Oz], false:[developer:-O2, shipping:-O3]}  WARNING: need emscripten version >= 1.37.13
 			Target.bUsePCHFiles = false;
 			Target.bDeployAfterCompile = true;
-		}
-
-		public override void PreBuildSync()
-		{
-			HTML5ToolChain.PreBuildSync();
 		}
 
 		public override bool CanUseXGE()
@@ -77,7 +127,7 @@ namespace UnrealBuildTool
 		public override bool IsBuildProduct(string FileName, string[] NamePrefixes, string[] NameSuffixes)
 		{
 			return IsBuildProductName(FileName, NamePrefixes, NameSuffixes, ".js")
-				|| IsBuildProductName(FileName, NamePrefixes, NameSuffixes, ".bc");
+				|| IsBuildProductName(FileName, NamePrefixes, NameSuffixes, HTML5ToolChain.libExt);
 		}
 
 		/// <summary>
@@ -94,7 +144,7 @@ namespace UnrealBuildTool
 				case UEBuildBinaryType.Executable:
 					return ".js";
 				case UEBuildBinaryType.StaticLibrary:
-					return ".bc";
+					return HTML5ToolChain.libExt;
 			}
 
 			return base.GetBinaryExtension(InBinaryType);
@@ -117,11 +167,6 @@ namespace UnrealBuildTool
 		public override bool ShouldCompileMonolithicBinary(UnrealTargetPlatform InPlatform)
 		{
 			// This platform currently always compiles monolithic
-			return true;
-		}
-
-		public override bool BuildRequiresCookedData(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
-		{
 			return true;
 		}
 
@@ -236,8 +281,8 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Deploys the given target
 		/// </summary>
-		/// <param name="Target">Information about the target being deployed</param>
-		public override void Deploy(UEBuildDeployTarget Target)
+		/// <param name="Receipt">Receipt for the target being deployed</param>
+		public override void Deploy(TargetReceipt Receipt)
 		{
 		}
 	}
@@ -271,7 +316,7 @@ namespace UnrealBuildTool
 
 	class HTML5PlatformFactory : UEBuildPlatformFactory
 	{
-		protected override UnrealTargetPlatform TargetPlatform
+		public override UnrealTargetPlatform TargetPlatform
 		{
 			get { return UnrealTargetPlatform.HTML5; }
 		}
@@ -279,10 +324,10 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Register the platform with the UEBuildPlatform class
 		/// </summary>
-		protected override void RegisterBuildPlatforms(SDKOutputLevel OutputLevel)
+		public override void RegisterBuildPlatforms()
 		{
 			HTML5PlatformSDK SDK = new HTML5PlatformSDK();
-			SDK.ManageAndValidateSDK(OutputLevel);
+			SDK.ManageAndValidateSDK();
 
 			// Make sure the SDK is installed
 			if ((ProjectFileGenerator.bGenerateProjectFiles == true) || (SDK.HasRequiredSDKsInstalled() == SDKStatus.Valid))

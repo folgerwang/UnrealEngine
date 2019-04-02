@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -31,6 +31,12 @@ public:
 	// UObject overrides
 	virtual bool IsEditorOnly() const final
 	{
+		return true;
+	}
+
+	virtual bool HasLocalNetOwner() const override
+	{
+		// TODO: When using Multi-User with two VRMode editors, we might have to do something else here for when this is called by MotionControllerComponent::PollControllerState()
 		return true;
 	}
 

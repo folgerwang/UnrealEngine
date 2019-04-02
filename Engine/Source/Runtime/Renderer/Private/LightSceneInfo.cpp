@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LightSceneInfo.cpp: Light scene info implementation.
@@ -30,6 +30,8 @@ void FLightSceneInfoCompact::Init(FLightSceneInfo* InLightSceneInfo)
 	bCastDynamicShadow = InLightSceneInfo->Proxy->CastsDynamicShadow();
 	bCastStaticShadow = InLightSceneInfo->Proxy->CastsStaticShadow();
 	bStaticLighting = InLightSceneInfo->Proxy->HasStaticLighting();
+	bAffectReflection = InLightSceneInfo->Proxy->AffectReflection();
+	bCastRaytracedShadow = InLightSceneInfo->Proxy->CastsRaytracedShadow();
 }
 
 FLightSceneInfo::FLightSceneInfo(FLightSceneProxy* InProxy, bool InbVisible)

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SSequencerTimePanel.h"
 #include "Widgets/SFrameRatePicker.h"
@@ -482,10 +482,10 @@ void SSequencerTimePanel::MigrateFrameTimes(FFrameRate SourceRate, FFrameRate De
 	if (Section->IsA(UMovieSceneSubSection::StaticClass()))
 	{
 		UMovieSceneSubSection* SubSection = Cast<UMovieSceneSubSection>(Section);
-		if (SubSection->Parameters.GetStartFrameOffset() > 0)
+		if (SubSection->Parameters.StartFrameOffset.Value > 0)
 		{
-			FFrameNumber NewStartFrameOffset = ConvertFrameTime(FFrameTime(SubSection->Parameters.GetStartFrameOffset()), SourceRate, DestinationRate).FloorToFrame();
-			SubSection->Parameters.SetStartFrameOffset(NewStartFrameOffset.Value);
+			FFrameNumber NewStartFrameOffset = ConvertFrameTime(FFrameTime(SubSection->Parameters.StartFrameOffset), SourceRate, DestinationRate).FloorToFrame();
+			SubSection->Parameters.StartFrameOffset = NewStartFrameOffset;
 		}
 	}
 

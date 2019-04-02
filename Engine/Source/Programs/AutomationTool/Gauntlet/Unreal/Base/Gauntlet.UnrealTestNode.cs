@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using System.Drawing;
 using System.Linq;
 using System.Text;
+using System.Security.Cryptography;
 
 namespace Gauntlet
 {
@@ -76,14 +77,14 @@ namespace Gauntlet
 
 		private int NumPasses;
 
-		static private DateTime SessionStartTime = DateTime.MinValue;
+		static protected DateTime SessionStartTime = DateTime.MinValue;
 
 		/// <summary>
 		/// Our test result. May be set directly, or by overriding GetUnrealTestResult()
 		/// </summary>
 		private TestResult UnrealTestResult;
 
-		private TConfigClass CachedConfig = null;
+		protected TConfigClass CachedConfig = null;
 
 		private string CachedArtifactPath = null;
 
@@ -179,6 +180,20 @@ namespace Gauntlet
 		}
 
 		/// <summary>
+		/// Returns the cached version of our config. Avoids repeatedly calling GetConfiguration() on derived nodes
+		/// </summary>
+		/// <returns></returns>
+		protected TConfigClass GetCachedConfiguration()
+		{
+			if (CachedConfig == null)
+			{
+				return GetConfiguration();
+			}
+
+			return CachedConfig;
+		}
+
+		/// <summary>
 		/// Returns a priority value for this test
 		/// </summary>
 		/// <returns></returns>
@@ -224,7 +239,7 @@ namespace Gauntlet
 			}
 
 			// This test only ends when all roles are gone
-			if (GetConfiguration().AllRolesExit)
+			if (GetCachedConfiguration().AllRolesExit)
 			{
 				return true;
 			}
@@ -250,7 +265,7 @@ namespace Gauntlet
 		protected bool PrepareUnrealApp()
 		{
 			// Get our configuration
-			TConfigClass Config = GetConfiguration();
+			TConfigClass Config = GetCachedConfiguration();
 
 			if (Config == null)
 			{
@@ -302,13 +317,16 @@ namespace Gauntlet
 
 				foreach (UnrealTestRole TestRole in TypesToRoles.Value)
 				{
+					// If a config has overriden a platform then we can't use the context constraints from the commandline
+					bool UseContextConstraint = TestRole.Type == UnrealTargetRole.Client && TestRole.PlatformOverride == UnrealTargetPlatform.Unknown;
+
 					// important, use the type from the ContextRolke because Server may have been mapped to EditorServer etc
 					UnrealTargetPlatform SessionPlatform = TestRole.PlatformOverride != UnrealTargetPlatform.Unknown ? TestRole.PlatformOverride : RoleContext.Platform;
 
 					UnrealSessionRole SessionRole = new UnrealSessionRole(RoleContext.Type, SessionPlatform, RoleContext.Configuration, TestRole.CommandLine);
 
 					SessionRole.RoleModifier = TestRole.RoleType;
-					SessionRole.Constraint = TestRole.Type == UnrealTargetRole.Client ? Context.Constraint : new UnrealTargetConstraint(SessionPlatform);
+					SessionRole.Constraint = UseContextConstraint ? Context.Constraint : new UnrealTargetConstraint(SessionPlatform);
 					
 					Log.Verbose("Created SessionRole {0} from RoleContext {1} (RoleType={2})", SessionRole, RoleContext, TypesToRoles.Key);
 
@@ -350,7 +368,9 @@ namespace Gauntlet
 						SessionRole.RoleModifier = ERoleModifier.Null;
 					}
 
+					// copy over relevant settings from test role
                     SessionRole.FilesToCopy = TestRole.FilesToCopy;
+					SessionRole.ConfigureDevice = TestRole.ConfigureDevice;
 
 					SessionRoles.Add(SessionRole);
 				}
@@ -383,7 +403,7 @@ namespace Gauntlet
 				throw new AutomationException("Node already has a null UnrealApp, was PrepareUnrealSession or IsReadyToStart called?");
 			}
 
-			TConfigClass Config = GetConfiguration();
+			TConfigClass Config = GetCachedConfiguration();
 
 			CurrentPass = Pass;
 			NumPasses = InNumPasses;			
@@ -495,6 +515,8 @@ namespace Gauntlet
 		/// <returns></returns>
 		public override void StopTest(bool WasCancelled)
 		{
+			base.StopTest(WasCancelled);
+
 			// Shutdown the instance so we can access all files, but do not null it or shutdown the UnrealApp because we still need
 			// access to these objects and their resources! Final cleanup is done in CleanupTest()
 			TestInstance.Shutdown();
@@ -514,21 +536,23 @@ namespace Gauntlet
 
 			try
 			{
-                // Basic pre-existing directory check.
-                if (!Globals.Params.ParseParam("dev") && Directory.Exists(OutputPath))
-                {
-                    string NewOutputPath = OutputPath;
-                    int i = 0;
-                    while (Directory.Exists(NewOutputPath))
-                    {
-                        i++;
-                        NewOutputPath = string.Format("{0}_{1}", OutputPath, i);
-                    }
-                    Log.Info("Directory already exists at {0}", OutputPath);
-                    OutputPath = NewOutputPath;
-                }
+				// Basic pre-existing directory check.
+				if (CommandUtils.IsBuildMachine && Directory.Exists(OutputPath))
+				{
+					string NewOutputPath = OutputPath;
+					int i = 0;
+					while (Directory.Exists(NewOutputPath))
+					{
+						i++;
+						NewOutputPath = string.Format("{0}_{1}", OutputPath, i);
+					}
+					Log.Info("Directory already exists at {0}", OutputPath);
+					OutputPath = NewOutputPath;
+				}
 				Log.Info("Saving artifacts to {0}", OutputPath);
 				Directory.CreateDirectory(OutputPath);
+				Utils.SystemHelpers.MarkDirectoryForCleanup(OutputPath);
+
 				SessionArtifacts = SaveRoleArtifacts(OutputPath);
 
 				// call legacy version
@@ -664,6 +688,55 @@ namespace Gauntlet
 		}
 
 		/// <summary>
+		/// Returns a hash that represents the results of a role. Should be 0 if no fatal errors or ensures
+		/// </summary>
+		/// <param name="InArtifacts"></param>
+		/// <returns></returns>
+		protected virtual string GetRoleResultHash(UnrealRoleArtifacts InArtifacts)
+		{
+			const int MaxCallstackLines = 10;			
+
+			UnrealLogParser.LogSummary LogSummary = InArtifacts.LogSummary;
+
+			string TotalString = "";
+
+			//Func<int, string> ComputeHash = (string Str) => { return Hasher.ComputeHash(Encoding.UTF8.GetBytes(Str)); };
+			
+			if (LogSummary.FatalError != null)
+			{				
+				TotalString += string.Join("\n", InArtifacts.LogSummary.FatalError.Callstack.Take(MaxCallstackLines));
+				TotalString += "\n";
+			}
+
+			foreach (var Ensure in LogSummary.Ensures)
+			{
+				TotalString += string.Join("\n", Ensure.Callstack.Take(MaxCallstackLines));
+				TotalString += "\n";
+			}
+
+			string Hash = Hasher.ComputeHash(TotalString);
+
+			return Hash;
+		}
+
+		/// <summary>
+		/// Returns a hash that represents the failure results of this test. If the test failed this should be an empty string
+		/// </summary>
+		/// <returns></returns>
+		protected virtual string GetTestResultHash()
+		{
+			IEnumerable<string> RoleHashes = SessionArtifacts.Select(A => GetRoleResultHash(A)).OrderBy(S => S);
+
+			RoleHashes = RoleHashes.Where(S => S.Length > 0 && S != "0");
+
+			string Combined = string.Join("\n", RoleHashes);
+
+			string CombinedHash = Hasher.ComputeHash(Combined);
+
+			return CombinedHash;
+		}
+
+		/// <summary>
 		/// Parses the output of an application to try and determine a failure cause (if one exists). Returns
 		/// 0 for graceful shutdown
 		/// </summary>
@@ -724,7 +797,9 @@ namespace Gauntlet
 			MB.Paragraph(string.Format("FatalErrors: {0}, Ensures: {1}, Errors: {2}, Warnings: {3}",
 				FatalErrors, LogSummary.Ensures.Count(), LogSummary.Errors.Count(), LogSummary.Warnings.Count()));
 
-			if (GetConfiguration().ShowErrorsInSummary && InArtifacts.LogSummary.Errors.Count() > 0)
+			MB.Paragraph(string.Format("ResultHash: {0}", GetRoleResultHash(InArtifacts)));
+
+			if (GetCachedConfiguration().ShowErrorsInSummary && InArtifacts.LogSummary.Errors.Count() > 0)
 			{
 				MB.H4("Errors");
 				MB.UnorderedList(LogSummary.Errors.Take(MaxLogLines));
@@ -735,7 +810,7 @@ namespace Gauntlet
 				}
 			}
 
-			if (GetConfiguration().ShowWarningsInSummary && InArtifacts.LogSummary.Warnings.Count() > 0)
+			if (GetCachedConfiguration().ShowWarningsInSummary && InArtifacts.LogSummary.Warnings.Count() > 0)
 			{
 				MB.H4("Warnings");
 				MB.UnorderedList(LogSummary.Warnings.Take(MaxLogLines));
@@ -840,6 +915,7 @@ namespace Gauntlet
 		{
 			int ExitCode = 0;
 
+			// Let the test try and diagnose things as best it can
 			var ProblemArtifact = GetArtifactsWithFailures().FirstOrDefault();
 
 			if (ProblemArtifact != null)
@@ -848,7 +924,13 @@ namespace Gauntlet
 
 				ExitCode = GetExitCodeAndReason(ProblemArtifact, out ExitReason);
 				Log.Info("{0} exited with {1}. ({2})", ProblemArtifact.SessionRole, ExitCode, ExitReason);
-			}				
+			}
+
+			// If it didn't find an error, overrule it as a failure if the test was cancelled
+			if (ExitCode == 0 && WasCancelled)
+			{
+				return TestResult.Failed;
+			}
 
 			return ExitCode == 0 ? TestResult.Passed : TestResult.Failed;
 		}
@@ -859,22 +941,33 @@ namespace Gauntlet
 		/// <returns></returns>
 		public override string GetTestSummary()
 		{
-			
+
 			int AbnormalExits = 0;
 			int FatalErrors = 0;
 			int Ensures = 0;
 			int Errors = 0;
 			int Warnings = 0;
 
-			StringBuilder SB = new StringBuilder();
-			
-			// Sort our artifacts so any missing processes are first
-			var ProblemArtifacts = GetArtifactsWithFailures();
+			// Handle case where there aren't any session artifacts, for example with device starvation
+			if (SessionArtifacts == null)
+			{
+				return "NoSummary";
+			}
 
-			var AllArtifacts = ProblemArtifacts.Union(SessionArtifacts);
+			StringBuilder SB = new StringBuilder();
+
+			// Get any artifacts with failures
+			var FailureArtifacts = GetArtifactsWithFailures();
+
+			// Any with warnings (ensures)
+			var WarningArtifacts = SessionArtifacts.Where(A => A.LogSummary.Ensures.Count() > 0);
+
+			// combine artifacts into order as Failures, Warnings, Other
+			var AllArtifacts = FailureArtifacts.Union(WarningArtifacts);
+			AllArtifacts = AllArtifacts.Union(SessionArtifacts);
 
 			// create a quicck summary of total failures, ensures, errors, etc
-			foreach( var Artifact in AllArtifacts)
+			foreach ( var Artifact in AllArtifacts)
 			{
 				string Summary = "NoSummary";
 				int ExitCode = GetRoleSummary(Artifact, out Summary);
@@ -898,14 +991,16 @@ namespace Gauntlet
 
 			MarkdownBuilder MB = new MarkdownBuilder();
 
+			string WarningStatement = HasWarnings ? " With Warnings" : "";
+
 			// Create a summary
-			MB.H2(string.Format("{0} {1}", Name, GetTestResult()));
+			MB.H2(string.Format("{0} {1}{2}", Name, GetTestResult(), WarningStatement));
 
 			if (GetTestResult() != TestResult.Passed)
 			{
-				if (ProblemArtifacts.Count() > 0)
+				if (FailureArtifacts.Count() > 0)
 				{
-					foreach (var FailedArtifact in ProblemArtifacts)
+					foreach (var FailedArtifact in FailureArtifacts)
 					{
 						string FirstProcessCause = "";
 						int FirstExitCode = GetExitCodeAndReason(FailedArtifact, out FirstProcessCause);
@@ -922,6 +1017,7 @@ namespace Gauntlet
 			}
 			MB.Paragraph(string.Format("Context: {0}", Context.ToString()));
 			MB.Paragraph(string.Format("FatalErrors: {0}, Ensures: {1}, Errors: {2}, Warnings: {3}", FatalErrors, Ensures, Errors, Warnings));
+			MB.Paragraph(string.Format("ResultHash: {0}", GetTestResultHash()));
 			//MB.Paragraph(string.Format("Artifacts: {0}", CachedArtifactPath));
 			MB.Append("--------");
 			MB.Append(SB.ToString());

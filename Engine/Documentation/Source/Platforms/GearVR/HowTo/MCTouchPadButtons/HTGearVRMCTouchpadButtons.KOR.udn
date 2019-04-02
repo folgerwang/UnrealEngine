@@ -1,8 +1,8 @@
 ﻿INTSourceChangelist:3782314
 Availability: Public
 Crumbs: %ROOT%
-Title: 기어 VR 터치패드 버튼 사용
-Description: 기어 VR 모션 컨트롤러 터치패드 버튼 구성 방법입니다.
+Title: Gear VR 터치패드 버튼 사용
+Description: Gear VR 모션 컨트롤러 터치패드 버튼 구성 방법입니다.
 Type: how-to
 SkillLevel:Intermediate
 Version: 4.17
@@ -15,7 +15,7 @@ prereq: Platforms\GearVR\QuickStart
 prereq: Platforms\GearVR\HowTo\CameraSetup
 prereq: Platforms\GearVR\HowTo\MotionController
 
-기어 VR 모션 컨트롤러(MC)에는 여러 버튼과 터치패드가 있어 UE4 의 여러가지 다양한 입력 작업을 처리하도록 구성할 수 있습니다. 여기서는 터치패드와 거기서 제공되는 다섯가지 버튼을 사용하도록 구성하는 법을 살펴보겠습니다.
+Gear VR 모션 컨트롤러(MC)에는 여러 버튼과 터치패드가 있어 UE4 의 여러가지 다양한 입력 작업을 처리하도록 구성할 수 있습니다. 여기서는 터치패드와 거기서 제공되는 다섯가지 버튼을 사용하도록 구성하는 법을 살펴보겠습니다.
 
 [region:note]
 여기서는 이미 VR 카메라와 모션 컨트롤러 지원이 추가된 폰을 가지고 시작합니다. 그 구성이 없는 경우, 이 페이지 상단의 **사전 필수 토픽** 목록에 있는 문서를 참고하시기 바랍니다.
@@ -141,7 +141,7 @@ prereq: Platforms\GearVR\HowTo\MotionController
   
 ## 최종 결과
 
-블루프린트를 컴파일하고 저장한 뒤 실행 버튼을 사용하여 프로젝트를 삼성 갤럭시 노트 스마트폰에 디플로이하고 실행합니다. 프로젝트가 폰에 디플로이되면, 폰을 기어 VR HMD 에 넣고 모션 컨트롤러를 집어듭니다. 이제 터치패드의 한 쪽 방향을 누르면, 다음 비디오처럼 눌린 버튼이 표시될 것입니다.
+블루프린트를 컴파일하고 저장한 뒤 실행 버튼을 사용하여 프로젝트를 삼성 갤럭시 노트 스마트폰에 디플로이하고 실행합니다. 프로젝트가 폰에 디플로이되면, 폰을 Gear VR HMD 에 넣고 모션 컨트롤러를 집어듭니다. 이제 터치패드의 한 쪽 방향을 누르면, 다음 비디오처럼 눌린 버튼이 표시될 것입니다.
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -214,6 +214,9 @@ public:
 
 	/** @return The coordinates of the requested mouse position */
 	const TOptional<FIntPoint>& GetRequestedMousePos() const { return RequestedMousePos; }
+
+	/** Converts the reply into an string representation. */
+	FString ToString();
 		
 public:
 
@@ -281,12 +284,12 @@ private:
 	EUINavigation NavigationType;
 	ENavigationGenesis NavigationGenesis;
 	ENavigationSource NavigationSource;
-	uint32 bReleaseMouseCapture:1;
-	uint32 bSetUserFocus:1;
+	uint32 bReleaseMouseCapture : 1;
+	uint32 bSetUserFocus : 1;
 	uint32 bReleaseUserFocus : 1;
-	uint32 bAllUsers:1;
-	uint32 bShouldReleaseMouseLock:1;
-	uint32 bUseHighPrecisionMouse:1;
-	uint32 bPreventThrottling:1;
-	uint32 bEndDragDrop:1;
+	uint32 bAllUsers : 1;
+	uint32 bShouldReleaseMouseLock : 1;
+	uint32 bUseHighPrecisionMouse : 1;
+	uint32 bPreventThrottling : 1;
+	uint32 bEndDragDrop : 1;
 };

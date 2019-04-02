@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Factories/CSVImportFactory.h"
 #include "Misc/MessageDialog.h"
@@ -91,7 +91,7 @@ bool UCSVImportFactory::FactoryCanImport(const FString& Filename)
 {
 	const FString Extension = FPaths::GetExtension(Filename);
 
-	if(Extension == TEXT("csv"))
+	if (Extension == TEXT("csv"))
 	{
 		return true;
 	}
@@ -100,7 +100,7 @@ bool UCSVImportFactory::FactoryCanImport(const FString& Filename)
 
 UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const TCHAR*& Buffer, const TCHAR* BufferEnd, FFeedbackContext* Warn, bool& bOutOperationCanceled)
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, Type);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPreImport(this, InClass, InParent, InName, Type);
 
 	bOutOperationCanceled = false;
 
@@ -115,7 +115,7 @@ UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent
 	ERichCurveInterpMode ImportCurveInterpMode = RCIM_Linear;
 	ECSVImportType ImportType = ECSVImportType::ECSV_DataTable;
 
-	if( IsAutomatedImport() )
+	if (IsAutomatedImport())
 	{
 		ImportRowStruct = AutomatedImportSettings.ImportRowStruct;
 		ImportCurveInterpMode = AutomatedImportSettings.ImportCurveInterpMode;
@@ -143,11 +143,11 @@ UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent
 	bool bDoImport = true;
 
 	// If we do not have the info we need, pop up window to ask for things
-	if(!bHaveInfo && !IsAutomatedImport())
+	if (!bHaveInfo && !IsAutomatedImport())
 	{
 		TSharedPtr<SWindow> ParentWindow;
 		// Check if the main frame is loaded.  When using the old main frame it may not be.
-		if( FModuleManager::Get().IsModuleLoaded( "MainFrame" ) )
+		if (FModuleManager::Get().IsModuleLoaded( "MainFrame" ))
 		{
 			IMainFrameModule& MainFrame = FModuleManager::LoadModuleChecked<IMainFrameModule>( "MainFrame" );
 			ParentWindow = MainFrame.GetParentWindow();
@@ -181,9 +181,9 @@ UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent
 		bDoImport = ImportOptionsWindow->ShouldImport();
 		bOutOperationCanceled = !bDoImport;
 	}
-	else if(!bHaveInfo && IsAutomatedImport())
+	else if (!bHaveInfo && IsAutomatedImport())
 	{
-		if(ImportType == ECSVImportType::ECSV_DataTable && !ImportRowStruct)
+		if (ImportType == ECSVImportType::ECSV_DataTable && !ImportRowStruct)
 		{
 			UE_LOG(LogCSVImportFactory, Error, TEXT("A Data table row type must be specified in the import settings json file for automated import"));
 		}
@@ -191,7 +191,7 @@ UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent
 	}
 
 	UObject* NewAsset = nullptr;
-	if(bDoImport)
+	if (bDoImport)
 	{
 		// Convert buffer to an FString (will this be slow with big tables?)
 		FString String;
@@ -280,11 +280,11 @@ UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent
 			NewAsset = NewCurve;
 		}
 		
-		if(Problems.Num() > 0)
+		if (Problems.Num() > 0)
 		{
 			FString AllProblems;
 
-			for(int32 ProbIdx=0; ProbIdx<Problems.Num(); ProbIdx++)
+			for (int32 ProbIdx=0; ProbIdx<Problems.Num(); ProbIdx++)
 			{
 				// Output problems to log
 				UE_LOG(LogCSVImportFactory, Log, TEXT("%d:%s"), ProbIdx, *Problems[ProbIdx]);
@@ -292,7 +292,7 @@ UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent
 				AllProblems += TEXT("\n");
 			}
 
-			if(!IsAutomatedImport())
+			if (!IsAutomatedImport())
 			{
 				// Pop up any problems for user
 				FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(AllProblems));
@@ -300,7 +300,7 @@ UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent
 		}
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, NewAsset);
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, NewAsset);
 
 	return NewAsset;
 }
@@ -309,15 +309,15 @@ EReimportResult::Type UCSVImportFactory::ReimportCSV(UObject* Obj)
 {
 	EReimportResult::Type Result = EReimportResult::Failed;
 
-	if(UCurveBase* Curve = Cast<UCurveBase>(Obj))
+	if (UCurveBase* Curve = Cast<UCurveBase>(Obj))
 	{
 		Result = Reimport(Curve, Curve->AssetImportData->GetFirstFilename());
 	}
-	else if(UCurveTable* CurveTable = Cast<UCurveTable>(Obj))
+	else if (UCurveTable* CurveTable = Cast<UCurveTable>(Obj))
 	{
 		Result = Reimport(CurveTable, CurveTable->AssetImportData->GetFirstFilename());
 	}
-	else if(UDataTable* DataTable = Cast<UDataTable>(Obj))
+	else if (UDataTable* DataTable = Cast<UDataTable>(Obj))
 	{
 		Result = Reimport(DataTable, DataTable->AssetImportData->GetFirstFilename());
 	}
@@ -331,12 +331,12 @@ void UCSVImportFactory::ParseFromJson(TSharedRef<class FJsonObject> ImportSettin
 
 EReimportResult::Type UCSVImportFactory::Reimport(UObject* Obj, const FString& Path)
 {
-	if(Path.IsEmpty() == false)
+	if (Path.IsEmpty() == false)
 	{ 
 		FString FilePath = IFileManager::Get().ConvertToRelativePath(*Path);
 
 		FString Data;
-		if( FFileHelper::LoadFileToString( Data, *FilePath) )
+		if ( FFileHelper::LoadFileToString( Data, *FilePath) )
 		{
 			const TCHAR* Ptr = *Data;
 			CurrentFilename = FilePath; //not thread safe but seems to be how it is done..
@@ -406,17 +406,12 @@ bool UReimportDataTableFactory::FactoryCanImport( const FString& Filename )
 bool UReimportDataTableFactory::CanReimport( UObject* Obj, TArray<FString>& OutFilenames )
 {	
 	UDataTable* DataTable = Cast<UDataTable>(Obj);
-	if(DataTable)
+	if (DataTable)
 	{
 		DataTable->AssetImportData->ExtractFilenames(OutFilenames);
-		if (OutFilenames.Num() > 0)
-		{
-			return true;
-		}
-		else
-		{
-			return false;
-		}
+		
+		// Always allow reimporting a data table as it is common to convert from manual to CSV-driven tables
+		return true;
 	}
 	return false;
 }
@@ -424,7 +419,7 @@ bool UReimportDataTableFactory::CanReimport( UObject* Obj, TArray<FString>& OutF
 void UReimportDataTableFactory::SetReimportPaths( UObject* Obj, const TArray<FString>& NewReimportPaths )
 {	
 	UDataTable* DataTable = Cast<UDataTable>(Obj);
-	if(DataTable && ensure(NewReimportPaths.Num() == 1))
+	if (DataTable && ensure(NewReimportPaths.Num() == 1))
 	{
 		DataTable->AssetImportData->UpdateFilenameOnly(NewReimportPaths[0]);
 	}
@@ -458,7 +453,7 @@ UReimportCurveTableFactory::UReimportCurveTableFactory(const FObjectInitializer&
 bool UReimportCurveTableFactory::CanReimport( UObject* Obj, TArray<FString>& OutFilenames )
 {	
 	UCurveTable* CurveTable = Cast<UCurveTable>(Obj);
-	if(CurveTable)
+	if (CurveTable)
 	{
 		CurveTable->AssetImportData->ExtractFilenames(OutFilenames);
 		return true;
@@ -469,7 +464,7 @@ bool UReimportCurveTableFactory::CanReimport( UObject* Obj, TArray<FString>& Out
 void UReimportCurveTableFactory::SetReimportPaths( UObject* Obj, const TArray<FString>& NewReimportPaths )
 {	
 	UCurveTable* CurveTable = Cast<UCurveTable>(Obj);
-	if(CurveTable && ensure(NewReimportPaths.Num() == 1))
+	if (CurveTable && ensure(NewReimportPaths.Num() == 1))
 	{
 		CurveTable->AssetImportData->UpdateFilenameOnly(NewReimportPaths[0]);
 	}
@@ -477,7 +472,7 @@ void UReimportCurveTableFactory::SetReimportPaths( UObject* Obj, const TArray<FS
 
 EReimportResult::Type UReimportCurveTableFactory::Reimport( UObject* Obj )
 {	
-	if(Cast<UCurveTable>(Obj))
+	if (Cast<UCurveTable>(Obj))
 	{
 		return UCSVImportFactory::ReimportCSV(Obj) ? EReimportResult::Succeeded : EReimportResult::Failed;
 	}
@@ -500,7 +495,7 @@ UReimportCurveFactory::UReimportCurveFactory(const FObjectInitializer& ObjectIni
 bool UReimportCurveFactory::CanReimport( UObject* Obj, TArray<FString>& OutFilenames )
 {	
 	UCurveBase* CurveBase = Cast<UCurveBase>(Obj);
-	if(CurveBase)
+	if (CurveBase)
 	{
 		CurveBase->AssetImportData->ExtractFilenames(OutFilenames);
 		return true;
@@ -511,7 +506,7 @@ bool UReimportCurveFactory::CanReimport( UObject* Obj, TArray<FString>& OutFilen
 void UReimportCurveFactory::SetReimportPaths( UObject* Obj, const TArray<FString>& NewReimportPaths )
 {	
 	UCurveBase* CurveBase = Cast<UCurveBase>(Obj);
-	if(CurveBase && ensure(NewReimportPaths.Num() == 1))
+	if (CurveBase && ensure(NewReimportPaths.Num() == 1))
 	{
 		CurveBase->AssetImportData->UpdateFilenameOnly(NewReimportPaths[0]);
 	}
@@ -519,7 +514,7 @@ void UReimportCurveFactory::SetReimportPaths( UObject* Obj, const TArray<FString
 
 EReimportResult::Type UReimportCurveFactory::Reimport( UObject* Obj )
 {	
-	if(Cast<UCurveBase>(Obj))
+	if (Cast<UCurveBase>(Obj))
 	{
 		return UCSVImportFactory::ReimportCSV(Obj) ? EReimportResult::Succeeded : EReimportResult::Failed;
 	}

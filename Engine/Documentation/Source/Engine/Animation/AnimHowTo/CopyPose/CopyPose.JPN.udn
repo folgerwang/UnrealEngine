@@ -1,0 +1,85 @@
+﻿INTSourceChangelist:4385367
+Availability: Public
+Crumbs: 
+Title: 別のスケルタル メッシュからポーズをコピーする
+Description: Copy Pose From Mesh Animation ブループリント ノードを使用して、スケルタル メッシュから別のスケルタル メッシュにポーズをコピーする方法を説明します。
+Type:how-to
+Version: 4.20
+Parent: Engine/Animation/AnimHowTo
+Order: 2
+Tags: Animation, Animation Blueprint, Copy Pose
+
+
+アニメートされたキャラクターで作業している際に、同じアニメーション データをまったく別のキャラクターに適用させたい場合があります。 **Copy Pose From Mesh** Animation ブループリント ノード、およびブループリント ビジュアル スクリプティングの一部を使用することで、スケルタル メッシュ コンポーネントを参照して、異なるスケルタル メッシュの別の Animation プループリントに対して使用されているポーズをコピーすることができます。
+
+この操作ガイドでは、Copy Pose From Mesh ノードを使用して、プレーヤーのアニメーションを別のスケルタル メッシュにコピーします。
+
+![](CopyPoseFromMesh.png)
+
+## ステップ
+
+1. **「Content/ThirdPersonBP/Blueprints」** フォルダで、デフォルトの名前で **ThirdPersonCharacter** ブループリントを複製します。
+
+    ![](CopyPose_1.png)
+
+2. **「Content/Mannequin/Character/Mesh」** フォルダで、 **SK_Mannequin** を右クリックして **[Create]** の **[Anim Blueprint]** を選択し、デフォルトの命名規則を使用します。
+
+    ![](CopyPose_2.png)
+
+3. ステップ 1 で複製した **ThirdPersonCharacter1** ブループリントを開いて、 **イベント グラフ** ですべてのノードを削除します。
+
+4. **[Components]** ウィンドウで **[Mesh]** を選択して、**[Details]** パネルで **[Anim Class]** を **「UE4\_Mannequin\_Skeleton_AnimBlueprint」** に設定します。
+
+    ![](CopyPose_3-1.png)
+
+5. **「UE4\_Mannequin\_Skeleton_AnimBlueprint」** を開き、 **Anim グラフ** で **Copy Pose From Mesh** ノードを追加して、 **Final Animation Pose** に接続します。次に、 **Source Mesh Component** を **Character Reference** と呼ばれる変数に昇格させます。
+
+    ![](CopyPose_5.png)  
+
+    Character Reference 変数は、特定したキャラクターのスケルタル メッシュ コンポーネントを参照します。 
+
+6. **ThirdPersonCharacter1** ブループリント内で **Character Reference** と呼ばれる変数を作成して、**[Variable Type]** を **[Third Person Character]** に設定し、**[Instance Editable]** をオンにして有効にします。
+
+    ![](CopyPose_6.png)
+
+7. **ThirdPersonCharacter1** ブループリントをレベルにドラッグして、その **[Details]** パネルでレベルの **ThirdPersonCharacter** を **Character Reference** 変数として割り当てます。
+ 
+    ![](CopyPose_7.png)  
+
+    ここで変数を割り当てることで、コピーするスケルタル メッシュ コンポーネントを持つキャラクター (ここではプレーヤー) への参照を得ることができます。 
+
+8. **「UE4\_Mannequin\_Skeleton_AnimBlueprint」**を開き、 **イベント グラフ** で **Try Get Pawn Owner** ノードを **Cast to ThirdPersonCharacter1** に使用して、 **As Third Person Character 1** ピンを外して **Character Reference** 変数を取得します。
+    
+	![](CopyPose_8.png)
+
+9. **Character Reference** ノードから **Get Mesh** ノードを追加し、Animation ブループリント内で **Character Reference** 変数を設定します。
+
+    ![](CopyPose_9.png)  
+
+    プレーヤーのスケルタル メッシュがコピーされて、この Animation ブループリント内で Character Reference に割り当てられ、キャラクターのポーズを制御します。 
+
+10. メイン ツールバーの **[Play]** ボタンを押し、エディタで再生します。 
+
+## 最終結果
+
+エディタで再生すると、操作していないキャラクターがプレーヤー キャラクターと同様のアニメーションで動きます。 
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:width]
+	640
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	360
+	[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	5SVoMKr_X-4
+	[/PARAMLITERAL]
+[/OBJECT]
+
+プレーヤーが動き回ると、レベル内のもう一方のキャラクターに異なるポーズを指示するロジックやステートマシンがない場合でも、そのアニメーション ポーズをコピーして同様に動きます。この例ではプレーヤーがコピーされますが、アニメーションを制御する AI およびステートマシンをプレイ不可能なキャラクター (NPC) に設定して、Copy Pose From Mesh ノードを通じて、ロジックを持たない別の NPC にポーズをコピーさせ、同じ動作とロジックを模倣させることが可能です。 
+
+Copy Pose From Mesh ノードを使用している際は、 **[Details]** パネルで **[Use Attached Parent]** を有効にすることができます。有効にすると、Source Mesh Component が無効な場合に、アタッチされた親が検出されてソースとして使用されます。 
+
+![](CopyPoseDetails.png)
+
+また、ボーン トランスフォームに加えて **[Copy Curves]** を使用することもでき、これによって現在のスケルトンにあるカーブがコピーされます。カーブ リストが変更されると、アニメーション システムの再初期化が必要になります。

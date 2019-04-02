@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*================================================================================
 	AndroidProperties.h - Basic static properties of a platform 
@@ -84,11 +84,6 @@ struct FAndroidPlatformProperties
 	}
 
 	static FORCEINLINE bool SupportsMinimize()
-	{
-		return true;
-	}
-
-	static FORCEINLINE bool SupportsQuit() 
 	{
 		return true;
 	}

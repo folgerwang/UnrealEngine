@@ -30,7 +30,7 @@ clipping rect)을 만드는 방식으로 이루어집니다. 이 시스템은 �
 ## 새로운 기능
 
 언리얼 엔진 4.17 에서 클리핑 시스템이 크게 바뀌어 전 버전에 비해 유연성이 대폭 향상되었습니다. 이를 통해 프로젝트의 UI 에도 [UMG](Engine/UMG/UserGuide) 같은 
-툴 시스템용 렌더링 이펙트를 더 많이 추가할 수 있는 가능성이 생겼습니다. 예전 엔진 버전에 사용되던 클리핑 시스템은 한계가 많고 레이아웃 스페이스에서 축 평행인 경우만 지원했기에 아래 예제처럼 렌더 트랜스폼 관련해서 주로 에지 주변에 눈에 띄는 부작용이 
+툴 시스템용 렌더링 이펙트를 더 많이 추가할 수 있는 가능성이 생겼습니다. 이전 엔진 버전에 사용되던 클리핑 시스템은 한계가 많고 레이아웃 스페이스에서 축 평행인 경우만 지원했기에 아래 예제처럼 렌더 트랜스폼 관련해서 주로 에지 주변에 눈에 띄는 부작용이 
 많이 생겼었습니다:
 
 [REGION:imagetable]
@@ -155,7 +155,7 @@ clipping rect)을 만드는 방식으로 이루어집니다. 이 시스템은 �
 
 	OutDrawElements.PopClip();
 
-`FSlateClippingZone` 는 윈도우 스페이스의 임의 클리핑 영역으로, 초기화시키면 여러가지 메서드를 통해 기존 코드의 간단한 변환이 가능합니다.
+`FSlateClippingZone` 는 Windows 스페이스의 임의 클리핑 영역으로, 초기화시키면 여러가지 메서드를 통해 기존 코드의 간단한 변환이 가능합니다.
 
 커스텀 클리핑이 Hit Testing 에 영향을 끼치도록 할 필요도 있는 경우, 다음과 같은 구성으로 클리핑 존을 Hit Test Grid 에 푸시해 주어야 할 것입니다:
 
@@ -168,7 +168,7 @@ clipping rect)을 만드는 방식으로 이루어집니다. 이 시스템은 �
 	Args.GetGrid().PopClip();
 
 [REGION:note]
-Hit Test Grid 에 대한 클리핑 사각형은 AllotedGeometry 대신 캐시된 지오메트리를 사용하고 있습니다. `OnPaint` 에서, `AllotedGeometry` 는 윈도우 스페이스인 반면, Hit Test Grid 는 데스크톱 스페이스입니다. 그래서 
+Hit Test Grid 에 대한 클리핑 사각형은 AllotedGeometry 대신 캐시된 지오메트리를 사용하고 있습니다. `OnPaint` 에서, `AllotedGeometry` 는 Windows 스페이스인 반면, Hit Test Grid 는 데스크톱 스페이스입니다. 그래서 
 Tick 시키려는 지오메트리를 사용해야 합니다.
 [/REGION]
 

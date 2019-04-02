@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,6 +7,14 @@
 #include "UObject/ScriptMacros.h"
 
 #include "MediaPlayerOptions.generated.h"
+
+UENUM(BlueprintType)
+enum class EMediaPlayerOptionBooleanOverride : uint8
+{
+	UseMediaPlayerSetting,
+	Enabled,
+	Disabled
+};
 
 USTRUCT(BlueprintType)
 struct FMediaPlayerTrackOptions
@@ -51,10 +59,22 @@ struct FMediaPlayerOptions
 {
 	GENERATED_BODY()
 
-	FMediaPlayerOptions()
+	FMediaPlayerOptions() :
+		SeekTime(0),
+		PlayOnOpen(EMediaPlayerOptionBooleanOverride::UseMediaPlayerSetting),
+		Loop(EMediaPlayerOptionBooleanOverride::UseMediaPlayerSetting)
 	{
 	}
 
 	UPROPERTY(BlueprintReadWrite, Category = "Tracks")
 	FMediaPlayerTrackOptions Tracks;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Misc")
+	FTimespan SeekTime;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Misc")
+	EMediaPlayerOptionBooleanOverride PlayOnOpen;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Misc")
+	EMediaPlayerOptionBooleanOverride Loop;
 };

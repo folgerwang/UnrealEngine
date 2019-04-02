@@ -1,7 +1,7 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	HeightfieldLighting.cpp
+HeightfieldLighting.cpp
 =============================================================================*/
 
 #include "HeightfieldLighting.h"
@@ -24,7 +24,7 @@ FAutoConsoleVariableRef CVarAOHeightfieldOcclusion(
 	GAOHeightfieldOcclusion,
 	TEXT("Whether to compute AO from heightfields (landscape)"),
 	ECVF_RenderThreadSafe
-	);
+);
 
 int32 GHeightfieldGlobalIllumination = 1;
 FAutoConsoleVariableRef CVarHeightfieldGlobalIllumination(
@@ -32,7 +32,7 @@ FAutoConsoleVariableRef CVarHeightfieldGlobalIllumination(
 	GHeightfieldGlobalIllumination,
 	TEXT(""),
 	ECVF_RenderThreadSafe
-	);
+);
 
 float GHeightfieldInnerBounceDistance = 3000;
 FAutoConsoleVariableRef CVarHeightfieldInnerBounceDistancer(
@@ -40,7 +40,7 @@ FAutoConsoleVariableRef CVarHeightfieldInnerBounceDistancer(
 	GHeightfieldInnerBounceDistance,
 	TEXT(""),
 	ECVF_RenderThreadSafe
-	);
+);
 
 float GHeightfieldOuterBounceDistanceScale = 3;
 FAutoConsoleVariableRef CVarHeightfieldOuterBounceDistanceScale(
@@ -48,7 +48,7 @@ FAutoConsoleVariableRef CVarHeightfieldOuterBounceDistanceScale(
 	GHeightfieldOuterBounceDistanceScale,
 	TEXT(""),
 	ECVF_RenderThreadSafe
-	);
+);
 
 float GetGHeightfieldBounceDistance()
 {
@@ -61,7 +61,7 @@ FAutoConsoleVariableRef CVarHeightfieldTargetUnitsPerTexel(
 	GHeightfieldTargetUnitsPerTexel,
 	TEXT(""),
 	ECVF_RenderThreadSafe
-	);
+);
 
 void FHeightfieldLightingAtlas::InitDynamicRHI()
 {
@@ -90,7 +90,7 @@ void FHeightfieldLightingAtlas::InitDynamicRHI()
 
 		FPooledRenderTargetDesc Desc3(FPooledRenderTargetDesc::Create2DDesc(
 			AtlasSize,
-			PF_R8G8B8A8, 
+			PF_R8G8B8A8,
 			FClearValueBinding::Transparent,
 			TexCreate_None,
 			TexCreate_RenderTargetable,
@@ -100,7 +100,7 @@ void FHeightfieldLightingAtlas::InitDynamicRHI()
 
 		FPooledRenderTargetDesc Desc4(FPooledRenderTargetDesc::Create2DDesc(
 			AtlasSize,
-			PF_G8,			
+			PF_G8,
 			FClearValueBinding::White,
 			TexCreate_None,
 			TexCreate_RenderTargetable,
@@ -179,10 +179,10 @@ class FSubsectionHeightfieldDescriptionParameters
 public:
 	void Bind(const FShaderParameterMap& ParameterMap)
 	{
-		SubsectionHeightfieldDescriptions.Bind(ParameterMap,TEXT("SubsectionHeightfieldDescriptions"));
+		SubsectionHeightfieldDescriptions.Bind(ParameterMap, TEXT("SubsectionHeightfieldDescriptions"));
 	}
 
-	friend FArchive& operator<<(FArchive& Ar,FSubsectionHeightfieldDescriptionParameters& Parameters)
+	friend FArchive& operator<<(FArchive& Ar, FSubsectionHeightfieldDescriptionParameters& Parameters)
 	{
 		Ar << Parameters.SubsectionHeightfieldDescriptions;
 		return Ar;
@@ -217,9 +217,9 @@ int32 UploadSubsectionHeightfieldDescriptions(const TArray<FHeightfieldComponent
 
 				// GlobalUVScaleBias = SubsectionSizeQuads / AtlasSize, (SubsectionBase + SubsectionId * SubsectionSizeQuads - AtlasMin) / AtlasSize
 				const FVector4 GlobalUVScaleBias(
-					Description.SubsectionScaleAndBias.X * InvLightingAtlasSize.X * InvDownsampleFactor, 
-					Description.SubsectionScaleAndBias.Y * InvLightingAtlasSize.Y * InvDownsampleFactor, 
-					(Description.LightingAtlasLocation.X + SubsectionX * Description.SubsectionScaleAndBias.X * InvDownsampleFactor) * InvLightingAtlasSize.X, 
+					Description.SubsectionScaleAndBias.X * InvLightingAtlasSize.X * InvDownsampleFactor,
+					Description.SubsectionScaleAndBias.Y * InvLightingAtlasSize.Y * InvDownsampleFactor,
+					(Description.LightingAtlasLocation.X + SubsectionX * Description.SubsectionScaleAndBias.X * InvDownsampleFactor) * InvLightingAtlasSize.X,
 					(Description.LightingAtlasLocation.Y + SubsectionY * Description.SubsectionScaleAndBias.Y * InvDownsampleFactor) * InvLightingAtlasSize.Y);
 
 				HeightfieldDescriptionData.Add(GlobalUVScaleBias);
@@ -286,7 +286,7 @@ private:
 	FSubsectionHeightfieldDescriptionParameters SubsectionHeightfieldParameters;
 };
 
-IMPLEMENT_SHADER_TYPE(,FHeightfieldSubsectionQuadVS,TEXT("/Engine/Private/HeightfieldLighting.usf"),TEXT("HeightfieldSubsectionQuadVS"),SF_Vertex);
+IMPLEMENT_SHADER_TYPE(, FHeightfieldSubsectionQuadVS, TEXT("/Engine/Private/HeightfieldLighting.usf"), TEXT("HeightfieldSubsectionQuadVS"), SF_Vertex);
 
 class FInitializeHeightfieldsPS : public FGlobalShader
 {
@@ -328,7 +328,7 @@ private:
 	FHeightfieldTextureParameters HeightfieldTextureParameters;
 };
 
-IMPLEMENT_SHADER_TYPE(,FInitializeHeightfieldsPS,TEXT("/Engine/Private/HeightfieldLighting.usf"),TEXT("InitializeHeightfieldsPS"),SF_Pixel);
+IMPLEMENT_SHADER_TYPE(, FInitializeHeightfieldsPS, TEXT("/Engine/Private/HeightfieldLighting.usf"), TEXT("InitializeHeightfieldsPS"), SF_Pixel);
 
 class FQuadVertexBuffer : public FVertexBuffer
 {
@@ -344,28 +344,28 @@ public:
 		FRHIResourceCreateInfo CreateInfo;
 
 		void* Buffer = nullptr;
-		VertexBufferRHI = RHICreateAndLockVertexBuffer(Size, BUF_Static, CreateInfo, Buffer);		
+		VertexBufferRHI = RHICreateAndLockVertexBuffer(Size, BUF_Static, CreateInfo, Buffer);
 		FScreenVertex* DestVertex = (FScreenVertex*)Buffer;
 
-		DestVertex[0].Position = FVector2D(1,  1);
-		DestVertex[0].UV = FVector2D(1,	1);
+		DestVertex[0].Position = FVector2D(1, 1);
+		DestVertex[0].UV = FVector2D(1, 1);
 
-		DestVertex[1].Position = FVector2D(0,  1);
-		DestVertex[1].UV = FVector2D(0,	1);
+		DestVertex[1].Position = FVector2D(0, 1);
+		DestVertex[1].UV = FVector2D(0, 1);
 
-		DestVertex[2].Position = FVector2D(1,	0);
-		DestVertex[2].UV = FVector2D(1,	0);
+		DestVertex[2].Position = FVector2D(1, 0);
+		DestVertex[2].UV = FVector2D(1, 0);
 
-		DestVertex[3].Position = FVector2D(1,	0);
-		DestVertex[3].UV = FVector2D(1,	0);
+		DestVertex[3].Position = FVector2D(1, 0);
+		DestVertex[3].UV = FVector2D(1, 0);
 
-		DestVertex[4].Position = FVector2D(0,  1);
-		DestVertex[4].UV = FVector2D(0,	1);
+		DestVertex[4].Position = FVector2D(0, 1);
+		DestVertex[4].UV = FVector2D(0, 1);
 
-		DestVertex[5].Position = FVector2D(0,	0);
-		DestVertex[5].UV = FVector2D(0,	0);
+		DestVertex[5].Position = FVector2D(0, 0);
+		DestVertex[5].UV = FVector2D(0, 0);
 
-		RHIUnlockVertexBuffer(VertexBufferRHI);      
+		RHIUnlockVertexBuffer(VertexBufferRHI);
 	}
 };
 
@@ -379,9 +379,9 @@ bool SupportsHeightfieldLighting(ERHIFeatureLevel::Type FeatureLevel, EShaderPla
 
 bool AllowHeightfieldGI(const FViewInfo& View)
 {
-	return GHeightfieldGlobalIllumination 
-		&& View.State 
-		&& GDistanceFieldGI 
+	return GHeightfieldGlobalIllumination
+		&& View.State
+		&& GDistanceFieldGI
 		&& View.Family->EngineShowFlags.DistanceFieldGI;
 }
 
@@ -390,7 +390,7 @@ void FHeightfieldLightingViewInfo::SetupVisibleHeightfields(const FViewInfo& Vie
 	const FScene* Scene = (const FScene*)View.Family->Scene;
 	const int32 NumPrimitives = Scene->DistanceFieldSceneData.HeightfieldPrimitives.Num();
 
-	if ((AllowHeightfieldGI(View) || GAOHeightfieldOcclusion) 
+	if ((AllowHeightfieldGI(View) || GAOHeightfieldOcclusion)
 		&& NumPrimitives > 0
 		&& SupportsHeightfieldLighting(View.GetFeatureLevel(), View.GetShaderPlatform()))
 	{
@@ -402,7 +402,7 @@ void FHeightfieldLightingViewInfo::SetupVisibleHeightfields(const FViewInfo& Vie
 			const FPrimitiveSceneInfo* HeightfieldPrimitive = Scene->DistanceFieldSceneData.HeightfieldPrimitives[HeightfieldPrimitiveIndex];
 			const FBoxSphereBounds& PrimitiveBounds = HeightfieldPrimitive->Proxy->GetBounds();
 			const float DistanceToPrimitiveSq = (PrimitiveBounds.Origin - View.ViewMatrices.GetViewOrigin()).SizeSquared();
-						
+
 			if (View.ViewFrustum.IntersectSphere(PrimitiveBounds.Origin, PrimitiveBounds.SphereRadius + GetGHeightfieldBounceDistance())
 				&& DistanceToPrimitiveSq < MaxDistanceSquared)
 			{
@@ -472,40 +472,44 @@ void FHeightfieldLightingViewInfo::SetupVisibleHeightfields(const FViewInfo& Vie
 					};
 
 					RHICmdList.SetViewport(0, 0, 0.0f, LightingAtlasSize.X, LightingAtlasSize.Y, 1.0f);
-					SetRenderTargets(RHICmdList, ARRAY_COUNT(RenderTargets), RenderTargets, FTextureRHIParamRef(), ESimpleRenderTargetMode::EClearColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilRead);
-					
-					FGraphicsPipelineStateInitializer GraphicsPSOInit;
-					RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-					GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-					GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-					GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-					RHICmdList.SetStreamSource(0, GQuadVertexBuffer.VertexBufferRHI, 0);
-
-					TShaderMapRef<FHeightfieldSubsectionQuadVS> VertexShader(View.ShaderMap);
-					TShaderMapRef<FInitializeHeightfieldsPS> PixelShader(View.ShaderMap);
-
-					GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GScreenVertexDeclaration.VertexDeclarationRHI;
-					GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-					GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-					GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-					SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-
-					for (TMap<FHeightfieldComponentTextures, TArray<FHeightfieldComponentDescription>>::TConstIterator It(Heightfield.ComponentDescriptions); It; ++It)
+					FRHIRenderPassInfo RPInfo(ARRAY_COUNT(RenderTargets), RenderTargets, ERenderTargetActions::Clear_Store);
+					RHICmdList.BeginRenderPass(RPInfo, TEXT("SetupHeightfields"));
 					{
-						const TArray<FHeightfieldComponentDescription>& HeightfieldDescriptions = It.Value();
+						FGraphicsPipelineStateInitializer GraphicsPSOInit;
+						RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-						if (HeightfieldDescriptions.Num() > 0)
+						GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+						GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+						GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+						RHICmdList.SetStreamSource(0, GQuadVertexBuffer.VertexBufferRHI, 0);
+
+						TShaderMapRef<FHeightfieldSubsectionQuadVS> VertexShader(View.ShaderMap);
+						TShaderMapRef<FInitializeHeightfieldsPS> PixelShader(View.ShaderMap);
+
+						GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GScreenVertexDeclaration.VertexDeclarationRHI;
+						GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+						GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+						GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+						SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+
+						for (TMap<FHeightfieldComponentTextures, TArray<FHeightfieldComponentDescription>>::TConstIterator It(Heightfield.ComponentDescriptions); It; ++It)
 						{
-							const int32 NumQuads = UploadSubsectionHeightfieldDescriptions(HeightfieldDescriptions, InvLightingAtlasSize, 1.0f / Heightfield.DownsampleFactor);
+							const TArray<FHeightfieldComponentDescription>& HeightfieldDescriptions = It.Value();
 
-							VertexShader->SetParameters(RHICmdList, View);
-							PixelShader->SetParameters(RHICmdList, View, It.Key().HeightAndNormal, It.Key().DiffuseColor);
+							if (HeightfieldDescriptions.Num() > 0)
+							{
+								const int32 NumQuads = UploadSubsectionHeightfieldDescriptions(HeightfieldDescriptions, InvLightingAtlasSize, 1.0f / Heightfield.DownsampleFactor);
 
-							RHICmdList.DrawPrimitive(PT_TriangleList, 0, 2, NumQuads);
+								VertexShader->SetParameters(RHICmdList, View);
+								PixelShader->SetParameters(RHICmdList, View, It.Key().HeightAndNormal, It.Key().DiffuseColor);
+
+								RHICmdList.DrawPrimitive(0, 2, NumQuads);
+							}
 						}
 					}
+					RHICmdList.EndRenderPass();
 
 					RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, RenderTargets, ARRAY_COUNT(RenderTargets));
 				}
@@ -609,13 +613,13 @@ void UploadHeightfieldDescriptions(const TArray<FHeightfieldComponentDescription
 		HeightfieldDescriptionData.Add(Description.MinMaxUV);
 
 		const FVector4 LightingUVScaleBias(
-			InvLightingAtlasSize.X * InvDownsampleFactor, 
-			InvLightingAtlasSize.Y * InvDownsampleFactor, 
-			Description.LightingAtlasLocation.X * InvLightingAtlasSize.X, 
+			InvLightingAtlasSize.X * InvDownsampleFactor,
+			InvLightingAtlasSize.Y * InvDownsampleFactor,
+			Description.LightingAtlasLocation.X * InvLightingAtlasSize.X,
 			Description.LightingAtlasLocation.Y * InvLightingAtlasSize.Y);
 
 		HeightfieldDescriptionData.Add(LightingUVScaleBias);
-					
+
 		HeightfieldDescriptionData.Add(FVector4(Description.HeightfieldRect.Size().X, Description.HeightfieldRect.Size().Y, InvLightingAtlasSize.X, InvLightingAtlasSize.Y));
 
 		const FMatrix LocalToWorldT = Description.LocalToWorld.GetTransposed();
@@ -651,13 +655,13 @@ class FGlobalHeightfieldParameters
 public:
 	void Bind(const FShaderParameterMap& ParameterMap)
 	{
-		GlobalHeightfieldTexture.Bind(ParameterMap,TEXT("GlobalHeightfieldTexture"));
-		GlobalNormalTexture.Bind(ParameterMap,TEXT("GlobalNormalTexture"));
-		GlobalDiffuseColorTexture.Bind(ParameterMap,TEXT("GlobalDiffuseColorTexture"));
-		GlobalHeightfieldSampler.Bind(ParameterMap,TEXT("GlobalHeightfieldSampler"));
+		GlobalHeightfieldTexture.Bind(ParameterMap, TEXT("GlobalHeightfieldTexture"));
+		GlobalNormalTexture.Bind(ParameterMap, TEXT("GlobalNormalTexture"));
+		GlobalDiffuseColorTexture.Bind(ParameterMap, TEXT("GlobalDiffuseColorTexture"));
+		GlobalHeightfieldSampler.Bind(ParameterMap, TEXT("GlobalHeightfieldSampler"));
 	}
 
-	friend FArchive& operator<<(FArchive& Ar,FGlobalHeightfieldParameters& Parameters)
+	friend FArchive& operator<<(FArchive& Ar, FGlobalHeightfieldParameters& Parameters)
 	{
 		Ar << Parameters.GlobalHeightfieldTexture;
 		Ar << Parameters.GlobalNormalTexture;
@@ -722,7 +726,7 @@ private:
 	FHeightfieldDescriptionParameters HeightfieldDescriptionParameters;
 };
 
-IMPLEMENT_SHADER_TYPE(,FHeightfieldComponentQuadVS,TEXT("/Engine/Private/HeightfieldLighting.usf"),TEXT("HeightfieldComponentQuadVS"),SF_Vertex);
+IMPLEMENT_SHADER_TYPE(, FHeightfieldComponentQuadVS, TEXT("/Engine/Private/HeightfieldLighting.usf"), TEXT("HeightfieldComponentQuadVS"), SF_Vertex);
 
 class FShadowHeightfieldsPS : public FGlobalShader
 {
@@ -768,9 +772,9 @@ public:
 		SetShaderValue(RHICmdList, ShaderRHI, CascadeDepthMinMax, FVector2D(ProjectedShadowInfo->CascadeSettings.SplitNear, ProjectedShadowInfo->CascadeSettings.SplitFar));
 
 		FTextureRHIParamRef ShadowDepthTextureValue = ProjectedShadowInfo->RenderTargets.DepthTarget->GetRenderTargetItem().ShaderResourceTexture.GetReference();
-		FSamplerStateRHIParamRef DepthSamplerState = TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI();
+		FSamplerStateRHIParamRef DepthSamplerState = TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
 
-		SetTextureParameter(RHICmdList, ShaderRHI, ShadowDepthTexture, ShadowDepthTextureSampler, DepthSamplerState, ShadowDepthTextureValue);	
+		SetTextureParameter(RHICmdList, ShaderRHI, ShadowDepthTexture, ShadowDepthTextureSampler, DepthSamplerState, ShadowDepthTextureValue);
 	}
 	// FShader interface.
 	virtual bool Serialize(FArchive& Ar) override
@@ -799,7 +803,7 @@ private:
 	FShaderResourceParameter ShadowDepthTextureSampler;
 };
 
-IMPLEMENT_SHADER_TYPE(,FShadowHeightfieldsPS,TEXT("/Engine/Private/HeightfieldLighting.usf"),TEXT("ShadowHeightfieldsPS"),SF_Pixel);
+IMPLEMENT_SHADER_TYPE(, FShadowHeightfieldsPS, TEXT("/Engine/Private/HeightfieldLighting.usf"), TEXT("ShadowHeightfieldsPS"), SF_Pixel);
 
 void FHeightfieldLightingViewInfo::ClearShadowing(const FViewInfo& View, FRHICommandListImmediate& RHICmdList, const FLightSceneInfo& LightSceneInfo) const
 {
@@ -811,7 +815,10 @@ void FHeightfieldLightingViewInfo::ClearShadowing(const FViewInfo& View, FRHICom
 	{
 		FSceneViewState* ViewState = (FSceneViewState*)View.State;
 		const FHeightfieldLightingAtlas& Atlas = *ViewState->HeightfieldLightingAtlas;
-		SetRenderTarget(RHICmdList, Atlas.DirectionalLightShadowing->GetRenderTargetItem().TargetableTexture, NULL, ESimpleRenderTargetMode::EClearColorExistingDepth);		
+
+		FRHIRenderPassInfo RPInfo(Atlas.DirectionalLightShadowing->GetRenderTargetItem().TargetableTexture, ERenderTargetActions::Clear_Store);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearShadowing"));
+		RHICmdList.EndRenderPass();
 	}
 }
 
@@ -833,43 +840,47 @@ void FHeightfieldLightingViewInfo::ComputeShadowMapShadowing(const FViewInfo& Vi
 
 			const FIntPoint LightingAtlasSize = Atlas.GetAtlasSize();
 			const FVector2D InvLightingAtlasSize(1.0f / LightingAtlasSize.X, 1.0f / LightingAtlasSize.Y);
-			SetRenderTarget(RHICmdList, Atlas.DirectionalLightShadowing->GetRenderTargetItem().TargetableTexture, NULL);
 
-			FGraphicsPipelineStateInitializer GraphicsPSOInit;
-			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-
-			RHICmdList.SetViewport(0, 0, 0.0f, LightingAtlasSize.X, LightingAtlasSize.Y, 1.0f);
-			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-			// Combine with other shadow types with min (ray traced)
-			GraphicsPSOInit.BlendState = TStaticBlendState<CW_RED, BO_Min, BF_One, BF_One>::GetRHI();
-			RHICmdList.SetStreamSource(0, GQuadVertexBuffer.VertexBufferRHI, 0);
-
-			TShaderMapRef<FHeightfieldComponentQuadVS> VertexShader(View.ShaderMap);
-			TShaderMapRef<FShadowHeightfieldsPS> PixelShader(View.ShaderMap);
-
-			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GScreenVertexDeclaration.VertexDeclarationRHI;
-			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-
-			for (TMap<FHeightfieldComponentTextures, TArray<FHeightfieldComponentDescription>>::TConstIterator It(Heightfield.ComponentDescriptions); It; ++It)
+			FRHIRenderPassInfo RPInfo(Atlas.DirectionalLightShadowing->GetRenderTargetItem().TargetableTexture, ERenderTargetActions::Load_Store);
+			RHICmdList.BeginRenderPass(RPInfo, TEXT("ComputeShadowMapShadowing"));
 			{
-				const TArray<FHeightfieldComponentDescription>& HeightfieldDescriptions = It.Value();
+				FGraphicsPipelineStateInitializer GraphicsPSOInit;
+				RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-				if (HeightfieldDescriptions.Num() > 0)
+				RHICmdList.SetViewport(0, 0, 0.0f, LightingAtlasSize.X, LightingAtlasSize.Y, 1.0f);
+				GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+				GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+				// Combine with other shadow types with min (ray traced)
+				GraphicsPSOInit.BlendState = TStaticBlendState<CW_RED, BO_Min, BF_One, BF_One>::GetRHI();
+				RHICmdList.SetStreamSource(0, GQuadVertexBuffer.VertexBufferRHI, 0);
+
+				TShaderMapRef<FHeightfieldComponentQuadVS> VertexShader(View.ShaderMap);
+				TShaderMapRef<FShadowHeightfieldsPS> PixelShader(View.ShaderMap);
+
+				GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GScreenVertexDeclaration.VertexDeclarationRHI;
+				GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+				GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+
+				for (TMap<FHeightfieldComponentTextures, TArray<FHeightfieldComponentDescription>>::TConstIterator It(Heightfield.ComponentDescriptions); It; ++It)
 				{
-					//@todo - cull heightfield tiles with shadow bounds
-					UploadHeightfieldDescriptions(HeightfieldDescriptions, InvLightingAtlasSize, 1.0f / Heightfield.DownsampleFactor);
+					const TArray<FHeightfieldComponentDescription>& HeightfieldDescriptions = It.Value();
 
-					VertexShader->SetParameters(RHICmdList, View, HeightfieldDescriptions.Num());
-					PixelShader->SetParameters(RHICmdList, View, ProjectedShadowInfo, HeightfieldDescriptions.Num(), Atlas);
+					if (HeightfieldDescriptions.Num() > 0)
+					{
+						//@todo - cull heightfield tiles with shadow bounds
+						UploadHeightfieldDescriptions(HeightfieldDescriptions, InvLightingAtlasSize, 1.0f / Heightfield.DownsampleFactor);
 
-					RHICmdList.DrawPrimitive(PT_TriangleList, 0, 2, HeightfieldDescriptions.Num());
+						VertexShader->SetParameters(RHICmdList, View, HeightfieldDescriptions.Num());
+						PixelShader->SetParameters(RHICmdList, View, ProjectedShadowInfo, HeightfieldDescriptions.Num(), Atlas);
+
+						RHICmdList.DrawPrimitive(0, 2, HeightfieldDescriptions.Num());
+					}
 				}
 			}
+			RHICmdList.EndRenderPass();
 		}
 	}
 }
@@ -909,12 +920,12 @@ public:
 	}
 
 	void SetParameters(
-		FRHICommandList& RHICmdList, 
-		const FSceneView& View, 
-		const FProjectedShadowInfo* ProjectedShadowInfo, 
-		int32 NumHeightfieldsValue, 
-		const FHeightfieldLightingAtlas& Atlas, 
-		FLightTileIntersectionResources* TileIntersectionResources, 
+		FRHICommandList& RHICmdList,
+		const FSceneView& View,
+		const FProjectedShadowInfo* ProjectedShadowInfo,
+		int32 NumHeightfieldsValue,
+		const FHeightfieldLightingAtlas& Atlas,
+		FLightTileIntersectionResources* TileIntersectionResources,
 		FDistanceFieldObjectBufferResource& CulledObjectBuffers)
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
@@ -973,13 +984,13 @@ private:
 	FShaderParameter TwoSidedMeshDistanceBias;
 };
 
-IMPLEMENT_SHADER_TYPE(,FRayTracedShadowHeightfieldsPS,TEXT("/Engine/Private/HeightfieldLighting.usf"),TEXT("RayTracedShadowHeightfieldsPS"),SF_Pixel);
+IMPLEMENT_SHADER_TYPE(, FRayTracedShadowHeightfieldsPS, TEXT("/Engine/Private/HeightfieldLighting.usf"), TEXT("RayTracedShadowHeightfieldsPS"), SF_Pixel);
 
 
 void FHeightfieldLightingViewInfo::ComputeRayTracedShadowing(
-	const FViewInfo& View, 
-	FRHICommandListImmediate& RHICmdList, 
-	const FProjectedShadowInfo* ProjectedShadowInfo, 
+	const FViewInfo& View,
+	FRHICommandListImmediate& RHICmdList,
+	const FProjectedShadowInfo* ProjectedShadowInfo,
 	FLightTileIntersectionResources* TileIntersectionResources,
 	FDistanceFieldObjectBufferResource& CulledObjectBuffers) const
 {
@@ -999,42 +1010,46 @@ void FHeightfieldLightingViewInfo::ComputeRayTracedShadowing(
 
 			const FIntPoint LightingAtlasSize = Atlas.GetAtlasSize();
 			const FVector2D InvLightingAtlasSize(1.0f / LightingAtlasSize.X, 1.0f / LightingAtlasSize.Y);
-			SetRenderTarget(RHICmdList, Atlas.DirectionalLightShadowing->GetRenderTargetItem().TargetableTexture, NULL);
 
-			FGraphicsPipelineStateInitializer GraphicsPSOInit;
-			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-
-			RHICmdList.SetViewport(0, 0, 0.0f, LightingAtlasSize.X, LightingAtlasSize.Y, 1.0f);
-			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-			// Combine with other shadow types with min (CSM)
-			GraphicsPSOInit.BlendState = TStaticBlendState<CW_RED, BO_Min, BF_One, BF_One>::GetRHI();
-			RHICmdList.SetStreamSource(0, GQuadVertexBuffer.VertexBufferRHI, 0);
-
-			TShaderMapRef<FHeightfieldComponentQuadVS> VertexShader(View.ShaderMap);
-			TShaderMapRef<FRayTracedShadowHeightfieldsPS> PixelShader(View.ShaderMap);
-
-			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GScreenVertexDeclaration.VertexDeclarationRHI;
-			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-
-			for (TMap<FHeightfieldComponentTextures, TArray<FHeightfieldComponentDescription>>::TConstIterator It(Heightfield.ComponentDescriptions); It; ++It)
+			FRHIRenderPassInfo RPInfo(Atlas.DirectionalLightShadowing->GetRenderTargetItem().TargetableTexture, ERenderTargetActions::Load_Store);
+			RHICmdList.BeginRenderPass(RPInfo, TEXT("ComputeRayTracedShadowing"));
 			{
-				const TArray<FHeightfieldComponentDescription>& HeightfieldDescriptions = It.Value();
+				FGraphicsPipelineStateInitializer GraphicsPSOInit;
+				RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-				if (HeightfieldDescriptions.Num() > 0)
+				RHICmdList.SetViewport(0, 0, 0.0f, LightingAtlasSize.X, LightingAtlasSize.Y, 1.0f);
+				GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+				GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+				// Combine with other shadow types with min (CSM)
+				GraphicsPSOInit.BlendState = TStaticBlendState<CW_RED, BO_Min, BF_One, BF_One>::GetRHI();
+				RHICmdList.SetStreamSource(0, GQuadVertexBuffer.VertexBufferRHI, 0);
+
+				TShaderMapRef<FHeightfieldComponentQuadVS> VertexShader(View.ShaderMap);
+				TShaderMapRef<FRayTracedShadowHeightfieldsPS> PixelShader(View.ShaderMap);
+
+				GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GScreenVertexDeclaration.VertexDeclarationRHI;
+				GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+				GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+
+				for (TMap<FHeightfieldComponentTextures, TArray<FHeightfieldComponentDescription>>::TConstIterator It(Heightfield.ComponentDescriptions); It; ++It)
 				{
-					UploadHeightfieldDescriptions(HeightfieldDescriptions, InvLightingAtlasSize, 1.0f / Heightfield.DownsampleFactor);
+					const TArray<FHeightfieldComponentDescription>& HeightfieldDescriptions = It.Value();
 
-					VertexShader->SetParameters(RHICmdList, View, HeightfieldDescriptions.Num());
-					PixelShader->SetParameters(RHICmdList, View, ProjectedShadowInfo, HeightfieldDescriptions.Num(), Atlas, TileIntersectionResources, CulledObjectBuffers);
+					if (HeightfieldDescriptions.Num() > 0)
+					{
+						UploadHeightfieldDescriptions(HeightfieldDescriptions, InvLightingAtlasSize, 1.0f / Heightfield.DownsampleFactor);
 
-					RHICmdList.DrawPrimitive(PT_TriangleList, 0, 2, HeightfieldDescriptions.Num());
+						VertexShader->SetParameters(RHICmdList, View, HeightfieldDescriptions.Num());
+						PixelShader->SetParameters(RHICmdList, View, ProjectedShadowInfo, HeightfieldDescriptions.Num(), Atlas, TileIntersectionResources, CulledObjectBuffers);
+
+						RHICmdList.DrawPrimitive(0, 2, HeightfieldDescriptions.Num());
+					}
 				}
 			}
+			RHICmdList.EndRenderPass();
 		}
 	}
 }
@@ -1073,11 +1088,11 @@ public:
 	}
 
 	void SetParameters(
-		FRHICommandList& RHICmdList, 
-		const FSceneView& View, 
-		const FLightSceneInfo& LightSceneInfo, 
+		FRHICommandList& RHICmdList,
+		const FSceneView& View,
+		const FLightSceneInfo& LightSceneInfo,
 		const FMaterialRenderProxy* MaterialProxy,
-		int32 NumHeightfieldsValue, 
+		int32 NumHeightfieldsValue,
 		const FHeightfieldLightingAtlas& Atlas,
 		float SkyLightIndirectScaleValue)
 	{
@@ -1095,11 +1110,11 @@ public:
 
 		const FSceneViewState* ViewState = (const FSceneViewState*)View.State;
 		SetTextureParameter(RHICmdList, ShaderRHI, HeightfieldShadowing, HeightfieldShadowingSampler, TStaticSamplerState<SF_Bilinear>::GetRHI(), Atlas.DirectionalLightShadowing->GetRenderTargetItem().ShaderResourceTexture);
-	
+
 		const FVector Scale = LightSceneInfo.Proxy->GetLightFunctionScale();
 		// Switch x and z so that z of the user specified scale affects the distance along the light direction
-		const FVector InverseScale = FVector( 1.f / Scale.Z, 1.f / Scale.Y, 1.f / Scale.X );
-		const FMatrix WorldToLightValue = LightSceneInfo.Proxy->GetWorldToLight() * FScaleMatrix(FVector(InverseScale));	
+		const FVector InverseScale = FVector(1.f / Scale.Z, 1.f / Scale.Y, 1.f / Scale.X);
+		const FMatrix WorldToLightValue = LightSceneInfo.Proxy->GetWorldToLight() * FScaleMatrix(FVector(InverseScale));
 
 		SetShaderValue(RHICmdList, ShaderRHI, WorldToLight, WorldToLightValue);
 
@@ -1135,13 +1150,15 @@ private:
 	FLightFunctionSharedParameters LightFunctionParameters;
 };
 
-IMPLEMENT_MATERIAL_SHADER_TYPE(,FLightHeightfieldsPS,TEXT("/Engine/Private/HeightfieldLighting.usf"),TEXT("LightHeightfieldsPS"),SF_Pixel);
+IMPLEMENT_MATERIAL_SHADER_TYPE(, FLightHeightfieldsPS, TEXT("/Engine/Private/HeightfieldLighting.usf"), TEXT("LightHeightfieldsPS"), SF_Pixel);
 
 void FHeightfieldLightingViewInfo::ComputeLighting(const FViewInfo& View, FRHICommandListImmediate& RHICmdList, const FLightSceneInfo& LightSceneInfo) const
 {
 	const ERHIFeatureLevel::Type FeatureLevel = View.GetFeatureLevel();
 
-	if (AllowHeightfieldGI(View) 
+	check(RHICmdList.IsOutsideRenderPass());
+
+	if (AllowHeightfieldGI(View)
 		&& SupportsHeightfieldLighting(FeatureLevel, View.GetShaderPlatform())
 		//@todo - handle local lights
 		&& LightSceneInfo.Proxy->GetLightType() == LightType_Directional
@@ -1156,62 +1173,65 @@ void FHeightfieldLightingViewInfo::ComputeLighting(const FViewInfo& View, FRHICo
 		const FIntPoint LightingAtlasSize = Atlas.GetAtlasSize();
 		const FVector2D InvLightingAtlasSize(1.0f / LightingAtlasSize.X, 1.0f / LightingAtlasSize.Y);
 
-		SetRenderTarget(RHICmdList, Atlas.Lighting->GetRenderTargetItem().TargetableTexture, NULL, ESimpleRenderTargetMode::EClearColorExistingDepth);		
-
-		const bool bApplyLightFunction = (View.Family->EngineShowFlags.LightFunctions &&
-			LightSceneInfo.Proxy->GetLightFunctionMaterial() && 
-			LightSceneInfo.Proxy->GetLightFunctionMaterial()->GetMaterial(FeatureLevel)->IsLightFunction());
-
-		const FMaterialRenderProxy* MaterialProxy = bApplyLightFunction ? 
-			LightSceneInfo.Proxy->GetLightFunctionMaterial() : 
-			UMaterial::GetDefaultMaterial(MD_LightFunction)->GetRenderProxy(false);
-
-		const FScene* Scene = (const FScene*)View.Family->Scene;
-
-		const float SkyLightIndirectScale = ShouldRenderDeferredDynamicSkyLight(Scene, *View.Family) ? Scene->SkyLight->IndirectLightingIntensity : 0;
-
-		// Skip rendering if the DefaultLightFunctionMaterial isn't compiled yet
-		if (MaterialProxy->GetMaterial(FeatureLevel)->IsLightFunction())
+		FRHIRenderPassInfo RPInfo(Atlas.Lighting->GetRenderTargetItem().TargetableTexture, ERenderTargetActions::Clear_Store);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("ComputeHeightfieldLighting"));
 		{
-			RHICmdList.SetViewport(0, 0, 0.0f, LightingAtlasSize.X, LightingAtlasSize.Y, 1.0f);
+			const bool bApplyLightFunction = (View.Family->EngineShowFlags.LightFunctions &&
+				LightSceneInfo.Proxy->GetLightFunctionMaterial() &&
+				LightSceneInfo.Proxy->GetLightFunctionMaterial()->GetMaterial(FeatureLevel)->IsLightFunction());
 
-			FGraphicsPipelineStateInitializer GraphicsPSOInit;
-			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+			const FMaterialRenderProxy* MaterialProxy = bApplyLightFunction ?
+				LightSceneInfo.Proxy->GetLightFunctionMaterial() :
+				UMaterial::GetDefaultMaterial(MD_LightFunction)->GetRenderProxy();
 
-			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+			const FScene* Scene = (const FScene*)View.Family->Scene;
 
-			RHICmdList.SetStreamSource(0, GQuadVertexBuffer.VertexBufferRHI, 0);
+			const float SkyLightIndirectScale = ShouldRenderDeferredDynamicSkyLight(Scene, *View.Family) ? Scene->SkyLight->IndirectLightingIntensity : 0;
 
-			TShaderMapRef<FHeightfieldComponentQuadVS> VertexShader(View.ShaderMap);
-
-			const FMaterial* Material = MaterialProxy->GetMaterial(FeatureLevel);
-			const FMaterialShaderMap* MaterialShaderMap = Material->GetRenderingThreadShaderMap();
-			FLightHeightfieldsPS* PixelShader = MaterialShaderMap->GetShader<FLightHeightfieldsPS>();
-
-			for (TMap<FHeightfieldComponentTextures, TArray<FHeightfieldComponentDescription>>::TConstIterator It(Heightfield.ComponentDescriptions); It; ++It)
+			// Skip rendering if the DefaultLightFunctionMaterial isn't compiled yet
+			if (MaterialProxy->GetMaterial(FeatureLevel)->IsLightFunction())
 			{
-				const TArray<FHeightfieldComponentDescription>& HeightfieldDescriptions = It.Value();
+				RHICmdList.SetViewport(0, 0, 0.0f, LightingAtlasSize.X, LightingAtlasSize.Y, 1.0f);
 
-				if (HeightfieldDescriptions.Num() > 0)
+				FGraphicsPipelineStateInitializer GraphicsPSOInit;
+				RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+
+				GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+				GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+				GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+
+				RHICmdList.SetStreamSource(0, GQuadVertexBuffer.VertexBufferRHI, 0);
+
+				TShaderMapRef<FHeightfieldComponentQuadVS> VertexShader(View.ShaderMap);
+
+				const FMaterial* Material = MaterialProxy->GetMaterial(FeatureLevel);
+				const FMaterialShaderMap* MaterialShaderMap = Material->GetRenderingThreadShaderMap();
+				FLightHeightfieldsPS* PixelShader = MaterialShaderMap->GetShader<FLightHeightfieldsPS>();
+
+				for (TMap<FHeightfieldComponentTextures, TArray<FHeightfieldComponentDescription>>::TConstIterator It(Heightfield.ComponentDescriptions); It; ++It)
 				{
-					UploadHeightfieldDescriptions(HeightfieldDescriptions, InvLightingAtlasSize, 1.0f / Heightfield.DownsampleFactor);
+					const TArray<FHeightfieldComponentDescription>& HeightfieldDescriptions = It.Value();
 
-					GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GScreenVertexDeclaration.VertexDeclarationRHI;
-					GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-					GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(PixelShader);
-					GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+					if (HeightfieldDescriptions.Num() > 0)
+					{
+						UploadHeightfieldDescriptions(HeightfieldDescriptions, InvLightingAtlasSize, 1.0f / Heightfield.DownsampleFactor);
 
-					SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+						GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GScreenVertexDeclaration.VertexDeclarationRHI;
+						GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+						GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(PixelShader);
+						GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-					VertexShader->SetParameters(RHICmdList, View, HeightfieldDescriptions.Num());
-					PixelShader->SetParameters(RHICmdList, View, LightSceneInfo, MaterialProxy, HeightfieldDescriptions.Num(), Atlas, SkyLightIndirectScale);
+						SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-					RHICmdList.DrawPrimitive(PT_TriangleList, 0, 2, HeightfieldDescriptions.Num());
+						VertexShader->SetParameters(RHICmdList, View, HeightfieldDescriptions.Num());
+						PixelShader->SetParameters(RHICmdList, View, LightSceneInfo, MaterialProxy, HeightfieldDescriptions.Num(), Atlas, SkyLightIndirectScale);
+
+						RHICmdList.DrawPrimitive(0, 2, HeightfieldDescriptions.Num());
+					}
 				}
 			}
 		}
+		RHICmdList.EndRenderPass();
 	}
 }
 
@@ -1219,7 +1239,7 @@ const int32 GHeightfieldOcclusionDispatchSize = 8;
 
 class FCalculateHeightfieldOcclusionScreenGridCS : public FGlobalShader
 {
-	DECLARE_SHADER_TYPE(FCalculateHeightfieldOcclusionScreenGridCS,Global)
+	DECLARE_SHADER_TYPE(FCalculateHeightfieldOcclusionScreenGridCS, Global)
 public:
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
@@ -1229,7 +1249,7 @@ public:
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		FGlobalShader::ModifyCompilationEnvironment(Parameters,OutEnvironment);
+		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
 
 		OutEnvironment.SetDefine(TEXT("HEIGHTFIELD_OCCLUSION_DISPATCH_SIZEX"), GHeightfieldOcclusionDispatchSize);
 		extern int32 GConeTraceDownsampleFactor;
@@ -1255,11 +1275,11 @@ public:
 	}
 
 	void SetParameters(
-		FRHICommandList& RHICmdList, 
-		const FViewInfo& View, 
-		UTexture2D* HeightfieldTextureValue, 
+		FRHICommandList& RHICmdList,
+		const FViewInfo& View,
+		UTexture2D* HeightfieldTextureValue,
 		int32 NumHeightfieldsValue,
-		FSceneRenderTargetItem& DistanceFieldNormal, 
+		FSceneRenderTargetItem& DistanceFieldNormal,
 		const FAOScreenGridResources& ScreenGridResources,
 		const FDistanceFieldAOParameters& Parameters)
 	{
@@ -1297,7 +1317,7 @@ public:
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
-	{		
+	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << AOParameters;
 		Ar << ScreenGridParameters;
@@ -1318,13 +1338,13 @@ private:
 	FShaderParameter TanConeHalfAngle;
 };
 
-IMPLEMENT_SHADER_TYPE(,FCalculateHeightfieldOcclusionScreenGridCS,TEXT("/Engine/Private/HeightfieldLighting.usf"),TEXT("CalculateHeightfieldOcclusionScreenGridCS"),SF_Compute);
+IMPLEMENT_SHADER_TYPE(, FCalculateHeightfieldOcclusionScreenGridCS, TEXT("/Engine/Private/HeightfieldLighting.usf"), TEXT("CalculateHeightfieldOcclusionScreenGridCS"), SF_Compute);
 
 
 void FHeightfieldLightingViewInfo::ComputeOcclusionForScreenGrid(
-	const FViewInfo& View, 
-	FRHICommandListImmediate& RHICmdList, 
-	FSceneRenderTargetItem& DistanceFieldNormal, 
+	const FViewInfo& View,
+	FRHICommandListImmediate& RHICmdList,
+	FSceneRenderTargetItem& DistanceFieldNormal,
 	const FAOScreenGridResources& ScreenGridResources,
 	const FDistanceFieldAOParameters& Parameters) const
 {
@@ -1363,7 +1383,7 @@ void FHeightfieldLightingViewInfo::ComputeOcclusionForScreenGrid(
 
 class FCalculateHeightfieldIrradianceScreenGridCS : public FGlobalShader
 {
-	DECLARE_SHADER_TYPE(FCalculateHeightfieldIrradianceScreenGridCS,Global)
+	DECLARE_SHADER_TYPE(FCalculateHeightfieldIrradianceScreenGridCS, Global)
 public:
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
@@ -1373,7 +1393,7 @@ public:
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		FGlobalShader::ModifyCompilationEnvironment(Parameters,OutEnvironment);
+		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
 
 		OutEnvironment.SetDefine(TEXT("HEIGHTFIELD_OCCLUSION_DISPATCH_SIZEX"), GHeightfieldOcclusionDispatchSize);
 		extern int32 GConeTraceDownsampleFactor;
@@ -1406,10 +1426,10 @@ public:
 	}
 
 	void SetParameters(
-		FRHICommandList& RHICmdList, 
-		const FViewInfo& View, 
+		FRHICommandList& RHICmdList,
+		const FViewInfo& View,
 		int32 NumHeightfieldsValue,
-		FSceneRenderTargetItem& DistanceFieldNormal, 
+		FSceneRenderTargetItem& DistanceFieldNormal,
 		const FAOScreenGridResources& ScreenGridResources,
 		const FDistanceFieldAOParameters& Parameters,
 		const FHeightfieldLightingAtlas& Atlas)
@@ -1455,7 +1475,7 @@ public:
 
 		const FSceneViewState* ViewState = (const FSceneViewState*)View.State;
 		SetTextureParameter(RHICmdList, ShaderRHI, HeightfieldLighting, HeightfieldLightingSampler, TStaticSamplerState<SF_Bilinear>::GetRHI(), Atlas.Lighting->GetRenderTargetItem().ShaderResourceTexture);
-	
+
 		SetShaderValue(RHICmdList, ShaderRHI, InnerLightTransferDistance, GHeightfieldInnerBounceDistance);
 		SetShaderValue(RHICmdList, ShaderRHI, OuterLightTransferDistanceScale, GHeightfieldOuterBounceDistanceScale);
 
@@ -1469,7 +1489,7 @@ public:
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
-	{		
+	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << AOParameters;
 		Ar << ScreenGridParameters;
@@ -1503,18 +1523,18 @@ private:
 	FShaderResourceParameter RecordConeVisibility;
 };
 
-IMPLEMENT_SHADER_TYPE(,FCalculateHeightfieldIrradianceScreenGridCS,TEXT("/Engine/Private/HeightfieldLighting.usf"),TEXT("CalculateHeightfieldIrradianceScreenGridCS"),SF_Compute);
+IMPLEMENT_SHADER_TYPE(, FCalculateHeightfieldIrradianceScreenGridCS, TEXT("/Engine/Private/HeightfieldLighting.usf"), TEXT("CalculateHeightfieldIrradianceScreenGridCS"), SF_Compute);
 
 void FHeightfieldLightingViewInfo::ComputeIrradianceForScreenGrid(
-	const FViewInfo& View, 
-	FRHICommandListImmediate& RHICmdList, 
-	FSceneRenderTargetItem& DistanceFieldNormal, 
+	const FViewInfo& View,
+	FRHICommandListImmediate& RHICmdList,
+	FSceneRenderTargetItem& DistanceFieldNormal,
 	const FAOScreenGridResources& ScreenGridResources,
 	const FDistanceFieldAOParameters& Parameters) const
 {
 	const FScene* Scene = (const FScene*)View.Family->Scene;
 
-	if (Heightfield.ComponentDescriptions.Num() > 0 
+	if (Heightfield.ComponentDescriptions.Num() > 0
 		&& AllowHeightfieldGI(View)
 		&& SupportsHeightfieldLighting(View.GetFeatureLevel(), View.GetShaderPlatform()))
 	{

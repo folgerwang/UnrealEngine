@@ -1,77 +1,77 @@
-﻿INTSourceChangelist:2685237
+﻿INTSourceChangelist:4300533
 Availability:Public
-Title: 环境反射
+Title: 反射环境
 Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows
-Description: 获取、显示局部反射的系统
-Version: 4.9
+Description:捕捉并显示局部光泽反射的系统。
+Version: 4.14
+topic-image:reflection_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/ReflectionEnvironment:title%](%ROOT%/Engine/Rendering/LightingAndShadows/ReflectionEnvironment/reflection_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	![](%ROOT%/ue4_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-	%Engine/Rendering/LightingAndShadows/ReflectionEnvironment:title%
-	[/PARAM]
-	[PARAM:description]
-	%Engine/Rendering/LightingAndShadows/ReflectionEnvironment:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/ReflectionEnvironment]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/ReflectionEnvironment:title%](%ROOT%/Engine/Rendering/LightingAndShadows/ReflectionEnvironment/reflection_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	![](%ROOT%/ue4_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-	%Engine/Rendering/LightingAndShadows/ReflectionEnvironment:title%
-	[/PARAM]
-	[PARAM:description]
-	%Engine/Rendering/LightingAndShadows/ReflectionEnvironment:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/ReflectionEnvironment]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+[TOC(start:2)]
 
 [EXCERPT:ReflectionEnv001]
-**环境反射** 功能为场景中的每个地方提供了有效的光滑反射效果。
-一些重要的材质，比如金属，都依靠各个方向反射效果，这正是环境反射提供的功能。
-这个功能是面向游戏主机和中端电脑，因此必须要运行很快才行。它不提供动态物体的反射，反射也不足够清晰，
-这些就都需要其他的反射功能来和环境反射一起工作才能完成，比如屏幕空间反射（Screen Space Reflections）。
+**反射环境** 功能在关卡的每个区域提供有效光泽反射。金属之类的诸多重要材质均依赖于反射环境提供的各方向反射。其针对的目标是主机和中配PC，因此运行速度极快。支持动态对象或尖锐反射，但需要额外的内存开销。 
 [/EXCERPT:ReflectionEnv001]
 
 [REGION:fullwidth]
 ![Reflection Environment](reflection_environment.png)
 [/REGION]
 
-## 快速设置
+(#quickreflectionenvironmentsetup)
+## 快速反射环境设置
 
-要使用环境反射的话，先要设置灯光，并编译光照一次。**必须要有某个间接光照来为环境反射工作**，
-然后，从 Mode 面板的 Place Mode 的  Visual 的分页中拖拽一个 *_SphereReflectionCapture_* Actor 放置到关卡中，
-并确认你的材质具有显著的高光，以及较低的粗燥度，然后可以使用反射（Reflection）模式来可视化的观察哪些被捕捉了。
+执行以下操作即可快速使在项目关卡中快速搭建反射环境：
 
-## 光滑的间接高光
+1. 将数个光源添加到关卡并构建光照，因为显示反射环境需要一些间接漫反射光照。 
 
-在技术术语中，环境反射提供了间接高光。通过分析灯光可以得到直接高光，但这只能为少数明亮的方向提供反射。
-还可以从天光中获得高光反射，但由于天光的立方体球面映射（cubemap）在无限远的地方，因此并不能提供局部区域的反射。
-间接高光能让场景中的所有的部分都具有反射其他部分的能力，这点对于类似金属的材质十分重要，它们都没有漫反射的效果。
+1. 在 **视觉效果（Visual Effects）** 部分下的 **模式** 面板中选择并将一个 **球体反射采集** Actor拖入关卡。 
+
+如果关卡中未出现反射，或反射强度未达到期望效果，可尝试以下操作：
+
+* 使材质拥有明显的高光度和较低的粗糙度，这样便于显示反射。
+* 使用反射覆盖视图模式显示正在被采集的内容，以便更好地确认材质中的哪些值需要进行调整。 
+
+(#settingupaleveltousethereflectionenvironment)
+## 设置关卡使用反射环境
+
+构建良好反射的第一步是使用光照图来设置包含间接光照的漫反射光照。如不熟悉用法，可参见[Lightmass](Engine/Rendering/LightingAndShadows/Lightmass/)中的详情。如果构建光照后Lightmass间接光照无法正常工作，其中常见原因包括但不限于以下几种：
+* 阴影投射天空盒。
+* **LightmassImportanceVolume** 缺失。
+* 光照图UV缺失或未正确设置。
+* 在 **场景属性** 中将 **强制无预计算光照** 设为了 **True**。
+
+场景的漫反射颜色将通过反射环境来进行反射，因此需要执行以下操作来达到最佳效果。 
+* 确保直接光照和阴影区域之间拥有较高的对比度。 
+* 请注意：明亮的漫反射光照区域将清晰地显示在反射中。
+* 反射可见度最高的区域是暗阴影区域。 
+* 禁用高光度显示标签，再使用光照视图模式查看关卡即可了解反射采集的效果。
+
+同时需要将以下重要事项牢记于胸，以便设置关卡材质完美兼容反射环境。 
+* 扁平的镜像表面将揭示出将投射到简单形状上的立方体贴图组合起来的不准确性。 
+* 曲面几何体或粗糙表面均可弱化这些瑕疵，提供更准确的结果。 
+* 使用详细法线贴图非常重要，并在用于平坦区域的材质上增加一些粗糙度， 
+这有助于其更好地显示反射。
 
 [REGION:imagetable]
-| ![Diffuse Only](DiffuseOnly.png)(w:465) | ![Reflection Only](ReflectionOnly.png)(w:465) |
-| ------ | ------ |
-| 仅漫反射 | 仅反射（镜面反射） |
+| ![Curvy and Sharp](1CurvyAndSharp.png) | ![Flat and Rough](1FlatAndRough.png) | ![Flat and Sharp](1FlatAndSharp.png)|
+| ------ | ------ | ------ |
+| 表面平滑的曲面几何体：高质量反射 | 表面粗糙的平面几何体：高质量反射 |表面平滑的平面几何体：反射明显不匹配
 [/REGION]
+
+将反射采集放置在需要拥有反射的区域中。尝试对球体采集进行放置，使得需要反射的关卡部分刚好包含在其半径之中，因为关卡将被重新投射到该球形之上。避免让采集过于靠近关卡几何体，附近的几何体将因此占据主导，阻挡其后的重要细节。
+
+(#glossyindirectspecular)
+## 光泽间接高光度
+
+用技术术语来讲，反射环境将提供间接高光度。可以从解析光源获得直接高光度，但这只会提供几个明亮的方向上的反射。也可以通过天空光照获取来自天空的光照度；但这并不会提供本地反射，因为天空光照立方体贴图所处位置必定很远。间接高光度使关卡的所有部分在所有其他部分上进行反射，对没有漫反射反应的材质（如金属）而言尤其重要。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Diffuse Only](DiffuseOnly.png)(w:700)
+	[/PARAM]
+	[PARAM:after]
+	![Reflection Only](ReflectionOnly.png)(w:700)
+	[/PARAM]
+[/OBJECT]
 
 **完整光照**
 
@@ -80,111 +80,400 @@ Version: 4.9
 [/REGION]
 
 [EXCERPT:RefEnvIntro]
-环境反射的工作原理是，在场景中的一些位置上获取静态画面并重新投影到简单形状，比如球型尚。
-美术人员在场景中放置 **_ReflectionCapture_** Actors 确定获取点的位置。在编辑过程中反射的效果是实时更新的，但游戏运行时是静态的。
-将这些获取的场景投影到简单的形状上能够得到大致的反射视差效果。每个像素在不同的 cubemap 之间混合计算得到最终值。
-较小的 ReflectionCapture Actor 将会覆盖较大的，因此可以根据区域来改进反射视差的精度。比如，可以在一个房间的中间放一个捕获点，
-并在房间的角落再放一个较小的捕获点来改善反射效果。
+反射环境的工作原理是采集多个点处的静态关卡，并将其重新投射到反射中的简单形状上（如球形）。美术师放置 **_ReflectionCapture_** Actor即可选择采集点。反射在编辑中实时更新，以协助放置，但在运行时为静态。将采集的关卡投射到简单形状上可构成反射的近似视差。每个像素在多个立方体贴图之间混合，以获得最终结果。较小的ReflectionCapture Actor将覆盖较大的Actor，因此可根据需要提升区域中的反射视差准确度。举例而言，可将一个采集放置在房间中央，然后在房间角落放置较小的采集来提升反射效果。 
 [/EXCERPT:RefEnvIntro]
 
-具有不同变化光滑度的材质可以通过从捕获的 cubemap 中生成模糊的 mip maps。
+从采集立方体贴图生成模糊mipmap即可支持带不同光泽度的材质。
   
 ![Varying Glossiness](VaryingGlossiness.png)
 
-然而，在粗糙的表面上，仅仅使用 cubemap 反射会造成过亮的效果，其原因在于缺少局部遮蔽导致严重的光照溢出。
-这里需要通过重用由 Lightmass 生成的 lightmap 的数据来解决。cubemap 的反射将会和 lightmap 间接高光来混合，
-这是由材质的粗糙度来决定的。一个非常粗糙的材质（完全满反射）将在 lightmap 的结果里汇集。
-这种混合最终是组合了一组高细节的光照数据（cubemap），以及另一组低细节的光照数据（lightmap）。
-为了让这种方式能正确的显示，lightmap 中只能包含间接光照。也就是说只有来自于固定灯光（Stationary Light）的间接光照才能改进粗糙表面的反射质量。
-**静态灯光（Static Light）类型不应被用在环境反射的混合方式中，因为它们会在 lightmap 中留下直接光照信息。**
-请注意，这种使用 lightmap 的混合意味着地图中必须包含有意义的间接漫反射光照，并且这个光照必须已经被构建了，这样才能看到结果。
+然而，只在非常粗糙的表面上使用立方体贴图反射会造成过于明亮的反射，由于缺少本地遮挡，其将出现重大泄露。重新使用由Lightmass生成的光照贴图数据即可解决此问题。立方体贴图反射基于材质的粗糙度与光照贴图间接高光度进行混合。非常粗糙的材质（全漫反射）将在光照贴图结果上收敛。从根本上而言，此混合是将一套光照数据（立方体贴图）的高细节部分与另一套光照数据（光照贴图）的低频率部分进行组合。为使此混合正常进行，光照贴图中只能拥有间接光照。这意味着只有来自静止光源的间接光照才能改良粗糙表面上的反射质量。**静态光源类型不应与反射环境同用，因其会将直接光照放入光照贴图中。** 注意，和光照贴图的这个混合也意味着贴图必须含有有意义的间接漫反射光照，且该光照已构建，才能显示出结果。
 
-[REGION:imagetable]
-| ![Rough with no Shadowing](2RoughWithNoShadowing.png)(w:465) | ![Rough with Shadowing](2RoughWithShadowing.png)(w:465) |
-| ------ | ------ |
-| 粗糙表面的反射，不带阴影 | lightmap 的阴影并且合并了 SSAO 效果 |
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Reflections on a rough surface with no shadowing](2RoughWithNoShadowing.png)(w:550)
+	[/PARAM]
+	[PARAM:after]
+	![Rough with Shadowing](2RoughWithShadowing.png)(w:550)
+	[/PARAM]
+[/OBJECT]
+
+(#reflectioncapturelightmapmixing)
+## 反射采集光照贴图混合
+
+使用反射采集Actor时，UE4将把来自反射采集的间接高光度与来自光照贴图的间接漫反射光照进行混合。这有助于减轻泄露，因为反射立方体贴图只在空间中的一个点处进行采集，但光照贴图却是在所有接收者表面上计算，且包含本地阴影投射信息。
+
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![Reduce Lightmap Mixing On Smooth Surfaces Off](ReduceLightmapMixingOnSmoothSurfaces_Off.png)
+    [/PARAM]
+    [PARAM:after]
+    ![Reduce Lightmap Mixing On Smooth Surfaces On.png](ReduceLightmapMixingOnSmoothSurfaces_On.png)
+    [/PARAM]
+[/OBJECT]
+
+虽然光照贴图混合在粗糙表面上效果极佳，但此方法在平滑表面上却无用武之地，因为来自反射采集Actor的反射与其他方法（如屏幕空间反射或平面反射）形成的反射并不匹配。因此，光照贴图混合不再应用到非常平滑的表面上。粗糙度值为0.3的表面将获得完整的光照贴图混合，粗糙度0.1或以下则淡化至无光照贴图混合。这也使得反射采集和屏幕空间反射更好地匹配，两者之间的过渡也更加自然。
+
+(#lightmapmixingandexistingcontent)
+### 光照贴图混合与现有内容
+
+光照贴图混合将被默认启用，意味着其将影响现有内容。在平滑表面上出现反射泄露时，泄露将更加明显。为解决此问题，可在关卡周围放置更多反射采集Actor来减轻泄露；或切换为旧有光照贴图混合行为，方法为：前往 **编辑** > **项目设置** > **渲染** > **反射**，然后取消勾选 **减弱平滑表面上的光照贴图混合**。
+
+![](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\Enable_LM_Mixing.png)
+
+通过UE4控制台调整以下命令即可微调将发生的光照贴图混合量。 
+ 
+* **r.ReflectionEnvironmentBeginMixingRoughness (default = 0.1)**
+* **r.ReflectionEnvironmentEndMixingRoughness (default = 0.3)**
+* **r.ReflectionEnvironmentLightmapMixBasedOnRoughness (default = 1)**
+* **r.ReflectionEnvironmentLightmapMixLargestWeight (default = 1000)**
+
+(#highqualityreflections)
+## 高质量反射
+
+使用默认的反射质量设置可以在性能和视觉质量上达到良好平衡，但有些情况下也需要达到更高质量的反射。以下部分描述了达到高质量反射的可用方法。
+
+(#highprecisionstaticmeshvertexnormalandtangentencoding)
+### 高精确度静态网格体顶点法线和切线编码
+
+达成高质量反射的重要因素是顶点法线和切线的呈现精确度。极高密度的网格体可能导致相邻顶点量化到相同的顶点法线和切线值。这可能会在法线朝向上形成块状跳跃。我们添加了将法线和切线编码为每通道矢量16位的选项，使开发者能够在更高质量和编码顶点缓冲内存使用率之间进行权衡。 
+
+**启用高精确度静态网格体顶点法线和切线编码的方法：**
+
+1. 在 **内容浏览器** 中双击静态网格体将其在 **静态网格体编辑器** 中打开。
+
+1. 在静态网格体编辑器中前往 **细节** 面板并展开 **LOD0** 选项。
+
+	[REGION:lightbox]
+	[![](SM_HP_Vertex_Normals_00.png)(w:400)](SM_HP_Vertex_Normals_00.png)
+	[/REGION]
+
+1. **LOD0** 下方有一个名为 **构建设置（Build Settings）** 的部分。点击“构建设置（Build Settings）”旁的小三角形即可展开选项。
+
+	[REGION:lightbox]
+	[![](SM_HP_Vertex_Normals_01.png)(w:400)](SM_HP_Vertex_Normals_01.png)
+	[/REGION]
+
+1. 点击 **使用高精确度切线基础** 选项旁边的勾选框将其启用，然后按下 **应用修改（Apply Changes）** 按钮来应用新设置。
+
+	[REGION:lightbox]
+	[![](SM_HP_Vertex_Normals_02.png)(w:400)](SM_HP_Vertex_Normals_02.png)
+	[/REGION]
+
+视口将自动更新来显示修改。 
+
+[REGION:note]
+被查看的反射的质量与静态网格体的曲面细分密度直接相关。拥有更少曲面细分的静态网格体在反射中出现的拉伸瑕疵多于拥有更多曲面细分的静态网格体。
+[/REGION] 
+
+[OBJECT:ComparisonSlider]
+[PARAM:before]
+![High Precision Vertex Normal Off](SM_HP_Vertex_Normals_Off.png)(h:580)
+[/PARAM]
+[PARAM:after]
+![High Precision Vertex Normal On](SM_HP_Vertex_Normals_On.png)(h:580)
+[/PARAM]
+[/OBJECT]
+
+[REGION:lightbox]
+[![](SM_HP_Vertex_Normals_Wireframe.png)(w:582)](SM_HP_Vertex_Normals_Wireframe.png)
 [/REGION]
+	
 
-## 反射获取形状
+(#highprecisiongbuffernormalencoding)
+### 高精确度GBuffer法线编码
+
+启用“高精确度GBuffer法线编码”选项将允许GBuffer使用更高精确度的法线编码。这个高准确度GBuffer法线编码将把法线矢量编为3个通道，每个通道为16位。使用此高精确度编码后，屏幕空间反射（SSR）等技术将依赖于高精确度法线。 
+
+**启用高精确度GBuffer法线编码的方法：**
+
+1. 在 **主工具栏** 中选择 **编辑** > **项目设置** 来打开 **项目设置**。
+
+	[REGION:lightbox]
+	[![](ARCS_00.png)(w:400)](ARCS_00.png)
+	[/REGION]
+
+1. 在 **引擎（Engine）** 部分下的项目设置中，点击 **渲染（Rendering）** 选项，然后在 **优化（Optimizations）** 部分下将 **Gbuffer格式（Gbuffer Format）** 从 **默认** 改为 **高精确度法线**。
+
+	[REGION:lightbox]
+	[![](HPGBuffer_01.png)(w:400)](HPGBuffer_01.png)
+	[/REGION]
+
+	[region:warning]
+	注意：此编码需要增加GPU内存，启用此项将对项目的性能产生直接影响。
+	[/region]
+
+修改GBuffer格式无需重启编辑器，因此可以在不同GBuffer格式之间快速切换，查看其对反射效果的影响。下图展示了将GBuffer格式从默认改为高精确度法线后反射效果和质量的变化。
+
+[OBJECT:ComparisonSlider]
+[PARAM:before]
+![Default GBuffer Format](Default_GBuffer_Format.png)(h:600)
+[/PARAM]
+[PARAM:after]
+![High Precision GBuffer Format](Hight_P_GBuffer_Format.png)(h:600)
+[/PARAM]
+[/OBJECT]
+
+(#reflectioncaptureshapes)
+## 反射采集形状
 
 [EXCERPT:RefCaptures]
-目前有两种反射获取形状：球型和盒型。形状很重要，它决定了场景中的什么部分会被获取到 cubemap 中，场景会投影到什么样的形状上，
-以及场景中什么部分将会收到来自于这个 cubemap 中的反射效果（影响区域）。
+当前有两个反射采集形状：球体和盒体。形状十分重要，因为它控制着场景的哪个部分将被采集到立方体贴图中、反射中关卡被重新投射到什么形状上，以及关卡的哪个部分可以接收来自该立方体贴图的反射（影响区域）。
 [/EXCERPT:RefCaptures]
 
-### 球型
+(#sphereshape)
+### 球形
 
-球型是目前最有用的，虽然它永远都不会和实际上要反射的形状完全一致，但没有间断，也没有角落，因此它的错误行为也十分一致。
+当前球形最为实用。其永远不会匹配被反射几何体的外形，但不含间断或角落，因此错误一致。 
 
 ![Sphere Shape](SphereShape.png)(w:720)
 
-球型有一个橙色的范围半径，用于控制那些像素会受到这个 cubemap 影响，还有一个接受场景投影的球体。
+球形拥有橙色的影响半径，控制会受立方体贴图影响的像素、以及关卡将被重新投射到的球体。 
 
-较小的捕获体将会覆盖较大的，因此可以通过在场景中摆放较小的捕获体来改进最终效果。
+较小的采集将覆盖较大的采集，因此在关卡周围放置较小的采集能够进行提升。
 
-### 盒型
+(#boxshape)
+### 盒形
 
-盒型的用途非常有限，通常来说它仅适合走廊门厅或者矩形的房间。这是因为只有在盒型内的像素才能看见反射，
-同时盒型内的场景会被投影到这个盒型上，很多时候都能创建华丽的效果。
+盒形的实用性十分有限，通常只用于走廊和矩形房间。其原因是只有盒体中的像素可看到反射，同时盒体中的所有几何体将投射到盒体上，在很多情况下会出现重大瑕疵。
 
 ![Box Shape](BoxShape.png)
 
-当选中时，盒子会显示一个橙色的投影预览框。它只会捕获在这个盒子之外 **Box Transition Distance** 距离之内的场景。
-在盒子之内受到影响的效果也会受到距离的变化而变弱。
+选中盒体后，投射形状将拥有一个橙色预览。其只采集此盒体外 **盒体过渡距离** 之内的关卡。此采集的影响也会在盒体中随过渡距离淡入。 
 
-## 编辑
+(#editingreflectionprobes)
+## 编辑反射探头
 
-获取的反射并不是自动的更新，这条需要谨记。只有在加载地图、直接编辑捕获体，或者构建光照时才会更新捕获的反射。
-如果在地图上编辑了一些改动，比如调整了灯光的亮度，或者移动了场景的物件，那么就需要选择捕获体并点击 “Update Captures” 来更新改变。
+对反射探头进行编辑时，需要牢记几点才能得到想要的结果。下文将讲述这些要点以及使用者如何才能在项目中得到质量最佳的反射
 
-### 可视化
+(#updatingreflectionprobes)
+### 更新反射探头
 
-我们在 viewmode 中增加了 Reflection 模式，以便于方便检查场景中反射的设置。这个模式下，覆盖了正常的表面法线，全部替换为平滑的法线，
-并将所有的表面都设置为完全的高光及平滑（像镜面一般）。环境反射的缺陷和物件在这个模式下清晰可见，定期的切换到光照模式（Lit）下也是重要的，
-这样能看看再正常情况下的反射表现（多样的法线、不同的光泽，暗淡的高光设定）。
+特别需要注意的是：反射探头不会自动保持更新。只有以下操作才会自动更新放置在关卡中的反射探头。
+
+* 加载地图。
+* 直接编辑一项反射采集Actor属性。
+* 构建关卡光照。
+
+如果要使对关卡的编辑达到类似于修改光源明亮度或移动关卡几何体的效果，则需要选择一个反射采集Actor并点击 **更新采集** 按钮来传播修改。 
+
+[REGION:lightbox]
+[![](Update_Captures_Button.png)(w:400)](Update_Captures_Button.png)
+[/REGION]
+
+(#usingacustomhdricubemapinareflectionprobe)
+### 在反射探头中使用一个自定义HDRI立方体贴图
+
+反射探头不仅可以指定其将哪个立方体贴图用于反射数据，还可指定立方体贴图的大小。在之前的版本中，UE4对已烘焙立方体贴图反射探头使用的分辨率进行了硬编码。现在开发者可基于性能、内存和质量权衡来选择最满足需要的分辨率。以下对比图像显示了使用 **采集场景（Captured Scene）** 选项和 **指定立方体贴图（Specified Cubemap）** 选项之间的差异。 
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Captured Scene](CC_Capture_Scene.png)(h:500)
+	[/PARAM]
+	[PARAM:after]
+	![Specified Cubemap](CC_Specified_Cubemap.png)(h:500)
+	[/PARAM]
+[/OBJECT]
+
+如要指定项目反射探头使用的自定义HDRI立方体贴图，需要执行以下选项：
+
+1. 首先确保有可用的HDRI立方体贴图纹理。如果项目中没有HDRI立方体贴图纹理，可在初学者内容包中选择名为 **HDRI_Epic_Courtyard_Daylight** 的文件。
+
+	[REGION:lightbox]
+	[![](Custom_Cubemap_00.png)(w:400)](Custom_Cubemap_00.png)
+	[/REGION]
+
+	[region:note]
+	使用[迁移](Engine/Content/Browser/UserGuide/Migrate/)功能即可将资源从一个项目移至另一个。
+	[/region]
+
+
+1. 选择已放置在关卡中的 **反射探头** Actor，并在 **反射采集（Reflection Capture）** 部分下的 **细节** 面板中将 **反射源类型（Reflection Source Type）** 从 **采集场景** 改为 *指定立方体贴图***
+
+	[REGION:lightbox]
+	[![](Custom_Cubemap_01.png)(w:400)](Custom_Cubemap_01.png)
+	[/REGION]
+
+1. 在关卡中选中反射探头，前往内容浏览器并选择希望使用的JDRI纹理。然后在反射采集Actor中 **反射采集** 下，将HDRI纹理从内容浏览器拖至 **立方体贴图** 输入。
+
+	[REGION:lightbox]
+	[![](Custom_Cubemap_02.png)(w:400)](Custom_Cubemap_02.png)
+	[/REGION]
+
+1. 按下 **更新采集** 按钮刷新反射采集Actor使用刚指定的新HDRI立方体贴图纹理。 
+
+	[REGION:lightbox]
+	[![](Custom_Cubemap_03.png)(w:400)](Custom_Cubemap_03.png)
+	[/REGION]
+
+(#adjustingreflectionproberesolution)
+### 调整反射探头分辨率
+
+执行以下操作即可整体调整用于反射采集Actor的HDRI立方体贴图分辨率： 
+
+1. 前往 **主工具栏** 并选择 **编辑** > **项目设置** 来打开 **项目设置**。
+	
+	[REGION:lightbox]
+	[![](ARCS_00.png)(w:400)](ARCS_00.png)
+	[/REGION]
+
+1. 在项目设置菜单中，前往 **引擎** > **渲染** 部分，然后查找 **纹理** 选项。
+	
+	[REGION:lightbox]
+	[![](ARCS_01.png)(w:400)](ARCS_01.png)
+	[/REGION]
+
+1. 调整 **反射采集分辨率（Reflection Capture Resolution）** 选项即可增加或减少指定的HDRI立方体贴图纹理的大小。
+
+	![](ARCS_02.png)
+
+	[region:warning]
+	使用分辨率极高的纹理时应极其小心，由于GPU内存要求，其可能对性能产生极大影响。
+	[/region]
+
+下图显示了反射采集分辨率被设为 **1**、**4**、**8**、**16**、**32**、**64**、**128**、**256**, **512** 和 **1024** 时反射的效果。
+[REGION:fullwidth]
+[INCLUDE:Engine\Rendering\LightingAndShadows/ReflectionEnvironment#ReflectionResolution]
+[/REGION]
+
+(#adjustingskylightreflectionresolution)
+### 调整天空光照反射分辨率
+
+和反射探头一样，天空光照也可以定义并调整其用于反射的HDRI立方体贴图的分辨率。执行以下操作即可在UE4项目中使用此功能： 
+
+1. 在 **光源** 部分下的 **模式** 面板中，选择并将一个 **天空光照** 拖入关卡。 
+	
+	[REGION:lightbox]
+	[![](Skylight_Reflection_00.png)(w:500)](Skylight_Reflection_00.png)
+	[/REGION]
+
+1. 选择天空光照，在 **光源（Light）** 部分的 **细节** 面板下将 **源类型** 从 **SLS采集场景** 改为 **SLS指定立方体贴图**。
+
+	[REGION:lightbox]
+	[![](Skylight_Reflection_01.png)(w:500)](Skylight_Reflection_01.png)
+	[/REGION]
+
+1. 点击 **立方体贴图（Cubemap）** 部分中的下拉框，并从列表中选择一个HDRI立方体贴图。
+
+	[REGION:lightbox]
+	[![](Skylight_Reflection_02.png)(w:300)](Skylight_Reflection_02.png)
+	[/REGION]
+
+1. 选中立方体贴图后，修改 **立方体贴图分辨率** 中输入的值即可调整其分辨率。
+	
+	[REGION:lightbox]
+	[![](Skylight_Reflection_03.png)(w:300)](Skylight_Reflection_03.png)
+	[/REGION]
+
+	[region:note]
+	请注意：立方体贴图分辨率数字只能是2的幂次方，如16、64、128、25、512和1024。  
+	[/region]
+
+
+### 混合多个反射探头数据
+为反射采集Actor提供不同的HDRI立方体贴图即可在多个不同立方体贴图反射之间进行混合。执行以下步骤即可在UE4项目中完成此操作：
+
+1. 首先将至少一个 **反射探头** 添加至关卡，将 **反射源类型** 改为 **特定立方体贴图**，并将HDRI纹理输入到 **立方体贴图** 输入。 
+
+	[REGION:lightbox]
+	[![](Blend_RFD_00.png)(w:600)](Blend_RFD_00.png)
+	[/REGION]
+
+1. 将一个新反射探头复制或添加到关卡，并放置/调整其 **影响半径**，使其黄色影响半径的一部分与第一个反射探头相交。 
+
+	[REGION:lightbox]
+	[![](Blend_RFD_01.png)(w:600)](Blend_RFD_01.png)
+	[/REGION]
+
+1. 选择新复制/创建的反射探头Actor，在 **立方体贴图** 部分下的 **细节** 面板中将HDRI立方体贴图改为其他项。
+
+	[REGION:lightbox]
+	[![](Blend_RFD_02.png)(w:600)](Blend_RFD_02.png)
+	[/REGION]
+
+1. 保持选中添加/复制的反射探头，前往 **反射采集（Reflection Capture）** 部分中的 **细节** 面板，然后按下 **更新采集（Update Captures）** 按钮进行更新，使反射使用在立方体贴图输入中输入的内容。
+
+	[REGION:lightbox]
+	[![](Blend_RFD_03.png)(w:600)](Blend_RFD_03.png)
+	[/REGION]
+
+1. 选择并围绕关卡移动反射探头，即可了解两个HDRI立方体贴图的混合方式。
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:width]
+		50
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:videoid]
+		QYbSsYP2Nkk
+		[/PARAMLITERAL]
+	[/OBJECT]
+	
+(#visualizing)
+### 显示
+
+已添加反射覆盖查看模式，便于查看反射的设置效果。此查看模式将把所有法线覆盖为平滑的顶点法线，并使所有表面均拥有完整高光度且为纯平（如同镜面）。反射环境的限制和瑕疵在此模式中同样清晰可见，因此必须定期切换至光照，确认反射在普通条件下的效果（凹凸法线、多种光泽度、模糊高光度）。
 
 ![Reflection Override](ReflectionOverride.png)
 
-还新增了一些显示标记开关，对光照组件进行单独工作并解决问题会很有帮助：
+已新添加一些显示标签，适用于隔离光照的组件：
 
-| 标记 | 描述 |
+| 标签 | 描述 |
 | ---- | ----------- |
-| **光照组件 > 漫反射** | 禁用漫反射将会给关闭所有漫反射对光照的影响。 |
-| **光照组件 > 镜面反射** | 禁用镜面反射将会关闭所有高光对光照的影响。 |
-| **光照功能 > 环境反射** | 这会禁用环境反射功能，但其他反射功能将不受影响（SSR，Analytical Sepcular）。 |
+| **光照组件 > 漫反射** | 禁用漫反射后，所有光照法中的漫反射贡献均会隐藏。 |
+| **光照组件 > 高光度** | 禁用高光度后，所有发射法中的高光度贡献均会隐藏。 |
+| **光照特性 > 反射环境** | 这将禁用反射环境特性，但其他反射特性仍然开启（SSR、解析高光度）。 |
 
-## 为环境反射设置关卡
 
-1. 要得到好的反射效果，第一步是设置漫反射的光照，包括在 lightmap 中的间接光。Lightmass 的页面有更多信息。
-常见的 Lightmass 无法得到正确的间接光照的错误包括一个会造成阴影的天光设置，缺少 **_LightmassImportanceVolume_** 设置，
-缺少 lightmap 的 UV 设置或者设置不正确，或者在世界属性中强制不做光照预计算。
+(#performanceconsiderations)
+## 性能注意事项
 
-	场景的慢反射就是那些会被环境反射系统所反射的内容。要效果好看的话，将直接光照和阴影区域做的高对比度则较佳。
-	明亮的光照区域将会在反射中清晰显示，较暗的阴影区域则是反射最明显的地方。通过光照模式（Lit）并配合禁用高光的标记（Specular show flag）来观察场景，反射捕获也会使用类似的场景显示。
+反射环境开销只取决于影响屏幕上像素的采集数量。此原理与延迟光照十分相似。反射采集由其影响半径绑定，因此将被十分积极地剔除。光泽度通过立方体mipmap实现，因此尖锐或粗糙发射之间的性能差异并不大。
 
-1. 在场景中材质配合环境反射的使用也是极为重要的。一块平整的镜面将会暴露通过简单形状获取的 cubemap 投影的不准确性。
-然而曲面或者粗糙的表面都能模糊显示并展示令人信服的画面。因此，在平整的区域，使用一些细致的法线贴图，并定义一定的粗糙度是有必要的。
+(#limitations)
+## 限制
 
-	[REGION:imagetable]
-	| ![Curvy and Sharp](1CurvyAndSharp.png)(w:290) | ![Flat and Rough](1FlatAndRough.png)(w:290) | ![Flat and Sharp](1FlatAndSharp.png)(w:290) |
-	| ------ | ------ | ------ |
-	| 光滑的曲面：优秀的反射质量 | 平整但粗糙的平面：优秀的反射质量 | 光滑且平整的面：暴露了不真实的反射
-	[/REGION]
+* 此方法通过近似模拟实现反射。具体而言，由于投射到简单形状上，物体的反射很少能与场景中的实际物体相匹配。此方法通常会在反射中创建物体的多个版本（因为多个立方体贴图将被混合在一起）。导致镜面反射的平滑表面会将错误明确地显示出来。使用细节法线贴图和粗糙度有助于打破反射和这些瑕疵。
+* 将关卡采集到立方体贴图中是一个缓慢的进程，必须在游戏进程之外进行。这意味着动态物体无法被反射，但其可接收来自静态关卡的反射。
+* 只采集关卡的漫反射来降低错误。纯高光度表面（金属）的高光度将应用，效果类似于采集中漫反射。
+* 一堵墙的两个面上拥有不同光照条件时可能出现重大泄露。一面可设置为拥有正确的反射，但其将必定会泄露到另一面。 
+* 由于DX11硬件限制，拥有采集关卡的立方体贴图每面均为128，场景可一次性启用最多341个反射采集。
 
-1. 在你希望展示反射的区域放置捕获体。可以尝试在希望有反射效果的场景中间放置球型捕获体，以便于场景能投射到球面上。
-应该避免将捕获体放置于过分的接近场景的表面，那样会使得离捕获体近的表面影响反射效果，并遮蔽了其他的重要细节。
 
-## 性能的考量
+[COMMENT:none]
+---
+[EXCERPT:ReflectionResolution]
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:max]
+	10
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	RCR
+	[/PARAMLITERAL]
+	[PARAM:caption]
+	**拖动滑条即可查看不同分辨率对反射效果产生的影响。**
+	[/PARAM]
+	[PARAM:image_list]
+	![](RCR_1.png)
+	![](RCR_2.png)
+	![](RCR_3.png)
+	![](RCR_4.png)
+	![](RCR_5.png)
+	![](RCR_6.png)
+	![](RCR_7.png)
+	![](RCR_8.png)
+	![](RCR_9.png)
+	![](RCR_10.png)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:ReflectionResolution]
 
-环境反射的代价只取决于屏幕上有多少受影响的像素。和场景中的延迟光照很相似。反射捕获体受它们各自的半径限制，
-因此能够被很有效的裁剪。光滑度是通过 cubemap 中的 mipmaps 来实现，因此在清晰的反射和模糊粗糙的反射之间几乎没有性能区别。
-
-## 局限
-
-* 这个方式下的反射是近似效果。更明确的说，某个物体的反射几乎和实际物体都不匹配，因为是依赖于简单形状的投影。
-当多个 cubemap 混合使用的时候，效果趋近于创建了一个物体的多个版本。平整光滑的表面会导致镜面反射很明显的显示出这样的问题，
-采用细致的法线贴图和粗糙度的结合来打破这个可能的问题。
-* 将场景获取到 cubemaps 中是一个缓慢的过程，这必须在实际游戏过程以外完成。这意味着动态物体无法参与反射，但它们还是可以收到静态场景的反射影响。
-* 只有场景的漫反射才会被捕获，这样可以减少错误。在捕获的过程中，纯镜面表面（金属）会将他们的高光作为漫反射来参与捕获的收集过程。
-* 当一面墙两边具有不同的光照环境时，可能会有严重的光线泄露问题。一边可以被设置为正确的显示，但总会影响到另外一边。
-* 由于 DX11 的硬件限制，用于获取场景的 cubemap 没边一共有 128 个，并且同一时刻最多只能有 341 个反射捕获体被激活。
+[/COMMENT]

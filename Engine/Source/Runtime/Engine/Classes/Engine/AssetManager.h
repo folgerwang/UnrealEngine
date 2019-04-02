@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -9,6 +9,7 @@
 #include "AssetBundleData.h"
 #include "AssetRegistryModule.h"
 #include "GenericPlatform/GenericPlatformChunkInstall.h"
+#include "ContentEncryptionConfig.h"
 #include "AssetManager.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAssetManager, Log, All);
@@ -16,6 +17,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogAssetManager, Log, All);
 /** Defined in C++ file */
 struct FPrimaryAssetTypeData;
 struct FPrimaryAssetData;
+struct FPrimaryAssetRulesCustomOverride;
 
 /** Delegate called when acquiring resources/chunks for assets, parameter will be true if all resources were acquired, false if any failed */
 DECLARE_DELEGATE_OneParam(FAssetManagerAcquireResourceDelegate, bool);
@@ -53,6 +55,9 @@ public:
 
 	/** Type representing a packaging chunk, this is a virtual type that is never loaded off disk */
 	static const FPrimaryAssetType PackageChunkType;
+
+	/** Get the asset registry tag name for encryption key data */
+	static FName GetEncryptionKeyAssetTagName();
 
 	/** Creates a PrimaryAssetId from a chunk id */
 	static FPrimaryAssetId CreatePrimaryAssetIdFromChunkId(int32 ChunkId);
@@ -146,7 +151,7 @@ public:
 	virtual FPrimaryAssetId GetPrimaryAssetIdForData(const FAssetData& AssetData) const;
 
 	/** Gets list of all FPrimaryAssetId for a primary asset type, returns true if any were found */
-	virtual bool GetPrimaryAssetIdList(FPrimaryAssetType PrimaryAssetType, TArray<FPrimaryAssetId>& PrimaryAssetIdList) const;
+	virtual bool GetPrimaryAssetIdList(FPrimaryAssetType PrimaryAssetType, TArray<FPrimaryAssetId>& PrimaryAssetIdList, EAssetManagerFilter Filter = EAssetManagerFilter::Default) const;
 
 	/** Gets metadata for a specific asset type, returns false if not found */
 	virtual bool GetPrimaryAssetTypeInfo(FPrimaryAssetType PrimaryAssetType, FPrimaryAssetTypeInfo& AssetTypeInfo) const;
@@ -379,8 +384,14 @@ public:
 	/** Return settings object */
 	const class UAssetManagerSettings& GetSettings() const;
 
+	/** Returns a timer manager that is safe to use for asset loading actions. This will either be the editor or game instance one, or null during very early startup */
+	class FTimerManager* GetTimerManager() const;
+
 	// Overrides
 	virtual void PostInitProperties() override;
+
+	/** Get the encryption key guid attached to this primary asset. Can be invalid if the asset is not encrypted */
+	virtual void GetCachedPrimaryAssetEncryptionKeyGuid(FPrimaryAssetId InPrimaryAssetId, FGuid& OutGuid);
 
 #if WITH_EDITOR
 	// EDITOR ONLY FUNCTIONALITY
@@ -414,6 +425,18 @@ public:
 	 * @return If chunk ID is valid and references and encrypted chunk, returns the key guid. Otherwise, returns an empty guid 
 	 */
 	virtual FGuid GetChunkEncryptionKeyGuid(int32 InChunkId) const { return FGuid(); }
+
+	/**
+	 * Determine if we should separate the asset registry for this chunk out into its own file and return the unique name that identifies it
+	 * @param InChunkIndex Chunk index to check
+	 * @returns The logical name of the chunk's asset registry, or NAME_None if it isn't required
+	 */
+	virtual FName GetUniqueAssetRegistryName(int32 InChunkIndex) const { return NAME_None; }
+
+	/**
+	 * For a given content encryption group name (as defined in the content encryption config that the project provides, return the relevant chunk ID
+	 */
+	virtual int32 GetContentEncryptionGroupChunkID(FName InGroupName) const { return INDEX_NONE; }
 
 	/** Returns the list of chunks assigned to the list of primary assets, which is usually a manager list. This is called by GetPackageChunkIds */
 	virtual bool GetPrimaryAssetSetChunkIds(const TSet<FPrimaryAssetId>& PrimaryAssetSet, const class ITargetPlatform* TargetPlatform, const TArray<int32>& ExistingChunkList, TArray<int32>& OutChunkList) const;
@@ -459,13 +482,17 @@ public:
 	/** 
 	  * Called immediately before saving the asset registry during cooking
 	  */
-	virtual void PreSaveAssetRegistry(const class ITargetPlatform* TargetPlatform) {}
+	virtual void PreSaveAssetRegistry(const class ITargetPlatform* TargetPlatform, const TSet<FName>& InCookedPackages) {}
 
 	/** 
 	  * Called immediately after saving the asset registry during cooking
 	  */
 	virtual void PostSaveAssetRegistry() {}
 
+	/**
+	  * Gathers information about which assets the game wishes to encrypt into named groups
+	  */
+	virtual void GetContentEncryptionConfig(FContentEncryptionConfig& OutContentEncryptionConfig) {}
 #endif
 
 protected:
@@ -499,6 +526,15 @@ protected:
 	/** Scans all asset types specified in DefaultGame */
 	virtual void ScanPrimaryAssetTypesFromConfig();
 
+	/** Called to apply the primary asset rule overrides from config */
+	virtual void ScanPrimaryAssetRulesFromConfig();
+
+	/** Apply a single custom primary asset rule, calls function below */
+	virtual void ApplyCustomPrimaryAssetRulesOverride(const FPrimaryAssetRulesCustomOverride& CustomOverride);
+
+	/** Sees if a specific primary asset passes the custom override filter, subclass this to handle FilterString */
+	virtual bool DoesPrimaryAssetMatchCustomOverride(FPrimaryAssetId PrimaryAssetId, const FPrimaryAssetRulesCustomOverride& CustomOverride) const;
+
 	/** Called after scanning is complete, either from FinishInitialLoading or after the AssetRegistry finishes */
 	virtual void PostInitialAssetScan();
 
@@ -510,6 +546,14 @@ protected:
 
 	/** Called when a new chunk has been downloaded */
 	virtual void OnChunkDownloaded(uint32 ChunkId, bool bSuccess);
+
+	/**
+	  * Called when a new asset registry becomes available
+	  * @param InName Logical name for this asset registry. Must match the name give by
+	  *
+	  * @returns TRUE if new data was loaded and added into the master asset registry
+	  */
+	bool OnAssetRegistryAvailableAfterInitialization(FName InName, FAssetRegistryState& OutNewState);
 
 #if WITH_EDITOR
 	/** Function used during creating Management references to decide when to recurse and set references */
@@ -588,6 +632,9 @@ protected:
 
 	/** List of chunk installs that are being waited for */
 	TArray<FPendingChunkInstall> PendingChunkInstalls;
+
+	/** Cache of encryption keys used by each primary asset */
+	TMap<FPrimaryAssetId, FGuid> PrimaryAssetEncryptionKeyCache;
 
 	/** List of UObjects that are being kept from being GCd, derived from the asset type map. Arrays are currently more efficient than Sets */
 	UPROPERTY()

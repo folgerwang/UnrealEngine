@@ -57,8 +57,10 @@ namespace WindowsMixedReality
 		void InitializeSpatialInput() noexcept;
 		void UninitializeSpatialInput() noexcept;
 
+#if WITH_WINDOWS_MIXED_REALITY
 		void SendButtonEvents(uint32 source);
 		void SendAxisEvents(uint32 source);
+#endif
 
 		bool isLeftTouchpadTouched = false;
 		bool isRightTouchpadTouched = false;

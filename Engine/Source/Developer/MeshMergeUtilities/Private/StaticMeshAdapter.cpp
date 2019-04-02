@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "StaticMeshAdapter.h"
 #include "MaterialBakingStructures.h"
@@ -18,7 +18,7 @@ int32 FStaticMeshAdapter::GetNumberOfLODs() const
 	return NumLODs;
 }
 
-void FStaticMeshAdapter::RetrieveRawMeshData(int32 LODIndex, FRawMesh& InOutRawMesh, bool bPropogateMeshData) const
+void FStaticMeshAdapter::RetrieveRawMeshData(int32 LODIndex, FMeshDescription& InOutRawMesh, bool bPropogateMeshData) const
 {
 	FMeshMergeHelpers::RetrieveMesh(StaticMesh, LODIndex, InOutRawMesh);
 }

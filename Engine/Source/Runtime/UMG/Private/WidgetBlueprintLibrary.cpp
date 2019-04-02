@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Blueprint/WidgetBlueprintLibrary.h"
 #include "Materials/MaterialInterface.h"
@@ -36,22 +36,29 @@ UWidgetBlueprintLibrary::UWidgetBlueprintLibrary(const FObjectInitializer& Objec
 
 UUserWidget* UWidgetBlueprintLibrary::Create(UObject* WorldContextObject, TSubclassOf<UUserWidget> WidgetType, APlayerController* OwningPlayer)
 {
-	if ( WidgetType == nullptr || WidgetType->HasAnyClassFlags(CLASS_Abstract) )
+	if (WidgetType == nullptr)
 	{
 		return nullptr;
 	}
 
-	UUserWidget* UserWidget = nullptr;
+	if(GIsEditor)
+	{
+		if (UUserWidget* OwningWidget = Cast<UUserWidget>(WorldContextObject))
+		{
+			return CreateWidget(OwningWidget, WidgetType);
+		}
+	}
+
 	if (OwningPlayer)
 	{
-		UserWidget = CreateWidget(OwningPlayer, WidgetType);
+		return CreateWidget(OwningPlayer, WidgetType);
 	}
 	else if (UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull))
 	{
-		UserWidget = CreateWidget(World, WidgetType);
+		return CreateWidget(World, WidgetType);
 	}
 
-	return UserWidget;
+	return nullptr;
 }
 
 UDragDropOperation* UWidgetBlueprintLibrary::CreateDragDropOperation(TSubclassOf<UDragDropOperation> Operation)
@@ -158,7 +165,7 @@ void UWidgetBlueprintLibrary::DrawBox(FPaintContext& Context, FVector2D Position
 	}
 }
 
-void UWidgetBlueprintLibrary::DrawLine(FPaintContext& Context, FVector2D PositionA, FVector2D PositionB, FLinearColor Tint, bool bAntiAlias)
+void UWidgetBlueprintLibrary::DrawLine(FPaintContext& Context, FVector2D PositionA, FVector2D PositionB, FLinearColor Tint, bool bAntiAlias, float Thickness)
 {
 	Context.MaxLayer++;
 
@@ -173,10 +180,11 @@ void UWidgetBlueprintLibrary::DrawLine(FPaintContext& Context, FVector2D Positio
 		Points,
 		ESlateDrawEffect::None,
 		Tint,
-		bAntiAlias);
+		bAntiAlias,
+		Thickness);
 }
 
-void UWidgetBlueprintLibrary::DrawLines(FPaintContext& Context, const TArray<FVector2D>& Points, FLinearColor Tint, bool bAntiAlias)
+void UWidgetBlueprintLibrary::DrawLines(FPaintContext& Context, const TArray<FVector2D>& Points, FLinearColor Tint, bool bAntiAlias, float Thickness)
 {
 	Context.MaxLayer++;
 
@@ -187,7 +195,8 @@ void UWidgetBlueprintLibrary::DrawLines(FPaintContext& Context, const TArray<FVe
 		Points,
 		ESlateDrawEffect::None,
 		Tint,
-		bAntiAlias);
+		bAntiAlias,
+		Thickness);
 }
 
 void UWidgetBlueprintLibrary::DrawText(FPaintContext& Context, const FString& InString, FVector2D Position, FLinearColor Tint)
@@ -494,7 +503,7 @@ void UWidgetBlueprintLibrary::GetAllWidgetsOfClass(UObject* WorldContextObject, 
 		return;
 	}
 	 
-	const UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull);
+	const UWorld* const World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull);
 	if ( !World )
 	{
 		return;
@@ -504,14 +513,8 @@ void UWidgetBlueprintLibrary::GetAllWidgetsOfClass(UObject* WorldContextObject, 
 	{
 		UUserWidget* LiveWidget = *Itr;
 
-		// Skip any widget that's not in the current world context.
-		if ( LiveWidget->GetWorld() != World )
-		{
-			continue;
-		}
-
-		// Skip any widget that is not a child of the class specified.
-		if ( !LiveWidget->GetClass()->IsChildOf(WidgetClass) )
+		// Skip any widget that's not in the current world context or that is not a child of the class specified.
+		if (LiveWidget->GetWorld() != World || !LiveWidget->GetClass()->IsChildOf(WidgetClass))
 		{
 			continue;
 		}
@@ -530,16 +533,17 @@ void UWidgetBlueprintLibrary::GetAllWidgetsOfClass(UObject* WorldContextObject, 
 	}
 }
 
-void UWidgetBlueprintLibrary::GetAllWidgetsWithInterface(UObject* WorldContextObject, TSubclassOf<UInterface> Interface, TArray<UUserWidget*>& FoundWidgets, bool TopLevelOnly)
+void UWidgetBlueprintLibrary::GetAllWidgetsWithInterface(UObject* WorldContextObject, TArray<UUserWidget*>& FoundWidgets, TSubclassOf<UInterface> Interface, bool TopLevelOnly)
 {
+	//Prevent possibility of an ever-growing array if user uses this in a loop
 	FoundWidgets.Empty();
 
 	if (!Interface || !WorldContextObject)
 	{
 		return;
 	}
-
-	const UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull);
+	 
+	const UWorld* const World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull);
 	if (!World)
 	{
 		return;
@@ -549,19 +553,20 @@ void UWidgetBlueprintLibrary::GetAllWidgetsWithInterface(UObject* WorldContextOb
 	{
 		UUserWidget* LiveWidget = *Itr;
 
-		if (LiveWidget->GetWorld() != World)
+		// Skip any widget that's not in the current world context or that is not a child of the class specified.
+		if (LiveWidget->GetWorld() != World || !LiveWidget->GetClass()->ImplementsInterface(Interface))
 		{
 			continue;
 		}
 
 		if (TopLevelOnly)
 		{
-			if (LiveWidget->IsInViewport() && LiveWidget->GetClass()->ImplementsInterface(Interface))
+			if (LiveWidget->IsInViewport())
 			{
 				FoundWidgets.Add(LiveWidget);
 			}
 		}
-		else if (LiveWidget->GetClass()->ImplementsInterface(Interface))
+		else
 		{
 			FoundWidgets.Add(LiveWidget);
 		}
@@ -607,6 +612,13 @@ void UWidgetBlueprintLibrary::GetSafeZonePadding(UObject* WorldContextObject, FV
 	SafePaddingScale = padding / ViewportSize;
 	SpillOverPadding = SafePadding;
 }
+
+void UWidgetBlueprintLibrary::SetColorVisionDeficiencyType(EColorVisionDeficiency Type, float Severity, bool CorrectDeficiency, bool ShowCorrectionWithDeficiency)
+{
+	int32 AdjustedSeverity = FMath::Clamp(Severity, 0.f, 1.f) * 10;
+	FSlateApplicationBase::Get().GetRenderer()->SetColorVisionDeficiencyType(Type, AdjustedSeverity, CorrectDeficiency, ShowCorrectionWithDeficiency);
+}
+
 
 bool UWidgetBlueprintLibrary::SetHardwareCursor(UObject* WorldContextObject, EMouseCursor::Type CursorShape, FName CursorName, FVector2D HotSpot)
 {

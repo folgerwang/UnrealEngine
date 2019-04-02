@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -46,29 +46,11 @@ public:
 	 *
 	 * @param InArgs Declaration from which to construct this widget.
 	 */
-	void Construct( const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView )
-	{
-		this->WidgetInfo = InArgs._WidgetInfoToVisualize;
-		this->OnAccessSourceCode = InArgs._SourceCodeAccessor;
-		this->OnAccessAsset = InArgs._AssetAccessor;
-		this->SetPadding(0);
-
-		check(WidgetInfo.IsValid());
-		CachedWidgetType = WidgetInfo->GetWidgetType();
-		CachedWidgetVisibility = WidgetInfo->GetWidgetVisibilityText();
-		CachedWidgetClipping = WidgetInfo->GetWidgetClippingText();
-		bCachedWidgetFocusable = WidgetInfo->GetWidgetFocusable();
-		CachedReadableLocation = WidgetInfo->GetWidgetReadableLocation();
-		CachedWidgetFile = WidgetInfo->GetWidgetFile();
-		CachedWidgetLineNumber = WidgetInfo->GetWidgetLineNumber();
-
-		SMultiColumnTableRow< TSharedRef<FWidgetReflectorNodeBase> >::Construct( SMultiColumnTableRow< TSharedRef<FWidgetReflectorNodeBase> >::FArguments().Padding(0), InOwnerTableView );
-	}
+	void Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView);
 
 public:
 
 	// SMultiColumnTableRow overrides
-
 	virtual TSharedRef<SWidget> GenerateWidgetForColumn( const FName& ColumnName ) override;
 
 protected:
@@ -78,7 +60,12 @@ protected:
 	{
 		return CachedWidgetType;
 	}
-	
+
+	FText GetWidgetTypeAndShortName() const
+	{
+		return CachedWidgetTypeAndShortName;
+	}
+
 	virtual FString GetReadableLocation() const override
 	{
 		return CachedReadableLocation.ToString();
@@ -129,12 +116,14 @@ private:
 	TSharedPtr<FWidgetReflectorNodeBase> WidgetInfo;
 
 	FText CachedWidgetType;
+	FText CachedWidgetTypeAndShortName;
 	FText CachedWidgetVisibility;
 	FText CachedWidgetClipping;
 	bool bCachedWidgetFocusable;
 	FText CachedReadableLocation;
 	FString CachedWidgetFile;
 	int32 CachedWidgetLineNumber;
+	FAssetData CachedAssetData;
 
 	FAccessSourceCode OnAccessSourceCode;
 

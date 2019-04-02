@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MaterialNodes/SGraphNodeMaterialBase.h"
 #include "Rendering/DrawElements.h"
@@ -97,12 +97,10 @@ FPreviewViewport::~FPreviewViewport()
 		MaterialNode->InvalidatePreviewMaterialDelegate.Unbind();
 	}
 	// Pass the preview element to the render thread so that it's deleted after it's shown for the last time
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER
-	(
-		SafeDeletePreviewElement,
-		FThreadSafePreviewPtr, PreviewElementPtr, PreviewElement,
+	ENQUEUE_RENDER_COMMAND(SafeDeletePreviewElement)(
+		[PreviewElement = PreviewElement](FRHICommandListImmediate& RHICmdList) mutable
 		{
-			PreviewElementPtr.Reset();
+			PreviewElement.Reset();
 		}
 	);
 }
@@ -187,18 +185,16 @@ bool FPreviewElement::BeginRenderingCanvas( const FIntRect& InCanvasRect, const 
 		RenderInfo.RenderProxy = InGraphNode->GetExpressionPreview();
 		RenderInfo.bIsRealtime = bInIsRealtime;
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER
-		(
-			BeginRenderingPreviewCanvas,
-			FPreviewElement*, PreviewElement, this, 
-			FPreviewRenderInfo, InRenderInfo, RenderInfo,
-		{
-			PreviewElement->RenderTarget->SetViewRect(InRenderInfo.CanvasRect);
-			PreviewElement->RenderTarget->SetClippingRect(InRenderInfo.ClippingRect);
-			PreviewElement->ExpressionPreview = InRenderInfo.RenderProxy;
-			PreviewElement->bIsRealtime = InRenderInfo.bIsRealtime;
-		}
-		);
+		FPreviewElement* PreviewElement = this;
+		ENQUEUE_RENDER_COMMAND(BeginRenderingPreviewCanvas)(
+			[PreviewElement, RenderInfo](FRHICommandListImmediate& RHICmdList)
+			{
+				PreviewElement->RenderTarget->SetViewRect(RenderInfo.CanvasRect);
+				PreviewElement->RenderTarget->SetClippingRect(RenderInfo.ClippingRect);
+				PreviewElement->ExpressionPreview = RenderInfo.RenderProxy;
+				PreviewElement->bIsRealtime = RenderInfo.bIsRealtime;
+			}
+			);
 		return true;
 	}
 
@@ -207,11 +203,10 @@ bool FPreviewElement::BeginRenderingCanvas( const FIntRect& InCanvasRect, const 
 
 void FPreviewElement::UpdateExpressionPreview(UMaterialGraphNode* MaterialNode)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER
-	(
-		UpdatePreviewNodeRenderProxy,
-		FPreviewElement*, PreviewElement, this,
-		FMaterialRenderProxy*, InRenderProxy, MaterialNode ? MaterialNode->GetExpressionPreview() : nullptr,
+	FPreviewElement* PreviewElement = this;
+	FMaterialRenderProxy* InRenderProxy = MaterialNode ? MaterialNode->GetExpressionPreview() : nullptr;
+	ENQUEUE_RENDER_COMMAND(UpdatePreviewNodeRenderProxy)(
+		[PreviewElement, InRenderProxy](FRHICommandListImmediate& RHICmdList)
 		{
 			PreviewElement->ExpressionPreview = InRenderProxy;
 		}

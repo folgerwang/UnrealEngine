@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3264165
+﻿INTSourceChangelist:3476293
 availability:Public
 title:渲染目标（Render Target）
 description:在虚幻引擎 4 中使用渲染目标。
@@ -9,6 +9,7 @@ parent:Engine/Rendering
 order:7
 Navigation:topic
 tags:Render Targets
+topic-image:RenderTargets_topic.png
 
 ![](BlueprintRenderTarget.png)
 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3801260
+﻿INTSourceChangelist:4649792
 Availability: Public
 Title:트레이스 개요
 Crumbs:
@@ -99,7 +99,7 @@ Line Trace (라인 트레이스)가 충분치 않은 경우, Shape Trace (셰이
 
 ## 트레이스에서 UV 좌표 구하기
 
-복합 트레이스(trace complex)를 사용했다는 가정 하에, 트레이스에 걸린 액터의 UV 좌표를 반환할 수 있습니다. 4.14 버전 부로 이 기능은 **Static Mesh Component**, **Procedural Mesh Component**, **BSP** 에서만 작동합니다. **Skeletal Mesh Component** 에서는 작동하지 **않습니다**. (복합 트레이스를 선택한다 해도) UV 좌표가 없는 **피직스 애셋** 을 대상으로 트레이스를 하는 것이기 떄문입니다.
+복합 트레이스(trace complex)를 사용했다는 가정 하에, 트레이스에 걸린 액터의 UV 좌표를 반환할 수 있습니다. 4.14 버전 부로 이 기능은 **Static Mesh Component**, **Procedural Mesh Component**, **BSP** 에서만 작동합니다. **Skeletal Mesh Component** 에서는 작동하지 **않습니다**. (복합 트레이스를 선택한다 해도) UV 좌표가 없는 **피직스 애셋** 을 대상으로 트레이스를 하는 것이기 때문입니다.
 
 [REGION:note]
 이 기능을 사용하면 CPU 메모리 사용량이 늘어나는데, 언리얼 엔진 4 에서는 메모리에 버텍스 위치와 UV 좌표 사본을 추가로 유지하기 때문입니다.

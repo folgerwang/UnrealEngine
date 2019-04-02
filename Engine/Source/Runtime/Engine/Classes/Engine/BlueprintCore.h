@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -29,25 +29,18 @@ class ENGINE_API UBlueprintCore
 	bool bLegacyNeedToPurgeSkelRefs;
 
 private:
-
-	/** BackCompat: Whether or not this blueprint's authoritative CDO data has been migrated from the SkeletonGeneratedClass CDO to the GeneratedClass CDO */
-	UPROPERTY()
-	bool bLegacyGeneratedClassIsAuthoritative;
-
 	/** Blueprint Guid */
 	UPROPERTY()
 	FGuid BlueprintGuid;
 
 public:
+	UE_DEPRECATED(4.22, "The minimum UE4 object version implies the Blueprint generated class is always authoritative. It is no longer necessary to explicitly set it.")
+	void SetLegacyGeneratedClassIsAuthoritative() {}
 
-	void SetLegacyGeneratedClassIsAuthoritative()
-	{
-		bLegacyGeneratedClassIsAuthoritative = true;
-	}
-
+	UE_DEPRECATED(4.22, "The minimum UE4 object version implies the Blueprint generated class is always authoritative. It is no longer necessary to explicitly check it.")
 	bool IsGeneratedClassAuthoritative()
 	{
-		return bLegacyGeneratedClassIsAuthoritative;
+		return true;
 	}
 
 	virtual void Serialize( FArchive& Ar ) override;

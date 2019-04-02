@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Framework/Text/IOS/IOSPlatformTextField.h"
 #include "IOS/IOSAppDelegate.h"
@@ -51,13 +51,14 @@ FIOSPlatformTextField::~FIOSPlatformTextField()
 {
 	if(TextField != nullptr)
 	{
+        UE_LOG(LogIOS, Log, TEXT("Deleting text field: %p"), TextField);
         SlateTextField* LocalTextField = TextField;
         TextField = nullptr;
 		dispatch_async(dispatch_get_main_queue(), ^{
+            NSLog(@"Finally releasing text field %@", LocalTextField);
 #if !PLATFORM_TVOS
             [LocalTextField hide];
 #endif
-			[LocalTextField release];
 		});
 	}
 }
@@ -99,12 +100,15 @@ void FIOSPlatformTextField::ShowVirtualKeyboard(bool bShow, int32 UserIndex, TSh
         {
 			if (TextField != nullptr && [TextField hasTextWidget])
 			{
-				dispatch_async(dispatch_get_main_queue(), ^{
-                    if (TextField != nullptr)
+                UE_LOG(LogIOS, Log, TEXT("Hiding field: %p"), TextField);
+                SlateTextField* LocalTextField = TextField;
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    NSLog(@"Finally releasing text field %@", LocalTextField);
+                    if (LocalTextField != nullptr)
                     {
-                        [TextField hide];
-                    }
-				});
+                        [LocalTextField hide];
+                     }
+                });
 			}
         }
 	}
@@ -164,7 +168,8 @@ void FIOSPlatformTextField::ShowVirtualKeyboard(bool bShow, int32 UserIndex, TSh
 
 											UITextField* AlertTextField = AlertController.textFields.firstObject;
 											TextEntry = FText::FromString(AlertTextField.text);
-
+                                            AlertController = nil;
+                                            
 											FIOSAsyncTask* AsyncTask = [[FIOSAsyncTask alloc] init];
 											AsyncTask.GameThreadCallback = ^ bool(void)
 											{
@@ -187,7 +192,8 @@ void FIOSPlatformTextField::ShowVirtualKeyboard(bool bShow, int32 UserIndex, TSh
 										handler:^(UIAlertAction* action)
 										{
 											[AlertController dismissViewControllerAnimated : YES completion : nil];
-
+                                            AlertController = nil;
+                                            
 											FIOSAsyncTask* AsyncTask = [[FIOSAsyncTask alloc] init];
 											AsyncTask.GameThreadCallback = ^ bool(void)
 											{

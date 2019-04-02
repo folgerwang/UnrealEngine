@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -365,6 +365,34 @@ private:
 
 };
 
+struct FFlipPolygonsChangeInput
+{
+	/** The polygons to flip */
+	TArray<FPolygonID> PolygonIDsToFlip;
+
+	FFlipPolygonsChangeInput()
+		: PolygonIDsToFlip()
+	{
+	}
+};
+
+class FFlipPolygonsChange : public FChange
+{
+public:
+	FFlipPolygonsChange( const FFlipPolygonsChangeInput& InitInput )
+		: Input( InitInput )
+	{
+	}
+
+	// Parent class overrides
+	virtual TUniquePtr<FChange> Execute( UObject* Object ) override;
+	virtual FString ToString() const override;
+
+private:
+
+	/** The data we need to make this change */
+	FFlipPolygonsChangeInput Input;
+};
 
 struct FSetVerticesAttributesChangeInput
 {

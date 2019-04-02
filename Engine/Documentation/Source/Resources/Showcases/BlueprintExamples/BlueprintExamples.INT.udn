@@ -47,37 +47,37 @@ If you are completely new to the world of Blueprints, you may find yourself in n
 ## Included Examples
 
 
-### [](Resources\Showcases\BlueprintExamples\CommentaryBox)
+### Commentary Box
 
 [![](TopicCommentary.png)(w:192)](Resources\Showcases\BlueprintExamples\CommentaryBox)
 
 [INCLUDE:Resources\Showcases\BlueprintExamples\CommentaryBox#Overview]
 
-## [](Resources\Showcases\BlueprintExamples\FogSheet)
+### Fog Sheet and Light Beams
 
 [![](FogSheetTopic.png)(w:192)](Resources\Showcases\BlueprintExamples\FogSheet)
 
 [INCLUDE:Resources\Showcases\BlueprintExamples\FogSheet#Overview]
 
-## [](Resources\Showcases\BlueprintExamples\Foliage)
+### Randomly Generated Foliage
 
 [![](FoliageTopic.png)(w:192)](Resources\Showcases\BlueprintExamples\Foliage)
 
 [INCLUDE:Resources\Showcases\BlueprintExamples\Foliage#Overview]
 
-## [](Resources\Showcases\BlueprintExamples\Butterfly)
+### Butterfly
 
 [![](ButterflyTopic.png)(w:192)](Resources\Showcases\BlueprintExamples\Butterfly)
 
 [INCLUDE:Resources\Showcases\BlueprintExamples\Butterfly#Overview]
 
-## [](Resources\Showcases\BlueprintExamples\SecurityDoor)
+### Security Camera, Alarm, and Door
 
 [![](CamAlarmDoor_Topic.png)(w:192)](Resources\Showcases\BlueprintExamples\SecurityDoor)
 
 [INCLUDE:Resources\Showcases\BlueprintExamples\SecurityDoor#Overview]
 
-## [](Resources\Showcases\BlueprintExamples\SecurityCameraAndAlarm)
+### Security Camera Switcher Button
 
 [![](SecurityConsole.png)(w:192)](Resources\Showcases\BlueprintExamples\SecurityCameraAndAlarm)
 

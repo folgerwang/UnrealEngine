@@ -1,184 +1,186 @@
-﻿INTSourceChangelist:0
-Title: 2014年3月份版本信息
+﻿INTSourceChangelist:3782314
+Title: 2014年3月版本说明
 Crumbs:%ROOT%, Support/Builds
 Description:
 Availability:Licensee
+Parent:Support/Builds
+Order:-1
 
 [TOC(start:2 end:2)]
 
-## Build Info
+## 版本信息
 
 
 [REGION:simpletable]
-| Item | Info |
-| ---- | ---- |
-| **Labels** | [INCLUDE:#labels] |
-| **Built from Changelist #** |  (//depot/UE4-QA/Promotable-CL-) |
-| **Branched from Changelist #** |  (//depot/UE4/Promoted-CL-) |
-| **Visual Studio Version** |  |
-| **DirectX** | June 2010 |
+| 项目| 信息|
+| ----| ----|
+| **标签**| [INCLUDE:#labels] |
+| **根据变更列表编号构建**|  (//depot/UE4-QA/Promotable-CL-)|
+| **根据变更列表编号分支**|  (//depot/UE4/Promoted-CL-)|
+| **Visual Studio 版本**|  |
+| **DirectX**| 2010 年 6 月|
 [/REGION]
 
 [COMMENT:none]
 
 [EXCERPT:Labels]
-QA_APPROVED_UE4_BUILD_2014_  
-QA_APPROVED_UE4_BUILD_CURRENT  
+QA_APPROVED_UE4_BUILD_2014_
+QA_APPROVED_UE4_BUILD_CURRENT
 QA_APPROVED_UE4_BUILD_MINIMUM
 [/EXCERPT:Labels]
 
 [/COMMENT]
 
-## Important information
+## 重要信息
 
-* The March QA build has not been as well aligned as we would like. We have been putting consoles through cert, and have not been able to line up the console fixes with the public release and with the QA build. 
+* 三月的 QA 版本并没有像我们希望的那样完美。我们一直通过证书安装控制台，并且无法根据公共版本和 QA 版本调整控制台修复程序。
 
-	This has caused the march QA build to be delayed, and the content in **UE4-Releases/4.0/** to not contain working consoles right now. The consoles are currently in **//depot/UE4-QA-Unstable/** ( *which was branched from Releases* ) and we are working to back port the fixes from certification into that branch that we can safely do.   We should be branching imminently to **//depot/UE4-QA/** however, for those doing console games, the April QA should have at least one console's cert build in there, and the May QA should have both. 
+	这已导致三月的 QA 版本延迟，并且 **UE4-Releases/4.0/** 中的内容现在不包含工作控制台。目前，**//depot/UE4-QA-Unstable/** 中包含控制台（*已根据发布分支*），我们正在努力将修复程序从证书移植回到可以安全执行的分支。我们应该及时分支到 **//depot/UE4-QA/**，但对于那些玩主机游戏的用户，四月的 QA 版本至少应该拥有一个控制台的证书版本，并且五月的 QA 版本应该同时拥有两者。
 
-* Current Engine Development Roadmaps: [UE4 Roadmaps](https://udn.unrealengine.com/questions/topics/roadmap.html)
-* Fixed Bugs: [UE4 Fixed Bugs March 2014]
-* Known Issues: [UE4 Known Issues March 2014]
+* 当前引擎开发路线图：[虚幻引擎4 路线图](https://udn.unrealengine.com/questions/topics/roadmap.html)
+* 已修复的错误：[2014 年 3 月虚幻引擎4 已修复的错误]
+* 已知问题：[2014 年 3 月虚幻引擎4 已知问题]
  
 
-## Major New Features
+## 主要新功能
 
-#### Blueprints
+#### 蓝图
 
-* **Blueprint Macro Debugging**
+* **蓝图宏调试**
 
-	* Support has been added for Blueprint macro debugging!
+	* 已为蓝图宏调试添加支持！
 
-	* For example, if you set a breakpoint on a macro instance node in your Blueprint event graph, execution will now break on the first executable node inside of the macro graph when you Play-in-Editor/Simulate-in-Editor. You should also now be able to single-step, set breakpoints in and see variable pin values directly inside of a macro graph while debugging Blueprint objects.
+	* 例如，如果在蓝图事件图表中的宏实例节点上设置断点，则在编辑器中运行/在编辑器中模拟时，执行现在将在宏图表内的第一个可执行节点上中断。并且能够在调试蓝图对象时直接在宏图表内单步执行、设置断点并查看变量引脚值。
 
-		_Example: If you set a breakpoint on a "Gate" node:_	
+		_示例：如果在“Gate”节点上设置断点：_	
 		
 		![](MacroDebugging01.png)	
 		
-		_Execution will break on the sequence node attached to the "Enter" output inside of the "Gate" macro graph. If you then set a breakpoint on the "Branch" node inside of the macro and then click "Resume"..._	
+		_执行将在附加到“Gate”宏图表内的“Enter”输出的序列节点上中断。然后，如果在宏内部的“Branch”节点上设置断点，则单击“恢复（Resume）”......_	
 		
 		![](MacroDebugging02.png)	
 		
-		_...execution will next break at that point:_			
+		_...执行此时将进行下一次中断：_			
 		
 		![](MacroDebugging03.png)	
 		
-		_You should also be able to hover over pins to see current variable values:_	
+		_而且能够将鼠标悬停在引脚上方以查看当前变量值：_	
 		
 		![](MacroDebugging04.png)
 
-* **Pin Icons in Blueprints**
+* **蓝图中的引脚图标**
 
-	* Recently, the default BP pin icons were changed to a new, teardrop style by default in the editor.  
+	* 最近，默认 BP 引脚图标在编辑器中默认已更改为新的泪滴样式。
 
-		If you prefer the old, original style, you can change your Editor Settings to use the original pins:
+		如果喜欢旧的原始样式，可以更改编辑器设置以使用原始引脚：
 		
 		![](PinIcons.png)(w:720)
 
-#### Editor and Tools 
+#### 编辑器和工具
 
-* **Physical Asset Tool (PhAT)**
+* **物理资源工具 (PhAT)**
 
-	* Improvements have been made to the physical asset editor!
+	* 已对物理资源编辑器进行改进！
 		
 		![](PhysicalAssetTool.png)
 
-	* Selected Simulation allows you to simulate the area of interest while keeping the rest of the body fixed.
-	* Multiselect is now supported for easily tuning multiple bodies and constraints.
-	* You can use hotkeys 1,2,3,4 to toggle Swing1, Swing2, Twist and cycle to quickly visualize constraint limits.
-	* No Gravity will simulate without gravity. This is really useful for catching mistakes like collision between adjacent bodies or bad constraints.
+	* 选定模拟允许模拟感兴趣的区域，同时保持形体的其余部分固定。
+	* 现在支持多选以便轻松调整多个形体和约束。
+	* 可以使用热键 1、2、3、4 切换 Swing1、Swing2、扭曲和循环以便快速显示约束限制。
+	* 无重力（No Gravity）将在没有重力的情况下进行模拟。这对于捕获相邻形体之间的碰撞或不良约束等错误非常有用。
 
-* **Color Picker Usability Improvements**
+* **取色器可用性改进**
 
-	* Default view
-		* Saturation and value sliders.
-		* Theme bar will show a help message when empty.
-		* Small separators between color preview blocks.
-		* Color picker now always picks the color that is visible on the screen, regardless of sRGB preview toggle.
+	* 默认视图
+		* 饱和度和值滑块。
+		* 主题栏将在空白时显示帮助消息。
+		* 颜色预览块之间的小分隔符。
+		* 取色器现在始终选取屏幕上可见的颜色，不受 sRGB 预览切换影响。
 			
 			![](ColorPicker01.png)
 
-	* Advanced settings view
-		* R, G, B channels now also have preview gradients like H, S, V.
-		* Hex input/outfield.
-		* A can now be larger than 1.0 (for material editor).
-		* Preview gradients are now slightly thicker for better visibility.
-		* Sliders are now wider for more mouse precision.
-		* Slider numeric inputs now 3 instead of 2 digit precision to allow for correct Hex translation.
+	* 高级设置视图
+		* R、G、B 通道现在也具有预览渐变，如 H、S、V。
+		* 十六进制输入/外场。
+		* A 现在可以大于 1.0（对于材质编辑器）。
+		* 预览渐变现在稍厚以获得更好的可见性。
+		* 滑块现在更宽以获得更高的鼠标精度。
+		* 滑块数字输入现在是 3 位而不是 2 位精度，允许正确的十六进制转换。
 			
 			![](ColorPicker02.png)
 
-	* Quick Pick Mode
-		* The little color wheel button next to the pipette toggles color wheel and quick pick.
+	* 快速拾取模式
+		* 移液管旁边的小色轮按钮用于切换色轮和快速拾取。
 
-			_Currently, right-clicking the wheel works, too._
+			_目前，右键单击滚轮也可以正常工作。_
 
-		* Quick pick spectrum for when you need to experiment with light and dark colors quickly.
+		* 当需要快速尝试浅色和深色时快速拾取色谱。
 
-			_The horizontal center line represents Hues at 1.0 value and 1.0 saturation._
+			_水平中心线表示值为 1.0 和饱和度为 1.0 的色调。_
 
-			_Colors towards the top are saturated against white._
+			_接近顶部的颜色对于白色为饱和。_
 
-			_Colors towards the bottom are lit against black._		
+			_接近底部的颜色对于黑色为光照。_		
 			
 			![](ColorPicker03.png)
 
-* **Developer Folder Disabled by Default**
+* **开发者文件夹默认已禁用**
 
-	* The Engine folder is now also disabled by default! 
+	* 引擎文件夹现在默认也已禁用！
 
-		* Its visibility can be toggled from the View Options.	 
+		* 可以从视图选项切换其可见性。	 
 			
 			![](DeveloperFolder.png)
 
-* **Play-In-Editor(PIE) and Launch Changes**
+* **在编辑器中运行 (PIE) 和启动更改**
 
-	* PIE changes:
-		* No longer has menu entries for all the 'Current Camera / Default Player Start' combination.
-			* Current Camera / Default Player Start is now a global toggle at the bottom.
-			* You then simply click on any of the four entries on top to start PIE.
-		* There's a new option 'Mobile Preview' which launches a standalone game with OpenGL ES emulation.
-		* The big 'Play' button will still remember the last choice.
-		* Menu entries and tooltips are hopefully easier to read/understand now.	
+	* PIE 更改：
+		* 不再具有所有“当前相机/默认玩家起点（Current Camera / Default Player Start）”组合的菜单条目。
+			* 当前相机/默认玩家起点现在是在底部进行全局切换。
+			* 然后，只需单击顶部四个条目中的任何一个可开始 PIE。
+		* 新选项“移动预览（Mobile Preview）”使用 OpenGL ES 模拟启动独立游戏。
+		* 大的“运行（Play）”按钮仍会记住最后一次选择。
+		* 现在有望能够更轻松地阅读/理解菜单条目和工具提示。	
 			
 			![](PIE01.png)
 
-	* Launch changes:
-		* Devices are now broken out per platform.
-		* A slew of problems with the listing of available devices have been fixed.
-		* The big 'Launch' button in the toolbar will still remember your last choice.
-		* The default choice for the 'Launch' button is now your local PC.
+	* 启动更改：
+		* 设备现在按平台分解。
+		* 已修复可用设备列表中的一系列问题。
+		* 工具栏中的大“启动（Launch）”按钮仍会记住最后一次选择。
+		*“启动（Launch）”按钮的默认选择现在是本地 PC。
 
-* **Snap Now Defaults to Decimal Intervals**
+* **对齐现在默认为十进制间隔**
 
-	* We have now defaulted our snap sizes to decimal intervals! 
+	* 现在已将对齐尺寸默认为十进制间隔！
 
-		1 unreal unit  = 1 centimeter.
+		1 个虚幻单位 = 1 厘米。
 
-	* These are the new snap sizes:		
+	* 以下是新的对齐尺寸：		
 		
 		![](DecimalIntervals01.png)
 
-	* You can change back to snap settings back to powers of 2 for your game in the preferences Viewports->Grid Snapping:
+	* 可以在首选项视口（Viewports）->网格对齐（Grid Snapping）中将游戏的对齐设置更改回 2 次方：
 		
 		![](DecimalIntervals02.png)
 
-* **Collision Setting**
+* **碰撞设置**
 
-	* You can now Set up and modify Collision Settings!
+	* 现在可以设置并修改碰撞设置！
 
-		You can add new channels for your project, a new profile or customize existing ones.
+		可以为项目、新配置文件或自定义现有配置文件添加新通道。
 
-	* The setting can be found under Edit->Project Settings->Engine->Collision:
+	* 新设置可在编辑（Edit）->项目设置（Project Settings）->引擎（Engine）->碰撞（Collision）下找到：
 		
 		![](CollisionSetting.png)
 
-* **Input Mapping Bindings Panel**
+* **输入映射绑定面板**
 
-	* There is a new Input Mapping Binding Panel!
+	* 可以使用新的输入映射绑定面板！
 
-		This can be found under Edit -> Project Settings -> Input.
+		该面板可在编辑（Edit）->项目设置（Project Settings）->输入（Input）下找到。
 
-	* There are three separate sections within the Input panel :
+	* 输入（Input）面板包含三个单独的部分：
 
 		_Axis Config_	
 		
@@ -192,91 +194,91 @@ QA_APPROVED_UE4_BUILD_MINIMUM
 		
 		![](AxisMappings.png)
 
-	* There are two buttons for adding action and axis mappings.
+	* 可以使用两个按钮添加动作和轴映射。
 		
-		The top one will create a new mapping with no name set but the one by the name of the mapping itself will add another one with the same name to that group.
+		顶部按钮将创建一个没有设置名称的新映射，但该按钮通过映射本身的名称会将具有相同名称的另一个映射添加到该组。
 
-* **Placement/Content Browser & Editor Modes**
+* **放置/内容浏览器和编辑器模式**
 
-	* The Placement Browser has been revived with a brand new look.  
+	* 放置浏览器已焕然一新。
 	
-		In the new placement browser you'll find quick access to Lights, Triggers, Volumes and all Classes, you can even access a lengthy list of your recently placed assets.
+		在新放置浏览器中，可以快速访问光源、触发器、体积和所有类，甚至可以访问最近放置资源的冗长列表。
 
-	* The Editor Modes have all been reunited in the Tools tab.		
+	* 编辑器模式已全部在工具（Tools）选项卡中重新组合。		
 		
 		![](PlacementBroswer01.png)
 
-	* Additionally, the Content Browser has received a new look as well. 
+	* 此外，内容浏览器也已获得新外观。
 		
 		![](PlacementBroswer02.png)
 
-* **Details Panel Header Slimming, Open C++ Files**
+* **详细信息面板标头精简，开源 C++ 文件**
 
-	* The two details header rows have now been compressed down to one simple row.  The icon tool tip now shows the class name (like Scene Outliner.)   
+	* 现在已将两个详细信息标头行压缩成一个简单行。图标工具提示现在显示类名称（如场景大纲视图）。
 
-	* For actors that have C++ code, you can click on the header file hyperlink to open the code (only shows up if you have VS or Xcode installed.)
+	* 对于拥有 C++ 代码的 Actor，可以单击标头文件超链接打开代码（只有已安装 VS 或 Xcode 才显示）。
 		
 		![](DetailsPanel01.png)
 
-	* Previously the actor class name was a hyperlink that took you to the Blueprint editor.  Now there is a separate button for that.
+	* 以前，Actor 类名是可以链接到蓝图编辑器的超链接。现在，可使用单独的按钮执行此操作。
 		
 		![](DetailsPanel02.png)
 
-	* We have also added C++ file access to the viewport right click menu (if you have a compiler installed).  
+	* 也已通过右键单击菜单将 C++ 文件访问权限添加到视口（如果已安装编译器）。
 
-		Of course, you can also double-click on click on classes in Class Viewer.		
+		当然，还可以双击类查看器中的类。		
 		
 		![](DetailsPanel03.png)
 
-* **New Tool for Programmers: Messaging Debugger**
+* **程序员的新工具：消息调试器**
 
-	* There is a new tool called the Messaging Debugger, which is a visual debugging tool for the messaging system in UE4, aka. Unreal Message Bus (UMB). 
+	* 名为消息调试器的新工具是 UE4 中消息系统的可视化调试工具，又名虚幻消息总线 (UMB)。
 
-		Applications that utilize the messaging system can be quite difficult to debug due to the highly asynchronous nature of a messaging system. 
+		由于消息系统的高度异步性，因此很难调试使用消息系统的应用程序。
 
-	* At this point the Messaging Debugger still has to be considered 'experimental � use at your own risk' and must be explicitly activated in the Editor Preferences:		
+	* 此时，仍然需要将消息调试器视为“实验性 � 使用，风险自负”，并且必须在编辑器首选项中显式激活：		
 		
 		![](MessagingDebugger1.png) ![](MessagingDebugger2.png)
 
-#### Rendering
+#### 渲染
 
-* **Glossy Screen Space Reflections**
+* **有光泽的屏幕空间反射**
 
-	* Screen Space Reflections supporting material roughness has been added and is enabled by default!
+	* 支持材质粗糙度的屏幕空间反射功能已添加且默认启用！
 		
-		If you do not want any screen space reflection, you can fade/disable the feature in the Post Process Settings. 
-		Some materials might need a minor tweak but those would have been appeared wrong with other reflections anyway. 
-		Now we have it consistent with Image Based Lighting and normal (analytical) light sources.
+		如果不想要任何屏幕空间反射，可以在后期处理设置（Post Process Settings）中淡化/禁用该功能。
+		有些材质可能需要进行一些细微调整，但无论如何这些材质都会出现其他反射错误。
+		现在，我们将它与基于图像光照（Image Based Lighting）和普通（分析）光源保持一致。
 
-	* Example decal with varying roughness (very small viewport so you can see the grain/noise):
+	* 具有不同粗糙度的示例贴花（视口非常小，因此可以看到颗粒/噪点）：
 		
 		![](Glossy.png)
 
-* **Preview Shadows Indicator**
+* **预览阴影指示器**
 
-	* We now have a preview shadow indicator in the form of text that shows up in shadows.  
+	* 我们现在拥有在阴影中以文本形式显示的预览阴影指示器。
 
-		_Built � distance field shadow maps_	
+		_构建 � 距离场阴影贴图_	
 		
 		![](PreviewShadows01.png)
 
-		_Unbuilt - using preview shadows with indicator_
+		_未构建 —— 正在使用预览阴影指示器_
 		
 		![](PreviewShadows02.png)
 
-	* There is a show flag under 'Visualize' which can be used to disable it.  
+	*“可视化（Visualize）”下拥有可用于禁用它的显示标记。
 		
-		To tweak the light function material used to project the text, it's Material'/Engine/EditorMaterials/PreviewShadowIndicatorMaterial.PreviewShadowIndicatorMaterial'
+		要调整用于投射文本的光源功能材质，即 Material'/Engine/EditorMaterials/PreviewShadowIndicatorMaterial.PreviewShadowIndicatorMaterial'
 
-#### Animation
+#### 动画
 
-* **Non-Uniform Scale Animation**
+* **非等分缩放动画**
 
-	* We now support non-uniform scale animations. No option is required. When import animation, if scale exists, it will import. 
+	* 现在不支持非等分缩放动画。不需要任何选项。导入动画时，如果存在缩放比例，则会导入。
 
-		For the memory concern, we don't save scale for all animations. We only saves it if it has scale that isn't 1. 
+		考虑到内存问题，我们不会为所有动画保存缩放比例。我们只有在它的缩放比例不为 1 时才保存。
 
-	* Example videos of the animations. 
+	* 动画的示例视频。
 
 		[![](AngryChest.png)](AngryChest.wmv)
 		[![](CompoundTransform.png)](CompoundTransform.wmv)
@@ -285,178 +287,178 @@ QA_APPROVED_UE4_BUILD_MINIMUM
 		[![](Keridan_Facial_Compound.png)](Keridan_Facial_Compound.wmv)
 
 
-## New Additions 
+## 新增内容
 
-#### Editor and Tools
-* New sound nodes will auto connect to previously selected nodes in the SoundCue Editor.
-* The Placement Browser has returned with a new look.  The "Classes" view in the Content Browser has been removed.
-* Adding JPEG import support to the editor.  Handles the basic 8bit RGB and Gray JPEG formats.
-* Adding a custom thumbnail renderer for Slate Brushes in the content browser.
-* 'C' key now creates comments for Material and SoundCue editors.
-* Click and drag with LMB+RMB in graph panels (e.g. Blueprint Editor, Material Editor) performs a zoom.
-* Ctrl+E (edit associated asset) in the level viewport now works for asset types other than blueprints, and opens the appropriate asset editor.
-* Hotkey for creating Material Expressions now shown next to entries in palette list.
-* Added lighting/shadowing controls to foliage tool.
-* **Landscape**
-	* Added flatten-to-height option to landscape flatten tool.
-	* Added ramp tool to landscape editor
-* Camera anims can now be created & edited in Matinee.
-* Added ability to switch between global & per-project source control settings.
-* Actors can now be controlled by multiple Matinees at the same time.
-* Added unicode support when using Subversion & fixed sync not working properly.
-* Double clicking on function calls on other Blueprints now opens the respective Blueprint.
-* Asset tabs can now be restored on Editor restart.
-* Language can now be switched in the Editor settings.
-* Find in CB now finds Engine or Dev assets even when they aren't usually visible.
-* Content Browser now has an option to show engine assets.
-* Content Browser now has an option to hide the developer assets.
-* Director Group/Track now selects the active camera actor when played/scrubbed.
-* Possess/Eject now possible while paused, but not if debugging blueprints.
-* Failed 'Hot Compiles' now have a 'show log' hyperlink in the notification.
-* BSP workflow reworked.
-* Splash screen bitmaps are now user-configurable.
-* Added code project regeneration from within the Editor.
+#### 编辑器和工具
+* 新音效节点将自动连接到 SoundCue 编辑器中之前选择的节点。
+* 放置浏览器已焕然一新。已删除内容浏览器中的“类”视图。
+* 正在将 JPEG 导入支持添加到编辑器。处理基本 8 位 RGB 和 Gray JPEG 格式。
+* 正在为内容浏览器中的 Slate 笔刷添加自定义缩略图渲染器。
+*“C”键现在用于为材质编辑器和 SoundCue 编辑器创建注释。
+* 在图表面板（例如，蓝图编辑器、材质编辑器）中使用 LMB+RMB 单击并拖动以执行缩放。
+* 关卡视口中的 Ctrl+E（编辑关联资源）现在用于蓝图以外的资源类型，并打开相应的资源编辑器。
+* 用于创建材质表达式的热键现在显示在控制板列表中的条目旁边。
+* 已将光照/阴影控件添加到植被工具。
+* **地形**
+	* 已将平整到高度选项添加到地形平整工具。
+	* 已将斜坡工具添加到地形编辑器。
+* 现在可以在 Matinee 中创建和编辑相机动画。
+* 添加了在全局和每个项目源控制设置之间切换的功能。
+* Actor 现在可以由多个 Matinee 同时控制。
+* 已在使用 Subversion 和固定同步无法正常工作时添加 Unicode 支持。
+* 现在双击其他蓝图上的函数调用会打开相应的蓝图。
+* 现在可以在编辑器重启时恢复资源（Asset）选项卡。
+* 现在可以在编辑器设置中切换语言。
+* 在 CB 中查找现在可以查找引擎资源或开发者资源，即使它们通常不可见。
+* 内容浏览器现在可以选择显示引擎资源。
+* 内容浏览器现在可以选择隐藏开发者资源。
+* 导演组/轨迹现在可以在运行/删除时激活 Camera Actor。
+* 暂停时现在可以拥有/弹出，但如果调试蓝图则不能。
+* 失败的“热编译”现在通知中包含“显示日志”超链接。
+* BSP 工作流程已重新设计。
+* 用户现在可以配置启动画面位图。
+* 已从编辑器中添加代码项目重新生成。
 * **Slate**
-	* FEditorStyle no longer exists in the Slate core.
-	* FEditorStyle now exists in the EditorStyle module rather than the Slate module.
-	* If you're using FEditorStyle, you'll need to add "EditorStyle" to the list of modules linked in your .Build.cs file.
-	* We don't recommend using FEditorStyle in your games style; see the ShooterGame or StrategyGame sample for an example of the recommended way of setting up a game style.
-* The SRichTextBlock has been added to Slate. The SRichTextBlock allows mixing multiple types of fonts, sizes, colors, widgets, and images all within the say text document.
-* Notify states in Persona can now have their durations edited by dragging their limit handles.
-* Material elements can be added and removed from skeletal meshes allowing LOD materials to be defined.
-* UnrealVS Batch Builder window.
-* Added support for particle parameters in ColorScale/Life modules for GPU emitters.
-* Added a new particle module (PivotOffset) which offsets the vertex position in UV space.
-* WASD is now always allowed when any mouse button is held.
-* Perspective viewport marquee select now only considers objects for selection which have a visible pixel inside the marquee box.
-* Added copy/paste to properties in the details panel.
-* New UI for creating/selecting/editing GameMode in Project and World Settings.
-* **Physical Asset Tool** 
-	* PhAT supports multi-select.
-	* PhAT has a new Hierarchy filter for only showing bones with bodies.
-	* PhAT has a new simulation mode called Selected Simulation.
+	* Slate 核心中不再存在 FEditorStyle。
+	* FEditorStyle 现在存在于 EditorStyle 模块中，而非 Slate 模块。
+	* 如果正在使用 FEditorStyle，则需要将“EditorStyle”添加到 .Build.cs 文件中链接的模块列表。
+	* 我们不建议在游戏风格中使用 FEditorStyle；有关设置游戏风格的推荐方法的示例，请参阅 ShooterGame 或 StrategyGame 示例。
+* 已将 SRichTextBlock 添加到 Slate。SRichTextBlock 允许所有在所述文本文档中混合多种类型的字体、字号、颜色、控件和图像。
+* 角色编辑器中的通知状态现在可以拖动限制句柄以编辑持续时间。
+* 可以从骨架网格体中添加和删除材质元素，以允许定义 LOD 材质。
+* UnrealVS Batch Builder 窗口。
+* 已在 GPU 发射器的色标/生命模块中添加对粒子参数的支持。
+* 添加了可抵消 UV 空间中顶点位置的新粒子模块（支点偏移量）。
+* 现在只需按住鼠标按钮就可以使用 WASD。
+* 视角视口选框选择现在只考虑在选框内具有可见像素的供选择的对象。
+* 已将复制/粘贴添加到详细信息（Details）面板中的属性。
+* 用于在项目和场景设置中创建/选择/编辑游戏模式的新 UI。
+* **物理资源工具**
+	* PhAT 支持多选。
+	* PhAT 拥有仅显示带形体的骨骼的新层级过滤器。
+	* PhAT 拥有名为选定模拟的新模拟模式。
 
-#### Blueprints
-* Added UApplicationLifecycleComponent, which can be added to any Actor that needs to listen for platform-specific application lifecycle events (e.g. iOS system messages). Works for both native and Blueprint classes
-* Several rich tool tips that link to documentation were added to the Blueprint editor.
-* +/- keys can now be used to zoom in/out the blueprint graph editor.
-* Added a "favorites" panel to the blueprint palette (along with favoriting functionality).
-* Blueprint implementable functions can now take `TScriptInterface<>` params.
-* New "WorldContext" meta-tag, for flagging world-context parameters on blueprint functions.
-* Added support for Blueprint macro debugging.
-* Modified the blueprint node asset references to have an in place asset picker that is more inline with other places where assets can be chosen in the editor.
-* Added documentation tooltips to blueprint variable get/set nodes based on the variable they reference.
-	* This feature will display automatically in a tooltip if valid documentation can be located.
-* Local variables can be placed and named in Blueprint functions.
-* "Level Blueprint" toolbar has been renamed to "Blueprints" and has added functionality to create and edit various blueprints.
-* Can now collapse selection to macros or functions and promote collapsed graphs to macros and functions.
-* Add BP-exposed IgnoreActorWhenMoving function to PrimComp.
-* Blueprint Editor document tabs now have icons on.
-* Blueprint nodes now have icons on them (and in menu).
-	* Many custom icons created for different types of nodes.
-	* Event node exec pins now use normal exec pin style.
-* Events now grouped by category.
-* Added 'Create Blueprint From...' option to Content Browser context menu.
-* Add GetActorUp/Right/ForwardVector
+#### 蓝图
+* 添加了 UApplicationLifecycleComponent，可将其添加到需要侦听平台特定应用程序生命周期事件（例如，iOS 系统消息）的任何 Actor。适用于原生类和蓝图类
+* 已将链接到文档的多个丰富的工具提示添加到蓝图编辑器。
+* +/- 键现在可用于放大/缩小蓝图图表编辑器。
+* 已将“收藏夹（Favorites）”面板添加到蓝图控制板（以及收藏功能）。
+* 蓝图可实现功能现在可以使用 `TScriptInterface<>` 参数。
+* 新“WorldContext”元标签用于标记蓝图函数中的场景关联参数。
+* 添加了对蓝图宏调试的支持。
+* 已修改蓝图节点资源引用，以使资源选取器与可在编辑器中选择资源的其他位置更加内联。
+* 已根据它们引用的变量将文档工具提示添加到蓝图变量获取/设置节点。
+	* 如果可以找到有效的文档，此功能将自动显示在工具提示中。
+* 可以在蓝图函数中放置并命名局部变量。
+* 已将“关卡蓝图（Level Blueprint）”工具栏重命名为“蓝图（Blueprints）”，并添加了创建和编辑各种蓝图的功能。
+* 现在可以将选择折叠为宏或函数，并将折叠图表提升为宏和函数。
+* 将 BP 公开的 IgnoreActorWhenMoving 函数添加到 PrimComp。
+* 蓝图编辑器文档选项卡现在在它们中拥有图标。
+* 蓝图节点现在在它们（和菜单）中拥有图标。
+	* 已为不同类型的节点创建许多自定义图标。
+	* 事件节点执行引脚现在使用普通执行引脚样式。
+* 事件现在已按类别分组。
+* 已将“从....创建蓝图（Create Blueprint From...）”选项添加到内容浏览器快捷菜单。
+* 添加 GetActorUp/Right/ForwardVector
 
-#### Rendering
-* Visualize show flags for volume lighting samples and precomputed visibility cells.
-* Preview shadow indicator text renders in whole scene shadows used for previewing.
-	* Can be disabled via show flag in visualize category.
-	* Preview CSM for unbuilt directional lights is no longer applied in PIE, to be consistent with game.
-* ES2 shader statistics and errors can now be displayed in the material and MIC editors.
-* Added Roughness support for screen space reflections.
-* Added WIP LightPropagationVolumes (integration from Microsoft/Lionhead).
-* Added r.ViewportTest to test different viewport situations for rendering passes without setting up a matinee (only works in game).
-* Added cvar "r.GeneralPurposeTweak" accessible in HLSL "View.GeneralPurposeTweak" for shader development.
-* Made Scalability settings cvars so the state can be easier maintained (e.g. override in device profiles).
-* Added r.MipMapLODBias console variable to override the LOD bias of all 2D textures.
+#### 渲染
+* 可视化体积光照样本和预计算可见性单元的显示标记。
+* 在整个场景阴影中用于预览的预览阴影指示器文本渲染器。
+	* 可以通过可视化类别中的显示标记禁用。
+	* 为与游戏保持一致，在 PIE 中不再应用未构建定向光源的预览 CSM。
+* ES2 着色器统计数据和错误现在可以显示在材质和 MIC 编辑器中。
+* 已为屏幕空间反射添加粗糙度支持。
+* 添加了 WIP LightPropagationVolume（从 Microsoft/Lionhead 集成）。
+* 添加了 r.ViewportTest 以测试在未设置 Matinee 时渲染通道的不同视口情况（仅适用于游戏）。
+* 添加了可在 HLSL“View.GeneralPurposeTweak”中访问着色器开发的“r.GeneralPurposeTweak”。
+* 创建可扩展性设置 CVars，以便轻松维护状态（例如，在设备配置文件中覆盖）。
+* 添加了 r.MipMapLODBias 控制台变量以覆盖所有 2D 纹理的 LOD 偏移。
 
-#### Gameplay and Framework
-* Added FromIso8601 and ToIso8601 to FDateTime to support ISO-8601 date formats.
-* Lowered memory usage during navmesh rebuild, only a few generators will receive collision data at the same time.
-* Increased maximum navmesh tile dimension to 65536 voxels (was: 256).
-* Increased maximum number of navmesh polys and tiles by switching to 64bit poly address.
-* New region partitioning for navmesh generation: ChunkyMonotone
-	* Divides tile into rectangular chunks (default: 2x2) and runs monotone partitioning on them.
-	* Noticeably faster than default mode (watershed)
-	* Chunk split protects from creating long, thin polys, but generates slightly more polys than other methods.
-	* Partitioning method selection moved to Advanced display of RecastNavMesh's Generation category.
-* Added default navigation area for dynamic obstacles (similar to default walkable), which can be overridden by game specific settings.
-* Added EQS debug drawing to GameplayDebuggingComponent's display.
-* GameplayDebuggingComponent's drawing is using its own show flag now: GameplayDebugging.
-* Implemented EQSTestingPawn, a tool to test EQS queries in the editor's viewport.
-* Defined FAISystem::InvalidLocation to be used as value for "not-set" or "cleared" FVectors used with AI.
-* Added a way to time-slice single EQS test.
-* Added new super cool EQS generator to generate items on a circle around indicated context.
-* Added a way to define "persistent keys" for blackboard meaning keys that will be present in all BB assets (not duplicating if parent BB has one).
-* Added support to Personas detail panel for struct customizations when selecting anim nodes. 
-* Added the ability to set the preview mesh of a skeleton separately to the current preview mesh in Persona (previously this was the same action).
-* Added a new panel to Persona to allow users to edit properties on the preview instance separately to the property defaults.
-* Added context menu options to anim blueprint nodes to allow users to open the associated assets.
-* Added dirty marker to mode widgets in Persona.
-* Added Save context menu option to Persona's asset browser.
-* In game bone drawing toggled on with showdebug command.
-* In game debug output for playing animations
-* Find in CB toolbar button in Persona now highlights the appropriate asset based on the current mode (Skeleton, Mesh etc).
-* Added axis gizmo to sockets in Persona.
-* Adding a sound/particle notify will auto set it to the selected asset in Persona if it is of the appropriate type.
-* SoundNode Concatenate has been re-added.
-* Added scroll support to DataTableEditor.
-* Actor Details UI has been improved to be more functional and compact.
-* You can now access C++ source files more easily from the editor!
-	* Added Right Click -> Open C++ Source file for selected actor.
-	* Added "Go to Source File" button into the details header (hyperlink).
-* Added new preference to toggle Editor Sounds (such as the PIE sounds, under "Editor Sounds" section).
-* Added text chat to shootergame.
-* Double clicking on a native class in the class viewer will open the header file in the IDE.
-* The editor help menu has a shortcut to the API documentation.
-* Added option in project browser to automatically load the last project.
-* Collision: Collision channel setup is available in Project Setting/Collision.
-* PhysicalSurface : Physical Surface set up is available in Project Setting/Physics.
-* Automation test configuration : You can add various automation test assets to Editor Setting/Automation.
-* Added a commandlet that will allow export of localization Portable Object (.po) files.
-* In a blendspace anim notifies can now be limited to the highest weighted animation; or disabled altogether.
+#### Gameplay 和框架
+* 已将 FromIso8601 和 ToIso8601 添加到 FDateTime 以支持 ISO-8601 日期格式。
+* 在寻路网格体重构期间降低内存使用量，只有少数生成器会同时接收碰撞数据。
+* 已将最大寻路网格体平铺块尺寸增加到 65536 个体素（为256).
+* 已通过切换到 64 位多边形地址增加寻路网格体多边形和平铺块的最大数量。
+* 寻路网格体生成的新区域分区：ChunkyMonotone
+	* 将平铺块分为矩形块（默认值：2x2）并在它们中运行单调分区。
+	* 明显比默认模式更快（转折点）
+	* 文件块分割可防止产生长而简洁的多边形，但生成的多边形比其他方法稍多。
+	* 已将分区方法选择移动到 RecastNavMesh 生成类别的高级显示。
+* 添加了动态障碍物的默认导航区域（类似于默认可行走），可以通过游戏特定设置覆盖。
+* 已将 EQS 调试绘制添加到 GameplayDebuggingComponent 的显示。
+* GameplayDebuggingComponent 的绘制现在正在使用自己的显示标记：GameplayDebugging。
+* 已实现 EQSTestingPawn，该工具用于在编辑器视口中测试 EQS 查询。
+* 定义的 FAISystem::InvalidLocation 可用作结合 AI 使用的“未设置”或“已清除”FVector 的值。
+* 添加了用于时间段单一 EQS 测试的方法。
+* 添加了强大的新 EQS 生成器，以围绕指示的上下文生成项目。
+* 添加了为黑板定义“持久性密钥”的方法，意味着密钥将出现在所有 BB 资源中（如果父 BB 有密钥，则不会重复出现）。
+* 选择动画节点时，添加了对角色编辑器详细信息面板的支持以进行结构自定义。
+* 添加了将骨架的预览网格体分别设置为角色编辑器中当前预览网格体的功能（以前这是相同的操作）。
+* 已将新面板添加到角色编辑器，以允许用户将预览实例上的属性分别编辑为属性默认值。
+* 已将快捷菜单选项添加到动画蓝图节点，以允许用户打开关联的资源。
+* 已将脏标记添加到角色编辑器中的模式控件。
+* 已将保存（Save）快捷菜单选项添加到角色编辑器的资源浏览器。
+* 在游戏中，使用 showdebug 命令切换骨骼绘制。
+* 在游戏中，调试播放动画的输出。
+* 角色编辑器 CB 工具栏按钮中的查找（Find）现在可根据当前模式（骨架、网格体等）突出显示相应的资源。
+* 已将轴小工具添加到角色编辑器中的插槽。
+* 添加声音/粒子通知会自动将其设置为角色编辑器中的选定资源（如果它是合适的类型）。
+* 已重新添加 SoundNode Concatenate。
+* 添加了对数据表格编辑器的滚动支持。
+* 已改进 Actor 详细信息 UI，功能更强大且界面更紧凑。
+* 现在可以从编辑器更轻松地访问 C++ 源文件！
+	* 已为选定 Actor 添加右键单击（Right Click）->打开 C++ 源文件（Open C++ Source File）。
+	* 已将“转到源文件（Go to Source File）”按钮添加到详细信息标头（超链接）。
+* 添加了新首选项以切换编辑器音效（例如，“编辑器音效（Editor Sounds）”部分下的 PIE 音效。）
+* 已为射击游戏添加文字聊天。
+* 双击类查看器中的原生类将在 IDE 中打开标头文件。
+* 编辑器帮助菜单包含 API 文档的快捷键。
+* 已在项目浏览器中添加选项以自动加载最后一个项目。
+* 碰撞：项目设置（Project Setting）/碰撞（Collision）中已提供碰撞通道设置。
+* 物理表面：项目设置（Project Setting）/Physics（物理）中已提供物理表面设置。
+* 自动化测试配置：可以将各种自动化测试资源添加到编辑器设置（Editor Setting）/自动化（Automation）。
+* 添加了允许导出本地化可移植对象 (.po) 文件的命令行。
+* 在混合空间中，现在可以将动画通知限制为最高加权动画；或完全禁用。
 
-#### Core
-* Added Simplygon ProxyLOD integration, supports merging of static mesh components and landscapes (hidden under Experimental->Actor Merging).
-* Added actor merging utility with grouping by materials (hidden under Experimental->Actor Merging).
-* Dedicated servers can now have their own ini files (DedicatedServer*.ini) stored in the same directory as Default*.ini
-* UBT: Added Type and IsCooked properties to TargetInfo class: this way build rules can conditionally configure modules when building binaries for cooked targets. 
-* Added the ability to create multiple pak file builds based on asset registry data and game callbacks (useful for chunking game downloads).
-* nullptr and 0 are now accepted as default arguments for pointers in BlueprintCallableFunctions.
-* Interface UFunctions are now found via field iteration.
-* There's a new TFieldRange class that can be used in the same way as TFieldIterator, but for use in ranged-for constructs, e.g. for (`UFunction* Func : TFieldRange<UFunction>(Class)`).
-* And there's a new TObjectRange which works equivalently for TObjectIterator.
-* TMaps and TMultiMap can now be added to (or emplaced with) a single key argument, e.g. Map.Add(Key);, and the mapped value will be default-constructed.
-* Delegates now have AddUniqueDynamic and IsAlreadyBound functions to aid code which may bind the same object/function multiple times.
-* Non-ANSI characters are now handled correctly by UnrealHeaderTool (e.g. comments parsed for tooltips, DisplayName specifiers etc.).
-* Enabled BinnedMalloc in non-editor Win64 builds. Added support for aligned allocations up to the page size of the platform being run on.
+#### 核心
+* 添加了 Simplygon ProxyLOD 集成，支持静态网格体组件和地形的融合（在实验性（Experimental）->Actor 融合（Actor Merging）下隐藏）。
+* 已通过按材质分组添加 Actor 融合工具（在实验性（Experimental）->Actor 融合（Actor Merging）下隐藏）。
+* 专属服务器现在可以将自己的 ini 文件（DedicatedServer*.ini）存储在与 Default*.ini 相同的目录中。
+* UBT：已将类型（Type）和 IsCooked 属性添加到 TargetInfo 类：这种方法构建规则可以在为烘焙目标构建二进制文件时有条件地配置模块。
+* 添加了根据资源注册表数据和游戏回调创建多个 pak 文件版本的功能（对于分块数据下载非常有用）。
+* 接受 nullptr 和 0 现在作为 BlueprintCallableFunction 中指针的默认参数。
+* 现在可以通过字段迭代找到接口 UFunction。
+* 新的 TFieldRange 类使用方法与 TFieldIterator 相同，但它用于 ranged-for 构造，例如用于（`UFunction* Func : TFieldRange<UFunction>(Class)`）。
+* 新 TObjectRange 类的功能与 TObjectIterator 类相同。
+* TMaps 和 TMultiMap 现在可以添加到单个 Key 参数或使用单个 Key 参数（放置），例如 Map.Add(Key);，并且映射的值将是默认构造的。
+* 委托现在具有 AddUniqueDynamic 和 IsAlreadyBound 函数以辅助可以多次绑定相同对象/函数的代码。
+* UnrealHeaderTool 现在可以正确处理非 ANSI 字符（例如，为工具提示、DisplayName 说明符等解析的注释）。
+* 已在非编辑器 Win64 版本中启用 BinnedMalloc。添加了对齐分配的支持，直到正在运行的平台的页面大小。
 
-#### Platforms
+#### 平台
 * **Mac**
-	* Modify & rename iOSMoviePlayer plugin to compile & link on Mac OS X which also uses the same AVFoundation API for movie playback (already used in AVIWriter).
-	* Make Mac windows render with drop shadows & rounded corners when required, plus make the close/minimize/restore buttons highlight as they should in OS X.
-	* Initial implementation of crash reporting for Mac OS X using the new C++ crash reporter, generating similar reports as the Linux version.
-	* Enable the new CrashReportClient & disable all old error reporting on OS X.
-	* Add a suppressible dialog to warn users to update when they aren't running the latest version of Mac OS X.
-	* Support TCHAR in LLDB.
+	* 修改并重命名 iOSMoviePlayer 插件，以便在也使用相同 AVFoundation API 进行电影播放的 Mac OS X 上进行编译和链接（已在 AVIWriter 中使用）。
+	* 需要时使 Mac 窗口渲染器包含投射阴影和圆角，并使关闭（Close）/最小化（Minimize）/恢复（Restore）按钮就像在 OS X 中一样突出显示。
+	* 使用新 C++ 故障报告器初始实现 Mac OS X 的故障报告，生成与 Linux 版本类似的报告。
+	* 在 OS X 中启用新的 CrashReportClient 并禁用所有旧的错误报告。
+	* 添加可隐藏对话框以警告用户在未运行 Mac OS X 的最新版本时进行更新。
+	* 在 LLDB 中支持 TCHAR。
 * **Android**
-	* Show the supported texture formats in the four-finger-tap dialog.
-	* Added support for r.MobileContentScaleFactor on Android (1.0 means 1280x720, but with proper aspect ratio), clamped to native resolution.
-	* Android audio support has been added using ogg.
+	* 在四指点击对话框中显示支持的纹理格式。
+	* 已在 Android 中添加对 r.MobileContentScaleFactor 的支持（1.0 表示 1280x720，但具有适合的宽高比），限定为原始分辨率。
+	* 已使用 Ogg 添加 Android 音频支持。
 
-#### Animation
-* Added different options for locking root bone while extracting root motion. Changed default from first frame of animation to ref pose.
-* Optimization: Enabled CachedLocalBounds optimization for SkeletalMeshes to all.		
-* **ANIMATION NEEDS RESAVE**
-	* We added a GUID to Skeleton assets, so that animations can track the version. We recommend you resave all animations. Otherwise, animations will be compressed at load time.
-* Non-uniform scaled animation support: Only used when scaling is applied (e.g not equal to 1,1,1).
-	* If you are having an issue with importing scale, enable "Preserve Local Transform."
-	* Please note that we don't support skew/shearing, so that information will be eliminated and produce different result than source data.
+#### 动画
+* 已在提取根运动时添加用于锁定根骨骼的不同选项。已将默认值从动画的第一帧更改为参考姿势。
+* 优化：已为所有骨架网格体启用 CachedLocalBounds 优化。		
+* **动画需要重新保存**
+	* 已将 GUID 添加到骨架资源，以便动画可以跟踪版本。我们建议重新保存所有动画。否则，在加载时会压缩动画。
+* 非等分缩放动画支持：仅在应用缩放比例时使用（例如，不等于 1,1,1）。
+	* 如果正在导入缩放比例时出现问题，启用“保留局部变换（Preserve Local Transform）”。
+	* 请注意，不支持偏斜/剪切，因此将会删除信息并产生与源数据不同的结果。
 
-
-## Upgrade Notes
+	
+## Upgrade Notes （以下内容仅供参考，不作翻译）
 
 #### Editor and Tools
 * Selected Actors Delta Transform for context menu.

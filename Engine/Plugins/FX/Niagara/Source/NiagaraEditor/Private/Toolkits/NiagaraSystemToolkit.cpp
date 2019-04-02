@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraSystemToolkit.h"
 #include "NiagaraEditorModule.h"
@@ -998,6 +998,7 @@ void FNiagaraSystemToolkit::UpdateOriginalEmitter()
 		// overwrite the original script in place by constructing a new one with the same name
 		Emitter = (UNiagaraEmitter*)StaticDuplicateObject(EditableEmitter, Emitter->GetOuter(),
 			Emitter->GetFName(), RF_AllFlags, Emitter->GetClass());
+		Emitter->PostEditChange();
 
 		TArray<UNiagaraScript*> EmitterScripts;
 		Emitter->GetScripts(EmitterScripts, false);
@@ -1036,6 +1037,7 @@ void FNiagaraSystemToolkit::UpdateOriginalEmitter()
 	{
 		Emitter->MarkPackageDirty();
 		Emitter->ThumbnailImage = (UTexture2D*)StaticDuplicateObject(EditableEmitter->ThumbnailImage, Emitter);
+		Emitter->PostEditChange();
 		bEmitterThumbnailUpdated = false;
 	}
 }

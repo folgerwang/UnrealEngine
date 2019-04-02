@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "LightingSystem.h"
@@ -261,7 +261,8 @@ void FStaticLightingSystem::EmitDirectPhotons(
 	TIndirectArray<FDirectPhotonEmittingThreadRunnable> DirectPhotonEmittingThreads;
 	for (int32 ThreadIndex = 1; ThreadIndex < NumStaticLightingThreads; ThreadIndex++)
 	{
-		FDirectPhotonEmittingThreadRunnable* ThreadRunnable = new(DirectPhotonEmittingThreads) FDirectPhotonEmittingThreadRunnable(this, ThreadIndex, Input);
+		FDirectPhotonEmittingThreadRunnable* ThreadRunnable = new FDirectPhotonEmittingThreadRunnable(this, ThreadIndex, Input);
+		DirectPhotonEmittingThreads.Add(ThreadRunnable);
 		const FString ThreadName = FString::Printf(TEXT("DirectPhotonEmittingThread%u"), ThreadIndex);
 		ThreadRunnable->Thread = FRunnableThread::Create(ThreadRunnable, *ThreadName);
 	}
@@ -405,6 +406,9 @@ uint32 FDirectPhotonEmittingThreadRunnable::Run()
 	GSwarm->SendMessage( NSwarm::FTimingMessage( NSwarm::PROGSTATE_Preparing0, ThreadIndex ) );
 
 	const double StartThreadTime = FPlatformTime::Seconds();
+
+	FixThreadGroupAffinity();
+
 #if defined(_MSC_VER) && !defined(XBOX)
 	if(!FPlatformMisc::IsDebuggerPresent())
 	{
@@ -731,7 +735,8 @@ void FStaticLightingSystem::EmitIndirectPhotons(
 	TIndirectArray<FIndirectPhotonEmittingThreadRunnable> IndirectPhotonEmittingThreads;
 	for (int32 ThreadIndex = 1; ThreadIndex < NumStaticLightingThreads; ThreadIndex++)
 	{
-		FIndirectPhotonEmittingThreadRunnable* ThreadRunnable = new(IndirectPhotonEmittingThreads) FIndirectPhotonEmittingThreadRunnable(this, ThreadIndex, Input);
+		FIndirectPhotonEmittingThreadRunnable* ThreadRunnable = new FIndirectPhotonEmittingThreadRunnable(this, ThreadIndex, Input);
+		IndirectPhotonEmittingThreads.Add(ThreadRunnable);
 		const FString ThreadName = FString::Printf(TEXT("IndirectPhotonEmittingThread%u"), ThreadIndex);
 		ThreadRunnable->Thread = FRunnableThread::Create(ThreadRunnable, *ThreadName);
 	}
@@ -854,6 +859,7 @@ uint32 FIndirectPhotonEmittingThreadRunnable::Run()
 {
 	GSwarm->SendMessage( NSwarm::FTimingMessage( NSwarm::PROGSTATE_Preparing1, ThreadIndex ) );
 	const double StartThreadTime = FPlatformTime::Seconds();
+	FixThreadGroupAffinity();
 #if defined(_MSC_VER) && !defined(XBOX)
 	if(!FPlatformMisc::IsDebuggerPresent())
 	{
@@ -1226,7 +1232,8 @@ void FStaticLightingSystem::MarkIrradiancePhotons(const FBoxSphereBounds& Import
 	IrradiancePhotonMarkingThreads.Empty(NumStaticLightingThreads);
 	for(int32 ThreadIndex = 1; ThreadIndex < NumStaticLightingThreads; ThreadIndex++)
 	{
-		FIrradiancePhotonMarkingThreadRunnable* ThreadRunnable = new(IrradiancePhotonMarkingThreads) FIrradiancePhotonMarkingThreadRunnable(this, ThreadIndex, IrradiancePhotons);
+		FIrradiancePhotonMarkingThreadRunnable* ThreadRunnable = new FIrradiancePhotonMarkingThreadRunnable(this, ThreadIndex, IrradiancePhotons);
+		IrradiancePhotonMarkingThreads.Add(ThreadRunnable);
 		const FString ThreadName = FString::Printf(TEXT("IrradiancePhotonMarkingThread%u"), ThreadIndex);
 		ThreadRunnable->Thread = FRunnableThread::Create(ThreadRunnable, *ThreadName);
 	}
@@ -1262,6 +1269,7 @@ uint32 FIrradiancePhotonMarkingThreadRunnable::Run()
 {
 	GSwarm->SendMessage( NSwarm::FTimingMessage( NSwarm::PROGSTATE_Preparing2, ThreadIndex ) );
 	const double StartThreadTime = FPlatformTime::Seconds();
+	FixThreadGroupAffinity();
 #if defined(_MSC_VER) && !defined(XBOX)
 	if(!FPlatformMisc::IsDebuggerPresent())
 	{
@@ -1390,7 +1398,8 @@ void FStaticLightingSystem::CalculateIrradiancePhotons(const FBoxSphereBounds& I
 	IrradiancePhotonThreads.Empty(NumStaticLightingThreads);
 	for(int32 ThreadIndex = 1; ThreadIndex < NumStaticLightingThreads; ThreadIndex++)
 	{
-		FIrradiancePhotonCalculatingThreadRunnable* ThreadRunnable = new(IrradiancePhotonThreads) FIrradiancePhotonCalculatingThreadRunnable(this, ThreadIndex, IrradiancePhotons);
+		FIrradiancePhotonCalculatingThreadRunnable* ThreadRunnable = new FIrradiancePhotonCalculatingThreadRunnable(this, ThreadIndex, IrradiancePhotons);
+		IrradiancePhotonThreads.Add(ThreadRunnable);
 		const FString ThreadName = FString::Printf(TEXT("IrradiancePhotonCalculatingThread%u"), ThreadIndex);
 		ThreadRunnable->Thread = FRunnableThread::Create(ThreadRunnable, *ThreadName);
 	}
@@ -1431,6 +1440,7 @@ void FStaticLightingSystem::CalculateIrradiancePhotons(const FBoxSphereBounds& I
 uint32 FIrradiancePhotonCalculatingThreadRunnable::Run()
 {
 	const double StartThreadTime = FPlatformTime::Seconds();
+	FixThreadGroupAffinity();
 #if defined(_MSC_VER) && !defined(XBOX)
 	if(!FPlatformMisc::IsDebuggerPresent())
 	{
@@ -1589,7 +1599,8 @@ void FStaticLightingSystem::CacheIrradiancePhotons()
 	check(PhotonMappingSettings.bCacheIrradiancePhotonsOnSurfaces);
 	for(int32 ThreadIndex = 1; ThreadIndex < NumStaticLightingThreads; ThreadIndex++)
 	{
-		FMappingProcessingThreadRunnable* ThreadRunnable = new(IrradiancePhotonCachingThreads) FMappingProcessingThreadRunnable(this, ThreadIndex, StaticLightingTask_CacheIrradiancePhotons);
+		FMappingProcessingThreadRunnable* ThreadRunnable = new FMappingProcessingThreadRunnable(this, ThreadIndex, StaticLightingTask_CacheIrradiancePhotons);
+		IrradiancePhotonCachingThreads.Add(ThreadRunnable);
 		const FString ThreadName = FString::Printf(TEXT("IrradiancePhotonCachingThread%u"), ThreadIndex);
 		ThreadRunnable->Thread = FRunnableThread::Create(ThreadRunnable, *ThreadName);
 	}

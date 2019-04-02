@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -9,6 +9,8 @@
 /**
  * This class provides common registration for gamethread editor only tickable objects. It is an
  * abstract base class requiring you to implement the GetStatId, IsTickable, and Tick methods.
+ * If you need a class that can tick in both the Editor and at Runtime then use FTickableGameObject
+ * instead, overriding the IsTickableInEditor() function instead.
  */
 class UNREALED_API FTickableEditorObject : public FTickableObjectBase
 {
@@ -65,6 +67,7 @@ public:
 	/** Registers this instance with the static array of tickable objects. */
 	FTickableEditorObject()
 	{
+		ensure(IsInGameThread() || IsInAsyncLoadingThread());
 		check(!GetPendingTickableObjects().Contains(this));
 		check(!GetTickableObjects().Contains(this));
 		GetPendingTickableObjects().Add(this);
@@ -73,6 +76,7 @@ public:
 	/** Removes this instance from the static array of tickable objects. */
 	virtual ~FTickableEditorObject()
 	{
+		ensure(IsInGameThread() || IsInAsyncLoadingThread());
 		if (bCollectionIntact && GetPendingTickableObjects().Remove(this) == 0)
 		{
 			RemoveTickableObject(GetTickableObjects(), this, bIsTickingObjects);

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ClothingPaintEditMode.h"
 #include "IPersonaPreviewScene.h"
@@ -58,9 +58,8 @@ void FClothingPaintEditMode::Enter()
 {
 	IMeshPaintEdMode::Enter();
 
-	for (int32 ViewIndex = 0; ViewIndex < GEditor->AllViewportClients.Num(); ++ViewIndex)
+	for (FEditorViewportClient* ViewportClient : GEditor->GetAllViewportClients())
 	{
-		FEditorViewportClient* ViewportClient = GEditor->AllViewportClients[ViewIndex];
 		if (!ViewportClient || ViewportClient->GetModeTools() != GetModeManager() )
 		{
 			continue;
@@ -121,9 +120,8 @@ void FClothingPaintEditMode::Exit()
 		}
 	}
 
-	for (int32 ViewIndex = 0; ViewIndex < GEditor->AllViewportClients.Num(); ++ViewIndex)
+	for (FEditorViewportClient* ViewportClient : GEditor->GetAllViewportClients())
 	{
-		FEditorViewportClient* ViewportClient = GEditor->AllViewportClients[ViewIndex];
 		if (!ViewportClient || ViewportClient->GetModeTools() != GetModeManager() )
 		{
 			continue;

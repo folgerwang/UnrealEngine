@@ -1,9 +1,9 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ARBlueprintProxy.h"
 #include "ARSystem.h"
 
-TSharedPtr<FARSystemBase, ESPMode::ThreadSafe> UARBaseAsyncTaskBlueprintProxy::RegisteredARSystem = nullptr;
+TWeakPtr<FARSupportInterface , ESPMode::ThreadSafe> UARBaseAsyncTaskBlueprintProxy::RegisteredARSystem = nullptr;
 
 UARBaseAsyncTaskBlueprintProxy::UARBaseAsyncTaskBlueprintProxy(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -35,13 +35,13 @@ void UARBaseAsyncTaskBlueprintProxy::Tick(float DeltaTime)
 	}
 }
 
-void UARBaseAsyncTaskBlueprintProxy::RegisterAsARSystem(const TSharedPtr<FARSystemBase, ESPMode::ThreadSafe>& NewARSystem)
+void UARBaseAsyncTaskBlueprintProxy::RegisterAsARSystem(const TSharedRef<FARSupportInterface , ESPMode::ThreadSafe>& NewARSystem)
 {
 	RegisteredARSystem = NewARSystem;
 }
 
 
-const TSharedPtr<FARSystemBase, ESPMode::ThreadSafe>& UARBaseAsyncTaskBlueprintProxy::GetARSystem()
+const TWeakPtr<FARSupportInterface , ESPMode::ThreadSafe>& UARBaseAsyncTaskBlueprintProxy::GetARSystem()
 {
 	return RegisteredARSystem;
 }
@@ -58,7 +58,7 @@ void UARSaveWorldAsyncTaskBlueprintProxy::Activate()
 	auto ARSystem = GetARSystem();
 	if (ARSystem.IsValid())
 	{
-		SaveWorldTask = ARSystem->SaveWorld();
+		SaveWorldTask = ARSystem.Pin()->SaveWorld();
 		AsyncTask = SaveWorldTask;
 	}
 	else
@@ -92,7 +92,7 @@ void UARGetCandidateObjectAsyncTaskBlueprintProxy::Activate()
 	auto ARSystem = GetARSystem();
 	if (ARSystem.IsValid())
 	{
-		CandidateObjectTask = ARSystem->GetCandidateObject(Location, Extent);
+		CandidateObjectTask = ARSystem.Pin()->GetCandidateObject(Location, Extent);
 		AsyncTask = CandidateObjectTask;
 	}
 	else

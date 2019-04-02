@@ -38,15 +38,15 @@ C++ 를 통해 애니메이션 업데이트 방법이나 발생 시기도 제어
 	![](AnimBPMultiThreadOption.png)
 
 이 기능의 주된 동력은 여러 스레드에 걸친 데이터 접근 밀도를 높이기 위해서였습니다. 그러기 위해, 다수의 애님 그래프 접근 데이터를 [`UAnimInstance`](https://docs.unrealengine.com/latest/INT/API/Runtime/Engine/Animation/UAnimInstance/index.html) 에서 새로운 구조체 [`FAnimInstanceProxy`](https://docs.unrealengine.com/latest/INT/API/Runtime/Engine/Animation/FAnimInstanceProxy/index.html) 로 옮겼습니다. 
-이 프록시 구조체에 `UAnimInstance` 에서 찾은 다량의 데이터가 있습니다.
+이 프락시 구조체에 `UAnimInstance` 에서 찾은 다량의 데이터가 있습니다.
 
 일반적으로, `UAnimInstance` 는 애님그래프 노드 내에서 (Update/Evaluate 호출로) 접근 또는 치환되어서는 안됩니다. 다른 스레드에서 실행할 수 없기 때문입니다.
 태스크 처리(in-flight) 도중 `FAnimInstanceProxy` 접근을 방지하기 위한 잠금 래퍼가 ([`GetProxyOnAnyThread`](https://docs.unrealengine.com/latest/INT/API/Runtime/Engine/Animation/UAnimInstance/GetProxyOnAnyThread/index.html) 및 [`GetProxyOnGameThread`](https://docs.unrealengine.com/latest/INT/API/Runtime/Engine/Animation/UAnimInstance/GetProxyOnGameThread/index.html)) 있습니다.
-최악의 경우, 태스크 완료를 기다린 후 프록시에서 데이터 읽기 쓰기를 허용한다는 개념입니다.
+최악의 경우, 태스크 완료를 기다린 후 프락시에서 데이터 읽기 쓰기를 허용한다는 개념입니다.
 
 애님 그래프 관점에서는, 애니메이션 노드로부터 `FAnimInstanceProxy` 만 접근 가능하지, `UAnimInstance` 는 아닙니다. 
-매 틱마다 프록시와의 데이터 교환은 (버퍼링이든 복사든 기타 다른 전략을 통해서든) [`FAnimInstanceProxy::PreUpdate`](https://docs.unrealengine.com/latest/INT/API/Editor/AnimGraph/FAnimPreviewInstanceProxy/PreUpdate/index.html) 또는 [`FAnimInstaceProxy::PreEvaluateAnimation`](https://docs.unrealengine.com/latest/INT/API/Runtime/Engine/Animation/FAnimInstanceProxy/PreEvaluateAnimation/index.html) 에서 일어나야 합니다. 
-그 후 외부 오브젝트에서 접근할 필요가 있는 데이터가 있으면 [`FAnimInstanceProxy::PostUpdate`](https://docs.unrealengine.com/latest/INT/API/Runtime/Engine/Animation/FAnimInstanceProxy/PostUpdate/index.html) 에서 프록시를 통해 교환/복사해야 할 것입니다.
+매 틱마다 프락시와의 데이터 교환은 (버퍼링이든 복사든 기타 다른 전략을 통해서든) [`FAnimInstanceProxy::PreUpdate`](https://docs.unrealengine.com/latest/INT/API/Editor/AnimGraph/FAnimPreviewInstanceProxy/PreUpdate/index.html) 또는 [`FAnimInstaceProxy::PreEvaluateAnimation`](https://docs.unrealengine.com/latest/INT/API/Runtime/Engine/Animation/FAnimInstanceProxy/PreEvaluateAnimation/index.html) 에서 일어나야 합니다. 
+그 후 외부 오브젝트에서 접근할 필요가 있는 데이터가 있으면 [`FAnimInstanceProxy::PostUpdate`](https://docs.unrealengine.com/latest/INT/API/Runtime/Engine/Animation/FAnimInstanceProxy/PostUpdate/index.html) 에서 프락시를 통해 교환/복사해야 할 것입니다.
 
 [REGION:tip]
 이는 태스크 처리 도중 다른 클래스에서 멤버 변수를 접근할 수 있는 `UAnimInstance` 의 일반적 용도와 충돌이 일어나는 부분입니다.
@@ -55,7 +55,7 @@ C++ 를 통해 애니메이션 업데이트 방법이나 발생 시기도 제어
 
 ### 예제 커스텀 네이티브 AnimInstance
 
-아래 코드 블럭은 새로운 `FAnimInstanceProxy` 를 사용하여 커스텀 네이티브 AnimInstance 클래스를 만드는 예제로, 내부 작업 접근을 허가하고 프록시와 인스턴스 사이 공유 데이터 복사를 피하고 있습니다:
+아래 코드 블럭은 새로운 `FAnimInstanceProxy` 를 사용하여 커스텀 네이티브 AnimInstance 클래스를 만드는 예제로, 내부 작업 접근을 허가하고 프락시와 인스턴스 사이 공유 데이터 복사를 피하고 있습니다:
 
 	USTRUCT()
 
@@ -139,7 +139,7 @@ C++ 를 통해 애니메이션 업데이트 방법이나 발생 시기도 제어
 
 **Animation Fast Path** (애니메이션 빠른 경로)는 **애님그래프** 업데이트 내 변수 접근을 최적화시킬 수 있는 방편입니다.
 엔진이 블루프린트 코드를 실행(시켜 블루프린트 가상 머신을 호출)하도록 하기 보다는 파라미터를 내부적으로 복사할 수 있도록 해줍니다.
-컴파일러가 현재 최적화시킬 수 있는 구조체는 멤버 변수, 부정 불리언 멤버 변수, 중첩 구조체의 멤버 등입니다.
+컴파일러가 현재 최적화시킬 수 있는 구조체는 멤버 변수, 부정 부울 멤버 변수, 중첩 구조체의 멤버 등입니다.
 
 애니메이션 빠른 경로 옵션은 **프로젝트 세팅** 중 기본으로 켜져있습니다:
 
@@ -165,21 +165,21 @@ C++ 를 통해 애니메이션 업데이트 방법이나 발생 시기도 제어
 
 **Access Member Variables Directly** (멤버 변수 직접 접근)
 
-아래는 빠른 경로를 사용하여 불리언 변수 값을 직접 접근하여 읽어서 포즈를 결정하고 있습니다.
+아래는 빠른 경로를 사용하여 부울 변수 값을 직접 접근하여 읽어서 포즈를 결정하고 있습니다.
 
 ![](AccessDirectly.png)
 
-다음 예제에서는, 빠른 경로를 사용하지 않고 있는데, 불리언 변수가 true 와 같은지 알아보는 로직을 통하고 있기 때문입니다.
+다음 예제에서는, 빠른 경로를 사용하지 않고 있는데, 부울 변수가 true 와 같은지 알아보는 로직을 통하고 있기 때문입니다.
 
 ![](AccessDirectlyBPLogic.png)
 
-**부정 불리언 멤버 변수 접근**
+**부정 부울 멤버 변수 접근**
 
-아래는 빠른 경로를 사용하여 부정 불리언 값을 읽어 포즈를 결정하고 있습니다.
+아래는 빠른 경로를 사용하여 부정 부울 값을 읽어 포즈를 결정하고 있습니다.
 
 ![](AccessNegatedBooleans.png)
 
-다음 예제에서는, 빠른 경로를 사용하지 않고 있는데, 불리언 변수가 true 와 같지 않은지 알아보는 로직을 통하고 있기 때문입니다.
+다음 예제에서는, 빠른 경로를 사용하지 않고 있는데, 부울 변수가 true 와 같지 않은지 알아보는 로직을 통하고 있기 때문입니다.
 
 ![](AccessNegatedBooleansBPLogic.png)
 
@@ -240,7 +240,7 @@ WB Note - Omitting this for now as it's slated for improvements in 4.18
 	캐릭터 이동에 루트 모션이 필요한 경우, 캐릭터 이동은 멀티 스레드가 아니라 병렬 업데이트가 불가능합니다.
 * **블루프린트 가상 머신으로의 호출을 피하세요.**
 	* [블루프린트 네이티브화](Engine/Blueprints/TechnicalGuide/NativizingBlueprints) 를 통해 C++ 코드로 변환하는 것을 고려해 보세요.
-	* 애니메이션 블루프린트의 **이벤트 그래프** 를 비워두세요. 커스텀 `UAnimInstance` 및 `FAnimInstanceProxy` 파생 클래스를 사용하고 프록시의 모든 작업은 워커 스레드에서 실행되는 `FAnimInstanceProxy::Update` 나 `FAnimInstanceProxy::Evaluate` 도중에 하세요.
+	* 애니메이션 블루프린트의 **이벤트 그래프** 를 비워두세요. 커스텀 `UAnimInstance` 및 `FAnimInstanceProxy` 파생 클래스를 사용하고 프락시의 모든 작업은 워커 스레드에서 실행되는 `FAnimInstanceProxy::Update` 나 `FAnimInstanceProxy::Evaluate` 도중에 하세요.
 	* 애니메이션 블루프린트의 **애님 그래프** 내 노드가 빠른 경로를 사용하도록 되어있는지 구조를 확인하세요.
 	* **프로젝트 세팅** 의 **Optimize Anim Blueprint Member Variable Access** (애님 블루프린트 멤버 변수 최적화) 옵션이 켜져있는지 확인하세요. 자기 클래스의 멤버 변수에 직접 접근하는 애니메이션 블루프린트 노드가 블루프린트 가상 머신으로의 썽크를 피하는 최적화된 경로를 사용하는지 여부를 제어해주는 옵션입니다.
 	* 일반적으로 애님 그래프 실행의 가장 비싼 부분인 가장 머신으로의 호출을 피하는 것이 애니메이션 블루프린트의 퍼포먼스를 최대로 뽑아내는 핵심입니다.

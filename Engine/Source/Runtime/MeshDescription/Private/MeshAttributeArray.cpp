@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MeshAttributeArray.h"
 #include "UObject/EditorObjectVersion.h"
@@ -68,7 +68,7 @@ FArchive& operator<<( FArchive& Ar, FAttributesSetBase& AttributesSet )
 
 	// If saving, store transient attribute arrays and remove them temporarily from the map
 	TArray<TTuple<FName, FAttributesSetEntry>> TransientArrays;
-	if( Ar.IsSaving() )
+	if( Ar.IsSaving() && !Ar.IsTransacting() )
 	{
 		for( TMap<FName, FAttributesSetEntry>::TIterator It( AttributesSet.Map ); It; ++It )
 		{
@@ -84,7 +84,7 @@ FArchive& operator<<( FArchive& Ar, FAttributesSetBase& AttributesSet )
 	Ar << AttributesSet.Map;
 
 	// Restore transient attribute arrays if saving
-	if( Ar.IsSaving() )
+	if( Ar.IsSaving() && !Ar.IsTransacting() )
 	{
 		for( auto& TransientArray : TransientArrays )
 		{

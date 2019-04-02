@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Modules/ModuleManager.h"
 #include "Misc/DateTime.h"
@@ -69,7 +69,7 @@ FModuleManager& FModuleManager::Get()
 			ModuleManager = new FModuleManager();
 
 			//temp workaround for IPlatformFile being used for FPaths::DirectoryExists before main() sets up the commandline.
-#if PLATFORM_DESKTOP
+#if PLATFORM_DESKTOP && !IS_MONOLITHIC
 		// Ensure that dependency dlls can be found in restricted sub directories
 			const TCHAR* RestrictedFolderNames[] = { TEXT("NoRedist"), TEXT("NotForLicensees"), TEXT("CarefullyRedist"), TEXT("Switch") };
 			FString ModuleDir = FPlatformProcess::GetModulesDirectory();
@@ -175,6 +175,14 @@ bool FModuleManager::IsModuleUpToDate(const FName InModuleName) const
 {
 	TMap<FName, FString> ModulePathMap;
 	FindModulePaths(*InModuleName.ToString(), ModulePathMap);
+
+	for (const TPair<FName, FString>& Pair : ModulePathMap)
+	{
+		if (!FPaths::FileExists(*Pair.Value))
+		{
+			return false;
+		}
+	}
 
 	return ModulePathMap.Num() == 1;
 }
@@ -353,7 +361,7 @@ IModuleInterface* FModuleManager::LoadModule( const FName InModuleName )
 	IModuleInterface* Result = LoadModuleWithFailureReason(InModuleName, FailureReason );
 
 	// This should return a valid pointer only if and only if the module is loaded
-	check((Result != nullptr) == IsModuleLoaded(InModuleName));
+	checkSlow((Result != nullptr) == IsModuleLoaded(InModuleName));
 
 	return Result;
 }
@@ -374,8 +382,26 @@ IModuleInterface* FModuleManager::LoadModuleWithFailureReason(const FName InModu
 	ensureMsgf(IsInGameThread(), TEXT("ModuleManager: Attempting to load '%s' outside the main thread.  Please call LoadModule on the main/game thread only.  You can use GetModule or GetModuleChecked instead, those are safe to call outside the game thread."), *InModuleName.ToString());
 #endif
 
-	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("Module Load"), STAT_ModuleLoad, STATGROUP_LoadTime);
+	IModuleInterface* LoadedModule = nullptr;
+	OutFailureReason = EModuleLoadResult::Success;
 
+	// Do fast check for existing module, this is the most common case
+	ModuleInfoPtr FoundModulePtr = FindModule(InModuleName);
+
+	if (FoundModulePtr.IsValid())
+	{
+		LoadedModule = FoundModulePtr->Module.Get();
+
+		if (LoadedModule)
+		{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			WarnIfItWasntSafeToLoadHere(InModuleName);
+#endif
+			return LoadedModule;
+		}
+	}
+
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("Module Load"), STAT_ModuleLoad, STATGROUP_LoadTime);
 #if	STATS
 	// This is fine here, we only load a handful of modules.
 	static FString Module = TEXT( "Module" );
@@ -384,188 +410,181 @@ IModuleInterface* FModuleManager::LoadModuleWithFailureReason(const FName InModu
 	FScopeCycleCounter CycleCounter( StatId );
 #endif // STATS
 
-	IModuleInterface* LoadedModule = nullptr;
-	OutFailureReason = EModuleLoadResult::Success;
-
-	// Update our set of known modules, in case we don't already know about this module
-	AddModule( InModuleName );
-
-	// Grab the module info.  This has the file name of the module, as well as other info.
-	ModuleInfoRef ModuleInfo = Modules.FindChecked( InModuleName );
-
-	if (ModuleInfo->Module.IsValid())
+	if (!FoundModulePtr.IsValid())
 	{
-		// Assign the already loaded module into the return value, otherwise the return value gives the impression the module failed load!
-		LoadedModule = ModuleInfo->Module.Get();
+		// Update our set of known modules, in case we don't already know about this module
+		AddModule(InModuleName);
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		WarnIfItWasntSafeToLoadHere(InModuleName);
-#endif
+		// Ptr will always be valid at this point
+		FoundModulePtr = FindModule(InModuleName);
 	}
+	
+	// Grab the module info.  This has the file name of the module, as well as other info.
+	ModuleInfoRef ModuleInfo = FoundModulePtr.ToSharedRef();
+
+	// Make sure this isn't a module that we had previously loaded, and then unloaded at shutdown time.
+	//
+	// If this assert goes off, your trying to load a module during the shutdown phase that was already
+	// cleaned up.  The easiest way to fix this is to change your code to query for an already-loaded
+	// module instead of trying to load it directly.
+	checkf((!ModuleInfo->bWasUnloadedAtShutdown), TEXT("Attempted to load module '%s' that was already unloaded at shutdown.  FModuleManager::LoadModule() was called to load a module that was previously loaded, and was unloaded at shutdown time.  If this assert goes off, your trying to load a module during the shutdown phase that was already cleaned up.  The easiest way to fix this is to change your code to query for an already-loaded module instead of trying to load it directly."), *InModuleName.ToString());
+
+	// Check if we're statically linked with the module.  Those modules register with the module manager using a static variable,
+	// so hopefully we already know about the name of the module and how to initialize it.
+	const FInitializeStaticallyLinkedModule* ModuleInitializerPtr = StaticallyLinkedModuleInitializers.Find(InModuleName);
+	if (ModuleInitializerPtr != nullptr)
+	{
+		const FInitializeStaticallyLinkedModule& ModuleInitializer(*ModuleInitializerPtr);
+
+		// Initialize the module!
+		ModuleInfo->Module = TUniquePtr<IModuleInterface>(ModuleInitializer.Execute());
+
+		if (ModuleInfo->Module.IsValid())
+		{
+			// Startup the module
+			{
+				FScopedBootTiming BootScope("LoadModuleWithFailureReason:StartupModule  - ", InModuleName);
+				ModuleInfo->Module->StartupModule();
+			}
+			// The module might try to load other dependent modules in StartupModule. In this case, we want those modules shut down AFTER this one because we may still depend on the module at shutdown.
+			ModuleInfo->LoadOrder = FModuleInfo::CurrentLoadOrder++;
+
+			// Module was started successfully!  Fire callbacks.
+			ModulesChangedEvent.Broadcast(InModuleName, EModuleChangeReason::ModuleLoaded);
+
+			// Set the return parameter
+			LoadedModule = ModuleInfo->Module.Get();
+		}
+		else
+		{
+			UE_LOG(LogModuleManager, Warning, TEXT("ModuleManager: Unable to load module '%s' because InitializeModule function failed (returned nullptr.)"), *InModuleName.ToString());
+			OutFailureReason = EModuleLoadResult::FailedToInitialize;
+		}
+	}
+#if IS_MONOLITHIC
 	else
 	{
-		// Make sure this isn't a module that we had previously loaded, and then unloaded at shutdown time.
-		//
-		// If this assert goes off, your trying to load a module during the shutdown phase that was already
-		// cleaned up.  The easiest way to fix this is to change your code to query for an already-loaded
-		// module instead of trying to load it directly.
-		checkf((!ModuleInfo->bWasUnloadedAtShutdown), TEXT("Attempted to load module '%s' that was already unloaded at shutdown.  FModuleManager::LoadModule() was called to load a module that was previously loaded, and was unloaded at shutdown time.  If this assert goes off, your trying to load a module during the shutdown phase that was already cleaned up.  The easiest way to fix this is to change your code to query for an already-loaded module instead of trying to load it directly."), *InModuleName.ToString());
-
-		// Check if we're statically linked with the module.  Those modules register with the module manager using a static variable,
-		// so hopefully we already know about the name of the module and how to initialize it.
-		const FInitializeStaticallyLinkedModule* ModuleInitializerPtr = StaticallyLinkedModuleInitializers.Find(InModuleName);
-		if (ModuleInitializerPtr != nullptr)
+		// Monolithic builds that do not have the initializer were *not found* during the build step, so return FileNotFound
+		// (FileNotFound is an acceptable error in some case - ie loading a content only project)
+		UE_LOG(LogModuleManager, Warning, TEXT("ModuleManager: Module '%s' not found - its StaticallyLinkedModuleInitializers function is null."), *InModuleName.ToString());
+		OutFailureReason = EModuleLoadResult::FileNotFound;
+	}
+#else
+	else
+	{
+		// Make sure that any UObjects that need to be registered were already processed before we go and
+		// load another module.  We just do this so that we can easily tell whether UObjects are present
+		// in the module being loaded.
+		if (bCanProcessNewlyLoadedObjects)
 		{
-			const FInitializeStaticallyLinkedModule& ModuleInitializer(*ModuleInitializerPtr);
-
-			// Initialize the module!
-			ModuleInfo->Module = TUniquePtr<IModuleInterface>(ModuleInitializer.Execute());
-
-			if (ModuleInfo->Module.IsValid())
-			{
-				// Startup the module
-				ModuleInfo->Module->StartupModule();
-				// The module might try to load other dependent modules in StartupModule. In this case, we want those modules shut down AFTER this one because we may still depend on the module at shutdown.
-				ModuleInfo->LoadOrder = FModuleInfo::CurrentLoadOrder++;
-
-				// Module was started successfully!  Fire callbacks.
-				ModulesChangedEvent.Broadcast(InModuleName, EModuleChangeReason::ModuleLoaded);
-
-				// Set the return parameter
-				LoadedModule = ModuleInfo->Module.Get();
-			}
-			else
-			{
-				UE_LOG(LogModuleManager, Warning, TEXT("ModuleManager: Unable to load module '%s' because InitializeModule function failed (returned nullptr.)"), *InModuleName.ToString());
-				OutFailureReason = EModuleLoadResult::FailedToInitialize;
-			}
+			ProcessLoadedObjectsCallback.Broadcast();
 		}
-#if IS_MONOLITHIC
-		else
+
+		// Try to dynamically load the DLL
+
+		UE_LOG(LogModuleManager, Verbose, TEXT("ModuleManager: Load Module '%s' DLL '%s'"), *InModuleName.ToString(), *ModuleInfo->Filename);
+
+		if (ModuleInfo->Filename.IsEmpty() || !FPaths::FileExists(ModuleInfo->Filename))
 		{
-			// Monolithic builds that do not have the initializer were *not found* during the build step, so return FileNotFound
-			// (FileNotFound is an acceptable error in some case - ie loading a content only project)
-			UE_LOG(LogModuleManager, Warning, TEXT("ModuleManager: Module '%s' not found - its StaticallyLinkedModuleInitializers function is null."), *InModuleName.ToString());
-			OutFailureReason = EModuleLoadResult::FileNotFound;
-		}
-#endif
-#if !IS_MONOLITHIC
-		else
-		{
-			// Make sure that any UObjects that need to be registered were already processed before we go and
-			// load another module.  We just do this so that we can easily tell whether UObjects are present
-			// in the module being loaded.
-			if (bCanProcessNewlyLoadedObjects)
+			TMap<FName, FString> ModulePathMap;
+			FindModulePaths(*InModuleName.ToString(), ModulePathMap);
+
+			if (ModulePathMap.Num() != 1)
 			{
-				ProcessLoadedObjectsCallback.Broadcast();
+				UE_LOG(LogModuleManager, Warning, TEXT("ModuleManager: Unable to load module '%s'  - %d instances of that module name found."), *InModuleName.ToString(), ModulePathMap.Num());
+				OutFailureReason = EModuleLoadResult::FileNotFound;
+				return nullptr;
 			}
 
-			// Try to dynamically load the DLL
+			ModuleInfo->Filename = MoveTemp(TMap<FName, FString>::TIterator(ModulePathMap).Value());
+		}
 
-			UE_LOG(LogModuleManager, Verbose, TEXT("ModuleManager: Load Module '%s' DLL '%s'"), *InModuleName.ToString(), *ModuleInfo->Filename);
+		// Determine which file to load for this module.
+		const FString ModuleFileToLoad = FPaths::ConvertRelativePathToFull(ModuleInfo->Filename);
 
-			if (ModuleInfo->Filename.IsEmpty() || !FPaths::FileExists(ModuleInfo->Filename))
+		// Clear the handle and set it again below if the module is successfully loaded
+		ModuleInfo->Handle = nullptr;
+
+		// Skip this check if file manager has not yet been initialized
+		if (FPaths::FileExists(ModuleFileToLoad))
+		{
+			ModuleInfo->Handle = FPlatformProcess::GetDllHandle(*ModuleFileToLoad);
+			if (ModuleInfo->Handle != nullptr)
 			{
-				TMap<FName, FString> ModulePathMap;
-				FindModulePaths(*InModuleName.ToString(), ModulePathMap);
-
-				if (ModulePathMap.Num() != 1)
+				// First things first.  If the loaded DLL has UObjects in it, then their generated code's
+				// static initialization will have run during the DLL loading phase, and we'll need to
+				// go in and make sure those new UObject classes are properly registered.
 				{
-					UE_LOG(LogModuleManager, Warning, TEXT("ModuleManager: Unable to load module '%s'  - %d instances of that module name found."), *InModuleName.ToString(), ModulePathMap.Num());
-					OutFailureReason = EModuleLoadResult::FileNotFound;
-					return nullptr;
+					// Sometimes modules are loaded before even the UObject systems are ready.  We need to assume
+					// these modules aren't using UObjects.
+					if (bCanProcessNewlyLoadedObjects)
+					{
+						// OK, we've verified that loading the module caused new UObject classes to be
+						// registered, so we'll treat this module as a module with UObjects in it.
+						ProcessLoadedObjectsCallback.Broadcast();
+					}
 				}
 
-				ModuleInfo->Filename = MoveTemp(TMap<FName, FString>::TIterator(ModulePathMap).Value());
-			}
-
-			// Determine which file to load for this module.
-			const FString ModuleFileToLoad = FPaths::ConvertRelativePathToFull(ModuleInfo->Filename);
-
-			// Clear the handle and set it again below if the module is successfully loaded
-			ModuleInfo->Handle = nullptr;
-
-			// Skip this check if file manager has not yet been initialized
-			if (FPaths::FileExists(ModuleFileToLoad))
-			{
-				ModuleInfo->Handle = FPlatformProcess::GetDllHandle(*ModuleFileToLoad);
-				if (ModuleInfo->Handle != nullptr)
+				// Find our "InitializeModule" global function, which must exist for all module DLLs
+				FInitializeModuleFunctionPtr InitializeModuleFunctionPtr =
+					(FInitializeModuleFunctionPtr)FPlatformProcess::GetDllExport(ModuleInfo->Handle, TEXT("InitializeModule"));
+				if (InitializeModuleFunctionPtr != nullptr)
 				{
-					// First things first.  If the loaded DLL has UObjects in it, then their generated code's
-					// static initialization will have run during the DLL loading phase, and we'll need to
-					// go in and make sure those new UObject classes are properly registered.
+					if ( ModuleInfo->Module.IsValid() )
 					{
-						// Sometimes modules are loaded before even the UObject systems are ready.  We need to assume
-						// these modules aren't using UObjects.
-						if (bCanProcessNewlyLoadedObjects)
-						{
-							// OK, we've verified that loading the module caused new UObject classes to be
-							// registered, so we'll treat this module as a module with UObjects in it.
-							ProcessLoadedObjectsCallback.Broadcast();
-						}
+						// Assign the already loaded module into the return value, otherwise the return value gives the impression the module failed load!
+						LoadedModule = ModuleInfo->Module.Get();
 					}
-
-					// Find our "InitializeModule" global function, which must exist for all module DLLs
-					FInitializeModuleFunctionPtr InitializeModuleFunctionPtr =
-						(FInitializeModuleFunctionPtr)FPlatformProcess::GetDllExport(ModuleInfo->Handle, TEXT("InitializeModule"));
-					if (InitializeModuleFunctionPtr != nullptr)
+					else
 					{
+						// Initialize the module!
+						ModuleInfo->Module = TUniquePtr<IModuleInterface>(InitializeModuleFunctionPtr());
+
 						if ( ModuleInfo->Module.IsValid() )
 						{
-							// Assign the already loaded module into the return value, otherwise the return value gives the impression the module failed load!
+							// Startup the module
+							ModuleInfo->Module->StartupModule();
+							// The module might try to load other dependent modules in StartupModule. In this case, we want those modules shut down AFTER this one because we may still depend on the module at shutdown.
+							ModuleInfo->LoadOrder = FModuleInfo::CurrentLoadOrder++;
+
+							// Module was started successfully!  Fire callbacks.
+							ModulesChangedEvent.Broadcast(InModuleName, EModuleChangeReason::ModuleLoaded);
+
+							// Set the return parameter
 							LoadedModule = ModuleInfo->Module.Get();
 						}
 						else
 						{
-							// Initialize the module!
-							ModuleInfo->Module = TUniquePtr<IModuleInterface>(InitializeModuleFunctionPtr());
+							UE_LOG(LogModuleManager, Warning, TEXT("ModuleManager: Unable to load module '%s' because InitializeModule function failed (returned nullptr.)"), *ModuleFileToLoad);
 
-							if ( ModuleInfo->Module.IsValid() )
-							{
-								// Startup the module
-								ModuleInfo->Module->StartupModule();
-								// The module might try to load other dependent modules in StartupModule. In this case, we want those modules shut down AFTER this one because we may still depend on the module at shutdown.
-								ModuleInfo->LoadOrder = FModuleInfo::CurrentLoadOrder++;
-
-								// Module was started successfully!  Fire callbacks.
-								ModulesChangedEvent.Broadcast(InModuleName, EModuleChangeReason::ModuleLoaded);
-
-								// Set the return parameter
-								LoadedModule = ModuleInfo->Module.Get();
-							}
-							else
-							{
-								UE_LOG(LogModuleManager, Warning, TEXT("ModuleManager: Unable to load module '%s' because InitializeModule function failed (returned nullptr.)"), *ModuleFileToLoad);
-
-								FPlatformProcess::FreeDllHandle(ModuleInfo->Handle);
-								ModuleInfo->Handle = nullptr;
-								OutFailureReason = EModuleLoadResult::FailedToInitialize;
-							}
+							FPlatformProcess::FreeDllHandle(ModuleInfo->Handle);
+							ModuleInfo->Handle = nullptr;
+							OutFailureReason = EModuleLoadResult::FailedToInitialize;
 						}
-					}
-					else
-					{
-						UE_LOG(LogModuleManager, Warning, TEXT("ModuleManager: Unable to load module '%s' because InitializeModule function was not found."), *ModuleFileToLoad);
-
-						FPlatformProcess::FreeDllHandle(ModuleInfo->Handle);
-						ModuleInfo->Handle = nullptr;
-						OutFailureReason = EModuleLoadResult::FailedToInitialize;
 					}
 				}
 				else
 				{
-					UE_LOG(LogModuleManager, Warning, TEXT("ModuleManager: Unable to load module '%s' because the file couldn't be loaded by the OS."), *ModuleFileToLoad);
-					OutFailureReason = EModuleLoadResult::CouldNotBeLoadedByOS;
+					UE_LOG(LogModuleManager, Warning, TEXT("ModuleManager: Unable to load module '%s' because InitializeModule function was not found."), *ModuleFileToLoad);
+
+					FPlatformProcess::FreeDllHandle(ModuleInfo->Handle);
+					ModuleInfo->Handle = nullptr;
+					OutFailureReason = EModuleLoadResult::FailedToInitialize;
 				}
 			}
 			else
 			{
-				UE_LOG(LogModuleManager, Warning, TEXT("ModuleManager: Unable to load module '%s' because the file '%s' was not found."), *InModuleName.ToString(), *ModuleFileToLoad);
-				OutFailureReason = EModuleLoadResult::FileNotFound;
+				UE_LOG(LogModuleManager, Warning, TEXT("ModuleManager: Unable to load module '%s' because the file couldn't be loaded by the OS."), *ModuleFileToLoad);
+				OutFailureReason = EModuleLoadResult::CouldNotBeLoadedByOS;
 			}
 		}
-#endif
+		else
+		{
+			UE_LOG(LogModuleManager, Warning, TEXT("ModuleManager: Unable to load module '%s' because the file '%s' was not found."), *InModuleName.ToString(), *ModuleFileToLoad);
+			OutFailureReason = EModuleLoadResult::FileNotFound;
+		}
 	}
+#endif
 
 	return LoadedModule;
 }
@@ -916,92 +935,105 @@ void FModuleManager::SetModuleFilename(FName ModuleName, const FString& Filename
 		Module->OriginalFilename = Filename;
 	}
 }
+
+bool FModuleManager::HasAnyOverridenModuleFilename() const
+{
+	FScopeLock Lock(&ModulesCriticalSection);
+	for (const TPair<FName, ModuleInfoRef>& ModuleIt : Modules)
+	{
+		const FModuleInfo& CurModule = *ModuleIt.Value;
+		if(CurModule.Filename != CurModule.OriginalFilename)
+		{
+			return true;
+		}
+	}
+	return false;
+}
 #endif
 
 void FModuleManager::ResetModulePathsCache()
 {
 	ModulePathsCache.Reset();
+
+	// Set all folders as pending again
+	PendingEngineBinariesDirectories.Append(MoveTemp(EngineBinariesDirectories));
+	PendingGameBinariesDirectories  .Append(MoveTemp(GameBinariesDirectories));
 }
 
 #if !IS_MONOLITHIC
-void FModuleManager::FindModulePaths(const TCHAR* NamePattern, TMap<FName, FString> &OutModulePaths, bool bCanUseCache /*= true*/) const
+void FModuleManager::FindModulePaths(const TCHAR* NamePattern, TMap<FName, FString> &OutModulePaths) const
 {
-	if (!ModulePathsCache)
+	if (ModulePathsCache.Num() == 0)
 	{
-		ModulePathsCache.Emplace();
-		const bool bCanUseCacheWhileGeneratingIt = false;
-		FindModulePaths(TEXT("*"), ModulePathsCache.GetValue(), bCanUseCacheWhileGeneratingIt);
-	}
+		// Figure out the BuildId if it's not already set.
+		if (!BuildId.IsSet())
+		{
+			FString FileName = FModuleManifest::GetFileName(FPlatformProcess::GetModulesDirectory(), false);
 
-	if (bCanUseCache)
-	{
-		// Try to use cache first
-		if (const FString* ModulePathPtr = ModulePathsCache->Find(NamePattern))
-		{
-			OutModulePaths.Add(FName(NamePattern), *ModulePathPtr);
-			return;
-		}
-
-		// Wildcard for all items
-		if (FCString::Strcmp(NamePattern, TEXT("*")) == 0)
-		{
-			OutModulePaths = ModulePathsCache.GetValue();
-			return;
-		}
-		
-		// Wildcard search
-		if (FCString::Strchr(NamePattern, TEXT('*')) || FCString::Strchr(NamePattern, TEXT('?')))
-		{
-			bool bFoundItems = false;
-			FString NamePatternString(NamePattern);
-			for (const TPair<FName, FString>& CacheIt : ModulePathsCache.GetValue())
+			FModuleManifest Manifest;
+			if (!FModuleManifest::TryRead(FileName, Manifest))
 			{
-				if (CacheIt.Key.ToString().MatchesWildcard(NamePatternString))
-				{
-					OutModulePaths.Add(CacheIt.Key, *CacheIt.Value);
-					bFoundItems = true;
-				}
+				UE_LOG(LogModuleManager, Fatal, TEXT("Unable to read module manifest from '%s'. Module manifests are generated at build time, and must be present to locate modules at runtime."), *FileName)
 			}
 
-			if (bFoundItems)
-			{
-				return;
-			}
+			BuildId = Manifest.BuildId;
 		}
+
+		// Add the engine directory to the cache - only needs to be cached once as the contents do not change at runtime
+		FindModulePathsInDirectory(FPlatformProcess::GetModulesDirectory(), false, ModulePathsCache);
 	}
 
-	// Search through the engine directory
-	FindModulePathsInDirectory(FPlatformProcess::GetModulesDirectory(), false, NamePattern, OutModulePaths);
+	// If any entries have been added to the PendingEngineBinariesDirectories or PendingGameBinariesDirectories arrays, add any
+	// new valid modules within them to the cache.
+	// Static iterators used as once we've cached a BinariesDirectories array entry we don't want to do it again (ModuleManager is a Singleton)
 
 	// Search any engine directories
-	for (int Idx = 0; Idx < EngineBinariesDirectories.Num(); Idx++)
+	if (PendingEngineBinariesDirectories.Num() > 0)
 	{
-		FindModulePathsInDirectory(EngineBinariesDirectories[Idx], false, NamePattern, OutModulePaths);
+		TArray<FString> LocalPendingEngineBinariesDirectories = MoveTemp(PendingEngineBinariesDirectories);
+		check(PendingEngineBinariesDirectories.Num() == 0);
+
+		for (const FString& EngineBinaryDirectory : LocalPendingEngineBinariesDirectories)
+		{
+			FindModulePathsInDirectory(EngineBinaryDirectory, false, ModulePathsCache);
+		}
+
+		EngineBinariesDirectories.Append(MoveTemp(LocalPendingEngineBinariesDirectories));
 	}
 
 	// Search any game directories
-	for (int Idx = 0; Idx < GameBinariesDirectories.Num(); Idx++)
+	if (PendingGameBinariesDirectories.Num() > 0)
 	{
-		FindModulePathsInDirectory(GameBinariesDirectories[Idx], true, NamePattern, OutModulePaths);
+		TArray<FString> LocalPendingGameBinariesDirectories = MoveTemp(PendingGameBinariesDirectories);
+		check(PendingGameBinariesDirectories.Num() == 0);
+
+		for (const FString& GameBinaryDirectory : LocalPendingGameBinariesDirectories)
+		{
+			FindModulePathsInDirectory(GameBinaryDirectory, true, ModulePathsCache);
+		}
+
+		GameBinariesDirectories.Append(MoveTemp(LocalPendingGameBinariesDirectories));
+	}
+
+	// Wildcard for all items
+	if (FCString::Strcmp(NamePattern, TEXT("*")) == 0)
+	{
+		OutModulePaths = ModulePathsCache;
+		return;
+	}
+
+	// Search the cache
+	for (const TPair<FName, FString>& Pair : ModulePathsCache)
+	{
+		if (Pair.Key.ToString().MatchesWildcard(NamePattern))
+		{
+			OutModulePaths.Add(Pair.Key, Pair.Value);
+		}
 	}
 }
 
-void FModuleManager::FindModulePathsInDirectory(const FString& InDirectoryName, bool bIsGameDirectory, const TCHAR* NamePattern, TMap<FName, FString> &OutModulePaths) const
+void FModuleManager::FindModulePathsInDirectory(const FString& InDirectoryName, bool bIsGameDirectory, TMap<FName, FString>& OutModulePaths) const
 {
-	// Figure out the BuildId if it's not already set.
-	if (!BuildId.IsSet())
-	{
-		FString FileName = FModuleManifest::GetFileName(FPlatformProcess::GetModulesDirectory(), false);
-
-		FModuleManifest Manifest;
-		if (!FModuleManifest::TryRead(FileName, Manifest))
-		{
-			UE_LOG(LogModuleManager, Fatal, TEXT("Unable to read module manifest from '%s'. Module manifests are generated at build time, and must be present to locate modules at runtime."), *FileName)
-		}
-
-		BuildId = Manifest.BuildId;
-	}
-
 	// Find all the directories to search through, including the base directory
 	TArray<FString> SearchDirectoryNames;
 	IFileManager::Get().FindFilesRecursive(SearchDirectoryNames, *InDirectoryName, TEXT("*"), false, true);
@@ -1015,10 +1047,7 @@ void FModuleManager::FindModulePathsInDirectory(const FString& InDirectoryName, 
 		{
 			for (const TPair<FString, FString>& Pair : Manifest.ModuleNameToFileName)
 			{
-				if (Pair.Key.MatchesWildcard(NamePattern))
-				{
-					OutModulePaths.Add(FName(*Pair.Key), *FPaths::Combine(*SearchDirectoryName, *Pair.Value));
-				}
+				OutModulePaths.Add(FName(*Pair.Key), *FPaths::Combine(*SearchDirectoryName, *Pair.Value));
 			}
 		}
 	}
@@ -1121,11 +1150,11 @@ void FModuleManager::AddBinariesDirectory(const TCHAR *InDirectory, bool bIsGame
 {
 	if (bIsGameDirectory)
 	{
-		GameBinariesDirectories.Add(InDirectory);
+		PendingGameBinariesDirectories.Add(InDirectory);
 	}
 	else
 	{
-		EngineBinariesDirectories.Add(InDirectory);
+		PendingEngineBinariesDirectories.Add(InDirectory);
 	}
 
 	FPlatformProcess::AddDllDirectory(InDirectory);
@@ -1140,8 +1169,6 @@ void FModuleManager::AddBinariesDirectory(const TCHAR *InDirectory, bool bIsGame
 			AddBinariesDirectory(*RestrictedFolder, bIsGameDirectory);
 		}
 	}
-
-	ResetModulePathsCache();
 }
 
 
@@ -1154,9 +1181,7 @@ void FModuleManager::SetGameBinariesDirectory(const TCHAR* InDirectory)
 	FPlatformProcess::PushDllDirectory(InDirectory);
 
 	// Add it to the list of game directories to search
-	GameBinariesDirectories.Add(InDirectory);
-
-	ResetModulePathsCache();
+	PendingGameBinariesDirectories.Add(InDirectory);
 #endif
 }
 
@@ -1165,6 +1190,10 @@ FString FModuleManager::GetGameBinariesDirectory() const
 	if (GameBinariesDirectories.Num())
 	{
 		return GameBinariesDirectories[0];
+	}
+	if (PendingGameBinariesDirectories.Num())
+	{
+		return PendingGameBinariesDirectories[0];
 	}
 	return FString();
 }

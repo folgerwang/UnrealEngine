@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BuildPatchUtil.h: Declares miscellaneous utility functions.
@@ -13,6 +13,7 @@ namespace BuildPatchServices
 {
 	struct FChunkHeader;
 	class IFileSystem;
+	struct FManifestMeta;
 }
 
 enum class EBuildPatchDataType
@@ -113,6 +114,35 @@ struct FBuildPatchUtils
 	 * @return  True if successful, false otherwise
 	 */
 	static bool GetGUIDFromFilename(const FString& DataFilename, FGuid& DataGUID);
+
+	/**
+	 * Generates a new BuildId for a manifest. This should be used only when created new builds.
+	 * @return the generated id.
+	 */
+	static FString GenerateNewBuildId();
+
+	/**
+	 * Creates a deterministic BuildId for a manifest that is older than EFeatureLevel::StoresUniqueBuildId.
+	 * The id is created based on the meta data, which itself should be unique per build created.
+	 * @param ManifestMeta     The meta for the old manifest.
+	 * @return the id for this manifest.
+	 */
+	static FString GetBackwardsCompatibleBuildId(const BuildPatchServices::FManifestMeta& ManifestMeta);
+
+	/**
+	 * Based on the destination manifest, get the directory that will contains the deltas for getting to it from other builds.
+	 * @param DestinationManifest   The destination manifest.
+	 * @return the CloudDir relative delta directory.
+	 */
+	static FString GetChunkDeltaDirectory(const FBuildPatchAppManifest& DestinationManifest);
+
+	/**
+	 * Based on the source and destination manifests, get the filename for the delta that optimises patching from source to destination.
+	 * @param SourceManifest        The source manifest.
+	 * @param DestinationManifest   The destination manifest.
+	 * @return the CloudDir relative delta filename.
+	 */
+	static FString GetChunkDeltaFilename(const FBuildPatchAppManifest& SourceManifest, const FBuildPatchAppManifest& DestinationManifest);
 
 	/**
 	 * Checks a file against SHA1 hashes. The function takes two so that it can return no match, match with Hash1, or match with Hash2, that way we can check the file for being the same as an old manifest or new manifest

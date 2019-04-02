@@ -1,0 +1,64 @@
+﻿INTSourceChangelist:0
+Availability: Public
+Crumbs: 
+Title: Using Frame Markers in Sequencer
+Description: Describes how to use Frame Markers in Sequencer to denote special frames within your cinematic Sequences. 
+Type: 
+Version: 4.21
+Parent: Engine/SEquencer/HowTo
+Order: 
+Tags: Sequencer
+Tags: Frame Markers
+
+
+Occasionally when working with Sequencer, there may be frames within your cinematic that you want to keep track of. Maybe you want to come back and make changes at a later time or perhaps you want to insert different content at a particular time in your cinematic. Whatever your case may be, you can use **Frame Markers **to add a mark to your Sequence at a desired time, enabling you to see from a glance, "points of interest" that you define.   
+
+In this How-to, we'll show you how to add, toggle, and remove Frame Markers as well as shortcuts for jumping between markers. 
+
+## Steps
+
+1.  Inside any Project and Sequence, move the Timeline to any location, and press the **M **key to add a marker.   
+    [REGION:lightbox]
+    [![](MarkedFrame_01-2.png)(w:900)](MarkedFrame_01-2.png)
+    [/REGION]
+    [REGION:caption]
+    Click image for full view.
+    [/REGION]A teal marker indicates where we have added a marker (see above, at frame 15).
+2.  Scrub the Timeline forward and right-click, then from the context menu, select **Add Mark** to add a marker.  
+    [REGION:lightbox]
+    [![](MarkedFrame_01b.png)(w:900)](MarkedFrame_01b.png)
+    [/REGION]
+    [REGION:caption]
+    Click image for full view.
+    [/REGION]You can add markers by pressing **M **or through the context menu by selecting the **Add Mark **option.
+    [REGION:note]
+    You can press **CTRL + SHIFT + , (COMMA)** to jump to the previous Marker or **CTRL + SHIFT + . (PERIOD)** to jump to the next Marker.
+    [/REGION]
+3.  Right-click on the Timeline to bring up the context menu and select **Clear All Marks**.   
+    [REGION:lightbox]
+    [![](MarkedFrame_02.png)(w:900)](MarkedFrame_02.png)
+    [/REGION]
+    [REGION:caption]
+    Click image for full view.
+    [/REGION]This will clear all markers that you have added to the Sequence. If you want to clear a specific marker, move to the marker and press the **M **key to toggle the marker off.   
+    
+
+5.  Add a marker and a keyframed property, then slide the keyed property to the marker. 
+
+## End Result
+
+[OBJECT:EmbeddedVideo]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ yHKKtjxlGfk
+ [/PARAMLITERAL]
+[/OBJECT]
+
+In the video above, we create a couple keyframes to have our camera move from one position to another. Since we have markers already set up, we move the keyframes to those markers that we've defined as our ideal positions for the camera movement. 
+
+When repositioning keys by dragging, the keys will be snapped to marked frames along with keys and sections if the snapping option is enabled for keys and sections. Using **CTRL + SHIFT + , (COMMA) **and **CTRL + SHIFT + . (PERIOD) **to navigate between our markers, we can quickly jump between the start and end markers.

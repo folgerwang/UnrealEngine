@@ -1,0 +1,196 @@
+﻿INTSourceChangelist:4475644
+Availability: Public
+Crumbs: 
+Title: 结合使用Datasmith与CAD文件格式
+Description: 描述在使用Datasmith将内容从CAD文件格式导入时需要特别考虑的因素。
+Type: 
+Version: 4.20
+Parent: Enterprise/Datasmith/SoftwareInteropGuides
+Order: 4
+Tags: Enterprise
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: overview
+Tags: interop
+Tags: CAD
+topic-image:datasmith-cad-topic.png
+
+
+![针对CAD文件格式使用Datasmith](datasmith-cad-banner.png "Using Datasmith for CAD File Formats")
+
+如果你打算使用Datasmith将场景从大多数支持的CAD文件格式导入虚幻编辑器，除了解[Datasmith概述](Enterprise/Datasmith/Overview)和[Datasmith导入过程简介](Enterprise/Datasmith/Overview/ImportProcess)中介绍的基础知识之外，你还需要了解一些关于Datasmith如何处理场景的额外信息。
+
+## CAD工作流
+
+针对大多数CAD文件类型，Datasmith使用 **直接** 工作流。这就是说要使用Datasmith将内容导入虚幻，只需将CAD场景保存为[受支持的文件类型](Enterprise/)之一，然后使用Datasmith CAD导入程序将该文件导入虚幻编辑器。请参阅[将Datasmith内容导入虚幻引擎4](Enterprise/Datasmith/HowTo/ImportingContent)。
+
+## 曲面细分
+
+在CAD格式中，通常使用曲线和数学函数来定义曲面和实体。这些曲面的精确度和光滑度非常适用于制造过程。但是，现代GPU芯片针对由三角形网格体组成的曲面的渲染计算进行了高度优化。通常，实时渲染器和虚幻之类的游戏引擎只能处理由三角形网格体组成的几何体，必须突破这些GPU的极限，才能每秒产生数十帧令人惊叹的照片级质量图像。
+
+Datasmith填补了这项不足，它可以自动计算三角形网格体，非常近似地估算出CAD文件中尚无网格体表达的所有曲面。此过程被称为 *曲面细分（tessellation）*，是准备可实时使用的CAD数据的重要步骤。
+
+例如，左侧的图像显示了在本机CAD查看器中渲染的曲面。右侧的图像显示了为该曲面生成的三角形网格体的线框。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![参数曲面](cad-tessellation-example-surface.png) 
+	[/PARAM]
+	[PARAM:after]
+	![三角剖分网格体](cad-tessellation-example-wireframe.png) 
+	[/PARAM]
+[/OBJECT]
+
+为了进行实时渲染，对曲面执行曲面细分时，需要权衡曲面精度与可渲染速度。
+
+三角形网格体本身永远不会与生成它的精确曲面完全匹配。曲面细分往往意味着要在某种细节层级对原始曲面进行采样，以创建使GPU能更快渲染几何体的近似值。通常，越接近原始曲面，网格体就越复杂；也就是说，它将包含更多三角形，而这些三角形会更小。这样渲染时可能外观更真实，但对GPU提出了更高的要求。如果降低曲面细分网格体的精度，使其包含的三角形变少、变大，GPU对其进行渲染时的速度会更快，但这种渲染所产生的效果可能看起来呈斑驳或锯齿状，无法达到令人满意的视觉保真度。
+
+因此，在曲面细分过程中必须尽可能减少网格体中三角形的数量，同时最大程度地保持与源曲面的视觉保真度。这通常意味着，针对较为平滑和扁平的曲面需减少三角形数量、增大三角形尺寸，针对较为复杂和不平的表面需增加三角形数量、缩小三角形尺寸。
+
+以下部分将介绍导入CAD场景时Datasmith中可调整的3个参数。通过调整这些值，可控制Datasmith为曲面创建的静态网格体几何体的复杂性和保真度。
+
+[REGION:tip]
+在重新导入单个静态网格体资源时，你也可以设置这些选项。这样你可以设置场景的整体曲面细分值，然后针对需要更高或更低细节级别的单个对象覆盖这些设置。另请参阅[Datasmith重新导入工作流简介](Enterprise/Datasmith/Overview/ReimportWorkflow)。
+[/REGION]
+
+### 弦容差
+
+弦容差（有时称为弦误差或垂度误差）定义了细分曲面上任何点距原始曲面上对应点的最大距离。
+
+![弦容差示例](datasmith-cad-chordtolerance-whatis.png "Chord tolerance examples")
+
+降低该参数的值会使细分曲面更接近原始曲面，进而生成更多小三角形。
+
+在曲率较大的区域中，这种设置的效果最明显：随着容差值增加，生成的三角形会变大，曲面平滑度会降低。
+
+[REGION:imagetable]
+| -- | -- | -- |
+| [INCLUDE:#chordtolimage1] | [INCLUDE:#chordtolimage2] | [INCLUDE:#chordtolimage3] |
+| [INCLUDE:#chordtolimage1data] | [INCLUDE:#chordtolimage2data] | [INCLUDE:#chordtolimage3data] |
+[/REGION]
+[COMMENT:none]
+[EXCERPT:chordtolimage1]
+[REGION:lightbox]
+[![](chordtolerance-1-1.png)(w:320)](chordtolerance-1-1.png)
+[/REGION]
+[/EXCERPT:chordtolimage1]
+
+[EXCERPT:chordtolimage1data]
+0.1mm:134 000个三角形
+[/EXCERPT:chordtolimage1data]
+
+[EXCERPT:chordtolimage2]
+[REGION:lightbox]
+[![](chordtolerance-2-1.png)(w:320)](chordtolerance-2-1.png)
+[/REGION]
+[/EXCERPT:chordtolimage2]
+
+[EXCERPT:chordtolimage2data]
+0.5mm:37 500个三角形
+[/EXCERPT:chordtolimage2data]
+
+[EXCERPT:chordtolimage3]
+[REGION:lightbox]
+[![](chordtolerance-3-1.png)(w:320)](chordtolerance-3-1.png)
+[/REGION]
+[/EXCERPT:chordtolimage3]
+
+[EXCERPT:chordtolimage3data]
+10mm:13 500个三角形
+[/EXCERPT:chordtolimage3data]
+[/COMMENT]
+
+### 最大边长
+
+此设置可以限制曲面细分网格体内任何三角形的任何一条边的最大长度。 
+
+![最大边长示例](datasmith-cad-maxedgelength-whatis.png "Max edge length examples")
+
+在模型的较扁平区域，此设置的效果最明显。如果该值设置得过低，你可能会发现这些扁平区域的三角形超出了实际需要的数量。相反，如果该值设置得过高或没有设置限制，产生的三角形有时会极长极窄，形状非常奇特，最好也应避免。
+
+如果该值设置为0，Datasmith不会限制其生成的三角形的边长。
+
+[REGION:imagetable]
+| -- | -- | -- |
+| [INCLUDE:#image1] | [INCLUDE:#image2] | [INCLUDE:#image3] |
+| [INCLUDE:#image1data] | [INCLUDE:#image2data] | [INCLUDE:#image3data] |
+[/REGION]
+
+[COMMENT:none]
+[EXCERPT:image1]
+[REGION:lightbox]
+[![](maxedgelength-1.png)(w:320)](maxedgelength-1.png)
+[/REGION]
+[/EXCERPT:image1]
+
+[EXCERPT:image1data]
+10mm:128 000个三角形
+[/EXCERPT:image1data]
+
+[EXCERPT:image2]
+[REGION:lightbox]
+[![](maxedgelength-2.png)(w:320)](maxedgelength-2.png)
+[/REGION]
+[/EXCERPT:image2]
+
+[EXCERPT:image2data]
+20mm:43 700个三角形
+[/EXCERPT:image2data]
+
+[EXCERPT:image3]
+[REGION:lightbox]
+[![](maxedgelength-3.png)(w:320)](maxedgelength-3.png)
+[/REGION]
+[/EXCERPT:image3]
+
+[EXCERPT:image3data]
+40mm:21 000个三角形
+[/EXCERPT:image3data]
+[/COMMENT]
+
+
+### 法线容差
+
+此设置定义曲面细分网格体中任意两个相邻三角形之间的最大角度（以度为单位）。
+
+![法线容差示例](datasmith-cad-normaltolerance-whatis.png "Normal tolerance example")
+
+与弦容差一样，法线容差也会影响曲面细分网格体与原始曲面的接近程度。但是，保持高曲率区域的细节层级非常有用，对曲面的较扁平区域生成的三角形几乎没有影响。
+
+[REGION:imagetable]
+| -- | -- | -- |
+| [INCLUDE:#normtolimage1] | [INCLUDE:#normtolimage2] | [INCLUDE:#normtolimage3] |
+| [INCLUDE:#normtolimage1data] | [INCLUDE:#normtolimage2data] | [INCLUDE:#normtolimage3data] |
+[/REGION]
+
+[COMMENT:none]
+[EXCERPT:normtolimage1]
+[REGION:lightbox]
+[![](normaltolerance-1.png)(w:320)](normaltolerance-1.png)
+[/REGION]
+[/EXCERPT:normtolimage1]
+
+[EXCERPT:normtolimage1data]
+5°:295 000个三角形
+[/EXCERPT:normtolimage1data]
+
+[EXCERPT:normtolimage2]
+[REGION:lightbox]
+[![](normaltolerance-2.png)(w:320)](normaltolerance-2.png)
+[/REGION]
+[/EXCERPT:normtolimage2]
+
+[EXCERPT:normtolimage2data]
+10°:100 000个三角形
+[/EXCERPT:normtolimage2data]
+
+[EXCERPT:normtolimage3]
+[REGION:lightbox]
+[![](normaltolerance-3.png)(w:320)](normaltolerance-3.png)
+[/REGION]
+[/EXCERPT:normtolimage3]
+
+[EXCERPT:normtolimage3data]
+40°:21 500个三角形
+[/EXCERPT:normtolimage3data]
+[/COMMENT]

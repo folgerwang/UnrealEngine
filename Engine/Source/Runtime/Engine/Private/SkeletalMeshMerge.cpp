@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SkeletalMeshMerge.cpp: Unreal skeletal mesh merging implementation.
@@ -433,7 +433,8 @@ void FSkeletalMeshMerge::GenerateLODModel( int32 LODIdx )
 	FSkeletalMeshRenderData* MergeResource = MergeMesh->GetResourceForRendering();
 	check(MergeResource);
 
-	FSkeletalMeshLODRenderData& MergeLODData = *new(MergeResource->LODRenderData) FSkeletalMeshLODRenderData;
+	FSkeletalMeshLODRenderData& MergeLODData = *new FSkeletalMeshLODRenderData;
+	MergeResource->LODRenderData.Add(&MergeLODData);
 	// add the new LOD info entry
 	FSkeletalMeshLODInfo& MergeLODInfo = MergeMesh->AddLODInfo();
 	MergeLODInfo.ScreenSize = MergeLODInfo.LODHysteresis = MAX_FLT;

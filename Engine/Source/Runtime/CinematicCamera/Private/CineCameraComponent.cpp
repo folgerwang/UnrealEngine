@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CineCameraComponent.h"
 #include "UObject/ConstructorHelpers.h"
@@ -47,6 +47,20 @@ UCineCameraComponent::UCineCameraComponent()
 	PostProcessSettings.DepthOfFieldMethod = DOFM_CircleDOF;
 	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
+	// Certain default values are set by a config, so Use the archetype to set them in the constructor, so they can be overridden in the editor.
+	UCineCameraComponent* Template = Cast<UCineCameraComponent>(GetArchetype());
+	
+	// Null check here because CDO has no Archetype
+	if (Template)
+	{
+		// default filmback
+		SetFilmbackPresetByName(Template->DefaultFilmbackPresetName);
+		SetLensPresetByName(Template->DefaultLensPresetName);
+		// other lens defaults
+		CurrentAperture = Template->DefaultLensFStop;
+		CurrentFocalLength = Template->DefaultLensFocalLength;
+	}
+
 	RecalcDerivedData();
 
 #if WITH_EDITORONLY_DATA
@@ -68,14 +82,6 @@ UCineCameraComponent::UCineCameraComponent()
 void UCineCameraComponent::PostInitProperties()
 {
 	Super::PostInitProperties();
-
-	// default filmback
-	SetFilmbackPresetByName(DefaultFilmbackPresetName);
-	SetLensPresetByName(DefaultLensPresetName);
-
-	// other lens defaults
-	CurrentAperture = DefaultLensFStop;
-	CurrentFocalLength = DefaultLensFocalLength;
 
 	RecalcDerivedData();
 }
@@ -115,7 +121,7 @@ void UCineCameraComponent::TickComponent(float DeltaTime, ELevelTick TickType, F
 #if ENABLE_DRAW_DEBUG
 	if (FocusSettings.TrackingFocusSettings.bDrawDebugTrackingFocusPoint)
 	{
-		AActor const* const TrackedActor = FocusSettings.TrackingFocusSettings.ActorToTrack;
+		AActor const* const TrackedActor = FocusSettings.TrackingFocusSettings.ActorToTrack.Get();
 
 		FVector FocusPoint;
 		if (TrackedActor)
@@ -177,6 +183,13 @@ void UCineCameraComponent::ResetProxyMeshTransform()
 }
 
 #endif	// WITH_EDITORONLY_DATA
+
+void UCineCameraComponent::SetFieldOfView(float InFieldOfView)
+{
+	Super::SetFieldOfView(InFieldOfView);
+
+	CurrentFocalLength = (FilmbackSettings.SensorWidth / 2.f) / FMath::Tan(FMath::DegreesToRadians(InFieldOfView / 2.f));
+}
 
 float UCineCameraComponent::GetHorizontalFieldOfView() const
 {
@@ -306,7 +319,7 @@ float UCineCameraComponent::GetDesiredFocusDistance(const FVector& InLocation) c
 
 	case ECameraFocusMethod::Tracking:
 		{
-			AActor const* const TrackedActor = FocusSettings.TrackingFocusSettings.ActorToTrack;
+			AActor const* const TrackedActor = FocusSettings.TrackingFocusSettings.ActorToTrack.Get();
 
 			FVector FocusPoint;
 			if (TrackedActor)
@@ -354,15 +367,23 @@ FText UCineCameraComponent::GetFilmbackText() const
 
 	if (Preset)
 	{
-		return FText::FromString(Preset->Name);
+		return FText::Format(
+			LOCTEXT("PresetFormat","FilmbackPreset: {0} | Zoom: {1}mm | Av: {2}"),
+			FText::FromString(Preset->Name),
+			FText::AsNumber(CurrentFocalLength),
+			FText::AsNumber(CurrentAperture)
+		);
 	}
 	else
 	{
 		FNumberFormattingOptions Opts = FNumberFormattingOptions().SetMaximumFractionalDigits(1);
 		return FText::Format(
-			LOCTEXT("CustomFilmbackFormat", "Custom ({0}mm x {1}mm)"),
+			LOCTEXT("CustomFilmbackFormat", "Custom ({0}mm x {1}mm) | Zoom: {1}mm | Av: {2}"),
 			FText::AsNumber(SensorWidth, &Opts),
-			FText::AsNumber(SensorHeight, &Opts)
+			FText::AsNumber(SensorHeight, &Opts),
+			FText::AsNumber(CurrentFocalLength),
+			FText::AsNumber(CurrentAperture)
+
 		);
 	}
 }

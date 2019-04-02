@@ -1,60 +1,19 @@
-﻿INTSourceChangelist:2735872
+﻿INTSourceChangelist:3810577
 Availability:Public
-Title: 虚幻项目文件
+Title: 虚幻游戏项目
 Crumbs: %ROOT%, Engine
 Description:游戏项目和相关说明概述。
 version: 4.9
 parent:Engine/Editor
 order:8
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Basics/Projects:title%](Engine/Basics/Projects/project_topic.png)(convert:false)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/content_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Basics/Projects:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Basics/Projects:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Basics/Projects]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Basics/Projects:title%](Engine/Basics/Projects/project_topic.png)(convert:false)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/content_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Basics/Projects:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Basics/Projects:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Basics/Projects]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:project_topic.png
+related:Engine/Basics/Projects/CreatingTemplates
+related:Programming/Development/CompilingProjects
+related:Programming/Development/ManagingGameCode
 
 [EXCERPT:Main]
-[EXCERPT:Intro]
+[INCLUDE:#intro]
 
-[INCLUDE:Shared/Glossary/P/#Glossary_project]
-
-[/EXCERPT:Intro]
-
-
-[REGION:topics half]
 %Engine/Basics/Projects/Browser:topic%
 [OBJECT:Topic]
 	[PARAM:image]
@@ -70,31 +29,13 @@ order:8
 		[RELATIVE:Engine/Basics/Projects/Packaging]
 	[/PARAM]
 [/OBJECT]
-[/REGION]
-
-## Related Topics
-
-[REGION:buttonlist]
-
-	* [](Engine/Basics/Projects/CreatingTemplates "%Engine/Basics/Projects/CreatingTemplates:description%")
-	* [](Programming/Development/CompilingProjects "%Programming/Development/CompilingProjects:description%")
-	* [](Programming/Development/ManagingGameCode "%Programming/Development/ManagingGameCode:description%")
-	
-[/REGION]
-
-[COMMENT:none]
-
-项目有两种类型： 
-
-* **Content-Only(仅包含内容的项目)** - 这些项目的所有开发通过使用内容资源在编辑器中完成，这些内容资源包括地图、美术资源、 _Blueprints_ 等。
-* **Code（包含代码的项目）** - 这些项目除了 _content-only(仅包含内容)_ 的项目中的正常内容开发外，还允许程序员进行程序开发。 
-
-[REGION:tip]
-您可以使用[](Programming/Development/ManagingGameCode/CppClassWizard)来转换内容项目为代码项目。
-[/REGION]
-
-
-
-[/COMMENT]
 
 [/EXCERPT:Main]
+
+[COMMENT:none]
+[EXCERPT:Intro]
+
+[INCLUDE:Shared/Glossary/P/#Glossary_project]
+
+[/EXCERPT:Intro]
+[/COMMENT]

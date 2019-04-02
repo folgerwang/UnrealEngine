@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -11,8 +11,7 @@ enum class EHeaderProviderSourceType
 {
 	ClassName,
 	FileName,
-	Resolved,
-	Invalid,
+	Resolved
 };
 
 class FHeaderProvider
@@ -20,19 +19,12 @@ class FHeaderProvider
 	friend bool operator==(const FHeaderProvider& A, const FHeaderProvider& B);
 public:
 	FHeaderProvider(EHeaderProviderSourceType Type, FString&& Id);
-	FHeaderProvider()
-		: Type(EHeaderProviderSourceType::Invalid)
-		, Id(FString())
-		, Cache(nullptr)
-	{ }
 
 	FUnrealSourceFile* Resolve();
 
 	FString ToString() const;
 
 	const FString& GetId() const;
-
-	EHeaderProviderSourceType GetType() const;
 
 private:
 	EHeaderProviderSourceType Type;

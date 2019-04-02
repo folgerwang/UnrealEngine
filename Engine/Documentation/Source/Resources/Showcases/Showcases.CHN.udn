@@ -1,42 +1,9 @@
-﻿INTSourceChangelist:2743761
+﻿INTSourceChangelist:3782314
 Availability: Public
 Title:引擎特性示例
 Crumbs:%ROOT%, Resources
 Description:完整的场景展示一个特定的功能，或者为某个特定效果的实现方式。
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/Showcases:title%](Resources/Showcases/Reflections/Reflections_Topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Showcases:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Showcases:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Showcases]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/Showcases:title%](Resources/Showcases/Reflections/Reflections_Topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Showcases:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Showcases:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Showcases]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:Resources/Showcases/Reflections/Reflections_Topic.png
 
 [EXCERPT:Showcases]
 [REGION:fullwidth]
@@ -49,25 +16,17 @@ Description:完整的场景展示一个特定的功能，或者为某个特定�
 
 [/EXCERPT:Showcases]
 
-[REGION:topics third]
+%Resources/Showcases/PhotorealisticCharacter:topiccompact%
+%Resources/Showcases/SequencerSubway:topiccompact%
+%Resources/Showcases/Infiltrator:topiccompact%
 %Resources/ContentExamples:TopicCompact%
-%watertopic%
-%featurestopic%
-%Resources/Showcases/MatineeFightScene:topiccompact%
-%Resources/Showcases/Effects:TopicCompact%
-%Resources/Showcases/Reflections:TopicCompact%
-%Resources/Showcases/RealisticRendering:TopicCompact%
-%Resources/Showcases/Stylized:TopicCompact%
-%Resources/Showcases/BlueprintExamples:TopicCompact%
-[/REGION]
-
-[VAR:watertopic]
+%Engine/OpenWorldTools:TopicCompact%
 [OBJECT:TopicCompactVideo]
 	[PARAMLITERAL:title]
-	Water Planes
+	水面
 	[/PARAMLITERAL]
 	[PARAMLITERAL:playlistid]
-	PLZlv_N0_O1gYq4tiS45UAgghUxoF916rH
+	PLZlv_N0_O1ga0aV9jVqJgog0VWz1cLL5f
 	[/PARAMLITERAL]
 	[PARAMLITERAL:videoid]
 	aJ1M0Ejd_ts
@@ -76,12 +35,12 @@ Description:完整的场景展示一个特定的功能，或者为某个特定�
 	![](WaterPlanes_Featured.png)
 	[/PARAM]
 [/OBJECT]
-[/VAR]
-
-[VAR:featurestopic]
 [OBJECT:TopicCompactVideo]
 	[PARAMLITERAL:title]
-	Features Tour 2014
+	功能导览（2014版）
+	[/PARAMLITERAL]
+	[PARAMLITERAL:playlistid]
+	PLZlv_N0_O1ga0aV9jVqJgog0VWz1cLL5f
 	[/PARAMLITERAL]
 	[PARAMLITERAL:videoid]
 	FcxA_xYnHZ8
@@ -90,5 +49,10 @@ Description:完整的场景展示一个特定的功能，或者为某个特定�
 	![](store_GDC2014_screenshot_2.png)
 	[/PARAM]
 [/OBJECT]
-[/VAR]
+%Resources/Showcases/MatineeFightScene:topiccompact%
+%Resources/Showcases/Reflections:TopicCompact%
+%Resources/Showcases/RealisticRendering:TopicCompact%
+%Resources/Showcases/Effects:TopicCompact%
+%Resources/Showcases/BlueprintExamples:TopicCompact%
+%Resources/Showcases/Stylized:TopicCompact%
 

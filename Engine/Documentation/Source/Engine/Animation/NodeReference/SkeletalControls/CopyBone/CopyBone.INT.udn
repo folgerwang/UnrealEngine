@@ -4,8 +4,6 @@ Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine
 Description:Describes the Copy Bone node which copies the Transform data or any component of it from one bone to another. 
 version: 4.12
 topic-image:node_copybone.png
-s
-
 
 The **Copy Bone** control copies the Transform data or any component(s) of it - Translation, Rotation, amd/or 
 Scale - from one bone to another.
@@ -30,7 +28,6 @@ uJUDfCo24ws
 
 The **Copy Bone** Skeletal Control takes the specified Transform from one bone and copies it to another bone. 
 Be cautious when selecting the checkboxes for Transform. For instance, if you enable copying Location, the Target Bone will move to the Location of the specified Source Bone.  
-
 
 | Property | Description |
 | -------- | ----------- |

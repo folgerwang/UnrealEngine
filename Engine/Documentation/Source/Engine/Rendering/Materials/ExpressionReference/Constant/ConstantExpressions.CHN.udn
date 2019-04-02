@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2823027
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:常量表达式
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/ExpressionReference
 Description:输出值在编辑器中设置后或在游戏开始时设置后通常保持不变的表达式。
 Version:4.9
+tags:Materials
 
 [EXCERPT:TOC]
 [TOC(start:2)]
@@ -227,6 +228,7 @@ ViewProperty（视图属性）表达式输出依赖于视图的常量属性，�
 ![ViewPropertyExampleFOV90.png](ViewPropertyExampleFOV90.png)
 [/REGION]
 
+(#PrecomputedAOMask)
 ## PrecomputedAOMask（预先计算的 AO 蒙版）
 
 **PrecomputedAOMask（预先计算的 AO 蒙版）**节点用来访问材质中光照系统计算的环境光遮蔽 (AO)，

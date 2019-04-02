@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LocalizationCommandletExecution.h"
 #include "HAL/FileManager.h"
@@ -698,7 +698,7 @@ namespace
 
 	FText SLocalizationCommandletExecutor::GetCloseButtonText() const
 	{
-		return HasCompleted() ? LOCTEXT("OkayButtonText", "Okay") : LOCTEXT("CancelButtonText", "Cancel");
+		return HasCompleted() ? LOCTEXT("OkButtonText", "OK") : LOCTEXT("CancelButtonText", "Cancel");
 	}
 
 	FReply SLocalizationCommandletExecutor::OnCloseButtonClicked()

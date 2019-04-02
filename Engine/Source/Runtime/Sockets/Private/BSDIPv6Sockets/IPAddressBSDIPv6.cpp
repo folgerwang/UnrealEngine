@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "IPAddressBSDIPv6.h"
 
@@ -21,12 +21,6 @@ void FInternetAddrBSDIPv6::SetRawIp(const TArray<uint8>& RawAddr)
 			Addr.sin6_addr.s6_addr[i] = RawAddr[i];
 		}
 
-		// If this address has an interface, we'll copy it over too.
-		if (RawAddr.Num() == 20)
-		{
-			Addr.sin6_scope_id = (RawAddr[16] << 0) | (RawAddr[17] << 8) | (RawAddr[18] << 16) | (RawAddr[19] << 24);
-		}
-
 		Addr.sin6_family = AF_INET6;
 	}
 	else
@@ -44,15 +38,6 @@ TArray<uint8> FInternetAddrBSDIPv6::GetRawIp() const
 		RawAddressArray.Add(Addr.sin6_addr.s6_addr[i]);
 	}
 
-	// Copy over the interface if we have it explicitly set (anything other than 0)
-	if (Addr.sin6_scope_id != 0)
-	{
-		uint32 RawScopeId = Addr.sin6_scope_id;
-		RawAddressArray.Add((RawScopeId >> 0) & 0xFF);
-		RawAddressArray.Add((RawScopeId >> 8) & 0xFF);
-		RawAddressArray.Add((RawScopeId >> 16) & 0xFF);
-		RawAddressArray.Add((RawScopeId >> 24) & 0xFF);
-	}
 	return RawAddressArray;
 }
 
@@ -282,7 +267,7 @@ FString FInternetAddrBSDIPv6::ToString(bool bAppendPort) const
 	return Result;
 }
 
-uint32 FInternetAddrBSDIPv6::GetTypeHash()
+uint32 FInternetAddrBSDIPv6::GetTypeHash() const
 {
 	// @todo: Find a more efficient way to hash IPv6 addresses, if they are to be used with NetConnection's
 	//return Addr.sin_addr.s_addr + (Addr.sin_port * 23);
@@ -294,6 +279,16 @@ bool FInternetAddrBSDIPv6::IsValid() const
 {
 	FInternetAddrBSDIPv6 Temp;
 	return memcmp(&Addr.sin6_addr, &Temp.Addr.sin6_addr, sizeof(in6_addr)) != 0;
+}
+
+uint32 FInternetAddrBSDIPv6::GetScopeId() const
+{
+	return ntohl(Addr.sin6_scope_id);
+}
+
+void FInternetAddrBSDIPv6::SetScopeId(uint32 NewScopeId)
+{
+	Addr.sin6_scope_id = htonl(NewScopeId);
 }
 
 TSharedRef<FInternetAddr> FInternetAddrBSDIPv6::Clone() const

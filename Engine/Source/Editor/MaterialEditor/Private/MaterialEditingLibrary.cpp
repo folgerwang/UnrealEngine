@@ -1,10 +1,11 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MaterialEditingLibrary.h"
 #include "Editor.h"
 #include "MaterialEditor.h"
 #include "MaterialInstanceEditor.h"
 #include "MaterialEditorUtilities.h"
+#include "MaterialShared.h"
 #include "MaterialGraph/MaterialGraphNode.h"
 #include "Materials/MaterialInstance.h"
 #include "Materials/MaterialInstanceDynamic.h"
@@ -24,6 +25,7 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "EditorSupportDelegates.h"
 #include "Misc/RuntimeErrors.h"
+#include "SceneTypes.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogMaterialEditingLibrary, Warning, All);
@@ -137,6 +139,121 @@ static int32 GetExpressionOutputIndexByName(UMaterialExpression* Expression, con
 	return Result;
 }
 
+namespace MaterialEditingLibraryImpl
+{
+	struct FMaterialExpressionLayoutInfo
+	{
+		static const int32 LayoutWidth = 260;
+
+		UMaterialExpression* Connected = nullptr;
+		int32 Column = 0;
+		int32 Row = 0;
+	};
+
+	void LayoutMaterialExpression( UMaterialExpression* MaterialExpression, UMaterialExpression* ConnectedExpression, TMap< UMaterialExpression*, FMaterialExpressionLayoutInfo >& MaterialExpressionsToLayout, int32 Row, int32 Depth )
+	{
+		if ( !MaterialExpression )
+		{
+			return;
+		}
+
+		FMaterialExpressionLayoutInfo LayoutInfo;
+
+		if ( MaterialExpressionsToLayout.Contains( MaterialExpression ) )
+		{
+			LayoutInfo = MaterialExpressionsToLayout[ MaterialExpression ];
+		}
+
+		LayoutInfo.Row = FMath::Max( LayoutInfo.Row, Row );
+
+		if ( Depth > LayoutInfo.Column )
+		{
+			LayoutInfo.Connected = ConnectedExpression;
+		}
+
+		LayoutInfo.Column = FMath::Max( LayoutInfo.Column, Depth );
+
+		MaterialExpressionsToLayout.Add( MaterialExpression ) = MoveTemp( LayoutInfo );
+
+		for ( FExpressionInput* ExpressionInput : MaterialExpression->GetInputs() )
+		{
+			LayoutMaterialExpression( ExpressionInput->Expression, MaterialExpression, MaterialExpressionsToLayout, Row, Depth + 1 );
+		}
+	}
+
+	void LayoutMaterialExpressions( UObject* MaterialOrMaterialFunction )
+	{
+		if ( !MaterialOrMaterialFunction )
+		{
+			return;
+		}
+
+		TMap< UMaterialExpression*, FMaterialExpressionLayoutInfo > MaterialExpressionsToLayout;
+
+		if ( UMaterial* Material = Cast< UMaterial >( MaterialOrMaterialFunction ) )
+		{
+			for ( int32 MaterialPropertyIndex = 0; MaterialPropertyIndex < MP_MAX; ++MaterialPropertyIndex )
+			{
+				FExpressionInput* ExpressionInput = Material->GetExpressionInputForProperty( EMaterialProperty(MaterialPropertyIndex) );
+		
+				if ( ExpressionInput  )
+				{
+					LayoutMaterialExpression( ExpressionInput->Expression, nullptr, MaterialExpressionsToLayout, MaterialPropertyIndex, 0 );
+				}
+			}
+		}
+		else if ( UMaterialFunction* MaterialFunction = Cast< UMaterialFunction >( MaterialOrMaterialFunction ) )
+		{
+			TArray< FFunctionExpressionInput > Inputs;
+			TArray< FFunctionExpressionOutput > Outputs;
+			
+			MaterialFunction->GetInputsAndOutputs( Inputs, Outputs );
+
+			int32 InputIndex = 0;
+
+			for ( FFunctionExpressionInput& FunctionExpressionInput : Inputs )
+			{
+				LayoutMaterialExpression( FunctionExpressionInput.ExpressionInput, nullptr, MaterialExpressionsToLayout, ++InputIndex, 0 );
+			}
+		}
+
+		TMap< int32, TMap< int32, bool > > UsedColumnRows;
+
+		TMap< int32, int32 > ColumnsHeights;
+
+		for ( TMap< UMaterialExpression*, FMaterialExpressionLayoutInfo >::TIterator It = MaterialExpressionsToLayout.CreateIterator(); It; ++It )
+		{
+			UMaterialExpression* MaterialExpression = It->Key;
+			FMaterialExpressionLayoutInfo& LayoutInfo = It->Value;
+
+			if ( !UsedColumnRows.Contains( LayoutInfo.Column ) )
+			{
+				UsedColumnRows.Add( LayoutInfo.Column );
+			}
+
+			while ( UsedColumnRows[ LayoutInfo.Column ].Contains( LayoutInfo.Row ) )
+			{
+				++LayoutInfo.Row;
+			}
+
+			UsedColumnRows[ LayoutInfo.Column ].Add( LayoutInfo.Row ) = true;
+
+			if ( !ColumnsHeights.Contains( LayoutInfo.Column ) )
+			{
+				ColumnsHeights.Add( LayoutInfo.Column ) = 0;
+			}
+
+			int32& ColumnHeight = ColumnsHeights[ LayoutInfo.Column ];
+
+			MaterialExpression->MaterialExpressionEditorX = -FMaterialExpressionLayoutInfo::LayoutWidth * ( LayoutInfo.Column + 1 );
+
+			int32 ConnectedHeight = LayoutInfo.Connected ? LayoutInfo.Connected->MaterialExpressionEditorY : 0;
+			MaterialExpression->MaterialExpressionEditorY = FMath::Max( ColumnHeight, ConnectedHeight );
+
+			ColumnHeight = MaterialExpression->MaterialExpressionEditorY + MaterialExpression->GetHeight() + ME_STD_HPADDING;
+		}
+	}
+}
 
 void UMaterialEditingLibrary::RebuildMaterialInstanceEditors(UMaterial* BaseMaterial)
 {
@@ -526,6 +643,11 @@ void UMaterialEditingLibrary::RecompileMaterial(UMaterial* Material)
 	}
 }
 
+void UMaterialEditingLibrary::LayoutMaterialExpressions(UMaterial* Material)
+{
+	MaterialEditingLibraryImpl::LayoutMaterialExpressions( Material );
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 int32 UMaterialEditingLibrary::GetNumMaterialExpressionsInFunction(const UMaterialFunction* MaterialFunction)
@@ -679,6 +801,11 @@ void UMaterialEditingLibrary::UpdateMaterialFunction(UMaterialFunctionInterface*
 		FEditorSupportDelegates::RedrawAllViewports.Broadcast();
 	}
 
+}
+
+void UMaterialEditingLibrary::LayoutMaterialFunctionExpressions(UMaterialFunction* MaterialFunction)
+{
+	MaterialEditingLibraryImpl::LayoutMaterialExpressions( MaterialFunction );
 }
 
 void UMaterialEditingLibrary::SetMaterialInstanceParent(UMaterialInstanceConstant* Instance, UMaterialInterface* NewParent)

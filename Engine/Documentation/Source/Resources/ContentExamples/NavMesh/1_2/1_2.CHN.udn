@@ -1,46 +1,14 @@
-﻿Availability: Public
-Title:1.2 -导航链接代理
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:1.2 - 导航链接代理
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/NavMesh
 Description:导航网格物体示例关卡概述，示例1.2： 导航链接代理
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources\ContentExamples\NavMesh\1_2:title%](NavMesh_1_2_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/gameplay_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\NavMesh\1_2:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\NavMesh\1_2:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\NavMesh\1_2]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources\ContentExamples\NavMesh\1_2:title%](NavMesh_1_2_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/gameplay_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\NavMesh\1_2:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\NavMesh\1_2:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\NavMesh\1_2]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+Related: Engine/AI/BehaviorTrees/QuickStart
+Related: Gameplay/AI
+Related: Engine/AI/BehaviorTrees/NodeReference
+Related: Engine/Actors/Volumes
+Version: 4.9
+topic-image:NavMesh_1_2_topic.png
 
 [REGION:fullwidth]
 ![](Resources\ContentExamples\NavMesh\NavMesh_banner.png)
@@ -57,10 +25,4 @@ Description:导航网格物体示例关卡概述，示例1.2： 导航链接代�
 
 请注意如果该链接被设置为 _双向_ ，该介质会尝试穿过墙体并且将无法到达其目的地。
 
-## 内容实例部分
-
-[REGION:topics half]
-%Resources/ContentExamples/NavMesh/1_1:Topic%
-%Resources/ContentExamples/NavMesh/1_3:Topic%
-[/REGION]
 

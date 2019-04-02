@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -48,12 +48,40 @@ public:
 		return nullptr;
 	}
 	
+	template <typename WidgetT = UUserWidget>
+	void Reset(TFunctionRef<void(WidgetT&)> ResetEntryFunc, bool bDeleteWidgets = false)
+	{
+		for (UUserWidget* EntryWidget : EntryWidgetPool.GetActiveWidgets())
+		{
+			if (WidgetT* TypedEntry = Cast<WidgetT>(EntryWidget))
+			{
+				ResetEntryFunc(*TypedEntry);
+			}
+		}
+
+		Reset(bDeleteWidgets);
+	}
+
 	/** Clear out the box entries, optionally deleting the underlying Slate widgets entirely as well. */
 	UFUNCTION(BlueprintCallable, Category = DynamicEntryBox)
 	void Reset(bool bDeleteWidgets = false);
 
 	UFUNCTION(BlueprintCallable, Category = DynamicEntryBox)
 	const TArray<UUserWidget*>& GetAllEntries() const;
+
+	template <typename EntryWidgetT = UUserWidget>
+	TArray<EntryWidgetT*> GetTypedEntries() const
+	{
+		TArray<EntryWidgetT*> TypedEntries;
+		for (UUserWidget* Entry : GetAllEntries())
+		{
+			if (EntryWidgetT* TypedEntry = Cast<EntryWidgetT>(Entry))
+			{
+				TypedEntries.Add(TypedEntry);
+			}
+		}
+		return TypedEntries;
+	}
 
 	UFUNCTION(BlueprintCallable, Category = DynamicEntryBox)
 	int32 GetNumEntries() const;
@@ -65,7 +93,7 @@ public:
 	void SetEntrySpacing(const FVector2D& InEntrySpacing);
 
 #if WITH_EDITOR
-	virtual void ValidateCompiledDefaults(class FCompilerResultsLog& CompileLog) const override;
+	virtual void ValidateCompiledDefaults(class IWidgetCompilerLog& CompileLog) const override;
 #endif
 
 #if WITH_EDITORONLY_DATA

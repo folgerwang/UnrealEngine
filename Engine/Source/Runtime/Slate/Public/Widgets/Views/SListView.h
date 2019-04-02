@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -81,6 +81,7 @@ public:
 		, _HandleGamepadEvents( true )
 		, _HandleDirectionalNavigation( true )
 		, _IsFocusable(true)
+		, _ReturnFocusToSelection()
 		, _OnItemToString_Debug()
 		, _OnEnteredBadState()
 		{
@@ -128,7 +129,9 @@ public:
 
 		SLATE_ARGUMENT( bool, HandleDirectionalNavigation );
 
-		SLATE_ATTRIBUTE( bool, IsFocusable )
+		SLATE_ATTRIBUTE(bool, IsFocusable)
+
+		SLATE_ARGUMENT(bool, ReturnFocusToSelection)
 
 		/** Assign this to get more diagnostics from the list view. */
 		SLATE_EVENT(FOnItemToString_Debug, OnItemToString_Debug)
@@ -164,6 +167,8 @@ public:
 		this->bHandleGamepadEvents = InArgs._HandleGamepadEvents;
 		this->bHandleDirectionalNavigation = InArgs._HandleDirectionalNavigation;
 		this->IsFocusable = InArgs._IsFocusable;
+
+		this->bReturnFocusToSelection = InArgs._ReturnFocusToSelection;
 
 		this->OnItemToString_Debug =
 			InArgs._OnItemToString_Debug.IsBound()
@@ -1222,7 +1227,7 @@ public:
 		RequestLayoutRefresh();
 	}
 
-	DEPRECATED(4.20, "RequestScrollIntoView no longer takes parameter bNavigateOnScrollIntoView. Call RequestNavigateToItem instead of RequestScrollIntoView if navigation is required.")
+	UE_DEPRECATED(4.20, "RequestScrollIntoView no longer takes parameter bNavigateOnScrollIntoView. Call RequestNavigateToItem instead of RequestScrollIntoView if navigation is required.")
 	void RequestScrollIntoView(ItemType ItemToView, const uint32 UserIndex, const bool NavigateOnScrollIntoView)
 	{
 		if (bNavigateOnScrollIntoView)
@@ -1661,6 +1666,9 @@ protected:
 
 	/** Should directional nav be supported */
 	bool bHandleDirectionalNavigation;
+
+	/** If true, the focus will be returned to the last selected object in a list when navigated to. */
+	bool bReturnFocusToSelection;
 
 private:
 

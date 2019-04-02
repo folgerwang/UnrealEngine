@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #include "Core/BlockStructure.h"
 
 namespace BuildPatchServices
@@ -501,13 +501,13 @@ namespace BuildPatchServices
 		uint64 ByteCount = 0;
 		while (ByteBlock != nullptr && IntersectionBlock != nullptr)
 		{
-			const FBlockRange ByteBlockRange(ByteBlock->GetOffset(), ByteBlock->GetSize());
-			const FBlockRange IntersectionBlockRange(IntersectionBlock->GetOffset(), IntersectionBlock->GetSize());
+			const FBlockRange& ByteBlockRange = ByteBlock->AsRange();
+			const FBlockRange& IntersectionBlockRange = IntersectionBlock->AsRange();
 			check(IntersectionBlockRange.GetFirst() >= ByteBlockRange.GetFirst());
 			if (ByteBlockRange.Overlaps(IntersectionBlockRange))
 			{
 				// Add the overlap.
-				const FBlockRange SerialByteRange(ByteCount + (IntersectionBlockRange.GetFirst() - ByteBlockRange.GetFirst()), IntersectionBlock->GetSize());
+				const FBlockRange SerialByteRange = FBlockRange::FromFirstAndSize(ByteCount + (IntersectionBlockRange.GetFirst() - ByteBlockRange.GetFirst()), IntersectionBlockRange.GetSize());
 				SerialByteRanges.Add(SerialByteRange);
 
 				// Next intersection.
@@ -516,7 +516,7 @@ namespace BuildPatchServices
 			else
 			{
 				// Count bytes.
-				ByteCount += ByteBlock->GetSize();
+				ByteCount += ByteBlockRange.GetSize();
 				ByteBlock = ByteBlock->GetNext();
 			}
 		}

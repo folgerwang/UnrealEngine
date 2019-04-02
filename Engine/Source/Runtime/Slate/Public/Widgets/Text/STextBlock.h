@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
  
 #pragma once
 
@@ -45,6 +45,7 @@ public:
 		: _Text()
 		, _TextStyle( &FCoreStyle::Get().GetWidgetStyle<FTextBlockStyle>( "NormalText" ) )
 		, _Font()
+		, _StrikeBrush()
 		, _ColorAndOpacity()
 		, _ShadowOffset()
 		, _ShadowColorAndOpacity()
@@ -61,6 +62,7 @@ public:
 		, _TextShapingMethod()
 		, _TextFlowDirection()
 		, _LineBreakPolicy()
+		, _SimpleTextMode(false)
 		{
 			_Clipping = EWidgetClipping::OnDemand;
 		}
@@ -73,6 +75,9 @@ public:
 
 		/** Sets the font used to draw the text */
 		SLATE_ATTRIBUTE( FSlateFontInfo, Font )
+
+		/** Sets the brush used to strike through the text */
+		SLATE_ATTRIBUTE( const FSlateBrush*, StrikeBrush )
 
 		/** Text color and opacity */
 		SLATE_ATTRIBUTE( FSlateColor, ColorAndOpacity )
@@ -123,6 +128,13 @@ public:
 
 		/** The iterator to use to detect appropriate soft-wrapping points for lines (or null to use the default) */
 		SLATE_ARGUMENT( TSharedPtr<IBreakIterator>, LineBreakPolicy )
+
+		/**
+		 * If this is enabled, text shaping, wrapping, justification are disabled in favor of much faster text layout and measurement.
+		 * This feature is suitable for numbers and text that changes often and impact performance.
+		 * Enabling this setting may cause certain languages (such as Right to left languages) to not display properly.
+		 */
+		SLATE_ARGUMENT( bool, SimpleTextMode )
 
 		/** Called when this text is double clicked */
 		SLATE_EVENT( FOnClicked, OnDoubleClicked )
@@ -175,6 +187,9 @@ public:
 	 * @param	InFont	The new font to use
 	 */
 	void SetFont(const TAttribute< FSlateFontInfo >& InFont);
+
+	/** Sets the brush used to strike through the text */
+	void SetStrikeBrush(const TAttribute<const FSlateBrush*>& InStrikeBrush);
 
 	/** See ColorAndOpacity attribute */
 	void SetColorAndOpacity(const TAttribute<FSlateColor>& InColorAndOpacity);
@@ -236,6 +251,9 @@ private:
 	/** Gets the current font */
 	FSlateFontInfo GetFont() const;
 
+	/** Gets the current strike brush */
+	const FSlateBrush* GetStrikeBrush() const;
+	
 	/** Gets the current shadow offset */
 	FVector2D GetShadowOffset() const;
 
@@ -247,6 +265,9 @@ private:
 
 	/** Gets the current highlight shape */
 	const FSlateBrush* GetHighlightShape() const;
+
+	/** Call to invalidate this text block */
+	void InvalidateText(EInvalidateWidget InvalidateReason);
 
 private:
 	/** The text displayed in this text block */
@@ -260,6 +281,9 @@ private:
 
 	/** Sets the font used to draw the text */
 	TAttribute< FSlateFontInfo > Font;
+
+	/** Sets the brush used to strike through the text */
+	TAttribute< const FSlateBrush* > StrikeBrush;
 
 	/** Text color and opacity */
 	TAttribute<FSlateColor> ColorAndOpacity;
@@ -300,4 +324,8 @@ private:
 
 	/** The delegate to execute when this text is double clicked */
 	FOnClicked OnDoubleClicked;
+
+	/** If this is enabled, text shaping, wrapping, justification are disabled in favor of much faster text layout and measurement. */
+	mutable TOptional<FVector2D> CachedSimpleDesiredSize;
+	bool bSimpleTextMode;
 };

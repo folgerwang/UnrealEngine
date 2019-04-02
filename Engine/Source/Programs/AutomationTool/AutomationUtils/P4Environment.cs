@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -178,7 +178,8 @@ namespace AutomationTool
 				P4ClientInfo ThisClient;
 				if(String.IsNullOrEmpty(Client))
 				{
-					ThisClient = DetectClient(DefaultConnection, User, Environment.MachineName.ToLower(), CmdEnv.UATExe);
+					string HostName = System.Net.Dns.GetHostName();
+					ThisClient = DetectClient(DefaultConnection, User, HostName, CmdEnv.UATExe);
 					Log.TraceInformation("Using user {0} clientspec {1} {2}", User, ThisClient.Name, ThisClient.RootPath);
 					Client = ThisClient.Name;
 					CommandUtils.SetEnvVar(EnvVarNames.Client, Client);

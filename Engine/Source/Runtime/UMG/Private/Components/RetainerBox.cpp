@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Components/RetainerBox.h"
 #include "Widgets/SNullWidget.h"
@@ -28,6 +28,11 @@ void URetainerBox::SetRenderingPhase(int PhaseToRenderOn, int32 TotalRenderingPh
 {
 	Phase = PhaseToRenderOn;
 	PhaseCount = TotalRenderingPhases;
+	
+	if ( PhaseCount < 1 )
+	{
+		PhaseCount = 1;
+	}
 
 	if (MyRetainerWidget.IsValid())
 	{

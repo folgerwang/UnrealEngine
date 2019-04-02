@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.Collections.Generic;
@@ -12,10 +12,7 @@ public class DsymExporterTarget : TargetRules
 		LinkType = TargetLinkType.Monolithic;
 		LaunchModuleName = "DsymExporter";
 
-		bCompileLeanAndMeanUE = true;
-
-		// Don't need editor
-		bBuildEditor = false;
+		bBuildDeveloperTools = false;
 
 		// DsymExporter doesn't ever compile with the engine linked in
 		bCompileAgainstEngine = false;

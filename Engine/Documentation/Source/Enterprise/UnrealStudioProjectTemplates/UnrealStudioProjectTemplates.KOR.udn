@@ -1,0 +1,27 @@
+INTSourceChangelist:4476116
+Availability: Public
+Crumbs: 
+Title: 언리얼 스튜디오 프로젝트 템플릿
+Description: 언리얼 스튜디오 사용자 전용 템플릿 프로젝트 설명입니다.
+Type:landing
+Version: 4.20
+Parent: Enterprise
+Order: 1
+Tags: Getting Started
+Tags: Unreal Studio
+topic-image:studio-product-viewer-template-topic.png
+
+
+언리얼 스튜디오에 가입하면 프로젝트 시작점으로 사용할 수 있는 프로젝트 템플릿에 액세스할 수 있습니다. 이 템플릿은 **언리얼 프로젝트 브라우저** 및 **새 프로젝트** 창의 **언리얼 스튜디오** 탭에서 찾을 수 있습니다.
+
+![Unreal Studio Templates](unreal-studio-templates.png "Unreal Studio Templates")
+
+## 언리얼 스튜디오 템플릿
+
+%Enterprise/UnrealStudioProjectTemplates/StudioProductViewer:topic%
+
+*   언리얼 스튜디오 탭의 **Blank** (기본) 템플릿을 사용하여 프로젝트를 처음부터 만들 수도 있습니다. 내비게이션이나 인터랙션 없이 완전 빈 씬에서 시작합니다. 이 템플릿은 기본적으로 **Blank** (기본) 블루프린트 템플릿과 동일하지만 언리얼 스튜디오 프로젝트로 구성됩니다.
+
+[REGION:tip]
+4.20 릴리즈 이후 모든 템플릿을 언리얼 스튜디오 프로젝트로 만들 수 있습니다! 에픽게임즈 런처에서 에디터를 시작했고 언리얼 스튜디오 자격을 갖춘 상태라면 프로젝트를 어느 템플릿으로 시작하든 언리얼 스튜디오 프로젝트로 자동 간주합니다. 데이터스미스를 통해 바로 콘텐츠를 임포트할 수도 있습니다.
+[/REGION]

@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:2828862
+﻿INTSourceChangelist:3244089
 Availability:Public
 Title:失效框
 Crumbs:%ROOT%, Engine, Engine/UMG, Engine/UMG/UserGuide, Engine/UMG/UserGuide/WidgetTypeReference
 Description:概述如何使用失效框来优化 UI 控件。 
 version:4.9
-
+tags:UMG UI Designer
 
 [REGION:warning]
 该功能仍处于开发中，其被视为 **实验性** 的功能。因此某些功能可能会无法按照预期工作。 
@@ -13,6 +13,7 @@ version:4.9
 [TOC(start:2 end:2)]
 
 
+(#Description)
 ## 描述
 
 [EXCERPT:desc]
@@ -24,7 +25,8 @@ version:4.9
 但是如果控件发生改变，它将变为无效，而您需要手动将缓存无效化处理（本质上是将其丢弃），强制其在下一个上色过程中重新绘制。控件有任何视觉外观上的改变都需要进行无效化处理。唯一的例外情况是这些控件的外观变化没有存储在控件的顶点缓冲区中（例如材质，更改材质参数不需要将控件做无效化处理）。 
 
 
-##细节
+(#Details)
+## 细节
 
 在所放置的 **无效框** 的 **细节** 面板中，可以对一些属于该控件的特定选项进行设置： 
 
@@ -37,6 +39,7 @@ version:4.9
 
 对于 **易变** 复选框，任何控件都可以设置为易变。易变控件类似于未经无效化处理的正常 Slate 控件。这些控件（包括其子控件）都会逐帧重新绘制。与无效面板相结合时，您只需考虑重新绘制 UI 中最为动态的部分，因为对整个面板进行无效化处理将是一项巨大的开销。
 
+(#Functions)
 ## 函数
 
 使用 **无效框** 时，用户可以通过 C++ 或 **Invalidate Layout And Volatility** 节点（下图所示）在子控件上调用 [`Invalidate`](https://docs.unrealengine.com/latest/INT/API/Runtime/SlateCore/Widgets/SWidget/Invalidate/index.html) 以强制进行无效化。 
@@ -48,6 +51,7 @@ version:4.9
 [/REGION]
 
 
+(#Debugging)
 ## 调试
 
 可以使用控件反映器 (**CTRL+Shift+W**) 并单击 **无效调试** 选项来调试无效框。 

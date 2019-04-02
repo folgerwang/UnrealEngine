@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -79,8 +79,14 @@ namespace Gauntlet
 					Directory.CreateDirectory(ContextOptions.LogDir);
 				}
 
-				Gauntlet.Log.SaveToFile(Path.Combine(ContextOptions.LogDir, "GauntletLog.txt"));
+				// include test names and timestamp in log filename as multiple (parallel or sequential) Gauntlet tests may be outputting to same directory
+				string LogPath = Path.Combine(ContextOptions.LogDir, string.Format("GauntletLog{0}-{1}.txt", ContextOptions.TestList.Aggregate(new StringBuilder(), (SB, T) => SB.AppendFormat("-{0}", T.ToString())).ToString(), DateTime.Now.ToString(@"yyyy.MM.dd.HH.mm.ss")));
+				Gauntlet.Log.Verbose("Writing Gauntlet log to {0}", LogPath);
+				Gauntlet.Log.SaveToFile(LogPath);
 			}
+
+			// prune our temp folder
+			Utils.SystemHelpers.CleanupMarkedDirectories(ContextOptions.TempDir, 7);
 
 			if (string.IsNullOrEmpty(ContextOptions.Build))
 			{
@@ -97,14 +103,8 @@ namespace Gauntlet
 			if (ContextOptions.TestList.Count == 0)
 			{
 				Gauntlet.Log.Info("No test specified, creating default test node");
-				ContextOptions.TestList.Add(TestRequest.CreateRequest("DefaultNode"));
+				ContextOptions.TestList.Add(TestRequest.CreateRequest("DefaultTest"));
 			}
-
-			// todo, pass this in as a BuildSource and remove the COntextOption params specific to finding builds
-			UnrealBuildSource BuildInfo = (UnrealBuildSource)Activator.CreateInstance(ContextOptions.BuildSourceType, new object[] { ContextOptions.Project, ContextOptions.UsesSharedBuildType, Environment.CurrentDirectory, ContextOptions.Build, ContextOptions.SearchPaths });
-
-			// Setup accounts
-			SetupAccounts();
 
 			bool EditorForAllRoles = Globals.Params.ParseParam("editor") || string.Equals(Globals.Params.ParseValue("build", ""), "editor", StringComparison.OrdinalIgnoreCase);
 
@@ -118,7 +118,12 @@ namespace Gauntlet
 			// Default platform to the current os
 			UnrealTargetPlatform DefaultPlatform = BuildHostPlatform.Current.Platform;
 			UnrealTargetConfiguration DefaultConfiguration = UnrealTargetConfiguration.Development;
-					
+
+			// todo, pass this in as a BuildSource and remove the COntextOption params specific to finding builds
+			UnrealBuildSource BuildInfo = (UnrealBuildSource)Activator.CreateInstance(ContextOptions.BuildSourceType, new object[] { ContextOptions.Project, ContextOptions.UsesSharedBuildType, Environment.CurrentDirectory, ContextOptions.Build, ContextOptions.SearchPaths });
+
+			// Setup accounts
+			SetupAccounts();
 
 			List<ITestNode> AllTestNodes = new List<ITestNode>();
 

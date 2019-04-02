@@ -1,10 +1,14 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PlatformCommon.usf: Common shader code
 =============================================================================*/
 
 #pragma once
+
+// Workarround for UE-66460
+#ifndef __USH_COMMON__
+#define __USH_COMMON__
 
 #include "/Engine/Public/Platform.ush"
 // These types are used for material translator generated code, or any functions the translated code can call
@@ -66,11 +70,40 @@
 // Using SV_ClipDistance has overhead (15% slower base pass in triangle bound test scene on PS4) so projects have to opt-in
 #define USE_GLOBAL_CLIP_PLANE (PLATFORM_SUPPORTS_GLOBAL_CLIP_PLANE && PROJECT_ALLOW_GLOBAL_CLIP_PLANE && !MATERIAL_DOMAIN_POSTPROCESS && !MATERIAL_DOMAIN_UI)
 
+const static MaterialFloat PI = 3.1415926535897932f;
+const static float MaxHalfFloat = 65504.0f;
+#ifndef USE_RAYTRACED_TEXTURE_RAYCONE_LOD
+#define USE_RAYTRACED_TEXTURE_RAYCONE_LOD (RAYHITGROUPSHADER)
+#endif
+
+#if COMPILER_HLSLCC
+	// Workaround until UE-69158 gets fixed
+	#define ComputeRayConeLod(Tex)	0
+#else
+static float GlobalRayCone_TexArea;
+float ComputeRayConeLod(Texture2D Tex)
+{
+#if USE_RAYTRACED_TEXTURE_RAYCONE_LOD
+	uint2 Dimensions;
+	Tex.GetDimensions(Dimensions.x, Dimensions.y);
+    int TexArea = Dimensions.x * Dimensions.y;
+    return 0.5f * log2(GlobalRayCone_TexArea * TexArea);
+#else
+    return 0;
+#endif
+}
+#endif
+
+float  ClampToHalfFloatRange(float  X) { return clamp(X, float(0), MaxHalfFloat); }
+float2 ClampToHalfFloatRange(float2 X) { return clamp(X, float(0).xx, MaxHalfFloat.xx); }
+float3 ClampToHalfFloatRange(float3 X) { return clamp(X, float(0).xxx, MaxHalfFloat.xxx); }
+float4 ClampToHalfFloatRange(float4 X) { return clamp(X, float(0).xxxx, MaxHalfFloat.xxxx); }
+
 // This would need to be a #define in GLSL to ignore the SamplerState, however, it is currently a function call in HLSL
 // for type checking of the parameters - ironically the type checking is really only needed in GLSL!
 MaterialFloat4 Texture1DSample(Texture1D Tex, SamplerState Sampler, float UV)
 {
-#if COMPUTESHADER
+#if !PIXELSHADER
 	return Tex.SampleLevel(Sampler, UV, 0);
 #else
 	return Tex.Sample(Sampler, UV);
@@ -78,23 +111,23 @@ MaterialFloat4 Texture1DSample(Texture1D Tex, SamplerState Sampler, float UV)
 }
 MaterialFloat4 Texture2DSample(Texture2D Tex, SamplerState Sampler, float2 UV)
 {
-#if COMPUTESHADER
-	return Tex.SampleLevel(Sampler, UV, 0);
+#if !PIXELSHADER
+	return Tex.SampleLevel(Sampler, UV, ComputeRayConeLod(Tex));
 #else
 	return Tex.Sample(Sampler, UV);
 #endif
 }
 MaterialFloat Texture2DSample_A8(Texture2D Tex, SamplerState Sampler, float2 UV)
 {
-#if COMPUTESHADER
-	return Tex.SampleLevel(Sampler, UV, 0) A8_SAMPLE_MASK;
+#if !PIXELSHADER
+	return Tex.SampleLevel(Sampler, UV, ComputeRayConeLod(Tex)) A8_SAMPLE_MASK;
 #else
 	return Tex.Sample(Sampler, UV) A8_SAMPLE_MASK;
 #endif
 }
 MaterialFloat4 Texture3DSample(Texture3D Tex, SamplerState Sampler, float3 UV)
 {
-#if COMPUTESHADER
+#if !PIXELSHADER
 	return Tex.SampleLevel(Sampler, UV, 0);
 #else
 	return Tex.Sample(Sampler, UV);
@@ -102,7 +135,7 @@ MaterialFloat4 Texture3DSample(Texture3D Tex, SamplerState Sampler, float3 UV)
 }
 MaterialFloat4 TextureCubeSample(TextureCube Tex, SamplerState Sampler, float3 UV)
 {
-#if COMPUTESHADER
+#if !PIXELSHADER
 	return Tex.SampleLevel(Sampler, UV, 0);
 #else
 	return Tex.Sample(Sampler, UV);
@@ -118,8 +151,8 @@ MaterialFloat4 Texture2DSampleLevel(Texture2D Tex, SamplerState Sampler, float2 
 }
 MaterialFloat4 Texture2DSampleBias(Texture2D Tex, SamplerState Sampler, float2 UV, MaterialFloat MipBias)
 {
-#if COMPUTESHADER
-	return Tex.SampleLevel(Sampler, UV, 0);
+#if !PIXELSHADER
+	return Tex.SampleLevel(Sampler, UV, ComputeRayConeLod(Tex) + MipBias);
 #else
 	return Tex.SampleBias(Sampler, UV, MipBias);
 #endif
@@ -134,7 +167,7 @@ MaterialFloat4 Texture3DSampleLevel(Texture3D Tex, SamplerState Sampler, float3 
 }
 MaterialFloat4 Texture3DSampleBias(Texture3D Tex, SamplerState Sampler, float3 UV, MaterialFloat MipBias)
 {
-#if COMPUTESHADER
+#if !PIXELSHADER
 	return Tex.SampleBias(Sampler, UV, 0);
 #else
 	return Tex.SampleBias(Sampler, UV, MipBias);
@@ -154,7 +187,7 @@ MaterialFloat TextureCubeSampleDepthLevel(TextureCube TexDepth, SamplerState Sam
 }
 MaterialFloat4 TextureCubeSampleBias(TextureCube Tex, SamplerState Sampler, float3 UV, MaterialFloat MipBias)
 {
-#if COMPUTESHADER
+#if !PIXELSHADER
 	return Tex.SampleLevel(Sampler, UV, 0);
 #else
 	return Tex.SampleBias(Sampler, UV, MipBias);
@@ -166,13 +199,13 @@ MaterialFloat4 TextureCubeSampleGrad(TextureCube Tex, SamplerState Sampler, floa
 }
 MaterialFloat4 TextureExternalSample(TextureExternal Tex, SamplerState Sampler, float2 UV)
 {
-#if COMPUTESHADER
-	return Tex.SampleLevel(Sampler, UV, 0);
+#if !PIXELSHADER
+	return Tex.SampleLevel(Sampler, UV, ComputeRayConeLod(Tex));
 #else
 	return Tex.Sample(Sampler, UV);
 #endif
 }
-MaterialFloat4 TextureExternalSampleLevel(Texture2D Tex, SamplerState Sampler, float2 UV, MaterialFloat Mip)
+MaterialFloat4 TextureExternalSampleLevel(TextureExternal Tex, SamplerState Sampler, float2 UV, MaterialFloat Mip)
 {
 	return Tex.SampleLevel(Sampler, UV, Mip);
 }
@@ -237,107 +270,6 @@ float4 PseudoVolumeTexture(Texture2D Tex, SamplerState TexSampler, float3 inPos,
 	}
 #endif
 
-void Bicubic2DCatmullRom( in float2 UV, in float2 Size, in float2 InvSize, out float2 Sample[3], out float2 Weight[3] )
-{
-	UV *= Size;
-
-	float2 tc = floor( UV - 0.5 ) + 0.5;
-	float2 f = UV - tc;
-	float2 f2 = f * f;
-	float2 f3 = f2 * f;
-
-	float2 w0 = f2 - 0.5 * (f3 + f);
-	float2 w1 = 1.5 * f3 - 2.5 * f2 + 1;
-	float2 w3 = 0.5 * (f3 - f2);
-	float2 w2 = 1 - w0 - w1 - w3;
-
-	Weight[0] = w0;
-	Weight[1] = w1 + w2;
-	Weight[2] = w3;
-
-	Sample[0] = tc - 1;
-	Sample[1] = tc + w2 / Weight[1];
-	Sample[2] = tc + 2;
- 
-	Sample[0] *= InvSize;
-	Sample[1] *= InvSize;
-	Sample[2] *= InvSize;
-}
-
-#define BICUBIC_CATMULL_ROM_SAMPLES 5
-
-struct FCatmullRomSamples
-{
-	// Constant number of samples (BICUBIC_CATMULL_ROM_SAMPLES)
-	uint Count;
-	
-	// Constant sign of the UV direction from master UV sampling location.
-	int2 UVDir[BICUBIC_CATMULL_ROM_SAMPLES];
-
-	// Bilinear sampling UV coordinates of the samples
-	float2 UV[BICUBIC_CATMULL_ROM_SAMPLES];
-
-	// Weights of the samples
-	float Weight[BICUBIC_CATMULL_ROM_SAMPLES];
-
-	// Final multiplier (it is faster to multiply 3 RGB values than reweights the 5 weights)
-	float FinalMultiplier;
-};
-
-FCatmullRomSamples GetBicubic2DCatmullRomSamples(float2 UV, float2 Size, in float2 InvSize)
-{
-	FCatmullRomSamples Samples;
-	Samples.Count = BICUBIC_CATMULL_ROM_SAMPLES;
-	
-	float2 Weight[3];
-	float2 Sample[3];
-	Bicubic2DCatmullRom( UV, Size, InvSize, Sample, Weight );
-
-	// Optimized by removing corner samples
-	Samples.UV[0] = float2(Sample[1].x, Sample[0].y);
-	Samples.UV[1] = float2(Sample[0].x, Sample[1].y);
-	Samples.UV[2] = float2(Sample[1].x, Sample[1].y);
-	Samples.UV[3] = float2(Sample[2].x, Sample[1].y);
-	Samples.UV[4] = float2(Sample[1].x, Sample[2].y);
-	
-	Samples.Weight[0] = Weight[1].x * Weight[0].y;
-	Samples.Weight[1] = Weight[0].x * Weight[1].y;
-	Samples.Weight[2] = Weight[1].x * Weight[1].y;
-	Samples.Weight[3] = Weight[2].x * Weight[1].y;
-	Samples.Weight[4] = Weight[1].x * Weight[2].y;
-
-	Samples.UVDir[0] = int2(0, -1);
-	Samples.UVDir[1] = int2(-1, 0);
-	Samples.UVDir[2] = int2(0, 0);
-	Samples.UVDir[3] = int2(1, 0);
-	Samples.UVDir[4] = int2(0, 1);
-
-	// Reweight after removing the corners
-	float CornerWeights;
-	CornerWeights  = Samples.Weight[0];
-	CornerWeights += Samples.Weight[1];
-	CornerWeights += Samples.Weight[2];
-	CornerWeights += Samples.Weight[3];
-	CornerWeights += Samples.Weight[4];
-	Samples.FinalMultiplier = 1 / CornerWeights;
-
-	return Samples;
-}
-
-MaterialFloat4 Texture2DSampleBicubic( Texture2D Tex, SamplerState Sampler, float2 UV, float2 Size, in float2 InvSize )
-{
-	FCatmullRomSamples Samples = GetBicubic2DCatmullRomSamples(UV, Size, InvSize);
-
-	float4 OutColor = 0;
-	for (uint i = 0; i < Samples.Count; i++)
-	{
-		OutColor += Tex.SampleLevel(Sampler, Samples.UV[i], 0) * Samples.Weight[i];
-	}
-	OutColor *= Samples.FinalMultiplier;
-
-	return OutColor;
-}
-
 // TANGENTTOWORLD0 is the first row of the tangent to world matrix, w might be needed for padding and is not used yet.
 // TANGENTTOWORLD2 is the last row of the tangent to world matrix, determinant of tangent basis in w
 	
@@ -379,8 +311,6 @@ MaterialFloat Luminance( MaterialFloat3 LinearColor )
 {
 	return dot( LinearColor, MaterialFloat3( 0.3, 0.59, 0.11 ) );
 }
-
-const static MaterialFloat PI = 3.1415926535897932f;
 
 MaterialFloat length2(MaterialFloat2 v)
 {
@@ -476,7 +406,7 @@ MaterialFloat4 PositiveClampedPow(MaterialFloat4 X,MaterialFloat4 Y)
 
 float DDX(float Input)
 {
-#if COMPUTESHADER
+#if !PIXELSHADER
 	return 0;
 #else
 	return ddx(Input);
@@ -485,7 +415,7 @@ float DDX(float Input)
 
 float2 DDX(float2 Input)
 {
-#if COMPUTESHADER
+#if !PIXELSHADER
 	return 0;
 #else
 	return ddx(Input);
@@ -494,7 +424,7 @@ float2 DDX(float2 Input)
 
 float3 DDX(float3 Input)
 {
-#if COMPUTESHADER
+#if !PIXELSHADER
 	return 0;
 #else
 	return ddx(Input);
@@ -503,7 +433,7 @@ float3 DDX(float3 Input)
 
 float4 DDX(float4 Input)
 {
-#if COMPUTESHADER
+#if !PIXELSHADER
 	return 0;
 #else
 	return ddx(Input);
@@ -512,7 +442,7 @@ float4 DDX(float4 Input)
 
 float DDY(float Input)
 {
-#if COMPUTESHADER
+#if !PIXELSHADER
 	return 0;
 #else
 	return ddy(Input);
@@ -521,7 +451,7 @@ float DDY(float Input)
 
 float2 DDY(float2 Input)
 {
-#if COMPUTESHADER
+#if !PIXELSHADER
 	return 0;
 #else
 	return ddy(Input);
@@ -530,7 +460,7 @@ float2 DDY(float2 Input)
 
 float3 DDY(float3 Input)
 {
-#if COMPUTESHADER
+#if !PIXELSHADER
 	return 0;
 #else
 	return ddy(Input);
@@ -539,7 +469,7 @@ float3 DDY(float3 Input)
 
 float4 DDY(float4 Input)
 {
-#if COMPUTESHADER
+#if !PIXELSHADER
 	return 0;
 #else
 	return ddy(Input);
@@ -867,14 +797,6 @@ MaterialFloat AtanFast( MaterialFloat x )
 	return A.y + A.z * ( ( ( -0.130234 * A.x - 0.0954105 ) * A.x + 1.00712 ) * A.x - 0.00001203333 );
 }
 
-/**
- * Returns the upper 3x3 portion of the LocalToWorld matrix.
- */
-MaterialFloat3x3 GetLocalToWorld3x3()
-{
-	return (MaterialFloat3x3)Primitive.LocalToWorld;
-}
-
 /** Converts a linear input value into a value to be stored in the light attenuation buffer. */
 MaterialFloat EncodeLightAttenuation(MaterialFloat InColor)
 {
@@ -1112,6 +1034,18 @@ uint DecodeRTWriteMaskTexture(in float2 ScreenPosition, in Texture2D<uint> RTWri
 
 	return RTWriteMaskBit;
 }
+
+uint DecodeRTWriteMaskTextureSingle(in float2 ScreenPosition, in Texture2D<uint> RTWriteMaskTexture)
+{
+	int2 IntPosition = int2(ScreenPosition.xy);
+	uint RTWriteMaskValue = RTWriteMaskTexture.Load( int3(IntPosition.x/8, IntPosition.y/8, 0) );
+
+	int2 BitCoord = ((IntPosition / int2(4, 4)) % int2(2, 2));
+	uint BitIdx = BitCoord.x + (BitCoord.y*2);
+	uint RTWriteMaskBit = RTWriteMaskValue & (1<<BitIdx);
+
+	return RTWriteMaskBit;
+}
 #endif
 
 /** Calculates the ScreenUV given the screen position and an offset fraction. */
@@ -1242,6 +1176,11 @@ float2 ViewportUVToScreenPos(float2 ViewportUV)
 	return float2(2 * ViewportUV.x - 1, 1 - 2 * ViewportUV.y);
 }
 
+float2 ScreenPosToViewportUV(float2 ScreenPos)
+{
+	return float2(0.5 + 0.5 * ScreenPos.x, 0.5 - 0.5 * ScreenPos.y);
+}
+
 // ----------------------------
 
 /** 
@@ -1338,7 +1277,9 @@ float AntialiasedTextureMask( Texture2D Tex, SamplerState Sampler, float2 UV, fl
 	return Result;
 }
 
-float Noise3D_Multiplexer(int Function, float3 Position, int Quality, bool bTiling, uint RepeatSize)
+// While RepeatSize is a float here, the expectation is that it would be largely integer values coming in from the UI. The downstream logic assumes
+// floats for all called functions (NoiseTileWrap) and this prevents any float-to-int conversion errors from automatic type conversion.
+float Noise3D_Multiplexer(int Function, float3 Position, int Quality, bool bTiling, float RepeatSize)
 {
 	// verified, HLSL compiled out the switch if Function is a constant
 	switch(Function)
@@ -1634,6 +1575,14 @@ bool GetGIReplaceState()
 #endif
 }
 
+bool GetRayTracingQualitySwitch()
+{
+#if RAYHITGROUPSHADER
+	return true;
+#else
+	return false;
+#endif
+}
 
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
 struct FWriteToSliceGeometryOutput
@@ -1667,8 +1616,8 @@ void DrawRectangle( in float4 InPosition, out float4 OutPosition)
 //Since some platforms don't remove Nans in saturate calls, 
 //SafeSaturate function will remove nan/inf.    
 //Can be expensive, only call when there's a good reason to expect Nans.
-//D3D saturate actually turns Nans -> 1  since it does the min(x, 1) first, and D3D nan rules specify the non-nand operand wins in such a case.  
-//See: http://msdn.microsoft.com/en-us/library/windows/desktop/jj218760(v=vs.85).aspx  
+//D3D saturate actually turns NaNs -> 0  since it does the max(0.0f, value) first, and D3D NaN rules specify the non-NaN operand wins in such a case.  
+//See: https://docs.microsoft.com/en-us/windows/desktop/direct3dhlsl/saturate
 #define SafeSaturate_Def(type)\
 type SafeSaturate(type In) \
 {\
@@ -1680,18 +1629,53 @@ SafeSaturate_Def(float2)
 SafeSaturate_Def(float3)
 SafeSaturate_Def(float4)
 
+// By default HLSL compilers make assumptions about the non-NaN nature of most inputs. Otherwise, most of its optimizations would be invalid, e.g. assuming multiply by 0 equals 0.
+// Unfortunately, as a consequence of this, the native infinite()/isnan()/isinf() intrinsics frequently get silently optimized away. To avoid this hazard we manually implement the same logic.
+// These are expected to generate identical code as native intrinsics would (when working properly). The PositiveFinite versions are faster than the native.
+// Also note that FXC has a quirk in which the pattern b? a : 0 is implemented with an AND instead of the more natural MOVC, i.e. optimizing for D3D bytecode instead of real-world HW instructions.
+// So drivers detect this pattern and convert back to a conditional move. HLSLcc instead converts to mix(), so NaNs end up propagating through despite our efforts to kill them (see UE-66179).
+// So we break this pattern using !b? 0 : a instead, which generates a MOVC.
+#define IsAndMakeFinite_Def(type, booltype)\
+booltype IsFinite(type In) \
+{\
+	return (asuint(In) & 0x7F800000) != 0x7F800000; \
+}\
+booltype IsPositiveFinite(type In) \
+{\
+	return asuint(In) < 0x7F800000; \
+}\
+type MakeFinite(type In) \
+{\
+    return !IsFinite(In)? 0 : In; \
+}\
+type MakePositiveFinite(type In) \
+{\
+    return !IsPositiveFinite(In)? 0 : In; \
+}
+
+IsAndMakeFinite_Def(float,  bool)
+IsAndMakeFinite_Def(float2, bool2)
+IsAndMakeFinite_Def(float3, bool3)
+IsAndMakeFinite_Def(float4, bool4)
+
 // Experimental way to allow adjusting the OpacityMask for shadow map rendering of masked materials.
 // Can be accessed with a Custom material node. If this turns out to be very useful we can expose as MaterialFunction
 // and potentially expose other queries as well (e.g. SkeletalMesh, HitProxy, ).
 // @return 0:no, 1:yes
-float IsShadowDepthShader()
+bool GetShadowReplaceState()
 {
 #ifdef SHADOW_DEPTH_SHADER
-	return 1;
+	return true;
 #else
-	return 0;
+	return false;
 #endif
 }
+
+float IsShadowDepthShader()
+{
+	return GetShadowReplaceState() ? 1.0f : 0.0f;
+}
+
 #define TERRAIN_ZSCALE (1.0f/128.0f)
 
 // Decodes a value which was packed into two 8 bit channels
@@ -1710,6 +1694,7 @@ float DecodePackedHeight(float2 PackedHeight)
 	return DecodeHeightValue(DecodePackedTwoChannelValue(PackedHeight));
 }
 
+/** Reverses all the 32 bits. */
 uint ReverseBits32( uint bits )
 {
 #if SM5_PROFILE || COMPILER_METAL
@@ -1722,6 +1707,12 @@ uint ReverseBits32( uint bits )
 	bits = ( (bits & 0x55555555) << 1 ) | ( (bits & 0xaaaaaaaa) >> 1 );
 	return bits;
 #endif
+}
+
+/** Reverses all the <BitCount> lowest significant bits. */
+uint ReverseBitsN(uint Bitfield, const uint BitCount)
+{
+	return ReverseBits32(Bitfield) >> (32 - BitCount);
 }
 
 // see PixelShaderOutputCommon
@@ -1776,3 +1767,5 @@ struct FPixelShaderOut
 #define GlobalTrilinearWrappedSampler GetGlobalSampler(Trilinear, Wrapped)
 
 #endif // SUPPORTS_INDEPENDENT_SAMPLERS
+
+#endif // __USH_COMMON__

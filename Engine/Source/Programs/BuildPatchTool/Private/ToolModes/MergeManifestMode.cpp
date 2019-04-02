@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ToolModes/MergeManifestMode.h"
 #include "Interfaces/IBuildPatchServicesModule.h"
@@ -76,13 +76,13 @@ private:
 			UE_LOG(LogBuildPatchTool, Error, TEXT("ManifestA, ManifestB, ManifestC, and BuildVersion are required parameters"));
 			return false;
 		}
-		FPaths::NormalizeDirectoryName(ManifestA);
-		FPaths::NormalizeDirectoryName(ManifestB);
-		FPaths::NormalizeDirectoryName(ManifestC);
+		NormalizeUriFile(ManifestA);
+		NormalizeUriFile(ManifestB);
+		NormalizeUriFile(ManifestC);
 
 		// Optional list to pick specific files, otherwise it is A stomped by B
 		PARSE_SWITCH(MergeFileList);
-		FPaths::NormalizeDirectoryName(MergeFileList);
+		NormalizeUriFile(MergeFileList);
 
 		return true;
 #undef PARSE_SWITCH

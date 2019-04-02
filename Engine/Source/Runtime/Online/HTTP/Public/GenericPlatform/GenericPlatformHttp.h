@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -111,4 +111,9 @@ public:
 	 * @return true if we are able to get proxy information from the current operating system, false if not
 	 */
 	static bool IsOperatingSystemProxyInformationSupported();
+
+	/**
+	 * Helper function for checking if a byte array is in URL encoded format.
+	 */
+	static bool IsURLEncoded(const TArray<uint8>& Payload);
 };

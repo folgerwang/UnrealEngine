@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Globalization;
@@ -6,7 +6,6 @@ using System.Windows.Data;
 
 namespace nDisplayLauncher.ValueConversion
 {
-
 	public class SizeConverter : IValueConverter
 	{
 		public object Convert(object value, Type targetType, object parameter, CultureInfo culture)

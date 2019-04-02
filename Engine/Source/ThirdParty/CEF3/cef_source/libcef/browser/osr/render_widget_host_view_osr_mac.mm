@@ -119,6 +119,9 @@ content::DelegatedFrameHost* CefRenderWidgetHostViewOSR::GetDelegatedFrameHost()
 
 void CefRenderWidgetHostViewOSR::PlatformCreateCompositorWidget(
     bool is_guest_view_hack) {
+
+  dispatch_sync(dispatch_get_main_queue(), ^{
+
   // Create a borderless non-visible 1x1 window.
   window_ = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1, 1)
                                         styleMask:NSBorderlessWindowMask
@@ -131,6 +134,8 @@ void CefRenderWidgetHostViewOSR::PlatformCreateCompositorWidget(
   NSView* content_view = [window_ contentView];
   [content_view setLayer:background_layer_];
   [content_view setWantsLayer:YES];
+
+  });
 
   mac_helper_ = new MacHelper(this);
   browser_compositor_.reset(new content::BrowserCompositorMac(

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "EnvironmentQuery/Tests/EnvQueryTest_Overlap.h"
 #include "UObject/Package.h"
@@ -24,7 +24,6 @@ void UEnvQueryTest_Overlap::RunTest(FEnvQueryInstance& QueryInstance) const
 	bool bWantsHit = BoolValue.GetValue();
 	
 	FCollisionQueryParams OverlapParams(SCENE_QUERY_STAT(EnvQueryOverlap), OverlapData.bOverlapComplex);
-	OverlapParams.bTraceAsyncScene = true;
 	
 	const ECollisionChannel OverlapCollisionChannel = OverlapData.OverlapChannel;
 	const FVector TraceExtent(OverlapData.ExtentX, OverlapData.ExtentY, OverlapData.ExtentZ);
@@ -71,7 +70,7 @@ void UEnvQueryTest_Overlap::RunTest(FEnvQueryInstance& QueryInstance) const
 
 FText UEnvQueryTest_Overlap::GetDescriptionTitle() const
 {
-	UEnum* ShapeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEnvOverlapShape"), true);
+	UEnum* ShapeEnum = StaticEnum<EEnvOverlapShape::Type>();
 	FString ShapeDesc = ShapeEnum->GetDisplayNameTextByValue(OverlapData.OverlapShape).ToString();
 
 	return FText::FromString(FString::Printf(TEXT("%s: %s"), 
@@ -80,10 +79,10 @@ FText UEnvQueryTest_Overlap::GetDescriptionTitle() const
 
 FText UEnvQueryTest_Overlap::GetDescriptionDetails() const
 {
-	UEnum* ShapeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEnvOverlapShape"), true);
+	UEnum* ShapeEnum = StaticEnum<EEnvOverlapShape::Type>();
 	FString ShapeDesc = ShapeEnum->GetDisplayNameTextByValue(OverlapData.OverlapShape).ToString();
 
-	UEnum* ChannelEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ECollisionChannel"), true);
+	UEnum* ChannelEnum = StaticEnum<ECollisionChannel>();
 	FString ChannelDesc = ChannelEnum->GetDisplayNameTextByValue(OverlapData.OverlapChannel).ToString();
 
 	FString SizeDesc;

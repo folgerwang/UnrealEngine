@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UCurveLinearColor.cpp
@@ -11,7 +11,27 @@
 
 FLinearColor FRuntimeCurveLinearColor::GetLinearColorValue(float InTime) const
 {
-	return ExternalCurve->GetLinearColorValue(InTime);
+	if (ExternalCurve)
+	{
+		return ExternalCurve->GetLinearColorValue(InTime);
+	}
+
+	FLinearColor Result;
+	Result.R = ColorCurves[0].Eval(InTime);
+	Result.G = ColorCurves[1].Eval(InTime);
+	Result.B = ColorCurves[2].Eval(InTime);
+
+	// No alpha keys means alpha should be 1
+	if (ColorCurves[3].GetNumKeys() == 0)
+	{
+		Result.A = 1.0f;
+	}
+	else
+	{
+		Result.A = ColorCurves[3].Eval(InTime);
+	}
+
+	return Result;
 }
 
 UCurveLinearColor::UCurveLinearColor(const FObjectInitializer& ObjectInitializer)

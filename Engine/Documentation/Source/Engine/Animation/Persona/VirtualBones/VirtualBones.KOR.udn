@@ -45,7 +45,7 @@ IK 타깃이나 "룩 앳" 타깃같은 것으로 사용할 수 있습니다. 심
 	[/REGION]
 	[REGION:caption] 이미지를 클릭하면 원본을 확인합니다. [/REGION]
 
-1. 우클릭하여 맥락 메뉴를 띄우고 **Add Virtual Bone** (가상 본 추가)를 선택한 뒤, 확장된 **Pick Target Bone...** (타깃 본 선택...)에서 연결하고자 하는 본을 선택합니다.
+1. 우클릭하여 컨텍스트 메뉴를 띄우고 **Add Virtual Bone** (가상 본 추가)를 선택한 뒤, 확장된 **Pick Target Bone...** (타깃 본 선택...)에서 연결하고자 하는 본을 선택합니다.
 	
 	[REGION:lightbox]
 	[![](Add_AddVB_Target.png)(w:600)](Add_AddVB_Target.png)
@@ -82,7 +82,7 @@ IK 타깃이나 "룩 앳" 타깃같은 것으로 사용할 수 있습니다. 심
 	[/REGION]
 	[REGION:caption] 이미지를 클릭하면 원본을 확인합니다. [/REGION]
 
-1. 우클릭 맥락 메뉴에서 **Delete** (삭제)를 선택합니다.
+1. 우클릭 컨텍스트 메뉴에서 **Delete** (삭제)를 선택합니다.
 
 	![](Delete_DeleteVB.png)(w:400)
 
@@ -100,7 +100,7 @@ IK 타깃이나 "룩 앳" 타깃같은 것으로 사용할 수 있습니다. 심
 
 1. 가상 본 이름변경 방법은 세 가지입니다:
 
-	* 우클릭 맥락 메뉴에서 **Rename Virtual Bone** (가상 본 이름변경)을 선택합니다.
+	* 우클릭 컨텍스트 메뉴에서 **Rename Virtual Bone** (가상 본 이름변경)을 선택합니다.
 		
 		![](Rename_ContextMenu.png)(w:400)
 	* 가상 본을 선택한 채 **F2** 키를 누릅니다.

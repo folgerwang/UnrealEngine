@@ -1,8 +1,8 @@
 ﻿INTSourceChangelist:3782314
 Availability: Public
 Crumbs: %ROOT%, Platforms
-Title: 기어 VR 용 카메라 구성
-Description: 기어 VR 에 사용할 수 있도록 UE4 카메라를 구성하는 방법입니다.
+Title: Gear VR 용 카메라 구성
+Description: Gear VR 에 사용할 수 있도록 UE4 카메라를 구성하는 방법입니다.
 Type: how-to
 SkillLevel: Beginner
 Version: 4.17
@@ -15,12 +15,12 @@ prereq: Platforms\GearVR\QuickStart
 
 ![](Hero_Image.png)(w:1000)
 
-기어 VR 프로젝트가 앉아서 하는 것이든 서서 하는 것이든 관계 없이, 사용자 카메라 구성 방식은 똑같습니다. 여기서는 기어 VR HMD 에서 사용할 수 있도록 UE4 카메라를 구성하는 방법을 살펴봅니다.
+Gear VR 프로젝트가 앉아서 하는 것이든 서서 하는 것이든 관계 없이, 사용자 카메라 구성 방식은 똑같습니다. 여기서는 Gear VR HMD 에서 사용할 수 있도록 UE4 카메라를 구성하는 방법을 살펴봅니다.
 
 
 ## 단계
 
-프로젝트 구성 요건과 아울러 기어 VR 에 필요한 폰 블루프린트를 만드는 방법에 대한 안내입니다.
+프로젝트 구성 요건과 아울러 Gear VR 에 필요한 폰 블루프린트를 만드는 방법에 대한 안내입니다.
 
 1. 다음과 같은 세팅으로 UE4 프로젝트를 새로 만들고, 세팅 입력이 끝나면 **프로젝트 생성** 버튼을 눌러 프로젝트를 만듭니다.
 
@@ -139,13 +139,13 @@ prereq: Platforms\GearVR\QuickStart
     클릭하면 이미지 원본을 확인합니다.
     [/REGION]
 
-1. **메인 툴바** 에서 **실행** 버튼 옆 작은 흰색 삼각형을 클릭한 뒤 목록에서 안드로이드 디바이스를 선택하면 패키징이 시작되고 해당 디바이스에 디플로이됩니다.
+1. **메인 툴바** 에서 **실행** 버튼 옆 작은 흰색 삼각형을 클릭한 뒤 목록에서 Android 디바이스를 선택하면 패키징이 시작되고 해당 디바이스에 디플로이됩니다.
 
     ![](HT_GearVR_Camera_Setup_08.png)
 
 ## 최종 결과
 
-UE4 프로젝트 디플로이가 끝나면, 스마트폰을 기어 VR HMD 에 넣고 머리에 쓴 뒤 고개를 돌려보면 다음 비디오처럼 보일 것입니다.
+UE4 프로젝트 디플로이가 끝나면, 스마트폰을 Gear VR HMD 에 넣고 머리에 쓴 뒤 고개를 돌려보면 다음 비디오처럼 보일 것입니다.
 
 [OBJECT:EmbeddedVideo]
     [PARAMLITERAL:videoid]

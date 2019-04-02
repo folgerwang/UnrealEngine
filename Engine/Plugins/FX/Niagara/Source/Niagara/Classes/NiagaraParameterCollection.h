@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -162,6 +162,8 @@ public:
 	//~UObject interface
 	virtual void PostLoad()override;
 	//~UObject interface
+
+	FName GetNamespace()const { return Namespace; }
 protected:
 	
 	void MakeNamespaceNameUnique();

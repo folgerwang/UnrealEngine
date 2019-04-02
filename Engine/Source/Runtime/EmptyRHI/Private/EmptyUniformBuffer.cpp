@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	EmptyConstantBuffer.cpp: Empty Constant buffer implementation.
@@ -63,7 +63,7 @@ FEmptyUniformBuffer::~FEmptyUniformBuffer()
 {
 }
 
-FUniformBufferRHIRef FEmptyDynamicRHI::RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage)
+FUniformBufferRHIRef FEmptyDynamicRHI::RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage, EUniformBufferValidation Validation)
 {
 	check(IsInRenderingThread());
 	return nullptr;//new FEmptyUniformBuffer(Contents, NumBytes, Usage);

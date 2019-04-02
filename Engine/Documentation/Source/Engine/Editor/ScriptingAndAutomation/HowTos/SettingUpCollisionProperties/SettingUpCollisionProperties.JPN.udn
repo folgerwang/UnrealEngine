@@ -1,0 +1,288 @@
+﻿INTSourceChangelist:4284256
+Availability: Public
+Crumbs: 
+Title: ブループリントおよび Python を使用してスタティック メッシュでコリジョンを設定する
+Description: アンリアル エディタで、ブループリントまたは Python を使用してスタティック メッシュのコリジョン プロパティを設定する方法を説明します。
+Version: 4.20
+type:how-to
+SkillLevel:Intermediate
+Parent: Engine/Editor/ScriptingAndAutomation/HowTos
+Order: 2
+Tags: Blueprints
+Tags: Physics
+Tags: Collision
+Tags: how-to
+Tags: Python 
+Tags: scripting
+Tags: editor
+
+
+レベルでスタティック メッシュと物理を相互作用させるには (スタティック メッシュで他のオブジェクトをヒットする場合や、ランタイム時に高性能コリジョン テストでスタティック メッシュの存在を検出する場合など)、スタティック メッシュに対して、物理シミュレーションにおけるスタティック メッシュ オブジェクトの境界を表す **Collision Mesh** を設定する必要があります。スタティック メッシュの可視ジオメトリを使用することもできますが、通常はこれは細かすぎます。多くの場合、リアルな結果を得るためには物理的なインタラクションにこれほど高度な正確性は必要ないため、コリジョン メッシュを可能な限り単純化することで、物理システムのパフォーマンスを向上させることができます。
+
+スタティック メッシュ エディタでは、スタティック メッシュの単純なコリジョン表現を自動的に作成できます。
+
+[REGION:lightbox]
+[![](set_collisions_menu.png "set_collisions_menu.png")](set_collisions_menu.png) 
+[/REGION]
+[REGION:caption]
+クリックしてフルサイズ表示
+[/REGION]
+
+
+
+詳細については、「[Setting Up Collisions With Static Meshes](Engine/Content/Types/StaticMeshes/HowTo/SettingCollision)」を参照してください。
+
+これらのコリジョン メッシュ表現は、スタティック メッシュ エディタで手動で作成するのではなく、プログラム的に作成しなければならない場合があります。例えば、同じプロジェクト内で多数のスタティック メッシュ オブジェクトを設定する必要がある場合、これらを 1 つずつ順番に開いて作業するのは不可能なことがあります。また、コンテンツのインポートおよび管理のために、より大きな自動化されたパイプラインにおいてコリジョンの設定を一度に行いたい場合もあります。
+
+以下のセクションでは、ブループリントおよび Python を使用して、アンリアル エディタで上記の異なるタイプのコリジョン メッシュをスタティック メッシュ アセットに自動的に適用する方法を説明します。
+
+[REGION:note]
+まだ行ってない場合は、Editor Scripting Utilities プラグインをインストールする必要があります。詳細については、[「エディタのスクリプティングと自動化」](Engine/Editor/ScriptingAndAutomation)を参照してください。
+[/REGION]
+
+%Globals:BlueprintOrPythonSelectVar%
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	blueprintimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	スタティック メッシュ コリジョンの管理が必要なノードは、**[Editor Scripting] > [Static Mesh]** カテゴリに表示されます。
+
+	[REGION:note]
+	これらのノードを使用するには、**PlacedEditorUtilityBase** クラスなど、エディタのみのクラスから派生したブループリント クラスである必要があります。詳細については、「ブループリントを使用したエディタのスクリプティング」(Engine/Editor/ScriptingAndAutomation) を参照してください。
+	[/REGION]
+
+	コリジョンを設定することで、スタティック メッシュ アセットに変更が加えられます。加える変更を維持する場合は、後から **Save Asset** または **Save Loaded Asset** などのノードも使用する必要があります。
+	[/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	pythonimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	スタティック メッシュ コリジョンの管理が必要なほとんどの関数は `unreal.EditorStaticMeshLibrary` クラスにあります。
+
+	LOD を設定することで、スタティック メッシュ アセットに変更が加えられます。加える変更を維持する場合は、後から `unreal.EditorAssetLibrary.save_asset()` または `unreal.EditorAssetLibrary.save_loaded_asset()` などの関数も使用する必要があります。
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+## 単純化されたコリジョン形状を追加する
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	blueprintimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	単純化された新しいコリジョン形状をスタティック メッシュに追加するには、**Add Simple Collisions** ノードを使用します。**Shape Type** の入力値を使用して、追加するコリジョン形状を制御します。これらのオプションは、スタティック メッシュ エディタの **[Collision]** メニューに表示されるものと同じです。
+
+	![](set_collisions_simple_bp.png "set_collisions_simple_bp.png")
+	[/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	pythonimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	単純化された新しいコリジョン形状をスタティック メッシュに追加するには、`unreal.EditorStaticMeshLibrary.add_simple_collisions()` 関数を使用します。Pass it:
+
+	*   変更する `unreal.StaticMesh` オブジェクト。
+	*   作成するコリジョン プリミティブのタイプを示す `unreal.ScriptingCollisionShapeType` 列挙型関数からのアイテム。これらのオプションは、スタティック メッシュ エディタの **[Collision]** メニューに表示されるものと同じです。
+
+	例：
+
+		import unreal
+		asset_path = "/Game/ArchVis/Mesh"
+		def add_box_collision (static_mesh):
+			# 代わりに、.SPHERE、.CAPSULE、.NDOP10_X、.NDOP10_Y、.NDOP10_Z、.NDOP18、.NDOP26 を使用することもできます。
+			shape_type = unreal.ScriptingCollisionShapeType.BOX
+			unreal.EditorStaticMeshLibrary.add_simple_collisions(static_mesh, shape_type)
+			unreal.EditorAssetLibrary.save_loaded_asset(static_mesh)
+		# パス内にあるすべてのアセットのリストを取得します。
+		all_assets = unreal.EditorAssetLibrary.list_assets(asset_path)
+		# アセットをすべてメモリにロードします。
+		all_assets_loaded = [unreal.EditorAssetLibrary.load_asset(a) for a in all_assets]
+		# スタティック メッシュのみを含めるよう、リストをフィルタリングします。
+		static_mesh_assets = unreal.EditorFilterLibrary.by_class(all_assets_loaded, unreal.StaticMesh)
+		# リスト内の各スタティック メッシュで上記の関数を実行します。
+		map(add_box_collision, static_mesh_assets)
+	[/PARAM]
+[/OBJECT]
+
+これにより、スタティック メッシュのその他の単純化されたコリジョン形状が存在した場合は、その場所に新しいコリジョン形状が追加されます。既存のコリジョン形状を先に削除するには、下記の *「単純なコリジョンをすべて削除する」* を参照してください。
+
+![](set_collisions_simple_result.png "set_collisions_simple_result.png")
+
+## 凸型コリジョンを自動生成する
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	blueprintimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	スタティック メッシュの可視ジオメトリから凸型コリジョン形状を自動生成するには、 **Set Convex Decomposition Collisions** ノードを使用します。
+
+	![](set_collisions_complex_bp.png "set_collisions_complex_bp.png")
+
+	このノードの入力値は、スタティック メッシュ エディタのユーザー インターフェースで **[Collisions] > [Auto Convex Collisions]** を選択した際に入力するよう求められるオプションと同じです。これらは、生成したコリジョン メッシュの複雑度と忠実度を制御します。一般的に、より大きな値にすると、コリジョン メッシュがスタティック メッシュの可視ジオメトリに近づきますが、ランタイム時のシミュレーションでの負荷も高くなります。
+	[/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	pythonimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	スタティック メッシュの可視ジオメトリから凸型コリジョン形状を自動生成するには、`unreal.EditorStaticMeshLibrary.set_convex_decomposition_collisions()` 関数を使用します。Pass it:
+
+	*   変更する `unreal.StaticMesh` オブジェクト。
+	*   最大ハル数、ハル当たりの最大頂点数およびハルの精度を定義する 3 つの整数。これらのパラメータは、スタティック メッシュ エディタのユーザー インターフェースで **[Collisions] > [Auto Convex Collisions]** を選択した際に入力するよう求められるオプションと同じです。これらは、生成したコリジョン メッシュの複雑度と忠実度を制御します。一般的に、より大きな値にすると、コリジョン メッシュがスタティック メッシュの可視ジオメトリに近づきますが、ランタイム時のシミュレーションでの負荷も高くなります。
+
+	例：
+
+		import unreal
+		asset_path = "/Game/ArchVis/Mesh"
+		def set_convex_collision (static_mesh):
+			unreal.EditorStaticMeshLibrary.set_convex_decomposition_collisions(static_mesh, 4, 12, 460000)
+			unreal.EditorAssetLibrary.save_loaded_asset(static_mesh)
+		# パス内にあるすべてのアセットのリストを取得します。
+		all_assets = unreal.EditorAssetLibrary.list_assets(asset_path)# アセットをすべてメモリにロードします。
+		all_assets_loaded = [unreal.EditorAssetLibrary.load_asset(a) for a in all_assets]# スタティック メッシュのみを含めるよう、リストをフィルタリングします。
+		static_mesh_assets = unreal.EditorFilterLibrary.by_class(all_assets_loaded, unreal.StaticMesh)# リスト内の各スタティック メッシュで上記の関数を実行します。
+		map(set_convex_collision, static_mesh_assets)
+	[/PARAM]
+[/OBJECT]
+
+すべての既存のコリジョン メッシュは、新しいメッシュが生成される前にスタティック メッシュから自動的に削除されます。
+
+この方法では、単純化されたコリジョン プリミティブを使用する場合よりも結果が予測しづらく、普通とは違う結果となる可能性があることに留意してください。いびつな形のメッシュの場合や、生成する結果が十分に単純化されたものになり、スタティック メッシュの可視ジオメトリに対して適切になるよう生成に関する設定を視覚的に調節できる場合には、この方法が最適です。
+
+![](set_collisions_convex_result.png "set_collisions_convex_result.png")
+
+## 単純なコリジョンをすべて削除する
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	blueprintimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	**Remove Collisions** ノードを使用して、スタティック メッシュに割り当てられているすべてのコリジョン メッシュをクリアすることができます。
+
+	![](set_collisions_remove_bp.png "set_collisions_remove_bp.png")
+
+	この後、「単純な」物理コリジョン テストにではメッシュは検出されなくなりますが、スタティック メッシュの可視ジオメトリも対象となる「詳細な」テストでは検出されます。[「Simple コリジョンと Complex コリジョン」](Engine/Physics/SimpleVsComplex)も参照してください。
+	[/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	pythonimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	`unreal.EditorStaticMeshLibrary.remove_collisions()` 関数を使用して、スタティック メッシュに割り当てられているすべてのコリジョン メッシュをクリアすることができます。
+
+	例：
+
+		import unreal
+		asset_path = "/Game/ArchVis/Mesh"
+		def remove_collisions (static_mesh):
+			unreal.EditorStaticMeshLibrary.remove_collisions(static_mesh)
+			unreal.EditorAssetLibrary.save_loaded_asset(static_mesh)
+		# パス内にあるすべてのアセットのリストを取得します。
+		all_assets = unreal.EditorAssetLibrary.list_assets(asset_path)# アセットをすべてメモリにロードします。
+		all_assets_loaded = [unreal.EditorAssetLibrary.load_asset(a) for a in all_assets]# スタティック メッシュのみを含めるよう、リストをフィルタリングします。
+		static_mesh_assets = unreal.EditorFilterLibrary.by_class(all_assets_loaded, unreal.StaticMesh)# リスト内の各スタティック メッシュで上記の関数を実行します。
+		map(remove_collision, static_mesh_assets)
+
+	この後、「単純な」物理コリジョン テストではメッシュは検出されなくなりますが、スタティック メッシュの可視ジオメトリも対象となる「詳細な」テストでは検出されます。[「Simple vs Complex Collision」](Engine/Physics/SimpleVsComplex)も参照してください。
+	[/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	pythonimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	## コリジョンに LOD を使用する
+
+	スタティック メッシュに対して既に詳細度 (LOD) が設定されている場合は、詳細度の低い LOD の 1 つをコリジョン メッシュとして使用できます。
+
+	`unreal.StaticMesh` オブジェクトの `set_editor_property()` 関数を呼び出して、使用する LOD のインデックスに `lod_for_collision` プロパティを設定します。例：
+
+		import unreal
+		asset_path = "/Game/ArchVis/Mesh"
+		def use_lod_for_collisions (static_mesh):
+			static_mesh.set_editor_property("lod_for_collision", 3)
+			unreal.EditorAssetLibrary.save_loaded_asset(static_mesh)
+		# パス内にあるすべてのアセットのリストを取得します。
+		all_assets = unreal.EditorAssetLibrary.list_assets(asset_path)
+		# アセットをすべてメモリにロードします。
+		all_assets_loaded = [unreal.EditorAssetLibrary.load_asset(a) for a in all_assets]
+		# スタティック メッシュのみを含めるよう、リストをフィルタリングします。
+		static_mesh_assets = unreal.EditorFilterLibrary.by_class(all_assets_loaded, unreal.StaticMesh)
+		# リスト内の各スタティック メッシュで上記の関数を実行します。
+		map(use_lod_for_collision, static_mesh_assets)
+
+	[「LOD のコリジョンのセットアップ方法」](Engine/Content/Types/StaticMeshes/HowTo/LODCollision)も参照してください。
+
+	[/PARAM]
+[/OBJECT]
+
+[REGION:note]
+ブループリントまたは Python を通じてカスタム コリジョン メッシュを設定することは現時点ではできません。カスタム メッシュをインポートして、物理シミュレーションでスタティック メッシュのコリジョン メッシュに対して使用するには、次のいずれかを行う必要があります。
+
+*   スタティック メッシュ エディタのユーザー インターフェースを使用して、サポートされているファイル形式からコリジョン メッシュをインポートする。
+*   可視スタティック メッシュと同時にコリジョン メッシュをインポートする。このとき、当該のコリジョン メッシュがコリジョン テストに使用するジオメトリを表していることを示すために、特別な命名規則を使用します。詳細については、[「FBX スタティック メッシュ パイプライン」](Engine/Content/FBX/StaticMeshes#コリジョン)を参照してください。
+[/REGION]

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 using System;
@@ -82,7 +82,7 @@ namespace NetworkProfiler
 					SerializedToken = new TokenSocketSendTo( BinaryStream );
 					break;
 				case ETokenTypes.SendBunch:
-					SerializedToken = new TokenSendBunch( BinaryStream );
+					SerializedToken = new TokenSendBunch( BinaryStream, InNetworkStream.GetVersion() );
 					break;
 				case ETokenTypes.SendRPC:
 					SerializedToken = new TokenSendRPC( BinaryStream );
@@ -127,7 +127,16 @@ namespace NetworkProfiler
 					SerializedToken = new TokenNameReference( BinaryStream );
 					break;
 				case ETokenTypes.ConnectionReference:
-					SerializedToken = new TokenConnectionReference( BinaryStream );
+					{
+						if (InNetworkStream.GetVersion() < 12)
+						{
+							SerializedToken = new TokenConnectionReference(BinaryStream);
+						}
+						else
+						{
+							SerializedToken = new TokenConnectionStringReference(BinaryStream);
+						}
+					}
 					break;
 				case ETokenTypes.ConnectionChange:
 					SerializedToken = new TokenConnectionChanged( BinaryStream );
@@ -228,7 +237,7 @@ namespace NetworkProfiler
 		{
 			TreeNode Child = TokenHelper.AddNode( Tree, "Socket SendTo" );
 
-			Child = Child.Nodes.Add( "Destination : " + StreamParser.NetworkStream.GetIpString( ConnectionIndex ) );
+			Child = Child.Nodes.Add( "Destination : " + StreamParser.NetworkStream.GetIpString( ConnectionIndex, StreamParser.NetworkStream.GetVersion() ) );
 
 			Child.Nodes.Add( "SocketName          : " + StreamParser.NetworkStream.GetName( SocketNameIndex ) );
 			Child.Nodes.Add( "DesiredBytesSent    : " + ( NumPacketIdBits + NumBunchBits + NumAckBits + NumPaddingBits ) / 8.0f );
@@ -253,19 +262,43 @@ namespace NetworkProfiler
 		/** Channel index. */
 		public UInt16 ChannelIndex;
 		/** Channel type. */
-		public byte ChannelType;
+		protected byte ChannelType;
+		/** Channel type name index. */
+		protected int ChannelTypeNameIndex;
 		/** Number of header bits serialized/sent. */
 		public UInt16 NumHeaderBits;
 		/** Number of non-header bits serialized/sent. */
 		public UInt16 NumPayloadBits;
 
 		/** Constructor, serializing members from passed in stream. */
-		public TokenSendBunch(BinaryReader BinaryStream)
+		public TokenSendBunch(BinaryReader BinaryStream, UInt32 Version)
 		{
 			ChannelIndex = BinaryStream.ReadUInt16();
-			ChannelType = BinaryStream.ReadByte();
+			if (Version < 11)
+			{
+				ChannelType = BinaryStream.ReadByte();
+				ChannelTypeNameIndex = -1;
+			}
+			else
+			{
+				ChannelType = 0;
+				ChannelTypeNameIndex = TokenHelper.LoadPackedInt( BinaryStream );
+			}
+
 			NumHeaderBits = BinaryStream.ReadUInt16();
 			NumPayloadBits = BinaryStream.ReadUInt16();
+		}
+
+		public int GetChannelTypeIndex()
+		{
+			if (ChannelTypeNameIndex != -1)
+			{
+				return ChannelTypeNameIndex;
+			}
+			else
+			{
+				return ChannelType;
+			}
 		}
 
 		/**
@@ -280,7 +313,7 @@ namespace NetworkProfiler
 		{
 			TreeNode Child = TokenHelper.AddNode( Tree, "Send Bunch" );
 
-			Child = Child.Nodes.Add( "Channel Type  : " + ChannelType );
+			Child = Child.Nodes.Add( "Channel Type  : " + StreamParser.NetworkStream.GetChannelTypeName( GetChannelTypeIndex() ) );
 			Child.Nodes.Add( "Channel Index    : " + ChannelIndex );
 			Child.Nodes.Add( "NumTotalBits     : " + GetNumTotalBits() );
 			Child.Nodes.Add( "   NumHeaderBits : " + NumHeaderBits );
@@ -724,6 +757,24 @@ namespace NetworkProfiler
 		public TokenConnectionReference( BinaryReader BinaryStream )
 		{
 			Address = BinaryStream.ReadUInt64();
+		}
+	}
+
+	/**
+	 * Token for connection reference as a string.
+	 * This allows for support for different address formats without having to do any additional work.
+	 * Addresses are pushed in via the ToString(true) call on an FInternetAddr
+	 */
+	class TokenConnectionStringReference : TokenBase
+	{
+		/** Address of connection */
+		public string Address = null;
+
+		/** Constructor, serializing members from passed in stream. */
+		public TokenConnectionStringReference(BinaryReader BinaryStream)
+		{
+			int StrLength = Math.Abs(BinaryStream.ReadInt32());
+			Address = new string(BinaryStream.ReadChars(StrLength));
 		}
 	}
 

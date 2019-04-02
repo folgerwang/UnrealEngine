@@ -83,10 +83,6 @@ UNiagaraDataInterfaceHoudiniCSV::UNiagaraDataInterfaceHoudiniCSV(FObjectInitiali
 	LastSpawnedPointID = -1;
 }
 
-
-// Temporary fix for 4.21.1. More permanent fix is in 4.22.
-extern NIAGARACORE_API TMap<FString, UClass*> FNiagaraDataInterfaceParamRefKnownClasses;
-
 void UNiagaraDataInterfaceHoudiniCSV::PostInitProperties()
 {
     Super::PostInitProperties();
@@ -95,7 +91,6 @@ void UNiagaraDataInterfaceHoudiniCSV::PostInitProperties()
     {
 	    FNiagaraTypeRegistry::Register(FNiagaraTypeDefinition(GetClass()), true, false, false);
 		FNiagaraTypeRegistry::Register(FHoudiniEvent::StaticStruct(), true, true, false);
-		FNiagaraDataInterfaceParamRefKnownClasses.Add(GetClass()->GetName(), GetClass());
     }
 
 	FloatValuesGPUBufferDirty = true;
@@ -2070,7 +2065,7 @@ struct FNiagaraDataInterfaceParametersCS_HoudiniCSV : public FNiagaraDataInterfa
 		Ar << LastSpawnTime;
 	}
 
-	virtual void Set( FRHICommandList& RHICmdList, FNiagaraShader* Shader, class UNiagaraDataInterface* DataInterface ) const override
+	virtual void Set( FRHICommandList& RHICmdList, FNiagaraShader* Shader, class UNiagaraDataInterface* DataInterface, void* PerInstanceData) const override
 	{
 		check( IsInRenderingThread() );
 

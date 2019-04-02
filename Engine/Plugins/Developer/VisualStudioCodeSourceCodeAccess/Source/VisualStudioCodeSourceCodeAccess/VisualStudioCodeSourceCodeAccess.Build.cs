@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 using Microsoft.Win32;
 
 namespace UnrealBuildTool.Rules
@@ -31,7 +31,7 @@ namespace UnrealBuildTool.Rules
 					case WindowsCompiler.VisualStudio2017:
 						DTEKey = "VisualStudio.DTE.15.0";
 						break;
-					case WindowsCompiler.VisualStudio2015:
+					case WindowsCompiler.VisualStudio2015_DEPRECATED:
 						DTEKey = "VisualStudio.DTE.14.0";
 						break;
 				}

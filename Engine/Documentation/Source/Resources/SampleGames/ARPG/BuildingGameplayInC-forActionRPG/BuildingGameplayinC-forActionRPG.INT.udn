@@ -1,0 +1,104 @@
+Availability: Public
+Crumbs: 
+Title: Building Gameplay in C++ for Action RPG
+Description: A guide to describe how the gameplay systems in Action RPG were built.
+Version: 4.20
+Parent: Resources/SampleGames/ARPG
+Order: 1
+Tags: 
+
+
+The goal of this document is to describe how the gameplay systems in Action RPG (ARPG) are built and to also serve as an example of how you would architect similar systems. This document assumes you have already read [Introduction to C++ Programming in UE4](Programming/Introduction) and have built some basic prototypes using one of the existing templates as described in the [FPS Tutorial](Programming/Tutorials/FirstPersonShooter). The Ability system-specific features are covered in the [Gameplay Ability System](Gameplay/GameplayAbilitySystem) document.
+
+## Code Overview
+
+Most Unreal Engine 4 (UE4) projects start from one of the existing templates, or as a clone of an existing sample project. In the case of ARPG, it began as a Blueprint-only game similar to the Top Down template, and we then converted it into a hybrid C++/Blueprint project. Because of this history, most of the basic gameplay logic is implemented in Blueprint instead of C++. [The Balancing Blueprint and C++](Resources/SampleGames/ARPG/BalancingBlueprintandC-) document discusses some of the factors involved in this decision. After initially creating and converting the project, we built the native class hierarchy used for gameplay. We also worked out a naming and directory organization scheme for our C++ code and content.
+
+Here is an overview of the source files used in ARPG:  
+
+| **File Name** | **Description** |
+| --- | --- |
+| **ActionRPG.h** | The module header that is included first by all CPP files in the project. This is where you want to include any shared engine headers that most of your classes will need, as well as any global defines. |
+| **RPGTypes.h** | The shared header that defines game-specific structs and enums used by other classes. It’s generally a good idea to make one or more of these headers to avoid problems with circular header includes. |
+| **RPGPlayerControllerBase.h** | The game-specific subclass of **PlayerController**, which almost every game will need. For ARPG, this mostly handles the inventory. |
+| **RPGCharacterBase.h** | The game-specific subclass of Character. For ARPG all **Blueprint Characters** inherit from this one class but many games will need a hierarchy with multiple character types. |
+| **RPGGameInstanceBase.h** | The game-specific subclass of **GameInstance**, which almost every game will need. There is one Game Instance declared for the entire game so this is a good place to store global gameplay data. |
+| **RPGGameModeBase.h** and **RPGGameStateBase.h** | The Game Mode and state subclasses. For ARPG, these are just stubs because most map-specific gameplay logic is in Blueprints but many games will have multiple mode and states with C++ code. |
+| **RPGBlueprintLibrary.h** | Exposes game-specific Blueprint functions that are not tied to a specific Actor, almost every game will need one or more of these. |
+| **RPGSaveGame.h** | The class used to store inventory/experienceinformation to disk, and is described in more detail below. |
+| **RPGAssetManager.h** | Subclass of the AssetManager that is used in the inventory system described below. |
+| **RPGInventoryInterface.h** | Native interface enabling **RPGCharacterBase** to query **RPGPlayerControllerBase** about inventory without doing manual casts. |
+| **Items/RPGItem.h and Subclasses** | Different inventory item types. |
+| **Abilities/RPGAbilitySystemComponent and Others** | Used in the ability system as described in [Gameplay Abilities in ARPG](Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG). |
+| **ActionRPGLoadingScreen Module** | Simple C++ loading screen that is used to display a Texture when the game is initially loading or when transferring maps. It is a separate module because it needs to be loaded before the primary ARPG game module. |
+
+While ARPG does not have one, many other Unreal Engine 4 (UE4) games will also have an **Editor Module** that adds extra UI or tools used in the UE4 Editor.
+
+Once you have created the native classes, you will need to change your [Project Settings](Engine/UI/ProjectSettings) to spawn the correct [Game Mode](Gameplay/Framework/GameMode), [Game Instance](Gameplay/Framework/GameMode), and [Asset Manager](Engine/Basics/AssetsAndPackages/AssetManagement) classes. You may also need to change your map settings to reflect the new changes to your project.
+
+## Inventory and Asset Manager
+
+ARPG  uses the [Asset Manager](Engine/Basics/AssetsAndPackages/AssetManagement) system to load and access inventory items. The Asset Manager was originally designed to manage assets that can be used in multiple different situations and across the entire game, which is generally true of all inventory items. For ARPG , there are four types of inventory items:
+
+*   **Weapons**: are Blueprints that can be equipped by the player to do melee damage.
+*   **Skills**: are special attacks like fireballs that can be equipped and used by the player to deal direct and area of effect damage.  
+    
+*   **Potions**:  are single-use consumable items used to heal and give more mana.  
+    
+*   **Tokens**: are simple counters to track things like earned souls and experience points.  
+    
+
+Each of these item types has their own native C++ class that inherits from **URPGItem** and are defined using lines in the **AssetManagerSettings** section of the **DefaultGame.ini**. We decided to not make items Blueprints for ARPG because they do not have their own logic or inheritance structures but that will be different for each game. Each of the item base class provides UI information like what icon to use as well as gameplay information like what ability to grant when equipping a particular item.
+
+What items are owned by a player is stored in the **URPGPlayerControllerBase** instances, in the following two map properties:
+
+*   The first map is from **URPGItem**\* to **FRPGItemData**, which stores count and level. 
+*   The second map is from **FRPGItemSlot** to **URPGItem**\* and describes that a certain item is stored in “weapon slot 1”. 
+
+The list of valid item slots and default inventory are stored in the **BP_GameInstance**. The Player Controller native class provides an API for adding, removing, and querying inventory items, as well as interactions with the Ability System. Because each item type in ARPG is a primary asset type, we repurpose the **FPrimaryAssetType** structure to be our “item type” which is then passed into filter functions. Because ARPG provides an in-game store it needs to preload all items in the game at startup. It does that using this logic from **BP_GameInstance**:
+
+[REGION:lightbox]
+[![](InventoryAssetManager_01.png)(w:800px)](InventoryAssetManager_01.png)
+[/REGION]
+[REGION:caption]
+Click for full image.
+[/REGION]
+
+The **AsyncLoadPrimaryAssetList **node ends up calling the **LoadPrimaryAssets **function on **URPGAssetManager**, which starts an asynchronous load of all items of the specified type. Once the load finishes, it will then add them to a map stored in the game instance, which is used by the store UI. One important note is that calling **LoadPrimaryAssets **will keep those assets in memory until **Unload** is called, even if nothing else references them. The **RPGAssetManager **subclass is relatively simple, as it only declares some static types for each item type and a **ForceLoadItem **function used when inventory is loaded from disk.
+
+For ARPG the logic to use inventory items is mostly in the** BP_Character** Blueprint shared by both player and enemy Blueprints, but many games would implement item usage in native C++. Also, the inventory heavily interacts with the Ability System, which is described in the [Gameplay Ability System](Gameplay/GameplayAbilitySystem) documentation.
+
+## Save Games
+
+ARPG uses native structures for saving the player’s inventory (which includes souls/experience) to disk, using the class **URPGSaveGame**. Generally, any critical information should be saved using native structures because this allows the use of native versioning and fix-up code. For **URPGSaveGame**, this is implemented using the **ERPGSaveGameVersion** enum and fix-up code in the Serialize function. The reason for this is that user-defined structs can accidentally be modified at any point in time. If a developer were to rename or delete a field, it would result in a player’s save game losing data and potentially causing that player saved data to become completely broken. In general, any critical data should be implemented using native structures with versioning.
+
+The ARPG save game stores inventory using **PrimaryAssetIds** which are saved as strings with the forum type of **ItemType: ItemName**. This is a more stable way to store item references than asset paths like **/Game/Items/ItemName.ItemName** because the reference will not break if an asset is moved. If an asset is renamed, **PrimaryAssetIdRedirects** or native code can be used to handle those fix-ups. **ForceLoadItem** is used to convert from **PrimaryAssetId** to a **URPGItem** by synchronously loading it if it is not already in memory (which it usually will be for ARPG because of the Store preload above).
+
+**URPGGameInstanceBase** handles the actual saving and loading of the inventory, using variables set in **BP_GameInstance**. It’s important to have the Save functions accessible from native code because the **Player Controller** forces an inventory to save every time an item is added or removed from the inventory. It can also be called manually from Blueprint if needed. For ARPG, the save is written to disk using the **SaveGameToSlot** Blueprint function, but by implementing this in native, it could be changed to some server-side solution at a later point in time. The Options menu does not use the native save game implementation because it is far less critical if data is lost. You would also always want to save that information to your local device. 
+
+[REGION:note]
+Every game needs to come up with a carefully thought out save game management plan early in the game's development.
+[/REGION]
+
+## Packaging for Release
+
+Once you have built your gameplay infrastructure and your team has started making content, one last significant programming task that is left will be to prepare your game for packaging and release as by default UE4 packages more content then you will want in your release build, which can be a problem on platforms like mobile. For ARPG, the first step we took was to make sure that ARPG was including only the content it needs and to help out with this task, we used the [Asset Manager.](Engine/Basics/AssetsAndPackages/AssetManagement) 
+
+The **“CookRule=AlwaysCook”** section of the **Primary Asset Type** configuration file causes all items in your project's **Content** folder to be cooked into the final game. To make sure that the **Main Menu** and **Gameplay** maps were included in ARPG , we include both of them in the **+MapsToCook** lines in the **Packaging Settings**. Once we are sure that ARPG included all the content it needed, next we packaged the project for mobile platforms from inside the UE4 Editor so that we could verify that things are working as they should. Once we verified that the packaged game was working correctly and all of the project's content was included we then took a look at ways to reduce download and memory size. Since ARPG is targeted for mobile platforms we wanted to reduce download and memory size as much as possible. To accomplish this we took the following steps to reduce the install size and memory footprint:
+
+1.  Disable any **Plugins** that are not being used. Doing this for ARPG reduced the overall project size by 30 MB.  
+    ![](ARPG_DisableUnusedPlugins_01.png "ARPG_DisableUnusedPlugins_01.png")
+	[REGION:note]
+	While the above image only shows the **Augmented Reality** Plugin disabled, you will need to do this for each Plugin section in your project to maximize the saving you will receive.
+	[/REGION]
+3.  Enabled the **Exclude editor content when cooking **flag that can be found in **Packaging** settings. Doing this will prevent the project from shipping any content in the UE4 Editor folders like **/Engine/EditorMaterials**.  
+	![](ARPG_SkipCookingEditorContent_01-1.png "ARPG_SkipCookingEditorContent_01-1.png")  
+	[REGION:warning]
+	Keep in mind that doing this will break any game content using these Materials. However, your project should not be using any assets that are found in the UE4 Editor folders.
+	[/REGION]
+4.  By default, UE4 will cook all content in **/Game/UI** and a few other folders because of the **+ContentDirectories** lines in the **DefaultEditor.ini** file. ARPG had some prototype User Interface items in this folder which was disabled by adding the includes in our ARPG **DefaultEditor.ini **file. When this step is combined with the step above, 50 MB  was saved from the install size of ARPG.![](ARPG_DefaultEditorINI_01.png "ARPG_DefaultEditorINI_01.png")
+5.  Using the **Size Map** tool available from the Asset Audit window (described in the [Cooking and Chunking](Engine/Basics/AssetsAndPackages/AssetManagement/CookingAndChunking) documentation) we were able to identify a set of very expensive Textures and Static Mesh. This information was then passed to our content team so they could clean it up. Optimizing those assets reduced the install size by another 100 MB for ARPG.![](ARPG_SizeMapTool_01.png "ARPG_SizeMapTool_01.png")
+6.  Temporarily enabled the **For Distribution **checkmark box in **Project Settings > Packaging** and changing the** Build Configuration** from **Development **to **Shipping **to get a better idea of what the final size of ARPG would be. Generally, this is what you would do when cooking a final release build (usually via a command line option passed to a UAT script) but **should not** be enabled while your project is still in development. Changing from a Development build to a Shipping build saved around 50 MB of install size in ARPG.  
+    ![](ARPG_ForDistributionSettings_01.png "ARPG_ForDistributionSettings_01.png")
+
+Combining all of these steps together reduced the install size of ARPG by around **230 MB** and helped prepare ARPG to be released in the various app stores.

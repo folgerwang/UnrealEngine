@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -20,12 +20,16 @@ protected:
 	/** Debug description of socket usage. */
 	FString SocketDescription;
 
+	/** Protocol used in creation of a socket */
+	ESocketProtocolFamily SocketProtocol;
+
 public:
 
 	/** Default constructor. */
 	inline FSocket() :
 		SocketType(SOCKTYPE_Unknown),
-		SocketDescription(TEXT(""))
+		SocketDescription(TEXT("")),
+		SocketProtocol(ESocketProtocolFamily::None)
 	{ }
 
 	/**
@@ -34,9 +38,24 @@ public:
 	 * @param InSocketType The type of socket being created
 	 * @param InSocketDescription The debug description of the socket
 	 */
+	UE_DEPRECATED(4.22, "Please migrate to the constructor that specifies protocol stack")
 	inline FSocket(ESocketType InSocketType, const FString& InSocketDescription) :
 		SocketType(InSocketType),
-		SocketDescription(InSocketDescription)
+		SocketDescription(InSocketDescription),
+		SocketProtocol(ESocketProtocolFamily::None)
+	{ }
+
+	/**
+	 * Specifies the type of socket being created
+	 *
+	 * @param InSocketType The type of socket being created
+	 * @param InSocketDescription The debug description of the socket
+	 * @param InSocketProtocol the protocol stack this socket should be created on.
+	 */
+	inline FSocket(ESocketType InSocketType, const FString& InSocketDescription, ESocketProtocolFamily InSocketProtocol) :
+		SocketType(InSocketType),
+		SocketDescription(InSocketDescription),
+		SocketProtocol(InSocketProtocol)
 	{ }
 
 	/** Virtual destructor. */
@@ -237,6 +256,18 @@ public:
 	virtual bool JoinMulticastGroup(const FInternetAddr& GroupAddress) = 0;
 
 	/**
+	 * Joins this socket to the specified multicast group on the specified interface.
+	 *
+	 * The multicast group address must be in the range 224.0.0.0 to 239.255.255.255.
+	 *
+	 * @param GroupAddress The IP address of the multicast group.
+	 * @param InterfaceAddress The address representing the interface.
+	 * @return true on success, false otherwise.
+	 * @see LeaveMulticastGroup, SetMulticastLoopback, SetMulticastTtl
+	 */
+	virtual bool JoinMulticastGroup(const FInternetAddr& GroupAddress, const FInternetAddr& InterfaceAddress) = 0;
+
+	/**
 	 * Removes this UDP client from the specified multicast group.
 	 *
 	 * @param The multicast group address to leave.
@@ -244,6 +275,16 @@ public:
 	 * @see JoinMulticastGroup, SetMulticastLoopback, SetMulticastTtl
 	 */
 	virtual bool LeaveMulticastGroup(const FInternetAddr& GroupAddress) = 0;
+
+	/**
+	 * Removes this UDP client from the specified multicast group on the specified interface.
+	 *
+	 * @param GroupAddress The multicast group address to leave.
+	 * @param InterfaceAddress The address representing the interface.
+	 * @return true on success, false otherwise.
+	 * @see JoinMulticastGroup, SetMulticastLoopback, SetMulticastTtl
+	 */
+	virtual bool LeaveMulticastGroup(const FInternetAddr& GroupAddress, const FInternetAddr& InterfaceAddress) = 0;
 
 	/**
 	 * Enables or disables multicast loopback on the socket (UDP only).
@@ -270,6 +311,17 @@ public:
 	 * @see LeaveMulticastGroup, JoinMulticastGroup, SetMulticastLoopback
 	 */
 	virtual bool SetMulticastTtl(uint8 TimeToLive) = 0;
+
+	/**
+	 * Sets the interface used to send outgoing multicast datagrams.
+	 *
+	 * Multicast traffic is sent using the default interface, this allows 
+	 * to explicitly set the interface used to send outgoing multicast datagrams.
+	 *
+	 * @param InterfaceAddress The interface address.
+	 * @return true if the call succeeded, false otherwise.
+	 */
+	virtual bool SetMulticastInterface(const FInternetAddr& InterfaceAddress) = 0;
 
 	/**
 	 * Sets whether a socket can be bound to an address in use.
@@ -342,5 +394,16 @@ public:
 	FORCEINLINE FString GetDescription() const
 	{
 		return SocketDescription;
+	}
+
+	/**
+	 * Get the type of protocol the socket is bound to
+	 *
+	 * @return Socket type.
+	 * @see GetDescription, GetPortNo
+	 */
+	FORCEINLINE ESocketProtocolFamily GetProtocol() const
+	{
+		return SocketProtocol;
 	}
 };

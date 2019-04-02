@@ -1,129 +1,151 @@
-﻿INTSourceChangelist:2624398
+INTSourceChangelist:3810557
 Availability:Public
-Title: 项目文件自动生成
-Crumbs:%ROOT%, Programming, Programming/UnrealBuildSystem
-Description:关于在当前工作区中自动生成游戏和模块的项目文件的过程。
-Version: 4.9
+Title:自动项目文件生成
+Crumbs:%ROOT%
+Parent:Programming/UnrealBuildSystem
+Order:
+Description:为当前工作空间中的游戏和模块自动生成项目文件的过程。
+Version: 4.16
+prereq:Programming/Development/BuildingUnrealEngine
+topic-image:topic_prjFileGen.png
+tags:Programming
+tags:Unreal Build System
 
-如果您下载了最新的虚幻引擎 4 源码，您可能会注意到已经没有用于编译及运行引擎或示例游戏的 Visual Studio 或 Xcode 项目文件了。您需要运行一个用于生成项目文件的脚本来加载它们：
+[TOC(start:1 end:2)]
 
-* 运行位于UE4主目录中的 `GenerateProjectFiles.bat` 文件 (对应 '//depot/UE4/`)。
-
-	[REGION:note]
-	您可以从任何文件夹中运行该脚本。(如果您愿意可以创建一个桌面快捷方式。)
-	[/REGION]
-
-* 项目生成器工具将分析模块和目标编译文件，并生成新的项目文件。这大约会花15秒钟的时间。
-
-完成了！对于 Visual Studio 开发人员来说，这将在同一目录中生成一个 UE4.sln 文件。您将使用该解决方案来编译并运行虚幻引擎4游戏及程序。(初次编译时，我们推荐您在 Win64 平台下使用 Development 配置进行编译!)
-
-[REGION:note]
-	默认情况下，我们对检测到 SDK 的所有可用平台生成可编译的项目，这样您也可以编译并调试游戏机平台及移动平台。如果您仅仅想要对当前运行的平台生成项目(例如Windows.)，请使用 '-CurrentPlatform' 参数来运行 `GenerateProjectFiles.bat` 。此项目的文件将会减少一些。
+[REGION:warning]
+以下指南适用于从GitHub上下载并从源代码构建了UE4的用户。
 [/REGION]
 
-**要点** ：  请记住从源码控制同步完新的变更代码后要重新运行 `GenerateProjectFiles.bat` 文件！  如果您忘记执行该操作，那么当编译或运行您的游戏时很可能会遇到问题。
+如果您下载的是最新版虚幻引擎4（UE4）代码，可能会注意到其中不包含用于编译和运行引擎或示例游戏的Visual Studio（VS）或Xcode项目文件。您需要运行一个脚本来生成可供加载的项目文件：
 
-如果您本地修改了某个模块，比如添加或删除了源码文件，那么您应该再次重新运行 `GenerateProjectFiles.bat` 文件。我们不推荐您手动地修改项目文件。
+* 运行UE4主目录中的GenerateProjectFiles.bat文件
+
+	[REGION:note]
+	您可以从任意文件夹运行该脚本。（如果需要，也可以创建桌面快捷方式。）
+	[/REGION]
+
+* 项目生成工具将分析模块和目标构建文件，并生成新项目文件。这个过程最多需要15秒左右。
+
+对于VS开发者，这样会在同一个目录中生成UE4.sln文件。您将使用该解决方案文件构建和运行UE4游戏和程序。（如果是首次编译，我们建议在Win64平台中使用“开发（Development）”配置）
+
+[REGION:note]
+	默认情况下，我们会为检测到相应SDK的所有可用平台生成可构建项目，这样您也能够构建和调试控制台和移动平台。如果您只想为运行的当前平台（如Windows）生成项目，请使用-CurrentPlatform参数运行GenerateProjectFiles.bat。这样项目文件会稍微小一些。
+[/REGION]
+
+**要点**：在从源代码控制同步新代码更改后，务必重新运行GenerateProjectFiles.bat。如果忘记这步操作，很可能会在编译或运行游戏时遇到问题。
+
+如果您对模块进行了本地更改，如添加或移除源文件，应再次运行GenerateProjectFiles.bat。我们建议不要对项目文件进行手动更改。
 
 
-## 和 UnrealVS 扩展相集成
+(#integrationwithunrealvsextension)
+## 与UnrealVS扩展集成
 
-Visual Studio 的 [](Programming/Development/VisualStudioSetup/UnrealVS) 插件包含一个工具条按钮，点击该按钮便可以重新生成当前已加载的解决方案的项目文件。
+适用于VS的[](Programming/Development/VisualStudioSetup/UnrealVS)包含一个工具栏按钮，单击后可以为当前加载的解决方案重新生成项目文件。
 
-您也可以为该功能绑定一个快捷键。在 Visual Studio 中，打开 `Tools(工具) -> Options(选项) -> Environment(环境) -> Keyboard(键盘)` ，然后搜索 `UnrealVS.RefreshProjects` 。
+您还可以为该功能绑定一个快捷键。在VS中，打开“工具（Tools）->选项（Options）->环境（Environment）->键盘（Keyboard）”，然后搜索UnrealVS.RefreshProjects。
 
-注意，仅当您加载了解决方案后才会启用该功能(因为该工具需要知道要为哪个分支生成项目文件)。如果您还没有生成 `UE4.sln` 文件，那么首先您需要直接运行 `GenerateProjectFiles.bat` 脚本。
+请注意，该功能仅在您加载了解决方案后才会启用（因为该工具需要知道要为哪个代码分支生成项目。）如果您尚未生成`UE4.sln`文件，需要先运行`GenerateProjectFiles.bat`脚本。
 
 
-## 命令行选项 (高级)
+(#command-lineoptions(advanced))
+## 命令行选项（高级）
 
-项目生成器有一些可选的命令行选项，如果您想自定义您生成的项目文件来进一步满足您的需求，您可以使用它们。一般不需要或不推荐使用这些选项。
+项目生成工具包含一些可选的命令行参数，如果想要自定义生成的项目文件来更好地满足需要，可以使用这些参数。通常，这些选项不是必须使用或建议使用的。
 
-| 选项          |  描述  ||
+| 选项           |  说明  ||
  ----------------- |  ------------ |
--CurrentPlatform   |  仅对当前桌面平台生成可编译项目（Windows 或 Mac），而非对所有检测到的可用对象平台。|
--2012              |  生成 Visual Studio 2012 的项目文件。默认情况下，生成的将是 Visual Studio 2013 的项目文件。|
--2013              |  生成 Visual Studio 2013 的项目文件。这是默认选项 |
--2015              |  生成 Visual Studio 2015 的项目文件，在此情况下将会使用 2015 的编译器。 |
--ThirdParty        |  将来自第三方库的头文件和其他文件添加到项目中。如果您想在 Visual Assist 中查看类似于 PhysX、Steamworks 或 Bink 中的标志和文件，这是有用的。但是，这将会导致加载项目文件的时间变长！ |
--Game `GameName`   |  通知项目生成器忽略掉所有其它发现的项目，生成仅包含特定项目名称的代码和内容的项目。请确认同时指定项目名称。举例来说， `GenerateProjectFiles.bat ShooterGame.uproject -Game` 将为 ShooterGame 项目生成仅具有源码和对象的项目。如果您想要包含除单个游戏项目外的引擎源代码及项目，您也可以传入 `-Engine` 参数。|
--Engine            |  当和 `-Game` 一起使用时，会造成引擎代码，内容和项目都被包括在生成的解决方案中。当您在运行游戏项目时需要大量使用引擎源代码时，这就很有用了。|
--NoIntelliSense | 对自动完成跳过使用的 IntelliSense 数据的生成并在IDE中对错误划波浪线。|
--AllLanguages | 包含所有语言的引擎文档。默认情况下，我们仅在文档中包含英语文件。|
--OnlyPublic | 当使用该选项时，近 public 头文件才会被包含在引擎使用的生成项目模块中。默认情况下，所有源文件都会被引擎模块包含。这个选项能够提供更快的项目加载时间，但会使得代码跳转变得稍嫌麻烦一些。 |
-NoShippingConfigs   | 从生成的项目中省略`Shipping`和`Test`编译配置。这样将会降低您需要处理的目标配置数量。|
--Platforms=`PlatformName` | 覆盖生成可编译项目的默认平台，并转而生成您指定的平台的项目。您可以通过使用 '+' 字符来分隔它们，从而指定多个平台。这还会造成生成的解决方案文件的名称使用包括平台名称的后缀。|
+-CurrentPlatform   |  仅为当前桌面平台（Windows或Mac）生成可构建项目，而不是为所有检测到的目标平台。|
+-2015              |  以VS 2015原生格式生成项目。设置该选项后，将使用Visual C++ 2015编译器进行编译。|
+-2017              |  以VS 2017原生格式生成项目。设置该选项后，将使用Visual C++ 2017编译器进行编译。|
+-ThirdParty        |  将来自第三方库的标头和其他文件添加到项目中。例如，如果您想要在Visual Assist中看到PhysX、Steamworks或Bink的符号和文件，该选项很有用。但是，这样会使项目文件加载时间延长！|
+-Game `GameName`   |	 告诉项目生成工具生成仅包含指定项目名称的代码和内容的项目，不包括所有其他发现的项目。确保同时指定项目名称。例如，`GenerateProjectFiles.bat ShooterGame.uproject -Game`将生成仅包含ShooterGame的源代码和目标的项目。如果您想要在一个游戏项目中包含引擎源代码和程序，还可以传递`-Engine`参数。|
+-Engine            |  与`-Game`结合使用时，会在生成的解决方案中包含引擎代码、内容和程序。如果您认为在处理游戏项目时要经常使用引擎源代码，该选项很有用。|
+-NoIntelliSense | 跳过生成IntelliSense数据，这些是IDE中的自动完成和错误曲线数据。|
+-AllLanguages | 包含所有语言的引擎文档。默认情况下，我们在项目中仅包含英语文件。|
+-OnlyPublic | 指定后，生成的项目中仅包含引擎模块的公共标头文件。默认情况下，将包含引擎模块的所有源文件。这样可以加快项目加载，但可能更难浏览引擎代码。|
+-NoShippingConfigs   |  在生成的项目中省略`交付（Shipping）`和`测试（Test）`构建配置。这会减少需要处理的目标配置数量。|
+-Platforms=`PlatformName`| 覆盖要为其生成可构建项目的默认平台集，为您指定的平台生成项目。您可以用“+”字符分隔来指定多个平台。这样也会使生成的解决方案文件名带有一个包含平台名称的后缀。|
 
 
-## 常见问题解答
+(#frequentlyaskedquestions)
+## 常见问题及解答
 
-### 为什么即使我没有更新项目文件也会编译新增的源码文件？
+(#whyarenewly-addedsourcefilescompiledeventhoughididnotupdateprojectfiles?)
+### 为什么我还没有更新项目文件，但新添加的源文件也会编译？
 
-虚幻引擎4编译系统实际上不需要项目文件就可以编译代码。Unreal Build Tool(虚幻编译工具)通常使用模块和目标编译文件来定位源码文件。由于这个原因，如果您添加一个源码文件并且启动了一次编译，那么即时没有刷新项目文件,在编译时也会包含新的源码文件。请记住这一点。
-
-
-### 实际项目保存在哪里?
-
-对于 Visual Studio 项目来说，生成的解决方案文件是 `UE4.sln`，它保存在 UE4 根目录中。但是，项目文件保存在 /UE4/Engine/Intermediate/ProjectFiles/ 目录内。任何时候都可以删除及重新生成这些文件，但是，您如果您删除这些文件，您可能会丢失某些针对特定项目的偏好设置，比如命令行参数字符串。
+UE4构建系统实际上不会要求项目文件编译代码。Unreal Build Tool总是会查找使用模块和目标构建文件的源文件。因此，如果您添加了新的源文件并触发编译，则即使项目还没有刷新，也会在构建中包含这个新的源文件。只需记住这一点即可。
 
 
-### 生成项目文件的优势?
+(#wherearetheactualprojectssavedto?)
+### 实际项目保存在哪里？
 
-当然这既有优势也有劣势，但以下是我们决定生成UE4项目文件的几点重要原因：
-
-* 虚幻引擎4的设计目的是和很多平台协同工作，但是不同的团队在任何时候可能仅需要应用几个特定的平台。通过生成项目文件，我们可以忽略掉不相关的针对特定平台的文件及编译配置。
-
-* UE4 编程机制包含很多子模块，所以让程序员可以轻松地添加新模块变得至关重要。
-
-* 当您使用 UE4 代码时，项目生成器生成了高度精确的定义和包含路径，以便 Visual Studio IntelliSense 使用。
-
-* 当自动生成项目文件时创建一个新项目变得更加容易。
-
-* 我们想支持多元化的平台和开发环境 (比如 Visual Studio 和 Xcode)。手动维护多个项目文件的设置是非常容易出错的，且非常麻烦。
-
-* 我们想让程序员能够生成高度自定义的项目文件。我们认为随着时间的推移，这点将变得更加重要。
-
-* 项目文件解决方案层次结构自动映射了源码文件的目录结构。当浏览源码文件时这是非常方便的，但是维护手动创建的项目比较困难。
-
-* 虚幻引擎编译配置是非常复杂的且手动维护起来非常难。对于开发者来说，项目生成器使得这个过程几乎接近透明化。
+对于VS项目，生成的解决方案文件是UE4.sln，保存在UE4根目录中。但是项目文件保存在/UE4/Engine/Intermediate/ProjectFiles/目录中。您可以随时删除这些文件并重新生成项目，但是，删除这些文件可能会失去一些特定于项目的偏好设置，例如命令行参数。
 
 
+(#whataretheadvantagesofgeneratingprojectfiles?)
+### 生成项目文件的优势是什么？
 
-### 项目中其他文件的作用?
+一定是有利有弊，但我们决定为UE4生成项目文件有一些重要的原因：
 
- 除了C++模块的源码，我们自动向生成的项目中添加了其他数种类型的文件。这仅是为了可以轻松地在搜索时定位这些文件。以下是添加到生成的项目中的几个文件示例：
+* UE4是为了配合许多平台而设计的，但不同的团队有时可能仅使用少数特定平台。通过生成项目文件，我们可以省去不相关的特定于平台的文件和构建配置。
 
-* 着色器源码文件 (`*.usf` files)
-* 引擎文档文件 (`*.udn` files)
-* 程序配置文件(`*.ini` files)
-* 本地化文件 (`*.int` files)
-* 程序资源文件和清单文件 (`*.rc, *.manifest`) 
-* 包含了外部(非生成的) 项目文件 (比如 UnrealBuildTool、Clean)
+* UE4编程方法融入了许多子模块，而且非常重要的是我们尽量减轻程序员添加新模块的操作。
 
+* 项目生成工具会发出高度精准的定义，包括您在UE4代码中工作时由VS IntelliSense使用的路径。
 
-### 为什么没有把项目文件迁入到源码控制中?
+* 能够自动生成项目文件，明显简化了设置新项目的过程。
 
-融合源码控制冲突到项目文件非常枯燥，且非常容易出错。新系统通过将项目文件完全作为临时文件对待来避免这个问题。另外，对于处理不同游戏项目的团队来说解决方案文件是不同的。可能Epic内部使用的项目文件如果不作任何修改对于其他团队来说是没有用处的。
+* 我们还希望能够支持多个平台和开发环境（例如VS和Xcode）。人工维护多个项目文件集容易出错，而且任务繁重。
 
+* 我们希望让程序员能够高度定制项目文件。我们也期待这一点会变得越来越重要。
 
-###  `GenerateProjectFiles.bat` 实际上执行哪些处理?
+* 源文件的目录结构会自动镜像到项目文件解决方案层级中。这样在浏览源文件时非常方便，但过去对于人工编写的项目而言却非常困难。
 
-这个脚本简单地封装了 Unreal Build Tool(虚幻编译工具)，它以一种特殊模式启动，用于编译项目文件而不是编译项目可执行文件。它通过 `-ProjectFiles`  命令行选项来调用 Unreal Build Tool(虚幻编译工具)。
-
-
-### 我正在修改项目生成器代码。我该如何调试它？
-
-* 把您的启动项目改为 UnrealBuildTool。
-* 设置调试的命令行参数为: `-ProjectFiles`
-* 设置工作路径为以下路径对应的本地路径:  `//depot/UE4/Engine/Source/`
-* 正常地编译及调试。
+* UE4构建配置非常复杂，难以人工维护。项目生成工具让这个过程对于开发者而言几乎是透明的。
 
 
-请注意，在您进行处理时项目生成器可能会影响您在 Visual Studio 中正在应用的项目文件。由于这个原因，有时候直接把 UnrealBuildTool 项目加载到 Visual Studio 是有用的，而不是通过正常的UE4解决方案文件进行调试。
+
+(#whatarealloftheseotherfilesdoingintheproject?)
+### 所有其他文件在项目中有怎样的作用？
+
+除了C++模块的源代码之外，我们还自动在生成的项目中添加了一些其他文件。这只是为了在搜索时便于找到这些文件。下面是添加到所生成项目的一些其他文件示例：
+
+* 着色器源代码（*.usf文件）
+* 引擎文档文件（*.udn文件）
+* 程序配置文件（*.ini文件）
+* 本地化文件（*.int文件）
+* 程序资源文件和清单（*.rc、.manifest）
+* 特定外部（非生成）项目文件（如UnrealBuildTool、Clean）
 
 
-### 我怎样同时针对多个配置进行编译?
+(#whyaretherenoprojectfilescheckedintosourcecontrol?)
+### 为什么源代码控制中没有检入项目文件？
 
-您可以使用 Visual Studio 中的 `Batch Build(批量编译)` 功能。您可以在 Build(编译)菜单下找到这个选项。简单地选择您想编译的所有配置，并点击 Build（编译）。我们正在寻找更好的方法，以使得这个界面以后应用起来更加方便。
+将源代码控制冲突合并到项目文件非常繁重，极易出错。新系统为了完全避免这一点，将项目文件视为纯中间文件。此外，对于处理不同游戏项目的每个团队而言，解决方案文件都有所不同。因此，可能存在Epic使用的项目文件不加修改则可能对其他团队没有用处的情况。
+
+
+(#whatdoesgenerateprojectfiles.batactuallydo?)
+### `GenerateProjectFiles.bat`的实际作用是什么？
+
+该脚本只是Unreal Build Tool的一个简单的包装器，以特殊模式启动，用于构建项目文件，而不是构建程序可执行文件。它使用`-ProjectFiles`命令行选项调用Unreal Build Tool。
+
+
+(#iammakingchangestotheprojectgeneratorcode.howdoidebugit?)
+### 我正在更改项目生成工具代码。我该如何调试？
+
+* 将启动项目更改为UnrealBuildTool。
+* 将用于调试的命令行参数设为：-ProjectFiles
+* 将工作目录设为以下本地路径：[您的UE4目录]/Engine/Source/
+* 正常编译和调试。
+
+
+请注意，在您工作时，项目生成工具可能会重写您在VS中使用的项目文件。因此，将UnrealBuildTool项目直接加载到VS中有时会很有用，而不是通过常规的UE4解决方案文件进行调试。
+
+
+(#howdoibuildmultipleconfigurationsatthesametime?)
+### 如何同时构建多个配置？
+
+您可以使用VS中的“批量构建（Batch Build）”功能。您可以在“构建（Build）”菜单中找到此功能。只需选择想要编译的所有配置，然后单击“构建（Build）”即可。我们正在寻找方法，希望在未来让这个界面变得更易于使用。
 
 

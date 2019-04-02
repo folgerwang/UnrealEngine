@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #include "AnimPreviewAttacheInstance.h"
@@ -12,6 +12,13 @@ void FAnimPreviewAttacheInstanceProxy::Initialize(UAnimInstance* InAnimInstance)
 	FAnimationInitializeContext InitContext(this);
 	CopyPoseFromMesh.bUseAttachedParent = true;
 	CopyPoseFromMesh.Initialize_AnyThread(InitContext);
+}
+
+void FAnimPreviewAttacheInstanceProxy::PreUpdate(UAnimInstance* InAnimInstance, float DeltaSeconds)
+{
+	FAnimInstanceProxy::PreUpdate(InAnimInstance, DeltaSeconds);
+
+	CopyPoseFromMesh.PreUpdate(InAnimInstance);
 }
 
 void FAnimPreviewAttacheInstanceProxy::Update(float DeltaSeconds)

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3149430
+﻿INTSourceChangelist:4649792
 Availability:Public
 Title:排解常见物理资源错误
 Crumbs: %ROOT%, Engine
@@ -7,48 +7,11 @@ parent:Engine/Physics/PhAT/HowTo
 order:1
 Version:4.13
 skilllevel:Intermediate
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Physics/PhAT/HowTo/FixCommonPhysicsErrors:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/PhAT/HowTo/FixCommonPhysicsErrors:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/PhAT/HowTo/FixCommonPhysicsErrors:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Physics/Phat/HowTo]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Physics/PhAT/HowTo/FixCommonPhysicsErrors:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/PhAT/HowTo/FixCommonPhysicsErrors:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/PhAT/HowTo/FixCommonPhysicsErrors:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Physics/Phat/HowTo]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:Engine/Physics/physics_topic.png
 
 物理模拟时虽然有许多方面无法掌控，但以下两个问题完全能够得到解决：爆炸（设为相互碰撞的物理形体之间发生相互穿插）和抖动（物理形体因轻微运动而拒绝进入休眠状态）。以下是纠正这些问题的步骤。
 
+(#Exploding)
 ## 爆炸
 
 发生此问题的原因是两个物理形体相互穿插，而物理系统会施加极大的力度将两者分开。 
@@ -58,6 +21,7 @@ skilllevel:Intermediate
 
 修复的方法通常为禁用两个对立物理形体之间的碰撞，或修改它们的位置和/或比例，使其不发生相互穿插。此外，结合的物理形体将视作一体，无视相互穿插。
 
+(#Jitter)
 ## 跳动
 
 如物理资源已基本“倒塌”但仍在地面上摇晃和抽动，但并没有剧烈地四处弹跳，可调整一些数值使其停止并进入睡眠。 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Misc/OutputDeviceFile.h"
 #include "Misc/AssertionMacros.h"
@@ -375,7 +375,8 @@ void FOutputDeviceFile::WriteByteOrderMarkToArchive(EByteOrderMark ByteOrderMark
 
 bool FOutputDeviceFile::CreateWriter(uint32 MaxAttempts)
 {
-	uint32 WriteFlags = FILEWRITE_AllowRead | ((Opened || AppendIfExists) ? FILEWRITE_Append : 0);
+	// Create a silent filewriter so that it doesn't try to log any errors since it would redirect logging back to itself through this output device
+	uint32 WriteFlags = FILEWRITE_Silent | FILEWRITE_AllowRead | ((Opened || AppendIfExists) ? FILEWRITE_Append : 0);
 
 	// Open log file.
 	FArchive* Ar = IFileManager::Get().CreateFileWriter(Filename, WriteFlags);

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -180,9 +180,21 @@ struct FSkeletalMeshLODInfo
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
 	TArray<FBoneReference> BonesToRemove;
 
+	/** Bones which should be prioritized for the quality, this will be weighted toward keeping source data. */
+	UPROPERTY(EditAnywhere, Category = ReductionSettings)
+	TArray<FBoneReference> BonesToPrioritize;
+
+	/** How much to consideration to give BonesToPrioritize.  The weight is an additional vertex simplification penalty where 0 means nothing. */
+	UPROPERTY(EditAnywhere, Category = ReductionSettings, meta = (UIMin = "0.0", ClampMin = "0.0"))
+	float WeightOfPrioritization;
+
 	/** Pose which should be used to reskin vertex influences for which the bones will be removed in this LOD level, uses ref-pose by default */
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
 	class UAnimSequence* BakePose;
+
+	/** This is used when you are sharing the LOD settings, but you'd like to override the BasePose. This precedes prior to BakePose*/
+	UPROPERTY(EditAnywhere, Category = ReductionSettings)
+	class UAnimSequence* BakePoseOverride;
 
 	/** The filename of the file tha was used to import this LOD if it was not auto generated. */
 	UPROPERTY(VisibleAnywhere, Category= SkeletalMeshLODInfo, AdvancedDisplay)
@@ -218,7 +230,9 @@ struct FSkeletalMeshLODInfo
 	FSkeletalMeshLODInfo()
 		: ScreenSize(1.0)
 		, LODHysteresis(0.0f)
+		, WeightOfPrioritization(1.f)
 		, BakePose(nullptr)
+		, BakePoseOverride(nullptr)
 		, bHasBeenSimplified(false)
 		, bHasPerLODVertexColors(false)
 		, bAllowCPUAccess(false)
@@ -508,6 +522,13 @@ public:
 	{
 		return false;
 	}
+
+	/* Return true if the reduction settings are setup to reduce a LOD*/
+	bool IsReductionActive(int32 LODIndex) const;
+
+	/* Get a copy of the reduction settings for a specified LOD index. */
+	struct FSkeletalMeshOptimizationSettings GetReductionSettings(int32 LODIndex) const;
+
 #endif
 
 	/** List of materials applied to this mesh. */
@@ -523,9 +544,25 @@ private:
 	UPROPERTY(EditAnywhere, EditFixedSize, Category=LevelOfDetail)
 	TArray<struct FSkeletalMeshLODInfo> LODInfo;
 
+#if !WITH_EDITOR
+	/** Acceleration struct used for faster socket lookups */
+	struct FSocketInfo
+	{
+		FSocketInfo(const USkeletalMesh* InSkeletalMesh, USkeletalMeshSocket* InSocket, int32 InSocketIndex);
+
+		FTransform SocketLocalTransform;
+		USkeletalMeshSocket* Socket;
+		int32 SocketIndex;
+		int32 SocketBoneIndex;
+	};
+
+	/** Map used for faster lookups of sockets/indices */
+	TMap<FName, FSocketInfo> SocketMap;
+#endif
+
 public:
 	/** Minimum LOD to render. Can be overridden per component as well as set here for all mesh instances here */
-	UPROPERTY(EditAnywhere, Category = LODSettings)
+	UPROPERTY(EditAnywhere, Category = LODSettings, meta = (DisplayName = "Minimum LOD"))
 	FPerPlatformInt MinLod;
 
 #if WITH_EDITORONLY_DATA
@@ -565,7 +602,7 @@ public:
 	/** Uses skinned data for collision data. Per poly collision cannot be used for simulation, in most cases you are better off using the physics asset */
 	UPROPERTY(EditAnywhere, Category = Physics)
 	uint8 bEnablePerPolyCollision : 1;
-
+	
 #if WITH_EDITORONLY_DATA
 	/** The guid to compute the ddc key, it must be dirty when we change the vertex color. */
 	UPROPERTY()
@@ -871,6 +908,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Animation")
 	USkeletalMeshSocket* FindSocketAndIndex(FName InSocketName, int32& OutIndex) const;
 
+	/**
+	*	Find a socket object and asscociated info in this SkeletalMesh by name.
+	*	Entering NAME_None will return NULL. If there are multiple sockets with the same name, will return the first one.
+	*	Also returns the index for the socket allowing for future fast access via GetSocketByIndex()
+	*	Also rteturns the socket loca transform and the bone index (if any)
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Animation")
+	USkeletalMeshSocket* FindSocketInfo(FName InSocketName, FTransform& OutTransform, int32& OutBoneIndex, int32& OutIndex) const;
+
 	/** Returns the number of sockets available. Both on this mesh and it's skeleton. */
 	UFUNCTION(BlueprintCallable, Category = "Animation")
 	int32 NumSockets() const;
@@ -878,6 +924,14 @@ public:
 	/** Returns a socket by index. Max index is NumSockets(). The meshes sockets are accessed first, then the skeletons.  */
 	UFUNCTION(BlueprintCallable, Category = "Animation")
 	USkeletalMeshSocket* GetSocketByIndex(int32 Index) const;
+
+#if !WITH_EDITOR
+private:
+	/** Called internally to rebuild an invalid socket map */
+	void RebuildSocketMap();
+
+public:
+#endif
 
 	// @todo document
 	FMatrix GetRefPoseMatrix( int32 BoneIndex ) const;
@@ -1125,7 +1179,12 @@ public:
 	 * Get LODInfo of the given index const
 	 */	
 	const FSkeletalMeshLODInfo* GetLODInfo(int32 Index) const { return LODInfo.IsValidIndex(Index) ? &LODInfo[Index] : nullptr; }
-	
+
+	/**
+	 *	Get BakePose for the given LOD
+	 */
+	const UAnimSequence* GetBakePose(int32 LODIndex) const;
+
 	/* 
 	 * Get Default LOD Setting of this mesh
 	 */

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -18,7 +18,7 @@ struct FMovieSceneLiveLinkTemplateData
 {
 	GENERATED_BODY()
 
-	FMovieSceneLiveLinkTemplateData() {};
+	FMovieSceneLiveLinkTemplateData(){};
 	FMovieSceneLiveLinkTemplateData(const UMovieSceneLiveLinkSection& Section);
 	
 	UPROPERTY()
@@ -32,7 +32,12 @@ struct FMovieSceneLiveLinkTemplateData
 
 	UPROPERTY()
 	FName SubjectName;
-	bool GetLiveLinkFrameArray(FFrameTime FrameTime, TArray<FLiveLinkFrameData>& LiveLinkFrameDataArray) const;
+
+	UPROPERTY()
+	TArray<bool> ChannelMask; 
+
+
+	bool GetLiveLinkFrameArray(const FFrameTime &FrameTime, const FFrameTime& LowerBound,const FFrameTime& UpperBound, TArray<FLiveLinkFrameData>& LiveLinkFrameDataArray, const FFrameRate& FrameRate) const;
 
 };
 
@@ -45,18 +50,20 @@ struct FMovieSceneLiveLinkSectionTemplate : public FMovieScenePropertySectionTem
 	UPROPERTY()
 	FMovieSceneLiveLinkTemplateData TemplateData;
 
-	FMovieSceneLiveLinkSectionTemplate() {}
+	FMovieSceneLiveLinkSectionTemplate(){}
 	FMovieSceneLiveLinkSectionTemplate(const UMovieSceneLiveLinkSection& Section, const UMovieScenePropertyTrack& Track);
-
+	
 private:
 	virtual UScriptStruct& GetScriptStructImpl() const override { return *StaticStruct(); }
 	virtual void Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const override;
+
+	virtual void EvaluateSwept(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const TRange<FFrameNumber>& SweptRange, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const override;
+
 	virtual void SetupOverrides() override
 	{
-		EnableOverrides(RequiresSetupFlag | RequiresTearDownFlag);
+		EnableOverrides(RequiresSetupFlag | RequiresTearDownFlag );
 	}
 	virtual void Setup(FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) const override;
 	virtual void TearDown(FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) const override;
-
 };
 

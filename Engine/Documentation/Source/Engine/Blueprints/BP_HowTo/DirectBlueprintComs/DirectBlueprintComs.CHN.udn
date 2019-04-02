@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2679375
+﻿INTSourceChangelist:3244370
 Availability:Public
 Title:直接蓝图通信
 Crumbs: %ROOT%, Engine, Engine\Blueprints, Engine\Blueprints\BP_HowTo
@@ -8,6 +8,7 @@ Related:Engine/Blueprints/UserGuide/BlueprintCommsUsage
 Related:Engine/Blueprints/UserGuide
 version:4.9
 skilllevel:Advanced
+tags:Blueprints
 
 本页面讲述使用 [直接蓝图通信](Engine/Blueprints/UserGuide/BlueprintComms) 在两个蓝图之间进行通信和信息传递。 
 

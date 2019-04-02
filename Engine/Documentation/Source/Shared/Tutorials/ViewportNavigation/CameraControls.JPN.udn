@@ -1,11 +1,7 @@
 ﻿Availability:Public
 Title:カメラ制御
-Crumbs: %ROOT%, Tutorials
+Crumbs: %ROOT%, Shared/Tutorials
 Description:カメラの基本制御に関する入門書
-
-[Next Tutorial](Shared\Tutorials\EditingObjects)
-
-[Home](Shared\Tutorials\Home)
 
 [EXCERPT:ViewportMove]
 ## カメラ制御
@@ -87,6 +83,3 @@ Orthoビューはレベルを真上、真横、または真正面から見る際
 1.Perspectiveビューポートの右上隅でボタンをクリックして、再び最大化します。
 [/EXCERPT:ViewportMaximize]
 
-[Next Tutorial](Shared\Tutorials\EditingObjects)
-
-[Home](Shared\Tutorials\Home)

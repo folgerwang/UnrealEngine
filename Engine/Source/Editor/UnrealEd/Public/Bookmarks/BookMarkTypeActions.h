@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Bookmarks/IBookmarkTypeActions.h"
 #include "EditorViewportClient.h"
@@ -52,14 +52,14 @@ public:
 		if (UBookMark* Bookmark = Cast<UBookMark>(InBookmark))
 		{
 			// Set all level editing cameras to this bookmark
-			for (int32 v = 0; v < GEditor->LevelViewportClients.Num(); v++)
+			for (FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients())
 			{
-				GEditor->LevelViewportClients[v]->SetViewLocation(Bookmark->Location);
-				if (!GEditor->LevelViewportClients[v]->IsOrtho())
+				LevelVC->SetViewLocation(Bookmark->Location);
+				if (!LevelVC->IsOrtho())
 				{
-					GEditor->LevelViewportClients[v]->SetViewRotation(Bookmark->Rotation);
+					LevelVC->SetViewRotation(Bookmark->Rotation);
 				}
-				GEditor->LevelViewportClients[v]->Invalidate();
+				LevelVC->Invalidate();
 			}
 		}
 	}

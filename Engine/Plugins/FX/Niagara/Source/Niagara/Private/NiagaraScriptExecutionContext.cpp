@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraScriptExecutionContext.h"
 #include "NiagaraStats.h"
@@ -15,6 +15,14 @@ DECLARE_CYCLE_STAT(TEXT("Rebind DInterface Func Table"), STAT_NiagaraRebindDataI
 	//Internal constants - only needed for non-GPU sim
 
 uint32 FNiagaraScriptExecutionContext::TickCounter = 0;
+
+static int32 GbExecVMScripts = 1;
+static FAutoConsoleVariableRef CVarNiagaraExecVMScripts(
+	TEXT("fx.ExecVMScripts"),
+	GbExecVMScripts,
+	TEXT("If > 0 VM scripts will be executed, otherwise they won't, useful for looking at the bytecode for a crashing compiled script. \n"),
+	ECVF_Default
+);
 
 FNiagaraScriptExecutionContext::FNiagaraScriptExecutionContext()
 	: Script(nullptr)
@@ -164,7 +172,7 @@ bool FNiagaraScriptExecutionContext::Execute(uint32 NumInstances, TArray<FNiagar
 		}
 	}
 
-	if (bRegisterSetupCompleted)
+	if (bRegisterSetupCompleted && GbExecVMScripts != 0)
 	{
 		VectorVM::Exec(
 			Script->GetVMExecutableData().ByteCode.GetData(),

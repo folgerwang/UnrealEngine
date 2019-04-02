@@ -1,0 +1,306 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+#include "../Common.ush"
+#include "../MonteCarlo.ush"
+#include "../DeferredShadingCommon.ush"
+#include "../LightShaderParameters.ush"
+#include "../SceneViewFamilyBlackboard.ush"
+#include "RayTracingCommon.ush"
+#include "RayTracingDirectionalLight.ush"
+#include "RayTracingRectLight.ush"
+#include "RayTracingSphereLight.ush"
+#include "RayTracingSpotLight.ush"
+#include "RayTracingPointLight.ush"
+
+/** Light types */
+#define LIGHT_TYPE_DIRECTIONAL 0
+#define LIGHT_TYPE_POINT 1
+#define LIGHT_TYPE_SPOT 2
+#define LIGHT_TYPE_RECT 3
+
+RaytracingAccelerationStructure TLAS;
+RWTexture2D<float4> RWOcclusionMaskUAV;
+RWTexture2D<float> RWRayDistanceUAV;
+
+uint LightingChannelMask;
+uint SamplesPerPixel;
+float NormalBias;
+int4 LightScissor;
+
+float2 SobolIndexToUniformUnitSquare(uint2 SobolRand)
+{
+	return float2(SobolRand) * rcp(65536.0) + rcp(65536.0 * 2.0);
+}
+
+uint CalcLinearIndex(uint2 PixelCoord)
+{
+	return PixelCoord.y * View.BufferSizeAndInvSize.x + PixelCoord.x;
+}
+
+bool GenerateOcclusionRay(
+	FLightShaderParameters LightParameters,
+	float3 WorldPosition,
+	float3 WorldNormal,
+	float2 RandSample,
+	out float3 RayOrigin,
+	out float3 RayDirection,
+	out float RayTMin,
+	out float RayTMax
+)
+{
+	#if LIGHT_TYPE == LIGHT_TYPE_DIRECTIONAL
+	{
+		GenerateDirectionalLightOcclusionRay(
+			LightParameters,
+			WorldPosition, WorldNormal,
+			RandSample,
+			/* out */ RayOrigin,
+			/* out */ RayDirection,
+			/* out */ RayTMin,
+			/* out */ RayTMax);
+	}
+	#elif LIGHT_TYPE == LIGHT_TYPE_POINT
+	{
+		if (LightParameters.SourceRadius == 0)
+		{
+			return GeneratePointLightOcclusionRay(
+				LightParameters,
+				WorldPosition, WorldNormal,
+				RandSample,
+				/* out */ RayOrigin,
+				/* out */ RayDirection,
+				/* out */ RayTMin,
+				/* out */ RayTMax);
+		}
+		else
+		{
+			float RayPdf;
+			return GenerateSphereLightOcclusionRay(
+				LightParameters,
+				WorldPosition, WorldNormal,
+				RandSample,
+				/* out */ RayOrigin,
+				/* out */ RayDirection,
+				/* out */ RayTMin,
+				/* out */ RayTMax,
+				/* out */ RayPdf);
+		}
+	}
+	#elif LIGHT_TYPE == LIGHT_TYPE_SPOT
+	{
+		return GenerateSpotLightOcclusionRay(
+			LightParameters,
+			WorldPosition, WorldNormal,
+			RandSample,
+			/* out */ RayOrigin,
+			/* out */ RayDirection,
+			/* out */ RayTMin,
+			/* out */ RayTMax);
+	}
+	#elif LIGHT_TYPE == LIGHT_TYPE_RECT
+	{
+		float RayPdf = 0.0;
+		return GenerateRectLightOcclusionRay(
+			LightParameters,
+			WorldPosition, WorldNormal,
+			RandSample,
+			/* out */ RayOrigin,
+			/* out */ RayDirection,
+			/* out */ RayTMin,
+			/* out */ RayTMax,
+			/* out */ RayPdf);
+	}
+	#else
+		#error Unknown light type.
+	#endif
+	return true;
+}
+
+
+
+[shader("raygeneration")]
+void OcclusionRGS()
+{
+	uint2 PixelCoord = DispatchRaysIndex().xy;
+
+	float Visibility = 0.0;
+	float SumRayDistance = 0.0;
+	float ClosestRayDistance = -2.0;
+	float HitCount = 0.0;
+	float RayCount = 0.0;
+	uint LocalSamplesPerPixel = SamplesPerPixel;
+
+	if (all(PixelCoord >= LightScissor.xy) && all(PixelCoord <= LightScissor.zw))
+	{
+	RandomSequence RandSequence;
+	uint LinearIndex = CalcLinearIndex(PixelCoord);
+	RandomSequence_Initialize(RandSequence, LinearIndex, View.FrameNumber);
+
+	FLightShaderParameters LightParameters = GetRootLightShaderParameters();
+
+	// Get G-Buffer surface data
+	float2 InvBufferSize = View.BufferSizeAndInvSize.zw;
+	float2 BufferUV = (float2(PixelCoord) + 0.5) * InvBufferSize;
+	FGBufferData GBufferData = GetGBufferDataFromSceneBlackboard(BufferUV);
+	float Depth = GBufferData.Depth;
+	float3 WorldPosition = ReconstructWorldPositionFromDepth(BufferUV, Depth);
+	float3 WorldNormal = GBufferData.WorldNormal;
+
+	uint LightChannel = GetSceneLightingChannel(PixelCoord);
+
+	// Mask out depth values that are infinitely far away
+	float DeviceZ = SceneDepthBuffer.Load(int3(PixelCoord, 0)).r;
+	bool IsFiniteDepth = DeviceZ > 0.0;
+	bool bTraceRay = (
+		IsFiniteDepth &&
+		GBufferData.ShadingModelID != SHADINGMODELID_UNLIT &&
+		(LightChannel & LightingChannelMask) != 0);
+
+	if (!bTraceRay)
+	{
+		LocalSamplesPerPixel = 0.0;
+	}
+
+	// Cheap solution for double sided foliage to have valid lighing through the denoiser
+	if (GBufferData.ShadingModelID == SHADINGMODELID_TWOSIDED_FOLIAGE)
+	{
+	#if LIGHT_TYPE == LIGHT_TYPE_DIRECTIONAL
+		const float3 LightDirection = LightParameters.Direction;
+	#else
+		const float3 LightDirection = normalize(LightParameters.Position - WorldPosition);
+	#endif
+		if (dot(LightDirection, WorldNormal) < 0)
+			WorldNormal = -WorldNormal;
+	}
+
+	LOOP
+	for (uint SampleIndex = 0; SampleIndex < LocalSamplesPerPixel; ++SampleIndex)
+	{
+		uint DummyVariable;
+		float2 RandSample = RandomSequence_GenerateSample2D(RandSequence, DummyVariable);
+
+		BRANCH
+		if (LocalSamplesPerPixel == 1 && 1)
+		{
+			const uint TemporalBits = 10;
+			uint FrameIndexMod1024 = ReverseBitsN(GetPowerOfTwoModulatedFrameIndex(1 << TemporalBits), TemporalBits);
+
+			uint2 SobolBase = SobolPixel(PixelCoord);
+			uint2 SobolFrame = SobolIndex(SobolBase, FrameIndexMod1024, TemporalBits);
+
+			RandSample = SobolIndexToUniformUnitSquare(SobolFrame);
+		}
+
+		RayDesc Ray;
+		bool bIsValidRay = GenerateOcclusionRay(
+			LightParameters,
+			WorldPosition, WorldNormal,
+			RandSample,
+			/* out */ Ray.Origin,
+			/* out */ Ray.Direction,
+			/* out */ Ray.TMin,
+			/* out */ Ray.TMax);
+		ApplyPositionBias(Ray, WorldNormal, NormalBias);
+
+		BRANCH
+		if (!bIsValidRay)
+		{
+			continue;
+		}
+		else if (dot(WorldNormal, Ray.Direction) <= 0.0)
+		{
+			ClosestRayDistance = 0.001;
+			continue;
+		}
+
+		// Attenuation check
+		if (LightParameters.InvRadius > 0.0)
+		{
+			float MaxAttenuationDistance = 1.0 / LightParameters.InvRadius;
+			if (Ray.TMax > MaxAttenuationDistance)
+			{
+				continue;
+			}
+		}
+
+		uint RayFlags = 0;
+
+#if !ENABLE_TWO_SIDED_GEOMETRY
+		RayFlags |= RAY_FLAG_CULL_BACK_FACING_TRIANGLES;
+#endif
+
+		FPackedMaterialClosestHitPayload Payload = (FPackedMaterialClosestHitPayload)0;
+		
+		TraceRay(
+			TLAS,      // AccelerationStructure
+			RayFlags,
+			RAY_TRACING_MASK_SHADOW,        // InstanceInclusionMask
+			RAY_TRACING_SHADER_SLOT_SHADOW, // RayContributionToHitGroupIndex
+			RAY_TRACING_NUM_SHADER_SLOTS,   // MultiplierForGeometryContributionToShaderIndex
+			0,         // MissShaderIndex
+			Ray,       // RayDesc
+			Payload    // Payload
+		);
+
+		RayCount += 1.0;
+		Visibility += Payload.HitT < 0 ? 1.0 : 0.0;
+		if (Payload.HitT >= 0.0)
+		{
+			ClosestRayDistance = ClosestRayDistance == -2 || Payload.HitT < ClosestRayDistance ? Payload.HitT : ClosestRayDistance;
+			SumRayDistance += Payload.HitT;
+			HitCount += 1.0;
+		}
+		else
+		{
+			ClosestRayDistance = ClosestRayDistance == -2 ? -1 : ClosestRayDistance;
+		}
+	}
+	}
+
+	float Shadow = (LocalSamplesPerPixel > 0) ? Visibility / LocalSamplesPerPixel : Visibility;
+	
+	if (DIM_DENOISER_OUTPUT == 3)
+	{
+		RWOcclusionMaskUAV[PixelCoord] = float4(
+			Shadow,
+			ClosestRayDistance,
+			0,
+			0);
+	}
+	else if (DIM_DENOISER_OUTPUT == 2)
+	{
+		float AvgHitDistance = -1.0;
+		if (HitCount > 0.0)
+		{
+			AvgHitDistance = SumRayDistance / HitCount;
+		}
+		else if (RayCount > 0.0)
+		{
+			AvgHitDistance = 1.0e27;
+		}
+
+		// TODO: the denoiser would much prefer a single RG texture.
+		RWOcclusionMaskUAV[PixelCoord] = Shadow;
+		RWRayDistanceUAV[PixelCoord] = AvgHitDistance;
+	}
+	else if (DIM_DENOISER_OUTPUT == 1)
+	{
+		RWRayDistanceUAV[PixelCoord] = ClosestRayDistance;
+	}
+	else
+	{
+		const float ShadowFadeFraction = 1;
+		float SSSTransmission = Shadow;
+
+		// 0 is shadowed, 1 is unshadowed
+		// RETURN_COLOR not needed unless writing to SceneColor;
+		float FadedShadow = lerp(1.0f, Square(Shadow), ShadowFadeFraction);
+		float FadedSSSShadow = lerp(1.0f, Square(SSSTransmission), ShadowFadeFraction);
+
+		// the channel assignment is documented in ShadowRendering.cpp (look for Light Attenuation channel assignment)
+		float4 OutColor = EncodeLightAttenuation(half4(FadedShadow, FadedSSSShadow, FadedShadow, FadedSSSShadow));
+
+		RWOcclusionMaskUAV[PixelCoord] = OutColor;
+	}
+
+}

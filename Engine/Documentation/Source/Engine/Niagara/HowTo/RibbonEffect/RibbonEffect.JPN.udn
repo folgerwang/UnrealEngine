@@ -1,152 +1,130 @@
-﻿INTSourceChangelist:3715974
-Availability:Docs
-Crumbs: %ROOT%, 
-Title:Niagara を使ってリボン ベースのエフェクトを作る
-Description:Niagara を使ってリボン ベースの視覚効果を作る方法を説明します。
-Type: how-to
+﻿INTSourceChangelist:4703316
+Availability:Public
+Crumbs: 
+Title:ナイアガラでのリボンエフェクトの作成
+Description:Description:ナイアガラを使ってリボンの視覚効果を作る方法を説明します。
+Type:how-to
 SkillLevel:Beginner
-Version:4.17
+Version:4.21
 parent:Engine/Niagara/HowTo
-order:5
-tags:Niagara
-topic-image:
+Order:5
+Tags:Niagara
+Tags:Early Access
 
-たなびく煙や蒸気のような自然現象を表現するのは、スプライトやメッシュベースのパーティクルでは非常に難しいです。この種の現象を表現する適切なアプローチとしては、**Ribbon** エミッターの使用が考えられます。以下の操作ガイドでは、Niagara Emitter をセットアップして、リボン スタイルのパーティクルエフェクトを連続してワールドに放出する方法を説明します。
+前提トピックス
 
-![](HeroImage_00.png)
+このページでは以下のトピックについての知識があることを前提としています。以下のページをあらかじめ確認することをおすすめします。
+
+*   [ナイアガラプラグインを有効にする方法](Engine/Niagara/HowTo/EnableNiagara "ナイアガラプラグインを有効にする方法")
+
+たなびく煙や蒸気のような自然現象を表現するのは、スプライトやメッシュベースのパーティクルでは非常に難しいことです。こうしたオブジェクトを再現する場合 **Ribbon Emitters** は最適なソリューションになります。以下の操作ガイドでは、ナイアガラエミッタをセットアップして、リボン スタイルのパーティクルエフェクトを連続してワールドに放出する方法を説明します。
+
+![](Ribbon_Banner_01.png "Ribbon_Banner_01.png")
 
 ## ステップ
 
-1. まず、リボン エミッターに色を付ける新規マテリアルを作成します。**コンテンツ ブラウザ** で右クリックして表示されるリストから **[Material]** オプションを選択し、マテリアルに **MAT_Ribbon** と名前を付けます。
-
+1. まず、リボン エミッタに色を付ける新規マテリアルを作成します。**コンテンツ ブラウザ** で右クリックして、 **Create a Basic Asset** のリストから **[Material] オプションを選択します。マテリアルに **M_Ribbon** と名前を付けます。  
     ![](RE_01.png)
-
-1. MAT_Ribbon マテリアル上でダブルクリックして開きます。次に、**3** キーを押しながらマテリアル グラフで左クリックして、**Constant 3 Vector** マテリアル式ノードを追加します。
-
-    [REGION:lightbox]
-    [![](RE_02.png)(w:639)](RE_02.png)
-    [/REGION]
-
-    [REGION:caption]
-    クリックしてフルサイズで表示
-    [/REGION]
-
-1. まず **Constant 3 Vector** を **Base Color** と **Emissive Color** の入力に接続します。次に、色を赤に設定します。
-
-    [REGION:lightbox]
-    [![](RE_03.png)(w:639)](RE_03.png)
-    [/REGION]
-
-    [REGION:caption]
-    クリックしてフルサイズで表示
-    [/REGION]
-
-1. **[Details]** パネルの **[Usage]** で **[Used with Niagara Ribbons]** にチェックを入れるようにします。次に、**[Compile]** ボタンと **[Save]** ボタンを押して作業を保存します。
-
-    [REGION:lightbox]
-    [![](RE_04.png)(w:639)](RE_04.png)
-    [/REGION]
-
-    [REGION:caption]
-    クリックしてフルサイズで表示
-    [/REGION]
-
-1. **コンテンツ ブラウザ** を 右クリックして、コンテキスト メニューから **FX** を選択します。Niagara エミッターを新規作成するには、**[Niagara Emitter]**エントリ上でクリックします。
-
-    ![](Engine\Niagara\HowTo\SpriteEffect\SE_01.png)
-
-1. 新規作成した Niagara エミッターに **FX_Ribbon** という名前を付けて、その上でダブルクリックして開きます。
-
-    ![](RE_05.png)
-
-1. FX_Ribbon Emitter の **[Render]** セクションに進み、**ゴミ箱** アイコンを押して、**Sprite Rendering**モジュールを取り除きます。  
+2. **M_Ribbon マテリアル** をダブルクリックして開きます。次に、**3** キーを押しながらマテリアル グラフ内で左クリックして、**Constant 3 Vector** マテリアル表現式ノードを追加します。  
     
-     ![](RE_16.png)
+3. ノードの右側の小さい円の上にマウスカーソルをのせて、クリックしたままドラッグして **Constant 3 Vector** を右にある M_Ribbon ボックスの **Base Color** と **Emissive Color** に接続します。  
+    ![](CreateRibbonBasedEffect_Steps_Step03-ConnectNodes.png)(w:400)
+4. **Constant 3 Vector** をダブルクリックしてカラーピッカーを開きます。**R** 値を 1 に設定して、 **[OK]** をクリックします。これでマテリアルが赤くなります。  
+    ![](CreateRibbonBasedEffect_Steps_Step04-PickColor.png)(w:400)
+5. グラフのグリッドをクリックして Contant 3 Vector からフォーカスを外します。左側の **[Details(詳細)]** パネルが変化します。**Details** パネルでスクロールして、**Usage** を見つけて展開します。**Used with Niagara Ribbons** にチェックを入れます。  
+    ![](CreateRibbonBasedEffect_Steps_Step05-DetailsUsage.png)(w:300)
+6. 次に **[Apply]**、および **[Save]** の各ボタンをクリックして、変更を適用し、保存します。
+7. **コンテンツ ブラウザ** を 右クリックして、コンテキスト メニューから **[FX > Niagara Emitter]** を選択します。ナイアガラ システム ウィザードが表示されます。  
+    ![](SE_01.png)(w:400)
+8. **[Create a new emitter from an emitter template]** の横にあるラジオボタンをクリックします。 **Fountain** テンプレートを選択します。 **OK** をクリックして、コンテンツ ブラウザで、新規のエミッタを作成します。  
+    ![](NiagaraEmitter_FountainTemplate.png)(w:400)
+9. 新規作成したナイアガラエミッタに **FX_Ribbon** という名前を付けて、その上でダブルクリックして開きます。  
+    ![](NiagaraEmitter_RibbonIcon.png)(w:100)
+10. ナイアガラエミッタが開いたら、**FX_Ribbon** エミッタの **[Render]** セクションに進みます。 **ゴミ箱** アイコンをクリックして**Naigara Sprite Rendering Properties** モジュールを削除します。  
+    ![CreateRibbonBasedEffect_Steps_Step09-RemoveSpriteRender.png?](CreateRibbonBasedEffect_Steps_Step09-RemoveSpriteRender.png)(w:500)
+11. **プラス** 記号 (**+**) のアイコンをクリックして、表示されるリストから **[Niagara Ribbon Renderer Properties]** オプションを選択します。  
+    ![](CreateRibbonBasedEffect_Steps_Step10-AddRibbonRender.png)(w:500)
+12. 次に **[Ribbon Rendering]** セクションを展開します。**[Material]** セクションで、ドロップダウンをクリックし、ステップ 1 から 5 で作成した **M_Ribbon** マテリアルを選択します。  
+    ![](CreateRibbonBasedEffect_Steps_Step11-AddMaterial.jpg)(w:400)
+13. **Emitter Update** セクションを見つけて展開します。
+14. **Spawn Rate** モジュールで **Spawn Rate** の値に **100** を設定します。
 
-1. **プラス** 記号のアイコンを押して、表示されるリストから **[Niagara Ribbon Renderer Properties]** オプションを選択します。
-
-    ![](RE_06.png)
-
-1. 次に小さな白いトライアングルをクリックして、**[Ribbon Rendering]** セクションを展開します。**[Material]** セクションで、作成した MAT_Ribbon マテリアルを入力します。
-
-    ![](RE_11.png)
-
-1. **[Emitter Update]** セクションで、**[Spawn Rate]** セクションに進み、**[Spawn Rate]** を値 **20** に設定します。
-
-    ![](RE_07.png)
-
-1. **[Particle Spawn]** セクションで、**ゴミ箱** アイコンを押して以下のモジュールを削除します。
-
-    ![](RE_08.png)
-
-    * **Add Velocity**
-    * **Sphere Location**
-    * **Set Particle Sprite Size**
-    * **Set Particle Sprite Rotation**
-
-1. こうしたエントリを削除したら、Particle Spawn 下部にある **プラス** 記号を押して、表示されるリストから以下のモジュールを追加します。
-
-    ![](RE_09.png)
-
-    * **Set Particle Ribbon Width**
-    * **Set Particles Velocity**
-    * **Point Spiral Location** 
-
-1. リボン エフェクトに必要なモジュールを追加した状態で、以下の値を以下のモジュールに入力します。
-
-    ![](RE_10.png)
-
-    |モジュール名|値|
-    |----|---|
-    |**Set Particle Ribbon Width**| 32|
-    |**Set Particles Velocity**| X:1 y:0 Z:1|
-    |**Point Spiral Location** | Speed:500, RotSpeed:1|
-    |**Set Particle Lifetime**| 5|
-
-1. **[Particle Update]** セクションで、**[Acceleration Force]** の **Z** 値を **-100** に設定します。
-
-    ![](RE_12.png)
-
-1. すべてが完了したら、**[Compile]**、**[Apply]** ボタンと **[Save]** ボタンを押して、作業をコンパイルおよび保存します。
-
-    ![](RE_13.png)
-
-1. コンテンツ ブラウザで右クリックします。表示されるリストから **[FX]** に進み、**[Niagara System]** オプションを選択し、**FX_Ribbon** の名前を付けます。
-
-    ![](Engine\Niagara\HowTo\SpriteEffect\SE_16.png)
-
-1. [Ribon Niagara System] 上でダブルクリックして開きます。開いたら、コンテンツ ブラウザから **FX_Ribon** を **タイムライン** にドラッグします。
-
-    ![](RE_14.png)
-
-1. **[Compile]** ボタンと **[Save]** ボタンをクリックし、Mesh Niagara System を閉じます。コンテンツ ブラウザ で Mesh Niagara Systemをレベル ビューポートにドラッグします。
-
-    [REGION:lightbox]
-    [![](RE_15.png)(w:834)](RE_15.png)
+    [REGION:note]
+    **Spawn Rate** モジュールの初期値は **20.0** に設定されています。この **Spawn Rate** はリボンエフェクトの曲線性・直線性に影響します。小さい値にするとポリゴンのように角のある形になります。大きい値にすると曲線的、丸みのある形になります。
     [/REGION]
 
-    [REGION:caption]
-    クリックしてフルサイズで表示
+    [OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![Low Spawn Rate value](CreateRibbonBasedEffect_Steps_Step11a-SpawnRateLow.jpg) 
+    [/PARAM]
+    [PARAM:after]
+    ![High Spawn Rate value](CreateRibbonBasedEffect_Steps_Step11b-SpawnRateHigh.jpg) 
+    [/PARAM]
+    [/OBJECT]
+
+15. **Particle Spawn**セクションを見つけて展開します。
+16. **ゴミ箱** アイコンを押して以下のモジュールを削除します。  
+    
+    *   **Add Velocity**
+    *   **Sphere Location**
+    
+    ![](CreateRibbonBasedEffect_Steps_Step13-RemoveSpriteVariables.png)
+17. **Set Variables** セクションで、以下の変数の横にある白い矢印をクリックして **Remove** を選択します。
+    
+    *   **Particles.SpriteRotation**
+    *   **Particles.SpriteSize**
+    
+    ![](CreateRibbonBasedEffect_Steps_Step14-RemoveSpriteVariables2.png)
+18. これらの変数を削除したら、 **Particle Spawn** の横にある **プラス** (**+**) アイコンをクリックしてオプションを表示します。**Set Specific Parameters** を展開して、以下の変数を追加します。
+    
+    *   **Particles.RibbonWidth**
+    *   **Particles.Velocity**
+    
+    ![](CreateRibbonBasedEffect_Steps_Step15-AddParticlesParameters.png)
+19.  **Particle Spawn** の横にある **プラス** (**+**) アイコンをクリックしてオプションを再び表示します。**[Experimental > Point Spiral Location]** を選択します。
+    [REGION:note]
+    この変数の **Speed**  値がエフェクト全体のベース直径を拡大します。
+    [/REGION]![](CreateRibbonBasedEffect_Steps_Step16-AddPointSpiralLocation.png)
+20. リボン エフェクトに必要なモジュールを追加した状態で、以下の値を以下のモジュールに入力します。
+    
+    | **変数名** | **値** |
+    | --- | --- |
+    | **Particles.RibbonWidth** | 35.0 |
+    | **Particles.Velocity** | X:1.0, Y:0.0, Z:1.0 |
+    | **Point Spiral Location** | Speed:500.0, RotSpeed:4.0 |
+    | **Particles.Lifetime** | 5.0 |
+    
+21. **Acceleration Force**セクションを見つけて展開します。
+22. **Acceleration Z** 値を **-100.0** に設定します。  
+    ![](CreateRibbonBasedEffect_Steps_Step19-SetAccelerationForce.png)(w:500)
+    [REGION:note]
+    **Z** 値への負の値は円錐型のリボンエフェクトを発生させます。**Z** 値へ正の値を設定するとさかさまのコップ型になります。
     [/REGION]
+23. すべてが完了したら、**[Compile]**、**[Apply]** ボタンと **[Save]** ボタンを押して、作業をコンパイルおよび保存します。  
+    ![](ME_09.png)
+24. **コンテンツ ブラウザ** を 右クリックして、コンテキスト メニューから **[FX > Niagara System]** を選択します。ナイアガラ システム ウィザードが表示されます。  
+    ![](SE_16.png)(w:500)
+25. **[Create an empty system with no emitters]** の横にあるラジオボタンをクリックします。 **OK** をクリックして、コンテンツ ブラウザで、新規のナイアガラシステムを作成します。  
+    ![](NiagaraSystem_EmptySystem.png)(w:400)
+26. 新しいシステムに **Ribbon** と名前を付けます。  
+    ![](NiagaraSystem_RibbonIcon.png)(w:100)
+27. Ribbon ナイアガラシステム上でダブルクリックして開きます。開いたら、コンテンツ ブラウザから **FX_Ribbon** ナイアガラエミッタを **タイムライン** にドラッグします。  
+    ![](CreateRibbonBasedEffect_Steps_Step22-AddtoSystem.png)
+28. **[Compile]** ボタンと **[Save]** ボタンをクリックし、コンパイルと保存をしてから、Ribbon ナイアガラシステムを閉じます。**コンテンツ ブラウザ** で **Ribbon ナイアガラシステムをレベル ビューポートにドラッグします。  
+    ![](CreateRibbonBasedEffect_Steps_Step23-AddToLevel.png)
 
 ## 最終結果
 
-完了すると、以下の動画のように、Niagara System をレベルに配置すると Niagara Emitter が再生される Niagara System ができます。
+完了すると、以下の動画のようになります。ナイアガラシステムがレベルに配置され、ナイアガラエミッタが再生されます。
 
 [OBJECT:EmbeddedVideo]
-    [PARAMLITERAL:videoid]
-    wSRBBGirYig
-    [/PARAMLITERAL]
-    [PARAMLITERAL:width]
-    100
-    [/PARAMLITERAL]
-    [PARAMLITERAL:height]
-    56.25
-    [/PARAMLITERAL]
-    [PARAMLITERAL:units]
-    %
-    [/PARAMLITERAL]
-    [PARAMLITERAL:type]
-    simple
-    [/PARAMLITERAL]
+ [PARAMLITERAL:width]
+ 640
+ [/PARAMLITERAL]
+ [PARAMLITERAL:height]
+ 360
+ [/PARAMLITERAL]
+ [PARAMLITERAL:videoid]
+ pxQEQ4zWLWI
+ [/PARAMLITERAL]
 [/OBJECT]

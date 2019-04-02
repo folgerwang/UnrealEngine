@@ -1,6 +1,6 @@
-﻿INTSourceChangelist:3108692
+INTSourceChangelist:3108692
 Availability:Public
-Title: Assert (어서트)
+Title: 어서트
 Crumbs:
 Description:
 Version:4.9
@@ -139,7 +139,7 @@ DO_CHECK 매크로의 첫 클래스 내 마지막 매크로는 함수에 구현�
 
 **ensureMsgf(표현식, 메시지, ...);**
 
-표현식을 검증, 생성된 리포트에 대한 콜스택과 짝지은 상세 정보를 포함시킵니다. checkf() 나 verifyf() 처럼, 문제 추적에 도움이 되는 맥락 정보를 포함시킬 수 있습니다.
+표현식을 검증, 생성된 리포트에 대한 콜스택과 짝지은 상세 정보를 포함시킵니다. checkf() 나 verifyf() 처럼, 문제 추적에 도움이 되는 컨텍스트 정보를 포함시킬 수 있습니다.
 
 예:
 

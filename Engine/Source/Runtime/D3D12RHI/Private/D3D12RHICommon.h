@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 D3D12RHICommon.h: Common D3D12 RHI definitions for Windows.
@@ -99,13 +99,13 @@ public:
 		, GPUIndex(GPUMask.ToIndex())
 	{}
 
-	FORCEINLINE const uint32 GetGPUIndex() const
+	FORCEINLINE uint32 GetGPUIndex() const
 	{
 		return GPUIndex;
 	}
 
 private:
-	const uint32 GPUIndex;
+	uint32 GPUIndex;
 };
 
 class FD3D12MultiNodeGPUObject : public FD3D12GPUObject

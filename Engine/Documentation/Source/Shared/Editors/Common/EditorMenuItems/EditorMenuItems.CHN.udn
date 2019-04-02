@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2735871
+﻿INTSourceChangelist:3108692
 Availability: Docs
 Title: 常见的工具用户界面菜单项
 Description: 多个关卡编辑器工具的常见菜单项的描述。
@@ -34,6 +34,14 @@ Crumbs:
 
 [VAR:MenuAssetContentBrowser]
 * **Find in Content Browser（在内容浏览器中查找）** - 在内容浏览器中定位并选择当前资源。
+[/VAR]
+
+[VAR:MenuAssetViewReference]
+* **View Reference（查看引用）** - 启动参数查看器，显示所选资源的引用。 
+[/VAR]
+
+[VAR:MenuAssetSizeMap]
+* **大小贴图** - 显示一张交互贴图，展示该资源的大概尺寸以及它所引用的一切。
 [/VAR]
 
 [VAR:MenuAssetReimport]

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 D3D12CommandContext.cpp: RHI  Command Context implementation.
@@ -137,8 +137,13 @@ void FD3D12CommandContext::RHIPushEvent(const TCHAR* Name, FColor Color)
 {
 	if (IsDefaultContext())
 	{
+#if NV_AFTERMATH
+		GetParentDevice()->PushGPUEvent(Name, Color, CommandListHandle.AftermathCommandContext());
+#else
 		GetParentDevice()->PushGPUEvent(Name, Color);
+#endif
 	}
+
 
 #if PLATFORM_WINDOWS
 	AGSContext* const AmdAgsContext = OwningRHI.GetAmdAgsContext();
@@ -239,17 +244,35 @@ void FD3D12CommandContext::CloseCommandList()
 	CommandListHandle.Close();
 }
 
-FD3D12CommandListHandle FD3D12CommandContext::FlushCommands(bool WaitForCompletion)
+FD3D12CommandListHandle FD3D12CommandContext::FlushCommands(bool WaitForCompletion, EFlushCommandsExtraAction ExtraAction)
 {
 	// We should only be flushing the default context
 	check(IsDefaultContext());
 
+	bool bHasProfileGPUAction = false;
+#if WITH_PROFILEGPU
+	// Only graphics command list supports ID3D12GraphicsCommandList::EndQuery currently
+	if (!bIsAsyncComputeContext)
+	{
+		if (ExtraAction == FCEA_StartProfilingGPU)
+		{
+			GetCommandListManager().StartTrackingCommandListTime();
+		}
+		else if (ExtraAction == FCEA_EndProfilingGPU)
+		{
+			GetCommandListManager().EndTrackingCommandListTime();
+		}
+		bHasProfileGPUAction = true;
+	}
+#endif
+
 	FD3D12Device* Device = GetParentDevice();
 	const bool bHasPendingWork = Device->PendingCommandLists.Num() > 0;
 	const bool bHasDoneWork = HasDoneWork() || bHasPendingWork;
+	const bool bOpenNewCmdList = WaitForCompletion || bHasDoneWork || bHasProfileGPUAction;
 
 	// Only submit a command list if it does meaningful work or the flush is expected to wait for completion.
-	if (WaitForCompletion || bHasDoneWork)
+	if (bOpenNewCmdList)
 	{
 		// Close the current command list
 		CloseCommandList();
@@ -441,6 +464,19 @@ void FD3D12CommandContextBase::UpdateMemoryStats()
 	SET_MEMORY_STAT(STAT_D3D12UsedVideoMemory, LocalVideoMemoryInfo.CurrentUsage);
 	SET_MEMORY_STAT(STAT_D3D12AvailableVideoMemory, AvailableSpace);
 	SET_MEMORY_STAT(STAT_D3D12TotalVideoMemory, Budget);
+
+#if D3D12RHI_SEGREGATED_TEXTURE_ALLOC && D3D12RHI_SEGLIST_ALLOC_TRACK_WASTAGE
+	uint64 MaxTexAllocWastage = 0;
+	for (uint32 GPUIndex : GPUMask)
+	{
+		FD3D12Device* Device = ParentAdapter->GetDevice(GPUIndex);
+		uint64 TotalAllocated;
+		uint64 TotalUnused;
+		Device->GetTextureAllocator().GetMemoryStats(TotalAllocated, TotalUnused);
+		MaxTexAllocWastage = FMath::Max(MaxTexAllocWastage, TotalUnused);
+	}
+	SET_MEMORY_STAT(STAT_D3D12TextureAllocatorWastage, MaxTexAllocWastage);
+#endif
 #endif
 }
 
@@ -652,11 +688,10 @@ FD3D12CommandContextRedirector::FD3D12CommandContextRedirector(class FD3D12Adapt
 	FMemory::Memzero(PhysicalContexts, sizeof(PhysicalContexts[0]) * MAX_NUM_GPUS);
 }
 
-void FD3D12CommandContextRedirector::RHIBeginDrawPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData)
+void FD3D12CommandContextRedirector::RHIBeginDrawPrimitiveUP(uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData)
 {
 	check(!PendingUP);
 
-	PendingUP.PrimitiveType = PrimitiveType;
 	PendingUP.NumPrimitives = NumPrimitives;
 	PendingUP.NumVertices = NumVertices;
 	PendingUP.VertexDataStride = VertexDataStride;
@@ -673,7 +708,7 @@ void FD3D12CommandContextRedirector::RHIEndDrawPrimitiveUP()
 			check(GPUContext);
 
 			void* GPUVertexData = nullptr;
-			GPUContext->RHIBeginDrawPrimitiveUP(PendingUP.PrimitiveType, PendingUP.NumPrimitives, PendingUP.NumVertices, PendingUP.VertexDataStride, GPUVertexData);
+			GPUContext->RHIBeginDrawPrimitiveUP(PendingUP.NumPrimitives, PendingUP.NumVertices, PendingUP.VertexDataStride, GPUVertexData);
 			if (GPUVertexData)
 			{
 				FMemory::Memcpy(GPUVertexData, PendingUP.VertexData, PendingUP.NumVertices * PendingUP.VertexDataStride);
@@ -687,11 +722,10 @@ void FD3D12CommandContextRedirector::RHIEndDrawPrimitiveUP()
 	PendingUP.Reset();
 }
 	
-void FD3D12CommandContextRedirector::RHIBeginDrawIndexedPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData)
+void FD3D12CommandContextRedirector::RHIBeginDrawIndexedPrimitiveUP(uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData)
 {
 	check(!PendingUP);
 
-	PendingUP.PrimitiveType = PrimitiveType;
 	PendingUP.NumPrimitives = NumPrimitives;
 	PendingUP.NumVertices = NumVertices;
 	PendingUP.VertexDataStride = VertexDataStride;
@@ -714,7 +748,7 @@ void FD3D12CommandContextRedirector::RHIEndDrawIndexedPrimitiveUP()
 
 			void* GPUVertexData = nullptr;
 			void* GPUIndexData = nullptr;
-			GPUContext->RHIBeginDrawIndexedPrimitiveUP(PendingUP.PrimitiveType, PendingUP.NumPrimitives, PendingUP.NumVertices, PendingUP.VertexDataStride, GPUVertexData, PendingUP.MinVertexIndex, PendingUP.NumIndices, PendingUP.IndexDataStride, GPUIndexData);
+			GPUContext->RHIBeginDrawIndexedPrimitiveUP(PendingUP.NumPrimitives, PendingUP.NumVertices, PendingUP.VertexDataStride, GPUVertexData, PendingUP.MinVertexIndex, PendingUP.NumIndices, PendingUP.IndexDataStride, GPUIndexData);
 			if (GPUVertexData)
 			{
 				FMemory::Memcpy(GPUVertexData, PendingUP.VertexData, PendingUP.NumVertices * PendingUP.VertexDataStride);

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,6 +8,7 @@
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/Views/STableViewBase.h"
 #include "Widgets/Views/STableRow.h"
+#include "Misc/ITransaction.h"
 
 class FTransaction;
 
@@ -64,35 +65,69 @@ protected:
 	 */
 	void ReloadUndoList( );
 	void OnUndoBufferChanged();
+	void OnTransactionStateChanged(const FTransactionContext& TransactionContext, ETransactionStateEventType TransactionState);
 
 private:
 
-	// Select the last transaction in the undo history.
+	/** Select the last transaction in the undo history. */
 	void SelectLastTransaction();
 
-	// Callback for clicking the 'Discard History' button.
+	/** Callback for clicking the 'Discard History' button. */
 	FReply HandleDiscardHistoryButtonClicked( );
 
-	// Callback for generating a row widget for the message list view.
+	/** Callback for generating a row widget for the message list view. */
 	TSharedRef<ITableRow> HandleUndoListGenerateRow( TSharedPtr<FTransactionInfo> TransactionInfo, const TSharedRef<STableViewBase>& OwnerTable );
 
-	// Callback for checking whether the specified undo list row transaction is applied.
+	/** Callback for when a user wants to jump to a certain transaction. */ 
+	void HandleGoToTransaction(const FGuid& TargetTransactionId);
+
+	/** Callback for checking whether the specified undo list row transaction is applied. */
 	bool HandleUndoListRowIsApplied( int32 QueueIndex ) const;
 
-	// Callback for selecting a message in the message list view.
+	/** Callback for selecting a message in the message list view. */
 	void HandleUndoListSelectionChanged( TSharedPtr<FTransactionInfo> TransactionInfo, ESelectInfo::Type SelectInfo );
 
-	// Callback for getting the undo size text.
+	/** Callback for getting the undo size text. */
 	FText HandleUndoSizeTextBlockText( ) const;
+
+	/** Callback for getting the right undo size text color. */
+	EVisibility HandleUndoWarningVisibility() const;
+
+	/** Callback for clicking on a transaction to display details. */
+	void HandleUndoListJumpToTransaction(TSharedPtr<FTransactionInfo> InItem);
+
+	/** Callback to handle UndoHistoryDetails visibility. */
+	EVisibility HandleUndoHistoryDetailsVisibility() const;
+
+	/** Callback for getting the view button's content. */
+	TSharedRef<SWidget> GetViewButtonContent() const;
+
+	/** Toggle visibility of the transaction details section. */
+	void ToggleShowTransactionDetails();
+
+	/** Whether the transaction details section should be displayed. */
+	bool IsShowingTransactionDetails() const;
 
 private:
 
-	// Holds the index of the last active transaction.
+	/** Holds the index of the last active transaction. */
 	int32 LastActiveTransactionIndex;
 
-	// Holds the list of undo transaction indices.
+	/** Holds the list of undo transaction indices. */
 	TArray<TSharedPtr<FTransactionInfo> > UndoList;
 
-	// Holds the undo list view.
+	/** Holds the undo list view. */
 	TSharedPtr<SListView<TSharedPtr<FTransactionInfo> > > UndoListView;
+
+	/** Holds the undo details panel view. */
+	TSharedPtr<class SUndoHistoryDetails> UndoDetailsView;
+
+	/** Holds the Transaction panel splitter. */
+	TSharedPtr<SSplitter> Splitter;
+
+	/** Holds the Details slot from the splitter. */
+	TSharedPtr<SSplitter::FSlot> DetailsSlot;
+
+	/** Holds the undo history discard button. */
+	TSharedPtr<SButton> DiscardButton;
 };

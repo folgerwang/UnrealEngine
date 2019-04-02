@@ -1,71 +1,232 @@
 Availability: Public
-Crumbs: %ROOT%
+Crumbs: 
 Title: Eye Adaptation (Auto-Exposure)
 Description: Automatic adjustment of scene exposure to simulate eye adaptation from changes in brightness.
-Type: Overview
-SkillLevel: Beginnner
-Version:4.16
-Parent:Engine/Rendering/PostProcessEffects
-Order:2
-Tags:Post Process
-Topic-image:EyeAdap_Topic.png
+Type:
+Version:
+Parent: Engine/Rendering/PostProcessEffects
+Order: 1
+Tags: Post Process
 
-
-[EXCERPT:EyeAdaptation_Desc]
 **Eye Adaptation**, or automatic exposure, causes the exposure of the scene to automatically adjust to recreate the effect experienced as human eyes adjust when going from a bright environment into a dark environment or vice versa.
-[/EXCERPT:EyeAdaptation_Desc]
 
-[REGION:fullwidth]
-![Eye Adaption](eye_adaptation.png)
+## Camera Exposure
+
+#### Editor Settings
+
+The Level Editor exposure control uses an **EV100** slider and a game settings checkbox in the **View Mode** dropdown menu.
+
+[REGION:lightbox]
+[![](EA_CameraExposure_01.png)(w:200px)](EA_CameraExposure_01.png)
+[/REGION]
+[REGION:caption]
+*Click for full image*
 [/REGION]
 
-| Property | Description |
-| -------- | ----------- |
-| **Low Percent** | The eye adaptation will adapt to a value extracted from the luminance histogram of the scene color. The value defines the lower percentage of the histogram that is used to find the average scene luminance. We want to avoid clamping of the bright image parts so it is best to ignore most of the dark areas. e.g. 80 avoid 80% of the darks. Values should be in the range [0, 100]. Values in the range 70-80 give the best results. |
-| **High Percent** | The eye adaptation will adapt to a value extracted from the luminance histogram of the scene color. The value defines the upper percentage of the histogram that is used to find the average scene luminance. We want to clip off a few percent as it is ok to have some bright pixels (usually sun). Values should be in the range [0, 100]. Values in the range 80-98 give the best results. |
-| **Min Brightness** | This value limits the lower brightness that the eye adapts within. Value must be greater than 0 and should be less than or equal to **EyeAdaptationMaxBrightness**. Actual values depend on the HDR range the content is using. |
-| **Max Brightness** | This value limits the upper brightness that the eye adapts within. Value must be greater than 0 and should be greater than or equal to **EyeAdaptationMinBrightness**. Actual values depend on the HDR range the content is using. |
-| **Speed Up** | The speed at which the adaptation occurs from a dark environment to a bright environment. |
-| **Speed Down** | The speed at which the adaptation occurs from a bright environment to a dark environment. |
-| **Auto Exposure Bias** | Controls biasing of the exposure settings. The value is logarithmic meaning: [INCLUDE:#ExposureOffset] Fractional values like 1.5 or values outside of the shown examples work as well. If eye adaptation is active, the value is added to the automatic exposure. |
+When **Game Settings** is enabled, the Level Viewport uses the in-game settings configuration for exposure behavior (see section below this). Otherwise, the **EV100** slider enables user-override with a range of **-10** to **20**, supporting very dark to very bright scenes using realistic scene illumination.
 
-[COMMENT:none]
-
-[EXCERPT:ExposureOffset]
-[REGION:simpletable]
-| Value | Effect |
-| ----- | ------ |
-| 0 | no change |
-| -1 | half as bright |
-| -2 | quarter as bright |
-| 1 | twice as bright |
-| 2 | four times as bright |
+[REGION:note]
+For other viewports than the level viewport, the "Game Settings" check-box is replaced by an "Auto" check-box and implements an automatic exposure behavior.
 [/REGION]
-[/EXCERPT:ExposureOffset]
 
-[/COMMENT]
+#### Game Setting
 
-Eye adaptation is [histogram](#Histogram) based and uses the following method:
+[REGION:note]
+In 4.19 and later releases, some settings have been renamed, and the previous settings you used are compatible.
+[/REGION]
 
-* Let's say **EyeAdaptationLowPercent** is `80%` and **EyeAdaptationHighPercent** is `95%`.
-* Now we search the histogram for two values:
-    * 80% of the screen pixels are darker than luminance value A.
-    * 95% of the screen pixels are darker than luminance value B.
-    * The average between A and B is the current scene luminance (C).
-* Over time, the eye will adapt to this value. Adapting to a dark environment is usually perceived slower so we have two values to adjust that: **EyeAdaptionSpeedUp** and **EyeAdaptionSpeedDown**.
-* In order to not adapt completely to very dark or very bright environments, we clamp the adaptation within a defined range: **EyeAdaptationMinBrightness** and **EyeAdaptationMaxBrightness**.
+The in-game settings for exposure are controlled within Post Process settings. When selecting between different **Metering Modes**, settings relevant to the selected method are editable while ones that are not are grayed out. 
 
+![](EA_CameraExposure_02.png)
+
+Choose between the following Metering Modes:   
+
+*   **Auto Exposure Histogram** constructs a 64 bin histogram enabling finer control over auto exposure with advanced settings. 
+*   **Auto Exposure Basic** is a faster method that computes single values by down sampling.
+*   **Manual** enables the use of **Camera** settings within the Post Process Volume to control exposure rather than the Exposure settings.
+
+#### Manual Metering Mode
+
+**Manual** metering mode uses the value of the camera exposure defined by the Post Process **Camera** settings for **Shutter Speed (1/t)**, **ISO (S)**, and **Aperture (N)**.
+
+The formula used to compute the camera exposure scale is:    
+
+*   Exposure = 1 / (1.2 * 2^EV100)
+
+With:  
+
+*   EV100 = log2( N²/t * 100/S )
+
+The **Exposure** here defines the relationship between the scene surface luminance (L in cd/m²) and pixel brightness (B) before the tonemapper and exposure compensation (see below) are applied:  
+
+*   B = Exposure * L
+
+This can be verified by disabling the Tonemapper through the Show Flags and inspecting the scene brightness with the pixel inspector. Note that the EV100 editor overrides directly sets the EV100 in this equation.
+
+[REGION:lightbox]
+[![](EA_CameraExposure_03.png)(w:200px)](EA_CameraExposure_03.png)
+[/REGION]
+[REGION:caption]
+*Click for full image*
+[/REGION]
+
+[REGION:note]
+The **Exposure Compensation** (ExpComp) defines an additional scale of 2^ExpComp on top of the exposure computed from the current metering mode, except when using the EV100 Editor overrides.
+[/REGION]
+
+## Pre-Exposure
+
+The previous frame's scene exposure is applied within the shaders before writing to the scene color, enabling the engine to render the scene within a range similar to the one of the final color (after exposure). It reduces the risks of arithmetic overflow for low-precision render target formats when using very bright lights. It also increases the quality of **Auto Exposure Basic** metering mode. 
+
+The amount of exposure applied in the shaders is called **pre-exposure** and can be enabled through the Project Settings with **Apply Pre-exposure before writing to the scene color** or via the console variable **r.UsePreExposure**. The pre-exposure can be overridden through **r.EyeAdaptation.PreExposureOverride**.
+
+[REGION:note]
+Currently, **Apply Pre-exposure before writing to the scene color** is only supported on Windows.
+[/REGION]
+
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![From Dark](AutoExposure_Dark1.png) 
+    [/PARAM]
+    [PARAM:after]
+    ![To Bright](AutoExposure_Bright1.png) 
+    [/PARAM]
+[/OBJECT]
+
+[REGION:caption]
+The above comparison shows an example of going from a dark environment to a bright environment.
+[/REGION]
+
+Eye adaptation is [histogram](Engine/Rendering/PostProcessEffects/AutomaticExposure#histogram) based and uses the following method:
+
+*   Let's say that Exposure **Low Percent** is 80% and **High Percent** is 95%.
+*   Now we search the histogram for two values: 
+    *   80% of the screen pixels are darker than the luminance value A.
+    *   95% of the screen pixels are darker than the luminance value B.
+    *   The average between A and B is the current luminance (C).
+*   Over time, the eye will adapt to the current scene luminance. Adapting to a dark environment is usually perceived slower so there are two values to adjust the transition time: **Speed Up** and **Speed Down**.
+*   In order to not adapt completely to a very dark or very bright environment, the adaptation range is clamped within a defined range using **Min Brightness** and **Max Brightness **(or **EV100 Min** and **EV100 Max** when extended luminance range is enabled for auto exposure in the Project Settings).
 
 ## Histogram
 
-The **Histogram** properties are used by the automatic eye adaptation feature which looks at a histogram of the scene colors to adapt the camera or the eye to a scene. This histogram can be seen by using the console command `ShowFlag.VisualizeHDR 1`.
+The **Histogram** properties are used by **Auto Exposure Histogram** which looks at a histogram of the scene colors to adapt the camera or the eye to a scene. It can be enabled using the Level Viewport’s **Show \> Visualize \> HDR (Eye Adaptation)**.
 
-[REGION:fullwidth]
-![Histogram](histogram.png)
+[REGION:lightbox]
+[![](HDR_Visualization1.png)](HDR_Visualization1.png)
+[/REGION]
+[REGION:caption]
+Click image for full size.
 [/REGION]
 
-| Property | Description |
-| -------- | ----------- |
-| **Histogram Log Min** | Defines the lower bounds for the brightness range of the generated histogram. |
-| **Histogram Log Max** | Defines the upper bounds for the brightness range of the generated histogram. |
+1.  Post Process Exposure settings and their set values or ranges.
+1.  Histogram with set Min and Max ranges.
+1.  Picture-in-picture HDR scene representation.
 
+Use the following settings to define the **Min** and **Max** ranges of the Histogram in your scene using **Histogram Log Min / Max** or **Histogram EV100 Min / Max** (when enabled via Project Settings).
+
+![](HDRSceneRepresentation1.png)
+
+The HDR scene representation here uses colors to indicate histogram luminance ranges: blue indicates the lowest luminance level of the histogram whereas red indicates the highest luminance level of the histogram range.
+
+## Metering Mode Settings
+
+Select from the available **Metering Modes** that sets the luminance computation method to be used for Auto Exposure. These settings are available in the Post Process Volume settings under **Lens > Exposure** and **Camera**.
+
+#### Auto Exposure Histogram
+
+The following settings are available when using the **Metering Mode** for **Auto Exposure Histogram**.
+
+![](Exposure_Histogram.png)
+
+[COMMENT:none]
+| Property | Description |
+| --- | --- |
+| Exposure ||
+| **Exposure Compensation** | Logarithmic adjustment for the exposure. Only used if a tonemapper is specified. 0: no adjustment, -1:2x darker, -2:4 darker, 1:2x brighter, 2:4x brighter. |
+| **Min EV100** | [INCLUDE:#minEV100] |
+| **Max EV100** | [INCLUDE:#maxEV100] |
+| **Min Brightness** | The minimum brightness for auto exposure that limits the lower brightness the eye can adapt within. Values must be greater than 0 and should be less than or equal to **Max Brightness**. A good value should be positive near 0 and should be adjusted in a dark lighting situation: if the value is too small, the image appears too bright, and if too large, the image appears too dark. Actual values depend on the HDR range of the content being used. If Min Brightness = Max Brightness, auto exposure is disabled. |
+| **Max Brightness** | [INCLUDE:#MaxBrightness] |
+| **Speed Up** | 	The speed at which the adaptation occurs from a dark environment to a bright environment. |
+| **Speed Down** | The speed at which the adaptation occurs from a bright environment to a dark environment. |
+| **Calibration Constant** | Calibration constant for 18% Albedo. |
+| **Low Precent** | [INCLUDE:#LowPercent] |
+| **High Percent** | [INCLUDE:#HighPercent] |
+| **Histogram Min EV100** | [INCLUDE:#HistoMinEV100] |
+| **Histogram Max EV100** | [INCLUDE:#HistoMaxEV100] |
+| **Histogram Log Min** | Defines the lower bounds for the brightness range of the generated histogram when using the **HDR (Eye Adaptation)** visualization mode. |
+| **Histogram Log Max** | Defines the upper bounds for the brightness range of the generated histogram when using the **HDR (Eye Adaptation)** visualization mode. |
+
+[COMMENT:none]
+[EXCERPT:minEV100]
+[REGION:note]
+Used in place of **Min Brightness** when Project Setting **Extend default luminance range in Auto Exposure settings** is enabled.
+[/REGION]
+The minimum auto exposure adaptation whereby it is implemented by choosing an exposure value for which the average luminance generates a pixel brightness equal to the **Constant Calibration** value. The value is expressed in pixel luminance (cd/m2).
+If Min EV100 = Max EV100, auto exposure is disabled.
+[/EXCERPT:minEV100]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:maxEV100]
+[REGION:note]
+Used in place of **Max Brightness** when Project Setting **Extend default luminance range in Auto Exposure settings** is enabled.
+[/REGION]
+The maximum auto exposure adaptation whereby it is implemented by choosing an exposure value for which the average luminance generates a pixel brightness equal to the **Constant Calibration** value. The value is expressed in pixel luminance (cd/m2). If Max EV100 = Min EV100, auto exposure is disabled.
+[/EXCERPT:maxEV100]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:MaxBrightness]
+The maximum brightness for auto exposure that limits the upper brightness the eye can adapt within. Values must be greater 0 and should be greater than or equal to **Min Brightness**. A good value should be positive (2 is a good value) and should be adjusted in a bright lighting situation: if the value is too small, the image appears too bright, and if too large, the image appears too dark. Actual values depend on the HDR range of the content being used. 
+If Max Brightness = Min Brightness, auto exposure is disabled.
+[/EXCERPT:MaxBrightness]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:LowPercent]
+The eye adaptation will adapt to a value extracted from the luminance histogram of the scene color. The value defines the lower percentage of the histogram that is used to find the average scene luminance. We want to avoid clamping of the bright image parts so it is best to ignore most of the dark areas. For example, 80 avoid 80% of the dark. Values should be in the range [0, 100].
+[REGION:note]
+Values in the range 70-80 give the best results.
+[/REGION]
+[/EXCERPT:LowPercent]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:HighPercent]
+The eye adaptation will adapt to a value extracted from the luminance histogram of the scene color. The value defines the upper percentage of the histogram that is used to find the average scene luminance. We want to clip a few percent of the upper range off as it is OK to have some bright pixels (usually sun). Values should be in the range [0, 100].
+[REGION:note]
+Values in the range 70-80 give the best results.
+[/REGION]
+[/EXCERPT:HighPercent]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:HistoMinEV100]
+Used in place of **Histogram Log Min** when Project Setting **Extend default luminance range in Auto Exposure settings** is enabled.
+Defines the lower bounds for the brightness range of the generated histogram when using the HDR (Eye Adaptation) visualization mode.
+[/EXCERPT:HistoMinEV100]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:HistoMaxEV100]
+Used in place of **Histogram Log Max** when Project Setting **Extend default luminance range in Auto Exposure settings** is enabled.
+Defines the upper bounds for the brightness range of the generated histogram when using the HDR (Eye Adaptation) visualization mode.
+[/EXCERPT:HistoMinEV100]
+[/COMMENT]
+
+
+#### Auto Exposure Basic
+
+The following settings are available when using the **Metering Mode** for **Auto Exposure Basic**.
+
+![](Exposure_Basic.png "Exposure_Basic.png") 
+
+
+#### Manual
+
+The following settings are available when using the **Metering Mode** for **Manual**.
+
+![](Exposure_Manual.png)
+
+[/COMMENT]

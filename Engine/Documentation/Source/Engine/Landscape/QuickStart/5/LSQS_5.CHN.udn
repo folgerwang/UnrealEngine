@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2702740
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:5.绘制地形材质
 Crumbs:%ROOT%, GettingStarted, Engine/Landscape/QuickStart
@@ -26,6 +26,7 @@ version:4.9
 
 地形材质创建好后，即可将材质应用到地形，并开始使用地形绘制工具进行地形绘制。 
 
+(#LandscapePaintingPrep)
 ## 地形绘制准备
 在开始绘制地形前，首先需要进行一些设置。首先需要将材质应用到地形。可通过以下几步完成。 
 1. 首先在 **Content Browser** 中选择材质。材质保存在之前创建的 **Materials** 文件夹中。找到材质后，点击选中。
@@ -76,6 +77,7 @@ version:4.9
 
 创建并应用 **地形图层信息物体** 后，即可开始绘制地形。
 
+(#PaintingtheLandscape)
 ## 绘制地形
 
 开始绘制地形之前，重新熟悉一下地形绘制的常用键盘和鼠标操作。
@@ -103,6 +105,7 @@ version:4.9
 [/REGION]
 
 
+(#PossibleIssuesandWorkarounds)
 ## 可能存在的问题和应对方法
 
 刚开始在地形绘制时可能出现与下图类似的基础材质消失或变黑问题： 

@@ -1,36 +1,36 @@
-﻿INTSourceChangelist:3729159
-Availability:Public
+﻿INTSourceChangelist:3782314
+Availability: Public
 Crumbs: %ROOT%, Platforms
-Title:检测 SteamVR Chaperone 系统启动
-Description:检测用户是否已启用 SteamVR Chaperone 系统。
+Title: 检测SteamVR Chaperone系统启动
+Description: 检测用户是否已启用SteamVR Chaperone系统。
 Type: how-to
 Skilllevel:Intermediate
-Version:4.17
-Parent:Platforms/SteamVR
-Order:2
-tags:VR
+Version: 4.17
+Parent: Platforms/SteamVR
+Order: 2
+tags: VR
 topic-image:Platforms\SteamVR\SteamVRDevelopment_topic.png
+prereq: Platforms\SteamVR\HowTo\StandingCamera
+prereq:Platforms\VR\MotionController
+prereq:Platforms\SteamVR\HowTo\Chaperone
 
-SteamVR Chaperone 系统用于显示 VR 交互区的边界。追踪设备靠近边界时，SteamVR Runtime 将自动进行可视提示，告知用户。以下指南将说明如何显示交互和其他显示提示，告知用户其中一个设备已处于/或即将处于互动区之外。
+![](SteamVRChapActivation_Hero_Image.png)
 
-[REGION:note]
-以下指南将使用添加了运动控制器和 Chaperone 支持的站立 VR Pawn。如您不明确设置方法，请参考以下三个指南：
-* [**设置 Oculus Rift 的摄像机**](Platforms\SteamVR\HowTo\StandingCamera)
-* [**设置运动控制器**](Platforms\VR\MotionController)
-* [**设置 Chaperone 系统**](Platforms\SteamVR\HowTo\Chaperone)
-[/REGION]
+SteamVR Chaperone系统用于显示VR交互区的边界。追踪设备靠近边界时，SteamVR Runtime将自动进行可视提示，告知用户。以下指南将说明如何显示交互和其他显示提示，告知用户其中一个设备已处于/或即将处于互动区之外。
 
 [REGION:note]
-需要设置 Room Scale VR 使用 SteamVR 工具才能使 Chaperone 系统正常工作。如需了解详细操作方法，请查看官方 [Oculus Guardian 系统](https://www.vive.com/us/support/category_howto/setting-up-room-scale-play-area.html) 设置页面。
+需要设置 **Room Scale** VR使用SteamVR工具才能使Chaperone系统正常工作。如需了解详细操作方法，请参见[HTC Vive](https://www.vive.com/us/support/category_howto/setting-up-room-scale-play-area.html)设置页面。
 [/REGION]
 
 [REGION:warning]
-在 UE4 中禁用 Chaperone 系统 **不** 明智，也不可取。然而，您可以调整用户靠近边界时 UE4 作出的响应。  
+**不可** 在UE4中禁用Chaperone系统，此操作不可取。然而，您可以调整用户靠近边界时UE4作出的响应。  
 [/REGION]
 
-## 与 SteamVR Chaperone 系统进行交互
+(#steps)
 
-1. 我们必须先知道用户的设备已靠近 SteamVR Chaperone 边界，才能将其显示。我们可以使用 **Bind Event to OnRetunToBounds** 和 **Bind Event to OnLeaveBounds** 节点在 UE4 中实现此功能。在您的玩家 Pawn 蓝图中，将以下节点添加到 **事件图表**。
+## 步骤
+
+1.  必须先了解用户的设备已靠近SteamVR Chaperone边界，才能将其显示。可以使用 **Bind Event to OnRetunToBounds** 和 **Bind Event to OnLeaveBounds** 节点在虚幻引擎4中实现此功能。在您的玩家Pawn蓝图中，将以下节点添加到 **事件图表**。
 
     [REGION:lightbox]
     [![](SteamVRChapActivation_00.png)(w:283)](SteamVRChapActivation_00.png)
@@ -40,15 +40,20 @@ SteamVR Chaperone 系统用于显示 VR 交互区的边界。追踪设备靠近�
     点击查看全图。
     [/REGION]
 
-    * **Bind Event to OnRetunToBounds**
-    * **Bind Event to OnLeaveBounds**
-    * **SteamVRChaperone**
+	[REGION:simpletable]
+    |节点名称| 数值 |
+    |--------|------------|
+    |**Bind Event to OnReturnToBounds**|N/A|
+    |**Bind Event to OnLeaveBounds**|N/A|
+    |**SteamVRChaperone**|N/A|
+    [/REGION]
 
-1. 在 **Variables** 面板中新建一个名为 **inBounds** 的 **布尔** 变量，以便追踪玩家进出 Chaperone 边界。 
+
+1. 在 **变量（Variables）** 面板中新建一个名为 **inBounds** 的 **布尔** 变量，以便追踪玩家进出Chaperone边界。 
 
     ![](SteamVRChapActivation_01.png)
 
-1. 接下来我们要在关卡开始时进行检查，确定用户是否靠近边界。为实现此功能，我们需要将 Bind Event to OnRetunToBounds 和 Bind Event to OnLeaveBounds 节点连接起来，然后将 **SteamVRChaperone** 对象引用连接到两个 Bind Event 节点上的 **Target** 输入。最后将 Bind Event to OnLeaveBounds 节点的输入和 Set Tracking Origin 节点的输出连接起来。完成后，您的 Pawn 蓝图应与下图相似。
+1. 接下来要在关卡开始时进行检查，确定用户是否靠近边界。为实现此功能，我们需要将Bind Event to OnRetunToBounds和Bind Event to OnLeaveBounds节点连接起来，然后将 **SteamVRChaperone** 对象引用连接到两个Bind Event节点上的 **Target** 输入。最后将OnLeaveBounds节点的Bind Event输入连接到Set Tracking Origin节点的输入。完成时，Pawn蓝图应与下图类似：
 
     [REGION:lightbox]
     [![](SteamVRChapActivation_02.png)(w:833)](SteamVRChapActivation_02.png)
@@ -58,7 +63,7 @@ SteamVR Chaperone 系统用于显示 VR 交互区的边界。追踪设备靠近�
     点击查看全图。
     [/REGION]
 
-1. 现在我们需要创建一些蓝图逻辑，在用户离开或进入边界时进行追踪，以便显示正确的消息。首先我们需要新建两个名为 **ReturnToBounds** 和 **LeaveBounds** **Custom Event** 节点。首先我们需要将 **In Bounds** 变量设为 **True**，再将 Leave Bounds 设为 **False**。完成后，您的 Pawn 蓝图应与下图相似。
+1. 现在需要创建一些蓝图逻辑，在用户离开或进入边界时进行追踪，以便显示正确的消息。首先我们需要新建两个名为 **ReturnToBounds** 和 **LeaveBounds** 的 **自定义事件** 节点。接下来需要在返回边界时将 **In Bounds** 变量设为 **True**，在离开边界时则设为 **False**。完成后，Pawn蓝图应与下图相似。
 
     [REGION:lightbox]
     [![](SteamVRChapActivation_03.png)(w:434)](SteamVRChapActivation_03.png)
@@ -68,7 +73,7 @@ SteamVR Chaperone 系统用于显示 VR 交互区的边界。追踪设备靠近�
     点击查看全图。
     [/REGION]
 
-1. 接下来我们需要将 ReturnToBounds 和 LeaveBounds 事件输出连接到 Bind Event 节点的相应输入上，以便在用户返回或离开 Chaperone 边界时进行追踪。完成后，您的 Pawn 蓝图应与下图相似。
+1. 接下来我们需要将ReturnToBounds和LeaveBounds事件输出连接到Bind Event节点的相应输入上，以便在用户返回或离开Chaperone边界时进行追踪。完成后，您的Pawn蓝图应与下图相似。
 
     [REGION:lightbox]
     [![](SteamVRChapActivation_04.png)(w:833)](SteamVRChapActivation_04.png)
@@ -78,14 +83,20 @@ SteamVR Chaperone 系统用于显示 VR 交互区的边界。追踪设备靠近�
     点击查看全图。
     [/REGION]
 
-1. 现在我们需要用一种方式来告知用户其已经离开或返回追踪区。我们可以使用 **Print String** 节点在每个 Tick 显示消息到屏幕上，让用户确认自己在追踪区内或外。要在 Pawn 蓝图中进行设置，首先需要将以下节点添加到事件图表。
+1. 现在我们需要用一种方式来告知用户其已经离开或返回追踪区。我们可以使用 **Print String** 节点在每个Tick处显示消息到屏幕上，让用户确认自己是否处于追踪区内。要在Pawn蓝图中进行设置，首先需要将以下节点添加到事件图表。
+	
+	[REGION:simpletable]
+    |节点名称| 数值 |
+    |--------|------------|
+    |** Event Tick**|N/A|
+    |**Branch**|N/A|
+    |**Print String** x 2|N/A|
+	|**InBounds**|N/A|
+    [/REGION]
 
-    * **Event Tick**
-    * **Branch**
-    * **Print String** x 2 
-    * **InBounds**
+1. 将Event Tick输出连接到Branch节点上的输入，并将 **InBounds** 连接到 **Condition** 输入，然后将Print String节点连接到Branch节点上的 **True** 和 **False** 输出。在Print String节点中输入一些文本，描述发生的情况。在此例中我们使用的是 **You have returned to the tracking bounds** 和 **You have left the tracking bounds**，但在实际操作中可以使用任何内容。
 
-1. 将 Event Tick 输出连接到 Branch 节点上的输入，并将 **InBounds** 连接到 **Condition** 输入，然后将 Print String 节点连接到 Branch 节点上的 **True** 和 **False** 输出。在 Print String 节点中输入一些文本，描述发生的情况。在此例中我们使用的是 **You have returned to the tracking bounds** 和 **You have left the tracking bounds**，实际操作中您可以使用任何内容。完成后，您的 Pawn 蓝图应与下图相似。
+	完成后，您的Pawn蓝图应与下图相似。
 
     [REGION:lightbox]
     [Include:Platforms\SteamVR\HowTo\ChaperoneActivation\#SVRFinalBP]
@@ -95,31 +106,36 @@ SteamVR Chaperone 系统用于显示 VR 交互区的边界。追踪设备靠近�
     点击图片复制蓝图节点。
     [/REGION]
 
-1. 现在即可戴上 HTC Vive 头戴显示器，拿起运动控制器，用 VR 预览运行项目。项目启动后，缓慢朝 Chaperone 边界移动其中一个运动控制器，靠近边界时，屏幕上显示的画面便会发生改变。与以下视频相似。
+(#endresult)
 
-    [OBJECT:EmbeddedVideo]
-        [PARAMLITERAL:videoid]
-            _QyYbsdbQT4
-        [/PARAMLITERAL]
-        [PARAMLITERAL:width]
-        100
-        [/PARAMLITERAL]
-        [PARAMLITERAL:height]
-        56.25
-        [/PARAMLITERAL]
-        [PARAMLITERAL:units]
-        %
-        [/PARAMLITERAL]
-        [PARAMLITERAL:type]
-        simple
-        [/PARAMLITERAL]
-    [/OBJECT]
+## 最终结果
 
-## UE4 项目下载
-可使用以下链接下载用于创建此例的 UE4 项目。
+现在即可戴上HTC Vive头戴显示器，拿起运动控制器，用VR预览运行项目。项目启动后，缓慢向Chaperone边界移动其中一个运动控制器，靠近边界时，屏幕上显示的画面便会发生改变。类似于以下视频的展示。
 
-* [**SteamVR Chaperone 启动范例项目**](https://epicgames.box.com/s/zpvbgdudx756l8n6z50fk58pap4ou7u0)
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+        _QyYbsdbQT4
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    100
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
 
+(#ue4projectdownloads)
+
+## UE4项目下载
+可使用以下链接下载用于创建此例的UE4项目。
+
+* [**SteamVR Chaperone启动示例项目**](https://epicgames.box.com/s/zpvbgdudx756l8n6z50fk58pap4ou7u0)
 [COMMENT:none]
 
 [EXCERPT:SVRFinalBP]	

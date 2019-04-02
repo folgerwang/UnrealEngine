@@ -1,7 +1,31 @@
-﻿Availability: Public
+﻿INTSourceChangelist:3782314
+Availability: Public
 Title:1.5 - 函数复制
-Crumbs:%ROOT%, Resources, Resources/ContentExamples/Networking
-Description:网络特性示例关卡概述，示例1.5： 函数复制（远程过程调用）。
+Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Networking
+Description:概述网络功能示例关卡，示例1.5：函数复制（远程过程调用）。
+Related: Gameplay/Networking
+Related: Gameplay/Networking/Actors/Components
+Related: Gameplay/Networking/Actors
+Related: Gameplay/Networking/Actors/RPCs
+Related: Engine/UI/LevelEditor/InEditorTesting/NetworkedPlayInEditor
+Version: 4.9
+
+[VAR:Steps]
+[OBJECT:Navigation]
+	[PARAM:previous]
+		[上一个示例](Resources/ContentExamples/Networking/1_4 "%Resources/ContentExamples/Networking/1_4:title%")
+	[/PARAM]
+	[PARAM:current]
+	[/PARAM]
+	[PARAM:home]
+		[网络主页](Resources/ContentExamples/Networking)
+	[/PARAM]
+	[PARAM:next]
+	[/PARAM]
+[/OBJECT]
+[/VAR]
+
+
 
 
 [VAR:TopicCompact]
@@ -27,38 +51,40 @@ Description:网络特性示例关卡概述，示例1.5： 函数复制（远程�
 [/REGION]
 
 [REGION:tip]
-为能同时从 **服务器** 和 **客户端** 进行查看，请在 **Play** （运行）的下拉框中，设置 **Number of Clients** （客户端数量）区域为2。
+为了同时查看 **服务器（Server）** 和 **客户端（Client）** 视角，在 **运行（Play）** 下拉菜单中，将 **客户端数量（Number of Clients）** 字段设置为2。
 [/REGION]
 
 
-## 概述
-除变量外，函数调用也可以被复制。 **Replicated Function Calls** （复制的函数调用）可被设置为 **Reliable** （可靠）或 **Unreliable** （不可靠）。 可靠的调用一定会发生，不可靠的调用在通讯频繁的时候可能会丢失。 大多数处理装饰视觉的复制函数都不可靠，以防止网络饱和。 
 
-有3种主要类型的复制函数： **Multicast** （多路广播）, **Server** （服务器）, 以及 **Client** （客户端）。 多路广播函数应在服务器上进行调用，在服务器上执行然后自动转发到客户端。 服务器函数由客户端调用，随后仅在服务器上执行。 客户端函数由服务器调用，随后仅在其所拥有的客户端上执行。 
+除了变量之外，还可以复制函数调用。**复制的函数调用（Replicated Function Calls）** 可以设置为 **可靠（Reliable）** 或 **不可靠（Unreliable）**。可靠的调用保证会发生，而不可靠的调用可能会在网络拥堵时被放弃。为了避免网络饱和，大多数处理外观视觉效果的复制函数都是不可靠的。 
 
-服务器和客户端复制函数具有额外的限制，它们仅能对具有 **Net Owner** （网络所有者）的actor使用。 如Actors为玩家控制器或由玩家控制器所拥有，Actors将具有网络所有者。 示例： 由玩家控制器所支配的pawn可在服务器或客户端上执行服务器或客户端复制函数。 
+复制函数有三种主要类型：**组播（Multicast）**、**服务器（Server）** 和 **客户端（Client）**。组播函数应在执行它们的服务器上调用，然后自动转发给客户端。服务器函数由客户端调用，然后仅在服务器上执行。客户端函数由服务器调用，然后仅在拥有它的客户端上执行。 
 
-本例中，Multicast函数处理由按下按钮所触发的装饰事件。 
+服务器和客户端复制函数还有一个额外的限制，即它们只能用于拥有 **网络所有者（Net Owner）** 的Actor。如果Actor是玩家控制器或被玩家控制器所拥有，则它们具有网络所有者。示例：玩家控制器拥有的pawn可以在其上执行服务器或客户端复制的函数。 
+
+在本例中，组播函数处理由按下按钮而触发的外观修饰事件。 
 
 
-## 蓝图详细信息
-在 **BP_Button_Multicast** 蓝图的事件图表中（其被分为下方的多个图片），您可以在第一张图片中看到重叠事件如何在服务器和客户端同时触发，而脚本的剩余部分仅仅通过使用 **Switch Has Authority** 节点来在服务器上运行。 
+(#blueprintbreakdown)
 
-**点击查看放大图片**
+## 蓝图细分
+在 **BP_按钮_组播（BP_Button_Multicast）** 蓝图事件图（分解为以下几张图）中，您将在第一幅图中看到如何在服务器和客户端上触发重叠事件，而脚本的其余部分仅通过使用 **Switch Has Authority（@@@）** 节点在服务器上运行。 
+
+ **单击显示全图**
 [REGION:lightbox]
 	[![](Resources/ContentExamples/Networking/1_5/1_5_EventGraph1.png)(w:640)](Resources/ContentExamples/Networking/1_5/1_5_EventGraph1.png)
 [/REGION]
 
-当 **Button Pressed** （按下按钮）或 **Button Released** （松开按钮）的自定义事件被调用时，由于它们都被设置为 **Multicast** （多路广播），它们在所有客户端上均被触发，这样每个人都能看到脚本随自定义事件而运行，而不仅仅是发起事件的玩家能看到。
+当 **按钮按下（Button Pressed）** 或 **按钮释放（Button Released）** 自定义事件被调用时，因为它们被设置为 **组播（Multicast）**，它们将为所有客户端触发，以便每个人都能看到自定义事件之后的脚本，而不仅仅是启动事件的玩家。
 
- **点击以获得按下按钮事件的完整图片**
+ **单击显示按钮按下事件的全图**
 [REGION:lightbox]
 	[![](Resources/ContentExamples/Networking/1_5/1_5_EventGraph2.png)(w:640)](Resources/ContentExamples/Networking/1_5/1_5_EventGraph2.png)
 [/REGION]
 
- **点击以获得松开按钮事件的完整图片**
+ **单击显示按钮释放事件的全图**
 [REGION:lightbox]
 	[![](Resources/ContentExamples/Networking/1_5/1_5_EventGraph3.png)(w:640)](Resources/ContentExamples/Networking/1_5/1_5_EventGraph3.png)
 [/REGION]
 
-在游戏中这样设置的结果是，在按下/松开按钮时，服务器和客户端都能看到被触发的事件。
+游戏中的结果是，服务器和客户端都可以查看在按下/释放按钮时触发的事件。 

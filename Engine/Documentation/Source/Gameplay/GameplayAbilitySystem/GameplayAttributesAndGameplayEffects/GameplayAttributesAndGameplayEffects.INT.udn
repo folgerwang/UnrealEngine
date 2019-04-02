@@ -1,0 +1,84 @@
+Availability: Public
+Crumbs: 
+Title: Gameplay Attributes and Gameplay Effects
+Description: Overview of Attributes and Effects within the Gameplay Ability System.
+Type: 
+Version: 4.20
+Parent: Gameplay/GameplayAbilitySystem
+Order: 1
+Tags: Gameplay Ability System
+Tags:Gameplay Attributes
+Tags: Gameplay Effects
+
+
+Actors that interact with the Gameplay Ability System will generally need a set of numerical properties that the system can access and modify to affect game logic and keep track of what has happened in the game. These properties are known as **Gameplay Attributes** (or "Attributes" for short), and they are modified (temporarily or permanently) by **Gameplay Effects**.
+
+[REGION:note]
+To see how this could be setup in a UE4 project, check out the [](Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG/AttributesandEffects) in the Action RPG documents.
+[/REGION]
+
+## Gameplay Attributes
+
+A **Gameplay Attribute** contains any numerical measurement of an Actor's current state that can be described by a single floating-point value, such as health points, physical strength, movement speed, resistance to magic, and so on. Attributes are declared as UProperties of `FGameplayAttribute` type within **Attribute Sets**, which both contain Attributes and supervise any attempts to modify them.
+
+[REGION:note]
+Attributes and Attribute Sets must be created in native code - they cannot be created in Blueprints.
+[/REGION]
+
+### Creating an Attribute Set
+
+To create an Attribute Set, inherit from `UAttributeSet`, and add Gameplay Attribute Data members tagged with `UPROPERTY`. For example, an Attribute Set containing only a "health" Attribute would look like this:
+
+
+	UCLASS()
+	class USimpleAttributeSet : public UAttributeSet
+	{
+		GENERATED_BODY()
+	public:
+		/** Set default values. For example, Health should be set to a positive number */
+		USimpleAttributeSet();
+		/** This measures how much damage can be absorbed before dying. */
+		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attributes")
+		FGameplayAttributeData Health;
+	};
+
+
+*A minimal Attribute Set, containing a single Attribute.*
+
+Once you have created an Attribute Set, you must register it with the Ability System Component. To accomplish this, either add the Attribute Set as a subobject of the Ability System Component's owning Actor, or pass it to the Ability System Component's `GetOrCreateAttributeSubobject` function.
+
+## Gameplay Effects
+
+Gameplay Effects are the Gameplay Ability System's way to change Attributes. This includes:  
+
+*   Direct changes to the Attribute's base value, like taking away health points from an Actor that has received damage.
+*   Temporary changes (often called "buffs" or "debuffs"), like granting a boost to movement speed for a few seconds.
+*   Persistent changes that are applied over time, like regenerating a certain amount of magic points per second over a period of several seconds (or indefinitely).
+
+Gameplay Effects are implemented as data-only Blueprints (of base class `UGameplayEffect`) that interact with the Ability System Component and can be stored there while they are active, if appropriate.
+
+### Major Properties
+
+Gameplay Effects, unlike most other parts of the Gameplay Ability System, do not usually override the base class, `UGameplayEffect`, in either native or Blueprint code. Instead, Gameplay Effects are designed to be configured purely through variables. The following are some of the major properties of Gameplay Effects that you can adjust:
+
+*   **Duration:** Gameplay Effects can apply instantly (such as Health decreasing when attacked), over a limited time (such as a movement speed boost that lasts for a few seconds), or indefinitely (such as a character naturally regenerating magic points over time). In addition, Effects that have a non-instant duration can also apply themselves at different intervals. This can be useful not only to change how the Effect works in terms of gameplay, but also for setting up the timing on things like repeating audio or visual effects.
+*   **Modifiers and Executions:** Modifiers determine how the Gameplay Effect interacts with Attributes. This includes mathematical interactions with Attributes themselves, like "increase armor rating by 5 percent" as well as Gameplay Tag requirements to execute the Effect. When a Gameplay Effect needs to do something beyond what Modifiers support, Executions can help. Executions use the `UGameplayEffectExecutionCalculation` to define custom behaviors that the Gameplay Effect will have when it executes. These are particularly useful for defining complex equations that aren't adequately covered by Modifiers.
+*   **Application Requirements:** Application Requirements include sets of Gameplay Tags that are required (or forbidden) to be present in order for a Gameplay Effect to apply, and a random chance for a Gameplay Effect not to apply. If these requirements are not sufficient for your game's needs, you can derive a data object from the `UGameplayEffectCustomApplicationRequirement` base class, in which you can write native code that defines arbitrarily complex application rules.
+*   **Granted Abilities:** Gameplay Effects can grant Abilities, not just Gameplay Tags, when they apply. When used in conjunction with Executions, these can be used to set up highly-specific gameplay combinations. For example, an Actor struck with a fire-themed Gameplay Effect while possessing a Gameplay Tag or Attribute indicating that the Actor is soaked in oil could gain the ability "On Fire", which passively damages nearby Actors and has a visual effect with particles and dynamic light, for the next ten seconds.
+*   **Stacking:** "Stacking" refers to the policy of applying a buff or debuff (or Gameplay Effect, in this case) to a target that already carries it, as well as handling the situation, known as Overflow, where a new Gameplay Effect is applied to a target that is already fully saturated with the original Gameplay Effect (such as a poison meter that builds up, resulting in damage-over-time poison only after it overflows). The system supports a wide variety of Stacking behaviors, such as building up until a threshold is broken, maintaining a "stack count" that increases with each fresh application up to a maximum limit, resetting or appending time on a limited-time Effect, or simply applying multiple instances of the Effect independently with individual timers.
+*   **Gameplay Cue Display: ****Gameplay Cues** are a network-efficent way to manage cosmetic effects, like particles or sounds, that you can control with the Gameplay Ability System. Gameplay Abilities and Gameplay Effects can trigger them, and they act through four main functions that can be overridden in native or Blueprint code: On Active, While Active, Removed, and Executed (used only by Gameplay Effects). All Gameplay Cues must be associated with a Gameplay Tag that start with "GameplayCue", such as "GameplayCue.ElectricalSparks" or "GameplayCue.WaterSplash.Big".
+    [REGION:note]
+    The **Gameplay Cue Manager** executes Gameplay Cues. Actors can respond to Gameplay Cues by implementing the `IGameplayCueInterface` and having a function whose name matches the Gameplay Cue's tag. Standalone **Gameplay Cue Notify** Blueprints can also respond to Gameplay Cues.
+    [/REGION]
+
+## Programming Effect and Attribute Interaction
+
+There are several functions that an Attribute Set can override to deal with the way that an Attribute responds when a Gameplay Effect attempts to modify it. As an example, the "Health" Attribute from our sample `USimpleAttributeSet` can store a floating-point value, and that value can be accessed or changed by the Gameplay Ability System, but nothing actually happens when the Health value drops to zero, and there is nothing to prevent it from dropping below zero. To make the "Health" Attribute behave the way we want it to, the Attribute Set itself can step in by overriding several virtual functions that handle attempted modifications to any of its Attributes. The following functions are commonly overridden by Attribute Sets:
+
+| Function Name | Purpose |
+| --- | --- |
+| `PreAttributeChange / PreAttributeBaseChange` | These functions are called just before modifications to an Attribute. They are intended to enforce rules on the Attribute's value, such as "Health must be between 0 and MaxHealth", and should not trigger in-game reactions to Attribute changes. |
+| `PreGameplayEffectExecute` | Just before modifying an Attribute's value, this function can reject or alter the proposed modification. |
+| `PostGameplayEffectExecute`| Immediately after modifying an Attribute's value, this function can react to the change. This often includes clamping the final value of the Attribute, or triggering an in-game reaction to the new value, like dying when the "health" Attribute falls to zero. |
+
+

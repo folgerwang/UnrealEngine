@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleVertexFactory.h: Particle vertex factory definitions.
@@ -12,50 +12,93 @@
 #include "NiagaraVertexFactory.h"
 #include "NiagaraDataSet.h"
 #include "SceneView.h"
-#include "NiagaraGlobalReadBuffer.h"
 
 class FMaterial;
 
 /**
  * Uniform buffer for particle sprite vertex factories.
  */
-BEGIN_UNIFORM_BUFFER_STRUCT( FNiagaraSpriteUniformParameters, NIAGARAVERTEXFACTORIES_API)
-	UNIFORM_MEMBER_EX( FMatrix, LocalToWorld, EShaderPrecisionModifier::Half)
-	UNIFORM_MEMBER_EX( FMatrix, LocalToWorldInverseTransposed, EShaderPrecisionModifier::Half)
-	UNIFORM_MEMBER_EX( FVector, CustomFacingVectorMask, EShaderPrecisionModifier::Half)
-	UNIFORM_MEMBER_EX( FVector4, TangentSelector, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( FVector4, NormalsSphereCenter, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( FVector4, NormalsCylinderUnitDirection, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( FVector4, SubImageSize, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( FVector, CameraFacingBlend, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( float, RemoveHMDRoll, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER( FVector4, MacroUVParameters )
-	UNIFORM_MEMBER_EX( float, RotationScale, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( float, RotationBias, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( float, NormalsType, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( float, DeltaSeconds, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER_EX( FVector2D, PivotOffset, EShaderPrecisionModifier::Half )
-	UNIFORM_MEMBER(int, PositionDataOffset)
-	UNIFORM_MEMBER(int, VelocityDataOffset)
-	UNIFORM_MEMBER(int, RotationDataOffset)
-	UNIFORM_MEMBER(int, SizeDataOffset)
-	UNIFORM_MEMBER(int, SubimageDataOffset)
-	UNIFORM_MEMBER(int, ColorDataOffset)
-	UNIFORM_MEMBER(int, MaterialParamDataOffset)
-	UNIFORM_MEMBER(int, MaterialParam1DataOffset)
-	UNIFORM_MEMBER(int, MaterialParam2DataOffset)
-	UNIFORM_MEMBER(int, MaterialParam3DataOffset)
-	UNIFORM_MEMBER(int, FacingDataOffset)
-	UNIFORM_MEMBER(int, AlignmentDataOffset)
-	UNIFORM_MEMBER(int, SubImageBlendMode)
-	UNIFORM_MEMBER(int, CameraOffsetDataOffset)
-	UNIFORM_MEMBER(int, UVScaleDataOffset)
-	UNIFORM_MEMBER(int, NormalizedAgeDataOffset)
-	UNIFORM_MEMBER(int, MaterialRandomDataOffset)
-	UNIFORM_MEMBER(FVector4, DefaultPos)
-	END_UNIFORM_BUFFER_STRUCT(FNiagaraSpriteUniformParameters)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT( FNiagaraSpriteUniformParameters, NIAGARAVERTEXFACTORIES_API)
+	SHADER_PARAMETER_EX( FMatrix, LocalToWorld, EShaderPrecisionModifier::Half)
+	SHADER_PARAMETER_EX( FMatrix, LocalToWorldInverseTransposed, EShaderPrecisionModifier::Half)
+	SHADER_PARAMETER_EX( FVector, CustomFacingVectorMask, EShaderPrecisionModifier::Half)
+	SHADER_PARAMETER_EX( FVector4, TangentSelector, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( FVector4, NormalsSphereCenter, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( FVector4, NormalsCylinderUnitDirection, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( FVector4, SubImageSize, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( FVector, CameraFacingBlend, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( float, RemoveHMDRoll, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER( FVector4, MacroUVParameters )
+	SHADER_PARAMETER_EX( float, RotationScale, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( float, RotationBias, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( float, NormalsType, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( float, DeltaSeconds, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER_EX( FVector2D, PivotOffset, EShaderPrecisionModifier::Half )
+	SHADER_PARAMETER(int, PositionDataOffset)
+	SHADER_PARAMETER(int, VelocityDataOffset)
+	SHADER_PARAMETER(int, RotationDataOffset)
+	SHADER_PARAMETER(int, SizeDataOffset)
+	SHADER_PARAMETER(int, SubimageDataOffset)
+	SHADER_PARAMETER(int, ColorDataOffset)
+	SHADER_PARAMETER(int, MaterialParamDataOffset)
+	SHADER_PARAMETER(int, MaterialParam1DataOffset)
+	SHADER_PARAMETER(int, MaterialParam2DataOffset)
+	SHADER_PARAMETER(int, MaterialParam3DataOffset)
+	SHADER_PARAMETER(int, FacingDataOffset)
+	SHADER_PARAMETER(int, AlignmentDataOffset)
+	SHADER_PARAMETER(int, SubImageBlendMode)
+	SHADER_PARAMETER(int, CameraOffsetDataOffset)
+	SHADER_PARAMETER(int, UVScaleDataOffset)
+	SHADER_PARAMETER(int, NormalizedAgeDataOffset)
+	SHADER_PARAMETER(int, MaterialRandomDataOffset)
+	SHADER_PARAMETER(FVector4, DefaultPos)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 typedef TUniformBufferRef<FNiagaraSpriteUniformParameters> FNiagaraSpriteUniformBufferRef;
+
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FNiagaraSpriteVFLooseParameters, NIAGARAVERTEXFACTORIES_API)
+	SHADER_PARAMETER(uint32, NumCutoutVerticesPerFrame)
+	SHADER_PARAMETER(uint32, NiagaraFloatDataOffset)
+	SHADER_PARAMETER(uint32, NiagaraFloatDataStride)
+	SHADER_PARAMETER(uint32, ParticleAlignmentMode)
+	SHADER_PARAMETER(uint32, ParticleFacingMode)
+	SHADER_PARAMETER(uint32, SortedIndicesOffset)
+	SHADER_PARAMETER_SRV(Buffer<float2>, CutoutGeometry)
+	SHADER_PARAMETER_SRV(Buffer<float>, NiagaraParticleDataFloat)
+	SHADER_PARAMETER_SRV(Buffer<int>, SortedIndices)
+	SHADER_PARAMETER_SRV(Buffer<uint>, IndirectArgsBuffer)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
+typedef TUniformBufferRef<FNiagaraSpriteVFLooseParameters> FNiagaraSpriteVFLooseParametersRef;
+
+class FNiagaraNullSubUVCutoutVertexBuffer : public FVertexBuffer
+{
+public:
+	/**
+	 * Initialize the RHI for this rendering resource
+	 */
+	virtual void InitRHI() override
+	{
+		// create a static vertex buffer
+		FRHIResourceCreateInfo CreateInfo;
+		void* BufferData = nullptr;
+		VertexBufferRHI = RHICreateAndLockVertexBuffer(sizeof(FVector2D) * 4, BUF_Static | BUF_ShaderResource, CreateInfo, BufferData);
+		FMemory::Memzero(BufferData, sizeof(FVector2D) * 4);
+		RHIUnlockVertexBuffer(VertexBufferRHI);
+
+		VertexBufferSRV = RHICreateShaderResourceView(VertexBufferRHI, sizeof(FVector2D), PF_G32R32F);
+	}
+
+	virtual void ReleaseRHI() override
+	{
+		VertexBufferSRV.SafeRelease();
+		FVertexBuffer::ReleaseRHI();
+	}
+
+	FShaderResourceViewRHIRef VertexBufferSRV;
+};
+
+extern NIAGARAVERTEXFACTORIES_API TGlobalResource<FNiagaraNullSubUVCutoutVertexBuffer> GFNiagaraNullSubUVCutoutVertexBuffer;
 
 /**
  * Vertex factory for rendering particle sprites.
@@ -69,18 +112,20 @@ public:
 	/** Default constructor. */
 	FNiagaraSpriteVertexFactory(ENiagaraVertexFactoryType InType, ERHIFeatureLevel::Type InFeatureLevel )
 		: FNiagaraVertexFactoryBase(InType, InFeatureLevel),
+		LooseParameterUniformBuffer(nullptr),
 		NumVertsInInstanceBuffer(0),
 		NumCutoutVerticesPerFrame(0),
 		CutoutGeometrySRV(nullptr),
 		AlignmentMode(0),
 		FacingMode(0),
 		FloatDataOffset(0),
-		FloatDataStride(0),
+		FloatDataStride(0),		
 		SortedIndicesOffset(0)
 	{}
 
 	FNiagaraSpriteVertexFactory()
 		: FNiagaraVertexFactoryBase(NVFT_MAX, ERHIFeatureLevel::Num),
+		LooseParameterUniformBuffer(nullptr),
 		NumVertsInInstanceBuffer(0),
 		NumCutoutVerticesPerFrame(0),
 		CutoutGeometrySRV(nullptr),
@@ -89,6 +134,7 @@ public:
 		FloatDataOffset(0),
 		FloatDataStride(0),
 		SortedIndicesOffset(0)
+		
 	{}
 
 	// FRenderResource interface.
@@ -104,7 +150,7 @@ public:
 	/**
 	 * Can be overridden by FVertexFactory subclasses to modify their compile environment just before compilation occurs.
 	 */
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
+	static void ModifyCompilationEnvironment(const FVertexFactoryType* Type, EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
 	
 	void SetTexCoordBuffer(const FVertexBuffer* InTexCoordBuffer);
 
@@ -200,6 +246,8 @@ public:
 	 * Construct shader parameters for this type of vertex factory.
 	 */
 	static FVertexFactoryShaderParameters* ConstructShaderParameters(EShaderFrequency ShaderFrequency);
+
+	FUniformBufferRHIRef LooseParameterUniformBuffer;
 
 protected:
 	/** Initialize streams for this vertex factory. */

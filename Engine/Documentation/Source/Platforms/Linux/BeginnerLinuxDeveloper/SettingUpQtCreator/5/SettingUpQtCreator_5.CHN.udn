@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3719888
 Availability: Public
-Title: 5 - Creating a Blueprint Project with Qt Creator
+Title: 5 - 使用Qt Creator创建蓝图项目
 Crumbs:%ROOT%
-Description:Learn how to create and configure a Blueprint project from your IDE.
+Description:学习如何从您的集成开发环境（IDE）创建和配置蓝图项目。
 Version: 4.14
 type:how to
 parent:Platforms/Linux/BeginnerLinuxDeveloper/SettingUpQtCreator
@@ -12,67 +12,64 @@ SkillLevel:Beginner
 
 [NAV]
 
-You can create either Blueprint or CPP projects from the [](Engine/Basics/Projects/Browser) in UE4. In this section, we'll show you how to create a new Blueprint project from UE4. 
-For the purposes of this guide, let's suppose that you want to 
-create a new Blueprint game with a flying mechanic. Fortunately, UE4 is shipped with the perfect template for you! 
+您可以在UE4的[](Engine/Basics/Projects/Browser)中创建蓝图或CPP项目。在本节中，我们将介绍如何在UE4中创建新的蓝图项目。 
+对于本指南而言，我们假设您要创建具有飞行装置的新蓝图游戏。幸运的是，UE4发行时随附了合适的模板，可供您使用。 
 
-1.	While in the **New Project** menu, make sure that the **Blueprint** menu is open.
+1. 	位于 **新项目（New Project）** 菜单中时，请确保 **蓝图（Blueprint）** 菜单处于打开状态。
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step19.png)(w:720)](SetupIDE_Step19.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		单击查看大图。
 	[/REGION]
 
-1.	Select the **Flying** Blueprint project template and name the project `FlyingBP_Prj`.
+1. 	选择 **Flying** 蓝图项目模板并将项目命名为`FlyingBP_Prj`。
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step20.png)(w:720)](SetupIDE_Step20.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		单击查看大图。
 	[/REGION]
 
-1.	Finally, click the **Create Project** button to create your new Blueprint project using the Flying Blueprint project template.
+1. 	最后，单击 **创建项目（Create Project）** 按钮来使用“Flying”蓝图项目模板创建新的蓝图项目。
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step21.png)(w:720)](SetupIDE_Step21.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		单击查看大图。
 	[/REGION]
 
 	[REGION:note]
-	Depending your system specifications, it may take a couple of minutes for UE4 to create your new Blueprint project.
+	根据系统配置，UE4可能需要花费几分钟来创建新的蓝图项目。
 	[/REGION]
 	
-## End Result
+## 最终结果
 
 [REGION:lightbox]
 	[![](SetupIDE_Step22.png)(w:720)](SetupIDE_Step22.png)
 [/REGION]
 
 [REGION:caption]
-	Click for full image.
+	单击查看大图。
 [/REGION]
 
-UE4 will launch your new Blueprint project without any additional steps. 
+UE4将启动新建的蓝图项目，无需任何其他步骤。 
 
 [REGION:lightbox]
 	[![](SetupIDE_Step23.png)(w:720)](SetupIDE_Step23.png)
 [/REGION]
 
 [REGION:caption]
-	Click for full image.
+	单击查看大图。
 [/REGION]
 
-Congratulations! You've just created a new Blueprint project from UE4 with the help of a Blueprint project template. 
-Creating any type of Blueprint project, with or without a project template, is now within your reach. There are times; 
-however, when you'll want to create and modify the source code driving 
-your game. In the next section, we'll show you how to create a new CPP project from UE4.
+恭喜！借助蓝图项目模板，您已在UE4中创建了新的蓝图项目。 
+现在您可以在使用或不使用项目模板的情况下创建任何类型的蓝图项目。但是，在某些情况下，您可能想要创建并修改驱动游戏的代码。在下一节中，我们将介绍如何在UE4中创建新的CPP项目。
 
 [NAV]

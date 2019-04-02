@@ -2,7 +2,7 @@
  * Copyright 2016-2017 Nikolay Aleksiev. All rights reserved.
  * License: https://github.com/naleksiev/mtlpp/blob/master/LICENSE
  */
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // Modifications for Unreal Engine
 
 #include <Metal/MTLComputePipeline.h>
@@ -30,6 +30,13 @@ namespace mtlpp
 	ArgumentDescriptor::ArgumentDescriptor()
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
 	: ns::Object<MTLArgumentDescriptor*>([MTLArgumentDescriptor new], ns::Ownership::Assign)
+#endif
+	{
+	}
+	
+	ArgumentDescriptor::ArgumentDescriptor(ns::Ownership const retain)
+#if MTLPP_IS_AVAILABLE(10_13, 11_0)
+	: ns::Object<MTLArgumentDescriptor*>(nil, retain)
 #endif
 	{
 	}
@@ -91,6 +98,54 @@ namespace mtlpp
 		return [(MTLArgumentDescriptor*)m_ptr constantBlockAlignment];
 #else
 		return 0;
+#endif
+	}
+	
+	void ArgumentDescriptor::SetDataType(DataType Type)
+	{
+		Validate();
+#if MTLPP_IS_AVAILABLE(10_13, 11_0)
+		m_ptr.dataType = (MTLDataType)Type;
+#endif
+	}
+	
+	void ArgumentDescriptor::SetIndex(NSUInteger Index)
+	{
+		Validate();
+#if MTLPP_IS_AVAILABLE(10_13, 11_0)
+		m_ptr.index = Index;
+#endif
+	}
+	
+	void ArgumentDescriptor::SetArrayLength(NSUInteger Len)
+	{
+		Validate();
+#if MTLPP_IS_AVAILABLE(10_13, 11_0)
+		m_ptr.arrayLength = Len;
+#endif
+	}
+	
+	void ArgumentDescriptor::SetAccess(ArgumentAccess Access)
+	{
+		Validate();
+#if MTLPP_IS_AVAILABLE(10_13, 11_0)
+		m_ptr.access = (MTLArgumentAccess)Access;
+#endif
+	}
+	
+	void ArgumentDescriptor::SetTextureType(TextureType Type)
+	{
+		Validate();
+#if MTLPP_IS_AVAILABLE(10_13, 11_0)
+		m_ptr.textureType = (MTLTextureType)Type;
+#endif
+	}
+	
+	void ArgumentDescriptor::SetConstantBlockAlignment(NSUInteger Align)
+	{
+		Validate();
+#if MTLPP_IS_AVAILABLE(10_13, 11_0)
+		m_ptr.constantBlockAlignment = Align;
 #endif
 	}
 	

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -96,8 +96,12 @@ private:
 
 	void HandleSelectionChanged(const TArrayView<TSharedPtr<ISkeletonTreeItem>>& InSelectedItems, ESelectInfo::Type InSelectInfo);
 
-	void HandleReimportMesh();
-	void HandleReimportAllMesh();
+	void HandleReimportMesh(int32 SourceFileIndex = INDEX_NONE);
+	void HandleReimportMeshWithNewFile(int32 SourceFileIndex = INDEX_NONE);
+	
+	bool HandleReimportMeshInternal(int32 SourceFileIndex = INDEX_NONE, bool bWithNewFile = false);
+	void HandleReimportAllMesh(int32 SourceFileIndex = INDEX_NONE);
+	void HandleReimportAllMeshWithNewFile(int32 SourceFileIndex = INDEX_NONE);
 
 	/** Callback for toggling UV drawing in the viewport */
 	void ToggleMeshSectionSelection();

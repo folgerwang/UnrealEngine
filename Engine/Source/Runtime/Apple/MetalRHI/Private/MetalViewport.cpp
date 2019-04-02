@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MetalViewport.cpp: Metal viewport RHI implementation.
@@ -177,15 +177,13 @@ void FMetalViewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen
 	{
 		// Really need to flush the RHI thread & GPU here...
 		AddRef();
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-									FlushPendingRHICommands,
-									FMetalViewport*, Viewport, this,
-									{
-										GRHICommandList.GetImmediateCommandList().BlockUntilGPUIdle();
-										Viewport->ReleaseDrawable();
-										Viewport->Release();
-									}
-									);
+		ENQUEUE_RENDER_COMMAND(FlushPendingRHICommands)(
+			[Viewport = this](FRHICommandListImmediate& RHICmdList)
+			{
+				GRHICommandList.GetImmediateCommandList().BlockUntilGPUIdle();
+				Viewport->ReleaseDrawable();
+				Viewport->Release();
+			});
 		
 		// Issue a fence command to the rendering thread and wait for it to complete.
 		FRenderCommandFence Fence;
@@ -364,7 +362,13 @@ FMetalTexture FMetalViewport::GetDrawableTexture(EMetalViewportAccessFlag Access
 		}
 	}
 #endif
+	DrawableTextures[Accessor] = CurrentDrawable.texture;
 	return CurrentDrawable.texture;
+}
+
+ns::AutoReleased<FMetalTexture> FMetalViewport::GetCurrentTexture(EMetalViewportAccessFlag Accessor)
+{
+	return DrawableTextures[Accessor];
 }
 
 void FMetalViewport::ReleaseDrawable()
@@ -504,23 +508,45 @@ void FMetalViewport::Present(FMetalCommandQueue& CommandQueue, bool bLockToVsync
 #endif
 						};
 						
+#if WITH_EDITOR			// The Editor needs the older way to present otherwise we end up with bad behaviour of the completion handlers that causes GPU timeouts.
+						if (GIsEditor)
+						{
 #if !PLATFORM_IOS
-						mtlpp::CommandBufferHandler H = [LocalDrawable](mtlpp::CommandBuffer const&) {
+							mtlpp::CommandBufferHandler H = [LocalDrawable](mtlpp::CommandBuffer const&)
+							{
 #else
-						mtlpp::CommandBufferHandler H = [LocalDrawable, MinPresentDuration, FramePace](mtlpp::CommandBuffer const&) {
+							mtlpp::CommandBufferHandler H = [LocalDrawable, MinPresentDuration, FramePace](mtlpp::CommandBuffer const&)
+							{
+								if (MinPresentDuration && GEnablePresentPacing)
+								{
+									[LocalDrawable presentAfterMinimumDuration:1.0f/(float)FramePace];
+								}
+								else
+#endif
+								{
+									[LocalDrawable present];
+								};
+							};
+								
+							CurrentCommandBuffer.AddCompletedHandler(C);
+							CurrentCommandBuffer.AddScheduledHandler(H);
+						}
+						else
+#endif
+						{
+							CurrentCommandBuffer.AddCompletedHandler(C);
+#if PLATFORM_IOS
 							if (MinPresentDuration && GEnablePresentPacing)
 							{
-								[LocalDrawable presentAfterMinimumDuration:1.0f/(float)FramePace];
+								CurrentCommandBuffer.PresentAfterMinimumDuration(LocalDrawable, 1.0f/(float)FramePace);
 							}
 							else
 #endif
 							{
-								[LocalDrawable present];
-							};
-						};
+								CurrentCommandBuffer.Present(LocalDrawable);
+							}
+						}
 						
-						CurrentCommandBuffer.AddCompletedHandler(C);
-						CurrentCommandBuffer.AddScheduledHandler(H);
 						
 						METAL_GPUPROFILE(Stats->End(CurrentCommandBuffer));
 						CommandQueue.CommitCommandBuffer(CurrentCommandBuffer);
@@ -614,12 +640,12 @@ void FMetalRHIImmediateCommandContext::RHIBeginDrawingViewport(FViewportRHIParam
 	// Set the render target and viewport.
 	if (RenderTargetRHI)
 	{
-		FRHIRenderTargetView RTV(RenderTargetRHI, ERenderTargetLoadAction::ELoad);
+		FRHIRenderTargetView RTV(RenderTargetRHI, GIsEditor ? ERenderTargetLoadAction::EClear : ERenderTargetLoadAction::ELoad);
 		RHISetRenderTargets(1, &RTV, nullptr, 0, NULL);
 	}
 	else
 	{
-		FRHIRenderTargetView RTV(Viewport->GetBackBuffer(EMetalViewportAccessRHI), ERenderTargetLoadAction::ELoad);
+		FRHIRenderTargetView RTV(Viewport->GetBackBuffer(EMetalViewportAccessRHI), GIsEditor ? ERenderTargetLoadAction::EClear : ERenderTargetLoadAction::ELoad);
 		RHISetRenderTargets(1, &RTV, nullptr, 0, NULL);
 	}
 	}

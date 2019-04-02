@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SDetailSingleItemRow.h"
 #include "ObjectPropertyNode.h"
@@ -12,6 +12,7 @@
 #include "DetailGroup.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "Editor.h"
+#include "PropertyHandleImpl.h"
 
 
 void SConstrainedBox::Construct(const FArguments& InArgs)
@@ -198,7 +199,9 @@ FReply SDetailSingleItemRow::OnArrayDrop(const FDragDropEvent& DragDropEvent)
 				bool bOriginalSwappingExpansion = SwappingPropertyNode->HasNodeFlags(EPropertyNodeFlags::Expanded) != 0;
 				SwappablePropertyNode->SetNodeFlags(EPropertyNodeFlags::Expanded, bOriginalSwappingExpansion);
 				SwappingPropertyNode->SetNodeFlags(EPropertyNodeFlags::Expanded, bOriginalSwappableExpansion);
-				OwnerTreeNode.Pin()->GetDetailsView()->SaveExpandedItems(SwappablePropertyNode->GetParentNodeSharedPtr().ToSharedRef());
+
+				IDetailsViewPrivate* DetailsView = OwnerTreeNode.Pin()->GetDetailsView();
+				DetailsView->SaveExpandedItems(SwappablePropertyNode->GetParentNodeSharedPtr().ToSharedRef());
 				FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "MoveRow", "Move Row"));
 
 				SwappingHandle->GetParentHandle()->NotifyPreChange();
@@ -208,14 +211,36 @@ FReply SDetailSingleItemRow::OnArrayDrop(const FDragDropEvent& DragDropEvent)
 
 				FPropertyChangedEvent MoveEvent(SwappingHandle->GetParentHandle()->GetProperty(), EPropertyChangeType::Unspecified);
 				SwappingHandle->GetParentHandle()->NotifyPostChange();
-				if (OwnerTreeNode.Pin()->GetDetailsView()->GetPropertyUtilities().IsValid())
+				if (DetailsView->GetPropertyUtilities().IsValid())
 				{
-					OwnerTreeNode.Pin()->GetDetailsView()->GetPropertyUtilities()->NotifyFinishedChangingProperties(MoveEvent);
+					DetailsView->GetPropertyUtilities()->NotifyFinishedChangingProperties(MoveEvent);
 				}
 			}
 		}
 	}
 	return FReply::Handled();
+}
+
+TSharedPtr<FPropertyNode> SDetailSingleItemRow::GetCopyPastePropertyNode() const
+{
+	TSharedPtr<FPropertyNode> PropertyNode = Customization->GetPropertyNode();
+	if (!PropertyNode.IsValid() && Customization->DetailGroup.IsValid())
+	{
+		PropertyNode = Customization->DetailGroup->GetHeaderPropertyNode();
+	}
+
+	// See if a custom builder has an associated node
+	if (!PropertyNode.IsValid() && Customization->HasCustomBuilder())
+	{
+		TSharedPtr<IPropertyHandle> PropertyHandle = Customization->CustomBuilderRow->GetPropertyHandle();
+
+		if (PropertyHandle.IsValid())
+		{
+			PropertyNode = StaticCastSharedPtr<FPropertyHandleBase>(PropertyHandle)->GetPropertyNode();
+		}
+	}
+
+	return PropertyNode;
 }
 
 const FSlateBrush* SDetailSingleItemRow::GetFavoriteButtonBrush() const
@@ -475,12 +500,7 @@ bool SDetailSingleItemRow::OnContextMenuOpening(FMenuBuilder& MenuBuilder)
 	}
 	else
 	{
-		TSharedPtr<FPropertyNode> PropertyNode = Customization->GetPropertyNode();
-		if (!PropertyNode.IsValid() && Customization->DetailGroup.IsValid())
-		{
-			PropertyNode = Customization->DetailGroup->GetHeaderPropertyNode();
-		}
-
+		TSharedPtr<FPropertyNode> PropertyNode = GetCopyPastePropertyNode();
 		static const FName DisableCopyPasteMetaDataName("DisableCopyPaste");
 		if (PropertyNode.IsValid() && !PropertyNode->ParentOrSelfHasMetaData(DisableCopyPasteMetaDataName))
 		{
@@ -514,15 +534,26 @@ bool SDetailSingleItemRow::OnContextMenuOpening(FMenuBuilder& MenuBuilder)
 		bAddedMenuEntry = true;
 	}
 
-	for(const FDetailWidgetRow::FCustomMenuData& CustomMenuData : Customization->GetWidgetRow().CustomMenuItems)
+	const TArray<FDetailWidgetRow::FCustomMenuData>& CustomMenuActions = Customization->GetWidgetRow().CustomMenuItems;
+	if (CustomMenuActions.Num() > 0)
 	{
-		//Add the menu entry
-		MenuBuilder.AddMenuEntry(
-			CustomMenuData.Name,
-			CustomMenuData.Tooltip,
-			CustomMenuData.SlateIcon,
-			CustomMenuData.Action);
-		bAddedMenuEntry = true;
+		// Hide separator line if it only contains the SearchWidget, making the next 2 elements the top of the list
+		if (MenuBuilder.GetMultiBox()->GetBlocks().Num() > 1)
+		{
+			MenuBuilder.AddMenuSeparator();
+		}
+
+		for (const FDetailWidgetRow::FCustomMenuData& CustomMenuData : CustomMenuActions)
+		{
+			//Add the menu entry
+			MenuBuilder.AddMenuEntry(
+				CustomMenuData.Name,
+				CustomMenuData.Tooltip,
+				CustomMenuData.SlateIcon,
+				CustomMenuData.Action);
+			bAddedMenuEntry = true;
+		}
+
 	}
 
 	return bAddedMenuEntry;
@@ -538,11 +569,7 @@ void SDetailSingleItemRow::OnCopyProperty()
 {
 	if (OwnerTreeNode.IsValid())
 	{
-		TSharedPtr<FPropertyNode> PropertyNode = Customization->GetPropertyNode();
-		if (!PropertyNode.IsValid() && Customization->DetailGroup.IsValid())
-		{
-			PropertyNode = Customization->DetailGroup->GetHeaderPropertyNode();
-		}
+		TSharedPtr<FPropertyNode> PropertyNode = GetCopyPastePropertyNode();
 		if (PropertyNode.IsValid())
 		{
 			TSharedPtr<IPropertyHandle> Handle = PropertyEditorHelpers::GetPropertyHandle(PropertyNode.ToSharedRef(), OwnerTreeNode.Pin()->GetDetailsView()->GetNotifyHook(), OwnerTreeNode.Pin()->GetDetailsView()->GetPropertyUtilities());
@@ -563,7 +590,7 @@ void SDetailSingleItemRow::OnPasteProperty()
 
 	if (!ClipboardContent.IsEmpty() && OwnerTreeNode.IsValid())
 	{
-		TSharedPtr<FPropertyNode> PropertyNode = Customization->GetPropertyNode();
+		TSharedPtr<FPropertyNode> PropertyNode = GetCopyPastePropertyNode();
 		if (!PropertyNode.IsValid() && Customization->DetailGroup.IsValid())
 		{
 			PropertyNode = Customization->DetailGroup->GetHeaderPropertyNode();
@@ -573,6 +600,56 @@ void SDetailSingleItemRow::OnPasteProperty()
 			TSharedPtr<IPropertyHandle> Handle = PropertyEditorHelpers::GetPropertyHandle(PropertyNode.ToSharedRef(), OwnerTreeNode.Pin()->GetDetailsView()->GetNotifyHook(), OwnerTreeNode.Pin()->GetDetailsView()->GetPropertyUtilities());
 
 			Handle->SetValueFromFormattedString(ClipboardContent);
+			TArray<TSharedPtr<IPropertyHandle>> CopiedHandles;
+
+			CopiedHandles.Add(Handle);
+
+			while (CopiedHandles.Num() > 0)
+			{
+
+				Handle = CopiedHandles.Pop();
+
+				// Add all child properties to the list so we can check them next
+				uint32 NumChildren;
+				Handle->GetNumChildren(NumChildren);
+				for (uint32 ChildIndex = 0; ChildIndex < NumChildren; ChildIndex++)
+				{
+					CopiedHandles.Add(Handle->GetChildHandle(ChildIndex));
+				}
+
+				UObject* NewValueAsObject = nullptr;
+				if (FPropertyAccess::Success == Handle->GetValue(NewValueAsObject))
+				{
+				
+					// if the object is instanced, then we need to do a deep copy.
+					if (Handle->GetProperty() != nullptr
+						&& (Handle->GetProperty()->PropertyFlags & (CPF_InstancedReference | CPF_ContainsInstancedReference)) != 0)
+					{
+						UObject* DuplicateOuter = nullptr;
+
+						TArray<UObject*> Outers;
+						Handle->GetOuterObjects(Outers);
+
+						// Update the duplicate's outer to point to this outer. The source's outer may be some other object/asset
+						// but we want this to own the duplicate.
+						if (Outers.Num() > 0)
+						{
+							DuplicateOuter = Outers[0];
+						}
+
+						// This does a deep copy of NewValueAsObject. It's subobjects and property data will be 
+						// copied.
+						UObject* DuplicateOfNewValue = DuplicateObject<UObject>(NewValueAsObject, DuplicateOuter);
+						TArray<FString> DuplicateValueAsString;
+						DuplicateValueAsString.Add(DuplicateOfNewValue->GetPathName());
+						Handle->SetPerObjectValues(DuplicateValueAsString);
+
+					}
+				}
+			}
+
+			// Need to refresh the details panel in case a property was pasted over another.
+			OwnerTreeNode.Pin()->GetDetailsView()->ForceRefresh();
 		}
 	}
 }

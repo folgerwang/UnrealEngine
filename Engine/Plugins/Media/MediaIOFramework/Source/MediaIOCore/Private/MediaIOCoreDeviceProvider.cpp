@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "IMediaIOCoreDeviceProvider.h"
 #include "MediaIOCoreCommonDisplayMode.h"
@@ -7,20 +7,24 @@
 #define LOCTEXT_NAMESPACE "MediaIOCoreDeviceProvider"
 
 
-FText IMediaIOCoreDeviceProvider::GetTransportName(EMediaIOSDITransportType InLinkType, EMediaIOQuadLinkTransportType InQuadLinkType)
+FText IMediaIOCoreDeviceProvider::GetTransportName(EMediaIOTransportType InLinkType, EMediaIOQuadLinkTransportType InQuadLinkType)
 {
 	FText Transport = LOCTEXT("Single", "single");
-	if (InLinkType == EMediaIOSDITransportType::DualLink)
+	if (InLinkType == EMediaIOTransportType::DualLink)
 	{
 		Transport = LOCTEXT("Dual", "dual");
 	}
-	else if (InLinkType == EMediaIOSDITransportType::QuadLink && InQuadLinkType == EMediaIOQuadLinkTransportType::SquareDivision)
+	else if (InLinkType == EMediaIOTransportType::QuadLink && InQuadLinkType == EMediaIOQuadLinkTransportType::SquareDivision)
 	{
 		Transport = LOCTEXT("QuadSquare", "quadSQ");
 	}
-	else if (InLinkType == EMediaIOSDITransportType::QuadLink && InQuadLinkType == EMediaIOQuadLinkTransportType::TwoSampleInterleave)
+	else if (InLinkType == EMediaIOTransportType::QuadLink && InQuadLinkType == EMediaIOQuadLinkTransportType::TwoSampleInterleave)
 	{
 		Transport = LOCTEXT("QuadTSI", "quadSI");
+	}
+	else if (InLinkType == EMediaIOTransportType::HDMI)
+	{
+		Transport = LOCTEXT("HDMI", "HDMI");
 	}
 	return Transport;
 }
@@ -76,12 +80,37 @@ FText IMediaIOCoreDeviceProvider::ToText(const FMediaIOMode& InMode) const
 }
 
 
+FText IMediaIOCoreDeviceProvider::ToText(const FMediaIOInputConfiguration& InConfiguration) const
+{
+	if (InConfiguration.IsValid())
+	{
+		FText KeyText = FText::GetEmpty();
+		if (InConfiguration.InputType == EMediaIOInputType::FillAndKey)
+		{
+			KeyText = FText::Format(LOCTEXT("FMediaIOInputConfigurationKeyToText", " - Key[{0}{1}]")
+				, GetTransportName(InConfiguration.MediaConfiguration.MediaConnection.TransportType, InConfiguration.MediaConfiguration.MediaConnection.QuadTransportType)
+				, FText::AsNumber(InConfiguration.KeyPortIdentifier)
+			);
+		}
+
+		return FText::Format(LOCTEXT("FMediaIOInputConfigurationToText", "Fill - {0} [device{1}/{2}{3}/{4}{5}]")
+			, FText::FromName(InConfiguration.MediaConfiguration.MediaConnection.Device.DeviceName)
+			, FText::AsNumber(InConfiguration.MediaConfiguration.MediaConnection.Device.DeviceIdentifier)
+			, GetTransportName(InConfiguration.MediaConfiguration.MediaConnection.TransportType, InConfiguration.MediaConfiguration.MediaConnection.QuadTransportType)
+			, FText::AsNumber(InConfiguration.MediaConfiguration.MediaConnection.PortIdentifier)
+			, InConfiguration.MediaConfiguration.MediaMode.GetModeName()
+			, KeyText
+		);
+	}
+	return LOCTEXT("Invalid", "<Invalid>");
+}
+
+
 FText IMediaIOCoreDeviceProvider::ToText(const FMediaIOOutputConfiguration& InConfiguration) const
 {
 	if (InConfiguration.IsValid())
 	{
 		FText KeyText = FText::GetEmpty();
-
 		if (InConfiguration.OutputType == EMediaIOOutputType::FillAndKey)
 		{
 			KeyText = FText::Format(LOCTEXT("FMediaIOOutputConfigurationKeyToText", " - Key[{0}{1}]")

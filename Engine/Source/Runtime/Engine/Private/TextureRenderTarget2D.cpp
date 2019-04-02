@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	TextureRenderTarget2D.cpp: UTextureRenderTarget2D implementation
@@ -35,7 +35,7 @@ UTextureRenderTarget2D::UTextureRenderTarget2D(const FObjectInitializer& ObjectI
 FTextureResource* UTextureRenderTarget2D::CreateResource()
 {
 	UWorld* World = GetWorld();
-	ERHIFeatureLevel::Type FeatureLevel = World != nullptr ? World->FeatureLevel : GMaxRHIFeatureLevel;
+	ERHIFeatureLevel::Type FeatureLevel = World != nullptr ? World->FeatureLevel.GetValue() : GMaxRHIFeatureLevel;
 	if (FeatureLevel <= ERHIFeatureLevel::ES2)
 	{
 		EPixelFormat Format = GetFormat();
@@ -126,14 +126,14 @@ void UTextureRenderTarget2D::ResizeTarget(uint32 InSizeX, uint32 InSizeY)
 
 		if (Resource)
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-				ResizeRenderTarget,
-				FTextureRenderTarget2DResource*, Resource, static_cast<FTextureRenderTarget2DResource*>(Resource),
-				int32, NewSizeX, SizeX,
-				int32, NewSizeY, SizeY,
+			FTextureRenderTarget2DResource* InResource = static_cast<FTextureRenderTarget2DResource*>(Resource);
+			int32 NewSizeX = SizeX;
+			int32 NewSizeY = SizeY;
+			ENQUEUE_RENDER_COMMAND(ResizeRenderTarget)(
+				[InResource, NewSizeX, NewSizeY](FRHICommandListImmediate& RHICmdList)
 				{
-					Resource->Resize(NewSizeX, NewSizeY);
-					Resource->UpdateDeferredResource(RHICmdList, true);
+					InResource->Resize(NewSizeX, NewSizeY);
+					InResource->UpdateDeferredResource(RHICmdList, true);
 				}
 			);
 
@@ -150,12 +150,11 @@ void UTextureRenderTarget2D::UpdateResourceImmediate(bool bClearRenderTarget/*=t
 {
 	if (Resource)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			UpdateResourceImmediate,
-			FTextureRenderTarget2DResource*, Resource, static_cast<FTextureRenderTarget2DResource*>(Resource),
-			bool, bClearRenderTarget, bClearRenderTarget,
+		FTextureRenderTarget2DResource* InResource = static_cast<FTextureRenderTarget2DResource*>(Resource);
+		ENQUEUE_RENDER_COMMAND(UpdateResourceImmediate)(
+			[InResource, bClearRenderTarget](FRHICommandListImmediate& RHICmdList)
 			{
-				Resource->UpdateDeferredResource(RHICmdList, bClearRenderTarget);
+				InResource->UpdateDeferredResource(RHICmdList, bClearRenderTarget);
 			}
 		);
 	}
@@ -450,6 +449,11 @@ void FTextureRenderTarget2DResource::InitDynamicRHI()
 			TexCreateFlags |= TexCreate_GenerateMipCapable;
 		}
 
+		if (Owner->bCanCreateUAV)
+		{
+			TexCreateFlags |= TexCreate_UAV;
+		}
+
 		RHICreateTargetableShaderResource2D(
 			Owner->SizeX, 
 			Owner->SizeY, 
@@ -511,9 +515,13 @@ void FTextureRenderTarget2DResource::UpdateDeferredResource( FRHICommandListImme
 	{
 		RHICmdList.SetViewport(0, 0, 0.0f, TargetSizeX, TargetSizeY, 1.0f);
 		ensure(RenderTargetTextureRHI.IsValid() && (RenderTargetTextureRHI->GetClearColor() == ClearColor));
-		SetRenderTarget(RHICmdList, RenderTargetTextureRHI, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorExistingDepth, FExclusiveDepthStencil::DepthWrite_StencilWrite, true);
+
+		FRHIRenderPassInfo RPInfo(RenderTargetTextureRHI, ERenderTargetActions::Clear_Store);
+		RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearRenderTarget"));
+		RHICmdList.EndRenderPass();
 	}
  
+	// #todo-renderpasses must generate mips outside of a renderpass?
 	if (Owner->bAutoGenerateMips)
 	{
 		RHICmdList.GenerateMips(RenderTargetTextureRHI);

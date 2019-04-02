@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SColorGradientEditor.h"
 #include "Fonts/SlateFontInfo.h"
@@ -57,16 +57,16 @@ bool FGradientStopMark::IsValid( FCurveOwnerInterface& CurveOwner )
 
 bool FGradientStopMark::IsValidAlphaMark( const TArray<FRichCurveEditInfo>& Curves ) const
 {
-	const FRichCurve* AlphaCurve = Curves[3].CurveToEdit;
+	const FRealCurve* AlphaCurve = Curves[3].CurveToEdit;
 
 	return AlphaCurve->IsKeyHandleValid( AlphaKeyHandle ) && AlphaCurve->GetKeyTime( AlphaKeyHandle ) == Time;
 }
 
 bool FGradientStopMark::IsValidColorMark( const TArray<FRichCurveEditInfo>& Curves ) const
 {
-	const FRichCurve* RedCurve = Curves[0].CurveToEdit;
-	const FRichCurve* GreenCurve = Curves[1].CurveToEdit;
-	const FRichCurve* BlueCurve = Curves[2].CurveToEdit;
+	const FRealCurve* RedCurve = Curves[0].CurveToEdit;
+	const FRealCurve* GreenCurve = Curves[1].CurveToEdit;
+	const FRealCurve* BlueCurve = Curves[2].CurveToEdit;
 
 	return	RedCurve->IsKeyHandleValid( RedKeyHandle ) && RedCurve->GetKeyTime( RedKeyHandle ) == Time &&
 			GreenCurve->IsKeyHandleValid( GreenKeyHandle ) && GreenCurve->GetKeyTime( GreenKeyHandle ) == Time &&
@@ -86,9 +86,9 @@ void FGradientStopMark::SetColor( const FLinearColor& InColor, FCurveOwnerInterf
 	// Update the color component on each curve
 	if( IsValidColorMark(Curves) )
 	{
-		FRichCurve* RedCurve = Curves[0].CurveToEdit;
-		FRichCurve* GreenCurve = Curves[1].CurveToEdit;
-		FRichCurve* BlueCurve = Curves[2].CurveToEdit;
+		FRealCurve* RedCurve = Curves[0].CurveToEdit;
+		FRealCurve* GreenCurve = Curves[1].CurveToEdit;
+		FRealCurve* BlueCurve = Curves[2].CurveToEdit;
 
 		RedCurve->SetKeyValue( RedKeyHandle, InColor.R );
 		GreenCurve->SetKeyValue( GreenKeyHandle, InColor.G );
@@ -96,7 +96,7 @@ void FGradientStopMark::SetColor( const FLinearColor& InColor, FCurveOwnerInterf
 	}
 	else if( IsValidAlphaMark(Curves) )
 	{
-		FRichCurve* AlphaCurve = Curves[3].CurveToEdit;
+		FRealCurve* AlphaCurve = Curves[3].CurveToEdit;
 
 		AlphaCurve->SetKeyValue( AlphaKeyHandle, InColor.A );
 	}
@@ -109,19 +109,19 @@ void FGradientStopMark::SetTime( float NewTime, FCurveOwnerInterface& CurveOwner
 	// Update the time on each curve
 	if( IsValidColorMark(Curves) )
 	{
-		FRichCurve* RedCurve = Curves[0].CurveToEdit;
-		FRichCurve* GreenCurve = Curves[1].CurveToEdit;
-		FRichCurve* BlueCurve = Curves[2].CurveToEdit;
+		FRealCurve* RedCurve = Curves[0].CurveToEdit;
+		FRealCurve* GreenCurve = Curves[1].CurveToEdit;
+		FRealCurve* BlueCurve = Curves[2].CurveToEdit;
 
-		RedKeyHandle = RedCurve->SetKeyTime( RedKeyHandle, NewTime );
-		GreenKeyHandle = GreenCurve->SetKeyTime( GreenKeyHandle, NewTime );
-		BlueKeyHandle = BlueCurve->SetKeyTime( BlueKeyHandle, NewTime );
+		RedCurve->SetKeyTime( RedKeyHandle, NewTime );
+		GreenCurve->SetKeyTime( GreenKeyHandle, NewTime );
+		BlueCurve->SetKeyTime( BlueKeyHandle, NewTime );
 	}
 	else if( IsValidAlphaMark(Curves) )
 	{
-		FRichCurve* AlphaCurve = Curves[3].CurveToEdit;
+		FRealCurve* AlphaCurve = Curves[3].CurveToEdit;
 
-		AlphaKeyHandle = AlphaCurve->SetKeyTime( AlphaKeyHandle, NewTime );
+		AlphaCurve->SetKeyTime( AlphaKeyHandle, NewTime );
 	} 
 
 	Time = NewTime;
@@ -863,16 +863,16 @@ void SColorGradientEditor::GetGradientStopMarks( TArray<FGradientStopMark>& OutC
 	// Find Gradient stops
 
 	// Assume indices 0,1,2 hold R,G,B;
-	const FRichCurve* RedCurve = Curves[0].CurveToEdit;
-	const FRichCurve* GreenCurve = Curves[1].CurveToEdit;
-	const FRichCurve* BlueCurve = Curves[2].CurveToEdit;
-	const FRichCurve* AlphaCurve = Curves[3].CurveToEdit;
+	const FRealCurve* RedCurve = Curves[0].CurveToEdit;
+	const FRealCurve* GreenCurve = Curves[1].CurveToEdit;
+	const FRealCurve* BlueCurve = Curves[2].CurveToEdit;
+	const FRealCurve* AlphaCurve = Curves[3].CurveToEdit;
 
 	
 	// Use the red curve to check the other color channels for keys at the same time
 	for( auto It = RedCurve->GetKeyHandleIterator(); It; ++It )
 	{
-		FKeyHandle RedKeyHandle = It.Key();
+		FKeyHandle RedKeyHandle = *It;
 		float Time = RedCurve->GetKeyTime( RedKeyHandle );
 		
 		FKeyHandle GreenKeyHandle = GreenCurve->FindKey( Time );
@@ -891,7 +891,7 @@ void SColorGradientEditor::GetGradientStopMarks( TArray<FGradientStopMark>& OutC
 	// Add an alpha gradient stop mark for each alpha key
 	for( auto It = AlphaCurve->GetKeyHandleIterator(); It; ++It )
 	{
-		FKeyHandle KeyHandle = It.Key();
+		FKeyHandle KeyHandle = *It;
 		float Time = AlphaCurve->GetKeyTime( KeyHandle );
 		OutAlphaMarks.Add( FGradientStopMark( Time, FKeyHandle(), FKeyHandle(), FKeyHandle(), KeyHandle ) );
 
@@ -905,10 +905,10 @@ void SColorGradientEditor::DeleteStop( const FGradientStopMark& InMark )
 
 	TArray<FRichCurveEditInfo> Curves = CurveOwner->GetCurves();
 
-	FRichCurve* RedCurve = Curves[0].CurveToEdit;
-	FRichCurve* GreenCurve = Curves[1].CurveToEdit;
-	FRichCurve* BlueCurve = Curves[2].CurveToEdit;
-	FRichCurve* AlphaCurve = Curves[3].CurveToEdit;
+	FRealCurve* RedCurve = Curves[0].CurveToEdit;
+	FRealCurve* GreenCurve = Curves[1].CurveToEdit;
+	FRealCurve* BlueCurve = Curves[2].CurveToEdit;
+	FRealCurve* AlphaCurve = Curves[3].CurveToEdit;
 
 	if( InMark.IsValidAlphaMark( Curves ) )
 	{
@@ -943,9 +943,9 @@ FGradientStopMark SColorGradientEditor::AddStop( const FVector2D& Position, cons
 
 	if( bColorStop )
 	{
-		FRichCurve* RedCurve = Curves[0].CurveToEdit;
-		FRichCurve* GreenCurve = Curves[1].CurveToEdit;
-		FRichCurve* BlueCurve = Curves[2].CurveToEdit;
+		FRealCurve* RedCurve = Curves[0].CurveToEdit;
+		FRealCurve* GreenCurve = Curves[1].CurveToEdit;
+		FRealCurve* BlueCurve = Curves[2].CurveToEdit;
 		
 		NewStop.RedKeyHandle = RedCurve->AddKey( NewStopTime, LastModifiedColor.R );
 		NewStop.GreenKeyHandle = GreenCurve->AddKey( NewStopTime, LastModifiedColor.G );
@@ -953,7 +953,7 @@ FGradientStopMark SColorGradientEditor::AddStop( const FVector2D& Position, cons
 	}
 	else
 	{
-		FRichCurve* AlphaCurve = Curves[3].CurveToEdit;
+		FRealCurve* AlphaCurve = Curves[3].CurveToEdit;
 		NewStop.AlphaKeyHandle = AlphaCurve->AddKey( NewStopTime, LastModifiedColor.A );
 	}
 

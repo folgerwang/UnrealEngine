@@ -1,7 +1,8 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Unix/UnixPlatformProcess.h"
 #include "Unix/UnixPlatformCrashContext.h"
+#include "Unix/UnixPlatformRealTimeSignals.h"
 #include "GenericPlatform/GenericPlatformFile.h"
 #include "Containers/StringConv.h"
 #include "Logging/LogMacros.h"
@@ -318,6 +319,30 @@ bool FUnixPlatformProcess::SetProcessLimits(EProcessResource::Type Resource, uin
 	return true;
 }
 
+
+const TCHAR* FUnixPlatformProcess::ExecutablePath()
+{
+	static bool bHaveResult = false;
+	static TCHAR CachedResult[ PlatformProcessLimits::MaxBaseDirLength ];
+	if (!bHaveResult)
+	{
+		char SelfPath[ PlatformProcessLimits::MaxBaseDirLength ] = {0};
+		if (readlink( "/proc/self/exe", SelfPath, ARRAY_COUNT(SelfPath) - 1) == -1)
+		{
+			int ErrNo = errno;
+			UE_LOG(LogHAL, Fatal, TEXT("readlink() failed with errno = %d (%s)"), ErrNo,
+				StringCast< TCHAR >(strerror(ErrNo)).Get());
+			return CachedResult;
+		}
+		SelfPath[ARRAY_COUNT(SelfPath) - 1] = 0;
+
+		FCString::Strcpy(CachedResult, ARRAY_COUNT(CachedResult) - 1, UTF8_TO_TCHAR(SelfPath));
+		CachedResult[ARRAY_COUNT(CachedResult) - 1] = 0;
+		bHaveResult = true;
+	}
+	return CachedResult;
+}
+
 const TCHAR* FUnixPlatformProcess::ExecutableName(bool bRemoveExtension)
 {
 	static bool bHaveResult = false;
@@ -345,7 +370,7 @@ const TCHAR* FUnixPlatformProcess::ExecutableName(bool bRemoveExtension)
 FString FUnixPlatformProcess::GenerateApplicationPath( const FString& AppName, EBuildConfigurations::Type BuildConfiguration)
 {
 	FString PlatformName = FPlatformProcess::GetBinariesSubdirectory();
-	FString ExecutablePath = FString::Printf(TEXT("../../../Engine/Binaries/%s/%s"), *PlatformName, *AppName);
+	FString ExecutablePath = FPaths::EngineDir() / FString::Printf(TEXT("Binaries/%s/%s"), *PlatformName, *AppName);
 	
 	if (BuildConfiguration != EBuildConfigurations::Development)
 	{
@@ -1193,8 +1218,6 @@ void FUnixPlatformProcess::TerminateProc( FProcHandle & ProcessHandle, bool Kill
  */
 FGenericPlatformProcess::EWaitAndForkResult FUnixPlatformProcess::WaitAndFork()
 {
-#define WAIT_AND_FORK_QUEUE_SIGNAL SIGRTMIN + 1
-#define WAIT_AND_FORK_RESPONSE_SIGNAL SIGRTMIN + 2
 #define WAIT_AND_FORK_QUEUE_LENGTH 4096
 #define WAIT_AND_FORK_PARENT_SLEEP_DURATION 10
 #define WAIT_AND_FORK_CHILD_SPAWN_DELAY 0.125
@@ -1472,7 +1495,7 @@ bool FUnixPlatformProcess::IsApplicationRunning( const TCHAR* ProcName )
 	return !system(TCHAR_TO_UTF8(*Commandline));
 }
 
-bool FUnixPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, int32* OutReturnCode, FString* OutStdOut, FString* OutStdErr )
+bool FUnixPlatformProcess::ExecProcess(const TCHAR* URL, const TCHAR* Params, int32* OutReturnCode, FString* OutStdOut, FString* OutStdErr, const TCHAR* OptionalWorkingDirectory)
 {
 	FString CmdLineParams = Params;
 	FString ExecutableFileName = URL;
@@ -1493,7 +1516,7 @@ bool FUnixPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, i
 	const bool bLaunchHidden = false;
 	const bool bLaunchReallyHidden = bLaunchHidden;
 
-	FProcHandle ProcHandle = FPlatformProcess::CreateProc(*ExecutableFileName, *CmdLineParams, bLaunchDetached, bLaunchHidden, bLaunchReallyHidden, NULL, 0, NULL, PipeWrite);
+	FProcHandle ProcHandle = FPlatformProcess::CreateProc(*ExecutableFileName, *CmdLineParams, bLaunchDetached, bLaunchHidden, bLaunchReallyHidden, NULL, 0, OptionalWorkingDirectory, PipeWrite);
 	if (ProcHandle.IsValid())
 	{
 		while (FPlatformProcess::IsProcRunning(ProcHandle))

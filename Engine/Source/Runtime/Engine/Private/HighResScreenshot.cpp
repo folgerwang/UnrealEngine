@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #include "HighResScreenshot.h"
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
@@ -130,17 +130,17 @@ bool FHighResScreenshotConfig::MergeMaskIntoAlpha(TArray<FColor>& InBitmap)
 {
 	bool bWritten = false;
 
-	if (bMaskEnabled)
+	TArray<FColor>* MaskArray = FScreenshotRequest::GetHighresScreenshotMaskColorArray();
+	bool bMaskMatches = !bMaskEnabled || (MaskArray->Num() == InBitmap.Num());
+	ensureMsgf(bMaskMatches, TEXT("Highres screenshot MaskArray doesn't match screenshot size.  Skipping Masking. MaskSize: %i, ScreenshotSize: %i"), MaskArray->Num(), InBitmap.Num());
+	if (bMaskEnabled && bMaskMatches)
 	{
 		// If this is a high resolution screenshot and we are using the masking feature,
 		// Get the results of the mask rendering pass and insert into the alpha channel of the screenshot.
-		TArray<FColor>* MaskArray = FScreenshotRequest::GetHighresScreenshotMaskColorArray();
-		check(MaskArray->Num() == InBitmap.Num());
-		for (int32 i = 0; i < MaskArray->Num(); ++i)
+		for (int32 i = 0; i < InBitmap.Num(); ++i)
 		{
 			InBitmap[i].A = (*MaskArray)[i].R;
 		}
-
 		bWritten = true;
 	}
 	else
@@ -183,4 +183,14 @@ bool FHighResScreenshotConfig::SetResolution(uint32 ResolutionX, uint32 Resoluti
 	GIsHighResScreenshot = true;
 
 	return true;
+}
+
+void FHighResScreenshotConfig::SetFilename(FString Filename)
+{
+	FilenameOverride = Filename;
+}
+
+void FHighResScreenshotConfig::SetMaskEnabled(bool bShouldMaskBeEnabled)
+{
+	bMaskEnabled = bShouldMaskBeEnabled;
 }

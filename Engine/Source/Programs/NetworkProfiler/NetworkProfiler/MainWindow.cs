@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -419,10 +419,14 @@ namespace NetworkProfiler
 
 			ConnectionListBox.Items.Clear();
 
-			for ( int i = 0; i < CurrentNetworkStream.AddressArray.Count; i++ )
+			int NumberOfAddresses = ( CurrentNetworkStream.GetVersion() < 12 ) ? 
+				CurrentNetworkStream.AddressArray.Count : CurrentNetworkStream.StringAddressArray.Count;
+
+			for (int i = 0; i < NumberOfAddresses; i++)
 			{
-				ConnectionListBox.Items.Add( CurrentNetworkStream.GetIpString( i ) );
+				ConnectionListBox.Items.Add( CurrentNetworkStream.GetIpString( i, CurrentNetworkStream.GetVersion() ) );
 			}
+
 
 			for ( int i = 0; i < ConnectionListBox.Items.Count; ++i )
 			{

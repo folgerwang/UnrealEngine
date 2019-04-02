@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SkeletalRenderPublic.h: Definitions and inline code for rendering SkeletalMeshComponent
@@ -34,6 +34,15 @@ struct FFinalSkinVertex
 	};
 };
 
+enum class EPreviousBoneTransformUpdateMode
+{
+	None,
+
+	UpdatePrevious,
+
+	DuplicateCurrentToPrevious,
+};
+
 /**
 * Interface for mesh rendering data
 */
@@ -59,7 +68,7 @@ public:
 	 * @param	InSkeletalMeshComponen - parent prim component doing the updating
 	 * @param	ActiveMorphs - morph targets to blend with during skinning
 	 */
-	virtual void Update(int32 LODIndex,USkinnedMeshComponent* InMeshComponent,const TArray<FActiveMorphTarget>& ActiveMorphTargets, const TArray<float>& MorphTargetWeights, bool bUpdatePreviousBoneTransform) = 0;
+	virtual void Update(int32 LODIndex,USkinnedMeshComponent* InMeshComponent,const TArray<FActiveMorphTarget>& ActiveMorphTargets, const TArray<float>& MorphTargetWeights, EPreviousBoneTransformUpdateMode PreviousBoneTransformUpdateMode) = 0;
 
 	/**
 	 * Called by FSkeletalMeshObject prior to GDME. This allows the GPU skin version to update bones etc now that we know we are going to render
@@ -182,6 +191,11 @@ public:
 	/** Get the skeletal mesh resource for which this mesh object was created. */
 	FORCEINLINE FSkeletalMeshRenderData& GetSkeletalMeshRenderData() const { return *SkeletalMeshRenderData; }
 
+#if RHI_RAYTRACING
+	/** Retrieve ray tracing geometry from the underlying mesh object */
+	virtual const FRayTracingGeometry* GetRayTracingGeometry() const { return nullptr; }
+#endif // RHI_RAYTRACING
+
 	/** Called to notify clothing data that component transform has changed */
 	virtual void RefreshClothingTransforms(const FMatrix& InNewLocalToWorld, uint32 FrameNumber) {};
 
@@ -216,6 +230,10 @@ public:
 
 	/** This is set to true when we have sent our Mesh data to the rendering thread at least once as it needs to have have a datastructure created there for each MeshObject **/
 	bool bHasBeenUpdatedAtLeastOnce;
+
+#if RHI_RAYTRACING
+	bool bRequireRecreatingRayTracingGeometry;
+#endif
 
 #if WITH_EDITORONLY_DATA
 	/** Index of the section to preview... If set to -1, all section will be rendered */

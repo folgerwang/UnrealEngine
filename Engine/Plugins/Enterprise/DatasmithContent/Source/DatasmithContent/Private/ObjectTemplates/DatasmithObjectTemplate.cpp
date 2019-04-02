@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #include "ObjectTemplates/DatasmithObjectTemplate.h"
 
 #include "DatasmithAssetUserData.h"
@@ -64,6 +64,13 @@ TMap< TSubclassOf< UDatasmithObjectTemplate >, UDatasmithObjectTemplate* >* FDat
 	if (!UserData)
 	{
 		EObjectFlags Flags = RF_Public /*| RF_Transactional*/; // RF_Transactional Disabled as is can cause a crash in the transaction system for blueprints
+
+		if ( Outer->GetClass()->IsChildOf<AActor>() )
+		{
+			// The outer should never be an actor. (UE-70039)
+			Outer = static_cast<AActor*>(Outer)->GetRootComponent();
+		}
+
 		UserData = NewObject< UDatasmithAssetUserData >(Outer, NAME_None, Flags);
 		AssetUserDataInterface->AddAssetUserData(UserData);
 	}

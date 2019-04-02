@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -67,6 +67,10 @@ struct MOVIESCENECAPTURE_API FMovieSceneCaptureSettings
 	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=Sequence, AdvancedDisplay, meta=(ClampMin=0, UIMin=0))
 	int32 HandleFrames;
 
+	/** Filename extension for movies referenced in the XMLs/EDLs */
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=Sequence, AdvancedDisplay)
+	FString MovieExtension;
+
 	/** How much to zero-pad frame numbers on filenames */
 	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=General, AdvancedDisplay, meta=(ClampMin=0, UIMin=0))
 	uint8 ZeroPadFrameNumbers;
@@ -106,4 +110,12 @@ struct MOVIESCENECAPTURE_API FMovieSceneCaptureSettings
 	/** Whether to show the in-game HUD whilst capturing */
 	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=Cinematic, AdvancedDisplay, meta=(EditCondition="bCinematicMode"))
 	bool bShowHUD;
+
+	/** Whether to use the path tracer (if supported) to render the scene */
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Cinematic, AdvancedDisplay)
+	bool bUsePathTracer;
+
+	/** Number of sampler per pixel to be used when rendering the scene with the path tracer (if supported) */
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Cinematic, AdvancedDisplay, meta = (EditCondition = "bUsePathTracer", ClampMin = 1, UIMin = 1, UIMax = 4096))
+	int32 PathTracerSamplePerPixel;
 };

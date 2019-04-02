@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimationRecorder.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
@@ -31,7 +31,7 @@ FAnimationRecorder::FAnimationRecorder()
 	, bRemoveRootTransform(true)
 	, InterpMode(ERichCurveInterpMode::RCIM_Linear)
 	, TangentMode(ERichCurveTangentMode::RCTM_Auto)
-
+	, AnimationSerializer(nullptr)
 {
 	SetSampleRateAndLength(FAnimationRecordingSettings::DefaultSampleRate, FAnimationRecordingSettings::DefaultMaximumLength);
 }
@@ -45,6 +45,7 @@ void FAnimationRecorder::SetSampleRateAndLength(float SampleRateHz, float Length
 {
 	if (SampleRateHz <= 0.f)
 	{
+
 		// invalid rate passed in, fall back to default
 		SampleRateHz = FAnimationRecordingSettings::DefaultSampleRate;
 	}
@@ -145,7 +146,7 @@ bool FAnimationRecorder::TriggerRecordAnimation(USkeletalMeshComponent* Componen
 		Parent = CreatePackage(nullptr, *ValidatedAssetPath);
 	}
 
-	UObject* const Object = LoadObject<UObject>(Parent, *ValidatedAssetName, nullptr, LOAD_None, nullptr);
+	UObject* const Object = LoadObject<UObject>(Parent, *ValidatedAssetName, nullptr, LOAD_Quiet, nullptr);
 	// if object with same name exists, warn user
 	if (Object)
 	{
@@ -206,6 +207,7 @@ static void GetBoneTransforms(USkeletalMeshComponent* Component, TArray<FTransfo
 	}
 }
 
+
 void FAnimationRecorder::StartRecord(USkeletalMeshComponent* Component, UAnimSequence* InAnimationObject)
 {
 	TimePassed = 0.f;
@@ -219,7 +221,7 @@ void FAnimationRecorder::StartRecord(USkeletalMeshComponent* Component, UAnimSeq
 
 	LastFrame = 0;
 	AnimationObject->SequenceLength = 0.f;
-	AnimationObject->NumFrames = 0;
+	AnimationObject->SetRawNumberOfFrame(0);
 
 	RecordedCurves.Reset();
 	UIDToArrayIndexLUT = nullptr;
@@ -242,7 +244,6 @@ void FAnimationRecorder::StartRecord(USkeletalMeshComponent* Component, UAnimSeq
 
 	// init notifies
 	AnimationObject->InitializeNotifyTrack();
-
 	// record the first frame
 	Record(Component, PreviousComponentToWorld, PreviousSpacesBases, PreviousAnimCurves,  0);
 }
@@ -282,7 +283,7 @@ UAnimSequence* FAnimationRecorder::StopRecord(bool bShowMessage)
 	if (AnimationObject)
 	{
 		int32 NumFrames = LastFrame  + 1;
-		AnimationObject->NumFrames = NumFrames;
+		AnimationObject->SetRawNumberOfFrame(NumFrames);
 
 		// can't use TimePassed. That is just total time that has been passed, not necessarily match with frame count
 		AnimationObject->SequenceLength = (NumFrames>1) ? (NumFrames-1) * IntervalTime : MINIMUM_ANIMATION_LENGTH;
@@ -393,7 +394,7 @@ UAnimSequence* FAnimationRecorder::StopRecord(bool bShowMessage)
 		{
 			const FText NotificationText = FText::Format(LOCTEXT("RecordAnimation", "'{0}' has been successfully recorded [{1} frames : {2} sec(s) @ {3} Hz]"),
 				FText::FromString(AnimationObject->GetName()),
-				FText::AsNumber(AnimationObject->NumFrames),
+				FText::AsNumber(AnimationObject->GetRawNumberOfFrames()),
 				FText::AsNumber(AnimationObject->SequenceLength),
 				FText::AsNumber(1.f / IntervalTime)
 				);
@@ -510,7 +511,7 @@ void FAnimationRecorder::UpdateRecord(USkeletalMeshComponent* Component, float D
 			BlendedComponentToWorld.Blend(PreviousComponentToWorld, Component->GetComponentTransform(), BlendAlpha);
 
 			FBlendedHeapCurve BlendedCurve;
-			if (AnimCurves.Elements.Num() > 0 && PreviousAnimCurves.Elements.Num() == AnimCurves.Elements.Num())
+			if (AnimCurves.Elements.Num() > 0 && PreviousAnimCurves.Elements.Num() == AnimCurves.Elements.Num() && PreviousAnimCurves.IsValid() && AnimCurves.IsValid())
 			{
 				BlendedCurve.Lerp(PreviousAnimCurves, AnimCurves, BlendAlpha);
 			}
@@ -565,7 +566,7 @@ bool FAnimationRecorder::Record(USkeletalMeshComponent* Component, FTransform co
 					FTransform LocalTransform = SpacesBases[BoneIndex];
 					if (ParentIndex == INDEX_NONE)
 					{
-						if (bRemoveRootTransform)
+						if (bRemoveRootTransform && AnimationObject->GetRawAnimationData().Num() > 1)
 						{
 							// Store initial root transform.
 							// We remove the initial transform of the root bone and transform root's children
@@ -573,6 +574,8 @@ bool FAnimationRecorder::Record(USkeletalMeshComponent* Component, FTransform co
 							// as we use root motion to build transform tracks that properly sync with
 							// animation keyframes. If we have a transformed root bone then the assumptions 
 							// we make about root motion use are incorrect.
+							// NEW. But we don't do this if there is just one root bone. This has come up with recording
+							// single bone props and cameras.
 							InvInitialRootTransform = LocalTransform.Inverse();
 						}
 						else
@@ -586,6 +589,7 @@ bool FAnimationRecorder::Record(USkeletalMeshComponent* Component, FTransform co
 			}
 		}
 
+		FSerializedAnimation  SerializedAnimation;
 		USkeleton* AnimSkeleton = AnimationObject->GetSkeleton();
 		for (int32 TrackIndex = 0; TrackIndex < AnimationObject->GetRawAnimationData().Num(); ++TrackIndex)
 		{
@@ -613,6 +617,7 @@ bool FAnimationRecorder::Record(USkeletalMeshComponent* Component, FTransform co
 				{
 					// Remove initial root transform
 					LocalTransform *= InvInitialRootTransform;
+					//LocalTransform = InvInitialRootTransform * LocalTransform;
 
 					if (bRecordLocalToWorld)
 					{
@@ -624,7 +629,10 @@ bool FAnimationRecorder::Record(USkeletalMeshComponent* Component, FTransform co
 				RawTrack.PosKeys.Add(LocalTransform.GetTranslation());
 				RawTrack.RotKeys.Add(LocalTransform.GetRotation());
 				RawTrack.ScaleKeys.Add(LocalTransform.GetScale3D());
-
+				if (AnimationSerializer)
+				{
+					SerializedAnimation.AddTransform(TrackIndex, LocalTransform);
+				}
 				// verification
 				if (FrameToAdd != RawTrack.PosKeys.Num()-1)
 				{
@@ -633,7 +641,10 @@ bool FAnimationRecorder::Record(USkeletalMeshComponent* Component, FTransform co
 				}
 			}
 		}
-
+		if (AnimationSerializer)
+		{
+			AnimationSerializer->WriteFrameData(AnimationSerializer->FramesWritten, SerializedAnimation);
+		}
 		// each RecordedCurves contains all elements
 		if (AnimationCurves.Elements.Num() > 0)
 		{
@@ -795,14 +806,13 @@ void FAnimRecorderInstance::Init(USkeletalMeshComponent* InComponent, const FStr
 	InitInternal(InComponent, Settings);
 }
 
-void FAnimRecorderInstance::Init(USkeletalMeshComponent* InComponent, UAnimSequence* InSequence, const FAnimationRecordingSettings& Settings)
+void FAnimRecorderInstance::Init(USkeletalMeshComponent* InComponent, UAnimSequence* InSequence, FAnimationSerializer *InAnimationSerializer, const FAnimationRecordingSettings& Settings)
 {
 	Sequence = InSequence;
-	
-	InitInternal(InComponent, Settings);
+	InitInternal(InComponent, Settings,InAnimationSerializer);
 }
 
-void FAnimRecorderInstance::InitInternal(USkeletalMeshComponent* InComponent, const FAnimationRecordingSettings& Settings)
+void FAnimRecorderInstance::InitInternal(USkeletalMeshComponent* InComponent, const FAnimationRecordingSettings& Settings, FAnimationSerializer *InAnimationSerializer)
 {
 	SkelComp = InComponent;
 	Recorder = MakeShareable(new FAnimationRecorder());
@@ -813,6 +823,7 @@ void FAnimRecorderInstance::InitInternal(USkeletalMeshComponent* InComponent, co
 	Recorder->SetAnimCompressionScheme(UAnimCompress_BitwiseCompressOnly::StaticClass());
 	Recorder->bAutoSaveAsset = Settings.bAutoSaveAsset;
 	Recorder->bRemoveRootTransform = Settings.bRemoveRootAnimation;
+	Recorder->AnimationSerializer = InAnimationSerializer;
 
 	if (InComponent)
 	{
@@ -909,7 +920,7 @@ bool FAnimationRecorderManager::RecordAnimation(USkeletalMeshComponent* Componen
 	if (Component)
 	{
 		FAnimRecorderInstance NewInst;
-		NewInst.Init(Component, Sequence, Settings);
+		NewInst.Init(Component, Sequence, nullptr, Settings);
 		bool const bSuccess = NewInst.BeginRecording();
 		if (bSuccess)
 		{
@@ -924,6 +935,33 @@ bool FAnimationRecorderManager::RecordAnimation(USkeletalMeshComponent* Componen
 				FEditorDelegates::EndPIE.AddRaw(this, &FAnimationRecorderManager::HandleEndPIE);
 			}
 	#endif
+
+		return bSuccess;
+	}
+
+	return false;
+}
+
+bool FAnimationRecorderManager::RecordAnimation(USkeletalMeshComponent* Component, UAnimSequence* Sequence, FAnimationSerializer* InSerializer, const FAnimationRecordingSettings& Settings)
+{
+	if (Component)
+	{
+		FAnimRecorderInstance NewInst;
+		NewInst.Init(Component, Sequence, InSerializer, Settings);
+		bool const bSuccess = NewInst.BeginRecording();
+		if (bSuccess)
+		{
+			RecorderInstances.Add(NewInst);
+		}
+
+#if WITH_EDITOR
+		// if recording via PIE, be sure to stop recording cleanly when PIE ends
+		UWorld const* const World = Component->GetWorld();
+		if (World && World->IsPlayInEditor())
+		{
+			FEditorDelegates::EndPIE.AddRaw(this, &FAnimationRecorderManager::HandleEndPIE);
+		}
+#endif
 
 		return bSuccess;
 	}

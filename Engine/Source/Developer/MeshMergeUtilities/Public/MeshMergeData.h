@@ -1,10 +1,10 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Engine/StaticMesh.h"
-#include "RawMesh.h"
+#include "MeshDescription.h"
 #include "PhysicsEngine/AggregateGeom.h"
 
 #include "LightMap.h"
@@ -30,7 +30,8 @@ struct FMeshMergeData
 	}
 	
 	/** Raw mesh data from the source static mesh */
-	FRawMesh* RawMesh;	
+	FMeshDescription* RawMesh;	
+
 	/** Contains the original texture bounds, if the material requires baking down per-vertex data */
 	TArray<FBox2D> TexCoordBounds;
 	/** Will contain non-overlapping texture coordinates, if the material requires baking down per-vertex data */	

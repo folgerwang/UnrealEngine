@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -715,7 +715,7 @@ namespace Gauntlet
 				}
 				else
 				{
-					Log.Info("Installing {0} to {1} via adb push", SourcePath, DestPath);
+					Log.Info("Copying {0} to {1} via adb push", QuotedSourcePath, DestPath);
 					string AdbCommand = string.Format("push {0} {1}", QuotedSourcePath, DestPath);
 					AdbResult = RunAdbDeviceCommand(AdbCommand);
 
@@ -1035,7 +1035,7 @@ namespace Gauntlet
 		/// <returns></returns>
 		public static IProcessResult RunAdbGlobalCommand(string Args, bool Wait = true, bool bShouldLogCommand = false)
 		{
-			CommandUtils.ERunOptions RunOptions = CommandUtils.ERunOptions.AppMustExist;
+			CommandUtils.ERunOptions RunOptions = CommandUtils.ERunOptions.AppMustExist | CommandUtils.ERunOptions.NoWaitForExit;
 
 			if (Log.IsVeryVerbose)
 			{
@@ -1045,19 +1045,20 @@ namespace Gauntlet
 			{
 				RunOptions |= CommandUtils.ERunOptions.NoLoggingOfRunCommand;
 			}
-
-			if (Wait == false)
-			{
-				RunOptions |= CommandUtils.ERunOptions.NoWaitForExit;
-			}
-
+	
 			if (bShouldLogCommand)
 			{
 				Log.Verbose("Running ADB Command: adb {0}", Args);
 			}
 			
 			IProcessResult Process = AndroidPlatform.RunAdbCommand(null, null, Args, null, RunOptions);
-			return Process;
+
+			if (Wait)
+			{
+				Process.WaitForExit();
+			}
+			
+return Process;
 		}
 
 		public void AllowDeviceSleepState(bool bAllowSleep)

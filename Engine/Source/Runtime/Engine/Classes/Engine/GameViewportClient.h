@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -129,7 +129,7 @@ public:
 	const FSceneViewport* GetGameViewport() const;
 
 	/* Returns the widget for this viewport */
-	TSharedPtr<SViewport> GetGameViewportWidget();
+	TSharedPtr<SViewport> GetGameViewportWidget() const;
 
 	/* Returns the relevant game instance for this viewport */
 	UGameInstance* GetGameInstance() const;
@@ -144,7 +144,9 @@ public:
 
 	//~ Begin FViewportClient Interface.
 	virtual void RedrawRequested(FViewport* InViewport) override {}
-	virtual bool InputKey(FViewport* Viewport, int32 ControllerId, FKey Key, EInputEvent EventType, float AmountDepressed=1.f, bool bGamepad=false) override;
+	virtual bool InputKey(const FInputKeyEventArgs& EventArgs) override;
+	UE_DEPRECATED(4.21, "Use the new InputKey(const FInputKeyEventArgs& EventArgs) function.")
+	virtual bool InputKey(FViewport* InViewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed = 1.f, bool bGamepad = false) override final { return false; }
 	virtual bool InputAxis(FViewport* Viewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime, int32 NumSamples=1, bool bGamepad=false) override;
 	virtual bool InputChar(FViewport* Viewport,int32 ControllerId, TCHAR Character) override;
 	virtual bool InputTouch(FViewport* Viewport, int32 ControllerId, uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, float Force, FDateTime DeviceTimestamp, uint32 TouchpadIndex) override;
@@ -286,17 +288,10 @@ public:
 	virtual void SetViewport( FViewport* InViewportFrame );
 
 	/** Assigns the viewport overlay widget to use for this viewport client.  Should only be called when first created */
-	void SetViewportOverlayWidget( TSharedPtr< SWindow > InWindow, TSharedRef<SOverlay> InViewportOverlayWidget )
-	{
-		Window = InWindow;
-		ViewportOverlayWidget = InViewportOverlayWidget;
-	}
+	void SetViewportOverlayWidget(TSharedPtr< SWindow > InWindow, TSharedRef<SOverlay> InViewportOverlayWidget);
 
 	/** Assigns the viewport game layer manager for this viewport client.  Should only be called when first created. */
-	void SetGameLayerManager(TSharedPtr< IGameLayerManager > LayerManager)
-	{
-		GameLayerManagerPtr = LayerManager;
-	}
+	void SetGameLayerManager(TSharedPtr< IGameLayerManager > LayerManager);
 
 	/**
 	 * Gets the layer manager for the UI.
@@ -374,6 +369,12 @@ public:
 
 	/** Allows game code to disable splitscreen (useful when in menus) */
 	void SetDisableSplitscreenOverride( const bool bDisabled );
+
+	/** Determines whether splitscreen is forced to be turned off */
+	bool GetDisableSplitscreenOverride() const
+	{
+		return bDisableSplitScreenOverride;
+	}
 
 	/** called before rending subtitles to allow the game viewport to determine the size of the subtitle area
 	 * @param Min top left bounds of subtitle region (0 to 1)
@@ -698,7 +699,7 @@ public:
 	/**
 	 * Sets whether or not the cursor is locked to the viewport when the viewport captures the mouse
 	 */
-	DEPRECATED(4.13, "Mouse locking is now controlled by an enum value. Please call UGameViewportClient::SetMouseLockMode(EMouseLockMode) instead.")
+	UE_DEPRECATED(4.13, "Mouse locking is now controlled by an enum value. Please call UGameViewportClient::SetMouseLockMode(EMouseLockMode) instead.")
 	void SetLockDuringCapture(bool InLockDuringCapture)
 	{
 		SetMouseLockMode( InLockDuringCapture ? EMouseLockMode::LockOnCapture : EMouseLockMode::DoNotLock );

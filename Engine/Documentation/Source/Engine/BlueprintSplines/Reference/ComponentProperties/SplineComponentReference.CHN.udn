@@ -1,8 +1,8 @@
-﻿INTSourceChangeList:3149199
+﻿INTSourceChangeList:3801260
 Availability:Public
 Title:蓝图样条组件属性参考
 Crumbs: %ROOT%, Engine
-Description:蓝图样条组件编辑器中所有可用属性的参考。
+Description:包含在蓝图样条组件的编辑器中可用的所有属性的参考。
 Navigation:topic
 parent:Engine/BlueprintSplines
 order:1
@@ -10,331 +10,195 @@ social-image:Splines_social.png
 version:4.13
 type:reference
 tags:Splines
+topic-image:Engine/BlueprintSplines/Splines_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/BlueprintSplines/Reference/ComponentProperties:title%](Engine/BlueprintSplines/Splines_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/BlueprintSplines/Reference/ComponentProperties:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/BlueprintSplines/Reference/ComponentProperties:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/BlueprintSplines/Reference/ComponentProperties]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/BlueprintSplines/Reference/ComponentProperties:title%](Engine/BlueprintSplines/Splines_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/BlueprintSplines/Reference/ComponentProperties:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/BlueprintSplines/Reference/ComponentProperties:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/BlueprintSplines/Reference/ComponentProperties]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+本页面包含了一个在 **蓝图样条组件（Blueprint Spline Components）** 中可用属性的参考列表。如果在 **蓝图编辑器（Blueprint Editor）** 中选择了 **蓝图样条组件（Blueprint Spline Component）**，是 **根组件（Root Component）**，或者在 **关卡编辑器（Level Editor）** 中选择了该组件，则显示的属性将略有不同。
 
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
-
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
-
-本页面中的参考列出了 **蓝图样条组件（Blueprint Spline Components）** 上可用的各项属性。**蓝图样条组件** 在 **蓝图编辑器** 中被选中且为 **根组件** 时，或组件在 **关卡编辑器** 中被选中时，显示的属性将有些许不同。
-
+(#properties)
 ## 属性
 
 [EXCERPT:PropTransformCat]
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		TransformCat
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Transform
-	[/PARAM]
-	[PARAM:content]
-		%c1%
-	[/PARAM]
-[/OBJECT]
+(#transform)
 
-[VAR:c1]
+### 变形
 
 ![](TransformCatRef.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Location** || **Actor** 或 **组件** 在 **世界空间** 或 **相对** 其父项的位置。|
-| **Rotation** || **Actor** 或 **组件** 在 **世界空间** 或 **相对** 其父项的旋转。|
-| **Scale** || **Actor** 或 **组件** 在 **世界空间** 或 **相对** 其父项的缩放。|
+| 属性 | 说明 |
+| --- | :--- |
+| **位置（Location）** | **Actor** 或 **组件（Component）** 在 **世界场景空间（World Space）** 中或 **相对于（Relative）** 其父项的位置。|
+| **旋转（Rotation）** | **Actor** 或 **组件（Component）** 在 **世界场景空间（World Space）** 中或 **相对于（Relative）** 其父项的旋转。|
+| **缩放（Scale）** | **Actor** 或 **组件（Component）** 在 **世界场景空间（World Space）** 中或 **相对于（Relative）** 其父项的缩放。|
 [/REGION]
-
-[/VAR]
 [/EXCERPT]
 
-
-
 [EXCERPT:PropSocketsCat]
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		SocketsCat
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Sockets
-	[/PARAM]
-	[PARAM:content]
-		%c2%
-	[/PARAM]
-[/OBJECT]
+(#sockets)
 
-[VAR:c2]
+### 套接字
 
 ![](SocketsCatRef.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Parent Socket** || 此组件为 **骨架网格体组件** 的 **子项**（或带 **套接字** 的 **静态网格体组件**）时，可指定一个 **套接字** 或 **关节** 附加到此组件。|
+| 属性 | 说明 |
+| --- | :--- |
+| **父套接字（Parent Socket）** | 当这个组件是 **骨架网格体组件（Skeletal Mesh Component）** 的 **子项（Child）**（或带有 **套接字（Socket）** 的 **静态网格体组件（Static Mesh Component）**）时，您可以指定一个 **套接字（Socket）** 或 **关节（Joint）** 来将这个组件附加到其上。|
 [/REGION]
-
-[/VAR]
 [/EXCERPT]
 
 
 
 [EXCERPT:PropSplineCat]
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		SplineCatd
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Spline
-	[/PARAM]
-	[PARAM:content]
-		%sp1%
-	[/PARAM]
-[/OBJECT]
+(#spline)
 
-[VAR:sp1]
+### 样条
 
 ![](BPS_SplineCatRef.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Duration** || %doxygen:USplineComponent::Duration% |
-| **Override Construction Script** || %doxygen:USplineComponent::bSplineHasBeenEdited% |
-| **Input Spline Points to Construction Script** || %doxygen:USplineComponent::bInputSplinePointsToConstructionScript% |
-| **Draw Debug** || %doxygen:USplineComponent::bDrawDebug% |
-| **Closed Loop** || %doxygen:USplineComponent::bClosedLoop% |
-| **Default Up Vector** || %doxygen:USplineComponent::DefaultUpVector% |
+| 属性 | 说明 |
+| --- | :--- |
+| **时长（Duration）** | %doxygen:USplineComponent::Duration% |
+| **覆盖构造脚本（Override Construction Script）** | %doxygen:USplineComponent::bSplineHasBeenEdited% |
+| **将样条点输入到构造脚本中（Input Spline Points to Construction Script）** | %doxygen:USplineComponent::bInputSplinePointsToConstructionScript% |
+| **绘制调试（Draw Debug）** | %doxygen:USplineComponent::bDrawDebug% |
+| **闭环（Closed Loop）** | %doxygen:USplineComponent::bClosedLoop% |
+| **默认向上矢量（Default Up Vector）** | %doxygen:USplineComponent::DefaultUpVector% |
 [/REGION]
 
-### Advanced
+(###advanced)
+
+### 高级
 
 ![](BPS_SplineCatRefAdv.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Reparam Steps Per Segment** || %doxygen:USplineComponent::ReparamStepsPerSegment% |
-| **Stationary Endpoints** || %doxygen:USplineComponent::bStationaryEndpoints% |
+| 属性 | 说明 |
+| --- | :--- |
+| **Reparam Steps Per Segment** | %doxygen:USplineComponent::ReparamStepsPerSegment% |
+| **固定端点（Stationary Endpoints）** | %doxygen:USplineComponent::bStationaryEndpoints% |
 [/REGION]
 
-[/VAR]
 [/EXCERPT]
 
 
 
 [EXCERPT:PropEditorCat]
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		EditorCat
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Editor
-	[/PARAM]
-	[PARAM:content]
-		%sp2%
-	[/PARAM]
-[/OBJECT]
+(#editor)
 
-[VAR:sp2]
+### 编辑器
 
 ![](BPS_EditorCatRef.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Editor Unselected Spline Segment Color** || 编辑器中未选中的样条组件部分的颜色。|
-| **Editor Selected Spline Segment Color** || 编辑器中选中的样条组件部分的颜色。|
-| **Should Visualize Scale** || 编辑器中是否显示缩放可视。|
-| **Scale Visualization Width** || 在编辑器中启用缩放可视时的样条宽度。|
+| 属性 | 说明 |
+| --- | :--- |
+| **编辑器未选中的样条片段颜色（Editor Unselected Spline Segment Color）** | 编辑器中未选中的样条组件片段的颜色。|
+| **编辑器选中的样条片段颜色（Editor Selected Spline Segment Color）** | 编辑器中选中的样条组件片段的颜色。|
+| **应可视化缩放（Should Visualize Scale）** | 是否应该在编辑器中显示缩放可视化。|
+| **缩放可视化宽度（Scale Visualization Width）** | 在编辑器中启用缩放可视化时样条的宽度。|
 [/REGION]
-
-[/VAR]
 [/EXCERPT]
 
 
 
 
 [EXCERPT:PropSelectedPointsCat]
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		SelectedPointsCat
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Selected Points
-	[/PARAM]
-	[PARAM:content]
-		%sp3%
-	[/PARAM]
-[/OBJECT]
+(#selectedpoints)
 
-[VAR:sp3]
+### 选中的点
 
 ![](BPS_SelectedPointsRef.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Input Key** || 这是曲线上选中的 **曲线点** 的索引。|
-| **Position** || 这是局部空间中选中的 **曲线点** 的位置。|
-| **Arrive Tangent** || 曲线的切线靠近选中的 **曲线点** 时，该矢量将对其进行定义。|
-| **Leave Tangent** || 曲线的切线离开选中的 **曲线点** 时，该矢量将对其进行定义。|
-| **Rotation** || 旋转可应用至一个 **曲线点**，以便修改其切线。该值的应用与切线相分离，因此可对两者进行修改，达到所需的效果。|
-| **Scale** || 缩放可应用至一个 **曲线点**，以便修改其切线。该值的应用与切线相分离，因此可对两者进行修改，达到所需的效果。|
-| **Type** || [INCLUDE:#PointsType] |
+| 属性 | 说明 |
+| --- | :--- |
+| **输入键（Input Key）** | 这是曲线上选定的 **曲线点（Curve Point）** 的索引。|
+| **位置（Position）** | 这是所选 **曲线点（Curve Point）** 在局部空间中的位置。|
+| **到达切线（Arrive Tangent）** | 这个矢量定义了曲线在接近选定 **曲线点（Curve Point）** 时的切线。|
+| **离开切线（Leave Tangent）** | 这个矢量定义了曲线在离开选定 **曲线点（Curve Point）** 时的切线。|
+| **旋转（Rotation）** | 旋转可应用于 **曲线点（Curve Point）** 以修改其切线。这个值与切线是分开应用的，因此可以对两者进行修改以创建所需的结果。|
+| **缩放（Scale）** | 缩放可应用于 **曲线点（Curve Point）** 以修改其切线。这个值与切线是分开应用的，因此可以对两者进行修改以创建所需的结果。|
+| **类型（Type）** | [INCLUDE:#PointsType] |
 [/REGION]
-
-[/VAR]
 [/EXCERPT]
 
 
 
 
 [EXCERPT:PropTagsCat]
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		TagsCat
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Tags
-	[/PARAM]
-	[PARAM:content]
-		%c7%
-	[/PARAM]
-[/OBJECT]
+(#tags)
 
-[VAR:c7]
+### 标签
 
 ![](TagsCatRef.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Component Tags** || %doxygen:UActorComponent::ComponentTags% |
+| 属性 | 说明 |
+| --- | :--- |
+| **组件标签（Component Tags）** | %doxygen:UActorComponent::ComponentTags% |
 [/REGION]
-
-[/VAR]
 [/EXCERPT]
 
 
 
 [EXCERPT:PropActivationCat]
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		ActivationCat
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Activation
-	[/PARAM]
-	[PARAM:content]
-		%c8%
-	[/PARAM]
-[/OBJECT]
+(#activation)
 
-[VAR:c8]
+### 激活
 
 ![](ActivationCatRef.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **Auto Activate** || %doxygen:UActorComponent::bAutoActivate% |
+| 属性 | 说明 |
+| --- | :--- |
+| **自动激活（Auto Activate）** | %doxygen:UActorComponent::bAutoActivate% |
 [/REGION]
-
-[/VAR]
 [/EXCERPT]
 
 
 
 [EXCERPT:PropEventsCat]
-[OBJECT:modulesectionexpanded]
-	[PARAMLITERAL:id]
-		EventsCat
-	[/PARAMLITERAL]
-	[PARAM:heading]
-		Events
-	[/PARAM]
-	[PARAM:content]
-		%c9%
-	[/PARAM]
-[/OBJECT]
+(#events)
 
-[VAR:c9]
+### 事件
 
 ![](EventsCatRef.png)
 
 [REGION:raw]
-| 属性 | %spacer% | 描述 |
-| --- | :---:| :--- |
-| **On Component Hit** || %doxygen:UPrimitiveComponent::OnComponentHit% |
-| **On Component Begin Overlap** || %doxygen:UPrimitiveComponent::OnComponentBeginOverlap% |
-| **On Component End Overlap** || %doxygen:UPrimitiveComponent::OnComponentEndOverlap% |
-| **On Component Wake** || %doxygen:UPrimitiveComponent::OnComponentWake% |
-| **On Component Sleep** || %doxygen:UPrimitiveComponent::OnComponentSleep% |
-| **On Begin Cursor Over** || %doxygen:UPrimitiveComponent::OnBeginCursorOver% |
-| **On End Cursor Over** || %doxygen:UPrimitiveComponent::OnEndCursorOver% |
-| **On Clicked** || %doxygen:UPrimitiveComponent::OnClicked% |
-| **On Released** || %doxygen:UPrimitiveComponent::OnReleased% |
-| **On Input Touch Begin** || %doxygen:UPrimitiveComponent::OnInputTouchBegin% |
-| **On Input Touch End** || %doxygen:UPrimitiveComponent::OnInputTouchEnd% |
-| **On Input Touch Enter** || %doxygen:UPrimitiveComponent::OnInputTouchEnter% |
-| **On Input Touch Leave** || %doxygen:UPrimitiveComponent::OnInputTouchLeave% |
-| **Physics Volume Changed** || 物理体积域发生变化时调用的委托。|
+| 属性 | 说明 |
+| --- | :--- |
+| **On Component Hit** | %doxygen:UPrimitiveComponent::OnComponentHit% |
+| **在组件开始重叠时（On Component Begin Overlap）** | %doxygen:UPrimitiveComponent::OnComponentBeginOverlap% |
+| **在组件结束重叠时（On Component End Overlap）** | %doxygen:UPrimitiveComponent::OnComponentEndOverlap% |
+| **在组件唤醒时（On Component Wake）** | %doxygen:UPrimitiveComponent::OnComponentWake% |
+| **在组件睡眠时（On Component Sleep）** | %doxygen:UPrimitiveComponent::OnComponentSleep% |
+| **On Begin Cursor Over** | %doxygen:UPrimitiveComponent::OnBeginCursorOver% |
+| **On End Cursor Over** | %doxygen:UPrimitiveComponent::OnEndCursorOver% |
+| **在单击时（On Clicked）** | %doxygen:UPrimitiveComponent::OnClicked% |
+| **在释放时（On Released）** | %doxygen:UPrimitiveComponent::OnReleased% |
+| **On Input Touch Begin** | %doxygen:UPrimitiveComponent::OnInputTouchBegin% |
+| **On Input Touch End** | %doxygen:UPrimitiveComponent::OnInputTouchEnd% |
+| **On Input Touch Enter** | %doxygen:UPrimitiveComponent::OnInputTouchEnter% |
+| **On Input Touch Leave** | %doxygen:UPrimitiveComponent::OnInputTouchLeave% |
+| **物理体积已更改（Physics Volume Changed）** | 当物理体积更改时将调用的委托。|
 [/REGION]
-
-[/VAR]
 [/EXCERPT]
 
 
 [COMMENT:none]
 
 [EXCERPT:PointsType]
-定义位于选中 **曲线点** 的曲线类型。
+定义选定 **曲线点（Curve Point）** 处的曲线类型。
 
-| 类型 | %spacer2% | 描述 |
-| --- | :---:| :--- |
-| **Linear** || 从选中 **曲线点** 到下一个曲线点的曲线将为直线。这将影响切线进入选中的 **曲线点** 和切线约束离开下一个曲线点。|
-| **Curve** || 默认值。**曲线点** 的位置（在选中点的前后）定义选中 **曲线点** 的切线。|
-| **Constant** || 和 **Linear** 相似，但 **并不** 影响切线进入选中的 **曲线点** 和切线约束离开下一个曲线点。|
-| **CurveClamped** || 和 **Curve** 相似，但它将固定曲线的切线。|
-| **CurveCustomTangent** || 在 **曲线点** 上调整任意切线时，它将设为此值。|
+| 类型 | 说明 |
+| --- | :--- |
+| **线性（Linear）** | 从选定的 **曲线点（Curve Point）** 到下一个点，曲线将是笔直的。这将影响进入所选 **曲线点（Curve Point）** 的切线以及离开下一个点的切线。|
+| **曲线（Curve）** | 默认值。**曲线点（Curve Points）** 的位置（选定曲线点之前和之后）定义了所选 **曲线点（Curve Point）** 的切线。|
+| **常量（Constant）** | 类似 **线性（Linear）**，但 **不** 影响进入所选 **曲线点（Curve Point）** 的切线以及离开下一个点的切线。|
+| **CurveClamped** | 类似 **曲线（Curve）**，但它夹住曲线的切线。|
+| **曲线自定义切线（CurveCustomTangent）** | 如果您调整 **曲线点（Curve Point）** 上的任何切线，它将被设置为此值。|
 [/EXCERPT]
 
 [/COMMENT]

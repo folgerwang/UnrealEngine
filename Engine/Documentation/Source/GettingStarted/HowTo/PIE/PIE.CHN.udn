@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2796819
+﻿INTSourceChangelist:3481084
 Availability:Public
 Title:运行和模拟
 Crumbs:%ROOT%, Gameplay, GettingStarted\HowTo
@@ -18,6 +18,7 @@ version:4.9
 对于本《如何操作》指南，我们在启用了 **初学者内容** 的前提下使用 **Blueprint Third Person** 模板创建了新项目。如果您之前没有基于模板创建项目，或者不确定如何启用“初学者内容”，请参阅 [](Engine/Basics/Projects/Browser) 页面来了解有关创建/打开项目、模板和项目设置的信息。 
 [/REGION]
 
+(#PlayInEditor_PIE_)
 ## 在编辑器中运行（PIE）
 
 本节将展示如何使用 **在编辑器中运行（Play In Editor）**来运行游戏。 
@@ -28,7 +29,37 @@ version:4.9
 
 	在单击 **运行（Play）**按钮后，游戏将会开始，您应该会在关卡编辑器视口中看到角色。 
 
-	![](PIE2b.png)(w:800)
+	[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	![](PIE_Windows.png)
+	[/REGION]
+	[/PARAM]
+	[/OBJECT]
+
+	[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:lightbox]
+	![](PIE_Mac.png)
+	[/REGION]
+	[/PARAM]
+	[/OBJECT]
 
 	还应在关卡编辑器视口左上角看到出现了文本。 
 
@@ -114,6 +145,7 @@ version:4.9
 [/REGION]
 
 
+(#SimulateInEditor_SIE_)
 ## 在编辑器中模拟（SIE）
 
 在本节中，我们将介绍 **在编辑器中模拟（Simulate In Editor）**以及如何模拟游戏。 

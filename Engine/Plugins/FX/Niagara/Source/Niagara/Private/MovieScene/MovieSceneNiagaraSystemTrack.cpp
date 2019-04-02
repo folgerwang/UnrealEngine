@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieScene/MovieSceneNiagaraSystemTrack.h"
 #include "CoreMinimal.h"
@@ -11,6 +11,11 @@
 #include "Compilation/MovieSceneSegmentCompiler.h"
 #include "Compilation/MovieSceneCompilerRules.h"
 
+
+bool UMovieSceneNiagaraSystemTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneNiagaraSystemSpawnSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneNiagaraSystemTrack::CreateNewSection()
 {

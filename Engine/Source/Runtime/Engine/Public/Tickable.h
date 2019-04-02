@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Tickable.h: Interface for tickable objects.
@@ -121,7 +121,9 @@ public:
 
 /**
  * This class provides common registration for gamethread tickable objects. It is an
- * abstract base class requiring you to implement the Tick() method.
+ * abstract base class requiring you to implement the Tick() and GetStatId() methods.
+ * Can optionally also be ticked in the Editor, allowing for an object that both ticks
+ * during edit time and at runtime.
  */
 class ENGINE_API FTickableGameObject : public FTickableObjectBase
 {
@@ -148,6 +150,7 @@ public:
 	 */
 	FTickableGameObject()
 	{
+		ensure(IsInGameThread() || IsInAsyncLoadingThread());
 		check(!GetPendingTickableObjects().Contains(this));
 		check(!GetTickableObjects().Contains(this));
 		GetPendingTickableObjects().Add(this);
@@ -158,6 +161,7 @@ public:
 	 */
 	virtual ~FTickableGameObject()
 	{
+		ensure(IsInGameThread() || IsInAsyncLoadingThread());
 		if (GetPendingTickableObjects().Remove(this) == 0)
 		{
 			RemoveTickableObject(GetTickableObjects(), this, bIsTickingObjects);

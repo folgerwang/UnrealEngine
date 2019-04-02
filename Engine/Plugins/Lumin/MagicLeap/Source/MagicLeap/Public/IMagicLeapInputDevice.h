@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -17,4 +17,5 @@ public:
 	virtual void Enable() = 0;
 	virtual bool SupportsExplicitEnable() const = 0;
 	virtual void Disable() = 0;
+	virtual void OnBeginRendering_GameThread_Update() {}
 };

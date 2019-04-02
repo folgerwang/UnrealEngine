@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -472,6 +472,17 @@ class ONLINESUBSYSTEMUTILS_API UPartyBeaconState : public UObject
 	 */
 	virtual bool PlayerHasReservation(const FUniqueNetId& PlayerId) const;
 
+	/**
+	* Updates the platform on an existing reservation
+	* (Used when MMS does not set a platform when handing out a match assignment)
+	*
+	* @param PlayerId uniqueid of the player to update
+	* @param PlatformName platform to set new player as using
+	*
+	* @return true if a reservation exists, false otherwise
+	*/
+	virtual bool UpdateMemberPlatform(const FUniqueNetIdRepl& PartyMember, const FString& PlatformName);
+	
 	/**
 	 * Obtain player validation string from party reservation entry
 	 *

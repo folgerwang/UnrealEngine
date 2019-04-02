@@ -2,7 +2,7 @@
 Availability: Public
 Title: 3 - 프로젝트 생성
 Crumbs:%ROOT%
-Description:UE4 에서 안드로이드 모바일 게임 프로젝트를 만드는 법입니다.
+Description:UE4 에서 Android 모바일 게임 프로젝트를 만드는 법입니다.
 Version: 4.17
 type:quick start
 parent:Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux
@@ -14,7 +14,7 @@ Contributor:yaakuro
 
 [nav]
 
-지금까지 Android SDK 를 설치하고 환경설정, 안드로이드 개발 환경 구성을 했고, 리눅스 컴퓨터에 연결된 모든 디바이스가 Android Debug Bridge 에 나열될 것입니다.
+지금까지 Android SDK 를 설치하고 환경설정, Android 개발 환경 구성을 했고, Linux 컴퓨터에 연결된 모든 디바이스가 Android Debug Bridge 에 나열될 것입니다.
 UE4 에서 새로운 모바일 프로젝트를 만들 준비가 되었습니다.
 
 ## 모바일 프로젝트 생성

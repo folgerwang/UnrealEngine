@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -55,7 +55,7 @@ public:
 
 private:
 	// Get the name of the function to call from the node
-	virtual FString GetFunctionNameFromNode(UEdGraphNode* Node) const;
+	virtual FName GetFunctionNameFromNode(UEdGraphNode* Node) const;
 	UClass* GetCallingContext(FKismetFunctionContext& Context, UEdGraphNode* Node);
 	UClass* GetTrueCallingClass(FKismetFunctionContext& Context, UEdGraphPin* SelfPin);
 

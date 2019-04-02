@@ -1,52 +1,10 @@
-﻿INTSourceChangelist:2704484
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title: 可扩展性和开发人员
 Crumbs: %ROOT%, Engine, Engine/Performance, Engine/Performance/Scalability
 Description:Desc
 version: 4.9
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Performance/Scalability/ScalabilityAndYou:title%](Engine/Rendering/rendering_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Performance/Scalability/ScalabilityAndYou:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Performance/Scalability/ScalabilityAndYou:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Performance/Scalability/ScalabilityAndYou]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Performance/Scalability/ScalabilityAndYou:title%](Engine/Rendering/rendering_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Performance/Scalability/ScalabilityAndYou:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Performance/Scalability/ScalabilityAndYou:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Performance/Scalability/ScalabilityAndYou]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[REGION:banner]
-
-[/REGION]
 
 [TOC(start:2)]
 
@@ -56,6 +14,7 @@ version: 4.9
 
 这就是可扩展性（Scalability）选项发挥作用的地方，但即便在个体开发人员需要调整这些选项之前，他们还是可以做很多事情，来确保他们所制作的应用程序可以在他们选择的最低配置规格上运行。
 
+(#General)
 ## 综述
 
 不同的机器可以具有不同的 性能/内存/质量 特性，比如：
@@ -79,6 +38,7 @@ version: 4.9
 * 电池寿命
 
 
+(#ArtistsandDesigners)
 ## 美术师和设计师
 
 虚幻引擎赋予内容创建人员很多权利，当然这随之也为他们带来很多责任。性能和内存要求直接和内容数量及质量相关。这是个非常复杂的问题：
@@ -118,6 +78,7 @@ version: 4.9
 * 某些笔记本有多个 GPU（比如使用 Intel HD4000 集成显卡节约电池，NVIDIA 580m 则提升性能）。默认情况下，您想在更快的 GPU 上运行程序，但最好在两个 GPU上 都运行程序进行测试（使用驱动程序设置来进行修改）。当在使用电池供电的电脑上运行时，可以选择较慢的 GPU，或者甚至可以在运行时进行切换。
 
 
+(#Programmers)
 ## 程序员
 
 当一个玩家更早地看到另一个玩家的身影或者通过较高的分辨率获得更快的响应时间时，该玩家可能有一种优势。
@@ -130,6 +91,7 @@ version: 4.9
 理想情况下，可扩展功能将不会影响游戏性。
 
 
+(#Leads,Producers,andManagers)
 ## 主管、制作人及经理
 
 主管经理们应该知道什么？开发一款需要针对大范围的硬件进行扩展的游戏是比较难的，这将消耗更多的时间，并耗费 QA 更多的精力。以下几个好的做法可能有所帮助：

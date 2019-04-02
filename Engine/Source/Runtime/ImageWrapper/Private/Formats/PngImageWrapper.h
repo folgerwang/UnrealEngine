@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -82,8 +82,11 @@ private:
 	/** The number of channels. */
 	uint8 Channels;
 
+#if PLATFORM_ANDROID || PLATFORM_LUMIN || PLATFORM_LUMINGL4
+	//Other platforms rely on libPNG internal mechanism to achieve concurrent compression\decompression on multiple threads
 	/** setjmp buffer for error recovery. */
 	jmp_buf SetjmpBuffer;
+#endif
 };
 
 

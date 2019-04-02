@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerTools.h"
 #include "SequencerScriptingEditor.h"
@@ -11,7 +11,7 @@
 
 #define LOCTEXT_NAMESPACE "SequencerTools"
 
-bool USequencerToolsFunctionLibrary::RenderMovie(UMovieSceneCapture* InCaptureSettings)
+bool USequencerToolsFunctionLibrary::RenderMovie(UMovieSceneCapture* InCaptureSettings, FOnRenderMovieStopped OnFinishedCallback)
 {
 	IMovieSceneCaptureDialogModule& MovieSceneCaptureModule = FModuleManager::Get().LoadModuleChecked<IMovieSceneCaptureDialogModule>("MovieSceneCaptureDialog");
 	
@@ -68,7 +68,13 @@ bool USequencerToolsFunctionLibrary::RenderMovie(UMovieSceneCapture* InCaptureSe
 		}
 	}
 
+	auto LocalCaptureStoppedCallback = [OnFinishedCallback](bool bSuccess)
+	{
+		OnFinishedCallback.ExecuteIfBound(bSuccess);
+	};
+
 	MovieSceneCaptureModule.StartCapture(InCaptureSettings);
+	MovieSceneCaptureModule.GetCurrentCapture()->CaptureStoppedDelegate.AddLambda(LocalCaptureStoppedCallback);
 	return true;
 }
 

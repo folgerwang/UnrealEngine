@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreTypes.h"
@@ -148,8 +148,6 @@ inline ERoundingMode ICUToUE(const icu::DecimalFormat::ERoundingMode RoundingMod
 	return Value;
 }
 
-ETextPluralForm ICUPluralFormToUE(const icu::UnicodeString& InICUTag);
-
 enum class EBreakIteratorType
 {
 	Grapheme,
@@ -200,16 +198,18 @@ class FCulture::FICUCultureImplementation
 
 	TSharedRef<const icu::BreakIterator> GetBreakIterator(const EBreakIteratorType Type);
 	TSharedRef<const icu::Collator, ESPMode::ThreadSafe> GetCollator(const ETextComparisonLevel::Type ComparisonLevel);
-	TSharedRef<const icu::DateFormat> GetDateFormatter(const EDateTimeStyle::Type DateStyle, const FString& TimeZone);
-	TSharedRef<const icu::DateFormat> GetTimeFormatter(const EDateTimeStyle::Type TimeStyle, const FString& TimeZone);
-	TSharedRef<const icu::DateFormat> GetDateTimeFormatter(const EDateTimeStyle::Type DateStyle, const EDateTimeStyle::Type TimeStyle, const FString& TimeZone);
+	TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> GetDateFormatter(const EDateTimeStyle::Type DateStyle, const FString& TimeZone);
+	TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> GetTimeFormatter(const EDateTimeStyle::Type TimeStyle, const FString& TimeZone);
+	TSharedRef<const icu::DateFormat, ESPMode::ThreadSafe> GetDateTimeFormatter(const EDateTimeStyle::Type DateStyle, const EDateTimeStyle::Type TimeStyle, const FString& TimeZone);
 
 	const FDecimalNumberFormattingRules& GetDecimalNumberFormattingRules();
 	const FDecimalNumberFormattingRules& GetPercentFormattingRules();
 	const FDecimalNumberFormattingRules& GetCurrencyFormattingRules(const FString& InCurrencyCode);
 
-	ETextPluralForm GetPluralForm(int32 Val, const ETextPluralType PluralType);
-	ETextPluralForm GetPluralForm(double Val, const ETextPluralType PluralType);
+	ETextPluralForm GetPluralForm(int32 Val, const ETextPluralType PluralType) const;
+	ETextPluralForm GetPluralForm(double Val, const ETextPluralType PluralType) const;
+
+	const TArray<ETextPluralForm>& GetValidPluralForms(const ETextPluralType PluralType) const;
 
 	icu::Locale ICULocale;
 	TSharedPtr<const icu::BreakIterator> ICUGraphemeBreakIterator;
@@ -219,12 +219,15 @@ class FCulture::FICUCultureImplementation
 	TSharedPtr<const icu::BreakIterator> ICUTitleBreakIterator;
 	TSharedPtr<const icu::Collator, ESPMode::ThreadSafe> ICUCollator;
 
-	TSharedPtr<const icu::DateFormat> ICUDateFormat;
-	TSharedPtr<const icu::DateFormat> ICUTimeFormat;
-	TSharedPtr<const icu::DateFormat> ICUDateTimeFormat;
+	TSharedPtr<const icu::DateFormat, ESPMode::ThreadSafe> ICUDateFormat;
+	TSharedPtr<const icu::DateFormat, ESPMode::ThreadSafe> ICUTimeFormat;
+	TSharedPtr<const icu::DateFormat, ESPMode::ThreadSafe> ICUDateTimeFormat;
 
 	const icu::PluralRules* ICUCardinalPluralRules;
-	const icu::PluralRules* ICUOrdianalPluralRules;
+	const icu::PluralRules* ICUOrdinalPluralRules;
+
+	TArray<ETextPluralForm> UEAvailableCardinalPluralForms;
+	TArray<ETextPluralForm> UEAvailableOrdinalPluralForms;
 
 	TSharedPtr<const FDecimalNumberFormattingRules, ESPMode::ThreadSafe> UEDecimalNumberFormattingRules;
 	FCriticalSection UEDecimalNumberFormattingRulesCS;

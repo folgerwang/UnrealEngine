@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GenericPlatform/GenericPlatformMemory.h"
 #include "HAL/LowLevelMemTracker.h"
@@ -19,8 +19,9 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/CommandLine.h"
 #include "Misc/MessageDialog.h"
+#include "Templates/UnrealTemplate.h"
 
-#if PLATFORM_UNIX || PLATFORM_MAC || PLATFORM_IOS
+#if PLATFORM_UNIX || PLATFORM_MAC || PLATFORM_IOS || PLATFORM_ANDROID
 	#include <sys/mman.h>
 	// more mmap()-based platforms can be added
 	#define UE4_PLATFORM_USES_MMAP_FOR_BINNED_OS_ALLOCS			1
@@ -64,6 +65,17 @@ DEFINE_STAT(STAT_UsedPhysical);
 DEFINE_STAT(STAT_PeakUsedPhysical);
 DEFINE_STAT(STAT_UsedVirtual);
 DEFINE_STAT(STAT_PeakUsedVirtual);
+
+struct TUnalignedTester
+{
+	FGenericPlatformMemory::TUnaligned<uint8> A;
+	FGenericPlatformMemory::TUnaligned<uint16> B;
+	TUnalignedTester()
+	{
+		static_assert(STRUCT_OFFSET(TUnalignedTester, B) == 1, "TUnaligned failure.");
+	}
+};
+
 
 /** Helper class used to update platform memory stats. */
 struct FGenericStatsUpdater
@@ -195,7 +207,7 @@ void FGenericPlatformMemory::OnOutOfMemory(uint64 Size, uint32 Alignment)
 	}
 
 	// let any registered handlers go
-	FCoreDelegates::GetMemoryTrimDelegate().Broadcast();
+	FCoreDelegates::GetOutOfMemoryDelegate().Broadcast();
 
 	UE_LOG(LogMemory, Fatal, TEXT("Ran out of memory allocating %llu bytes with alignment %u"), Size, Alignment);
 }

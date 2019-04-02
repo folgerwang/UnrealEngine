@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	NavMeshRenderingComponent.cpp: A component that renders a nav mesh.
@@ -815,7 +815,7 @@ FNavMeshSceneProxy::FNavMeshSceneProxy(const UPrimitiveComponent* InComponent, F
 
 	MeshColors.Reserve(NumberOfMeshes);
 	MeshBatchElements.Reserve(NumberOfMeshes);
-	const FMaterialRenderProxy* ParentMaterial = GEngine->DebugMeshMaterial->GetRenderProxy(false);
+	const FMaterialRenderProxy* ParentMaterial = GEngine->DebugMeshMaterial->GetRenderProxy();
 
 	TArray<FDynamicMeshVertex> Vertices;
 	for (int32 Index = 0; Index < NumberOfMeshes; ++Index)
@@ -950,7 +950,10 @@ void FNavMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>&
 					FMeshBatch& Mesh = Collector.AllocateMesh();
 					FMeshBatchElement& BatchElement = Mesh.Elements[0];
 					BatchElement = MeshBatchElements[Index];
-					BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate(FMatrix::Identity, GetBounds(), GetLocalBounds(), false, UseEditorDepthTest());
+
+					FDynamicPrimitiveUniformBuffer& DynamicPrimitiveUniformBuffer = Collector.AllocateOneFrameResource<FDynamicPrimitiveUniformBuffer>();
+					DynamicPrimitiveUniformBuffer.Set(FMatrix::Identity, FMatrix::Identity, GetBounds(), GetLocalBounds(), false, false, UseEditorDepthTest());
+					BatchElement.PrimitiveUniformBufferResource = &DynamicPrimitiveUniformBuffer.UniformBuffer;
 
 					Mesh.bWireframe = false;
 					Mesh.VertexFactory = &VertexFactory;
@@ -1129,7 +1132,7 @@ namespace
 			return true;
 		}
 		
-		for (FEditorViewportClient* CurrentViewport : GEditor->AllViewportClients)
+		for (FEditorViewportClient* CurrentViewport : GEditor->GetAllViewportClients())
 		{
 			if (CurrentViewport && CurrentViewport->IsVisible())
 			{
@@ -1164,7 +1167,7 @@ bool UNavMeshRenderingComponent::IsNavigationShowFlagSet(const UWorld* World)
 		if (bShowNavigation == false)
 		{
 			// we have to check all viewports because we can't to distinguish between SIE and PIE at this point.
-			for (FEditorViewportClient* CurrentViewport : GEditor->AllViewportClients)
+			for (FEditorViewportClient* CurrentViewport : GEditor->GetAllViewportClients())
 			{
 				if (CurrentViewport && CurrentViewport->EngineShowFlags.Navigation)
 				{

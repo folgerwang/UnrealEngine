@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SocketsSteam.h"
 #include "SocketSubsystemSteam.h"
@@ -173,7 +173,7 @@ bool FSocketSteam::RecvFrom(uint8* Data, int32 BufferSize, int32& BytesRead, FIn
 	}
 	else
 	{
-		if (SocketSubsystem->P2PTouch( SteamNetworkingPtr, SteamAddr.SteamId))
+		if (SocketSubsystem->P2PTouch(SteamNetworkingPtr, SteamAddr.SteamId, SteamChannel))
 		{
 			SocketSubsystem->LastSocketError = SE_NO_ERROR;
 		}
@@ -278,6 +278,17 @@ bool FSocketSteam::LeaveMulticastGroup(const FInternetAddr& GroupAddress)
 }
 
 
+bool FSocketSteam::JoinMulticastGroup(const FInternetAddr& GroupAddress, const FInternetAddr& InterfaceAddress)
+{
+	return false;
+}
+
+
+bool FSocketSteam::LeaveMulticastGroup(const FInternetAddr& GroupAddress, const FInternetAddr& InterfaceAddress)
+{
+	return false;
+}
+
 bool FSocketSteam::SetMulticastLoopback(bool bLoopback)
 {
 	return false;
@@ -285,6 +296,11 @@ bool FSocketSteam::SetMulticastLoopback(bool bLoopback)
 
 
 bool FSocketSteam::SetMulticastTtl(uint8 TimeToLive)
+{
+	return false;
+}
+
+bool FSocketSteam::SetMulticastInterface(const FInternetAddr& InterfaceAddress)
 {
 	return false;
 }

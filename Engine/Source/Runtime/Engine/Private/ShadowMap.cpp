@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ShadowMap.h"
 #include "Engine/MapBuildDataRegistry.h"
@@ -97,7 +97,7 @@ struct FShadowMapAllocation
 	{
 		if (InstanceIndex >= 0 && Registry)
 		{
-			FMeshMapBuildData* MeshBuildData = Registry->GetMeshBuildData(MapBuildDataId);
+			FMeshMapBuildData* MeshBuildData = Registry->GetMeshBuildDataDuringBuild(MapBuildDataId);
 			check(MeshBuildData);
 
 			UInstancedStaticMeshComponent* Component = CastChecked<UInstancedStaticMeshComponent>(Primitive);
@@ -109,7 +109,8 @@ struct FShadowMapAllocation
 				// TODO: We currently only support one LOD of static lighting in foliage
 				// Need to create per-LOD instance data to fix that
 				MeshBuildData->PerInstanceLightmapData[InstanceIndex].ShadowmapUVBias = ShadowMap->GetCoordinateBias();
-				int32 RenderIndex = Component->InstanceReorderTable.IsValidIndex(InstanceIndex) ? Component->InstanceReorderTable[InstanceIndex] : InstanceIndex;
+				int32 RenderIndex = (Component->InstanceReorderTable.IsValidIndex(InstanceIndex) && Component->InstanceReorderTable[InstanceIndex] != INDEX_NONE) ? Component->InstanceReorderTable[InstanceIndex] : InstanceIndex;
+
 				Component->InstanceUpdateCmdBuffer.SetShadowMapData(RenderIndex, MeshBuildData->PerInstanceLightmapData[InstanceIndex].ShadowmapUVBias);
 				Component->MarkRenderStateDirty();
 			}
@@ -534,6 +535,9 @@ FShadowMap2D::FShadowMap2D(TArray<FGuid> LightGuids)
 	}
 }
 
+UTexture2D* FShadowMap2D::GetTexture() { check(IsValid()); return Texture; }
+const UTexture2D* FShadowMap2D::GetTexture() const { check(IsValid()); return Texture; }
+
 void FShadowMap2D::AddReferencedObjects(FReferenceCollector& Collector)
 {
 	Collector.AddReferencedObject(Texture);
@@ -750,6 +754,10 @@ void FShadowMap2D::EncodeTextures(UWorld* InWorld, ULevel* LightingScenario, boo
 				MaxWidth = FMath::Max(MaxWidth, Allocation->MappedRect.Width());
 				MaxHeight = FMath::Max(MaxHeight, Allocation->MappedRect.Height());
 			}
+
+			// Assume bAlignByFour (see FTextureLayout::AddElement)
+			MaxWidth = (MaxWidth + 3) & ~3;
+			MaxHeight = (MaxHeight + 3) & ~3;
 
 			FShadowMapPendingTexture* Texture = nullptr;
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SBlueprintDiff.h"
 #include "Widgets/Layout/SSplitter.h"
@@ -192,12 +192,12 @@ FCDODiffControl::FCDODiffControl(
 				bDiffers = true;
 				// if there are any nested differences associated with PropertyIdentifier, add those
 				// as well:
-				OrderedProperties.Push(&Difference);
+				OrderedProperties.AddUnique(&Difference);
 			}
 			else if (Difference.Identifier.IsSubPropertyMatch(PropertyIdentifier))
 			{
 				bDiffers = true;
-				OrderedProperties.Push(&Difference);
+				OrderedProperties.AddUnique(&Difference);
 			}
 		}
 		return bDiffers;
@@ -833,6 +833,11 @@ void SBlueprintDiff::OnCloseAssetEditor(UObject* Asset, EAssetEditorCloseReason 
 	{
 		// Tell our window to close and set our selves to collapsed to try and stop it from ticking
 		SetVisibility(EVisibility::Collapsed);
+
+		if (AssetEditorCloseDelegate.IsValid())
+		{
+			FAssetEditorManager::Get().OnAssetEditorRequestClose().Remove(AssetEditorCloseDelegate);
+		}
 
 		if (WeakParentWindow.IsValid())
 		{

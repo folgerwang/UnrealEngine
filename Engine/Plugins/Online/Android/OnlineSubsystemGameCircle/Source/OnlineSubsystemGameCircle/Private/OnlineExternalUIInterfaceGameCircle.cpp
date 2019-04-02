@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineExternalUIInterfaceGameCircle.h"
 #include "AGS/AchievementsClientInterface.h"
@@ -99,7 +99,7 @@ void FOnlineExternalUIGameCircle::GameActivityOnResume()
 					Subsystem->GetIdentityGameCircle()->SetCurrentUserId(PlayerId);
 				}
 				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Executing ShowLoginUI Delegate if safe. PlayerId - %s  Index=%d"), *PlayerId->ToString(), ShowLoginControllerIndex);
-				ShowLoginDelegate.ExecuteIfBound(PlayerId, ShowLoginControllerIndex, FOnlineError(true));
+				ShowLoginDelegate.ExecuteIfBound(PlayerId, ShowLoginControllerIndex, FOnlineError::Success());
 
 				ShowLoginDelegate.Unbind();
 			}

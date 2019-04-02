@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "EdGraph/EdGraphPin.h"
 #include "UObject/BlueprintsObjectVersion.h"
@@ -657,7 +657,7 @@ FString UEdGraphPin::GetDefaultAsString() const
 	else if(!DefaultTextValue.IsEmpty())
 	{
 		FString TextAsString;
-		FTextStringHelper::WriteToString(TextAsString, DefaultTextValue);
+		FTextStringHelper::WriteToBuffer(TextAsString, DefaultTextValue);
 		return TextAsString;
 	}
 	else
@@ -1112,7 +1112,7 @@ bool UEdGraphPin::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, class UO
 					Buffer = FoundProp->ImportText(Buffer, PropertyAddr, PortFlags, Parent, ErrorText);
 					bParseSuccess = (Buffer != nullptr);
 				}
-				// DEPRECATED(4.17) - For some time bIsMap and bIsSet would have been in exported text and will cause issues if we don't handle them
+				// UE_DEPRECATED(4.17) - For some time bIsMap and bIsSet would have been in exported text and will cause issues if we don't handle them
 				else if (PropertyName == TEXT("bIsMap") || PropertyName == TEXT("bIsSet"))
 				{
 					bool bDummyBool = false;
@@ -1842,7 +1842,26 @@ bool UEdGraphPin::SerializePin(FArchive& Ar, UEdGraphPin*& PinRef, int32 ArrayId
 		FGuid PinGuid;
 		if (!Ar.IsLoading())
 		{
-			check(!PinRef->bWasTrashed);
+#if DO_CHECK
+			if(PinRef->bWasTrashed)
+			{
+				if(RequestingPin)
+				{
+					if(!RequestingPin->bWasTrashed)
+					{
+						checkf(false, TEXT("Pin named %s was serialized while trashed - requesting pin named %s owned by node %s"), *(PinRef->PinName.ToString()), *RequestingPin->PinName.ToString(), *RequestingPin->GetOwningNode()->GetName());
+					}
+					else
+					{
+						checkf(false, TEXT("Pin named %s was serialized while trashed - requesting pin named %s"), *(PinRef->PinName.ToString()), *RequestingPin->PinName.ToString());
+					}
+				}
+				else
+				{
+					checkf(false, TEXT("Pin named %s was serialized while trashed with no requesting pin"), *(PinRef->PinName.ToString()));
+				}
+			}
+#endif //DO_CHECK
 			LocalOwningNode = PinRef->OwningNode;
 			PinGuid = PinRef->PinId;
 		}

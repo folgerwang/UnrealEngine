@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
@@ -28,6 +28,15 @@ public:
 	static TSharedRef<IDetailCustomization> MakeInstance()
 	{
 		return MakeShareable( new FEditorKeyboardShortcutSettings );
+	}
+
+	virtual void PendingDelete()
+	{
+		if (EditorPanel.IsValid())
+		{
+			ensure(EditorPanel.IsUnique());
+			EditorPanel.Reset();
+		}
 	}
 
 	virtual void CustomizeDetails( IDetailLayoutBuilder& DetailBuilder )

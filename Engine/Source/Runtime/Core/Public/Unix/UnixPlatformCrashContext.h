@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -34,8 +34,9 @@ struct CORE_API FUnixCrashContext : public FGenericCrashContext
 	/** The PC of the first function used when handling a crash. Used to figure out the number of frames to ignore */
 	uint64* FirstCrashHandlerFrame = nullptr;
 
-	FUnixCrashContext()
-		:	Signal(0)
+	FUnixCrashContext(ECrashContextType InType, const TCHAR* InErrorMessage)
+		:	FGenericCrashContext(InType, InErrorMessage)
+		,	Signal(0)
 		,	Info(nullptr)
 		,	Context(nullptr)
 		,	bCapturedBacktrace(false)
@@ -43,18 +44,6 @@ struct CORE_API FUnixCrashContext : public FGenericCrashContext
 	{
 		SignalDescription[ 0 ] = 0;
 		MinidumpCallstackInfo[ 0 ] = 0;
-	}
-
-	FUnixCrashContext(bool bInIsEnsure)
-		: Signal(0)
-		, Info(nullptr)
-		, Context(nullptr)
-		, bCapturedBacktrace(false)
-		, BacktraceSymbols(nullptr)
-	{
-		SignalDescription[0] = 0;
-		MinidumpCallstackInfo[0] = 0;
-		bIsEnsure = bInIsEnsure;
 	}
 
 	~FUnixCrashContext();
@@ -94,7 +83,7 @@ struct CORE_API FUnixCrashContext : public FGenericCrashContext
 	/**
 	 * Sets whether this crash represents a non-crash event like an ensure
 	 */
-	void SetIsEnsure(bool bInIsEnsure) { bIsEnsure = bInIsEnsure; }
+	void SetType(ECrashContextType InType) { Type = InType; }
 
 	/**
 	 * Sets the FirstCrashHandlerFrame only if it has not been set before

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigSequenceExporter.h"
 #include "Sequencer/ControlRigSequence.h"
@@ -213,7 +213,7 @@ void Convert(UControlRigSequence* Sequence, UAnimSequence* AnimSequence, USkelet
 			LevelSequenceActor->LevelSequence = Sequence;
 			LevelSequenceActor->PlaybackSettings.bRestoreState = true;
 			LevelSequenceActor->SequencePlayer = NewObject<ULevelSequencePlayer>(LevelSequenceActor, "AnimationPlayer");
-			LevelSequenceActor->SequencePlayer->Initialize(Sequence, World, LevelSequenceActor->PlaybackSettings);
+			LevelSequenceActor->SequencePlayer->Initialize(Sequence, LevelSequenceActor->GetLevel(), LevelSequenceActor->PlaybackSettings);
 
 			// Now set up our animation sequence
 			AnimSequence->RecycleAnimSequence();
@@ -245,7 +245,7 @@ void Convert(UControlRigSequence* Sequence, UAnimSequence* AnimSequence, USkelet
 			int32        FrameCount        = FMath::CeilToInt(DurationSeconds * Settings->FrameRate);
 
 			AnimSequence->SequenceLength = DurationSeconds;
-			AnimSequence->NumFrames      = FrameCount;
+			AnimSequence->SetRawNumberOfFrame(FrameCount);
 
 			double FrameCountDouble = (double)FrameCount;
 			double FrameLength = 1.0 / (double)Settings->FrameRate;
@@ -291,7 +291,7 @@ void Convert(UControlRigSequence* Sequence, UAnimSequence* AnimSequence, USkelet
 			// notify to user
 			const FText NotificationText = FText::Format(LOCTEXT("ConvertAnimationNotification", "'{0}' has been successfully converted [{1} frames : {2} sec(s) @ {3} Hz]"),
 				FText::FromString(AnimSequence->GetName()),
-				FText::AsNumber(AnimSequence->NumFrames),
+				FText::AsNumber(AnimSequence->GetRawNumberOfFrames()),
 				FText::AsNumber(AnimSequence->SequenceLength),
 				FText::AsNumber(Settings->FrameRate)
 			);

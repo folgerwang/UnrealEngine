@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,6 +7,7 @@
 #include "UObject/Object.h"
 #include "Classes/Engine/Scene.h"
 #include "ComposurePostProcessPass.h"
+#include "ComposurePostProcessingPassProxy.h" // for UComposurePostProcessPassPolicy
 #include "ComposureLensBloomPass.generated.h"
 
 
@@ -35,4 +36,37 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Outputs")
 	void BloomToRenderTarget();
+
+private:
+	UPROPERTY(Transient)
+	UMaterialInstanceDynamic* TonemapperReplacingMID;
+};
+
+/**
+ * Bloom only rules used for configuring how UComposurePostProcessingPassProxy executes
+ */
+UCLASS(BlueprintType, Blueprintable, editinlinenew, meta=(DisplayName="Lens Bloom Pass"))
+class COMPOSURE_API UComposureLensBloomPassPolicy : public UComposurePostProcessPassPolicy
+{
+	GENERATED_BODY()
+	UComposureLensBloomPassPolicy();
+
+public:
+	/** Bloom settings. */
+	UPROPERTY(Interp, BlueprintReadWrite, Category = "Lens Bloom Settings")
+	FLensBloomSettings Settings;
+
+	UPROPERTY(EditAnywhere, Category = "Tonemapper Settings", AdvancedDisplay)
+	UMaterialInterface* ReplacementMaterial;
+
+	UPROPERTY(EditAnywhere, Category = "Tonemapper Settings", AdvancedDisplay)
+	FName BloomIntensityParamName;
+
+public:
+	//~ UComposurePostProcessPassPolicy interface
+	void SetupPostProcess_Implementation(USceneCaptureComponent2D* SceneCapture, UMaterialInterface*& OutTonemapperOverride) override;
+
+private:
+	UPROPERTY(Transient)
+	UMaterialInstanceDynamic* TonemapperReplacmentMID;
 };

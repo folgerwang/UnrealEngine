@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Widgets/SWindow.h"
 #include "Application/SlateWindowHelper.h"
@@ -1072,6 +1072,14 @@ void SWindow::FlashWindow()
 	}
 }
 
+void SWindow::DrawAttention(const FWindowDrawAttentionParameters& Parameters)
+{
+	if (NativeWindow.IsValid())
+	{
+		NativeWindow->DrawAttention(Parameters);
+	}
+}
+
 void SWindow::BringToFront( bool bForce )
 {
 	if (NativeWindow.IsValid())
@@ -1271,10 +1279,11 @@ void SWindow::DestroyWindowImmediately()
 	}
 }
 
-/** Calls the OnWindowClosed delegate when this window is about to be closed */
+/** Calls OnWindowClosed delegate and WindowClosedEvent when this window is about to be closed */
 void SWindow::NotifyWindowBeingDestroyed()
 {
 	OnWindowClosed.ExecuteIfBound( SharedThis( this ) );
+	WindowClosedEvent.Broadcast( SharedThis( this ) );
 
 #if WITH_EDITOR
 	if(bIsModalWindow)
@@ -1912,8 +1921,17 @@ SWindow::SWindow()
 
 int32 SWindow::PaintWindow( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
+	// Create initial culture specific layout direction
+	EFlowDirection NewFlowDirection = GSlateFlowDirection;
+	if (GetFlowDirectionPreference() == EFlowDirectionPreference::Inherit)
+	{
+		NewFlowDirection = GSlateFlowDirectionShouldFollowCultureByDefault ? FLayoutLocalization::GetLocalizedLayoutDirection() : EFlowDirection::LeftToRight;
+	}
+
+	TGuardValue<EFlowDirection> FlowGuard(GSlateFlowDirection, NewFlowDirection);
+
 	LayerId = Paint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
-	//LayerId = OutDrawElements.PaintDeferred( LayerId );
+
 	return LayerId;
 }
 
@@ -2015,6 +2033,14 @@ void SWindow::BeginFullWindowOverlayTransition()
 void SWindow::EndFullWindowOverlayTransition()
 {
 	bShouldShowWindowContentDuringOverlay = false;
+}
+
+void SWindow::SetNativeWindowButtonsVisibility(bool bVisible)
+{
+	if (NativeWindow.IsValid())
+	{
+		NativeWindow->SetNativeWindowButtonsVisibility(bVisible);
+	}
 }
 
 EVisibility SWindow::GetWindowContentVisibility() const

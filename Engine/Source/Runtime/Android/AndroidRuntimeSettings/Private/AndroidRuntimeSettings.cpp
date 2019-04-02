@@ -1,10 +1,13 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidRuntimeSettings.h"
 #include "Modules/ModuleManager.h"
 #include "UObject/UnrealType.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/CoreDelegates.h"
+#include "HAL/IConsoleManager.h"
+#include "Engine/RendererSettings.h"
+#include "HAL/PlatformApplicationMisc.h"
 
 #if WITH_EDITOR
 #include "IAndroidTargetPlatformModule.h"
@@ -17,10 +20,11 @@ UAndroidRuntimeSettings::UAndroidRuntimeSettings(const FObjectInitializer& Objec
 	, Orientation(EAndroidScreenOrientation::Landscape)
 	, MaxAspectRatio(2.1f)
 	, bAndroidVoiceEnabled(false)
-	, GoogleVRCaps({EGoogleVRCaps::Cardboard, EGoogleVRCaps::Daydream33})
+	, GoogleVRCaps({EGoogleVRCaps::Daydream33})
 	, bEnableGooglePlaySupport(false)
 	, bUseGetAccounts(false)
 	, bSupportAdMob(true)
+	, bBlockAndroidKeysOnControllers(false)
 	, AudioSampleRate(44100)
 	, AudioCallbackBufferFrameSize(1024)
 	, AudioNumBuffersToEnqueue(4)
@@ -42,7 +46,38 @@ UAndroidRuntimeSettings::UAndroidRuntimeSettings(const FObjectInitializer& Objec
 	bBuildForES2 = !bBuildForES2 && !bBuildForES31 && !bSupportsVulkan;
 }
 
+void UAndroidRuntimeSettings::PostReloadConfig(UProperty* PropertyThatWasLoaded)
+{
+	Super::PostReloadConfig(PropertyThatWasLoaded);
+
+#if PLATFORM_ANDROID
+
+	FPlatformApplicationMisc::SetGamepadsAllowed(bAllowControllers);
+
+#endif //PLATFORM_ANDROID
+}
+
 #if WITH_EDITOR
+
+void UAndroidRuntimeSettings::HandlesRGBHWSupport()
+{
+	const bool SupportssRGB = bBuildForES31 && bPackageForGearVR;
+	URendererSettings* const Settings = GetMutableDefault<URendererSettings>();
+	static auto* MobileUseHWsRGBEncodingCVAR = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Mobile.UseHWsRGBEncoding"));
+
+	if (SupportssRGB != Settings->bMobileUseHWsRGBEncoding)
+	{
+		Settings->bMobileUseHWsRGBEncoding = SupportssRGB;
+		Settings->UpdateSinglePropertyInConfigFile(Settings->GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(URendererSettings, bMobileUseHWsRGBEncoding)), GetDefaultConfigFilename());
+	}
+
+	if (MobileUseHWsRGBEncodingCVAR && MobileUseHWsRGBEncodingCVAR->GetInt() != (int)SupportssRGB)
+	{
+		MobileUseHWsRGBEncodingCVAR->Set((int)SupportssRGB);
+	}
+
+}
+
 static void InvalidateAllAndroidPlatforms()
 {
 	ITargetPlatformModule* Module = FModuleManager::GetModulePtr<IAndroidTargetPlatformModule>("AndroidTargetPlatform");
@@ -108,6 +143,8 @@ void UAndroidRuntimeSettings::PostEditChangeProperty(struct FPropertyChangedEven
 			Module->NotifyMultiSelectedFormatsChanged();
 		}
 	}
+
+	HandlesRGBHWSupport();
 }
 
 void UAndroidRuntimeSettings::PostInitProperties()
@@ -152,6 +189,7 @@ void UAndroidRuntimeSettings::PostInitProperties()
 
 	// Enable ES2 if no GPU arch is selected. (as can be the case with the removal of ESDeferred) 
 	EnsureValidGPUArch();
+	HandlesRGBHWSupport();
 }
 
 void UAndroidRuntimeSettings::EnsureValidGPUArch()

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -16,10 +16,10 @@ class UNiagaraNodeDataSetBase : public UNiagaraNode
 
 public:
 
-	UPROPERTY(EditAnywhere, Category = DataSet)
+	UPROPERTY()
 	FNiagaraDataSetID DataSet;
 
-	UPROPERTY(EditAnywhere, Category = Variables)
+	UPROPERTY()
 	TArray<FNiagaraVariable> Variables;
 	
 	UPROPERTY()

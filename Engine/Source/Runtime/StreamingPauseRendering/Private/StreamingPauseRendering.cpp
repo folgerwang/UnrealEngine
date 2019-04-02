@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "StreamingPauseRendering.h"
 #include "Layout/Margin.h"
@@ -136,10 +136,9 @@ void FStreamingPauseRenderingModule::BeginStreamingPause( FViewport* GameViewpor
 			}
 			Canvas.Flush_GameThread();
 
-
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-				EndDrawingCommand,
-				FViewport*, Viewport, SceneViewport.Get(),
+			FViewport* Viewport = SceneViewport.Get();
+			ENQUEUE_RENDER_COMMAND(EndDrawingCommand)(
+				[Viewport](FRHICommandListImmediate& RHICmdList)
 				{
 					Viewport->EndRenderFrame(RHICmdList, false, false);
 				});

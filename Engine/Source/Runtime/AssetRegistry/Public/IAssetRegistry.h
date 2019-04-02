@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -191,10 +191,19 @@ public:
 	/** Uses the asset registry to look for ObjectRedirectors. This will follow the chain of redirectors. It will return the original path if no redirectors are found */
 	virtual FName GetRedirectedObjectPath(const FName ObjectPath) const = 0;
 
-	/** Returns true if the specified ClassName's ancestors could be found. If so, OutAncestorClassNames is a list of all its ancestors */
+	/**
+	 * Removes a key from the key value pairs for an object
+	 *
+	 * @param ObjectPath the path of the object to be trimmed
+	 * @param Key the key to remove
+	 * @return the reduction in memory from removing this key
+	 */
+	virtual void StripAssetRegistryKeyForObject(FName ObjectPath, FName Key) = 0;
+
+	/** Returns true if the specified ClassName's ancestors could be found. If so, OutAncestorClassNames is a list of all its ancestors. This can be slow if temporary caching mode is not on */
 	virtual bool GetAncestorClassNames(FName ClassName, TArray<FName>& OutAncestorClassNames) const = 0;
 
-	/** Returns the names of all classes derived by the supplied class names, excluding any classes matching the excluded class names. */
+	/** Returns the names of all classes derived by the supplied class names, excluding any classes matching the excluded class names. This can be slow if temporary caching mode is not on */
 	virtual void GetDerivedClassNames(const TArray<FName>& ClassNames, const TSet<FName>& ExcludedClassNames, TSet<FName>& OutDerivedClassNames) const = 0;
 
 	/** Gets a list of all paths that are currently cached */
@@ -209,8 +218,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AssetRegistry")
 	virtual void RunAssetsThroughFilter(TArray<FAssetData>& AssetDataList, const FARFilter& Filter) const = 0;
 
+	/** Trims items out of the asset data list that do not pass the supplied filter */
+	UFUNCTION(BlueprintCallable, Category = "AssetRegistry")
+	virtual void UseFilterToExcludeAssets(TArray<FAssetData>& AssetDataList, const FARFilter& Filter) const = 0;
+
 	/** Modifies passed in filter to make it safe for use on FAssetRegistryState. This expands recursive paths and classes */
 	virtual void ExpandRecursiveFilter(const FARFilter& InFilter, FARFilter& ExpandedFilter) const = 0;
+
+	/** Enables or disable temporary search caching, when this is enabled scanning/searching is faster because we assume no objects are loaded between scans. Disabling frees any caches created */
+	virtual void SetTemporaryCachingMode(bool bEnable) = 0;
 
 	/**
 	 * Gets the current availability of an asset, primarily for streaming install purposes.
@@ -298,6 +314,10 @@ public:
 	DECLARE_EVENT_TwoParams( IAssetRegistry, FAssetRenamedEvent, const FAssetData&, const FString& );
 	virtual FAssetRenamedEvent& OnAssetRenamed() = 0;
 
+	/** Event for when assets are updated in the registry */
+	DECLARE_EVENT_OneParam(IAssetRegistry, FAssetUpdatedEvent, const FAssetData&);
+	virtual FAssetUpdatedEvent& OnAssetUpdated() = 0;
+
 	/** Event for when in-memory assets are created */
 	DECLARE_EVENT_OneParam( IAssetRegistry, FInMemoryAssetCreatedEvent, UObject* );
 	virtual FInMemoryAssetCreatedEvent& OnInMemoryAssetCreated() = 0;
@@ -331,13 +351,6 @@ public:
 	DECLARE_EVENT_OneParam( IAssetRegistry, FFileLoadProgressUpdatedEvent, const FFileLoadProgressUpdateData& /*ProgressUpdateData*/ );
 	virtual FFileLoadProgressUpdatedEvent& OnFileLoadProgressUpdated() = 0;
 
-	/** Register callback for when someone tries to edit a searchable name */
-	DECLARE_DELEGATE_RetVal_OneParam(bool, FAssetEditSearchableNameDelegate, const FAssetIdentifier&);
-	virtual FAssetEditSearchableNameDelegate& OnEditSearchableName(FName PackageName, FName ObjectName) = 0;
-
-	/** Tries to edit a searchablename, returns true if any of the callbacks handled it */
-	virtual bool EditSearchableName(const FAssetIdentifier& SearchableName) = 0;
-
 	/** Returns true if the asset registry is currently loading files and does not yet know about all assets */
 	UFUNCTION(BlueprintCallable, Category = "AssetRegistry")
 	virtual bool IsLoadingAssets() const = 0;
@@ -348,6 +361,9 @@ public:
 	/** Serialize the registry to/from a file, skipping editor only data */
 	virtual void Serialize(FArchive& Ar) = 0;
 	virtual void Serialize(FStructuredArchive::FRecord Record) = 0;
+
+	/** Append the assets from the incoming state into our own */
+	virtual void AppendState(const FAssetRegistryState& InState) = 0;
 
 	/** Returns memory size of entire registry, optionally logging sizes */
 	virtual uint32 GetAllocatedSize(bool bLogDetailed = false) const = 0;
@@ -365,18 +381,21 @@ public:
 	/** Returns read only reference to the current asset registry state. The contents of this may change at any time so do not save internal pointers */
 	virtual const FAssetRegistryState* GetAssetRegistryState() const = 0;
 
+	/** Returns the set of empty package names fast iteration */
+	virtual const TSet<FName>& GetCachedEmptyPackages() const = 0;
+
 	/** Fills in FAssetRegistrySerializationOptions from ini, optionally using a target platform ini name */
 	virtual void InitializeSerializationOptions(FAssetRegistrySerializationOptions& Options, const FString& PlatformIniName = FString()) const = 0;
 
 	/** Load FPackageRegistry data from the supplied package */
 	virtual void LoadPackageRegistryData(FArchive& Ar, TArray<FAssetData*>& Data) const = 0;
 
-	DEPRECATED(4.16, "Deprecated. Use InitializeTemporaryAssetRegistryState and call Serialize on it directly")
+	UE_DEPRECATED(4.16, "Deprecated. Use InitializeTemporaryAssetRegistryState and call Serialize on it directly")
 	virtual void SaveRegistryData(FArchive& Ar, TMap<FName, FAssetData*>& Data, TArray<FName>* InMaps = nullptr) = 0;
 	
-	DEPRECATED(4.16, "Deprecated. Create a FAssetRegistryState and call Serialize on it directly")
+	UE_DEPRECATED(4.16, "Deprecated. Create a FAssetRegistryState and call Serialize on it directly")
 	virtual void LoadRegistryData(FArchive& Ar, TMap<FName, FAssetData*>& Data) = 0;
-
+	
 protected:
 	// Functions specifically for calling from the asset manager
 	friend class UAssetManager;

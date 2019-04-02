@@ -56,7 +56,7 @@ TMultiMap 이 아니라서 키의 고유성이 보장됩니다. 중복 키를 �
 	// 	{ Key: 7, Value: "Pineapple" }
 	// ]
 
-맵에는 여전이 엘리먼트가 세 개 있지만, 예전에 키가 2 인 "Grapefruit" 값이 "Pear" 로 대체되었습니다.
+맵에는 여전이 엘리먼트가 세 개 있지만, 이전에 키가 2 인 "Grapefruit" 값이 "Pear" 로 대체되었습니다.
 
 Add 함수를 오버로드해서 값 없이 키를 받도록 했습니다. 키만 제공되면, 값은 기본값으로 생성됩니다:
 
@@ -264,7 +264,7 @@ FindAndRemoveChecked 함수는 맵에서 엘리먼트를 제거하고 그 값을
 
 	FString Removed8 = FruitMap.FindAndRemoveChecked(8); // assert!
 
-RemoveAndCopyValue 함수는 비슷한 작업을 하지만, 제거할 값 유형에 대한 레퍼런스를 받은 다음 키를 찾았는지 아닌지 불리언 값을 반환합니다. 실행시간 오류가 나지 않고 빠진 키에 사용하는 것이 가능합니다. 키를 찾지 못했으면, 호출은 false 를 반환하고 전달된 오브젝트와 맵은 변경되지 않은 채 남습니다:
+RemoveAndCopyValue 함수는 비슷한 작업을 하지만, 제거할 값 유형에 대한 레퍼런스를 받은 다음 키를 찾았는지 아닌지 부울 값을 반환합니다. 실행시간 오류가 나지 않고 빠진 키에 사용하는 것이 가능합니다. 키를 찾지 못했으면, 호출은 false 를 반환하고 전달된 오브젝트와 맵은 변경되지 않은 채 남습니다:
 
 	FString Removed;
 	bool bFound2 = FruitMap.RemoveAndCopyValue(2, Removed);

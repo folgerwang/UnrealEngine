@@ -64,6 +64,6 @@ topic-image:BlueprintDefaultSmall.png
 
 ![](PublicViewSetting.png)
 
-위에서, 변수 **IsInAir?** 와 **Reloading** 은 **Public** 으로 정의되어 있으므로, 퍼블릭 뷰가 켜졌을 떄 애님 프리뷰 에디터에는 이들만 나타내게 됩니다.
+위에서, 변수 **IsInAir?** 와 **Reloading** 은 **Public** 으로 정의되어 있으므로, 퍼블릭 뷰가 켜졌을 때 애님 프리뷰 에디터에는 이들만 나타내게 됩니다.
 
 

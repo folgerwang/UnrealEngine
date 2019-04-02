@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MaterialShader.h: Material shader definitions.
@@ -28,10 +28,10 @@ class FUniformExpressionSet;
 class FVertexFactoryType;
 
 /** Converts an EMaterialShadingModel to a string description. */
-extern FString GetShadingModelString(EMaterialShadingModel ShadingModel);
+extern ENGINE_API FString GetShadingModelString(EMaterialShadingModel ShadingModel);
 
 /** Converts an EBlendMode to a string description. */
-extern FString GetBlendModeString(EBlendMode BlendMode);
+extern ENGINE_API FString GetBlendModeString(EBlendMode BlendMode);
 
 /** Called for every material shader to update the appropriate stats. */
 extern void UpdateMaterialShaderCompilingStats(const FMaterial* Material);
@@ -103,7 +103,7 @@ public:
 		ValidateCompiledResultType InValidateCompiledResultRef,
 		GetStreamOutElementsType InGetStreamOutElementsRef
 		):
-		FShaderType(EShaderTypeForDynamicCast::Material, InName, InSourceFilename, InFunctionName, InFrequency, InTotalPermutationCount, InConstructSerializedRef, InGetStreamOutElementsRef),
+		FShaderType(EShaderTypeForDynamicCast::Material, InName, InSourceFilename, InFunctionName, InFrequency, InTotalPermutationCount, InConstructSerializedRef, InGetStreamOutElementsRef, nullptr),
 		ConstructCompiledRef(InConstructCompiledRef),
 		ShouldCompilePermutationRef(InShouldCompilePermutationRef),
 		ValidateCompiledResultRef(InValidateCompiledResultRef),

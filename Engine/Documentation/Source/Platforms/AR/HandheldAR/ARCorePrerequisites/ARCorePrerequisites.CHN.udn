@@ -1,0 +1,45 @@
+﻿INTSourceChangelist:4359079
+Availability: Public
+Crumbs: 
+Title: ARCore先决条件
+Description: 将谷歌ARCore用于增强现实开发的先决条件。
+Type: 
+Version: 4.19
+Parent: Platforms/AR/HandheldAR
+Order: 2
+Tags: mobile
+Tags: Android
+Tags: AR
+
+
+虚幻引擎本就支持Android设备；然而，要使用增强现实和虚幻引擎，还需要满足一些额外的要求。除了Android标准的虚幻引擎配置之外，还有一个额外的步骤，即在Android设备上安装ARCore应用程序。如果您已经在使用虚幻引擎和Android设备，只需要完成这一步骤就能开始使用增强现实和虚幻引擎了。
+
+## 常规先决条件
+
+虚幻引擎和Android设备的基本配置在“虚幻引擎”（Unreal Engine）文档的[Android游戏开发](Platforms/Android)部分中有详细介绍。  
+
+**ARCore 1.1 先决条件**  
+
+*   一个符合我们的[推荐规格](GettingStarted/RecommendedSpecifications)的开发工具。
+*   已安装虚幻引擎4.19或更高版本。
+*   已安装Android版Codeworks。
+*   已安装Android24或更高版本。
+*   一台受支持、已配置并已连接的手持式Android设备。
+
+**ARCore 1.2先决条件**  
+
+*   一个符合我们的[推荐规格](GettingStarted/RecommendedSpecifications)的开发工具。
+*   已安装虚幻引擎4.20或更高版本。
+*   已安装Android版Codeworks。
+*   已安装Android24或更高版本。
+*   一台受支持、已配置并已连接的手持式Android设备。
+
+[REGION:note]
+**支持：** 使用[支持的设备](https://developers.google.com/ar/discover/#supported_devices)链接确定当前支持ARCore的Android设备清单。
+[/REGION]
+[REGION:note]
+**已配置：** 使用虚幻引擎的增强现实技术的独特之处在于要求在设备上安装ARCore应用程序。
+
+*   可手动从Google Play Store下载ARCore。
+*   如果未在手持式设备上检测到ARCore，设备将提示您从Google Play Store下载ARCore。
+[/REGION]

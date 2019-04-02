@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -688,12 +688,12 @@ protected:
 		delete Entry;
 	}
 
-private:
+public:
 
-	friend TIterator begin(TLruCache& Cache) { return TIterator(Cache); }
-	friend TConstIterator begin(const TLruCache& Cache) { return TConstIterator(Cache); }
-	friend TIterator end(TLruCache& Cache) { return TIterator(); }
-	friend TConstIterator end(const TLruCache& Cache) { return TConstIterator(); }
+	TIterator begin() { return TIterator(*this); }
+	TConstIterator begin() const { return TConstIterator(*this); }
+	TIterator end() { return TIterator(); }
+	TConstIterator end() const { return TConstIterator(); }
 
 private:
 

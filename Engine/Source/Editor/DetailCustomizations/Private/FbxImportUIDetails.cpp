@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "FbxImportUIDetails.h"
 #include "Misc/Attribute.h"
@@ -27,6 +27,15 @@
 #include "IDetailGroup.h"
 
 #define LOCTEXT_NAMESPACE "FbxImportUIDetails"
+
+#define MinimumLodNumberID 0
+#define LodNumberID 1
+
+static FString DoNotOverrideString = FText(LOCTEXT("BaseColorPropertyDoNotOverride", "Do Not Override")).ToString();
+
+static FString CreateNewMaterialsString = FText(LOCTEXT("MaterialImportMethodCreateNewMaterials", "Create New Materials")).ToString();
+static FString CreateNewInstancedMaterialsString = FText(LOCTEXT("MaterialImportMethodCreateNewInstancedMaterials", "Create New Instanced Materials")).ToString();
+static FString DoNotCreateMaterialString = FText(LOCTEXT("MaterialImportMethodDoNotCreateMaterial", "Do Not Create Material")).ToString();
 
 //If the String is contain in the StringArray, it return the index. Otherwise return INDEX_NONE
 int FindString(const TArray<TSharedPtr<FString>> &StringArray, const FString &String) {
@@ -111,28 +120,32 @@ bool SkipImportProperty(TSharedPtr<IPropertyHandle> Handle, const FString &MetaD
 bool FFbxImportUIDetails::ShowCompareResult()
 {
 	bool bHasMaterialConflict = false;
-	bool bHasSkeletonConflict = false;
+	ImportCompareHelper::ECompareResult SkeletonCompareResult = ImportCompareHelper::ECompareResult::SCR_None;
 	bool bShowCompareResult = ImportUI->bIsReimport && ImportUI->ReimportMesh != nullptr && ImportUI->OnUpdateCompareFbx.IsBound();
 	if (bShowCompareResult)
 	{
 		//Always update the compare data with the current option
 		ImportUI->OnUpdateCompareFbx.Execute();
 		bHasMaterialConflict = ImportUI->MaterialCompareData.HasConflict();
-		bHasSkeletonConflict = ImportUI->SkeletonCompareData.HasConflict();
-		if (bHasMaterialConflict || bHasSkeletonConflict)
+		SkeletonCompareResult = ImportUI->SkeletonCompareData.CompareResult;
+		if (bHasMaterialConflict || SkeletonCompareResult != ImportCompareHelper::ECompareResult::SCR_None)
 		{
 			FName ConflictCategoryName = TEXT("Conflicts");
 			IDetailCategoryBuilder& CategoryBuilder = CachedDetailBuilder->EditCategory(ConflictCategoryName, LOCTEXT("CategoryConflictsName", "Conflicts"), ECategoryPriority::Important);
-			auto BuildConflictRow = [this, &CategoryBuilder](const FText& CategoryName, const FText& Conflict_NameContent, const FText& Conflict_ButtonTooltip, const FText& Conflict_ButtonText, ConflictDialogType DialogType)
+			auto BuildConflictRow = [this, &CategoryBuilder](const FText& CategoryName, const FText& Conflict_NameContent, const FText& Conflict_ButtonTooltip, const FText& Conflict_ButtonText, ConflictDialogType DialogType, const FSlateBrush* Brush, const FText& Conflict_IconTooltip)
 			{
 				CategoryBuilder.AddCustomRow(CategoryName).WholeRowContent()
 				[
 					SNew(SHorizontalBox)
 					+ SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.HAlign(HAlign_Center)
 					.AutoWidth()
+					.Padding(2.0f, 2.0f, 5.0f, 2.0f)
 					[
 						SNew(SImage)
-						.Image(FEditorStyle::GetBrush("Icons.Error"))
+						.ToolTipText(Conflict_IconTooltip)
+						.Image(Brush)
 					]
 					+ SHorizontalBox::Slot()
 					.FillWidth(1.0f)
@@ -165,16 +178,39 @@ bool FFbxImportUIDetails::ShowCompareResult()
 					LOCTEXT("MaterialConflict_NameContent", "Unmatched Materials"),
 					LOCTEXT("MaterialConflict_ButtonShowTooltip", "Show a detailed view of the materials conflict."),
 					LOCTEXT("MaterialConflict_ButtonShow", "Show Conflict"),
-					ConflictDialogType::Conflict_Material);
+					ConflictDialogType::Conflict_Material,
+					FEditorStyle::GetBrush("Icons.Error"),
+					LOCTEXT("MaterialConflict_IconTooltip", "There is one or more material(s) that do not match.")
+				);
 			}
 
-			if (bHasSkeletonConflict)
+			if (SkeletonCompareResult != ImportCompareHelper::ECompareResult::SCR_None)
 			{
+				FText IconTooltip;
+				if ((SkeletonCompareResult & ImportCompareHelper::ECompareResult::SCR_SkeletonBadRoot) > ImportCompareHelper::ECompareResult::SCR_None)
+				{
+					IconTooltip = (LOCTEXT("SkeletonConflictBadRoot_IconTooltip", "(Error) Root bone: The root bone of the incoming fbx do not match the root bone of the current skeletalmesh asset. Import will probably fail!"));
+				}
+				else if ((SkeletonCompareResult & ImportCompareHelper::ECompareResult::SCR_SkeletonMissingBone) > ImportCompareHelper::ECompareResult::SCR_None)
+				{
+					IconTooltip = (LOCTEXT("SkeletonConflictDeletedBones_IconTooltip", "(Warning) Deleted bones: Some bones of the of the current skeletalmesh asset are not use by the incoming fbx."));
+				}
+				else
+				{
+					IconTooltip = (LOCTEXT("SkeletonConflictAddedBones_IconTooltip", "(Info) Added bones: Some bones in the incoming fbx do not exist in the current skeletalmesh asset."));
+				}
+				 
+				const FSlateBrush* Brush = (SkeletonCompareResult & ImportCompareHelper::ECompareResult::SCR_SkeletonBadRoot) > ImportCompareHelper::ECompareResult::SCR_None ? FEditorStyle::GetBrush("Icons.Error")
+					: (SkeletonCompareResult & ImportCompareHelper::ECompareResult::SCR_SkeletonMissingBone) > ImportCompareHelper::ECompareResult::SCR_None ? FEditorStyle::GetBrush("Icons.Warning")
+					: FEditorStyle::GetBrush("Icons.Info");
+
 				BuildConflictRow(LOCTEXT("SkeletonConflict_RowFilter", "Skeleton conflict"),
 					LOCTEXT("SkeletonConflict_NameContent", "Unmatched Skeleton joints"),
 					LOCTEXT("SkeletonConflict_ButtonShowTooltip", "Show a detailed view of the skeleton joints conflict."),
 					LOCTEXT("SkeletonConflict_ButtonShow", "Show Conflict"),
-					ConflictDialogType::Conflict_Skeleton);
+					ConflictDialogType::Conflict_Skeleton,
+					Brush,
+					IconTooltip);
 			}
 		}
 	}
@@ -239,13 +275,25 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 	TSharedRef<IPropertyHandle> ImportAutoComputeLodDistancesProp = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, bAutoComputeLodDistances));
 	ImportAutoComputeLodDistancesProp->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &FFbxImportUIDetails::ImportAutoComputeLodDistancesChanged));
 
+	TSharedPtr<IPropertyHandle> ImportMeshLODsProp = StaticMeshDataProp->GetChildHandle(GET_MEMBER_NAME_CHECKED(UFbxStaticMeshImportData, bImportMeshLODs));
+	ImportMeshLODsProp->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &FFbxImportUIDetails::RefreshCustomDetail));
+
 	MeshCategory.GetDefaultProperties(CategoryDefaultProperties);
 
 	
 	switch(ImportUI->MeshTypeToImport)
 	{
 		case FBXIT_StaticMesh:
-			CollectChildPropertiesRecursive(StaticMeshDataProp, ExtraProperties);
+			{
+				//Validate static mesh input
+				TSharedRef<IPropertyHandle> MinimumLodNumberProp = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, MinimumLodNumber));
+				MinimumLodNumberProp->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &FFbxImportUIDetails::ValidateLodSettingsChanged, MinimumLodNumberID));
+				//Validate static mesh input
+				TSharedRef<IPropertyHandle> LodNumberProp = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, LodNumber));
+				LodNumberProp->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &FFbxImportUIDetails::ValidateLodSettingsChanged, LodNumberID));
+
+				CollectChildPropertiesRecursive(StaticMeshDataProp, ExtraProperties);
+			}
 			break;
 		case FBXIT_SkeletalMesh:
 			{
@@ -267,10 +315,19 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 	EFBXImportType ImportType = ImportUI->MeshTypeToImport;
 
 	//Hide LodDistance property if we do not need them
-	if (ImportType == FBXIT_StaticMesh && ImportUI->bAutoComputeLodDistances)
+	if (ImportUI->bIsReimport || ImportType != FBXIT_StaticMesh || !ImportUI->StaticMeshImportData->bImportMeshLODs)
 	{
-		for (int32 LodIndex = 0; LodIndex < 8; ++LodIndex)
+		DetailBuilder.HideCategory(FName(TEXT("LodSettings")));
+	}
+	else
+	{
+		int32 ShowMaxLodIndex = (ImportUI->bAutoComputeLodDistances ? 0 : ImportUI->LodNumber > 0 ? ImportUI->LodNumber : MAX_STATIC_MESH_LODS) - 1;
+		for (int32 LodIndex = 0; LodIndex < MAX_STATIC_MESH_LODS; ++LodIndex)
 		{
+			if (LodIndex <= ShowMaxLodIndex)
+			{
+				continue;
+			}
 			TArray<FStringFormatArg> Args;
 			Args.Add(TEXT("LodDistance"));
 			Args.Add(FString::FromInt(LodIndex));
@@ -282,10 +339,6 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 				DetailBuilder.HideProperty(Handle);
 			}
 		}
-	}
-	else if (ImportType != FBXIT_StaticMesh)
-	{
-		DetailBuilder.HideCategory(FName(TEXT("LodSettings")));
 	}
 
 	if(ImportType != FBXIT_Animation)
@@ -322,6 +375,10 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 		{
 			DetailBuilder.HideProperty(Handle);
 		}
+		else if (ImportUI->bIsReimport && Handle->GetBoolMetaData(TEXT("ReimportRestrict")))
+		{
+			DetailBuilder.HideProperty(Handle);
+		}
 		else
 		{
 			SetupRefreshForHandle(Handle);
@@ -343,6 +400,10 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 		{
 			bSkip = true;
 		}
+
+		//Skip the variable that is ReimportRestrick when we are in reimport mode
+		bSkip |= ImportUI->bIsReimport && Handle->GetBoolMetaData(TEXT("ReimportRestrict"));
+		
 		if(!bSkip && IsImportTypeMetaDataValid(ImportType, ImportTypeMetaData))
 		{
 			// Decide on category
@@ -391,6 +452,15 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 
 						PropertyRow.IsEnabled(TAttribute<bool>(this, &FFbxImportUIDetails::GetVertexOverrideColorEnabledState));
 					}
+
+					if (Property->GetFName() == GET_MEMBER_NAME_CHECKED(UFbxSkeletalMeshImportData, VertexOverrideColor))
+					{
+						// Cache the VertexColorImportOption property
+						SkeletalMeshVertexColorImportOptionHandle = SkeletalMeshDataProp->GetChildHandle(GET_MEMBER_NAME_CHECKED(UFbxSkeletalMeshImportData, VertexColorImportOption));
+
+						PropertyRow.IsEnabled(TAttribute<bool>(this, &FFbxImportUIDetails::GetSkeletalMeshVertexOverrideColorEnabledState));
+					}
+					
 				}
 			}
 			//Add refresh callback
@@ -465,38 +535,59 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 
 	// Material Category
 	IDetailCategoryBuilder& MaterialCategory = DetailBuilder.EditCategory("Material");
-	if(ImportType == FBXIT_Animation || bImportRigOnly)
+	if(ImportUI->bIsReimport || ImportType == FBXIT_Animation || bImportRigOnly)
 	{
-		// In animation-only mode, hide the material display
-		CategoryDefaultProperties.Empty();
-		MaterialCategory.GetDefaultProperties(CategoryDefaultProperties);
-
-		for(TSharedRef<IPropertyHandle> Handle : CategoryDefaultProperties)
-		{
-			DetailBuilder.HideProperty(Handle);
-		}
+		// hide the material category
+		DetailBuilder.HideCategory("Material");
 	}
 	else
 	{
+		TSharedRef<IPropertyHandle> ImportMaterialPropHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, bImportMaterials));
+
 		TSharedRef<IPropertyHandle> TextureDataProp = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, TextureImportData));
 		DetailBuilder.HideProperty(TextureDataProp);
 
 		ExtraProperties.Empty();
 		CollectChildPropertiesRecursive(TextureDataProp, ExtraProperties);
+		
+
+		TSharedPtr<IPropertyHandle> MaterialLocationPropHandle;
+		for (TSharedPtr<IPropertyHandle> Handle : ExtraProperties)
+		{
+			// We ignore base import data for this window.
+			if (Handle->GetProperty()->GetOuter() == UFbxTextureImportData::StaticClass())
+			{
+				if (Handle->GetProperty()->GetFName() == GET_MEMBER_NAME_CHECKED(UFbxTextureImportData, MaterialSearchLocation))
+				{
+					MaterialLocationPropHandle = Handle;
+				}
+			}
+		}
+
+		//The order is
+		// Search Location
+		// Import Materials
+		// [Base Material Name]
+		// [All Base Material Parameter]
+		// 
+		DetailBuilder.HideProperty(MaterialLocationPropHandle);
+		MaterialCategory.AddProperty(MaterialLocationPropHandle);
+		DetailBuilder.HideProperty(ImportMaterialPropHandle);
+		ConstructMaterialImportMethod(ImportMaterialPropHandle, MaterialCategory);
 
 		for(TSharedPtr<IPropertyHandle> Handle : ExtraProperties)
 		{
 			// We ignore base import data for this window.
 			if(Handle->GetProperty()->GetOuter() == UFbxTextureImportData::StaticClass())
 			{
-				if (Handle->GetPropertyDisplayName().ToString() == FString(TEXT("Base Material Name")))
+				if (Handle->GetProperty()->GetFName() == GET_MEMBER_NAME_CHECKED(UFbxTextureImportData, BaseMaterialName))
 				{
-					if (ImportUI->bImportMaterials)
+					if (ImportUI->bImportMaterials && ImportUI->TextureImportData->bUseBaseMaterial)
 					{
 						ConstructBaseMaterialUI(Handle, MaterialCategory);
 					}
 				}
-				else
+				else if (Handle != MaterialLocationPropHandle)
 				{
 					MaterialCategory.AddProperty(Handle);
 				}
@@ -577,6 +668,50 @@ void FFbxImportUIDetails::AddSubCategory(IDetailLayoutBuilder& DetailBuilder, FN
 	}
 }
 
+void FFbxImportUIDetails::ConstructMaterialImportMethod(TSharedPtr<IPropertyHandle> ImportMaterialPropHandle, IDetailCategoryBuilder& MaterialCategory)
+{
+	//The import material is represent by a combobox with 3 choices
+	//1. Create New Materials
+	//2. Create New Instanced Materials (Using an existing base material)
+	//3. Do not Create Materials
+	ImportMethodNames.Reset();
+	ImportMethodNames.Add(MakeShareable(new FString(CreateNewMaterialsString)));
+	ImportMethodNames.Add(MakeShareable(new FString(CreateNewInstancedMaterialsString)));
+	ImportMethodNames.Add(MakeShareable(new FString(DoNotCreateMaterialString)));
+
+	if(ImportUI->TextureImportData->BaseMaterialName.IsValid())
+	{
+		//When we load the UI the first time we set this boolean to true in case the BaseMaterialName is valid.
+		ImportUI->TextureImportData->bUseBaseMaterial = true;
+	}
+
+	int32 InitialSelect = ImportUI->bImportMaterials ? (ImportUI->TextureImportData->bUseBaseMaterial ? 1 : 0) : 2;
+
+	MaterialCategory.AddCustomRow(LOCTEXT("MaterialImportMethod", "Material Import Method"))
+	.NameContent()
+	[
+		SNew(STextBlock)
+		.Text(LOCTEXT("MaterialImportMethod", "Material Import Method"))
+		.ToolTipText(LOCTEXT("MaterialImportMethodToolTip", "How materials are created when the importer cannot found it using the search location."))
+		.Font(IDetailLayoutBuilder::GetDetailFont())
+	]
+	.ValueContent()
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		[
+			SNew(SBox)
+			[
+				SNew(STextComboBox)
+				.OptionsSource(&ImportMethodNames)
+				.OnSelectionChanged(this, &FFbxImportUIDetails::OnMaterialImportMethodChanged)
+				.InitiallySelectedItem(ImportMethodNames[InitialSelect])
+				.Font(IDetailLayoutBuilder::GetDetailFont())
+			]
+		]
+	];
+}
 
 void FFbxImportUIDetails::ConstructBaseMaterialUI(TSharedPtr<IPropertyHandle> Handle, IDetailCategoryBuilder& MaterialCategory)
 {
@@ -595,8 +730,8 @@ void FFbxImportUIDetails::ConstructBaseMaterialUI(TSharedPtr<IPropertyHandle> Ha
 
 	BaseColorNames.Empty();
 	BaseTextureNames.Empty();
-	BaseColorNames.Add(MakeShareable(new FString()));
-	BaseTextureNames.Add(MakeShareable(new FString()));
+	BaseColorNames.Add(MakeShareable(new FString(DoNotOverrideString)));
+	BaseTextureNames.Add(MakeShareable(new FString(DoNotOverrideString)));
 	TArray<FMaterialParameterInfo> OutParameterInfo;
 	TArray<FGuid> Guids;
 	float MinDesiredWidth = 150.0f;
@@ -604,183 +739,216 @@ void FFbxImportUIDetails::ConstructBaseMaterialUI(TSharedPtr<IPropertyHandle> Ha
 	TSharedPtr<SWidget> ValueWidget;
 	FDetailWidgetRow Row;
 	MaterialPropertyRow.GetDefaultWidgets(NameWidget, ValueWidget, Row);
+	int InitialSelect = INDEX_NONE;
 
 	// base color properties, only used when there is no texture in the diffuse map
 	Material->GetAllVectorParameterInfo(OutParameterInfo, Guids);
-	for (FMaterialParameterInfo &ParameterInfo : OutParameterInfo)
+	if (OutParameterInfo.Num() > 0)
 	{
-		BaseColorNames.Add(MakeShareable(new FString(ParameterInfo.Name.ToString())));
+		for (FMaterialParameterInfo &ParameterInfo : OutParameterInfo)
+		{
+			BaseColorNames.Add(MakeShareable(new FString(ParameterInfo.Name.ToString())));
+		}
 	}
-	int InitialSelect = FindString(BaseColorNames, ImportUI->TextureImportData->BaseColorName);
-	InitialSelect = InitialSelect == INDEX_NONE ? 0 : InitialSelect; // default to the empty string located at index 0
-	MaterialCategory.AddCustomRow(LOCTEXT("BaseColorProperty", "Base Color Property"))
-	.NameContent()
-	[
-		SNew(STextBlock)
-		.Text(LOCTEXT("BaseColorProperty", "Base Color Property"))
-		.Font(IDetailLayoutBuilder::GetDetailFont())
-	]
-	.ValueContent()
-	.MaxDesiredWidth(Row.ValueWidget.MaxWidth)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.MinDesiredWidth(MinDesiredWidth)
-			[
-				SNew(STextComboBox)
-				.OptionsSource(&BaseColorNames)
-				.ToolTip(SNew(SToolTip).Text(LOCTEXT("BaseColorFBXImportToolTip", "When there is no diffuse texture in the imported material this color property will be used to fill a contant color value instead.")))
-				.OnSelectionChanged(this, &FFbxImportUIDetails::OnBaseColor)
-				.InitiallySelectedItem(BaseColorNames[InitialSelect])
-			]
-		]
-	];
-
-	// base texture properties
 	OutParameterInfo.Empty();
 	Material->GetAllTextureParameterInfo(OutParameterInfo, Guids);
-	for (FMaterialParameterInfo &ParameterInfo : OutParameterInfo)
+	if (OutParameterInfo.Num() > 0)
 	{
-		BaseTextureNames.Add(MakeShareable(new FString(ParameterInfo.Name.ToString())));
+		for (FMaterialParameterInfo &ParameterInfo : OutParameterInfo)
+		{
+			BaseTextureNames.Add(MakeShareable(new FString(ParameterInfo.Name.ToString())));
+		}
 	}
-	InitialSelect = FindString(BaseTextureNames, ImportUI->TextureImportData->BaseDiffuseTextureName);
-	InitialSelect = InitialSelect == INDEX_NONE ? 0 : InitialSelect; // default to the empty string located at index 0
-	MaterialCategory.AddCustomRow(LOCTEXT("BaseTextureProperty", "Base Texture Property")).NameContent()
-	[
-		SNew(STextBlock)
-		.Text(LOCTEXT("BaseTextureProperty", "Base Texture Property"))
-		.Font(IDetailLayoutBuilder::GetDetailFont())
-	]
-	.ValueContent()
-	.MaxDesiredWidth(Row.ValueWidget.MaxWidth)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
+	if (BaseColorNames.Num() > 1)
+	{
+		InitialSelect = FindString(BaseColorNames, ImportUI->TextureImportData->BaseColorName);
+		InitialSelect = InitialSelect == INDEX_NONE ? 0 : InitialSelect; // default to the empty string located at index 0
+		MaterialCategory.AddCustomRow(LOCTEXT("BaseColorProperty", "Base Color Property"))
+		.NameContent()
 		[
-			SNew(SBox)
-			.MinDesiredWidth(MinDesiredWidth)
-			[
-				SNew(STextComboBox)
-				.OptionsSource(&BaseTextureNames)
-				.OnSelectionChanged(this, &FFbxImportUIDetails::OnDiffuseTextureColor)
-				.InitiallySelectedItem(BaseTextureNames[InitialSelect])
-			]
+			SNew(STextBlock)
+			.Text(LOCTEXT("BaseColorProperty", "Base Color Property"))
+			.Font(IDetailLayoutBuilder::GetDetailFont())
 		]
-	];
+		.ValueContent()
+		.MaxDesiredWidth(Row.ValueWidget.MaxWidth)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.MinDesiredWidth(MinDesiredWidth)
+				[
+					SNew(STextComboBox)
+					.OptionsSource(&BaseColorNames)
+					.ToolTip(SNew(SToolTip).Text(LOCTEXT("BaseColorFBXImportToolTip", "When there is no diffuse texture in the imported material this color property will be used to fill a contant color value instead.")))
+					.OnSelectionChanged(this, &FFbxImportUIDetails::OnBaseColor)
+					.InitiallySelectedItem(BaseColorNames[InitialSelect])
+				]
+			]
+		];
+	}
+	// base texture properties
+	if(BaseTextureNames.Num() > 1)
+	{
+		InitialSelect = FindString(BaseTextureNames, ImportUI->TextureImportData->BaseDiffuseTextureName);
+		InitialSelect = InitialSelect == INDEX_NONE ? 0 : InitialSelect; // default to the empty string located at index 0
+		MaterialCategory.AddCustomRow(LOCTEXT("BaseTextureProperty", "Base Texture Property")).NameContent()
+		[
+			SNew(STextBlock)
+			.Text(LOCTEXT("BaseTextureProperty", "Base Texture Property"))
+			.Font(IDetailLayoutBuilder::GetDetailFont())
+		]
+		.ValueContent()
+		.MaxDesiredWidth(Row.ValueWidget.MaxWidth)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.MinDesiredWidth(MinDesiredWidth)
+				[
+					SNew(STextComboBox)
+					.OptionsSource(&BaseTextureNames)
+					.OnSelectionChanged(this, &FFbxImportUIDetails::OnDiffuseTextureColor)
+					.InitiallySelectedItem(BaseTextureNames[InitialSelect])
+				]
+			]
+		];
 
-	// base normal properties
-	InitialSelect = FindString(BaseTextureNames, ImportUI->TextureImportData->BaseNormalTextureName);
-	InitialSelect = InitialSelect == INDEX_NONE ? 0 : InitialSelect; // default to the empty string located at index 0
-	MaterialCategory.AddCustomRow(LOCTEXT("BaseNormalTextureProperty", "Base Normal Texture Property")).NameContent()
-	[
-		SNew(STextBlock)
-		.Text(LOCTEXT("BaseNormalTextureProperty", "Base Normal Texture Property"))
-		.Font(IDetailLayoutBuilder::GetDetailFont())
-	]
-	.ValueContent()
-	.MaxDesiredWidth(Row.ValueWidget.MaxWidth)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
+		// base normal properties
+		InitialSelect = FindString(BaseTextureNames, ImportUI->TextureImportData->BaseNormalTextureName);
+		InitialSelect = InitialSelect == INDEX_NONE ? 0 : InitialSelect; // default to the empty string located at index 0
+		MaterialCategory.AddCustomRow(LOCTEXT("BaseNormalTextureProperty", "Base Normal Texture Property")).NameContent()
 		[
-			SNew(SBox)
-			.MinDesiredWidth(MinDesiredWidth)
-			[
-				SNew(STextComboBox)
-				.OptionsSource(&BaseTextureNames)
-				.OnSelectionChanged(this, &FFbxImportUIDetails::OnNormalTextureColor)
-				.InitiallySelectedItem(BaseTextureNames[InitialSelect])
-			]
+			SNew(STextBlock)
+			.Text(LOCTEXT("BaseNormalTextureProperty", "Base Normal Texture Property"))
+			.Font(IDetailLayoutBuilder::GetDetailFont())
 		]
-	];
+		.ValueContent()
+		.MaxDesiredWidth(Row.ValueWidget.MaxWidth)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.MinDesiredWidth(MinDesiredWidth)
+				[
+					SNew(STextComboBox)
+					.OptionsSource(&BaseTextureNames)
+					.OnSelectionChanged(this, &FFbxImportUIDetails::OnNormalTextureColor)
+					.InitiallySelectedItem(BaseTextureNames[InitialSelect])
+				]
+			]
+		];
+	}
 
-	// base emissive color properties, only used when there is no texture in the emissive map
-	InitialSelect = FindString(BaseColorNames, ImportUI->TextureImportData->BaseEmissiveColorName);
-	InitialSelect = InitialSelect == INDEX_NONE ? 0 : InitialSelect; // default to the empty string located at index 0
-	MaterialCategory.AddCustomRow(LOCTEXT("BaseEmissiveColorProperty", "Base Emissive Color Property"))
-	.NameContent()
-	[
-		SNew(STextBlock)
-		.Text(LOCTEXT("BaseEmissiveColorProperty", "Base Emissive Color Property"))
-		.Font(IDetailLayoutBuilder::GetDetailFont())
-	]
-	.ValueContent()
-	.MaxDesiredWidth(Row.ValueWidget.MaxWidth)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
+	if(BaseColorNames.Num() > 1)
+	{
+		// base emissive color properties, only used when there is no texture in the emissive map
+		InitialSelect = FindString(BaseColorNames, ImportUI->TextureImportData->BaseEmissiveColorName);
+		InitialSelect = InitialSelect == INDEX_NONE ? 0 : InitialSelect; // default to the empty string located at index 0
+		MaterialCategory.AddCustomRow(LOCTEXT("BaseEmissiveColorProperty", "Base Emissive Color Property"))
+		.NameContent()
 		[
-			SNew(SBox)
-			.MinDesiredWidth(MinDesiredWidth)
-			[
-				SNew(STextComboBox)
-				.OptionsSource(&BaseColorNames)
-				.ToolTip(SNew(SToolTip).Text(LOCTEXT("BaseEmissiveColorFBXImportToolTip", "When there is no emissive texture in the imported material this emissive color property will be used to fill a contant color value instead.")))
-				.OnSelectionChanged(this, &FFbxImportUIDetails::OnEmissiveColor)
-				.InitiallySelectedItem(BaseColorNames[InitialSelect])
-			]
+			SNew(STextBlock)
+			.Text(LOCTEXT("BaseEmissiveColorProperty", "Base Emissive Color Property"))
+			.Font(IDetailLayoutBuilder::GetDetailFont())
 		]
-	];
+		.ValueContent()
+		.MaxDesiredWidth(Row.ValueWidget.MaxWidth)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.MinDesiredWidth(MinDesiredWidth)
+				[
+					SNew(STextComboBox)
+					.OptionsSource(&BaseColorNames)
+					.ToolTip(SNew(SToolTip).Text(LOCTEXT("BaseEmissiveColorFBXImportToolTip", "When there is no emissive texture in the imported material this emissive color property will be used to fill a contant color value instead.")))
+					.OnSelectionChanged(this, &FFbxImportUIDetails::OnEmissiveColor)
+					.InitiallySelectedItem(BaseColorNames[InitialSelect])
+				]
+			]
+		];
+	}
 
-	// base emmisive properties
-	InitialSelect = FindString(BaseTextureNames, ImportUI->TextureImportData->BaseEmmisiveTextureName);
-	InitialSelect = InitialSelect == INDEX_NONE ? 0 : InitialSelect; // default to the empty string located at index 0
-	MaterialCategory.AddCustomRow(LOCTEXT("BaseEmmisiveTextureProperty", "Base Emmisive Texture Property")).NameContent()
-	[
-		SNew(STextBlock)
-		.Text(LOCTEXT("BaseEmmisiveTextureProperty", "Base Emmisive Texture Property"))
-		.Font(IDetailLayoutBuilder::GetDetailFont())
-	]
-	.ValueContent()
-	.MaxDesiredWidth(Row.ValueWidget.MaxWidth)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
+	if (BaseTextureNames.Num() > 1)
+	{
+		// base emmisive properties
+		InitialSelect = FindString(BaseTextureNames, ImportUI->TextureImportData->BaseEmmisiveTextureName);
+		InitialSelect = InitialSelect == INDEX_NONE ? 0 : InitialSelect; // default to the empty string located at index 0
+		MaterialCategory.AddCustomRow(LOCTEXT("BaseEmissiveTextureProperty", "Base Emissive Texture Property")).NameContent()
 		[
-			SNew(SBox)
-			.MinDesiredWidth(MinDesiredWidth)
-			[
-				SNew(STextComboBox)
-				.OptionsSource(&BaseTextureNames)
-				.OnSelectionChanged(this, &FFbxImportUIDetails::OnEmmisiveTextureColor)
-				.InitiallySelectedItem(BaseTextureNames[InitialSelect])
-			]
+			SNew(STextBlock)
+			.Text(LOCTEXT("BaseEmissiveTextureProperty", "Base Emissive Texture Property"))
+			.Font(IDetailLayoutBuilder::GetDetailFont())
 		]
-	];
+		.ValueContent()
+		.MaxDesiredWidth(Row.ValueWidget.MaxWidth)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.MinDesiredWidth(MinDesiredWidth)
+				[
+					SNew(STextComboBox)
+					.OptionsSource(&BaseTextureNames)
+					.OnSelectionChanged(this, &FFbxImportUIDetails::OnEmmisiveTextureColor)
+					.InitiallySelectedItem(BaseTextureNames[InitialSelect])
+				]
+			]
+		];
 
-	// base specular properties
-	InitialSelect = FindString(BaseTextureNames, ImportUI->TextureImportData->BaseSpecularTextureName);
-	InitialSelect = InitialSelect == INDEX_NONE ? 0 : InitialSelect; // default to the empty string located at index 0
-	MaterialCategory.AddCustomRow(LOCTEXT("BaseSpecularTextureProperty", "Base Specular Texture Property")).NameContent()
-	[
-		SNew(STextBlock)
-		.Text(LOCTEXT("BaseSpecularTextureProperty", "Base Specular Texture Property"))
-		.Font(IDetailLayoutBuilder::GetDetailFont())
-	]
-	.ValueContent()
-	.MaxDesiredWidth(Row.ValueWidget.MaxWidth)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
+		// base specular properties
+		InitialSelect = FindString(BaseTextureNames, ImportUI->TextureImportData->BaseSpecularTextureName);
+		InitialSelect = InitialSelect == INDEX_NONE ? 0 : InitialSelect; // default to the empty string located at index 0
+		MaterialCategory.AddCustomRow(LOCTEXT("BaseSpecularTextureProperty", "Base Specular Texture Property")).NameContent()
 		[
-			SNew(SBox)
-			.MinDesiredWidth(MinDesiredWidth)
-			[
-				SNew(STextComboBox)
-				.OptionsSource(&BaseTextureNames)
-				.OnSelectionChanged(this, &FFbxImportUIDetails::OnSpecularTextureColor)
-				.InitiallySelectedItem(BaseTextureNames[InitialSelect])
-			]
+			SNew(STextBlock)
+			.Text(LOCTEXT("BaseSpecularTextureProperty", "Base Specular Texture Property"))
+			.Font(IDetailLayoutBuilder::GetDetailFont())
 		]
-	];
+		.ValueContent()
+		.MaxDesiredWidth(Row.ValueWidget.MaxWidth)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.MinDesiredWidth(MinDesiredWidth)
+				[
+					SNew(STextComboBox)
+					.OptionsSource(&BaseTextureNames)
+					.OnSelectionChanged(this, &FFbxImportUIDetails::OnSpecularTextureColor)
+					.InitiallySelectedItem(BaseTextureNames[InitialSelect])
+				]
+			]
+		];
+	}
+	if (BaseTextureNames.Num() > 1 || BaseColorNames.Num() > 1)
+	{
+		MaterialCategory.AddCustomRow(LOCTEXT("BaseParamPropertyClearAll", "Clear All Properties"))
+		.ValueContent()
+		[
+			SNew(SButton)
+			.OnClicked(this, &FFbxImportUIDetails::MaterialBaseParamClearAllProperties)
+			.Content()
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("BaseParamPropertyClearAll", "Clear All Properties"))
+				.Font(IDetailLayoutBuilder::GetDetailFont())
+			]
+		];
+	}
 }
 
 void FFbxImportUIDetails::SetStaticMeshLODGroupWidget(IDetailPropertyRow& PropertyRow, const TSharedPtr<IPropertyHandle>& Handle)
@@ -836,8 +1004,18 @@ void FFbxImportUIDetails::OnLODGroupChanged(TSharedPtr<FString> NewValue, ESelec
 bool FFbxImportUIDetails::GetVertexOverrideColorEnabledState() const
 {
 	uint8 VertexColorImportOption;
-	check(VertexColorImportOptionHandle.IsValid())
+	check(VertexColorImportOptionHandle.IsValid());
 	ensure(VertexColorImportOptionHandle->GetValue(VertexColorImportOption) == FPropertyAccess::Success);
+
+	return (VertexColorImportOption == EVertexColorImportOption::Override);
+}
+
+
+bool FFbxImportUIDetails::GetSkeletalMeshVertexOverrideColorEnabledState() const
+{
+	uint8 VertexColorImportOption;
+	check(SkeletalMeshVertexColorImportOptionHandle.IsValid());
+	ensure(SkeletalMeshVertexColorImportOptionHandle->GetValue(VertexColorImportOption) == FPropertyAccess::Success);
 
 	return (VertexColorImportOption == EVertexColorImportOption::Override);
 }
@@ -882,6 +1060,34 @@ void FFbxImportUIDetails::ImportAutoComputeLodDistancesChanged()
 	RefreshCustomDetail();
 }
 
+void FFbxImportUIDetails::ValidateLodSettingsChanged(int32 MemberID)
+{
+	//This feature is supported only for staticmesh
+	if (ImportUI->MeshTypeToImport != FBXIT_StaticMesh)
+	{
+		return;
+	}
+
+	if (ImportUI->MinimumLodNumber < 0 || ImportUI->MinimumLodNumber >= MAX_STATIC_MESH_LODS)
+	{
+		ImportUI->MinimumLodNumber = FMath::Clamp<int32>(ImportUI->MinimumLodNumber, 0, MAX_STATIC_MESH_LODS -1);
+	}
+	if (ImportUI->LodNumber < 0 || ImportUI->LodNumber >= MAX_STATIC_MESH_LODS)
+	{
+		ImportUI->LodNumber = FMath::Clamp<int32>(ImportUI->LodNumber, 0, MAX_STATIC_MESH_LODS);
+	}
+
+	if (ImportUI->LodNumber > 0 && ImportUI->MinimumLodNumber >= ImportUI->LodNumber)
+	{
+		ImportUI->MinimumLodNumber = FMath::Clamp<int32>(ImportUI->MinimumLodNumber, 0, ImportUI->LodNumber - 1);
+	}
+	
+	if (!ImportUI->bAutoComputeLodDistances && MemberID == LodNumberID)
+	{
+		RefreshCustomDetail();
+	}
+}
+
 void FFbxImportUIDetails::ImportMaterialsChanged()
 {
 	//We need to update the Base Material UI
@@ -912,23 +1118,81 @@ void FFbxImportUIDetails::BaseMaterialChanged()
 	RefreshCustomDetail();
 }
 
-void FFbxImportUIDetails::OnBaseColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo) {
-	ImportUI->TextureImportData->BaseColorName = *Selection.Get();
+void GetSelectionParameterString(TSharedPtr<FString> Selection, FString &OutParameterName)
+{
+	OutParameterName = *Selection.Get();
+	if (OutParameterName.Equals(DoNotOverrideString))
+	{
+		OutParameterName.Empty();
+	}
 }
-void FFbxImportUIDetails::OnDiffuseTextureColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo) {
-	ImportUI->TextureImportData->BaseDiffuseTextureName = *Selection.Get();
+
+void FFbxImportUIDetails::OnBaseColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo)
+{
+	GetSelectionParameterString(Selection, ImportUI->TextureImportData->BaseColorName);
 }
-void FFbxImportUIDetails::OnNormalTextureColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo) {
-	ImportUI->TextureImportData->BaseNormalTextureName = *Selection.Get();
+
+void FFbxImportUIDetails::OnDiffuseTextureColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo)
+{
+	GetSelectionParameterString(Selection, ImportUI->TextureImportData->BaseDiffuseTextureName);
 }
-void FFbxImportUIDetails::OnEmmisiveTextureColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo) {
-	ImportUI->TextureImportData->BaseEmmisiveTextureName = *Selection.Get();
+
+void FFbxImportUIDetails::OnNormalTextureColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo)
+{
+	GetSelectionParameterString(Selection, ImportUI->TextureImportData->BaseNormalTextureName);
 }
-void FFbxImportUIDetails::OnEmissiveColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo) {
-	ImportUI->TextureImportData->BaseEmissiveColorName = *Selection.Get();
+
+void FFbxImportUIDetails::OnEmmisiveTextureColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo)
+{
+	GetSelectionParameterString(Selection, ImportUI->TextureImportData->BaseEmmisiveTextureName);
 }
-void FFbxImportUIDetails::OnSpecularTextureColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo) {
-	ImportUI->TextureImportData->BaseSpecularTextureName = *Selection.Get();
+
+void FFbxImportUIDetails::OnEmissiveColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo)
+{
+	GetSelectionParameterString(Selection, ImportUI->TextureImportData->BaseEmissiveColorName);
+}
+
+void FFbxImportUIDetails::OnSpecularTextureColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo)
+{
+	GetSelectionParameterString(Selection, ImportUI->TextureImportData->BaseSpecularTextureName);
+}
+
+FReply FFbxImportUIDetails::MaterialBaseParamClearAllProperties()
+{
+	ImportUI->TextureImportData->BaseColorName.Empty();
+	ImportUI->TextureImportData->BaseDiffuseTextureName.Empty();
+	ImportUI->TextureImportData->BaseNormalTextureName.Empty();
+	ImportUI->TextureImportData->BaseEmmisiveTextureName.Empty();
+	ImportUI->TextureImportData->BaseEmissiveColorName.Empty();
+	ImportUI->TextureImportData->BaseSpecularTextureName.Empty();
+	//Need to refresh the custom detail since we do not have any pointer on the combo box
+	RefreshCustomDetail();
+	return FReply::Handled();
+}
+
+void FFbxImportUIDetails::OnMaterialImportMethodChanged(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo)
+{
+	FString SelectName = *Selection.Get();
+	if (SelectName.Equals(CreateNewMaterialsString))
+	{
+		ImportUI->bImportMaterials = true;
+		//Reset the base material and the UseBaseMaterial flag to hide the base material name property
+		ImportUI->TextureImportData->bUseBaseMaterial = false;
+		ImportUI->TextureImportData->BaseMaterialName.Reset();
+	}
+	else if (SelectName.Equals(CreateNewInstancedMaterialsString))
+	{
+		ImportUI->bImportMaterials = true;
+		ImportUI->TextureImportData->bUseBaseMaterial = true;
+	}
+	else
+	{
+		ImportUI->bImportMaterials = false;
+		//Reset the base material and the UseBaseMaterial flag to hide the base material name property
+		ImportUI->TextureImportData->bUseBaseMaterial = false;
+		ImportUI->TextureImportData->BaseMaterialName.Reset();
+	}
+	RefreshCustomDetail();
 }
 
 FReply FFbxImportUIDetails::ShowConflictDialog(ConflictDialogType DialogType)

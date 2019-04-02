@@ -59,7 +59,7 @@ tags:Gameplay
 
 		/** 'Name' 열은 XP Level 과 같습니다. */
 
-		/** 예전 레벨에서 해당 레벨로 가기 위해 필요한 XP 입니다. */
+		/** 이전 레벨에서 해당 레벨로 가기 위해 필요한 XP 입니다. */
 		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=LevelUp)
 		int32 XPtoLvl;
 

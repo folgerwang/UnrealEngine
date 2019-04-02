@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "VRRadialMenuHandler.h"
 
@@ -37,7 +37,6 @@
 #include "IHeadMountedDisplay.h"
 #include "ViewportWorldInteraction.h"
 #include "VREditorInteractor.h"
-#include "VREditorMotionControllerInteractor.h"
 #include "IVREditorModule.h"
 #include "Settings/EditorExperimentalSettings.h"
 

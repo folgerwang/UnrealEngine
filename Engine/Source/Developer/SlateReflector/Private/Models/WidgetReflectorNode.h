@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -58,6 +58,11 @@ public:
 	 * @return The type string for the widget we were initialized from
 	 */
 	virtual FText GetWidgetType() const = 0;
+
+	/**
+	 * @return The type string for the widget we were initialized from
+	 */
+	virtual FText GetWidgetTypeAndShortName() const = 0;
 	
 	/**
 	 * @return The visibility string for the widget we were initialized from
@@ -211,6 +216,7 @@ public:
 	virtual EWidgetReflectorNodeType GetNodeType() const override;
 	virtual TSharedPtr<SWidget> GetLiveWidget() const override;
 	virtual FText GetWidgetType() const override;
+	virtual FText GetWidgetTypeAndShortName() const override;
 	virtual FText GetWidgetVisibilityText() const override;
 	virtual FText GetWidgetClippingText() const override;
 	virtual bool GetWidgetFocusable() const override;
@@ -260,6 +266,7 @@ public:
 	virtual EWidgetReflectorNodeType GetNodeType() const override;
 	virtual TSharedPtr<SWidget> GetLiveWidget() const override;
 	virtual FText GetWidgetType() const override;
+	virtual FText GetWidgetTypeAndShortName() const override;
 	virtual FText GetWidgetVisibilityText() const override;
 	virtual FText GetWidgetClippingText() const override;
 	virtual bool GetWidgetFocusable() const override;
@@ -293,6 +300,9 @@ private:
 private:
 	/** The type string of the widget at the point it was passed to Initialize */
 	FText CachedWidgetType;
+
+	/**  */
+	FText CachedWidgetTypeAndShortName;
 
 	/** The visibility string of the widget at the point it was passed to Initialize */
 	FText CachedWidgetVisibilityText;
@@ -401,6 +411,11 @@ public:
 	 * @return The type string for the given widget
 	 */
 	static FText GetWidgetType(const TSharedPtr<SWidget>& InWidget);
+
+	/**
+	 * @return The type string combined with a short name (if any) for the given widget
+	 */
+	static FText GetWidgetTypeAndShortName(const TSharedPtr<SWidget>& InWidget);
 	
 	/**
 	 * @return The current visibility string for the given widget

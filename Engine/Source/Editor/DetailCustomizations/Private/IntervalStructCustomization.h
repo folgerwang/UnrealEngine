@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -110,6 +110,9 @@ protected:
 	 * @return Whether the spin box should be enabled.
 	 */
 	bool ShouldAllowSpin() const;
+
+	/* If the property is disable we must disable the editing */
+	bool IsPropertyEnabled(EIntervalField Field) const;
 
 	// Cached shared pointers to properties that we are managing
 	TSharedPtr<IPropertyHandle> MinValueHandle;

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SceneRendering.h: Scene rendering definitions.
@@ -25,21 +25,20 @@
 #include "GlobalShader.h"
 #include "PrimitiveViewRelevance.h"
 #include "DistortionRendering.h"
-#include "CustomDepthRendering.h"
 #include "HeightfieldLighting.h"
 #include "GlobalDistanceFieldParameters.h"
 #include "Templates/UniquePtr.h"
+#include "RenderGraph.h"
+#include "MeshDrawCommands.h"
 
+// Forward declarations.
 class FScene;
 class FSceneViewState;
 class FViewInfo;
 struct FILCUpdatePrimTaskData;
-
-template<typename ShaderMetaType> class TShaderMap;
-
-// Forward declarations.
 class FPostprocessContext;
 struct FILCUpdatePrimTaskData;
+template<typename ShaderMetaType> class TShaderMap;
 
 DECLARE_STATS_GROUP(TEXT("Command List Markers"), STATGROUP_CommandListMarkers, STATCAT_Advanced);
 
@@ -51,6 +50,9 @@ public:
 	/** true if there are any primitives affected by CSM subjects */
 	uint32 bMobileDynamicCSMInUse : 1;
 
+	// true if all draws should be forced to use CSM shaders.
+	uint32 bAlwaysUseCSM : 1;
+
 	/** Visibility lists for static meshes that will use expensive CSM shaders. */
 	FSceneBitArray MobilePrimitiveCSMReceiverVisibilityMap;
 	FSceneBitArray MobileCSMStaticMeshVisibilityMap;
@@ -61,7 +63,7 @@ public:
 	TArray<uint64, SceneRenderingAllocator> MobileNonCSMStaticBatchVisibility;
 
 	/** Initialization constructor. */
-	FMobileCSMVisibilityInfo() : bMobileDynamicCSMInUse(false)
+	FMobileCSMVisibilityInfo() : bMobileDynamicCSMInUse(false), bAlwaysUseCSM(false)
 	{}
 };
 
@@ -149,20 +151,6 @@ public:
 	TArray<FProjectedShadowInfo*,SceneRenderingAllocator> OccludedPerObjectShadows;
 };
 
-// enum instead of bool to get better visibility when we pass around multiple bools, also allows for easier extensions
-namespace ETranslucencyPass
-{
-	enum Type
-	{
-		TPT_StandardTranslucency,
-		TPT_TranslucencyAfterDOF,
-
-		/** Drawing all translucency, regardless of separate or standard.  Used when drawing translucency outside of the main renderer, eg FRendererModule::DrawTile. */
-		TPT_AllTranslucency,
-		TPT_MAX
-	};
-};
-
 // Stores the primitive count of each translucency pass (redundant, could be computed after sorting but this way we touch less memory)
 struct FTranslucenyPrimCount
 {
@@ -202,32 +190,19 @@ public:
 		DisableOffscreenRenderingPerPass[InPass] |= bDisableOffscreenRendering;
 	}
 
-	// @return range in SortedPrims[] after sorting
-	FInt32Range GetPassRange(ETranslucencyPass::Type InPass) const
-	{
-		checkSlow(InPass < ETranslucencyPass::TPT_MAX);
-
-		// can be optimized (if needed)
-
-		// inclusive
-		int32 Start = 0;
-
-		uint32 i = 0;
-
-		for(; i < (uint32)InPass; ++i)
-		{
-			Start += Count[i];
-		}
-
-		// exclusive
-		int32 End = Start + Count[i];
-		
-		return FInt32Range(Start, End);
-	}
-
 	int32 Num(ETranslucencyPass::Type InPass) const
 	{
 		return Count[InPass];
+	}
+
+	int32 NumPrims() const
+	{
+		int32 NumTotal = 0;
+		for (uint32 PassIndex = 0; PassIndex < ETranslucencyPass::TPT_MAX; ++PassIndex)
+		{
+			NumTotal += Count[PassIndex];
+		}
+		return NumTotal;
 	}
 
 	bool UseSceneColorCopy(ETranslucencyPass::Type InPass) const
@@ -240,197 +215,6 @@ public:
 		return DisableOffscreenRenderingPerPass[InPass];
 	}
 };
-
-
-/** 
-* Set of sorted scene prims  
-*/
-template <class TKey>
-class FSortedPrimSet
-{
-public:
-	// contains a scene prim and its sort key
-	struct FSortedPrim
-	{
-		// Default constructor
-		FSortedPrim() {}
-
-		FSortedPrim(FPrimitiveSceneInfo* InPrimitiveSceneInfo, const TKey InSortKey)
-			:	PrimitiveSceneInfo(InPrimitiveSceneInfo)
-			,	SortKey(InSortKey)
-		{
-		}
-
-		FORCEINLINE bool operator<( const FSortedPrim& rhs ) const
-		{
-			return SortKey < rhs.SortKey;
-		}
-
-		//
-		FPrimitiveSceneInfo* PrimitiveSceneInfo;
-		//
-		TKey SortKey;
-	};
-
-	/**
-	* Sort any primitives that were added to the set back-to-front
-	*/
-	void SortPrimitives()
-	{
-		Prims.Sort();
-	}
-
-	/** 
-	* @return number of prims to render
-	*/
-	int32 NumPrims() const
-	{
-		return Prims.Num();
-	}
-
-	/** list of primitives, sorted after calling Sort() */
-	TArray<FSortedPrim, SceneRenderingAllocator> Prims;
-};
-
-template <> struct TIsPODType<FSortedPrimSet<uint32>::FSortedPrim> { enum { Value = true }; };
-
-class FMeshDecalPrimSet : public FSortedPrimSet<uint32>
-{
-public:
-	typedef FSortedPrimSet<uint32>::FSortedPrim KeyType;
-
-	static KeyType GenerateKey(FPrimitiveSceneInfo* PrimitiveSceneInfo, int16 InSortPriority)
-	{
-		return KeyType(PrimitiveSceneInfo, (uint32)(InSortPriority - SHRT_MIN));
-	}
-};
-
-/** 
-* Set of sorted translucent scene prims  
-*/
-class FTranslucentPrimSet
-{
-public:
-	/** contains a scene prim and its sort key */
-	struct FTranslucentSortedPrim
-	{
-		/** Default constructor. */
-		FTranslucentSortedPrim() {}
-
-		// @param InPass (first we sort by this)
-		// @param InSortPriority SHRT_MIN .. SHRT_MAX (then we sort by this)
-		// @param InSortKey from UPrimitiveComponent::TranslucencySortPriority e.g. SortByDistance/SortAlongAxis (then by this)
-		FTranslucentSortedPrim(FPrimitiveSceneInfo* InPrimitiveSceneInfo, ETranslucencyPass::Type InPass, int16 InSortPriority, float InSortKey)
-			:	PrimitiveSceneInfo(InPrimitiveSceneInfo)
-			,	SortKey(InSortKey)
-		{
-			SetSortOrder(InPass, InSortPriority);
-		}
-
-		void SetSortOrder(ETranslucencyPass::Type InPass, int16 InSortPriority)
-		{
-			uint32 UpperShort = (uint32)InPass;
-			// 0 .. 0xffff
-			int32 SortPriorityWithoutSign = (int32)InSortPriority - (int32)SHRT_MIN;
-			uint32 LowerShort = SortPriorityWithoutSign;
-
-			check(LowerShort <= 0xffff);
-
-			// top 8 bits are currently unused
-			SortOrder = (UpperShort << 16) | LowerShort;
-		}
-
-		//
-		FPrimitiveSceneInfo* PrimitiveSceneInfo;
-		// single 32bit sort order containing Pass and SortPriority (first we sort by this)
-		uint32 SortOrder;
-		// from UPrimitiveComponent::TranslucencySortPriority (then by this)
-		float SortKey;
-	};
-
-	/** 
-	* Iterate over the sorted list of prims and draw them
-	* @param View - current view used to draw items
-	* @param PhaseSortedPrimitives - array with the primitives we want to draw
-	* @param TranslucenyPassType
-	*/
-	void DrawPrimitives(FRHICommandListImmediate& RHICmdList, const class FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, class FDeferredShadingSceneRenderer& Renderer, ETranslucencyPass::Type TranslucenyPassType) const;
-
-	/**
-	* Iterate over the sorted list of prims and draw them
-	* @param View - current view used to draw items
-	* @param PhaseSortedPrimitives - array with the primitives we want to draw
-	* @param TranslucenyPassType
-	* @param FirstPrimIdx, range of elements to render (included), index into SortedPrims[] after sorting
-	* @param LastPrimIdx, range of elements to render (included), index into SortedPrims[] after sorting
-	*/
-	void DrawPrimitivesParallel(FRHICommandList& RHICmdList, const class FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, class FDeferredShadingSceneRenderer& Renderer, ETranslucencyPass::Type TranslucenyPassType, int32 FirstPrimIdx, int32 LastPrimIdx) const;
-
-	/**
-	* Draw a single primitive...this is used when we are rendering in parallel and we need to handlke a translucent shadow
-	* @param View - current view used to draw items
-	* @param PhaseSortedPrimitives - array with the primitives we want to draw
-	* @param TranslucenyPassType
-	* @param PrimIdx in SortedPrims[]
-	*/
-	void DrawAPrimitive(FRHICommandList& RHICmdList, const class FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, class FDeferredShadingSceneRenderer& Renderer, ETranslucencyPass::Type TranslucenyPassType, int32 PrimIdx) const;
-
-	/** 
-	* Draw all the primitives in this set for the mobile pipeline. 
-	*/
-	template <class TDrawingPolicyFactory>
-	void DrawPrimitivesForMobile(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, typename TDrawingPolicyFactory::ContextType& DrawingContext) const;
-
-	/**
-	* Insert a primitive to the translucency rendering list[s]
-	*/
-	
-	static void PlaceScenePrimitive(FPrimitiveSceneInfo* PrimitiveSceneInfo, const FViewInfo& ViewInfo, const FPrimitiveViewRelevance& ViewRelevance,
-		FTranslucentSortedPrim* InArrayStart, int32& InOutArrayNum, FTranslucenyPrimCount& OutCount);
-
-	/**
-	* Sort any primitives that were added to the set back-to-front
-	*/
-	void SortPrimitives();
-
-	/** 
-	* @return number of prims to render
-	*/
-	int32 NumPrims() const
-	{
-		return SortedPrims.Num();
-	}
-
-	/**
-	* Adds primitives originally created with PlaceScenePrimitive
-	*/
-	void AppendScenePrimitives(FTranslucentSortedPrim* Elements, int32 Num, const FTranslucenyPrimCount& TranslucentPrimitiveCountPerPass);
-
-	// belongs to SortedPrims
-	FTranslucenyPrimCount SortedPrimsNum;
-
-private:
-
-	/** sortkey compare class */
-	struct FCompareFTranslucentSortedPrim
-	{
-		FORCEINLINE bool operator()( const FTranslucentSortedPrim& A, const FTranslucentSortedPrim& B ) const
-		{
-			// If priorities are equal sort normally from back to front
-			// otherwise lower sort priorities should render first
-			return ( A.SortOrder == B.SortOrder ) ? ( B.SortKey < A.SortKey ) : ( A.SortOrder < B.SortOrder );
-		}
-	};
-
-	/** list of translucent primitives, sorted after calling Sort() */
-	TArray<FTranslucentSortedPrim,SceneRenderingAllocator> SortedPrims;
-
-
-	/** Renders a single primitive for the deferred shading pipeline. */
-	void RenderPrimitive(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, FPrimitiveSceneInfo* PrimitiveSceneInfo, const FPrimitiveViewRelevance& ViewRelevance, const FProjectedShadowInfo* TranslucentSelfShadow, ETranslucencyPass::Type TranslucenyPassType) const;
-};
-
-template <> struct TIsPODType<FTranslucentPrimSet::FTranslucentSortedPrim> { enum { Value = true }; };
 
 /** A batched occlusion primitive. */
 struct FOcclusionPrimitive
@@ -465,7 +249,7 @@ public:
 	 * Batches a primitive's occlusion query for rendering.
 	 * @param Bounds - The primitive's bounds.
 	 */
-	FRenderQueryRHIParamRef BatchPrimitive(const FVector& BoundsOrigin, const FVector& BoundsBoxExtent);
+	FRenderQueryRHIParamRef BatchPrimitive(const FVector& BoundsOrigin, const FVector& BoundsBoxExtent, FGlobalDynamicVertexBuffer& DynamicVertexBuffer);
 	inline int32 GetNumBatchOcclusionQueries() const
 	{
 		return BatchOcclusionQueries.Num();
@@ -545,7 +329,7 @@ class FParallelCommandListSet
 public:
 	const FViewInfo& View;
 	const FSceneRenderer* SceneRenderer;
-	FDrawingPolicyRenderState DrawRenderState;
+	FMeshPassProcessorRenderState DrawRenderState;
 	FRHICommandListImmediate& ParentCmdList;
 	const FRHIGPUMask GPUMask; // Copy of the Parent GPUMask at creation (since it could change).
 	FSceneRenderTargets* Snapshot;
@@ -557,7 +341,6 @@ public:
 	bool bBalanceCommands;
 	// see r.RHICmdSpewParallelListBalance
 	bool bSpewBalance;
-	bool bBalanceCommandsWithLastFrame;
 public:
 	TArray<FRHICommandList*,SceneRenderingAllocator> CommandLists;
 	TArray<FGraphEventRef,SceneRenderingAllocator> Events;
@@ -578,7 +361,7 @@ public:
 		FRHICommandListImmediate& InParentCmdList, 
 		bool bInParallelExecute, 
 		bool bInCreateSceneContext, 
-		const FDrawingPolicyRenderState& InDrawRenderState);
+		const FMeshPassProcessorRenderState& InDrawRenderState);
 
 	virtual ~FParallelCommandListSet();
 	int32 NumParallelCommandLists() const
@@ -659,39 +442,39 @@ public:
 const int32 GMaxForwardShadowCascades = 4;
 
 #define FORWARD_GLOBAL_LIGHT_DATA_UNIFORM_BUFFER_MEMBER_TABLE \
-	UNIFORM_MEMBER(uint32,NumLocalLights) \
-	UNIFORM_MEMBER(uint32, NumReflectionCaptures) \
-	UNIFORM_MEMBER(uint32, HasDirectionalLight) \
-	UNIFORM_MEMBER(uint32, NumGridCells) \
-	UNIFORM_MEMBER(FIntVector, CulledGridSize) \
-	UNIFORM_MEMBER(uint32, MaxCulledLightsPerCell) \
-	UNIFORM_MEMBER(uint32, LightGridPixelSizeShift) \
-	UNIFORM_MEMBER(FVector, LightGridZParams) \
-	UNIFORM_MEMBER(FVector, DirectionalLightDirection) \
-	UNIFORM_MEMBER(FVector, DirectionalLightColor) \
-	UNIFORM_MEMBER(float, DirectionalLightVolumetricScatteringIntensity) \
-	UNIFORM_MEMBER(uint32, DirectionalLightShadowMapChannelMask) \
-	UNIFORM_MEMBER(FVector2D, DirectionalLightDistanceFadeMAD) \
-	UNIFORM_MEMBER(uint32, NumDirectionalLightCascades) \
-	UNIFORM_MEMBER(FVector4, CascadeEndDepths) \
-	UNIFORM_MEMBER_ARRAY(FMatrix, DirectionalLightWorldToShadowMatrix, [GMaxForwardShadowCascades]) \
-	UNIFORM_MEMBER_ARRAY(FVector4, DirectionalLightShadowmapMinMax, [GMaxForwardShadowCascades]) \
-	UNIFORM_MEMBER(FVector4, DirectionalLightShadowmapAtlasBufferSize) \
-	UNIFORM_MEMBER(float, DirectionalLightDepthBias) \
-	UNIFORM_MEMBER(uint32, DirectionalLightUseStaticShadowing) \
-	UNIFORM_MEMBER(FVector4, DirectionalLightStaticShadowBufferSize) \
-	UNIFORM_MEMBER(FMatrix, DirectionalLightWorldToStaticShadow) \
-	UNIFORM_MEMBER_TEXTURE(Texture2D, DirectionalLightShadowmapAtlas) \
-	UNIFORM_MEMBER_SAMPLER(SamplerState, ShadowmapSampler) \
-	UNIFORM_MEMBER_TEXTURE(Texture2D, DirectionalLightStaticShadowmap) \
-	UNIFORM_MEMBER_SAMPLER(SamplerState, StaticShadowmapSampler) \
-	UNIFORM_MEMBER_SRV(StrongTypedBuffer<float4>, ForwardLocalLightBuffer) \
-	UNIFORM_MEMBER_SRV(StrongTypedBuffer<uint>, NumCulledLightsGrid) \
-	UNIFORM_MEMBER_SRV(StrongTypedBuffer<uint>, CulledLightDataGrid) 
+	SHADER_PARAMETER(uint32,NumLocalLights) \
+	SHADER_PARAMETER(uint32, NumReflectionCaptures) \
+	SHADER_PARAMETER(uint32, HasDirectionalLight) \
+	SHADER_PARAMETER(uint32, NumGridCells) \
+	SHADER_PARAMETER(FIntVector, CulledGridSize) \
+	SHADER_PARAMETER(uint32, MaxCulledLightsPerCell) \
+	SHADER_PARAMETER(uint32, LightGridPixelSizeShift) \
+	SHADER_PARAMETER(FVector, LightGridZParams) \
+	SHADER_PARAMETER(FVector, DirectionalLightDirection) \
+	SHADER_PARAMETER(FVector, DirectionalLightColor) \
+	SHADER_PARAMETER(float, DirectionalLightVolumetricScatteringIntensity) \
+	SHADER_PARAMETER(uint32, DirectionalLightShadowMapChannelMask) \
+	SHADER_PARAMETER(FVector2D, DirectionalLightDistanceFadeMAD) \
+	SHADER_PARAMETER(uint32, NumDirectionalLightCascades) \
+	SHADER_PARAMETER(FVector4, CascadeEndDepths) \
+	SHADER_PARAMETER_ARRAY(FMatrix, DirectionalLightWorldToShadowMatrix, [GMaxForwardShadowCascades]) \
+	SHADER_PARAMETER_ARRAY(FVector4, DirectionalLightShadowmapMinMax, [GMaxForwardShadowCascades]) \
+	SHADER_PARAMETER(FVector4, DirectionalLightShadowmapAtlasBufferSize) \
+	SHADER_PARAMETER(float, DirectionalLightDepthBias) \
+	SHADER_PARAMETER(uint32, DirectionalLightUseStaticShadowing) \
+	SHADER_PARAMETER(FVector4, DirectionalLightStaticShadowBufferSize) \
+	SHADER_PARAMETER(FMatrix, DirectionalLightWorldToStaticShadow) \
+	SHADER_PARAMETER_TEXTURE(Texture2D, DirectionalLightShadowmapAtlas) \
+	SHADER_PARAMETER_SAMPLER(SamplerState, ShadowmapSampler) \
+	SHADER_PARAMETER_TEXTURE(Texture2D, DirectionalLightStaticShadowmap) \
+	SHADER_PARAMETER_SAMPLER(SamplerState, StaticShadowmapSampler) \
+	SHADER_PARAMETER_SRV(StrongTypedBuffer<float4>, ForwardLocalLightBuffer) \
+	SHADER_PARAMETER_SRV(StrongTypedBuffer<uint>, NumCulledLightsGrid) \
+	SHADER_PARAMETER_SRV(StrongTypedBuffer<uint>, CulledLightDataGrid) 
 
-BEGIN_UNIFORM_BUFFER_STRUCT_WITH_CONSTRUCTOR(FForwardLightData,)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT_WITH_CONSTRUCTOR(FForwardLightData,)
 	FORWARD_GLOBAL_LIGHT_DATA_UNIFORM_BUFFER_MEMBER_TABLE
-END_UNIFORM_BUFFER_STRUCT(FForwardLightData)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 class FForwardLightingViewResources
 {
@@ -728,22 +511,24 @@ public:
 	}
 };
 
-BEGIN_UNIFORM_BUFFER_STRUCT_WITH_CONSTRUCTOR(FVolumetricFogGlobalData,) 
-	UNIFORM_MEMBER(FIntVector, GridSizeInt)
-	UNIFORM_MEMBER(FVector, GridSize)
-	UNIFORM_MEMBER(uint32, GridPixelSizeShift)
-	UNIFORM_MEMBER(FVector, GridZParams)
-	UNIFORM_MEMBER(FVector2D, SVPosToVolumeUV)
-	UNIFORM_MEMBER(FIntPoint, FogGridToPixelXY)
-	UNIFORM_MEMBER(float, MaxDistance)
-	UNIFORM_MEMBER(FVector, HeightFogInscatteringColor)
-	UNIFORM_MEMBER(FVector, HeightFogDirectionalLightInscatteringColor)
-END_UNIFORM_BUFFER_STRUCT(FVolumetricFogGlobalData)
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT_WITH_CONSTRUCTOR(FVolumetricFogGlobalData,) 
+	SHADER_PARAMETER(FIntVector, GridSizeInt)
+	SHADER_PARAMETER(FVector, GridSize)
+	SHADER_PARAMETER(FVector, GridZParams)
+	SHADER_PARAMETER(FVector2D, SVPosToVolumeUV)
+	SHADER_PARAMETER(FIntPoint, FogGridToPixelXY)
+	SHADER_PARAMETER(float, MaxDistance)
+	SHADER_PARAMETER(FVector, HeightFogInscatteringColor)
+	SHADER_PARAMETER(FVector, HeightFogDirectionalLightInscatteringColor)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
+extern void SetupVolumetricFogGlobalData(const FViewInfo& View, FVolumetricFogGlobalData& Parameters);
 
 class FVolumetricFogViewResources
 {
 public:
 	TUniformBufferRef<FVolumetricFogGlobalData> VolumetricFogGlobalData;
+
 	TRefCountPtr<IPooledRenderTarget> IntegratedLightScattering;
 
 	FVolumetricFogViewResources()
@@ -755,53 +540,36 @@ public:
 	}
 };
 
-class FVolumetricPrimSet
+struct FVolumetricMeshBatch
 {
-public:
+	const FMeshBatch* Mesh;
+	const FPrimitiveSceneProxy* Proxy;
+};
 
-	/**
-	* Adds a new primitives to the list of distortion prims
-	* @param PrimitiveSceneProxies - primitive info to add.
-	*/
-	void Append(FPrimitiveSceneProxy** PrimitiveSceneProxies, int32 NumProxies)
+struct FMeshDecalBatch
+{
+	const FMeshBatch* Mesh;
+	const FPrimitiveSceneProxy* Proxy;
+	int16 SortKey;
+
+	FORCEINLINE bool operator<(const FMeshDecalBatch& rhs) const
 	{
-		Prims.Append(PrimitiveSceneProxies, NumProxies);
+		return SortKey < rhs.SortKey;
 	}
-
-	/** 
-	* @return number of prims to render
-	*/
-	int32 NumPrims() const
-	{
-		return Prims.Num();
-	}
-
-	/** 
-	* @return a prim currently set to render
-	*/
-	const FPrimitiveSceneProxy* GetPrim(int32 i)const
-	{
-		check(i>=0 && i<NumPrims());
-		return Prims[i];
-	}
-
-private:
-	/** list of distortion prims added from the scene */
-	TArray<FPrimitiveSceneProxy*, SceneRenderingAllocator> Prims;
 };
 
 static const int32 GMaxNumReflectionCaptures = 341;
 
 /** Per-reflection capture data needed by the shader. */
-BEGIN_UNIFORM_BUFFER_STRUCT(FReflectionCaptureShaderData,)
-	UNIFORM_MEMBER_ARRAY(FVector4,PositionAndRadius,[GMaxNumReflectionCaptures])
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FReflectionCaptureShaderData,)
+	SHADER_PARAMETER_ARRAY(FVector4,PositionAndRadius,[GMaxNumReflectionCaptures])
 	// R is brightness, G is array index, B is shape
-	UNIFORM_MEMBER_ARRAY(FVector4,CaptureProperties,[GMaxNumReflectionCaptures])
-	UNIFORM_MEMBER_ARRAY(FVector4,CaptureOffsetAndAverageBrightness,[GMaxNumReflectionCaptures])
+	SHADER_PARAMETER_ARRAY(FVector4,CaptureProperties,[GMaxNumReflectionCaptures])
+	SHADER_PARAMETER_ARRAY(FVector4,CaptureOffsetAndAverageBrightness,[GMaxNumReflectionCaptures])
 	// Stores the box transform for a box shape, other data is packed for other shapes
-	UNIFORM_MEMBER_ARRAY(FMatrix,BoxTransform,[GMaxNumReflectionCaptures])
-	UNIFORM_MEMBER_ARRAY(FVector4,BoxScales,[GMaxNumReflectionCaptures])
-END_UNIFORM_BUFFER_STRUCT(FReflectionCaptureShaderData)
+	SHADER_PARAMETER_ARRAY(FMatrix,BoxTransform,[GMaxNumReflectionCaptures])
+	SHADER_PARAMETER_ARRAY(FVector4,BoxScales,[GMaxNumReflectionCaptures])
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 // Structure in charge of storing all information about TAA's history.
 struct FTemporalAAHistory
@@ -837,11 +605,43 @@ struct FTemporalAAHistory
 	}
 };
 
+// TODO: merge with FTemporalAAHistory?
+struct FScreenSpaceFilteringHistory
+{
+	// Number of history render target to store.
+	static constexpr int32 RTCount = 3;
+
+	// Render target specific to the history.
+	TRefCountPtr<IPooledRenderTarget> RT[RTCount];
+
+	// The texture for tile classification.
+	TRefCountPtr<IPooledRenderTarget> TileClassification;
+
+
+	void SafeRelease()
+	{
+		for (int32 i = 0; i < RTCount; i++)
+			RT[i].SafeRelease();
+		TileClassification.SafeRelease();
+	}
+
+	bool IsValid() const
+	{
+		return RT[0].IsValid();
+	}
+};
+
 // Structure that hold all information related to previous frame.
 struct FPreviousViewInfo
 {
 	// View matrices.
 	FViewMatrices ViewMatrices;
+
+	// Depth buffer and Normals of the previous frame generating this history entry for bilateral kernel rejection.
+	TRefCountPtr<IPooledRenderTarget> DepthBuffer;
+	TRefCountPtr<IPooledRenderTarget> GBufferA;
+	TRefCountPtr<IPooledRenderTarget> GBufferB;
+	TRefCountPtr<IPooledRenderTarget> GBufferC;
 
 	// Temporal AA result of last frame
 	FTemporalAAHistory TemporalAAHistory;
@@ -855,16 +655,58 @@ struct FPreviousViewInfo
 	// input post process material.
 	TRefCountPtr<IPooledRenderTarget> CustomSSRInput;
 
+	// History for the reflections
+	FScreenSpaceFilteringHistory ReflectionsHistory;
+	
+	// History for the ambient occlusion
+	FScreenSpaceFilteringHistory AmbientOcclusionHistory;
+
+	// History for global illumination
+	FScreenSpaceFilteringHistory GlobalIlluminationHistory;
+
+	// History for sky light
+	FScreenSpaceFilteringHistory SkyLightHistory;
+
+	// History for shadow denoising.
+	TMap<const ULightComponent*, FScreenSpaceFilteringHistory> ShadowHistories;
+
 
 	void SafeRelease()
 	{
+		DepthBuffer.SafeRelease();
+		GBufferA.SafeRelease();
+		GBufferB.SafeRelease();
+		GBufferC.SafeRelease();
 		TemporalAAHistory.SafeRelease();
 		DOFPreGatherHistory.SafeRelease();
 		DOFPostGatherForegroundHistory.SafeRelease();
 		DOFPostGatherBackgroundHistory.SafeRelease();
 		CustomSSRInput.SafeRelease();
+		ReflectionsHistory.SafeRelease();
+		AmbientOcclusionHistory.SafeRelease();
+		GlobalIlluminationHistory.SafeRelease();
+		SkyLightHistory.SafeRelease();
+		ShadowHistories.Reset();
 	}
 };
+
+class FViewCommands
+{
+public:
+	FViewCommands()
+	{
+		for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; ++PassIndex)
+		{
+			NumDynamicMeshCommandBuildRequestElements[PassIndex] = 0;
+		}
+	}
+
+	TStaticArray<FMeshCommandOneFrameArray, EMeshPass::Num> MeshCommands;
+	TStaticArray<int32, EMeshPass::Num> NumDynamicMeshCommandBuildRequestElements;
+	TStaticArray<TArray<const FStaticMeshBatch*, SceneRenderingAllocator>, EMeshPass::Num> DynamicMeshCommandBuildRequests;
+};
+
+typedef TArray<FViewCommands, TInlineAllocator<4>> FViewVisibleCommandsPerView;
 
 /** A FSceneView with additional state used by the scene renderer. */
 class FViewInfo : public FSceneView
@@ -895,20 +737,20 @@ public:
 	/** Primitive fade uniform buffers, indexed by packed primitive index. */
 	TArray<FUniformBufferRHIParamRef,SceneRenderingAllocator> PrimitiveFadeUniformBuffers;
 
+	/**  Bit set when a primitive has a valid fade uniform buffer. */
+	FSceneBitArray PrimitiveFadeUniformBufferMap;
+
+	/** One frame dither fade in uniform buffer. */
+	FUniformBufferRHIRef DitherFadeInUniformBuffer;
+
+	/** One frame dither fade out uniform buffer. */
+	FUniformBufferRHIRef DitherFadeOutUniformBuffer;
+
 	/** A map from primitive ID to the primitive's view relevance. */
 	TArray<FPrimitiveViewRelevance,SceneRenderingAllocator> PrimitiveViewRelevanceMap;
 
 	/** A map from static mesh ID to a boolean visibility value. */
 	FSceneBitArray StaticMeshVisibilityMap;
-
-	/** A map from static mesh ID to a boolean occluder value. */
-	FSceneBitArray StaticMeshOccluderMap;
-
-	/** A map from static mesh ID to a boolean velocity visibility value. */
-	FSceneBitArray StaticMeshVelocityMap;
-
-	/** A map from static mesh ID to a boolean shadow depth visibility value. */
-	FSceneBitArray StaticMeshShadowDepthMap;
 
 	/** A map from static mesh ID to a boolean dithered LOD fade out value. */
 	FSceneBitArray StaticMeshFadeOutDitheredLODMap;
@@ -916,47 +758,45 @@ public:
 	/** A map from static mesh ID to a boolean dithered LOD fade in value. */
 	FSceneBitArray StaticMeshFadeInDitheredLODMap;
 
-#if WITH_EDITOR
-	/** A map from static mesh ID to editor selection visibility (whether or not it is selected AND should be drawn).  */
-	FSceneBitArray StaticMeshEditorSelectionMap;
-#endif
-
 	/** Will only contain relevant primitives for view and/or shadow */
 	TArray<FLODMask, SceneRenderingAllocator> PrimitivesLODMask;
 
-	/** Used to know which shadow casting primitive were already init (lazy init)  */
-	FSceneBitArray InitializedShadowCastingPrimitive;
-
 	/** An array of batch element visibility masks, valid only for meshes
-	 set visible in either StaticMeshVisibilityMap or StaticMeshShadowDepthMap. */
+	 set visible in StaticMeshVisibilityMap. */
 	TArray<uint64,SceneRenderingAllocator> StaticMeshBatchVisibility;
 
-	/** The dynamic primitives visible in this view. */
-	TArray<const FPrimitiveSceneInfo*,SceneRenderingAllocator> VisibleDynamicPrimitives;
+	/** The dynamic primitives with simple lights visible in this view. */
+	TArray<FPrimitiveSceneInfo*, SceneRenderingAllocator> VisibleDynamicPrimitivesWithSimpleLights;
 
-	/** The dynamic editor primitives visible in this view. */
-	TArray<const FPrimitiveSceneInfo*,SceneRenderingAllocator> VisibleEditorPrimitives;
+	/** Number of dynamic primitives visible in this view. */
+	int32 NumVisibleDynamicPrimitives;
 
-	/** List of visible primitives with dirty precomputed lighting buffers */
-	TArray<FPrimitiveSceneInfo*,SceneRenderingAllocator> DirtyPrecomputedLightingBufferPrimitives;
+	/** Number of dynamic editor primitives visible in this view. */
+	int32 NumVisibleDynamicEditorPrimitives;
+
+	/** Number of dynamic mesh elements per mesh pass (inside FViewInfo::DynamicMeshElements). */
+	int32 NumVisibleDynamicMeshElements[EMeshPass::Num];
+
+	/** List of visible primitives with dirty indirect lighting cache buffers */
+	TArray<FPrimitiveSceneInfo*,SceneRenderingAllocator> DirtyIndirectLightingCacheBufferPrimitives;
+
+	/** Maps a single primitive to it's per view translucent self shadow uniform buffer. */
+	FTranslucentSelfShadowUniformBufferMap TranslucentSelfShadowUniformBufferMap;
 
 	/** View dependent global distance field clipmap info. */
 	FGlobalDistanceFieldInfo GlobalDistanceFieldInfo;
 
-	/** Set of translucent prims for this view */
-	FTranslucentPrimSet TranslucentPrimSet;
-
-	/** Set of distortion prims for this view */
-	FDistortionPrimSet DistortionPrimSet;
+	/** Count of translucent prims for this view. */
+	FTranslucenyPrimCount TranslucentPrimCount;
 	
-	/** Set of mesh decal prims for this view */
-	FMeshDecalPrimSet MeshDecalPrimSet;
-	
-	/** Set of CustomDepth prims for this view */
-	FCustomDepthPrimSet CustomDepthSet;
+	bool bHasDistortionPrimitives;
+	bool bHasCustomDepthPrimitives;
 
-	/** Primitives with a volumetric material. */
-	FVolumetricPrimSet VolumetricPrimSet;
+	/** Mesh batches with for mesh decal rendering. */
+	TArray<FMeshDecalBatch, SceneRenderingAllocator> MeshDecalBatches;
+
+	/** Mesh batches with a volumetric material. */
+	TArray<FVolumetricMeshBatch, SceneRenderingAllocator> VolumetricMeshBatches;
 
 	/** A map from light ID to a boolean visibility value. */
 	TArray<FVisibleLightViewInfo,SceneRenderingAllocator> VisibleLightInfos;
@@ -979,8 +819,11 @@ public:
 	/** Gathered in initviews from all the primitives with dynamic view relevance, used in each mesh pass. */
 	TArray<FMeshBatchAndRelevance,SceneRenderingAllocator> DynamicMeshElements;
 
-	// [PrimitiveIndex] = end index index in DynamicMeshElements[], to support GetDynamicMeshElementRange()
-	TArray<uint32,SceneRenderingAllocator> DynamicMeshEndIndices;
+	/* Mesh pass relevance for gathered dynamic mesh elements. */
+	TArray<FMeshPassMask, SceneRenderingAllocator> DynamicMeshElementsPassRelevance;
+
+	/** Gathered in UpdateRayTracingWorld from all the primitives with dynamic view relevance, used in each mesh pass. */
+	TArray<FMeshBatchAndRelevance, SceneRenderingAllocator> RayTracedDynamicMeshElements;
 
 	TArray<FMeshBatchAndRelevance,SceneRenderingAllocator> DynamicEditorMeshElements;
 
@@ -988,16 +831,31 @@ public:
 
 	FSimpleElementCollector EditorSimpleElementCollector;
 
+	/** Tracks dynamic primitive data for upload to GPU Scene, when enabled. */
+	TArray<FPrimitiveUniformShaderParameters> DynamicPrimitiveShaderData;
+
+	FRWBufferStructured OneFramePrimitiveShaderDataBuffer;
+
+	TStaticArray<FParallelMeshDrawCommandPass, EMeshPass::Num> ParallelMeshDrawCommandPasses;
+	
+#if RHI_RAYTRACING
+	TUniquePtr<FRayTracingMeshResourceCollector> RayTracingMeshResourceCollector;
+
+	FRayTracingMeshCommandOneFrameArray VisibleRayTracingMeshCommands;
+
+	FDynamicRayTracingMeshCommandStorage DynamicRayTracingMeshCommandStorage;
+#endif
+
 	// Used by mobile renderer to determine whether static meshes will be rendered with CSM shaders or not.
 	FMobileCSMVisibilityInfo MobileCSMVisibilityInfo;
 
 	// Primitive CustomData
 	TArray<const FPrimitiveSceneInfo*, SceneRenderingAllocator> PrimitivesWithCustomData;	// Size == Amount of Primitive With Custom Data
-	FSceneBitArray UpdatedPrimitivesWithCustomData;
 	TArray<FMemStackBase, SceneRenderingAllocator> PrimitiveCustomDataMemStack; // Size == 1 global stack + 1 per visibility thread (if multithread)
 
 	/** Parameters for exponential height fog. */
 	FVector4 ExponentialFogParameters;
+	FVector4 ExponentialFogParameters2;
 	FVector ExponentialFogColor;
 	float FogMaxOpacity;
 	FVector4 ExponentialFogParameters3;
@@ -1021,6 +879,9 @@ public:
 	/** Temporal jitter at the pixel scale. */
 	FVector2D TemporalJitterPixels;
 
+	/** Whether view state may be updated with this view. */
+	uint32 bViewStateIsReadOnly : 1;
+
 	/** true if all PrimitiveVisibilityMap's bits are set to false. */
 	uint32 bHasNoVisiblePrimitive : 1;
 
@@ -1040,6 +901,11 @@ public:
 	uint32 bTranslucentSurfaceLighting : 1;
 	/** Whether the view has any materials that read from scene depth. */
 	uint32 bUsesSceneDepth : 1;
+
+
+	/** Whether fog should only be computed on rendered opaque pixels or not. */
+	uint32 bFogOnlyOnRenderedOpaque : 1;
+
 	/** 
 	 * true if the scene has at least one decal. Used to disable stencil operations in the mobile base pass when the scene has no decals.
 	 * TODO: Right now decal visibility is computed right before rendering them. Ideally it should be done in InitViews and this flag should be replaced with list of visible decals  
@@ -1108,6 +974,20 @@ public:
 	ICustomVisibilityQuery* CustomVisibilityQuery;
 
 	TArray<FPrimitiveSceneInfo*, SceneRenderingAllocator> IndirectShadowPrimitives;
+
+	FShaderResourceViewRHIRef PrimitiveSceneDataOverrideSRV;
+	FShaderResourceViewRHIRef LightmapSceneDataOverrideSRV;
+
+#if RHI_RAYTRACING
+	TArray<FRayTracingGeometryInstance, SceneRenderingAllocator> RayTracingGeometryInstances;
+
+	// Ray tracing scene specific to this view
+	FRayTracingScene RayTracingScene;
+
+	// Primary pipeline state object to be used with the ray tracing scene for this view.
+	// Material shaders are only available when using this pipeline.
+	FRHIRayTracingPipelineState* RayTracingMaterialPipeline = nullptr;
+#endif // RHI_RAYTRACING
 
 	/** 
 	 * Initialization constructor. Passes all parameters to FSceneView constructor
@@ -1201,6 +1081,9 @@ public:
 	/** Get the last valid exposure value for eye adapation. */
 	float GetLastEyeAdaptationExposure() const;
 
+	/** Get the last valid average scene luminange for eye adapation (exposure compensation curve). */
+	float GetLastAverageSceneLuminance() const;
+
 	/** Informs sceneinfo that tonemapping LUT has queued commands to compute it at least once */
 	void SetValidTonemappingLUT() const;
 
@@ -1246,18 +1129,6 @@ public:
 
 	/** Destroy all snapshots before we wipe the scene allocator. */
 	static void DestroyAllSnapshots();
-	
-	// Get the range in DynamicMeshElements[] for a given PrimitiveIndex
-	// @return range (start is inclusive, end is exclusive)
-	FInt32Range GetDynamicMeshElementRange(uint32 PrimitiveIndex) const
-	{
-		// inclusive
-		int32 Start = (PrimitiveIndex == 0) ? 0 : DynamicMeshEndIndices[PrimitiveIndex - 1];
-		// exclusive
-		int32 AfterEnd = DynamicMeshEndIndices[PrimitiveIndex];
-		
-		return FInt32Range(Start, AfterEnd);
-	}
 
 	/** Set the custom data associated with a primitive scene info.	*/
 	void SetCustomData(const FPrimitiveSceneInfo* InPrimitiveSceneInfo, void* InCustomData);
@@ -1432,8 +1303,13 @@ public:
 
 	FMeshElementCollector MeshCollector;
 
+	FMeshElementCollector RayTracingCollector;
+
 	/** Information about the visible lights. */
 	TArray<FVisibleLightInfo,SceneRenderingAllocator> VisibleLightInfos;
+
+	/** Array of dispatched parallel shadow depth passes. */
+	TArray<FParallelMeshDrawCommandPass*, SceneRenderingAllocator> DispatchedShadowDepthPasses;
 
 	FSortedShadowMaps SortedShadowsForShadowDepthPass;
 
@@ -1446,7 +1322,7 @@ public:
 	/** Lights added if wholescenepointlight shadow would have been rendered (ignoring r.SupportPointLightWholeSceneShadows). Used for warning about unsupported features. */	
 	TArray<FName, SceneRenderingAllocator> UsedWholeScenePointLightNames;
 
-	/** Feature level and shader platform being used for rendering */
+	/** Feature level being rendered */
 	ERHIFeatureLevel::Type FeatureLevel;
 	EShaderPlatform ShaderPlatform;
 	
@@ -1493,6 +1369,8 @@ public:
 	/** Waits for the occlusion fence. */
 	void WaitOcclusionTests(FRHICommandListImmediate& RHICmdList);
 
+	bool ShouldDumpMeshDrawCommandInstancingStats() const { return bDumpMeshDrawCommandInstancingStats; }
+
 	/** bound shader state for occlusion test prims */
 	static FGlobalBoundShaderState OcclusionTestBoundShaderState;
 	
@@ -1535,9 +1413,13 @@ protected:
 	/** Size of the family. */
 	FIntPoint FamilySize;
 	
+	bool bDumpMeshDrawCommandInstancingStats;
+
 	// Shared functionality between all scene renderers
 
-	void InitDynamicShadows(FRHICommandListImmediate& RHICmdList);
+	void InitDynamicShadows(FRHICommandListImmediate& RHICmdList, FGlobalDynamicIndexBuffer& DynamicIndexBuffer, FGlobalDynamicVertexBuffer& DynamicVertexBuffer, FGlobalDynamicReadBuffer& DynamicReadBuffer);
+
+	void SetupMeshPass(FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FViewCommands& ViewCommands);
 
 	bool RenderShadowProjections(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo* LightSceneInfo, IPooledRenderTarget* ScreenShadowMaskTexture, bool bProjectingForForwardShading, bool bMobileModulatedProjections);
 
@@ -1627,13 +1509,14 @@ protected:
 	void InitProjectedShadowVisibility(FRHICommandListImmediate& RHICmdList);	
 
 	/** Gathers dynamic mesh elements for all shadows. */
-	void GatherShadowDynamicMeshElements();
+	void GatherShadowDynamicMeshElements(FGlobalDynamicIndexBuffer& DynamicIndexBuffer, FGlobalDynamicVertexBuffer& DynamicVertexBuffer, FGlobalDynamicReadBuffer& DynamicReadBuffer);
 
 	/** Performs once per frame setup prior to visibility determination. */
 	void PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdList);
 
 	/** Computes which primitives are visible and relevant for each view. */
-	void ComputeViewVisibility(FRHICommandListImmediate& RHICmdList);
+	void ComputeViewVisibility(FRHICommandListImmediate& RHICmdList, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FViewVisibleCommandsPerView& ViewCommandsPerView, 
+		FGlobalDynamicIndexBuffer& DynamicIndexBuffer, FGlobalDynamicVertexBuffer& DynamicVertexBuffer, FGlobalDynamicReadBuffer& DynamicReadBuffer);
 
 	/** Performs once per frame setup after to visibility determination. */
 	void PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTaskData);
@@ -1642,6 +1525,9 @@ protected:
 		TArray<FViewInfo>& InViews, 
 		const FScene* InScene, 
 		const FSceneViewFamily& InViewFamily, 
+		FGlobalDynamicIndexBuffer& DynamicIndexBuffer,
+		FGlobalDynamicVertexBuffer& DynamicVertexBuffer,
+		FGlobalDynamicReadBuffer& DynamicReadBuffer,
 		const FPrimitiveViewMasks& HasDynamicMeshElementsMasks, 
 		const FPrimitiveViewMasks& HasDynamicEditorMeshElementsMasks, 
 		const FPrimitiveViewMasks& HasViewCustomDataMasks,
@@ -1662,7 +1548,7 @@ protected:
 	void RenderCustomDepthPassAtLocation(FRHICommandListImmediate& RHICmdList, int32 Location);
 	void RenderCustomDepthPass(FRHICommandListImmediate& RHICmdList);
 
-	void OnStartFrame(FRHICommandListImmediate& RHICmdList);
+	void OnStartRender(FRHICommandListImmediate& RHICmdList);
 
 	/** Renders the scene's distortion */
 	void RenderDistortion(FRHICommandListImmediate& RHICmdList);
@@ -1670,14 +1556,8 @@ protected:
 	/** Returns the scene color texture multi-view is targeting. */	
 	FTextureRHIParamRef GetMultiViewSceneColor(const FSceneRenderTargets& SceneContext) const;
 
-	/** Composites the monoscopic far field view into the stereo views. */
-	void CompositeMonoscopicFarField(FRHICommandListImmediate& RHICmdList);
-
-	/** Renders a depth mask into the monoscopic far field view to ensure we only render visible pixels. */
-	void RenderMonoscopicFarFieldMask(FRHICommandListImmediate& RHICmdList);
-
-	void UpdatePrimitivePrecomputedLightingBuffers();
-	void ClearPrimitiveSingleFramePrecomputedLightingBuffers();
+	void UpdatePrimitiveIndirectLightingCacheBuffers();
+	void ClearPrimitiveSingleFrameIndirectLightingCacheBuffers();
 
 	void RenderPlanarReflection(class FPlanarReflectionSceneProxy* ReflectionSceneProxy);
 
@@ -1704,11 +1584,11 @@ public:
 
 	bool RenderInverseOpacity(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
 
-	void RenderMobileBasePassDynamicData(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, EBlendMode BlendMode, bool bWireFrame, int32 FirstElement = 0, int32 AfterLastElement = MAX_int32);
-
 protected:
 	/** Finds the visible dynamic shadows for each view. */
 	void InitDynamicShadows(FRHICommandListImmediate& RHICmdList);
+
+	void PrepareViewVisibilityLists();
 
 	/** Build visibility lists on CSM receivers and non-csm receivers. */
 	void BuildCSMVisibilityState(FLightSceneInfo* LightSceneInfo);
@@ -1718,8 +1598,7 @@ protected:
 	/** Renders the opaque base pass for mobile. */
 	void RenderMobileBasePass(FRHICommandListImmediate& RHICmdList, const TArrayView<const FViewInfo*> PassViews);
 
-	void RenderMobileEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState);
-	void RenderMobileBasePassViewParallel(const FViewInfo& View, FRHICommandListImmediate& ParentCmdList, TArray<FViewInfo>& Views, const FDrawingPolicyRenderState& DrawRenderState);
+	void RenderMobileEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, const FMeshPassProcessorRenderState& DrawRenderState);
 
 	/** Render modulated shadow projections in to the scene, loops over any unrendered shadows until all are processed.*/
 	void RenderModulatedShadowProjections(FRHICommandListImmediate& RHICmdList);
@@ -1736,6 +1615,9 @@ protected:
 	/** Computes how many queries will be issued this frame */
 	int32 ComputeNumOcclusionQueriesToBatch() const;
 
+	/** Whether platform requires separate translucent render pass */
+	bool RequiresTranslucencyPass(FRHICommandListImmediate& RHICmdList, const FViewInfo& View) const;
+
 	/** Renders decals. */
 	void RenderDecals(FRHICommandListImmediate& RHICmdList);
 
@@ -1746,19 +1628,26 @@ protected:
 	void BasicPostProcess(FRHICommandListImmediate& RHICmdList, FViewInfo &View, bool bDoUpscale, bool bDoEditorPrimitives);
 
 	/** Creates uniform buffers with the mobile directional light parameters, for each lighting channel. Called by InitViews */
-	void CreateDirectionalLightUniformBuffers(FSceneView& SceneView);
+	void CreateDirectionalLightUniformBuffers(FViewInfo& View);
 
-	/** Copy scene color from the mobile multi-view render targat array to side by side stereo scene color */
+	/** Copy scene color from the mobile multi-view render target array to side by side stereo scene color */
 	void CopyMobileMultiViewSceneColor(FRHICommandListImmediate& RHICmdList);
 
-	/** Render inverse opacity for the dynamic meshes. */
-	bool RenderInverseOpacityDynamic(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState);
+	/** On chip pre-tonemap before scene color MSAA resolve (iOS only) */
+	void PreTonemapMSAA(FRHICommandListImmediate& RHICmdList);
 
-	/** Will update the view custom data. */
-	void PostInitViewCustomData();
+	void SortMobileBasePassAfterShadowInit(FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FViewVisibleCommandsPerView& ViewCommandsPerView);
+	void SetupMobileBasePassAfterShadowInit(FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FViewVisibleCommandsPerView& ViewCommandsPerView);
+
+	void UpdateOpaqueBasePassUniformBuffer(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
+	void UpdateTranslucentBasePassUniformBuffer(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
+	void UpdateDirectionalLightUniformBuffers(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
 	
 private:
 	bool bModulatedShadowsInUse;
+	static FGlobalDynamicIndexBuffer DynamicIndexBuffer;
+	static FGlobalDynamicVertexBuffer DynamicVertexBuffer;
+	static TGlobalResource<FGlobalDynamicReadBuffer> DynamicReadBuffer;
 };
 
 // The noise textures need to be set in Slate too.
@@ -1860,6 +1749,7 @@ struct FFastVramConfig
 	uint32 DOFSetup;
 	uint32 DOFReduce;
 	uint32 DOFPostfilter;
+	uint32 PostProcessMaterial;
 
 	uint32 CustomDepth;
 	uint32 ShadowPointLight;
@@ -1880,3 +1770,6 @@ private:
 };
 
 extern FFastVramConfig GFastVRamConfig;
+
+extern bool UseCachedMeshDrawCommands();
+extern bool IsDynamicInstancingEnabled(ERHIFeatureLevel::Type FeatureLevel);

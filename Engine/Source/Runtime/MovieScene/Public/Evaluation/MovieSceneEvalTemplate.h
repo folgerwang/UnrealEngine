@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -36,7 +36,6 @@ public:
 	FMovieSceneEvalTemplate()
 	{
 		CompletionMode = EMovieSceneCompletionMode::KeepState;
-		SourceSection = nullptr;
 	}
 
 	/**
@@ -114,14 +113,6 @@ public:
 	*/
 	virtual void EvaluateSwept(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const TRange<FFrameNumber>& SweptRange, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 	{
-		// Call deprecated one
-		PRAGMA_DISABLE_DEPRECATION_WARNINGS
-		EvaluateSwept(Operand, Context, PersistentData, ExecutionTokens);
-		PRAGMA_ENABLE_DEPRECATION_WARNINGS
-	}
-	DEPRECATED(4.21, "Please override void EvaluateSwept(const FMovieSceneEvaluationOperand&, const FMovieSceneContext&, const TRange<FFrameNumber>&, const FPersistentEvaluationData&, FMovieSceneExecutionTokens&) instead.")
-	virtual void EvaluateSwept(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
-	{
 		ensureMsgf(false, TEXT("FMovieSceneEvalTemplate::EvaluateSwept has not been implemented. Verify that this template's evaluation track has correct evaluation method (usually set in UMovieSceneTrack::PostCompile), or implement this function."));
 	}
 
@@ -157,7 +148,7 @@ public:
 	 */
 	void SetSourceSection(const UMovieSceneSection* InSourceSection)
 	{
-		SourceSection = InSourceSection;
+		SourceSectionPtr = InSourceSection;
 	}
 
 	/**
@@ -167,7 +158,7 @@ public:
 	 */
 	const UMovieSceneSection* GetSourceSection() const
 	{
-		return SourceSection;
+		return SourceSectionPtr.Get();
 	}
 
 protected:
@@ -191,7 +182,7 @@ protected:
 
 	/** The section from which this template originates */
 	UPROPERTY()
-	const UMovieSceneSection* SourceSection;
+	TWeakObjectPtr<const UMovieSceneSection> SourceSectionPtr;
 };
 
 /**

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanVertexDeclaration.cpp: Vulkan vertex declaration RHI implementation.
@@ -147,7 +147,7 @@ void FVulkanVertexInputStateInfo::Generate(FVulkanVertexDeclaration* VertexDecla
 
 		CurrAttribute.binding = StreamToBinding.FindChecked(CurrElement.StreamIndex);
 		CurrAttribute.location = CurrElement.AttributeIndex;
-		CurrAttribute.format = UEToVkFormat(CurrElement.Type);
+		CurrAttribute.format = UEToVkBufferFormat(CurrElement.Type);
 		CurrAttribute.offset = CurrElement.Offset;
 	}
 

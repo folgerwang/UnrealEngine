@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -124,10 +124,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category="ComboBox")
 	void SetSelectedOption(FString Option);
 
+	UFUNCTION(BlueprintCallable, Category = "ComboBox")
+	void SetSelectedIndex(const int32 Index);
+
 	UFUNCTION(BlueprintCallable, Category="ComboBox")
 	FString GetSelectedOption() const;
 
-	/** @return The number of options */
+	UFUNCTION(BlueprintCallable, Category="ComboBox")
+	int32 GetSelectedIndex() const;
+
+	/** Returns the number of options */
 	UFUNCTION(BlueprintCallable, Category="ComboBox")
 	int32 GetOptionCount() const;
 
@@ -137,6 +143,7 @@ public:
 
 	//~ Begin UObject Interface
 	virtual void PostInitProperties() override;
+	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
 	//~ End UObject Interface
 

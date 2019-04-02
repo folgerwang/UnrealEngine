@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Sections/MovieSceneParameterSection.h"
 #include "UObject/SequencerObjectVersion.h"
@@ -29,7 +29,7 @@ UMovieSceneParameterSection::UMovieSceneParameterSection( const FObjectInitializ
 			GetLinkerCustomVersion(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::WhenFinishedDefaultsToProjectDefault ? 
 			EMovieSceneCompletionMode::RestoreState : 
 			EMovieSceneCompletionMode::ProjectDefault);
-}
+}	
 
 void UMovieSceneParameterSection::Serialize(FArchive& Ar)
 {
@@ -40,6 +40,14 @@ void UMovieSceneParameterSection::Serialize(FArchive& Ar)
 		ReconstructChannelProxy();
 	}
 }
+
+void UMovieSceneParameterSection::PostEditImport()
+{
+	Super::PostEditImport();
+
+	ReconstructChannelProxy();
+}
+
 
 void UMovieSceneParameterSection::ReconstructChannelProxy()
 {

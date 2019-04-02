@@ -1,4 +1,6 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+#if WITH_LIBCURL
 
 #include "Curl/CurlHttp.h"
 #include "Stats/Stats.h"
@@ -9,8 +11,8 @@
 #include "Misc/Paths.h"
 #include "Curl/CurlHttpManager.h"
 #include "Misc/ScopeLock.h"
-
-#if WITH_LIBCURL
+#include "HAL/FileManager.h"
+#include "Internationalization/Regex.h"
 
 int32 FCurlHttpRequest::NumberOfInfoMessagesToCache = 50;
 
@@ -23,9 +25,15 @@ static int SslCertVerify(int PreverifyOk, X509_STORE_CTX* Context)
 {
 	if (PreverifyOk == 1)
 	{
-		SSL* Handle = static_cast<SSL*>(X509_STORE_CTX_get_app_data(Context));
+		SSL* Handle = static_cast<SSL*>(X509_STORE_CTX_get_ex_data(Context, SSL_get_ex_data_X509_STORE_CTX_idx()));
+		check(Handle);
+
 		SSL_CTX* SslContext = SSL_get_SSL_CTX(Handle);
+		check(SslContext);
+
 		FCurlHttpRequest* Request = static_cast<FCurlHttpRequest*>(SSL_CTX_get_app_data(SslContext));
+		check(Request);
+
 		const FString Domain = FPlatformHttp::GetUrlDomain(Request->GetURL());
 
 		if (!FSslModule::Get().GetCertificateManager().VerifySslCertificates(Context, Domain))
@@ -60,6 +68,7 @@ FCurlHttpRequest::FCurlHttpRequest()
 	,	HeaderList(NULL)
 	,	bCanceled(false)
 	,	bCurlRequestCompleted(false)
+	,	bRedirected(false)
 	,	CurlAddToMultiResult(CURLM_OK)
 	,	CurlCompletionResult(CURLE_OK)
 	,	CompletionStatus(EHttpRequestStatus::NotStarted)
@@ -257,12 +266,12 @@ FString FCurlHttpRequest::GetContentType() const
 
 int32 FCurlHttpRequest::GetContentLength() const
 {
-	return RequestPayload.Num();
+	return RequestPayload->GetContentLength();
 }
 
 const TArray<uint8>& FCurlHttpRequest::GetContent() const
 {
-	return RequestPayload;
+	return RequestPayload->GetContent();
 }
 
 void FCurlHttpRequest::SetVerb(const FString& InVerb)
@@ -280,14 +289,54 @@ void FCurlHttpRequest::SetURL(const FString& InURL)
 
 void FCurlHttpRequest::SetContent(const TArray<uint8>& ContentPayload)
 {
-	RequestPayload = ContentPayload;
+	RequestPayload = MakeUnique<FRequestPayloadInMemory>(ContentPayload);
 }
 
 void FCurlHttpRequest::SetContentAsString(const FString& ContentString)
 {
 	FTCHARToUTF8 Converter(*ContentString);
-	RequestPayload.SetNum(Converter.Length());
-	FMemory::Memcpy(RequestPayload.GetData(), (uint8*)(ANSICHAR*)Converter.Get(), RequestPayload.Num());
+	TArray<uint8> Buffer;
+	Buffer.SetNum(Converter.Length());
+	FMemory::Memcpy(Buffer.GetData(), Converter.Get(), Buffer.Num());
+	RequestPayload = MakeUnique<FRequestPayloadInMemory>(Buffer);
+}
+
+bool FCurlHttpRequest::SetContentAsStreamedFile(const FString& Filename)
+{
+	UE_LOG(LogHttp, Verbose, TEXT("FCurlHttpRequest::SetContentAsStreamedFile() - %s"), *Filename);
+
+	if (CompletionStatus == EHttpRequestStatus::Processing)
+	{
+		UE_LOG(LogHttp, Warning, TEXT("FCurlHttpRequest::SetContentAsStreamedFile() - attempted to set content on a request that is inflight"));
+		return false;
+	}
+
+	FArchive* File = IFileManager::Get().CreateFileReader(*Filename);
+	if (File)
+	{
+		RequestPayload = MakeUnique<FRequestPayloadInFileStream>(MakeShareable(File));
+		return true;
+	}
+	else
+	{
+		UE_LOG(LogHttp, Warning, TEXT("FCurlHttpRequest::SetContentAsStreamedFile Failed to open %s for reading"), *Filename);
+		RequestPayload.Reset();
+		return false;
+	}
+}
+
+bool FCurlHttpRequest::SetContentFromStream(TSharedRef<FArchive, ESPMode::ThreadSafe> Stream)
+{
+	UE_LOG(LogHttp, Verbose, TEXT("FCurlHttpRequest::SetContentFromStream() - %s"), *Stream->GetArchiveName());
+
+	if (CompletionStatus == EHttpRequestStatus::Processing)
+	{
+		UE_LOG(LogHttp, Warning, TEXT("FCurlHttpRequest::SetContentFromStream() - attempted to set content on a request that is inflight"));
+		return false;
+	}
+
+	RequestPayload = MakeUnique<FRequestPayloadInFileStream>(Stream);
+	return true;
 }
 
 void FCurlHttpRequest::SetHeader(const FString& HeaderName, const FString& HeaderValue)
@@ -388,7 +437,7 @@ size_t FCurlHttpRequest::ReceiveResponseHeaderCallback(void* Ptr, size_t SizeInB
 			if (Header.Split(TEXT(":"), &HeaderKey, &HeaderValue))
 			{
 				HeaderValue.TrimStartInline();
-				if (!HeaderKey.IsEmpty() && !HeaderValue.IsEmpty())
+				if (!HeaderKey.IsEmpty() && !HeaderValue.IsEmpty() && !bRedirected)
 				{
 					//Store the content length so OnRequestProgress() delegates have something to work with
 					if (HeaderKey == TEXT("Content-Length"))
@@ -396,6 +445,20 @@ size_t FCurlHttpRequest::ReceiveResponseHeaderCallback(void* Ptr, size_t SizeInB
 						Response->ContentLength = FCString::Atoi(*HeaderValue);
 					}
 					Response->NewlyReceivedHeaders.Enqueue(TPair<FString, FString>(MoveTemp(HeaderKey), MoveTemp(HeaderValue)));
+				}
+			}
+			else
+			{
+				const FRegexPattern StatusPattern(TEXT("HTTP/\\d+\\.\\d+ 30\\d")); // \d+ is jic http status version ever goes double digits...
+				FRegexMatcher StatusMatcher(StatusPattern, *Header);
+
+				if (StatusMatcher.FindNext())
+				{
+					bRedirected = true;
+				}
+				else if (Header.IsEmpty()) // an empty line notes the end of the headers
+				{
+					bRedirected = false;
 				}
 			}
 			return HeaderSize;
@@ -453,28 +516,21 @@ size_t FCurlHttpRequest::UploadCallback(void* Ptr, size_t SizeInBlocks, size_t B
 {
 	TimeSinceLastResponse = 0.0f;
 
-	size_t SizeToSend = RequestPayload.Num() - BytesSent.GetValue();
-	size_t SizeToSendThisTime = 0;
+	size_t MaxBufferSize = SizeInBlocks * BlockSizeInBytes;
+	size_t SizeAlreadySent = static_cast<size_t>(BytesSent.GetValue());
+	size_t SizeSentThisTime = RequestPayload->FillOutputBuffer(Ptr, MaxBufferSize, SizeAlreadySent);
+	BytesSent.Add(SizeSentThisTime);
 
-	if (SizeToSend != 0)
-	{
-		SizeToSendThisTime = FMath::Min(SizeToSend, SizeInBlocks * BlockSizeInBytes);
-		if (SizeToSendThisTime != 0)
-		{
-			// static cast just ensures that this is uint8* in fact
-			FMemory::Memcpy(Ptr, static_cast< uint8* >(RequestPayload.GetData()) + BytesSent.GetValue(), SizeToSendThisTime);
-			BytesSent.Add(SizeToSendThisTime);
-		}
-	}
-
-	UE_LOG(LogHttp, Verbose, TEXT("%p: UploadCallback: %d bytes out of %d sent. (SizeInBlocks=%d, BlockSizeInBytes=%d, RequestPayload.Num()=%d, BytesSent=%d, SizeToSend=%d, SizeToSendThisTime=%d (<-this will get returned from the callback))"),
+	UE_LOG(LogHttp, Verbose, TEXT("%p: UploadCallback: %d bytes out of %d sent. (SizeInBlocks=%d, BlockSizeInBytes=%d, SizeToSendThisTime=%d (<-this will get returned from the callback))"),
 		this,
-		static_cast< int32 >(BytesSent.GetValue()), RequestPayload.Num(),
-		static_cast< int32 >(SizeInBlocks), static_cast< int32 >(BlockSizeInBytes), RequestPayload.Num(), static_cast< int32 >(BytesSent.GetValue()), static_cast< int32 >(SizeToSend),
-		static_cast< int32 >(SizeToSendThisTime)
+		static_cast< int32 >(BytesSent.GetValue()),
+		RequestPayload->GetContentLength(),
+		static_cast< int32 >(SizeInBlocks),
+		static_cast< int32 >(BlockSizeInBytes),
+		static_cast< int32 >(SizeSentThisTime)
 		);
 
-	return SizeToSendThisTime;
+	return SizeSentThisTime;
 }
 
 size_t FCurlHttpRequest::DebugCallback(CURL * Handle, curl_infotype DebugInfoType, char * DebugInfo, size_t DebugInfoSize)
@@ -601,37 +657,15 @@ size_t FCurlHttpRequest::DebugCallback(CURL * Handle, curl_infotype DebugInfoTyp
 	return 0;
 }
 
-bool IsURLEncoded(const TArray<uint8> & Payload)
-{
-	static char AllowedChars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~";
-	static bool bTableFilled = false;
-	static bool AllowedTable[256] = { false };
-
-	if (!bTableFilled)
-	{
-		for (int32 Idx = 0; Idx < ARRAY_COUNT(AllowedChars) - 1; ++Idx)	// -1 to avoid trailing 0
-		{
-			uint8 AllowedCharIdx = static_cast<uint8>(AllowedChars[Idx]);
-			check(AllowedCharIdx < ARRAY_COUNT(AllowedTable));
-			AllowedTable[AllowedCharIdx] = true;
-		}
-
-		bTableFilled = true;
-	}
-
-	const int32 Num = Payload.Num();
-	for (int32 Idx = 0; Idx < Num; ++Idx)
-	{
-		if (!AllowedTable[Payload[Idx]])
-			return false;
-	}
-
-	return true;
-}
 
 bool FCurlHttpRequest::SetupRequest()
 {
 	check(EasyHandle);
+
+	if (!RequestPayload.IsValid())
+	{
+		RequestPayload = MakeUnique<FRequestPayloadInMemory>(TArray<uint8>());
+	}
 
 	bCurlRequestCompleted = false;
 	bCanceled = false;
@@ -649,7 +683,7 @@ bool FCurlHttpRequest::SetupRequest()
 	UE_LOG(LogHttp, Verbose, TEXT("%p: URL='%s'"), this, *URL);
 	UE_LOG(LogHttp, Verbose, TEXT("%p: Verb='%s'"), this, *Verb);
 	UE_LOG(LogHttp, Verbose, TEXT("%p: Custom headers are %s"), this, Headers.Num() ? TEXT("present") : TEXT("NOT present"));
-	UE_LOG(LogHttp, Verbose, TEXT("%p: Payload size=%d"), this, RequestPayload.Num());
+	UE_LOG(LogHttp, Verbose, TEXT("%p: Payload size=%d"), this, RequestPayload->GetContentLength());
 
 	// set up URL
 	// Disabled http request processing
@@ -679,28 +713,24 @@ bool FCurlHttpRequest::SetupRequest()
 		CURLcode ErrCode = curl_easy_setopt(EasyHandle, CURLOPT_INTERFACE, TCHAR_TO_ANSI(*FCurlHttpManager::CurlRequestOptions.LocalHostAddr));
 	}
 
+	bool bUseReadFunction = false;
+
 	// set up verb (note that Verb is expected to be uppercase only)
 	if (Verb == TEXT("POST"))
 	{
-		curl_easy_setopt(EasyHandle, CURLOPT_POST, 1L);
-
 		// If we don't pass any other Content-Type, RequestPayload is assumed to be URL-encoded by this time
-		// (if we pass, don't check here and trust the request)
-		check(!GetHeader("Content-Type").IsEmpty() || IsURLEncoded(RequestPayload));
-
-		curl_easy_setopt(EasyHandle, CURLOPT_POSTFIELDS, RequestPayload.GetData());
-		curl_easy_setopt(EasyHandle, CURLOPT_POSTFIELDSIZE, RequestPayload.Num());
+		// In the case of using a streamed file, you must explicitly set the Content-Type, because RequestPayload->IsURLEncoded returns false.
+		check(!GetHeader("Content-Type").IsEmpty() || RequestPayload->IsURLEncoded());
+		curl_easy_setopt(EasyHandle, CURLOPT_POST, 1L);
+		curl_easy_setopt(EasyHandle, CURLOPT_POSTFIELDS, NULL);
+		curl_easy_setopt(EasyHandle, CURLOPT_POSTFIELDSIZE, RequestPayload->GetContentLength());
+		bUseReadFunction = true;
 	}
 	else if (Verb == TEXT("PUT"))
 	{
 		curl_easy_setopt(EasyHandle, CURLOPT_UPLOAD, 1L);
-		// this pointer will be passed to read function
-		curl_easy_setopt(EasyHandle, CURLOPT_READDATA, this);
-		curl_easy_setopt(EasyHandle, CURLOPT_READFUNCTION, StaticUploadCallback);
-		curl_easy_setopt(EasyHandle, CURLOPT_INFILESIZE, RequestPayload.Num());
-
-		// reset the counter
-		BytesSent.Reset();
+		curl_easy_setopt(EasyHandle, CURLOPT_INFILESIZE, RequestPayload->GetContentLength());
+		bUseReadFunction = true;
 	}
 	else if (Verb == TEXT("GET"))
 	{
@@ -713,19 +743,26 @@ bool FCurlHttpRequest::SetupRequest()
 	}
 	else if (Verb == TEXT("DELETE"))
 	{
-		curl_easy_setopt(EasyHandle, CURLOPT_CUSTOMREQUEST, "DELETE");
-
 		// If we don't pass any other Content-Type, RequestPayload is assumed to be URL-encoded by this time
 		// (if we pass, don't check here and trust the request)
-		check(!GetHeader("Content-Type").IsEmpty() || IsURLEncoded(RequestPayload));
+		check(!GetHeader("Content-Type").IsEmpty() || RequestPayload->IsURLEncoded());
 
-		curl_easy_setopt(EasyHandle, CURLOPT_POSTFIELDS, RequestPayload.GetData());
-		curl_easy_setopt(EasyHandle, CURLOPT_POSTFIELDSIZE, RequestPayload.Num());
+		curl_easy_setopt(EasyHandle, CURLOPT_POST, 1L);
+		curl_easy_setopt(EasyHandle, CURLOPT_CUSTOMREQUEST, "DELETE");
+		curl_easy_setopt(EasyHandle, CURLOPT_POSTFIELDSIZE, RequestPayload->GetContentLength());
+		bUseReadFunction = true;
 	}
 	else
 	{
 		UE_LOG(LogHttp, Fatal, TEXT("Unsupported verb '%s', can be perhaps added with CURLOPT_CUSTOMREQUEST"), *Verb);
 		UE_DEBUG_BREAK();
+	}
+
+	if (bUseReadFunction)
+	{
+		BytesSent.Reset();
+		curl_easy_setopt(EasyHandle, CURLOPT_READDATA, this);
+		curl_easy_setopt(EasyHandle, CURLOPT_READFUNCTION, StaticUploadCallback);
 	}
 
 	// set up header function to receive response headers
@@ -752,7 +789,7 @@ bool FCurlHttpRequest::SetupRequest()
 	// content-length should be present http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.4
 	if (GetHeader("Content-Length").IsEmpty())
 	{
-		SetHeader(TEXT("Content-Length"), FString::Printf(TEXT("%d"), RequestPayload.Num()));
+		SetHeader(TEXT("Content-Length"), FString::Printf(TEXT("%d"), RequestPayload->GetContentLength()));
 	}
 
 	// Remove "Expect: 100-continue" since this is supposed to cause problematic behavior on Amazon ELB (and WinInet doesn't send that either)

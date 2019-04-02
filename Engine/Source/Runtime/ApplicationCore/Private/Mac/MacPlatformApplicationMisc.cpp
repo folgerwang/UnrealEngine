@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Mac/MacPlatformApplicationMisc.h"
 #include "Mac/MacPlatformMisc.h"
@@ -18,6 +18,7 @@
 #include "Mac/CocoaThread.h"
 #include "Mac/MacPlatformOutputDevices.h"
 
+#include "Apple/PreAppleSystemHeaders.h"
 #include <dlfcn.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/kext/KextManager.h>
@@ -31,6 +32,7 @@
 #include <libproc.h>
 #include <notify.h>
 #include <uuid/uuid.h>
+#include "Apple/PostAppleSystemHeaders.h"
 
 extern FMacMallocCrashHandler* GCrashMalloc;
 

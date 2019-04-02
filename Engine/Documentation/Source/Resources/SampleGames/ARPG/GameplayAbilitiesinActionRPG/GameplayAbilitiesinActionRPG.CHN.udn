@@ -1,0 +1,56 @@
+﻿INTSourceChangelist:4357683
+Availability: Public
+Crumbs: 
+Title: 动作RPG中的游戏性技能 
+Description: 概述如何在ARPG中使用游戏性技能
+Type: 
+Version: 4.20
+Parent: Resources/SampleGames/ARPG
+Order: 1
+Tags: 
+
+
+**动作RPG（ARPG）** 示例使用 **游戏性技能（Gameplay Abilities）** **插件** 来处理玩家和敌人攻击执行以及生命值和法力等统计数据的修改。这些文档旨在说明使用 [游戏性技能系统](https://docs.unrealengine.com/en-us/Gameplay/GameplayAbilitySystem)的原因，以及如何对它进行定制，来为ARPG添加游戏特定的功能。本页面中包含多个文档的链接，它们分别对组成技能系统的各个部分进行了详述。请按这些文档在页面中的显示顺序依次阅读它们，以便更好地理解所有这些系统是如何协同工作的。 
+
+另外，通用的[技能系统](Gameplay/GameplayAbilitySystem)文档较详细地介绍了本文档中谈及的部分功能。请先阅读它，了解用到的基本概念，然后再阅读本文档，获取在实践中使用它的示例。即使决定不在项目中使用ARPG中常见的技能系统，也可将部分概念和代码用作构建相似系统的参考示例。
+
+## 动作RPG中的技能
+
+尽管技能系统（Abilities System）具有很多功能，ARPG只使用以下功能：
+
+| **系统** | **说明** |
+| --- | --- |
+| **属性（Attributes）** | “生命值”和“伤害”等值，对于系统使用来说必不可少。|
+| **Gameplay效果（Gameplay Effects）** | 确定属性的修改方式，对于系统使用来说必不可少。|
+| **技能系统组件（Ability System Component）** | 用于真正应用效果和技能的组件。具有属性的所有Actor都必须具有该组件。有一个ActionRPG子类处理部分游戏特定的逻辑。|
+| **执行计算（Execution Calculations）** | 由Gameplay效果使用，用于在更改属性时应用数学增益和减益。ARPG将 **执行计算（Execution Calculations）** 用于伤害公式。|
+| **技能（Abilities）** | 执行后可进行Gameplay更改的特殊蓝图，在任何需要使用自定义逻辑来实现特定技能的游戏中都很有用。高度采用数据驱动思想的游戏可能选择使用蓝图之外的方法来执行效果，但是对于ARPG等动作游戏，技能蓝图非常有效。ARPG具有游戏特定的子类 **UGameplayAbility**，所有蓝图技能都必须继承自它。|
+| **Gameplay事件（Gameplay Events）** | 具有可选有效载荷数据的Gameplay标记，用于在技能系统的不同部分之间进行通信。ARPG使用它们在蒙太奇和技能之间传递信息。|
+| **Gameplay Cue** | [INCLUDE:#excerpt_0] |
+| **选定目标Actor（Targeting Actors）** | 出于收集和复制技能目标的目的而生成的蓝图。默认情况下，这些Actor低效而复杂，因此ARPG使用较为简单的自定义系统。需要进行大量游戏特定的自定义才可使用这些Actor，但它们是展示如何处理客户端-服务器游戏中的目标预测的良好示例。|
+
+[COMMENT:none]
+
+[EXCERPT:excerpt_0]
+
+用于将 **Gameplay标记** 绑定到生成的粒子或声音的资源。处理客户端预测或创建强度会改变的视觉效果时，它们非常有用。
+
+[REGION:note]
+它们未在ARPG的初始版本中使用，但是以后可能会添加。
+[/REGION]
+
+[/EXCERPT:excerpt_0]
+-
+[/COMMENT]
+
+## 动作RPG技能系统分解
+
+在以下的每个文档中，都对如何在ARPG中使用技能系统（Abilities System）的特定组成部分进行了详细说明。请按顺序依次阅读它们，首先从 **ARPG中的属性与效果** 开始，然后阅读 **ARPG中的近战技能**、**ARPG中的技能**，最后阅读 **在ARPG中执行技能**。
+
+%Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG/AttributesandEffects:topic%
+
+%Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG/MeleeAbilitiesInARPG:topic%
+
+%Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG/SkillAbilitiesInARPG:topic%
+
+%Resources/SampleGames/ARPG/GameplayAbilitiesinActionRPG/ExecutingAbilitiesInARPG:topic%

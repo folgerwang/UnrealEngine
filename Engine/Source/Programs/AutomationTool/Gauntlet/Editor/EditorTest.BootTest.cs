@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using Gauntlet;
 using System;
@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace EditorTest
 {
-	class BootTest : UE4Game.DefaultNode
+	class BootTest : UE4Game.DefaultTest
 	{
 		public BootTest(Gauntlet.UnrealTestContext InContext) 
 			: base(InContext)

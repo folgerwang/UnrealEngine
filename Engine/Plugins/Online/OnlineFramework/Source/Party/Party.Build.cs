@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -6,7 +6,8 @@ public class Party : ModuleRules
 {
 	public Party(ReadOnlyTargetRules Target) : base(Target)
 	{
-		PublicDefinitions.Add("PARTY_PACKAGE=1");
+		PrivateDefinitions.Add("PARTY_PACKAGE=1");
+
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
         PublicDependencyModuleNames.AddRange(

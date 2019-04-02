@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -15,8 +15,9 @@ struct CORE_API FAndroidCrashContext : public FGenericCrashContext
 	/** Thread context */
 	void* Context;
 
-	FAndroidCrashContext()
-		:	Signal(0)
+	FAndroidCrashContext(ECrashContextType InType, const TCHAR* InErrorMessage)
+		:	FGenericCrashContext(InType, InErrorMessage)
+		,	Signal(0)
 		,	Info(NULL)
 		,	Context(NULL)
 	{

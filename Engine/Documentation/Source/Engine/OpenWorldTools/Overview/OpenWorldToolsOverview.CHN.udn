@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2576224
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:开放世界场景工具总览
 Crumbs:
@@ -12,21 +12,7 @@ Version:4.8
 ![](T_Kite_Demo_00.png)
 
 
-[COMMENT:none]
-## 先决条件
-
-先将程序化植物（Procedural Foliage）工具启用后方可在项目中进行使用，步骤为：前往 **主工具栏**，然后前往 **Edit** > **Editor Preferences** > **Experimental**。 
-在 Experimental 部分点击 **Procedural Foliage** 旁的勾选框，将 Procedural Foliage 选项启用。 
-
-![](T_Enable_PFT.gif)(convert:false)
-
-须从虚幻引擎 4 启动程序中下载 **Open World Demo Collection** 内容包，因为此合集中的部分内容将用于“开放世界场景工具快速入门”。
-
-按“快速入门”进行操作，Open World Demo Collection 下载完成后将其添加至使用中的项目 - 首先在 UE4 启动程序的 **Vault** 部分找到 Open World Demo Collection，然后点击 **Add to Project** 按钮。之后将显示可添加合集的项目列表。按“快速入门”进行操作，选择正在使用的项目，然后按下 **Add to Project** 键添加内容。重新打开项目后，将看到一个名为 **Kite Demo** 的文件夹，此文件夹中有您需要的内容。
-
-
-[/COMMENT]!
-
+(#TypesofTools)
 ## 工具类型 
 虚幻引擎 4 中的开放世界场景工具使用电脑算法决定静态网格体的放置，以替代手动放置。 
 利用它可快速生成包含多种树木、植物和灌木的森林，外观真实而自然。
@@ -36,6 +22,7 @@ Version:4.8
 例如在制作枝繁叶茂的松树和桦树林时，需要使用 **程序化植物工具**。 
 如需使用青草、鲜花、小石块对森林中的地形地貌进行密集填入，则使用 **草地工具（Grass Tool）**。
 
+(#ProceduralFoliageTool)
 ### 程序化植物工具 
 程序化植物工具可模拟大量树木和灌木组成的辽阔森林。 
 该工具使用 **Steps** 定义生长年份，模拟森林在数年中的生长情况。 
@@ -43,7 +30,6 @@ Version:4.8
 对诸如 **Spread**、**Size** 和 **Priority Settings** 等植物类选项进行调整后，即可对关卡中（放置有程序化植物生成器）植物类生成位置的散布和竞争产生影响。
 如需了解程序化植物工具使用的更多内容，请查阅“程序化植物快速入门”。
 
-[REGION:topics third]
 [OBJECT:Topic]
 	[PARAM:image]
 		![](T_PFT_Trees_00.png)
@@ -61,26 +47,8 @@ Version:4.8
 		[RELATIVE:Engine/OpenWorldTools/ProceduralFoliage/QuickStart]
 	[/PARAM]
 [/OBJECT]
-[/region]
 
-[COMMENT:none]
-
-#### 植物类 Actors
-程序化植物工具使用称为 **植物类** 的 Actor。 
-利用植物类可定义植物拥有的多种属性，如使用的静态网格体，或生成的静态网格体尺寸。
-对于植物类 Actor 分解的 4 种主要属性集和这些选项的作用，下表进行了详尽解释。
-
-![](T_Foliage_Type_Actor.png)
-
-| 属性名称 | 描述 |
-| ------------ | ----------- |
-|**Mesh**| 在 Mesh 中，可定义用作植物的静态网格体。|
-|**Placement**| 在 Placement 中，可对静态网格体（在 Mesh 部分指定）在整个关卡中物体上的放置方式进行调整。|
-|**Growth**| 在 Growth 部分，可定义模拟开始时树木的大小，以及模拟结束时树木“生长”后的大小。|
-|**Instance Settings**| Instance Settings 用于调整用作植物的静态网格体在关卡中的显示方式。|
-
-[/COMMENT]!
-
+(#GrassTool)
 ### 草地工具
 [region:note]
 在当前版本中，草地工具只能结合地形地貌系统使用。 
@@ -90,7 +58,6 @@ Version:4.8
 与程序化植物生成器不同，此工具不使用任意类型的模拟。它只是简单地使用特定静态网格体以特定密度对特定区域进行填充。 
 如需了解草地工具使用的更多内容，请查阅下方链接中的“草地工具快速入门”。
 
-[REGION:topics third]
 [OBJECT:Topic]
 	[PARAM:image]
 		![Engine/OpenWorldTools/Overview:title%](Engine\OpenWorldTools\Grass\QuickStart\T_Grass_Intro.png)
@@ -108,23 +75,6 @@ Version:4.8
 		[RELATIVE:Engine/OpenWorldTools/Grass/QuickStart]
 	[/PARAM]
 [/OBJECT]
-[/region]
-
-[COMMENT:none]
-
-#### 草地类 Actors
-草地工具使用的 Actors 称为 **地形草地类**。
-利用地形草地类可对草地的多项属性进行定义，如用于草地的静态网格体类型、生成的静态网格体数量。
-关于地形草地类 Actor 分解的主要属性集和这些选项的作用，下表进行了详尽解释。
-
-![](T_LS_Grass_Type_Actor.png)
-
-| 属性名称 | 描述 |
-| ------------ | ----------- |
-|**Grass Varieties**| 在 Grass Varieties 中，可指定用于草地的静态网格体类型、以及草地密度和消隐距离设置。|
-
-[/COMMENT]!
-
 
 
 

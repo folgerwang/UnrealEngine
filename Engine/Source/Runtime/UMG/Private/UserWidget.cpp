@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Blueprint/UserWidget.h"
 #include "Rendering/DrawElements.h"
@@ -26,6 +26,7 @@
 #include "Compilation/MovieSceneCompiler.h"
 #include "TimerManager.h"
 #include "UObject/Package.h"
+#include "Editor/WidgetCompilerLog.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -71,6 +72,8 @@ UUserWidget::UUserWidget(const FObjectInitializer& ObjectInitializer)
 	ColorAndOpacity = FLinearColor::White;
 	ForegroundColor = FSlateColor::UseForeground();
 
+	MinimumDesiredSize = FVector2D(0, 0);
+
 #if WITH_EDITORONLY_DATA
 	DesignTimeSize = FVector2D(100, 100);
 	PaletteCategory = LOCTEXT("UserCreated", "User Created");
@@ -87,36 +90,13 @@ UUserWidget::UUserWidget(const FObjectInitializer& ObjectInitializer)
 
 UWidgetBlueprintGeneratedClass* UUserWidget::GetWidgetTreeOwningClass()
 {
-	UWidgetBlueprintGeneratedClass* RootBGClass = Cast<UWidgetBlueprintGeneratedClass>(GetClass());
-	UWidgetBlueprintGeneratedClass* BGClass = RootBGClass;
-
-	while ( BGClass )
+	UWidgetBlueprintGeneratedClass* WidgetClass = Cast<UWidgetBlueprintGeneratedClass>(GetClass());
+	if (WidgetClass != nullptr)
 	{
-		//TODO NickD: This conditional post load shouldn't be needed any more once the Fast Widget creation path is the only path!
-		// Force post load on the generated class so all subobjects are done (specifically the widget tree).
-		BGClass->ConditionalPostLoad();
-
-		const bool bNoRootWidget = ( nullptr == BGClass->WidgetTree ) || ( nullptr == BGClass->WidgetTree->RootWidget );
-
-		if ( bNoRootWidget )
-		{
-			UWidgetBlueprintGeneratedClass* SuperBGClass = Cast<UWidgetBlueprintGeneratedClass>(BGClass->GetSuperClass());
-			if ( SuperBGClass )
-			{
-				BGClass = SuperBGClass;
-				continue;
-			}
-			else
-			{
-				// If we reach a super class that isn't a UWidgetBlueprintGeneratedClass, return the root class.
-				return RootBGClass;
-			}
-		}
-
-		return BGClass;
+		WidgetClass = WidgetClass->FindWidgetTreeOwningClass();
 	}
 
-	return nullptr;
+	return WidgetClass;
 }
 
 void UUserWidget::TemplateInit()
@@ -148,32 +128,6 @@ void UUserWidget::TemplateInitInner()
 
 	if ( ensure(WidgetTree) )
 	{
-		for ( UWidgetAnimation* Animation : WidgetClass->Animations )
-		{
-			// Find property with the same name as the animation and assign the new widget to it.
-			UObjectPropertyBase* AnimationProperty = Animation->GetMovieScene() ? FindField<UObjectPropertyBase>(WidgetClass, Animation->GetMovieScene()->GetFName()) : nullptr;
-			if (AnimationProperty)
-			{
-				// If there is already an animation assigned to this property, consign it to oblivion to make space for the new one
-				// Duplicated object's name has to match that of the BPGC to ensure that subobject reinstancing works correctly
-				UObject* ExistingPropertyValue = AnimationProperty->GetObjectPropertyValue_InContainer(this);
-				if (ExistingPropertyValue)
-				{
-					FName UniqueDeadName = MakeUniqueObjectName(GetTransientPackage(), UWidgetAnimation::StaticClass(), *(ExistingPropertyValue->GetName() + TEXT("_DEAD")));
-					ExistingPropertyValue->Rename(*UniqueDeadName.ToString(), GetTransientPackage(), REN_DoNotDirty);
-				}
-
-				UWidgetAnimation* DuplicatedAnimation = DuplicateObject<UWidgetAnimation>(Animation, this);
-
-				// Compile the animation template here since PreSave will not get called on the duplicated animation that was itself created during PreSave
-				FMovieSceneSequencePrecompiledTemplateStore Store;
-				FMovieSceneCompiler::Compile(*DuplicatedAnimation, Store);
-
-				// Find property with the same name as the template and assign the new widget to it.
-				AnimationProperty->SetObjectPropertyValue_InContainer(this, DuplicatedAnimation);
-			}
-		}
-
 		WidgetTree->ForEachWidget([this, WidgetClass] (UWidget* Widget) {
 
 			Widget->WidgetGeneratedByClass = WidgetClass;
@@ -606,19 +560,30 @@ UWorld* UUserWidget::GetWorld() const
 	return nullptr;
 }
 
-UUMGSequencePlayer* UUserWidget::GetOrAddPlayer(UWidgetAnimation* InAnimation)
+UUMGSequencePlayer* UUserWidget::GetSequencePlayer(const UWidgetAnimation* InAnimation) const
+{
+	UUMGSequencePlayer*const* FoundPlayer = ActiveSequencePlayers.FindByPredicate(
+		[&](const UUMGSequencePlayer* Player)
+	{
+		return Player->GetAnimation() == InAnimation;
+	});
+
+	return FoundPlayer ? *FoundPlayer : nullptr;
+}
+
+UUMGSequencePlayer* UUserWidget::GetOrAddSequencePlayer(UWidgetAnimation* InAnimation)
 {
 	if (InAnimation && !bStoppingAllAnimations)
 	{
 		// @todo UMG sequencer - Restart animations which have had Play called on them?
-		UUMGSequencePlayer** FoundPlayer = nullptr;
-		for ( UUMGSequencePlayer* Player : ActiveSequencePlayers )
+		UUMGSequencePlayer* FoundPlayer = nullptr;
+		for (UUMGSequencePlayer* Player : ActiveSequencePlayers)
 		{
-			// We need to make sure we haven't stopped the animation, otherwise it'll get cancelled on the next frame.
+			// We need to make sure we haven't stopped the animation, otherwise it'll get canceled on the next frame.
 			if (Player->GetAnimation() == InAnimation
-			 && !StoppedSequencePlayers.Contains(Player))
+				&& !StoppedSequencePlayers.Contains(Player))
 			{
-				FoundPlayer = &Player;
+				FoundPlayer = Player;
 				break;
 			}
 		}
@@ -628,15 +593,13 @@ UUMGSequencePlayer* UUserWidget::GetOrAddPlayer(UWidgetAnimation* InAnimation)
 			UUMGSequencePlayer* NewPlayer = NewObject<UUMGSequencePlayer>(this, NAME_None, RF_Transient);
 			ActiveSequencePlayers.Add(NewPlayer);
 
-			NewPlayer->OnSequenceFinishedPlaying().AddUObject(this, &UUserWidget::OnAnimationFinishedPlaying);
-
 			NewPlayer->InitSequencePlayer(*InAnimation, *this);
 
 			return NewPlayer;
 		}
 		else
 		{
-			return *FoundPlayer;
+			return FoundPlayer;
 		}
 	}
 
@@ -645,63 +608,103 @@ UUMGSequencePlayer* UUserWidget::GetOrAddPlayer(UWidgetAnimation* InAnimation)
 
 void UUserWidget::Invalidate()
 {
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
+}
+
+void UUserWidget::Invalidate(EInvalidateWidget InvalidateReason)
+{
 	TSharedPtr<SWidget> CachedWidget = GetCachedWidget();
 	if (CachedWidget.IsValid())
 	{
-		CachedWidget->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+		CachedWidget->Invalidate(InvalidateReason);
 	}
 }
 
-void UUserWidget::PlayAnimation( UWidgetAnimation* InAnimation, float StartAtTime, int32 NumberOfLoops, EUMGSequencePlayMode::Type PlayMode, float PlaybackSpeed)
+UUMGSequencePlayer* UUserWidget::PlayAnimation(UWidgetAnimation* InAnimation, float StartAtTime, int32 NumberOfLoops, EUMGSequencePlayMode::Type PlayMode, float PlaybackSpeed)
 {
 	SCOPED_NAMED_EVENT_TEXT("Widget::PlayAnimation", FColor::Emerald);
 
-	UUMGSequencePlayer* Player = GetOrAddPlayer(InAnimation);
+	UUMGSequencePlayer* Player = GetOrAddSequencePlayer(InAnimation);
 	if (Player)
 	{
 		Player->Play(StartAtTime, NumberOfLoops, PlayMode, PlaybackSpeed);
 
-		Invalidate();
+		Invalidate(EInvalidateWidget::Volatility);
 
-		OnAnimationStarted(InAnimation);
+		OnAnimationStartedPlaying(*Player);
 
 		UpdateCanTick();
 	}
 
-	//return Player;
+	return Player;
 }
 
-void UUserWidget::PlayAnimationTo(UWidgetAnimation* InAnimation, float StartAtTime, float EndAtTime, int32 NumberOfLoops, EUMGSequencePlayMode::Type PlayMode, float PlaybackSpeed)
+UUMGSequencePlayer* UUserWidget::PlayAnimationTimeRange(UWidgetAnimation* InAnimation, float StartAtTime, float EndAtTime, int32 NumberOfLoops, EUMGSequencePlayMode::Type PlayMode, float PlaybackSpeed)
 {
-	SCOPED_NAMED_EVENT_TEXT("Widget::PlayAnimationTo", FColor::Emerald);
+	SCOPED_NAMED_EVENT_TEXT("Widget::PlayAnimationTimeRange", FColor::Emerald);
 
-	UUMGSequencePlayer* Player = GetOrAddPlayer(InAnimation);
+	UUMGSequencePlayer* Player = GetOrAddSequencePlayer(InAnimation);
 	if (Player)
 	{
 		Player->PlayTo(StartAtTime, EndAtTime, NumberOfLoops, PlayMode, PlaybackSpeed);
 
-		Invalidate();
+		Invalidate(EInvalidateWidget::Volatility);
 
-		OnAnimationStarted(InAnimation);
+		OnAnimationStartedPlaying(*Player);
 
 		UpdateCanTick();
 	}
-	//return Player;
+
+	return Player;
+}
+
+UUMGSequencePlayer* UUserWidget::PlayAnimationForward(UWidgetAnimation* InAnimation, float PlaybackSpeed)
+{
+	// Don't create the player, only search for it.
+	UUMGSequencePlayer* Player = GetSequencePlayer(InAnimation);
+	if (Player)
+	{
+		if (!Player->IsPlayingForward())
+		{
+			// Reverse the direction we're playing the animation if we're playing it in reverse currently.
+			Player->Reverse();
+		}
+
+		return Player;
+	}
+
+	return PlayAnimation(InAnimation, 0.0f, 1.0f, EUMGSequencePlayMode::Forward, PlaybackSpeed);
+}
+
+UUMGSequencePlayer* UUserWidget::PlayAnimationReverse(UWidgetAnimation* InAnimation, float PlaybackSpeed)
+{
+	// Don't create the player, only search for it.
+	UUMGSequencePlayer* Player = GetSequencePlayer(InAnimation);
+	if (Player)
+	{
+		if (Player->IsPlayingForward())
+		{
+			// Reverse the direction we're playing the animation if we're playing it in forward currently.
+			Player->Reverse();
+		}
+
+		return Player;
+	}
+
+	return PlayAnimation(InAnimation, 0.0f, 1.0f, EUMGSequencePlayMode::Reverse, PlaybackSpeed);
 }
 
 void UUserWidget::StopAnimation(const UWidgetAnimation* InAnimation)
 {
-	if(InAnimation)
+	if (InAnimation)
 	{
 		// @todo UMG sequencer - Restart animations which have had Play called on them?
-		UUMGSequencePlayer** FoundPlayer = ActiveSequencePlayers.FindByPredicate([&](const UUMGSequencePlayer* Player) { return Player->GetAnimation() == InAnimation; } );
-
-		if(FoundPlayer)
+		if (UUMGSequencePlayer* FoundPlayer = GetSequencePlayer(InAnimation))
 		{
-			(*FoundPlayer)->Stop();
-		}
+			FoundPlayer->Stop();
 
-		UpdateCanTick();
+			UpdateCanTick();
+		}
 	}
 }
 
@@ -722,15 +725,13 @@ void UUserWidget::StopAllAnimations()
 
 float UUserWidget::PauseAnimation(const UWidgetAnimation* InAnimation)
 {
-	if ( InAnimation )
+	if (InAnimation)
 	{
 		// @todo UMG sequencer - Restart animations which have had Play called on them?
-		UUMGSequencePlayer** FoundPlayer = ActiveSequencePlayers.FindByPredicate([&] (const UUMGSequencePlayer* Player) { return Player->GetAnimation() == InAnimation; });
-
-		if ( FoundPlayer )
+		if (UUMGSequencePlayer* FoundPlayer = GetSequencePlayer(InAnimation))
 		{
-			( *FoundPlayer )->Pause();
-			return (float)( *FoundPlayer )->GetCurrentTime().AsSeconds();
+			FoundPlayer->Pause();
+			return (float)FoundPlayer->GetCurrentTime().AsSeconds();
 		}
 	}
 
@@ -741,10 +742,9 @@ float UUserWidget::GetAnimationCurrentTime(const UWidgetAnimation* InAnimation) 
 {
 	if (InAnimation)
 	{
-		const UUMGSequencePlayer*const* FoundPlayer = ActiveSequencePlayers.FindByPredicate([&](const UUMGSequencePlayer* Player) { return Player->GetAnimation() == InAnimation; });
-		if (FoundPlayer)
+		if (UUMGSequencePlayer* FoundPlayer = GetSequencePlayer(InAnimation))
 		{
-			return (float)(*FoundPlayer)->GetCurrentTime().AsSeconds();
+			return (float)FoundPlayer->GetCurrentTime().AsSeconds();
 		}
 	}
 
@@ -755,15 +755,9 @@ bool UUserWidget::IsAnimationPlaying(const UWidgetAnimation* InAnimation) const
 {
 	if (InAnimation)
 	{
-		UUMGSequencePlayer* const* FoundPlayer = ActiveSequencePlayers.FindByPredicate(
-			[ &](const UUMGSequencePlayer* Player)
+		if (UUMGSequencePlayer* FoundPlayer = GetSequencePlayer(InAnimation))
 		{
-			return Player->GetAnimation() == InAnimation;
-		});
-
-		if (FoundPlayer)
-		{
-			return (*FoundPlayer)->GetPlaybackStatus() == EMovieScenePlayerStatus::Playing;
+			return FoundPlayer->GetPlaybackStatus() == EMovieScenePlayerStatus::Playing;
 		}
 	}
 
@@ -777,41 +771,33 @@ bool UUserWidget::IsAnyAnimationPlaying() const
 
 void UUserWidget::SetNumLoopsToPlay(const UWidgetAnimation* InAnimation, int32 InNumLoopsToPlay)
 {
-	if (InAnimation)
+	if (UUMGSequencePlayer* FoundPlayer = GetSequencePlayer(InAnimation))
 	{
-		UUMGSequencePlayer** FoundPlayer = ActiveSequencePlayers.FindByPredicate([&](const UUMGSequencePlayer* Player) { return Player->GetAnimation() == InAnimation; });
-
-		if (FoundPlayer)
-		{
-			(*FoundPlayer)->SetNumLoopsToPlay(InNumLoopsToPlay);
-		}
+		FoundPlayer->SetNumLoopsToPlay(InNumLoopsToPlay);
 	}
 }
 
 void UUserWidget::SetPlaybackSpeed(const UWidgetAnimation* InAnimation, float PlaybackSpeed)
 {
-	if (InAnimation)
+	if (UUMGSequencePlayer* FoundPlayer = GetSequencePlayer(InAnimation))
 	{
-		UUMGSequencePlayer** FoundPlayer = ActiveSequencePlayers.FindByPredicate([&](const UUMGSequencePlayer* Player) { return Player->GetAnimation() == InAnimation; });
-
-		if (FoundPlayer)
-		{
-			(*FoundPlayer)->SetPlaybackSpeed(PlaybackSpeed);
-		}
+		FoundPlayer->SetPlaybackSpeed(PlaybackSpeed);
 	}
 }
 
 void UUserWidget::ReverseAnimation(const UWidgetAnimation* InAnimation)
 {
-	if (InAnimation)
+	if (UUMGSequencePlayer* FoundPlayer = GetSequencePlayer(InAnimation))
 	{
-		UUMGSequencePlayer** FoundPlayer = ActiveSequencePlayers.FindByPredicate([&](const UUMGSequencePlayer* Player) { return Player->GetAnimation() == InAnimation; });
-
-		if (FoundPlayer)
-		{
-			(*FoundPlayer)->Reverse();
-		}
+		FoundPlayer->Reverse();
 	}
+}
+
+void UUserWidget::OnAnimationStartedPlaying(UUMGSequencePlayer& Player)
+{
+	OnAnimationStarted(Player.GetAnimation());
+
+	BroadcastAnimationStateChange(Player, EWidgetAnimationEvent::Started);
 }
 
 bool UUserWidget::IsAnimationPlayingForward(const UWidgetAnimation* InAnimation)
@@ -831,7 +817,11 @@ bool UUserWidget::IsAnimationPlayingForward(const UWidgetAnimation* InAnimation)
 
 void UUserWidget::OnAnimationFinishedPlaying(UUMGSequencePlayer& Player)
 {
-	OnAnimationFinished( Player.GetAnimation() );
+	// This event is called directly by the sequence player when the animation finishes.
+
+	OnAnimationFinished(Player.GetAnimation());
+
+	BroadcastAnimationStateChange(Player, EWidgetAnimationEvent::Finished);
 
 	if ( Player.GetPlaybackStatus() == EMovieScenePlayerStatus::Stopped )
 	{
@@ -839,6 +829,26 @@ void UUserWidget::OnAnimationFinishedPlaying(UUMGSequencePlayer& Player)
 	}
 
 	UpdateCanTick();
+}
+
+void UUserWidget::BroadcastAnimationStateChange(const UUMGSequencePlayer& Player, EWidgetAnimationEvent AnimationEvent)
+{
+	const UWidgetAnimation* Animation = Player.GetAnimation();
+
+	// Make a temporary copy of the animation callbacks so that everyone gets a callback
+	// even if they're removed as a result of other calls, we don't want order to matter here.
+	TArray<FAnimationEventBinding> TempAnimationCallbacks = AnimationCallbacks;
+
+	for (const FAnimationEventBinding& Binding : TempAnimationCallbacks)
+	{
+		if (Binding.Animation == Animation && Binding.AnimationEvent == AnimationEvent)
+		{
+			if (Binding.UserTag == NAME_None || Binding.UserTag == Player.GetUserTag())
+			{
+				Binding.Delegate.ExecuteIfBound();
+			}
+		}
+	}
 }
 
 void UUserWidget::PlaySound(USoundBase* SoundToPlay)
@@ -904,7 +914,16 @@ void UUserWidget::OnWidgetRebuilt()
 #if WITH_EDITOR
 	else if ( HasAnyDesignerFlags(EWidgetDesignFlags::ExecutePreConstruct) )
 	{
-		NativePreConstruct();
+		bool bCanCallPreConstruct = true;
+		if (UWidgetBlueprintGeneratedClass* GeneratedBPClass = Cast<UWidgetBlueprintGeneratedClass>(GetClass()))
+		{
+			bCanCallPreConstruct = GeneratedBPClass->bCanCallPreConstruct;
+		}
+
+		if (bCanCallPreConstruct)
+		{
+			NativePreConstruct();
+		}
 	}
 #endif
 }
@@ -1325,7 +1344,7 @@ void UUserWidget::OnDesignerChanged(const FDesignerChangedEventArgs& EventArgs)
 	}
 }
 
-void UUserWidget::ValidateBlueprint(const UWidgetTree& BlueprintWidgetTree, FCompilerResultsLog& CompileLog) const
+void UUserWidget::ValidateBlueprint(const UWidgetTree& BlueprintWidgetTree, IWidgetCompilerLog& CompileLog) const
 {
 	ValidateCompiledDefaults(CompileLog);
 	ValidateCompiledWidgetTree(BlueprintWidgetTree, CompileLog);
@@ -1362,6 +1381,65 @@ void UUserWidget::OnAnimationStarted_Implementation(const UWidgetAnimation* Anim
 void UUserWidget::OnAnimationFinished_Implementation(const UWidgetAnimation* Animation)
 {
 
+}
+
+void UUserWidget::BindToAnimationStarted(UWidgetAnimation* InAnimation, FWidgetAnimationDynamicEvent InDelegate)
+{
+	FAnimationEventBinding Binding;
+	Binding.Animation = InAnimation;
+	Binding.Delegate = InDelegate;
+	Binding.AnimationEvent = EWidgetAnimationEvent::Started;
+
+	AnimationCallbacks.Add(Binding);
+}
+
+void UUserWidget::UnbindFromAnimationStarted(UWidgetAnimation* InAnimation, FWidgetAnimationDynamicEvent InDelegate)
+{
+	AnimationCallbacks.RemoveAll([InAnimation, &InDelegate](FAnimationEventBinding& InBinding) {
+		return InBinding.Animation == InAnimation && InBinding.Delegate == InDelegate && InBinding.AnimationEvent == EWidgetAnimationEvent::Started;
+	});
+}
+
+void UUserWidget::UnbindAllFromAnimationStarted(UWidgetAnimation* InAnimation)
+{
+	AnimationCallbacks.RemoveAll([InAnimation](FAnimationEventBinding& InBinding) {
+		return InBinding.Animation == InAnimation && InBinding.AnimationEvent == EWidgetAnimationEvent::Started;
+	});
+}
+
+void UUserWidget::UnbindAllFromAnimationFinished(UWidgetAnimation* InAnimation)
+{
+	AnimationCallbacks.RemoveAll([InAnimation](FAnimationEventBinding& InBinding) {
+		return InBinding.Animation == InAnimation && InBinding.AnimationEvent == EWidgetAnimationEvent::Finished;
+	});
+}
+
+void UUserWidget::BindToAnimationFinished(UWidgetAnimation* InAnimation, FWidgetAnimationDynamicEvent InDelegate)
+{
+	FAnimationEventBinding Binding;
+	Binding.Animation = InAnimation;
+	Binding.Delegate = InDelegate;
+	Binding.AnimationEvent = EWidgetAnimationEvent::Finished;
+
+	AnimationCallbacks.Add(Binding);
+}
+
+void UUserWidget::UnbindFromAnimationFinished(UWidgetAnimation* InAnimation, FWidgetAnimationDynamicEvent InDelegate)
+{
+	AnimationCallbacks.RemoveAll([InAnimation, &InDelegate](FAnimationEventBinding& InBinding) {
+		return InBinding.Animation == InAnimation && InBinding.Delegate == InDelegate && InBinding.AnimationEvent == EWidgetAnimationEvent::Finished;
+	});
+}
+
+void UUserWidget::BindToAnimationEvent(UWidgetAnimation* InAnimation, FWidgetAnimationDynamicEvent InDelegate, EWidgetAnimationEvent AnimationEvent, FName UserTag)
+{
+	FAnimationEventBinding Binding;
+	Binding.Animation = InAnimation;
+	Binding.Delegate = InDelegate;
+	Binding.AnimationEvent = AnimationEvent;
+	Binding.UserTag = UserTag;
+
+	AnimationCallbacks.Add(Binding);
 }
 
 // Native handling for SObjectWidget
@@ -1435,7 +1513,7 @@ void UUserWidget::TickActionsAndAnimation(const FGeometry& MyGeometry, float InD
 	// If we're no longer playing animations invalidate layout so that we recache the volatility of the widget.
 	if ( bWasPlayingAnimation && IsPlayingAnimation() == false )
 	{
-		Invalidate();
+		Invalidate(EInvalidateWidget::Volatility);
 	}
 
 	UWorld* World = GetWorld();
@@ -1627,6 +1705,20 @@ int32 UUserWidget::NativePaint(const FPaintArgs& Args, const FGeometry& Allotted
 	}
 
 	return LayerId;
+}
+
+void UUserWidget::SetMinimumDesiredSize(FVector2D InMinimumDesiredSize)
+{
+	if (MinimumDesiredSize != InMinimumDesiredSize)
+	{
+		MinimumDesiredSize = InMinimumDesiredSize;
+
+		TSharedPtr<SWidget> CachedWidget = GetCachedWidget();
+		if (CachedWidget.IsValid())
+		{
+			CachedWidget->Invalidate(EInvalidateWidget::Layout);
+		}
+	}
 }
 
 bool UUserWidget::NativeIsInteractable() const
@@ -1849,7 +1941,7 @@ bool UUserWidget::ShouldSerializeWidgetTree(const ITargetPlatform* TargetPlatfor
 
 	// We preserve widget trees if you're a sub-object of an archetype that is going to serialize it's
 	// widget tree.
-	for (const UObject* It = this; It; It = It->GetOuter())
+	for (const UObject* It = GetOuter(); It; It = It->GetOuter())
 	{
 		if (It->HasAllFlags(RF_ArchetypeObject))
 		{
@@ -2072,7 +2164,7 @@ UUserWidget* UUserWidget::CreateInstanceInternal(UObject* Outer, TSubclassOf<UUs
 #endif
 
 			FObjectInstancingGraph ObjectInstancingGraph;
-			NewWidget = NewObject<UUserWidget>(Outer, UserWidgetClass, InstanceName, RF_NoFlags, Template, false, &ObjectInstancingGraph);
+			NewWidget = NewObject<UUserWidget>(Outer, UserWidgetClass, InstanceName, RF_Transactional, Template, false, &ObjectInstancingGraph);
 		}
 #if !WITH_EDITOR && (UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT)
 		else
@@ -2096,7 +2188,7 @@ UUserWidget* UUserWidget::CreateInstanceInternal(UObject* Outer, TSubclassOf<UUs
 
 	if (!NewWidget)
 	{
-		NewWidget = NewObject<UUserWidget>(Outer, UserWidgetClass, InstanceName, RF_NoFlags);
+		NewWidget = NewObject<UUserWidget>(Outer, UserWidgetClass, InstanceName, RF_Transactional);
 	}
 	
 	if (LocalPlayer)
@@ -2124,7 +2216,7 @@ void UUserWidget::OnLatentActionsChanged(UObject* ObjectWhichChanged, ELatentAct
 			if (SafeGCWidget->GetCanTick() && !bCanTick)
 			{
 				// If the widget can now tick, recache the volatility of the widget.
-				WidgetThatChanged->Invalidate();
+				WidgetThatChanged->Invalidate(EInvalidateWidget::LayoutAndVolatility);
 			}
 		}
 	}

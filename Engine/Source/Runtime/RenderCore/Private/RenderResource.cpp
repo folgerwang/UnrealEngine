@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RenderResource.cpp: Render resource implementation.
@@ -24,6 +24,28 @@ TLinkedList<FRenderResource*>*& FRenderResource::GetResourceList()
 {
 	static TLinkedList<FRenderResource*>* FirstResourceLink = NULL;
 	return FirstResourceLink;
+}
+
+void FRenderResource::ChangeFeatureLevel(ERHIFeatureLevel::Type NewFeatureLevel)
+{
+	ENQUEUE_RENDER_COMMAND(FRenderResourceChangeFeatureLevel)(
+		[NewFeatureLevel](FRHICommandList& RHICmdList)
+	{
+		for (TLinkedList<FRenderResource*>::TIterator It(FRenderResource::GetResourceList()); It; It.Next())
+		{
+			FRenderResource* Resource = *It;
+
+			// Only resources configured for a specific feature level need to be updated
+			if (Resource->HasValidFeatureLevel())
+			{
+				Resource->ReleaseRHI();
+				Resource->ReleaseDynamicRHI();
+				Resource->FeatureLevel = NewFeatureLevel;
+				Resource->InitDynamicRHI();
+				Resource->InitRHI();
+			}
+		}
+	});
 }
 
 void FRenderResource::InitResource()
@@ -75,13 +97,14 @@ void FRenderResource::UpdateRHI()
 
 void FRenderResource::InitResourceFromPossiblyParallelRendering()
 {
+	check(IsInParallelRenderingThread());
+
 	if (IsInRenderingThread())
 	{
 		InitResource();
 	}
 	else
 	{
-		check(IsInParallelRenderingThread());
 		class FInitResourceRenderThreadTask
 		{
 			FRenderResource& Resource;
@@ -175,11 +198,11 @@ struct FBatchedReleaseResources
 	{
 		if (NumBatch)
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-				BatchReleaseCommand,
-				FBatchedReleaseResources, BatchedReleaseResources, *this,
+			const FBatchedReleaseResources BatchedReleaseResources = *this;
+			ENQUEUE_RENDER_COMMAND(BatchReleaseCommand)(
+				[BatchedReleaseResources](FRHICommandList& RHICmdList)
 				{
-					BatchedReleaseResources.Execute();
+					((FBatchedReleaseResources&)BatchedReleaseResources).Execute();
 				});
 			Reset();
 		}
@@ -222,9 +245,8 @@ void BeginReleaseResource(FRenderResource* Resource)
 		GBatchedRelease.Add(Resource);
 		return;
 	}
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		ReleaseCommand,
-		FRenderResource*,Resource,Resource,
+	ENQUEUE_RENDER_COMMAND(ReleaseCommand)(
+		[Resource](FRHICommandList& RHICmdList)
 		{
 			Resource->ReleaseResource();
 		});
@@ -233,9 +255,8 @@ void BeginReleaseResource(FRenderResource* Resource)
 void ReleaseResourceAndFlush(FRenderResource* Resource)
 {
 	// Send the release message.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		ReleaseCommand,
-		FRenderResource*,Resource,Resource,
+	ENQUEUE_RENDER_COMMAND(ReleaseCommand)(
+		[Resource](FRHICommandList& RHICmdList)
 		{
 			Resource->ReleaseResource();
 		});
@@ -427,7 +448,8 @@ FGlobalDynamicVertexBuffer::FAllocation FGlobalDynamicVertexBuffer::Allocate(uin
 		// Create a new vertex buffer if needed.
 		if (VertexBuffer == NULL)
 		{
-			VertexBuffer = new(Pool->VertexBuffers) FDynamicVertexBuffer(SizeInBytes);
+			VertexBuffer = new FDynamicVertexBuffer(SizeInBytes);
+			Pool->VertexBuffers.Add(VertexBuffer);
 			VertexBuffer->InitResource();
 		}
 
@@ -470,13 +492,8 @@ void FGlobalDynamicVertexBuffer::Commit()
 	TotalAllocatedSinceLastCommit = 0;
 }
 
-FGlobalDynamicVertexBuffer& FGlobalDynamicVertexBuffer::Get()
-{
-	check(IsInRenderingThread());
-
-	static FGlobalDynamicVertexBuffer GlobalDynamicVertexBuffer;
-	return GlobalDynamicVertexBuffer;
-}
+FGlobalDynamicVertexBuffer InitViewDynamicVertexBuffer;
+FGlobalDynamicVertexBuffer InitShadowViewDynamicVertexBuffer;
 
 /*------------------------------------------------------------------------------
 	FGlobalDynamicIndexBuffer implementation.
@@ -629,7 +646,8 @@ FGlobalDynamicIndexBuffer::FAllocation FGlobalDynamicIndexBuffer::Allocate(uint3
 		// Create a new index buffer if needed.
 		if (IndexBuffer == NULL)
 		{
-			IndexBuffer = new(Pool->IndexBuffers) FDynamicIndexBuffer(SizeInBytes, Pool->BufferStride);
+			IndexBuffer = new FDynamicIndexBuffer(SizeInBytes, Pool->BufferStride);
+			Pool->IndexBuffers.Add(IndexBuffer);
 			IndexBuffer->InitResource();
 		}
 
@@ -668,14 +686,6 @@ void FGlobalDynamicIndexBuffer::Commit()
 		}
 		Pool->CurrentIndexBuffer = NULL;
 	}
-}
-
-FGlobalDynamicIndexBuffer& FGlobalDynamicIndexBuffer::Get()
-{
-	check(IsInRenderingThread());
-
-	static FGlobalDynamicIndexBuffer GlobalDynamicIndexBuffer;
-	return GlobalDynamicIndexBuffer;
 }
 
 /*=============================================================================

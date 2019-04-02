@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "Misc/EnumClassFlags.h"
@@ -82,6 +82,14 @@ namespace BuildPatchServices
 		virtual bool GetAttributes(const TCHAR* Filename, EAttributeFlags& Attributes) const = 0;
 
 		/**
+		 * Get modification time of a file.
+		 * @param Filename          The filename for the request.
+		 * @param TimeStamp         Receives the time stamp if successful.
+		 * @return true if successful.
+		 */
+		virtual bool GetTimeStamp(const TCHAR* Filename, FDateTime& TimeStamp) const = 0;
+
+		/**
 		 * Set whether the file is readonly.
 		 * @param Filename          The filename for the request.
 		 * @param bIsReadOnly       The state to set.
@@ -150,6 +158,22 @@ namespace BuildPatchServices
 		 * @return true if file exists.
 		 */
 		virtual bool FileExists(const TCHAR* Filename) const = 0;
+
+		/**
+		 * Finds all the files within the given directory, with optional file extension filter.
+		 * @param FoundFiles        Receives the files that matched the optional FileExtension filter, or all files if none was specified.
+		 * @param Directory         The directory to iterate the contents of.
+		 * @param FileExtension     The extension to filter by, in the form of TEXT(".ext"). If null or empty string, all files are found.
+		 */
+		virtual void FindFiles(TArray<FString>& FoundFiles, const TCHAR* Directory, const TCHAR* FileExtension = nullptr) const = 0;
+
+		/**
+		 * Finds all the files within the given directory tree, with optional file extension filter.
+		 * @param FoundFiles        Receives the files that matched the optional FileExtension filter, or all files if none was specified.
+		 * @param Directory         The directory to iterate the contents of. This function explores subdirectories.
+		 * @param FileExtension     The extension to filter by, in the form of TEXT(".ext"). If null or empty string, all files are found.
+		 */
+		virtual void FindFilesRecursively(TArray<FString>& FoundFiles, const TCHAR* Directory, const TCHAR* FileExtension = nullptr) const = 0;
 	};
 
 	/**

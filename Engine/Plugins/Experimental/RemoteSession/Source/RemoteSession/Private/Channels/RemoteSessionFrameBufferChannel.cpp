@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Channels/RemoteSessionFrameBufferChannel.h"
 #include "RemoteSession.h"
@@ -108,7 +108,7 @@ void FRemoteSessionFrameBufferChannel::ReleaseFrameGrabber()
 {
 	if (FrameGrabber.IsValid())
 	{
-		FrameGrabber->StopCapturingFrames();
+		FrameGrabber->Shutdown();
 		FrameGrabber = nullptr;
 	}
 }

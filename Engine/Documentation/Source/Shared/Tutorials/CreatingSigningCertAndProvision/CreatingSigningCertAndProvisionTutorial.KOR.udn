@@ -65,7 +65,7 @@ iOS 개발자로 등록하고 나면 (Apple 의 지침에 따라) 다음 작업�
 Signing Certificate 및 Mobile Provision 설치하기
 [/VAR]
 
-윈도우에서 Certificate 를 구하기 위해서는 `Engine\Binaries\DotNET\IOS` 에 위치한 Unreal iOS Configuration Wizard (iPhonePackager.exe) 를 사용해야 합니다.
+Windows에서 Certificate 를 구하기 위해서는 `Engine\Binaries\DotNET\IOS` 에 위치한 Unreal iOS Configuration Wizard (iPhonePackager.exe) 를 사용해야 합니다.
 
 ![](ipp.png)
 
@@ -76,7 +76,7 @@ Signing Certificate 및 Mobile Provision 설치하기
 Signing Certificate 및 Mobile Provision 설치하기
 [/VAR]
 
-윈도우에서 Certificate 를 구하기 위해서는 `Engine\Binaries\DotNET\IOS` 에 위치한 Unreal iOS Configuration Wizard (iPhonePackager.exe) 를 사용해야 합니다.
+Windows에서 Certificate 를 구하기 위해서는 `Engine\Binaries\DotNET\IOS` 에 위치한 Unreal iOS Configuration Wizard (iPhonePackager.exe) 를 사용해야 합니다.
 
 ![](ipp.png)
 

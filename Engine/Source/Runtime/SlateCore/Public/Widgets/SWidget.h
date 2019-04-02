@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -14,6 +14,7 @@
 #include "Layout/ArrangedWidget.h"
 #include "Layout/LayoutGeometry.h"
 #include "Layout/Margin.h"
+#include "Layout/FlowDirection.h"
 #include "Rendering/SlateLayoutTransform.h"
 #include "Input/CursorReply.h"
 #include "Input/Reply.h"
@@ -124,13 +125,13 @@ public:
 /**
  * The different types of invalidation that are possible for a widget.
  */
-enum class EInvalidateWidget : uint8
+enum class EInvalidateWidgetReason : uint8
 {
 	/** Not actually used, but defining it. */
 	None = 0,
 
 	/**
-	 * Use Layout invalidation sizing.
+	 * Use Layout invalidation if your widget needs to change desired size.  This is an expensive invalidation so do not use if all you need to do is redraw a widget
 	 */
 	Layout = 1 << 0,
 
@@ -165,10 +166,13 @@ enum class EInvalidateWidget : uint8
 	/**
 	 * Do not use this ever unless you know what you are doing
 	 */
-	All = 0xff
+	All UE_DEPRECATED(4.22, "EInvalidateWidget::All has been deprecated.  You probably wanted EInvalidateWidget::Layout but if you need more than that then use bitwise or to combine them") = 0xff
 };
 
-ENUM_CLASS_FLAGS(EInvalidateWidget)
+ENUM_CLASS_FLAGS(EInvalidateWidgetReason)
+
+// This typedefed because EInvalidateWidget will be deprecated soon
+typedef EInvalidateWidgetReason EInvalidateWidget;
 
 /**
  * An ILayoutCache implementor is responsible for caching a the hierarchy of widgets it is drawing.
@@ -217,7 +221,7 @@ class IToolTip;
  * 
  * SLATE_ATTRIBUTE(ECheckBoxState, IsChecked)
  *
- * DEPRECATED(4.xx, "Please use IsChecked(TAttribute<ECheckBoxState>)")
+ * UE_DEPRECATED(4.xx, "Please use IsChecked(TAttribute<ECheckBoxState>)")
  * FArguments& IsChecked(bool InIsChecked)
  * {
  * 		_IsChecked = InIsChecked ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
@@ -279,14 +283,13 @@ public:
 		const FName& InTag,
 		const bool InForceVolatile,
 		const EWidgetClipping InClipping,
+		const EFlowDirectionPreference InFlowPreference,
 		const TArray<TSharedRef<ISlateMetaData>>& InMetaData);
 
 	void SWidgetConstruct(const TAttribute<FText>& InToolTipText,
 		const TSharedPtr<IToolTip>& InToolTip,
 		const TAttribute< TOptional<EMouseCursor::Type> >& InCursor,
 		const TAttribute<bool>& InEnabledState,
-
-
 		const TAttribute<EVisibility>& InVisibility,
 		const float InRenderOpacity,
 		const TAttribute<TOptional<FSlateRenderTransform>>& InTransform,
@@ -294,6 +297,7 @@ public:
 		const FName& InTag,
 		const bool InForceVolatile,
 		const EWidgetClipping InClipping,
+		const EFlowDirectionPreference InFlowPreference,
 		const TArray<TSharedRef<ISlateMetaData>>& InMetaData);
 
 	//
@@ -347,7 +351,7 @@ public:
 	virtual void OnFocusLost(const FFocusEvent& InFocusEvent);
 
 	/** Called whenever a focus path is changing on all the widgets within the old and new focus paths */
-	DEPRECATED(4.13, "Please use the newer version of OnFocusChanging that takes a FocusEvent")
+	UE_DEPRECATED(4.13, "Please use the newer version of OnFocusChanging that takes a FocusEvent")
 	virtual void OnFocusChanging(const FWeakWidgetPath& PreviousFocusPath, const FWidgetPath& NewWidgetPath);
 
 	/** Called whenever a focus path is changing on all the widgets within the old and new focus paths */
@@ -684,7 +688,7 @@ public:
 	//
 
 	/** DEPRECATED version of SlatePrepass that assumes no scaling beyond AppScale*/
-	//DEPRECATED(4.20, "SlatePrepass requires a layout scale to be accurate.")
+	//UE_DEPRECATED(4.20, "SlatePrepass requires a layout scale to be accurate.")
 	void SlatePrepass();
 
 	/**
@@ -704,7 +708,6 @@ public:
 	/** @return the DesiredSize that was computed the last time CacheDesiredSize() was called. */
 	FVector2D GetDesiredSize() const;
 
-#if SLATE_PARENT_POINTERS
 public:
 	void AssignParentWidget(TSharedPtr<SWidget> InParent);
 	bool ConditionallyDetatchParentWidget(SWidget* InExpectedParent);
@@ -713,7 +716,6 @@ public:
 
 	FORCEINLINE bool IsParentValid() const { return ParentWidgetPtr.IsValid(); }
 	FORCEINLINE TSharedPtr<SWidget> GetParentWidget() const { return ParentWidgetPtr.Pin(); }
-#endif
 
 	/**
 	* Calculates what if any clipping state changes need to happen when drawing this widget.
@@ -800,7 +802,7 @@ public:
 	}
 
 	/** What is the Child's scale relative to this widget. */
-	DEPRECATED(4.15, "This version is no longer used, please use the new version which also provides the incoming prepass scale, in case that has bearing on the relative layout scale.")
+	UE_DEPRECATED(4.15, "This version is no longer used, please use the new version which also provides the incoming prepass scale, in case that has bearing on the relative layout scale.")
 	virtual float GetRelativeLayoutScale(const FSlotBase& Child) const { return 1.0f; }
 
 	/** What is the Child's scale relative to this widget. */
@@ -885,7 +887,7 @@ public:
 
 protected:
 	/** Called when this widget had captured the mouse, but that capture has been revoked for some reason. */
-	DEPRECATED(4.20, "Please use OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent)")
+	UE_DEPRECATED(4.20, "Please use OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent)")
 	void OnMouseCaptureLost() { }
 
 public:
@@ -1067,6 +1069,25 @@ public:
 		return RenderTransform.Get();
 	}
 
+	FORCEINLINE TOptional<FSlateRenderTransform> GetRenderTransformWithRespectToFlowDirection() const
+	{
+		if (LIKELY(GSlateFlowDirection == EFlowDirection::LeftToRight))
+		{
+			return RenderTransform.Get();
+		}
+		else
+		{
+			// If we're going right to left, flip the X translation on render transforms.
+			TOptional<FSlateRenderTransform> Transform = RenderTransform.Get();
+			if (Transform.IsSet())
+			{
+				FVector2D Translation = Transform.GetValue().GetTranslation();
+				Transform.GetValue().SetTranslation(FVector2D(-Translation.X, Translation.Y));
+			}
+			return Transform;
+		}
+	}
+
 	/** @param InTransform the render transform to set for the widget (transforms from widget's local space). TOptional<> to allow code to skip expensive overhead if there is no render transform applied. */
 	FORCEINLINE void SetRenderTransform(TAttribute<TOptional<FSlateRenderTransform>> InTransform)
 	{
@@ -1078,7 +1099,7 @@ public:
 	}
 
 	/** @return the pivot point of the render transform. */
-	FORCEINLINE const FVector2D& GetRenderTransformPivot() const
+	FORCEINLINE FVector2D GetRenderTransformPivot() const
 	{
 		return RenderTransformPivot.Get();
 	}
@@ -1130,6 +1151,22 @@ public:
 	{
 		return CullingBoundsExtension;
 	}
+
+	/**
+	 * Sets how content should flow in this panel, based on the current culture.  By default all panels inherit 
+	 * the state of the widget above.  If they set a new flow direction it will be inherited down the tree.
+	 */
+	void SetFlowDirectionPreference(EFlowDirectionPreference InFlowDirectionPreference)
+	{
+		if (FlowDirectionPreference != InFlowDirectionPreference)
+		{
+			FlowDirectionPreference = InFlowDirectionPreference;
+			Invalidate(EInvalidateWidget::Paint);
+		}
+	}
+
+	/** Gets the desired flow direction for the layout. */
+	EFlowDirectionPreference GetFlowDirectionPreference() const { return FlowDirectionPreference; }
 
 	/**
 	 * Set the tool tip that should appear when this widget is hovered.
@@ -1417,6 +1454,8 @@ private:
 	/** Iterates over the active timer handles on the widget and executes them if their interval has elapsed. */
 	void ExecuteActiveTimers(double CurrentTime, float DeltaTime);
 
+	const FPointerEventHandler* GetPointerEvent(const FName EventName) const;
+	void SetPointerEvent(const FName EventName, FPointerEventHandler& InEvent);
 protected:
 	/** Dtor ensures that active timer handles are UnRegistered with the SlateApplication. */
 	virtual ~SWidget();
@@ -1467,7 +1506,7 @@ private:
 
 protected:
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	DEPRECATED(4.21, "Setting bCanTick on a widget directly is deprecated and will not function.  Call SetCanTick instead")
+	UE_DEPRECATED(4.21, "Setting bCanTick on a widget directly is deprecated and will not function.  Call SetCanTick instead")
 	uint8 bCanTick : 1;
 #endif
 
@@ -1476,6 +1515,26 @@ protected:
 	 */
 	EWidgetClipping Clipping;
 
+protected:
+	/** Establishes a new flow direction potentially, if this widget has a particular preference for it and all its children. */
+	EFlowDirection ComputeFlowDirection() const
+	{
+		switch (FlowDirectionPreference)
+		{
+		case EFlowDirectionPreference::Culture:
+			return FLayoutLocalization::GetLocalizedLayoutDirection();
+		case EFlowDirectionPreference::LeftToRight:
+			return EFlowDirection::LeftToRight;
+		case EFlowDirectionPreference::RightToLeft:
+			return EFlowDirection::RightToLeft;
+		}
+
+		return GSlateFlowDirection;
+	}
+
+private:
+	/** Flow direction preference */
+	EFlowDirectionPreference FlowDirectionPreference;
 
 private:
 	EWidgetUpdateFlags UpdateFlags;
@@ -1547,13 +1606,12 @@ private:
 	/** The current layout cache that may need to invalidated by changes to this widget. */
 	mutable TWeakPtr<ILayoutCache> LayoutCache;
 
-#if SLATE_PARENT_POINTERS
+	/** Pointer to this widgets parent widget.  If it is null this is a root widget or it is not in the widget tree */
 	TWeakPtr<SWidget> ParentWidgetPtr;
-#endif
 
 private:
 	// Events
-	TMap<FName, FPointerEventHandler> PointerEvents;
+	TArray<TPair<FName, FPointerEventHandler>> PointerEvents;
 
 	FNoReplyPointerEventHandler MouseEnterHandler;
 	FSimpleNoReplyPointerEventHandler MouseLeaveHandler;
@@ -1571,9 +1629,10 @@ FORCEINLINE_DEBUGGABLE FArrangedWidget FGeometry::MakeChild(const TSharedRef<SWi
 {
 	// If there is no render transform set, use the simpler MakeChild call that doesn't bother concatenating the render transforms.
 	// This saves a significant amount of overhead since every widget does this, and most children don't have a render transform.
-	if ( ChildWidget->GetRenderTransform().IsSet() )
+	TOptional<FSlateRenderTransform> RenderTransform = ChildWidget->GetRenderTransformWithRespectToFlowDirection();
+	if (RenderTransform.IsSet() )
 	{
-		return FArrangedWidget(ChildWidget, MakeChild(InLocalSize, LayoutTransform, ChildWidget->GetRenderTransform().GetValue(), ChildWidget->GetRenderTransformPivot()));
+		return FArrangedWidget(ChildWidget, MakeChild(InLocalSize, LayoutTransform, RenderTransform.GetValue(), ChildWidget->GetRenderTransformPivot()));
 	}
 	else
 	{

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3332303
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:3 - 在 Linux 上生成 UE4
 Crumbs:
@@ -33,6 +33,7 @@ SkillLevel:Beginner
 
 [INCLUDE:Programming/Development/BuildingUnrealEngine#linuxcompile]
 
+(#EndResult)
 ## 最终结果
 
 ![](built_engine.png)

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*-----------------------------------------------------------------------------
 	Config cache.
@@ -85,10 +85,10 @@ public:
 		bRead = InBRead;
 	}
 #endif
-	DEPRECATED(4.12, "Please switch to explicitly doing a GetValue() or GetSavedValue()")
+	UE_DEPRECATED(4.12, "Please switch to explicitly doing a GetValue() or GetSavedValue()")
 	operator const FString& () const { return GetValue(); }
 
-	DEPRECATED(4.12, "Please switch to explicitly doing a GetValue() or GetSavedValue()")
+	UE_DEPRECATED(4.12, "Please switch to explicitly doing a GetValue() or GetSavedValue()")
 	const TCHAR* operator*() const { return *GetValue(); }
 
 	bool operator==(const FConfigValue& Other) const { return (SavedValue.Compare(Other.SavedValue) == 0); }
@@ -783,6 +783,17 @@ public:
 	static void InitializeConfigSystem();
 
 	/**
+	 * Calculates the name of a dest (generated) .ini file for a given base (ie Engine, Game, etc)
+	 *
+	 * @param IniBaseName Base name of the .ini (Engine, Game)
+	 * @param PlatformName Name of the platform to get the .ini path for (nullptr means to use the current platform)
+	 * @param GeneratedConfigDir The base folder that will contain the generated config files.
+	 *
+	 * @return Standardized .ini filename
+	 */
+	static FString GetDestIniFilename(const TCHAR* BaseIniName, const TCHAR* PlatformName, const TCHAR* GeneratedConfigDir);
+
+	/**
 	 * Loads and generates a destination ini file and adds it to GConfig:
 	 *   - Looking on commandline for override source/dest .ini filenames
 	 *   - Generating the name for the engine to refer to the ini
@@ -805,7 +816,7 @@ public:
 	/**
 	 * Load an ini file directly into an FConfigFile, and nothing is written to GConfig or disk. 
 	 * The passed in .ini name can be a "base" (Engine, Game) which will be modified by platform and/or commandline override,
-	 * or it can be a full ini filenname (ie WrangleContent) loaded from the Source config directory
+	 * or it can be a full ini filename (ie WrangleContent) loaded from the Source config directory
 	 *
 	 * @param ConfigFile The output object to fill
 	 * @param IniName Either a Base ini name (Engine) or a full ini name (WrangleContent). NO PATH OR EXTENSION SHOULD BE USED!
@@ -819,7 +830,7 @@ public:
 	/**
 	 * Load an ini file directly into an FConfigFile from the specified config folders, optionally writing to disk. 
 	 * The passed in .ini name can be a "base" (Engine, Game) which will be modified by platform and/or commandline override,
-	 * or it can be a full ini filenname (ie WrangleContent) loaded from the Source config directory
+	 * or it can be a full ini filename (ie WrangleContent) loaded from the Source config directory
 	 *
 	 * @param ConfigFile The output object to fill
 	 * @param IniName Either a Base ini name (Engine) or a full ini name (WrangleContent). NO PATH OR EXTENSION SHOULD BE USED!

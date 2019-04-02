@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PixelStreamingPlugin.h"
 #include "CoreMinimal.h"
@@ -37,10 +37,7 @@ void FPixelStreamingPlugin::StartupModule()
 	{
 		if (FSlateApplication::IsInitialized())
 		{
-			FSlateRenderer::FOnBackBufferReadyToPresent OnBackBufferReadyDelegate;
-			OnBackBufferReadyDelegate.BindRaw(this, &FPixelStreamingPlugin::OnBackBufferReady_RenderThread);
-			FSlateApplication::Get().GetRenderer()->OnBackBufferReadyToPresent() = OnBackBufferReadyDelegate;
-
+			FSlateApplication::Get().GetRenderer()->OnBackBufferReadyToPresent().AddRaw(this, &FPixelStreamingPlugin::OnBackBufferReady_RenderThread);
 			FSlateApplication::Get().GetRenderer()->OnPreResizeWindowBackBuffer().AddRaw(this, &FPixelStreamingPlugin::OnPreResizeWindowBackbuffer);
 		}
 
@@ -58,7 +55,7 @@ void FPixelStreamingPlugin::ShutdownModule()
 {
 	if (FSlateApplication::IsInitialized())
 	{
-		FSlateApplication::Get().GetRenderer()->OnBackBufferReadyToPresent().Unbind();
+		FSlateApplication::Get().GetRenderer()->OnBackBufferReadyToPresent().RemoveAll(this);
 		FSlateApplication::Get().GetRenderer()->OnPreResizeWindowBackBuffer().RemoveAll(this);
 	}
 
@@ -70,7 +67,7 @@ void FPixelStreamingPlugin::UpdateViewport(FSceneViewport* Viewport)
 	FRHIViewport* const ViewportRHI = Viewport->GetViewportRHI().GetReference();
 }
 
-void FPixelStreamingPlugin::OnBackBufferReady_RenderThread(const FTexture2DRHIRef& BackBuffer)
+void FPixelStreamingPlugin::OnBackBufferReady_RenderThread(SWindow& SlateWindow, const FTexture2DRHIRef& BackBuffer)
 {
 	check(IsInRenderingThread());
 
@@ -91,12 +88,12 @@ void FPixelStreamingPlugin::OnPreResizeWindowBackbuffer(void* BackBuffer)
 {
 	if (Streamer)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FPixelStreamingOnPreResizeWindowBackbuffer,
-			FPixelStreamingPlugin*, Plugin, this,
-		{
-			Plugin->OnPreResizeWindowBackbuffer_RenderThread();
-		});	
+		FPixelStreamingPlugin* Plugin = this;
+		ENQUEUE_RENDER_COMMAND(FPixelStreamingOnPreResizeWindowBackbuffer)(
+			[Plugin](FRHICommandListImmediate& RHICmdList)
+			{
+				Plugin->OnPreResizeWindowBackbuffer_RenderThread();
+			});	
 
 		// Make sure OnPreResizeWindowBackbuffer_RenderThread is executed before continuing
 		FlushRenderingCommands();

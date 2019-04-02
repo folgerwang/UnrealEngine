@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Matinee.h"
 #include "Engine/Texture2D.h"
@@ -352,12 +352,11 @@ void FMatinee::InitInterpTrackClasses()
 
 void FMatinee::SetAudioRealtimeOverride( bool bAudioIsRealtime ) const
 {
-	for(int32 i=0; i<GEditor->LevelViewportClients.Num(); i++)
+	for(FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients())
 	{
-		FEditorViewportClient* const LevelVC = GEditor->LevelViewportClients[i];
 		if (LevelVC)
 		{
-			if(LevelVC->IsPerspective() && LevelVC->AllowsCinematicControl() )
+			if(LevelVC->IsPerspective() && LevelVC->AllowsCinematicControl())
 			{
 				LevelVC->SetForcedAudioRealtime(bAudioIsRealtime);
 			}
@@ -439,6 +438,7 @@ void FMatinee::BuildCurveEditor()
 	CurveEd->SetEndMarker(true, IData->InterpLength);
 	CurveEd->SetPositionMarker(true, 0.f, PosMarkerColor);
 	CurveEd->SetRegionMarker(true, IData->EdSectionStart, IData->EdSectionEnd, RegionFillColor);
+	CurveEd->DrawViewport();
 };
 
 /** Should NOT open an InterpEd unless InInterp has a valid MatineeData attached! */
@@ -950,9 +950,8 @@ void FMatinee::InitMatinee(const EToolkitMode::Type Mode, const TSharedPtr< clas
 		LockCamToGroup(DirGroup);
 	}
 
-	for(int32 i=0; i<GEditor->LevelViewportClients.Num(); i++)
+	for(FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients())
 	{
-		FLevelEditorViewportClient* LevelVC = GEditor->LevelViewportClients[i];
 		if(LevelVC)
 		{
 			// If there is a director group, set the perspective viewports to realtime automatically.
@@ -2079,9 +2078,8 @@ void FMatinee::OnClose()
 	}
 
 	// Undo any weird settings to editor level viewports.
-	for(int32 i=0; i<GEditor->LevelViewportClients.Num(); i++)
+	for(FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients())
 	{
-		FLevelEditorViewportClient* LevelVC =GEditor->LevelViewportClients[i];
 		if(LevelVC)
 		{
 			// Turn off realtime when exiting.
@@ -2641,6 +2639,7 @@ void FMatinee::NotifyPreChange( UProperty* PropertyAboutToChange )
 void FMatinee::NotifyPostChange( const FPropertyChangedEvent& PropertyChangedEvent, UProperty* PropertyThatChanged )
 {
 	CurveEd->CurveChanged();
+	CurveEd->DrawViewport();
 
 	// Dirty the track window viewports
 	InvalidateTrackWindowViewports();

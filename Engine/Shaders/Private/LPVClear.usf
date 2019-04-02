@@ -47,15 +47,15 @@ void CSClear(uint3 DTid : SV_DispatchThreadID)
 
 	// corruption detection (workaround for brightlodge lighting corruption)
 	{
-		if ( isnan( cell.AO ) || isinf( cell.AO ) )
+		if ( !IsFinite(cell.AO ) )
 		{
 			mul = 0.0f;
 		}
 		[unroll]
 		for ( int i=0; i<9; i++ )
 		{
-			float df = dot( cell.coeffs[i], float3(1.0f,1.0f,1.0f) );
-			if ( isnan( df ) || isinf( df ) )
+			float df = cell.coeffs[i].x + cell.coeffs[i].y + cell.coeffs[i].z;
+			if ( !IsFinite(df) )
 			{
 				mul = 0.0f;
 			}

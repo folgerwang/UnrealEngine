@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidMovieStreamer.h"
 
@@ -15,6 +15,10 @@
 #include "Misc/ScopeLock.h"
 #include "Misc/Paths.h"
 
+#include "HAL/FileManager.h"
+#include "HAL/PlatformFilemanager.h"
+#include "IPlatformFilePak.h"
+
 DEFINE_LOG_CATEGORY_STATIC(LogAndroidMediaPlayerStreamer, Log, All);
 
 #define MOVIE_FILE_EXTENSION "mp4"
@@ -23,7 +27,7 @@ FAndroidMediaPlayerStreamer::FAndroidMediaPlayerStreamer()
 	: JavaMediaPlayer(nullptr)
 	, CurrentPosition(-1)
 {
-	JavaMediaPlayer = MakeShareable(new FJavaAndroidMediaPlayer(false, FAndroidMisc::ShouldUseVulkan()));
+	JavaMediaPlayer = MakeShareable(new FJavaAndroidMediaPlayer(false, FAndroidMisc::ShouldUseVulkan(), false));
 	MovieViewport = MakeShareable(new FMovieViewport());
 }
 
@@ -187,30 +191,77 @@ bool FAndroidMediaPlayerStreamer::StartNextMovie()
 		MovieQueue.RemoveAt(0);
 	}
 
-	// Don't bother trying to play it if we can't find it.
-	if (!IAndroidPlatformFile::GetPlatformPhysical().FileExists(*MoviePath))
-	{
-		return false;
-	}
-
 	bool movieOK = true;
 
-	// Get information about the movie.
-	int64 FileOffset = IAndroidPlatformFile::GetPlatformPhysical().FileStartOffset(*MoviePath);
-	int64 FileSize = IAndroidPlatformFile::GetPlatformPhysical().FileSize(*MoviePath);
-	FString FileRootPath = IAndroidPlatformFile::GetPlatformPhysical().FileRootPath(*MoviePath);
+	IAndroidPlatformFile& PlatformFile = IAndroidPlatformFile::GetPlatformPhysical();
 
-	// Play the movie as a file or asset.
-	if (IAndroidPlatformFile::GetPlatformPhysical().IsAsset(*MoviePath))
+	// Don't bother trying to play it if we can't find it.
+	if (!PlatformFile.FileExists(*MoviePath))
 	{
-		movieOK = JavaMediaPlayer->SetDataSource(
-			IAndroidPlatformFile::GetPlatformPhysical().GetAssetManager(),
-			FileRootPath, FileOffset, FileSize);
+		// possible it is in a PAK file
+		FPakPlatformFile* PakPlatformFile = (FPakPlatformFile*)(FPlatformFileManager::Get().FindPlatformFile(FPakPlatformFile::GetTypeName()));
+
+		FPakFile* PakFile = NULL;
+		FPakEntry FileEntry;
+		if (!PakPlatformFile->FindFileInPakFiles(*MoviePath, &PakFile, &FileEntry))
+		{
+			return false;
+		}
+
+		// is it a simple case (can just use file datasource)?
+		if (FileEntry.CompressionMethodIndex == 0 && !FileEntry.IsEncrypted())
+		{
+			FString PakFilename = PakFile->GetFilename();
+			int64 PakHeaderSize = FileEntry.GetSerializedSize(PakFile->GetInfo().Version);
+			int64 OffsetInPak = FileEntry.Offset + PakHeaderSize;
+			int64 FileSize = FileEntry.Size;
+
+			int64 FileOffset = PlatformFile.FileStartOffset(*PakFilename) + OffsetInPak;
+			FString FileRootPath = PlatformFile.FileRootPath(*PakFilename);
+
+			if (!JavaMediaPlayer->SetDataSource(FileRootPath, FileOffset, FileSize))
+			{
+				return false;
+			}
+		}
+		else
+		{
+			// only support media data source on Android 6.0+
+			if (FAndroidMisc::GetAndroidBuildVersion() < 23)
+			{
+				//UE_LOG(LogAndroidMedia, Warning, TEXT("File cannot be played on this version of Android due to PAK file with compression or encryption: %s."), *MoviePath);
+				return false;
+			}
+
+			TSharedRef<FArchive, ESPMode::ThreadSafe> Archive = MakeShareable(IFileManager::Get().CreateFileReader(*MoviePath));
+
+			if (!JavaMediaPlayer->SetDataSource(Archive))
+			{
+				//UE_LOG(LogAndroidMedia, Warning, TEXT("Failed to set data source for archive %s"), *MoviePath);
+				return false;
+			}
+		}
 	}
 	else
 	{
-		movieOK = JavaMediaPlayer->SetDataSource(FileRootPath, FileOffset, FileSize);
+		// Get information about the movie.
+		int64 FileOffset = PlatformFile.FileStartOffset(*MoviePath);
+		int64 FileSize = PlatformFile.FileSize(*MoviePath);
+		FString FileRootPath = PlatformFile.FileRootPath(*MoviePath);
+
+		// Play the movie as a file or asset.
+		if (PlatformFile.IsAsset(*MoviePath))
+		{
+			movieOK = JavaMediaPlayer->SetDataSource(
+				IAndroidPlatformFile::GetPlatformPhysical().GetAssetManager(),
+				FileRootPath, FileOffset, FileSize);
+		}
+		else
+		{
+			movieOK = JavaMediaPlayer->SetDataSource(FileRootPath, FileOffset, FileSize);
+		}
 	}
+
 	FIntPoint VideoDimensions;
 	if (movieOK)
 	{
@@ -230,16 +281,16 @@ bool FAndroidMediaPlayerStreamer::StartNextMovie()
 
 		uint32 FrameBytes = VideoDimensions.X * VideoDimensions.Y * GPixelFormats[PF_B8G8R8A8].BlockBytes;
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(InitMovieTexture,
-			FSlateTexture2DRHIRef*, TextureRHIRef, Texture.Get(),
-			uint32, Bytes, FrameBytes,
+		FSlateTexture2DRHIRef* TextureRHIRef = Texture.Get();
+		ENQUEUE_RENDER_COMMAND(InitMovieTexture)(
+			[TextureRHIRef, FrameBytes](FRHICommandListImmediate& RHICmdList)
 			{
 				TextureRHIRef->InitResource();
 	
 				// clear texture to black
 				uint32 Stride = 0;
 				void* TextureBuffer = RHILockTexture2D(TextureRHIRef->GetTypedResource(), 0, RLM_WriteOnly, Stride, false);
-				FMemory::Memset(TextureBuffer, 0, Bytes);
+				FMemory::Memset(TextureBuffer, 0, FrameBytes);
 				RHIUnlockTexture2D(TextureRHIRef->GetTypedResource(), 0, false);
 			});
 

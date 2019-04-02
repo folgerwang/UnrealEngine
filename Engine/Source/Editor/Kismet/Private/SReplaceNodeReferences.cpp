@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SReplaceNodeReferences.h"
 #include "UObject/UObjectHash.h"
@@ -423,7 +423,10 @@ FReply SReplaceNodeReferences::OnFindAndReplaceAll()
 {
 	if (SelectedTargetReferenceItem.IsValid())
 	{
-		FindInBlueprints->CacheAllBlueprints(FSimpleDelegate::CreateSP(this, &SReplaceNodeReferences::OnSubmitSearchQuery, true), EFiBVersion::FIB_VER_VARIABLE_REFERENCE);
+		FFindInBlueprintCachingOptions CachingOptions;
+		CachingOptions.MinimiumVersionRequirement = EFiBVersion::FIB_VER_VARIABLE_REFERENCE;
+		CachingOptions.OnFinished = FSimpleDelegate::CreateSP(this, &SReplaceNodeReferences::OnSubmitSearchQuery, true);
+		FindInBlueprints->CacheAllBlueprints(CachingOptions);
 	}
 	return FReply::Handled();
 }

@@ -1,10 +1,11 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGEditorProjectSettings.h"
 #include "WidgetBlueprint.h"
 #include "WidgetCompilerRule.h"
 #include "UObject/Package.h"
 #include "UObject/UObjectIterator.h"
+#include "Components/CanvasPanel.h"
 
 UUMGEditorProjectSettings::UUMGEditorProjectSettings()
 {
@@ -12,6 +13,8 @@ UUMGEditorProjectSettings::UUMGEditorProjectSettings()
 	CurrentVersion = 1;
 	bShowWidgetsFromEngineContent = false;
 	bShowWidgetsFromDeveloperContent = true;
+
+	DefaultRootWidget = UCanvasPanel::StaticClass();
 
 	// Deprecated
 	bCookSlowConstructionWidgetTree_DEPRECATED = true;
@@ -84,6 +87,12 @@ void UUMGEditorProjectSettings::GetCompilerOptionsForWidget(const UWidgetBluepri
 	FString AssetPath = WidgetBlueprint->GetOutermost()->GetName();
 	FSoftObjectPath SoftObjectPath = WidgetBlueprint->GetPathName();
 	
+	// Don't apply the rules to the engine widgets.
+	if (AssetPath.StartsWith(TEXT("/Engine")))
+	{
+		return;
+	}
+
 	for (int32 DirectoryIndex = DirectoryCompilerOptions.Num() - 1; DirectoryIndex >= 0; DirectoryIndex--)
 	{
 		const FDirectoryWidgetCompilerOptions& CompilerOptions = DirectoryCompilerOptions[DirectoryIndex];

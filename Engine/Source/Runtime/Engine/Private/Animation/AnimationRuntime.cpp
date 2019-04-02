@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AnimationUE4.cpp: Animation runtime utilities
@@ -1608,58 +1608,65 @@ void FAnimationRuntime::AppendActiveMorphTargets(const USkeletalMesh* InSkeletal
 		return;
 	}
 
-	// Then go over the CurveKeys finding morph targets by name
-	for(auto CurveIter=MorphCurveAnims.CreateConstIterator(); CurveIter; ++CurveIter)
+	// ensure the buffer fits the size
+
+	// @note that this only adds zero buffer if it doesn't have enough buffer with the correct size and that is intended
+	// there is three places to resize this buffer
+	//
+	// one is init anim, where we initialize the buffer first time. We need this so that if you don't call Tick, it can have buffer assigned for renderer to get
+	// second is tick component, where we make sure the buffer size is correct. We need that so that if you don't have animation or your morphtarget buffer size changes, we want to make sure that buffer is set correctly
+	// third is this place where the buffer really matters for game thread, we need to resize if needed in case morphtarget is deleted or added. 
+	// the reason you need this is because some other places calling append buffer without going through proper tick component - for example, calling TickAnimation directly
+	//
+	// if somehow it gets rendered without going through these places, there will be crash. Renderer expect the buffer size being same. 
+
+	if(MorphCurveAnims.Num() > 0)
 	{
-		const FName& CurveName	= (CurveIter).Key();
-		const float Weight	= (CurveIter).Value();
+		const int32 NumMorphTargets = InSkeletalMesh->MorphTargets.Num();
+		InOutMorphTargetWeights.SetNumZeroed(NumMorphTargets);
 
-		// ensure the buffer fits the size
-
-		// @note that this only adds zero buffer if it doesn't have enough buffer with the correct size and that is intended
-		// there is three places to resize this buffer
-		//
-		// one is init anim, where we initialize the buffer first time. We need this so that if you don't call Tick, it can have buffer assigned for renderer to get
-		// second is tick component, where we make sure the buffer size is correct. We need that so that if you don't have animation or your morphtarget buffer size changes, we want to make sure that buffer is set correctly
-		// third is this place where the buffer really matters for game thread, we need to resize if needed in case morphtarget is deleted or added. 
-		// the reason you need this is because some other places calling append buffer without going through proper tick component - for example, calling TickAnimation directly
-		//
-		// if somehow it gets rendered without going through these places, there will be crash. Renderer expect the buffer size being same. 
-		InOutMorphTargetWeights.SetNumZeroed(InSkeletalMesh->MorphTargets.Num());
-
-		// Find morph reference
-		int32 SkeletalMorphIndex = INDEX_NONE;
-		UMorphTarget* Target = InSkeletalMesh->FindMorphTargetAndIndex(CurveName, SkeletalMorphIndex);
-		if (Target != nullptr)
+		if(NumMorphTargets > 0)
 		{
-			// If it has a valid weight
-			if (FMath::Abs(Weight) > MinMorphTargetBlendWeight)
+			// Then go over the CurveKeys finding morph targets by name
+			for(const TPair<FName, float>& MorphCurveAnim : MorphCurveAnims)
 			{
-				// See if this morph target already has an entry
-				int32 MorphIndex = FindMorphTarget(InOutActiveMorphTargets, Target);
-				// If not, add it
-				if (MorphIndex == INDEX_NONE)
-				{
-					InOutActiveMorphTargets.Add(FActiveMorphTarget(Target, SkeletalMorphIndex));
-					InOutMorphTargetWeights[SkeletalMorphIndex] = Weight;
-				}
-				else
-				{
-					// If it does, use the max weight
-					check(SkeletalMorphIndex == InOutActiveMorphTargets[MorphIndex].WeightIndex);
-					InOutMorphTargetWeights[SkeletalMorphIndex] = Weight;
-				}
-			}
-			else
-			{
-				int32 MorphIndex = FindMorphTarget(InOutActiveMorphTargets, Target);
-				if (MorphIndex != INDEX_NONE)
-				{
-					// clear weight
-					InOutMorphTargetWeights[SkeletalMorphIndex] = 0.f;
-				}
-			}
+				const FName& CurveName = MorphCurveAnim.Key;
+				const float Weight = MorphCurveAnim.Value;
 
+				// Find morph reference
+				int32 SkeletalMorphIndex = INDEX_NONE;
+				UMorphTarget* Target = InSkeletalMesh->FindMorphTargetAndIndex(CurveName, SkeletalMorphIndex);
+				if (Target != nullptr)
+				{
+					// If it has a valid weight
+					if (FMath::Abs(Weight) > MinMorphTargetBlendWeight)
+					{
+						// See if this morph target already has an entry
+						int32 MorphIndex = FindMorphTarget(InOutActiveMorphTargets, Target);
+						// If not, add it
+						if (MorphIndex == INDEX_NONE)
+						{
+							InOutActiveMorphTargets.Add(FActiveMorphTarget(Target, SkeletalMorphIndex));
+							InOutMorphTargetWeights[SkeletalMorphIndex] = Weight;
+						}
+						else
+						{
+							// If it does, use the max weight
+							check(SkeletalMorphIndex == InOutActiveMorphTargets[MorphIndex].WeightIndex);
+							InOutMorphTargetWeights[SkeletalMorphIndex] = Weight;
+						}
+					}
+					else
+					{
+						int32 MorphIndex = FindMorphTarget(InOutActiveMorphTargets, Target);
+						if (MorphIndex != INDEX_NONE)
+						{
+							// clear weight
+							InOutMorphTargetWeights[SkeletalMorphIndex] = 0.f;
+						}
+					}
+				}
+			}
 		}
 	}
 }

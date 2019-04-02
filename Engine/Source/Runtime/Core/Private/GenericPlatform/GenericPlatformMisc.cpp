@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "GenericPlatform/GenericPlatformMisc.h"
 #include "Misc/AssertionMacros.h"
@@ -12,11 +12,11 @@
 #include "Misc/Parse.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
+#include "Misc/FileHelper.h"
 #include "Internationalization/Text.h"
 #include "Internationalization/Internationalization.h"
 #include "Misc/Guid.h"
 #include "Math/Color.h"
-#include "GenericPlatform/GenericPlatformCompression.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/App.h"
 #include "GenericPlatform/GenericPlatformChunkInstall.h"
@@ -817,12 +817,6 @@ IPlatformChunkInstall* FGenericPlatformMisc::GetPlatformChunkInstall()
 	return &Singleton;
 }
 
-IPlatformCompression* FGenericPlatformMisc::GetPlatformCompression()
-{
-	static FGenericPlatformCompression Singleton;
-	return &Singleton;
-}
-
 void GenericPlatformMisc_GetProjectFilePathProjectDir(FString& OutGameDir)
 {
 	// Here we derive the game path from the project file location.
@@ -1029,12 +1023,8 @@ bool FGenericPlatformMisc::UseRenderThread()
 
 bool FGenericPlatformMisc::AllowThreadHeartBeat()
 {
-	if (FParse::Param(FCommandLine::Get(), TEXT("noheartbeatthread")))
-	{
-		return false;
-	}
-
-	return true;
+	static bool bHeartbeat = !FParse::Param(FCommandLine::Get(), TEXT("noheartbeatthread"));
+	return bHeartbeat;
 }
 
 int32 FGenericPlatformMisc::NumberOfCoresIncludingHyperthreads()
@@ -1100,6 +1090,60 @@ FString FGenericPlatformMisc::GetTimeZoneId()
 {
 	// ICU will calculate this correctly for most platforms (if enabled)
 	return FString();
+}
+
+#if DO_CHECK
+namespace GenericPlatformMisc
+{
+	/** Chances for handling an ensure (0.0 - never, 1.0 - always). */
+	float GEnsureChance = 1.0f;
+
+	/** Checks if we ever updated ensure settings. */
+	bool GEnsureSettingsEverUpdated = false;
+}
+
+bool FGenericPlatformMisc::IsEnsureAllowed()
+{
+	// not all targets call FEngineLoop::Tick() or we might be here early
+	if (!GenericPlatformMisc::GEnsureSettingsEverUpdated)
+	{
+		FPlatformMisc::UpdateHotfixableEnsureSettings();
+	}
+
+	// using random makes it less deterministic between runs and multiple processes
+	return FMath::FRand() < GenericPlatformMisc::GEnsureChance;
+}
+
+void FGenericPlatformMisc::UpdateHotfixableEnsureSettings()
+{
+	// config (which is hotfixable) makes priority over the commandline
+	float HandleEnsurePercentInConfig = 100.0f;
+	if (GConfig && GConfig->GetFloat(TEXT("Core.System"), TEXT("HandleEnsurePercent"), HandleEnsurePercentInConfig, GEngineIni))
+	{
+		GenericPlatformMisc::GEnsureChance = HandleEnsurePercentInConfig / 100.0;
+	}
+	else
+	{
+		float HandleEnsurePercentOnCmdLine = 100.0f;
+		if (FParse::Value(FCommandLine::Get(), TEXT("handleensurepercent="), HandleEnsurePercentOnCmdLine))
+		{
+			GenericPlatformMisc::GEnsureChance = HandleEnsurePercentOnCmdLine / 100.0;
+		}
+	}
+
+	// to compensate for FRand() being able to return 1.0 (argh!), extra check for 100 
+	if (GenericPlatformMisc::GEnsureChance >= 1.00f)
+	{
+		GenericPlatformMisc::GEnsureChance = 1.01f;
+	}
+
+	GenericPlatformMisc::GEnsureSettingsEverUpdated = true;
+}
+#endif // !DO_CHECK
+
+void FGenericPlatformMisc::TickHotfixables()
+{
+	UpdateHotfixableEnsureSettings();
 }
 
 FText FGenericPlatformMisc::GetFileManagerName()
@@ -1241,4 +1285,12 @@ bool FGenericPlatformMisc::RequestDeviceCheckToken(TFunction<void(const TArray<u
 TArray<FChunkTagID> FGenericPlatformMisc::GetOnDemandChunkTagIDs()
 {
 	return TArray<FChunkTagID>();
+}
+
+FString FGenericPlatformMisc::LoadTextFileFromPlatformPackage(const FString& RelativePath)
+{
+	FString Path = RootDir() / RelativePath;
+	FString Result;
+	FFileHelper::LoadFileToString(Result, *Path);
+	return Result;
 }

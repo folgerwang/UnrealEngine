@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3735722
+INTSourceChangelist:4377382
 Availability:Public
 Crumbs: %ROOT%
 Title:Rigid Body
 Description:Rigid Body, 리짓 바디 노드와 애니메이션 블루프린트 안에서 라이트웨이트 피직스 시뮬레이션으로 사용하는 방법에 대한 설명입니다.
 Type:reference
-Version: 4.18
+Version: 4.20
 Parent:Engine/Animation/NodeReference/SkeletalControls
 Order:1
 tags:Animation
@@ -22,7 +22,7 @@ Rigid Body 노드는 [](Engine/Animation/AnimBlueprints) 의 **애님 그래프*
 
 ![](RigidBodyNode.png)
 
-Rigid Body 노드의 전형적인 사용 예는 포니테일이나 체인 등 무언가 피직스를 적용하면 좋을 "달려있는" 본에 쓰면 좋습니다.
+**Rigid Body** 노드의 전형적인 사용 예는 포니테일이나 체인 등 무언가 피직스를 적용하면 좋을 "달려있는" 본에 쓰면 좋습니다.
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -46,7 +46,20 @@ Rigid Body 노드의 전형적인 사용 예는 포니테일이나 체인 등 �
 위에서, 캐릭터의 머리에서 나오는 호스에는 피직스 애셋이 있어, 애니메이션 블루프린트 내 Rigid Body 노드와 함께 사용됩니다.
 [/REGION]
 
-## 셋업
+## 입력 및 출력 핀
+
+아래 표는 사용할 수 있는 입력 및 출력 핀과 
+핀 사용법을 정의에 대한 개요입니다.
+
+![](RigidBodyPins.png)
+
+| 핀 | 설명 |
+| --- | --- |
+| **External Force** | 외부 힘 - 월드 스페이스에 균등 외부 힘을 가합니다. 예를 들어 컴포넌트 스페이스에서 시뮬레이션을 계속 하면서 가짜 관성 운동을 쉽게 만들 수 있습니다. |
+| **Component Pose** | 컴포넌트 포즈 - 컴포넌트 스페이스의 포즈를 받아 컴포넌트 스페이스의 포즈를 출력합니다. |
+| **Alpha** | 알파 - 스켈레탈 컨트롤의 현재 세기입니다. |
+
+## 예제 RigidBody 노드 구성
 
 이 노드를 사용하기 전, [피직스 애셋](Engine/Physics/PhAT) 안에서 시뮬레이션을 하고자 하는 [](Engine/Physics/PhysicsBodies) 를 선택하고 **Simulated** 로 설정합니다. 
 
@@ -61,12 +74,12 @@ Rigid Body 노드의 전형적인 사용 예는 포니테일이나 체인 등 �
 ![](RigidBody_11.png)
 
 [REGION:caption]
-위는 다른 애니메이션 블루프린트에서 데이터를 받아 Rigid Body 노드에 물려준 뒤 최종 애니메이션 포즈를 만들고 있습니다.
+위는 다른 애니메이션 블루프린트에서 데이터를 받아 **Rigid Body** 노드에 물려준 뒤 최종 애니메이션 포즈를 만들고 있습니다.
 [/REGION]
 
 애님 그래프에서 Rigid Body 노드를 선택한 채, **디테일** 패널에서 노드 사용 방식을 정의하는 프로퍼티를 변경할 수 있습니다.
 
-![](RigidBody_12.png)
+![](RigidBodyDetails.png)
 
 | 프로퍼티 | 설명 |
 | -------- | ----------- |
@@ -81,3 +94,32 @@ Rigid Body 노드의 전형적인 사용 예는 포니테일이나 체인 등 �
 
 [INCLUDE:Engine/Animation/NodeReference/SkeletalControls#lodthresh]
 
+## 조인트를 시뮬레이션 베이스로 사용
+
+언리얼 엔진 4.20 부터 **RigidBody** 노드에 시뮬레이션 베이스로 조인트가 지원됩니다. **Simulation Space** 를 **Base Bone Space** 로 설정하고 사용할 본을 **Base Bone Ref** 로 선택하면 됩니다. 한 가지 참고할 점은, 전체 스켈레탈 메시를 옮기고 Base Bone (베이스 본)을 개별적으로 수정하는 것은 속도에 영향이 없습니다.
+
+아래는 **RigidBody** 노드를 사용하여 무기에 할당된 베이스 본에서 시뮬레이션을 하는 예입니다.
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	xjWqVQT3DoU
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	100
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+## 다이내믹스 리셋
+
+**RigidBody** 노드는 **Reset Dynamics** (다이내믹스 리셋)도 지원합니다. 사용하려면 블루프린트에서 스켈레탈 메시의 애님 인스턴스를 구하고 **Reset Dynamics** 함수를 호출하면 시뮬레이션이 리셋됩니다.
+
+![ResetDynamics](ResetDynamics.png)

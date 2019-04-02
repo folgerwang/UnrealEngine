@@ -1,6 +1,6 @@
 ﻿INTSourceChangelist:3782314
-Title: 삼성 기어 VR 개발
-Description:UE4 에서 삼성 기어 VR 헤드셋을 사용하기 위한 안내입니다.
+Title: 삼성 Gear VR 개발
+Description:UE4 에서 삼성 Gear VR 헤드셋을 사용하기 위한 안내입니다.
 Availability:Public
 Navigation:platform
 Platform:Gear VR
@@ -21,7 +21,7 @@ Topic-image:SamsungGearVRDevelopment_topic.png
 
 [DIR(end:"1" output:"topic" type:"quick start" parent:"Platforms/GearVR")]
 
-## 삼성 기어 VR 개발
+## 삼성 Gear VR 개발
 
 [DIR(end:"1" output:"topic" type:"reference,overview" parent:"Platforms/GearVR")]
 

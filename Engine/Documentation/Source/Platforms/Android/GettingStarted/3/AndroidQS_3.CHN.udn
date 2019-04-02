@@ -1,31 +1,24 @@
-﻿INTSourceChangelist:2684616
+﻿INTSourceChangelist:3736300
 Availability:Public
 Title:3.创建项目
 Crumbs:%ROOT%, Platforms, Platforms/Android, Platforms/Android/GettingStarted
 Description: 从一个模板项目开始
-Version:4.9
+Version:4.17
 Skilllevel:Intermediate
+tags:Android
+tags:Mobile
+type:multi-step
+parent:Platforms/Android/GettingStarted
+order:3
+Checkpoint:AndroidQS
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[上一步](Platforms/Android/GettingStarted/2 "%Platforms/Android/GettingStarted/2:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[快速入门主页](Platforms/Android/GettingStarted)
-	[/PARAM]
-	[PARAM:next]
-		[下一步](Platforms/Android/GettingStarted/4 "%Platforms/Android/GettingStarted/4:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+[nav]
 
+(#Steps)
+## 步骤
 
 接下来我们将要创建一个新项目用来测试安卓的部署。
 这个项目是一个基于 Blueprint Third Person 模板的蓝图项目。
-
 
 
 
@@ -36,13 +29,18 @@ Skilllevel:Intermediate
 * 不要包括初始资源
 * 将项目命名为 AndroidProject
 
-![](new_android_project.png)
+	![](new_android_project.png)
 
+1. 完成后，按下 **创建项目** 按钮来创建项目。
 
 [REGION:tip]
 虽然在这个例子中我们选择了这个模板，但其他仍和类型的项目、C++ 或者蓝图，都可以用来打包并部署到安卓设备上。
 [/REGION]
 
+(#EndResult)
+## 最终结果
+完成以上步骤后，您现在就拥有了一个为用于移动设备而设置的UE4项目。 
 
+[nav]
 
 

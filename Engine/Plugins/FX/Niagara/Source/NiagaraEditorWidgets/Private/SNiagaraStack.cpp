@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "SNiagaraStack.h"
 
@@ -14,6 +14,7 @@
 #include "ViewModels/Stack/NiagaraStackViewModel.h"
 #include "ViewModels/Stack/NiagaraStackSpacer.h"
 #include "ViewModels/Stack/NiagaraStackModuleItemOutputCollection.h"
+#include "ViewModels/Stack/NiagaraStackModuleItemLinkedInputCollection.h"
 #include "ViewModels/Stack/NiagaraStackModuleItemOutput.h"
 #include "ViewModels/Stack/NiagaraStackErrorItem.h"
 #include "ViewModels/Stack/NiagaraStackInputCategory.h" 
@@ -53,6 +54,7 @@
 #include "ScopedTransaction.h"
 #include "Widgets/Layout/SWrapBox.h"
 #include "Stack/SNiagaraStackSpacer.h"
+#include "ViewModels/Stack/NiagaraStackRoot.h"
 
 /** Contains data for a socket drag and drop operation in the StackEntry node. */
 class FNiagaraStackEntryDragDropOp : public FDecoratedDragDropOp
@@ -220,10 +222,10 @@ void SNiagaraStack::Construct(const FArguments& InArgs, UNiagaraStackViewModel* 
 	};
 	HeaderBox->SetOnMouseButtonUp(FPointerEventHandler::CreateLambda(OnHeaderMouseButtonUp));
 	
-	PrimeTreeExpansion();
+	SynchronizeTreeExpansion();
 }
 
-void SNiagaraStack::PrimeTreeExpansion()
+void SNiagaraStack::SynchronizeTreeExpansion()
 {
 	TArray<UNiagaraStackEntry*> EntriesToProcess(StackViewModel->GetRootEntries());
 	while (EntriesToProcess.Num() > 0)
@@ -413,33 +415,73 @@ FReply SNiagaraStack::PinButtonPressed()
 
 void SNiagaraStack::OnSearchTextChanged(const FText& SearchText)
 {
-	if (StackViewModel->GetCurrentSearchText().CompareTo(SearchText) != 0)
-	{
-		if (SearchExpandTimer.IsValid())
-		{
-			UnRegisterActiveTimer(SearchExpandTimer.ToSharedRef());
-		}
-		// restore expansion state of previous search
-		for (auto SearchResult : StackViewModel->GetCurrentSearchResults())
-		{
-			for (UNiagaraStackEntry* ParentalUnit : SearchResult.EntryPath)
-			{
-				StackTree->SetItemExpansion(ParentalUnit, ParentalUnit->GetIsExpanded());
-			}
-		}
-		bNeedsJumpToNextOccurence = true;
-		StackViewModel->OnSearchTextChanged(SearchText);
-	}
+	bNeedsJumpToNextOccurence = true;
+	StackViewModel->OnSearchTextChanged(SearchText);
 }
 
 FReply SNiagaraStack::ScrollToNextMatch()
 {
+	
+	const int NextMatchIndex = StackViewModel->GetCurrentFocusedMatchIndex() + 1;
+	TArray<UNiagaraStackViewModel::FSearchResult> CurrentSearchResults = StackViewModel->GetCurrentSearchResults();
+	if (CurrentSearchResults.Num() != 0)
+	{
+		if (NextMatchIndex < CurrentSearchResults.Num())
+		{
+			for (auto SearchResultEntry : CurrentSearchResults[NextMatchIndex].EntryPath)
+			{
+				if (!SearchResultEntry->IsA<UNiagaraStackRoot>())
+				{
+					SearchResultEntry->SetIsExpanded(true);
+				}
+			}
+		}
+		else
+		{
+			for (auto SearchResultEntry : CurrentSearchResults[0].EntryPath)
+			{
+				if (!SearchResultEntry->IsA<UNiagaraStackRoot>())
+				{
+					SearchResultEntry->SetIsExpanded(true);
+				}
+			}
+		}
+		SynchronizeTreeExpansion();
+	}
+
 	AddSearchScrollOffset(1);
 	return FReply::Handled();
 }
 
 FReply SNiagaraStack::ScrollToPreviousMatch()
 {
+	const int PreviousMatchIndex = StackViewModel->GetCurrentFocusedMatchIndex() - 1;
+	TArray<UNiagaraStackViewModel::FSearchResult> CurrentSearchResults = StackViewModel->GetCurrentSearchResults();
+	if (CurrentSearchResults.Num() != 0)
+	{
+		if (PreviousMatchIndex > 0)
+		{
+			for (auto SearchResultEntry : CurrentSearchResults[PreviousMatchIndex].EntryPath)
+			{
+				if (!SearchResultEntry->IsA<UNiagaraStackRoot>())
+				{
+					SearchResultEntry->SetIsExpanded(true);
+				}
+			}
+		}
+		else
+		{
+			for (auto SearchResultEntry : CurrentSearchResults.Last().EntryPath)
+			{
+				if (!SearchResultEntry->IsA<UNiagaraStackRoot>())
+				{
+					SearchResultEntry->SetIsExpanded(true);
+				}
+			}
+		}
+		SynchronizeTreeExpansion();
+	}
+
 	// move current match to the previous one in the StackTree, wrap around
 	AddSearchScrollOffset(-1);
 	return FReply::Handled();
@@ -590,8 +632,18 @@ TSharedRef<SWidget> SNiagaraStack::GetViewOptionsMenu() const
 		NAME_None, EUserInterfaceActionType::Check);
 
 	MenuBuilder.AddMenuEntry(
+		LOCTEXT("ShowLinkedInputsLabel", "Show Linked Script Inputs"),
+		LOCTEXT("ShowLinkedInputsToolTip", "Whether or not to show internal module linked inputs in the stack."),
+		FSlateIcon(),
+		FUIAction(
+			FExecuteAction::CreateLambda([=]() { StackViewModel->SetShowLinkedInputs(!StackViewModel->GetShowLinkedInputs()); }),
+			FCanExecuteAction(),
+			FGetActionCheckState::CreateLambda([=]() { return StackViewModel->GetShowLinkedInputs() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; })),
+		NAME_None, EUserInterfaceActionType::Check);
+
+	MenuBuilder.AddMenuEntry(
 		LOCTEXT("ShowOutputsLabel", "Show Outputs"),
-		LOCTEXT("ShowOutputsToolTip", "Whether or now to show module outputs in the stack."),
+		LOCTEXT("ShowOutputsToolTip", "Whether or not to show module outputs in the stack."),
 		FSlateIcon(),
 		FUIAction(
 			FExecuteAction::CreateLambda([=]() { StackViewModel->SetShowOutputs(!StackViewModel->GetShowOutputs()); }),
@@ -665,19 +717,12 @@ FReply SNiagaraStack::OnRowAcceptDrop(const FDragDropEvent& InDragDropEvent, EIt
 
 void SNiagaraStack::OnStackSearchComplete()
 {
-	// fire up timer to expand all parentchains!!
-	SearchExpandTimer = RegisterActiveTimer(0.7f, FWidgetActiveTimerDelegate::CreateSP(this, &SNiagaraStack::TriggerExpandSearchResults));
-}
-
-EActiveTimerReturnType SNiagaraStack::TriggerExpandSearchResults(double InCurrentTime, float InDeltaTime)
-{
 	ExpandSearchResults();
 	if (bNeedsJumpToNextOccurence)
 	{
 		ScrollToNextMatch();
 		bNeedsJumpToNextOccurence = false;
 	}
-	return EActiveTimerReturnType::Stop;
 }
 
 void SNiagaraStack::ExpandSearchResults()
@@ -686,22 +731,17 @@ void SNiagaraStack::ExpandSearchResults()
 	{
 		for (UNiagaraStackEntry* ParentalUnit : SearchResult.EntryPath)
 		{
-			StackTree->SetItemExpansion(ParentalUnit, true);
+			if (!ParentalUnit->IsA<UNiagaraStackRoot>()) // should not alter expansion state of root entries
+			{
+				ParentalUnit->SetIsExpanded(true);
+			}
 		}
 	}
+	SynchronizeTreeExpansion();
 }
 
 void SNiagaraStack::OnSearchBoxTextCommitted(const FText& NewText, ETextCommit::Type CommitInfo)
 {
-	if (StackViewModel->GetCurrentSearchText().CompareTo(NewText) != 0)
-	{
-		if (SearchExpandTimer.IsValid())
-		{
-			UnRegisterActiveTimer(SearchExpandTimer.ToSharedRef());
-			ExpandSearchResults();
-			SearchExpandTimer.Reset();
-		}
-	}
 	if (bNeedsJumpToNextOccurence || CommitInfo == ETextCommit::OnEnter) // hasn't been autojumped yet or we hit enter
 	{
 		AddSearchScrollOffset(+1);
@@ -933,7 +973,8 @@ SNiagaraStack::FRowWidgets SNiagaraStack::ConstructNameAndValueWidgetsForItem(UN
 			.HighlightText_UObject(StackViewModel, &UNiagaraStackViewModel::GetCurrentSearchText));
 	}
 	else if (Item->IsA<UNiagaraStackFunctionInputCollection>() ||
-		Item->IsA<UNiagaraStackModuleItemOutputCollection>())
+		Item->IsA<UNiagaraStackModuleItemOutputCollection>() ||
+		Item->IsA<UNiagaraStackModuleItemLinkedInputCollection>())
 	{
 		return FRowWidgets(
 			SNew(STextBlock)
@@ -1015,7 +1056,7 @@ void SNiagaraStack::OnContentColumnWidthChanged(float Width)
 
 void SNiagaraStack::StackStructureChanged()
 {
-	PrimeTreeExpansion();
+	SynchronizeTreeExpansion();
 	StackTree->RequestTreeRefresh();
 }
 

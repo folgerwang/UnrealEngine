@@ -1,0 +1,56 @@
+﻿INTSourceChangelist:4499799
+Availability: Public
+Crumbs: 
+Title: Android 디버깅
+Description: Android Studio 를 사용하여 UE4 프로젝트를 디버깅하는 방법을 설명합니다.
+Type: 
+Version: 4.20
+Parent: Platforms/Android
+Order: 1
+Tags: Android
+
+
+언리얼 엔진 4 (UE4)를 사용하면 Android Studio 를 통해 UE4 프로젝트에 사용되는 C++ 및 Java 코드를 디버깅할 수 있습니다. 여기서는 UE4 Android 프로젝트 디버깅에 Android Studio 를 사용할 수 있도록 구성하는 방법을 살펴보겠습니다.
+
+## 단계
+
+여기서는 Android Studio 를 다운로드하고 UE4 프로젝트에서 작동하도록 구성하는 방법을 알아봅니다.
+
+1.  다음 링크를 통해 Android Studio 3.0.1 버전을 다운로드하고 설치합니다.   
+      [https://developer.android.com/studio/archive](https://developer.android.com/studio/archive)
+2.  디버깅하려는 apk 를 빌드한 다음 디버깅에 사용할 Android 디바이스에 디플로이합니다.  
+    ![](package_menu.png)
+3.  Android Studio Launcher 를 열고 표시되는 옵션 중 **Open an existing Android Studio Project** (기존 Android Studio 프로젝트 열기)를 선택합니다.  
+    ![](AndroidDebugging_01.png "AndroidDebugging_01.png")
+4.  **Open File or Project** (파일 또는 프로젝트 열기) 메뉴에서 **C:\\YourProjectName\\Intermediate\\Android\\APK\\Gradle** 폴더 아래 **Gradle** 디렉터리를 선택한 다음 **OK** (확인) 버튼을 누릅니다.  
+    ![](AndroidDebugging_02.png "AndroidDebugging_02.png")
+5.  Android Studio 를 열었으면, **Run Menu** (실행 메뉴)에서 **Edit Configurations** (구성 편집) 옵션을 선택합니다.  
+    ![](AndroidDebugging_03.png "AndroidDebugging_03.png")
+6.  **Debugger** (디버거) 탭을 클릭하고 디버그 유형을 **Dual** (듀얼)로 설정합니다.  
+    ![](AndroidDebugging_04.png "AndroidDebugging_04.png")
+7.  **LLDB Startup Command** (LLDB 시작 명령) 탭의 **더하기** (+) 아이콘을 클릭한 뒤 다음 명령을 입력하고 **OK** (확인) 버튼을 눌러 프로세스를 완료합니다.  
+command script import "C:\PathToYourUE4EngineInstall\Engine\Extras/LLDBDataFormatters\UE4DataFormatters_2ByteChars.py"
+[REGION:note]
+참고로 C++ 코드에서는 L("string") 대신 TEXT("string") 을 사용해야 합니다.
+[/REGION]
+![](AndroidDebugging_05.png "AndroidDebugging_05.png")
+[REGION:note]
+**Enter** 키를 누르지 않으면 명령이 실행되지 않습니다.
+[/REGION]
+
+8.  이제 프로젝트의 .cpp 파일을 열고 디버깅 지점에 중단점을 추가합니다.  
+    
+![](AndroidDebugging_10.png)
+10.  메인 메뉴에서 **Run** (실행) > **Debug 'app-app'** ('app-app' 디버깅)을 선택합니다.  
+![](AndroidDebugging_06.png "AndroidDebugging_06.png")
+11.  **Select Deployment Type** (디플로이 유형 선택) 창이 뜨면 목록에서 디바이스를 선택하고 **OK** (확인) 버튼을 클릭합니다.  
+    ![](AndroidDebugging_07.png "AndroidDebugging_07.png")
+
+## 최종 결과
+
+모든 작업이 완료되면 Android 디바이스에 디버거가 붙을 때까지 기다립니다.  
+![](AndroidDebugging_08.png)  
+
+[REGION:note]
+프로젝트 크기에 따라 디버거가 붙는 데 약간의 시간이 걸릴 수 있습니다. **Package data inside APK** (APK 안에 데이터 패키징) 옵션을 사용하지 않으면 디바이스에 데이터를 설치하지 **않습니다**. 사용하면 APK 가 커지므로 디버깅을 위해 다시 디플로이하는 작업이 느려집니다. 또 한가지 옵션은 먼저 에디터에서 **Launch** (실행)한 뒤 디바이스에 현재 레벨을 설치하여 디버깅에 Android Studio 를 사용하는 것입니다. 또는 현재 레벨 데이터 이상이 필요한 경우 디바이스에 OBB 를 패키징한 뒤 설치하면 됩니다.
+[/REGION]

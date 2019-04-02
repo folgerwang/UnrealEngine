@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -14,6 +14,10 @@ class DATASMITHCONTENT_API UDatasmithLandscapeTemplate : public UDatasmithObject
 	GENERATED_BODY()
 
 public:
+	UDatasmithLandscapeTemplate()
+		: UDatasmithObjectTemplate(true)
+	{}
+
 	UPROPERTY()
 	UMaterialInterface* LandscapeMaterial;
 

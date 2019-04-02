@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 //
 // A network connection.
@@ -14,6 +14,7 @@
 #include "GameFramework/OnlineReplStructs.h"
 #include "Engine/NetDriver.h"
 #include "Net/DataBunch.h"
+#include "Net/NetPacketNotify.h"
 #include "Engine/Player.h"
 #include "Engine/Channel.h"
 #include "ProfilingDebugging/Histogram.h"
@@ -21,6 +22,7 @@
 #include "ReplicationDriver.h"
 #include "Analytics/EngineNetAnalytics.h"
 #include "PacketTraits.h"
+#include "Net/Util/ResizableCircularQueue.h"
 
 #include "NetConnection.generated.h"
 
@@ -38,10 +40,11 @@ typedef TMap<TWeakObjectPtr<AActor>, UActorChannel*, FDefaultSetAllocator, TWeak
 	Types.
 -----------------------------------------------------------------------------*/
 enum { RELIABLE_BUFFER = 256 }; // Power of 2 >= 1.
-enum { MAX_PACKETID = 16384 };  // Power of 2 >= 1, covering guaranteed loss/misorder time.
+enum { MAX_PACKETID = FNetPacketNotify::SequenceNumberT::SeqNumberCount };  // Power of 2 >= 1, covering guaranteed loss/misorder time.
 enum { MAX_CHSEQUENCE = 1024 }; // Power of 2 >RELIABLE_BUFFER, covering loss/misorder time.
-enum { MAX_BUNCH_HEADER_BITS = 64 };
-enum { MAX_PACKET_HEADER_BITS = 15 }; // = FMath::CeilLogTwo(MAX_PACKETID) + 1 (IsAck)
+enum { MAX_BUNCH_HEADER_BITS = 256 };
+enum { UE_PACKET_MAX_SEQUENCE_HISTORY_BITS = FNetPacketNotify::MaxSequenceHistoryLength };
+enum { MAX_PACKET_HEADER_BITS = 49 + UE_PACKET_MAX_SEQUENCE_HISTORY_BITS }; // = [(Header)32 + (SeqHistory)32-MaxSequenceHistoryLength|(bool)1|?(ServerTime)8|(ReceviedRateByte)8]
 enum { MAX_PACKET_TRAILER_BITS = 1 };
 
 // 
@@ -173,7 +176,7 @@ struct DelayedPacket
 	double SendTime;
 
 public:
-	DEPRECATED(4.21, "Use the constructor that takes PacketTraits for allowing for analytics and flags")
+	UE_DEPRECATED(4.21, "Use the constructor that takes PacketTraits for allowing for analytics and flags")
 	FORCEINLINE DelayedPacket(uint8* InData, int32 InSizeBytes, int32 InSizeBits)
 		: Data()
 		, SizeBits(InSizeBits)
@@ -195,9 +198,37 @@ public:
 		Data.AddUninitialized(SizeBytes);
 		FMemory::Memcpy(Data.GetData(), InData, SizeBytes);
 	}
+
+	void CountBytes(FArchive& Ar) const
+	{
+		Data.CountBytes(Ar);
+	}
 };
 #endif
 
+/** Record of channels with data written into each outgoing packet. */
+struct FWrittenChannelsRecord
+{
+	enum { DefaultInitialSize = 1024 };
+
+	struct FChannelRecordEntry
+	{
+		uint32 Value : 31;
+		uint32 IsSequence : 1;
+	};
+
+	typedef TResizableCircularQueue<FChannelRecordEntry> FChannelRecordEntryQueue;
+
+	FChannelRecordEntryQueue ChannelRecord;
+	int32 LastPacketId;
+
+public:
+	FWrittenChannelsRecord(size_t InitialSize = DefaultInitialSize)
+		: ChannelRecord(InitialSize)
+		, LastPacketId(-1)
+	{
+	}
+};
 
 UCLASS(customConstructor, Abstract, MinimalAPI, transient, config=Engine)
 class UNetConnection : public UPlayer
@@ -369,6 +400,8 @@ public:
 	int32 InPacketsLost, OutPacketsLost;
 	/** total packets lost on this connection */
 	int32 InTotalPacketsLost, OutTotalPacketsLost;
+	/** total acks sent on this connection */
+	int32 OutTotalAcks;
 
 	/** Net Analytics */
 
@@ -382,7 +415,7 @@ public:
 	FBitWriter		SendBuffer;						// Queued up bits waiting to send
 	double			OutLagTime[256];				// For lag measuring.
 	int32			OutLagPacketId[256];			// For lag measuring.
-	int32			OutBytesPerSecondHistory[256];	// For saturation measuring.
+	uint8			OutBytesPerSecondHistory[256];	// For saturation measuring.
 	float			RemoteSaturation;
 	int32			InPacketId;						// Full incoming packet index.
 	int32			OutPacketId;					// Most recently sent packet.
@@ -398,8 +431,6 @@ public:
 	TArray<int32>		OutReliable;
 	TArray<int32>		InReliable;
 	TArray<int32>		PendingOutRec;	// Outgoing reliable unacked data from previous (now destroyed) channel in this slot.  This contains the first chsequence not acked
-	TArray<int32> QueuedAcks, ResendAcks;
-
 	int32				InitOutReliable;
 	int32				InitInReliable;
 
@@ -545,7 +576,7 @@ public:
 	TMap<FNetworkGUID, TArray<class UActorChannel*>> KeepProcessingActorChannelBunchesMap;
 
 	/** A list of replicators that belong to recently dormant actors/objects */
-	TMap< TWeakObjectPtr< UObject >, TSharedRef< FObjectReplicator > > DormantReplicatorMap;
+	TMap< UObject*, TSharedRef< FObjectReplicator > > DormantReplicatorMap;
 
 	
 
@@ -561,7 +592,7 @@ public:
 	TSet<FName> ClientVisibleLevelNames;
 
 	/** Called by PlayerController to tell connection about client level visiblity change */
-	void UpdateLevelVisibility(const FName& PackageName, bool bIsVisible);
+	ENGINE_API void UpdateLevelVisibility(const FName& PackageName, bool bIsVisible);
 
 #if DO_ENABLE_NET_TEST
 	// For development.
@@ -658,7 +689,7 @@ public:
 	/** Describe the connection. */
 	ENGINE_API virtual FString Describe();
 
-	DEPRECATED(4.21, "Use the method that allows for packet traits for analytics and modification")
+	UE_DEPRECATED(4.21, "Use the method that allows for packet traits for analytics and modification")
 	ENGINE_API virtual void LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
 	{
 		FOutPacketTraits EmptyTraits;
@@ -686,6 +717,7 @@ public:
 	ENGINE_API virtual void AssertValid();
 
 	/** Send an acknowledgment. */
+	UE_DEPRECATED(4.22, "This method will be removed")
 	ENGINE_API virtual void SendAck( int32 PacketId, bool FirstTime=1);
 
 	/**
@@ -782,7 +814,7 @@ public:
 	 */
 	ENGINE_API virtual void InitConnection(UNetDriver* InDriver, EConnectionState InState, const FURL& InURL, int32 InConnectionSpeed=0, int32 InMaxPacket=0);
 
-	DEPRECATED(4.21, "Analytics providers are now handled in the NetDriver")
+	UE_DEPRECATED(4.21, "Analytics providers are now handled in the NetDriver")
 	ENGINE_API virtual void InitHandler(TSharedPtr<IAnalyticsProvider> InProvider)
 	{
 		InitHandler();
@@ -850,6 +882,7 @@ public:
 	// Functions.
 
 	/** Resend any pending acks. */
+	UE_DEPRECATED(4.22, "This method will be removed.")
 	void PurgeAcks();
 
 	/** Send package map to the remote. */
@@ -907,7 +940,11 @@ public:
 	class UControlChannel* GetControlChannel();
 
 	/** Create a channel. */
+	UE_DEPRECATED(4.22, "Use CreateChannelByName")
 	ENGINE_API UChannel* CreateChannel( EChannelType Type, bool bOpenedLocally, int32 ChannelIndex=INDEX_NONE );
+
+	/** Create a channel. */
+	ENGINE_API UChannel* CreateChannelByName( const FName& ChName, EChannelCreateFlags CreateFlags, int32 ChannelIndex=INDEX_NONE );
 
 	/** Handle a packet we just received. */
 	void ReceivedPacket( FBitReader& Reader );
@@ -1041,7 +1078,19 @@ private:
 	void UpdateAllCachedLevelVisibility() const;
 
 	/** Returns true if an outgoing packet should be dropped due to packet simulation settings, including loss burst simulation. */
-	bool ShouldDropOutgoingPacketForLossSimulation() const;
+	bool ShouldDropOutgoingPacketForLossSimulation(int64 NumBits) const;
+
+	/** Write packetHeader */
+	void WritePacketHeader(FBitWriter& Writer);
+
+	/** Write extended packet header information (ServerFrameTime, SaturationData) */
+	void WritePacketInfo(FBitWriter& Writer) const;
+	
+	/** Read extended packet header information (ServerFrameTime, SaturationData) */
+	bool ReadPacketInfo(FBitReader& Reader);
+
+	/** Packet was acknowledged as delivered */
+	void ReceivedAck(int32 AckPacketId);
 
 	/**
 	 * on the server, the world the client has told us it has loaded
@@ -1058,6 +1107,21 @@ private:
 
 	/** This is only used in UChannel::SendBunch. It's a member so that we can preserve the allocation between calls, as an optimization, and in a thread-safe way to be compatible with demo.ClientRecordAsyncEndOfFrame */
 	TArray<FOutBunch*> OutgoingBunches;
+
+	/** Per packet bookkeeping of written channelIds */
+	FWrittenChannelsRecord ChannelRecord;
+
+	/** Sequence data used to implement reliability */
+	FNetPacketNotify PacketNotify;
+
+	/** Full PacketId  of last sent packet that we have received notification for (i.e. we know if it was delivered or not). Related to OutAckPacketId which is tha last successfully delivered PacketId */
+	int32 LastNotifiedPacketId;
+
+	/** Keep old behavior where we send a packet with only acks even if we have no other outgoing data if we got incoming data */
+	uint32 HasDirtyAcks;
+	
+	/** True if we've hit the actor channel limit and logged a warning about it */
+	bool bHasWarnedAboutChannelLimit;
 };
 
 
@@ -1129,5 +1193,8 @@ public:
 	void HandleClientPlayer( APlayerController* PC, UNetConnection* NetConnection ) override;
 	virtual FString LowLevelGetRemoteAddress(bool bAppendPort=false) override { return FString(); }
 	virtual bool ClientHasInitializedLevelFor(const AActor* TestActor) const { return true; }
+
+
+	virtual TSharedPtr<FInternetAddr> GetInternetAddr() override { return TSharedPtr<FInternetAddr>(); }
 };
 

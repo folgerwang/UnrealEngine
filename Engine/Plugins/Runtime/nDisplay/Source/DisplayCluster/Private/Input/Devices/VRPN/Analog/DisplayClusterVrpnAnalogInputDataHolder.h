@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -13,7 +13,7 @@ struct FDisplayClusterConfigInput;
  * VRPN analog device data holder. Responsible for data serialization and deserialization.
  */
 class FDisplayClusterVrpnAnalogInputDataHolder
-	: public FDisplayClusterInputDeviceBase<EDisplayClusterInputDevice::VrpnAnalog>
+	: public FDisplayClusterInputDeviceBase<EDisplayClusterInputDeviceType::VrpnAnalog>
 {
 public:
 	FDisplayClusterVrpnAnalogInputDataHolder(const FDisplayClusterConfigInput& config);

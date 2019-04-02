@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -123,6 +123,17 @@ public:
 
 	virtual void GetResolvedSourceFilePaths(const TArray<UObject*>& TypeAssets, TArray<FString>& OutSourceFilePaths) const override
 	{
+	}
+
+	virtual void GetSourceFileLabels(const TArray<UObject*>& TypeAssets, TArray<FString>& OutSourceFileLabels) const override
+	{
+		TArray<FString> SourceFilePaths;
+		OutSourceFileLabels.Reset();
+		GetResolvedSourceFilePaths(TypeAssets, SourceFilePaths);
+		if (SourceFilePaths.Num() > 0)
+		{
+			OutSourceFileLabels.AddDefaulted(SourceFilePaths.Num());
+		}
 	}
 
 	virtual void BuildBackendFilter(FARFilter& InFilter) override

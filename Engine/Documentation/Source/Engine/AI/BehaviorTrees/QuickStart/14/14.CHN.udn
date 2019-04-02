@@ -1,27 +1,14 @@
-﻿INTSourceChangelist:2774060
+﻿INTSourceChangelist:3717040
 Availability:Public
 Title: 14.构建行为树
 Crumbs:%ROOT%, Engine, Gameplay, Engine/AI/BehaviorTrees, Engine/AI/BehaviorTrees/QuickStart
 Description: 第十四步。构建行为树
-version:4.9
+parent:Engine/AI/BehaviorTrees/QuickStart
+type:quick start
+type:multi-step
+order:14
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[Previous Step](Engine/AI/BehaviorTrees/QuickStart/13 "%Engine/AI/BehaviorTrees/QuickStart/13:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[Quick Start Home](Engine/AI/BehaviorTrees/QuickStart)
-	[/PARAM]
-	[PARAM:next]
-		[Next Step](Engine/AI/BehaviorTrees/QuickStart/15 "%Engine/AI/BehaviorTrees/QuickStart/15:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
+[NAV]
 
 
 现在构建行为树的所有部件都已准备就绪：
@@ -40,8 +27,10 @@ version:4.9
 
 一起来看看如何创建行为树。
 
+(#Steps)
 ## 步骤
 
+(#BasicSetup)
 ### 基础设置
 
 该指南第八部分中应该已经执行过此操作，以防您未保存，再次梳理一遍创建行为树基础架构的步骤。
@@ -74,6 +63,7 @@ version:4.9
 
 	_第二个 Selector 节点在左边，Sequence 节点在右边。_
 
+(#AddtheService)
 ### 添加 Service 节点
 
 1. 使用最上方 selector 节点上的 **右键单击** 快捷菜单，添加一个 **Services** -> **Agro Check** 节点。
@@ -86,6 +76,7 @@ version:4.9
 	![](setAgroCheck1.jpg)
 	[/REGION]
 
+(#AddtheTasks)
 ### 添加 Tasks
 
 1. 在图表区域中 **单击右键** 打开快捷菜单，然后添加 4 个 **Tasks**：1 个 **Rapid Move To** 节点、1 个 **Wait** 节点、2 个 **Move To** 节点。
@@ -115,6 +106,7 @@ version:4.9
 
 1. 选择 **RapidMoveTo** 节点，然后使用 **Details** 面板将 **Target to Follow** 属性设为 **TargetToFollow**。
 
+(#AddtheDecorators)
 ### 添加 Decorators 节点
 
 1. 在偏下方的 **Selector** 节点上 **单击右键**，选择 **Add Decorators..**-> **Blackboard**。
@@ -163,7 +155,7 @@ q6vTg2roI6k
 [/PARAMLITERAL]
 [/OBJECT]
 
-
+[NAV]
 
 
 

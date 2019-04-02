@@ -1,6 +1,6 @@
 ﻿INTSourceChangelist:3782314
-Title: 안드로이드에서 Ad Mob 게임내 광고 사용법
-Description:안드로이드에서 AdMob 게임내 광고 시스템을 사용하는 법입니다.
+Title: Android에서 Ad Mob 게임내 광고 사용법
+Description:Android에서 AdMob 게임내 광고 시스템을 사용하는 법입니다.
 Crumbs:
 Availability:Public
 version:4.10
@@ -14,7 +14,7 @@ topic-image:ads_topic.png
 
 ## 환경설정
 
-프로젝트가 안드로이드에서 AdMob 게임내 광고 시스템을 사용하도록 환경설정하려면:
+프로젝트가 Android에서 AdMob 게임내 광고 시스템을 사용하도록 환경설정하려면:
 
 1. **언리얼 에디터** 에서 **프로젝트 세팅** 을 선택하여 프로젝트의 환경설정 옵션을 엽니다.
 
@@ -26,13 +26,13 @@ topic-image:ads_topic.png
 
 1. 할당하고자 하는 AdMob ID 마다 **Ad Mob Ad Unit IDs** 배열에 엘리먼트를 추가하고 글상자에 ID 를 입력합니다.
 
-1. **Google Play License Key** 칸에 구글 플레이 라이선스 키를 입력합니다.
+1. **Google Play License Key** 칸에 Google 플레이 라이선스 키를 입력합니다.
 
 	![image alt text](image_0.png)
 
-	이 모든 값은 앱과 게임 서비스의 구글 플레이 개발자 콘솔, 또는 Google Ad Mob 인터페이스에서 사용할 수 있습니다.
+	이 모든 값은 앱과 게임 서비스의 Google 플레이 개발자 콘솔, 또는 Google Ad Mob 인터페이스에서 사용할 수 있습니다.
 
-1. 마지막으로, **안드로이드** 세팅의 **Advanced APKPackaging** (고급 APK 패키징) 섹션에서 **Extra Permissions** 배열에 **com.android.vending.BILLING** 를 추가해 주기도 해야 합니다:
+1. 마지막으로, **Android** 세팅의 **Advanced APKPackaging** (고급 APK 패키징) 섹션에서 **Extra Permissions** 배열에 **com.android.vending.BILLING** 를 추가해 주기도 해야 합니다:
 
 	![](extraPermissions.png)
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Camera/CameraModifier_CameraShake.h"
 #include "EngineGlobals.h"
@@ -8,6 +8,8 @@
 
 //////////////////////////////////////////////////////////////////////////
 // UCameraModifier_CameraShake
+
+DECLARE_CYCLE_STAT(TEXT("AddCameraShake"), STAT_AddCameraShake, STATGROUP_Game);
 
 UCameraModifier_CameraShake::UCameraModifier_CameraShake(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -42,6 +44,8 @@ bool UCameraModifier_CameraShake::ModifyCamera(float DeltaTime, FMinimalViewInfo
 			if ((ShakeInst == nullptr) || ShakeInst->IsFinished())
 			{
 				ActiveShakes.RemoveAt(i, 1);
+
+				SaveShakeInExpiredPool(ShakeInst);
 			}
 		}
 	}
@@ -56,6 +60,8 @@ bool UCameraModifier_CameraShake::ModifyCamera(float DeltaTime, FMinimalViewInfo
 
 UCameraShake* UCameraModifier_CameraShake::AddCameraShake(TSubclassOf<class UCameraShake> ShakeClass, float Scale, ECameraAnimPlaySpace::Type PlaySpace, FRotator UserPlaySpaceRot)
 {
+	SCOPE_CYCLE_COUNTER(STAT_AddCameraShake);
+
 	if (ShakeClass != nullptr)
 	{
 		// adjust for splitscreen
@@ -79,7 +85,15 @@ UCameraShake* UCameraModifier_CameraShake::AddCameraShake(TSubclassOf<class UCam
 			}
 		}
 
-		UCameraShake* const NewInst = NewObject<UCameraShake>(this, ShakeClass);
+		// Try to find a shake in the expired pool
+		UCameraShake* NewInst = ReclaimShakeFromExpiredPool(ShakeClass);
+
+		// No old shakes, create a new one
+		if (NewInst == nullptr)
+		{
+			NewInst = NewObject<UCameraShake>(this, ShakeClass);
+		}
+
 		if (NewInst)
 		{
 			// Initialize new shake and add it to the list of active shakes
@@ -109,6 +123,30 @@ UCameraShake* UCameraModifier_CameraShake::AddCameraShake(TSubclassOf<class UCam
 	return nullptr;
 }
 
+void UCameraModifier_CameraShake::SaveShakeInExpiredPool(UCameraShake* ShakeInst)
+{
+	FPooledCameraShakes& PooledCameraShakes = ExpiredPooledShakesMap.FindOrAdd(ShakeInst->GetClass());
+	if (PooledCameraShakes.PooledShakes.Num() < 5)
+	{
+		PooledCameraShakes.PooledShakes.Emplace(ShakeInst);
+	}
+}
+
+UCameraShake* UCameraModifier_CameraShake::ReclaimShakeFromExpiredPool(TSubclassOf<UCameraShake> CameraShakeClass)
+{
+	if (FPooledCameraShakes* PooledCameraShakes = ExpiredPooledShakesMap.Find(CameraShakeClass))
+	{
+		if (PooledCameraShakes->PooledShakes.Num() > 0)
+		{
+			UCameraShake* OldShake = PooledCameraShakes->PooledShakes.Pop();
+			// Calling new object with the exact same name will re-initialize the uobject in place
+			OldShake = NewObject<UCameraShake>(this, CameraShakeClass, OldShake->GetFName());
+			return OldShake;
+		}
+	}
+	return nullptr;
+}
+
 void UCameraModifier_CameraShake::RemoveCameraShake(UCameraShake* ShakeInst, bool bImmediately)
 {
 	for (int32 i = 0; i < ActiveShakes.Num(); ++i)
@@ -120,6 +158,7 @@ void UCameraModifier_CameraShake::RemoveCameraShake(UCameraShake* ShakeInst, boo
 			if (bImmediately)
 			{
 				ActiveShakes.RemoveAt(i, 1);
+				SaveShakeInExpiredPool(ShakeInst);
 			}
 			break;
 		}
@@ -135,6 +174,7 @@ void UCameraModifier_CameraShake::RemoveAllCameraShakesOfClass(TSubclassOf<class
 			ActiveShakes[i]->StopShake(bImmediately);
 			if (bImmediately)
 			{
+				SaveShakeInExpiredPool(ActiveShakes[i]);
 				ActiveShakes.RemoveAt(i, 1);
 			}
 		}
@@ -151,6 +191,11 @@ void UCameraModifier_CameraShake::RemoveAllCameraShakes(bool bImmediately)
 
 	if (bImmediately)
 	{
+		for (UCameraShake* Inst : ActiveShakes)
+		{
+			SaveShakeInExpiredPool(Inst);
+		}
+
 		// clear ActiveShakes array
 		ActiveShakes.Empty();
 	}

@@ -1,0 +1,236 @@
+﻿INTSourceChangelist:4401262
+Availability: Public
+Crumbs: 
+Title: Live Link プラグイン
+Description: Live Link プラグインを有効化して使用する方法と Unreal Engine 4 のアニメーション システムの各種機能について説明します。
+Type:landing
+Version: 4.19
+Parent: Engine/Animation
+Order: 1
+Tags: Animation, Animation Tools, Live Link
+
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    NRfZXRmHKtU
+    [/PARAMLITERAL]
+[/OBJECT]
+
+Live Link の目的は、外部ソース (DDC ツールや Mocap サーバーなど) から Unreal Engine 4 (UE4) へのアニメーション データのストリーミングとその取り込みのための共通インターフェースを提供することです。Unreal のプラグイン経由で拡張できるように設計されています。これにより、サード パーティによる新機能の開発が可能となり、エンジン部の変更とメンテナンスの必要がなくなることが期待されます。
+
+Live Link を Maya や Motionbuilder などの DCC ツールと併用することで、 UE 4 内でリアルタイムに作品のプレビューを確認しながら外部でアニメーションを編集する方法を提供します。Live Link を利用してモーション キャプチャ システムがからデータをリアルタイムでエンジンにストリームすることも可能です。
+
+## Live Link クライアント
+
+![](LiveLinkGraph-3.png)
+
+Live Link のハブとなるのが **Live Link クライアント** です。クライアントはプロジェクト内で Live Link プラグインが有効化されると作成されますが、主に 2 つの役割があります。
+
+1. **ソースの管理** 。これらはアニメーション データのソースで、同一マシン上またはネットワーク越しの主に他のアプリケーションへの接続となり、アニメーション データを Live Link に提供します。
+2. **サブジェクトの管理** 。サブジェクトはクライアント内の個々のデータ ストリームです。たとえば、アニメーションするキャラクター 1 つが1 つのサブジェクトになります。
+      
+    サブジェクトは次のデータで構成されます。
+    1. 名前
+    2. リファレンススケルトン (名前とボーンの階層)
+    3. カーブ キー (カーブ名順)
+    4. 1 つ以上のフレーム
+        1. 各フレームは(参照したスケルトン順にマッチする)ボーンの変換リストと(カーブキーにマッチする)カーブの浮動小数点値のリストを保持します。
+    
+
+エンジンが使用する次フレーム用のデータ構築もクライアントの役割です。直近に受信したデータを直接コピーする、もしくは、バッファした入力データにユーザ定義可能な遅延を加えて再生して修正フレームを作成するといった方法で用意できます。
+
+**ソース**
+
+ソースとは、 Live Link クライアントに変換されたデータのことです。ソースはプラグイン内で定義できるのでエンジンのコードを変更することなくサードパーティーで自作プラグインの構築が可能です。ソースにはアニメーション データの受信方法を管理する役割があります (たとえば、ネットワーク プロトコル越しや、マシン自体に接続されたデバイスの API からの読み取りなど)。各ソースにクライアントへのデータ渡しを可能にする参照が渡されます。
+
+Live Link プラグイン内にデータを Unreal メッセージ バス 接続から読み取る自作ソース (**メッセージ バス ソース** といいます) を定義しました。このソースは Maya と Motionbuilder 用の Live Link プラグインの構築でも使用されています。
+
+## Live Link の有効化
+
+[Plugins] ウィンドウ (**[Edit] > [Plugins]**) を開いて、 **[Animation]** カテゴリーを選択し、 Live Link プラグインの **[Enabled]** を選択すると Live Link プラグインを有効化できます。
+
+![](Step_02-1.png)
+
+Live Link クライアントが有効になると **[Window]** メニューからアクセスできるようになります。
+
+![](EnableLink_1-1.png)
+
+[Live Link] ウィンドウ が開き、ソース タイプとサブジェクトを追加できます。
+
+![](LiveLinkWindow.png)
+
+上図では、プラグインを実行している Maya のインスタンス （左上のセクション）に接続を開放している Live Link クライアントを確認できます。そのインスタンスはエディタへ「 EditorActiveCamera 」と「 Maya 」という名前の 2 つのサブジェクトを送信しています (左下のセクション)。
+
+**補完設定**
+
+ソース タイプを追加する際は、 **[Use Interpolation]** で定義された **Interpolation Offset** を **[Details]** パネルから適用できます。
+
+![](LiveLinkConnected-1.png)
+
+補完設定を有効にして、指定した補完オフセット値を使用する接続を設定します。この値が補完時に現在の時間からどれだけ遅れてバッファを読み込むかを決定します (秒)。
+
+##エディタの統合
+
+現在、アニメーション エディタは Live Link とビルトインで統合されています。この設定は **[Preview Controller]** プロパティの下にある **[Preview Scene Settings]** タブからアクセスできます。
+
+![](PreviewSceneSettings-3.png)
+
+Live Link プラグインを有効にすると、プレビュー コントローラーのオプションが **Live Link Preview Controller** に変更可能になります。選択すると、以下のオプションが設定可能です。
+
+*   **Subject Name** - プレビュー メッシュに適用したい Live Link のサブジェクト名。
+*   **Enable Camera Sync** - Unreal Editor のカメラと外部エディタの同期を有効にします。内部的には **EditorActiveCamera** というサブジェクトの Live Link を参照します。内部で開発した Maya と Motionbuilder の両プラグインともこれをサポートします。
+*   **Retarget Asset** - プレビュー メッシュに適用される Live Link データに適用するリターゲット アセットを指定します。
+
+以下は、 Maya Live Link プラグインを使用して接続が確立した UE4 と Maya です。
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:width]
+    640
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    360
+    [/PARAMLITERAL]
+    [PARAMLITERAL:videoid]
+    RHJpSyS_EIw
+    [/PARAMLITERAL]
+[/OBJECT]
+
+## Live Link リターゲット
+
+Live Link リターゲットは現在リターゲット アセットによって実行されています (Base class ULiveLinkRetargetAsset) 。Live Link のポーズ ノードは使用するリターゲットアセットを指定するピンを保持します。非常にシンプルな リマップ アセット (ULiveLinkRemapAsset) を提供することで、 Live Link から USkeleton への変換マッピングが可能になります。以下はリターゲット アセットの実装方法例です。
+
+Live Link のリターゲット アセットでは次の関数のオーバーライドが必要です。
+
+    BuildPoseForSubject(const FLiveLinkSubjectFrame& InFrame, TSharedPtr&lt;FLiveLinkRetargetContext> InOutContext, FCompactPose& OutPose, FBlendedCurve& OutCurve)
+
+この関数の引数は以下の通りです。
+
+*   LiveLinkSubjectFrame - オプションでバッファされ補完される、 Live Link が参照するトランスフォーム/スケルトン。
+*   FLiveLinkRetargetContext - ULiveLinkRetargetAsset が毎回インスタンス化されないため、インスタンス データへのリターゲティングを許可 (CreateRetargetContext をオーバーライドすることでカスタマイズが可能)。
+*   FCompactPose - アニメーションの評価中に使用するフォーマット FCompactPose のリターゲティングからの出力 ポーズ。
+*   FBlendedCurve - 出力カーブ データULiveLinkRetargetAsset には、提供された Live Link のデータからの追加を実行する補助関数 BuildCurveData があります。
+
+リターゲット アセットもブループリント可能で、 (適切な場所で)ユーザーによるエディタのロジックの指定ができます。機能はリマップ アセットに使用され、ボーン名がエディタで変換可能になります。
+
+**Live Link リマップ アセット**
+
+  
+新しいリターゲット アセットを作成するために必要なものを示した例はエディタにあります。 /Engine/Plugins/Animation/LiveLink/Source/LiveLink の以下のクラスを確認してください。
+
+*   ULiveLinkRetargetAsset
+*   ULiveLinkRemapAsset
+    
+
+エディタで、リマップ アセットは **LiveLinkRemapAsset** クラス型を使用して作成可能です。
+  
+
+![](RemapBlueprint-3.png)
+
+リマップ アセット内で、 **Get Remapped Bone Name** 関数をオーバーライドできます。
+
+  
+
+![](RemapBlueprint2.png)
+
+これにより、エディタでボーン名を変換できます
+
+  
+
+![](GetRemappedBone.png)
+
+上の例では、 Maya のスケルタル メッシュからボーン名情報を取り込んでいます。データは次に修正され UE4 のボーン名の命名規則にマップされます。
+
+たとえば Maya では、使用される命名規則は  *CharacterName:BoneName* というボーン名を参照します。UE4 ではスケルトン メッシュは  *BoneName* の部分のみ使用します。Maya が UE4 のスケルトンにデータをストリームさせるために、リマップ アセットで文字列をコロンで分割し、コロンの後の文字情報だけを取得して **Get Remapped Bone Name** 関数をオーバーライドします。つまり、  *CharacterName:BoneName* ではなく  *BoneName* と取得します。
+
+
+**[Preview Scene Settings]** ウィンドウで、 リターゲティング アセットの使用について指定します。
+  
+
+![](RemapBlueprint3.png)
+
+## Live Link の使用法の補足
+
+外部ソースからのプレビューに加えて、次のような方法で Live Link データの使用が可能です。
+
+### アニメーション ブループリント
+
+Live Link からのデータはアニメーション ブループリント内に直接適用できます。
+  
+
+![](AnimBPLiveLink.png)
+
+アニメーション ブループリントの AnimGraph 内に **Live Link Pose** ノードを作成することで実現します。ノードには 2 つのプロパティがあります。
+
+*   **Subject Name** - データストリーム元の Live Link のサブジェクト名
+*   **Retarget Asset** - Live Link からのデータをアニメーション ブループリントが使用するスケルトンに適用するために使用するリターゲット アセット
+
+Live Link ポーズ ノードの出力はアニメーション ブループリントの他のポーズ ノード同様に通常のポーズなので、他のポーズと同様の操作が可能です (例：モディファイアまたはブレンド ノードへの供給)。
+
+### モーション コントローラー
+
+Live Link はモーション コントローラーとの併用が可能です。モーション コントローラーのモーション ソース プロパティを Live Link 内のサブジェクトに設定できます。
+  
+
+![](MotionController.png)
+
+このように設定すると、モーション コントローラー コンポーネントのポジションはサブジェクトの最初の変換に影響を受けます。
+
+  
+モーション コントローラーの統合は Live Link サブジェクトのカスタム パラメーターにもアクセス可能です。これらのパラメーターは Live Link サブジェクトに構築したカーブ サポートが受け渡します。これらの値にアクセスするには、 MotionControllerComponent から新しいブループリントを派生させ、 OnMotionControllerUpdated 関数をオーバーライドする必要があります。OnMotionControllerUpdated の間、モーション コントローラーで GetParameterValue を呼び出すことが有効です。
+
+以下は、 Live Link の Intensity パラメーターからライト コンポーネントの強さを取り出す一例です。
+  
+
+![](LiveLinkAnimMotionControllers.png)
+
+## プラグイン開発
+
+Live Link での統合には 2 つの方法があります。   
+
+*   Live Link への新しいソースを公開する Unreal Engine のプラグインのビルド。
+
+ストリーミング プロトコルが既にある場合に推奨されるアプローチです。
+
+*   サードパーティのソフトウェアにメッセージ バスのエンドポイントを統合して、ビルトインのメッセージ バス ソースのデータ トランスミッターとして機能させる。
+
+Maya と Motionbuilder のプラグインで採用しているアプローチです。
+
+[REGION:note]
+詳細は、 [](Engine/Animation/LiveLinkPlugin/LiveLinkPluginDevelopment) のページを参照してください。
+[/REGION]
+
+## Maya の Live Link プラグイン
+
+Maya の Live Link プラグインのプレビルドのバイナリはエンジンに付属しており、それは **Engine\Extras\MayaLiveLink\LiveLinkMaya.zip** 下のエンジンのインストール フォルダにあります。Zip ファイルの中身は Windows 版 Maya 2016 、2017 および 2018 のバイナリです。その他のバージョンのバイナリが必要な場合は、 (**Engine\Source\Programs\MayaLiveLinkPlugin**) にプラグインのソース コードがあります。これは、バイナリをビルドするために使用します。 
+
+[REGION:warning]
+Maya Live Link プラグインは、 4.19 がデプロイされた際に「 Engine\Extras\MayaLiveLink 」フォルダに含まれるはずでしたが、そうなりませんでした。そのため、この問題に対処する修正プログラムがデプロイされるまでの間は、[このリンク](https://epicgames.app.box.com/s/awdz97dguh6k61opwy66ovfhn3gpk1hg) からコンテンツをダウンロードしてください。
+[/REGION]
+
+Maya プラグインは Maya モジュール フォーマットで提供されます。プラグインをインストールするには、 zip ファイル内の正しいバージョンのフォルダのコンテンツを、お使いの Maya フォルダにコピーします。
+
+[REGION:note]
+モジュールの説明については Maya のドキュメントを参照してください。
+[/REGION]
+
+Live Link プラグインが Maya にインストールされ有効になると、 Unreal Editor で自動的に接続と表示されるようになります。Maya でウインドウを開いてストリーミングの設定にアクセスできます。MayaLiveLinkUI の MEL コマンドによってスポーンされ、ツールバー ボタンに結合されます。
+
+![](MayaLiveLinkUI.png)  
+
+右上に、Maya のこのインスタンスが Unreal クライアントに接続しているか否かを表示します。[Unreal Engine Live Link] の下に現在ストリーミングされているサブジェクトのリストがあります (上の画像でストリーミングされているのは 1 つだけです)。ウィンドウ下部でストリーミングから追加と削除の制御が可能です。Maya シーンからストリーミングするアイテムを選択することで作業を追加、サブジェクト名をテキスト ボックスに入力して **[Add Subject]** をクリックします。
+
+Maya の Live Link プラグインのセットアップ方法については、 [](Engine/Animation/LiveLinkPlugin/ConnectingUnrealEngine4toMayawithLiveLink) のガイドを参照してください。
+
+## Motionbuilder Live Link プラグイン
+
+Motionbuilder プラグインも Maya プラグインと同等の機能があり、Maya プラグイン同様、接続がエディタに表示されます。同様にストリーミング管理のためのカスタム UI があります。
+
+![](MotionBuilderLiveLinkPlugin.png)
+
+(上図のように) 現在のシーンからオブジェクトを選択してストリーミング リストに追加可能です。ここで、 **Subject Name** コラムに名称をセットして、 **Stream Type** (カメラ、スケルトンなど) を設定可能です。サブジェクトのストリーミングの有効化、無効化もここから可能です。

@@ -1,35 +1,40 @@
-﻿INTSourceChangelist:2744667
+﻿INTSourceChangelist:3150504
 Availability:Public
 Title: 开发的相关设置
 Crumbs: %ROOT%, Programming
 Description: 设置编程环境，创建代码项目，并在虚幻引擎的源码上开始工作。
 version: 4.9
 
+(#GeneralDeveloperInformation)
 ## 开发人员所需的基本信息
 
 [REGION:buttonlist]
-
-		* [](Programming/Development/VisualStudioSetup "%Programming/Development/VisualStudioSetup:description%")
-		* [](Programming/Development/Tools "%Programming/Development/Tools:description%")
-		* [](Programming/Development/CodingStandard "%Programming/Development/CodingStandard:description%")
-	
+* [](Programming/Development/VisualStudioSetup "%Programming/Development/VisualStudioSetup:description%")
+* [](Programming/Development/Tools "%Programming/Development/Tools:description%")
+* [](Programming/Development/CodingStandard "%Programming/Development/CodingStandard:description%")
 [/REGION]
 
+(#WorkingWithCodeProjects)
 ## 在代码的项目上工作
 
 [REGION:buttonlist]
-
-		* [](Programming/Development/ManagingGameCode "%Programming/Development/ManagingGameCode:description%")
-			* [](Programming/Development/ManagingGameCode/CppClassWizard "%Programming/Development/ManagingGameCode/CppClassWizard:description%")
-		* [](Programming/Development/CompilingProjects "%Programming/Development/CompilingProjects:description%")
-	
+* [](Programming/Development/ManagingGameCode "%Programming/Development/ManagingGameCode:description%")
+	* [](Programming/Development/ManagingGameCode/CppClassWizard "%Programming/Development/ManagingGameCode/CppClassWizard:description%")
+* [](Programming/Development/CompilingProjects "%Programming/Development/CompilingProjects:description%")
 [/REGION]
 
-## 在引擎的代码上工作
+(#WorkingWithEngineSource)
+## 在引擎源码上工作
 
 [REGION:buttonlist]
+* [](GettingStarted/DownloadingUnrealEngine "%GettingStarted/DownloadingUnrealEngine:description%")
+* [](Programming/Development/BuildingUnrealEngine "%Programming/Development/BuildingUnrealEngine:description%")
+[/REGION]
 
-		* [](GettingStarted/DownloadingUnrealEngine "%GettingStarted/DownloadingUnrealEngine:description%")
-		* [](Programming/Development/BuildingUnrealEngine "%Programming/Development/BuildingUnrealEngine:description%")
-	
+(#CreatingEngineBuilds)
+## 创建引擎构建
+
+[REGION:buttonlist]
+* [](Programming/Development/BuildGraph "%Programming/Development/BuildGraph:description%")
+* [](Programming/Development/InstalledBuildReference "%Programming/Development/InstalledBuildReference:description%")
 [/REGION]

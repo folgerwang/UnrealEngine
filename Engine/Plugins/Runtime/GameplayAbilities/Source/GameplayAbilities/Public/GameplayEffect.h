@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -624,7 +624,7 @@ enum class EGameplayEffectStackingExpirationPolicy : uint8
 	/** The current stack count will be decremented by 1 and the duration refreshed. The GE is not "reapplied", just continues to exist with one less stacks. */
 	RemoveSingleStackAndRefreshDuration,
 
-	/** The duration of the gameplay effect is refreshed. This essentially makes the effect infinite in duration. This can be used to manually handle stack decrements via XXX callback */
+	/** The duration of the gameplay effect is refreshed. This essentially makes the effect infinite in duration. This can be used to manually handle stack decrements via OnStackCountChange callback */
 	RefreshDuration,
 };
 
@@ -1271,7 +1271,7 @@ struct GAMEPLAYABILITIES_API FActiveGameplayEffect : public FFastArraySerializer
 	float StartWorldTime;
 
 	// Not sure if this should replicate or not. If replicated, we may have trouble where IsInhibited doesn't appear to change when we do tag checks (because it was previously inhibited, but replication made it inhibited).
-	UPROPERTY()
+	UPROPERTY(NotReplicated)
 	bool bIsInhibited;
 
 	/** When replicated down, we cue the GC events until the entire list of active gameplay effects has been received */
@@ -1641,7 +1641,7 @@ struct GAMEPLAYABILITIES_API FActiveGameplayEffectsContainer : public FFastArray
 
 	// -------------------------------------------------------------------------------------------
 
-	DEPRECATED(4.17, "Use GetGameplayAttributeValueChangeDelegate (the delegate signature has changed)")
+	UE_DEPRECATED(4.17, "Use GetGameplayAttributeValueChangeDelegate (the delegate signature has changed)")
 	FOnGameplayAttributeChange& RegisterGameplayAttributeEvent(FGameplayAttribute Attribute);
 
 	FOnGameplayAttributeValueChange& GetGameplayAttributeValueChangeDelegate(FGameplayAttribute Attribute);
@@ -1716,6 +1716,8 @@ private:
 	{
 		return OwnerIsNetAuthority;
 	}
+
+	void InternalExecutePeriodicGameplayEffect(FActiveGameplayEffect& ActiveEffect);
 
 	/** Called internally to actually remove a GameplayEffect or to reduce its StackCount. Returns true if we resized our internal GameplayEffect array. */
 	bool InternalRemoveActiveGameplayEffect(int32 Idx, int32 StacksToRemove, bool bPrematureRemoval);
@@ -1877,16 +1879,6 @@ public:
 	void ValidateGameplayEffect();
 
 	// ---------------------------------------------------------------------------------------------------------------------------------
-
-#if WITH_EDITORONLY_DATA
-	/** Template to derive starting values and editing customization from */
-	UPROPERTY()
-	UGameplayEffectTemplate*	Template;
-
-	/** When false, show a limited set of properties for editing, based on the template we are derived from */
-	UPROPERTY()
-	bool ShowAllProperties;
-#endif
 
 	/** Policy for the duration of this effect */
 	UPROPERTY(EditDefaultsOnly, Category=GameplayEffect)

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -33,6 +33,11 @@ namespace Gauntlet
 		/// Returns true if the test has encountered warnings. Test is expected to list any warnings it considers appropriate in the summary
 		/// </summary>
 		public virtual bool HasWarnings { get; protected set; }
+
+		/// <summary>
+		/// Returns true if the test was cancelled
+		/// </summary>
+		public virtual bool WasCancelled { get; protected set; }
 
 		/// <summary>
 		/// Internal status state
@@ -131,8 +136,9 @@ namespace Gauntlet
 		/// </summary>
 		/// <param name="WasCancelled"></param>
 		/// <returns></returns>
-		public virtual void StopTest(bool WasCancelled)
+		public virtual void StopTest(bool InWasCancelled)
 		{
+			WasCancelled = InWasCancelled;
 		}
 
 		/// <summary>

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PacketHandler.h"
 #include "PacketAudit.h"
@@ -13,6 +13,7 @@
 #include "DDoSDetection.h"
 #include "HandlerComponentFactory.h"
 #include "ReliabilityHandlerComponent.h"
+#include "PacketHandlerProfileConfig.h"
 
 // @todo #JohnB: There is quite a lot of inefficient copying of packet data going on.
 //					Redo the whole packet parsing/modification pipeline.
@@ -82,7 +83,7 @@ void PacketHandler::Tick(float DeltaTime)
 }
 
 void PacketHandler::Initialize(Handler::Mode InMode, uint32 InMaxPacketBits, bool bConnectionlessOnly/*=false*/,
-								TSharedPtr<IAnalyticsProvider> InProvider/*=nullptr*/, FDDoSDetection* InDDoS/*=nullptr*/)
+								TSharedPtr<IAnalyticsProvider> InProvider/*=nullptr*/, FDDoSDetection* InDDoS/*=nullptr*/, FName InDriverProfile/*=NAME_None*/)
 {
 	Mode = InMode;
 	MaxPacketBits = InMaxPacketBits;
@@ -96,8 +97,14 @@ void PacketHandler::Initialize(Handler::Mode InMode, uint32 InMaxPacketBits, boo
 	if (!bConnectionlessHandler)
 	{
 		TArray<FString> Components;
-
-		GConfig->GetArray(TEXT("PacketHandlerComponents"), TEXT("Components"), Components, GEngineIni);
+		FString DriverProfileCategory = FString::Printf(TEXT("%s PacketHandlerProfileConfig"), *InDriverProfile.GetPlainNameString());
+		GConfig->GetArray(*DriverProfileCategory, TEXT("Components"), Components, GEngineIni);
+		
+		// If we didn't get any matches, push in the regular components.
+		if (Components.Num() == 0)
+		{
+			GConfig->GetArray(TEXT("PacketHandlerComponents"), TEXT("Components"), Components, GEngineIni);
+		}
 
 		for (const FString& CurComponent : Components)
 		{
@@ -370,6 +377,54 @@ TSharedPtr<HandlerComponent> PacketHandler::GetComponentByName(FName ComponentNa
 	}
 
 	return nullptr;
+}
+
+void PacketHandler::CountBytes(FArchive& Ar) const
+{
+	Ar.CountBytes(sizeof(*this), sizeof(*this));
+	OutgoingPacket.CountMemory(Ar);
+	IncomingPacket.CountMemory(Ar);
+
+	HandlerComponents.CountBytes(Ar);
+	for (const TSharedPtr<HandlerComponent>& Component : HandlerComponents)
+	{
+		if (HandlerComponent const * const LocalComponent = Component.Get())
+		{
+			LocalComponent->CountBytes(Ar);
+		}
+	}
+
+	// Don't handle EncryptionComponent, as it should be in our components array.
+
+	BufferedPackets.CountBytes(Ar);
+	for (BufferedPacket const * const LocalPacket : BufferedPackets)
+	{
+		if (LocalPacket)
+		{
+			LocalPacket->CountBytes(Ar);
+		}
+	}
+
+	// Unfortunately, there's currently no way to safely calculate memory usage for TQueues.
+	// so QueuedPackets, QueuedRawPackets, QueuedHandlerPackets, and QueuedConnectionlessPackets
+	// can't be tracked without a rework.
+
+	BufferedConnectionlessPackets.CountBytes(Ar);
+	for (BufferedPacket const * const LocalPacket : BufferedConnectionlessPackets)
+	{
+		if (LocalPacket)
+		{
+			LocalPacket->CountBytes(Ar);
+		}
+	}
+
+	// Don't handle ReliabilityComponent, since it should be in our components array.
+	// Don't track AnalyticsProvider as that should be handled elsewhere.
+}
+
+void HandlerComponent::CountBytes(FArchive& Ar) const
+{
+	Ar.CountBytes(sizeof(*this), sizeof(*this));
 }
 
 const ProcessedPacket PacketHandler::Incoming_Internal(uint8* Packet, int32 CountBytes, bool bConnectionless, const FString& Address)
@@ -788,6 +843,40 @@ void PacketHandler::HandlerComponentInitialized(HandlerComponent* InComponent)
 			HandlerInitialized();
 		}
 	}
+}
+
+bool PacketHandler::DoesAnyProfileHaveComponent(const FString& InComponentName)
+{
+	TArray<FString> ProfileSectionNames;
+	if (GConfig->GetPerObjectConfigSections(GEngineIni, TEXT("PacketHandlerProfileConfig"), ProfileSectionNames))
+	{
+		for (const FString& CurProfileSection : ProfileSectionNames)
+		{
+			FName CurNetDriver(*CurProfileSection.Left(CurProfileSection.Find(TEXT(" "))));
+			if (DoesProfileHaveComponent(CurNetDriver, InComponentName))
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool PacketHandler::DoesProfileHaveComponent(const FName InNetDriverName, const FString& InComponentName)
+{
+	TArray<FString> Components;
+	FString DriverProfileCategory = FString::Printf(TEXT("%s PacketHandlerProfileConfig"), *InNetDriverName.GetPlainNameString());
+	GConfig->GetArray(*DriverProfileCategory, TEXT("Components"), Components, GEngineIni);
+	
+	for (const FString& Component : Components)
+	{
+		if (Component.Contains(InComponentName, ESearchCase::CaseSensitive))
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 BufferedPacket* PacketHandler::GetQueuedPacket()

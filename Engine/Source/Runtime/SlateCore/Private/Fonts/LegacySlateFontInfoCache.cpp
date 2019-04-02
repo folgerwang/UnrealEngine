@@ -1,11 +1,42 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Fonts/LegacySlateFontInfoCache.h"
+#include "HAL/IConsoleManager.h"
+#include "SlateGlobals.h"
 #include "Misc/Paths.h"
 #include "Misc/ScopeLock.h"
 #include "Misc/FileHelper.h"
 #include "Fonts/FontProviderInterface.h"
 #include "Fonts/UnicodeBlockRange.h"
+
+static int32 GSlateEnableLegacyLocalizedFallbackFont = 1;
+static FAutoConsoleVariableRef CVarSlateEnableLocalizedFallbackFont(TEXT("Slate.EnableLegacyLocalizedFallbackFont"), GSlateEnableLegacyLocalizedFallbackFont, TEXT("Enable the legacy localized fallback fonts? (0/1)."), ECVF_Default);
+
+FString FLegacySlateFontInfoCache::FFallbackContext::ToString() const
+{
+	FString FontName;
+	if (FontData)
+	{
+		const UObject* FontAsset = FontData->GetFontFaceAsset();
+		FontName = (FontAsset) ? FontAsset->GetPathName() : FontData->GetFontFilename();
+	}
+	else
+	{
+		FontName = TEXT("<unknown>");
+	}
+
+	FString CharacterInfo;
+	if (Char)
+	{
+		CharacterInfo = FString::Printf(TEXT("%c (U+%04x)"), Char, (int32)Char);
+	}
+	else
+	{
+		CharacterInfo = TEXT("<unknown>");
+	}
+
+	return FString::Printf(TEXT("Font: '%s', Character: '%s'"), *FontName, *CharacterInfo);
+}
 
 TSharedPtr<FLegacySlateFontInfoCache> FLegacySlateFontInfoCache::Singleton;
 
@@ -26,7 +57,7 @@ FLegacySlateFontInfoCache::FLegacySlateFontInfoCache()
 	, LocalizedFallbackFontFrameCounter(0)
 {
 	LastResortFontPath = FPaths::EngineContentDir() / TEXT("SlateDebug/Fonts/LastResort.ttf");
-	bIsLastResortFontAvailable = FPaths::FileExists(LastResortFontPath);
+	bIsLastResortFontAvailable = !FPlatformProperties::RequiresCookedData() && FPaths::FileExists(LastResortFontPath);
 }
 
 TSharedPtr<const FCompositeFont> FLegacySlateFontInfoCache::GetCompositeFont(const FName& InLegacyFontName, const EFontHinting InLegacyFontHinting)
@@ -202,7 +233,12 @@ TSharedPtr<const FCompositeFont> FLegacySlateFontInfoCache::GetSystemFont()
 	return SystemFont;
 }
 
-const FFontData& FLegacySlateFontInfoCache::GetLocalizedFallbackFontData()
+bool FLegacySlateFontInfoCache::IsLocalizedFallbackFontAvailable() const
+{
+	return !!GSlateEnableLegacyLocalizedFallbackFont;
+}
+
+const FFontData& FLegacySlateFontInfoCache::GetLocalizedFallbackFontData(const FFallbackContext& InContext)
 {
 	// GetLocalizedFallbackFontData is called directly from the font cache, so may be called from multiple threads at once
 	FScopeLock Lock(&LocalizedFallbackFontDataCS);
@@ -227,6 +263,7 @@ const FFontData& FLegacySlateFontInfoCache::GetLocalizedFallbackFontData()
 		{
 			LocalizedFallbackFontData = MakeShared<FFontData>(FallbackFontPath, EFontHinting::Default, EFontLoadingPolicy::LazyLoad);
 			AllLocalizedFallbackFontData.Add(FallbackFontPath, LocalizedFallbackFontData);
+			UE_LOG(LogSlate, Warning, TEXT("Legacy localized fallback font '%s' was requested. %s\nLegacy localized fallback fonts were deprecated in 4.22 and will be removed in a future version!\nPlease update your composite fonts to use localized sub-font families: https://docs.unrealengine.com/en-US/Engine/UMG/UserGuide/Fonts/Overview"), *FallbackFontPath, *InContext.ToString());
 		}
 
 		if (LocalizedFallbackFontData != PreviousLocalizedFallbackFontData)
@@ -256,14 +293,14 @@ TSharedPtr<const FCompositeFont> FLegacySlateFontInfoCache::GetLastResortFont()
 
 	if (!LastResortFont.IsValid() && bIsLastResortFontAvailable)
 	{
-		const FFontData& FontData = GetLastResortFontData();
+		const FFontData& FontData = GetLastResortFontData(FFallbackContext());
 		LastResortFont = MakeShared<FStandaloneCompositeFont>(NAME_None, FontData.GetFontFilename(), FontData.GetHinting(), FontData.GetLoadingPolicy());
 	}
 
 	return LastResortFont;
 }
 
-const FFontData& FLegacySlateFontInfoCache::GetLastResortFontData()
+const FFontData& FLegacySlateFontInfoCache::GetLastResortFontData(const FFallbackContext& InContext)
 {
 	// GetLastResortFontData is called directly from the font cache, so may be called from multiple threads at once
 	FScopeLock Lock(&LastResortFontDataCS);
@@ -271,6 +308,7 @@ const FFontData& FLegacySlateFontInfoCache::GetLastResortFontData()
 	if (!LastResortFontData.IsValid())
 	{
 		LastResortFontData = MakeShared<FFontData>(bIsLastResortFontAvailable ? LastResortFontPath : FString(), EFontHinting::Default, EFontLoadingPolicy::LazyLoad);
+		UE_LOG(LogSlate, Log, TEXT("Last resort fallback font was requested. %s"), *InContext.ToString());
 	}
 
 	return *LastResortFontData;

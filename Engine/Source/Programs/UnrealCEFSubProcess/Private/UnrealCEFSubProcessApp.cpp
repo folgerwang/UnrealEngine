@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealCEFSubProcessApp.h"
 #include "UnrealCEFSubProcess.h"
@@ -22,7 +22,7 @@ void FUnrealCEFSubProcessApp::OnContextReleased( CefRefPtr<CefBrowser> Browser, 
 bool FUnrealCEFSubProcessApp::OnProcessMessageReceived( CefRefPtr<CefBrowser> Browser, CefProcessId SourceProcess, CefRefPtr<CefProcessMessage> Message )
 {
 	bool Result = false;
-	FString MessageName(WCHAR_TO_TCHAR(Message->GetName().ToWString().c_str()));
+	FString MessageName = WCHAR_TO_TCHAR(Message->GetName().ToWString().c_str());
 	if (MessageName.StartsWith(TEXT("UE::")))
 	{
 		Result = RemoteScripting.OnProcessMessageReceived(Browser, SourceProcess, Message);

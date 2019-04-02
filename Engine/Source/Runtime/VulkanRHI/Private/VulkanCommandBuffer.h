@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved..
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved..
 
 /*=============================================================================
 	VulkanCommandBuffer.h: Private Vulkan RHI definitions.
@@ -61,6 +61,11 @@ public:
 	inline bool IsSubmitted() const
 	{
 		return State == EState::Submitted;
+	}
+
+	inline bool IsAllocated() const
+	{
+		return State != EState::NotAllocated;
 	}
 
 	inline VkCommandBuffer GetHandle()

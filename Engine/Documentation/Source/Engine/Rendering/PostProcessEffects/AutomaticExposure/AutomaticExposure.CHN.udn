@@ -1,63 +1,243 @@
-﻿Availability:Public
-Title:人眼适应
-Crumbs: %ROOT%, Engine, Engine/Rendering, Engine/Rendering/PostProcessEffects
-Description:对场景曝光进行自动调整以模拟人眼对亮度变化的适应过程
+INTSourceChangelist:4642517
+Availability: Public
+Crumbs: 
+Title:眼部适应（自动曝光）
+Description:以模拟对于亮度变化的眼部适应为目的的场景曝光自动调节。
+Type:
+Version:
+Parent: Engine/Rendering/PostProcessEffects
+Order: 1
+Tags: Post Process
 
-[EXCERPT:EyeAdaptation_Desc]
-**人眼适应**,或自动曝光，会让场景曝光自动调整以重建犹如人眼从明亮环境进入黑暗环境（或相反）时所经历的效果。
-[/EXCERPT:EyeAdaptation_Desc]
+**眼部适应**（又称自动曝光）让场景曝光自动调节，以重现从明亮环境进入黑暗环境（或反过来）时，人眼调节过程中人们体验到的效果。
 
-[REGION:fullwidth]
-![Eye Adaption](eye_adaptation.png)
+(#cameraexposure)
+## 摄像机曝光
+
+(#editorsettings)
+#### 编辑器设置
+
+关卡编辑器曝光控制使用 **视图模式（View Mode）** 下拉菜单中的 **EV100** 滑块和“游戏设置（Game Settings）”复选框。
+
+[REGION:lightbox]
+[![](EA_CameraExposure_01.png)(w:200px)](EA_CameraExposure_01.png)
+[/REGION]
+[REGION:caption]
+*单击查看大图*
 [/REGION]
 
-| 属性 | 描述 |
-| -------- | ----------- |
-| **百分比谷值** | 人眼适应将会适应从场景颜色的亮度柱状图中提取的值。 该值定义了为寻找平均场景亮度而设计的柱状图的谷值百分比值。 我们想要防止对明亮图像部分的限定，这样最好能忽略大部分黑暗区域，例如，80表示忽略80%的黑暗区域。 这个值的范围是[0, 100]。 在70-80之间的值能返回最佳效果。 |
-| **百分比峰值** | 人眼适应将会适应从场景颜色的亮度柱状图中提取的值。 该值定义了为寻找平均场景亮度而设计的柱状图的峰值百分比。 我们可以舍去一些百分比，因为有一些明亮的像素是没问题的（一般为太阳等物体）。 这个值的范围是[0, 100]。 在80-98之间的值能返回最佳效果。 |
-| **Min Brightness** （最小亮度值）| 此值限制了人眼适应的亮度值下限。 该值必须大于0且必须<= **EyeAdaptationMaxBrightness** （人眼适应最大亮度值）。 实际值取决于该内容使用的HDR范围。 |
-| **Max Brightness** （最大亮度值）| 此值限制了人眼适应的亮度值上限。 该值必须大于0且必须>= **EyeAdaptationMinBrightness** （人眼适应最小亮度值）。 实际值取决于该内容使用的HDR范围。 |
-| **Speed Up** （加速） | 从黑暗环境到明亮环境后对环境的适应速度。 |
-| **Speed Down** （减速） | 从明亮环境到黑暗环境后对环境的适应速度。 |
-| **Exposure Offset** （曝光偏移）| 控制曝光设置的偏移。 该值有对数意义： [INCLUDE:#ExposureOffset] 分数值，例如1.5，或示例以外的数字也同样可行。 如果眼部适应被激活，该值会被添加到自动曝光中。 |
+如果启用了 **游戏设置（Game Settings）**，关卡视口会将游戏内设置配置用于曝光行为（请参阅此部分下面的部分）。否则，用户可以借助 **EV100** 滑块使用 **-10** 到 **20** 范围内的数值进行覆盖（支持使用逼真场景照明的非常暗到非常亮的场景）。
+
+[REGION:note]
+对于除关卡视口以外的其他视口，“游戏设置（Game Settings）”复选框将替换成“自动（Auto）”复选框，而且实现自动曝光行为。
+[/REGION]
+
+(#gamesetting)
+#### 游戏设置
+
+[REGION:note]
+在4.19及更高版本中，我们对部分设置进行了重命名，但是可兼容你之前使用的设置。
+[/REGION]
+
+关于曝光的游戏内设置在后期处理设置中进行控制。在不同的 **测光模式（Metering Mode）** 间进行选择时，与所选择的方法相关的设置处于可编辑状态，不与所选择的方法相关的设置则处于灰色状态。 
+
+![](EA_CameraExposure_02.png)
+
+可在以下“测光模式（Metering Mode）”间进行选择：   
+
+*   **自动曝光直方图（Auto Exposure Histogram）** 构造64 bin直方图，具有高级设置，支持对自动曝光进行更精细的控制。 
+*   **基本自动曝光（Auto Exposure Basic）** 是一种速度较快的方法，它通过向下采样计算单个值。
+*   **手动（Manual）** 支持使用“后期处理体积（Post Process Volume）”中的 **摄像机（Camera）** 设置而非“曝光（Exposure）”设置控制曝光。
+
+(#manualmeteringmode)
+#### “手动（Manual）”测光模式
+
+**手动（Manual）** 测光模式将后期处理中的 **摄像机（Camera）** 设置定义的摄像机曝光数值用于 **快门速度（1/t）（Shutter Speed (1/t)）**、**ISO (S)** 和 **光圈（N）（Aperture (N)）**。
+
+用于计算摄像机曝光量范围的公式是：    
+
+*   曝光量 = 1 / (1.2 * 2^EV100)
+
+其中：  
+
+*   EV100 = log2( N²/t * 100/S )
+
+此处的 **曝光量** 定义在应用色调映射器和曝光补偿之前场景表面亮度（表示为L，单位为cd/m²）和像素亮度（B）之间的关系（请参阅下面的公式）：  
+
+*   B = 曝光量 * L
+
+可通过显示标志禁用色调映射器和通过“像素检查器（Pixel Inspector）”检查场景亮度两种方法来对此进行验证。请注意，EV100编辑器覆盖直接设置此等式中的EV100。
+
+[REGION:lightbox]
+[![](EA_CameraExposure_03.png)(w:200px)](EA_CameraExposure_03.png)
+[/REGION]
+[REGION:caption]
+*单击查看大图*
+[/REGION]
+
+[REGION:note]
+除使用EV100编辑器覆盖的情况之外，**曝光补偿（Exposure Compensation）**（ExpComp）在以当前测光模式计算的曝光量基础之上定义2^ExpComp的额外范围。
+[/REGION]
+
+(#pre-exposure)
+## 预曝光
+
+在写入到场景颜色前，在着色器中应用前一帧的场景曝光量，这可以使引擎在与一种最终颜色（曝光后）相似的范围内渲染场景。当使用非常亮的光源时，它可以降低低精度渲染目标格式发生算术溢出的风险。它也可以提升 **基本自动曝光（Auto Exposure Basic）** 测光模式的质量。 
+
+在着色器中应用的曝光量被称作 **预曝光**，可通过“项目设置（Project Settings）”中的 **在写入到场景颜色前应用预曝光（Apply Pre-exposure before writing to the scene color）** 或通过控制台变量 **r.UsePreExposure** 启用。可通过 **r.EyeAdaptation.PreExposureOverride** 覆盖预曝光。
+
+[REGION:note]
+目前，**在写入到场景颜色前应用预曝光（Apply Pre-exposure before writing to the scene color）** 仅在Windows上受支持。
+[/REGION]
+
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![从暗](AutoExposure_Dark1.png) 
+    [/PARAM]
+    [PARAM:after]
+    ![到明](AutoExposure_Bright1.png) 
+    [/PARAM]
+[/OBJECT]
+
+[REGION:caption]
+拖动上面示例图中的滑块，可查看从黑暗环境进入到明亮环境时的曝光对比。
+[/REGION]
+
+眼部适应基于[直方图](Engine/Rendering/PostProcessEffects/AutomaticExposure#histogram)，它使用以下方法：
+
+*   假设曝光量的 **百分比谷值（Low Percent）** 是80%，**百分比峰值（High Percent）** 是95%。
+*   现在我们对直方图进行寻优计算以获取两个数值： 
+    *   80%的屏幕像素比亮度值A暗。
+    *   95%的屏幕像素比亮度值B暗。
+    *   A和B的平均值为当前亮度（C）。
+*   随着时间的推移，眼睛将适应当前场景亮度。一般认为，适应黑暗环境的速度较慢，因此存在两个数值，可用于调整过渡时间：**加速（Speed Up）** 和 **减速（Speed Down）**。
+*   为了做到不完全适应极暗或极亮的环境，使用 **最小亮度（Min Brightness）** 和 **最大亮度（Max Brightness）** 将适应范围限制在定义范围内（当在“项目设置（Project Settings）”中为自动曝光启用扩展的亮度范围时，则为 **EV100最小值（EV100 Min）** 和 **EV100最大值（EV100 Max）**）。
+
+(#histogram)
+## 直方图（Histogram）
+
+**自动曝光直方图（Auto Exposure Histogram）** 使用 **直方图（Histogram）** 属性，它关注场景颜色直方图，使摄像机或眼部适应场景。启用它的方法为使用关卡视口的 **显示（Show） \> 可视化（Visualize） \> HDR（眼部适应）（HDR (Eye Adaptation)）**。
+
+[REGION:lightbox]
+[![](HDR_Visualization1.png)](HDR_Visualization1.png)
+[/REGION]
+[REGION:caption]
+单击查看大图。
+[/REGION]
+
+1.  后期处理“曝光（Exposure）”设置及其设定值或范围。
+1.  使用设定的最小值和最大值范围的直方图。
+1.  画中画HDR场景表示。
+
+使用 **直方图对数最小值/最大值（Histogram Log Min / Max）** 或 **直方图EV100最小值/最大值（Histogram EV100 Min / Max）**（当通过“项目设置（Project Settings）”启用时）并使用以下设置定义场景中直方图的 **最小值（Min）** 和 **最大值（Max）** 范围。
+
+![](HDRSceneRepresentation1.png)
+
+此处的HDR场景表示使用颜色来指示直方图亮度范围：蓝色指示直方图的最低亮度等级，红色指示直方图范围的最高亮度等级。
+
+(#meteringmodesettings)
+## “测光模式（Metering Mode）”设置
+
+从可用的 **测光模式（Metering Mode）** 中进行选择，它们设置用于自动曝光的亮度计算方法。这些设置位于 **镜头（Lens） > 曝光（Exposure）** 和 **摄像机（Camera）** 下的“后期处理体积（Post Process Volume）”设置中。
+
+(#autoexposurehistogram)
+#### 自动曝光直方图（Auto Exposure Histogram）
+
+使用 **自动曝光直方图（Auto Exposure Histogram）** 作为 **测光模式（Metering Mode）** 时，可用设置包括下列属性。
+
+![](Exposure_Histogram.png)
 
 [COMMENT:none]
+| 属性 | 说明 |
+| --- | --- |
+| 曝光（Exposure） ||
+| **曝光补偿（Exposure Compensation）** | 曝光的对数调整。仅在指定色调映射器时使用。0：无调整，-1：2倍黑暗度，-2：4倍黑暗度，1：2倍亮度，2：4倍亮度。|
+| **最小值EV100（Min EV100）** | [INCLUDE:#minEV100] |
+| **最大值EV100（Max EV100）** | [INCLUDE:#maxEV100] |
+| **最小亮度（Min Brightness）** | 自动曝光的最小亮度，限制眼部适应的最小亮度。数值必须大于0且应小于或等于 **最大亮度（Max Brightness）**。理想数值应为接近0的正数，而且应在黑暗光照情况下进行调节，如果数值过小，图像将过亮，如果数值过大，图像将过暗。实际数值取决于使用的内容的HDR范围。如果最小亮度（Min Brightness） = 最大亮度（Max Brightness），将禁用自动曝光。|
+| **最大亮度（Max Brightness）** | [INCLUDE:#MaxBrightness] |
+| **加速（Speed Up）** | 	适应从黑暗环境到明亮环境的转变的速度。|
+| **减速（Speed Down）** | 适应从明亮环境到黑暗环境的转变的速度。|
+| **校准常数（Calibration Constant）** | 18%反射率的校准常数。|
+| **百分比谷值（Low Precent）** | [INCLUDE:#LowPercent] |
+| **百分比峰值（High Percent）** | [INCLUDE:#HighPercent] |
+| **直方图最小值EV100（Histogram Min EV100）** | [INCLUDE:#HistoMinEV100] |
+| **直方图最大值EV100（Histogram Max EV100）** | [INCLUDE:#HistoMaxEV100] |
+| **直方图对数最小值（Histogram Log Min）** | 定义使用 **HDR（眼部适应）（HDR (Eye Adaptation)）** 可视化模式时生成的直方图的亮度范围的下限。|
+| **直方图对数最大值（Histogram Log Max）** | 定义使用 **HDR（眼部适应）（HDR (Eye Adaptation)）** 可视化模式时生成的直方图的亮度范围的上限。|
 
-[EXCERPT:ExposureOffset]
-[REGION:simpletable]
-| 值 | 效果 |
-| ----- | ------ |
-| 0 |没有改变|
-| -1 |一半亮度|
-| -2 |四分之一亮度|
-| 1 |一倍亮度|
-| 2 |四倍亮度|
+[COMMENT:none]
+[EXCERPT:minEV100]
+[REGION:note]
+当启用“项目设置（Project Setting）”的 **扩大自动曝光设置中的默认亮度范围（Extend default luminance range in Auto Exposure settings）** 时代替 **最小亮度（Min Brightness）** 使用。
 [/REGION]
-[/EXCERPT:ExposureOffset]
-
+最小自动曝光适应范围，实现方法是选择曝光值，以供平均亮度生成与 **校准常数（Calibration Constant）** 数值相等的像素亮度。该值以像素亮度（cd/m2）表示。
+如果最小值EV100（Min EV100） = 最大值EV100（Max EV100），将禁用自动曝光。
+[/EXCERPT:minEV100]
 [/COMMENT]
 
-人眼适应基于[柱形图](#柱形图)并使用如下方式：
-
-* 我们假设 **EyeAdaptationLowPercent** （人眼适应的百分比谷值）为80%， **EyeAdaptationHighPercent** （人眼适应的百分比峰值）为95% 。
-* 现在我们搜寻柱状图，查找2个值：
-    * 80%的屏幕像素暗于亮度值A。
-    * 95%的屏幕像素暗于亮度值B。
-    * A与B间的平均值为当前场景光照值(C)。
-* 随时间推移，眼睛将会适应于该值。 适应于黑暗环境一般要花更长时间，所以我们设置了两个值来进行调整： **EyeAdaptionSpeedUp** （人眼适应加速）和 **EyeAdaptionSpeedDown** （人眼适应减速）。
-* 为使人眼不对非常黑暗或明亮环境完全适应，我们把人眼的适应值限定在一个定义的范围内： **EyeAdaptationMinBrightness** （人眼适应最小亮度）和 **EyeAdaptationMaxBrightness** （人眼适应最大亮度）。
-
-
-## 柱形图
-
-人眼自动适应功能会使用 **Histogram** （柱形图）属性，它会查找场景颜色的柱状图以使摄像机或眼睛适应于场景。 此柱状图可以在激活显示标识"Visualize HDR"（可视化HDR）时被看到。
-
-[REGION:fullwidth]
-![Histogram](histogram.png)
+[COMMENT:none]
+[EXCERPT:maxEV100]
+[REGION:note]
+当启用“项目设置（Project Setting）”的 **扩大自动曝光设置中的默认亮度范围（Extend default luminance range in Auto Exposure settings）** 时代替 **最大亮度（Max Brightness）** 使用。
 [/REGION]
+最大自动曝光适应范围，实现方法是选择曝光值，以供平均亮度生成与 **校准常数（Calibration Constant）** 数值相等的像素亮度。该值以像素亮度（cd/m2）表示。如果最大值EV100（Max EV100） = 最小值EV100（Min EV100），将禁用自动曝光。
+[/EXCERPT:maxEV100]
+[/COMMENT]
 
-| 属性 | 描述 |
-| -------- | ----------- |
-| **Histogram Log Min** (柱状图记录最小值）| 定义了生成的柱状图的亮度范围的下限。 |
-| **Histogram Log Max** (柱状图记录最大值）| 定义了生成的柱状图的亮度范围的上限。 |
+[COMMENT:none]
+[EXCERPT:MaxBrightness]
+自动曝光的最大亮度，限制眼部适应的最大亮度。数值必须大于0且应大于或等于 **最小亮度（Min Brightness）**。理想数值应为正数（2就是比较理想的数值），而且应在明亮光照情况下进行调节，如果数值过小，图像将过亮，如果数值过大，图像将过暗。实际数值取决于使用的内容的HDR范围。 
+如果最大亮度（Max Brightness） = 最小亮度（Min Brightness），将禁用自动曝光。
+[/EXCERPT:MaxBrightness]
+[/COMMENT]
 
+[COMMENT:none]
+[EXCERPT:LowPercent]
+眼部适应将适应从场景颜色的亮度直方图中提取的数值。此值定义直方图的较低百分比，它用于查找平均场景亮度。我们需要避免限制明亮的图像部分，因此最佳做法是忽略大部分黑暗区域。例如，80将避免80%的黑暗区域。数值应介于 [0, 100] 范围内。
+[REGION:note]
+介于70-80之间的数值可实现最佳效果。
+[/REGION]
+[/EXCERPT:LowPercent]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:HighPercent]
+眼部适应将适应从场景颜色的亮度直方图中提取的数值。此值定义直方图的较高百分比，它用于查找平均场景亮度。由于可以拥有一些明亮像素（通常用于太阳），我们需要将一定百分比的上限除去。数值应介于 [0, 100] 范围内。
+[REGION:note]
+介于70-80之间的数值可实现最佳效果。
+[/REGION]
+[/EXCERPT:HighPercent]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:HistoMinEV100]
+当启用“项目设置（Project Setting）”的 **扩大自动曝光设置中的默认亮度范围（Extend default luminance range in Auto Exposure settings）** 时代替 **直方图对数最小值（Histogram Log Min）** 使用。
+定义使用“HDR（眼部适应）（HDR (Eye Adaptation)）”可视化模式时生成的直方图的亮度范围的下限。
+[/EXCERPT:HistoMinEV100]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:HistoMaxEV100]
+当启用“项目设置（Project Setting）”的 **扩大自动曝光设置中的默认亮度范围（Extend default luminance range in Auto Exposure settings）** 时代替 **直方图对数最大值（Histogram Log Max）** 使用。
+定义使用“HDR（眼部适应）（HDR (Eye Adaptation)）”可视化模式时生成的直方图的亮度范围的上限。
+[/EXCERPT:HistoMinEV100]
+[/COMMENT]
+
+
+(#autoexposurebasic)
+#### 基本自动曝光（Auto Exposure Basic）
+
+使用 **基本自动曝光（Auto Exposure Basic）** 作为 **测光模式（Metering Mode）** 时，可用设置包括下列属性。
+
+![](Exposure_Basic.png "Exposure_Basic.png") 
+
+
+(#manual)
+#### 手动（Manual）
+
+使用 **手动（Manual）** 作为 **测光模式（Metering Mode）** 时，可用设置包括下列属性。
+
+![](Exposure_Manual.png)
+
+[/COMMENT]

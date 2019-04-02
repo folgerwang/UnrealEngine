@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #ifndef PLATFORM_LUMIN
 	#define	PLATFORM_LUMIN	0
@@ -73,6 +73,9 @@ bool FVulkanAndroidPlatform::LoadVulkanInstanceFunctions(VkInstance inInstance)
 	ENUM_VK_ENTRYPOINTS_INSTANCE(GETINSTANCE_VK_ENTRYPOINTS);
 	ENUM_VK_ENTRYPOINTS_INSTANCE(CHECK_VK_ENTRYPOINTS);
 
+	ENUM_VK_ENTRYPOINTS_SURFACE_INSTANCE(GETINSTANCE_VK_ENTRYPOINTS);
+	ENUM_VK_ENTRYPOINTS_SURFACE_INSTANCE(CHECK_VK_ENTRYPOINTS);
+
 	ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(GETINSTANCE_VK_ENTRYPOINTS);
 	ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(CHECK_VK_ENTRYPOINTS);
 
@@ -114,13 +117,16 @@ void FVulkanAndroidPlatform::CreateSurface(void* WindowHandle, VkInstance Instan
 	WindowHandle = FAndroidWindow::GetHardwareWindow();
 	if (WindowHandle == NULL)
 	{
+
 		// Sleep if the hardware window isn't currently available.
 		// The Window may not exist if the activity is pausing/resuming, in which case we make this thread wait
 		FPlatformMisc::LowLevelOutputDebugString(TEXT("Waiting for Native window in FVulkanAndroidPlatform::CreateSurface"));
-		while (WindowHandle == NULL)
+		WindowHandle = FAndroidWindow::WaitForHardwareWindow();
+
+		if (WindowHandle == NULL)
 		{
-			FPlatformProcess::Sleep(0.001f);
-			WindowHandle = FAndroidWindow::GetHardwareWindow();
+			FPlatformMisc::LowLevelOutputDebugString(TEXT("Aborting FVulkanAndroidPlatform::CreateSurface, FAndroidWindow::WaitForHardwareWindow() returned null"));
+			return;
 		}
 	}
 
@@ -185,6 +191,22 @@ void FVulkanAndroidPlatform::OverridePlatformHandlers(bool bInit)
 		FPlatformMisc::SetCrashHandler(nullptr);
 		FPlatformMisc::SetOnReInitWindowCallback(nullptr);
 		FPlatformMisc::SetOnPauseCallback(nullptr);
+	}
+}
+
+void FVulkanAndroidPlatform::BlockUntilWindowIsAwailable()
+{
+	void* WindowHandle = FAndroidWindow::GetHardwareWindow();
+	if (WindowHandle == nullptr)
+	{
+		// Sleep if the hardware window isn't currently available.
+		// The Window may not exist if the activity is pausing/resuming, in which case we make this thread wait
+		FPlatformMisc::LowLevelOutputDebugString(TEXT("Waiting for Native window in FVulkanAndroidPlatform::BlockUntilWindowIsAwailable"));
+		while (WindowHandle == nullptr)
+		{
+			FPlatformProcess::Sleep(0.001f);
+			WindowHandle = FAndroidWindow::GetHardwareWindow();
+		}
 	}
 }
 

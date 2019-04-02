@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -23,19 +23,19 @@ struct FOneSkyLocalizationTargetSetting
 	* The GUID of the LocalizationTarget that these OneSky settings are for
 	*/
 	UPROPERTY()
-		FGuid TargetGuid;
+	FGuid TargetGuid;
 
 	/**
 	* The id of the OneSky Project  this target belongs to
 	*/
 	UPROPERTY()
-		int32 OneSkyProjectId;
+	int32 OneSkyProjectId;
 
 	/**
 	* The name of the file that corresponds to this target
 	*/
 	UPROPERTY()
-		FString OneSkyFileName;
+	FString OneSkyFileName;
 
 };
 

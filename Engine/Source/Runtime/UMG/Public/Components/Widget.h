@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -371,6 +371,10 @@ public:
 	UPROPERTY(Instanced, EditAnywhere, BlueprintReadOnly, Category="Navigation")
 	class UWidgetNavigation* Navigation;
 
+	/** Allows you to set a new flow direction */
+	UPROPERTY(EditAnywhere, Category = "Localization")
+	EFlowDirectionPreference FlowDirectionPreference;
+
 #if WITH_EDITORONLY_DATA
 
 	/** Stores a reference to the asset responsible for this widgets construction. */
@@ -382,7 +386,7 @@ public:
 
 #if WITH_EDITOR
 
-	/** @return is this widget locked */
+	/** Is this widget locked in the designer UI */
 	bool IsLockedInDesigner() const
 	{
 		return bLockedInDesigner;
@@ -449,7 +453,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	void ResetCursor();
 
-	/** @return true if the widget is Visible, HitTestInvisible or SelfHitTestInvisible. */
+	/** Returns true if the widget is Visible, HitTestInvisible or SelfHitTestInvisible. */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	bool IsVisible() const;
 
@@ -481,7 +485,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	void ForceVolatile(bool bForce);
 
-	/** @return true if the widget is currently being hovered by a pointer device */
+	/** Returns true if the widget is currently being hovered by a pointer device */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	virtual bool IsHovered() const;
 
@@ -513,19 +517,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	void SetKeyboardFocus();
 
-	/** @return true if this widget is focused by a specific user. */
+	/** Returns true if this widget is focused by a specific user. */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	bool HasUserFocus(APlayerController* PlayerController) const;
 
-	/** @return true if this widget is focused by any user. */
+	/** Returns true if this widget is focused by any user. */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	bool HasAnyUserFocus() const;
 
-	/** @return true if any descendant widget is focused by any user. */
+	/** Returns true if any descendant widget is focused by any user. */
 	UFUNCTION(BlueprintCallable, Category="Widget", meta=(DisplayName="HasAnyUserFocusedDescendants"))
 	bool HasFocusedDescendants() const;
 
-	/** @return true if any descendant widget is focused by a specific user. */
+	/** Returns true if any descendant widget is focused by a specific user. */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	bool HasUserFocusedDescendants(APlayerController* PlayerController) const;
 	
@@ -645,17 +649,34 @@ public:
 	bool IsConstructed() const;
 
 	/**
+	 * Gets the game instance associated with this UI.
+	 * @return a pointer to the owning game instance
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "Widget")
+	UGameInstance* GetGameInstance() const;
+
+	/**
+	 * Gets the game instance associated with this UI.
+	 * @return a pointer to the owning game instance
+	 */
+	template <class TGameInstance = UGameInstance>
+	TGameInstance* GetGameInstance() const
+	{
+		return Cast<TGameInstance>(GetGameInstance());
+	}
+
+	/**
 	 * Gets the player controller associated with this UI.
 	 * @return The player controller that owns the UI.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Player)
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "Widget")
 	virtual APlayerController* GetOwningPlayer() const;
 
 	/**
 	 * Gets the local player associated with this UI.
 	 * @return The owning local player.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Player)
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "Widget")
 	virtual ULocalPlayer* GetOwningLocalPlayer() const;
 
 	/**
@@ -694,7 +715,7 @@ public:
 		return ( DesignerFlags&FlagToCheck ) != 0;
 	}
 
-	/** @return The friendly name of the widget to display in the editor */
+	/** Returns the friendly name of the widget to display in the editor */
 	const FString& GetDisplayLabel() const
 	{
 		return DisplayLabel;
@@ -703,7 +724,7 @@ public:
 	/** Sets the friendly name of the widget to display in the editor */
 	void SetDisplayLabel(const FString& DisplayLabel);
 
-	/** @return the category name of the widget */
+	/** Returns the category name of the widget */
 	const FString& GetCategoryName() const;
 
 	/** Sets the category name of the widget */
@@ -714,7 +735,7 @@ public:
 	 * Allows UMG elements to evaluate their default states and determine whether they are acceptable.
 	 * To trigger compilation failure, add an error to the log. Warnings and notes will be visible, but will not cause compiles to fail.
 	 */
-	virtual void ValidateCompiledDefaults(class FCompilerResultsLog& CompileLog) const {}
+	virtual void ValidateCompiledDefaults(class IWidgetCompilerLog& CompileLog) const {}
 #else
 	FORCEINLINE bool IsDesignTime() const { return false; }
 #endif
@@ -738,14 +759,20 @@ public:
 	virtual void FinishDestroy() override;
 	// End UObject
 
-#if WITH_EDITOR
 	FORCEINLINE bool CanSafelyRouteEvent()
 	{
-		return !(IsDesignTime() || GIntraFrameDebuggingGameThread || IsUnreachable() || FUObjectThreadContext::Get().IsRoutingPostLoad);
+		return !IsDesignTime() && CanSafelyRouteCall();
 	}
-#else
-	FORCEINLINE bool CanSafelyRouteEvent() { return !(IsUnreachable() || FUObjectThreadContext::Get().IsRoutingPostLoad); }
-#endif
+
+	FORCEINLINE bool CanSafelyRoutePaint()
+	{
+		return CanSafelyRouteCall();
+	}
+
+protected:
+	FORCEINLINE bool CanSafelyRouteCall() { return !(GIntraFrameDebuggingGameThread || IsUnreachable() || FUObjectThreadContext::Get().IsRoutingPostLoad); }
+
+public:
 
 #if WITH_EDITOR
 
@@ -771,7 +798,7 @@ public:
 	virtual void OnCreationFromPalette() { }
 
 	/** Gets the editor icon */
-	DEPRECATED(4.12, "GetEditorIcon is deprecated. Please define widget icons in your style set in the form ClassIcon.MyWidget, and register your style through FClassIconFinder::(Un)RegisterIconSource")
+	UE_DEPRECATED(4.12, "GetEditorIcon is deprecated. Please define widget icons in your style set in the form ClassIcon.MyWidget, and register your style through FClassIconFinder::(Un)RegisterIconSource")
 	virtual const FSlateBrush* GetEditorIcon();
 
 	/** Allows general fixups and connections only used at editor time. */
@@ -781,8 +808,8 @@ public:
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 	// End of UObject interface
 
-	/** Gets the visibility of the widget inside the designer. */
-	EVisibility GetVisibilityInDesigner() const;
+	/** Is the widget visible in the designer?  If this widget is 'hidden in the designer' or a parent is, this widget will also return false here. */
+	bool IsVisibleInDesigner() const;
 
 	// Begin Designer contextual events
 	void SelectByDesigner();
@@ -813,9 +840,17 @@ public:
 	static FString GetDefaultFontName();
 
 protected:
+#if WITH_EDITOR
+	// This is an implementation detail that allows us to show and hide the widget in the designer
+	// regardless of the actual visibility state set by the user.
+	EVisibility GetVisibilityInDesigner() const;
+#endif
+
 	virtual void OnBindingChanged(const FName& Property);
 
 protected:
+	UObject* GetSourceAssetOrClass() const;
+
 	/** Function implemented by all subclasses of UWidget is called when the underlying SWidget needs to be constructed. */
 	virtual TSharedRef<SWidget> RebuildWidget();
 
@@ -824,11 +859,11 @@ protected:
 	
 #if WITH_EDITOR
 	/** Utility method for building a design time wrapper widget. */
-	DEPRECATED(4.17, "Don't call this function in RebuildWidget any more.  Override RebuildDesignWidget, and build the wrapper there; widgets that derive from Panel already do this.  If you need to recreate the dashed outline you can use CreateDesignerOutline inside RebuildDesignWidget.")
+	UE_DEPRECATED(4.17, "Don't call this function in RebuildWidget any more.  Override RebuildDesignWidget, and build the wrapper there; widgets that derive from Panel already do this.  If you need to recreate the dashed outline you can use CreateDesignerOutline inside RebuildDesignWidget.")
 	TSharedRef<SWidget> BuildDesignTimeWidget(TSharedRef<SWidget> WrapWidget) { return CreateDesignerOutline(WrapWidget); }
 #else
 	/** Just returns the incoming widget in non-editor builds. */
-	DEPRECATED(4.17, "Don't call this function in RebuildWidget any more.  Override RebuildDesignWidget, and build the wrapper there; widgets that derive from Panel already do this.  If you need to recreate the dashed outline you can use CreateDesignerOutline inside RebuildDesignWidget.")
+	UE_DEPRECATED(4.17, "Don't call this function in RebuildWidget any more.  Override RebuildDesignWidget, and build the wrapper there; widgets that derive from Panel already do this.  If you need to recreate the dashed outline you can use CreateDesignerOutline inside RebuildDesignWidget.")
 	FORCEINLINE TSharedRef<SWidget> BuildDesignTimeWidget(TSharedRef<SWidget> WrapWidget) { return WrapWidget; }
 #endif
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -81,11 +81,7 @@ struct FSectionLocalizer
 class FPersonaMeshDetails : public IDetailCustomization
 {
 public:
-	FPersonaMeshDetails(TSharedRef<class IPersonaToolkit> InPersonaToolkit) : PersonaToolkitPtr(InPersonaToolkit), MeshDetailLayout(nullptr)
-	{
-		CustomLODEditMode = false;
-		bDeleteWarningConsumed = false;
-	}
+	FPersonaMeshDetails(TSharedRef<class IPersonaToolkit> InPersonaToolkit);
 	~FPersonaMeshDetails();
 
 	/** Makes a new instance of this detail layout class for a specific detail view requesting it */
@@ -352,6 +348,9 @@ private:
 	/** for LOD settings category */
 	void CustomizeLODSettingsCategories(IDetailLayoutBuilder& DetailLayout);
 
+	/** Called when a LOD is imported. Refreshes the UI. */
+	void OnAssetPostLODImported(UObject* InObject, int32 InLODIndex);
+	/** Called from the PersonalMeshDetails UI to import a LOD. */
 	void OnImportLOD(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo, IDetailLayoutBuilder* DetailLayout);
 	void UpdateLODNames();
 	int32 GetLODCount() const;
@@ -364,6 +363,10 @@ private:
 
 	/** apply LOD changes if the user modified LOD reduction settings */
 	FReply OnApplyChanges();
+	/** regenerate one specific LOD Index no dependencies*/
+	void RegenerateOneLOD(int32 LODIndex);
+	/** regenerate the specific all LODs dependent of InLODIndex. This is not regenerating the InLODIndex*/
+	void RegenerateDependentLODs(int32 LODIndex);
 	/** Apply specified LOD Index */
 	FReply RegenerateLOD(int32 LODIndex);
 	/** Removes the specified lod from the skeletal mesh */
@@ -401,7 +404,7 @@ private:
 	};
 
 	// Handler for reimport buttons in LOD details
-	FReply OnReimportLodClicked(IDetailLayoutBuilder* DetailLayout, EReimportButtonType InReimportType, int32 InLODIndex);
+	FReply OnReimportLodClicked(EReimportButtonType InReimportType, int32 InLODIndex);
 
 	void OnCopySectionList(int32 LODIndex);
 	bool OnCanCopySectionList(int32 LODIndex) const;

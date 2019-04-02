@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -186,6 +186,12 @@ namespace Gauntlet
 		/// </summary>
 		Dictionary<ITargetDevice, DeviceReservationAutoRenew> ServiceReservations = new Dictionary<ITargetDevice, DeviceReservationAutoRenew>();
 
+
+		/// <summary>
+		/// Target device info, private for reservation use
+		/// </summary>
+		Dictionary<ITargetDevice, DeviceDefinition> ServiceDeviceInfo = new Dictionary<ITargetDevice, DeviceDefinition>();
+
 		/// <summary>
 		/// List of device definitions that can be provisioned on demand
 		/// </summary>
@@ -219,6 +225,12 @@ namespace Gauntlet
 		/// Static instance
 		/// </summary>
 		private static DevicePool _Instance;
+
+		/// <summary>
+		/// The maximum number of problem devices to report to device backend
+		/// This mitigates issues on builders, such as hung local processes, incorrectly reporting problem devices
+		/// </summary>
+		private int MaxDeviceErrorReports = 3;
 
 		/// <summary>
 		/// Protected constructor - code should use DevicePool.Instance
@@ -330,7 +342,9 @@ namespace Gauntlet
 		/// </summary>
 		private void ReleaseReservations()
 		{
-			
+
+			ServiceDeviceInfo.Clear();
+
 			foreach (ITargetDevice Device in ServiceReservations.Keys)
 			{
 				AvailableDevices.Remove(Device);
@@ -376,12 +390,13 @@ namespace Gauntlet
 						// remove and dispose of device
 						// @todo: add support for reservation modification on server (partial device release)
 						ServiceReservations.Remove(Device);
+						ServiceDeviceInfo.Remove(Device);
 						AvailableDevices.Remove(Device);
 
 						InitialConnectState.Remove(Device);
 						Constraints.Remove(Device);
 
-						Device.Dispose();				
+						Device.Dispose();
 
 						// if last device in reservation, dispose the reservation
 						if (DisposeReservation)
@@ -400,6 +415,36 @@ namespace Gauntlet
 				// try and use one we just put a build on
 				KeepList.ForEach(D => { AvailableDevices.Remove(D); AvailableDevices.Insert(0, D); });
 			}
+		}
+
+		/// <summary>
+		/// Report target device issue to service with given error message
+		/// </summary>
+		public void ReportDeviceError(ITargetDevice Device, string ErrorMessage)
+		{
+			DeviceDefinition Def = null;
+			if (!ServiceDeviceInfo.TryGetValue(Device, out Def))
+			{
+				return;
+			}
+
+			ReportDeviceError(Def.Name, ErrorMessage);
+		}
+
+		/// <summary>
+		/// Reporting device issue using the device name provided by service
+		/// </summary>
+		private void ReportDeviceError(string ServiceDeviceName, string ErrorMessage)
+		{
+			if (MaxDeviceErrorReports == 0)
+			{
+				Log.Warning("Maximum device errors reported to backend, {0} : {1} ignored", ServiceDeviceName, ErrorMessage);
+				return;
+			}
+
+			MaxDeviceErrorReports--;
+
+			Reservation.ReportDeviceError(DeviceURL, ServiceDeviceName, ErrorMessage);
 		}
 
 		/// <summary>
@@ -531,6 +576,9 @@ namespace Gauntlet
 					// @todo: device problem reporting, requesting additional devices
 					if (TargetDevice == null)
 					{
+
+						ReportDeviceError(Device.Name, "CreateDeviceError");
+
 						// If some devices from reservation have been created, release them which will also dispose of reservation
 						if (ReservedDevices.Count > 0)
 						{
@@ -546,9 +594,11 @@ namespace Gauntlet
 						return false;
 					}
 					else
-					{
+					{						
 						ReservedDevices.Add(TargetDevice);
 					}
+
+					ServiceDeviceInfo[TargetDevice] = Def;
 					ServiceReservations[TargetDevice] = DeviceReservation;
 				}
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -89,6 +89,12 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Options", meta = (ShowOnlyInnerProperties))
 	FDatasmithImportBaseOptions BaseOptions;
 
+	//~ UObject interface
+#if WITH_EDITOR
+	virtual bool CanEditChange(const UProperty* InProperty) const override;
+#endif //WITH_EDITOR
+	//~ End UObject interface
+
 #endif // WITH_EDITORONLY_DATA
 };
 
@@ -114,6 +120,37 @@ class DATASMITHCONTENT_API UDatasmithMDLSceneImportData : public UDatasmithScene
 };
 
 UCLASS(EditInlineNew)
+class DATASMITHCONTENT_API UDatasmithGLTFSceneImportData : public UDatasmithSceneImportData
+{
+	GENERATED_BODY()
+ public:
+	UPROPERTY(VisibleAnywhere, Category = "Scene Info", DisplayName="Generator Name")
+	FString Generator;
+
+	UPROPERTY(VisibleAnywhere, Category = "Scene Info", DisplayName="Version")
+	float Version;
+
+	UPROPERTY(VisibleAnywhere, Category = "Scene Info", DisplayName="Author")
+	FString Author;
+
+	UPROPERTY(VisibleAnywhere, Category = "Scene Info", DisplayName="License")
+	FString License;
+
+	UPROPERTY(VisibleAnywhere, Category = "Scene Info", DisplayName="Source")
+	FString Source;
+};
+
+UCLASS(EditInlineNew)
+class DATASMITHCONTENT_API UDatasmithStaticMeshGLTFImportData : public UDatasmithStaticMeshImportData
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(VisibleAnywhere, Category = InternalProperty)
+	FString SourceMeshName;
+};
+
+UCLASS(EditInlineNew)
 class DATASMITHCONTENT_API UDatasmithDeltaGenAssetImportData : public UDatasmithAssetImportData
 {
 	GENERATED_BODY()
@@ -129,7 +166,6 @@ UENUM(BlueprintType)
 enum class EVREDDataTableType : uint8
 {
 	NotDatatable,
-	Variants,
 	AnimClips,
 	AnimNodes
 };
@@ -156,5 +192,3 @@ public:
 
 #endif // WITH_EDITORONLY_DATA*/
 };
-
-

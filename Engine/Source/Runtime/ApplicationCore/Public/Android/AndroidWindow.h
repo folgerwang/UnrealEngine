@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -50,6 +50,11 @@ public:
 
 	static void* GetHardwareWindow();
 	static void SetHardwareWindow(void* InWindow);
+
+	/** Waits on the current thread for a hardware window and returns it. 
+	 *  May return nullptr if the application is shutting down.
+	 */
+	static void* WaitForHardwareWindow();
 
 protected:
 	/** @return true if the native window is currently in fullscreen mode, false otherwise */

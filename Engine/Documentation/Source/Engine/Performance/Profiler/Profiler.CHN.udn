@@ -17,6 +17,7 @@ Parent:Engine/Performance
 
 如您对性能调试了解不多，请先查阅 [](Engine/Performance) 文档，其中包含的技巧将指导您对游戏性能进行监控。 
 
+(#enablingprofiler)
 ## 启用分析工具
 
 启用 **分析工具** 并收集数据的方法有两种： 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -48,8 +48,7 @@ public:
 	MLGraphicsVirtualCameraInfoArray RenderInfoArray; // render information for the frame
 #endif //WITH_MLSDK
 
-	// [0.0f, 1.0f]
-	float ScreenPercentage;
+	float PixelDensity;
 	FWorldContext* WorldContext;
 
 	FTrackingFrame()
@@ -70,7 +69,7 @@ public:
 #if WITH_MLSDK
 		, Handle(ML_INVALID_HANDLE)
 #endif //WITH_MLSDK
-		, ScreenPercentage(1.0f)
+		, PixelDensity(1.0f)
 		, WorldContext(nullptr)
 	{
 #if WITH_MLSDK

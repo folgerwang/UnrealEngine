@@ -1,9 +1,8 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "MovieScene.h"
-#include "MovieSceneBindingOverridesInterface.h"
 #include "UObject/Object.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/ScriptMacros.h"
@@ -42,7 +41,6 @@ struct FMovieSceneBindingOverrideData
 UCLASS(DefaultToInstanced, EditInlineNew)
 class MOVIESCENE_API UMovieSceneBindingOverrides
 	: public UObject
-	, public IMovieSceneBindingOverridesInterface
 {
 public:
 
@@ -51,7 +49,7 @@ public:
 	/** Default constructor */
 	UMovieSceneBindingOverrides(const FObjectInitializer& Init);
 
-	virtual bool LocateBoundObjects(const FGuid& InBindingId, FMovieSceneSequenceID InSequenceID, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const override;
+	bool LocateBoundObjects(const FGuid& InBindingId, FMovieSceneSequenceID InSequenceID, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const;
 
 public:
 

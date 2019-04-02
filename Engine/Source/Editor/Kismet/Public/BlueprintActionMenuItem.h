@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,7 +22,7 @@ struct FBlueprintActionUiSpec;
  * invoked from this class (separated to divide ui and node-spawning).
  */
 USTRUCT()
-struct FBlueprintActionMenuItem : public FEdGraphSchemaAction
+struct KISMET_API FBlueprintActionMenuItem : public FEdGraphSchemaAction
 {
 	GENERATED_USTRUCT_BODY();
 	static FName StaticGetTypeId() { static FName const TypeId("FBlueprintActionMenuItem"); return TypeId; }
@@ -54,7 +54,7 @@ public:
 	FSlateBrush const* GetMenuIcon(FSlateColor& ColorOut);
 
 	/** Utility struct for pairing documentation page names with excerpt names */
-	struct FDocExcerptRef
+	struct KISMET_API FDocExcerptRef
 	{
 		bool IsValid() const;
 

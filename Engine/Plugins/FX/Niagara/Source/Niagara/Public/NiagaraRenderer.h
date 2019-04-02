@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*==============================================================================
 NiagaraRenderer.h: Base class for Niagara render modules
@@ -19,7 +19,6 @@ NiagaraRenderer.h: Base class for Niagara render modules
 #include "RenderingThread.h"
 #include "SceneView.h"
 #include "NiagaraComponent.h"
-#include "NiagaraGlobalReadBuffer.h"
 
 class FNiagaraDataSet;
 
@@ -82,6 +81,10 @@ class NiagaraRenderer
 {
 public:
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector, const FNiagaraSceneProxy *SceneProxy) const = 0;
+
+#if RHI_RAYTRACING
+	virtual void GetDynamicRayTracingInstances(FRayTracingMaterialGatheringContext& Context, TArray<FRayTracingInstance>& OutRayTracingInstances, const FNiagaraSceneProxy* Proxy) {}
+#endif
 
 	virtual void SetDynamicData_RenderThread(FNiagaraDynamicDataBase* NewDynamicData) = 0;
 	virtual void CreateRenderThreadResources() = 0;
@@ -153,7 +156,7 @@ public:
 	
 	const FVector& GetBaseExtents() const {	return BaseExtents; }
 
-	void SortIndices(ENiagaraSortMode SortMode, int32 SortAttributeOffset, const FNiagaraDataBuffer& Buffer, const FMatrix& LocalToWorld, const FSceneView* View, FNiagaraGlobalReadBuffer::FAllocation& OutIndices)const;
+	void SortIndices(ENiagaraSortMode SortMode, int32 SortAttributeOffset, const FNiagaraDataBuffer& Buffer, const FMatrix& LocalToWorld, const FSceneView* View, FGlobalDynamicReadBuffer::FAllocation& OutIndices)const;
 
 	static FRWBuffer& GetDummyFloatBuffer(); 
 	static FRWBuffer& GetDummyIntBuffer();
@@ -172,10 +175,16 @@ protected:
 	struct FNiagaraDynamicDataBase *DynamicDataRender;
 
 	FVector BaseExtents;
+
+#if RHI_RAYTRACING
+	FRWBuffer RayTracingDynamicVertexBuffer;
+	FRayTracingGeometry RayTracingGeometry;
+#endif
 };
 
 
 
+struct FNiagaraDynamicDataSprites;
 
 /**
 * NiagaraRendererSprites renders an FNiagaraEmitterInstance as sprite particles
@@ -197,6 +206,9 @@ public:
 	virtual void CreateRenderThreadResources() override;
 
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector, const FNiagaraSceneProxy *SceneProxy) const override;
+#if RHI_RAYTRACING
+	virtual void GetDynamicRayTracingInstances(FRayTracingMaterialGatheringContext& Context, TArray<FRayTracingInstance>& OutRayTracingInstances, const FNiagaraSceneProxy* Proxy) final override;
+#endif
 	virtual bool SetMaterialUsage() override;
 	virtual void TransformChanged() override;
 	/** Update render data buffer from attributes */
@@ -218,6 +230,30 @@ public:
 #endif
 
 private:
+
+	struct FCPUSimParticleDataAllocation
+	{
+		FGlobalDynamicReadBuffer& DynamicReadBuffer;
+		FGlobalDynamicReadBuffer::FAllocation ParticleData;
+	};
+
+	void ConditionalInitPrimitiveUniformBuffer(const FNiagaraSceneProxy *SceneProxy) const;
+	FCPUSimParticleDataAllocation ConditionalAllocateCPUSimParticleData(FNiagaraDynamicDataSprites *DynamicDataSprites, FGlobalDynamicReadBuffer& DynamicReadBuffer) const;
+	TUniformBufferRef<class FNiagaraSpriteUniformParameters> CreatePerViewUniformBuffer(const FSceneView* View, const FSceneViewFamily& ViewFamily, const FNiagaraSceneProxy *SceneProxy) const;
+	void SetVertexFactoryParticleData(
+		class FNiagaraSpriteVertexFactory& VertexFactory,
+		FNiagaraDynamicDataSprites *DynamicDataSprites,
+		FCPUSimParticleDataAllocation& CPUSimParticleDataAllocation,
+		const FSceneView* View,
+		const FNiagaraSceneProxy *SceneProxy) const;
+	void CreateMeshBatchForView(
+		const FSceneView* View,
+		const FSceneViewFamily& ViewFamily,
+		const FNiagaraSceneProxy *SceneProxy,
+		FNiagaraDynamicDataSprites *DynamicDataSprites,
+		FMeshBatch& OutMeshBatch,
+		class FNiagaraMeshCollectorResourcesSprite& OutCollectorResources) const;
+
 	UNiagaraSpriteRendererProperties *Properties;
 	mutable TUniformBuffer<FPrimitiveUniformShaderParameters> WorldSpacePrimitiveUniformBuffer;
 	class FNiagaraSpriteVertexFactory* VertexFactory;

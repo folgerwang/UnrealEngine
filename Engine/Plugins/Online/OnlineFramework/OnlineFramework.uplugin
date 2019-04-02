@@ -13,7 +13,10 @@
 	"Modules": [
 		{
 			"Name": "Qos",
-			"Type": "Runtime"
+			"Type": "Runtime",
+			"BlacklistPlatforms": [
+				"HTML5"
+			]
 		},
 		{
 			"Name": "Party",

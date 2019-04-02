@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -10,6 +10,10 @@
 #include "Engine/EngineBaseTypes.h"
 #include "Engine/NetworkDelegates.h"
 #include "RHIDefinitions.h"
+
+#include "Subsystems/GameInstanceSubsystem.h"
+#include "Subsystems/SubsystemCollection.h"
+
 #include "GameInstance.generated.h"
 
 class AGameModeBase;
@@ -122,6 +126,9 @@ protected:
 	// @todo jcf list of logged-in players?
 
 	virtual bool HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld);
+	virtual bool HandleDisconnectCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld);
+	virtual bool HandleReconnectCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld);
+	virtual bool HandleTravelCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld);
 
 	/** Delegate for handling PS4 play together system events */
 	void OnPlayTogetherEventReceived(int32 UserIndex, const TArray<const FUniqueNetId&>& UserList);
@@ -201,10 +208,10 @@ public:
 	/** Called as soon as the game mode is spawned, to allow additional PIE setting validation prior to creating the local players / etc... (called on pure clients too, in which case the game mode is nullptr) */
 	virtual FGameInstancePIEResult PostCreateGameModeForPIE(const FGameInstancePIEParameters& Params, AGameModeBase* GameMode);
 
-	DEPRECATED(4.15, "Please override InitializeForPIE instead")
+	UE_DEPRECATED(4.15, "Please override InitializeForPIE instead")
 	virtual bool InitializePIE(bool bAnyBlueprintErrors, int32 PIEInstance, bool bRunAsDedicated);
 
-	DEPRECATED(4.15, "Please override StartPlayInEditorGameInstance instead")
+	UE_DEPRECATED(4.15, "Please override StartPlayInEditorGameInstance instead")
 	virtual bool StartPIEGameInstance(ULocalPlayer* LocalPlayer, bool bInSimulateInEditor, bool bAnyBlueprintErrors, bool bStartInSpectatorMode);
 #endif
 
@@ -242,10 +249,10 @@ public:
 	 * Adds a new player.
 	 * @param ControllerId - The controller ID the player should accept input from.
 	 * @param OutError - If no player is returned, OutError will contain a string describing the reason.
-	 * @param SpawnActor - True if an actor should be spawned for the new player.
+	 * @param bSpawnPlayerController - True if a player controller should be spawned immediately for the new player.
 	 * @return The player which was created.
 	 */
-	ULocalPlayer*			CreateLocalPlayer(int32 ControllerId, FString& OutError, bool bSpawnActor);
+	ULocalPlayer*			CreateLocalPlayer(int32 ControllerId, FString& OutError, bool bSpawnPlayerController);
 
 	/**
 	 * Adds a LocalPlayer to the local and global list of Players.
@@ -299,6 +306,48 @@ public:
 	inline FTimerManager& GetTimerManager() const { return *TimerManager; }
 
 	inline FLatentActionManager& GetLatentActionManager() const { return *LatentActionManager;  }
+
+	/**
+	 * Get a Subsystem of specified type
+	 */
+	UGameInstanceSubsystem* GetSubsystemBase(TSubclassOf<UGameInstanceSubsystem> SubsystemClass) const
+	{
+		return SubsystemCollection.GetSubsystem<UGameInstanceSubsystem>(SubsystemClass);
+	}
+
+	/**
+	 * Get a Subsystem of specified type
+	 */
+	template <typename TSubsystemClass>
+	TSubsystemClass* GetSubsystem() const
+	{
+		return SubsystemCollection.GetSubsystem<TSubsystemClass>(TSubsystemClass::StaticClass());
+	}
+
+	/**
+	 * Get a Subsystem of specified type from the provided GameInstance
+	 * returns nullptr if the Subsystem cannot be found or the GameInstance is null
+	 */
+	template <typename TSubsystemClass>
+	static FORCEINLINE TSubsystemClass* GetSubsystem(const UGameInstance* GameInstance)
+	{
+		if (GameInstance)
+		{
+			return GameInstance->GetSubsystem<TSubsystemClass>();
+		}
+		return nullptr;
+	}
+
+	/**
+	 * Get all Subsystem of specified type, this is only necessary for interfaces that can have multiple implementations instanced at a time.
+	 *
+	 * Do not hold onto this Array reference unless you are sure the lifetime is less than that of UGameInstance
+	 */
+	template <typename TSubsystemClass>
+	const TArray<TSubsystemClass*>& GetSubsystemArray() const
+	{
+		return SubsystemCollection.GetSubsystemArray<TSubsystemClass>(TSubsystemClass::StaticClass());
+	}
 
 	/**
 	 * Start recording a replay with the given custom name and friendly name.
@@ -406,4 +455,8 @@ public:
 protected:
 	/** Called when the game instance is started either normally or through PIE. */
 	virtual void OnStart();
+
+private:
+
+	FSubsystemCollection<UGameInstanceSubsystem> SubsystemCollection;
 };

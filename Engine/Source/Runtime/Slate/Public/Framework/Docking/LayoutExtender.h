@@ -1,6 +1,14 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreTypes.h"
+#include "Templates/SharedPointer.h"
+#include "Templates/Function.h"
+#include "UObject/NameTypes.h"
+#include "Framework/Docking/TabManager.h"
+
+typedef TFunction<void(TSharedRef<FTabManager::FArea>)> FAreaExtension;
 
 /** Extension position enumeration */
 enum class ELayoutExtensionPosition
@@ -23,10 +31,16 @@ public:
 	 * @param Position				Whether to place the new tab before or after this tab
 	 * @param TabToAdd				The new tab definition
 	 */
-	void ExtendLayout(FTabId PredicateTabId, ELayoutExtensionPosition Position, FTabManager::FTab TabToAdd)
-	{
-		TabExtensions.Add(PredicateTabId, FExtendedTab(Position, TabToAdd));
-	}
+	SLATE_API void ExtendLayout(FTabId PredicateTabId, ELayoutExtensionPosition Position, FTabManager::FTab TabToAdd);
+
+
+	/**
+	 * Extend the area identified by the specified extension ID
+	 *
+	 * @param ExtensionId			The ID of the area to extend (FTabManager::FArea::ExtensionId)
+	 * @param AreaExtensions		A callback to call with the default layout for the desired area
+	 */
+	SLATE_API void ExtendArea(FName ExtensionId, const FAreaExtension& AreaExtension);
 
 
 	/**
@@ -36,8 +50,8 @@ public:
 	 * @param Position				The position to acquire extensions for (before/after)
 	 * @param OutValues				The container to populate with extended tabs
 	 */
-	template<typename T>
-	void FindExtensions(FTabId TabId, ELayoutExtensionPosition Position, T& OutValues) const
+	template<typename AllocatorType>
+	void FindExtensions(FTabId TabId, ELayoutExtensionPosition Position, TArray<FTabManager::FTab, AllocatorType>& OutValues) const
 	{
 		OutValues.Reset();
 
@@ -52,6 +66,11 @@ public:
 			}
 		}
 	}
+
+	/**
+	 * Recursively extend the specified area
+	 */
+	void ExtendAreaRecursive(const TSharedRef<FTabManager::FArea>& Area) const;
 
 private:
 	
@@ -68,6 +87,20 @@ private:
 		FTabManager::FTab TabToAdd;
 	};
 
-	/** Map of extensions */
+	/** Extended area information */
+	struct FExtendedArea
+	{
+		FExtendedArea(const FAreaExtension& InExtensionCallback)
+			: ExtensionCallback(InExtensionCallback)
+		{}
+
+		/** The area extension callback */
+		FAreaExtension ExtensionCallback;
+	};
+
+	/** Map of extensions for tabs */
 	TMultiMap<FTabId, FExtendedTab> TabExtensions;
+
+	/** Map of extensions for areas */
+	TMultiMap<FName, FExtendedArea> AreaExtensions;
 };

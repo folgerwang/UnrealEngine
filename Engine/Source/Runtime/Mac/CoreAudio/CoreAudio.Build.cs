@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -25,7 +25,7 @@ public class CoreAudio : ModuleRules
 
 		PublicFrameworks.AddRange(new string[] { "CoreAudio", "AudioUnit", "AudioToolbox" });
 
-		AdditionalBundleResources.Add(new UEBuildBundleResource("../Build/Mac/RadioEffectUnit/RadioEffectUnit.component"));
+		AdditionalBundleResources.Add(new BundleResource("../Build/Mac/RadioEffectUnit/RadioEffectUnit.component"));
 
 		// Add contents of component directory as runtime dependencies
 		foreach (string FilePath in Directory.EnumerateFiles("../Build/Mac/RadioEffectUnit/RadioEffectUnit.component", "*", SearchOption.AllDirectories))

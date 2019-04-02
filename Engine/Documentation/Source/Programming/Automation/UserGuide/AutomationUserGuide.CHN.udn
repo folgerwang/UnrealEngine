@@ -1,48 +1,174 @@
-﻿Availability:Public
-Title: 自动化测试用户指南
-Crumbs: %ROOT%, Programming, Programming/Automation
-Description:使用自动系统运行测试的指南。
+INTSourceChangelist:3801260
+Availability: Public
+Crumbs: %ROOT%
+Title:自动化系统用户指南
+Description:使用自动化系统运行测试的指南。
+Type: Overview
+SkillLevel:Intermediate
+Version:4.17
+Parent:Programming/Automation
+Order:1
+Tags:Programming
+Topic-image:SessionFrontend_Topic.png
+Social-image:SessionFrontend.png
 
-自动测试可以从 **Automation(自动化）** 面板中进行配置并运行。
+[TOC(start:2 end:3)]
 
+
+[REGION:fullwidth]
+![](SessionFrontend.png)
+[/REGION]
+[REGION:caption]
+聚焦于“自动化（Automation）”选项卡的“会话前端（Session Frontend）”屏幕截图。
+[/REGION]
+
+**自动化（Automation）** 选项卡是 **会话（虚幻）前端（Session (Unreal) Frontend）** 的其中一部分。它位于此处的原因是便于你在连接到计算机或位于本地网络上的任何其他设备上运行自动化测试。
+
+你可通过两种方式访问前端套件： 
+
+* **会话前端（Session Frontend）** - 将本地编辑器作为自动化工作线程打开，以在外部设备上运行自动化。 
+	* 导航至 **窗口（Window）** > **开发者工具（Developer Tools）** > **会话前端（Session Frontend）**
+* **虚幻前端（Unreal Frontend）** - 打开包含“会话前端（Session Frontend）”、“设备管理器（Device Manager）”和“项目启动程序（Project Launcher）”的独立版“前端（Frontend）”。 
+	* 导航至 **[UE4根目录]** > **Engine** > **Binaries** > **Win64** > **UnrealFrontend.exe**
+
+
+(#enablingplugins)
+## 启动插件
+
+在最新版本的虚幻引擎4中，所有的自动化测试都从“Engine Content”文件夹中移到了它们的插件中，必须先启用插件， 
+然后才能在“自动化（Automation）”选项卡中看到它们。 
+
+
+[REGION:imagetable]
+| [REGION:lightbox]![](OpenPluginBrowser.png)(h:412)[/REGION] | [REGION:lightbox] [![](PluginsBrowserTesting.png)(w:500)](OpenPluginBrowser.png) [/REGION] |
+| --- | --- |
+| 要启用插件，选择 **编辑（Edit）** > **插件（Plugins）** > **测试（Testing）**。| 包含自动化测试的“插件（Plugins）”浏览器 |
+[/REGION]
+
+
+[REGION:note]
+如果使用独立版“虚幻前端（Unreal Frontend）”，无需任何额外的启用步骤就可访问所有自动化测试。 
+[/REGION]
+
+
+(#userinterface)
 ## 用户界面
 
-要启用自动化测试窗口，您需要启动编辑器并从 **Window**（窗口）菜单中选择 **Session Frontend** （会话前端），或运行单独的[**虚幻前端**](Engine/Deployment/UnrealFrontend)应用程序。
+打开“会话前端（Session Frontend）”后，你可以访问“控制台（Console）”、“自动化（Automation）”、“屏幕截图比较（Screenshot Comparison）”和“分析器（Profiler）”等选项卡。对于你的自动化测试需求， 
+**自动化（Automation）** 选项卡中将包含你所需的所有功能，而一些额外功能位于 [屏幕截图比较（Screenshot Comparison）](Programming/Automation/ScreenShotComparison) 选项卡下， 
+它适用于渲染功能比较。
+
+[REGION:lightbox]
+[![](AutomationTab.png)(w:850)](AutomationTab.png)
+[/REGION]
+[REGION:caption] 单击查看大图。[/REGION]
+
 
 [REGION:note]
-您可以通过在[**Session Browser（会话浏览器）**](Engine/Deployment/UnrealFrontend#会话浏览器)中选择本地编辑器来将其作为自动测试执行者。要在外部设备/游戏实例中运行自动工具，您需要运行 **新建会话** 向导来创建会话，并在其被创建后在 **会话浏览器** 中选择新会话，或在 **会话浏览器** 中选择已存会话。
+如果未在“自动化（Automation）”选项卡窗口中看到任何显示内容，请从左侧的会话浏览器中选择一个活动会话。例如，在 **此应用程序（This Application）** 下面，名称为 **RDU-WD** 的机器处于选中状态。
 [/REGION]
 
-一旦您成功连接到活动的会话，您将可以转到文件区域中的 **自动工具** 选项卡以进行特殊会话：
+(#sessionbrowser)
+### 会话浏览器
 
-[REGION:fullwidth]
-![Automation](AutomationPanelInSessionBrowser.jpg)
+借助 **会话浏览器**，你可以连接到编辑器的特定实例。选择会话之后，你才会在“自动化（Automation）”窗口中看到填充的可用自动化测试。
+
+![](SessionBrowser.png)
+ 
+ 
+(#toolbar)
+### 工具栏
+
+借助“自动化（Automation）”选项卡中的工具栏，你可以控制启动自动化测试、刷新自动化测试以及过滤自动化测试错误和警告的方式。
+
+[REGION:lightbox]
+[![](AutomationToolbar.png)(w:850)](AutomationToolbar.png)
 [/REGION]
-* 左上角处为 "操作" -运行及刷新测试列表。play（游戏）按钮上的数字表示将要执行的测试数量。
-* 中上部为筛选器 - 错误筛选器，警告筛选器，冒烟测试筛选器，开发内容筛选器，可视化命令行开关筛选器，以及搜寻特定测试的搜索框。
-* 在树形结构中，在一些测试旁您可以看到星形图标，这个图标表示测试是快速的，默认应该启用该项。测试由标记为ATF_SmokeTest的星形来标识。
-* 以上每个测试结果上方的图标为平台图标，并且旁边的数字表示能进行选择测试的工作程序数量。在运行控制台的情况下，我们将可以同时在许多不同的平台上运行测试，并且每种类型设备上都会有多列。
+[REGION:caption] 单击查看大图。[/REGION]
 
 
-在运行了一些测试后，界面将如下所示：
-
-[REGION:fullwidth]
-![Automation](InProgress.jpg)
+[REGION:simpletable]
+| 图标 | 名称 | 说明 |
+| --- | --- | --- |
+| ![](StartTests.png) | **启动测试（Start Tests）** | 启动和停止已启用且当前已选择的自动化测试。在此按钮下，还会显示即将运行的测试的数量，以供你参考。|
+| ![](RunLevelTests.png) | **运行关卡测试（Run Level Test）** | 如果当前加载的关卡是测试地图，你可以单击此按钮选择测试并立即运行它。|
+| ![](RefreshTests.png) | **刷新测试（Refresh Tests）** | 单击此按钮可刷新添加到项目中的所有测试的测试名称列表。|
+| ![](FindWorkers.png) | **查找工作线程（Find Workers）** | 单击此按钮可查找可用于执行测试的本地工作线程。|
+| ![](Errors.png) | **错误（Errors）** | 单击此按钮可为“测试（Test）”窗口切换过滤器，该过滤器显示尝试完成的过程中发生错误的所有测试。|
+| ![](Warnings.png) | **警告（Warnings）** | 单击此按钮可为“测试（Test）”窗口切换过滤器，该过滤器显示尝试完成的过程中出现警告的所有测试。|
+| ![](DevContent.png) | **开发者内容（Dev Content）** | 启用时，将在自动化测试中包含开发者目录。|
+| ![](DeviceGroups.png) | **设备组（Device Groups）** | 借助它，你可以基于机器名、平台、操作系统版本等一系列选项对测试进行分组。|
+| ![](Presets.png) | **预设值（Preset）** | 借助它，你可以使用已选择的测试和设置添加你自己的自动化测试预设值，以便在以后重复使用它们。|
 [/REGION]
-一旦测试完成，可以通过 **Export** （导出）下拉菜单来导出结果至CSV文件。在此处您可以选择您感兴趣的细节来导出。可以是任何内容、状态、错误、警告、日志、或以上内容的组合。
+
+ 
+(#testswindowandresults)
+### 测试窗口和结果
+
+在自动化测试窗口和“自动化测试结果（Automation Test Results）”面板中，你可以看到与已经运行的测试相关的信息，例如完成测试的机器、已运行测试
+的数量、失败的测试的数量等。 
+
+
+[REGION:lightbox]
+[![](TestsAndResultsPanels.png)(w:850)](TestsAndResultsPanels.png)
+[/REGION]
+[REGION:caption] 单击查看大图。[/REGION]
+
+[REGION:tip]
+你可以使用 **设备组（Device Groups）** 按钮来确定开始运行新的自动化测试时，信息在结果面板中的分组方式。
+
+![](DeviceGroupsDropdown.png)
+[/REGION]
+
+查看结果时，可使用 **显示（Display）** 选项显示测试的 **名称（Name）** 和完成测试花费的 **时间（Time）**。 
+
+[REGION:lightbox]
+[![](Display.png)(w:850)](Display.png)
+[/REGION]
+[REGION:caption] 单击查看大图。[/REGION]
+
+当收到错误或警告时，你可以在主测试窗口中单击测试，以便让具体的错误/警告在结果面板中显示。 
+
+[REGION:lightbox]
+[![](FailureMessage.png)(w:850)](FailureMessage.png)
+[/REGION]
+[REGION:caption] 单击查看大图。[/REGION]
+
+
+(#export)
+### 导出
+
+测试完成后，可通过 **导出（Export）** 下拉菜单将结果导出到CSV文件中。 
+
+[REGION:lightbox]
+[![](ExportTests.png)(w:850)](ExportTests.png)
+[/REGION]
+[REGION:caption] 单击查看大图。[/REGION]
+
+从可用过滤器中选择要导出的过滤器，然后选择 **导出数据（Export Data）** 按钮。
+
+![](ExportData.png)
+
+导出数据后，会显示弹出消息，指示导出是否成功以及CSV文件保存位置。
+
+![](ExportDataSuccessful.png)
 
 [REGION:note]
-* **Export Dropdown（导出下拉菜单）** 将仅在报告生成后才可用。
-* **Export Data（导出下拉菜单）** 按钮将仅在报告符合过滤器标准时才可用。
-* 如导出成功，将显示通知，而且将显示此报告被保存的位置。
+**导出（Export）** 下拉菜单仅在报告生成后才会处于活动状态，**导出数据（Export Data）** 按钮仅在有报告满足过滤条件时处于活动状态。 
 [/REGION]
 
-[REGION:fullwidth]
-![Automation](Export.png)
-[/REGION]
+(#copy)
+### 复制
 
-另外，可以通过测试结果上的工具提示来了解运行测试的游戏实例信息。
+测试完成后，你可以选择 **自动化测试结果（Automation Test Results）** 面板中显示的任意多行并单击 **复制（Copy）** 按钮来将这些行复制到剪贴板，然后粘贴到任意位置。
 
-[REGION:fullwidth]
-![Automation](TooltipInfo.png)
+[REGION:lightbox]
+[![](Copy.png)(w:850)](Copy.png)
 [/REGION]
+[REGION:caption] 单击查看大图。[/REGION]
+
+
+
+
+
+

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -164,6 +164,12 @@ struct APPLICATIONCORE_API FGenericPlatformApplicationMisc
 	static bool IsHighDPIAwarenessEnabled();
 
 	/*
+	* Set whether gamepads are allowed at the platform level.
+	*/
+	static void SetGamepadsAllowed(bool bAllowed)
+	{}
+
+	/*
 	 * Resets the gamepad to player controller id assignments
 	 */
 	static void ResetGamepadAssignments()
@@ -181,6 +187,18 @@ struct APPLICATIONCORE_API FGenericPlatformApplicationMisc
 	static bool IsControllerAssignedToGamepad(int32 ControllerId)
 	{
 		return (ControllerId == 0);
+	}
+
+	/*
+	* Returns name of gamepad if controller id assigned to a gamepad
+	*/
+	static FString GetGamepadControllerName(int32 ControllerId)
+	{
+		if (IsControllerAssignedToGamepad(ControllerId))
+		{
+			return FString(TEXT("Generic"));
+		}
+		return FString(TEXT("None"));
 	}
 
 	/** Copies text to the operating system clipboard. */

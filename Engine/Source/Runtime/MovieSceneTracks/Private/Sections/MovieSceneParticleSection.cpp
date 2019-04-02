@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Sections/MovieSceneParticleSection.h"
 #include "Evaluation/MovieSceneParticleTemplate.h"
@@ -8,7 +8,7 @@
 
 FMovieSceneParticleChannel::FMovieSceneParticleChannel()
 {
-	SetEnum(FindObject<UEnum>(ANY_PACKAGE, TEXT("EParticleKey")));
+	SetEnum(StaticEnum<EParticleKey>());
 }
 
 UMovieSceneParticleSection::UMovieSceneParticleSection( const FObjectInitializer& ObjectInitializer )

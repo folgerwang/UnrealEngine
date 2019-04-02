@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimNodes/AnimNode_PoseDriver.h"
 #include "AnimationRuntime.h"
@@ -8,17 +8,17 @@
 
 
 FAnimNode_PoseDriver::FAnimNode_PoseDriver()
+	: DriveSource(EPoseDriverSource::Rotation)
+	, DriveOutput(EPoseDriverOutput::DrivePoses)	
+	, bOnlyDriveSelectedBones(false)
 {
-	RadialScaling_DEPRECATED = 0.25f;
-	Type_DEPRECATED = EPoseDriverType::SwingOnly;
-
-	DriveSource = EPoseDriverSource::Rotation;
-	DriveOutput = EPoseDriverOutput::DrivePoses;
-
 	RBFParams.DistanceMethod = ERBFDistanceMethod::SwingAngle;
 
+#if WITH_EDITORONLY_DATA
+	RadialScaling_DEPRECATED = 0.25f;
+	Type_DEPRECATED = EPoseDriverType::SwingOnly;
 	TwistAxis_DEPRECATED = BA_X;
-	bOnlyDriveSelectedBones = false;
+#endif
 }
 
 void FAnimNode_PoseDriver::Initialize_AnyThread(const FAnimationInitializeContext& Context)
@@ -202,6 +202,8 @@ void FAnimNode_PoseDriver::GetRBFTargets(TArray<FRBFTarget>& OutTargets) const
 
 void FAnimNode_PoseDriver::Evaluate_AnyThread(FPoseContext& Output)
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_PoseDriver_Eval);
+
 	// Udpate DrivenIDs if needed
 	if (bCachedDrivenIDsAreDirty)
 	{

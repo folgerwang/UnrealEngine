@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "LiveLinkMessageBusHeartbeatManager.h"
 #include "LiveLinkMessageBusSource.h"
@@ -15,12 +15,13 @@ FHeartbeatManager::FHeartbeatManager() :
 	Thread = FRunnableThread::Create(this, TEXT("MessageBusHeartbeatManager"));
 }
 
-FHeartbeatManager::	~FHeartbeatManager()
+FHeartbeatManager::~FHeartbeatManager()
 {
 	Stop();
 	if (Thread)
 	{
-		Thread->WaitForCompletion();
+		Thread->Kill(true);
+		Thread = nullptr;
 	}
 };
 

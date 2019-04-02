@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2688735
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:坐标表达式
 Crumbs:%ROOT%, Engine, Engine/Rendering/Materials
 Description:对纹理坐标、可用作纹理坐标的输出值或者用来修改纹理坐标的输出值执行操作的表达式。
 Version:4.9
+tags:Materials
 
 [EXCERPT:TOC]
 [TOC(start:2)]

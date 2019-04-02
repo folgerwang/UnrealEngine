@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -285,6 +285,9 @@ public:
 		}
 		DisplayNode->GetChildKeyAreaNodesRecursively(KeyAreaNodes);
 
+		//Need to key first since we may need to interrogate the section
+		SectionToKey->ExpandToFrame(CurrentTime.FrameNumber);
+
 		for (TSharedRef<FSequencerSectionKeyAreaNode> KeyAreaNode : KeyAreaNodes)
 		{
 			TSharedPtr<IKeyArea> KeyArea =  KeyAreaNode->GetKeyArea(SectionToKey);
@@ -293,8 +296,6 @@ public:
 				KeyArea->AddOrUpdateKey(CurrentTime.FrameNumber, ObjectBinding, Sequencer);
 			}
 		}
-
-		SectionToKey->ExpandToFrame(CurrentTime.FrameNumber);
 
 		Sequencer.NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::TrackValueChanged);
 		Sequencer.UpdatePlaybackRange();

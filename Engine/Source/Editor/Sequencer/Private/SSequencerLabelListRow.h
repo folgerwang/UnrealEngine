@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -13,7 +13,7 @@
 #include "Widgets/Views/SListView.h"
 #include "Widgets/Images/SImage.h"
 #include "EditorStyleSet.h"
-#include "Widgets/Input/SEditableLabel.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 
 struct FSequencerLabelTreeNode;
 
@@ -105,9 +105,10 @@ public:
 						.Padding(0.0f, 2.0f)
 						.VAlign(VAlign_Center)
 						[
-							SAssignNew(EditableLabel, SEditableLabel)
-								.CanEdit(this, &SSequencerLabelListRow::CanEnterRenameMode)
-								.OnTextChanged(this, &SSequencerLabelListRow::HandleFolderNameTextChanged)
+							SAssignNew(EditableLabel, SInlineEditableTextBlock)
+								.IsReadOnly(this, &SSequencerLabelListRow::IsReadOnly)
+								.OnVerifyTextChanged(this, &SSequencerLabelListRow::HandleVerifyNameChanged)
+								.OnTextCommitted(this, &SSequencerLabelListRow::HandleFolderNameTextChanged)
 								.Text(
 									Node->Label.IsEmpty()
 										? LOCTEXT("AllTracksLabel", "All Tracks")
@@ -122,13 +123,13 @@ public:
 	/** Change the label text to edit mode. */
 	void EnterRenameMode()
 	{
-		EditableLabel->EnterTextMode();
+		EditableLabel->EnterEditingMode();
 	}
 
 	/** Can this label be edited? */
-	bool CanEnterRenameMode() const
+	bool IsReadOnly() const
 	{
-		return !Node->Label.IsEmpty();
+		return Node->Label.IsEmpty();
 	}
 
 private:
@@ -156,7 +157,20 @@ private:
 		return FLinearColor::Gray;
 	}
 
-	void HandleFolderNameTextChanged(const FText& NewLabel)
+
+	bool HandleVerifyNameChanged(const FText& NewText, FText& OutErrorMessage)
+	{
+		if (NewText.ToString().Contains(TEXT(" ")))	
+		{
+			OutErrorMessage = LOCTEXT("InvalidLabel", "Label cannot contains spaces");
+			return false;
+		}
+
+		return true;
+	}
+
+
+	void HandleFolderNameTextChanged(const FText& NewLabel, ETextCommit::Type TextCommitType)
 	{
 		FString NewLabelString = NewLabel.ToString();
 
@@ -169,7 +183,7 @@ private:
 private:
 
 	/** Holds the editable text label widget. */
-	TSharedPtr<SEditableLabel> EditableLabel;
+	TSharedPtr<SInlineEditableTextBlock> EditableLabel;
 
 	/** Holds the label node. */
 	TSharedPtr<FSequencerLabelTreeNode> Node;

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #if USES_RESTFUL_GOOGLE
 
@@ -130,7 +130,7 @@ void FOnlineIdentityGoogle::Login(int32 LocalUserNum, const FAuthTokenGoogle& In
 			}
 			else
 			{
-				InCompletionDelegate.ExecuteIfBound(ProfileLocalUserNum, bWasSuccessful, GetEmptyUniqueId(), ErrorStr);
+				InCompletionDelegate.ExecuteIfBound(ProfileLocalUserNum, bWasSuccessful, *FUniqueNetIdGoogle::EmptyId(), ErrorStr);
 			}
 		});
 
@@ -140,7 +140,7 @@ void FOnlineIdentityGoogle::Login(int32 LocalUserNum, const FAuthTokenGoogle& In
 		}
 		else
 		{
-			InCompletionDelegate.ExecuteIfBound(InLocalUserNum, bWasSuccessful, GetEmptyUniqueId(), ErrorStr);
+			InCompletionDelegate.ExecuteIfBound(InLocalUserNum, bWasSuccessful, *FUniqueNetIdGoogle::EmptyId(), ErrorStr);
 		}
 	};
 
@@ -171,9 +171,9 @@ void FOnlineIdentityGoogle::OnAccessTokenLoginComplete(int32 LocalUserNum, bool 
 
 void FOnlineIdentityGoogle::OnExternalUILoginComplete(TSharedPtr<const FUniqueNetId> UniqueId, const int ControllerIndex, const FOnlineError& Error)
 {
-	const FString& ErrorStr = Error.ErrorCode;
+	const FString& ErrorStr = Error.GetErrorCode();
 	const bool bWasSuccessful = Error.WasSuccessful() && UniqueId.IsValid() && UniqueId->IsValid();
-	OnAccessTokenLoginComplete(ControllerIndex, bWasSuccessful, bWasSuccessful ? *UniqueId : GetEmptyUniqueId(), ErrorStr);
+	OnAccessTokenLoginComplete(ControllerIndex, bWasSuccessful, bWasSuccessful ? *UniqueId : *FUniqueNetIdGoogle::EmptyId(), ErrorStr);
 }
 
 void FOnlineIdentityGoogle::OnLoginAttemptComplete(int32 LocalUserNum, const FString& ErrorStr)
@@ -197,7 +197,7 @@ void FOnlineIdentityGoogle::OnLoginAttemptComplete(int32 LocalUserNum, const FSt
 	{
 		GoogleSubsystem->ExecuteNextTick([this, LocalUserNum, ErrorStrCopy]()
 		{
-			TriggerOnLoginCompleteDelegates(LocalUserNum, false, GetEmptyUniqueId(), ErrorStrCopy);
+			TriggerOnLoginCompleteDelegates(LocalUserNum, false, *FUniqueNetIdGoogle::EmptyId(), ErrorStrCopy);
 		});
 	}
 }
@@ -420,6 +420,8 @@ bool FOnlineIdentityGoogle::Logout(int32 LocalUserNum)
 		UserIds.Remove(LocalUserNum);
 		// reset scope permissions
 		GConfig->GetArray(TEXT("OnlineSubsystemGoogle.OnlineIdentityGoogle"), TEXT("ScopeFields"), LoginURLDetails.ScopeFields, GEngineIni);
+		// always required login access fields
+		LoginURLDetails.ScopeFields.AddUnique(TEXT(GOOGLE_PERM_PUBLIC_PROFILE));
 
 		TriggerOnLoginFlowLogoutDelegates(LoginDomains);
 

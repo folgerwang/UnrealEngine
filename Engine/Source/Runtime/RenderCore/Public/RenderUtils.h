@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -467,6 +467,16 @@ inline bool IsUsingPerPixelDBufferMask(EShaderPlatform Platform)
 	default:
 		return false;
 	}
+}
+
+inline bool UseGPUScene(EShaderPlatform Platform, ERHIFeatureLevel::Type FeatureLevel)
+{
+	// GPU Scene management uses compute shaders
+	return FeatureLevel >= ERHIFeatureLevel::SM5 
+		//@todo - support GPU Scene management compute shaders on these platforms to get dynamic instancing speedups on the Rendering Thread and RHI Thread
+		&& !IsOpenGLPlatform(Platform)
+		&& !IsVulkanPlatform(Platform)
+		&& !IsSwitchPlatform(Platform);
 }
 
 /** Unit cube vertex buffer (VertexDeclarationFVector4) */

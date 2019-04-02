@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 
 /*=============================================================================================
@@ -28,6 +28,9 @@ public:
  **/
 struct CORE_API FAndroidPlatformProcess : public FGenericPlatformProcess
 {
+	static void* GetDllHandle(const TCHAR* Filename);
+	static void FreeDllHandle(void* DllHandle);
+	static void* GetDllExport(void* DllHandle, const TCHAR* ProcName);
 	static const TCHAR* ComputerName();
 	static void SetThreadAffinityMask( uint64 AffinityMask );
 	static uint32 GetCurrentProcessId();

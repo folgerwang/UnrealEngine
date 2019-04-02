@@ -1,8 +1,9 @@
-﻿INTSourceChangelist:2088300
+﻿INTSourceChangelist:4307038
 Availability: Public
-Title:地貌Gizmo
+Title:地形小工具
 Crumbs: %ROOT%, Engine, Engine/Landscape, Engine/Landscape/Editing
-Description:关于用于修改地貌的Gizmo的指南。
+Description:可用于修改地形的小工具指南。
+version: 4.9
 
 [VAR:Topic]
 [OBJECT:Topiccompact]
@@ -27,188 +28,200 @@ Description:关于用于修改地貌的Gizmo的指南。
 
 [TOC(start:2 end:3)]
 
-## 概述
+**地形小工具** 是纯编辑器的actor，与其所定义特定区域的体积相似。其作用是保存地形区域的高度和图层数据，以便被复制到地形上的另一个位置，或导出在另一个地形或高度图生成器（World Machine、Terresculptor等）中使用。
 
+[OBJECT:EmbeddedVideo]
+[PARAMLITERAL:width]
+640
+[/PARAMLITERAL]
+[PARAMLITERAL:height]
+360
+[/PARAMLITERAL]
+[PARAMLITERAL:videoid]
+IdzHGD7iWdg
+[/PARAMLITERAL]
+[/OBJECT]
 
-Landsape Gizmos(景观小工具)仅是在编辑器中使用的工具，类似于体积，因为它们都定义了一个特定区域。它们的作用是存放一块地貌的高度和图层数据，以便可以将它们复制到地貌的另一个位置处或者导出来在其它的地貌上应用。
+(#accessingthegizmotool)
+## 访问小工具
 
-![Landscape Gizmo](Landscape_Gizmo.png)(w:640)
+**访问小工具的方法：**
 
-## 访问Gizmo工具
-
-**要想访问Gizmo工具:**
-
-1. 在  **Sculpt（塑造）** 模式中，点击当前选中的工具图标来打开  **Sculpting Tools（造型工具）** 下拉菜单。
+1. 在 **雕刻** 模式中点击当前选中的工具图标打开 **雕刻工具（Sculpting Tools）** 下拉菜单。
 
 	![Sculpt Menu](Landscape_SculptMenu.png)
 
-1. 从菜单中选择 **Copy/Paste（复制/粘帖）** 。Gizmo画刷在您的选中地貌上呈现为具有红色边界的方框。
+1. 从菜单中选择 **复制/粘贴（Copy/Paste）**。小工具笔刷在选中的地形上显示为一个红色外框。
 
 	![Gizmo Outline](Landscape_GizmoOutline.png)
 
 
-选择该Gizmo画刷会创建一个临时的Gizmo Actor。您可以像操作其他Actor一样使用变换工具来操作该Actor，来定义您想复制的地貌区域。
+选择小工具笔刷创建一个临时的小工具actor。可使用变换工具操纵此actor（方式于操纵其他内容相同），以此定义需要复制的地形区域。 
 
-关于变换工具的更多信息，请参照[](Engine/Actors/Transform)。
+[region:note]
+如需了解变换工具的详细信息，请查阅[](Engine/Actors/Transform)。
+[/region]
 
-您也可以在 **Details（详细信息）** 面板中修改该 Gizmo Actor的属性。
+可在 **细节** 面板中修改小工具actor的属性。
 
 ![Gizmo Properties](Landscape_GizmoProperties.png)
 
 | 属性 | 描述 |
 | -------- | ----------- |
-| **Width（宽度）** | Gizmo Actor的基本宽度，以虚幻单位为单位；X轴显示为红线。|
-| **Height（高度）** | Gizmo Actor的基本高度，以虚幻单位为单位；Y轴显示为绿色。|
-| **LengthZ（Z轴长度）** | Gizmo Actor的Z轴上的基本长度，以虚幻单位为单位。|
-| **MarginZ（Z轴留白）** | 当你适应Gizmo到选中区域时所占空间的Z值，具有Max(最大)高度和Min（最小）高度。当您适应Gizmo到选中区域时，LengthZ = (Max height - Min height) + 2 * MarginZ。|
-| **MinRelativeZ** | Gizmo中的数据的最小高度值。Gizmo中的高度值会被正规化到 0.f到1.f之间，显示为(Value - MinRelativeZ) * RelativeScaleZ。|
-| **RelativeScaleZ** | Gizmo中的数据的高度比例。|
-| **TargetLandscape（目标地貌）** | 当前选中的地貌，Gizmo工具将在该地貌上应用。|
+| **Width** | 小工具actor的基础宽度（以虚幻单位计）；X轴显示为红线。 |
+| **Height** | 小工具actor的基础高度（以虚幻单位计）；Y轴显示为绿线。 |
+| **LengthZ** | 小工具actor的基础Z长度（以虚幻单位计）。 |
+| **MarginZ** | 将小工具与选择匹配时的Z值，含最大高度和最小高度。将小工具与所选区域匹配时，LengthZ = （最大高度 - 最小高度） + 2 * MarginZ。 |
+| **MinRelativeZ** | 小工具中数据的最小高度值。小工具中的高度值被标准化（从0.f到1.f），并显示为（值 - MinRelativeZ） * RelativeScaleZ。 |
+| **RelativeScaleZ** | 小工具中数据的高度缩放。 |
+| **TargetLandscape** | 当前选中、小工具将用于的地形。 |
 
 
 (#CopyingData)
 
-## 复制到Gizmo
+(#copyingtothegizmo)
+## 复制到小工具
 
-为了复制一部分地貌，那么则必须将那部分地貌的数据复制到Gizmo中。然后，稍后可以把那个数据 [粘帖](#从Gizmo粘帖数据) 到另一个区域。
-
-
-
-**要想复制选中区域:**
+为复制地形的部分，区域的数据必须复制到小工具。之后数据可被粘贴到另一个位置。
 
 
-1. 在 **Sculpt(造型)** 模式中，选择 **Region Selection（区域选择）** 造型工具。
+
+**复制选定区域的方法：**
+
+
+1. 在 **雕刻** 模式中选择 **区域选择（Region Selection）** 雕刻工具。
 
 	![Region Select](Engine/Landscape/Editing/SculptMode/Landscape_RegionSelect.png)
-1. 使用画刷画笔来选择地貌区域，和正常的描画过程类似。<br/>  
+1. 使用笔刷笔划来选择地形的一个区域，与法线绘制流程相似。  
 
 	![Gizmo Copy](Landscape_GizmoCopy1.png)(w:640)
 
-1. 选择  *Region Copy/Paste(区域 复制/粘帖)* 造型工具。
+1. 选择 **复制/粘贴** 雕刻工具。
 
 	![Copy/Paste](Engine/Landscape/Editing/SculptMode/Landscape_CopyPaste.png)
 
-	造型工具（小工具）将会在视口中变为可见状态。
+	小工具在视口中不可见。  
 
 	![Gizmo Tool](Landscape_GizmoCopy2.png)(w:640)
 
-1. 在Gizmo的 **工具设置** 部分中，启用 **Use Region as Mask（使用区域作为蒙板）** ，以便在复制数据时使用选中部分作为蒙板。
+1. 在小工具的 **工具设置** 部分中启用 **将区域用作遮罩（Use Region as Mask）**，以便在复制数据时将选择用作遮罩。  
 
 	![Use Region As Mask Setting](Landscape_UseRegionAsMask.png)
 
-1. 单击 *Fit Gizmo to Selected Regions(适应Gizmo到选中区域)* 按钮来放置该Gizmo并调整其尺寸，以便它包围所有选中区域。
+1. 点击 **将小工具匹配到选定区域（Fit Gizmo to Selected Regions）** 按钮来放置小工具并调整大小，使其包围所有选定的区域。  
 
 	![Copy Gizmo Data](Landscape_GizmoCopy3.png)(w:640)
-1. 单击 *Copy Data to Gizmo(复制数据到Gizmo)* 来在Gizmo范围内转移选中的地貌区域的数据。按下 *Ctrl + C* 也可执行同样的功能。
+1. 点击 **复制数据到小工具（Copy Data to Gizmo）** 按钮在小工具的边界中转移地形选定区域的数据。按下 **Ctrl + C** 可执行相同操作。  
 
 	![Copied Gizmo Data](Landscape_GizmoCopy4.png)(w:640)
 
-**要想复制Gizmo内的区域:**
+**在小工具中复制区域的方法：**
 
 
-1. 选择  *Region Copy/Paste(区域 复制/粘帖)* 造型工具。造型工具（小工具）将会在视口中变为可见状态。
-1. 通过点击它选中该Gizmo 。将会出现变换控件。
+1. 选择 **区域复制/粘贴** 雕刻工具。小工具将显示在视口中。
+1. 点击选中小工具。变换控件将出现。  
 
 	![Transform Gizmo](Landscape_GizmoCopy5.png)(w:640)
-1. 您可以移动、旋转及缩放gizmo，以便它包围您想复制的地貌区域。
+1. 移动、旋转并缩放小工具，使其包围希望复制的地形部分。  
 
 	![Transformed Gizmo](Landscape_GizmoCopy6.png)(w:640)
-1. 按下 *Copy Data to Gizmo(复制数据到Gizmo)* 按钮来在Gizmo范围内转移地貌的选中区域的数据。按下 *Ctrl + C* 也可执行同样的功能。
+1. 按下 **复制数据到小工具（Copy Data to Gizmo）** 按钮在小工具的边界中转移地形部分的数据。按下 **Ctrl + C** 可执行相同操作。  
 
 	![Copied Data to Gizmo](Landscape_GizmoCopy7.png)(w:640)
 
 (#PastingData)
 
-## 从Gizmo粘帖数据
+(#pastingfromthegizmo)
+## 从小工具进行粘贴
 
-从Gizmo 中粘帖数据功能可以将部分地貌从一个地方转移到另一个地方。您可以完全地粘帖数据来创建一个同样特征的地貌，或者可以通过使用画刷描画和强度设置来部分地转移地貌特征。
+从小工具粘贴数据则无法将地形的部分从一个位置转移到另一个位置。数据可被完整[粘贴](#pastingdata)来创建一个完全相同的地貌；或使用笔刷笔刷和强度设置来转移部分地貌，将其绘制到新位置。
 
-在从Gizmo粘帖数据之前，首先必须将数据 [复制](#复制到Gizmo)到gizmo中。
+从小工具粘贴数据前，其必须先被[复制](#CopyingData)到一个小工具。
 
-**要想粘帖Gizmo数据:**
+**粘贴小工具数据的方法：**
 
-1. 移动、旋转及缩放包含数据的Gizmo ，以便它可以覆盖您想要粘帖数据的区域。
+1. 移动、旋转和放缩一个包含数据的小工具，使其覆盖需要粘贴数据的区域。  
 
 	![Gizmo Paste](Landscape_GizmoPaste1.png)(w:640)
 
 	![Gizmo Paste](Landscape_GizmoPaste2.png)(w:640)
 
-1. 使用其中一个可用画刷（圆形画刷、图案画刷、Alpha画刷、Gizmo）粘帖数据，以便从Gizmo中“描画”数据。
-    * 使用Gizmo画刷来将数据完全地从Gizmo中粘帖出来。按下  *Ctrl + V* 也会执行从Gizmo中完全地粘帖数据的操作。
-    * 其他画刷可以用于通过使用当前的画刷尺寸和强度来从Gizmo中描画数据。
+1. 使用一个可用笔刷（圆形、图案、透明度、小工具）来粘贴数据，“绘制”来自小工具的数据。
+    * 小工具笔刷可将完整粘贴来自小工具的数据。按下 **Ctrl + V** 也可完整粘贴来自小工具的数据。
+    * 其他笔刷也可使用当前笔刷大小和强度来绘制来自小工具的数据。  
 
 	![Gizmo Paste](Landscape_GizmoPaste4.png)(w:640)
 
 	![Gizmo Paste](Landscape_GizmoPaste5.png)(w:640)
 
 	[REGION:note]
-	如果使用 *Region Selection(区域选择)* 工具选中了某个区域并启用了 *Use Region as Mask(使用区域作为蒙板)* 功能，那么将会根据蒙板区域应用粘帖的数据。
+	如用 **区域选择** 工具选中了区域，且启用了 **将区域用作遮罩（Use Region as Mask）**，则会根据遮罩区域来应用粘贴的数据。  
 	[/REGION]
 [COMMENT:none]
 --
-    ![pastemask_region.jpg](pastemask_region.jpg)(w:667 h:363) ![pastemask_partial.jpg](pastemask_partial.jpg)(w:667 h:363)
+    ![pastemask_region.jpg](pastemask_region.jpg)(w:667) ![pastemask_partial.jpg](pastemask_partial.jpg)(w:667)
 --
 [/COMMENT]
 
 
 
 (#GizmoImportExport)
-## Gizmo导入/导出
+(#gizmodataimport/export)
+## 小工具数据导出/导入
 
-您可以通过 *Landscape Edit(景观编辑)* 窗口中的 *Import/Export to Gizmo(导入/导出 到Gizmo)* 部分，来将高度图数据导入到Gizmo 中或者将数据从Gizmo 中导出数据。
+可通过 **地形编辑器（Landscape Editor）** 中的 **小工具导入/导出** 部分将高度图数据导出至小工具，以及从小工具进行导入。
 
 ![gizmo_importexport.png](gizmo_importexport.png)(convert:false)
 
 (#ImportingGizmo)
-**要想导入数据到Gizmo中:**
+**将数据导入小工具：**
 
-1. 点击文件浏览按钮( ![import_filebrowse.png](import_filebrowse.png)(convert:false))并选择那个您想导入到Gizmo中的高度图文件 (16-位原始文件) 。将会在Gizmo中填充高度图的文件及维度。<br/>  
+1. 点击浏览文件按钮( ![import_filebrowse.png](import_filebrowse.png)(convert:false))并选择需要导入到小工具的高度图文件（16位原始文件）。将填入高度图的文件和尺寸。  
     ![gizmo_import_file.png](gizmo_import_file.png)(convert:false)  
 	[REGION:note]
-	因为导入过程使用原始文件格式，所以没有办法正确地决定维度的情况。您要进行尽量的猜测，但是有时您可能需要手动地反转维度，才能正确地导入高度图。
+	因为导入进程使用.raw文件格式，因此无法正确确定尺寸。将自动进行猜测，但需要手动调整尺寸才能正确导入高度图。  
 	[/REGION]
     ![gizmo_import_file_dimensions.png](gizmo_import_file_dimensions.png)(convert:false)
-1. 如果您还想导入图层权重信息，那么可以按下Add Layer(添加图层)按钮  ( ![import_layeradd.png](import_layeradd.png)(convert:false)) 根据需要添加任意多个图层。<br/>  
+1. 如果也希望导入层权重信息，请按下“添加层”按钮( ![import_layeradd.png](import_layeradd.png)(convert:false))来添加所需的层数量。  
     ![gizmo_import_layerfields.png](gizmo_import_layerfields.png)(convert:false)
-1. 选择要每个图层导入的高度图文件(8-位的原始文件)。填写文件及图层名称。图层名称默认使用文件名称。如果需要可以改变图层名称。启用  **No Import（不导入） ** 复选框将会导致阻止导入任何单独图层信息。 
+1. 选择导入到每层的层权重图文件（8位raw文件）。将填入文件和层命名。层命名默认使用文件的命名。如有需要可修改层命名。启用 **无导入** 勾选框可防止单个层信息被导入。  
 	[REGION:note]
-	图层名称必须和地貌中存在的一个图层名称相匹配，否则导入将失败。
+	层命名必须匹配存在于地形上的层的命名，否则导入将失败。 
 	[/REGION] 
     ![gizmo_import_layerfile.png](gizmo_import_layerfile.png)(convert:false)
-1. 一旦选中了高度图和任何图层，按下 *Import to Gizmo(导入到Gizmo)* 按钮来将数据导入到Gizmo中。<br/>  
-	如果维度不正确，那么你可以看到类似于以下的内容：  
+1. 选中高度图和任意层后，按下 **导入至小工具（Import to Gizmo）** 按钮将数据导入到小工具。  
+	如尺寸不正确，则可能看到这种现象：  
 
 	![Import Wrong Dimensions](Landscape_ImportWrongDimensions.png)
 
-	反转维度或者重新导入高度图来获得正确的结果。如果维度是正确的，那么Gizmo 应该显示正确的数据。
+	反转尺寸并重新导入则能够获得正确结果。如果尺寸正确，小工具应显示正确数据。  
 
 
 (#ExportingGizmo)
-**要想导出Gizmo数据:**
+**导入小工具数据的方法：**
 
-1. Gizmo内填充了数据后 (请参照[复制到Gizmo](#复制到Gizmo)部分), 按下 *Export Gizmo Data（导出Gizmo数据）* 按钮可以将Gizmo数据导出到文件中。启用Gizmo选项顶部的 **Gizmo applies to all layers（Gizmo应用到所有图层）** 选项将会导出该高度图和所有图层的权重数据到文件中。
-1. 为高度图选择一个位置和名称。
-    ![export_file.jpg](export_file.jpg)(w:625 h:436)
-1. 如果要导出图层，则需要为每个导出的图层选择位置和文件名。
-    ![export_layerfile.jpg](export_layerfile.jpg)(w:625 h:436)
+1. 小工具填入数据后（参见[复制到小工具](#CopyingData)），按下 **导出小工具数据（Export Gizmo Data）** 按钮将小工具数据导出到文件。启用小工具选项顶部的 **小工具复制/粘贴所有层** 勾选框后将把高度图和所有层的权重数据导出到文件。  
+1. 选择高度图文件的位置和命名。  
+    ![export_file.jpg](export_file.jpg)(w:625)
+1. 如正在导出层，则选择每个导出层的位置和文件名。  
+    ![export_layerfile.jpg](export_layerfile.jpg)(w:625)
 
 
 [COMMENT:none]
+(#gizmolist)
+## 小工具列表
 
-## Gizmo列表
+![gizmolist.jpg]()(w:267)
 
-![gizmolist.jpg]()(w:267 h:60)
+小工具列表将显示已保存小工具的一个列表，便于之后重复使用。
 
-Gizmo List (Gizmo列表)显示了一系列已保存的Gizmo，以便稍后可以轻松地重用它们。
+![gizmolist_populated.jpg]()(w:266)
 
-![gizmolist_populated.jpg]()(w:266 h:98)
-
-| **操作 **| **描述** |
+| **控制** | **描述** |
 | --- | --- |
-| ![gizmolist_pin.jpg]()|保存Gizmo的当前位置、尺寸和旋转度到列表中。|
-| ![gizmolist_remove.jpg]()| 删除列表中当前选中的Gizmo 。|
-| ![gizmolist_goto.jpg]()| 设置gizmo的位置、尺寸和旋转度为列表中当前选中的gizmo的位置、尺寸和旋转度。|
-
-
+| ![gizmolist_pin.jpg]()| 将小工具当前的位置、大小和旋转保存到列表。 |
+| ![gizmolist_remove.jpg]()| 移除当前在列表中选中的小工具。 |
+| ![gizmolist_goto.jpg]()| 将小工具的位置、大小和旋转设为列表中当前选中小工具的位置、大小和旋转。 |
 [/COMMENT]
 
+[INCLUDE:Engine/Landscape#landscape002]

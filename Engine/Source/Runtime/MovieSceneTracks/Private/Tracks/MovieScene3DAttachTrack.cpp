@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieScene3DAttachTrack.h"
 #include "Sections/MovieScene3DAttachSection.h"
@@ -29,6 +29,11 @@ void UMovieScene3DAttachTrack::AddConstraint(FFrameNumber KeyTime, int32 Duratio
 	NewSection->AttachComponentName = ComponentName;
 
 	ConstraintSections.Add(NewSection);
+}
+
+bool UMovieScene3DAttachTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieScene3DAttachSection::StaticClass();
 }
 
 UMovieSceneSection* UMovieScene3DAttachTrack::CreateNewSection()

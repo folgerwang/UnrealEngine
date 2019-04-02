@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -75,6 +75,10 @@ public:
 	TArray<UNiagaraNode*> Traversal;
 };
 
+struct FNiagaraGraphFunctionAliasContext
+{
+	ENiagaraScriptUsage CompileUsage;
+};
 
 UCLASS(MinimalAPI)
 class UNiagaraGraph : public UEdGraph
@@ -231,8 +235,20 @@ class UNiagaraGraph : public UEdGraph
 	/** Remove a listener for OnGraphNeedsRecompile events */
 	void RemoveOnGraphNeedsRecompileHandler(FDelegateHandle Handle);
 
+	FNiagaraTypeDefinition GetCachedNumericConversion(class UEdGraphPin* InPin);
+
+	const class UEdGraphSchema_Niagara* GetNiagaraSchema() const;
+
+	void InvalidateNumericCache();
+
+	FString GetFunctionAliasByContext(const FNiagaraGraphFunctionAliasContext& FunctionAliasContext);
+
 protected:
 	void RebuildCachedData(bool bForce = false);
+	void RebuildNumericCache();
+	bool bNeedNumericCacheRebuilt;
+	TMap<TPair<FGuid, UEdGraphNode*>, FNiagaraTypeDefinition> CachedNumericConversions;
+	void ResolveNumerics(TMap<UNiagaraNode*, bool>& VisitedNodes, UEdGraphNode* Node);
 
 private:
 	virtual void NotifyGraphChanged(const FEdGraphEditAction& InAction) override;

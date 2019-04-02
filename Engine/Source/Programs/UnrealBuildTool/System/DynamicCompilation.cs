@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -26,111 +26,88 @@ namespace UnrealBuildTool
 	/// </summary>
 	public class DynamicCompilation
 	{
-		/// File information for UnrealBuildTool.exe, cached at program start
-		private static FileInfo UBTExecutableFileInfo = new FileInfo(Assembly.GetEntryAssembly().GetOriginalLocation());
-
-		/*
-		 * Checks to see if the assembly needs compilation
-		 */
-		private static bool RequiresCompilation(List<FileReference> SourceFileNames, FileReference AssemblySourceListFilePath, FileReference OutputAssemblyPath)
+		/// <summary>
+		/// Checks to see if the assembly needs compilation
+		/// </summary>
+		/// <param name="SourceFiles">Set of source files</param>
+		/// <param name="AssemblySourceListFilePath">File to use to cache source file names</param>
+		/// <param name="OutputAssemblyPath">Output path for the assembly</param>
+		/// <returns>True if the assembly needs to be built</returns>
+		private static bool RequiresCompilation(HashSet<FileReference> SourceFiles, FileReference AssemblySourceListFilePath, FileReference OutputAssemblyPath)
 		{
 			// Check to see if we already have a compiled assembly file on disk
-			FileInfo OutputAssemblyInfo = new FileInfo(OutputAssemblyPath.FullName);
-			if (OutputAssemblyInfo.Exists)
+			FileItem OutputAssemblyInfo = FileItem.GetItemByFileReference(OutputAssemblyPath);
+			if (!OutputAssemblyInfo.Exists)
 			{
-				// Check the time stamp of the UnrealBuildTool.exe file.  If Unreal Build Tool was compiled more
-				// recently than the dynamically-compiled assembly, then we'll always recompile it.  This is
-				// because Unreal Build Tool's code may have changed in such a way that invalidate these
-				// previously-compiled assembly files.
-				if (UBTExecutableFileInfo.LastWriteTimeUtc > OutputAssemblyInfo.LastWriteTimeUtc)
-				{
-					// UnrealBuildTool.exe has been recompiled more recently than our cached assemblies
-					Log.TraceVerbose("UnrealBuildTool.exe has been recompiled more recently than " + OutputAssemblyInfo.Name);
+				Log.TraceLog("Compiling {0}: Assembly does not exist", OutputAssemblyPath);
+				return true;
+			}
 
+			// Check the time stamp of the UnrealBuildTool.exe file.  If Unreal Build Tool was compiled more
+			// recently than the dynamically-compiled assembly, then we'll always recompile it.  This is
+			// because Unreal Build Tool's code may have changed in such a way that invalidate these
+			// previously-compiled assembly files.
+			FileItem ExecutableItem = FileItem.GetItemByFileReference(UnrealBuildTool.GetUBTPath());
+			if (ExecutableItem.LastWriteTimeUtc > OutputAssemblyInfo.LastWriteTimeUtc)
+			{
+				Log.TraceLog("Compiling {0}: {1} is newer", OutputAssemblyPath, ExecutableItem.Name);
+				return true;
+			}
+
+			// Make sure we have a manifest of source files used to compile the output assembly.  If it doesn't exist
+			// for some reason (not an expected case) then we'll need to recompile.
+			FileItem AssemblySourceListFile = FileItem.GetItemByFileReference(AssemblySourceListFilePath);
+			if (!AssemblySourceListFile.Exists)
+			{
+				Log.TraceLog("Compiling {0}: Missing source file list ({1})", OutputAssemblyPath, AssemblySourceListFilePath);
+				return true;
+			}
+
+			// Make sure the source files we're compiling are the same as the source files that were compiled
+			// for the assembly that we want to load
+			HashSet<FileItem> CurrentSourceFileItems = new HashSet<FileItem>();
+			foreach(string Line in FileReference.ReadAllLines(AssemblySourceListFile.Location))
+			{
+				CurrentSourceFileItems.Add(FileItem.GetItemByPath(Line));
+			}
+
+			// Get the new source files
+			HashSet<FileItem> SourceFileItems = new HashSet<FileItem>();
+			foreach(FileReference SourceFile in SourceFiles)
+			{
+				SourceFileItems.Add(FileItem.GetItemByFileReference(SourceFile));
+			}
+
+			// Check if there are any differences between the sets
+			foreach(FileItem CurrentSourceFileItem in CurrentSourceFileItems)
+			{
+				if(!SourceFileItems.Contains(CurrentSourceFileItem))
+				{
+					Log.TraceLog("Compiling {0}: Removed source file ({1})", OutputAssemblyPath, AssemblySourceListFilePath);
 					return true;
 				}
-				else
+			}
+			foreach(FileItem SourceFileItem in SourceFileItems)
+			{
+				if(!CurrentSourceFileItems.Contains(SourceFileItem))
 				{
-					// Make sure we have a manifest of source files used to compile the output assembly.  If it doesn't exist
-					// for some reason (not an expected case) then we'll need to recompile.
-					FileInfo AssemblySourceListFile = new FileInfo(AssemblySourceListFilePath.FullName);
-					if (!AssemblySourceListFile.Exists)
-					{
-						return true;
-					}
-					else
-					{
-						// Make sure the source files we're compiling are the same as the source files that were compiled
-						// for the assembly that we want to load
-						List<FileReference> ExistingAssemblySourceFileNames = new List<FileReference>();
-						{
-							using (FileStream Reader = AssemblySourceListFile.OpenRead())
-							{
-								using (StreamReader TextReader = new StreamReader(Reader))
-								{
-									for (string ExistingSourceFileName = TextReader.ReadLine(); ExistingSourceFileName != null; ExistingSourceFileName = TextReader.ReadLine())
-									{
-										FileReference FullExistingSourceFileName = new FileReference(ExistingSourceFileName);
-
-										ExistingAssemblySourceFileNames.Add(FullExistingSourceFileName);
-
-										// Was the existing assembly compiled with a source file that we aren't interested in?  If so, then it needs to be recompiled.
-										if (!SourceFileNames.Contains(FullExistingSourceFileName))
-										{
-											return true;
-										}
-									}
-								}
-							}
-						}
-
-						// Test against source file time stamps
-						foreach (FileReference SourceFileName in SourceFileNames)
-						{
-							// Was the existing assembly compiled without this source file?  If so, then we definitely need to recompile it!
-							if (!ExistingAssemblySourceFileNames.Contains(SourceFileName))
-							{
-								return true;
-							}
-
-							FileInfo SourceFileInfo = new FileInfo(SourceFileName.FullName);
-
-							// Check to see if the source file exists
-							if (!SourceFileInfo.Exists)
-							{
-								throw new BuildException("Could not locate source file for dynamic compilation: {0}", SourceFileName);
-							}
-
-							// Ignore temp files
-							if (!SourceFileInfo.Extension.Equals(".tmp", StringComparison.CurrentCultureIgnoreCase))
-							{
-								// Check to see if the source file is newer than the compiled assembly file.  We don't want to
-								// bother recompiling it if it hasn't changed.
-								if (SourceFileInfo.LastWriteTimeUtc > OutputAssemblyInfo.LastWriteTimeUtc)
-								{
-									// Source file has changed since we last compiled the assembly, so we'll need to recompile it now!
-									Log.TraceVerbose(SourceFileInfo.Name + " has been modified more recently than " + OutputAssemblyInfo.Name);
-
-									return true;
-								}
-							}
-						}
-					}
+					Log.TraceLog("Compiling {0}: Added source file ({1})", OutputAssemblyPath, AssemblySourceListFilePath);
+					return true;
 				}
 			}
-			else
+
+			// Check if any of the timestamps are newer
+			foreach(FileItem SourceFileItem in SourceFileItems)
 			{
-				// File doesn't exist, so we'll definitely have to compile it!
-				Log.TraceVerbose(OutputAssemblyInfo.Name + " doesn't exist yet");
-				return true;
+				if(SourceFileItem.LastWriteTimeUtc > OutputAssemblyInfo.LastWriteTimeUtc)
+				{
+					Log.TraceLog("Compiling {0}: {1} is newer", OutputAssemblyPath, SourceFileItem);
+					return true;
+				}
 			}
 
 			return false;
 		}
-
-		/*
-		 * Compiles an assembly from source files
-		 */
 
 #if NET_CORE
 		private static void LogDiagnostics(IEnumerable<Diagnostic> Diagnostics)
@@ -259,7 +236,7 @@ namespace UnrealBuildTool
 
 #else
 
-		private static Assembly CompileAssembly(FileReference OutputAssemblyPath, List<FileReference> SourceFileNames, List<string> ReferencedAssembies, List<string> PreprocessorDefines = null, bool TreatWarningsAsErrors = false)
+		private static Assembly CompileAssembly(FileReference OutputAssemblyPath, HashSet<FileReference> SourceFileNames, List<string> ReferencedAssembies, List<string> PreprocessorDefines = null, bool TreatWarningsAsErrors = false)
 		{
 			TempFileCollection TemporaryFiles = new TempFileCollection();
 
@@ -403,7 +380,7 @@ namespace UnrealBuildTool
 		/// <param name="DoNotCompile"></param>
 		/// <param name="TreatWarningsAsErrors"></param>
 		/// <returns>The assembly that was loaded</returns>
-		public static Assembly CompileAndLoadAssembly(FileReference OutputAssemblyPath, List<FileReference> SourceFileNames, List<string> ReferencedAssembies = null, List<string> PreprocessorDefines = null, bool DoNotCompile = false, bool TreatWarningsAsErrors = false)
+		public static Assembly CompileAndLoadAssembly(FileReference OutputAssemblyPath, HashSet<FileReference> SourceFileNames, List<string> ReferencedAssembies = null, List<string> PreprocessorDefines = null, bool DoNotCompile = false, bool TreatWarningsAsErrors = false)
 		{
 			// Check to see if the resulting assembly is compiled and up to date
 			FileReference AssemblySourcesListFilePath = FileReference.Combine(OutputAssemblyPath.Directory, Path.GetFileNameWithoutExtension(OutputAssemblyPath.FullName) + "SourceFiles.txt");
@@ -445,17 +422,14 @@ namespace UnrealBuildTool
 			// Compile the assembly if me
 			if (bNeedsCompilation)
 			{
-				CompiledAssembly = CompileAssembly(OutputAssemblyPath, SourceFileNames, ReferencedAssembies, PreprocessorDefines, TreatWarningsAsErrors);
+				using(Timeline.ScopeEvent(String.Format("Compiling rules assembly ({0})", OutputAssemblyPath.GetFileName())))
+				{
+					CompiledAssembly = CompileAssembly(OutputAssemblyPath, SourceFileNames, ReferencedAssembies, PreprocessorDefines, TreatWarningsAsErrors);
+				}
 
 				// Save out a list of all the source files we compiled.  This is so that we can tell if whole files were added or removed
 				// since the previous time we compiled the assembly.  In that case, we'll always want to recompile it!
-				{
-					FileInfo AssemblySourcesListFile = new FileInfo(AssemblySourcesListFilePath.FullName);
-					using (StreamWriter Writer = AssemblySourcesListFile.CreateText())
-					{
-						SourceFileNames.ForEach(x => Writer.WriteLine(x));
-					}
-				}
+				FileReference.WriteAllLines(AssemblySourcesListFilePath, SourceFileNames.Select(x => x.FullName));
 			}
 
 #if !NET_CORE

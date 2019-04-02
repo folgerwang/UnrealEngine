@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Installer/InstallerError.h"
 #include "Misc/ScopeLock.h"
@@ -12,7 +12,7 @@ namespace BuildPatchServices
 	{
 		// The generic texts, for when not specified by the system reporting the error.
 		static const FText NoError(NSLOCTEXT("BuildPatchInstallError", "BuildPatchInstallShortError_NoError", "The operation was successful."));
-		static const FText DownloadError(NSLOCTEXT("BuildPatchInstallError", "BuildPatchInstallShortError_DownloadError", "Could not download patch data. Please try again later."));
+		static const FText DownloadError(NSLOCTEXT("BuildPatchInstallError", "BuildPatchInstallShortError_DownloadError", "Could not download patch data. Please check your internet connection, and try again."));
 		static const FText FileConstructionFail(NSLOCTEXT("BuildPatchInstallError", "BuildPatchInstallShortError_FileConstructionFail", "A file corruption has occurred. Please try again."));
 		static const FText MoveFileToInstall(NSLOCTEXT("BuildPatchInstallError", "BuildPatchInstallShortError_MoveFileToInstall", "A file access error has occurred. Please check your running processes."));
 		static const FText BuildVerifyFail(NSLOCTEXT("BuildPatchInstallError", "BuildPatchInstallShortError_BuildCorrupt", "The installation is corrupt. Please contact support."));

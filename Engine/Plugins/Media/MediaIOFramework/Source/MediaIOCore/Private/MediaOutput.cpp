@@ -1,11 +1,13 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaOutput.h"
 
 #include "MediaCapture.h"
 #include "MediaIOCoreModule.h"
 
-/* IMediaOptions interface
+const FIntPoint UMediaOutput::RequestCaptureSourceSize = FIntPoint::ZeroValue;
+
+/* UMediaOutput
  *****************************************************************************/
 
 UMediaOutput::UMediaOutput(const FObjectInitializer& ObjectInitializer)
@@ -25,7 +27,7 @@ UMediaCapture* UMediaOutput::CreateMediaCapture()
 	}
 	else
 	{
-		UE_LOG(LogMediaIOCore, Error, TEXT("Couldn't create the media capture. %s."), *FailureReason);
+		UE_LOG(LogMediaIOCore, Error, TEXT("Couldn't create the media capture. %s"), *FailureReason);
 	}
 
 	return Result;
@@ -33,12 +35,18 @@ UMediaCapture* UMediaOutput::CreateMediaCapture()
 
 bool UMediaOutput::Validate(FString& OutFailureReason) const
 {
-	bool bResult = (NumberOfTextureBuffers >= 1 && NumberOfTextureBuffers <= 4);
-
-	if (!bResult)
+	FIntPoint RequestedSize = GetRequestedSize();
+	if (RequestedSize.X < 1 || RequestedSize.Y < 1)
 	{
-		OutFailureReason = TEXT("NumberOfBuffer is not valid.");
+		OutFailureReason = TEXT("The requested size is invalid.");
+		return false;
 	}
 
-	return bResult;
+	if (NumberOfTextureBuffers < 1 && NumberOfTextureBuffers > 4)
+	{
+		OutFailureReason = TEXT("NumberOfTextureBuffers is not valid.");
+		return false;
+	}
+
+	return true;
 }

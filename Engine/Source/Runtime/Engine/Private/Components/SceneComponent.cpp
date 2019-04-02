@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SceneComponent.cpp
@@ -75,6 +75,10 @@ USceneComponent::USceneComponent(const FObjectInitializer& ObjectInitializer /*=
 	// default behavior is visible
 	bVisible = true;
 	bAutoActivate = false;
+
+	bNetHasReceivedRelativeLocation = false;
+	bNetHasReceivedRelativeRotation = false;
+	bShouldBeAttached = AttachParent != nullptr;
 }
 
 #if WITH_EDITORONLY_DATA
@@ -504,6 +508,14 @@ void USceneComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 	{
 		UpdateAttachedIsEditorOnly(this);
 	}
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(USceneComponent, bVisible))
+	{
+		OnVisibilityChanged();
+	}
+	else if (PropertyName == GET_MEMBER_NAME_CHECKED(USceneComponent, bHiddenInGame))
+	{
+		OnHiddenInGameChanged();
+	}
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
@@ -649,6 +661,7 @@ void USceneComponent::OnRegister()
 			// Failed to attach, we need to clear AttachParent so we don't think we're actually attached when we're not.
 			AttachParent = nullptr;
 			AttachSocketName = NAME_None;
+			bShouldBeAttached = false;
 		}
 	}
 	
@@ -1704,6 +1717,7 @@ void USceneComponent::SetupAttachment(class USceneComponent* InParent, FName InS
 				{
 					AttachParent = InParent;
 					AttachSocketName = InSocketName;
+					bShouldBeAttached = AttachParent != nullptr;
 				}
 			}
 		}
@@ -1933,6 +1947,7 @@ bool USceneComponent::AttachToComponent(USceneComponent* Parent, const FAttachme
 		// Save pointer from child to parent
 		AttachParent = Parent;
 		AttachSocketName = SocketName;
+		bShouldBeAttached = AttachParent != nullptr;
 
 		OnAttachmentChanged();
 
@@ -2102,9 +2117,13 @@ void USceneComponent::DetachFromComponent(const FDetachmentTransformRules& Detac
 		{
 			PrimComp->UnWeldFromParent();
 		}
-
-		// Make sure parent points to us if we're registered
-		ensureMsgf(!bRegistered || GetAttachParent()->GetAttachChildren().Contains(this), TEXT("Attempt to detach SceneComponent '%s' owned by '%s' from AttachParent '%s' while not attached."), *GetName(), (Owner ? *Owner->GetName() : TEXT("Unowned")), *GetAttachParent()->GetName());
+		
+		// Due to replication order the ensure below is only valid on server OR if not both parent and child are replicated
+		if ((Owner && Owner->GetLocalRole() == ROLE_Authority) || !(GetIsReplicated() && GetAttachParent()->GetIsReplicated()))
+		{
+			// Make sure parent points to us if we're registered
+			ensureMsgf(!bRegistered || GetAttachParent()->GetAttachChildren().Contains(this), TEXT("Attempt to detach SceneComponent '%s' owned by '%s' from AttachParent '%s' while not attached."), *GetName(), (Owner ? *Owner->GetName() : TEXT("Unowned")), *GetAttachParent()->GetName());
+		}
 
 		if (DetachmentRules.bCallModify && !HasAnyFlags(RF_Transient))
 		{
@@ -2129,6 +2148,7 @@ void USceneComponent::DetachFromComponent(const FDetachmentTransformRules& Detac
 #endif
 		AttachParent = nullptr;
 		AttachSocketName = NAME_None;
+		bShouldBeAttached = 0;
 
 		OnAttachmentChanged();
 
@@ -2214,13 +2234,18 @@ FSceneComponentInstanceData::FSceneComponentInstanceData(const USceneComponent* 
 	}
 }
 
+bool FSceneComponentInstanceData::ContainsData() const
+{
+	return AttachedInstanceComponents.Num() > 0 || Super::ContainsData();
+}
+
 void FSceneComponentInstanceData::ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase)
 {
-	FActorComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
+	Super::ApplyToComponent(Component, CacheApplyPhase);
 
 	USceneComponent* SceneComponent = CastChecked<USceneComponent>(Component);
 
-	if (ContainsSavedProperties())
+	if (SavedProperties.Num() > 0)
 	{
 		SceneComponent->UpdateComponentToWorld();
 	}
@@ -2251,34 +2276,28 @@ void FSceneComponentInstanceData::AddReferencedObjects(FReferenceCollector& Coll
 
 void FSceneComponentInstanceData::FindAndReplaceInstances(const TMap<UObject*, UObject*>& OldToNewInstanceMap)
 {
-	for (TPair<USceneComponent*, FTransform>& ChildComponentPair : AttachedInstanceComponents)
+	TArray<USceneComponent*> SceneComponents;
+	AttachedInstanceComponents.GenerateKeyArray(SceneComponents);
+
+	for (USceneComponent* SceneComponent : SceneComponents)
 	{
-		if (UObject* const* NewChildComponent = OldToNewInstanceMap.Find(ChildComponentPair.Key))
+		if (UObject* const* NewChildComponent = OldToNewInstanceMap.Find(SceneComponent))
 		{
-			ChildComponentPair.Key = CastChecked<USceneComponent>(*NewChildComponent, ECastCheckedType::NullAllowed);
+			if (*NewChildComponent)
+			{
+				AttachedInstanceComponents.Add(CastChecked<USceneComponent>(*NewChildComponent), AttachedInstanceComponents.FindAndRemoveChecked(SceneComponent));
+			}
+			else
+			{
+				AttachedInstanceComponents.Remove(SceneComponent);
+			}
 		}
 	}
 }
 
-FActorComponentInstanceData* USceneComponent::GetComponentInstanceData() const
+TStructOnScope<FActorComponentInstanceData> USceneComponent::GetComponentInstanceData() const
 {
-	FActorComponentInstanceData* InstanceData = nullptr;
-
-	for (USceneComponent* Child : GetAttachChildren())
-	{
-		if (Child && !Child->IsCreatedByConstructionScript() && !Child->HasAnyFlags(RF_DefaultSubObject))
-		{
-			InstanceData = new FSceneComponentInstanceData(this);
-			break;
-		}
-	}
-
-	if (InstanceData == nullptr)
-	{
-		InstanceData = Super::GetComponentInstanceData();
-	}
-
-	return InstanceData;
+	return MakeStructOnScope<FActorComponentInstanceData, FSceneComponentInstanceData>(this);;
 }
 
 void USceneComponent::UpdateChildTransforms(EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport)
@@ -2328,23 +2347,6 @@ void USceneComponent::UpdateChildTransforms(EUpdateTransformFlags UpdateTransfor
 		}
 	}
 }
-
-#if WITH_EDITORONLY_DATA
-void USceneComponent::Serialize(FArchive& Ar)
-{
-	Super::Serialize(Ar);
-
-#if WITH_EDITORONLY_DATA
-	// Copy from deprecated properties
-	if(Ar.UE4Ver() < VER_UE4_SCENECOMP_TRANSLATION_TO_LOCATION)
-	{
-		RelativeLocation = RelativeTranslation_DEPRECATED;
-		bAbsoluteLocation = bAbsoluteTranslation_DEPRECATED;
-	}
-#endif
-}
-#endif
-
 
 void USceneComponent::PostInterpChange(UProperty* PropertyThatChanged)
 {
@@ -3119,6 +3121,18 @@ void USceneComponent::OnRep_Transform()
 	bNetUpdateTransform = true;
 }
 
+void USceneComponent::OnRep_RelativeLocation()
+{
+	bNetHasReceivedRelativeLocation = true;
+	OnRep_Transform();
+}
+
+void USceneComponent::OnRep_RelativeRotation()
+{
+	bNetHasReceivedRelativeRotation = true;
+	OnRep_Transform();
+}
+
 void USceneComponent::OnRep_AttachParent()
 {
 	bNetUpdateAttachment = true;
@@ -3193,8 +3207,8 @@ void USceneComponent::PostNetReceive()
 {
 	Super::PostNetReceive();
 
-	// If we have no attach parent, attach to parent's root component.
-	if (GetAttachParent() == nullptr)
+	// If we have no attach parent even though the server told us that we should have one, keep attach to parent's root component until we get the correct pointer.
+	if (bShouldBeAttached && GetAttachParent() == nullptr)
 	{
 		USceneComponent * ParentRoot = GetOwner()->GetRootComponent();
 		if (ParentRoot != this)
@@ -3211,7 +3225,35 @@ void USceneComponent::PostRepNotifies()
 	{
 		Exchange(NetOldAttachParent, AttachParent);
 		Exchange(NetOldAttachSocketName, AttachSocketName);
-		AttachToComponent(NetOldAttachParent, FAttachmentTransformRules::KeepRelativeTransform, NetOldAttachSocketName);
+		
+		// Note: This is a local fix for JIRA UE-43355. If we receive bNetUpdateAttachment without having received a updated transform, assume that we intend to snap and that the relative location/rotation should defaulted
+		if (!bNetHasReceivedRelativeLocation)
+		{
+			RelativeLocation = FVector::ZeroVector;
+			bNetHasReceivedRelativeLocation = true;
+		}
+		if (!bNetHasReceivedRelativeRotation)
+		{
+			RelativeRotation = FRotator::ZeroRotator;
+			bNetHasReceivedRelativeRotation = true;
+		}
+
+		// Check if this is a detach
+		if (AttachParent && !bShouldBeAttached)
+		{
+			ensureMsgf(NetOldAttachParent == nullptr, TEXT("Local modification of AttachParent detected for replicated component %s, disable replication or execute detachment on host."), *GetFullName());
+			DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+		}
+		else
+		{
+			const uint8 bOldShouldBeAttached = bShouldBeAttached;
+
+			AttachToComponent(NetOldAttachParent, FAttachmentTransformRules::KeepRelativeTransform, NetOldAttachSocketName);
+
+			// restore bShouldBeAttached to what we have received
+			bShouldBeAttached = bOldShouldBeAttached;
+		}
+
 		bNetUpdateAttachment = false;
 	}
 
@@ -3230,6 +3272,7 @@ void USceneComponent::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 	DOREPLIFETIME(USceneComponent, bAbsoluteRotation);
 	DOREPLIFETIME(USceneComponent, bAbsoluteScale);
 	DOREPLIFETIME(USceneComponent, bVisible);
+	DOREPLIFETIME(USceneComponent, bShouldBeAttached);
 	DOREPLIFETIME(USceneComponent, AttachParent);
 	DOREPLIFETIME(USceneComponent, AttachChildren);
 	DOREPLIFETIME(USceneComponent, AttachSocketName);
@@ -3309,7 +3352,7 @@ FScopedPreventAttachedComponentMove::~FScopedPreventAttachedComponentMove()
 			}
 			if (!bSavedAbsoluteRotation)
 			{
-				Owner->RelativeRotation = ChildRelativeTM.GetRotation().Rotator();
+				Owner->RelativeRotation = Owner->RelativeRotationCache.QuatToRotator(ChildRelativeTM.GetRotation());
 			}
 			if (!bSavedAbsoluteScale)
 			{

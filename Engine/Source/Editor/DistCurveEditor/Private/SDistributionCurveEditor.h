@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -61,6 +61,8 @@ public:
 	void Construct(const FArguments& InArgs);
 
 	/** IDistributionCurveEditor interface */
+	virtual void DrawViewport() override;
+	virtual bool GetNeedsRedraw() override;
 	virtual void RefreshViewport() override;
 	virtual void CurveChanged() override;
 	virtual void SetCurveVisible(const UObject* InCurve, bool bShow) override;

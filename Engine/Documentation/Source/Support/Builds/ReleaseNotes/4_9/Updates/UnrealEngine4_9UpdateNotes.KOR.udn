@@ -112,7 +112,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.9.2-release](h
 
 *  UE-21081	4.9.0 버전 에디터에서 4.9.1 버전으로 생성된 애셋을 열 수 없음
 
-*  UE-20210	[CrashReport] 윈도우 중국 버전에서 에디터 언어를 변경할 때 크래시
+*  UE-20210	[CrashReport] Windows 중국 버전에서 에디터 언어를 변경할 때 크래시
 
 *  UE-21337	Wait for Movies to Complete 옵션이 false 인 경우 무비 건너뛰기 불가
 

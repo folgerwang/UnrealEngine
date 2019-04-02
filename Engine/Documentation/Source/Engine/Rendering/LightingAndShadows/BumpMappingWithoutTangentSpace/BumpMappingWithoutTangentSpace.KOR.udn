@@ -2,7 +2,7 @@
 Availability:Public
 Title:탄젠트 스페이스 없는 범프 매핑
 Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows
-Description:예전 탄젠트 스페이스가 작동하지 않을 때 3D 프로시저럴 셰이더에서 범프 매핑을 이뤄내는 법입니다.
+Description:이전 탄젠트 스페이스가 작동하지 않을 때 3D 프로시저럴 셰이더에서 범프 매핑을 이뤄내는 법입니다.
 Version: 4.9
 topic-image:bump_topic.png
 

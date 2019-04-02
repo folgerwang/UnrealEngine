@@ -1,0 +1,23 @@
+Availability: Public
+Crumbs: 
+Title: Making and Saving Code Changes for Android Debugging
+Description: The following document goes over making Android code changes in both Android Studio and Visual Studio.
+Type: 
+Version: 
+Parent: Platforms/Android
+Order: 
+Tags: Android
+Tags: Reference
+
+
+When trying to debug your Android project you can use either Android Studio or Visual Studio. In the following document we will take a look at how you can go about doing this and any workflow adjustments that you might need to be aware of.
+
+## Android Studio
+
+While you can use Android Studio for to edit and debug your Android projects CPP files, you can not re-compile your project from Android Studio.
+
+## Visual Studio
+
+You use Visual Studio to make all code changes to your projects CPP files. The advantage of using Visual Studio is that Visual Studio will allow you to re-compile your projects APK using the Unreal Build Tool.
+
+Note that you will need to delete that app.iml file for UBT to go back to calling Gradle to make the APK, or you can clean out Intermediate/Android/APK. Doing this will also stop the launch-on in the Editor from working properly so if you decided to do this you will need to make sure that you already have the content you want to debug on the device.

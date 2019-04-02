@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D11Device.cpp: D3D device RHI implementation.
@@ -31,6 +31,15 @@ bool D3D11RHI_ShouldAllowAsyncResourceCreation()
 
 IMPLEMENT_MODULE(FD3D11DynamicRHIModule, D3D11RHI);
 
+static TAutoConsoleVariable<int32> CVarD3D11UseD24(
+	TEXT("r.D3D11.Depth24Bit"),
+	0,
+	TEXT("0: Use 32-bit float depth buffer\n1: Use 24-bit fixed point depth buffer(default)\n"),
+	ECVF_ReadOnly
+);
+
+
+
 TAutoConsoleVariable<int32> CVarD3D11ZeroBufferSizeInMB(
 	TEXT("d3d11.ZeroBufferSizeInMB"),
 	4,
@@ -49,7 +58,6 @@ FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEV
 	FeatureLevel(InFeatureLevel),
 	AmdAgsContext(NULL),
 	bCurrentDepthStencilStateIsReadOnly(false),
-	PSOPrimitiveType(PT_Num),
 	CurrentDepthTexture(NULL),
 	NumSimultaneousRenderTargets(0),
 	NumUAVs(0),
@@ -61,7 +69,6 @@ FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEV
 	bUsingTessellation(false),
 	PendingNumVertices(0),
 	PendingVertexDataStride(0),
-	PendingPrimitiveType(0),
 	PendingNumPrimitives(0),
 	PendingMinVertexIndex(0),
 	PendingNumIndices(0),
@@ -96,8 +103,6 @@ FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEV
 	ERHIFeatureLevel::Type PreviewFeatureLevel;
 	if (RHIGetPreviewFeatureLevel(PreviewFeatureLevel))
 	{
-		check(PreviewFeatureLevel == ERHIFeatureLevel::ES2 || PreviewFeatureLevel == ERHIFeatureLevel::ES3_1);
-
 		// ES2/3.1 feature level emulation in D3D11
 		GMaxRHIFeatureLevel = PreviewFeatureLevel;
 		if (GMaxRHIFeatureLevel == ERHIFeatureLevel::ES2)
@@ -131,17 +136,20 @@ FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEV
 	GPixelFormats[ PF_DXT5			].PlatformFormat	= DXGI_FORMAT_BC3_TYPELESS;
 	GPixelFormats[ PF_BC4			].PlatformFormat	= DXGI_FORMAT_BC4_UNORM;
 	GPixelFormats[ PF_UYVY			].PlatformFormat	= DXGI_FORMAT_UNKNOWN;		// TODO: Not supported in D3D11
-#if DEPTH_32_BIT_CONVERSION
-	GPixelFormats[ PF_DepthStencil	].PlatformFormat	= DXGI_FORMAT_R32G8X24_TYPELESS; 
-	GPixelFormats[ PF_DepthStencil	].BlockBytes		= 5;
-	GPixelFormats[ PF_X24_G8 ].PlatformFormat			= DXGI_FORMAT_X32_TYPELESS_G8X24_UINT;
-	GPixelFormats[ PF_X24_G8].BlockBytes				= 5;
-#else
-	GPixelFormats[ PF_DepthStencil	].PlatformFormat	= DXGI_FORMAT_R24G8_TYPELESS;
-	GPixelFormats[ PF_DepthStencil	].BlockBytes		= 4;
-	GPixelFormats[ PF_X24_G8 ].PlatformFormat			= DXGI_FORMAT_X24_TYPELESS_G8_UINT;
-	GPixelFormats[ PF_X24_G8].BlockBytes				= 4;
-#endif
+	if (CVarD3D11UseD24.GetValueOnAnyThread())
+	{
+		GPixelFormats[PF_DepthStencil].PlatformFormat = DXGI_FORMAT_R24G8_TYPELESS;
+		GPixelFormats[PF_DepthStencil].BlockBytes = 4;
+		GPixelFormats[PF_X24_G8].PlatformFormat = DXGI_FORMAT_X24_TYPELESS_G8_UINT;
+		GPixelFormats[PF_X24_G8].BlockBytes = 4;
+	}
+	else
+	{
+		GPixelFormats[PF_DepthStencil].PlatformFormat = DXGI_FORMAT_R32G8X24_TYPELESS;
+		GPixelFormats[PF_DepthStencil].BlockBytes = 5;
+		GPixelFormats[PF_X24_G8].PlatformFormat = DXGI_FORMAT_X32_TYPELESS_G8X24_UINT;
+		GPixelFormats[PF_X24_G8].BlockBytes = 5;
+	}
 	GPixelFormats[ PF_ShadowDepth	].PlatformFormat	= DXGI_FORMAT_R16_TYPELESS;
 	GPixelFormats[ PF_ShadowDepth	].BlockBytes		= 2;
 	GPixelFormats[ PF_R32_FLOAT		].PlatformFormat	= DXGI_FORMAT_R32_FLOAT;
@@ -191,6 +199,9 @@ FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEV
 	GPixelFormats[PF_R16G16B16A16_UNORM].PlatformFormat = DXGI_FORMAT_R16G16B16A16_UNORM;
 	GPixelFormats[PF_R16G16B16A16_SNORM].PlatformFormat = DXGI_FORMAT_R16G16B16A16_SNORM;
 
+	GPixelFormats[PF_NV12].PlatformFormat = DXGI_FORMAT_NV12;
+	GPixelFormats[PF_NV12].Supported = true;
+
 	if (FeatureLevel >= D3D_FEATURE_LEVEL_11_0)
 	{
 		GSupportsSeparateRenderTargetBlendState = true;
@@ -198,6 +209,7 @@ FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEV
 		GMaxCubeTextureDimensions = D3D11_REQ_TEXTURECUBE_DIMENSION;
 		GMaxTextureArrayLayers = D3D11_REQ_TEXTURE2D_ARRAY_AXIS_DIMENSION;
 		GRHISupportsMSAADepthSampleAccess = true;
+		GRHISupportsRHIThread = !!EXPERIMENTAL_D3D11_RHITHREAD;
 	}
 	else if (FeatureLevel >= D3D_FEATURE_LEVEL_10_0)
 	{
@@ -212,6 +224,7 @@ FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEV
 	GMaxShadowDepthBufferSizeY = GMaxTextureDimensions;
 	GSupportsTimestampRenderQueries = true;
 	GRHISupportsResolveCubemapFaces = true;
+	GRHISupportsCopyToTextureMultipleMips = true;
 
 	// Initialize the constant buffers.
 	InitConstantBuffers();
@@ -222,7 +235,7 @@ FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEV
 	uint32 DynamicIBSizes[] = {128,1024,64*1024,1024*1024,0};
 	DynamicIB = new FD3D11DynamicBuffer(this,D3D11_BIND_INDEX_BUFFER,DynamicIBSizes);
 
-	for (int32 Frequency = 0; Frequency < SF_NumFrequencies; ++Frequency)
+	for (int32 Frequency = 0; Frequency < SF_NumStandardFrequencies; ++Frequency)
 	{
 		DirtyUniformBuffers[Frequency] = 0;
 	}
@@ -414,6 +427,8 @@ void FD3D11DynamicRHI::SetupAfterDeviceCreation()
 	{
 		if (SUCCEEDED(Direct3DDevice->QueryInterface(RenderDocID, (void**)(&RenderDoc))))
 		{
+			bRenderDoc = true;
+
 			// Running under RenderDoc, so enable capturing mode
 			GDynamicRHI->EnableIdealGPUCaptureOptions(true);
 		}
@@ -518,7 +533,7 @@ void FD3D11DynamicRHI::CleanupD3DDevice()
 		DynamicIB = NULL;
 
 		// Release references to bound uniform buffers.
-		for (int32 Frequency = 0; Frequency < SF_NumFrequencies; ++Frequency)
+		for (int32 Frequency = 0; Frequency < SF_NumStandardFrequencies; ++Frequency)
 		{
 			for (int32 BindIndex = 0; BindIndex < MAX_UNIFORM_BUFFERS_PER_SHADER_STAGE; ++BindIndex)
 			{
@@ -534,6 +549,8 @@ void FD3D11DynamicRHI::CleanupD3DDevice()
 
 		ReleasePooledUniformBuffers();
 		ReleasePooledTextures();
+		ReleaseCachedQueries();
+
 
 		// Clean up the AMD extensions and shut down the AMD AGS utility library
 		if (AmdAgsContext != NULL)

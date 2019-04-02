@@ -148,7 +148,7 @@ FGoogleVRController::FGoogleVRController(const TSharedRef< FGenericApplicationMe
 		GoogleVRCaps = EGoogleVRCaps::Cardboard;
 		FString ValueString;
 		GConfig->GetString(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("GoogleVRCaps"), ValueString, GEngineIni);
-		UEnum* Enum = FindObject<UEnum>((UObject*)ANY_PACKAGE, TEXT("EGoogleVRCaps"), true);
+		UEnum* Enum = StaticEnum<EGoogleVRCaps::Type>();
 		if (Enum)
 		{
 			int64 Value = Enum->GetValueByName(FName(*ValueString));
@@ -335,6 +335,7 @@ void FGoogleVRController::PollController(float DeltaTime)
 		// Updating the Arm Model requires us to pass in some data in GVR space
 		gvr_arm_model::Controller::UpdateData UpdateData;
 
+		bool recentered = false;
 #if GOOGLEVRCONTROLLER_SUPPORTED_INSTANT_PREVIEW_PLATFORMS
 		if (gvr::ControllerConnectionState::GVR_CONTROLLER_CONNECTED == InstantPreviewControllerState.connection_state)
 		{
@@ -367,6 +368,9 @@ void FGoogleVRController::PollController(float DeltaTime)
 
 			// Get connected status
 			UpdateData.connected = ControllerState->GetConnectionState() == gvr::ControllerConnectionState::GVR_CONTROLLER_CONNECTED;
+			
+			// Was the controller recentered?
+			recentered = ControllerState->GetRecentered();
 		}
 
 		// Get head direction and position of the HMD, used for FollowGaze options
@@ -393,9 +397,8 @@ void FGoogleVRController::PollController(float DeltaTime)
 		// Get delta time
 		UpdateData.deltaTimeSeconds = DeltaTime;
 
-
 		// Update the arm model
-		ArmModelController.Update(UpdateData);
+		ArmModelController.Update(UpdateData, recentered);
 	}
 #endif
 }

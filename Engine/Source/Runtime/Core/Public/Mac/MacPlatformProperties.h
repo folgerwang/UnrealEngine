@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*================================================================================
 	MacPlatformProperties.h - Basic static properties of a platform 
@@ -67,6 +67,11 @@ struct FMacPlatformProperties
 	static FORCEINLINE bool RequiresCookedData( )
 	{
 		return !HAS_EDITOR_DATA;
+	}
+
+	static FORCEINLINE bool HasSecurePackageFormat()
+	{
+		return IS_DEDICATED_SERVER;
 	}
 
 	static FORCEINLINE bool SupportsMultipleGameInstances( )

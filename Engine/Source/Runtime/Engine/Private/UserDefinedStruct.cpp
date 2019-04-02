@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/UserDefinedStruct.h"
 #include "UObject/UObjectHash.h"
@@ -40,9 +40,9 @@ void FUserStructOnScopeIgnoreDefaults::Recreate(const UUserDefinedStruct* InUser
 
 void FUserStructOnScopeIgnoreDefaults::Initialize()
 {
-	if (ScriptStruct.IsValid())
+	if (const UStruct* ScriptStructPtr = ScriptStruct.Get())
 	{
-		SampleStructMemory = (uint8*)FMemory::Malloc(ScriptStruct->GetStructureSize() ? ScriptStruct->GetStructureSize() : 1);
+		SampleStructMemory = (uint8*)FMemory::Malloc(ScriptStructPtr->GetStructureSize() ? ScriptStructPtr->GetStructureSize() : 1);
 		((UUserDefinedStruct*)ScriptStruct.Get())->InitializeStructIgnoreDefaults(SampleStructMemory);
 		OwnsMemory = true;
 	}
@@ -76,7 +76,7 @@ namespace
 				if (StructVariableDesc.Category == TextCategory)
 				{
 					FText StructVariableValue;
-					if (FTextStringHelper::ReadFromString(*StructVariableDesc.DefaultValue, StructVariableValue))
+					if (FTextStringHelper::ReadFromBuffer(*StructVariableDesc.DefaultValue, StructVariableValue))
 					{
 						Ar << StructVariableValue;
 					}
@@ -156,7 +156,18 @@ void UUserDefinedStruct::Serialize(FStructuredArchive::FRecord Record)
 				UnderlyingArchive.Preload(EditorData);
 				if (!(UnderlyingArchive.GetPortFlags() & PPF_Duplicate))
 				{
-					FStructureEditorUtils::RecreateDefaultInstanceInEditorData(this);
+					if(!DefaultStructInstance.IsValid())
+					{
+						FStructureEditorUtils::RecreateDefaultInstanceInEditorData(this);
+					}
+					else
+					{
+						UUserDefinedStructEditorData* UDSEditorData = Cast<UUserDefinedStructEditorData>(EditorData);
+						if (UDSEditorData)
+						{
+							UDSEditorData->ReinitializeDefaultInstance();
+						}
+					}
 				}
 			}
 
@@ -279,9 +290,10 @@ void UUserDefinedStruct::InitializeStruct(void* Dest, int32 ArrayDim) const
 	}
 }
 
-void UUserDefinedStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, uint8* Defaults, const UObject* BreakRecursionIfFullyLoad) const
+void UUserDefinedStruct::SerializeTaggedProperties(FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct, uint8* Defaults, const UObject* BreakRecursionIfFullyLoad) const 
 {
 	bool bTemporarilyEnableDelta = false;
+	FArchive& Ar = Slot.GetUnderlyingArchive();
 
 #if WITH_EDITOR
 	// In the editor the default structure may change while the editor is running, so we need to always delta serialize
@@ -311,7 +323,7 @@ void UUserDefinedStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, US
 	}
 #endif // WITH_EDITOR
 
-	Super::SerializeTaggedProperties(Ar, Data, DefaultsStruct, Defaults);
+	Super::SerializeTaggedProperties(Slot, Data, DefaultsStruct, Defaults, BreakRecursionIfFullyLoad);
 
 	if (bTemporarilyEnableDelta)
 	{

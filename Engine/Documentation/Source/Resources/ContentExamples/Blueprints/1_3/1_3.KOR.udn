@@ -16,7 +16,7 @@ Version: 4.9
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[예전 예제](Resources/ContentExamples/Blueprints/1_2 "%Resources/ContentExamples/Blueprints/1_2:title%")
+		[이전 예제](Resources/ContentExamples/Blueprints/1_2 "%Resources/ContentExamples/Blueprints/1_2:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -110,7 +110,7 @@ Version: 4.9
 
 ### 변수 생성
 
-모든 변수를 _내 블루프린트_ 패널에서 수동 생성해 줘야 하는 것은 아닙니다. 노드의 입력이나 출력 중 변수에 저장해야겠다 알고있는 값이 있다면, 해당 데이터 핀에 우클릭한 다음 맥락 메뉴에서 **변수로 승격** 을 선택하면 됩니다. 그러면 다음과 같은 작업을 합니다:
+모든 변수를 _내 블루프린트_ 패널에서 수동 생성해 줘야 하는 것은 아닙니다. 노드의 입력이나 출력 중 변수에 저장해야겠다 알고있는 값이 있다면, 해당 데이터 핀에 우클릭한 다음 컨텍스트 메뉴에서 **변수로 승격** 을 선택하면 됩니다. 그러면 다음과 같은 작업을 합니다:
 
 * (변수 왼쪽에 있는) 데이터 입력에 우클릭한 경우
 	* 적합한 유형의 변수가 새로 생성됩니다.

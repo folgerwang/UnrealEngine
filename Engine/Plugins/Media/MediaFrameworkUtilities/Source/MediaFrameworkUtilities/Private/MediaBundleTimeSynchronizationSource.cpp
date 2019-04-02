@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaBundleTimeSynchronizationSource.h"
 
@@ -11,7 +11,9 @@
 #include "MediaPlayerFacade.h"
 #include "MediaTexture.h"
 #include "TimeSynchronizableMediaSource.h"
-
+#if WITH_EDITOR
+#include "Widgets/SMediaImage.h"
+#endif
 
 namespace TimeSynchronizationSource
 {
@@ -250,3 +252,17 @@ FString UMediaBundleTimeSynchronizationSource::GetDisplayName() const
 {
 	return MediaBundle ? *MediaBundle->GetName() : FString();
 }
+
+#if WITH_EDITOR
+TSharedRef<SWidget> UMediaBundleTimeSynchronizationSource::GetVisualWidget() const
+{
+	if (MediaBundle && MediaBundle->GetMediaTexture())
+	{
+		return SNew(SMediaImage, MediaBundle->GetMediaTexture());
+	}
+	else
+	{
+		return SNullWidget::NullWidget;
+	}
+}
+#endif

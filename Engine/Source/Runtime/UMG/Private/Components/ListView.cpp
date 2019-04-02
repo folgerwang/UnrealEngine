@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Components/ListView.h"
 #include "Widgets/Views/SListView.h"
@@ -24,7 +24,7 @@ void UListView::ReleaseSlateResources(bool bReleaseChildren)
 	MyListView.Reset();
 }
 
-#if WITH_EDITORONLY_DATA
+#if WITH_EDITOR
 void UListView::OnRefreshDesignerItems()
 {
 	RefreshDesignerItems<UObject*>(ListItems, [this] () {return NewObject<UListViewDesignerPreviewItem>(this); });

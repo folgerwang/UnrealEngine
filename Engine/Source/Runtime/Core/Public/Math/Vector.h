@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -47,14 +47,23 @@ public:
 	/** One vector (1,1,1) */
 	static CORE_API const FVector OneVector;
 
-	/** World up vector (0,0,1) */
+	/** Unreal up vector (0,0,1) */
 	static CORE_API const FVector UpVector;
+
+	/** Unreal down vector (0,0,-1) */
+	static CORE_API const FVector DownVector;
 
 	/** Unreal forward vector (1,0,0) */
 	static CORE_API const FVector ForwardVector;
 
+	/** Unreal backward vector (-1,0,0) */
+	static CORE_API const FVector BackwardVector;
+
 	/** Unreal right vector (0,1,0) */
 	static CORE_API const FVector RightVector;
+
+	/** Unreal left vector (0,-1,0) */
+	static CORE_API const FVector LeftVector;
 
 public:
 
@@ -481,6 +490,21 @@ public:
 	bool IsZero() const;
 
 	/**
+	 * Check if the vector is of unit length, with specified tolerance.
+	 *
+	 * @param LengthSquaredTolerance Tolerance against squared length.
+	 * @return true if the vector is a unit vector within the specified tolerance.
+	 */
+	FORCEINLINE bool IsUnit(float LengthSquaredTolerance = KINDA_SMALL_NUMBER) const;
+
+	/**
+	 * Checks whether vector is normalized.
+	 *
+	 * @return true if normalized, false otherwise.
+	 */
+	bool IsNormalized() const;
+
+	/**
 	 * Normalize this vector in-place if it is larger than a given tolerance. Leaves it unchanged if not.
 	 *
 	 * @param Tolerance Minimum squared length of vector for normalization.
@@ -489,11 +513,30 @@ public:
 	bool Normalize(float Tolerance=SMALL_NUMBER);
 
 	/**
-	 * Checks whether vector is normalized.
+	 * Calculates normalized version of vector without checking for zero length.
 	 *
-	 * @return true if Normalized, false otherwise.
+	 * @return Normalized version of vector.
+	 * @see GetSafeNormal()
 	 */
-	bool IsNormalized() const;
+	FORCEINLINE FVector GetUnsafeNormal() const;
+
+	/**
+	 * Gets a normalized copy of the vector, checking it is safe to do so based on the length.
+	 * Returns zero vector if vector length is too small to safely normalize.
+	 *
+	 * @param Tolerance Minimum squared vector length.
+	 * @return A normalized copy if safe, (0,0,0) otherwise.
+	 */
+	FVector GetSafeNormal(float Tolerance=SMALL_NUMBER) const;
+
+	/**
+	 * Gets a normalized copy of the 2D components of the vector, checking it is safe to do so. Z is set to zero. 
+	 * Returns zero vector if vector length is too small to normalize.
+	 *
+	 * @param Tolerance Minimum squared vector length.
+	 * @return Normalized copy if safe, otherwise returns zero vector.
+	 */
+	FVector GetSafeNormal2D(float Tolerance=SMALL_NUMBER) const;
 
 	/**
 	 * Util to convert this vector into a unit direction vector and its original length.
@@ -519,12 +562,12 @@ public:
 	FVector Projection() const;
 
 	/**
-	 * Calculates normalized version of vector without checking for zero length.
-	 *
-	 * @return Normalized version of vector.
-	 * @see GetSafeNormal()
-	 */
-	FORCEINLINE FVector GetUnsafeNormal() const;
+	* Calculates normalized 2D version of vector without checking for zero length.
+	*
+	* @return Normalized version of vector.
+	* @see GetSafeNormal2D()
+	*/
+	FORCEINLINE FVector GetUnsafeNormal2D() const;
 
 	/**
 	 * Gets a copy of this vector snapped to a grid.
@@ -608,32 +651,6 @@ public:
 	FVector RotateAngleAxis(const float AngleDeg, const FVector& Axis) const;
 
 	/**
-	 * Gets a normalized copy of the vector, checking it is safe to do so based on the length.
-	 * Returns zero vector if vector length is too small to safely normalize.
-	 *
-	 * @param Tolerance Minimum squared vector length.
-	 * @return A normalized copy if safe, (0,0,0) otherwise.
-	 */
-	FVector GetSafeNormal(float Tolerance=SMALL_NUMBER) const;
-
-	/**
-	 * Gets a normalized copy of the 2D components of the vector, checking it is safe to do so. Z is set to zero. 
-	 * Returns zero vector if vector length is too small to normalize.
-	 *
-	 * @param Tolerance Minimum squared vector length.
-	 * @return Normalized copy if safe, otherwise returns zero vector.
-	 */
-	FVector GetSafeNormal2D(float Tolerance=SMALL_NUMBER) const;
-
-	/**
-	* Calculates normalized 2D version of vector without checking for zero length.
-	*
-	* @return Normalized 2D version of vector.
-	* @see GetSafeNormal2D()
-	*/
-	FVector GetUnsafeNormal2D() const;
-
-	/**
 	 * Returns the cosine of the angle between this vector and another projected onto the XY plane (no Z).
 	 *
 	 * @param B the other vector to find the 2D cosine of the angle with.
@@ -705,14 +722,6 @@ public:
 	 * @return true if there are any non-finite values in this vector, false otherwise.
 	 */
 	bool ContainsNaN() const;
-
-	/**
-	 * Check if the vector is of unit length, with specified tolerance.
-	 *
-	 * @param LengthSquaredTolerance Tolerance against squared length.
-	 * @return true if the vector is a unit vector within the specified tolerance.
-	 */
-	FORCEINLINE bool IsUnit(float LengthSquaredTolerance = KINDA_SMALL_NUMBER) const;
 
 	/**
 	 * Get a textual representation of this vector.
@@ -1433,35 +1442,13 @@ FORCEINLINE FVector FVector::operator/=(const FVector& V)
 FORCEINLINE float& FVector::operator[](int32 Index)
 {
 	check(Index >= 0 && Index < 3);
-	if(Index == 0)
-	{
-		return X;
-	}
-	else if(Index == 1)
-	{
-		return Y;
-	}
-	else
-	{
-		return Z;
-	}
+	return (&X)[Index];
 }
 
 FORCEINLINE float FVector::operator[](int32 Index)const
 {
 	check(Index >= 0 && Index < 3);
-	if(Index == 0)
-	{
-		return X;
-	}
-	else if(Index == 1)
-	{
-		return Y;
-	}
-	else
-	{
-		return Z;
-	}
+	return (&X)[Index];
 }
 
 FORCEINLINE void FVector::Set(float InX, float InY, float InZ)
@@ -1552,6 +1539,11 @@ FORCEINLINE bool FVector::Normalize(float Tolerance)
 	return false;
 }
 
+FORCEINLINE bool FVector::IsUnit(float LengthSquaredTolerance) const
+{
+	return FMath::Abs(1.0f - SizeSquared()) < LengthSquaredTolerance;
+}
+
 FORCEINLINE bool FVector::IsNormalized() const
 {
 	return (FMath::Abs(1.f - SizeSquared()) < THRESH_VECTOR_NORMALIZED);
@@ -1592,6 +1584,12 @@ FORCEINLINE FVector FVector::GetUnsafeNormal() const
 {
 	const float Scale = FMath::InvSqrt(X*X+Y*Y+Z*Z);
 	return FVector(X*Scale, Y*Scale, Z*Scale);
+}
+
+FORCEINLINE FVector FVector::GetUnsafeNormal2D() const
+{
+	const float Scale = FMath::InvSqrt(X * X + Y * Y);
+	return FVector(X*Scale, Y*Scale, 0);
 }
 
 FORCEINLINE FVector FVector::GridSnap(const float& GridSz) const
@@ -1810,12 +1808,6 @@ FORCEINLINE FVector FVector::GetSafeNormal2D(float Tolerance) const
 	return FVector(X*Scale, Y*Scale, 0.f);
 }
 
-FORCEINLINE FVector FVector::GetUnsafeNormal2D() const
-{
-	const float Scale = FMath::InvSqrt(X * X + Y * Y);
-	return FVector(X*Scale, Y*Scale, 0.f);
-}
-
 FORCEINLINE float FVector::CosineAngle2D(FVector B) const
 {
 	FVector A(*this);
@@ -1842,11 +1834,6 @@ FORCEINLINE bool FVector::ContainsNaN() const
 	return (!FMath::IsFinite(X) || 
 			!FMath::IsFinite(Y) ||
 			!FMath::IsFinite(Z));
-}
-
-FORCEINLINE bool FVector::IsUnit(float LengthSquaredTolerance) const
-{
-	return FMath::Abs(1.0f - SizeSquared()) < LengthSquaredTolerance;
 }
 
 FORCEINLINE FString FVector::ToString() const

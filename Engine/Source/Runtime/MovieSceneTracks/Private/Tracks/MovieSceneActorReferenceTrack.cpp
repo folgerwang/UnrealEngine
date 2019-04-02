@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieSceneActorReferenceTrack.h"
 #include "Sections/MovieSceneActorReferenceSection.h"
@@ -9,6 +9,10 @@ UMovieSceneActorReferenceTrack::UMovieSceneActorReferenceTrack( const FObjectIni
 	: Super( ObjectInitializer )
 { }
 
+bool UMovieSceneActorReferenceTrack::SupportsType(TSubclassOf<UMovieSceneSection> SectionClass) const
+{
+	return SectionClass == UMovieSceneActorReferenceSection::StaticClass();
+}
 
 UMovieSceneSection* UMovieSceneActorReferenceTrack::CreateNewSection()
 {

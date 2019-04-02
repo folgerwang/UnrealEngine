@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -28,7 +28,8 @@ public class Persona : ModuleRules
                 "ContentBrowser",
                 "AssetTools",
                 "AnimationEditor",
-                "MeshReductionInterface"
+                "MeshReductionInterface",
+                "SequenceRecorder",
             }
         );
 
@@ -73,7 +74,8 @@ public class Persona : ModuleRules
                 "SkeletonEditor",
                 "AssetTools",
                 "AnimationEditor",
-                "MeshReductionInterface"
+                "MeshReductionInterface",
+                "SequenceRecorder",
             }
         );
     }

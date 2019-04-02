@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AudioVolume.cpp: Used to affect audio settings in the game and editor.
@@ -25,7 +25,7 @@ FInteriorSettings::FInteriorSettings()
 {
 }
 
-
+#if WITH_EDITORONLY_DATA
 void FInteriorSettings::PostSerialize(const FArchive& Ar)
 {
 	if (Ar.UE4Ver() < VER_UE4_USE_LOW_PASS_FILTER_FREQ)
@@ -43,7 +43,7 @@ void FInteriorSettings::PostSerialize(const FArchive& Ar)
 		}
 	}
 }
-
+#endif
 
 bool FReverbSettings::operator==(const FReverbSettings& Other) const
 {
@@ -54,6 +54,7 @@ bool FReverbSettings::operator==(const FReverbSettings& Other) const
 			&& FadeTime == Other.FadeTime);
 }
 
+#if WITH_EDITORONLY_DATA
 void FReverbSettings::PostSerialize(const FArchive& Ar)
 {
 	if( Ar.UE4Ver() < VER_UE4_REVERB_EFFECT_ASSET_TYPE )
@@ -163,6 +164,7 @@ void FReverbSettings::PostSerialize(const FArchive& Ar)
 		check( ReverbEffect );
 	}
 }
+#endif
 
 bool FInteriorSettings::operator==(const FInteriorSettings& Other) const
 {

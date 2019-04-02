@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PhysicalMaterial.cpp
@@ -79,9 +79,9 @@ void UPhysicalMaterial::FinishDestroy()
 	Super::FinishDestroy();
 }
 
-const FPhysicsMaterialHandle& UPhysicalMaterial::GetPhysicsMaterial()
+FPhysicsMaterialHandle& UPhysicalMaterial::GetPhysicsMaterial()
 {
-#if WITH_APEIRON
+#if WITH_CHAOS
     check(false);
     MaterialHandle = nullptr;
     return MaterialHandle;

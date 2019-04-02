@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -150,14 +150,6 @@ public:
 
 	AAIController(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
-	/** Event called when PossessedPawn is possessed by this controller. */
-	UFUNCTION(BlueprintImplementableEvent)
-	void OnPossess(APawn* PossessedPawn);
-
-	/** Gets triggered after given pawn has been unpossesed */
-	UFUNCTION(BlueprintImplementableEvent)
-	void OnUnpossess(APawn* UnpossessedPawn);
-
 	virtual void SetPawn(APawn* InPawn) override;
 
 	/** Makes AI go toward specified Goal actor (destination will be continuously updated), aborts any active path following
@@ -209,10 +201,10 @@ public:
 	/** Helper function for creating pathfinding query for this agent from move request data */
 	bool BuildPathfindingQuery(const FAIMoveRequest& MoveRequest, FPathFindingQuery& Query) const;
 
-	DEPRECATED_FORGAME(4.13, "This function is now deprecated, please use FindPathForMoveRequest() for adjusting Query or BuildPathfindingQuery() for getting one.")
+	UE_DEPRECATED_FORGAME(4.13, "This function is now deprecated, please use FindPathForMoveRequest() for adjusting Query or BuildPathfindingQuery() for getting one.")
 	virtual bool PreparePathfinding(const FAIMoveRequest& MoveRequest, FPathFindingQuery& Query);
 
-	DEPRECATED_FORGAME(4.13, "This function is now deprecated, please use FindPathForMoveRequest() for adjusting pathfinding or path postprocess.")
+	UE_DEPRECATED_FORGAME(4.13, "This function is now deprecated, please use FindPathForMoveRequest() for adjusting pathfinding or path postprocess.")
 	virtual FAIRequestID RequestPathAndMove(const FAIMoveRequest& MoveRequest, FPathFindingQuery& Query);
 
 	/** if AI is currently moving due to request given by RequestToPause, then the move will be paused */
@@ -227,7 +219,7 @@ public:
 	/** Called on completing current movement request */
 	virtual void OnMoveCompleted(FAIRequestID RequestID, const FPathFollowingResult& Result);
 
-	DEPRECATED_FORGAME(4.13, "This function is now deprecated, please use version with EPathFollowingResultDetails parameter.")
+	UE_DEPRECATED_FORGAME(4.13, "This function is now deprecated, please use version with EPathFollowingResultDetails parameter.")
 	virtual void OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result);
 
 	/** Returns the Move Request ID for the current move */
@@ -334,8 +326,11 @@ public:
 	//~ End AActor Interface
 
 	//~ Begin AController Interface
-	virtual void Possess(APawn* InPawn) override;
-	virtual void UnPossess() override;
+protected:
+	virtual void OnPossess(APawn* InPawn) override;
+	virtual void OnUnPossess() override;
+
+public:
 	virtual bool ShouldPostponePathUpdates() const override;
 	virtual void DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
 

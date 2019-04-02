@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "UObject/UnrealNames.h"
 #include "Misc/AssertionMacros.h"
@@ -494,9 +494,9 @@ FName::FName(const ANSICHAR* Name, EFindName FindType)
  * @param Number Value for the number portion of the name
  * @param FindType Action to take (see EFindName)
  */
-FName::FName( const TCHAR* Name, int32 InNumber, EFindName FindType )
+FName::FName( const TCHAR* Name, int32 InNumber, EFindName FindType, const bool bSplitName )
 {
-	Init(Name, InNumber, FindType);
+	Init(Name, InNumber, FindType, bSplitName);
 }
 
 FName::FName(const FNameEntrySerialized& LoadedEntry)
@@ -974,7 +974,7 @@ void FName::ToString(FString& Out) const
 		Out.Empty(NameEntry->GetNameLength() + 6);
 		NameEntry->AppendNameToString(Out);
 
-		Out += TEXT("_");
+		Out += TEXT('_');
 		Out.AppendInt(NAME_INTERNAL_TO_EXTERNAL(GetNumber()));
 	}
 }
@@ -992,7 +992,7 @@ void FName::AppendString(FString& Out) const
 		NameEntry->AppendNameToString( Out );
 		if (GetNumber() != NAME_NO_NUMBER_INTERNAL)
 		{
-			Out += TEXT("_");
+			Out += TEXT('_');
 			Out.AppendInt(NAME_INTERNAL_TO_EXTERNAL(GetNumber()));
 		}
 	}
@@ -1256,7 +1256,26 @@ FArchive& operator<<(FArchive& Ar, FNameEntrySerialized& E)
 		// negative stringlen means it's a wide string
 		if (StringLen < 0)
 		{
+			// If StringLen cannot be negated due to integer overflow, Ar is corrupted.
+			if (StringLen == MIN_int32)
+			{
+				Ar.ArIsError = 1;
+				Ar.ArIsCriticalError = 1;
+				UE_LOG(LogUnrealNames, Error, TEXT("Archive is corrupted"));
+				return Ar;
+			}
+
 			StringLen = -StringLen;
+
+			int64 MaxSerializeSize = Ar.GetMaxSerializeSize();
+			// Protect against network packets allocating too much memory
+			if ((MaxSerializeSize > 0) && (StringLen > MaxSerializeSize))
+			{
+				Ar.ArIsError = 1;
+				Ar.ArIsCriticalError = 1;
+				UE_LOG(LogUnrealNames, Error, TEXT("String is too large"));
+				return Ar;
+			}
 
 			// mark the name will be wide
 			E.PreSetIsWideForSerialization(true);
@@ -1273,6 +1292,16 @@ FArchive& operator<<(FArchive& Ar, FNameEntrySerialized& E)
 		}
 		else
 		{
+			int64 MaxSerializeSize = Ar.GetMaxSerializeSize();
+			// Protect against network packets allocating too much memory
+			if ((MaxSerializeSize > 0) && (StringLen > MaxSerializeSize))
+			{
+				Ar.ArIsError = 1;
+				Ar.ArIsCriticalError = 1;
+				UE_LOG(LogUnrealNames, Error, TEXT("String is too large"));
+				return Ar;
+			}
+
 			// mark the name will be ansi
 			E.PreSetIsWideForSerialization(false);
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // Includes all necessary PhysX headers
 
 #pragma once
@@ -121,4 +121,4 @@ PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
 
 using namespace physx;
 
-#endif // WITH_PHYSX
+#endif // WITH_PHYSX  

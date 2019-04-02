@@ -1,7 +1,8 @@
-﻿Availability: Public
-Title:2.8 -带噪点模块的光束发射器
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:2.8 - 具备噪点模块的光束发射器
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/EffectsGallery
-Description:特效库示例关卡概述。
+Description:概述效果库示例关卡。
 Related: Engine/Rendering/ParticleSystems/Reference/Modules/Beam
 Related: Engine/Rendering/ParticleSystems/Overview
 Related: Engine/Rendering/ParticleSystems/Reference
@@ -9,51 +10,14 @@ Related: Engine/Rendering/ParticleSystems/Optimization
 Related: Engine/Rendering/ParticleSystems/Reference/TypeData/GPUSprites
 Related: Engine/Rendering/ParticleSystems/ParticleLights
 Related: Engine/Rendering/ParticleSystems/Reference/Modules/VectorField
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources\ContentExamples\EffectsGallery\2_H:title%](%ROOT%\Resources\ContentExamples\EffectsGallery\2_H\2_HTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\EffectsGallery\2_H:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\EffectsGallery\2_H:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\EffectsGallery\2_H]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources\ContentExamples\EffectsGallery\2_H:title%](%ROOT%\Resources\ContentExamples\EffectsGallery\2_H\2_HTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\EffectsGallery\2_H:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\EffectsGallery\2_H:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\EffectsGallery\2_H]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+Version: 4.9
+topic-image:2_HTopic.png
 
 [REGION:fullwidth]
 ![](image078.png)
 [/REGION]
 
-Beam TypeData（光束类型数据）让您可以创建连接两点的特效-您可以定义源点和目标点，或使用actor作为两点，或使用其他发射器作为两点。一般我们把它用于射击类游戏中的子弹尾迹特效。本例中我们将它用于电弧特效，同时使用光束组内的噪点模块。
+ **光束类型数据（Beam TypeData）** 允许您创建连接两个点的效果 - 您可以指定源和目标点，或者将它们用作Actor或其他发射器。在射击类游戏中，它经常被用作子弹轨迹效果。就本例而言，我们在 **光束（Beam）** 组内部借助 **噪点（Noise）** 模块将其用作电弧。 
  
  
- ![](image080.png)
+![](image080.png)

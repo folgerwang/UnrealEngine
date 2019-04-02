@@ -1,0 +1,100 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+/**
+ * SceneData.ush
+ */
+
+// Whether to fetch primitive values (eg LocalToWorld) by dynamically indexing a scene-wide buffer, or to reference a single Primitive uniform buffer
+#define VF_USE_PRIMITIVE_SCENE_DATA (FEATURE_LEVEL >= FEATURE_LEVEL_SM5 && VF_SUPPORTS_PRIMITIVE_SCENE_DATA)
+
+#if VF_USE_PRIMITIVE_SCENE_DATA
+
+// Must match FPrimitiveUniformShaderParameters in C++
+struct FPrimitiveSceneData
+{
+	float4x4 LocalToWorld;
+	float4 InvNonUniformScaleAndDeterminantSign;
+	float4 ObjectWorldPositionAndRadius;
+	float4x4 WorldToLocal;
+	float4x4 PreviousLocalToWorld;
+	float4x4 PreviousWorldToLocal;
+	float3 ActorWorldPosition;
+	float UseSingleSampleShadowFromStationaryLights;
+	float3 ObjectBounds;
+	float LpvBiasMultiplier;
+	float DecalReceiverMask;
+	float PerObjectGBufferData;
+	float UseVolumetricLightmapShadowFromStationaryLights;
+	float UseEditorDepthTest;
+	float4 ObjectOrientation;
+	float4 NonUniformScale;
+	float3 LocalObjectBoundsMin;
+	float3 LocalObjectBoundsMax;
+	uint LightingChannelMask;
+	uint LightmapDataIndex;
+	int SingleCaptureIndex;
+};
+
+// Stride of a single primitive's data in float4's, must match C++
+#define PRIMITIVE_SCENE_DATA_STRIDE 26
+
+// Fetch from scene primitive buffer
+FPrimitiveSceneData GetPrimitiveData(uint PrimitiveId) 
+{
+	// Note: layout must match FPrimitiveSceneShaderData in C++
+	// Relying on optimizer to remove unused loads
+
+	FPrimitiveSceneData PrimitiveData;
+	uint PrimitiveBaseOffset = PrimitiveId * PRIMITIVE_SCENE_DATA_STRIDE;
+	PrimitiveData.LocalToWorld[0] = View.PrimitiveSceneData[PrimitiveBaseOffset + 0];
+	PrimitiveData.LocalToWorld[1] = View.PrimitiveSceneData[PrimitiveBaseOffset + 1];
+	PrimitiveData.LocalToWorld[2] = View.PrimitiveSceneData[PrimitiveBaseOffset + 2];
+	PrimitiveData.LocalToWorld[3] = View.PrimitiveSceneData[PrimitiveBaseOffset + 3];
+
+	PrimitiveData.InvNonUniformScaleAndDeterminantSign = View.PrimitiveSceneData[PrimitiveBaseOffset + 4];
+	PrimitiveData.ObjectWorldPositionAndRadius = View.PrimitiveSceneData[PrimitiveBaseOffset + 5];
+
+	PrimitiveData.WorldToLocal[0] = View.PrimitiveSceneData[PrimitiveBaseOffset + 6];
+	PrimitiveData.WorldToLocal[1] = View.PrimitiveSceneData[PrimitiveBaseOffset + 7];
+	PrimitiveData.WorldToLocal[2] = View.PrimitiveSceneData[PrimitiveBaseOffset + 8];
+	PrimitiveData.WorldToLocal[3] = View.PrimitiveSceneData[PrimitiveBaseOffset + 9];
+
+	PrimitiveData.PreviousLocalToWorld[0] = View.PrimitiveSceneData[PrimitiveBaseOffset + 10];
+	PrimitiveData.PreviousLocalToWorld[1] = View.PrimitiveSceneData[PrimitiveBaseOffset + 11];
+	PrimitiveData.PreviousLocalToWorld[2] = View.PrimitiveSceneData[PrimitiveBaseOffset + 12];
+	PrimitiveData.PreviousLocalToWorld[3] = View.PrimitiveSceneData[PrimitiveBaseOffset + 13];
+
+	PrimitiveData.PreviousWorldToLocal[0] = View.PrimitiveSceneData[PrimitiveBaseOffset + 14];
+	PrimitiveData.PreviousWorldToLocal[1] = View.PrimitiveSceneData[PrimitiveBaseOffset + 15];
+	PrimitiveData.PreviousWorldToLocal[2] = View.PrimitiveSceneData[PrimitiveBaseOffset + 16];
+	PrimitiveData.PreviousWorldToLocal[3] = View.PrimitiveSceneData[PrimitiveBaseOffset + 17];
+
+	PrimitiveData.ActorWorldPosition = View.PrimitiveSceneData[PrimitiveBaseOffset + 18].xyz;
+	PrimitiveData.UseSingleSampleShadowFromStationaryLights = View.PrimitiveSceneData[PrimitiveBaseOffset + 18].w;
+	PrimitiveData.ObjectBounds = View.PrimitiveSceneData[PrimitiveBaseOffset + 19].xyz;
+	PrimitiveData.LpvBiasMultiplier = View.PrimitiveSceneData[PrimitiveBaseOffset + 19].w;
+
+	PrimitiveData.DecalReceiverMask = View.PrimitiveSceneData[PrimitiveBaseOffset + 20].x;
+	PrimitiveData.PerObjectGBufferData = View.PrimitiveSceneData[PrimitiveBaseOffset + 20].y;
+	PrimitiveData.UseVolumetricLightmapShadowFromStationaryLights = View.PrimitiveSceneData[PrimitiveBaseOffset + 20].z;
+	PrimitiveData.UseEditorDepthTest = View.PrimitiveSceneData[PrimitiveBaseOffset + 20].w;
+
+	PrimitiveData.ObjectOrientation = View.PrimitiveSceneData[PrimitiveBaseOffset + 21];
+	PrimitiveData.NonUniformScale = View.PrimitiveSceneData[PrimitiveBaseOffset + 22];
+
+	PrimitiveData.LocalObjectBoundsMin = View.PrimitiveSceneData[PrimitiveBaseOffset + 23].xyz;
+	PrimitiveData.LocalObjectBoundsMax = View.PrimitiveSceneData[PrimitiveBaseOffset + 24].xyz;
+	PrimitiveData.LightingChannelMask = asuint(View.PrimitiveSceneData[PrimitiveBaseOffset + 23].w);
+	PrimitiveData.LightmapDataIndex = asuint(View.PrimitiveSceneData[PrimitiveBaseOffset + 24].w);
+
+	PrimitiveData.SingleCaptureIndex = asint(View.PrimitiveSceneData[PrimitiveBaseOffset + 25].x);
+
+	return PrimitiveData;
+}
+
+#else
+
+// Route to Primitive uniform buffer
+#define GetPrimitiveData(x) Primitive
+
+#endif

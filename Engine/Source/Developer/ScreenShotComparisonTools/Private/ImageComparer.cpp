@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "ImageComparer.h"
 
@@ -507,7 +507,7 @@ double FImageComparer::CompareStructuralSimilarity(const FString& ImagePathA, co
 					else // EStructuralSimilarityComponent::Color
 					{
 						const FColor ColorA = ImageA->GetPixel(WindowX, WindowY);
-						const FColor ColorB = ImageA->GetPixel(WindowX, WindowY);
+						const FColor ColorB = ImageB->GetPixel(WindowX, WindowY);
 						const double ColorLumpA = ( ColorA.R + ColorA.G + ColorA.B ) * ( ColorA.A / 255.0 );
 						const double ColorLumpB = ( ColorB.R + ColorB.G + ColorB.B ) * ( ColorB.A / 255.0 );
 						AverageA += ColorLumpA;

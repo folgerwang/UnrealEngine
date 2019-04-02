@@ -2,7 +2,7 @@
 Availability: Public
 Crumbs: %ROOT%
 Title: Google Daydream 터치패드 버튼 사용
-Description: 구글 데이드림 모션 컨트롤러 터치패드 버튼을 사용하도록 구성합니다.
+Description: Google Daydream 모션 컨트롤러 터치패드 버튼을 사용하도록 구성합니다.
 Type: how-to
 SkillLevel: Intermediate
 Version: 4.17
@@ -16,7 +16,7 @@ prereq: Platforms\GoogleVR\HowTo\MotionController
 
 ![](HTGVRTouchpad_Hero_Image.png)
 
-**Google Daydream Motion Controller** (구글 데이드림 모션 컨트롤러, MC) 의 **터치패드** 애는 버튼이 여럿 있어 언리얼 엔진에서 여러가지 다양한 입력 작업을 처리하도록 구성할 수 있습니다. 여기서는 터치패드를 구성하고 사용하는 방법을 살펴봅니다.
+**Google Daydream Motion Controller** (Google Daydream 모션 컨트롤러, MC) 의 **터치패드** 애는 버튼이 여럿 있어 언리얼 엔진에서 여러가지 다양한 입력 작업을 처리하도록 구성할 수 있습니다. 여기서는 터치패드를 구성하고 사용하는 방법을 살펴봅니다.
 
 [region:note]
 여기서는 이미 **VR Camera** 와 모션 컨트롤러 지원이 추가된 **폰** 을 가지고 시작합니다. 이미 없으신 분들은 이 페이지 상단의 **Prerequisite Topics** (사전 필수 토픽) 부분의 문서를 확인하시기 바랍니다.
@@ -25,7 +25,7 @@ prereq: Platforms\GoogleVR\HowTo\MotionController
 
 ## 단계
 
-아래는 구글 데이드림 모션 컨트롤러 터치패드 사용 방법 관련 정보입니다.
+아래는 Google Daydream 모션 컨트롤러 터치패드 사용 방법 관련 정보입니다.
 
 1. 먼저, 플레이어 폰 블루프린트를 열고, **컴포넌트** 탭에서 **Text Render** 컴포넌트를 새로 추가한 뒤 이름을 **FaceButtonPressed** 라 하고, 아래 그림처럼 **Motion Controller** 컴포넌트와 부모 설정을 해줍니다.
 
@@ -53,7 +53,7 @@ prereq: Platforms\GoogleVR\HowTo\MotionController
 
     ![](HTGVRTouchpad_02.png)
 
-1. 구글 데이드림 모션 컨트롤러 터치패드에는 사용할 수 있는 버튼이 다섯 개 있습니다. 그 중 다섯개는 터치패드의 상하좌우를 누르는 것으로 가동됩니다. 다섯 번째 버튼은 사용자가 터치패드 표면을 터치할 때 발동됩니다. 블루프린트에서 이러한 구성을 하려면, 이벤트 그래프에 다음 다섯 개의 **Motion Controller (R) FaceButton** 이벤트 노드를 추가합니다.
+1. Google Daydream 모션 컨트롤러 터치패드에는 사용할 수 있는 버튼이 다섯 개 있습니다. 그 중 다섯개는 터치패드의 상하좌우를 누르는 것으로 가동됩니다. 다섯 번째 버튼은 사용자가 터치패드 표면을 터치할 때 발동됩니다. 블루프린트에서 이러한 구성을 하려면, 이벤트 그래프에 다음 다섯 개의 **Motion Controller (R) FaceButton** 이벤트 노드를 추가합니다.
 
     [REGION:lightbox]
     [![](HTGVRTouchpad_03.png)(w:579)](HTGVRTouchpad_03.png)
@@ -144,7 +144,7 @@ prereq: Platforms\GoogleVR\HowTo\MotionController
   
 ## 최종 결과
 
-블루프린트를 컴파일 및 저장한 뒤 실행 버튼을 사용하여 프로젝트를 스마트폰에 디플로이하고 실행시킵니다. 프로젝트가 폰에 디플로이되었으면, 구글 VR HMD 에 폰을 넣고 데이드림 모션 컨트롤러를 집어듭니다. 이제 터치패드에서 직선 방향쪽을 누르면, 다음 비디오처럼 눌린 버튼이 표시될 것입니다:
+블루프린트를 컴파일 및 저장한 뒤 실행 버튼을 사용하여 프로젝트를 스마트폰에 디플로이하고 실행시킵니다. 프로젝트가 폰에 디플로이되었으면, Google VR HMD 에 폰을 넣고 Daydream 모션 컨트롤러를 집어듭니다. 이제 터치패드에서 직선 방향쪽을 누르면, 다음 비디오처럼 눌린 버튼이 표시될 것입니다:
 
 [OBJECT:EmbeddedVideo]
     [PARAMLITERAL:videoid]

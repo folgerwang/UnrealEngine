@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraParameterStore.h"
 #include "NiagaraCommon.h"
@@ -389,8 +389,33 @@ void FNiagaraParameterStore::CopyParametersTo(FNiagaraParameterStore& DestStore,
 	while (It)
 	{
 		FNiagaraVariable Parameter = It->Key;
-		int32 DestIndex = DestStore.IndexOf(Parameter);
 		int32 SrcIndex = It->Value;
+		++It;
+
+		if (Parameter.IsValid() == false)
+		{
+			FString StoreDebugName;
+#if WITH_EDITORONLY_DATA
+			StoreDebugName = DebugName.IsEmpty() == false ? DebugName : TEXT("Unknown");
+#else
+			StoreDebugName = TEXT("Unknown");
+#endif
+			FString StoreName;
+			if (Owner != nullptr)
+			{
+				StoreName = Owner->GetPathName() + TEXT(".") + StoreDebugName;
+			}
+			else
+			{
+				StoreName = StoreDebugName;
+			}
+
+			UE_LOG(LogNiagara, Error, TEXT("Invalid parameter found while attempting to copy parameters from one parameter store to another.  Parameter Store: %s Parameter Name: %s Parameter Type: %s"), 
+				*StoreName, *Parameter.GetName().ToString(), Parameter.GetType().IsValid() ? *Parameter.GetType().GetName() : TEXT("Unknown"));
+			continue;
+		}
+
+		int32 DestIndex = DestStore.IndexOf(Parameter);
 		bool bWrite = false;
 		if (DestIndex == INDEX_NONE)
 		{
@@ -431,7 +456,6 @@ void FNiagaraParameterStore::CopyParametersTo(FNiagaraParameterStore& DestStore,
 				}
 			}
 		}
-		++It;
 	}
 	DestStore.OnLayoutChange();
 }

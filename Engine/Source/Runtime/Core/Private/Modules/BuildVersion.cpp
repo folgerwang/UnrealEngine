@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Modules/BuildVersion.h"
 #include "Misc/FileHelper.h"
@@ -26,7 +26,7 @@ FString FBuildVersion::GetDefaultFileName()
 FString FBuildVersion::GetFileNameForCurrentExecutable()
 {
 	FString AppExecutableName = FPlatformProcess::ExecutableName();
-#if PLATFORM_WINDOWS
+#if PLATFORM_WINDOWS || PLATFORM_MAC
 	if(AppExecutableName.EndsWith(TEXT("-Cmd")))
 	{
 		AppExecutableName = AppExecutableName.Left(AppExecutableName.Len() - 4);

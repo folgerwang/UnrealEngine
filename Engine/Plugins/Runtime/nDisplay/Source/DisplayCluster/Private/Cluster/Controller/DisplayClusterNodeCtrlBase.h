@@ -1,9 +1,9 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
-#include "IPDisplayClusterNodeController.h"
+#include "Cluster/Controller/IPDisplayClusterNodeController.h"
 
 class FDisplayClusterClusterManager;
 

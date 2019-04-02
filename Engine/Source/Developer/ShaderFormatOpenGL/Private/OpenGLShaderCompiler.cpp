@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 // ..
 
 #include "CoreMinimal.h"
@@ -439,7 +439,10 @@ GLenum GLFrequencyTable[] =
 	GL_FRAGMENT_SHADER, // SF_Pixel
 	GL_GEOMETRY_SHADER,	// SF_Geometry
 	GL_COMPUTE_SHADER,  // SF_Compute
-
+	// Ray tracing shaders are not supported in OpenGL
+	GLenum(0), // SF_RayGen
+	GLenum(0), // SF_RayMiss
+	GLenum(0), // SF_RayHitGroup (closest hit, any hit, intersection)
 };
 
 static_assert(ARRAY_COUNT(GLFrequencyTable) == SF_NumFrequencies, "Frequency table size mismatch.");
@@ -690,7 +693,7 @@ void FOpenGLFrontend::BuildShaderOutput(
 		}
 		else
 		{
-			ParameterMap.AddParameterAllocation(*UniformBlock.Name, Header.Bindings.NumUniformBuffers, 0, 0);
+			ParameterMap.AddParameterAllocation(*UniformBlock.Name, Header.Bindings.NumUniformBuffers, 0, 0, EShaderParameterType::UniformBuffer);
 		}
 		Header.Bindings.NumUniformBuffers++;
 	}
@@ -705,7 +708,8 @@ void FOpenGLFrontend::BuildShaderOutput(
 			*PackedGlobal.Name,
 			PackedGlobal.PackedType,
 			PackedGlobal.Offset * BytesPerComponent,
-			PackedGlobal.Count * BytesPerComponent
+			PackedGlobal.Count * BytesPerComponent,
+			EShaderParameterType::LooseData
 			);
 
 		uint16& Size = PackedGlobalArraySize.FindOrAdd(PackedGlobal.PackedType);
@@ -727,7 +731,7 @@ void FOpenGLFrontend::BuildShaderOutput(
 		}
 		else
 		{
-			ParameterMap.AddParameterAllocation(*PackedUB.Attribute.Name, Header.Bindings.NumUniformBuffers, 0, 0);
+			ParameterMap.AddParameterAllocation(*PackedUB.Attribute.Name, Header.Bindings.NumUniformBuffers, 0, 0, EShaderParameterType::UniformBuffer);
 		}
 		Header.Bindings.NumUniformBuffers++;
 
@@ -840,7 +844,8 @@ void FOpenGLFrontend::BuildShaderOutput(
 			*Sampler.Name,
 			0,
 			Sampler.Offset,
-			Sampler.Count
+			Sampler.Count,
+			EShaderParameterType::SRV
 			);
 		}
 
@@ -862,7 +867,8 @@ void FOpenGLFrontend::BuildShaderOutput(
 					*SamplerState,
 					0,
 					Sampler.Offset,
-					Sampler.Count
+					Sampler.Count,
+					EShaderParameterType::Sampler
 					);
 			}
 		}
@@ -884,7 +890,8 @@ void FOpenGLFrontend::BuildShaderOutput(
 			*UAV.Name,
 			0,
 			UAV.Offset,
-			UAV.Count
+			UAV.Count,
+			EShaderParameterType::UAV
 			);
 		}
 
@@ -1346,7 +1353,7 @@ uint32 FOpenGLFrontend::GetMaxSamplers(GLSLVersion Version)
 
 uint32 FOpenGLFrontend::CalculateCrossCompilerFlags(GLSLVersion Version, const TArray<uint32>& CompilerFlags)
 {
-	uint32  CCFlags = HLSLCC_NoPreprocess | HLSLCC_PackUniforms | HLSLCC_DX11ClipSpace;
+	uint32  CCFlags = HLSLCC_NoPreprocess | HLSLCC_PackUniforms | HLSLCC_DX11ClipSpace | HLSLCC_RetainSizes;
 	if (IsES2Platform(Version) && !IsPCES2Platform(Version))
 	{
 		CCFlags |= HLSLCC_FlattenUniformBuffers | HLSLCC_FlattenUniformBufferStructures;
@@ -1365,7 +1372,8 @@ uint32 FOpenGLFrontend::CalculateCrossCompilerFlags(GLSLVersion Version, const T
 		CompilerFlags.Contains(CFLAG_UseEmulatedUB))
 	{
 		CCFlags |= HLSLCC_FlattenUniformBuffers | HLSLCC_FlattenUniformBufferStructures;
-		CCFlags |= HLSLCC_GroupFlattenedUniformBuffers;
+		// Do not use this flag as it adds too many uniforms.
+		//CCFlags |= HLSLCC_GroupFlattenedUniformBuffers;
 		CCFlags |= HLSLCC_ExpandUBMemberArrays;
 	}
 
@@ -1468,7 +1476,7 @@ void FOpenGLFrontend::CompileShader(const FShaderCompilerInput& Input,FShaderCom
 		bIsSM5 ? HSF_DomainShader : HSF_InvalidFrequency,
 		HSF_PixelShader,
 		IsES2Platform(Version) ? HSF_InvalidFrequency : HSF_GeometryShader,
-		bIsSM5 ? HSF_ComputeShader : HSF_InvalidFrequency
+		RHISupportsComputeShaders(Input.Target.GetPlatform()) ? HSF_ComputeShader : HSF_InvalidFrequency
 	};
 
 	const EHlslShaderFrequency Frequency = FrequencyTable[Input.Target.Frequency];
@@ -1486,6 +1494,12 @@ void FOpenGLFrontend::CompileShader(const FShaderCompilerInput& Input,FShaderCom
 	// This requires removing the HLSLCC_NoPreprocess flag later on!
 	RemoveUniformBuffersFromSource(Input.Environment, PreprocessedShader);
 
+	uint32 CCFlags = CalculateCrossCompilerFlags(Version, Input.Environment.CompilerFlags);
+
+	// Required as we added the RemoveUniformBuffersFromSource() function (the cross-compiler won't be able to interpret comments w/o a preprocessor)
+	CCFlags &= ~HLSLCC_NoPreprocess;
+
+
 	// Write out the preprocessed file and a batch file to compile it if requested (DumpDebugInfoPath is valid)
 	if (bDumpDebugInfo)
 	{
@@ -1496,6 +1510,11 @@ void FOpenGLFrontend::CompileShader(const FShaderCompilerInput& Input,FShaderCom
 			FileWriter->Serialize((ANSICHAR*)AnsiSourceFile.Get(), AnsiSourceFile.Length());
 			{
 				FString Line = CrossCompiler::CreateResourceTableFromEnvironment(Input.Environment);
+
+				Line += TEXT("#if 0 /*DIRECT COMPILE*/\n");
+				Line += CreateShaderCompilerWorkerDirectCommandLine(Input, CCFlags);
+				Line += TEXT("\n#endif /*DIRECT COMPILE*/\n");
+
 				FileWriter->Serialize(TCHAR_TO_ANSI(*Line), Line.Len());
 			}
 			FileWriter->Close();
@@ -1507,11 +1526,6 @@ void FOpenGLFrontend::CompileShader(const FShaderCompilerInput& Input,FShaderCom
 			FFileHelper::SaveStringToFile(CreateShaderCompilerWorkerDirectCommandLine(Input), *(Input.DumpDebugInfoPath / TEXT("DirectCompile.txt")));
 		}
 	}
-
-	uint32 CCFlags = CalculateCrossCompilerFlags(Version, Input.Environment.CompilerFlags);
-
-	// Required as we added the RemoveUniformBuffersFromSource() function (the cross-compiler won't be able to interpret comments w/o a preprocessor)
-	CCFlags &= ~HLSLCC_NoPreprocess;
 
 	FGlslCodeBackend* BackEnd = CreateBackend(Version, CCFlags, HlslCompilerTarget);
 	FGlslLanguageSpec* LanguageSpec = CreateLanguageSpec(Version);
@@ -1559,7 +1573,7 @@ void FOpenGLFrontend::CompileShader(const FShaderCompilerInput& Input,FShaderCom
 				GlslShaderSource = Dest;
 				GlslSourceLen = FCStringAnsi::Strlen(GlslShaderSource);
 
-				FArchive* FileWriter = IFileManager::Get().CreateFileWriter(*(Input.DumpDebugInfoPath / Input.VirtualSourceFilePath + TEXT(".glsl")));
+				FArchive* FileWriter = IFileManager::Get().CreateFileWriter(*GLSLFile);
 				if (FileWriter)
 				{
 					FileWriter->Serialize(GlslShaderSource,GlslSourceLen+1);
@@ -1997,7 +2011,9 @@ void FOpenGLFrontend::CompileOffline(const FShaderCompilerInput& Input, FShaderC
 	const bool bSupportsOfflineCompilation = PlatformSupportsOfflineCompilation(ShaderVersion);
 
 	if (!bSupportsOfflineCompilation)
-		return;	
+	{
+		return;
+	}
 
 	TSharedPtr<ANSICHAR> ShaderSource = PrepareCodeForOfflineCompilation(ShaderVersion, (EShaderFrequency)Input.Target.Frequency, InShaderSource);
 
@@ -2007,5 +2023,7 @@ void FOpenGLFrontend::CompileOffline(const FShaderCompilerInput& Input, FShaderC
 void FOpenGLFrontend::PlatformCompileOffline(const FShaderCompilerInput& Input, FShaderCompilerOutput& ShaderOutput, const ANSICHAR* ShaderSource, const GLSLVersion ShaderVersion)
 {
 	if (ShaderVersion == GLSL_ES2 || ShaderVersion == GLSL_ES3_1_ANDROID || ShaderVersion == GLSL_ES2_IOS)
+	{
 		CompileOfflineMali(Input, ShaderOutput, ShaderSource, FPlatformString::Strlen(ShaderSource), false);
+	}
 }

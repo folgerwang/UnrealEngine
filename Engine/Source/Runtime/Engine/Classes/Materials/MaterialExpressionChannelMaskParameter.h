@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -41,5 +41,5 @@ class UMaterialExpressionChannelMaskParameter : public UMaterialExpressionVector
 	virtual uint32 GetInputType(int32 InputIndex) override {return MCT_Float4;}
 #endif
 
-	virtual bool IsUsedAsChannelMask() override {return true;}
+	virtual bool IsUsedAsChannelMask() const override {return true;}
 };

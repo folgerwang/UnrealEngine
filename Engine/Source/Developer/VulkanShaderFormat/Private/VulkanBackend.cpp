@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 // This code is largely based on that in ir_print_glsl_visitor.cpp from
 // glsl-optimizer.
@@ -136,6 +136,18 @@ static inline std::string FixHlslName(const glsl_type* Type, bool bUseTextureIns
 			else if (!FCStringAnsi::Strcmp(Type->HlslName, "texturecubearray"))
 			{
 				return "textureCubeArray";
+			}
+			else if (!FCStringAnsi::Strcmp(Type->HlslName, "texture2darray"))
+			{
+				return "texture2DArray";
+			}
+			else if (!FCStringAnsi::Strcmp(Type->HlslName, "texture2dms"))
+			{
+				return "texture2DArray";
+			}
+			else if (!FCStringAnsi::Strcmp(Type->HlslName, "texture2dmsarray"))
+			{
+				return "texture2DMSArray";
 			}
 
 			return Type->HlslName;
@@ -752,6 +764,7 @@ class FGenerateVulkanVisitor : public ir_visitor
 	bool bUsesDXDY;
 
 	std::vector<std::string> SamplerStateNames;
+	TIRVarSet AtomicVariables;
 
 	/**
 	* Return true if the type is a multi-dimensional array. Also, track the
@@ -959,6 +972,10 @@ class FGenerateVulkanVisitor : public ir_visitor
 
 	EPrecisionModifier GetPrecisionModifier(const struct glsl_type *type)
 	{
+		if (type->base_type == GLSL_TYPE_BOOL)
+		{
+			return GLSL_PRECISION_DEFAULT;
+		}
 		if (type->is_sampler() || type->is_image())
 		{
 			if (bDefaultPrecisionIsHalf && type->inner_type->base_type == GLSL_TYPE_FLOAT)
@@ -1027,6 +1044,55 @@ class FGenerateVulkanVisitor : public ir_visitor
 	virtual void visit(ir_rvalue *rvalue)
 	{
 		check(0 && "ir_rvalue not handled for GLSL export.");
+	}
+
+	static inline bool is_struct_type(const glsl_type * type)
+	{
+		if (type->base_type != GLSL_TYPE_STRUCT && type->base_type != GLSL_TYPE_INPUTPATCH)
+		{
+			if (type->base_type == GLSL_TYPE_ARRAY && type->element_type())
+			{
+				return is_struct_type(type->element_type());
+			}
+			else
+			{
+				return false;
+			}
+		}
+		else
+		{
+			return true;
+		}
+	}
+
+	void print_zero_initialiser(const glsl_type * type)
+	{
+		if (type->base_type != GLSL_TYPE_STRUCT)
+		{
+			if (type->base_type != GLSL_TYPE_ARRAY)
+			{
+				ir_constant* zero = ir_constant::zero(mem_ctx, type);
+				if (zero)
+				{
+					zero->accept(this);
+				}
+			}
+			else
+			{
+				ralloc_asprintf_append(buffer, "{");
+
+				for (uint32 i = 0; i < type->length; i++)
+				{
+					if (i > 0)
+					{
+						ralloc_asprintf_append(buffer, ", ");
+					}
+					print_zero_initialiser(type->element_type());
+				}
+
+				ralloc_asprintf_append(buffer, "}");
+			}
+		}
 	}
 
 	virtual void visit(ir_variable *var)
@@ -1330,6 +1396,14 @@ class FGenerateVulkanVisitor : public ir_visitor
 			else
 			{
 				var->constant_value->accept(this);
+			}
+		}
+		else if ((var->type->base_type != GLSL_TYPE_STRUCT) && (var->mode == ir_var_auto || var->mode == ir_var_temporary || var->mode == ir_var_shared) && (AtomicVariables.find(var) == AtomicVariables.end()))
+		{
+			if (!is_struct_type(var->type) && var->type->base_type != GLSL_TYPE_ARRAY && var->mode != ir_var_shared)
+			{
+				ralloc_asprintf_append(buffer, " = ");
+				print_zero_initialiser(var->type);
 			}
 		}
 
@@ -2270,7 +2344,7 @@ class FGenerateVulkanVisitor : public ir_visitor
 
 			ir_instruction *const inst = (ir_instruction *)iter.get();
 			ir_assignment *assignment = inst->as_assignment();
-			if (assignment && (assignment->rhs->ir_type == ir_type_dereference_variable || assignment->rhs->ir_type == ir_type_constant))
+			if (assignment && (assignment->rhs->ir_type == ir_type_dereference_variable || assignment->rhs->ir_type == ir_type_constant || assignment->rhs->ir_type == ir_type_swizzle))
 			{
 				dest_deref = assignment->lhs->as_dereference_variable();
 				true_value = assignment->rhs;
@@ -2293,7 +2367,7 @@ class FGenerateVulkanVisitor : public ir_visitor
 
 			ir_instruction *const inst = (ir_instruction *)iter.get();
 			ir_assignment *assignment = inst->as_assignment();
-			if (assignment && (assignment->rhs->ir_type == ir_type_dereference_variable || assignment->rhs->ir_type == ir_type_constant))
+			if (assignment && (assignment->rhs->ir_type == ir_type_dereference_variable || assignment->rhs->ir_type == ir_type_constant || assignment->rhs->ir_type == ir_type_swizzle))
 			{
 				ir_dereference_variable *tmp_deref = assignment->lhs->as_dereference_variable();
 				if (tmp_deref
@@ -2719,8 +2793,8 @@ class FGenerateVulkanVisitor : public ir_visitor
 						//EHart - name-mangle variables to prevent colliding names
 						//#todo-rco: Check if this is still is needed when creating PSOs
 						//ralloc_asprintf_append(buffer, "#define %s %s%s\n", var->name, var->name, block_name);
-
-						ralloc_asprintf_append(buffer, "\t%s", (state->language_version == 310 && bEmitPrecision) ? "highp " : "");
+						bool bIsBoolType = var->type->base_type == GLSL_TYPE_BOOL;
+						ralloc_asprintf_append(buffer, "\t%s", (state->language_version == 310 && bEmitPrecision && !bIsBoolType) ? "highp " : "");
 						print_type_pre(var->type);
 						ralloc_asprintf_append(buffer, " %s", var->name);
 						print_type_post(var->type);
@@ -3356,6 +3430,11 @@ public:
 		hash_table_dtor(used_uniform_blocks);
 	}
 
+	void FindAtomicVariables(exec_list* ir)
+	{
+		::FindAtomicVariables(ir, AtomicVariables);
+	}
+
 	int32 AddUniqueSamplerState(const std::string& Name)
 	{
 		if (Name == "")
@@ -3792,6 +3871,7 @@ char* FVulkanCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* st
 
 	// Setup root visitor
 	FGenerateVulkanVisitor visitor(Target, BindingTable, state, bGenerateLayoutLocations, bDefaultPrecisionIsHalf);
+	visitor.FindAtomicVariables(ir);
 
 	// Generate information for sharing samplers
 	{
@@ -4573,16 +4653,21 @@ static ir_rvalue* GenShaderOutputSemantic(
 
 	*DestVariableType = Type;
 
-	// This code-section replacces "layout(location=0) out struct { vec4 Data; } out_TEXCOORD0;" pattern to
+	if (Frequency == HSF_HullShader && !OutputQualifier.Fields.bIsPatchConstant)
+	{
+		Type = glsl_type::get_array_instance(Type, ParseState->tessellation.outputcontrolpoints);
+	}
+
+	// This code-section replaces "layout(location=0) out struct { vec4 Data; } out_TEXCOORD0;" pattern to
 	// "layout(location=0) out vec4 out_TEXCOORD0;".
 
 	// Regular attribute
 	Variable = new(ParseState)ir_variable(
 		Type,
-		ralloc_asprintf(ParseState, "%s_%s", "out", Semantic),
+		ralloc_asprintf(ParseState, "out_%s", Semantic),
 		ir_var_out
 		);
-	Variable->read_only = true;
+	//Variable->read_only = true;
 	Variable->centroid = OutputQualifier.Fields.bCentroid;
 	Variable->interpolation = OutputQualifier.Fields.InterpolationMode;
 	Variable->is_patch_constant = OutputQualifier.Fields.bIsPatchConstant;
@@ -4595,7 +4680,13 @@ static ir_rvalue* GenShaderOutputSemantic(
 	DeclInstructions->push_tail(Variable);
 	ParseState->symbols->add_variable(Variable);
 
-	ir_dereference_variable* VariableDeref = new(ParseState)ir_dereference_variable(Variable);
+	ir_dereference* VariableDeref = new(ParseState)ir_dereference_variable(Variable);
+
+	if (Frequency == HSF_HullShader && !OutputQualifier.Fields.bIsPatchConstant)
+	{
+		VariableDeref = new(ParseState)ir_dereference_array(VariableDeref, new(ParseState)ir_dereference_variable(ParseState->symbols->get_variable("gl_InvocationID")));
+	}
+
 	return VariableDeref;
 }
 
@@ -4917,9 +5008,7 @@ static void GenShaderOutputForVariable(
 	FSemanticQualifier OutputQualifier,
 	ir_dereference* OutputVariableDeref,
 	exec_list* DeclInstructions,
-	exec_list* PostCallInstructions,
-	int SemanticArraySize,
-	int SemanticArrayIndex
+	exec_list* PostCallInstructions
 	)
 {
 	const glsl_type* OutputType = OutputVariableDeref->type;
@@ -4979,9 +5068,7 @@ static void GenShaderOutputForVariable(
 					Qualifier,
 					FieldDeref,
 					DeclInstructions,
-					PostCallInstructions,
-					SemanticArraySize,
-					SemanticArrayIndex
+					PostCallInstructions
 					);
 			}
 			else
@@ -5020,9 +5107,7 @@ static void GenShaderOutputForVariable(
 					OutputQualifier,
 					ArrayDeref,
 					DeclInstructions,
-					PostCallInstructions,
-					SemanticArraySize,
-					SemanticArrayIndex
+					PostCallInstructions
 					);
 			}
 		}
@@ -5109,7 +5194,7 @@ static void GenShaderOutputForVariable(
 * @param OutputQualifier - Qualifiers applied to the semantic.
 * @param OutputType - Value type.
 * @param DeclInstructions - IR to which declarations may be added.
-* @param PreCallInstructions - IR to which isntructions may be added before the
+* @param PreCallInstructions - IR to which instructions may be added before the
 entry point is called.
 * @param PostCallInstructions - IR to which instructions may be added after the
 *                               entry point returns.
@@ -5140,10 +5225,7 @@ static ir_dereference_variable* GenShaderOutput(
 		OutputQualifier,
 		TempVariableDeref,
 		DeclInstructions,
-		PostCallInstructions,
-		0,
-		0
-		);
+		PostCallInstructions);
 	return TempVariableDeref;
 }
 
@@ -5185,10 +5267,7 @@ static void GenerateAppendFunctionBody(
 		OutputQualifier,
 		TempVariableDeref,
 		DeclInstructions,
-		&sig->body,
-		0,
-		0
-		);
+		&sig->body);
 
 	// If the output structure type contains a SV_RenderTargetArrayIndex semantic, add a custom user output semantic.
 	// It's used to pass layer index to pixel shader, as GLSL 1.50 doesn't allow pixel shader to read from gl_Layer.
@@ -5575,7 +5654,8 @@ bool FVulkanCodeBackend::GenerateMain(
 			_mesa_glsl_warning(ParseState, "'patchconstantfunc' attribute only applies to hull shaders");
 		}
 
-		ir_function* MainFunction = new(ParseState)ir_function("main");
+		// Values that will be patched in later from the SPIRV
+		ir_function* MainFunction = new(ParseState)ir_function("main_00000000_00000000");
 		MainFunction->add_signature(MainSig);
 
 		Instructions->append_list(&DeclInstructions);

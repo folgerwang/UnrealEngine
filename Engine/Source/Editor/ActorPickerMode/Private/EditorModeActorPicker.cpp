@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "EditorModeActorPicker.h"
 #include "Framework/Application/SlateApplication.h"
@@ -65,6 +65,10 @@ bool FEdModeActorPicker::MouseMove(FEditorViewportClient* ViewportClient, FViewp
 			if(ActorHit->Actor != NULL)
 			{
 				AActor* Actor = ActorHit->Actor;
+				while (Actor->IsChildActor())
+				{
+					Actor = Actor->GetParentActor();
+				}
 				HoveredActor = Actor;
 				PickState =  IsActorValid(Actor) ? EPickState::OverActor : EPickState::OverIncompatibleActor;
 			}
@@ -104,9 +108,14 @@ bool FEdModeActorPicker::InputKey(FEditorViewportClient* ViewportClient, FViewpo
 			if (HitProxy != NULL && HitProxy->IsA(HActor::StaticGetType()))
 			{
 				HActor* ActorHit = static_cast<HActor*>(HitProxy);
-				if(IsActorValid(ActorHit->Actor))
+				AActor* Actor = ActorHit->Actor;
+				if (Actor->IsChildActor())
 				{
-					OnActorSelected.ExecuteIfBound(ActorHit->Actor);
+					Actor = Actor->GetParentActor();
+				}
+				if(IsActorValid(Actor))
+				{
+					OnActorSelected.ExecuteIfBound(Actor);
 					RequestDeletion();
 				}
 			}

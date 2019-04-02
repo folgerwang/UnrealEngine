@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "FbxImporter.h"
@@ -7,6 +7,8 @@ using namespace UnFbx;
 
 
 FbxAMatrix FFbxDataConverter::JointPostConversionMatrix;
+FbxAMatrix FFbxDataConverter::AxisConversionMatrix;
+FbxAMatrix FFbxDataConverter::AxisConversionMatrixInv;
 
 FVector FFbxDataConverter::ConvertPos(FbxVector4 Vector)
 {

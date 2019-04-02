@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,6 +7,10 @@
 #include "Interfaces/OnlineStoreInterfaceV2.h"
 #include "OnlineJsonSerializer.h"
 #include "OnlineError.h"
+
+#define PURCHASE_REDEMPTION_CODE_USED "errors.com.epicgames.coderedemption.code_used"
+#define PURCHASE_REDEMPTION_CODE_NOT_FOUND "errors.com.epicgames.coderedemption.code_not_found"
+#define PURCHASE_REDEMPTION_NOT_ELIGIBLE "errors.com.epicgames.ecommerce.fulfillment.code.criteria.reject"
 
 ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlinePurchase, Log, All);
 

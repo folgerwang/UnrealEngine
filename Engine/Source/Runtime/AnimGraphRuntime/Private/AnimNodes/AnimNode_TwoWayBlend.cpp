@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimNodes/AnimNode_TwoWayBlend.h"
 #include "Animation/AnimInstanceProxy.h"
@@ -30,7 +30,7 @@ void FAnimNode_TwoWayBlend::CacheBones_AnyThread(const FAnimationCacheBonesConte
 void FAnimNode_TwoWayBlend::Update_AnyThread(const FAnimationUpdateContext& Context)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FAnimationNode_TwoWayBlend_Update);
-	EvaluateGraphExposedInputs.Execute(Context);
+	GetEvaluateGraphExposedInputs().Execute(Context);
 
 	InternalBlendAlpha = 0.f;
 	switch (AlphaInputType)

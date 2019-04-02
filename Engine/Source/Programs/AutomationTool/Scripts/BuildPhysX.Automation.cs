@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -118,7 +118,7 @@ class BuildPhysX : BuildCommand
 		string VisualStudioDirectoryName;
 		switch (TargetWindowsCompiler)
 		{
-			case WindowsCompiler.VisualStudio2015:
+			case WindowsCompiler.VisualStudio2015_DEPRECATED:
 				VisualStudioDirectoryName = "VS2015";
 				break;
 			default:
@@ -147,7 +147,7 @@ class BuildPhysX : BuildCommand
 		}
 	}
 
-	private static DirectoryReference GetProjectDirectory(PhysXTargetLib TargetLib, TargetPlatformData TargetData, WindowsCompiler TargetWindowsCompiler = WindowsCompiler.VisualStudio2015)
+	private static DirectoryReference GetProjectDirectory(PhysXTargetLib TargetLib, TargetPlatformData TargetData, WindowsCompiler TargetWindowsCompiler = WindowsCompiler.VisualStudio2015_DEPRECATED)
 	{
 		DirectoryReference Directory = new DirectoryReference(GetTargetLibRootDirectory(TargetLib).ToString());
 
@@ -184,12 +184,12 @@ class BuildPhysX : BuildCommand
 		return " -DCMAKE_TOOLCHAIN_FILE=\"" + PhysXSourceRootDirectory + "\\Externals\\CMakeModules\\Linux\\LinuxCrossToolchain.multiarch.cmake\"" + " -DARCHITECTURE_TRIPLE=" + TargetData.Architecture;
 	}
 
-	private static string GetCMakeArguments(PhysXTargetLib TargetLib, TargetPlatformData TargetData, string BuildConfig = "", WindowsCompiler TargetWindowsCompiler = WindowsCompiler.VisualStudio2015)
+	private static string GetCMakeArguments(PhysXTargetLib TargetLib, TargetPlatformData TargetData, string BuildConfig = "", WindowsCompiler TargetWindowsCompiler = WindowsCompiler.VisualStudio2015_DEPRECATED)
 	{
 		string VisualStudioName;
 		switch(TargetWindowsCompiler)
 		{
-			case WindowsCompiler.VisualStudio2015:
+			case WindowsCompiler.VisualStudio2015_DEPRECATED:
 				VisualStudioName = "Visual Studio 14 2015";
 				break;
 			default:
@@ -234,7 +234,7 @@ class BuildPhysX : BuildCommand
 						// don't register if we don't have an NDKROOT specified
 						if (String.IsNullOrEmpty(NDKDirectory))
 						{
-							throw new BuildException("NDKROOT is not specified; cannot build Android.");
+							throw new AutomationException("NDKROOT is not specified; cannot build Android.");
 						}
 
 						NDKDirectory = NDKDirectory.Replace("\"", "");
@@ -571,7 +571,7 @@ class BuildPhysX : BuildCommand
 			}
 			catch (Exception ex)
 			{
-				throw new BuildException(ex, "Failed to start local process for action (\"{0}\"): {1} {2}", ex.Message, LocalProcess.StartInfo.FileName, LocalProcess.StartInfo.Arguments);
+				throw new AutomationException(ex, "Failed to start local process for action (\"{0}\"): {1} {2}", ex.Message, LocalProcess.StartInfo.FileName, LocalProcess.StartInfo.Arguments);
 			}
 		}
 
@@ -649,6 +649,22 @@ class BuildPhysX : BuildCommand
 					if (!bCleanOnly)
 					{
 						LogInformation("Generating projects for lib " + TargetLib.ToString() + ", " + TargetData.ToString());
+
+						if (TargetData.Platform == UnrealTargetPlatform.Linux)
+						{
+							// the libraries are broken when compiled with clang 7.0.1
+							string OriginalToolchainPath = Environment.GetEnvironmentVariable("LINUX_MULTIARCH_ROOT");
+							if (!string.IsNullOrEmpty(OriginalToolchainPath))
+							{
+								string ToolchainPathToUse = OriginalToolchainPath.Replace("v13_clang-7.0.1-centos7", "v12_clang-6.0.1-centos7");
+								LogInformation("Working around problems with newer clangs: {0} -> {1}", OriginalToolchainPath, ToolchainPathToUse);
+								Environment.SetEnvironmentVariable("LINUX_MULTIARCH_ROOT", ToolchainPathToUse);
+							}
+							else
+							{
+								LogWarning("LINUX_MULTIARCH_ROOT is not set!");
+							}
+						}
 
 						ProcessStartInfo StartInfo = new ProcessStartInfo();
 						StartInfo.FileName = CMakeName;
@@ -775,7 +791,7 @@ class BuildPhysX : BuildCommand
 		string VisualStudioToolchainVersion = "";
 		switch (Version)
 		{
-			case WindowsCompiler.VisualStudio2015:
+			case WindowsCompiler.VisualStudio2015_DEPRECATED:
 				VisualStudioToolchainVersion = "14.0";
 				break;
 		}
@@ -814,11 +830,11 @@ class BuildPhysX : BuildCommand
 	{
 		if (!Utils.IsRunningOnMono)
 		{
-			string VS2015Path = GetMsDevExe(WindowsCompiler.VisualStudio2015);
+			string VS2015Path = GetMsDevExe(WindowsCompiler.VisualStudio2015_DEPRECATED);
 			if (VS2015Path != null)
 			{
-				MsDev14Exe = new FileReference(GetMsDevExe(WindowsCompiler.VisualStudio2015));
-				MsBuildExe = new FileReference(GetMsBuildExe(WindowsCompiler.VisualStudio2015));
+				MsDev14Exe = new FileReference(GetMsDevExe(WindowsCompiler.VisualStudio2015_DEPRECATED));
+				MsBuildExe = new FileReference(GetMsBuildExe(WindowsCompiler.VisualStudio2015_DEPRECATED));
 			}
 
 			// ================================================================================
@@ -861,13 +877,13 @@ class BuildPhysX : BuildCommand
 					Environment.GetEnvironmentVariable("EMSCRIPTEN") + ";" +
 					Environment.GetEnvironmentVariable("NODEPATH") + ";" +
 					Environment.GetEnvironmentVariable("LLVM") + ";" +
-					Path.GetDirectoryName(HTML5SDKInfo.Python()) + ";" +
+					Path.GetDirectoryName(HTML5SDKInfo.Python().FullName) + ";" +
 					Environment.GetEnvironmentVariable("PATH"));
 			//Log("set {0}={1}", "PATH", Environment.GetEnvironmentVariable("PATH"));
 		}
 	}
 
-	private static void BuildMSBuildTarget(PhysXTargetLib TargetLib, TargetPlatformData TargetData, List<string> TargetConfigurations, WindowsCompiler TargetWindowsCompiler = WindowsCompiler.VisualStudio2015)
+	private static void BuildMSBuildTarget(PhysXTargetLib TargetLib, TargetPlatformData TargetData, List<string> TargetConfigurations, WindowsCompiler TargetWindowsCompiler = WindowsCompiler.VisualStudio2015_DEPRECATED)
 	{
 		string SolutionFile = GetTargetLibSolutionFileName(TargetLib, TargetData, TargetWindowsCompiler).ToString();
 		string MSDevExe = GetMsDevExe(TargetData);
@@ -888,7 +904,7 @@ class BuildPhysX : BuildCommand
 		}
 	}
 
-	private static void BuildXboxTarget(PhysXTargetLib TargetLib, TargetPlatformData TargetData, List<string> TargetConfigurations, WindowsCompiler TargetWindowsCompiler = WindowsCompiler.VisualStudio2015)
+	private static void BuildXboxTarget(PhysXTargetLib TargetLib, TargetPlatformData TargetData, List<string> TargetConfigurations, WindowsCompiler TargetWindowsCompiler = WindowsCompiler.VisualStudio2015_DEPRECATED)
 	{
 		if (TargetData.Platform != UnrealTargetPlatform.XboxOne)
 		{
@@ -926,7 +942,7 @@ class BuildPhysX : BuildCommand
 		}
 	}
 
-    private static void BuildSwitchTarget(PhysXTargetLib TargetLib, TargetPlatformData TargetData, List<string> TargetConfigurations, WindowsCompiler TargetWindowsCompiler = WindowsCompiler.VisualStudio2015)
+    private static void BuildSwitchTarget(PhysXTargetLib TargetLib, TargetPlatformData TargetData, List<string> TargetConfigurations, WindowsCompiler TargetWindowsCompiler = WindowsCompiler.VisualStudio2015_DEPRECATED)
     {
         if (TargetData.Platform != UnrealTargetPlatform.Switch)
         {
@@ -1001,7 +1017,7 @@ class BuildPhysX : BuildCommand
 					// don't register if we don't have an NDKROOT specified
 					if (String.IsNullOrEmpty(NDKDirectory))
 					{
-						throw new BuildException("NDKROOT is not specified; cannot build Android.");
+						throw new AutomationException("NDKROOT is not specified; cannot build Android.");
 					}
 		
 					NDKDirectory = NDKDirectory.Replace("\"", "");
@@ -1136,7 +1152,7 @@ class BuildPhysX : BuildCommand
 		{
 			switch (TargetWindowsCompiler)
 			{
-				case WindowsCompiler.VisualStudio2015:
+				case WindowsCompiler.VisualStudio2015_DEPRECATED:
 					VisualStudioName = "VS2015";
 					break;
 				default:
@@ -1174,7 +1190,7 @@ class BuildPhysX : BuildCommand
 		{
 			switch (TargetWindowsCompiler)
 			{
-				case WindowsCompiler.VisualStudio2015:
+				case WindowsCompiler.VisualStudio2015_DEPRECATED:
 					VisualStudioName = "VS2015";
 					break;
 				default:
@@ -1374,7 +1390,7 @@ class BuildPhysX : BuildCommand
 	}
 
 
-	private static void GenerateDebugFiles(HashSet<FileReference> OutFiles, PhysXTargetLib TargetLib, TargetPlatformData TargetData, string TargetConfiguration, WindowsCompiler TargetWindowsCompiler = WindowsCompiler.VisualStudio2015)
+	private static void GenerateDebugFiles(HashSet<FileReference> OutFiles, PhysXTargetLib TargetLib, TargetPlatformData TargetData, string TargetConfiguration, WindowsCompiler TargetWindowsCompiler = WindowsCompiler.VisualStudio2015_DEPRECATED)
 	{
 		if (TargetData.Platform == UnrealTargetPlatform.Linux)
 		{
@@ -1449,7 +1465,7 @@ class BuildPhysX : BuildCommand
 		return BuildSuffix[TargetConfiguration];
 	}
 
-	private static void FindOutputFiles(HashSet<FileReference> OutputFiles, PhysXTargetLib TargetLib, TargetPlatformData TargetData, string TargetConfiguration, WindowsCompiler TargetWindowsCompiler = WindowsCompiler.VisualStudio2015)
+	private static void FindOutputFiles(HashSet<FileReference> OutputFiles, PhysXTargetLib TargetLib, TargetPlatformData TargetData, string TargetConfiguration, WindowsCompiler TargetWindowsCompiler = WindowsCompiler.VisualStudio2015_DEPRECATED)
 	{
 		string SearchSuffix = GetConfigurationSuffix(TargetConfiguration, TargetData).ToUpper();
 		switch (TargetData.Platform)
@@ -1683,7 +1699,7 @@ class BuildPhysX : BuildCommand
 			{
 				RobomergeLine = Environment.NewLine + RobomergeCommand;
 			}
-            P4ChangeList = P4.CreateChange(P4Env.Client, String.Format("BuildPhysX.Automation: Deploying {0} libs.", LibDeploymentDesc) + Environment.NewLine + "#rb none" + Environment.NewLine + "#lockdown Nick.Penwarden" + Environment.NewLine + "#tests none" + Environment.NewLine + "#jira none" + RobomergeLine);
+            P4ChangeList = P4.CreateChange(P4Env.Client, String.Format("BuildPhysX.Automation: Deploying {0} libs.", LibDeploymentDesc) + Environment.NewLine + "#rb none" + Environment.NewLine + "#lockdown Nick.Penwarden" + Environment.NewLine + "#tests none" + Environment.NewLine + "#jira none" + Environment.NewLine + "#okforgithub ignore" + RobomergeLine);
 		}
 
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Data/ChunkData.h"
 #include "Serialization/MemoryReader.h"
@@ -131,20 +131,22 @@ namespace BuildPatchServices
 				case BuildPatchServices::EFeatureLevel::StoresPrerequisiteIds:
 					return EChunkVersion::StoresShaAndHashType;
 				case BuildPatchServices::EFeatureLevel::StoredAsBinaryData:
+				case BuildPatchServices::EFeatureLevel::VariableSizeChunksWithoutWindowSizeChunkInfo:
 				case BuildPatchServices::EFeatureLevel::VariableSizeChunks:
+				case BuildPatchServices::EFeatureLevel::StoresUniqueBuildId:
 					return EChunkVersion::StoresDataSizeUncompressed;
 			}
 			checkf(false, TEXT("Unhandled FeatureLevel %s"), FeatureLevelToString(FeatureLevel));
 			return EChunkVersion::Invalid;
 		}
 	}
-	static_assert((uint32)EFeatureLevel::Latest == 15, "Please adjust HeaderHelpers::FeatureLevelToChunkVersion for new feature levels.");
+	static_assert((uint32)EFeatureLevel::Latest == 17, "Please adjust HeaderHelpers::FeatureLevelToChunkVersion for new feature levels.");
 
 	FChunkHeader::FChunkHeader()
 		: Version((uint32)EChunkVersion::Latest)
 		, HeaderSize(ChunkHeaderVersionSizes[(uint32)EChunkVersion::Latest])
 		, DataSizeCompressed(0)
-		, DataSizeUncompressed(1048576)
+		, DataSizeUncompressed(1024 * 1024)
 		, StoredAs(EChunkStorageFlags::None)
 		, HashType(EChunkHashFlags::RollingPoly64)
 		, RollingHash(0)
@@ -247,6 +249,13 @@ namespace BuildPatchServices
 		: Guid()
 		, Offset(0)
 		, Size(0)
+	{
+	}
+
+	FChunkPart::FChunkPart(const FGuid& InGuid, const uint32 InOffset, const uint32 InSize)
+		: Guid(InGuid)
+		, Offset(InOffset)
+		, Size(InSize)
 	{
 	}
 
@@ -621,7 +630,7 @@ namespace BuildPatchServices
 									NewChunkData->GetDataLock(&NewData, &NewHeader);
 									// Uncompress the memory.
 									bool bSuccess = FCompression::UncompressMemory(
-										static_cast<ECompressionFlags>(COMPRESS_ZLIB | COMPRESS_BiasMemory),
+										NAME_Zlib,
 										NewData,
 										Header->DataSizeUncompressed,
 										Data,
@@ -722,11 +731,12 @@ namespace BuildPatchServices
 				TempCompressedData.AddUninitialized(ChunkAccessHeader->DataSizeUncompressed);
 				// Compression can increase data size, too. This call will return false in that case.
 				bDataIsCompressed = FCompression::CompressMemory(
-					static_cast<ECompressionFlags>(COMPRESS_ZLIB | COMPRESS_BiasMemory),
+					NAME_Zlib,
 					TempCompressedData.GetData(),
 					CompressedSize,
 					ChunkDataSource,
-					ChunkAccessHeader->DataSizeUncompressed);
+					ChunkAccessHeader->DataSizeUncompressed,
+					COMPRESS_BiasMemory);
 			}
 
 			// If compression succeeded, set data vars.

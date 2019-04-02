@@ -21,7 +21,7 @@ _이 예제에서는 **시작용 콘텐츠** 를 포함시킨 **블루프린트 
 [/REGION]
 
 
-1.	**콘텐츠 브라우저** 의 빈 공간에 **우클릭** 한 다음 맥락 메뉴에서 **블루프린트** 아래 [블루프린트 매크로 라이브러리](Engine/Blueprints/UserGuide/Types/MacroLibrary) 를 선택합니다. 
+1.	**콘텐츠 브라우저** 의 빈 공간에 **우클릭** 한 다음 컨텍스트 메뉴에서 **블루프린트** 아래 [블루프린트 매크로 라이브러리](Engine/Blueprints/UserGuide/Types/MacroLibrary) 를 선택합니다. 
 
 	![](CreateLib1.png)(w:640)
 

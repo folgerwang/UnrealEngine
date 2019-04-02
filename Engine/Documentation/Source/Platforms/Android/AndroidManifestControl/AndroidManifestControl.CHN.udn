@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
-Availability: Doc
-Title: Android Manifest Control
+﻿INTSourceChangelist:3810557
+Availability: Public
+Title: Android Manifest控制
 Crumbs:%ROOT%, Platforms
-Description:Setting up and using the Android Mainfest file.
+Description:设置及使用Android Mainfest文件。
 Platform:Android
 Skilllevel:Advanced 
 Navigation:platform
@@ -14,26 +14,26 @@ type:overview
 
 [TOC(start:2)]
 
-The **AndroidManifest.xml** file is used to store various Android system permissions and settings that are set in the **Advanced  APKPackaging** section of your Projects Settings. In the following document we will cover how you can input commands that will be added to  the AndroidManifest.xml file to meet the needs of your Unreal Engine 4 (UE4) project.
+**AndroidManifest.xml** 文件用于存储在“项目设置（Projects Settings）”的 **Advanced APKPackaging** 部分中设置的各种Android系统权限和设置。在以下文档中，我们将阐述如何输入将添加到AndroidManifest.xml文件中的命令，以满足虚幻引擎4（UE4）项目的需求。
 
 
-## Android Manifest Location
-Before you can locate the AndroidManifest.xml file for your project, you will first need to either package the project or deploy the project to your Android device. Once the project has been built or deployed you will then find the AndroidManifest.xml file in **(YourProjectName)\Intermediate\Android\APK**.
+## Android Manifest查找
+需要先将项目打包或部署到Android设备才能查找项目的AndroidManifest.xml文件。构建或部署好项目后，可以在 **（项目名称）\Intermediate\Android\APK** 中找到AndroidManifest.xml文件。
 
 [REGION:lightbox]
-[![](AMC_File_Location.png)(w:430 h:285)](AMC_File_Location.png)
+[![](AMC_File_Location.png)(w:430)](AMC_File_Location.png)
 [/REGION]
 	
 [REGION:caption]
-Click for full image.
+单击查看大图。
 [/REGION]
 
 [region:warning]
-You should **never** edit the AndroidManifest.xml file under any circumstances. Any edits that need to be made to the AndroidManifest.xml file should be done inside the UE4 Editor in the Advanced APK Packing section. 
+在任何情况下都 **绝不能** 编辑AndroidManifest.xml文件。如果AndroidManifest.xml文件需要编辑，应在UE4编辑器的“Advanced APK Packing”部分中进行。 
 [/region]
 
-## Android Manifest Layout
-In a typical AndroidManifest.xml file you will find the following three sections. 
+## Android Manifest布局
+在典型的AndroidManifest.xml文件中，你将看到以下三个部分： 
 
 * **Application Definition**
 * **Activity**
@@ -60,17 +60,17 @@ In a typical AndroidManifest.xml file you will find the following three sections
 		</manifest>
 
 [region:note]
-Please note that the above Android Manifest file is not a working manifest file and is only shown for reference purposes.
+请注意，上面的Android Manifest文件不是有效的清单文件，仅用于参考目的。
 [/region]
 
 
 
-## Extra Tags for Manifest
-You can add additional tags for the Manifest by clicking on the **Plus** sign icon to add a new element to the tags array and then inputting the tag or tags you want to use into the input box. For this example the following tag was used, **android:sharedUserId="Foo"**.
+## Manifest的额外标签
+可以为Manifest添加额外的标签，方法是单击 **加号** 图标来向标签数组中添加新的元素，然后将要使用的一个或多个标签输入到输入框中。在此示例中，使用的是以下标签：**android:sharedUserId="Foo"**。
 
 ![](AMC_Extra_Man_Tags.png)
 
-Tags that are input into the Extra Tags for Manifest section will be added to the **manifest** section of the AndroidManifest.xml file. 
+输入到“Extra Tags for Manifest”部分中的标签将添加到AndroidManifest.xml文件的 **manifest** 部分。 
 
 	<manifest xmlns:android="http://schemas.android.com/apk/res/android" 
 	package="com.YourCompany.AndroidManifest" 
@@ -78,27 +78,25 @@ Tags that are input into the Extra Tags for Manifest section will be added to th
 	android:versionCode="1" 
 	android:versionName="1.0">
 
-## Extra Tags for Application
-You can add additional tags for the Application by clicking on the **Plus** sign icon to add a new element to the Application array and then inputting the tag you want to use. For this example the folowing tage was used, **android:hardwareAccelerated="True"**. 
+## 应用的额外标签
+可以为Application添加额外的标签，方法是单击 **加号** 图标来向应用程序数组中添加新的元素，然后输入要使用的标签。在此示例中，使用的是以下标签：**android:hardwareAccelerated="True"**。 
 
 ![](AMC_Extra_App_Tags.png)
 
- Items that are input into the Extra Tags for Application section will be added to the **Application Definition** section of the AndroidManifest.xml file.
+ 输入到“Extra Tags for Application”部分中的项将添加到AndroidManifest.xml文件的 **Application Definition** 部分。
 
-	[COMMENT:none]
- Application Definition 
-[/COMMENT]
+	<!-- Application Definition -->
 	<application android:label="@string/app_name"
 	 android:icon="@drawable/icon" 
 	 android:hardwareAccelerated="True" 
 	 android:hasCode="true">
     
-## Extra Settings for Application
-You can add additional settings for the Application to use by inputting the settings you want to use into the **Extra Settings for &#60 application>** section. If you have more than one setting you want to use, seperate each setting by adding **\n**. For this example the the folowing two items were added, **android:banner="Foo"** and **android:vmSafeMode="True"**.
+## 应用的额外设置
+可以为应用程序添加额外的设置以供使用，方法是在 **Extra Settings for &#60 application>** 部分中输入要使用的设置。如果要使用多个设置，请添加 **\n** 来分隔每个设置。在此示例中，添加了以下两项：**android:banner="Foo"** 和 **android:vmSafeMode="True"**。
 
 ![](AMC_Extra_App_Settings.png)
 
-Items that are input into the Extra Settings for &#60Android:nameapplication> section will be added to the **Activity** section of the AndroidManifest.xml file.
+输入到“Extra Settings for &#60Android:nameapplication>”部分中的项将添加到AndroidManifest.xml文件的 **Activity** 部分。
 
 		</activity>
 		<activity android:name=".DownloaderActivity" android:screenOrientation="landscape" android:configChanges="screenSize|orientation|keyboardHidden|keyboard" android:theme="@style/UE4SplashTheme" />
@@ -116,9 +114,12 @@ Items that are input into the Extra Settings for &#60Android:nameapplication> se
 			android:vmSafeMode="True"
 		<service android:name="OBBDownloaderService" /><receiver android:name="AlarmReceiver" /></application>
 
-## Extra Tags for UE4 Game Activity
-You can add additional tags for the **Extra Tags for UE4.GameActivity<activity> node** section by clicking on the **Plus** sign icon to add 
-a new element to the Extra Tags for UE4.GameActivity<activity> node array and then inputting the tag you want to use.
+## UE4游戏活动的额外标签
+可以向 **Extra Tags for UE4.GameActivity<activity> node** 部分添加额外的标签，方法是单击 **加号** 图标来向“Extra Tags for UE4.GameActivity<activity> node”数组中添加新的元素并输入要使用的标签。
+
+
+
+
 
 
 

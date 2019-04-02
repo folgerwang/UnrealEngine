@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Android/AndroidMisc.h"
 #include "Android/AndroidJavaEnv.h"
@@ -30,6 +30,7 @@
 #include <android/keycodes.h>
 #endif
 #if USE_ANDROID_JNI
+#include <android/asset_manager.h>
 #include <cpu-features.h>
 #include <android_native_app_glue.h>
 #include "Templates/Function.h"
@@ -40,6 +41,10 @@
 #include "Async/TaskGraphInterfaces.h"
 
 #include "FramePro/FrameProProfiler.h"
+
+#if USE_ANDROID_JNI
+extern AAssetManager * AndroidThunkCpp_GetAssetManager();
+#endif
 
 static int32 GAndroidTraceMarkersEnabled = 0;
 static FAutoConsoleVariableRef CAndroidTraceMarkersEnabled(
@@ -59,6 +64,17 @@ static FAutoConsoleVariableRef CAndroidLowPowerBatteryThreshold(
 
 #if STATS || ENABLE_STATNAMEDEVENTS
 int32 FAndroidMisc::TraceMarkerFileDescriptor = -1;
+
+typedef void (*ATrace_beginSection_Type) (const char* sectionName);
+typedef void (*ATrace_endSection_Type) (void);
+typedef bool (*ATrace_isEnabled_Type) (void);
+
+static ATrace_beginSection_Type ATrace_beginSection = NULL;
+static ATrace_endSection_Type ATrace_endSection = NULL;
+static ATrace_isEnabled_Type ATrace_isEnabled = NULL;
+
+static bool bUseNativeSystrace = false;
+
 #endif
 
 // run time compatibility information
@@ -84,7 +100,7 @@ extern FString GFontPathBase;
 
 void FAndroidMisc::RequestExit( bool Force )
 {
-	UE_LOG(LogWindows, Log, TEXT("FAndroidMisc::RequestExit(%i)"), Force);
+	UE_LOG(LogAndroid, Log, TEXT("FAndroidMisc::RequestExit(%i)"), Force);
 	if (Force)
 	{
 #if USE_ANDROID_JNI
@@ -106,12 +122,12 @@ void FAndroidMisc::LocalPrint(const TCHAR *Message)
 #if !UE_BUILD_SHIPPING
 	const int MAX_LOG_LENGTH = 4096;
 	// not static since may be called by different threads
-	ANSICHAR MessageBuffer[MAX_LOG_LENGTH];
+	wchar_t MessageBuffer[MAX_LOG_LENGTH];
 
 	const TCHAR* SourcePtr = Message;
 	while (*SourcePtr)
 	{
-		ANSICHAR* WritePtr = MessageBuffer;
+		wchar_t* WritePtr = MessageBuffer;
 		int32 RemainingSpace = MAX_LOG_LENGTH;
 		while (*SourcePtr && --RemainingSpace > 0)
 		{
@@ -128,13 +144,12 @@ void FAndroidMisc::LocalPrint(const TCHAR *Message)
 				break;
 			}
 			else {
-				*WritePtr++ = static_cast<ANSICHAR>(*SourcePtr++);
+				*WritePtr++ = static_cast<wchar_t>(*SourcePtr++);
 			}
 		}
 		*WritePtr = '\0';
-		__android_log_write(ANDROID_LOG_DEBUG, "UE4", MessageBuffer);
+		__android_log_print(ANDROID_LOG_DEBUG, "UE4", "%ls", MessageBuffer);
 	}
-	//	__android_log_print(ANDROID_LOG_DEBUG, "UE4", "%s", TCHAR_TO_ANSI(Message));
 #endif
 }
 
@@ -357,18 +372,40 @@ void FAndroidMisc::PlatformInit()
 	AndroidSetupDefaultThreadAffinity();
 
 #if (STATS || ENABLE_STATNAMEDEVENTS)
-	if (FParse::Param(FCommandLine::Get(), TEXT("enablesystrace")))
+	//Loading NDK libandroid.so atrace functions, available in the android libraries way before NDK headers.
+	void* const LibAndroid = dlopen("libandroid.so", RTLD_NOW | RTLD_LOCAL);
+	if (LibAndroid != nullptr)
 	{
-		GAndroidTraceMarkersEnabled = 1;
+		// Retrieve function pointers from shared object.
+		ATrace_beginSection = reinterpret_cast<ATrace_beginSection_Type>(dlsym(LibAndroid, "ATrace_beginSection"));
+		ATrace_endSection = reinterpret_cast<ATrace_endSection_Type>(dlsym(LibAndroid, "ATrace_endSection"));
+		ATrace_isEnabled = 	reinterpret_cast<ATrace_isEnabled_Type>(dlsym(LibAndroid, "ATrace_isEnabled"));
 	}
 
-	if (GAndroidTraceMarkersEnabled)
+	if (!ATrace_beginSection || !ATrace_endSection || !ATrace_isEnabled)
 	{
-		StartTraceMarkers();
-	}
+		UE_LOG(LogAndroid, Warning, TEXT("Failed to use native systrace functionality."));
+		ATrace_beginSection = nullptr;
+		ATrace_endSection = nullptr;
+		ATrace_isEnabled = nullptr;
 
-	// Watch for CVar update
-	CAndroidTraceMarkersEnabled->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&UpdateTraceMarkersEnable));
+		if (FParse::Param(FCommandLine::Get(), TEXT("enablesystrace")))
+		{
+			GAndroidTraceMarkersEnabled = 1;
+		}
+
+		if (GAndroidTraceMarkersEnabled)
+		{
+			StartTraceMarkers();
+		}
+
+		// Watch for CVar update
+		CAndroidTraceMarkersEnabled->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&UpdateTraceMarkersEnable));
+	}
+	else
+	{
+		bUseNativeSystrace = true;
+	}
 #endif
 
 #if USE_ANDROID_JNI
@@ -880,7 +917,7 @@ void PlatformCrashHandler(int32 Signal, siginfo* Info, void* Context)
 	// Restore system handlers so Android could catch this signal after we are done with crashreport
 	RestorePreviousSignalHandlers();
 
-	FAndroidCrashContext CrashContext;
+	FAndroidCrashContext CrashContext(ECrashContextType::Crash, TEXT("Caught signal"));
 	CrashContext.InitFromSignal(Signal, Info, Context);
 
 	if (GCrashHandlerPointer)
@@ -1066,6 +1103,29 @@ void FAndroidMisc::ShareURL(const FString& URL, const FText& Description, int32 
 #endif
 }
 
+FString FAndroidMisc::LoadTextFileFromPlatformPackage(const FString& RelativePath)
+{
+#if USE_ANDROID_JNI
+	AAssetManager* AssetMgr = AndroidThunkCpp_GetAssetManager();
+	AAsset* asset = AAssetManager_open(AssetMgr, TCHAR_TO_UTF8(*RelativePath), AASSET_MODE_BUFFER);
+
+	if (asset)
+	{
+		const void* FileContents = (const ANSICHAR*)AAsset_getBuffer(asset);
+		int32 FileLength = AAsset_getLength(asset);
+
+		TArray<ANSICHAR> TextContents;
+		TextContents.AddUninitialized(FileLength + 1);
+		FMemory::Memcpy(TextContents.GetData(), FileContents, FileLength);
+		TextContents[FileLength] = 0;
+
+		AAsset_close(asset);
+
+		return FString(ANSI_TO_TCHAR(TextContents.GetData()));
+	}
+#endif
+	return FString();
+}
 
 void FAndroidMisc::SetVersionInfo( FString InAndroidVersion, FString InDeviceMake, FString InDeviceModel, FString InDeviceBuildNumber, FString InOSLanguage )
 {
@@ -1852,11 +1912,18 @@ void FAndroidMisc::BeginNamedEventFrame()
 
 static void WriteTraceMarkerEvent(const ANSICHAR* Text, int32 TraceMarkerFileDescriptor)
 {
-	const int MAX_TRACE_EVENT_LENGTH = 256;
+	if (bUseNativeSystrace)
+	{
+		ATrace_beginSection(Text);
+	}
+	else
+	{
+		const int MAX_TRACE_EVENT_LENGTH = 256;
+		ANSICHAR EventBuffer[MAX_TRACE_EVENT_LENGTH];
+		int EventLength = snprintf(EventBuffer, MAX_TRACE_EVENT_LENGTH, "B|%d|%s", getpid(), Text);
 
-	ANSICHAR EventBuffer[MAX_TRACE_EVENT_LENGTH];
-	int EventLength = snprintf(EventBuffer, MAX_TRACE_EVENT_LENGTH, "B|%d|%s", getpid(), Text);
-	write(TraceMarkerFileDescriptor, EventBuffer, EventLength);
+		write(TraceMarkerFileDescriptor, EventBuffer, EventLength);
+	}
 }
 
 void FAndroidMisc::BeginNamedEvent(const struct FColor& Color, const TCHAR* Text)
@@ -1864,7 +1931,7 @@ void FAndroidMisc::BeginNamedEvent(const struct FColor& Color, const TCHAR* Text
 #if FRAMEPRO_ENABLED
 	FFrameProProfiler::PushEvent(Text);
 #endif // FRAMEPRO_ENABLED
-	if (TraceMarkerFileDescriptor == -1)
+	if (bUseNativeSystrace ? !ATrace_isEnabled() : TraceMarkerFileDescriptor == -1)
 	{
 		return;
 	}
@@ -1891,7 +1958,7 @@ void FAndroidMisc::BeginNamedEvent(const struct FColor& Color, const ANSICHAR* T
 #if FRAMEPRO_ENABLED
 	FFrameProProfiler::PushEvent(Text);
 #endif // FRAMEPRO_ENABLED
-	if (TraceMarkerFileDescriptor == -1)
+	if (bUseNativeSystrace ? !ATrace_isEnabled() : TraceMarkerFileDescriptor == -1)
 	{
 		return;
 	}
@@ -1904,13 +1971,20 @@ void FAndroidMisc::EndNamedEvent()
 #if FRAMEPRO_ENABLED
 	FFrameProProfiler::PopEvent();
 #endif // FRAMEPRO_ENABLED
-	if (TraceMarkerFileDescriptor == -1)
+	if (bUseNativeSystrace ? !ATrace_isEnabled() : TraceMarkerFileDescriptor == -1)
 	{
 		return;
 	}
 
-	const ANSICHAR EventTerminatorChar = 'E';
-	write(TraceMarkerFileDescriptor, &EventTerminatorChar, 1);
+	if (bUseNativeSystrace)
+	{
+		ATrace_endSection();
+	}
+	else
+	{
+		const ANSICHAR EventTerminatorChar = 'E';
+		write(TraceMarkerFileDescriptor, &EventTerminatorChar, 1);
+	}
 }
 
 void FAndroidMisc::CustomNamedStat(const TCHAR* Text, float Value, const TCHAR* Graph, const TCHAR* Unit)

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3146289
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:使用光线投射（追踪）
 Crumbs: %ROOT%, Gameplay
@@ -14,18 +14,14 @@ order:4
 
 除按对象或追踪通道运行追踪外，您还可运行追踪检测单次命中或多次命中，单次追踪只返回单次命中结果，多次追踪返回追踪造成的多次命中。也可通过追踪指定使用的光线类型：直线、方块、胶囊体或球体。 
 
+(#Setup)
 ## 设置
 
 通过下方链接了解更多使用蓝图的光线追踪。
 
 [REGION:buttonlist]
 * [](Engine/Physics/Tracing/HowTo)
-[PUBLISH:Docs]
-* [](Gameplay\HowTo\UseRaycasts\Code)
-* [](Gameplay/HowTo/UseRaycasts/UVCoordsFromTrace)
-[/PUBLISH:Docs]
 [/REGION]
-
 
 
 

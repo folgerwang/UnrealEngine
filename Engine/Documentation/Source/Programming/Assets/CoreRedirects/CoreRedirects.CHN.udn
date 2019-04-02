@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3782314
 Availability: Docs
 Crumbs: %ROOT%
-Title: Core Redirects
-Description: Core Redirects enable remapping classes, enums, functions, packages, properties, and structs at load time.
+Title: Core Redirect
+Description: Core Redirect可以在加载时间内重新映射类、枚举、函数、包、属性和结构体。
 Type: Overview
 SkillLevel: Intermediate
 Version: 4.18
@@ -14,97 +14,97 @@ Tags: Assets
 [TOC(start:2)]
 
 
-During development, there are occasions when an existing class, property, function name, or similar code member needs to be renamed. If there are a high number of Assets affected by these changes, though, simply renaming the code member and recompiling your project will cause considerable data loss as the existing Assets will no longer be recognized by the Unreal Engine. To address this issue, the Engine uses **Core Redirects**. Core Redirects should be configured in your project's `DefaultEngine.ini` file, or, in the case of a Plugin, the self-named `.ini` file for that Plugin (for example, `Paper2D.ini` for the Paper2D Plugin). These Core Redirects will automatically remap obsolete data while loading Assets, thus preventing data loss resulting from the renaming process.
+在开发期间，有时已有的类、属性、函数名称或类似的代码成分需要重命名。如果这些变更影响到的资源数量众多，只是将代码成分重命名并重新编译项目会导致大量数据丢失，因为虚幻引擎将无法再识别已有资源。为了解决此问题，引擎使用了 **Core Redirect**。Core Redirect应配置在项目的 `DefaultEngine.ini` 文件中；如果是插件，则配置在该插件的自命名 `.ini` 文件中（例如Paper2D的 `Paper2D.ini` 文件中）。这些Core Redirect将在资源加载期间自动映射过时数据，防止因为重命名而导致数据丢失。
 
 
-### Supported Core Redirect Types
+### 支持的Core Redirect类型
 
-[REGION:note]When specifying a name of a class or struct in an Core Redirect, the name should be written as it appears to the Unreal Engine's reflection system, meaning the prefix letter is dropped. For example, `AMyActor` would be written as `MyActor`, and `FMyStruct` would be written as `MyStruct`. Since Unreal Engine's reflection system does not use a prefix for enumerated types, enumerated type names appear in Core Redirects exactly as they do in code, e.g. `ESampleEnum` would remain `ESampleEnum` when referenced by a Core Redirect.[/REGION]
+[REGION:note]在Core Redirect中指定类或结构体的名称时，该名称应书写为其在虚幻引擎反射系统中显示的名称，也就是说删除前缀字母。例如，`AMyActor` 应书写为 `MyActor`，`FMyStruct` 应书写为 `MyStruct`。由于虚幻引擎的反射系统不对列举类型使用前缀，列举类型名称在Core Redirect中的显示与其在代码中完全相同。例如，当被Core Redirect引用时，`ESampleEnum` 将仍为 `ESampleEnum`。[/REGION]
 
-The following Core Redirect formats are currently supported:
+目前支持的Core Redirect格式有以下几种：
 
-* `ClassRedirects` - Changes objects and properties using an obsolete (or removed) UCLASS to refer to a new UCLASS.
-	| Field | Type | Purpose |
+* `ClassRedirects` - 更改使用过时（或已删除）UCLASS的Object和属性，以引用新的UCLASS。
+	| 字段 | 类型 | 用途 |
 	| --- | --- | --- |
-	| `OldName` | String | Specifies the name of the obsolete (or removed) UCLASS. |
-	| `NewName` | String | Specifies the name of the new UCLASS. |
-	| `MatchSubstring` | Bool | (Optional) If present and set to `true`, this Core Redirect	will apply to any class containing the value of `OldName`, rather than requiring an exact match. |
-	| `OverrideClassName` | String | (Optional) Specifies a change to the underlying class of the UCLASS. This is generally used to change a Blueprint class to a native class (`/Script/CoreUObject.Class`). |
-	| `InstanceOnly` | Bool | (Optional) If present and set to `true`, indicates that the original class still exists and can be referenced, but any existing instances of the old class (such as Actors or Components placed in Levels) should be remapped to the new class. This is especially useful when your project has a specialized version of a class that exists in the engine, but your Levels are full of instances of the original class, and you want to change them all to the project-specific version. |
-	| `ValueChanges` | List of String pairs | (Optional) Renames instances of the old class that match the first String of a pair. The new name will be the second String of that pair. |
+	| `OldName` | 字符串 | 指定过时（或已删除）UCLASS的名称。|
+	| `NewName` | 字符串 | 指定新UCLASS的名称。|
+	| `MatchSubstring` | 布尔型 | （可选）如果存在且设置为 `true`，此Core Redirect将应用于包含 `OldName` 值的任何类，而不要求完全匹配。|
+	| `OverrideClassName` | 字符串 | （可选）指定对UCLASS的底层类的更改。它通常用于将蓝图类更改为原生类（`/Script/CoreUObject.Class`）。|
+	| `InstanceOnly` | 布尔型 | （可选）如果存在且设置为 `true`，则表示原类仍然存在且可以引用，但旧类的任何现有实例（例如放置在关卡中的Actor或组件）应重新映射到新类。当项目在引擎中拥有专用版本的类时，这尤其有用。但关卡中会充满原类的实例，必须将其全部更改为特定于项目的版本。|
+	| `ValueChanges` | 字符串对列表 | （可选）重命名与对的首个字符串匹配的旧类实例。新名称将是该对的第二个字符串。|
 		[CoreRedirects]
 		ClassRedirects=(OldName="Pawn",NewName="MyPawn",InstanceOnly=true)
 		ClassRedirects=(OldName="/Script/MyModule.MyOldClass",NewName="/Script/MyModule.MyNewClass")
 		ClassRedirects=(OldName="PointLightComponent",NewName="PointLightComponent",ValueChanges=(("PointLightComponent0","LightComponent0")))
 		ClassRedirects=(OldName="AnimNotify_PlayParticleEffect_C",NewName="/Script/Engine.AnimNotify_PlayParticleEffect",OverrideClassName="/Script/CoreUObject.Class")
 [COMMENT:none]
-- Are CollisionChannelRedirects still considered current/supported/endorsed? -
+- CollisionChannelRedirects是否仍被视为当前/受支持/被认可？-
 [/COMMENT]
-* `EnumRedirects` - Remaps obsolete UENUM types and/or obsolete values within an enumerated type.
-	| Field | Type | Purpose |
+* `EnumRedirects` - 重映射列举类型中过时的UENUM类型和/或过时的值。
+	| 字段 | 类型 | 用途 |
 	| --- | --- | --- |
-	| `OldName` | String | Specifies the name of the obsolete UENUM (if `NewName` is specified), or the name of the existing UENUM (if only remapping values). |
-	| `NewName` | String | (Optional) Specifies the name of the new UENUM, if remapping from an obsolete UENUM to a new one. |
-	| `MatchSubstring` | Bool | (Optional) If present and set to `true`, this Core Redirect	will apply to any enumerated type containing the value of `OldName`, rather than requiring an exact match. |
-	| `ValueChanges` | List of String pairs | The first string in the pair is the old enumerated value, and the second string is the new value. If both values are in the same class, the old value must no longer exist in code. |	
+	| `OldName` | 字符串 | 指定过时UENUM的名称（若指定了`NewName`）或现有UENUM的名称（若仅重映射值）。|
+	| `NewName` | 字符串 | （可选）如果从过时的UENUM重映射到新的UENUM，则指定新UENUM的名称。|
+	| `MatchSubstring` | 布尔型 | （可选）如果存在且设置为 `true`，此Core Redirect将应用于包含 `OldName` 值的任何列举类型，而不要求完全匹配。|
+	| `ValueChanges` | 字符串对列表 | 对中的第一个字符串是旧的列举值，第二个字符串是新值。如果两个值都属于同一类，则代码中不得再有旧值。|	
 		[CoreRedirects]
 		EnumRedirects=(OldName="ENumbers",NewName="ELetters",ValueChanges=(("ENumberTwo","ELetterB")))
-* `FunctionRedirects` - Remaps an obsolete UFUNCTION to a new one.
-	| Field | Type | Purpose |
+* `FunctionRedirects` - 将过时的UFUNCTION重映射到新的UFUNCTION。
+	| 字段 | 类型 | 用途 |
 	| --- | --- | --- |
-	| `OldName` | String | Specifies the name of the obsolete (or removed) UFUNCTION. The function name is period-delimited so that the class name is included. |
-	| `NewName` | String | Specifies the name of the new UFUNCTION. The function name can be period-delimited, which makes it possible to remap a function from one class to another class. |
-	| `MatchSubstring` | Bool | (Optional) If present and set to `true`, this Core Redirect	will apply to any function containing the value of `OldName`, rather than requiring an exact match. |
+	| `OldName` | 字符串 | 指定过时（或已删除）UFUNCTION的名称。函数名称以句点分隔，以便包含类名。|
+	| `NewName` | 字符串 | 指定新UFUNCTION的名称。函数名称可以使用句点分隔，从而可将函数从一个类重映射到另一个类。|
+	| `MatchSubstring` | 布尔型 | （可选）如果存在且设置为 `true`，此Core Redirect将应用于包含 `OldName` 值的任何函数，而不要求完全匹配。|
 		[CoreRedirects]
 		FunctionRedirects=(OldName="MyOldActor.OldFunction",NewName="MyNewActor.NewFunction")
 		FunctionRedirects=(OldName="MyActor.OldFunction",NewName="NewFunction")
-* `PackageRedirects` - Remapping from one package to another, or suppressing warnings about references to a deleted package (references will be cleared or set to null).
-	| Field | Type | Purpose |
+* `PackageRedirects` - 从一个包重映射到另一个包，或者抑制关于对已删除包引用的警告（引用将被清除或设置为null）。
+	| 字段 | 类型 | 用途 |
 	| --- | --- | --- |
-	| `OldName` | String | Specifies the name of the obsolete or deleted package. |
-	| `NewName` | String | (Optional) Specifies the name of the package that replaces the obsolete or deleted package, if remapping is desired. If this is not present, `Removed` should be present and set to `true`. |
-	| `MatchSubstring` | Bool | (Optional) If present and set to `true`, this Core Redirect	will apply to any package containing the value of `OldName`, rather than requiring an exact match. |
-	| `Removed` | Bool | (Optional) If present and set to `true`, the named package has been removed. References to any of the removed content will be set to null without generating warnings or errors. The `NewName` argument should not be present if this is the case. |
+	| `OldName` | 字符串 | 指定过时或已删除包的名称。|
+	| `NewName` | 字符串 | （可选）如果需要重映射，它可指定替换过时或已删除包的包名称。如果它不存在，则应存在 `Removed` 并将其设置为 `true`。|
+	| `MatchSubstring` | 布尔型 | （可选）如果存在并设置为 `true`，此Core Redirect将应用于包含 `OldName` 值的任何包，而不要求完全匹配。|
+	| `Removed` | 布尔型 | （可选）如果存在且设置为 `true`，则指定的包已删除。对任何已删除内容的引用将被设置为null，不会生成警告或错误。在此情况下，不应存在 `NewName` 参数。|
 		[CoreRedirects]
 		PackageRedirects=(OldName="/OldPlugin/", NewName="/NewPlugin/", MatchSubstring=true)
 		PackageRedirects=(OldName="/Game/DeletedContentPackage", Removed=true)
-* `PropertyRedirects` - Remaps removed properties to new properties.
-	| Field | Type | Purpose |
+* `PropertyRedirects` - 将已删除属性重映射到新属性。
+	| 字段 | 类型 | 用途 |
 	| --- | --- | --- |
-	| `OldName` | String | The name of the removed property. This name is period-delimited so that the class name and any sub-variable names are included, e.g. `MyActor.MyStruct.MyProperty`. |
-	| `NewName` | String | The name of the new property. This name can be fully period-delimited like `OldName`, or it can be just the variable name if it exists in the same namespace as `OldName`. |
-	| `MatchSubstring` | Bool | (Optional) If present and set to `true`, this Core Redirect	will apply to any property containing the value of `OldName`, rather than requiring an exact match. |
+	| `OldName` | 字符串 | 已删除属性的名称。此名称以句点分隔，以便包含类名和任何子变量名，例如 `MyActor.MyStruct.MyProperty`。|
+	| `NewName` | 字符串 | 新属性的名称。与 `OldName` 相同，此名称可以完全以句点分隔；或者如果此名称与 `OldName` 在同一名称空间中，它可能只是变量名称。|
+	| `MatchSubstring` | 布尔型 | （可选）如果存在且设置为 `true`，此Core Redirect将应用于包含 `OldName` 值的任何属性，而不要求完全匹配。|
 		[CoreRedirects]
 		PropertyRedirects=(OldName="MyOldActor.OldIntProperty",NewName="MyNewActor.NewIntProperty")
 		PropertyRedirects=(OldName="MyActor.OldFloatProperty",NewName="NewFloatProperty")
-* `StructRedirects` - Changes properties using an obsolete (or removed) USTRUCT to refer to a new USTRUCT.
-	| Field | Type | Purpose |
+* `StructRedirects` - 更改使用过时（或已删除）USTRUCT的属性，以引用新的USTRUCT。
+	| 字段 | 类型 | 用途 |
 	| --- | --- | --- |
-	| `OldName` | String | Specifies the name of the obsolete (or removed) USTRUCT. |
-	| `NewName` | String | Specifies the name of the new USTRUCT. |
-	| `MatchSubstring` | Bool | (Optional) If present and set to `true`, this Core Redirect	will apply to any struct containing the value of `OldName`, rather than requiring an exact match. |
+	| `OldName` | 字符串 | 指定过时（或已删除）USTRUCT的名称。|
+	| `NewName` | 字符串 | 指定新USTRUCT的名称。|
+	| `MatchSubstring` | 布尔型 | （可选）如果存在且设置为 `true`，此Core Redirect将应用于包含 `OldName` 值的任何结构体，而不要求完全匹配。|
 		[CoreRedirects]
 		StructRedirects=(OldName="MyStruct",NewName="MyNewStruct")
 
 
-### Name Flexibility and Specificity
+### 名称的灵活性和特殊性
 
-Names used when describing classes, structs, properties, or functions can be written with varying degrees of specificity, and the Core Redirects system will use as much or as little information as you provide. The following table provides some examples of these levels of specificity.
+描述类、结构体、属性和函数时使用的名称可以不同的特殊性程度编写，而Core Redirect系统将尽可能多（或少）地使用所提供的信息。下表显示了特殊性水平的一些示例。
 
-| Example Format | Scope of application |
+| 示例格式 | 适用范围 |
 | --- | --- |
-| `/Script/MyModule.MyActor.MyFunctionOrProperty` | Will apply only to the function or property called `MyFunctionOrProperty` within the `MyActor` class in the `MyModule` module. |
-| `MyActor.MyFunctionOrProperty` | Will apply to any function or property called `MyFunctionOrProperty` within the `MyActor` class, regardless of what module that class and function exist in. |
-| `MyFunctionOrProperty` | Will apply to any function or property called `MyFunctionOrProperty` in any class, within any module. |
+| `/Script/MyModule.MyActor.MyFunctionOrProperty` | 仅适用于 `MyModule` 模块的 `MyActor` 类中名为 `MyFunctionOrProperty` 的函数或属性。|
+| `MyActor.MyFunctionOrProperty` | 适用于 `MyActor` 类中名为 `MyFunctionOrProperty` 的任何函数或属性，与该类和函数在哪个模块中无关。 |
+| `MyFunctionOrProperty` | 适用于任何模块的任何类中任何名为 `MyFunctionOrProperty` 的函数或属性。|
 		
-[REGION:warning]Some obsolete Core Redirects can be found in certain `.ini` files in games and samples older than version 4.16. While the formats they use are still supported for backward-compatibility purposes, it is not recommended that they be used as templates for writing your own Core Redirects going forward. Instead, use only the formats specified on this page.[/REGION]
+[REGION:warning]在版本低于4.16的游戏和样本中的某些 `.ini` 文件中可找到一些过时的Core Redirect。虽然由于向后兼容的原因它们使用的格式仍然受支持，但不建议未来在编写Core Redirect时将其用作模板。请仅使用此页面上指定的格式。[/REGION]
 
 
-### Substring Matching
+### 子字符串匹配
 
-The `MatchSubstring` argument can be used in any Core Redirect type. If present and set to `true`, the `OldName` and `NewName` fields will be treated as substrings rather than requiring exact matches. This enables multiple matches with a single Core Redirect. In the following example, we will start with a struct and a class.
+`MatchSubstring` 参数可用于任何Core Redirect类型。如果存在且设置为 `true`，则 `OldName` 和 `NewName` 字段将被视为子字符串，而不要求完全匹配。这样可以让单个Core Redirect有多个匹配项。在以下示例中，我们将从结构体和类开始讲解。
 
-Original code and values:
+原始代码和值：
 
 		USTRUCT()
 		struct FMyStruct
@@ -134,11 +134,11 @@ Original code and values:
 			FMyStruct TestStruct;
 		};
 
-![Original Values](OriginalValues.png)
+![原始数值](OriginalValues.png)
 
-[REGION:caption]This is the original code and the original set of values we're saving into our `AMyActor` Asset.[/REGION]
+[REGION:caption]以上是保存到 `AMyActor` 资源中的原始代码和原始数值集。[/REGION]
 
-After creating and saving an `AMyActor` Asset with the values shown above, we can close the Editor and alter the the code in the `.h` file and the Core Redirects in the game's `.ini` file. We will change the code to read as follows, changing the names of our `int32` properties:
+创建和保存使用以上所示值的 `AMyActor` 资源后，我们可以关闭编辑器并更改 `.h` 文件中的代码和游戏的 `.ini` 文件中的Core Redirect。我们将代码更改为如下所示，更改 `int32` 属性的名称：
 
 		USTRUCT()
 		struct FMyStruct
@@ -168,15 +168,15 @@ After creating and saving an `AMyActor` Asset with the values shown above, we ca
 			FMyStruct TestStruct;
 		};
 
-With this change, we can examine the effects of a Core Redirect, and in particular the impact of `MatchSubstring`. Results follow:
+更改后，我们可以检查Core Redirect的效果，尤其是 `MatchSubstring` 的影响。结果如下：
 
 ![](NoCoreRedirect.png)
-[REGION:caption]The properties were renamed in code, but no Core Redirect was created. As a result, no data values have migrated to the new properties.[/REGION]
+[REGION:caption]在代码中已重命名属性，但未创建Core Redirect。因此，没有任何数据值迁移到新属性。[/REGION]
 
 ![](CoreRedirectWithoutMatchSubstring.png)
-[REGION:caption]`PropertyRedirects=(OldName="TestInt",NewName="TestInteger")` causes only the two preoperties with exact name matches to migrate their data.[/REGION]
+[REGION:caption]`PropertyRedirects=(OldName=”TestInt”,NewName=”TestInteger”)` 仅允许具有完全匹配名称的两个属性迁移其数据。[/REGION]
 
 ![](CoreRedirectWithMatchSubstring.png)
-[REGION:caption]`PropertyRedirects=(OldName="TestInt",NewName="TestInteger",MatchSubstring=true)` causes all four of our properties to migrate, due to substring matching.[/REGION]
+[REGION:caption]由于子字符串匹配，`PropertyRedirects=(OldName=”TestInt”,NewName=”TestInteger”,MatchSubstring=true)` 允许所有四个属性都迁移。[/REGION]
 		
-[REGION:tip]Because `MatchSubtring` requires checking incoming Assets much more thoroughly, it can impact startup times. `MatchSubstring` is intended to be used temporarily as a fixup when making sweeping changes.  It is recommended that Assets involved in these changes be resaved immediately and checked into your project's source control database with any related code changes, and that the Core Redirect be deleted without entering source control.[/REGION]
+[REGION:tip]`MatchSubtring` 需要更彻底地检查传入的资源，因此会影响启动时间。`MatchSubstring` 旨在临时用作进行彻底更改时的修补。建议立即重新保存这些更改涉及的资源，并将任何相关的代码更改检入项目的源代码管理数据库，在不输入源码管理的情况下删除Core Redirect。[/REGION]

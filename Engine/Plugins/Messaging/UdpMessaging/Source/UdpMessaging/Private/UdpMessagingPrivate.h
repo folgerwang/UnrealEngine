@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -27,7 +27,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogUdpMessaging, Log, All);
 #define UDP_MESSAGING_SEGMENT_SIZE 1024
 
 /** Defines the protocol version of the UDP message transport. */
-#define UDP_MESSAGING_TRANSPORT_PROTOCOL_VERSION 11
+#define UDP_MESSAGING_TRANSPORT_PROTOCOL_VERSION 12
 
 /** Supported message serialization format */
 enum class EUdpMessageFormat : uint8

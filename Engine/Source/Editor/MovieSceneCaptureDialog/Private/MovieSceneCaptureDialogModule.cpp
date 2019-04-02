@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneCaptureDialogModule.h"
 #include "Dom/JsonValue.h"
@@ -236,7 +236,16 @@ public:
 		CapturePath.RemoveFromEnd(TEXT("\\"));
 
 		auto OnBrowseToFolder = [=]{
-			FPlatformProcess::ExploreFolder(*CapturePath);
+			FString TrimmedPath;
+			if (CapturePath.Split(TEXT("{"), &TrimmedPath, nullptr))
+			{
+				FPaths::NormalizeDirectoryName(TrimmedPath);
+				FPlatformProcess::ExploreFolder(*TrimmedPath);
+			}
+			else
+			{
+				FPlatformProcess::ExploreFolder(*CapturePath);
+			}
 		};
 
 		ChildSlot
@@ -520,6 +529,12 @@ void FInEditorCapture::OnPIEViewportStarted()
 					CapturingFromWorld->GetWorldSettings()->DefaultGameMode = CaptureObject->Settings.GameModeOverride;
 				}
 
+				CachedEngineShowFlags = SlatePlayInEditorSession->SlatePlayInEditorWindowViewport->GetClient()->GetEngineShowFlags();
+				if (CachedEngineShowFlags && Settings.bUsePathTracer)
+				{
+					CachedPathTracingMode = CachedEngineShowFlags->PathTracing;
+					CachedEngineShowFlags->SetPathTracing(true);
+				}
 				CaptureObject->Initialize(SlatePlayInEditorSession->SlatePlayInEditorWindowViewport, Context.PIEInstance);
 				OnCaptureStarted();
 			}
@@ -556,6 +571,11 @@ void FInEditorCapture::Shutdown()
 	if (CaptureObject->Settings.GameModeOverride != nullptr && CapturingFromWorld != nullptr)
 	{
 		CapturingFromWorld->GetWorldSettings()->DefaultGameMode = CachedGameMode;
+	}
+	
+	if (CachedEngineShowFlags)
+	{
+		CachedEngineShowFlags->SetPathTracing(CachedPathTracingMode);
 	}
 
 	FObjectReader(GetMutableDefault<ULevelEditorPlaySettings>(), BackedUpPlaySettings);
@@ -808,7 +828,13 @@ class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 		auto OnCaptureFinished = [this](bool bSuccess)
 		{
 			UE_LOG(LogTemp, Log, TEXT("Movie Capture finished. Success: %d"), bSuccess);
+			
+			// CurrentCapture has to be null so that StartRecording can be called again which means we can't
+			// broadcast this until after we've nulled out Current Capture. Thus we store the delegate
+			FMovieSceneCaptureBase::FCaptureStateStopped Delegate = CurrentCapture->CaptureStoppedDelegate;
+			
 			CurrentCapture = nullptr;
+			Delegate.Broadcast(bSuccess);
 		};
 
 		if (InCaptureSettings->bUseSeparateProcess)
@@ -885,16 +911,20 @@ class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 		FString OutputDirectory = CaptureObject->Settings.OutputDirectory.Path;
 		FPaths::NormalizeFilename(OutputDirectory);
 
-		if (!IFileManager::Get().DirectoryExists(*OutputDirectory))
+		// Only validate the directory if it doesn't contain any format specifiers
+		if (!OutputDirectory.Contains(TEXT("{")))
 		{
-			if (!IFileManager::Get().MakeDirectory(*OutputDirectory))
+			if (!IFileManager::Get().DirectoryExists(*OutputDirectory))
 			{
-				return FText::Format(LOCTEXT( "InvalidDirectory", "Invalid output directory: {0}"), FText::FromString(OutputDirectory) );
+				if (!IFileManager::Get().MakeDirectory(*OutputDirectory))
+				{
+					return FText::Format(LOCTEXT( "InvalidDirectory", "Invalid output directory: {0}"), FText::FromString(OutputDirectory) );
+				}
 			}
-		}
-		else if (IFileManager::Get().IsReadOnly(*OutputDirectory))
-		{
-			return FText::Format(LOCTEXT( "ReadOnlyDirectory", "Read only output directory: {0}"), FText::FromString(OutputDirectory) );
+			else if (IFileManager::Get().IsReadOnly(*OutputDirectory))
+			{
+				return FText::Format(LOCTEXT( "ReadOnlyDirectory", "Read only output directory: {0}"), FText::FromString(OutputDirectory) );
+			}
 		}
 
 		// Prompt the user to save their changes so that they'll be in the movie, since we're not saving temporary copies of the level.

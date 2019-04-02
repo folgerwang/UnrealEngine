@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -105,8 +105,12 @@ public:
 	virtual bool IsLastMovieInPlaylist() override;
 
 	virtual void ForceCompletion() override;
+	virtual void Suspend() override;
+	virtual void Resume() override;
 
 	float GetViewportDPIScale() const;
+
+	void OnMainWindowClosed(const TSharedRef<SWindow>& Window);
 
 private:
 
@@ -139,9 +143,10 @@ private:
 
 	FReply OnAnyDown();
 	
-	/** The movie streaming system that will be used by us */
-	TSharedPtr<IMovieStreamer> MovieStreamer;
-	
+	/** The movie streaming systems that will be used by us */
+	TArray<TSharedPtr<IMovieStreamer>> MovieStreamers;
+	TSharedPtr<IMovieStreamer> ActiveMovieStreamer;
+
 	/** The window that the loading screen resides in */
 	TWeakPtr<class SWindow> MainWindow;
 	/** The widget which includes all contents of the loading screen, widgets and movie player and all */
@@ -168,6 +173,9 @@ private:
 	/** User has called finish (needed if LoadingScreenAttributes.bAutoCompleteWhenLoadingCompletes is off) */
 	bool bUserCalledFinish;
 	
+	/** Main window has closed, stop movie playback */
+	TAtomic<bool> bMainWindowClosed;
+
 	/** Attributes of the loading screen we are currently displaying */
 	FLoadingScreenAttributes LoadingScreenAttributes;
 

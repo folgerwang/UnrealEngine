@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -16,7 +16,7 @@ public class TextureCompressor : ModuleRules
 			}
 			);
 
-		if (Target.bCompileLeanAndMeanUE == false)
+		if (Target.bBuildDeveloperTools)
 		{
 			AddEngineThirdPartyPrivateStaticDependencies(Target, "nvTextureTools");
 		}

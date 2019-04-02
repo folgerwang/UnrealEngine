@@ -90,7 +90,7 @@ tags:Materials
 |[REGION:tablesection]입력[/REGION] ||
 | **Texture (Scalar**) | 텍스처 - 입력 텍스처입니다. |
 | **New Black Value (Scalar)** | 새 검정 값 - 기존 0 값에 대한 새로운 값을 설정합니다. |
-| **New Middle Value (Scalar)** | 새 중간 값 - Middle Point 입력 값에 일치하는 예전 값을 대체합니다. |
+| **New Middle Value (Scalar)** | 새 중간 값 - Middle Point 입력 값에 일치하는 이전 값을 대체합니다. |
 | **New White Value (Scalar)** | 새 하양 값 - 기존 1 값에 대한 새로운 값을 설정합니다. |
 | **Middle Point (Scalar)** | 중간점 - 입력 이미지에서 Middle Point 의 값으로 대체할 값을 선택합니다. |
 | **Define Interpolation Curve (StaticBool)** | 보간 커브 정의 - _True_ 로 설정하면 Interpolation Power 입력을 사용하여 보간 커브를 자체적으로 정의합니다. |

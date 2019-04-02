@@ -10,7 +10,7 @@ Version: 4.8
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-	[예전 단계](Engine\OpenWorldTools\Grass\QuickStart\1 "%Engine\OpenWorldTools\ProceduralFoliage\QuickStart\1:title%") 
+	[이전 단계](Engine\OpenWorldTools\Grass\QuickStart\1 "%Engine\OpenWorldTools\ProceduralFoliage\QuickStart\1:title%") 
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -26,7 +26,7 @@ Version: 4.8
 
 
 여기서는 그래스 툴의 정상 작동에 필요한 액터와 머티리얼을 만들어 보겠습니다.
-예전 단계에서 만들던 **GT_00** 레벨 작업을 이어가겠습니다.
+이전 단계에서 만들던 **GT_00** 레벨 작업을 이어가겠습니다.
 
 
 1. 랜드스케이프 그래스 타입 생성은, **콘텐츠 브라우저** 에 **우클릭** 한 다음 메뉴에서 **기타** > **기타** > **랜드스케이프 그래스 타입** 을 선택한 다음 이름을 **Grass_00** 라 합니다.

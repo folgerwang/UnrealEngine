@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -24,6 +24,11 @@ namespace AutomationTool
 
 		public override string GetUE4ExePath(string UE4Exe)
 		{
+			if(Path.IsPathRooted(UE4Exe))
+			{
+				return CommandUtils.CombinePaths(UE4Exe);
+			}
+
 			int CmdExeIndex = UE4Exe.IndexOf("-Cmd.exe");
 			if (CmdExeIndex != -1)
 			{
@@ -75,9 +80,6 @@ namespace AutomationTool
 			{
 				AppName = "xbuild";
 				CommandLine = (String.IsNullOrEmpty(CommandLine) ? "" : CommandLine) + " /verbosity:quiet /nologo";
-				// For some reason AutomationScripts.Automation.csproj has ToolsVersion set
-				// to 11.0, which is no available on linux, so force ToolsVersion to 4.0
-				CommandLine += " /tv:4.0";
 				// Pass #define MONO to all the automation scripts (see XboxOne)
 				CommandLine += " /p:DefineConstants=MONO";
 				// Some projects have TargetFrameworkProfile=Client which causes warnings on Linux

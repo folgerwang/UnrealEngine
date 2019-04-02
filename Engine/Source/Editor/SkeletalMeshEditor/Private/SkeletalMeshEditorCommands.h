@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -20,9 +20,11 @@ public:
 
 	// reimport current mesh
 	TSharedPtr<FUICommandInfo> ReimportMesh;
+	TSharedPtr<FUICommandInfo> ReimportMeshWithNewFile;
 
 	// reimport current mesh
 	TSharedPtr<FUICommandInfo> ReimportAllMesh;
+	TSharedPtr<FUICommandInfo> ReimportAllMeshWithNewFile;
 
 	// selecting mesh section using hit proxies
 	TSharedPtr<FUICommandInfo> MeshSectionSelection;

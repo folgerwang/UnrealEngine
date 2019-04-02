@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -71,11 +71,21 @@ class ENGINE_API UActorChannel
 	/** whether we should nullptr references to this channel's Actor in other channels' Recent data when this channel is closed
 	 * set to false in cases where the Actor can't become relevant again (e.g. destruction) as it's unnecessary in that case
 	 */
-	uint32 bClearRecentActorRefs:1;
-	
+	uint32	bClearRecentActorRefs:1;
+
+private:
+	uint32	bSkipRoleSwap:1;		// true if we should not swap the role and remote role of this actor when properties are received
+
+	/** Tracks whether or not our actor has been seen as pending kill. */
+	uint32 bActorIsPendingKill : 1;
+
+public:
+	bool GetSkipRoleSwap() const { return !!bSkipRoleSwap; }
+	void SetSkipRoleSwap(const bool bShouldSkip) { bSkipRoleSwap = bShouldSkip; }
+
 	FObjectReplicator* ActorReplicator;
 
-	TMap< TWeakObjectPtr< UObject >, TSharedRef< FObjectReplicator > > ReplicationMap;
+	TMap< UObject*, TSharedRef< FObjectReplicator > > ReplicationMap;
 
 	// Async networking loading support state
 	TArray< class FInBunch * >			QueuedBunches;			// Queued bunches waiting on pending guids to resolve
@@ -94,6 +104,8 @@ class ENGINE_API UActorChannel
 	bool bBlockChannelFailure;
 #endif
 
+	EChannelCloseReason QueuedCloseReason;
+
 	/**
 	 * Default constructor
 	 */
@@ -103,16 +115,20 @@ class ENGINE_API UActorChannel
 		, bBlockChannelFailure(false)
 #endif
 	{
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		ChType = CHTYPE_Actor;
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
+		ChName = NAME_Actor;
 		bClearRecentActorRefs = true;
 		bHoldQueuedExportBunchesAndGUIDs = false;
+		QueuedCloseReason = EChannelCloseReason::Destroyed;
 	}
 
 public:
 
 	// UChannel interface.
 
-	virtual void Init( UNetConnection* InConnection, int32 InChIndex, bool InOpenedLocally ) override;
+	virtual void Init( UNetConnection* InConnection, int32 InChIndex, EChannelCreateFlags CreateFlags ) override;
 	virtual void SetClosingFlag() override;
 	virtual void ReceivedBunch( FInBunch& Bunch ) override;
 	virtual void Tick() override;
@@ -122,7 +138,7 @@ public:
 	bool ProcessQueuedBunches();
 
 	virtual void ReceivedNak( int32 NakPacketId ) override;
-	virtual int64 Close() override;
+	virtual int64 Close(EChannelCloseReason Reason) override;
 	virtual FString Describe() override;
 
 public:
@@ -133,7 +149,11 @@ public:
 	/** Replicate this channel's actor differences. Returns how many bits were replicated (does not include non-bunch packet overhead) */
 	int64 ReplicateActor();
 
-	/** Allocate replication tables for the actor channel. */
+	/**
+	 * Set this channel's actor to the given actor.
+	 * It's expected that InActor is either null (releasing the channel's reference) or
+	 * a valid actor that is not PendingKill or PendingKillPending.
+	 */
 	void SetChannelActor( AActor* InActor );
 
 	virtual void NotifyActorChannelOpen(AActor* InActor, FInBunch& InBunch);
@@ -285,15 +305,18 @@ public:
 
 protected:
 	
+	TSharedRef< FObjectReplicator > & FindOrCreateReplicator(UObject* Obj, bool* bOutCreated=nullptr);
+	UE_DEPRECATED(4.22, "Use FindOrCreateReplicator() which takes a raw UObject pointer.")
 	TSharedRef< FObjectReplicator > & FindOrCreateReplicator( const TWeakObjectPtr<UObject>& Obj);
-	bool ObjectHasReplicator(const TWeakObjectPtr<UObject>& Obj);	// returns whether we have already created a replicator for this object or not
+
+	bool ObjectHasReplicator(const TWeakObjectPtr<UObject>& Obj) const;	// returns whether we have already created a replicator for this object or not
 
 	/** Unmap all references to this object, so that if later we receive this object again, we can remap the original references */
 	void MoveMappedObjectToUnmapped( const UObject* Object );
 
 	void DestroyActorAndComponents();
 
-	virtual bool CleanUp( const bool bForDestroy ) override;
+	virtual bool CleanUp( const bool bForDestroy, EChannelCloseReason CloseReason ) override;
 
 	/** Closes the actor channel but with a 'dormant' flag set so it can be reopened */
 	virtual void BecomeDormant() override;

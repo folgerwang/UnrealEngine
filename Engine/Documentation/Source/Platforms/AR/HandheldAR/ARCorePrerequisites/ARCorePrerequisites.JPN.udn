@@ -1,0 +1,45 @@
+﻿INTSourceChangelist:4359079
+Availability: Public
+Crumbs: 
+Title: ARCore 前提条件
+Description: 拡張現実 (AR) の、 Google ARCore の前提条件です。
+Type: 
+Version: 4.19
+Parent: Platforms/AR/HandheldAR
+Order: 2
+Tags: mobile
+Tags: Android
+Tags: AR
+
+
+Unreal Engine は Android デバイスを既にサポートしており、新しい機能ではありません。 しかし、 AR と Unreal を使用する場合は、いくつかの追加要件があります。Android 用の標準の Unreal Engine 設定に加えて、 Android デバイスに ARCore アプリをインストールする必要があります。ユーザーが既に Unreal Engine と Android デバイスを使用している場合は、この作業をするだけで AR と Unreal Engine を使用できるようになります。
+
+## 一般前提条件
+
+Unreal Engine と Android デバイスの基本的な設定については、 Unreal Engine のドキュメントの [Android Game Development](Platforms/Android) セクションを参照してください。
+
+**ARCore 1.1 前提条件**
+
+*   [推奨仕様](GettingStarted/RecommendedSpecifications) を満たす開発マシン。
+*   Unreal Engine 4.19 以上のバージョンがインストール済みであること。
+*   Android 用の Codeworks がインストール済みであること。
+*   Android のバージョンが 24 以上であること。
+*   ハンドヘルド Android デバイス (サポートされており、設定済みで、接続されているもの)。
+
+**ARCore 1.2 前提条件**
+
+*   [推奨仕様](GettingStarted/RecommendedSpecifications) を満たす開発マシン。
+*   Unreal Engine 4.20 以上のバージョンがインストール済みであること。
+*   Android 用の Codeworks がインストール済みであること。
+*   Android のバージョンが 24 以上であること。
+*   ハンドヘルド Android デバイス (サポートされており、設定済みで、接続されているもの)。
+
+[REGION:note]
+** サポートについて： ** [Supported Devices](https://developers.google.com/ar/discover/#supported_devices) で、 ARCore が現在サポートしている Android デバイスを知ることができます。
+[/REGION]
+[REGION:note]
+** 設定について： ** Unreal Engine で AR を使う上での固有の条件として ARCore アプリをデバイスにインストールする必要があります。
+
+*   ARCore は Google Play ストアから手動でダウンロードできます。
+*   ARCore がハンドヘルド デバイスで検出されない場合、デバイスは Google Play ストアから ARCore をダウンロードする案内を出します。
+[/REGION]

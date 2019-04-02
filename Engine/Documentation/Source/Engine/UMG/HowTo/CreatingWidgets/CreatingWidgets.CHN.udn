@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3244089
 Availability:Public
 Title:创建并显示 UI
 Crumbs: %ROOT%, Engine, Engine/UMG, Engine/UMG/HowTo
@@ -7,6 +7,7 @@ Related:Engine/UMG
 Related:Engine/UMG/UserGuide
 Version:4.12
 SkillLevel:Beginner
+tags:UMG UI Designer
 
 通常大多数游戏中，均需要通过游戏用户界面将一些信息传递给玩家。用户界面包括主菜单、游戏暂停菜单、体力值或经验值、物品栏道具、或在特定情形下指导玩家进行操作。 
 
@@ -15,6 +16,7 @@ SkillLevel:Beginner
 我们将在此指南中创建一个控件蓝图，添加一些文本，然后在按键按下时通过关卡蓝图将其显示出来。 
 
 
+(#Steps)
 ## 步骤
 
 [REGION:note]
@@ -107,6 +109,7 @@ SkillLevel:Beginner
 
 
 
+(#EndResult)
 ## 最终结果
 
 在编辑器中进行游戏时按下/松开 **Enter** 键即会出现如下效果。 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "Widgets/SFrameRatePicker.h"
 #include "CommonFrameRates.h"
@@ -33,7 +33,10 @@ void SFrameRatePicker::Construct(const FArguments& InArgs)
 	ChildSlot
 	[
 		SNew(SComboButton)
-		.ContentPadding(FMargin(2.f, 0.f))
+		.ComboButtonStyle(InArgs._ComboButtonStyle)
+		.ButtonStyle(InArgs._ButtonStyle)
+		.ForegroundColor(InArgs._ForegroundColor)
+		.ContentPadding(InArgs._ContentPadding)
 		.VAlign(VAlign_Fill)
 		.OnGetMenuContent(this, &SFrameRatePicker::BuildMenu)
 		.ButtonContent()

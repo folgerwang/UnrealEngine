@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraComponent.h"
 #include "VectorVM.h"
@@ -19,6 +19,7 @@
 #include "NiagaraParameterCollection.h"
 #include "NiagaraWorldManager.h"
 #include "EngineUtils.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 DECLARE_CYCLE_STAT(TEXT("Sceneproxy create (GT)"), STAT_NiagaraCreateSceneProxy, STATGROUP_Niagara);
 DECLARE_CYCLE_STAT(TEXT("Component Tick (GT)"), STAT_NiagaraComponentTick, STATGROUP_Niagara);
@@ -121,7 +122,8 @@ SIZE_T FNiagaraSceneProxy::GetTypeHash() const
 	static size_t UniquePointer;
 	return reinterpret_cast<size_t>(&UniquePointer);
 }
-void FNiagaraSceneProxy::UpdateEmitterRenderers(TArray<NiagaraRenderer*>& InRenderers)
+
+void FNiagaraSceneProxy::UpdateEmitterRenderers(const TArray<NiagaraRenderer*>& InRenderers)
 {
 	EmitterRenderers.Empty();
 	for (NiagaraRenderer* EmitterRenderer : InRenderers)
@@ -216,6 +218,9 @@ FPrimitiveViewRelevance FNiagaraSceneProxy::GetViewRelevance(const FSceneView* V
 			Relevance |= Renderer->GetViewRelevance(View, this);
 		}
 	}
+
+	Relevance.bVelocityRelevance = IsMovable() && Relevance.bOpaqueRelevance && Relevance.bRenderInMainPass;
+
 	return Relevance;
 }
 
@@ -275,41 +280,47 @@ void FNiagaraSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>&
 	}
 }
 
-
+#if RHI_RAYTRACING
+void FNiagaraSceneProxy::GetDynamicRayTracingInstances(FRayTracingMaterialGatheringContext& Context, TArray<FRayTracingInstance>& OutRayTracingInstances)
+{
+	for (NiagaraRenderer* Renderer : EmitterRenderers)
+	{
+		if (Renderer)
+		{
+			Renderer->GetDynamicRayTracingInstances(Context, OutRayTracingInstances, this);
+		}
+	}
+}
+#endif
 
 void FNiagaraSceneProxy::GatherSimpleLights(const FSceneViewFamily& ViewFamily, FSimpleLightArray& OutParticleLights) const
 {
-	NiagaraRendererLights *LightRenderer = nullptr;
-	FNiagaraDynamicDataLights *DynamicData = nullptr;
 	for (int32 Idx = 0; Idx < EmitterRenderers.Num(); Idx++)
 	{
 		NiagaraRenderer *Renderer = EmitterRenderers[Idx];
 		if (Renderer && Renderer->GetPropertiesClass() == UNiagaraLightRendererProperties::StaticClass())
 		{
-			LightRenderer = static_cast<NiagaraRendererLights*>(Renderer);
-			DynamicData = static_cast<FNiagaraDynamicDataLights*>(Renderer->GetDynamicData());
-			break;
+			NiagaraRendererLights* LightRenderer = static_cast<NiagaraRendererLights*>(Renderer);
+			FNiagaraDynamicDataLights* DynamicData = static_cast<FNiagaraDynamicDataLights*>(Renderer->GetDynamicData());
+
+			if (DynamicData)
+			{
+				int32 LightCount = DynamicData->LightArray.Num();
+
+				OutParticleLights.InstanceData.Reserve(LightCount + OutParticleLights.InstanceData.Num());
+				OutParticleLights.PerViewData.Reserve(LightCount + OutParticleLights.PerViewData.Num());
+
+				for (NiagaraRendererLights::SimpleLightData &LightData : DynamicData->LightArray)
+				{
+					// When not using camera-offset, output one position for all views to share. 
+					OutParticleLights.PerViewData.Add(LightData.PerViewEntry);
+
+					// Add an entry for the light instance.
+					OutParticleLights.InstanceData.Add(LightData.LightEntry);
+				}
+			}
 		}
 	}
-
-
-	if (DynamicData)
-	{
-		int32 LightCount = DynamicData->LightArray.Num();
-		
-		OutParticleLights.InstanceData.Reserve(LightCount);
-		OutParticleLights.PerViewData.Reserve(LightCount);
-
-		for (NiagaraRendererLights::SimpleLightData &LightData : DynamicData->LightArray)
-		{
-			// When not using camera-offset, output one position for all views to share. 
-			OutParticleLights.PerViewData.Add(LightData.PerViewEntry);
-
-			// Add an entry for the light instance.
-			OutParticleLights.InstanceData.Add(LightData.LightEntry);
-		}
-	}
-
 }
 
 
@@ -346,6 +357,7 @@ UNiagaraComponent::UNiagaraComponent(const FObjectInitializer& ObjectInitializer
 void UNiagaraComponent::TickComponent(float DeltaSeconds, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraComponentTick);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(Particles);
 
 	if (bAwaitingActivationDueToNotReady)
 	{
@@ -493,7 +505,7 @@ bool UNiagaraComponent::InitializeSystem()
 #if WITH_EDITORONLY_DATA
 		OnSystemInstanceChangedDelegate.Broadcast();
 #endif
-		SystemInstance->Init(GetAsset(), bForceSolo);
+		SystemInstance->Init(bForceSolo);
 		return true;
 	}
 	return false;
@@ -800,20 +812,18 @@ void UNiagaraComponent::SendRenderDynamicData_Concurrent()
 					if (bRendererEditorEnabled && !Emitter->IsComplete() && !SystemInstance->IsComplete())
 					{
 						FNiagaraDynamicDataBase* DynamicData = Renderer->GenerateVertexData(NiagaraProxy, Emitter->GetData(), Emitter->GetEmitterHandle().GetInstance()->SimTarget);
-
-						ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-							FSendNiagaraDynamicData,
-							NiagaraRenderer*, EmitterRenderer, Emitter->GetEmitterRenderer(EmitterIdx),
-							FNiagaraDynamicDataBase*, DynamicData, DynamicData,
+						NiagaraRenderer* EmitterRenderer = Emitter->GetEmitterRenderer(EmitterIdx);
+						ENQUEUE_RENDER_COMMAND(FSendNiagaraDynamicData)(
+							[EmitterRenderer, DynamicData](FRHICommandListImmediate& RHICmdList)
 							{
 								EmitterRenderer->SetDynamicData_RenderThread(DynamicData);
 							});
 					}
 					else
 					{
-						ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-							FSendNiagaraDynamicData,
-							NiagaraRenderer*, EmitterRenderer, Emitter->GetEmitterRenderer(EmitterIdx),
+						NiagaraRenderer* EmitterRenderer = Emitter->GetEmitterRenderer(EmitterIdx);
+						ENQUEUE_RENDER_COMMAND(FSendNiagaraDynamicData)(
+							[EmitterRenderer](FRHICommandListImmediate& RHICmdList)
 							{
 								EmitterRenderer->SetDynamicData_RenderThread(nullptr);
 							});
@@ -1016,6 +1026,7 @@ void UNiagaraComponent::PostLoad()
 	{
 		Asset->ConditionalPostLoad();
 #if WITH_EDITOR
+		PostLoadNormalizeOverrideNames();
 		SynchronizeWithSourceSystem();
 		AssetExposedParametersChangedHandle = Asset->GetExposedParameters().AddOnChangedHandler(
 			FNiagaraParameterStore::FOnChanged::FDelegate::CreateUObject(this, &UNiagaraComponent::AssetExposedParametersChanged));
@@ -1073,19 +1084,22 @@ void UNiagaraComponent::SynchronizeWithSourceSystem()
 	{
 		OverrideParameters.Empty();
 		EditorOverridesValue.Empty();
+#if WITH_EDITORONLY_DATA
+		OnSynchronizedWithAssetParametersDelegate.Broadcast();
+#endif
 		return;
 	}
 
 	TArray<FNiagaraVariable> SourceVars;
 	Asset->GetExposedParameters().GetParameters(SourceVars);
-
 	for (FNiagaraVariable& Param : SourceVars)
 	{
 		OverrideParameters.AddParameter(Param, true);
 	}
 
 	TArray<FNiagaraVariable> ExistingVars;
-	OverrideParameters.GetParameters(ExistingVars);
+	OverrideParameters.GetUserParameters(ExistingVars);
+	Asset->GetExposedParameters().GetUserParameters(SourceVars);
 
 	for (FNiagaraVariable ExistingVar : ExistingVars)
 	{
@@ -1173,6 +1187,19 @@ void UNiagaraComponent::SetMaxSimTime(float InMaxTime)
 }
 
 #if WITH_EDITOR
+
+void UNiagaraComponent::PostLoadNormalizeOverrideNames()
+{
+	TMap<FName, bool> ValueMap;
+	for (TPair<FName, bool> Pair : EditorOverridesValue)
+	{
+		bool IsOldUserParam = Pair.Key.ToString().StartsWith(TEXT("User."));
+		FName ValueName = IsOldUserParam ? (*Pair.Key.ToString().RightChop(5)) : Pair.Key;
+		ValueMap.Add(ValueName, Pair.Value);
+	}
+	EditorOverridesValue = ValueMap;
+}
+
 bool UNiagaraComponent::IsParameterValueOverriddenLocally(const FName& InParamName)
 {
 	bool* FoundVar = EditorOverridesValue.Find(InParamName);
@@ -1202,7 +1229,7 @@ void UNiagaraComponent::SetParameterValueOverriddenLocally(const FNiagaraVariabl
 		Asset->GetExposedParameters().CopyParameterData(OverrideParameters, InParam);
 	}
 	
-	if (bRequiresSystemInstanceReset)
+	if (bRequiresSystemInstanceReset && SystemInstance)
 	{
 		SystemInstance->Reset(FNiagaraSystemInstance::EResetMode::ResetAll, true);
 	}
@@ -1228,8 +1255,15 @@ void UNiagaraComponent::SetAsset(UNiagaraSystem* InAsset)
 
 #if WITH_EDITOR
 		SynchronizeWithSourceSystem();
-		AssetExposedParametersChangedHandle = Asset->GetExposedParameters().AddOnChangedHandler(
-			FNiagaraParameterStore::FOnChanged::FDelegate::CreateUObject(this, &UNiagaraComponent::AssetExposedParametersChanged));
+		if (Asset != nullptr)
+		{
+			AssetExposedParametersChangedHandle = Asset->GetExposedParameters().AddOnChangedHandler(
+				FNiagaraParameterStore::FOnChanged::FDelegate::CreateUObject(this, &UNiagaraComponent::AssetExposedParametersChanged));
+		}
+		else
+		{
+			AssetExposedParametersChangedHandle.Reset();
+		}
 #endif
 
 		//Force a reinit.
