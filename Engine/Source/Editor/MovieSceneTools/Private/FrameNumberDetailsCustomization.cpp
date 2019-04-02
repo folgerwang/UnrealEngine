@@ -59,6 +59,7 @@ void FFrameNumberDetailsCustomization::CustomizeChildren(TSharedRef<IPropertyHan
 			.Text(this, &FFrameNumberDetailsCustomization::OnGetTimeText)
 			.OnTextCommitted(this, &FFrameNumberDetailsCustomization::OnTimeTextCommitted)
 			.SelectAllTextWhenFocused(true)
+			.ClearKeyboardFocusOnCommit(false)
 			.RevertTextOnEscape(true)
 			.Font(IDetailLayoutBuilder::GetDetailFont())
 		];
