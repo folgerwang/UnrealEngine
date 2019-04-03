@@ -502,6 +502,9 @@ protected:
 	/**	Finalizes writing to the file. */
 	void Finalize();
 
+	/** Waits on the async send task to complete. */
+	void WaitTask();
+
 	/** Sends the data to the file via async task. */
 	void SendTask();
 };
