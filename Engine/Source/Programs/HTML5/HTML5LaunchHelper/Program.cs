@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Net;
@@ -454,14 +454,14 @@ namespace HTML5LaunchHelper
 		static void SpawnBrowserAndBlock(Arguments Args)
 		{
 			// Browsers can be multiprocess programs (Chrome, basically)
-			bool bMultiprocessBrowser = Args.Browser.Contains("chrome");
+			bool bMultiprocessBrowser = Args.Browser.Contains("chrome") || Args.Browser.Contains("firefox");
 			// so we need to catch spawning of other child processes. The trick is
 			// they aren't really child-processes at all. There appears to be no real binding between the two,
 			// So we kind of fudged it a bit here.
 			var PrevProcesses = Process.GetProcesses();
 			var FirstProcess = SpawnBrowserProcess(Args.Browser, Args.BrowserCommandLine);
 			ProcessesToWatch.Add(FirstProcess);
-			var ProcName = FirstProcess.ProcessName;
+			var ProcName = FirstProcess.HasExited ? Args.Browser : FirstProcess.ProcessName;
 
 			// We should now have a list of processes to watch to exit.
 			// Loop over the calling WaitForExit() until the list is empty.
@@ -554,7 +554,7 @@ namespace HTML5LaunchHelper
 
 		static int Main(string[] args)
 		{
-			System.Console.WriteLine("Version: 20170906"); // date: YYYYMMDD - needed to help figure out what version QA is running...
+			System.Console.WriteLine("Version: 20190327"); // date: YYYYMMDD - needed to help figure out what version QA is running...
 			var Args = new Arguments();
 			if (Args.Parse(args))
 			{
