@@ -129,6 +129,17 @@ private:
 		const FSoftObjectPath StringTableAssetReference = GetAssetReference(InTableId);
 		if (StringTableAssetReference.IsValid())
 		{
+			// HACK: Unable to attempt a find in these circumstances
+			// HACK: This check should be handled by FTextHistory_StringTableEntry::FStringTableReferenceData::ConditionalBeginAssetLoad() instead to avoid starting the find/load until it is safe to do so
+			if (GIsSavingPackage || IsGarbageCollecting())
+			{
+				if (InLoadedCallback)
+				{
+					InLoadedCallback(InTableId, InTableId);
+				}
+				return INDEX_NONE;
+			}
+
 			UStringTable* StringTableAsset = Cast<UStringTable>(StringTableAssetReference.ResolveObject());
 			if (StringTableAsset)
 			{
