@@ -274,7 +274,10 @@ void FSslCertificateManager::BuildRootCertificateArray()
 		}
 	}
 
-	AddPEMFileToRootCertificateArray(CertificateBundlePath);
+	if (!CertificateBundlePath.IsEmpty())
+	{
+		AddPEMFileToRootCertificateArray(CertificateBundlePath);
+	}
 
 	FString DebuggingCertificatePath;
 	if (GConfig->GetString(TEXT("SSL"), TEXT("DebuggingCertificatePath"), DebuggingCertificatePath, GEngineIni) && DebuggingCertificatePath.Len() > 0)
