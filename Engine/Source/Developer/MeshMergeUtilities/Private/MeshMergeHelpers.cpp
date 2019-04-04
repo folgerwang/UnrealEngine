@@ -243,6 +243,7 @@ void FMeshMergeHelpers::RetrieveMesh(const UStaticMeshComponent* StaticMeshCompo
 		// If removing degenerate triangles, ignore them when computing tangents.
 		TangentOptions |= FMeshDescriptionOperations::ETangentOptions::IgnoreDegenerateTriangles;
 	}
+	FMeshDescriptionOperations::CreatePolygonNTB(RawMesh, 0.0f);
 	FMeshDescriptionOperations::RecomputeNormalsAndTangentsIfNeeded(RawMesh, (FMeshDescriptionOperations::ETangentOptions)TangentOptions, BuildSettings.bUseMikkTSpace);
 }
 
@@ -401,6 +402,7 @@ void FMeshMergeHelpers::RetrieveMesh(const UStaticMesh* StaticMesh, int32 LODInd
 		// If removing degenerate triangles, ignore them when computing tangents.
 		TangentOptions |= FMeshDescriptionOperations::ETangentOptions::IgnoreDegenerateTriangles;
 	}
+	FMeshDescriptionOperations::CreatePolygonNTB(RawMesh, 0.0f);
 	FMeshDescriptionOperations::RecomputeNormalsAndTangentsIfNeeded(RawMesh, (FMeshDescriptionOperations::ETangentOptions)TangentOptions, BuildSettings.bUseMikkTSpace, (bImportedMesh && BuildSettings.bRecomputeNormals), (bImportedMesh && BuildSettings.bRecomputeTangents));
 }
 
@@ -1191,7 +1193,22 @@ void FMeshMergeHelpers::AppendRawMesh(FMeshDescription& InTarget, const FMeshDes
 		if (!InTarget.IsPolygonGroupValid(SourcePolygonGroupID))
 		{
 			InTarget.CreatePolygonGroupWithID(SourcePolygonGroupID);
-			TargetPolygonGroupImportedMaterialSlotNames[SourcePolygonGroupID] = SourcePolygonGroupImportedMaterialSlotNames[SourcePolygonGroupID];
+			const FName BaseName = SourcePolygonGroupImportedMaterialSlotNames[SourcePolygonGroupID];
+			FName CurrentTestName = BaseName;
+			int32 UniqueID = 1;
+			bool bUnique = true;
+			do 
+			{
+				for (const FPolygonGroupID PolygonGroupID : InTarget.PolygonGroups().GetElementIDs())
+				{
+					if (TargetPolygonGroupImportedMaterialSlotNames[PolygonGroupID] == CurrentTestName)
+					{
+						CurrentTestName = FName(*(BaseName.ToString() + FString::FromInt(UniqueID++)));
+						bUnique = false;
+					}
+				}
+			} while (!bUnique);
+			TargetPolygonGroupImportedMaterialSlotNames[SourcePolygonGroupID] = CurrentTestName;
 		}
 	}
 
@@ -1202,6 +1219,7 @@ void FMeshMergeHelpers::AppendRawMesh(FMeshDescription& InTarget, const FMeshDes
 	{
 		const FVertexID TargetVertexID = InTarget.CreateVertex();
 		SourceToTargetVertexID.Add(SourceVertexID, TargetVertexID);
+		TargetVertexPositions[TargetVertexID] = SourceVertexPositions[SourceVertexID];
 	}
 
 	//Append VertexInstances
@@ -1296,6 +1314,7 @@ void FMeshMergeHelpers::MergeImpostersToRawMesh(TArray<const UStaticMeshComponen
 	// Ensure there are enough UV channels available to store the imposter data
 	//if (UVOneIndex != INDEX_NONE && UVOneIndex < (MAX_MESH_TEXTURE_COORDS - 2))
 	{
+		TMap<UMaterialInterface*, FPolygonGroupID> ImposterMaterialToPolygonGroupID;
 		for (const UStaticMeshComponent* Component : ImposterComponents)
 		{
 			// Retrieve imposter LOD mesh and material			
@@ -1303,15 +1322,17 @@ void FMeshMergeHelpers::MergeImpostersToRawMesh(TArray<const UStaticMeshComponen
 
 			// Retrieve mesh data in FMeshDescription form
 			FMeshDescription ImposterMesh;
+			UStaticMesh::RegisterMeshAttributes(ImposterMesh);
 			FMeshMergeHelpers::RetrieveMesh(Component, LODIndex, ImposterMesh, false);
 
 			// Retrieve the sections, we're expect 1 for imposter meshes
 			TArray<FSectionInfo> Sections;
 			FMeshMergeHelpers::ExtractSections(Component, LODIndex, Sections);
 
+			TArray<int32> SectionImposterUniqueMaterialIndex;
 			for (FSectionInfo& Info : Sections)
 			{
-				OutImposterMaterials.AddUnique(Info.Material);
+				SectionImposterUniqueMaterialIndex.Add(OutImposterMaterials.AddUnique(Info.Material));
 			}
 
 			// Imposter magic, we're storing the actor world position and X scale spread across two UV channels
@@ -1331,9 +1352,33 @@ void FMeshMergeHelpers::MergeImpostersToRawMesh(TArray<const UStaticMeshComponen
 				VertexInstanceUVs.Set(VertexInstanceID, UVOneIndex, UVOne);
 
 				UVTwo.X = ActorPosition.Z;
-				UVTwo.Y = ActorToWorld.GetScale3D().X;
+				UVTwo.Y = FMath::Abs(ActorToWorld.GetScale3D().X);
 				VertexInstanceUVs.Set(VertexInstanceID, UVTwoIndex, UVTwo);
 			}
+
+			TPolygonGroupAttributesRef<FName> SourcePolygonGroupImportedMaterialSlotNames = ImposterMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+			TPolygonGroupAttributesRef<FName> TargetPolygonGroupImportedMaterialSlotNames = InRawMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+
+			//Add the missing polygon group ID to the target(InRawMesh)
+			//Remap the source mesh(ImposterMesh) polygongroup to fit with the target polygon groups
+			TMap<FPolygonGroupID, FPolygonGroupID> RemapSourcePolygonGroup;
+			RemapSourcePolygonGroup.Reserve(ImposterMesh.PolygonGroups().Num());
+			int32 SectionIndex = 0;
+			for (const FPolygonGroupID& SourcePolygonGroupID : ImposterMesh.PolygonGroups().GetElementIDs())
+			{
+				UMaterialInterface* MaterialUseBySection = OutImposterMaterials[SectionImposterUniqueMaterialIndex[SectionIndex++]];
+				FPolygonGroupID* ExistTargetPolygonGroupID = ImposterMaterialToPolygonGroupID.Find(MaterialUseBySection);
+				FPolygonGroupID MatchTargetPolygonGroupID = ExistTargetPolygonGroupID == nullptr ? FPolygonGroupID::Invalid : *ExistTargetPolygonGroupID;
+				if (MatchTargetPolygonGroupID == FPolygonGroupID::Invalid)
+				{
+					MatchTargetPolygonGroupID = InRawMesh.CreatePolygonGroup();
+					//use the material name to fill the imported material name. Material name will be unique
+					TargetPolygonGroupImportedMaterialSlotNames[MatchTargetPolygonGroupID] = MaterialUseBySection->GetFName();
+					ImposterMaterialToPolygonGroupID.Add(MaterialUseBySection, MatchTargetPolygonGroupID);
+				}
+				RemapSourcePolygonGroup.Add(SourcePolygonGroupID, MatchTargetPolygonGroupID);
+			}
+			FMeshDescriptionOperations::RemapPolygonGroups(ImposterMesh, RemapSourcePolygonGroup);
 
 			FMeshMergeHelpers::AppendRawMesh(InRawMesh, ImposterMesh);
 		}
