@@ -54,6 +54,7 @@ FDynamicRHI* PlatformCreateDynamicRHI()
 			}
 			else
 			{
+				FApp::SetGraphicsRHI(TEXT("Vulkan"));
 				FPlatformApplicationMisc::UsingVulkan();
 
 				FName ShaderFormatName(*TargetedShaderFormats[SfIdx]);
@@ -72,6 +73,7 @@ FDynamicRHI* PlatformCreateDynamicRHI()
 			}
 			else
 			{
+				FApp::SetGraphicsRHI(TEXT("OpenGL"));
 				FPlatformApplicationMisc::UsingOpenGL();
 
 				FName ShaderFormatName(*TargetedShaderFormats[SfIdx]);
