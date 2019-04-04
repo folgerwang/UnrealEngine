@@ -22,4 +22,8 @@ namespace compiler
 	// helper function that either creates a new entry in the cache if none exists yet,
 	// or returns the one found in the cache.
 	const environment::Block* UpdateEnvironmentCache(const wchar_t* absolutePathToCompilerExe);
+	
+	// BEGIN EPIC MOD - Allow overriding environment block for tools
+	void AddEnvironmentToCache(const wchar_t* absolutePathToCompilerExe, environment::Block* block);
+	// END EPIC MOD
 }

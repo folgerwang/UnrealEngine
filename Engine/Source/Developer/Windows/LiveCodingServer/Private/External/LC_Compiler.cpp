@@ -31,6 +31,16 @@ namespace
 
 		void Insert(const wchar_t* key, environment::Block* value)
 		{
+	        // BEGIN EPIC MOD - Allow passing environment block for linker
+			auto it = m_cache.find(key);
+			if (it != m_cache.end())
+			{
+				environment::DestroyBlock(it->second);
+				it->second = value;
+				return;
+			}
+			// END EPIC MOD
+
 			m_cache[key] = value;
 		}
 
@@ -230,3 +240,11 @@ const environment::Block* compiler::UpdateEnvironmentCache(const wchar_t* absolu
 
 	return CreateEnvironmentCacheEntry(absolutePathToCompilerExe);
 }
+
+// BEGIN EPIC MOD - Allow passing environment block for linker
+void compiler::AddEnvironmentToCache(const wchar_t* absolutePathToCompilerExe, environment::Block* block)
+{
+	CriticalSection::ScopedLock lock(&g_compilerCacheCS);
+	g_compilerEnvironmentCache.Insert(absolutePathToCompilerExe, block);
+}
+// END EPIC MOD

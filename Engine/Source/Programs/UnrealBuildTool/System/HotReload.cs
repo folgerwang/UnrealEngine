@@ -751,6 +751,13 @@ namespace UnrealBuildTool
 					Writer.WriteValue("LinkerPath", LinkAction.CommandPath.FullName);
 				}
 
+				Writer.WriteObjectStart("LinkerEnvironment");
+				foreach (System.Collections.DictionaryEntry Entry in Environment.GetEnvironmentVariables())
+				{
+					Writer.WriteValue(Entry.Key.ToString(), Entry.Value.ToString());
+				}
+				Writer.WriteObjectEnd();
+
 				Writer.WriteArrayStart("Modules");
 				foreach(Action Action in Actions)
 				{

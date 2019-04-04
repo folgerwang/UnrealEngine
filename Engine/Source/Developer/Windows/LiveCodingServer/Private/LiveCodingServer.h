@@ -18,7 +18,7 @@ public:
 	virtual void Start(const wchar_t* ProcessGroupName) override;
 	virtual void Stop() override;
 
-	virtual void SetLinkerPath(const wchar_t* LinkerPath) override;
+	virtual void SetLinkerPath(const wchar_t* LinkerPath, const TMap<FString, FString>& LinkerEnvironment) override;
 
 	// ILiveCodingServer implementation
 	virtual FBringToFrontDelegate& GetBringToFrontDelegate() override final;

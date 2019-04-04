@@ -9,6 +9,7 @@
 struct FLiveCodingManifest
 {
 	FString LinkerPath;
+	TMap<FString, FString> LinkerEnvironment;
 	TMap<FString, TArray<FString>> BinaryToObjectFiles;
 
 	bool Read(const TCHAR* FileName, FString& OutFailReason);
