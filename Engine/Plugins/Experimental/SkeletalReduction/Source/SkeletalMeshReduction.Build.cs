@@ -55,7 +55,8 @@ namespace UnrealBuildTool.Rules
                     "UnrealEd",
                     "AnimationModifiers",
                     "MeshBoneReduction",
-                    "QuadricMeshReduction"
+                    "QuadricMeshReduction",
+                    "ClothingSystemRuntime"
 					// ... add private dependencies that you statically link with here ...
                     // QuadricMeshReduction is only for testing
 				}
