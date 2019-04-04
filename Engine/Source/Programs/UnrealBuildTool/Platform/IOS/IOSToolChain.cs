@@ -1541,18 +1541,30 @@ namespace UnrealBuildTool
 			string iCloudContainerIdentifiersXML = "";
 			string iCloudContainerIdentifier = "";
 			string UbiquityContainerIdentifiersXML = "";
+			string iCloudServicesXML = "";
+			
 			if (MobileProvisionFile!= null && File.Exists(MobileProvisionFile.FullName))
 			{
 				MobileProvisionContents MobileProvisionContent = MobileProvisionContents.Read(MobileProvisionFile);
 
 				iCloudContainerIdentifier = MobileProvisionContent.GetNodeValueByName("com.apple.developer.icloud-container-identifiers");
 				iCloudContainerIdentifiersXML = MobileProvisionContent.GetNodeXMLValueByName("com.apple.developer.icloud-container-identifiers");
+				iCloudServicesXML = MobileProvisionContent.GetNodeXMLValueByName("com.apple.developer.icloud-services");
 				UbiquityContainerIdentifiersXML = MobileProvisionContent.GetNodeXMLValueByName("com.apple.developer.ubiquity-container-identifiers");
 			}
+			else
+			{
+				Log.TraceWarning("Couldn't locate the MobileProvisioningFile {0}", MobileProvisionFile);
+
+				iCloudContainerIdentifiersXML = "<array><string>iCloud.$(CFBundleIdentifier)</string></array>";
+				iCloudServicesXML = "<array><string>iCloud.$(CFBundleIdentifier)</string></array>";
+				UbiquityContainerIdentifiersXML = "<array><string>CloudKit</string><string>CloudDocuments</string></array>";
+			}
+
 			// create the entitlements file
 			string IntermediateDir = (((Target.ProjectFile != null) ? Target.ProjectFile.Directory.ToString() :
 				UnrealBuildTool.EngineDirectory.ToString())) + "/Intermediate/" + (Target.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS");
-			WriteEntitlementsFile(Path.Combine(IntermediateDir, AppName + ".entitlements"), Target.ProjectFile, Target.bForDistribution, iCloudContainerIdentifiersXML, UbiquityContainerIdentifiersXML);
+			WriteEntitlementsFile(Target, Path.Combine(IntermediateDir, AppName + ".entitlements"), iCloudContainerIdentifiersXML, iCloudServicesXML, UbiquityContainerIdentifiersXML);
 
 			// create a pList key named ICloudContainerIdentifier
 			// to be used at run-time when intializing the CloudKit services
@@ -1589,10 +1601,10 @@ namespace UnrealBuildTool
 			}
 		}
 
-		private static void WriteEntitlementsFile(string OutputFilename, FileReference ProjectFile, bool bForDistribution, string iCloudContainerIdentifiersXML, string UbiquityContainerIdentifiersXML)
+		private static void WriteEntitlementsFile(IOSPostBuildSyncTarget Target, string OutputFilename, string iCloudContainerIdentifiersXML, string iCloudServicesXML, string UbiquityContainerIdentifiersXML)
 		{
 			// get the settings from the ini file
-			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(ProjectFile), UnrealTargetPlatform.IOS);
+			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(Target.ProjectFile), UnrealTargetPlatform.IOS);
 			bool bCloudKitSupported = false;
 			Ini.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bEnableCloudKitSupport", out bCloudKitSupported);
 			Directory.CreateDirectory(Path.GetDirectoryName(OutputFilename));
@@ -1604,46 +1616,45 @@ namespace UnrealBuildTool
 			Text.AppendLine("<plist version=\"1.0\">");
 			Text.AppendLine("<dict>");
 			Text.AppendLine("\t<key>get-task-allow</key>");
-			Text.AppendLine(string.Format("\t<{0}/>", bForDistribution ? "false" : "true"));
+			Text.AppendLine(string.Format("\t<{0}/>", Target.bForDistribution ? "false" : "true"));
 			if (bCloudKitSupported)
 			{
-				Text.AppendLine("\t<key>com.apple.developer.icloud-container-identifiers</key>");
-				if (iCloudContainerIdentifiersXML == "")
+				if (iCloudContainerIdentifiersXML != "")
 				{
-					Text.AppendLine("\t<array>");
-					Text.AppendLine("\t\t<string>iCloud.$(CFBundleIdentifier)</string>");
-					Text.AppendLine("\t</array>");
-				}
-				else
-				{
+					Text.AppendLine("\t<key>com.apple.developer.icloud-container-identifiers</key>");
 					Text.AppendLine(iCloudContainerIdentifiersXML);
 				}
-				Text.AppendLine("\t<key>com.apple.developer.icloud-services</key>");
-				Text.AppendLine("\t<array>");
-				Text.AppendLine("\t\t<string>CloudKit</string>");
-				Text.AppendLine("\t\t<string>CloudDocuments</string>");
-				Text.AppendLine("\t</array>");
-				Text.AppendLine("\t<key>com.apple.developer.ubiquity-container-identifiers</key>");
-				if (UbiquityContainerIdentifiersXML == "")
+
+				if (iCloudServicesXML != "")
 				{
-					Text.AppendLine("\t<array>");
-					Text.AppendLine("\t\t<string>iCloud.$(CFBundleIdentifier)</string>");
-					Text.AppendLine("\t</array>");
+					Text.AppendLine("\t<key>com.apple.developer.icloud-services</key>");
+					Text.AppendLine(iCloudServicesXML);
 				}
-				else
+
+				if (UbiquityContainerIdentifiersXML != "")
 				{
+					Text.AppendLine("\t<key>com.apple.developer.ubiquity-container-identifiers</key>");
 					Text.AppendLine(UbiquityContainerIdentifiersXML);
 				}
 				Text.AppendLine("\t<key>com.apple.developer.ubiquity-kvstore-identifier</key>");
 				Text.AppendLine("\t<string>$(TeamIdentifierPrefix)$(CFBundleIdentifier)</string>");
+
+				Text.AppendLine("\t<key>com.apple.developer.icloud-container-environment</key>");
+				Text.AppendLine(string.Format("\t<string>{0}</string>", Target.bForDistribution ? "Production" : "Development"));
 			}
 
 			bool bRemoteNotificationsSupported = false;
 			Ini.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bEnableRemoteNotificationsSupport", out bRemoteNotificationsSupported);
+
+			if (bCloudKitSupported && Target.bForDistribution && Target.Platform == UnrealTargetPlatform.TVOS)
+			{
+				bRemoteNotificationsSupported = true;
+			}
+
 			if (bRemoteNotificationsSupported)
 			{
 				Text.AppendLine("\t<key>aps-environment</key>");
-				Text.AppendLine(string.Format("\t<string>{0}</string>", bForDistribution ? "production" : "development"));
+				Text.AppendLine(string.Format("\t<string>{0}</string>", Target.bForDistribution ? "production" : "development"));
 			}
 			Text.AppendLine("</dict>");
 			Text.AppendLine("</plist>");
