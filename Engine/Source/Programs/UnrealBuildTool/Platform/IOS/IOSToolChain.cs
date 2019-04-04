@@ -900,10 +900,10 @@ namespace UnrealBuildTool
 			Arguments.Append(" --notices");
 			Arguments.Append(" --warnings");
             Arguments.AppendFormat(" --output-partial-info-plist '{0}/assetcatalog_generated_info.plist'", InputDir);
-            Arguments.Append(" --app-icon AppIcon");
 			if(Platform == CppPlatform.TVOS)
 			{
-				Arguments.Append(" --launch-image LaunchImage");
+				Arguments.Append(" --app-icon 'App Icon & Top Shelf Image'");
+				Arguments.Append(" --launch-image 'Launch Image'");
 				Arguments.Append(" --filter-for-device-model AppleTV5,3");
 				//Arguments.Append(" --filter-for-device-os-version 10.0");
 				Arguments.Append(" --target-device tv");
@@ -912,6 +912,7 @@ namespace UnrealBuildTool
 			}
 			else
 			{
+				Arguments.Append(" --app-icon AppIcon");
 				Arguments.Append(" --product-type com.apple.product-type.application");
 				Arguments.Append(" --target-device iphone");
 				Arguments.Append(" --target-device ipad");
@@ -1210,10 +1211,14 @@ namespace UnrealBuildTool
 				};
 				Dir = Path.Combine(IntermediateDir, "Resources", "Assets.xcassets");
 
-				string BuildResourcesGraphicsDir = Path.Combine(BuildDir, "Resources", "Graphics");
+				string BuildResourcesGraphicsDir = Path.Combine(BuildDir, "Resources", "Assets.xcassets");
 				for (int Index = 0; Index < Images.Length; ++Index)
 				{
-					string Image = Path.Combine((Directory.Exists(Path.Combine(BuildDir, "Resources", "Graphics")) ? (BuildDir) : (Path.Combine(EngineDir, "Build", "TVOS"))), "Resources", "Graphics", Images[Index][0]);
+					string SourceDir = Path.Combine((Directory.Exists(BuildResourcesGraphicsDir) ? (BuildDir) : (Path.Combine(EngineDir, "Build", "TVOS"))),
+						"Resources",
+						"Assets.xcassets");
+					string Image = Path.Combine(SourceDir, Images[Index][1], Images[Index][0]);
+
 					if (File.Exists(Image))
 					{
 						bUserImagesExist |= Image.StartsWith(BuildResourcesGraphicsDir);
