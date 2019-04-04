@@ -2164,8 +2164,8 @@ void UInstancedStaticMeshComponent::GetInstancesMinMaxScale(FVector& MinScale, F
 	}
 	else
 	{
-		MinScale = FVector(0);
-		MaxScale = FVector(0);
+		MinScale = FVector(1.0f);
+		MaxScale = FVector(1.0f);
 	}
 }
 
