@@ -831,7 +831,8 @@ void FAvfMediaPlayer::TickInput(FTimespan DeltaTime, FTimespan /*Timecode*/)
 					}
 					else
 					{
-						CurrentTime += DeltaTime * CurrentRate;
+						// On certain movies (short ones it seems) the AVPlayerItemDidPlayToEndTimeNotification can be delayed - clamp the time to the duration
+						CurrentTime = FMath::Clamp(CurrentTime + (DeltaTime * CurrentRate), FTimespan::Zero(), Duration);
 					}
 				}
 				break;
