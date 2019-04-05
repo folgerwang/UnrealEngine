@@ -143,11 +143,6 @@ void SMediaFrameworkCaptureOutputWidget::Construct(const FArguments& InArgs)
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
-SMediaFrameworkCaptureOutputWidget::~SMediaFrameworkCaptureOutputWidget()
-{
-	StopOutput();
-}
-
 void SMediaFrameworkCaptureOutputWidget::StopOutput()
 {
 	if (MediaCapture.IsValid())
@@ -378,10 +373,7 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 SMediaFrameworkCaptureCameraViewportWidget::~SMediaFrameworkCaptureCameraViewportWidget()
 {
-	if (LevelViewportClient.IsValid())
-	{
-		LevelViewportClient->Viewport = nullptr;
-	}
+	StopOutput();
 }
 
 void SMediaFrameworkCaptureCameraViewportWidget::StartOutput()
@@ -399,8 +391,22 @@ void SMediaFrameworkCaptureCameraViewportWidget::StartOutput()
 	}
 }
 
+void SMediaFrameworkCaptureCameraViewportWidget::StopOutput()
+{
+	Super::StopOutput();
+
+	if (LevelViewportClient.IsValid())
+	{
+		LevelViewportClient->Viewport = nullptr;
+		LevelViewportClient.Reset();
+		ViewportWidget.Reset();
+		SceneViewport.Reset();
+	}
+}
+
 void SMediaFrameworkCaptureCameraViewportWidget::OnPostPIEStarted()
 {
+return;
 	const bool bIsPIE = true;
 	if (LevelViewportClient.IsValid())
 	{
@@ -501,6 +507,11 @@ void SMediaFrameworkCaptureRenderTargetWidget::Construct(const FArguments& InArg
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
+SMediaFrameworkCaptureRenderTargetWidget::~SMediaFrameworkCaptureRenderTargetWidget()
+{
+	StopOutput();
+}
+
 void SMediaFrameworkCaptureRenderTargetWidget::StartOutput()
 {
 	UMediaOutput* MediaOutputPtr = MediaOutput.Get();
@@ -561,6 +572,11 @@ void SMediaFrameworkCaptureCurrentViewportWidget::Construct(const FArguments& In
 	];
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
+SMediaFrameworkCaptureCurrentViewportWidget::~SMediaFrameworkCaptureCurrentViewportWidget()
+{
+	StopOutput();
+}
 
 void SMediaFrameworkCaptureCurrentViewportWidget::StartOutput()
 {
