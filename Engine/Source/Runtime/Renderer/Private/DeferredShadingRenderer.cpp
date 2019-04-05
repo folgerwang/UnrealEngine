@@ -1226,9 +1226,9 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 			Scene->UniformBuffers.UpdateViewUniformBuffer(View);
 
 			uint32 SSAOLevels = FSSAOHelper::ComputeAmbientOcclusionPassCount(View);
-			// In deferred shader, the SSAO uses the GBuffer and must be executed after base pass. 
-			// Otherwise, async compute runs the shader in RenderHzb()
-			if (!IsForwardShadingEnabled(ShaderPlatform) || FSSAOHelper::IsAmbientOcclusionAsyncCompute(View, SSAOLevels))
+			// In deferred shader, the SSAO uses the GBuffer and must be executed after base pass. Otherwise, async compute runs the shader in RenderHzb()
+			// In forward, if zprepass is off - as SSAO here requires a valid HZB buffer - disable SSAO
+			if (!IsForwardShadingEnabled(ShaderPlatform) || !View.HZB.IsValid() || FSSAOHelper::IsAmbientOcclusionAsyncCompute(View, SSAOLevels))
 			{
 				SSAOLevels = 0;
 			}
