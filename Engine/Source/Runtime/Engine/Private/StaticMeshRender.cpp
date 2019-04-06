@@ -1148,7 +1148,10 @@ void FStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 										if (bSectionIsSelected)
 										{
 											// Override the mesh's material with our material that draws the collision color
-											MeshElement.MaterialRenderProxy = GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy();
+											MeshElement.MaterialRenderProxy = new FOverrideSelectionColorMaterialRenderProxy(
+												GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(),
+												GetSelectionColor(GEngine->GetSelectedMaterialColor(), bSectionIsSelected, IsHovered())
+											);
 										}
 	#endif
 										if (MeshElement.bDitheredLODTransition && LODMask.IsDithered())
