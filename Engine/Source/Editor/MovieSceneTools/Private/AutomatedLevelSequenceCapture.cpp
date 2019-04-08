@@ -184,7 +184,7 @@ void UAutomatedLevelSequenceCapture::Initialize(TSharedPtr<FSceneViewport> InVie
 			{
 				for( auto It = TActorIterator<ALevelSequenceActor>( InViewport->GetClient()->GetWorld() ); It; ++It )
 				{
-					if( It->LevelSequence == LevelSequenceAsset )
+					if( It->LevelSequence == Asset )
 					{
 						// Found it!
 						Actor = *It;
