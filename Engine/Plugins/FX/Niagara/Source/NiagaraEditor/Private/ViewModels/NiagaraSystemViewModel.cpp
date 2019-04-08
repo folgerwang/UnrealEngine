@@ -935,7 +935,7 @@ void FNiagaraSystemViewModel::ResetSystemInternal(bool bCanResetTime)
 		TGuardValue<bool> Guard(bSettingSequencerTimeDirectly, true);
 		if (Sequencer->GetPlaybackStatus() == EMovieScenePlayerStatus::Playing)
 		{
-			Sequencer->SetPlaybackStatus(EMovieScenePlayerStatus::Stopped);
+			Sequencer->SetPlaybackStatus(EMovieScenePlayerStatus::Paused);
 			Sequencer->SetGlobalTime(0);
 			Sequencer->SetPlaybackStatus(EMovieScenePlayerStatus::Playing);
 		}
