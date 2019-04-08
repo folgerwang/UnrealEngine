@@ -346,7 +346,7 @@ void FMovieSceneAudioSectionTemplateData::EnsureAudioIsPlaying(UAudioComponent& 
 		}
 
 		const float AudioTime = (Context.GetTime() / Context.GetFrameRate()) - SectionStartTimeSeconds + (float)Context.GetFrameRate().AsSeconds(AudioStartOffset);
-		if (AudioTime >= 0.f && AudioTime < AudioComponent.Sound->GetDuration())
+		if (AudioTime >= 0.f && AudioComponent.Sound && AudioTime < AudioComponent.Sound->GetDuration())
 		{
 			AudioComponent.Play(AudioTime);
 		}
