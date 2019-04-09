@@ -179,6 +179,15 @@ namespace UnrealBuildTool
 			}
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="Platform"></param>
+		/// <param name="PlatformGameConfig"></param>
+		/// <param name="AppName"></param>
+		/// <param name="MobileProvisionFile"></param>
+		/// <param name="bForDistribution"></param>
+		/// <param name="IntermediateDir"></param>
 		public static void WriteEntitlements(UnrealTargetPlatform Platform, ConfigHierarchy PlatformGameConfig,
 		string AppName, FileReference MobileProvisionFile, bool bForDistribution, string IntermediateDir)
 		{
