@@ -1182,7 +1182,7 @@ void FBlueprintActionDatabase::Tick(float DeltaTime)
 	{
 		FObjectKey ObjectKey = ActionRemoveQueue.Pop();
 		TArray<UBlueprintNodeSpawner*> const* NodeSpawners = ActionRegistry.Find(ObjectKey);
-		if (ensureMsgf(NodeSpawners != nullptr, TEXT("Entry was not found in the ActionRegistry for deferred removal - %s")), *BlueprintActionDatabaseImpl::ObjectKeyToString(ObjectKey))
+		if (ensureMsgf(NodeSpawners != nullptr, TEXT("Entry was not found in the ActionRegistry for deferred removal - %s"), *BlueprintActionDatabaseImpl::ObjectKeyToString(ObjectKey)))
 		{
 			for (UBlueprintNodeSpawner* Action : *NodeSpawners)
 			{
