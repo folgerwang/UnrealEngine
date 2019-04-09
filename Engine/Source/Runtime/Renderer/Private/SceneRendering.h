@@ -819,6 +819,9 @@ public:
 	/** Gathered in initviews from all the primitives with dynamic view relevance, used in each mesh pass. */
 	TArray<FMeshBatchAndRelevance,SceneRenderingAllocator> DynamicMeshElements;
 
+	/* [PrimitiveIndex] = end index index in DynamicMeshElements[], to support GetDynamicMeshElementRange(). Contains valid values only for visible primitives with bDynamicRelevance. */
+	TArray<uint32, SceneRenderingAllocator> DynamicMeshEndIndices;
+
 	/* Mesh pass relevance for gathered dynamic mesh elements. */
 	TArray<FMeshPassMask, SceneRenderingAllocator> DynamicMeshElementsPassRelevance;
 
@@ -1129,6 +1132,10 @@ public:
 
 	/** Destroy all snapshots before we wipe the scene allocator. */
 	static void DestroyAllSnapshots();
+
+	// Get the range in DynamicMeshElements[] for a given PrimitiveIndex
+	// @return range (start is inclusive, end is exclusive)
+	FInt32Range GetDynamicMeshElementRange(uint32 PrimitiveIndex) const;
 
 	/** Set the custom data associated with a primitive scene info.	*/
 	void SetCustomData(const FPrimitiveSceneInfo* InPrimitiveSceneInfo, void* InCustomData);

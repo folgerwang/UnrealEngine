@@ -1580,6 +1580,25 @@ void FViewInfo::DestroyAllSnapshots()
 	ViewInfoSnapshots.Reset();
 }
 
+FInt32Range FViewInfo::GetDynamicMeshElementRange(uint32 PrimitiveIndex) const
+{
+	int32 Start = 0;	// inclusive
+	int32 AfterEnd = 0;	// exclusive
+
+	// DynamicMeshEndIndices contains valid values only for visible primitives with bDynamicRelevance.
+	if (PrimitiveVisibilityMap[PrimitiveIndex])
+	{
+		const FPrimitiveViewRelevance& ViewRelevance = PrimitiveViewRelevanceMap[PrimitiveIndex];
+		if (ViewRelevance.bDynamicRelevance)
+		{
+			Start = (PrimitiveIndex == 0) ? 0 : DynamicMeshEndIndices[PrimitiveIndex - 1];
+			AfterEnd = DynamicMeshEndIndices[PrimitiveIndex];
+		}
+	}
+
+	return FInt32Range(Start, AfterEnd);
+}
+
 FSceneViewState* FViewInfo::GetEffectiveViewState() const
 {
 	FSceneViewState* EffectiveViewState = ViewState;

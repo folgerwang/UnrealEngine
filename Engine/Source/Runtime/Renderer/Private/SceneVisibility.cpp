@@ -2713,6 +2713,14 @@ void FSceneRenderer::GatherDynamicMeshElements(
 
 				PrimitiveSceneInfo->Proxy->GetDynamicMeshElements(InViewFamily.Views, InViewFamily, ViewMaskFinal, Collector);
 
+				if (PrimitiveIndex > 0)
+				{
+					for (int32 ViewIndex = 0; ViewIndex < ViewCount; ViewIndex++)
+					{
+						InViews[ViewIndex].DynamicMeshEndIndices[PrimitiveIndex - 1] = Collector.GetMeshBatchCount(ViewIndex);
+					}
+				}
+
 				// Compute DynamicMeshElementsMeshPassRelevance for this primitive.
 				for (int32 ViewIndex = 0; ViewIndex < ViewCount; ViewIndex++)
 				{
@@ -2733,6 +2741,11 @@ void FSceneRenderer::GatherDynamicMeshElements(
 							ComputeDynamicMeshRelevance(ShadingPath, bAddLightmapDensityCommands, ViewRelevance, MeshBatch, View, PassRelevance);
 						}
 					}
+				}
+
+				for (int32 ViewIndex = 0; ViewIndex < ViewCount; ViewIndex++)
+				{
+					InViews[ViewIndex].DynamicMeshEndIndices[PrimitiveIndex] = Collector.GetMeshBatchCount(ViewIndex);
 				}
 			}
 		}
@@ -3407,6 +3420,7 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList,
 		// Allocate the view's visibility maps.
 		View.PrimitiveVisibilityMap.Init(false,Scene->Primitives.Num());
 		// we don't initialized as we overwrite the whole array (in GatherDynamicMeshElements)
+		View.DynamicMeshEndIndices.SetNumUninitialized(Scene->Primitives.Num());
 		View.PrimitiveDefinitelyUnoccludedMap.Init(false,Scene->Primitives.Num());
 		View.PotentiallyFadingPrimitiveMap.Init(false,Scene->Primitives.Num());
 		View.PrimitiveFadeUniformBuffers.AddZeroed(Scene->Primitives.Num());
