@@ -512,7 +512,7 @@ void RayTracingReflectionsRGS()
 		}
 
 	#if USE_PREEXPOSURE
-		ReflectedColor *= View.PreExposure;
+		ReflectedColor.xyz *= View.PreExposure;
 	#endif
 
 		ColorOutput[DispatchThreadId] = ClampToHalfFloatRange(ReflectedColor);
