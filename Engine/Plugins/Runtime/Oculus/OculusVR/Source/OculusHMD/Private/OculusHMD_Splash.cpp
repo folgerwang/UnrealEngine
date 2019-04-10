@@ -348,6 +348,7 @@ void FSplash::Shutdown()
 			{
 				SplashLayers.Reset();
 				Layers_RenderThread.Reset();
+				Layers_RenderThread_Input.Reset();
 				Layers_RHIThread.Reset();
 			});
 		});
