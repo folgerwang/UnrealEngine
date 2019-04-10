@@ -47,12 +47,12 @@ static TAutoConsoleVariable<float> CVarPhotographyTranslationSpeed(
 static TAutoConsoleVariable<float> CVarConstrainCameraSize(
 	TEXT("r.Photography.Constrain.CameraSize"),
 	14.0f,
-	TEXT("Radius (in Unreal Units) of sphere around the camera; used to prevent the camera clipping into nearby geometry when constraining camera with collision (Default: 14.0)"));
+	TEXT("Radius (in Unreal Units) of sphere around the camera; used to prevent the camera clipping into nearby geometry when constraining camera with collision.  Negative values disable default camera collisions. (Default: 14.0)"));
 
 static TAutoConsoleVariable<float> CVarConstrainCameraDistance(
 	TEXT("r.Photography.Constrain.MaxCameraDistance"),
 	2500.0f,
-	TEXT("Maximum distance (in Unreal Units) which camera is allowed to wander from its initial position when constraining camera by distance (Default: 2500.0)"));
+	TEXT("Maximum distance (in Unreal Units) which camera is allowed to wander from its initial position when constraining camera by distance.  Negative values disable default distance contraints. (Default: 2500.0)"));
 
 static TAutoConsoleVariable<int32> CVarPhotographyAutoPostprocess(
 	TEXT("r.Photography.AutoPostprocess"),

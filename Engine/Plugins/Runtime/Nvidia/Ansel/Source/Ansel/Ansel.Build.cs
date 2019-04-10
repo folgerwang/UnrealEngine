@@ -86,6 +86,7 @@ public class Ansel : ModuleRules
 			"CoreUObject",
             "SlateCore",
 			"Engine",
+			"RHI",
 		});
 
         PublicDependencyModuleNames.Add("Engine");

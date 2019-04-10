@@ -135,6 +135,13 @@ void UAnselFunctionLibrary::SetUIControlVisibility(UObject* WorldContextObject, 
 
 void UAnselFunctionLibrary::ConstrainCameraByDistance(UObject* WorldContextObject, const FVector NewCameraLocation, const FVector PreviousCameraLocation, const FVector OriginalCameraLocation, FVector& OutCameraLocation, float MaxDistance)
 {
+	if (MaxDistance < 0.f)
+	{
+		// no constraint by distance
+		OutCameraLocation = NewCameraLocation;
+		return;
+	}
+
 	FVector MovementVector = NewCameraLocation - OriginalCameraLocation;
 	MovementVector = MovementVector.GetClampedToMaxSize(MaxDistance);
 	OutCameraLocation = OriginalCameraLocation + MovementVector;
@@ -146,6 +153,13 @@ void UAnselFunctionLibrary::ConstrainCameraByGeometry(UObject* WorldContextObjec
 
 	static IConsoleVariable* CVarConstrainCameraSize = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Photography.Constrain.CameraSize"));
 	const float CameraRadius = CVarConstrainCameraSize->GetFloat();
+
+	if (CameraRadius < 0.f)
+	{
+		// no constraint by collisions
+		return;
+	}
+
 	const float OpenSpaceRadius = 2.f * CameraRadius; // Minimum free space around camera for it to be considered unconfined
 
 	static FVector LastUnconfinedScreenshotCamera = OriginalCameraLocation;
