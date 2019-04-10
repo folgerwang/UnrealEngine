@@ -1110,6 +1110,8 @@ void FAutomationControllerManager::HandleRunTestsReplyMessage(const FAutomationW
 
 #if WITH_EDITOR
 			FMessageLog AutomationTestingLog("AutomationTestingLog");
+			// we log these messages ourselves for non-editor platforms so suppress this.
+			AutomationTestingLog.SuppressLoggingToOutputLog(true);
 			AutomationTestingLog.Open();
 #endif
 
