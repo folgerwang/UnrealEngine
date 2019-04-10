@@ -278,8 +278,7 @@ public:
 };
 
 /**
- *  Helper class that gives blueprint compilation manager permission to update the cached names for
- *  backwards compatibility purposes as PostLoad will not have occurred yet for compile on load.
+ *  Helper class that gives external implementations permission to update cached names.
  */
 struct ENGINE_API FUpdateTimelineCachedNames
 {
@@ -289,5 +288,9 @@ private:
 		TimelineTemplate->UpdateCachedNames();
 	}
 
+	/** Grant external permission to the compilation manager for backwards compatibility purposes as PostLoad will not have occurred yet for compile on load. */
 	friend struct FBlueprintCompilationManagerImpl;
+
+	/** Grant external permission to Blueprint editor utility methods. For example, duplicating a Blueprint for conversion to C++ requires that cached names be updated. */
+	friend class FBlueprintEditorUtils;
 };

@@ -1816,6 +1816,9 @@ void FBlueprintEditorUtils::PostDuplicateBlueprint(UBlueprint* Blueprint, bool b
 				if (FBlueprintDuplicationScopeFlags::HasAnyFlag(FBlueprintDuplicationScopeFlags::TheSameTimelineGuid))
 				{
 					NewTimeline->TimelineGuid = OldTimeline->TimelineGuid;
+
+					// Ensure that cached names sync back up with the original GUID.
+					FUpdateTimelineCachedNames::Execute(NewTimeline);
 				}
 
 				NewBPGC->Timelines.Add(NewTimeline);
