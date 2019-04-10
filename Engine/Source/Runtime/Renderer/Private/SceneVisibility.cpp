@@ -3113,9 +3113,10 @@ void FSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdLis
 				bResetCamera ||
 				Scene->bPathTracingNeedsInvalidation ||
 				View.ViewRect != ViewState->PathTracingRect ||
+				View.ViewMatrices.GetProjectionNoAAMatrix() != View.ViewState->PrevFrameViewInfo.ViewMatrices.GetProjectionNoAAMatrix() ||
 				IsLargeCameraMovement(
-					View, ViewState->PrevFrameViewInfo.ViewMatrices.GetViewMatrix(), 
-					ViewState->PrevFrameViewInfo.ViewMatrices.GetViewOrigin(), 
+					View, ViewState->PrevFrameViewInfo.ViewMatrices.GetViewMatrix(),
+					ViewState->PrevFrameViewInfo.ViewMatrices.GetViewOrigin(),
 					0.1f, 0.1f)
 			);
 
