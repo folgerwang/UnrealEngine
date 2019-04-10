@@ -447,7 +447,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// The default compiler version to be used, if installed. 
 		/// </summary>
-		static readonly VersionNumber DefaultClangToolChainVersion = VersionNumber.Parse("7.1.0");
+		static readonly VersionNumber DefaultClangToolChainVersion = VersionNumber.Parse("7.0.1");
 
 		/// <summary>
 		/// The default compiler version to be used, if installed. 
@@ -1068,7 +1068,7 @@ namespace UnrealBuildTool
 				}
 
 				DirectoryReference DefaultToolChainDir;
-				if(ToolChainVersionToDir.TryGetValue(DefaultToolChainVersion, out DefaultToolChainDir) && Has64BitToolChain(DefaultToolChainDir))
+				if(ToolChainVersionToDir.TryGetValue(DefaultToolChainVersion, out DefaultToolChainDir) && (Compiler == WindowsCompiler.Clang || Has64BitToolChain(DefaultToolChainDir)))
 				{
 					ToolChainVersion = DefaultToolChainVersion;
 				}
