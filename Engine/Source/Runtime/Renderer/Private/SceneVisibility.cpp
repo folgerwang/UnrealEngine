@@ -2711,14 +2711,21 @@ void FSceneRenderer::GatherDynamicMeshElements(
 
 				SetDynamicMeshElementViewCustomData(InViews, HasViewCustomDataMasks, PrimitiveSceneInfo);
 
-				PrimitiveSceneInfo->Proxy->GetDynamicMeshElements(InViewFamily.Views, InViewFamily, ViewMaskFinal, Collector);
-
+				// Mark DynamicMeshEndIndices start.
 				if (PrimitiveIndex > 0)
 				{
 					for (int32 ViewIndex = 0; ViewIndex < ViewCount; ViewIndex++)
 					{
 						InViews[ViewIndex].DynamicMeshEndIndices[PrimitiveIndex - 1] = Collector.GetMeshBatchCount(ViewIndex);
 					}
+				}
+
+				PrimitiveSceneInfo->Proxy->GetDynamicMeshElements(InViewFamily.Views, InViewFamily, ViewMaskFinal, Collector);
+
+				// Mark DynamicMeshEndIndices end.
+				for (int32 ViewIndex = 0; ViewIndex < ViewCount; ViewIndex++)
+				{
+					InViews[ViewIndex].DynamicMeshEndIndices[PrimitiveIndex] = Collector.GetMeshBatchCount(ViewIndex);
 				}
 
 				// Compute DynamicMeshElementsMeshPassRelevance for this primitive.
@@ -2741,11 +2748,6 @@ void FSceneRenderer::GatherDynamicMeshElements(
 							ComputeDynamicMeshRelevance(ShadingPath, bAddLightmapDensityCommands, ViewRelevance, MeshBatch, View, PassRelevance);
 						}
 					}
-				}
-
-				for (int32 ViewIndex = 0; ViewIndex < ViewCount; ViewIndex++)
-				{
-					InViews[ViewIndex].DynamicMeshEndIndices[PrimitiveIndex] = Collector.GetMeshBatchCount(ViewIndex);
 				}
 			}
 		}
