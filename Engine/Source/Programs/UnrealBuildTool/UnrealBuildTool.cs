@@ -278,6 +278,12 @@ namespace UnrealBuildTool
 			public bool bWaitMutex = false;
 
 			/// <summary>
+			/// Whether to wait for the mutex rather than aborting immediately
+			/// </summary>
+			[CommandLine(Prefix = "-RemoteIni")]
+			public string RemoteIni = "";
+
+			/// <summary>
 			/// The mode to execute
 			/// </summary>
 			[CommandLine]
@@ -303,6 +309,7 @@ namespace UnrealBuildTool
 			public GlobalOptions(CommandLineArguments Arguments)
 			{
 				Arguments.ApplyTo(this);
+				UnrealBuildTool.SetRemoteIniPath(RemoteIni);
 			}
 		}
 

@@ -114,12 +114,7 @@ namespace UnrealBuildTool
 			BuildConfiguration BuildConfiguration = new BuildConfiguration();
 			XmlConfig.ApplyTo(BuildConfiguration);
 			Arguments.ApplyTo(BuildConfiguration);
-
-			// Parse the remote INI setting
-			string RemoteIniPath;
-			Arguments.TryGetValue("-RemoteIni=", out RemoteIniPath);
-			UnrealBuildTool.SetRemoteIniPath(RemoteIniPath);
-
+			
 			// now that we know the available platforms, we can delete other platforms' junk. if we're only building specific modules from the editor, don't touch anything else (it may be in use).
 			if (!bIgnoreJunk && !UnrealBuildTool.IsEngineInstalled())
 			{

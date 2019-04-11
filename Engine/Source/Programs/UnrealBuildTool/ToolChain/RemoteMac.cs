@@ -583,8 +583,9 @@ namespace UnrealBuildTool
 			RemoteArguments.Add(TargetDesc.Configuration.ToString());
 			RemoteArguments.Add("-SkipRulesCompile"); // Use the rules assembly built locally
 			RemoteArguments.Add(String.Format("-XmlConfigCache={0}", GetRemotePath(XmlConfig.CacheFile))); // Use the XML config cache built locally, since the remote won't have it
+			RemoteArguments.Add(String.Format("-remoteini={0}", GetRemotePath(UnrealBuildTool.GetRemoteIniPath())));
 
-			if(TargetDesc.ProjectFile != null)
+			if (TargetDesc.ProjectFile != null)
 			{
 				RemoteArguments.Add(String.Format("-Project={0}", GetRemotePath(TargetDesc.ProjectFile)));
 			}
@@ -874,11 +875,24 @@ namespace UnrealBuildTool
 			UploadDirectory(UnrealBuildTool.EngineDirectory, GetRemotePath(UnrealBuildTool.EngineDirectory), EngineFilters);
 
 			// Upload the project files
-			if(ProjectFile != null && !ProjectFile.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
+			DirectoryReference ProjectDir = null;
+			if (ProjectFile != null && !ProjectFile.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
+			{
+				ProjectDir = ProjectFile.Directory;
+			}
+			else if (!string.IsNullOrEmpty(UnrealBuildTool.GetRemoteIniPath()))
+			{
+				ProjectDir = new DirectoryReference(UnrealBuildTool.GetRemoteIniPath());
+				if (ProjectDir.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
+				{
+					ProjectDir = null;
+				}
+			}
+			if (ProjectDir != null)
 			{
 				List<FileReference> ProjectFilters = new List<FileReference>();
 
-				FileReference CustomProjectFilter = FileReference.Combine(ProjectFile.Directory, "Build", "Rsync", "RsyncProject.txt");
+				FileReference CustomProjectFilter = FileReference.Combine(ProjectDir, "Build", "Rsync", "RsyncProject.txt");
 				if(FileReference.Exists(CustomProjectFilter))
 				{
 					ProjectFilters.Add(CustomProjectFilter);
@@ -886,7 +900,7 @@ namespace UnrealBuildTool
 				ProjectFilters.Add(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Build", "Rsync", "RsyncProject.txt"));
 
 				Log.TraceInformation("[Remote] Uploading project files...");
-				UploadDirectory(ProjectFile.Directory, GetRemotePath(ProjectFile.Directory), ProjectFilters);
+				UploadDirectory(ProjectDir, GetRemotePath(ProjectDir), ProjectFilters);
 			}
 
 			// Fixup permissions on any shell scripts
