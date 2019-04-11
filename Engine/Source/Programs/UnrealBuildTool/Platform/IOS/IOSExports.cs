@@ -201,6 +201,8 @@ namespace UnrealBuildTool
 
 			if (MobileProvisionFile != null && File.Exists(MobileProvisionFile.FullName))
 			{
+				Console.WriteLine("Write entitlements from provisioning file {0}", MobileProvisionFile);
+				
 				MobileProvisionContents MobileProvisionContent = MobileProvisionContents.Read(MobileProvisionFile);
 
 				iCloudContainerIdentifier = MobileProvisionContent.GetNodeValueByName("com.apple.developer.icloud-container-identifiers");
@@ -210,7 +212,7 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				Log.TraceWarning("Couldn't locate the mobile provisioning file {0}", MobileProvisionFile);
+				Console.WriteLine("Couldn't locate the mobile provisioning file {0}", MobileProvisionFile);
 
 				iCloudContainerIdentifiersXML = "<array><string>iCloud.$(CFBundleIdentifier)</string></array>";
 				iCloudServicesXML = "<array><string>iCloud.$(CFBundleIdentifier)</string></array>";
