@@ -309,7 +309,10 @@ namespace UnrealBuildTool
 			public GlobalOptions(CommandLineArguments Arguments)
 			{
 				Arguments.ApplyTo(this);
-				UnrealBuildTool.SetRemoteIniPath(RemoteIni);
+				if (!string.IsNullOrEmpty(RemoteIni))
+				{
+					UnrealBuildTool.SetRemoteIniPath(RemoteIni);
+				}
 			}
 		}
 
