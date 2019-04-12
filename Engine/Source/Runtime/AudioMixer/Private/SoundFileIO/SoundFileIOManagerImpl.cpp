@@ -1150,8 +1150,7 @@ namespace Audio
 		{
 			int32 DataSize = BulkData.Num();
 
-			SoundFileCount MaxBytes = DataSize;
-			if (MaxBytes == 0)
+			if (DataSize == 0)
 			{
 				OutOffset = 0;
 				CurrentIndexBytes = 0;
@@ -1169,23 +1168,12 @@ namespace Audio
 				break;
 
 			case ESoundFileSeekMode::FROM_END:
-				CurrentIndexBytes = MaxBytes + Offset;
+				CurrentIndexBytes = DataSize + Offset;
 				break;
 
 			default:
 				checkf(false, TEXT("Uknown seek mode!"));
 				break;
-			}
-
-			// Wrap the byte index to fall between 0 and MaxBytes
-			while (CurrentIndexBytes < 0)
-			{
-				CurrentIndexBytes += MaxBytes;
-			}
-
-			while (CurrentIndexBytes > MaxBytes)
-			{
-				CurrentIndexBytes -= MaxBytes;
 			}
 
 			OutOffset = CurrentIndexBytes;
@@ -1203,40 +1191,23 @@ namespace Audio
 		{
 			const uint8* InDataBytes = (const uint8*)DataPtr;
 
-			SoundFileCount MaxBytes = BulkData.Num();
+			SoundFileCount BulkDataLength = BulkData.Num();
 
-			// Append the data to the buffer
-			if (CurrentIndexBytes == MaxBytes)
+			// If we need more room, we add it here.
+			int64 NumExtraBytesNeeded = (CurrentIndexBytes + NumBytes) - BulkDataLength;
+			if (NumExtraBytesNeeded > 0)
 			{
-				BulkData.Append(InDataBytes, NumBytes);
-				CurrentIndexBytes += NumBytes;
+				BulkData.AddUninitialized(NumExtraBytesNeeded);
 			}
-			else if ((CurrentIndexBytes + NumBytes) < MaxBytes)
-			{
-				// Write over the existing data in the buffer
-				for (SoundFileCount i = 0; i < NumBytes; ++i)
-				{
-					BulkData[CurrentIndexBytes++] = InDataBytes[i];
-				}
-			}
-			else
-			{
-				// Overwrite some data until end of current buffer size
-				SoundFileCount RemainingBytes = MaxBytes - CurrentIndexBytes;
-				SoundFileCount InputBufferIndex = 0;
-				for (InputBufferIndex = 0; InputBufferIndex < RemainingBytes; ++InputBufferIndex)
-				{
-					BulkData[CurrentIndexBytes++] = InDataBytes[InputBufferIndex];
-				}
 
-				// Now append the remainder of the input buffer to the internal data buffer
-				const uint8* RemainingData = &InDataBytes[InputBufferIndex];
-				RemainingBytes = NumBytes - RemainingBytes;
-				BulkData.Append(RemainingData, RemainingBytes);
-				CurrentIndexBytes += RemainingBytes;
-				check(CurrentIndexBytes == BulkData.Num());
-			}
+			// Copy the input data into our current place in the BulkData.
+			uint8* BulkDataPtr = BulkData.GetData();
+			FMemory::Memcpy(&BulkDataPtr[CurrentIndexBytes], InDataBytes, NumBytes);
+
+			// Seek our cursor forward accordingly.
+			CurrentIndexBytes += NumBytes;
 			OutNumBytesWritten = NumBytes;
+
 			return ESoundFileError::Type::NONE;
 		}
 
@@ -1376,7 +1347,8 @@ namespace Audio
 
 			if (FileHandle)
 			{
-				SoundFileClose(FileHandle);
+				int32 Result = SoundFileClose(FileHandle);
+				check(Result == 0);
 				FileHandle = nullptr;
 			}
 			return ESoundFileError::Type::NONE;
