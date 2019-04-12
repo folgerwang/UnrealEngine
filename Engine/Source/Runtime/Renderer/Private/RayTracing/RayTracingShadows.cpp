@@ -36,8 +36,8 @@ static FAutoConsoleVariableRef CVarRayTracingShadowsEnableMaterials(
 
 static TAutoConsoleVariable<int32> CVarRayTracingShadowsEnableTwoSidedGeometry(
 	TEXT("r.RayTracing.Shadows.EnableTwoSidedGeometry"),
-	0,
-	TEXT("Enables two-sided geometry when tracing shadow rays (default = 0)"),
+	1,
+	TEXT("Enables two-sided geometry when tracing shadow rays (default = 1)"),
 	ECVF_RenderThreadSafe
 );
 
