@@ -1151,6 +1151,17 @@ static dtStatus CollectRegionsMonotone(dtTileCacheAlloc* alloc, dtTileCacheLayer
 
 	// Allocate and init layer regions.
 	nregs = (int)regId;
+
+// @UE4 BEGIN: special handling of "no regions"
+	if (nregs == 0)
+	{
+		regs = 0;
+		// treating this as success because we successfully generated 0 regions,
+		// no issues occurred, everything was good. Just no regions. 
+		return DT_SUCCESS;
+	}
+// @UE4 END
+
 	regs = (dtLayerMonotoneRegion*)alloc->alloc(sizeof(dtLayerMonotoneRegion) * nregs);
 	if (!regs)
 		return DT_FAILURE | DT_OUT_OF_MEMORY;
@@ -1311,6 +1322,17 @@ static dtStatus CollectRegionsChunky(dtTileCacheAlloc* alloc, dtTileCacheLayer& 
 
 	// Allocate and init layer regions.
 	nregs = (int)regId;
+
+// @UE4 BEGIN: special handling of "no regions"
+	if (nregs == 0)
+	{
+		regs = 0;
+		// treating this as success because we successfully generated 0 regions,
+		// no issues occurred, everything was good. Just no regions. 
+		return DT_SUCCESS;
+	}
+// @UE4 END
+
 	regs = (dtLayerMonotoneRegion*)alloc->alloc(sizeof(dtLayerMonotoneRegion) * nregs);
 	if (!regs)
 		return DT_FAILURE | DT_OUT_OF_MEMORY;
@@ -1529,7 +1551,9 @@ dtStatus dtBuildTileCacheRegionsMonotone(dtTileCacheAlloc* alloc, const int minR
 	int nregs = 0;
 
 	dtStatus status = CollectRegionsMonotone(alloc, layer, regs, nregs);
-	if (dtStatusSucceed(status))
+	// having no regions and status being successful is a valid state
+	// we can avoid calling MergeAndCompressRegions if that happens
+	if (dtStatusSucceed(status) && nregs > 0)
 	{
 		MergeAndCompressRegions(alloc, layer, regs, nregs, minRegionArea, mergeRegionArea);
 	}
@@ -1544,7 +1568,9 @@ dtStatus dtBuildTileCacheRegionsChunky(dtTileCacheAlloc* alloc, const int minReg
 	int nregs = 0;
 
 	dtStatus status = CollectRegionsChunky(alloc, layer, regionChunkSize, regs, nregs);
-	if (dtStatusSucceed(status))
+	// having no regions and status being successful is a valid state
+	// we can avoid calling MergeAndCompressRegions if that happens
+	if (dtStatusSucceed(status) && nregs > 0)
 	{
 		MergeAndCompressRegions(alloc, layer, regs, nregs, minRegionArea, mergeRegionArea);
 	}

@@ -1939,6 +1939,17 @@ dtStatus dtBuildTileCachePolyMesh(dtTileCacheAlloc* alloc,
 	
 	mesh.nvp = MAX_VERTS_PER_POLY;
 	
+// @UE4 BEGIN: special handling of "no valid contours"
+	if (maxVertices == 0)
+	{
+		// treating this as success because no issues arised
+		// there's just nothing to do.
+		// Note that 'mesh' properties are properly initialized to 0 at this point
+		// by dtAllocTileCachePolyMesh
+		return DT_SUCCESS;
+	}
+// @UE4 END
+
 	dtFixedArray<unsigned char> vflags(alloc, maxVertices);
 	if (!vflags)
 		return DT_FAILURE | DT_OUT_OF_MEMORY;
@@ -2510,6 +2521,15 @@ dtStatus dtReplaceArea(dtTileCacheLayer& layer, const unsigned char areaId, cons
 dtStatus dtBuildTileCacheClusters(dtTileCacheAlloc* alloc, dtTileCacheClusterSet& lclusters, dtTileCachePolyMesh& lmesh)
 {
 	lclusters.npolys = lmesh.npolys;
+// @UE4 BEGIN: special handling of "no polys"
+	if (lmesh.npolys == 0)
+	{
+		// treating this as success there's just nothing to do
+		// Note that at this point lclusters is properly initialized to 0
+		// by dtAllocTileCacheClusterSet
+		return DT_SUCCESS;
+	}
+// @UE4 END
 	lclusters.polyMap = (unsigned short*)alloc->alloc(sizeof(unsigned short)*lclusters.npolys);
 	if (!lclusters.polyMap)
 		return DT_FAILURE | DT_OUT_OF_MEMORY;
