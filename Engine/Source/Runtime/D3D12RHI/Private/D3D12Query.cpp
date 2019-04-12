@@ -777,6 +777,8 @@ void FD3D12BufferedGPUTiming::ReleaseDynamicRHI()
 	delete(TimestampQueryHeap);
 	TimestampQueryHeap = nullptr;
 	TimestampQueryHeapBuffer = nullptr;
+
+	TimestampListHandles.Reset();
 }
 
 /**
