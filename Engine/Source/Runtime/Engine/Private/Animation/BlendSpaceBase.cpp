@@ -1352,3 +1352,5 @@ TArray<FName>* UBlendSpaceBase::GetUniqueMarkerNames()
 {
 	return (SampleIndexWithMarkers != INDEX_NONE && SampleData.Num() > 0) ? SampleData[SampleIndexWithMarkers].Animation->GetUniqueMarkerNames() : nullptr;
 }
+
+#undef LOCTEXT_NAMESPACE 
