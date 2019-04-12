@@ -44,17 +44,20 @@ void FWorldBrowserModule::BuildLevelMenu(FMenuBuilder& MenuBuilder)
 		FLevelModelList ModelList = Model->GetFilteredLevels();
 		for (TSharedPtr<FLevelModel> LevelModel : ModelList)
 		{
-			FUIAction Action(FExecuteAction::CreateRaw(this, &FWorldBrowserModule::SetCurrentSublevel, LevelModel->GetLevelObject()),
-				FCanExecuteAction(),
-				FIsActionChecked::CreateRaw(this, &FWorldBrowserModule::IsCurrentSublevel, LevelModel->GetLevelObject()));
-			MenuBuilder.AddMenuEntry(FText::FromString(LevelModel->GetDisplayName()), FText::GetEmpty(), FSlateIcon(), Action, NAME_None, EUserInterfaceActionType::Button);
+			if (LevelModel->GetLevelObject())
+			{
+				FUIAction Action(FExecuteAction::CreateRaw(this, &FWorldBrowserModule::SetCurrentSublevel, LevelModel->GetLevelObject()),
+					FCanExecuteAction(),
+					FIsActionChecked::CreateRaw(this, &FWorldBrowserModule::IsCurrentSublevel, LevelModel->GetLevelObject()));
+				MenuBuilder.AddMenuEntry(FText::FromString(LevelModel->GetDisplayName()), FText::GetEmpty(), FSlateIcon(), Action, NAME_None, EUserInterfaceActionType::Button);
+			}
 		}
 	}
 }
 
 bool FWorldBrowserModule::IsCurrentSublevel(ULevel* InLevel)
 {
-	return InLevel->IsCurrentLevel();
+	return InLevel ? InLevel->IsCurrentLevel() : false;
 }
 
 void FWorldBrowserModule::SetCurrentSublevel(ULevel* InLevel)
