@@ -1180,7 +1180,19 @@ FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::FindDebuggingData
 			{
 				if (Property->IsIn(TestFrame->Node))
 				{
-					PropertyBase = TestFrame->Locals;
+					// output parameters need special handling
+					for (FOutParmRec* OutParmRec = TestFrame->OutParms; OutParmRec != nullptr; OutParmRec = OutParmRec->NextOutParm)
+					{
+						if (OutParmRec->Property == Property)
+						{
+							PropertyBase = OutParmRec->PropAddr;
+							break;
+						}
+					}
+					if (PropertyBase == nullptr)
+					{
+						PropertyBase = TestFrame->Locals;
+					}
 					break;
 				}
 			}
