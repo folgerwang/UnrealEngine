@@ -327,6 +327,8 @@ namespace Audio
 		AudioStreamInfo.OutputDeviceIndex = Params.OutputDeviceIndex;
 		AudioStreamInfo.AudioMixer = Params.AudioMixer;
 		
+		OpenStreamParams = Params;
+		
 		// Initialize the audio unit graph
 		OSStatus Status = AUGraphInitialize(AudioUnitGraph);
 		if (Status != noErr)
@@ -374,16 +376,23 @@ namespace Audio
 
 	bool FMixerPlatformAudioUnit::StopAudioStream()
 	{
-		if(!bInitialized || AudioStreamInfo.StreamState != EAudioOutputStreamState::Running)
+		if(!bInitialized)
 		{
 			return false;
 		}
 		
-		AudioStreamInfo.StreamState = EAudioOutputStreamState::Stopping;
-		
-		AUGraphStop(AudioUnitGraph);
+		if (AudioStreamInfo.StreamState != EAudioOutputStreamState::Stopped && AudioStreamInfo.StreamState != EAudioOutputStreamState::Closed)
+		{
+			AUGraphStop(AudioUnitGraph);
+			
+			if (AudioStreamInfo.StreamState == EAudioOutputStreamState::Running)
+			{
+				StopGeneratingAudio();
+			}
 
-		AudioStreamInfo.StreamState = EAudioOutputStreamState::Stopped;
+			check(AudioStreamInfo.StreamState == EAudioOutputStreamState::Stopped);
+		}
+
 		
 		return true;
 	}
