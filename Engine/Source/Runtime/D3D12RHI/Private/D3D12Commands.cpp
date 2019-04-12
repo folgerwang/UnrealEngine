@@ -60,8 +60,6 @@ void FD3D12DynamicRHI::SetupRecursiveResources()
 		PixelShader->GetPixelShader();
 	}
 
-	extern ENGINE_API TGlobalResource<FScreenVertexDeclaration> GScreenVertexDeclaration;
-
 	{
 		TShaderMapRef<FLongGPUTaskPS> PixelShader(ShaderMap);
 		PixelShader->GetPixelShader();
@@ -1159,8 +1157,7 @@ void FD3D12CommandContext::RHIBeginRenderQuery(FRenderQueryRHIParamRef QueryRHI)
 	check(IsDefaultContext());
 	check(Query->Type == RQT_Occlusion);
 
-	Query->Reset();
-	Query->HeapIndex = GetParentDevice()->GetOcclusionQueryHeap()->BeginQuery(*this);
+	GetParentDevice()->GetOcclusionQueryHeap()->BeginQuery(*this, Query);
 
 #if EXECUTE_DEBUG_COMMAND_LISTS
 	GIsDoingQuery = true;
@@ -1172,30 +1169,25 @@ void FD3D12CommandContext::RHIEndRenderQuery(FRenderQueryRHIParamRef QueryRHI)
 	FD3D12RenderQuery* Query = RetrieveObject<FD3D12RenderQuery>(QueryRHI);
 	check(IsDefaultContext());
 
+	FD3D12QueryHeap* QueryHeap = nullptr;
+
 	switch (Query->Type)
 	{
 	case RQT_Occlusion:
-	{
-		GetParentDevice()->GetOcclusionQueryHeap()->EndQuery(*this, Query->HeapIndex, Query);
-		// Multi-GPU support : by setting a timestamp, we can filter only the relevant GPUs when getting the query results.
-		Query->Timestamp = GFrameNumberRenderThread;
+		QueryHeap = GetParentDevice()->GetOcclusionQueryHeap();
 		break;
-	}
 
 	case RQT_AbsoluteTime:
-	{
-		FD3D12QueryHeap* pQueryHeap = GetParentDevice()->GetTimestampQueryHeap();
-		Query->Reset();
-		Query->HeapIndex = pQueryHeap->AllocQuery(*this);
-		pQueryHeap->EndQuery(*this, Query->HeapIndex, Query);
-		// Multi-GPU support : by setting a timestamp, we can filter only the relevant GPUs when getting the query results.
-		Query->Timestamp = GFrameNumberRenderThread;
+		QueryHeap = GetParentDevice()->GetTimestampQueryHeap();
 		break;
-	}
 
 	default:
 		ensure(false);
 	}
+
+	QueryHeap->EndQuery(*this, Query);
+	// Multi-GPU support : by setting a timestamp, we can filter only the relevant GPUs when getting the query results.
+	Query->Timestamp = GFrameNumberRenderThread;
 
 	// Query data isn't ready until it has been resolved.
 	ensure(Query->bResultIsCached == false && Query->bResolved == false);
