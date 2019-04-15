@@ -88,6 +88,7 @@ void FDeferredShadingSceneRenderer::PrepareRayTracingShadows(const FViewInfo& Vi
 	{
 		IScreenSpaceDenoiser::EShadowRequirements::Bailout,
 		IScreenSpaceDenoiser::EShadowRequirements::ClosestOccluder,
+		IScreenSpaceDenoiser::EShadowRequirements::PenumbraAndAvgOccluder,
 		IScreenSpaceDenoiser::EShadowRequirements::PenumbraAndClosestOccluder,
 	};
 
