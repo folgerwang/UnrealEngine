@@ -33,7 +33,7 @@ void UPropertyValue::Init(const TArray<FCapturedPropSegment>& InCapturedPropSegm
 	PropertySetterName = InPropertySetterName;
 	PropCategory = InCategory;
 
-	if (PropertySetterName == TEXT("SetRelativeLocation") || PropertySetterName == TEXT("SetRelativeLocation"))
+	if (PropertySetterName == TEXT("SetRelativeLocation") || PropertySetterName == TEXT("SetRelativeRotation"))
 	{
 		PropertySetterName = FName(*(TEXT("K2_") + PropertySetterName.ToString()));
 	}
@@ -115,7 +115,7 @@ void UPropertyValue::Serialize(FArchive& Ar)
 	}
 	else if (Ar.IsLoading())
 	{
-		if (PropertySetterName == TEXT("SetRelativeLocation") || PropertySetterName == TEXT("SetRelativeLocation"))
+		if (PropertySetterName == TEXT("SetRelativeLocation") || PropertySetterName == TEXT("SetRelativeRotation"))
 		{
 			PropertySetterName = FName(*(TEXT("K2_") + PropertySetterName.ToString()));
 		}
