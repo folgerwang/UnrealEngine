@@ -93,6 +93,13 @@ FMetalViewport::FMetalViewport(void* WindowHandle, uint32 InSizeX,uint32 InSizeY
 		Layer.frame = ContentRect;
 		Layer.magnificationFilter = kCAFilterNearest;
 		Layer.minificationFilter = kCAFilterNearest;
+#if WITH_EDITOR
+		if(GIsEditor)
+		{
+			// Default is YES - Mac Editor only - wait for drawable to be available - nextDrawable can still return nil on error or low memory
+			Layer.allowsNextDrawableTimeout = NO;
+		}
+#endif
 
 		[Layer setDevice:GetMetalDeviceContext().GetDevice()];
 		
@@ -301,6 +308,46 @@ mtlpp::Drawable FMetalViewport::GetDrawable(EMetalViewportAccessFlag Accessor)
 			if (GMetalNonBlockingPresent == 0 || [((id<CAMetalLayerSPI>)CurrentLayer) isDrawableAvailable])
 			{
 				Drawable = CurrentLayer ? [CurrentLayer nextDrawable] : nil;
+				
+		#if WITH_EDITOR
+				// Try to confirm UE-72410 out of memory speculation - Mac Editor mode only
+				if(!Drawable && GIsEditor && CurrentLayer)
+				{
+					// Drawable can be nil when:
+					// 1) The layer has an invalid combination of drawable properties.
+  					// 2) All drawables in the swap queue are in-use and the 1 second timeout has elapsed. (except when `allowsNextDrawableTimeout' is set to NO)
+  					// 3) Process is out of memory.
+  					UE_LOG(LogMetal, Display, TEXT("FMetalViewport: Missing Drawable: nil returned from [CAMetalLayer nextDrawable] (CAMetalLayer.allowsNextDrawableTimeout=%d)"), CurrentLayer.allowsNextDrawableTimeout ? 1 : 0);
+					
+					// Blocking wait on next drawable is set - something has gone wrong - report current memory
+					if(CurrentLayer.allowsNextDrawableTimeout == NO)
+					{
+						// System
+						{
+							FPlatformMemoryStats MemoryStats = FPlatformMemory::GetStats();
+							uint64 SysTotalPhysical = MemoryStats.TotalPhysical / 1024 / 1024;
+							uint64 SysAvailPhysical = MemoryStats.AvailablePhysical / 1024 / 1024;
+							uint64 SysUsedPhysical = MemoryStats.UsedPhysical / 1024 / 1024;
+							
+							UE_LOG(LogMetal, Display, TEXT("System Memory Stats: TotalPhysical = %lluMB, AvailPhysical = %lluMB, UsedPhysical = %lluMB"), SysTotalPhysical, SysAvailPhysical, SysUsedPhysical);
+						}
+						
+						// GPU
+						TArray<FMacPlatformMisc::FGPUDescriptor> const& GPUDescriptors = FMacPlatformMisc::GetGPUDescriptors();
+						for(uint32 i = 0;i < GPUDescriptors.Num();++i)
+						{
+							FMacPlatformMisc::FGPUDescriptor const& Descriptor = GPUDescriptors[i];
+							TMap<FString, float> const& GPUStats = Descriptor.GetPerformanceStatistics();
+							
+							uint32 GPUTotalMemory = Descriptor.GPUMemoryMB;
+							int64 vramFree = ((int64)GPUStats[TEXT("vramFreeBytes")]) / 1024 / 1024;
+							int64 inUseVidMemory = ((int64)GPUStats[TEXT("inUseVidMemoryBytes")]) / 1024 / 1024;
+							
+							UE_LOG(LogMetal, Display, TEXT("GPU Memory Stats [Device=%d]: DeviceTotalMemory = %dMB, FreeVRAM = %lldMB, InUseVRAM = %lldMB"), i, GPUTotalMemory , vramFree, inUseVidMemory);
+						}
+					}
+				}
+		#endif
 			}
 			else
 			{
