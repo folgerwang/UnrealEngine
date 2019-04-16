@@ -1679,8 +1679,7 @@ public class IOSPlatform : Platform
 
 		// ios configuration from the ini file
 		ConfigHierarchy PlatformGameConfig;
-		if (Params.EngineConfigs.TryGetValue(SC.StageTargetPlatform.PlatformType, out PlatformGameConfig) &&
-			!File.Exists(OutputFilename))
+		if (Params.EngineConfigs.TryGetValue(SC.StageTargetPlatform.PlatformType, out PlatformGameConfig))
 		{
 			IOSExports.WriteEntitlements(Platform, PlatformGameConfig, AppName, MobileProvisionFile, bForDistribution, IntermediateDir);
 		}
