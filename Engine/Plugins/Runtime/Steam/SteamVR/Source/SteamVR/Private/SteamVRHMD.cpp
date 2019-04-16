@@ -1725,6 +1725,7 @@ void FSteamVRHMD::Shutdown()
 		VRSystem = nullptr;
 		VRCompositor = nullptr;
 		VRChaperone = nullptr;
+		VROverlay = nullptr;
 
 		SteamVRPlugin->Reset();
 	}
