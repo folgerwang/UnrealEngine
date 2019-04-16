@@ -1350,7 +1350,11 @@ MaterialFloat2 GetLightmapUVs(FMaterialPixelParameters Parameters)
 //Provides access to the EyeAdaptation RT. Only available in SM5.
 float EyeAdaptationLookup()
 {
+#if EYE_ADAPTATION_DISABLED
+	return 0.0;
+#else
 	return EyeAdaptationStruct.EyeAdaptation.Load(int3(0, 0, 0)).x;
+#endif
 }
 #endif
 
