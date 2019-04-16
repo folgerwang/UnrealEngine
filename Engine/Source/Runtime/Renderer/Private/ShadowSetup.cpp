@@ -1325,6 +1325,7 @@ void FProjectedShadowInfo::SetupMeshDrawCommandsForProjectionStenciling(FSceneRe
 	}
 }
 
+extern FRWLock OneFrameIdTableHotfixRWLock;
 void FProjectedShadowInfo::ApplyViewOverridesToMeshDrawCommands(const FViewInfo& View, FMeshCommandOneFrameArray& VisibleMeshDrawCommands)
 {
 	if (View.bReverseCulling || View.bRenderSceneTwoSided)
@@ -1344,9 +1345,12 @@ void FProjectedShadowInfo::ApplyViewOverridesToMeshDrawCommands(const FViewInfo&
 			NewMeshCommand = MeshCommand;
 
 			const ERasterizerCullMode LocalCullMode = View.bRenderSceneTwoSided ? CM_None : View.bReverseCulling ? FMeshPassProcessor::InverseCullMode(VisibleMeshDrawCommand.MeshCullMode) : VisibleMeshDrawCommand.MeshCullMode;
-			FGraphicsMinimalPipelineStateInitializer PipelineState = MeshCommand.CachedPipelineId.GetPipelineState();
+			FGraphicsMinimalPipelineStateInitializer PipelineState;
+			{
+				FRWScopeLock ScopeLock(OneFrameIdTableHotfixRWLock, SLT_ReadOnly);
+				PipelineState = MeshCommand.CachedPipelineId.GetPipelineState();
+			}
 			PipelineState.RasterizerState = GetStaticRasterizerState<true>(VisibleMeshDrawCommand.MeshFillMode, LocalCullMode);
-
 			const FGraphicsMinimalPipelineStateId PipelineId = FGraphicsMinimalPipelineStateId::GetOneFrameId(PipelineState);
 			NewMeshCommand.Finalize(PipelineId, nullptr);
 
