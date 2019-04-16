@@ -4,7 +4,7 @@
 	DebugViewModeHelpers.cpp: debug view shader helpers.
 =============================================================================*/
 #include "DebugViewModeHelpers.h"
-#include "DebugViewModeMaterialProxy.h"
+#include "DebugViewModeMaterialManager.h"
 #include "ShaderCompiler.h"
 #include "Misc/ScopedSlowTask.h"
 #include "Misc/FeedbackContext.h"
@@ -252,9 +252,8 @@ bool CompileDebugViewModeShaders(EDebugViewShaderMode ShaderMode, EMaterialQuali
 
 		if (bFullRebuild)
 		{
-			FDebugViewModeMaterialProxy::ClearAllShaders(MaterialInterface);
+			GDebugViewModeMaterialManager.RemoveShaders(MaterialInterface);
 		}
-
 
 		const FMaterial* Material = MaterialInterface->GetMaterialResource(FeatureLevel);
 		if (!Material)
@@ -281,7 +280,9 @@ bool CompileDebugViewModeShaders(EDebugViewShaderMode ShaderMode, EMaterialQuali
 			MaterialInterface->SetTextureStreamingData(TArray<FMaterialTextureInfo>());
 			continue;
 		}
-		FDebugViewModeMaterialProxy::AddShader(MaterialInterface, QualityLevel, FeatureLevel, !bWaitForPreviousShaders, ShaderMode);
+
+		// If we are not waiting for shaders, then the shader needs to be compiled in sync.
+		GDebugViewModeMaterialManager.AddShader(MaterialInterface, ShaderMode, QualityLevel, FeatureLevel, !bWaitForPreviousShaders);
 	}
 
 	for (UMaterialInterface* RemovedMaterial : MaterialsToRemove)
@@ -292,14 +293,14 @@ bool CompileDebugViewModeShaders(EDebugViewShaderMode ShaderMode, EMaterialQuali
 	if (!bWaitForPreviousShaders || WaitForShaderCompilation(LOCTEXT("CompileDebugViewModeShaders", "Compiling Optional Engine Shaders"), ProgressTask))
 	{
 		// Check The validity of all shaders, removing invalid entries
-		FDebugViewModeMaterialProxy::ValidateAllShaders(Materials);
+		GDebugViewModeMaterialManager.ValidateShaders(true);
 
 		UE_LOG(TextureStreamingBuild, Display, TEXT("Compiling optional shaders took %.3f seconds."), FPlatformTime::Seconds() - StartTime);
 		return true;
 	}
 	else
 	{
-		FDebugViewModeMaterialProxy::ClearAllShaders(nullptr);
+		GDebugViewModeMaterialManager.RemoveShaders(nullptr);
 		return false;
 	}
 #else

@@ -1638,10 +1638,15 @@ bool FMaterial::CacheShaders(const FMaterialShaderMapId& ShaderMapId, EShaderPla
 		// Find the material's cached shader map.
 		GameThreadShaderMap = FMaterialShaderMap::FindId(ShaderMapId, Platform);
 
-		// Attempt to load from the derived data cache if we are uncooked
-		if ((!GameThreadShaderMap || !GameThreadShaderMap->IsComplete(this, true)) && !FPlatformProperties::RequiresCookedData())
+		// On-the-fly view shaders are not using ddc currently, as their shadermap is not persistent.
+		// See FMaterialShaderMap::ProcessCompilationResults().
+		if  (GetMaterialShaderMapUsage() != EMaterialShaderMapUsage::DebugViewMode)
 		{
-			FMaterialShaderMap::LoadFromDerivedDataCache(this, ShaderMapId, Platform, GameThreadShaderMap);
+			// Attempt to load from the derived data cache if we are uncooked
+			if ((!GameThreadShaderMap || !GameThreadShaderMap->IsComplete(this, true)) && !FPlatformProperties::RequiresCookedData())
+			{
+				FMaterialShaderMap::LoadFromDerivedDataCache(this, ShaderMapId, Platform, GameThreadShaderMap);
+			}
 		}
 	}
 

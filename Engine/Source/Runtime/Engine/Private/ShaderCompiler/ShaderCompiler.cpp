@@ -1011,7 +1011,10 @@ int32 FShaderCompileThreadRunnable::PullTasksFromQueue()
 
 				if (Manager->CompileQueue.Num() > 0)
 				{
-					UE_LOG(LogShaderCompilers, Display, TEXT("Shaders left to compile %i"), Manager->CompileQueue.Num());
+					if (Manager->CompileQueue.Num() % 10 == 0)
+					{
+						UE_LOG(LogShaderCompilers, Display, TEXT("Shaders left to compile %i"), Manager->CompileQueue.Num());
+					}
 
 					bool bAddedLowLatencyTask = false;
 					int32 JobIndex = 0;
