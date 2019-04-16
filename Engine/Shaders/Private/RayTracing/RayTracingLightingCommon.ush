@@ -420,7 +420,7 @@ float3 ComputeDirectLightingCulled(
 
 		if (LightProfileIndex >= 0)
 		{
-			LightProfileMultiplier = ComputeLightProfileMultiplier(WorldPosition, LightData.Position, LightData.Direction, LightProfileIndex);
+			LightProfileMultiplier = ComputeRayTracingLightProfileMultiplier(WorldPosition, LightData.Position, LightData.Direction, LightProfileIndex);
 		}
 
 		float3 ShadowRayDirection;
