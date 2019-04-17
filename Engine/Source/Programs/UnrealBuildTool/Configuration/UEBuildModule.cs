@@ -863,6 +863,20 @@ namespace UnrealBuildTool
 				Writer.WriteValue(ModuleName);
 			}
 			Writer.WriteArrayEnd();
+
+			Writer.WriteArrayStart("RuntimeDependencies");
+			foreach(ModuleRules.RuntimeDependency RuntimeDependency in Rules.RuntimeDependencies.Inner)
+			{
+				Writer.WriteObjectStart();
+				Writer.WriteValue("Path", ExpandPathVariables(RuntimeDependency.Path, null, null));
+				if(RuntimeDependency.SourcePath != null)
+				{
+					Writer.WriteValue("SourcePath", ExpandPathVariables(RuntimeDependency.SourcePath, null, null));
+				}
+				Writer.WriteValue("Type", RuntimeDependency.Type.ToString());
+				Writer.WriteObjectEnd();
+			}
+			Writer.WriteArrayEnd();
 		}
 
 		/// <summary>
