@@ -36,7 +36,7 @@ float ComputeLightProfileMultiplier(float3 WorldPosition, float3 LightPosition, 
 #endif
 }
 
-#if RAYHITGROUPSHADER || RAYGENSHADER
+#if RAYHITGROUPSHADER || RAYGENSHADER || RAYMISSSHADER
 
 // Apply IES light profile texture. Each row of the texture stores one profile.
 float ComputeRayTracingLightProfileMultiplier(
