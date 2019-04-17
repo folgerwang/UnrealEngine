@@ -1,3 +1,5 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
 #pragma once
 
 #include "Runtime/Windows/D3D11RHI/Private/D3D11RHIPrivate.h"
