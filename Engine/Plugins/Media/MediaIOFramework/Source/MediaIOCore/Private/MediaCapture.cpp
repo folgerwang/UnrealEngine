@@ -261,7 +261,9 @@ void UMediaCapture::CacheOutputOptions()
 	DesiredOutputSize = GetOutputSize(DesiredSize, ConversionOperation);
 	DesiredOutputPixelFormat = GetOutputPixelFormat(DesiredPixelFormat, ConversionOperation);
 	MediaOutputName = *MediaOutput->GetName();
-	FPlatformAtomics::InterlockedExchange((volatile FBooleanUnderlyingIntegerType*)bShouldCaptureRHITexture, (FBooleanUnderlyingIntegerType)ShouldCaptureRHITexture());
+
+	bool bTmpShouldCaptureRHITexture = ShouldCaptureRHITexture();
+	FPlatformAtomics::InterlockedExchange((volatile FBooleanUnderlyingIntegerType*)&bShouldCaptureRHITexture, (FBooleanUnderlyingIntegerType)bTmpShouldCaptureRHITexture);
 }
 
 FIntPoint UMediaCapture::GetOutputSize(const FIntPoint & InSize, const EMediaCaptureConversionOperation & InConversionOperation) const
@@ -506,6 +508,11 @@ void UMediaCapture::InitializeResolveTarget(int32 InNumberOfBuffers)
 		// No buffer is needed if the callback is with the RHI Texture
 		InNumberOfBuffers = 1;
 	}
+	else if (InNumberOfBuffers < 2)
+	{
+		UE_LOG(LogMediaIOCore, Warning, TEXT("The number of texture buffers is invalid. 2 is the minimum."), *GetName());
+		InNumberOfBuffers = 2;
+	}
 
 	NumberOfCaptureFrame = InNumberOfBuffers;
 	check(CaptureFrames.Num() == 0);
@@ -579,7 +586,10 @@ void UMediaCapture::OnEndFrame_GameThread()
 	int32 ReadyFrameIndex = (CurrentResolvedTargetIndex) % NumberOfCaptureFrame; // Next one in the buffer queue
 	CurrentResolvedTargetIndex = (CurrentResolvedTargetIndex + 1) % NumberOfCaptureFrame;
 
+	// When using ShouldCaptureRHITexture, ReadyFrame will always be nullptr.
+	//ReadyFrame is the buffer ready on the system memory
 	FCaptureFrame* ReadyFrame = (CaptureFrames[ReadyFrameIndex].bResolvedTargetRequested) ? &CaptureFrames[ReadyFrameIndex] : nullptr;
+	//CapturingFrame is the buffer we will use to copy from GPU to system memory
 	FCaptureFrame* CapturingFrame = (GetState() != EMediaCaptureState::StopRequested) ? &CaptureFrames[CurrentResolvedTargetIndex] : nullptr;
 
 	if (ReadyFrame == nullptr && GetState() == EMediaCaptureState::StopRequested)
@@ -619,6 +629,11 @@ void UMediaCapture::OnEndFrame_GameThread()
 
 		if (InCapturingSceneViewport != nullptr || InTextureRenderTargetResource != nullptr)
 		{
+			if (CapturingFrame)
+			{
+				CapturingFrame->bResolvedTargetRequested = !bShouldCaptureRHITexture;
+			}
+
 			// RenderCommand to be executed on the RenderThread
 			ENQUEUE_RENDER_COMMAND(FMediaOutputCaptureFrameCreateTexture)(
 				[CapturingFrame, ReadyFrame, InCapturingSceneViewport, InTextureRenderTargetResource, InDesiredSize, InOnStateChanged, InMediaCapture](FRHICommandListImmediate& RHICmdList)
@@ -837,7 +852,6 @@ void UMediaCapture::OnEndFrame_GameThread()
 					{
 						// Asynchronously copy duplicate target from GPU to System Memory
 						RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, CapturingFrame->ReadbackTexture, FResolveParams());
-						CapturingFrame->bResolvedTargetRequested = true;
 					}
 				}
 
