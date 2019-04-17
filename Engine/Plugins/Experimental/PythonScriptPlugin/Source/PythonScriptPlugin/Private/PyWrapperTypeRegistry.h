@@ -31,6 +31,7 @@ class UPythonGeneratedStruct;
 class IPyWrapperInlineStructFactory;
 
 class FPyFileWriter;
+class FReferenceCollector;
 
 /** Type conversion for TPyWrapperTypeFactory */
 template <typename UnrealType, typename KeyType>
@@ -299,6 +300,9 @@ public:
 
 	/** Process any pending re-instance requests */
 	void ProcessPending();
+
+	/** Collect any referenced objects */
+	void AddReferencedObjects(FReferenceCollector& InCollector);
 
 private:
 	/** Pending pairs of classes that to be re-instanced */

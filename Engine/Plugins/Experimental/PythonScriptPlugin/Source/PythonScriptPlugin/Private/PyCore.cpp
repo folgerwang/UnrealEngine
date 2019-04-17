@@ -1497,6 +1497,13 @@ PyObject* GenerateEnum(PyObject* InSelf, PyObject* InArgs)
 	Py_RETURN_NONE;
 }
 
+PyObject* FlushGeneratedTypeReinstancing(PyObject* InSelf)
+{
+	FPyWrapperTypeReinstancer::Get().ProcessPending();
+
+	Py_RETURN_NONE;
+}
+
 PyObject* GetTypeFromClass(PyObject* InSelf, PyObject* InArgs)
 {
 	PyObject* PyObj = nullptr;
@@ -1634,6 +1641,7 @@ PyMethodDef PyCoreMethods[] = {
 	{ "generate_class", PyCFunctionCast(&GenerateClass), METH_VARARGS, "x.generate_class(type) -> None -- generate an Unreal class for the given Python type" },
 	{ "generate_struct", PyCFunctionCast(&GenerateStruct), METH_VARARGS, "x.generate_struct(type) -> None -- generate an Unreal struct for the given Python type" },
 	{ "generate_enum", PyCFunctionCast(&GenerateEnum), METH_VARARGS, "x.generate_enum(type) -> None -- generate an Unreal enum for the given Python type" },
+	{ "flush_generated_type_reinstancing", PyCFunctionCast(&FlushGeneratedTypeReinstancing), METH_NOARGS, "x.flush_generated_type_reinstancing() -> None -- flush any pending reinstancing requests for Python generated types" },
 	{ "get_type_from_class", PyCFunctionCast(&GetTypeFromClass), METH_VARARGS, "x.get_type_from_class(class) -> type -- get the best matching Python type for the given Unreal class" },
 	{ "get_type_from_struct", PyCFunctionCast(&GetTypeFromStruct), METH_VARARGS, "x.get_type_from_struct(struct) -> type -- get the best matching Python type for the given Unreal struct" },
 	{ "get_type_from_enum", PyCFunctionCast(&GetTypeFromEnum), METH_VARARGS, "x.get_type_from_enum(enum) -> type -- get the best matching Python type for the given Unreal enum" },
