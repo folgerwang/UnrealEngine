@@ -131,10 +131,6 @@
 #define	VULKAN_PROFILE_SM5 0
 #endif
 
-#ifndef VULKAN_ENABLE_TESSELLATION
-#define VULKAN_ENABLE_TESSELLATION	0
-#endif
-
 #ifndef IOS
 #define IOS 0
 #endif

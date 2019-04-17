@@ -170,8 +170,8 @@ float4 ComputeControlPoint(float4 PositionA, float4 PositionB, float4 NormalA)
 	[domain("tri")]
 	TESSELLATION_ATTRIBUTES
 	FPassSpecificVSToPS MainDomain(
-		FHullShaderConstantOutput HSConstantData,
 		const OutputPatch<FPNTessellationHSToDS, OUT_CONTROL_POINTS> I,
+		FHullShaderConstantOutput HSConstantData,
 		float3 BarycentricCoords : SV_DomainLocation
 #if USE_GLOBAL_CLIP_PLANE
 		, out float OutGlobalClipPlaneDistance : SV_ClipDistance
