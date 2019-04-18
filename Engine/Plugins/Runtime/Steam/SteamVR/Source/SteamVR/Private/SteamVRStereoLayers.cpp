@@ -184,9 +184,8 @@ void FSteamVRHMD::UpdateLayer(struct FSteamVRLayer& Layer, uint32 LayerId, bool 
 	FQuat AdjustedPlayerOrientation = BaseOrientation.Inverse() * PlayerOrientation;
 	AdjustedPlayerOrientation.Normalize();
 
-	check(XRCamera.IsValid());
 	FVector AdjustedPlayerLocation = PlayerLocation;
-	if (XRCamera->GetUseImplicitHMDPosition())
+	if (XRCamera && XRCamera->GetUseImplicitHMDPosition())
 	{
 		AdjustedPlayerLocation -= BaseOrientation.Inverse().RotateVector(GameTrackingFrame.DevicePosition[IXRTrackingSystem::HMDDeviceId]);
 	}
