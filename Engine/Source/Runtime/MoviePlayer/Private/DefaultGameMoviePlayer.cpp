@@ -367,7 +367,7 @@ bool FDefaultGameMoviePlayer::PlayMovie()
 			}
 		}
 
-		if (ActiveMovieStreamer.IsValid())
+		if (ActiveMovieStreamer.IsValid() || !MovieStreamingIsPrepared())
 		{
 			MovieStreamingIsDone.Set(MovieStreamingIsPrepared() ? 0 : 1);
 			LoadingIsDone.Set(0);
