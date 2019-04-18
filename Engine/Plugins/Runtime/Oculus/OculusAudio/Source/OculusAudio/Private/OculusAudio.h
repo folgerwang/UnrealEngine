@@ -26,7 +26,8 @@ public:
 
 	virtual bool SupportsPlatform(EAudioPlatform Platform) override
 	{
-		if (Platform == EAudioPlatform::Windows || Platform == EAudioPlatform::Android)
+		//HACK: disabling Android platform here, because OculusAudio platform does not support android in 4.22.
+		if (Platform == EAudioPlatform::Windows)// || Platform == EAudioPlatform::Android)
 		{
 			return true;
 		}
