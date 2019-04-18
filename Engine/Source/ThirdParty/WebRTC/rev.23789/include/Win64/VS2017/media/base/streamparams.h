@@ -288,7 +288,7 @@ StreamParams* GetStream(StreamParamsVec& streams, Condition condition) {
 
 inline bool HasStreamWithNoSsrcs(const StreamParamsVec& streams) {
   return GetStream(streams,
-                   [](const StreamParams& sp) { return !sp.has_ssrcs(); });
+                   [](const StreamParams& sp) { return !sp.has_ssrcs(); }) != nullptr;
 }
 
 inline const StreamParams* GetStreamBySsrc(const StreamParamsVec& streams,
