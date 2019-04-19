@@ -1729,10 +1729,11 @@ public:
 		for (FName const& Format : ShaderFormats)
 		{
 			EShaderPlatform Platform = ShaderFormatToLegacyShaderPlatform(Format);
+			FName PossiblyAdjustedFormat = LegacyShaderPlatformToShaderFormat(Platform);	// Vulkan and GL switch between name variants depending on CVars (e.g. see r.Vulkan.UseRealUBs)
 			FEditorShaderCodeArchive* CodeArchive = EditorShaderCodeArchive[Platform];
 			if (!CodeArchive)
 			{
-				CodeArchive = new FEditorShaderCodeArchive(Format);
+				CodeArchive = new FEditorShaderCodeArchive(PossiblyAdjustedFormat);
 				EditorShaderCodeArchive[Platform] = CodeArchive;
 				EditorArchivePipelines[Platform] = !bNativeFormat;
 			}
@@ -1741,10 +1742,11 @@ public:
 		for (FName const& Format : ShaderFormats)
 		{
 			EShaderPlatform Platform = ShaderFormatToLegacyShaderPlatform(Format);
+			FName PossiblyAdjustedFormat = LegacyShaderPlatformToShaderFormat(Platform);	// Vulkan and GL switch between name variants depending on CVars (e.g. see r.Vulkan.UseRealUBs)
 			FEditorShaderStableInfo* StableArchive = EditorShaderStableInfo[Platform];
 			if (!StableArchive)
 			{
-				StableArchive = new FEditorShaderStableInfo(Format);
+				StableArchive = new FEditorShaderStableInfo(PossiblyAdjustedFormat);
 				EditorShaderStableInfo[Platform] = StableArchive;
 			}
 			check(StableArchive);
