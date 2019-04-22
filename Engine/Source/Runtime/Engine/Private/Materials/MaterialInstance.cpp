@@ -2574,9 +2574,9 @@ void UMaterialInstance::CacheResourceShadersForRendering()
 			ResourcesToCache.Add(StaticPermutationMaterialResources[LocalActiveQL][FeatureLevel]);
 			CacheShadersForResources(ShaderPlatform, ResourcesToCache, true);
 		}
-
-		RecacheUniformExpressions(true);
 	}
+
+	RecacheUniformExpressions(true);
 
 	InitResources();
 }
