@@ -884,11 +884,14 @@ namespace UnrealBuildTool
 						Log.TraceLog("UnrealHeaderTool needs to run because there are a different number of UObject source files in module {0}", Module.ModuleName);
 						return true;
 					}
-					for (int FileIndex = 0; FileIndex < AllUObjectHeaders.Count; ++FileIndex)
+
+					// Iterate over our UObjects headers and figure out if any of them have changed
+					HashSet<string> ObjectHeadersSet = new HashSet<string>(AllUObjectHeaders.Select(x => x.AbsolutePath), FileReference.Comparer);
+					foreach (string FileName in UObjectFilesFromPreviousRun)
 					{
-						if (!UObjectFilesFromPreviousRun[FileIndex].Equals(AllUObjectHeaders[FileIndex].AbsolutePath, StringComparison.InvariantCultureIgnoreCase))
+						if(!ObjectHeadersSet.Contains(FileName))
 						{
-							Log.TraceLog("UnrealHeaderTool needs to run because the set of UObject source files in module {0} has changed", Module.ModuleName);
+							Log.TraceLog("UnrealHeaderTool needs to run because the set of UObject source files in module {0} has changed ({1})", Module.ModuleName, FileName);
 							return true;
 						}
 					}
