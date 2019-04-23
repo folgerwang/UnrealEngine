@@ -62,10 +62,6 @@ FWmfMediaTracks::~FWmfMediaTracks()
 
 	delete VideoSamplePool;
 	VideoSamplePool = nullptr;
-
-	delete VideoHardwareVideoDecodingSamplePool;
-	VideoHardwareVideoDecodingSamplePool = nullptr;
-
 }
 
 
@@ -1077,12 +1073,7 @@ bool FWmfMediaTracks::AddTrackToTopology(const FTrack& Track, IMFTopology& Topol
 		MajorType == MFMediaType_Video &&
 		FWmfMediaStreamSink::Create(MFMediaType_Video, MediaStreamSink))
 	{
-		if (VideoHardwareVideoDecodingSamplePool)
-		{
-			delete VideoHardwareVideoDecodingSamplePool;
-		}
-
-		VideoHardwareVideoDecodingSamplePool = new FWmfMediaHardwareVideoDecodingTextureSamplePool();
+		VideoHardwareVideoDecodingSamplePool = MakeShared<FWmfMediaHardwareVideoDecodingTextureSamplePool>();
 
 		MediaStreamSink->SetMediaSamplePoolAndQueue(VideoHardwareVideoDecodingSamplePool, &VideoSampleQueue);
 

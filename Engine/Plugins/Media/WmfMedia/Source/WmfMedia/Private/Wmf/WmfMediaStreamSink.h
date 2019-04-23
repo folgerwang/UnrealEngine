@@ -199,7 +199,7 @@ public:
 	 * @param InVideoSamplePool sample pool to get sample from
 	 * @param InVideoSampleQueue Sample queue to fill
 	 */
-	void SetMediaSamplePoolAndQueue(FWmfMediaHardwareVideoDecodingTextureSamplePool* InVideoSamplePool, TMediaSampleQueue<IMediaTextureSample>* InVideoSampleQueue);
+	void SetMediaSamplePoolAndQueue(TSharedPtr<FWmfMediaHardwareVideoDecodingTextureSamplePool>& InVideoSamplePool, TMediaSampleQueue<IMediaTextureSample>* InVideoSampleQueue);
 
 private:
 
@@ -268,7 +268,7 @@ private:
 	HANDLE WaitTimer;
 
 	/** Video sample pool from which to get next free sample */
-	FWmfMediaHardwareVideoDecodingTextureSamplePool* VideoSamplePool;
+	TSharedPtr<FWmfMediaHardwareVideoDecodingTextureSamplePool> VideoSamplePool;
 
 	/** Video sample queue which is filled with current sample*/
 	TMediaSampleQueue<IMediaTextureSample>* VideoSampleQueue;

@@ -931,7 +931,7 @@ void FWmfMediaStreamSink::SetClockRate(float InClockRate)
 
 
 void FWmfMediaStreamSink::SetMediaSamplePoolAndQueue(
-	FWmfMediaHardwareVideoDecodingTextureSamplePool* InVideoSamplePool,
+	TSharedPtr<FWmfMediaHardwareVideoDecodingTextureSamplePool>& InVideoSamplePool,
 	TMediaSampleQueue<IMediaTextureSample>* InVideoSampleQueue)
 {
 	FScopeLock Lock(&CriticalSection);

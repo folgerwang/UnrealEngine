@@ -334,7 +334,7 @@ private:
 
 	/** Video sample object pool. */
 	FWmfMediaTextureSamplePool* VideoSamplePool;
-	FWmfMediaHardwareVideoDecodingTextureSamplePool* VideoHardwareVideoDecodingSamplePool;
+	TSharedPtr<FWmfMediaHardwareVideoDecodingTextureSamplePool> VideoHardwareVideoDecodingSamplePool;
 
 	/** Video sample queue. */
 	TMediaSampleQueue<IMediaTextureSample> VideoSampleQueue;
