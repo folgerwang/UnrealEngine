@@ -243,7 +243,7 @@ void FVulkanWindowsPlatform::CheckDeviceDriver(uint32 DeviceIndex, const VkPhysi
 								bool bBadVersion = false;
 								if (MajorVersion == 19)
 								{
-									if (MinorVersion < 4 || (MinorVersion == 4 && RevisionVersion <= 1))
+									if (MinorVersion < 4 || (MinorVersion == 4 && RevisionVersion < 1))
 									{
 										bBadVersion = true;
 									}
