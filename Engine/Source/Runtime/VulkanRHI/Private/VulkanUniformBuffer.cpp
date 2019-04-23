@@ -68,7 +68,7 @@ FVulkanUniformBuffer::FVulkanUniformBuffer(const FRHIUniformBufferLayout& InLayo
 		for (uint32 Index = 0; Index < NumResources; Index++)
 		{
 			FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + InLayout.Resources[Index].MemberOffset);
-
+#if !PLATFORM_LUMIN
 			// Allow null SRV's in uniform buffers for feature levels that don't support SRV's in shaders
 			if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1
 				&& (InLayout.Resources[Index].MemberType == UBMT_SRV || InLayout.Resources[Index].MemberType == UBMT_RDG_TEXTURE_SRV || InLayout.Resources[Index].MemberType == UBMT_RDG_BUFFER_SRV))
@@ -76,6 +76,7 @@ FVulkanUniformBuffer::FVulkanUniformBuffer(const FRHIUniformBufferLayout& InLayo
 			{
 				checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."), *InLayout.GetDebugName().ToString(), Index, (uint8)InLayout.Resources[Index].MemberType);
 			}
+#endif
 			ResourceTable[Index] = Resource;
 		}
 	}
@@ -88,6 +89,7 @@ void FVulkanUniformBuffer::UpdateResourceTable(const FRHIUniformBufferLayout& In
 	{
 		FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + InLayout.Resources[ResourceIndex].MemberOffset);
 
+#if !PLATFORM_LUMIN
 		// Allow null SRV's in uniform buffers for feature levels that don't support SRV's in shaders
 		if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1
 			&& (InLayout.Resources[ResourceIndex].MemberType == UBMT_SRV || InLayout.Resources[ResourceIndex].MemberType == UBMT_RDG_TEXTURE_SRV || InLayout.Resources[ResourceIndex].MemberType == UBMT_RDG_BUFFER_SRV))
@@ -98,6 +100,7 @@ void FVulkanUniformBuffer::UpdateResourceTable(const FRHIUniformBufferLayout& In
 				ResourceIndex,
 				(uint8)InLayout.Resources[ResourceIndex].MemberType);
 		}
+#endif
 		ResourceTable[ResourceIndex] = Resource;
 	}
 }
@@ -231,10 +234,12 @@ inline void FVulkanDynamicRHI::UpdateUniformBuffer(FVulkanUniformBuffer* Uniform
 			{
 				FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.Resources[ResourceIndex].MemberOffset);
 
+#if !PLATFORM_LUMIN
 				checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."),
 					*Layout.GetDebugName().ToString(),
 					ResourceIndex,
 					(uint8)Layout.Resources[ResourceIndex].MemberType);
+#endif
 
 				CmdListResources[ResourceIndex] = Resource;
 			}
