@@ -5,6 +5,7 @@
 #include <dlfcn.h>
 #include <SDL.h>
 #include <SDL_vulkan.h>
+#include "Linux/LinuxPlatformApplicationMisc.h"
 
 
 
@@ -122,10 +123,22 @@ void FVulkanLinuxPlatform::FreeVulkanLibrary()
 	bAttemptedLoad = false;
 }
 
-
+namespace
+{
+	void EnsureSDLIsInited()
+	{
+		if (!FLinuxPlatformApplicationMisc::InitSDL()) //   will not initialize more than once
+		{
+			FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, TEXT("Vulkan InitSDL() failed, cannot initialize SDL."), TEXT("InitSDL Failed"));
+			UE_LOG(LogInit, Error, TEXT("Vulkan InitSDL() failed, cannot initialize SDL."));
+		}
+	}
+}
 
 void FVulkanLinuxPlatform::GetInstanceExtensions(TArray<const ANSICHAR*>& OutExtensions)
 {
+	EnsureSDLIsInited();
+
 	// we don't hardcode the extensions in Linux, we query SDL
 	static TArray<const ANSICHAR*> CachedLinuxExtensions;
 	if (CachedLinuxExtensions.Num() == 0)
@@ -146,17 +159,12 @@ void FVulkanLinuxPlatform::GetDeviceExtensions(TArray<const ANSICHAR*>& OutExten
 	OutExtensions.Add(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
 	OutExtensions.Add(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
 #endif
-
-	if (IsRHIDeviceNVIDIA())
-	{
-		//#todo-rco: Temporary workaround for some buffers not updating
-		extern FAutoConsoleVariableRef CVarVulkanWaitForIdleOnSubmit;
-		CVarVulkanWaitForIdleOnSubmit->Set(1);
-	}
 }
 
 void FVulkanLinuxPlatform::CreateSurface(void* WindowHandle, VkInstance Instance, VkSurfaceKHR* OutSurface)
 {
+	EnsureSDLIsInited();
+
 	if (SDL_Vulkan_CreateSurface((SDL_Window*)WindowHandle, Instance, OutSurface) == SDL_FALSE)
 	{
 		UE_LOG(LogInit, Error, TEXT("Error initializing SDL Vulkan Surface: %s"), SDL_GetError());

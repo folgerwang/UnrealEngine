@@ -161,6 +161,8 @@ FNvVideoEncoder::FNvVideoEncoderImpl::FNvVideoEncoderImpl(void* DllHandle, const
 	uint32 Width = Settings.Width;
 	uint32 Height = Settings.Height;
 
+	FString RHIName = GDynamicRHI->GetName();
+	check(RHIName == TEXT("D3D11"));
 	ID3D11Device* Device = static_cast<ID3D11Device*>(GDynamicRHI->RHIGetNativeDevice());
 	checkf(Device != nullptr, TEXT("Cannot initialize NvEnc with invalid device"));
 	checkf(Width > 0 && Height > 0, TEXT("Cannot initialize NvEnc with invalid width/height"));

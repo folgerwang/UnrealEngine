@@ -3543,6 +3543,8 @@ bool GameProjectUtils::ProjectHasCodeFiles()
 	return FileNames.Num() > 0;
 }
 
+PROJECTS_API bool HasDefaultPluginSettings(const FString& Platform);
+
 bool GameProjectUtils::ProjectRequiresBuild(const FName InPlatformInfoName)
 {
 	//  early out on projects with code files
@@ -3560,7 +3562,9 @@ bool GameProjectUtils::ProjectRequiresBuild(const FName InPlatformInfoName)
 	}
 
 	// check to see if any plugins beyond the defaults have been enabled
-	bRequiresBuild |= !IProjectManager::Get().HasDefaultPluginSettings();
+	const PlatformInfo::FPlatformInfo* PlatformInfo = PlatformInfo::FindPlatformInfo(InPlatformInfoName);
+	FName PlatformName = (PlatformInfo != nullptr) ? PlatformInfo->VanillaPlatformName : InPlatformInfoName;
+	bRequiresBuild |= !HasDefaultPluginSettings(PlatformName.ToString());
 
 	// check to see if Blueprint nativization is enabled in the Project settings
 	bRequiresBuild |= GetDefault<UProjectPackagingSettings>()->BlueprintNativizationMethod != EProjectPackagingBlueprintNativizationMethod::Disabled;

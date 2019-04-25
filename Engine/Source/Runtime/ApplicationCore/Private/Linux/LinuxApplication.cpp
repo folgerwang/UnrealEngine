@@ -838,6 +838,9 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 						UE_LOG(LogLinuxWindowEvent, Verbose, TEXT("WM_SETFOCUS                                 : %d"), CurrentEventWindow->GetID());
 
 						CurrentFocusWindow = CurrentEventWindow;
+
+						// We have gained focus, we can stop trying to check if we need to deactivate
+						FocusOutDeactivationTime = 0.0;
 					}
 					break;
 
@@ -855,11 +858,6 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 							if(bActivateApp)
 							{
 								FocusOutDeactivationTime = FPlatformTime::Seconds() + DeactivationThreadshold;
-
-								SDL_Event event;
-								event.type = SDL_USEREVENT;
-								event.user.code = CheckForDeactivation;
-								SDL_PushEvent(&event);
 							}
 						}
 						CurrentFocusWindow = nullptr;
@@ -918,28 +916,6 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 				DragAndDropTextQueue.Empty();
 			}
 			UE_LOG(LogLinuxWindowEvent, Verbose, TEXT("DragAndDrop finished for Window              : %d"), CurrentEventWindow->GetID());
-		}
-		break;
-
-	case SDL_USEREVENT:
-		{
-			if(Event.user.code == CheckForDeactivation)
-			{
-				// We still havent hit our timeout limit, try again
-				if (FocusOutDeactivationTime > FPlatformTime::Seconds())
-				{
-					SDL_Event event;
-					event.type = SDL_USEREVENT;
-					event.user.code = CheckForDeactivation;
-					SDL_PushEvent(&event);
-				}
-				// If we don't use bIsDragWindowButtonPressed the draged window will be destroyed because we
-				// deactivate the whole appliacton. TODO Is that a bug? Do we have to do something?
-				else if (!CurrentFocusWindow.IsValid() && !bIsDragWindowButtonPressed)
-				{
-					DeactivateApplication();
-				}
-			}
 		}
 		break;
 
@@ -1744,6 +1720,33 @@ void FLinuxApplication::SaveWindowPropertiesForEventLoop(void)
 void FLinuxApplication::ClearWindowPropertiesAfterEventLoop(void)
 {
 	SavedWindowPropertiesForEventLoop.Empty();
+
+	// This is a hack for 4.22.1 to avoid changing a header. We will be calling in from here at
+	// LinuxPlatformApplicationMisc.cpp in FLinuxPlatformApplicationMisc::PumpMessages
+	//
+	// In 4.23 this will be in a function: void FLinuxApplication::CheckIfApplicatioNeedsDeactivation()
+
+	// If FocusOutDeactivationTime is set we have had a focus out event and are waiting to see if we need to Deactivate the Application
+	if (!FMath::IsNearlyZero(FocusOutDeactivationTime))
+	{
+		// We still havent hit our timeout limit, keep waiting
+		if (FocusOutDeactivationTime > FPlatformTime::Seconds())
+		{
+			return;
+		}
+		// If we don't use bIsDragWindowButtonPressed the draged window will be destroyed because we
+		// deactivate the whole appliacton. TODO Is that a bug? Do we have to do something?
+		else if (!CurrentFocusWindow.IsValid() && !bIsDragWindowButtonPressed)
+		{
+			DeactivateApplication();
+
+			FocusOutDeactivationTime = 0.0;
+		}
+		else
+		{
+			FocusOutDeactivationTime = 0.0;
+		}
+	}
 }
 
 void FLinuxApplication::GetWindowPropertiesInEventLoop(SDL_HWindow NativeWindow, FWindowProperties& Properties)

@@ -184,7 +184,8 @@ void FShaderFormatsPropertyDetails::OnTargetedRHIChanged(ECheckBoxState InNewVal
 				int32 InsertIndex = 0;
 				for (; InsertIndex < Array.Num(); ++InsertIndex)
 				{
-					if (InIndex < ShaderFormatOrder[*Array[InsertIndex]])
+					const int32* ShaderFormatIndex = ShaderFormatOrder.Find(*Array[InsertIndex]);
+					if (ShaderFormatIndex != nullptr && InIndex < *ShaderFormatIndex) 
 					{
 						break;
 					}

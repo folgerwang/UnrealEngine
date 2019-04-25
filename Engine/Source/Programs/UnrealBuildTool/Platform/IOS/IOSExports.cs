@@ -1,11 +1,13 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
@@ -176,5 +178,198 @@ namespace UnrealBuildTool
 				}
 			}
 		}
-    }
+
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="Platform"></param>
+		/// <param name="PlatformGameConfig"></param>
+		/// <param name="AppName"></param>
+		/// <param name="MobileProvisionFile"></param>
+		/// <param name="bForDistribution"></param>
+		/// <param name="IntermediateDir"></param>
+		public static void WriteEntitlements(UnrealTargetPlatform Platform, ConfigHierarchy PlatformGameConfig,
+		string AppName, FileReference MobileProvisionFile, bool bForDistribution, string IntermediateDir)
+		{
+			// get some info from the mobileprovisioning file
+			// the iCloud identifier and the bundle id may differ
+			string iCloudContainerIdentifier = "";
+			string iCloudContainerIdentifiersXML = "<array><string>iCloud.$(CFBundleIdentifier)</string></array>";
+			string UbiquityContainerIdentifiersXML = "<array><string>iCloud.$(CFBundleIdentifier)</string></array>";
+			string iCloudServicesXML = "<array><string>CloudKit</string><string>CloudDocuments</string></array>";
+			string UbiquityKVStoreIdentifiersXML = "\t<string>$(TeamIdentifierPrefix)$(CFBundleIdentifier)</string>";
+
+			string OutputFileName = Path.Combine(IntermediateDir, AppName + ".entitlements");
+
+			if (MobileProvisionFile != null && File.Exists(MobileProvisionFile.FullName))
+			{
+				Console.WriteLine("Write entitlements from provisioning file {0}", MobileProvisionFile);
+				
+				MobileProvisionContents MobileProvisionContent = MobileProvisionContents.Read(MobileProvisionFile);
+
+				iCloudContainerIdentifier = MobileProvisionContent.GetNodeValueByName("com.apple.developer.icloud-container-identifiers");
+				iCloudContainerIdentifiersXML = MobileProvisionContent.GetNodeXMLValueByName("com.apple.developer.icloud-container-identifiers");
+
+				string entitlementXML = MobileProvisionContent.GetNodeXMLValueByName("com.apple.developer.icloud-services");
+
+				if (!entitlementXML.Contains("*") || Platform == UnrealTargetPlatform.TVOS)
+				{
+					// for iOS, replace the generic value (*) with the default
+					iCloudServicesXML = entitlementXML;
+				}
+
+				entitlementXML = MobileProvisionContent.GetNodeXMLValueByName("com.apple.developer.ubiquity-container-identifiers");
+				if (!entitlementXML.Contains("*") || !bForDistribution)
+				{
+					// for distribution, replace the generic value (*) with the default
+					UbiquityContainerIdentifiersXML = entitlementXML;
+				}
+
+				entitlementXML = MobileProvisionContent.GetNodeXMLValueByName("com.apple.developer.ubiquity-kvstore-identifier");
+				if (!entitlementXML.Contains("*") || !bForDistribution)
+				{
+					// for distribution, replace the generic value (*) with the default
+					UbiquityKVStoreIdentifiersXML = entitlementXML;
+				}
+			}
+			else
+			{
+				Console.WriteLine("Couldn't locate the mobile provisioning file {0}", MobileProvisionFile);
+			}
+
+			// write the entitlements file
+			{
+				bool bCloudKitSupported = false;
+				PlatformGameConfig.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bEnableCloudKitSupport", out bCloudKitSupported);
+				Directory.CreateDirectory(Path.GetDirectoryName(OutputFileName));
+				// we need to have something so Xcode will compile, so we just set the get-task-allow, since we know the value,
+				// which is based on distribution or not (true means debuggable)
+				StringBuilder Text = new StringBuilder();
+				Text.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+				Text.AppendLine("<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">");
+				Text.AppendLine("<plist version=\"1.0\">");
+				Text.AppendLine("<dict>");
+				Text.AppendLine("\t<key>get-task-allow</key>");
+				Text.AppendLine(string.Format("\t<{0}/>", bForDistribution ? "false" : "true"));
+				if (bCloudKitSupported)
+				{
+					if (iCloudContainerIdentifiersXML != "")
+					{
+						Text.AppendLine("\t<key>com.apple.developer.icloud-container-identifiers</key>");
+						Text.AppendLine(iCloudContainerIdentifiersXML);
+					}
+
+					if (iCloudServicesXML != "")
+					{
+						Text.AppendLine("\t<key>com.apple.developer.icloud-services</key>");
+						Text.AppendLine(iCloudServicesXML);
+					}
+
+					if (UbiquityContainerIdentifiersXML != "")
+					{
+						Text.AppendLine("\t<key>com.apple.developer.ubiquity-container-identifiers</key>");
+						Text.AppendLine(UbiquityContainerIdentifiersXML);
+					}
+
+					if (UbiquityKVStoreIdentifiersXML != "")
+					{
+						Text.AppendLine("\t<key>com.apple.developer.ubiquity-kvstore-identifier</key>");
+						Text.AppendLine(UbiquityKVStoreIdentifiersXML);
+					}
+
+					Text.AppendLine("\t<key>com.apple.developer.icloud-container-environment</key>");
+					Text.AppendLine(string.Format("\t<string>{0}</string>", bForDistribution ? "Production" : "Development"));
+				}
+
+				bool bRemoteNotificationsSupported = false;
+				PlatformGameConfig.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bEnableRemoteNotificationsSupport", out bRemoteNotificationsSupported);
+
+				// for TVOS we need push notifications when building for distribution with CloudKit
+				if (bCloudKitSupported && bForDistribution && Platform == UnrealTargetPlatform.TVOS)
+				{
+					bRemoteNotificationsSupported = true;
+				}
+
+				if (bRemoteNotificationsSupported)
+				{
+					Text.AppendLine("\t<key>aps-environment</key>");
+					Text.AppendLine(string.Format("\t<string>{0}</string>", bForDistribution ? "production" : "development"));
+				}
+				Text.AppendLine("</dict>");
+				Text.AppendLine("</plist>");
+
+				if (File.Exists(OutputFileName))
+				{
+					// read existing file
+					string ExisitingFileContents = File.ReadAllText(OutputFileName);
+					bool bFileChanged = !ExisitingFileContents.Equals(Text.ToString(), StringComparison.Ordinal);
+					// overwrite file if there are content changes
+					if (bFileChanged)
+					{
+						File.WriteAllText(OutputFileName, Text.ToString());
+					}
+				}
+				else
+				{
+					File.WriteAllText(OutputFileName, Text.ToString());
+				}
+			}
+
+			// create a pList key named ICloudContainerIdentifier
+			// to be used at run-time when intializing the CloudKit services
+			if (iCloudContainerIdentifier != "")
+			{
+				string PListFile = IntermediateDir + "/" + AppName + "-Info.plist";
+				if (File.Exists(PListFile))
+				{
+					string OldPListData = File.ReadAllText(PListFile);
+					XDocument XDoc;
+					try
+					{
+						XDoc = XDocument.Parse(OldPListData);
+						if (XDoc.DocumentType != null)
+						{
+							XDoc.DocumentType.InternalSubset = null;
+						}
+
+						XElement dictElement = XDoc.Root.Element("dict");
+						if (dictElement != null)
+						{
+							XElement containerIdKeyNew = new XElement("key", "ICloudContainerIdentifier");
+							XElement containerIdValueNew = new XElement("string", iCloudContainerIdentifier);
+
+							XElement containerIdKey = dictElement.Elements("key").FirstOrDefault(x => x.Value == "ICloudContainerIdentifier");
+							if (containerIdKey != null)
+							{
+								// if ICloudContainerIdentifier already exists in the pList file, update its value
+								XElement containerIdValue = containerIdKey.ElementsAfterSelf("string").FirstOrDefault();
+								if (containerIdValue != null)
+								{
+									containerIdValue.Value = iCloudContainerIdentifier;
+								}
+								else
+								{
+									containerIdKey.AddAfterSelf(containerIdValueNew);
+								}
+							}
+							else
+							{
+								// add ICloudContainerIdentifier to the pList
+								dictElement.Add(containerIdKeyNew);
+								dictElement.Add(containerIdValueNew);
+							}
+
+							XDoc.Save(PListFile);
+						}
+					}
+					catch (Exception e)
+					{
+						throw new BuildException("plist is invalid {0}\n{1}", e, OldPListData);
+					}
+
+				}
+			}
+		}
+
+	}
 }

@@ -230,7 +230,7 @@ private:
 		}
 
 		// Override the linker path
-		Server.SetLinkerPath(*Manifest.LinkerPath);
+		Server.SetLinkerPath(*Manifest.LinkerPath, Manifest.LinkerEnvironment);
 
 		// Strip out all the files that haven't been modified
 		IFileManager& FileManager = IFileManager::Get();

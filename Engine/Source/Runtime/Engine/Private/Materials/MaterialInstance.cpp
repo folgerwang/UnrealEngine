@@ -2576,6 +2576,8 @@ void UMaterialInstance::CacheResourceShadersForRendering()
 		}
 	}
 
+	RecacheUniformExpressions(true);
+
 	InitResources();
 }
 

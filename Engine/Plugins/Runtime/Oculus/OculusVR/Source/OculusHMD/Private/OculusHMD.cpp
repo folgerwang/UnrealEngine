@@ -1448,22 +1448,35 @@ namespace OculusHMD
 			return;
 		}
 
-		if (bSplashIsShown)
-		{
-			//if update splash screen is shown, update the head orientation default to recenter splash screens
-			FQuat HeadOrientation = FQuat::Identity;
-			FVector HeadPosition;
-			GetCurrentPose(HMDDeviceId, HeadOrientation, HeadPosition);
-			SplashRotation = FRotator(HeadOrientation);
-			SplashRotation.Pitch = 0;
-			SplashRotation.Roll = 0;
+		Flags.bNeedSplashUpdate = true;
+	}
 
-			Splash->Show();
-		}
-		else
+	void FOculusHMD::UpdateSplashScreen_GameThread()
+	{
+		if (Flags.bNeedSplashUpdate)
 		{
-			Splash->Hide();
+			if (bSplashIsShown)
+			{
+				Splash->Show();
+			}
+			else
+			{
+				Splash->Hide();
+			}
+
+			Flags.bNeedSplashUpdate = false;
 		}
+	}
+
+	void FOculusHMD::SetSplashRotationToForward()
+	{
+		//if update splash screen is shown, update the head orientation default to recenter splash screens
+		FQuat HeadOrientation = FQuat::Identity;
+		FVector HeadPosition;
+		GetCurrentPose(HMDDeviceId, HeadOrientation, HeadPosition);
+		SplashRotation = FRotator(HeadOrientation);
+		SplashRotation.Pitch = 0;
+		SplashRotation.Roll = 0;
 	}
 
 	FOculusSplashDesc FOculusHMD::GetUESplashScreenDesc()
@@ -1562,7 +1575,6 @@ namespace OculusHMD
 		StereoLayerDesc.Flags |= IStereoLayers::ELayerFlags::LAYER_FLAG_QUAD_PRESERVE_TEX_RATIO;
 		return StereoLayerDesc;
 	}
-
 
 	void FOculusHMD::SetupViewFamily(FSceneViewFamily& InViewFamily)
 	{
@@ -1712,6 +1724,7 @@ namespace OculusHMD
 		CachedWorldToMetersScale = 100.0f;
 
 		NextFrameNumber = 1;
+		WaitFrameNumber = 0;
 		NextLayerId = 0;
 
 		Settings = CreateNewSettings();
@@ -2919,6 +2932,7 @@ namespace OculusHMD
 		Result->WorldToMetersScale = CachedWorldToMetersScale;
 		Result->NearClippingPlane = GNearClippingPlane;
 		Result->MultiResLevel = Settings->MultiResLevel;
+		Result->Flags.bSplashIsShown = Splash->IsShown();
 		return Result;
 	}
 
@@ -2930,10 +2944,29 @@ namespace OculusHMD
 
 		if (!Frame.IsValid())
 		{
+			UpdateSplashScreen_GameThread(); //the result of this is used in CreateGameFrame to know if Frame is a "real" one or a "splash" one.
 			Frame = CreateNewGameFrame();
 			NextFrameToRender = Frame;
 
-			UE_LOG(LogHMD, VeryVerbose, TEXT("StartGameFrame %u %u"), Frame->FrameNumber, Frame->ShowFlags.Rendering);
+			UE_LOG(LogHMD, VeryVerbose, TEXT("StartGameFrame %u"), Frame->FrameNumber);
+
+			if (!Splash->IsShown())
+			{
+				if (ovrp_GetInitialized() && WaitFrameNumber != Frame->FrameNumber)
+				{
+					UE_LOG(LogHMD, Verbose, TEXT("ovrp_WaitToBeginFrame %u"), Frame->FrameNumber);
+
+					ovrpResult Result;
+					if (OVRP_FAILURE(Result = ovrp_WaitToBeginFrame(Frame->FrameNumber)))
+					{
+						UE_LOG(LogHMD, Error, TEXT("ovrp_WaitToBeginFrame %u failed (%d)"), Frame->FrameNumber, Result);
+					}
+					else
+					{
+						WaitFrameNumber = Frame->FrameNumber;
+					}
+				}
+			}
 
 			UpdateStereoRenderingParams();
 		}
@@ -2962,27 +2995,11 @@ namespace OculusHMD
 			UE_LOG(LogHMD, VeryVerbose, TEXT("StartRenderFrame %u"), NextFrameToRender->FrameNumber);
 
 			LastFrameToRender = NextFrameToRender;
-			NextFrameToRender->Flags.bSplashIsShown = Splash->IsShown();// || NextFrameToRender->FrameNumber != NextFrameNumber;
-
-			if (GetSplash())
-			{
-				Splash->StopTicker();
-			}
+			NextFrameToRender->Flags.bSplashIsShown = Splash->IsShown();
 
 			if (NextFrameToRender->ShowFlags.Rendering && !NextFrameToRender->Flags.bSplashIsShown)
 			{
-				UE_LOG(LogHMD, Verbose, TEXT("ovrp_WaitToBeginFrame %u"), NextFrameToRender->FrameNumber);
-
-				ovrpResult Result;
-				if (OVRP_FAILURE(Result = ovrp_WaitToBeginFrame(NextFrameToRender->FrameNumber)))
-				{
-					UE_LOG(LogHMD, Error, TEXT("ovrp_WaitToBeginFrame %u failed (%d)"), NextFrameToRender->FrameNumber, Result);
-					NextFrameToRender->ShowFlags.Rendering = false;
-				}
-				else
-				{
-					NextFrameNumber++;
-				}
+				NextFrameNumber++;
 			}
 
 			FSettingsPtr XSettings = Settings->Clone();

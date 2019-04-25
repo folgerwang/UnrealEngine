@@ -22,7 +22,7 @@
 #include "SkeletalSimplifier.h"
 #include "SkeletalMeshReductionSkinnedMesh.h"
 #include "Stats/StatsMisc.h"
-
+#include "Assets/ClothingAsset.h"
 
 
 #define LOCTEXT_NAMESPACE "SkeletalMeshReduction"
@@ -78,6 +78,14 @@ public:
 			case SkeletalMeshTerminationCriterion::SMTC_TriangleOrVert:
 			{
 				return ReductionSettings.NumOfTrianglesPercentage < Threshold_One || ReductionSettings.NumOfVertPercentage < Threshold_One;
+			}
+			break;
+			//Absolute count is consider has being always reduced
+			case SkeletalMeshTerminationCriterion::SMTC_AbsNumOfVerts:
+			case SkeletalMeshTerminationCriterion::SMTC_AbsNumOfTriangles:
+			case SkeletalMeshTerminationCriterion::SMTC_AbsTriangleOrVert:
+			{
+				return true;
 			}
 			break;
 		}
@@ -1331,11 +1339,15 @@ void FQuadricSkeletalMeshReduction::ReduceSkeletalMesh(USkeletalMesh& SkeletalMe
 	//If the Current LOD is an import from file
 	bool bOldLodWasFromFile = SkeletalMesh.IsValidLODIndex(LODIndex) && SkeletalMesh.GetLODInfo(LODIndex)->bHasBeenSimplified == false;
 
+	//True if the LOD is added by this reduction
+	bool bLODModelAdded = false;
+
 	// Insert a new LOD model entry if needed.
 	if (LODIndex == SkeletalMeshResource.LODModels.Num())
 	{
 		FSkeletalMeshLODModel* ModelPtr = NULL;
 		SkeletalMeshResource.LODModels.Add(ModelPtr);
+		bLODModelAdded = true;
 	}
 
 	// Copy over LOD info from LOD0 if there is no previous info.
@@ -1398,8 +1410,50 @@ void FQuadricSkeletalMeshReduction::ReduceSkeletalMesh(USkeletalMesh& SkeletalMe
 			UE_LOG(LogSkeletalMeshReduction, Warning, TEXT("Building LOD %d - Invalid Base LOD entered. Using Base LOD 0 instead"), LODIndex);
 		}
 	}
-	//Reducing Base LOD, we need to use the temporary data so it can be iterative
+	
+	auto FillClothingData = [&SkeletalMeshResource, &LODIndex, bLODModelAdded](int32 &EnableSectionNumber, TArray<bool> &SectionStatus)
+	{
+		EnableSectionNumber = 0;
+		SectionStatus.Empty();
+		if (!bLODModelAdded && SkeletalMeshResource.LODModels.IsValidIndex(LODIndex))
+		{
+			int32 SectionNumber = SkeletalMeshResource.LODModels[LODIndex].Sections.Num();
+			SectionStatus.Reserve(SectionNumber);
+			for (int32 SectionIndex = 0; SectionIndex < SectionNumber; ++SectionIndex)
+			{
+				SectionStatus.Add(!SkeletalMeshResource.LODModels[LODIndex].Sections[SectionIndex].bDisabled);
+				if (SectionStatus[SectionIndex])
+				{
+					EnableSectionNumber++;
+				}
+			}
+		}
+	};
+
+	// Unbind any existing clothing assets before we reimport the geometry
+	TArray<ClothingAssetUtils::FClothingAssetMeshBinding> ClothingBindings;
+	//Get a map of enable/disable sections
+	int32 OriginalSectionNumberBeforeReduction = 0;
+	TArray<bool> OriginalSectionEnableBeforeReduction;
+
+	//Do not play with cloth if the LOD is added
+	if (!bLODModelAdded)
+	{
+		//Store the clothBinding
+		ClothingAssetUtils::GetMeshClothingAssetBindings(&SkeletalMesh, ClothingBindings, LODIndex);
+		FillClothingData(OriginalSectionNumberBeforeReduction, OriginalSectionEnableBeforeReduction);
+		//Unbind the Cloth for this LOD before we reduce it, we will put back the cloth after the reduction, if it still match the sections
+		for (ClothingAssetUtils::FClothingAssetMeshBinding& Binding : ClothingBindings)
+		{
+			if (Binding.LODIndex == LODIndex)
+			{
+				Binding.Asset->UnbindFromSkeletalMesh(&SkeletalMesh, Binding.LODIndex);
+			}
+		}
+	}
+
 	bool bReducingSourceModel = false;
+	//Reducing Base LOD, we need to use the temporary data so it can be iterative
 	if (BaseLOD == LODIndex && SkelResource->OriginalReductionSourceMeshData.IsValidIndex(BaseLOD) && !SkelResource->OriginalReductionSourceMeshData[BaseLOD]->IsEmpty())
 	{
 		TMap<FString, TArray<FMorphTargetDelta>> TempLODMorphTargetData;
@@ -1582,6 +1636,46 @@ void FQuadricSkeletalMeshReduction::ReduceSkeletalMesh(USkeletalMesh& SkeletalMe
 		NewModel->RequiredBones.Empty();
 		SkeletalMesh.GetLODInfo(LODIndex)->bHasBeenSimplified = true;
 		SkeletalMesh.bHasBeenSimplified = true;
+	}
+	
+	if (!bLODModelAdded)
+	{
+		//Get the number of enabled section
+		int32 SectionNumberAfterReduction = 0;
+		TArray<bool> SectionEnableAfterReduction;
+		FillClothingData(SectionNumberAfterReduction, SectionEnableAfterReduction);
+
+		//Put back the clothing for this newly reduce LOD only if the section count match.
+		if (ClothingBindings.Num() > 0 && OriginalSectionNumberBeforeReduction == SectionNumberAfterReduction)
+		{
+			TArray<int32> RemapSectionIndex;
+			int32 SectionIndexTest = 0;
+			for (int32 SectionIndexRef = 0; SectionIndexRef < OriginalSectionEnableBeforeReduction.Num(); SectionIndexRef++)
+			{
+				int32& RemapValue = RemapSectionIndex.Add_GetRef(INDEX_NONE);
+				if (!OriginalSectionEnableBeforeReduction[SectionIndexRef])
+				{
+					continue;
+				}
+				for (; SectionIndexTest <= SectionIndexRef; SectionIndexTest++)
+				{
+					if (SectionEnableAfterReduction.IsValidIndex(SectionIndexTest) && SectionEnableAfterReduction[SectionIndexTest])
+					{
+						RemapValue = SectionIndexTest++;
+						break;
+					}
+				}
+			}
+
+			for (ClothingAssetUtils::FClothingAssetMeshBinding& Binding : ClothingBindings)
+			{
+				int32 RemapBindingSectionIndex = RemapSectionIndex[Binding.SectionIndex];
+				if (RemapBindingSectionIndex != INDEX_NONE && Binding.LODIndex == LODIndex && NewModel->Sections.IsValidIndex(RemapBindingSectionIndex))
+				{
+					Binding.Asset->BindToSkeletalMesh(&SkeletalMesh, Binding.LODIndex, RemapBindingSectionIndex, Binding.AssetInternalLodIndex, false);
+				}
+			}
+		}
 	}
 
 	SkeletalMesh.CalculateRequiredBones(SkeletalMeshResource.LODModels[LODIndex], SkeletalMesh.RefSkeleton, &BonesToRemove);

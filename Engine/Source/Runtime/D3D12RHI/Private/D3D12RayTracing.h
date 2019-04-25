@@ -16,7 +16,9 @@ class FD3D12RayTracingGeometry : public FRHIRayTracingGeometry, public FD3D12Dev
 {
 public:
 
-	FD3D12RayTracingGeometry(FD3D12Device* Device) : FD3D12DeviceChild(Device) {}
+	FD3D12RayTracingGeometry(FD3D12Device* Device);
+	~FD3D12RayTracingGeometry();
+
 	void TransitionBuffers(FD3D12CommandContext& CommandContext);
 	void BuildAccelerationStructure(FD3D12CommandContext& CommandContext, bool bIsUpdate);
 
@@ -45,13 +47,7 @@ class FD3D12RayTracingScene : public FRHIRayTracingScene, public FD3D12DeviceChi
 {
 public:
 
-	FD3D12RayTracingScene(FD3D12Device* Device) 
-		: FD3D12DeviceChild(Device)
-		, AccelerationStructureView(new FD3D12ShaderResourceView(Device))
-	{
-		ShaderResourceView = AccelerationStructureView;
-	};
-
+	FD3D12RayTracingScene(FD3D12Device* Device);
 	~FD3D12RayTracingScene();
 
 	void BuildAccelerationStructure(FD3D12CommandContext& CommandContext, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS BuildFlags);
@@ -75,7 +71,9 @@ public:
 	uint32 NumTotalSegments = 0;
 	uint32 GetHitRecordBaseIndex(uint32 InstanceIndex, uint32 SegmentIndex) const { return (SegmentPrefixSum[InstanceIndex] + SegmentIndex) * ShaderSlotsPerGeometrySegment; }
 
-	// #dxr_todo: shader tables should be explicitly registered and unregistered with the scene
+	uint32 TotalPrimitiveCount = 0; // Combined number of primitives in all geometry instances
+
+	// #dxr_todo UE-68230: shader tables should be explicitly registered and unregistered with the scene
 	FD3D12RayTracingShaderTable* FindOrCreateShaderTable(const FD3D12RayTracingPipelineState* Pipeline);
 	FD3D12RayTracingShaderTable* FindExistingShaderTable(const FD3D12RayTracingPipelineState* Pipeline) const;
 

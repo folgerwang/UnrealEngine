@@ -367,7 +367,7 @@ void IStatsWriteFile::Finalize()
 	Ar << Header;
 }
 
-void IStatsWriteFile::SendTask()
+void IStatsWriteFile::WaitTask()
 {
 	if (AsyncTask)
 	{
@@ -376,6 +376,12 @@ void IStatsWriteFile::SendTask()
 		delete AsyncTask;
 		AsyncTask = nullptr;
 	}
+}
+
+void IStatsWriteFile::SendTask()
+{
+	WaitTask();
+
 	if (OutData.Num())
 	{
 		AsyncTask = new FAsyncTask<FAsyncStatsWrite>( this );
@@ -414,6 +420,8 @@ void FStatsWriteFile::WriteFrame( int64 TargetFrame )
 	WriteCondensedMessages( Ar, TargetFrame );
 
 	// Get cycles for all threads, so we can use that data to generate the mini-view.
+	WaitTask();
+
 	const FStatsThreadState& Stats = FStatsThreadState::GetLocalState();
 	for (const auto& It : Stats.Threads)
 	{

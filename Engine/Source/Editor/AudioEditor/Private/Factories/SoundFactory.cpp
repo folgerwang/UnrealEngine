@@ -131,12 +131,14 @@ UObject* USoundFactory::FactoryCreateBinary
 
 	UObject* SoundObject = nullptr;
 
+	// First, see if we support this file type in-engine:
 	const bool SuppressOverwrite = bSoundFactorySuppressImportOverwriteDialog;
 	if (FCString::Stricmp(FileType, TEXT("WAV")) == 0)
 	{
 		SoundObject = CreateObject(Class, InParent, Name, Flags, Context, FileType, Buffer, BufferEnd, Warn);
 	}
 
+	// If we do not, we can use LibSoundFile here to attempt to convert the file to a 16 bit wave file.
 #if WITH_SNDFILE_IO
 	if (!SoundObject)
 	{
@@ -155,7 +157,7 @@ UObject* USoundFactory::FactoryCreateBinary
 			// Perpetuate the setting of the suppression flag to avoid
 			// user notification if we attempt to call CreateObject twice
 			bSoundFactorySuppressImportOverwriteDialog = SuppressOverwrite;
-			SoundObject = CreateObject(Class, InParent, Name, Flags, Context, TEXT("WAV"), Ptr, Ptr + RawWaveData.Num() - 1, Warn);
+			SoundObject = CreateObject(Class, InParent, Name, Flags, Context, TEXT("WAV"), Ptr, Ptr + RawWaveData.Num(), Warn);
 		}
 	}
 #endif // WITH_SNDFILE_IO
@@ -313,14 +315,15 @@ UObject* USoundFactory::CreateObject
 				return nullptr;
 			}
 
+			// If we are not using libSoundFile, we cannot support non-16 bit WAV files.
 			if (*WaveInfo.pBitsPerSample != 16)
 			{
 #if !WITH_SNDFILE_IO
 				WaveInfo.ReportImportFailure();
 				Warn->Logf(ELogVerbosity::Error, TEXT("Only 16 bit WAV source files are supported (%s) on this editor platform."), *Name.ToString());
-#endif // WITH_SNDFILE_IO
-
 				GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr);
+#endif // WITH_SNDFILE_IO
+				
 				return nullptr;
 			}
 		}
@@ -352,7 +355,9 @@ UObject* USoundFactory::CreateObject
 		int32 ChannelCount = (int32)*WaveInfo.pChannels;
 		check(ChannelCount >0);
 
-		int32 NumSamples = WaveInfo.SampleDataSize / sizeof(int16);
+		int32 SizeOfSample = (*WaveInfo.pBitsPerSample) / 8;
+
+		int32 NumSamples = WaveInfo.SampleDataSize / SizeOfSample;
 		int32 NumFrames = NumSamples / ChannelCount;
 
 		if (ChannelCount > 2)

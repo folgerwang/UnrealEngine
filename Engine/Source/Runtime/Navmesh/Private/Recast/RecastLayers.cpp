@@ -226,6 +226,17 @@ static bool CollectLayerRegionsMonotone(rcContext* ctx, rcCompactHeightfield& ch
 
 	// Allocate and init layer regions.
 	nregs = (int)regId;
+
+// @UE4 BEGIN: special handling of "no regions"
+	if (nregs == 0)
+	{
+		regs = 0;
+		// treating this as success because we successfully generated 0 regions,
+		// no issues occurred, everything was good. Just no regions. 
+		return true;
+	}
+// @UE4 END
+
 	regs = (rcLayerRegionMonotone*)rcAlloc(sizeof(rcLayerRegionMonotone)*nregs, RC_ALLOC_TEMP);
 	if (!regs)
 	{
@@ -431,6 +442,17 @@ static bool CollectLayerRegionsChunky(rcContext* ctx, rcCompactHeightfield& chf,
 
 	// Allocate and init layer regions.
 	nregs = (int)regId;
+
+// @UE4 BEGIN: special handling of "no regions"
+	if (nregs == 0)
+	{
+		regs = 0;
+		// treating this as success because we successfully generated 0 regions,
+		// no issues occurred, everything was good. Just no regions. 
+		return true;
+	}
+// @UE4 END
+
 	regs = (rcLayerRegionMonotone*)rcAlloc(sizeof(rcLayerRegionMonotone)*nregs, RC_ALLOC_TEMP);
 	if (!regs)
 	{

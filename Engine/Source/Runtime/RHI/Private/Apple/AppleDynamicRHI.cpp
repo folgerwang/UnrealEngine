@@ -124,6 +124,7 @@ FDynamicRHI* PlatformCreateDynamicRHI()
 			}
 #endif
 		}
+		FApp::SetGraphicsRHI(TEXT("Metal"));
 	}
 	else if (bForceOpenGL)
 	{
@@ -136,6 +137,7 @@ FDynamicRHI* PlatformCreateDynamicRHI()
 			RequestedFeatureLevel = ERHIFeatureLevel::ES2;
 #endif
 		}
+		FApp::SetGraphicsRHI(TEXT("OpenGL"));
 	}
 	else
 	{

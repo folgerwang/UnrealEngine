@@ -18,7 +18,7 @@ class FLogWidgetTextLayoutMarshaller : public FBaseTextLayoutMarshaller
 public:
 	FLogWidgetTextLayoutMarshaller();
 	virtual ~FLogWidgetTextLayoutMarshaller();
-	
+
 	// ITextLayoutMarshaller
 	virtual void SetText(const FString& SourceString, FTextLayout& TargetTextLayout) override;
 	virtual void GetText(FString& TargetString, const FTextLayout& SourceTextLayout) override;
@@ -39,7 +39,7 @@ public:
 	SLATE_BEGIN_ARGS(SLogWidget) { }
 	SLATE_END_ARGS()
 
-	SLogWidget();
+		SLogWidget();
 	~SLogWidget();
 
 	void Construct( const FArguments& InArgs );
@@ -60,8 +60,10 @@ protected:
 	TArray<FLine> QueuedLines;
 	TSharedPtr<FLogWidgetTextLayoutMarshaller> MessagesTextMarshaller;
 	TSharedPtr<SMultiLineEditableTextBox> MessagesTextBox;
-	bool bIsUserScrolled;
+	bool bIsUserScrolledX;
+	bool bIsUserScrolledY;
 
-	void OnScroll(float ScrollOffset);
+	void OnScrollX(float ScrollOffset);
+	void OnScrollY(float ScrollOffset);
 	EActiveTimerReturnType OnTimerElapsed(double CurrentTime, float DeltaTime);
 };

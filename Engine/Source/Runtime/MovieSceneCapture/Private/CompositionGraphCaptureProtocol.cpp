@@ -174,7 +174,7 @@ bool UCompositionGraphCaptureProtocol::SetupImpl()
 	SceneViewport = InitSettings->SceneViewport;
 
 	FString OverrideRenderPasses;
-	if (FParse::Value(FCommandLine::Get(), TEXT("-CustomRenderPasses="), OverrideRenderPasses))
+	if (FParse::Value(FCommandLine::Get(), TEXT("-CustomRenderPasses="), OverrideRenderPasses, /*bShouldStopOnSeparator*/ false))
 	{
 		OverrideRenderPasses.ParseIntoArray(IncludeRenderPasses.Value, TEXT(","), true);
 	}

@@ -36,10 +36,10 @@ float ComputeLightProfileMultiplier(float3 WorldPosition, float3 LightPosition, 
 #endif
 }
 
-#if RAYHITGROUPSHADER
+#if RAYHITGROUPSHADER || RAYGENSHADER || RAYMISSSHADER
 
 // Apply IES light profile texture. Each row of the texture stores one profile.
-float ComputeLightProfileMultiplier(
+float ComputeRayTracingLightProfileMultiplier(
 	float3 WorldPosition,
 	float3 LightPosition,
 	float3 LightDirection,
@@ -56,11 +56,11 @@ float ComputeLightProfileMultiplier(
 		float Angle = asin(DotProd);
 		// 0..1
 		const float NormAngle = Angle / PI + 0.5f;
-
-		const float2 UV = float2(NormAngle, (float(LightProfileTextureIndex) + 0.5) * IESLightProfileData.IESLightProfileInvCount);
-
-		Result = Texture2DSampleLevel(IESLightProfileData.IESLightProfileTexture, IESLightProfileData.IESLightProfileTextureSampler, UV, 0).r;
+		
+		const float2 UV = float2(NormAngle, (float(LightProfileTextureIndex) + 0.5) * RaytracingLightsDataPacked.IESLightProfileInvCount);
+		Result = Texture2DSampleLevel(RaytracingLightsDataPacked.IESLightProfileTexture, RaytracingLightsDataPacked.IESLightProfileTextureSampler, UV, 0).r;
 	}
+
 	return Result;
 }
-#endif // RAYHITGROUPSHADER
+#endif // RAYHITGROUPSHADER || RAYGENSHADER

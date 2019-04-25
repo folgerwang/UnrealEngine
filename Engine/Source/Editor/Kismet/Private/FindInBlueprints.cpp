@@ -1074,19 +1074,36 @@ void SFindInBlueprints::MakeSearchQuery(FString InSearchString, bool bInIsFindWi
 			{
 				Interfaces.Add(InterfaceDesc.Interface->GetPathName());
 			}
-			FImaginaryFiBDataSharedPtr ImaginaryBlueprint(new FImaginaryBlueprint(Blueprint->GetName(), Blueprint->GetPathName(), ParentClass, Interfaces, FFindInBlueprintSearchManager::Get().QuerySingleBlueprint(Blueprint)));
-			TSharedPtr< FFiBSearchInstance > SearchInstance(new FFiBSearchInstance);
-			FSearchResult SearchResult = RootSearchResult = SearchInstance->StartSearchQuery(SearchValue, ImaginaryBlueprint);
 
-			if (SearchResult.IsValid())
+			const FString UnparsedStringData = FFindInBlueprintSearchManager::Get().QuerySingleBlueprint(Blueprint);
+			const bool bIsBlueprintIndexed = !UnparsedStringData.IsEmpty();
+
+			if (bIsBlueprintIndexed)
 			{
-				ItemsFound = SearchResult->Children;
+				FImaginaryFiBDataSharedPtr ImaginaryBlueprint(new FImaginaryBlueprint(Blueprint->GetName(), Blueprint->GetPathName(), ParentClass, Interfaces, UnparsedStringData));
+				TSharedPtr< FFiBSearchInstance > SearchInstance(new FFiBSearchInstance);
+				FSearchResult SearchResult = RootSearchResult = SearchInstance->StartSearchQuery(SearchValue, ImaginaryBlueprint);
+
+				if (SearchResult.IsValid())
+				{
+					ItemsFound = SearchResult->Children;
+				}
 			}
 
 			if(ItemsFound.Num() == 0)
 			{
+				FText NoResultsText;
+				if (bIsBlueprintIndexed)
+				{
+					NoResultsText = LOCTEXT("BlueprintSearchNoResults", "No Results found");
+				}
+				else
+				{
+					NoResultsText = LOCTEXT("BlueprintSearchNotIndexed", "This Blueprint is not indexed for searching");
+				}
+
 				// Insert a fake result to inform user if none found
-				ItemsFound.Add(FSearchResult(new FFindInBlueprintsResult(LOCTEXT("BlueprintSearchNoResults", "No Results found"))));
+				ItemsFound.Add(FSearchResult(new FFindInBlueprintsResult(NoResultsText)));
 				HighlightText = FText::GetEmpty();
 			}
 			else

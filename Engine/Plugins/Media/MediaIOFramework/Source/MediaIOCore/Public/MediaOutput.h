@@ -46,7 +46,7 @@ public:
 	 * A bigger number is most likely to increase latency.
 	 * @note Some Capture are not are executed on the GPU. If it's the case then no buffer will be needed and no buffer will be created.
 	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category="Output", meta=(ClampMin=1, ClampMax=4))
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category="Output", meta=(ClampMin=2, ClampMax=4))
 	int32 NumberOfTextureBuffers;
 
 	/** Creates the specific implementation of the MediaCapture for the MediaOutput. */

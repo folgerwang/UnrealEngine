@@ -1208,6 +1208,11 @@ void FVulkanPipelineStateCacheManager::CreateGfxPipelineFromEntry(FGfxPipelineEn
 		PipelineInfo.pTessellationState = &TessState;
 		check(InputAssembly.topology == VK_PRIMITIVE_TOPOLOGY_PATCH_LIST);
 		TessState.patchControlPoints = GfxEntry->ControlPoints;
+
+		// Workaround for translating HLSL tessellation shaders on Vulkan backend.
+		// Vertical flip of <gl_Position> alone is not sufficient here.
+		// Usual value for <frontFace> in UE4 is VK_FRONT_FACE_CLOCKWISE; use the opposite value to flip faces.
+		RasterizerState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	}
 
 	//#todo-rco: Fix me
@@ -1435,7 +1440,7 @@ FVulkanGfxLayout* FVulkanPipelineStateCacheManager::GetOrGenerateGfxLayout(const
 	return GfxLayout;
 }
 
-static inline VkPrimitiveTopology UEToVulkanTopologyType(EPrimitiveType PrimitiveType, bool bHasTessellation, uint16& OutControlPoints)
+static inline VkPrimitiveTopology UEToVulkanTopologyType(const FVulkanDevice* InDevice, EPrimitiveType PrimitiveType, bool bHasTessellation, uint16& OutControlPoints)
 {
 	if (bHasTessellation)
 	{
@@ -1446,10 +1451,42 @@ static inline VkPrimitiveTopology UEToVulkanTopologyType(EPrimitiveType Primitiv
 			OutControlPoints = 3;
 			return VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
 		case PT_1_ControlPointPatchList:
-			OutControlPoints = 1;
-			return VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
 		case PT_2_ControlPointPatchList:
-			OutControlPoints = 2;
+		case PT_3_ControlPointPatchList:
+		case PT_4_ControlPointPatchList:
+		case PT_5_ControlPointPatchList:
+		case PT_6_ControlPointPatchList:
+		case PT_7_ControlPointPatchList:
+		case PT_8_ControlPointPatchList:
+		case PT_9_ControlPointPatchList:
+		case PT_10_ControlPointPatchList:
+		case PT_12_ControlPointPatchList:
+		case PT_13_ControlPointPatchList:
+		case PT_14_ControlPointPatchList:
+		case PT_15_ControlPointPatchList:
+		case PT_16_ControlPointPatchList:
+		case PT_17_ControlPointPatchList:
+		case PT_18_ControlPointPatchList:
+		case PT_19_ControlPointPatchList:
+		case PT_20_ControlPointPatchList:
+		case PT_22_ControlPointPatchList:
+		case PT_23_ControlPointPatchList:
+		case PT_24_ControlPointPatchList:
+		case PT_25_ControlPointPatchList:
+		case PT_26_ControlPointPatchList:
+		case PT_27_ControlPointPatchList:
+		case PT_28_ControlPointPatchList:
+		case PT_29_ControlPointPatchList:
+		case PT_30_ControlPointPatchList:
+		case PT_31_ControlPointPatchList:
+		case PT_32_ControlPointPatchList:
+			OutControlPoints = (PrimitiveType - PT_1_ControlPointPatchList + 1);
+			checkf(
+				OutControlPoints <= InDevice->GetLimits().maxTessellationPatchSize,
+				TEXT("OutControlPoints (%d) exceeded limit of maximal patch size (%d)"),
+				OutControlPoints,
+				InDevice->GetLimits().maxTessellationPatchSize
+			);
 			return VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
 		default:
 			checkf(false, TEXT("Unsupported tessellation EPrimitiveType %d; probably missing a case in FStaticMeshSceneProxy::GetMeshElement()!"), (uint32)PrimitiveType);
@@ -1495,7 +1532,7 @@ FVulkanPipelineStateCacheManager::FGfxPipelineEntry* FVulkanPipelineStateCacheMa
 
 	OutGfxEntry->RasterizationSamples = OutGfxEntry->RenderPass->GetLayout().GetAttachmentDescriptions()[0].samples;
 	ensure(OutGfxEntry->RasterizationSamples == PSOInitializer.NumSamples);
-	OutGfxEntry->Topology = (uint32)UEToVulkanTopologyType(PSOInitializer.PrimitiveType, bHasTessellation, OutGfxEntry->ControlPoints);
+	OutGfxEntry->Topology = (uint32)UEToVulkanTopologyType(Device, PSOInitializer.PrimitiveType, bHasTessellation, OutGfxEntry->ControlPoints);
 
 	OutGfxEntry->ColorAttachmentStates.AddUninitialized(OutGfxEntry->RenderPass->GetLayout().GetNumColorAttachments());
 	for (int32 Index = 0; Index < OutGfxEntry->ColorAttachmentStates.Num(); ++Index)

@@ -9,15 +9,6 @@
 
 #if RHI_RAYTRACING
 
-BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FIESLightProfileParameters, )
-SHADER_PARAMETER(float, IESLightProfileInvCount)
-SHADER_PARAMETER_TEXTURE(Texture2D, IESLightProfileTexture)
-SHADER_PARAMETER_SAMPLER(SamplerState, IESLightProfileTextureSampler)
-END_GLOBAL_SHADER_PARAMETER_STRUCT()
-
-void SetupIESLightProfilesUniformParameters(const FViewInfo& View, FIESLightProfileParameters& OutParameters);
-TUniformBufferRef<FIESLightProfileParameters> CreateIESLightProfilesUniformBuffer(const class FViewInfo& View, EUniformBufferUsage Usage);
-
 class FIESLightProfileResource
 {
 public:

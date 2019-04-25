@@ -225,6 +225,7 @@ protected:
 	void ApplicationResumeDelegate();
 	void SetupOcclusionMeshes();
 	void UpdateStereoRenderingParams();
+	void UpdateSplashScreen_GameThread();
 	void UpdateHmdRenderInfo();
 	void InitializeEyeLayer_RenderThread(FRHICommandListImmediate& RHICmdList);
 	void ApplySystemOverridesOnStereo(bool force = false);
@@ -320,6 +321,7 @@ public:
 	const int GetNextFrameNumber() const { return NextFrameNumber; }
 
 	const FRotator GetSplashRotation() const { return SplashRotation; }
+	void SetSplashRotationToForward();
 
 	void StartGameFrame_GameThread(); // Called from OnStartGameFrame
 	void FinishGameFrame_GameThread(); // Called from OnEndGameFrame
@@ -363,6 +365,7 @@ protected:
 
 			uint64	bNeedEnableStereo : 1;
 			uint64	bNeedDisableStereo : 1;
+			uint64  bNeedSplashUpdate : 1;
 		};
 		uint64 Raw;
 	} Flags;
@@ -403,6 +406,7 @@ protected:
 	// Game thread
 	FSettingsPtr Settings;
 	uint32 NextFrameNumber;
+	uint32 WaitFrameNumber;
 	FGameFramePtr Frame; // Valid from OnStartGameFrame to OnEndGameFrame
 	FGameFramePtr NextFrameToRender; // Valid from OnStartGameFrame to BeginRenderViewFamily
 	FGameFramePtr LastFrameToRender; // Valid from OnStartGameFrame to BeginRenderViewFamily

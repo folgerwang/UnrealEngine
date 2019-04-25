@@ -1356,8 +1356,7 @@ FArchiveStackTraceReader::FArchiveStackTraceReader(const TCHAR* InFilename, cons
 void FArchiveStackTraceReader::Serialize(void* OutData, int64 Num)
 {
 	bool bAddData = true;
-	check(GetSerializeContext());
-	FSerializeData NewData(Tell(), Num, GetSerializeContext()->SerializedObject, GetSerializedProperty());
+	FSerializeData NewData(Tell(), Num, ThreadContext.GetSerializeContext()->SerializedObject, GetSerializedProperty());
 	if (SerializeTrace.Num())
 	{
 		FSerializeData& Last = SerializeTrace.Last();

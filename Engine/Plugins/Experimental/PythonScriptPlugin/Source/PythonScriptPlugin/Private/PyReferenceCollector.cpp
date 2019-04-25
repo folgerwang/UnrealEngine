@@ -1,6 +1,7 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "PyReferenceCollector.h"
+#include "PyWrapperTypeRegistry.h"
 #include "PyWrapperBase.h"
 #include "PyWrapperDelegate.h"
 #include "UObject/UnrealType.h"
@@ -35,6 +36,8 @@ void FPyReferenceCollector::AddReferencedObjects(FReferenceCollector& InCollecto
 			PythonWrappedInstanceMetaData->AddReferencedObjects(PythonWrappedInstance, InCollector);
 		}
 	}
+
+	FPyWrapperTypeReinstancer::Get().AddReferencedObjects(InCollector);
 }
 
 void FPyReferenceCollector::PurgeUnrealObjectReferences(const UObject* InObject, const bool bIncludeInnerObjects)

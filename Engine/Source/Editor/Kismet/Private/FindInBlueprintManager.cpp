@@ -1156,7 +1156,7 @@ public:
 	/** Returns the progress as a percent */
 	float GetCacheProgress() const
 	{
-		return (float)TickCacheIndex / (float)UncachedAssets.Num();
+		return UncachedAssets.Num() > 0 ? (float)TickCacheIndex / (float)UncachedAssets.Num() : 1.0f;
 	}
 
 	/** Returns the number of uncached assets */
@@ -1193,6 +1193,7 @@ public:
 			// Sometimes we can't wait another tick to shutdown, so make the callback immediately.
 			if (bIsImmediate)
 			{
+				// Note: This will effectively delete this instance. It should not be used after this!
 				FFindInBlueprintSearchManager::Get().FinishedCachingBlueprints(TickCacheIndex, FailedToCacheList);
 			}
 			else
@@ -1219,8 +1220,17 @@ public:
 			return;
 		}
 
+		if (UncachedAssets.Num() == 0)
+		{
+			// Immediately finish if we have no assets to index. This will delete this instance!
+			Finish();
+
+			return;
+		}
+
 		if (bIsCancelled || GWarn->ReceivedUserCancel())
 		{
+			// Note: This will effectively delete this instance. It should not be used after this!
 			FFindInBlueprintSearchManager::Get().FinishedCachingBlueprints(TickCacheIndex, FailedToCacheList);
 		}
 		else
@@ -1333,18 +1343,8 @@ public:
 			// Check if done caching Blueprints
 			if(TickCacheIndex == UncachedAssets.Num())
 			{
-				if (ProgressNotification.IsValid())
-				{
-					ProgressNotification.Pin()->SetCompletionState(SNotificationItem::CS_Success);
-					ProgressNotification.Pin()->ExpireAndFadeout();
-
-					ProgressNotification.Pin()->SetText(LOCTEXT("BlueprintIndexComplete", "Finished indexing Blueprints!"));
-				}
-
-				// We have actually finished, use the OnFinished callback.
-				CacheParams.OnFinished.ExecuteIfBound();
-
-				FFindInBlueprintSearchManager::Get().FinishedCachingBlueprints(TickCacheIndex, FailedToCacheList);
+				// Note: This will effectively delete this instance, do not use after this!
+				Finish();
 			}
 			else if(ProgressNotification.IsValid())
 			{
@@ -1353,6 +1353,25 @@ public:
 				ProgressNotification.Pin()->SetText(FText::Format(LOCTEXT("BlueprintIndexProgress", "Indexing Blueprints... ({Percent})"), Args));
 			}
 		}
+	}
+
+protected:
+	/** Completes a successful caching process */
+	void Finish()
+	{
+		if (ProgressNotification.IsValid())
+		{
+			ProgressNotification.Pin()->SetCompletionState(SNotificationItem::CS_Success);
+			ProgressNotification.Pin()->ExpireAndFadeout();
+
+			ProgressNotification.Pin()->SetText(LOCTEXT("BlueprintIndexComplete", "Finished indexing Blueprints!"));
+		}
+
+		// We have actually finished, use the OnFinished callback.
+		CacheParams.OnFinished.ExecuteIfBound();
+
+		// Note: This will effectively delete this instance. It should not be used after this!
+		FFindInBlueprintSearchManager::Get().FinishedCachingBlueprints(TickCacheIndex, FailedToCacheList);
 	}
 
 private:
@@ -1957,16 +1976,22 @@ FString FFindInBlueprintSearchManager::QuerySingleBlueprint(UBlueprint* InBluepr
 		FName Key = *AssetObject->GetPathName();
 
 		int32* ArrayIdx = SearchMap.Find(Key);
-		// This should always be true since we make sure to refresh the search data for this Blueprint when doing the search, unless we do not rebuild the searchable data
-		check((bInRebuildSearchData && ArrayIdx && *ArrayIdx < SearchArray.Num()) || !bInRebuildSearchData);
-
 		if (ArrayIdx)
 		{
+			check(*ArrayIdx < SearchArray.Num());
+
 			return SearchArray[*ArrayIdx].Value;
+		}
+		else if(bInRebuildSearchData)
+		{
+			// Warn here, since we make sure to refresh the search data for this Blueprint when doing the search, and we expect that it should have
+			// been indexed. Note that there are some situations in which we never index a Blueprint asset (@see AddOrUpdateBlueprintSearchMetadata).
+			UE_LOG(LogBlueprint, Warning, TEXT("Attempted to query a Blueprint (%s) that was not re-indexed even after rebuilding. No results can be returned."), *InBlueprint->GetPathName());
 		}
 	}
 	else
 	{
+		// Also warn here as we do not index diff-only packages.
 		UE_LOG(LogBlueprint, Warning, TEXT("Attempted to query an old Blueprint package opened for diffing!"));
 	}
 	return FString();

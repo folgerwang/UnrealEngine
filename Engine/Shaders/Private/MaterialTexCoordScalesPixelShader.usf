@@ -12,6 +12,9 @@
 #undef SCENE_TEXTURES_DISABLED
 #define SCENE_TEXTURES_DISABLED 1
 
+#undef EYE_ADAPTATION_DISABLED
+#define EYE_ADAPTATION_DISABLED 1
+
 #include "Common.ush"
 #include "SHCommon.ush"
 

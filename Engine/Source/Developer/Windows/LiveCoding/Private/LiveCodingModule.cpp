@@ -68,7 +68,7 @@ void FLiveCodingModule::StartupModule()
 	extern void Startup(Windows::HINSTANCE hInstance);
 	Startup(hInstance);
 
-	if (Settings->bEnabled)
+	if (Settings->bEnabled && !FApp::IsUnattended())
 	{
 		if(Settings->Startup == ELiveCodingStartupMode::Automatic)
 		{

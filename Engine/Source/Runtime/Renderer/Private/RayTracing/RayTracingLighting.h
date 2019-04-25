@@ -14,6 +14,7 @@ const static uint32 GRaytracingLightCountMaximum = 64;
 
 BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FRaytracingLightDataPacked, )
 	SHADER_PARAMETER(uint32, Count)
+	SHADER_PARAMETER(float, IESLightProfileInvCount)
 	SHADER_PARAMETER_ARRAY(FIntVector, Type_LightProfileIndex_RectLightTextureIndex, [GRaytracingLightCountMaximum])
 	SHADER_PARAMETER_ARRAY(FVector4, LightPosition_InvRadius, [GRaytracingLightCountMaximum])
 	SHADER_PARAMETER_ARRAY(FVector4, LightColor_SpecularScale, [GRaytracingLightCountMaximum])
@@ -33,6 +34,8 @@ BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FRaytracingLightDataPacked, )
 	SHADER_PARAMETER_TEXTURE(Texture2D, RectLightTexture5)
 	SHADER_PARAMETER_TEXTURE(Texture2D, RectLightTexture6)
 	SHADER_PARAMETER_TEXTURE(Texture2D, RectLightTexture7)
+	SHADER_PARAMETER_SAMPLER(SamplerState, IESLightProfileTextureSampler)
+	SHADER_PARAMETER_TEXTURE(Texture2D, IESLightProfileTexture)
 END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 void SetupRaytracingLightDataPacked(

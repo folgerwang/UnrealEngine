@@ -43,8 +43,7 @@ bool UVolumeTexture::UpdateSourceFromSourceTexture()
 		const int32 TileSizeZ = FMath::Min<int32>(Num2DTileX * Num2DTileY, MAX_VOLUME_TEXTURE_DEPTH);
 		if (TileSizeZ > 0)
 		{
-			const FPixelFormatInfo& InitialFormat = GPixelFormats[InitialSource.GetFormat()];
-			const int32 FormatDataSize = InitialFormat.BlockBytes;
+			const int32 FormatDataSize = InitialSource.GetBytesPerPixel();
 			if (FormatDataSize > 0)
 			{
 				TArray<uint8> Ref2DData;

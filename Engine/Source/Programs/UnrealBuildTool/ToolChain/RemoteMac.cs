@@ -542,9 +542,11 @@ namespace UnrealBuildTool
 			// Copy remote FrameworkAssets directory as it could contain resource bundles that must be packaged locally.
 			DirectoryReference BaseDir = DirectoryReference.FromFile(TargetDesc.ProjectFile) ?? UnrealBuildTool.EngineDirectory;
 			DirectoryReference FrameworkAssetsDir = DirectoryReference.Combine(BaseDir, "Intermediate", TargetDesc.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS", "FrameworkAssets");
-
-			Log.TraceInformation("[Remote] Downloading {0}", FrameworkAssetsDir);
-			DownloadDirectory(FrameworkAssetsDir);
+			if(RemoteDirectoryExists(FrameworkAssetsDir))
+			{
+				Log.TraceInformation("[Remote] Downloading {0}", FrameworkAssetsDir);
+				DownloadDirectory(FrameworkAssetsDir);
+			}
 
 			// Write out all the local manifests
 			foreach(FileReference LocalManifestFile in LocalManifestFiles)
@@ -584,7 +586,13 @@ namespace UnrealBuildTool
 			RemoteArguments.Add("-SkipRulesCompile"); // Use the rules assembly built locally
 			RemoteArguments.Add(String.Format("-XmlConfigCache={0}", GetRemotePath(XmlConfig.CacheFile))); // Use the XML config cache built locally, since the remote won't have it
 
-			if(TargetDesc.ProjectFile != null)
+			string RemoteIniPath = UnrealBuildTool.GetRemoteIniPath();
+			if(!String.IsNullOrEmpty(RemoteIniPath))
+			{
+				RemoteArguments.Add(String.Format("-remoteini={0}", GetRemotePath(RemoteIniPath)));
+			}
+
+			if (TargetDesc.ProjectFile != null)
 			{
 				RemoteArguments.Add(String.Format("-Project={0}", GetRemotePath(TargetDesc.ProjectFile)));
 			}
@@ -874,11 +882,24 @@ namespace UnrealBuildTool
 			UploadDirectory(UnrealBuildTool.EngineDirectory, GetRemotePath(UnrealBuildTool.EngineDirectory), EngineFilters);
 
 			// Upload the project files
-			if(ProjectFile != null && !ProjectFile.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
+			DirectoryReference ProjectDir = null;
+			if (ProjectFile != null && !ProjectFile.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
+			{
+				ProjectDir = ProjectFile.Directory;
+			}
+			else if (!string.IsNullOrEmpty(UnrealBuildTool.GetRemoteIniPath()))
+			{
+				ProjectDir = new DirectoryReference(UnrealBuildTool.GetRemoteIniPath());
+				if (ProjectDir.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
+				{
+					ProjectDir = null;
+				}
+			}
+			if (ProjectDir != null)
 			{
 				List<FileReference> ProjectFilters = new List<FileReference>();
 
-				FileReference CustomProjectFilter = FileReference.Combine(ProjectFile.Directory, "Build", "Rsync", "RsyncProject.txt");
+				FileReference CustomProjectFilter = FileReference.Combine(ProjectDir, "Build", "Rsync", "RsyncProject.txt");
 				if(FileReference.Exists(CustomProjectFilter))
 				{
 					ProjectFilters.Add(CustomProjectFilter);
@@ -886,7 +907,7 @@ namespace UnrealBuildTool
 				ProjectFilters.Add(FileReference.Combine(UnrealBuildTool.EngineDirectory, "Build", "Rsync", "RsyncProject.txt"));
 
 				Log.TraceInformation("[Remote] Uploading project files...");
-				UploadDirectory(ProjectFile.Directory, GetRemotePath(ProjectFile.Directory), ProjectFilters);
+				UploadDirectory(ProjectDir, GetRemotePath(ProjectDir), ProjectFilters);
 			}
 
 			// Fixup permissions on any shell scripts
@@ -960,6 +981,17 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Checks whether a directory exists on the remote machine
+		/// </summary>
+		/// <param name="LocalDirectory">Path to the directory on the local machine</param>
+		/// <returns>True if the remote directory exists</returns>
+		private bool RemoteDirectoryExists(DirectoryReference LocalDirectory)
+		{
+			string RemoteDirectory = GetRemotePath(LocalDirectory);
+			return Execute(UnrealBuildTool.RootDirectory, String.Format("[ -d {0} ]", EscapeShellArgument(RemoteDirectory))) == 0;
+		}
+
+		/// <summary>
 		/// Download a directory from the remote Mac
 		/// </summary>
 		/// <param name="LocalDirectory">Directory to download</param>
@@ -970,7 +1002,6 @@ namespace UnrealBuildTool
 			string RemoteDirectory = GetRemotePath(LocalDirectory);
 
 			List<string> Arguments = new List<string>(CommonRsyncArguments);
-			Arguments.Add(String.Format("--rsync-path=\"[ ! -d {0} ] || rsync\"", EscapeShellArgument(RemoteDirectory)));
 			Arguments.Add(String.Format("\"{0}@{1}\":'{2}/'", UserName, ServerName, RemoteDirectory));
 			Arguments.Add(String.Format("\"{0}/\"", GetLocalCygwinPath(LocalDirectory)));
 

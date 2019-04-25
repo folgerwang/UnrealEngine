@@ -17,6 +17,7 @@
 TSet<FRefCountedGraphicsMinimalPipelineStateInitializer, RefCountedGraphicsMinimalPipelineStateInitializerKeyFuncs> FGraphicsMinimalPipelineStateId::PersistentIdTable;
 TSet<FGraphicsMinimalPipelineStateInitializer> FGraphicsMinimalPipelineStateId::OneFrameIdTable;
 FCriticalSection FGraphicsMinimalPipelineStateId::OneFrameIdTableCriticalSection;
+FRWLock OneFrameIdTableHotfixRWLock;
 
 const FMeshDrawCommandSortKey FMeshDrawCommandSortKey::Default = { {0} };
 
@@ -344,9 +345,6 @@ void FGraphicsMinimalPipelineStateId::RemovePersistentId(FGraphicsMinimalPipelin
 
 FGraphicsMinimalPipelineStateId FGraphicsMinimalPipelineStateId::GetOneFrameId(const FGraphicsMinimalPipelineStateInitializer& InPipelineState)
 {
-	// Need to lock as this is called from multiple parallel tasks during mesh draw command generation or patching.
-	FScopeLock Lock(&OneFrameIdTableCriticalSection);
-
 	FGraphicsMinimalPipelineStateId Ret;
 	Ret.bValid = 1;
 	Ret.bOneFrameId = 0;
@@ -354,6 +352,8 @@ FGraphicsMinimalPipelineStateId FGraphicsMinimalPipelineStateId::GetOneFrameId(c
 	FSetElementId TableId = PersistentIdTable.FindId(InPipelineState);
 	if (!TableId.IsValidId())
 	{
+		// Need to lock as this is called from multiple parallel tasks during mesh draw command generation or patching.
+		FRWScopeLock ScopeLock(OneFrameIdTableHotfixRWLock, SLT_Write);
 		Ret.bOneFrameId = 1;
 
 		TableId = OneFrameIdTable.FindId(InPipelineState);
@@ -857,40 +857,42 @@ void FMeshDrawCommand::SubmitDraw(
 		}
 	}
 #endif
-
-	const FGraphicsMinimalPipelineStateInitializer& MeshPipelineState = MeshDrawCommand.CachedPipelineId.GetPipelineState();
-
-	if (MeshDrawCommand.CachedPipelineId.GetId() != StateCache.PipelineId)
 	{
-		FGraphicsPipelineStateInitializer GraphicsPSOInit = MeshPipelineState;
-		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-		StateCache.SetPipelineState(MeshDrawCommand.CachedPipelineId.GetId());
-	}
+		FRWScopeLock ScopeLock(OneFrameIdTableHotfixRWLock, SLT_ReadOnly);
+		const FGraphicsMinimalPipelineStateInitializer& MeshPipelineState = MeshDrawCommand.CachedPipelineId.GetPipelineState();
 
-	if (MeshDrawCommand.StencilRef != StateCache.StencilRef)
-	{
-		RHICmdList.SetStencilRef(MeshDrawCommand.StencilRef);
-		StateCache.StencilRef = MeshDrawCommand.StencilRef;
-	}
-
-	for (int32 VertexBindingIndex = 0; VertexBindingIndex < MeshDrawCommand.VertexStreams.Num(); VertexBindingIndex++)
-	{
-		const FVertexInputStream& Stream = MeshDrawCommand.VertexStreams[VertexBindingIndex];
-
-		if (MeshDrawCommand.PrimitiveIdStreamIndex != -1 && Stream.StreamIndex == MeshDrawCommand.PrimitiveIdStreamIndex)
+		if (MeshDrawCommand.CachedPipelineId.GetId() != StateCache.PipelineId)
 		{
-			RHICmdList.SetStreamSource(Stream.StreamIndex, ScenePrimitiveIdsBuffer, PrimitiveIdOffset);
-			StateCache.VertexStreams[Stream.StreamIndex] = Stream;
+			FGraphicsPipelineStateInitializer GraphicsPSOInit = MeshPipelineState;
+			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+			StateCache.SetPipelineState(MeshDrawCommand.CachedPipelineId.GetId());
 		}
-		else if (StateCache.VertexStreams[Stream.StreamIndex] != Stream)
-		{
-			RHICmdList.SetStreamSource(Stream.StreamIndex, Stream.VertexBuffer, Stream.Offset);
-			StateCache.VertexStreams[Stream.StreamIndex] = Stream;
-		}
-	}
 
-	MeshDrawCommand.ShaderBindings.SetOnCommandList(RHICmdList, MeshPipelineState.BoundShaderState, StateCache.ShaderBindings);
+		if (MeshDrawCommand.StencilRef != StateCache.StencilRef)
+		{
+			RHICmdList.SetStencilRef(MeshDrawCommand.StencilRef);
+			StateCache.StencilRef = MeshDrawCommand.StencilRef;
+		}
+
+		for (int32 VertexBindingIndex = 0; VertexBindingIndex < MeshDrawCommand.VertexStreams.Num(); VertexBindingIndex++)
+		{
+			const FVertexInputStream& Stream = MeshDrawCommand.VertexStreams[VertexBindingIndex];
+
+			if (MeshDrawCommand.PrimitiveIdStreamIndex != -1 && Stream.StreamIndex == MeshDrawCommand.PrimitiveIdStreamIndex)
+			{
+				RHICmdList.SetStreamSource(Stream.StreamIndex, ScenePrimitiveIdsBuffer, PrimitiveIdOffset);
+				StateCache.VertexStreams[Stream.StreamIndex] = Stream;
+			}
+			else if (StateCache.VertexStreams[Stream.StreamIndex] != Stream)
+			{
+				RHICmdList.SetStreamSource(Stream.StreamIndex, Stream.VertexBuffer, Stream.Offset);
+				StateCache.VertexStreams[Stream.StreamIndex] = Stream;
+			}
+		}
+
+		MeshDrawCommand.ShaderBindings.SetOnCommandList(RHICmdList, MeshPipelineState.BoundShaderState, StateCache.ShaderBindings);
+	}
 
 	if (MeshDrawCommand.IndexBuffer)
 	{

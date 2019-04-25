@@ -31,6 +31,18 @@ DEFINE_LOG_CATEGORY(PixelStreamingCapture);
 void FPixelStreamingPlugin::StartupModule()
 {
 	// detect hardware capabilities, init nvidia capture libs, etc
+	check(GDynamicRHI);
+	void* Device = GDynamicRHI->RHIGetNativeDevice();
+	// During cooking RHI device is invalid, skip error logging in this case as it causes the build to fail.
+	if (Device)
+	{
+		FString RHIName = GDynamicRHI->GetName();
+		if (RHIName != TEXT("D3D11"))
+		{
+			UE_LOG(PixelStreaming, Error, TEXT("Failed to initialise Pixel Streaming plugin because it only supports DX11"));
+			return;
+		}
+	}
 
 	// subscribe to engine delegates here for init / framebuffer creation / whatever
 	if (UGameEngine* GameEngine = Cast<UGameEngine>(GEngine))

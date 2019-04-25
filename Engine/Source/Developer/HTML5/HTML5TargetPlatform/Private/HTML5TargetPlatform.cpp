@@ -350,7 +350,13 @@ void FHTML5TargetPlatform::PopulateDevices(TArray<FString>& DeviceMaps, FString 
 		if( FParse::Value( *It, TEXT( "BrowserName=" ), DeviceName ) && !DeviceName.IsEmpty() &&
 			FParse::Value( *It, TEXT( "BrowserPath=(FilePath=" ), DevicePath ) && !DevicePath.IsEmpty() )
 		{
-
+#if PLATFORM_WINDOWS
+			if ( DeviceName.StartsWith( TEXT( "Canary" ) ) )
+			{
+				FString UserName = FPlatformMisc::GetEnvironmentVariable(TEXT("USRENAME"));
+				DevicePath.Replace( TEXT("your_username"), *UserName );
+			}
+#endif
 			if (FPlatformFileManager::Get().GetPlatformFile().FileExists(*DevicePath) ||
 			    FPlatformFileManager::Get().GetPlatformFile().DirectoryExists(*DevicePath))
 			{

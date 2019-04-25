@@ -34,6 +34,27 @@ void SetupRaytracingLightDataPacked(
 	static constexpr uint32 MaxRectLightTextureSlos = 8;
 	static constexpr uint32 InvalidTextureIndex = 99; // #dxr_todo: share this definition with ray tracing shaders
 
+	{
+		// IES profiles
+		FTextureRHIParamRef IESTextureRHI = nullptr;
+		float IESInvProfileCount = 1.0f;
+
+		if (View.IESLightProfileResource && View.IESLightProfileResource->GetIESLightProfilesCount())
+		{
+			LightData->IESLightProfileTexture = View.IESLightProfileResource->GetTexture();
+
+			uint32 ProfileCount = View.IESLightProfileResource->GetIESLightProfilesCount();
+			IESInvProfileCount = ProfileCount ? 1.f / static_cast<float>(ProfileCount) : 0.f;
+		}
+		else
+		{
+			LightData->IESLightProfileTexture = GWhiteTexture->TextureRHI;
+		}
+
+		LightData->IESLightProfileInvCount = IESInvProfileCount;
+		LightData->IESLightProfileTextureSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
+	}
+
 	for (auto Light : Lights)
 	{
 		const bool bHasStaticLighting = Light.LightSceneInfo->Proxy->HasStaticLighting() && Light.LightSceneInfo->IsPrecomputedLightingValid();

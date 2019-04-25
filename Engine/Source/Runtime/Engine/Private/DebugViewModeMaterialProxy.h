@@ -164,22 +164,6 @@ public:
 
 	virtual EMaterialShaderMapUsage::Type GetMaterialShaderMapUsage() const { return Usage; }
 
-	////////////////
-
-	static void AddShader(
-		UMaterialInterface* InMaterialInterface, 
-		EMaterialQualityLevel::Type QualityLevel, 
-		ERHIFeatureLevel::Type FeatureLevel, 
-		bool bSynchronousCompilation, 
-		EDebugViewShaderMode InDebugViewMode
-	);
-	static bool GetShader(const UMaterialInterface* InMaterialInterface, EDebugViewShaderMode InDebugViewMode, ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const FMaterial*& OutMaterial);
-	static void ClearAllShaders(UMaterialInterface* InMaterialInterface);
-	static bool HasAnyShaders() { return DebugMaterialShaderMap.Num() > 0; }
-	static void ValidateAllShaders(TSet<UMaterialInterface*>& Materials);
-	static bool MissingShadersChanged() { return bMissingShadersChanged; }
-	static void ClearMissingShadersFlag() { bMissingShadersChanged = false; }
-
 private:
 
 	/** The material interface for this proxy */
@@ -216,35 +200,6 @@ private:
 	bool bValid;
 	bool bIsDefaultMaterial;
 	bool bSynchronousCompilation;
-
-	struct FMaterialKey
-	{
-		FMaterialKey(const UMaterialInterface* InMaterialInterface, EDebugViewShaderMode InDebugViewMode, ERHIFeatureLevel::Type InFeatureLevel) : MaterialInterface(InMaterialInterface), DebugViewMode((uint32)InDebugViewMode), FeatureLevel((uint32)InFeatureLevel) {}
-
-		const UMaterialInterface* MaterialInterface;
-		uint32 DebugViewMode;
-		uint32 FeatureLevel;
-
-		friend bool operator==(const FMaterialKey& Lhs, const FMaterialKey& Rhs)
-		{
-			return Lhs.MaterialInterface == Rhs.MaterialInterface
-				&& Lhs.DebugViewMode == Rhs.DebugViewMode
-				&& Lhs.FeatureLevel == Rhs.FeatureLevel;
-		}
-
-		friend uint32 GetTypeHash(const FMaterialKey& Key)
-		{
-			const uint32 DebugViewModeShift = 6;
-			static_assert((2 ^ DebugViewModeShift) < DVSM_MAX, "Bit shift too small!");
-
-			return GetTypeHash(Key.MaterialInterface) ^ GetTypeHash((Key.FeatureLevel << DebugViewModeShift) ^ Key.DebugViewMode);
-		}
-	};
-
-	static volatile bool bReentrantCall;
-	static TMap<FMaterialKey, FDebugViewModeMaterialProxy*> DebugMaterialShaderMap;
-	static TSet<FMaterialKey> MissingShaders;
-	static bool bMissingShadersChanged;
 };
 
-#endif
+#endif // WITH_EDITORONLY_DATA

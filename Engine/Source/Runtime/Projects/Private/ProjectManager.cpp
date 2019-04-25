@@ -249,22 +249,24 @@ void FProjectManager::ClearSupportedTargetPlatformsForCurrentProject()
 	OnTargetPlatformsForCurrentProjectChangedEvent.Broadcast();
 }
 
-bool FProjectManager::HasDefaultPluginSettings() const
+PROJECTS_API bool HasDefaultPluginSettings(const FString& Platform)
 {
+	const FProjectDescriptor* CurrentProject = IProjectManager::Get().GetCurrentProject();
+
 	// Get settings for the plugins which are currently enabled or disabled by the project file
 	TMap<FString, bool> ConfiguredPlugins;
-	if (CurrentProject.IsValid())
+	if (CurrentProject != nullptr)
 	{
 		for (const FPluginReferenceDescriptor& PluginReference : CurrentProject->Plugins)
 		{
-			ConfiguredPlugins.Add(PluginReference.Name, PluginReference.bEnabled);
+			ConfiguredPlugins.Add(PluginReference.Name, PluginReference.IsEnabledForPlatform(Platform));
 		}
 	}
 
 	// Check whether the setting for any default plugin has been changed
 	for(const TSharedRef<IPlugin>& Plugin: IPluginManager::Get().GetDiscoveredPlugins())
 	{
-		if (Plugin->GetDescriptor().SupportsTargetPlatform(FPlatformMisc::GetUBTPlatform()))
+		if (Plugin->GetDescriptor().SupportsTargetPlatform(Platform))
 		{
 			bool bEnabled = Plugin->IsEnabledByDefault();
 
@@ -283,6 +285,11 @@ bool FProjectManager::HasDefaultPluginSettings() const
 	}
 
 	return true;
+}
+
+bool FProjectManager::HasDefaultPluginSettings() const
+{
+	return ::HasDefaultPluginSettings(FPlatformMisc::GetUBTPlatform());
 }
 
 bool FProjectManager::SetPluginEnabled(const FString& PluginName, bool bEnabled, FText& OutFailReason)

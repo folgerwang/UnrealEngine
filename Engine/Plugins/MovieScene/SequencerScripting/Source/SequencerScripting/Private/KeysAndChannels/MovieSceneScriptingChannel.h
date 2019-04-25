@@ -314,14 +314,16 @@ struct TMovieSceneScriptingKey
 		if (Channel)
 		{
 			using namespace MovieScene;
-			if(!AssignValue(Channel, KeyHandle, InNewValue))
+			if (!AssignValue(Channel, KeyHandle, InNewValue))
 			{
 				UE_LOG(LogMovieScene, Error, TEXT("Invalid KeyIndex for MovieSceneScriptingKey, failed to set value. Did you forget to create the key through the channel?"));
 				return;
 			}
 		}
-
-		UE_LOG(LogMovieScene, Error, TEXT("Invalid ChannelHandle for MovieSceneScriptingKey, failed to set value. Did you forget to create the key through the channel?"));
+		else
+		{
+			UE_LOG(LogMovieScene, Error, TEXT("Invalid ChannelHandle for MovieSceneScriptingKey, failed to set value. Did you forget to create the key through the channel?"));
+		}
 	}
 
 public:

@@ -106,12 +106,13 @@ namespace Audio
 		Error = InputSoundDataReader->ReadSamples(ProcessBuffer.GetData(), ProcessBufferSamples, InputSamplesRead);
 		check(Error == ESoundFileError::Type::NONE);
 
-		while (InputSamplesRead != 0)
+		SoundFileCount SamplesWritten = 0;
+
+		while (InputSamplesRead == ProcessBuffer.Num())
 		{
-			SoundFileCount SamplesWritten;
-			Error = SoundFileWriter->WriteSamples((const float*)ProcessBuffer.GetData(), ProcessBuffer.Num(), SamplesWritten);
+			Error = SoundFileWriter->WriteSamples((const float*)ProcessBuffer.GetData(), InputSamplesRead, SamplesWritten);
 			check(Error == ESoundFileError::Type::NONE);
-			check(SamplesWritten == ProcessBuffer.Num());
+			check(SamplesWritten == InputSamplesRead);
 
 			// read more samples
 			Error = InputSoundDataReader->ReadSamples(ProcessBuffer.GetData(), ProcessBufferSamples, InputSamplesRead);
@@ -127,6 +128,10 @@ namespace Audio
 			}
 		}
 
+		// Write final block of samples
+		Error = SoundFileWriter->WriteSamples((const float*)ProcessBuffer.GetData(), InputSamplesRead, SamplesWritten);
+		check(Error == ESoundFileError::Type::NONE);
+
 		// Release the sound file handles as soon as we finished converting the file
 		InputSoundDataReader->Release();
 		SoundFileWriter->Release();
@@ -141,5 +146,3 @@ namespace Audio
 		return true;
 	}
 }
-
-

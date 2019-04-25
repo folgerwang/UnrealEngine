@@ -1744,7 +1744,7 @@ void FBlueprintCompilationManagerImpl::ReinstanceBatch(TArray<FReinstancingJob>&
 					{
 						UBlueprintGeneratedClass* IterAsBPGC = Cast<UBlueprintGeneratedClass>(Iter);
 						if(Iter->HasAnyFlags(RF_ClassDefaultObject)
-							|| IterAsBPGC
+							|| (IterAsBPGC && !IterAsBPGC->HasAnyClassFlags(CLASS_NewerVersionExists))
 							|| Cast<UBlueprint>(Iter) )
 						{
 							ArchetypeReferencers.Add(Iter);

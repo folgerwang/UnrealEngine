@@ -1435,14 +1435,19 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 
 			TArray<TPair<uint32, uint32>> SectionAndOutputIndices;
 			OutputMaterialsMap.MultiFind(MeshIndex, SectionAndOutputIndices);
+			//Make sure the section index are in the correct order
+			SectionAndOutputIndices.Sort([](const TPair<uint32, uint32>& A, const TPair<uint32, uint32>& B) { return (A.Key < B.Key); });
 
 			TArray<int32> Remap;
+			TArray<int32> UniqueMaterialIndexes;
 			// Reorder loops 
 			for (const TPair<uint32, uint32>& IndexPair : SectionAndOutputIndices)
 			{
-				const int32 SectionIndex = IndexPair.Key;
+				//We are not using the IndexPair.Key since we want to keep the polygon group
+				//We instead find the section index by looking at unique IndexPair.Value
 				const int32 NewIndex = IndexPair.Value;
 
+				const int32 SectionIndex = UniqueMaterialIndexes.AddUnique(NewIndex);
 				if (Remap.Num() < (SectionIndex + 1))
 				{
 					Remap.SetNum(SectionIndex + 1);
@@ -1452,13 +1457,11 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 			}
 			
 			TMap<FPolygonGroupID, FPolygonGroupID> RemapPolygonGroup;
-			int32 MaxRemapID = 0;
 			for (const FPolygonGroupID& PolygonGroupID : RawMesh.PolygonGroups().GetElementIDs())
 			{
 				checkf(Remap.IsValidIndex(PolygonGroupID.GetValue()), TEXT("Missing material bake output index entry for mesh(section)"));
 				int32 RemapID = Remap[PolygonGroupID.GetValue()];
 				RemapPolygonGroup.Add(PolygonGroupID, FPolygonGroupID(RemapID));
-				MaxRemapID = FMath::Max(MaxRemapID, RemapID);
 			}
 			FMeshDescriptionOperations::RemapPolygonGroups(RawMesh, RemapPolygonGroup);
 		}

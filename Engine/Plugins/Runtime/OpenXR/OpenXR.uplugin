@@ -1,0 +1,33 @@
+{
+	"FileVersion" : 3,
+	"Version" : 1,
+	"VersionName" : "0.9",
+	"FriendlyName" : "OpenXR",
+	"Description" : "OpenXR is an open VR/AR standard currently in a provisional release",
+	"Category" : "Virtual Reality",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"DocsURL" : "",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
+	"EnabledByDefault" : false,
+	"CanContainContent" : false,
+	"IsBetaVersion" : true,
+	"Installed" : false,
+	"SupportedTargetPlatforms": [ "Win64" ],
+	"Modules" :
+	[
+		{
+			"Name" : "OpenXRHMD",
+			"Type" : "Runtime",
+			"LoadingPhase" : "PostConfigInit",
+            "WhitelistPlatforms" : [ "Win64" ]
+		},
+		{
+			"Name" : "OpenXRInput",
+			"Type" : "Runtime",
+			"LoadingPhase" : "PostEngineInit",
+            "WhitelistPlatforms" : [ "Win64" ]
+		}
+	]
+}

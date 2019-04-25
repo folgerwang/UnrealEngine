@@ -1291,11 +1291,7 @@ namespace UnrealBuildTool
 			}
 
 			// Build the target's binaries.
-			DirectoryReference ExeDir = Binaries[0].OutputDir;
-			if (CppPlatform == CppPlatform.Mac && ExeDir.FullName.EndsWith(".app/Contents/MacOS"))
-			{
-				ExeDir = ExeDir.ParentDirectory.ParentDirectory.ParentDirectory;
-			}
+			DirectoryReference ExeDir = GetExecutableDir();
 			using(Timeline.ScopeEvent("UEBuildBinary.Build()"))
 			{
 				foreach (UEBuildBinary Binary in Binaries)
@@ -1512,6 +1508,20 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Gets the output directory for the main executable
+		/// </summary>
+		/// <returns>The executable directory</returns>
+		DirectoryReference GetExecutableDir()
+		{
+			DirectoryReference ExeDir = Binaries[0].OutputDir;
+			if (Platform == UnrealTargetPlatform.Mac && ExeDir.FullName.EndsWith(".app/Contents/MacOS"))
+			{
+				ExeDir = ExeDir.ParentDirectory.ParentDirectory.ParentDirectory;
+			}
+			return ExeDir;
+		}
+
+		/// <summary>
 		/// Check that copying a file from one location to another does not violate rules regarding restricted folders
 		/// </summary>
 		/// <param name="TargetFile">The destination location for the file</param>
@@ -1711,7 +1721,7 @@ namespace UnrealBuildTool
 				foreach(UEBuildModule Module in Modules.Values)
 				{
 					Writer.WriteObjectStart(Module.Name);
-					Module.ExportJson(Writer);
+					Module.ExportJson(Module.Binary?.OutputDir, GetExecutableDir(), Writer);
 					Writer.WriteObjectEnd();
 				}
 				Writer.WriteObjectEnd();

@@ -7,6 +7,9 @@
 #include "LC_AppSettings.h"
 #include "LC_Logging.h"
 
+// BEGIN EPIC MOD - Allow passing environment block for linker
+#include "Containers/StringConv.h"
+// END EPIC MOD
 
 namespace environment
 {
@@ -16,6 +19,25 @@ namespace environment
 		char* data;
 	};
 
+	// BEGIN EPIC MOD - Allow passing environment block for linker
+	Block* CreateBlockFromMap(const TMap<FString, FString>& Pairs)
+	{
+		std::vector<char> blockData;
+		for (const TPair<FString, FString>& Pair : Pairs)
+		{
+			auto AnsiString = StringCast<ANSICHAR>(*FString::Printf(TEXT("%s=%s"), *Pair.Key, *Pair.Value));
+			const char* AnsiStringData = AnsiString.Get();
+			blockData.insert(blockData.end(), AnsiStringData, strchr(AnsiStringData, 0) + 1);
+		}
+		blockData.push_back('\0');
+
+		Block* block = new Block;
+		block->size = blockData.size();
+		block->data = new char[blockData.size()];
+		memcpy(block->data, blockData.data(), blockData.size());
+		return block;
+	}
+	// END EPIC MOD
 
 	Block* CreateBlockFromFile(const wchar_t* path)
 	{

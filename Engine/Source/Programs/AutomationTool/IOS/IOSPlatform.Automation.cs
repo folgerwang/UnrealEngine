@@ -13,6 +13,7 @@ using System.Security.Principal;
 using System.Threading;
 using System.Diagnostics;
 using Tools.DotNETCommon;
+using System.Xml;
 //using Manzana;
 
 static class IOSEnvVarNames
@@ -381,6 +382,8 @@ public class IOSPlatform : Platform
 		{
 			SchemeConfiguration += " Client";
 		}
+
+		WriteEntitlements(Params, SC);
 
 		if (UnrealBuildTool.BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
 		{
@@ -893,16 +896,24 @@ public class IOSPlatform : Platform
 				ImageFileNames.Add("Default-IPhone6.png");
 				ImageFileNames.Add("Default-IPhone6Plus-Portrait.png");
 				ImageFileNames.Add("Default-Portrait@2x.png");
+				ImageFileNames.Add("Default-Portrait-1112@2x.png");
+				ImageFileNames.Add("Default-Portrait-1194@2x.png");
 				ImageFileNames.Add("Default-Portrait-1336@2x.png");
 				ImageFileNames.Add("Default-IPhoneXS-Portrait.png");
+				ImageFileNames.Add("Default-IPhoneXSMax-Portrait.png");
+				ImageFileNames.Add("Default-IPhoneXR-Portrait.png");
 			}
 			if (bSupportsLandscape)
 			{
 				ImageFileNames.Add("Default-IPhone6-Landscape.png");
 				ImageFileNames.Add("Default-IPhone6Plus-Landscape.png");
 				ImageFileNames.Add("Default-Landscape@2x.png");
+				ImageFileNames.Add("Default-Landscape-1112@2x.png");
+				ImageFileNames.Add("Default-Landscape-1194@2x.png");
 				ImageFileNames.Add("Default-Landscape-1336@2x.png");
 				ImageFileNames.Add("Default-IPhoneXS-Landscape.png");
+				ImageFileNames.Add("Default-IPhoneXSMax-Landscape.png");
+				ImageFileNames.Add("Default-IPhoneXR-Landscape.png");
 			}
 			ImageFileNames.Add("Default@2x.png");
 			ImageFileNames.Add("Default-568h@2x.png");
@@ -1644,6 +1655,42 @@ public class IOSPlatform : Platform
 	public override void StripSymbols(FileReference SourceFile, FileReference TargetFile)
 	{
 		IOSExports.StripSymbols(PlatformType, SourceFile, TargetFile);
+	}
+
+
+	private void WriteEntitlements(ProjectParams Params, DeploymentContext SC)
+	{
+		// game name
+		string AppName = SC.IsCodeBasedProject ?  SC.StageExecutables[0].Split("-".ToCharArray())[0]: "UE4Game";
+
+		// mobile provisioning file
+		DirectoryReference MobileProvisionDir;
+		if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
+		{
+			MobileProvisionDir = DirectoryReference.Combine(new DirectoryReference(Environment.GetEnvironmentVariable("HOME")), "Library", "MobileDevice", "Provisioning Profiles");
+		}
+		else
+		{
+			MobileProvisionDir = DirectoryReference.Combine(DirectoryReference.GetSpecialFolder(Environment.SpecialFolder.LocalApplicationData), "Apple Computer", "MobileDevice", "Provisioning Profiles");
+		}
+
+		FileReference MobileProvisionFile = FileReference.Combine(MobileProvisionDir, Params.Provision);
+
+		// distribution build
+		bool bForDistribution = Params.Distribution;
+
+		// intermediate directory
+		string IntermediateDir = SC.ProjectRoot + "/Intermediate/" + (Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS");
+
+		//	entitlements file name
+		string OutputFilename = Path.Combine(IntermediateDir, AppName + ".entitlements");
+
+		// ios configuration from the ini file
+		ConfigHierarchy PlatformGameConfig;
+		if (Params.EngineConfigs.TryGetValue(SC.StageTargetPlatform.PlatformType, out PlatformGameConfig))
+		{
+			IOSExports.WriteEntitlements(Platform, PlatformGameConfig, AppName, MobileProvisionFile, bForDistribution, IntermediateDir);
+		}
 	}
 
 	#region Hooks

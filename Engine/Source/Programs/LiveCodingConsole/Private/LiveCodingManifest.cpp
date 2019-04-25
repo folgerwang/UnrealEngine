@@ -40,6 +40,19 @@ bool FLiveCodingManifest::Parse(FJsonObject& Object, FString& OutFailReason)
 		return false;
 	}
 
+	const TSharedPtr<FJsonObject>* EnvironmentObject;
+	if (Object.TryGetObjectField(TEXT("LinkerEnvironment"), EnvironmentObject))
+	{
+		for(const TPair<FString, TSharedPtr<FJsonValue>>& Pair : EnvironmentObject->Get()->Values)
+		{
+			const FJsonValue* Value = Pair.Value.Get();
+			if (Value->Type == EJson::String)
+			{
+				LinkerEnvironment.Add(Pair.Key, Value->AsString());
+			}
+		}
+	}
+
 	const TArray<TSharedPtr<FJsonValue>>* ModulesArray;
 	if (!Object.TryGetArrayField(TEXT("Modules"), ModulesArray))
 	{

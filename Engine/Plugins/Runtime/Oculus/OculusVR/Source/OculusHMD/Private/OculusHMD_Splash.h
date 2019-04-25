@@ -43,7 +43,8 @@ protected:
 
 		virtual void Tick(float DeltaTime) override { pSplash->Tick_RenderThread(DeltaTime); }
 		virtual TStatId GetStatId() const override  { RETURN_QUICK_DECLARE_CYCLE_STAT(FSplash, STATGROUP_Tickables); }
-		virtual bool IsTickable() const override	{ return pSplash->IsTickable(); }
+		virtual bool IsTickable() const override { return true; }
+	
 	protected:
 		FSplash* pSplash;
 	};
@@ -53,7 +54,6 @@ public:
 	virtual ~FSplash();
 
 	void Tick_RenderThread(float DeltaTime);
-	bool IsTickable() const { return bTickable; }
 	bool IsShown() const { return bIsShown; }
 
 	void Startup();
@@ -62,10 +62,13 @@ public:
 	void PreShutdown();
 	void Shutdown();
 
+	void OnPreLoadMap(const FString&);
+
 	int AddSplash(const FOculusSplashDesc&);
 	void ClearSplashes();
 	bool GetSplash(unsigned index, FOculusSplashDesc& OutDesc);
 	void StopTicker();
+	void StartTicker();
 
 	void Show();
 	void Hide();
@@ -96,7 +99,6 @@ protected:
 
 	// All these flags are only modified from the Game thread
 	bool bInitialized;
-	bool bTickable;
 	bool bIsShown;
 
 	float SystemDisplayInterval;

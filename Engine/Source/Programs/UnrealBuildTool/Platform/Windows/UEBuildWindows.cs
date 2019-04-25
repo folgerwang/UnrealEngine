@@ -447,7 +447,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// The default compiler version to be used, if installed. 
 		/// </summary>
-		static readonly VersionNumber DefaultClangToolChainVersion = VersionNumber.Parse("7.1.0");
+		static readonly VersionNumber DefaultClangToolChainVersion = VersionNumber.Parse("7.0.1");
 
 		/// <summary>
 		/// The default compiler version to be used, if installed. 
@@ -767,7 +767,7 @@ namespace UnrealBuildTool
 				    }
 				    else if(Compiler == WindowsCompiler.VisualStudio2017 || Compiler == WindowsCompiler.VisualStudio2019)
 				    {
-						List<DirectoryReference> PreReleaseInstallDirs = new List<DirectoryReference>();
+						SortedDictionary<int, DirectoryReference> SortedInstallDirs = new SortedDictionary<int, DirectoryReference>(); 
 						try
 						{
 							SetupConfiguration Setup = new SetupConfiguration();
@@ -803,22 +803,30 @@ namespace UnrealBuildTool
 										}
 									}
 
+									int SortOrder = SortedInstallDirs.Count;
+
 									ISetupInstanceCatalog Catalog = (ISetupInstanceCatalog)Instance as ISetupInstanceCatalog;
 									if (Catalog != null && Catalog.IsPrerelease())
 									{
-										PreReleaseInstallDirs.Add(new DirectoryReference(Instance.GetInstallationPath()));
+										SortOrder |= (1 << 16);
 									}
-									else
+
+									string ProductId = Instance.GetProduct().GetId();
+									if (ProductId.Equals("Microsoft.VisualStudio.Product.WDExpress", StringComparison.Ordinal))
 									{
-										InstallDirs.Add(new DirectoryReference(Instance.GetInstallationPath()));
+										SortOrder |= (1 << 17);
 									}
+
+									Log.TraceLog("Found Visual Studio installation: {0} (Product={1}, Version={2}, Sort={3})", Instance.GetInstallationPath(), ProductId, VersionString, SortOrder);
+
+									SortedInstallDirs.Add(SortOrder, new DirectoryReference(Instance.GetInstallationPath()));
 								}
 							}
 						}
 						catch
 						{
 						}
-						InstallDirs.AddRange(PreReleaseInstallDirs);
+						InstallDirs.AddRange(SortedInstallDirs.Values);
 					}
 					else
 				    {
@@ -916,9 +924,13 @@ namespace UnrealBuildTool
 							    foreach(DirectoryReference ToolChainDir in DirectoryReference.EnumerateDirectories(ToolChainBaseDir))
 							    {
 								    VersionNumber Version;
-								    if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && IsValidToolChainDir2017or2019(ToolChainDir) && !ToolChainVersionToDir.ContainsKey(Version))
-								    {
-									    ToolChainVersionToDir[Version] = ToolChainDir;
+								    if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && IsValidToolChainDir2017or2019(ToolChainDir))
+									{
+										Log.TraceLog("Found Visual Studio toolchain: {0} (Version={1})", ToolChainDir, Version);
+										if(!ToolChainVersionToDir.ContainsKey(Version))
+										{
+											ToolChainVersionToDir[Version] = ToolChainDir;
+										}
 								    }
 							    }
 						    }
@@ -934,9 +946,13 @@ namespace UnrealBuildTool
 								foreach(DirectoryReference ToolChainDir in DirectoryReference.EnumerateDirectories(ToolChainBaseDir))
 								{
 									VersionNumber Version;
-									if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && IsValidToolChainDir2017or2019(ToolChainDir) && !ToolChainVersionToDir.ContainsKey(Version))
+									if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && IsValidToolChainDir2017or2019(ToolChainDir))
 									{
-										ToolChainVersionToDir[Version] = ToolChainDir;
+										Log.TraceLog("Found Visual Studio toolchain: {0} (Version={1})", ToolChainDir, Version);
+										if (!ToolChainVersionToDir.ContainsKey(Version))
+										{
+											ToolChainVersionToDir[Version] = ToolChainDir;
+										}
 									}
 								}
 							}
@@ -982,6 +998,17 @@ namespace UnrealBuildTool
 			return FileReference.Exists(FileReference.Combine(ToolChainDir, "bin", "Hostx86", "x64", "cl.exe")) || FileReference.Exists(FileReference.Combine(ToolChainDir, "bin", "Hostx64", "x64", "cl.exe"));
 		}
 
+
+		/// <summary>
+		/// Checks if the given directory contains a 64-bit toolchain. Used to prefer regular Visual Studio versions over express editions.
+		/// </summary>
+		/// <param name="ToolChainDir">Directory to check</param>
+		/// <returns>True if the given directory contains a 64-bit toolchain</returns>
+		static bool Has64BitToolChain(DirectoryReference ToolChainDir)
+		{
+			return FileReference.Exists(FileReference.Combine(ToolChainDir, "bin", "amd64", "cl.exe")) || FileReference.Exists(FileReference.Combine(ToolChainDir, "bin", "Hostx64", "x64", "cl.exe"));
+		}
+
 		/// <summary>
 		/// Determines if an IDE for the given compiler is installed.
 		/// </summary>
@@ -1021,7 +1048,7 @@ namespace UnrealBuildTool
 			{
 				if(String.Compare(CompilerVersion, "Latest", StringComparison.InvariantCultureIgnoreCase) == 0 && ToolChainVersionToDir.Count > 0)
 				{
-					ToolChainVersion = ToolChainVersionToDir.OrderBy(x => x.Key).Last().Key;
+					ToolChainVersion = ToolChainVersionToDir.OrderBy(x => Has64BitToolChain(x.Value)).ThenBy(x => x.Key).Last().Key;
 				}
 				else if(!VersionNumber.TryParse(CompilerVersion, out ToolChainVersion))
 				{
@@ -1040,13 +1067,14 @@ namespace UnrealBuildTool
 					DefaultToolChainVersion = DefaultVisualStudioToolChainVersion;
 				}
 
-				if(ToolChainVersionToDir.ContainsKey(DefaultToolChainVersion))
+				DirectoryReference DefaultToolChainDir;
+				if(ToolChainVersionToDir.TryGetValue(DefaultToolChainVersion, out DefaultToolChainDir) && (Compiler == WindowsCompiler.Clang || Has64BitToolChain(DefaultToolChainDir)))
 				{
 					ToolChainVersion = DefaultToolChainVersion;
 				}
 				else if(ToolChainVersionToDir.Count > 0)
 				{
-					ToolChainVersion = ToolChainVersionToDir.OrderBy(x => x.Key).Last().Key;
+					ToolChainVersion = ToolChainVersionToDir.OrderBy(x => Has64BitToolChain(x.Value)).ThenBy(x => x.Key).Last().Key;
 				}
 			}
 

@@ -28,7 +28,6 @@ FSplash::FSplash(FOculusHMD* InOculusHMD) :
 	FramesOutstanding(0),
 	NextLayerId(1),
 	bInitialized(false),
-	bTickable(false),
 	bIsShown(false),
 	SystemDisplayInterval(1 / 90.0f)
 {
@@ -109,7 +108,17 @@ void FSplash::LoadSettings()
 	{
 		AddSplash(SplashDesc);
 	}
+
 	UStereoLayerFunctionLibrary::EnableAutoLoadingSplashScreen(HMDSettings->bAutoEnabled);
+	if (HMDSettings->bAutoEnabled)
+	{
+		FCoreUObjectDelegates::PreLoadMap.AddSP(this, &FSplash::OnPreLoadMap);
+	}
+}
+
+void FSplash::OnPreLoadMap(const FString&)
+{
+	Show();
 }
 
 void FSplash::Startup()
@@ -131,12 +140,7 @@ void FSplash::Startup()
 
 		LoadSettings();
 
-		Ticker = MakeShareable(new FTicker(this));
 
-		ExecuteOnRenderThread_DoNotWait([this]()
-		{
-			Ticker->Register();
-		});
 
 		bInitialized = true;
 	}
@@ -144,13 +148,36 @@ void FSplash::Startup()
 
 void FSplash::StopTicker()
 {
-	FScopeLock ScopeLock(&RenderThreadLock);
+	CheckInGameThread();
 
-	if (!IsShown())
+	if (!bIsShown)
 	{
-		bTickable = false;
+		ExecuteOnRenderThread([this]()
+		{
+			if (this->Ticker.IsValid())
+			{
+				this->Ticker->Unregister();
+				this->Ticker = nullptr;
+			}
+		});
 		UnloadTextures();
 	}
+}
+
+void FSplash::StartTicker()
+{
+	CheckInGameThread();
+
+	if (!Ticker.IsValid())
+	{
+		Ticker = MakeShareable(new FTicker(this));
+
+		ExecuteOnRenderThread([this]()
+		{
+			this->Ticker->Register();
+		});
+	}
+
 }
 
 void FSplash::RenderFrame_RenderThread(FRHICommandListImmediate& RHICmdList)
@@ -180,7 +207,8 @@ void FSplash::RenderFrame_RenderThread(FRHICommandListImmediate& RHICmdList)
 	}
 	else
 	{
-		OculusHMD->NextFrameNumber++;
+		OculusHMD->WaitFrameNumber = XFrame->FrameNumber;
+		OculusHMD->NextFrameNumber = XFrame->FrameNumber + 1;
 		FPlatformAtomics::InterlockedIncrement(&FramesOutstanding);
 	}
 
@@ -299,9 +327,6 @@ void FSplash::ReleaseResources_RHIThread()
 void FSplash::PreShutdown()
 {
 	CheckInGameThread();
-
-	// force Ticks to stop
-	bTickable = false;
 }
 
 
@@ -311,17 +336,19 @@ void FSplash::Shutdown()
 
 	if (bInitialized)
 	{
-		bTickable = false;
-
 		ExecuteOnRenderThread([this]()
 		{
-			Ticker->Unregister();
-			Ticker = nullptr;
+			if(Ticker)
+			{
+				Ticker->Unregister();
+				Ticker = nullptr;
+			}
 
 			ExecuteOnRHIThread([this]()
 			{
 				SplashLayers.Reset();
 				Layers_RenderThread.Reset();
+				Layers_RenderThread_Input.Reset();
 				Layers_RHIThread.Reset();
 			});
 		});
@@ -384,6 +411,8 @@ void FSplash::Show()
 
 	OculusHMD->InitDevice();
 
+	OculusHMD->SetSplashRotationToForward();
+
 	// Create new textures
 	UnloadTextures();
 
@@ -406,10 +435,7 @@ void FSplash::Show()
 		}
 	}
 
-	if (bWaitForRT)
-	{
-		FlushRenderingCommands();
-	}
+	FlushRenderingCommands();
 
 	for (int32 SplashLayerIndex = 0; SplashLayerIndex < SplashLayers.Num(); ++SplashLayerIndex)
 	{
@@ -453,7 +479,8 @@ void FSplash::Show()
 		FOculusSplashDesc UESplashDesc = OculusHMD->GetUESplashScreenDesc();
 		if (UESplashDesc.LoadedTexture != nullptr)
 		{
-			UELayer->SetDesc(StereoLayerDescFromOculusSplashDesc(UESplashDesc));
+			UELayer.Reset();
+			UELayer = MakeShareable(new FLayer(NextLayerId++, StereoLayerDescFromOculusSplashDesc(UESplashDesc)));
 			Layers_RenderThread_Input.Add(UELayer->Clone());
 		}
 
@@ -461,7 +488,7 @@ void FSplash::Show()
 	}
 
 	// If no textures are loaded, this will push black frame
-	bTickable = true;
+	StartTicker();
 	bIsShown = true;
 
 	UE_LOG(LogHMD, Log, TEXT("FSplash::OnShow"));
@@ -473,8 +500,9 @@ void FSplash::Hide()
 	CheckInGameThread();
 
 	UE_LOG(LogHMD, Log, TEXT("FSplash::OnHide"));
-//	bTickable = false;
 	bIsShown = false;
+
+	StopTicker();
 }
 
 void FSplash::UnloadTextures()

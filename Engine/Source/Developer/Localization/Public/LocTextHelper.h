@@ -843,10 +843,6 @@ public:
 	 */
 	static bool FindKeysForLegacyTranslation(const TSharedRef<const FInternationalizationManifest>& InManifest, const TSharedPtr<const FInternationalizationArchive>& InNativeArchive, const FLocKey& InNamespace, const FString& InSource, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj, TArray<FLocKey>& OutKeys);
 
-	/** Publicly movable */
-	FLocTextHelper(FLocTextHelper&&) = default;
-	FLocTextHelper& operator=(FLocTextHelper&&) = default;
-
 private:
 	/** Non-copyable */
 	FLocTextHelper(const FLocTextHelper&) = delete;

@@ -19,6 +19,13 @@ struct FMeshDrawingRenderState;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
+extern int32 GShaderComplexityBaselineForwardVS;
+extern int32 GShaderComplexityBaselineForwardPS;
+extern int32 GShaderComplexityBaselineForwardUnlitPS;
+extern int32 GShaderComplexityBaselineDeferredVS;
+extern int32 GShaderComplexityBaselineDeferredPS;
+extern int32 GShaderComplexityBaselineDeferredUnlitPS;
+
 template <bool bQuadComplexity>
 class TComplexityAccumulatePS : public FDebugViewModePS
 {

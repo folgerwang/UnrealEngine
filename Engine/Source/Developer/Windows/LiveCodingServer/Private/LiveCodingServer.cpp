@@ -6,6 +6,8 @@
 #include "External/LC_FileUtil.h"
 #include "External/LC_AppSettings.h"
 #include "External/LC_ServerCommandThread.h"
+#include "External/LC_Compiler.h"
+#include "External/LC_Environment.h"
 
 FLiveCodingServer* GLiveCodingServer = nullptr;
 
@@ -47,10 +49,16 @@ void FLiveCodingServer::Stop()
 	ProcessGroupName.clear();
 }
 
-void FLiveCodingServer::SetLinkerPath(const wchar_t* LinkerPath)
+void FLiveCodingServer::SetLinkerPath(const wchar_t* LinkerPath, const TMap<FString, FString>& LinkerEnvironment)
 {
 	appSettings::g_linkerPath->SetValueWithoutSaving(LinkerPath);
 	appSettings::UpdateLinkerPathCache();
+
+	if (LinkerEnvironment.Num() > 0)
+	{
+		environment::Block* block = environment::CreateBlockFromMap(LinkerEnvironment);
+		compiler::AddEnvironmentToCache(LinkerPath, block);
+	}
 }
 
 ILiveCodingServer::FBringToFrontDelegate& FLiveCodingServer::GetBringToFrontDelegate()

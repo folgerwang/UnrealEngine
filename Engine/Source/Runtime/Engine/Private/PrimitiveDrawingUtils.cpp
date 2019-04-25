@@ -1493,18 +1493,7 @@ void ApplyViewModeOverrides(
 				}
 			}
 
-			if (bMaterialModifiesMeshPosition)
-			{
-				// If the material is mesh-modifying, we cannot rely on substitution.
-				auto LightingOnlyMaterialInstance = new FOverrideSelectionColorMaterialRenderProxy(
-					Mesh.MaterialRenderProxy, 
-					GEngine->LightingOnlyBrightness
-				);
-
-				Mesh.MaterialRenderProxy = LightingOnlyMaterialInstance;
-				Collector.RegisterOneFrameMaterialProxy(LightingOnlyMaterialInstance);
-			}
-			else if (bTextureMapped == false)
+			if (bTextureMapped == false)
 			{
 				FMaterialRenderProxy* RenderProxy = GEngine->LevelColorationLitMaterial->GetRenderProxy();
 				auto LightingOnlyMaterialInstance = new FColoredMaterialRenderProxy(

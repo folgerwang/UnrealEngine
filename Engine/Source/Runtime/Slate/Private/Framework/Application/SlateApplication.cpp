@@ -1534,7 +1534,7 @@ void FSlateApplication::PrivateDrawWindows( TSharedPtr<SWindow> DrawOnlyThisWind
 			for( TArray< TSharedRef<SWindow> >::TConstIterator CurrentWindowIt( SlateWindows ); CurrentWindowIt; ++CurrentWindowIt )
 			{
 				const TSharedRef<SWindow>& CurrentWindow = *CurrentWindowIt;
-				if ( CurrentWindow->IsTopmostWindow() )
+				if ( CurrentWindow->GetType() == EWindowType::ToolTip )
 				{
 					DrawWindowAndChildren(CurrentWindow, DrawWindowArgs);
 				}
@@ -4112,6 +4112,8 @@ void FSlateApplication::EnterDebuggingMode()
 		PreviousGameViewport->SetActive(false);
 		GameViewportWidget.Reset();
 	}
+	
+	Renderer->EndFrame();
 
 	Renderer->FlushCommands();
 	
@@ -4132,6 +4134,8 @@ void FSlateApplication::EnterDebuggingMode()
 		Tick();
 
 		Renderer->EndFrame();
+		
+		Renderer->FlushCommands();
 		
 		// Synchronize the game thread and the render thread so that the render thread doesn't get too far behind.
 		Renderer->Sync();

@@ -5,29 +5,6 @@
 
 #if RHI_RAYTRACING
 
-IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FIESLightProfileParameters, "IESLightProfileData");
-
-void SetupIESLightProfilesUniformParameters(const FViewInfo& View, FIESLightProfileParameters& OutParameters)
-{
-	FTextureRHIParamRef TextureRHI = nullptr;
-	float IESInvProfileCount = 0.0f;
-
-	if (View.IESLightProfileResource && View.IESLightProfileResource->GetIESLightProfilesCount())
-	{
-		OutParameters.IESLightProfileTexture = View.IESLightProfileResource->GetTexture();
-
-		uint32 ProfileCount = View.IESLightProfileResource->GetIESLightProfilesCount();
-		IESInvProfileCount = ProfileCount ? 1.f / static_cast<float>(ProfileCount) : 0.f;
-	}
-	else
-	{
-		OutParameters.IESLightProfileTexture = GWhiteTexture->TextureRHI;
-	}
-	   
-	OutParameters.IESLightProfileInvCount = IESInvProfileCount;
-	OutParameters.IESLightProfileTextureSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
-}
-
 void FIESLightProfileResource::BuildIESLightProfilesTexture(const TArray<UTextureLightProfile*, SceneRenderingAllocator>& NewIESProfilesArray)
 {
 	// Rebuild 2D texture that contains one IES light profile per row
@@ -96,13 +73,6 @@ void FIESLightProfileResource::BuildIESLightProfilesTexture(const TArray<UTextur
 		}
 	}
 	RHIUnlockTexture2D(TextureRHI, 0, false);
-}
-
-TUniformBufferRef<FIESLightProfileParameters> CreateIESLightProfilesUniformBuffer(const FViewInfo& View, EUniformBufferUsage Usage)
-{
-	FIESLightProfileParameters IESLightProfileStruct;
-	SetupIESLightProfilesUniformParameters(View, IESLightProfileStruct);
-	return CreateUniformBufferImmediate(IESLightProfileStruct, Usage);
 }
 
 #endif

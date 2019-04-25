@@ -2017,6 +2017,39 @@ namespace ObjectTools
 		}
 	}
 
+	bool ContainsWorldInUse(const TArray< UObject* >& ObjectsToDelete)
+	{
+		TArray<const UObject*> ActiveWorlds;
+		for (const FWorldContext& WorldContext : GEditor->GetWorldContexts())
+		{
+			if (UWorld* World = WorldContext.World())
+			{
+				ActiveWorlds.AddUnique(World);
+
+				for (const ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
+				{
+					if (StreamingLevel && StreamingLevel->GetLoadedLevel() && StreamingLevel->GetLoadedLevel()->GetOuter())
+					{
+						ActiveWorlds.AddUnique(StreamingLevel->GetLoadedLevel()->GetOuter());
+					}
+				}
+			}
+		}
+
+		for (const UObject* ObjectToDelete : ObjectsToDelete)
+		{
+			if (const UWorld* World = Cast<UWorld>(ObjectToDelete))
+			{
+				if (ActiveWorlds.Contains(World))
+				{
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
 	int32 DeleteObjects( const TArray< UObject* >& InObjectsToDelete, bool bShowConfirmation )
 	{
 		// Allows deleting of sounds after they have been previewed
@@ -2059,6 +2092,17 @@ namespace ObjectTools
 			FNotificationInfo Info( NSLOCTEXT("UnrealEd", "Warning_CantDeleteRebuildingAssetRegistry", "Unable To Delete While Discovering Assets") );
 			Info.ExpireDuration = 3.0f;
 			FSlateNotificationManager::Get().AddNotification(Info);
+			return 0;
+		}
+
+		if (ContainsWorldInUse(ObjectsToDelete))
+		{
+			OpenMsgDlgInt(
+				EAppMsgType::Ok,
+				NSLOCTEXT("UnrealEd", "DeleteFailedWorldInUse", "Unable to delete level while it is open"),
+				NSLOCTEXT("UnrealEd", "DeleteFailedWorldInUseTitle", "Unable to delete level")
+			);
+
 			return 0;
 		}
 

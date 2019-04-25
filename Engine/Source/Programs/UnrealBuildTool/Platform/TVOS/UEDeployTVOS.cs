@@ -157,7 +157,7 @@ namespace UnrealBuildTool
             Text.AppendLine("\t\t\t<key>UILaunchImageSize</key>");
             Text.AppendLine("\t\t\t<string>{1920, 1080}</string>");
             Text.AppendLine("\t\t\t<key>UILaunchImageName</key>");
-            Text.AppendLine("\t\t\t<string>LaunchImage</string>");
+            Text.AppendLine("\t\t\t<string>Launch Image</string>");
             Text.AppendLine("\t\t\t<key>UILaunchImageMinimumOSVersion</key>");
             Text.AppendLine("\t\t\t<string>9.0</string>");
             Text.AppendLine("\t\t\t<key>UILaunchImageOrientation</key>");
@@ -167,7 +167,7 @@ namespace UnrealBuildTool
             Text.AppendLine("\t<key>CFBundleIcons</key>");
             Text.AppendLine("\t<dict>");
             Text.AppendLine("\t\t<key>CFBundlePrimaryIcon</key>");
-            Text.AppendLine("\t\t<string>App Icon - Small</string>");
+            Text.AppendLine("\t\t<string>App Icon</string>");
             Text.AppendLine("\t</dict>");
 
             /*			Text.AppendLine("\t<key>CFBundleIcons</key>");
@@ -273,7 +273,7 @@ namespace UnrealBuildTool
                         Text.AppendLine("\t\t\t<key>UILaunchImageSize</key>");
                         Text.AppendLine("\t\t\t<string>{768, 1024}</string>");
                         Text.AppendLine("\t\t</dict>");
-                        Text.AppendLine("\t</array>”);
+                        Text.AppendLine("\t</array>");
                         Text.AppendLine("\t<key>CFBundleSupportedPlatforms</key>");
                         Text.AppendLine("\t<array>");
                         Text.AppendLine("\t\t<string>iPhoneOS</string>");
@@ -291,6 +291,20 @@ namespace UnrealBuildTool
                                 }
                             }
                         }*/
+			// write the iCloud container identifier, if present in the old file
+			if (!string.IsNullOrEmpty(OldPListData))
+			{
+				int index = OldPListData.IndexOf("ICloudContainerIdentifier");
+				if (index > 0)
+				{
+					index = OldPListData.IndexOf("<string>", index) + 8;
+					int length = OldPListData.IndexOf("</string>", index) - index;
+					string ICloudContainerIdentifier = OldPListData.Substring(index, length);
+					Text.AppendLine("\t<key>ICloudContainerIdentifier</key>");
+					Text.AppendLine(string.Format("\t<string>{0}</string>", ICloudContainerIdentifier));
+				}
+			}
+
             Text.AppendLine("</dict>");
 			Text.AppendLine("</plist>");
 

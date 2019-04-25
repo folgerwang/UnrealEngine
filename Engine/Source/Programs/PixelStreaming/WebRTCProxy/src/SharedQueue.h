@@ -3,6 +3,7 @@
 #pragma once
 
 #include "WebRTCProxyCommon.h"
+#include <functional>
 
 /**
  * Multiple producer/multiple consumer thread safe queue

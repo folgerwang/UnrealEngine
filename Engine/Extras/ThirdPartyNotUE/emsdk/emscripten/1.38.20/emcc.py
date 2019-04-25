@@ -1139,6 +1139,23 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       if shared.Settings.DEMANGLE_SUPPORT:
         shared.Settings.EXPORTED_FUNCTIONS += ['___cxa_demangle']
         forced_stdlibs += ['libcxxabi']
+# EPIC EDIT start -- nick.shin 2019-03-28 -- UE-71873
+# for some reason, these libs are not getting included during builds for the
+# UE4 github version.  would have guessed at least html5.bc would have been
+# included -- but it could be that github version doesn't have "all" of the
+# other UE4 modules (as found in internal epic perforce repo) and these libs
+# might be getting optimized out in:
+#   system_libs.py :: def calculate() :: def add_library()
+# look for 'considering %s: we need %s and have %s' -- and (need_syms) will be
+# blank when it should be filled a functions (especially for UE4)
+#
+# forcing them in here:
+      forced_stdlibs = ['libcxx', 'libcxxabi', 'html5', 'libc-extras']
+      if shared.Settings.USE_PTHREADS:
+        forced_stdlibs += ['gl-mt']
+      else:
+        forced_stdlibs += ['gl']
+# EPIC EDIT end -- nick.shin 2019-03-28 -- UE-71873
 
       if not shared.Settings.ONLY_MY_CODE:
         # Always need malloc and free to be kept alive and exported, for internal use and other modules

@@ -6,7 +6,9 @@
 
 UMovieScene3DConstraintSection::UMovieScene3DConstraintSection( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )
-{ }
+{ 
+	bSupportsInfiniteRange = true;
+}
 
 void UMovieScene3DConstraintSection::SetConstraintId(const FGuid& InConstraintId, const FMovieSceneSequenceID& SequenceID)
 {

@@ -375,14 +375,20 @@ namespace iPhonePackager
 					// remove the wildcards from the developer.associated-domains array or string
 					if (XCentPList.HasKey("com.apple.developer.associated-domains"))
 					{
-						List<string> AssociatedDomainsGroup = XCentPList.GetArray("com.apple.developer.associated-domains", "string");
+						string AssociatedDomainsString;
+						XCentPList.GetString("com.apple.developer.associated-domains", out AssociatedDomainsString);
 
-						if (AssociatedDomainsGroup.Count == 0 || AssociatedDomainsGroup[0].Contains("*"))
+						//check if the value is string
+						if (AssociatedDomainsString != null && AssociatedDomainsString.Contains("*"))
 						{
-							string AssociatedDomainsString;
-							XCentPList.GetString("com.apple.developer.associated-domains", out AssociatedDomainsString);
-
-							if (AssociatedDomainsString.Contains("*"))
+							XCentPList.RemoveKeyValue("com.apple.developer.associated-domains");
+						}
+						else
+						{
+							//check if the value is an array
+							List<string> AssociatedDomainsGroup = XCentPList.GetArray("com.apple.developer.associated-domains", "string");
+							
+							if (AssociatedDomainsGroup.Count == 1 && AssociatedDomainsGroup[0].Contains("*"))
 							{
 								XCentPList.RemoveKeyValue("com.apple.developer.associated-domains");
 							}

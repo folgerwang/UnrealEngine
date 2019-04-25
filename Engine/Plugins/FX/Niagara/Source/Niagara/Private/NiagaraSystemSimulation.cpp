@@ -383,6 +383,13 @@ bool FNiagaraSystemSimulation::Tick(float DeltaSeconds)
 			UE_LOG(LogNiagara, Log, TEXT("=========================================================="));
 		}
 
+		if (SpawnNum)
+		{
+			SCOPE_CYCLE_COUNTER(STAT_NiagaraSystemSim_Spawn);
+			DataSet.Allocate(NewNum, true);
+			DataSet.SetNumInstances(NewNum);
+		}
+
 		TArray<FNiagaraDataSetExecutionInfo, TInlineAllocator<8>> DataSetExecInfos;
 		DataSetExecInfos.SetNum(2);
 		{
@@ -455,10 +462,6 @@ bool FNiagaraSystemSimulation::Tick(float DeltaSeconds)
 		if (SpawnNum)
 		{
 			SCOPE_CYCLE_COUNTER(STAT_NiagaraSystemSim_Spawn);
-			DataSet.Allocate(NewNum, true);
-
-			DataSet.SetNumInstances(NewNum);
-			//SpawnInstanceParameterDataSet.SetNumInstances(NewNum);
 
 			//Run Spawn
 			SpawnExecContext.Tick(SoloSystemInstance);//We can't require a specific instance here as these are for all instances.

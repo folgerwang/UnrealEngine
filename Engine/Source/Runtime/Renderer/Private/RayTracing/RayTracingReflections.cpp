@@ -17,7 +17,6 @@
 #include "SystemTextures.h"
 #include "RayTracing/RaytracingOptions.h"
 #include "RayTracing/RayTracingDeferredMaterials.h"
-#include "RayTracing/RayTracingIESLightProfiles.h"
 #include "RayTracing/RayTracingLighting.h"
 #include "RenderGraph.h"
 #include "RayTracing/RayTracingLighting.h"
@@ -138,7 +137,6 @@ class FRayTracingReflectionsRGS : public FGlobalShader
 		SHADER_PARAMETER_STRUCT_REF(FRaytracingLightDataPacked, LightDataPacked)
 		SHADER_PARAMETER_STRUCT_REF(FReflectionUniformParameters, ReflectionStruct)
 		SHADER_PARAMETER_STRUCT_REF(FFogUniformParameters, FogUniformParameters)
-		SHADER_PARAMETER_STRUCT_REF(FIESLightProfileParameters, IESLightProfileParameters)
 
 		// Optional indirection buffer used for sorted materials
 		SHADER_PARAMETER_RDG_BUFFER_UAV(StructuredBuffer<FDeferredMaterialPayload>, MaterialBuffer)
@@ -188,7 +186,7 @@ void FDeferredShadingSceneRenderer::PrepareRayTracingReflections(const FViewInfo
 {
 	// Declare all RayGen shaders that require material closest hit shaders to be bound
 
-	const bool bSortMaterials = CVarRayTracingReflectionsSortMaterials.GetValueOnRenderThread();
+	const bool bSortMaterials = CVarRayTracingReflectionsSortMaterials.GetValueOnRenderThread() != 0;
 
 	const EDeferredMaterialMode DeferredMaterialMode = bSortMaterials ? EDeferredMaterialMode::Shade : EDeferredMaterialMode::None;
 
@@ -214,7 +212,7 @@ void FDeferredShadingSceneRenderer::RenderRayTracingReflections(
 #if RHI_RAYTRACING
 {
 	const uint32 SortTileSize = CVarRayTracingReflectionsSortTileSize.GetValueOnRenderThread();
-	const bool bSortMaterials = CVarRayTracingReflectionsSortMaterials.GetValueOnRenderThread();
+	const bool bSortMaterials = CVarRayTracingReflectionsSortMaterials.GetValueOnRenderThread() != 0;
 
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(GraphBuilder.RHICmdList);
 
@@ -280,7 +278,6 @@ void FDeferredShadingSceneRenderer::RenderRayTracingReflections(
 	CommonParameters.SceneTexturesStruct = CreateSceneTextureUniformBuffer( SceneContext, FeatureLevel, ESceneTextureSetupMode::All, EUniformBufferUsage::UniformBuffer_SingleFrame);
 	CommonParameters.ReflectionStruct = CreateReflectionUniformBuffer(View, EUniformBufferUsage::UniformBuffer_SingleFrame);
 	CommonParameters.FogUniformParameters = CreateFogUniformBuffer(View, EUniformBufferUsage::UniformBuffer_SingleFrame);
-	CommonParameters.IESLightProfileParameters = CreateIESLightProfilesUniformBuffer(View, EUniformBufferUsage::UniformBuffer_SingleFrame);
 	CommonParameters.ColorOutput = GraphBuilder.CreateUAV(*OutColorTexture);
 	CommonParameters.RayHitDistanceOutput = GraphBuilder.CreateUAV(*OutRayHitDistanceTexture);
 	CommonParameters.RayImaginaryDepthOutput = GraphBuilder.CreateUAV(*OutRayImaginaryDepthTexture);

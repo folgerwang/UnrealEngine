@@ -397,10 +397,6 @@ FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVS
 	Result.TwoSidedSign = 1;
 	Result.PrimitiveId = GetPrimitiveId(Interpolants);
 
-#if COMPILER_SUPPORTS_TO_SCALAR_MEMORY
-	Result.PrimitiveId = ToScalarMemory(Result.PrimitiveId);
-#endif
-
 	return Result;
 }
 

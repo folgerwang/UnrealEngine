@@ -3184,6 +3184,16 @@ void UEditorEngine::FindSelectedActorsInLevelScript()
 	AActor* Actor = GetSelectedActors()->GetTop<AActor>();
 	if(Actor != NULL)
 	{
+		if (PlayWorld)
+		{
+			// Redirect to editor world counterpart if PIE is active. We don't index cloned PIE LSBPs for searching.
+			AActor* EditorActor = EditorUtilities::GetEditorWorldCounterpartActor(Actor);
+			if (EditorActor)
+			{
+				Actor = EditorActor;
+			}
+		}
+
 		FKismetEditorUtilities::ShowActorReferencesInLevelScript(Actor);
 	}
 }

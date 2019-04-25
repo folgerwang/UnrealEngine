@@ -68,6 +68,7 @@ void FMovieSceneSectionDetailsCustomization::CustomizeDetails(IDetailLayoutBuild
 			.IsEnabled(this, &FMovieSceneSectionDetailsCustomization::IsRangeStartTextboxEnabled)
 			.SelectAllTextWhenFocused(true)
 			.RevertTextOnEscape(true)
+			.ClearKeyboardFocusOnCommit(false)
 			.Font(IDetailLayoutBuilder::GetDetailFont())
 		]
 		+ SHorizontalBox::Slot()
@@ -112,6 +113,7 @@ void FMovieSceneSectionDetailsCustomization::CustomizeDetails(IDetailLayoutBuild
 			.IsEnabled(this, &FMovieSceneSectionDetailsCustomization::IsRangeEndTextboxEnabled)
 			.SelectAllTextWhenFocused(true)
 			.RevertTextOnEscape(true)
+			.ClearKeyboardFocusOnCommit(false)
 			.Font(IDetailLayoutBuilder::GetDetailFont())
 		]
 		+ SHorizontalBox::Slot()

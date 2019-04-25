@@ -199,6 +199,8 @@ const TCHAR* FIOSPlatformMisc::GamePersistentDownloadDir()
 #endif
         Result = DownloadPath + Result;
         NSURL* URL = [NSURL fileURLWithPath : Result.GetNSString()];
+#if !PLATFORM_TVOS		
+		// this folder is expected to not exist on TVOS 
         if (![[NSFileManager defaultManager] fileExistsAtPath:[URL path]])
         {
             [[NSFileManager defaultManager] createDirectoryAtURL:URL withIntermediateDirectories : YES attributes : nil error : nil];
@@ -211,6 +213,7 @@ const TCHAR* FIOSPlatformMisc::GamePersistentDownloadDir()
         {
             NSLog(@"Error excluding %@ from backup %@",[URL lastPathComponent], error);
         }
+#endif		
     }
     return *GamePersistentDownloadDir;
 }

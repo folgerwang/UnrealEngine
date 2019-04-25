@@ -823,8 +823,10 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Write information about this binary to a JSON file
 		/// </summary>
+		/// <param name="BinaryOutputDir">The output directory for the binary containing this module</param>
+		/// <param name="TargetOutputDir">The output directory for the target executable</param>
 		/// <param name="Writer">Writer for this binary's data</param>
-		public virtual void ExportJson(JsonWriter Writer)
+		public virtual void ExportJson(DirectoryReference BinaryOutputDir, DirectoryReference TargetOutputDir, JsonWriter Writer)
 		{
 			Writer.WriteValue("Name", Name);
 			Writer.WriteValue("Directory", ModuleDirectory.FullName);
@@ -861,6 +863,20 @@ namespace UnrealBuildTool
 			foreach(string ModuleName in Rules.CircularlyReferencedDependentModules)
 			{
 				Writer.WriteValue(ModuleName);
+			}
+			Writer.WriteArrayEnd();
+
+			Writer.WriteArrayStart("RuntimeDependencies");
+			foreach(ModuleRules.RuntimeDependency RuntimeDependency in Rules.RuntimeDependencies.Inner)
+			{
+				Writer.WriteObjectStart();
+				Writer.WriteValue("Path", ExpandPathVariables(RuntimeDependency.Path, BinaryOutputDir, TargetOutputDir));
+				if(RuntimeDependency.SourcePath != null)
+				{
+					Writer.WriteValue("SourcePath", ExpandPathVariables(RuntimeDependency.SourcePath, BinaryOutputDir, TargetOutputDir));
+				}
+				Writer.WriteValue("Type", RuntimeDependency.Type.ToString());
+				Writer.WriteObjectEnd();
 			}
 			Writer.WriteArrayEnd();
 		}

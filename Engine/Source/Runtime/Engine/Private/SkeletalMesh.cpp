@@ -3098,10 +3098,8 @@ void USkeletalMesh::GetMappableNodeData(TArray<FName>& OutNames, TArray<FNodeIte
 	FAnimationRuntime::FillUpComponentSpaceTransforms(RefSkeleton, RefSkeleton.GetRefBonePose(), ComponentSpaceRefPose);
 #endif // 
 
-	// @todo: for now we support raw bones, no virtual bone
-	// arggg this is for retarget manager, not for control rig 
-	ensureMsgf(RefSkeleton.GetRawBoneNum() == RefSkeleton.GetNum(), TEXT("We don't support virtual bone for retargeting yet"));
-	check(ComponentSpaceRefPose.Num() == RefSkeleton.GetRawBoneNum());
+	// ComponentSpaceRefPose may have virtual bones but we dont use them
+	check(ComponentSpaceRefPose.Num() == RefSkeleton.GetNum());
 
 	const int32 NumJoint = RefSkeleton.GetRawBoneNum();
 	// allocate buffer

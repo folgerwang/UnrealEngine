@@ -2630,9 +2630,6 @@ void SSCS_RowWidget::OnAttachToDropAction(const TArray<FSCSEditorTreeNodePtrType
 
 void SSCS_RowWidget::OnDetachFromDropAction(const TArray<FSCSEditorTreeNodePtrType>& DroppedNodePtrs)
 {
-	FSCSEditorTreeNodePtrType NodePtr = GetNode();
-
-	check(NodePtr.IsValid());
 	check(DroppedNodePtrs.Num() > 0);
 
 	TSharedPtr<SSCSEditor> SCSEditorPtr = SCSEditor.Pin();
@@ -2646,7 +2643,7 @@ void SSCS_RowWidget::OnDetachFromDropAction(const TArray<FSCSEditorTreeNodePtrTy
 		AActor* PreviewActor = SCSEditorPtr->PreviewActor.Get();
 		check(PreviewActor);
 
-		for(const auto& DroppedNodePtr : DroppedNodePtrs)
+		for (const FSCSEditorTreeNodePtrType& DroppedNodePtr : DroppedNodePtrs)
 		{
 			FVector OldRelativeLocation, OldRelativeScale3D;
 			FRotator OldRelativeRotation;
@@ -2654,7 +2651,9 @@ void SSCS_RowWidget::OnDetachFromDropAction(const TArray<FSCSEditorTreeNodePtrTy
 			check(DroppedNodePtr.IsValid());
 
 			// Detach the node from its parent
-			NodePtr->RemoveChild(DroppedNodePtr);
+			FSCSEditorTreeNodePtrType ParentNodePtr = DroppedNodePtr->GetParent();
+			check(ParentNodePtr.IsValid());
+			ParentNodePtr->RemoveChild(DroppedNodePtr);
 
 			// If the associated component template is a scene component, maintain its current world position
 			USceneComponent* SceneComponentTemplate = Cast<USceneComponent>(DroppedNodePtr->GetComponentTemplate());
@@ -2741,12 +2740,14 @@ void SSCS_RowWidget::OnDetachFromDropAction(const TArray<FSCSEditorTreeNodePtrTy
 	}
 	else    // EComponentEditorMode::ActorInstance
 	{
-		for(const auto& DroppedNodePtr : DroppedNodePtrs)
+		for (const FSCSEditorTreeNodePtrType& DroppedNodePtr : DroppedNodePtrs)
 		{
 			check(DroppedNodePtr.IsValid());
 
 			// Detach the node from its parent
-			NodePtr->RemoveChild(DroppedNodePtr);
+			FSCSEditorTreeNodePtrType ParentNodePtr = DroppedNodePtr->GetParent();
+			check(ParentNodePtr.IsValid());
+			ParentNodePtr->RemoveChild(DroppedNodePtr);
 
 			// Attach the dropped node to the current scene root node
 			check(SCSEditorPtr->SceneRootNodePtr.IsValid());
@@ -4095,7 +4096,9 @@ void SSCSEditor::OnDuplicateComponent()
 		{
 			if (UActorComponent* ComponentTemplate = SelectedNodes[i]->GetComponentTemplate())
 			{
-				UActorComponent* CloneComponent = AddNewComponent(ComponentTemplate->GetClass(), ComponentTemplate);
+				USCS_Node* SCSNode = SelectedNodes[i]->GetSCSNode();
+				check(SCSNode == nullptr || SCSNode->ComponentTemplate == ComponentTemplate);
+				UActorComponent* CloneComponent = AddNewComponent(ComponentTemplate->GetClass(), (SCSNode ? (UObject*)SCSNode : ComponentTemplate));
 				if (USceneComponent* SceneClone = Cast<USceneComponent>(CloneComponent))
 				{
 					DuplicateSceneComponentMap.Add(CastChecked<USceneComponent>(ComponentTemplate), SceneClone);
@@ -5116,14 +5119,30 @@ UActorComponent* SSCSEditor::AddNewComponent( UClass* NewComponentClass, UObject
 		return nullptr;
 	}
 
+	// If an 'add' transaction is ongoing, it is most likely because AddNewComponent() is being called in a tight loop inside a larger transaction (e.g. 'duplicate')
+	// and bSetFocusToNewItem was true for each element.
+	if (DeferredOngoingCreateTransaction.IsValid() && bSetFocusToNewItem)
+	{
+		// Close the ongoing 'add' sub-transaction before staring another one. The user will not be able to edit the name of that component because the
+		// new component is going to still focus.
+		DeferredOngoingCreateTransaction.Reset();
+	}
+
 	// Begin a transaction. The transaction will end when the component name will be provided/confirmed by the user.
-	check(!DeferredOngoingCreateTransaction.IsValid())
 	TUniquePtr<FScopedTransaction> AddTransaction = MakeUnique<FScopedTransaction>( LOCTEXT("AddComponent", "Add Component") );
 
 	UActorComponent* NewComponent = nullptr;
-	UActorComponent* ComponentTemplate = Cast<UActorComponent>(Asset);
+	FName TemplateVariableName;
 
-	if (ComponentTemplate)
+	USCS_Node* SCSNode = Cast<USCS_Node>(Asset);
+	UActorComponent* ComponentTemplate = (SCSNode ? SCSNode->ComponentTemplate : Cast<UActorComponent>(Asset));
+
+	if (SCSNode)
+	{
+		TemplateVariableName = SCSNode->GetVariableName();
+		Asset = nullptr;
+	}
+	else if (ComponentTemplate)
 	{
 		Asset = nullptr;
 	}
@@ -5146,10 +5165,17 @@ UActorComponent* SSCSEditor::AddNewComponent( UClass* NewComponentClass, UObject
 		FName NewVariableName;
 		if (ComponentTemplate)
 		{
-			FString TemplateName = ComponentTemplate->GetName();
-			NewVariableName = (TemplateName.EndsWith(USimpleConstructionScript::ComponentTemplateNameSuffix) 
-								? FName(*TemplateName.LeftChop(USimpleConstructionScript::ComponentTemplateNameSuffix.Len()))
-								: ComponentTemplate->GetFName());
+			if (!TemplateVariableName.IsNone())
+			{
+				NewVariableName = TemplateVariableName;
+			}
+			else
+			{
+				FString TemplateName = ComponentTemplate->GetName();
+				NewVariableName = (TemplateName.EndsWith(USimpleConstructionScript::ComponentTemplateNameSuffix) 
+									? FName(*TemplateName.LeftChop(USimpleConstructionScript::ComponentTemplateNameSuffix.Len()))
+									: ComponentTemplate->GetFName());
+			}
 		}
 		else if (Asset)
 		{
@@ -6204,7 +6230,7 @@ void SSCSEditor::OnRenameComponent(TUniquePtr<FScopedTransaction> InComponentCre
 
 	SCSTreeWidget->RequestScrollIntoView(SelectedItems[0]);
 
-	if (DeferredOngoingCreateTransaction.IsValid())
+	if (DeferredOngoingCreateTransaction.IsValid() && !PostTickHandle.IsValid())
 	{
 		// Ensure the item will be scrolled into view during the frame (See explanation in OnPostTick()).
 		PostTickHandle = FSlateApplication::Get().OnPostTick().AddSP(this, &SSCSEditor::OnPostTick);
@@ -6221,6 +6247,7 @@ void SSCSEditor::OnPostTick(float)
 
 	// The post tick event handler is not required anymore.
 	FSlateApplication::Get().OnPostTick().Remove(PostTickHandle);
+	PostTickHandle.Reset();
 }
 
 bool SSCSEditor::CanRenameComponent() const

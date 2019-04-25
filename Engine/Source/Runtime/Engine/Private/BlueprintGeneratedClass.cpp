@@ -316,16 +316,35 @@ void UBlueprintGeneratedClass::SerializeDefaultObject(UObject* Object, FArchive&
 		// @TODO - Potentially make this serializable (or cooked data) to eliminate the slight load time cost we'll incur below to generate this list in a cooked build. For now, it's not serialized since the raw UProperty references cannot be saved out.
 		UpdateCustomPropertyListForPostConstruction();
 
+		const FString BPGCName = GetName();
+		auto BuildCachedPropertyDataLambda = [BPGCName](FBlueprintCookedComponentInstancingData& CookedData, UActorComponent* SourceTemplate, FString CompVarName)
+		{
+			if (CookedData.bIsValid)
+			{
+				// This feature requires EDL at cook time, so ensure that the source template is also fully loaded at this point.
+				if (SourceTemplate != nullptr
+					&& ensure(!SourceTemplate->HasAnyFlags(RF_NeedLoad)))
+				{
+					CookedData.BuildCachedPropertyDataFromTemplate(SourceTemplate);
+				}
+				else
+				{
+					// This situation is unexpected; templates that are filtered out by context should not be generating fast path data at cook time. Emit a warning about this.
+					UE_LOG(LogBlueprint, Warning, TEXT("BPComp fast path (%s.%s) : Invalid source template. Will use slow path for dynamic instancing."), *BPGCName, *CompVarName);
+
+					// Invalidate the cooked data so that we fall back to using the slow path when dynamically instancing this node.
+					CookedData.bIsValid = false;
+				}
+			}
+		};
+
 		// Generate "fast path" instancing data for inherited SCS node templates. This data may also be used to support inherited SCS component default value overrides
 		// in a nativized, cooked build, in which this Blueprint class inherits from a nativized Blueprint parent. See CheckAndApplyComponentTemplateOverrides() below.
 		if (InheritableComponentHandler && (bHasCookedComponentInstancingData || bHasNativizedParent))
 		{
 			for (auto RecordIt = InheritableComponentHandler->CreateRecordIterator(); RecordIt; ++RecordIt)
 			{
-				if (RecordIt->ComponentTemplate && RecordIt->CookedComponentInstancingData.bIsValid)
-				{
-					RecordIt->CookedComponentInstancingData.BuildCachedPropertyDataFromTemplate(RecordIt->ComponentTemplate);
-				}
+				BuildCachedPropertyDataLambda(RecordIt->CookedComponentInstancingData, RecordIt->ComponentTemplate, RecordIt->ComponentKey.GetSCSVariableName().ToString());
 			}
 		}
 
@@ -337,10 +356,7 @@ void UBlueprintGeneratedClass::SerializeDefaultObject(UObject* Object, FArchive&
 				const TArray<USCS_Node*>& AllSCSNodes = SimpleConstructionScript->GetAllNodes();
 				for (USCS_Node* SCSNode : AllSCSNodes)
 				{
-					if (SCSNode->ComponentTemplate && SCSNode->CookedComponentInstancingData.bIsValid)
-					{
-						SCSNode->CookedComponentInstancingData.BuildCachedPropertyDataFromTemplate(SCSNode->ComponentTemplate);
-					}
+					BuildCachedPropertyDataLambda(SCSNode->CookedComponentInstancingData, SCSNode->ComponentTemplate, SCSNode->GetVariableName().ToString());
 				}
 			}
 
@@ -351,12 +367,10 @@ void UBlueprintGeneratedClass::SerializeDefaultObject(UObject* Object, FArchive&
 				{
 					if (ComponentTemplate)
 					{
-						if (FBlueprintCookedComponentInstancingData* ComponentInstancingData = CookedComponentInstancingData.Find(ComponentTemplate->GetFName()))
+						FBlueprintCookedComponentInstancingData* ComponentInstancingData = CookedComponentInstancingData.Find(ComponentTemplate->GetFName());
+						if (ComponentInstancingData != nullptr)
 						{
-							if (ComponentInstancingData->bIsValid)
-							{
-								ComponentInstancingData->BuildCachedPropertyDataFromTemplate(ComponentTemplate);
-							}
+							BuildCachedPropertyDataLambda(*ComponentInstancingData, ComponentTemplate, ComponentTemplate->GetName());
 						}
 					}
 				}
@@ -1397,6 +1411,13 @@ void UBlueprintGeneratedClass::GetDefaultObjectPreloadDependencies(TArray<UObjec
 			const TArray<USCS_Node*>& AllSCSNodes = CurrentBPClass->SimpleConstructionScript->GetAllNodes();
 			for (USCS_Node* SCSNode : AllSCSNodes)
 			{
+				// An SCS node that's owned by this class must also be considered a preload dependency since we will access its serialized template reference property. Any SCS
+				// nodes that are inherited from a parent class will reference templates through the ICH instead, and that's already a preload dependency on the BP class itself.
+				if (CurrentBPClass == this)
+				{
+					OutDeps.Add(SCSNode);
+				}
+
 				OutDeps.Add(SCSNode->GetActualComponentTemplate(this));
 			}
 		}
@@ -1755,46 +1776,31 @@ void FBlueprintCookedComponentInstancingData::BuildCachedPropertyDataFromTemplat
 		}
 	};
 
-	if (bIsValid)
+	checkSlow(bIsValid);
+	checkSlow(SourceTemplate != nullptr);
+	checkSlow(!SourceTemplate->HasAnyFlags(RF_NeedLoad));
+
+	// Cache source template attributes needed for instancing.
+	ComponentTemplateName = SourceTemplate->GetFName();
+	ComponentTemplateClass = SourceTemplate->GetClass();
+	ComponentTemplateFlags = SourceTemplate->GetFlags();
+
+	// This will also load the cached property list, if necessary.
+	const FCustomPropertyListNode* PropertyList = GetCachedPropertyList();
+
+	// Make sure we don't have any previously-built data.
+	if (!ensure(CachedPropertyData.Num() == 0))
 	{
-		if (SourceTemplate)
-		{
-			// Make sure the source template has been loaded.
-			if (SourceTemplate->HasAnyFlags(RF_NeedLoad))
-			{
-				if (FLinkerLoad* Linker = SourceTemplate->GetLinker())
-				{
-					Linker->Preload(SourceTemplate);
-				}
-			}
+		DEC_MEMORY_STAT_BY(STAT_BPCompInstancingFastPathMemory, CachedPropertyData.GetAllocatedSize());
 
-			// Cache source template attributes needed for instancing.
-			ComponentTemplateName = SourceTemplate->GetFName();
-			ComponentTemplateClass = SourceTemplate->GetClass();
-			ComponentTemplateFlags = SourceTemplate->GetFlags();
-
-			// This will also load the cached property list, if necessary.
-			const FCustomPropertyListNode* PropertyList = GetCachedPropertyList();
-
-			// Make sure we don't have any previously-built data.
-			if (!ensure(CachedPropertyData.Num() == 0))
-			{
-				DEC_MEMORY_STAT_BY(STAT_BPCompInstancingFastPathMemory, CachedPropertyData.GetAllocatedSize());
-
-				CachedPropertyData.Empty();
-			}
-
-			// Write template data out to the "fast path" buffer. All dependencies will be loaded at this point.
-			FBlueprintComponentInstanceDataWriter InstanceDataWriter(CachedPropertyData, PropertyList);
-			SourceTemplate->Serialize(InstanceDataWriter);
-
-			INC_MEMORY_STAT_BY(STAT_BPCompInstancingFastPathMemory, CachedPropertyData.GetAllocatedSize());
-		}
-		else
-		{
-			bIsValid = false;
-		}
+		CachedPropertyData.Empty();
 	}
+
+	// Write template data out to the "fast path" buffer. All dependencies will be loaded at this point.
+	FBlueprintComponentInstanceDataWriter InstanceDataWriter(CachedPropertyData, PropertyList);
+	SourceTemplate->Serialize(InstanceDataWriter);
+
+	INC_MEMORY_STAT_BY(STAT_BPCompInstancingFastPathMemory, CachedPropertyData.GetAllocatedSize());
 }
 
 bool UBlueprintGeneratedClass::ArePropertyGuidsAvailable() const

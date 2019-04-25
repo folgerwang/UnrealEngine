@@ -7,6 +7,14 @@
 #include "D3D11RHIPrivate.h"
 #include "UniformBuffer.h"
 
+
+
+#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
+constexpr EUniformBufferValidation UniformBufferValidation = EUniformBufferValidation::ValidateResources;
+#else
+constexpr EUniformBufferValidation UniformBufferValidation = EUniformBufferValidation::None;
+#endif
+
 /** Describes a uniform buffer in the free pool. */
 struct FPooledUniformBuffer
 {
@@ -295,11 +303,16 @@ void FD3D11DynamicRHI::RHIUpdateUniformBuffer(FUniformBufferRHIParamRef UniformB
 		{
 			FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.Resources[ResourceIndex].MemberOffset);
 
-			checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."),
-				*Layout.GetDebugName().ToString(),
-				ResourceIndex,
-				Layout.Resources[ResourceIndex].MemberType);
-
+			if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1
+				&& (Layout.Resources[ResourceIndex].MemberType == UBMT_SRV || Layout.Resources[ResourceIndex].MemberType == UBMT_RDG_TEXTURE_SRV || Layout.Resources[ResourceIndex].MemberType == UBMT_RDG_BUFFER_SRV))
+				&& UniformBufferValidation == EUniformBufferValidation::ValidateResources)
+			{
+				checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."),
+					*Layout.GetDebugName().ToString(),
+					ResourceIndex,
+					Layout.Resources[ResourceIndex].MemberType);
+			}
+	
 			UniformBuffer->ResourceTable[ResourceIndex] = Resource;
 		}
 	}
@@ -316,10 +329,15 @@ void FD3D11DynamicRHI::RHIUpdateUniformBuffer(FUniformBufferRHIParamRef UniformB
 			{
 				FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.Resources[ResourceIndex].MemberOffset);
 
-				checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."),
-					*Layout.GetDebugName().ToString(),
-					ResourceIndex,
-					Layout.Resources[ResourceIndex].MemberType);
+				if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1
+					&& (Layout.Resources[ResourceIndex].MemberType == UBMT_SRV || Layout.Resources[ResourceIndex].MemberType == UBMT_RDG_TEXTURE_SRV || Layout.Resources[ResourceIndex].MemberType == UBMT_RDG_BUFFER_SRV))
+					&& UniformBufferValidation == EUniformBufferValidation::ValidateResources)
+				{
+					checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."),
+						*Layout.GetDebugName().ToString(),
+						ResourceIndex,
+						Layout.Resources[ResourceIndex].MemberType);
+				}
 
 				CmdListResources[ResourceIndex] = Resource;
 			}
