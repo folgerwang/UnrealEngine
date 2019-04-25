@@ -337,27 +337,35 @@ namespace Audio
 		return PlatformSettings;
 	}
 
-	static bool bSuspended = false;
-
 	void FMixerPlatformAndroid::SuspendContext()
 	{
+		FScopeLock ScopeLock(&SuspendedCriticalSection);
+
 		if (!bSuspended)
 		{
-			bSuspended = true;
+			UE_LOG(LogAudioMixerAndroid, Display, TEXT("Suspending android audio renderer"));
+
 			// set the player's state to paused
 			SLresult result = (*SL_PlayerPlayInterface)->SetPlayState(SL_PlayerPlayInterface, SL_PLAYSTATE_PAUSED);
 			check(SL_RESULT_SUCCESS == result);
+
+			bSuspended = true;
 		}
 	}
 
 	void FMixerPlatformAndroid::ResumeContext()
 	{
+		FScopeLock ScopeLock(&SuspendedCriticalSection);
+
 		// set the player's state to paused
 		if (bSuspended)
 		{
-			bSuspended = false;
+			UE_LOG(LogAudioMixerAndroid, Display, TEXT("Resuming android audio renderer"));
+
 			SLresult result = (*SL_PlayerPlayInterface)->SetPlayState(SL_PlayerPlayInterface, SL_PLAYSTATE_PLAYING);
 			check(SL_RESULT_SUCCESS == result);
+
+			bSuspended = false;
 		}
 	}
 

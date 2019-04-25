@@ -53,6 +53,8 @@ namespace Audio
 		SLPlayItf SL_PlayerPlayInterface;
 		SLAndroidSimpleBufferQueueItf SL_PlayerBufferQueue;
 
+		FCriticalSection SuspendedCriticalSection;
+
 		bool bSuspended;
 		bool bInitialized;
 		bool bInCallback;

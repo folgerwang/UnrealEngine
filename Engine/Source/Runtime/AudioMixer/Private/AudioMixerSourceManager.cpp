@@ -111,6 +111,9 @@ namespace Audio
 		const bool bIsManualReset = true;
 		CommandsProcessedEvent = FPlatformProcess::GetSynchEventFromPool(bIsManualReset);
 		check(CommandsProcessedEvent != nullptr);
+
+		// Immediately trigger the command processed in case a flush happens before the audio thread swaps command buffers
+		CommandsProcessedEvent->Trigger();
 	}
 
 	FMixerSourceManager::~FMixerSourceManager()
@@ -2412,6 +2415,7 @@ namespace Audio
 		// Add the function to the command queue
 		int32 AudioThreadCommandIndex = AudioThreadCommandBufferIndex.GetValue();
 		CommandBuffers[AudioThreadCommandIndex].SourceCommandQueue.Add(MoveTemp(InFunction));
+		NumCommands.Increment();
 	}
 
 	void FMixerSourceManager::PumpCommandQueue()
@@ -2434,6 +2438,7 @@ namespace Audio
 		{
 			TFunction<void()>& CommandFunction = Commands.SourceCommandQueue[Id];
 			CommandFunction();
+			NumCommands.Decrement();
 		}
 
 		Commands.SourceCommandQueue.Reset();
@@ -2454,14 +2459,37 @@ namespace Audio
 	{
 		check(CommandsProcessedEvent != nullptr);
 
+		// If we have no commands enqueued, exit
+		if (NumCommands.GetValue() == 0)
+		{
+			UE_LOG(LogAudioMixer, Display, TEXT("No commands were queued while flushing the source manager."));
+			return;
+		}
+
 		// Make sure current current executing 
-		CommandsProcessedEvent->Wait();
+		if (!CommandsProcessedEvent->Wait(1000))
+		{
+			CommandsProcessedEvent->Trigger();
+			UE_LOG(LogAudioMixer, Warning, TEXT("Timed out waiting to flush the source manager command queue (1)."));
+		}
+		else
+		{
+			UE_LOG(LogAudioMixer, Display, TEXT("Flush succeeded in the source manager command queue (1)."));
+		}
 
 		// Call update to trigger a final pump of commands
 		Update();
 
 		// Wait one more time for the double pump
-		CommandsProcessedEvent->Wait();
+		if (!CommandsProcessedEvent->Wait(1000))
+		{
+			CommandsProcessedEvent->Trigger();
+			UE_LOG(LogAudioMixer, Warning, TEXT("Timed out waiting to flush the source manager command queue (2)."));
+		}
+		else
+		{
+			UE_LOG(LogAudioMixer, Display, TEXT("Flush succeeded the source manager command queue (2)."));
+		}
 	}
 
 	void FMixerSourceManager::UpdatePendingReleaseData(bool bForceWait)

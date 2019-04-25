@@ -548,6 +548,9 @@ namespace Audio
 		int32 NumOutputSamples;
 		int32 NumSourceWorkers;
 
+		// Commands queued up to execute
+		FThreadSafeCounter NumCommands;
+
 		uint8 bInitialized : 1;
 		uint8 bUsingSpatializationPlugin : 1;
 
