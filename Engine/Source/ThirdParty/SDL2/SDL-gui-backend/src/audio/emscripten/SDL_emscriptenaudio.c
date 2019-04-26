@@ -30,6 +30,8 @@
 
 #include <emscripten/emscripten.h>
 
+#define EPIC_EDIT__THIS_STREAM  (this->stream && (this->stream != (SDL_AudioStream *)0xffffffff))
+
 static void
 FeedAudioDevice(_THIS, const void *buf, const int buflen)
 {
@@ -55,9 +57,22 @@ HandleAudioProcess(_THIS)
     SDL_AudioCallback callback = this->callbackspec.callback;
     const int stream_len = this->callbackspec.size;
 
+    int enabled = SDL_AtomicGet(&this->enabled);
+    int paused  = SDL_AtomicGet(&this->paused);
+    int shutdown  = SDL_AtomicGet(&this->shutdown);
+    if ( (enabled & 0xfffffffe) || (paused & 0xfffffffe) || (shutdown & 0xfffffffe) ||
+         (this->id > 16) ) {
+        // UE-71969 -- audio device seem to have been deleted...
+        // XXX something is nuking the audio device (outside of SDL2?) and in single threaded builds
+        // XXX will revisit this after 4.23
+        return;
+    }
+
     /* Only do something if audio is enabled */
-    if (!SDL_AtomicGet(&this->enabled) || SDL_AtomicGet(&this->paused)) {
-        if (this->stream) {
+//  if (!SDL_AtomicGet(&this->enabled) || SDL_AtomicGet(&this->paused)) {
+//      if (this->stream) {
+    if (!enabled || paused) {
+        if (EPIC_EDIT__THIS_STREAM) {
             SDL_AudioStreamClear(this->stream);
         }
         return;
@@ -66,9 +81,13 @@ HandleAudioProcess(_THIS)
     if (this->stream == NULL) {  /* no conversion necessary. */
         SDL_assert(this->spec.size == stream_len);
         callback(this->callbackspec.userdata, this->work_buffer, stream_len);
+    } else if (this->stream == 0xffffffff) {
+        // UE-71969 -- in the middle of creation or destroy?
     } else {  /* streaming/converting */
         int got;
-        while (SDL_AudioStreamAvailable(this->stream) < ((int) this->spec.size)) {
+//      while (SDL_AudioStreamAvailable(this->stream) < ((int) this->spec.size)) {
+        while ( EPIC_EDIT__THIS_STREAM &&
+                (SDL_AudioStreamAvailable(this->stream) < ((int) this->spec.size))) {
             callback(this->callbackspec.userdata, this->work_buffer, stream_len);
             if (SDL_AudioStreamPut(this->stream, this->work_buffer, stream_len) == -1) {
                 SDL_AudioStreamClear(this->stream);
@@ -77,14 +96,18 @@ HandleAudioProcess(_THIS)
             }
         }
 
-        got = SDL_AudioStreamGet(this->stream, this->work_buffer, this->spec.size);
-        SDL_assert((got < 0) || (got == this->spec.size));
-        if (got != this->spec.size) {
-            SDL_memset(this->work_buffer, this->spec.silence, this->spec.size);
+        if (EPIC_EDIT__THIS_STREAM) {
+            got = SDL_AudioStreamGet(this->stream, this->work_buffer, this->spec.size);
+            SDL_assert((got < 0) || (got == this->spec.size));
+            if (got != this->spec.size) {
+                SDL_memset(this->work_buffer, this->spec.silence, this->spec.size);
+            }
         }
     }
 
-    FeedAudioDevice(this, this->work_buffer, this->spec.size);
+    if ( this->spec.size > 0 ) { // UE-71969 -- jic in the middle of creation or destroy...
+        FeedAudioDevice(this, this->work_buffer, this->spec.size);
+    }
 }
 
 static void
