@@ -7,12 +7,14 @@
 
 #include "Windows/WindowsHWrapper.h"
 #include "Windows/AllowWindowsPlatformTypes.h"
+THIRD_PARTY_INCLUDES_START
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include "WinSock2.h"
 #include "Ws2tcpip.h"
 #include "iphlpapi.h"
 #include "IcmpAPI.h"
 #undef _WINSOCK_DEPRECATED_NO_WARNINGS
+THIRD_PARTY_INCLUDES_END
 #include "Windows/HideWindowsPlatformTypes.h"
 
 #if PLATFORM_32BITS
