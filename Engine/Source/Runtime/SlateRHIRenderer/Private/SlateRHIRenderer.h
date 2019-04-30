@@ -63,6 +63,8 @@ struct FViewportInfo : public FRenderResource
 	/** sRGB UI render target */
 	TRefCountPtr<IPooledRenderTarget> UITargetRT;
 	TRefCountPtr<IPooledRenderTarget> UITargetRTMask;
+	/** Copy of the HDR backbuffer */
+	TRefCountPtr<IPooledRenderTarget> HDRSourceRT;
 
 	/** Color-space LUT for HDR UI composition. */
 	FTexture3DRHIRef ColorSpaceLUTRT;
