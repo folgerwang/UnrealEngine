@@ -64,7 +64,6 @@ void FMeshMergeHelpers::ExtractSections(const UStaticMeshComponent* Component, i
 #endif
 	}
 
-	const bool bMirrored = Component->GetComponentToWorld().GetDeterminant() < 0.f;
 	for (const FStaticMeshSection& MeshSection : StaticMesh->RenderData->LODResources[LODIndex].Sections)
 	{
 		// Retrieve material for this section
@@ -80,14 +79,6 @@ void FMeshMergeHelpers::ExtractSections(const UStaticMeshComponent* Component, i
 		SectionInfo.MaterialSlotName = MaterialSlotNames.IsValidIndex(MeshSection.MaterialIndex) ? MaterialSlotNames[MeshSection.MaterialIndex] : NAME_None;
 		SectionInfo.StartIndex = MeshSection.FirstIndex / 3;
 		SectionInfo.EndIndex = SectionInfo.StartIndex + MeshSection.NumTriangles;
-
-		// In case the object is mirrored the material indices/vertex data will be reversed in place, so we need to adjust the sections accordingly
-		if (bMirrored)
-		{
-			const uint32 NumTriangles = StaticMesh->RenderData->LODResources[LODIndex].GetNumTriangles();
-			SectionInfo.StartIndex = NumTriangles - SectionInfo.EndIndex;
-			SectionInfo.EndIndex = SectionInfo.StartIndex + MeshSection.NumTriangles;
-		}
 
 		if (MeshSection.bEnableCollision)
 		{
