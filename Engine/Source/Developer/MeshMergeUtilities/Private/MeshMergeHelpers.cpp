@@ -1183,7 +1183,6 @@ void FMeshMergeHelpers::AppendRawMesh(FMeshDescription& InTarget, const FMeshDes
 	{
 		if (!InTarget.IsPolygonGroupValid(SourcePolygonGroupID))
 		{
-			InTarget.CreatePolygonGroupWithID(SourcePolygonGroupID);
 			const FName BaseName = SourcePolygonGroupImportedMaterialSlotNames[SourcePolygonGroupID];
 			FName CurrentTestName = BaseName;
 			int32 UniqueID = 1;
@@ -1199,6 +1198,8 @@ void FMeshMergeHelpers::AppendRawMesh(FMeshDescription& InTarget, const FMeshDes
 					}
 				}
 			} while (!bUnique);
+
+			InTarget.CreatePolygonGroupWithID(SourcePolygonGroupID);
 			TargetPolygonGroupImportedMaterialSlotNames[SourcePolygonGroupID] = CurrentTestName;
 		}
 	}
