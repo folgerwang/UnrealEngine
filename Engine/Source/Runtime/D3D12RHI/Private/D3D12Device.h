@@ -11,6 +11,7 @@ D3D12Device.h: D3D12 Device Interfaces
 class FD3D12DynamicRHI;
 class FD3D12BasicRayTracingPipeline;
 class FD3D12RayTracingDescriptorHeapCache;
+class FD3D12RayTracingPipelineCache;
 
 class FD3D12Device : public FD3D12SingleNodeGPUObject, public FNoncopyable, public FD3D12AdapterChild
 {
@@ -47,6 +48,7 @@ public:
 	ID3D12Device5*							GetRayTracingDevice();
 	const FD3D12BasicRayTracingPipeline*	GetBasicRayTracingPipeline() const { return BasicRayTracingPipeline; }
 	FD3D12RayTracingDescriptorHeapCache*	GetRayTracingDescriptorHeapCache() { return RayTracingDescriptorHeapCache; }
+	FD3D12RayTracingPipelineCache*			GetRayTracingPipelineCache() { return RayTracingPipelineCache; }
 #endif // D3D12_RHI_RAYTRACING
 
 	FD3D12DynamicRHI* GetOwningRHI();
@@ -187,7 +189,7 @@ protected:
 
 #if D3D12_RHI_RAYTRACING
 	FD3D12BasicRayTracingPipeline* BasicRayTracingPipeline = nullptr;
-
+	FD3D12RayTracingPipelineCache* RayTracingPipelineCache = nullptr;
 	// #dxr_todo: unify RT descriptor cache with main FD3D12DescriptorCache
 	FD3D12RayTracingDescriptorHeapCache* RayTracingDescriptorHeapCache = nullptr;
 	void DestroyRayTracingDescriptorCache();
