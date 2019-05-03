@@ -79,7 +79,7 @@ namespace Audio
 	};
 
 	// Return nullptr when creating impl
-	TUniquePtr<FAudioCaptureImpl> FAudioCapture::CreateImpl()
+	FORCEINLINE TUniquePtr<FAudioCaptureImpl> FAudioCapture::CreateImpl()
 	{
 		return nullptr;
 	}
