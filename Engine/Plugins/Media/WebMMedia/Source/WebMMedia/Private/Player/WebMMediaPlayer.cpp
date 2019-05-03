@@ -263,6 +263,12 @@ void FWebMMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 				AudioFrames.Add(Frame);
 			}
 		}
+
+		// Make sure we're not decoding too much at once as it is GPU memory intensive.
+		if (VideoFrames.Num() > 20)
+		{
+			break;
+		}
 	}
 
 	// Trigger video decoding
