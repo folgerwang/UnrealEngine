@@ -283,7 +283,9 @@ void _HTML5CreateContext(FPlatformOpenGLDevice* Device, void* InWindowHandle)
 		// New explicit swapping support is only available in multithreaded mode.
 		if (FHTML5Misc::AllowRenderThread())
 		{
-			attr.explicitSwapControl = 0;
+// UE-71696 force to explicitSwapControl when using OFFSCREEN_FRAMEBUFFER
+//			attr.explicitSwapControl = 0;
+attr.explicitSwapControl = 1;
 			UE_LOG(LogRHI, Log, TEXT("Multithreading enabled, targeting explicitSwapControl=0"));
 
 			// Rendering thread requires access to a WebGL context from multiple threads, in which case
@@ -405,7 +407,8 @@ bool PlatformBlitToViewport( FPlatformOpenGLDevice* Device, const FOpenGLViewpor
 #ifdef __EMSCRIPTEN_PTHREADS__
 	if ( GUseThreadedRendering )
 	{
-		if (!FHTML5Misc::AllowRenderThread())
+// UE-71696 ue4 will handle when to call commit whether using OFFSCREEN_FRAMEBUFFER or OFFSCREEN_CANVAS
+//		if (!FHTML5Misc::AllowRenderThread())
 		{
 			// In multithreaded builds, we always use Emscripten's explicit swap mode, where we present on demand.
 			// In singlethreaded builds, this does not exist, and we rely on WebGL's "implicit" swap behavior where exiting the animation tick handler() always swaps.
