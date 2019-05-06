@@ -579,6 +579,11 @@ static bool BlueprintActionDatabaseImpl::IsBlueprintInterfaceFunction(const UFun
 			for (int32 InterfaceIndex = 0; (InterfaceIndex < BpOuter->ImplementedInterfaces.Num()) && !bIsBpInterfaceFunc; ++InterfaceIndex)
 			{
 				FBPInterfaceDescription& InterfaceDesc = BpOuter->ImplementedInterfaces[InterfaceIndex];
+				if(!InterfaceDesc.Interface)
+				{
+					continue;
+				}
+
 				bIsBpInterfaceFunc = (InterfaceDesc.Interface->FindFunctionByName(FuncName) != nullptr);
 			}
 		}
