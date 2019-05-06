@@ -1355,7 +1355,6 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 			{				
 				if (GGameThreadLoadCounter == 0)
 				{
-					check(!Linker->GetSerializeContext());
 					// Sanity check to make sure that Linker is the linker that loaded our Result package or the linker has already been detached
 					check(!Result || Result->LinkerLoad == Linker || Result->LinkerLoad == nullptr);
 					if (Result && Linker->HasLoader())
