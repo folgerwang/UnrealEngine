@@ -76,13 +76,6 @@ void UStaticMesh::Build(bool bSilent, TArray<FText>* OutErrors)
 	if (IsTemplate())
 		return;
 
-	// If we're controlled by an editable mesh do not build. The editable mesh will build us
-	if (EditableMesh)
-	{
-		return;
-	}
-
-
 	if (SourceModels.Num() <= 0)
 	{
 		UE_LOG(LogStaticMesh,Warning,TEXT("Static mesh has no source models: %s"),*GetPathName());
@@ -114,6 +107,16 @@ void UStaticMesh::Build(bool bSilent, TArray<FText>* OutErrors)
 	// Flush the resource release commands to the rendering thread to ensure that the build doesn't occur while a resource is still
 	// allocated, and potentially accessing the UStaticMesh.
 	ReleaseResourcesFence.Wait();
+
+	// If we're controlled by an editable mesh do not build. The editable mesh will build us
+	if (EditableMesh)
+	{
+		if (FApp::CanEverRender())
+		{
+			InitResources();
+		}
+		return;
+	}
 
 	// Remember the derived data key of our current render data if any.
 	FString ExistingDerivedDataKey = RenderData ? RenderData->DerivedDataKey : TEXT("");
