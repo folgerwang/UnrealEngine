@@ -1347,7 +1347,11 @@ public:
 			}
 		}
 
-		// We can no longer fail, set the correct name on the new struct
+		// We can no longer fail, so prepare the old struct for removal and set the correct name on the new struct
+		if (OldStruct)
+		{
+			PrepareOldStructForReinstancing();
+		}
 		NewStruct->Rename(*StructName, nullptr, REN_DontCreateRedirectors);
 
 		// Finalize the struct
