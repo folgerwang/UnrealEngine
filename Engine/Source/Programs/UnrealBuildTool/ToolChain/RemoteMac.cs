@@ -851,6 +851,9 @@ namespace UnrealBuildTool
 				TargetFiles.Add(TargetFile);
 			}
 
+			Execute("/", String.Format("rm -rf {0}/Intermediate/IOS/*.plist", GetRemotePath(UnrealBuildTool.EngineDirectory)));
+			Execute("/", String.Format("rm -rf {0}/Intermediate/TVOS/*.plist", GetRemotePath(UnrealBuildTool.EngineDirectory)));
+
 			// Write a file that protects all the scripts from being overridden by the standard engine filters
 			FileReference ScriptProtectList = FileReference.Combine(TempDir, "RsyncEngineScripts-Protect.txt");
 			using(StreamWriter Writer = new StreamWriter(ScriptProtectList.FullName))
