@@ -2509,7 +2509,7 @@ public:
 	void DestroyWorld( bool bInformEngineOfWorld, UWorld* NewWorld = nullptr );
 
 	/** 
-	 * Marks all objects that have this World as an Outer as pending kill
+	 * Marks this world and all objects within as pending kill
 	 */
 	void MarkObjectsPendingKill();
 
