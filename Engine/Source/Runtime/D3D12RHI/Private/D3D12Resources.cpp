@@ -8,7 +8,8 @@ D3D12Resources.cpp: D3D RHI utility implementation.
 #include "EngineModule.h"
 #include "HAL/LowLevelMemTracker.h"
 
-int32 GD3D12AsyncDeferredDeletion = ASYNC_DEFERRED_DELETION;
+D3D12RHI_API int32 GD3D12AsyncDeferredDeletion = ASYNC_DEFERRED_DELETION;
+
 static FAutoConsoleVariableRef CVarAsyncDeferredDeletion(
 	TEXT("D3D12.AsyncDeferredDeletion"),
 	GD3D12AsyncDeferredDeletion,

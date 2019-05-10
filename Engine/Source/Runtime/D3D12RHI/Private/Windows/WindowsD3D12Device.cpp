@@ -394,7 +394,7 @@ void FD3D12DynamicRHIModule::FindAdapter()
 	{
 		UE_LOG(LogD3D12RHI, Log, TEXT("Forcing D3D12.AsyncDeferredDeletion=0 as a workaround for a deadlock on hybrid NVIDIA+Intel systems."));
 
-		extern RHI_API int32 GD3D12AsyncDeferredDeletion;
+		extern D3D12RHI_API int32 GD3D12AsyncDeferredDeletion;
 		GD3D12AsyncDeferredDeletion = 0;
 	}
 
