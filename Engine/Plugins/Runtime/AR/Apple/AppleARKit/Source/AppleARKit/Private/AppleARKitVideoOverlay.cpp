@@ -240,6 +240,9 @@ void FAppleARKitVideoOverlay::UpdateVideoTexture_RenderThread(FRHICommandListImm
 
 			FExternalTextureRegistry::Get().RegisterExternalTexture(ARKitPassthroughCameraExternalTextureYGuid, VideoTextureY, SamplerStateRHI);
 			FExternalTextureRegistry::Get().RegisterExternalTexture(ARKitPassthroughCameraExternalTextureCbCrGuid, VideoTextureCbCr, SamplerStateRHI);
+			
+			//Make sure AR camera pass through materials are updated properly
+			FMaterialRenderProxy::UpdateDeferredCachedUniformExpressions();
 
 			CFRelease(Frame.CapturedYImage);
 			CFRelease(Frame.CapturedCbCrImage);
