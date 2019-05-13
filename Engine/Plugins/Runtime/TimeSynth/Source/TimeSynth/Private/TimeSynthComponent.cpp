@@ -305,7 +305,7 @@ bool UTimeSynthComponent::Init(int32& InSampleRate)
 	DynamicsProcessor.SetLookaheadMsec(3.0f);
 	DynamicsProcessor.SetAttackTime(5.0f);
 	DynamicsProcessor.SetReleaseTime(100.0f);
-	DynamicsProcessor.SetThreshold(-15.0f);
+	DynamicsProcessor.SetThreshold(-1.0f);
 	DynamicsProcessor.SetRatio(5.0f);
 	DynamicsProcessor.SetKneeBandwidth(10.0f);
 	DynamicsProcessor.SetInputGain(0.0f);
