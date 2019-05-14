@@ -11,7 +11,6 @@ struct FLiveCodingManifest
 	FString LinkerPath;
 	TMap<FString, FString> LinkerEnvironment;
 	TMap<FString, TArray<FString>> BinaryToObjectFiles;
-	TMap<FString, FString> ObjectFileToUnityObjectFile;
 
 	bool Read(const TCHAR* FileName, FString& OutFailReason);
 	bool Parse(FJsonObject& Object, FString& OutFailReason);

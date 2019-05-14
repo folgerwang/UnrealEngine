@@ -412,11 +412,14 @@ namespace UnrealBuildTool
 			// Write all the definitions to a separate file
 			CreateHeaderForDefinitions(CompileEnvironment, IntermediateDirectory, null);
 
+			// Mapping of source file to unity file. We output this to intermediate directories for other tools (eg. live coding) to use.
+			Dictionary<FileItem, FileItem> SourceFileToUnityFile = new Dictionary<FileItem, FileItem>();
+
 			// Compile CPP files
 			List<FileItem> CPPFilesToCompile = InputFiles.CPPFiles;
 			if (bModuleUsesUnityBuild)
 			{
-				CPPFilesToCompile = Unity.GenerateUnityCPPs(Target, CPPFilesToCompile, CompileEnvironment, WorkingSet, Rules.ShortName ?? Name, IntermediateDirectory, Makefile);
+				CPPFilesToCompile = Unity.GenerateUnityCPPs(Target, CPPFilesToCompile, CompileEnvironment, WorkingSet, Rules.ShortName ?? Name, IntermediateDirectory, Makefile, SourceFileToUnityFile);
 				LinkInputFiles.AddRange(CompileUnityFilesWithToolChain(Target, ToolChain, CompileEnvironment, ModuleCompileEnvironment, CPPFilesToCompile, Makefile.Actions).ObjectFiles);
 			}
 			else
@@ -463,7 +466,7 @@ namespace UnrealBuildTool
 
 					if (bModuleUsesUnityBuild)
 					{
-						GeneratedFileItems = Unity.GenerateUnityCPPs(Target, GeneratedFileItems, GeneratedCPPCompileEnvironment, WorkingSet, (Rules.ShortName ?? Name) + ".gen", IntermediateDirectory, Makefile);
+						GeneratedFileItems = Unity.GenerateUnityCPPs(Target, GeneratedFileItems, GeneratedCPPCompileEnvironment, WorkingSet, (Rules.ShortName ?? Name) + ".gen", IntermediateDirectory, Makefile, SourceFileToUnityFile);
 						LinkInputFiles.AddRange(CompileUnityFilesWithToolChain(Target, ToolChain, GeneratedCPPCompileEnvironment, ModuleCompileEnvironment, GeneratedFileItems, Makefile.Actions).ObjectFiles);
 					}
 					else
@@ -513,6 +516,28 @@ namespace UnrealBuildTool
 				PrecompiledManifest Manifest = new PrecompiledManifest();
 				Manifest.OutputFiles.AddRange(LinkInputFiles.Select(x => x.Location));
 				Manifest.WriteIfModified(PrecompiledManifestLocation);
+			}
+
+			// Write a mapping of unity object file to standalone object file for live coding
+			if(Rules.Target.bWithLiveCoding)
+			{
+				FileReference UnityManifestFile = FileReference.Combine(IntermediateDirectory, "LiveCodingInfo.json");
+				using (JsonWriter Writer = new JsonWriter(UnityManifestFile))
+				{
+					Writer.WriteObjectStart();
+					Writer.WriteObjectStart("RemapUnityFiles");
+					foreach (IGrouping<FileItem, KeyValuePair<FileItem, FileItem>> UnityGroup in SourceFileToUnityFile.GroupBy(x => x.Value))
+					{
+						Writer.WriteArrayStart(UnityGroup.Key.Location.GetFileName() + ".obj");
+						foreach (FileItem SourceFile in UnityGroup.Select(x => x.Key))
+						{
+							Writer.WriteValue(SourceFile.Location.GetFileName() + ".obj");
+						}
+						Writer.WriteArrayEnd();
+					}
+					Writer.WriteObjectEnd();
+					Writer.WriteObjectEnd();
+				}
 			}
 
 			return LinkInputFiles;

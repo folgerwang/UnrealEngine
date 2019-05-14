@@ -96,36 +96,5 @@ bool FLiveCodingManifest::Parse(FJsonObject& Object, FString& OutFailReason)
 		}
 	}
 
-	const TArray<TSharedPtr<FJsonValue>>* AdaptiveUnityFilesArray;
-	if (Object.TryGetArrayField(TEXT("AdaptiveUnityFiles"), AdaptiveUnityFilesArray))
-	{
-		for (const TSharedPtr<FJsonValue>& AdaptiveUnityFileValue : *AdaptiveUnityFilesArray)
-		{
-			if (AdaptiveUnityFileValue->Type != EJson::Object)
-			{
-				OutFailReason = TEXT("invalid module object");
-				return false;
-			}
-
-			const FJsonObject& AdaptiveUnityFileObject = *AdaptiveUnityFileValue->AsObject();
-
-			FString ObjectFile;
-			if (!AdaptiveUnityFileObject.TryGetStringField(TEXT("ObjectFile"), ObjectFile))
-			{
-				OutFailReason = TEXT("missing module 'ObjectFile' field");
-				return false;
-			}
-
-			FString UnityObjectFile;
-			if (!AdaptiveUnityFileObject.TryGetStringField(TEXT("UnityObjectFile"), UnityObjectFile))
-			{
-				OutFailReason = TEXT("missing module 'UnityObjectFile' field");
-				return false;
-			}
-
-			ObjectFileToUnityObjectFile.Emplace(MoveTemp(ObjectFile), MoveTemp(UnityObjectFile));
-		}
-	}
-
 	return true;
 }

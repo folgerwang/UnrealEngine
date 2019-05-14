@@ -140,4 +140,8 @@ private:
 
 	// all patches loaded so far along with recorded data how to load them into other processes
 	types::vector<ModulePatch*> m_compiledModulePatches;
+
+	// BEGIN EPIC MOD - Allow mapping from object files to their unity object file
+	types::StringMap<uint32_t> m_objFileToCompilandId;
+	// END EPIC MOD
 };

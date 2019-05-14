@@ -39,6 +39,13 @@
 #include "Misc/Paths.h"
 // END EPIC MOD
 
+// BEGIN EPIC MOD - Allow mapping from object files to their unity object file
+#include "Misc/FileHelper.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "Dom/JsonObject.h"
+// END EPIC MOD
+
 namespace
 {
 	// common linker options:
@@ -365,12 +372,114 @@ namespace
 		return LiveModule::CompileResult { exitCode, true };
 	}
 
+	// BEGIN EPIC MOD - Allow mapping from object files to their unity object file
+	static bool ReadLiveCodingInfo(const wchar_t* manifestFile, types::StringMap<uint32_t>& objFileToCompilandId)
+	{
+		// Read the file to a string
+		FString FileContents;
+		if (!FFileHelper::LoadFileToString(FileContents, manifestFile))
+		{
+			return false;
+		}
+
+		// Deserialize a JSON object from the string
+		TSharedPtr< FJsonObject > Object;
+		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create(FileContents);
+		if (!FJsonSerializer::Deserialize(Reader, Object) || !Object.IsValid())
+		{
+			return false;
+		}
+
+		const TSharedPtr<FJsonObject>* FilesObject;
+		if (!Object->TryGetObjectField(TEXT("RemapUnityFiles"), FilesObject))
+		{
+			return false;
+		}
+
+		std::wstring BaseDir = file::GetDirectory(manifestFile);
+		for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : FilesObject->Get()->Values)
+		{
+			std::wstring UnityObjectFile = file::NormalizePath((BaseDir + L"\\" + *Pair.Key).c_str());
+			uint32_t UnityCompilandId = uniqueId::Generate(UnityObjectFile);
+			objFileToCompilandId.insert(std::make_pair(string::ToUtf8String(UnityObjectFile), UnityCompilandId));
+
+			const FJsonValue* Value = Pair.Value.Get();
+			if (Value->Type != EJson::Array)
+			{
+				return false;
+			}
+
+			const TArray<TSharedPtr<FJsonValue>>& SourceFileValues = Value->AsArray();
+			for (const TSharedPtr<FJsonValue>& SourceFileValue : SourceFileValues)
+			{
+				if (SourceFileValue->Type != EJson::String)
+				{
+					return false;
+				}
+
+				std::wstring WideObjectFile = file::NormalizePath((BaseDir + L"\\" + *SourceFileValue->AsString()).c_str());
+				ImmutableString ObjectFile = string::ToUtf8String(WideObjectFile);
+				if (objFileToCompilandId.find(ObjectFile) == objFileToCompilandId.end())
+				{
+					objFileToCompilandId.insert(std::make_pair(ObjectFile, UnityCompilandId));
+				}
+			}
+		}
+
+		return true;
+	}
+
+	static void UpdateCompilandCache(types::StringMap<symbols::Compiland*>& compilands, types::StringMap<uint32_t>& objFileToCompilandId)
+	{
+		types::unordered_set<std::wstring> Directories;
+		for (std::pair<const ImmutableString, symbols::Compiland*>& Pair : compilands)
+		{
+			symbols::Compiland* Compiland = Pair.second;
+			if (Compiland->amalgamatedUniqueId == ~(uint32_t)0)
+			{
+				const std::wstring& wideObjPath = string::ToWideString(Pair.first);
+				Directories.insert(file::GetDirectory(wideObjPath));
+			}
+		}
+		for (const std::wstring& Directory : Directories)
+		{
+			std::wstring ManifestFile = Directory + L"\\LiveCodingInfo.json";
+			if (file::DoesExist(file::GetAttributes(ManifestFile.c_str())))
+			{
+				ReadLiveCodingInfo(ManifestFile.c_str(), objFileToCompilandId);
+			}
+		}
+		for (std::pair<const ImmutableString, symbols::Compiland*>& Pair : compilands)
+		{
+			symbols::Compiland* Compiland = Pair.second;
+			if (Compiland->amalgamatedUniqueId == ~(uint32_t)0)
+			{
+				types::StringMap<uint32_t>::const_iterator Iter = objFileToCompilandId.find(Pair.first);
+				if (Iter == objFileToCompilandId.end())
+				{
+					LC_WARNING_DEV("Unable to get amalgamated id for %s", Pair.first.c_str());
+				}
+				else
+				{
+					Compiland->amalgamatedUniqueId = Iter->second;
+				}
+			}
+		}
+	}
+	// END EPIC MOD
 
 	// helper function that returns or generates the unique ID of an optional compiland.
 	// for files split off from amalgamated files, we need to use the original object path of the amalgamated file here,
 	// otherwise names of symbols would differ, leading to constructors of global instances being called again.
 	static inline uint32_t GetCompilandId(const symbols::Compiland* compiland, const wchar_t* const objPath, const types::vector<LiveModule::ModifiedObjFile>& modifiedObjFiles)
 	{
+		// BEGIN EPIC MOD - Allow mapping from object files to their unity object file
+		if (compiland && compiland->amalgamatedUniqueId != ~(uint32_t)0)
+		{
+			return compiland->amalgamatedUniqueId;
+		}
+		// END EPIC MOD
+
 		// try to find the given .obj path in the array of modified object files to check if there's an original amalgamated object path for it
 		for (size_t i = 0u; i < modifiedObjFiles.size(); ++i)
 		{
@@ -1028,6 +1137,10 @@ void LiveModule::Load(symbols::Provider* provider, symbols::DiaCompilandDB* diaC
 	{
 		LC_LOG_DEV("Caching all .objs on Load() due to external build system being used");
 
+		// BEGIN EPIC MOD - Allow mapping from object files to their unity object file
+		UpdateCompilandCache(m_compilandDB->compilands, m_objFileToCompilandId);
+		// END EPIC MOD
+
 		// the user wants to use an external build system. in this case, we only track .objs for changes and never
 		// compile anything ourselves. we cannot load .objs lazily in this case, so we have to do that right now.
 		struct GatherResult
@@ -1057,10 +1170,21 @@ void LiveModule::Load(symbols::Provider* provider, symbols::DiaCompilandDB* diaC
 
 			// do the loading and gathering concurrently
 			auto task = scheduler::CreateTask(gatherTaskRoot, [objPath, compiland]()
-			{
+				{
 				const std::wstring& wideObjPath = string::ToWideString(objPath);
 				coff::ObjFile* objFile = coff::OpenObj(wideObjPath.c_str());
-				coff::CoffDB* database = coff::GatherDatabase(objFile, compiland->uniqueId, coff::ReadFlags::NONE);
+				// BEGIN EPIC MOD - Allow mapping from object files to their unity object file
+				uint32_t uniqueId;
+			    if (compiland->amalgamatedUniqueId != ~(uint32_t)0)
+			    {
+				    uniqueId = compiland->amalgamatedUniqueId;
+			    }
+			    else
+			    {
+				    uniqueId = compiland->uniqueId;
+			    }
+				coff::CoffDB* database = coff::GatherDatabase(objFile, uniqueId, coff::ReadFlags::NONE);
+				// END EPIC MOD
 				coff::CloseObj(objFile);
 
 				return GatherResult { database, objPath };
@@ -1236,128 +1360,128 @@ LiveModule::ErrorType::Enum LiveModule::Update(FileAttributeCache* fileCache, Di
 	// only check for modifications if no files have been handed to us
 	if (modifiedOrNewObjFiles.size() == 0u)
 	{
-	// check all files whether they changed
-	for (auto compilandIt = m_compilandDB->dependencies.begin(); compilandIt != m_compilandDB->dependencies.end(); ++compilandIt)
-	{
-		symbols::Dependency* dependency = compilandIt->second;
-		if (!dependency->parentDirectory->hadChange)
+		// check all files whether they changed
+		for (auto compilandIt = m_compilandDB->dependencies.begin(); compilandIt != m_compilandDB->dependencies.end(); ++compilandIt)
 		{
-			// no need to check this compiland, the parent directory didn't notice a change
-			continue;
-		}
-
-		const std::wstring filePath = string::ToWideString(compilandIt->first);
-		const types::vector<symbols::ObjPath>& objPaths = dependency->objPaths;
-
-		const FileAttributeCache::Data& cacheData = fileCache->UpdateCacheData(filePath);
-		const uint64_t currentTime = cacheData.lastModificationTime;
-		if (currentTime != dependency->lastModification)
-		{
-			dependency->lastModification = currentTime;
+			symbols::Dependency* dependency = compilandIt->second;
+			if (!dependency->parentDirectory->hadChange)
 			{
-				const std::wstring prettyPath = file::NormalizePathWithoutLinks(filePath.c_str());
-				LC_LOG_USER("File %S was modified", prettyPath.c_str());
+				// no need to check this compiland, the parent directory didn't notice a change
+				continue;
 			}
 
-			// AMALGAMATION
-			if (appSettings::g_amalgamationSplitIntoSingleParts->GetValue())
+			const std::wstring filePath = string::ToWideString(compilandIt->first);
+			const types::vector<symbols::ObjPath>& objPaths = dependency->objPaths;
+
+			const FileAttributeCache::Data& cacheData = fileCache->UpdateCacheData(filePath);
+			const uint64_t currentTime = cacheData.lastModificationTime;
+			if (currentTime != dependency->lastModification)
 			{
-				// look at each file individually and determine what to do
-				for (auto it : objPaths)
+				dependency->lastModification = currentTime;
 				{
-					symbols::Compiland* compiland = symbols::FindCompiland(m_compilandDB, it);
-					if (compiland)
+					const std::wstring prettyPath = file::NormalizePathWithoutLinks(filePath.c_str());
+					LC_LOG_USER("File %S was modified", prettyPath.c_str());
+				}
+
+				// AMALGAMATION
+				if (appSettings::g_amalgamationSplitIntoSingleParts->GetValue())
+				{
+					// look at each file individually and determine what to do
+					for (auto it : objPaths)
 					{
-						if (symbols::IsAmalgamation(compiland))
+						symbols::Compiland* compiland = symbols::FindCompiland(m_compilandDB, it);
+						if (compiland)
 						{
-							// split amalgamated file
-							symbols::AmalgamatedCompiland* amalgamatedCompiland = symbols::FindAmalgamatedCompiland(m_compilandDB, it);
-							if (amalgamatedCompiland)
+							if (symbols::IsAmalgamation(compiland))
 							{
-								// the amalgamated compiland needs to be split into its single parts.
-								// add all compilands that are part of the amalgamation for compilation.
-								// we always split in this case to trigger recompiles when included headers change.
-								LC_LOG_USER("Splitting amalgamated/unity file %s", it.c_str());
-
-								if (!amalgamatedCompiland->isSplit)
+								// split amalgamated file
+								symbols::AmalgamatedCompiland* amalgamatedCompiland = symbols::FindAmalgamatedCompiland(m_compilandDB, it);
+								if (amalgamatedCompiland)
 								{
-									// this is the first time the amalgamation is split into single files
-									forceAmalgamationPartsLinkage = true;
-								}
-
-								m_modifiedFiles.insert(amalgamatedCompiland->singleParts.begin(), amalgamatedCompiland->singleParts.end());
-								amalgamatedCompiland->isSplit = true;
-							}
-						}
-						else if (symbols::IsPartOfAmalgamation(compiland))
-						{
-							// this file is part of an amalgamation.
-							// if the amalgamation needs to be split, do that now.
-							// in any case, this file needs to be recompiled.
-							m_modifiedFiles.insert(it);
-
-							// find the amalgamated compiland this file belongs to
-							const ImmutableString& amalgamatedObjPath = compiland->amalgamationPath;
-							symbols::AmalgamatedCompiland* amalgamatedCompiland = symbols::FindAmalgamatedCompiland(m_compilandDB, amalgamatedObjPath);
-							if (amalgamatedCompiland)
-							{
-								if (!amalgamatedCompiland->isSplit)
-								{
-									// this is the first time the amalgamation is split into single files
-									forceAmalgamationPartsLinkage = true;
-
 									// the amalgamated compiland needs to be split into its single parts.
-									// add all compilands that are part of the amalgamation for compilation, and mark the
-									// amalgamated compiland as being split.
-									LC_LOG_USER("Splitting amalgamated/unity file %s", amalgamatedObjPath.c_str());
+									// add all compilands that are part of the amalgamation for compilation.
+									// we always split in this case to trigger recompiles when included headers change.
+									LC_LOG_USER("Splitting amalgamated/unity file %s", it.c_str());
+
+									if (!amalgamatedCompiland->isSplit)
+									{
+										// this is the first time the amalgamation is split into single files
+										forceAmalgamationPartsLinkage = true;
+									}
 
 									m_modifiedFiles.insert(amalgamatedCompiland->singleParts.begin(), amalgamatedCompiland->singleParts.end());
 									amalgamatedCompiland->isSplit = true;
 								}
 							}
-						}
-						else
-						{
-							m_modifiedFiles.insert(it);
+							else if (symbols::IsPartOfAmalgamation(compiland))
+							{
+								// this file is part of an amalgamation.
+								// if the amalgamation needs to be split, do that now.
+								// in any case, this file needs to be recompiled.
+								m_modifiedFiles.insert(it);
+
+								// find the amalgamated compiland this file belongs to
+								const ImmutableString& amalgamatedObjPath = compiland->amalgamationPath;
+								symbols::AmalgamatedCompiland* amalgamatedCompiland = symbols::FindAmalgamatedCompiland(m_compilandDB, amalgamatedObjPath);
+								if (amalgamatedCompiland)
+								{
+									if (!amalgamatedCompiland->isSplit)
+									{
+										// this is the first time the amalgamation is split into single files
+										forceAmalgamationPartsLinkage = true;
+
+										// the amalgamated compiland needs to be split into its single parts.
+										// add all compilands that are part of the amalgamation for compilation, and mark the
+										// amalgamated compiland as being split.
+										LC_LOG_USER("Splitting amalgamated/unity file %s", amalgamatedObjPath.c_str());
+
+										m_modifiedFiles.insert(amalgamatedCompiland->singleParts.begin(), amalgamatedCompiland->singleParts.end());
+										amalgamatedCompiland->isSplit = true;
+									}
+								}
+							}
+							else
+							{
+								m_modifiedFiles.insert(it);
+							}
 						}
 					}
+				}
+				else
+				{
+					// don't need to do anything fancy, just add all affected .objs
+					m_modifiedFiles.insert(objPaths.begin(), objPaths.end());
+				}
+			}
+		}
+
+		if (m_runMode == RunMode::DEFAULT)
+		{
+			if (m_modifiedFiles.size() == 0u)
+			{
+				if (m_compiledCompilands.size() == 0u)
+				{
+					// no change detected in this module
+					return ErrorType::NO_CHANGE;
+				}
+				else
+				{
+					// there are still compiled files that haven't been linked
 				}
 			}
 			else
 			{
-				// don't need to do anything fancy, just add all affected .objs
-				m_modifiedFiles.insert(objPaths.begin(), objPaths.end());
+				LC_LOG_USER("Detected %zu file(s) to be compiled for Live++ module %S", m_modifiedFiles.size(), m_moduleName.c_str());
 			}
 		}
-	}
-
-	if (m_runMode == RunMode::DEFAULT)
-	{
-		if (m_modifiedFiles.size() == 0u)
+		else if (m_runMode == RunMode::EXTERNAL_BUILD_SYSTEM)
 		{
-			if (m_compiledCompilands.size() == 0u)
+			if (m_modifiedFiles.size() == 0u)
 			{
-				// no change detected in this module
+				// no changed .obj detected in this module
 				return ErrorType::NO_CHANGE;
 			}
-			else
-			{
-				// there are still compiled files that haven't been linked
-			}
 		}
-		else
-		{
-			LC_LOG_USER("Detected %zu file(s) to be compiled for Live++ module %S", m_modifiedFiles.size(), m_moduleName.c_str());
-		}
-	}
-	else if (m_runMode == RunMode::EXTERNAL_BUILD_SYSTEM)
-	{
-		if (m_modifiedFiles.size() == 0u)
-		{
-			// no changed .obj detected in this module
-			return ErrorType::NO_CHANGE;
-		}
-	}
 	}
 	else
 	{
@@ -1816,16 +1940,16 @@ LiveModule::ErrorType::Enum LiveModule::Update(FileAttributeCache* fileCache, Di
 	{
 		if (modifiedOrNewObjFiles.size() == 0u)
 		{
-		// files were compiled by an external build system, we just have to mark them appropriately
-		const size_t count = availableModifiedFiles.size();
-		for (size_t i = 0u; i < count; ++i)
-		{
-			const symbols::ObjPath& objPath = availableModifiedFiles[i].objPath;
-			symbols::Compiland* compiland = availableModifiedFiles[i].compiland;
+			// files were compiled by an external build system, we just have to mark them appropriately
+			const size_t count = availableModifiedFiles.size();
+			for (size_t i = 0u; i < count; ++i)
+			{
+				const symbols::ObjPath& objPath = availableModifiedFiles[i].objPath;
+				symbols::Compiland* compiland = availableModifiedFiles[i].compiland;
 
-			m_compiledCompilands.emplace(objPath, compiland);
-			symbols::MarkCompilandAsRecompiled(compiland);
-		}
+				m_compiledCompilands.emplace(objPath, compiland);
+				symbols::MarkCompilandAsRecompiled(compiland);
+			}
 		}
 		else
 		{
@@ -1953,26 +2077,26 @@ LiveModule::ErrorType::Enum LiveModule::Update(FileAttributeCache* fileCache, Di
 
 					Helper::UpdateExternalSymbolsAndNeededFiles(objPath, compiland, compiland->uniqueId, coffReadFlags, m_pchSymbolToCompilandName, externalSymbols, neededCompilands);
 				}
-			else
-			{
-				// this file has not changed, so consult the cache for external symbols
-				auto cacheIt = m_externalSymbolsPerCompilandCache.find(objPath);
-				if (cacheIt != m_externalSymbolsPerCompilandCache.end())
-				{
-					const size_t symbolCount = cacheIt->second.size();
-					for (size_t i = 0u; i < symbolCount; ++i)
-					{
-						const ImmutableString& symbolName = cacheIt->second[i]->name;
-						externalSymbols.emplace(symbolName, CompilandInfo { objPath, compiland });
-					}
-				}
 				else
 				{
-					// this compiland does not store any external symbol
+					// this file has not changed, so consult the cache for external symbols
+					auto cacheIt = m_externalSymbolsPerCompilandCache.find(objPath);
+					if (cacheIt != m_externalSymbolsPerCompilandCache.end())
+					{
+						const size_t symbolCount = cacheIt->second.size();
+						for (size_t i = 0u; i < symbolCount; ++i)
+						{
+							const ImmutableString& symbolName = cacheIt->second[i]->name;
+							externalSymbols.emplace(symbolName, CompilandInfo { objPath, compiland });
+						}
+					}
+					else
+					{
+						// this compiland does not store any external symbol
+					}
 				}
 			}
 		}
-	}
 		else
 		{
 			for (auto it = modifiedOrNewObjFiles.begin(); it != modifiedOrNewObjFiles.end(); ++it)
@@ -2124,6 +2248,10 @@ LiveModule::ErrorType::Enum LiveModule::Update(FileAttributeCache* fileCache, Di
 			executable::CloseImage(image);
 		}
 	}
+
+	// BEGIN EPIC MOD - Allow mapping from object files to their unity object file
+	UpdateCompilandCache(m_compiledCompilands, m_objFileToCompilandId);
+	// END EPIC MOD
 
 	// update the COFF cache for all compiled files
 	UpdateCoffCache(m_compiledCompilands, m_coffCache, CacheUpdate::ALL, coffReadFlags, modifiedOrNewObjFiles);

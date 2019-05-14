@@ -20,7 +20,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// The version number to write
 		/// </summary>
-		public const int CurrentVersion = 12;
+		public const int CurrentVersion = 13;
 
 		/// <summary>
 		/// The time at which the makefile was created
@@ -114,11 +114,6 @@ namespace UnrealBuildTool
 		public HashSet<FileItem> CandidatesForWorkingSet = new HashSet<FileItem>();
 
 		/// <summary>
-		/// Mapping from source file to the unity file that contains it. Used for Live Coding. Note that this mapping includes files that are part of the working set, even if they are now a separate compiland.
-		/// </summary>
-		public Dictionary<FileItem, FileItem> SourceFileToUnityFile = new Dictionary<FileItem, FileItem>();
-
-		/// <summary>
 		/// Maps each target to a list of UObject module info structures
 		/// </summary>
 		public List<UHTModuleInfo> UObjectModules;
@@ -195,7 +190,6 @@ namespace UnrealBuildTool
 			DirectoryToSourceFiles = Reader.ReadDictionary(() => Reader.ReadDirectoryItem(), () => Reader.ReadArray(() => Reader.ReadFileItem()));
 			WorkingSet = Reader.ReadHashSet(() => Reader.ReadFileItem());
 			CandidatesForWorkingSet = Reader.ReadHashSet(() => Reader.ReadFileItem());
-			SourceFileToUnityFile = Reader.ReadDictionary(() => Reader.ReadFileItem(), () => Reader.ReadFileItem());
 			UObjectModules = Reader.ReadList(() => new UHTModuleInfo(Reader));
 			UObjectModuleHeaders = Reader.ReadList(() => new UHTModuleHeaderInfo(Reader));
 			PluginFiles = Reader.ReadHashSet(() => Reader.ReadFileItem());
@@ -226,7 +220,6 @@ namespace UnrealBuildTool
 			Writer.WriteDictionary(DirectoryToSourceFiles, k => Writer.WriteDirectoryItem(k), v => Writer.WriteArray(v, e => Writer.WriteFileItem(e)));
 			Writer.WriteHashSet(WorkingSet, x => Writer.WriteFileItem(x));
 			Writer.WriteHashSet(CandidatesForWorkingSet, x => Writer.WriteFileItem(x));
-			Writer.WriteDictionary(SourceFileToUnityFile, k => Writer.WriteFileItem(k), v => Writer.WriteFileItem(v));
 			Writer.WriteList(UObjectModules, e => e.Write(Writer));
 			Writer.WriteList(UObjectModuleHeaders, x => x.Write(Writer));
 			Writer.WriteHashSet(PluginFiles, x => Writer.WriteFileItem(x));

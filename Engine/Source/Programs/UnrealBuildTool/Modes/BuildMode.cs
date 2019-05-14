@@ -225,7 +225,7 @@ namespace UnrealBuildTool
 				if(TargetDescriptor.LiveCodingManifest != null)
 				{
 					TargetMakefile Makefile = Makefiles[TargetIdx];
-					HotReload.WriteLiveCodeManifest(TargetDescriptor.LiveCodingManifest, Makefile.SourceFileToUnityFile, Makefile.Actions);
+					HotReload.WriteLiveCodingManifest(TargetDescriptor.LiveCodingManifest, Makefile.Actions);
 				}
 			}
 

@@ -708,8 +708,7 @@ void ServerCommandThread::CompileChanges(bool didAllProcessesMakeProgress)
 		GLiveCodingServer->GetStatusChangeDelegate().ExecuteIfBound(L"Compiling changes for live coding...");
 
 		TMap<FString, TArray<FString>> ModuleToObjectFiles;
-		TMap<FString, FString> ObjectFileToUnityObjectFile;
-		if (!CompileDelegate.Execute(Targets, ModuleToObjectFiles, ObjectFileToUnityObjectFile))
+		if (!CompileDelegate.Execute(Targets, ModuleToObjectFiles))
 		{
 			GLiveCodingServer->GetCompileFinishedDelegate().ExecuteIfBound(ELiveCodingResult::Error, L"Compilation error.");
 			return;
@@ -777,13 +776,6 @@ void ServerCommandThread::CompileChanges(bool didAllProcessesMakeProgress)
 			{
 				LiveModule::ModifiedObjFile ModifiedObjFile;
 				ModifiedObjFile.objPath = file::NormalizePath(*ObjectFile);
-
-				const FString* UnityObjectFile = ObjectFileToUnityObjectFile.Find(ObjectFile);
-				if (UnityObjectFile != nullptr)
-				{
-					ModifiedObjFile.amalgamatedObjPath = file::NormalizePath(**UnityObjectFile);
-				}
-
 				ObjectFiles.push_back(std::move(ModifiedObjFile));
 			}
 
