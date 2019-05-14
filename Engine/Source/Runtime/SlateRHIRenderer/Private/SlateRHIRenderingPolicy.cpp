@@ -291,8 +291,10 @@ static FSceneView* CreateSceneView( FSceneViewFamilyContext* ViewFamilyContext, 
 
 	ERHIFeatureLevel::Type RHIFeatureLevel = View->GetFeatureLevel();
 
-	ViewUniformShaderParameters.MobilePreviewMode = IsSimulatedPlatform(View->GetShaderPlatform()) ? 1.0f : 0.0f;
-
+	ViewUniformShaderParameters.MobilePreviewMode =
+		(GIsEditor &&
+		(RHIFeatureLevel == ERHIFeatureLevel::ES2 || RHIFeatureLevel == ERHIFeatureLevel::ES3_1) &&
+		GMaxRHIFeatureLevel > ERHIFeatureLevel::ES3_1) ? 1.0f : 0.0f;
 
 	UpdateNoiseTextureParameters(ViewUniformShaderParameters);
 
