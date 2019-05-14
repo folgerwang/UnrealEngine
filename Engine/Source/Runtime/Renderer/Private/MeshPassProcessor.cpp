@@ -89,6 +89,84 @@ private:
 	const uint8* Data;
 };
 
+/** generates CRC hash of the element */
+template <typename T>
+static uint32 TypeCrc32( const T& Data, uint32 CRC=0 )
+{
+	return FCrc::MemCrc32(&Data, sizeof(T), CRC);
+}
+
+uint32 GetDynamicInstancingHash(const FMeshDrawShaderBindings& MeshDrawShaderBindings)
+{
+	uint32 Hash = TypeCrc32(MeshDrawShaderBindings.Size, 0);
+
+	for (const FMeshDrawShaderBindingsLayout& MeshDrawShaderBindingsLayout: MeshDrawShaderBindings.ShaderLayouts)
+	{
+		uint32 LocalFrequency = MeshDrawShaderBindingsLayout.Frequency;
+		Hash = TypeCrc32(LocalFrequency, Hash);
+	}
+
+	const uint8* ShaderBindingDataPtr = MeshDrawShaderBindings.GetData();
+	for (int32 ShaderBindingsIndex = 0; ShaderBindingsIndex < MeshDrawShaderBindings.ShaderLayouts.Num(); ShaderBindingsIndex++)
+	{
+		FReadOnlyMeshDrawSingleShaderBindings SingleShaderBindings(MeshDrawShaderBindings.ShaderLayouts[ShaderBindingsIndex], ShaderBindingDataPtr);
+
+		if (SingleShaderBindings.ParameterMapInfo.SRVs.Num() > 0 || SingleShaderBindings.ParameterMapInfo.LooseParameterBuffers.Num() > 0 || SingleShaderBindings.ParameterMapInfo.TextureSamplers.Num() > 0)
+		{
+			// Since this is not implemented, we must return a unique hash to minimize hash collisions.
+			// Note: this must match with MatchesForDynamicInstancing.
+			Hash = PointerHash(&MeshDrawShaderBindings, Hash);
+			return Hash;
+		}
+
+		const FUniformBufferRHIParamRef* UniformBufferBindings = SingleShaderBindings.GetUniformBufferStart();
+		for (int32 UniformBufferIndex = 0; UniformBufferIndex < SingleShaderBindings.ParameterMapInfo.UniformBuffers.Num(); UniformBufferIndex++)
+		{
+			FUniformBufferRHIParamRef UniformBuffer = UniformBufferBindings[UniformBufferIndex];
+			Hash = PointerHash(UniformBuffer, Hash);
+		}
+
+		ShaderBindingDataPtr += MeshDrawShaderBindings.ShaderLayouts[ShaderBindingsIndex].GetDataSizeBytes();
+	}
+
+	return Hash;
+}
+
+uint32 GetDynamicInstancingHash(const FMeshDrawCommand& MeshDrawCommand)
+{
+	uint32 Hash = TypeCrc32(MeshDrawCommand.CachedPipelineId.GetId(), 0);
+	Hash = TypeCrc32(MeshDrawCommand.StencilRef, Hash);
+	Hash = HashCombine(GetDynamicInstancingHash(MeshDrawCommand.ShaderBindings), Hash);
+
+	for (const FVertexInputStream& VertexInputStream: MeshDrawCommand.VertexStreams)
+	{
+		const uint32 StreamIndex = VertexInputStream.StreamIndex;
+		const uint32 Offset = VertexInputStream.Offset;
+
+		Hash = TypeCrc32(StreamIndex, Hash);
+		Hash = TypeCrc32(Offset, Hash);
+		Hash = PointerHash(VertexInputStream.VertexBuffer, Hash);
+	}
+
+	Hash = TypeCrc32(MeshDrawCommand.PrimitiveIdStreamIndex, Hash);
+	Hash = PointerHash(MeshDrawCommand.IndexBuffer, Hash);
+	Hash = TypeCrc32(MeshDrawCommand.FirstIndex, Hash);
+	Hash = TypeCrc32(MeshDrawCommand.NumPrimitives, Hash);
+	Hash = TypeCrc32(MeshDrawCommand.NumInstances, Hash);
+
+	if (MeshDrawCommand.NumPrimitives > 0)
+	{
+		Hash = TypeCrc32(MeshDrawCommand.VertexParams.BaseVertexIndex, Hash);
+		Hash = TypeCrc32(MeshDrawCommand.VertexParams.NumVertices, Hash);
+	}
+	else
+	{
+		Hash = PointerHash(MeshDrawCommand.IndirectArgsBuffer, Hash);
+	}		
+
+	return Hash;
+}
+
 template<class RHIShaderType>
 void FMeshDrawShaderBindings::SetShaderBindings(
 	FRHICommandList& RHICmdList,
@@ -782,7 +860,7 @@ bool FMeshDrawShaderBindings::MatchesForDynamicInstancing(const FMeshDrawShaderB
 
 		if (SingleShaderBindings.ParameterMapInfo.SRVs.Num() > 0 || SingleShaderBindings.ParameterMapInfo.LooseParameterBuffers.Num() > 0 || SingleShaderBindings.ParameterMapInfo.TextureSamplers.Num() > 0)
 		{
-			// Not implemented
+			// Not implemented. Note: this must match with GetDynamicInstancingHash.
 			return false;
 		}
 
