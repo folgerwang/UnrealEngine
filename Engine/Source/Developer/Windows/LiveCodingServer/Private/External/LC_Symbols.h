@@ -27,6 +27,7 @@ namespace symbols
 		uint32_t rva;
 
 		LC_DISABLE_ASSIGNMENT(Symbol);
+		LC_DISABLE_COPY(Symbol);
 	};
 
 	struct SymbolDB
@@ -88,6 +89,7 @@ namespace symbols
 		bool wasRecompiled;
 
 		LC_DISABLE_ASSIGNMENT(Compiland);
+		LC_DISABLE_COPY(Compiland);
 	};
 
 	struct AmalgamatedCompiland

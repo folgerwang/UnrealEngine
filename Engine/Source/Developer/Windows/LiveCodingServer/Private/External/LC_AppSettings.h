@@ -40,9 +40,14 @@ namespace appSettings
 	// returns the overridden linker path
 	std::wstring GetLinkerPath(void);
 
+	// returns an array of file extensions to treat as C++ files when splitting amalgamated files
+	const types::vector<std::wstring>& GetAmalgamatedCppFileExtensions(void);
+
 	void UpdateCompilerPathCache(void);
 	void UpdateLinkerPathCache(void);
 	void UpdatePathCache(void);
+
+	void UpdateAmalgamatedCppFileExtensions(void);
 
 	// apply a new value to any of the boolean settings
 	void ApplySettingBool(const char* const settingName, bool value);
@@ -79,14 +84,14 @@ namespace appSettings
 	extern SettingBool* g_enableDevLogCompilands;
 
 	// compiler
-	extern SettingString* g_compilerPath;					// DO NOT USE directly, use GetCompilerPath instead!
+	extern SettingString* g_compilerPath;						// DO NOT USE directly, use GetCompilerPath instead!
 	extern SettingBool* g_useCompilerOverrideAsFallback;
 	extern SettingBool* g_useCompilerEnvironment;
 	extern SettingString* g_compilerOptions;
 	extern SettingBool* g_compilerForcePchPdbs;
 
 	// linker
-	extern SettingString* g_linkerPath;						// DO NOT USE directly, use GetLinkerPath instead!
+	extern SettingString* g_linkerPath;							// DO NOT USE directly, use GetLinkerPath instead!
 	extern SettingBool* g_useLinkerOverrideAsFallback;
 	extern SettingBool* g_useLinkerEnvironment;
 	extern SettingString* g_linkerOptions;
@@ -107,4 +112,5 @@ namespace appSettings
 	// amalgamated/unity builds
 	extern SettingBool* g_amalgamationSplitIntoSingleParts;
 	extern SettingInt* g_amalgamationSplitMinCppCount;
+	extern SettingString* g_amalgamationCppFileExtensions;		// DO NOT USE directly, use GetAmalgamatedCppFileExtensions instead!
 }

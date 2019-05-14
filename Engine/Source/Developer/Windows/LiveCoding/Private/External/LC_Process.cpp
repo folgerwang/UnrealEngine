@@ -634,11 +634,13 @@ namespace process
 			if (pointer::Offset<const void*>(scan, size) >= upperBound)
 			{
 				// outside of range to scan
+				LC_ERROR_DEV("Could not find memory range that fits 0x%X bytes with alignment 0x%X in range from 0x%p to 0x%p (scan: 0x%p)", size, alignment, lowerBound, upperBound, scan);
 				return nullptr;
 			}
 			else if (scan < lowerBound)
 			{
 				// outside of range (possible wrap-around)
+				LC_ERROR_DEV("Could not find memory range that fits 0x%X bytes with alignment 0x%X in range from 0x%p to 0x%p (scan: 0x%p)", size, alignment, lowerBound, upperBound, scan);
 				return nullptr;
 			}
 
@@ -737,6 +739,8 @@ namespace process
 			{
 				// buffer is too small, try again
 				::free(processSnapshot);
+				processSnapshot = nullptr;
+
 				bufferSize *= 2u;
 			}
 			else if (status < 0)
@@ -744,7 +748,7 @@ namespace process
 				// something went wrong
 				LC_ERROR_USER("Cannot enumerate threads in process (PID: %d)", processId);
 				::free(processSnapshot);
-				
+
 				return threadIds;
 			}
 		}
@@ -778,10 +782,13 @@ namespace process
 			}
 
 			// record all threads belonging to the given process
-			for (ULONG i = 0u; i < processInfo->uThreadCount; ++i)
+			if (processInfo)
 			{
-				const DWORD threadId = static_cast<DWORD>(reinterpret_cast<DWORD_PTR>(processInfo->Threads[i].ClientId.UniqueThread));
-				threadIds.push_back(threadId);
+				for (ULONG i = 0u; i < processInfo->uThreadCount; ++i)
+				{
+					const DWORD threadId = static_cast<DWORD>(reinterpret_cast<DWORD_PTR>(processInfo->Threads[i].ClientId.UniqueThread));
+					threadIds.push_back(threadId);
+				}
 			}
 		}
 

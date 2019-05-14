@@ -13,9 +13,25 @@ namespace file
 		WIN32_FILE_ATTRIBUTE_DATA data;
 	};
 
+	struct DriveType
+	{
+		enum Enum
+		{
+			UNKNOWN = 0,
+			REMOVABLE,
+			FIXED,
+			REMOTE,
+			OPTICAL,
+			RAMDISK
+		};
+	};
+
 	void Startup(void);
 	void Shutdown(void);
 
+	// Returns the type of a drive. Drive letters can be both lower- or upper-case
+	DriveType::Enum GetDriveType(char driveLetter);
+	DriveType::Enum GetDriveType(const wchar_t* path);
 
 	Attributes GetAttributes(const wchar_t* path);
 	uint64_t GetLastModificationTime(const Attributes& attributes);

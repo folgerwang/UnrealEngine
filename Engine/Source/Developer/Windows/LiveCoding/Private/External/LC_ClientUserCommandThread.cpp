@@ -47,6 +47,8 @@ namespace userCommands
 	{
 		EnableModuleCommand(void)
 			: BaseCommand(Scope::ENABLE_MODULES)
+			, token(nullptr)
+			, moduleName()
 		{
 		}
 
@@ -70,6 +72,8 @@ namespace userCommands
 	{
 		EnableAllModulesCommand(void)
 			: BaseCommand(Scope::ENABLE_MODULES)
+			, token(nullptr)
+			, moduleName()
 		{
 		}
 
@@ -93,6 +97,8 @@ namespace userCommands
 	{
 		DisableModuleCommand(void)
 			: BaseCommand(Scope::DISABLE_MODULES)
+			, token(nullptr)
+			, moduleName()
 		{
 		}
 
@@ -116,6 +122,8 @@ namespace userCommands
 	{
 		DisableAllModulesCommand(void)
 			: BaseCommand(Scope::DISABLE_MODULES)
+			, token(nullptr)
+			, moduleName()
 		{
 		}
 
@@ -262,6 +270,9 @@ namespace userCommands
 	{
 		BuildPatchCommand(void)
 			: BaseCommand(Scope::NONE)
+			, count(0u)
+			, moduleNames()
+			, objPaths()
 		{
 		}
 
@@ -292,6 +303,8 @@ namespace userCommands
 	{
 		ApplySettingBoolCommand(void)
 			: BaseCommand(Scope::NONE)
+			, settingName()
+			, value(0)
 		{
 		}
 
@@ -313,6 +326,8 @@ namespace userCommands
 	{
 		ApplySettingIntCommand(void)
 			: BaseCommand(Scope::NONE)
+			, settingName()
+			, value(0)
 		{
 		}
 
@@ -334,6 +349,8 @@ namespace userCommands
 	{
 		ApplySettingStringCommand(void)
 			: BaseCommand(Scope::NONE)
+			, settingName()
+			, value()
 		{
 		}
 

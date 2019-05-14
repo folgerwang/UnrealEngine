@@ -337,30 +337,15 @@ namespace
 
 	static bool IsCppOrCFile(const std::wstring& normalizedLowercaseFilename)
 	{
-		const std::wstring& extension = file::GetExtension(normalizedLowercaseFilename);
-		if (string::Matches(extension.c_str(), L".cpp"))
+		const std::wstring& filenameExtension = file::GetExtension(normalizedLowercaseFilename);
+		const types::vector<std::wstring>& amalgamatedCppFileExtensions = appSettings::GetAmalgamatedCppFileExtensions();
+
+		for (size_t i = 0u; i < amalgamatedCppFileExtensions.size(); ++i)
 		{
-			return true;
-		}
-		else if (string::Matches(extension.c_str(), L".c"))
-		{
-			return true;
-		}
-		else if (string::Matches(extension.c_str(), L".cc"))
-		{
-			return true;
-		}
-		else if (string::Matches(extension.c_str(), L".c++"))
-		{
-			return true;
-		}
-		else if (string::Matches(extension.c_str(), L".cp"))
-		{
-			return true;
-		}
-		else if (string::Matches(extension.c_str(), L".cxx"))
-		{
-			return true;
+			if (string::Matches(filenameExtension.c_str(), amalgamatedCppFileExtensions[i].c_str()))
+			{
+				return true;
+			}
 		}
 
 		return false;
@@ -418,6 +403,10 @@ namespace symbols
 		{
 			const types::vector<IDiaSymbol*>& publicSymbols = dia::GatherChildSymbols(provider->globalScope, SymTagPublicSymbol);
 			const size_t symbolCount = publicSymbols.size();
+			symbolDB->symbolsByName.reserve(symbolCount);
+			symbolDB->symbolsByRva.reserve(symbolCount);
+			symbolDB->patchableFunctionSymbols.reserve(symbolCount);
+
 			for (size_t i = 0u; i < symbolCount; ++i)
 			{
 				IDiaSymbol* publicSymbol = publicSymbols[i];
@@ -649,7 +638,8 @@ namespace symbols
 			const dia::SymbolName& diaCompilandPath = dia::GetSymbolName(diaSymbol);
 			std::wstring compilandPath(diaCompilandPath.GetString());
 			const std::wstring& uppercaseCompilandPath = string::ToUpper(compilandPath);
-			const bool isObjPath = string::Contains(uppercaseCompilandPath.c_str(), L".OBJ");
+
+			const bool isObjPath = string::Contains(uppercaseCompilandPath.c_str(), L".OBJ") || string::Contains(uppercaseCompilandPath.c_str(), L".O");
 			if (isObjPath)
 			{
 				// a valid compiland, gather more information.
@@ -752,9 +742,20 @@ namespace symbols
 					continue;
 				}
 
-				// only add compilands that exist on disk
+				// only add compilands that exist on disk.
+				// optimization: ignore files stored on optical drives because they cannot be changed anyway.
 				{
 					// test the compiland path first
+					if (file::GetDriveType(compilandPath.c_str()) == file::DriveType::OPTICAL)
+					{
+						if (generateLogs)
+						{
+							LC_LOG_DEV("Ignoring file %S on optical drive", compilandPath.c_str());
+						}
+
+						continue;
+					}
+
 					FileAttributeCache::Data cacheData = fileCache.UpdateCacheData(compilandPath);
 					if (!cacheData.exists)
 					{
@@ -772,6 +773,16 @@ namespace symbols
 							testPath = file::GetDirectory(environmentCompilandPath);
 							testPath += L"\\";
 							testPath += file::GetFilename(compilandPath);
+
+							if (file::GetDriveType(testPath.c_str()) == file::DriveType::OPTICAL)
+							{
+								if (generateLogs)
+								{
+									LC_LOG_DEV("Ignoring file %S on optical drive", testPath.c_str());
+								}
+
+								continue;
+							}
 
 							cacheData = fileCache.UpdateCacheData(testPath);
 							if (!cacheData.exists)
@@ -794,6 +805,17 @@ namespace symbols
 								testPath = optionsCache[2];
 								testPath += L"\\";
 								testPath += compilandPath;
+
+								if (file::GetDriveType(testPath.c_str()) == file::DriveType::OPTICAL)
+								{
+									if (generateLogs)
+									{
+										LC_LOG_DEV("Ignoring file %S on optical drive", testPath.c_str());
+									}
+
+									continue;
+								}
+
 								cacheData = fileCache.UpdateCacheData(testPath);
 								testFileExists = cacheData.exists;
 							}
@@ -899,6 +921,7 @@ namespace symbols
 				// remote filenames in distributed builds.
 				// if we find a file dependency matching the given source file, we take that one instead to get
 				// full absolute file paths.
+				// optimization: ignore all files on optical drives because they cannot be changed anyway
 				const std::wstring srcFileOnlyLowercase = string::ToLower(file::GetFilename(optionsCache[0]));
 
 				const ObjPath objPath(string::ToUtf8String(normalizedCompilandPath));
@@ -908,6 +931,16 @@ namespace symbols
 					// we are only interested in tracking .obj files. we will never be able to recompile files
 					// and we don't know anything about source files, dependencies, etc.
 					// but we still use our dependency tracking system by letting each .obj depend on itself.
+					if (file::GetDriveType(normalizedCompilandPath.c_str()) == file::DriveType::OPTICAL)
+					{
+						if (generateLogs)
+						{
+							LC_LOG_DEV("Ignoring file %S on optical drive", normalizedCompilandPath.c_str());
+						}
+
+						continue;
+					}
+
 					const FileAttributeCache::Data& cacheData = fileCache.UpdateCacheData(normalizedCompilandPath);
 					if (cacheData.exists)
 					{
@@ -992,25 +1025,35 @@ namespace symbols
 						const FileInfo& fileInfo = fileInfos[j];
 						const std::wstring& normalizedFilename = fileInfo.normalizedFilename;
 
-						const FileAttributeCache::Data& cacheData = fileCache.UpdateCacheData(normalizedFilename);
-						if (cacheData.exists)
+						if (file::GetDriveType(normalizedFilename.c_str()) == file::DriveType::OPTICAL)
 						{
 							if (generateLogs)
 							{
-								LC_LOG_DEV("Dependency %S", normalizedFilename.c_str());
-							}
-
-							const ImmutableString& sourceFilePath = string::ToUtf8String(normalizedFilename);
-							AddFileDependency(compilandDb, sourceFilePath, objPath, cacheData.lastModificationTime);
-
-							if (splitAmalgamatedFiles)
-							{
-								compiland->sourceFiles->files.push_back(sourceFilePath);
+								LC_LOG_DEV("Ignoring file %S on optical drive", normalizedFilename.c_str());
 							}
 						}
-						else if (generateLogs)
+						else
 						{
-							LC_LOG_DEV("Missing dependency %S", normalizedFilename.c_str());
+							const FileAttributeCache::Data& cacheData = fileCache.UpdateCacheData(normalizedFilename);
+							if (cacheData.exists)
+							{
+								if (generateLogs)
+								{
+									LC_LOG_DEV("Dependency %S", normalizedFilename.c_str());
+								}
+
+								const ImmutableString& sourceFilePath = string::ToUtf8String(normalizedFilename);
+								AddFileDependency(compilandDb, sourceFilePath, objPath, cacheData.lastModificationTime);
+
+								if (splitAmalgamatedFiles)
+								{
+									compiland->sourceFiles->files.push_back(sourceFilePath);
+								}
+							}
+							else if (generateLogs)
+							{
+								LC_LOG_DEV("Missing dependency %S", normalizedFilename.c_str());
+							}
 						}
 					}
 
@@ -1042,6 +1085,133 @@ namespace symbols
 							{
 								LC_LOG_DEV("Main .cpp %S", normalizedFilename.c_str());
 
+								if (file::GetDriveType(normalizedFilename.c_str()) == file::DriveType::OPTICAL)
+								{
+									if (generateLogs)
+									{
+										LC_LOG_DEV("Ignoring file %S on optical drive", normalizedFilename.c_str());
+									}
+								}
+								else
+								{
+									const FileAttributeCache::Data& cacheData = fileCache.UpdateCacheData(normalizedFilename);
+									if (cacheData.exists)
+									{
+										if (generateLogs)
+										{
+											LC_LOG_DEV("Dependency %S", normalizedFilename.c_str());
+										}
+
+										AddFileDependency(compilandDb, sourceFilePath, objPath, cacheData.lastModificationTime);
+									}
+									else if (generateLogs)
+									{
+										LC_LOG_DEV("Missing dependency %S", normalizedFilename.c_str());
+									}
+								}
+							}
+							else
+							{
+								// this is a .cpp file included by the amalgamated file.
+								// add a separate compiland and .obj for this file, and update dependencies so that changing
+								// this source file will not trigger a build of the amalgamated file.
+								LC_LOG_DEV("Included .cpp %S", normalizedFilename.c_str());
+
+								if (file::GetDriveType(normalizedFilename.c_str()) == file::DriveType::OPTICAL)
+								{
+									if (generateLogs)
+									{
+										LC_LOG_DEV("Ignoring file %S on optical drive", normalizedFilename.c_str());
+									}
+								}
+								else
+								{
+									const FileAttributeCache::Data& cacheData = fileCache.UpdateCacheData(normalizedFilename);
+									if (cacheData.exists)
+									{
+										if (generateLogs)
+										{
+											LC_LOG_DEV("Dependency %S", normalizedFilename.c_str());
+										}
+
+										// create new .obj path by appending this file name to the real .obj, e.g.
+										// Amalgamated.obj turns into Amalgamated.lpp_part.ASingleFile.obj.
+										const std::wstring newObjPart = amalgamation::CreateObjPart(file::NormalizePath(normalizedFilename.c_str()));
+										const std::wstring newObjPath = amalgamation::CreateObjPath(compilandPath, newObjPart);
+										const std::wstring normalizedNewObjPath = file::NormalizePath(newObjPath.c_str());
+
+										AddFileDependency(compilandDb, sourceFilePath, string::ToUtf8String(normalizedNewObjPath), cacheData.lastModificationTime);
+
+										// create a new compiland matching this .obj.
+										// we could use different PDBs for different files when no PCHs are being used, but with
+										// our automatic multi-processor compilation this doesn't really gain anything performance-wise
+										// and just complicates things.
+
+										// adapt command line to accommodate new .obj path
+										const std::wstring& newCommandLine = string::Replace(optionsCache[4], L".obj", newObjPart);
+
+										Compiland* newCompiland = LC_NEW(&g_compilandAllocator, Compiland)
+										{
+											string::ToUtf8String(newObjPath),
+											string::ToUtf8String(normalizedFilename),
+											envPdbPath,
+											envCompilerPath,
+											string::ToUtf8String(newCommandLine),
+											envCompilerWorkingDirectory,
+											objPath,										// .obj of the amalgamation
+											nullptr,										// file indices
+
+											// note that for the purpose of disambiguating symbols in COFF files,
+											// we treat these files as being the amalgamated file.
+											// symbols originally coming from amalgamated files need to have the same
+											// name as symbols from individual files.
+											uniqueId::Generate(normalizedCompilandPath),
+
+											// same for the DIA symbol index, for the same reason
+											static_cast<uint32_t>(i),
+
+											Compiland::Type::PART_OF_AMALGAMATION,			// type of file
+											isPartOfLibrary,								// isPartOfLibrary
+											false											// wasRecompiled
+										};
+
+										compilandDb->compilands.insert(std::make_pair(string::ToUtf8String(normalizedNewObjPath), newCompiland));
+
+										// try updating the amalgamated compiland for the given file and create a new one in case none exists yet
+										{
+											const auto& insertPair = compilandDb->amalgamatedCompilands.emplace(objPath, nullptr);
+											symbols::AmalgamatedCompiland*& amalgamatedCompiland = insertPair.first->second;
+
+											if (insertPair.second)
+											{
+												// insertion was successful, create a new amalgamated compiland
+												amalgamatedCompiland = LC_NEW(&g_amalgamatedCompilandAllocator, symbols::AmalgamatedCompiland);
+												amalgamatedCompiland->isSplit = false;
+											}
+
+											// update entry
+											amalgamatedCompiland->singleParts.push_back(string::ToUtf8String(normalizedNewObjPath));
+										}
+									}
+									else if (generateLogs)
+									{
+										LC_LOG_DEV("Missing dependency %S", normalizedFilename.c_str());
+									}
+								}
+							}
+						}
+						else
+						{
+							// this is a header file. add it as regular dependency for the main amalgamated .obj file
+							if (file::GetDriveType(normalizedFilename.c_str()) == file::DriveType::OPTICAL)
+							{
+								if (generateLogs)
+								{
+									LC_LOG_DEV("Ignoring file %S on optical drive", normalizedFilename.c_str());
+								}
+							}
+							else
+							{
 								const FileAttributeCache::Data& cacheData = fileCache.UpdateCacheData(normalizedFilename);
 								if (cacheData.exists)
 								{
@@ -1056,103 +1226,6 @@ namespace symbols
 								{
 									LC_LOG_DEV("Missing dependency %S", normalizedFilename.c_str());
 								}
-							}
-							else
-							{
-								// this is a .cpp file included by the amalgamated file.
-								// add a separate compiland and .obj for this file, and update dependencies so that changing
-								// this source file will not trigger a build of the amalgamated file.
-								LC_LOG_DEV("Included .cpp %S", normalizedFilename.c_str());
-
-								const FileAttributeCache::Data& cacheData = fileCache.UpdateCacheData(normalizedFilename);
-								if (cacheData.exists)
-								{
-									if (generateLogs)
-									{
-										LC_LOG_DEV("Dependency %S", normalizedFilename.c_str());
-									}
-
-									// create new .obj path by appending this file name to the real .obj, e.g.
-									// Amalgamated.obj turns into Amalgamated.lpp_part.ASingleFile.obj.
-									const std::wstring newObjPart = amalgamation::CreateObjPart(file::NormalizePath(normalizedFilename.c_str()));
-									const std::wstring newObjPath = amalgamation::CreateObjPath(compilandPath, newObjPart);
-									const std::wstring normalizedNewObjPath = file::NormalizePath(newObjPath.c_str());
-
-									AddFileDependency(compilandDb, sourceFilePath, string::ToUtf8String(normalizedNewObjPath), cacheData.lastModificationTime);
-
-									// create a new compiland matching this .obj.
-									// we could use different PDBs for different files when no PCHs are being used, but with
-									// our automatic multi-processor compilation this doesn't really gain anything performance-wise
-									// and just complicates things.
-
-									// adapt command line to accommodate new .obj path
-									const std::wstring& newCommandLine = string::Replace(optionsCache[4], L".obj", newObjPart);
-
-									Compiland* newCompiland = LC_NEW(&g_compilandAllocator, Compiland)
-									{
-										string::ToUtf8String(newObjPath),
-										string::ToUtf8String(normalizedFilename),
-										envPdbPath,
-										envCompilerPath,
-										string::ToUtf8String(newCommandLine),
-										envCompilerWorkingDirectory,
-										objPath,										// .obj of the amalgamation
-										nullptr,										// file indices
-
-										// note that for the purpose of disambiguating symbols in COFF files,
-										// we treat these files as being the amalgamated file.
-										// symbols originally coming from amalgamated files need to have the same
-										// name as symbols from individual files.
-										uniqueId::Generate(normalizedCompilandPath),
-
-										// same for the DIA symbol index, for the same reason
-										static_cast<uint32_t>(i),
-
-										Compiland::Type::PART_OF_AMALGAMATION,			// type of file
-										isPartOfLibrary,								// isPartOfLibrary
-										false											// wasRecompiled
-									};
-
-									compilandDb->compilands.insert(std::make_pair(string::ToUtf8String(normalizedNewObjPath), newCompiland));
-
-									// try updating the amalgamated compiland for the given file and create a new one in case none exists yet
-									{
-										const auto& insertPair = compilandDb->amalgamatedCompilands.emplace(objPath, nullptr);
-										symbols::AmalgamatedCompiland*& amalgamatedCompiland = insertPair.first->second;
-
-										if (insertPair.second)
-										{
-											// insertion was successful, create a new amalgamated compiland
-											amalgamatedCompiland = LC_NEW(&g_amalgamatedCompilandAllocator, symbols::AmalgamatedCompiland);
-											amalgamatedCompiland->isSplit = false;
-										}
-
-										// update entry
-										amalgamatedCompiland->singleParts.push_back(string::ToUtf8String(normalizedNewObjPath));
-									}
-								}
-								else if (generateLogs)
-								{
-									LC_LOG_DEV("Missing dependency %S", normalizedFilename.c_str());
-								}
-							}
-						}
-						else
-						{
-							// this is a header file. add it as regular dependency for the main amalgamated .obj file
-							const FileAttributeCache::Data& cacheData = fileCache.UpdateCacheData(normalizedFilename);
-							if (cacheData.exists)
-							{
-								if (generateLogs)
-								{
-									LC_LOG_DEV("Dependency %S", normalizedFilename.c_str());
-								}
-
-								AddFileDependency(compilandDb, sourceFilePath, objPath, cacheData.lastModificationTime);
-							}
-							else if (generateLogs)
-							{
-								LC_LOG_DEV("Missing dependency %S", normalizedFilename.c_str());
 							}
 						}
 					}
@@ -1464,14 +1537,14 @@ namespace symbols
 		const symbols::ImageSection* firstSection = symbols::FindImageSectionByRVA(imageSectionDb, firstRva);
 		if (!firstSection)
 		{
-			LC_ERROR_DEV("Cannot find image section holding start of dynamic initializer range");
+			LC_ERROR_USER("Could not find image section containing dynamic initializers.\nThis will lead to constructors of global and static variables being called again for the next patch, likely leading to unexpected behaviour.");
 			return initializerDb;
 		}
 
 		const symbols::ImageSection* lastSection = symbols::FindImageSectionByRVA(imageSectionDb, lastRva);
 		if (!lastSection)
 		{
-			LC_ERROR_DEV("Cannot find image section holding end of dynamic initializer range");
+			LC_ERROR_USER("Could not find image section containing dynamic initializers.\nThis will lead to constructors of global and static variables being called again for the next patch, likely leading to unexpected behaviour.");
 			return initializerDb;
 		}
 

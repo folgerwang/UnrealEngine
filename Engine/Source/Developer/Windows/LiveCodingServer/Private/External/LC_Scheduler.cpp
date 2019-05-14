@@ -43,7 +43,7 @@ namespace
 				result = ::GetLogicalProcessorInformation(buffer, &bytesNeeded);
 
 				// return the number of logical processors in case anything went wrong
-				if (result == Windows::FALSE)
+				if ((result == Windows::FALSE) || (buffer == nullptr))
 				{
 					::free(buffer);
 					return GetLogicalProcessorCount();

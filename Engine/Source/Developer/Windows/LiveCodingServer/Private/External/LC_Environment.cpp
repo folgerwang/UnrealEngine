@@ -61,10 +61,17 @@ namespace environment
 			const char* start = memory;
 
 			// search for carriage return
-			while (memory[0] != '\r')
+			while ((memory < memoryEnd) && (memory[0] != '\r'))
 			{
 				++memory;
 			}
+
+			if (memory >= memoryEnd)
+			{
+				// reached the end
+				break;
+			}
+
 			const char* end = memory;
 
 			std::string line(start, end);
@@ -83,7 +90,7 @@ namespace environment
 			}
 
 			// skip carriage return and new line
-			while ((memory[0] == '\r') || (memory[0] == '\n'))
+			while ((memory < memoryEnd) && ((memory[0] == '\r') || (memory[0] == '\n')))
 			{
 				++memory;
 			}
@@ -162,7 +169,11 @@ namespace environment
 		value.resize(MAX_PATH);
 
 		size_t bytes = 0u;
-		_wgetenv_s(&bytes, &value[0], value.size(), variable);
+		const errno_t error = _wgetenv_s(&bytes, &value[0], value.size(), variable);
+		if (error != 0)
+		{
+			LC_LOG_DEV("Could not retrieve environment variable %S (Error: %d)", variable, error);
+		}
 
 		return value;
 	}

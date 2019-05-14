@@ -167,20 +167,20 @@ namespace
 	{
 		// MSVC's link.exe is much more common, so treat this as our default
 		const std::wstring linkerPath = GetLinkerPath(linkerDb);
-		const std::wstring lowerCaseFilename = string::ToLower(file::GetFilename(linkerPath));
-		if (string::Contains(linkerPath.c_str(), L"lld"))
+		const std::wstring lowerCaseLinkerPath = string::ToLower(file::GetFilename(linkerPath));
+		if (string::Contains(lowerCaseLinkerPath.c_str(), L"lld"))
 		{
 			return coff::SymbolRemovalStrategy::LLD_COMPATIBLE;
 		}
-		else if (string::Contains(linkerPath.c_str(), L"lld-link"))
+		else if (string::Contains(lowerCaseLinkerPath.c_str(), L"lld-link"))
 		{
 			return coff::SymbolRemovalStrategy::LLD_COMPATIBLE;
 		}
-		else if (string::Contains(linkerPath.c_str(), L"ld.lld"))
+		else if (string::Contains(lowerCaseLinkerPath.c_str(), L"ld.lld"))
 		{
 			return coff::SymbolRemovalStrategy::LLD_COMPATIBLE;
 		}
-		else if (string::Contains(linkerPath.c_str(), L"ld64.lld"))
+		else if (string::Contains(lowerCaseLinkerPath.c_str(), L"ld64.lld"))
 		{
 			return coff::SymbolRemovalStrategy::LLD_COMPATIBLE;
 		}
@@ -521,7 +521,10 @@ namespace
 		const size_t MODULE_ALIGNMENT = 64u * 1024u;
 		void* preferredBase = process::ScanMemoryRange(processHandle, lowerBound, upperBound, patchSize, MODULE_ALIGNMENT);
 
-		return pointer::AsInteger<executable::PreferredBase>(preferredBase);
+		const executable::PreferredBase preferredImageBase = pointer::AsInteger<executable::PreferredBase>(preferredBase);
+		LC_LOG_DEV("Preferred base address for image: 0x%" PRIX64 " (PID: %d)", preferredImageBase, processId);
+
+		return preferredImageBase;
 	}
 #endif
 
@@ -680,9 +683,11 @@ namespace
 			const size_t count = hookData.data->processes.size();
 			for (size_t p = 0u; p < count; ++p)
 			{
-				const unsigned int pid = hookData.data->processes[p].processId;
-				void* moduleBase = hookData.data->processes[p].moduleBase;
-				const DuplexPipe* pipe = hookData.data->processes[p].pipe;
+				const ModuleCache::ProcessData& processData = hookData.data->processes[p];
+
+				const unsigned int pid = processData.processId;
+				void* moduleBase = processData.moduleBase;
+				const DuplexPipe* pipe = processData.pipe;
 
 				LC_LOG_USER("Calling compile start hooks (PID: %d)", pid);
 				pipe->SendCommandAndWaitForAck(commands::CallHooks { hook::MakeFunction(moduleBase, hookData.firstRva), hook::MakeFunction(moduleBase, hookData.lastRva) });
@@ -705,9 +710,11 @@ namespace
 			const size_t count = hookData.data->processes.size();
 			for (size_t p = 0u; p < count; ++p)
 			{
-				const unsigned int pid = hookData.data->processes[p].processId;
-				void* moduleBase = hookData.data->processes[p].moduleBase;
-				const DuplexPipe* pipe = hookData.data->processes[p].pipe;
+				const ModuleCache::ProcessData& processData = hookData.data->processes[p];
+
+				const unsigned int pid = processData.processId;
+				void* moduleBase = processData.moduleBase;
+				const DuplexPipe* pipe = processData.pipe;
 
 				LC_LOG_USER("Calling compile success hooks (PID: %d)", pid);				
 				pipe->SendCommandAndWaitForAck(commands::CallHooks { hook::MakeFunction(moduleBase, hookData.firstRva), hook::MakeFunction(moduleBase, hookData.lastRva) });
@@ -730,9 +737,11 @@ namespace
 			const size_t count = hookData.data->processes.size();
 			for (size_t p = 0u; p < count; ++p)
 			{
-				const unsigned int pid = hookData.data->processes[p].processId;
-				void* moduleBase = hookData.data->processes[p].moduleBase;
-				const DuplexPipe* pipe = hookData.data->processes[p].pipe;
+				const ModuleCache::ProcessData& processData = hookData.data->processes[p];
+
+				const unsigned int pid = processData.processId;
+				void* moduleBase = processData.moduleBase;
+				const DuplexPipe* pipe = processData.pipe;
 
 				LC_LOG_USER("Calling compile error hooks (PID: %d)", pid);
 				pipe->SendCommandAndWaitForAck(commands::CallHooks { hook::MakeFunction(moduleBase, hookData.firstRva), hook::MakeFunction(moduleBase, hookData.lastRva) });
@@ -1195,7 +1204,7 @@ LiveModule::ErrorType::Enum LiveModule::Update(FileAttributeCache* fileCache, Di
 {
 	telemetry::Scope updateScope("Update live module");
 
-	LC_LOG_DEV("\nLiveModule::Update -------------------------------------------\n");
+	LC_LOG_DEV("LiveModule Update: %S", m_moduleName.c_str());
 
 	GLiveCodingServer->GetStatusChangeDelegate().ExecuteIfBound(L"Checking modified files...");
 
@@ -3390,9 +3399,11 @@ LiveModule::ErrorType::Enum LiveModule::Update(FileAttributeCache* fileCache, Di
 				const size_t count = hookData.data->processes.size();
 				for (size_t p = 0u; p < count; ++p)
 				{
-					const unsigned int pid = hookData.data->processes[p].processId;
-					void* moduleBase = hookData.data->processes[p].moduleBase;
-					const DuplexPipe* pipe = hookData.data->processes[p].pipe;
+					const ModuleCache::ProcessData& hookProcessData = hookData.data->processes[p];
+
+					const unsigned int pid = hookProcessData.processId;
+					void* moduleBase = hookProcessData.moduleBase;
+					const DuplexPipe* pipe = hookProcessData.pipe;
 
 					LC_LOG_USER("Calling pre-patch hooks (PID: %d)", pid);
 					pipe->SendCommandAndWaitForAck(commands::CallHooks { hook::MakeFunction(moduleBase, hookData.firstRva), hook::MakeFunction(moduleBase, hookData.lastRva) });
@@ -3822,9 +3833,11 @@ LiveModule::ErrorType::Enum LiveModule::Update(FileAttributeCache* fileCache, Di
 				{
 					++functionsPatchedCount;
 
-					const unsigned int pid = originalData.data->processes[p].processId;
-					void* moduleBase = originalData.data->processes[p].moduleBase;
-					process::Handle processHandle = originalData.data->processes[p].processHandle;
+					const ModuleCache::ProcessData& hookProcessData = originalData.data->processes[p];
+
+					const unsigned int pid = hookProcessData.processId;
+					void* moduleBase = hookProcessData.moduleBase;
+					process::Handle processHandle = hookProcessData.processHandle;
 
 					char* originalAddress = pointer::Offset<char*>(moduleBase, originalData.symbol->rva);
 					char* patchAddress = pointer::Offset<char*>(loadedPatches[p], patchSymbol->rva);
@@ -4004,7 +4017,7 @@ bool LiveModule::InstallCompiledPatches(LiveProcess* liveProcess, void* original
 		return true;
 	}
 
-	LC_LOG_DEV("\nLiveModule::InstallCompiledPatches ---------------------------\n");
+	LC_LOG_DEV("LiveModule InstallCompiledPatches: %S", m_moduleName.c_str());
 
 	telemetry::Scope wholeScope("Installing patches");
 
@@ -4251,7 +4264,7 @@ bool LiveModule::LoadPatchInfoAction::Execute(CommandType* command, const Duplex
 void LiveModule::UpdateDirectoryCache(const ImmutableString& path, symbols::Dependency* dependency, DirectoryCache* cache)
 {
 	const std::wstring& directoryOnly = file::GetDirectory(string::ToWideString(path));
-	dependency->parentDirectory = cache->AddDirectory(directoryOnly.c_str());
+	dependency->parentDirectory = cache->AddDirectory(directoryOnly);
 }
 
 

@@ -41,7 +41,11 @@ namespace
 	{
 		InitializeCOM(void)
 		{
-			::CoInitialize(NULL);
+			const HRESULT success = ::CoInitialize(NULL);
+			if (success != S_OK)
+			{
+				LC_LOG_DEV("Could not initialize COM. Error: %d", success);
+			}
 		}
 
 		~InitializeCOM(void)
@@ -125,6 +129,7 @@ ServerCommandThread::~ServerCommandThread(void)
 	// this is only called when Live++ is being torn down anyway, so we leave cleanup to the OS.
 	// otherwise we could run into races when trying to terminate the thread that might currently be doing
 	// some intensive work.
+	delete m_directoryCache;
 }
 
 
