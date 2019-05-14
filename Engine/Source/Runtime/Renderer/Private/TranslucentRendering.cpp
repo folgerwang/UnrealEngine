@@ -388,6 +388,7 @@ void RenderViewTranslucencyInner(FRHICommandListImmediate& RHICmdList, const FVi
 						&View,
 						DrawRenderState,
 						DynamicMeshPassContext,
+						FBasePassMeshProcessor::EFlags::CanUseDepthStencil,
 						TranslucencyPass);
 
 					const uint64 DefaultBatchElementMask = ~0ull;
@@ -412,6 +413,7 @@ void RenderViewTranslucencyInner(FRHICommandListImmediate& RHICmdList, const FVi
 						&View,
 						DrawRenderState,
 						DynamicMeshPassContext,
+						FBasePassMeshProcessor::EFlags::CanUseDepthStencil,
 						TranslucencyPass);
 
 					const uint64 DefaultBatchElementMask = ~0ull;
