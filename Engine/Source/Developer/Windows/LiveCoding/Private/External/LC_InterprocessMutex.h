@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Windows/MinimalWindowsAPI.h"
+#include "LC_Platform.h"
 
 class InterprocessMutex
 {
