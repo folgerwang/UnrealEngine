@@ -125,9 +125,9 @@ LPP_DLL_API void __cdecl LppTriggerRecompile(void)
 }
 
 
-LPP_DLL_API void __cdecl LppBuildPatch(const wchar_t* moduleNames[], const wchar_t* objPaths[], unsigned int count)
+LPP_DLL_API void __cdecl LppBuildPatch(const wchar_t* moduleNames[], const wchar_t* objPaths[], const wchar_t* amalgamatedObjPaths[], unsigned int count)
 {
-	g_startupThread->BuildPatch(moduleNames, objPaths, count);
+	g_startupThread->BuildPatch(moduleNames, objPaths, amalgamatedObjPaths, count);
 }
 
 

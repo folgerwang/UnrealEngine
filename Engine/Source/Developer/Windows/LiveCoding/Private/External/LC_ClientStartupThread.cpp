@@ -176,14 +176,14 @@ void ClientStartupThread::TriggerRecompile(void)
 }
 
 
-void ClientStartupThread::BuildPatch(const wchar_t* moduleNames[], const wchar_t* objPaths[], unsigned int count)
+void ClientStartupThread::BuildPatch(const wchar_t* moduleNames[], const wchar_t* objPaths[], const wchar_t* amalgamatedObjPaths[], unsigned int count)
 {
 	// we cannot wait for commands in the user command thread as long as startup hasn't finished
 	Join();
 
 	if (m_userCommandThread)
 	{
-		m_userCommandThread->BuildPatch(moduleNames, objPaths, count);
+		m_userCommandThread->BuildPatch(moduleNames, objPaths, amalgamatedObjPaths, count);
 	}
 }
 

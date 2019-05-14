@@ -366,12 +366,35 @@ namespace
 	}
 
 
-	// helper function that returns or generates the unique ID of an optional compiland
-	static inline uint32_t GetCompilandId(const symbols::Compiland* compiland, const wchar_t* const objPath)
+	// helper function that returns or generates the unique ID of an optional compiland.
+	// for files split off from amalgamated files, we need to use the original object path of the amalgamated file here,
+	// otherwise names of symbols would differ, leading to constructors of global instances being called again.
+	static inline uint32_t GetCompilandId(const symbols::Compiland* compiland, const wchar_t* const objPath, const types::vector<LiveModule::ModifiedObjFile>& modifiedObjFiles)
 	{
-		return compiland
-			? compiland->uniqueId									// compiland exists
-			: uniqueId::Generate(file::NormalizePath(objPath));		// new compiland, generate new unique ID
+		// try to find the given .obj path in the array of modified object files to check if there's an original amalgamated object path for it
+		for (size_t i = 0u; i < modifiedObjFiles.size(); ++i)
+		{
+			const LiveModule::ModifiedObjFile& objFile = modifiedObjFiles[i];
+
+			// don't bother checking strings if the amalgamated object path is empty anyway
+			if (!objFile.amalgamatedObjPath.empty())
+			{
+				if (string::Matches(objPath, objFile.objPath.c_str()))
+				{
+					return uniqueId::Generate(file::NormalizePath(objFile.amalgamatedObjPath.c_str()));
+				}
+			}
+		}
+
+		if (compiland)
+		{
+			// the compiland already exists
+			return compiland->uniqueId;
+		}
+		else
+		{
+			return uniqueId::Generate(file::NormalizePath(objPath));
+		}
 	}
 
 
@@ -441,7 +464,7 @@ namespace
 
 
 	template <typename T>
-	static types::vector<symbols::ObjPath> UpdateCoffCache(const T& compilands, CoffCache<coff::CoffDB>* coffCache, CacheUpdate::Enum updateType, coff::ReadFlags::Enum coffReadFlags)
+	static types::vector<symbols::ObjPath> UpdateCoffCache(const T& compilands, CoffCache<coff::CoffDB>* coffCache, CacheUpdate::Enum updateType, coff::ReadFlags::Enum coffReadFlags, const types::vector<LiveModule::ModifiedObjFile>& modifiedOrNewObjFiles)
 	{
 		LC_LOG_INDENT_DEV;
 
@@ -458,7 +481,7 @@ namespace
 			symbols::ObjPath objPath = it->first;
 			const std::wstring& wideObjPath = string::ToWideString(objPath);
 			const symbols::Compiland* compiland = it->second;
-			const uint32_t compilandUniqueId = GetCompilandId(compiland, wideObjPath.c_str());
+			const uint32_t compilandUniqueId = GetCompilandId(compiland, wideObjPath.c_str(), modifiedOrNewObjFiles);
 
 			const bool shouldUpdate = (updateType == CacheUpdate::NON_EXISTANT)
 				? (coffCache->Lookup(objPath) == nullptr)				// NON-EXISTANT: update cache only for files which don't have an entry yet
@@ -1200,7 +1223,7 @@ void LiveModule::UpdateDirectoryCache(DirectoryCache* cache)
 }
 
 
-LiveModule::ErrorType::Enum LiveModule::Update(FileAttributeCache* fileCache, DirectoryCache* directoryCache, UpdateType::Enum updateType, const std::vector<std::wstring>& modifiedOrNewObjFiles)
+LiveModule::ErrorType::Enum LiveModule::Update(FileAttributeCache* fileCache, DirectoryCache* directoryCache, UpdateType::Enum updateType, const types::vector<ModifiedObjFile>& modifiedOrNewObjFiles)
 {
 	telemetry::Scope updateScope("Update live module");
 
@@ -1340,7 +1363,7 @@ LiveModule::ErrorType::Enum LiveModule::Update(FileAttributeCache* fileCache, Di
 	{
 		for (size_t i = 0u; i < modifiedOrNewObjFiles.size(); ++i)
 		{
-			LC_LOG_USER("File %S was modified or is new", modifiedOrNewObjFiles[i].c_str());
+			LC_LOG_USER("File %S was modified or is new", modifiedOrNewObjFiles[i].objPath.c_str());
 		}
 
 		LC_LOG_USER("Building patch from %zu file(s) for Live Coding module %S", modifiedOrNewObjFiles.size(), m_moduleName.c_str());
@@ -1811,7 +1834,7 @@ LiveModule::ErrorType::Enum LiveModule::Update(FileAttributeCache* fileCache, Di
 			const size_t count = modifiedOrNewObjFiles.size();
 			for (size_t i = 0u; i < count; ++i)
 			{
-				const std::wstring& wideObjPath = modifiedOrNewObjFiles[i];
+				const std::wstring& wideObjPath = modifiedOrNewObjFiles[i].objPath;
 				const symbols::ObjPath& objPath = string::ToUtf8String(wideObjPath);
 				symbols::Compiland* compiland = symbols::FindCompiland(m_compilandDB, objPath);
 
@@ -1954,11 +1977,11 @@ LiveModule::ErrorType::Enum LiveModule::Update(FileAttributeCache* fileCache, Di
 		{
 			for (auto it = modifiedOrNewObjFiles.begin(); it != modifiedOrNewObjFiles.end(); ++it)
 			{
-				const symbols::ObjPath objPath(string::ToUtf8String(*it));
+				const symbols::ObjPath objPath(string::ToUtf8String(it->objPath));
 				const symbols::Compiland* compiland = symbols::FindCompiland(m_compilandDB, objPath);
 
 				// new compilands won't be found in the database, so there's no unique ID yet that we can use
-				const uint32_t compilandUniqueId = GetCompilandId(compiland, it->c_str());
+				const uint32_t compilandUniqueId = GetCompilandId(compiland, it->objPath.c_str(), modifiedOrNewObjFiles);
 
 				// this file was either modified or is new. in any case, the new .OBJ needs to be linked in, even
 				// though the file might be contained in a library.
@@ -2035,11 +2058,11 @@ LiveModule::ErrorType::Enum LiveModule::Update(FileAttributeCache* fileCache, Di
 						// there is no entry yet for this COFF in the cache.
 						// this means that this .obj was not recompiled (otherwise it would have an entry already),
 						// but has been pulled in for the first time due to unresolved symbols.
-						auto task = scheduler::CreateTask(taskRoot, [this, objPath, coffReadFlags]()
+						auto task = scheduler::CreateTask(taskRoot, [this, objPath, coffReadFlags, &modifiedOrNewObjFiles]()
 						{
 							const symbols::Compiland* compiland = symbols::FindCompiland(m_compilandDB, objPath);
 							const std::wstring& wideObjPath = string::ToWideString(objPath);
-							const uint32_t compilandUniqueId = GetCompilandId(compiland, wideObjPath.c_str());
+							const uint32_t compilandUniqueId = GetCompilandId(compiland, wideObjPath.c_str(), modifiedOrNewObjFiles);
 
 								LC_LOG_DEV("Need %s for the first time, updating COFF cache", objPath.c_str());
 
@@ -2103,7 +2126,7 @@ LiveModule::ErrorType::Enum LiveModule::Update(FileAttributeCache* fileCache, Di
 	}
 
 	// update the COFF cache for all compiled files
-	UpdateCoffCache(m_compiledCompilands, m_coffCache, CacheUpdate::ALL, coffReadFlags);
+	UpdateCoffCache(m_compiledCompilands, m_coffCache, CacheUpdate::ALL, coffReadFlags, modifiedOrNewObjFiles);
 
 	GLiveCodingServer->GetStatusChangeDelegate().ExecuteIfBound(L"Stripping COFFs...");
 
@@ -2132,7 +2155,7 @@ LiveModule::ErrorType::Enum LiveModule::Update(FileAttributeCache* fileCache, Di
 			symbols::Compiland* compiland = symbols::FindCompiland(m_compilandDB, objPath);
 			const std::wstring wideObjPath = string::ToWideString(objPath);
 
-			const uint32_t compilandUniqueId = GetCompilandId(compiland, wideObjPath.c_str());
+			const uint32_t compilandUniqueId = GetCompilandId(compiland, wideObjPath.c_str(), modifiedOrNewObjFiles);
 
 			coff::ObjFile* objFile = coff::OpenObj(wideObjPath.c_str());
 			if (objFile && objFile->memoryFile)
@@ -2660,7 +2683,7 @@ LiveModule::ErrorType::Enum LiveModule::Update(FileAttributeCache* fileCache, Di
 		const symbols::ObjPath& objPath = compilandIt->first;
 		const std::wstring& wideObjPath = string::ToWideString(objPath);
 		const symbols::Compiland* compiland = compilandIt->second;
-		const uint32_t compilandUniqueId = GetCompilandId(compiland, wideObjPath.c_str());
+		const uint32_t compilandUniqueId = GetCompilandId(compiland, wideObjPath.c_str(), modifiedOrNewObjFiles);
 
 		coff::ObjFile* coffFile = coff::OpenObj(wideObjPath.c_str());
 		if (coffFile && coffFile->memoryFile)
@@ -3247,7 +3270,7 @@ LiveModule::ErrorType::Enum LiveModule::Update(FileAttributeCache* fileCache, Di
 		// update the COFF cache for new patch compilands.
 		// there may be files for which we don't have a database yet, even though we updated the database for all compiled files.
 		// this can happen when a new .obj that is part of a library is linked in for the first time.
-		types::vector<symbols::ObjPath> updatedCoffs = UpdateCoffCache(patch_compilandDB->compilands, m_coffCache, CacheUpdate::NON_EXISTANT, coffReadFlags);
+		types::vector<symbols::ObjPath> updatedCoffs = UpdateCoffCache(patch_compilandDB->compilands, m_coffCache, CacheUpdate::NON_EXISTANT, coffReadFlags, modifiedOrNewObjFiles);
 
 
 		// similarly, reconstruct symbols and dynamic initializers for new .obj that have been pulled in for the first time.

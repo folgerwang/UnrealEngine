@@ -256,6 +256,7 @@ namespace commands
 
 		wchar_t moduleName[MAX_PATH];
 		wchar_t objPath[MAX_PATH];
+		wchar_t amalgamatedObjPath[MAX_PATH];
 	};
 
 	// tell Live++ to handle an exception

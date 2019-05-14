@@ -13,6 +13,7 @@
 #include "LC_Executable.h"
 #include "LC_RunMode.h"
 #include "LC_Types.h"
+#include "LC_LiveModule.h"
 
 
 class MainFrame;
@@ -261,5 +262,5 @@ private:
 
 	// for triggering recompiles using the API
 	bool m_manualRecompileTriggered;
-	types::unordered_map<std::wstring, types::vector<std::wstring>> m_liveModuleToModifiedOrNewObjFiles;
+	types::unordered_map<std::wstring, types::vector<LiveModule::ModifiedObjFile>> m_liveModuleToModifiedOrNewObjFiles;
 };
