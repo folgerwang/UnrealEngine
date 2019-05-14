@@ -44,7 +44,8 @@ public:
 	virtual FLogOutputDelegate& GetLogOutputDelegate() = 0;
 
 	typedef TMap<FString, TArray<FString>> FModuleToObjectFiles;
-	DECLARE_DELEGATE_RetVal_TwoParams(bool, FCompileDelegate, const TArray<FString>&, FModuleToObjectFiles&)
+	typedef TMap<FString, FString> FObjectFileToUnityObjectFile;
+	DECLARE_DELEGATE_RetVal_ThreeParams(bool, FCompileDelegate, const TArray<FString>&, FModuleToObjectFiles&, FObjectFileToUnityObjectFile&)
 	virtual FCompileDelegate& GetCompileDelegate() = 0;
 
 	DECLARE_DELEGATE(FCompileStartedDelegate);

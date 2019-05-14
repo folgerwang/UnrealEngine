@@ -443,7 +443,7 @@ void appSettings::Startup(const wchar_t* group)
 		L"amalgamation_split_into_single_parts",
 		L"Split into single parts",
 		L"Specifies whether amalgamated/unity files are automatically split into single files",
-		false
+		true
 	);
 
 	g_amalgamationSplitMinCppCount = new SettingInt

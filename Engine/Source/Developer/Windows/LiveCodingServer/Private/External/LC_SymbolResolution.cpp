@@ -4,7 +4,13 @@
 #include "LC_PointerUtil.h"
 #include "LC_Logging.h"
 #include "Windows/WindowsHWrapper.h"
+
+#pragma push_macro("OPTIONAL")
+#ifndef OPTIONAL
+#define OPTIONAL
+#endif
 #include <dbghelp.h>
+#pragma pop_macro("OPTIONAL")
 
 namespace symbolResolution
 {

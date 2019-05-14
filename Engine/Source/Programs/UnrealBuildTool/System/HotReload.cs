@@ -727,8 +727,9 @@ namespace UnrealBuildTool
 		/// Writes a manifest containing all the information needed to create a live coding patch
 		/// </summary>
 		/// <param name="ManifestFile">File to write to</param>
+		/// <param name="SourceFileToUnityFile">Mapping of source file to the unity file that would contain it</param>
 		/// <param name="Actions">List of actions that are part of the graph</param>
-		public static void WriteLiveCodeManifest(FileReference ManifestFile, List<Action> Actions)
+		public static void WriteLiveCodeManifest(FileReference ManifestFile, Dictionary<FileItem, FileItem> SourceFileToUnityFile, List<Action> Actions)
 		{
 			// Find all the output object files
 			HashSet<FileItem> ObjectFiles = new HashSet<FileItem>();
@@ -740,8 +741,32 @@ namespace UnrealBuildTool
 				}
 			}
 
+			// Find any action that has a non-unity cpp prerequisite, and map it to the appropriate 
+			Dictionary<FileItem, FileItem> ObjectFileToUnityObjectFile = new Dictionary<FileItem, FileItem>();
+			foreach(Action Action in Actions)
+			{
+				if (Action.ActionType == ActionType.Compile)
+				{
+					foreach(FileItem PrerequisiteItem in Action.PrerequisiteItems)
+					{
+						FileItem UnityFile;
+						if(SourceFileToUnityFile.TryGetValue(PrerequisiteItem, out UnityFile))
+						{
+							foreach(FileItem ProducedItem in Action.ProducedItems)
+							{
+								if(ProducedItem.HasExtension(".obj"))
+								{
+									FileItem UnityObjFile = FileItem.GetItemByFileReference(new FileReference(UnityFile.Location.FullName + ".obj"));
+									ObjectFileToUnityObjectFile[ProducedItem] = UnityObjFile;
+								}
+							}
+						}
+					}
+				}
+			}
+
 			// Write the output manifest
-			using(JsonWriter Writer = new JsonWriter(ManifestFile))
+			using (JsonWriter Writer = new JsonWriter(ManifestFile))
 			{
 				Writer.WriteObjectStart();
 
@@ -780,6 +805,26 @@ namespace UnrealBuildTool
 							Writer.WriteArrayEnd();
 
 							Writer.WriteObjectEnd();
+						}
+					}
+				}
+				Writer.WriteArrayEnd();
+
+				Writer.WriteArrayStart("AdaptiveUnityFiles");
+				foreach (Action Action in Actions)
+				{
+					if (Action.ActionType == ActionType.Link && Action.ProducedItems.Any(x => x.HasExtension(".exe") || x.HasExtension(".dll")))
+					{
+						foreach (FileItem InputFile in Action.PrerequisiteItems)
+						{
+							FileItem UnityFile;
+							if (ObjectFileToUnityObjectFile.TryGetValue(InputFile, out UnityFile))
+							{
+								Writer.WriteObjectStart();
+								Writer.WriteValue("ObjectFile", InputFile.AbsolutePath);
+								Writer.WriteValue("UnityObjectFile", UnityFile.AbsolutePath);
+								Writer.WriteObjectEnd();
+							}
 						}
 					}
 				}
