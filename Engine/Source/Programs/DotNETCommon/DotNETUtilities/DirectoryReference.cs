@@ -258,6 +258,25 @@ namespace Tools.DotNETCommon
 			}
 		}
 
+		/// <summary>
+		/// Finds the correct case to match the location of this file on disk. Uses the given case for parts of the path that do not exist.
+		/// </summary>
+		/// <param name="Location">The path to find the correct case for</param>
+		/// <returns>Location of the file with the correct case</returns>
+		public static DirectoryReference FindCorrectCase(DirectoryReference Location)
+		{
+			return new DirectoryReference(DirectoryUtils.FindCorrectCase(Location.ToDirectoryInfo()));
+		}
+
+		/// <summary>
+		/// Constructs a DirectoryInfo object from this reference
+		/// </summary>
+		/// <returns>New DirectoryInfo object</returns>
+		public DirectoryInfo ToDirectoryInfo()
+		{
+			return new DirectoryInfo(FullName);
+		}
+
 		#region System.IO.Directory Wrapper Methods
 
 		/// <summary>

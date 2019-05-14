@@ -259,10 +259,15 @@ namespace UnrealBuildTool
 				throw new BuildException("No configurations specified for target");
 			}
 
-			// Make sure the project file exists
-			if(ProjectFile != null && !FileReference.Exists(ProjectFile))
+			// Make sure the project file exists, and make sure we're using the correct case.
+			if(ProjectFile != null)
 			{
-				throw new BuildException("Unable to find project '{0}'.", ProjectFile);
+				FileInfo ProjectFileInfo = FileUtils.FindCorrectCase(ProjectFile.ToFileInfo());
+				if(!ProjectFileInfo.Exists)
+				{
+					throw new BuildException("Unable to find project '{0}'.", ProjectFile);
+				}
+				ProjectFile = new FileReference(ProjectFileInfo);
 			}
 
 			// Expand all the platforms, architectures and configurations

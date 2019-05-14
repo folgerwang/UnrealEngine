@@ -247,6 +247,16 @@ namespace Tools.DotNETCommon
 		}
 
 		/// <summary>
+		/// Finds the correct case to match the location of this file on disk. Uses the given case for parts of the path that do not exist.
+		/// </summary>
+		/// <param name="Location">The path to find the correct case for</param>
+		/// <returns>Location of the file with the correct case</returns>
+		public static FileReference FindCorrectCase(FileReference Location)
+		{
+			return new FileReference(FileUtils.FindCorrectCase(Location.ToFileInfo()));
+		}
+
+		/// <summary>
 		/// Constructs a FileInfo object from this reference
 		/// </summary>
 		/// <returns>New FileInfo object</returns>
