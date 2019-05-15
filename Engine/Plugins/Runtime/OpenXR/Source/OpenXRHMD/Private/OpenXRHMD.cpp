@@ -156,17 +156,25 @@ bool FOpenXRHMDPlugin::PreInit()
 		return false;
 	}
 
-	FString AppName = FApp::GetName();
 	const char* extensions[] = { XR_KHR_D3D11_ENABLE_EXTENSION_NAME };
+
+	// Engine registration can be disabled via console var.
+	auto* CVarDisableEngineAndAppRegistration = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DisableEngineAndAppRegistration"));
+	bool bDisableEngineRegistration = (CVarDisableEngineAndAppRegistration && CVarDisableEngineAndAppRegistration->GetValueOnAnyThread() != 0);
+
+	// EngineName will be of the form "UnrealEngine4.21", with the minor version ("21" in this example)
+	// updated with every quarterly release
+	FString EngineName = bDisableEngineRegistration ? FString("") : FApp::GetEpicProductIdentifier() + FEngineVersion::Current().ToString(EVersionComponent::Minor);
+	const TCHAR* ProjectName = bDisableEngineRegistration ? TEXT("") : FApp::GetProjectName();
 
 	XrInstanceCreateInfo Info;
 	Info.type = XR_TYPE_INSTANCE_CREATE_INFO;
 	Info.next = nullptr;
 	Info.createFlags = 0;
-	FPlatformString::Convert(Info.applicationInfo.applicationName, XR_MAX_APPLICATION_NAME_SIZE, GetData(AppName), AppName.Len() + 1);
-	Info.applicationInfo.applicationVersion = 0;
-	FCStringAnsi::Strcpy(Info.applicationInfo.engineName, XR_MAX_ENGINE_NAME_SIZE, "Unreal Engine");
-	Info.applicationInfo.engineVersion = (uint32)FEngineVersion::Current().GetMajor() << 16 | FEngineVersion::Current().GetMinor();
+	FTCHARToUTF8_Convert::Convert(Info.applicationInfo.applicationName, XR_MAX_APPLICATION_NAME_SIZE, ProjectName, TCString<TCHAR>::Strlen(ProjectName) + 1);
+	Info.applicationInfo.applicationVersion = FEngineVersion::Current().GetChangelist();
+	FTCHARToUTF8_Convert::Convert(Info.applicationInfo.engineName, XR_MAX_ENGINE_NAME_SIZE, *EngineName, EngineName.Len() + 1);
+	Info.applicationInfo.engineVersion = (uint32)(FEngineVersion::Current().GetMinor() << 16 | FEngineVersion::Current().GetPatch());
 	Info.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
 	Info.enabledApiLayerCount = 0;
 	Info.enabledApiLayerNames = nullptr;
@@ -479,18 +487,18 @@ FMatrix FOpenXRHMD::GetStereoProjectionMatrix(const enum EStereoscopicPass Stere
 
 	Fov.angleUp = tan(Fov.angleUp);
 	Fov.angleDown = tan(Fov.angleDown);
-	Fov.angleLeft = tan(-Fov.angleLeft);
-	Fov.angleRight = tan(-Fov.angleRight);
+	Fov.angleLeft = tan(Fov.angleLeft);
+	Fov.angleRight = tan(Fov.angleRight);
 
-	float SumRL = (Fov.angleLeft + Fov.angleRight);
+	float SumRL = (Fov.angleRight + Fov.angleLeft);
 	float SumTB = (Fov.angleUp + Fov.angleDown);
-	float InvRL = (1.0f / (Fov.angleLeft - Fov.angleRight));
+	float InvRL = (1.0f / (Fov.angleRight - Fov.angleLeft));
 	float InvTB = (1.0f / (Fov.angleUp - Fov.angleDown));
 
 	FMatrix Mat = FMatrix(
 		FPlane((2.0f * InvRL), 0.0f, 0.0f, 0.0f),
 		FPlane(0.0f, (2.0f * InvTB), 0.0f, 0.0f),
-		FPlane((SumRL * InvRL), (SumTB * InvTB), 0.0f, 1.0f),
+		FPlane((SumRL * -InvRL), (SumTB * -InvTB), 0.0f, 1.0f),
 		FPlane(0.0f, 0.0f, ZNear, 0.0f)
 	);
 
