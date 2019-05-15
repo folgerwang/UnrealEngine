@@ -543,6 +543,14 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Gets the platform name that should be used.
+		/// </summary>
+		public virtual string GetPlatformName()
+		{
+			return Platform.ToString();
+		}
+
+		/// <summary>
 		/// If this platform can be compiled with XGE
 		/// </summary>
 		public virtual bool CanUseXGE()
