@@ -999,7 +999,7 @@ namespace Audio
 			FSourceInfo& SourceInfo = SourceInfos[SourceId];
 			FSourceDownmixData& DownmixData = DownmixDataArray[SourceId];
 
-			if (DownmixData.NumInputChannels != NumInputChannels)
+			if (DownmixData.NumInputChannels != NumInputChannels && !SourceInfo.bUseHRTFSpatializer)
 			{
 				// This means that this source has been reinitialized as a different source while this command was in flight,
 				// In which case it is of no use to us. Exit.
