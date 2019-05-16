@@ -93,6 +93,9 @@ void FGoogleARCorePassthroughCameraRenderer::InitializeRenderer_RenderThread(FTe
 
 	FExternalTextureRegistry::Get().RegisterExternalTexture(GoogleARCorePassthroughCameraExternalTextureGuid, VideoTexture, SamplerStateRHI);
 
+	//Make sure AR camera pass through materials are updated properly
+	FMaterialRenderProxy::UpdateDeferredCachedUniformExpressions();
+
 	bInitialized = true;
 }
 
