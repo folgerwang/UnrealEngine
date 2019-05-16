@@ -198,7 +198,7 @@ namespace Audio
 		~FMixerSourceManager();
 
 		void Init(const FSourceManagerInitParams& InitParams);
-		void Update();
+		void Update(bool bTimedOut = false);
 
 		bool GetFreeSourceId(int32& OutSourceId);
 		int32 GetNumActiveSources() const;
