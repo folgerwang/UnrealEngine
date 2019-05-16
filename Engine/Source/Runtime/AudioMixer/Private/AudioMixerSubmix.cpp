@@ -92,6 +92,11 @@ namespace Audio
 				//If we do have a valid ambisonics decoder, lets use it. Otherwise, treat this submix like a device submix.
 				if (AmbisonicsMixer.IsValid())
 				{
+					if (!InSoundSubmix->AmbisonicsPluginSettings)
+					{
+						InSoundSubmix->AmbisonicsPluginSettings = AmbisonicsMixer->GetDefaultSettings();
+					}
+
 					if (InSoundSubmix->AmbisonicsPluginSettings != nullptr)
 					{
 						OnAmbisonicsSettingsChanged(InSoundSubmix->AmbisonicsPluginSettings);
