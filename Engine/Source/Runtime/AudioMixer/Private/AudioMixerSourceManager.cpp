@@ -298,7 +298,7 @@ namespace Audio
 
 				// Make sure we've actually emptied the command queue from the render thread before writing to it
 #if !UE_BUILD_SHIPPING
-				if (bTimedOut)
+				if (!bTimedOut)
 				{
 					check(CommandBuffers[NextIndex].SourceCommandQueue.Num() == 0);
 				}
