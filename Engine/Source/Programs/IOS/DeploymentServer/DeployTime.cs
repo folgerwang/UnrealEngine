@@ -240,7 +240,11 @@ namespace DeploymentServer
                         ReportIF.Error("Timed out while trying to connect to a mobile device.  Make sure one is connected.");
                     }
                 }
-                catch (Exception ex)
+				catch (ThreadAbortException)
+				{
+					// we expect this to happen so we don't log it
+				}
+				catch (Exception ex)
                 {
                     ReportIF.Error(String.Format("Error encountered ('{0}') while trying to connect to a mobile device.  Please verify that iTunes is installed", ex.Message));
                 }

@@ -105,6 +105,7 @@ namespace DeploymentServer
 			protected bool LastResult = false;
 
 			System.Threading.Thread runLoop = null;
+			System.Threading.Thread listenLoop = null;
 			bool bCommandComplete = true;
 
 			public void StopRun()
@@ -114,6 +115,10 @@ namespace DeploymentServer
 					if (runLoop != null)
 					{
 						runLoop.Abort();
+					}
+					if (listenLoop != null)
+					{
+						listenLoop.Abort();
 					}
 				}
 				catch { }
@@ -398,7 +403,30 @@ namespace DeploymentServer
 								}
 								else
 								{
-									DeploymentProxy.Deployer.ListenToDevice(Device, Writer);
+									listenLoop = new System.Threading.Thread(delegate ()
+									{
+										try
+										{
+											DeploymentProxy.Deployer.ListenToDevice(Device, Writer);
+										}
+										catch (IOException)
+										{
+											// we expect this to happen so we don't log it
+										}
+										catch (ThreadAbortException)
+										{
+											// we expect this to happen so we don't log it
+										}
+										catch (Exception e)
+										{
+											LocalLog("Exception: " + e.ToString());
+										}
+										finally
+										{
+											listenLoop = null;
+										}
+									});
+									listenLoop.Start();
 								}
 								break;
 						}
