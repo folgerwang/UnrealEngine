@@ -10,11 +10,11 @@ class DuplexPipe;
 
 namespace actions
 {
-	#define DECLARE_ACTION(_name)																	\
-		struct _name																				\
-		{																							\
-			typedef ::commands::_name CommandType;													\
-			static bool Execute(CommandType* command, const DuplexPipe* pipe, void* context);		\
+	#define DECLARE_ACTION(_name)																		\
+		struct _name																					\
+		{																								\
+			typedef ::commands::_name CommandType;														\
+			static bool Execute(const CommandType* command, const DuplexPipe* pipe, void* context);		\
 		}
 
 	DECLARE_ACTION(RegisterProcessFinished);

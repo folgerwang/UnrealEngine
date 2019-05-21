@@ -41,7 +41,11 @@ namespace
 	{
 		InitializeCOM(void)
 		{
-			::CoInitialize(NULL);
+			const HRESULT success = ::CoInitialize(NULL);
+			if (success != S_OK)
+			{
+				LC_LOG_DEV("Could not initialize COM. Error: %d", success);
+			}
 		}
 
 		~InitializeCOM(void)
@@ -125,6 +129,7 @@ ServerCommandThread::~ServerCommandThread(void)
 	// this is only called when Live++ is being torn down anyway, so we leave cleanup to the OS.
 	// otherwise we could run into races when trying to terminate the thread that might currently be doing
 	// some intensive work.
+	delete m_directoryCache;
 }
 
 
@@ -766,11 +771,12 @@ void ServerCommandThread::CompileChanges(bool didAllProcessesMakeProgress)
 				return;
 			}
 
-			types::vector<std::wstring> ObjectFiles;
+			types::vector<LiveModule::ModifiedObjFile> ObjectFiles;
 			for(const FString& ObjectFile : Pair.Value)
 			{
-				std::wstring NormalizedObjectFile = file::NormalizePath(*ObjectFile);
-				ObjectFiles.push_back(std::move(NormalizedObjectFile));
+				LiveModule::ModifiedObjFile ModifiedObjFile;
+				ModifiedObjFile.objPath = file::NormalizePath(*ObjectFile);
+				ObjectFiles.push_back(std::move(ModifiedObjFile));
 			}
 
 			m_liveModuleToModifiedOrNewObjFiles.insert(std::make_pair(ModuleFileName, std::move(ObjectFiles)));
@@ -823,14 +829,14 @@ void ServerCommandThread::CompileChanges(bool didAllProcessesMakeProgress)
 			else
 			{
 				// build a patch with the given list of .objs for this module
-				const std::vector<std::wstring>& objFiles = objFilesIt->second;
+				const types::vector<LiveModule::ModifiedObjFile>& objFiles = objFilesIt->second;
 				moduleUpdateError = liveModule->Update(&fileCache, m_directoryCache, updateType, objFiles);
 			}
 		}
 		else
 		{
 			// no optional .objs were given, update all live modules regularly
-			std::vector<std::wstring> emptyObjs;
+			types::vector<LiveModule::ModifiedObjFile> emptyObjs;
 			moduleUpdateError = liveModule->Update(&fileCache, m_directoryCache, updateType, emptyObjs);
 		}
 
@@ -1323,7 +1329,10 @@ bool ServerCommandThread::BuildPatchAction::Execute(CommandType* command, const 
 
 		pipe->SendAck();
 
-		commandThread->m_liveModuleToModifiedOrNewObjFiles[packetCommand.moduleName].push_back(packetCommand.objPath);
+		LiveModule::ModifiedObjFile modifiedObjFile;
+		modifiedObjFile.objPath = packetCommand.objPath;
+		modifiedObjFile.amalgamatedObjPath = packetCommand.amalgamatedObjPath;
+		commandThread->m_liveModuleToModifiedOrNewObjFiles[packetCommand.moduleName].push_back(modifiedObjFile);
 	}
 
 	commandThread->m_manualRecompileTriggered = true;

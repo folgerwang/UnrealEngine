@@ -202,10 +202,13 @@ namespace UnrealBuildTool
 			// This speeds up builds a tiny bit.
 			Environment.SetEnvironmentVariable("EMCC_SKIP_SANITY_CHECK", "1");
 
-			// THESE ARE TEST/DEBUGGING
-	//		Environment.SetEnvironmentVariable("EMCC_DEBUG", "1");
+			// THESE ARE TEST/DEBUGGING -- TRY NOT TO USE THESE
+//			Environment.SetEnvironmentVariable("EMCC_DEBUG", "1"); // NOTE: try to use -v instead of EMCC_DEBUG
 //			Environment.SetEnvironmentVariable("EMCC_CORES", "8");
 //			Environment.SetEnvironmentVariable("EMCC_OPTIMIZE_NORMALLY", "1");
+
+			// enable verbose mode
+//			Result += " -v"; // useful for path hunting issues
 
 			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux)
 			{
@@ -249,7 +252,7 @@ namespace UnrealBuildTool
 			 *	relink only of UE4Game.js (at least when building blueprints projects). Therefore after editing, delete the old build
 			 *	outputs to force UE4 to relink:
 			 *
-			 *    > rm Engine/Binaries/HTML5/UE4Game.js*
+			 *    > rm Engine/Binaries/HTML5/UE4Game.bc
 			 */
 
 			// enable verbose mode
@@ -643,9 +646,6 @@ namespace UnrealBuildTool
 			LinkAction.CommandArguments += string.Format(" @\"{0}\"", ResponseFileName);
 			LinkAction.PrerequisiteItems.Add(ResponseFileItem);
 			Actions.Add(LinkAction);
-
-			Log.TraceInformation("NOTE: about to link for HTML5 -- this takes at least 7 minutes (and up to 20 minutes on older machines) to complete.");
-			Log.TraceInformation("      we are workig with the Emscripten makers to speed this up.");
 
 			return OutputFile;
 		}

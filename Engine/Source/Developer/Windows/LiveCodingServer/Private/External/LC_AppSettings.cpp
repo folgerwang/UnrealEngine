@@ -30,8 +30,9 @@ namespace
 
 	static std::wstring g_cachedCompilerPath;
 	static std::wstring g_cachedLinkerPath;
+	static types::vector<std::wstring> g_cachedAmalgamatedCppFileExtensions;
 
-	static std::wstring DeterminePath(SettingString* setting, const wchar_t* const type, const wchar_t* const vs2017Path, const wchar_t* const vs2015AndEarlierPath, const wchar_t* exeName)
+	static std::wstring DeterminePath(const SettingString* setting, const wchar_t* const type, const wchar_t* const vs2017Path, const wchar_t* const vs2015AndEarlierPath, const wchar_t* exeName)
 	{
 		// absolute paths can be used as they are, relative paths are supposed to be relative to the Live++ executable
 		std::wstring path;
@@ -442,7 +443,7 @@ void appSettings::Startup(const wchar_t* group)
 		L"amalgamation_split_into_single_parts",
 		L"Split into single parts",
 		L"Specifies whether amalgamated/unity files are automatically split into single files",
-		false
+		true
 	);
 
 	g_amalgamationSplitMinCppCount = new SettingInt
@@ -453,6 +454,15 @@ void appSettings::Startup(const wchar_t* group)
 		L"Minimum number of .cpp files that must be included in an amalgamated/unity file before it is split",
 		3
 	);	
+
+	g_amalgamationCppFileExtensions = new SettingString
+	(
+		group,
+		L"amalgamation_cpp_file_extensions",
+		L"C/C++ file extensions",
+		L"File extensions treated as C/C++ files when splitting amalgamated/unity files",
+		L".cpp;.c;.cc;.c++;.cp;.cxx"
+	);
 }
 
 
@@ -502,6 +512,7 @@ void appSettings::Shutdown(void)
 
 	delete g_amalgamationSplitIntoSingleParts;
 	delete g_amalgamationSplitMinCppCount;
+	delete g_amalgamationCppFileExtensions;
 }
 
 
@@ -571,6 +582,12 @@ std::wstring appSettings::GetLinkerPath(void)
 }
 
 
+const types::vector<std::wstring>& appSettings::GetAmalgamatedCppFileExtensions(void)
+{
+	return g_cachedAmalgamatedCppFileExtensions;
+}
+
+
 void appSettings::UpdateCompilerPathCache(void)
 {
 	g_cachedCompilerPath = DeterminePath(g_compilerPath, L"compiler", VS2017_COMPILER_PATH, VS2015_AND_EARLIER_COMPILER_PATH, COMPILER_EXE);
@@ -587,6 +604,27 @@ void appSettings::UpdatePathCache(void)
 {
 	UpdateCompilerPathCache();
 	UpdateLinkerPathCache();
+}
+
+
+void appSettings::UpdateAmalgamatedCppFileExtensions(void)
+{
+	g_cachedAmalgamatedCppFileExtensions.clear();
+	g_cachedAmalgamatedCppFileExtensions.reserve(16u);
+
+	const wchar_t DELIMITER = L';';
+	const std::wstring extensions = g_amalgamationCppFileExtensions->GetValue();
+	size_t start = extensions.find_first_not_of(DELIMITER);
+	size_t end = start;
+
+	while (start != std::string::npos)
+	{
+		// first find the next occurrence of the delimiter, then push the token into the vector,
+		// then skip all occurrences of the delimiter until we find the start of the next token
+		end = extensions.find(DELIMITER, start);
+		g_cachedAmalgamatedCppFileExtensions.push_back(extensions.substr(start, end - start));
+		start = extensions.find_first_not_of(DELIMITER, end);
+	}
 }
 
 
@@ -670,7 +708,7 @@ void appSettings::ApplySettingString(const char* const settingName, const wchar_
 {
 	// try string settings first
 	{
-		const unsigned int COUNT = 9u;
+		const unsigned int COUNT = 10u;
 		SettingString* settings[COUNT] =
 		{
 			g_playSoundOnSuccess,
@@ -681,7 +719,8 @@ void appSettings::ApplySettingString(const char* const settingName, const wchar_
 			g_linkerOptions,
 			g_continuousCompilationPath,
 			g_virtualDriveLetter,
-			g_virtualDrivePath
+			g_virtualDrivePath,
+			g_amalgamationCppFileExtensions
 		};
 
 		const SettingString* setting = ApplySetting(settings, COUNT, settingName, value);
@@ -697,11 +736,15 @@ void appSettings::ApplySettingString(const char* const settingName, const wchar_
 				UpdateLinkerPathCache();
 			}
 
+			// update cache when amalgamated C++ file extensions change
+			else if (setting == g_amalgamationCppFileExtensions)
+			{
+				UpdateAmalgamatedCppFileExtensions();
+			}
+
 			return;
 		}
 	}
-
-	const std::wstring wideSettingName(string::ToWideString(settingName));
 
 	// try proxies second
 	{
@@ -778,3 +821,4 @@ extern SettingBool* appSettings::g_installCompiledPatchesMultiProcess = nullptr;
 
 extern SettingBool* appSettings::g_amalgamationSplitIntoSingleParts = nullptr;
 extern SettingInt* appSettings::g_amalgamationSplitMinCppCount = nullptr;
+extern SettingString* appSettings::g_amalgamationCppFileExtensions = nullptr;

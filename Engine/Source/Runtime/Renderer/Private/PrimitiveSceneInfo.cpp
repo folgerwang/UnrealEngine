@@ -54,6 +54,11 @@ public:
 			check(Mesh.VertexFactory->IsInitialized());
 			checkSlow(IsInRenderingThread());
 
+			for (const FMeshBatchElement& BatchElement : Mesh.Elements)
+			{
+				check(!BatchElement.IndexBuffer || (BatchElement.IndexBuffer && BatchElement.IndexBuffer->IsInitialized() && BatchElement.IndexBuffer->IndexBufferRHI));
+			}
+
 			FPrimitiveSceneProxy* PrimitiveSceneProxy = PrimitiveSceneInfo->Proxy;
 			PrimitiveSceneProxy->VerifyUsedMaterial(Mesh.MaterialRenderProxy);
 

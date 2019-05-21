@@ -326,11 +326,7 @@ namespace nv {
 	// ----------------------------------------------------------------------------------------
 	inline size_t hash_value(const Vector3& v3)
 	{
-#if PLATFORM_MAC || PLATFORM_LINUX
 		return 31337 * std::hash<float>()(v3.x) + 13 * std::hash<float>()(v3.y) + 3 * std::hash<float>()(v3.z);
-#else
-		return 31337 * stdext::hash_value(v3.x) + 13 * stdext::hash_value(v3.y) + 3 * stdext::hash_value(v3.z);
-#endif
 	}
 
 	// ----------------------------------------------------------------------------------------

@@ -80,6 +80,9 @@ int wmain(int ArgC, const wchar_t* ArgV[])
 		return -1;
 	}
 
+	// Close the startup thread handle; we don't need it.
+	CloseHandle(ProcessInfo.hThread);
+
 	// Close the write ends of the handle. We don't want any other process to be able to inherit these.
 	CloseHandle(StdOutWriteHandle);
 	CloseHandle(StdErrWriteHandle);
@@ -106,9 +109,9 @@ int wmain(int ArgC, const wchar_t* ArgV[])
 	for (;;)
 	{
 		// Read the next chunk of data from the output stream
+		DWORD BytesRead = 0;
 		if (BufferSize < sizeof(Buffer))
 		{
-			DWORD BytesRead;
 			if (ReadFile(StdOutReadHandle, Buffer + BufferSize, (DWORD)(sizeof(Buffer) - BufferSize), &BytesRead, NULL))
 			{
 				BufferSize += BytesRead;
@@ -135,7 +138,7 @@ int wmain(int ArgC, const wchar_t* ArgV[])
 			}
 
 			// If we didn't reach a line terminator, and we can still read more data, clear up some space and try again
-			if (LineEnd == BufferSize && LineStart != 0)
+			if (LineEnd == BufferSize && !(LineStart == 0 && BytesRead == 0) && !(LineStart == 0 && BufferSize == sizeof(Buffer)))
 			{
 				break;
 			}

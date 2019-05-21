@@ -380,7 +380,7 @@ void RenderViewTranslucencyInner(FRHICommandListImmediate& RHICmdList, const FVi
 				QUICK_SCOPE_CYCLE_COUNTER(RenderTranslucencyParallel_SDPG_World);
 
 				DrawDynamicMeshPass(View, RHICmdList,
-					[&View, &DrawRenderState](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
+					[&View, &DrawRenderState, TranslucencyPass](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 				{
 					FBasePassMeshProcessor PassMeshProcessor(
 						View.Family->Scene->GetRenderScene(),
@@ -388,7 +388,8 @@ void RenderViewTranslucencyInner(FRHICommandListImmediate& RHICmdList, const FVi
 						&View,
 						DrawRenderState,
 						DynamicMeshPassContext,
-						ETranslucencyPass::TPT_StandardTranslucency);
+						FBasePassMeshProcessor::EFlags::CanUseDepthStencil,
+						TranslucencyPass);
 
 					const uint64 DefaultBatchElementMask = ~0ull;
 
@@ -404,7 +405,7 @@ void RenderViewTranslucencyInner(FRHICommandListImmediate& RHICmdList, const FVi
 				QUICK_SCOPE_CYCLE_COUNTER(RenderTranslucencyParallel_SDPG_Foreground);
 
 				DrawDynamicMeshPass(View, RHICmdList,
-					[&View, &DrawRenderState](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
+					[&View, &DrawRenderState, TranslucencyPass](FDynamicPassMeshDrawListContext* DynamicMeshPassContext)
 				{
 					FBasePassMeshProcessor PassMeshProcessor(
 						View.Family->Scene->GetRenderScene(),
@@ -412,7 +413,8 @@ void RenderViewTranslucencyInner(FRHICommandListImmediate& RHICmdList, const FVi
 						&View,
 						DrawRenderState,
 						DynamicMeshPassContext,
-						ETranslucencyPass::TPT_StandardTranslucency);
+						FBasePassMeshProcessor::EFlags::CanUseDepthStencil,
+						TranslucencyPass);
 
 					const uint64 DefaultBatchElementMask = ~0ull;
 

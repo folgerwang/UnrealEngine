@@ -31,12 +31,15 @@ namespace
 telemetry::Scope::Scope(const char* name)
 	: m_name(name)
 	, m_start(std::chrono::high_resolution_clock::now())
+	, m_cs()
 {
 }
 
 
 telemetry::Scope::~Scope(void)
 {
+	CriticalSection::ScopedLock lock(&m_cs);
+
 	if (m_name)
 	{
 		Print(m_name, m_start);
@@ -70,6 +73,8 @@ void telemetry::Scope::Restart(void)
 
 void telemetry::Scope::End(void)
 {
+	CriticalSection::ScopedLock lock(&m_cs);
+
 	Print(m_name, m_start);
 
 	// do not print again when going out of scope

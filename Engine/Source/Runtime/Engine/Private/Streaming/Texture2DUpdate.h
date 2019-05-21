@@ -128,6 +128,16 @@ protected:
 	/** The number of scheduled ticks (and exceptionally other work from FCancelIORequestsTask) from the renderthread and async thread. Used to prevent deleting the object while it could be accessed. */
 	volatile int32 ScheduledTaskCount;
 
+	/**
+	 * The TLS ID of the thread holding the lock (TS_Locked).
+	 * Used to prevent calling Tick inside Tick on the same thread, which causes deadlock.
+	 * This requires a single call to Tick runs on the same thread from start to end (a.k.a. it doesn't work with Fiber)
+	 */
+	volatile uint32 LockOwningThreadID;
+
+	/** A special value to indicate that no thread is holding the lock. */
+	static const uint32 InvalidLockOwningThreadID = 0xffffffff;
+
 	// ****************************
 	// ********* Helpers **********
 	// ****************************

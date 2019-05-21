@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Windows/MinimalWindowsAPI.h"
+#include "LC_Platform.h"
 
 class InterprocessMutex
 {
@@ -28,6 +29,11 @@ public:
 		}
 
 	private:
+		LC_DISABLE_COPY(ScopedLock);
+		LC_DISABLE_MOVE(ScopedLock);
+		LC_DISABLE_ASSIGNMENT(ScopedLock);
+		LC_DISABLE_MOVE_ASSIGNMENT(ScopedLock);
+
 		InterprocessMutex* m_mutex;
 	};
 

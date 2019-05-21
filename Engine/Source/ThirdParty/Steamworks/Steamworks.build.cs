@@ -43,11 +43,6 @@ public class Steamworks : ModuleRules
 				RuntimeDependencies.Add(SteamBinariesDir + "tier0_s.dll");
 				RuntimeDependencies.Add(SteamBinariesDir + "vstdlib_s.dll");
 			}
-			else
-			{
-				// assume SteamController is needed
-				RuntimeDependencies.Add("$(EngineDir)/Config/controller.vdf");
-			}
 		}
 		else if(Target.Platform == UnrealTargetPlatform.Win64)
 		{
@@ -63,11 +58,6 @@ public class Steamworks : ModuleRules
 				RuntimeDependencies.Add(SteamBinariesDir + "steamclient64.dll");
 				RuntimeDependencies.Add(SteamBinariesDir + "tier0_s64.dll");
 				RuntimeDependencies.Add(SteamBinariesDir + "vstdlib_s64.dll");
-			}
-			else
-			{
-				// assume SteamController is needed
-				RuntimeDependencies.Add("$(EngineDir)/Config/controller.vdf");
 			}
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Mac)

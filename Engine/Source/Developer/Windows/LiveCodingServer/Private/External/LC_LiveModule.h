@@ -51,6 +51,12 @@ public:
 		};
 	};
 
+	struct ModifiedObjFile
+	{
+		std::wstring objPath;
+		std::wstring amalgamatedObjPath;	// optional
+	};
+
 	struct CompileResult
 	{
 		unsigned int exitCode;
@@ -76,7 +82,7 @@ public:
 	// in DEFAULT mode, this checks for file modifications, compiles files automatically, builds a patch containing changes, and loads them into the host application.
 	// in EXTERNAL_BUILD_SYSTEM mode, this does not compile files but builds a patch containing modified .objs, loading the patch into the host application.
 	// optionally, an array of modified or new .objs can be given in this mode, which builds a patch containing these files, not checking for any other modifications.
-	ErrorType::Enum Update(FileAttributeCache* fileCache, DirectoryCache* directoryCache, UpdateType::Enum updateType, const std::vector<std::wstring>& modifiedOrNewObjFiles);
+	ErrorType::Enum Update(FileAttributeCache* fileCache, DirectoryCache* directoryCache, UpdateType::Enum updateType, const types::vector<ModifiedObjFile>& modifiedOrNewObjFiles);
 	bool InstallCompiledPatches(LiveProcess* liveProcess, void* originalModuleBase);
 
 	const std::wstring& GetModuleName(void) const;
@@ -134,4 +140,8 @@ private:
 
 	// all patches loaded so far along with recorded data how to load them into other processes
 	types::vector<ModulePatch*> m_compiledModulePatches;
+
+	// BEGIN EPIC MOD - Allow mapping from object files to their unity object file
+	types::StringMap<uint32_t> m_objFileToCompilandId;
+	// END EPIC MOD
 };

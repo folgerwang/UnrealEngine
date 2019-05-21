@@ -4,6 +4,7 @@
 
 #include "CoreTypes.h"
 #include <chrono>
+#include "LC_CriticalSection.h"
 
 namespace telemetry
 {
@@ -23,6 +24,7 @@ namespace telemetry
 	private:
 		const char* m_name;
 		std::chrono::high_resolution_clock::time_point m_start;
+		CriticalSection m_cs;
 	};
 
 

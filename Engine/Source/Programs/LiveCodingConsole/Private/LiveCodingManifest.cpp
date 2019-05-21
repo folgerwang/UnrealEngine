@@ -95,5 +95,6 @@ bool FLiveCodingManifest::Parse(FJsonObject& Object, FString& OutFailReason)
 			InputFiles.Add(Input->AsString());
 		}
 	}
+
 	return true;
 }

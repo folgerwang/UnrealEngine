@@ -23,8 +23,8 @@ namespace commands
 	{
 		static const uint32_t ID = Acknowledge::ID + 1u;
 
-		unsigned int processId;
 		void* processBase;
+		unsigned int processId;
 		unsigned int threadId;		// thread ID of Live++ thread running in host
 	};
 
@@ -256,6 +256,7 @@ namespace commands
 
 		wchar_t moduleName[MAX_PATH];
 		wchar_t objPath[MAX_PATH];
+		wchar_t amalgamatedObjPath[MAX_PATH];
 	};
 
 	// tell Live++ to handle an exception

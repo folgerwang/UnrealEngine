@@ -23,6 +23,7 @@ FTexture2DUpdate::FTexture2DUpdate(UTexture2D* InTexture, int32 InRequestedMips)
 	: PendingFirstMip(INDEX_NONE)
 	, RequestedMips(INDEX_NONE)
 	, ScheduledTaskCount(0)
+	, LockOwningThreadID(FPlatformTLS::GetCurrentThreadId())
 	, bIsCancelled(false)
 	, TaskState(TS_Locked) // The object is created in the locked state to follow the Tick path
 	, PendingTaskState(TS_None)
@@ -327,6 +328,18 @@ bool FTexture2DUpdate::DoConditionalLock(EThreadType InCurrentThread)
 {
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FTexture2DUpdate::DoConditionalLock"), STAT_FTexture2DUpdate_DoConditionalLock, STATGROUP_StreamingDetails);
 
+	// Can't lock twice on the same thread or we will deadlock
+	if (LockOwningThreadID == FPlatformTLS::GetCurrentThreadId())
+	{
+		// We are trying to execute the task on the current thread but failed. Ask for a reschedule on next Tick.
+		// It is safe to modify PendingTaskState here because current thread has the lock
+		if (PendingTaskState == TS_Scheduled)
+		{
+			PendingTaskState = TS_Pending;
+		}
+		return false;
+	}
+
 	// Acquire the lock if there is work to do and if it is allowed to wait for the lock
 	int32 CachedTaskState = TS_None;
 	do
@@ -349,6 +362,7 @@ bool FTexture2DUpdate::DoConditionalLock(EThreadType InCurrentThread)
 	while (CachedTaskState == TS_Locked || FPlatformAtomics::InterlockedCompareExchange(&TaskState, TS_Locked, CachedTaskState) != CachedTaskState);
 
 	ensure(PendingTaskState == TS_None);
+	LockOwningThreadID = FPlatformTLS::GetCurrentThreadId();
 	PendingTaskState = (ETaskState)CachedTaskState;
 
 	return true;
@@ -358,6 +372,9 @@ bool FTexture2DUpdate::DoConditionalLock(EThreadType InCurrentThread)
 void FTexture2DUpdate::DoLock()
 {
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FTexture2DUpdate::DoLock"), STAT_FTexture2DUpdate_DoLock, STATGROUP_StreamingDetails);
+
+	// Can't lock twice on the same thread or we will deadlock
+	check(LockOwningThreadID != FPlatformTLS::GetCurrentThreadId());
 
 	// Acquire the lock
 	int32 CachedTaskState = TS_None;
@@ -376,17 +393,22 @@ void FTexture2DUpdate::DoLock()
 	
 	// If we just acquired the lock, nothing should be in the process.
 	ensure(PendingTaskState == TS_None);
+	LockOwningThreadID = FPlatformTLS::GetCurrentThreadId();
 	PendingTaskState = (ETaskState)CachedTaskState;
 }
 
 void FTexture2DUpdate::DoUnlock()
 {
+	// Make sure lock and unlock happens on the same thread
+	check(LockOwningThreadID == FPlatformTLS::GetCurrentThreadId());
+
 	ensure(TaskState == TS_Locked && PendingTaskState != TS_Locked);
 
 	ETaskState CachedPendingTaskState = PendingTaskState;
 
 	// Reset the pending task state first to prevent racing condition that could fail ensure(PendingTaskState == TS_None) in DoLock()
 	PendingTaskState = TS_None;
+	LockOwningThreadID = InvalidLockOwningThreadID;
 	TaskState = CachedPendingTaskState;
 }
 

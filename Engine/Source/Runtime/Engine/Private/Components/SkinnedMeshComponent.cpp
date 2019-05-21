@@ -578,7 +578,7 @@ void USkinnedMeshComponent::CreateRenderState_Concurrent()
 				const bool bMorphTargetsAllowed = CVarEnableMorphTargets.GetValueOnAnyThread(true) != 0;
 
 				// Are morph targets disabled for this LOD?
-				if(bDisableMorphTarget || !bMorphTargetsAllowed)
+				if (bDisableMorphTarget || !bMorphTargetsAllowed)
 				{
 					ActiveMorphTargets.Empty();
 				}

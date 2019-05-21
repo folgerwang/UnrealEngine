@@ -2776,7 +2776,7 @@ void UAssetRegistryImpl::UpdateTemporaryCaches() const
 			for (int32 i = 0; i < Class->Interfaces.Num(); ++i)
 			{
 				UClass* InterfaceClass = Class->Interfaces[i].Class;
-				if (ensureMsgf(InterfaceClass, TEXT("Invalid inteface class (index %d) detected on '%s' - possibly deleted?"), i, *Class->GetName()))
+				if (InterfaceClass) // could be nulled out by ForceDelete of a blueprint interface
 				{
 					TSet<FName>& ChildClasses = MutableThis->TempReverseInheritanceMap.FindOrAdd(InterfaceClass->GetFName());
 					ChildClasses.Add(ClassName);

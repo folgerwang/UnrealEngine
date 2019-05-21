@@ -40,9 +40,14 @@ namespace UnrealBuildTool
 		static FileReference InstalledProjectFile;
 
 		/// <summary>
+		/// The path to UBT
+		/// </summary>
+		public static readonly FileReference UnrealBuildToolPath = FileReference.FindCorrectCase(new FileReference(Assembly.GetExecutingAssembly().GetOriginalLocation()));
+
+		/// <summary>
 		/// The full name of the Root UE4 directory
 		/// </summary>
-		public static readonly DirectoryReference RootDirectory = new DirectoryReference(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().GetOriginalLocation()), "..", "..", ".."));
+		public static readonly DirectoryReference RootDirectory = DirectoryReference.Combine(UnrealBuildToolPath.Directory, "..", "..", "..");
 
 		/// <summary>
 		/// The full name of the Engine directory
@@ -197,7 +202,6 @@ namespace UnrealBuildTool
 		/// <returns>A string containing the path to the UBT assembly.</returns>
 		static public FileReference GetUBTPath()
 		{
-			FileReference UnrealBuildToolPath = new FileReference(Assembly.GetExecutingAssembly().GetOriginalLocation());
 			return UnrealBuildToolPath;
 		}
 

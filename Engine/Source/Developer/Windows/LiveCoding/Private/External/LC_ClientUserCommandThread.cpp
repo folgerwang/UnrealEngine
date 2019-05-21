@@ -47,6 +47,8 @@ namespace userCommands
 	{
 		EnableModuleCommand(void)
 			: BaseCommand(Scope::ENABLE_MODULES)
+			, token(nullptr)
+			, moduleName()
 		{
 		}
 
@@ -70,6 +72,8 @@ namespace userCommands
 	{
 		EnableAllModulesCommand(void)
 			: BaseCommand(Scope::ENABLE_MODULES)
+			, token(nullptr)
+			, moduleName()
 		{
 		}
 
@@ -93,6 +97,8 @@ namespace userCommands
 	{
 		DisableModuleCommand(void)
 			: BaseCommand(Scope::DISABLE_MODULES)
+			, token(nullptr)
+			, moduleName()
 		{
 		}
 
@@ -116,6 +122,8 @@ namespace userCommands
 	{
 		DisableAllModulesCommand(void)
 			: BaseCommand(Scope::DISABLE_MODULES)
+			, token(nullptr)
+			, moduleName()
 		{
 		}
 
@@ -262,6 +270,10 @@ namespace userCommands
 	{
 		BuildPatchCommand(void)
 			: BaseCommand(Scope::NONE)
+			, count(0u)
+			, moduleNames()
+			, objPaths()
+			, amalgamatedObjPaths()
 		{
 		}
 
@@ -278,6 +290,7 @@ namespace userCommands
 				commands::BuildPatchPacket packet;
 				wcscpy_s(packet.moduleName, moduleNames[i].c_str());
 				wcscpy_s(packet.objPath, objPaths[i].c_str());
+				wcscpy_s(packet.amalgamatedObjPath, amalgamatedObjPaths[i].c_str());
 
 				pipe->SendCommandAndWaitForAck(packet);
 			}
@@ -286,12 +299,15 @@ namespace userCommands
 		unsigned int count;
 		std::vector<std::wstring> moduleNames;
 		std::vector<std::wstring> objPaths;
+		std::vector<std::wstring> amalgamatedObjPaths;
 	};
 
 	struct ApplySettingBoolCommand : public BaseCommand
 	{
 		ApplySettingBoolCommand(void)
 			: BaseCommand(Scope::NONE)
+			, settingName()
+			, value(0)
 		{
 		}
 
@@ -313,6 +329,8 @@ namespace userCommands
 	{
 		ApplySettingIntCommand(void)
 			: BaseCommand(Scope::NONE)
+			, settingName()
+			, value(0)
 		{
 		}
 
@@ -334,6 +352,8 @@ namespace userCommands
 	{
 		ApplySettingStringCommand(void)
 			: BaseCommand(Scope::NONE)
+			, settingName()
+			, value()
 		{
 		}
 
@@ -510,17 +530,28 @@ void ClientUserCommandThread::TriggerRecompile(void)
 }
 
 
-void ClientUserCommandThread::BuildPatch(const wchar_t* moduleNames[], const wchar_t* objPaths[], unsigned int count)
+void ClientUserCommandThread::BuildPatch(const wchar_t* moduleNames[], const wchar_t* objPaths[], const wchar_t* amalgamatedObjPaths[], unsigned int count)
 {
 	userCommands::BuildPatchCommand* command = new userCommands::BuildPatchCommand;
 	command->count = count;
 	command->moduleNames.reserve(count);
 	command->objPaths.reserve(count);
+	command->amalgamatedObjPaths.reserve(count);
 
 	for (unsigned int i = 0u; i < count; ++i)
 	{
 		command->moduleNames.push_back(moduleNames[i]);
 		command->objPaths.push_back(objPaths[i]);
+
+		// the amalgamated object paths are optional
+		if (amalgamatedObjPaths && amalgamatedObjPaths[i])
+		{
+			command->amalgamatedObjPaths.push_back(amalgamatedObjPaths[i]);
+		}
+		else
+		{
+			command->amalgamatedObjPaths.push_back(std::wstring());
+		}
 	}
 	{
 		CriticalSection::ScopedLock lock(&g_userCommandQueueCS);

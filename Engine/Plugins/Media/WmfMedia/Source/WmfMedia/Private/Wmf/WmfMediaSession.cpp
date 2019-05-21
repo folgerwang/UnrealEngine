@@ -242,6 +242,8 @@ void FWmfMediaSession::Shutdown()
 		DiscardPendingChanges();
 	}
 
+	// When an error occurs we close the MediaSession in HandleError(), no need to Close it again.
+	if (SessionState != EMediaState::Error)
 	{
 		// We cannot have a lock here since we are waiting for an event which
 		// will call FWmfMediaSession::Invoke and would cause a deadlock

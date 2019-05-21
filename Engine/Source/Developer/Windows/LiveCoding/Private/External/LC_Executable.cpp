@@ -26,14 +26,14 @@ namespace detail
 		void* base = image->base;
 
 		// PE image start with a DOS header
-		IMAGE_DOS_HEADER* dosHeader = static_cast<IMAGE_DOS_HEADER*>(base);
+		const IMAGE_DOS_HEADER* dosHeader = static_cast<IMAGE_DOS_HEADER*>(base);
 		if (dosHeader->e_magic != IMAGE_DOS_SIGNATURE)
 		{
 			LC_ERROR_USER("Image has unknown file format");
 			return nullptr;
 		}
 
-		IMAGE_NT_HEADERS* ntHeader = pointer::Offset<IMAGE_NT_HEADERS*>(dosHeader, dosHeader->e_lfanew);
+		const IMAGE_NT_HEADERS* ntHeader = pointer::Offset<const IMAGE_NT_HEADERS*>(dosHeader, dosHeader->e_lfanew);
 		if (ntHeader->Signature != IMAGE_NT_SIGNATURE)
 		{
 			LC_ERROR_USER("Invalid .exe file");
@@ -208,7 +208,7 @@ void executable::RebaseImage(Image* image, PreferredBase preferredBase)
 
 			// PE spec: Block size: The total number of bytes in the base relocation block, *including* the Page RVA and
 			// Block Size fields and the Type/Offset fields that follow.
-			DWORD numberOfEntriesInThisBlock = (blockSize - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(WORD);
+			const DWORD numberOfEntriesInThisBlock = (blockSize - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(WORD);
 			const WORD* entries = pointer::Offset<const WORD*>(baseRelocations, sizeof(IMAGE_BASE_RELOCATION));
 			for (DWORD i = 0u; i < numberOfEntriesInThisBlock; ++i)
 			{

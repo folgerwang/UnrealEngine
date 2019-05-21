@@ -93,10 +93,10 @@ void FSplash::Tick_RenderThread(float DeltaTime)
 
 			}
 		}
+		LastTimeInSeconds = TimeInSeconds;
 	}
 
 	RenderFrame_RenderThread(FRHICommandListExecutor::GetImmediateCommandList());
-	LastTimeInSeconds = TimeInSeconds;
 }
 
 void FSplash::LoadSettings()

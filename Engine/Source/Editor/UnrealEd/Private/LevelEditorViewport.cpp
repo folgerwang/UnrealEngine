@@ -3386,7 +3386,7 @@ UActorComponent* FLevelEditorViewportClient::FindViewComponentForActor(AActor co
 		for (UActorComponent* Comp : Comps)
 		{
 			FMinimalViewInfo DummyViewInfo;
-			if (Comp->bIsActive && Comp->GetEditorPreviewInfo(/*DeltaTime =*/0.0f, DummyViewInfo))
+			if (Comp && Comp->bIsActive && Comp->GetEditorPreviewInfo(/*DeltaTime =*/0.0f, DummyViewInfo))
 			{
 				if (Comp->IsSelected())
 				{

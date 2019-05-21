@@ -27,6 +27,7 @@ namespace symbols
 		uint32_t rva;
 
 		LC_DISABLE_ASSIGNMENT(Symbol);
+		LC_DISABLE_COPY(Symbol);
 	};
 
 	struct SymbolDB
@@ -87,7 +88,12 @@ namespace symbols
 		bool isPartOfLibrary;
 		bool wasRecompiled;
 
+		// BEGIN EPIC MOD - Allow mapping from object files to their unity object file
+		uint32_t amalgamatedUniqueId = ~(uint32_t)0;
+		// END EPIC MOD
+
 		LC_DISABLE_ASSIGNMENT(Compiland);
+		LC_DISABLE_COPY(Compiland);
 	};
 
 	struct AmalgamatedCompiland

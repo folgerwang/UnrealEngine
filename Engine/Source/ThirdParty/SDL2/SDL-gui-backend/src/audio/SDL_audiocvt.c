@@ -1246,7 +1246,16 @@ SDL_ResetAudioStreamResampler(SDL_AudioStream *stream)
 {
     /* set all the padding to silence. */
     const int len = stream->resampler_padding_samples;
-    SDL_memset(stream->resampler_state, '\0', len * sizeof (float));
+// EPIC EDIT BEGIN
+//  SDL_memset(stream->resampler_state, '\0', len * sizeof (float));
+
+#ifdef __EMSCRIPTEN__ // UE-71969 -- limiting only to HTML5... do not want to change/affect other platforms
+    if ( len > 0 )
+#endif
+    {
+        SDL_memset(stream->resampler_state, '\0', len * sizeof (float));
+    }
+// EPIC EDIT END
 }
 
 static void
@@ -1644,8 +1653,23 @@ SDL_AudioStreamClear(SDL_AudioStream *stream)
     if (!stream) {
         SDL_InvalidParamError("stream");
     } else {
-        SDL_ClearDataQueue(stream->queue, stream->packetlen * 2);
-        if (stream->reset_resampler_func) {
+// EPIC EDIT BEGIN
+//      SDL_ClearDataQueue(stream->queue, stream->packetlen * 2);
+//      if (stream->reset_resampler_func) {
+
+#ifdef __EMSCRIPTEN__ // UE-71969 -- limiting only to HTML5... do not want to change/affect other platforms
+        if ( stream->packetlen > 0 )
+#endif
+        {
+            SDL_ClearDataQueue(stream->queue, stream->packetlen * 2);
+        }
+        if (stream->reset_resampler_func
+#ifdef __EMSCRIPTEN__ // UE-71969 -- limiting only to HTML5...
+            && stream->reset_resampler_func == SDL_ResetAudioStreamResampler
+            // and SDL_ResetAudioStreamResampler_SRC is only available when HAVE_LIBSAMPLERATE_H -- which is not for HTML5
+#endif
+        ) {
+// EPIC EDIT END
             stream->reset_resampler_func(stream);
         }
         stream->first_run = SDL_TRUE;

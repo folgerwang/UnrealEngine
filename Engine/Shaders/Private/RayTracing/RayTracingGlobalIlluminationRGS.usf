@@ -67,7 +67,7 @@ void GenerateCosineNormalRay(
 
 	RayOrigin = WorldPosition;
 	RayDirection = Direction_World;
-	RayTMin = 0.0;
+	RayTMin = 0.01;
 	RayTMax = max(MaxRayDistanceForGI, MaxRayDistanceForAO);
 	RayPdf = Direction_Tangent.w;
 }
@@ -336,7 +336,6 @@ void GlobalIlluminationRGS()
 
 				// Update ray
 				Ray.Direction = Direction;
-				ApplyPositionBias(Ray, WorldNormal, MaxNormalBias);
 				RayThroughput *= Throughput;
 				RayPdf *= MaterialPdf;
 

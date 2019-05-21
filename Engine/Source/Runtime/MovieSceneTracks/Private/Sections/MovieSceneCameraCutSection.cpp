@@ -39,9 +39,9 @@ FMovieSceneEvalTemplatePtr UMovieSceneCameraCutSection::GenerateTemplate() const
 					FMovieSceneInterrogationData Container;
 					TransformTrackTemplate.Interrogate(Context, Container);
 
-					for (auto It = Container.Iterate<FTransform>(UMovieScene3DTransformSection::GetInterrogationKey()); It; ++It)
+					for (const FTransformData& Transform : Container.Iterate<FTransformData>(UMovieScene3DTransformSection::GetInterrogationKey()))
 					{
-						CutTransform = *It;
+						CutTransform = FTransform(Transform.Rotation.Quaternion(), Transform.Translation, Transform.Scale);
 						break;
 					}
 				}

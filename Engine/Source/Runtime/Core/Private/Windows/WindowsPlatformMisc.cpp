@@ -44,6 +44,7 @@
 #include "Runtime/Launch/Resources/Windows/Resource.h"
 
 #include "Windows/AllowWindowsPlatformTypes.h"
+THIRD_PARTY_INCLUDES_START
 	#include <time.h>
 	#include <mmsystem.h>
 	#include <rpcsal.h>
@@ -53,6 +54,7 @@
 	#include <shellapi.h>
 	#include <IPHlpApi.h>
 	#include <VersionHelpers.h>
+THIRD_PARTY_INCLUDES_END
 #include "Windows/HideWindowsPlatformTypes.h"
 
 #include "Modules/ModuleManager.h"

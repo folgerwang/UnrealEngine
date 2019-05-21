@@ -221,9 +221,11 @@ namespace UnrealBuildTool
 			// Output the manifest
 			for(int TargetIdx = 0; TargetIdx < TargetDescriptors.Count; TargetIdx++)
 			{
-				if(TargetDescriptors[TargetIdx].LiveCodingManifest != null)
+				TargetDescriptor TargetDescriptor = TargetDescriptors[TargetIdx];
+				if(TargetDescriptor.LiveCodingManifest != null)
 				{
-					HotReload.WriteLiveCodeManifest(TargetDescriptors[TargetIdx].LiveCodingManifest, Makefiles[TargetIdx].Actions);
+					TargetMakefile Makefile = Makefiles[TargetIdx];
+					HotReload.WriteLiveCodingManifest(TargetDescriptor.LiveCodingManifest, Makefile.Actions);
 				}
 			}
 

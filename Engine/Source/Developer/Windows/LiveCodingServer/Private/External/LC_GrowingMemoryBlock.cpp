@@ -35,12 +35,6 @@ bool GrowingMemoryBlock::Insert(const void* data, size_t size)
 	{
 		// grow to accommodate the new size, copy over the existing data, and delete the old storage
 		uint8_t* newData = new uint8_t[m_capacity];
-		if (!newData)
-		{
-			// could not allocate memory, bail out
-			return false;
-		}
-
 		memcpy(newData, m_data, m_size);
 		delete[] m_data;
 		m_data = newData;

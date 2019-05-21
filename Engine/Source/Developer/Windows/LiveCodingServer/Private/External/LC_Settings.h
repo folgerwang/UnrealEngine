@@ -111,6 +111,7 @@ public:
 	const wchar_t* GetShortDescription(void) const;
 	const wchar_t* GetDescription(void) const;
 	const wchar_t* GetValue(void) const;
+	const wchar_t* GetPreviousValue(void) const;
 
 private:
 	const wchar_t* m_group;
@@ -118,6 +119,7 @@ private:
 	const wchar_t* m_shortDescription;
 	const wchar_t* m_description;
 	std::wstring m_value;
+	std::wstring m_previousValue;
 };
 
 

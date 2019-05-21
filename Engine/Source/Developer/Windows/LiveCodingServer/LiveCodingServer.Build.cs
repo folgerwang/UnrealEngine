@@ -7,8 +7,9 @@ public class LiveCodingServer : ModuleRules
 {
 	public LiveCodingServer(ReadOnlyTargetRules Target) : base(Target)
 	{
-		PrivateDependencyModuleNames.Add("Core");
-		PrivateDependencyModuleNames.Add("LiveCoding");
+        PrivateDependencyModuleNames.Add("Core");
+        PrivateDependencyModuleNames.Add("Json");
+        PrivateDependencyModuleNames.Add("LiveCoding");
 
         AddEngineThirdPartyPrivateStaticDependencies(Target, "Distorm");
 

@@ -162,10 +162,15 @@ class TimeLogger(object):
 
 def log_time(name):
   """Log out times for emcc stages"""
-  if DEBUG:
-    now = time.time()
-    logger.debug('emcc step "%s" took %.2f seconds', name, now - TimeLogger.last)
-    TimeLogger.update()
+# EPIC EDIT start -- nick.shin 2019-05-01 -- UEMOB-202
+#  if DEBUG:
+#    now = time.time()
+#    logger.debug('emcc step "%s" took %.2f seconds', name, now - TimeLogger.last)
+#    TimeLogger.update()
+  now = time.time()
+  logger.info('emcc step "%s" took %.2f seconds', name, now - TimeLogger.last)
+  TimeLogger.update()
+# EPIC EDIT end -- nick.shin 2019-05-01
 
 
 class EmccOptions(object):
@@ -1738,6 +1743,12 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
 
     if not shared.Settings.WASM_BACKEND:
       with ToolchainProfiler.profile_block('post-link'):
+# EPIC EDIT start -- nick.shin 2019-02-06 -- UE-69632
+# moving prints from UnrealBuildTool.cs to here -- where it will be printed closer to where the build seems to "hang"
+# 'post-link' & 'emscript (llvm => executable code)' & 'asm2wasm' ==> all take a long time to complete
+        logger.info("NOTE: linking HTML5 project -- this takes at least 7 minutes (and up to 20 minutes on older machines) to complete.")
+        logger.info("      we are workig with the Emscripten makers to speed this up.")
+# EPIC EDIT end -- nick.shin 2019-02-06 -- UE-69632
         if DEBUG:
           logger.debug('saving intermediate processing steps to %s', shared.get_emscripten_temp_dir())
           if not LEAVE_INPUTS_RAW:

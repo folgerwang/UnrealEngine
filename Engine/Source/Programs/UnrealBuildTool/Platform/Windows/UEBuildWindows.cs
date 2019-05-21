@@ -1148,9 +1148,21 @@ namespace UnrealBuildTool
 		/// <returns>True on success.</returns>
 		public static bool TryGetMsBuildPath(out FileReference OutLocation)
 		{
+			// Get the Visual Studio 2019 install directory
+			List<DirectoryReference> InstallDirs2019 = WindowsPlatform.FindVSInstallDirs(WindowsCompiler.VisualStudio2019);
+			foreach (DirectoryReference InstallDir in InstallDirs2019)
+			{
+				FileReference MsBuildLocation = FileReference.Combine(InstallDir, "MSBuild", "Current", "Bin", "MSBuild.exe");
+				if (FileReference.Exists(MsBuildLocation))
+				{
+					OutLocation = MsBuildLocation;
+					return true;
+				}
+			}
+
 			// Get the Visual Studio 2017 install directory
-			List<DirectoryReference> InstallDirs = WindowsPlatform.FindVSInstallDirs(WindowsCompiler.VisualStudio2017);
-			foreach(DirectoryReference InstallDir in InstallDirs)
+			List<DirectoryReference> InstallDirs2017 = WindowsPlatform.FindVSInstallDirs(WindowsCompiler.VisualStudio2017);
+			foreach (DirectoryReference InstallDir in InstallDirs2017)
 			{
 				FileReference MsBuildLocation = FileReference.Combine(InstallDir, "MSBuild", "15.0", "Bin", "MSBuild.exe");
 				if(FileReference.Exists(MsBuildLocation))
@@ -1476,6 +1488,14 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Gets the platform name that should be used.
+		/// </summary>
+		public override string GetPlatformName()
+		{
+			return "Windows";
+		}
+
+		/// <summary>
 		/// If this platform can be compiled with SN-DBS
 		/// </summary>
 		public override bool CanUseSNDBS()
@@ -1668,6 +1688,9 @@ namespace UnrealBuildTool
 			CompileEnvironment.Definitions.Add(String.Format("_WIN32_WINNT=0x{0:X4}", Target.WindowsPlatform.TargetWindowsVersion));
 			CompileEnvironment.Definitions.Add(String.Format("WINVER=0x{0:X4}", Target.WindowsPlatform.TargetWindowsVersion));
 			CompileEnvironment.Definitions.Add("PLATFORM_WINDOWS=1");
+			
+			// both Win32 and Win64 use Windows headers, so we enforce that here
+			CompileEnvironment.Definitions.Add(String.Format("OVERRIDE_PLATFORM_HEADER_NAME={0}", GetPlatformName()));
 
 			FileReference MorpheusShaderPath = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Shaders", "Private", "Platform", "PS4", "PostProcessHMDMorpheus.usf");
 			if (FileReference.Exists(MorpheusShaderPath))

@@ -28,6 +28,7 @@ namespace UnrealBuildTool
 		public class FileCollection
 		{
 			public List<FileItem> Files { get; private set; }
+			public List<FileItem> VirtualFiles { get; private set; }
 			public long TotalLength { get; private set; }
 
 			/// The length of this file collection, plus any additional virtual space needed for bUseAdapativeUnityBuild.
@@ -37,6 +38,7 @@ namespace UnrealBuildTool
 			public FileCollection()
 			{
 				Files = new List<FileItem>();
+				VirtualFiles = new List<FileItem>();
 				TotalLength = 0;
 				VirtualLength = 0;
 			}
@@ -56,10 +58,11 @@ namespace UnrealBuildTool
 			/// one of that module's unity blobs.  Basically, it can prevent dozens of files from being recompiled after the first
 			/// time building after your working set of source files changes
 			/// </summary>
-			/// <param name="VirtualFileLength">Length of the virtual file to add to this file collection</param>
-			public void AddVirtualFile(long VirtualFileLength)
+			/// <param name="File">The virtual file to add to the collection</param>
+			public void AddVirtualFile(FileItem File)
 			{
-				VirtualLength += VirtualFileLength;
+				VirtualFiles.Add(File);
+				VirtualLength += File.Length;
 			}
 		}
 
@@ -105,7 +108,7 @@ namespace UnrealBuildTool
 			/// <param name="File">The file to add virtually.  Only the size of the file is tracked.</param>
 			public void AddVirtualFile(FileItem File)
 			{
-				CurrentCollection.AddVirtualFile(File.Length);
+				CurrentCollection.AddVirtualFile(File);
 				if (SplitLength != -1 && CurrentCollection.VirtualLength > SplitLength)
 				{
 					EndCurrentUnityFile();
@@ -155,6 +158,7 @@ namespace UnrealBuildTool
 		/// <param name="BaseName">Base name to use for the Unity files</param>
 		/// <param name="IntermediateDirectory">Intermediate directory for unity cpp files</param>
 		/// <param name="Makefile">The makefile being built</param>
+		/// <param name="SourceFileToUnityFile">Receives a mapping of source file to unity file</param>
 		/// <returns>The "unity" C++ files.</returns>
 		public static List<FileItem> GenerateUnityCPPs(
 			ReadOnlyTargetRules Target,
@@ -163,7 +167,8 @@ namespace UnrealBuildTool
 			ISourceFileWorkingSet WorkingSet,
 			string BaseName,
 			DirectoryReference IntermediateDirectory,
-			TargetMakefile Makefile
+			TargetMakefile Makefile,
+			Dictionary<FileItem, FileItem> SourceFileToUnityFile
 			)
 		{
 			List<FileItem> NewCPPFiles = new List<FileItem>();
@@ -334,6 +339,16 @@ namespace UnrealBuildTool
 				// Write the unity file to the intermediate folder.
 				FileItem UnityCPPFile = FileItem.CreateIntermediateTextFile(UnityCPPFilePath, OutputUnityCPPWriter.ToString());
 				NewCPPFiles.Add(UnityCPPFile);
+
+				// Store the mapping of source files to unity files in the makefile
+				foreach(FileItem SourceFile in UnityFile.Files)
+				{
+					SourceFileToUnityFile[SourceFile] = UnityCPPFile;
+				}
+				foreach (FileItem SourceFile in UnityFile.VirtualFiles)
+				{
+					SourceFileToUnityFile[SourceFile] = UnityCPPFile;
+				}
 			}
 
 			return NewCPPFiles;

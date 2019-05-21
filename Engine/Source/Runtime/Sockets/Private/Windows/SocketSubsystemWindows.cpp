@@ -6,7 +6,9 @@
 #include "BSDSockets/IPAddressBSD.h"
 
 #include "Windows/AllowWindowsPlatformTypes.h"
+THIRD_PARTY_INCLUDES_START
 #include "Iphlpapi.h"
+THIRD_PARTY_INCLUDES_END
 #include "Windows/HideWindowsPlatformTypes.h"
 
 

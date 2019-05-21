@@ -67,6 +67,7 @@
     <Compile Include="CsProjectInfo.cs" />
     <Compile Include="ContentHash.cs" />
     <Compile Include="DirectoryReference.cs" />
+    <Compile Include="DirectoryUtils.cs" />
     <Compile Include="ExceptionUtils.cs" />
     <Compile Include="FastJSON\Formatter.cs" />
     <Compile Include="FastJSON\Getters.cs" />
@@ -80,6 +81,7 @@
     <Compile Include="FilePattern.cs" />
     <Compile Include="FileReference.cs" />
     <Compile Include="FileSystemReference.cs" />
+    <Compile Include="FileUtils.cs" />
     <Compile Include="Json.cs" />
     <Compile Include="JsonObject.cs" />
     <Compile Include="JsonWriter.cs" />

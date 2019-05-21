@@ -2399,6 +2399,8 @@ public:
 	FMeshDrawCommand MeshDrawCommand;
 };
 
+RENDERER_API uint32 GetDynamicInstancingHash(const FMeshDrawCommand& MeshDrawCommand);
+
 struct MeshDrawCommandKeyFuncs : DefaultKeyFuncs<FMeshDrawCommandStateBucket,false>
 {
 	typedef typename TCallTraits<FMeshDrawCommand>::ConstReference KeyInitType;
@@ -2422,7 +2424,7 @@ struct MeshDrawCommandKeyFuncs : DefaultKeyFuncs<FMeshDrawCommandStateBucket,fal
 	/** Calculates a hash index for a key. */
 	static FORCEINLINE uint32 GetKeyHash(KeyInitType Key)
 	{
-		return PointerHash(Key.IndexBuffer, GetTypeHash(Key.CachedPipelineId.GetId()));
+		return GetDynamicInstancingHash(Key);
 	}
 };
 

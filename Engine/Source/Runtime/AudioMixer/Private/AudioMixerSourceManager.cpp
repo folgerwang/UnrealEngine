@@ -111,6 +111,9 @@ namespace Audio
 		const bool bIsManualReset = true;
 		CommandsProcessedEvent = FPlatformProcess::GetSynchEventFromPool(bIsManualReset);
 		check(CommandsProcessedEvent != nullptr);
+
+		// Immediately trigger the command processed in case a flush happens before the audio thread swaps command buffers
+		CommandsProcessedEvent->Trigger();
 	}
 
 	FMixerSourceManager::~FMixerSourceManager()
@@ -267,7 +270,7 @@ namespace Audio
 		bPumpQueue = false;
 	}
 
-	void FMixerSourceManager::Update()
+	void FMixerSourceManager::Update(bool bTimedOut)
 	{
 		AUDIO_MIXER_CHECK_GAME_THREAD(MixerDevice);
 
@@ -294,7 +297,12 @@ namespace Audio
 				const int32 NextIndex = (CurrentGameIndex + 1) & 1;
 
 				// Make sure we've actually emptied the command queue from the render thread before writing to it
-				check(CommandBuffers[NextIndex].SourceCommandQueue.Num() == 0);
+#if !UE_BUILD_SHIPPING
+				if (!bTimedOut)
+				{
+					check(CommandBuffers[NextIndex].SourceCommandQueue.Num() == 0);
+				}
+#endif
 				AudioThreadCommandBufferIndex.Set(NextIndex);
 				RenderThreadCommandBufferIndex.Set(CurrentGameIndex);
 
@@ -991,7 +999,7 @@ namespace Audio
 			FSourceInfo& SourceInfo = SourceInfos[SourceId];
 			FSourceDownmixData& DownmixData = DownmixDataArray[SourceId];
 
-			if (DownmixData.NumInputChannels != NumInputChannels)
+			if (DownmixData.NumInputChannels != NumInputChannels && !SourceInfo.bUseHRTFSpatializer)
 			{
 				// This means that this source has been reinitialized as a different source while this command was in flight,
 				// In which case it is of no use to us. Exit.
@@ -2412,6 +2420,7 @@ namespace Audio
 		// Add the function to the command queue
 		int32 AudioThreadCommandIndex = AudioThreadCommandBufferIndex.GetValue();
 		CommandBuffers[AudioThreadCommandIndex].SourceCommandQueue.Add(MoveTemp(InFunction));
+		NumCommands.Increment();
 	}
 
 	void FMixerSourceManager::PumpCommandQueue()
@@ -2434,6 +2443,7 @@ namespace Audio
 		{
 			TFunction<void()>& CommandFunction = Commands.SourceCommandQueue[Id];
 			CommandFunction();
+			NumCommands.Decrement();
 		}
 
 		Commands.SourceCommandQueue.Reset();
@@ -2454,14 +2464,39 @@ namespace Audio
 	{
 		check(CommandsProcessedEvent != nullptr);
 
+		// If we have no commands enqueued, exit
+		if (NumCommands.GetValue() == 0)
+		{
+			UE_LOG(LogAudioMixer, Display, TEXT("No commands were queued while flushing the source manager."));
+			return;
+		}
+
 		// Make sure current current executing 
-		CommandsProcessedEvent->Wait();
+		bool bTimedOut = false;
+		if (!CommandsProcessedEvent->Wait(1000))
+		{
+			CommandsProcessedEvent->Trigger();
+			bTimedOut = true;
+			UE_LOG(LogAudioMixer, Warning, TEXT("Timed out waiting to flush the source manager command queue (1)."));
+		}
+		else
+		{
+			UE_LOG(LogAudioMixer, Display, TEXT("Flush succeeded in the source manager command queue (1)."));
+		}
 
 		// Call update to trigger a final pump of commands
-		Update();
+		Update(bTimedOut);
 
 		// Wait one more time for the double pump
-		CommandsProcessedEvent->Wait();
+		if (!CommandsProcessedEvent->Wait(1000))
+		{
+			CommandsProcessedEvent->Trigger();
+			UE_LOG(LogAudioMixer, Warning, TEXT("Timed out waiting to flush the source manager command queue (2)."));
+		}
+		else
+		{
+			UE_LOG(LogAudioMixer, Display, TEXT("Flush succeeded the source manager command queue (2)."));
+		}
 	}
 
 	void FMixerSourceManager::UpdatePendingReleaseData(bool bForceWait)

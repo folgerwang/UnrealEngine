@@ -928,6 +928,8 @@ void FShaderResource::InitRHI()
 			{
 				RayTracingMaterialLibraryIndex = AddToRayTracingLibrary(RayTracingShader);
 			}
+
+			RayTracingShader->SetHash(OutputHash);
 		}
 	}
 #endif // RHI_RAYTRACING

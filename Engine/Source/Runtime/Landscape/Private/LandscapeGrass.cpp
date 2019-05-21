@@ -2433,6 +2433,7 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 												LOD.OverrideMapBuildData = MakeUnique<FMeshMapBuildData>();
 												LOD.OverrideMapBuildData->LightMap = GrassLightMap;
 												LOD.OverrideMapBuildData->ShadowMap = GrassShadowMap;
+												LOD.OverrideMapBuildData->ResourceCluster = MeshMapBuildData->ResourceCluster;
 											}
 										}
 

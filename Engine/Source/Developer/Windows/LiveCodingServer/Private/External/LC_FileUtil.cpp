@@ -73,18 +73,96 @@ namespace detail
 namespace
 {
 	static detail::NormalizedFilenameCache* g_normalizedFilenameCache = nullptr;
+
+	static file::DriveType::Enum g_driveTypeCache['z' - 'a' + 1u] = {};
 }
 
 
 void file::Startup(void)
 {
 	g_normalizedFilenameCache = new detail::NormalizedFilenameCache;
+
+	// fill cache of drive types
+	char root[4u] = { 'a', ':', '\\', '\0' };
+	for (char drive = 'a'; drive <= 'z'; ++drive)
+	{
+		const int index = drive - 'a';
+		
+		root[0] = drive;
+		const UINT driveType = ::GetDriveTypeA(root);
+
+		switch (driveType)
+		{
+			case DRIVE_UNKNOWN:
+				g_driveTypeCache[index] = DriveType::UNKNOWN;
+				break;
+
+			case DRIVE_NO_ROOT_DIR:
+				g_driveTypeCache[index] = DriveType::UNKNOWN;
+				break;
+
+			case DRIVE_REMOVABLE:
+				g_driveTypeCache[index] = DriveType::REMOVABLE;
+				break;
+
+			case DRIVE_FIXED:
+				g_driveTypeCache[index] = DriveType::FIXED;
+				break;
+
+			case DRIVE_REMOTE:
+				g_driveTypeCache[index] = DriveType::REMOTE;
+				break;
+
+			case DRIVE_CDROM:
+				g_driveTypeCache[index] = DriveType::OPTICAL;
+				break;
+
+			case DRIVE_RAMDISK:
+				g_driveTypeCache[index] = DriveType::RAMDISK;
+				break;
+
+			default:
+				g_driveTypeCache[index] = DriveType::UNKNOWN;
+				break;
+		}
+	}
 }
 
 
 void file::Shutdown(void)
 {
 	delete g_normalizedFilenameCache;
+}
+
+
+file::DriveType::Enum file::GetDriveType(char driveLetter)
+{
+	if ((driveLetter >= 'a') && (driveLetter <= 'z'))
+	{
+		return g_driveTypeCache[driveLetter - 'a'];
+	}
+	else if ((driveLetter >= 'A') && (driveLetter <= 'Z'))
+	{
+		return g_driveTypeCache[driveLetter - 'A'];
+	}
+
+	return DriveType::UNKNOWN;
+}
+
+
+file::DriveType::Enum file::GetDriveType(const wchar_t* path)
+{
+	const wchar_t driveLetter = path[0];
+	if ((driveLetter >= L'a') && (driveLetter <= L'z'))
+	{
+		return g_driveTypeCache[driveLetter - L'a'];
+	}
+	else if ((driveLetter >= L'A') && (driveLetter <= L'Z'))
+	{
+		return g_driveTypeCache[driveLetter - L'A'];
+	}
+
+	return DriveType::UNKNOWN;
 }
 
 
@@ -170,7 +248,7 @@ bool file::IsRelativePath(const wchar_t* path)
 		return false;
 	}
 
-	return (::PathIsRelativeW(path) == Windows::TRUE);
+	return (::PathIsRelativeW(path) != Windows::FALSE);
 }
 
 

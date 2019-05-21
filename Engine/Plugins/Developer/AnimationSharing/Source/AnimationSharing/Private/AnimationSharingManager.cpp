@@ -788,7 +788,7 @@ bool UAnimSharingInstance::Setup(UAnimationSharingManager* AnimationSharingManag
 				SetupState(StateData, StateEntry, SkeletalMesh, SkeletonSetup, Index);
 
 				// Make sure we have at least one component set up
-				if (StateData.Components.Num() == 0)
+				if ((!StateData.bIsAdditive && StateData.Components.Num() == 0) ||(StateData.bIsAdditive && AdditiveInstanceStack.AvailableInstances.Num() == 0))
 				{
 					UE_LOG(LogAnimationSharing, Error, TEXT("No Components available for State %s"), *StateEnum->GetDisplayNameTextByValue(StateValue).ToString());
 					bErrors = true;

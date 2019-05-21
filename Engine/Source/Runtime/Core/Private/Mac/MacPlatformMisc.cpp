@@ -1789,7 +1789,8 @@ void FMacCrashContext::GenerateCrashInfoAndLaunchReporter() const
 		bSendUnattendedBugReports = false;
 	}
 
-	if (GMacAppInfo.bIsUnattended && !bSendUnattendedBugReports)
+	const bool bUnattended = GMacAppInfo.bIsUnattended || IsRunningDedicatedServer();
+	if (bUnattended && !bSendUnattendedBugReports)
 	{
 		bCanRunCrashReportClient = false;
 	}
@@ -1873,7 +1874,8 @@ void FMacCrashContext::GenerateEnsureInfoAndLaunchReporter() const
 		bSendUnattendedBugReports = false;
 	}
 
-	if(GMacAppInfo.bIsUnattended && !bSendUnattendedBugReports)
+	const bool bUnattended = GMacAppInfo.bIsUnattended || !IsInteractiveEnsureMode() || IsRunningDedicatedServer();
+	if (bUnattended && !bSendUnattendedBugReports)
 	{
 		bCanRunCrashReportClient = false;
 	}

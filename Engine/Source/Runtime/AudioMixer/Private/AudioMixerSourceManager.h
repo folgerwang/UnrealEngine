@@ -198,7 +198,7 @@ namespace Audio
 		~FMixerSourceManager();
 
 		void Init(const FSourceManagerInitParams& InitParams);
-		void Update();
+		void Update(bool bTimedOut = false);
 
 		bool GetFreeSourceId(int32& OutSourceId);
 		int32 GetNumActiveSources() const;
@@ -547,6 +547,9 @@ namespace Audio
 		int32 NumOutputFrames;
 		int32 NumOutputSamples;
 		int32 NumSourceWorkers;
+
+		// Commands queued up to execute
+		FThreadSafeCounter NumCommands;
 
 		uint8 bInitialized : 1;
 		uint8 bUsingSpatializationPlugin : 1;

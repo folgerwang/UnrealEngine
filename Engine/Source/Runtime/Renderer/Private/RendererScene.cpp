@@ -257,7 +257,11 @@ FSceneViewState::~FSceneViewState()
 	DestroyRWBuffer(VarianceMipTree);
 	DestroyRWBuffer(TotalRayCountBuffer);
 
-	delete RayCountGPUReadback;
+	ENQUEUE_RENDER_COMMAND(FDeleteGpuReadback)(
+		[DeleteMe = RayCountGPUReadback](FRHICommandList&)
+	{
+		delete DeleteMe;
+	});
 #endif // RHI_RAYTRACING
 }
 

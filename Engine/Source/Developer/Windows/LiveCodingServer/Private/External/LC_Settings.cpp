@@ -253,6 +253,7 @@ SettingString::SettingString(const wchar_t* group, const wchar_t* name, const wc
 	, m_shortDescription(shortDescription)
 	, m_description(description)
 	, m_value(initialValue)
+	, m_previousValue(initialValue)
 {
 	const std::wstring value = LoadSetting(m_group, m_name, initialValue);
 
@@ -273,6 +274,7 @@ void SettingString::SetValue(const wchar_t* value)
 
 void SettingString::SetValueWithoutSaving(const wchar_t* value)
 {
+	m_previousValue = m_value;
 	m_value = value;
 }
 
@@ -298,6 +300,12 @@ const wchar_t* SettingString::GetDescription(void) const
 const wchar_t* SettingString::GetValue(void) const
 {
 	return m_value.c_str();
+}
+
+
+const wchar_t* SettingString::GetPreviousValue(void) const
+{
+	return m_previousValue.c_str();
 }
 
 
