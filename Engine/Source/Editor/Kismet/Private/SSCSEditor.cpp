@@ -3070,8 +3070,15 @@ bool SSCS_RowWidget::OnNameTextVerifyChanged(const FText& InNewText, FText& OutE
 	FSCSEditorTreeNodePtrType NodePtr = GetNode();
 	UBlueprint* Blueprint = GetBlueprint();
 
-	if (!InNewText.IsEmpty())
+	const FString& NewTextStr = InNewText.ToString();
+
+	if (!NewTextStr.IsEmpty())
 	{
+		if (NodePtr->GetVariableName().ToString() == NewTextStr)
+		{
+			return true;
+		}
+
 		const UActorComponent* ComponentInstance = NodePtr->GetComponentTemplate();
 		if (ensure(ComponentInstance))
 		{
@@ -3081,20 +3088,20 @@ bool SSCS_RowWidget::OnNameTextVerifyChanged(const FText& InNewText, FText& OutE
 				ExistingNameSearchScope = Cast<AActor>(Blueprint->GeneratedClass->GetDefaultObject());
 			}
 
-			if (!FComponentEditorUtils::IsValidVariableNameString(ComponentInstance, InNewText.ToString()))
+			if (!FComponentEditorUtils::IsValidVariableNameString(ComponentInstance, NewTextStr))
 			{
 				OutErrorMessage = LOCTEXT("RenameFailed_EngineReservedName", "This name is reserved for engine use.");
 				return false;
 			}
-			else if (InNewText.ToString().Len() > NAME_SIZE)
+			else if (NewTextStr.Len() > NAME_SIZE)
 			{
 				FFormatNamedArguments Arguments;
 				Arguments.Add(TEXT("CharCount"), NAME_SIZE);
 				OutErrorMessage = FText::Format(LOCTEXT("ComponentRenameFailed_TooLong", "Component name must be less than {CharCount} characters long."), Arguments);
 				return false;
 			}
-			else if (!FComponentEditorUtils::IsComponentNameAvailable(InNewText.ToString(), ExistingNameSearchScope, ComponentInstance) 
-					|| !FComponentEditorUtils::IsComponentNameAvailable(InNewText.ToString(), ComponentInstance->GetOuter(), ComponentInstance ))
+			else if (!FComponentEditorUtils::IsComponentNameAvailable(NewTextStr, ExistingNameSearchScope, ComponentInstance)
+				|| !FComponentEditorUtils::IsComponentNameAvailable(NewTextStr, ComponentInstance->GetOuter(), ComponentInstance)) 
 			{
 				OutErrorMessage = LOCTEXT("RenameFailed_ExistingName", "Another component already has the same name.");
 				return false;
