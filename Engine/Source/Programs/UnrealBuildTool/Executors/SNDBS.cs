@@ -244,6 +244,12 @@ namespace UnrealBuildTool
 							JobNumber++;
 							NumScriptedActions++;
 							PrintDebugInfo |= Action.bPrintDebugInfo;
+
+							if (Action.DependencyListFile != null && File.Exists(Action.DependencyListFile.AbsolutePath))
+							{
+								Log.TraceVerbose("Deleting dependency list file {0}", Action.DependencyListFile.AbsolutePath);
+								File.Delete(Action.DependencyListFile.AbsolutePath);
+							}
 						}
 					}
 				}
