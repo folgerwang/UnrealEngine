@@ -414,6 +414,20 @@ void FD3D12CommandContextBase::RHIEndFrame()
 	{
 		FD3D12Device* Device = ParentAdapter->GetDevice(GPUIndex);
 
+		FD3D12CommandContext& DefaultContext = Device->GetDefaultCommandContext();
+		DefaultContext.CommandListHandle.FlushResourceBarriers();
+
+		DefaultContext.ReleaseCommandAllocator();
+		DefaultContext.ClearState();
+		DefaultContext.FlushCommands();
+
+		if (GEnableAsyncCompute)
+		{
+			FD3D12CommandContext& DefaultAsyncComputeContext = Device->GetDefaultAsyncComputeContext();
+			DefaultAsyncComputeContext.ReleaseCommandAllocator();
+			DefaultAsyncComputeContext.ClearState();
+		}
+
 		const uint32 NumContexts = Device->GetNumContexts();
 		for (uint32 i = 0; i < NumContexts; ++i)
 		{
@@ -450,8 +464,18 @@ void FD3D12CommandContextBase::RHIEndFrame()
 		Device->GetCommandListManager().ReleaseResourceBarrierCommandListAllocator();
 	}
 
-		UpdateMemoryStats();
-	}
+	UpdateMemoryStats();
+
+	// Stop Timing at the very last moment
+
+	ParentAdapter->GetGPUProfiler().EndFrame(ParentAdapter->GetOwningRHI());
+
+
+	// Advance frame fence
+
+	FD3D12ManualFence& FrameFence = ParentAdapter->GetFrameFence();
+	FrameFence.Signal(ED3D12CommandQueueType::Default, FrameFence.IncrementCurrentFence());
+}
 
 void FD3D12CommandContextBase::UpdateMemoryStats()
 {

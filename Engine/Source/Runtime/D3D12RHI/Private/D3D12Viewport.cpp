@@ -666,27 +666,7 @@ bool FD3D12Viewport::Present(bool bLockToVsync)
 			FD3D12DynamicRHI::TransitionResource(DefaultContext.CommandListHandle, DeviceSDRBackBuffer->GetShaderResourceView(), D3D12_RESOURCE_STATE_PRESENT);
 		}
 		DefaultContext.CommandListHandle.FlushResourceBarriers();
-	}
-
-	// Stop Timing at the very last moment
-	Adapter->GetGPUProfiler().EndFrame(Adapter->GetOwningRHI());
-
-	for (uint32 GPUIndex : FRHIGPUMask::All())
-	{
-		FD3D12Device* Device = Adapter->GetDevice(GPUIndex);
-		FD3D12CommandContext& DefaultContext = Device->GetDefaultCommandContext();
-
-		// Execute the current command lists, and then open a new command list with a new command allocator.
-		DefaultContext.ReleaseCommandAllocator();
-		DefaultContext.ClearState();
 		DefaultContext.FlushCommands();
-
-		if (GEnableAsyncCompute)
-		{
-			FD3D12CommandContext& DefaultAsyncComputeContext = Device->GetDefaultAsyncComputeContext();
-			DefaultAsyncComputeContext.ReleaseCommandAllocator();
-			DefaultAsyncComputeContext.ClearState();
-		}
 	}
 
 #if WITH_MGPU
@@ -906,15 +886,6 @@ void FD3D12DynamicRHI::RHIAdvanceFrameForGetViewportBackBuffer(FViewportRHIParam
 	const FString ThreadName(FThreadManager::Get().GetThreadName(FPlatformTLS::GetCurrentThreadId()));
 	UE_LOG(LogD3D12RHI, Log, TEXT("Thread %s: RHIAdvanceFrameForGetViewportBackBuffer"), ThreadName.GetCharArray().GetData());
 #endif
-
-	// Queue a command to signal the current frame is a complete on the GPU.
-	// Note: No need to handle multiple adapters yet, eventually this function will take a viewport as input.
-	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
-	auto& Adapter = ChosenAdapters[0];
-	{
-		check(Adapter != nullptr);
-		Adapter->SignalFrameFence_RenderThread(RHICmdList);
-	}
 
 	// Advance frame so the next call to RHIGetViewportBackBuffer returns the next buffer in the swap chain.
 	FD3D12Viewport* Viewport = FD3D12DynamicRHI::ResourceCast(ViewportRHI);
