@@ -35,9 +35,12 @@ void FSoundEffectBase::SetPreset(USoundEffectPreset* Inpreset)
 		if (Preset)
 		{
 			Preset->AddEffectInstance(this);
-			bChanged = true;
 		}
 	}
+
+	// Anytime notification occurs that the preset has been modified,
+	// flag for update.
+	bChanged = true;
 }
 
 void FSoundEffectBase::ClearPreset()
