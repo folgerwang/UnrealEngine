@@ -298,6 +298,10 @@ void UMovieSceneCapture::Initialize(TSharedPtr<FSceneViewport> InSceneViewport, 
 		if (FParse::Bool(FCommandLine::Get(), TEXT("-PathTracer="), bOverridePathTracer))
 		{
 			Settings.bUsePathTracer = bOverridePathTracer;
+			if (bOverridePathTracer)
+			{
+				InSceneViewport->GetClient()->GetEngineShowFlags()->SetPathTracing(true);
+			}
 		}
 
 		uint16 OverridePathTracerSamplePerPixel;
