@@ -1106,6 +1106,21 @@ public:
 		NewClass->SetSuperStruct(InSuperClass);
 	}
 
+	FPythonGeneratedClassBuilder(UPythonGeneratedClass* InOldClass, UClass* InSuperClass)
+		: ClassName(InOldClass->GetName())
+		, PyType(InOldClass->PyType)
+		, OldClass(InOldClass)
+		, NewClass(nullptr)
+	{
+		UObject* ClassOuter = GetPythonTypeContainer();
+
+		// Create a new class with a temporary name; we will rename it as part of Finalize
+		const FString NewClassName = MakeUniqueObjectName(ClassOuter, UPythonGeneratedClass::StaticClass(), *FString::Printf(TEXT("%s_NEWINST"), *ClassName)).ToString();
+		NewClass = NewObject<UPythonGeneratedClass>(ClassOuter, *NewClassName, RF_Public | RF_Standalone | RF_Transient);
+		NewClass->SetMetaData(TEXT("BlueprintType"), TEXT("true"));
+		NewClass->SetSuperStruct(InSuperClass);
+	}
+
 	~FPythonGeneratedClassBuilder()
 	{
 		// If NewClass is still set at this point, if means Finalize wasn't called and we should destroy the partially built class
@@ -1761,7 +1776,7 @@ bool UPythonGeneratedClass::ReparentDerivedClasses(UPythonGeneratedClass* InOldP
 
 	for (UClass* DerivedClass : DerivedClasses)
 	{
-		if (DerivedClass->HasAnyClassFlags(CLASS_Native))
+		if (DerivedClass->HasAnyClassFlags(CLASS_Native | CLASS_NewerVersionExists))
 		{
 			continue;
 		}
@@ -1780,7 +1795,7 @@ bool UPythonGeneratedClass::ReparentDerivedClasses(UPythonGeneratedClass* InOldP
 UPythonGeneratedClass* UPythonGeneratedClass::ReparentClass(UPythonGeneratedClass* InOldClass, UPythonGeneratedClass* InNewParent)
 {
 	// Builder used to generate the class
-	FPythonGeneratedClassBuilder PythonClassBuilder(InOldClass->GetName(), InNewParent, InOldClass->PyType);
+	FPythonGeneratedClassBuilder PythonClassBuilder(InOldClass, InNewParent);
 
 	// Copy the data from the old class
 	if (!PythonClassBuilder.CopyFunctionsFromOldClass())
