@@ -1382,10 +1382,6 @@ void ULevel::PreEditUndo()
 {
 	Super::PreEditUndo();
 
-	// Release the model's resources.
-	Model->BeginReleaseResources();
-	Model->ReleaseResourcesFence.Wait();
-
 	// Detach existing model components.  These are left in the array, so they are saved for undoing the undo.
 	for(int32 ComponentIndex = 0;ComponentIndex < ModelComponents.Num();ComponentIndex++)
 	{
@@ -1394,6 +1390,10 @@ void ULevel::PreEditUndo()
 			ModelComponents[ComponentIndex]->UnregisterComponent();
 		}
 	}
+
+	// Release the model's resources.
+	Model->BeginReleaseResources();
+	Model->ReleaseResourcesFence.Wait();
 
 	ReleaseRenderingResources();
 
@@ -1501,9 +1501,6 @@ void ULevel::InvalidateModelGeometry()
 	Model->Modify();
 	Modify();
 
-	// Begin releasing the model's resources.
-	Model->BeginReleaseResources();
-
 	// Remove existing model components.
 	for(int32 ComponentIndex = 0;ComponentIndex < ModelComponents.Num();ComponentIndex++)
 	{
@@ -1514,6 +1511,9 @@ void ULevel::InvalidateModelGeometry()
 		}
 	}
 	ModelComponents.Empty();
+
+	// Begin releasing the model's resources.
+	Model->BeginReleaseResources();
 }
 
 
@@ -1580,7 +1580,10 @@ void ULevel::CommitModelSurfaces()
 				{
 					if (Model->bOnlyRebuildMaterialIndexBuffers)
 					{
-						ModelComponents[ComponentIndex]->MarkRenderStateDirty();
+						// This is intentionally updated immediately. We just re-created vertex and index buffers
+						// without invalidating static meshes. Re-create all static meshes now so that mesh draw
+						// commands are refreshed.
+						ModelComponents[ComponentIndex]->RecreateRenderState_Concurrent();
 					}
 					else
 					{
