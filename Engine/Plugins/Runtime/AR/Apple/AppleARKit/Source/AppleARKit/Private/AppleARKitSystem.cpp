@@ -421,7 +421,8 @@ bool FAppleARKitSystem::IsHeadTrackingAllowed() const
 
 TSharedPtr<class IXRCamera, ESPMode::ThreadSafe> FAppleARKitSystem::GetXRCamera(int32 DeviceId)
 {
-	if (!XRCamera.IsValid())
+	// Don't create/load UObjects on the render thread
+	if (!XRCamera.IsValid() && IsInGameThread())
 	{
 		TSharedRef<FAppleARKitXRCamera, ESPMode::ThreadSafe> NewCamera = FSceneViewExtensions::NewExtension<FAppleARKitXRCamera>(*this, DeviceId);
 		XRCamera = NewCamera;
