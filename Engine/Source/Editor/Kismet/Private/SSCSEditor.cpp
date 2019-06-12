@@ -4096,6 +4096,11 @@ void SSCSEditor::OnDuplicateComponent()
 	TArray<FSCSEditorTreeNodePtrType> SelectedNodes = SCSTreeWidget->GetSelectedItems();
 	if(SelectedNodes.Num() > 0)
 	{
+		// Force the text box being edited (if any) to commit its text. The duplicate operation may trigger a regeneration of the tree view,
+		// releasing all row widgets. If one row was in edit mode (rename/rename on create), it was released before losing the focus and
+		// this would prevent the completion of the 'rename' or 'create + give initial name' transaction (occurring on focus lost).
+		FSlateApplication::Get().ClearKeyboardFocus();
+
 		const FScopedTransaction Transaction(SelectedNodes.Num() > 1 ? LOCTEXT("DuplicateComponents", "Duplicate Components") : LOCTEXT("DuplicateComponent", "Duplicate Component"));
 
 		TMap<USceneComponent*, USceneComponent*> DuplicateSceneComponentMap;
