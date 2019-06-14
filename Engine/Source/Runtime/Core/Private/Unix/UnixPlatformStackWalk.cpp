@@ -790,16 +790,7 @@ void ReportAssert(const TCHAR* ErrorMessage, int NumStackFramesToIgnore)
 	GCrashErrorMessage = ErrorMessage;
 	GCrashErrorType = ECrashContextType::Assert;
 
-	// Store NumStackFramesToIgnore in signal data	
-	sigval UserData;
-	UserData.sival_int = NumStackFramesToIgnore + 2; // +2 for this function and sigqueue()
-	sigqueue(getpid(),  SIGSEGV, UserData);
-	
-	// Make sure we never return
-	for (;;)
-	{
-		FPlatformProcess::Sleep(60.0f);
-	}
+	FPlatformMisc::RaiseException(1);
 }
 
 void ReportGPUCrash(const TCHAR* ErrorMessage, int NumStackFramesToIgnore)
@@ -807,16 +798,7 @@ void ReportGPUCrash(const TCHAR* ErrorMessage, int NumStackFramesToIgnore)
 	GCrashErrorMessage = ErrorMessage;
 	GCrashErrorType = ECrashContextType::GPUCrash;
 
-	// Store NumStackFramesToIgnore in signal data	
-	sigval UserData;
-	UserData.sival_int = NumStackFramesToIgnore + 2; // +2 for this function and sigqueue()
-	sigqueue(getpid(),  SIGSEGV, UserData);
-	
-	// Make sure we never return
-	for (;;)
-	{
-		FPlatformProcess::Sleep(60.0f);
-	}
+	FPlatformMisc::RaiseException(1);
 }
 
 static FCriticalSection EnsureLock;
