@@ -312,6 +312,12 @@ void FTransitionAndLayoutManager::BeginRealRenderPass(FVulkanCommandListContext&
 			{
 				VulkanRHI::ImagePipelineBarrier(CmdBuffer->GetHandle(), Surface.Image, EImageLayoutBarrier::Undefined, EImageLayoutBarrier::ColorAttachment, SetupImageSubresourceRange());
 			}
+			else if (*Found == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && GetLoadAction(RPInfo.ColorRenderTargets[Index].Action) == ERenderTargetLoadAction::ELoad)
+			{
+				// make sure we have dependency between multiple render-passes that use the same attachment
+				// otherwise GPU can be execute them in any order
+				VulkanRHI::ImagePipelineBarrier(CmdBuffer->GetHandle(), Surface.Image, EImageLayoutBarrier::ColorAttachment, EImageLayoutBarrier::ColorAttachment, SetupImageSubresourceRange());
+			}
 			else
 			{
 				Context.RHITransitionResources(EResourceTransitionAccess::EWritable, &Texture, 1);
@@ -623,21 +629,6 @@ void FVulkanCommandListContext::RHICopyToResolveTarget(FTextureRHIParamRef Sourc
 	{
 		// no need to do anything (silently ignored)
 		return;
-	}
-
-	if (SourceTextureRHI == DestTextureRHI)
-	{
-		FRHITexture2D* SourceTexture2D = SourceTextureRHI->GetTexture2D();
-		if (SourceTexture2D)
-		{
-			FVulkanTexture2D* VulkanSourceTexture2D  = (FVulkanTexture2D*)SourceTexture2D;
-			if (VulkanSourceTexture2D->GetBackBuffer() != nullptr)
-			{
-				// skip Backbuffer implicit transition to Readable, to avoid splitting Post->UI renderpass
-				// do explicit transition when need to read from Backbuffer
-				return;
-			}
-		}
 	}
 
 	RHITransitionResources(EResourceTransitionAccess::EReadable, &SourceTextureRHI, 1);

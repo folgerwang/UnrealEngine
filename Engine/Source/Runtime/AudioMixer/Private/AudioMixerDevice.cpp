@@ -349,15 +349,6 @@ namespace Audio
 			AudioMixerPlatform->ResumePlaybackOnNewDevice();
 		}
 
-		ListenerTransforms.Reset();
-		for (FListener& Listener : Listeners)
-		{
-			ListenerTransforms.Add(Listener.Transform);
-		}
-
-		// Update listener transforms, some effects use the listener transform data
-		SourceManager.SetListenerTransforms(ListenerTransforms);
-
 		// Loop through any envelope-following submixes and perform any broadcasting of envelope data if needed
 		TArray<float> SubmixEnvelopeData;
 		for (USoundSubmix* SoundSubmix : EnvelopeFollowingSubmixes)
@@ -952,32 +943,42 @@ namespace Audio
 
 			if (!IsMasterSubmixType(InSoundSubmix))
 			{
+				FMixerSubmixPtr MixerSubmix; 
+
 				// If the sound submix wasn't already registered get it into the system.
 				if (!Submixes.Contains(InSoundSubmix))
 				{
-					FMixerSubmixPtr MixerSubmix = FMixerSubmixPtr(new FMixerSubmix(this));
+					MixerSubmix = FMixerSubmixPtr(new FMixerSubmix(this));
 					Submixes.Add(InSoundSubmix, MixerSubmix);
+				}
+				else
+				{
+					FMixerSubmixPtr* ExistingMixerSubmix = Submixes.Find(InSoundSubmix);
+					check(ExistingMixerSubmix);
+					MixerSubmix = *ExistingMixerSubmix;
+				}
 
-					if (bInit)
+				check(MixerSubmix.IsValid());
+
+				if (bInit)
+				{
+					// Setup the parent-child relationship
+					FMixerSubmixWeakPtr ParentSubmixInstance;
+					if (InSoundSubmix->ParentSubmix)
 					{
-						// Setup the parent-child relationship
-						FMixerSubmixWeakPtr ParentSubmixInstance;
-						if (InSoundSubmix->ParentSubmix)
-						{
-							ParentSubmixInstance = GetSubmixInstance(InSoundSubmix->ParentSubmix);
-						}
-						else
-						{
-							ParentSubmixInstance = GetMasterSubmix();
-						}
+						ParentSubmixInstance = GetSubmixInstance(InSoundSubmix->ParentSubmix);
+					}
+					else
+					{
+						ParentSubmixInstance = GetMasterSubmix();
+					}
 
-						FMixerSubmixPtr ParentSubmixInstancePtr = ParentSubmixInstance.Pin();
-						if (ParentSubmixInstancePtr.IsValid())
-						{
-							ParentSubmixInstancePtr->AddChildSubmix(MixerSubmix);
-							MixerSubmix->SetParentSubmix(ParentSubmixInstance);
-							MixerSubmix->Init(InSoundSubmix);
-						}
+					FMixerSubmixPtr ParentSubmixInstancePtr = ParentSubmixInstance.Pin();
+					if (ParentSubmixInstancePtr.IsValid())
+					{
+						ParentSubmixInstancePtr->AddChildSubmix(MixerSubmix);
+						MixerSubmix->SetParentSubmix(ParentSubmixInstance);
+						MixerSubmix->Init(InSoundSubmix);
 					}
 				}
 			}

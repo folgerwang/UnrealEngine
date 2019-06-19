@@ -3070,8 +3070,15 @@ bool SSCS_RowWidget::OnNameTextVerifyChanged(const FText& InNewText, FText& OutE
 	FSCSEditorTreeNodePtrType NodePtr = GetNode();
 	UBlueprint* Blueprint = GetBlueprint();
 
-	if (!InNewText.IsEmpty())
+	const FString& NewTextStr = InNewText.ToString();
+
+	if (!NewTextStr.IsEmpty())
 	{
+		if (NodePtr->GetVariableName().ToString() == NewTextStr)
+		{
+			return true;
+		}
+
 		const UActorComponent* ComponentInstance = NodePtr->GetComponentTemplate();
 		if (ensure(ComponentInstance))
 		{
@@ -3081,20 +3088,20 @@ bool SSCS_RowWidget::OnNameTextVerifyChanged(const FText& InNewText, FText& OutE
 				ExistingNameSearchScope = Cast<AActor>(Blueprint->GeneratedClass->GetDefaultObject());
 			}
 
-			if (!FComponentEditorUtils::IsValidVariableNameString(ComponentInstance, InNewText.ToString()))
+			if (!FComponentEditorUtils::IsValidVariableNameString(ComponentInstance, NewTextStr))
 			{
 				OutErrorMessage = LOCTEXT("RenameFailed_EngineReservedName", "This name is reserved for engine use.");
 				return false;
 			}
-			else if (InNewText.ToString().Len() > NAME_SIZE)
+			else if (NewTextStr.Len() > NAME_SIZE)
 			{
 				FFormatNamedArguments Arguments;
 				Arguments.Add(TEXT("CharCount"), NAME_SIZE);
 				OutErrorMessage = FText::Format(LOCTEXT("ComponentRenameFailed_TooLong", "Component name must be less than {CharCount} characters long."), Arguments);
 				return false;
 			}
-			else if (!FComponentEditorUtils::IsComponentNameAvailable(InNewText.ToString(), ExistingNameSearchScope, ComponentInstance) 
-					|| !FComponentEditorUtils::IsComponentNameAvailable(InNewText.ToString(), ComponentInstance->GetOuter(), ComponentInstance ))
+			else if (!FComponentEditorUtils::IsComponentNameAvailable(NewTextStr, ExistingNameSearchScope, ComponentInstance)
+				|| !FComponentEditorUtils::IsComponentNameAvailable(NewTextStr, ComponentInstance->GetOuter(), ComponentInstance)) 
 			{
 				OutErrorMessage = LOCTEXT("RenameFailed_ExistingName", "Another component already has the same name.");
 				return false;
@@ -4089,6 +4096,11 @@ void SSCSEditor::OnDuplicateComponent()
 	TArray<FSCSEditorTreeNodePtrType> SelectedNodes = SCSTreeWidget->GetSelectedItems();
 	if(SelectedNodes.Num() > 0)
 	{
+		// Force the text box being edited (if any) to commit its text. The duplicate operation may trigger a regeneration of the tree view,
+		// releasing all row widgets. If one row was in edit mode (rename/rename on create), it was released before losing the focus and
+		// this would prevent the completion of the 'rename' or 'create + give initial name' transaction (occurring on focus lost).
+		FSlateApplication::Get().ClearKeyboardFocus();
+
 		const FScopedTransaction Transaction(SelectedNodes.Num() > 1 ? LOCTEXT("DuplicateComponents", "Duplicate Components") : LOCTEXT("DuplicateComponent", "Duplicate Component"));
 
 		TMap<USceneComponent*, USceneComponent*> DuplicateSceneComponentMap;
@@ -4611,6 +4623,47 @@ void SSCSEditor::UpdateTree(bool bRegenerateTreeNodes)
 				// Get the full set of instanced components
 				TSet<UActorComponent*> ComponentsToAdd(ActorInstance->GetComponents());
 
+				const bool bHideConstructionScriptComponentsInDetailsView = GetDefault<UBlueprintEditorSettings>()->bHideConstructionScriptComponentsInDetailsView;
+				auto ShouldAddInstancedActorComponentLambda = [bHideConstructionScriptComponentsInDetailsView](UActorComponent* ActorComp, USceneComponent* ParentSceneComp)
+				{
+					// Exclude nested DSOs attached to BP-constructed instances, which are not mutable.
+					return (ActorComp != nullptr
+						&& (!ActorComp->IsVisualizationComponent())
+						&& (ActorComp->CreationMethod != EComponentCreationMethod::UserConstructionScript || !bHideConstructionScriptComponentsInDetailsView)
+						&& (ParentSceneComp == nullptr || !ParentSceneComp->IsCreatedByConstructionScript() || !ActorComp->HasAnyFlags(RF_DefaultSubObject)))
+						&& (ActorComp->CreationMethod != EComponentCreationMethod::Native || FComponentEditorUtils::CanEditNativeComponent(ActorComp));
+				};
+
+				for (auto It(ComponentsToAdd.CreateIterator()); It; ++It)
+				{
+					UActorComponent* ActorComp = *It;
+					USceneComponent* SceneComp = Cast<USceneComponent>(ActorComp);
+					USceneComponent* ParentSceneComp = SceneComp != nullptr ? SceneComp->GetAttachParent() : nullptr;
+					if (!ShouldAddInstancedActorComponentLambda(ActorComp, ParentSceneComp))
+					{
+						It.RemoveCurrent();
+					}
+				}
+
+				TFunction<void(USceneComponent*,FSCSEditorTreeNodePtrType)> AddInstancedTreeNodesRecursiveLambda = [&](USceneComponent* Component, FSCSEditorTreeNodePtrType TreeNode)
+				{
+					if (Component != nullptr)
+					{
+						TArray<USceneComponent*> Components = Component->GetAttachChildren();
+						for (USceneComponent* ChildComponent : Components)
+						{
+							if (ComponentsToAdd.Contains(ChildComponent)
+								&& ChildComponent->GetOwner() == Component->GetOwner())
+							{
+								ComponentsToAdd.Remove(ChildComponent);
+
+								FSCSEditorTreeNodePtrType NewParentNode = AddTreeNodeFromComponent(ChildComponent, TreeNode);
+								AddInstancedTreeNodesRecursiveLambda(ChildComponent, NewParentNode);
+							}
+						}
+					}
+				};
+				
 				// Add the root component first (it may not be the first one)
 				USceneComponent* RootComponent = ActorInstance->GetRootComponent();
 				if(RootComponent != nullptr)
@@ -4620,7 +4673,7 @@ void SSCSEditor::UpdateTree(bool bRegenerateTreeNodes)
 					// Recursively add any instanced children that are already attached through the root, and keep track of added
 					// instances. This will be a faster path than the loop below, because we create new parent tree nodes as we go.
 					FSCSEditorTreeNodePtrType NewParentNode = AddTreeNodeFromComponent(RootComponent);
-					AddInstancedTreeNodesRecursive(RootComponent, NewParentNode, ComponentsToAdd);
+					AddInstancedTreeNodesRecursiveLambda(RootComponent, NewParentNode);
 				}
 
 				// Sort components by type (always put scene components first in the tree)
@@ -4633,23 +4686,18 @@ void SSCSEditor::UpdateTree(bool bRegenerateTreeNodes)
 				// unattached scene components followed by any instanced non-scene components owned by the Actor instance.
 				for (UActorComponent* ActorComp : ComponentsToAdd)
 				{
-					USceneComponent* SceneComp = Cast<USceneComponent>(ActorComp);
-					USceneComponent* ParentSceneComp = SceneComp != nullptr ? SceneComp->GetAttachParent() : nullptr;
-					if (ShouldAddInstancedActorComponent(ActorComp, ParentSceneComp))
+					if (USceneComponent* SceneComp = Cast<USceneComponent>(ActorComp))
 					{
-						if (SceneComp != nullptr)
+						AddTreeNodeFromComponent(SceneComp);
+					}
+					else
+					{
+						if (!bHasAddedSceneAndBehaviorComponentSeparator)
 						{
-							AddTreeNodeFromComponent(SceneComp);
+							bHasAddedSceneAndBehaviorComponentSeparator = true;
+							RootNodes.Add(MakeShareable(new FSCSEditorTreeNode(FSCSEditorTreeNode::SeparatorNode)));
 						}
-						else
-						{
-							if (!bHasAddedSceneAndBehaviorComponentSeparator)
-							{
-								bHasAddedSceneAndBehaviorComponentSeparator = true;
-								RootNodes.Add(MakeShareable(new FSCSEditorTreeNode(FSCSEditorTreeNode::SeparatorNode)));
-							}
-							AddRootComponentTreeNode(ActorComp);
-						}
+						AddRootComponentTreeNode(ActorComp);
 					}
 				}
 			}

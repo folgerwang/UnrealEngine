@@ -23,25 +23,6 @@ static TAutoConsoleVariable<int32> CVarResidencyManagement(
 );
 #endif // ENABLE_RESIDENCY_MANAGEMENT
 
-struct FRHICommandSignalFrameFence final : public FRHICommand<FRHICommandSignalFrameFence>
-{
-	ED3D12CommandQueueType QueueType;
-	FD3D12ManualFence* const Fence;
-	const uint64 Value;
-	FORCEINLINE_DEBUGGABLE FRHICommandSignalFrameFence(ED3D12CommandQueueType InQueueType, FD3D12ManualFence* InFence, uint64 InValue)
-		: QueueType(InQueueType)
-		, Fence(InFence)
-		, Value(InValue)
-	{ 
-	}
-
-	void Execute(FRHICommandListBase& CmdList)
-	{
-		Fence->Signal(QueueType, Value);
-		check(Fence->GetLastSignaledFence() == Value);
-	}
-};
-
 FD3D12Adapter::FD3D12Adapter(FD3D12AdapterDesc& DescIn)
 	: OwningRHI(nullptr)
 	, bDepthBoundsTestSupported(false)
@@ -660,26 +641,6 @@ void FD3D12Adapter::EndFrame()
 		GetUploadHeapAllocator(GPUIndex).CleanUpAllocations();
 	}
 	GetDeferredDeletionQueue().ReleaseResources();
-}
-
-void FD3D12Adapter::SignalFrameFence_RenderThread(FRHICommandListImmediate& RHICmdList)
-{
-	check(IsInRenderingThread());
-	check(RHICmdList.IsImmediate());
-
-	// Increment the current fence (on render thread timeline).
-	const uint64 PreviousFence = FrameFence->IncrementCurrentFence();
-
-	// Queue a command to signal the frame fence is complete on the GPU (on the RHI thread timeline if using an RHI thread).
-	if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
-	{
-		FRHICommandSignalFrameFence Cmd(ED3D12CommandQueueType::Default, FrameFence, PreviousFence);
-		Cmd.Execute(RHICmdList);
-	}
-	else
-	{
-		ALLOC_COMMAND_CL(RHICmdList, FRHICommandSignalFrameFence)(ED3D12CommandQueueType::Default, FrameFence, PreviousFence);
-	}
 }
 
 FD3D12TemporalEffect* FD3D12Adapter::GetTemporalEffect(const FName& EffectName)

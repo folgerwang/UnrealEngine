@@ -5677,16 +5677,26 @@ void FBlueprintComponentDetails::OnVariableTextChanged(const FText& InNewText)
 
 	bIsVariableNameInvalid = true;
 
-	USCS_Node* SCS_Node = CachedNodePtr->GetSCSNode();
-	if(SCS_Node != NULL && !InNewText.IsEmpty() && !FComponentEditorUtils::IsValidVariableNameString(SCS_Node->ComponentTemplate, InNewText.ToString()))
+	const FString& NewTextStr = InNewText.ToString();
+
+	if (USCS_Node* SCS_Node = CachedNodePtr->GetSCSNode())
 	{
-		VariableNameEditableTextBox->SetError(LOCTEXT("ComponentVariableRenameFailed_NotValid", "This name is reserved for engine use."));
-		return;
+		if (!NewTextStr.IsEmpty() && !FComponentEditorUtils::IsValidVariableNameString(SCS_Node->ComponentTemplate, NewTextStr))
+		{
+			VariableNameEditableTextBox->SetError(LOCTEXT("ComponentVariableRenameFailed_NotValid", "This name is reserved for engine use."));
+			return;
+		}
+
+		if (!FComponentEditorUtils::IsComponentNameAvailable(NewTextStr, SCS_Node->ComponentTemplate->GetOuter(), SCS_Node->ComponentTemplate))
+		{
+			VariableNameEditableTextBox->SetError(FText::Format(LOCTEXT("ComponentVariableRenameFailed_InUse", "{0} is in use by another variable or function!"), InNewText));
+			return;
+		}
 	}
 
 	TSharedPtr<INameValidatorInterface> VariableNameValidator = MakeShareable(new FKismetNameValidator(GetBlueprintObj(), CachedNodePtr->GetVariableName()));
 
-	EValidatorResult ValidatorResult = VariableNameValidator->IsValid(InNewText.ToString());
+	EValidatorResult ValidatorResult = VariableNameValidator->IsValid(NewTextStr);
 	if(ValidatorResult == EValidatorResult::AlreadyInUse)
 	{
 		VariableNameEditableTextBox->SetError(FText::Format(LOCTEXT("ComponentVariableRenameFailed_InUse", "{0} is in use by another variable or function!"), InNewText));

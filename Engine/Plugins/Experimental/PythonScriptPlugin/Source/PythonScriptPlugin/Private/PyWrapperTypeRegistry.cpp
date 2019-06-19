@@ -366,14 +366,19 @@ void FPyWrapperTypeReinstancer::AddPendingStruct(UPythonGeneratedStruct* OldStru
 
 void FPyWrapperTypeReinstancer::ProcessPending()
 {
+	const bool bRunGC = ClassesToReinstance.Num() > 0 || StructsToReinstance.Num() > 0;
+
 	if (ClassesToReinstance.Num() > 0)
 	{
 		for (const auto& ClassToReinstancePair : ClassesToReinstance)
 		{
 			if (ClassToReinstancePair.Key && ClassToReinstancePair.Value)
 			{
-				// Assume the classes have changed
-				FCoreUObjectDelegates::RegisterClassForHotReloadReinstancingDelegate.Broadcast(ClassToReinstancePair.Key, ClassToReinstancePair.Value, EHotReloadedClassFlags::Changed);
+				if (!ClassToReinstancePair.Value->HasAnyClassFlags(CLASS_NewerVersionExists))
+				{
+					// Assume the classes have changed
+					FCoreUObjectDelegates::RegisterClassForHotReloadReinstancingDelegate.Broadcast(ClassToReinstancePair.Key, ClassToReinstancePair.Value, EHotReloadedClassFlags::Changed);
+				}
 			}
 		}
 		FCoreUObjectDelegates::ReinstanceHotReloadedClassesDelegate.Broadcast();
@@ -383,6 +388,11 @@ void FPyWrapperTypeReinstancer::ProcessPending()
 
 	// todo: need support for re-instancing structs
 	StructsToReinstance.Reset();
+
+	if (bRunGC)
+	{
+		CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
+	}
 }
 
 void FPyWrapperTypeReinstancer::AddReferencedObjects(FReferenceCollector& InCollector)

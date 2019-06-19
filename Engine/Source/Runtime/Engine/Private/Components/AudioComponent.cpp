@@ -461,7 +461,8 @@ void UAudioComponent::PlayInternal(const float StartTime, const float FadeInDura
 			++ActiveCount;
 
 			AudioDevice->AddNewActiveSound(NewActiveSound);
-			bIsActive = true;
+
+			bIsActive = (ActiveCount > 0);
 		}
 	}
 }
