@@ -27,6 +27,14 @@ enum EMaterialForceCastFlags
 	MFCF_ReplicateValue	= 1<<3	// Replicates a Float1 value when up-casting, else appends zero
 };
 
+enum class EVirtualTextureUnpackType
+{
+	None,
+	NormalBC3,
+	NormalBC5,
+	HeightR8G8,
+};
+
 /** 
  * The interface used to translate material expressions into executable code. 
  * Note: Most member functions should be pure virtual to force a FProxyMaterialCompiler override!

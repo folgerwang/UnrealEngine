@@ -5,47 +5,40 @@
 #include "Engine/Texture.h"
 #include "TextureCompressorModule.h"
 #include "VirtualTextureBuiltData.h"
+#include "TextureDerivedDataTask.h"
+#include "ImageCore.h"
 
 struct FImage;
 class ITextureCompressorModule;
 class IImageWrapperModule;
+struct FTextureSourceData;
 
-struct FVirtualTextureBuilderLayerSettings
+struct FVTSourceTileEntry
 {
-	FTextureSource *Source;
-	FTextureBuildSettings SourceBuildSettings; // Build settings to use when building the source data. Note: Some options may be overriden by the virtual texture builder and will not be honoured.
-	EGammaSpace GammaSpace;
-	FIntRect SourceRectangle; // The specified rectangle will be extracted from the texture. If the rectangle is empty the whole source texture will be used instead.
-
-	FVirtualTextureBuilderLayerSettings() :
-		Source(nullptr),
-		GammaSpace(EGammaSpace::Linear)
-	{}
-
-	FVirtualTextureBuilderLayerSettings(FTextureSource *SetSource) :
-		Source(SetSource),
-		GammaSpace(EGammaSpace::Linear)
-	{}
-
-	FIntRect GetRectangle();
+	int32 BlockIndex;
+	int32 TileIndex;
+	int32 MipIndexInBlock;
+	int32 TileInBlockX;
+	int32 TileInBlockY;
 };
 
-struct FVirtualTextureBuilderSettings
+struct FLayerData
 {
-	FString DebugName; // Name of the thing we're building for debugging purposes
-	int32 TileWidth;  // Tile size excluding borders
-	int32 TileHeight;  // Tile size excluding borders
-	int32 Border; // A BorderSize pixel border will be added around all tiles
-	int32 ChunkSize; // Size in bytes of data chunks
+	TArray<TArray<uint8>> TilePayload;
+	TArray<uint8> CodecPayload;
+	EVirtualTextureCodec Codec = EVirtualTextureCodec::Max;
+};
 
-	TArray<FVirtualTextureBuilderLayerSettings> Layers;
+struct FVirtualTextureSourceLayerData
+{
+	// All of these should refer to the same format
+	ERawImageFormat::Type ImageFormat;
+	ETextureSourceFormat SourceFormat;
+	EPixelFormat PixelFormat;
+	FName FormatName;
 
-	FVirtualTextureBuilderSettings() :
-		TileWidth(128),
-		TileHeight(128),
-		Border(4),
-		ChunkSize(1024 * 1024)
-	{}
+	EGammaSpace GammaSpace;
+	bool bHasAlpha;
 };
 
 /**
@@ -56,106 +49,55 @@ struct FVirtualTextureBuilderSettings
  * - Bakes mips
  * - Does compression
  * Note: Most of the heavy pixel processing itself is internally deferred to the TextureCompressorModule.
- * 
+ *
  * Data is cached in the BuilderObject so the BuildLayer call is not thread safe between calls. Create separate FVirtualTextureDataBuilder
  * instances for each thread instead!
- * 
+ *
  * Current assumptions:
  * - We can keep "at least" all the source data in memory. We do not do "streaming" conversions of source data.
  * - Output can be "streaming" we don't have to keep all the data output in memory
  */
-
-#define NUM_TILES_IN_CHUNK_ON_X_AXIS 16
-#define NUM_TILES_IN_CHUNK_ON_Y_AXIS 15
-#define NUM_TILES_IN_CHUCK (NUM_TILES_IN_CHUNK_ON_X_AXIS*NUM_TILES_IN_CHUNK_ON_Y_AXIS)
-
 class FVirtualTextureDataBuilder
 {
 public:
-
-	FVirtualTextureDataBuilder(FVirtualTextureBuiltData &SetOutData);
+	FVirtualTextureDataBuilder(FVirtualTextureBuiltData &SetOutData, ITextureCompressorModule *InCompressor = nullptr, IImageWrapperModule* InImageWrapper = nullptr);
 	~FVirtualTextureDataBuilder();
 
-	void Build(const FVirtualTextureBuilderSettings &Settings);
+	void Build(const FTextureSourceData& InSourceData, const FTextureSourceData& InCompositeSourceData, const FTextureBuildSettings* InSettingsPerLayer, bool bAllowAsync);
 
 private:
+	friend struct FAsyncMacroBlockTask;
 
-	struct TileId
-	{
-		int32 X;
-		int32 Y;
-		int32 Mip;
+	void BuildPagesMacroBlocks(bool bAllowAsync);
+	void BuildPagesForChunk(const TArray<FVTSourceTileEntry>& ActiveTileList, bool bAllowAsync);
+	void BuildTiles(const TArray<FVTSourceTileEntry>& TileList, uint32 layer, FLayerData& GeneratedData, bool bAllowAsync);
+	void PushDataToChunk(const TArray<FVTSourceTileEntry> &Tiles, const TArray<FLayerData>& LayerData);
 
-		TileId(int32 SetTileX, int32 SetTileY, int32 SetMipLevel) :
-			X(SetTileX),
-			Y(SetTileY),
-			Mip(SetMipLevel)
-		{}
-
-		int32 GetMorton() const
-		{
-			return FMath::MortonCode2(X) | (FMath::MortonCode2(Y) << 1);
-		}
-
-		void SetMorton(int32 MortonPacked)
-		{
-			X = FMath::ReverseMortonCode2(MortonPacked);
-			Y = FMath::ReverseMortonCode2(MortonPacked >> 1);
-		}
-	};
-
-	struct FLayerData
-	{
-		TArray<uint8> Data;
-		EVirtualTextureCodec Codec = EVirtualTextureCodec::Max;
-		TArray<uint8> CodecPayload;
-
-		using FTileInfo = TPair<uint32, uint32>; // [offset, size]
-		TArray<FTileInfo> TileInfos;
-	};
-	using LayerDataArray = TArray<FLayerData, TFixedAllocator<MAX_NUM_LAYERS>>;
-
-	using MacroTileArray = TArray<TileId, TFixedAllocator<NUM_TILES_IN_CHUCK>>;
-	void BuildPagesMacroBlocks();
-	//void AssembleTileForMacroBlock(const TileId& Tile, int32 layer, TArray<FImage>& TileList);
-	void BuildTiles(const MacroTileArray& TileList, uint32 layer, FLayerData& GeneratedData);
-	void PushDataToChunk(const MacroTileArray &Tiles, const LayerDataArray &LayerData);
+	int32 FindSourceBlockIndex(int32 MipIndex, int32 BlockX, int32 BlockY) const;
 
 	// Build the source data including mipmaps etc
-	void BuildSourcePixels();
+	void BuildSourcePixels(const FTextureSourceData& SourceData, const FTextureSourceData& CompositeSourceData);
 	// Release the source pixels
 	void FreeSourcePixels();
-
-	bool ExtractSourcePixels(int32 Layer, int32 Level, FImage &OutImage);
-
-	// Build mipmap tail data
-	void BuildMipTails();
 	
 	// Cached inside this object
-	FVirtualTextureBuilderSettings Settings;
+	TArray<FTextureBuildSettings> SettingsPerLayer;
 	FVirtualTextureBuiltData &OutData;
 
 	// Some convenience variables (mostly derived from the passed in build settings)
-	int32 Width;
-	int32 Height;
+	int32 SizeInBlocksX;
+	int32 SizeInBlocksY;
+	int32 BlockSizeX;
+	int32 BlockSizeY;
+	int32 SizeX;
+	int32 SizeY;
 
-	// Width/height in tiles on the miplevels
-	TArray<int32, TFixedAllocator<MAX_NUM_MIPS>> NumTilesX;
-	TArray<int32, TFixedAllocator<MAX_NUM_MIPS>> NumTilesY;
-
-	int32 TotalTileWidth;
-	int32 TotalTileHeight;
-
-	int32 NumMips;
-
-	// Data for the page currently being filled
-	TArray<uint8> TilesBuffer;// Actual pixel data concatenated with
-	FVirtualTextureChunkInfo ChunkHeader;
-
-
-	TArray<TArray<FImage*, TFixedAllocator<MAX_NUM_MIPS>>, TFixedAllocator<MAX_NUM_LAYERS>> SourcePixels;
-	TArray<ETextureSourceFormat, TFixedAllocator<MAX_NUM_LAYERS>> SourcePixelFormats;
+	TArray<FVirtualTextureSourceLayerData> SourceLayers;       
+	TArray<FTextureSourceBlockData> SourceBlocks;
+	//FTextureSourceBlockData SourceMiptailBlock;
 
 	ITextureCompressorModule *Compressor;
 	IImageWrapperModule *ImageWrapper;
+
+	bool DetectAlphaChannel(const FImage &image);
 };

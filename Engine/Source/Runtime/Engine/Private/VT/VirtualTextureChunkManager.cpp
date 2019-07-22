@@ -6,20 +6,15 @@
 #include "ScreenRendering.h"
 #include "UploadingVirtualTexture.h"
 #include "VT/VirtualTexture.h"
-#include "VT/VirtualTextureSpace.h"
 #include "VirtualTextureBuiltData.h"
-#include "VirtualTextureChunkProviders.h"
 #include "BlockCodingHelpers.h"
-
-#ifndef CRUNCH_SUPPORT
-#define CRUNCH_SUPPORT 0
-#endif
-
-#if CRUNCH_SUPPORT
 #include "CrunchCompression.h"
-#endif
 #include "FileCache/FileCache.h"
 #include "Containers/LruCache.h"
+
+#if WITH_EDITOR
+#include "VirtualTextureChunkDDCCache.h"
+#endif
 
 static int32 NumTranscodeRequests = 128;
 static FAutoConsoleVariableRef CVarNumTranscodeRequests(
@@ -28,181 +23,6 @@ static FAutoConsoleVariableRef CVarNumTranscodeRequests(
 	TEXT("Number of transcode request that can be in flight. default 128\n")
 	, ECVF_ReadOnly
 );
-
-static int32 TLSTranscodeCodecCacheSize = 16;
-static FAutoConsoleVariableRef CVarTLSTranscodeCodecCacheSize(
-	TEXT("r.VT.TLSTranscodeCodecCacheSize"),
-	TLSTranscodeCodecCacheSize,
-	TEXT("Number of transcode codecs inside each TLS LRU cache. default 32\n")
-	, ECVF_ReadOnly
-);
-
-
-namespace TextureBorderGenerator
-{
-	static int32 Enabled = 0;
-	static FAutoConsoleVariableRef CVarEnableDebugBorders(
-		TEXT("r.VT.Borders"),
-		Enabled,
-		TEXT("If > 0, debug borders will enabled\n")
-		/*,ECVF_ReadOnly*/
-	);
-}
-
-uint32 GTranscodingCacheTLSIndex = ~0;
-struct FTranscodeCodecCache
-{
-	using LRUKey = ChunkID;
-	TLruCache<LRUKey, TSharedPtr<FVirtualTextureCodec>> Cache;
-
-	FTranscodeCodecCache()
-	{
-		Cache.Empty(TLSTranscodeCodecCacheSize);
-	}
-
-	FVirtualTextureCodec* GetCodec(FChunkProvider* Provider, ChunkID Id, IFileCacheReadBuffer* PageBufferData)
-	{
-		auto codec = Cache.FindAndTouch(Id);
-		if (codec)
-		{
-			return codec->Get();
-		}
-		
-		TSharedPtr<FVirtualTextureCodec> newCodec = MakeShared<FVirtualTextureCodec>();
-		Cache.Add(Id, newCodec);
-		newCodec->Init(Provider, PageBufferData);
-		return newCodec.Get();
-	}
-};
-
-class TranscodeJob
-{
-public:
-
-	TranscodeJob(FChunkProvider* provider, uint8 level, FTranscodeRequest* request)
-		: Provider(provider), vLevel(level), Request(request)
-	{}
-
-	FTranscodeCodecCache* GetTLS()
-	{
-		checkSlow(FPlatformTLS::IsValidTlsSlot(GTranscodingCacheTLSIndex));
-		FTranscodeCodecCache* TLS = (FTranscodeCodecCache*)FPlatformTLS::GetTlsValue(GTranscodingCacheTLSIndex);
-		if (!TLS)
-		{
-			TLS = new FTranscodeCodecCache();
-			FPlatformTLS::SetTlsValue(GTranscodingCacheTLSIndex, TLS);
-		}
-		return TLS;
-	}
-
-	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
-	{
-		check(Request->Data);
-
-		const uint32 TileSize = Provider->GetTilePixelSize();
-		const uint32 TileBorderSize = Provider->GetTileBorderSize();
-		uint8* OutBuffer = (uint8*)Request->memory;
-		uint8* InputBuffer = (uint8 *)Request->Data->GetData();
-
-		FTranscodeCodecCache* CodecCache = GetTLS();
-		auto Codec = CodecCache->GetCodec(Provider, Request->globalChunkid, Request->header);
-
-		for (uint32 Layer = 0; Layer < Provider->GetNumLayers(); ++Layer)
-		{
-			const EPixelFormat LayerFormat = Provider->GetSpace()->GetPhysicalTextureFormat(Layer);
-			const uint32 TilePitch = FMath::DivideAndRoundUp(TileSize, (uint32)GPixelFormats[LayerFormat].BlockSizeX) * GPixelFormats[LayerFormat].BlockBytes;
-			const size_t TileMemSize = TilePitch * (TileSize / (uint32)GPixelFormats[LayerFormat].BlockSizeY);
-
-			static uint8 Black[4] = { 0,0,0,0 };
-			static uint8 OpaqueBlack[4] = { 0,0,0,255 };
-			static uint8 White[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
-			static uint8 Flat[4] = { 127,127,255,255 };
-
-			EVirtualTextureCodec VTCodec = Codec->Codecs[Layer];
-			uint32 tileLayerSize = Provider->GetTileLayerSize(Request->id, Layer);
-
-			switch (VTCodec)
-			{
-			case EVirtualTextureCodec::Black:
-				UniformColorPixels(OutBuffer, TileSize, TileSize, LayerFormat, vLevel, Black);
-				break;
-			case EVirtualTextureCodec::OpaqueBlack:
-				UniformColorPixels(OutBuffer, TileSize, TileSize, LayerFormat, vLevel, OpaqueBlack);
-				break;
-			case EVirtualTextureCodec::White:
-				UniformColorPixels(OutBuffer, TileSize, TileSize, LayerFormat, vLevel, White);
-				break;
-			case EVirtualTextureCodec::Flat:
-				UniformColorPixels(OutBuffer, TileSize, TileSize, LayerFormat, vLevel, Flat);
-				break;
-			case EVirtualTextureCodec::RawGPU:
-				FMemory::Memcpy(OutBuffer, InputBuffer, TileMemSize);
-				break;
-			case EVirtualTextureCodec::Crunch:
-			{
-#if CRUNCH_SUPPORT
-				const bool result = CrunchCompression::Decode(Codec->Contexts[Layer], (uint8*)InputBuffer, tileLayerSize, OutBuffer, TileMemSize, TilePitch);
-				check(result);
-#endif
-				check(false);
-				break;
-			}
-			case EVirtualTextureCodec::ZippedGPU:
-			default:
-				//checkf(false, TEXT("Unknown codec id"));
-				UniformColorPixels(OutBuffer, TileSize, TileSize, LayerFormat, vLevel, Black);
-			}
-
-			// Bake debug borders directly into the tile pixels
-			if (TextureBorderGenerator::Enabled)
-			{
-				BakeDebugInfo(OutBuffer, TileSize, TileSize, TileBorderSize + 4, LayerFormat, vLevel);
-			}
-
-			OutBuffer += TileMemSize;
-			InputBuffer += tileLayerSize;
-		}
-
-		// We're done with the compressed data
-		// The uncompressed data will be freed once it's uploaded to the GPU
- 		delete Request->Data;
- 		Request->Data = nullptr;	
-		delete Request->header;
-		Request->header = nullptr;
-	}
-
-	static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }
-	ENamedThreads::Type GetDesiredThread() { return ENamedThreads::AnyNormalThreadNormalTask; }
-
-	FORCEINLINE TStatId GetStatId() const
-	{
-		RETURN_QUICK_DECLARE_CYCLE_STAT(TranscodeJob, STATGROUP_VTP);
-	}
-private:
-	FChunkProvider* Provider;
-	uint8 vLevel;
-	FTranscodeRequest* Request;
-};
-
-void FTranscodeRequest::Reset()
-{
-	if (memory)
-	{
-		FMemory::Free(memory);
-		memory = nullptr;
-	}
-	event = nullptr;
-	if (Data) delete Data;
-	Data = nullptr;
-	FrameID = 0;
-	check(mapped <= 0);
-	mapped = 0;
-	id = INVALID_TILE_ID;
-
-	if (header) delete header;
-	header = nullptr;
-	globalChunkid = INVALID_CHUNK_ID;
-}
 
 static FVirtualTextureChunkStreamingManager* VirtualTexturePageStreamingManager = nullptr;
 struct FVirtualTextureChunkStreamingManager& FVirtualTextureChunkStreamingManager::Get()
@@ -216,20 +36,35 @@ struct FVirtualTextureChunkStreamingManager& FVirtualTextureChunkStreamingManage
 
 FVirtualTextureChunkStreamingManager::FVirtualTextureChunkStreamingManager()
 {
-	TranscodeCache.Init(NumTranscodeRequests);
 	IStreamingManager::Get().AddStreamingManager(this);
-	GTranscodingCacheTLSIndex = FPlatformTLS::AllocTlsSlot();
+#if WITH_EDITOR
+	GetVirtualTextureChunkDDCCache()->Initialize();
+#endif
 }
 
 FVirtualTextureChunkStreamingManager::~FVirtualTextureChunkStreamingManager()
 {
+#if WITH_EDITOR
+	GetVirtualTextureChunkDDCCache()->ShutDown();
+#endif
 	IStreamingManager::Get().RemoveStreamingManager(this);
 }
 
 void FVirtualTextureChunkStreamingManager::UpdateResourceStreaming(float DeltaTime, bool bProcessEverything /*= false*/)
 {
-	FScopeLock Lock(&cs);
-	TranscodeCache.RetireOldRequests();
+	FVirtualTextureChunkStreamingManager* StreamingManager = this;
+
+	ENQUEUE_RENDER_COMMAND(UpdateVirtualTextureStreaming)(
+		[StreamingManager](FRHICommandListImmediate& RHICmdList)
+	{
+#if WITH_EDITOR
+		GetVirtualTextureChunkDDCCache()->UpdateRequests();
+#endif // WITH_EDITOR
+		StreamingManager->TranscodeCache.RetireOldTasks(StreamingManager->UploadCache);
+		StreamingManager->UploadCache.UpdateFreeList();
+
+		FVirtualTextureCodec::RetireOldCodecs();
+	});
 }
 
 int32 FVirtualTextureChunkStreamingManager::BlockTillAllRequestsFinished(float TimeLimit /*= 0.0f*/, bool bLogResults /*= false*/)
@@ -243,184 +78,107 @@ void FVirtualTextureChunkStreamingManager::CancelForcedResources()
 
 }
 
-void FVirtualTextureChunkStreamingManager::AddChunkProvider(FChunkProvider* Provider)
+static EAsyncIOPriorityAndFlags GetAsyncIOPriority(EVTRequestPagePriority Priority)
 {
-	// TODO MT lock ?
-
-	for (auto vt : VirtualTextures)
+	switch (Priority)
 	{
-		ensure(vt.Key->Provider != Provider);
-	}
-
-	{
-		FUploadingVirtualTexture* VTexture = new FUploadingVirtualTexture(Provider->GetNumTilesX(), Provider->GetNumTilesY(), 1);
-		VTexture->Provider = Provider;
-		Provider->v_Address = Provider->GetSpace()->AllocateVirtualTexture(VTexture);
-		VirtualTextures.Add(VTexture, Provider);
+	case EVTRequestPagePriority::High: return AIOP_High;
+	case EVTRequestPagePriority::Normal: return AIOP_Normal;
+	default: check(false); return AIOP_Normal;
 	}
 }
 
-void FVirtualTextureChunkStreamingManager::RemoveChunkProvider(FChunkProvider* Provider)
-{
-	FUploadingVirtualTexture* VTexture = nullptr;
-	for (auto vt : VirtualTextures)
-	{
-		if (vt.Key->Provider == Provider)
-		{
-			VTexture = vt.Key;
-			break;
-		}
-	}
-	if (VTexture)
-	{
-		FChunkProvider* RemovedProvider = VirtualTextures.FindAndRemoveChecked(VTexture);
-		check(RemovedProvider == Provider);
-		Provider->GetSpace()->FreeVirtualTexture(VTexture);
-		delete VTexture;
-	}
-}
-
-bool FVirtualTextureChunkStreamingManager::RequestTile(FUploadingVirtualTexture* VTexture, const TileID& id)
+FVTRequestPageResult FVirtualTextureChunkStreamingManager::RequestTile(FUploadingVirtualTexture* VTexture, const FVirtualTextureProducerHandle& ProducerHandle, uint8 LayerMask, uint8 vLevel, uint32 vAddress, EVTRequestPagePriority Priority)
 {
 	SCOPE_CYCLE_COUNTER(STAT_VTP_RequestTile);
-	FScopeLock Lock(&cs);
 
-	FChunkProvider* Provider = VirtualTextures.FindRef(VTexture);
-	checkf(Provider, TEXT("0x%p"), Provider);
-
-	const int32 ChunkIndex = Provider->GetChunkIndex(id);
+	const FVirtualTextureBuiltData* VTData = VTexture->GetVTData();
+	const uint32 TileIndex = VTData->GetTileIndex(vLevel, vAddress);
+	const int32 ChunkIndex = VTData->GetChunkIndex(TileIndex);
 	if (ChunkIndex == -1)
 	{
-		return false;
+		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VT.Verbose"));
+		if (CVar->GetValueOnRenderThread())
+		{
+			UE_LOG(LogConsoleResponse, Display, TEXT("vAddr %i@%i has an invalid tile (-1)."), vAddress, vLevel);
+		}
+
+		return EVTRequestPageStatus::Invalid;
 	}
 
 	// tile is being transcoded/is done transcoding
-	FTranscodeRequest* treq = TranscodeCache.FindRequestForTile(id);
-	if (treq)
+	const FVTTranscodeKey TranscodeKey = FVirtualTextureTranscodeCache::GetKey(ProducerHandle, LayerMask, vLevel, vAddress);
+	FVTTranscodeTileHandle TranscodeHandle = TranscodeCache.FindTask(TranscodeKey);
+	if (TranscodeHandle.IsValid())
 	{
-		return treq->event->IsComplete();
+		const EVTRequestPageStatus Status = TranscodeCache.IsTaskFinished(TranscodeHandle) ? EVTRequestPageStatus::Available : EVTRequestPageStatus::Pending;
+		return FVTRequestPageResult(Status, TranscodeHandle.PackedData);
 	}
 
-	// get the chunk headers
-	uint32 headerSize = Provider->GetChunkHeaderSize(ChunkIndex);
-	IFileCacheReadBuffer *Header = Provider->GetData(ChunkIndex, 0, headerSize);
-	if (Header == nullptr)
+	// we limit the number of pending upload tiles in order to limit the memory required to store all the staging buffers
+	if (UploadCache.GetNumPendingTiles() >= (uint32)NumTranscodeRequests)
 	{
-		return false;
+		INC_DWORD_STAT(STAT_VTP_NumTranscodeDropped);
+		return EVTRequestPageStatus::Saturated;
 	}
 
-	uint32 TileSize = Provider->GetTileSize(id);
-	uint32 TileOffset = Provider->GetTileOffset(id);
-	IFileCacheReadBuffer *Buffer = Provider->GetData(ChunkIndex, TileOffset, TileSize);
-
-	if (Buffer)
+	const EAsyncIOPriorityAndFlags AsyncIOPriority = GetAsyncIOPriority(Priority);
+	FGraphEventArray GraphCompletionEvents;
+	const FVTCodecAndStatus CodecResult = VTexture->GetCodecForChunk(GraphCompletionEvents, ChunkIndex, AsyncIOPriority);
+	if (!VTRequestPageStatus_HasData(CodecResult.Status))
 	{
-		FTranscodeRequest* request = TranscodeCache.Get();
-		if (request == nullptr)
+		// May fail to get codec if the file cache is saturated
+		return CodecResult.Status;
+	}
+
+	uint32 MinLayerIndex = ~0u;
+	uint32 MaxLayerIndex = 0u;
+	for (uint32 LayerIndex = 0u; LayerIndex < VTData->GetNumLayers(); ++LayerIndex)
+	{
+		if (LayerMask & (1u << LayerIndex))
 		{
-			delete Buffer;
-			// no more requests available
-			INC_DWORD_STAT(STAT_VTP_NumTranscodeDropped);
-			return false;
+			MinLayerIndex = FMath::Min(MinLayerIndex, LayerIndex);
+			MaxLayerIndex = LayerIndex;
 		}
-
-		uint8 vLevel = 0;
-		uint64 vAddress = 0;
-		FromTileID(id, vLevel, vAddress);
-
-		const ChunkID pid = LocalChunkIdToGlobal(ChunkIndex, VTexture);
-		request->Init(id, Provider->GetTileMemSize(), Buffer, pid, Header);
-		
-		FGraphEventArray preq = {};
-		request->event = TGraphTask<TranscodeJob>::CreateTask(&preq)
-			.ConstructAndDispatchWhenReady(Provider, vLevel, request);
 	}
 
-	return false;
+	// make a single read request that covers region of all requested tiles
+	const uint32 OffsetStart = VTData->GetTileOffset(ChunkIndex, TileIndex + MinLayerIndex);
+	const uint32 OffsetEnd = VTData->GetTileOffset(ChunkIndex, TileIndex + MaxLayerIndex + 1u);
+	const uint32 RequestSize = OffsetEnd - OffsetStart;
+
+	const FVTDataAndStatus TileDataResult = VTexture->ReadData(GraphCompletionEvents, ChunkIndex, OffsetStart, RequestSize, AsyncIOPriority);
+	if (!VTRequestPageStatus_HasData(TileDataResult.Status))
+	{
+		return TileDataResult.Status;
+	}
+	check(TileDataResult.Data);
+
+	FVTTranscodeParams TranscodeParams;
+	TranscodeParams.Data = TileDataResult.Data;
+	TranscodeParams.VTData = VTData;
+	TranscodeParams.ChunkIndex = ChunkIndex;
+	TranscodeParams.vAddress = vAddress;
+	TranscodeParams.vLevel = vLevel;
+	TranscodeParams.LayerMask = LayerMask;
+	TranscodeParams.Codec = CodecResult.Codec;
+	TranscodeHandle = TranscodeCache.SubmitTask(UploadCache, TranscodeKey, TranscodeParams, &GraphCompletionEvents);
+	return FVTRequestPageResult(EVTRequestPageStatus::Pending, TranscodeHandle.PackedData);
 }
 
-void FVirtualTextureChunkStreamingManager::MapTile(const TileID& id, void* RESTRICT& outData)
+IVirtualTextureFinalizer* FVirtualTextureChunkStreamingManager::ProduceTile(FRHICommandListImmediate& RHICmdList, uint32 SkipBorderSize, uint8 NumLayers, uint8 LayerMask, uint64 RequestHandle, const FVTProduceTargetLayer* TargetLayers)
 {
-	SCOPE_CYCLE_COUNTER(STAT_VTP_Map);
-	FScopeLock Lock(&cs);
-	outData = TranscodeCache.Map(id);
-}
+	SCOPE_CYCLE_COUNTER(STAT_VTP_ProduceTile);
 
-void FVirtualTextureChunkStreamingManager::UnMapTile(const TileID& id)
-{
-	SCOPE_CYCLE_COUNTER(STAT_VTP_UnMap);
-	FScopeLock Lock(&cs);
-	TranscodeCache.Unmap(id);
-
-	DEC_DWORD_STAT(STAT_VTP_NumTranscode);
-}
-
-void FVirtualTextureCodec::Init(FChunkProvider* Provider, IFileCacheReadBuffer *Data)
-{
-	if (Initialized)
+	const FVTUploadTileHandle* StageTileHandles = TranscodeCache.AcquireTaskResult(FVTTranscodeTileHandle(RequestHandle));
+	for (uint32 LayerIndex = 0u; LayerIndex < NumLayers; ++LayerIndex)
 	{
-		return;
-	}
-	
-	HeaderData = (uint8*)FMemory::Malloc(Data->GetSize());
-	FMemory::Memcpy(HeaderData, Data->GetData(), Data->GetSize());
-
-	const uint32 Layers = Provider->GetNumLayers();
-	for (uint32 Layer = 0; Layer < Layers; ++Layer)
-	{
-		Codecs[Layer] = (EVirtualTextureCodec)Provider->GetCodecId(HeaderData, Layer);
-		switch (Codecs[Layer])
+		if (LayerMask & (1u << LayerIndex))
 		{
-		case EVirtualTextureCodec::Crunch:
-		{
-#if CRUNCH_SUPPORT
-			uint8* Payload = nullptr;
-			size_t PayloadSize = 0;
-			const bool result = Provider->GetCodecPayload(HeaderData, Layer, Payload, PayloadSize);
-			ensure(result);
-			Contexts[Layer] = CrunchCompression::InitializeDecoderContext(Payload, PayloadSize);
-#endif
-			check(false);
-			break;
-		}
-		default:
-			break;
-		}
-	}
-	Initialized = true;
-}
-
-FVirtualTextureCodec::~FVirtualTextureCodec()
-{
-	if (!Initialized)
-	{
-		return;
-	}
-
-	for (int32 Layer = 0; Layer < MAX_NUM_LAYERS; ++Layer)
-	{
-		if (Contexts[Layer] == nullptr)
-		{
-			continue;
-		}
-		switch (Codecs[Layer])
-		{
-		case EVirtualTextureCodec::Crunch:
-		{
-#if CRUNCH_SUPPORT
-			CrunchCompression::DestroyDecoderContext(Contexts[Layer]);
-#endif
-			check(false);
-			break;
-		}
-		default:
-			break;
+			const FVTProduceTargetLayer& Target = TargetLayers[LayerIndex];
+			UploadCache.SubmitTile(RHICmdList, StageTileHandles[LayerIndex], Target.TextureRHI->GetTexture2D(), Target.pPageLocation.X, Target.pPageLocation.Y, SkipBorderSize);
 		}
 	}
 
-	if (HeaderData)
-	{
-		FMemory::Free(HeaderData);
-		HeaderData = nullptr;
-	}
+	return &UploadCache;
 }

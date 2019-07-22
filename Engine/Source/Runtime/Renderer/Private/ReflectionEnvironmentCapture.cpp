@@ -1459,6 +1459,43 @@ void FScene::CaptureOrUploadReflectionCapture(UReflectionCaptureComponent* Captu
 
 			const int32 ReflectionCaptureSize = UReflectionCaptureComponent::GetReflectionCaptureSize();
 
+			// prefetch VT textures so we have sensible content available
+			if (UseVirtualTexturing(GetFeatureLevel()))
+			{
+				const ERHIFeatureLevel::Type InFeatureLevel = FeatureLevel;
+				const FVector2D InScreenSpaceSize(ReflectionCaptureSize, ReflectionCaptureSize);
+
+				for (TObjectIterator<UMaterialInterface> MaterialIt; MaterialIt; ++MaterialIt)
+				{
+					const FMaterialRenderProxy* MaterialProxy = MaterialIt->GetRenderProxy();
+					if (MaterialProxy)
+					{
+						const FUniformExpressionCache& UniformExpressionCache = MaterialProxy->UniformExpressionCache[InFeatureLevel];
+						for (IAllocatedVirtualTexture* AllocatedVT : UniformExpressionCache.AllocatedVTs)
+						{
+							//todo[vt]: 
+							// It's possible to get here before a RuntimeVT material has been initialized by its virtual texture actor.
+							// In that case AllocatedVT will be nullptr. We can skip the update but it means the VT won't be filled before the capture.
+							if (AllocatedVT)
+							{
+								GetRendererModule().RequestVirtualTextureTilesForRegion(AllocatedVT, InScreenSpaceSize, FIntRect(), -1);
+							}
+						}
+					}
+				}
+
+				//todo[vt]: 
+				// Need to request lightmap VTs as well
+
+				ENQUEUE_RENDER_COMMAND(LoadTiles)(
+					[InFeatureLevel](FRHICommandListImmediate& RHICmdList)
+				{
+					GetRendererModule().LoadPendingVirtualTextureTiles(RHICmdList, InFeatureLevel);
+				});
+
+				FlushRenderingCommands();
+			}
+
 			ENQUEUE_RENDER_COMMAND(ClearCommand)(
 				[ReflectionCaptureSize](FRHICommandListImmediate& RHICmdList)
 				{

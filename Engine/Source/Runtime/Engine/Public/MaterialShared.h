@@ -12,6 +12,7 @@
 #include "Engine/EngineTypes.h"
 #include "Templates/RefCounting.h"
 #include "Templates/ScopedPointer.h"
+#include "Templates/UniquePtr.h"
 #include "Misc/SecureHash.h"
 #include "RHI.h"
 #include "RenderResource.h"
@@ -24,15 +25,21 @@
 #include "Misc/Optional.h"
 #include "Serialization/MemoryWriter.h"
 #include "Serialization/ArchiveProxy.h"
+#include "VirtualTexturing.h"
 
+struct FExpressionInput;
 class FMaterial;
 class FMaterialCompiler;
 class FMaterialRenderProxy;
 class FMaterialShaderType;
 class FMaterialUniformExpression;
+struct FUniformExpressionCache;
+class FUniformExpressionSet;
 class FMeshMaterialShaderType;
 class FSceneView;
 class FShaderCommonCompileJob;
+class FVirtualTexture2DResource;
+class IAllocatedVirtualTexture;
 class UMaterial;
 class UMaterialExpression;
 class UMaterialExpressionMaterialFunctionCall;
@@ -40,7 +47,7 @@ class UMaterialInstance;
 class UMaterialInterface;
 class USubsurfaceProfile;
 class UTexture;
-struct FExpressionInput;
+class UTexture2D;
 
 template <class ElementType> class TLinkedList;
 
@@ -354,6 +361,69 @@ public:
 		return Ar;
 	}
 };
+
+class FMaterialVirtualTextureStack
+{
+public:
+	FMaterialVirtualTextureStack();
+	/** Construct with a texture index when this references a preallocated VT stack (for example when we are using a URuntimeVirtualTexture). */
+	FMaterialVirtualTextureStack(int32 InPreallocatedStackTextureIndex);
+
+	/** Add space for a layer in the stack. Returns an index that can be used for SetLayer(). */
+	uint32 AddLayer();
+	/** Set an expression index at a layer in the stack. */
+	uint32 SetLayer(int32 LayerIndex, int32 UniformExpressionIndex);
+	/** Get the number of layers allocated in the stack. */
+	inline uint32 GetNumLayers() const { return NumLayers; }
+	/** Returns true if we have allocated the maximum number of layers for this stack. */
+	inline bool AreLayersFull() const { return NumLayers == VIRTUALTEXTURE_SPACE_MAXLAYERS; }
+	/** Find the layer in the stack that was set with this expression index. */
+	int32 FindLayer(int32 UniformExpressionIndex) const;
+
+	/** Returns true if this is a stack that with a preallocated layout of layers (for example when we are using a URuntimeVirtualTexture). */
+	inline bool IsPreallocatedStack() const { return PreallocatedStackTextureIndex != INDEX_NONE; }
+	/** Get the array of UTexture2D objects for the expressions that in the layers of this stack. Can return nullptr objects for layers that don't hold UTexture2D references. */
+	void GetTextureValues(const FMaterialRenderContext& Context, const FUniformExpressionSet& UniformExpressionSet, UTexture2D const** OutValues) const;
+	/** Get the URuntimeVirtualTexture object if one was used to initialize this stack. */
+	void GetTextureValue(const FMaterialRenderContext& Context, const FUniformExpressionSet& UniformExpressionSet, const URuntimeVirtualTexture*& OutValue) const;
+
+	void Serialize(FArchive& Ar);
+
+	friend FArchive& operator<<(FArchive& Ar, FMaterialVirtualTextureStack& Stack)
+	{
+		Stack.Serialize(Ar);
+		return Ar;
+	}
+
+	friend bool operator==(const FMaterialVirtualTextureStack& Lhs, const FMaterialVirtualTextureStack& Rhs)
+	{
+		if (Lhs.PreallocatedStackTextureIndex != Rhs.PreallocatedStackTextureIndex || Lhs.NumLayers != Rhs.NumLayers)
+		{
+			return false;
+		}
+		for (uint32 i = 0u; i < Lhs.NumLayers; ++i)
+		{
+			if (Lhs.LayerUniformExpressionIndices[i] != Rhs.LayerUniformExpressionIndices[i])
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
+private:
+	/** Number of layers that have been allocated in this stack. */
+	uint32 NumLayers;
+	/** Indices of the expressions that were set to layers in this stack. */
+	int32 LayerUniformExpressionIndices[VIRTUALTEXTURE_SPACE_MAXLAYERS];
+	/** Index of a texture reference if we create a stack from a single known texture that has it's own layer stack. */
+	int32 PreallocatedStackTextureIndex;
+};
+
+inline bool operator!=(const FMaterialVirtualTextureStack& Lhs, const FMaterialVirtualTextureStack& Rhs)
+{
+	return !operator==(Lhs, Rhs);
+}
 
 /** Stores all uniform expressions for a material generated from a material translation. */
 class FUniformExpressionSet : public FRefCountedObject

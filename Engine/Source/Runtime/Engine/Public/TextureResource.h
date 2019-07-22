@@ -20,12 +20,19 @@
 #include "Engine/TextureDefines.h"
 #include "UnrealClient.h"
 #include "Templates/UniquePtr.h"
+#include "VirtualTexturing.h"
 
 class FTexture2DResourceMem;
 class UTexture2D;
+class IVirtualTexture;
 
 /** Maximum number of slices in texture source art. */
 #define MAX_TEXTURE_SOURCE_SLICES 6
+
+#ifndef FORCE_ENABLE_TEXTURE_STREAMING
+#define FORCE_ENABLE_TEXTURE_STREAMING 0
+#endif
+#define TEXTURE2DMIPMAP_USE_COMPACT_BULKDATA (!(WITH_EDITORONLY_DATA) && !(UE_SERVER) && FORCE_ENABLE_TEXTURE_STREAMING && PLATFORM_SUPPORTS_TEXTURE_STREAMING)
 
 /**
  * A 2D texture mip-map.
@@ -75,6 +82,10 @@ public:
 	{}
 	virtual ~FTextureResource() {}
 
+	// releases and recreates any sampler state objects.
+	// used when updating mip map bias offset
+	virtual void RefreshSamplerStates() {}
+
 #if STATS
 	/* The Stat_ FName corresponding to each TEXTUREGROUP */
 	static FName TextureGroupStatFNames[TEXTUREGROUP_MAX];
@@ -101,6 +112,8 @@ public:
 	 * having been initialized by the rendering thread via InitRHI.
 	 */
 	virtual ~FTexture2DResource();
+
+	virtual void RefreshSamplerStates() override;
 
 	// FRenderResource interface.
 
@@ -187,10 +200,60 @@ private:
 
 	/** Returns the default mip map bias for this texture. */
 	int32 GetDefaultMipMapBias() const;
+};
 
-	// releases and recreates sampler state objects.
-	// used when updating mip map bias offset
-	void RefreshSamplerStates();
+class FVirtualTexture2DResource : public FTextureResource
+{
+public:
+	FVirtualTexture2DResource(const UTexture2D* InOwner, struct FVirtualTextureBuiltData* InVTData, int32 FirstMipToUse);
+	virtual ~FVirtualTexture2DResource();
+
+	virtual void InitRHI() override;
+	virtual void ReleaseRHI() override;
+
+#if WITH_EDITOR
+	void InitializeEditorResources(class IVirtualTexture* InVirtualTexture);
+#endif
+
+	virtual void RefreshSamplerStates() override;
+
+	virtual uint32 GetSizeX() const override;
+	virtual uint32 GetSizeY() const override;
+
+	const FVirtualTextureProducerHandle& GetProducerHandle() const { return ProducerHandle; }
+
+	/**
+	 * FVirtualTexture2DResource may have an AllocatedVT, which represents a page table allocation for the virtual texture.
+	 * VTs used by materials generally don't need their own allocation, since the material has its own page table allocation for each VT stack.
+	 * VTs used as lightmaps need their own allocation.  Also VTs open in texture editor will have a temporary allocation.
+	 * GetAllocatedVT() will return the current allocation if one exists.
+	 * AcquireAllocatedVT() will make a new allocation if needed, and return it.
+	 * ReleaseAllocatedVT() will free any current allocation.
+	 */
+	class IAllocatedVirtualTexture* GetAllocatedVT() const { return AllocatedVT; }
+	ENGINE_API class IAllocatedVirtualTexture* AcquireAllocatedVT();
+	ENGINE_API void ReleaseAllocatedVT();
+
+	ENGINE_API EPixelFormat GetFormat(uint32 LayerIndex) const;
+	ENGINE_API FIntPoint GetSizeInBlocks() const;
+	ENGINE_API uint32 GetNumTilesX() const;
+	ENGINE_API uint32 GetNumTilesY() const;
+	ENGINE_API uint32 GetNumMips() const;
+	ENGINE_API uint32 GetNumLayers() const;
+	ENGINE_API uint32 GetTileSize() const; //no borders
+	ENGINE_API uint32 GetBorderSize() const;
+	uint32 GetAllocatedvAddress() const;
+
+	ENGINE_API void GetPackedPageTableUniform(FUintVector4* Uniform) const;
+	ENGINE_API void GetPackedPhysicalTextureUniform(FUintVector4* Uniform, uint32 LayerIndex) const;
+	ENGINE_API FIntPoint GetPhysicalTextureSize(uint32 LayerIndex) const;
+
+private:
+	class IAllocatedVirtualTexture* AllocatedVT;
+	struct FVirtualTextureBuiltData* VTData;
+	const UTexture2D* TextureOwner;
+	FVirtualTextureProducerHandle ProducerHandle;
+	int32 FirstMipToUse;
 };
 
 /** A dynamic 2D texture resource. */

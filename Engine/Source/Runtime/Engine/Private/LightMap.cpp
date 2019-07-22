@@ -17,7 +17,7 @@
 #include "GameFramework/WorldSettings.h"
 #include "Engine/MapBuildDataRegistry.h"
 #include "VT/VirtualTexture.h"
-#include "VT/VirtualTextureSpace.h"
+#include "EngineModule.h"
 #include "Misc/PackageName.h"
 
 #define VISUALIZE_PACKING 0
@@ -79,6 +79,19 @@ static TAutoConsoleVariable<int32> CVarTexelDebugging(
 	0,	
 	TEXT("Whether T + Left mouse click in the editor selects lightmap texels for debugging Lightmass.  Lightmass must be recompiled with ALLOW_LIGHTMAP_SAMPLE_DEBUGGING enabled for this to work."),
 	ECVF_Default);
+
+static TAutoConsoleVariable<int32> CVarVirtualTexturedLightMaps(
+	TEXT("r.VirtualTexturedLightmaps"),
+	0,
+	TEXT("Controls wether to stream the lightmaps using virtual texturing.\n") \
+	TEXT(" 0: Disabled.\n") \
+	TEXT(" 1: Enabled."),
+	ECVF_ReadOnly);
+
+static TAutoConsoleVariable<int32> CVarVTEnableLossyCompressLightmaps(
+	TEXT("r.VT.EnableLossyCompressLightmaps"),
+	0,
+	TEXT("Enables lossy compression on virtual texture lightmaps. Lossy compression tends to have lower quality on lightmap textures, vs regular color textures."));
 
 bool IsTexelDebuggingEnabled()
 {
@@ -2630,6 +2643,14 @@ bool FQuantizedLightmapData::HasNonZeroData() const
 	return false;
 }
 
+FLightmapResourceCluster::~FLightmapResourceCluster()
+{
+	if (AllocatedVT)
+	{
+		GetRendererModule().DestroyVirtualTexture(AllocatedVT);
+	}
+}
+
 void FLightmapResourceCluster::UpdateUniformBuffer(ERHIFeatureLevel::Type InFeatureLevel)
 {
 	FLightmapResourceCluster* Cluster = this;
@@ -2637,13 +2658,67 @@ void FLightmapResourceCluster::UpdateUniformBuffer(ERHIFeatureLevel::Type InFeat
 	ENQUEUE_RENDER_COMMAND(SetFeatureLevel)(
 		[Cluster, InFeatureLevel](FRHICommandList& RHICmdList)
 	{
+		const bool bAllowHighQualityLightMaps = AllowHighQualityLightmaps(InFeatureLevel);
+		const bool bUseVirtualTextures = bAllowHighQualityLightMaps && (CVarVirtualTexturedLightMaps.GetValueOnRenderThread() != 0) && UseVirtualTexturing(InFeatureLevel);
+
 		Cluster->FeatureLevel = InFeatureLevel;
 
 		FLightmapResourceClusterShaderParameters Parameters;
-		GetLightmapClusterResourceParameters(InFeatureLevel, Cluster->Input, Parameters);
+		GetLightmapClusterResourceParameters(InFeatureLevel, Cluster->Input, bUseVirtualTextures ? Cluster->AcquireAllocatedVT() : nullptr, Parameters);
 
 		RHIUpdateUniformBuffer(Cluster->UniformBuffer, &Parameters);
 	});
+}
+
+IAllocatedVirtualTexture* FLightmapResourceCluster::AcquireAllocatedVT() const
+{
+	check(IsInRenderingThread());
+
+	const ULightMapVirtualTexture2D* VirtualTexture = Input.LightMapVirtualTexture;
+	if (!AllocatedVT && VirtualTexture && VirtualTexture->Resource)
+	{
+		check(VirtualTexture->VirtualTextureStreaming);
+		const FVirtualTexture2DResource* Resource = (FVirtualTexture2DResource*)VirtualTexture->Resource;
+
+		FAllocatedVTDescription VTDesc;
+		VTDesc.Dimensions = 2;
+		VTDesc.TileSize = Resource->GetTileSize();
+		VTDesc.TileBorderSize = Resource->GetBorderSize();
+		VTDesc.NumLayers = 0u;
+
+		for (uint32 TypeIndex = 0u; TypeIndex < (uint32)ELightMapVirtualTextureType::Count; ++TypeIndex)
+		{
+			const uint32 LayerIndex = VirtualTexture->GetLayerForType((ELightMapVirtualTextureType)TypeIndex);
+			if (LayerIndex != ~0u)
+			{
+				VTDesc.NumLayers = TypeIndex + 1u;
+				VTDesc.ProducerHandle[TypeIndex] = Resource->GetProducerHandle(); // use the same producer for each layer
+				VTDesc.LocalLayerToProduce[TypeIndex] = LayerIndex;
+			}
+			else
+			{
+				VTDesc.ProducerHandle[TypeIndex] = FVirtualTextureProducerHandle();
+			}
+		}
+
+		check(VTDesc.NumLayers > 0u);
+		for (uint32 LayerIndex = 0u; LayerIndex < VTDesc.NumLayers; ++LayerIndex)
+		{
+			if (VTDesc.ProducerHandle[LayerIndex].PackedValue == 0u)
+			{
+				// if there are any layer 'holes' in our allocated VT, point the empty layer to layer0
+				// this isn't strictly necessary, but without this VT feedback analysis will see an unmapped page each frame for the empty layer,
+				// and attempt to do some extra work before determining there's nothing else to do...this wastes CPU time
+				// By mapping to layer0, we ensure that every layer has a valid mapping, and the overhead of mapping the empty layer to layer0 is very small, since layer0 will already be resident
+				VTDesc.ProducerHandle[LayerIndex] = Resource->GetProducerHandle();
+				VTDesc.LocalLayerToProduce[LayerIndex] = 0u;
+			}
+		}
+
+		AllocatedVT = GetRendererModule().AllocateVirtualTexture(VTDesc);
+	}
+
+	return AllocatedVT;
 }
 
 void FLightmapResourceCluster::InitRHI()

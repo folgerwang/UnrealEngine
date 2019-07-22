@@ -212,6 +212,18 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 	const bool bGetDebugMaterials = true;
 	InComponent->GetUsedMaterials(UsedMaterialsForVerification, bGetDebugMaterials);
 #endif	
+
+	if (UseVirtualTexturing(GetScene().GetFeatureLevel()))
+	{
+		for (URuntimeVirtualTexture* VirtualTexture : InComponent->RuntimeVirtualTextures)
+		{
+			if (VirtualTexture != nullptr && VirtualTexture->GetEnabled())
+			{
+				RuntimeVirtualTextures.Add(VirtualTexture);
+				RuntimeVirtualTextureMaterialTypes.Add(VirtualTexture->GetMaterialType());
+			}
+		}
+	}
 }
 
 #if WITH_EDITOR

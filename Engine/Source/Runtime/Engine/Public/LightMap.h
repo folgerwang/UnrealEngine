@@ -606,12 +606,14 @@ void CropUnmappedTexels( const TMappingData& MappingData, int32 SizeX, int32 Siz
 	CroppedRect.Min.Y = FMath::Min<int32>(CroppedRect.Min.Y, CroppedRect.Max.Y);
 }
 
-/** 
- * A bundle of lightmap resources which are referenced by multiple components. 
+/**
+ * A bundle of lightmap resources which are referenced by multiple components.
  */
 class FLightmapResourceCluster : public FRenderResource
 {
 public:
+	FLightmapResourceCluster() : AllocatedVT(nullptr) {}
+	virtual ~FLightmapResourceCluster();
 
 	ENGINE_API virtual void InitRHI();
 
@@ -622,7 +624,14 @@ public:
 
 	ENGINE_API void UpdateUniformBuffer(ERHIFeatureLevel::Type InFeatureLevel);
 
-	FLightmapClusterResourceInput Input;
+	/**
+	 * Allocates virtual texture on demand and returns it, may return nullptr if not using virtual texture
+	 * 'const' method setting 'mutable' member is not amazing, but this is required to work around ordering of render commands submitted from main thread,
+	 * it's possible for commands that want to access AllocatedVT from here execute before this has a chance to run InitRHI()
+	 */
+	IAllocatedVirtualTexture* AcquireAllocatedVT() const;
 
+	FLightmapClusterResourceInput Input;
+	mutable IAllocatedVirtualTexture* AllocatedVT;
 	FUniformBufferRHIRef UniformBuffer;
 };

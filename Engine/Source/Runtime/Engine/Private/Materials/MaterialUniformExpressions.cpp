@@ -13,6 +13,11 @@
 #include "ExternalTexture.h"
 #include "Misc/UObjectToken.h"
 
+#include "RenderCore.h"
+#include "VirtualTexturing.h"
+#include "VT/RuntimeVirtualTexture.h"
+#include "VT/VirtualTextureUtility.h"
+
 static TAutoConsoleVariable<int32> CVarSupportMaterialLayers(
 	TEXT("r.SupportMaterialLayers"),
 	0,
@@ -106,6 +111,7 @@ void FUniformExpressionSet::Serialize(FArchive& Ar)
 	Ar << Uniform2DTextureExpressions;
 	Ar << UniformCubeTextureExpressions;
 	Ar << UniformVolumeTextureExpressions;
+	Ar << UniformVirtualTextureExpressions;
 	Ar << UniformExternalTextureExpressions;
 
 	// Adding 2D texture array now to prevent bumping version when the feature gets added
@@ -128,6 +134,7 @@ bool FUniformExpressionSet::IsEmpty() const
 		&& Uniform2DTextureExpressions.Num() == 0
 		&& UniformCubeTextureExpressions.Num() == 0
 		&& UniformVolumeTextureExpressions.Num() == 0
+		&& UniformVirtualTextureExpressions.Num() == 0
 		&& UniformExternalTextureExpressions.Num() == 0
 		&& ParameterCollections.Num() == 0;
 }
@@ -139,6 +146,7 @@ bool FUniformExpressionSet::operator==(const FUniformExpressionSet& ReferenceSet
 		|| Uniform2DTextureExpressions.Num() != ReferenceSet.Uniform2DTextureExpressions.Num()
 		|| UniformCubeTextureExpressions.Num() != ReferenceSet.UniformCubeTextureExpressions.Num()
 		|| UniformVolumeTextureExpressions.Num() != ReferenceSet.UniformVolumeTextureExpressions.Num()
+		|| UniformVirtualTextureExpressions.Num() != ReferenceSet.UniformVirtualTextureExpressions.Num()
 		|| UniformExternalTextureExpressions.Num() != ReferenceSet.UniformExternalTextureExpressions.Num()
 		|| ParameterCollections.Num() != ReferenceSet.ParameterCollections.Num())
 	{
@@ -185,6 +193,14 @@ bool FUniformExpressionSet::operator==(const FUniformExpressionSet& ReferenceSet
 		}
 	}
 
+	for (int32 i = 0; i < UniformVirtualTextureExpressions.Num(); i++)
+	{
+		if (!UniformVirtualTextureExpressions[i]->IsIdentical(ReferenceSet.UniformVirtualTextureExpressions[i]))
+		{
+			return false;
+		}
+	}
+
 	for (int32 i = 0; i < UniformExternalTextureExpressions.Num(); i++)
 	{
 		if (!UniformExternalTextureExpressions[i]->IsIdentical(ReferenceSet.UniformExternalTextureExpressions[i]))
@@ -206,12 +222,13 @@ bool FUniformExpressionSet::operator==(const FUniformExpressionSet& ReferenceSet
 
 FString FUniformExpressionSet::GetSummaryString() const
 {
-	return FString::Printf(TEXT("(%u vectors, %u scalars, %u 2d tex, %u cube tex, %u 3d tex, %u external tex, %u collections)"),
+	return FString::Printf(TEXT("(%u vectors, %u scalars, %u 2d tex, %u cube tex, %u 3d tex, %u external tex, %u VT stacks, %u collections)"),
 		UniformVectorExpressions.Num(), 
 		UniformScalarExpressions.Num(),
 		Uniform2DTextureExpressions.Num(),
 		UniformCubeTextureExpressions.Num(),
 		UniformVolumeTextureExpressions.Num(),
+		UniformVirtualTextureExpressions.Num(),
 		UniformExternalTextureExpressions.Num(),
 		ParameterCollections.Num()
 		);
@@ -235,6 +252,20 @@ void FUniformExpressionSet::CreateBufferStruct()
 	// Make sure FUniformExpressionSet::CreateDebugLayout() is in sync
 	TArray<FShaderParametersMetadata::FMember> Members;
 	uint32 NextMemberOffset = 0;
+
+	if (VTStacks.Num())
+	{
+		// 2x uint4 per VTStack
+		new(Members) FShaderParametersMetadata::FMember(TEXT("VTPackedPageTableUniform"), TEXT(""), NextMemberOffset, UBMT_UINT32, EShaderPrecisionModifier::Float, 1, 4, VTStacks.Num() * 2, NULL);
+		NextMemberOffset += VTStacks.Num() * sizeof(FUintVector4) * 2;
+	}
+
+	if (UniformVirtualTextureExpressions.Num() > 0)
+	{
+		// 1x uint4 per Virtual Texture
+		new(Members) FShaderParametersMetadata::FMember(TEXT("VTPackedUniform"), TEXT(""), NextMemberOffset, UBMT_UINT32, EShaderPrecisionModifier::Float, 1, 4, UniformVirtualTextureExpressions.Num(), NULL);
+		NextMemberOffset += UniformVirtualTextureExpressions.Num() * sizeof(FUintVector4);
+	}
 
 	if (UniformVectorExpressions.Num())
 	{
@@ -260,6 +291,10 @@ void FUniformExpressionSet::CreateBufferStruct()
 	static FString VolumeTextureSamplerNames[128];
 	static FString ExternalTextureNames[128];
 	static FString MediaTextureSamplerNames[128];
+	static FString VirtualTexturePageTableNames0[128];
+	static FString VirtualTexturePageTableNames1[128];
+	static FString VirtualTexturePhysicalNames[128];
+	static FString VirtualTexturePhysicalSamplerNames[128];
 	static bool bInitializedTextureNames = false;
 	if (!bInitializedTextureNames)
 	{
@@ -274,12 +309,17 @@ void FUniformExpressionSet::CreateBufferStruct()
 			VolumeTextureSamplerNames[i] = FString::Printf(TEXT("VolumeTexture_%dSampler"), i);
 			ExternalTextureNames[i] = FString::Printf(TEXT("ExternalTexture_%d"), i);
 			MediaTextureSamplerNames[i] = FString::Printf(TEXT("ExternalTexture_%dSampler"), i);
+			VirtualTexturePageTableNames0[i] = FString::Printf(TEXT("VirtualTexturePageTable0_%d"), i);
+			VirtualTexturePageTableNames1[i] = FString::Printf(TEXT("VirtualTexturePageTable1_%d"), i);
+			VirtualTexturePhysicalNames[i] = FString::Printf(TEXT("VirtualTexturePhysicalTable_%d"), i);
+			VirtualTexturePhysicalSamplerNames[i] = FString::Printf(TEXT("VirtualTexturePhysicalTable_%dSampler"), i);
 		}
 	}
 
 	check(Uniform2DTextureExpressions.Num() <= 128);
 	check(UniformCubeTextureExpressions.Num() <= 128);
 	check(UniformVolumeTextureExpressions.Num() <= 128);
+	check(UniformVirtualTextureExpressions.Num() <= 128);
 
 	for (int32 i = 0; i < Uniform2DTextureExpressions.Num(); ++i)
 	{
@@ -317,6 +357,30 @@ void FUniformExpressionSet::CreateBufferStruct()
 		NextMemberOffset += SHADER_PARAMETER_POINTER_ALIGNMENT;
 	}
 
+	for (int32 i = 0; i < VTStacks.Num(); ++i)
+	{
+		const FMaterialVirtualTextureStack& Stack = VTStacks[i];
+		check((NextMemberOffset % SHADER_PARAMETER_POINTER_ALIGNMENT) == 0);
+		new(Members) FShaderParametersMetadata::FMember(*VirtualTexturePageTableNames0[i], TEXT("Texture2D<uint4>"), NextMemberOffset, UBMT_TEXTURE, EShaderPrecisionModifier::Float, 1, 1, 0, NULL);
+		NextMemberOffset += SHADER_PARAMETER_POINTER_ALIGNMENT;
+		if (Stack.GetNumLayers() > 4u)
+		{
+			new(Members) FShaderParametersMetadata::FMember(*VirtualTexturePageTableNames1[i], TEXT("Texture2D<uint4>"), NextMemberOffset, UBMT_TEXTURE, EShaderPrecisionModifier::Float, 1, 1, 0, NULL);
+			NextMemberOffset += SHADER_PARAMETER_POINTER_ALIGNMENT;
+		}
+	}
+
+	for (int32 i = 0; i < UniformVirtualTextureExpressions.Num(); ++i)
+	{
+		check((NextMemberOffset % SHADER_PARAMETER_POINTER_ALIGNMENT) == 0);
+
+		// VT physical textures are bound as SRV, allows aliasing the same underlying texture with both sRGB/non-sRGB views
+		new(Members) FShaderParametersMetadata::FMember(*VirtualTexturePhysicalNames[i], TEXT("Texture2D"), NextMemberOffset, UBMT_SRV, EShaderPrecisionModifier::Float, 1, 1, 0, NULL);
+		NextMemberOffset += SHADER_PARAMETER_POINTER_ALIGNMENT;
+		new(Members) FShaderParametersMetadata::FMember(*VirtualTexturePhysicalSamplerNames[i], TEXT("SamplerState"), NextMemberOffset, UBMT_SAMPLER, EShaderPrecisionModifier::Float, 1, 1, 0, NULL);
+		NextMemberOffset += SHADER_PARAMETER_POINTER_ALIGNMENT;
+	}
+
 	new(Members) FShaderParametersMetadata::FMember(TEXT("Wrap_WorldGroupSettings"),TEXT("SamplerState"),NextMemberOffset,UBMT_SAMPLER,EShaderPrecisionModifier::Float,1,1,0,NULL);
 	NextMemberOffset += SHADER_PARAMETER_POINTER_ALIGNMENT;
 
@@ -338,6 +402,22 @@ const FShaderParametersMetadata& FUniformExpressionSet::GetUniformBufferStruct()
 	return UniformBufferStruct.GetValue();
 }
 
+FUniformExpressionSet::FVTPackedStackAndLayerIndex FUniformExpressionSet::GetVTStackAndLayerIndex(int32 UniformExpressionIndex) const
+{
+	for (int32 VTStackIndex = 0; VTStackIndex < VTStacks.Num(); ++VTStackIndex)
+	{
+		const FMaterialVirtualTextureStack& VTStack = VTStacks[VTStackIndex];
+		const int32 LayerIndex = VTStack.FindLayer(UniformExpressionIndex);
+		if (LayerIndex >= 0)
+		{
+			return FVTPackedStackAndLayerIndex(VTStackIndex, LayerIndex);
+		}
+	}
+
+	checkNoEntry();
+	return FVTPackedStackAndLayerIndex(0xffff, 0xffff);
+}
+
 void FUniformExpressionSet::FillUniformBuffer(const FMaterialRenderContext& MaterialRenderContext, void* TempBuffer) const
 {
 	check(UniformBufferStruct);
@@ -348,6 +428,55 @@ void FUniformExpressionSet::FillUniformBuffer(const FMaterialRenderContext& Mate
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_FUniformExpressionSet_FillUniformBuffer);
 
 		void* BufferCursor = TempBuffer;
+
+		check(BufferCursor <= TempBuffer + TempBufferSize);
+
+		// Dump virtual texture per page table uniform data
+		check(UniformExpressionCache.AllocatedVTs.Num() == VTStacks.Num());
+		for (int32 VTStackIndex = 0; VTStackIndex < VTStacks.Num(); ++VTStackIndex)
+		{
+			const IAllocatedVirtualTexture* AllocatedVT = UniformExpressionCache.AllocatedVTs[VTStackIndex];
+			FUintVector4* VTPackedPageTableUniform = (FUintVector4*)BufferCursor;
+			VTGetPackedPageTableUniform(VTPackedPageTableUniform, AllocatedVT);
+			BufferCursor = VTPackedPageTableUniform + 2;
+		}
+
+		// Dump virtual texture per physical texture uniform data
+		for (int32 ExpressionIndex = 0; ExpressionIndex < UniformVirtualTextureExpressions.Num(); ++ExpressionIndex)
+		{
+			FUintVector4* VTPackedUniform = (FUintVector4*)BufferCursor;
+			BufferCursor = VTPackedUniform + 1;
+
+			bool bFoundTexture = false;
+
+			// Check for streaming virtual texture
+			if (!bFoundTexture)
+			{
+				const UTexture* Texture = nullptr;
+				UniformVirtualTextureExpressions[ExpressionIndex]->GetTextureValue(MaterialRenderContext, MaterialRenderContext.Material, Texture);
+				if (Texture != nullptr)
+				{
+					const FVTPackedStackAndLayerIndex StackAndLayerIndex = GetVTStackAndLayerIndex(ExpressionIndex);
+					const IAllocatedVirtualTexture* AllocatedVT = UniformExpressionCache.AllocatedVTs[StackAndLayerIndex.StackIndex];
+					VTGetPackedUniform(VTPackedUniform, AllocatedVT, StackAndLayerIndex.LayerIndex);
+
+					bFoundTexture = true;
+				}
+			}
+
+			// Now check for runtime virtual texture
+			if (!bFoundTexture)
+			{
+				const URuntimeVirtualTexture* Texture = nullptr;
+				UniformVirtualTextureExpressions[ExpressionIndex]->GetTextureValue(MaterialRenderContext.Material, Texture);
+				if (Texture != nullptr)
+				{
+					int32 LayerIndex = UniformVirtualTextureExpressions[ExpressionIndex]->GetLayerIndex();
+					IAllocatedVirtualTexture const* AllocatedVT = Texture->GetAllocatedVirtualTexture();
+					VTGetPackedUniform(VTPackedUniform, AllocatedVT, LayerIndex);
+				}
+			}
+		}
 
 		// Dump vector expression into the buffer.
 		for(int32 VectorIndex = 0;VectorIndex < UniformVectorExpressions.Num();++VectorIndex)
@@ -373,11 +502,26 @@ void FUniformExpressionSet::FillUniformBuffer(const FMaterialRenderContext& Mate
 
 		// Offsets the cursor to next first resource.
 		BufferCursor = ((float*)BufferCursor) + ((4 - UniformScalarExpressions.Num() % 4) % 4);
-		
+		check(BufferCursor <= TempBuffer + TempBufferSize);
+
+#if DO_CHECK
 		{
-			const TArray<FRHIUniformBufferLayout::FResourceParameter>& ResourceParameters = UniformBufferStruct->GetLayout().Resources;
-			check(UniformBufferStruct->GetLayout().Resources.Num() == Uniform2DTextureExpressions.Num() * 2 + UniformCubeTextureExpressions.Num() * 2 + UniformVolumeTextureExpressions.Num() * 2 + UniformExternalTextureExpressions.Num() * 2 + 2);
+			uint32 NumPageTableTextures = 0u;
+			for (int i = 0; i < VTStacks.Num(); ++i)
+			{
+				NumPageTableTextures += VTStacks[i].GetNumLayers() > 4u ? 2 : 1;
+			}
+
+			check(UniformBufferStruct->GetLayout().Resources.Num() ==
+				Uniform2DTextureExpressions.Num() * 2
+				+ UniformCubeTextureExpressions.Num() * 2
+				+ UniformVolumeTextureExpressions.Num() * 2
+				+ UniformExternalTextureExpressions.Num() * 2
+				+ UniformVirtualTextureExpressions.Num() * 2
+				+ NumPageTableTextures
+				+ 2);
 		}
+#endif // DO_CHECK		
 
 		// Cache 2D texture uniform expressions.
 		for(int32 ExpressionIndex = 0;ExpressionIndex < Uniform2DTextureExpressions.Num();ExpressionIndex++)
@@ -560,6 +704,109 @@ void FUniformExpressionSet::FillUniformBuffer(const FMaterialRenderContext& Mate
 			}
 		}
 
+		// Cache virtual texture page table uniform expressions.
+		for (int32 VTStackIndex = 0; VTStackIndex < VTStacks.Num(); ++VTStackIndex)
+		{
+			void** ResourceTablePageTexture0Ptr = (void**)((uint8*)BufferCursor + 0 * SHADER_PARAMETER_POINTER_ALIGNMENT);
+			BufferCursor = ((uint8*)BufferCursor) + SHADER_PARAMETER_POINTER_ALIGNMENT;
+
+			void** ResourceTablePageTexture1Ptr = nullptr;
+			if (VTStacks[VTStackIndex].GetNumLayers() > 4u)
+			{
+				ResourceTablePageTexture1Ptr = (void**)((uint8*)BufferCursor + 0 * SHADER_PARAMETER_POINTER_ALIGNMENT);
+				BufferCursor = ((uint8*)BufferCursor) + SHADER_PARAMETER_POINTER_ALIGNMENT;
+			}
+
+			const IAllocatedVirtualTexture* AllocatedVT = UniformExpressionCache.AllocatedVTs[VTStackIndex];
+			if (AllocatedVT != nullptr)
+			{
+				FRHITexture* PageTable0RHI = AllocatedVT->GetPageTableTexture(0u);
+				ensure(PageTable0RHI);
+				*ResourceTablePageTexture0Ptr = PageTable0RHI;
+
+				if (ResourceTablePageTexture1Ptr != nullptr)
+				{
+					FRHITexture* PageTable1RHI = AllocatedVT->GetPageTableTexture(1u);
+					ensure(PageTable1RHI);
+					*ResourceTablePageTexture1Ptr = PageTable1RHI;
+				}
+			}
+			else
+			{
+				// Don't have valid resources to bind for this VT, so make sure something is bound
+				*ResourceTablePageTexture0Ptr = GWhiteTexture->TextureRHI;
+				if (ResourceTablePageTexture1Ptr != nullptr)
+				{
+					*ResourceTablePageTexture1Ptr = GWhiteTexture->TextureRHI;
+				}
+			}
+		}
+
+		// Cache virtual texture physical uniform expressions.
+		for (int32 ExpressionIndex = 0; ExpressionIndex < UniformVirtualTextureExpressions.Num(); ExpressionIndex++)
+		{
+			FTextureRHIRef TexturePhysicalRHI;
+			FSamplerStateRHIRef PhysicalSamplerStateRHI;
+
+			bool bValidResources = false;
+			void** ResourceTablePhysicalTexturePtr = (void**)((uint8*)BufferCursor + 0 * SHADER_PARAMETER_POINTER_ALIGNMENT);
+			void** ResourceTablePhysicalSamplerPtr = (void**)((uint8*)BufferCursor + 1 * SHADER_PARAMETER_POINTER_ALIGNMENT);
+			BufferCursor = ((uint8*)BufferCursor) + (SHADER_PARAMETER_POINTER_ALIGNMENT * 2);
+
+			// Check for streaming virtual texture
+			if (!bValidResources)
+			{
+				const UTexture* Texture;
+				UniformVirtualTextureExpressions[ExpressionIndex]->GetTextureValue(MaterialRenderContext, MaterialRenderContext.Material, Texture);
+				if (Texture && Texture->Resource)
+				{
+					const FVTPackedStackAndLayerIndex StackAndLayerIndex = GetVTStackAndLayerIndex(ExpressionIndex);
+					FVirtualTexture2DResource* VTResource = (FVirtualTexture2DResource*)Texture->Resource;
+					check(VTResource);
+
+					const IAllocatedVirtualTexture* AllocatedVT = UniformExpressionCache.AllocatedVTs[StackAndLayerIndex.StackIndex];
+					if (AllocatedVT != nullptr)
+					{
+						FRHIShaderResourceView* PhysicalViewRHI = AllocatedVT->GetPhysicalTextureView(StackAndLayerIndex.LayerIndex, VTResource->bSRGB);
+						if (PhysicalViewRHI)
+						{
+							*ResourceTablePhysicalTexturePtr = PhysicalViewRHI;
+							*ResourceTablePhysicalSamplerPtr = VTResource->SamplerStateRHI;
+							bValidResources = true;
+						}
+					}
+				}
+			}
+
+			// Now check for runtime virtual texture
+			if (!bValidResources)
+			{
+				const URuntimeVirtualTexture* Texture;
+				UniformVirtualTextureExpressions[ExpressionIndex]->GetTextureValue(MaterialRenderContext.Material, Texture);
+				if (Texture != nullptr)
+				{
+					IAllocatedVirtualTexture const* AllocatedVT = Texture->GetAllocatedVirtualTexture();
+					if (AllocatedVT != nullptr)
+					{
+						const int32 LayerIndex = UniformVirtualTextureExpressions[ExpressionIndex]->GetLayerIndex();
+						FRHIShaderResourceView* PhysicalViewRHI = AllocatedVT->GetPhysicalTextureView(LayerIndex, LayerIndex == 0); // todo need sRGB flag!
+						if (PhysicalViewRHI != nullptr)
+						{
+							*ResourceTablePhysicalTexturePtr = PhysicalViewRHI;
+							*ResourceTablePhysicalSamplerPtr = TStaticSamplerState<SF_AnisotropicLinear, AM_Clamp, AM_Clamp, AM_Clamp, 0, 8>::GetRHI(); // todo deal with sampler state
+							bValidResources = true;
+						}
+					}
+				}
+			}
+			// Don't have valid resources to bind for this VT, so make sure something is bound
+			if (!bValidResources)
+			{
+				*ResourceTablePhysicalTexturePtr = GWhiteTextureWithSRV->ShaderResourceViewRHI;
+				*ResourceTablePhysicalSamplerPtr = TStaticSamplerState<SF_AnisotropicLinear, AM_Clamp, AM_Clamp, AM_Clamp, 0, 8>::GetRHI();
+			}
+		}
+
 		{
 			void** Wrap_WorldGroupSettingsSamplerPtr = (void**)((uint8*)BufferCursor + 0 * SHADER_PARAMETER_POINTER_ALIGNMENT);
 			check(Wrap_WorldGroupSettings->SamplerStateRHI);
@@ -571,6 +818,9 @@ void FUniformExpressionSet::FillUniformBuffer(const FMaterialRenderContext& Mate
 			check(Clamp_WorldGroupSettings->SamplerStateRHI);
 			*Clamp_WorldGroupSettingsSamplerPtr = Clamp_WorldGroupSettings->SamplerStateRHI;
 		}
+
+		BufferCursor = ((uint8*)BufferCursor) + (SHADER_PARAMETER_POINTER_ALIGNMENT * 2);
+		check(BufferCursor <= TempBuffer + TempBufferSize);
 	}
 }
 
@@ -580,16 +830,18 @@ FMaterialUniformExpressionTexture::FMaterialUniformExpressionTexture() :
 	SamplerType(SAMPLERTYPE_Color),
 #endif
 	SamplerSource(SSM_FromTextureAsset),
+	bVirtualTexture(false),
 	TransientOverrideValue_GameThread(NULL),
 	TransientOverrideValue_RenderThread(NULL)
 {}
 
-FMaterialUniformExpressionTexture::FMaterialUniformExpressionTexture(int32 InTextureIndex, EMaterialSamplerType InSamplerType, ESamplerSourceMode InSamplerSource) :
+FMaterialUniformExpressionTexture::FMaterialUniformExpressionTexture(int32 InTextureIndex, EMaterialSamplerType InSamplerType, ESamplerSourceMode InSamplerSource, bool InVirtualTexture) :
 	TextureIndex(InTextureIndex),
 #if WITH_EDITORONLY_DATA
 	SamplerType(InSamplerType),
 #endif
 	SamplerSource(InSamplerSource),
+	bVirtualTexture(InVirtualTexture),
 	TransientOverrideValue_GameThread(NULL),
 	TransientOverrideValue_RenderThread(NULL)
 {

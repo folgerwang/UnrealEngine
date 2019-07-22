@@ -99,9 +99,13 @@ public:
 
 	virtual void PostRenderAllViewports() override;
 
-	virtual IVirtualTextureSpace *CreateVirtualTextureSpace(const FVirtualTextureSpaceDesc &Desc) override;
-	virtual void DestroyVirtualTextureSpace(IVirtualTextureSpace *Space) override;
-
+	virtual IAllocatedVirtualTexture* AllocateVirtualTexture(const FAllocatedVTDescription& Desc) override;
+	virtual void DestroyVirtualTexture(IAllocatedVirtualTexture* AllocatedVT) override;
+	virtual FVirtualTextureProducerHandle RegisterVirtualTextureProducer(const FVTProducerDescription& Desc, IVirtualTexture* Producer) override;
+	virtual void ReleaseVirtualTextureProducer(const FVirtualTextureProducerHandle& Handle) override;
+	virtual void RequestVirtualTextureTilesForRegion(IAllocatedVirtualTexture* AllocatedVT, const FVector2D& InScreenSpaceSize, const FIntRect& InTextureRegion, int32 InMipLevel) override;
+	virtual void LoadPendingVirtualTextureTiles(FRHICommandListImmediate& RHICmdList, ERHIFeatureLevel::Type FeatureLevel) override;
+	virtual void FlushVirtualTextureCache() override;
 private:
 	TSet<FSceneInterface*> AllocatedScenes;
 	FPreSceneRenderDelegate PreSceneRenderDelegate;

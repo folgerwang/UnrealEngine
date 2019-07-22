@@ -5,94 +5,106 @@
 #include "VirtualTextureSpace.h"
 #include "VirtualTextureSystem.h"
 
-FORCEINLINE uint64 EncodeSortKey( uint8 ID, uint8 vLevel, uint64 vAddress )
+FTexturePagePool::FTexturePagePool()
+	: PageHash(16u * 1024)
+	, NumPages(0u)
+	, NumPagesMapped(0u)
 {
-	uint64 Key;
-	Key  = (uint64)vAddress	<<  0;
-	Key |= (uint64)vLevel	<< 48;
-	Key |= (uint64)ID		<< 56;
-	return Key;
-}
-
-FORCEINLINE void DecodeSortKey( uint64 Key, uint8& ID, uint8& vLevel, uint64& vAddress )
-{
-	vAddress	= ( Key >>  0 ) & 0xffffffffffffull;
-	vLevel		= ( Key >> 48 ) & 0xf;
-	ID			= ( Key >> 56 );
-}
-
-
-FTexturePagePool::FTexturePagePool( uint32 Size, uint32 Dimensions )
-	: vDimensions( Dimensions )
-	, HashTable( 2048, Size )
-	, FreeHeap( Size, Size )
-	, SortedKeysDirty(false)
-{
-	Pages.SetNum( Size );
-	SortedKeys.Reserve( Size );
-
-	for( int32 i = 0; i < Pages.Num(); i++ )
-	{
-		FTexturePage& Page = Pages[i];
-
-		Page.pAddress = i;
-		Page.vAddress = 0;
-		Page.vLevel = 0;
-		Page.ID = 0xff;
-
-		FreeHeap.Add( 0, i );
-	}
 }
 
 FTexturePagePool::~FTexturePagePool()
 {}
 
-void FTexturePagePool::EvictAllPages()
+
+void FTexturePagePool::Initialize(uint32 InNumPages)
 {
-	FreeHeap.Clear();
-	HashTable.Clear();
-	UnsortedKeys.Empty();
-	UnsortedIndexes.Empty();
-	SortedKeys.Empty(Pages.Num());
-	SortedIndexes.Empty();
-	SortedSubIndexes.Empty();
-	SortedAddIndexes.Empty();
-	SortedKeysDirty = false; // as everything is clear, no keys can be dirty
 
-	for (int32 i = 0; i < Pages.Num(); i++)
+	NumPages = InNumPages;
+	Pages.AddZeroed(InNumPages);
+	PageHash.Resize(InNumPages);
+
+	FreeHeap.Resize(InNumPages, InNumPages);
+
+	for (uint32 i = 0; i < InNumPages; i++)
 	{
-		FTexturePage& Page = Pages[i];
-
-		Page.pAddress = i;
-		Page.vAddress = 0;
-		Page.vLevel = 0;
-		Page.ID = 0xff;
-
 		FreeHeap.Add(0, i);
+	}
+
+	// Initialize list head for each page, plus one for free list
+	PageMapping.AddUninitialized(InNumPages + 1u);
+	for (uint32 i = 0; i <= InNumPages; i++)
+	{
+		FPageMapping& Mapping = PageMapping[i];
+		Mapping.PackedValues = 0xffffffff;
+		Mapping.LayerIndex = 0xff;
+		Mapping.NextIndex = Mapping.PrevIndex = i;
 	}
 }
 
-void FTexturePagePool::EvictPages(uint8 ID)
+void FTexturePagePool::EvictAllPages(FVirtualTextureSystem* System)
 {
-	TArray<uint16> PagesToEvict;
 
-	// Find the physical addresses of the pages to remove
-	for (int32 i = 0; i < Pages.Num(); i++)
+	TArray<uint16> PagesToEvict;
+	while (FreeHeap.Num() > 0u)
 	{
-		FTexturePage& Page = Pages[i];
-		if (Page.ID == ID)
-		{
-			check(i == Page.pAddress); // Use of these variables seem to be mixed up in this class
-			PagesToEvict.Add(Page.pAddress);
-		}
+		const uint16 pAddress = FreeHeap.Top();
+		FreeHeap.Pop();
+		PagesToEvict.Add(pAddress);
 	}
 
-	// Unmap them and mark them to be reused first
 	for (int32 i = 0; i < PagesToEvict.Num(); i++)
 	{
-		UnmapPage(PagesToEvict[i]);
-		FreeHeap.Update(0, PagesToEvict[i]);
+		UnmapAllPages(System, PagesToEvict[i]);
+		FreeHeap.Add(0, PagesToEvict[i]);
 	}
+}
+
+void FTexturePagePool::UnmapAllPagesForSpace(FVirtualTextureSystem* System, uint8 SpaceID)
+{
+
+	// walk through all of our current mapping entries, and unmap any that belong to the current space
+	for (int32 MappingIndex = NumPages + 1; MappingIndex < PageMapping.Num(); ++MappingIndex)
+	{
+		struct FPageMapping& Mapping = PageMapping[MappingIndex];
+		if (Mapping.LayerIndex != 0xff && Mapping.SpaceID == SpaceID)
+		{
+			// we're unmapping all pages for space, so don't try to map any ancestor pages...they'll be unmapped as well
+			UnmapPageMapping(System, MappingIndex, false);
+		}
+	}
+}
+
+void FTexturePagePool::EvictPages(FVirtualTextureSystem* System, const FVirtualTextureProducerHandle& ProducerHandle)
+{
+
+	for (uint32 pAddress = 0u; pAddress < NumPages; ++pAddress)
+	{
+		const FPageEntry& PageEntry = Pages[pAddress];
+		if (PageEntry.PackedProducerHandle == ProducerHandle.PackedValue)
+		{
+			UnmapAllPages(System, pAddress);
+			FreeHeap.Update(0, pAddress);
+		}
+	}
+}
+
+void FTexturePagePool::GetAllLockedPages(FVirtualTextureSystem* System, TSet<FVirtualTextureLocalTile>& OutPages)
+{
+
+	OutPages.Reserve(OutPages.Num() + GetNumLockedPages());
+
+	for (uint32 i = 0; i < NumPages; ++i)
+	{
+		if (!FreeHeap.IsPresent(i))
+		{
+			OutPages.Add(FVirtualTextureLocalTile(FVirtualTextureProducerHandle(Pages[i].PackedProducerHandle), Pages[i].Local_vAddress, Pages[i].Local_vLevel));
+		}
+	}
+}
+
+FVirtualTextureLocalTile FTexturePagePool::GetLocalTileFromPhysicalAddress(uint16 pAddress)
+{
+	return FVirtualTextureLocalTile(FVirtualTextureProducerHandle(Pages[pAddress].PackedProducerHandle), Pages[pAddress].Local_vAddress, Pages[pAddress].Local_vLevel);
 }
 
 bool FTexturePagePool::AnyFreeAvailable( uint32 Frame ) const
@@ -100,8 +112,8 @@ bool FTexturePagePool::AnyFreeAvailable( uint32 Frame ) const
 	if( FreeHeap.Num() > 0 )
 	{
 		// Keys include vLevel to help prevent parent before child ordering
-		uint32 PageIndex = FreeHeap.Top();
-		uint32 PageFrame = FreeHeap.GetKey( PageIndex ) >> 4;
+		const uint16 pAddress = FreeHeap.Top();
+		const uint32 PageFrame = FreeHeap.GetKey(pAddress) >> 4;
 		// Don't free any pages that were touched this frame
 		return PageFrame != Frame;
 	}
@@ -109,33 +121,24 @@ bool FTexturePagePool::AnyFreeAvailable( uint32 Frame ) const
 	return false;
 }
 
-uint32 FTexturePagePool::Alloc( uint32 Frame )
+uint16 FTexturePagePool::GetPageHash(const FPageEntry& Entry)
 {
-	check( AnyFreeAvailable( Frame ) );
-
-	uint32 PageIndex = FreeHeap.Top();
-	FreeHeap.Pop();
-	return PageIndex;
+	return (uint16)MurmurFinalize64(Entry.PackedValue);
 }
 
-void FTexturePagePool::Free( uint32 Frame, uint32 PageIndex )
+uint32 FTexturePagePool::FindPageAddress(const FVirtualTextureProducerHandle& ProducerHandle, uint8 LayerIndex, uint32 Local_vAddress, uint8 Local_vLevel) const
 {
-	FreeHeap.Add( (Frame << 4) + (Pages[ PageIndex ].vLevel & 0xf), PageIndex );
-}
+	FPageEntry CheckPage;
+	CheckPage.PackedProducerHandle = ProducerHandle.PackedValue;
+	CheckPage.Local_vAddress = Local_vAddress;
+	CheckPage.Local_vLevel = Local_vLevel;
+	CheckPage.LayerIndex = LayerIndex;
 
-void FTexturePagePool::UpdateUsage( uint32 Frame, uint32 PageIndex )
-{
-	FreeHeap.Update( (Frame << 4) + (Pages[ PageIndex ].vLevel & 0xf), PageIndex );
-}
-
-uint32 FTexturePagePool::FindPage( uint8 ID, uint8 vLevel, uint64 vAddress ) const
-{
-	uint16 Hash = HashPage( vLevel, vAddress, vDimensions );
-	for( uint32 PageIndex = HashTable.First( Hash ); HashTable.IsValid( PageIndex ); PageIndex = HashTable.Next( PageIndex ) )
+	const uint16 Hash = GetPageHash(CheckPage);
+	for (uint32 PageIndex = PageHash.First(Hash); PageHash.IsValid(PageIndex); PageIndex = PageHash.Next(PageIndex))
 	{
-		if( ID			== Pages[ PageIndex ].ID &&
-			vLevel		== Pages[ PageIndex ].vLevel &&
-			vAddress	== Pages[ PageIndex ].vAddress )
+		const FPageEntry& PageEntry = Pages[PageIndex];
+		if (PageEntry.PackedValue == CheckPage.PackedValue)
 		{
 			return PageIndex;
 		}
@@ -144,476 +147,157 @@ uint32 FTexturePagePool::FindPage( uint8 ID, uint8 vLevel, uint64 vAddress ) con
 	return ~0u;
 }
 
-uint32 FTexturePagePool::FindNearestPage( uint8 ID, uint8 vLevel, uint64 vAddress ) const
+uint32 FTexturePagePool::FindNearestPageAddress(const FVirtualTextureProducerHandle& ProducerHandle, uint8 LayerIndex, uint32 Local_vAddress, uint8 Local_vLevel, uint8 MaxLevel) const
 {
-	while( vLevel < 16 )
+	while (Local_vLevel <= MaxLevel)
 	{
-		uint16 Hash = HashPage( vLevel, vAddress, vDimensions );
-		for( uint32 PageIndex = HashTable.First( Hash ); HashTable.IsValid( PageIndex ); PageIndex = HashTable.Next( PageIndex ) )
+		const uint32 pAddress = FindPageAddress(ProducerHandle, LayerIndex, Local_vAddress, Local_vLevel);
+		if (pAddress != ~0u)
 		{
-			if( ID			== Pages[ PageIndex ].ID &&
-				vLevel		== Pages[ PageIndex ].vLevel &&
-				vAddress	== Pages[ PageIndex ].vAddress )
-			{
-				return PageIndex;
-			}
+			return pAddress;
 		}
 
-		vLevel++;
-		vAddress &= ~0ull << ( vDimensions * vLevel );
+		++Local_vLevel;
+		Local_vAddress >>= 2;
 	}
-
 	return ~0u;
 }
 
-void FTexturePagePool::UnmapPage( uint16 pAddress )
+uint32 FTexturePagePool::FindNearestPageLevel(const FVirtualTextureProducerHandle& ProducerHandle, uint8 LayerIndex, uint32 Local_vAddress, uint8 Local_vLevel) const
 {
-	FTexturePage& Page = Pages[ pAddress ];
-
-	if( Page.ID != 0xff )
+	while (Local_vLevel < 16u)
 	{
-		// Unmap old page
-		HashTable.Remove( HashPage( Page.vLevel, Page.vAddress, vDimensions ), Page.pAddress );
+		const uint32 pAddress = FindPageAddress(ProducerHandle, LayerIndex, Local_vAddress, Local_vLevel);
+		if (pAddress != ~0u)
+		{
+			return Pages[pAddress].Local_vLevel;
+		}
 
-		uint32 Ancestor_pAddress = FindNearestPage( Page.ID, Page.vLevel, Page.vAddress );
-		uint8  Ancestor_vLevel = Ancestor_pAddress == ~0u ? 0xff : Pages[ Ancestor_pAddress ].vLevel;
-		GetVirtualTextureSystem()->GetSpace( Page.ID )->QueueUpdate( Page.vLevel, Page.vAddress, Ancestor_vLevel, Ancestor_pAddress );
-
-		uint64 OldKey = EncodeSortKey( Page.ID, Page.vLevel, Page.vAddress );
-		uint32 OldIndex = LowerBound( 0, SortedKeys.Num(), OldKey, ~0ull );
-		SortedSubIndexes.Add( ( OldIndex << 16 ) | Page.pAddress );
+		++Local_vLevel;
+		Local_vAddress >>= 2;
 	}
-
-	Page.vLevel = 0;
-	Page.vAddress = 0;
-	Page.ID = 0xff;
-
-	SortedKeysDirty = true;
+	return ~0u;
 }
 
-void FTexturePagePool::MapPage( uint8 ID, uint8 vLevel, uint64 vAddress, uint16 pAddress )
+uint32 FTexturePagePool::Alloc(FVirtualTextureSystem* System, uint32 Frame, const FVirtualTextureProducerHandle& ProducerHandle, uint8 LayerIndex, uint32 Local_vAddress, uint8 Local_vLevel, bool bLock)
 {
-	FTexturePage& Page = Pages[ pAddress ];
+	check(ProducerHandle.PackedValue != 0u);
+	check(AnyFreeAvailable(Frame));
+	checkSlow(FindPageAddress(ProducerHandle, LayerIndex, Local_vAddress, Local_vLevel) == ~0u);
 
-	Page.vLevel = vLevel;
-	Page.vAddress = vAddress;
-	Page.ID = ID;
+	// Grab the LRU free page
+	const uint16 pAddress = FreeHeap.Top();
 
+	// Unmap any previous usage
+	UnmapAllPages(System, pAddress);
+
+	// Mark the page as used for the given producer
+	FPageEntry& PageEntry = Pages[pAddress];
+	PageEntry.PackedProducerHandle = ProducerHandle.PackedValue;
+	PageEntry.Local_vAddress = Local_vAddress;
+	PageEntry.Local_vLevel = Local_vLevel;
+	PageEntry.LayerIndex = LayerIndex;
+	PageHash.Add(GetPageHash(PageEntry), pAddress);
+
+	if (bLock)
 	{
-		uint64 NewKey = EncodeSortKey( Page.ID, Page.vLevel, Page.vAddress );
-		uint32 NewIndex = UpperBound( 0, SortedKeys.Num(), NewKey, ~0ull );
-		SortedAddIndexes.Add( ( NewIndex << 16 ) | Page.pAddress );
-
-		// Map new page
-		HashTable.Add( HashPage( Page.vLevel, Page.vAddress, vDimensions ), Page.pAddress );
-		GetVirtualTextureSystem()->GetSpace( Page.ID )->QueueUpdate( Page.vLevel, Page.vAddress, Page.vLevel, Page.pAddress );
+		FreeHeap.Pop();
+	}
+	else
+	{
+		FreeHeap.Update((Frame << 4) + (Local_vLevel & 0xf), pAddress);
 	}
 
-	SortedKeysDirty = true;
+	return pAddress;
 }
 
-// Must call this before the below functions so that SortedKeys is up to date.
-inline void FTexturePagePool::BuildSortedKeys()
+void FTexturePagePool::Free(FVirtualTextureSystem* System, uint16 pAddress)
 {
-	checkSlow( SortedSubIndexes.Num() || SortedAddIndexes.Num() );
+	UnmapAllPages(System, pAddress);
 
-	SortedSubIndexes.Sort();
-	SortedAddIndexes.Sort(
-		[this]( const uint32& A, const uint32& B )
-		{
-			const FTexturePage& PageA = Pages[ A & 0xffff ];
-			const FTexturePage& PageB = Pages[ B & 0xffff ];
-
-			uint64 KeyA = EncodeSortKey( PageA.ID, PageA.vLevel, PageA.vAddress );
-			uint64 KeyB = EncodeSortKey( PageB.ID, PageB.vLevel, PageB.vAddress );
-
-			return KeyA < KeyB;
-		} );
-	
-	// Copy version
-	Exchange( SortedKeys,	UnsortedKeys );
-	Exchange( SortedIndexes,UnsortedIndexes );
-
-	uint32 NumUnsorted = UnsortedKeys.Num();
-	SortedKeys.SetNum(		NumUnsorted + SortedAddIndexes.Num() - SortedSubIndexes.Num(), false );
-	SortedIndexes.SetNum(	NumUnsorted + SortedAddIndexes.Num() - SortedSubIndexes.Num(), false );
-	
-	int32 SubI = 0;
-	int32 AddI = 0;
-	int32 UnsortedI = 0;
-	int32 SortedI = 0;
-
-	while( SortedI < SortedKeys.Num() )
+	if (FreeHeap.IsPresent(pAddress))
 	{
-		const uint32 SubIndex = SubI < SortedSubIndexes.Num() ? ( SortedSubIndexes[ SubI ] >> 16 ) : NumUnsorted;
-		const uint32 AddIndex = AddI < SortedAddIndexes.Num() ? ( SortedAddIndexes[ AddI ] >> 16 ) : NumUnsorted;
-
-		const uint32 Interval = FMath::Min( SubIndex, AddIndex ) - UnsortedI;
-		if( Interval )
-		{
-			FMemory::Memcpy( &SortedKeys[ SortedI ], &UnsortedKeys[ UnsortedI ], Interval * sizeof( uint64 ) );
-			FMemory::Memcpy( &SortedIndexes[ SortedI ], &UnsortedIndexes[ UnsortedI ], Interval * sizeof( uint16 ) );
-
-			UnsortedI += Interval;
-			SortedI += Interval;
-
-			if( SortedI >= SortedKeys.Num() )
-				break;
-		}
-
-		if( SubIndex < AddIndex )
-		{
-			checkSlow( SubI < SortedSubIndexes.Num() );
-
-			// Skip hole
-			UnsortedI++;
-			SubI++;
-		}
-		else
-		{
-			checkSlow( AddI < SortedAddIndexes.Num() );
-
-			// Add new updated page
-			uint16 pAddress = SortedAddIndexes[ AddI ] & 0xffff;
-
-			FTexturePage& Page = Pages[ pAddress ];
-			SortedKeys[ SortedI ] = EncodeSortKey( Page.ID, Page.vLevel, Page.vAddress );
-			SortedIndexes[ SortedI ] = Page.pAddress;
-
-			SortedI++;
-			AddI++;
-		}
+		FreeHeap.Update(0u, pAddress);
 	}
-
-	SortedSubIndexes.Reset();
-	SortedAddIndexes.Reset();
-
-	SortedKeysDirty = false;
-}
-
-// Binary search lower bound
-// Similar to std::lower_bound
-// Range [Min,Max)
-uint32 FTexturePagePool::LowerBound( uint32 Min, uint32 Max, uint64 SearchKey, uint64 Mask ) const
-{
-	while( Min != Max )
+	else
 	{
-		uint32 Mid = Min + (Max - Min) / 2;
-		uint64 Key = SortedKeys[ Mid ] & Mask;
-
-		if( SearchKey <= Key )
-			Max = Mid;
-		else
-			Min = Mid + 1;
-	}
-
-	return Min;
-}
-
-// Binary search upper bound
-// Similar to std::upper_bound
-// Range [Min,Max)
-uint32 FTexturePagePool::UpperBound( uint32 Min, uint32 Max, uint64 SearchKey, uint64 Mask ) const
-{
-	while( Min != Max )
-	{
-		uint32 Mid = Min + (Max - Min) / 2;
-		uint64 Key = SortedKeys[ Mid ] & Mask;
-
-		if( SearchKey < Key )
-			Max = Mid;
-		else
-			Min = Mid + 1;
-	}
-
-	return Min;
-}
-
-// Binary search equal range
-// Similar to std::equal_range
-// Range [Min,Max)
-uint32 FTexturePagePool::EqualRange( uint32 Min, uint32 Max, uint64 SearchKey, uint64 Mask ) const
-{
-	while( Min != Max )
-	{
-		uint32 Mid = Min + (Max - Min) / 2;
-		uint64 Key = SortedKeys[ Mid ] & Mask;
-
-		if( SearchKey < Key )
-		{
-			Max = Mid;
-		}
-		else if( SearchKey > Key )
-		{
-			Min = Mid + 1;
-		}
-		else
-		{	// Range straddles Mid. Search both sides and return.
-			Min = LowerBound( Min,     Mid, SearchKey, Mask );
-			Max = UpperBound( Mid + 1, Max, SearchKey, Mask );
-			return Min | ( Max << 16 );
-		}
-	}
-
-	return 0;
-}
-
-void FTexturePagePool::RefreshEntirePageTable( uint8 ID, TArray< FPageTableUpdate >* Output )
-{
-	if( SortedKeysDirty )
-	{
-		BuildSortedKeys();
-	}
-
-	// TODO match ID
-
-	for( int i = SortedKeys.Num() - 1; i >= 0; i-- )
-	{
-		FPageUpdate Update;
-		uint8 Update_ID;
-		DecodeSortKey( SortedKeys[i], Update_ID, Update.vLevel, Update.vAddress );
-		Update.pAddress = SortedIndexes[i];
-		Update.vLogSize = Update.vLevel;
-
-		for( int Mip = Update.vLevel; Mip >= 0; Mip-- )
-		{
-			Output[ Mip ].Add( Update );
-		}
+		FreeHeap.Add(0u, pAddress);
 	}
 }
 
-/*
-======================
-Update entry in page table for this page and entries for all of its unmapped descendants.
-
-If no mapped descendants then this is a single square per mip.
-If there are mapped descendants then draw those on top using painters algorithm.
-Outputs list of FPageTableUpdate which will be drawn on the GPU to the page table.
-======================
-*/
-void FTexturePagePool::ExpandPageTableUpdatePainters( uint8 ID, FPageUpdate Update, TArray< FPageTableUpdate >* Output )
+void FTexturePagePool::Unlock(uint32 Frame, uint16 pAddress)
 {
-	if( SortedKeysDirty )
+	const FPageEntry& PageEntry = Pages[pAddress];
+	FreeHeap.Add((Frame << 4) + PageEntry.Local_vLevel, pAddress);
+}
+
+void FTexturePagePool::Lock(uint16 pAddress)
+{
+	// 'Remove' checks IsPresent(), so this will be a nop if address is already locked
+	FreeHeap.Remove(pAddress);
+}
+
+void FTexturePagePool::UpdateUsage(uint32 Frame, uint16 pAddress)
+{
+	if (FreeHeap.IsPresent(pAddress))
 	{
-		BuildSortedKeys();
-	}
-
-	static TArray< FPageUpdate > LoopOutput;
-
-	LoopOutput.Reset();
-
-	uint8  vLogSize = Update.vLogSize;
-	uint32 vAddress = Update.vAddress;
-	
-	Output[ vLogSize ].Add( Update );
-
-	// Start with input quad
-	LoopOutput.Add( Update );
-
-	uint32 SearchRange = SortedKeys.Num();
-	
-	for( uint32 Mip = vLogSize; Mip > 0; )
-	{
-		Mip--;
-		uint64 SearchKey = EncodeSortKey( ID, Mip, vAddress );
-		uint64 Mask = ~0ull << ( vDimensions * vLogSize );
-		
-		uint32 DescendantRange = EqualRange( 0, SearchRange, SearchKey, Mask );
-		if( DescendantRange != 0 )
-		{
-			uint32 DescendantMin = DescendantRange & 0xffff;
-			uint32 DescendantMax = DescendantRange >> 16;
-
-			// List is sorted by level so lower levels must be earlier in the list than what we found.
-			SearchRange = DescendantMin;
-
-			for( uint32 DescendantIndex = DescendantMin; DescendantIndex < DescendantMax; DescendantIndex++ )
-			{
-				checkSlow( SearchKey == ( SortedKeys[ DescendantIndex ] & Mask ) );
-
-				FPageUpdate Descendant;
-				uint8 Descendant_ID, Descendant_Level;
-				DecodeSortKey( SortedKeys[ DescendantIndex ], Descendant_ID, Descendant_Level, Descendant.vAddress );
-				Descendant.pAddress = SortedIndexes[ DescendantIndex ];
-
-				Descendant.vLevel	= Mip;
-				Descendant.vLogSize	= Mip;
-
-				checkSlow( Descendant_ID == ID );
-				checkSlow( Descendant_Level == Mip );
-
-				// Mask out low bits
-				uint64 Ancestor_vAddress = Descendant.vAddress & ( ~0ull << ( vDimensions * vLogSize ) );
-				checkSlow( Ancestor_vAddress == vAddress );
-
-				LoopOutput.Add( Descendant );
-			}
-		}
-
-		Output[ Mip ].Append( LoopOutput );
+		const FPageEntry& PageEntry = Pages[pAddress];
+		FreeHeap.Update((Frame << 4) + PageEntry.Local_vLevel, pAddress);
 	}
 }
 
-/*
-======================
-Update entry in page table for this page and entries for all of its unmapped descendants.
-
-If no mapped descendants then this is a single square per mip.
-If there are mapped descendants then break it up into many squares in quadtree order with holes for any already mapped pages.
-Outputs list of FPageTableUpdate which will be drawn on the GPU to the page table.
-======================
-*/
-void FTexturePagePool::ExpandPageTableUpdateMasked( uint8 ID, FPageUpdate Update, TArray< FPageTableUpdate >* Output )
+void FTexturePagePool::MapPage(FVirtualTextureSpace* Space, FVirtualTexturePhysicalSpace* PhysicalSpace, uint8 Layer, uint8 vLogSize, uint32 vAddress, uint8 vLevel, uint16 pAddress)
 {
-	if( SortedKeysDirty )
+	check(pAddress < NumPages);
+	FTexturePageMap& PageMap = Space->GetPageMap(Layer);
+	PageMap.MapPage(Space, PhysicalSpace, vLogSize, vAddress, vLevel, pAddress);
+
+	++NumPagesMapped;
+
+	const uint32 MappingIndex = AcquireMapping();
+	AddMappingToList(pAddress, MappingIndex);
+	FPageMapping& Mapping = PageMapping[MappingIndex];
+	Mapping.SpaceID = Space->GetID();
+	Mapping.vAddress = vAddress;
+	Mapping.vLogSize = vLogSize;
+	Mapping.LayerIndex = Layer;
+}
+
+void FTexturePagePool::UnmapPageMapping(FVirtualTextureSystem* System, uint32 MappingIndex, bool bMapAncestorPage)
+{
+	FPageMapping& Mapping = PageMapping[MappingIndex];
+	FVirtualTextureSpace* Space = System->GetSpace(Mapping.SpaceID);
+	FTexturePageMap& PageMap = Space->GetPageMap(Mapping.LayerIndex);
+
+	PageMap.UnmapPage(System, Space, Mapping.vLogSize, Mapping.vAddress, bMapAncestorPage);
+
+	check(NumPagesMapped > 0u);
+	--NumPagesMapped;
+
+	Mapping.PackedValues = 0xffffffff;
+	Mapping.LayerIndex = 0xff;
+	ReleaseMapping(MappingIndex);
+}
+
+void FTexturePagePool::UnmapAllPages(FVirtualTextureSystem* System, uint16 pAddress)
+{
+	FPageEntry& PageEntry = Pages[pAddress];
+	if (PageEntry.PackedProducerHandle != 0u)
 	{
-		BuildSortedKeys();
+		PageHash.Remove(GetPageHash(PageEntry), pAddress);
+		PageEntry.PackedValue = 0u;
 	}
 
-	static TArray< FPageUpdate > LoopInput;
-	static TArray< FPageUpdate > LoopOutput;
-	static TArray< FPageUpdate > Stack;
-
-	LoopInput.Reset();
-	LoopOutput.Reset();
-	checkSlow( Stack.Num() == 0 );
-
-	uint8  vLogSize = Update.vLogSize;
-	uint64 vAddress = Update.vAddress;
-	
-	Output[ vLogSize ].Add( FPageTableUpdate( Update ) );
-
-	// Start with input quad
-	LoopOutput.Add( Update );
-
-	uint32 SearchRange = SortedKeys.Num();
-	
-	for( uint32 Mip = vLogSize; Mip > 0; )
+	// unmap the page from all of its current mappings
+	uint32 MappingIndex = PageMapping[pAddress].NextIndex;
+	while (MappingIndex != pAddress)
 	{
-		Mip--;
-		uint64 SearchKey = EncodeSortKey( ID, Mip, vAddress );
-		uint64 Mask = ~0ull << ( vDimensions * vLogSize );
-		
-		uint32 DescendantRange = EqualRange( 0, SearchRange, SearchKey, Mask );
-		if( DescendantRange != 0 )
-		{
-			uint32 DescendantMin = DescendantRange & 0xffff;
-			uint32 DescendantMax = DescendantRange >> 16;
+		FPageMapping& Mapping = PageMapping[MappingIndex];
+		const uint32 NextIndex = Mapping.NextIndex;
+		UnmapPageMapping(System, MappingIndex, true);
 
-			// List is sorted by level so lower levels must be earlier in the list than what we found.
-			SearchRange = DescendantMin;
-
-			// Ping pong input and output
-			Exchange( LoopInput, LoopOutput );
-			LoopOutput.Reset();
-			int32 InputIndex = 0;
-
-			Update = LoopInput[ InputIndex++ ];
-
-			for( uint32 DescendantIndex = DescendantMin; DescendantIndex < DescendantMax; )
-			{
-				checkSlow( SearchKey == ( SortedKeys[ DescendantIndex ] & Mask ) );
-
-				FPageUpdate Descendant;
-				uint8 Descendant_ID, Descendant_Level;
-				DecodeSortKey( SortedKeys[ DescendantIndex ], Descendant_ID, Descendant_Level, Descendant.vAddress );
-				Descendant.pAddress = SortedIndexes[ DescendantIndex ];
-
-				Descendant.vLevel	= Mip;
-				Descendant.vLogSize	= Mip;
-
-				checkSlow( Descendant_ID == ID );
-				checkSlow( Descendant_Level == Mip );
-
-				// Mask out low bits
-				uint64 Ancestor_vAddress = Descendant.vAddress & ( ~0ull << ( vDimensions * vLogSize ) );
-				checkSlow( Ancestor_vAddress == vAddress );
-
-				uint32 UpdateSize		= 1 << ( vDimensions * Update.vLogSize );
-				uint32 DescendantSize	= 1 << ( vDimensions * Descendant.vLogSize );
-
-				checkSlow( Update.vLogSize >= Mip );
-
-				Update.Check( vDimensions );
-				Descendant.Check( vDimensions );
-
-				// Find if Update intersects with Descendant
-
-				// Is update past descendant?
-				if( Update.vAddress > Descendant.vAddress )
-				{
-					checkSlow( Update.vAddress >= Descendant.vAddress + DescendantSize );
-					// Move to next descendant
-					DescendantIndex++;
-					continue;
-				}
-				// Is update quad before descendant quad and doesn't intersect?
-				else if( Update.vAddress + UpdateSize <= Descendant.vAddress )
-				{
-					// Output this update and fetch next
-					LoopOutput.Add( Update );
-				}
-				// Does update quad equal descendant quad?
-				else if(	Update.vAddress	== Descendant.vAddress &&
-							Update.vLogSize	== Descendant.vLogSize )
-				{
-					// Move to next descendant
-					DescendantIndex++;
-					// Toss this update and fetch next
-				}
-				else
-				{
-					checkSlow( Update.vLogSize > Mip );
-
-					// Update intersects with Descendant but isn't the same size
-					// Split update into 4 for 2D, 8 for 3D
-					Update.vLogSize--;
-					for( uint32 Sibling = (1 << vDimensions) - 1; Sibling > 0; Sibling-- )
-					{
-						Stack.Push( FPageUpdate( Update, Sibling, vDimensions ) );
-					}
-					continue;
-				}
-
-				// Fetch next update
-				if( Stack.Num() )
-				{
-					Update = Stack.Pop( false );
-				}
-				else if( InputIndex < LoopInput.Num() )
-				{
-					Update = LoopInput[ InputIndex++ ];
-				}
-				else
-				{
-					// No more input
-					Update.vLogSize = 0xff;
-					break;
-				}
-			}
-
-			// If update was still being worked with add it
-			if( Update.vLogSize != 0xff )
-			{
-				LoopOutput.Add( Update );
-			}
-			// Add remaining stack to output
-			while( Stack.Num() )
-			{
-				LoopOutput.Add( Stack.Pop( false ) );
-			}
-			// Add remaining input to output
-			LoopOutput.Append( LoopInput.GetData() + InputIndex, LoopInput.Num() - InputIndex );
-		}
-		
-		if( LoopOutput.Num() == 0 )
-		{
-			// Completely masked out by descendants
-			break;
-		}
-		else
-		{
-			Output[ Mip ].Append( LoopOutput );
-		}
+		MappingIndex = NextIndex;
 	}
+
+	check(PageMapping[pAddress].NextIndex == pAddress); // verify the list is properly empty
 }

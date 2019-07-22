@@ -88,7 +88,7 @@ FVirtualTextureTest::FVirtualTextureTest( uint32 InSizeX, uint32 InSizeY, uint32
 FVirtualTextureTest::~FVirtualTextureTest()
 {}
 
-bool FVirtualTextureTest::LocatePageData( uint8 vLevel, uint64 vAddress, void* RESTRICT& Location ) /*const*/
+bool FVirtualTextureTest::RequestPageData( uint8 vLevel, uint64 vAddress, void* RESTRICT& Location ) /*const*/
 {
 	/*
 	const size_t VTHeaderSize = 0;
@@ -225,7 +225,7 @@ void FVirtualTextureTest::ProducePageData( FRHICommandList& RHICmdList, ERHIFeat
 	GVisualizeTexture.SetCheckPoint( RHICmdList, PhysicalTexture );
 }
 
-void FVirtualTextureTest::DumpToConsole()
+void FVirtualTextureTest::DumpToConsole(bool verbose)
 {
 	UE_LOG(LogConsoleResponse, Display, TEXT("Test Virtual Texture"));
 }

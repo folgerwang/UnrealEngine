@@ -99,7 +99,7 @@ public class Engine : ModuleRules
 				"Analytics",
 				"AnalyticsET",
 				"AudioMixer",
-				//"CrunchCompression"
+				"CrunchCompression"
 			}
 		);
 

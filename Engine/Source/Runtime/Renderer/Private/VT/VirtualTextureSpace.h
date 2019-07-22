@@ -4,84 +4,115 @@
 
 #include "CoreMinimal.h"
 #include "VirtualTextureShared.h"
-#include "TexturePagePool.h"
+#include "VirtualTexturePhysicalSpace.h"
+#include "TexturePageMap.h"
 #include "VirtualTextureAllocator.h"
 #include "RendererInterface.h"
 #include "VirtualTexturing.h"
 
+class FAllocatedVirtualTexture;
+class FVirtualTextureSystem;
+
+struct FVTSpaceDescription
+{
+	uint32 TileSize = 0u;
+	uint32 TileBorderSize = 0u;
+	EVTPageTableFormat Format = EVTPageTableFormat::UInt16;
+	uint8 Dimensions = 0u;
+	uint8 NumLayers = 0u;
+	uint8 bPrivateSpace : 1;
+};
+
+inline bool operator==(const FVTSpaceDescription& Lhs, const FVTSpaceDescription& Rhs)
+{
+	return Lhs.Dimensions == Rhs.Dimensions &&
+		Lhs.TileSize == Rhs.TileSize &&
+		Lhs.TileBorderSize == Rhs.TileBorderSize &&
+		Lhs.NumLayers == Rhs.NumLayers &&
+		Lhs.Format == Rhs.Format &&
+		Lhs.bPrivateSpace == Rhs.bPrivateSpace;
+}
+inline bool operator!=(const FVTSpaceDescription& Lhs, const FVTSpaceDescription& Rhs)
+{
+	return !operator==(Lhs, Rhs);
+}
+
 // Virtual memory address space mapped by a page table texture
-class FVirtualTextureSpace final : public IVirtualTextureSpace
+class FVirtualTextureSpace final : public FRenderResource
 {
 public:
-						FVirtualTextureSpace( const FVirtualTextureSpaceDesc& desc );
-						~FVirtualTextureSpace();
+	static const uint32 LayersPerPageTableTexture = IAllocatedVirtualTexture::LayersPerPageTableTexture;
+
+	FVirtualTextureSpace(FVirtualTextureSystem* InSystem, uint8 InID, const FVTSpaceDescription& InDesc, uint32 InSizeNeeded);
+	virtual ~FVirtualTextureSpace();
+
+	inline const FVTSpaceDescription& GetDescription() const { return Description; }
+	inline uint32 GetPageTableSize() const { return PageTableSize; }
+	inline uint32 GetNumLayers() const { return Description.NumLayers; }
+	inline uint8 GetDimensions() const { return Description.Dimensions; }
+	inline uint32 GetNumPageTableTextures() const { return (Description.NumLayers + LayersPerPageTableTexture - 1u) / LayersPerPageTableTexture; }
+	inline uint8 GetID() const { return ID; }
+
+	inline uint32 GetNumPageTableLevels() const { return NumPageTableLevels; }
+	inline FVirtualTextureAllocator& GetAllocator() { return Allocator; }
+	inline const FVirtualTextureAllocator& GetAllocator() const { return Allocator; }
+	inline FTexturePageMap& GetPageMap(uint32 LayerIndex) { check(LayerIndex < Description.NumLayers); return PhysicalPageMap[LayerIndex]; }
+	inline const FTexturePageMap& GetPageMap(uint32 LayerIndex) const { check(LayerIndex < Description.NumLayers); return PhysicalPageMap[LayerIndex]; }
 
 	// FRenderResource interface
-	virtual void		InitDynamicRHI() override;
-	virtual void		ReleaseDynamicRHI() override;
-	
-	// IVirtualTextureSpace interface
-	virtual uint64 AllocateVirtualTexture(IVirtualTexture* VirtualTexture) override
+	virtual void		InitRHI() override;
+	virtual void		ReleaseRHI() override;
+
+	inline uint32 AddRef() { return ++NumRefs; }
+	inline uint32 Release() { check(NumRefs > 0u); return --NumRefs; }
+	inline uint32 GetRefCount() const { return NumRefs; }
+
+	uint32 GetSizeInBytes() const;
+
+	uint32 AllocateVirtualTexture(FAllocatedVirtualTexture* VirtualTexture);
+
+	void FreeVirtualTexture(FAllocatedVirtualTexture* VirtualTexture);
+
+	FRHITextureReference* GetPageTableTexture(uint32 PageTableIndex) const
 	{
-		return Allocator.Alloc(VirtualTexture);
-	}
-	virtual void FreeVirtualTexture(IVirtualTexture* VirtualTexture) override
-	{
-		//Need to free all pages of the texture allocated in the pool ?!?
-		//In theory we could wait until they are all evicted but as pages
-		//do not keep a reference to the texture they belong to they could come
-		//from an old texture that was given the same virtual in this space ID addresses
-		Allocator.Free(VirtualTexture);
-		
-		// FIXME: This will free all pages in the space maybe make this 
-		// more intelligent and free only pages belonging to this VT? 
-		Pool->EvictPages(ID);
-	}
-	virtual uint32 GetSpaceID() const override
-	{
-		return ID;
-	}
-	virtual FRHITexture* GetPageTableTexture() const	
-	{
-		return PageTable->GetRenderTargetItem().ShaderResourceTexture;
-	}
-	
-	virtual uint64 GetPhysicalAddress(uint32 vLevel, uint64 vAddr) const override
-	{
-		return Pool->FindPage(ID, vLevel, vAddr);
+		check(PageTableIndex < GetNumPageTableTextures());
+		return PageTable[PageTableIndex].TextureReferenceRHI.GetReference();
 	}
 
-	void				QueueUpdate( uint8 vLogSize, uint64 vAddress, uint8 vLevel, uint16 pAddress );
-	void				ApplyUpdates( FRHICommandList& RHICmdList );
-
+	void				QueueUpdate( uint8 Layer, uint8 vLogSize, uint32 vAddress, uint8 vLevel, const FPhysicalTileLocation& pTileLocation);
+	void				AllocateTextures(FRHICommandList& RHICmdList);
+	void				ApplyUpdates(FVirtualTextureSystem* System, FRHICommandList& RHICmdList);
 	void				QueueUpdateEntirePageTable();
 
-	virtual FTextureRHIRef		GetPhysicalTexture(uint32 layer) const override { checkf(layer < VIRTUALTEXTURESPACE_MAXLAYERS, TEXT("%i"), layer); check(PhysicalTextures[layer].IsValid()); return PhysicalTextures[layer]->GetRenderTargetItem().ShaderResourceTexture; }
-	virtual EPixelFormat		GetPhysicalTextureFormat(uint32 layer) override { checkf(layer < VIRTUALTEXTURESPACE_MAXLAYERS, TEXT("%i"), layer); return PhysicalTextureFormats[layer]; }
-	virtual FIntPoint			Get2DPhysicalTextureSize() const override { return PhysicalTextureSize; }
-
-	uint32				ID;
-	uint32				PageTableSize;
-	uint32				PageTableLevels;
-	EPixelFormat		PageTableFormat;
-	uint8				Dimensions;
-	
-	FVirtualTextureAllocator	Allocator;
-
-	FTexturePagePool*	GetPool() const { return Pool; }
+	void DumpToConsole(bool verbose);
 
 private:
-	TRefCountPtr< IPooledRenderTarget >	PageTable;
+	static const uint32 TextureCapacity = (VIRTUALTEXTURE_SPACE_MAXLAYERS + LayersPerPageTableTexture - 1u) / LayersPerPageTableTexture;
+
+	struct FTextureEntry
+	{
+		TRefCountPtr<IPooledRenderTarget> RenderTarget;
+		FTextureReferenceRHIRef TextureReferenceRHI;
+	};
+
+	FVTSpaceDescription Description;
 	
-	TArray< FPageUpdate >		PageTableUpdates;
+	FVirtualTextureAllocator Allocator;
+	FTexturePageMap PhysicalPageMap[VIRTUALTEXTURE_SPACE_MAXLAYERS];
 
-	FStructuredBufferRHIRef		UpdateBuffer;
-	FShaderResourceViewRHIRef	UpdateBufferSRV;
+	FTextureEntry PageTable[TextureCapacity];
+	TEnumAsByte<EPixelFormat> TexturePixelFormat[TextureCapacity];
+	
+	TArray<FPageTableUpdate> PageTableUpdates[VIRTUALTEXTURE_SPACE_MAXLAYERS];
 
-	bool						bForceEntireUpdate;
+	FVertexBufferRHIRef UpdateBuffer;
+	FShaderResourceViewRHIRef UpdateBufferSRV;
 
-	TRefCountPtr<IPooledRenderTarget> PhysicalTextures[VIRTUALTEXTURESPACE_MAXLAYERS];
-	EPixelFormat PhysicalTextureFormats[VIRTUALTEXTURESPACE_MAXLAYERS];
-	FIntPoint PhysicalTextureSize;
-	FTexturePagePool* Pool;
+	uint32 PageTableSize;
+	uint32 NumPageTableLevels;
+	uint32 NumRefs;
+
+	uint8 ID;
+	bool bNeedToAllocatePageTable;
+	bool bForceEntireUpdate;
 };

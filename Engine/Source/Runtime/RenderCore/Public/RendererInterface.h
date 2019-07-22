@@ -15,6 +15,7 @@
 #include "RenderUtils.h"
 #include "Misc/EnumClassFlags.h"
 #include "UniformBuffer.h"
+#include "VirtualTexturing.h"
 
 class FCanvas;
 class FMaterial;
@@ -579,69 +580,6 @@ public:
 	float PreExposure;
 };
 
-#define VIRTUALTEXTURESPACE_MAXLAYERS 4
-struct FVirtualTextureSpaceDesc
-{
-	uint32 Size;
-	uint8 Dimensions;
-	EPixelFormat PageTableFormat;
-
-	uint32 PhysicalTileSize;
-	uint32 Poolsize;
-	EPixelFormat PhysicalTextureFormats[VIRTUALTEXTURESPACE_MAXLAYERS];
-};
-
-class IVirtualTextureProducer
-{
-public:
-	virtual void Finalize() = 0;
-};
-
-/**
-* Interface of a virtual texture
-*/
-class IVirtualTexture
-{
-public:
-	inline IVirtualTexture(uint32 InSizeX, uint32 InSizeY, uint32 InSizeZ)
-		: SizeX(InSizeX)
-		, SizeY(InSizeY)
-		, SizeZ(InSizeZ)
-	{
-		static FThreadSafeCounter IVirtualTexture_UniqueID;
-		UniqueId = IVirtualTexture_UniqueID.Increment();
-	}
-
-	virtual	~IVirtualTexture() {}
-
-	/**
-	* Locates page and returns if page data can be provided at this moment.
-	* @param vLevel The mipmap level of the data
-	* @param vAddress Bit-interleaved x,y page indexes
-	* @param Location A pointer to the data will be returned in this variable
-	* @return True if the data is available
-	*/
-	virtual bool	LocatePageData(uint8 vLevel, uint64 vAddress, void* RESTRICT& Location) /*const*/ = 0;
-
-	/**
-	* Upload page data to the cache!?
-	* @param vLevel The mipmap level of the data
-	* @param vAddress Bit-interleaved x,y page indexes
-	* @param pAddress Bit-interleaved x,y location to store in the cache
-	* @param Location The pointer previously returned by LocatePageData for the same vLevel and vAddress
-	* @return True if the data is available
-	*/
-	virtual IVirtualTextureProducer* ProducePageData(FRHICommandList& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, uint8 vLevel, uint64 vAddress, uint16 pAddress, void* RESTRICT Location) /*const*/ = 0;
-
-	virtual void DumpToConsole() {}
-
-	// Size in pages
-	uint32	SizeX;
-	uint32	SizeY;
-	uint32	SizeZ;
-	uint32  UniqueId : 24; // 24 because of TileID (TODO custom type ?)
-};
-
 /**
  * The public interface of the renderer module.
  */
@@ -765,9 +703,19 @@ public:
 
 	virtual void PostRenderAllViewports() = 0;
 
-	/** Create/Destroy renderer virtual texture objects */
-	virtual IVirtualTextureSpace *CreateVirtualTextureSpace(const FVirtualTextureSpaceDesc &Desc) = 0;
-	virtual void DestroyVirtualTextureSpace(IVirtualTextureSpace *Space) = 0;
+	virtual IAllocatedVirtualTexture* AllocateVirtualTexture(const FAllocatedVTDescription& Desc) = 0;
+	virtual void DestroyVirtualTexture(IAllocatedVirtualTexture* AllocatedVT) = 0;
 
+	virtual FVirtualTextureProducerHandle RegisterVirtualTextureProducer(const FVTProducerDescription& Desc, IVirtualTexture* Producer) = 0;
+	virtual void ReleaseVirtualTextureProducer(const FVirtualTextureProducerHandle& Handle) = 0;
+
+	/**	Provided a list of packed virtual texture tile ids, let the VT system request them. Note this should be called as long as the tiles are needed.*/
+	virtual void RequestVirtualTextureTilesForRegion(IAllocatedVirtualTexture* AllocatedVT, const FVector2D& InScreenSpaceSize, const FIntRect& InTextureRegion, int32 InMipLevel) = 0;
+
+	/** Ensure that any tiles requested by 'RequestVirtualTextureTilesForRegion' are loaded, must be called from render thread */
+	virtual void LoadPendingVirtualTextureTiles(FRHICommandListImmediate& RHICmdList, ERHIFeatureLevel::Type FeatureLevel) = 0;
+
+	/** Evict all data from virtual texture caches*/
+	virtual void FlushVirtualTextureCache() = 0;
 };
 

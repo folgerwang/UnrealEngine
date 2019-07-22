@@ -911,7 +911,12 @@ public:
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override
 	{
 		FPrimitiveViewRelevance Result;
-		if (bIsGrass ? View->Family->EngineShowFlags.InstancedGrass : View->Family->EngineShowFlags.InstancedFoliage)
+		if (RuntimeVirtualTextures.Num() > 0)
+		{
+			// Virtual texture items have default (static) relevance
+			Result = FInstancedStaticMeshSceneProxy::GetViewRelevance(View);
+		}
+		else if (bIsGrass ? View->Family->EngineShowFlags.InstancedGrass : View->Family->EngineShowFlags.InstancedFoliage)
 		{
 			Result = FStaticMeshSceneProxy::GetViewRelevance(View);
 			Result.bDynamicRelevance = true;
@@ -939,6 +944,12 @@ public:
 
 	virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI) override
 	{
+		if (RuntimeVirtualTextures.Num() > 0)
+		{
+			// Virtual texture use not hierarchical static rendering for now
+			//todo[vt]: Build acceleration structure better suited for VT rendering. Probably hook up a different class with this to the foliage system.
+			FInstancedStaticMeshSceneProxy::DrawStaticElements(PDI);
+		}
 	}
 
 	virtual void ApplyWorldOffset(FVector InOffset) override

@@ -19,6 +19,7 @@
 #include "PhysicsEngine/BodyInstance.h"
 #include "Engine/TextureStreamingTypes.h"
 #include "AI/Navigation/NavRelevantInterface.h"
+#include "VT/RuntimeVirtualTextureEnum.h"
 #include "PrimitiveComponent.generated.h"
 
 class AController;

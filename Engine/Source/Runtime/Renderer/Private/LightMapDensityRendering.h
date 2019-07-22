@@ -20,7 +20,7 @@
 #include "SceneRendering.h"
 #include "Engine/LightMapTexture2D.h"
 #include "Runtime/Engine/Classes/VT/VirtualTexture.h"
-#include "Runtime/Engine/Classes/VT/VirtualTextureSpace.h"
+#include "Runtime/Renderer/Private/VT/VirtualTextureSpace.h"
 
 BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FLightmapDensityPassUniformParameters, )
 	SHADER_PARAMETER_STRUCT(FSceneTexturesUniformParameters, SceneTextures)

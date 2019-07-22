@@ -9,6 +9,7 @@
 #include "Engine/EngineTypes.h"
 #include "Components/PrimitiveComponent.h"
 #include "Curves/CurveFloat.h"
+#include "VT/RuntimeVirtualTextureEnum.h"
 #include "FoliageType.generated.h"
 
 class UStaticMesh;
@@ -492,6 +493,20 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, Category=Scalability)
 	uint32 bEnableDensityScaling:1;
+
+public:
+	// VIRTUAL TEXTURE
+
+	/**
+	 * Array of runtime virtual textures into which we render the instances.
+	 * The mesh material also needs to be set up to output to a virtual texture.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = VirtualTexture, meta = (DisplayName = "Render to Virtual Textures"))
+		TArray<URuntimeVirtualTexture*> RuntimeVirtualTextures;
+
+	/** Render to the main pass based on the virtual texture settings. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = VirtualTexture, meta = (DisplayName = "Virtual Texture Pass Type"))
+		ERuntimeVirtualTextureMainPassType VirtualTextureRenderPassType = ERuntimeVirtualTextureMainPassType::Exclusive;
 
 private:
 

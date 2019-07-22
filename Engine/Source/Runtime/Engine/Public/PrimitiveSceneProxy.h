@@ -22,7 +22,9 @@ class FPrimitiveDrawInterface;
 class FPrimitiveSceneInfo;
 class FStaticPrimitiveDrawInterface;
 class UPrimitiveComponent;
+class URuntimeVirtualTexture;
 class UTexture2D;
+enum class ERuntimeVirtualTextureMaterialType;
 struct FMeshBatch;
 
 /** Data for a simple dynamic light. */
@@ -478,6 +480,7 @@ public:
 	inline bool NeedsUnbuiltPreviewLighting() const { return bNeedsUnbuiltPreviewLighting; }
 	inline bool CastsStaticShadow() const { return bCastStaticShadow; }
 	inline bool CastsDynamicShadow() const { return bCastDynamicShadow; }
+	inline bool WritesVirtualTexture() const { return RuntimeVirtualTextures.Num() > 0; }
 	inline bool AffectsDynamicIndirectLighting() const { return bAffectDynamicIndirectLighting; }
 	inline bool AffectsDistanceFieldLighting() const { return bAffectDistanceFieldLighting; }
 	inline float GetLpvBiasMultiplier() const { return LpvBiasMultiplier; }
@@ -959,6 +962,10 @@ protected:
 	float DynamicIndirectShadowMinVisibility;
 
 	float DistanceFieldSelfShadowBias;
+
+	/** Array of virtual textures that this proxy should render to. */
+	TArray<URuntimeVirtualTexture*> RuntimeVirtualTextures;
+	TArray<ERuntimeVirtualTextureMaterialType> RuntimeVirtualTextureMaterialTypes;
 
 private:
 	/** The hierarchy of owners of this primitive.  These must not be dereferenced on the rendering thread, but the pointer values can be used for identification.  */

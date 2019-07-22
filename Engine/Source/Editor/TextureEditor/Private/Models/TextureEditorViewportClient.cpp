@@ -85,6 +85,9 @@ void FTextureEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 	uint32 Width, Height;
 	TextureEditorPtr.Pin()->CalculateTextureDimensions(Width, Height);
 	const float MipLevel = (float)TextureEditorPtr.Pin()->GetMipLevel();
+	const float LayerIndex = (float)TextureEditorPtr.Pin()->GetLayer();
+
+	bool bIsVirtualTexture = false;
 
 	TRefCountPtr<FBatchedElementParameters> BatchedElementParameters;
 
@@ -108,16 +111,17 @@ void FTextureEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 		{
 			bool bIsNormalMap = Texture2D->IsNormalMap();
 			bool bIsSingleChannel = Texture2D->CompressionSettings == TC_Grayscale || Texture2D->CompressionSettings == TC_Alpha;
-			BatchedElementParameters = new FBatchedElementTexture2DPreviewParameters(MipLevel, bIsNormalMap, bIsSingleChannel);
+			bIsVirtualTexture = Texture2D->IsCurrentlyVirtualTextured();
+			BatchedElementParameters = new FBatchedElementTexture2DPreviewParameters(MipLevel, LayerIndex, bIsNormalMap, bIsSingleChannel, bIsVirtualTexture);
 		}
 		else if (TextureRT2D)
 		{
-			BatchedElementParameters = new FBatchedElementTexture2DPreviewParameters(MipLevel, false, false);
+			BatchedElementParameters = new FBatchedElementTexture2DPreviewParameters(MipLevel, LayerIndex, false, false, false);
 		}
 		else
 		{
 			// Default to treating any UTexture derivative as a 2D texture resource
-			BatchedElementParameters = new FBatchedElementTexture2DPreviewParameters(MipLevel, false, false);
+			BatchedElementParameters = new FBatchedElementTexture2DPreviewParameters(MipLevel, LayerIndex, false, false, false);
 		}
 	}
 
@@ -148,6 +152,60 @@ void FTextureEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 			BoxItem.SetColor( Settings.TextureBorderColor );
 			Canvas->DrawItem( BoxItem );
 		}
+
+		// if we are presenting a virtual texture, make the appropriate tiles resident
+		if (bIsVirtualTexture && CVarEnableVTFeedback.GetValueOnAnyThread() != 0)
+		{
+			FVirtualTexture2DResource* VTResource = static_cast<FVirtualTexture2DResource*>(Texture->Resource);
+			const FVector2D ScreenSpaceSize = { (float)Width, (float)Height };
+
+			// Calculate the rect of the texture that is visible on screen
+			// When the entire texture is visible, we pass -1 as dimensions (VirtualTextureUtils::CalculateVisibleTiles needs to calculate the effective texture size anyway so don't do it twice)
+			auto ZeroOrAbsolute = [](int32 value) -> int32 { return value >= 0 ? 0 : FMath::Abs(value); };
+			auto GetCorrectDimension = [](int value, int32 viewportSize, int32 TextureSize) -> int32 { return value <= viewportSize ? TextureSize : viewportSize; };
+
+			const float Zoom = 1.0f / TextureEditorPtr.Pin()->GetZoom();
+			const int32 VisibleXPos = FMath::FloorToInt(Zoom * -FMath::Min(0, XPos));
+			const int32 VisibleYPos = FMath::FloorToInt(Zoom * -FMath::Min(0, YPos));
+
+			const FIntRect VisibleTextureRect = FIntRect(VisibleXPos, VisibleYPos,
+				VisibleXPos + GetCorrectDimension(Zoom * Width, Zoom * ViewportSize.X, VTResource->GetSizeX()),
+				VisibleYPos + GetCorrectDimension(Zoom * Height, Zoom * ViewportSize.Y, VTResource->GetSizeY()));
+
+			const ERHIFeatureLevel::Type InFeatureLevel = GMaxRHIFeatureLevel;
+			ENQUEUE_RENDER_COMMAND(MakeTilesResident)(
+				[InFeatureLevel, VTResource, ScreenSpaceSize, VisibleTextureRect, MipLevel](FRHICommandListImmediate& RHICmdList)
+			{
+				// AcquireAllocatedVT() must happen on render thread
+				GetRendererModule().RequestVirtualTextureTilesForRegion(VTResource->AcquireAllocatedVT(), ScreenSpaceSize, VisibleTextureRect, MipLevel);
+				GetRendererModule().LoadPendingVirtualTextureTiles(RHICmdList, InFeatureLevel);
+			});
+		}
+	}
+
+	// If we are requesting an explicit mip level of a VT asset, test to see if we can even display it properly and warn about it
+	if (bIsVirtualTexture && MipLevel >= 0.f)
+	{
+		const uint32 Mip = (uint32)MipLevel;
+		const FIntPoint SizeOnMip = { Texture2D->GetSizeX() >> Mip,Texture2D->GetSizeY() >> Mip };
+		const uint64 NumPixels = SizeOnMip.X * SizeOnMip.Y;
+
+		const FVirtualTexture2DResource* Resource = (FVirtualTexture2DResource*)Texture2D->Resource;
+		const FIntPoint PhysicalTextureSize = Resource->GetPhysicalTextureSize(0u);
+		const uint64 NumPhysicalPixels = PhysicalTextureSize.X * PhysicalTextureSize.Y;
+
+		if (NumPixels >= NumPhysicalPixels)
+		{
+			UFont* ErrorFont = GEngine->GetLargeFont();
+			const int32 LineHeight = FMath::TruncToInt(ErrorFont->GetMaxCharHeight());
+			const FText Message = NSLOCTEXT("TextureEditor", "InvalidVirtualTextureMipDisplay", "Displaying a virtual texture on a mip level that is larger than the physical cache. Rendering will probably be invalid!");
+			const uint32 MessageWidth = ErrorFont->GetStringSize(*Message.ToString());
+			const uint32 Xpos = (ViewportSize.X - MessageWidth) / 2;
+			Canvas->DrawShadowedText(Xpos, LineHeight*1.5,
+				Message,
+				ErrorFont, FLinearColor::Red);
+		}
+
 	}
 }
 

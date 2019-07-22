@@ -37,6 +37,7 @@
 #include "Engine/TextureRenderTargetCube.h"
 #include "Engine/VolumeTexture.h"
 #include "Styling/CoreStyle.h"
+#include "VT/RuntimeVirtualTexture.h"
 
 #include "Materials/MaterialExpressionAbs.h"
 #include "Materials/MaterialExpressionActorPositionWS.h"
@@ -156,6 +157,8 @@
 #include "Materials/MaterialExpressionRotateAboutAxis.h"
 #include "Materials/MaterialExpressionRotator.h"
 #include "Materials/MaterialExpressionRound.h"
+#include "Materials/MaterialExpressionRuntimeVirtualTextureOutput.h"
+#include "Materials/MaterialExpressionRuntimeVirtualTextureSample.h"
 #include "Materials/MaterialExpressionSaturate.h"
 #include "Materials/MaterialExpressionSceneColor.h"
 #include "Materials/MaterialExpressionSceneDepth.h"
@@ -1594,6 +1597,11 @@ static bool VerifySamplerType(
 	if ( Texture )
 	{
 		EMaterialSamplerType CorrectSamplerType = UMaterialExpressionTextureBase::GetSamplerTypeForTexture( Texture );
+		bool bIsVirtualTextured = IsVirtualSamplerType(SamplerType);
+		if (bIsVirtualTextured && UseVirtualTexturing(Compiler->GetFeatureLevel(), Compiler->GetTargetPlatform()) == false)
+		{
+			SamplerType = UMaterialExpressionTextureBase::GetSamplerTypeForTexture(Texture, !bIsVirtualTextured);
+		}
 		if ( SamplerType != CorrectSamplerType )
 		{
 			UEnum* SamplerTypeEnum = UMaterialInterface::GetSamplerTypeEnum();
@@ -1830,6 +1838,268 @@ int32 UMaterialExpressionTextureSample::CompileMipValue1(class FMaterialCompiler
 
 	return INDEX_NONE;
 }
+#endif // WITH_EDITOR
+
+UMaterialExpressionRuntimeVirtualTextureOutput::UMaterialExpressionRuntimeVirtualTextureOutput(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	// Structure to hold one-time initialization
+	struct FConstructorStatics
+	{
+		FText NAME_Texture;
+		FConstructorStatics()
+			: NAME_Texture(LOCTEXT("Texture", "Texture"))
+		{
+		}
+	};
+	static FConstructorStatics ConstructorStatics;
+
+#if WITH_EDITORONLY_DATA
+	MenuCategories.Add(ConstructorStatics.NAME_Texture);
+#endif
+
+#if WITH_EDITOR
+	Outputs.Reset();
+#endif
+}
+
+#if WITH_EDITOR
+
+int32 UMaterialExpressionRuntimeVirtualTextureOutput::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex)
+{
+	int32 CodeInput = INDEX_NONE;
+
+	// Order of outputs generates function names GetVirtualTextureOutput{index}
+	// These must match the function names called in VirtualTextureMaterial.usf
+	if (OutputIndex == 0)
+	{
+		CodeInput = BaseColor.IsConnected() ? BaseColor.Compile(Compiler) : Compiler->Constant3(1.f, 0.f, 1.f);
+	}
+	else if (OutputIndex == 1)
+	{
+		CodeInput = Specular.IsConnected() ? Specular.Compile(Compiler) : Compiler->Constant(0.5f);
+	}
+	else if (OutputIndex == 2)
+	{
+		CodeInput = Roughness.IsConnected() ? Roughness.Compile(Compiler) : Compiler->Constant(0.5f);
+	}
+	else if (OutputIndex == 3)
+	{
+		CodeInput = Normal.IsConnected() ? Normal.Compile(Compiler) : Compiler->Constant3(0.f, 0.f, 1.f);
+	}
+	else if (OutputIndex == 4)
+	{
+		CodeInput = Height.IsConnected() ? Height.Compile(Compiler) : Compiler->Constant(0.f);
+	}
+	else if (OutputIndex == 5)
+	{
+		CodeInput = Opacity.IsConnected() ? Opacity.Compile(Compiler) : Compiler->Constant(1.f);
+	}
+
+	return Compiler->CustomOutput(this, OutputIndex, CodeInput);
+}
+
+void UMaterialExpressionRuntimeVirtualTextureOutput::GetCaption(TArray<FString>& OutCaptions) const
+{
+	OutCaptions.Add(FString(TEXT("Runtime Virtual Texture Output")));
+}
+
+#endif // WITH_EDITOR
+
+int32 UMaterialExpressionRuntimeVirtualTextureOutput::GetNumOutputs() const
+{
+	return 6;
+}
+
+FString UMaterialExpressionRuntimeVirtualTextureOutput::GetFunctionName() const
+{
+	return TEXT("GetVirtualTextureOutput");
+}
+
+FString UMaterialExpressionRuntimeVirtualTextureOutput::GetDisplayName() const
+{
+	return TEXT("Runtime Virtual Texture");
+}
+
+UMaterialExpressionRuntimeVirtualTextureSample::UMaterialExpressionRuntimeVirtualTextureSample(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	// Structure to hold one-time initialization
+	struct FConstructorStatics
+	{
+		FText NAME_Texture;
+		FConstructorStatics()
+			: NAME_Texture(LOCTEXT("Texture", "Texture"))
+		{
+		}
+	};
+	static FConstructorStatics ConstructorStatics;
+
+#if WITH_EDITORONLY_DATA
+	MenuCategories.Add(ConstructorStatics.NAME_Texture);
+#endif
+
+#if WITH_EDITOR
+	InitOutputs();
+	bShowOutputNameOnPin = true;
+	bShowMaskColorsOnPin = false;
+#endif
+}
+
+void UMaterialExpressionRuntimeVirtualTextureSample::InitMaterialType()
+{
+	if (VirtualTexture != nullptr)
+	{
+		MaterialType = VirtualTexture->GetMaterialType();
+	}
+}
+
+void UMaterialExpressionRuntimeVirtualTextureSample::InitOutputs()
+{
+#if WITH_EDITORONLY_DATA
+	Outputs.Reset();
+
+	Outputs.Add(FExpressionOutput(TEXT("BaseColor"), 1, 1, 1, 1, 0));
+	Outputs.Add(FExpressionOutput(TEXT("Specular"), 1, 0, 0, 1, 0));
+	Outputs.Add(FExpressionOutput(TEXT("Roughness"), 1, 1, 0, 0, 0));
+	Outputs.Add(FExpressionOutput(TEXT("Normal")));
+	Outputs.Add(FExpressionOutput(TEXT("Height")));
+#endif // WITH_EDITORONLY_DATA
+}
+
+UObject* UMaterialExpressionRuntimeVirtualTextureSample::GetReferencedTexture() const
+{
+	return VirtualTexture;
+}
+
+#if WITH_EDITOR
+
+void UMaterialExpressionRuntimeVirtualTextureSample::PostLoad()
+{
+	Super::PostLoad();
+	InitOutputs();
+}
+
+void UMaterialExpressionRuntimeVirtualTextureSample::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	// Update MaterialType setting to match VirtualTexture
+	if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetName() == TEXT("VirtualTexture"))
+	{
+		if (VirtualTexture != nullptr)
+		{
+			InitMaterialType();
+			FEditorSupportDelegates::ForcePropertyWindowRebuild.Broadcast(this);
+		}
+	}
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+
+int32 UMaterialExpressionRuntimeVirtualTextureSample::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex)
+{
+	// Check validity of current virtual texture
+	bool bIsVirtualTextureValid = VirtualTexture != nullptr;
+	if (bIsVirtualTextureValid && VirtualTexture->GetMaterialType() != MaterialType)
+	{
+		UEnum const* Enum = StaticEnum<ERuntimeVirtualTextureMaterialType>();
+		FString MaterialTypeDisplayName = Enum->GetDisplayNameTextByValue((int64)MaterialType).ToString();
+		FString TextureTypeDisplayName = Enum->GetDisplayNameTextByValue((int64)VirtualTexture->GetMaterialType()).ToString();
+
+		Compiler->Errorf(TEXT("%Material type is '%s', should be '%s' to match %s"),
+			*MaterialTypeDisplayName,
+			*TextureTypeDisplayName,
+			*VirtualTexture->GetName());
+
+		bIsVirtualTextureValid = false;
+	}
+
+	// Calculate the virtual texture layer and sampling/unpacking functions for this output
+	// Fallback to a sensible default value if the output isn't valid for the bound virtual texture
+	const bool bIsBaseColorValid = MaterialType == ERuntimeVirtualTextureMaterialType::BaseColor || MaterialType == ERuntimeVirtualTextureMaterialType::BaseColor_Normal || MaterialType == ERuntimeVirtualTextureMaterialType::BaseColor_Normal_Specular;
+	const bool bIsSpecularValid = MaterialType == ERuntimeVirtualTextureMaterialType::BaseColor_Normal_Specular;
+	const bool bIsNormalValid = MaterialType == ERuntimeVirtualTextureMaterialType::BaseColor_Normal || MaterialType == ERuntimeVirtualTextureMaterialType::BaseColor_Normal_Specular;
+	const bool bIsNormalBC3 = MaterialType == ERuntimeVirtualTextureMaterialType::BaseColor_Normal_Specular;
+
+	int32 LayerIndex = 0;
+	EMaterialSamplerType SamplerType = SAMPLERTYPE_VirtualMasks;
+	EVirtualTextureUnpackType UnpackType = EVirtualTextureUnpackType::None;
+
+	switch (OutputIndex)
+	{
+	case 0:
+		if (bIsVirtualTextureValid && bIsBaseColorValid)
+		{
+			SamplerType = SAMPLERTYPE_VirtualColor;
+		}
+		else
+		{
+			return Compiler->Constant3(1.f, 0.f, 1.f);
+		}
+		break;
+	case 1:
+	case 2:
+		if (bIsVirtualTextureValid && bIsSpecularValid)
+		{
+			LayerIndex = 1;
+		}
+		else
+		{
+			return Compiler->Constant(0.5f);
+		}
+		break;
+	case 3:
+		if (bIsVirtualTextureValid && bIsNormalValid)
+		{
+			LayerIndex = 1;
+			UnpackType = bIsNormalBC3 ? EVirtualTextureUnpackType::NormalBC3 : EVirtualTextureUnpackType::NormalBC5;
+		}
+		else
+		{
+			return Compiler->Constant3(0.f, 0.f, 1.f);
+		}
+		break;
+	case 4:
+		//todo[vt]: Implement virtual texture displacement map support
+		return Compiler->Constant(0.f);
+	default:
+		return INDEX_NONE;
+	}
+
+	// Compile the texture object reference
+	int32 TextureReferenceIndex = INDEX_NONE;
+	const int32 TextureCodeIndex = Compiler->VirtualTexture(VirtualTexture, LayerIndex, TextureReferenceIndex, SamplerType);
+
+	// Compile the coordinates
+	// We use the virtual texture world space transform by default
+	int32 CoordinateIndex = INDEX_NONE;
+	if (Coordinates.GetTracedInput().Expression == nullptr)
+	{
+		int32 WorldPositionIndex = Compiler->WorldPosition(WPT_Default);
+		int32 P0 = Compiler->VirtualTextureParam(TextureReferenceIndex, 0);
+		int32 P1 = Compiler->VirtualTextureParam(TextureReferenceIndex, 1);
+		int32 P2 = Compiler->VirtualTextureParam(TextureReferenceIndex, 2);
+		CoordinateIndex = Compiler->VirtualTextureWorldToUV(WorldPositionIndex, P0, P1, P2);
+	}
+	else
+	{
+		CoordinateIndex = Coordinates.Compile(Compiler);
+	}
+
+	// Compile the texture sample code
+	//todo[vt]: Expose support for mip sample settings through the URuntimeVirtualTexture object
+	const int32 SampleCodeIndex = Compiler->TextureSample(TextureCodeIndex, CoordinateIndex, SamplerType, INDEX_NONE, INDEX_NONE, TMVM_None, SSM_Wrap_WorldGroupSettings, TextureReferenceIndex, false);
+
+	// Compile any unpacking code
+	const int32 UnpackCodeIndex = Compiler->VirtualTextureUnpack(SampleCodeIndex, UnpackType);
+
+	return UnpackCodeIndex;
+}
+
+void UMaterialExpressionRuntimeVirtualTextureSample::GetCaption(TArray<FString>& OutCaptions) const
+{
+	OutCaptions.Add(FString(TEXT("Runtime Virtual Texture Sample")));
+}
+
 #endif // WITH_EDITOR
 
 UMaterialExpressionAdd::UMaterialExpressionAdd(const FObjectInitializer& ObjectInitializer)

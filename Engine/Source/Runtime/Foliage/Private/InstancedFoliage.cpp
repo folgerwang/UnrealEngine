@@ -900,6 +900,24 @@ void FFoliageMeshInfo::UpdateComponentSettings(const UFoliageType* InSettings)
 			bNeedsMarkRenderStateDirty = true;
 			bNeedsInvalidateLightingCache = true;
 		}
+		if (Component->RuntimeVirtualTextures != FoliageType->RuntimeVirtualTextures)
+		{
+			//todo[vt]: Trigger a virtual texture flush somewhere withing the update chain
+			Component->RuntimeVirtualTextures = FoliageType->RuntimeVirtualTextures;
+			bNeedsMarkRenderStateDirty = true;
+		}
+		if (Component->VirtualTextureRenderPassType != FoliageType->VirtualTextureRenderPassType)
+		{
+			//todo[vt]: Trigger a virtual texture flush somewhere withing the update chain
+			Component->VirtualTextureRenderPassType = FoliageType->VirtualTextureRenderPassType;
+			bNeedsMarkRenderStateDirty = true;
+		}
+		if (Component->TranslucencySortPriority != FoliageType->TranslucencySortPriority)
+		{
+			//todo[vt]: Trigger a virtual texture flush somewhere withing the update chain
+			Component->TranslucencySortPriority = FoliageType->TranslucencySortPriority;
+			bNeedsMarkRenderStateDirty = true;
+		}
 		if (Component->bAffectDynamicIndirectLighting != FoliageType->bAffectDynamicIndirectLighting)
 		{
 			Component->bAffectDynamicIndirectLighting = FoliageType->bAffectDynamicIndirectLighting;

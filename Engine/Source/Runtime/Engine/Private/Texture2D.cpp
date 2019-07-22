@@ -31,6 +31,15 @@
 #include "Streaming/Texture2DStreamIn_IO_AsyncReallocate.h"
 #include "Streaming/Texture2DStreamIn_IO_Virtual.h"
 #include "Async/AsyncFileHandle.h"
+#include "EngineModule.h"
+
+#include "VT/UploadingVirtualTexture.h"
+#include "VT/VirtualTexturePoolConfig.h"
+#include "VT/VirtualTextureUtility.h"
+
+#if WITH_EDITOR
+#include "Settings/EditorExperimentalSettings.h"
+#endif
 
 UTexture2D::UTexture2D(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -1538,6 +1547,302 @@ void FTexture2DResource::GetData( uint32 MipIndex, void* Dest, uint32 DestPitch 
 	// Free data retrieved via GetCopy inside constructor.
 	FMemory::Free(MipData[MipIndex]);
 	MipData[MipIndex] = NULL;
+}
+
+
+
+
+
+
+FVirtualTexture2DResource::FVirtualTexture2DResource(const UTexture2D* InOwner, FVirtualTextureBuiltData* InVTData, int32 SetFirstMipToUse)
+	: AllocatedVT(nullptr)
+	, VTData(InVTData)
+	, TextureOwner(InOwner)
+{
+	check(InOwner);
+	check(InVTData);
+	FirstMipToUse = FMath::Min((int32)VTData->GetNumMips() - 1, SetFirstMipToUse);
+	if (InOwner)
+	{
+		// InOwner may be NULL in the case of virtual lightmap
+		bSRGB = InOwner->SRGB;
+	}
+}
+
+FVirtualTexture2DResource::~FVirtualTexture2DResource()
+{
+}
+
+void FVirtualTexture2DResource::RefreshSamplerStates()
+{
+}
+
+void FVirtualTexture2DResource::InitRHI()
+{
+	check(TextureOwner);
+
+	// We always create a sampler state if we're attached to a texture. This is used to sample the cache texture during actual rendering and the miptails editor resource.
+	// If we're not attached to a texture it likely means we're light maps which have sampling handled differently.
+	FSamplerStateInitializerRHI SamplerStateInitializer
+	(
+		// This will ensure nearest/linear/trilinear which does matter when sampling both the cache and the miptail
+		(ESamplerFilter)UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings()->GetSamplerFilter(TextureOwner),
+
+		// This doesn't really matter when sampling the cache texture but it does when sampling the miptail texture
+		TextureOwner->AddressX == TA_Wrap ? AM_Wrap : (TextureOwner->AddressX == TA_Clamp ? AM_Clamp : AM_Mirror),
+		TextureOwner->AddressY == TA_Wrap ? AM_Wrap : (TextureOwner->AddressY == TA_Clamp ? AM_Clamp : AM_Mirror),
+		AM_Wrap,
+
+		// This doesn't really matter when sampling the cache texture (as it only has a level 0, so whatever the bias that is sampled) but it does when we sample miptail texture
+		0 // VT currently ignores global mip bias ensure the miptail works the same -> UTexture2D::GetGlobalMipMapLODBias()
+	);
+	SamplerStateRHI = RHICreateSamplerState(SamplerStateInitializer);
+
+	const int32 MaxLevel = VTData->GetNumMips() - FirstMipToUse - 1;
+	check(MaxLevel >= 0);
+
+	FVTProducerDescription ProducerDesc;
+	ProducerDesc.Name = TextureOwner->GetFName();
+	ProducerDesc.Dimensions = 2;
+	ProducerDesc.TileSize = VTData->TileSize;
+	ProducerDesc.TileBorderSize = VTData->TileBorderSize;
+	ProducerDesc.WidthInTiles = GetNumTilesX();
+	ProducerDesc.HeightInTiles = GetNumTilesY();
+	ProducerDesc.DepthInTiles = 1u;
+	ProducerDesc.MaxLevel = MaxLevel;
+	ProducerDesc.NumLayers = VTData->GetNumLayers();
+	for (uint32 LayerIndex = 0u; LayerIndex < ProducerDesc.NumLayers; ++LayerIndex)
+	{
+		ProducerDesc.LayerFormat[LayerIndex] = VTData->LayerTypes[LayerIndex];
+	}
+
+	FUploadingVirtualTexture* VirtualTexture = new FUploadingVirtualTexture(VTData, FirstMipToUse);
+	ProducerHandle = GetRendererModule().RegisterVirtualTextureProducer(ProducerDesc, VirtualTexture);
+
+	// Only create the miptails mini-texture in-editor.
+#if WITH_EDITOR
+	InitializeEditorResources(VirtualTexture);
+#endif
+}
+
+#if WITH_EDITOR
+void FVirtualTexture2DResource::InitializeEditorResources(IVirtualTexture* InVirtualTexture)
+{
+	// Create a texture resource from the lowest resolution VT page data
+	// this will then be used during asset tumbnails/hitproxies/...
+	if (GIsEditor)
+	{
+		struct FPageToProduce
+		{
+			uint64 Handle;
+			uint32 TileX;
+			uint32 TileY;
+		};
+
+		const EPixelFormat PixelFormat = VTData->LayerTypes[0];
+		const uint32 MaxLevel = GetNumMips() - 1u; // Could potentially use a more detailed mip level here, if thumbnails are too low resolution
+		const uint32 MipWidth = FMath::Max(GetSizeX() >> MaxLevel, 1u);
+		const uint32 MipHeight = FMath::Max(GetSizeY() >> MaxLevel, 1u);
+		const uint32 MipWidthInTiles = FMath::Max(GetNumTilesX() >> MaxLevel, 1u);
+		const uint32 MipHeightInTiles = FMath::Max(GetNumTilesY() >> MaxLevel, 1u);
+		const uint32 TileSizeInPixels = GetTileSize();
+		const uint32 LayerMask = 1u; // FVirtualTexture2DResource should only have a single layer
+
+		TArray<FPageToProduce> PagesToProduce;
+		PagesToProduce.Reserve(MipWidthInTiles * MipHeightInTiles);
+		for (uint32 TileY = 0u; TileY < MipHeightInTiles; ++TileY)
+		{
+			for (uint32 TileX = 0u; TileX < MipWidthInTiles; ++TileX)
+			{
+				const uint32 vAddress = FMath::MortonCode2(TileX) | (FMath::MortonCode2(TileY) << 1);
+				const FVTRequestPageResult RequestResult = InVirtualTexture->RequestPageData(ProducerHandle, LayerMask, MaxLevel, vAddress, EVTRequestPagePriority::High);
+				// High priority request should always generate data
+				if (/*ensure*/(VTRequestPageStatus_HasData(RequestResult.Status)))
+				{
+					PagesToProduce.Add({ RequestResult.Handle, TileX, TileY });
+				}
+			}
+		}
+
+		uint32 TexCreateFlags = (TextureOwner->SRGB ? TexCreate_SRGB : 0) | TexCreate_OfflineProcessed;
+		if (TextureOwner->bNoTiling)
+		{
+			TexCreateFlags |= TexCreate_NoTiling;
+		}
+
+		FRHIResourceCreateInfo CreateInfo;
+		FTexture2DRHIRef Texture2DRHI = RHICreateTexture2D(MipWidthInTiles * TileSizeInPixels, MipHeightInTiles * TileSizeInPixels, PixelFormat, 1, 1, TexCreateFlags, CreateInfo);
+		FRHICommandListImmediate& RHICommandList = FRHICommandListExecutor::GetImmediateCommandList();
+
+		TArray<IVirtualTextureFinalizer*> Finalizers;
+		for (const FPageToProduce& Page : PagesToProduce)
+		{
+			const uint32 vAddress = FMath::MortonCode2(Page.TileX) | (FMath::MortonCode2(Page.TileY) << 1);
+
+			FVTProduceTargetLayer TargetLayer;
+			TargetLayer.TextureRHI = Texture2DRHI;
+			TargetLayer.pPageLocation = FIntVector(Page.TileX, Page.TileY, 0);
+
+			IVirtualTextureFinalizer* Finalizer = InVirtualTexture->ProducePageData(RHICommandList,
+				GMaxRHIFeatureLevel,
+				EVTProducePageFlags::SkipPageBorders, // don't want to produce page borders, since we're laying out tiles in a regular texture
+				ProducerHandle, LayerMask, MaxLevel, vAddress,
+				Page.Handle,
+				&TargetLayer);
+			if (Finalizer)
+			{
+				Finalizers.AddUnique(Finalizer);
+			}
+		}
+
+		for (IVirtualTextureFinalizer* Finalizer : Finalizers)
+		{
+			Finalizer->Finalize(RHICommandList);
+		}
+
+
+		if (MipWidthInTiles * TileSizeInPixels != MipWidth || MipHeightInTiles * TileSizeInPixels != MipHeight)
+		{
+			// Logical dimensions of mip image may be smaller than tile size (in this case tile will contain mirrored/wrapped padding)
+			// In this case, copy the proper sub-image from the tiled texture we produced into a new texture of the correct size
+			FTexture2DRHIRef ResizedTexture2DRHI = RHICreateTexture2D(MipWidth, MipHeight, PixelFormat, 1, 1, TexCreateFlags, CreateInfo);
+			const FBox2D CopyBox(FVector2D(0.0f, 0.0f), FVector2D(MipWidth, MipHeight));
+			RHICommandList.CopySubTextureRegion(Texture2DRHI, ResizedTexture2DRHI, CopyBox, CopyBox);
+			Texture2DRHI = MoveTemp(ResizedTexture2DRHI);
+		}
+
+		TextureRHI = Texture2DRHI;
+		TextureRHI->SetName(TextureOwner->GetFName());
+		RHIBindDebugLabelName(TextureRHI, *TextureOwner->GetName());
+		RHIUpdateTextureReference(TextureOwner->TextureReference.TextureReferenceRHI, TextureRHI);
+
+		bIgnoreGammaConversions = !TextureOwner->SRGB && TextureOwner->CompressionSettings != TC_HDR;
+
+		// refactored to ensure this is set earlier...make sure it's correct
+		ensure(bSRGB == TextureOwner->SRGB);
+		//bSRGB = TextureOwner->SRGB;
+	}
+}
+#endif // WITH_EDITOR
+
+void FVirtualTexture2DResource::ReleaseRHI()
+{
+	ReleaseAllocatedVT();
+
+	GetRendererModule().ReleaseVirtualTextureProducer(ProducerHandle);
+	ProducerHandle = FVirtualTextureProducerHandle();
+}
+
+class IAllocatedVirtualTexture* FVirtualTexture2DResource::AcquireAllocatedVT()
+{
+	check(IsInRenderingThread());
+	if (!AllocatedVT)
+	{
+		FAllocatedVTDescription VTDesc;
+		VTDesc.Dimensions = 2;
+		VTDesc.TileSize = VTData->TileSize;
+		VTDesc.TileBorderSize = VTData->TileBorderSize;
+		VTDesc.NumLayers = VTData->GetNumLayers();
+		for (uint32 LayerIndex = 0u; LayerIndex < VTDesc.NumLayers; ++LayerIndex)
+		{
+			VTDesc.ProducerHandle[LayerIndex] = ProducerHandle; // use the same producer for each layer
+			VTDesc.LocalLayerToProduce[LayerIndex] = LayerIndex;
+		}
+		AllocatedVT = GetRendererModule().AllocateVirtualTexture(VTDesc);
+	}
+	return AllocatedVT;
+}
+
+void FVirtualTexture2DResource::ReleaseAllocatedVT()
+{
+	if (AllocatedVT)
+	{
+		GetRendererModule().DestroyVirtualTexture(AllocatedVT);
+		AllocatedVT = nullptr;
+	}
+}
+
+uint32 FVirtualTexture2DResource::GetSizeX() const
+{
+	return VTData->Width >> FirstMipToUse;
+}
+
+uint32 FVirtualTexture2DResource::GetSizeY() const
+{
+	return VTData->Height >> FirstMipToUse;
+}
+
+EPixelFormat FVirtualTexture2DResource::GetFormat(uint32 LayerIndex) const
+{
+	return VTData->LayerTypes[LayerIndex];
+}
+
+FIntPoint FVirtualTexture2DResource::GetSizeInBlocks() const
+{
+	return FIntPoint(VTData->WidthInBlocks, VTData->HeightInBlocks);
+}
+
+uint32 FVirtualTexture2DResource::GetNumTilesX() const
+{
+	return VTData->GetWidthInTiles() >> FirstMipToUse;
+}
+
+uint32 FVirtualTexture2DResource::GetNumTilesY() const
+{
+	return VTData->GetHeightInTiles() >> FirstMipToUse;
+}
+
+uint32 FVirtualTexture2DResource::GetBorderSize() const
+{
+	return VTData->TileBorderSize;
+}
+
+uint32 FVirtualTexture2DResource::GetNumMips() const
+{
+	ensure((int32)VTData->GetNumMips() > FirstMipToUse);
+	return VTData->GetNumMips() - FirstMipToUse;
+}
+
+uint32 FVirtualTexture2DResource::GetNumLayers() const
+{
+	return VTData->GetNumLayers();
+}
+
+uint32 FVirtualTexture2DResource::GetTileSize() const
+{
+	return VTData->TileSize;
+}
+
+uint32 FVirtualTexture2DResource::GetAllocatedvAddress() const
+{
+	if (AllocatedVT)
+	{
+		return AllocatedVT->GetVirtualAddress();
+	}
+	return ~0;
+}
+
+void FVirtualTexture2DResource::GetPackedPageTableUniform(FUintVector4* Uniform) const
+{
+	check(AllocatedVT);
+	VTGetPackedPageTableUniform(Uniform, AllocatedVT);
+
+}
+
+void FVirtualTexture2DResource::GetPackedPhysicalTextureUniform(FUintVector4* Uniform, uint32 LayerIndex) const
+{
+	check(AllocatedVT);
+	VTGetPackedUniform(Uniform, AllocatedVT, LayerIndex);
+}
+
+FIntPoint FVirtualTexture2DResource::GetPhysicalTextureSize(uint32 LayerIndex) const
+{
+	if (AllocatedVT)
+	{
+		const uint32 PhysicalTextureSize = AllocatedVT->GetPhysicalTextureSize(LayerIndex);
+		return FIntPoint(PhysicalTextureSize, PhysicalTextureSize);
+	}
+	return FIntPoint(0, 0);
 }
 
 bool UTexture2D::StreamIn(int32 NewMipCount, bool bHighPrio)

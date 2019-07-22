@@ -1107,6 +1107,30 @@ bool FLightmassMaterialRenderer::GenerateMaterialPropertyData(
 						GetRendererModule().InitializeSystemTextures(RHICmdList);
 					});
 				
+				// prefetch VT textures so we have sensible content available
+				if (UseVirtualTexturing(GMaxRHIFeatureLevel))
+				{
+					const FVector2D InScreenSpaceSize(InOutSizeX, InOutSizeY);
+
+					const FMaterialRenderProxy* InMaterialProxy = InMaterial.GetRenderProxy();
+					if (InMaterialProxy)
+					{
+						const ERHIFeatureLevel::Type InFeatureLevel = GMaxRHIFeatureLevel;
+						const FUniformExpressionCache& UniformExpressionCache = InMaterialProxy->UniformExpressionCache[InFeatureLevel];
+						for (IAllocatedVirtualTexture* AllocatedVT : UniformExpressionCache.AllocatedVTs)
+						{
+							GetRendererModule().RequestVirtualTextureTilesForRegion(AllocatedVT, InScreenSpaceSize, FIntRect(), -1);
+						}
+
+						ENQUEUE_RENDER_COMMAND(LoadTiles)(
+							[InFeatureLevel](FRHICommandListImmediate& RHICmdList)
+						{
+							GetRendererModule().LoadPendingVirtualTextureTiles(RHICmdList, InFeatureLevel);
+						});
+					}
+
+					FlushRenderingCommands();
+				}
 
 				if (bIsLandscapeMaterial)
 				{

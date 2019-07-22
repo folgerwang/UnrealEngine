@@ -1,6 +1,7 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "BlockCodingHelpers.h"
+#include "VirtualTextureUploadCache.h"
 
 #define MAKE_565(r,g,b) (((r>>3) << 11) | ((g>>2) << 5) | (b>>3))
 #define MAKE_8888(r,g,b,a) ((a << 24) | (b << 16) | (g << 8) | r)
@@ -251,21 +252,29 @@ template<class PixelType> inline void PatchLine(PixelType *data, const PixelType
 	}
 }
 
+template<class PixelType> inline void PatchBlock(PixelType *data, const PixelType &value, int Width, int Height, int Stride)
+{
+	for (int y = 0; y < Height; ++y)
+	{
+		PatchLine((PixelType*)((uint8*)data + Stride * y), value, Width);
+	}
+}
+
 /**
 This patches a borderWidth pixels wide border around the given image to the 'value'
 */
-template<class PixelType> void Patch(PixelType *data, PixelType value, int width, int height, int borderWidth)
+template<class PixelType> void Patch(PixelType *data, PixelType value, int width, int height, int borderWidth, int Stride)
 {
 	for (int i = 0; i < borderWidth; i++)
 	{
 		// Patch top and bottom 'borderWidth' rows
-		PatchLine(data + i * width, value, width);
-		PatchLine(data + (height - 1 - i) * width, value, width);
+		PatchLine((PixelType*)((uint8*)data + i * Stride), value, width);
+		PatchLine((PixelType*)((uint8*)data + (height - 1 - i) * Stride), value, width);
 	}
 
 	for (int i = borderWidth; i < (height - borderWidth); i++)
 	{
-		PixelType *scanline = data + i*width;
+		PixelType *scanline = (PixelType*)((uint8*)data + i * Stride);
 		// Patch left and right 'borderWidth' columns
 		PatchLine(scanline, value, borderWidth);
 		PatchLine(scanline + (width - borderWidth), value, borderWidth);
@@ -310,7 +319,7 @@ unsigned char MipGreys[NUM_LEVEL_COLORS][1] =
 	{ 0 }
 };
 
-void BakeDebugInfo(void *TilePixelData, int32 Width, int32 Height, int32 Border, EPixelFormat Format, int32 MipLevel)
+void BakeDebugInfo(const FVTUploadTileBuffer& TileBuffer, int32 Width, int32 Height, int32 Border, EPixelFormat Format, int32 MipLevel)
 {
 	unsigned char *Color = MipColors[MipLevel];
 	unsigned char *Grey = MipGreys[MipLevel];
@@ -320,7 +329,7 @@ void BakeDebugInfo(void *TilePixelData, int32 Width, int32 Height, int32 Border,
 	case PF_B8G8R8A8:
 	{
 		uint32_t Pixel = MakeBGRA(Color);
-		Patch((uint32_t *)TilePixelData, Pixel, Width, Height, Border);
+		Patch((uint32_t *)TileBuffer.Memory, Pixel, Width, Height, Border, TileBuffer.Stride);
 		break;
 	}
 	case PF_R8G8B8A8:
@@ -328,37 +337,43 @@ void BakeDebugInfo(void *TilePixelData, int32 Width, int32 Height, int32 Border,
 	case PF_R8G8B8A8_UINT:
 	{
 		uint32_t Pixel = MakeRGBA(Color);
-		Patch((uint32_t *)TilePixelData, Pixel, Width, Height, Border);
+		Patch((uint32_t *)TileBuffer.Memory, Pixel, Width, Height, Border, TileBuffer.Stride);
+		break;
+	}
+	case PF_G8:
+	{
+		const uint8_t Pixel = *Grey;
+		Patch((uint8*)TileBuffer.Memory, Pixel, Width, Height, Border, TileBuffer.Stride);
 		break;
 	}
 	case PF_A32B32G32R32F:
 	{
 		FloatPixel Fpixel = MakeFloat(Color);
-		Patch((FloatPixel *)TilePixelData, Fpixel, Width, Height, Border);
+		Patch((FloatPixel *)TileBuffer.Memory, Fpixel, Width, Height, Border, TileBuffer.Stride);
 		break;
 	}
 	case PF_A16B16G16R16:
 	{
 		Float16Pixel Fpixel = MakeFloat16(Color);
-		Patch((Float16Pixel *)TilePixelData, Fpixel, Width, Height, Border);
+		Patch((Float16Pixel *)TileBuffer.Memory, Fpixel, Width, Height, Border, TileBuffer.Stride);
 		break;
 	}
 	case PF_DXT1:
 	{
 		DXT1Block DXT1pixel = MakeDXT1(Color);
-		Patch((DXT1Block *)TilePixelData, DXT1pixel, FMath::DivideAndRoundUp(Width, 4), FMath::DivideAndRoundUp(Height, 4), FMath::DivideAndRoundUp(Border, 4));
+		Patch((DXT1Block *)TileBuffer.Memory, DXT1pixel, FMath::DivideAndRoundUp(Width, 4), FMath::DivideAndRoundUp(Height, 4), FMath::DivideAndRoundUp(Border, 4), TileBuffer.Stride);
 		break;
 	}
 	case PF_DXT5:
 	{
 		DXT5Block DXT5pixel = MakeDXT5(Color);
-		Patch((DXT5Block *)TilePixelData, DXT5pixel, FMath::DivideAndRoundUp(Width, 4), FMath::DivideAndRoundUp(Height, 4), FMath::DivideAndRoundUp(Border, 4));
+		Patch((DXT5Block *)TileBuffer.Memory, DXT5pixel, FMath::DivideAndRoundUp(Width, 4), FMath::DivideAndRoundUp(Height, 4), FMath::DivideAndRoundUp(Border, 4), TileBuffer.Stride);
 		break;
 	}
 	case PF_BC4:
 	{
 		BC4Block BC4pixel = MakeBC4(Grey);
-		Patch((BC4Block *)TilePixelData, BC4pixel, FMath::DivideAndRoundUp(Width, 4), FMath::DivideAndRoundUp(Height, 4), FMath::DivideAndRoundUp(Border, 4));
+		Patch((BC4Block *)TileBuffer.Memory, BC4pixel, FMath::DivideAndRoundUp(Width, 4), FMath::DivideAndRoundUp(Height, 4), FMath::DivideAndRoundUp(Border, 4), TileBuffer.Stride);
 		break;
 	}
 	case PF_BC5:
@@ -366,31 +381,31 @@ void BakeDebugInfo(void *TilePixelData, int32 Width, int32 Height, int32 Border,
 		// This will actually code to a flat normal?
 		BC5Block BC5pixel = MakeBC5(Color);
 
-		Patch((BC5Block *)TilePixelData, BC5pixel, FMath::DivideAndRoundUp(Width, 4), FMath::DivideAndRoundUp(Height, 4), FMath::DivideAndRoundUp(Border, 4));
+		Patch((BC5Block *)TileBuffer.Memory, BC5pixel, FMath::DivideAndRoundUp(Width, 4), FMath::DivideAndRoundUp(Height, 4), FMath::DivideAndRoundUp(Border, 4), TileBuffer.Stride);
 		break;
 	}
 	case PF_BC6H:
 	{
 		BC6Block BC6pixel = MakeBC6(Color);
-		Patch((BC6Block *)TilePixelData, BC6pixel, FMath::DivideAndRoundUp(Width, 4), FMath::DivideAndRoundUp(Height, 4), FMath::DivideAndRoundUp(Border, 4));
+		Patch((BC6Block *)TileBuffer.Memory, BC6pixel, FMath::DivideAndRoundUp(Width, 4), FMath::DivideAndRoundUp(Height, 4), FMath::DivideAndRoundUp(Border, 4), TileBuffer.Stride);
 		break;
 	}
 	case PF_BC7:
 	{
 		BC7Block BC7pixel = MakeBC7(Color);
-		Patch((BC7Block *)TilePixelData, BC7pixel, FMath::DivideAndRoundUp(Width, 4), FMath::DivideAndRoundUp(Height, 4), FMath::DivideAndRoundUp(Border, 4));
+		Patch((BC7Block *)TileBuffer.Memory, BC7pixel, FMath::DivideAndRoundUp(Width, 4), FMath::DivideAndRoundUp(Height, 4), FMath::DivideAndRoundUp(Border, 4), TileBuffer.Stride);
 		break;
 	}
 	case PF_ASTC_4x4:
 	{
 		ASTCBlock AstcPixel = MakeASTC(Color, false);
-		Patch((ASTCBlock *)TilePixelData, AstcPixel, FMath::DivideAndRoundUp(Width, 4), FMath::DivideAndRoundUp(Height, 4), FMath::DivideAndRoundUp(Border, 4));
+		Patch((ASTCBlock *)TileBuffer.Memory, AstcPixel, FMath::DivideAndRoundUp(Width, 4), FMath::DivideAndRoundUp(Height, 4), FMath::DivideAndRoundUp(Border, 4), TileBuffer.Stride);
 		break;
 	}
 	case PF_ASTC_8x8:
 	{
 		ASTCBlock AstcPixel = MakeASTC(Color, false);
-		Patch((ASTCBlock *)TilePixelData, AstcPixel, FMath::DivideAndRoundUp(Width, 8), FMath::DivideAndRoundUp(Height, 8), FMath::DivideAndRoundUp(Border, 8));
+		Patch((ASTCBlock *)TileBuffer.Memory, AstcPixel, FMath::DivideAndRoundUp(Width, 8), FMath::DivideAndRoundUp(Height, 8), FMath::DivideAndRoundUp(Border, 8), TileBuffer.Stride);
 		break;
 	}
 	default:
@@ -399,14 +414,14 @@ void BakeDebugInfo(void *TilePixelData, int32 Width, int32 Height, int32 Border,
 	}
 }
 
-bool UniformColorPixels(void *TilePixelData, int32 Width, int32 Height, EPixelFormat Format, int32 MipLevel, const uint8 *Color)
+bool UniformColorPixels(const FVTUploadTileBuffer& TileBuffer, int32 Width, int32 Height, EPixelFormat Format, const uint8 *Color)
 {
 	switch (Format)
 	{
 	case PF_B8G8R8A8:
 	{
 		uint32_t Pixel = MakeBGRA(Color);
-		PatchLine((uint32_t *)TilePixelData, Pixel, Width * Height);
+		PatchBlock((uint32_t *)TileBuffer.Memory, Pixel, Width, Height, TileBuffer.Stride);
 		break;
 	}
 	case PF_R8G8B8A8:
@@ -414,67 +429,67 @@ bool UniformColorPixels(void *TilePixelData, int32 Width, int32 Height, EPixelFo
 	case PF_R8G8B8A8_UINT:
 	{
 		uint32_t Pixel = MakeRGBA(Color);
-		PatchLine((uint32_t *)TilePixelData, Pixel, Width * Height);
+		PatchBlock((uint32_t *)TileBuffer.Memory, Pixel, Width, Height, TileBuffer.Stride);
 		break;
 	}
 	case PF_A32B32G32R32F:
 	{
 		FloatPixel Fpixel = MakeFloat(Color);
-		PatchLine((FloatPixel *)TilePixelData, Fpixel, Width * Height);
+		PatchBlock((FloatPixel *)TileBuffer.Memory, Fpixel, Width, Height, TileBuffer.Stride);
 		break;
 	}
 	case PF_A16B16G16R16:
 	{
 		Float16Pixel Fpixel = MakeFloat16(Color);
-		PatchLine((Float16Pixel *)TilePixelData, Fpixel, Width * Height);
+		PatchBlock((Float16Pixel *)TileBuffer.Memory, Fpixel, Width, Height, TileBuffer.Stride);
 		break;
 	}
 	case PF_DXT1:
 	{
 		DXT1Block DXT1pixel = MakeDXT1(Color);
-		PatchLine((DXT1Block *)TilePixelData, DXT1pixel, FMath::DivideAndRoundUp(Width, 4) * FMath::DivideAndRoundUp(Height, 4));
+		PatchBlock((DXT1Block *)TileBuffer.Memory, DXT1pixel, FMath::DivideAndRoundUp(Width, 4), FMath::DivideAndRoundUp(Height, 4), TileBuffer.Stride);
 		break;
 	}
 	case PF_DXT5:
 	{
 		DXT5Block DXT5pixel = MakeDXT5(Color);
-		PatchLine((DXT5Block *)TilePixelData, DXT5pixel, FMath::DivideAndRoundUp(Width, 4) * FMath::DivideAndRoundUp(Height, 4));
+		PatchBlock((DXT5Block *)TileBuffer.Memory, DXT5pixel, FMath::DivideAndRoundUp(Width, 4), FMath::DivideAndRoundUp(Height, 4), TileBuffer.Stride);
 		break;
 	}
 	case PF_BC4:
 	{
 		BC4Block BC4pixel = MakeBC4(Color);
-		PatchLine((BC4Block *)TilePixelData, BC4pixel, FMath::DivideAndRoundUp(Width, 4) * FMath::DivideAndRoundUp(Height, 4));
+		PatchBlock((BC4Block *)TileBuffer.Memory, BC4pixel, FMath::DivideAndRoundUp(Width, 4), FMath::DivideAndRoundUp(Height, 4), TileBuffer.Stride);
 		break;
 	}
 	case PF_BC5:
 	{
 		BC5Block BC5pixel = MakeBC5(Color);
-		PatchLine((BC5Block *)TilePixelData, BC5pixel, FMath::DivideAndRoundUp(Width, 4) * FMath::DivideAndRoundUp(Height, 4));
+		PatchBlock((BC5Block *)TileBuffer.Memory, BC5pixel, FMath::DivideAndRoundUp(Width, 4), FMath::DivideAndRoundUp(Height, 4), TileBuffer.Stride);
 		break;
 	}
 	case PF_BC6H:
 	{
 		BC6Block BC6pixel = MakeBC6(Color);
-		PatchLine((BC6Block *)TilePixelData, BC6pixel, FMath::DivideAndRoundUp(Width, 4) * FMath::DivideAndRoundUp(Height, 4));
+		PatchBlock((BC6Block *)TileBuffer.Memory, BC6pixel, FMath::DivideAndRoundUp(Width, 4), FMath::DivideAndRoundUp(Height, 4), TileBuffer.Stride);
 		break;
 	}
 	case PF_BC7:
 	{
 		BC7Block BC7pixel = MakeBC7(Color);
-		PatchLine((BC7Block *)TilePixelData, BC7pixel, FMath::DivideAndRoundUp(Width, 4) * FMath::DivideAndRoundUp(Height, 4));
+		PatchBlock((BC7Block *)TileBuffer.Memory, BC7pixel, FMath::DivideAndRoundUp(Width, 4), FMath::DivideAndRoundUp(Height, 4), TileBuffer.Stride);
 		break;
 	}
 	case PF_ASTC_4x4:
 	{
 		ASTCBlock AstcPixel = MakeASTC(Color, false);
-		PatchLine((ASTCBlock *)TilePixelData, AstcPixel, FMath::DivideAndRoundUp(Width, 4) * FMath::DivideAndRoundUp(Height, 4));
+		PatchBlock((ASTCBlock *)TileBuffer.Memory, AstcPixel, FMath::DivideAndRoundUp(Width, 4), FMath::DivideAndRoundUp(Height, 4), TileBuffer.Stride);
 		break;
 	}
 	case PF_ASTC_8x8:
 	{
 		ASTCBlock AstcPixel = MakeASTC(Color, false);
-		PatchLine((ASTCBlock *)TilePixelData, AstcPixel, FMath::DivideAndRoundUp(Width, 8) * FMath::DivideAndRoundUp(Height, 8));
+		PatchBlock((ASTCBlock *)TileBuffer.Memory, AstcPixel, FMath::DivideAndRoundUp(Width, 8), FMath::DivideAndRoundUp(Height, 8), TileBuffer.Stride);
 		break;
 	}
 	default:

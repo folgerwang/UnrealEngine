@@ -4,61 +4,47 @@
 
 #include "CoreMinimal.h"
 
-FORCEINLINE uint16 HashPage( uint32 vLevel, uint64 vAddress, uint8 vDimensions )
+union FPhysicalTileLocation
 {
-	// Mix level into top 4 bits 
-	return (uint16)( vLevel << 6 ) ^ (uint16)( vAddress >> ( vDimensions * vLevel ) );
-}
-
-
-struct FPageUpdate
-{
-	uint64	vAddress;
-	uint16	pAddress;
-	uint8	vLevel;
-	uint8	vLogSize;
-
-	FPageUpdate()
-	{}
-
-	FPageUpdate( const FPageUpdate& Update, uint64 Offset, uint8 vDimensions )
-		: vAddress( Update.vAddress + ( Offset << ( vDimensions * Update.vLogSize ) ) )
-		, pAddress( Update.pAddress )
-		, vLevel( Update.vLevel )
-		, vLogSize( Update.vLogSize )
-	{}
-
-	inline void Check( uint8 vDimensions )
+	FPhysicalTileLocation() {}
+	FPhysicalTileLocation(const FIntVector& InVec)
+		: TileX(InVec.X)
+		, TileY(InVec.Y)
 	{
-		uint64 LowBitMask = ( 1ull << ( vDimensions * vLogSize ) ) - 1;
-		checkSlow( (vAddress & LowBitMask) == 0 );
-
-		checkSlow( vLogSize <= vLevel );
+		checkSlow(InVec.X >= 0 && InVec.X <= 255);
+		checkSlow(InVec.Y >= 0 && InVec.Y <= 255);
 	}
+
+	uint16 Packed;
+	struct 
+	{
+		uint8 TileX;
+		uint8 TileY;
+	};
 };
 
-// Single page table can't possibly be bigger than 32 bit addressing
 struct FPageTableUpdate
 {
-	uint32	vAddress;
-	uint16	pAddress;
-	uint8	vLevel;
-	uint8	vLogSize;
+	uint32					vAddress;
+	FPhysicalTileLocation	pTileLocation;
+	uint8					vLevel;
+	uint8					vLogSize;
 
-	FPageTableUpdate( const FPageUpdate& Other )
-		: vAddress(	Other.vAddress )
-		, pAddress(	Other.pAddress )
-		, vLevel(	Other.vLevel )
-		, vLogSize(	Other.vLogSize )
+	FPageTableUpdate() {}
+	FPageTableUpdate(const FPageTableUpdate& Other) = default;
+	FPageTableUpdate& operator=(const FPageTableUpdate& Other) = default;
+
+	FPageTableUpdate(const FPageTableUpdate& Update, uint32 Offset, uint8 vDimensions)
+		: vAddress(Update.vAddress + (Offset << (vDimensions * Update.vLogSize)))
+		, pTileLocation(Update.pTileLocation)
+		, vLevel(Update.vLevel)
+		, vLogSize(Update.vLogSize)
 	{}
 
-	FPageTableUpdate& operator=( const FPageUpdate& Other )
+	inline void Check(uint8 vDimensions)
 	{
-		vAddress	= Other.vAddress;
-		pAddress	= Other.pAddress;
-		vLevel		= Other.vLevel;
-		vLogSize	= Other.vLogSize;
-		
-		return *this;
+		const uint32 LowBitMask = (1u << (vDimensions * vLogSize)) - 1;
+		checkSlow((vAddress & LowBitMask) == 0);
+		//checkSlow(vLogSize <= vLevel);
 	}
 };

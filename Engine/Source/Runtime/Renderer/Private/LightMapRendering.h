@@ -114,8 +114,8 @@ struct TLightMapPolicy
 		OutEnvironment.SetDefine(TEXT("NUM_LIGHTMAP_COEFFICIENTS"), GNumLightmapCoefficients[LightmapQuality]);
 
 		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VirtualTexturedLightmaps"));
-		OutEnvironment.SetDefine(TEXT("LIGHTMAP_VT_ENABLED"), CVar->GetValueOnAnyThread() != 0);
-		OutEnvironment.SetDefine(TEXT("LIGHTMAP_VT_16BIT"), LIGHTMAP_VT_16BIT);
+		const bool VirtualTextureLightmaps = (CVar->GetValueOnAnyThread() != 0) && UseVirtualTexturing(GMaxRHIFeatureLevel, OutEnvironment.TargetPlatform);
+		OutEnvironment.SetDefine(TEXT("LIGHTMAP_VT_ENABLED"), VirtualTextureLightmaps);
 	}
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)

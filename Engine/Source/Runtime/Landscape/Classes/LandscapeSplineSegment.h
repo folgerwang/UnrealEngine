@@ -8,6 +8,7 @@
 #include "Misc/Guid.h"
 #include "Components/SplineMeshComponent.h"
 #include "LandscapeSplinesComponent.h"
+#include "VT/RuntimeVirtualTextureEnum.h"
 #include "LandscapeSplineSegment.generated.h"
 
 class ULandscapeSplineControlPoint;
@@ -229,6 +230,17 @@ class ULandscapeSplineSegment : public UObject
 	UPROPERTY(EditAnywhere, Category=LandscapeSplineMeshes, AdvancedDisplay)
 	uint32 bPlaceSplineMeshesInStreamingLevels : 1;
 	
+	/**
+	 * Array of runtime virtual textures into which we render the spline segment.
+	 * The material also needs to be set up to output to a virtual texture.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = VirtualTexture, meta = (DisplayName = "Render to Virtual Textures"))
+		TArray<URuntimeVirtualTexture*> RuntimeVirtualTextures;
+
+	/** Render to the main pass based on the virtual texture settings. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = VirtualTexture, meta = (DisplayName = "Virtual Texture Pass Type"))
+		ERuntimeVirtualTextureMainPassType VirtualTextureRenderPassType = ERuntimeVirtualTextureMainPassType::Exclusive;
+
 	/** Mesh Collision Settings */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Collision, meta = (ShowOnlyInnerProperties))
 	FBodyInstance BodyInstance;

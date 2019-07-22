@@ -2012,6 +2012,161 @@ FMaterialRenderContext::FMaterialRenderContext(
 }
 
 /*-----------------------------------------------------------------------------
+	FMaterialVirtualTextureStack
+-----------------------------------------------------------------------------*/
+
+FMaterialVirtualTextureStack::FMaterialVirtualTextureStack()
+	: NumLayers(0u)
+	, PreallocatedStackTextureIndex(INDEX_NONE)
+{
+	for (uint32 i = 0u; i < VIRTUALTEXTURE_SPACE_MAXLAYERS; ++i)
+	{
+		LayerUniformExpressionIndices[i] = INDEX_NONE;
+	}
+}
+
+FMaterialVirtualTextureStack::FMaterialVirtualTextureStack(int32 InPreallocatedStackTextureIndex)
+	: NumLayers(0u)
+	, PreallocatedStackTextureIndex(InPreallocatedStackTextureIndex)
+{
+	for (uint32 i = 0u; i < VIRTUALTEXTURE_SPACE_MAXLAYERS; ++i)
+	{
+		LayerUniformExpressionIndices[i] = INDEX_NONE;
+	}
+}
+
+uint32 FMaterialVirtualTextureStack::AddLayer()
+{
+	const uint32 LayerIndex = NumLayers++;
+	return LayerIndex;
+}
+
+uint32 FMaterialVirtualTextureStack::SetLayer(int32 LayerIndex, int32 UniformExpressionIndex)
+{
+	check(UniformExpressionIndex >= 0);
+	check(LayerIndex >= 0 && LayerIndex < VIRTUALTEXTURE_SPACE_MAXLAYERS);
+	LayerUniformExpressionIndices[LayerIndex] = UniformExpressionIndex;
+	NumLayers = FMath::Max<uint32>(LayerIndex + 1, NumLayers);
+	return LayerIndex;
+}
+
+int32 FMaterialVirtualTextureStack::FindLayer(int32 UniformExpressionIndex) const
+{
+	for (uint32 LayerIndex = 0u; LayerIndex < NumLayers; ++LayerIndex)
+	{
+		if (LayerUniformExpressionIndices[LayerIndex] == UniformExpressionIndex)
+		{
+			return LayerIndex;
+		}
+	}
+	return -1;
+}
+
+void FMaterialVirtualTextureStack::GetTextureValues(const FMaterialRenderContext& Context, const FUniformExpressionSet& UniformExpressionSet, UTexture2D const** OutValues) const
+{
+	FMemory::Memzero(OutValues, sizeof(FVirtualTexture2DResource*) * VIRTUALTEXTURE_SPACE_MAXLAYERS);
+	
+	for (uint32 LayerIndex = 0u; LayerIndex < NumLayers; ++LayerIndex)
+	{
+		const int32 ExpressionIndex = LayerUniformExpressionIndices[LayerIndex];
+		if (LayerIndex != INDEX_NONE)
+		{
+			const FMaterialUniformExpressionTexture* UniformExpression = UniformExpressionSet.UniformVirtualTextureExpressions[ExpressionIndex];
+
+			const UTexture* Texture = nullptr;
+			UniformExpression->GetTextureValue(Context, Context.Material, Texture);
+			OutValues[LayerIndex] = Cast<UTexture2D>(Texture);
+		}
+	}
+}
+
+void FMaterialVirtualTextureStack::GetTextureValue(const FMaterialRenderContext& Context, const FUniformExpressionSet& UniformExpressionSet, const URuntimeVirtualTexture*& OutValue) const
+{
+	OutValue = GetIndexedTexture<URuntimeVirtualTexture>(Context.Material, PreallocatedStackTextureIndex);
+}
+
+void FMaterialVirtualTextureStack::Serialize(FArchive& Ar)
+{
+	uint32 SerializedNumLayers = NumLayers;
+	Ar << SerializedNumLayers;
+	NumLayers = FMath::Min(SerializedNumLayers, uint32(VIRTUALTEXTURE_SPACE_MAXLAYERS));
+
+	for (uint32 LayerIndex = 0u; LayerIndex < NumLayers; ++LayerIndex)
+	{
+		Ar << LayerUniformExpressionIndices[LayerIndex];
+	}
+
+	for (uint32 LayerIndex = NumLayers; LayerIndex < SerializedNumLayers; ++LayerIndex)
+	{
+		int32 DummyIndex = INDEX_NONE;
+		Ar << DummyIndex;
+	}
+
+	Ar << PreallocatedStackTextureIndex;
+}
+
+static IAllocatedVirtualTexture* GetPreallocatedVTStack(const FMaterialRenderContext& Context, const FUniformExpressionSet& UniformExpressionSet, const FMaterialVirtualTextureStack& VTStack)
+{
+	check(VTStack.IsPreallocatedStack())
+
+	URuntimeVirtualTexture const* Texture;
+	VTStack.GetTextureValue(Context, UniformExpressionSet, Texture);
+
+	return (Texture == nullptr) ? nullptr : Texture->GetAllocatedVirtualTexture();
+}
+
+static IAllocatedVirtualTexture* AllocateVTStack(const FMaterialRenderContext& Context, const FUniformExpressionSet& UniformExpressionSet, const FMaterialVirtualTextureStack& VTStack)
+{
+	check(!VTStack.IsPreallocatedStack())
+
+	const uint32 NumLayers = VTStack.GetNumLayers();
+	if (NumLayers == 0u)
+	{
+		return nullptr;
+	}
+
+	const UTexture2D* LayerTextures[VIRTUALTEXTURE_SPACE_MAXLAYERS] = { nullptr };
+	VTStack.GetTextureValues(Context, UniformExpressionSet, LayerTextures);
+	check(LayerTextures[0]);
+	check(LayerTextures[0]->IsCurrentlyVirtualTextured());
+	const FVirtualTexture2DResource* VirtualTextureResource = (FVirtualTexture2DResource*)LayerTextures[0]->Resource;
+
+	FAllocatedVTDescription VTDesc;
+	VTDesc.Dimensions = 2;
+	VTDesc.TileSize = VirtualTextureResource->GetTileSize();
+	VTDesc.TileBorderSize = VirtualTextureResource->GetBorderSize();
+	VTDesc.NumLayers = NumLayers;
+	for (uint32 LayerIndex = 0u; LayerIndex < VTDesc.NumLayers; ++LayerIndex)
+	{
+		check(LayerTextures[LayerIndex]->IsCurrentlyVirtualTextured());
+		const FVirtualTexture2DResource* VirtualTextureResourceForLayer = (FVirtualTexture2DResource*)LayerTextures[LayerIndex]->Resource;
+		if (VirtualTextureResourceForLayer != nullptr)
+		{
+			VTDesc.ProducerHandle[LayerIndex] = VirtualTextureResourceForLayer->GetProducerHandle();
+			VTDesc.LocalLayerToProduce[LayerIndex] = 0u;
+		}
+	}
+
+	return GetRendererModule().AllocateVirtualTexture(VTDesc);
+}
+
+FUniformExpressionCache::~FUniformExpressionCache()
+{
+	ResetAllocatedVTs();
+	UniformBuffer.SafeRelease();
+}
+
+void FUniformExpressionCache::ResetAllocatedVTs()
+{
+	for (int32 i = 0; i < OwnedAllocatedVTs.Num(); ++i)
+	{
+		GetRendererModule().DestroyVirtualTexture(OwnedAllocatedVTs[i]);
+	}
+	AllocatedVTs.Reset();
+	OwnedAllocatedVTs.Reset();
+}
+
+/*-----------------------------------------------------------------------------
 	FMaterialRenderProxy
 -----------------------------------------------------------------------------*/
 
@@ -2025,6 +2180,28 @@ void FMaterialRenderProxy::EvaluateUniformExpressions(FUniformExpressionCache& O
 	const FUniformExpressionSet& UniformExpressionSet = Context.Material.GetRenderingThreadShaderMap()->GetUniformExpressionSet();
 
 	OutUniformExpressionCache.CachedUniformExpressionShaderMap = Context.Material.GetRenderingThreadShaderMap();
+
+	OutUniformExpressionCache.ResetAllocatedVTs();
+	OutUniformExpressionCache.AllocatedVTs.Empty(UniformExpressionSet.VTStacks.Num());
+	OutUniformExpressionCache.OwnedAllocatedVTs.Empty(UniformExpressionSet.VTStacks.Num());
+	for (int32 i = 0; i < UniformExpressionSet.VTStacks.Num(); ++i)
+	{
+		const FMaterialVirtualTextureStack& VTStack = UniformExpressionSet.VTStacks[i];
+		IAllocatedVirtualTexture* AllocatedVT = nullptr;
+		if (VTStack.IsPreallocatedStack())
+		{
+			AllocatedVT = GetPreallocatedVTStack(Context, UniformExpressionSet, VTStack);
+		}
+		else
+		{
+			AllocatedVT = AllocateVTStack(Context, UniformExpressionSet, VTStack);
+			if (AllocatedVT != nullptr)
+			{
+				OutUniformExpressionCache.OwnedAllocatedVTs.Add(AllocatedVT);
+			}
+		}
+		OutUniformExpressionCache.AllocatedVTs.Add(AllocatedVT);
+	}
 
 	const FShaderParametersMetadata& UniformBufferStruct = UniformExpressionSet.GetUniformBufferStruct();
 	FMemMark Mark(FMemStack::Get());

@@ -4,18 +4,12 @@
 
 #include "VirtualTextureDataBuilder.h"
 #include "Modules/ModuleManager.h"
-#include "ImageCore.h"
-#include "VT/VirtualTextureSpace.h"
+#include "VT/VirtualTexture.h"
 #include "Modules/ModuleManager.h"
-#include "TextureCompressorModule.h"
-
-#ifndef CRUNCH_SUPPORT
-#define CRUNCH_SUPPORT 0
-#endif
-
-#if CRUNCH_SUPPORT
 #include "CrunchCompression.h"
-#endif
+#include "Async/TaskGraphInterfaces.h"
+#include "Async/ParallelFor.h"
+#include "TextureCompressorModule.h"
 
 // Debugging aid to dump tiles to disc as png files
 #define SAVE_TILES 0
@@ -23,64 +17,14 @@
 #include "IImageWrapper.h"
 #include "IImageWrapperModule.h"
 #include "HAL/FileManager.h"
-#include "FileHelper.h"
+#include "Misc/FileHelper.h"
 #endif
 
-static TAutoConsoleVariable<int32> CVarVTCompressCrunch(
-	TEXT("r.VT.EnableCompressCrunch"),
-	0,
-	TEXT("Enables Crunch compression")
+static TAutoConsoleVariable<int32> CVarVTParallelTileCompression(
+	TEXT("r.VT.ParallelTileCompression"),
+	1,
+	TEXT("Enables parallel compression of macro tiles")
 );
-
-int32 GetSourceTextureFormatPixelSize(ETextureSourceFormat Format)
-{
-	// Similar to FTextureSource::GetBytesPerPixel()
-	// maybe move this to a static function on FTextureSource ?!?
-	// instead of a per instance one
-	switch (Format)
-	{
-	case TSF_Invalid:
-		checkf(false, TEXT("Invalid source texture format!"));
-		break;
-	case TSF_G8:
-		return 1;
-	case TSF_BGRA8:
-		return 4;
-	case TSF_BGRE8:
-		return 4;
-	case TSF_RGBA16:
-		return 8;
-	case TSF_RGBA16F:
-		return 8;
-	case TSF_RGBA8:
-		return 4;
-	case TSF_RGBE8:
-		return 4;
-	case TSF_MAX:
-	default:
-		checkf(false, TEXT("Unknown source texture format!"));
-		break;
-	}
-	return -1;
-}
-
-
-ERawImageFormat::Type ImageFormatFromSourceFormat(ETextureSourceFormat Format)
-{
-	// Duplicated from FTextureCacheDerivedDataWorker::FTextureSourceData::Init
-	// maybe move this to a static function on FTextureSource ?!?
-	switch (Format)
-	{
-	case TSF_G8:		return ERawImageFormat::G8;
-	case TSF_BGRA8:		return ERawImageFormat::BGRA8;
-	case TSF_BGRE8:		return ERawImageFormat::BGRE8;
-	case TSF_RGBA16:	return ERawImageFormat::RGBA16;
-	case TSF_RGBA16F:	return ERawImageFormat::RGBA16F;
-	default:
-		checkf(false, TEXT("Invalid texture source format"));
-		return ERawImageFormat::BGRA8;
-	}
-}
 
 /*
  * Just a simple helper struct wrapping a pointer to an image in some source format.
@@ -105,13 +49,13 @@ struct FPixelDataRectangle
 	 * Copies a Width x Height rectangle located at SourceX, SourceY in the source image to location DestX,DestY in this image.
 	 * If the requested rectangle is outside the source image it will be clipped to the source and the smaller clipped rectangle will be copied instead.
 	 */
-	void CopyRectancle(int32 DestX, int32 DestY, FPixelDataRectangle &Source, int32 SourceX, int32 SourceY, int32 RectWidth, int32 RectHeight)
+	void CopyRectangle(int32 DestX, int32 DestY, FPixelDataRectangle &Source, int32 SourceX, int32 SourceY, int32 RectWidth, int32 RectHeight)
 	{
 		checkf(Format == Source.Format, TEXT("Formats need to match"));
-		checkf(DestX >= 0 && DestX < RectWidth, TEXT("Destination location out of bounds"));
-		checkf(DestY >= 0 && DestY < RectHeight, TEXT("Destination location out of bounds"));
+		checkf(DestX >= 0 && DestX < Width, TEXT("Destination location out of bounds"));
+		checkf(DestY >= 0 && DestY < Height, TEXT("Destination location out of bounds"));
 
-		int32 PixelSize = GetSourceTextureFormatPixelSize(Source.Format);
+		int32 PixelSize = FTextureSource::GetBytesPerPixel(Source.Format);
 		int32 SrcScanlineSize = Source.Width * PixelSize;
 		int32 DstScanlineSize = Width * PixelSize;
 
@@ -139,7 +83,7 @@ struct FPixelDataRectangle
 		// Copy the data a scan line at a time
 
 		uint8 *DstScanline = Data + DestX * PixelSize + DestY * DstScanlineSize;
-		uint8 *SrcScanline = Source.Data + SourceX * PixelSize + SourceY * SrcScanlineSize;
+		const uint8 *SrcScanline = Source.Data + SourceX * PixelSize + SourceY * SrcScanlineSize;
 
 		for (int Y = 0; Y < ClampedHeight; Y++)
 		{
@@ -149,18 +93,117 @@ struct FPixelDataRectangle
 		}
 	}
 
+	static int32 ApplyBorderMode(int32 x, int32 Width, TextureAddress Mode)
+	{
+		switch (Mode)
+		{
+		case TA_Wrap:
+			return (x % Width + Width) % Width; // Make sure it's a proper module for negative numbers ....
+		case TA_Clamp:
+			return FMath::Max(FMath::Min(x, Width-1), 0);
+		case TA_Mirror:
+			int32 DoubleWidth = Width + Width;
+			int32 DoubleWrap = (x % DoubleWidth + DoubleWidth) % DoubleWidth;
+			return (DoubleWrap < Width) ? DoubleWrap : (Width-1) - (DoubleWrap - Width);
+		}
+		return x;
+	}
+
+	/*
+	* Copies a Width x Height rectangle located at SourceX, SourceY in the source image to location DestX,DestY in this image.
+	* If the requested rectangle is outside the source image it will be clipped to the source and the smaller clipped rectangle will be copied instead.
+	*/
+	void CopyRectangleBordered(int32 DestX, int32 DestY, FPixelDataRectangle &Source, int32 SourceX, int32 SourceY, int32 RectWidth, int32 RectHeight, TextureAddress BorderX, TextureAddress BorderY)
+	{
+		checkf(Format == Source.Format, TEXT("Formats need to match"));
+		checkf(DestX >= 0 && DestX < Width, TEXT("Destination location out of bounds"));
+		checkf(DestY >= 0 && DestY < Height, TEXT("Destination location out of bounds"));
+
+		// Fast copy of regular pixels
+		CopyRectangle(DestX, DestY, Source, SourceX, SourceY, RectWidth, RectHeight);
+
+		size_t pixelSize = FTextureSource::GetBytesPerPixel(Format);
+
+		// Special case the out of bounds pixels loop over all oob pixels and get the properly adjusted values
+		if (SourceX < 0 ||
+			SourceY < 0 ||
+			SourceX + RectWidth > Source.Width ||
+			SourceY + RectHeight > Source.Height)
+		{
+			// Top border and adjacent corners
+			for (int32 y = SourceY; y < 0; y++)
+			{
+				for (int32 x = SourceX; x < SourceX + RectWidth; x++)
+				{
+					int32 xb = ApplyBorderMode(x, Source.Width, BorderX);
+					int32 yb = ApplyBorderMode(y, Source.Height, BorderY);
+					SetPixel(x - SourceX + DestX, y - SourceY + DestY, Source.GetPixel(xb, yb, pixelSize), pixelSize);
+				}
+			}
+
+			// Bottom border and adjacent corners
+			for (int32 y = Source.Height; y < SourceY + RectHeight; y++)
+			{
+				for (int32 x = SourceX; x < SourceX + RectWidth; x++)
+				{
+					int32 xb = ApplyBorderMode(x, Source.Width, BorderX);
+					int32 yb = ApplyBorderMode(y, Source.Height, BorderY);
+					SetPixel(x - SourceX + DestX, y - SourceY + DestY, Source.GetPixel(xb, yb, pixelSize), pixelSize);
+				}
+			}
+
+			// Left border (w.o. corners)
+			for (int32 x = SourceX; x < 0; x++)
+			{
+				//for (int32 y = SourceY; y < SourceY + RectHeight; y++)
+				for (int32 y = FMath::Max(0, SourceY); y < FMath::Min(SourceY + RectHeight, Source.Height); y++)
+				{
+					int32 xb = ApplyBorderMode(x, Source.Width, BorderX);
+					int32 yb = ApplyBorderMode(y, Source.Height, BorderY);
+					SetPixel(x - SourceX + DestX, y - SourceY + DestY, Source.GetPixel(xb, yb, pixelSize), pixelSize);
+				}
+			}
+
+			// Right border (w.o. corners)
+			for (int32 x = Source.Width; x < SourceX + RectWidth; x++)
+			{
+				//for (int32 y = SourceY; y < SourceY + RectHeight; y++)
+				for (int32 y = FMath::Max(0, SourceY); y < FMath::Min(SourceY + RectHeight, Source.Height); y++)
+				{
+					int32 xb = ApplyBorderMode(x, Source.Width, BorderX);
+					int32 yb = ApplyBorderMode(y, Source.Height, BorderY);
+					SetPixel(x - SourceX + DestX, y - SourceY + DestY, Source.GetPixel(xb, yb, pixelSize), pixelSize);
+				}
+			}
+		}
+	}
+
 	void Clear()
 	{
-		FMemory::Memset(Data, 0xFF, GetSourceTextureFormatPixelSize(Format) * Width * Height);
+		FMemory::Memzero(Data, FTextureSource::GetBytesPerPixel(Format) * Width * Height);
+	}
+
+	inline void SetPixel(int32 x, int32 y, void *Value, size_t PixelSize)
+	{
+		void *DestPixelData = GetPixel(x, y, PixelSize);
+		FMemory::Memcpy(DestPixelData, Value, PixelSize);
+	}
+
+	inline void *GetPixel(int32 x, int32 y, size_t PixelSize)
+	{
+		check(x >= 0);
+		check(y >= 0);
+		check(x < Width);
+		check(y < Height);
+		return Data + (((y * Width) + x) * PixelSize);
 	}
 
 #if SAVE_TILES
-	void Save(FString BaseFileName)
+	void Save(FString BaseFileName, IImageWrapperModule* ImageWrapperModule)
 	{
 		IFileManager* FileManager = &IFileManager::Get();
-		IImageWrapperModule* ImageWrapperModule = FModuleManager::LoadModulePtr<IImageWrapperModule>(FName("ImageWrapper"));
 		auto ImageWrapper = ImageWrapperModule->CreateImageWrapper(EImageFormat::PNG);
-		int BytesPerPixel = GetSourceTextureFormatPixelSize(Format);
+		int BytesPerPixel = FTextureSource::GetBytesPerPixel(Format);
 
 		switch (Format)
 		{
@@ -206,35 +249,19 @@ struct FPixelDataRectangle
 
 };
 
-FIntRect FVirtualTextureBuilderLayerSettings::GetRectangle()
-{
-	if (SourceRectangle.IsEmpty())
-	{
-		if (Source)
-		{
-			return FIntRect(0, 0, Source->GetSizeX(), Source->GetSizeY());
-		}
-		else
-		{
-			return FIntRect();
-		}
-	}
-	else
-	{
-		return SourceRectangle;
-	}
-}
-
-
 #define TEXTURE_COMPRESSOR_MODULENAME "TextureCompressor"
 
-FVirtualTextureDataBuilder::FVirtualTextureDataBuilder(FVirtualTextureBuiltData &SetOutData) :
-	OutData(SetOutData)
+FVirtualTextureDataBuilder::FVirtualTextureDataBuilder(FVirtualTextureBuiltData &SetOutData, ITextureCompressorModule *InCompressor, IImageWrapperModule* InImageWrapper)
+	: OutData(SetOutData)
+	, SizeInBlocksX(0)
+	, SizeInBlocksY(0)
+	, BlockSizeX(0)
+	, BlockSizeY(0)
+	, SizeX(0)
+	, SizeY(0)
 {
-	Compressor = &FModuleManager::LoadModuleChecked<ITextureCompressorModule>(TEXTURE_COMPRESSOR_MODULENAME);
-	ImageWrapper = &FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
-	//dummy value for testing
-	ChunkHeader.Dummy = Dummy_Magic;
+	Compressor = InCompressor ? InCompressor : &FModuleManager::LoadModuleChecked<ITextureCompressorModule>(TEXTURE_COMPRESSOR_MODULENAME);
+	ImageWrapper = InImageWrapper ? InImageWrapper : &FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
 }
 
 FVirtualTextureDataBuilder::~FVirtualTextureDataBuilder()
@@ -242,224 +269,426 @@ FVirtualTextureDataBuilder::~FVirtualTextureDataBuilder()
 	FreeSourcePixels();
 }
 
-void FVirtualTextureDataBuilder::Build(const FVirtualTextureBuilderSettings &SetSettings)
+void FVirtualTextureDataBuilder::Build(const FTextureSourceData& InSourceData, const FTextureSourceData& InCompositeSourceData, const FTextureBuildSettings* InSettingsPerLayer, bool bAllowAsync)
 {
-	Settings = SetSettings;
-	checkf(Settings.Layers.Num() <= MAX_NUM_LAYERS, TEXT("The maximum amount of layers is exceeded."));
-	checkf(Settings.Layers.Num() > 0, TEXT("No layers to build."));
-	checkf(Settings.Layers[0].Source != nullptr, TEXT("Layer 0 has no valid source data."));
+	const int32 NumLayers = InSourceData.Layers.Num();
+	checkf(NumLayers <= (int32)VIRTUALTEXTURE_DATA_MAXLAYERS, TEXT("The maximum amount of layers is exceeded."));
+	checkf(NumLayers > 0, TEXT("No layers to build."));
 
-	Width = Settings.Layers[0].GetRectangle().Width();
-	Height = Settings.Layers[0].GetRectangle().Height();
+	SettingsPerLayer.AddUninitialized(NumLayers);
+	FMemory::Memcpy(&SettingsPerLayer[0], InSettingsPerLayer, sizeof(FTextureBuildSettings) * NumLayers);
 
-	int32 NumTilesXL0 = FMath::DivideAndRoundUp(Width, Settings.TileWidth);
-	int32 NumTilesYL0 = FMath::DivideAndRoundUp(Height, Settings.TileHeight);
+	BlockSizeX = InSourceData.BlockSizeX;
+	BlockSizeY = InSourceData.BlockSizeY;
 
-	TotalTileWidth = Settings.TileWidth + Settings.Border * 2;
-	TotalTileHeight = Settings.TileHeight + Settings.Border * 2;
-
-	OutData.Border = Settings.Border;
-	OutData.NumTilesX = NumTilesXL0;
-	OutData.NumTilesY = NumTilesYL0;
-	OutData.TileWidth = Settings.TileWidth;
-	OutData.TileHeight = Settings.TileHeight;
-	OutData.Width = Width;
-	OutData.Height = Height;
-
-	OutData.Tiles.Empty();
-	OutData.Chunks.Empty();
-	OutData.LayerTypes.SetNum(Settings.Layers.Num());
-
-	//Run over the mip levels and initialize per tile defaults
-	int MipTilesX = NumTilesXL0;
-	int MipTilesY = NumTilesYL0;
-	int Level = 0;
-	//NumTiles = 0;
-	while (MipTilesX != 0 && MipTilesY != 0)
+	// BlockSize is potentially adjusted by rounding to power of 2
+	switch (SettingsPerLayer[0].PowerOfTwoMode)
 	{
-		NumTilesX.Add(MipTilesX);
-		NumTilesY.Add(MipTilesY);
-	//	NumTiles += MipTilesX*MipTilesY;
-		OutData.Tiles.AddDefaulted(1);
-		OutData.Tiles[Level].SetNum(MipTilesX * MipTilesY);
-		MipTilesX = MipTilesX >> 1;
-		MipTilesY = MipTilesY >> 1;
-		Level++;
+	case ETexturePowerOfTwoSetting::None:
+		break;
+	case ETexturePowerOfTwoSetting::PadToPowerOfTwo:
+		BlockSizeX = FMath::RoundUpToPowerOfTwo(BlockSizeX);
+		BlockSizeY = FMath::RoundUpToPowerOfTwo(BlockSizeY);
+		break;
+	case ETexturePowerOfTwoSetting::PadToSquarePowerOfTwo:
+		BlockSizeX = FMath::RoundUpToPowerOfTwo(BlockSizeX);
+		BlockSizeY = FMath::RoundUpToPowerOfTwo(BlockSizeY);
+		BlockSizeX = FMath::Max(BlockSizeX, BlockSizeY);
+		BlockSizeY = BlockSizeX;
+		break;
+	default:
+		checkNoEntry();
+		break;
 	}
-	NumMips = Level;
 
-	BuildSourcePixels();
-	BuildPagesMacroBlocks();
-	BuildMipTails();
+	constexpr uint32_t vt_size_scale = 1;
+	SizeInBlocksX = InSourceData.SizeInBlocksX * vt_size_scale;
+	SizeInBlocksY = InSourceData.SizeInBlocksY * vt_size_scale;
+	SizeX = BlockSizeX * SizeInBlocksX;
+	SizeY = BlockSizeY * SizeInBlocksY;
+
+	// We require VT blocks (UDIM pages) to be PoT, but multi block textures may have full logical dimension that's not PoT
+	check(FMath::IsPowerOfTwo(BlockSizeX));
+	check(FMath::IsPowerOfTwo(BlockSizeY));
+
+	const FTextureBuildSettings& BuildSettingsLayer0 = SettingsPerLayer[0];
+	const int32 TileSize = BuildSettingsLayer0.VirtualTextureTileSize;
+
+	//NOTE: OutData may point to a previously build data so it is important to
+	//properly initialize all fields and not assume this is a freshly constructed object
+
+	OutData.TileBorderSize = BuildSettingsLayer0.VirtualTextureBorderSize;
+	OutData.TileSize = TileSize;
+	OutData.NumLayers = NumLayers;
+	OutData.Width = SizeX;
+	OutData.Height = SizeY;
+	OutData.WidthInBlocks = SizeInBlocksX;// InSourceData.SizeInBlocksX;
+	OutData.HeightInBlocks = SizeInBlocksY;// InSourceData.SizeInBlocksY;
+
+	OutData.TileIndexPerChunk.Empty();
+	OutData.TileIndexPerMip.Empty();
+	OutData.TileOffsetInChunk.Empty();
+	OutData.Chunks.Empty();
+
+	const uint32 Size = FMath::Max(SizeX, SizeY);
+	const uint32 SizeInTiles = FMath::DivideAndRoundUp<uint32>(Size, TileSize);
+	const uint32 BlockSize = FMath::Max(BlockSizeX, BlockSizeY);
+	const uint32 BlockSizeInTiles = FMath::DivideAndRoundUp<uint32>(BlockSize, TileSize);
+	OutData.NumMips = FMath::CeilLogTwo(SizeInTiles) + 1;
+
+	BuildSourcePixels(InSourceData, InCompositeSourceData);
+
+	// override async compression if requested
+	bAllowAsync = bAllowAsync && CVarVTParallelTileCompression.GetValueOnAnyThread();
+
+	BuildPagesMacroBlocks(bAllowAsync);
 	FreeSourcePixels();
 }
 
-void FVirtualTextureDataBuilder::BuildPagesMacroBlocks()
+void FVirtualTextureDataBuilder::BuildPagesForChunk(const TArray<FVTSourceTileEntry>& ActiveTileList, bool bAllowAsync)
 {
-	TArray<TileId, TFixedAllocator<NUM_TILES_IN_CHUCK>> ActiveTileList;
-	//int tt = 0;
-	
-	auto Flush = [&]() {
-		LayerDataArray LayerData;
-		LayerData.AddDefaulted(Settings.Layers.Num());
+	TArray<FLayerData> LayerData;
+	LayerData.AddDefaulted(SourceLayers.Num());
 
-		for (int32 Layer = 0; Layer < Settings.Layers.Num(); Layer++)
-		{
-			BuildTiles(ActiveTileList, Layer, LayerData[Layer]);
-		}
-		
-		PushDataToChunk(ActiveTileList, LayerData);
-		ActiveTileList.Empty();
-	};
-	
-
-	for (int32 Mip = 0; Mip < NumMips; Mip++)
+	for (int32 LayerIndex = 0; LayerIndex < LayerData.Num(); LayerIndex++)
 	{
-		int32 MipNumTilesX = NumTilesX[Mip];
-		int32 MipNumTilesY = NumTilesY[Mip];
+		BuildTiles(ActiveTileList, LayerIndex, LayerData[LayerIndex], bAllowAsync);
+	}
 
-		int numBlocksX = FMath::DivideAndRoundUp(MipNumTilesX, NUM_TILES_IN_CHUNK_ON_X_AXIS);
-		int numBlocksY = FMath::DivideAndRoundUp(MipNumTilesY, NUM_TILES_IN_CHUNK_ON_Y_AXIS);
+	PushDataToChunk(ActiveTileList, LayerData);
+}
 
-		for (int32 blockY = 0; blockY < numBlocksY; ++blockY)
+void FVirtualTextureDataBuilder::BuildPagesMacroBlocks(bool bAllowAsync)
+{
+	static const uint32 MinSizePerChunk = 1024u; // Each chunk will contain a mip level of at least this size (MinSizePerChunk x MinSizePerChunk)
+	const uint32 NumLayers = SourceLayers.Num();
+	const int32 TileSize = SettingsPerLayer[0].VirtualTextureTileSize;
+	const uint32 MinSizePerChunkInTiles = FMath::DivideAndRoundUp<uint32>(MinSizePerChunk, TileSize);
+	const uint32 MinTilesPerChunk = MinSizePerChunkInTiles * MinSizePerChunkInTiles;
+	const int32 BlockSizeInTilesX = FMath::DivideAndRoundUp(BlockSizeX, TileSize);
+	const int32 BlockSizeInTilesY = FMath::DivideAndRoundUp(BlockSizeY, TileSize);
+
+	uint32 MipWidthInTiles = FMath::DivideAndRoundUp(SizeX, TileSize);
+	uint32 MipHeightInTiles = FMath::DivideAndRoundUp(SizeY, TileSize);
+	uint32 NumTiles = 0u;
+
+	for (uint32 Mip = 0; Mip < OutData.NumMips; ++Mip)
+	{
+		const uint32 MaxTileInMip = FMath::MortonCode2(MipWidthInTiles - 1) | (FMath::MortonCode2(MipHeightInTiles - 1) << 1);
+		NumTiles += (MaxTileInMip + 1u);
+		MipWidthInTiles = FMath::DivideAndRoundUp(MipWidthInTiles, 2u);
+		MipHeightInTiles = FMath::DivideAndRoundUp(MipHeightInTiles, 2u);
+	}
+
+	//
+	TArray<FVTSourceTileEntry> TilesInChunk;
+	TilesInChunk.Reserve(NumTiles);
+
+	// loop over each macro block and assemble the tiles
+	{
+		uint32 TileIndex = 0u;
+		bool bInFinalChunk = false;
+
+		OutData.TileOffsetInChunk.Init(~0u, NumTiles * NumLayers);
+		OutData.TileIndexPerChunk.Reserve(OutData.NumMips + 1);
+		OutData.TileIndexPerMip.Reserve(OutData.NumMips + 1);
+
+		OutData.TileIndexPerChunk.Add(TileIndex);
+
+		MipWidthInTiles = FMath::DivideAndRoundUp(SizeX, TileSize);
+		MipHeightInTiles = FMath::DivideAndRoundUp(SizeY, TileSize);
+		for (uint32 Mip = 0; Mip < OutData.NumMips; ++Mip)
 		{
-			int32 tileBeginY = blockY * NUM_TILES_IN_CHUNK_ON_Y_AXIS;
-			for (int32 blockX = 0; blockX < numBlocksX; ++blockX)
+			const int32 MipBlockSizeInTilesX = FMath::Max(BlockSizeInTilesX >> Mip, 1);
+			const int32 MipBlockSizeInTilesY = FMath::Max(BlockSizeInTilesY >> Mip, 1);
+			const uint32 MaxTileInMip = FMath::MortonCode2(MipWidthInTiles - 1) | (FMath::MortonCode2(MipHeightInTiles - 1) << 1);
+
+			OutData.TileIndexPerMip.Add(TileIndex);
+
+			for (uint32 TileIndexInMip = 0u; TileIndexInMip <= MaxTileInMip; ++TileIndexInMip)
 			{
-				int32 tileBeginX = blockX * NUM_TILES_IN_CHUNK_ON_X_AXIS;
-				for (int32 TileY = tileBeginY; TileY < tileBeginY + NUM_TILES_IN_CHUNK_ON_Y_AXIS; TileY++)
+				const uint32 TileX = FMath::ReverseMortonCode2(TileIndexInMip);
+				const uint32 TileY = FMath::ReverseMortonCode2(TileIndexInMip >> 1);
+				if (TileX < MipWidthInTiles && TileY < MipHeightInTiles)
 				{
-					if (TileY >= MipNumTilesY)
+					const int32 BlockX = TileX / MipBlockSizeInTilesX;
+					const int32 BlockY = TileY / MipBlockSizeInTilesY;
+
+					const int32 BlockIndex = FindSourceBlockIndex(Mip, BlockX, BlockY);
+					if (BlockIndex != INDEX_NONE)
 					{
-						break;
-					}
-
-					for (int32 TileX = tileBeginX; TileX < tileBeginX + NUM_TILES_IN_CHUNK_ON_X_AXIS; TileX++)
-					{
-						if (TileX >= MipNumTilesX)
-						{
-							break;
-						}
-
-						TileId Tile(TileX, TileY, Mip);
-
-						if (ActiveTileList.Num() == NUM_TILES_IN_CHUCK)
-						{
-							Flush();
-						}
-
-						ActiveTileList.Add(Tile);
+						const FTextureSourceBlockData& Block = SourceBlocks[BlockIndex];
+						FVTSourceTileEntry* TileEntry = new(TilesInChunk) FVTSourceTileEntry;
+						TileEntry->BlockIndex = BlockIndex;
+						TileEntry->TileIndex = TileIndex;
+						TileEntry->MipIndexInBlock = Mip - Block.MipBias;
+						TileEntry->TileInBlockX = TileX - Block.BlockX * MipBlockSizeInTilesX;
+						TileEntry->TileInBlockY = TileY - Block.BlockY * MipBlockSizeInTilesY;
 					}
 				}
+				TileIndex += NumLayers;
+			}
+
+			if (!bInFinalChunk && TilesInChunk.Num() >= (int32)MinTilesPerChunk)
+			{
+				OutData.TileIndexPerChunk.Add(TileIndex);
+				BuildPagesForChunk(TilesInChunk, bAllowAsync);
+				TilesInChunk.Reset();
+			}
+			else
+			{
+				bInFinalChunk = true;
+			}
+
+			MipWidthInTiles = FMath::DivideAndRoundUp(MipWidthInTiles, 2u);
+			MipHeightInTiles = FMath::DivideAndRoundUp(MipHeightInTiles, 2u);
+		}
+
+		check(TileIndex == NumTiles * NumLayers);
+		OutData.TileIndexPerChunk.Add(TileIndex);
+		OutData.TileIndexPerMip.Add(TileIndex);
+
+		if (TilesInChunk.Num() > 0)
+		{
+			BuildPagesForChunk(TilesInChunk, bAllowAsync);
+		}
+	}
+
+	// Patch holes left in offset array
+	for (int32 ChunkIndex = 0; ChunkIndex < OutData.Chunks.Num(); ++ChunkIndex)
+	{
+		uint32 CurrentOffset = OutData.Chunks[ChunkIndex].SizeInBytes;
+		for (int32 TileIndex = OutData.TileIndexPerChunk[ChunkIndex + 1] - 1u; TileIndex >= (int32)OutData.TileIndexPerChunk[ChunkIndex]; --TileIndex)
+		{
+			const uint32 TileOffset = OutData.TileOffsetInChunk[TileIndex];
+			if (TileOffset > CurrentOffset)
+			{
+				check(TileOffset == ~0u);
+				OutData.TileOffsetInChunk[TileIndex] = CurrentOffset;
+			}
+			else
+			{
+				CurrentOffset = TileOffset;
 			}
 		}
 	}
-	Flush();
 
-	//ensure(tt == NumTiles);
+	for (int32 TileIndex = 0u; TileIndex < OutData.TileOffsetInChunk.Num(); ++TileIndex)
+	{
+		const uint32 TileOffset = OutData.TileOffsetInChunk[TileIndex];
+		check(TileOffset != ~0u);
+	}
 }
 
-void FVirtualTextureDataBuilder::BuildTiles(const MacroTileArray& TileList, uint32 LayerIndex, FLayerData& GeneratedData)
+void FVirtualTextureDataBuilder::BuildTiles(const TArray<FVTSourceTileEntry>& TileList, uint32 LayerIndex, FLayerData& GeneratedData, bool bAllowAsync)
 {
-	TArray<FImage> ImageList;
-	ImageList.Reserve(TileList.Num());
+	const FTextureBuildSettings& BuildSettingsLayer0 = SettingsPerLayer[0];
+	const FTextureBuildSettings& BuildSettingsForLayer = SettingsPerLayer[LayerIndex];
+	const FVirtualTextureSourceLayerData& LayerData = SourceLayers[LayerIndex];
 
-	ERawImageFormat::Type ImageFormat = ImageFormatFromSourceFormat(SourcePixelFormats[LayerIndex]);
+	const int32 TileSize = BuildSettingsLayer0.VirtualTextureTileSize;
+	const int32 BorderSize = BuildSettingsLayer0.VirtualTextureBorderSize;
+	const int32 PhysicalTileSize = TileSize + BorderSize * 2;
 
-	// Collect all raw tile image data
-	for (auto Tile : TileList)
-	{
-		FImage *TileImage = new(ImageList) FImage(TotalTileWidth, TotalTileHeight, ImageFormat, Settings.Layers[LayerIndex].GammaSpace);
-
-		FPixelDataRectangle TileData(SourcePixelFormats[LayerIndex], TotalTileWidth, TotalTileHeight, TileImage->RawData.GetData());
-
-		FPixelDataRectangle SourceData(SourcePixelFormats[LayerIndex],
-			SourcePixels[LayerIndex][Tile.Mip]->SizeX,
-			SourcePixels[LayerIndex][Tile.Mip]->SizeY,
-			SourcePixels[LayerIndex][Tile.Mip]->RawData.GetData());
-
-		TileData.Clear();
-		TileData.CopyRectancle(0, 0, SourceData,
-			Tile.X * Settings.TileWidth - Settings.Border,
-			Tile.Y * Settings.TileHeight - Settings.Border,
-			TotalTileWidth,
-			TotalTileHeight);
-
-#if SAVE_TILES
-		{
-			FString BasePath = FPaths::ProjectUserDir();
-			FString TileFileName = BasePath / FString::Format(TEXT("{0}_{1}_{2}_{3}_{4}"), TArray<FStringFormatArg>({ Settings.DebugName, Tile.X, Tile.Y, Tile.Mip, LayerIndex }));
-			TileData.Save(TileFileName);
-			FString TileSourceFileName = BasePath / FString::Format(TEXT("{0}_{1}_{2}_{3}_{4}_Src"), TArray<FStringFormatArg>({ Settings.DebugName, Tile.X, Tile.Y, Tile.Mip, LayerIndex }));
-			SourceData.Save(TileSourceFileName);
-		}
-#endif
-	}
-
-	bool CompressionResult = false;
+	FThreadSafeBool bCompressionError = false;
 	EPixelFormat CompressedFormat = PF_Unknown;
 
-#if CRUNCH_SUPPORT
-	const bool UseCrunch = CVarVTCompressCrunch.GetValueOnAnyThread() > 0 && CrunchCompression::IsValidFormat(Settings.Layers[LayerIndex].SourceBuildSettings.TextureFormatName);
-	if (UseCrunch)
-	{	
-		CompressionResult = CrunchCompression::Encode(ImageList, Settings.Layers[LayerIndex].SourceBuildSettings.TextureFormatName, 
-			GeneratedData.CodecPayload, GeneratedData.Data, GeneratedData.TileInfos);
-		GeneratedData.Codec = EVirtualTextureCodec::Crunch;
+	// Don't want platform specific swizzling for VT tile data, this tends to add extra padding for textures with odd dimensions
+	// (VT physical tiles generally not power-of-2 after adding border)
+	FName TextureFormatName = BuildSettingsForLayer.TextureFormatName;
+	FString BaseTextureFormatName = TextureFormatName.ToString();
+	if (BaseTextureFormatName.StartsWith(TEXT("PS4_")))
+	{
+		TextureFormatName = *BaseTextureFormatName.Replace(TEXT("PS4_"), TEXT(""));
+	}
+	else if (BaseTextureFormatName.StartsWith("XBOXONE_"))
+	{
+		TextureFormatName = *BaseTextureFormatName.Replace(TEXT("XBOXONE_"), TEXT(""));
+	}
 
-
-		static FName NameDXT1(TEXT("DXT1"));
-		static FName NameDXT5(TEXT("DXT5"));
-
-		if (Settings.Layers[LayerIndex].SourceBuildSettings.TextureFormatName == NameDXT1)			CompressedFormat = PF_DXT1;
-		else if (Settings.Layers[LayerIndex].SourceBuildSettings.TextureFormatName == NameDXT5)		CompressedFormat = PF_DXT5;
-		else																						CompressedFormat = PF_Unknown;
-		
-#if SAVE_TILES
+	// We handle AutoDXT specially here since otherwise the texture format compressor would choose a DXT format for every tile
+	// individually. Causing tiles in the same VT to use different formats which we don't allow.
+	static FName NameDXT1(TEXT("DXT1"));
+	static FName NameDXT5(TEXT("DXT5"));
+	static FName NameAutoDXT(TEXT("AutoDXT"));
+	if (TextureFormatName == NameAutoDXT)
+	{
+		if (LayerData.bHasAlpha)
 		{
-			FString BasePath = FPaths::ProjectUserDir();
-			FString TileFileName = BasePath / FString::Format(TEXT("{0}_{1}_{2}_{3}_{4}.crn"), TArray<FStringFormatArg>({ Settings.DebugName, Tile.X, Tile.Y, Tile.Mip, LayerIndex }));
-			FFileHelper::SaveArrayToFile(Compressed->RawData, *TileFileName);
+			TextureFormatName = NameDXT5;
 		}
-#endif
+		else
+		{
+			TextureFormatName = NameDXT1;
+		}
+	}
+
+#if WITH_CRUNCH_COMPRESSION
+	const bool bUseCrunch = BuildSettingsLayer0.bVirtualTextureEnableCompressCrunch &&
+		BuildSettingsLayer0.LossyCompressionAmount != TLCA_None &&
+		CrunchCompression::IsValidFormat(TextureFormatName);
+	if (bUseCrunch)
+	{
+		check(LayerData.ImageFormat == ERawImageFormat::BGRA8);
+
+		FCrunchEncodeParameters CrunchParameters;
+		CrunchParameters.ImageWidth = PhysicalTileSize;
+		CrunchParameters.ImageHeight = PhysicalTileSize;
+		CrunchParameters.bIsGammaCorrected = BuildSettingsForLayer.GetGammaSpace() != EGammaSpace::Linear;
+		CrunchParameters.OutputFormat = TextureFormatName;
+		switch (BuildSettingsLayer0.LossyCompressionAmount)
+		{
+		case TLCA_Lowest: CrunchParameters.CompressionAmmount = 0.0f; break;
+		case TLCA_Low: CrunchParameters.CompressionAmmount = 0.25f; break;
+		case TLCA_Medium: CrunchParameters.CompressionAmmount = 0.5f; break;
+		case TLCA_High: CrunchParameters.CompressionAmmount = 0.75f; break;
+		case TLCA_Highest: CrunchParameters.CompressionAmmount = 1.0f; break;
+		default: checkNoEntry(); CrunchParameters.CompressionAmmount = 0.0f; break;
+		}
+
+		// We can't split crunch compression into multiple tasks/threads, since all tiles need to compress together in order to generate the codec payload
+		// Instead we rely on internal Crunch threading to make this efficient
+		// Might be worth modifying Crunch to expose threading callbacks, so this can use UE4 task graph instead of Crunch's internal threadpool
+		if (bAllowAsync && FApp::ShouldUseThreadingForPerformance())
+		{
+			CrunchParameters.NumWorkerThreads = FTaskGraphInterface::Get().GetNumWorkerThreads();
+		}
+
+		CrunchParameters.RawImagesRGBA.Reserve(TileList.Num());
+		for (const FVTSourceTileEntry& Tile : TileList)
+		{
+			const FTextureSourceBlockData& Block = SourceBlocks[Tile.BlockIndex];
+			const FImage& SourceMip = Block.MipsPerLayer[LayerIndex][Tile.MipIndexInBlock];
+			FPixelDataRectangle SourceData(LayerData.SourceFormat,
+				SourceMip.SizeX,
+				SourceMip.SizeY,
+				const_cast<uint8*>(SourceMip.RawData.GetData()));
+
+			TArray<uint32>& RawImage = CrunchParameters.RawImagesRGBA.AddDefaulted_GetRef();
+			RawImage.AddUninitialized(PhysicalTileSize * PhysicalTileSize);
+			FPixelDataRectangle TileData(LayerData.SourceFormat, PhysicalTileSize, PhysicalTileSize, (uint8*)RawImage.GetData());
+
+			TileData.Clear();
+			TileData.CopyRectangleBordered(0, 0, SourceData,
+				Tile.TileInBlockX * TileSize - BorderSize,
+				Tile.TileInBlockY * TileSize - BorderSize,
+				PhysicalTileSize,
+				PhysicalTileSize,
+				(TextureAddress)BuildSettingsLayer0.VirtualAddressingModeX,
+				(TextureAddress)BuildSettingsLayer0.VirtualAddressingModeY);
+
+			// Convert input image to the format expected by Crunch library
+			for (int32 PixelIndex = 0u; PixelIndex < RawImage.Num(); ++PixelIndex)
+			{
+				const FColor Color(RawImage[PixelIndex]);
+				RawImage[PixelIndex] = Color.ToPackedABGR();
+			}
+		}
+
+		if (CrunchCompression::Encode(CrunchParameters, GeneratedData.CodecPayload, GeneratedData.TilePayload))
+		{
+			static FName NameBC4(TEXT("BC4"));
+			static FName NameBC5(TEXT("BC5"));
+			GeneratedData.Codec = EVirtualTextureCodec::Crunch;
+			if (TextureFormatName == NameDXT1) CompressedFormat = PF_DXT1;
+			else if (TextureFormatName == NameDXT5) CompressedFormat = PF_DXT5;
+			else if (TextureFormatName == NameBC4) CompressedFormat = PF_BC4;
+			else if (TextureFormatName == NameBC5) CompressedFormat = PF_BC5;
+			else CompressedFormat = PF_Unknown;
+		}
+		else
+		{
+			bCompressionError = true;
+		}
 	}
 	else
-#endif
+#endif // WITH_CRUNCH_COMPRESSION
 	{
 		// Create settings for building the tile. These should be simple, "clean" settings
 		// just compressing the style to a GPU format not adding things like colour correction, ... 
 		// as these settings were already baked into the SourcePixels.
 		FTextureBuildSettings TBSettings;
 		TBSettings.MaxTextureResolution = TNumericLimits<uint32>::Max();
-		TBSettings.TextureFormatName = Settings.Layers[LayerIndex].SourceBuildSettings.TextureFormatName;
+		TBSettings.TextureFormatName = TextureFormatName;
+		TBSettings.bSRGB = BuildSettingsForLayer.bSRGB;
+		TBSettings.bUseLegacyGamma = BuildSettingsForLayer.bUseLegacyGamma;
 		TBSettings.MipGenSettings = TMGS_NoMipmaps;
+
+		check(TBSettings.GetGammaSpace() == BuildSettingsForLayer.GetGammaSpace());
  
-		TArray<FImage> EmptyList;
-		TArray<FImage> TileImages;
-		TArray<FCompressedImage2D> CompressedMip;
-		EPixelFormat TileFormat = PF_Unknown;
+		GeneratedData.TilePayload.AddDefaulted(TileList.Num());
 
-		for(int32 TileIdx = 0; TileIdx < TileList.Num(); ++TileIdx)
+		ParallelFor(TileList.Num(), [&](int32 TileIndex)
 		{
-			TileImages.Empty();
-			TileImages.Add(ImageList[TileIdx]);
-			EmptyList.Empty();
-			CompressedMip.Empty();
+			const FVTSourceTileEntry& Tile = TileList[TileIndex];
 
-			CompressionResult = Compressor->BuildTexture(TileImages, EmptyList, TBSettings, CompressedMip);
+			const FTextureSourceBlockData& Block = SourceBlocks[Tile.BlockIndex];
+			const FImage& SourceMip = Block.MipsPerLayer[LayerIndex][Tile.MipIndexInBlock];
+			FPixelDataRectangle SourceData(LayerData.SourceFormat,
+				SourceMip.SizeX,
+				SourceMip.SizeY,
+				const_cast<uint8*>(SourceMip.RawData.GetData()));
 
-			ensure(CompressionResult);
-			ensure(TileFormat == PF_Unknown || TileFormat == CompressedMip[0].PixelFormat);
-			TileFormat = (EPixelFormat)CompressedMip[0].PixelFormat;
+			TArray<FImage> TileImages;
+			FImage* TileImage = new(TileImages) FImage(PhysicalTileSize, PhysicalTileSize, LayerData.ImageFormat, BuildSettingsForLayer.GetGammaSpace());
+			FPixelDataRectangle TileData(LayerData.SourceFormat, PhysicalTileSize, PhysicalTileSize, TileImage->RawData.GetData());
 
-			uint32 offset = GeneratedData.Data.Num() * GeneratedData.Data.GetTypeSize();
-			uint32 size = CompressedMip[0].RawData.Num() * CompressedMip[0].RawData.GetTypeSize();
-			GeneratedData.TileInfos.Add(FLayerData::FTileInfo(offset, size));
+			TileData.Clear();
+			TileData.CopyRectangleBordered(0, 0, SourceData,
+				Tile.TileInBlockX * TileSize - BorderSize,
+				Tile.TileInBlockY * TileSize - BorderSize,
+				PhysicalTileSize,
+				PhysicalTileSize,
+				(TextureAddress)BuildSettingsLayer0.VirtualAddressingModeX,
+				(TextureAddress)BuildSettingsLayer0.VirtualAddressingModeY);
 
-			GeneratedData.Data.Append(CompressedMip[0].RawData);
+#if 0//SAVE_TILES
+			{
+				FString BasePath = FPaths::ProjectUserDir();
+				FString TileFileName = BasePath / FString::Format(TEXT("{0}_{1}_{2}_{3}_{4}"), TArray<FStringFormatArg>({ Settings.DebugName, Tile.X, Tile.Y, Tile.Mip, LayerIndex }));
+				TileData.Save(TileFileName, ImageWrapper);
+				FString TileSourceFileName = BasePath / FString::Format(TEXT("{0}_{1}_{2}_{3}_{4}_Src"), TArray<FStringFormatArg>({ Settings.DebugName, Tile.X, Tile.Y, Tile.Mip, LayerIndex }));
+				SourceData.Save(TileSourceFileName, ImageWrapper);
+			}
+#endif // SAVE_TILES
+
+			TArray<FCompressedImage2D> CompressedMip;
+			TArray<FImage> EmptyList;
+			if (!ensure(Compressor->BuildTexture(TileImages, EmptyList, TBSettings, CompressedMip)))
+			{
+				bCompressionError = true;
+			}
+
+			check(CompressedMip.Num() == 1);
+			check(CompressedFormat == PF_Unknown || CompressedFormat == CompressedMip[0].PixelFormat);
+			CompressedFormat = (EPixelFormat)CompressedMip[0].PixelFormat;
+
+			const uint32 SizeRaw = CompressedMip[0].RawData.Num() * CompressedMip[0].RawData.GetTypeSize();
+			if (BuildSettingsLayer0.bVirtualTextureEnableCompressZlib)
+			{
+				TArray<uint8>& TilePayload = GeneratedData.TilePayload[TileIndex];
+				int32 CompressedTileSize = FCompression::CompressMemoryBound(NAME_Zlib, SizeRaw);
+				TilePayload.AddUninitialized(CompressedTileSize);
+				verify(FCompression::CompressMemory(NAME_Zlib, TilePayload.GetData(), CompressedTileSize, CompressedMip[0].RawData.GetData(), SizeRaw));
+				check(CompressedTileSize <= TilePayload.Num());
+
+				// Set the correct size of the compressed tile, but avoid reallocating/copying memory
+				TilePayload.SetNum(CompressedTileSize, false);
+			}
+			else
+			{
+				GeneratedData.TilePayload[TileIndex] = MoveTemp(CompressedMip[0].RawData);
+			}
+		}, !bAllowAsync); // ParallelFor
+
+		if (BuildSettingsLayer0.bVirtualTextureEnableCompressZlib)
+		{
+			GeneratedData.Codec = EVirtualTextureCodec::ZippedGPU;
+		}
+		else
+		{
 			GeneratedData.Codec = EVirtualTextureCodec::RawGPU;
- 		}
-		CompressedFormat = TileFormat;
+		}
 	}
 
 	if (OutData.LayerTypes[LayerIndex] == EPixelFormat::PF_Unknown)
@@ -471,190 +700,331 @@ void FVirtualTextureDataBuilder::BuildTiles(const MacroTileArray& TileList, uint
 		checkf(OutData.LayerTypes[LayerIndex] == CompressedFormat, TEXT("The texture compressor used a different pixel format for some tiles."));
 	}
 
-	if (CompressionResult == false)
+	if (bCompressionError)
 	{
-		GeneratedData.Data.Empty();
+		GeneratedData.TilePayload.Empty();
 		GeneratedData.CodecPayload.Empty();
 		GeneratedData.Codec = EVirtualTextureCodec::Max;
 		UE_LOG(LogVirtualTexturingModule, Fatal, TEXT("Failed build tile"));
 	}
 }
 
-void FVirtualTextureDataBuilder::PushDataToChunk(const MacroTileArray &Tiles, const LayerDataArray &LayerData)
+void FVirtualTextureDataBuilder::PushDataToChunk(const TArray<FVTSourceTileEntry>& Tiles, const TArray<FLayerData>& LayerData)
 {
-	TilesBuffer.Empty();
+	const int32 NumLayers = SourceLayers.Num();
 
-	// reserver to total memory up front so we can have a FVirtualTextureChunkLayerInfo* into that data
-	uint32 totalSize = sizeof(ChunkHeader);
-	totalSize += Settings.Layers.Num() * sizeof(FVirtualTextureChunkLayerInfo);
-	for (int32 Layer = 0; Layer < Settings.Layers.Num(); ++Layer)
+	uint32 TotalSize = 0u;
+	for (int32 Layer = 0; Layer < NumLayers; ++Layer)
 	{
-		totalSize += LayerData[Layer].CodecPayload.Num() + LayerData[Layer].Data.Num();
+		TotalSize += LayerData[Layer].CodecPayload.Num();
+		for (const TArray<uint8>& TilePayload : LayerData[Layer].TilePayload)
+		{
+			TotalSize += TilePayload.Num();
+		}
 	}
-	TilesBuffer.Reserve(totalSize);
 
-	//Chunk header
-	TilesBuffer.Append((uint8 *)&ChunkHeader, sizeof(ChunkHeader));
-	
-	//Fixed size chunk layer info
-	const uint32 InfoPosition = TilesBuffer.Num() * TilesBuffer.GetTypeSize();
-	TilesBuffer.AddUninitialized(sizeof(FVirtualTextureChunkLayerInfo) * Settings.Layers.Num());
- 	FVirtualTextureChunkLayerInfo* infos = (FVirtualTextureChunkLayerInfo*)(TilesBuffer.GetData() + InfoPosition);
+	FVirtualTextureDataChunk& Chunk = OutData.Chunks.AddDefaulted_GetRef();
+	Chunk.SizeInBytes = TotalSize;
+	FByteBulkData& BulkData = Chunk.BulkData;
+	BulkData.Lock(LOCK_READ_WRITE);
+	uint8* NewChunkData = (uint8*)BulkData.Realloc(TotalSize);
+	uint32 ChunkOffset = 0u;
 
 	// codec payloads
-	for (int32 Layer = 0; Layer < Settings.Layers.Num(); ++Layer)
+	for (int32 Layer = 0; Layer < NumLayers; ++Layer)
 	{
-		infos[Layer].CodecPayloadOffset = TilesBuffer.Num() * TilesBuffer.GetTypeSize();
-		infos[Layer].CodecPayloadSize = LayerData[Layer].CodecPayload.Num() * LayerData[Layer].CodecPayload.GetTypeSize();
-		infos[Layer].Codec = (uint32)LayerData[Layer].Codec;
-		TilesBuffer.Append(LayerData[Layer].CodecPayload);
+		check(ChunkOffset <= 0xffff); // make sure code offset fit within uint16
+		Chunk.CodecPayloadOffset[Layer] = ChunkOffset;
+		Chunk.CodecType[Layer] = LayerData[Layer].Codec;
+		if (LayerData[Layer].CodecPayload.Num() > 0)
+		{
+			FMemory::Memcpy(NewChunkData + ChunkOffset, LayerData[Layer].CodecPayload.GetData(), LayerData[Layer].CodecPayload.Num());
+			ChunkOffset += LayerData[Layer].CodecPayload.Num();
+		}
 	}
-	
-	const uint32 HeaderSize = TilesBuffer.Num() * TilesBuffer.GetTypeSize();
+	Chunk.CodecPayloadSize = ChunkOffset;
 
 	for (int32 TileIdx = 0; TileIdx < Tiles.Num(); ++TileIdx)
 	{
-		const TileId& Tile = Tiles[TileIdx];
-		const int32 IndexToInsert = Tile.GetMorton();
-		if (IndexToInsert >= OutData.Tiles[Tile.Mip].Num())
+		const FVTSourceTileEntry& Tile = Tiles[TileIdx];
+		uint32 TileIndex = Tile.TileIndex;
+		for (int32 Layer = 0; Layer < NumLayers; ++Layer)
 		{
-			OutData.Tiles[Tile.Mip].SetNumZeroed(IndexToInsert + 1);
-		}
+			check(OutData.TileOffsetInChunk[TileIndex] == ~0u);
+			OutData.TileOffsetInChunk[TileIndex] = ChunkOffset;
+			++TileIndex;
 
-		OutData.Tiles[Tile.Mip][IndexToInsert].Chunk = OutData.Chunks.Num(); //The next chunk should still be added
-		OutData.Tiles[Tile.Mip][IndexToInsert].Offset = TilesBuffer.Num() * TilesBuffer.GetTypeSize();
-		
-		for (int32 Layer = 0; Layer < Settings.Layers.Num(); ++Layer)
-		{
-			const uint8* Data = LayerData[Layer].Data.GetData() + LayerData[Layer].TileInfos[TileIdx].Key;
-			const uint32 size = LayerData[Layer].TileInfos[TileIdx].Value;
+			const TArray<uint8>& TilePayload = LayerData[Layer].TilePayload[TileIdx];
+			const uint32 Size = TilePayload.Num();
+			check(Size > 0u);
 
-			OutData.Tiles[Tile.Mip][IndexToInsert].Size.Add(size);
-			TilesBuffer.Append(Data, size);
+			FMemory::Memcpy(NewChunkData + ChunkOffset, TilePayload.GetData(), Size);
+			ChunkOffset += Size;
 		}
 	}
 
-	// make the actual chunk
-	FByteBulkData *Chunk = new (OutData.Chunks) FByteBulkData();
-	ensure(OutData.Chunks.Num() < (1 << FVirtualTextureTileInfo_ChunkBits));
-	Chunk->Lock(LOCK_READ_WRITE);
-	void* NewChunkData = Chunk->Realloc(TilesBuffer.Num());
-	FMemory::Memcpy(NewChunkData, TilesBuffer.GetData(), TilesBuffer.Num());
-	Chunk->Unlock();
-	Chunk->SetBulkDataFlags(BULKDATA_Force_NOT_InlinePayload);
+	check(ChunkOffset == TotalSize);
 
-	// update the header sizes
-	OutData.ChunkHeaderSizes.Add(HeaderSize);
+	BulkData.Unlock();
+	BulkData.SetBulkDataFlags(BULKDATA_Force_NOT_InlinePayload);
 }
 
-// Extract an image from the source data this takes into account the current source
-// rectangle settings
-// If the source is not available an correctly sized black image will be returned instead
-// and false will be returned
-bool FVirtualTextureDataBuilder::ExtractSourcePixels(int32 Layer, int32 Level, FImage &OutImage)
+int32 FVirtualTextureDataBuilder::FindSourceBlockIndex(int32 MipIndex, int32 BlockX, int32 BlockY) const
 {
-	if (Settings.Layers[Layer].Source != nullptr && Level < Settings.Layers[Layer].Source->GetNumMips() )
+	for(int32 BlockIndex = 0; BlockIndex < SourceBlocks.Num(); ++BlockIndex)
 	{
-		ETextureSourceFormat SourceFormat = Settings.Layers[Layer].Source->GetFormat();
-		ERawImageFormat::Type ImageFormat = ImageFormatFromSourceFormat(SourceFormat);
-		OutImage.Init(Width >> Level, Height >> Level, ImageFormat, Settings.Layers[Layer].GammaSpace); // TODO: Set gamma correctly here
-
-		// We have to use GetMipData here not map/unmap as map/unmap always assumes the source gets written over
-		// and generates a new GUId causing the texture the source belongs to to be rebuilt. GetMipData avoids 
-		// this issue.
-		TArray<uint8> SourceData;
-		Settings.Layers[Layer].Source->GetMipData(SourceData, Level, ImageWrapper);
-
-		// Copy the specified rect
-		FIntRect SourceSubRect = Settings.Layers[Layer].GetRectangle();
-		FPixelDataRectangle SourcePDR(SourceFormat, Settings.Layers[Layer].Source->GetSizeX() >> Level, Settings.Layers[Layer].Source->GetSizeY() >> Level, SourceData.GetData());
-		FPixelDataRectangle DestPDR(SourceFormat, Width >> Level, Height >> Level, OutImage.RawData.GetData());
-		DestPDR.CopyRectancle(0, 0, SourcePDR, SourceSubRect.Min.X >> Level, SourceSubRect.Min.Y >> Level, SourceSubRect.Width() >> Level, SourceSubRect.Height() >> Level);
-		return true;
+		const FTextureSourceBlockData& Block = SourceBlocks[BlockIndex];
+		if (BlockX >= Block.BlockX && BlockX < Block.BlockX + Block.SizeInBlocksX &&
+			BlockY >= Block.BlockY && BlockY < Block.BlockY + Block.SizeInBlocksY &&
+			MipIndex >= Block.MipBias &&
+			(MipIndex - Block.MipBias) < Block.NumMips)
+		{
+			return BlockIndex;
+		}
 	}
-	else
-	{
-		// Just create a uniform black image
-		OutImage.Init(Width >> Level, Height >> Level, ERawImageFormat::BGRA8, Settings.Layers[Layer].GammaSpace); // TODO: Set gamma correctly here
-		FMemory::Memzero(OutImage.RawData.GetData(), OutImage.RawData.Num());
-		return false;
-	}
+	return INDEX_NONE;
 }
 
 // This builds an uncompressed version of the texture containing all other build settings baked in
 // color corrections, mip sharpening, ....
-void FVirtualTextureDataBuilder::BuildSourcePixels()
+void FVirtualTextureDataBuilder::BuildSourcePixels(const FTextureSourceData& SourceData, const FTextureSourceData& CompositeSourceData)
 {
-	SourcePixels.AddDefaulted(Settings.Layers.Num());
-	SourcePixelFormats.AddDefaulted(Settings.Layers.Num());
+	static const TArray<FImage> EmptyImageArray;
 
-	for (int32 Layer = 0; Layer < Settings.Layers.Num(); Layer++)
+	const int32 TileSize = SettingsPerLayer[0].VirtualTextureTileSize;
+	const int32 NumBlocks = SourceData.Blocks.Num();
+	const int32 NumLayers = SourceData.Layers.Num();
+
+	SourceLayers.AddDefaulted(NumLayers);
+	for (int32 LayerIndex = 0; LayerIndex < NumLayers; ++LayerIndex)
 	{
-		TArray<FImage> SourceList;
-		TArray<FImage> EmptyList;
+		const FTextureBuildSettings& BuildSettingsForLayer = SettingsPerLayer[LayerIndex];
+		FVirtualTextureSourceLayerData& LayerData = SourceLayers[LayerIndex];
 
-		if (Settings.Layers[Layer].Source != nullptr)
+		const FName TextureFormatName = BuildSettingsForLayer.TextureFormatName;
+		const bool bIsHdr = BuildSettingsForLayer.bHDRSource || TextureFormatName == "BC6H" || TextureFormatName == "RGBA16F";
+
+		LayerData.FormatName = "BGRA8";
+		LayerData.PixelFormat = PF_B8G8R8A8;
+		LayerData.SourceFormat = TSF_BGRA8;
+		LayerData.ImageFormat = ERawImageFormat::BGRA8;
+		LayerData.GammaSpace = BuildSettingsForLayer.GetGammaSpace();
+		LayerData.bHasAlpha = false;
+
+		if (bIsHdr)
 		{
-			// Extract all the source data mip levels we have
-			FIntRect SourceSubRect = Settings.Layers[Layer].GetRectangle();
-			int32 SourceWidth = SourceSubRect.Width();
-			int32 SourceHeight = SourceSubRect.Height();
-			for (int MipLevel = 0; MipLevel < Settings.Layers[Layer].Source->GetNumMips() && SourceWidth != 0 && SourceHeight != 0; MipLevel++)
-			{				
-				FImage *LevelImage = new(SourceList) FImage();
-				ExtractSourcePixels(Layer, MipLevel, *LevelImage);
-				SourceWidth = SourceWidth >> 1;
-				SourceHeight = SourceHeight >> 1;
+			LayerData.FormatName = "RGBA16F";
+			LayerData.PixelFormat = PF_FloatRGBA;
+			LayerData.SourceFormat = TSF_RGBA16F;
+			LayerData.ImageFormat = ERawImageFormat::RGBA16F;
+		}
+	}
+
+	SourceBlocks.AddDefaulted(NumBlocks);
+	for (int32 BlockIndex = 0; BlockIndex < NumBlocks; ++BlockIndex)
+	{
+		const FTextureSourceBlockData& SourceBlockData = SourceData.Blocks[BlockIndex];
+
+		FTextureSourceBlockData& BlockData = SourceBlocks[BlockIndex];
+		BlockData.BlockX = SourceBlockData.BlockX;
+		BlockData.BlockY = SourceBlockData.BlockY;
+		BlockData.NumMips = SourceBlockData.NumMips;
+		BlockData.NumSlices = SourceBlockData.NumSlices;
+		BlockData.MipBias = SourceBlockData.MipBias;
+		BlockData.SizeX = 0u;
+		BlockData.SizeY = 0u;
+		BlockData.MipsPerLayer.AddDefaulted(NumLayers);
+		for (int32 LayerIndex = 0; LayerIndex < NumLayers; ++LayerIndex)
+		{
+			const FTextureBuildSettings& BuildSettingsForLayer = SettingsPerLayer[LayerIndex];
+			FVirtualTextureSourceLayerData& LayerData = SourceLayers[LayerIndex];
+
+			const TArray<FImage>& SourceMips = SourceBlockData.MipsPerLayer[LayerIndex];
+			const TArray<FImage>* CompositeSourceMips = &EmptyImageArray;
+			if (CompositeSourceData.Blocks.Num() > 0)
+			{
+				CompositeSourceMips = &CompositeSourceData.Blocks[BlockIndex].MipsPerLayer[LayerIndex];
+			}
+
+			// Adjust the build settings to generate an uncompressed texture with mips but leave other settings
+			// like color correction, ... in place
+			FTextureBuildSettings TBSettings = SettingsPerLayer[0];
+			//TBSettings.MaxTextureResolution = TNumericLimits<uint32>::Max();
+			TBSettings.TextureFormatName = LayerData.FormatName;
+			TBSettings.bSRGB = BuildSettingsForLayer.bSRGB;
+			TBSettings.bUseLegacyGamma = BuildSettingsForLayer.bUseLegacyGamma;
+
+			// Make sure the output of the texture builder is in the same gamma space as we expect it.
+			check(TBSettings.GetGammaSpace() == BuildSettingsForLayer.GetGammaSpace());
+
+			// Leave original mip settings alone unless it's none at which point we will just generate them using a simple average
+			if (TBSettings.MipGenSettings == TMGS_NoMipmaps)
+			{
+				if (FMath::IsPowerOfTwo(SourceMips[0].SizeX) &&
+					FMath::IsPowerOfTwo(SourceMips[0].SizeY))
+				{
+					TBSettings.MipGenSettings = TMGS_SimpleAverage;
+				}
+				else
+				{
+					//checkf(false, TEXT("Non power of two textures cannot generate mips. Only existing mips can be used."));
+					TBSettings.MipGenSettings = TMGS_SimpleAverage;
+					TBSettings.PowerOfTwoMode = ETexturePowerOfTwoSetting::PadToPowerOfTwo;
+				}
+			}
+
+			// Use the texture compressor module to do all the hard work
+			TArray<FCompressedImage2D> CompressedMips;
+			if (!Compressor->BuildTexture(SourceMips, *CompositeSourceMips, TBSettings, CompressedMips))
+			{
+				check(false);
+			}
+
+			// Get size of block from Compressor output, since it may have been padded/adjusted
+			BlockData.SizeX = CompressedMips[0].SizeX;
+			BlockData.SizeY = CompressedMips[0].SizeY;
+
+			const uint32 BlockSize = FMath::Max(BlockData.SizeX, BlockData.SizeY);
+			const uint32 BlockSizeInTiles = FMath::DivideAndRoundUp<uint32>(BlockSize, TileSize);
+			const uint32 MaxMipInBlock = FMath::CeilLogTwo(BlockSizeInTiles);
+
+			BlockData.NumMips = FMath::Min<int32>(CompressedMips.Num(), MaxMipInBlock + 1);
+			BlockData.MipsPerLayer[LayerIndex].Reserve(BlockData.NumMips);
+			for (int32 MipIndex = 0; MipIndex < BlockData.NumMips; ++MipIndex)
+			{
+				FCompressedImage2D& CompressedMip = CompressedMips[MipIndex];
+				check(CompressedMip.PixelFormat == LayerData.PixelFormat);
+				FImage* Image = new(BlockData.MipsPerLayer[LayerIndex]) FImage();
+				Image->SizeX = CompressedMip.SizeX;
+				Image->SizeY = CompressedMip.SizeY;
+				Image->Format = LayerData.ImageFormat;
+				Image->GammaSpace = BuildSettingsForLayer.GetGammaSpace();
+				Image->NumSlices = 1;
+				Image->RawData = MoveTemp(CompressedMip.RawData);
+			}
+
+			if (!LayerData.bHasAlpha && DetectAlphaChannel(BlockData.MipsPerLayer[LayerIndex][0]))
+			{
+				LayerData.bHasAlpha = true;
 			}
 		}
-		else
+	}
+
+	// If we have more than 1 block, need to create miptail that contains mips made from multiple blocks
+	if (NumBlocks > 1)
+	{
+		const uint32 BlockSize = FMath::Max(BlockSizeX, BlockSizeY);
+		const uint32 BlockSizeInTiles = FMath::DivideAndRoundUp<uint32>(BlockSize, TileSize);
+		const uint32 MaxMipInBlock = FMath::CeilLogTwo(BlockSizeInTiles);
+		const uint32 MipWidthInBlock = FMath::Max<uint32>(BlockSizeX >> MaxMipInBlock, 1);
+		const uint32 MipHeightInBlock = FMath::Max<uint32>(BlockSizeY >> MaxMipInBlock, 1);
+		const uint32 MipInputSizeX = FMath::RoundUpToPowerOfTwo(SizeInBlocksX * MipWidthInBlock);
+		const uint32 MipInputSizeY = FMath::RoundUpToPowerOfTwo(SizeInBlocksY * MipHeightInBlock);
+		const uint32 MipInputSize = FMath::Max(MipInputSizeX, MipInputSizeY);
+		const uint32 MipInputSizeInTiles = FMath::DivideAndRoundUp<uint32>(MipInputSize, TileSize);
+
+		FTextureSourceBlockData& SourceMiptailBlock = SourceBlocks.AddDefaulted_GetRef();
+		SourceMiptailBlock.BlockX = 0;
+		SourceMiptailBlock.BlockY = 0;
+		SourceMiptailBlock.SizeInBlocksX = SizeInBlocksX; // miptail block covers the entire logical source texture
+		SourceMiptailBlock.SizeInBlocksY = SizeInBlocksY;
+		SourceMiptailBlock.SizeX = FMath::Max(MipInputSizeX >> 1, 1u);
+		SourceMiptailBlock.SizeY = FMath::Max(MipInputSizeY >> 1, 1u);
+		SourceMiptailBlock.NumMips = FMath::CeilLogTwo(MipInputSizeInTiles); // Don't add 1, since 'MipInputSizeInTiles' is one mip larger
+		SourceMiptailBlock.NumSlices = 1; // TODO?
+		SourceMiptailBlock.MipBias = MaxMipInBlock + 1;
+		SourceMiptailBlock.MipsPerLayer.AddDefaulted(NumLayers);
+		check(SourceMiptailBlock.NumMips > 0);
+
+		// Total number of mips should be equal to number of mips per block plus number of miptail mips
+		check(MaxMipInBlock + SourceMiptailBlock.NumMips + 1 == OutData.NumMips);
+
+		TArray<FImage> MiptailInputImages;
+		for (int32 LayerIndex = 0u; LayerIndex < NumLayers; ++LayerIndex)
 		{
-			FImage *BlackImage = new(SourceList) FImage();
-			ExtractSourcePixels(Layer, 0, *BlackImage);
+			const FTextureBuildSettings& BuildSettingsForLayer = SettingsPerLayer[LayerIndex];
+			const FVirtualTextureSourceLayerData& LayerData = SourceLayers[LayerIndex];
+
+			MiptailInputImages.Reset(1);
+			FImage* MiptailInputImage = new(MiptailInputImages) FImage();
+			MiptailInputImage->Init(MipInputSizeX, MipInputSizeY, LayerData.ImageFormat, LayerData.GammaSpace);
+			FPixelDataRectangle DstPixelData(LayerData.SourceFormat, MipInputSizeX, MipInputSizeY, MiptailInputImage->RawData.GetData());
+			DstPixelData.Clear();
+
+			for (int32 BlockIndex = 0; BlockIndex < NumBlocks; ++BlockIndex)
+			{
+				const FTextureSourceBlockData& BlockData = SourceBlocks[BlockIndex];
+				const FImage& SrcMipImage = BlockData.MipsPerLayer[LayerIndex][MaxMipInBlock - BlockData.MipBias];
+				check(SrcMipImage.SizeX == MipWidthInBlock);
+				check(SrcMipImage.SizeY == MipHeightInBlock);
+
+				FPixelDataRectangle SrcPixelData(LayerData.SourceFormat, SrcMipImage.SizeX, SrcMipImage.SizeY, const_cast<uint8*>(SrcMipImage.RawData.GetData()));
+				DstPixelData.CopyRectangle(BlockData.BlockX * MipWidthInBlock, BlockData.BlockY * MipHeightInBlock, SrcPixelData, 0, 0, MipWidthInBlock, MipHeightInBlock);
+			}
+
+#if SAVE_TILES
+			{
+				const FString BasePath = FPaths::ProjectUserDir();
+				const FString MipFileName = BasePath / FString::Format(TEXT("{0}_{1}"), TArray<FStringFormatArg>({ SourceData.TextureName.ToString(), LayerIndex }));
+				DstPixelData.Save(MipFileName, ImageWrapper);
+			}
+#endif // SAVE_TILES
+
+			// Adjust the build settings to generate an uncompressed texture with mips but leave other settings
+			// like color correction, ... in place
+			FTextureBuildSettings TBSettings = SettingsPerLayer[0];
+			//TBSettings.MaxTextureResolution = TNumericLimits<uint32>::Max();
+			TBSettings.TextureFormatName = LayerData.FormatName;
+			TBSettings.bSRGB = BuildSettingsForLayer.bSRGB;
+			TBSettings.bUseLegacyGamma = BuildSettingsForLayer.bUseLegacyGamma;
+
+			// Make sure the output of the texture builder is in the same gamma space as we expect it.
+			check(TBSettings.GetGammaSpace() == BuildSettingsForLayer.GetGammaSpace());
+
+			// Leave original mip settings alone unless it's none at which point we will just generate them using a simple average
+			if (TBSettings.MipGenSettings == TMGS_NoMipmaps || TBSettings.MipGenSettings == TMGS_LeaveExistingMips)
+			{
+				TBSettings.MipGenSettings = TMGS_SimpleAverage;
+			}
+
+			// Use the texture compressor module to do all the hard work
+			// TODO - composite images?
+			TArray<FCompressedImage2D> CompressedMips;
+			if (!Compressor->BuildTexture(MiptailInputImages, EmptyImageArray, TBSettings, CompressedMips))
+			{
+				check(false);
+			}
+
+			// We skip the first compressed mip output, since that will just be a copy of the input
+			check(CompressedMips.Num() >= SourceMiptailBlock.NumMips + 1);
+			check(SourceMiptailBlock.SizeX == CompressedMips[1].SizeX);
+			check(SourceMiptailBlock.SizeY == CompressedMips[1].SizeY);
+
+			SourceMiptailBlock.MipsPerLayer[LayerIndex].Reserve(CompressedMips.Num() - 1);
+			for(int32 MipIndex = 1; MipIndex < SourceMiptailBlock.NumMips + 1; ++MipIndex)
+			{
+				FCompressedImage2D& CompressedMip = CompressedMips[MipIndex];
+				check(CompressedMip.PixelFormat == LayerData.PixelFormat);
+				FImage* Image = new(SourceMiptailBlock.MipsPerLayer[LayerIndex]) FImage();
+				Image->SizeX = CompressedMip.SizeX;
+				Image->SizeY = CompressedMip.SizeY;
+				Image->Format = LayerData.ImageFormat;
+				Image->GammaSpace = BuildSettingsForLayer.GetGammaSpace();
+				Image->NumSlices = 1;
+				Image->RawData = MoveTemp(CompressedMip.RawData);
+			}
 		}
-
-		// Adjust the build settings to generate an uncompressed texture with mips but leave other settings
-		// like color correction, ... in place
-		FTextureBuildSettings TBSettings = Settings.Layers[Layer].SourceBuildSettings;
-		TBSettings.MaxTextureResolution = TNumericLimits<uint32>::Max();
-		TBSettings.TextureFormatName = "BGRA8";
-
-		// Use the texture compressor module to do all the hard work
-		TArray<FCompressedImage2D> CompressedMips;
-		if (!Compressor->BuildTexture(SourceList, EmptyList, TBSettings, CompressedMips))
-		{
-			check(false);
-		}
-
-		// Store generated data for later use by the tiler
-		for (int Mip = 0; Mip < CompressedMips.Num(); Mip++)
-		{
-			check(CompressedMips[Mip].PixelFormat == EPixelFormat::PF_B8G8R8A8);
-			FImage *Image = new FImage(CompressedMips[Mip].SizeX, CompressedMips[Mip].SizeY, ERawImageFormat::BGRA8, Settings.Layers[Layer].GammaSpace);
-			Image->RawData = CompressedMips[Mip].RawData;
-			SourcePixels[Layer].Add(Image);
-		}
-
-		SourcePixelFormats[Layer] = TSF_BGRA8;
-
 	}
 }
 
 void FVirtualTextureDataBuilder::FreeSourcePixels()
 {
-	for (int32 Layer = 0; Layer < SourcePixels.Num(); Layer++)
-	{
-		for (int32 Mip = 0; Mip < SourcePixels[Layer].Num(); Mip++)
-		{
-			if (SourcePixels[Layer][Mip])
-			{
-				delete SourcePixels[Layer][Mip];
-			}
-		}
-	}
-	SourcePixels.Empty();
+	SourceBlocks.Empty();
+	SourceLayers.Empty();
 }
 
+// Leaving this code here for now, in case we want to build a new/better system for creating/storing miptails
+#if 0
 void FVirtualTextureDataBuilder::BuildMipTails()
 {
 	OutData.MipTails.SetNum(Settings.Layers.Num());
@@ -678,7 +1048,11 @@ void FVirtualTextureDataBuilder::BuildMipTails()
 		FTextureBuildSettings TBSettings;
 		TBSettings.MaxTextureResolution = TNumericLimits<uint32>::Max();
 		TBSettings.TextureFormatName = "BGRA8";
+		TBSettings.bSRGB = Settings.Layers[Layer].SourceBuildSettings.bSRGB;
+		TBSettings.bUseLegacyGamma = Settings.Layers[Layer].SourceBuildSettings.bUseLegacyGamma;
 		TBSettings.MipGenSettings = TMGS_LeaveExistingMips;
+
+		check(TBSettings.GetGammaSpace() == Settings.Layers[Layer].GammaSpace);
 
 		TArray<FCompressedImage2D> CompressedMips;
 		if (!Compressor->BuildTexture(SourceList, EmptyList, TBSettings, CompressedMips))
@@ -699,5 +1073,43 @@ void FVirtualTextureDataBuilder::BuildMipTails()
 		}
 	}
 }
+#endif // 0
 
-#endif
+bool FVirtualTextureDataBuilder::DetectAlphaChannel(const FImage &Image)
+{
+	if (Image.Format == ERawImageFormat::BGRA8)
+	{
+		const FColor *SrcColors = Image.AsBGRA8();
+		const FColor* LastColor = SrcColors + (Image.SizeX * Image.SizeY * Image.NumSlices);
+		while (SrcColors < LastColor)
+		{
+			if (SrcColors->A < 255)
+			{
+				return true;
+			}
+			++SrcColors;
+		}
+		return false;
+	}
+	else if (Image.Format == ERawImageFormat::RGBA16F)
+	{
+		const FFloat16Color *SrcColors = Image.AsRGBA16F();
+		const FFloat16Color* LastColor = SrcColors + (Image.SizeX * Image.SizeY * Image.NumSlices);
+		while (SrcColors < LastColor)
+		{
+			if (SrcColors->A <  (1.0f - SMALL_NUMBER))
+			{
+				return true;
+			}
+			++SrcColors;
+		}
+		return false;
+	}
+	else
+	{
+		check(false);
+		return true;
+	}
+}
+
+#endif // WITH_EDITOR

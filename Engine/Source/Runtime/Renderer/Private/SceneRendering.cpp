@@ -3501,14 +3501,39 @@ void FRendererModule::RenderPostResolvedSceneColorExtension(FRHICommandListImmed
 	PostResolvedSceneColorCallbacks.Broadcast(RHICmdList, SceneContext);
 }
 
-IVirtualTextureSpace *FRendererModule::CreateVirtualTextureSpace(const FVirtualTextureSpaceDesc &Desc)
+IAllocatedVirtualTexture* FRendererModule::AllocateVirtualTexture(const FAllocatedVTDescription& Desc)
 {
-	return IVirtualTextureSpace::Create(Desc);
+	return FVirtualTextureSystem::Get().AllocateVirtualTexture(Desc);
 }
 
-void FRendererModule::DestroyVirtualTextureSpace(IVirtualTextureSpace *Space)
+void FRendererModule::DestroyVirtualTexture(IAllocatedVirtualTexture* AllocatedVT)
 {
-	IVirtualTextureSpace::Delete(Space);
+	FVirtualTextureSystem::Get().DestroyVirtualTexture(AllocatedVT);
+}
+
+FVirtualTextureProducerHandle FRendererModule::RegisterVirtualTextureProducer(const FVTProducerDescription& Desc, IVirtualTexture* Producer)
+{
+	return FVirtualTextureSystem::Get().RegisterProducer(Desc, Producer);
+}
+
+void FRendererModule::ReleaseVirtualTextureProducer(const FVirtualTextureProducerHandle& Handle)
+{
+	FVirtualTextureSystem::Get().ReleaseProducer(Handle);
+}
+
+void FRendererModule::RequestVirtualTextureTilesForRegion(IAllocatedVirtualTexture* AllocatedVT, const FVector2D& InScreenSpaceSize, const FIntRect& InTextureRegion, int32 InMipLevel)
+{
+	FVirtualTextureSystem::Get().RequestTilesForRegion(AllocatedVT, InScreenSpaceSize, InTextureRegion, InMipLevel);
+}
+
+void FRendererModule::LoadPendingVirtualTextureTiles(FRHICommandListImmediate& RHICmdList, ERHIFeatureLevel::Type FeatureLevel)
+{
+	FVirtualTextureSystem::Get().LoadPendingTiles(RHICmdList, FeatureLevel);
+}
+
+void FRendererModule::FlushVirtualTextureCache()
+{
+	FVirtualTextureSystem::Get().FlushCache();
 }
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)

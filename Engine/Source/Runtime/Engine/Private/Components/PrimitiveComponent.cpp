@@ -3128,6 +3128,14 @@ void UPrimitiveComponent::UpdateBounds()
 				Collection->NotifyPrimitiveUpdated_Concurrent(this);
 			}
 		}
+
+		if (RuntimeVirtualTextures.Num() > 0)
+		{
+			// If we render to a runtime virtual texture then we need to flush here
+			//todo[vt]: Only flush Bounds 
+			//todo[vt]: Maybe only flush specific virtual textures (which would mean that we need to specify which virtual textures to write to in the primitive UI)
+			GetRendererModule().FlushVirtualTextureCache();
+		}
 	}
 }
 #endif

@@ -8,6 +8,7 @@
 #include "MaterialShared.h"
 #include "Engine/Scene.h"
 #include "PrimitiveUniformShaderParameters.h"
+#include "VT/RuntimeVirtualTextureEnum.h"
 
 class FLightCacheInterface;
 

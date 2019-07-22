@@ -321,6 +321,19 @@ public:
 
 		this->Cache.SetCachedData(X1, Y1, X2, Y2, Data, UISettings->PaintingRestriction);
 		this->Cache.Flush();
+
+		// If we render to a runtime virtual texture then we need to flush here
+		if (Landscape != nullptr && Landscape->GetLandscapeMaterial() != nullptr)
+		{
+			//todo[vt]: This logic doesn't cover material overrides etc.
+			FMaterialResource* MaterialResource = Landscape->GetLandscapeMaterial()->GetMaterialResource(GMaxRHIFeatureLevel);
+			//todo[vt]: This test is slow, we could cache the result in the landscape or the material
+			if (MaterialResource != nullptr && (MaterialResource->GetMaterialDomain() == MD_RuntimeVirtualTexture || MaterialResource->HasRuntimeVirtualTextureOutput()))
+			{
+				//todo[vt]: Only flush Bounds 
+				GetRendererModule().FlushVirtualTextureCache();
+			}
+		}
 	}
 };
 

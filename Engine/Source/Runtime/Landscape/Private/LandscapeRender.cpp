@@ -845,15 +845,40 @@ FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent
 
 	bSupportsHeightfieldRepresentation = true;
 
+	if (UseVirtualTexturing(FeatureLevel))
+	{
+		//todo[vt]: Should the virtual texture settings be in the component overrides?
+		for (URuntimeVirtualTexture* VirtualTexture : InComponent->GetLandscapeProxy()->RuntimeVirtualTextures)
+		{
+			if (VirtualTexture != nullptr && VirtualTexture->GetEnabled())
+			{
+				RuntimeVirtualTextures.Add(VirtualTexture);
+				RuntimeVirtualTextureMaterialTypes.Add(VirtualTexture->GetMaterialType());
+			}
+		}
+	}
 #if WITH_EDITOR
-	for (auto& Allocation : InComponent->WeightmapLayerAllocations)
+	TArray<FWeightmapLayerAllocationInfo>& ComponentWeightmapLayerAllocations = InComponent->GetWeightmapLayerAllocations();
+
+	for (auto& Allocation : ComponentWeightmapLayerAllocations)
 	{
 		if (Allocation.LayerInfo != nullptr)
 		{
 			LayerColors.Add(Allocation.LayerInfo->LayerUsageDebugColor);
 		}
 	}
-#endif
+
+	for (int32 Idx = 0; Idx < InComponent->WeightmapLayerAllocations.Num(); Idx++)
+	{
+		FWeightmapLayerAllocationInfo& Allocation = InComponent->WeightmapLayerAllocations[Idx];
+		if (Allocation.LayerInfo == ALandscapeProxy::VisibilityLayer)
+		{
+			VisibilityWeightmapTexture = WeightmapTextures[Idx];
+			VisibilityWeightmapChannel = Allocation.WeightmapTextureChannel;
+			break;
+		}
+	}
+#endif#endif
 }
 
 void FLandscapeComponentSceneProxy::CreateRenderThreadResources()

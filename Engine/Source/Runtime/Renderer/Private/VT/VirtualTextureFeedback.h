@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "RenderTargetPool.h"
+#include "RenderCore/Public/RenderTargetPool.h"
 
 /*
 ====================================
@@ -14,26 +14,45 @@
 	a GPU structured buffer to a CPU read only version.
 ====================================
 */
-class FVirtualTextureFeedback : public FRenderResource
+class FVirtualTextureFeedback
 {
 public:
-					FVirtualTextureFeedback();
-					~FVirtualTextureFeedback() {}
+	FVirtualTextureFeedback();
+	~FVirtualTextureFeedback() {}
 
-	// FRenderResource interface
-	virtual void	InitDynamicRHI() override;
-	virtual void	ReleaseDynamicRHI() override;
-
-	void			CreateResourceGPU( FRHICommandListImmediate& RHICmdList, int32 SizeX, int32 SizeY );
-	void			TransferGPUToCPU( FRHICommandListImmediate& RHICmdList );
-
-	uint32*			Map( FRHICommandListImmediate& RHICmdList, int32& Pitch );
-	void			Unmap( FRHICommandListImmediate& RHICmdList );
-
-	FIntPoint		Size;
+	static const uint32 TargetCapacity = 4u;
 
 	TRefCountPtr< IPooledRenderTarget >	FeedbackTextureGPU;
-	TRefCountPtr< IPooledRenderTarget >	FeedbackTextureCPU;
-};
 
-extern TGlobalResource< FVirtualTextureFeedback > GVirtualTextureFeedback;
+	struct MapResult
+	{
+		int32 MapHandle;
+		uint32* RESTRICT Buffer;
+		FIntRect Rect;
+		int32 Pitch;
+	};
+
+	void			CreateResourceGPU( FRHICommandListImmediate& RHICmdList, FIntPoint InSize );
+	void			ReleaseResources();
+	void			MakeSnapshot(const FVirtualTextureFeedback& SnapshotSource);
+
+	void			TransferGPUToCPU( FRHICommandListImmediate& RHICmdList, FIntRect const& Rect);
+
+	bool			Map( FRHICommandListImmediate& RHICmdList, MapResult& OutResult );
+	void			Unmap( FRHICommandListImmediate& RHICmdList, int32 MapHandle );
+
+private:
+	struct FeedBackItem
+	{
+		FIntRect Rect;
+		TRefCountPtr< IPooledRenderTarget > TextureCPU;
+		FGPUFenceRHIRef GPUFenceRHI;
+	};
+
+	FeedBackItem FeedbackTextureCPU[TargetCapacity];
+
+	FIntPoint Size;
+	uint32 GPUWriteIndex;
+	uint32 CPUReadIndex;
+	uint32 PendingTargetCount;
+};
